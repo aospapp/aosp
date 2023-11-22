@@ -18,26 +18,25 @@ package com.android.tv.tests.jank;
 import android.support.test.filters.MediumTest;
 import android.support.test.jank.GfxMonitor;
 import android.support.test.jank.JankTest;
-
 import com.android.tv.testing.uihelper.MenuHelper;
 
-/**
- * Jank tests for the program guide.
- */
+/** Jank tests for the program guide. */
 @MediumTest
 public class MenuJankTest extends LiveChannelsTestCase {
     private static final String STARTING_CHANNEL = "1";
 
     /**
-     * The minimum number of frames expected during each jank test.
-     * If there is less the test will fail.  To be safe we loop the action in each test to create
-     * twice this many frames under normal conditions.
+     * The minimum number of frames expected during each jank test. If there is less the test will
+     * fail. To be safe we loop the action in each test to create twice this many frames under
+     * normal conditions.
+     *
      * <p>200 is chosen so there will be enough frame for the 90th, 95th, and 98th percentile
      * measurements are significant.
      *
      * @see <a href="http://go/janktesthelper-best-practices">Jank Test Helper Best Practices</a>
      */
     private static final int EXPECTED_FRAMES = 200;
+
     protected MenuHelper mMenuHelper;
 
     @Override
@@ -47,8 +46,7 @@ public class MenuJankTest extends LiveChannelsTestCase {
         Utils.pressKeysForChannelNumber(STARTING_CHANNEL, mDevice);
     }
 
-    @JankTest(expectedFrames = EXPECTED_FRAMES,
-            beforeTest = "fillTheMenuRowWithPreviousChannels")
+    @JankTest(expectedFrames = EXPECTED_FRAMES, beforeTest = "fillTheMenuRowWithPreviousChannels")
     @GfxMonitor(processName = Utils.LIVE_CHANNELS_PROCESS_NAME)
     public void testShowMenu() {
         int frames = 40; // measured by hand.

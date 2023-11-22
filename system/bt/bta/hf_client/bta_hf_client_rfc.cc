@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  *  Copyright (c) 2014 The Android Open Source Project
- *  Copyright (C) 2004-2012 Broadcom Corporation
+ *  Copyright 2004-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -284,7 +284,7 @@ void bta_hf_client_rfc_do_close(tBTA_HF_CLIENT_DATA* p_data) {
     /* Cancel SDP if it had been started. */
     if (client_cb->p_disc_db) {
       (void)SDP_CancelServiceSearch(client_cb->p_disc_db);
-      bta_hf_client_free_db(NULL);
+      osi_free_and_reset((void**)&client_cb->p_disc_db);
     }
   }
 }

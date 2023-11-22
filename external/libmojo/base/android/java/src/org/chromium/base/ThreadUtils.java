@@ -34,6 +34,11 @@ public class ThreadUtils {
     @VisibleForTesting
     public static void setUiThread(Looper looper) {
         synchronized (sLock) {
+            if (looper == null) {
+                // Used to reset the looper after tests.
+                sUiThreadHandler = null;
+                return;
+            }
             if (sUiThreadHandler != null && sUiThreadHandler.getLooper() != looper) {
                 throw new RuntimeException("UI thread looper is already set to "
                         + sUiThreadHandler.getLooper() + " (Main thread looper is "
@@ -189,7 +194,9 @@ public class ThreadUtils {
      * Asserts that the current thread is running on the main thread.
      */
     public static void assertOnUiThread() {
-        assert runningOnUiThread();
+        if (BuildConfig.DCHECK_IS_ON && !runningOnUiThread()) {
+            throw new IllegalStateException("Must be called on the Ui thread.");
+        }
     }
 
     /**

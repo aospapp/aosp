@@ -43,7 +43,7 @@ public class DirectToVoicemailCallFilter implements IncomingCallFilter.CallFilte
                     @Override
                     public void onCallerInfoQueryComplete(Uri handle, CallerInfo info) {
                         CallFilteringResult result;
-                        if (Objects.equals(callHandle, handle)) {
+                        if ((handle != null) && Objects.equals(callHandle, handle)) {
                             if (info != null && info.shouldSendToVoicemail) {
                                 result = new CallFilteringResult(
                                         false, // shouldAllowCall
@@ -62,8 +62,16 @@ public class DirectToVoicemailCallFilter implements IncomingCallFilter.CallFilte
                             Log.addEvent(call, LogUtils.Events.DIRECT_TO_VM_FINISHED, result);
                             callback.onCallFilteringComplete(call, result);
                         } else {
+                            result = new CallFilteringResult(
+                                true, // shouldAllowCall
+                                false, // shouldReject
+                                true, // shouldAddToCallLog
+                                true // shouldShowNotification
+                            );
+                            Log.addEvent(call, LogUtils.Events.DIRECT_TO_VM_FINISHED, result);
                             Log.w(this, "CallerInfo lookup returned with a different handle than " +
                                     "what was passed in. Was %s, should be %s", handle, callHandle);
+                            callback.onCallFilteringComplete(call, result);
                         }
                     }
 

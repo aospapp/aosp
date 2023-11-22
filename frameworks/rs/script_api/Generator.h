@@ -23,11 +23,11 @@ bool generateHeaderFiles(const std::string& directory);
 // Generates the Java and RenderScript test files.  The implementation is in GenerateTestFiles.cpp.
 bool generateTestFiles(const std::string& directory, unsigned int versionOfTestFiles);
 
-/* Generates the documentation files.  The implementation is in GenerateDocumentation.cpp.
- * If forVerification is false (the default), we generate the .jd files needed by the
- * documentation system.  If it's true, we generate complete .html files for local debugging.
+/* Generates the documentation files.  The implementation is in
+ * GenerateDocumentation.cpp. This function generates the .jd files needed by
+ * the documentation system.
  */
-bool generateDocumentation(const std::string& director, bool forVerification);
+bool generateDocumentation(const std::string& director);
 
 /* Generates the RSStubsWhiteList.cpp file.  Also generates script test files that are used
  * when testing slang and that can be used to manually verify the white list.

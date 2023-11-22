@@ -26,7 +26,6 @@ import android.content.res.Resources;
 import android.media.tv.TvInputInfo;
 import android.text.TextUtils;
 import android.util.Log;
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,6 +41,7 @@ public class Partner {
 
     /** ID tags for device input types */
     public static final String INPUT_TYPE_BUNDLED_TUNER = "input_type_combined_tuners";
+
     public static final String INPUT_TYPE_TUNER = "input_type_tuner";
     public static final String INPUT_TYPE_CEC_LOGICAL = "input_type_cec_logical";
     public static final String INPUT_TYPE_CEC_RECORDER = "input_type_cec_recorder";
@@ -68,6 +68,7 @@ public class Partner {
     private final Resources mResources;
 
     private static final Map<String, Integer> INPUT_TYPE_MAP = new HashMap<>();
+
     static {
         INPUT_TYPE_MAP.put(INPUT_TYPE_BUNDLED_TUNER, TvInputManagerHelper.TYPE_BUNDLED_TUNER);
         INPUT_TYPE_MAP.put(INPUT_TYPE_TUNER, TvInputInfo.TYPE_TUNER);

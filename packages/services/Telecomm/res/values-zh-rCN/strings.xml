@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"由于当前正在通过其他应用通话，因此无法拨打电话。"</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"来电"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"未接电话"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"来电屏蔽"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"拨打此电话将导致<xliff:g id="OTHER_APP">%1$s</xliff:g>通话结束。"</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"来电屏蔽"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"不在通讯录中的号码"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"屏蔽未列在您通讯录中的号码"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"不显示号码"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"屏蔽不显示号码的来电者"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"公用电话"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"屏蔽公用电话来电"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"未知"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"屏蔽身份不明的来电者的电话"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"来电屏蔽"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"来电屏蔽功能已停用"</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"已拨打紧急呼救电话"</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"系统已停用来电屏蔽功能，以便急救人员与您联系。"</string>
 </resources>

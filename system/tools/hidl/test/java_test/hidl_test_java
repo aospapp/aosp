@@ -22,7 +22,6 @@ for SIZE in 64 32; do
         # Test Java server with native client
         app_process $base/bin com.android.commands.hidl_test_java.HidlTestJava -s &
         NATIVE_PID=$!
-        sleep 1
         $native -c \
             && echo "native client => Java server PASSED" \
             || (echo "native client => Java server FAILED" && false) || e=1

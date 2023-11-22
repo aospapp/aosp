@@ -45,11 +45,6 @@ static jboolean isAddressExecutable(uintptr_t address) {
     return retval;
 }
 
-static jboolean android_os_cts_NoExecutePermissionTest_isMyCodeExecutable(JNIEnv*, jobject)
-{
-    return isAddressExecutable((uintptr_t) __builtin_return_address(0));
-}
-
 static jboolean android_os_cts_NoExecutePermissionTest_isStackExecutable(JNIEnv*, jobject)
 {
     unsigned int foo;
@@ -70,8 +65,6 @@ static jboolean android_os_cts_NoExecutePermissionTest_isHeapExecutable(JNIEnv*,
 }
 
 static JNINativeMethod gMethods[] = {
-    {  "isMyCodeExecutable", "()Z",
-            (void *) android_os_cts_NoExecutePermissionTest_isMyCodeExecutable  },
     {  "isStackExecutable", "()Z",
             (void *) android_os_cts_NoExecutePermissionTest_isStackExecutable  },
     {  "isHeapExecutable", "()Z",

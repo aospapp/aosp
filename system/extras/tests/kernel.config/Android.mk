@@ -33,7 +33,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := kernel-config-unit-tests
 LOCAL_MODULE_TAGS := tests
 LOCAL_CFLAGS := $(test_c_flags)
-LOCAL_CFLAGS := -DHAS_KCMP
+LOCAL_CFLAGS += -DHAS_KCMP
 LOCAL_SRC_FILES := $(test_src_files)
 LOCAL_SHARED_LIBRARIES := libbase
 include $(BUILD_NATIVE_TEST)
@@ -42,7 +42,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := CtsKernelConfigTestCases
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS := $(test_c_flags)
-LOCAL_CFLAGS := -DHAS_KCMP
+LOCAL_CFLAGS += -DHAS_KCMP
 LOCAL_SRC_FILES := $(cts_src_files)
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/nativetest
 LOCAL_MULTILIB := both
@@ -60,4 +60,5 @@ LOCAL_SRC_FILES := \
     scrape_mmap_addr.cpp
 
 LOCAL_MODULE := scrape_mmap_addr
+LOCAL_CFLAGS := -Wall -Werror
 include $(BUILD_NATIVE_TEST)

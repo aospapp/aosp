@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -194,6 +194,75 @@ uint16_t L2CA_AllocatePSM(void) {
 
 /*******************************************************************************
  *
+ * Function         L2CA_AllocateLePSM
+ *
+ * Description      To find an unused LE PSM for L2CAP services.
+ *
+ * Returns          LE_PSM to use if success. Otherwise returns 0.
+ *
+ ******************************************************************************/
+uint16_t L2CA_AllocateLePSM(void) {
+  bool done = false;
+  uint16_t psm = l2cb.le_dyn_psm;
+  uint16_t count = 0;
+
+  L2CAP_TRACE_API("%s: last psm=%d", __func__, psm);
+  while (!done) {
+    count++;
+    if (count > LE_DYNAMIC_PSM_RANGE) {
+      L2CAP_TRACE_ERROR("%s: Out of free BLE PSM", __func__);
+      return 0;
+    }
+
+    psm++;
+    if (psm > LE_DYNAMIC_PSM_END) {
+      psm = LE_DYNAMIC_PSM_START;
+    }
+
+    if (!l2cb.le_dyn_psm_assigned[psm - LE_DYNAMIC_PSM_START]) {
+      /* make sure the newly allocated psm is not used right now */
+      if (l2cu_find_ble_rcb_by_psm(psm)) {
+        L2CAP_TRACE_WARNING("%s: supposedly-free PSM=%d have allocated rcb!",
+                            __func__, psm);
+        continue;
+      }
+
+      l2cb.le_dyn_psm_assigned[psm - LE_DYNAMIC_PSM_START] = true;
+      L2CAP_TRACE_DEBUG("%s: assigned PSM=%d", __func__, psm);
+      done = true;
+      break;
+    }
+  }
+  l2cb.le_dyn_psm = psm;
+
+  return (psm);
+}
+
+/*******************************************************************************
+ *
+ * Function         L2CA_FreeLePSM
+ *
+ * Description      Free an assigned LE PSM.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void L2CA_FreeLePSM(uint16_t psm) {
+  L2CAP_TRACE_API("%s: to free psm=%d", __func__, psm);
+
+  if ((psm < LE_DYNAMIC_PSM_START) || (psm > LE_DYNAMIC_PSM_END)) {
+    L2CAP_TRACE_ERROR("%s: Invalid PSM=%d value!", __func__, psm);
+    return;
+  }
+
+  if (!l2cb.le_dyn_psm_assigned[psm - LE_DYNAMIC_PSM_START]) {
+    L2CAP_TRACE_WARNING("%s: PSM=%d was not allocated!", __func__, psm);
+  }
+  l2cb.le_dyn_psm_assigned[psm - LE_DYNAMIC_PSM_START] = false;
+}
+
+/*******************************************************************************
+ *
  * Function         L2CA_ConnectReq
  *
  * Description      Higher layers call this function to create an L2CAP
@@ -256,8 +325,7 @@ uint16_t L2CA_ErtmConnectReq(uint16_t psm, const RawAddress& p_bd_addr,
     /* No link. Get an LCB and start link establishment */
     p_lcb = l2cu_allocate_lcb(p_bd_addr, false, BT_TRANSPORT_BR_EDR);
     /* currently use BR/EDR for ERTM mode l2cap connection */
-    if ((p_lcb == NULL) ||
-        (l2cu_create_conn(p_lcb, BT_TRANSPORT_BR_EDR) == false)) {
+    if ((p_lcb == NULL) || (!l2cu_create_conn(p_lcb, BT_TRANSPORT_BR_EDR))) {
       L2CAP_TRACE_WARNING(
           "L2CAP - conn not started for PSM: 0x%04x  p_lcb: 0x%08x", psm,
           p_lcb);
@@ -359,10 +427,12 @@ uint16_t L2CA_RegisterLECoc(uint16_t psm, tL2CAP_APPL_INFO* p_cb_info) {
 
   /* Check if this is a registration for an outgoing-only connection to */
   /* a dynamic PSM. If so, allocate a "virtual" PSM for the app to use. */
-  if ((psm >= 0x0080) && (p_cb_info->pL2CA_ConnectInd_Cb == NULL)) {
-    for (vpsm = 0x0080; vpsm < 0x0100; vpsm++) {
-      p_rcb = l2cu_find_ble_rcb_by_psm(vpsm);
-      if (p_rcb == NULL) break;
+  if ((psm >= LE_DYNAMIC_PSM_START) &&
+      (p_cb_info->pL2CA_ConnectInd_Cb == NULL)) {
+    vpsm = L2CA_AllocateLePSM();
+    if (vpsm == 0) {
+      L2CAP_TRACE_ERROR("%s: Out of free BLE PSM", __func__);
+      return 0;
     }
 
     L2CAP_TRACE_API("%s Real PSM: 0x%04x  Virtual PSM: 0x%04x", __func__, psm,
@@ -372,6 +442,7 @@ uint16_t L2CA_RegisterLECoc(uint16_t psm, tL2CAP_APPL_INFO* p_cb_info) {
   /* If registration block already there, just overwrite it */
   p_rcb = l2cu_find_ble_rcb_by_psm(vpsm);
   if (p_rcb == NULL) {
+    L2CAP_TRACE_API("%s Allocate rcp for Virtual PSM: 0x%04x", __func__, vpsm);
     p_rcb = l2cu_allocate_ble_rcb(vpsm);
     if (p_rcb == NULL) {
       L2CAP_TRACE_WARNING("%s No BLE RCB available, PSM: 0x%04x  vPSM: 0x%04x",
@@ -401,7 +472,8 @@ void L2CA_DeregisterLECoc(uint16_t psm) {
 
   tL2C_RCB* p_rcb = l2cu_find_ble_rcb_by_psm(psm);
   if (p_rcb == NULL) {
-    L2CAP_TRACE_WARNING("%s PSM: 0x%04x not found for deregistration", psm);
+    L2CAP_TRACE_WARNING("%s PSM: 0x%04x not found for deregistration", __func__,
+                        psm);
     return;
   }
 
@@ -420,7 +492,7 @@ void L2CA_DeregisterLECoc(uint16_t psm) {
       l2c_csm_execute(p_ccb, L2CEVT_L2CA_DISCONNECT_REQ, NULL);
   }
 
-  l2cu_release_rcb(p_rcb);
+  l2cu_release_ble_rcb(p_rcb);
 }
 
 /*******************************************************************************
@@ -465,7 +537,7 @@ uint16_t L2CA_ConnectLECocReq(uint16_t psm, const RawAddress& p_bd_addr,
     p_lcb = l2cu_allocate_lcb(p_bd_addr, false, BT_TRANSPORT_LE);
     if ((p_lcb == NULL)
         /* currently use BR/EDR for ERTM mode l2cap connection */
-        || (l2cu_create_conn(p_lcb, BT_TRANSPORT_LE) == false)) {
+        || (!l2cu_create_conn(p_lcb, BT_TRANSPORT_LE))) {
       L2CAP_TRACE_WARNING("%s conn not started for PSM: 0x%04x  p_lcb: 0x%08x",
                           __func__, psm, p_lcb);
       return 0;
@@ -483,7 +555,10 @@ uint16_t L2CA_ConnectLECocReq(uint16_t psm, const RawAddress& p_bd_addr,
   p_ccb->p_rcb = p_rcb;
 
   /* Save the configuration */
-  if (p_cfg) memcpy(&p_ccb->local_conn_cfg, p_cfg, sizeof(tL2CAP_LE_CFG_INFO));
+  if (p_cfg) {
+    memcpy(&p_ccb->local_conn_cfg, p_cfg, sizeof(tL2CAP_LE_CFG_INFO));
+    p_ccb->remote_credit_count = p_cfg->credits;
+  }
 
   /* If link is up, start the L2CAP connection */
   if (p_lcb->link_state == LST_CONNECTED) {
@@ -553,7 +628,10 @@ bool L2CA_ConnectLECocRsp(const RawAddress& p_bd_addr, uint8_t id,
     return false;
   }
 
-  if (p_cfg) memcpy(&p_ccb->local_conn_cfg, p_cfg, sizeof(tL2CAP_LE_CFG_INFO));
+  if (p_cfg) {
+    memcpy(&p_ccb->local_conn_cfg, p_cfg, sizeof(tL2CAP_LE_CFG_INFO));
+    p_ccb->remote_credit_count = p_cfg->credits;
+  }
 
   if (result == L2CAP_CONN_OK)
     l2c_csm_execute(p_ccb, L2CEVT_L2CA_CONNECT_RSP, NULL);
@@ -904,7 +982,7 @@ bool L2CA_Ping(const RawAddress& p_bd_addr, tL2CA_ECHO_RSP_CB* p_callback) {
       L2CAP_TRACE_WARNING("L2CAP - no LCB for L2CA_ping");
       return (false);
     }
-    if (l2cu_create_conn(p_lcb, BT_TRANSPORT_BR_EDR) == false) {
+    if (!l2cu_create_conn(p_lcb, BT_TRANSPORT_BR_EDR)) {
       return (false);
     }
 
@@ -1214,7 +1292,8 @@ uint16_t L2CA_LocalLoopbackReq(uint16_t psm, uint16_t handle,
  *
  ******************************************************************************/
 bool L2CA_SetAclPriority(const RawAddress& bd_addr, uint8_t priority) {
-  VLOG(1) << __func__ << " BDA: " << bd_addr << ", priority: " << priority;
+  VLOG(1) << __func__ << " BDA: " << bd_addr
+          << ", priority: " << std::to_string(priority);
   return (l2cu_set_acl_priority(bd_addr, priority, false));
 }
 
@@ -2124,7 +2203,7 @@ uint16_t L2CA_FlushChannel(uint16_t lcid, uint16_t num_to_flush) {
        * controller */
       if ((HCI_NON_FLUSHABLE_PB_SUPPORTED(BTM_ReadLocalFeatures())) &&
           (BTM_GetNumScoLinks() == 0)) {
-        if (l2cb.is_flush_active == false) {
+        if (!l2cb.is_flush_active) {
           l2cb.is_flush_active = true;
 
           /* The only packet type defined - 0 - Automatically-Flushable Only */

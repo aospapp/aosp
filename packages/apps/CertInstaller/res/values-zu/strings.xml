@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"I-VPN nezinhlelo zokusebenza"</item>
     <item msgid="692322974985472861">"I-Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Qaphela: Umkhiphi walesi sitifiketi angahlola yonke ithrafikhi eya nesuka kudivayisi."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Iphrofayela ye-Wi-Fi"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"Imininingwane ye-%s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Imininingwane"</string>

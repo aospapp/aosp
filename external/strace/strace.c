@@ -3,7 +3,7 @@
  * Copyright (c) 1993 Branko Lankester <branko@hacktic.nl>
  * Copyright (c) 1993, 1994, 1995, 1996 Rick Sladkey <jrs@world.std.com>
  * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
- * Copyright (c) 1999-2017 The strace developers.
+ * Copyright (c) 1999-2018 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,12 +31,16 @@
 
 #include "defs.h"
 #include <stdarg.h>
-#include <sys/param.h>
+#include <limits.h>
 #include <fcntl.h>
+#include "ptrace.h"
 #include <signal.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#ifdef HAVE_PATHS_H
+# include <paths.h>
+#endif
 #include <pwd.h>
 #include <grp.h>
 #include <dirent.h>
@@ -46,9 +50,12 @@
 #endif
 #include <asm/unistd.h>
 
+#include "largefile_wrappers.h"
+#include "number_set.h"
 #include "scno.h"
-#include "ptrace.h"
 #include "printsiginfo.h"
+#include "trace_event.h"
+#include "xstring.h"
 
 /* In some libc, these aren't declared. Do it ourself: */
 extern char **environ;
@@ -134,7 +141,7 @@ static int exit_code;
 static int strace_child;
 static int strace_tracer_pid;
 
-static char *username;
+static const char *username;
 static uid_t run_uid;
 static gid_t run_gid;
 
@@ -142,7 +149,7 @@ unsigned int max_strlen = DEFAULT_STRLEN;
 static int acolumn = DEFAULT_ACOLUMN;
 static char *acolumn_spaces;
 
-static char *outfname;
+static const char *outfname;
 /* If -ff, points to stderr. Else, it's our common output log */
 static FILE *shared_log;
 
@@ -150,7 +157,8 @@ struct tcb *printing_tcp;
 static struct tcb *current_tcp;
 
 static struct tcb **tcbtab;
-static unsigned int nprocs, tcbtabsize;
+static unsigned int nprocs;
+static size_t tcbtabsize;
 
 #ifndef HAVE_PROGRAM_INVOCATION_NAME
 char *program_invocation_name;
@@ -182,7 +190,7 @@ strerror(int err_no)
 	static char buf[sizeof("Unknown error %d") + sizeof(int)*3];
 
 	if (err_no < 1 || err_no >= sys_nerr) {
-		sprintf(buf, "Unknown error %d", err_no);
+		xsprintf(buf, "Unknown error %d", err_no);
 		return buf;
 	}
 	return sys_errlist[err_no];
@@ -193,11 +201,36 @@ strerror(int err_no)
 static void
 print_version(void)
 {
+	static const char features[] =
+#ifdef USE_LIBUNWIND
+		" stack-unwind"
+#endif /* USE_LIBUNWIND */
+#ifdef USE_DEMANGLE
+		" stack-demangle"
+#endif /* USE_DEMANGLE */
+#if SUPPORTED_PERSONALITIES > 1
+# if defined HAVE_M32_MPERS
+		" m32-mpers"
+# else
+		" no-m32-mpers"
+# endif
+#endif /* SUPPORTED_PERSONALITIES > 1 */
+#if SUPPORTED_PERSONALITIES > 2
+# if defined HAVE_MX32_MPERS
+		" mx32-mpers"
+# else
+		" no-mx32-mpers"
+# endif
+#endif /* SUPPORTED_PERSONALITIES > 2 */
+		"";
+
 	printf("%s -- version %s\n"
 	       "Copyright (c) 1991-%s The strace developers <%s>.\n"
 	       "This is free software; see the source for copying conditions.  There is NO\n"
 	       "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n",
 	       PACKAGE_NAME, PACKAGE_VERSION, COPYRIGHT_YEAR, PACKAGE_URL);
+	printf("\nOptional features enabled:%s\n",
+	       features[0] ? features : " (none)");
 }
 
 static void
@@ -278,91 +311,16 @@ Miscellaneous:\n\
 	exit(0);
 }
 
-static void ATTRIBUTE_NORETURN
+void ATTRIBUTE_NORETURN
 die(void)
 {
 	if (strace_tracer_pid == getpid()) {
 		cflag = 0;
 		cleanup();
+		exit(1);
 	}
-	exit(1);
-}
 
-static void verror_msg(int err_no, const char *fmt, va_list p)
-{
-	char *msg;
-
-	fflush(NULL);
-
-	/* We want to print entire message with single fprintf to ensure
-	 * message integrity if stderr is shared with other programs.
-	 * Thus we use vasprintf + single fprintf.
-	 */
-	msg = NULL;
-	if (vasprintf(&msg, fmt, p) >= 0) {
-		if (err_no)
-			fprintf(stderr, "%s: %s: %s\n",
-				program_invocation_name, msg, strerror(err_no));
-		else
-			fprintf(stderr, "%s: %s\n",
-				program_invocation_name, msg);
-		free(msg);
-	} else {
-		/* malloc in vasprintf failed, try it without malloc */
-		fprintf(stderr, "%s: ", program_invocation_name);
-		vfprintf(stderr, fmt, p);
-		if (err_no)
-			fprintf(stderr, ": %s\n", strerror(err_no));
-		else
-			putc('\n', stderr);
-	}
-	/* We don't switch stderr to buffered, thus fprintf(stderr)
-	 * always flushes its output and this is not necessary: */
-	/* fflush(stderr); */
-}
-
-void error_msg(const char *fmt, ...)
-{
-	va_list p;
-	va_start(p, fmt);
-	verror_msg(0, fmt, p);
-	va_end(p);
-}
-
-void error_msg_and_die(const char *fmt, ...)
-{
-	va_list p;
-	va_start(p, fmt);
-	verror_msg(0, fmt, p);
-	die();
-}
-
-void error_msg_and_help(const char *fmt, ...)
-{
-	if (fmt != NULL) {
-		va_list p;
-		va_start(p, fmt);
-		verror_msg(0, fmt, p);
-	}
-	fprintf(stderr, "Try '%s -h' for more information.\n",
-		program_invocation_name);
-	die();
-}
-
-void perror_msg(const char *fmt, ...)
-{
-	va_list p;
-	va_start(p, fmt);
-	verror_msg(errno, fmt, p);
-	va_end(p);
-}
-
-void perror_msg_and_die(const char *fmt, ...)
-{
-	va_list p;
-	va_start(p, fmt);
-	verror_msg(errno, fmt, p);
-	die();
+	_exit(1);
 }
 
 static void
@@ -490,28 +448,6 @@ swap_uid(void)
 	}
 }
 
-#ifdef _LARGEFILE64_SOURCE
-# ifdef HAVE_FOPEN64
-#  define fopen_for_output fopen64
-# else
-#  define fopen_for_output fopen
-# endif
-# define struct_stat struct stat64
-# define stat_file stat64
-# define struct_dirent struct dirent64
-# define read_dir readdir64
-# define struct_rlimit struct rlimit64
-# define set_rlimit setrlimit64
-#else
-# define fopen_for_output fopen
-# define struct_stat struct stat
-# define stat_file stat
-# define struct_dirent struct dirent
-# define read_dir readdir
-# define struct_rlimit struct rlimit
-# define set_rlimit setrlimit
-#endif
-
 static FILE *
 strace_fopen(const char *path)
 {
@@ -576,6 +512,19 @@ strace_popen(const char *command)
 	return fp;
 }
 
+static void
+outf_perror(const struct tcb * const tcp)
+{
+	if (tcp->outf == stderr)
+		return;
+
+	/* This is ugly, but we don't store separate file names */
+	if (followfork >= 2)
+		perror_msg("%s.%u", outfname, tcp->pid);
+	else
+		perror_msg("%s", outfname);
+}
+
 ATTRIBUTE_FORMAT((printf, 1, 0))
 static void
 tvprintf(const char *const fmt, va_list args)
@@ -583,8 +532,8 @@ tvprintf(const char *const fmt, va_list args)
 	if (current_tcp) {
 		int n = vfprintf(current_tcp->outf, fmt, args);
 		if (n < 0) {
-			if (current_tcp->outf != stderr)
-				perror_msg("%s", outfname);
+			/* very unlikely due to vfprintf buffering */
+			outf_perror(current_tcp);
 		} else
 			current_tcp->curcol += n;
 	}
@@ -612,8 +561,8 @@ tprints(const char *str)
 			current_tcp->curcol += strlen(str);
 			return;
 		}
-		if (current_tcp->outf != stderr)
-			perror_msg("%s", outfname);
+		/* very unlikely due to fputs_unlocked buffering */
+		outf_perror(current_tcp);
 	}
 }
 
@@ -638,17 +587,34 @@ tprintf_comment(const char *fmt, ...)
 	va_end(args);
 }
 
+static void
+flush_tcp_output(const struct tcb *const tcp)
+{
+	if (fflush(tcp->outf))
+		outf_perror(tcp);
+}
+
 void
 line_ended(void)
 {
 	if (current_tcp) {
 		current_tcp->curcol = 0;
-		fflush(current_tcp->outf);
+		flush_tcp_output(current_tcp);
 	}
 	if (printing_tcp) {
 		printing_tcp->curcol = 0;
 		printing_tcp = NULL;
 	}
+}
+
+void
+set_current_tcp(const struct tcb *tcp)
+{
+	current_tcp = (struct tcb *) tcp;
+
+	/* Sync current_personality and stuff */
+	if (current_tcp)
+		set_personality(current_tcp->currpers);
 }
 
 void
@@ -661,7 +627,7 @@ printleader(struct tcb *tcp)
 		printing_tcp = tcp;
 
 	if (printing_tcp) {
-		current_tcp = printing_tcp;
+		set_current_tcp(printing_tcp);
 		if (printing_tcp->curcol != 0 && (followfork < 2 || printing_tcp == tcp)) {
 			/*
 			 * case 1: we have a shared log (i.e. not -ff), and last line
@@ -675,7 +641,7 @@ printleader(struct tcb *tcp)
 	}
 
 	printing_tcp = tcp;
-	current_tcp = tcp;
+	set_current_tcp(tcp);
 	current_tcp->curcol = 0;
 
 	if (print_pid_pfx)
@@ -728,8 +694,8 @@ newoutf(struct tcb *tcp)
 {
 	tcp->outf = shared_log; /* if not -ff mode, the same file is for all */
 	if (followfork >= 2) {
-		char name[520 + sizeof(int) * 3];
-		sprintf(name, "%.512s.%u", outfname, tcp->pid);
+		char name[PATH_MAX];
+		xsprintf(name, "%s.%u", outfname, tcp->pid);
 		tcp->outf = strace_fopen(name);
 	}
 }
@@ -742,20 +708,18 @@ expand_tcbtab(void)
 	   callers have pointers and it would be a pain.
 	   So tcbtab is a table of pointers.  Since we never
 	   free the TCBs, we allocate a single chunk of many.  */
-	unsigned int new_tcbtabsize, alloc_tcbtabsize;
+	size_t old_tcbtabsize;
 	struct tcb *newtcbs;
+	struct tcb **tcb_ptr;
 
-	if (tcbtabsize) {
-		alloc_tcbtabsize = tcbtabsize;
-		new_tcbtabsize = tcbtabsize * 2;
-	} else {
-		new_tcbtabsize = alloc_tcbtabsize = 1;
-	}
+	old_tcbtabsize = tcbtabsize;
 
-	newtcbs = xcalloc(alloc_tcbtabsize, sizeof(newtcbs[0]));
-	tcbtab = xreallocarray(tcbtab, new_tcbtabsize, sizeof(tcbtab[0]));
-	while (tcbtabsize < new_tcbtabsize)
-		tcbtab[tcbtabsize++] = newtcbs++;
+	tcbtab = xgrowarray(tcbtab, &tcbtabsize, sizeof(tcbtab[0]));
+	newtcbs = xcalloc(tcbtabsize - old_tcbtabsize, sizeof(newtcbs[0]));
+
+	for (tcb_ptr = tcbtab + old_tcbtabsize;
+	    tcb_ptr < tcbtab + tcbtabsize; tcb_ptr++, newtcbs++)
+		*tcb_ptr = newtcbs;
 }
 
 static struct tcb *
@@ -782,9 +746,8 @@ alloctcb(int pid)
 #endif
 
 			nprocs++;
-			if (debug_flag)
-				error_msg("new tcb for pid %d, active tcbs:%d",
-					  tcp->pid, nprocs);
+			debug_msg("new tcb for pid %d, active tcbs:%d",
+				  tcp->pid, nprocs);
 			return tcp;
 		}
 	}
@@ -841,9 +804,7 @@ droptcb(struct tcb *tcp)
 #endif
 
 	nprocs--;
-	if (debug_flag)
-		error_msg("dropped tcb for pid %d, %d remain",
-			  tcp->pid, nprocs);
+	debug_msg("dropped tcb for pid %d, %d remain", tcp->pid, nprocs);
 
 	if (tcp->outf) {
 		if (followfork >= 2) {
@@ -853,12 +814,12 @@ droptcb(struct tcb *tcp)
 		} else {
 			if (printing_tcp == tcp && tcp->curcol != 0)
 				fprintf(tcp->outf, " <detached ...>\n");
-			fflush(tcp->outf);
+			flush_tcp_output(tcp);
 		}
 	}
 
 	if (current_tcp == tcp)
-		current_tcp = NULL;
+		set_current_tcp(NULL);
 	if (printing_tcp == tcp)
 		printing_tcp = NULL;
 
@@ -899,14 +860,14 @@ detach(struct tcb *tcp)
 	}
 	if (errno != ESRCH) {
 		/* Shouldn't happen. */
-		perror_msg("detach: ptrace(PTRACE_DETACH,%u)", tcp->pid);
+		perror_func_msg("ptrace(PTRACE_DETACH,%u)", tcp->pid);
 		goto drop;
 	}
 	/* ESRCH: process is either not stopped or doesn't exist. */
 	if (my_tkill(tcp->pid, 0) < 0) {
 		if (errno != ESRCH)
 			/* Shouldn't happen. */
-			perror_msg("detach: tkill(%u,0)", tcp->pid);
+			perror_func_msg("tkill(%u,0)", tcp->pid);
 		/* else: process doesn't exist. */
 		goto drop;
 	}
@@ -922,13 +883,13 @@ detach(struct tcb *tcp)
 		if (!error)
 			goto wait_loop;
 		if (errno != ESRCH)
-			perror_msg("detach: ptrace(PTRACE_INTERRUPT,%u)", tcp->pid);
+			perror_func_msg("ptrace(PTRACE_INTERRUPT,%u)", tcp->pid);
 	} else {
 		error = my_tkill(tcp->pid, SIGSTOP);
 		if (!error)
 			goto wait_loop;
 		if (errno != ESRCH)
-			perror_msg("detach: tkill(%u,SIGSTOP)", tcp->pid);
+			perror_func_msg("tkill(%u,SIGSTOP)", tcp->pid);
 	}
 	/* Either process doesn't exist, or some weird error. */
 	goto drop;
@@ -949,7 +910,7 @@ detach(struct tcb *tcp)
 			 * ^^^  WRONG! We expect this PID to exist,
 			 * and want to emit a message otherwise:
 			 */
-			perror_msg("detach: waitpid(%u)", tcp->pid);
+			perror_func_msg("waitpid(%u)", tcp->pid);
 			break;
 		}
 		if (!WIFSTOPPED(status)) {
@@ -966,9 +927,8 @@ detach(struct tcb *tcp)
 			break;
 		}
 		sig = WSTOPSIG(status);
-		if (debug_flag)
-			error_msg("detach wait: event:%d sig:%d",
-				  (unsigned)status >> 16, sig);
+		debug_msg("detach wait: event:%d sig:%d",
+			  (unsigned) status >> 16, sig);
 		if (use_seize) {
 			unsigned event = (unsigned)status >> 16;
 			if (event == PTRACE_EVENT_STOP /*&& sig == SIGTRAP*/) {
@@ -1064,17 +1024,18 @@ attach_tcb(struct tcb *const tcp)
 		return;
 	}
 
-	tcp->flags |= TCB_ATTACHED | TCB_STARTUP | post_attach_sigstop;
+	tcp->flags |= TCB_ATTACHED | TCB_GRABBED | TCB_STARTUP |
+		      post_attach_sigstop;
 	newoutf(tcp);
-	if (debug_flag)
-		error_msg("attach to pid %d (main) succeeded", tcp->pid);
+	debug_msg("attach to pid %d (main) succeeded", tcp->pid);
 
-	char procdir[sizeof("/proc/%d/task") + sizeof(int) * 3];
+	static const char task_path[] = "/proc/%d/task";
+	char procdir[sizeof(task_path) + sizeof(int) * 3];
 	DIR *dir;
 	unsigned int ntid = 0, nerr = 0;
 
 	if (followfork && tcp->pid != strace_child &&
-	    sprintf(procdir, "/proc/%d/task", tcp->pid) > 0 &&
+	    xsprintf(procdir, task_path, tcp->pid) > 0 &&
 	    (dir = opendir(procdir)) != NULL) {
 		struct_dirent *de;
 
@@ -1089,17 +1050,15 @@ attach_tcb(struct tcb *const tcp)
 			++ntid;
 			if (ptrace_attach_or_seize(tid) < 0) {
 				++nerr;
-				if (debug_flag)
-					perror_msg("attach: ptrace(%s, %d)",
-						   ptrace_attach_cmd, tid);
+				debug_perror_msg("attach: ptrace(%s, %d)",
+						 ptrace_attach_cmd, tid);
 				continue;
 			}
-			if (debug_flag)
-				error_msg("attach to pid %d succeeded", tid);
+			debug_msg("attach to pid %d succeeded", tid);
 
 			struct tcb *tid_tcp = alloctcb(tid);
-			tid_tcp->flags |= TCB_ATTACHED | TCB_STARTUP |
-					  post_attach_sigstop;
+			tid_tcp->flags |= TCB_ATTACHED | TCB_GRABBED |
+					  TCB_STARTUP | post_attach_sigstop;
 			newoutf(tid_tcp);
 		}
 
@@ -1135,9 +1094,9 @@ startup_attach(void)
 
 	if (daemonized_tracer) {
 		pid_t pid = fork();
-		if (pid < 0) {
-			perror_msg_and_die("fork");
-		}
+		if (pid < 0)
+			perror_func_msg_and_die("fork");
+
 		if (pid) { /* parent */
 			/*
 			 * Wait for grandchild to attach to straced process
@@ -1276,7 +1235,7 @@ open_dummy_desc(void)
 	int fds[2];
 
 	if (pipe(fds))
-		perror_msg_and_die("pipe");
+		perror_func_msg_and_die("pipe");
 	close(fds[1]);
 	set_cloexec_flag(fds[0]);
 	return fds[0];
@@ -1414,9 +1373,9 @@ startup_child(char **argv)
 #endif
 
 	pid = fork();
-	if (pid < 0) {
-		perror_msg_and_die("fork");
-	}
+	if (pid < 0)
+		perror_func_msg_and_die("fork");
+
 	if ((pid != 0 && daemonized_tracer)
 	 || (pid == 0 && !daemonized_tracer)
 	) {
@@ -1524,7 +1483,7 @@ test_ptrace_seize(void)
 
 	pid = fork();
 	if (pid < 0)
-		perror_msg_and_die("fork");
+		perror_func_msg_and_die("fork");
 
 	if (pid == 0) {
 		pause();
@@ -1537,8 +1496,8 @@ test_ptrace_seize(void)
 	 */
 	if (ptrace(PTRACE_SEIZE, pid, 0, 0) == 0) {
 		post_attach_sigstop = 0; /* this sets use_seize to 1 */
-	} else if (debug_flag) {
-		error_msg("PTRACE_SEIZE doesn't work");
+	} else {
+		debug_msg("PTRACE_SEIZE doesn't work");
 	}
 
 	kill(pid, SIGKILL);
@@ -1551,14 +1510,13 @@ test_ptrace_seize(void)
 		if (tracee_pid <= 0) {
 			if (errno == EINTR)
 				continue;
-			perror_msg_and_die("%s: unexpected wait result %d",
-					 __func__, tracee_pid);
+			perror_func_msg_and_die("unexpected wait result %d",
+						tracee_pid);
 		}
-		if (WIFSIGNALED(status)) {
+		if (WIFSIGNALED(status))
 			return;
-		}
-		error_msg_and_die("%s: unexpected wait status %#x",
-				  __func__, status);
+
+		error_func_msg_and_die("unexpected wait status %#x", status);
 	}
 }
 #else /* !USE_SEIZE */
@@ -1599,7 +1557,7 @@ get_os_release(void)
 }
 
 static void
-set_sigaction(int signo, void (*sighandler)(int), struct sigaction *oldact)
+set_sighandler(int signo, void (*sighandler)(int), struct sigaction *oldact)
 {
 	/* if signal handler is a function, add the signal to blocked_set */
 	if (sighandler != SIG_IGN && sighandler != SIG_DFL)
@@ -1626,7 +1584,7 @@ init(int argc, char *argv[])
 	if (!program_invocation_name || !*program_invocation_name) {
 		static char name[] = "strace";
 		program_invocation_name =
-			(argv[0] && *argv[0]) ? argv[0] : name;
+			(argc > 0 && argv[0] && *argv[0]) ? argv[0] : name;
 	}
 
 	strace_tracer_pid = getpid();
@@ -1643,14 +1601,17 @@ init(int argc, char *argv[])
 # error Bug in DEFAULT_QUAL_FLAGS
 #endif
 	qualify("signal=all");
-	while ((c = getopt(argc, argv,
-		"+b:cCdfFhiqrtTvVwxyz"
+	while ((c = getopt(argc, argv, "+"
 #ifdef USE_LIBUNWIND
-		"k"
+	    "k"
 #endif
-		"D"
-		"a:e:o:O:p:s:S:u:E:P:I:")) != EOF) {
+	    "a:b:cCdDe:E:fFhiI:o:O:p:P:qrs:S:tTu:vVwxyz")) != EOF) {
 		switch (c) {
+		case 'a':
+			acolumn = string_to_uint(optarg);
+			if (acolumn < 0)
+				error_opt_arg(c, optarg);
+			break;
 		case 'b':
 			if (strcmp(optarg, "execve") != 0)
 				error_msg_and_die("Syscall '%s' for -b isn't supported",
@@ -1675,11 +1636,18 @@ init(int argc, char *argv[])
 		case 'D':
 			daemonized_tracer = 1;
 			break;
-		case 'F':
-			optF = 1;
+		case 'e':
+			qualify(optarg);
+			break;
+		case 'E':
+			if (putenv(optarg) < 0)
+				perror_msg_and_die("putenv");
 			break;
 		case 'f':
 			followfork++;
+			break;
+		case 'F':
+			optF = 1;
 			break;
 		case 'h':
 			usage();
@@ -1687,47 +1655,18 @@ init(int argc, char *argv[])
 		case 'i':
 			iflag = 1;
 			break;
-		case 'q':
-			qflag++;
-			break;
-		case 'r':
-			rflag = 1;
-			break;
-		case 't':
-			tflag++;
-			break;
-		case 'T':
-			Tflag = 1;
-			break;
-		case 'w':
-			count_wallclock = 1;
-			break;
-		case 'x':
-			xflag++;
-			break;
-		case 'y':
-			show_fd_path++;
-			break;
-		case 'v':
-			qualify("abbrev=none");
-			break;
-		case 'V':
-			print_version();
-			exit(0);
-			break;
-		case 'z':
-			not_failing_only = 1;
-			break;
-		case 'a':
-			acolumn = string_to_uint(optarg);
-			if (acolumn < 0)
+		case 'I':
+			opt_intr = string_to_uint_upto(optarg, NUM_INTR_OPTS - 1);
+			if (opt_intr <= 0)
 				error_opt_arg(c, optarg);
 			break;
-		case 'e':
-			qualify(optarg);
+#ifdef USE_LIBUNWIND
+		case 'k':
+			stack_trace_enabled = true;
 			break;
+#endif
 		case 'o':
-			outfname = xstrdup(optarg);
+			outfname = optarg;
 			break;
 		case 'O':
 			i = string_to_uint(optarg);
@@ -1741,6 +1680,12 @@ init(int argc, char *argv[])
 		case 'P':
 			pathtrace_select(optarg);
 			break;
+		case 'q':
+			qflag++;
+			break;
+		case 'r':
+			rflag = 1;
+			break;
 		case 's':
 			i = string_to_uint(optarg);
 			if (i < 0 || (unsigned int) i > -1U / 4)
@@ -1750,22 +1695,33 @@ init(int argc, char *argv[])
 		case 'S':
 			set_sortby(optarg);
 			break;
+		case 't':
+			tflag++;
+			break;
+		case 'T':
+			Tflag = 1;
+			break;
 		case 'u':
-			username = xstrdup(optarg);
+			username = optarg;
 			break;
-#ifdef USE_LIBUNWIND
-		case 'k':
-			stack_trace_enabled = true;
+		case 'v':
+			qualify("abbrev=none");
 			break;
-#endif
-		case 'E':
-			if (putenv(optarg) < 0)
-				perror_msg_and_die("putenv");
+		case 'V':
+			print_version();
+			exit(0);
 			break;
-		case 'I':
-			opt_intr = string_to_uint_upto(optarg, NUM_INTR_OPTS - 1);
-			if (opt_intr <= 0)
-				error_opt_arg(c, optarg);
+		case 'w':
+			count_wallclock = 1;
+			break;
+		case 'x':
+			xflag++;
+			break;
+		case 'y':
+			show_fd_path++;
+			break;
+		case 'z':
+			not_failing_only = 1;
 			break;
 		default:
 			error_msg_and_help(NULL);
@@ -1776,16 +1732,23 @@ init(int argc, char *argv[])
 	argv += optind;
 	argc -= optind;
 
-	if (argc < 0 || (!argv[0] && !nprocs)) {
+	if (argc < 0 || (!nprocs && !argc)) {
 		error_msg_and_help("must have PROG [ARGS] or -p PID");
 	}
 
-	if (!argv[0] && daemonized_tracer) {
+	if (!argc && daemonized_tracer) {
 		error_msg_and_help("PROG [ARGS] must be specified with -D");
 	}
 
-	if (!followfork)
-		followfork = optF;
+	if (optF) {
+		if (followfork) {
+			error_msg("deprecated option -F ignored");
+		} else {
+			error_msg("option -F is deprecated, "
+				  "please use -f instead");
+			followfork = optF;
+		}
+	}
 
 	if (followfork >= 2 && cflag) {
 		error_msg_and_help("(-c or -C) and -ff are mutually exclusive");
@@ -1825,7 +1788,7 @@ init(int argc, char *argv[])
 	sigprocmask(SIG_SETMASK, NULL, &start_set);
 	memcpy(&blocked_set, &start_set, sizeof(blocked_set));
 
-	set_sigaction(SIGCHLD, SIG_DFL, &params_for_tracee.child_sa);
+	set_sighandler(SIGCHLD, SIG_DFL, &params_for_tracee.child_sa);
 
 #ifdef USE_LIBUNWIND
 	if (stack_trace_enabled) {
@@ -1860,8 +1823,7 @@ init(int argc, char *argv[])
 		ptrace_setoptions |= PTRACE_O_TRACECLONE |
 				     PTRACE_O_TRACEFORK |
 				     PTRACE_O_TRACEVFORK;
-	if (debug_flag)
-		error_msg("ptrace_setoptions = %#x", ptrace_setoptions);
+	debug_msg("ptrace_setoptions = %#x", ptrace_setoptions);
 	test_ptrace_seize();
 
 	/*
@@ -1886,10 +1848,15 @@ init(int argc, char *argv[])
 			 * when using popen, so prohibit it.
 			 */
 			if (followfork >= 2)
-				error_msg_and_help("piping the output and -ff are mutually exclusive");
+				error_msg_and_help("piping the output and -ff "
+						   "are mutually exclusive");
 			shared_log = strace_popen(outfname + 1);
-		} else if (followfork < 2)
+		} else if (followfork < 2) {
 			shared_log = strace_fopen(outfname);
+		} else if (strlen(outfname) >= PATH_MAX - sizeof(int) * 3) {
+			errno = ENAMETOOLONG;
+			perror_msg_and_die("%s", outfname);
+		}
 	} else {
 		/* -ff without -o FILE is the same as single -f */
 		if (followfork >= 2)
@@ -1908,7 +1875,7 @@ init(int argc, char *argv[])
 	 * no		1	1	INTR_WHILE_WAIT
 	 */
 
-	if (outfname && argv[0]) {
+	if (outfname && argc) {
 		if (!opt_intr)
 			opt_intr = INTR_NEVER;
 		if (!qflag)
@@ -1923,26 +1890,26 @@ init(int argc, char *argv[])
 	 * Also we do not need to be protected by them as during interruption
 	 * in the startup_child() mode we kill the spawned process anyway.
 	 */
-	if (argv[0]) {
+	if (argc) {
 		startup_child(argv);
 	}
 
-	set_sigaction(SIGTTOU, SIG_IGN, NULL);
-	set_sigaction(SIGTTIN, SIG_IGN, NULL);
+	set_sighandler(SIGTTOU, SIG_IGN, NULL);
+	set_sighandler(SIGTTIN, SIG_IGN, NULL);
 	if (opt_intr != INTR_ANYWHERE) {
 		if (opt_intr == INTR_BLOCK_TSTP_TOO)
-			set_sigaction(SIGTSTP, SIG_IGN, NULL);
+			set_sighandler(SIGTSTP, SIG_IGN, NULL);
 		/*
 		 * In interactive mode (if no -o OUTFILE, or -p PID is used),
 		 * fatal signals are blocked while syscall stop is processed,
 		 * and acted on in between, when waiting for new syscall stops.
 		 * In non-interactive mode, signals are ignored.
 		 */
-		set_sigaction(SIGHUP, interactive ? interrupt : SIG_IGN, NULL);
-		set_sigaction(SIGINT, interactive ? interrupt : SIG_IGN, NULL);
-		set_sigaction(SIGQUIT, interactive ? interrupt : SIG_IGN, NULL);
-		set_sigaction(SIGPIPE, interactive ? interrupt : SIG_IGN, NULL);
-		set_sigaction(SIGTERM, interactive ? interrupt : SIG_IGN, NULL);
+		set_sighandler(SIGHUP, interactive ? interrupt : SIG_IGN, NULL);
+		set_sighandler(SIGINT, interactive ? interrupt : SIG_IGN, NULL);
+		set_sighandler(SIGQUIT, interactive ? interrupt : SIG_IGN, NULL);
+		set_sighandler(SIGPIPE, interactive ? interrupt : SIG_IGN, NULL);
+		set_sighandler(SIGTERM, interactive ? interrupt : SIG_IGN, NULL);
 	}
 
 	if (nprocs != 0 || daemonized_tracer)
@@ -1989,8 +1956,7 @@ cleanup(void)
 		tcp = tcbtab[i];
 		if (!tcp->pid)
 			continue;
-		if (debug_flag)
-			error_msg("cleanup: looking at pid %u", tcp->pid);
+		debug_func_msg("looking at pid %u", tcp->pid);
 		if (tcp->pid == strace_child) {
 			kill(tcp->pid, SIGCONT);
 			kill(tcp->pid, fatal_sig);
@@ -2017,17 +1983,17 @@ print_debug_info(const int pid, int status)
 	strcpy(buf, "???");
 	if (WIFSIGNALED(status))
 #ifdef WCOREDUMP
-		sprintf(buf, "WIFSIGNALED,%ssig=%s",
+		xsprintf(buf, "WIFSIGNALED,%ssig=%s",
 				WCOREDUMP(status) ? "core," : "",
 				signame(WTERMSIG(status)));
 #else
-		sprintf(buf, "WIFSIGNALED,sig=%s",
+		xsprintf(buf, "WIFSIGNALED,sig=%s",
 				signame(WTERMSIG(status)));
 #endif
 	if (WIFEXITED(status))
-		sprintf(buf, "WIFEXITED,exitcode=%u", WEXITSTATUS(status));
+		xsprintf(buf, "WIFEXITED,exitcode=%u", WEXITSTATUS(status));
 	if (WIFSTOPPED(status))
-		sprintf(buf, "WIFSTOPPED,sig=%s", signame(WSTOPSIG(status)));
+		xsprintf(buf, "WIFSTOPPED,sig=%s", signame(WSTOPSIG(status)));
 	evbuf[0] = '\0';
 	if (event != 0) {
 		static const char *const event_names[] = {
@@ -2044,7 +2010,7 @@ print_debug_info(const int pid, int status)
 			e = event_names[event];
 		else if (event == PTRACE_EVENT_STOP)
 			e = "STOP";
-		sprintf(evbuf, ",EVENT_%s (%u)", e, event);
+		xsprintf(evbuf, ",EVENT_%s (%u)", e, event);
 	}
 	error_msg("[wait(0x%06x) = %u] %s%s", status, pid, buf, evbuf);
 }
@@ -2074,11 +2040,15 @@ maybe_allocate_tcb(const int pid, int status)
 			error_msg("Process %d attached", pid);
 		return tcp;
 	} else {
-		/* This can happen if a clone call used
-		 * CLONE_PTRACE itself.
+		/*
+		 * This can happen if a clone call misused CLONE_PTRACE itself.
+		 *
+		 * There used to be a dance around possible re-injection of
+		 * WSTOPSIG(status), but it was later removed as the only
+		 * observable stop here is the initial ptrace-stop.
 		 */
-		ptrace(PTRACE_CONT, pid, NULL, 0);
-		error_msg("Stop of unknown pid %u seen, PTRACE_CONTed it", pid);
+		ptrace(PTRACE_DETACH, pid, NULL, 0L);
+		error_msg("Detached unknown pid %d", pid);
 		return NULL;
 	}
 }
@@ -2141,7 +2111,7 @@ print_signalled(struct tcb *tcp, const int pid, int status)
 	}
 
 	if (cflag != CFLAG_ONLY_STATS
-	    && is_number_in_set(WTERMSIG(status), &signal_set)) {
+	    && is_number_in_set(WTERMSIG(status), signal_set)) {
 		printleader(tcp);
 #ifdef WCOREDUMP
 		tprintf("+++ killed by %s %s+++\n",
@@ -2176,7 +2146,7 @@ print_stopped(struct tcb *tcp, const siginfo_t *si, const unsigned int sig)
 {
 	if (cflag != CFLAG_ONLY_STATS
 	    && !hide_log(tcp)
-	    && is_number_in_set(sig, &signal_set)) {
+	    && is_number_in_set(sig, signal_set)) {
 		printleader(tcp);
 		if (si) {
 			tprintf("--- %s ", signame(sig));
@@ -2191,15 +2161,13 @@ print_stopped(struct tcb *tcp, const siginfo_t *si, const unsigned int sig)
 static void
 startup_tcb(struct tcb *tcp)
 {
-	if (debug_flag)
-		error_msg("pid %d has TCB_STARTUP, initializing it", tcp->pid);
+	debug_msg("pid %d has TCB_STARTUP, initializing it", tcp->pid);
 
 	tcp->flags &= ~TCB_STARTUP;
 
 	if (!use_seize) {
-		if (debug_flag)
-			error_msg("setting opts 0x%x on pid %d",
-				  ptrace_setoptions, tcp->pid);
+		debug_msg("setting opts 0x%x on pid %d",
+			  ptrace_setoptions, tcp->pid);
 		if (ptrace(PTRACE_SETOPTIONS, tcp->pid, NULL, ptrace_setoptions) < 0) {
 			if (errno != ESRCH) {
 				/* Should never happen, really */
@@ -2208,7 +2176,7 @@ startup_tcb(struct tcb *tcp)
 		}
 	}
 
-	if (get_scno(tcp) == 1)
+	if ((tcp->flags & TCB_GRABBED) && (get_scno(tcp) == 1))
 		tcp->s_prev_ent = tcp->s_ent;
 }
 
@@ -2222,11 +2190,11 @@ print_event_exit(struct tcb *tcp)
 
 	if (followfork < 2 && printing_tcp && printing_tcp != tcp
 	    && printing_tcp->curcol != 0) {
-		current_tcp = printing_tcp;
+		set_current_tcp(printing_tcp);
 		tprints(" <unfinished ...>\n");
-		fflush(printing_tcp->outf);
+		flush_tcp_output(printing_tcp);
 		printing_tcp->curcol = 0;
-		current_tcp = tcp;
+		set_current_tcp(tcp);
 	}
 
 	if ((followfork < 2 && printing_tcp != tcp)
@@ -2243,69 +2211,13 @@ print_event_exit(struct tcb *tcp)
 		 */
 		tprints(" <unfinished ...>");
 	}
+
+	printing_tcp = tcp;
 	tprints(") ");
 	tabto();
 	tprints("= ?\n");
 	line_ended();
 }
-
-enum trace_event {
-	/* Break the main loop. */
-	TE_BREAK,
-
-	/* Call next_event() again. */
-	TE_NEXT,
-
-	/* Restart the tracee with signal 0 and call next_event() again. */
-	TE_RESTART,
-
-	/*
-	 * For all the events below, current_tcp is set to current tracee's
-	 * tcb.  All the suggested actions imply that you want to continue
-	 * tracing of the current tracee; alternatively, you can detach it.
-	 */
-
-	/*
-	 * Syscall entry or exit.
-	 * Restart the tracee with signal 0, or with an injected signal number.
-	 */
-	TE_SYSCALL_STOP,
-
-	/*
-	 * Tracee received signal with number WSTOPSIG(*pstatus); signal info
-	 * is written to *si.  Restart the tracee (with that signal number
-	 * if you want to deliver it).
-	 */
-	TE_SIGNAL_DELIVERY_STOP,
-
-	/*
-	 * Tracee was killed by a signal with number WTERMSIG(*pstatus).
-	 */
-	TE_SIGNALLED,
-
-	/*
-	 * Tracee was stopped by a signal with number WSTOPSIG(*pstatus).
-	 * Restart the tracee with that signal number.
-	 */
-	TE_GROUP_STOP,
-
-	/*
-	 * Tracee exited with status WEXITSTATUS(*pstatus).
-	 */
-	TE_EXITED,
-
-	/*
-	 * Tracee is going to perform execve().
-	 * Restart the tracee with signal 0.
-	 */
-	TE_STOP_BEFORE_EXECVE,
-
-	/*
-	 * Tracee is going to terminate.
-	 * Restart the tracee with signal 0.
-	 */
-	TE_STOP_BEFORE_EXIT,
-};
 
 static enum trace_event
 next_event(int *pstatus, siginfo_t *si)
@@ -2380,10 +2292,10 @@ next_event(int *pstatus, siginfo_t *si)
 			return TE_NEXT;
 	}
 
-	clear_regs();
+	clear_regs(tcp);
 
 	/* Set current output file */
-	current_tcp = tcp;
+	set_current_tcp(tcp);
 
 	if (cflag) {
 		tv_sub(&tcp->dtime, &ru.ru_stime, &tcp->stime);
@@ -2419,8 +2331,7 @@ next_event(int *pstatus, siginfo_t *si)
 		 * just before the process takes a signal.
 		 */
 		if (sig == SIGSTOP && (tcp->flags & TCB_IGNORE_ONE_SIGSTOP)) {
-			if (debug_flag)
-				error_msg("ignored SIGSTOP on pid %d", tcp->pid);
+			debug_func_msg("ignored SIGSTOP on pid %d", tcp->pid);
 			tcp->flags &= ~TCB_IGNORE_ONE_SIGSTOP;
 			return TE_RESTART;
 		} else if (sig == syscall_trap_sig) {
@@ -2551,6 +2462,31 @@ dispatch_event(enum trace_event ret, int *pstatus, siginfo_t *si)
 
 	case TE_STOP_BEFORE_EXECVE:
 		/*
+		 * Check that we are inside syscall now (next event after
+		 * PTRACE_EVENT_EXEC should be for syscall exiting).  If it is
+		 * not the case, we might have a situation when we attach to a
+		 * process and the first thing we see is a PTRACE_EVENT_EXEC
+		 * and all the following syscall state tracking is screwed up
+		 * otherwise.
+		 */
+		if (entering(current_tcp)) {
+			int ret;
+
+			error_msg("Stray PTRACE_EVENT_EXEC from pid %d"
+				  ", trying to recover...",
+				  current_tcp->pid);
+
+			current_tcp->flags |= TCB_RECOVERING;
+			ret = trace_syscall(current_tcp, &restart_sig);
+			current_tcp->flags &= ~TCB_RECOVERING;
+
+			if (ret < 0) {
+				/* The reason is described in TE_SYSCALL_STOP */
+				return true;
+			}
+		}
+
+		/*
 		 * Under Linux, execve changes pid to thread leader's pid,
 		 * and we see this changed pid on EVENT_EXEC and later,
 		 * execve sysexit. Leader "disappears" without exit
@@ -2566,7 +2502,8 @@ dispatch_event(enum trace_event ret, int *pstatus, siginfo_t *si)
 		 * On 2.6 and earlier, it can return garbage.
 		 */
 		if (os_release >= KERNEL_VERSION(3, 0, 0))
-			current_tcp = maybe_switch_tcbs(current_tcp, current_tcp->pid);
+			set_current_tcp(maybe_switch_tcbs(current_tcp,
+							  current_tcp->pid));
 
 		if (detach_on_execve) {
 			if (current_tcp->flags & TCB_SKIP_DETACH_ON_FIRST_EXEC) {

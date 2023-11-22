@@ -16,8 +16,6 @@
   -->
 
 <resources>
-  <drawable name="grayBg">#FF333333</drawable>
-
   <!-- Theme for the InCallActivity activity. Should have a transparent background for the
        circular reveal animation for a new outgoing call to work correctly. We don't just use
        Theme.Black.NoTitleBar directly, since we want any popups or dialogs from the
@@ -48,14 +46,17 @@
     <item name="dialpad_key_number_margin_bottom">
       @dimen/incall_dialpad_key_number_margin_bottom
     </item>
-    <item name="dialpad_zero_key_number_margin_bottom">
-      @dimen/incall_dialpad_zero_key_number_margin_bottom
-    </item>
     <item name="dialpad_digits_adjustable_text_size">
       @dimen/incall_dialpad_digits_adjustable_text_size
     </item>
     <item name="dialpad_digits_adjustable_height">
       @dimen/incall_dialpad_digits_adjustable_height
+    </item>
+    <item name="dialpad_key_letters_size_for_dual_alphabets">
+      @dimen/incall_dialpad_key_letters_size_for_dual_alphabets
+    </item>
+    <item name="dialpad_key_letters_size_for_single_alphabet">
+      @dimen/incall_dialpad_key_letters_size_for_single_alphabet
     </item>
     <item name="dialpad_key_numbers_size">
       @dimen/incall_dialpad_key_numbers_size
@@ -66,14 +67,14 @@
     <item name="dialpad_elevation">10dp</item>
   </style>
 
-  <style name="AfterCallNotificationTheme" parent="@style/Theme.AppCompat.Light.Dialog.MinWidth">
+  <style name="AfterCallNotificationTheme" parent="@android:style/Theme.Material.Light.Dialog">
     <!-- This colorAccent is to style checkboxes in the dialogs -->
     <item name="colorAccent">@color/dialer_theme_color</item>
     <!-- This is needed to make any alert dialogs in this activity take up minimum space -->
     <item name="android:alertDialogTheme">@style/AfterCallDialogStyle</item>
   </style>
 
-  <style name="AfterCallDialogStyle" parent="@style/Theme.AppCompat.Light.Dialog.MinWidth">
+  <style name="AfterCallDialogStyle" parent="@android:style/Theme.Material.Light.Dialog">
     <!-- This colorAccent is to style text in the dialogs -->
     <item name="android:colorAccent">@color/dialer_theme_color</item>
   </style>

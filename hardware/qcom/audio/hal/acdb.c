@@ -18,10 +18,11 @@
 //#define LOG_NDEBUG 0
 #define LOG_NDDEBUG 0
 
+#include <errno.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <dlfcn.h>
-#include <cutils/log.h>
+#include <log/log.h>
 #include <cutils/str_parms.h>
 #include <system/audio.h>
 #include <tinyalsa/asoundlib.h>

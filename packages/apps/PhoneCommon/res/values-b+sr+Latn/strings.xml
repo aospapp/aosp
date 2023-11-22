@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Nema SIM kartice ili postoji greška na njoj"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Mobilna mreža nije dostupna"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Broj za fiksno biranje je ograničio odlazne pozive."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL zahtev je promenjen u USSD zahtev."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL zahtev je promenjen u SS zahtev."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL zahtev je promenjen u DIAL zahtev sa drugačijim brojem."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Poziv je promenjen u USSD zahtev"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Poziv je promenjen u SS zahtev"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Promenjeno je u drugi broj"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Promenjeno je u video poziv"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Video poziv je promenjen u SS zahtev"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Video poziv je promenjen u USSD zahtev"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Promenjeno je u običan poziv"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Promenjeno je u drugi broj"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Nije moguće upućivati odlazne pozive dok je uključeno ograničavanje poziva."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Pozivi su ograničeni kontrolom pristupa."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Hitni pozivi su ograničeni kontrolom pristupa."</string>

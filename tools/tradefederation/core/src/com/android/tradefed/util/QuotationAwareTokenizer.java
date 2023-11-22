@@ -77,7 +77,7 @@ public class QuotationAwareTokenizer {
                     if (token.length() > 0) {
                         // this is the end of a non-empty token; dump it in our list of tokens,
                         // clear our temp storage, and keep rolling
-                        Log.v(LOG_TAG, String.format("Finished token '%s'", token.toString()));
+                        Log.d(LOG_TAG, String.format("Finished token '%s'", token.toString()));
                         tokens.add(token.toString());
                         token.delete(0, token.length());
                     }

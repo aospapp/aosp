@@ -1,7 +1,7 @@
 /** @file
   BDS library definition, include the file and data structure
 
-Copyright (c) 2004 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
 (C) Copyright 2015 Hewlett Packard Enterprise Development LP<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
@@ -43,8 +43,9 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Protocol/DriverHealth.h>
 #include <Protocol/FormBrowser2.h>
 #include <Protocol/VariableLock.h>
+#include <Protocol/RamDisk.h>
+#include <Protocol/DeferredImageLoad.h>
 
-#include <Guid/ZeroGuid.h>
 #include <Guid/MemoryTypeInformation.h>
 #include <Guid/FileInfo.h>
 #include <Guid/GlobalVariable.h>
@@ -92,8 +93,6 @@ typedef enum {
   BmMessageSataBoot,
   BmMessageUsbBoot,
   BmMessageScsiBoot,
-  BmMessageNetworkBoot,
-  BmMessageHttpBoot,
   BmMiscBoot
 } BM_BOOT_TYPE;
 
@@ -167,28 +166,6 @@ typedef struct {
 #define BM_HOTKEY_FROM_LINK(a) CR (a, BM_HOTKEY, Link, BM_HOTKEY_SIGNATURE)
 
 /**
-  Get the image file buffer data and buffer size by its device path. 
-
-  @param FilePath  On input, a pointer to an allocated buffer containing the device
-                   path of the file.
-                   On output the pointer could be NULL when the function fails to
-                   load the boot option, or could point to an allocated buffer containing
-                   the device path of the file.
-                   It could be updated by either short-form device path expanding,
-                   or default boot file path appending.
-                   Caller is responsible to free it when it's non-NULL.
-  @param FileSize  A pointer to the size of the file buffer.
-
-  @retval NULL   File is NULL, or FileSize is NULL. Or, the file can't be found.
-  @retval other  The file buffer. The caller is responsible to free the memory.
-**/
-VOID *
-BmLoadEfiBootOption (
-  IN OUT EFI_DEVICE_PATH_PROTOCOL **FilePath,
-  OUT    UINTN                    *FileSize
-  );
-
-/**
   Get the Option Number that wasn't used.
 
   @param  LoadOptionType      Load option type.
@@ -221,36 +198,15 @@ BmWriteBootToOsPerformanceData (
   IN VOID       *Context
   );
 
-
-/**
-  Get the headers (dos, image, optional header) from an image
-
-  @param  Device                SimpleFileSystem device handle
-  @param  FileName              File name for the image
-  @param  DosHeader             Pointer to dos header
-  @param  Hdr                   The buffer in which to return the PE32, PE32+, or TE header.
-
-  @retval EFI_SUCCESS           Successfully get the machine type.
-  @retval EFI_NOT_FOUND         The file is not found.
-  @retval EFI_LOAD_ERROR        File is not a valid image file.
-
-**/
-EFI_STATUS
-BmGetImageHeader (
-  IN  EFI_HANDLE                  Device,
-  IN  CHAR16                      *FileName,
-  OUT EFI_IMAGE_DOS_HEADER        *DosHeader,
-  OUT EFI_IMAGE_OPTIONAL_HEADER_PTR_UNION   Hdr
-  );
-
 /**
   This routine adjust the memory information for different memory type and 
   save them into the variables for next boot. It resets the system when
   memory information is updated and the current boot option belongs to
-  boot category instead of application category.
+  boot category instead of application category. It doesn't count the
+  reserved memory occupied by RAM Disk.
 
-  @param Boot  TRUE if current boot option belongs to boot category instead of
-               application category.
+  @param Boot               TRUE if current boot option belongs to boot
+                            category instead of application category.
 **/
 VOID
 BmSetMemoryTypeInformationVariable (
@@ -352,25 +308,6 @@ BmSetVariableAndReportStatusCodeOnError (
   );
 
 /**
-  Get the load option by its device path.
-
-  @param FilePath  The device path pointing to a load option.
-                   It could be a short-form device path.
-  @param FullPath  Return the full device path of the load option after
-                   short-form device path expanding.
-                   Caller is responsible to free it.
-  @param FileSize  Return the load option size.
-
-  @return The load option buffer. Caller is responsible to free the memory.
-**/
-VOID *
-BmGetLoadOptionBuffer (
-  IN  EFI_DEVICE_PATH_PROTOCOL          *FilePath,
-  OUT EFI_DEVICE_PATH_PROTOCOL          **FullPath,
-  OUT UINTN                             *FileSize
-  );
-
-/**
   Return whether the PE header of the load option is valid or not.
 
   @param[in] Type       The load option type.
@@ -456,4 +393,46 @@ BmCharToUint (
   IN CHAR16                           Char
   );
 
+/**
+  Return the boot description for the controller.
+
+  @param Handle                Controller handle.
+
+  @return  The description string.
+**/
+CHAR16 *
+BmGetBootDescription (
+  IN EFI_HANDLE                  Handle
+  );
+
+/**
+  Enumerate all boot option descriptions and append " 2"/" 3"/... to make
+  unique description.
+
+  @param BootOptions            Array of boot options.
+  @param BootOptionCount        Count of boot options.
+**/
+VOID
+BmMakeBootOptionDescriptionUnique (
+  EFI_BOOT_MANAGER_LOAD_OPTION         *BootOptions,
+  UINTN                                BootOptionCount
+  );
+
+/**
+  Get the file buffer from the specified Load File instance.
+
+  @param LoadFileHandle The specified Load File instance.
+  @param FilePath       The file path which will pass to LoadFile().
+  @param FullPath       Return the full device path pointing to the load option.
+  @param FileSize       Return the size of the load option.
+
+  @return  The load option buffer or NULL if fails.
+**/
+VOID *
+BmGetFileBufferFromLoadFile (
+  EFI_HANDLE                          LoadFileHandle,
+  IN  EFI_DEVICE_PATH_PROTOCOL        *FilePath,
+  OUT EFI_DEVICE_PATH_PROTOCOL        **FullPath,
+  OUT UINTN                           *FileSize
+  );
 #endif // _INTERNAL_BM_H_

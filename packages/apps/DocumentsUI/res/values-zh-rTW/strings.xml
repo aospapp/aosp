@@ -41,7 +41,7 @@
     <string name="menu_compress" msgid="37539111904724188">"壓縮"</string>
     <string name="menu_extract" msgid="8171946945982532262">"解壓縮到…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"重新命名"</string>
-    <string name="menu_inspector" msgid="8217713416277319588">"取得資訊"</string>
+    <string name="menu_inspect" msgid="7279855349299446224">"取得資訊"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"在「<xliff:g id="SOURCE">%1$s</xliff:g>」中查看"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"新視窗"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"剪下"</string>
@@ -57,6 +57,8 @@
     <string name="button_move" msgid="8596460499325291272">"移動"</string>
     <string name="button_dismiss" msgid="7235249361023803349">"關閉"</string>
     <string name="button_retry" msgid="4011461781916631389">"再試一次"</string>
+    <string name="button_clear" msgid="5412304437764369441">"清除"</string>
+    <string name="button_show_provider" msgid="6905880493806292753">"在供應商的應用程式中顯示"</string>
     <string name="not_sorted" msgid="7813496644889115530">"未排序"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"名稱"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"摘要"</string>
@@ -64,14 +66,6 @@
     <string name="sort_dimension_size" msgid="2190547351159472884">"大小"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"上次修改時間"</string>
     <string name="directory_items" msgid="6645621978998614003">"項目數量"</string>
-    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"使用以下應用程式開啟這種檔案"</string>
-    <string name="handler_app_belongs_to" msgid="5956928604521893459">"這個檔案的提供者"</string>
-    <string name="handler_app_button_info_1" msgid="4271199640671067569">"其他應用程式可開啟這種檔案類型。清除"</string>
-    <string name="handler_app_button_info_2" msgid="4299969771512815898">"設為預設值。"</string>
-    <string name="handler_app_clear" msgid="206579047716445033">"清除"</string>
-    <string name="handler_app_show_in" msgid="7923573101129079048">"在提供者中顯示"</string>
-    <string name="handler_app_not_selected" msgid="8178393676227130360">"未選取"</string>
-    <string name="handler_app_unknown" msgid="56574249066388341">"不明"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"遞增"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"遞減"</string>
     <string name="drawer_open" msgid="8071673398187261741">"顯示根目錄"</string>
@@ -90,7 +84,6 @@
     <string name="toast_no_application" msgid="7555319548595113121">"無法開啟檔案"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"無法開啟已封存的檔案"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"無法刪除部分文件"</string>
-    <string name="file_inspector_load_error" msgid="1226344446677541109">"無法載入屬性"</string>
     <string name="share_via" msgid="8725082736005677161">"分享方式："</string>
     <string name="copy_notification_title" msgid="52256435625098456">"複製檔案"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"正在壓縮檔案"</string>
@@ -119,11 +112,11 @@
       <item quantity="one">正在刪除 <xliff:g id="COUNT_0">%1$d</xliff:g> 個項目。</item>
     </plurals>
     <string name="undo" msgid="2902438994196400565">"復原"</string>
-    <string name="copy_preparing" msgid="5326063807006898223">"正在準備複製…"</string>
-    <string name="compress_preparing" msgid="6650018601382062672">"正在準備壓縮…"</string>
-    <string name="extract_preparing" msgid="58266275455027829">"正在準備解壓縮檔案…"</string>
-    <string name="move_preparing" msgid="8742573245485449429">"正在準備移動…"</string>
-    <string name="delete_preparing" msgid="6513863752916028147">"正在準備刪除…"</string>
+    <string name="copy_preparing" msgid="4759516490222449324">"準備中..."</string>
+    <string name="compress_preparing" msgid="7401605598969019696">"準備中..."</string>
+    <string name="extract_preparing" msgid="4796626960061745796">"準備中..."</string>
+    <string name="move_preparing" msgid="6504239656430530761">"準備中..."</string>
+    <string name="delete_preparing" msgid="7339349837842802508">"準備中..."</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
       <item quantity="other">無法複製 <xliff:g id="COUNT_1">%1$d</xliff:g> 個項目</item>
@@ -213,5 +206,4 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"archive<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"要覆寫「<xliff:g id="NAME">%1$s</xliff:g>」嗎？"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"繼續在背景執行"</string>
-    <string name="inspector_debug_section" msgid="3447621501565766900">"偵錯資訊 (僅限開發人員)"</string>
 </resources>

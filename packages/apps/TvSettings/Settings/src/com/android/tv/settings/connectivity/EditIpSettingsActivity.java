@@ -16,25 +16,29 @@
 
 package com.android.tv.settings.connectivity;
 
-import android.app.Fragment;
+import android.arch.lifecycle.ViewModelProviders;
 import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.WifiConfiguration;
 import android.os.Bundle;
-import android.util.Log;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
 
-import com.android.tv.settings.form.FormPage;
-import com.android.tv.settings.form.FormPageResultListener;
+import com.android.internal.logging.nano.MetricsProto;
+import com.android.tv.settings.R;
+import com.android.tv.settings.connectivity.setup.AdvancedWifiOptionsFlow;
+import com.android.tv.settings.connectivity.util.State;
+import com.android.tv.settings.connectivity.util.StateMachine;
+import com.android.tv.settings.core.instrumentation.InstrumentedActivity;
 
 /**
  * Allows the modification of advanced Wi-Fi settings
  */
-public class EditIpSettingsActivity extends WifiMultiPagedFormActivity
-        implements SaveWifiConfigurationFragment.Listener, TimedMessageWizardFragment.Listener {
-
+public class EditIpSettingsActivity extends InstrumentedActivity implements
+        State.FragmentChangeListener {
     private static final String TAG = "EditIpSettingsActivity";
 
-    public static final int NETWORK_ID_ETHERNET = WifiConfiguration.INVALID_NETWORK_ID;
+    private static final int NETWORK_ID_ETHERNET = WifiConfiguration.INVALID_NETWORK_ID;
     private static final String EXTRA_NETWORK_ID = "network_id";
 
     public static Intent createIntent(Context context, int networkId) {
@@ -42,107 +46,81 @@ public class EditIpSettingsActivity extends WifiMultiPagedFormActivity
                 .putExtra(EXTRA_NETWORK_ID, networkId);
     }
 
-    private NetworkConfiguration mConfiguration;
-    private AdvancedWifiOptionsFlow mAdvancedWifiOptionsFlow;
-    private FormPage mSavePage;
-    private FormPage mSuccessPage;
+    private State mSaveState;
+    private State mSaveSuccessState;
+    private State mSaveFailedState;
+    private StateMachine mStateMachine;
+    private final StateMachine.Callback mStateMachineCallback = result -> {
+        setResult(result);
+        finish();
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        int networkId = getIntent().getIntExtra(EXTRA_NETWORK_ID, NETWORK_ID_ETHERNET);
-        if (networkId == NETWORK_ID_ETHERNET) {
-            mConfiguration = NetworkConfigurationFactory.createNetworkConfiguration(this,
-                    NetworkConfigurationFactory.TYPE_ETHERNET);
-            ((EthernetConfig) mConfiguration).load();
-        } else {
-            mConfiguration = NetworkConfigurationFactory.createNetworkConfiguration(this,
-                    NetworkConfigurationFactory.TYPE_WIFI);
-            ((WifiConfig) mConfiguration).load(networkId);
-        }
-        if (mConfiguration != null) {
-            mAdvancedWifiOptionsFlow = new AdvancedWifiOptionsFlow(this, this, mConfiguration);
-            addPage(mAdvancedWifiOptionsFlow.getInitialIpSettingsPage());
-        } else {
-            Log.e(TAG, "Could not find existing configuration for network id: " + networkId);
-        }
         super.onCreate(savedInstanceState);
-    }
-
-    @Override
-    public void onSaveWifiConfigurationCompleted(int reason) {
-        Bundle result = new Bundle();
-        result.putString(FormPage.DATA_KEY_SUMMARY_STRING, Integer.toString(reason));
-        onBundlePageResult(mSavePage, result);
-    }
-
-    @Override
-    public void onTimedMessageCompleted() {
-        Bundle result = new Bundle();
-        result.putString(FormPage.DATA_KEY_SUMMARY_STRING, "");
-        onBundlePageResult(mSuccessPage, result);
-    }
-
-    private void addResultWifiFormPage(int dataSummary) {
-        switch (dataSummary) {
-            case SaveWifiConfigurationFragment.RESULT_FAILURE:
-                addPage(WifiFormPageType.SAVE_FAILED);
-                break;
-            case SaveWifiConfigurationFragment.RESULT_SUCCESS:
-                addPage(WifiFormPageType.SAVE_SUCCESS);
-                break;
-            default:
-                break;
-        }
-    }
-
-    @Override
-    protected boolean onPageComplete(WifiFormPageType formPageType, FormPage formPage) {
-        switch(formPageType) {
-            case SAVE:
-                addResultWifiFormPage(Integer.valueOf(formPage.getDataSummary()));
-                break;
-            case SAVE_FAILED:
-            case SAVE_SUCCESS:
-                break;
-            default:
-                if (mAdvancedWifiOptionsFlow.handlePageComplete(formPageType, formPage) ==
-                        AdvancedWifiOptionsFlow.RESULT_ALL_PAGES_COMPLETE) {
-                    save();
-                }
-                break;
-        }
-        return true;
-    }
-
-    @Override
-    protected void displayPage(FormPage formPage, FormPageResultListener listener,
-            boolean forward) {
-        WifiFormPageType formPageType = getFormPageType(formPage);
-        if (formPageType == WifiFormPageType.SAVE) {
-            mSavePage = formPage;
-            Fragment fragment = SaveWifiConfigurationFragment.newInstance(
-                    getString(formPageType.getTitleResourceId(), mConfiguration.getPrintableName()),
-                    mConfiguration);
-            displayFragment(fragment, forward);
-        } else if (formPageType == WifiFormPageType.SAVE_SUCCESS) {
-            mSuccessPage = formPage;
-            Fragment fragment = TimedMessageWizardFragment.newInstance(
-                    getString(formPageType.getTitleResourceId()));
-            displayFragment(fragment, forward);
+        setContentView(R.layout.wifi_container);
+        mStateMachine = ViewModelProviders.of(this).get(StateMachine.class);
+        mStateMachine.setCallback(mStateMachineCallback);
+        mSaveState = new SaveState(this);
+        mSaveSuccessState = new SaveSuccessState(this);
+        mSaveFailedState = new SaveFailedState(this);
+        int networkId = getIntent().getIntExtra(EXTRA_NETWORK_ID, NETWORK_ID_ETHERNET);
+        NetworkConfiguration netConfig;
+        if (networkId == NETWORK_ID_ETHERNET) {
+            netConfig = new EthernetConfig(this);
+            ((EthernetConfig) netConfig).load();
         } else {
-            displayPage(formPageType, mConfiguration.getPrintableName(), null, null,
-                    mAdvancedWifiOptionsFlow.getPreviousPage(formPageType), null,
-                    formPageType != WifiFormPageType.SAVE_SUCCESS, formPage, listener, forward,
-                    mAdvancedWifiOptionsFlow.isEmptyTextAllowed(formPageType));
+            netConfig = new WifiConfig(this);
+            ((WifiConfig) netConfig).load(networkId);
+        }
+        EditSettingsInfo editSettingsInfo =
+                    ViewModelProviders.of(this).get(EditSettingsInfo.class);
+        editSettingsInfo.setNetworkConfiguration(netConfig);
+        AdvancedWifiOptionsFlow.createFlow(this, false, true, netConfig,
+                null, mSaveState, AdvancedWifiOptionsFlow.START_IP_SETTINGS_PAGE);
+
+        /* Save */
+        mStateMachine.addState(
+                mSaveState,
+                StateMachine.RESULT_SUCCESS,
+                mSaveSuccessState
+        );
+        mStateMachine.addState(
+                mSaveState,
+                StateMachine.RESULT_FAILURE,
+                mSaveFailedState
+        );
+
+        mStateMachine.start(true);
+    }
+
+
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.DIALOG_WIFI_AP_EDIT;
+    }
+
+    @Override
+    public void onBackPressed() {
+        mStateMachine.back();
+    }
+
+    private void updateView(Fragment fragment, boolean movingForward) {
+        if (fragment != null) {
+            FragmentTransaction updateTransaction = getSupportFragmentManager().beginTransaction();
+            if (movingForward) {
+                updateTransaction.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN);
+            } else {
+                updateTransaction.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_CLOSE);
+            }
+            updateTransaction.replace(R.id.wifi_container, fragment, TAG);
+            updateTransaction.commit();
         }
     }
 
-    private FormPage getPreviousPage(WifiFormPageType formPageType) {
-        return mAdvancedWifiOptionsFlow.getPreviousPage(formPageType);
-    }
-
-    private void save() {
-        mAdvancedWifiOptionsFlow.updateConfiguration(mConfiguration);
-        addPage(WifiFormPageType.SAVE);
+    @Override
+    public void onFragmentChange(Fragment newFragment, boolean movingForward) {
+        updateView(newFragment, movingForward);
     }
 }

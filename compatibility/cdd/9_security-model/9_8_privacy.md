@@ -7,7 +7,7 @@ Android stores the history of the user's choices and manages such history by
 
 Device implementations:
 
-*   [C-1-1] MUST keep a reasonable retention period of such user history.
+*   [C-0-1] MUST keep a reasonable retention period of such user history.
 *   [SR] Are STRONGLY RECOMMENDED to keep the 14 days retention period as
     configured by default in the AOSP implementation.
 
@@ -66,3 +66,12 @@ preloading a VPN service with `android.permission.CONTROL_VPN` granted), they:
      https://developer.android.com/reference/android/app/admin/DevicePolicyManager.html#setAlwaysOnVpnPackage%28android.content.ComponentName, java.lang.String, boolean%29)
      , in which case the user does not need to provide a separate consent, but
      MUST only be notified.
+
+If device implementations implement a user affordance to toggle on the
+"always-on VPN" function of a 3rd-party VPN app, they:
+
+*    [C-3-1] MUST disable this user affordance for apps that do not support
+     always-on VPN service in the `AndroidManifest.xml` file via setting the
+     [`SERVICE_META_DATA_SUPPORTS_ALWAYS_ON`](
+     https://developer.android.com/reference/android/net/VpnService.html#SERVICE_META_DATA_SUPPORTS_ALWAYS_ON)
+     attribute to `false`.

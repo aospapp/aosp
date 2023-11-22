@@ -136,6 +136,10 @@ public abstract class MemberInfo extends DocInfo implements Comparable, Scoped {
     return mContainingClass;
   }
 
+  public boolean isCloned() {
+    return mContainingClass != mRealContainingClass;
+  }
+
   /**
    * Returns {@code true} if the member's scope is above the minimum requested scope passed to
    * Doclava.  Provided that the {@code -showAnnotationOverridesVisibility} argument was passed to

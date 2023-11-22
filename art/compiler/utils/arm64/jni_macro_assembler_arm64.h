@@ -21,13 +21,15 @@
 #include <memory>
 #include <vector>
 
+#include <android-base/logging.h>
+
 #include "assembler_arm64.h"
 #include "base/arena_containers.h"
 #include "base/enums.h"
-#include "base/logging.h"
+#include "base/macros.h"
+#include "offsets.h"
 #include "utils/assembler.h"
 #include "utils/jni_macro_assembler.h"
-#include "offsets.h"
 
 // TODO(VIXL): Make VIXL compile with -Wshadow.
 #pragma GCC diagnostic push
@@ -40,9 +42,9 @@ namespace arm64 {
 
 class Arm64JNIMacroAssembler FINAL : public JNIMacroAssemblerFwd<Arm64Assembler, PointerSize::k64> {
  public:
-  explicit Arm64JNIMacroAssembler(ArenaAllocator* arena)
-      : JNIMacroAssemblerFwd(arena),
-        exception_blocks_(arena->Adapter(kArenaAllocAssembler)) {}
+  explicit Arm64JNIMacroAssembler(ArenaAllocator* allocator)
+      : JNIMacroAssemblerFwd(allocator),
+        exception_blocks_(allocator->Adapter(kArenaAllocAssembler)) {}
 
   ~Arm64JNIMacroAssembler();
 
@@ -56,8 +58,9 @@ class Arm64JNIMacroAssembler FINAL : public JNIMacroAssemblerFwd<Arm64Assembler,
                   const ManagedRegisterEntrySpills& entry_spills) OVERRIDE;
 
   // Emit code that will remove an activation from the stack.
-  void RemoveFrame(size_t frame_size, ArrayRef<const ManagedRegister> callee_save_regs)
-      OVERRIDE;
+  void RemoveFrame(size_t frame_size,
+                   ArrayRef<const ManagedRegister> callee_save_regs,
+                   bool may_suspend) OVERRIDE;
 
   void IncreaseFrameSize(size_t adjust) OVERRIDE;
   void DecreaseFrameSize(size_t adjust) OVERRIDE;
@@ -234,7 +237,7 @@ class Arm64JNIMacroAssembler FINAL : public JNIMacroAssemblerFwd<Arm64Assembler,
 class Arm64JNIMacroLabel FINAL
     : public JNIMacroLabelCommon<Arm64JNIMacroLabel,
                                  vixl::aarch64::Label,
-                                 kArm64> {
+                                 InstructionSet::kArm64> {
  public:
   vixl::aarch64::Label* AsArm64() {
     return AsPlatformLabel();

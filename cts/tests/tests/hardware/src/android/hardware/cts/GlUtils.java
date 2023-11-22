@@ -17,6 +17,7 @@
 package android.hardware.cts;
 
 import android.opengl.GLES20;
+import android.util.Pair;
 
 import java.util.Arrays;
 import java.util.regex.Matcher;
@@ -27,6 +28,10 @@ final class GlUtils {
     }
 
     static int getMajorVersion() {
+        return getVersion().first;
+    }
+
+    static Pair<Integer, Integer> getVersion() {
         // Section 6.1.5 of the OpenGL ES specification indicates the GL version
         // string strictly follows this format:
         //
@@ -42,9 +47,10 @@ final class GlUtils {
         Pattern pattern = Pattern.compile("OpenGL ES ([0-9]+)\\.([0-9]+)");
         Matcher matcher = pattern.matcher(version);
         if (matcher.find()) {
-            return Integer.parseInt(matcher.group(1));
+            return new Pair<>(
+                    Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2)));
         }
-        return 2;
+        return new Pair<>(2, 0);
     }
 
     static String[] getExtensions() {

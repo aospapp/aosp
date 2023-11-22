@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <getopt.h>
 #include <string.h>
@@ -30,7 +32,7 @@ static void usage(int ret)
 {
 	fprintf(stderr, "%s [-B block_list] [-D basefs_out] [-T timestamp]\n"
 			"\t[-C fs_config] [-S file_contexts] [-p product_out]\n"
-			"\t[-a mountpoint] [-d basefs_in] [-f src_dir] [-e] image\n",
+			"\t[-a mountpoint] [-d basefs_in] [-f src_dir] [-e] [-s] image\n",
                 prog_name);
 	exit(ret);
 }
@@ -41,7 +43,10 @@ static char *absolute_path(const char *file)
 	char cwd[PATH_MAX];
 
 	if (file[0] != '/') {
-		getcwd(cwd, PATH_MAX);
+		if (getcwd(cwd, PATH_MAX) == NULL) {
+			fprintf(stderr, "Failed to getcwd\n");
+			exit(EXIT_FAILURE);
+		}
 		ret = malloc(strlen(cwd) + 1 + strlen(file) + 1);
 		if (ret)
 			sprintf(ret, "%s/%s", cwd, file);
@@ -68,7 +73,7 @@ int main(int argc, char *argv[])
 
 	add_error_table(&et_ext2_error_table);
 
-	while ((c = getopt (argc, argv, "T:C:S:p:a:D:d:B:f:e")) != EOF) {
+	while ((c = getopt (argc, argv, "T:C:S:p:a:D:d:B:f:es")) != EOF) {
 		switch (c) {
 		case 'T':
 			fixed_time = strtoul(optarg, &p, 0);
@@ -113,6 +118,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'e':
 			android_sparse_file = 0;
+			break;
+		case 's':
+			flags |= EXT2_FLAG_SHARE_DUP;
 			break;
 		default:
 			usage(EXIT_FAILURE);

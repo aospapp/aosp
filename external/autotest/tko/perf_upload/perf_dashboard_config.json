@@ -1,15 +1,51 @@
 [
   {
+    "autotest_name": "audio_LoopbackLatency",
+    "master_name": "ChromeOS_Audio"
+  },
+  {
     "autotest_name": "audio_PlaybackPower",
     "master_name": "ChromeOS_Audio"
+  },
+  {
+    "autotest_name": "audio_WebRtcAudioLoopback",
+    "master_name": "ChromeOSWebRtcAudio"
   },
   {
     "autotest_name": "audiovideo_AVSync",
     "master_name": "ChromeOS_Audio"
   },
   {
-    "autotest_name": "autoupdate_EndToEndTest",
+    "autotest_name": "autoupdate_EndToEndTest.paygen_au_beta_delta",
     "master_name": "ChromeOSPerf"
+  },
+  {
+     "autotest_name": "autoupdate_EndToEndTest.paygen_au_beta_full",
+     "master_name": "ChromeOSPerf"
+  },
+  {
+     "autotest_name": "autoupdate_EndToEndTest.paygen_au_canary_delta",
+     "master_name": "ChromeOSPerf"
+  },
+  {
+     "autotest_name": "autoupdate_EndToEndTest.paygen_au_canary_full",
+     "master_name": "ChromeOSPerf"
+  },
+  {
+     "autotest_name": "autoupdate_EndToEndTest.paygen_au_dev_delta",
+     "master_name": "ChromeOSPerf"
+  },
+  {
+     "autotest_name": "autoupdate_EndToEndTest.paygen_au_dev_full",
+     "master_name": "ChromeOSPerf"
+  },
+  {
+     "autotest_name": "autoupdate_EndToEndTest.paygen_au_stable_delta",
+     "master_name": "ChromeOSPerf"
+  },
+  {
+     "autotest_name": "autoupdate_EndToEndTest.paygen_au_stable_full",
+     "master_name": "ChromeOSPerf"
   },
   {
     "autotest_name": "bluetooth_Sanity_Discoverable",
@@ -22,6 +58,10 @@
   {
     "autotest_name": "build_RootFilesystemSize",
     "master_name": "ChromeOSPerf"
+  },
+  {
+    "autotest_name": "camera_HAL3Perf",
+    "master_name": "ChromeOSVideo"
   },
   {
     "autotest_name": "cheets_StartAndroid.stress",
@@ -147,6 +187,10 @@
   {
     "autotest_name": "graphics_VTSwitch",
     "master_name": "ChromeOS_Graphics"
+  },
+  {
+    "autotest_name": "hardware_MemoryZRAMThroughput",
+    "master_name": "ChromeOSPerf"
   },
   {
     "autotest_name": "hardware_RamFio",
@@ -466,6 +510,14 @@
     "master_name": "ChromeOSPerf"
   },
   {
+    "autotest_name": "platform_InitLoginPerfServer",
+    "master_name": "ChromeOSPerf"
+  },
+  {
+    "autotest_name": "platform_LogoutPerf",
+    "master_name": "ChromeOSPerf"
+  },
+  {
     "autotest_name": "platform_MemoryMonitor",
     "master_name": "ChromeOSPerf"
   },
@@ -488,6 +540,15 @@
   {
     "autotest_name": "power_Resume",
     "master_name": "ChromeOSPower"
+  },
+  {
+    "autotest_name": "power_UiResume",
+    "master_name": "ChromeOSPower"
+  },
+  {
+    "autotest_name": "telemetry_Benchmarks.cros_ui_smoothness",
+    "master_name": "ChromeOSPerf",
+    "dashboard_test_name": "cros_ui_smoothness"
   },
   {
     "autotest_name": "telemetry_Benchmarks.dromaeo.domcoreattr",
@@ -523,6 +584,11 @@
     "autotest_name": "telemetry_Benchmarks.kraken",
     "master_name": "ChromeOSPerf",
     "dashboard_test_name": "kraken"
+  },
+  {
+    "autotest_name": "telemetry_Benchmarks.memory.desktop",
+    "master_name": "ChromeOSPerf",
+    "dashboard_test_name": "memory.desktop"
   },
   {
     "autotest_name": "telemetry_Benchmarks.memory.top_7_stress",
@@ -595,11 +661,6 @@
     "dashboard_test_name": "speedometer"
   },
   {
-    "autotest_name": "telemetry_Benchmarks.startup.cold.blank_page",
-    "master_name": "ChromeOSPerf",
-    "dashboard_test_name": "startup.cold.blank_page"
-  },
-  {
     "autotest_name": "telemetry_Benchmarks.sunspider",
     "master_name": "ChromeOSPerf",
     "dashboard_test_name": "sunspider"
@@ -615,17 +676,16 @@
     "dashboard_test_name": "tab_switching.typical_25"
   },
   {
-    "autotest_name": "telemetry_Benchmarks.webrtc.peerconnection",
+    "autotest_name": "telemetry_Benchmarks.webrtc",
     "master_name": "ChromeOSPerf",
-    "dashboard_test_name": "webrtc.peerconnection"
-  },
-  {
-    "autotest_name": "telemetry_Benchmarks.webrtc.stress",
-    "master_name": "ChromeOSPerf",
-    "dashboard_test_name": "webrtc.stress"
+    "dashboard_test_name": "webrtc"
   },
   {
     "autotest_name": "video_HangoutHardwarePerf",
+    "master_name": "ChromeOSVideo"
+  },
+  {
+    "autotest_name": "video_MediaRecorderPerf",
     "master_name": "ChromeOSVideo"
   },
   {
@@ -665,11 +725,11 @@
     "master_name": "ChromeOSVideo"
   },
   {
-    "autotest_name": "webrtc_PausePlayPeerConnections.video",
-    "master_name": "ChromeOSWebRtcVideo"
+    "autotest_name": "video_YouTubeHTML5",
+    "master_name": "ChromeOS_Graphics"
   },
   {
-    "autotest_name": "webrtc_PausePlayPeerConnections.audio",
+    "autotest_name": "video_WebRtcMainFeedSwitching.perf",
     "master_name": "ChromeOSWebRtcVideo"
   },
   {
@@ -685,7 +745,19 @@
     "master_name": "ChromeOSWebRtcVideo"
   },
   {
+    "autotest_name": "video_WebRtcResolutionSwitching.perf",
+    "master_name": "ChromeOSWebRtcVideo"
+  },
+  {
     "autotest_name": "video_WebRtcCamera",
+    "master_name": "ChromeOSWebRtcVideo"
+  },
+  {
+    "autotest_name": "webrtc_PausePlayPeerConnections.audio_perf",
+    "master_name": "ChromeOSWebRtcVideo"
+  },
+  {
+    "autotest_name": "webrtc_PausePlayPeerConnections.video_perf",
     "master_name": "ChromeOSWebRtcVideo"
   }
 ]

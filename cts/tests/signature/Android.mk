@@ -24,6 +24,8 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
+LOCAL_JNI_SHARED_LIBRARIES := libcts_dexchecker
+
 LOCAL_MODULE := cts-signature-common
 
 LOCAL_SDK_VERSION := current
@@ -36,7 +38,7 @@ include $(BUILD_STATIC_JAVA_LIBRARY)
 include $(CLEAR_VARS)
 
 # These files are for device-side only, so filter-out for host library
-LOCAL_DEVICE_ONLY_SOURCES := %/CurrentApi.java %/ApiDocumentParser.java
+LOCAL_DEVICE_ONLY_SOURCES := %/CurrentApi.java %/ApiDocumentParser.java %/DexMemberChecker.java
 
 LOCAL_SRC_FILES := $(filter-out $(LOCAL_DEVICE_ONLY_SOURCES), $(call all-java-files-under, src))
 

@@ -23,17 +23,16 @@ import android.car.CarManagerBase;
 import android.car.CarNotConnectedException;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
-import android.car.hardware.property.CarPropertyManagerBase;
-import android.car.hardware.property.CarPropertyManagerBase.CarPropertyEventCallback;
+import android.car.hardware.property.CarPropertyManager;
 import android.content.Context;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
 import android.util.ArraySet;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
@@ -43,7 +42,7 @@ import java.util.List;
  *
  * The MOVE parameter will start moving the device in the indicated direction.  Magnitude
  * indicates relative speed.  For instance, setting the WINDOW_MOVE parameter to +1 rolls
- * the window up.  Setting it to +2 (if available) will roll it up faster.
+ * the window down.  Setting it to +2 (if available) will roll it down faster.
  *
  * POSITION parameter will move the device to the desired position.  For instance, if the
  * WINDOW_POS has a range of 0-100, setting this parameter to 50 will open the window
@@ -58,11 +57,11 @@ import java.util.List;
 public final class CarCabinManager implements CarManagerBase {
     private final static boolean DBG = false;
     private final static String TAG = "CarCabinManager";
-    private final CarPropertyManagerBase mMgr;
+    private final CarPropertyManager mCarPropertyMgr;
     private final ArraySet<CarCabinEventCallback> mCallbacks = new ArraySet<>();
     private CarPropertyEventListenerToBase mListenerToBase = null;
 
-    /** Door properties are zoned by VehicleDoor */
+    /** Door properties are zoned by VehicleAreaDoor */
     /**
      * door position, int type
      * Max value indicates fully open, min value (0) indicates fully closed.
@@ -70,47 +69,47 @@ public final class CarCabinManager implements CarManagerBase {
      * Some vehicles (minivans) can open the door electronically.  Hence, the ability
      * to write this property.
      */
-    public static final int ID_DOOR_POS = 0x0001;
+    public static final int ID_DOOR_POS = 0x16400b00;
     /** door move, int type
      * Positive values open the door, negative values close it.
      */
-    public static final int ID_DOOR_MOVE = 0x0002;
+    public static final int ID_DOOR_MOVE = 0x16400b01;
     /** door lock, bool type
      * 'true' indicates door is locked.
      */
-    public static final int ID_DOOR_LOCK = 0x0003;
+    public static final int ID_DOOR_LOCK = 0x16200b02;
 
-    /** Mirror properties are zoned by VehicleMirror */
+    /** Mirror properties are zoned by VehicleAreaMirror */
     /**
      * mirror z position, int type
      * Positive value indicates tilt upwards, negative value tilt downwards.
      */
-    public static final int ID_MIRROR_Z_POS = 0x1001;
+    public static final int ID_MIRROR_Z_POS = 0x14400b40;
     /** mirror z move, int type
      * Positive value tilts the mirror upwards, negative value tilts downwards.
      */
-    public static final int ID_MIRROR_Z_MOVE = 0x1002;
+    public static final int ID_MIRROR_Z_MOVE = 0x14400b41;
     /**
      * mirror y position, int type
      * Positive value indicates tilt right, negative value tilt left
      */
-    public static final int ID_MIRROR_Y_POS = 0x1003;
+    public static final int ID_MIRROR_Y_POS = 0x14400b42;
     /** mirror y move, int type
      * Positive value tilts the mirror right, negative value tilts left.
      */
-    public static final int ID_MIRROR_Y_MOVE = 0x1004;
+    public static final int ID_MIRROR_Y_MOVE = 0x14400b43;
     /**
      * mirror lock, bool type
      * True indicates mirror positions are locked and not changeable.
      */
-    public static final int ID_MIRROR_LOCK = 0x1005;
+    public static final int ID_MIRROR_LOCK = 0x11200b44;
     /**
      * mirror fold, bool type
      * True indicates mirrors are folded.
      */
-    public static final int ID_MIRROR_FOLD = 0x1006;
+    public static final int ID_MIRROR_FOLD = 0x11200b45;
 
-    /** Seat properties are zoned by VehicleSeat */
+    /** Seat properties are zoned by VehicleAreaSeat */
     /**
      * seat memory select, int type
      * This parameter selects the memory preset to use to select the seat position.
@@ -121,251 +120,277 @@ public final class CarCabinManager implements CarManagerBase {
      * When the user wants to select a preset, the desired preset number (1, 2, or 3)
      * is set.
      */
-    public static final int ID_SEAT_MEMORY_SELECT = 0x2001;
+    public static final int ID_SEAT_MEMORY_SELECT = 0x15400b80;
     /**
      * seat memory set, int type
      * This setting allows the user to save the current seat position settings into
      * the selected preset slot.  The maxValue for each seat position shall match
      * the maxValue for VEHICLE_PROPERTY_SEAT_MEMORY_SELECT.
      */
-    public static final int ID_SEAT_MEMORY_SET = 0x2002;
+    public static final int ID_SEAT_MEMORY_SET = 0x15400b81;
     /**
      * seat belt buckled, bool type
      * True indicates belt is buckled.
      */
-    public static final int ID_SEAT_BELT_BUCKLED = 0x2003;
+    public static final int ID_SEAT_BELT_BUCKLED = 0x15200b82;
     /**
      * seat belt height position, int type
      * Adjusts the shoulder belt anchor point.
      * Max value indicates highest position.
      * Min value indicates lowest position.
      */
-    public static final int ID_SEAT_BELT_HEIGHT_POS = 0x2004;
+    public static final int ID_SEAT_BELT_HEIGHT_POS = 0x15400b83;
     /** seat belt height move, int type
      * Adjusts the shoulder belt anchor point.
      * Positive value moves towards highest point.
      * Negative value moves towards lowest point.
      */
-    public static final int ID_SEAT_BELT_HEIGHT_MOVE = 0x2005;
+    public static final int ID_SEAT_BELT_HEIGHT_MOVE = 0x15400b84;
     /**
      * seat fore/aft position, int type
      * Sets the seat position forward (closer to steering wheel) and backwards.
      * Max value indicates closest to wheel, min value indicates most rearward position.
      */
-    public static final int ID_SEAT_FORE_AFT_POS = 0x2006;
+    public static final int ID_SEAT_FORE_AFT_POS = 0x15400b85;
     /**
      * seat fore/aft move, int type
      * Positive value moves seat forward (closer to steering wheel).
      * Negative value moves seat rearward.
      */
-    public static final int ID_SEAT_FORE_AFT_MOVE = 0x2007;
+    public static final int ID_SEAT_FORE_AFT_MOVE = 0x15400b86;
     /**
      * seat backrest angle #1 position, int type
      * Backrest angle 1 is the actuator closest to the bottom of the seat.
      * Max value indicates angling forward towards the steering wheel.
      * Min value indicates full recline.
      */
-    public static final int ID_SEAT_BACKREST_ANGLE_1_POS = 0x2008;
+    public static final int ID_SEAT_BACKREST_ANGLE_1_POS = 0x15400b87;
     /** seat backrest angle #1 move, int type
      * Backrest angle 1 is the actuator closest to the bottom of the seat.
      * Positive value angles seat towards the steering wheel.
      * Negatie value angles away from steering wheel.
      */
-    public static final int ID_SEAT_BACKREST_ANGLE_1_MOVE = 0x2009;
+    public static final int ID_SEAT_BACKREST_ANGLE_1_MOVE = 0x15400b88;
     /**
      * seat backrest angle #2 position, int type
      * Backrest angle 2 is the next actuator up from the bottom of the seat.
      * Max value indicates angling forward towards the steering wheel.
      * Min value indicates full recline.
      */
-    public static final int ID_SEAT_BACKREST_ANGLE_2_POS = 0x200A;
+    public static final int ID_SEAT_BACKREST_ANGLE_2_POS = 0x15400b89;
     /** seat backrest angle #2 move, int type
      * Backrest angle 2 is the next actuator up from the bottom of the seat.
      * Positive value tilts forward towards the steering wheel.
      * Negative value tilts backwards.
      */
-    public static final int ID_SEAT_BACKREST_ANGLE_2_MOVE = 0x200B;
+    public static final int ID_SEAT_BACKREST_ANGLE_2_MOVE = 0x15400b8a;
     /**
      * seat height position, int type
      * Sets the seat height.
      * Max value indicates highest position.
      * Min value indicates lowest position.
      */
-    public static final int ID_SEAT_HEIGHT_POS = 0x200C;
+    public static final int ID_SEAT_HEIGHT_POS = 0x15400b8b;
     /** seat height move, int type
      * Sets the seat height.
      * Positive value raises the seat.
      * Negative value lowers the seat.
      * */
-    public static final int ID_SEAT_HEIGHT_MOVE = 0x200D;
+    public static final int ID_SEAT_HEIGHT_MOVE = 0x15400b8c;
     /**
      * seat depth position, int type
      * Sets the seat depth, distance from back rest to front edge of seat.
      * Max value indicates longest depth position.
      * Min value indicates shortest position.
      */
-    public static final int ID_SEAT_DEPTH_POS = 0x200E;
+    public static final int ID_SEAT_DEPTH_POS = 0x15400b8d;
     /** seat depth move, int type
      * Adjusts the seat depth, distance from back rest to front edge of seat.
      * Positive value increases the distance from back rest to front edge of seat.
      * Negative value decreases this distance.
      */
-    public static final int ID_SEAT_DEPTH_MOVE = 0x200F;
+    public static final int ID_SEAT_DEPTH_MOVE = 0x15400b8e;
     /**
      * seat tilt position, int type
      * Sets the seat tilt.
      * Max value indicates front edge of seat higher than back edge.
      * Min value indicates front edge of seat lower than back edge.
      */
-    public static final int ID_SEAT_TILT_POS = 0x2010;
+    public static final int ID_SEAT_TILT_POS = 0x15400b8f;
     /** seat tilt move, int type
      * Adjusts the seat tilt.
      * Positive value lifts front edge of seat higher than back edge.
      * Negative value lowers front edge of seat in relation to back edge.
      */
-    public static final int ID_SEAT_TILT_MOVE = 0x2011;
+    public static final int ID_SEAT_TILT_MOVE = 0x15400b90;
     /**
      * seat lumbar fore/aft position, int type
      * Pushes the lumbar support forward and backwards.
      * Max value indicates most forward position.
      * Min value indicates most rearward position.
      */
-    public static final int ID_SEAT_LUMBAR_FORE_AFT_POS = 0x2012;
+    public static final int ID_SEAT_LUMBAR_FORE_AFT_POS = 0x15400b91;
     /** seat lumbar fore/aft move, int type
      * Adjusts the lumbar support forwards and backwards.
      * Positive value moves lumbar support forward.
      * Negative value moves lumbar support rearward.
      */
-    public static final int ID_SEAT_LUMBAR_FORE_AFT_MOVE = 0x2013;
+    public static final int ID_SEAT_LUMBAR_FORE_AFT_MOVE = 0x15400b92;
     /**
      * seat lumbar side support position, int type
      * Sets the amount of lateral lumbar support.
      * Max value indicates widest lumbar setting (i.e. least support)
      * Min value indicates thinnest lumbar setting.
      */
-    public static final int ID_SEAT_LUMBAR_SIDE_SUPPORT_POS = 0x2014;
+    public static final int ID_SEAT_LUMBAR_SIDE_SUPPORT_POS = 0x15400b93;
     /** seat lumbar side support move, int type
      * Adjusts the amount of lateral lumbar support.
      * Positive value widens the lumbar area.
      * Negative value makes the lumbar area thinner.
      */
-    public static final int ID_SEAT_LUMBAR_SIDE_SUPPORT_MOVE = 0x2015;
+    public static final int ID_SEAT_LUMBAR_SIDE_SUPPORT_MOVE = 0x15400b94;
     /**
      * seat headrest height position, int type
      * Sets the headrest height.
      * Max value indicates tallest setting.
      * Min value indicates shortest setting.
      */
-    public static final int ID_SEAT_HEADREST_HEIGHT_POS = 0x2016;
+    public static final int ID_SEAT_HEADREST_HEIGHT_POS = 0x15400b95;
     /** seat headrest height move, int type
      * Postive value moves the headrest higher.
      * Negative value moves the headrest lower.
      */
-    public static final int ID_SEAT_HEADREST_HEIGHT_MOVE = 0x2017;
+    public static final int ID_SEAT_HEADREST_HEIGHT_MOVE = 0x15400b96;
     /**
      * seat headrest angle position, int type
      * Sets the angle of the headrest.
      * Max value indicates most upright angle.
      * Min value indicates shallowest headrest angle.
      */
-    public static final int ID_SEAT_HEADREST_ANGLE_POS = 0x2018;
+    public static final int ID_SEAT_HEADREST_ANGLE_POS = 0x15400b97;
     /** seat headrest angle move, int type
      * Adjusts the angle of the headrest.
      * Positive value angles headrest towards most upright angle.
      * Negative value angles headrest towards shallowest headrest angle.
      */
-    public static final int ID_SEAT_HEADREST_ANGLE_MOVE = 0x2019;
+    public static final int ID_SEAT_HEADREST_ANGLE_MOVE = 0x15400b98;
     /**
      * seat headrest fore/aft position, int type
      * Sets the headrest forwards and backwards.
      * Max value indicates position closest to front of car.
      * Min value indicates position closest to rear of car.
      */
-    public static final int ID_SEAT_HEADREST_FORE_AFT_POS = 0x201A;
+    public static final int ID_SEAT_HEADREST_FORE_AFT_POS = 0x15400b99;
     /** seat headrest fore/aft move, int type
      * Adjsuts the headrest forwards and backwards.
      * Positive value moves the headrest closer to front of car.
      * Negative value moves the headrest closer to rear of car.
      */
-    public static final int ID_SEAT_HEADREST_FORE_AFT_MOVE = 0x201B;
+    public static final int ID_SEAT_HEADREST_FORE_AFT_MOVE = 0x15400b9a;
 
-    /** Window properties are zoned by VehicleWindow */
+    /** Window properties are zoned by VehicleAreaWindow */
     /**
      * window position, int type
-     * Max = window up / closed.
-     * Min = window down / open.
+     * Max = window down / open.
+     * Min = window up / closed.
      */
-    public static final int ID_WINDOW_POS = 0x3001;
+    public static final int ID_WINDOW_POS = 0x13400bc0;
     /** window move, int type
-     * Positive value moves window up / closes window.
-     * Negative value moves window down / opens window.
+     * Positive value moves window down / opens window.
+     * Negative value moves window up / closes window.
      */
-    public static final int ID_WINDOW_MOVE = 0x3002;
-    /**
-     * window vent position, int type
-     * This feature is used to control the vent feature on a sunroof.
-     * Max = vent open.
-     * Min = vent closed.
-     */
-    public static final int ID_WINDOW_VENT_POS = 0x3003;
-    /** window vent move, int type
-     * This feature is used to control the vent feature on a sunroof.
-     * Positive value opens the vent.
-     * Negative value closes the vent.
-     */
-    public static final int ID_WINDOW_VENT_MOVE = 0x3004;
+    public static final int ID_WINDOW_MOVE = 0x13400bc1;
     /**
      * window lock, bool type
      * True indicates windows are locked and can't be moved.
      */
-    public static final int ID_WINDOW_LOCK = 0x3005;
+    public static final int ID_WINDOW_LOCK = 0x13400bc4;
 
     /** @hide */
     @IntDef({
-        ID_DOOR_POS,
-        ID_DOOR_MOVE,
-        ID_DOOR_LOCK,
-        ID_MIRROR_Z_POS,
-        ID_MIRROR_Z_MOVE,
-        ID_MIRROR_Y_POS,
-        ID_MIRROR_Y_MOVE,
-        ID_MIRROR_LOCK,
-        ID_MIRROR_FOLD,
-        ID_SEAT_MEMORY_SELECT,
-        ID_SEAT_MEMORY_SET,
-        ID_SEAT_BELT_BUCKLED,
-        ID_SEAT_BELT_HEIGHT_POS,
-        ID_SEAT_BELT_HEIGHT_MOVE,
-        ID_SEAT_FORE_AFT_POS,
-        ID_SEAT_FORE_AFT_MOVE,
-        ID_SEAT_BACKREST_ANGLE_1_POS,
-        ID_SEAT_BACKREST_ANGLE_1_MOVE,
-        ID_SEAT_BACKREST_ANGLE_2_POS,
-        ID_SEAT_BACKREST_ANGLE_2_MOVE,
-        ID_SEAT_HEIGHT_POS,
-        ID_SEAT_HEIGHT_MOVE,
-        ID_SEAT_DEPTH_POS,
-        ID_SEAT_DEPTH_MOVE,
-        ID_SEAT_TILT_POS,
-        ID_SEAT_TILT_MOVE,
-        ID_SEAT_LUMBAR_FORE_AFT_POS,
-        ID_SEAT_LUMBAR_FORE_AFT_MOVE,
-        ID_SEAT_LUMBAR_SIDE_SUPPORT_POS,
-        ID_SEAT_LUMBAR_SIDE_SUPPORT_MOVE,
-        ID_SEAT_HEADREST_HEIGHT_POS,
-        ID_SEAT_HEADREST_HEIGHT_MOVE,
-        ID_SEAT_HEADREST_ANGLE_POS,
-        ID_SEAT_HEADREST_ANGLE_MOVE,
-        ID_SEAT_HEADREST_FORE_AFT_POS,
-        ID_SEAT_HEADREST_FORE_AFT_MOVE,
-        ID_WINDOW_POS,
-        ID_WINDOW_MOVE,
-        ID_WINDOW_VENT_POS,
-        ID_WINDOW_VENT_MOVE,
-        ID_WINDOW_LOCK
+            ID_DOOR_POS,
+            ID_DOOR_MOVE,
+            ID_DOOR_LOCK,
+            ID_MIRROR_Z_POS,
+            ID_MIRROR_Z_MOVE,
+            ID_MIRROR_Y_POS,
+            ID_MIRROR_Y_MOVE,
+            ID_MIRROR_LOCK,
+            ID_MIRROR_FOLD,
+            ID_SEAT_MEMORY_SELECT,
+            ID_SEAT_MEMORY_SET,
+            ID_SEAT_BELT_BUCKLED,
+            ID_SEAT_BELT_HEIGHT_POS,
+            ID_SEAT_BELT_HEIGHT_MOVE,
+            ID_SEAT_FORE_AFT_POS,
+            ID_SEAT_FORE_AFT_MOVE,
+            ID_SEAT_BACKREST_ANGLE_1_POS,
+            ID_SEAT_BACKREST_ANGLE_1_MOVE,
+            ID_SEAT_BACKREST_ANGLE_2_POS,
+            ID_SEAT_BACKREST_ANGLE_2_MOVE,
+            ID_SEAT_HEIGHT_POS,
+            ID_SEAT_HEIGHT_MOVE,
+            ID_SEAT_DEPTH_POS,
+            ID_SEAT_DEPTH_MOVE,
+            ID_SEAT_TILT_POS,
+            ID_SEAT_TILT_MOVE,
+            ID_SEAT_LUMBAR_FORE_AFT_POS,
+            ID_SEAT_LUMBAR_FORE_AFT_MOVE,
+            ID_SEAT_LUMBAR_SIDE_SUPPORT_POS,
+            ID_SEAT_LUMBAR_SIDE_SUPPORT_MOVE,
+            ID_SEAT_HEADREST_HEIGHT_POS,
+            ID_SEAT_HEADREST_HEIGHT_MOVE,
+            ID_SEAT_HEADREST_ANGLE_POS,
+            ID_SEAT_HEADREST_ANGLE_MOVE,
+            ID_SEAT_HEADREST_FORE_AFT_POS,
+            ID_SEAT_HEADREST_FORE_AFT_MOVE,
+            ID_WINDOW_POS,
+            ID_WINDOW_MOVE,
+            ID_WINDOW_LOCK
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface PropertyId {}
+    private final ArraySet<Integer> mCabinPropertyIds = new ArraySet<>(Arrays.asList(new Integer[]{
+            ID_DOOR_POS,
+            ID_DOOR_MOVE,
+            ID_DOOR_LOCK,
+            ID_MIRROR_Z_POS,
+            ID_MIRROR_Z_MOVE,
+            ID_MIRROR_Y_POS,
+            ID_MIRROR_Y_MOVE,
+            ID_MIRROR_LOCK,
+            ID_MIRROR_FOLD,
+            ID_SEAT_MEMORY_SELECT,
+            ID_SEAT_MEMORY_SET,
+            ID_SEAT_BELT_BUCKLED,
+            ID_SEAT_BELT_HEIGHT_POS,
+            ID_SEAT_BELT_HEIGHT_MOVE,
+            ID_SEAT_FORE_AFT_POS,
+            ID_SEAT_FORE_AFT_MOVE,
+            ID_SEAT_BACKREST_ANGLE_1_POS,
+            ID_SEAT_BACKREST_ANGLE_1_MOVE,
+            ID_SEAT_BACKREST_ANGLE_2_POS,
+            ID_SEAT_BACKREST_ANGLE_2_MOVE,
+            ID_SEAT_HEIGHT_POS,
+            ID_SEAT_HEIGHT_MOVE,
+            ID_SEAT_DEPTH_POS,
+            ID_SEAT_DEPTH_MOVE,
+            ID_SEAT_TILT_POS,
+            ID_SEAT_TILT_MOVE,
+            ID_SEAT_LUMBAR_FORE_AFT_POS,
+            ID_SEAT_LUMBAR_FORE_AFT_MOVE,
+            ID_SEAT_LUMBAR_SIDE_SUPPORT_POS,
+            ID_SEAT_LUMBAR_SIDE_SUPPORT_MOVE,
+            ID_SEAT_HEADREST_HEIGHT_POS,
+            ID_SEAT_HEADREST_HEIGHT_MOVE,
+            ID_SEAT_HEADREST_ANGLE_POS,
+            ID_SEAT_HEADREST_ANGLE_MOVE,
+            ID_SEAT_HEADREST_FORE_AFT_POS,
+            ID_SEAT_HEADREST_FORE_AFT_MOVE,
+            ID_WINDOW_POS,
+            ID_WINDOW_MOVE,
+            ID_WINDOW_LOCK
+    }));
 
     /**
      * Application registers CarCabinEventCallback object to receive updates and changes to
@@ -386,7 +411,8 @@ public final class CarCabinManager implements CarManagerBase {
         void onErrorEvent(@PropertyId int propertyId, int zone);
     }
 
-    private static class CarPropertyEventListenerToBase implements CarPropertyEventCallback {
+    private static class CarPropertyEventListenerToBase implements
+            CarPropertyManager.CarPropertyEventListener{
         private final WeakReference<CarCabinManager> mManager;
 
         public CarPropertyEventListenerToBase(CarCabinManager manager) {
@@ -442,7 +468,7 @@ public final class CarCabinManager implements CarManagerBase {
      * @hide
      */
     public CarCabinManager(IBinder service, Context context, Handler handler) {
-        mMgr = new CarPropertyManagerBase(service, handler, DBG, TAG);
+        mCarPropertyMgr = new CarPropertyManager(service, handler, DBG, TAG);
     }
 
     /**
@@ -463,9 +489,15 @@ public final class CarCabinManager implements CarManagerBase {
             CarNotConnectedException {
         if (mCallbacks.isEmpty()) {
             mListenerToBase = new CarPropertyEventListenerToBase(this);
-            mMgr.registerCallback(mListenerToBase);
+        }
+        List<CarPropertyConfig> configs = getPropertyList();
+        for (CarPropertyConfig c : configs) {
+            // Register each individual propertyId
+            mCarPropertyMgr.registerListener(mListenerToBase, c.getPropertyId(), 0);
         }
         mCallbacks.add(callback);
+
+
     }
 
     /**
@@ -473,21 +505,26 @@ public final class CarCabinManager implements CarManagerBase {
      * this listener, all listening will be stopped.
      * @param callback
      */
-    public synchronized void unregisterCallback(CarCabinEventCallback callback) {
+    public synchronized void unregisterCallback(CarCabinEventCallback callback)
+            throws CarNotConnectedException {
         mCallbacks.remove(callback);
+        List<CarPropertyConfig> configs = getPropertyList();
+        for (CarPropertyConfig c : configs) {
+            // Register each individual propertyId
+            mCarPropertyMgr.unregisterListener(mListenerToBase, c.getPropertyId());
+        }
         if (mCallbacks.isEmpty()) {
-            mMgr.unregisterCallback();
             mListenerToBase = null;
         }
     }
 
     /**
-     * Get list of properties available to Car Cabin Manager
+     * Get list of properties represented by CarCabinManager for this car.
      * @return List of CarPropertyConfig objects available via Car Cabin Manager.
      * @throws CarNotConnectedException if the connection to the car service has been lost.
      */
     public List<CarPropertyConfig> getPropertyList() throws CarNotConnectedException {
-        return mMgr.getPropertyList();
+        return mCarPropertyMgr.getPropertyList(mCabinPropertyIds);
     }
 
     /**
@@ -499,7 +536,7 @@ public final class CarCabinManager implements CarManagerBase {
      */
     public boolean getBooleanProperty(@PropertyId int propertyId, int area)
             throws CarNotConnectedException {
-        return mMgr.getBooleanProperty(propertyId, area);
+        return mCarPropertyMgr.getBooleanProperty(propertyId, area);
     }
 
     /**
@@ -511,7 +548,7 @@ public final class CarCabinManager implements CarManagerBase {
      */
     public float getFloatProperty(@PropertyId int propertyId, int area)
             throws CarNotConnectedException {
-        return mMgr.getFloatProperty(propertyId, area);
+        return mCarPropertyMgr.getFloatProperty(propertyId, area);
     }
 
     /**
@@ -523,7 +560,7 @@ public final class CarCabinManager implements CarManagerBase {
      */
     public int getIntProperty(@PropertyId int propertyId, int area)
             throws CarNotConnectedException {
-        return mMgr.getIntProperty(propertyId, area);
+        return mCarPropertyMgr.getIntProperty(propertyId, area);
     }
 
     /**
@@ -535,7 +572,9 @@ public final class CarCabinManager implements CarManagerBase {
      */
     public void setBooleanProperty(@PropertyId int propertyId, int area, boolean val)
             throws CarNotConnectedException {
-        mMgr.setBooleanProperty(propertyId, area, val);
+        if (mCabinPropertyIds.contains(propertyId)) {
+            mCarPropertyMgr.setBooleanProperty(propertyId, area, val);
+        }
     }
 
     /**
@@ -547,7 +586,9 @@ public final class CarCabinManager implements CarManagerBase {
      */
     public void setFloatProperty(@PropertyId int propertyId, int area, float val)
             throws CarNotConnectedException {
-        mMgr.setFloatProperty(propertyId, area, val);
+        if (mCabinPropertyIds.contains(propertyId)) {
+            mCarPropertyMgr.setFloatProperty(propertyId, area, val);
+        }
     }
 
     /**
@@ -559,12 +600,14 @@ public final class CarCabinManager implements CarManagerBase {
      */
     public void setIntProperty(@PropertyId int propertyId, int area, int val)
             throws CarNotConnectedException {
-        mMgr.setIntProperty(propertyId, area, val);
+        if (mCabinPropertyIds.contains(propertyId)) {
+            mCarPropertyMgr.setIntProperty(propertyId, area, val);
+        }
     }
 
     /** @hide */
     @Override
     public void onCarDisconnected() {
-        mMgr.onCarDisconnected();
+        mCarPropertyMgr.onCarDisconnected();
     }
 }

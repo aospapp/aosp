@@ -26,3 +26,19 @@ adb shell /system/bin/primitives_tests
 echo "testing power"
 adb push $OUT/data/nativetest/power_tests/power_tests /system/bin
 adb shell /system/bin/power_tests
+
+echo "testing channels"
+adb push $OUT/data/nativetest/channels_tests/channels_tests /system/bin
+adb shell /system/bin/channels_tests
+
+echo "string test"
+adb push $OUT/data/nativetest/string_tests/string_tests /system/bin
+adb shell /system/bin/string_tests
+
+echo "format tests"
+adb push $OUT/data/nativetest/format_tests/format_tests /system/bin
+adb shell /system/bin/format_tests
+
+echo "benchmarking primitives"
+adb push $OUT/system/bin/primitives_benchmark /system/bin
+adb shell /system/bin/primitives_benchmark

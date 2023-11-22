@@ -28,7 +28,7 @@ struct scoped_pthread_attr {
     ~scoped_pthread_attr() { pthread_attr_destroy(&attr); }
 
     int detach() {
-        return pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+        return -pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
     }
 
     pthread_attr_t attr;
@@ -48,13 +48,13 @@ inline int threadLaunch(T* obj) {
     scoped_pthread_attr scoped_attr;
 
     int rval = scoped_attr.detach();
-    if (rval != 0) { return -errno; }
+    if (rval != 0) { return rval; }
 
     pthread_t thread;
     rval = pthread_create(&thread, &scoped_attr.attr, &runAndDelete<T>, obj);
     if (rval != 0) {
-        ALOGW("pthread_create failed: %d", errno);
-        return -errno;
+        ALOGW("pthread_create failed: %d", rval);
+        return -rval;
     }
 
     return rval;

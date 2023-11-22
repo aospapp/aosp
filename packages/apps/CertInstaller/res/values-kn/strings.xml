@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN ಮತ್ತು ಅಪ್ಲಿಕೇಶನ್‌ಗಳು"</item>
     <item msgid="692322974985472861">"ವೈ-ಫೈ"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"ಸೂಚನೆ: ಈ ಪ್ರಮಾಣಪತ್ರವನ್ನು ಒದಗಿಸುವವರು ಸಾಧನದಿಂದ ಮತ್ತು ಸಾಧನಕ್ಕೆ ಇರುವ ಟ್ರಾಫಿಕ್ ಅನ್ನು ಪರಿಶೀಲಿಸಬಹುದು."</string>
     <string name="wifi_title" msgid="8475811746333426489">"ವೈ-ಫೈ ಪ್ರೊಫೈಲ್‌"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%s ಗೆ ವಿವರಗಳು"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"ವಿವರಗಳು"</string>

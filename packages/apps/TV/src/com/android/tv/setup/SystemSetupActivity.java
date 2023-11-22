@@ -24,27 +24,22 @@ import android.content.Intent;
 import android.media.tv.TvInputInfo;
 import android.os.Bundle;
 import android.widget.Toast;
-
-import com.android.tv.ApplicationSingletons;
 import com.android.tv.R;
 import com.android.tv.SetupPassthroughActivity;
-import com.android.tv.common.TvCommonUtils;
+import com.android.tv.TvSingletons;
+import com.android.tv.common.CommonConstants;
 import com.android.tv.common.ui.setup.SetupActivity;
-import com.android.tv.common.ui.setup.SetupFragment;
 import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
-import com.android.tv.TvApplication;
-import com.android.tv.data.ChannelDataManager;
+import com.android.tv.common.util.CommonUtils;
 import com.android.tv.onboarding.SetupSourcesFragment;
 import com.android.tv.util.OnboardingUtils;
 import com.android.tv.util.SetupUtils;
 import com.android.tv.util.TvInputManagerHelper;
 
-/**
- * A activity to start input sources setup fragment for initial setup flow.
- */
+/** A activity to start input sources setup fragment for initial setup flow. */
 public class SystemSetupActivity extends SetupActivity {
     private static final String SYSTEM_SETUP =
-            "com.android.tv.action.LAUNCH_SYSTEM_SETUP";
+            CommonConstants.BASE_PACKAGE + ".action.LAUNCH_SYSTEM_SETUP";
     private static final int SHOW_RIPPLE_DURATION_MS = 266;
     private static final int REQUEST_CODE_START_SETUP_ACTIVITY = 1;
 
@@ -58,7 +53,7 @@ public class SystemSetupActivity extends SetupActivity {
             finish();
             return;
         }
-        ApplicationSingletons singletons = TvApplication.getSingletons(this);
+        TvSingletons singletons = TvSingletons.getSingletons(this);
         mInputManager = singletons.getTvInputManagerHelper();
     }
 
@@ -68,12 +63,14 @@ public class SystemSetupActivity extends SetupActivity {
     }
 
     private void showMerchantCollection() {
-        executeActionWithDelay(new Runnable() {
-            @Override
-            public void run() {
-                startActivity(OnboardingUtils.ONLINE_STORE_INTENT);
-            }
-        }, SHOW_RIPPLE_DURATION_MS);
+        executeActionWithDelay(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        startActivity(OnboardingUtils.ONLINE_STORE_INTENT);
+                    }
+                },
+                SHOW_RIPPLE_DURATION_MS);
     }
 
     @Override
@@ -84,38 +81,50 @@ public class SystemSetupActivity extends SetupActivity {
                     case SetupSourcesFragment.ACTION_ONLINE_STORE:
                         showMerchantCollection();
                         return true;
-                    case SetupSourcesFragment.ACTION_SETUP_INPUT: {
-                        String inputId = params.getString(
-                                SetupSourcesFragment.ACTION_PARAM_KEY_INPUT_ID);
-                        TvInputInfo input = mInputManager.getTvInputInfo(inputId);
-                        Intent intent = TvCommonUtils.createSetupIntent(input);
-                        if (intent == null) {
-                            Toast.makeText(this, R.string.msg_no_setup_activity, Toast.LENGTH_SHORT)
-                                    .show();
+                    case SetupSourcesFragment.ACTION_SETUP_INPUT:
+                        {
+                            String inputId =
+                                    params.getString(
+                                            SetupSourcesFragment.ACTION_PARAM_KEY_INPUT_ID);
+                            TvInputInfo input = mInputManager.getTvInputInfo(inputId);
+                            Intent intent = CommonUtils.createSetupIntent(input);
+                            if (intent == null) {
+                                Toast.makeText(
+                                                this,
+                                                R.string.msg_no_setup_activity,
+                                                Toast.LENGTH_SHORT)
+                                        .show();
+                                return true;
+                            }
+                            // Even though other app can handle the intent, the setup launched by
+                            // Live
+                            // channels should go through Live channels SetupPassthroughActivity.
+                            intent.setComponent(
+                                    new ComponentName(this, SetupPassthroughActivity.class));
+                            try {
+                                // Now we know that the user intends to set up this input. Grant
+                                // permission for writing EPG data.
+                                SetupUtils.grantEpgPermission(
+                                        this, input.getServiceInfo().packageName);
+                                startActivityForResult(intent, REQUEST_CODE_START_SETUP_ACTIVITY);
+                            } catch (ActivityNotFoundException e) {
+                                Toast.makeText(
+                                                this,
+                                                getString(
+                                                        R.string.msg_unable_to_start_setup_activity,
+                                                        input.loadLabel(this)),
+                                                Toast.LENGTH_SHORT)
+                                        .show();
+                            }
                             return true;
                         }
-                        // Even though other app can handle the intent, the setup launched by Live
-                        // channels should go through Live channels SetupPassthroughActivity.
-                        intent.setComponent(new ComponentName(this,
-                                SetupPassthroughActivity.class));
-                        try {
-                            // Now we know that the user intends to set up this input. Grant
-                            // permission for writing EPG data.
-                            SetupUtils.grantEpgPermission(this, input.getServiceInfo().packageName);
-                            startActivityForResult(intent, REQUEST_CODE_START_SETUP_ACTIVITY);
-                        } catch (ActivityNotFoundException e) {
-                            Toast.makeText(this,
-                                    getString(R.string.msg_unable_to_start_setup_activity,
-                                            input.loadLabel(this)), Toast.LENGTH_SHORT).show();
+                    case SetupMultiPaneFragment.ACTION_DONE:
+                        {
+                            // To make sure user can finish setup flow, set result as RESULT_OK.
+                            setResult(Activity.RESULT_OK);
+                            finish();
+                            return true;
                         }
-                        return true;
-                    }
-                    case SetupMultiPaneFragment.ACTION_DONE: {
-                        // To make sure user can finish setup flow, set result as RESULT_OK.
-                        setResult(Activity.RESULT_OK);
-                        finish();
-                        return true;
-                    }
                 }
                 break;
         }

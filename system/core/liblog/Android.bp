@@ -55,7 +55,7 @@ cc_library_headers {
             enabled: true,
         },
         vendor: {
-            export_include_dirs: ["include_vndk"],
+            override_export_include_dirs: ["include_vndk"],
         },
     },
 }
@@ -90,9 +90,6 @@ cc_library {
         },
         not_windows: {
             srcs: ["event_tag_map.cpp"],
-        },
-        linux: {
-            host_ldlibs: ["-lrt"],
         },
         linux_bionic: {
             enabled: true,

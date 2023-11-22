@@ -18,12 +18,31 @@ package android.transition.cts;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.view.View;
+import android.view.WindowInsets;
+import android.widget.FrameLayout;
 
-public class TransitionActivity extends Activity {
+public class TransitionActivity extends Activity implements View.OnApplyWindowInsetsListener{
+
+    private View mContent;
+
     @Override
     public void onCreate(Bundle bundle){
         super.onCreate(bundle);
         setContentView(R.layout.transition_main);
+        mContent = findViewById(R.id.container);
+        mContent.setOnApplyWindowInsetsListener(this);
+    }
+
+    @Override
+    public WindowInsets onApplyWindowInsets(View v, WindowInsets in) {
+        if (in.isRound()) {
+            FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) mContent.getLayoutParams();
+            params.setMargins(in.getSystemWindowInsetLeft(), in.getSystemWindowInsetTop(),
+                    in.getSystemWindowInsetRight(), in.getSystemWindowInsetBottom());
+            mContent.setLayoutParams(params);
+        }
+        return in;
     }
 }
 

@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"Dữ liệu từ thẻ NFC"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Thông tin liên hệ cho ^1"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Ứng dụng này cần quyền truy cập vào Điện thoại để thực hiện cuộc gọi. Bạn có thể quản lý quyền truy cập Thẻ trong Cài đặt"</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Ứng dụng này cần quyền truy cập vào Bộ nhớ ngoài để truy cập tệp. Bạn có thể quản lý quyền truy cập Thẻ trong phần Cài đặt"</string>
 </resources>

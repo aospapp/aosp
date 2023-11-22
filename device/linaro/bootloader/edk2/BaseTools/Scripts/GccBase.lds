@@ -4,6 +4,7 @@
 
   Copyright (c) 2010 - 2015, Intel Corporation. All rights reserved.<BR>
   Copyright (c) 2015, Linaro Ltd. All rights reserved.<BR>
+  (C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
 
   This program and the accompanying materials are licensed and made available under
   the terms and conditions of the BSD License that accompanies this distribution.
@@ -53,9 +54,19 @@ SECTIONS {
     KEEP (*(.eh_frame))
   }
 
-  .rela ALIGN(CONSTANT(COMMONPAGESIZE)) : {
+  .rela (INFO) : {
     *(.rela .rela.*)
   }
+
+  .hii : ALIGN(CONSTANT(COMMONPAGESIZE)) {
+    KEEP (*(.hii))
+  }
+
+  /*
+   * Retain the GNU build id but in a non-allocatable section so GenFw
+   * does not copy it into the PE/COFF image.
+   */
+  .build-id (INFO) : { *(.note.gnu.build-id) }
 
   /DISCARD/ : {
     *(.note.GNU-stack)

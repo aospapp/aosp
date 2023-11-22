@@ -40,6 +40,7 @@ import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.Process;
 import android.preference.PreferenceManager;
 import android.test.AndroidTestCase;
 import android.view.WindowManager;
@@ -57,8 +58,6 @@ import java.util.List;
  * Test {@link ContextWrapper}.
  */
 public class ContextWrapperTest extends AndroidTestCase {
-    private static final String PERMISSION_HARDWARE_TEST = "android.permission.HARDWARE_TEST";
-
     private static final String ACTUAL_RESULT = "ResultSetByReceiver";
 
     private static final String INTIAL_RESULT = "IntialResult";
@@ -80,10 +79,13 @@ public class ContextWrapperTest extends AndroidTestCase {
     private final static String MOCK_ACTION1 = ACTION_BROADCAST_TESTORDER + "1";
     private final static String MOCK_ACTION2 = ACTION_BROADCAST_TESTORDER + "2";
 
-    public static final String PERMISSION_GRANTED = "android.content.cts.permission.TEST_GRANTED";
-    public static final String PERMISSION_DENIED = "android.content.cts.permission.TEST_DENIED";
+    // A permission that's granted to this test package.
+    public static final String GRANTED_PERMISSION = "android.permission.USE_CREDENTIALS";
+    // A permission that's not granted to this test package.
+    public static final String NOT_GRANTED_PERMISSION = "android.permission.HARDWARE_TEST";
 
     private static final int BROADCAST_TIMEOUT = 10000;
+    private static final int ROOT_UID = 0;
 
     private Context mContext;
 
@@ -132,17 +134,6 @@ public class ContextWrapperTest extends AndroidTestCase {
 
         // null param is allowed
         new ContextWrapper(null);
-    }
-
-    public void testEnforceCallingPermission() {
-        try {
-            mContextWrapper.enforceCallingPermission(
-                    PERMISSION_HARDWARE_TEST,
-                    "enforceCallingPermission is not working without possessing an IPC.");
-            fail("enforceCallingPermission is not working without possessing an IPC.");
-        } catch (SecurityException e) {
-            // Currently no IPC is handled by this process, this exception is expected
-        }
     }
 
     public void testSendOrderedBroadcast1() throws InterruptedException {
@@ -273,17 +264,6 @@ public class ContextWrapperTest extends AndroidTestCase {
         mContextWrapper.unregisterReceiver(broadcastReceiver);
     }
 
-    public void testEnforceCallingOrSelfPermission() {
-        try {
-            mContextWrapper.enforceCallingOrSelfPermission(PERMISSION_HARDWARE_TEST,
-                    "enforceCallingOrSelfPermission is not working without possessing an IPC.");
-            fail("enforceCallingOrSelfPermission is not working without possessing an IPC.");
-        } catch (SecurityException e) {
-            // If the function is OK, it should throw a SecurityException here because currently no
-            // IPC is handled by this process.
-        }
-    }
-
     public void testAccessWallpaper() throws IOException, InterruptedException {
         // set Wallpaper by contextWrapper#setWallpaper(Bitmap)
         Bitmap bitmap = Bitmap.createBitmap(20, 30, Bitmap.Config.RGB_565);
@@ -347,11 +327,11 @@ public class ContextWrapperTest extends AndroidTestCase {
 
         // Test openOrCreateDatabase with null and actual factory
         mDatabase = mContextWrapper.openOrCreateDatabase(DATABASE_NAME1,
-                ContextWrapper.MODE_PRIVATE, factory);
+                ContextWrapper.MODE_ENABLE_WRITE_AHEAD_LOGGING, factory);
         assertNotNull(mDatabase);
         mDatabase.close();
         mDatabase = mContextWrapper.openOrCreateDatabase(DATABASE_NAME2,
-                ContextWrapper.MODE_PRIVATE, factory);
+                ContextWrapper.MODE_ENABLE_WRITE_AHEAD_LOGGING, factory);
         assertNotNull(mDatabase);
         mDatabase.close();
 
@@ -360,7 +340,7 @@ public class ContextWrapperTest extends AndroidTestCase {
 
         // Test databaseList()
         List<String> list = Arrays.asList(mContextWrapper.databaseList());
-        assertEquals(4, list.size()); // Each database has a journal
+        assertEquals(2, list.size());
         assertTrue("1) database list: " + list, list.contains(DATABASE_NAME1));
         assertTrue("2) database list: " + list, list.contains(DATABASE_NAME2));
 
@@ -390,8 +370,8 @@ public class ContextWrapperTest extends AndroidTestCase {
     public void testEnforceUriPermission2() {
         Uri uri = Uri.parse("content://ctstest");
         try {
-            mContextWrapper.enforceUriPermission(uri, PERMISSION_HARDWARE_TEST,
-                    PERMISSION_HARDWARE_TEST, Binder.getCallingPid(), Binder.getCallingUid(),
+            mContextWrapper.enforceUriPermission(uri, NOT_GRANTED_PERMISSION,
+                    NOT_GRANTED_PERMISSION, Binder.getCallingPid(), Binder.getCallingUid(),
                     Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
                     "enforceUriPermission is not working without possessing an IPC.");
             fail("enforceUriPermission is not working without possessing an IPC.");
@@ -570,16 +550,96 @@ public class ContextWrapperTest extends AndroidTestCase {
                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
     }
 
-    public void testEnforcePermission() {
+    public void testCheckPermissionGranted() {
+        int returnValue = mContextWrapper.checkPermission(
+                GRANTED_PERMISSION, Process.myPid(), Process.myUid());
+        assertEquals(PackageManager.PERMISSION_GRANTED, returnValue);
+    }
+
+    public void testCheckPermissionNotGranted() {
+        int returnValue = mContextWrapper.checkPermission(
+                NOT_GRANTED_PERMISSION, Process.myPid(), Process.myUid());
+        assertEquals(PackageManager.PERMISSION_DENIED, returnValue);
+    }
+
+    public void testCheckPermissionRootUser() {
+        // Test with root user, everything will be granted.
+        int returnValue = mContextWrapper.checkPermission(NOT_GRANTED_PERMISSION, 1, ROOT_UID);
+        assertEquals(PackageManager.PERMISSION_GRANTED, returnValue);
+    }
+
+    public void testCheckPermissionInvalidRequest() {
+        // Test with null permission.
+        try {
+            int returnValue = mContextWrapper.checkPermission(null, 0, ROOT_UID);
+            fail("checkPermission should not accept null permission");
+        } catch (IllegalArgumentException e) {
+        }
+
+        // Test with invalid uid and included granted permission.
+        int returnValue = mContextWrapper.checkPermission(GRANTED_PERMISSION, 1, -11);
+        assertEquals(PackageManager.PERMISSION_DENIED, returnValue);
+    }
+
+    public void testCheckSelfPermissionGranted() {
+        int returnValue = mContextWrapper.checkSelfPermission(GRANTED_PERMISSION);
+        assertEquals(PackageManager.PERMISSION_GRANTED, returnValue);
+    }
+
+    public void testCheckSelfPermissionNotGranted() {
+        int returnValue = mContextWrapper.checkSelfPermission(NOT_GRANTED_PERMISSION);
+        assertEquals(PackageManager.PERMISSION_DENIED, returnValue);
+    }
+
+    public void testEnforcePermissionGranted() {
+        mContextWrapper.enforcePermission(
+                GRANTED_PERMISSION, Process.myPid(), Process.myUid(),
+                "permission isn't granted");
+    }
+
+    public void testEnforcePermissionNotGranted() {
         try {
             mContextWrapper.enforcePermission(
-                    PERMISSION_HARDWARE_TEST, Binder.getCallingPid(),
-                    Binder.getCallingUid(),
-                    "enforcePermission is not working without possessing an IPC.");
-            fail("enforcePermission is not working without possessing an IPC.");
+                    NOT_GRANTED_PERMISSION, Process.myPid(), Process.myUid(),
+                    "permission isn't granted");
+            fail("Permission shouldn't be granted.");
+        } catch (SecurityException expected) {
+        }
+    }
+
+    public void testCheckCallingOrSelfPermissionGranted() {
+        int retValue = mContextWrapper.checkCallingOrSelfPermission(GRANTED_PERMISSION);
+        assertEquals(PackageManager.PERMISSION_GRANTED, retValue);
+    }
+
+    public void testEnforceCallingOrSelfPermissionGranted() {
+        mContextWrapper.enforceCallingOrSelfPermission(
+                GRANTED_PERMISSION, "permission isn't granted");
+    }
+
+    public void testEnforceCallingOrSelfPermissionNotGranted() {
+        try {
+            mContextWrapper.enforceCallingOrSelfPermission(
+                    NOT_GRANTED_PERMISSION, "permission isn't granted");
+            fail("Permission shouldn't be granted.");
+        } catch (SecurityException expected) {
+        }
+    }
+
+    public void testCheckCallingPermission() {
+        // Denied because no IPC is active.
+        int retValue = mContextWrapper.checkCallingPermission(GRANTED_PERMISSION);
+        assertEquals(PackageManager.PERMISSION_DENIED, retValue);
+    }
+
+    public void testEnforceCallingPermission() {
+        try {
+            mContextWrapper.enforceCallingPermission(
+                    GRANTED_PERMISSION,
+                    "enforceCallingPermission is not working without possessing an IPC.");
+            fail("enforceCallingPermission is not working without possessing an IPC.");
         } catch (SecurityException e) {
-            // If the function is ok, it should throw a SecurityException here
-            // because currently no IPC is handled by this process.
+            // Currently no IPC is handled by this process, this exception is expected
         }
     }
 
@@ -598,19 +658,14 @@ public class ContextWrapperTest extends AndroidTestCase {
     public void testCheckUriPermission2() {
         Uri uri = Uri.parse("content://ctstest");
 
-        int retValue = mContextWrapper.checkUriPermission(uri, PERMISSION_HARDWARE_TEST,
-                PERMISSION_HARDWARE_TEST, Binder.getCallingPid(), 0,
+        int retValue = mContextWrapper.checkUriPermission(uri, NOT_GRANTED_PERMISSION,
+                NOT_GRANTED_PERMISSION, Binder.getCallingPid(), 0,
                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
         assertEquals(PackageManager.PERMISSION_GRANTED, retValue);
 
-        retValue = mContextWrapper.checkUriPermission(uri, PERMISSION_HARDWARE_TEST,
-                PERMISSION_HARDWARE_TEST, Binder.getCallingPid(), Binder.getCallingUid(),
+        retValue = mContextWrapper.checkUriPermission(uri, NOT_GRANTED_PERMISSION,
+                NOT_GRANTED_PERMISSION, Binder.getCallingPid(), Binder.getCallingUid(),
                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        assertEquals(PackageManager.PERMISSION_DENIED, retValue);
-    }
-
-    public void testCheckCallingPermission() {
-        int retValue = mContextWrapper.checkCallingPermission(PERMISSION_HARDWARE_TEST);
         assertEquals(PackageManager.PERMISSION_DENIED, retValue);
     }
 
@@ -642,12 +697,6 @@ public class ContextWrapperTest extends AndroidTestCase {
 
     public void testGetPackageManager() {
         assertSame(mContext.getPackageManager(), mContextWrapper.getPackageManager());
-    }
-
-    public void testCheckCallingOrSelfPermission() {
-        int retValue = mContextWrapper.checkCallingOrSelfPermission(
-                "android.permission.SET_WALLPAPER");
-        assertEquals(PackageManager.PERMISSION_GRANTED, retValue);
     }
 
     public void testSendBroadcast1() throws InterruptedException {
@@ -691,27 +740,6 @@ public class ContextWrapperTest extends AndroidTestCase {
             // If the function is OK, it should throw a SecurityException here because currently no
             // IPC is handled by this process.
         }
-    }
-
-    public void testCheckPermission() {
-        // Test with root user, everything will be granted.
-        int returnValue = mContextWrapper.checkPermission(PERMISSION_HARDWARE_TEST, 1, 0);
-        assertEquals(PackageManager.PERMISSION_GRANTED, returnValue);
-
-        // Test with non-root user, only included granted permission.
-        returnValue = mContextWrapper.checkPermission(PERMISSION_HARDWARE_TEST, 1, 1);
-        assertEquals(PackageManager.PERMISSION_DENIED, returnValue);
-
-        // Test with null permission.
-        try {
-            returnValue = mContextWrapper.checkPermission(null, 0, 0);
-            fail("checkPermission should not accept null permission");
-        } catch (IllegalArgumentException e) {
-        }
-
-        // Test with invalid uid and included granted permission.
-        returnValue = mContextWrapper.checkPermission("android.permission.SET_WALLPAPER", 1, -11);
-        assertEquals(PackageManager.PERMISSION_DENIED, returnValue);
     }
 
     public void testGetSystemService() {

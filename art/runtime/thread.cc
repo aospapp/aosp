@@ -39,15 +39,19 @@
 #include "art_field-inl.h"
 #include "art_method-inl.h"
 #include "base/bit_utils.h"
+#include "base/file_utils.h"
 #include "base/memory_tool.h"
 #include "base/mutex.h"
 #include "base/systrace.h"
 #include "base/timing_logger.h"
 #include "base/to_str.h"
+#include "base/utils.h"
 #include "class_linker-inl.h"
 #include "debugger.h"
-#include "dex_file-inl.h"
-#include "dex_file_annotations.h"
+#include "dex/descriptors_names.h"
+#include "dex/dex_file-inl.h"
+#include "dex/dex_file_annotations.h"
+#include "dex/dex_file_types.h"
 #include "entrypoints/entrypoint_utils.h"
 #include "entrypoints/quick/quick_alloc_entrypoints.h"
 #include "gc/accounting/card_table-inl.h"
@@ -68,9 +72,10 @@
 #include "mirror/object_array-inl.h"
 #include "mirror/stack_trace_element.h"
 #include "monitor.h"
+#include "monitor_objects_stack_visitor.h"
 #include "native_stack_dump.h"
-#include "nativehelper/ScopedLocalRef.h"
-#include "nativehelper/ScopedUtfChars.h"
+#include "nativehelper/scoped_local_ref.h"
+#include "nativehelper/scoped_utf_chars.h"
 #include "nth_caller_visitor.h"
 #include "oat_quick_method_header.h"
 #include "obj_ptr-inl.h"
@@ -86,7 +91,6 @@
 #include "stack_map.h"
 #include "thread-inl.h"
 #include "thread_list.h"
-#include "utils.h"
 #include "verifier/method_verifier.h"
 #include "verify_object.h"
 #include "well_known_classes.h"
@@ -153,7 +157,7 @@ void Thread::InitTlsEntryPoints() {
 }
 
 void Thread::ResetQuickAllocEntryPointsForThread(bool is_marking) {
-  if (kUseReadBarrier && kRuntimeISA != kX86_64) {
+  if (kUseReadBarrier && kRuntimeISA != InstructionSet::kX86_64) {
     // Allocation entrypoint switching is currently only implemented for X86_64.
     is_marking = true;
   }
@@ -166,11 +170,13 @@ class DeoptimizationContextRecord {
                               bool is_reference,
                               bool from_code,
                               ObjPtr<mirror::Throwable> pending_exception,
+                              DeoptimizationMethodType method_type,
                               DeoptimizationContextRecord* link)
       : ret_val_(ret_val),
         is_reference_(is_reference),
         from_code_(from_code),
         pending_exception_(pending_exception.Ptr()),
+        deopt_method_type_(method_type),
         link_(link) {}
 
   JValue GetReturnValue() const { return ret_val_; }
@@ -184,6 +190,9 @@ class DeoptimizationContextRecord {
   }
   mirror::Object** GetPendingExceptionAsGCRoot() {
     return reinterpret_cast<mirror::Object**>(&pending_exception_);
+  }
+  DeoptimizationMethodType GetDeoptimizationMethodType() const {
+    return deopt_method_type_;
   }
 
  private:
@@ -199,6 +208,9 @@ class DeoptimizationContextRecord {
   // The exception that was pending before deoptimization (or null if there was no pending
   // exception).
   mirror::Throwable* pending_exception_;
+
+  // Whether the context was created for an (idempotent) runtime method.
+  const DeoptimizationMethodType deopt_method_type_;
 
   // A link to the previous DeoptimizationContextRecord.
   DeoptimizationContextRecord* const link_;
@@ -229,26 +241,30 @@ class StackedShadowFrameRecord {
 
 void Thread::PushDeoptimizationContext(const JValue& return_value,
                                        bool is_reference,
+                                       ObjPtr<mirror::Throwable> exception,
                                        bool from_code,
-                                       ObjPtr<mirror::Throwable> exception) {
+                                       DeoptimizationMethodType method_type) {
   DeoptimizationContextRecord* record = new DeoptimizationContextRecord(
       return_value,
       is_reference,
       from_code,
       exception,
+      method_type,
       tlsPtr_.deoptimization_context_stack);
   tlsPtr_.deoptimization_context_stack = record;
 }
 
 void Thread::PopDeoptimizationContext(JValue* result,
                                       ObjPtr<mirror::Throwable>* exception,
-                                      bool* from_code) {
+                                      bool* from_code,
+                                      DeoptimizationMethodType* method_type) {
   AssertHasDeoptimizationContext();
   DeoptimizationContextRecord* record = tlsPtr_.deoptimization_context_stack;
   tlsPtr_.deoptimization_context_stack = record->GetLink();
   result->SetJ(record->GetReturnValue().GetJ());
   *exception = record->GetPendingException();
   *from_code = record->GetFromCode();
+  *method_type = record->GetDeoptimizationMethodType();
   delete record;
 }
 
@@ -606,7 +622,7 @@ void Thread::InstallImplicitProtection() {
 
 void Thread::CreateNativeThread(JNIEnv* env, jobject java_peer, size_t stack_size, bool is_daemon) {
   CHECK(java_peer != nullptr);
-  Thread* self = static_cast<JNIEnvExt*>(env)->self;
+  Thread* self = static_cast<JNIEnvExt*>(env)->GetSelf();
 
   if (VLOG_IS_ON(threads)) {
     ScopedObjectAccess soa(env);
@@ -648,8 +664,8 @@ void Thread::CreateNativeThread(JNIEnv* env, jobject java_peer, size_t stack_siz
   child_thread->tlsPtr_.jpeer = env->NewGlobalRef(java_peer);
   stack_size = FixStackSize(stack_size);
 
-  // Thread.start is synchronized, so we know that nativePeer is 0, and know that we're not racing to
-  // assign it.
+  // Thread.start is synchronized, so we know that nativePeer is 0, and know that we're not racing
+  // to assign it.
   env->SetLongField(java_peer, WellKnownClasses::java_lang_Thread_nativePeer,
                     reinterpret_cast<jlong>(child_thread));
 
@@ -739,8 +755,8 @@ bool Thread::Init(ThreadList* thread_list, JavaVMExt* java_vm, JNIEnvExt* jni_en
   tls32_.thin_lock_thread_id = thread_list->AllocThreadId(this);
 
   if (jni_env_ext != nullptr) {
-    DCHECK_EQ(jni_env_ext->vm, java_vm);
-    DCHECK_EQ(jni_env_ext->self, this);
+    DCHECK_EQ(jni_env_ext->GetVm(), java_vm);
+    DCHECK_EQ(jni_env_ext->GetSelf(), this);
     tlsPtr_.jni_env = jni_env_ext;
   } else {
     std::string error_msg;
@@ -759,14 +775,16 @@ template <typename PeerAction>
 Thread* Thread::Attach(const char* thread_name, bool as_daemon, PeerAction peer_action) {
   Runtime* runtime = Runtime::Current();
   if (runtime == nullptr) {
-    LOG(ERROR) << "Thread attaching to non-existent runtime: " << thread_name;
+    LOG(ERROR) << "Thread attaching to non-existent runtime: " <<
+        ((thread_name != nullptr) ? thread_name : "(Unnamed)");
     return nullptr;
   }
   Thread* self;
   {
     MutexLock mu(nullptr, *Locks::runtime_shutdown_lock_);
     if (runtime->IsShuttingDownLocked()) {
-      LOG(WARNING) << "Thread attaching while runtime is shutting down: " << thread_name;
+      LOG(WARNING) << "Thread attaching while runtime is shutting down: " <<
+          ((thread_name != nullptr) ? thread_name : "(Unnamed)");
       return nullptr;
     } else {
       Runtime::Current()->StartThreadBirth();
@@ -822,7 +840,8 @@ Thread* Thread::Attach(const char* thread_name,
     if (create_peer) {
       self->CreatePeer(thread_name, as_daemon, thread_group);
       if (self->IsExceptionPending()) {
-        // We cannot keep the exception around, as we're deleting self. Try to be helpful and log it.
+        // We cannot keep the exception around, as we're deleting self. Try to be helpful and log
+        // it.
         {
           ScopedObjectAccess soa(self);
           LOG(ERROR) << "Exception creating thread peer:";
@@ -836,7 +855,7 @@ Thread* Thread::Attach(const char* thread_name,
       if (thread_name != nullptr) {
         self->tlsPtr_.name->assign(thread_name);
         ::art::SetThreadName(thread_name);
-      } else if (self->GetJniEnv()->check_jni) {
+      } else if (self->GetJniEnv()->IsCheckJniEnabled()) {
         LOG(WARNING) << *Thread::Current() << " attached without supplying a name";
       }
     }
@@ -1100,7 +1119,7 @@ bool Thread::InitStackHwm() {
   // effectively disable stack overflow checks (we'll get segfaults, potentially) by setting
   // stack_begin to 0.
   const bool valgrind_on_arm =
-      (kRuntimeISA == kArm || kRuntimeISA == kArm64) &&
+      (kRuntimeISA == InstructionSet::kArm || kRuntimeISA == InstructionSet::kArm64) &&
       kMemoryToolIsValgrind &&
       RUNNING_ON_MEMORY_TOOL != 0;
   if (valgrind_on_arm) {
@@ -1261,7 +1280,7 @@ bool Thread::ModifySuspendCountInternal(Thread* self,
     AtomicClearFlag(kSuspendRequest);
   } else {
     // Two bits might be set simultaneously.
-    tls32_.state_and_flags.as_atomic_int.FetchAndOrSequentiallyConsistent(flags);
+    tls32_.state_and_flags.as_atomic_int.FetchAndBitwiseOrSequentiallyConsistent(flags);
     TriggerSuspend();
   }
   return true;
@@ -1302,7 +1321,7 @@ bool Thread::PassActiveSuspendBarriers(Thread* self) {
         int32_t cur_val = pending_threads->LoadRelaxed();
         CHECK_GT(cur_val, 0) << "Unexpected value for PassActiveSuspendBarriers(): " << cur_val;
         // Reduce value by 1.
-        done = pending_threads->CompareExchangeWeakRelaxed(cur_val, cur_val - 1);
+        done = pending_threads->CompareAndSetWeakRelaxed(cur_val, cur_val - 1);
 #if ART_USE_FUTEXES
         if (done && (cur_val - 1) == 0) {  // Weak CAS may fail spuriously.
           futex(pending_threads->Address(), FUTEX_WAKE, -1, nullptr, nullptr, 0);
@@ -1333,36 +1352,26 @@ void Thread::ClearSuspendBarrier(AtomicInteger* target) {
 }
 
 void Thread::RunCheckpointFunction() {
-  bool done = false;
-  do {
-    // Grab the suspend_count lock and copy the checkpoints one by one. When the last checkpoint is
-    // copied, clear the list and the flag. The RequestCheckpoint function will also grab this lock
-    // to prevent a race between setting the kCheckpointRequest flag and clearing it.
-    Closure* checkpoint = nullptr;
-    {
-      MutexLock mu(this, *Locks::thread_suspend_count_lock_);
-      if (tlsPtr_.checkpoint_function != nullptr) {
-        checkpoint = tlsPtr_.checkpoint_function;
-        if (!checkpoint_overflow_.empty()) {
-          // Overflow list not empty, copy the first one out and continue.
-          tlsPtr_.checkpoint_function = checkpoint_overflow_.front();
-          checkpoint_overflow_.pop_front();
-        } else {
-          // No overflow checkpoints, this means that we are on the last pending checkpoint.
-          tlsPtr_.checkpoint_function = nullptr;
-          AtomicClearFlag(kCheckpointRequest);
-          done = true;
-        }
-      } else {
-        LOG(FATAL) << "Checkpoint flag set without pending checkpoint";
-      }
+  // Grab the suspend_count lock, get the next checkpoint and update all the checkpoint fields. If
+  // there are no more checkpoints we will also clear the kCheckpointRequest flag.
+  Closure* checkpoint;
+  {
+    MutexLock mu(this, *Locks::thread_suspend_count_lock_);
+    checkpoint = tlsPtr_.checkpoint_function;
+    if (!checkpoint_overflow_.empty()) {
+      // Overflow list not empty, copy the first one out and continue.
+      tlsPtr_.checkpoint_function = checkpoint_overflow_.front();
+      checkpoint_overflow_.pop_front();
+    } else {
+      // No overflow checkpoints. Clear the kCheckpointRequest flag
+      tlsPtr_.checkpoint_function = nullptr;
+      AtomicClearFlag(kCheckpointRequest);
     }
-
-    // Outside the lock, run the checkpoint functions that we collected.
-    ScopedTrace trace("Run checkpoint function");
-    DCHECK(checkpoint != nullptr);
-    checkpoint->Run(this);
-  } while (!done);
+  }
+  // Outside the lock, run the checkpoint function.
+  ScopedTrace trace("Run checkpoint function");
+  CHECK(checkpoint != nullptr) << "Checkpoint flag set without pending checkpoint";
+  checkpoint->Run(this);
 }
 
 void Thread::RunEmptyCheckpoint() {
@@ -1383,7 +1392,7 @@ bool Thread::RequestCheckpoint(Closure* function) {
   union StateAndFlags new_state_and_flags;
   new_state_and_flags.as_int = old_state_and_flags.as_int;
   new_state_and_flags.as_struct.flags |= kCheckpointRequest;
-  bool success = tls32_.state_and_flags.as_atomic_int.CompareExchangeStrongSequentiallyConsistent(
+  bool success = tls32_.state_and_flags.as_atomic_int.CompareAndSetStrongSequentiallyConsistent(
       old_state_and_flags.as_int, new_state_and_flags.as_int);
   if (success) {
     // Succeeded setting checkpoint flag, now insert the actual checkpoint.
@@ -1412,7 +1421,7 @@ bool Thread::RequestEmptyCheckpoint() {
   union StateAndFlags new_state_and_flags;
   new_state_and_flags.as_int = old_state_and_flags.as_int;
   new_state_and_flags.as_struct.flags |= kEmptyCheckpointRequest;
-  bool success = tls32_.state_and_flags.as_atomic_int.CompareExchangeStrongSequentiallyConsistent(
+  bool success = tls32_.state_and_flags.as_atomic_int.CompareAndSetStrongSequentiallyConsistent(
       old_state_and_flags.as_int, new_state_and_flags.as_int);
   if (success) {
     TriggerSuspend();
@@ -1429,8 +1438,12 @@ class BarrierClosure : public Closure {
     barrier_.Pass(self);
   }
 
-  void Wait(Thread* self) {
-    barrier_.Increment(self, 1);
+  void Wait(Thread* self, ThreadState suspend_state) {
+    if (suspend_state != ThreadState::kRunnable) {
+      barrier_.Increment<Barrier::kDisallowHoldingLocks>(self, 1);
+    } else {
+      barrier_.Increment<Barrier::kAllowHoldingLocks>(self, 1);
+    }
   }
 
  private:
@@ -1438,21 +1451,25 @@ class BarrierClosure : public Closure {
   Barrier barrier_;
 };
 
-bool Thread::RequestSynchronousCheckpoint(Closure* function) {
+// RequestSynchronousCheckpoint releases the thread_list_lock_ as a part of its execution.
+bool Thread::RequestSynchronousCheckpoint(Closure* function, ThreadState suspend_state) {
+  Thread* self = Thread::Current();
   if (this == Thread::Current()) {
+    Locks::thread_list_lock_->AssertExclusiveHeld(self);
+    // Unlock the tll before running so that the state is the same regardless of thread.
+    Locks::thread_list_lock_->ExclusiveUnlock(self);
     // Asked to run on this thread. Just run.
     function->Run(this);
     return true;
   }
-  Thread* self = Thread::Current();
 
   // The current thread is not this thread.
 
   if (GetState() == ThreadState::kTerminated) {
+    Locks::thread_list_lock_->ExclusiveUnlock(self);
     return false;
   }
 
-  // Note: we're holding the thread-list lock. The thread cannot die at this point.
   struct ScopedThreadListLockUnlock {
     explicit ScopedThreadListLockUnlock(Thread* self_in) RELEASE(*Locks::thread_list_lock_)
         : self_thread(self_in) {
@@ -1469,6 +1486,7 @@ bool Thread::RequestSynchronousCheckpoint(Closure* function) {
   };
 
   for (;;) {
+    Locks::thread_list_lock_->AssertExclusiveHeld(self);
     // If this thread is runnable, try to schedule a checkpoint. Do some gymnastics to not hold the
     // suspend-count lock for too long.
     if (GetState() == ThreadState::kRunnable) {
@@ -1479,10 +1497,11 @@ bool Thread::RequestSynchronousCheckpoint(Closure* function) {
         installed = RequestCheckpoint(&barrier_closure);
       }
       if (installed) {
-        // Relinquish the thread-list lock, temporarily. We should not wait holding any locks.
-        ScopedThreadListLockUnlock stllu(self);
-        ScopedThreadSuspension sts(self, ThreadState::kWaiting);
-        barrier_closure.Wait(self);
+        // Relinquish the thread-list lock. We should not wait holding any locks. We cannot
+        // reacquire it since we don't know if 'this' hasn't been deleted yet.
+        Locks::thread_list_lock_->ExclusiveUnlock(self);
+        ScopedThreadStateChange sts(self, suspend_state);
+        barrier_closure.Wait(self, suspend_state);
         return true;
       }
       // Fall-through.
@@ -1502,9 +1521,11 @@ bool Thread::RequestSynchronousCheckpoint(Closure* function) {
     }
 
     {
+      // Release for the wait. The suspension will keep us from being deleted. Reacquire after so
+      // that we can call ModifySuspendCount without racing against ThreadList::Unregister.
       ScopedThreadListLockUnlock stllu(self);
       {
-        ScopedThreadSuspension sts(self, ThreadState::kWaiting);
+        ScopedThreadStateChange sts(self, suspend_state);
         while (GetState() == ThreadState::kRunnable) {
           // We became runnable again. Wait till the suspend triggered in ModifySuspendCount
           // moves us to suspended.
@@ -1530,6 +1551,9 @@ bool Thread::RequestSynchronousCheckpoint(Closure* function) {
       Thread::resume_cond_->Broadcast(self);
     }
 
+    // Release the thread_list_lock_ to be consistent with the barrier-closure path.
+    Locks::thread_list_lock_->ExclusiveUnlock(self);
+
     return true;  // We're done, break out of the loop.
   }
 }
@@ -1542,7 +1566,7 @@ Closure* Thread::GetFlipFunction() {
     if (func == nullptr) {
       return nullptr;
     }
-  } while (!atomic_func->CompareExchangeWeakSequentiallyConsistent(func, nullptr));
+  } while (!atomic_func->CompareAndSetWeakSequentiallyConsistent(func, nullptr));
   DCHECK(func != nullptr);
   return func;
 }
@@ -1724,7 +1748,7 @@ void Thread::DumpState(std::ostream& os, const Thread* thread, pid_t tid) {
           os << " \"" << mutex->GetName() << "\"";
           if (mutex->IsReaderWriterMutex()) {
             ReaderWriterMutex* rw_mutex = down_cast<ReaderWriterMutex*>(mutex);
-            if (rw_mutex->GetExclusiveOwnerTid() == static_cast<uint64_t>(tid)) {
+            if (rw_mutex->GetExclusiveOwnerTid() == tid) {
               os << "(exclusive held)";
             } else {
               os << "(shared held)";
@@ -1741,25 +1765,22 @@ void Thread::DumpState(std::ostream& os) const {
   Thread::DumpState(os, this, GetTid());
 }
 
-struct StackDumpVisitor : public StackVisitor {
+struct StackDumpVisitor : public MonitorObjectsStackVisitor {
   StackDumpVisitor(std::ostream& os_in,
                    Thread* thread_in,
                    Context* context,
-                   bool can_allocate_in,
+                   bool can_allocate,
                    bool check_suspended = true,
-                   bool dump_locks_in = true)
+                   bool dump_locks = true)
       REQUIRES_SHARED(Locks::mutator_lock_)
-      : StackVisitor(thread_in,
-                     context,
-                     StackVisitor::StackWalkKind::kIncludeInlinedFrames,
-                     check_suspended),
+      : MonitorObjectsStackVisitor(thread_in,
+                                   context,
+                                   check_suspended,
+                                   can_allocate && dump_locks),
         os(os_in),
-        can_allocate(can_allocate_in),
         last_method(nullptr),
         last_line_number(0),
-        repetition_count(0),
-        frame_count(0),
-        dump_locks(dump_locks_in) {}
+        repetition_count(0) {}
 
   virtual ~StackDumpVisitor() {
     if (frame_count == 0) {
@@ -1767,13 +1788,12 @@ struct StackDumpVisitor : public StackVisitor {
     }
   }
 
-  bool VisitFrame() REQUIRES_SHARED(Locks::mutator_lock_) {
-    ArtMethod* m = GetMethod();
-    if (m->IsRuntimeMethod()) {
-      return true;
-    }
+  static constexpr size_t kMaxRepetition = 3u;
+
+  VisitMethodResult StartMethod(ArtMethod* m, size_t frame_nr ATTRIBUTE_UNUSED)
+      OVERRIDE
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     m = m->GetInterfaceMethodIfProxy(kRuntimePointerSize);
-    const int kMaxRepetition = 3;
     ObjPtr<mirror::Class> c = m->GetDeclaringClass();
     ObjPtr<mirror::DexCache> dex_cache = c->GetDexCache();
     int line_number = -1;
@@ -1791,67 +1811,97 @@ struct StackDumpVisitor : public StackVisitor {
       last_line_number = line_number;
       last_method = m;
     }
-    if (repetition_count < kMaxRepetition) {
-      os << "  at " << m->PrettyMethod(false);
-      if (m->IsNative()) {
-        os << "(Native method)";
-      } else {
-        const char* source_file(m->GetDeclaringClassSourceFile());
-        os << "(" << (source_file != nullptr ? source_file : "unavailable")
-           << ":" << line_number << ")";
-      }
-      os << "\n";
-      if (frame_count == 0) {
-        Monitor::DescribeWait(os, GetThread());
-      }
-      if (can_allocate && dump_locks) {
-        // Visit locks, but do not abort on errors. This would trigger a nested abort.
-        // Skip visiting locks if dump_locks is false as it would cause a bad_mutexes_held in
-        // RegTypeCache::RegTypeCache due to thread_list_lock.
-        Monitor::VisitLocks(this, DumpLockedObject, &os, false);
-      }
+
+    if (repetition_count >= kMaxRepetition) {
+      // Skip visiting=printing anything.
+      return VisitMethodResult::kSkipMethod;
     }
 
-    ++frame_count;
-    return true;
+    os << "  at " << m->PrettyMethod(false);
+    if (m->IsNative()) {
+      os << "(Native method)";
+    } else {
+      const char* source_file(m->GetDeclaringClassSourceFile());
+      os << "(" << (source_file != nullptr ? source_file : "unavailable")
+                       << ":" << line_number << ")";
+    }
+    os << "\n";
+    // Go and visit locks.
+    return VisitMethodResult::kContinueMethod;
   }
 
-  static void DumpLockedObject(mirror::Object* o, void* context)
+  VisitMethodResult EndMethod(ArtMethod* m ATTRIBUTE_UNUSED) OVERRIDE {
+    return VisitMethodResult::kContinueMethod;
+  }
+
+  void VisitWaitingObject(mirror::Object* obj, ThreadState state ATTRIBUTE_UNUSED)
+      OVERRIDE
       REQUIRES_SHARED(Locks::mutator_lock_) {
-    std::ostream& os = *reinterpret_cast<std::ostream*>(context);
-    os << "  - locked ";
-    if (o == nullptr) {
-      os << "an unknown object";
+    PrintObject(obj, "  - waiting on ", ThreadList::kInvalidThreadId);
+  }
+  void VisitSleepingObject(mirror::Object* obj)
+      OVERRIDE
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    PrintObject(obj, "  - sleeping on ", ThreadList::kInvalidThreadId);
+  }
+  void VisitBlockedOnObject(mirror::Object* obj,
+                            ThreadState state,
+                            uint32_t owner_tid)
+      OVERRIDE
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    const char* msg;
+    switch (state) {
+      case kBlocked:
+        msg = "  - waiting to lock ";
+        break;
+
+      case kWaitingForLockInflation:
+        msg = "  - waiting for lock inflation of ";
+        break;
+
+      default:
+        LOG(FATAL) << "Unreachable";
+        UNREACHABLE();
+    }
+    PrintObject(obj, msg, owner_tid);
+  }
+  void VisitLockedObject(mirror::Object* obj)
+      OVERRIDE
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    PrintObject(obj, "  - locked ", ThreadList::kInvalidThreadId);
+  }
+
+  void PrintObject(mirror::Object* obj,
+                   const char* msg,
+                   uint32_t owner_tid) REQUIRES_SHARED(Locks::mutator_lock_) {
+    if (obj == nullptr) {
+      os << msg << "an unknown object";
     } else {
-      if (kUseReadBarrier && Thread::Current()->GetIsGcMarking()) {
-        // We may call Thread::Dump() in the middle of the CC thread flip and this thread's stack
-        // may have not been flipped yet and "o" may be a from-space (stale) ref, in which case the
-        // IdentityHashCode call below will crash. So explicitly mark/forward it here.
-        o = ReadBarrier::Mark(o);
-      }
-      if ((o->GetLockWord(false).GetState() == LockWord::kThinLocked) &&
+      if ((obj->GetLockWord(true).GetState() == LockWord::kThinLocked) &&
           Locks::mutator_lock_->IsExclusiveHeld(Thread::Current())) {
         // Getting the identity hashcode here would result in lock inflation and suspension of the
         // current thread, which isn't safe if this is the only runnable thread.
-        os << StringPrintf("<@addr=0x%" PRIxPTR "> (a %s)", reinterpret_cast<intptr_t>(o),
-                           o->PrettyTypeOf().c_str());
+        os << msg << StringPrintf("<@addr=0x%" PRIxPTR "> (a %s)",
+                                  reinterpret_cast<intptr_t>(obj),
+                                  obj->PrettyTypeOf().c_str());
       } else {
-        // IdentityHashCode can cause thread suspension, which would invalidate o if it moved. So
-        // we get the pretty type beofre we call IdentityHashCode.
-        const std::string pretty_type(o->PrettyTypeOf());
-        os << StringPrintf("<0x%08x> (a %s)", o->IdentityHashCode(), pretty_type.c_str());
+        // - waiting on <0x6008c468> (a java.lang.Class<java.lang.ref.ReferenceQueue>)
+        // Call PrettyTypeOf before IdentityHashCode since IdentityHashCode can cause thread
+        // suspension and move pretty_object.
+        const std::string pretty_type(obj->PrettyTypeOf());
+        os << msg << StringPrintf("<0x%08x> (a %s)", obj->IdentityHashCode(), pretty_type.c_str());
       }
+    }
+    if (owner_tid != ThreadList::kInvalidThreadId) {
+      os << " held by thread " << owner_tid;
     }
     os << "\n";
   }
 
   std::ostream& os;
-  const bool can_allocate;
   ArtMethod* last_method;
   int last_line_number;
-  int repetition_count;
-  int frame_count;
-  const bool dump_locks;
+  size_t repetition_count;
 };
 
 static bool ShouldShowNativeStack(const Thread* thread)
@@ -1869,9 +1919,7 @@ static bool ShouldShowNativeStack(const Thread* thread)
   }
 
   // Threads with no managed stack frames should be shown.
-  const ManagedStack* managed_stack = thread->GetManagedStack();
-  if (managed_stack == nullptr || (managed_stack->GetTopQuickFrame() == nullptr &&
-      managed_stack->GetTopShadowFrame() == nullptr)) {
+  if (!thread->HasManagedStack()) {
     return true;
   }
 
@@ -2007,20 +2055,8 @@ void Thread::FinishStartup() {
 
   // The thread counts as started from now on. We need to add it to the ThreadGroup. For regular
   // threads, this is done in Thread.start() on the Java side.
-  {
-    // This is only ever done once. There's no benefit in caching the method.
-    jmethodID thread_group_add = soa.Env()->GetMethodID(WellKnownClasses::java_lang_ThreadGroup,
-                                                        "add",
-                                                        "(Ljava/lang/Thread;)V");
-    CHECK(thread_group_add != nullptr);
-    ScopedLocalRef<jobject> thread_jobject(
-        soa.Env(), soa.Env()->AddLocalReference<jobject>(Thread::Current()->GetPeer()));
-    soa.Env()->CallNonvirtualVoidMethod(runtime->GetMainThreadGroup(),
-                                        WellKnownClasses::java_lang_ThreadGroup,
-                                        thread_group_add,
-                                        thread_jobject.get());
-    Thread::Current()->AssertNoPendingException();
-  }
+  Thread::Current()->NotifyThreadGroup(soa, runtime->GetMainThreadGroup());
+  Thread::Current()->AssertNoPendingException();
 }
 
 void Thread::Shutdown() {
@@ -2032,6 +2068,28 @@ void Thread::Shutdown() {
     delete resume_cond_;
     resume_cond_ = nullptr;
   }
+}
+
+void Thread::NotifyThreadGroup(ScopedObjectAccessAlreadyRunnable& soa, jobject thread_group) {
+  ScopedLocalRef<jobject> thread_jobject(
+      soa.Env(), soa.Env()->AddLocalReference<jobject>(Thread::Current()->GetPeer()));
+  ScopedLocalRef<jobject> thread_group_jobject_scoped(
+      soa.Env(), nullptr);
+  jobject thread_group_jobject = thread_group;
+  if (thread_group == nullptr || kIsDebugBuild) {
+    // There is always a group set. Retrieve it.
+    thread_group_jobject_scoped.reset(
+        soa.Env()->GetObjectField(thread_jobject.get(),
+                                  WellKnownClasses::java_lang_Thread_group));
+    thread_group_jobject = thread_group_jobject_scoped.get();
+    if (kIsDebugBuild && thread_group != nullptr) {
+      CHECK(soa.Env()->IsSameObject(thread_group, thread_group_jobject));
+    }
+  }
+  soa.Env()->CallNonvirtualVoidMethod(thread_group_jobject,
+                                      WellKnownClasses::java_lang_ThreadGroup,
+                                      WellKnownClasses::java_lang_ThreadGroup_add,
+                                      thread_jobject.get());
 }
 
 Thread::Thread(bool daemon)
@@ -2128,7 +2186,7 @@ void Thread::Destroy() {
       ScopedObjectAccess soa(self);
       MonitorExitVisitor visitor(self);
       // On thread detach, all monitors entered with JNI MonitorEnter are automatically exited.
-      tlsPtr_.jni_env->monitors.VisitRoots(&visitor, RootInfo(kRootVMInternal));
+      tlsPtr_.jni_env->monitors_.VisitRoots(&visitor, RootInfo(kRootVMInternal));
     }
     // Release locally held global references which releasing may require the mutator lock.
     if (tlsPtr_.jpeer != nullptr) {
@@ -2146,11 +2204,11 @@ void Thread::Destroy() {
     ScopedObjectAccess soa(self);
     // We may need to call user-supplied managed code, do this before final clean-up.
     HandleUncaughtExceptions(soa);
+    RemoveFromThreadGroup(soa);
     Runtime* runtime = Runtime::Current();
     if (runtime != nullptr) {
       runtime->GetRuntimeCallbacks()->ThreadDeath(self);
     }
-    RemoveFromThreadGroup(soa);
 
     // this.nativePeer = 0;
     if (Runtime::Current()->IsActiveTransaction()) {
@@ -2279,7 +2337,7 @@ bool Thread::HandleScopeContains(jobject obj) const {
   return tlsPtr_.managed_stack.ShadowFramesContain(hs_entry);
 }
 
-void Thread::HandleScopeVisitRoots(RootVisitor* visitor, uint32_t thread_id) {
+void Thread::HandleScopeVisitRoots(RootVisitor* visitor, pid_t thread_id) {
   BufferedRootVisitor<kDefaultBufferedRootCount> buffered_visitor(
       visitor, RootInfo(kRootNativeStack, thread_id));
   for (BaseHandleScope* cur = tlsPtr_.top_handle_scope; cur; cur = cur->GetLink()) {
@@ -2297,7 +2355,7 @@ ObjPtr<mirror::Object> Thread::DecodeJObject(jobject obj) const {
   bool expect_null = false;
   // The "kinds" below are sorted by the frequency we expect to encounter them.
   if (kind == kLocal) {
-    IndirectReferenceTable& locals = tlsPtr_.jni_env->locals;
+    IndirectReferenceTable& locals = tlsPtr_.jni_env->locals_;
     // Local references do not need a read barrier.
     result = locals.Get<kWithoutReadBarrier>(ref);
   } else if (kind == kHandleScopeOrInvalid) {
@@ -2308,15 +2366,15 @@ ObjPtr<mirror::Object> Thread::DecodeJObject(jobject obj) const {
       result = reinterpret_cast<StackReference<mirror::Object>*>(obj)->AsMirrorPtr();
       VerifyObject(result);
     } else {
-      tlsPtr_.jni_env->vm->JniAbortF(nullptr, "use of invalid jobject %p", obj);
+      tlsPtr_.jni_env->vm_->JniAbortF(nullptr, "use of invalid jobject %p", obj);
       expect_null = true;
       result = nullptr;
     }
   } else if (kind == kGlobal) {
-    result = tlsPtr_.jni_env->vm->DecodeGlobal(ref);
+    result = tlsPtr_.jni_env->vm_->DecodeGlobal(ref);
   } else {
     DCHECK_EQ(kind, kWeakGlobal);
-    result = tlsPtr_.jni_env->vm->DecodeWeakGlobal(const_cast<Thread*>(this), ref);
+    result = tlsPtr_.jni_env->vm_->DecodeWeakGlobal(const_cast<Thread*>(this), ref);
     if (Runtime::Current()->IsClearedJniWeakGlobal(result)) {
       // This is a special case where it's okay to return null.
       expect_null = true;
@@ -2325,7 +2383,7 @@ ObjPtr<mirror::Object> Thread::DecodeJObject(jobject obj) const {
   }
 
   if (UNLIKELY(!expect_null && result == nullptr)) {
-    tlsPtr_.jni_env->vm->JniAbortF(nullptr, "use of deleted %s %p",
+    tlsPtr_.jni_env->vm_->JniAbortF(nullptr, "use of deleted %s %p",
                                    ToStr<IndirectRefKind>(kind).c_str(), obj);
   }
   return result;
@@ -2336,7 +2394,7 @@ bool Thread::IsJWeakCleared(jweak obj) const {
   IndirectRef ref = reinterpret_cast<IndirectRef>(obj);
   IndirectRefKind kind = IndirectReferenceTable::GetIndirectRefKind(ref);
   CHECK_EQ(kind, kWeakGlobal);
-  return tlsPtr_.jni_env->vm->IsWeakGlobalCleared(const_cast<Thread*>(this), ref);
+  return tlsPtr_.jni_env->vm_->IsWeakGlobalCleared(const_cast<Thread*>(this), ref);
 }
 
 // Implements java.lang.Thread.interrupted.
@@ -2409,7 +2467,7 @@ class FetchStackTraceVisitor : public StackVisitor {
       if (!m->IsRuntimeMethod()) {  // Ignore runtime frames (in particular callee save).
         if (depth_ < max_saved_frames_) {
           saved_frames_[depth_].first = m;
-          saved_frames_[depth_].second = m->IsProxyMethod() ? DexFile::kDexNoIndex : GetDexPc();
+          saved_frames_[depth_].second = m->IsProxyMethod() ? dex::kDexNoIndex : GetDexPc();
         }
         ++depth_;
       }
@@ -2495,7 +2553,7 @@ class BuildInternalStackTraceVisitor : public StackVisitor {
     if (m->IsRuntimeMethod()) {
       return true;  // Ignore runtime frames (in particular callee save).
     }
-    AddFrame(m, m->IsProxyMethod() ? DexFile::kDexNoIndex : GetDexPc());
+    AddFrame(m, m->IsProxyMethod() ? dex::kDexNoIndex : GetDexPc());
     return true;
   }
 
@@ -2590,6 +2648,61 @@ bool Thread::IsExceptionThrownByCurrentMethod(ObjPtr<mirror::Throwable> exceptio
   return count_visitor.GetDepth() == static_cast<uint32_t>(exception->GetStackDepth());
 }
 
+static ObjPtr<mirror::StackTraceElement> CreateStackTraceElement(
+    const ScopedObjectAccessAlreadyRunnable& soa,
+    ArtMethod* method,
+    uint32_t dex_pc) REQUIRES_SHARED(Locks::mutator_lock_) {
+  int32_t line_number;
+  StackHandleScope<3> hs(soa.Self());
+  auto class_name_object(hs.NewHandle<mirror::String>(nullptr));
+  auto source_name_object(hs.NewHandle<mirror::String>(nullptr));
+  if (method->IsProxyMethod()) {
+    line_number = -1;
+    class_name_object.Assign(method->GetDeclaringClass()->GetName());
+    // source_name_object intentionally left null for proxy methods
+  } else {
+    line_number = method->GetLineNumFromDexPC(dex_pc);
+    // Allocate element, potentially triggering GC
+    // TODO: reuse class_name_object via Class::name_?
+    const char* descriptor = method->GetDeclaringClassDescriptor();
+    CHECK(descriptor != nullptr);
+    std::string class_name(PrettyDescriptor(descriptor));
+    class_name_object.Assign(
+        mirror::String::AllocFromModifiedUtf8(soa.Self(), class_name.c_str()));
+    if (class_name_object == nullptr) {
+      soa.Self()->AssertPendingOOMException();
+      return nullptr;
+    }
+    const char* source_file = method->GetDeclaringClassSourceFile();
+    if (line_number == -1) {
+      // Make the line_number field of StackTraceElement hold the dex pc.
+      // source_name_object is intentionally left null if we failed to map the dex pc to
+      // a line number (most probably because there is no debug info). See b/30183883.
+      line_number = dex_pc;
+    } else {
+      if (source_file != nullptr) {
+        source_name_object.Assign(mirror::String::AllocFromModifiedUtf8(soa.Self(), source_file));
+        if (source_name_object == nullptr) {
+          soa.Self()->AssertPendingOOMException();
+          return nullptr;
+        }
+      }
+    }
+  }
+  const char* method_name = method->GetInterfaceMethodIfProxy(kRuntimePointerSize)->GetName();
+  CHECK(method_name != nullptr);
+  Handle<mirror::String> method_name_object(
+      hs.NewHandle(mirror::String::AllocFromModifiedUtf8(soa.Self(), method_name)));
+  if (method_name_object == nullptr) {
+    return nullptr;
+  }
+  return mirror::StackTraceElement::Alloc(soa.Self(),
+                                          class_name_object,
+                                          method_name_object,
+                                          source_name_object,
+                                          line_number);
+}
+
 jobjectArray Thread::InternalStackTraceToStackTraceElementArray(
     const ScopedObjectAccessAlreadyRunnable& soa,
     jobject internal,
@@ -2636,55 +2749,7 @@ jobjectArray Thread::InternalStackTraceToStackTraceElementArray(
     ArtMethod* method = method_trace->GetElementPtrSize<ArtMethod*>(i, kRuntimePointerSize);
     uint32_t dex_pc = method_trace->GetElementPtrSize<uint32_t>(
         i + method_trace->GetLength() / 2, kRuntimePointerSize);
-    int32_t line_number;
-    StackHandleScope<3> hs(soa.Self());
-    auto class_name_object(hs.NewHandle<mirror::String>(nullptr));
-    auto source_name_object(hs.NewHandle<mirror::String>(nullptr));
-    if (method->IsProxyMethod()) {
-      line_number = -1;
-      class_name_object.Assign(method->GetDeclaringClass()->GetName());
-      // source_name_object intentionally left null for proxy methods
-    } else {
-      line_number = method->GetLineNumFromDexPC(dex_pc);
-      // Allocate element, potentially triggering GC
-      // TODO: reuse class_name_object via Class::name_?
-      const char* descriptor = method->GetDeclaringClassDescriptor();
-      CHECK(descriptor != nullptr);
-      std::string class_name(PrettyDescriptor(descriptor));
-      class_name_object.Assign(
-          mirror::String::AllocFromModifiedUtf8(soa.Self(), class_name.c_str()));
-      if (class_name_object == nullptr) {
-        soa.Self()->AssertPendingOOMException();
-        return nullptr;
-      }
-      const char* source_file = method->GetDeclaringClassSourceFile();
-      if (line_number == -1) {
-        // Make the line_number field of StackTraceElement hold the dex pc.
-        // source_name_object is intentionally left null if we failed to map the dex pc to
-        // a line number (most probably because there is no debug info). See b/30183883.
-        line_number = dex_pc;
-      } else {
-        if (source_file != nullptr) {
-          source_name_object.Assign(mirror::String::AllocFromModifiedUtf8(soa.Self(), source_file));
-          if (source_name_object == nullptr) {
-            soa.Self()->AssertPendingOOMException();
-            return nullptr;
-          }
-        }
-      }
-    }
-    const char* method_name = method->GetInterfaceMethodIfProxy(kRuntimePointerSize)->GetName();
-    CHECK(method_name != nullptr);
-    Handle<mirror::String> method_name_object(
-        hs.NewHandle(mirror::String::AllocFromModifiedUtf8(soa.Self(), method_name)));
-    if (method_name_object == nullptr) {
-      return nullptr;
-    }
-    ObjPtr<mirror::StackTraceElement> obj = mirror::StackTraceElement::Alloc(soa.Self(),
-                                                                             class_name_object,
-                                                                             method_name_object,
-                                                                             source_name_object,
-                                                                             line_number);
+    ObjPtr<mirror::StackTraceElement> obj = CreateStackTraceElement(soa, method, dex_pc);
     if (obj == nullptr) {
       return nullptr;
     }
@@ -2692,6 +2757,210 @@ jobjectArray Thread::InternalStackTraceToStackTraceElementArray(
     soa.Decode<mirror::ObjectArray<mirror::StackTraceElement>>(result)->Set<false>(i, obj);
   }
   return result;
+}
+
+jobjectArray Thread::CreateAnnotatedStackTrace(const ScopedObjectAccessAlreadyRunnable& soa) const {
+  // This code allocates. Do not allow it to operate with a pending exception.
+  if (IsExceptionPending()) {
+    return nullptr;
+  }
+
+  // If flip_function is not null, it means we have run a checkpoint
+  // before the thread wakes up to execute the flip function and the
+  // thread roots haven't been forwarded.  So the following access to
+  // the roots (locks or methods in the frames) would be bad. Run it
+  // here. TODO: clean up.
+  // Note: copied from DumpJavaStack.
+  {
+    Thread* this_thread = const_cast<Thread*>(this);
+    Closure* flip_func = this_thread->GetFlipFunction();
+    if (flip_func != nullptr) {
+      flip_func->Run(this_thread);
+    }
+  }
+
+  class CollectFramesAndLocksStackVisitor : public MonitorObjectsStackVisitor {
+   public:
+    CollectFramesAndLocksStackVisitor(const ScopedObjectAccessAlreadyRunnable& soaa_in,
+                                      Thread* self,
+                                      Context* context)
+        : MonitorObjectsStackVisitor(self, context),
+          wait_jobject_(soaa_in.Env(), nullptr),
+          block_jobject_(soaa_in.Env(), nullptr),
+          soaa_(soaa_in) {}
+
+   protected:
+    VisitMethodResult StartMethod(ArtMethod* m, size_t frame_nr ATTRIBUTE_UNUSED)
+        OVERRIDE
+        REQUIRES_SHARED(Locks::mutator_lock_) {
+      ObjPtr<mirror::StackTraceElement> obj = CreateStackTraceElement(
+          soaa_, m, GetDexPc(/* abort on error */ false));
+      if (obj == nullptr) {
+        return VisitMethodResult::kEndStackWalk;
+      }
+      stack_trace_elements_.emplace_back(soaa_.Env(), soaa_.AddLocalReference<jobject>(obj.Ptr()));
+      return VisitMethodResult::kContinueMethod;
+    }
+
+    VisitMethodResult EndMethod(ArtMethod* m ATTRIBUTE_UNUSED) OVERRIDE {
+      lock_objects_.push_back({});
+      lock_objects_[lock_objects_.size() - 1].swap(frame_lock_objects_);
+
+      DCHECK_EQ(lock_objects_.size(), stack_trace_elements_.size());
+
+      return VisitMethodResult::kContinueMethod;
+    }
+
+    void VisitWaitingObject(mirror::Object* obj, ThreadState state ATTRIBUTE_UNUSED)
+        OVERRIDE
+        REQUIRES_SHARED(Locks::mutator_lock_) {
+      wait_jobject_.reset(soaa_.AddLocalReference<jobject>(obj));
+    }
+    void VisitSleepingObject(mirror::Object* obj)
+        OVERRIDE
+        REQUIRES_SHARED(Locks::mutator_lock_) {
+      wait_jobject_.reset(soaa_.AddLocalReference<jobject>(obj));
+    }
+    void VisitBlockedOnObject(mirror::Object* obj,
+                              ThreadState state ATTRIBUTE_UNUSED,
+                              uint32_t owner_tid ATTRIBUTE_UNUSED)
+        OVERRIDE
+        REQUIRES_SHARED(Locks::mutator_lock_) {
+      block_jobject_.reset(soaa_.AddLocalReference<jobject>(obj));
+    }
+    void VisitLockedObject(mirror::Object* obj)
+        OVERRIDE
+        REQUIRES_SHARED(Locks::mutator_lock_) {
+      frame_lock_objects_.emplace_back(soaa_.Env(), soaa_.AddLocalReference<jobject>(obj));
+    }
+
+   public:
+    std::vector<ScopedLocalRef<jobject>> stack_trace_elements_;
+    ScopedLocalRef<jobject> wait_jobject_;
+    ScopedLocalRef<jobject> block_jobject_;
+    std::vector<std::vector<ScopedLocalRef<jobject>>> lock_objects_;
+
+   private:
+    const ScopedObjectAccessAlreadyRunnable& soaa_;
+
+    std::vector<ScopedLocalRef<jobject>> frame_lock_objects_;
+  };
+
+  std::unique_ptr<Context> context(Context::Create());
+  CollectFramesAndLocksStackVisitor dumper(soa, const_cast<Thread*>(this), context.get());
+  dumper.WalkStack();
+
+  // There should not be a pending exception. Otherwise, return with it pending.
+  if (IsExceptionPending()) {
+    return nullptr;
+  }
+
+  // Now go and create Java arrays.
+
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+
+  StackHandleScope<6> hs(soa.Self());
+  mirror::Class* aste_array_class = class_linker->FindClass(
+      soa.Self(),
+      "[Ldalvik/system/AnnotatedStackTraceElement;",
+      ScopedNullHandle<mirror::ClassLoader>());
+  if (aste_array_class == nullptr) {
+    return nullptr;
+  }
+  Handle<mirror::Class> h_aste_array_class(hs.NewHandle<mirror::Class>(aste_array_class));
+
+  mirror::Class* o_array_class = class_linker->FindClass(soa.Self(),
+                                                         "[Ljava/lang/Object;",
+                                                         ScopedNullHandle<mirror::ClassLoader>());
+  if (o_array_class == nullptr) {
+    // This should not fail in a healthy runtime.
+    soa.Self()->AssertPendingException();
+    return nullptr;
+  }
+  Handle<mirror::Class> h_o_array_class(hs.NewHandle<mirror::Class>(o_array_class));
+
+  Handle<mirror::Class> h_aste_class(hs.NewHandle<mirror::Class>(
+      h_aste_array_class->GetComponentType()));
+
+  // Make sure the AnnotatedStackTraceElement.class is initialized, b/76208924 .
+  class_linker->EnsureInitialized(soa.Self(),
+                                  h_aste_class,
+                                  /* can_init_fields */ true,
+                                  /* can_init_parents */ true);
+  if (soa.Self()->IsExceptionPending()) {
+    // This should not fail in a healthy runtime.
+    return nullptr;
+  }
+
+  ArtField* stack_trace_element_field = h_aste_class->FindField(
+      soa.Self(), h_aste_class.Get(), "stackTraceElement", "Ljava/lang/StackTraceElement;");
+  DCHECK(stack_trace_element_field != nullptr);
+  ArtField* held_locks_field = h_aste_class->FindField(
+        soa.Self(), h_aste_class.Get(), "heldLocks", "[Ljava/lang/Object;");
+  DCHECK(held_locks_field != nullptr);
+  ArtField* blocked_on_field = h_aste_class->FindField(
+        soa.Self(), h_aste_class.Get(), "blockedOn", "Ljava/lang/Object;");
+  DCHECK(blocked_on_field != nullptr);
+
+  size_t length = dumper.stack_trace_elements_.size();
+  ObjPtr<mirror::ObjectArray<mirror::Object>> array =
+      mirror::ObjectArray<mirror::Object>::Alloc(soa.Self(), aste_array_class, length);
+  if (array == nullptr) {
+    soa.Self()->AssertPendingOOMException();
+    return nullptr;
+  }
+
+  ScopedLocalRef<jobjectArray> result(soa.Env(), soa.Env()->AddLocalReference<jobjectArray>(array));
+
+  MutableHandle<mirror::Object> handle(hs.NewHandle<mirror::Object>(nullptr));
+  MutableHandle<mirror::ObjectArray<mirror::Object>> handle2(
+      hs.NewHandle<mirror::ObjectArray<mirror::Object>>(nullptr));
+  for (size_t i = 0; i != length; ++i) {
+    handle.Assign(h_aste_class->AllocObject(soa.Self()));
+    if (handle == nullptr) {
+      soa.Self()->AssertPendingOOMException();
+      return nullptr;
+    }
+
+    // Set stack trace element.
+    stack_trace_element_field->SetObject<false>(
+        handle.Get(), soa.Decode<mirror::Object>(dumper.stack_trace_elements_[i].get()));
+
+    // Create locked-on array.
+    if (!dumper.lock_objects_[i].empty()) {
+      handle2.Assign(mirror::ObjectArray<mirror::Object>::Alloc(soa.Self(),
+                                                                h_o_array_class.Get(),
+                                                                dumper.lock_objects_[i].size()));
+      if (handle2 == nullptr) {
+        soa.Self()->AssertPendingOOMException();
+        return nullptr;
+      }
+      int32_t j = 0;
+      for (auto& scoped_local : dumper.lock_objects_[i]) {
+        if (scoped_local == nullptr) {
+          continue;
+        }
+        handle2->Set(j, soa.Decode<mirror::Object>(scoped_local.get()));
+        DCHECK(!soa.Self()->IsExceptionPending());
+        j++;
+      }
+      held_locks_field->SetObject<false>(handle.Get(), handle2.Get());
+    }
+
+    // Set blocked-on object.
+    if (i == 0) {
+      if (dumper.block_jobject_ != nullptr) {
+        blocked_on_field->SetObject<false>(
+            handle.Get(), soa.Decode<mirror::Object>(dumper.block_jobject_.get()));
+      }
+    }
+
+    ScopedLocalRef<jobject> elem(soa.Env(), soa.AddLocalReference<jobject>(handle.Get()));
+    soa.Env()->SetObjectArrayElement(result.get(), i, elem.get());
+    DCHECK(!soa.Self()->IsExceptionPending());
+  }
+
+  return result.release();
 }
 
 void Thread::ThrowNewExceptionF(const char* exception_class_descriptor, const char* fmt, ...) {
@@ -3067,14 +3336,16 @@ void Thread::QuickDeliverException() {
     UNREACHABLE();
   }
 
+  ReadBarrier::MaybeAssertToSpaceInvariant(exception.Ptr());
+
   // This is a real exception: let the instrumentation know about it.
   instrumentation::Instrumentation* instrumentation = Runtime::Current()->GetInstrumentation();
-  if (instrumentation->HasExceptionCaughtListeners() &&
+  if (instrumentation->HasExceptionThrownListeners() &&
       IsExceptionThrownByCurrentMethod(exception)) {
     // Instrumentation may cause GC so keep the exception object safe.
     StackHandleScope<1> hs(this);
     HandleWrapperObjPtr<mirror::Throwable> h_exception(hs.NewHandleWrapper(&exception));
-    instrumentation->ExceptionCaughtEvent(this, exception.Ptr());
+    instrumentation->ExceptionThrownEvent(this, exception.Ptr());
   }
   // Does instrumentation need to deoptimize the stack?
   // Note: we do this *after* reporting the exception to instrumentation in case it
@@ -3084,10 +3355,16 @@ void Thread::QuickDeliverException() {
     NthCallerVisitor visitor(this, 0, false);
     visitor.WalkStack();
     if (Runtime::Current()->IsAsyncDeoptimizeable(visitor.caller_pc)) {
+      // method_type shouldn't matter due to exception handling.
+      const DeoptimizationMethodType method_type = DeoptimizationMethodType::kDefault;
       // Save the exception into the deoptimization context so it can be restored
       // before entering the interpreter.
       PushDeoptimizationContext(
-          JValue(), /*is_reference */ false, /* from_code */ false, exception);
+          JValue(),
+          false /* is_reference */,
+          exception,
+          false /* from_code */,
+          method_type);
       artDeoptimize(this);
       UNREACHABLE();
     } else {
@@ -3102,6 +3379,15 @@ void Thread::QuickDeliverException() {
   QuickExceptionHandler exception_handler(this, false);
   exception_handler.FindCatch(exception);
   exception_handler.UpdateInstrumentationStack();
+  if (exception_handler.GetClearException()) {
+    // Exception was cleared as part of delivery.
+    DCHECK(!IsExceptionPending());
+  } else {
+    // Exception was put back with a throw location.
+    DCHECK(IsExceptionPending());
+    // Check the to-space invariant on the re-installed exception (if applicable).
+    ReadBarrier::MaybeAssertToSpaceInvariant(GetException());
+  }
   exception_handler.DoLongJump();
 }
 
@@ -3166,6 +3452,9 @@ bool Thread::HoldsLock(ObjPtr<mirror::Object> object) const {
   return object != nullptr && object->GetLockOwnerThreadId() == GetThreadId();
 }
 
+extern std::vector<StackReference<mirror::Object>*> GetProxyReferenceArguments(ArtMethod** sp)
+    REQUIRES_SHARED(Locks::mutator_lock_);
+
 // RootVisitor parameters are: (const Object* obj, size_t vreg, const StackVisitor* visitor).
 template <typename RootVisitor, bool kPrecise = false>
 class ReferenceMapVisitor : public StackVisitor {
@@ -3209,7 +3498,7 @@ class ReferenceMapVisitor : public StackVisitor {
       }
     }
     // Mark lock count map required for structured locking checks.
-    shadow_frame->GetLockCountData().VisitMonitors(visitor_, -1, this);
+    shadow_frame->GetLockCountData().VisitMonitors(visitor_, /* vreg */ -1, this);
   }
 
  private:
@@ -3247,7 +3536,7 @@ class ReferenceMapVisitor : public StackVisitor {
         }
       }
       mirror::Object* new_ref = klass.Ptr();
-      visitor_(&new_ref, -1, this);
+      visitor_(&new_ref, /* vreg */ -1, this);
       if (new_ref != klass) {
         method->CASDeclaringClass(klass.Ptr(), new_ref->AsClass());
       }
@@ -3266,7 +3555,7 @@ class ReferenceMapVisitor : public StackVisitor {
     if (!m->IsNative() && !m->IsRuntimeMethod() && (!m->IsProxyMethod() || m->IsConstructor())) {
       const OatQuickMethodHeader* method_header = GetCurrentOatQuickMethodHeader();
       DCHECK(method_header->IsOptimized());
-      auto* vreg_base = reinterpret_cast<StackReference<mirror::Object>*>(
+      StackReference<mirror::Object>* vreg_base = reinterpret_cast<StackReference<mirror::Object>*>(
           reinterpret_cast<uintptr_t>(cur_quick_frame));
       uintptr_t native_pc_offset = method_header->NativeQuickPcOffset(GetCurrentQuickFramePc());
       CodeInfo code_info = method_header->GetOptimizedCodeInfo();
@@ -3281,7 +3570,7 @@ class ReferenceMapVisitor : public StackVisitor {
       BitMemoryRegion stack_mask = code_info.GetStackMaskOf(encoding, map);
       for (size_t i = 0; i < number_of_bits; ++i) {
         if (stack_mask.LoadBit(i)) {
-          auto* ref_addr = vreg_base + i;
+          StackReference<mirror::Object>* ref_addr = vreg_base + i;
           mirror::Object* ref = ref_addr->AsMirrorPtr();
           if (ref != nullptr) {
             mirror::Object* new_ref = ref;
@@ -3307,6 +3596,22 @@ class ReferenceMapVisitor : public StackVisitor {
           }
           if (*ref_addr != nullptr) {
             vreg_info.VisitRegister(ref_addr, i, this);
+          }
+        }
+      }
+    } else if (!m->IsRuntimeMethod() && m->IsProxyMethod()) {
+      // If this is a proxy method, visit its reference arguments.
+      DCHECK(!m->IsStatic());
+      DCHECK(!m->IsNative());
+      std::vector<StackReference<mirror::Object>*> ref_addrs =
+          GetProxyReferenceArguments(cur_quick_frame);
+      for (StackReference<mirror::Object>* ref_addr : ref_addrs) {
+        mirror::Object* ref = ref_addr->AsMirrorPtr();
+        if (ref != nullptr) {
+          mirror::Object* new_ref = ref;
+          visitor_(&new_ref, /* vreg */ -1, this);
+          if (ref != new_ref) {
+            ref_addr->Assign(new_ref);
           }
         }
       }
@@ -3359,7 +3664,7 @@ class ReferenceMapVisitor : public StackVisitor {
                        const CodeInfoEncoding& _encoding,
                        const StackMap& map,
                        RootVisitor& _visitor)
-          : number_of_dex_registers(method->GetCodeItem()->registers_size_),
+          : number_of_dex_registers(method->DexInstructionData().RegistersSize()),
             code_info(_code_info),
             encoding(_encoding),
             dex_register_map(code_info.GetDexRegisterMapOf(map,
@@ -3439,15 +3744,19 @@ class RootCallbackVisitor {
 
 template <bool kPrecise>
 void Thread::VisitRoots(RootVisitor* visitor) {
-  const uint32_t thread_id = GetThreadId();
+  const pid_t thread_id = GetThreadId();
   visitor->VisitRootIfNonNull(&tlsPtr_.opeer, RootInfo(kRootThreadObject, thread_id));
   if (tlsPtr_.exception != nullptr && tlsPtr_.exception != GetDeoptimizationException()) {
     visitor->VisitRoot(reinterpret_cast<mirror::Object**>(&tlsPtr_.exception),
                        RootInfo(kRootNativeStack, thread_id));
   }
+  if (tlsPtr_.async_exception != nullptr) {
+    visitor->VisitRoot(reinterpret_cast<mirror::Object**>(&tlsPtr_.async_exception),
+                       RootInfo(kRootNativeStack, thread_id));
+  }
   visitor->VisitRootIfNonNull(&tlsPtr_.monitor_enter_object, RootInfo(kRootNativeStack, thread_id));
-  tlsPtr_.jni_env->locals.VisitRoots(visitor, RootInfo(kRootJNILocal, thread_id));
-  tlsPtr_.jni_env->monitors.VisitRoots(visitor, RootInfo(kRootJNIMonitor, thread_id));
+  tlsPtr_.jni_env->VisitJniLocalRoots(visitor, RootInfo(kRootJNILocal, thread_id));
+  tlsPtr_.jni_env->VisitMonitorRoots(visitor, RootInfo(kRootJNIMonitor, thread_id));
   HandleScopeVisitRoots(visitor, thread_id);
   if (tlsPtr_.debug_invoke_req != nullptr) {
     tlsPtr_.debug_invoke_req->VisitRoots(visitor, RootInfo(kRootDebugger, thread_id));
@@ -3500,9 +3809,9 @@ void Thread::VisitRoots(RootVisitor* visitor) {
 
 void Thread::VisitRoots(RootVisitor* visitor, VisitRootFlags flags) {
   if ((flags & VisitRootFlags::kVisitRootFlagPrecise) != 0) {
-    VisitRoots<true>(visitor);
+    VisitRoots</* kPrecise */ true>(visitor);
   } else {
-    VisitRoots<false>(visitor);
+    VisitRoots</* kPrecise */ false>(visitor);
   }
 }
 
@@ -3647,7 +3956,8 @@ void Thread::DeoptimizeWithDeoptimizationException(JValue* result) {
       PopStackedShadowFrame(StackedShadowFrameType::kDeoptimizationShadowFrame);
   ObjPtr<mirror::Throwable> pending_exception;
   bool from_code = false;
-  PopDeoptimizationContext(result, &pending_exception, &from_code);
+  DeoptimizationMethodType method_type;
+  PopDeoptimizationContext(result, &pending_exception, &from_code, &method_type);
   SetTopOfStack(nullptr);
   SetTopOfShadowStack(shadow_frame);
 
@@ -3656,7 +3966,40 @@ void Thread::DeoptimizeWithDeoptimizationException(JValue* result) {
   if (pending_exception != nullptr) {
     SetException(pending_exception);
   }
-  interpreter::EnterInterpreterFromDeoptimize(this, shadow_frame, from_code, result);
+  interpreter::EnterInterpreterFromDeoptimize(this,
+                                              shadow_frame,
+                                              result,
+                                              from_code,
+                                              method_type);
+}
+
+void Thread::SetAsyncException(ObjPtr<mirror::Throwable> new_exception) {
+  CHECK(new_exception != nullptr);
+  Runtime::Current()->SetAsyncExceptionsThrown();
+  if (kIsDebugBuild) {
+    // Make sure we are in a checkpoint.
+    MutexLock mu(Thread::Current(), *Locks::thread_suspend_count_lock_);
+    CHECK(this == Thread::Current() || GetSuspendCount() >= 1)
+        << "It doesn't look like this was called in a checkpoint! this: "
+        << this << " count: " << GetSuspendCount();
+  }
+  tlsPtr_.async_exception = new_exception.Ptr();
+}
+
+bool Thread::ObserveAsyncException() {
+  DCHECK(this == Thread::Current());
+  if (tlsPtr_.async_exception != nullptr) {
+    if (tlsPtr_.exception != nullptr) {
+      LOG(WARNING) << "Overwriting pending exception with async exception. Pending exception is: "
+                   << tlsPtr_.exception->Dump();
+      LOG(WARNING) << "Async exception is " << tlsPtr_.async_exception->Dump();
+    }
+    tlsPtr_.exception = tlsPtr_.async_exception;
+    tlsPtr_.async_exception = nullptr;
+    return true;
+  } else {
+    return IsExceptionPending();
+  }
 }
 
 void Thread::SetException(ObjPtr<mirror::Throwable> new_exception) {

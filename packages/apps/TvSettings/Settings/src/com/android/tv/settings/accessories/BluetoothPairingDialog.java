@@ -41,6 +41,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.TextView.OnEditorActionListener;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
 import com.android.tv.settings.dialog.old.Action;
 import com.android.tv.settings.dialog.old.ActionFragment;
@@ -326,6 +327,11 @@ public class BluetoothPairingDialog extends DialogActivity {
             default:
                 Log.e(TAG, "Incorrect pairing type received");
         }
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.BLUETOOTH_DIALOG_FRAGMENT;
     }
 
     public static class EntryDialogFragment extends Fragment {

@@ -1,7 +1,7 @@
 /** @file
 Utility program to create an EFI option ROM image from binary and EFI PE32 files.
 
-Copyright (c) 1999 - 2014, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 1999 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials are licensed and made available 
 under the terms and conditions of the BSD License which accompanies this 
 distribution.  The full text of the license may be found at
@@ -95,24 +95,26 @@ Returns:
   // the command line, or the first input filename with a different extension.
   //
   if (!mOptions.OutFileName[0]) {
-    strcpy (mOptions.OutFileName, mOptions.FileList->FileName);
-    //
-    // Find the last . on the line and replace the filename extension with
-    // the default
-    //
-    for (Ext = mOptions.OutFileName + strlen (mOptions.OutFileName) - 1;
-         (Ext >= mOptions.OutFileName) && (*Ext != '.') && (*Ext != '\\');
-         Ext--
-        )
-      ;
-    //
-    // If dot here, then insert extension here, otherwise append
-    //
-    if (*Ext != '.') {
-      Ext = mOptions.OutFileName + strlen (mOptions.OutFileName);
-    }
+    if (mOptions.FileList != NULL) {
+      strcpy (mOptions.OutFileName, mOptions.FileList->FileName);
+      //
+      // Find the last . on the line and replace the filename extension with
+      // the default
+      //
+      for (Ext = mOptions.OutFileName + strlen (mOptions.OutFileName) - 1;
+           (Ext >= mOptions.OutFileName) && (*Ext != '.') && (*Ext != '\\');
+           Ext--
+          )
+        ;
+      //
+      // If dot here, then insert extension here, otherwise append
+      //
+      if (*Ext != '.') {
+        Ext = mOptions.OutFileName + strlen (mOptions.OutFileName);
+      }
 
-    strcpy (Ext, DEFAULT_OUTPUT_EXTENSION);
+      strcpy (Ext, DEFAULT_OUTPUT_EXTENSION);
+    }
   }
   //
   // Make sure we don't have the same filename for input and output files
@@ -120,7 +122,7 @@ Returns:
   for (FList = mOptions.FileList; FList != NULL; FList = FList->Next) {
     if (stricmp (mOptions.OutFileName, FList->FileName) == 0) {
       Status = STATUS_ERROR;
-      Error (NULL, 0, 1002, "Invalid input paramter", "Input and output file names must be different - %s = %s.", FList->FileName, mOptions.OutFileName);
+      Error (NULL, 0, 1002, "Invalid input parameter", "Input and output file names must be different - %s = %s.", FList->FileName, mOptions.OutFileName);
       goto BailOut;
     }
   }
@@ -168,15 +170,12 @@ Returns:
   // Check total size
   //
   if (TotalSize > MAX_OPTION_ROM_SIZE) {
-    Error (NULL, 0, 2000, "Invalid paramter", "Option ROM image size exceeds limit of 0x%X bytes.", MAX_OPTION_ROM_SIZE);
+    Error (NULL, 0, 2000, "Invalid parameter", "Option ROM image size exceeds limit of 0x%X bytes.", MAX_OPTION_ROM_SIZE);
     Status = STATUS_ERROR;
   }
 
 BailOut:
   if (Status == STATUS_SUCCESS) {
-    if (FptrOut != NULL) {
-      fclose (FptrOut);
-    }
     //
     // Clean up our file list
     //
@@ -185,6 +184,10 @@ BailOut:
       free (mOptions.FileList);
       mOptions.FileList = FList;
     }
+  }
+
+  if (FptrOut != NULL) {
+    fclose (FptrOut);
   }
 
   if (mOptions.Verbose) {
@@ -881,9 +884,11 @@ Returns:
   UINT32    ClassCode;
   UINT32    CodeRevision;
   EFI_STATUS Status;
+  INTN       ReturnStatus;
   BOOLEAN    EfiRomFlag;
   UINT64     TempValue;
 
+  ReturnStatus = 0;
   FileFlags = 0;
   EfiRomFlag = FALSE;
 
@@ -938,11 +943,13 @@ Returns:
         Status = AsciiStringToUint64(Argv[1], FALSE, &TempValue);
         if (EFI_ERROR (Status)) {
           Error (NULL, 0, 2000, "Invalid option value", "%s = %s", Argv[0], Argv[1]);
-          return 1;
+          ReturnStatus = 1;
+          goto Done;
         }
         if (TempValue >= 0x10000) {
           Error (NULL, 0, 2000, "Invalid option value", "Vendor Id %s out of range!", Argv[1]);
-          return 1;
+          ReturnStatus = 1;
+          goto Done;
         }
         Options->VendId       = (UINT16) TempValue;
         Options->VendIdValid  = 1;
@@ -957,11 +964,13 @@ Returns:
         Status = AsciiStringToUint64(Argv[1], FALSE, &TempValue);
         if (EFI_ERROR (Status)) {
           Error (NULL, 0, 2000, "Invalid option value", "%s = %s", Argv[0], Argv[1]);
-          return 1;
+          ReturnStatus = 1;
+          goto Done;
         }
         if (TempValue >= 0x10000) {
           Error (NULL, 0, 2000, "Invalid option value", "Device Id %s out of range!", Argv[1]);
-          return 1;
+          ReturnStatus = 1;
+          goto Done;
         }
         Options->DevId      = (UINT16) TempValue;
         Options->DevIdValid = 1;
@@ -975,9 +984,16 @@ Returns:
         //
         if (Argv[1] == NULL || Argv[1][0] == '-') {
           Error (NULL, 0, 2000, "Invalid parameter", "Missing output file name with %s option!", Argv[0]);
-          return STATUS_ERROR;
+          ReturnStatus = STATUS_ERROR;
+          goto Done;
         }
-        strcpy (Options->OutFileName, Argv[1]);
+        if (strlen (Argv[1]) > MAX_PATH - 1) {
+          Error (NULL, 0, 2000, "Invalid parameter", "Output file name %s is too long!", Argv[1]);
+          ReturnStatus = STATUS_ERROR;
+          goto Done;
+        }
+        strncpy (Options->OutFileName, Argv[1], MAX_PATH - 1);
+        Options->OutFileName[MAX_PATH - 1] = 0;
 
         Argv++;
         Argc--;
@@ -986,7 +1002,8 @@ Returns:
         // Help option
         //
         Usage ();
-        return STATUS_ERROR;
+        ReturnStatus = STATUS_ERROR;
+        goto Done;
       } else if (stricmp (Argv[0], "-b") == 0) {
         //
         // Specify binary files with -b
@@ -1014,11 +1031,13 @@ Returns:
         Status = AsciiStringToUint64(Argv[1], FALSE, &DebugLevel);
         if (EFI_ERROR (Status)) {
           Error (NULL, 0, 2000, "Invalid option value", "%s = %s", Argv[0], Argv[1]);
-          return 1;
+          ReturnStatus = 1;
+          goto Done;
         }
         if (DebugLevel > 9)  {
           Error (NULL, 0, 2000, "Invalid option value", "Debug Level range is 0-9, current input level is %d", Argv[1]);
-          return 1;
+          ReturnStatus = 1;
+          goto Done;
         }
         if (DebugLevel>=5 && DebugLevel<=9) {
           Options->Debug = TRUE;
@@ -1048,12 +1067,14 @@ Returns:
         Status = AsciiStringToUint64(Argv[1], FALSE, &TempValue);
         if (EFI_ERROR (Status)) {
           Error (NULL, 0, 2000, "Invalid option value", "%s = %s", Argv[0], Argv[1]);
-          return 1;
+          ReturnStatus = 1;
+          goto Done;
         }
         ClassCode = (UINT32) TempValue;
         if (ClassCode & 0xFF000000) {
           Error (NULL, 0, 2000, "Invalid parameter", "Class code %s out of range!", Argv[1]);
-          return STATUS_ERROR;
+          ReturnStatus = STATUS_ERROR;
+          goto Done;
         }
         if (FileList != NULL && FileList->ClassCode == 0) {
           FileList->ClassCode = ClassCode;
@@ -1069,12 +1090,14 @@ Returns:
         Status = AsciiStringToUint64(Argv[1], FALSE, &TempValue);
         if (EFI_ERROR (Status)) {
           Error (NULL, 0, 2000, "Invalid option value", "%s = %s", Argv[0], Argv[1]);
-          return 1;
+          ReturnStatus = 1;
+          goto Done;
         }
         CodeRevision = (UINT32) TempValue;
         if (CodeRevision & 0xFFFF0000) {
           Error (NULL, 0, 2000, "Invalid parameter", "Code revision %s out of range!", Argv[1]);
-          return STATUS_ERROR;
+          ReturnStatus = STATUS_ERROR;
+          goto Done;
         }
         if (FileList != NULL && FileList->CodeRevision == 0) {
           FileList->CodeRevision = (UINT16) CodeRevision;
@@ -1088,7 +1111,8 @@ Returns:
         mOptions.Pci23 = 1;
       } else {
         Error (NULL, 0, 2000, "Invalid parameter", "Invalid option specified: %s", Argv[0]);
-        return STATUS_ERROR;
+        ReturnStatus = STATUS_ERROR;
+        goto Done;
       }
     } else {
       //
@@ -1097,7 +1121,8 @@ Returns:
       //
       if ((FileFlags & (FILE_FLAG_BINARY | FILE_FLAG_EFI)) == 0) {
         Error (NULL, 0, 2000, "Invalid parameter", "Missing -e or -b with input file %s!", Argv[0]);
-        return STATUS_ERROR;
+        ReturnStatus = STATUS_ERROR;
+        goto Done;
       }
       //
       // Check Efi Option RomImage
@@ -1111,7 +1136,8 @@ Returns:
       FileList = (FILE_LIST *) malloc (sizeof (FILE_LIST));
       if (FileList == NULL) {
         Error (NULL, 0, 4001, "Resource", "memory cannot be allocated!", NULL);
-        return STATUS_ERROR;
+        ReturnStatus = STATUS_ERROR;
+        goto Done;
       }
       
       //
@@ -1149,6 +1175,9 @@ Returns:
   //
   if (Options->FileList == NULL) {
     Error (NULL, 0, 2000, "Invalid parameter", "Missing input file name!");
+    //
+    // No memory allocation, return directly.
+    //
     return STATUS_ERROR;
   }
 
@@ -1158,16 +1187,27 @@ Returns:
   if (EfiRomFlag) {
     if (!Options->VendIdValid) {
       Error (NULL, 0, 2000, "Missing Vendor ID in command line", NULL);
-      return STATUS_ERROR;
+      ReturnStatus = STATUS_ERROR;
+      goto Done;
     }
   
     if (!Options->DevIdValid) {
       Error (NULL, 0, 2000, "Missing Device ID in command line", NULL);
-      return STATUS_ERROR;
+      ReturnStatus = STATUS_ERROR;
+      goto Done;
     }
   }
 
-  return 0;
+Done:
+  if (ReturnStatus != 0) {
+    while (Options->FileList != NULL) {
+      FileList = Options->FileList->Next;
+      free (Options->FileList);
+      Options->FileList = FileList;
+    }
+  }
+
+  return ReturnStatus;
 }
 
 static

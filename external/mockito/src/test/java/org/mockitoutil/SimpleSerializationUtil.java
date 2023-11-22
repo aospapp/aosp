@@ -1,8 +1,12 @@
+/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockitoutil;
 
 import java.io.*;
 
-import static junit.framework.TestCase.assertNotNull;
+import static org.junit.Assert.assertNotNull;
 
 public abstract class SimpleSerializationUtil {
 

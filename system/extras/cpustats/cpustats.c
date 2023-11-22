@@ -301,7 +301,7 @@ static long unsigned get_cpu_total_time(struct cpu_info *cpu) {
  */
 static void print_stats() {
     char label[8];
-    int i, j;
+    int i;
     char print_freq;
 
     print_freq = should_print_freq_stats();

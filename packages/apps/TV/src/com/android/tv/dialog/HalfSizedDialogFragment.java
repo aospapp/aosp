@@ -24,9 +24,7 @@ import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-
 import com.android.tv.R;
-
 import java.util.concurrent.TimeUnit;
 
 public class HalfSizedDialogFragment extends SafeDismissDialogFragment {
@@ -38,16 +36,17 @@ public class HalfSizedDialogFragment extends SafeDismissDialogFragment {
     private OnActionClickListener mOnActionClickListener;
 
     private Handler mHandler = new Handler();
-    private Runnable mAutoDismisser = new Runnable() {
-        @Override
-        public void run() {
-            dismiss();
-        }
-    };
+    private Runnable mAutoDismisser =
+            new Runnable() {
+                @Override
+                public void run() {
+                    dismiss();
+                }
+            };
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
+    public View onCreateView(
+            LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         return inflater.inflate(R.layout.halfsized_dialog, container, false);
     }
 
@@ -76,13 +75,14 @@ public class HalfSizedDialogFragment extends SafeDismissDialogFragment {
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         Dialog dialog = super.onCreateDialog(savedInstanceState);
-        dialog.setOnKeyListener(new DialogInterface.OnKeyListener() {
-            public boolean onKey(DialogInterface dialog, int keyCode, KeyEvent keyEvent) {
-                mHandler.removeCallbacks(mAutoDismisser);
-                mHandler.postDelayed(mAutoDismisser, AUTO_DISMISS_TIME_THRESHOLD_MS);
-                return false;
-            }
-        });
+        dialog.setOnKeyListener(
+                new DialogInterface.OnKeyListener() {
+                    public boolean onKey(DialogInterface dialog, int keyCode, KeyEvent keyEvent) {
+                        mHandler.removeCallbacks(mAutoDismisser);
+                        mHandler.postDelayed(mAutoDismisser, AUTO_DISMISS_TIME_THRESHOLD_MS);
+                        return false;
+                    }
+                });
         return dialog;
     }
 
@@ -98,24 +98,22 @@ public class HalfSizedDialogFragment extends SafeDismissDialogFragment {
 
     /**
      * Sets {@link OnActionClickListener} for the dialog fragment. If listener is set, the dialog
-     * will be automatically closed when it's paused to prevent the fragment being re-created by
-     * the framework, which will result the listener being forgotten.
+     * will be automatically closed when it's paused to prevent the fragment being re-created by the
+     * framework, which will result the listener being forgotten.
      */
     public void setOnActionClickListener(OnActionClickListener listener) {
         mOnActionClickListener = listener;
     }
 
-    /**
-     * Returns {@link OnActionClickListener} for sub-classes or any inner fragments.
-     */
+    /** Returns {@link OnActionClickListener} for sub-classes or any inner fragments. */
     protected OnActionClickListener getOnActionClickListener() {
         return mOnActionClickListener;
     }
 
     /**
      * An interface to provide callbacks for half-sized dialogs. Subclasses or inner fragments
-     * should invoke {@link OnActionClickListener#onActionClick(long)} and provide the identifier
-     * of the action user clicked.
+     * should invoke {@link OnActionClickListener#onActionClick(long)} and provide the identifier of
+     * the action user clicked.
      */
     public interface OnActionClickListener {
         void onActionClick(long actionId);

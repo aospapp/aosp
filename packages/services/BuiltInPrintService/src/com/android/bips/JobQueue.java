@@ -51,7 +51,9 @@ class JobQueue {
 
     /** Launch the next job if possible */
     private void startNextJob() {
-        if (mJobs.isEmpty() || mCurrent != null) return;
+        if (mJobs.isEmpty() || mCurrent != null) {
+            return;
+        }
 
         mCurrent = mJobs.remove(0);
         mCurrent.start(job -> {

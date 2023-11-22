@@ -24,12 +24,10 @@ import android.support.annotation.MainThread;
 import android.support.annotation.Nullable;
 import android.util.ArraySet;
 import android.util.Log;
-
 import com.android.tv.common.SoftPreconditions;
-import com.android.tv.data.Channel;
 import com.android.tv.data.ChannelDataManager;
+import com.android.tv.data.api.Channel;
 import com.android.tv.util.TvInputManagerHelper;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -57,11 +55,9 @@ public class ChannelTuner {
     private final Handler mHandler = new Handler();
     private final ChannelDataManager mChannelDataManager;
     private final Set<Listener> mListeners = new ArraySet<>();
-    @Nullable
-    private Channel mCurrentChannel;
+    @Nullable private Channel mCurrentChannel;
     private final TvInputManagerHelper mInputManager;
-    @Nullable
-    private TvInputInfo mCurrentChannelInputInfo;
+    @Nullable private TvInputInfo mCurrentChannelInputInfo;
 
     private final ChannelDataManager.Listener mChannelDataManagerListener =
             new ChannelDataManager.Listener() {
@@ -86,16 +82,14 @@ public class ChannelTuner {
                         l.onBrowsableChannelListChanged();
                     }
                 }
-    };
+            };
 
     public ChannelTuner(ChannelDataManager channelDataManager, TvInputManagerHelper inputManager) {
         mChannelDataManager = channelDataManager;
         mInputManager = inputManager;
     }
 
-    /**
-     * Starts ChannelTuner. It cannot be called twice before calling {@link #stop}.
-     */
+    /** Starts ChannelTuner. It cannot be called twice before calling {@link #stop}. */
     public void start() {
         if (mStarted) {
             throw new IllegalStateException("start is called twice");
@@ -103,18 +97,17 @@ public class ChannelTuner {
         mStarted = true;
         mChannelDataManager.addListener(mChannelDataManagerListener);
         if (mChannelDataManager.isDbLoadFinished()) {
-            mHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    mChannelDataManagerListener.onLoadFinished();
-                }
-            });
+            mHandler.post(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            mChannelDataManagerListener.onLoadFinished();
+                        }
+                    });
         }
     }
 
-    /**
-     * Stops ChannelTuner.
-     */
+    /** Stops ChannelTuner. */
     public void stop() {
         if (!mStarted) {
             return;
@@ -130,30 +123,22 @@ public class ChannelTuner {
         mChannelDataManagerLoaded = false;
     }
 
-    /**
-     * Returns true, if all the channels are loaded.
-     */
+    /** Returns true, if all the channels are loaded. */
     public boolean areAllChannelsLoaded() {
         return mChannelDataManagerLoaded;
     }
 
-    /**
-     * Returns browsable channel lists.
-     */
+    /** Returns browsable channel lists. */
     public List<Channel> getBrowsableChannelList() {
         return Collections.unmodifiableList(mBrowsableChannels);
     }
 
-    /**
-     * Returns the number of browsable channels.
-     */
+    /** Returns the number of browsable channels. */
     public int getBrowsableChannelCount() {
         return mBrowsableChannels.size();
     }
 
-    /**
-     * Returns the current channel.
-     */
+    /** Returns the current channel. */
     @Nullable
     public Channel getCurrentChannel() {
         return mCurrentChannel;
@@ -169,16 +154,12 @@ public class ChannelTuner {
         mCurrentChannel = currentChannel;
     }
 
-    /**
-     * Returns the current channel's ID.
-     */
+    /** Returns the current channel's ID. */
     public long getCurrentChannelId() {
         return mCurrentChannel != null ? mCurrentChannel.getId() : Channel.INVALID_ID;
     }
 
-    /**
-     * Returns the current channel's URI
-     */
+    /** Returns the current channel's URI */
     public Uri getCurrentChannelUri() {
         if (mCurrentChannel == null) {
             return null;
@@ -190,17 +171,13 @@ public class ChannelTuner {
         }
     }
 
-    /**
-     * Returns the current {@link TvInputInfo}.
-     */
+    /** Returns the current {@link TvInputInfo}. */
     @Nullable
     public TvInputInfo getCurrentInputInfo() {
         return mCurrentChannelInputInfo;
     }
 
-    /**
-     * Returns true, if the current channel is for a passthrough TV input.
-     */
+    /** Returns true, if the current channel is for a passthrough TV input. */
     public boolean isCurrentChannelPassthrough() {
         return mCurrentChannel != null && mCurrentChannel.isPassthrough();
     }
@@ -208,8 +185,8 @@ public class ChannelTuner {
     /**
      * Moves the current channel to the next (or previous) browsable channel.
      *
-     * @return true, if the channel is changed to the adjacent channel. If there is no
-     *         browsable channel, it returns false.
+     * @return true, if the channel is changed to the adjacent channel. If there is no browsable
+     *     channel, it returns false.
      */
     public boolean moveToAdjacentBrowsableChannel(boolean up) {
         Channel channel = getAdjacentBrowsableChannel(up);
@@ -221,8 +198,8 @@ public class ChannelTuner {
     }
 
     /**
-     * Returns a next browsable channel. It doesn't change the current channel unlike
-     * {@link #moveToAdjacentBrowsableChannel}.
+     * Returns a next browsable channel. It doesn't change the current channel unlike {@link
+     * #moveToAdjacentBrowsableChannel}.
      */
     public Channel getAdjacentBrowsableChannel(boolean up) {
         if (isCurrentChannelPassthrough() || getBrowsableChannelCount() == 0) {
@@ -240,8 +217,7 @@ public class ChannelTuner {
         }
         int size = mChannels.size();
         for (int i = 0; i < size; ++i) {
-            int nextChannelIndex = up ? channelIndex + 1 + i
-                    : channelIndex - 1 - i + size;
+            int nextChannelIndex = up ? channelIndex + 1 + i : channelIndex - 1 - i + size;
             if (nextChannelIndex >= size) {
                 nextChannelIndex -= size;
             }
@@ -289,7 +265,7 @@ public class ChannelTuner {
      * as a browsable channel.
      *
      * @return true, the channel change is success. But, if the channel doesn't exist, the channel
-     *         change will be failed and it will return false.
+     *     change will be failed and it will return false.
      */
     public boolean moveToChannel(Channel channel) {
         if (channel == null) {
@@ -308,43 +284,29 @@ public class ChannelTuner {
         return false;
     }
 
-    /**
-     * Resets the current channel to {@code null}.
-     */
+    /** Resets the current channel to {@code null}. */
     public void resetCurrentChannel() {
         setCurrentChannelAndNotify(null);
     }
 
-    /**
-     * Adds {@link Listener}.
-     */
+    /** Adds {@link Listener}. */
     public void addListener(Listener listener) {
         mListeners.add(listener);
     }
 
-    /**
-     * Removes {@link Listener}.
-     */
+    /** Removes {@link Listener}. */
     public void removeListener(Listener listener) {
         mListeners.remove(listener);
     }
 
     public interface Listener {
-        /**
-         * Called when all the channels are loaded.
-         */
+        /** Called when all the channels are loaded. */
         void onLoadFinished();
-        /**
-         * Called when the browsable channel list is changed.
-         */
+        /** Called when the browsable channel list is changed. */
         void onBrowsableChannelListChanged();
-        /**
-         * Called when the current channel is removed.
-         */
+        /** Called when the current channel is removed. */
         void onCurrentChannelUnavailable(Channel channel);
-        /**
-         * Called when the current channel is changed.
-         */
+        /** Called when the current channel is changed. */
         void onChannelChanged(Channel previousChannel, Channel currentChannel);
     }
 

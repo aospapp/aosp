@@ -41,14 +41,14 @@
     <string name="menu_compress" msgid="37539111904724188">"Компресирај"</string>
     <string name="menu_extract" msgid="8171946945982532262">"Отпакувај во…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"Преименувај"</string>
-    <string name="menu_inspector" msgid="8217713416277319588">"Добијте информации"</string>
+    <string name="menu_inspect" msgid="7279855349299446224">"Добијте информации"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"Прикажи во <xliff:g id="SOURCE">%1$s</xliff:g>"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"Нов прозорец"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"Исечи"</string>
     <string name="menu_copy_to_clipboard" msgid="5064081159073330776">"Копирај"</string>
     <string name="menu_paste_from_clipboard" msgid="360947260414135827">"Залепи"</string>
     <string name="menu_paste_into_folder" msgid="8000644546983240101">"Залепи во папка"</string>
-    <string name="menu_advanced_show" msgid="7558626506462906726">"Прикажи внатр. меморија"</string>
+    <string name="menu_advanced_show" msgid="7558626506462906726">"Прикажи внатрешен капацитет"</string>
     <string name="menu_advanced_hide" msgid="6488381508009246334">"Сокриј внатр. меморија"</string>
     <string name="button_select" msgid="240863497069321364">"Избери"</string>
     <string name="button_copy" msgid="8219059853840996027">"Копирај"</string>
@@ -57,6 +57,8 @@
     <string name="button_move" msgid="8596460499325291272">"Премести"</string>
     <string name="button_dismiss" msgid="7235249361023803349">"Отфрли"</string>
     <string name="button_retry" msgid="4011461781916631389">"Обидете се повторно"</string>
+    <string name="button_clear" msgid="5412304437764369441">"Исчисти"</string>
+    <string name="button_show_provider" msgid="6905880493806292753">"Прикажи во услугата на операторот"</string>
     <string name="not_sorted" msgid="7813496644889115530">"Неподредени"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"Име"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"Краток преглед"</string>
@@ -64,14 +66,6 @@
     <string name="sort_dimension_size" msgid="2190547351159472884">"Големина"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"Изменето"</string>
     <string name="directory_items" msgid="6645621978998614003">"Број на ставки"</string>
-    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"Овој вид датотека се отвора со"</string>
-    <string name="handler_app_belongs_to" msgid="5956928604521893459">"Датотекава припаѓа на"</string>
-    <string name="handler_app_button_info_1" msgid="4271199640671067569">"Други апликации може да го отворат овој вид датотека. Избришете ја"</string>
-    <string name="handler_app_button_info_2" msgid="4299969771512815898">"како стандардна апликација."</string>
-    <string name="handler_app_clear" msgid="206579047716445033">"Избриши"</string>
-    <string name="handler_app_show_in" msgid="7923573101129079048">"Прикажи во услугата"</string>
-    <string name="handler_app_not_selected" msgid="8178393676227130360">"Не е избрана"</string>
-    <string name="handler_app_unknown" msgid="56574249066388341">"Непозната"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"Растечко"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"Опаѓачко"</string>
     <string name="drawer_open" msgid="8071673398187261741">"Прикажи корени"</string>
@@ -90,7 +84,6 @@
     <string name="toast_no_application" msgid="7555319548595113121">"Датотеката не може да се отвори"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"Не може да се отвораат датотеките во архивите"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"Некои документи не може да се избришат"</string>
-    <string name="file_inspector_load_error" msgid="1226344446677541109">"Не можеше да се вчитаат својствата"</string>
     <string name="share_via" msgid="8725082736005677161">"Споделете преку"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"Се копираат датотеки"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"Компримирање датотеки"</string>
@@ -119,11 +112,11 @@
       <item quantity="other">Се бришат <xliff:g id="COUNT_1">%1$d</xliff:g> ставки.</item>
     </plurals>
     <string name="undo" msgid="2902438994196400565">"Врати"</string>
-    <string name="copy_preparing" msgid="5326063807006898223">"Се подготвува за копирање…"</string>
-    <string name="compress_preparing" msgid="6650018601382062672">"Се подготвува за компримирање…"</string>
-    <string name="extract_preparing" msgid="58266275455027829">"Се подготвува за извлекување…"</string>
-    <string name="move_preparing" msgid="8742573245485449429">"Се подготвува за преместување…"</string>
-    <string name="delete_preparing" msgid="6513863752916028147">"Се подготвува за бришење…"</string>
+    <string name="copy_preparing" msgid="4759516490222449324">"Се подготвува…"</string>
+    <string name="compress_preparing" msgid="7401605598969019696">"Се подготвува…"</string>
+    <string name="extract_preparing" msgid="4796626960061745796">"Се подготвува…"</string>
+    <string name="move_preparing" msgid="6504239656430530761">"Се подготвува…"</string>
+    <string name="delete_preparing" msgid="7339349837842802508">"Се подготвува…"</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
       <item quantity="one">Не можеше да се копира <xliff:g id="COUNT_1">%1$d</xliff:g> ставка</item>
@@ -213,5 +206,4 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"архива<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"Да се презапише <xliff:g id="NAME">%1$s</xliff:g>?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Продолжи во заднина"</string>
-    <string name="inspector_debug_section" msgid="3447621501565766900">"Информации за отстранување грешки (само за DEV)"</string>
 </resources>

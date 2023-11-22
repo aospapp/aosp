@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <math.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,9 +33,6 @@
 #include <log/log.h>
 
 #define ALEN(a) (sizeof(a) / sizeof((a)[0]))  // Array length
-typedef unsigned int bool_t;
-#define true (0 == 0)
-#define false (!true)
 
 #define MAXSTR 200
 
@@ -393,7 +391,6 @@ testXDumpGetOffset(void)
 void testExecCmd(const char *cmd)
 {
     FILE *fp;
-    int rv;
     int status;
     char str[MAXSTR];
 

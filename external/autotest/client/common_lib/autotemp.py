@@ -60,7 +60,7 @@ class tempfile(object):
     def __del__(self):
         try:
             if self.name is not None:
-                logging.debug('Clean was not called for ' + self.name)
+                logging.debug('Cleaning %s', self.name)
                 self.clean()
         except:
             try:

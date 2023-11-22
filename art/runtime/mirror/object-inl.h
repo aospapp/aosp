@@ -19,20 +19,21 @@
 
 #include "object.h"
 
+#include "array-inl.h"
 #include "art_field.h"
 #include "art_method.h"
-#include "atomic.h"
-#include "array-inl.h"
+#include "base/atomic.h"
 #include "class-inl.h"
 #include "class_flags.h"
 #include "class_linker.h"
 #include "dex_cache.h"
+#include "heap_poisoning.h"
 #include "lock_word-inl.h"
 #include "monitor.h"
+#include "obj_ptr-inl.h"
+#include "object-readbarrier-inl.h"
 #include "object_array-inl.h"
 #include "object_reference-inl.h"
-#include "object-readbarrier-inl.h"
-#include "obj_ptr-inl.h"
 #include "read_barrier-inl.h"
 #include "reference.h"
 #include "runtime.h"
@@ -159,7 +160,8 @@ inline bool Object::VerifierInstanceOf(ObjPtr<Class> klass) {
 template<VerifyObjectFlags kVerifyFlags>
 inline bool Object::InstanceOf(ObjPtr<Class> klass) {
   DCHECK(klass != nullptr);
-  DCHECK(GetClass<kVerifyNone>() != nullptr);
+  DCHECK(GetClass<kVerifyNone>() != nullptr)
+      << "this=" << std::hex << reinterpret_cast<uintptr_t>(this) << std::dec;
   return klass->IsAssignableFrom(GetClass<kVerifyFlags>());
 }
 
@@ -393,14 +395,6 @@ inline size_t Object::SizeOf() {
 }
 
 template<VerifyObjectFlags kVerifyFlags, bool kIsVolatile>
-inline uint8_t Object::GetFieldBoolean(MemberOffset field_offset) {
-  if (kVerifyFlags & kVerifyThis) {
-    VerifyObject(this);
-  }
-  return GetField<uint8_t, kIsVolatile>(field_offset);
-}
-
-template<VerifyObjectFlags kVerifyFlags, bool kIsVolatile>
 inline int8_t Object::GetFieldByte(MemberOffset field_offset) {
   if (kVerifyFlags & kVerifyThis) {
     VerifyObject(this);
@@ -586,7 +580,7 @@ inline bool Object::CasFieldWeakSequentiallyConsistent32(MemberOffset field_offs
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   AtomicInteger* atomic_addr = reinterpret_cast<AtomicInteger*>(raw_addr);
 
-  return atomic_addr->CompareExchangeWeakSequentiallyConsistent(old_value, new_value);
+  return atomic_addr->CompareAndSetWeakSequentiallyConsistent(old_value, new_value);
 }
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
@@ -604,7 +598,7 @@ inline bool Object::CasFieldWeakAcquire32(MemberOffset field_offset,
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   AtomicInteger* atomic_addr = reinterpret_cast<AtomicInteger*>(raw_addr);
 
-  return atomic_addr->CompareExchangeWeakAcquire(old_value, new_value);
+  return atomic_addr->CompareAndSetWeakAcquire(old_value, new_value);
 }
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
@@ -622,7 +616,7 @@ inline bool Object::CasFieldWeakRelease32(MemberOffset field_offset,
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   AtomicInteger* atomic_addr = reinterpret_cast<AtomicInteger*>(raw_addr);
 
-  return atomic_addr->CompareExchangeWeakRelease(old_value, new_value);
+  return atomic_addr->CompareAndSetWeakRelease(old_value, new_value);
 }
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
@@ -640,7 +634,7 @@ inline bool Object::CasFieldStrongSequentiallyConsistent32(MemberOffset field_of
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   AtomicInteger* atomic_addr = reinterpret_cast<AtomicInteger*>(raw_addr);
 
-  return atomic_addr->CompareExchangeStrongSequentiallyConsistent(old_value, new_value);
+  return atomic_addr->CompareAndSetStrongSequentiallyConsistent(old_value, new_value);
 }
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags,
@@ -696,7 +690,7 @@ inline bool Object::CasFieldWeakSequentiallyConsistent64(MemberOffset field_offs
   }
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   Atomic<int64_t>* atomic_addr = reinterpret_cast<Atomic<int64_t>*>(raw_addr);
-  return atomic_addr->CompareExchangeWeakSequentiallyConsistent(old_value, new_value);
+  return atomic_addr->CompareAndSetWeakSequentiallyConsistent(old_value, new_value);
 }
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
@@ -713,7 +707,7 @@ inline bool Object::CasFieldStrongSequentiallyConsistent64(MemberOffset field_of
   }
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   Atomic<int64_t>* atomic_addr = reinterpret_cast<Atomic<int64_t>*>(raw_addr);
-  return atomic_addr->CompareExchangeStrongSequentiallyConsistent(old_value, new_value);
+  return atomic_addr->CompareAndSetStrongSequentiallyConsistent(old_value, new_value);
 }
 
 template<class T, VerifyObjectFlags kVerifyFlags, ReadBarrierOption kReadBarrierOption,
@@ -724,11 +718,10 @@ inline T* Object::GetFieldObject(MemberOffset field_offset) {
   }
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   HeapReference<T>* objref_addr = reinterpret_cast<HeapReference<T>*>(raw_addr);
-  T* result = ReadBarrier::Barrier<T, kReadBarrierOption>(this, field_offset, objref_addr);
-  if (kIsVolatile) {
-    // TODO: Refactor to use a SequentiallyConsistent load instead.
-    QuasiAtomic::ThreadFenceAcquire();  // Ensure visibility of operations preceding store.
-  }
+  T* result = ReadBarrier::Barrier<T, kIsVolatile, kReadBarrierOption>(
+      this,
+      field_offset,
+      objref_addr);
   if (kVerifyFlags & kVerifyReads) {
     VerifyObject(result);
   }
@@ -764,15 +757,7 @@ inline void Object::SetFieldObjectWithoutWriteBarrier(MemberOffset field_offset,
   }
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   HeapReference<Object>* objref_addr = reinterpret_cast<HeapReference<Object>*>(raw_addr);
-  if (kIsVolatile) {
-    // TODO: Refactor to use a SequentiallyConsistent store instead.
-    QuasiAtomic::ThreadFenceRelease();  // Ensure that prior accesses are visible before store.
-    objref_addr->Assign(new_value.Ptr());
-    QuasiAtomic::ThreadFenceSequentiallyConsistent();
-                                // Ensure this store occurs before any volatile loads.
-  } else {
-    objref_addr->Assign(new_value.Ptr());
-  }
+  objref_addr->Assign<kIsVolatile>(new_value.Ptr());
 }
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags,
@@ -843,13 +828,12 @@ inline bool Object::CasFieldWeakSequentiallyConsistentObjectWithoutWriteBarrier(
   if (kTransactionActive) {
     Runtime::Current()->RecordWriteFieldReference(this, field_offset, old_value, true);
   }
-  HeapReference<Object> old_ref(HeapReference<Object>::FromObjPtr(old_value));
-  HeapReference<Object> new_ref(HeapReference<Object>::FromObjPtr(new_value));
+  uint32_t old_ref(PtrCompression<kPoisonHeapReferences, Object>::Compress(old_value));
+  uint32_t new_ref(PtrCompression<kPoisonHeapReferences, Object>::Compress(new_value));
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   Atomic<uint32_t>* atomic_addr = reinterpret_cast<Atomic<uint32_t>*>(raw_addr);
 
-  bool success = atomic_addr->CompareExchangeWeakSequentiallyConsistent(old_ref.reference_,
-                                                                        new_ref.reference_);
+  bool success = atomic_addr->CompareAndSetWeakSequentiallyConsistent(old_ref, new_ref);
   return success;
 }
 
@@ -885,13 +869,12 @@ inline bool Object::CasFieldStrongSequentiallyConsistentObjectWithoutWriteBarrie
   if (kTransactionActive) {
     Runtime::Current()->RecordWriteFieldReference(this, field_offset, old_value, true);
   }
-  HeapReference<Object> old_ref(HeapReference<Object>::FromObjPtr(old_value));
-  HeapReference<Object> new_ref(HeapReference<Object>::FromObjPtr(new_value));
+  uint32_t old_ref(PtrCompression<kPoisonHeapReferences, Object>::Compress(old_value));
+  uint32_t new_ref(PtrCompression<kPoisonHeapReferences, Object>::Compress(new_value));
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   Atomic<uint32_t>* atomic_addr = reinterpret_cast<Atomic<uint32_t>*>(raw_addr);
 
-  bool success = atomic_addr->CompareExchangeStrongSequentiallyConsistent(old_ref.reference_,
-                                                                          new_ref.reference_);
+  bool success = atomic_addr->CompareAndSetStrongSequentiallyConsistent(old_ref, new_ref);
   return success;
 }
 
@@ -915,13 +898,12 @@ inline bool Object::CasFieldWeakRelaxedObjectWithoutWriteBarrier(
   if (kTransactionActive) {
     Runtime::Current()->RecordWriteFieldReference(this, field_offset, old_value, true);
   }
-  HeapReference<Object> old_ref(HeapReference<Object>::FromObjPtr(old_value));
-  HeapReference<Object> new_ref(HeapReference<Object>::FromObjPtr(new_value));
+  uint32_t old_ref(PtrCompression<kPoisonHeapReferences, Object>::Compress(old_value));
+  uint32_t new_ref(PtrCompression<kPoisonHeapReferences, Object>::Compress(new_value));
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   Atomic<uint32_t>* atomic_addr = reinterpret_cast<Atomic<uint32_t>*>(raw_addr);
 
-  bool success = atomic_addr->CompareExchangeWeakRelaxed(old_ref.reference_,
-                                                         new_ref.reference_);
+  bool success = atomic_addr->CompareAndSetWeakRelaxed(old_ref, new_ref);
   return success;
 }
 
@@ -945,14 +927,202 @@ inline bool Object::CasFieldWeakReleaseObjectWithoutWriteBarrier(
   if (kTransactionActive) {
     Runtime::Current()->RecordWriteFieldReference(this, field_offset, old_value, true);
   }
-  HeapReference<Object> old_ref(HeapReference<Object>::FromObjPtr(old_value));
-  HeapReference<Object> new_ref(HeapReference<Object>::FromObjPtr(new_value));
+  uint32_t old_ref(PtrCompression<kPoisonHeapReferences, Object>::Compress(old_value));
+  uint32_t new_ref(PtrCompression<kPoisonHeapReferences, Object>::Compress(new_value));
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   Atomic<uint32_t>* atomic_addr = reinterpret_cast<Atomic<uint32_t>*>(raw_addr);
 
-  bool success = atomic_addr->CompareExchangeWeakRelease(old_ref.reference_,
-                                                         new_ref.reference_);
+  bool success = atomic_addr->CompareAndSetWeakRelease(old_ref, new_ref);
   return success;
+}
+
+template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
+inline ObjPtr<Object> Object::CompareAndExchangeFieldObject(MemberOffset field_offset,
+                                                            ObjPtr<Object> old_value,
+                                                            ObjPtr<Object> new_value) {
+  if (kCheckTransaction) {
+    DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
+  }
+  if (kVerifyFlags & kVerifyThis) {
+    VerifyObject(this);
+  }
+  if (kVerifyFlags & kVerifyWrites) {
+    VerifyObject(new_value);
+  }
+  if (kVerifyFlags & kVerifyReads) {
+    VerifyObject(old_value);
+  }
+  uint32_t old_ref(PtrCompression<kPoisonHeapReferences, Object>::Compress(old_value));
+  uint32_t new_ref(PtrCompression<kPoisonHeapReferences, Object>::Compress(new_value));
+  uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
+  Atomic<uint32_t>* atomic_addr = reinterpret_cast<Atomic<uint32_t>*>(raw_addr);
+  bool success = atomic_addr->CompareAndExchangeStrongSequentiallyConsistent(&old_ref, new_ref);
+  ObjPtr<Object> witness_value(PtrCompression<kPoisonHeapReferences, Object>::Decompress(old_ref));
+  if (kIsDebugBuild) {
+    // Ensure caller has done read barrier on the reference field so it's in the to-space.
+    ReadBarrier::AssertToSpaceInvariant(witness_value.Ptr());
+  }
+  if (kTransactionActive && success) {
+    Runtime::Current()->RecordWriteFieldReference(this, field_offset, witness_value, true);
+  }
+  if (kVerifyFlags & kVerifyReads) {
+    VerifyObject(witness_value);
+  }
+  return witness_value;
+}
+
+template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
+inline ObjPtr<Object> Object::ExchangeFieldObject(MemberOffset field_offset,
+                                                  ObjPtr<Object> new_value) {
+  if (kCheckTransaction) {
+    DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
+  }
+  if (kVerifyFlags & kVerifyThis) {
+    VerifyObject(this);
+  }
+  if (kVerifyFlags & kVerifyWrites) {
+    VerifyObject(new_value);
+  }
+  uint32_t new_ref(PtrCompression<kPoisonHeapReferences, Object>::Compress(new_value));
+  uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
+  Atomic<uint32_t>* atomic_addr = reinterpret_cast<Atomic<uint32_t>*>(raw_addr);
+  uint32_t old_ref = atomic_addr->ExchangeSequentiallyConsistent(new_ref);
+  ObjPtr<Object> old_value(PtrCompression<kPoisonHeapReferences, Object>::Decompress(old_ref));
+  if (kIsDebugBuild) {
+    // Ensure caller has done read barrier on the reference field so it's in the to-space.
+    ReadBarrier::AssertToSpaceInvariant(old_value.Ptr());
+  }
+  if (kTransactionActive) {
+    Runtime::Current()->RecordWriteFieldReference(this, field_offset, old_value, true);
+  }
+  if (kVerifyFlags & kVerifyReads) {
+    VerifyObject(old_value);
+  }
+  return old_value;
+}
+
+template<typename T, VerifyObjectFlags kVerifyFlags>
+inline void Object::GetPrimitiveFieldViaAccessor(MemberOffset field_offset, Accessor<T>* accessor) {
+  if (kVerifyFlags & kVerifyThis) {
+    VerifyObject(this);
+  }
+  uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
+  T* addr = reinterpret_cast<T*>(raw_addr);
+  accessor->Access(addr);
+}
+
+template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
+inline void Object::UpdateFieldBooleanViaAccessor(MemberOffset field_offset,
+                                                  Accessor<uint8_t>* accessor) {
+  if (kCheckTransaction) {
+    DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
+  }
+  if (kTransactionActive) {
+    static const bool kIsVolatile = true;
+    uint8_t old_value = GetFieldBoolean<kVerifyFlags, kIsVolatile>(field_offset);
+    Runtime::Current()->RecordWriteFieldBoolean(this, field_offset, old_value, kIsVolatile);
+  }
+  if (kVerifyFlags & kVerifyThis) {
+    VerifyObject(this);
+  }
+  uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
+  uint8_t* addr = raw_addr;
+  accessor->Access(addr);
+}
+
+template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
+inline void Object::UpdateFieldByteViaAccessor(MemberOffset field_offset,
+                                               Accessor<int8_t>* accessor) {
+  if (kCheckTransaction) {
+    DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
+  }
+  if (kTransactionActive) {
+    static const bool kIsVolatile = true;
+    int8_t old_value = GetFieldByte<kVerifyFlags, kIsVolatile>(field_offset);
+    Runtime::Current()->RecordWriteFieldByte(this, field_offset, old_value, kIsVolatile);
+  }
+  if (kVerifyFlags & kVerifyThis) {
+    VerifyObject(this);
+  }
+  uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
+  int8_t* addr = reinterpret_cast<int8_t*>(raw_addr);
+  accessor->Access(addr);
+}
+
+template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
+inline void Object::UpdateFieldCharViaAccessor(MemberOffset field_offset,
+                                               Accessor<uint16_t>* accessor) {
+  if (kCheckTransaction) {
+    DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
+  }
+  if (kTransactionActive) {
+    static const bool kIsVolatile = true;
+    uint16_t old_value = GetFieldChar<kVerifyFlags, kIsVolatile>(field_offset);
+    Runtime::Current()->RecordWriteFieldChar(this, field_offset, old_value, kIsVolatile);
+  }
+  if (kVerifyFlags & kVerifyThis) {
+    VerifyObject(this);
+  }
+  uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
+  uint16_t* addr = reinterpret_cast<uint16_t*>(raw_addr);
+  accessor->Access(addr);
+}
+
+template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
+inline void Object::UpdateFieldShortViaAccessor(MemberOffset field_offset,
+                                                Accessor<int16_t>* accessor) {
+  if (kCheckTransaction) {
+    DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
+  }
+  if (kTransactionActive) {
+    static const bool kIsVolatile = true;
+    int16_t old_value = GetFieldShort<kVerifyFlags, kIsVolatile>(field_offset);
+    Runtime::Current()->RecordWriteFieldShort(this, field_offset, old_value, kIsVolatile);
+  }
+  if (kVerifyFlags & kVerifyThis) {
+    VerifyObject(this);
+  }
+  uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
+  int16_t* addr = reinterpret_cast<int16_t*>(raw_addr);
+  accessor->Access(addr);
+}
+
+template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
+inline void Object::UpdateField32ViaAccessor(MemberOffset field_offset,
+                                             Accessor<int32_t>* accessor) {
+  if (kCheckTransaction) {
+    DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
+  }
+  if (kTransactionActive) {
+    static const bool kIsVolatile = true;
+    int32_t old_value = GetField32<kVerifyFlags, kIsVolatile>(field_offset);
+    Runtime::Current()->RecordWriteField32(this, field_offset, old_value, kIsVolatile);
+  }
+  if (kVerifyFlags & kVerifyThis) {
+    VerifyObject(this);
+  }
+  uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
+  int32_t* addr = reinterpret_cast<int32_t*>(raw_addr);
+  accessor->Access(addr);
+}
+
+template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
+inline void Object::UpdateField64ViaAccessor(MemberOffset field_offset,
+                                             Accessor<int64_t>* accessor) {
+  if (kCheckTransaction) {
+    DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
+  }
+  if (kTransactionActive) {
+    static const bool kIsVolatile = true;
+    int64_t old_value = GetField64<kVerifyFlags, kIsVolatile>(field_offset);
+    Runtime::Current()->RecordWriteField64(this, field_offset, old_value, kIsVolatile);
+  }
+  if (kVerifyFlags & kVerifyThis) {
+    VerifyObject(this);
+  }
+  uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
+  int64_t* addr = reinterpret_cast<int64_t*>(raw_addr);
+  accessor->Access(addr);
 }
 
 template<bool kIsStatic,

@@ -40,9 +40,8 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/support/android/asio
 
 LOCAL_CFLAGS := \
+    -Wall -Werror \
     -frtti -fexceptions \
     -isystem $(LOCAL_PATH)/asio/include
 
 LOCAL_SHARED_LIBRARIES := libremote-processor$(PFW_NETWORKING_SUFFIX)$(SUFFIX)
-
-LOCAL_CLANG := true

@@ -16,7 +16,8 @@
 
 package com.android.documentsui.base;
 
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
+import static com.android.internal.util.Preconditions.checkArgument;
 
 import android.content.ContentResolver;
 import android.database.Cursor;
@@ -123,13 +124,10 @@ public class DocumentStack implements Durable, Parcelable {
     }
 
     public void push(DocumentInfo info) {
-        boolean alreadyInStack = mList.contains(info);
-        assert (!alreadyInStack);
-        if (!alreadyInStack) {
-            if (DEBUG) Log.d(TAG, "Adding doc to stack: " + info);
-            mList.addLast(info);
-            mStackTouched = true;
-        }
+        checkArgument(!mList.contains(info));
+        if (DEBUG) Log.d(TAG, "Adding doc to stack: " + info);
+        mList.addLast(info);
+        mStackTouched = true;
     }
 
     public DocumentInfo pop() {

@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"SIM-ը բացակայում է կամ SIM քարտի սխալ կա"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Բջջային ցանցը մատչելի չէ"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Ելքային զանգերը սահմանափակված են FDN-ի կողմից:"</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL հարցումը փոխվել է նոր USSD հարցման:"</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL հարցումը փոխվել է SS հարցման:"</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL հարցումը փոխվել է այլ համարով DIAL հարցման:"</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Զանգը փոխվել է USSD հարցման"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Զանգը փոխվել է SS հարցման"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Փոխվել է այլ համարի"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Փոխվել է տեսազանգի"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Տեսազանգը փոխվել է SS հարցման"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Տեսազանգը փոխվել է USSD հարցման"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Փոխվել է սովորական զանգի"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Փոխվել է այլ համարի"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Հնարավոր չէ ելքային զանգ կատարել, երբ զանգերն արգելափակված են:"</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Զանգերը սահմանափակված են մուտքի թույլտվության վերահսկման կողմից:"</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Արտակարգ իրավիճակի զանգերը սահմանափակված են մուտքի թույլտվության վերահսկման կողմից:"</string>

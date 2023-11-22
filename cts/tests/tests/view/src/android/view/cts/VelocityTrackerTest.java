@@ -174,7 +174,7 @@ public class VelocityTrackerTest {
     }
 
     private void addMovement() {
-        if (mTime >= mLastTime) {
+        if (mTime > mLastTime) {
             MotionEvent ev = MotionEvent.obtain(0L, mTime, MotionEvent.ACTION_MOVE, mPx, mPy, 0);
             mVelocityTracker.addMovement(ev);
             ev.recycle();
@@ -201,9 +201,9 @@ public class VelocityTrackerTest {
         if (errorVx > tolerance || errorVy > tolerance) {
             fail(String.format("Velocity exceeds tolerance of %6.1f%%: "
                     + "expected vx=%6.1f, vy=%6.1f. "
-                    + "actual vx=%6.1f (%6.1f%%), vy=%6.1f (%6.1f%%)",
+                    + "actual vx=%6.1f (%6.1f%%), vy=%6.1f (%6.1f%%). %s",
                     tolerance * 100.0f, mVx, mVy,
-                    estimatedVx, errorVx * 100.0f, estimatedVy, errorVy * 100.0f));
+                    estimatedVx, errorVx * 100.0f, estimatedVy, errorVy * 100.0f, message));
         }
     }
 

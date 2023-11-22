@@ -63,7 +63,7 @@ struct Expression {
         }
     }
 
-    static Type integralType(std::string integer);
+    static Type integralType(const std::string& integer);
     static Type coalesceTypes(Type lhs, Type rhs);
 
     static Expression *parenthesize(Expression *inner);

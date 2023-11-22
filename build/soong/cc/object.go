@@ -43,7 +43,7 @@ func objectFactory() android.Module {
 }
 
 func (object *objectLinker) appendLdflags(flags []string) {
-	panic(fmt.Errorf("appendLdflags on object Linker not supported"))
+	panic(fmt.Errorf("appendLdflags on objectLinker not supported"))
 }
 
 func (object *objectLinker) linkerProps() []interface{} {
@@ -53,6 +53,11 @@ func (object *objectLinker) linkerProps() []interface{} {
 func (*objectLinker) linkerInit(ctx BaseModuleContext) {}
 
 func (object *objectLinker) linkerDeps(ctx DepsContext, deps Deps) Deps {
+	if ctx.useVndk() && ctx.toolchain().Bionic() {
+		// Needed for VNDK builds where bionic headers aren't automatically added.
+		deps.LateSharedLibs = append(deps.LateSharedLibs, "libc")
+	}
+
 	deps.ObjFiles = append(deps.ObjFiles, object.Properties.Objs...)
 	return deps
 }
@@ -73,12 +78,29 @@ func (object *objectLinker) link(ctx ModuleContext,
 	objs = objs.Append(deps.Objs)
 
 	var outputFile android.Path
+	builderFlags := flagsToBuilderFlags(flags)
+
 	if len(objs.objFiles) == 1 {
 		outputFile = objs.objFiles[0]
+
+		if String(object.Properties.Prefix_symbols) != "" {
+			output := android.PathForModuleOut(ctx, ctx.ModuleName()+objectExtension)
+			TransformBinaryPrefixSymbols(ctx, String(object.Properties.Prefix_symbols), outputFile,
+				builderFlags, output)
+			outputFile = output
+		}
 	} else {
 		output := android.PathForModuleOut(ctx, ctx.ModuleName()+objectExtension)
-		TransformObjsToObj(ctx, objs.objFiles, flagsToBuilderFlags(flags), output)
 		outputFile = output
+
+		if String(object.Properties.Prefix_symbols) != "" {
+			input := android.PathForModuleOut(ctx, "unprefixed", ctx.ModuleName()+objectExtension)
+			TransformBinaryPrefixSymbols(ctx, String(object.Properties.Prefix_symbols), input,
+				builderFlags, output)
+			output = input
+		}
+
+		TransformObjsToObj(ctx, objs.objFiles, builderFlags, output)
 	}
 
 	ctx.CheckbuildFile(outputFile)

@@ -59,6 +59,7 @@ public class InstanceOnlyModifierDebuggee extends SyncDebuggee {
 
     static TestClass INSTANCE_ONLY;
 
+    @SuppressWarnings("DeadException")
     @Override
     public void run() {
         new TestException();  // force class loading.

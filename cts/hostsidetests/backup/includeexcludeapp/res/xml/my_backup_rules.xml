@@ -10,4 +10,5 @@
     <exclude domain="external" path="exclude_folder"/>
     <include domain="root" path="file_to_include"/>
     <exclude domain="root" path="file_to_exclude"/>
+    <include domain="root" requireFlags="fakeClientSideEncryption" path="fake_encryption_file" />
 </full-backup-content>

@@ -1829,7 +1829,8 @@ TPM_RC TpmUtilityImpl::EncryptPrivateData(const TPMT_SENSITIVE& sensitive_area,
   unsigned char iv[MAX_AES_BLOCK_SIZE_BYTES] = {0};
   AES_cfb128_encrypt(
       reinterpret_cast<const unsigned char*>(unencrypted_private_data.data()),
-      reinterpret_cast<unsigned char*>(string_as_array(&private_data_string)),
+      reinterpret_cast<unsigned char*>(
+          base::string_as_array(&private_data_string)),
       unencrypted_private_data.size(), &key, iv, &iv_in, AES_ENCRYPT);
   *encrypted_private_data = Make_TPM2B_PRIVATE(private_data_string);
   if (result != TPM_RC_SUCCESS) {

@@ -25,6 +25,7 @@
 package org.apache.harmony.jpda.tests.jdwp.StackFrame;
 
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
+import org.apache.harmony.jpda.tests.framework.jdwp.Frame;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands.StackFrameCommandSet;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
@@ -322,7 +323,7 @@ public class SetValuesTest extends JDWPStackTraceBaseTest {
         assertTrue(logWriter.getErrorMessage(), success);
     }
 
-    private VarInfo varInfoByName(String name) {
+    private Frame.Variable varInfoByName(String name) {
       for (int i = 0; i < varInfos.length; ++i) {
         if (varInfos[i].getName().equals(name)) {
           return varInfos[i];

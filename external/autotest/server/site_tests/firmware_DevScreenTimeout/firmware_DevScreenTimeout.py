@@ -97,6 +97,10 @@ class firmware_DevScreenTimeout(FirmwareTest):
                               'mainfw_type': 'developer',
                               }))
 
+        # To add an extra reboot before the measurement
+        # to avoid TPM reset too long
+        self.switcher.simple_reboot()
+        self.switcher.wait_for_client()
         logging.info("Reboot and press Ctrl-D repeatedly.")
         self.switcher.simple_reboot()
         self.ctrl_d_repeatedly()

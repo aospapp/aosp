@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN და აპები"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"შენიშვნა: ამ სერტიფიკატის გამცემმა შესაძლოა სრულად შეამოწმოს მოწყობილობაში შემავალი და მისგან გამომავალი მონაცემების ტრაფიკი."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi პროფილი"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%s-ის დეტალები"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"დეტალები"</string>

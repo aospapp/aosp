@@ -44,7 +44,7 @@ class video_GlitchDetection(test.test):
 
         with chrome.Chrome(
                 extra_browser_args=helper_logger.chrome_vmodule_flag(),
-                extension_paths = [cros_constants.MULTIMEDIA_TEST_EXTENSION],
+                extension_paths = [cros_constants.DISPLAY_TEST_EXTENSION],
                 autotest_ext=True,
                 init_network_controller=True) as cr:
 

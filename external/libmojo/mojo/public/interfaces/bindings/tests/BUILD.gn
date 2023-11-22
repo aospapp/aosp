@@ -17,7 +17,9 @@ mojom("test_interfaces") {
     "sample_service.mojom",
     "scoping.mojom",
     "serialization_test_structs.mojom",
+    "test_bad_messages.mojom",
     "test_constants.mojom",
+    "test_data_view.mojom",
     "test_native_types.mojom",
     "test_structs.mojom",
     "test_sync_methods.mojom",
@@ -27,8 +29,59 @@ mojom("test_interfaces") {
     ":test_mojom_import",
     ":test_mojom_import2",
   ]
+}
 
-  use_new_wrapper_types = true
+component("test_export_component") {
+  testonly = true
+  deps = [
+    ":test_export",
+  ]
+}
+
+if (!is_ios) {
+  component("test_export_blink_component") {
+    testonly = true
+    deps = [
+      ":test_export_blink",
+    ]
+  }
+}
+
+mojom("test_export") {
+  testonly = true
+  sources = [
+    "test_export.mojom",
+  ]
+  export_class_attribute = "MOJO_TEST_EXPORT"
+  export_define = "MOJO_TEST_IMPLEMENTATION=1"
+  export_header = "mojo/public/cpp/bindings/tests/mojo_test_export.h"
+  if (!is_ios) {
+    export_class_attribute_blink = "MOJO_TEST_BLINK_EXPORT"
+    export_define_blink = "MOJO_TEST_BLINK_IMPLEMENTATION=1"
+    export_header_blink =
+        "mojo/public/cpp/bindings/tests/mojo_test_blink_export.h"
+  }
+  visibility = [ ":test_export_component" ]
+  if (!is_ios) {
+    visibility_blink = [ ":test_export_blink_component" ]
+  }
+}
+
+mojom("test_exported_import") {
+  testonly = true
+  sources = [
+    "test_import.mojom",
+  ]
+  public_deps = [
+    ":test_export",
+  ]
+
+  overridden_deps = [ ":test_export" ]
+  component_deps = [ ":test_export_component" ]
+  if (!is_ios) {
+    overridden_deps_blink = [ ":test_export" ]
+    component_deps_blink = [ ":test_export_blink_component" ]
+  }
 }
 
 mojom("test_mojom_import") {
@@ -36,7 +89,6 @@ mojom("test_mojom_import") {
   sources = [
     "sample_import.mojom",
   ]
-  use_new_wrapper_types = true
 }
 
 mojom("test_mojom_import_wrapper") {
@@ -62,7 +114,6 @@ mojom("test_mojom_import2") {
     ":test_mojom_import",
     ":test_mojom_import_wrapper_wrapper",
   ]
-  use_new_wrapper_types = true
 }
 
 mojom("test_struct_traits_interfaces") {
@@ -70,7 +121,6 @@ mojom("test_struct_traits_interfaces") {
   sources = [
     "struct_with_traits.mojom",
   ]
-  use_new_wrapper_types = true
 }
 
 mojom("test_interfaces_experimental") {
@@ -78,7 +128,6 @@ mojom("test_interfaces_experimental") {
   sources = [
     "test_unions.mojom",
   ]
-  use_new_wrapper_types = true
 }
 
 mojom("test_associated_interfaces") {
@@ -89,7 +138,10 @@ mojom("test_associated_interfaces") {
     "test_associated_interfaces.mojom",
     "validation_test_associated_interfaces.mojom",
   ]
-  use_new_wrapper_types = true
+
+  public_deps = [
+    ":test_interfaces",
+  ]
 }
 
 mojom("versioning_test_service_interfaces") {
@@ -97,7 +149,6 @@ mojom("versioning_test_service_interfaces") {
   sources = [
     "versioning_test_service.mojom",
   ]
-  use_new_wrapper_types = true
 }
 
 mojom("versioning_test_client_interfaces") {
@@ -105,7 +156,6 @@ mojom("versioning_test_client_interfaces") {
   sources = [
     "versioning_test_client.mojom",
   ]
-  use_new_wrapper_types = true
 }
 
 mojom("test_wtf_types") {
@@ -114,7 +164,6 @@ mojom("test_wtf_types") {
   sources = [
     "test_wtf_types.mojom",
   ]
-  use_new_wrapper_types = true
 }
 
 mojom("test_no_sources") {

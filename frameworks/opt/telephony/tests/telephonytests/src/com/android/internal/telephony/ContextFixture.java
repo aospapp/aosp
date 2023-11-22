@@ -43,6 +43,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
+import android.content.res.AssetManager;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.database.Cursor;
@@ -254,8 +255,21 @@ public class ContextFixture implements TestFixture<Context> {
         }
 
         @Override
+        public String getSystemServiceName(Class<?> serviceClass) {
+            if (serviceClass == SubscriptionManager.class) {
+                return Context.TELEPHONY_SUBSCRIPTION_SERVICE;
+            }
+            return super.getSystemServiceName(serviceClass);
+        }
+
+        @Override
         public int getUserId() {
             return 0;
+        }
+
+        @Override
+        public AssetManager getAssets() {
+            return mAssetManager;
         }
 
         @Override
@@ -271,6 +285,11 @@ public class ContextFixture implements TestFixture<Context> {
         @Override
         public ContentResolver getContentResolver() {
             return mContentResolver;
+        }
+
+        @Override
+        public Resources.Theme getTheme() {
+            return null;
         }
 
         @Override
@@ -444,6 +463,11 @@ public class ContextFixture implements TestFixture<Context> {
         }
 
         @Override
+        public void enforcePermission(String permission, int pid, int uid, String message) {
+            enforceCallingOrSelfPermission(permission, message);
+        }
+
+        @Override
         public int checkCallingOrSelfPermission(String permission) {
             if (mPermissionTable.contains(permission)
                     || mPermissionTable.contains(PERMISSION_ENABLE_ALL)) {
@@ -453,6 +477,11 @@ public class ContextFixture implements TestFixture<Context> {
                 logd("checkCallingOrSelfPermission: " + permission + " return DENIED");
                 return PackageManager.PERMISSION_DENIED;
             }
+        }
+
+        @Override
+        public int checkPermission(String permission, int pid, int uid) {
+            return checkCallingOrSelfPermission(permission);
         }
 
         @Override
@@ -506,6 +535,7 @@ public class ContextFixture implements TestFixture<Context> {
     private final CarrierConfigManager mCarrierConfigManager = mock(CarrierConfigManager.class);
     private final SubscriptionManager mSubscriptionManager = mock(SubscriptionManager.class);
     private final AlarmManager mAlarmManager = mock(AlarmManager.class);
+    private final AssetManager mAssetManager = new AssetManager();
     private final ConnectivityManager mConnectivityManager = mock(ConnectivityManager.class);
     private final UsageStatsManager mUsageStatManager = null;
     private final WifiManager mWifiManager = mock(WifiManager.class);
@@ -584,6 +614,10 @@ public class ContextFixture implements TestFixture<Context> {
 
     public void putIntArrayResource(int id, int[] values) {
         doReturn(values).when(mResources).getIntArray(eq(id));
+    }
+
+    public void putIntResource(int id, int value) {
+        doReturn(value).when(mResources).getInteger(eq(id));
     }
 
     public PersistableBundle getCarrierConfigBundle() {

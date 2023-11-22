@@ -52,8 +52,8 @@ SEARCH=$(echo ${INPUT_IANA_RULES_VERSION} | sed "s/\(.\)/\1\\\x00/g")
 REPLACE=$(echo ${OUTPUT_IANA_RULES_VERSION} | sed "s/\(.\)/\1\\\x00/g")
 sed "s/$SEARCH/$REPLACE/" ${INPUT_ICU_FILE} > ${OUTPUT_ICU_FILE}
 
-# Copy the tzlookup.xml as is.
-cp ${INPUT_TZLOOKUP_FILE} ${OUTPUT_TZLOOKUP_FILE}
+# Copy the tzlookup.xml but update the ianaversion= attribute.
+sed "s/${INPUT_IANA_RULES_VERSION}/${OUTPUT_IANA_RULES_VERSION}/" ${INPUT_TZLOOKUP_FILE} > ${OUTPUT_TZLOOKUP_FILE}
 
 echo Transformed input files with version ${INPUT_IANA_RULES_VERSION} to ${OUTPUT_IANA_RULES_VERSION} in ${DISTRO_OUTPUT_DIR}
 

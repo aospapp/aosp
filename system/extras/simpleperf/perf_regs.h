@@ -60,7 +60,6 @@ constexpr ArchType GetBuildArch() {
 ArchType GetArchType(const std::string& arch);
 ArchType GetArchForAbi(ArchType machine_arch, int abi);
 std::string GetArchString(ArchType arch);
-bool IsArchTheSame(ArchType arch1, ArchType arch2, bool strict_check);
 uint64_t GetSupportedRegMask(ArchType arch);
 std::string GetRegName(size_t regno, ArchType arch);
 
@@ -88,13 +87,17 @@ class ScopedCurrentArch {
 };
 
 struct RegSet {
+  ArchType arch;
+  // For each setting bit in valid_mask, there is a valid reg value in data[].
   uint64_t valid_mask;
+  // Stores reg values. Values for invalid regs are 0.
   uint64_t data[64];
+
+  RegSet(int abi, uint64_t valid_mask, const uint64_t* valid_regs);
+
+  bool GetRegValue(size_t regno, uint64_t* value) const;
+  bool GetSpRegValue(uint64_t* value) const;
+  bool GetIpRegValue(uint64_t* value) const;
 };
-
-RegSet CreateRegSet(int abi, uint64_t valid_mask, const uint64_t* valid_regs);
-
-bool GetRegValue(const RegSet& regs, size_t regno, uint64_t* value);
-bool GetSpRegValue(const RegSet& regs, ArchType arch, uint64_t* value);
 
 #endif  // SIMPLE_PERF_PERF_REGS_H_

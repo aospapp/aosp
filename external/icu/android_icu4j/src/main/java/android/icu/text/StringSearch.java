@@ -33,7 +33,7 @@ import android.icu.util.ULocale;
 //      is a leftover from already-disabled Boyer-Moore search code. This Java implementation
 //      preserves the code, but we should clean this up later.
 
-/** 
+/**
  *
  * <tt>StringSearch</tt> is a {@link SearchIterator} that provides
  * language-sensitive text searching based on the comparison rules defined
@@ -50,7 +50,7 @@ import android.icu.util.ULocale;
  * <br>
  * A pattern string P matches a text string S at the offsets [start, end]
  * if
- * <pre> 
+ * <pre>
  * option 1. Some canonical equivalent of P matches some canonical equivalent
  *           of S'
  * option 2. P matches S' and if P starts or ends with a combining mark,
@@ -59,10 +59,10 @@ import android.icu.util.ULocale;
  * </pre>
  * Option 2. is the default.
  * <p>
- * This search has APIs similar to that of other text iteration mechanisms 
- * such as the break iterators in {@link BreakIterator}. Using these 
- * APIs, it is easy to scan through text looking for all occurrences of 
- * a given pattern. This search iterator allows changing of direction by 
+ * This search has APIs similar to that of other text iteration mechanisms
+ * such as the break iterators in {@link BreakIterator}. Using these
+ * APIs, it is easy to scan through text looking for all occurrences of
+ * a given pattern. This search iterator allows changing of direction by
  * calling a {@link #reset} followed by a {@link #next} or {@link #previous}.
  * Though a direction change can occur without calling {@link #reset} first,
  * this operation comes with some speed penalty.
@@ -110,7 +110,7 @@ import android.icu.util.ULocale;
  * from {@link #getCollator} and using the APIs in {@link RuleBasedCollator}.
  * Lastly to update <tt>StringSearch</tt> to the new collator attributes,
  * {@link #reset} has to be called.
- * <p> 
+ * <p>
  * Restriction: <br>
  * Currently there are no composite characters that consists of a
  * character with combining class &gt; 0 before a character with combining
@@ -127,7 +127,7 @@ import android.icu.util.ULocale;
  * @see RuleBasedCollator
  * @author Laura Werner, synwee
  */
-// internal notes: all methods do not guarantee the correct status of the 
+// internal notes: all methods do not guarantee the correct status of the
 // characteriterator. the caller has to maintain the original index position
 // if necessary. methods could change the index position as it deems fit
 public final class StringSearch extends SearchIterator {
@@ -157,15 +157,15 @@ public final class StringSearch extends SearchIterator {
     // private char[] canonicalSuffixAccents_;
 
     /**
-     * Initializes the iterator to use the language-specific rules defined in 
-     * the argument collator to search for argument pattern in the argument 
+     * Initializes the iterator to use the language-specific rules defined in
+     * the argument collator to search for argument pattern in the argument
      * target text. The argument <code>breakiter</code> is used to define logical matches.
-     * See super class documentation for more details on the use of the target 
+     * See super class documentation for more details on the use of the target
      * text and {@link BreakIterator}.
      * @param pattern text to look for.
-     * @param target target text to search for pattern. 
+     * @param target target text to search for pattern.
      * @param collator {@link RuleBasedCollator} that defines the language rules
-     * @param breakiter A {@link BreakIterator} that is used to determine the 
+     * @param breakiter A {@link BreakIterator} that is used to determine the
      *                boundaries of a logical match. This argument can be null.
      * @throws IllegalArgumentException thrown when argument target is null,
      *            or of length 0
@@ -218,11 +218,11 @@ public final class StringSearch extends SearchIterator {
     }
 
     /**
-     * Initializes the iterator to use the language-specific rules defined in 
-     * the argument collator to search for argument pattern in the argument 
+     * Initializes the iterator to use the language-specific rules defined in
+     * the argument collator to search for argument pattern in the argument
      * target text. No {@link BreakIterator}s are set to test for logical matches.
      * @param pattern text to look for.
-     * @param target target text to search for pattern. 
+     * @param target target text to search for pattern.
      * @param collator {@link RuleBasedCollator} that defines the language rules
      * @throws IllegalArgumentException thrown when argument target is null,
      *            or of length 0
@@ -233,14 +233,14 @@ public final class StringSearch extends SearchIterator {
     }
 
     /**
-     * Initializes the iterator to use the language-specific rules and 
-     * break iterator rules defined in the argument locale to search for 
-     * argument pattern in the argument target text. 
+     * Initializes the iterator to use the language-specific rules and
+     * break iterator rules defined in the argument locale to search for
+     * argument pattern in the argument target text.
      * @param pattern text to look for.
-     * @param target target text to search for pattern. 
+     * @param target target text to search for pattern.
      * @param locale locale to use for language and break iterator rules
      * @throws IllegalArgumentException thrown when argument target is null,
-     *            or of length 0. ClassCastException thrown if the collator for 
+     *            or of length 0. ClassCastException thrown if the collator for
      *            the specified locale is not a RuleBasedCollator.
      */
     public StringSearch(String pattern, CharacterIterator target, Locale locale) {
@@ -248,16 +248,16 @@ public final class StringSearch extends SearchIterator {
     }
 
     /**
-     * Initializes the iterator to use the language-specific rules and 
-     * break iterator rules defined in the argument locale to search for 
-     * argument pattern in the argument target text. 
-     * See super class documentation for more details on the use of the target 
+     * Initializes the iterator to use the language-specific rules and
+     * break iterator rules defined in the argument locale to search for
+     * argument pattern in the argument target text.
+     * See super class documentation for more details on the use of the target
      * text and {@link BreakIterator}.
      * @param pattern text to look for.
-     * @param target target text to search for pattern. 
+     * @param target target text to search for pattern.
      * @param locale locale to use for language and break iterator rules
      * @throws IllegalArgumentException thrown when argument target is null,
-     *            or of length 0. ClassCastException thrown if the collator for 
+     *            or of length 0. ClassCastException thrown if the collator for
      *            the specified locale is not a RuleBasedCollator.
      * @see BreakIterator
      * @see RuleBasedCollator
@@ -268,13 +268,13 @@ public final class StringSearch extends SearchIterator {
     }
 
     /**
-     * Initializes the iterator to use the language-specific rules and 
-     * break iterator rules defined in the default locale to search for 
+     * Initializes the iterator to use the language-specific rules and
+     * break iterator rules defined in the default locale to search for
      * argument pattern in the argument target text.
      * @param pattern text to look for.
-     * @param target target text to search for pattern. 
+     * @param target target text to search for pattern.
      * @throws IllegalArgumentException thrown when argument target is null,
-     *            or of length 0. ClassCastException thrown if the collator for 
+     *            or of length 0. ClassCastException thrown if the collator for
      *            the default locale is not a RuleBasedCollator.
      */
     public StringSearch(String pattern, String target) {
@@ -285,9 +285,9 @@ public final class StringSearch extends SearchIterator {
     /**
      * Gets the {@link RuleBasedCollator} used for the language rules.
      * <p>
-     * Since <tt>StringSearch</tt> depends on the returned {@link RuleBasedCollator}, any 
-     * changes to the {@link RuleBasedCollator} result should follow with a call to 
-     * either {@link #reset()} or {@link #setCollator(RuleBasedCollator)} to ensure the correct 
+     * Since <tt>StringSearch</tt> depends on the returned {@link RuleBasedCollator}, any
+     * changes to the {@link RuleBasedCollator} result should follow with a call to
+     * either {@link #reset()} or {@link #setCollator(RuleBasedCollator)} to ensure the correct
      * search behavior.
      * </p>
      * @return {@link RuleBasedCollator} used by this <tt>StringSearch</tt>
@@ -335,7 +335,7 @@ public final class StringSearch extends SearchIterator {
     }
 
     /**
-     * Set the pattern to search for.  
+     * Set the pattern to search for.
      * The iterator's position will not be changed by this method.
      * @param pattern for searching
      * @see #getPattern
@@ -352,7 +352,7 @@ public final class StringSearch extends SearchIterator {
     }
 
     /**
-     * Determines whether canonical matches (option 1, as described in the 
+     * Determines whether canonical matches (option 1, as described in the
      * class documentation) is set.
      * See setCanonical(boolean) for more information.
      * @see #setCanonical
@@ -408,7 +408,7 @@ public final class StringSearch extends SearchIterator {
         textIter_.setOffset(position);
     }
 
-    /** 
+    /**
      * {@inheritDoc}
      */
     @Override
@@ -598,7 +598,7 @@ public final class StringSearch extends SearchIterator {
     /**
      * Getting the modified collation elements taking into account the collation
      * attributes.
-     * 
+     *
      * @param sourcece
      * @return the modified collation element
      */
@@ -629,20 +629,19 @@ public final class StringSearch extends SearchIterator {
     }
 
     /**
-     * Direct port of ICU4C static int32_t * addTouint32_tArray(...) in usearch.cpp.
+     * Direct port of ICU4C static int32_t * addTouint32_tArray(...) in usearch.cpp
+     * (except not taking destination buffer size and status param).
      * This is used for appending a PCE to Pattern.PCE_ buffer. We probably should
      * implement this in Pattern class.
-     * 
+     *
      * @param destination target array
      * @param offset destination offset to add value
-     * @param destinationlength target array size
      * @param value to be added
      * @param increments incremental size expected
      * @return new destination array, destination if there was no new allocation
      */
-    private static int[] addToIntArray(int[] destination, int offset, int destinationlength,
-            int value, int increments) {
-        int newlength = destinationlength;
+    private static int[] addToIntArray(int[] destination, int offset, int value, int increments) {
+        int newlength = destination.length;
         if (offset + 1 == newlength) {
             newlength += increments;
             int temp[] = new int[newlength];
@@ -657,7 +656,7 @@ public final class StringSearch extends SearchIterator {
      * Direct port of ICU4C static int64_t * addTouint64_tArray(...) in usearch.cpp.
      * This is used for appending a PCE to Pattern.PCE_ buffer. We probably should
      * implement this in Pattern class.
-     * 
+     *
      * @param destination target array
      * @param offset destination offset to add value
      * @param destinationlength target array size
@@ -689,7 +688,6 @@ public final class StringSearch extends SearchIterator {
     // TODO: We probably do not need Pattern CE table.
     private int initializePatternCETable() {
         int[] cetable = new int[INITIAL_ARRAY_SIZE_];
-        int cetablesize = cetable.length;
         int patternlength = pattern_.text_.length();
         CollationElementIterator coleiter = utilIter_;
 
@@ -707,7 +705,7 @@ public final class StringSearch extends SearchIterator {
         while ((ce = coleiter.next()) != CollationElementIterator.NULLORDER) {
             int newce = getCE(ce);
             if (newce != CollationElementIterator.IGNORABLE /* 0 */) {
-                int[] temp = addToIntArray(cetable, offset, cetablesize, newce,
+                int[] temp = addToIntArray(cetable, offset, newce,
                         patternlength - coleiter.getOffset() + 1);
                 offset++;
                 cetable = temp;
@@ -789,9 +787,9 @@ public final class StringSearch extends SearchIterator {
 
     // *** Boyer-Moore ***
     /*
-     private final void setShiftTable(char shift[], 
-                                         char backshift[], 
-                                         int cetable[], int cesize, 
+     private final void setShiftTable(char shift[],
+                                         char backshift[],
+                                         int cetable[], int cesize,
                                          int expansionsize,
                                          int defaultforward,
                                          int defaultbackward) {
@@ -823,6 +821,7 @@ public final class StringSearch extends SearchIterator {
      * @hide original deprecated declaration
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     @Deprecated
     protected void setMatchNotFound() {
         super.setMatchNotFound();
@@ -1494,7 +1493,7 @@ public final class StringSearch extends SearchIterator {
     //
     // ICU4C usearch_handleNextExact() is identical to usearch_handleNextCanonical()
     // for the linear search implementation. The differences are addressed in search().
-    // 
+    //
     private boolean handleNextExact() {
         return handleNextCommonImpl();
     }
@@ -1569,9 +1568,9 @@ public final class StringSearch extends SearchIterator {
 
     /**
      * Gets a substring out of a CharacterIterator
-     * 
+     *
      * Java porting note: Not available in ICU4C
-     * 
+     *
      * @param text CharacterIterator
      * @param start start offset
      * @param length of substring
@@ -1706,12 +1705,12 @@ public final class StringSearch extends SearchIterator {
         /**
          * Get the processed ordering priority of the next collation element in the text.
          * A single character may contain more than one collation element.
-         * 
+         *
          * Note: This is equivalent to
          * UCollationPCE::nextProcessed(int32_t *ixLow, int32_t *ixHigh, UErrorCode *status);
          *
          * @param range receiving the iterator index before/after fetching the CE.
-         * @return The next collation elements ordering, otherwise returns PROCESSED_NULLORDER 
+         * @return The next collation elements ordering, otherwise returns PROCESSED_NULLORDER
          *         if an error has occurred or if the end of string has been reached
          */
         public long nextProcessed(Range range) {
@@ -1749,7 +1748,7 @@ public final class StringSearch extends SearchIterator {
          * UCollationPCE::previousProcessed(int32_t *ixLow, int32_t *ixHigh, UErrorCode *status);
          *
          * @param range receiving the iterator index before/after fetching the CE.
-         * @return The previous collation elements ordering, otherwise returns 
+         * @return The previous collation elements ordering, otherwise returns
          *         PROCESSED_NULLORDER if an error has occurred or if the start of
          *         string has been reached.
          */
@@ -1910,7 +1909,7 @@ public final class StringSearch extends SearchIterator {
 
     /**
      * Java port of ICU4C CEI (usearch.cpp)
-     * 
+     *
      * CEI  Collation Element + source text index.
      *      These structs are kept in the circular buffer.
      */

@@ -48,7 +48,9 @@ LOCAL_SRC_FILES := animate.c \
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/.. \
     external/freetype/include
 
-LOCAL_CFLAGS += -DHAVE_CONFIG_H -Wno-unused-parameter
+LOCAL_CFLAGS += -DHAVE_CONFIG_H \
+    -Wall -Werror \
+    -Wno-unused-parameter
 
 LOCAL_STATIC_LIBRARIES += libbz
 

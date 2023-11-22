@@ -14,7 +14,6 @@
      limitations under the License.
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-
     <dimen name="icon_padding">12dp</dimen>
 
     <dimen name="browse_item_height">168dp</dimen>
@@ -68,6 +67,7 @@
     <dimen name="lb_content_fragment_title_text_top_padding">2dp</dimen>
     <dimen name="lb_content_fragment_title_text_size">36sp</dimen>
     <dimen name="lb_content_fragment_icon_width">140dp</dimen>
+    <dimen name="lb_preference_category_height_compact">38dp</dimen>
 
     <!-- Width of the text in an action when an icon is present -->
     <dimen name="lb_action_text_width">248dp</dimen>
@@ -215,4 +215,9 @@
 
     <dimen name="setup_guidance_padding_start">112dp</dimen>
     <dimen name="setup_guidance_padding_end">56dp</dimen>
+
+    <dimen name="suggestion_item_change_focus_translate_x">-8dp</dimen>
+
+    <dimen name="lb_preference_item_icon_size">24dp</dimen>
+    <dimen name="lb_preference_button_size">32dp</dimen>
 </resources>

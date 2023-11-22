@@ -63,7 +63,7 @@ public class SetPolicyActivity extends Activity {
                 getSystemService(Context.DEVICE_POLICY_SERVICE);
         String command = intent.getStringExtra(EXTRA_COMMAND);
         Log.i(TAG, "Command: \"" + command);
-        ComponentName admin = BaseDeviceOwnerTest.getWho();
+        ComponentName admin = BasicAdminReceiver.getComponentName(this);
         if (ADD_RESTRICTION_COMMAND.equals(command)) {
             String restrictionKey = intent.getStringExtra(EXTRA_RESTRICTION_KEY);
             dpm.addUserRestriction(admin, restrictionKey);

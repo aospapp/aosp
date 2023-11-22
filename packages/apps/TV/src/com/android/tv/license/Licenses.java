@@ -18,10 +18,8 @@ package com.android.tv.license;
 
 import android.content.Context;
 import android.support.annotation.RawRes;
-
 import com.android.tv.R;
 import com.android.tv.common.SoftPreconditions;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,6 +34,7 @@ import java.util.Collections;
 public final class Licenses {
 
     public static final String TAG = "Licenses";
+
     public static boolean hasLicenses(Context context) {
         return !getTextFromResource(
                         context.getApplicationContext(), R.raw.third_party_license_metadata, 0, -1)

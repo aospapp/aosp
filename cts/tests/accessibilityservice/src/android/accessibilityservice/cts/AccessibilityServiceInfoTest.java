@@ -18,6 +18,7 @@ package android.accessibilityservice.cts;
 
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.os.Parcel;
+import android.platform.test.annotations.Presubmit;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.view.accessibility.AccessibilityEvent;
@@ -25,6 +26,7 @@ import android.view.accessibility.AccessibilityEvent;
 /**
  * Class for testing {@link AccessibilityServiceInfo}.
  */
+@Presubmit
 public class AccessibilityServiceInfoTest extends AndroidTestCase {
 
     @MediumTest

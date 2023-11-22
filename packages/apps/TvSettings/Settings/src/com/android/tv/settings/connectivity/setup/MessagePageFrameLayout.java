@@ -60,7 +60,7 @@ public class MessagePageFrameLayout extends FrameLayout {
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         super.onLayout(changed, l, t, r, b);
-        TextView mStatusView = (TextView) getRootView().findViewById(R.id.status_text);
+        TextView mStatusView = getRootView().findViewById(R.id.status_text);
         View mContentView = getRootView().findViewById(R.id.message_content);
         int mTitleKeylinePixels = (int) (getMeasuredHeight() * mTitleKeylinePercent / 100);
 

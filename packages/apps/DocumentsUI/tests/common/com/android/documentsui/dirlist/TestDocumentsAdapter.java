@@ -16,10 +16,15 @@
 
 package com.android.documentsui.dirlist;
 
+import static org.junit.Assert.assertTrue;
+
+import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.RecyclerView.AdapterDataObserver;
 import android.view.ViewGroup;
 
-import com.android.documentsui.base.EventListener;
 import com.android.documentsui.Model.Update;
+import com.android.documentsui.base.EventListener;
+import com.android.documentsui.selection.SelectionHelper;
 import com.android.documentsui.testing.TestEventListener;
 
 import java.util.ArrayList;
@@ -30,11 +35,53 @@ import java.util.List;
  */
 public class TestDocumentsAdapter extends DocumentsAdapter {
 
-    List<String> mModelIds = new ArrayList<>();
     final TestEventListener<Update> mModelListener = new TestEventListener<>();
+    List<String> mModelIds = new ArrayList<>();
+    private final AdapterDataObserver mAdapterObserver;
+    private final List<Integer> mSelectionChanged = new ArrayList<>();
 
     public TestDocumentsAdapter(List<String> modelIds) {
         mModelIds = modelIds;
+
+        mAdapterObserver = new RecyclerView.AdapterDataObserver() {
+
+            @Override
+            public void onChanged() {
+            }
+
+            @Override
+            public void onItemRangeChanged(int startPosition, int itemCount, Object payload) {
+                if (SelectionHelper.SELECTION_CHANGED_MARKER.equals(payload)) {
+                    int last = startPosition + itemCount;
+                    for (int i = startPosition; i < last; i++) {
+                        mSelectionChanged.add(i);
+                    }
+                }
+            }
+
+            @Override
+            public void onItemRangeInserted(int startPosition, int itemCount) {
+            }
+
+            @Override
+            public void onItemRangeRemoved(int startPosition, int itemCount) {
+            }
+
+            @Override
+            public void onItemRangeMoved(int fromPosition, int toPosition, int itemCount) {
+                throw new UnsupportedOperationException();
+            }
+        };
+
+        registerAdapterDataObserver(mAdapterObserver);
+    }
+
+    public void resetSelectionChanged() {
+        mSelectionChanged.clear();
+    }
+
+    public void assertSelectionChanged(int position) {
+        assertTrue(mSelectionChanged.contains(position));
     }
 
     @Override
@@ -43,16 +90,17 @@ public class TestDocumentsAdapter extends DocumentsAdapter {
     }
 
     @Override
-    public List<String> getModelIds() {
+    public List<String> getStableIds() {
         return mModelIds;
     }
 
     @Override
-    public void onItemSelectionChanged(String id) {
+    public int getPosition(String id) {
+        return mModelIds.indexOf(id);
     }
 
     @Override
-    public String getModelId(int position) {
+    public String getStableId(int position) {
         return mModelIds.get(position);
     }
 

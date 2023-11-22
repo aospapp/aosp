@@ -16,12 +16,13 @@
 package com.android.tradefed.testtype;
 
 import com.android.ddmlib.Log;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.TestFilterHelper;
 
 import junit.framework.Test;
@@ -30,9 +31,8 @@ import junit.framework.TestResult;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
 
@@ -122,7 +122,7 @@ public class DeviceTestCase extends MetricTestCase
         }
         if (mCollectTestsOnly) {
             // Collect only mode, fake the junit test execution.
-            Map<String, String> empty = Collections.emptyMap();
+            HashMap<String, Metric> empty = new HashMap<>();
             String runName = this.getClass().getName();
             if (getName() == null) {
                 Collection<String> testMethodNames = getTestMethodNames();
@@ -132,17 +132,17 @@ public class DeviceTestCase extends MetricTestCase
                 }
                 listener.testRunStarted(runName, testMethodNames.size());
                 for (String methodName : testMethodNames) {
-                    TestIdentifier testId = new TestIdentifier(runName, methodName);
+                    TestDescription testId = new TestDescription(runName, methodName);
                     listener.testStarted(testId);
                     listener.testEnded(testId, empty);
                 }
-                listener.testRunEnded(0, empty);
+                listener.testRunEnded(0, new HashMap<String, Metric>());
             } else {
                 listener.testRunStarted(runName, 1);
-                TestIdentifier testId = new TestIdentifier(runName, getName());
+                TestDescription testId = new TestDescription(runName, getName());
                 listener.testStarted(testId);
                 listener.testEnded(testId, empty);
-                listener.testRunEnded(0, empty);
+                listener.testRunEnded(0, new HashMap<String, Metric>());
             }
         } else {
             JUnitRunUtil.runTest(listener, this);

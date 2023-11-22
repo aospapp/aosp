@@ -16,11 +16,11 @@
 
 package com.android.tv.dvr.ui.browse;
 
-import android.app.Activity;
 import android.animation.Animator;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
+import android.app.Activity;
 import android.content.Context;
 import android.graphics.Paint;
 import android.graphics.Paint.FontMetricsInt;
@@ -33,24 +33,20 @@ import android.view.ViewTreeObserver;
 import android.view.accessibility.AccessibilityManager;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-
 import com.android.tv.R;
 import com.android.tv.ui.ViewUtils;
 import com.android.tv.util.Utils;
 
 /**
- * An {@link Presenter} for rendering a detailed description of an DVR item.
- * Typically this Presenter will be used in a
- * {@link android.support.v17.leanback.widget.DetailsOverviewRowPresenter}.
- * Most codes of this class is originated from
- * {@link android.support.v17.leanback.widget.AbstractDetailsDescriptionPresenter}.
- * The latter class are re-used to provide a customized version of
- * {@link android.support.v17.leanback.widget.DetailsOverviewRow}.
+ * An {@link Presenter} for rendering a detailed description of an DVR item. Typically this
+ * Presenter will be used in a {@link
+ * android.support.v17.leanback.widget.DetailsOverviewRowPresenter}. Most codes of this class is
+ * originated from {@link android.support.v17.leanback.widget.AbstractDetailsDescriptionPresenter}.
+ * The latter class are re-used to provide a customized version of {@link
+ * android.support.v17.leanback.widget.DetailsOverviewRow}.
  */
 class DetailsContentPresenter extends Presenter {
-    /**
-     * The ViewHolder for the {@link DetailsContentPresenter}.
-     */
+    /** The ViewHolder for the {@link DetailsContentPresenter}. */
     public static class ViewHolder extends Presenter.ViewHolder {
         final TextView mTitle;
         final TextView mSubtitle;
@@ -85,31 +81,40 @@ class DetailsContentPresenter extends Presenter {
                             return false;
                         }
                         final int bodyLines = mBody.getLineCount();
-                        int maxLines = mFullTextMode ? bodyLines :
-                                (mTitle.getLineCount() > 1 ? mBodyMinLines : mBodyMaxLines);
+                        int maxLines =
+                                mFullTextMode
+                                        ? bodyLines
+                                        : (mTitle.getLineCount() > 1
+                                                ? mBodyMinLines
+                                                : mBodyMaxLines);
                         if (bodyLines > maxLines) {
                             mReadMoreView.setVisibility(View.VISIBLE);
                             mDescriptionContainer.setFocusable(true);
                             mDescriptionContainer.setClickable(true);
-                            mDescriptionContainer.setOnClickListener(new View.OnClickListener() {
-                                @Override
-                                public void onClick(View view) {
-                                    mFullTextMode = true;
-                                    mReadMoreView.setVisibility(View.GONE);
-                                    mDescriptionContainer.setFocusable((
-                                            (AccessibilityManager) view.getContext()
-                                                    .getSystemService(
-                                                            Context.ACCESSIBILITY_SERVICE))
-                                            .isEnabled());
-                                    mDescriptionContainer.setClickable(false);
-                                    mDescriptionContainer.setOnClickListener(null);
-                                    int oldMaxLines = mBody.getMaxLines();
-                                    mBody.setMaxLines(bodyLines);
-                                    // Minus 1 from line difference to eliminate the space
-                                    // originally occupied by "READ MORE"
-                                    showFullText((bodyLines - oldMaxLines - 1) * mBodyLineSpacing);
-                                }
-                            });
+                            mDescriptionContainer.setOnClickListener(
+                                    new View.OnClickListener() {
+                                        @Override
+                                        public void onClick(View view) {
+                                            mFullTextMode = true;
+                                            mReadMoreView.setVisibility(View.GONE);
+                                            mDescriptionContainer.setFocusable(
+                                                    ((AccessibilityManager)
+                                                                    view.getContext()
+                                                                            .getSystemService(
+                                                                                    Context
+                                                                                            .ACCESSIBILITY_SERVICE))
+                                                            .isEnabled());
+                                            mDescriptionContainer.setClickable(false);
+                                            mDescriptionContainer.setOnClickListener(null);
+                                            int oldMaxLines = mBody.getMaxLines();
+                                            mBody.setMaxLines(bodyLines);
+                                            // Minus 1 from line difference to eliminate the space
+                                            // originally occupied by "READ MORE"
+                                            showFullText(
+                                                    (bodyLines - oldMaxLines - 1)
+                                                            * mBodyLineSpacing);
+                                        }
+                                    });
                         }
                         if (mReadMoreView.getVisibility() == View.VISIBLE
                                 && mSubtitle.getVisibility() == View.VISIBLE) {
@@ -151,30 +156,42 @@ class DetailsContentPresenter extends Presenter {
             // We have to explicitly set focusable to true here for accessibility, since we might
             // set the view's focusable state when we need to show "READ MORE", which would remove
             // the default focusable state for accessibility.
-            mDescriptionContainer.setFocusable(((AccessibilityManager) view.getContext()
-                    .getSystemService(Context.ACCESSIBILITY_SERVICE)).isEnabled());
+            mDescriptionContainer.setFocusable(
+                    ((AccessibilityManager)
+                                    view.getContext()
+                                            .getSystemService(Context.ACCESSIBILITY_SERVICE))
+                            .isEnabled());
             mReadMoreView = (TextView) view.findViewById(R.id.dvr_details_description_read_more);
 
             FontMetricsInt titleFontMetricsInt = getFontMetricsInt(mTitle);
-            final int titleAscent = view.getResources().getDimensionPixelSize(
-                    R.dimen.lb_details_description_title_baseline);
+            final int titleAscent =
+                    view.getResources()
+                            .getDimensionPixelSize(R.dimen.lb_details_description_title_baseline);
             // Ascent is negative
             mTitleMargin = titleAscent + titleFontMetricsInt.ascent;
 
-            mUnderTitleBaselineMargin = view.getResources().getDimensionPixelSize(
-                    R.dimen.lb_details_description_under_title_baseline_margin);
-            mUnderSubtitleBaselineMargin = view.getResources().getDimensionPixelSize(
-                    R.dimen.dvr_details_description_under_subtitle_baseline_margin);
+            mUnderTitleBaselineMargin =
+                    view.getResources()
+                            .getDimensionPixelSize(
+                                    R.dimen.lb_details_description_under_title_baseline_margin);
+            mUnderSubtitleBaselineMargin =
+                    view.getResources()
+                            .getDimensionPixelSize(
+                                    R.dimen.dvr_details_description_under_subtitle_baseline_margin);
 
-            mTitleLineSpacing = view.getResources().getDimensionPixelSize(
-                    R.dimen.lb_details_description_title_line_spacing);
-            mBodyLineSpacing = view.getResources().getDimensionPixelSize(
-                    R.dimen.lb_details_description_body_line_spacing);
+            mTitleLineSpacing =
+                    view.getResources()
+                            .getDimensionPixelSize(
+                                    R.dimen.lb_details_description_title_line_spacing);
+            mBodyLineSpacing =
+                    view.getResources()
+                            .getDimensionPixelSize(
+                                    R.dimen.lb_details_description_body_line_spacing);
 
-            mBodyMaxLines = view.getResources().getInteger(
-                    R.integer.lb_details_description_body_max_lines);
-            mBodyMinLines = view.getResources().getInteger(
-                    R.integer.lb_details_description_body_min_lines);
+            mBodyMaxLines =
+                    view.getResources().getInteger(R.integer.lb_details_description_body_max_lines);
+            mBodyMinLines =
+                    view.getResources().getInteger(R.integer.lb_details_description_body_min_lines);
             mTitleMaxLines = mTitle.getMaxLines();
 
             mTitleFontMetricsInt = getFontMetricsInt(mTitle);
@@ -218,12 +235,14 @@ class DetailsContentPresenter extends Presenter {
         private void showFullText(int heightDiff) {
             final ViewGroup detailsFrame = (ViewGroup) mActivity.findViewById(R.id.details_frame);
             int nowHeight = ViewUtils.getLayoutHeight(detailsFrame);
-            Animator expandAnimator = ViewUtils.createHeightAnimator(
-                    detailsFrame, nowHeight, nowHeight + heightDiff);
+            Animator expandAnimator =
+                    ViewUtils.createHeightAnimator(detailsFrame, nowHeight, nowHeight + heightDiff);
             expandAnimator.setDuration(mFullTextAnimationDuration);
-            Animator shiftAnimator = ObjectAnimator.ofPropertyValuesHolder(detailsFrame,
-                    PropertyValuesHolder.ofFloat(View.TRANSLATION_Y,
-                            0f, -(heightDiff / 2)));
+            Animator shiftAnimator =
+                    ObjectAnimator.ofPropertyValuesHolder(
+                            detailsFrame,
+                            PropertyValuesHolder.ofFloat(
+                                    View.TRANSLATION_Y, 0f, -(heightDiff / 2)));
             shiftAnimator.setDuration(mFullTextAnimationDuration);
             AnimatorSet fullTextAnimator = new AnimatorSet();
             fullTextAnimator.playTogether(expandAnimator, shiftAnimator);
@@ -237,14 +256,17 @@ class DetailsContentPresenter extends Presenter {
     public DetailsContentPresenter(Activity activity) {
         super();
         mActivity = activity;
-        mFullTextAnimationDuration = mActivity.getResources()
-                .getInteger(R.integer.dvr_details_full_text_animation_duration);
+        mFullTextAnimationDuration =
+                mActivity
+                        .getResources()
+                        .getInteger(R.integer.dvr_details_full_text_animation_duration);
     }
 
     @Override
     public final ViewHolder onCreateViewHolder(ViewGroup parent) {
-        View v = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.dvr_details_description, parent, false);
+        View v =
+                LayoutInflater.from(parent.getContext())
+                        .inflate(R.layout.dvr_details_description, parent, false);
         return new ViewHolder(v);
     }
 
@@ -263,8 +285,11 @@ class DetailsContentPresenter extends Presenter {
         } else {
             vh.mTitle.setText(detailsContent.getTitle());
             vh.mTitle.setVisibility(View.VISIBLE);
-            vh.mTitle.setLineSpacing(vh.mTitleLineSpacing - vh.mTitle.getLineHeight()
-                    + vh.mTitle.getLineSpacingExtra(), vh.mTitle.getLineSpacingMultiplier());
+            vh.mTitle.setLineSpacing(
+                    vh.mTitleLineSpacing
+                            - vh.mTitle.getLineHeight()
+                            + vh.mTitle.getLineSpacingExtra(),
+                    vh.mTitle.getLineSpacingMultiplier());
             vh.mTitle.setMaxLines(vh.mTitleMaxLines);
         }
         setTopMargin(vh.mTitle, vh.mTitleMargin);
@@ -272,13 +297,19 @@ class DetailsContentPresenter extends Presenter {
         boolean hasSubtitle = true;
         if (detailsContent.getStartTimeUtcMillis() != DetailsContent.INVALID_TIME
                 && detailsContent.getEndTimeUtcMillis() != DetailsContent.INVALID_TIME) {
-            vh.mSubtitle.setText(Utils.getDurationString(viewHolder.view.getContext(),
-                    detailsContent.getStartTimeUtcMillis(),
-                    detailsContent.getEndTimeUtcMillis(), false));
+            vh.mSubtitle.setText(
+                    Utils.getDurationString(
+                            viewHolder.view.getContext(),
+                            detailsContent.getStartTimeUtcMillis(),
+                            detailsContent.getEndTimeUtcMillis(),
+                            false));
             vh.mSubtitle.setVisibility(View.VISIBLE);
             if (hasTitle) {
-                setTopMargin(vh.mSubtitle, vh.mUnderTitleBaselineMargin
-                        + vh.mSubtitleFontMetricsInt.ascent - vh.mTitleFontMetricsInt.descent);
+                setTopMargin(
+                        vh.mSubtitle,
+                        vh.mUnderTitleBaselineMargin
+                                + vh.mSubtitleFontMetricsInt.ascent
+                                - vh.mTitleFontMetricsInt.descent);
             } else {
                 setTopMargin(vh.mSubtitle, 0);
             }
@@ -292,16 +323,23 @@ class DetailsContentPresenter extends Presenter {
         } else {
             vh.mBody.setText(detailsContent.getDescription());
             vh.mBody.setVisibility(View.VISIBLE);
-            vh.mBody.setLineSpacing(vh.mBodyLineSpacing - vh.mBody.getLineHeight()
-                    + vh.mBody.getLineSpacingExtra(), vh.mBody.getLineSpacingMultiplier());
+            vh.mBody.setLineSpacing(
+                    vh.mBodyLineSpacing - vh.mBody.getLineHeight() + vh.mBody.getLineSpacingExtra(),
+                    vh.mBody.getLineSpacingMultiplier());
             if (hasSubtitle) {
-                setTopMargin(vh.mDescriptionContainer, vh.mUnderSubtitleBaselineMargin
-                        + vh.mBodyFontMetricsInt.ascent - vh.mSubtitleFontMetricsInt.descent
-                        - vh.mBody.getPaddingTop());
+                setTopMargin(
+                        vh.mDescriptionContainer,
+                        vh.mUnderSubtitleBaselineMargin
+                                + vh.mBodyFontMetricsInt.ascent
+                                - vh.mSubtitleFontMetricsInt.descent
+                                - vh.mBody.getPaddingTop());
             } else if (hasTitle) {
-                setTopMargin(vh.mDescriptionContainer, vh.mUnderTitleBaselineMargin
-                        + vh.mBodyFontMetricsInt.ascent - vh.mTitleFontMetricsInt.descent
-                        - vh.mBody.getPaddingTop());
+                setTopMargin(
+                        vh.mDescriptionContainer,
+                        vh.mUnderTitleBaselineMargin
+                                + vh.mBodyFontMetricsInt.ascent
+                                - vh.mTitleFontMetricsInt.descent
+                                - vh.mBody.getPaddingTop());
             } else {
                 setTopMargin(vh.mDescriptionContainer, 0);
             }
@@ -309,7 +347,7 @@ class DetailsContentPresenter extends Presenter {
     }
 
     @Override
-    public void onUnbindViewHolder(Presenter.ViewHolder viewHolder) { }
+    public void onUnbindViewHolder(Presenter.ViewHolder viewHolder) {}
 
     private void setTopMargin(View view, int topMargin) {
         ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) view.getLayoutParams();

@@ -23,6 +23,7 @@ import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -63,7 +64,9 @@ public class SdkAvdPreparerStressTest implements IBuildReceiver, IDeviceTest, IR
          finally {
             Map<String, String> metrics = new HashMap<String, String>(1);
             metrics.put("iterations", Integer.toString(i));
-            listener.testRunEnded(System.currentTimeMillis()-startTime, metrics);
+            listener.testRunEnded(
+                    System.currentTimeMillis() - startTime,
+                    TfMetricProtoUtil.upgradeConvert(metrics));
         }
     }
 

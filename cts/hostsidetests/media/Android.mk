@@ -24,7 +24,7 @@ LOCAL_SRC_FILES := \
 LOCAL_MODULE_TAGS := tests
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 LOCAL_MODULE := CtsMediaHostTestCases
 

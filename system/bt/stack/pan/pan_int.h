@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2001-2012 Broadcom Corporation
+ *  Copyright 2001-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -98,7 +98,8 @@ extern tPAN_CB pan_cb;
 /******************************************************************************/
 extern void pan_register_with_bnep(void);
 extern void pan_conn_ind_cb(uint16_t handle, const RawAddress& p_bda,
-                            tBT_UUID* remote_uuid, tBT_UUID* local_uuid,
+                            const bluetooth::Uuid& remote_uuid,
+                            const bluetooth::Uuid& local_uuid,
                             bool is_role_change);
 extern void pan_connect_state_cb(uint16_t handle, const RawAddress& rem_bda,
                                  tBNEP_RESULT result, bool is_role_change);

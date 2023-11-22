@@ -17,6 +17,7 @@ import java.util.MissingResourceException;
 import android.icu.text.StringPrep;
 import android.icu.text.StringPrepParseException;
 import android.icu.text.UCharacterIterator;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author ram
@@ -25,6 +26,7 @@ import android.icu.text.UCharacterIterator;
  * C code, does not use Object Oriented principles. Quick and Dirty implementation
  * for testing.
  */
+@MainTestShard
 public final class NFS4StringPrep {
 
     private StringPrep nfscss = null;

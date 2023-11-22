@@ -18,28 +18,28 @@ package com.android.incallui.spam;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
-import android.app.NotificationManager;
+import android.app.DialogFragment;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.provider.CallLog;
 import android.provider.ContactsContract;
-import android.support.v4.app.DialogFragment;
 import android.support.v4.app.FragmentActivity;
-import com.android.contacts.common.compat.PhoneNumberUtilsCompat;
-import com.android.dialer.blocking.BlockReportSpamDialogs;
+import android.telephony.PhoneNumberUtils;
 import com.android.dialer.blocking.BlockedNumbersMigrator;
 import com.android.dialer.blocking.FilteredNumberAsyncQueryHandler;
 import com.android.dialer.blocking.FilteredNumberCompat;
+import com.android.dialer.blockreportspam.BlockReportSpamDialogs;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.location.GeoUtil;
 import com.android.dialer.logging.ContactLookupResult;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
 import com.android.dialer.logging.ReportingLocation;
-import com.android.dialer.spam.Spam;
-import com.android.incallui.R;
+import com.android.dialer.notification.DialerNotificationManager;
+import com.android.dialer.phonenumberutil.PhoneNumberHelper;
+import com.android.dialer.spam.SpamComponent;
 import com.android.incallui.call.DialerCall;
 
 /** Creates the after call notification dialogs. */
@@ -57,6 +57,7 @@ public class SpamNotificationActivity extends FragmentActivity {
       "com.android.incallui.spam.ACTION_MARK_NUMBER_AS_NOT_SPAM";
 
   private static final String TAG = "SpamNotifications";
+  private static final String EXTRA_NOTIFICATION_TAG = "notification_tag";
   private static final String EXTRA_NOTIFICATION_ID = "notification_id";
   private static final String EXTRA_CALL_INFO = "call_info";
 
@@ -82,12 +83,13 @@ public class SpamNotificationActivity extends FragmentActivity {
    * @return Intent intent that starts this activity.
    */
   public static Intent createActivityIntent(
-      Context context, DialerCall call, String action, int notificationId) {
+      Context context, DialerCall call, String action, String notificationTag, int notificationId) {
     Intent intent = new Intent(context, SpamNotificationActivity.class);
     intent.setAction(action);
     // This ensures only one activity of this kind exists at a time.
     intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    intent.putExtra(EXTRA_NOTIFICATION_TAG, notificationTag);
     intent.putExtra(EXTRA_NOTIFICATION_ID, notificationId);
     intent.putExtra(EXTRA_CALL_INFO, newCallInfoBundle(call));
     return intent;
@@ -105,8 +107,14 @@ public class SpamNotificationActivity extends FragmentActivity {
   }
 
   /** Returns the formatted version of the given number. */
-  private static String getFormattedNumber(String number) {
-    return PhoneNumberUtilsCompat.createTtsSpannable(number).toString();
+  private static String getFormattedNumber(String number, Context context) {
+    String formattedNumber =
+        PhoneNumberHelper.formatNumber(context, number, GeoUtil.getCurrentCountryIso(context));
+    return PhoneNumberUtils.createTtsSpannable(formattedNumber).toString();
+  }
+
+  private void logCallImpression(DialerImpression.Type impression) {
+    logCallImpression(this, getCallInfo(), impression);
   }
 
   private static void logCallImpression(
@@ -187,9 +195,9 @@ public class SpamNotificationActivity extends FragmentActivity {
   /** Creates and displays the dialog for whitelisting a number. */
   private void maybeShowNotSpamDialog(
       final String number, final ContactLookupResult.Type contactLookupResultType) {
-    if (Spam.get(this).isDialogEnabledForSpamNotification()) {
+    if (SpamComponent.get(this).spam().isDialogEnabledForSpamNotification()) {
       BlockReportSpamDialogs.ReportNotSpamDialogFragment.newInstance(
-              getFormattedNumber(number),
+              getFormattedNumber(number, this),
               new BlockReportSpamDialogs.OnConfirmListener() {
                 @Override
                 public void onClick() {
@@ -206,14 +214,17 @@ public class SpamNotificationActivity extends FragmentActivity {
   /** Creates and displays the dialog for blocking/reporting a number as spam. */
   private void maybeShowBlockReportSpamDialog(
       final String number, final ContactLookupResult.Type contactLookupResultType) {
-    if (Spam.get(this).isDialogEnabledForSpamNotification()) {
+    if (SpamComponent.get(this).spam().isDialogEnabledForSpamNotification()) {
+      String displayNumber = getFormattedNumber(number, this);
       maybeShowBlockNumberMigrationDialog(
           new BlockedNumbersMigrator.Listener() {
             @Override
             public void onComplete() {
               BlockReportSpamDialogs.BlockReportSpamDialogFragment.newInstance(
-                      getFormattedNumber(number),
-                      Spam.get(SpamNotificationActivity.this).isDialogReportSpamCheckedByDefault(),
+                      displayNumber,
+                      SpamComponent.get(SpamNotificationActivity.this)
+                          .spam()
+                          .isDialogReportSpamCheckedByDefault(),
                       new BlockReportSpamDialogs.OnSpamDialogClickListener() {
                         @Override
                         public void onClick(boolean isSpamChecked) {
@@ -237,7 +248,7 @@ public class SpamNotificationActivity extends FragmentActivity {
   private void showNonSpamDialog() {
     logCallImpression(DialerImpression.Type.SPAM_AFTER_CALL_NOTIFICATION_SHOW_NON_SPAM_DIALOG);
     FirstTimeNonSpamCallDialogFragment.newInstance(getCallInfo())
-        .show(getSupportFragmentManager(), FirstTimeNonSpamCallDialogFragment.TAG);
+        .show(getFragmentManager(), FirstTimeNonSpamCallDialogFragment.TAG);
   }
 
   /**
@@ -246,7 +257,7 @@ public class SpamNotificationActivity extends FragmentActivity {
   private void showSpamFullDialog() {
     logCallImpression(DialerImpression.Type.SPAM_AFTER_CALL_NOTIFICATION_SHOW_SPAM_DIALOG);
     FirstTimeSpamCallDialogFragment.newInstance(getCallInfo())
-        .show(getSupportFragmentManager(), FirstTimeSpamCallDialogFragment.TAG);
+        .show(getFragmentManager(), FirstTimeSpamCallDialogFragment.TAG);
   }
 
   /** Checks if the user has migrated to the new blocking and display a dialog if necessary. */
@@ -262,7 +273,8 @@ public class SpamNotificationActivity extends FragmentActivity {
       String number, boolean reportAsSpam, ContactLookupResult.Type contactLookupResultType) {
     if (reportAsSpam) {
       logCallImpression(DialerImpression.Type.SPAM_AFTER_CALL_NOTIFICATION_MARKED_NUMBER_AS_SPAM);
-      Spam.get(this)
+      SpamComponent.get(this)
+          .spam()
           .reportSpamFromAfterCallNotification(
               number,
               getCountryIso(),
@@ -273,7 +285,7 @@ public class SpamNotificationActivity extends FragmentActivity {
 
     logCallImpression(DialerImpression.Type.SPAM_AFTER_CALL_NOTIFICATION_BLOCK_NUMBER);
     filteredNumberAsyncQueryHandler.blockNumber(null, number, getCountryIso());
-    // TODO: DialerCall finish() after block/reporting async tasks complete (b/28441936)
+    // TODO: DialerCall finish() after block/reporting async tasks complete (a bug)
     finish();
   }
 
@@ -281,23 +293,23 @@ public class SpamNotificationActivity extends FragmentActivity {
   private void reportNotSpamAndFinish(
       String number, ContactLookupResult.Type contactLookupResultType) {
     logCallImpression(DialerImpression.Type.SPAM_AFTER_CALL_NOTIFICATION_REPORT_NUMBER_AS_NOT_SPAM);
-    Spam.get(this)
+    SpamComponent.get(this)
+        .spam()
         .reportNotSpamFromAfterCallNotification(
             number,
             getCountryIso(),
             CallLog.Calls.INCOMING_TYPE,
             ReportingLocation.Type.FEEDBACK_PROMPT,
             contactLookupResultType);
-    // TODO: DialerCall finish() after async task completes (b/28441936)
+    // TODO: DialerCall finish() after async task completes (a bug)
     finish();
   }
 
   /** Cancels the notification associated with the number. */
   private void cancelNotification() {
+    String notificationTag = getIntent().getStringExtra(EXTRA_NOTIFICATION_TAG);
     int notificationId = getIntent().getIntExtra(EXTRA_NOTIFICATION_ID, 1);
-    String number = getCallInfo().getString(CALL_INFO_KEY_PHONE_NUMBER);
-    ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE))
-        .cancel(number, notificationId);
+    DialerNotificationManager.cancel(this, notificationTag, notificationId);
   }
 
   private String getCountryIso() {
@@ -305,7 +317,7 @@ public class SpamNotificationActivity extends FragmentActivity {
   }
 
   private void assertDialogsEnabled() {
-    if (!Spam.get(this).isDialogEnabledForSpamNotification()) {
+    if (!SpamComponent.get(this).spam().isDialogEnabledForSpamNotification()) {
       throw new IllegalStateException(
           "Cannot start this activity with given action because dialogs are not enabled.");
     }
@@ -313,10 +325,6 @@ public class SpamNotificationActivity extends FragmentActivity {
 
   private Bundle getCallInfo() {
     return getIntent().getBundleExtra(EXTRA_CALL_INFO);
-  }
-
-  private void logCallImpression(DialerImpression.Type impression) {
-    logCallImpression(this, getCallInfo(), impression);
   }
 
   /** Dialog that displays "Not spam", "Block/report spam" and "Dismiss". */
@@ -370,10 +378,11 @@ public class SpamNotificationActivity extends FragmentActivity {
 
       return new AlertDialog.Builder(getActivity())
           .setCancelable(false)
-          .setTitle(getString(R.string.spam_notification_title, getFormattedNumber(number)))
-          .setMessage(getString(R.string.spam_notification_spam_call_expanded_text))
+          .setTitle(
+              getString(
+                  R.string.spam_notification_title, getFormattedNumber(number, applicationContext)))
           .setNeutralButton(
-              getString(R.string.notification_action_dismiss),
+              getString(R.string.spam_notification_action_dismiss),
               new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
@@ -381,16 +390,6 @@ public class SpamNotificationActivity extends FragmentActivity {
                 }
               })
           .setPositiveButton(
-              getString(R.string.spam_notification_dialog_was_not_spam_action_text),
-              new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which) {
-                  dismissed = true;
-                  dismiss();
-                  spamNotificationActivity.maybeShowNotSpamDialog(number, contactLookupResultType);
-                }
-              })
-          .setNegativeButton(
               getString(R.string.spam_notification_block_spam_action_text),
               new DialogInterface.OnClickListener() {
                 @Override
@@ -399,6 +398,16 @@ public class SpamNotificationActivity extends FragmentActivity {
                   dismiss();
                   spamNotificationActivity.maybeShowBlockReportSpamDialog(
                       number, contactLookupResultType);
+                }
+              })
+          .setNegativeButton(
+              getString(R.string.spam_notification_was_not_spam_action_text),
+              new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                  dismissed = true;
+                  dismiss();
+                  spamNotificationActivity.maybeShowNotSpamDialog(number, contactLookupResultType);
                 }
               })
           .create();
@@ -455,11 +464,12 @@ public class SpamNotificationActivity extends FragmentActivity {
           ContactLookupResult.Type.forNumber(
               getArguments().getInt(CALL_INFO_CONTACT_LOOKUP_RESULT_TYPE, 0));
       return new AlertDialog.Builder(getActivity())
-          .setTitle(getString(R.string.non_spam_notification_title, getFormattedNumber(number)))
+          .setTitle(
+              getString(R.string.non_spam_notification_title, getFormattedNumber(number, context)))
           .setCancelable(false)
           .setMessage(getString(R.string.spam_notification_non_spam_call_expanded_text))
           .setNeutralButton(
-              getString(R.string.notification_action_dismiss),
+              getString(R.string.spam_notification_action_dismiss),
               new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {

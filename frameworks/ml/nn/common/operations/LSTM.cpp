@@ -18,7 +18,6 @@
 
 #include "CpuExecutor.h"
 #include "HalInterfaces.h"
-#include "internal/tensor_utils.h"
 
 namespace android {
 namespace nn {
@@ -67,7 +66,7 @@ LSTMCell::LSTMCell(const Operation& operation,
   output_state_in_ = GetInput(operation, operands, kOutputStateInTensor);
   cell_state_in_ = GetInput(operation, operands, kCellStateInTensor);
 
-  params_.activation_ = static_cast<ActivationFn>(getScalarData<int32_t>(
+  params_.activation_ = static_cast<TfLiteFusedActivation>(getScalarData<int32_t>(
       *GetInput(operation, operands, kActivationParam)));
   params_.cell_clip_ = getScalarData<float>(*GetInput(operation, operands, kCellClipParam));
   params_.proj_clip_ = getScalarData<float>(*GetInput(operation, operands, kProjClipParam));
@@ -83,7 +82,8 @@ bool LSTMCell::CheckInputTensorDimensions(
     const Operation &operation, std::vector<RunTimeOperandInfo> &operands,
     uint32_t n_input, uint32_t n_output, uint32_t n_cell) {
   LSTMParams params = {
-    .activation_ = static_cast<ActivationFn>(getScalarData<int32_t>(*GetInput(operation, operands, LSTMCell::kActivationParam))),
+    .activation_ = static_cast<TfLiteFusedActivation>(getScalarData<int32_t>(
+        *GetInput(operation, operands, LSTMCell::kActivationParam))),
     .cell_clip_  = getScalarData<float>(*GetInput(operation, operands, LSTMCell::kCellClipParam)),
     .proj_clip_  = getScalarData<float>(*GetInput(operation, operands, LSTMCell::kProjClipParam))
   };
@@ -329,102 +329,108 @@ bool LSTMCell::Eval() {
 
   // Initialize scratch buffers with bias.
   if (!use_cifg) {
-    tensor_utils::VectorBatchVectorAssign(GetBuffer<float>(input_gate_bias_), n_cell, n_batch,
-                                          input_gate_scratch);
+    tflite::tensor_utils::VectorBatchVectorAssign(GetBuffer<float>(input_gate_bias_),
+                                                  n_cell, n_batch, input_gate_scratch);
   }
-  tensor_utils::VectorBatchVectorAssign(GetBuffer<float>(forget_gate_bias_), n_cell, n_batch,
-                                        forget_gate_scratch);
-  tensor_utils::VectorBatchVectorAssign(GetBuffer<float>(cell_bias_), n_cell, n_batch,
-                                        cell_scratch);
-  tensor_utils::VectorBatchVectorAssign(GetBuffer<float>(output_gate_bias_), n_cell, n_batch,
-                                        output_gate_scratch);
+  tflite::tensor_utils::VectorBatchVectorAssign(GetBuffer<float>(forget_gate_bias_),
+                                                n_cell, n_batch, forget_gate_scratch);
+  tflite::tensor_utils::VectorBatchVectorAssign(GetBuffer<float>(cell_bias_),
+                                                n_cell, n_batch, cell_scratch);
+  tflite::tensor_utils::VectorBatchVectorAssign(GetBuffer<float>(output_gate_bias_),
+                                                n_cell, n_batch, output_gate_scratch);
 
   // For each batch and cell: compute input_weight * input.
   if (!use_cifg) {
-    tensor_utils::MatrixBatchVectorMultiplyAccumulate(
+    tflite::tensor_utils::MatrixBatchVectorMultiplyAccumulate(
         GetBuffer<float>(input_to_input_weights_), n_cell, n_input,
         GetBuffer<float>(input_), n_batch, input_gate_scratch, /*result_stride*/1);
   }
-  tensor_utils::MatrixBatchVectorMultiplyAccumulate(
+  tflite::tensor_utils::MatrixBatchVectorMultiplyAccumulate(
       GetBuffer<float>(input_to_forget_weights_), n_cell, n_input,
       GetBuffer<float>(input_), n_batch, forget_gate_scratch, /*result_stride*/1);
-  tensor_utils::MatrixBatchVectorMultiplyAccumulate(
+  tflite::tensor_utils::MatrixBatchVectorMultiplyAccumulate(
       GetBuffer<float>(input_to_cell_weights_), n_cell, n_input,
       GetBuffer<float>(input_), n_batch, cell_scratch, /*result_stride*/1);
-  tensor_utils::MatrixBatchVectorMultiplyAccumulate(
+  tflite::tensor_utils::MatrixBatchVectorMultiplyAccumulate(
       GetBuffer<float>(input_to_output_weights_), n_cell, n_input,
       GetBuffer<float>(input_), n_batch, output_gate_scratch, /*result_stride*/1);
 
   // For each batch and cell: compute recurrent_weight * output_state.
   if (!use_cifg) {
-    tensor_utils::MatrixBatchVectorMultiplyAccumulate(
+    tflite::tensor_utils::MatrixBatchVectorMultiplyAccumulate(
         GetBuffer<float>(recurrent_to_input_weights_), n_cell, n_output,
         GetBuffer<float>(output_state_in_), n_batch, input_gate_scratch, /*result_stride*/1);
   }
-  tensor_utils::MatrixBatchVectorMultiplyAccumulate(
+  tflite::tensor_utils::MatrixBatchVectorMultiplyAccumulate(
       GetBuffer<float>(recurrent_to_forget_weights_), n_cell, n_output,
       GetBuffer<float>(output_state_in_), n_batch, forget_gate_scratch, /*result_stride*/1);
-  tensor_utils::MatrixBatchVectorMultiplyAccumulate(
+  tflite::tensor_utils::MatrixBatchVectorMultiplyAccumulate(
       GetBuffer<float>(recurrent_to_cell_weights_), n_cell, n_output,
       GetBuffer<float>(output_state_in_), n_batch, cell_scratch, /*result_stride*/1);
-  tensor_utils::MatrixBatchVectorMultiplyAccumulate(
+  tflite::tensor_utils::MatrixBatchVectorMultiplyAccumulate(
       GetBuffer<float>(recurrent_to_output_weights_), n_cell, n_output,
       GetBuffer<float>(output_state_in_), n_batch, output_gate_scratch, /*result_stride*/1);
 
   // For each batch and cell: update input gate.
   if (!use_cifg) {
     if (use_peephole) {
-      tensor_utils::VectorBatchVectorCwiseProductAccumulate(
+      tflite::tensor_utils::VectorBatchVectorCwiseProductAccumulate(
           GetBuffer<float>(cell_to_input_weights_), n_cell,
           GetBuffer<float>(cell_state_in_), n_batch, input_gate_scratch);
     }
-    tensor_utils::ApplySigmoidToVector(input_gate_scratch, n_cell * n_batch,
-                                       input_gate_scratch);
+    tflite::tensor_utils::ApplySigmoidToVector(input_gate_scratch,
+                                               n_cell * n_batch,
+                                               input_gate_scratch);
   }
 
   // For each batch and cell: update forget gate.
   if (use_peephole) {
-    tensor_utils::VectorBatchVectorCwiseProductAccumulate(
+    tflite::tensor_utils::VectorBatchVectorCwiseProductAccumulate(
         GetBuffer<float>(cell_to_forget_weights_), n_cell,
         GetBuffer<float>(cell_state_in_), n_batch, forget_gate_scratch);
   }
-  tensor_utils::ApplySigmoidToVector(forget_gate_scratch, n_cell * n_batch,
-                                     forget_gate_scratch);
+  tflite::tensor_utils::ApplySigmoidToVector(forget_gate_scratch,
+                                             n_cell * n_batch,
+                                             forget_gate_scratch);
 
   // For each batch and cell: update the cell.
-  tensor_utils::VectorVectorCwiseProduct(
+  tflite::tensor_utils::VectorVectorCwiseProduct(
       forget_gate_scratch, GetBuffer<float>(cell_state_in_), n_batch * n_cell,
       GetBuffer<float>(cell_state_out_));
-  tensor_utils::ApplyActivationToVector(
-      cell_scratch, n_batch * n_cell, params_.activation_, cell_scratch);
+  tflite::tensor_utils::ApplyActivationToVector(
+      cell_scratch, n_batch * n_cell,
+      params_.activation_, cell_scratch);
   if (use_cifg) {
-    tensor_utils::Sub1Vector(forget_gate_scratch, n_batch * n_cell,
-                             forget_gate_scratch);
-    tensor_utils::VectorVectorCwiseProductAccumulate(
+    tflite::tensor_utils::Sub1Vector(forget_gate_scratch, n_batch * n_cell,
+                                     forget_gate_scratch);
+    tflite::tensor_utils::VectorVectorCwiseProductAccumulate(
         cell_scratch, forget_gate_scratch, n_batch * n_cell,
         GetBuffer<float>(cell_state_out_));
   } else {
-    tensor_utils::VectorVectorCwiseProductAccumulate(
+    tflite::tensor_utils::VectorVectorCwiseProductAccumulate(
         cell_scratch, input_gate_scratch, n_batch * n_cell,
         GetBuffer<float>(cell_state_out_));
   }
   if (params_.cell_clip_ > 0.0) {
-    tensor_utils::ClipVector(GetBuffer<float>(cell_state_out_), n_batch * n_cell,
-                             params_.cell_clip_, GetBuffer<float>(cell_state_out_));
+    tflite::tensor_utils::ClipVector(GetBuffer<float>(cell_state_out_), n_batch * n_cell,
+                                     params_.cell_clip_, GetBuffer<float>(cell_state_out_));
   }
 
   // For each batch and cell: update the output gate.
   if (use_peephole) {
-    tensor_utils::VectorBatchVectorCwiseProductAccumulate(
+    tflite::tensor_utils::VectorBatchVectorCwiseProductAccumulate(
         GetBuffer<float>(cell_to_output_weights_), n_cell,
         GetBuffer<float>(cell_state_out_), n_batch, output_gate_scratch);
   }
-  tensor_utils::ApplySigmoidToVector(output_gate_scratch, n_batch * n_cell,
-                                     output_gate_scratch);
-  tensor_utils::ApplyActivationToVector(GetBuffer<float>(cell_state_out_), n_batch * n_cell,
-                                        params_.activation_, cell_scratch);
-  tensor_utils::VectorVectorCwiseProduct(output_gate_scratch, cell_scratch, n_batch * n_cell,
-                                         output_gate_scratch);
+  tflite::tensor_utils::ApplySigmoidToVector(output_gate_scratch, n_batch * n_cell,
+                                             output_gate_scratch);
+  tflite::tensor_utils::ApplyActivationToVector(GetBuffer<float>(cell_state_out_),
+                                                n_batch * n_cell,
+                                                params_.activation_,
+                                                cell_scratch);
+  tflite::tensor_utils::VectorVectorCwiseProduct(output_gate_scratch,
+                                                 cell_scratch, n_batch * n_cell,
+                                                 output_gate_scratch);
 
   // For each batch: update the projection and output_state.
   const bool use_projection_weight =
@@ -432,24 +438,24 @@ bool LSTMCell::Eval() {
   const bool use_projection_bias = (projection_bias_->lifetime != OperandLifeTime::NO_VALUE);
   if (use_projection_weight) {
     if (use_projection_bias) {
-      tensor_utils::VectorBatchVectorAssign(GetBuffer<float>(projection_bias_), n_output,
-                                            n_batch, GetBuffer<float>(output_));
+      tflite::tensor_utils::VectorBatchVectorAssign(GetBuffer<float>(projection_bias_), n_output,
+                                                    n_batch, GetBuffer<float>(output_));
     } else {
-      tensor_utils::ZeroVector(GetBuffer<float>(output_), n_batch * n_output);
+      tflite::tensor_utils::ZeroVector(GetBuffer<float>(output_), n_batch * n_output);
     }
-    tensor_utils::MatrixBatchVectorMultiplyAccumulate(
+    tflite::tensor_utils::MatrixBatchVectorMultiplyAccumulate(
         GetBuffer<float>(projection_weights_), n_output, n_cell,
         output_gate_scratch, n_batch, GetBuffer<float>(output_),
         /*result_stride*/1);
     if (params_.proj_clip_ > 0.0) {
-      tensor_utils::ClipVector(GetBuffer<float>(output_), n_batch * n_output,
+      tflite::tensor_utils::ClipVector(GetBuffer<float>(output_), n_batch * n_output,
                                params_.proj_clip_, GetBuffer<float>(output_));
     }
   } else {
-    tensor_utils::CopyVector(output_gate_scratch, n_batch * n_output,
+    tflite::tensor_utils::CopyVector(output_gate_scratch, n_batch * n_output,
                              GetBuffer<float>(output_));
   }
-  tensor_utils::CopyVector(GetBuffer<float>(output_), n_batch * n_output,
+  tflite::tensor_utils::CopyVector(GetBuffer<float>(output_), n_batch * n_output,
                            GetBuffer<float>(output_state_out_));
 
   return true;

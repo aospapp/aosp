@@ -14,10 +14,19 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS accessibility service test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="cmd accessibility set-bind-instant-service-allowed true" />
+        <option name="teardown-command" value="cmd accessibility set-bind-instant-service-allowed false" />
+    </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsAccessibilityServiceTestCases.apk" />
+    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="cleanup-apks" value="true" />
+        <option name="test-file-name" value="CtsAccessibilityWidgetProvider.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.accessibilityservice.cts" />

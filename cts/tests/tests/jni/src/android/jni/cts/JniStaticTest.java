@@ -49,6 +49,13 @@ public class JniStaticTest extends JniTestCase {
         }
     }
 
+    public void test_loader_basic() throws Exception {
+        String error = BasicLoaderTestHelper.nativeRunTests();
+        if (error != null) {
+            fail(error);
+        }
+    }
+
     /**
      * Test that accessing classes true JNI works as expected. b/19382130
      */

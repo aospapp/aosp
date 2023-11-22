@@ -124,4 +124,10 @@ public class PollArrayWrapper extends AbstractPollArrayWrapper {
 
     private static native void interrupt(int fd);
 
+    // Android-removed: Code to load native libraries, doesn't make sense on Android.
+    /*
+    static {
+        IOUtil.load();
+    }
+    */
 }

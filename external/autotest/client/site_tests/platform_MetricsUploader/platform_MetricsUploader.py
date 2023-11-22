@@ -99,7 +99,7 @@ class platform_MetricsUploader(test.test):
 
 
     def _create_one_sample(self):
-        utils.system_output('truncate --size=0 /var/run/metrics/uma-events')
+        utils.system_output('truncate --size=0 /run/metrics/uma-events')
         utils.system_output('metrics_client test 10 0 100 10')
 
 

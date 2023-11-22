@@ -86,6 +86,7 @@ int e4crypt_set_directory_policy(const char* dir)
         "lost+found",
         "system_ce", "system_de",
         "misc_ce", "misc_de",
+        "vendor_ce", "vendor_de",
         "media",
         "data", "user", "user_de",
     };

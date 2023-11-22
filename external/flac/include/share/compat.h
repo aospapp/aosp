@@ -1,5 +1,5 @@
 /* libFLAC - Free Lossless Audio Codec library
- * Copyright (C) 2012-2014  Xiph.org Foundation
+ * Copyright (C) 2012-2016  Xiph.org Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -117,7 +117,9 @@
 #endif
 
 #if defined _MSC_VER
-#  if _MSC_VER >= 1600
+#  if _MSC_VER >= 1800
+#    include <inttypes.h>
+#  elif _MSC_VER >= 1600
 /* Visual Studio 2010 has decent C99 support */
 #    include <stdint.h>
 #    define PRIu64 "llu"
@@ -144,23 +146,26 @@
 
 #ifdef _WIN32
 /* All char* strings are in UTF-8 format. Added to support Unicode files on Windows */
-#include "share/win_utf8_io.h"
 
+#include "share/win_utf8_io.h"
 #define flac_printf printf_utf8
 #define flac_fprintf fprintf_utf8
 #define flac_vfprintf vfprintf_utf8
-#define flac_fopen fopen_utf8
-#define flac_chmod chmod_utf8
-#define flac_utime utime_utf8
-#define flac_unlink unlink_utf8
-#define flac_rename rename_utf8
-#define flac_stat _stat64_utf8
+
+#include "share/windows_unicode_filenames.h"
+#define flac_fopen flac_internal_fopen_utf8
+#define flac_chmod flac_internal_chmod_utf8
+#define flac_utime flac_internal_utime_utf8
+#define flac_unlink flac_internal_unlink_utf8
+#define flac_rename flac_internal_rename_utf8
+#define flac_stat flac_internal_stat64_utf8
 
 #else
 
 #define flac_printf printf
 #define flac_fprintf fprintf
 #define flac_vfprintf vfprintf
+
 #define flac_fopen fopen
 #define flac_chmod chmod
 #define flac_utime utime

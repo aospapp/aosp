@@ -36,7 +36,7 @@ class DuplicateError(EventDispatcherError):
     """
 
 
-class EventDispatcher:
+class EventDispatcher(object):
     """Class managing events for an sl4a connection.
     """
 
@@ -63,12 +63,13 @@ class EventDispatcher:
             event_obj = None
             event_name = None
             try:
-                event_obj = self.droid.eventWait(50000)
+                event_obj = self.droid.eventWait(50000)  # unit: ms
             except:
                 if self.started:
                     print("Exception happened during polling.")
                     print(traceback.format_exc())
                     raise
+
             if not event_obj:
                 continue
             elif 'name' not in event_obj:

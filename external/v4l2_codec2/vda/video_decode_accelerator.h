@@ -1,17 +1,18 @@
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 85fdf90
 
 #ifndef VIDEO_DECODE_ACCELERATOR_H_
 #define VIDEO_DECODE_ACCELERATOR_H_
 
 #include <vector>
 
-#include "base/file_descriptor_posix.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 
 #include "bitstream_buffer.h"
+#include "native_pixmap_handle.h"
 #include "picture.h"
 #include "size.h"
 #include "video_codecs.h"
@@ -245,16 +246,21 @@ class VideoDecodeAccelerator {
   virtual void AssignPictureBuffers(
       const std::vector<PictureBuffer>& buffers) = 0;
 
-  // Imports |dmabuf_fds| as backing memory for picture buffer
-  // associated with |picture_buffer_id|. This can only be be used if the VDA
-  // has been Initialize()d with config.output_mode = IMPORT, and should be
-  // preceded by a call to AssignPictureBuffers() to set up the number of
-  // PictureBuffers and their details.
+  // Imports |gpu_memory_buffer_handle|, pointing to a buffer in |pixel_format|,
+  // as backing memory for picture buffer associated with |picture_buffer_id|.
+  // This can only be be used if the VDA has been Initialize()d with
+  // config.output_mode = IMPORT, and should be preceded by a call to
+  // AssignPictureBuffers() to set up the number of PictureBuffers and their
+  // details.
+  // The |pixel_format| used here may be different from the |pixel_format|
+  // required in ProvidePictureBuffers(). If the buffer cannot be imported an
+  // error should be notified via NotifyError().
   // After this call, the VDA becomes the owner of those file descriptors,
   // and is responsible for closing it after use, also on import failure.
   virtual void ImportBufferForPicture(
       int32_t picture_buffer_id,
-      const std::vector<base::FileDescriptor>& dmabuf_fds);
+      VideoPixelFormat pixel_format,
+      const NativePixmapHandle& native_pixmap_handle);
 
   // Sends picture buffers to be reused by the decoder. This needs to be called
   // for each buffer that has been processed so that decoder may know onto which

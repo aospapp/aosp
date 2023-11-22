@@ -54,12 +54,21 @@ import javax.crypto.spec.DHParameterSpec;
 
 import junit.framework.TestCase;
 
+import dalvik.system.VMRuntime;
+import sun.security.jca.Providers;
+
 public class KeyPairGeneratorTest extends TestCase {
 
     private List<Provider> providers = new ArrayList<Provider>();
 
     @Override
-    public void setUp() {
+    public void setUp() throws Exception {
+        super.setUp();
+        // Allow access to deprecated BC algorithms in this test, so we can ensure they
+        // continue to work
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                VMRuntime.getRuntime().getTargetSdkVersion());
+
         Provider[] providers = Security.getProviders();
         for (Provider p : providers) {
             // Do not test AndroidKeyStore Provider. It does not accept vanilla public keys for
@@ -72,8 +81,11 @@ public class KeyPairGeneratorTest extends TestCase {
     }
 
     @Override
-    public void tearDown() {
+    public void tearDown() throws Exception {
         providers.clear();
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
+        super.tearDown();
     }
 
     public void test_providerCount() {

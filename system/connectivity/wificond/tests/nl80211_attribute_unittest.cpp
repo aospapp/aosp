@@ -18,8 +18,7 @@
 
 #include <gtest/gtest.h>
 
-#include <linux/nl80211.h>
-
+#include "wificond/net/kernel-header-latest/nl80211.h"
 #include "wificond/net/nl80211_attribute.h"
 
 namespace android {
@@ -262,6 +261,24 @@ TEST(NL80211AttributeTest, GetListOfStringsFromBuffer) {
   EXPECT_EQ(expected_strs, strs);
 }
 
+TEST(NL80211AttributeTest, GetListOfAttributesFromBuffer) {
+  std::vector<uint8_t> buffer(
+      kBufferContainsListOfAttributes,
+      kBufferContainsListOfAttributes +
+          sizeof(kBufferContainsListOfAttributes));
+
+  std::vector<NL80211Attr<std::string>> attrs;
+  NL80211NestedAttr attr(buffer);
+  EXPECT_TRUE(attr.GetListOfAttributes(&attrs));
+  EXPECT_TRUE(attrs.size() == 3);
+  ASSERT_EQ(0, attrs[0].GetAttributeId());
+  ASSERT_EQ(1, attrs[1].GetAttributeId());
+  ASSERT_EQ(2, attrs[2].GetAttributeId());
+  ASSERT_EQ("first", attrs[0].GetValue());
+  ASSERT_EQ("second", attrs[1].GetValue());
+  ASSERT_EQ("third", attrs[2].GetValue());
+}
+
 TEST(NL80211AttributeTest, GetListOfNestedAttributesFromBuffer) {
   std::vector<uint8_t> buffer(
       kBufferContainsListOfNestedAttributes,
@@ -271,15 +288,54 @@ TEST(NL80211AttributeTest, GetListOfNestedAttributesFromBuffer) {
   NL80211NestedAttr attr(buffer);
   EXPECT_TRUE(attr.GetListOfNestedAttributes(&nested_attrs));
   EXPECT_TRUE(nested_attrs.size() == 3);
-  uint16_t value1;
-  uint32_t value2;
-  uint8_t value3;
-  EXPECT_TRUE(nested_attrs[0].GetAttributeValue(1, &value1));
-  EXPECT_TRUE(nested_attrs[1].GetAttributeValue(1, &value2));
-  EXPECT_TRUE(nested_attrs[2].GetAttributeValue(1, &value3));
+  uint16_t value1 = 0;
+  uint32_t value2 = 0;
+  uint8_t value3 = 0;
+  ASSERT_TRUE(nested_attrs[0].GetAttributeValue(1, &value1));
+  ASSERT_TRUE(nested_attrs[1].GetAttributeValue(1, &value2));
+  ASSERT_TRUE(nested_attrs[2].GetAttributeValue(1, &value3));
   EXPECT_TRUE(value1 == 5);
   EXPECT_TRUE(value2 == 10);
   EXPECT_TRUE(value3 == 8);
+}
+
+TEST(NL80211AttributeTest, MergeAttributes) {
+  NL80211Attr<std::vector<uint8_t>> attr1(1, {'a', 'b', 'c'});
+  NL80211Attr<std::vector<uint8_t>> attr2(1, {'d', 'e'});
+  ASSERT_TRUE(attr1.Merge(attr2));
+  std::vector<uint8_t> expected_value{{'a', 'b', 'c', 'd', 'e'}};
+  EXPECT_EQ(expected_value, attr1.GetValue());
+}
+
+TEST(NL80211AttributeTest, CannotMergeInvalidAttributeWithBrokenBuffer) {
+  NL80211Attr<std::vector<uint8_t>> valid_attr(1, {'a', 'b', 'c'});
+  std::vector<uint8_t> broken_buffer(
+      kBrokenBuffer,
+      kBrokenBuffer + sizeof(kBrokenBuffer));
+  NL80211Attr<std::vector<uint8_t>> invalid_attr(broken_buffer);
+  EXPECT_FALSE(valid_attr.Merge(invalid_attr));
+}
+
+TEST(NL80211AttributeTest, CannotMergeAttributesWithDifferentIds) {
+  NL80211Attr<std::vector<uint8_t>> attr1(1, {'a', 'b', 'c'});
+  NL80211Attr<std::vector<uint8_t>> attr2(2, {'d', 'e', 'f'});
+  EXPECT_FALSE(attr1.Merge(attr2));
+}
+
+TEST(NL80211AttributeTest, MergeNestedAttributes) {
+  NL80211NestedAttr nested_attr1(0);
+  NL80211NestedAttr nested_attr2(0);
+  NL80211Attr<uint32_t> uint32_attr1(1, kU32Value1);
+  NL80211Attr<uint32_t> uint32_attr2(2, kU32Value2);
+  nested_attr1.AddAttribute(uint32_attr1);
+  nested_attr2.AddAttribute(uint32_attr2);
+  ASSERT_TRUE(nested_attr1.Merge(nested_attr2));
+
+  uint32_t value1, value2;
+  EXPECT_TRUE(nested_attr1.GetAttributeValue(1, &value1));
+  EXPECT_TRUE(value1 == kU32Value1);
+  EXPECT_TRUE(nested_attr1.GetAttributeValue(2, &value2));
+  EXPECT_TRUE(value2 == kU32Value2);
 }
 
 }  // namespace wificond

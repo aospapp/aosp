@@ -14,8 +14,11 @@
 /* Define to 1 if you have the <asm/ptrace.h> header file. */
 #define HAVE_ASM_PTRACE_H 1
 
-/* Define to 1 if you have the <attr/xattr.h> header file. */
-/* #undef HAVE_ATTR_XATTR_H */
+/* Define to 1 if you have the __atomic_* compiler builtins */
+#define HAVE_ATOMIC_MEMORY_MODEL 1
+
+/* Define to 1 if you have __builtin___clear_cache */
+#define HAVE_BUILTIN_CLEAR_CACHE 1
 
 /* Define to 1 if you have the `daemon' function. */
 #define HAVE_DAEMON 1
@@ -131,11 +134,20 @@
 /* Define to 1 if you have libacl installed. */
 /* #undef HAVE_LIBACL */
 
+/* Define to 1 if you have libaio and it's headers installed. */
+/* #undef HAVE_LIBAIO */
+
 /* Define to 1 if you have the <libaio.h> header file. */
-#define HAVE_LIBAIO_H 1
+/* #undef HAVE_LIBAIO_H */
 
 /* Define to 1 if you have libcap-2 installed. */
 #define HAVE_LIBCAP 1
+
+/* Define whether libcrypto and openssl headers are installed */
+#define HAVE_LIBCRYPTO 1
+
+/* Define to 1 if you have libkeyutils installed. */
+/* #undef HAVE_LIBKEYUTILS */
 
 /* Define to 1 if you have both SELinux libraries and headers. */
 #define HAVE_LIBSELINUX_DEVEL 1
@@ -148,6 +160,12 @@
 
 /* Define to 1 if you have the <linux/genetlink.h> header file. */
 #define HAVE_LINUX_GENETLINK_H 1
+
+/* Define to 1 if you have the <linux/if_ether.h> header file. */
+#define HAVE_LINUX_IF_ETHER_H 1
+
+/* Define to 1 if you have the <linux/if_packet.h> header file. */
+#define HAVE_LINUX_IF_PACKET_H 1
 
 /* Define to 1 if you have the <linux/keyctl.h> header file. */
 #define HAVE_LINUX_KEYCTL_H 1
@@ -230,6 +248,9 @@
 /* Define to 1 if you have the `preadv' function. */
 #define HAVE_PREADV 1
 
+/* Define to 1 if you have the `profil' function. */
+#define HAVE_PROFIL 1
+
 /* Define to 1 if you have the <pthread.h> header file. */
 #define HAVE_PTHREAD_H 1
 
@@ -281,6 +302,9 @@
 /* Define to 1 if the system has the type `struct iovec'. */
 #define HAVE_STRUCT_IOVEC 1
 
+/* Define to 1 if the system has the type `struct mmsghdr'. */
+#define HAVE_STRUCT_MMSGHDR 1
+
 /* Define to 1 if the system has the type `struct modify_ldt_ldt_s'. */
 /* #undef HAVE_STRUCT_MODIFY_LDT_LDT_S */
 
@@ -308,6 +332,9 @@
 /* Define to 1 if `read_bytes' is a member of `struct taskstats'. */
 #define HAVE_STRUCT_TASKSTATS_READ_BYTES 1
 
+/* Define to 1 if the system has the type `struct tpacket_req3'. */
+#define HAVE_STRUCT_TPACKET_REQ3 1
+
 /* Define to 1 if the system has the type `struct user_desc'. */
 #ifdef __i386__
 #define HAVE_STRUCT_USER_DESC 1
@@ -317,6 +344,15 @@
 
 /* Define to 1 if the system has the type `struct user_regs_struct'. */
 #define HAVE_STRUCT_USER_REGS_STRUCT 1
+
+/* Define to 1 if `domainname' is a member of `struct utsname'. */
+#define HAVE_STRUCT_UTSNAME_DOMAINNAME 1
+
+/* Define to 1 if the system has the type `struct xt_entry_match'. */
+#define HAVE_STRUCT_XT_ENTRY_MATCH 1
+
+/* Define to 1 if the system has the type `struct xt_entry_target'. */
+#define HAVE_STRUCT_XT_ENTRY_TARGET 1
 
 /* Define to 1 if you have __sync_add_and_fetch */
 #define HAVE_SYNC_ADD_AND_FETCH 1
@@ -360,6 +396,9 @@
 /* Define to 1 if you have the <sys/types.h> header file. */
 #define HAVE_SYS_TYPES_H 1
 
+/* Define to 1 if you have the <sys/ustat.h> header file. */
+/* #undef HAVE_SYS_USTAT_H 1 */
+
 /* Define to 1 if you have the <sys/xattr.h> header file. */
 #define HAVE_SYS_XATTR_H 1
 
@@ -380,6 +419,9 @@
 
 /* Define to 1 if you have the `unshare' function. */
 #define HAVE_UNSHARE 1
+
+/* Define to 1 if you have the `ustat' function. */
+/* #undef HAVE_USTAT 1 */
 
 /* Define to 1 if you have utimensat(2) */
 #define HAVE_UTIMENSAT 1

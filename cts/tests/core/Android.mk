@@ -14,6 +14,4 @@
 
 LOCAL_PATH:= $(call my-dir)
 
-BUILD_CTSCORE_PACKAGE:=$(LOCAL_PATH)/ctscore.mk
-
 include $(call all-makefiles-under,$(LOCAL_PATH))

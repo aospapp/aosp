@@ -96,7 +96,7 @@
     <string name="fail_add_contact" msgid="6511490846952942291">"सम्पर्कको जानकारी राम्ररी पढ्न सकिएन"</string>
     <string name="remove" msgid="1243949503772376064">"हटाउनुहोस्"</string>
     <string name="cancel" msgid="7401575239009060939">"रद्द गर्नुहोस्"</string>
-    <string name="ok" msgid="163967937451981024">"ठीक छ"</string>
+    <string name="ok" msgid="163967937451981024">"ठिक छ"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"यस फोनको मालिक बारे कुनै जानकारी छैन"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"यदि यो तपाईँको फोन हो भने आपतकालीन अवस्थामा यहाँ प्रदर्शन गरिने जानकारी थप्न पेन्सिलको आइकनमा ट्याप गर्नुहोस्"</string>
@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"सबै जानकारी र सम्पर्कहरूलाई मेटाउने हो?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"चिकित्सकीय जानकारी तथा आपतकालीन सम्पर्क नम्बरहरू थप्नुले कुनै आपतकालीन अवस्थामा पहिलो प्रतिक्रिया दिने व्यक्तिहरूलाई मद्दत गर्नसक्छ।\n\nतपाईंको लक स्क्रिनबाट जोसुकैले पनि यो जानकारी पढ्न र तपाईंको फोन अनलक नगरिकनै तपाईंको सम्पर्क सूचीमा रहेका व्यक्तिहरूलाई उनीहरूको नाममा ट्याप गरेर कल गर्नसक्छ।"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"आपतकालीन जानकारी थप्नुहोस्‌"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"आपतकालीन अवस्थामा सहयोग पुर्याउने पहिला व्यक्तिहरूलाई महत्त्वपूर्ण जानकारी प्राप्त गर्न मद्दत गर्नुहोस्‌"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"तपाईंको जानकारी आपतकालीन अवस्थामा सहयोग पुर्‍याउने पहिला मान्छेहरूलाई हेर्न दिनुहोस्‌"</string>
 </resources>

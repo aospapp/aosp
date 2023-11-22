@@ -16,10 +16,12 @@
 
 package com.android.server.cts;
 
-import android.service.fingerprint.FingerprintActionStatsProto;
-import android.service.fingerprint.FingerprintServiceDumpProto;
-import android.service.fingerprint.FingerprintUserStatsProto;
+import com.android.server.fingerprint.FingerprintServiceDumpProto;
+import com.android.server.fingerprint.FingerprintUserStatsProto;
+import com.android.server.fingerprint.PerformanceStatsProto;
 
+import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 
 
@@ -27,39 +29,43 @@ import com.android.tradefed.log.LogUtil.CLog;
  * Test to check that the fingerprint service properly outputs its dump state.
  */
 public class FingerprintIncidentTest extends ProtoDumpTestCase {
-    /**
-     * Test that no fingerprints are registered.
-     *
-     * @throws Exception
-     */
-    public void testNoneRegistered() throws Exception {
+    public void testFingerprintServiceDump() throws Exception {
         // If the device doesn't support fingerprints, then pass.
-        if (!getDevice().hasFeature("android.hardware.fingerprint")) {
-            CLog.d("Bypass as android.hardware.fingerprint is not supported.");
+        if (!supportsFingerprint(getDevice())) {
             return;
         }
 
         final FingerprintServiceDumpProto dump =
                 getDump(FingerprintServiceDumpProto.parser(), "dumpsys fingerprint --proto");
 
-        // One of them
-        assertEquals(1, dump.getUsersCount());
+        verifyFingerprintServiceDumpProto(dump, PRIVACY_NONE);
+    }
 
-        final FingerprintUserStatsProto userStats = dump.getUsers(0);
-        assertEquals(0, userStats.getUserId());
-        assertEquals(0, userStats.getNumFingerprints());
+    static void verifyFingerprintServiceDumpProto(FingerprintServiceDumpProto dump, int filterLevel) {
+        for (int i = 0; i < dump.getUsersCount(); ++i) {
+            final FingerprintUserStatsProto userStats = dump.getUsers(i);
+            assertTrue(0 <= userStats.getUserId());
+            assertTrue(0 <= userStats.getNumFingerprints());
 
-        final FingerprintActionStatsProto normal = userStats.getNormal();
-        assertEquals(0, normal.getAccept());
-        assertEquals(0, normal.getReject());
-        assertEquals(0, normal.getAcquire());
-        assertEquals(0, normal.getLockout());
+            verifyPerformanceStatsProto(userStats.getNormal());
+            verifyPerformanceStatsProto(userStats.getCrypto());
+        }
+    }
 
-        final FingerprintActionStatsProto crypto = userStats.getCrypto();
-        assertEquals(0, crypto.getAccept());
-        assertEquals(0, crypto.getReject());
-        assertEquals(0, crypto.getAcquire());
-        assertEquals(0, crypto.getLockout());
+    private static void verifyPerformanceStatsProto(PerformanceStatsProto psp) {
+        assertTrue(0 <= psp.getAccept());
+        assertTrue(0 <= psp.getReject());
+        assertTrue(0 <= psp.getAcquire());
+        assertTrue(0 <= psp.getLockout());
+        assertTrue(0 <= psp.getPermanentLockout());
+    }
+
+    static boolean supportsFingerprint(ITestDevice device) throws DeviceNotAvailableException {
+        if (!device.hasFeature("android.hardware.fingerprint")) {
+            CLog.d("Bypass as android.hardware.fingerprint is not supported.");
+            return false;
+        }
+        return true;
     }
 }
 

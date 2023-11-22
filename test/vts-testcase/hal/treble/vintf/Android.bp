@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+cc_defaults {
+    name: "vts_treble_vintf_test_defaults",
 
-cc_test {
-    name: "vts_treble_vintf_test",
-    srcs: [
-        "vts_treble_vintf_test.cpp",
+    cflags: [
+        "-Wall",
+        "-Werror",
     ],
     shared_libs: [
         "libbase",
@@ -30,10 +31,69 @@ cc_test {
     static_libs: [
         "libhidl-gen-hash",
         "libhidl-gen-utils",
+        "libprocpartition",
         "libselinux",
         "libtinyxml2",
         "libvintf",
     ],
     group_static_libs: true,
+    srcs: [
+        "VtsTrebleVintfTestBase.cpp",
+        "utils.cpp",
+        "main.cpp",
+    ]
 }
 
+// Do similar tests as vts_treble_vintf_test from O-MR1 vendor image branch. The
+// test is modified to compile against latest libvintf.
+// VendorFrameworkCompatibility is removed because it has framework dependency.
+cc_test {
+    name: "vts_treble_vintf_test_o_mr1",
+    defaults: ["vts_treble_vintf_test_defaults"],
+    srcs: [
+        "vts_treble_vintf_test_o_mr1.cpp",
+    ],
+}
+
+// Test vendor image that has the highest target FCM version. This test binary
+// has no system XML dependencies.
+cc_test {
+    name: "vts_treble_vintf_vendor_test",
+    defaults: ["vts_treble_vintf_test_defaults"],
+    srcs: [
+        "DeviceManifestTest.cpp",
+        "SingleManifestTest.cpp",
+    ],
+}
+
+// Test a (potentially) compatible vendor image with framework dependency;
+// test the current framework.
+cc_test {
+    name: "vts_treble_vintf_framework_test",
+    defaults: ["vts_treble_vintf_test_defaults"],
+    srcs: [
+        "SingleManifestTest.cpp",
+        "SystemVendorTest.cpp",
+    ],
+    multilib: {
+        lib32: {
+            suffix: "32",
+        },
+        lib64: {
+            suffix: "64",
+        },
+    },
+}
+
+// Tests everything.
+// Should not be used by VTS framework, but could be used for test development.
+// VTS framework should choose among the other test binaries defined above.
+cc_test {
+    name: "vts_treble_vintf_test_all",
+    defaults: ["vts_treble_vintf_test_defaults"],
+    srcs: [
+        "DeviceManifestTest.cpp",
+        "SingleManifestTest.cpp",
+        "SystemVendorTest.cpp",
+    ],
+}

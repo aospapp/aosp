@@ -88,6 +88,21 @@ public class ScriptGraph implements UncheckedCloseable {
     }
 
     /**
+     *
+     * Check and throw an exception in case the graph was not configured with
+     * {@link Builder#configureInputWithSurface configureInputWithSurface}.
+     *
+     * @throws IllegalArgumentException
+     *            if the graph wasn't configured with
+     *            {@link Builder#configureInputWithSurface configureInputWithSurface}
+     */
+    private void checkInput() {
+        if (!isInputFromSurface()) {
+            throw new IllegalArgumentException("Graph was not configured with USAGE_IO_INPUT");
+        }
+    }
+
+    /**
      * Wait until another buffer is produced into the input {@link Surface}, then
      * update the backing input {@link Allocation} with the latest buffer with
      * {@link Allocation#ioReceive ioReceive}.
@@ -100,11 +115,27 @@ public class ScriptGraph implements UncheckedCloseable {
      */
     public void advanceInputWaiting() {
         checkNotClosed();
-        if (!isInputFromSurface()) {
-            throw new IllegalArgumentException("Graph was not configured with USAGE_IO_INPUT");
-        }
-
+        checkInput();
         mInputBlocker.waitForBufferAndReceive();
+    }
+
+    /**
+     * Wait until another buffer is produced into the input {@link Surface}, then
+     * update the backing input {@link Allocation} with the latest buffer with
+     * {@link Allocation#ioReceive ioReceive}.
+     *
+     * @param timeoutMs wait timeout in milliseconds.
+     *
+     * @throws IllegalArgumentException
+     *            if the graph wasn't configured with
+     *            {@link Builder#configureInputWithSurface configureInputWithSurface}
+     * @throws TimeoutRuntimeException
+     *            if waiting for the buffer times out
+     */
+    public void advanceInputWaiting(long timeoutMs) {
+        checkNotClosed();
+        checkInput();
+        mInputBlocker.waitForBufferAndReceive(timeoutMs);
     }
 
     /**

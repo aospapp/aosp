@@ -16,10 +16,16 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.display.cts">
+    package="android.display.cts"
+    android:targetSandboxVersion="2">
 
     <!-- For special presentation windows when testing mode switches. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- For testing brightness slider tracking. -->
+    <uses-permission android:name="android.permission.BRIGHTNESS_SLIDER_USAGE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- For testing pushing brightness curves. -->
+    <uses-permission android:name="android.permission.CONFIGURE_DISPLAY_BRIGHTNESS" />
 
     <application>
         <uses-library android:name="android.test.runner" />

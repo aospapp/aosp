@@ -18,7 +18,7 @@ package com.android.documentsui.dirlist;
 
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
-import static junit.framework.TestCase.fail;
+import static junit.framework.Assert.fail;
 
 import android.provider.DocumentsContract;
 import android.support.test.filters.SmallTest;
@@ -26,20 +26,22 @@ import android.support.test.runner.AndroidJUnit4;
 import android.view.MotionEvent;
 import android.view.View;
 
-import com.android.documentsui.MenuManager;
+import com.android.documentsui.DocsSelectionHelper;
 import com.android.documentsui.MenuManager.SelectionDetails;
 import com.android.documentsui.base.DocumentInfo;
+import com.android.documentsui.base.Events;
 import com.android.documentsui.base.Providers;
 import com.android.documentsui.base.State;
-import com.android.documentsui.dirlist.DragStartListener.ActiveListener;
-import com.android.documentsui.base.Events.InputEvent;
-import com.android.documentsui.selection.SelectionManager;
+import com.android.documentsui.dirlist.DragStartListener.RuntimeDragStartListener;
+import com.android.documentsui.selection.MutableSelection;
 import com.android.documentsui.selection.Selection;
+import com.android.documentsui.selection.TestItemDetailsLookup;
+import com.android.documentsui.testing.SelectionHelpers;
 import com.android.documentsui.testing.TestDragAndDropManager;
-import com.android.documentsui.testing.TestEvent;
-import com.android.documentsui.testing.SelectionManagers;
+import com.android.documentsui.testing.TestEvents;
 import com.android.documentsui.testing.TestSelectionDetails;
 import com.android.documentsui.testing.Views;
+import com.android.internal.widget.RecyclerView;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -51,18 +53,20 @@ import java.util.ArrayList;
 @SmallTest
 public class DragStartListenerTest {
 
-    private ActiveListener mListener;
-    private TestEvent.Builder mEvent;
-    private SelectionManager mMultiSelectManager;
+    private RuntimeDragStartListener mListener;
+    private TestEvents.Builder mEvent;
+    private DocsSelectionHelper mSelectionMgr;
+    private TestItemDetailsLookup mDocLookup;
     private SelectionDetails mSelectionDetails;
     private String mViewModelId;
     private TestDragAndDropManager mManager;
 
     @Before
     public void setUp() throws Exception {
-        mMultiSelectManager = SelectionManagers.createTestInstance();
+        mSelectionMgr = SelectionHelpers.createTestInstance();
         mManager = new TestDragAndDropManager();
         mSelectionDetails = new TestSelectionDetails();
+        mDocLookup = new TestItemDetailsLookup();
 
         DocumentInfo doc = new DocumentInfo();
         doc.authority = Providers.AUTHORITY_STORAGE;
@@ -71,10 +75,12 @@ public class DragStartListenerTest {
 
         State state = new State();
         state.stack.push(doc);
-        mListener = new DragStartListener.ActiveListener(
+
+        mListener = new DragStartListener.RuntimeDragStartListener(
                 null, // icon helper
                 state,
-                mMultiSelectManager,
+                mDocLookup,
+                mSelectionMgr,
                 mSelectionDetails,
                 // view finder
                 (float x, float y) -> {
@@ -86,18 +92,22 @@ public class DragStartListenerTest {
                 },
                 // docInfo Converter
                 (Selection selection) -> {
-                    return new ArrayList<DocumentInfo>();
+                    return new ArrayList<>();
                 },
                 mManager);
 
         mViewModelId = "1234";
 
-        mEvent = TestEvent.builder()
+        mDocLookup.initAt(1).setInItemDragRegion(true);
+        mEvent = TestEvents.builder()
                 .action(MotionEvent.ACTION_MOVE)
                 .mouse()
-                .at(1)
-                .inDragHotspot()
                 .primary();
+    }
+
+    @Test
+    public void testMouseEvent() {
+        assertTrue(Events.isMouseDragEvent(mEvent.build()));
     }
 
     @Test
@@ -115,15 +125,13 @@ public class DragStartListenerTest {
 
     @Test
     public void testThrows_OnNonMouseMove() {
-        TestEvent e = TestEvent.builder()
-                .at(1)
-                .action(MotionEvent.ACTION_MOVE).build();
-        assertThrows(e);
+        assertThrows(mEvent.touch().build());
     }
 
     @Test
     public void testThrows_OnNonPrimaryMove() {
-        assertThrows(mEvent.pressButton(MotionEvent.BUTTON_PRIMARY).build());
+        mEvent.releaseButton(MotionEvent.BUTTON_PRIMARY);
+        assertThrows(mEvent.pressButton(MotionEvent.BUTTON_SECONDARY).build());
     }
 
     @Test
@@ -133,7 +141,8 @@ public class DragStartListenerTest {
 
     @Test
     public void testThrows_WhenNotOnItem() {
-        assertThrows(mEvent.at(-1).build());
+        mDocLookup.initAt(RecyclerView.NO_POSITION);
+        assertThrows(mEvent.build());
     }
 
     @Test
@@ -146,10 +155,10 @@ public class DragStartListenerTest {
 
     @Test
     public void testDragStart_selectedItem() {
-        Selection selection = new Selection();
+        MutableSelection selection = new MutableSelection();
         selection.add("1234");
         selection.add("5678");
-        mMultiSelectManager.replaceSelection(selection);
+        mSelectionMgr.replaceSelection(selection);
 
         selection = mListener.getSelectionToBeCopied("1234",
                 mEvent.action(MotionEvent.ACTION_MOVE).build());
@@ -160,23 +169,23 @@ public class DragStartListenerTest {
 
     @Test
     public void testDragStart_newNonSelectedItem() {
-        Selection selection = new Selection();
+        MutableSelection selection = new MutableSelection();
         selection.add("5678");
-        mMultiSelectManager.replaceSelection(selection);
+        mSelectionMgr.replaceSelection(selection);
 
         selection = mListener.getSelectionToBeCopied("1234",
                 mEvent.action(MotionEvent.ACTION_MOVE).build());
         assertTrue(selection.size() == 1);
         assertTrue(selection.contains("1234"));
         // After this, selection should be cleared
-        assertFalse(mMultiSelectManager.hasSelection());
+        assertFalse(mSelectionMgr.hasSelection());
     }
 
     @Test
     public void testCtrlDragStart_newNonSelectedItem() {
-        Selection selection = new Selection();
+        MutableSelection selection = new MutableSelection();
         selection.add("5678");
-        mMultiSelectManager.replaceSelection(selection);
+        mSelectionMgr.replaceSelection(selection);
 
         selection = mListener.getSelectionToBeCopied("1234",
                 mEvent.action(MotionEvent.ACTION_MOVE).ctrl().build());
@@ -185,10 +194,10 @@ public class DragStartListenerTest {
         assertTrue(selection.contains("5678"));
     }
 
-    private void assertThrows(InputEvent e) {
+    private void assertThrows(MotionEvent e) {
         try {
-            assertFalse(mListener.onMouseDragEvent(e));
+            mListener.onMouseDragEvent(e);
             fail();
-        } catch (AssertionError expected) {}
+        } catch (IllegalArgumentException expected) {}
     }
 }

@@ -83,10 +83,6 @@ public class PresencePublication extends PresenceBase {
 
     private final Object mSyncObj = new Object();
 
-    final static String ACTION_IMS_FEATURE_AVAILABLE =
-            "com.android.service.ims.presence.ims-feature-status-changed";
-    private static final int INVALID_SERVICE_ID = -1;
-
     boolean mMovedToIWLAN = false;
     boolean mMovedToLTE = false;
     boolean mVoPSEnabled = false;
@@ -169,7 +165,7 @@ public class PresencePublication extends PresenceBase {
         this.mRcsStackAdaptor = rcsStackAdaptor;
         this.mContext = context;
 
-        mVtEnabled = ImsManager.isVtEnabledByUser(mContext);
+        mVtEnabled = getImsManager().isVtEnabledByUser();
 
         mDataEnabled = Settings.Global.getInt(mContext.getContentResolver(),
                     Settings.Global.MOBILE_DATA, 1) == 1;
@@ -296,21 +292,21 @@ public class PresencePublication extends PresenceBase {
 
     private boolean isIPVoiceSupported(boolean volteAvailable, boolean vtAvailable,
             boolean voWifiAvailable, boolean viWifiAvailable) {
+        ImsManager imsManager = getImsManager();
         // volte and vowifi can be enabled separately
-        if(!ImsManager.isVolteEnabledByPlatform(mContext) &&
-                !ImsManager.isWfcEnabledByPlatform(mContext)) {
+        if(!imsManager.isVolteEnabledByPlatform() && !imsManager.isWfcEnabledByPlatform()) {
             logger.print("Disabled by platform, voiceSupported=false");
             return false;
         }
 
-        if(!ImsManager.isVolteProvisionedOnDevice(mContext) &&
+        if(!imsManager.isVolteProvisionedOnDevice() &&
                 !RcsSettingUtils.isVowifiProvisioned(mContext)) {
             logger.print("Wasn't provisioned, voiceSupported=false");
             return false;
         }
 
-        if(!ImsManager.isEnhanced4gLteModeSettingEnabledByUser(mContext) &&
-                !ImsManager.isWfcEnabledByUser(mContext)){
+        if(!imsManager.isEnhanced4gLteModeSettingEnabledByUser() &&
+                !imsManager.isWfcEnabledByUser()){
             logger.print("User didn't enable volte or wfc, voiceSupported=false");
             return false;
         }
@@ -339,20 +335,21 @@ public class PresencePublication extends PresenceBase {
 
     private boolean isIPVideoSupported(boolean volteAvailable, boolean vtAvailable,
             boolean voWifiAvailable, boolean viWifiAvailable) {
+        ImsManager imsManager = getImsManager();
         // if volte or vt was disabled then the viwifi will be disabled as well.
-        if(!ImsManager.isVolteEnabledByPlatform(mContext) ||
-                !ImsManager.isVtEnabledByPlatform(mContext)) {
+        if(!imsManager.isVolteEnabledByPlatform() ||
+                !imsManager.isVtEnabledByPlatform()) {
             logger.print("Disabled by platform, videoSupported=false");
             return false;
         }
 
-        if(!ImsManager.isVolteProvisionedOnDevice(mContext) ||
+        if(!imsManager.isVolteProvisionedOnDevice() ||
                 !RcsSettingUtils.isLvcProvisioned(mContext)) {
             logger.print("Not provisioned. videoSupported=false");
             return false;
         }
 
-        if(!ImsManager.isEnhanced4gLteModeSettingEnabledByUser(mContext) ||
+        if(!imsManager.isEnhanced4gLteModeSettingEnabledByUser() ||
                 !mVtEnabled){
             logger.print("User disabled volte or vt, videoSupported=false");
             return false;
@@ -903,7 +900,7 @@ public class PresencePublication extends PresenceBase {
 
         // we need send PUBLISH once even the volte is off when power on the phone.
         // That will tell other phone that it has no volte/vt capability.
-        if(!ImsManager.isEnhanced4gLteModeSettingEnabledByUser(mContext) &&
+        if(!getImsManager().isEnhanced4gLteModeSettingEnabledByUser() &&
                 getPublishState() != PublishState.PUBLISH_STATE_NOT_PUBLISHED) {
              // volte was not enabled.
              // or it is turnning off volte. lower layer should unpublish
@@ -1107,13 +1104,6 @@ public class PresencePublication extends PresenceBase {
         finish();
     }
 
-    private PendingIntent createIncomingCallPendingIntent() {
-        Intent intent = new Intent(ACTION_IMS_FEATURE_AVAILABLE);
-        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-        return PendingIntent.getBroadcast(mContext, 0, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT);
-    }
-
     public void onFeatureCapabilityChanged(final int serviceClass,
             final int[] enabledFeatures, final int[] disabledFeatures) {
         logger.debug("onFeatureCapabilityChanged serviceClass="+serviceClass
@@ -1233,4 +1223,8 @@ public class PresencePublication extends PresenceBase {
             return mMovedToIWLAN && (networkType != TelephonyManager.NETWORK_TYPE_UNKNOWN);
     }
 
+
+    private ImsManager getImsManager() {
+        return ImsManager.getInstance(mContext, SubscriptionManager.getDefaultVoicePhoneId());
+    }
 }

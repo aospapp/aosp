@@ -45,9 +45,9 @@ import android.test.suitebuilder.annotation.SmallTest;
 import android.view.inputmethod.InputMethodInfo;
 import com.android.settingslib.BaseTest;
 
+import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.mockito.compat.ArgumentMatcher;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -159,14 +159,14 @@ public class AppRestrictionsHelperTest extends BaseTest {
         for (String pkg : defaultImes) {
             final ResolveInfo ri = createResolveInfoForSystemApp(pkg);
             final InputMethodInfo inputMethodInfo = new InputMethodInfo(
-                    ri, false, null, null, 0, true, true);
+                    ri, false, null, null, 0, true, true, false);
             inputMethods.add(inputMethodInfo);
             addInstalledApp(ri);
         }
         for (String pkg : otherImes) {
             final ResolveInfo ri = createResolveInfoForSystemApp(pkg);
             final InputMethodInfo inputMethodInfo = new InputMethodInfo(
-                    ri, false, null, null, 0, false, true);
+                    ri, false, null, null, 0, false, true, false);
             inputMethods.add(inputMethodInfo);
             addInstalledApp(ri);
         }
@@ -241,7 +241,7 @@ public class AppRestrictionsHelperTest extends BaseTest {
         return ri;
     }
 
-    private class IntentMatcher extends ArgumentMatcher<Intent> {
+    private class IntentMatcher implements ArgumentMatcher<Intent> {
         private final Intent mIntent;
 
         IntentMatcher(Intent intent) {
@@ -249,11 +249,8 @@ public class AppRestrictionsHelperTest extends BaseTest {
         }
 
         @Override
-        public boolean matchesObject(Object argument) {
-            if (argument instanceof Intent) {
-                return ((Intent) argument).filterEquals(mIntent);
-            }
-            return false;
+        public boolean matches(Intent argument) {
+            return argument != null && argument.filterEquals(mIntent);
         }
 
         @Override

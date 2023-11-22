@@ -101,22 +101,69 @@ TC_L2CAP_COS_IEX_BV_02_C
 TC_L2CAP_COS_ECH_BV_01_C
   bta_enable
 
+TC_L2CP_COS_CFC_BV_01_C
+  gattc_connect_over_le
+  gattc_socket_conn_begin_connect_thread_psm 1 0 1
+  rfcomm_write 10
+  [PTS Interaction] Verify value
+  rfcomm_stop
+  gattc_disconnect
+  bta_disable
+  bta_enable
+
+TC_L2CP_COS_CFC_BV_02_C
+  gattc_connect_over_le
+  gattc_socket_conn_begin_connect_thread_psm 1 0 1
+  rfcomm_write 10
+  [PTS Interaction] Verify value
+  rfcomm_stop
+  gattc_disconnect
+
+TC_L2CP_COS_CFC_BV_03_C
+  gattc_connect_over_le
+  gattc_socket_conn_begin_connect_thread_psm 1 0 1
+  rfcomm_write 10
+  [PTS Interaction] Verify value
+  rfcomm_stop
+  gattc_disconnect
+
+TC_L2CP_COS_CFC_BV_04_C
+  gattc_connect_over_le
+  gattc_socket_conn_begin_connect_thread_psm 1 0 1
+  [PTS Interaction] Verify value
+  rfcomm_stop
+  gattc_disconnect
+
+TC_L2CP_COS_CFC_BV_05_C
+  gattc_connect_over_le
+  gattc_socket_conn_begin_connect_thread_psm 1 0 1
+  gattc_socket_conn_begin_connect_thread_psm 1 0 1
+  [PTS Interaction] Verify value
+  rfcomm_stop
+  gattc_disconnect
+  bta_disable
+  bta_enable
+
 TC_L2CAP_EXF_BV_01_C
-  bta_set_scan_mode SCAN_MODE_CONNECTABLE
+  bta_set_scan_mode connectable
 
 TC_L2CAP_EXF_BV_02_C
-  bta_set_scan_mode SCAN_MODE_CONNECTABLE
+  bta_set_scan_mode connectable
 
 TC_L2CAP_EXF_BV_03_C
-  bta_set_scan_mode SCAN_MODE_CONNECTABLE
+  bta_set_scan_mode connectable
 
 TC_L2CAP_EXF_BV_05_C
-  bta_set_scan_mode SCAN_MODE_CONNECTABLE
+  bta_set_scan_mode connectable
 
 TC_L2CAP_CMC_BV_09_C
-  bta_set_scan_mode SCAN_MODE_CONNECTABLE
+  bta_set_scan_mode connectable
 
 TC_L2CAP_CMC_BV_10_C
+  rfcomm_connect
+  rfcomm_stop
+  rfcomm_connect
+  rfcomm_stop
   rfcomm_connect
   rfcomm_stop
   [Wait up to 10-15 seconds]
@@ -138,7 +185,7 @@ TC_L2CAP_CMC_BV_13_C
   [PTS Interaction] Yes
 
 TC_L2CAP_CMC_BI_05_C
-  rfcomm_accept
+  rfcomm_connect
   [Wait up to 10-15 seconds]
 
 TC_L2CAP_CMC_BI_06_C
@@ -161,9 +208,80 @@ TC_LE_REJ_BI_01_C
   gattc_connect_over_le
   gattc_disconnect
 
+TC_L2CAP_LE_CFC_BI_01_C
+  gattc_connect_over_le
+  gattc_socket_conn_begin_connect_thread_psm 1 0 1
+  [PTS Interaction] Verify values
+  gattc_disconnect
+
+TC_L2CAP_LE_CFC_BV_01_C
+  gattc_connect_over_le
+  gattc_socket_conn_begin_connect_thread_psm 1 0 1
+  [PTS Interaction] Verify values
+  gattc_disconnect
+
+TC_L2CAP_LE_CFC_BV_02_C
+  gattc_connect_over_le
+  gattc_socket_conn_begin_connect_thread_psm 1 0 1
+  [PTS Interaction] Verify values
+  gattc_disconnect
+
+TC_L2CAP_LE_CFC_BV_03_C
+  TBD
+
+TC_L2CAP_LE_CFC_BV_04_C
+  gattc_connect_over_le
+  gattc_socket_conn_begin_connect_thread_psm 1 0 241
+  [PTS Interaction] Verify values
+  gattc_disconnect
+
 TC_L2CAP_LE_CFC_BV_05_C
   gattc_connect_over_le
   gattc_disconnect
   bta_disable
   bta_enable
   gattc_connect_over_le
+
+TC_L2CAP_LE_CFC_BV_06_C
+  gattc_connect_over_le
+  gattc_socket_conn_begin_connect_thread_psm 1 0 1
+  rfcomm_write 10
+  rfcomm_write 10
+  rfcomm_write 10
+  gattc_disconnect
+  bta_disable
+  bta_enable
+
+TC_L2CAP_LE_CFC_BV_07_C
+  TBD
+
+TC_L2CAP_LE_CFC_BV_09_C
+  TBD
+
+TC_L2CAP_LE_CFC_BV_16_C
+  gattc_connect_over_le
+  gattc_socket_conn_begin_connect_thread_psm 1 0 1
+  [PTS Interaction] Verify values
+  gattc_disconnect
+
+TC_L2CAP_LE_CFC_BV_18_C
+  gattc_connect_over_le
+  gattc_socket_conn_begin_connect_thread_psm 1 0 1
+  [PTS Interaction] Verify values
+  gattc_disconnect
+
+TC_L2CAP_LE_CFC_BV_19_C
+  gattc_connect_over_le
+  gattc_socket_conn_begin_connect_thread_psm 1 0 1
+  [PTS Interaction] Verify values
+  gattc_disconnect
+
+TC_L2CAP_LE_CFC_BV_20_C
+  TBD
+
+TC_L2CAP_LE_CFC_BV_21_C
+  gattc_connect_over_le
+  gattc_socket_conn_begin_connect_thread_psm 1 0 1
+  [PTS Interaction] Verify values
+  gattc_disconnect
+

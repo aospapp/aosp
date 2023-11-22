@@ -15,16 +15,15 @@
  */
 package com.android.tradefed.result;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import junit.framework.TestCase;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -58,7 +57,7 @@ public class CollectingTestListenerTest extends TestCase {
      * Test the listener under a single normal test run.
      */
     public void testSingleRun() {
-        final TestIdentifier test = injectTestRun("run", "testFoo", METRIC_VALUE);
+        final TestDescription test = injectTestRun("run", "testFoo", METRIC_VALUE);
         TestRunResult runResult = mCollectingTestListener.getCurrentRunResults();
         assertTrue(runResult.isRunComplete());
         assertFalse(runResult.isRunFailure());
@@ -73,11 +72,10 @@ public class CollectingTestListenerTest extends TestCase {
     /**
      * Test the listener where test run has failed.
      */
-    @SuppressWarnings("unchecked")
     public void testRunFailed() {
         mCollectingTestListener.testRunStarted("foo", 1);
         mCollectingTestListener.testRunFailed("error");
-        mCollectingTestListener.testRunEnded(0, Collections.EMPTY_MAP);
+        mCollectingTestListener.testRunEnded(0, new HashMap<String, Metric>());
         TestRunResult runResult = mCollectingTestListener.getCurrentRunResults();
         assertTrue(runResult.isRunComplete());
         assertTrue(runResult.isRunFailure());
@@ -85,11 +83,26 @@ public class CollectingTestListenerTest extends TestCase {
     }
 
     /**
+     * Test the listener where test run has failed.
+     */
+    public void testRunFailed_counting() {
+        mCollectingTestListener.testRunStarted("foo1", 1);
+        mCollectingTestListener.testRunFailed("error1");
+        mCollectingTestListener.testRunEnded(0, new HashMap<String, Metric>());
+        mCollectingTestListener.testRunStarted("foo2", 1);
+        mCollectingTestListener.testRunEnded(0, new HashMap<String, Metric>());
+        mCollectingTestListener.testRunStarted("foo3", 1);
+        mCollectingTestListener.testRunFailed("error3");
+        mCollectingTestListener.testRunEnded(0, new HashMap<String, Metric>());
+        assertEquals(2, mCollectingTestListener.getNumAllFailedTestRuns());
+    }
+
+    /**
      * Test the listener when invocation is composed of two test runs.
      */
     public void testTwoRuns() {
-        final TestIdentifier test1 = injectTestRun("run1", "testFoo1", METRIC_VALUE);
-        final TestIdentifier test2 = injectTestRun("run2", "testFoo2", METRIC_VALUE2);
+        final TestDescription test1 = injectTestRun("run1", "testFoo1", METRIC_VALUE);
+        final TestDescription test2 = injectTestRun("run2", "testFoo2", METRIC_VALUE2);
         assertEquals(2, mCollectingTestListener.getNumTotalTests());
         assertEquals(2, mCollectingTestListener.getNumTestsInState(TestStatus.PASSED));
         assertEquals(2, mCollectingTestListener.getRunResults().size());
@@ -115,8 +128,8 @@ public class CollectingTestListenerTest extends TestCase {
      * Test the listener when invocation is composed of a re-executed test run.
      */
     public void testReRun() {
-        final TestIdentifier test1 = injectTestRun("run", "testFoo1", METRIC_VALUE);
-        final TestIdentifier test2 = injectTestRun("run", "testFoo2", METRIC_VALUE2);
+        final TestDescription test1 = injectTestRun("run", "testFoo1", METRIC_VALUE);
+        final TestDescription test2 = injectTestRun("run", "testFoo2", METRIC_VALUE2);
         assertEquals(2, mCollectingTestListener.getNumTotalTests());
         assertEquals(2, mCollectingTestListener.getNumTestsInState(TestStatus.PASSED));
         assertEquals(1, mCollectingTestListener.getRunResults().size());
@@ -149,8 +162,8 @@ public class CollectingTestListenerTest extends TestCase {
     @SuppressWarnings("unchecked")
     public void testSingleRun_incomplete() {
         mCollectingTestListener.testRunStarted("run", 1);
-        mCollectingTestListener.testStarted(new TestIdentifier("FooTest", "incomplete"));
-        mCollectingTestListener.testRunEnded(0, Collections.EMPTY_MAP);
+        mCollectingTestListener.testStarted(new TestDescription("FooTest", "incomplete"));
+        mCollectingTestListener.testRunEnded(0, new HashMap<String, Metric>());
         assertEquals(1, mCollectingTestListener.getNumTestsInState(TestStatus.INCOMPLETE));
     }
 
@@ -235,32 +248,33 @@ public class CollectingTestListenerTest extends TestCase {
     /**
      * Injects a single test run with 1 passed test into the {@link CollectingTestListener} under
      * test
-     * @return the {@link TestIdentifier} of added test
+     *
+     * @return the {@link TestDescription} of added test
      */
-    private TestIdentifier injectTestRun(String runName, String testName, String metricValue) {
+    private TestDescription injectTestRun(String runName, String testName, String metricValue) {
         return injectTestRun(runName, testName, metricValue, false);
     }
 
     /**
-     * Injects a single test run with 1 test into the {@link CollectingTestListener} under
-     * test.
-     * @return the {@link TestIdentifier} of added test
+     * Injects a single test run with 1 test into the {@link CollectingTestListener} under test.
+     *
+     * @return the {@link TestDescription} of added test
      */
-    private TestIdentifier injectTestRun(String runName, String testName, String metricValue,
-            boolean failtest) {
+    private TestDescription injectTestRun(
+            String runName, String testName, String metricValue, boolean failtest) {
         Map<String, String> runMetrics = new HashMap<String, String>(1);
         runMetrics.put(RUN_KEY, metricValue);
         Map<String, String> testMetrics = new HashMap<String, String>(1);
         testMetrics.put(TEST_KEY, metricValue);
 
         mCollectingTestListener.testRunStarted(runName, 1);
-        final TestIdentifier test = new TestIdentifier("FooTest", testName);
+        final TestDescription test = new TestDescription("FooTest", testName);
         mCollectingTestListener.testStarted(test);
         if (failtest) {
             mCollectingTestListener.testFailed(test, "trace");
         }
-        mCollectingTestListener.testEnded(test, testMetrics);
-        mCollectingTestListener.testRunEnded(0, runMetrics);
+        mCollectingTestListener.testEnded(test, TfMetricProtoUtil.upgradeConvert(testMetrics));
+        mCollectingTestListener.testRunEnded(0, TfMetricProtoUtil.upgradeConvert(runMetrics));
         return test;
     }
 }

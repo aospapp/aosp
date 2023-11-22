@@ -134,9 +134,6 @@ public class PhoneGlobals extends ContextWrapper {
 
     private static PhoneGlobals sMe;
 
-    // A few important fields we expose to the rest of the package
-    // directly (rather than thru set/get methods) for efficiency.
-    CallController callController;
     CallManager mCM;
     CallNotifier notifier;
     CallerInfoCache callerInfoCache;
@@ -202,12 +199,13 @@ public class PhoneGlobals extends ContextWrapper {
                         // The user won't be able to do anything else until
                         // they enter a valid SIM network PIN.
                         Log.i(LOG_TAG, "show sim depersonal panel");
-                        IccNetworkDepersonalizationPanel.showDialog();
+                        Phone phone = (Phone) ((AsyncResult) msg.obj).userObj;
+                        IccNetworkDepersonalizationPanel.showDialog(phone);
                     }
                     break;
 
                 case EVENT_DATA_ROAMING_DISCONNECTED:
-                    notificationMgr.showDataDisconnectedRoaming();
+                    notificationMgr.showDataDisconnectedRoaming(msg.arg1);
                     break;
 
                 case EVENT_DATA_ROAMING_OK:
@@ -325,11 +323,6 @@ public class PhoneGlobals extends ContextWrapper {
             CallLogger callLogger = new CallLogger(this, new CallLogAsync());
 
             callGatewayManager = CallGatewayManager.getInstance();
-
-            // Create the CallController singleton, which is the interface
-            // to the telephony layer for user-initiated telephony functionality
-            // (like making outgoing calls.)
-            callController = CallController.init(this, callLogger, callGatewayManager);
 
             // Create the CallerInfoCache singleton, which remembers custom ring tone and
             // send-to-voicemail settings.
@@ -842,7 +835,9 @@ public class PhoneGlobals extends ContextWrapper {
             mNoDataDueToRoaming = true;
             Log.d(LOG_TAG, "Show roaming disconnected notification");
             mDataRoamingNotifLog.log("Show");
-            mHandler.sendEmptyMessage(EVENT_DATA_ROAMING_DISCONNECTED);
+            Message msg = mHandler.obtainMessage(EVENT_DATA_ROAMING_DISCONNECTED);
+            msg.arg1 = mDefaultDataSubId;
+            msg.sendToTarget();
         } else if (mNoDataDueToRoaming && (dataAllowed
                 || !reasons.containsOnly(DataDisallowedReasonType.ROAMING_DISABLED))) {
             // Otherwise dismiss the notification we showed earlier.

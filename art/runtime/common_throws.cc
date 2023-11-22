@@ -18,23 +18,26 @@
 
 #include <sstream>
 
-#include "android-base/stringprintf.h"
+#include <android-base/logging.h>
+#include <android-base/stringprintf.h>
 
 #include "art_field-inl.h"
 #include "art_method-inl.h"
-#include "base/logging.h"
 #include "class_linker-inl.h"
-#include "dex_file-inl.h"
-#include "dex_instruction-inl.h"
-#include "invoke_type.h"
+#include "debug_print.h"
+#include "dex/dex_file-inl.h"
+#include "dex/dex_instruction-inl.h"
+#include "dex/invoke_type.h"
 #include "mirror/class-inl.h"
 #include "mirror/method_type.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
-#include "nativehelper/ScopedLocalRef.h"
+#include "nativehelper/scoped_local_ref.h"
 #include "obj_ptr-inl.h"
 #include "thread.h"
+#include "vdex_file.h"
 #include "verifier/method_verifier.h"
+#include "well_known_classes.h"
 
 namespace art {
 
@@ -50,6 +53,11 @@ static void AddReferrerLocation(std::ostream& os, ObjPtr<mirror::Class> referrer
          << "' appears in " << location << ")";
     }
   }
+}
+
+static void ThrowException(const char* exception_descriptor) REQUIRES_SHARED(Locks::mutator_lock_) {
+  Thread* self = Thread::Current();
+  self->ThrowNewException(exception_descriptor, nullptr);
 }
 
 static void ThrowException(const char* exception_descriptor,
@@ -145,6 +153,7 @@ void ThrowWrappedBootstrapMethodError(const char* fmt, ...) {
 // ClassCastException
 
 void ThrowClassCastException(ObjPtr<mirror::Class> dest_type, ObjPtr<mirror::Class> src_type) {
+  DumpB77342775DebugData(dest_type, src_type);
   ThrowException("Ljava/lang/ClassCastException;", nullptr,
                  StringPrintf("%s cannot be cast to %s",
                               mirror::Class::PrettyDescriptor(src_type).c_str(),
@@ -242,6 +251,11 @@ void ThrowIllegalArgumentException(const char* msg) {
   ThrowException("Ljava/lang/IllegalArgumentException;", nullptr, msg);
 }
 
+// IllegalStateException
+
+void ThrowIllegalStateException(const char* msg) {
+  ThrowException("Ljava/lang/IllegalStateException;", nullptr, msg);
+}
 
 // IncompatibleClassChangeError
 
@@ -267,6 +281,7 @@ void ThrowIncompatibleClassChangeErrorClassForInterfaceSuper(ArtMethod* method,
       << "' does not implement interface '" << mirror::Class::PrettyDescriptor(target_class)
       << "' in call to '"
       << ArtMethod::PrettyMethod(method) << "'";
+  DumpB77342775DebugData(target_class, this_object->GetClass());
   ThrowException("Ljava/lang/IncompatibleClassChangeError;",
                  referrer != nullptr ? referrer->GetDeclaringClass() : nullptr,
                  msg.str().c_str());
@@ -283,6 +298,7 @@ void ThrowIncompatibleClassChangeErrorClassForInterfaceDispatch(ArtMethod* inter
       << "' does not implement interface '"
       << mirror::Class::PrettyDescriptor(interface_method->GetDeclaringClass())
       << "' in call to '" << ArtMethod::PrettyMethod(interface_method) << "'";
+  DumpB77342775DebugData(interface_method->GetDeclaringClass(), this_object->GetClass());
   ThrowException("Ljava/lang/IncompatibleClassChangeError;",
                  referrer != nullptr ? referrer->GetDeclaringClass() : nullptr,
                  msg.str().c_str());
@@ -311,6 +327,13 @@ void ThrowIncompatibleClassChangeErrorForMethodConflict(ArtMethod* method) {
                  /*referrer*/nullptr,
                  StringPrintf("Conflicting default method implementations %s",
                               ArtMethod::PrettyMethod(method).c_str()).c_str());
+}
+
+// IndexOutOfBoundsException
+
+void ThrowIndexOutOfBoundsException(int index, int length) {
+  ThrowException("Ljava/lang/IndexOutOfBoundsException;", nullptr,
+                 StringPrintf("length=%d; index=%d", length, index).c_str());
 }
 
 // InternalError
@@ -432,14 +455,15 @@ void ThrowNullPointerExceptionForMethodAccess(ArtMethod* method,
 static bool IsValidReadBarrierImplicitCheck(uintptr_t addr) {
   DCHECK(kEmitCompilerReadBarrier);
   uint32_t monitor_offset = mirror::Object::MonitorOffset().Uint32Value();
-  if (kUseBakerReadBarrier && (kRuntimeISA == kX86 || kRuntimeISA == kX86_64)) {
+  if (kUseBakerReadBarrier &&
+      (kRuntimeISA == InstructionSet::kX86 || kRuntimeISA == InstructionSet::kX86_64)) {
     constexpr uint32_t gray_byte_position = LockWord::kReadBarrierStateShift / kBitsPerByte;
     monitor_offset += gray_byte_position;
   }
   return addr == monitor_offset;
 }
 
-static bool IsValidImplicitCheck(uintptr_t addr, ArtMethod* method, const Instruction& instr)
+static bool IsValidImplicitCheck(uintptr_t addr, const Instruction& instr)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   if (!CanDoImplicitNullCheckOn(addr)) {
     return false;
@@ -481,9 +505,10 @@ static bool IsValidImplicitCheck(uintptr_t addr, ArtMethod* method, const Instru
     case Instruction::IPUT_BYTE:
     case Instruction::IPUT_CHAR:
     case Instruction::IPUT_SHORT: {
-      ArtField* field =
-          Runtime::Current()->GetClassLinker()->ResolveField(instr.VRegC_22c(), method, false);
-      return (addr == 0) || (addr == field->GetOffset().Uint32Value());
+      // We might be doing an implicit null check with an offset that doesn't correspond
+      // to the instruction, for example with two field accesses and the first one being
+      // eliminated or re-ordered.
+      return true;
     }
 
     case Instruction::IGET_OBJECT_QUICK:
@@ -504,7 +529,10 @@ static bool IsValidImplicitCheck(uintptr_t addr, ArtMethod* method, const Instru
     case Instruction::IPUT_SHORT_QUICK:
     case Instruction::IPUT_WIDE_QUICK:
     case Instruction::IPUT_OBJECT_QUICK: {
-      return (addr == 0u) || (addr == instr.VRegC_22c());
+      // We might be doing an implicit null check with an offset that doesn't correspond
+      // to the instruction, for example with two field accesses and the first one being
+      // eliminated or re-ordered.
+      return true;
     }
 
     case Instruction::AGET_OBJECT:
@@ -545,53 +573,50 @@ static bool IsValidImplicitCheck(uintptr_t addr, ArtMethod* method, const Instru
 void ThrowNullPointerExceptionFromDexPC(bool check_address, uintptr_t addr) {
   uint32_t throw_dex_pc;
   ArtMethod* method = Thread::Current()->GetCurrentMethod(&throw_dex_pc);
-  const DexFile::CodeItem* code = method->GetCodeItem();
-  CHECK_LT(throw_dex_pc, code->insns_size_in_code_units_);
-  const Instruction* instr = Instruction::At(&code->insns_[throw_dex_pc]);
-  if (check_address && !IsValidImplicitCheck(addr, method, *instr)) {
+  CodeItemInstructionAccessor accessor(method->DexInstructions());
+  CHECK_LT(throw_dex_pc, accessor.InsnsSizeInCodeUnits());
+  const Instruction& instr = accessor.InstructionAt(throw_dex_pc);
+  if (check_address && !IsValidImplicitCheck(addr, instr)) {
     const DexFile* dex_file = method->GetDeclaringClass()->GetDexCache()->GetDexFile();
     LOG(FATAL) << "Invalid address for an implicit NullPointerException check: "
                << "0x" << std::hex << addr << std::dec
                << ", at "
-               << instr->DumpString(dex_file)
+               << instr.DumpString(dex_file)
                << " in "
                << method->PrettyMethod();
   }
 
-  switch (instr->Opcode()) {
+  switch (instr.Opcode()) {
     case Instruction::INVOKE_DIRECT:
-      ThrowNullPointerExceptionForMethodAccess(instr->VRegB_35c(), kDirect);
+      ThrowNullPointerExceptionForMethodAccess(instr.VRegB_35c(), kDirect);
       break;
     case Instruction::INVOKE_DIRECT_RANGE:
-      ThrowNullPointerExceptionForMethodAccess(instr->VRegB_3rc(), kDirect);
+      ThrowNullPointerExceptionForMethodAccess(instr.VRegB_3rc(), kDirect);
       break;
     case Instruction::INVOKE_VIRTUAL:
-      ThrowNullPointerExceptionForMethodAccess(instr->VRegB_35c(), kVirtual);
+      ThrowNullPointerExceptionForMethodAccess(instr.VRegB_35c(), kVirtual);
       break;
     case Instruction::INVOKE_VIRTUAL_RANGE:
-      ThrowNullPointerExceptionForMethodAccess(instr->VRegB_3rc(), kVirtual);
+      ThrowNullPointerExceptionForMethodAccess(instr.VRegB_3rc(), kVirtual);
       break;
     case Instruction::INVOKE_INTERFACE:
-      ThrowNullPointerExceptionForMethodAccess(instr->VRegB_35c(), kInterface);
+      ThrowNullPointerExceptionForMethodAccess(instr.VRegB_35c(), kInterface);
       break;
     case Instruction::INVOKE_INTERFACE_RANGE:
-      ThrowNullPointerExceptionForMethodAccess(instr->VRegB_3rc(), kInterface);
+      ThrowNullPointerExceptionForMethodAccess(instr.VRegB_3rc(), kInterface);
       break;
     case Instruction::INVOKE_POLYMORPHIC:
-      ThrowNullPointerExceptionForMethodAccess(instr->VRegB_45cc(), kVirtual);
+      ThrowNullPointerExceptionForMethodAccess(instr.VRegB_45cc(), kVirtual);
       break;
     case Instruction::INVOKE_POLYMORPHIC_RANGE:
-      ThrowNullPointerExceptionForMethodAccess(instr->VRegB_4rcc(), kVirtual);
+      ThrowNullPointerExceptionForMethodAccess(instr.VRegB_4rcc(), kVirtual);
       break;
     case Instruction::INVOKE_VIRTUAL_QUICK:
     case Instruction::INVOKE_VIRTUAL_RANGE_QUICK: {
-      // Since we replaced the method index, we ask the verifier to tell us which
-      // method is invoked at this location.
-      ArtMethod* invoked_method =
-          verifier::MethodVerifier::FindInvokedMethodAtDexPc(method, throw_dex_pc);
-      if (invoked_method != nullptr) {
+      uint16_t method_idx = method->GetIndexFromQuickening(throw_dex_pc);
+      if (method_idx != DexFile::kDexNoIndex16) {
         // NPE with precise message.
-        ThrowNullPointerExceptionForMethodAccess(invoked_method, kVirtual);
+        ThrowNullPointerExceptionForMethodAccess(method_idx, kVirtual);
       } else {
         // NPE with imprecise message.
         ThrowNullPointerException("Attempt to invoke a virtual method on a null object reference");
@@ -606,7 +631,8 @@ void ThrowNullPointerExceptionFromDexPC(bool check_address, uintptr_t addr) {
     case Instruction::IGET_CHAR:
     case Instruction::IGET_SHORT: {
       ArtField* field =
-          Runtime::Current()->GetClassLinker()->ResolveField(instr->VRegC_22c(), method, false);
+          Runtime::Current()->GetClassLinker()->ResolveField(instr.VRegC_22c(), method, false);
+      Thread::Current()->ClearException();  // Resolution may fail, ignore.
       ThrowNullPointerExceptionForFieldAccess(field, true /* read */);
       break;
     }
@@ -617,17 +643,13 @@ void ThrowNullPointerExceptionFromDexPC(bool check_address, uintptr_t addr) {
     case Instruction::IGET_SHORT_QUICK:
     case Instruction::IGET_WIDE_QUICK:
     case Instruction::IGET_OBJECT_QUICK: {
-      // Since we replaced the field index, we ask the verifier to tell us which
-      // field is accessed at this location.
-      ArtField* field =
-          verifier::MethodVerifier::FindAccessedFieldAtDexPc(method, throw_dex_pc);
-      if (field != nullptr) {
-        // NPE with precise message.
-        ThrowNullPointerExceptionForFieldAccess(field, true /* read */);
-      } else {
-        // NPE with imprecise message.
-        ThrowNullPointerException("Attempt to read from a field on a null object reference");
-      }
+      uint16_t field_idx = method->GetIndexFromQuickening(throw_dex_pc);
+      ArtField* field = nullptr;
+      CHECK_NE(field_idx, DexFile::kDexNoIndex16);
+      field = Runtime::Current()->GetClassLinker()->ResolveField(
+          field_idx, method, /* is_static */ false);
+      Thread::Current()->ClearException();  // Resolution may fail, ignore.
+      ThrowNullPointerExceptionForFieldAccess(field, true /* read */);
       break;
     }
     case Instruction::IPUT:
@@ -637,8 +659,9 @@ void ThrowNullPointerExceptionFromDexPC(bool check_address, uintptr_t addr) {
     case Instruction::IPUT_BYTE:
     case Instruction::IPUT_CHAR:
     case Instruction::IPUT_SHORT: {
-      ArtField* field =
-          Runtime::Current()->GetClassLinker()->ResolveField(instr->VRegC_22c(), method, false);
+      ArtField* field = Runtime::Current()->GetClassLinker()->ResolveField(
+          instr.VRegC_22c(), method, /* is_static */ false);
+      Thread::Current()->ClearException();  // Resolution may fail, ignore.
       ThrowNullPointerExceptionForFieldAccess(field, false /* write */);
       break;
     }
@@ -649,17 +672,13 @@ void ThrowNullPointerExceptionFromDexPC(bool check_address, uintptr_t addr) {
     case Instruction::IPUT_SHORT_QUICK:
     case Instruction::IPUT_WIDE_QUICK:
     case Instruction::IPUT_OBJECT_QUICK: {
-      // Since we replaced the field index, we ask the verifier to tell us which
-      // field is accessed at this location.
-      ArtField* field =
-          verifier::MethodVerifier::FindAccessedFieldAtDexPc(method, throw_dex_pc);
-      if (field != nullptr) {
-        // NPE with precise message.
-        ThrowNullPointerExceptionForFieldAccess(field, false /* write */);
-      } else {
-        // NPE with imprecise message.
-        ThrowNullPointerException("Attempt to write to a field on a null object reference");
-      }
+      uint16_t field_idx = method->GetIndexFromQuickening(throw_dex_pc);
+      ArtField* field = nullptr;
+      CHECK_NE(field_idx, DexFile::kDexNoIndex16);
+      field = Runtime::Current()->GetClassLinker()->ResolveField(
+          field_idx, method, /* is_static */ false);
+      Thread::Current()->ClearException();  // Resolution may fail, ignore.
+      ThrowNullPointerExceptionForFieldAccess(field, false /* write */);
       break;
     }
     case Instruction::AGET:
@@ -701,7 +720,7 @@ void ThrowNullPointerExceptionFromDexPC(bool check_address, uintptr_t addr) {
       const DexFile* dex_file =
           method->GetDeclaringClass()->GetDexCache()->GetDexFile();
       LOG(FATAL) << "NullPointerException at an unexpected instruction: "
-                 << instr->DumpString(dex_file)
+                 << instr.DumpString(dex_file)
                  << " in "
                  << method->PrettyMethod();
       break;
@@ -711,6 +730,12 @@ void ThrowNullPointerExceptionFromDexPC(bool check_address, uintptr_t addr) {
 
 void ThrowNullPointerException(const char* msg) {
   ThrowException("Ljava/lang/NullPointerException;", nullptr, msg);
+}
+
+// ReadOnlyBufferException
+
+void ThrowReadOnlyBufferException() {
+  Thread::Current()->ThrowNewException("Ljava/nio/ReadOnlyBufferException;", nullptr);
 }
 
 // RuntimeException
@@ -836,6 +861,12 @@ void ThrowStringIndexOutOfBoundsException(int index, int length) {
                  StringPrintf("length=%d; index=%d", length, index).c_str());
 }
 
+// UnsupportedOperationException
+
+void ThrowUnsupportedOperationException() {
+  ThrowException("Ljava/lang/UnsupportedOperationException;");
+}
+
 // VerifyError
 
 void ThrowVerifyError(ObjPtr<mirror::Class> referrer, const char* fmt, ...) {
@@ -847,13 +878,13 @@ void ThrowVerifyError(ObjPtr<mirror::Class> referrer, const char* fmt, ...) {
 
 // WrongMethodTypeException
 
-void ThrowWrongMethodTypeException(mirror::MethodType* callee_type,
-                                   mirror::MethodType* callsite_type) {
+void ThrowWrongMethodTypeException(mirror::MethodType* expected_type,
+                                   mirror::MethodType* actual_type) {
   ThrowException("Ljava/lang/invoke/WrongMethodTypeException;",
                  nullptr,
                  StringPrintf("Expected %s but was %s",
-                              callee_type->PrettyDescriptor().c_str(),
-                              callsite_type->PrettyDescriptor().c_str()).c_str());
+                              expected_type->PrettyDescriptor().c_str(),
+                              actual_type->PrettyDescriptor().c_str()).c_str());
 }
 
 }  // namespace art

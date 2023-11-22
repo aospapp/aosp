@@ -17,6 +17,7 @@
 #ifndef __CUTILS_ANDROID_REBOOT_H__
 #define __CUTILS_ANDROID_REBOOT_H__
 
+#include <sys/cdefs.h>
 
 __BEGIN_DECLS
 
@@ -29,8 +30,8 @@ __BEGIN_DECLS
 /* Properties */
 #define ANDROID_RB_PROPERTY "sys.powerctl"
 
-/* Android reboot reason stored in this file */
-#define LAST_REBOOT_REASON_FILE "/data/misc/reboot/last_reboot_reason"
+/* Android reboot reason stored in this property */
+#define LAST_REBOOT_REASON_PROPERTY "persist.sys.boot.reason"
 
 /* Reboot or shutdown the system.
  * This call uses ANDROID_RB_PROPERTY to request reboot to init process.

@@ -36,6 +36,14 @@ public class TypefaceSpanTest {
     private static final String FAMILY = "monospace";
 
     @Test
+    public void testConstructorFromTypeface() {
+        Typeface typeface = Typeface.create(FAMILY, Typeface.BOLD);
+        TypefaceSpan t = new TypefaceSpan(typeface);
+
+        assertEquals(typeface, t.getTypeface());
+    }
+
+    @Test
     public void testConstructor() {
         TypefaceSpan t = new TypefaceSpan(FAMILY);
 
@@ -69,7 +77,7 @@ public class TypefaceSpanTest {
         assertEquals(Typeface.NORMAL, tp.getTypeface().getStyle());
     }
 
-    @Test(expected=NullPointerException.class)
+    @Test(expected = NullPointerException.class)
     public void testUpdateMeasureStateNull() {
         TypefaceSpan typefaceSpan = new TypefaceSpan(FAMILY);
 
@@ -90,7 +98,7 @@ public class TypefaceSpanTest {
         assertEquals(Typeface.NORMAL, tp.getTypeface().getStyle());
     }
 
-    @Test(expected=NullPointerException.class)
+    @Test(expected = NullPointerException.class)
     public void testUpdateDrawStateNull() {
         TypefaceSpan typefaceSpan = new TypefaceSpan(FAMILY);
 

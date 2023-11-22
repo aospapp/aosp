@@ -16,14 +16,17 @@
 
 #include "linker/arm/relative_patcher_thumb2.h"
 
+#include <sstream>
+
 #include "arch/arm/asm_support_arm.h"
 #include "art_method.h"
 #include "base/bit_utils.h"
 #include "compiled_method.h"
 #include "entrypoints/quick/quick_entrypoints_enum.h"
+#include "linker/linker_patch.h"
 #include "lock_word.h"
-#include "mirror/object.h"
 #include "mirror/array-inl.h"
+#include "mirror/object.h"
 #include "read_barrier.h"
 #include "utils/arm/assembler_arm_vixl.h"
 
@@ -46,7 +49,7 @@ constexpr uint32_t kMaxBcondPositiveDisplacement = (1u << 20) - 2u + kPcDisplace
 constexpr uint32_t kMaxBcondNegativeDisplacement = (1u << 20) - kPcDisplacement;
 
 Thumb2RelativePatcher::Thumb2RelativePatcher(RelativePatcherTargetProvider* provider)
-    : ArmBaseRelativePatcher(provider, kThumb2) {
+    : ArmBaseRelativePatcher(provider, InstructionSet::kThumb2) {
 }
 
 void Thumb2RelativePatcher::PatchCall(std::vector<uint8_t>* code,
@@ -281,7 +284,7 @@ void Thumb2RelativePatcher::CompileBakerReadBarrierThunk(arm::ArmVIXLAssembler& 
       Register base_reg(BakerReadBarrierFirstRegField::Decode(encoded_data));
       CheckValidReg(base_reg.GetCode());
       DCHECK_EQ(kInvalidEncodedReg, BakerReadBarrierSecondRegField::Decode(encoded_data));
-      DCHECK(BakerReadBarrierWidth::kWide == BakerReadBarrierWidthField::Decode(encoded_data));
+      DCHECK(BakerReadBarrierWidthField::Decode(encoded_data) == BakerReadBarrierWidth::kWide);
       UseScratchRegisterScope temps(assembler.GetVIXLAssembler());
       temps.Exclude(ip);
       vixl::aarch32::Label slow_path;
@@ -353,8 +356,8 @@ void Thumb2RelativePatcher::CompileBakerReadBarrierThunk(arm::ArmVIXLAssembler& 
 
 std::vector<uint8_t> Thumb2RelativePatcher::CompileThunk(const ThunkKey& key) {
   ArenaPool pool;
-  ArenaAllocator arena(&pool);
-  arm::ArmVIXLAssembler assembler(&arena);
+  ArenaAllocator allocator(&pool);
+  arm::ArmVIXLAssembler assembler(&allocator);
 
   switch (key.GetType()) {
     case ThunkType::kMethodCall:
@@ -377,6 +380,44 @@ std::vector<uint8_t> Thumb2RelativePatcher::CompileThunk(const ThunkKey& key) {
   MemoryRegion code(thunk_code.data(), thunk_code.size());
   assembler.FinalizeInstructions(code);
   return thunk_code;
+}
+
+std::string Thumb2RelativePatcher::GetThunkDebugName(const ThunkKey& key) {
+  switch (key.GetType()) {
+    case ThunkType::kMethodCall:
+      return "MethodCallThunk";
+
+    case ThunkType::kBakerReadBarrier: {
+      uint32_t encoded_data = key.GetCustomValue1();
+      BakerReadBarrierKind kind = BakerReadBarrierKindField::Decode(encoded_data);
+      std::ostringstream oss;
+      oss << "BakerReadBarrierThunk";
+      switch (kind) {
+        case BakerReadBarrierKind::kField:
+          oss << "Field";
+          if (BakerReadBarrierWidthField::Decode(encoded_data) == BakerReadBarrierWidth::kWide) {
+            oss << "Wide";
+          }
+          oss << "_r" << BakerReadBarrierFirstRegField::Decode(encoded_data)
+              << "_r" << BakerReadBarrierSecondRegField::Decode(encoded_data);
+          break;
+        case BakerReadBarrierKind::kArray:
+          oss << "Array_r" << BakerReadBarrierFirstRegField::Decode(encoded_data);
+          DCHECK_EQ(kInvalidEncodedReg, BakerReadBarrierSecondRegField::Decode(encoded_data));
+          DCHECK(BakerReadBarrierWidthField::Decode(encoded_data) == BakerReadBarrierWidth::kWide);
+          break;
+        case BakerReadBarrierKind::kGcRoot:
+          oss << "GcRoot";
+          if (BakerReadBarrierWidthField::Decode(encoded_data) == BakerReadBarrierWidth::kWide) {
+            oss << "Wide";
+          }
+          oss << "_r" << BakerReadBarrierFirstRegField::Decode(encoded_data);
+          DCHECK_EQ(kInvalidEncodedReg, BakerReadBarrierSecondRegField::Decode(encoded_data));
+          break;
+      }
+      return oss.str();
+    }
+  }
 }
 
 #undef __

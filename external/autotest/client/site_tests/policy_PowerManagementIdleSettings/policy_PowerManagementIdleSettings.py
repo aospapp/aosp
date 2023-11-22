@@ -8,9 +8,9 @@ import time
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import cryptohome
-from autotest_lib.client.cros import power_status, power_utils
 from autotest_lib.client.cros.enterprise import enterprise_policy_base
 from autotest_lib.client.cros.graphics import graphics_utils
+from autotest_lib.client.cros.power import power_status, power_utils
 
 
 class policy_PowerManagementIdleSettings(
@@ -275,7 +275,7 @@ class policy_PowerManagementIdleSettings(
                 raise error.TestFail('User should be logged out.')
 
 
-    def run_test_case(self, case):
+    def run_once(self, case):
         """
         Setup and run the test configured for the specified test case.
 
@@ -283,5 +283,6 @@ class policy_PowerManagementIdleSettings(
 
         """
         case_value = self.TEST_CASES[case]
-        self.setup_case(self.POLICY_NAME, case_value, self.SUPPORTING_POLICIES)
+        self.SUPPORTING_POLICIES[self.POLICY_NAME] = case_value
+        self.setup_case(user_policies=self.SUPPORTING_POLICIES)
         self._test_idle_action(case_value)

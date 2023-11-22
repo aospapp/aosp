@@ -14,26 +14,26 @@
 */
 package com.android.bluetooth.map;
 
+import android.util.Log;
+
+import com.android.bluetooth.SignedLongLong;
+
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlSerializer;
+
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-import org.xmlpull.v1.XmlSerializer;
-
-import android.util.Log;
-
-import com.android.bluetooth.SignedLongLong;
-
 public class BluetoothMapConvoContactElement
-    implements Comparable<BluetoothMapConvoContactElement> {
+        implements Comparable<BluetoothMapConvoContactElement> {
 
     public static final long CONTACT_ID_TYPE_SMS_MMS = 1;
-    public static final long CONTACT_ID_TYPE_EMAIL   = 2;
-    public static final long CONTACT_ID_TYPE_IM      = 3;
+    public static final long CONTACT_ID_TYPE_EMAIL = 2;
+    public static final long CONTACT_ID_TYPE_IM = 3;
 
     private static final String XML_ATT_PRIORITY = "priority";
     private static final String XML_ATT_PRESENCE_STATUS = "presence_status";
@@ -64,7 +64,7 @@ public class BluetoothMapConvoContactElement
         BluetoothMapConvoContactElement newElement = new BluetoothMapConvoContactElement();
         newElement.mUci = address;
         // TODO: For now we use the ID as BT-UID
-        newElement.mBtUid = new SignedLongLong(contact.getId(),0);
+        newElement.mBtUid = new SignedLongLong(contact.getId(), 0);
         newElement.mDisplayName = contact.getName();
         return newElement;
     }
@@ -81,11 +81,11 @@ public class BluetoothMapConvoContactElement
         this.mChatState = chatState;
         this.mPresenceStatus = presenceStatus;
         this.mPriority = priority;
-        if(btUid != null) {
+        if (btUid != null) {
             try {
                 this.mBtUid = SignedLongLong.fromString(btUid);
             } catch (UnsupportedEncodingException e) {
-                Log.w(TAG,e);
+                Log.w(TAG, e);
             }
         }
     }
@@ -175,10 +175,11 @@ public class BluetoothMapConvoContactElement
         this.mUci = uci;
     }
 
-    public String getContactId(){
+    public String getContactId() {
         return mUci;
     }
 
+    @Override
     public int compareTo(BluetoothMapConvoContactElement e) {
         if (this.mLastActivity < e.mLastActivity) {
             return 1;
@@ -193,43 +194,41 @@ public class BluetoothMapConvoContactElement
      * Here we have taken the choice not to report empty attributes, to reduce the
      * amount of data to be transfered over BT. */
     public void encode(XmlSerializer xmlConvoElement)
-            throws IllegalArgumentException, IllegalStateException, IOException
-    {
-            // construct the XML tag for a single contact in the convolisting element.
-            xmlConvoElement.startTag(null, XML_TAG_CONVOCONTACT);
-            if(mUci != null) {
-                xmlConvoElement.attribute(null, XML_ATT_UCI, mUci);
-            }
-            if(mDisplayName != null) {
-                xmlConvoElement.attribute(null, XML_ATT_DISPLAY_NAME,
-                            BluetoothMapUtils.stripInvalidChars(mDisplayName));
-            }
-            if(mName != null) {
-                xmlConvoElement.attribute(null, XML_ATT_NAME,
-                        BluetoothMapUtils.stripInvalidChars(mName));
-            }
-            if(mChatState != -1) {
-                xmlConvoElement.attribute(null, XML_ATT_CHAT_STATE, String.valueOf(mChatState));
-            }
-            if(mLastActivity != -1) {
-                xmlConvoElement.attribute(null, XML_ATT_LAST_ACTIVITY,
-                        this.getLastActivityString());
-            }
-            if(mBtUid != null) {
-                xmlConvoElement.attribute(null, XML_ATT_X_BT_UID, mBtUid.toHexString());
-            }
-            if(mPresenceAvailability != -1) {
-                xmlConvoElement.attribute(null,  XML_ATT_PRESENCE_AVAILABILITY,
-                        String.valueOf(mPresenceAvailability));
-            }
-            if(mPresenceStatus != null) {
-                xmlConvoElement.attribute(null,  XML_ATT_PRESENCE_STATUS, mPresenceStatus);
-            }
-            if(mPriority != -1) {
-                xmlConvoElement.attribute(null, XML_ATT_PRIORITY, String.valueOf(mPriority));
-            }
+            throws IllegalArgumentException, IllegalStateException, IOException {
+        // construct the XML tag for a single contact in the convolisting element.
+        xmlConvoElement.startTag(null, XML_TAG_CONVOCONTACT);
+        if (mUci != null) {
+            xmlConvoElement.attribute(null, XML_ATT_UCI, mUci);
+        }
+        if (mDisplayName != null) {
+            xmlConvoElement.attribute(null, XML_ATT_DISPLAY_NAME,
+                    BluetoothMapUtils.stripInvalidChars(mDisplayName));
+        }
+        if (mName != null) {
+            xmlConvoElement.attribute(null, XML_ATT_NAME,
+                    BluetoothMapUtils.stripInvalidChars(mName));
+        }
+        if (mChatState != -1) {
+            xmlConvoElement.attribute(null, XML_ATT_CHAT_STATE, String.valueOf(mChatState));
+        }
+        if (mLastActivity != -1) {
+            xmlConvoElement.attribute(null, XML_ATT_LAST_ACTIVITY, this.getLastActivityString());
+        }
+        if (mBtUid != null) {
+            xmlConvoElement.attribute(null, XML_ATT_X_BT_UID, mBtUid.toHexString());
+        }
+        if (mPresenceAvailability != -1) {
+            xmlConvoElement.attribute(null, XML_ATT_PRESENCE_AVAILABILITY,
+                    String.valueOf(mPresenceAvailability));
+        }
+        if (mPresenceStatus != null) {
+            xmlConvoElement.attribute(null, XML_ATT_PRESENCE_STATUS, mPresenceStatus);
+        }
+        if (mPriority != -1) {
+            xmlConvoElement.attribute(null, XML_ATT_PRIORITY, String.valueOf(mPriority));
+        }
 
-            xmlConvoElement.endTag(null, XML_TAG_CONVOCONTACT);
+        xmlConvoElement.endTag(null, XML_TAG_CONVOCONTACT);
     }
 
 
@@ -244,34 +243,36 @@ public class BluetoothMapConvoContactElement
             throws ParseException, XmlPullParserException, IOException {
         int count = parser.getAttributeCount();
         BluetoothMapConvoContactElement newElement;
-        if(count<1) {
-            throw new IllegalArgumentException(XML_TAG_CONVOCONTACT +
-                    " is not decorated with attributes");
+        if (count < 1) {
+            throw new IllegalArgumentException(
+                    XML_TAG_CONVOCONTACT + " is not decorated with attributes");
         }
         newElement = new BluetoothMapConvoContactElement();
-        for (int i = 0; i<count; i++) {
+        for (int i = 0; i < count; i++) {
             String attributeName = parser.getAttributeName(i).trim();
             String attributeValue = parser.getAttributeValue(i);
-            if(attributeName.equalsIgnoreCase(XML_ATT_UCI)) {
+            if (attributeName.equalsIgnoreCase(XML_ATT_UCI)) {
                 newElement.mUci = attributeValue;
-            } else if(attributeName.equalsIgnoreCase(XML_ATT_NAME)) {
+            } else if (attributeName.equalsIgnoreCase(XML_ATT_NAME)) {
                 newElement.mName = attributeValue;
-            } else if(attributeName.equalsIgnoreCase(XML_ATT_DISPLAY_NAME)) {
+            } else if (attributeName.equalsIgnoreCase(XML_ATT_DISPLAY_NAME)) {
                 newElement.mDisplayName = attributeValue;
-            } else if(attributeName.equalsIgnoreCase(XML_ATT_CHAT_STATE)) {
+            } else if (attributeName.equalsIgnoreCase(XML_ATT_CHAT_STATE)) {
                 newElement.setChatState(attributeValue);
-            } else if(attributeName.equalsIgnoreCase(XML_ATT_LAST_ACTIVITY)) {
+            } else if (attributeName.equalsIgnoreCase(XML_ATT_LAST_ACTIVITY)) {
                 newElement.setLastActivity(attributeValue);
-            } else if(attributeName.equalsIgnoreCase(XML_ATT_X_BT_UID)) {
+            } else if (attributeName.equalsIgnoreCase(XML_ATT_X_BT_UID)) {
                 newElement.setBtUid(SignedLongLong.fromString(attributeValue));
-            } else if(attributeName.equalsIgnoreCase(XML_ATT_PRESENCE_AVAILABILITY)) {
+            } else if (attributeName.equalsIgnoreCase(XML_ATT_PRESENCE_AVAILABILITY)) {
                 newElement.mPresenceAvailability = Integer.parseInt(attributeValue);
-            } else if(attributeName.equalsIgnoreCase(XML_ATT_PRESENCE_STATUS)) {
+            } else if (attributeName.equalsIgnoreCase(XML_ATT_PRESENCE_STATUS)) {
                 newElement.setPresenceStatus(attributeValue);
-            } else if(attributeName.equalsIgnoreCase(XML_ATT_PRIORITY)) {
+            } else if (attributeName.equalsIgnoreCase(XML_ATT_PRIORITY)) {
                 newElement.setPriority(Integer.parseInt(attributeValue));
             } else {
-                if(D) Log.i(TAG,"Unknown XML attribute: " + parser.getAttributeName(i));
+                if (D) {
+                    Log.i(TAG, "Unknown XML attribute: " + parser.getAttributeName(i));
+                }
             }
         }
         parser.nextTag(); // Consume the end-tag

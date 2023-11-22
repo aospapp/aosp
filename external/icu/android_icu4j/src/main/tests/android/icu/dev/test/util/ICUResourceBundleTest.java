@@ -25,6 +25,8 @@ import java.util.TreeSet;
 import java.util.jar.JarEntry;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.ICUData;
@@ -38,7 +40,10 @@ import android.icu.util.ULocale;
 import android.icu.util.UResourceBundle;
 import android.icu.util.UResourceBundleIterator;
 import android.icu.util.UResourceTypeMismatchException;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public final class ICUResourceBundleTest extends TestFmwk {
     private static final ClassLoader testLoader = ICUResourceBundleTest.class.getClassLoader();
 
@@ -876,6 +881,7 @@ public final class ICUResourceBundleTest extends TestFmwk {
 
     }
 
+    @Test
     public void TestCoverage(){
         UResourceBundle bundle;
         bundle = UResourceBundle.getBundleInstance(ICUData.ICU_BASE_NAME);

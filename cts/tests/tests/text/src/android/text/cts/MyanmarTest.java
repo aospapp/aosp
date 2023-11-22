@@ -19,15 +19,19 @@ package android.text.cts;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
+import android.text.TextUtils;
 import android.widget.TextView;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.Locale;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -38,6 +42,21 @@ public class MyanmarTest {
     @UiThreadTest
     @Test
     public void testCompositionSemantics() {
+        boolean isMyanmarSupported = false;
+        final String[] localeNames = Resources.getSystem().getStringArray(
+                Resources.getSystem().getIdentifier("supported_locales", "array", "android"));
+        for (String localeName : localeNames) {
+            if (TextUtils.equals("my", Locale.forLanguageTag(localeName).getLanguage())) {
+                isMyanmarSupported = true;
+                break;
+            }
+        }
+        if (!isMyanmarSupported) {
+            // Ignoring since no Myanmar font guarantee if Myanmar is not listed in supported
+            // locales.
+            return;
+        }
+
         Context context = InstrumentationRegistry.getTargetContext();
         String textA = "\u1019\u102d\u102f";
         String textB = "\u1019\u102f\u102d"; // wrong order for Unicode

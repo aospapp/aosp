@@ -166,8 +166,6 @@ class DroneManager(object):
     NOTIFY_INTERVAL = 60 * 60 * 24 # one day
     _STATS_KEY = 'drone_manager'
 
-    _ACTIVE_PROCESS_GAUGE = metrics.Gauge(
-        'chromeos/autotest/drone/active_processes')
 
 
     def __init__(self):
@@ -351,8 +349,17 @@ class DroneManager(object):
 
     def _get_drone_for_pidfile_id(self, pidfile_id):
         pidfile_contents = self.get_pidfile_contents(pidfile_id)
-        assert pidfile_contents.process is not None
+        if pidfile_contents.process is None:
+          raise DroneManagerError('Fail to get a drone due to empty pidfile')
         return self._get_drone_for_process(pidfile_contents.process)
+
+
+    def get_drone_for_pidfile_id(self, pidfile_id):
+        """Public API for luciferlib.
+
+        @param pidfile_id: PidfileId instance.
+        """
+        return self._get_drone_for_pidfile_id(pidfile_id)
 
 
     def _drop_old_pidfiles(self):
@@ -441,7 +448,8 @@ class DroneManager(object):
                 info = self._registered_pidfile_info[pidfile_id]
                 if info.num_processes is not None:
                     drone.active_processes += info.num_processes
-        self._ACTIVE_PROCESS_GAUGE.set(
+
+        metrics.Gauge('chromeos/autotest/drone/active_processes').set(
                 drone.active_processes,
                 fields={'drone_hostname': drone.hostname})
 
@@ -626,11 +634,31 @@ class DroneManager(object):
 
 
     def _least_loaded_drone(self, drones):
-        drone_to_use = drones[0]
-        for drone in drones[1:]:
-            if drone.used_capacity() < drone_to_use.used_capacity():
-                drone_to_use = drone
-        return drone_to_use
+        return min(drones, key=lambda d: d.used_capacity())
+
+
+    def pick_drone_to_use(self, num_processes=1, prefer_ssp=False):
+        """Return a drone to use.
+
+        Various options can be passed to optimize drone selection.
+
+        num_processes is the number of processes the drone is intended
+        to run.
+
+        prefer_ssp indicates whether drones supporting server-side
+        packaging should be preferred.  The returned drone is not
+        guaranteed to support it.
+
+        This public API is exposed for luciferlib to wrap.
+
+        Returns a drone instance (see drones.py).
+        """
+        return self._choose_drone_for_execution(
+                num_processes=num_processes,
+                username=None,  # Always allow all drones
+                drone_hostnames_allowed=None,  # Always allow all drones
+                require_ssp=prefer_ssp,
+        )
 
 
     def _choose_drone_for_execution(self, num_processes, username,

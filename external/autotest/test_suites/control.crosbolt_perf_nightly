@@ -14,9 +14,12 @@ TEST_TYPE = "Server"
 DOC = """
 ChromeOS performance tests including telemetry tests.
 
+If a test takes too long, consider putting it in the crosbolt_perf_weekly
+suite.
+
 @param build: The name of the image to test.
-              Ex: x86-mario-release/R17-1412.33.0-a1-b29
-@param board: The board to test on. Ex: x86-mario
+              E.g. x86-mario-release/R17-1412.33.0-a1-b29
+@param board: The board to test on. E.g. x86-mario
 @param pool: The pool of machines to utilize for scheduling. If pool=None
              board is used.
 @param check_hosts: require appropriate live hosts to exist in the lab.

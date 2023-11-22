@@ -17,6 +17,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := puncture_fs.c
+LOCAL_CFLAGS := -Wall -Werror
 
 LOCAL_C_INCLUDES += system/core/logwrapper/include
 

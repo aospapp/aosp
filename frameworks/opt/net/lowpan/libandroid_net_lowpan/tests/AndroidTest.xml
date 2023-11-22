@@ -21,7 +21,7 @@
     <option name="test-suite-tag" value="apct" />
     <option name="test-tag" value="FrameworksLowpanApiNativeTests" />
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
-        <option name="package" value="android.net.lowpan.testnative" />
+        <option name="package" value="android.net.lowpan.test" />
         <option name="runner" value="android.support.test.runner.AndroidJUnitRunner" />
     </test>
 </configuration>

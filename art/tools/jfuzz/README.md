@@ -28,6 +28,8 @@ where
          (higher values yield deeper nested conditionals)
     -n : defines a fuzzing nest for for/while/do-while loops
          (higher values yield deeper nested loops)
+    -t : defines a fuzzing nest for try-catch-finally blocks
+         (higher values yield deeper nested try-catch-finally blocks)
     -v : prints version number and exits
     -h : prints help and exits
 
@@ -48,6 +50,8 @@ How to start JFuzz testing
                           [--report_script=SCRIPT]
                           [--jfuzz_arg=ARG]
                           [--true_divergence]
+                          [--dexer=DEXER]
+                          [--debug_info]
 
 where
 
@@ -63,6 +67,8 @@ where
     --report_script   : path to script called for each divergence
     --jfuzz_arg       : argument for jfuzz
     --true_divergence : don't bisect timeout divergences
+    --dexer=DEXER     : use either dx, d8, or jack to obtain dex files
+    --debug_info      : include debugging info
 
 How to start JFuzz nightly testing
 ==================================
@@ -83,12 +89,16 @@ How to start J/DexFuzz testing (multi-layered)
                           [--num_tests=NUM_TESTS]
                           [--num_inputs=NUM_INPUTS]
                           [--device=DEVICE]
+                          [--dexer=DEXER]
+                          [--debug_info]
 
 where
 
-    --num_tests : number of tests to run (10000 by default)
-    --num_inputs: number of JFuzz programs to generate
-    --device    : target device serial number (passed to adb -s)
+    --num_tests   : number of tests to run (10000 by default)
+    --num_inputs  : number of JFuzz programs to generate
+    --device      : target device serial number (passed to adb -s)
+    --dexer=DEXER : use either dx, d8, or jack to obtain dex files
+    --debug_info  : include debugging info
 
 Background
 ==========

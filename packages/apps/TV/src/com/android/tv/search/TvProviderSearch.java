@@ -32,12 +32,10 @@ import android.os.SystemClock;
 import android.support.annotation.WorkerThread;
 import android.text.TextUtils;
 import android.util.Log;
-
 import com.android.tv.common.TvContentRatingCache;
+import com.android.tv.common.util.PermissionUtils;
 import com.android.tv.search.LocalSearchProvider.SearchResult;
-import com.android.tv.util.PermissionUtils;
 import com.android.tv.util.Utils;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -48,13 +46,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
-/**
- * An implementation of {@link SearchInterface} to search query from TvProvider directly.
- */
+/** An implementation of {@link SearchInterface} to search query from TvProvider directly. */
 public class TvProviderSearch implements SearchInterface {
     private static final String TAG = "TvProviderSearch";
     private static final boolean DEBUG = false;
+
+    private static final long SEARCH_TIME_FRAME_MS = TimeUnit.DAYS.toMillis(14);
 
     private static final int NO_LIMIT = 0;
 
@@ -70,15 +69,16 @@ public class TvProviderSearch implements SearchInterface {
     }
 
     /**
-     * Search channels, inputs, or programs from TvProvider.
-     * This assumes that parental control settings will not be change while searching.
+     * Search channels, inputs, or programs from TvProvider. This assumes that parental control
+     * settings will not be change while searching.
      *
      * @param action One of {@link #ACTION_TYPE_SWITCH_CHANNEL}, {@link #ACTION_TYPE_SWITCH_INPUT},
-     *               or {@link #ACTION_TYPE_AMBIGUOUS},
+     *     or {@link #ACTION_TYPE_AMBIGUOUS},
      */
     @Override
     @WorkerThread
     public List<SearchResult> search(String query, int limit, int action) {
+        // TODO(b/72499463): add a test.
         List<SearchResult> results = new ArrayList<>();
         if (!PermissionUtils.hasAccessAllEpg(mContext)) {
             // TODO: support this feature for non-system LC app. b/23939816
@@ -107,15 +107,19 @@ public class TvProviderSearch implements SearchInterface {
 
             // Lastly, search programs.
             limit -= results.size();
-            results.addAll(searchPrograms(query, null, new String[] {
-                    Programs.COLUMN_TITLE, Programs.COLUMN_SHORT_DESCRIPTION },
-                    channelsFound, limit));
+            results.addAll(
+                    searchPrograms(
+                            query,
+                            null,
+                            new String[] {Programs.COLUMN_TITLE, Programs.COLUMN_SHORT_DESCRIPTION},
+                            channelsFound,
+                            limit));
         }
         return results;
     }
 
-    private void appendSelectionString(StringBuilder sb, String[] columnForExactMatching,
-            String[] columnForPartialMatching) {
+    private void appendSelectionString(
+            StringBuilder sb, String[] columnForExactMatching, String[] columnForPartialMatching) {
         boolean firstColumn = true;
         if (columnForExactMatching != null) {
             for (String column : columnForExactMatching) {
@@ -139,8 +143,12 @@ public class TvProviderSearch implements SearchInterface {
         }
     }
 
-    private void insertSelectionArgumentStrings(String[] selectionArgs, int pos,
-            String query, String[] columnForExactMatching, String[] columnForPartialMatching) {
+    private void insertSelectionArgumentStrings(
+            String[] selectionArgs,
+            int pos,
+            String query,
+            String[] columnForExactMatching,
+            String[] columnForPartialMatching) {
         if (columnForExactMatching != null) {
             int until = pos + columnForExactMatching.length;
             for (; pos < until; ++pos) {
@@ -162,43 +170,66 @@ public class TvProviderSearch implements SearchInterface {
         long time = SystemClock.elapsedRealtime();
         List<SearchResult> results = new ArrayList<>();
         if (TextUtils.isDigitsOnly(query)) {
-            results.addAll(searchChannels(query, new String[] { Channels.COLUMN_DISPLAY_NUMBER },
-                    null, channels, NO_LIMIT));
+            results.addAll(
+                    searchChannels(
+                            query,
+                            new String[] {Channels.COLUMN_DISPLAY_NUMBER},
+                            null,
+                            channels,
+                            NO_LIMIT));
             if (results.size() > 1) {
                 Collections.sort(results, new ChannelComparatorWithSameDisplayNumber());
             }
         }
         if (results.size() < limit) {
-            results.addAll(searchChannels(query, null,
-                    new String[] { Channels.COLUMN_DISPLAY_NAME, Channels.COLUMN_DESCRIPTION },
-                    channels, limit - results.size()));
+            results.addAll(
+                    searchChannels(
+                            query,
+                            null,
+                            new String[] {
+                                Channels.COLUMN_DISPLAY_NAME, Channels.COLUMN_DESCRIPTION
+                            },
+                            channels,
+                            limit - results.size()));
         }
         if (results.size() > limit) {
             results = results.subList(0, limit);
         }
-        for (SearchResult result : results) {
-            fillProgramInfo(result);
+        for (int i = 0; i < results.size(); i++) {
+            results.set(i, fillProgramInfo(results.get(i)));
         }
         if (DEBUG) {
-            Log.d(TAG, "Found " + results.size() + " channels. Elapsed time for searching" +
-                    " channels: " + (SystemClock.elapsedRealtime() - time) + "(msec)");
+            Log.d(
+                    TAG,
+                    "Found "
+                            + results.size()
+                            + " channels. Elapsed time for searching"
+                            + " channels: "
+                            + (SystemClock.elapsedRealtime() - time)
+                            + "(msec)");
         }
         return results;
     }
 
     @WorkerThread
-    private List<SearchResult> searchChannels(String query, String[] columnForExactMatching,
-            String[] columnForPartialMatching, Set<Long> channelsFound, int limit) {
+    private List<SearchResult> searchChannels(
+            String query,
+            String[] columnForExactMatching,
+            String[] columnForPartialMatching,
+            Set<Long> channelsFound,
+            int limit) {
         String[] projection = {
-                Channels._ID,
-                Channels.COLUMN_DISPLAY_NUMBER,
-                Channels.COLUMN_DISPLAY_NAME,
-                Channels.COLUMN_DESCRIPTION
+            Channels._ID,
+            Channels.COLUMN_DISPLAY_NUMBER,
+            Channels.COLUMN_DISPLAY_NAME,
+            Channels.COLUMN_DESCRIPTION
         };
 
         StringBuilder sb = new StringBuilder();
-        sb.append(Channels.COLUMN_BROWSABLE).append("=1 AND ")
-                .append(Channels.COLUMN_SEARCHABLE).append("=1");
+        sb.append(Channels.COLUMN_BROWSABLE)
+                .append("=1 AND ")
+                .append(Channels.COLUMN_SEARCHABLE)
+                .append("=1");
         if (mTvInputManager.isParentalControlsEnabled()) {
             sb.append(" AND ").append(Channels.COLUMN_LOCKED).append("=0");
         }
@@ -207,16 +238,18 @@ public class TvProviderSearch implements SearchInterface {
         sb.append(")");
         String selection = sb.toString();
 
-        int len = (columnForExactMatching == null ? 0 : columnForExactMatching.length) +
-                (columnForPartialMatching == null ? 0 : columnForPartialMatching.length);
+        int len =
+                (columnForExactMatching == null ? 0 : columnForExactMatching.length)
+                        + (columnForPartialMatching == null ? 0 : columnForPartialMatching.length);
         String[] selectionArgs = new String[len];
-        insertSelectionArgumentStrings(selectionArgs, 0, query, columnForExactMatching,
-                columnForPartialMatching);
+        insertSelectionArgumentStrings(
+                selectionArgs, 0, query, columnForExactMatching, columnForPartialMatching);
 
         List<SearchResult> searchResults = new ArrayList<>();
 
-        try (Cursor c = mContentResolver.query(Channels.CONTENT_URI, projection, selection,
-                selectionArgs, null)) {
+        try (Cursor c =
+                mContentResolver.query(
+                        Channels.CONTENT_URI, projection, selection, selectionArgs, null)) {
             if (c != null) {
                 int count = 0;
                 while (c.moveToNext()) {
@@ -227,19 +260,19 @@ public class TvProviderSearch implements SearchInterface {
                     }
                     channelsFound.add(id);
 
-                    SearchResult result = new SearchResult();
-                    result.channelId = id;
-                    result.channelNumber = c.getString(1);
-                    result.title = c.getString(2);
-                    result.description = c.getString(3);
-                    result.imageUri = TvContract.buildChannelLogoUri(result.channelId).toString();
-                    result.intentAction = Intent.ACTION_VIEW;
-                    result.intentData = buildIntentData(result.channelId);
-                    result.contentType = Programs.CONTENT_ITEM_TYPE;
-                    result.isLive = true;
-                    result.progressPercentage = LocalSearchProvider.PROGRESS_PERCENTAGE_HIDE;
+                    SearchResult.Builder result = SearchResult.builder();
+                    result.setChannelId(id);
+                    result.setChannelNumber(c.getString(1));
+                    result.setTitle(c.getString(2));
+                    result.setDescription(c.getString(3));
+                    result.setImageUri(TvContract.buildChannelLogoUri(id).toString());
+                    result.setIntentAction(Intent.ACTION_VIEW);
+                    result.setIntentData(buildIntentData(id));
+                    result.setContentType(Programs.CONTENT_ITEM_TYPE);
+                    result.setIsLive(true);
+                    result.setProgressPercentage(LocalSearchProvider.PROGRESS_PERCENTAGE_HIDE);
 
-                    searchResults.add(result);
+                    searchResults.add(result.build());
 
                     if (limit != NO_LIMIT && ++count >= limit) {
                         break;
@@ -256,43 +289,55 @@ public class TvProviderSearch implements SearchInterface {
      * blocked.
      */
     @WorkerThread
-    private void fillProgramInfo(SearchResult result) {
+    private SearchResult fillProgramInfo(SearchResult result) {
         long now = System.currentTimeMillis();
-        Uri uri = TvContract.buildProgramsUriForChannel(result.channelId, now, now);
-        String[] projection = new String[] {
-                Programs.COLUMN_TITLE,
-                Programs.COLUMN_POSTER_ART_URI,
-                Programs.COLUMN_CONTENT_RATING,
-                Programs.COLUMN_VIDEO_WIDTH,
-                Programs.COLUMN_VIDEO_HEIGHT,
-                Programs.COLUMN_START_TIME_UTC_MILLIS,
-                Programs.COLUMN_END_TIME_UTC_MILLIS
-        };
+        Uri uri = TvContract.buildProgramsUriForChannel(result.getChannelId(), now, now);
+        String[] projection =
+                new String[] {
+                    Programs.COLUMN_TITLE,
+                    Programs.COLUMN_POSTER_ART_URI,
+                    Programs.COLUMN_CONTENT_RATING,
+                    Programs.COLUMN_VIDEO_WIDTH,
+                    Programs.COLUMN_VIDEO_HEIGHT,
+                    Programs.COLUMN_START_TIME_UTC_MILLIS,
+                    Programs.COLUMN_END_TIME_UTC_MILLIS
+                };
 
         try (Cursor c = mContentResolver.query(uri, projection, null, null, null)) {
             if (c != null && c.moveToNext() && !isRatingBlocked(c.getString(2))) {
-                String channelName = result.title;
+                String channelName = result.getTitle();
+                String channelNumber = result.getChannelNumber();
+                SearchResult.Builder builder = SearchResult.builder();
                 long startUtcMillis = c.getLong(5);
                 long endUtcMillis = c.getLong(6);
-                result.title = c.getString(0);
-                result.description = buildProgramDescription(result.channelNumber, channelName,
-                        startUtcMillis, endUtcMillis);
+                builder.setTitle(c.getString(0));
+                builder.setDescription(
+                        buildProgramDescription(
+                                channelNumber, channelName, startUtcMillis, endUtcMillis));
                 String imageUri = c.getString(1);
                 if (imageUri != null) {
-                    result.imageUri = imageUri;
+                    builder.setImageUri(imageUri);
                 }
-                result.videoWidth = c.getInt(3);
-                result.videoHeight = c.getInt(4);
-                result.duration = endUtcMillis - startUtcMillis;
-                result.progressPercentage = getProgressPercentage(startUtcMillis, endUtcMillis);
+                builder.setVideoWidth(c.getInt(3));
+                builder.setVideoHeight(c.getInt(4));
+                builder.setDuration(endUtcMillis - startUtcMillis);
+                builder.setProgressPercentage(getProgressPercentage(startUtcMillis, endUtcMillis));
+                return builder.build();
             }
         }
+        return result;
     }
 
-    private String buildProgramDescription(String channelNumber, String channelName,
-            long programStartUtcMillis, long programEndUtcMillis) {
+    private String buildProgramDescription(
+            String channelNumber,
+            String channelName,
+            long programStartUtcMillis,
+            long programEndUtcMillis) {
         return Utils.getDurationString(mContext, programStartUtcMillis, programEndUtcMillis, false)
-                + System.lineSeparator() + channelNumber + " " + channelName;
+                + System.lineSeparator()
+                + channelNumber
+                + " "
+                + channelName;
     }
 
     private int getProgressPercentage(long startUtcMillis, long endUtcMillis) {
@@ -300,23 +345,28 @@ public class TvProviderSearch implements SearchInterface {
         if (startUtcMillis > current || endUtcMillis <= current) {
             return LocalSearchProvider.PROGRESS_PERCENTAGE_HIDE;
         }
-        return (int)(100 * (current - startUtcMillis) / (endUtcMillis - startUtcMillis));
+        return (int) (100 * (current - startUtcMillis) / (endUtcMillis - startUtcMillis));
     }
 
     @WorkerThread
-    private List<SearchResult> searchPrograms(String query, String[] columnForExactMatching,
-            String[] columnForPartialMatching, Set<Long> channelsFound, int limit) {
+    private List<SearchResult> searchPrograms(
+            String query,
+            String[] columnForExactMatching,
+            String[] columnForPartialMatching,
+            Set<Long> channelsFound,
+            int limit) {
         if (DEBUG) Log.d(TAG, "Searching programs: '" + query + "'");
         long time = SystemClock.elapsedRealtime();
         String[] projection = {
-                Programs.COLUMN_CHANNEL_ID,
-                Programs.COLUMN_TITLE,
-                Programs.COLUMN_POSTER_ART_URI,
-                Programs.COLUMN_CONTENT_RATING,
-                Programs.COLUMN_VIDEO_WIDTH,
-                Programs.COLUMN_VIDEO_HEIGHT,
-                Programs.COLUMN_START_TIME_UTC_MILLIS,
-                Programs.COLUMN_END_TIME_UTC_MILLIS
+            Programs.COLUMN_CHANNEL_ID,
+            Programs.COLUMN_TITLE,
+            Programs.COLUMN_POSTER_ART_URI,
+            Programs.COLUMN_CONTENT_RATING,
+            Programs.COLUMN_VIDEO_WIDTH,
+            Programs.COLUMN_VIDEO_HEIGHT,
+            Programs.COLUMN_START_TIME_UTC_MILLIS,
+            Programs.COLUMN_END_TIME_UTC_MILLIS,
+            Programs._ID
         };
 
         StringBuilder sb = new StringBuilder();
@@ -327,17 +377,21 @@ public class TvProviderSearch implements SearchInterface {
         sb.append(")");
         String selection = sb.toString();
 
-        int len = (columnForExactMatching == null ? 0 : columnForExactMatching.length) +
-                (columnForPartialMatching == null ? 0 : columnForPartialMatching.length);
+        int len =
+                (columnForExactMatching == null ? 0 : columnForExactMatching.length)
+                        + (columnForPartialMatching == null ? 0 : columnForPartialMatching.length);
         String[] selectionArgs = new String[len + 2];
-        selectionArgs[0] = selectionArgs[1] = String.valueOf(System.currentTimeMillis());
-        insertSelectionArgumentStrings(selectionArgs, 2, query, columnForExactMatching,
-                columnForPartialMatching);
+        long now = System.currentTimeMillis();
+        selectionArgs[0] = String.valueOf(now + SEARCH_TIME_FRAME_MS);
+        selectionArgs[1] = String.valueOf(now);
+        insertSelectionArgumentStrings(
+                selectionArgs, 2, query, columnForExactMatching, columnForPartialMatching);
 
         List<SearchResult> searchResults = new ArrayList<>();
 
-        try (Cursor c = mContentResolver.query(Programs.CONTENT_URI, projection, selection,
-                selectionArgs, null)) {
+        try (Cursor c =
+                mContentResolver.query(
+                        Programs.CONTENT_URI, projection, selection, selectionArgs, null)) {
             if (c != null) {
                 int count = 0;
                 while (c.moveToNext()) {
@@ -350,41 +404,53 @@ public class TvProviderSearch implements SearchInterface {
 
                     // Don't know whether the channel is searchable or not.
                     String[] channelProjection = {
-                            Channels._ID,
-                            Channels.COLUMN_DISPLAY_NUMBER,
-                            Channels.COLUMN_DISPLAY_NAME
+                        Channels._ID, Channels.COLUMN_DISPLAY_NUMBER, Channels.COLUMN_DISPLAY_NAME
                     };
                     sb = new StringBuilder();
-                    sb.append(Channels._ID).append("=? AND ")
-                            .append(Channels.COLUMN_BROWSABLE).append("=1 AND ")
-                            .append(Channels.COLUMN_SEARCHABLE).append("=1");
+                    sb.append(Channels._ID)
+                            .append("=? AND ")
+                            .append(Channels.COLUMN_BROWSABLE)
+                            .append("=1 AND ")
+                            .append(Channels.COLUMN_SEARCHABLE)
+                            .append("=1");
                     if (mTvInputManager.isParentalControlsEnabled()) {
                         sb.append(" AND ").append(Channels.COLUMN_LOCKED).append("=0");
                     }
                     String selectionChannel = sb.toString();
-                    try (Cursor cChannel = mContentResolver.query(Channels.CONTENT_URI,
-                            channelProjection, selectionChannel,
-                            new String[] { String.valueOf(id) }, null)) {
-                        if (cChannel != null && cChannel.moveToNext()
+                    try (Cursor cChannel =
+                            mContentResolver.query(
+                                    Channels.CONTENT_URI,
+                                    channelProjection,
+                                    selectionChannel,
+                                    new String[] {String.valueOf(id)},
+                                    null)) {
+                        if (cChannel != null
+                                && cChannel.moveToNext()
                                 && !isRatingBlocked(c.getString(3))) {
                             long startUtcMillis = c.getLong(6);
                             long endUtcMillis = c.getLong(7);
-                            SearchResult result = new SearchResult();
-                            result.channelId = c.getLong(0);
-                            result.title = c.getString(1);
-                            result.description = buildProgramDescription(cChannel.getString(1),
-                                    cChannel.getString(2), startUtcMillis, endUtcMillis);
-                            result.imageUri = c.getString(2);
-                            result.intentAction = Intent.ACTION_VIEW;
-                            result.intentData = buildIntentData(id);
-                            result.contentType = Programs.CONTENT_ITEM_TYPE;
-                            result.isLive = true;
-                            result.videoWidth = c.getInt(4);
-                            result.videoHeight = c.getInt(5);
-                            result.duration = endUtcMillis - startUtcMillis;
-                            result.progressPercentage = getProgressPercentage(startUtcMillis,
-                                    endUtcMillis);
-                            searchResults.add(result);
+                            SearchResult.Builder result = SearchResult.builder();
+                            result.setChannelId(c.getLong(0));
+                            result.setTitle(c.getString(1));
+                            result.setDescription(
+                                    buildProgramDescription(
+                                            cChannel.getString(1),
+                                            cChannel.getString(2),
+                                            startUtcMillis,
+                                            endUtcMillis));
+                            result.setImageUri(c.getString(2));
+                            result.setIntentAction(Intent.ACTION_VIEW);
+                            result.setIntentData(buildIntentData(id));
+                            result.setIntentExtraData(
+                                    TvContract.buildProgramUri(c.getLong(8)).toString());
+                            result.setContentType(Programs.CONTENT_ITEM_TYPE);
+                            result.setIsLive(true);
+                            result.setVideoWidth(c.getInt(4));
+                            result.setVideoHeight(c.getInt(5));
+                            result.setDuration(endUtcMillis - startUtcMillis);
+                            result.setProgressPercentage(
+                                    getProgressPercentage(startUtcMillis, endUtcMillis));
+                            searchResults.add(result.build());
 
                             if (limit != NO_LIMIT && ++count >= limit) {
                                 break;
@@ -395,8 +461,14 @@ public class TvProviderSearch implements SearchInterface {
             }
         }
         if (DEBUG) {
-            Log.d(TAG, "Found " + searchResults.size() + " programs. Elapsed time for searching" +
-                    " programs: " + (SystemClock.elapsedRealtime() - time) + "(msec)");
+            Log.d(
+                    TAG,
+                    "Found "
+                            + searchResults.size()
+                            + " programs. Elapsed time for searching"
+                            + " programs: "
+                            + (SystemClock.elapsedRealtime() - time)
+                            + "(msec)");
         }
         return searchResults;
     }
@@ -439,9 +511,14 @@ public class TvProviderSearch implements SearchInterface {
                 results.add(buildSearchResultForInput(input.getId()));
                 if (results.size() >= limit) {
                     if (DEBUG) {
-                        Log.d(TAG, "Found " + results.size() + " inputs. Elapsed time for" +
-                                " searching inputs: " + (SystemClock.elapsedRealtime() - time) +
-                                "(msec)");
+                        Log.d(
+                                TAG,
+                                "Found "
+                                        + results.size()
+                                        + " inputs. Elapsed time for"
+                                        + " searching inputs: "
+                                        + (SystemClock.elapsedRealtime() - time)
+                                        + "(msec)");
                     }
                     return results;
                 }
@@ -455,22 +532,33 @@ public class TvProviderSearch implements SearchInterface {
             }
             String label = canonicalizeLabel(input.loadLabel(mContext));
             String customLabel = canonicalizeLabel(input.loadCustomLabel(mContext));
-            if ((label != null && label.contains(query)) ||
-                    (customLabel != null && customLabel.contains(query))) {
+            if ((label != null && label.contains(query))
+                    || (customLabel != null && customLabel.contains(query))) {
                 results.add(buildSearchResultForInput(input.getId()));
                 if (results.size() >= limit) {
                     if (DEBUG) {
-                        Log.d(TAG, "Found " + results.size() + " inputs. Elapsed time for" +
-                                " searching inputs: " + (SystemClock.elapsedRealtime() - time) +
-                                "(msec)");
+                        Log.d(
+                                TAG,
+                                "Found "
+                                        + results.size()
+                                        + " inputs. Elapsed time for"
+                                        + " searching inputs: "
+                                        + (SystemClock.elapsedRealtime() - time)
+                                        + "(msec)");
                     }
                     return results;
                 }
             }
         }
         if (DEBUG) {
-            Log.d(TAG, "Found " + results.size() + " inputs. Elapsed time for searching" +
-                    " inputs: " + (SystemClock.elapsedRealtime() - time) + "(msec)");
+            Log.d(
+                    TAG,
+                    "Found "
+                            + results.size()
+                            + " inputs. Elapsed time for searching"
+                            + " inputs: "
+                            + (SystemClock.elapsedRealtime() - time)
+                            + "(msec)");
         }
         return results;
     }
@@ -481,10 +569,10 @@ public class TvProviderSearch implements SearchInterface {
     }
 
     private SearchResult buildSearchResultForInput(String inputId) {
-        SearchResult result = new SearchResult();
-        result.intentAction = Intent.ACTION_VIEW;
-        result.intentData = TvContract.buildChannelUriForPassthroughInput(inputId).toString();
-        return result;
+        SearchResult.Builder result = SearchResult.builder();
+        result.setIntentAction(Intent.ACTION_VIEW);
+        result.setIntentData(TvContract.buildChannelUriForPassthroughInput(inputId).toString());
+        return result.build();
     }
 
     @WorkerThread
@@ -494,33 +582,35 @@ public class TvProviderSearch implements SearchInterface {
         @Override
         public int compare(SearchResult lhs, SearchResult rhs) {
             // Show recently watched channel first
-            Long lhsMaxWatchStartTime = mMaxWatchStartTimeMap.get(lhs.channelId);
+            Long lhsMaxWatchStartTime = mMaxWatchStartTimeMap.get(lhs.getChannelId());
             if (lhsMaxWatchStartTime == null) {
-                lhsMaxWatchStartTime = getMaxWatchStartTime(lhs.channelId);
-                mMaxWatchStartTimeMap.put(lhs.channelId, lhsMaxWatchStartTime);
+                lhsMaxWatchStartTime = getMaxWatchStartTime(lhs.getChannelId());
+                mMaxWatchStartTimeMap.put(lhs.getChannelId(), lhsMaxWatchStartTime);
             }
-            Long rhsMaxWatchStartTime = mMaxWatchStartTimeMap.get(rhs.channelId);
+            Long rhsMaxWatchStartTime = mMaxWatchStartTimeMap.get(rhs.getChannelId());
             if (rhsMaxWatchStartTime == null) {
-                rhsMaxWatchStartTime = getMaxWatchStartTime(rhs.channelId);
-                mMaxWatchStartTimeMap.put(rhs.channelId, rhsMaxWatchStartTime);
+                rhsMaxWatchStartTime = getMaxWatchStartTime(rhs.getChannelId());
+                mMaxWatchStartTimeMap.put(rhs.getChannelId(), rhsMaxWatchStartTime);
             }
             if (!Objects.equals(lhsMaxWatchStartTime, rhsMaxWatchStartTime)) {
                 return Long.compare(rhsMaxWatchStartTime, lhsMaxWatchStartTime);
             }
             // Show recently added channel first if there's no watch history.
-            return Long.compare(rhs.channelId, lhs.channelId);
+            return Long.compare(rhs.getChannelId(), lhs.getChannelId());
         }
 
         private long getMaxWatchStartTime(long channelId) {
             Uri uri = WatchedPrograms.CONTENT_URI;
-            String[] projections = new String[] {
-                    "MAX(" + WatchedPrograms.COLUMN_START_TIME_UTC_MILLIS
-                    + ") AS max_watch_start_time"
-            };
+            String[] projections =
+                    new String[] {
+                        "MAX("
+                                + WatchedPrograms.COLUMN_START_TIME_UTC_MILLIS
+                                + ") AS max_watch_start_time"
+                    };
             String selection = WatchedPrograms.COLUMN_CHANNEL_ID + "=?";
-            String[] selectionArgs = new String[] { Long.toString(channelId) };
-            try (Cursor c = mContentResolver.query(uri, projections, selection, selectionArgs,
-                    null)) {
+            String[] selectionArgs = new String[] {Long.toString(channelId)};
+            try (Cursor c =
+                    mContentResolver.query(uri, projections, selection, selectionArgs, null)) {
                 if (c != null && c.moveToNext()) {
                     return c.getLong(0);
                 }

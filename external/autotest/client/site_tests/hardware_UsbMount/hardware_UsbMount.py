@@ -6,7 +6,8 @@
 import logging, os
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import rtc, sys_power
+from autotest_lib.client.cros import rtc
+from autotest_lib.client.cros.power import sys_power
 from cros import storage as storage_mod
 
 

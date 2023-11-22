@@ -26,18 +26,19 @@
 #include <unordered_map>
 #include <vector>
 
-#include "atomic.h"
+#include "base/atomic.h"
 #include "base/macros.h"
+#include "base/os.h"
+#include "base/safe_map.h"
 #include "globals.h"
 #include "instrumentation.h"
-#include "os.h"
-#include "safe_map.h"
 
 namespace art {
 
 class ArtField;
 class ArtMethod;
 class DexFile;
+class ShadowFrame;
 class Thread;
 
 using DexIndexBitSet = std::bitset<65536>;
@@ -178,8 +179,10 @@ class Trace FINAL : public instrumentation::InstrumentationListener {
                     ArtField* field,
                     const JValue& field_value)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!*unique_methods_lock_) OVERRIDE;
-  void ExceptionCaught(Thread* thread,
+  void ExceptionThrown(Thread* thread,
                        Handle<mirror::Throwable> exception_object)
+      REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!*unique_methods_lock_) OVERRIDE;
+  void ExceptionHandled(Thread* thread, Handle<mirror::Throwable> exception_object)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!*unique_methods_lock_) OVERRIDE;
   void Branch(Thread* thread,
               ArtMethod* method,
@@ -192,6 +195,8 @@ class Trace FINAL : public instrumentation::InstrumentationListener {
                                 uint32_t dex_pc,
                                 ArtMethod* callee)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!*unique_methods_lock_) OVERRIDE;
+  void WatchedFramePop(Thread* thread, const ShadowFrame& frame)
+      REQUIRES_SHARED(Locks::mutator_lock_) OVERRIDE;
   // Reuse an old stack trace if it exists, otherwise allocate a new one.
   static std::vector<ArtMethod*>* AllocStackTrace();
   // Clear and store an old stack trace for later use.

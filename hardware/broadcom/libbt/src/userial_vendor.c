@@ -35,6 +35,7 @@
 #include "bt_vendor_brcm.h"
 #include "userial.h"
 #include "userial_vendor.h"
+#include <unistd.h>
 
 /******************************************************************************
 **  Constants & Macros

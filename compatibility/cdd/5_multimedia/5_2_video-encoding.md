@@ -1,22 +1,5 @@
 ## 5.2\. Video Encoding
 
-Handheld device implementations MUST support the following encoding and make it
-available to third-party applications.
-
-*    [H-0-1] H.264 AVC
-*    [H-0-2] VP8
-
-Television device implementations MUST support the following encoding.
-
-*    [T-0-1] H.264 AVC
-*    [T-0-2] VP8
-
-Automotive device implementations MUST support the following encoding:
-
-*    [A-0-1] H.264 AVC
-*    [A-0-2] VP8
-
-
 If device implementations support any video encoder and make it available
 to third-party apps, they:
 
@@ -59,14 +42,6 @@ to third-party apps, they:
 
 
 ### 5.2.2\. H-264
-
-Television device implementations are:
-
-*   [T-SR] STRONGLY RECOMMENDED to support H.264 encoding of 720p and 1080p
-resolution videos.
-*   [T-SR] STRONGLY RECOMMENDED to support H.264 encoding of 1080p resolution
-video at 30 frame-per-second (fps).
-
 
 If device implementations support H.264 codec, they:
 

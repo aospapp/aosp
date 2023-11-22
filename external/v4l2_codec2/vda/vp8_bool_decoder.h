@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
+// Note: ported from Chromium commit head: 1323b9c
 
 /*
  * Copyright (c) 2010, The WebM Project authors. All rights reserved.

@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -27,6 +27,7 @@ TMP_BRANCH = 'tmp_branch'
 SLEEP_TIME = 600
 
 # pylint: disable=anomalous-backslash-in-string
+
 
 def GetPatchNum(output):
   lines = output.splitlines()
@@ -137,16 +138,18 @@ def DownloadImage(target, index, dest, version):
   print(str(rversion))
   #  ls_cmd = ("gsutil ls gs://chromeos-image-archive/trybot-{0}/{1}-b{2}"
   #            .format(target, rversion, index))
-  ls_cmd = ('gsutil ls gs://chromeos-image-archive/trybot-{0}/*-b{2}'
-            .format(target, index))
+  ls_cmd = ('gsutil ls gs://chromeos-image-archive/trybot-{0}/*-b{2}'.format(
+      target, index))
 
   download_cmd = ('$(which gsutil) cp {0} {1}'.format('{0}', dest))
   ce = command_executer.GetCommandExecuter()
 
   _, out, _ = ce.RunCommandWOutput(ls_cmd, print_to_console=True)
   lines = out.splitlines()
-  download_files = ['autotest.tar', 'chromeos-chrome', 'chromiumos_test_image',
-                    'debug.tgz', 'sysroot_chromeos-base_chromeos-chrome.tar.xz']
+  download_files = [
+      'autotest.tar', 'chromeos-chrome', 'chromiumos_test_image', 'debug.tgz',
+      'sysroot_chromeos-base_chromeos-chrome.tar.xz'
+  ]
   for line in lines:
     if any([e in line for e in download_files]):
       cmd = download_cmd.format(line)
@@ -163,8 +166,8 @@ def UnpackImage(dest):
               'tar xjf {1} -C {0} &&'
               'tar xzf {0}/debug.tgz  -C {0}/usr/lib/ &&'
               'tar xf {0}/autotest.tar -C {0}/usr/local/ &&'
-              'tar xJf {0}/chromiumos_test_image.tar.xz -C {0}'
-              .format(dest, chrome_tbz2))
+              'tar xJf {0}/chromiumos_test_image.tar.xz -C {0}'.format(
+                  dest, chrome_tbz2))
   ce = command_executer.GetCommandExecuter()
   return ce.RunCommand(commands)
 
@@ -220,8 +223,8 @@ def UploadPatch(source):
   """Up load patch to gerrit, return patch number."""
   commands = ('git add -A . &&'
               "git commit -m 'test' -m 'BUG=None' -m 'TEST=None' "
-              "-m 'hostname={0}' -m 'source={1}'"
-              .format(socket.gethostname(), source))
+              "-m 'hostname={0}' -m 'source={1}'".format(
+                  socket.gethostname(), source))
   ce = command_executer.GetCommandExecuter()
   ce.RunCommand(commands)
 
@@ -335,59 +338,64 @@ def Main(argv):
   """The main function."""
   # Common initializations
   parser = argparse.ArgumentParser()
-  parser.add_argument('-c',
-                      '--chromeos_root',
-                      required=True,
-                      dest='chromeos_root',
-                      help='The chromeos_root')
-  parser.add_argument('-g',
-                      '--gcc_dir',
-                      default='',
-                      dest='gcc_dir',
-                      help='The gcc dir')
-  parser.add_argument('-t',
-                      '--target',
-                      required=True,
-                      dest='target',
-                      help=('The target to be build, the list is at'
-                            ' $(chromeos_root)/chromite/buildbot/cbuildbot'
-                            ' --list -all'))
+  parser.add_argument(
+      '-c',
+      '--chromeos_root',
+      required=True,
+      dest='chromeos_root',
+      help='The chromeos_root')
+  parser.add_argument(
+      '-g', '--gcc_dir', default='', dest='gcc_dir', help='The gcc dir')
+  parser.add_argument(
+      '-t',
+      '--target',
+      required=True,
+      dest='target',
+      help=('The target to be build, the list is at'
+            ' $(chromeos_root)/chromite/buildbot/cbuildbot'
+            ' --list -all'))
   parser.add_argument('-l', '--local', action='store_true')
-  parser.add_argument('-d',
-                      '--dest_dir',
-                      dest='dest_dir',
-                      help=('The dir to build the whole chromeos if'
-                            ' --local is set'))
-  parser.add_argument('--chrome_version',
-                      dest='chrome_version',
-                      default='',
-                      help='The chrome version to use. '
-                      'Default it will use the latest one.')
-  parser.add_argument('--chromeos_version',
-                      dest='chromeos_version',
-                      default='',
-                      help=('The chromeos version to use.'
-                            '(1) A release version in the format: '
-                            "'\d+\.\d+\.\d+\.\d+.*'"
-                            "(2) 'latest_lkgm' for the latest lkgm version"))
-  parser.add_argument('-r',
-                      '--replace_sysroot',
-                      action='store_true',
-                      help=('Whether or not to replace the build/$board dir'
-                            'under the chroot of chromeos_root and copy '
-                            'the image to src/build/image/$board/latest.'
-                            ' Default is False'))
-  parser.add_argument('-b',
-                      '--branch',
-                      dest='branch',
-                      default='',
-                      help=('The branch to run trybot, default is None'))
-  parser.add_argument('-p',
-                      '--patch',
-                      dest='patch',
-                      default='',
-                      help=('The patches to be applied, the patches numbers '
-                            "be seperated by ','"))
+  parser.add_argument(
+      '-d',
+      '--dest_dir',
+      dest='dest_dir',
+      help=('The dir to build the whole chromeos if'
+            ' --local is set'))
+  parser.add_argument(
+      '--chrome_version',
+      dest='chrome_version',
+      default='',
+      help='The chrome version to use. '
+      'Default it will use the latest one.')
+  parser.add_argument(
+      '--chromeos_version',
+      dest='chromeos_version',
+      default='',
+      help=('The chromeos version to use.'
+            '(1) A release version in the format: '
+            "'\d+\.\d+\.\d+\.\d+.*'"
+            "(2) 'latest_lkgm' for the latest lkgm version"))
+  parser.add_argument(
+      '-r',
+      '--replace_sysroot',
+      action='store_true',
+      help=('Whether or not to replace the build/$board dir'
+            'under the chroot of chromeos_root and copy '
+            'the image to src/build/image/$board/latest.'
+            ' Default is False'))
+  parser.add_argument(
+      '-b',
+      '--branch',
+      dest='branch',
+      default='',
+      help=('The branch to run trybot, default is None'))
+  parser.add_argument(
+      '-p',
+      '--patch',
+      dest='patch',
+      default='',
+      help=('The patches to be applied, the patches numbers '
+            "be seperated by ','"))
 
   script_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -400,7 +408,7 @@ def Main(argv):
   chromeos_root = misc.CanonicalizePath(args.chromeos_root)
   if args.chromeos_version and args.branch:
     raise RuntimeError('You can not set chromeos_version and branch at the '
-                      'same time.')
+                       'same time.')
 
   manifests = None
   if args.branch:

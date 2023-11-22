@@ -21,6 +21,7 @@ import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.util.CommandStatus;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -178,5 +179,14 @@ public class SystemUpdaterDeviceFlasher implements IDeviceFlasher {
     @Override
     public void setWipeTimeout(long timeout) {
         // ignore
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public CommandStatus getSystemFlashingStatus() {
+        // system partition flashing status is not applicable to this flasher
+        return null;
     }
 }

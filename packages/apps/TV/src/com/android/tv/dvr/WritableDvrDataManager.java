@@ -17,7 +17,6 @@
 package com.android.tv.dvr;
 
 import android.support.annotation.MainThread;
-
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.data.ScheduledRecording.RecordingState;
 import com.android.tv.dvr.data.SeriesRecording;
@@ -30,19 +29,13 @@ import com.android.tv.dvr.data.SeriesRecording;
  */
 @MainThread
 public interface WritableDvrDataManager extends DvrDataManager {
-    /**
-     * Adds new recordings.
-     */
+    /** Adds new recordings. */
     void addScheduledRecording(ScheduledRecording... scheduledRecordings);
 
-    /**
-     * Adds new series recordings.
-     */
+    /** Adds new series recordings. */
     void addSeriesRecording(SeriesRecording... seriesRecordings);
 
-    /**
-     * Removes recordings.
-     */
+    /** Removes recordings. */
     void removeScheduledRecording(ScheduledRecording... scheduledRecordings);
 
     /**
@@ -51,30 +44,30 @@ public interface WritableDvrDataManager extends DvrDataManager {
      */
     void removeScheduledRecording(boolean forceRemove, ScheduledRecording... scheduledRecordings);
 
-    /**
-     * Removes series recordings.
-     */
+    /** Removes series recordings. */
     void removeSeriesRecording(SeriesRecording... seasonSchedules);
 
-    /**
-     * Updates existing recordings.
-     */
+    /** Updates existing recordings. */
     void updateScheduledRecording(ScheduledRecording... scheduledRecordings);
 
-    /**
-     * Updates existing series recordings.
-     */
+    /** Updates existing series recordings. */
     void updateSeriesRecording(SeriesRecording... seriesRecordings);
 
-    /**
-     * Changes the state of the recording.
-     */
+    /** Changes the state of the recording. */
     void changeState(ScheduledRecording scheduledRecording, @RecordingState int newState);
 
     /**
+     * Changes the state of the recording.
+     *
+     * @param reason the reason of this change
+     */
+    void changeState(
+            ScheduledRecording scheduledRecording, @RecordingState int newState, int reason);
+
+    /**
      * Remove all the records related to the input.
-     * <p>
-     * Note that this should be called after the input was removed.
+     *
+     * <p>Note that this should be called after the input was removed.
      */
     void forgetStorage(String inputId);
 }

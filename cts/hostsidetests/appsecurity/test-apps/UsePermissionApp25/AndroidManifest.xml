@@ -67,6 +67,8 @@
     <uses-permission android:name="android.permission.BODY_SENSORS"/>
 
     <application>
+        <uses-library android:name="android.test.runner" />
+
         <activity android:name="com.android.cts.usepermission.BasePermissionActivity" />
     </application>
 

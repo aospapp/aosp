@@ -14,15 +14,6 @@
 
 LOCAL_PATH := $(call my-dir)
 
-include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES := fs_config.c
-LOCAL_MODULE := fs_config
-LOCAL_SHARED_LIBRARIES := libcutils libselinux
-LOCAL_CFLAGS := -Werror
-
-include $(BUILD_HOST_EXECUTABLE)
-
 # One can override the default android_filesystem_config.h file in one of two ways:
 #
 # 1. The old way:
@@ -253,23 +244,24 @@ endif
 ifneq ($(TARGET_FS_CONFIG_GEN),)
 
 ##################################
-# Build the oemaid library when fs config files are present.
-# Intentionally break build if you require generated AIDS
+# Build the oemaid header library when fs config files are present.
+# Intentionally break build if you require generated AIDs
 # header file, but are not using any fs config files.
 include $(CLEAR_VARS)
-LOCAL_MODULE := liboemaids
+LOCAL_MODULE := oemaids_headers
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(dir $(my_gen_oem_aid))
 LOCAL_EXPORT_C_INCLUDE_DEPS := $(my_gen_oem_aid)
-include $(BUILD_STATIC_LIBRARY)
+include $(BUILD_HEADER_LIBRARY)
 
 ##################################
-# Generate the system/etc/passwd text file for the target
+# Generate the vendor/etc/passwd text file for the target
 # This file may be empty if no AIDs are defined in
 # TARGET_FS_CONFIG_GEN files.
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := passwd
 LOCAL_MODULE_CLASS := ETC
+LOCAL_VENDOR_MODULE := true
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
@@ -278,16 +270,17 @@ $(LOCAL_BUILT_MODULE): PRIVATE_TARGET_FS_CONFIG_GEN := $(TARGET_FS_CONFIG_GEN)
 $(LOCAL_BUILT_MODULE): PRIVATE_ANDROID_FS_HDR := $(system_android_filesystem_config)
 $(LOCAL_BUILT_MODULE): $(LOCAL_PATH)/fs_config_generator.py $(TARGET_FS_CONFIG_GEN) $(system_android_filesystem_config)
 	@mkdir -p $(dir $@)
-	$(hide) $< passwd --aid-header=$(PRIVATE_ANDROID_FS_HDR) $(PRIVATE_TARGET_FS_CONFIG_GEN) > $@
+	$(hide) $< passwd --required-prefix=vendor_ --aid-header=$(PRIVATE_ANDROID_FS_HDR) $(PRIVATE_TARGET_FS_CONFIG_GEN) > $@
 
 ##################################
-# Generate the system/etc/group text file for the target
+# Generate the vendor/etc/group text file for the target
 # This file may be empty if no AIDs are defined in
 # TARGET_FS_CONFIG_GEN files.
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := group
 LOCAL_MODULE_CLASS := ETC
+LOCAL_VENDOR_MODULE := true
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
@@ -296,7 +289,7 @@ $(LOCAL_BUILT_MODULE): PRIVATE_TARGET_FS_CONFIG_GEN := $(TARGET_FS_CONFIG_GEN)
 $(LOCAL_BUILT_MODULE): PRIVATE_ANDROID_FS_HDR := $(system_android_filesystem_config)
 $(LOCAL_BUILT_MODULE): $(LOCAL_PATH)/fs_config_generator.py $(TARGET_FS_CONFIG_GEN) $(system_android_filesystem_config)
 	@mkdir -p $(dir $@)
-	$(hide) $< group --aid-header=$(PRIVATE_ANDROID_FS_HDR) $(PRIVATE_TARGET_FS_CONFIG_GEN) > $@
+	$(hide) $< group --required-prefix=vendor_ --aid-header=$(PRIVATE_ANDROID_FS_HDR) $(PRIVATE_TARGET_FS_CONFIG_GEN) > $@
 
 system_android_filesystem_config :=
 endif
@@ -306,36 +299,3 @@ my_fs_config_h :=
 fs_config_generate_bin :=
 my_gen_oem_aid :=
 fs_config_generate_extra_partition_list :=
-
-# -----------------------------------------------------------------------------
-# Unit tests.
-# -----------------------------------------------------------------------------
-
-test_c_flags := \
-    -fstack-protector-all \
-    -g \
-    -Wall \
-    -Wextra \
-    -Werror \
-    -fno-builtin \
-    -DANDROID_FILESYSTEM_CONFIG='"android_filesystem_config_test_data.h"'
-
-##################################
-# test executable
-include $(CLEAR_VARS)
-LOCAL_MODULE := fs_config_generate_test
-LOCAL_SRC_FILES := fs_config_generate.c
-LOCAL_SHARED_LIBRARIES := libcutils
-LOCAL_CFLAGS := $(test_c_flags)
-LOCAL_MODULE_RELATIVE_PATH := fs_config-unit-tests
-LOCAL_GTEST := false
-include $(BUILD_HOST_NATIVE_TEST)
-
-##################################
-# gTest tool
-include $(CLEAR_VARS)
-LOCAL_MODULE := fs_config-unit-tests
-LOCAL_CFLAGS += $(test_c_flags) -DHOST
-LOCAL_SHARED_LIBRARIES := liblog libcutils libbase
-LOCAL_SRC_FILES := fs_config_test.cpp
-include $(BUILD_HOST_NATIVE_TEST)

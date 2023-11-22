@@ -20,12 +20,6 @@
 
 #include "data_types.h"
 
-#define htons ntohs
-#define htonl ntohl
-
-#define htonets nettohs
-#define htonetl nettohl
-
 #if (BIG_ENDIAN == TRUE)
 #define ntohs(n) (n)
 #define ntohl(n) (n)

@@ -15,10 +15,13 @@
  */
 package com.android.tradefed.testtype;
 
+import com.android.tradefed.build.BuildSerializedVersion;
+
 /**
  * A class representing an ABI.
  */
 public class Abi implements IAbi {
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
 
     private final String mName;
     private final String mBitness;
@@ -47,5 +50,18 @@ public class Abi implements IAbi {
     @Override
     public String toString() {
         return "{" + mName + ", bitness=" + mBitness + "}";
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean equals(Object obj) {
+        Abi other = (Abi) obj;
+        if (!mName.equals(other.mName)) {
+            return false;
+        }
+        if (!mBitness.equals(other.mBitness)) {
+            return false;
+        }
+        return true;
     }
 }

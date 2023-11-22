@@ -27,6 +27,7 @@ import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.AbiFormatter;
 import com.android.tradefed.util.RunUtil;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.junit.Assert;
 
@@ -139,7 +140,8 @@ public class FlatlandTest implements IDeviceTest, IRemoteTest {
         }
         // parse results and report metrics
         parseResult(result);
-        standardListener.testRunEnded((System.currentTimeMillis() - start), mResultMap);
+        standardListener.testRunEnded(
+                (System.currentTimeMillis() - start), TfMetricProtoUtil.upgradeConvert(mResultMap));
     }
 
     /**

@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 
 # Copyright 2012 Google Inc. All Rights Reserved.
 """Tests for bisecting tool."""
@@ -66,12 +66,13 @@ class BisectTest(unittest.TestCase):
       return 0
 
     def Run(self):
-      return binary_search_state.Run(get_initial_items='./gen_init_list.py',
-                                     switch_to_good='./switch_to_good.py',
-                                     switch_to_bad='./switch_to_bad.py',
-                                     test_script='./is_good.py',
-                                     prune=True,
-                                     file_args=True)
+      return binary_search_state.Run(
+          get_initial_items='./gen_init_list.py',
+          switch_to_good='./switch_to_good.py',
+          switch_to_bad='./switch_to_bad.py',
+          test_script='./is_good.py',
+          prune=True,
+          file_args=True)
 
     def PostRun(self):
       CleanObj()
@@ -127,26 +128,31 @@ class BisectingUtilsTest(unittest.TestCase):
     except OSError:
       pass
 
-    cleanup_list = ['./is_setup', binary_search_state.STATE_FILE,
-                    'noinc_prune_bad', 'noinc_prune_good']
+    cleanup_list = [
+        './is_setup', binary_search_state.STATE_FILE, 'noinc_prune_bad',
+        'noinc_prune_good'
+    ]
     for f in cleanup_list:
       if os.path.exists(f):
         os.remove(f)
 
   def runTest(self):
-    ret = binary_search_state.Run(get_initial_items='./gen_init_list.py',
-                                  switch_to_good='./switch_to_good.py',
-                                  switch_to_bad='./switch_to_bad.py',
-                                  test_script='./is_good.py',
-                                  prune=True,
-                                  file_args=True)
+    ret = binary_search_state.Run(
+        get_initial_items='./gen_init_list.py',
+        switch_to_good='./switch_to_good.py',
+        switch_to_bad='./switch_to_bad.py',
+        test_script='./is_good.py',
+        prune=True,
+        file_args=True)
     self.assertEquals(ret, 0)
     self.check_output()
 
   def test_arg_parse(self):
-    args = ['--get_initial_items', './gen_init_list.py', '--switch_to_good',
-            './switch_to_good.py', '--switch_to_bad', './switch_to_bad.py',
-            '--test_script', './is_good.py', '--prune', '--file_args']
+    args = [
+        '--get_initial_items', './gen_init_list.py', '--switch_to_good',
+        './switch_to_good.py', '--switch_to_bad', './switch_to_bad.py',
+        '--test_script', './is_good.py', '--prune', '--file_args'
+    ]
     ret = binary_search_state.Main(args)
     self.assertEquals(ret, 0)
     self.check_output()
@@ -154,32 +160,35 @@ class BisectingUtilsTest(unittest.TestCase):
   def test_test_setup_script(self):
     os.remove('./is_setup')
     with self.assertRaises(AssertionError):
-      ret = binary_search_state.Run(get_initial_items='./gen_init_list.py',
-                                    switch_to_good='./switch_to_good.py',
-                                    switch_to_bad='./switch_to_bad.py',
-                                    test_script='./is_good.py',
-                                    prune=True,
-                                    file_args=True)
+      ret = binary_search_state.Run(
+          get_initial_items='./gen_init_list.py',
+          switch_to_good='./switch_to_good.py',
+          switch_to_bad='./switch_to_bad.py',
+          test_script='./is_good.py',
+          prune=True,
+          file_args=True)
 
-    ret = binary_search_state.Run(get_initial_items='./gen_init_list.py',
-                                  switch_to_good='./switch_to_good.py',
-                                  switch_to_bad='./switch_to_bad.py',
-                                  test_script='./is_good.py',
-                                  test_setup_script='./test_setup.py',
-                                  prune=True,
-                                  file_args=True)
+    ret = binary_search_state.Run(
+        get_initial_items='./gen_init_list.py',
+        switch_to_good='./switch_to_good.py',
+        switch_to_bad='./switch_to_bad.py',
+        test_script='./is_good.py',
+        test_setup_script='./test_setup.py',
+        prune=True,
+        file_args=True)
     self.assertEquals(ret, 0)
     self.check_output()
 
   def test_bad_test_setup_script(self):
     with self.assertRaises(AssertionError):
-      binary_search_state.Run(get_initial_items='./gen_init_list.py',
-                              switch_to_good='./switch_to_good.py',
-                              switch_to_bad='./switch_to_bad.py',
-                              test_script='./is_good.py',
-                              test_setup_script='./test_setup_bad.py',
-                              prune=True,
-                              file_args=True)
+      binary_search_state.Run(
+          get_initial_items='./gen_init_list.py',
+          switch_to_good='./switch_to_good.py',
+          switch_to_bad='./switch_to_bad.py',
+          test_script='./is_good.py',
+          test_setup_script='./test_setup_bad.py',
+          prune=True,
+          file_args=True)
 
   def test_bad_save_state(self):
     state_file = binary_search_state.STATE_FILE
@@ -294,13 +303,14 @@ class BisectingUtilsTest(unittest.TestCase):
     self.assertEquals(bad_objs[found_obj], 1)
 
   def test_set_file(self):
-    binary_search_state.Run(get_initial_items='./gen_init_list.py',
-                            switch_to_good='./switch_to_good_set_file.py',
-                            switch_to_bad='./switch_to_bad_set_file.py',
-                            test_script='./is_good.py',
-                            prune=True,
-                            file_args=True,
-                            verify=True)
+    binary_search_state.Run(
+        get_initial_items='./gen_init_list.py',
+        switch_to_good='./switch_to_good_set_file.py',
+        switch_to_bad='./switch_to_bad_set_file.py',
+        test_script='./is_good.py',
+        prune=True,
+        file_args=True,
+        verify=True)
     self.check_output()
 
   def test_noincremental_prune(self):
@@ -343,13 +353,14 @@ class BisectStressTest(unittest.TestCase):
   def test_every_obj_bad(self):
     amt = 25
     gen_obj.Main(['--obj_num', str(amt), '--bad_obj_num', str(amt)])
-    ret = binary_search_state.Run(get_initial_items='./gen_init_list.py',
-                                  switch_to_good='./switch_to_good.py',
-                                  switch_to_bad='./switch_to_bad.py',
-                                  test_script='./is_good.py',
-                                  prune=True,
-                                  file_args=True,
-                                  verify=False)
+    ret = binary_search_state.Run(
+        get_initial_items='./gen_init_list.py',
+        switch_to_good='./switch_to_good.py',
+        switch_to_bad='./switch_to_bad.py',
+        test_script='./is_good.py',
+        prune=True,
+        file_args=True,
+        verify=False)
     self.assertEquals(ret, 0)
     self.check_output()
 
@@ -360,13 +371,14 @@ class BisectStressTest(unittest.TestCase):
       obj_list[i] = '1'
       obj_list = ','.join(obj_list)
       gen_obj.Main(['--obj_list', obj_list])
-      ret = binary_search_state.Run(get_initial_items='./gen_init_list.py',
-                                    switch_to_good='./switch_to_good.py',
-                                    switch_to_bad='./switch_to_bad.py',
-                                    test_setup_script='./test_setup.py',
-                                    test_script='./is_good.py',
-                                    prune=True,
-                                    file_args=True)
+      ret = binary_search_state.Run(
+          get_initial_items='./gen_init_list.py',
+          switch_to_good='./switch_to_good.py',
+          switch_to_bad='./switch_to_bad.py',
+          test_setup_script='./test_setup.py',
+          test_script='./is_good.py',
+          prune=True,
+          file_args=True)
       self.assertEquals(ret, 0)
       self.check_output()
 

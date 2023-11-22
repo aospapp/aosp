@@ -13,18 +13,23 @@ import java.io.BufferedReader;
 import java.io.IOException;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.dev.test.TestUtil;
 import android.icu.lang.UCharacterDirection;
 import android.icu.text.Bidi;
 import android.icu.text.BidiClassifier;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author Markus W. Scherer
  * BiDi conformance test, using the Unicode BidiTest.txt and BidiCharacterTest.txt files.
  * Ported from ICU4C intltest/bidiconf.cpp .
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class BiDiConformanceTest extends TestFmwk {
     public BiDiConformanceTest() {}
 

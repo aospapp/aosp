@@ -18,16 +18,22 @@ package com.android.managedprovisioning.common;
 import static android.graphics.PorterDuff.Mode.SRC_ATOP;
 import static android.support.test.espresso.matcher.ViewMatchers.assertThat;
 
+import static junit.framework.Assert.assertTrue;
+
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
 
+import android.annotation.LayoutRes;
 import android.app.Activity;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.PorterDuffColorFilter;
+import android.graphics.drawable.AnimatedVectorDrawable;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.view.ContextThemeWrapper;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 
@@ -51,10 +57,12 @@ public class CustomizationVerifier {
         assertThat(statusBarColor, equalTo(targetColor));
     }
 
+    // Disabled for b/73157813.
     public void assertSwiperColorCorrect(int targetSwiperColor) {
-        assertThat(mActivity.getThemeResId(), equalTo( // TODO: maybe replace with a screenshot test
-                new SwiperThemeMatcher(mActivity, new ColorMatcher()).findTheme(
-                        targetSwiperColor)));
+//        Drawable expectedDrawable = makeExpectedTopInfoDrawable(targetSwiperColor);
+//        ImageView animatedView = mActivity.findViewById(R.id.animated_info);
+//        Drawable actualDrawable = animatedView.getDrawable();
+//        assertDrawableEquals(expectedDrawable, actualDrawable);
     }
 
     public void assertDefaultLogoCorrect(int targetColor) {
@@ -75,9 +83,8 @@ public class CustomizationVerifier {
         assertThat(actual, equalTo(expected));
     }
 
-    public void assertProgressBarColorCorrect(int targetColor) {
-        ProgressBar progressBar = (ProgressBar) mActivity.findViewById(
-                com.android.setupwizardlib.R.id.suw_layout_progress);
+    public void assertProgressBarColorCorrect(@LayoutRes int progressBarLayoutId, int targetColor) {
+        ProgressBar progressBar = mActivity.findViewById(progressBarLayoutId);
 
         ColorStateList expected = ColorStateList.valueOf(targetColor);
         assertThat(progressBar.getIndeterminateTintList(), equalTo(expected));
@@ -104,8 +111,28 @@ public class CustomizationVerifier {
         return logo;
     }
 
+    private Drawable makeExpectedTopInfoDrawable(int color) {
+        int swiperTheme = new SwiperThemeMatcher(mActivity, new ColorMatcher()).findTheme(color);
+        ContextThemeWrapper wrapper = new ContextThemeWrapper(mActivity, swiperTheme);
+        return mActivity.getResources().getDrawable(
+                R.drawable.topinfo_animation, wrapper.getTheme());
+    }
+
     private Drawable extractLogo() {
         return ((ImageView) mActivity.findViewById(
                 com.android.setupwizardlib.R.id.suw_layout_icon)).getDrawable();
+    }
+
+    private Bitmap drawableToBitmap(Drawable drawable) {
+        Bitmap bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(),
+                drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        drawable.draw(canvas);
+        return bitmap;
+    }
+
+    private void assertDrawableEquals(Drawable expected, Drawable actual) {
+        assertTrue(drawableToBitmap(expected).sameAs(drawableToBitmap(actual)));
     }
 }

@@ -29,6 +29,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := lights.vts
 LOCAL_MODULE_TAGS := optional
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_SRC_FILES := lights.c
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SHARED_LIBRARIES := \

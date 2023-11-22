@@ -51,6 +51,26 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:text="@string/sms_listing_button"/>
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/sms_enter_tel_num"/>
+        <EditText
+            android:id="@+id/sms_tel_num"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+1-650-000-0000                    "
+            android:inputType="text" />
+        <Button
+            android:id="@+id/sms_new_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="@string/sms_new_message_button"/>
+    </LinearLayout>
 
     <CheckBox android:layout_width="wrap_content" android:layout_height="wrap_content"
               android:id="@+id/sent_checkbox"

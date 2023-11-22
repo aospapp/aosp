@@ -12,25 +12,7 @@ https://developer.android.com/reference/android/app/Activity.html#setVrModeEnabl
 a feature which handles stereoscopic rendering of notifications and disables
 monocular system UI components while a VR application has user focus.
 
-If Handheld device implementations include support for the VR mode, they:
-
-*   [H-1-1] MUST declare the `android.software.vr.mode` feature.
-
-If device implementations declare `android.software.vr.mode` feature, they:
-
-*   [H-2-1] MUST include an application implementing
-`android.service.vr.VrListenerService`
-that can be enabled by VR applications via
-`android.app.Activity#setVrModeEnabled`.
-
 ### 7.9.2\. Virtual Reality High Performance
-
-
-If Handheld device implementations are capable of meeting all the requirements
-to declare the `android.hardware.vr.high_performance` feature flag, they:
-
-*   [H-1-1] MUST declare the `android.hardware.vr.high_performance`
-feature flag.
 
 If device implementations identify the support of high performance VR
 for longer user periods through the `android.hardware.vr.high_performance`
@@ -60,6 +42,8 @@ render contexts will be displayed with no visible tearing artifacts.
     [`GL_OVR_multiview2`](https://www.khronos.org/registry/OpenGL/extensions/OVR/OVR_multiview2.txt),
     [`GL_OVR_multiview_multisampled_render_to_texture`](https://www.khronos.org/registry/OpenGL/extensions/OVR/OVR_multiview_multisampled_render_to_texture.txt),
     [`GL_EXT_protected_textures`](https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_protected_textures.txt),
+    [`GL_EXT_EGL_image_array`](https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_EGL_image_array.txt),
+    [`GL_EXT_external_buffer`](https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_external_buffer.txt),
     and expose the extensions in the list of available GL extensions.
 *   [C-1-9] MUST implement support for [`AHardwareBuffer`](https://developer.android.com/ndk/reference/hardware__buffer_8h.html)
     flags `AHARDWAREBUFFER_USAGE_GPU_DATA_BUFFER` and
@@ -78,23 +62,37 @@ layer.
 and return accurate values for skin temperature.
 *   [C-1-14] MUST have an embedded screen, and its resolution MUST be at least be
     FullHD(1080p) and STRONGLY RECOMMENDED TO BE  be QuadHD (1440p) or higher.
-*   [C-1-15] The display MUST measure between 4.7" and 6.3" diagonal.
-*   [C-1-16] The display MUST update at least 60 Hz while in VR Mode.
-*   [C-1-17] The display latency on Gray-to-Gray, White-to-Black, and
-Black-to-White switching time MUST be ≤ 3 ms.
-*   [C-1-18] The display MUST support a low-persistence mode with ≤5 ms
+*   [C-1-15] The display MUST update at least 60 Hz while in VR Mode.
+*   [C-1-16] The display latency (as measured on Gray-to-Gray, White-to-Black, and
+Black-to-White switching time) MUST be ≤ 6 milliseconds.
+*   [C-1-17] The display MUST support a low-persistence mode with ≤ 5 milliseconds
 persistence, persistence being defined as the amount of time for
 which a pixel is emitting light.
-*   [C-1-19] MUST support Bluetooth 4.2 and Bluetooth LE Data Length Extension
+*   [C-1-18] MUST support Bluetooth 4.2 and Bluetooth LE Data Length Extension
     [section 7.4.3](#7_4_3_bluetooth).
-*   [SR] STRONGLY RECOMMENDED to support
+*   [C-1-19] MUST support and properly report [Direct Channel Type](
+    https://developer.android.com/reference/android/hardware/Sensor.html#isDirectChannelTypeSupported%28int%29")
+    for all of the following default sensor types:
+      * `TYPE_ACCELEROMETER`
+      * `TYPE_ACCELEROMETER_UNCALIBRATED`
+      * `TYPE_GYROSCOPE`
+      * `TYPE_GYROSCOPE_UNCALIBRATED`
+      * `TYPE_MAGNETIC_FIELD`
+      * `TYPE_MAGNETIC_FIELD_UNCALIBRATED`
+*   [C-1-20] MUST support the [`TYPE_HARDWARE_BUFFER`](
+https://developer.android.com/reference/android/hardware/SensorDirectChannel.html#TYPE_HARDWARE_BUFFER)
+    direct channel type for all Direct Channel Types listed above.
+*   [SR] Are STRONGLY RECOMMENDED to support
     `android.hardware.sensor.hifi_sensors` feature and MUST meet the gyroscope,
     accelerometer, and magnetometer related requirements for
     `android.hardware.hifi_sensors`.
 *   MAY provide an exclusive core to the foreground
     application and MAY support the `Process.getExclusiveCores` API to return
     the numbers of the cpu cores that are exclusive to the top foreground
-    application. If exclusive core is supported then the core MUST not allow
-    any other userspace processes to run on it (except device drivers used
-    by the application), but MAY allow some kernel processes to run as
-    necessary.
+    application.
+
+If exclusive core is supported, then the core:
+
+*   [C-2-1] MUST not allow any other userspace processes to run on it
+(except device drivers used by the application), but MAY allow some kernel
+processes to run as necessary.

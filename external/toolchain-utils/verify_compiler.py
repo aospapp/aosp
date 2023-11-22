@@ -34,13 +34,13 @@ def CreateTmpDwarfFile(filename, dwarf_file, cmd_executer):
   return retval
 
 
-def FindAllFiles(root_dir, cmd_executer):
+def FindAllFiles(root_dir):
   """Create a list of all the *.debug and *.dwp files to be checked."""
 
   file_list = []
   tmp_list = [
       os.path.join(dirpath, f)
-      for dirpath, dirnames, files in os.walk(root_dir)
+      for dirpath, _, files in os.walk(root_dir)
       for f in fnmatch.filter(files, '*.debug')
   ]
   for f in tmp_list:
@@ -48,7 +48,7 @@ def FindAllFiles(root_dir, cmd_executer):
       file_list.append(f)
   tmp_list = [
       os.path.join(dirpath, f)
-      for dirpath, dirnames, files in os.walk(root_dir)
+      for dirpath, _, files in os.walk(root_dir)
       for f in fnmatch.filter(files, '*.dwp')
   ]
   file_list += tmp_list
@@ -99,8 +99,8 @@ def CheckFile(filename, compiler, tmp_dir, options, cmd_executer):
   status = CreateTmpDwarfFile(filename, dwarf_file, cmd_executer)
 
   if status != 0:
-    print('Unable to create dwarf file for %s (status: %d).' %
-          (filename, status))
+    print('Unable to create dwarf file for %s (status: %d).' % (filename,
+                                                                status))
     return status
 
   comp_str = COMPILER_STRINGS[compiler]
@@ -121,8 +121,8 @@ def CheckFile(filename, compiler, tmp_dir, options, cmd_executer):
         if 'DW_AT_name' in line:
           words = line.split(':')
           bad_file = words[-1]
-          print('FAIL:  %s was not compiled with %s.' %
-                (bad_file.rstrip(), compiler))
+          print('FAIL:  %s was not compiled with %s.' % (bad_file.rstrip(),
+                                                         compiler))
           looking_for_name = False
         elif 'DW_TAG_' in line:
           looking_for_name = False
@@ -189,7 +189,7 @@ def Main(argv):
   if filename:
     file_list.append(filename)
   else:
-    file_list = FindAllFiles(root_dir, cmd_executer)
+    file_list = FindAllFiles(root_dir)
 
   bad_files = []
   unknown_files = []
@@ -222,9 +222,8 @@ def Main(argv):
       for f in bad_files:
         print(f)
       if len(unknown_files) > 0:
-        print(
-            '\n\nUnable to verify the following files (no debug info in them):\n'
-        )
+        print('\n\nUnable to verify the following files (no debug info in '
+              'them):\n')
         for f in unknown_files:
           print(f)
     return 1

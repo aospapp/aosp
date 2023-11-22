@@ -17,64 +17,78 @@
 #ifndef _DNS_DNSTLSTRANSPORT_H
 #define _DNS_DNSTLSTRANSPORT_H
 
-#include <netinet/in.h>
-#include <set>
-#include <sys/socket.h>
-#include <sys/types.h>
+#include <future>
+#include <map>
+#include <mutex>
 #include <vector>
 
-#include "android-base/unique_fd.h"
+#include <android-base/thread_annotations.h>
+#include <android-base/unique_fd.h>
 
-// Forward declaration.
-typedef struct ssl_st SSL;
+#include "dns/DnsTlsSessionCache.h"
+#include "dns/DnsTlsQueryMap.h"
+#include "dns/DnsTlsServer.h"
+#include "dns/IDnsTlsSocket.h"
+#include "dns/IDnsTlsSocketObserver.h"
+
+#include <netdutils/Slice.h>
 
 namespace android {
 namespace net {
 
-class DnsTlsTransport {
+class IDnsTlsSocketFactory;
+
+// Manages at most one DnsTlsSocket at a time.  This class handles socket lifetime issues,
+// such as reopening the socket and reissuing pending queries.
+class DnsTlsTransport : public IDnsTlsSocketObserver {
 public:
-    DnsTlsTransport(unsigned mark, int protocol, const sockaddr_storage &ss,
-            const std::set<std::vector<uint8_t>>& fingerprints)
-            : mMark(mark), mProtocol(protocol), mAddr(ss), mFingerprints(fingerprints)
-            {}
-    ~DnsTlsTransport() {}
+    DnsTlsTransport(const DnsTlsServer& server, unsigned mark,
+                    IDnsTlsSocketFactory* _Nonnull factory) :
+            mMark(mark), mServer(server), mFactory(factory) {}
+    ~DnsTlsTransport();
 
-    enum class Response : uint8_t { success, network_error, limit_error, internal_error };
+    typedef DnsTlsServer::Response Response;
+    typedef DnsTlsServer::Result Result;
 
-    // Given a |query| of length |qlen|, sends it to the server and writes the
-    // response into |ans|, which can accept up to |anssiz| bytes.  Indicates
-    // the number of bytes written in |resplen|.  If |resplen| is zero, an
-    // error has occurred.
-    Response doQuery(const uint8_t *query, size_t qlen, uint8_t *ans, size_t anssiz, int *resplen);
+    // Given a |query|, this method sends it to the server and returns the result asynchronously.
+    std::future<Result> query(const netdutils::Slice query) EXCLUDES(mLock);
+
+    // Check that a given TLS server is fully working on the specified netid, and has the
+    // provided SHA-256 fingerprint (if nonempty).  This function is used in ResolverController
+    // to ensure that we don't enable DNS over TLS on networks where it doesn't actually work.
+    static bool validate(const DnsTlsServer& server, unsigned netid);
+
+    // Implement IDnsTlsSocketObserver
+    void onResponse(std::vector<uint8_t> response) override;
+    void onClosed() override EXCLUDES(mLock);
 
 private:
-    // On success, returns a non-blocking socket connected to mAddr (the
-    // connection will likely be in progress if mProtocol is IPPROTO_TCP).
-    // On error, returns -1 with errno set appropriately.
-    android::base::unique_fd makeConnectedSocket() const;
+    std::mutex mLock;
 
-    SSL* sslConnect(int fd);
-
-    // Writes a buffer to the socket.
-    bool sslWrite(int fd, SSL *ssl, const uint8_t *buffer, int len);
-
-    // Reads exactly the specified number of bytes from the socket.  Blocking.
-    // Returns false if the socket closes before enough bytes can be read.
-    bool sslRead(int fd, SSL *ssl, uint8_t *buffer, int len);
+    DnsTlsSessionCache mCache;
+    DnsTlsQueryMap mQueries;
 
     const unsigned mMark;  // Socket mark
-    const int mProtocol;
-    const sockaddr_storage mAddr;
-    const std::set<std::vector<uint8_t>> mFingerprints;
+    const DnsTlsServer mServer;
+    IDnsTlsSocketFactory* _Nonnull const mFactory;
+
+    void doConnect() REQUIRES(mLock);
+
+    // doReconnect is used by onClosed.  It runs on the reconnect thread.
+    void doReconnect() EXCLUDES(mLock);
+    std::unique_ptr<std::thread> mReconnectThread GUARDED_BY(mLock);
+
+    // Used to prevent onClosed from starting a reconnect during the destructor.
+    bool mClosing GUARDED_BY(mLock) = false;
+
+    // Sending queries on the socket is thread-safe, but construction/destruction is not.
+    std::unique_ptr<IDnsTlsSocket> mSocket GUARDED_BY(mLock);
+
+    // Send a query to the socket.
+    bool sendQuery(const DnsTlsQueryMap::Query q) REQUIRES(mLock);
 };
 
-// Check that a given TLS server (ss) is fully working on the specified netid, and has a
-// provided SHA-256 fingerprint (if nonempty).  This function is used in ResolverController
-// to ensure that we don't enable DNS over TLS on networks where it doesn't actually work.
-bool validateDnsTlsServer(unsigned netid, const sockaddr_storage& ss,
-        const std::set<std::vector<uint8_t>>& fingerprints);
-
-}  // namespace net
-}  // namespace android
+}  // end of namespace net
+}  // end of namespace android
 
 #endif  // _DNS_DNSTLSTRANSPORT_H

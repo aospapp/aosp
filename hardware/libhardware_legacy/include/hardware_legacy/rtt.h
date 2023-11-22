@@ -22,7 +22,9 @@ typedef enum {
     RTT_STATUS_FAIL_BUSY_TRY_LATER = 12,    // responder cannot collaborate at time of request
     RTT_STATUS_INVALID_REQ         = 13,    // bad request args
     RTT_STATUS_NO_WIFI             = 14,    // WiFi not enabled
-    RTT_STATUS_FAIL_FTM_PARAM_OVERRIDE = 15 // Responder overrides param info, cannot range with new params
+    RTT_STATUS_FAIL_FTM_PARAM_OVERRIDE = 15, // Responder overrides param info, cannot range with new params
+    RTT_STATUS_NAN_RANGING_PROTOCOL_FAILURE =16, //Negotiation failure
+    RTT_STATUS_NAN_RANGING_CONCURRENCY_NOT_SUPPORTED=17, //concurrency not supported (NDP+RTT)
 } wifi_rtt_status;
 
 /* RTT peer type */

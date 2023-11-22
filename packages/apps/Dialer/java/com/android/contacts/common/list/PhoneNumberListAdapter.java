@@ -31,25 +31,26 @@ import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
-import com.android.contacts.common.ContactPhotoManager.DefaultImageRequest;
 import com.android.contacts.common.ContactsUtils;
 import com.android.contacts.common.R;
 import com.android.contacts.common.compat.CallableCompat;
-import com.android.contacts.common.compat.DirectoryCompat;
 import com.android.contacts.common.compat.PhoneCompat;
 import com.android.contacts.common.extensions.PhoneDirectoryExtenderAccessor;
-import com.android.contacts.common.lettertiles.LetterTileDrawable;
 import com.android.contacts.common.list.ContactListItemView.CallToAction;
 import com.android.contacts.common.preference.ContactsPreferences;
 import com.android.contacts.common.util.Constants;
 import com.android.dialer.common.LogUtil;
+import com.android.dialer.common.cp2.DirectoryCompat;
 import com.android.dialer.compat.CompatUtils;
+import com.android.dialer.configprovider.ConfigProviderBindings;
+import com.android.dialer.contactphoto.ContactPhotoManager.DefaultImageRequest;
 import com.android.dialer.dialercontact.DialerContact;
+import com.android.dialer.duo.DuoComponent;
 import com.android.dialer.enrichedcall.EnrichedCallCapabilities;
 import com.android.dialer.enrichedcall.EnrichedCallComponent;
 import com.android.dialer.enrichedcall.EnrichedCallManager;
-import com.android.dialer.lightbringer.LightbringerComponent;
-import com.android.dialer.location.GeoUtil;
+import com.android.dialer.lettertile.LetterTileDrawable;
+import com.android.dialer.phonenumberutil.PhoneNumberHelper;
 import com.android.dialer.util.CallUtil;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -381,7 +382,11 @@ public class PhoneNumberListAdapter extends ContactEntryListAdapter {
         text = phoneLabel;
       } else {
         final String phoneNumber = cursor.getString(PhoneQuery.PHONE_NUMBER);
-        text = GeoUtil.getGeocodedLocationFor(mContext, phoneNumber);
+        text =
+            PhoneNumberHelper.getGeoDescription(
+                mContext,
+                phoneNumber,
+                PhoneNumberHelper.getCurrentCountryIso(mContext, null /* PhoneAccountHandle */));
       }
     }
     view.setPhoneNumber(text);
@@ -400,14 +405,14 @@ public class PhoneNumberListAdapter extends ContactEntryListAdapter {
     }
 
     if (action == ContactListItemView.NONE
-        && LightbringerComponent.get(mContext).getLightbringer().isReachable(mContext, number)) {
-      action = ContactListItemView.LIGHTBRINGER;
+        && DuoComponent.get(mContext).getDuo().isReachable(mContext, number)) {
+      action = ContactListItemView.DUO;
     }
 
     if (action == ContactListItemView.NONE) {
       EnrichedCallManager manager = EnrichedCallComponent.get(mContext).getEnrichedCallManager();
       EnrichedCallCapabilities capabilities = manager.getCapabilities(number);
-      if (capabilities != null && capabilities.supportsCallComposer()) {
+      if (capabilities != null && capabilities.isCallComposerCapable()) {
         action = ContactListItemView.CALL_AND_SHARE;
       } else if (capabilities == null
           && getQueryString() != null
@@ -496,14 +501,22 @@ public class PhoneNumberListAdapter extends ContactEntryListAdapter {
     if (getDirectorySearchMode() == DirectoryListLoader.SEARCH_MODE_NONE) {
       return;
     }
-    final int numExtendedDirectories = mExtendedDirectories.size();
+    int numExtendedDirectories = mExtendedDirectories.size();
+
+    if (ConfigProviderBindings.get(getContext()).getBoolean("p13n_ranker_should_enable", false)) {
+      // Suggested results wasn't formulated as an extended directory, so manually
+      // increment the count here when the feature is enabled. Suggestions are
+      // only shown when the ranker is enabled.
+      numExtendedDirectories++;
+    }
+
     if (getPartitionCount() == cursor.getCount() + numExtendedDirectories) {
       // already added all directories;
       return;
     }
-    //
+
     mFirstExtendedDirectoryId = Long.MAX_VALUE;
-    if (numExtendedDirectories > 0) {
+    if (!mExtendedDirectories.isEmpty()) {
       // The Directory.LOCAL_INVISIBLE is not in the cursor but we can't reuse it's
       // "special" ID.
       long maxId = Directory.LOCAL_INVISIBLE;
@@ -523,7 +536,7 @@ public class PhoneNumberListAdapter extends ContactEntryListAdapter {
       }
       // Extended directories ID's cannot collide with base directories
       mFirstExtendedDirectoryId = maxId + 1;
-      for (int i = 0; i < numExtendedDirectories; i++) {
+      for (int i = 0; i < mExtendedDirectories.size(); i++) {
         final long id = mFirstExtendedDirectoryId + i;
         final DirectoryPartition directory = mExtendedDirectories.get(i);
         if (getPartitionByDirectoryId(id) == -1) {
@@ -563,7 +576,7 @@ public class PhoneNumberListAdapter extends ContactEntryListAdapter {
 
     void onVideoCallIconClicked(int position);
 
-    void onLightbringerIconClicked(int position);
+    void onDuoVideoIconClicked(int position);
 
     void onCallAndShareIconClicked(int position);
   }

@@ -60,6 +60,15 @@
 @r8 =>  wd
 @r9 =>  ht
 
+.equ    pu1_src_top_left_offset,    104
+.equ    pu1_src_top_right_offset,   108
+.equ    pu1_src_bot_left_offset,    112
+.equ    pu1_avail_offset,           116
+.equ    pi1_sao_u_offset,           120
+.equ    pi1_sao_v_offset,           124
+.equ    wd_offset,                  128
+.equ    ht_offset,                  132
+
 .text
 .p2align 2
 
@@ -73,13 +82,13 @@ ihevc_sao_edge_offset_class1_chroma_a9q:
 
 
     STMFD       sp!, {r4-r12, r14}          @stack stores the values of the arguments
-    LDR         r7,[sp,#60]                 @Loads wd
-    LDR         r4,[sp,#40]                 @Loads pu1_src_top_left
-    LDR         r5,[sp,#52]                 @Loads pu1_avail
-    LDR         r6,[sp,#56]                 @Loads pi1_sao_offset_u
-    LDR         r7,[sp,#60]                 @Loads pi1_sao_offset_v
-    LDR         r8,[sp,#64]                 @Loads wd
-    LDR         r9,[sp,#68]                 @Loads ht
+    vpush       {d8  -  d15}
+    LDR         r4,[sp,#pu1_src_top_left_offset]    @Loads pu1_src_top_left
+    LDR         r5,[sp,#pu1_avail_offset]   @Loads pu1_avail
+    LDR         r6,[sp,#pi1_sao_u_offset]   @Loads pi1_sao_offset_u
+    LDR         r7,[sp,#pi1_sao_v_offset]   @Loads pi1_sao_offset_v
+    LDR         r8,[sp,#wd_offset]          @Loads wd
+    LDR         r9,[sp,#ht_offset]          @Loads ht
 
     SUB         r10,r8,#2                   @wd - 2
     LDRH        r11,[r3,r10]                @pu1_src_top[wd - 2]
@@ -398,6 +407,7 @@ PU1_SRC_LOOP_RESIDUE:
     VST1.8      {D30},[r10],r1              @vst1q_u8(pu1_src_cpy, pu1_cur_row)
 
 END_LOOPS:
+    vpop        {d8  -  d15}
     LDMFD       sp!,{r4-r12,r15}            @Reload the registers from SP
 
 

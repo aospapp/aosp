@@ -17,8 +17,11 @@
 #include "rsUtils.h"
 #include "rsCppUtils.h"
 
-#include <string>
+#include <errno.h>
+#include <string.h>
 #include <unistd.h>
+
+#include <string>
 
 #ifndef RS_COMPATIBILITY_LIB
 #include <sys/wait.h>

@@ -1,4 +1,3 @@
-CtsAadbHostTestCases
 CtsAbiOverrideHostTestCases
 CtsAccelerationTestCases
 CtsAccessibilityServiceTestCases
@@ -40,7 +39,6 @@ CtsDevicePolicyManagerTestCases
 CtsDisplayTestCases
 CtsDpiTestCases
 CtsDpiTestCases2
-CtsDramTestCases
 CtsDreamsTestCases
 CtsDrmTestCases
 CtsDumpsysHostTestCases
@@ -127,7 +125,7 @@ CtsSaxTestCases
 CtsSecurityHostTestCases
 CtsSecurityTestCases
 CtsSensorTestCases
-CtsServicesHostTestCases
+CtsActivityManagerDeviceTestCases
 CtsShortcutHostTestCases
 CtsShortcutManagerTestCases
 CtsSignatureTestCases
@@ -169,7 +167,7 @@ CtsVoiceSettingsTestCases
 CtsVrTestCases
 CtsWebkitTestCases
 CtsWidgetTestCases
-CtsWindowManagerHostTestCases
+CtsWindowManagerDeviceTestCases
 CtsWrapNoWrapTestCases
 CtsWrapWrapDebugTestCases
 CtsWrapWrapNoDebugTestCases

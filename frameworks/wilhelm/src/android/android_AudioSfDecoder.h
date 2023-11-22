@@ -17,11 +17,11 @@
 #ifndef AUDIO_SF_DECODER_H_
 #define AUDIO_SF_DECODER_H_
 
-#include <media/stagefright/DataSource.h>
-#include <media/stagefright/MediaSource.h>
+#include <media/DataSource.h>
+#include <media/MediaSource.h>
+#include <media/MediaExtractor.h>
 #include <media/stagefright/FileSource.h>
 #include <media/stagefright/MediaDefs.h>
-#include <media/stagefright/MediaExtractor.h>
 #include <media/stagefright/MetaData.h>
 #include "NuCachedSource2.h"
 #include "ThrottledSource.h"
@@ -98,7 +98,7 @@ protected:
     virtual void pauseAudioSink() = 0;
 
     sp<DataSource>  mDataSource; // where the raw data comes from
-    sp<IMediaSource> mAudioSource;// the decoder reading from the data source
+    sp<MediaSource> mAudioSource;// the decoder reading from the data source
     // used to indicate mAudioSource was successfully started, but wasn't stopped
     bool            mAudioSourceStarted;
 
@@ -107,7 +107,7 @@ protected:
     int64_t mDurationUsec; // ANDROID_UNKNOWN_TIME if unknown
 
     // buffer passed from decoder to renderer
-    MediaBuffer *mDecodeBuffer;
+    MediaBufferBase *mDecodeBuffer;
 
     // mutex used to protect the decode buffer, the audio source and its running state
     Mutex       mBufferSourceLock;

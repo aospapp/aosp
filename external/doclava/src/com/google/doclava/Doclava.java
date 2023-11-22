@@ -29,6 +29,7 @@ import java.util.*;
 import java.util.jar.JarFile;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.io.*;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.Array;
@@ -104,6 +105,7 @@ public class Doclava {
   public static ArtifactTagger artifactTagger = new ArtifactTagger();
   public static HashSet<String> knownTags = new HashSet<String>();
   public static FederationTagger federationTagger = new FederationTagger();
+  public static boolean showUnannotated = false;
   public static Set<String> showAnnotations = new HashSet<String>();
   public static Set<String> hideAnnotations = new HashSet<String>();
   public static boolean showAnnotationOverridesVisibility = false;
@@ -118,6 +120,7 @@ public class Doclava {
   public static Map<String, String> annotationDocumentationMap = null;
   public static boolean referenceOnly = false;
   public static boolean staticOnly = false;
+  public static boolean yamlV2 = false; /* whether to build the new version of the yaml file */
   public static AuxSource auxSource = new EmptyAuxSource();
   public static Linter linter = new EmptyLinter();
   public static boolean android = false;
@@ -180,8 +183,12 @@ public class Doclava {
     // Create the dependency graph for the stubs  directory
     boolean offlineMode = false;
     String apiFile = null;
+    String dexApiFile = null;
     String removedApiFile = null;
+    String removedDexApiFile = null;
     String exactApiFile = null;
+    String privateApiFile = null;
+    String privateDexApiFile = null;
     String debugStubsFile = "";
     HashSet<String> stubPackages = null;
     HashSet<String> stubImportPackages = null;
@@ -253,6 +260,8 @@ public class Doclava {
         }
       } else if (a[0].equals("-keeplist")) {
         keepListFile = a[1];
+      } else if (a[0].equals("-showUnannotated")) {
+        showUnannotated = true;
       } else if (a[0].equals("-showAnnotation")) {
         showAnnotations.add(a[1]);
       } else if (a[0].equals("-hideAnnotation")) {
@@ -296,10 +305,18 @@ public class Doclava {
         sdkValuePath = a[1];
       } else if (a[0].equals("-api")) {
         apiFile = a[1];
+      } else if (a[0].equals("-dexApi")) {
+        dexApiFile = a[1];
       } else if (a[0].equals("-removedApi")) {
         removedApiFile = a[1];
+      } else if (a[0].equals("-removedDexApi")) {
+        removedDexApiFile = a[1];
       } else if (a[0].equals("-exactApi")) {
         exactApiFile = a[1];
+      } else if (a[0].equals("-privateApi")) {
+        privateApiFile = a[1];
+      } else if (a[0].equals("-privateDexApi")) {
+        privateDexApiFile = a[1];
       } else if (a[0].equals("-nodocs")) {
         generateDocs = false;
       } else if (a[0].equals("-noassets")) {
@@ -355,6 +372,8 @@ public class Doclava {
         NAVTREE_ONLY = true;
       } else if (a[0].equals("-atLinksNavtree")) {
         AT_LINKS_NAVTREE = true;
+      } else if (a[0].equals("-yamlV2")) {
+        yamlV2 = true;
       } else if (a[0].equals("-devsite")) {
         // Don't copy any assets to devsite output
         includeAssets = false;
@@ -374,6 +393,12 @@ public class Doclava {
       } else if (a[0].equals("-manifest")) {
         manifestFile = a[1];
       }
+    }
+
+    // If the caller has not explicitly requested that unannotated classes and members should be
+    // shown in the output then only show them if no annotations were provided.
+    if (!showUnannotated && showAnnotations.isEmpty()) {
+      showUnannotated = true;
     }
 
     if (!readKnownTagsFiles(knownTags, knownTagsFiles)) {
@@ -496,6 +521,12 @@ public class Doclava {
         // Write yaml tree.
         if (yamlNavFile != null){
           NavTree.writeYamlTree(javadocDir, yamlNavFile);
+          if (yamlV2) {
+            // Generate both for good measure, to make transitions easier, but change the filename
+            // for the new one so there's yet another explicit opt-in required by fixing the name.
+            yamlNavFile = "_NEW" + yamlNavFile;
+            NavTree.writeYamlTree2(javadocDir, yamlNavFile);
+          }
         }
 
         // Packages Pages
@@ -530,12 +561,12 @@ public class Doclava {
     }
 
     // Stubs
-    if (stubsDir != null || apiFile != null || proguardFile != null || removedApiFile != null
-        || exactApiFile != null) {
-      Stubs.writeStubsAndApi(stubsDir, apiFile, proguardFile, removedApiFile, exactApiFile,
-          stubPackages,
-          stubImportPackages,
-          stubSourceOnly);
+    if (stubsDir != null || apiFile != null || dexApiFile != null || proguardFile != null
+        || removedApiFile != null || removedDexApiFile != null || exactApiFile != null
+        || privateApiFile != null || privateDexApiFile != null) {
+      Stubs.writeStubsAndApi(stubsDir, apiFile, dexApiFile, proguardFile, removedApiFile,
+          removedDexApiFile, exactApiFile, privateApiFile, privateDexApiFile, stubPackages,
+          stubImportPackages, stubSourceOnly);
     }
 
     Errors.printErrors();
@@ -728,6 +759,9 @@ public class Doclava {
     if (option.equals("-devsite")) {
       return 1;
     }
+    if (option.equals("-yamlV2")) {
+      return 1;
+    }
     if (option.equals("-dac_libraryroot")) {
       return 2;
     }
@@ -770,7 +804,13 @@ public class Doclava {
     if (option.equals("-keeplist")) {
       return 2;
     }
+    if (option.equals("-showUnannotated")) {
+      return 1;
+    }
     if (option.equals("-showAnnotation")) {
+      return 2;
+    }
+    if (option.equals("-hideAnnotation")) {
       return 2;
     }
     if (option.equals("-showAnnotationOverridesVisibility")) {
@@ -821,10 +861,22 @@ public class Doclava {
     if (option.equals("-api")) {
       return 2;
     }
+    if (option.equals("-dexApi")) {
+      return 2;
+    }
     if (option.equals("-removedApi")) {
       return 2;
     }
+    if (option.equals("-removedDexApi")) {
+      return 2;
+    }
     if (option.equals("-exactApi")) {
+      return 2;
+    }
+    if (option.equals("-privateApi")) {
+      return 2;
+    }
+    if (option.equals("-privateDexApi")) {
       return 2;
     }
     if (option.equals("-nodocs")) {
@@ -918,7 +970,7 @@ public class Doclava {
 
   public static Data makePackageHDF() {
     Data data = makeHDF();
-    ClassInfo[] classes = Converter.rootClasses();
+    Collection<ClassInfo> classes = Converter.rootClasses();
 
     SortedMap<String, PackageInfo> sorted = new TreeMap<String, PackageInfo>();
     for (ClassInfo cl : classes) {
@@ -1100,7 +1152,7 @@ public class Doclava {
     // Write the lists for API references
     Data data = makeHDF();
 
-    ClassInfo[] classes = Converter.rootClasses();
+    Collection<ClassInfo> classes = Converter.rootClasses();
 
     SortedMap<String, Object> sorted = new TreeMap<String, Object>();
     for (ClassInfo cl : classes) {
@@ -1288,8 +1340,8 @@ public class Doclava {
    */
   public static void writeKeepList(String filename) {
     HashSet<ClassInfo> notStrippable = new HashSet<ClassInfo>();
-    ClassInfo[] all = Converter.allClasses();
-    Arrays.sort(all); // just to make the file a little more readable
+    Collection<ClassInfo> all = Converter.allClasses().stream().sorted(ClassInfo.comparator)
+        .collect(Collectors.toList());
 
     // If a class is public and not hidden, then it and everything it derives
     // from cannot be stripped. Otherwise we can strip it.
@@ -1320,7 +1372,7 @@ public class Doclava {
       return sVisiblePackages;
     }
 
-    ClassInfo[] classes = Converter.rootClasses();
+    Collection<ClassInfo> classes = Converter.rootClasses();
     SortedMap<String, PackageInfo> sorted = new TreeMap<String, PackageInfo>();
     for (ClassInfo cl : classes) {
       PackageInfo pkg = cl.containingPackage();
@@ -1536,7 +1588,7 @@ public class Doclava {
    */
 
   public static void writeHierarchy() {
-    ClassInfo[] classes = Converter.rootClasses();
+    Collection<ClassInfo> classes = Converter.rootClasses();
     ArrayList<ClassInfo> info = new ArrayList<ClassInfo>();
     for (ClassInfo cl : classes) {
       if (!cl.isHiddenOrRemoved()) {
@@ -1550,7 +1602,7 @@ public class Doclava {
   }
 
   public static void writeClasses() {
-    ClassInfo[] classes = Converter.rootClasses();
+    Collection<ClassInfo> classes = Converter.rootClasses();
 
     for (ClassInfo cl : classes) {
       Data data = makePackageHDF();
@@ -1750,7 +1802,7 @@ public class Doclava {
     ArrayList<ClassInfo> widgets = new ArrayList<ClassInfo>();
     ArrayList<ClassInfo> layoutParams = new ArrayList<ClassInfo>();
 
-    ClassInfo[] classes = Converter.allClasses();
+    Collection<ClassInfo> classes = Converter.allClasses();
 
     // The topmost LayoutParams class - android.view.ViewGroup.LayoutParams
     ClassInfo topLayoutParams = null;

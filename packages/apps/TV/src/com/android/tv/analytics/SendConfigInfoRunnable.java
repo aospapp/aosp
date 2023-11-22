@@ -17,14 +17,10 @@
 package com.android.tv.analytics;
 
 import android.media.tv.TvInputInfo;
-
 import com.android.tv.util.TvInputManagerHelper;
-
 import java.util.List;
 
-/**
- * Sends ConfigurationInfo once a day.
- */
+/** Sends ConfigurationInfo once a day. */
 public class SendConfigInfoRunnable implements Runnable {
     private final Tracker mTracker;
     private final TvInputManagerHelper mTvInputManagerHelper;
@@ -46,8 +42,8 @@ public class SendConfigInfoRunnable implements Runnable {
                 nonSystemInputCount++;
             }
         }
-        ConfigurationInfo configurationInfo = new ConfigurationInfo(systemInputCount,
-                nonSystemInputCount);
+        ConfigurationInfo configurationInfo =
+                new ConfigurationInfo(systemInputCount, nonSystemInputCount);
         mTracker.sendConfigurationInfo(configurationInfo);
     }
 }

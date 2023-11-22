@@ -28,16 +28,14 @@ import android.support.annotation.RequiresApi;
 import android.support.media.tv.TvContractCompat;
 import android.text.TextUtils;
 import android.util.Log;
-
-import com.android.tv.ApplicationSingletons;
-import com.android.tv.TvApplication;
-import com.android.tv.data.Channel;
+import com.android.tv.Starter;
+import com.android.tv.TvSingletons;
 import com.android.tv.data.PreviewDataManager;
 import com.android.tv.data.PreviewProgramContent;
 import com.android.tv.data.Program;
+import com.android.tv.data.api.Channel;
 import com.android.tv.parental.ParentalControlSettings;
 import com.android.tv.util.Utils;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -48,23 +46,19 @@ import java.util.concurrent.TimeUnit;
 @RequiresApi(Build.VERSION_CODES.O)
 public class ChannelPreviewUpdater {
     private static final String TAG = "ChannelPreviewUpdater";
-    // STOPSHIP: set it to false.
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
 
     private static final int UPATE_PREVIEW_PROGRAMS_JOB_ID = 1000001;
     private static final long ROUTINE_INTERVAL_MS = TimeUnit.MINUTES.toMillis(10);
     // The left time of a program should meet the threshold so that it could be recommended.
-    private static final long RECOMMENDATION_THRESHOLD_LEFT_TIME_MS =
-            TimeUnit.MINUTES.toMillis(10);
-    private static final int RECOMMENDATION_THRESHOLD_PROGRESS = 90;  // 90%
+    private static final long RECOMMENDATION_THRESHOLD_LEFT_TIME_MS = TimeUnit.MINUTES.toMillis(10);
+    private static final int RECOMMENDATION_THRESHOLD_PROGRESS = 90; // 90%
     private static final int RECOMMENDATION_COUNT = 6;
     private static final int MIN_COUNT_TO_ADD_ROW = 4;
 
     private static ChannelPreviewUpdater sChannelPreviewUpdater;
 
-    /**
-     * Creates and returns the {@link ChannelPreviewUpdater}.
-     */
+    /** Creates and returns the {@link ChannelPreviewUpdater}. */
     public static ChannelPreviewUpdater getInstance(Context context) {
         if (sChannelPreviewUpdater == null) {
             sChannelPreviewUpdater = new ChannelPreviewUpdater(context.getApplicationContext());
@@ -82,21 +76,22 @@ public class ChannelPreviewUpdater {
 
     private boolean mNeedUpdateAfterRecommenderReady = false;
 
-    private Recommender.Listener mRecommenderListener = new Recommender.Listener() {
-        @Override
-        public void onRecommenderReady() {
-            if (mNeedUpdateAfterRecommenderReady) {
-                if (DEBUG) Log.d(TAG, "Recommender is ready");
-                updatePreviewDataForChannelsImmediately();
-                mNeedUpdateAfterRecommenderReady = false;
-            }
-        }
+    private Recommender.Listener mRecommenderListener =
+            new Recommender.Listener() {
+                @Override
+                public void onRecommenderReady() {
+                    if (mNeedUpdateAfterRecommenderReady) {
+                        if (DEBUG) Log.d(TAG, "Recommender is ready");
+                        updatePreviewDataForChannelsImmediately();
+                        mNeedUpdateAfterRecommenderReady = false;
+                    }
+                }
 
-        @Override
-        public void onRecommendationChanged() {
-            updatePreviewDataForChannelsImmediately();
-        }
-    };
+                @Override
+                public void onRecommendationChanged() {
+                    updatePreviewDataForChannelsImmediately();
+                }
+            };
 
     private ChannelPreviewUpdater(Context context) {
         mContext = context;
@@ -104,15 +99,13 @@ public class ChannelPreviewUpdater {
         mRecommender.registerEvaluator(new RandomEvaluator(), 0.1, 0.1);
         mRecommender.registerEvaluator(new FavoriteChannelEvaluator(), 0.5, 0.5);
         mRecommender.registerEvaluator(new RoutineWatchEvaluator(), 1.0, 1.0);
-        ApplicationSingletons appSingleton = TvApplication.getSingletons(context);
-        mPreviewDataManager = appSingleton.getPreviewDataManager();
-        mParentalControlSettings = appSingleton.getTvInputManagerHelper()
-                .getParentalControlSettings();
+        TvSingletons tvSingleton = TvSingletons.getSingletons(context);
+        mPreviewDataManager = tvSingleton.getPreviewDataManager();
+        mParentalControlSettings =
+                tvSingleton.getTvInputManagerHelper().getParentalControlSettings();
     }
 
-    /**
-     * Starts the routine service for updating the preview programs.
-     */
+    /** Starts the routine service for updating the preview programs. */
     public void startRoutineService() {
         JobScheduler jobScheduler =
                 (JobScheduler) mContext.getSystemService(Context.JOB_SCHEDULER_SERVICE);
@@ -120,11 +113,13 @@ public class ChannelPreviewUpdater {
             if (DEBUG) Log.d(TAG, "UPDATE_PREVIEW_JOB already exists");
             return;
         }
-        JobInfo job = new JobInfo.Builder(UPATE_PREVIEW_PROGRAMS_JOB_ID,
-                new ComponentName(mContext, ChannelPreviewUpdateService.class))
-                .setPeriodic(ROUTINE_INTERVAL_MS)
-                .setPersisted(true)
-                .build();
+        JobInfo job =
+                new JobInfo.Builder(
+                                UPATE_PREVIEW_PROGRAMS_JOB_ID,
+                                new ComponentName(mContext, ChannelPreviewUpdateService.class))
+                        .setPeriodic(ROUTINE_INTERVAL_MS)
+                        .setPersisted(true)
+                        .build();
         if (jobScheduler.schedule(job) < 0) {
             Log.i(TAG, "JobScheduler failed to schedule the job");
         }
@@ -138,9 +133,7 @@ public class ChannelPreviewUpdater {
         updatePreviewDataForChannelsImmediately();
     }
 
-    /**
-     * Updates the preview programs table.
-     */
+    /** Updates the preview programs table. */
     public void updatePreviewDataForChannelsImmediately() {
         if (!mRecommender.isReady()) {
             mNeedUpdateAfterRecommenderReady = true;
@@ -148,16 +141,17 @@ public class ChannelPreviewUpdater {
         }
 
         if (!mPreviewDataManager.isLoadFinished()) {
-            mPreviewDataManager.addListener(new PreviewDataManager.PreviewDataListener() {
-                @Override
-                public void onPreviewDataLoadFinished() {
-                    mPreviewDataManager.removeListener(this);
-                    updatePreviewDataForChannels();
-                }
+            mPreviewDataManager.addListener(
+                    new PreviewDataManager.PreviewDataListener() {
+                        @Override
+                        public void onPreviewDataLoadFinished() {
+                            mPreviewDataManager.removeListener(this);
+                            updatePreviewDataForChannels();
+                        }
 
-                @Override
-                public void onPreviewDataUpdateFinished() { }
-            });
+                        @Override
+                        public void onPreviewDataUpdateFinished() {}
+                    });
             return;
         }
         updatePreviewDataForChannels();
@@ -225,8 +219,9 @@ public class ChannelPreviewUpdater {
     }
 
     private void updatePreviewDataForChannelsInternal(Set<Program> programs) {
-        long defaultPreviewChannelId = mPreviewDataManager.getPreviewChannelId(
-                PreviewDataManager.TYPE_DEFAULT_PREVIEW_CHANNEL);
+        long defaultPreviewChannelId =
+                mPreviewDataManager.getPreviewChannelId(
+                        PreviewDataManager.TYPE_DEFAULT_PREVIEW_CHANNEL);
         if (defaultPreviewChannelId == PreviewDataManager.INVALID_PREVIEW_CHANNEL_ID) {
             // Only create if there is enough programs
             if (programs.size() > MIN_COUNT_TO_ADD_ROW) {
@@ -248,7 +243,8 @@ public class ChannelPreviewUpdater {
                         });
             }
         } else {
-            updatePreviewProgramsForPreviewChannel(defaultPreviewChannelId,
+            updatePreviewProgramsForPreviewChannel(
+                    defaultPreviewChannelId,
                     generatePreviewProgramContentsFromPrograms(defaultPreviewChannelId, programs));
         }
     }
@@ -266,39 +262,38 @@ public class ChannelPreviewUpdater {
         return result;
     }
 
-    private void updatePreviewProgramsForPreviewChannel(long previewChannelId,
-            Set<PreviewProgramContent> previewProgramContents) {
-        PreviewDataManager.PreviewDataListener previewDataListener
-                = new PreviewDataManager.PreviewDataListener() {
-            @Override
-            public void onPreviewDataLoadFinished() { }
+    private void updatePreviewProgramsForPreviewChannel(
+            long previewChannelId, Set<PreviewProgramContent> previewProgramContents) {
+        PreviewDataManager.PreviewDataListener previewDataListener =
+                new PreviewDataManager.PreviewDataListener() {
+                    @Override
+                    public void onPreviewDataLoadFinished() {}
 
-            @Override
-            public void onPreviewDataUpdateFinished() {
-                mPreviewDataManager.removeListener(this);
-                if (mJobService != null && mJobParams != null) {
-                    if (DEBUG) Log.d(TAG, "UpdateAsyncTask.onPostExecute with JobService");
-                    mJobService.jobFinished(mJobParams, false);
-                    mJobService = null;
-                    mJobParams = null;
-                } else {
-                    if (DEBUG) Log.d(TAG, "UpdateAsyncTask.onPostExecute without JobService");
-                }
-            }
-        };
+                    @Override
+                    public void onPreviewDataUpdateFinished() {
+                        mPreviewDataManager.removeListener(this);
+                        if (mJobService != null && mJobParams != null) {
+                            if (DEBUG) Log.d(TAG, "UpdateAsyncTask.onPostExecute with JobService");
+                            mJobService.jobFinished(mJobParams, false);
+                            mJobService = null;
+                            mJobParams = null;
+                        } else {
+                            if (DEBUG)
+                                Log.d(TAG, "UpdateAsyncTask.onPostExecute without JobService");
+                        }
+                    }
+                };
         mPreviewDataManager.updatePreviewProgramsForChannel(
                 previewChannelId, previewProgramContents, previewDataListener);
     }
 
-    /**
-     * Job to execute the update of preview programs.
-     */
+    /** Job to execute the update of preview programs. */
     public static class ChannelPreviewUpdateService extends JobService {
         private ChannelPreviewUpdater mChannelPreviewUpdater;
 
         @Override
         public void onCreate() {
-            TvApplication.setCurrentRunningProcess(this, true);
+            Starter.start(this);
             if (DEBUG) Log.d(TAG, "ChannelPreviewUpdateService.onCreate");
             mChannelPreviewUpdater = ChannelPreviewUpdater.getInstance(this);
         }

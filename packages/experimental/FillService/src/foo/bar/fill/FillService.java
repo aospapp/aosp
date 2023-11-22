@@ -24,6 +24,7 @@ import android.app.assist.AssistStructure.WindowNode;
 import android.app.assist.AssistStructure.ViewNode;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.pm.PackageManager;
 import android.os.CancellationSignal;
 import android.service.autofill.AutofillService;
 import android.service.autofill.Dataset;
@@ -33,16 +34,24 @@ import android.service.autofill.FillResponse;
 import android.service.autofill.SaveCallback;
 import android.service.autofill.SaveInfo;
 import android.service.autofill.SaveRequest;
+import android.util.Log;
 import android.view.View;
 import android.view.autofill.AutofillId;
+import android.view.autofill.AutofillManager;
 import android.view.autofill.AutofillValue;
+import android.widget.EditText;
 import android.widget.RemoteViews;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Predicate;
 
+import android.widget.TextView;
 import foo.bar.fill.R;
 
 public class FillService extends AutofillService {
+    private static final String LOG_TAG = "FillService";
+
     static final boolean TEST_RESPONSE_AUTH = false;
 
     public static final String RESPONSE_ID = "RESPONSE_ID";
@@ -76,8 +85,20 @@ public class FillService extends AutofillService {
             @NonNull FillCallback callback) {
         AssistStructure structure = request.getFillContexts().get(0).getStructure();
 
-        ViewNode username = findUsername(structure);
-        ViewNode password = findPassword(structure);
+        dumpNodeTree(structure);
+
+//        ViewNode username = findUsername(structure);
+//        ViewNode password = findPassword(structure);
+
+        ViewNode username = null;
+        ViewNode password = null;
+        final List<ViewNode> inputs = findTextInputs(structure);
+        if (inputs.size() > 1) {
+            username = inputs.get(0);
+            password = inputs.get(1);
+        }
+
+        Log.i(LOG_TAG, "found username+username:" + (username != null && password != null));
 
         if (username != null && password != null) {
             final FillResponse response;
@@ -134,46 +155,48 @@ public class FillService extends AutofillService {
                                 .setValue(password.getAutofillId(),
                                         AutofillValue.forText(DATASET1_PASSWORD))
                                 .build())
-                        .addDataset(new Dataset.Builder(presentation2)
-                                .setValue(username.getAutofillId(),
-                                        AutofillValue.forText(DATASET2_USERNAME))
-                                .setValue(password.getAutofillId(),
-                                        AutofillValue.forText(DATASET2_PASSWORD))
+//                        .addDataset(new Dataset.Builder(presentation2)
+//                                .setValue(username.getAutofillId(),
+//                                        AutofillValue.forText(DATASET2_USERNAME))
+//                                .setValue(password.getAutofillId(),
+//                                        AutofillValue.forText(DATASET2_PASSWORD))
+////                                .setAuthentication(sender)
+//                                .build())
+//                        .addDataset(new Dataset.Builder(presentation3)
+//                                .setValue(username.getAutofillId(),
+//                                        AutofillValue.forText(DATASET3_USERNAME))
+//                                .setValue(password.getAutofillId(),
+//                                        AutofillValue.forText(DATASET3_PASSWORD))
+////                                .setAuthentication(sender)
+//                                .build())
+//                        .addDataset(new Dataset.Builder(presentation4)
+//                                .setValue(username.getAutofillId(),
+//                                        AutofillValue.forText(DATASET4_USERNAME))
+//                                .setValue(password.getAutofillId(),
+//                                        AutofillValue.forText(DATASET4_PASSWORD))
+////                                .setAuthentication(sender)
+//                                .build())
+//                        .addDataset(new Dataset.Builder(presentation5)
+//                                .setValue(username.getAutofillId(),
+//                                        AutofillValue.forText(DATASET5_USERNAME))
+//                                .setValue(password.getAutofillId(),
+//                                        AutofillValue.forText(DATASET5_PASSWORD))
 //                                .setAuthentication(sender)
-                                .build())
-                        .addDataset(new Dataset.Builder(presentation3)
-                                .setValue(username.getAutofillId(),
-                                        AutofillValue.forText(DATASET3_USERNAME))
-                                .setValue(password.getAutofillId(),
-                                        AutofillValue.forText(DATASET3_PASSWORD))
-//                                .setAuthentication(sender)
-                                .build())
-                        .addDataset(new Dataset.Builder(presentation4)
-                                .setValue(username.getAutofillId(),
-                                        AutofillValue.forText(DATASET4_USERNAME))
-                                .setValue(password.getAutofillId(),
-                                        AutofillValue.forText(DATASET4_PASSWORD))
-//                                .setAuthentication(sender)
-                                .build())
-                        .addDataset(new Dataset.Builder(presentation5)
-                                .setValue(username.getAutofillId(),
-                                        AutofillValue.forText(DATASET5_USERNAME))
-                                .setValue(password.getAutofillId(),
-                                        AutofillValue.forText(DATASET5_PASSWORD))
-                                .setAuthentication(sender)
-                                .build())
+//                                .build())
                         .setSaveInfo(new SaveInfo.Builder(
                                 SaveInfo.SAVE_DATA_TYPE_PASSWORD
                                         | SaveInfo.SAVE_DATA_TYPE_USERNAME,
                                 new AutofillId[] {username.getAutofillId(),
                                         password.getAutofillId()})
+                                .setFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE)
                                 .build())
                         .build();
             }
 
             callback.onSuccess(response);
         } else {
-            callback.onFailure("Whoops");
+            //callback.onFailure("Whoops");
+            callback.onSuccess(null);
         }
     }
 
@@ -184,18 +207,49 @@ public class FillService extends AutofillService {
         ViewNode password = findPassword(structure);
     }
 
+    static void dumpNodeTree(AssistStructure structure) {
+        findByPredicate(structure, (node) -> {
+            if (node.getAutofillValue() != null) {
+                Log.e("class:" + LOG_TAG, node.getClassName() + " value:" + node.getAutofillValue());
+            }
+//            Log.e(LOG_TAG, (node.getAutofillValue() != null && node.getAutofillValue().isText())
+//                    ? node.getAutofillValue().getTextValue().toString() + "-" +node.getAutofillId() : "NOPE");
+            return false;
+        });
+    }
+
+    List<ViewNode > findTextInputs(AssistStructure structure) {
+        final List<ViewNode> inputs = new ArrayList<>();
+        findByPredicate(structure, (node) -> {
+            if (node.getClassName().equals(EditText.class.getName())) {
+                inputs.add(node);
+            }
+            return false;
+        });
+        return inputs;
+    }
+
     static ViewNode findUsername(AssistStructure structure) {
         return findByPredicate(structure, (node) ->
             node.getAutofillType() == View.AUTOFILL_TYPE_TEXT
-                    && "username".equals(node.getIdEntry())
+                    && (autofillTextValueContains(node, "username")
+                            || "username".equals(node.getIdEntry()))
         );
     }
 
     static ViewNode findPassword(AssistStructure structure) {
         return findByPredicate(structure, (node) ->
-                node.getAutofillType() == View.AUTOFILL_TYPE_TEXT
-                        && "password".equals(node.getIdEntry())
+            node.getAutofillType() == View.AUTOFILL_TYPE_TEXT
+                    && (autofillTextValueContains(node, "password")
+                            || "password".equals(node.getIdEntry()))
         );
+    }
+
+    private static boolean autofillTextValueContains(ViewNode node, String text) {
+        return node.getAutofillValue() != null
+                && node.getAutofillValue().getTextValue() != null
+                && node.getAutofillValue().getTextValue().toString().toLowerCase()
+                .contains(text.toLowerCase());
     }
 
     private static ViewNode findByPredicate(AssistStructure structure,

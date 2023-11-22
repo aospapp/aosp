@@ -18,6 +18,8 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
+LOCAL_JAVA_LIBRARIES := android.test.base.stubs
+
 LOCAL_JNI_SHARED_LIBRARIES := libctsdeviceinfo
 
 LOCAL_MULTILIB := both
@@ -36,7 +38,7 @@ DEVICE_INFO_ACTIVITIES := \
 LOCAL_PACKAGE_NAME := CtsDeviceInfo
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests sts cts_instant
 
 include $(BUILD_CTS_DEVICE_INFO_PACKAGE)
 

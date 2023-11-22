@@ -260,7 +260,7 @@ static void MD5_Final(unsigned char *result, MD5_CTX *ctx);
  */
 #if defined(__i386__) || defined(__x86_64__) || defined(__vax__)
 #define SET(n) \
-        (*(MD5_u32plus *)&ptr[(n) * 4])
+        (*(MD5_u32plus *)(void *)&ptr[(n) * 4])
 #define GET(n) \
         SET(n)
 #else
@@ -402,7 +402,8 @@ static void MD5_Update(MD5_CTX *ctx, const void *data, unsigned long size)
   unsigned long used, available;
 
   saved_lo = ctx->lo;
-  if((ctx->lo = (saved_lo + size) & 0x1fffffff) < saved_lo)
+  ctx->lo = (saved_lo + size) & 0x1fffffff;
+  if(ctx->lo < saved_lo)
     ctx->hi++;
   ctx->hi += (MD5_u32plus)size >> 29;
 

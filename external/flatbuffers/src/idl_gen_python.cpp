@@ -198,7 +198,7 @@ static void GetStringField(const StructDef &struct_def,
   code += OffsetPrefix(field);
   code += Indent + Indent + Indent + "return " + GenGetter(field.value.type);
   code += "o + self._tab.Pos)\n";
-  code += Indent + Indent + "return \"\"\n\n";
+  code += Indent + Indent + "return bytes()\n\n";
 }
 
 // Get the value of a union from an object.
@@ -266,6 +266,38 @@ static void GetMemberOfVectorOfNonStruct(const StructDef &struct_def,
   code += "return " + GenGetter(field.value.type);
   code += "a + flatbuffers.number_types.UOffsetTFlags.py_type(j * ";
   code += NumToString(InlineSize(vectortype)) + "))\n";
+  if (vectortype.base_type == BASE_TYPE_STRING) {
+    code += Indent + Indent + "return \"\"\n";
+  } else {
+    code += Indent + Indent + "return 0\n";
+  }
+  code += "\n";
+}
+
+// Returns a non-struct vector as a numpy array. Much faster
+// than iterating over the vector element by element.
+static void GetVectorOfNonStructAsNumpy(const StructDef &struct_def,
+                                        const FieldDef &field,
+                                        std::string *code_ptr) {
+  std::string &code = *code_ptr;
+  auto vectortype = field.value.type.VectorType();
+
+  // Currently, we only support accessing as numpy array if
+  // the vector type is a scalar.
+  if (!(IsScalar(vectortype.base_type))) {
+    return;
+  }
+
+  GenReceiver(struct_def, code_ptr);
+  code += MakeCamel(field.name) + "AsNumpy(self):";
+  code += OffsetPrefix(field);
+
+  code += Indent + Indent + Indent;
+  code += "return ";
+  code += "self._tab.GetVectorAsNumpy(flatbuffers.number_types.";
+  code += MakeCamel(GenTypeGet(field.value.type));
+  code += "Flags, o)\n";
+
   if (vectortype.base_type == BASE_TYPE_STRING) {
     code += Indent + Indent + "return \"\"\n";
   } else {
@@ -440,6 +472,7 @@ static void GenStructAccessor(const StructDef &struct_def,
           GetMemberOfVectorOfStruct(struct_def, field, code_ptr);
         } else {
           GetMemberOfVectorOfNonStruct(struct_def, field, code_ptr);
+          GetVectorOfNonStructAsNumpy(struct_def, field, code_ptr);
         }
         break;
       }
@@ -547,7 +580,8 @@ static std::string GenMethod(const FieldDef &field) {
 
 static std::string GenTypeBasic(const Type &type) {
   static const char *ctypename[] = {
-    #define FLATBUFFERS_TD(ENUM, IDLTYPE, CTYPE, JTYPE, GTYPE, NTYPE, PTYPE) \
+    #define FLATBUFFERS_TD(ENUM, IDLTYPE, \
+      CTYPE, JTYPE, GTYPE, NTYPE, PTYPE) \
       #PTYPE,
       FLATBUFFERS_GEN_TYPES(FLATBUFFERS_TD)
     #undef FLATBUFFERS_TD
@@ -630,7 +664,7 @@ class PythonGenerator : public BaseGenerator {
   void BeginFile(const std::string name_space_name, const bool needs_imports,
                  std::string *code_ptr) {
     std::string &code = *code_ptr;
-    code = code + "# " + FlatBuffersGeneratedWarning();
+    code = code + "# " + FlatBuffersGeneratedWarning() + "\n\n";
     code += "# namespace: " + name_space_name + "\n\n";
     if (needs_imports) {
       code += "import flatbuffers\n\n";
@@ -643,7 +677,7 @@ class PythonGenerator : public BaseGenerator {
     if (!classcode.length()) return true;
 
     std::string namespace_dir = path_;
-    auto &namespaces = parser_.namespaces_.back()->components;
+    auto &namespaces = def.defined_namespace->components;
     for (auto it = namespaces.begin(); it != namespaces.end(); ++it) {
       if (it != namespaces.begin()) namespace_dir += kPathSeparator;
       namespace_dir += *it;

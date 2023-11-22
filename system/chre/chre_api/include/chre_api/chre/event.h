@@ -109,6 +109,26 @@ extern "C" {
 #define CHRE_EVENT_NANOAPP_STOPPED  UINT16_C(0x0004)
 
 /**
+ * nanoappHandleEvent argument: NULL
+ *
+ * Indicates that CHRE has observed the host wake from low-power sleep state.
+ *
+ * @see chreConfigureHostSleepStateEvents
+ * @since v1.2
+ */
+#define CHRE_EVENT_HOST_AWAKE  UINT16_C(0x0005)
+
+/**
+ * nanoappHandleEvent argument: NULL
+ *
+ * Indicates that CHRE has observed the host enter low-power sleep state.
+ *
+ * @see chreConfigureHostSleepStateEvents
+ * @since v1.2
+ */
+#define CHRE_EVENT_HOST_ASLEEP  UINT16_C(0x0006)
+
+/**
  * First possible value for CHRE_EVENT_SENSOR events.
  *
  * This allows us to separately define our CHRE_EVENT_SENSOR_* events in
@@ -144,6 +164,14 @@ extern "C" {
  */
 #define CHRE_EVENT_WWAN_FIRST_EVENT  UINT16_C(0x0320)
 #define CHRE_EVENT_WWAN_LAST_EVENT   UINT16_C(0x032F)
+
+/**
+ * First event in the block reserved for audio. These events are defined in
+ * chre/audio.h.
+ */
+
+#define CHRE_EVENT_AUDIO_FIRST_EVENT UINT16_C(0x0330)
+#define CHRE_EVENT_AUDIO_LAST_EVENT  UINT16_C(0x033F)
 
 /**
  * First in the extended range of values dedicated for internal CHRE
@@ -367,7 +395,7 @@ bool chreSendMessageToHost(void *message, uint32_t messageSize,
                            chreMessageFreeFunction *freeCallback);
 
 /**
- * Send a message to the host.
+ * Send a message to the host, waking it up if it is currently asleep.
  *
  * This message is by definition arbitrarily defined.  Since we're not
  * just a passing a pointer to memory around the system, but need to copy
@@ -480,6 +508,48 @@ bool chreGetNanoappInfoByInstanceId(uint32_t instanceId,
  * @since v1.1
  */
 void chreConfigureNanoappInfoEvents(bool enable);
+
+/**
+ * Configures whether this nanoapp will be notified when the host (applications
+ * processor) transitions between wake and sleep, via CHRE_EVENT_HOST_AWAKE and
+ * CHRE_EVENT_HOST_ASLEEP.  As chreSendMessageToHostEndpoint() wakes the host if
+ * it is asleep, these events can be used to opportunistically send data to the
+ * host only when it wakes up for some other reason.  Note that this event is
+ * not instantaneous - there is an inherent delay in CHRE observing power state
+ * changes of the host processor, which may be significant depending on the
+ * implementation, especially in the wake to sleep direction.  Therefore,
+ * nanoapps are not guaranteed that messages sent to the host between AWAKE and
+ * ASLEEP events will not trigger a host wakeup.  However, implementations must
+ * ensure that the nominal wake-up notification latency is strictly less than
+ * the minimum wake-sleep time of the host processor.  Implementations are also
+ * encouraged to minimize this and related latencies where possible, to avoid
+ * unnecessary host wake-ups.
+ *
+ * These events are only sent on transitions, so the initial state will not be
+ * sent to the nanoapp as an event - use chreIsHostAwake().
+ *
+ * @param enable true to enable these events, false to disable
+ *
+ * @see CHRE_EVENT_HOST_AWAKE
+ * @see CHRE_EVENT_HOST_ASLEEP
+ *
+ * @since v1.2
+ */
+void chreConfigureHostSleepStateEvents(bool enable);
+
+/**
+ * Retrieves the current sleep/wake state of the host (applications processor).
+ * Note that, as with the CHRE_EVENT_HOST_AWAKE and CHRE_EVENT_HOST_ASLEEP
+ * events, there is no guarantee that CHRE's view of the host processor's sleep
+ * state is instantaneous, and it may also change between querying the state and
+ * performing a host-waking action like sending a message to the host.
+ *
+ * @returns true if by CHRE's own estimation the host is currently awake,
+ *     false otherwise
+ *
+ * @since v1.2
+ */
+bool chreIsHostAwake(void);
 
 #ifdef __cplusplus
 }

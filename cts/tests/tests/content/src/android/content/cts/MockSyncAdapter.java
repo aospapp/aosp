@@ -19,6 +19,7 @@ package android.content.cts;
 import android.accounts.Account;
 import android.content.ContentResolver;
 import android.content.ISyncAdapter;
+import android.content.ISyncAdapterUnsyncableAccountCallback;
 import android.content.ISyncContext;
 import android.os.Bundle;
 import android.os.RemoteException;
@@ -74,6 +75,12 @@ public class MockSyncAdapter extends ISyncAdapter.Stub {
 
     public void setLatch(CountDownLatch mLatch) {
         this.mLatch = mLatch;
+    }
+
+    @Override
+    public void onUnsyncableAccount(ISyncAdapterUnsyncableAccountCallback cb)
+            throws RemoteException {
+        cb.onUnsyncableAccountDone(true);
     }
 
     public void startSync(ISyncContext syncContext, String authority, Account account,

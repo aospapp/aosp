@@ -49,11 +49,7 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
         return JNI_ERR;
     }
 
-    if (register_android_security_cts_SeccompTest(env)) {
-        return JNI_ERR;
-    }
-
-     if (register_android_security_cts_KernelSettingsTest(env)) {
+    if (register_android_security_cts_KernelSettingsTest(env)) {
         return JNI_ERR;
     }
 

@@ -106,7 +106,7 @@ static jboolean enqueueInitialBuffers() {
         return JNI_FALSE;
     }
     assert(1 <= nbRead && nbRead <= NB_BUFFERS);
-    ALOGV("Initially queueing %u buffers of %u bytes each", nbRead, BUFFER_SIZE);
+    ALOGV("Initially queueing %zu buffers of %u bytes each", nbRead, BUFFER_SIZE);
 
     /* Enqueue the content of our cache before starting to play,
        we don't want to starve the player */

@@ -44,7 +44,6 @@ BUILD_TARGETS="
     cts-tradefed-tests\
     compatibility-device-info-tests\
     compatibility-manifest-generator-tests
-    compatibility-host-media-preconditions-tests\
     CompatibilityTestApp"
 
 pushd ${CTS_DIR}/..
@@ -68,11 +67,9 @@ echo "---- HOST TESTS ---- "
 echo
 
 ############### Run the host side tests ###############
-${CTS_DIR}/common/host-side/tradefed/tests/run_tests.sh
-${CTS_DIR}/common/host-side/manifest-generator/tests/run_tests.sh
-${CTS_DIR}/common/host-side/util/tests/run_tests.sh
-${CTS_DIR}/common/util/tests/run_tests.sh
+${CTS_DIR}/../test/suite_harness/common/host-side/tradefed/tests/run_tests.sh
+${CTS_DIR}/../test/suite_harness/common/host-side/manifest-generator/tests/run_tests.sh
+${CTS_DIR}/../test/suite_harness/common/host-side/util/tests/run_tests.sh
+${CTS_DIR}/../test/suite_harness/common/util/tests/run_tests.sh
 
-${CTS_DIR}/tools/cts-tradefed/tests/run_tests.sh
-
-${CTS_DIR}/tests/tests/mediastress/preconditions/tests/run_tests.sh
+${CTS_DIR}/../test/suite_harness/tools/cts-tradefed/tests/run_tests.sh

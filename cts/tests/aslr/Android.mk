@@ -24,6 +24,8 @@ LOCAL_MODULE_STEM_64 := $(LOCAL_MODULE)64
 LOCAL_SRC_FILES := \
     src/AslrMallocTest.cpp
 
+LOCAL_CFLAGS := -Wall -Werror
+
 LOCAL_SHARED_LIBRARIES := \
     libbase \
     libutils \

@@ -78,6 +78,7 @@ public class PropertyChangeSupportTest extends TestCase {
                 l2);
         PropertyChangeListener l4 = new PropertyChangeListenerProxy("myProp",
                 l3);
+        PropertyChangeListener[] listeners;
 
         sup.addPropertyChangeListener(l1);
 
@@ -86,23 +87,18 @@ public class PropertyChangeSupportTest extends TestCase {
 
         sup.removePropertyChangeListener(l1);
         sup.addPropertyChangeListener(l3);
-        assertEquals(1, sup.getPropertyChangeListeners().length);
-        assertSame(l2, ((PropertyChangeListenerProxy) sup
-                .getPropertyChangeListeners()[0]).getListener());
-        assertNotSame(l3, sup.getPropertyChangeListeners()[0]);
+        listeners = sup.getPropertyChangeListeners();
+        assertEquals(1, listeners.length);
+        assertSame(l2, unwindProxyListener(listeners[0], 1));
+        assertEquals("myProp", getProxyPropertyName(listeners[0]));
 
         sup.removePropertyChangeListener(sup.getPropertyChangeListeners()[0]);
         assertEquals(0, sup.getPropertyChangeListeners().length);
         sup.addPropertyChangeListener(l4);
-        //RI asserts to true here, really strange behavior
-        assertNotSame(l3, ((PropertyChangeListenerProxy) sup
-                .getPropertyChangeListeners()[0]).getListener());
-        assertNotSame(l4, sup.getPropertyChangeListeners()[0]);
-        assertSame(
-                l2,
-                ((PropertyChangeListenerProxy) ((PropertyChangeListenerProxy) sup
-                        .getPropertyChangeListeners()[0]).getListener())
-                        .getListener());
+        listeners = sup.getPropertyChangeListeners();
+        assertEquals(1, listeners.length);
+        assertSame(l2, unwindProxyListener(listeners[0], 2));
+        assertEquals("myProp", getProxyPropertyName(listeners[0]));
     }
 
     /*
@@ -153,34 +149,22 @@ public class PropertyChangeSupportTest extends TestCase {
 
         listeners = sup.getPropertyChangeListeners();
         assertEquals(1, listeners.length);
-        assertSame(l1, ((PropertyChangeListenerProxy) listeners[0])
-                .getListener());
+        assertSame(l1, unwindProxyListener(listeners[0], 1));
+        assertEquals("myProp2", getProxyPropertyName(listeners[0]));
 
         sup.removePropertyChangeListener(listeners[0]);
         sup.addPropertyChangeListener("myProp3", l3);
         listeners = sup.getPropertyChangeListeners();
         assertEquals(1, listeners.length);
-        // pay attention to this recursive proxy
-        assertNotSame(l3, ((PropertyChangeListenerProxy) listeners[0])
-                .getListener());
-        assertNotSame(l3, listeners[0]);
-        assertSame(
-                l2,
-                ((PropertyChangeListenerProxy) ((PropertyChangeListenerProxy) listeners[0])
-                        .getListener()).getListener());
+        assertSame(l2, unwindProxyListener(listeners[0], 2));
+        assertEquals("myProp3", getProxyPropertyName(listeners[0]));
 
         listeners = sup.getPropertyChangeListeners("myProp");
         assertEquals(0, listeners.length);
 
         listeners = sup.getPropertyChangeListeners("myProp3");
         assertEquals(1, listeners.length);
-        // pay attention to this recursive proxy
-        assertNotSame(l3, ((PropertyChangeListenerProxy) listeners[0])
-                .getListener());
-        assertNotSame(l3, listeners[0]);
-        assertSame(l2, ((PropertyChangeListenerProxy) listeners[0])
-                .getListener());
-
+        assertSame(l2, unwindProxyListener(listeners[0], 1));
     }
 
     /*
@@ -238,10 +222,10 @@ public class PropertyChangeSupportTest extends TestCase {
 
         PropertyChangeListener[] listeners = sup.getPropertyChangeListeners();
         assertEquals(2, listeners.length);
-        assertSame(l1, ((PropertyChangeListenerProxy) listeners[0])
-                .getListener());
-        assertSame(l1, ((PropertyChangeListenerProxy) listeners[1])
-                .getListener());
+        assertSame(l1, unwindProxyListener(listeners[0], 1));
+        assertEquals("myProp2", getProxyPropertyName(listeners[0]));
+        assertSame(l1, unwindProxyListener(listeners[1], 1));
+        assertEquals("myProp2", getProxyPropertyName(listeners[1]));
 
         sup.removePropertyChangeListener(listeners[0]);
         sup.removePropertyChangeListener(listeners[1]);
@@ -249,14 +233,10 @@ public class PropertyChangeSupportTest extends TestCase {
         sup.addPropertyChangeListener("myProp3", l3);
         listeners = sup.getPropertyChangeListeners();
         assertEquals(2, listeners.length);
-        assertSame(
-                l2,
-                ((PropertyChangeListenerProxy) ((PropertyChangeListenerProxy) listeners[0])
-                        .getListener()).getListener());
-        assertSame(
-                l2,
-                ((PropertyChangeListenerProxy) ((PropertyChangeListenerProxy) listeners[1])
-                        .getListener()).getListener());
+        assertSame(l2, unwindProxyListener(listeners[0], 2));
+        assertEquals("myProp3", getProxyPropertyName(listeners[0]));
+        assertSame(l2, unwindProxyListener(listeners[1], 2));
+        assertEquals("myProp3", getProxyPropertyName(listeners[1]));
     }
 
     /*
@@ -495,10 +475,10 @@ public class PropertyChangeSupportTest extends TestCase {
         Object src = new Object();
         PropertyChangeSupport sup = new PropertyChangeSupport(src);
 
-        sup.getPropertyChangeListeners(null);
+        assertEquals(0, sup.getPropertyChangeListeners(null).length);
         sup.addPropertyChangeListener("myProp",
                 new MockPropertyChangeListener());
-        sup.getPropertyChangeListeners(null);
+        assertEquals(0, sup.getPropertyChangeListeners(null).length);
     }
 
     /*
@@ -1218,12 +1198,14 @@ public class PropertyChangeSupportTest extends TestCase {
 
         PropertyChangeSupport deSup = (PropertyChangeSupport) SerializationTester
                 .getDeserilizedObject(sup);
-        assertEquals(sup2.getPropertyChangeListeners()[0], deSup
-                .getPropertyChangeListeners()[0]);
-        assertEquals(((PropertyChangeListenerProxy) sup2
-                .getPropertyChangeListeners()[1]).getListener(),
-                ((PropertyChangeListenerProxy) deSup
-                        .getPropertyChangeListeners()[1]).getListener());
+        PropertyChangeListener[] sup2listeners = sup2.getPropertyChangeListeners();
+        PropertyChangeListener[] deSupListeners = deSup.getPropertyChangeListeners();
+        assertEquals(sup2listeners[0], deSupListeners[0]);
+        assertEquals(
+                unwindProxyListener(sup2listeners[1], 1),
+                unwindProxyListener(deSupListeners[1], 1));
+        assertEquals(
+                getProxyPropertyName(sup2listeners[1]), getProxyPropertyName(deSupListeners[1]));
     }
 
     /*
@@ -1251,12 +1233,15 @@ public class PropertyChangeSupportTest extends TestCase {
                     Serializable deserialized) {
                 PropertyChangeSupport sup2 = (PropertyChangeSupport) initial;
                 PropertyChangeSupport deSup = (PropertyChangeSupport) deserialized;
-                assertEquals(sup2.getPropertyChangeListeners()[0], deSup
-                        .getPropertyChangeListeners()[0]);
-                assertEquals(((PropertyChangeListenerProxy) sup2
-                        .getPropertyChangeListeners()[1]).getListener(),
-                        ((PropertyChangeListenerProxy) deSup
-                                .getPropertyChangeListeners()[1]).getListener());
+                PropertyChangeListener[] sup2listeners = sup2.getPropertyChangeListeners();
+                PropertyChangeListener[] deSupListeners = deSup.getPropertyChangeListeners();
+                assertEquals(sup2listeners[0], deSupListeners[0]);
+                assertEquals(
+                        unwindProxyListener(sup2listeners[1], 1),
+                        unwindProxyListener(deSupListeners[1], 1));
+                assertEquals(
+                        getProxyPropertyName(sup2listeners[1]),
+                        getProxyPropertyName(deSupListeners[1]));
             }
         });
     }
@@ -1500,5 +1485,29 @@ public class PropertyChangeSupportTest extends TestCase {
             }
         }
         return pcs.getPropertyChangeListeners();
+    }
+
+    /**
+     * Asserts that {@code listener} is a proxy, and returns the property name of the proxy.
+     */
+    private static String getProxyPropertyName(PropertyChangeListener actual) {
+        assertTrue(actual instanceof PropertyChangeListenerProxy);
+        return ((PropertyChangeListenerProxy) actual).getPropertyName();
+    }
+
+    /**
+     * Asserts that there is a non-proxy listener nested at most {@code maxDepth} layers of proxies
+     * deep inside {@code listener}, and returns that non-proxy listener.
+     */
+    private static PropertyChangeListener unwindProxyListener(
+            PropertyChangeListener listener, int maxDepth) {
+        int depth = 0;
+        PropertyChangeListener delegate = listener;
+        while (delegate instanceof PropertyChangeListenerProxy) {
+            depth++;
+            assertTrue(depth <= maxDepth);
+            delegate = ((PropertyChangeListenerProxy) delegate).getListener();
+        }
+        return delegate;
     }
 }

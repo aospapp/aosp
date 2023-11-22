@@ -1,7 +1,7 @@
 /** @file
   HII Config Access protocol implementation of SecureBoot configuration module.
 
-Copyright (c) 2011 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2011 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -49,8 +49,6 @@ HII_VENDOR_DEVICE_PATH          mSecureBootHiiVendorDevicePath = {
 
 
 BOOLEAN mIsEnterSecureBootForm = FALSE;
-BOOLEAN mIsSelectedSecureBootModeForm = FALSE;
-BOOLEAN mIsSecureBootModeChanged = FALSE;
 
 //
 // OID ASN.1 Value for Hash Algorithms
@@ -96,6 +94,8 @@ CHAR16* mDerEncodedSuffix[] = {
   NULL
 };
 CHAR16* mSupportX509Suffix = L"*.cer/der/crt";
+
+SECUREBOOT_CONFIG_PRIVATE_DATA  *gSecureBootPrivateData = NULL;
 
 /**
   This code checks if the FileSuffix is one of the possible DER-encoded certificate suffix.
@@ -657,7 +657,11 @@ ON_EXIT:
 
   CloseFile (Private->FileContext->FHandle);
   Private->FileContext->FHandle = NULL;
-  Private->FileContext->FileName = NULL;
+
+  if (Private->FileContext->FileName != NULL){
+    FreePool(Private->FileContext->FileName);
+    Private->FileContext->FileName = NULL;
+  }
 
   if (Private->SignatureGUID != NULL) {
     FreePool (Private->SignatureGUID);
@@ -779,7 +783,11 @@ EnrollX509ToKek (
 ON_EXIT:
 
   CloseFile (Private->FileContext->FHandle);
-  Private->FileContext->FileName = NULL;
+  if (Private->FileContext->FileName != NULL){
+    FreePool(Private->FileContext->FileName);
+    Private->FileContext->FileName = NULL;
+  }
+
   Private->FileContext->FHandle = NULL;
 
   if (Private->SignatureGUID != NULL) {
@@ -949,7 +957,11 @@ EnrollX509toSigDB (
 ON_EXIT:
 
   CloseFile (Private->FileContext->FHandle);
-  Private->FileContext->FileName = NULL;
+  if (Private->FileContext->FileName != NULL){
+    FreePool(Private->FileContext->FileName);
+    Private->FileContext->FileName = NULL;
+  }
+
   Private->FileContext->FHandle = NULL;
 
   if (Private->SignatureGUID != NULL) {
@@ -1509,7 +1521,11 @@ EnrollX509HashtoSigDB (
 
 ON_EXIT:
   CloseFile (Private->FileContext->FHandle);
-  Private->FileContext->FileName = NULL;
+  if (Private->FileContext->FileName != NULL){
+    FreePool(Private->FileContext->FileName);
+    Private->FileContext->FileName = NULL;
+  }
+
   Private->FileContext->FHandle = NULL;
 
   if (Private->SignatureGUID != NULL) {
@@ -1594,6 +1610,54 @@ ON_EXIT:
 }
 
 /**
+  Reads contents of a PE/COFF image in memory buffer.
+
+  Caution: This function may receive untrusted input.
+  PE/COFF image is external input, so this function will make sure the PE/COFF image content
+  read is within the image buffer.
+
+  @param  FileHandle      Pointer to the file handle to read the PE/COFF image.
+  @param  FileOffset      Offset into the PE/COFF image to begin the read operation.
+  @param  ReadSize        On input, the size in bytes of the requested read operation.
+                          On output, the number of bytes actually read.
+  @param  Buffer          Output buffer that contains the data read from the PE/COFF image.
+
+  @retval EFI_SUCCESS     The specified portion of the PE/COFF image was read and the size
+**/
+EFI_STATUS
+EFIAPI
+SecureBootConfigImageRead (
+  IN     VOID    *FileHandle,
+  IN     UINTN   FileOffset,
+  IN OUT UINTN   *ReadSize,
+  OUT    VOID    *Buffer
+  )
+{
+  UINTN               EndPosition;
+
+  if (FileHandle == NULL || ReadSize == NULL || Buffer == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (MAX_ADDRESS - FileOffset < *ReadSize) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  EndPosition = FileOffset + *ReadSize;
+  if (EndPosition > mImageSize) {
+    *ReadSize = (UINT32)(mImageSize - FileOffset);
+  }
+
+  if (FileOffset >= mImageSize) {
+    *ReadSize = 0;
+  }
+
+  CopyMem (Buffer, (UINT8 *)((UINTN) FileHandle + FileOffset), *ReadSize);
+
+  return EFI_SUCCESS;
+}
+
+/**
   Load PE/COFF image information into internal buffer and check its validity.
 
   @retval   EFI_SUCCESS         Successful
@@ -1609,9 +1673,28 @@ LoadPeImage (
   EFI_IMAGE_DOS_HEADER                  *DosHdr;
   EFI_IMAGE_NT_HEADERS32                *NtHeader32;
   EFI_IMAGE_NT_HEADERS64                *NtHeader64;
+  PE_COFF_LOADER_IMAGE_CONTEXT          ImageContext;
+  EFI_STATUS                            Status;
 
   NtHeader32 = NULL;
   NtHeader64 = NULL;
+
+  ZeroMem (&ImageContext, sizeof (ImageContext));
+  ImageContext.Handle    = (VOID *) mImageBase;
+  ImageContext.ImageRead = (PE_COFF_LOADER_READ_FILE) SecureBootConfigImageRead;
+
+  //
+  // Get information about the image being loaded
+  //
+  Status = PeCoffLoaderGetImageInfo (&ImageContext);
+  if (EFI_ERROR (Status)) {
+    //
+    // The information can't be got from the invalid PeImage
+    //
+    DEBUG ((DEBUG_INFO, "SecureBootConfigDxe: PeImage invalid. \n"));
+    return Status;
+  }
+
   //
   // Read the Dos header
   //
@@ -1672,6 +1755,9 @@ LoadPeImage (
 /**
   Calculate hash of Pe/Coff image based on the authenticode image hashing in
   PE/COFF Specification 8.0 Appendix A
+
+  Notes: PE/COFF image has been checked by BasePeCoffLib PeCoffLoaderGetImageInfo() in 
+  the function LoadPeImage ().
 
   @param[in]    HashAlg   Hash algorithm type.
 
@@ -2157,7 +2243,11 @@ ON_EXIT:
 
   CloseFile (Private->FileContext->FHandle);
   Private->FileContext->FHandle = NULL;
-  Private->FileContext->FileName = NULL;
+
+  if (Private->FileContext->FileName != NULL){
+    FreePool(Private->FileContext->FileName);
+    Private->FileContext->FileName = NULL;
+  }
 
   if (Private->SignatureGUID != NULL) {
     FreePool (Private->SignatureGUID);
@@ -2811,253 +2901,42 @@ ON_EXIT:
 }
 
 /**
-  Perform secure boot mode transition from User Mode by setting AuditMode 
-  or DeployedMode variable.
 
-  @param[in]  NewMode          New secure boot mode.
+  Update SecureBoot strings based on new Secure Boot Mode State. String includes STR_SECURE_BOOT_STATE_CONTENT
+ and STR_CUR_SECURE_BOOT_MODE_CONTENT.
 
-  @retval   EFI_SUCCESS        Secure Boot mode transition is successful.
+  @param[in]    PrivateData         Module's private data.
+
+  @return EFI_SUCCESS              Update secure boot strings successfully.
+  @return other                          Fail to update secure boot strings.
+
 **/
 EFI_STATUS
-TransitionFromUserMode(
-  IN  UINT8 NewMode
+UpdateSecureBootString(
+  IN SECUREBOOT_CONFIG_PRIVATE_DATA  *Private
   )
 {
-  UINT8      Data;
-  EFI_STATUS Status;
+  UINT8       *SecureBoot;
 
-  if (NewMode == SECURE_BOOT_MODE_AUDIT_MODE) {
-    Data = 1;
-    Status = gRT->SetVariable(
-                    EFI_AUDIT_MODE_NAME,
-                    &gEfiGlobalVariableGuid,
-                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-                    sizeof(UINT8),
-                    &Data
-                    );
-    return Status;
-  } else if (NewMode == SECURE_BOOT_MODE_DEPLOYED_MODE) {
-    Data = 1;
-    Status = gRT->SetVariable(
-                    EFI_DEPLOYED_MODE_NAME,
-                    &gEfiGlobalVariableGuid,
-                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-                    sizeof(UINT8),
-                    &Data
-                    );
-    return Status;
+  SecureBoot = NULL;
+
+  //
+  // Get current secure boot state.
+  //
+  GetVariable2 (EFI_SECURE_BOOT_MODE_NAME, &gEfiGlobalVariableGuid, (VOID**)&SecureBoot, NULL);
+  if (SecureBoot == NULL) {
+    return EFI_NOT_FOUND;
   }
 
-  //
-  // Other case do nothing here. May Goto enroll PK page.
-  //
+  if (*SecureBoot == SECURE_BOOT_MODE_ENABLE) {
+    HiiSetString (Private->HiiHandle, STRING_TOKEN (STR_SECURE_BOOT_STATE_CONTENT), L"Enabled", NULL);
+  } else {
+    HiiSetString (Private->HiiHandle, STRING_TOKEN (STR_SECURE_BOOT_STATE_CONTENT), L"Disabled", NULL);
+  }
+
+  FreePool(SecureBoot);
+
   return EFI_SUCCESS;
-}
-
-/**
-  Perform secure boot mode transition from Setup Mode by setting AuditMode 
-  variable.
-
-  @param[in]  NewMode          New secure boot mode.
-
-  @retval   EFI_SUCCESS        Secure Boot mode transition is successful.
-**/
-EFI_STATUS
-TransitionFromSetupMode(
-  IN UINT8 NewMode
-  )
-{
-  UINT8      Data;
-  EFI_STATUS Status;
-
-  Status = EFI_INVALID_PARAMETER;
-
-  if (NewMode == SECURE_BOOT_MODE_AUDIT_MODE) {
-    Data = 1;
-    Status = gRT->SetVariable(
-                    EFI_AUDIT_MODE_NAME,
-                    &gEfiGlobalVariableGuid,
-                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-                    sizeof(UINT8),
-                    &Data
-                    );
-    return Status;
-  }
-
-  //
-  // Other case do nothing here. May Goto enroll PK page.
-  //
-  return EFI_SUCCESS;
-}
-
-/**
-  Perform secure boot mode transition from Audit Mode. Nothing is done here,
-  should goto enroll PK page.
-
-  @param[in]  NewMode          New secure boot mode.
-
-  @retval   EFI_SUCCESS        Secure Boot mode transition is successful.
-**/
-EFI_STATUS
-TransitionFromAuditMode(
-  IN UINT8 NewMode
-  )
-{
-  //
-  // Other case do nothing here. Should Goto enroll PK page.
-  //
-  return EFI_SUCCESS;
-}
-
-/**
-   Perform secure boot mode transition from Deployed Mode by setting Deployed Mode
-   variable to 0.
-
-  @param[in]  NewMode          New secure boot mode.
-
-  @retval   EFI_SUCCESS        Secure Boot mode transition is successful.
-**/
-EFI_STATUS
-TransitionFromDeployedMode(
-  IN UINT8 NewMode
-  )
-{
-  UINT8      Data;
-  EFI_STATUS Status;
-
-  //
-  // Platform specific logic. when physical presence,  Allow to set DeployedMode =:0
-  // to switch back to UserMode
-  //
-  if (NewMode == SECURE_BOOT_MODE_USER_MODE) {
-    Data = 0;
-    Status = gRT->SetVariable(
-                    EFI_DEPLOYED_MODE_NAME,
-                    &gEfiGlobalVariableGuid,
-                    EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-                    sizeof(UINT8),
-                    &Data
-                    );
-    DEBUG((EFI_D_INFO, "DeployedMode Status %x\n", Status));
-    return Status;
-  }
-  return EFI_SUCCESS;
-}
-
-/**
-   Perform main secure boot mode transition.
-
-  @param[in]  CurMode          New secure boot mode.
-  @param[in]  NewMode          New secure boot mode.
-
-  @retval   EFI_SUCCESS        Secure Boot mode transition is successful.
-**/
-EFI_STATUS
-SecureBootModeTransition(
-  IN  UINT8  CurMode,
-  IN  UINT8  NewMode
-  )
-{
-  EFI_STATUS                         Status;
-
-  //
-  // Set platform to be customized mode to ensure platform specific mode switch sucess
-  //
-  Status = SetSecureBootMode(CUSTOM_SECURE_BOOT_MODE);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  //
-  // SecureBootMode transition
-  //
-  switch (CurMode) {
-    case SECURE_BOOT_MODE_USER_MODE:
-      Status = TransitionFromUserMode(NewMode);
-      break;
-
-    case SECURE_BOOT_MODE_SETUP_MODE:
-      Status = TransitionFromSetupMode(NewMode);
-      break;
-
-    case SECURE_BOOT_MODE_AUDIT_MODE:
-      Status = TransitionFromAuditMode(NewMode);
-      break;
-
-    case SECURE_BOOT_MODE_DEPLOYED_MODE:
-      Status = TransitionFromDeployedMode(NewMode);
-      break;
-
-    default:
-      Status = EFI_INVALID_PARAMETER;
-      ASSERT(FALSE);
-  }
-
-  return Status;
-}
-
-/**
-   Get current secure boot mode by retrieve data from SetupMode/AuditMode/DeployedMode.
-
-  @param[out]  SecureBootMode                Current secure boot mode.
-
-**/
-VOID
-ExtractSecureBootModeFromVariable(
-  OUT UINT8      *SecureBootMode
-  )
-{
-  UINT8     *SetupMode;
-  UINT8     *AuditMode;
-  UINT8     *DeployedMode;
-
-  SetupMode        = NULL;
-  AuditMode        = NULL;
-  DeployedMode     = NULL;
-
-  //
-  // Get AuditMode/DeployedMode from variable
-  //
-  GetVariable2 (EFI_SETUP_MODE_NAME, &gEfiGlobalVariableGuid, (VOID**)&SetupMode, NULL);
-  GetVariable2 (EFI_AUDIT_MODE_NAME, &gEfiGlobalVariableGuid, (VOID**)&AuditMode, NULL);
-  GetVariable2 (EFI_DEPLOYED_MODE_NAME, &gEfiGlobalVariableGuid, (VOID**)&DeployedMode, NULL);
-  if (SetupMode != NULL && AuditMode != NULL && DeployedMode != NULL) {
-    if (*SetupMode == 0 && *AuditMode == 0 && *DeployedMode == 0) {
-      //
-      // User Mode
-      //
-      *SecureBootMode = SECURE_BOOT_MODE_USER_MODE;
-    } else if (*SetupMode == 1 && *AuditMode == 0 && *DeployedMode == 0) {
-      //
-      // Setup Mode
-      //
-      *SecureBootMode = SECURE_BOOT_MODE_SETUP_MODE;
-    } else if (*SetupMode == 1 && *AuditMode == 1 && *DeployedMode == 0) {
-      //
-      // Audit Mode
-      //
-      *SecureBootMode = SECURE_BOOT_MODE_AUDIT_MODE;
-    } else if (*SetupMode == 0 && *AuditMode == 0 && *DeployedMode == 1) {
-      //
-      // Deployed Mode
-      //
-      *SecureBootMode = SECURE_BOOT_MODE_DEPLOYED_MODE;
-    } else {
-      ASSERT(FALSE);
-    }
-  }else {
-    ASSERT(FALSE);
-  }
-
-  if (SetupMode != NULL) {
-    FreePool (SetupMode);
-  }
-  if (DeployedMode != NULL) {
-    FreePool (DeployedMode);
-  }
-  if (AuditMode != NULL) {
-    FreePool (AuditMode);
-  }
 }
 
 /**
@@ -3072,10 +2951,12 @@ SecureBootExtractConfigFromVariable (
   )
 {
   UINT8     *SecureBootEnable;
+  UINT8     *SetupMode;
   UINT8     *SecureBootMode;
   EFI_TIME  CurrTime;
 
   SecureBootEnable = NULL;
+  SetupMode        = NULL;
   SecureBootMode   = NULL;
 
   //
@@ -3091,20 +2972,6 @@ SecureBootExtractConfigFromVariable (
   ConfigData->RevocationTime.Minute = CurrTime.Minute;
   ConfigData->RevocationTime.Second = 0;
 
-  //
-  // If the SecureBootEnable Variable doesn't exist, hide the SecureBoot Enable/Disable
-  // Checkbox.
-  //
-  ConfigData->AttemptSecureBoot = FALSE;
-  GetVariable2 (EFI_SECURE_BOOT_ENABLE_NAME, &gEfiSecureBootEnableDisableGuid, (VOID**)&SecureBootEnable, NULL);
-  if (SecureBootEnable == NULL) {
-    ConfigData->HideSecureBoot = TRUE;
-  } else {
-    ConfigData->HideSecureBoot = FALSE;
-    if ((*SecureBootEnable) == SECURE_BOOT_ENABLE) {
-      ConfigData->AttemptSecureBoot = TRUE;
-    }
-  }
 
   //
   // If it is Physical Presence User, set the PhysicalPresent to true.
@@ -3113,6 +2980,36 @@ SecureBootExtractConfigFromVariable (
     ConfigData->PhysicalPresent = TRUE;
   } else {
     ConfigData->PhysicalPresent = FALSE;
+  }
+
+  //
+  // If there is no PK then the Delete Pk button will be gray.
+  //
+  GetVariable2 (EFI_SETUP_MODE_NAME, &gEfiGlobalVariableGuid, (VOID**)&SetupMode, NULL);
+  if (SetupMode == NULL || (*SetupMode) == SETUP_MODE) {
+    ConfigData->HasPk = FALSE;
+  } else  {
+    ConfigData->HasPk = TRUE;
+  }
+
+  //
+  // Check SecureBootEnable & Pk status, fix the inconsistence. 
+  // If the SecureBootEnable Variable doesn't exist, hide the SecureBoot Enable/Disable
+  // Checkbox.
+  //
+  ConfigData->AttemptSecureBoot = FALSE;
+  GetVariable2 (EFI_SECURE_BOOT_ENABLE_NAME, &gEfiSecureBootEnableDisableGuid, (VOID**)&SecureBootEnable, NULL);  
+
+  //
+  // Fix Pk, SecureBootEnable inconsistence
+  //
+  if ((SetupMode != NULL) && (*SetupMode) == USER_MODE) {
+    ConfigData->HideSecureBoot = FALSE;
+    if ((SecureBootEnable != NULL) && (*SecureBootEnable == SECURE_BOOT_ENABLE)) {
+      ConfigData->AttemptSecureBoot = TRUE;
+    }
+  } else {
+    ConfigData->HideSecureBoot = TRUE;
   }
 
   //
@@ -3125,24 +3022,12 @@ SecureBootExtractConfigFromVariable (
     ConfigData->SecureBootMode = *(SecureBootMode);
   }
 
-  //
-  // Extact current Secure Boot Mode
-  //
-  ExtractSecureBootModeFromVariable(&ConfigData->CurSecureBootMode);
-
-  //
-  // If there is no PK then the Delete Pk button will be gray.
-  //
-  if (ConfigData->CurSecureBootMode == SECURE_BOOT_MODE_SETUP_MODE || ConfigData->CurSecureBootMode == SECURE_BOOT_MODE_AUDIT_MODE) {
-    ConfigData->HasPk = FALSE;
-  } else  {
-    ConfigData->HasPk = TRUE;
-  }
-
   if (SecureBootEnable != NULL) {
     FreePool (SecureBootEnable);
   }
-
+  if (SetupMode != NULL) {
+    FreePool (SetupMode);
+  }
   if (SecureBootMode != NULL) {
     FreePool (SecureBootMode);
   }
@@ -3191,7 +3076,6 @@ SecureBootExtractConfig (
   EFI_STRING                        ConfigRequestHdr;
   SECUREBOOT_CONFIG_PRIVATE_DATA    *PrivateData;
   BOOLEAN                           AllocatedRequest;
-  UINT8                             *SecureBoot;
 
   if (Progress == NULL || Results == NULL) {
     return EFI_INVALID_PARAMETER;
@@ -3201,7 +3085,6 @@ SecureBootExtractConfig (
   ConfigRequestHdr = NULL;
   ConfigRequest    = NULL;
   Size             = 0;
-  SecureBoot       = NULL;
 
   ZeroMem (&Configuration, sizeof (Configuration));
   PrivateData      = SECUREBOOT_CONFIG_PRIVATE_FROM_THIS (This);
@@ -3215,31 +3098,6 @@ SecureBootExtractConfig (
   // Get Configuration from Variable.
   //
   SecureBootExtractConfigFromVariable (&Configuration);
-
-  //
-  // Get current secure boot state.
-  //
-  GetVariable2 (EFI_SECURE_BOOT_MODE_NAME, &gEfiGlobalVariableGuid, (VOID**)&SecureBoot, NULL);
-
-  if (SecureBoot != NULL && *SecureBoot == SECURE_BOOT_MODE_ENABLE) {
-    HiiSetString (PrivateData->HiiHandle, STRING_TOKEN (STR_SECURE_BOOT_STATE_CONTENT), L"Enabled", NULL);
-  } else {
-    HiiSetString (PrivateData->HiiHandle, STRING_TOKEN (STR_SECURE_BOOT_STATE_CONTENT), L"Disabled", NULL);
-  }
-
-  //
-  // Get current secure boot mode
-  //
-  DEBUG((EFI_D_INFO, "Configuration.CurSecureBootMode %d\n", Configuration.CurSecureBootMode));
-  if (Configuration.CurSecureBootMode == SECURE_BOOT_MODE_USER_MODE) {
-    HiiSetString (PrivateData->HiiHandle, STRING_TOKEN (STR_CUR_SECURE_BOOT_MODE_CONTENT), L"UserMode", NULL);
-  } else if (Configuration.CurSecureBootMode == SECURE_BOOT_MODE_SETUP_MODE) {
-    HiiSetString (PrivateData->HiiHandle, STRING_TOKEN (STR_CUR_SECURE_BOOT_MODE_CONTENT), L"SetupMode", NULL);
-  } else if (Configuration.CurSecureBootMode == SECURE_BOOT_MODE_AUDIT_MODE) {
-    HiiSetString (PrivateData->HiiHandle, STRING_TOKEN (STR_CUR_SECURE_BOOT_MODE_CONTENT), L"AuditMode", NULL);
-  } else if (Configuration.CurSecureBootMode == SECURE_BOOT_MODE_DEPLOYED_MODE) {
-    HiiSetString (PrivateData->HiiHandle, STRING_TOKEN (STR_CUR_SECURE_BOOT_MODE_CONTENT), L"DeployedMode", NULL);
-  }
 
   BufferSize = sizeof (SECUREBOOT_CONFIGURATION);
   ConfigRequest = Request;
@@ -3285,10 +3143,6 @@ SecureBootExtractConfig (
     *Progress = Request + StrLen (Request);
   }
 
-  if (SecureBoot != NULL) {
-    FreePool (SecureBoot);
-  }
-
   return Status;
 }
 
@@ -3318,7 +3172,6 @@ SecureBootRouteConfig (
        OUT EFI_STRING                          *Progress
   )
 {
-  UINT8                      *SecureBootEnable;
   SECUREBOOT_CONFIGURATION   IfrNvData;
   UINTN                      BufferSize;
   EFI_STATUS                 Status;
@@ -3355,10 +3208,7 @@ SecureBootRouteConfig (
   //
   // Store Buffer Storage back to EFI variable if needed
   //
-  SecureBootEnable = NULL;
-  GetVariable2 (EFI_SECURE_BOOT_ENABLE_NAME, &gEfiSecureBootEnableDisableGuid, (VOID**)&SecureBootEnable, NULL);
-  if (NULL != SecureBootEnable) {
-    FreePool (SecureBootEnable);
+  if (!IfrNvData.HideSecureBoot) {
     Status = SaveSecureBootVariable (IfrNvData.AttemptSecureBoot);
     if (EFI_ERROR (Status)) {
       return Status;
@@ -3409,18 +3259,25 @@ SecureBootCallback (
   SECUREBOOT_CONFIGURATION        *IfrNvData;
   UINT16                          LabelId;
   UINT8                           *SecureBootEnable;
+  UINT8                           *Pk;
   UINT8                           *SecureBootMode;
+  UINT8                           *SetupMode;
   CHAR16                          PromptString[100];
-  UINT8                           CurSecureBootMode;
+  EFI_DEVICE_PATH_PROTOCOL        *File;
 
   Status           = EFI_SUCCESS;
   SecureBootEnable = NULL;
   SecureBootMode   = NULL;
+  SetupMode        = NULL;
+  File             = NULL;
 
   if ((This == NULL) || (Value == NULL) || (ActionRequest == NULL)) {
     return EFI_INVALID_PARAMETER;
   }
+
   Private = SECUREBOOT_CONFIG_PRIVATE_FROM_THIS (This);
+
+  gSecureBootPrivateData = Private;
 
   //
   // Retrieve uncommitted data from Browser
@@ -3435,14 +3292,12 @@ SecureBootCallback (
 
   if (Action == EFI_BROWSER_ACTION_FORM_OPEN) {
     if (QuestionId == KEY_SECURE_BOOT_MODE) {
+      //
+      // Update secure boot strings when opening this form
+      //
+      Status = UpdateSecureBootString(Private);
+      SecureBootExtractConfigFromVariable (IfrNvData);
       mIsEnterSecureBootForm = TRUE;
-    } else if (QuestionId == KEY_TRANS_SECURE_BOOT_MODE){
-      //
-      // Secure Boot Policy variable changes after tranistion. Re-sync CurSecureBootMode
-      //
-      ExtractSecureBootModeFromVariable(&IfrNvData->CurSecureBootMode);
-      mIsSelectedSecureBootModeForm = TRUE;
-      mIsSecureBootModeChanged = FALSE;
     }
     goto EXIT;
   }
@@ -3454,12 +3309,7 @@ SecureBootCallback (
         Value->u8 = SECURE_BOOT_MODE_STANDARD;
         Status = EFI_SUCCESS;
       }
-    } else if (QuestionId == KEY_TRANS_SECURE_BOOT_MODE) {
-      if (mIsSelectedSecureBootModeForm) {
-        Value->u8 = IfrNvData->CurSecureBootMode;
-        Status = EFI_SUCCESS;
-      }
-    }
+    } 
     goto EXIT;
   }
 
@@ -3497,11 +3347,6 @@ SecureBootCallback (
       }
       break;
 
-    case KEY_SECURE_BOOT_OPTION:
-      FreeMenu (&DirectoryMenu);
-      FreeMenu (&FsOptionMenu);
-      break;
-
     case KEY_SECURE_BOOT_KEK_OPTION:
     case KEY_SECURE_BOOT_DB_OPTION:
     case KEY_SECURE_BOOT_DBX_OPTION:
@@ -3532,28 +3377,32 @@ SecureBootCallback (
       //
       CleanUpPage (LabelId, Private);
       break;
+    case KEY_SECURE_BOOT_PK_OPTION:
+      LabelId = FORMID_ENROLL_PK_FORM;
+      //
+      // Refresh selected file.
+      //
+      CleanUpPage (LabelId, Private);
+      break;
 
-    case SECUREBOOT_ADD_PK_FILE_FORM_ID:
+    case FORMID_ENROLL_PK_FORM:
+      ChooseFile (NULL, NULL, UpdatePKFromFile, &File);
+      break;
+
     case FORMID_ENROLL_KEK_FORM:
-    case SECUREBOOT_ENROLL_SIGNATURE_TO_DB:
-    case SECUREBOOT_ENROLL_SIGNATURE_TO_DBX:
-    case SECUREBOOT_ENROLL_SIGNATURE_TO_DBT:
-      if (QuestionId == SECUREBOOT_ADD_PK_FILE_FORM_ID) {
-        Private->FeCurrentState = FileExplorerStateEnrollPkFile;
-      } else if (QuestionId == FORMID_ENROLL_KEK_FORM) {
-        Private->FeCurrentState = FileExplorerStateEnrollKekFile;
-      } else if (QuestionId == SECUREBOOT_ENROLL_SIGNATURE_TO_DB) {
-        Private->FeCurrentState = FileExplorerStateEnrollSignatureFileToDb;
-      } else if (QuestionId == SECUREBOOT_ENROLL_SIGNATURE_TO_DBX) {
-        Private->FeCurrentState = FileExplorerStateEnrollSignatureFileToDbx;
-        IfrNvData->CertificateFormat = HASHALG_SHA256;
-      } else {
-        Private->FeCurrentState = FileExplorerStateEnrollSignatureFileToDbt;
-      }
+      ChooseFile (NULL, NULL, UpdateKEKFromFile, &File);
+      break;
 
-      Private->FeDisplayContext = FileExplorerDisplayUnknown;
-      CleanUpPage (FORM_FILE_EXPLORER_ID, Private);
-      UpdateFileExplorer (Private, 0);
+    case SECUREBOOT_ENROLL_SIGNATURE_TO_DB:
+      ChooseFile (NULL, NULL, UpdateDBFromFile, &File);
+      break;
+
+    case SECUREBOOT_ENROLL_SIGNATURE_TO_DBX:
+      ChooseFile (NULL, NULL, UpdateDBXFromFile, &File);
+      break;
+
+    case SECUREBOOT_ENROLL_SIGNATURE_TO_DBT:
+      ChooseFile (NULL, NULL, UpdateDBTFromFile, &File);
       break;
 
     case KEY_SECURE_BOOT_DELETE_PK:
@@ -3696,71 +3545,26 @@ SecureBootCallback (
           );
       }
       break;
-    case KEY_TRANS_SECURE_BOOT_MODE:
-      //
-      // Pop up to alert user want to change secure boot mode 
-      //
-      if ((IfrNvData->CurSecureBootMode == SECURE_BOOT_MODE_USER_MODE && 
-           (Value->u8 == SECURE_BOOT_MODE_AUDIT_MODE || Value->u8 == SECURE_BOOT_MODE_DEPLOYED_MODE))
-        ||(IfrNvData->CurSecureBootMode == SECURE_BOOT_MODE_SETUP_MODE && 
-           Value->u8 == SECURE_BOOT_MODE_AUDIT_MODE)
-        ||(IfrNvData->CurSecureBootMode == SECURE_BOOT_MODE_DEPLOYED_MODE && 
-          Value->u8 == SECURE_BOOT_MODE_USER_MODE && IfrNvData->PhysicalPresent == 1)){
+    case KEY_VALUE_SAVE_AND_EXIT_PK:
+      Status = EnrollPlatformKey (Private);
+      if (EFI_ERROR (Status)) {
+        UnicodeSPrint (
+          PromptString,
+          sizeof (PromptString),
+          L"Only DER encoded certificate file (%s) is supported.",
+          mSupportX509Suffix
+          );
         CreatePopUp (
           EFI_LIGHTGRAY | EFI_BACKGROUND_BLUE,
           &Key,
-          L"Are you sure you want to switch secure boot mode?",
-          L"Press 'Y' to switch secure boot mode, 'N' to discard change and return",
+          L"ERROR: Unsupported file type!",
+          PromptString,
           NULL
           );
-        if (Key.UnicodeChar != 'y' && Key.UnicodeChar != 'Y') {
-          //
-          // If not 'Y'/''y' restore to defualt secure boot mode
-          //
-          Value->u8 = IfrNvData->CurSecureBootMode;
-          goto EXIT;
-        }
-      } else if ((IfrNvData->CurSecureBootMode == SECURE_BOOT_MODE_SETUP_MODE && Value->u8 == SECURE_BOOT_MODE_USER_MODE)
-               ||(IfrNvData->CurSecureBootMode == SECURE_BOOT_MODE_USER_MODE && Value->u8 == SECURE_BOOT_MODE_SETUP_MODE)
-               ||(IfrNvData->CurSecureBootMode == SECURE_BOOT_MODE_AUDIT_MODE && Value->u8 == SECURE_BOOT_MODE_DEPLOYED_MODE)
-               ||(IfrNvData->CurSecureBootMode == SECURE_BOOT_MODE_DEPLOYED_MODE && Value->u8 == SECURE_BOOT_MODE_SETUP_MODE)) {
-        CreatePopUp (
-          EFI_LIGHTGRAY | EFI_BACKGROUND_BLUE,
-          &Key,
-          L"Secure boot mode tranistion requires PK change",
-          L"Please go to link below to update PK",
-          NULL
-          );
-      } else {
-        Status = EFI_INVALID_PARAMETER;
-        goto EXIT;
-      }
-
-      Status = SecureBootModeTransition(IfrNvData->CurSecureBootMode, Value->u8);
-      //
-      // Secure Boot Policy variable may change after tranistion. Re-sync CurSecureBootMode
-      //
-      ExtractSecureBootModeFromVariable(&CurSecureBootMode);
-      if (IfrNvData->CurSecureBootMode != CurSecureBootMode) {
-        IfrNvData->CurSecureBootMode = CurSecureBootMode;
-        mIsSecureBootModeChanged = TRUE;
-
-        if (IfrNvData->CurSecureBootMode == SECURE_BOOT_MODE_USER_MODE) {
-          HiiSetString (Private->HiiHandle, STRING_TOKEN (STR_CUR_SECURE_BOOT_MODE_CONTENT), L"UserMode", NULL);
-        } else if (IfrNvData->CurSecureBootMode == SECURE_BOOT_MODE_SETUP_MODE) {
-          HiiSetString (Private->HiiHandle, STRING_TOKEN (STR_CUR_SECURE_BOOT_MODE_CONTENT), L"SetupMode", NULL);
-        } else if (IfrNvData->CurSecureBootMode == SECURE_BOOT_MODE_AUDIT_MODE) {
-          HiiSetString (Private->HiiHandle, STRING_TOKEN (STR_CUR_SECURE_BOOT_MODE_CONTENT), L"AuditMode", NULL);
-        } else if (IfrNvData->CurSecureBootMode == SECURE_BOOT_MODE_DEPLOYED_MODE) {
-          HiiSetString (Private->HiiHandle, STRING_TOKEN (STR_CUR_SECURE_BOOT_MODE_CONTENT), L"DeployedMode", NULL);
-        }
       }
       break;
-
     default:
-      if (QuestionId >= FILE_OPTION_GOTO_OFFSET) {
-        UpdateFileExplorer (Private, QuestionId);
-      } else if ((QuestionId >= OPTION_DEL_KEK_QUESTION_ID) &&
+      if ((QuestionId >= OPTION_DEL_KEK_QUESTION_ID) &&
                  (QuestionId < (OPTION_DEL_KEK_QUESTION_ID + OPTION_CONFIG_RANGE))) {
         DeleteKeyExchangeKey (Private, QuestionId);
       } else if ((QuestionId >= OPTION_DEL_DB_QUESTION_ID) &&
@@ -3798,32 +3602,6 @@ SecureBootCallback (
           );
       }
       break;
-    }
-  } else if (Action == EFI_BROWSER_ACTION_CHANGED) {
-    switch (QuestionId) {
-    case KEY_SECURE_BOOT_ENABLE:
-      *ActionRequest = EFI_BROWSER_ACTION_REQUEST_FORM_APPLY;
-      break;
-    case KEY_VALUE_SAVE_AND_EXIT_PK:
-      Status = EnrollPlatformKey (Private);
-      if (EFI_ERROR (Status)) {
-        UnicodeSPrint (
-          PromptString,
-          sizeof (PromptString),
-          L"Only DER encoded certificate file (%s) is supported.",
-          mSupportX509Suffix
-          );
-        CreatePopUp (
-          EFI_LIGHTGRAY | EFI_BACKGROUND_BLUE,
-          &Key,
-          L"ERROR: Unsupported file type!",
-          PromptString,
-          NULL
-          );
-      } else {
-        *ActionRequest = EFI_BROWSER_ACTION_REQUEST_RESET;
-      }
-      break;
 
     case KEY_VALUE_NO_SAVE_AND_EXIT_PK:
     case KEY_VALUE_NO_SAVE_AND_EXIT_KEK:
@@ -3833,25 +3611,25 @@ SecureBootCallback (
       if (Private->FileContext->FHandle != NULL) {
         CloseFile (Private->FileContext->FHandle);
         Private->FileContext->FHandle = NULL;
-        Private->FileContext->FileName = NULL;
+        if (Private->FileContext->FileName!= NULL){
+          FreePool(Private->FileContext->FileName);
+          Private->FileContext->FileName = NULL;
+        }
       }
 
       if (Private->SignatureGUID != NULL) {
         FreePool (Private->SignatureGUID);
         Private->SignatureGUID = NULL;
       }
-      *ActionRequest = EFI_BROWSER_ACTION_REQUEST_EXIT;
       break;
-
+    }
+  } else if (Action == EFI_BROWSER_ACTION_CHANGED) {
+    switch (QuestionId) {
+    case KEY_SECURE_BOOT_ENABLE:
+      *ActionRequest = EFI_BROWSER_ACTION_REQUEST_FORM_APPLY;
+      break;
     case KEY_SECURE_BOOT_MODE:
       mIsEnterSecureBootForm = FALSE;
-      break;
-    case KEY_TRANS_SECURE_BOOT_MODE:
-      mIsSelectedSecureBootModeForm = FALSE;
-      if (mIsSecureBootModeChanged) {
-        *ActionRequest = EFI_BROWSER_ACTION_REQUEST_RESET;
-      }
-      mIsSecureBootModeChanged = FALSE;
       break;
     case KEY_SECURE_BOOT_KEK_GUID:
     case KEY_SECURE_BOOT_SIGNATURE_GUID_DB:
@@ -3871,7 +3649,8 @@ SecureBootCallback (
       break;
 
     case KEY_SECURE_BOOT_DELETE_PK:
-      if (IfrNvData->CurSecureBootMode == SECURE_BOOT_MODE_USER_MODE || IfrNvData->CurSecureBootMode == SECURE_BOOT_MODE_DEPLOYED_MODE) {
+      GetVariable2 (EFI_SETUP_MODE_NAME, &gEfiGlobalVariableGuid, (VOID**)&SetupMode, NULL);
+      if (SetupMode == NULL || (*SetupMode) == SETUP_MODE) {
         IfrNvData->DeletePk = TRUE;
         IfrNvData->HasPk    = FALSE;
         *ActionRequest = EFI_BROWSER_ACTION_REQUEST_SUBMIT;
@@ -3880,22 +3659,20 @@ SecureBootCallback (
         IfrNvData->HasPk    = TRUE;
         *ActionRequest = EFI_BROWSER_ACTION_REQUEST_FORM_APPLY;
       }
+      if (SetupMode != NULL) {
+        FreePool (SetupMode);
+      }
       break;
     default:
-      if (QuestionId >= FILE_OPTION_OFFSET && QuestionId < FILE_OPTION_GOTO_OFFSET) {
-        if (UpdateFileExplorer (Private, QuestionId)) {
-          *ActionRequest = EFI_BROWSER_ACTION_REQUEST_EXIT;
-        }
-      }
       break;
     }
   } else if (Action == EFI_BROWSER_ACTION_DEFAULT_STANDARD) {
     if (QuestionId == KEY_HIDE_SECURE_BOOT) {
-      GetVariable2 (EFI_SECURE_BOOT_ENABLE_NAME, &gEfiSecureBootEnableDisableGuid, (VOID**)&SecureBootEnable, NULL);
-      if (SecureBootEnable == NULL) {
+      GetVariable2 (EFI_PLATFORM_KEY_NAME, &gEfiGlobalVariableGuid, (VOID**)&Pk, NULL);
+      if (Pk == NULL) {
         IfrNvData->HideSecureBoot = TRUE;
       } else {
-        FreePool (SecureBootEnable);
+        FreePool (Pk);
         IfrNvData->HideSecureBoot = FALSE;
       }
       Value->b = IfrNvData->HideSecureBoot;
@@ -3922,6 +3699,11 @@ EXIT:
   }
 
   FreePool (IfrNvData);
+
+  if (File != NULL){
+    FreePool(File);
+    File = NULL;
+  }
 
   return EFI_SUCCESS;
 }
@@ -3987,18 +3769,11 @@ InstallSecureBootConfigForm (
   PrivateData->HiiHandle = HiiHandle;
 
   PrivateData->FileContext = AllocateZeroPool (sizeof (SECUREBOOT_FILE_CONTEXT));
-  PrivateData->MenuEntry   = AllocateZeroPool (sizeof (SECUREBOOT_MENU_ENTRY));
 
-  if (PrivateData->FileContext == NULL || PrivateData->MenuEntry == NULL) {
+  if (PrivateData->FileContext == NULL) {
     UninstallSecureBootConfigForm (PrivateData);
     return EFI_OUT_OF_RESOURCES;
   }
-
-  PrivateData->FeCurrentState = FileExplorerStateInActive;
-  PrivateData->FeDisplayContext = FileExplorerDisplayUnknown;
-
-  InitializeListHead (&FsOptionMenu.Head);
-  InitializeListHead (&DirectoryMenu.Head);
 
   //
   // Init OpCode Handle and Allocate space for creation of Buffer
@@ -4079,18 +3854,11 @@ UninstallSecureBootConfigForm (
     FreePool (PrivateData->SignatureGUID);
   }
 
-  if (PrivateData->MenuEntry != NULL) {
-    FreePool (PrivateData->MenuEntry);
-  }
-
   if (PrivateData->FileContext != NULL) {
     FreePool (PrivateData->FileContext);
   }
 
   FreePool (PrivateData);
-
-  FreeMenu (&DirectoryMenu);
-  FreeMenu (&FsOptionMenu);
 
   if (mStartOpCodeHandle != NULL) {
     HiiFreeOpCodeHandle (mStartOpCodeHandle);

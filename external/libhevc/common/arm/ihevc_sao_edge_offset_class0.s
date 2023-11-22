@@ -59,6 +59,14 @@
 @r9 =>  wd
 @r10=>  ht
 
+.equ    pu1_src_top_left_offset,    104
+.equ    pu1_src_top_right_offset,   108
+.equ    pu1_src_bot_left_offset,    112
+.equ    pu1_avail_offset,           116
+.equ    pi1_sao_offset,             120
+.equ    wd_offset,                  124
+.equ    ht_offset,                  128
+
 .text
 .p2align 2
 
@@ -72,23 +80,25 @@ ihevc_sao_edge_offset_class0_a9q:
 
 
     STMFD       sp!, {r4-r12, r14}          @stack stores the values of the arguments
-    LDR         r9,[sp,#60]                 @Loads wd
+    vpush       {d8  -  d15}
 
-    LDR         r4,[sp,#40]                 @Loads pu1_src_top_left
+    LDR         r9,[sp,#wd_offset]          @Loads wd
+
+    LDR         r4,[sp,#pu1_src_top_left_offset]    @Loads pu1_src_top_left
     VMOV.I8     Q1,#2                       @const_2 = vdupq_n_s8(2)
     ADD         r11,r3,r9                   @pu1_src_top[wd]
 
-    LDR         r10,[sp,#64]                @Loads ht
+    LDR         r10,[sp,#ht_offset]         @Loads ht
     VMOV.I16    Q2,#0                       @const_min_clip = vdupq_n_s16(0)
     LDRB        r12,[r11,#-1]               @pu1_src_top[wd - 1]
 
-    LDR         r7,[sp,#52]                 @Loads pu1_avail
+    LDR         r7,[sp,#pu1_avail_offset]   @Loads pu1_avail
     VMOV.I16    Q3,#255                     @const_max_clip = vdupq_n_u16((1 << bit_depth) - 1)
     LDR         r14, gi1_table_edge_idx_addr @table pointer
 ulbl1:
     add         r14,r14,pc
 
-    LDR         r8,[sp,#56]                 @Loads pi1_sao_offset
+    LDR         r8,[sp,#pi1_sao_offset]     @Loads pi1_sao_offset
     VMOV.S8     Q4,#0xFF                    @au1_mask = vdupq_n_s8(-1)
     STRB        r12,[r4]                    @*pu1_src_top_left = pu1_src_top[wd - 1]
 
@@ -337,6 +347,7 @@ PU1_SRC_LOOP_RESIDUE:
     BNE         PU1_SRC_LOOP_RESIDUE        @If not equal jump to the pu1_src loop
 
 END_LOOPS:
+    vpop        {d8  -  d15}
     LDMFD       sp!,{r4-r12,r15}            @Reload the registers from SP
 
 

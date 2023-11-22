@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <cutils/properties.h>
+
 #define LOG_TAG "properties"
 // #define LOG_NDEBUG 0
 
@@ -21,12 +23,10 @@
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include <cutils/properties.h>
 #include <cutils/sockets.h>
 #include <log/log.h>
 

@@ -16,7 +16,8 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.os.procfs">
+    package="android.os.procfs"
+    android:targetSandboxVersion="2">
 
     <application>
         <activity android:name=".ProcfsTest"

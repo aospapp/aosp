@@ -4,7 +4,7 @@
 
 NAME = 'kernel_fs_Inplace'
 AUTHOR = 'The Chromium OS Authors'
-ATTRIBUTES = "suite:kernel_per-build_regression"
+ATTRIBUTES = "suite:kernel_daily_regression"
 TIME = 'SHORT'
 TEST_CLASS = 'kernel'
 TEST_CATEGORY = 'Performance'

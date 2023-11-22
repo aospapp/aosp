@@ -35,7 +35,6 @@ struct ASensorEventQueue
 
     ASensorEventQueue(
             ALooper *looper,
-            int ident,
             ALooper_callbackFunc callback,
             void *data);
 
@@ -62,7 +61,6 @@ struct ASensorEventQueue
 
 private:
     ALooper *mLooper;
-    int mIdent;
     ALooper_callbackFunc mCallback;
     void *mData;
     android::sp<IEventQueue> mQueueImpl;

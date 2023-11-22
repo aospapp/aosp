@@ -24,6 +24,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.os.Vibrator;
+import android.platform.test.annotations.AppModeFull;
 import android.telephony.gsm.SmsManager;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -82,6 +83,7 @@ public class NoSystemFunctionPermissionTest extends AndroidTestCase {
      *   {@link android.Manifest.permission#SET_WALLPAPER}.
      * @throws IOException 
      */
+    @AppModeFull(reason = "Instant apps cannot access the WallpaperManager")
     @SmallTest
     public void testSetWallpaper() throws IOException {
         if (!WallpaperManager.getInstance(mContext).isWallpaperSupported()) {

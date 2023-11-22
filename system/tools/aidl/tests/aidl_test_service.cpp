@@ -399,6 +399,14 @@ class NativeService : public BnTestService {
     return ReverseArray(input, repeated, _aidl_return);
   }
 
+  Status ReverseNullableUtf8CppString(
+      const unique_ptr<vector<unique_ptr<string>>>& input,
+      unique_ptr<vector<unique_ptr<string>>>* repeated,
+      unique_ptr<vector<unique_ptr<string>>>* _aidl_return) {
+
+    return ReverseUtf8CppStringList(input, repeated, _aidl_return);
+  }
+
   Status ReverseUtf8CppStringList(
       const unique_ptr<vector<unique_ptr<::string>>>& input,
       unique_ptr<vector<unique_ptr<string>>>* repeated,

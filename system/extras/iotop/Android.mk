@@ -15,8 +15,6 @@
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
-LOCAL_CLANG := true
-
 LOCAL_SRC_FILES := iotop.cpp tasklist.cpp taskstats.cpp
 
 LOCAL_MODULE := iotop

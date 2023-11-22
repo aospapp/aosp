@@ -25,26 +25,18 @@
 
 package sun.nio.ch;
 
-import java.io.FileDescriptor;
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
+import java.nio.channels.*;
 import java.nio.ByteBuffer;
-import java.nio.channels.AlreadyConnectedException;
-import java.nio.channels.AsynchronousChannel;
-import java.nio.channels.AsynchronousCloseException;
-import java.nio.channels.ClosedChannelException;
-import java.nio.channels.CompletionHandler;
-import java.nio.channels.ConnectionPendingException;
-import java.nio.channels.InterruptedByTimeoutException;
-import java.nio.channels.ShutdownChannelGroupException;
+import java.net.*;
+import java.util.concurrent.*;
+import java.io.IOException;
+import java.io.FileDescriptor;
 import java.security.AccessController;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-
-import dalvik.system.CloseGuard;
 import sun.net.NetHooks;
 import sun.security.action.GetPropertyAction;
+
+import dalvik.annotation.optimization.ReachabilitySensitive;
+import dalvik.system.CloseGuard;
 
 /**
  * Unix implementation of AsynchronousSocketChannel
@@ -100,7 +92,8 @@ class UnixAsynchronousSocketChannelImpl
     private PendingFuture<Number,Object> writeFuture;
     private Future<?> writeTimer;
 
-    // Android-changed: Add CloseGuard support.
+    // Android-added: CloseGuard support.
+    @ReachabilitySensitive
     private final CloseGuard guard = CloseGuard.get();
 
     UnixAsynchronousSocketChannelImpl(Port port)
@@ -121,7 +114,7 @@ class UnixAsynchronousSocketChannelImpl
 
         // add mapping from file descriptor to this channel
         port.register(fdVal, this);
-        // Android-changed: Add CloseGuard support.
+        // Android-added: CloseGuard support.
         guard.open("close");
     }
 
@@ -145,6 +138,7 @@ class UnixAsynchronousSocketChannelImpl
         }
 
         this.port = port;
+        // Android-added: CloseGuard support.
         guard.open("close");
     }
 
@@ -231,7 +225,7 @@ class UnixAsynchronousSocketChannelImpl
 
     @Override
     void implClose() throws IOException {
-        // Android-changed: Add CloseGuard support.
+        // Android-added: CloseGuard support.
         guard.close();
         // remove the mapping
         port.unregister(fdVal);
@@ -243,6 +237,7 @@ class UnixAsynchronousSocketChannelImpl
         finish(false, true, true);
     }
 
+    // Android-added: CloseGuard support.
     protected void finalize() throws Throwable {
         try {
             if (guard != null) {
@@ -775,4 +770,11 @@ class UnixAsynchronousSocketChannelImpl
     // -- Native methods --
 
     private static native void checkConnect(int fdVal) throws IOException;
+
+    // Android-removed: Code to load native libraries, doesn't make sense on Android.
+    /*
+    static {
+        IOUtil.load();
+    }
+    */
 }

@@ -298,7 +298,8 @@ findEND(jzfile *zip, void *endbuf)
     const jlong len = zip->len;
     const ZFILE zfd = zip->zfd;
     const jlong minHDR = len - END_MAXLEN > 0 ? len - END_MAXLEN : 0;
-    const jlong minPos = minHDR - (sizeof(buf)-ENDHDR);
+    // Android-changed: explicitly cast sizeof result to prevent sanitizer error.
+    const jlong minPos = minHDR - ((jlong)sizeof(buf)-ENDHDR);
     jint clen;
 
     for (pos = len - sizeof(buf); pos >= minPos; pos -= (sizeof(buf)-ENDHDR)) {

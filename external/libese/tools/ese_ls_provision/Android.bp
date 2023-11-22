@@ -23,7 +23,11 @@ cc_binary {
             enabled: false,
         },
     },
-    cflags: ["-DNXP_LDR_SVC_VER_2=TRUE"],
+    cflags: [
+        "-DNXP_LDR_SVC_VER_2=TRUE",
+        "-Wall",
+        "-Werror",
+    ],
     shared_libs: [
         "libbase", "libese", "libese-hw-nxp-pn80t-nq-nci", "libese-teq1", "libp61-jcop-kit"],
     srcs: ["ese_ls_provision.cpp"],

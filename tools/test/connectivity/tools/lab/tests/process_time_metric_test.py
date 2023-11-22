@@ -60,7 +60,7 @@ class ProcessTimeMetricTest(unittest.TestCase):
             process_time_metric.ProcessTimeMetric.NUM_ADB_PROCESSES:
             0,
             process_time_metric.ProcessTimeMetric.FASTBOOT_PROCESSES:
-            [("456", 'FA6BM0305019')],
+            ['FA6BM0305019'],
             process_time_metric.ProcessTimeMetric.NUM_FASTBOOT_PROCESSES:
             1
         }
@@ -80,7 +80,7 @@ class ProcessTimeMetricTest(unittest.TestCase):
         metric_obj = process_time_metric.ProcessTimeMetric(shell=fake_shell)
         expected_result = {
             process_time_metric.ProcessTimeMetric.ADB_PROCESSES:
-            [('123', 'FAKESN'), ('456', 'FAKESN2')],
+            ['FAKESN', 'FAKESN2'],
             process_time_metric.ProcessTimeMetric.NUM_ADB_PROCESSES:
             2,
             process_time_metric.ProcessTimeMetric.FASTBOOT_PROCESSES: [],

@@ -223,15 +223,29 @@ class FAFTCheckers(object):
                 succeed = False
         return succeed
 
-    def dev_boot_usb_checker(self, dev_boot_usb=True):
+    def dev_boot_usb_checker(self, dev_boot_usb=True, kernel_key_hash=False):
         """Check the current boot is from a developer USB (Ctrl-U trigger).
 
         @param dev_boot_usb: True to expect an USB boot;
                              False to expect an internal device boot.
-        @return: True if the currect boot device matched; otherwise, False.
+        @param kernel_key_hash: True to expect an USB boot with kernkey_vfy
+                                value as 'hash';
+                                False to expect kernkey_vfy value as 'sig'.
+        @return: True if the current boot device matched; otherwise, False.
         """
-        return (self.crossystem_checker({'mainfw_type': 'developer'}) and
-            self.faft_client.system.is_removable_device_boot() == dev_boot_usb)
+        assert (dev_boot_usb or not kernel_key_hash), ("Invalid condition "
+            "dev_boot_usb_checker(%s, %s). kernel_key_hash should not be "
+            "True in internal disk boot.") % (dev_boot_usb, kernel_key_hash)
+        # kernkey_vfy value will be 'sig', when device booted in internal
+        # disk or booted in USB image signed with SSD key(Ctrl-U trigger).
+        expected_kernkey_vfy = 'sig'
+        if kernel_key_hash:
+            expected_kernkey_vfy = 'hash'
+        return (self.crossystem_checker({'mainfw_type': 'developer',
+                                         'kernkey_vfy':
+                                             expected_kernkey_vfy}) and
+                self.faft_client.system.is_removable_device_boot() ==
+                dev_boot_usb)
 
     def root_part_checker(self, expected_part):
         """Check the partition number of the root device matched.

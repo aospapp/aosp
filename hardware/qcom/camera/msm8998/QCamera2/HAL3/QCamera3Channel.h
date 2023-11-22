@@ -250,6 +250,7 @@ public:
             QCamera3Stream *stream);
     int32_t getStreamSize(cam_dimension_t &dim);
     virtual int32_t timeoutFrame(uint32_t frameNumber);
+    virtual int32_t postprocFail(qcamera_hal3_pp_buffer_t *ppBuffer);
 
     QCamera3PostProcessor m_postprocessor; // post processor
     void showDebugFPS(int32_t streamType);
@@ -497,6 +498,7 @@ public:
     virtual void putStreamBufs();
     virtual void reprocessCbRoutine(buffer_handle_t *resultBuffer,
         uint32_t resultFrameNumber);
+    virtual int32_t postprocFail(qcamera_hal3_pp_buffer_t *ppBuffer);
 
 private:
     typedef struct {

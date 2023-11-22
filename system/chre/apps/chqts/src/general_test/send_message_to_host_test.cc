@@ -84,7 +84,7 @@ extern bool gUseNycMessageHack;
 
 uint8_t SendMessageToHostTest::sSmallMessageData[kSmallMessageTestCount][kSmallMessageSize];
 void *SendMessageToHostTest::sLargeMessageData[2];
-constexpr size_t SendMessageToHostTest::kLargeSizes[2];
+constexpr uint32_t SendMessageToHostTest::kLargeSizes[2];
 
 bool SendMessageToHostTest::sInMethod = false;
 uint32_t SendMessageToHostTest::sFinishedBitmask = 0;
@@ -227,8 +227,8 @@ void SendMessageToHostTest::prepTestMemory() {
 void SendMessageToHostTest::sendMessageMaxSize() {
   // Our focus here is just sending this data; we're not trying to
   // test anything.  So we use the helper function.
-  uint32_t maxSize = CHRE_MESSAGE_TO_HOST_MAX_SIZE;
-  nanoapp_testing::hostToLittleEndian(&maxSize);
+  uint32_t maxSize = nanoapp_testing::hostToLittleEndian(
+      static_cast<uint32_t>(CHRE_MESSAGE_TO_HOST_MAX_SIZE));
   // TODO(b/32114261): We intentionally don't have a namespace using
   //     declaration for sendMessageToHost because it's generally
   //     incorrect to use while we're working around this bug.  When the

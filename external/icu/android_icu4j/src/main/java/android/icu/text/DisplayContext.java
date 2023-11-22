@@ -88,13 +88,11 @@ public enum DisplayContext {
      * A possible setting for SUBSTITUTE_HANDLING:
      * Returns a fallback value (e.g., the input code) when no data is available.
      * This is the default behavior.
-     * @hide draft / provisional / internal are hidden on Android
      */
     SUBSTITUTE(Type.SUBSTITUTE_HANDLING, 0),
     /**
      * A possible setting for SUBSTITUTE_HANDLING:
      * Returns a null value when no data is available.
-     * @hide draft / provisional / internal are hidden on Android
      */
     NO_SUBSTITUTE(Type.SUBSTITUTE_HANDLING, 1);
 
@@ -117,7 +115,6 @@ public enum DisplayContext {
         DISPLAY_LENGTH,
         /**
          * SUBSTITUTE_HANDLING can be set to SUBSTITUTE or NO_SUBSTITUTE.
-         * @hide draft / provisional / internal are hidden on Android
          */
         SUBSTITUTE_HANDLING
     }

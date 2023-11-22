@@ -19,25 +19,33 @@ package com.android.dialer.callintent;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.os.SystemClock;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
+import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.text.TextUtils;
+import com.android.dialer.callintent.CallInitiationType.Type;
 import com.android.dialer.common.Assert;
 import com.android.dialer.performancereport.PerformanceReport;
 import com.android.dialer.util.CallUtil;
+import com.google.protobuf.InvalidProtocolBufferException;
 
 /** Creates an intent to start a new outgoing call. */
-public class CallIntentBuilder {
-  private final Uri uri;
+public class CallIntentBuilder implements Parcelable {
+  private Uri uri;
   private final CallSpecificAppData callSpecificAppData;
   @Nullable private PhoneAccountHandle phoneAccountHandle;
   private boolean isVideoCall;
   private String callSubject;
+  private boolean allowAssistedDial;
+
+  private final Bundle outgoingCallExtras = new Bundle();
 
   private static int lightbringerButtonAppearInExpandedCallLogItemCount = 0;
   private static int lightbringerButtonAppearInCollapsedCallLogItemCount = 0;
@@ -66,6 +74,7 @@ public class CallIntentBuilder {
           .setTimeSinceFirstClick(PerformanceReport.getTimeSinceFirstClick())
           .addAllUiActionsSinceAppLaunch(PerformanceReport.getActions())
           .addAllUiActionTimestampsSinceAppLaunch(PerformanceReport.getActionTimestamps())
+          .setStartingTabIndex(PerformanceReport.getStartingTabIndex())
           .build();
       PerformanceReport.stopRecording();
     }
@@ -86,6 +95,38 @@ public class CallIntentBuilder {
     this(CallUtil.getCallUri(Assert.isNotNull(number)), callInitiationType);
   }
 
+  public CallIntentBuilder(@NonNull Parcel parcel) {
+    ClassLoader classLoader = CallIntentBuilder.class.getClassLoader();
+    uri = parcel.readParcelable(classLoader);
+    CallSpecificAppData data;
+    try {
+      data = CallSpecificAppData.parseFrom(parcel.createByteArray());
+    } catch (InvalidProtocolBufferException e) {
+      data = createCallSpecificAppData(Type.UNKNOWN_INITIATION);
+    }
+    callSpecificAppData = data;
+    phoneAccountHandle = parcel.readParcelable(classLoader);
+    isVideoCall = parcel.readInt() != 0;
+    callSubject = parcel.readString();
+    allowAssistedDial = parcel.readInt() != 0;
+    outgoingCallExtras.putAll(parcel.readBundle(classLoader));
+  }
+
+  public static CallIntentBuilder forVoicemail(
+      @Nullable PhoneAccountHandle phoneAccountHandle, CallInitiationType.Type callInitiationType) {
+    return new CallIntentBuilder(
+            Uri.fromParts(PhoneAccount.SCHEME_VOICEMAIL, "", null), callInitiationType)
+        .setPhoneAccountHandle(phoneAccountHandle);
+  }
+
+  public void setUri(@NonNull Uri uri) {
+    this.uri = Assert.isNotNull(uri);
+  }
+
+  public Uri getUri() {
+    return uri;
+  }
+
   public CallSpecificAppData getCallSpecificAppData() {
     return callSpecificAppData;
   }
@@ -95,9 +136,27 @@ public class CallIntentBuilder {
     return this;
   }
 
+  @Nullable
+  public PhoneAccountHandle getPhoneAccountHandle() {
+    return phoneAccountHandle;
+  }
+
   public CallIntentBuilder setIsVideoCall(boolean isVideoCall) {
     this.isVideoCall = isVideoCall;
     return this;
+  }
+
+  public boolean isVideoCall() {
+    return isVideoCall;
+  }
+
+  public CallIntentBuilder setAllowAssistedDial(boolean allowAssistedDial) {
+    this.allowAssistedDial = allowAssistedDial;
+    return this;
+  }
+
+  public boolean isAssistedDialAllowed() {
+    return allowAssistedDial;
   }
 
   public CallIntentBuilder setCallSubject(String callSubject) {
@@ -105,16 +164,31 @@ public class CallIntentBuilder {
     return this;
   }
 
+  public String getCallSubject() {
+    return callSubject;
+  }
+
+  public Bundle getOutgoingCallExtras() {
+    return outgoingCallExtras;
+  }
+
+  /**
+   * @deprecated Use {@link com.android.dialer.precall.PreCall#getIntent(android.content.Context,
+   *     CallIntentBuilder)} instead.
+   */
+  @Deprecated
   public Intent build() {
     Intent intent = new Intent(Intent.ACTION_CALL, uri);
+
     intent.putExtra(
         TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
         isVideoCall ? VideoProfile.STATE_BIDIRECTIONAL : VideoProfile.STATE_AUDIO_ONLY);
 
-    Bundle extras = new Bundle();
-    extras.putLong(Constants.EXTRA_CALL_CREATED_TIME_MILLIS, SystemClock.elapsedRealtime());
-    CallIntentParser.putCallSpecificAppData(extras, callSpecificAppData);
-    intent.putExtra(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS, extras);
+    outgoingCallExtras.putLong(
+        Constants.EXTRA_CALL_CREATED_TIME_MILLIS, SystemClock.elapsedRealtime());
+    CallIntentParser.putCallSpecificAppData(outgoingCallExtras, callSpecificAppData);
+
+    intent.putExtra(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS, outgoingCallExtras);
 
     if (phoneAccountHandle != null) {
       intent.putExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, phoneAccountHandle);
@@ -167,4 +241,33 @@ public class CallIntentBuilder {
     lightbringerButtonAppearInExpandedCallLogItemCount = 0;
     lightbringerButtonAppearInSearchCount = 0;
   }
+
+  @Override
+  public int describeContents() {
+    return 0;
+  }
+
+  @Override
+  public void writeToParcel(Parcel dest, int flags) {
+    dest.writeParcelable(uri, flags);
+    dest.writeByteArray(callSpecificAppData.toByteArray());
+    dest.writeParcelable(phoneAccountHandle, flags);
+    dest.writeInt(isVideoCall ? 1 : 0);
+    dest.writeString(callSubject);
+    dest.writeInt(allowAssistedDial ? 1 : 0);
+    dest.writeBundle(outgoingCallExtras);
+  }
+
+  public static final Creator<CallIntentBuilder> CREATOR =
+      new Creator<CallIntentBuilder>() {
+        @Override
+        public CallIntentBuilder createFromParcel(Parcel source) {
+          return new CallIntentBuilder(source);
+        }
+
+        @Override
+        public CallIntentBuilder[] newArray(int size) {
+          return new CallIntentBuilder[0];
+        }
+      };
 }

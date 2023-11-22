@@ -143,4 +143,15 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
                 "testPackageChangedCallbackForUser",
                 mParentUserId, Collections.singletonMap(PARAM_TEST_USER, mProfileSerialNumber));
     }
+
+    public void testReverseAccessNoThrow() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
+
+        runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS, "testReverseAccessNoThrow",
+                mProfileUserId, Collections.singletonMap(PARAM_TEST_USER, mMainUserSerialNumber));
+    }
 }

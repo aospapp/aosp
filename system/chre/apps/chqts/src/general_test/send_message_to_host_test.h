@@ -63,11 +63,11 @@ class SendMessageToHostTest : public Test {
 
   static constexpr uint8_t kDataByte = UINT8_C(0xFE);
 
-  static constexpr size_t kSmallMessageSize = 3;
+  static constexpr uint32_t kSmallMessageSize = 3;
   static constexpr size_t kSmallMessageTestCount = 4;
   static uint8_t sSmallMessageData[kSmallMessageTestCount][kSmallMessageSize];
 
-  static constexpr size_t kLargeSizes[2] = {
+  static constexpr uint32_t kLargeSizes[2] = {
     CHRE_MESSAGE_TO_HOST_MAX_SIZE + 1,
     CHRE_MESSAGE_TO_HOST_MAX_SIZE
   };

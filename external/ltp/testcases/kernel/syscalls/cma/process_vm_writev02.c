@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "test.h"
 #include "safe_macros.h"
@@ -47,7 +48,6 @@ static option_t options[] = {
 static long bufsz;
 static int pipe_fd[2];
 static pid_t pids[2];
-static int semid;
 
 static void child_init_and_verify(void);
 static void child_write(void);
@@ -65,8 +65,7 @@ int main(int argc, char **argv)
 	for (lc = 0; TEST_LOOPING(lc); lc++) {
 		tst_count = 0;
 
-		if (pipe(pipe_fd) < 0)
-			tst_brkm(TBROK | TERRNO, cleanup, "pipe");
+		SAFE_PIPE(cleanup, pipe_fd);
 
 		/* the start of child_init_and_verify and child_write is
 		 * already synchronized via pipe */
@@ -92,16 +91,14 @@ int main(int argc, char **argv)
 
 		/* wait until child_write writes into
 		 * child_init_and_verify's VM */
-		if (waitpid(pids[1], &status, 0) == -1)
-			tst_brkm(TBROK | TERRNO, cleanup, "waitpid");
+		SAFE_WAITPID(cleanup, pids[1], &status, 0);
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
 			tst_resm(TFAIL, "child 1 returns %d", status);
 
 		/* signal child_init_and_verify to verify its VM now */
-		safe_semop(semid, 0, 1);
+		TST_SAFE_CHECKPOINT_WAKE(cleanup, 0);
 
-		if (waitpid(pids[0], &status, 0) == -1)
-			tst_brkm(TBROK | TERRNO, cleanup, "waitpid");
+		SAFE_WAITPID(cleanup, pids[0], &status, 0);
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
 			tst_resm(TFAIL, "child 0 returns %d", status);
 	}
@@ -124,11 +121,11 @@ static void child_init_and_verify(void)
 	/* passing addr of string "foo" via pipe */
 	SAFE_CLOSE(tst_exit, pipe_fd[0]);
 	snprintf(buf, bufsz, "%p", foo);
-	SAFE_WRITE(tst_exit, 1, pipe_fd[1], buf, strlen(buf));
+	SAFE_WRITE(tst_exit, 1, pipe_fd[1], buf, strlen(buf) + 1);
 	SAFE_CLOSE(tst_exit, pipe_fd[1]);
 
 	/* wait until child_write() is done writing to our VM */
-	safe_semop(semid, 0, -1);
+	TST_SAFE_CHECKPOINT_WAIT(cleanup, 0);
 
 	nr_err = 0;
 	for (i = 0; i < bufsz; i++) {
@@ -191,14 +188,15 @@ static void setup(void)
 	tst_brkm(TCONF, NULL, "process_vm_writev does not exist "
 		 "on your system");
 #endif
-	semid = init_sem(1);
+	tst_tmpdir();
+	TST_CHECKPOINT_INIT(cleanup);
 
 	TEST_PAUSE;
 }
 
 static void cleanup(void)
 {
-	clean_sem(semid);
+	tst_rmdir();
 }
 
 static void help(void)

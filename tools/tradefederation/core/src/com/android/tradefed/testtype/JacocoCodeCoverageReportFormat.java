@@ -24,8 +24,8 @@ enum JacocoCodeCoverageReportFormat implements CodeCoverageReportFormat {
     XML("<xml destfile=\"%s\" />", LogDataType.JACOCO_XML),
     HTML("<html destdir=\"%s\" />", LogDataType.HTML);
 
-    private String mAntTagFormat;
-    private LogDataType mLogDataType;
+    private final String mAntTagFormat;
+    private final LogDataType mLogDataType;
 
     /**
      * Initialize a JacocoCodeCoverageReportFormat.

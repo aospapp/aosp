@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2017 The Android Open Source Project
 #
@@ -94,23 +94,15 @@ if not(os.path.exists(vhal_location) and os.path.isdir(vhal_location)):
     print("Vehicle HAL was not found at %s. lunch may provide a correct environment, or files moved" % vhal_location)
     sys.exit(1)
 
-vhal_20_file = os.path.join(vhal_location, '2.0', 'types.hal')
-vhal_21_file = os.path.join(vhal_location, '2.1', 'types.hal')
-
-print("Generating content from Vehicle HAL 2.0 (%s) and 2.1 (%s)" % (vhal_20_file, vhal_21_file))
-
-vhal_20_doc = parser.parse(vhal_20_file)
-vhal_21_doc = parser.parse(vhal_21_file)
-
-# Work around the fact that the parser doesn't (yet?) deal with inheritance.
-# WARNING:  This pattern is rather unsafe since we're not merging the lists as we should!
-# vhal_21_doc['enums']['VehiclePropertyGroup'] = vhal_20_doc['enums']['VehiclePropertyGroup']
-# vhal_21_doc['enums']['VehiclePropertyType'] = vhal_20_doc['enums']['VehiclePropertyType']
-# vhal_21_doc['enums']['VehicleArea'] = vhal_20_doc['enums']['VehicleArea']
-
 def generateHal20():
-    print("********************************")
-    print("Generating VHal 2.0 constants...")
+    vhal_20_file = os.path.join(vhal_location, '2.0', 'types.hal')
+    if not(os.path.exists(vhal_20_file)):
+        print("Vehicle HAL was not found at %s. lunch may provide a correct environment, or files moved" % vhal_location)
+        sys.exit(1)
+
+    print("Generating constants from Vehicle HAL 2.0 (%s)" % (vhal_20_file))
+    vhal_20_doc = parser.parse(vhal_20_file)
+
     vhal_20_file = open(os.path.join(script_directory, 'vhal_consts_2_0.py'), 'w')
 
     printHeader(vhal_20_file)
@@ -129,19 +121,6 @@ def generateHal20():
     print("    TYPE_FLOAT   = [VEHICLEPROPERTYTYPE_FLOAT]", file=vhal_20_file)
     print("    TYPE_INT32S  = [VEHICLEPROPERTYTYPE_INT32_VEC]", file=vhal_20_file)
     print("    TYPE_FLOATS  = [VEHICLEPROPERTYTYPE_FLOAT_VEC]", file=vhal_20_file)
-    print("    TYPE_COMPLEX = [VEHICLEPROPERTYTYPE_COMPLEX]", file=vhal_20_file)
-
-def generateHal21():
-    print("********************************")
-    print("Generating VHal 2.1 constants...")
-    vhal_21_file = open(os.path.join(script_directory, 'vhal_consts_2_1.py'), 'w')
-    printHeader(vhal_21_file)
-    print('from vhal_consts_2_0 import *', file=vhal_21_file)
-
-    for group in vhal_21_doc['enums']:
-        print(group)
-        printEnum(vhal_21_doc, group, vhal_21_file, lambda x : hex(x))
-
+    print("    TYPE_MIXED   = [VEHICLEPROPERTYTYPE_MIXED]", file=vhal_20_file)
 
 generateHal20()
-# generateHal21()

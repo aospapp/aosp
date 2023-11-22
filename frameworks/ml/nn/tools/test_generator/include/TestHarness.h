@@ -22,12 +22,16 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <functional>
 #include <map>
 #include <tuple>
 #include <vector>
 
-namespace generated_tests {
+namespace test_helper {
+
+constexpr const size_t gMaximumNumberOfErrorMessages = 10;
+
 typedef std::map<int, std::vector<float>> Float32Operands;
 typedef std::map<int, std::vector<int32_t>> Int32Operands;
 typedef std::map<int, std::vector<uint8_t>> Quant8Operands;
@@ -171,13 +175,35 @@ void compare_(
 }
 #undef VALUE_TYPE
 #undef VECTOR_TYPE
-inline void compare(const MixedTyped& golden, const MixedTyped& test) {
-    compare_<0>(golden, test,
-                [](float g, float t) { EXPECT_NEAR(g, t, 1.e-5f); });
-    compare_<1>(golden, test, [](int32_t g, int32_t t) { EXPECT_EQ(g, t); });
-    compare_<2>(golden, test, [](uint8_t g, uint8_t t) { EXPECT_NEAR(g, t, 1); });
+inline void compare(const MixedTyped& golden, const MixedTyped& test, float fpRange = 1e-5f) {
+    size_t totalNumberOfErrors = 0;
+    compare_<0>(golden, test, [&totalNumberOfErrors, fpRange](float g, float t) {
+        if (totalNumberOfErrors < gMaximumNumberOfErrorMessages) {
+            EXPECT_NEAR(g, t, fpRange);
+        }
+        if (std::abs(g - t) > fpRange) {
+            totalNumberOfErrors++;
+        }
+    });
+    compare_<1>(golden, test, [&totalNumberOfErrors](int32_t g, int32_t t) {
+        if (totalNumberOfErrors < gMaximumNumberOfErrorMessages) {
+            EXPECT_EQ(g, t);
+        }
+        if (g != t) {
+            totalNumberOfErrors++;
+        }
+    });
+    compare_<2>(golden, test, [&totalNumberOfErrors](uint8_t g, uint8_t t) {
+        if (totalNumberOfErrors < gMaximumNumberOfErrorMessages) {
+            EXPECT_NEAR(g, t, 1);
+        }
+        if (std::abs(g - t) > 1) {
+            totalNumberOfErrors++;
+        }
+    });
+    EXPECT_EQ(size_t{0}, totalNumberOfErrors);
 }
 
-};  // namespace generated_tests
+};  // namespace test_helper
 
 #endif  // ANDROID_ML_NN_TOOLS_TEST_GENERATOR_TEST_HARNESS_H

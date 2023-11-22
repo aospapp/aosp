@@ -21,4 +21,8 @@
         <boolean name="show_apn_setting_cdma_bool" value="true" />
         <boolean name="support_swap_after_merge_bool" value="false" />
     </carrier_config>
+    <carrier_config imsi="^3115801.*">
+        <boolean name="carrier_name_override_bool" value="true" />
+        <string name="carrier_name_string">Fi Network</string>
+    </carrier_config>
 </carrier_config_list>

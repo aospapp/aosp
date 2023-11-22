@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """Script adapter used by automation client for testing dejagnu.
 
    This is not intended to be run on command line.
@@ -28,8 +28,10 @@ class DejagnuAdapter(object):
     self._cmd_exec = command_executer.GetCommandExecuter()
 
   def SetupChromeOS(self):
-    cmd = [setup_chromeos.__file__, '--dir=' + self._chromeos_root,
-           '--minilayout', '--jobs=8']
+    cmd = [
+        setup_chromeos.__file__, '--dir=' + self._chromeos_root, '--minilayout',
+        '--jobs=8'
+    ]
     ret = setup_chromeos.Main(cmd)
     if ret:
       raise RuntimeError('Failed to checkout chromeos')
@@ -41,16 +43,17 @@ class DejagnuAdapter(object):
 
   def SetupBoard(self):
     cmd = './setup_board --board=' + self._board
-    ret = self._cmd_exec.ChrootRunCommand(self._chromeos_root,
-                                          cmd,
-                                          terminated_timeout=4000)
+    ret = self._cmd_exec.ChrootRunCommand(
+        self._chromeos_root, cmd, terminated_timeout=4000)
     if ret:
       raise RuntimeError('Failed to setup board.')
 
   def CheckGDB(self):
-    args = [gdb_dejagnu.__file__, '--board=' + self._board,
-            '--chromeos_root=' + self._chromeos_root,
-            '--mount=' + self._gdb_dir, '--remote=' + self._remote]
+    args = [
+        gdb_dejagnu.__file__, '--board=' + self._board,
+        '--chromeos_root=' + self._chromeos_root, '--mount=' + self._gdb_dir,
+        '--remote=' + self._remote
+    ]
     if self._cleanup:
       args.append('--cleanup=' + self._cleanup)
     return gdb_dejagnu.Main(args)
@@ -98,8 +101,7 @@ def EmailResult(result):
     # email exception? Just log it on console.
     print('Sending email failed - {0}'
           'Subject: {1}'
-          'Text: {2}').format(
-              str(e), subject, email_text)
+          'Text: {2}').format(str(e), subject, email_text)
 
 
 def ProcessArguments(argv):
@@ -108,29 +110,34 @@ def ProcessArguments(argv):
       description=('This script is used by nightly client to test gdb. '
                    'DO NOT run it unless you know what you are doing.'),
       usage='test_gdb_dejagnu.py options')
-  parser.add_argument('-b',
-                      '--board',
-                      dest='board',
-                      help=('Required. Specify board type. For example '
-                            '\'lumpy\' and \'daisy\''))
-  parser.add_argument('-r',
-                      '--remote',
-                      dest='remote',
-                      help=('Required. Specify remote board address'))
-  parser.add_argument('-g',
-                      '--gdb_dir',
-                      dest='gdb_dir',
-                      default='',
-                      help=('Optional. Specify gdb checkout directory.'))
-  parser.add_argument('-c',
-                      '--chromeos_root',
-                      dest='chromeos_root',
-                      default='chromeos.live',
-                      help=('Optional. Specify chromeos checkout directory.'))
-  parser.add_argument('--cleanup',
-                      dest='cleanup',
-                      default=None,
-                      help=('Optional. Do cleanup after the test.'))
+  parser.add_argument(
+      '-b',
+      '--board',
+      dest='board',
+      help=('Required. Specify board type. For example '
+            '\'lumpy\' and \'daisy\''))
+  parser.add_argument(
+      '-r',
+      '--remote',
+      dest='remote',
+      help=('Required. Specify remote board address'))
+  parser.add_argument(
+      '-g',
+      '--gdb_dir',
+      dest='gdb_dir',
+      default='',
+      help=('Optional. Specify gdb checkout directory.'))
+  parser.add_argument(
+      '-c',
+      '--chromeos_root',
+      dest='chromeos_root',
+      default='chromeos.live',
+      help=('Optional. Specify chromeos checkout directory.'))
+  parser.add_argument(
+      '--cleanup',
+      dest='cleanup',
+      default=None,
+      help=('Optional. Do cleanup after the test.'))
 
   options = parser.parse_args(argv)
 

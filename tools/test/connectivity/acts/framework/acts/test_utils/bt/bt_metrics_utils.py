@@ -31,9 +31,5 @@ def get_bluetooth_metrics(ad, bluetooth_proto_module):
     proto_native_str_64 = \
         ad.adb.shell("/system/bin/dumpsys bluetooth_manager --proto-bin")
     proto_native_str = base64.b64decode(proto_native_str_64)
-    proto_java_str_64 = \
-        ad.adb.shell("/system/bin/dumpsys bluetooth_manager --proto-java-bin")
-    proto_java_str = base64.b64decode(proto_java_str_64)
     bluetooth_log.MergeFromString(proto_native_str)
-    bluetooth_log.MergeFromString(proto_java_str)
     return bluetooth_log

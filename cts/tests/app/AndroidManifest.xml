@@ -21,7 +21,8 @@
     <uses-sdk android:minSdkVersion="11" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.BODY_SENSORS" />
-    <application>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <application android:usesCleartextTraffic="true">
         <uses-library android:name="android.test.runner" />
         <uses-library android:name="org.apache.http.legacy" android:required="false" />
     </application>

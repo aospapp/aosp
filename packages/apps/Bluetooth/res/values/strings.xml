@@ -247,4 +247,5 @@
     <string name="bluetooth_connected">Bluetooth audio connected</string>
     <string name="bluetooth_disconnected">Bluetooth audio disconnected"</string>
     <string name="a2dp_sink_mbs_label">Bluetooth Audio</string>
+    <string name="bluetooth_opp_file_limit_exceeded">Files bigger than 4GB cannot be transferred</string>
 </resources>

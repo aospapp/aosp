@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"NFC etiketindən data"</string>
     <string name="vcard_title" msgid="7122634780732426007">"^1 üçün əlaqə məlumatları"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Bu tətbiqdə zəng etmək üçün Telefon icazəsi tələb olunur. Teq icazəsini Ayarlardan idarə edə bilərsiniz"</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Bu tətbiq fayllara daxil olmaq üçün Xarici Yaddaş İcazəsi tələb edir. Teq icazəsini Ayarlardan idarə edə bilərsiniz"</string>
 </resources>

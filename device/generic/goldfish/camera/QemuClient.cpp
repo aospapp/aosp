@@ -508,15 +508,16 @@ status_t CameraQemuClient::queryFrame(void* vframe,
                                       float r_scale,
                                       float g_scale,
                                       float b_scale,
-                                      float exposure_comp)
+                                      float exposure_comp,
+                                      int64_t* frame_time)
 {
     ALOGV("%s", __FUNCTION__);
 
     char query_str[256];
-    snprintf(query_str, sizeof(query_str), "%s video=%zu preview=%zu whiteb=%g,%g,%g expcomp=%g",
+    snprintf(query_str, sizeof(query_str), "%s video=%zu preview=%zu whiteb=%g,%g,%g expcomp=%g time=%d",
              mQueryFrame, (vframe && vframe_size) ? vframe_size : 0,
              (pframe && pframe_size) ? pframe_size : 0, r_scale, g_scale, b_scale,
-             exposure_comp);
+             exposure_comp, frame_time != nullptr ? 1 : 0);
     QemuQuery query(query_str);
     doQuery(&query);
     const status_t res = query.getCompletionStatus();
@@ -551,6 +552,14 @@ status_t CameraQemuClient::queryFrame(void* vframe,
             ALOGE("%s: Reply %zu bytes is to small to contain %zu bytes preview frame",
                  __FUNCTION__, query.mReplyDataSize - cur_offset, pframe_size);
             return EINVAL;
+        }
+    }
+    if (frame_time != nullptr) {
+        if (query.mReplyDataSize - cur_offset >= 8) {
+            *frame_time = *reinterpret_cast<const int64_t*>(frame + cur_offset);
+            cur_offset += 8;
+        } else {
+            *frame_time = 0L;
         }
     }
 

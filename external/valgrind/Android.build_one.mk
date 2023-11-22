@@ -14,6 +14,8 @@
 
 include $(CLEAR_VARS)
 
+LOCAL_MODULE_TARGET_ARCH := $(VALGRIND_SUPPORTED_ARCH)
+
 LOCAL_ARM_MODE := arm
 ifeq ($(vg_build_second_arch),true)
 LOCAL_MULTILIB := 32

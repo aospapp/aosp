@@ -18,6 +18,7 @@ package android.uidisolation.cts;
 
 import android.app.Activity;
 import android.app.Instrumentation;
+import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 
 import java.io.File;

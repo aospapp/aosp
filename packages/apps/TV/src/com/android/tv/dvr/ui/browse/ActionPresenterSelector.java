@@ -32,8 +32,8 @@ import android.widget.Button;
 class ActionPresenterSelector extends PresenterSelector {
     private final Presenter mOneLineActionPresenter = new OneLineActionPresenter();
     private final Presenter mTwoLineActionPresenter = new TwoLineActionPresenter();
-    private final Presenter[] mPresenters = new Presenter[] {
-            mOneLineActionPresenter, mTwoLineActionPresenter};
+    private final Presenter[] mPresenters =
+            new Presenter[] {mOneLineActionPresenter, mTwoLineActionPresenter};
 
     @Override
     public Presenter getPresenter(Object item) {
@@ -65,8 +65,9 @@ class ActionPresenterSelector extends PresenterSelector {
     class OneLineActionPresenter extends Presenter {
         @Override
         public ViewHolder onCreateViewHolder(ViewGroup parent) {
-            View v = LayoutInflater.from(parent.getContext())
-                    .inflate(R.layout.lb_action_1_line, parent, false);
+            View v =
+                    LayoutInflater.from(parent.getContext())
+                            .inflate(R.layout.lb_action_1_line, parent, false);
             return new ActionViewHolder(v, parent.getLayoutDirection());
         }
 
@@ -87,8 +88,9 @@ class ActionPresenterSelector extends PresenterSelector {
     class TwoLineActionPresenter extends Presenter {
         @Override
         public ViewHolder onCreateViewHolder(ViewGroup parent) {
-            View v = LayoutInflater.from(parent.getContext())
-                    .inflate(R.layout.lb_action_2_lines, parent, false);
+            View v =
+                    LayoutInflater.from(parent.getContext())
+                            .inflate(R.layout.lb_action_2_lines, parent, false);
             return new ActionViewHolder(v, parent.getLayoutDirection());
         }
 
@@ -100,14 +102,20 @@ class ActionPresenterSelector extends PresenterSelector {
             vh.mAction = action;
 
             if (icon != null) {
-                final int startPadding = vh.view.getResources()
-                        .getDimensionPixelSize(R.dimen.lb_action_with_icon_padding_start);
-                final int endPadding = vh.view.getResources()
-                        .getDimensionPixelSize(R.dimen.lb_action_with_icon_padding_end);
+                final int startPadding =
+                        vh.view
+                                .getResources()
+                                .getDimensionPixelSize(R.dimen.lb_action_with_icon_padding_start);
+                final int endPadding =
+                        vh.view
+                                .getResources()
+                                .getDimensionPixelSize(R.dimen.lb_action_with_icon_padding_end);
                 vh.view.setPaddingRelative(startPadding, 0, endPadding, 0);
             } else {
-                final int padding = vh.view.getResources()
-                        .getDimensionPixelSize(R.dimen.lb_action_padding_horizontal);
+                final int padding =
+                        vh.view
+                                .getResources()
+                                .getDimensionPixelSize(R.dimen.lb_action_padding_horizontal);
                 vh.view.setPaddingRelative(padding, 0, padding, 0);
             }
             vh.mButton.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, null, null, null);

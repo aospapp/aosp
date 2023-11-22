@@ -32,6 +32,7 @@
 #include "IptablesRestoreController.h"
 #include "NetdConstants.h"
 #include "Stopwatch.h"
+#include "bpf/BpfUtils.h"
 
 #define XT_LOCK_NAME "/system/etc/xtables.lock"
 #define XT_LOCK_ATTEMPTS 10
@@ -39,6 +40,9 @@
 
 using android::base::Join;
 using android::base::StringPrintf;
+using android::bpf::DOZABLE_UID_MAP_PATH;
+using android::bpf::STANDBY_UID_MAP_PATH;
+using android::bpf::POWERSAVE_UID_MAP_PATH;
 using android::netdutils::ScopedMockSyscalls;
 using testing::Return;
 using testing::StrictMock;
@@ -250,13 +254,16 @@ TEST_F(IptablesRestoreControllerTest, TestCommandTimeout) {
   EXPECT_EQ(expected, output);
 }
 
+
 TEST_F(IptablesRestoreControllerTest, TestUidRuleBenchmark) {
     const std::vector<int> ITERATIONS = { 1, 5, 10 };
 
     const std::string IPTABLES_RESTORE_ADD =
-            "*filter\n-I fw_powersave -m owner --uid-owner 2000000000 -j RETURN\nCOMMIT\n";
+            StringPrintf("*filter\n-I %s -m owner --uid-owner 2000000000 -j RETURN\nCOMMIT\n",
+                         mChainName.c_str());
     const std::string IPTABLES_RESTORE_DEL =
-            "*filter\n-D fw_powersave -m owner --uid-owner 2000000000 -j RETURN\nCOMMIT\n";
+            StringPrintf("*filter\n-D %s -m owner --uid-owner 2000000000 -j RETURN\nCOMMIT\n",
+                         mChainName.c_str());
 
     for (const int iterations : ITERATIONS) {
         Stopwatch s;

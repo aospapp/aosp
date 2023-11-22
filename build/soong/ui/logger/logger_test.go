@@ -67,7 +67,7 @@ func TestCreateFileWithRotation(t *testing.T) {
 		t.Fatalf("Failed to read dir: %v", err)
 	}
 	sort.Strings(names)
-	expected := []string{"build.1.log", "build.2.log", "build.3.log", "build.log"}
+	expected := []string{".lock_build.log", "build.1.log", "build.2.log", "build.3.log", "build.log"}
 	if !reflect.DeepEqual(names, expected) {
 		t.Errorf("File list does not match.")
 		t.Errorf("     got: %v", names)
@@ -106,7 +106,7 @@ func TestPanic(t *testing.T) {
 			if p == panicValue {
 				os.Exit(42)
 			} else {
-				fmt.Fprintln(os.Stderr, "Expected %q, got %v", panicValue, p)
+				fmt.Fprintf(os.Stderr, "Expected %q, got %v\n", panicValue, p)
 				os.Exit(3)
 			}
 		}()

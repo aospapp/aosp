@@ -1,128 +1,72 @@
 // Generate .vts spec files.
 hal2vts {
-    name: "android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.spec",
+    name: "{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}-vts.spec",
+    hidl_gen_args: "{HIDL_GEN_ARGS}",
     srcs: [
-        ":android.hardware.{HAL_NAME}@{HAL_VERSION}_hal",
+        ":{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}_hal",
     ],
-    out: [
-        {GENERATED_VTS_SPECS}
-    ],
+    out: [{GENERATED_VTS_SPECS}],
 }
 
 // Build VTS driver.
 genrule {
-    name: "android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.driver_genc++",
+    name: "{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}-vts.driver_genc++",
     tools: ["hidl-gen", "vtsc"],
-    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.{HAL_NAME}@{HAL_VERSION} && $(location vtsc) -mDRIVER -tSOURCE -b$(genDir) android/hardware/{HAL_NAME_DIR}/{HAL_VERSION}/ $(genDir)/android/hardware/{HAL_NAME_DIR}/{HAL_VERSION}/",
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts {HIDL_GEN_ARGS} {PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION} && $(location vtsc) -mDRIVER -tSOURCE -b$(genDir) {PACKAGE_ROOT_DIR}/{HAL_NAME_DIR}/{HAL_VERSION}/ $(genDir)/{PACKAGE_ROOT_DIR}/{HAL_NAME_DIR}/{HAL_VERSION}/",
     srcs: [
-        ":android.hardware.{HAL_NAME}@{HAL_VERSION}_hal",
+        ":{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}_hal",
     ],
-    out: [
-        {GENERATED_SOURCES}
-    ],
+    out: [{GENERATED_SOURCES}],
 }
 
 genrule {
-    name: "android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.driver_genc++_headers",
+    name: "{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}-vts.driver_genc++_headers",
     tools: ["hidl-gen", "vtsc"],
-    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.{HAL_NAME}@{HAL_VERSION} && $(location vtsc) -mDRIVER -tHEADER -b$(genDir) android/hardware/{HAL_NAME_DIR}/{HAL_VERSION}/ $(genDir)/android/hardware/{HAL_NAME_DIR}/{HAL_VERSION}/",
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts {HIDL_GEN_ARGS} {PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION} && $(location vtsc) -mDRIVER -tHEADER -b$(genDir) {PACKAGE_ROOT_DIR}/{HAL_NAME_DIR}/{HAL_VERSION}/ $(genDir)/{PACKAGE_ROOT_DIR}/{HAL_NAME_DIR}/{HAL_VERSION}/",
     srcs: [
-        ":android.hardware.{HAL_NAME}@{HAL_VERSION}_hal",
+        ":{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}_hal",
     ],
-    out: [
-        {GENERATED_HEADERS}
-    ],
+    out: [{GENERATED_HEADERS}],
 }
 
 cc_library_shared {
-    name: "android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.driver",
-    generated_sources: ["android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.driver_genc++"],
-    generated_headers: ["android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.driver_genc++_headers"],
-    export_generated_headers: ["android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.driver_genc++_headers"],
-    shared_libs: [
-        "libcamera_metadata",
-        "libcutils",
-        "libfmq",
-        "libhidlbase",
-        "libhidltransport",
-        "libhwbinder",
-        "liblog",
-        "libprotobuf-cpp-full",
-        "libutils",
-        "libvts_common",
-        "libvts_datatype",
-        "libvts_drivercomm",
-        "libvts_measurement",
-        "libvts_multidevice_proto",
-        "android.hidl.allocator@1.0",
-        "android.hardware.{HAL_NAME}@{HAL_VERSION}",
-        {IMPORTED_DRIVER_PACKAGES}
-    ],
-    export_shared_lib_headers: [
-        {IMPORTED_DRIVER_PACKAGES}
-    ],
-    cflags: [
-        "-Wall",
-        "-Werror",
-
-        // These warnings are in code generated with vtsc
-        // b/31362043
-        "-Wno-duplicate-decl-specifier",
-        "-Wno-implicitly-unsigned-literal",
-    ],
+    name: "{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}-vts.driver",
+    generated_sources: ["{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}-vts.driver_genc++"],
+    generated_headers: ["{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}-vts.driver_genc++_headers"],
+    export_generated_headers: ["{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}-vts.driver_genc++_headers"],
+    defaults: ["VtsHalDriverDefaults"],
+    shared_libs: [{IMPORTED_DRIVER_PACKAGES}],
+    static_libs: [{HAL_LIBS}],
 }
 
 // Build VTS profiler.
 genrule {
-    name: "android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.profiler_genc++",
+    name: "{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}-vts.profiler_genc++",
     tools: ["hidl-gen", "vtsc"],
-    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.{HAL_NAME}@{HAL_VERSION} && $(location vtsc) -mPROFILER -tSOURCE -b$(genDir) android/hardware/{HAL_NAME_DIR}/{HAL_VERSION}/ $(genDir)/android/hardware/{HAL_NAME_DIR}/{HAL_VERSION}/",
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts {HIDL_GEN_ARGS} {PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION} && $(location vtsc) -mPROFILER -tSOURCE -b$(genDir) {PACKAGE_ROOT_DIR}/{HAL_NAME_DIR}/{HAL_VERSION}/ $(genDir)/{PACKAGE_ROOT_DIR}/{HAL_NAME_DIR}/{HAL_VERSION}/",
     srcs: [
-        ":android.hardware.{HAL_NAME}@{HAL_VERSION}_hal",
+        ":{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}_hal",
     ],
-    out: [
-        {GENERATED_SOURCES}
-    ],
+    out: [{GENERATED_SOURCES}],
 }
 
 genrule {
-    name: "android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.profiler_genc++_headers",
+    name: "{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}-vts.profiler_genc++_headers",
     tools: ["hidl-gen", "vtsc"],
-    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.{HAL_NAME}@{HAL_VERSION} && $(location vtsc) -mPROFILER -tHEADER -b$(genDir) android/hardware/{HAL_NAME_DIR}/{HAL_VERSION}/ $(genDir)/android/hardware/{HAL_NAME_DIR}/{HAL_VERSION}/",
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts {HIDL_GEN_ARGS} {PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION} && $(location vtsc) -mPROFILER -tHEADER -b$(genDir) {PACKAGE_ROOT_DIR}/{HAL_NAME_DIR}/{HAL_VERSION}/ $(genDir)/{PACKAGE_ROOT_DIR}/{HAL_NAME_DIR}/{HAL_VERSION}/",
     srcs: [
-        ":android.hardware.{HAL_NAME}@{HAL_VERSION}_hal",
+        ":{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}_hal",
     ],
-    out: [
-        {GENERATED_HEADERS}
-    ],
+    out: [{GENERATED_HEADERS}],
 }
 
 cc_library_shared {
-    name: "android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.profiler",
-    generated_sources: ["android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.profiler_genc++"],
-    generated_headers: ["android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.profiler_genc++_headers"],
-    export_generated_headers: ["android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.profiler_genc++_headers"],
-    shared_libs: [
-        "libbase",
-        "libcutils",
-        "libfmq",
-        "libhidlbase",
-        "libhidltransport",
-        "libvts_common",
-        "libvts_profiling",
-        "libvts_multidevice_proto",
-        "libprotobuf-cpp-full",
-        "android.hardware.{HAL_NAME}@{HAL_VERSION}",
-        {IMPORTED_PROFILER_PACKAGES}
-    ],
-    cflags: [
-        "-Wall",
-        "-Werror",
-
-        // These warnings are in code generated with vtsc
-        // b/31362043
-        "-Wno-duplicate-decl-specifier",
-        "-Wno-implicitly-unsigned-literal",
-    ],
+    name: "{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}-vts.profiler",
+    generated_sources: ["{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}-vts.profiler_genc++"],
+    generated_headers: ["{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}-vts.profiler_genc++_headers"],
+    export_generated_headers: ["{PACKAGE_ROOT}.{HAL_NAME}@{HAL_VERSION}-vts.profiler_genc++_headers"],
+    defaults: ["VtsHalProfilerDefaults"],
+    shared_libs: [{IMPORTED_PROFILER_PACKAGES}],
+    static_libs: [{HAL_LIBS}],
 }
 

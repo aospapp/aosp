@@ -28,7 +28,8 @@ LOCAL_STATIC_LIBRARIES := libvkjson_ndk
 LOCAL_SHARED_LIBRARIES := libvulkan liblog libdl
 LOCAL_NDK_STL_VARIANT := c++_static
 
-# Would be "current" if that was supported for native code.
-LOCAL_SDK_VERSION := 24
+LOCAL_CFLAGS := -Wall -Werror
+
+LOCAL_SDK_VERSION := current
 
 include $(BUILD_SHARED_LIBRARY)

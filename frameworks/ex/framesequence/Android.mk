@@ -25,4 +25,4 @@ LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
-include $(call all-makefiles-under, $(LOCAL_PATH))
+include $(call first-makefiles-under, $(LOCAL_PATH))

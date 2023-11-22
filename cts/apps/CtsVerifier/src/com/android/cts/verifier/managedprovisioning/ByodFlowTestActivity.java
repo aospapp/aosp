@@ -78,6 +78,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
     private DialogTestListItem mWorkNotificationBadgedTest;
     private DialogTestListItem mWorkStatusBarIconTest;
     private DialogTestListItem mWorkStatusBarToastTest;
+    private DialogTestListItem mUserSettingsVisibleTest;
     private DialogTestListItem mAppSettingsVisibleTest;
     private DialogTestListItem mLocationSettingsVisibleTest;
     private DialogTestListItem mWiFiDataUsageSettingsVisibleTest;
@@ -101,12 +102,14 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
     private DialogTestListItem mConfirmWorkCredentials;
     private DialogTestListItem mParentProfilePassword;
     private TestListItem mVpnTest;
+    private TestListItem mKeyChainTest;
     private TestListItem mAlwaysOnVpnSettingsTest;
     private TestListItem mRecentsTest;
     private TestListItem mDisallowAppsControlTest;
     private TestListItem mOrganizationInfoTest;
     private TestListItem mPolicyTransparencyTest;
     private TestListItem mTurnOffWorkFeaturesTest;
+    private TestListItem mWidgetTest;
 
     public ByodFlowTestActivity() {
         super(R.layout.provisioning_byod,
@@ -286,6 +289,12 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 R.string.provisioning_byod_profile_visible_instruction,
                 new Intent(Settings.ACTION_SETTINGS));
 
+        mUserSettingsVisibleTest = new DialogTestListItem(this,
+            R.string.provisioning_byod_user_settings,
+            "BYOD_UserSettingsVisibleTest",
+            R.string.provisioning_byod_user_settings_instruction,
+            new Intent(Settings.ACTION_SETTINGS));
+
         mAppSettingsVisibleTest = new DialogTestListItem(this,
                 R.string.provisioning_byod_app_settings,
                 "BYOD_AppSettingsVisibleTest",
@@ -415,6 +424,12 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 new Intent(this, OrganizationInfoTestActivity.class),
                 null);
 
+        mKeyChainTest = TestListItem.newTest(this,
+                R.string.provisioning_byod_keychain,
+                KeyChainTestActivity.class.getName(),
+                new Intent(KeyChainTestActivity.ACTION_KEYCHAIN),
+                null);
+
         mParentProfilePassword = new DialogTestListItem(this,
                 R.string.provisioning_byod_parent_profile_password,
                 "BYOD_ParentProfilePasswordTest",
@@ -425,7 +440,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 PolicyTransparencyTestListActivity.class);
         policyTransparencyTestIntent.putExtra(
                 PolicyTransparencyTestListActivity.EXTRA_MODE,
-                PolicyTransparencyTestListActivity.MODE_PROFILE_OWNER);
+                PolicyTransparencyTestListActivity.MODE_MANAGED_PROFILE);
         policyTransparencyTestIntent.putExtra(
                 PolicyTransparencyTestActivity.EXTRA_TEST_ID, "BYOD_PolicyTransparency");
         mPolicyTransparencyTest = TestListItem.newTest(this,
@@ -449,6 +464,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         adapter.add(mProfileAccountVisibleTest);
         adapter.add(mDeviceAdminVisibleTest);
         adapter.add(mCredSettingsVisibleTest);
+        adapter.add(mUserSettingsVisibleTest);
         adapter.add(mAppSettingsVisibleTest);
         adapter.add(mLocationSettingsVisibleTest);
         adapter.add(mPrintSettingsVisibleTest);
@@ -563,6 +579,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 }
             };
             adapter.add(mDisableNfcBeamTest);
+            adapter.add(mKeyChainTest);
         }
 
         /* If there is an application that handles RECORD_SOUND_ACTION, test that it handles it
@@ -614,6 +631,14 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                     R.string.provisioning_byod_no_gps_location_feature, Toast.LENGTH_SHORT)
                     .show();
         }
+
+        mWidgetTest = TestListItem.newTest(this,
+                R.string.provisioning_byod_work_profile_widget,
+                WorkProfileWidgetActivity.class.getName(),
+                new Intent(WorkProfileWidgetActivity.ACTION_TEST_WORK_PROFILE_WIDGET),
+                new String[] {PackageManager.FEATURE_APP_WIDGETS});
+        adapter.add(mWidgetTest);
+
     }
 
     // Return whether the intent can be resolved in the current profile
@@ -742,5 +767,4 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
             new ComponentName(ByodFlowTestActivity.this, HandleIntentActivity.class.getName()),
             enableState, PackageManager.DONT_KILL_APP);
     }
-
 }

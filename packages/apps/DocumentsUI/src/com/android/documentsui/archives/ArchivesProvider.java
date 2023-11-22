@@ -17,38 +17,34 @@
 package com.android.documentsui.archives;
 
 import android.content.ContentProviderClient;
-import android.content.ContentResolver;
-import android.content.Context;
 import android.content.res.AssetFileDescriptor;
-import android.content.res.Configuration;
-import android.database.ContentObserver;
 import android.database.Cursor;
-import android.database.MatrixCursor.RowBuilder;
 import android.database.MatrixCursor;
+import android.database.MatrixCursor.RowBuilder;
 import android.graphics.Point;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
+import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Root;
-import android.provider.DocumentsContract;
 import android.provider.DocumentsProvider;
+import android.provider.MetadataReader;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
 import com.android.documentsui.R;
 import com.android.internal.annotations.GuardedBy;
-import com.android.internal.util.Preconditions;
 
-import java.io.Closeable;
-import java.io.File;
+import libcore.io.IoUtils;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.locks.Lock;
 
 /**
  * Provides basic implementation for creating, extracting and accessing
@@ -71,7 +67,7 @@ public class ArchivesProvider extends DocumentsProvider {
     };
 
     @GuardedBy("mArchives")
-    private final Map<Key, Loader> mArchives = new HashMap<Key, Loader>();
+    private final Map<Key, Loader> mArchives = new HashMap<>();
 
     @Override
     public Bundle call(String method, String arg, Bundle extras) {
@@ -150,6 +146,32 @@ public class ArchivesProvider extends DocumentsProvider {
     public boolean isChildDocument(String parentDocumentId, String documentId) {
         final Loader loader = getLoaderOrThrow(documentId);
         return loader.get().isChildDocument(parentDocumentId, documentId);
+    }
+
+    @Override
+    public @Nullable Bundle getDocumentMetadata(String documentId)
+            throws FileNotFoundException {
+
+        final Archive archive = getLoaderOrThrow(documentId).get();
+        final String mimeType = archive.getDocumentType(documentId);
+
+        if (!MetadataReader.isSupportedMimeType(mimeType)) {
+            return null;
+        }
+
+        InputStream stream = null;
+        try {
+            stream = new ParcelFileDescriptor.AutoCloseInputStream(
+                    openDocument(documentId, "r", null));
+            final Bundle metadata = new Bundle();
+            MetadataReader.getMetadata(metadata, stream, mimeType, null);
+            return metadata;
+        } catch (IOException e) {
+            Log.e(TAG, "An error occurred retrieving the metadata.", e);
+            return null;
+        } finally {
+            IoUtils.closeQuietly(stream);
+        }
     }
 
     @Override

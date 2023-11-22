@@ -207,12 +207,42 @@ public class StaticMetadata {
      * at least the desired one (but could be higher)
      */
     public boolean isHardwareLevelAtLeast(int level) {
+        final int[] sortedHwLevels = {
+            CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY,
+            CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL,
+            CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED,
+            CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_FULL,
+            CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_3
+        };
         int deviceLevel = getHardwareLevelChecked();
-        if (deviceLevel == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY) {
-            return level == deviceLevel;
+        if (level == deviceLevel) {
+            return true;
         }
-        // deviceLevel is not LEGACY, can use numerical sort
-        return level <= deviceLevel;
+
+        for (int sortedlevel : sortedHwLevels) {
+            if (sortedlevel == level) {
+                return true;
+            } else if (sortedlevel == deviceLevel) {
+                return false;
+            }
+        }
+        Assert.fail("Unknown hardwareLevel " + level + " and device hardware level " + deviceLevel);
+        return false;
+    }
+
+    /**
+     * Whether or not the camera is an external camera. If so the hardware level
+     * reported by android.info.supportedHardwareLevel is
+     * {@value CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL}.
+     *
+     * <p>If the camera device is not reporting the hardwareLevel, this
+     * will cause the test to fail.</p>
+     *
+     * @return {@code true} if the device is external, {@code false} otherwise.
+     */
+    public boolean isExternalCamera() {
+        int deviceLevel = getHardwareLevelChecked();
+        return deviceLevel == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL;
     }
 
     /**
@@ -1546,6 +1576,36 @@ public class StaticMetadata {
         return edgeModes;
     }
 
+      public int[] getAvailableShadingModesChecked() {
+        Key<int[]> key = CameraCharacteristics.SHADING_AVAILABLE_MODES;
+        int[] shadingModes = getValueFromKeyNonNull(key);
+
+        if (shadingModes == null) {
+            return new int[0];
+        }
+
+        List<Integer> modeList = Arrays.asList(CameraTestUtils.toObject(shadingModes));
+        // Full device should always include OFF and FAST
+        if (isHardwareLevelAtLeastFull()) {
+            checkTrueForKey(key, "Full device must contain OFF and FAST shading modes",
+                    modeList.contains(CameraMetadata.SHADING_MODE_OFF) &&
+                    modeList.contains(CameraMetadata.SHADING_MODE_FAST));
+        }
+
+        if (isHardwareLevelAtLeastLimited()) {
+            // FAST and HIGH_QUALITY mode must be both present or both not present
+            List<Integer> coupledModes = Arrays.asList(new Integer[] {
+                    CameraMetadata.SHADING_MODE_FAST,
+                    CameraMetadata.SHADING_MODE_HIGH_QUALITY
+            });
+            checkTrueForKey(
+                    key, " FAST and HIGH_QUALITY mode must both present or both not present",
+                    containsAllOrNone(modeList, coupledModes));
+        }
+
+        return shadingModes;
+    }
+
     public int[] getAvailableNoiseReductionModesChecked() {
         Key<int[]> key =
                 CameraCharacteristics.NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES;
@@ -1860,7 +1920,7 @@ public class StaticMetadata {
 
         checkArrayValuesInRange(key, availableCaps,
                 CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE,
-                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_CONSTRAINED_HIGH_SPEED_VIDEO);
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME);
         capList = Arrays.asList(CameraTestUtils.toObject(availableCaps));
         return capList;
     }
@@ -2182,6 +2242,18 @@ public class StaticMetadata {
     }
 
     /**
+     * Check if this camera device is a logical multi-camera backed by multiple
+     * physical cameras.
+     *
+     * @return true if this is a logical multi-camera.
+     */
+    public boolean isLogicalMultiCamera() {
+        List<Integer> availableCapabilities = getAvailableCapabilitiesChecked();
+        return (availableCapabilities.contains(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA));
+    }
+
+    /**
      * Check if high speed video is supported (HIGH_SPEED_VIDEO scene mode is
      * supported, supported high speed fps ranges and sizes are valid).
      *
@@ -2255,6 +2327,33 @@ public class StaticMetadata {
      */
     public boolean isEnableZslSupported() {
         return areKeysAvailable(CaptureRequest.CONTROL_ENABLE_ZSL);
+    }
+
+    /**
+     * Check if AF scene change key is supported.
+     */
+    public boolean isAfSceneChangeSupported() {
+        return areKeysAvailable(CaptureResult.CONTROL_AF_SCENE_CHANGE);
+    }
+
+    /**
+     * Check if OIS data mode is supported.
+     */
+    public boolean isOisDataModeSupported() {
+        int[] availableOisDataModes = mCharacteristics.get(
+                CameraCharacteristics.STATISTICS_INFO_AVAILABLE_OIS_DATA_MODES);
+
+        if (availableOisDataModes == null) {
+            return false;
+        }
+
+        for (int mode : availableOisDataModes) {
+            if (mode == CameraMetadata.STATISTICS_OIS_DATA_MODE_ON) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

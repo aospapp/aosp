@@ -11,6 +11,7 @@ Official plans contain only verified tests, and are for all Android developers
 and partners.
 
  * __vts__: For all default VTS tests.
+ * __vts-firmware__: For all default VTS System Firmware tests.
  * __vts-fuzz__: For all default VTS fuzz tests.
  * __vts-hal__: For all default VTS HAL (hardware abstraction layer) module tests.
  * __vts-hal-profiling__: For all default VTS HAL performance profiling tests.

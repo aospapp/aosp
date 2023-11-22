@@ -20,6 +20,7 @@
 
 #include <unistd.h>
 
+#include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -37,7 +38,7 @@ namespace vts {
 namespace fuzzer {
 
 // 64-bit random number generator.
-static Random random{static_cast<uint64_t>(time(0))};
+static unique_ptr<Random> random;
 // Parameters that were passed in to fuzzer.
 static ProtoFuzzerParams params;
 // Used to mutate inputs to hal driver.
@@ -70,20 +71,42 @@ static ProtoFuzzerMutatorConfig mutator_config{
     // Odds of an enum being treated like a scalar are 1:1000.
     {1, 1000}};
 
+// Executed when fuzzer process exits. We use this to print out useful
+// information about the state of the fuzzer.
+static void AtExit() {
+  // Print currently opened interfaces.
+  cerr << "Currently opened interfaces: " << endl;
+  for (const auto &iface_desc : runner->GetOpenedIfaces()) {
+    cerr << iface_desc.first << endl;
+  }
+  cerr << endl;
+  cerr << runner->GetStats().StatsString();
+}
+
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
   params = ExtractProtoFuzzerParams(*argc, *argv);
+  cerr << params.DebugString() << endl;
+
+  random = make_unique<Random>(params.seed_);
   mutator = make_unique<ProtoFuzzerMutator>(
-      random, ExtractPredefinedTypes(params.comp_specs_), mutator_config);
+      *random.get(), ExtractPredefinedTypes(params.comp_specs_),
+      mutator_config);
   runner = make_unique<ProtoFuzzerRunner>(params.comp_specs_);
 
   runner->Init(params.target_iface_, params.binder_mode_);
+  // Register atexit handler after all static objects' initialization.
+  std::atexit(AtExit);
   return 0;
 }
 
 extern "C" size_t LLVMFuzzerCustomMutator(uint8_t *data, size_t size,
                                           size_t max_size, unsigned int seed) {
   ExecSpec exec_spec{};
-  if (!FromArray(data, size, &exec_spec)) {
+  // An Execution is randomly generated if:
+  // 1. It can't be serialized from the given buffer OR
+  // 2. The runner has opened interfaces that have not been touched.
+  // Otherwise, the Execution is mutated.
+  if (!FromArray(data, size, &exec_spec) || runner->UntouchedIfaces()) {
     exec_spec =
         mutator->RandomGen(runner->GetOpenedIfaces(), params.exec_size_);
   } else {

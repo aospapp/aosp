@@ -20,7 +20,6 @@ src_files := \
     nanohub/aes.c \
     nanohub/rsa.c \
     nanohub/sha2.c \
-    nanohub/softcrc.c \
 
 src_includes := \
     $(LOCAL_PATH)/include \
@@ -36,12 +35,24 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := $(src_includes)
 
 include $(BUILD_NANOHUB_BL_STATIC_LIBRARY)
 
+include $(CLEAR_NANO_VARS)
+
+LOCAL_MODULE := libnanohub_common_os
+LOCAL_MODULE_TAGS := optional
+
+LOCAL_SRC_FILES := nanohub/softcrc.c
+LOCAL_C_INCLUDES := $(src_includes)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(src_includes)
+
+include $(BUILD_NANOHUB_OS_STATIC_LIBRARY)
+
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libnanohub_common
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := \
     $(src_files) \
+    nanohub/softcrc.c \
     nanohub/nanoapp.c \
 
 LOCAL_CFLAGS := \

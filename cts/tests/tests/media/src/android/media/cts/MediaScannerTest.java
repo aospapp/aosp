@@ -32,6 +32,7 @@ import android.media.MediaScannerConnection;
 import android.media.MediaScannerConnection.MediaScannerConnectionClient;
 import android.mtp.MtpConstants;
 import android.net.Uri;
+import android.platform.test.annotations.AppModeFull;
 import android.support.test.filters.SmallTest;
 import android.platform.test.annotations.RequiresDevice;
 import android.os.Bundle;
@@ -50,6 +51,7 @@ import java.io.IOException;
 
 @SmallTest
 @RequiresDevice
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaScannerTest extends AndroidTestCase {
 
     private static final String MEDIA_TYPE = "audio/mpeg";
@@ -108,6 +110,76 @@ public class MediaScannerTest extends AndroidTestCase {
 
         mContext.getContentResolver().delete(MediaStore.Audio.Media.getContentUri("external"),
                 "_data like ?", new String[] { mFileDir + "%"});
+    }
+
+    public void testLocalizeRingtoneTitles() throws Exception {
+        mMediaScannerConnectionClient = new MockMediaScannerConnectionClient();
+        mMediaScannerConnection = new MockMediaScannerConnection(getContext(),
+            mMediaScannerConnectionClient);
+
+        assertFalse(mMediaScannerConnection.isConnected());
+
+        // start connection and wait until connected
+        mMediaScannerConnection.connect();
+        checkConnectionState(true);
+
+        // Write unlocalizable audio file and scan to insert into database
+        final String unlocalizablePath = mFileDir + "/unlocalizable.mp3";
+        writeFile(R.raw.testmp3, unlocalizablePath);
+        mMediaScannerConnection.scanFile(unlocalizablePath, null);
+        checkMediaScannerConnection();
+        final Uri media1Uri = mMediaScannerConnectionClient.mediaUri;
+
+        // Ensure unlocalizable titles come back correctly
+        final ContentResolver res = mContext.getContentResolver();
+        final String unlocalizedTitle = "Chimey Phone";
+        Cursor c = res.query(media1Uri, new String[] { "title" }, null, null, null);
+        assertEquals(1, c.getCount());
+        c.moveToFirst();
+        assertEquals(unlocalizedTitle, c.getString(0));
+
+        mMediaScannerConnectionClient.reset();
+
+        // Write localizable audio file and scan to insert into database
+        final String localizablePath = mFileDir + "/localizable.mp3";
+        writeFile(R.raw.testmp3_4, localizablePath);
+        mMediaScannerConnection.scanFile(localizablePath, null);
+        checkMediaScannerConnection();
+        final Uri media2Uri = mMediaScannerConnectionClient.mediaUri;
+
+        // Ensure localized title comes back localized
+        final String localizedTitle = mContext.getString(R.string.test_localizable_title);
+        c = res.query(media2Uri, new String[] { "title" }, null, null, null);
+        assertEquals(1, c.getCount());
+        c.moveToFirst();
+        assertEquals(localizedTitle, c.getString(0));
+
+        // Update localizable audio file to have unlocalizable title
+        final ContentValues values = new ContentValues();
+        final String newTitle = "New Title";
+        values.put("title", newTitle);
+        res.update(media2Uri, values, null, null);
+
+        // Ensure title comes back correctly
+        c = res.query(media2Uri, new String[] { "title" }, null, null, null);
+        assertEquals(1, c.getCount());
+        c.moveToFirst();
+        assertEquals(newTitle, c.getString(0));
+
+        // Update audio file to have localizable title once again
+        final String newLocalizableTitle =
+            "android.resource://android.media.cts/string/test_localizable_title";
+        values.put("title", newLocalizableTitle);
+        res.update(media2Uri, values, null, null);
+
+        // Ensure title comes back localized
+        c = res.query(media2Uri, new String[] { "title" }, null, null, null);
+        assertEquals(1, c.getCount());
+        c.moveToFirst();
+        assertEquals(localizedTitle, c.getString(0));
+
+        mMediaScannerConnection.disconnect();
+        c.close();
     }
 
     public void testMediaScanner() throws InterruptedException, IOException {
@@ -321,11 +393,21 @@ public class MediaScannerTest extends AndroidTestCase {
         mMediaScannerConnection.connect();
         checkConnectionState(true);
 
+        // test unlocalizable file
+        canonicalizeTest(R.raw.testmp3);
+
+        mMediaScannerConnectionClient.reset();
+
+        // test localizable file
+        canonicalizeTest(R.raw.testmp3_4);
+    }
+
+    private void canonicalizeTest(int resId) throws Exception {
         // write file and scan to insert into database
         String fileDir = Environment.getExternalStorageDirectory() + "/"
                 + getClass().getCanonicalName() + "/canonicaltest-" + System.currentTimeMillis();
         String fileName = fileDir + "/test.mp3";
-        writeFile(R.raw.testmp3, fileName);
+        writeFile(resId, fileName);
         mMediaScannerConnection.scanFile(fileName, MEDIA_TYPE);
         checkMediaScannerConnection();
 
@@ -350,7 +432,7 @@ public class MediaScannerTest extends AndroidTestCase {
         // write same file again and scan to insert into database
         mMediaScannerConnectionClient.reset();
         String fileName2 = fileDir + "/test2.mp3";
-        writeFile(R.raw.testmp3, fileName2);
+        writeFile(resId, fileName2);
         mMediaScannerConnection.scanFile(fileName2, MEDIA_TYPE);
         checkMediaScannerConnection();
 

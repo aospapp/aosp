@@ -30,7 +30,6 @@ if __name__ == '__main__':
       os.path.abspath(os.path.join(os.path.dirname(__file__),
                                    '..', '..', '..')))
 
-from devil import devil_env
 from devil.android import battery_utils
 from devil.android import device_blacklist
 from devil.android import device_errors
@@ -43,7 +42,7 @@ from devil.android.sdk import keyevent
 from devil.android.sdk import version_codes
 from devil.android.tools import script_common
 from devil.constants import exit_codes
-from devil.utils import run_tests_helper
+from devil.utils import logging_common
 from devil.utils import timeout_retry
 
 logger = logging.getLogger(__name__)
@@ -542,17 +541,12 @@ def main(raw_args):
 
   parser = argparse.ArgumentParser(
       description='Provision Android devices with settings required for bots.')
+  logging_common.AddLoggingArguments(parser)
+  script_common.AddDeviceArguments(parser)
+  script_common.AddEnvironmentArguments(parser)
   parser.add_argument(
       '--adb-key-files', type=str, nargs='+',
       help='list of adb keys to push to device')
-  parser.add_argument(
-      '--adb-path',
-      help='Absolute path to the adb binary to use.')
-  parser.add_argument('--blacklist-file', help='Device blacklist JSON file.')
-  parser.add_argument(
-      '-d', '--device', metavar='SERIAL', action='append', dest='devices',
-      help='the serial number of the device to be provisioned '
-           '(the default is to provision all devices attached)')
   parser.add_argument(
       '--disable-location', action='store_true',
       help='disable Google location services on devices')
@@ -604,9 +598,6 @@ def main(raw_args):
   parser.add_argument(
       '--skip-wipe', action='store_true', default=False,
       help='do not wipe device data during provisioning')
-  parser.add_argument(
-      '-v', '--verbose', action='count', default=1,
-      help='Log more information.')
 
   # No-op arguments for compatibility with build/android/provision_devices.py.
   # TODO(jbudorick): Remove these once all callers have stopped using them.
@@ -625,15 +616,8 @@ def main(raw_args):
 
   args = parser.parse_args(raw_args)
 
-  run_tests_helper.SetLogLevel(args.verbose)
-
-  devil_dynamic_config = devil_env.EmptyConfig()
-  if args.adb_path:
-    devil_dynamic_config['dependencies'].update(
-        devil_env.LocalConfigItem(
-            'adb', devil_env.GetPlatform(), args.adb_path))
-
-  devil_env.config.Initialize(configs=[devil_dynamic_config])
+  logging_common.InitializeLogging(args)
+  script_common.InitializeEnvironment(args)
 
   try:
     return ProvisionDevices(

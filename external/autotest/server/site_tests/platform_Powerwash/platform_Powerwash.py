@@ -75,8 +75,9 @@ class platform_Powerwash(test.test):
 
     def _powerwash_count(self):
         """Return the powerwash count from the DUT."""
-        count = self._host.run('cat %s' % POWERWASH_COUNT,
-                               ignore_status=True).stdout.strip()
+        count = self._host.run('test -e %s && cat %s || true' %
+                               (POWERWASH_COUNT,
+                                POWERWASH_COUNT)).stdout.strip()
         logging.debug('Powerwash count is: %r', count)
         if count:
             return int(count)

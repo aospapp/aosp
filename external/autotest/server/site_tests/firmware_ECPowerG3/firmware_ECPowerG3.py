@@ -27,7 +27,10 @@ class firmware_ECPowerG3(FirmwareTest):
         self.ec.send_command("chan 0")
 
     def cleanup(self):
-        self.ec.send_command("chan 0xffffffff")
+        try:
+            self.ec.send_command("chan 0xffffffff")
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_ECPowerG3, self).cleanup()
 
     def check_G3(self):

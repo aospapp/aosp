@@ -25,5 +25,6 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-renderscript-fil
 LOCAL_RENDERSCRIPT_FLAGS := -target-api 0
 
 LOCAL_PACKAGE_NAME := RSoVTest
+LOCAL_SDK_VERSION := current
 
 include $(BUILD_PACKAGE)

@@ -16,12 +16,16 @@
 package com.android.cts.verifier.camera.video;
 
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Matrix;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.hardware.Camera.CameraInfo;
 import android.hardware.Camera.Size;
+import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraManager;
 import android.media.CamcorderProfile;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
@@ -38,6 +42,7 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.widget.VideoView;
 
 import com.android.cts.verifier.PassFailButtons;
@@ -79,6 +84,7 @@ public class CameraVideoActivity extends PassFailButtons.Activity
 
     private int mCurrentCameraId = -1;
     private Camera mCamera;
+    private boolean mIsExternalCamera;
 
     private MediaRecorder mMediaRecorder;
 
@@ -141,6 +147,19 @@ public class CameraVideoActivity extends PassFailButtons.Activity
         return mediaFile;
     }
 
+    private static final int BIT_RATE_720P = 8000000;
+    private static final int BIT_RATE_MIN = 64000;
+    private static final int BIT_RATE_MAX = BIT_RATE_720P;
+
+    private int getVideoBitRate(Camera.Size sz) {
+        int rate = BIT_RATE_720P;
+        float scaleFactor = sz.height * sz.width / (float)(1280 * 720);
+        rate = (int)(rate * scaleFactor);
+
+        // Clamp to the MIN, MAX range.
+        return Math.max(BIT_RATE_MIN, Math.min(BIT_RATE_MAX, rate));
+    }
+
     private boolean prepareVideoRecorder() {
 
         mMediaRecorder = new MediaRecorder();
@@ -154,7 +173,39 @@ public class CameraVideoActivity extends PassFailButtons.Activity
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
 
         // Step 3: set a CamcorderProfile
-        mMediaRecorder.setProfile(CamcorderProfile.get(mCurrentCameraId, mCurrentVideoSizeId));
+        if (mIsExternalCamera) {
+            Camera.Size recordSize = null;
+            switch (mCurrentVideoSizeId) {
+                case CamcorderProfile.QUALITY_QCIF:
+                    recordSize = mCamera.new Size(176, 144);
+                break;
+                case CamcorderProfile.QUALITY_QVGA:
+                    recordSize = mCamera.new Size(320, 240);
+                break;
+                case CamcorderProfile.QUALITY_CIF:
+                    recordSize = mCamera.new Size(352, 288);
+                break;
+                case CamcorderProfile.QUALITY_480P:
+                    recordSize = mCamera.new Size(720, 480);
+                break;
+                case CamcorderProfile.QUALITY_720P:
+                    recordSize = mCamera.new Size(1280, 720);
+                break;
+                default:
+                    String msg = "Unknown CamcorderProfile: " + mCurrentVideoSizeId;
+                    Log.e(TAG, msg);
+                    releaseMediaRecorder();
+                    throw new AssertionError(msg);
+            }
+
+            mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
+            mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
+            mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
+            mMediaRecorder.setVideoEncodingBitRate(getVideoBitRate(recordSize));
+            mMediaRecorder.setVideoSize(recordSize.width, recordSize.height);
+        } else {
+            mMediaRecorder.setProfile(CamcorderProfile.get(mCurrentCameraId, mCurrentVideoSizeId));
+        }
 
         // Step 4: set output file
         outputVideoFile = getOutputMediaFile(MEDIA_TYPE_VIDEO);
@@ -450,13 +501,26 @@ public class CameraVideoActivity extends PassFailButtons.Activity
         int[] qualityArray = {
                 CamcorderProfile.QUALITY_LOW,
                 CamcorderProfile.QUALITY_HIGH,
-                CamcorderProfile.QUALITY_QCIF,
-                CamcorderProfile.QUALITY_QVGA,
-                CamcorderProfile.QUALITY_CIF,
-                CamcorderProfile.QUALITY_480P,
-                CamcorderProfile.QUALITY_720P,
-                CamcorderProfile.QUALITY_1080P,
+                CamcorderProfile.QUALITY_QCIF,  // 176x144
+                CamcorderProfile.QUALITY_QVGA,  // 320x240
+                CamcorderProfile.QUALITY_CIF,   // 352x288
+                CamcorderProfile.QUALITY_480P,  // 720x480
+                CamcorderProfile.QUALITY_720P,  // 1280x720
+                CamcorderProfile.QUALITY_1080P, // 1920x1080 or 1920x1088
                 CamcorderProfile.QUALITY_2160P
+        };
+
+        final Camera.Size skip = mCamera.new Size(-1, -1);
+        Camera.Size[] videoSizeArray = {
+                skip,
+                skip,
+                mCamera.new Size(176, 144),
+                mCamera.new Size(320, 240),
+                mCamera.new Size(352, 288),
+                mCamera.new Size(720, 480),
+                mCamera.new Size(1280, 720),
+                skip,
+                skip
         };
 
         String[] nameArray = {
@@ -474,10 +538,23 @@ public class CameraVideoActivity extends PassFailButtons.Activity
         ArrayList<VideoSizeNamePair> availableSizes =
                 new ArrayList<VideoSizeNamePair> ();
 
+        Camera.Parameters p = mCamera.getParameters();
+        List<Camera.Size> supportedVideoSizes = p.getSupportedVideoSizes();
         for (int i = 0; i < qualityArray.length; i++) {
-            if (CamcorderProfile.hasProfile(cameraId, qualityArray[i])) {
-                VideoSizeNamePair pair = new VideoSizeNamePair(qualityArray[i], nameArray[i]);
-                availableSizes.add(pair);
+            if (mIsExternalCamera) {
+                Camera.Size videoSz = videoSizeArray[i];
+                if (videoSz.equals(skip)) {
+                    continue;
+                }
+                if (supportedVideoSizes.contains(videoSz)) {
+                    VideoSizeNamePair pair = new VideoSizeNamePair(qualityArray[i], nameArray[i]);
+                    availableSizes.add(pair);
+                }
+            } else {
+                if (CamcorderProfile.hasProfile(cameraId, qualityArray[i])) {
+                    VideoSizeNamePair pair = new VideoSizeNamePair(qualityArray[i], nameArray[i]);
+                    availableSizes.add(pair);
+                }
             }
         }
         return availableSizes;
@@ -511,12 +588,38 @@ public class CameraVideoActivity extends PassFailButtons.Activity
                 CamcorderProfile.QUALITY_2160P
         };
 
+        final Camera.Size skip = mCamera.new Size(-1, -1);
+        Camera.Size[] videoSizeArray = {
+                skip,
+                skip,
+                mCamera.new Size(176, 144),
+                mCamera.new Size(320, 240),
+                mCamera.new Size(352, 288),
+                mCamera.new Size(720, 480),
+                mCamera.new Size(1280, 720),
+                skip,
+                skip
+        };
+
         ArrayList<ResolutionQuality> qualityList = new ArrayList<ResolutionQuality>();
+        Camera.Parameters p = mCamera.getParameters();
+        List<Camera.Size> supportedVideoSizes = p.getSupportedVideoSizes();
         for (int i = 0; i < possibleQuality.length; i++) {
-            if (CamcorderProfile.hasProfile(cameraId, possibleQuality[i])) {
-                CamcorderProfile profile = CamcorderProfile.get(cameraId, possibleQuality[i]);
-                qualityList.add(new ResolutionQuality(possibleQuality[i],
-                        profile.videoFrameWidth, profile.videoFrameHeight));
+            if (mIsExternalCamera) {
+                Camera.Size videoSz = videoSizeArray[i];
+                if (videoSz.equals(skip)) {
+                    continue;
+                }
+                if (supportedVideoSizes.contains(videoSz)) {
+                    qualityList.add(new ResolutionQuality(possibleQuality[i],
+                            videoSz.width, videoSz.height));
+                }
+            } else {
+                if (CamcorderProfile.hasProfile(cameraId, possibleQuality[i])) {
+                    CamcorderProfile profile = CamcorderProfile.get(cameraId, possibleQuality[i]);
+                    qualityList.add(new ResolutionQuality(possibleQuality[i],
+                            profile.videoFrameWidth, profile.videoFrameHeight));
+                }
             }
         }
 
@@ -595,6 +698,7 @@ public class CameraVideoActivity extends PassFailButtons.Activity
             failTest("camera not available" + e.getMessage());
             return;
         }
+        mIsExternalCamera = isExternalCamera(id);
 
         Camera.Parameters p = mCamera.getParameters();
         if (VERBOSE) {
@@ -765,6 +869,25 @@ public class CameraVideoActivity extends PassFailButtons.Activity
                 .setPositiveButton(R.string.fail_quit, dialogClickListener)
                 .setNegativeButton(R.string.cancel, dialogClickListener)
                 .show();
+    }
+
+    private boolean isExternalCamera(int cameraId) {
+        CameraManager manager = (CameraManager) this.getSystemService(Context.CAMERA_SERVICE);
+        try {
+            String cameraIdStr = manager.getCameraIdList()[cameraId];
+            CameraCharacteristics characteristics =
+                    manager.getCameraCharacteristics(cameraIdStr);
+
+            if (characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL) ==
+                            CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL) {
+                // External camera doesn't support FOV informations
+                return true;
+            }
+        } catch (CameraAccessException e) {
+            Toast.makeText(this, "Could not access camera " + cameraId +
+                    ": " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+        return false;
     }
 
 }

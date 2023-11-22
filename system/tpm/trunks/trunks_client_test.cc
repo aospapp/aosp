@@ -27,11 +27,13 @@
 #include <base/stl_util.h>
 #include <brillo/bind_lambda.h>
 #include <crypto/openssl_util.h>
-#include <crypto/scoped_openssl_types.h>
 #include <crypto/sha2.h>
+#include <openssl/bio.h>
 #include <openssl/bn.h>
+#include <openssl/crypto.h>
 #include <openssl/err.h>
 #include <openssl/rsa.h>
+#include <openssl/ssl.h>
 
 #include "trunks/authorization_delegate.h"
 #include "trunks/error_codes.h"
@@ -1017,27 +1019,27 @@ void TrunksClientTest::GenerateRSAKeyPair(std::string* modulus,
                                           std::string* prime_factor,
                                           std::string* public_key) {
 #if defined(OPENSSL_IS_BORINGSSL)
-  crypto::ScopedRSA rsa(RSA_new());
-  crypto::ScopedBIGNUM exponent(BN_new());
+  bssl::UniquePtr<RSA> rsa(RSA_new());
+  bssl::UniquePtr<BIGNUM> exponent(BN_new());
   CHECK(BN_set_word(exponent.get(), RSA_F4));
   CHECK(RSA_generate_key_ex(rsa.get(), 2048, exponent.get(), nullptr))
       << "Failed to generate RSA key: " << GetOpenSSLError();
 #else
-  crypto::ScopedRSA rsa(RSA_generate_key(2048, 0x10001, nullptr, nullptr));
+  bssl::UniquePtr<RSA> rsa(RSA_generate_key(2048, 0x10001, nullptr, nullptr));
   CHECK(rsa.get());
 #endif
   modulus->resize(BN_num_bytes(rsa.get()->n), 0);
   BN_bn2bin(rsa.get()->n,
-            reinterpret_cast<unsigned char*>(string_as_array(modulus)));
+            reinterpret_cast<unsigned char*>(base::string_as_array(modulus)));
   prime_factor->resize(BN_num_bytes(rsa.get()->p), 0);
-  BN_bn2bin(rsa.get()->p,
-            reinterpret_cast<unsigned char*>(string_as_array(prime_factor)));
+  BN_bn2bin(rsa.get()->p, reinterpret_cast<unsigned char*>(
+      base::string_as_array(prime_factor)));
   if (public_key) {
     unsigned char* buffer = NULL;
     int length = i2d_RSAPublicKey(rsa.get(), &buffer);
     CHECK_GT(length, 0);
-    crypto::ScopedOpenSSLBytes scoped_buffer(buffer);
     public_key->assign(reinterpret_cast<char*>(buffer), length);
+    OPENSSL_free(buffer);
   }
 }
 
@@ -1045,14 +1047,14 @@ bool TrunksClientTest::VerifyRSASignature(const std::string& public_key,
                                           const std::string& data,
                                           const std::string& signature) {
   auto asn1_ptr = reinterpret_cast<const unsigned char*>(public_key.data());
-  crypto::ScopedRSA rsa(
+  bssl::UniquePtr<RSA> rsa(
       d2i_RSAPublicKey(nullptr, &asn1_ptr, public_key.size()));
   CHECK(rsa.get());
   std::string digest = crypto::SHA256HashString(data);
   auto digest_buffer = reinterpret_cast<const unsigned char*>(digest.data());
   std::string mutable_signature(signature);
-  unsigned char* signature_buffer =
-      reinterpret_cast<unsigned char*>(string_as_array(&mutable_signature));
+  unsigned char* signature_buffer = reinterpret_cast<unsigned char*>(
+      base::string_as_array(&mutable_signature));
   return (RSA_verify(NID_sha256, digest_buffer, digest.size(), signature_buffer,
                      signature.size(), rsa.get()) == 1);
 }

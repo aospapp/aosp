@@ -21,10 +21,13 @@
 #include <cctype>
 #include <sstream>
 
+#include "art_method.h"
 #include "bounds_check_elimination.h"
 #include "builder.h"
 #include "code_generator.h"
+#include "data_type-inl.h"
 #include "dead_code_elimination.h"
+#include "dex/descriptors_names.h"
 #include "disassembler.h"
 #include "inliner.h"
 #include "licm.h"
@@ -32,6 +35,7 @@
 #include "optimization.h"
 #include "reference_type_propagation.h"
 #include "register_allocator_linear_scan.h"
+#include "scoped_thread_state_change-inl.h"
 #include "ssa_liveness_analysis.h"
 #include "utils/assembler.h"
 #include "utils/intrusive_forward_list.h"
@@ -150,7 +154,7 @@ class HGraphVisualizerDisassembler {
     }
 
     const uint8_t* base = disassembler_->GetDisassemblerOptions()->base_address_;
-    if (instruction_set_ == kThumb2) {
+    if (instruction_set_ == InstructionSet::kThumb2) {
       // ARM and Thumb-2 use the same disassembler. The bottom bit of the
       // address is used to distinguish between the two.
       base += 1;
@@ -241,25 +245,6 @@ class HGraphVisualizerPrinter : public HGraphDelegateVisitor {
     for (size_t i = 0; i < indent_; ++i) {
       output_ << "  ";
     }
-  }
-
-  char GetTypeId(Primitive::Type type) {
-    // Note that Primitive::Descriptor would not work for us
-    // because it does not handle reference types (that is kPrimNot).
-    switch (type) {
-      case Primitive::kPrimBoolean: return 'z';
-      case Primitive::kPrimByte: return 'b';
-      case Primitive::kPrimChar: return 'c';
-      case Primitive::kPrimShort: return 's';
-      case Primitive::kPrimInt: return 'i';
-      case Primitive::kPrimLong: return 'j';
-      case Primitive::kPrimFloat: return 'f';
-      case Primitive::kPrimDouble: return 'd';
-      case Primitive::kPrimNot: return 'l';
-      case Primitive::kPrimVoid: return 'v';
-    }
-    LOG(FATAL) << "Unreachable";
-    return 'v';
   }
 
   void PrintPredecessors(HBasicBlock* block) {
@@ -461,6 +446,9 @@ class HGraphVisualizerPrinter : public HGraphDelegateVisitor {
         ? GetGraph()->GetDexFile().PrettyMethod(invoke->GetDexMethodIndex(), kWithSignature)
         : method->PrettyMethod(kWithSignature);
     StartAttributeStream("method_name") << method_name;
+    StartAttributeStream("always_throws") << std::boolalpha
+                                          << invoke->AlwaysThrows()
+                                          << std::noboolalpha;
   }
 
   void VisitInvokeUnresolved(HInvokeUnresolved* invoke) OVERRIDE {
@@ -501,6 +489,20 @@ class HGraphVisualizerPrinter : public HGraphDelegateVisitor {
     StartAttributeStream("field_type") << iset->GetFieldType();
   }
 
+  void VisitStaticFieldGet(HStaticFieldGet* sget) OVERRIDE {
+    StartAttributeStream("field_name") <<
+        sget->GetFieldInfo().GetDexFile().PrettyField(sget->GetFieldInfo().GetFieldIndex(),
+                                                      /* with type */ false);
+    StartAttributeStream("field_type") << sget->GetFieldType();
+  }
+
+  void VisitStaticFieldSet(HStaticFieldSet* sset) OVERRIDE {
+    StartAttributeStream("field_name") <<
+        sset->GetFieldInfo().GetDexFile().PrettyField(sset->GetFieldInfo().GetFieldIndex(),
+                                                      /* with type */ false);
+    StartAttributeStream("field_type") << sset->GetFieldType();
+  }
+
   void VisitUnresolvedInstanceFieldGet(HUnresolvedInstanceFieldGet* field_access) OVERRIDE {
     StartAttributeStream("field_type") << field_access->GetFieldType();
   }
@@ -525,20 +527,21 @@ class HGraphVisualizerPrinter : public HGraphDelegateVisitor {
     StartAttributeStream("kind") << deoptimize->GetKind();
   }
 
+  void VisitVecOperation(HVecOperation* vec_operation) OVERRIDE {
+    StartAttributeStream("packed_type") << vec_operation->GetPackedType();
+  }
+
+  void VisitVecMemoryOperation(HVecMemoryOperation* vec_mem_operation) OVERRIDE {
+    StartAttributeStream("alignment") << vec_mem_operation->GetAlignment().ToString();
+  }
+
   void VisitVecHalvingAdd(HVecHalvingAdd* hadd) OVERRIDE {
-    StartAttributeStream("unsigned") << std::boolalpha << hadd->IsUnsigned() << std::noboolalpha;
+    VisitVecBinaryOperation(hadd);
     StartAttributeStream("rounded") << std::boolalpha << hadd->IsRounded() << std::noboolalpha;
   }
 
-  void VisitVecMin(HVecMin* min) OVERRIDE {
-    StartAttributeStream("unsigned") << std::boolalpha << min->IsUnsigned() << std::noboolalpha;
-  }
-
-  void VisitVecMax(HVecMax* max) OVERRIDE {
-    StartAttributeStream("unsigned") << std::boolalpha << max->IsUnsigned() << std::noboolalpha;
-  }
-
   void VisitVecMultiplyAccumulate(HVecMultiplyAccumulate* instruction) OVERRIDE {
+    VisitVecOperation(instruction);
     StartAttributeStream("kind") << instruction->GetOpKind();
   }
 
@@ -569,7 +572,7 @@ class HGraphVisualizerPrinter : public HGraphDelegateVisitor {
     if (!inputs.empty()) {
       StringList input_list;
       for (const HInstruction* input : inputs) {
-        input_list.NewEntryStream() << GetTypeId(input->GetType()) << input->GetId();
+        input_list.NewEntryStream() << DataType::TypeId(input->GetType()) << input->GetId();
       }
       StartAttributeStream() << input_list;
     }
@@ -583,7 +586,7 @@ class HGraphVisualizerPrinter : public HGraphDelegateVisitor {
         for (size_t i = 0, e = environment->Size(); i < e; ++i) {
           HInstruction* insn = environment->GetInstructionAt(i);
           if (insn != nullptr) {
-            vregs.NewEntryStream() << GetTypeId(insn->GetType()) << insn->GetId();
+            vregs.NewEntryStream() << DataType::TypeId(insn->GetType()) << insn->GetId();
           } else {
             vregs.NewEntryStream() << "_";
           }
@@ -640,7 +643,7 @@ class HGraphVisualizerPrinter : public HGraphDelegateVisitor {
 
     if ((IsPass(HGraphBuilder::kBuilderPassName)
         || IsPass(HInliner::kInlinerPassName))
-        && (instruction->GetType() == Primitive::kPrimNot)) {
+        && (instruction->GetType() == DataType::Type::kReference)) {
       ReferenceTypeInfo info = instruction->IsLoadClass()
         ? instruction->AsLoadClass()->GetLoadedClassRTI()
         : instruction->GetReferenceTypeInfo();
@@ -684,7 +687,7 @@ class HGraphVisualizerPrinter : public HGraphDelegateVisitor {
       size_t num_uses = instruction->GetUses().SizeSlow();
       AddIndent();
       output_ << bci << " " << num_uses << " "
-              << GetTypeId(instruction->GetType()) << instruction->GetId() << " ";
+              << DataType::TypeId(instruction->GetType()) << instruction->GetId() << " ";
       PrintInstruction(instruction);
       output_ << " " << kEndInstructionMarker << "\n";
     }
@@ -807,7 +810,7 @@ class HGraphVisualizerPrinter : public HGraphDelegateVisitor {
     for (HInstructionIterator it(block->GetPhis()); !it.Done(); it.Advance()) {
       AddIndent();
       HInstruction* instruction = it.Current();
-      output_ << instruction->GetId() << " " << GetTypeId(instruction->GetType())
+      output_ << instruction->GetId() << " " << DataType::TypeId(instruction->GetType())
               << instruction->GetId() << "[ ";
       for (const HInstruction* input : instruction->GetInputs()) {
         output_ << input->GetId() << " ";

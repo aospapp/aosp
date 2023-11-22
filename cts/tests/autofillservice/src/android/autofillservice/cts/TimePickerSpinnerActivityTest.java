@@ -15,8 +15,11 @@
  */
 package android.autofillservice.cts;
 
+import android.platform.test.annotations.AppModeFull;
+
 import org.junit.Rule;
 
+@AppModeFull // Unit test
 public class TimePickerSpinnerActivityTest extends TimePickerTestCase<TimePickerSpinnerActivity> {
 
     @Rule

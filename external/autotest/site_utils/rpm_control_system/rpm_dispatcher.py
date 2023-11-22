@@ -64,8 +64,13 @@ class RPMDispatcher(object):
         self._port = port
         self._lock = threading.Lock()
         self._worker_dict = {}
-        self._frontend_server = rpm_config.get('RPM_INFRASTRUCTURE',
-                                               'frontend_uri')
+        # We assume that the frontend server and dispatchers are running on the
+        # same host, and the frontend server is listening for connections from
+        # the external world.
+        frontend_server_port = rpm_config.getint('RPM_INFRASTRUCTURE',
+                                                 'frontend_port')
+        self._frontend_server = 'http://%s:%d' % (socket.gethostname(),
+                                                  frontend_server_port)
         logging.info('Registering this rpm dispatcher with the frontend '
                      'server at %s.', self._frontend_server)
         client = xmlrpclib.ServerProxy(self._frontend_server)
@@ -239,11 +244,12 @@ if __name__ == '__main__':
     Main function used to launch the dispatch server. Creates an instance of
     RPMDispatcher and registers it to a MultiThreadedXMLRPCServer instance.
     """
-    if len(sys.argv) > 1:
-      print 'Usage: ./%s, no arguments available.' % sys.argv[0]
+    if len(sys.argv) != 2:
+      print 'Usage: ./%s <log_file_name>' % sys.argv[0]
       sys.exit(1)
-    rpm_logging_config.start_log_server(LOG_FILENAME_FORMAT)
-    rpm_logging_config.set_up_logging(use_log_server=True)
+
+    rpm_logging_config.start_log_server(sys.argv[1], LOG_FILENAME_FORMAT)
+    rpm_logging_config.set_up_logging_to_server()
 
     # Get the local ip _address and set the server to utilize it.
     address = socket.gethostbyname(socket.gethostname())

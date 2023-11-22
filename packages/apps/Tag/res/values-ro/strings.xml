@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"Date de la eticheta NFC"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Informații de contact pentru ^1"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Pentru ca această aplicație să efectueze apeluri, are nevoie de permisiune pentru telefon. Puteți să gestionați permisiunea de etichetare din Setări."</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Pentru ca această aplicație să acceseze fișiere, are nevoie de permisiune pentru a accesa stocarea externă. Puteți să gestionați permisiunea de etichetare din Setări."</string>
 </resources>

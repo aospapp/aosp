@@ -17,6 +17,7 @@ package com.android.tradefed.testtype.suite;
 
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.config.IDeviceConfiguration;
 import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.multi.IMultiTargetPreparer;
@@ -28,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 
 /**
@@ -70,7 +72,9 @@ public class ModuleSplitter {
         }
         List<ModuleDefinition> runModules = new ArrayList<>();
         for (Entry<String, IConfiguration> configMap : runConfig.entrySet()) {
-            validateConfig(configMap.getValue());
+            // Check that it's a valid configuration for suites, throw otherwise.
+            ValidateSuiteConfigHelper.validateConfig(configMap.getValue());
+
             createAndAddModule(
                     runModules,
                     configMap.getKey(),
@@ -98,9 +102,9 @@ public class ModuleSplitter {
                             new ModuleDefinition(
                                     moduleName,
                                     config.getTests(),
-                                    clonePreparers(config.getTargetPreparers()),
+                                    clonePreparersMap(config),
                                     clonePreparers(config.getMultiTargetPreparers()),
-                                    config.getConfigurationDescription());
+                                    config);
                     currentList.add(module);
                 } else {
                     addModuleToListFromSingleTest(
@@ -123,9 +127,9 @@ public class ModuleSplitter {
                                     new ModuleDefinition(
                                             moduleName,
                                             shardedTests,
-                                            clonePreparers(config.getTargetPreparers()),
+                                            clonePreparersMap(config),
                                             clonePreparers(config.getMultiTargetPreparers()),
-                                            config.getConfigurationDescription());
+                                            config);
                             currentList.add(module);
                         }
                     } else {
@@ -158,20 +162,10 @@ public class ModuleSplitter {
                 new ModuleDefinition(
                         moduleName,
                         testList,
-                        clonePreparers(config.getTargetPreparers()),
+                        clonePreparersMap(config),
                         clonePreparers(config.getMultiTargetPreparers()),
-                        config.getConfigurationDescription());
+                        config);
         currentList.add(module);
-    }
-
-    private static void validateConfig(IConfiguration config) {
-        if (!ValidateSuiteConfigHelper.validateConfig(config)) {
-            throw new RuntimeException(
-                    new ConfigurationException(
-                            String.format(
-                                    "Configuration %s cannot be run in a suite.",
-                                    config.getName())));
-        }
     }
 
     /**
@@ -197,5 +191,16 @@ public class ModuleSplitter {
             }
         }
         return clones;
+    }
+
+    /** Deep cloning of potentially multi-device preparers. */
+    private static Map<String, List<ITargetPreparer>> clonePreparersMap(IConfiguration config) {
+        Map<String, List<ITargetPreparer>> res = new LinkedHashMap<>();
+        for (IDeviceConfiguration holder : config.getDeviceConfig()) {
+            List<ITargetPreparer> preparers = new ArrayList<>();
+            res.put(holder.getDeviceName(), preparers);
+            preparers.addAll(clonePreparers(holder.getTargetPreparers()));
+        }
+        return res;
     }
 }

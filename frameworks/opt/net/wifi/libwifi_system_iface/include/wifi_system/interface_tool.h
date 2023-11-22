@@ -17,6 +17,10 @@
 #ifndef ANDROID_WIFI_SYSTEM_INTERFACE_TOOL_H
 #define ANDROID_WIFI_SYSTEM_INTERFACE_TOOL_H
 
+#include <array>
+#include <cstdint>
+#include <linux/if_ether.h>
+
 namespace android {
 namespace wifi_system {
 
@@ -38,6 +42,10 @@ class InterfaceTool {
   // identify all the places we are hardcoding the name of the wifi interface.
   virtual bool SetWifiUpState(bool request_up);
 
+  // Set the MAC address of the |if_name| interface
+  // Returns true on success, false otherwise.
+  virtual bool SetMacAddress(const char* if_name,
+                             const std::array<uint8_t, ETH_ALEN>& address);
 };  // class InterfaceTool
 
 }  // namespace wifi_system

@@ -5,8 +5,8 @@ Pull AOSP source:
 $ repo init -u https://android.googlesource.com/platform/manifest -b master & repo sync -j24
 
 Download and extract HDMI binaries:
-$ wget https://dl.google.com/dl/android/aosp/arm-hikey960-NOU-7ad3cccc.tgz
-$ tar xzf arm-hikey960-NOU-7ad3cccc.tgz
+$ wget https://dl.google.com/dl/android/aosp/arm-hikey960-OPR-cf4e0c80.tgz
+$ tar xzf arm-hikey960-OPR-cf4e0c80.tgz
 $ ./extract-arm-hikey960.sh
 
 Build:
@@ -19,22 +19,26 @@ Enter fastboot mode by turning ON switch 1 and 3
 $ cd device/linaro/hikey/installer/hikey960
 $ ./flash-all.sh
  or
-$ fastboot flash boot out/target/product/hikey/boot.img
+$ fastboot flash boot out/target/product/hikey960/boot.img
 $ fastboot flash dts out/target/product/hikey960/dt.img
-$ fastboot flash system out/target/product/hikey/system.img
-$ fastboot flash cache out/target/product/hikey/cache.img
-$ fastboot flash userdata out/target/product/hikey/userdata.img
+$ fastboot flash system out/target/product/hikey960/system.img
+$ fastboot flash cache out/target/product/hikey960/cache.img
+$ fastboot flash userdata out/target/product/hikey960/userdata.img
 Turn OFF switch 3 and power cycle the board.
 
 * Building kernel
 $ git clone https://android.googlesource.com/kernel/hikey-linaro
 $ cd hikey-linaro
-$ git checkout -b android-hikey-linaro-4.4 origin/android-hikey-linaro-4.4
+$ git checkout -b android-hikey-linaro-4.9 origin/android-hikey-linaro-4.9
 $ make ARCH=arm64 hikey960_defconfig
 $ make ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- -j24
-Output: arch/arm64/boot/Image.gz & arch/arm64/boot/dts/hisilicon/hi3660-hikey960.dtb
-   copy Image.gz and hi3660-hikey960.dtb to hikey-kernel directory to files
-        Image.gz-hikey960 and hi3660-hikey960.dtb
+
+* Update the kernel in the boot image
+Copy hi3660-hikey960.dtb (arch/arm64/boot/dts/hisilicon/hi3660-hikey960.dtb)
+  to the hikey-kernel directory as file: hi3660-hikey960.dtb-4.9
+Copy the Image file (arch/arm64/boot/Image.gz) to the hikey-kernel
+  directory as file: Image.gz-hikey960-4.9
+$ make bootimage -j24
 
 * Kernel serial output (uart3):
 J2 (LS Expansion): 1 - Gnd, 11 - Rx, 13 - Tx

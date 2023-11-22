@@ -13,6 +13,7 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS OpenGL Performance test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="graphics" />
     <option name="not-shardable" value="true" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">

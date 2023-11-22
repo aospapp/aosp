@@ -8,9 +8,8 @@ import net.bytebuddy.agent.ByteBuddyAgent;
 import org.mockito.Incubating;
 import org.mockito.exceptions.base.MockitoException;
 import org.mockito.exceptions.base.MockitoInitializationException;
-import org.mockito.internal.InternalMockHandler;
 import org.mockito.internal.configuration.plugins.Plugins;
-import org.mockito.internal.creation.instance.Instantiator;
+import org.mockito.creation.instance.Instantiator;
 import org.mockito.internal.util.Platform;
 import org.mockito.internal.util.concurrent.WeakConcurrentMap;
 import org.mockito.invocation.MockHandler;
@@ -184,13 +183,13 @@ public class InlineByteBuddyMockMaker implements ClassCreatingMockMaker {
         Instantiator instantiator = Plugins.getInstantiatorProvider().getInstantiator(settings);
         try {
             T instance = instantiator.newInstance(type);
-            MockMethodInterceptor mockMethodInterceptor = new MockMethodInterceptor(asInternalMockHandler(handler), settings);
+            MockMethodInterceptor mockMethodInterceptor = new MockMethodInterceptor(handler, settings);
             mocks.put(instance, mockMethodInterceptor);
             if (instance instanceof MockAccess) {
                 ((MockAccess) instance).setMockitoInterceptor(mockMethodInterceptor);
             }
             return instance;
-        } catch (org.mockito.internal.creation.instance.InstantiationException e) {
+        } catch (org.mockito.creation.instance.InstantiationException e) {
             throw new MockitoException("Unable to create mock instance of type '" + type.getSimpleName() + "'", e);
         }
     }
@@ -201,7 +200,8 @@ public class InlineByteBuddyMockMaker implements ClassCreatingMockMaker {
             return bytecodeGenerator.mockClass(MockFeatures.withMockFeatures(
                     settings.getTypeToMock(),
                     settings.getExtraInterfaces(),
-                    settings.getSerializableMode()
+                    settings.getSerializableMode(),
+                    settings.isStripAnnotations()
             ));
         } catch (Exception bytecodeGenerationFailed) {
             throw prettifyFailure(settings, bytecodeGenerationFailed);
@@ -256,18 +256,6 @@ public class InlineByteBuddyMockMaker implements ClassCreatingMockMaker {
         ), generationFailed);
     }
 
-
-    private static InternalMockHandler<?> asInternalMockHandler(MockHandler handler) {
-        if (!(handler instanceof InternalMockHandler)) {
-            throw new MockitoException(join(
-                    "At the moment you cannot provide own implementations of MockHandler.",
-                    "Please refer to the javadocs for the MockMaker interface.",
-                    ""
-            ));
-        }
-        return (InternalMockHandler<?>) handler;
-    }
-
     @Override
     public MockHandler getHandler(Object mock) {
         MockMethodInterceptor interceptor = mocks.get(mock);
@@ -280,7 +268,7 @@ public class InlineByteBuddyMockMaker implements ClassCreatingMockMaker {
 
     @Override
     public void resetMock(Object mock, MockHandler newHandler, MockCreationSettings settings) {
-        MockMethodInterceptor mockMethodInterceptor = new MockMethodInterceptor(asInternalMockHandler(newHandler), settings);
+        MockMethodInterceptor mockMethodInterceptor = new MockMethodInterceptor(newHandler, settings);
         mocks.put(mock, mockMethodInterceptor);
         if (mock instanceof MockAccess) {
             ((MockAccess) mock).setMockitoInterceptor(mockMethodInterceptor);
@@ -311,23 +299,4 @@ public class InlineByteBuddyMockMaker implements ClassCreatingMockMaker {
         };
     }
 
-    static Throwable hideRecursiveCall(Throwable throwable, int current, Class<?> targetType) {
-        try {
-            StackTraceElement[] stack = throwable.getStackTrace();
-            int skip = 0;
-            StackTraceElement next;
-            do {
-                next = stack[stack.length - current - ++skip];
-            } while (!next.getClassName().equals(targetType.getName()));
-            int top = stack.length - current - skip;
-            StackTraceElement[] cleared = new StackTraceElement[stack.length - skip];
-            System.arraycopy(stack, 0, cleared, 0, top);
-            System.arraycopy(stack, top + skip, cleared, top, current);
-            throwable.setStackTrace(cleared);
-            return throwable;
-        } catch (RuntimeException ignored) {
-            // This should not happen unless someone instrumented or manipulated exception stack traces.
-            return throwable;
-        }
-    }
 }

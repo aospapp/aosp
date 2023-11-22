@@ -19,15 +19,21 @@ package com.android.tv.common.feature;
 import android.content.Context;
 import android.os.Build;
 
-/**
- *  Holder for SDK version features
- */
-public class Sdk {
+/** Holder for SDK version features */
+public final class Sdk {
     public static final Feature AT_LEAST_N =
             new Feature() {
                 @Override
                 public boolean isEnabled(Context context) {
                     return Build.VERSION.SDK_INT >= Build.VERSION_CODES.N;
+                }
+            };
+
+    public static final Feature AT_LEAST_O =
+            new Feature() {
+                @Override
+                public boolean isEnabled(Context context) {
+                    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
                 }
             };
 

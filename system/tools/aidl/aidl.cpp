@@ -548,6 +548,7 @@ AidlError load_and_validate_aidl(
     const std::vector<std::string>& preprocessed_files,
     const std::vector<std::string>& import_paths,
     const std::string& input_file_name,
+    const bool generate_traces,
     const IoDelegate& io_delegate,
     TypeNamespace* types,
     std::unique_ptr<AidlInterface>* returned_interface,
@@ -633,6 +634,8 @@ AidlError load_and_validate_aidl(
 
   interface->SetLanguageType(types->GetInterfaceType(*interface));
 
+  interface->SetGenerateTraces(generate_traces);
+
   for (const auto& import : p.GetImports()) {
     // If we skipped an unresolved import above (see comment there) we'll have
     // an empty bucket here.
@@ -685,6 +688,7 @@ int compile_aidl_to_cpp(const CppOptions& options,
       std::vector<std::string>{},  // no preprocessed files
       options.ImportPaths(),
       options.InputFileName(),
+      options.ShouldGenTraces(),
       io_delegate,
       types.get(),
       &interface,
@@ -710,6 +714,7 @@ int compile_aidl_to_java(const JavaOptions& options,
       options.preprocessed_files_,
       options.import_paths_,
       options.input_file_name_,
+      options.gen_traces_,
       io_delegate,
       types.get(),
       &interface,
@@ -742,7 +747,7 @@ int compile_aidl_to_java(const JavaOptions& options,
   }
 
   return generate_java(output_file_name, options.input_file_name_.c_str(),
-                       interface.get(), types.get(), io_delegate);
+                       interface.get(), types.get(), io_delegate, options);
 }
 
 bool preprocess_aidl(const JavaOptions& options,

@@ -18,6 +18,7 @@ import java.text.AttributedString;
 import org.junit.Test;
 
 import android.icu.text.Bidi;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Regression test for java.text.Bidi compatibility
@@ -25,6 +26,7 @@ import android.icu.text.Bidi;
  * @author Matitiahu Allouche
  */
 
+@MainTestShard
 public class TestCompatibility extends BidiFmwk {
 
     void compareBidi(Bidi bidi, java.text.Bidi jbidi)

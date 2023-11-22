@@ -31,13 +31,11 @@ import string
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 
-import mock
-
 import adb
-
 
 def requires_root(func):
     def wrapper(self, *args):
@@ -74,59 +72,6 @@ def requires_non_root(func):
                 self.device.wait()
 
     return wrapper
-
-
-class GetDeviceTest(unittest.TestCase):
-    def setUp(self):
-        self.android_serial = os.getenv('ANDROID_SERIAL')
-        if 'ANDROID_SERIAL' in os.environ:
-            del os.environ['ANDROID_SERIAL']
-
-    def tearDown(self):
-        if self.android_serial is not None:
-            os.environ['ANDROID_SERIAL'] = self.android_serial
-        else:
-            if 'ANDROID_SERIAL' in os.environ:
-                del os.environ['ANDROID_SERIAL']
-
-    @mock.patch('adb.device.get_devices')
-    def test_explicit(self, mock_get_devices):
-        mock_get_devices.return_value = ['foo', 'bar']
-        device = adb.get_device('foo')
-        self.assertEqual(device.serial, 'foo')
-
-    @mock.patch('adb.device.get_devices')
-    def test_from_env(self, mock_get_devices):
-        mock_get_devices.return_value = ['foo', 'bar']
-        os.environ['ANDROID_SERIAL'] = 'foo'
-        device = adb.get_device()
-        self.assertEqual(device.serial, 'foo')
-
-    @mock.patch('adb.device.get_devices')
-    def test_arg_beats_env(self, mock_get_devices):
-        mock_get_devices.return_value = ['foo', 'bar']
-        os.environ['ANDROID_SERIAL'] = 'bar'
-        device = adb.get_device('foo')
-        self.assertEqual(device.serial, 'foo')
-
-    @mock.patch('adb.device.get_devices')
-    def test_no_such_device(self, mock_get_devices):
-        mock_get_devices.return_value = ['foo', 'bar']
-        self.assertRaises(adb.DeviceNotFoundError, adb.get_device, ['baz'])
-
-        os.environ['ANDROID_SERIAL'] = 'baz'
-        self.assertRaises(adb.DeviceNotFoundError, adb.get_device)
-
-    @mock.patch('adb.device.get_devices')
-    def test_unique_device(self, mock_get_devices):
-        mock_get_devices.return_value = ['foo']
-        device = adb.get_device()
-        self.assertEqual(device.serial, 'foo')
-
-    @mock.patch('adb.device.get_devices')
-    def test_no_unique_device(self, mock_get_devices):
-        mock_get_devices.return_value = ['foo', 'bar']
-        self.assertRaises(adb.NoUniqueDeviceError, adb.get_device)
 
 
 class DeviceTest(unittest.TestCase):
@@ -548,6 +493,29 @@ class ShellTest(DeviceTest):
 
         stdout, _ = self.device.shell(["cat", log_path])
         self.assertEqual(stdout.strip(), "SIGHUP")
+
+    def test_exit_stress(self):
+        """Hammer `adb shell exit 42` with multiple threads."""
+        thread_count = 48
+        result = dict()
+        def hammer(thread_idx, thread_count, result):
+            success = True
+            for i in range(thread_idx, 240, thread_count):
+                ret = subprocess.call(['adb', 'shell', 'exit {}'.format(i)])
+                if ret != i % 256:
+                    success = False
+                    break
+            result[thread_idx] = success
+
+        threads = []
+        for i in range(thread_count):
+            thread = threading.Thread(target=hammer, args=(i, thread_count, result))
+            thread.start()
+            threads.append(thread)
+        for thread in threads:
+            thread.join()
+        for i, success in result.iteritems():
+            self.assertTrue(success)
 
 
 class ArgumentEscapingTest(DeviceTest):
@@ -1307,16 +1275,18 @@ class DeviceOfflineTest(DeviceTest):
         """
         # The values that trigger things are 507 (512 - 5 bytes from shell protocol) + 1024*n
         # Probe some surrounding values as well, for the hell of it.
-        for length in [506, 507, 508, 1018, 1019, 1020, 1530, 1531, 1532]:
-            cmd = ['dd', 'if=/dev/zero', 'bs={}'.format(length), 'count=1', '2>/dev/null;'
-                   'echo', 'foo']
-            rc, stdout, _ = self.device.shell_nocheck(cmd)
+        for base in [512] + range(1024, 1024 * 16, 1024):
+            for offset in [-6, -5, -4]:
+                length = base + offset
+                cmd = ['dd', 'if=/dev/zero', 'bs={}'.format(length), 'count=1', '2>/dev/null;'
+                       'echo', 'foo']
+                rc, stdout, _ = self.device.shell_nocheck(cmd)
 
-            self.assertEqual(0, rc)
+                self.assertEqual(0, rc)
 
-            # Output should be '\0' * length, followed by "foo\n"
-            self.assertEqual(length, len(stdout) - 4)
-            self.assertEqual(stdout, "\0" * length + "foo\n")
+                # Output should be '\0' * length, followed by "foo\n"
+                self.assertEqual(length, len(stdout) - 4)
+                self.assertEqual(stdout, "\0" * length + "foo\n")
 
 
 def main():

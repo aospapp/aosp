@@ -114,8 +114,8 @@ class ResilientRouterSolicitationTest(multinetwork_base.MultiNetworkBaseTest):
     MAX_LIN = SOLICITATION_INTERVAL * (1.1 + EPSILON)
     netid = self._TEST_NETID
     tun = self.makeTunInterface(netid)
-    epoll = select.epoll()
-    epoll.register(tun, select.EPOLLIN | select.EPOLLPRI)
+    poll = select.poll()
+    poll.register(tun, select.POLLIN | select.POLLPRI)
 
     PROC_SETTINGS = [
         ("router_solicitation_delay", 1),
@@ -135,7 +135,7 @@ class ResilientRouterSolicitationTest(multinetwork_base.MultiNetworkBaseTest):
     rsSendTimes = []
     while True:
       now = time.time();
-      epoll.poll(deadline - now)
+      poll.poll((deadline - now) * 1000)
       try:
         packet = posix.read(tun.fileno(), 4096)
       except OSError:

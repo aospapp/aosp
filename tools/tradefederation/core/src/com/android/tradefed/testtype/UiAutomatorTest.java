@@ -18,18 +18,19 @@ package com.android.tradefed.testtype;
 
 import com.android.ddmlib.FileListingService;
 import com.android.ddmlib.testrunner.IRemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.IFileEntry;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.ITestLifeCycleReceiver;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
@@ -42,12 +43,14 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-public class UiAutomatorTest implements IRemoteTest, IDeviceTest {
+public class UiAutomatorTest implements IRemoteTest, IDeviceTest, ITestFilterReceiver {
 
     public enum LoggingOption {
         AFTER_TEST,
@@ -67,7 +70,7 @@ public class UiAutomatorTest implements IRemoteTest, IDeviceTest {
 
     private ITestDevice mDevice = null;
     private IRemoteAndroidTestRunner mRunner = null;
-    protected Collection<ITestRunListener> mListeners = new ArrayList<ITestRunListener>();
+    protected Collection<ITestLifeCycleReceiver> mListeners = new ArrayList<>();
 
     @Option(name = "jar-path", description = "path to jars containing UI Automator test cases and"
             + " dependencies; May be repeated. " +
@@ -87,9 +90,9 @@ public class UiAutomatorTest implements IRemoteTest, IDeviceTest {
     private Map<String, String> mArgMap = new LinkedHashMap<String, String>();
 
     @Option(name = "timeout",
-            description = "Aborts the test run if any test takes longer than the specified number "
-                    + "of milliseconds. For no timeout, set to 0.")
-    private int mTestTimeout = 30 * 60 * 1000;  // default to 30 minutes
+            description = "Aborts the test run if any test takes longer than the specified "
+                    + "timeout. For no timeout, set to 0.", isTimeVal = true)
+    private long mTestTimeout = 30 * 60 * 1000; // default to 30 minutes
 
     @Option(name = "capture-logs", description =
             "capture bugreport and screenshot as specified.")
@@ -332,12 +335,17 @@ public class UiAutomatorTest implements IRemoteTest, IDeviceTest {
                                     "Not able to pull the trace file from test device");
                         }
                     }
+                    File atraceZip = ZipUtil.createZip(testTmpDirectory);
+                    try (FileInputStreamSource streamSource =
+                            new FileInputStreamSource(atraceZip)) {
+                        listener.testLog(String.format("atrace_%s", testTmpDirectory.getName()),
+                                LogDataType.ZIP, streamSource);
+                    } finally {
+                        if (atraceZip != null) {
+                            atraceZip.delete();
+                        }
+                    }
                 }
-                File atraceZip = ZipUtil.createZip(tmpDestDir);
-                FileInputStreamSource streamSource = new FileInputStreamSource(atraceZip);
-                listener.testLog(tmpDestDir.getName(), LogDataType.ZIP, streamSource);
-                StreamUtil.cancel(streamSource);
-                atraceZip.delete();
             }
         } finally {
             if (tmpDestDir != null) {
@@ -362,16 +370,16 @@ public class UiAutomatorTest implements IRemoteTest, IDeviceTest {
         }
 
         @Override
-        public void testFailed(TestIdentifier test, String trace) {
+        public void testFailed(TestDescription test, String trace) {
             captureFailureLog(test);
         }
 
         @Override
-        public void testAssumptionFailure(TestIdentifier test, String trace) {
+        public void testAssumptionFailure(TestDescription test, String trace) {
             captureFailureLog(test);
         }
 
-        private void captureFailureLog(TestIdentifier test) {
+        private void captureFailureLog(TestDescription test) {
             if (mLoggingOption == LoggingOption.AFTER_FAILURE) {
                 onScreenshotAndBugreport(getDevice(), mListener, String.format("%s_%s_failure",
                         test.getClassName(), test.getTestName()));
@@ -390,7 +398,7 @@ public class UiAutomatorTest implements IRemoteTest, IDeviceTest {
         }
 
         @Override
-        public void testEnded(TestIdentifier test, Map<String, String> testMetrics) {
+        public void testEnded(TestDescription test, HashMap<String, Metric> testMetrics) {
             if (!mLoggedTestFailure && mLoggingOption == LoggingOption.AFTER_TEST) {
                 onScreenshotAndBugreport(getDevice(), mListener, String.format("%s_%s_final",
                         test.getClassName(), test.getTestName()));
@@ -398,7 +406,7 @@ public class UiAutomatorTest implements IRemoteTest, IDeviceTest {
         }
 
         @Override
-        public void testRunEnded(long elapsedTime, Map<String, String> runMetrics) {
+        public void testRunEnded(long elapsedTime, HashMap<String, Metric> runMetrics) {
             if (!mLoggedTestRunFailure && mLoggingOption == LoggingOption.AFTER_TEST) {
                 onScreenshotAndBugreport(getDevice(), mListener, "test_run_final");
             }
@@ -486,5 +494,26 @@ public class UiAutomatorTest implements IRemoteTest, IDeviceTest {
      */
     public List<String> getClassNames() {
         return mClasses;
+    }
+
+    @Override
+    public void addIncludeFilter(String filter) {
+        mClasses.add(filter);
+    }
+
+    @Override
+    public void addAllIncludeFilters(Set<String> filters) {
+        mClasses.addAll(filters);
+
+    }
+
+    @Override
+    public void addExcludeFilter(String filter) {
+        throw new UnsupportedOperationException("Exclude filter is not supported.");
+    }
+
+    @Override
+    public void addAllExcludeFilters(Set<String> filters) {
+        throw new UnsupportedOperationException("Exclude filters is not supported.");
     }
 }

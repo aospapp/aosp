@@ -20,7 +20,7 @@ import junit.framework.TestCase;
 
 import java.io.IOException;
 import java.nio.file.FileSystemException;
-import libcore.util.SerializationTester;
+import libcore.libcore.util.SerializationTester;
 
 public class FileSystemExceptionTest extends TestCase {
 

@@ -23,15 +23,15 @@
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"%s मधून काढा"</string>
     <string name="name_credential_dialog_title" msgid="277729846491554437">"प्रमाणपत्रास नाव द्या"</string>
     <string name="credential_name" msgid="1974979771369744378">"प्रमाणपत्र नाव:"</string>
-    <string name="credential_password" msgid="3520176519550993326">"प्रमाणपत्रांचा उतारा करण्यासाठी संकेतशब्द टाइप करा."</string>
+    <string name="credential_password" msgid="3520176519550993326">"प्रमाणपत्रांचा उतारा करण्यासाठी पासवर्ड टाइप करा."</string>
     <string name="credential_info" msgid="2436768402308470397">"पॅकेजमध्‍ये हे असते:"</string>
     <string name="p12_description" msgid="4128352087331630024">"PKCS12 कीस्‍टोअर मधील प्रमाणपत्रे."</string>
     <string name="one_userkey" msgid="3500697912370644881">"एक वापरकर्ता की"</string>
     <string name="one_usercrt" msgid="7690798336332403106">"एक वापरकर्ता प्रमाणपत्र"</string>
     <string name="one_cacrt" msgid="2667950425420663146">"एक CA प्रमाणपत्र"</string>
     <string name="n_cacrts" msgid="2141498640685639208">"%d CA प्रमाणपत्रे"</string>
-    <string name="password_error" msgid="2042471639556516356">"योग्य संकेतशब्द टाइप करा."</string>
-    <string name="password_empty_error" msgid="591713406761723025">"संकेतशब्द टाइप करा."</string>
+    <string name="password_error" msgid="2042471639556516356">"योग्य पासवर्ड टाइप करा."</string>
+    <string name="password_empty_error" msgid="591713406761723025">"पासवर्ड टाइप करा."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"नाव टाइप करा."</string>
     <string name="name_char_error" msgid="3176618568784938968">"फक्त अक्षरे आणि संख्या असलेले नाव टाइप करा."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"प्रमाणपत्र सेव्ह करू शकलो नाही. क्रेडेन्शियल स्टोरेज सुरू नाही किंवा योग्यरितीने सुरुवात झाली नाही."</string>
@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN आणि अ‍ॅप्‍स"</item>
     <item msgid="692322974985472861">"वाय-फाय"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"टीप: या प्रमाणपत्राचा जारीकर्ता डिव्हाइसवर आणि त्‍यावरून सर्व रहदारीचे निरीक्षण करू शकतो."</string>
     <string name="wifi_title" msgid="8475811746333426489">"वाय-फाय प्रोफाइल"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%s साठी तपशील"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"तपशील"</string>
@@ -69,9 +70,9 @@
     <string name="install_done" msgid="1522718684172097080">"<xliff:g id="NAME">%1$s</xliff:g> क्रेडेंशियल वाय-फाय ने सेव्ह केलेल्या नेटवर्कवर जोडले गेले आहेत."</string>
     <string name="done_label" msgid="5597425930652904250">"पूर्ण झाले"</string>
     <string name="wifi_installer_detail" msgid="63879632832701669">"<xliff:g id="NAME">%1$s</xliff:g> द्वारे उपलब्ध असलेल्या नेटवर्कशी कनेक्‍ट करण्यासाठी वाय-फाय क्रेडेंशियल इंस्टॉल करा."</string>
-    <string name="wifi_installer_download_error" msgid="5429453090956277692">"डाउनलोड केलेल्या फाइलमध्‍ये समस्या आहेत आणि इंस्टॉल केली जाऊ शकत नाही. आपण योग्य स्त्रोतावरून फाईल डाउनलोड केली हे सुनिश्चित करा."</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"डाउनलोड केलेल्या फाइलमध्‍ये समस्या आहेत आणि इंस्टॉल केली जाऊ शकत नाही. तुम्ही योग्य स्त्रोतावरून फाईल डाउनलोड केली हे सुनिश्चित करा."</string>
     <string name="wifi_installer_fail" msgid="894483173306576331">"वाय-फाय क्रेडेंशियल इंस्टॉल करू शकत नाही. फाईल डाउनलोड करण्‍याचा पुन्हा प्रयत्न करा."</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"इंस्टॉल करणे रद्द झाले"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"इंस्टॉल करू शकत नाही"</string>
-    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Wi-Fi चालू करा आणि पुन्हा प्रयत्न करा."</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"वाय-फाय चालू करा आणि पुन्हा प्रयत्न करा."</string>
 </resources>

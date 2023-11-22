@@ -150,10 +150,12 @@ class DevicePolicy {
   virtual bool GetUsbDetachableWhitelist(
       std::vector<UsbDeviceId>* usb_whitelist) const = 0;
 
- private:
-  // Verifies that the policy files are owned by root and exist.
-  virtual bool VerifyPolicyFiles() = 0;
+  // Writes the value of the kiosk app id into |app_id_out|.
+  // Only succeeds if the device is in auto-launched kiosk mode.
+  virtual bool GetAutoLaunchedKioskAppId(
+      std::string* app_id_out) const = 0;
 
+ private:
   // Verifies that the policy signature is correct.
   virtual bool VerifyPolicySignature() = 0;
 

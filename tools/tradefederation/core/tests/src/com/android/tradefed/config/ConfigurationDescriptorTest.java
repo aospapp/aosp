@@ -34,7 +34,7 @@ public class ConfigurationDescriptorTest {
         mFactory =
                 new ConfigurationFactory() {
                     @Override
-                    String getConfigPrefix() {
+                    protected String getConfigPrefix() {
                         return "testconfigs/";
                     }
                 };

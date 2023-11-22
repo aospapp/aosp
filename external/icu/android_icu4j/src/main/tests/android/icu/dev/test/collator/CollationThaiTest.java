@@ -8,11 +8,11 @@
  *******************************************************************************
  */
 
-/** 
+/**
  * Port From:   ICU4C v2.1 : collate/CollationRegressionTest
  * Source File: $ICU4CRoot/source/test/intltest/regcoll.cpp
  **/
- 
+
 package android.icu.dev.test.collator;
 
 import java.io.BufferedReader;
@@ -22,6 +22,8 @@ import java.util.Comparator;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.dev.test.TestUtil;
@@ -29,11 +31,14 @@ import android.icu.text.CollationElementIterator;
 import android.icu.text.CollationKey;
 import android.icu.text.Collator;
 import android.icu.text.RuleBasedCollator;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class CollationThaiTest extends TestFmwk {
-    
+
     final int MAX_FAILURES_TO_SHOW = -1;
-    
+
     /**
      * Odd corner conditions taken from "How to Sort Thai Without Rewriting Sort",
      * by Doug Cooper, http://seasrc.th.net/paper/thaisort.zip
@@ -43,41 +48,41 @@ public class CollationThaiTest extends TestFmwk {
         String TESTS[] = {
             // Shorter words precede longer
             "\u0e01",                               "<",    "\u0e01\u0e01",
-    
+
             // Tone marks are considered after letters (i.e. are primary ignorable)
             "\u0e01\u0e32",                        "<",    "\u0e01\u0e49\u0e32",
-    
+
             // ditto for other over-marks
             "\u0e01\u0e32",                        "<",    "\u0e01\u0e32\u0e4c",
-    
+
             // commonly used mark-in-context order.
             // In effect, marks are sorted after each syllable.
             "\u0e01\u0e32\u0e01\u0e49\u0e32",   "<",    "\u0e01\u0e48\u0e32\u0e01\u0e49\u0e32",
-    
+
             // Hyphens and other punctuation follow whitespace but come before letters
             "\u0e01\u0e32",                        "=",    "\u0e01\u0e32-",
             "\u0e01\u0e32-",                       "<",    "\u0e01\u0e32\u0e01\u0e32",
-    
+
             // Doubler follows an indentical word without the doubler
             "\u0e01\u0e32",                        "=",    "\u0e01\u0e32\u0e46",
             "\u0e01\u0e32\u0e46",                 "<",    "\u0e01\u0e32\u0e01\u0e32",
-    
+
             // \u0e45 after either \u0e24 or \u0e26 is treated as a single
             // combining character, similar to "c < ch" in traditional spanish.
             // TODO: beef up this case
             "\u0e24\u0e29\u0e35",                 "<",    "\u0e24\u0e45\u0e29\u0e35",
             "\u0e26\u0e29\u0e35",                 "<",    "\u0e26\u0e45\u0e29\u0e35",
-    
+
             // Vowels reorder, should compare \u0e2d and \u0e34
             "\u0e40\u0e01\u0e2d",                 "<",    "\u0e40\u0e01\u0e34",
-    
+
             // Tones are compared after the rest of the word (e.g. primary ignorable)
             "\u0e01\u0e32\u0e01\u0e48\u0e32",   "<",    "\u0e01\u0e49\u0e32\u0e01\u0e32",
-    
+
             // Periods are ignored entirely
             "\u0e01.\u0e01.",                      "<",    "\u0e01\u0e32",
         };
-        
+
         RuleBasedCollator coll = null;
         try {
             coll = getThaiCollator();
@@ -85,9 +90,9 @@ public class CollationThaiTest extends TestFmwk {
             warnln("could not construct Thai collator");
             return;
         }
-        compareArray(coll, TESTS); 
+        compareArray(coll, TESTS);
     }
-    
+
     void compareArray(RuleBasedCollator c, String[] tests) {
         for (int i = 0; i < tests.length; i += 3) {
             int expect = 0;
@@ -107,13 +112,13 @@ public class CollationThaiTest extends TestFmwk {
             CollationTest.doTest(this, c, s1, s2, expect);
         }
     }
-    
+
     int sign(int i ) {
         if (i < 0) return -1;
         if (i > 0) return 1;
         return 0;
     }
-    
+
     /**
      * Read the external dictionary file, which is already in proper
      * sorted order, and confirm that the collator compares each line as
@@ -205,12 +210,12 @@ public class CollationThaiTest extends TestFmwk {
             errln("Summary: " + failed + " of " + (line - 1) +
                   " comparisons failed");
         }
-    
+
         logln("Words checked: " + wordCount);
     }
-    
+
     @Test
-    public void TestInvalidThai() 
+    public void TestInvalidThai()
     {
         String tests[] = { "\u0E44\u0E01\u0E44\u0E01",
                            "\u0E44\u0E01\u0E01\u0E44",
@@ -219,7 +224,7 @@ public class CollationThaiTest extends TestFmwk {
                            "\u0E44\u0E44\u0E01\u0E01",
                            "\u0E01\u0E44\u0E44\u0E01",
                          };
-     
+
         RuleBasedCollator collator;
         StrCmp comparator;
         try {
@@ -229,26 +234,26 @@ public class CollationThaiTest extends TestFmwk {
             warnln("could not construct Thai collator");
             return;
         }
-        
+
         Arrays.sort(tests, comparator);
-     
+
         for (int i = 0; i < tests.length; i ++)
         {
             for (int j = i + 1; j < tests.length; j ++) {
                 if (collator.compare(tests[i], tests[j]) > 0) {
                     // inconsistency ordering found!
-                    errln("Inconsistent ordering between strings " + i 
+                    errln("Inconsistent ordering between strings " + i
                           + " and " + j);
                 }
             }
-            CollationElementIterator iterator 
+            CollationElementIterator iterator
                 = collator.getCollationElementIterator(tests[i]);
             CollationTest.backAndForth(this, iterator);
         }
     }
-    
+
     @Test
-    public void TestReordering() 
+    public void TestReordering()
     {
         String tests[] = {
             "\u0E41c\u0301",      "=", "\u0E41\u0107", // composition
@@ -282,13 +287,13 @@ public class CollationThaiTest extends TestFmwk {
 
         RuleBasedCollator collator;
         try {
-            collator = (RuleBasedCollator)getThaiCollator();
+            collator = getThaiCollator();
         } catch (Exception e) {
             warnln("could not construct Thai collator");
             return;
         }
         compareArray(collator, tests);
-    
+
         String rule = "& c < ab";
         String testcontraction[] = { "\u0E41ab", ">", "\u0E41c"};
         try {
@@ -301,28 +306,29 @@ public class CollationThaiTest extends TestFmwk {
     }
 
     // private inner class -------------------------------------------------
-    
-    private static final class StrCmp implements Comparator<String> 
+
+    private static final class StrCmp implements Comparator<String>
     {
-        public int compare(String string1, String string2) 
+        @Override
+        public int compare(String string1, String string2)
         {
             return collator.compare(string1, string2);
         }
-        
+
         StrCmp() throws Exception
         {
             collator = getThaiCollator();
         }
-        
+
         Collator collator;
     }
-    
+
     // private data members ------------------------------------------------
-    
+
     private static RuleBasedCollator m_collator_;
-    
+
     // private methods -----------------------------------------------------
-    
+
     private static RuleBasedCollator getThaiCollator() throws Exception
     {
         if (m_collator_ == null) {

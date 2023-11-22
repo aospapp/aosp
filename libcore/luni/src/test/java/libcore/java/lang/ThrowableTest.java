@@ -20,7 +20,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
 import junit.framework.TestCase;
-import libcore.util.SerializationTester;
+import libcore.libcore.util.SerializationTester;
 
 public class ThrowableTest extends TestCase {
     private static class NoStackTraceException extends Exception {

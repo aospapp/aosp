@@ -28,8 +28,11 @@ import static junit.framework.Assert.fail;
 
 import android.annotation.TargetApi;
 import android.app.admin.DevicePolicyManager;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -59,6 +62,8 @@ import java.util.concurrent.TimeUnit;
 @TargetApi(VERSION_CODES.N)
 public class VpnTestHelper {
     public static final String VPN_PACKAGE = "com.android.cts.vpnfirewall";
+    private static final String MY_PACKAGE = "com.android.cts.deviceandprofileowner";
+    private static final String ACTION_VPN_IS_UP = VPN_PACKAGE + ".VPN_IS_UP";
 
     // IP address reserved for documentation by rfc5737
     public static final String TEST_ADDRESS = "192.0.2.4";
@@ -94,14 +99,16 @@ public class VpnTestHelper {
 
         ConnectivityManager cm = context.getSystemService(ConnectivityManager.class);
         final CountDownLatch vpnLatch = new CountDownLatch(1);
-        final ConnectivityManager.NetworkCallback callback =
-                new ConnectivityManager.NetworkCallback() {
-                    @Override
-                    public void onAvailable(Network net) {
-                        vpnLatch.countDown();
-                    }
-                };
-        cm.registerNetworkCallback(VPN_NETWORK_REQUEST, callback);
+        final IntentFilter intentFilter = new IntentFilter(ACTION_VPN_IS_UP);
+        final BroadcastReceiver receiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(final Context context, final Intent intent) {
+                    if (!intent.getPackage().equals(MY_PACKAGE)) return;
+                    vpnLatch.countDown();
+                    context.unregisterReceiver(this);
+                }
+            };
+        context.registerReceiver(receiver, intentFilter);
 
         try {
             if (packageName != null) {
@@ -116,8 +123,6 @@ public class VpnTestHelper {
             Thread.sleep(NETWORK_SETTLE_GRACE_MS);
         } catch (InterruptedException | PackageManager.NameNotFoundException e) {
             fail("Failed while waiting for VPN: " + e);
-        } finally {
-            cm.unregisterNetworkCallback(callback);
         }
 
         // Do we have a network?

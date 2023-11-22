@@ -98,7 +98,7 @@ public class HttpHandler extends URLStreamHandler {
 
         // Use the installed NetworkSecurityPolicy to determine which requests are permitted over
         // http.
-        okUrlFactory.setUrlFilter(CLEARTEXT_FILTER);
+        OkUrlFactories.setUrlFilter(okUrlFactory, CLEARTEXT_FILTER);
 
         ResponseCache responseCache = ResponseCache.getDefault();
         if (responseCache != null) {

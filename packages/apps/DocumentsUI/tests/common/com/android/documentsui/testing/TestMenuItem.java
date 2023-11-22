@@ -21,6 +21,7 @@ import static org.junit.Assert.assertTrue;
 
 import android.annotation.StringRes;
 import android.view.MenuItem;
+import android.view.View;
 
 import org.mockito.Mockito;
 
@@ -37,6 +38,7 @@ public abstract class TestMenuItem implements MenuItem {
 
     boolean enabled;
     boolean visible;
+    View actionView;
     @StringRes int title;
 
     public static TestMenuItem create(int id) {
@@ -81,6 +83,17 @@ public abstract class TestMenuItem implements MenuItem {
     @Override
     public boolean isEnabled() {
         return this.enabled;
+    }
+
+    @Override
+    final public MenuItem setActionView(View actionView) {
+        this.actionView = actionView;
+        return this;
+    }
+
+    @Override
+    final public View getActionView() {
+        return this.actionView;
     }
 
     public void assertEnabled() {

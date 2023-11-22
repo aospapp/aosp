@@ -265,6 +265,42 @@ public class AbsSeekBarTest {
         assertEquals(keyProgressIncrement + 1, myAbsSeekBar.getKeyProgressIncrement());
     }
 
+    @Test
+    public void testAccessMin() {
+        AbsSeekBar myAbsSeekBar = new MyAbsSeekBar(mActivity, null, R.style.TestProgressBar);
+
+        int progress = -5;
+        int min = progress - 1;
+        int max = 5;
+        myAbsSeekBar.setMax(max);
+        myAbsSeekBar.setMin(min);
+        myAbsSeekBar.setProgress(progress);
+        assertEquals(min, myAbsSeekBar.getMin());
+        assertEquals(progress, myAbsSeekBar.getProgress());
+        assertEquals(1, myAbsSeekBar.getKeyProgressIncrement());
+
+        min = progress + 1;
+        myAbsSeekBar.setMin(min);
+        assertEquals(min, myAbsSeekBar.getMin());
+        assertEquals(min, myAbsSeekBar.getProgress());
+        assertEquals(1, myAbsSeekBar.getKeyProgressIncrement());
+
+        int keyProgressIncrement = 10;
+        myAbsSeekBar.setKeyProgressIncrement(keyProgressIncrement);
+        assertEquals(keyProgressIncrement, myAbsSeekBar.getKeyProgressIncrement());
+        max = (keyProgressIncrement - 1) * 10;
+        min = -1 * keyProgressIncrement * 10;
+        myAbsSeekBar.setMax(max);
+        myAbsSeekBar.setMin(min);
+        assertEquals(keyProgressIncrement, myAbsSeekBar.getKeyProgressIncrement());
+
+        max += 20;
+        myAbsSeekBar.setMax(max);
+        assertEquals(keyProgressIncrement + 1, myAbsSeekBar.getKeyProgressIncrement());
+        assertEquals(min, myAbsSeekBar.getMin());
+        assertEquals(max, myAbsSeekBar.getMax());
+    }
+
     @UiThreadTest
     @Test
     public void testThumbTint() {

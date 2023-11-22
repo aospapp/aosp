@@ -48,18 +48,18 @@ void vpx_fdct8x8_neon(const int16_t *input, tran_low_t *final_output,
     int32x4_t v_t0_hi = vaddl_s16(vget_high_s16(v_x0), vget_high_s16(v_x1));
     int32x4_t v_t1_lo = vsubl_s16(vget_low_s16(v_x0), vget_low_s16(v_x1));
     int32x4_t v_t1_hi = vsubl_s16(vget_high_s16(v_x0), vget_high_s16(v_x1));
-    int32x4_t v_t2_lo = vmull_n_s16(vget_low_s16(v_x2), (int16_t)cospi_24_64);
-    int32x4_t v_t2_hi = vmull_n_s16(vget_high_s16(v_x2), (int16_t)cospi_24_64);
-    int32x4_t v_t3_lo = vmull_n_s16(vget_low_s16(v_x3), (int16_t)cospi_24_64);
-    int32x4_t v_t3_hi = vmull_n_s16(vget_high_s16(v_x3), (int16_t)cospi_24_64);
-    v_t2_lo = vmlal_n_s16(v_t2_lo, vget_low_s16(v_x3), (int16_t)cospi_8_64);
-    v_t2_hi = vmlal_n_s16(v_t2_hi, vget_high_s16(v_x3), (int16_t)cospi_8_64);
-    v_t3_lo = vmlsl_n_s16(v_t3_lo, vget_low_s16(v_x2), (int16_t)cospi_8_64);
-    v_t3_hi = vmlsl_n_s16(v_t3_hi, vget_high_s16(v_x2), (int16_t)cospi_8_64);
-    v_t0_lo = vmulq_n_s32(v_t0_lo, (int32_t)cospi_16_64);
-    v_t0_hi = vmulq_n_s32(v_t0_hi, (int32_t)cospi_16_64);
-    v_t1_lo = vmulq_n_s32(v_t1_lo, (int32_t)cospi_16_64);
-    v_t1_hi = vmulq_n_s32(v_t1_hi, (int32_t)cospi_16_64);
+    int32x4_t v_t2_lo = vmull_n_s16(vget_low_s16(v_x2), cospi_24_64);
+    int32x4_t v_t2_hi = vmull_n_s16(vget_high_s16(v_x2), cospi_24_64);
+    int32x4_t v_t3_lo = vmull_n_s16(vget_low_s16(v_x3), cospi_24_64);
+    int32x4_t v_t3_hi = vmull_n_s16(vget_high_s16(v_x3), cospi_24_64);
+    v_t2_lo = vmlal_n_s16(v_t2_lo, vget_low_s16(v_x3), cospi_8_64);
+    v_t2_hi = vmlal_n_s16(v_t2_hi, vget_high_s16(v_x3), cospi_8_64);
+    v_t3_lo = vmlsl_n_s16(v_t3_lo, vget_low_s16(v_x2), cospi_8_64);
+    v_t3_hi = vmlsl_n_s16(v_t3_hi, vget_high_s16(v_x2), cospi_8_64);
+    v_t0_lo = vmulq_n_s32(v_t0_lo, cospi_16_64);
+    v_t0_hi = vmulq_n_s32(v_t0_hi, cospi_16_64);
+    v_t1_lo = vmulq_n_s32(v_t1_lo, cospi_16_64);
+    v_t1_hi = vmulq_n_s32(v_t1_hi, cospi_16_64);
     {
       const int16x4_t a = vrshrn_n_s32(v_t0_lo, DCT_CONST_BITS);
       const int16x4_t b = vrshrn_n_s32(v_t0_hi, DCT_CONST_BITS);
@@ -77,10 +77,10 @@ void vpx_fdct8x8_neon(const int16_t *input, tran_low_t *final_output,
     // Stage 2
     v_x0 = vsubq_s16(v_s6, v_s5);
     v_x1 = vaddq_s16(v_s6, v_s5);
-    v_t0_lo = vmull_n_s16(vget_low_s16(v_x0), (int16_t)cospi_16_64);
-    v_t0_hi = vmull_n_s16(vget_high_s16(v_x0), (int16_t)cospi_16_64);
-    v_t1_lo = vmull_n_s16(vget_low_s16(v_x1), (int16_t)cospi_16_64);
-    v_t1_hi = vmull_n_s16(vget_high_s16(v_x1), (int16_t)cospi_16_64);
+    v_t0_lo = vmull_n_s16(vget_low_s16(v_x0), cospi_16_64);
+    v_t0_hi = vmull_n_s16(vget_high_s16(v_x0), cospi_16_64);
+    v_t1_lo = vmull_n_s16(vget_low_s16(v_x1), cospi_16_64);
+    v_t1_hi = vmull_n_s16(vget_high_s16(v_x1), cospi_16_64);
     {
       const int16x4_t a = vrshrn_n_s32(v_t0_lo, DCT_CONST_BITS);
       const int16x4_t b = vrshrn_n_s32(v_t0_hi, DCT_CONST_BITS);
@@ -95,22 +95,22 @@ void vpx_fdct8x8_neon(const int16_t *input, tran_low_t *final_output,
       v_x3 = vaddq_s16(v_s7, cd);
     }
     // Stage 4
-    v_t0_lo = vmull_n_s16(vget_low_s16(v_x3), (int16_t)cospi_4_64);
-    v_t0_hi = vmull_n_s16(vget_high_s16(v_x3), (int16_t)cospi_4_64);
-    v_t0_lo = vmlal_n_s16(v_t0_lo, vget_low_s16(v_x0), (int16_t)cospi_28_64);
-    v_t0_hi = vmlal_n_s16(v_t0_hi, vget_high_s16(v_x0), (int16_t)cospi_28_64);
-    v_t1_lo = vmull_n_s16(vget_low_s16(v_x1), (int16_t)cospi_12_64);
-    v_t1_hi = vmull_n_s16(vget_high_s16(v_x1), (int16_t)cospi_12_64);
-    v_t1_lo = vmlal_n_s16(v_t1_lo, vget_low_s16(v_x2), (int16_t)cospi_20_64);
-    v_t1_hi = vmlal_n_s16(v_t1_hi, vget_high_s16(v_x2), (int16_t)cospi_20_64);
-    v_t2_lo = vmull_n_s16(vget_low_s16(v_x2), (int16_t)cospi_12_64);
-    v_t2_hi = vmull_n_s16(vget_high_s16(v_x2), (int16_t)cospi_12_64);
-    v_t2_lo = vmlsl_n_s16(v_t2_lo, vget_low_s16(v_x1), (int16_t)cospi_20_64);
-    v_t2_hi = vmlsl_n_s16(v_t2_hi, vget_high_s16(v_x1), (int16_t)cospi_20_64);
-    v_t3_lo = vmull_n_s16(vget_low_s16(v_x3), (int16_t)cospi_28_64);
-    v_t3_hi = vmull_n_s16(vget_high_s16(v_x3), (int16_t)cospi_28_64);
-    v_t3_lo = vmlsl_n_s16(v_t3_lo, vget_low_s16(v_x0), (int16_t)cospi_4_64);
-    v_t3_hi = vmlsl_n_s16(v_t3_hi, vget_high_s16(v_x0), (int16_t)cospi_4_64);
+    v_t0_lo = vmull_n_s16(vget_low_s16(v_x3), cospi_4_64);
+    v_t0_hi = vmull_n_s16(vget_high_s16(v_x3), cospi_4_64);
+    v_t0_lo = vmlal_n_s16(v_t0_lo, vget_low_s16(v_x0), cospi_28_64);
+    v_t0_hi = vmlal_n_s16(v_t0_hi, vget_high_s16(v_x0), cospi_28_64);
+    v_t1_lo = vmull_n_s16(vget_low_s16(v_x1), cospi_12_64);
+    v_t1_hi = vmull_n_s16(vget_high_s16(v_x1), cospi_12_64);
+    v_t1_lo = vmlal_n_s16(v_t1_lo, vget_low_s16(v_x2), cospi_20_64);
+    v_t1_hi = vmlal_n_s16(v_t1_hi, vget_high_s16(v_x2), cospi_20_64);
+    v_t2_lo = vmull_n_s16(vget_low_s16(v_x2), cospi_12_64);
+    v_t2_hi = vmull_n_s16(vget_high_s16(v_x2), cospi_12_64);
+    v_t2_lo = vmlsl_n_s16(v_t2_lo, vget_low_s16(v_x1), cospi_20_64);
+    v_t2_hi = vmlsl_n_s16(v_t2_hi, vget_high_s16(v_x1), cospi_20_64);
+    v_t3_lo = vmull_n_s16(vget_low_s16(v_x3), cospi_28_64);
+    v_t3_hi = vmull_n_s16(vget_high_s16(v_x3), cospi_28_64);
+    v_t3_lo = vmlsl_n_s16(v_t3_lo, vget_low_s16(v_x0), cospi_4_64);
+    v_t3_hi = vmlsl_n_s16(v_t3_hi, vget_high_s16(v_x0), cospi_4_64);
     {
       const int16x4_t a = vrshrn_n_s32(v_t0_lo, DCT_CONST_BITS);
       const int16x4_t b = vrshrn_n_s32(v_t0_hi, DCT_CONST_BITS);
@@ -205,26 +205,5 @@ void vpx_fdct8x8_neon(const int16_t *input, tran_low_t *final_output,
     store_s16q_to_tran_low(final_output + 5 * 8, input_5);
     store_s16q_to_tran_low(final_output + 6 * 8, input_6);
     store_s16q_to_tran_low(final_output + 7 * 8, input_7);
-  }
-}
-
-void vpx_fdct8x8_1_neon(const int16_t *input, tran_low_t *output, int stride) {
-  int r;
-  int16x8_t sum = vld1q_s16(&input[0]);
-  for (r = 1; r < 8; ++r) {
-    const int16x8_t input_00 = vld1q_s16(&input[r * stride]);
-    sum = vaddq_s16(sum, input_00);
-  }
-  {
-    const int32x4_t a = vpaddlq_s16(sum);
-    const int64x2_t b = vpaddlq_s32(a);
-    const int32x2_t c = vadd_s32(vreinterpret_s32_s64(vget_low_s64(b)),
-                                 vreinterpret_s32_s64(vget_high_s64(b)));
-#if CONFIG_VP9_HIGHBITDEPTH
-    output[0] = vget_lane_s32(c, 0);
-#else
-    output[0] = vget_lane_s16(vreinterpret_s16_s32(c), 0);
-#endif
-    output[1] = 0;
   }
 }

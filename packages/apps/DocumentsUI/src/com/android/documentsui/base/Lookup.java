@@ -21,8 +21,11 @@ import javax.annotation.Nullable;
 
 /**
  * A {@link Function}-like interface for looking up information.
+ *
+ * @param K input type (the "key").
+ * @param V output type (the "value").
  */
 @FunctionalInterface
-public interface Lookup<T, R> {
-    @Nullable R lookup(T key);
+public interface Lookup<K, V> {
+    @Nullable V lookup(K key);
 }

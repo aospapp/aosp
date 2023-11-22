@@ -31,6 +31,7 @@ class security_StatefulPermissions(test.test):
                      "chaps": ["/encrypted/var/lib/chaps"],
                      "chronos": ["/encrypted/chronos",
                                  "/encrypted/var/cache/app_pack",
+                                 "/encrypted/var/cache/camera",
                                  "/encrypted/var/cache/device_local_account_component_policy",
                                  "/encrypted/var/cache/device_local_account_extensions",
                                  "/encrypted/var/cache/device_local_account_external_policy_data",

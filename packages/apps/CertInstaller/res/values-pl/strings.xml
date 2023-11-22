@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN i aplikacje"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Uwaga: wydawca tego certyfikatu może sprawdzać cały ruch przychodzący na to urządzenie i wychodzący z niego."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Profil Wi-Fi"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"Szczegóły: %s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Szczegóły"</string>

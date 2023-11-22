@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+#include "linker/arm/relative_patcher_thumb2.h"
+
 #include "base/casts.h"
 #include "linker/relative_patcher_test.h"
-#include "linker/arm/relative_patcher_thumb2.h"
 #include "lock_word.h"
 #include "mirror/array-inl.h"
 #include "mirror/object.h"
@@ -27,7 +28,7 @@ namespace linker {
 
 class Thumb2RelativePatcherTest : public RelativePatcherTest {
  public:
-  Thumb2RelativePatcherTest() : RelativePatcherTest(kThumb2, "default") { }
+  Thumb2RelativePatcherTest() : RelativePatcherTest(InstructionSet::kThumb2, "default") { }
 
  protected:
   static const uint8_t kCallRawCode[];
@@ -172,7 +173,8 @@ class Thumb2RelativePatcherTest : public RelativePatcherTest {
       return false;  // No thunk.
     } else {
       uint32_t thunk_end =
-          CompiledCode::AlignCode(method3_offset - sizeof(OatQuickMethodHeader), kThumb2) +
+          CompiledCode::AlignCode(method3_offset - sizeof(OatQuickMethodHeader),
+                                  InstructionSet::kThumb2) +
           MethodCallThunkSize();
       uint32_t header_offset = thunk_end + CodeAlignmentSize(thunk_end);
       CHECK_EQ(result3.second, header_offset + sizeof(OatQuickMethodHeader) + 1 /* thumb mode */);
@@ -419,7 +421,8 @@ TEST_F(Thumb2RelativePatcherTest, CallTrampolineTooFar) {
 
   // Check linked code.
   uint32_t method3_offset = GetMethodOffset(3u);
-  uint32_t thunk_offset = CompiledCode::AlignCode(method3_offset + method3_code.size(), kThumb2);
+  uint32_t thunk_offset = CompiledCode::AlignCode(method3_offset + method3_code.size(),
+                                                  InstructionSet::kThumb2);
   uint32_t diff = thunk_offset - (method3_offset + bl_offset_in_method3 + 4u /* PC adjustment */);
   ASSERT_EQ(diff & 1u, 0u);
   ASSERT_LT(diff >> 1, 1u << 8);  // Simple encoding, (diff >> 1) fits into 8 bits.
@@ -494,8 +497,7 @@ TEST_F(Thumb2RelativePatcherTest, CallOtherJustTooFarAfter) {
   ASSERT_TRUE(IsAligned<kArmAlignment>(method3_offset));
   uint32_t method3_header_offset = method3_offset - sizeof(OatQuickMethodHeader);
   uint32_t thunk_size = MethodCallThunkSize();
-  uint32_t thunk_offset =
-      RoundDown(method3_header_offset - thunk_size, GetInstructionSetAlignment(kThumb2));
+  uint32_t thunk_offset = RoundDown(method3_header_offset - thunk_size, kArmAlignment);
   DCHECK_EQ(thunk_offset + thunk_size + CodeAlignmentSize(thunk_offset + thunk_size),
             method3_header_offset);
   ASSERT_TRUE(IsAligned<kArmAlignment>(thunk_offset));
@@ -526,7 +528,8 @@ TEST_F(Thumb2RelativePatcherTest, CallOtherJustTooFarBefore) {
 
   // Check linked code.
   uint32_t method3_offset = GetMethodOffset(3u);
-  uint32_t thunk_offset = CompiledCode::AlignCode(method3_offset + method3_code.size(), kThumb2);
+  uint32_t thunk_offset = CompiledCode::AlignCode(method3_offset + method3_code.size(),
+                                                  InstructionSet::kThumb2);
   uint32_t diff = thunk_offset - (method3_offset + bl_offset_in_method3 + 4u /* PC adjustment */);
   ASSERT_EQ(diff & 1u, 0u);
   ASSERT_LT(diff >> 1, 1u << 8);  // Simple encoding, (diff >> 1) fits into 8 bits.

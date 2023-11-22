@@ -30,8 +30,8 @@ If device implementations support third-party accessibility services, they:
 
 If device implementations include preloaded accessibility services, they:
 
-*   [C-2-1] MUST implement these preloaded accessibility services as [Direct Boot aware]
-    (https://developer.android.com/reference/android/content/pm/ComponentInfo.html#directBootAware)
+*   [C-2-1] MUST implement these preloaded accessibility services as [Direct Boot Aware](
+    https://developer.android.com/reference/android/content/pm/ComponentInfo.html#directBootAware)
     apps when the data storage is encrypted with File Based Encryption (FBE).
 *   SHOULD provide a mechanism in the out-of-box setup flow for users to enable
     relevant accessibility services, as well as options to adjust the font size,

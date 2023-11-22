@@ -105,7 +105,7 @@ bool PassesSanityCheck(void) {
 
 int main(int argc, char *argv[]) {
   SetBasePathFromArgv0(argv[0], "src");
-  google::ParseCommandLineFlags(&argc, &argv, false);
+  gflags::ParseCommandLineFlags(&argc, &argv, false);
 
   g_verbose = FLAGS_verbose;
 

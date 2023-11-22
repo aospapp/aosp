@@ -26,16 +26,12 @@
 
 #include <stdio.h>
 #include <sys/socket.h>
+#include <linux/in.h>
 #include <linux/xfrm.h>
+#include <linux/ipsec.h>
 
-#ifndef IPPROTO_SCTP
-# define IPPROTO_SCTP	132
-#endif
-#ifndef IPPROTO_DCCP
-# define IPPROTO_DCCP	33
-#endif
 #ifndef IPPROTO_MH
-# define IPPROTO_MH	135
+#define IPPROTO_MH              135
 #endif
 
 #define XFRMS_RTA(x)  ((struct rtattr*)(((char*)(x)) + NLMSG_ALIGN(sizeof(struct xfrm_usersa_info))))
@@ -98,6 +94,7 @@ struct xfrm_filter {
 	__u8 action_mask;
 	__u32 priority_mask;
 	__u8 policy_flags_mask;
+	__u8 filter_socket;
 
 	__u8 ptype;
 	__u8 ptype_mask;

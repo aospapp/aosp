@@ -87,10 +87,13 @@
 @r2 => *pu1_dst
 @r3 => dst_strd
 
-@stack contents from #40
+@stack contents from #104
 @   nt
 @   mode
 @   pi1_coeff
+
+.equ    nt_offset,          104
+.equ    mode_offset,        108
 
 .text
 .align 4
@@ -105,10 +108,10 @@
 ihevc_intra_pred_chroma_mode_18_34_a9q:
 
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
+    vpush       {d8 - d15}
 
-
-    ldr         r4,[sp,#40]
-    ldr         r5,[sp,#44]
+    ldr         r4,[sp,#nt_offset]
+    ldr         r5,[sp,#mode_offset]
 
     cmp         r4,#4
     beq         mode2_4
@@ -181,6 +184,7 @@ mode2_4:
     vst1.32     {d0},[r2],r3
 
 end_func:
+    vpop        {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 

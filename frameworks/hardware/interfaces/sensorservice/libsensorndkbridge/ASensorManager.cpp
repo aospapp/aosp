@@ -152,11 +152,14 @@ ASensorRef ASensorManager::getDefaultSensorEx(
 }
 
 ASensorEventQueue *ASensorManager::createEventQueue(
-        ALooper *looper, int ident, ALooper_callbackFunc callback, void *data) {
+        ALooper *looper,
+        int /* ident */,
+        ALooper_callbackFunc callback,
+        void *data) {
     LOG(VERBOSE) << "ASensorManager::createEventQueue";
 
     sp<ASensorEventQueue> queue =
-        new ASensorEventQueue(looper, ident, callback, data);
+        new ASensorEventQueue(looper, callback, data);
 
     ::android::hardware::setMinSchedulerPolicy(queue, SCHED_FIFO, 98);
     Result result;

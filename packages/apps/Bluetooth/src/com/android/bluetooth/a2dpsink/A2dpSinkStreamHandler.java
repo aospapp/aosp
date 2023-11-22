@@ -18,6 +18,7 @@ package com.android.bluetooth.a2dpsink;
 
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
@@ -26,8 +27,8 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 
-import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
 import com.android.bluetooth.R;
+import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
 
 import java.util.List;
 
@@ -55,6 +56,7 @@ public class A2dpSinkStreamHandler extends Handler {
 
     // Configuration Variables
     private static final int DEFAULT_DUCK_PERCENT = 25;
+    private static final int SETTLE_TIMEOUT = 1000;
 
     // Incoming events.
     public static final int SRC_STR_START = 0; // Audio stream from remote device started
@@ -65,6 +67,8 @@ public class A2dpSinkStreamHandler extends Handler {
     public static final int SRC_PAUSE = 5; // Pause command was generated from remote device
     public static final int DISCONNECT = 6; // Remote device was disconnected
     public static final int AUDIO_FOCUS_CHANGE = 7; // Audio focus callback with associated change
+    public static final int REQUEST_FOCUS = 8; // Request focus when the media service is active
+    public static final int DELAYED_RESUME = 9; // If a call just ended allow stack time to settle
 
     // Used to indicate focus lost
     private static final int STATE_FOCUS_LOST = 0;
@@ -83,6 +87,7 @@ public class A2dpSinkStreamHandler extends Handler {
 
     // Focus changes when we are currently holding focus.
     private OnAudioFocusChangeListener mAudioFocusListener = new OnAudioFocusChangeListener() {
+        @Override
         public void onAudioFocusChange(int focusChange) {
             if (DBG) {
                 Log.d(TAG, "onAudioFocusChangeListener focuschange " + focusChange);
@@ -106,8 +111,14 @@ public class A2dpSinkStreamHandler extends Handler {
         }
         switch (message.what) {
             case SRC_STR_START:
-                // Audio stream has started, stop it if we don't have focus.
                 mStreamAvailable = true;
+                // Always request audio focus if on TV.
+                if (isTvDevice()) {
+                    if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE) {
+                        requestAudioFocus();
+                    }
+                }
+                // Audio stream has started, stop it if we don't have focus.
                 if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE) {
                     sendAvrcpPause();
                 } else {
@@ -135,7 +146,16 @@ public class A2dpSinkStreamHandler extends Handler {
                 break;
 
             case SRC_PLAY:
-                // Remote play command, if we have audio focus update avrcp, otherwise send pause.
+                // Remote play command.
+                // If is an iot device gain focus and start avrcp updates.
+                if (isIotDevice() || isTvDevice()) {
+                    if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE) {
+                        requestAudioFocus();
+                    }
+                    startAvrcpUpdates();
+                    break;
+                }
+                // Otherwise, pause if we don't have focus
                 if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE) {
                     sendAvrcpPause();
                 } else {
@@ -148,11 +168,15 @@ public class A2dpSinkStreamHandler extends Handler {
                 stopAvrcpUpdates();
                 break;
 
+            case REQUEST_FOCUS:
+                if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE) {
+                    requestAudioFocus();
+                }
+                break;
+
             case DISCONNECT:
                 // Remote device has disconnected, restore everything to default state.
-                sendAvrcpPause();
                 stopAvrcpUpdates();
-                abandonAudioFocus();
                 mSentPause = false;
                 break;
 
@@ -164,15 +188,14 @@ public class A2dpSinkStreamHandler extends Handler {
                         startAvrcpUpdates();
                         startFluorideStreaming();
                         if (mSentPause) {
-                            sendAvrcpPlay();
-                            mSentPause = false;
+                            sendMessageDelayed(obtainMessage(DELAYED_RESUME), SETTLE_TIMEOUT);
                         }
                         break;
 
                     case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
                         // Make the volume duck.
-                        int duckPercent = mContext.getResources().getInteger(
-                                R.integer.a2dp_sink_duck_percent);
+                        int duckPercent = mContext.getResources()
+                                .getInteger(R.integer.a2dp_sink_duck_percent);
                         if (duckPercent < 0 || duckPercent > 100) {
                             Log.e(TAG, "Invalid duck percent using default.");
                             duckPercent = DEFAULT_DUCK_PERCENT;
@@ -197,12 +220,18 @@ public class A2dpSinkStreamHandler extends Handler {
                     case AudioManager.AUDIOFOCUS_LOSS:
                         // Permanent loss of focus probably due to another audio app, abandon focus
                         // and stop playback.
-                        mAudioFocus = AudioManager.AUDIOFOCUS_NONE;
                         abandonAudioFocus();
                         sendAvrcpPause();
                         break;
                 }
                 break;
+
+            case DELAYED_RESUME:
+                // Resume playback after source and sink states settle.
+                sendAvrcpPlay();
+                mSentPause = false;
+                break;
+
 
             default:
                 Log.w(TAG, "Received unexpected event: " + message.what);
@@ -212,19 +241,18 @@ public class A2dpSinkStreamHandler extends Handler {
     /**
      * Utility functions.
      */
-    private int requestAudioFocus() {
+    private synchronized int requestAudioFocus() {
         // Bluetooth A2DP may carry Music, Audio Books, Navigation, or other sounds so mark content
         // type unknown.
         AudioAttributes streamAttributes =
-                new AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
                         .setContentType(AudioAttributes.CONTENT_TYPE_UNKNOWN)
                         .build();
         // Bluetooth ducking is handled at the native layer so tell the Audio Manger to notify the
         // focus change listener via .setWillPauseWhenDucked().
         AudioFocusRequest focusRequest =
-                new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                        .setAudioAttributes(streamAttributes)
+                new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).setAudioAttributes(
+                        streamAttributes)
                         .setWillPauseWhenDucked(true)
                         .setOnAudioFocusChangeListener(mAudioFocusListener, this)
                         .build();
@@ -239,7 +267,7 @@ public class A2dpSinkStreamHandler extends Handler {
     }
 
 
-    private void abandonAudioFocus() {
+    private synchronized void abandonAudioFocus() {
         stopFluorideStreaming();
         mAudioManager.abandonAudioFocus(mAudioFocusListener);
         mAudioFocus = AudioManager.AUDIOFOCUS_NONE;
@@ -337,4 +365,17 @@ public class A2dpSinkStreamHandler extends Handler {
             Log.e(TAG, "Passthrough not sent, connection un-available.");
         }
     }
+
+    synchronized int getAudioFocus() {
+        return mAudioFocus;
+    }
+
+    private boolean isIotDevice() {
+        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_EMBEDDED);
+    }
+
+    private boolean isTvDevice() {
+        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+    }
+
 }

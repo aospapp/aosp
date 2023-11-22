@@ -9,6 +9,8 @@
 */
 package android.icu.dev.test;
 
+import android.icu.testsharding.MainTestShard;
+
 /**
  * Utility class for supplementary code point 
  * support. This one is written purely for updating
@@ -17,6 +19,7 @@ package android.icu.dev.test;
  * from ICU4J
  * @author Vladimir Weinstein, Markus Scherer
  */
+@MainTestShard
 public class UTF16Util {
     static final int suppOffset = (0xd800 << 10) + 0xdc00 - 0x10000;
 

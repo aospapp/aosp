@@ -26,9 +26,9 @@
  * SUCH DAMAGE.
  */
 
-#ifndef __LINKER_ALLOCATOR_H
-#define __LINKER_ALLOCATOR_H
+#pragma once
 
+#include <errno.h>
 #include <stdlib.h>
 #include <sys/cdefs.h>
 #include <sys/mman.h>
@@ -88,12 +88,12 @@ class linker_vector_allocator {
 
   T* allocate(size_t n, const T* hint = nullptr) {
     size_t size = n * sizeof(T);
-    void* ptr = mmap(const_cast<T*>(hint), size,
-        PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
+    void* ptr = mmap(const_cast<T*>(hint), size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS,
+                     -1, 0);
     if (ptr == MAP_FAILED) {
       // Spec says we need to throw std::bad_alloc here but because our
       // code does not support exception handling anyways - we are going to abort.
-      async_safe_fatal("mmap failed");
+      async_safe_fatal("mmap failed: %s", strerror(errno));
     }
 
     prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, ptr, size, "linker_alloc_vector");
@@ -151,6 +151,3 @@ class LinkerMemoryAllocator {
   LinkerSmallObjectAllocator* allocators_;
   uint8_t allocators_buf_[sizeof(LinkerSmallObjectAllocator)*kSmallObjectAllocatorsCount];
 };
-
-
-#endif  /* __LINKER_ALLOCATOR_H */

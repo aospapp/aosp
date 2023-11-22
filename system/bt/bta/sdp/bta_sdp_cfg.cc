@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2014 The Android Open Source Project
+ *  Copyright 2014 The Android Open Source Project
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -28,13 +28,13 @@
 #define BTA_SDP_DB_SIZE 4500
 #endif
 
-static uint8_t __attribute__((aligned(4))) bta_sdp_db_data[BTA_SDP_DB_SIZE];
+static tSDP_DISCOVERY_DB
+    bta_sdp_db_data[BTA_SDP_DB_SIZE / sizeof(tSDP_DISCOVERY_DB)];
 
 /* SDP configuration structure */
 const tBTA_SDP_CFG bta_sdp_cfg = {
-    BTA_SDP_DB_SIZE,
-    (tSDP_DISCOVERY_DB*)
-        bta_sdp_db_data /* The data buffer to keep SDP database */
+    (BTA_SDP_DB_SIZE / sizeof(tSDP_DISCOVERY_DB)) * sizeof(tSDP_DISCOVERY_DB),
+    bta_sdp_db_data /* The data buffer to keep SDP database */
 };
 
-tBTA_SDP_CFG* p_bta_sdp_cfg = (tBTA_SDP_CFG*)&bta_sdp_cfg;
+const tBTA_SDP_CFG* p_bta_sdp_cfg = &bta_sdp_cfg;

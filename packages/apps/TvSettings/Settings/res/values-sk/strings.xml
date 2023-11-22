@@ -20,11 +20,37 @@
     <string name="launcher_settings_app_name" msgid="5782771766725939392">"Nastavenia"</string>
     <string name="launcher_network_app_name" msgid="5107150533945388559">"Sieť"</string>
     <string name="launcher_restricted_profile_app_name" msgid="671448012575234643">"Obmedzený profil"</string>
+    <string name="header_category_suggestions" msgid="6732367439328586933">"Návrhy"</string>
+    <string name="header_category_quick_settings" msgid="6626141045575946920">"Rýchle nastavenia"</string>
+    <string name="header_category_general_settings" msgid="1208946854116876918">"Všeobecné nastavenia"</string>
+    <string name="dismiss_suggestion" msgid="8288127823132069828">"Odmietnuť návrh"</string>
+    <string name="hotwording_title" msgid="1984130766527626626">"Rozpoznanie výrazu „Ok Google“"</string>
+    <string name="hotwording_summary" msgid="2863751845299261441">"Oslovte Asistenta Google kedykoľvek"</string>
     <string name="header_category_device" msgid="4855983928659541345">"Zariadenie"</string>
     <string name="header_category_preferences" msgid="175105555164713972">"Predvoľby"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"Diaľkové ovládanie a príslušenstvo"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"Osobné"</string>
-    <string name="accounts_category_title" msgid="7591072907146317425">"Účty"</string>
+    <string name="connect_to_network" msgid="2209125715907353369">"Pripojenie k sieti"</string>
+    <string name="add_an_account" msgid="1123478843971990449">"Pridanie účtu"</string>
+    <string name="accounts_category_title" msgid="7839427428921349418">"Účty a prihlasovanie"</string>
+    <string name="accounts_category_summary_no_account" msgid="5739678666463033824">"Žiadne účty"</string>
+    <plurals name="accounts_category_summary" formatted="false" msgid="3864659911073569648">
+      <item quantity="few"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> účty</item>
+      <item quantity="many"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> účtu</item>
+      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> účtov</item>
+      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> účet</item>
+    </plurals>
+    <string name="connectivity_network_category_title" msgid="6005656364481347542">"Sieť a internet"</string>
+    <string name="applications_category_title" msgid="3552921143969612110">"Aplikácie"</string>
+    <string name="device_pref_category_title" msgid="5264163316572335776">"Predvoľby zariadenia"</string>
+    <string name="remotes_and_accessories_category_title" msgid="2729050422677319645">"Diaľkové ovládanie a príslušenstvo"</string>
+    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3967545806275801632">"Žiadne pripojené zariadenia Bluetooth"</string>
+    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="2004733390509722820">
+      <item quantity="few"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> príslušenstvá</item>
+      <item quantity="many"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> príslušenstva</item>
+      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> príslušenstiev</item>
+      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g> príslušenstvo</item>
+    </plurals>
     <string name="add_account" msgid="4098060223200619258">"Pridať účet"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"Odstrániť účet"</string>
     <string name="account_sync" msgid="773808124331714965">"Vyberte synch. aplikácie"</string>
@@ -40,27 +66,47 @@
 %1$s</xliff:g>)"</string>
     <string name="sync_failed" msgid="5514824149810480551">"Synchronizácia zlyhala"</string>
     <string name="sync_active" msgid="6891115263481154378">"Synchronizácia je aktívna"</string>
-    <string name="connectivity_network" msgid="8321537111272398501">"Sieť"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi‑Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
+    <string name="connectivity_summary_ethernet_connected" msgid="2015335020646410586">"Ethernetová sieť je pripojená"</string>
+    <string name="connectivity_summary_no_network_connected" msgid="5187378791046457432">"Nie je pripojená žiadna sieť"</string>
+    <string name="connectivity_summary_wifi_disabled" msgid="6904637079319724455">"Pripojenie Wi‑Fi je vypnuté"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Vyhľadávanie je vždy k dispozícii"</string>
     <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Povoliť službe určovania polohy Google a ostatným aplikáciám vyhľadávať siete aj v prípade, že je sieť Wi‑Fi vypnutá"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi‑Fi"</string>
+    <string name="connectivity_hint_message" msgid="1314202316675864203">"Pripojte sa k sieti"</string>
+    <string name="apps_recently_used_category_title" msgid="5254492409677346900">"Nedávno spustené aplikácie"</string>
+    <string name="apps_see_all_apps" msgid="5546179088197139203">"Zobraziť všetky aplikácie"</string>
+    <string name="apps_permissions_category_title" msgid="4476837368840442313">"Povolenia"</string>
+    <string name="all_apps_title" msgid="5330174847732759402">"Všetky aplikácie"</string>
+    <string name="all_apps_show_system_apps" msgid="4648447904721171884">"Zobraziť systémové aplikácie"</string>
+    <string name="all_apps_installed" msgid="54800379871111518">"Nainštalované aplikácie"</string>
+    <string name="all_apps_other" msgid="8297097642727891911">"Systémové aplikácie"</string>
+    <string name="all_apps_disabled" msgid="2016067533586741345">"Deaktivované aplikácie"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Šetrič obrazovky"</string>
     <string name="device_display" msgid="101455384386372747">"Obrazovka"</string>
     <string name="device_sound" msgid="9214182566287657481">"Zvuk"</string>
     <string name="device_surround_sound" msgid="6272196310566546860">"Priestorový zvuk"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Systémové zvuky"</string>
-    <string name="device_apps" msgid="9180435229638772838">"Aplikácie"</string>
-    <string name="device_storage_reset" msgid="1425978936501134425">"Úložisko a obnovenie"</string>
+    <string name="device_apps" msgid="1971794537385509294">"Aplikácie"</string>
+    <string name="device_storage" msgid="5536683600091277826">"Úložisko"</string>
+    <string name="device_reset" msgid="1885840356489458285">"Obnoviť"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"Zálohovanie a obnovenie"</string>
-    <string name="device_reset" msgid="2827002349560023125">"Obnovenie výrobných nastavení"</string>
+    <string name="device_factory_reset" msgid="6537106927211842545">"Obnovenie výrobných nastavení"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrácia"</string>
+    <string name="surround_sound_select_formats" msgid="6329868407147678259">"Vybrať formáty"</string>
+    <string name="surround_sound_category_title" msgid="1331285587464316534">"Priestorový zvuk"</string>
+    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
+    <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
+    <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
+    <string name="surround_sound_auto_info" msgid="4957977219847012992">"Poznámka: Možnosť Automaticky nemusí fungovať, ak zariadenie správne neuvádza podporované formáty."</string>
+    <string name="surround_sound_auto_summary" msgid="175387511376834034">"Automaticky: Používať formáty, ktoré zariadenia uvádza ako podporované (odporúčané)"</string>
+    <string name="surround_sound_none_summary" msgid="4295042972785042496">"Žiadne: Nepoužívať priestorový zvuk"</string>
+    <string name="surround_sound_manual_summary" msgid="9208540024024014501">"Manuálne: Vyberte, ktoré formáty sa majú používať"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"Vymazať údaje vo vyrovnávacej pamäti?"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Vymažú sa údaje v pamäti pre všetky aplikácie"</string>
-    <string name="apps_downloaded" msgid="4222190849854323480">"Stiahnuté aplikácie"</string>
-    <string name="apps_system" msgid="2499191125802829425">"Systémové aplikácie"</string>
-    <string name="apps_running" msgid="6430310491739956228">"Spustené aplikácie"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Pridať príslušenstvo"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"Prebieha párovanie..."</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"Prebieha pripájanie…"</string>
@@ -91,12 +137,16 @@
     <string name="system_date_time" msgid="8898457978560618950">"Dátum a čas"</string>
     <string name="system_language" msgid="2337138146114609247">"Jazyk"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Klávesnica"</string>
+    <string name="system_keyboard_autofill" msgid="5787948036400896834">"Klávesnica a automatické dopĺňanie"</string>
+    <string name="system_autofill" msgid="8647914463541617409">"Automatické dopĺňanie"</string>
     <string name="system_home" msgid="2858989138172296012">"Plocha"</string>
     <string name="system_search" msgid="2837264654143247611">"Vyhľadávanie"</string>
     <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Zabezpečenie a obmedzenia"</string>
     <string name="system_speech" msgid="8128688499687306982">"Reč"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Vstupy"</string>
+    <string name="system_inputs_devices" msgid="8700905419497948327">"Vstupy a zariadenia"</string>
+    <string name="system_home_theater_control" msgid="2053198603790384368">"Ovládanie domáceho kina"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Zjednodušenie ovládania"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"Pre vývojárov"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Žiadna"</string>
@@ -145,14 +195,11 @@
     <string name="imei_information_title" msgid="5208860549282877136">"Informácie o kóde IMEI"</string>
     <string name="status_bt_address" msgid="1571721865060122393">"Adresa zariadenia Bluetooth"</string>
     <string name="status_up_time" msgid="1674116490191446110">"Čas prevádzky"</string>
-    <string name="status_wimax_mac_address" msgid="1102907383444152052">"Adresa MAC siete 4G"</string>
     <string name="legal_information" msgid="2346024659831852038">"Právne informácie"</string>
     <string name="copyright_title" msgid="5564228453228549353">"Autorské práva"</string>
     <string name="license_title" msgid="4482927105870812604">"Licencia"</string>
     <string name="terms_title" msgid="8480859222932736291">"Zmluvné podmienky"</string>
     <string name="webview_license_title" msgid="8843666223583780825">"Licencia systému WebView"</string>
-    <string name="wallpaper_attributions" msgid="8622098625739634898">"Tapety"</string>
-    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"Poskytovatelia satelitných snímok:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"Slabá"</item>
     <item msgid="5986166866411161790">"Priemerná"</item>
@@ -170,10 +217,8 @@
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"Zobraziť všetko"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Zobraziť menej"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"Dostupné siete"</string>
-    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Pripojiť pomocou WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Pridať novú sieť"</string>
     <string name="security_type" msgid="524443802004143058">"Typ zabezpečenia"</string>
-    <string name="wps_network" msgid="1052148085426051873">"Pripojiť pomocou WPS"</string>
     <string name="other_network" msgid="3539704463099544488">"Iná sieť..."</string>
     <string name="skip_network" msgid="6380260543776712357">"Preskočiť"</string>
     <string name="wifi_security_type_none" msgid="6622722325237471927">"Žiadne"</string>
@@ -208,6 +253,8 @@
     <string name="wifi_forget_network" msgid="7302755141573045803">"Odstrániť záznam siete"</string>
     <string name="wifi_forget_network_description" msgid="3328285160018330334">"Táto akcia vymaže informácie používané na pripojenie k tejto sieti vrátane uloženého hesla."</string>
     <string name="wifi_action_ok" msgid="5932500664228395779">"OK"</string>
+    <string name="wifi_setup_action_dont_change_network" msgid="5136210803832000656">"Pokračovať"</string>
+    <string name="wifi_setup_action_change_network" msgid="4320731433166354508">"Zmeniť sieť"</string>
     <string name="wifi_action_change_network" msgid="5196215981075986148">"Zmeniť"</string>
     <string name="wifi_action_dont_change_network" msgid="1449920958930251977">"Nemeniť"</string>
     <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"OK"</string>
@@ -236,6 +283,11 @@
     <string name="proxy_port_description" msgid="6791098212244367568">"Zadajte platný port.\nPríklad: <xliff:g id="ID_1">8080</xliff:g>"</string>
     <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Zadajte zoznam vylúčených domén a jednotlivé názvy oddeľte čiarkami alebo pole ponechajte prázdne.\nPríklad: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
     <string name="proxy_hostname_description" msgid="5824391500254472447">"Zadajte platný názov hostiteľa.\nPríklad: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
+    <string name="title_wifi_eap_method" msgid="3723583936041145157">"Vyberte metódu EAP pre sieť <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="title_wifi_phase2_authentication" msgid="8292177518924013886">"Vyberte overenie phase2 pre sieť <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="title_wifi_identity" msgid="6154397685951091638">"Zadajte identitu pre sieť <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="title_wifi_anonymous_identity" msgid="4530402657655491360">"Zadajte anonymnú identitu pre sieť <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_summary_title_connected" msgid="3349953509191969645">"Pripojili ste sa k sieti <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"Sieť je pripojená"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Sieť nie je pripojená."</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"Zariadenie je už pripojené k sieti <xliff:g id="SSID">%1$s</xliff:g>. Chcete sa pripojiť k inej sieti?"</string>
@@ -319,15 +371,6 @@
     <string name="system_package" msgid="9200255718634512790">"Aktualizácie systému sa nepodarilo nainštalovať na externé médiá"</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Správcu zariadenia nie je možné nainštalovať na externé médiá."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"Ďalšie informácie"</string>
-    <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Skúsiť znova"</string>
-    <string name="wifi_wps_title" msgid="1872305810119408482">"Prebieha vyhľadávanie smerovača s funkciou WPS…"</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"Stlačte na svojom smerovači tlačidlo Chránené nastavenie Wi‑Fi.\nMôže byť označené písmenami WPS alebo symbolom uvedeným vľavo."</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Na smerovači Wi‑Fi zadajte číslo PIN <xliff:g id="NUMBER">%1$s</xliff:g>"</string>
-    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"Dokončenie nastavenia môže po zadaní čísla PIN trvať až dve minúty."</string>
-    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Nepodarilo sa nájsť smerovač Wi‑Fi"</string>
-    <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Nastavenie zabezpečenia smerovača Wi‑Fi (WEP) nie je podporované."</string>
-    <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Nastavenie zabezpečenia smerovača Wi‑Fi (TKIP) nie je podporované."</string>
-    <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"Spustila sa ďalšia relácia WPS. Skúste to znova o niekoľko minút."</string>
     <string name="system_date" msgid="2767108116769558081">"Dátum"</string>
     <string name="system_time" msgid="6726022312605226285">"Čas"</string>
     <string name="system_set_date" msgid="2437586307768561116">"Nastavenie dátumu"</string>
@@ -521,9 +564,14 @@
     <string name="tts_rate_normal" msgid="362011908545519639">"Normálna"</string>
     <string name="tts_rate_fast" msgid="3792863158623953072">"Rýchla"</string>
     <string name="tts_rate_very_fast" msgid="5876670536911919074">"Veľmi rýchla"</string>
+    <string name="title_settings" msgid="5433841477518010243">"Nastavenia – <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"Aktuálna klávesnica"</string>
     <string name="title_configure" msgid="6929522003149212388">"Konfigurovať"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"Možnosti klávesnice"</string>
+    <string name="title_current_autofill_service" msgid="6055852915343152350">"Aktuálna služba automatického dopĺňania"</string>
+    <string name="title_select_autofill_service" msgid="2515782066694197988">"Výber služby automatického dopĺňania"</string>
+    <string name="autofill_none" msgid="2426888642367790651">"Žiadne"</string>
+    <string name="autofill_confirmation_message" msgid="9068009043054751287">"&lt;b&gt;Skontrolujte, či ide o dôveryhodnú aplikáciu&lt;/b&gt; &lt;br/&gt; &lt;br/&gt; &lt;xliff:g id=app_name example=Služba na správu hesiel&gt;%1$s&lt;/xliff:g&gt; určuje na základe obsahu obrazovky, čo je možné automaticky vyplniť."</string>
     <string name="computing_size" msgid="2955133568424704042">"Prebieha výpočet…"</string>
     <string name="title_select_wifi_network" msgid="1038871400014761952">"Vyberte sieť Wi‑Fi"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"Premenovať"</string>
@@ -655,7 +703,7 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Chcete vymazať všetky svoje osobné údaje a stiahnuté aplikácie? Túto akciu nebude možné vrátiť späť."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Vymazať všetko"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Výber názvu pre zariadenie <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="6890879006777364213">"Pomenujte svoje zariadenie <xliff:g id="DEVICEMODEL">%1$s</xliff:g>. Uľahčí vám to jeho identifikáciu, keď budete prenášať obsah alebo sa k nemu pripájať z iných zariadení."</string>
+    <string name="select_device_name_description" msgid="4939767901420114190">"Pomenujte svoje zariadenie. Uľahčí vám to jeho identifikáciu, keď budete prenášať obsah alebo sa k nemu pripájať z iných zariadení."</string>
   <string-array name="rooms">
     <item msgid="9056203990862307284">"Android TV"</item>
     <item msgid="7449352861592960712">"Televízor v obývačke"</item>
@@ -665,11 +713,13 @@
     <string name="custom_room" msgid="8655516733933892458">"Zadať vlastný názov..."</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Zmena názvu zariadenia <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Toto zariadenie <xliff:g id="DEVICEMODEL">%1$s</xliff:g> sa momentálne nazýva <xliff:g id="DEVICENAME">%2$s</xliff:g>"</string>
+    <string name="device_name_suggestion_title" msgid="2312205155408810120">"Nastavenie názvu zariadenia"</string>
+    <string name="device_name_suggestion_summary" msgid="5657494684788779371">"Použite tento názov pri prenášaní fotiek, videí a ďalšieho obsahu z telefónu"</string>
     <string name="change_setting" msgid="2047402388786162246">"Zmeniť"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Nemeniť"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Povolenia"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"Povolenia aplikácií"</string>
-    <string name="app_permissions_group_summary" msgid="7906834786705287901">"Povolené aplikácie: <xliff:g id="COUNT_0">%d</xliff:g> z <xliff:g id="COUNT_1">%d</xliff:g>"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"Povolené aplikácie: <xliff:g id="COUNT_0">%1$d</xliff:g> z <xliff:g id="COUNT_1">%2$d</xliff:g>"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Žiadosť o povolenie použiť rozhranie Bluetooth"</string>
     <string name="security_patch" msgid="2131617390189164481">"Úroveň opráv zabezpečenia systému"</string>
     <string name="choose_application" msgid="5662960665577780353">"Výber aplikácie"</string>
@@ -684,4 +734,27 @@
     <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Nepovolené"</string>
     <string name="usage_access" msgid="1914242907684452328">"Prístup k dátam o využití"</string>
     <string name="usage_access_description" msgid="6290001769893747651">"Prístup k dátam o využití umožňuje aplikácii sledovať, aké ďalšie aplikácie používate, ako často ich používate, a taktiež nastavenia jazyka, operátora a ďalšie podrobnosti."</string>
+    <string name="high_power_apps" msgid="7796096221999495077">"Optimalizácia spotreby batérie"</string>
+    <string name="high_power_apps_description" msgid="1990016812115792282">"Optimalizácia spotreby batérie aplikáciami"</string>
+    <string name="high_power_apps_empty" msgid="1355906551507153470">"Optimalizáciu nevyžadujú žiadne aplikácie"</string>
+    <string name="high_power_on" msgid="7725180078784796673">"Neoptimalizované"</string>
+    <string name="high_power_off" msgid="308272752152871252">"Optimalizácia spotreby batérie"</string>
+    <string name="high_power_system" msgid="7815843517656137656">"Optimalizácia spotreby batérie nie je k dispozícii"</string>
+    <string name="manage_notification_access_title" msgid="2051765294087620434">"Prístup k upozorneniam"</string>
+    <string name="no_notification_listeners" msgid="4583789599075326886">"Prístup k upozorneniam si nevyžiadali žiadne nainštalované aplikácie."</string>
+    <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Tieto aplikácie budú môcť čítať všetky upozornenia vrátane osobných informácií, ako sú mená kontaktov a text prijatých správ. Budú tiež môcť upozornenia zatvoriť alebo spustiť v nich tlačidlá akcií."</string>
+    <string name="system_alert_window_settings" msgid="2069031369694448339">"Zobrazenie cez iné aplikácie"</string>
+    <string name="permit_draw_overlay" msgid="2400084757761408906">"Povoliť zobrazenie cez iné aplikácie"</string>
+    <string name="allow_overlay_description" msgid="1946279120428813474">"Umožňuje určitej aplikácii zobrazovať sa nad inými aplikáciami, ktoré používate. Môže to narušiť používanie týchto aplikácií alebo zmeniť ich vzhľad či správanie."</string>
+    <string name="write_system_settings" msgid="2730923656857824907">"Úprava nastavení systému"</string>
+    <string name="write_settings_title" msgid="8750406725746598710">"Môže upravovať nastavenia systému"</string>
+    <string name="write_settings_description" msgid="2765037074460395437">"Toto povolenie umožňuje aplikácii upravovať nastavenia systému."</string>
+    <string name="write_settings_on" msgid="3312616037931341656">"Áno"</string>
+    <string name="write_settings_off" msgid="6219072254626503312">"Nie"</string>
+    <string name="picture_in_picture_title" msgid="7738692876349058">"Obraz v obraze"</string>
+    <string name="picture_in_picture_app_detail_switch" msgid="8063965798321494391">"Povoliť obraz v obraze"</string>
+    <string name="picture_in_picture_empty_text" msgid="5592688180792300051">"Žiadna z nainštalovaných aplikácií nepodporuje obraz v obraze"</string>
+    <string name="picture_in_picture_app_detail_summary" msgid="3478182415601436326">"Povoľte aplikáciám vytvoriť okno obrazu v obraze, kým sú otvorené alebo keď ich opustíte (napríklad pokračovanie v pozeraní videa). Toto okno sa zobrazuje cez ďalšie aplikácie, ktoré používate."</string>
+    <string name="special_access" msgid="3513811566600299998">"Prístup k špeciálnym aplikáciám"</string>
+    <string name="string_concat" msgid="5897947064488902904">"<xliff:g id="PART1">%1s</xliff:g>, <xliff:g id="PART2">%2s</xliff:g>"</string>
 </resources>

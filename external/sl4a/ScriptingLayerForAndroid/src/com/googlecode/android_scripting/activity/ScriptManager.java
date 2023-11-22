@@ -55,6 +55,7 @@ import com.googlecode.android_scripting.interpreter.Interpreter;
 import com.googlecode.android_scripting.interpreter.InterpreterConfiguration;
 import com.googlecode.android_scripting.interpreter.InterpreterConfiguration.ConfigurationObserver;
 import com.googlecode.android_scripting.interpreter.InterpreterConstants;
+import com.googlecode.android_scripting.service.ScriptingLayerService;
 
 import java.io.File;
 import java.util.Collections;

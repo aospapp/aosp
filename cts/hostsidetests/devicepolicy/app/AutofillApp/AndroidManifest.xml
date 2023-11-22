@@ -28,7 +28,7 @@
 
         <service
             android:name=".SimpleAutofillService"
-            android:permission="android.permission.BIND_AUTOFILL" >
+            android:permission="android.permission.BIND_AUTOFILL_SERVICE" >
             <intent-filter>
                 <action android:name="android.service.autofill.AutofillService" />
             </intent-filter>

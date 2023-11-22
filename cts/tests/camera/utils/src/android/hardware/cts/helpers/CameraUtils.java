@@ -38,11 +38,30 @@ public class CameraUtils {
      */
     public static boolean isLegacyHAL(Context context, int cameraId) throws Exception {
         CameraManager manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+        String cameraIdStr = manager.getCameraIdList()[cameraId];
         CameraCharacteristics characteristics =
-                manager.getCameraCharacteristics(Integer.toString(cameraId));
+                manager.getCameraCharacteristics(cameraIdStr);
 
         return characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL) ==
                 CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY;
+    }
+
+    /**
+     * Returns {@code true} if this device only supports {@code EXTERNAL} mode operation in the
+     * Camera2 API for the given camera ID.
+     *
+     * @param context {@link Context} to access the {@link CameraManager} in.
+     * @param cameraId the ID of the camera device to check.
+     * @return {@code true} if this device only supports {@code LEGACY} mode.
+     */
+    public static boolean isExternal(Context context, int cameraId) throws Exception {
+        CameraManager manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+        String cameraIdStr = manager.getCameraIdList()[cameraId];
+        CameraCharacteristics characteristics =
+                manager.getCameraCharacteristics(cameraIdStr);
+
+        return characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL) ==
+                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL;
     }
 
     /**

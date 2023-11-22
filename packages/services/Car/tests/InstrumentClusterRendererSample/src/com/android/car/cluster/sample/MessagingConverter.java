@@ -19,10 +19,11 @@ package com.android.car.cluster.sample;
 import android.app.Notification;
 import android.graphics.Bitmap;
 import android.service.notification.StatusBarNotification;
-import android.support.v4.app.NotificationCompat.CarExtender;
-import android.support.v4.app.NotificationCompat.CarExtender.UnreadConversation;
 import android.text.TextUtils;
 import android.util.Log;
+
+import androidx.core.app.NotificationCompat.CarExtender;
+import androidx.core.app.NotificationCompat.CarExtender.UnreadConversation;
 
 /**
  * Convert a {@link CarExtender} notification into a {@link MessageContactDetails}

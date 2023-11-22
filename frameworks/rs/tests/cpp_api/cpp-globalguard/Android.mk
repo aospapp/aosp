@@ -4,7 +4,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE:= rstest-cpp-globalguard
 
 LOCAL_SDK_VERSION := 21
-LOCAL_NDK_STL_VARIANT := stlport_static
+LOCAL_NDK_STL_VARIANT := c++_static
 
 LOCAL_SRC_FILES:= \
 	multiply.rs \

@@ -20,6 +20,7 @@ import android.graphics.Color;
 import android.graphics.SurfaceTexture;
 import android.util.Log;
 import android.view.Choreographer;
+import android.view.Surface;
 import android.os.SystemClock;
 
 import javax.microedition.khronos.egl.EGL10;
@@ -54,7 +55,7 @@ final class ColorsGLRenderer implements Choreographer.FrameCallback {
         Log.v(TAG, String.format(fmt, args));
     }
 
-    private final SurfaceTexture mSurface;
+    private final Surface mSurface;
     private int mWidth;
     private int mHeight;
 
@@ -70,7 +71,7 @@ final class ColorsGLRenderer implements Choreographer.FrameCallback {
     private EGLContext mEglContext;
     private EGLSurface mEglSurface;
 
-    public ColorsGLRenderer(SurfaceTexture surface, int width, int height) {
+    public ColorsGLRenderer(Surface surface, int width, int height) {
         mSurface = surface;
         mWidth = width;
         mHeight = height;

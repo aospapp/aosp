@@ -19,8 +19,9 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
 
-import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.impl.ICUData;
@@ -41,6 +42,7 @@ import com.ibm.icu.text.UnicodeSetIterator;
 import com.ibm.icu.util.ULocale;
 import com.ibm.icu.util.UResourceBundle;
 
+@RunWith(JUnit4.class)
 public class CollationMiscTest extends TestFmwk {
     //private static final int NORM_BUFFER_TEST_LEN_ = 32;
     private static final class Tester
@@ -1198,17 +1200,15 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
-    // TODO(junit): not running before
-    @Ignore
     @Test
-    public void DontTestJ831() { // Latvian does not use upper first
+    public void TestUpperCaseFirst() {
         String[] data = {
             "I",
             "i",
             "Y",
             "y"
         };
-        genericLocaleStarter(new Locale("lv", ""), data);
+        genericLocaleStarter(new Locale("da", ""), data);
     }
 
     @Test
@@ -2047,7 +2047,7 @@ public class CollationMiscTest extends TestFmwk {
                                   "\u0663\u0662",
                                   "\u0663\u0663"
         };
-        
+
         //Additional tests to cover bug reported in #9476
         String lastDigitDifferent[]={"2004","2005",
                                      "110005", "110006",
@@ -2080,13 +2080,13 @@ public class CollationMiscTest extends TestFmwk {
                                      preZeroTestStrings[j],0);
             }
         }
-        
+
         //Testing that the behavior reported in #9476 is fixed
         //We expect comparisons between adjacent pairs will result in -1
         for (int i=0; i < lastDigitDifferent.length -1; i=i+2 ) {
             CollationTest.doTest(this, coll, lastDigitDifferent[i], lastDigitDifferent[i+1], -1);
         }
-        
+
 
         //cover setNumericCollationDefault, getNumericCollation
         assertTrue("The Numeric Collation setting is on", coll.getNumericCollation());
@@ -2283,16 +2283,16 @@ public class CollationMiscTest extends TestFmwk {
         logln(" ");
     }
 
-    public void
-    TestJ5367()
+    @Test
+    public void TestJ5367()
     {
         String[] test = { "a", "y" };
         String rules = "&Ny << Y &[first secondary ignorable] <<< a";
         genericRulesStarter(rules, test);
     }
 
-    public void
-    TestVI5913()
+    @Test
+    public void TestVI5913()
     {
 
         String rules[] = {
@@ -2707,7 +2707,7 @@ public class CollationMiscTest extends TestFmwk {
         };
         doTestCollation(m_rangeTestCases_, rules);
     }
-    
+
     @Test
     public void TestSameStrengthListQuoted() {
         String[] rules = new String[] {
@@ -2817,22 +2817,22 @@ public class CollationMiscTest extends TestFmwk {
         };
         doTestCollation(testCases, rules);
     }
-    
+
     @Test
     public void TestInvalidListsAndRanges() {
         String[] invalidRules = new String[] {
             // Range not in starred expression
             "&\u4e00<\ufffb-'\ud800\udc02'",
-            
+
             // Range without start
             "&a<*-c",
-            
+
             // Range without end
             "&a<*b-",
-                       
+
             // More than one hyphen
             "&a<*b-g-l",
-            
+
             // Range in the wrong order
             "&a<*k-b",
         };
@@ -2844,7 +2844,7 @@ public class CollationMiscTest extends TestFmwk {
                         "x",
                         "y",
                         -1);
-               
+
            } catch (Exception e) {
                 continue;
             }
@@ -2860,7 +2860,7 @@ public class CollationMiscTest extends TestFmwk {
                 // These are working as expected.
                 "&';'<'+'<','<'-'<'&'<''<'*'<' '",
 
-                // List.  Desired rule is 
+                // List.  Desired rule is
                 // "&';'<*'+,-&''* '",
                 // but it doesn't work.  Instead, '' should be outside quotes as below.
                 "&';'<*'+,-&''''* '",
@@ -2872,7 +2872,7 @@ public class CollationMiscTest extends TestFmwk {
                 //"&';'<*'+'-'-&'\\u0027'* '",
 
                 // The following rules are not working.
-                // "&';'<'+'<','<'-'<'&'<\\u0027<'*'<' '", 
+                // "&';'<'+'<','<'-'<'&'<\\u0027<'*'<' '",
                 //"&'\u003b'<'\u002b'<'\u002c'<'\u002d'<'\u0026'<'\u0027'<\u002a'<'\u0020'",
                 //"&'\u003b'<'\u002b'<'\u002c'<'\u002d'<'\u0026'<\\u0027<\u002a'<'\u0020'",
         };
@@ -3131,11 +3131,11 @@ public class CollationMiscTest extends TestFmwk {
         String rules = "&[before 1]\u03b1 < \u0e01";
         int[] reorderCodes = {UScript.GREEK};
         int result;
-        
+
         Collator myCollation = new RuleBasedCollator(rules);
         myCollation.setDecomposition(Collator.CANONICAL_DECOMPOSITION);
         myCollation.setStrength(Collator.TERTIARY);
-        
+
         String base = "\u03b1"; /* base */
         String before = "\u0e01"; /* ko kai */
 
@@ -3151,7 +3151,7 @@ public class CollationMiscTest extends TestFmwk {
         byte[] baseKeyBytes = baseKey.toByteArray();
         byte[] beforeKeyBytes = beforeKey.toByteArray();
         if (baseKeyBytes[0] != beforeKeyBytes[0]) {
-            errln("Different lead byte for sort keys using before rule and before script reordering. base character lead byte = " 
+            errln("Different lead byte for sort keys using before rule and before script reordering. base character lead byte = "
                     + baseKeyBytes[0] + ", before character lead byte = " + beforeKeyBytes[0]);
        }
 
@@ -3163,14 +3163,14 @@ public class CollationMiscTest extends TestFmwk {
         if (!(result > 0)) {
             errln("Collation result not correct after script reordering.");
         }
-        
+
         /* check the lead byte of the collation keys after script reordering */
         baseKey = myCollation.getCollationKey(base);
         beforeKey = myCollation.getCollationKey(before);
         baseKeyBytes = baseKey.toByteArray();
         beforeKeyBytes = beforeKey.toByteArray();
         if (baseKeyBytes[0] != beforeKeyBytes[0]) {
-            errln("Different lead byte for sort keys using before rule and before script reordering. base character lead byte = " 
+            errln("Different lead byte for sort keys using before rule and before script reordering. base character lead byte = "
                     + baseKeyBytes[0] + ", before character lead byte = " + beforeKeyBytes[0]);
        }
     }
@@ -3194,16 +3194,16 @@ public class CollationMiscTest extends TestFmwk {
 
         myCollation.setReorderCodes(reorderCodes);
         reorderKey = myCollation.getCollationKey(testString).toByteArray();
-        
+
         if (baseKey.length != reorderKey.length) {
             errln("Key lengths not the same during reordering.\n");
         }
-        
+
         for (int i = 1; i < baseKey.length; i++) {
             if (baseKey[i] != reorderKey[i]) {
                 errln("Collation key bytes not the same at position " + i);
             }
-        } 
+        }
 
         /* build collator tertiary */
         myCollation = new RuleBasedCollator("");
@@ -3212,16 +3212,16 @@ public class CollationMiscTest extends TestFmwk {
 
         myCollation.setReorderCodes(reorderCodes);
         reorderKey = myCollation.getCollationKey(testString).toByteArray();
-        
+
         if (baseKey.length != reorderKey.length) {
             errln("Key lengths not the same during reordering.\n");
         }
-        
+
         for (int i = 1; i < baseKey.length; i++) {
             if (baseKey[i] != reorderKey[i]) {
                 errln("Collation key bytes not the same at position " + i);
             }
-        } 
+        }
     }
 
     /*
@@ -3244,7 +3244,7 @@ public class CollationMiscTest extends TestFmwk {
 
         /* set the reorderding */
         myCollation.setReorderCodes(reorderCodes);
-        
+
         retrievedReorderCodes = myCollation.getReorderCodes();
         if (!Arrays.equals(reorderCodes, retrievedReorderCodes)) {
             errln("ERROR: retrieved reorder codes do not match set reorder codes.");
@@ -3252,9 +3252,9 @@ public class CollationMiscTest extends TestFmwk {
         if (!(myCollation.compare(greekString, punctuationString) < 0)) {
             errln("ERROR: collation result should have been less.");
         }
-        
+
         /* clear the reordering */
-        myCollation.setReorderCodes(null);    
+        myCollation.setReorderCodes(null);
         retrievedReorderCodes = myCollation.getReorderCodes();
         if (retrievedReorderCodes.length != 0) {
             errln("ERROR: retrieved reorder codes was not null.");
@@ -3263,12 +3263,12 @@ public class CollationMiscTest extends TestFmwk {
         if (!(myCollation.compare(greekString, punctuationString) > 0)) {
             errln("ERROR: collation result should have been greater.");
         }
-        
+
         // do it again with an empty but non-null array
-        
+
         /* set the reorderding */
         myCollation.setReorderCodes(reorderCodes);
-        
+
         retrievedReorderCodes = myCollation.getReorderCodes();
         if (!Arrays.equals(reorderCodes, retrievedReorderCodes)) {
             errln("ERROR: retrieved reorder codes do not match set reorder codes.");
@@ -3276,9 +3276,9 @@ public class CollationMiscTest extends TestFmwk {
         if (!(myCollation.compare(greekString, punctuationString) < 0)) {
             errln("ERROR: collation result should have been less.");
         }
-        
+
         /* clear the reordering */
-        myCollation.setReorderCodes(new int[]{});    
+        myCollation.setReorderCodes(new int[]{});
         retrievedReorderCodes = myCollation.getReorderCodes();
         if (retrievedReorderCodes.length != 0) {
             errln("ERROR: retrieved reorder codes was not null.");
@@ -3287,9 +3287,9 @@ public class CollationMiscTest extends TestFmwk {
         if (!(myCollation.compare(greekString, punctuationString) > 0)) {
             errln("ERROR: collation result should have been greater.");
         }
-        
+
         /* clear the reordering using [NONE] */
-        myCollation.setReorderCodes(new int[]{ ReorderCodes.NONE });    
+        myCollation.setReorderCodes(new int[]{ ReorderCodes.NONE });
         retrievedReorderCodes = myCollation.getReorderCodes();
         if (retrievedReorderCodes.length != 0) {
             errln("ERROR: [NONE] retrieved reorder codes was not null.");
@@ -3304,9 +3304,9 @@ public class CollationMiscTest extends TestFmwk {
             gotException = true;
         }
         if (!gotException) {
-            errln("ERROR: exception was not thrown for illegal reorder codes argument.");            
+            errln("ERROR: exception was not thrown for illegal reorder codes argument.");
         }
-        
+
         /* set duplicate reorder codes */
         gotException = false;
         try {
@@ -3315,10 +3315,10 @@ public class CollationMiscTest extends TestFmwk {
             gotException = true;
         }
         if (!gotException) {
-            errln("ERROR: reorder codes following a 'default' code should have thrown an exception but did not.");            
+            errln("ERROR: reorder codes following a 'default' code should have thrown an exception but did not.");
         }
     }
-    
+
     /*
      * Test reordering API.
      */
@@ -3331,7 +3331,7 @@ public class CollationMiscTest extends TestFmwk {
         int[] reorderCodes = {UScript.GREEK, UScript.HAN, ReorderCodes.PUNCTUATION};
         int[] retrievedReorderCodes;
 
-        
+
         /* build collator tertiary */
         myCollation = new RuleBasedCollator(rules);
         myCollation.setStrength(Collator.TERTIARY);
@@ -3340,9 +3340,9 @@ public class CollationMiscTest extends TestFmwk {
         if (!Arrays.equals(rulesReorderCodes, retrievedReorderCodes)) {
             errln("ERROR: retrieved reorder codes do not match set reorder codes.");
         }
-        
+
         /* clear the reordering */
-        myCollation.setReorderCodes(null);    
+        myCollation.setReorderCodes(null);
         retrievedReorderCodes = myCollation.getReorderCodes();
         if (retrievedReorderCodes.length != 0) {
             errln("ERROR: retrieved reorder codes was not null.");
@@ -3350,14 +3350,14 @@ public class CollationMiscTest extends TestFmwk {
 
         /* set the reorderding */
         myCollation.setReorderCodes(reorderCodes);
-        
+
         retrievedReorderCodes = myCollation.getReorderCodes();
         if (!Arrays.equals(reorderCodes, retrievedReorderCodes)) {
             errln("ERROR: retrieved reorder codes do not match set reorder codes.");
         }
-        
+
         /* reset the reordering */
-        myCollation.setReorderCodes(ReorderCodes.DEFAULT);    
+        myCollation.setReorderCodes(ReorderCodes.DEFAULT);
         retrievedReorderCodes = myCollation.getReorderCodes();
         if (!Arrays.equals(rulesReorderCodes, retrievedReorderCodes)) {
             errln("ERROR: retrieved reorder codes do not match set reorder codes.");
@@ -3455,7 +3455,7 @@ public class CollationMiscTest extends TestFmwk {
                     "expected 2, was = " + equivalentScripts.length);
         }
     }
-    
+
     @Test
     public void TestGreekFirstReorderCloning() {
         String[] testSourceCases = {
@@ -3501,8 +3501,8 @@ public class CollationMiscTest extends TestFmwk {
         myCollation.setStrength(Collator.TERTIARY);
         for (int i = 0; i < testSourceCases.length ; i++)
         {
-            CollationTest.doTest(this, (RuleBasedCollator)myCollation, 
-                                 testSourceCases[i], testTargetCases[i], 
+            CollationTest.doTest(this, (RuleBasedCollator)myCollation,
+                                 testSourceCases[i], testTargetCases[i],
                                  results[i]);
         }
     }
@@ -3518,7 +3518,7 @@ public class CollationMiscTest extends TestFmwk {
     {
         Collator myCollation = Collator.getInstance(ULocale.ENGLISH);
         myCollation.setReorderCodes(reorderTokens);
-        
+
         for (OneTestCase testCase : testCases) {
             CollationTest.doTest(this, (RuleBasedCollator)myCollation,
                     testCase.m_source_,
@@ -3537,7 +3537,7 @@ public class CollationMiscTest extends TestFmwk {
         int[] apiRules = {
             UScript.GREEK
         };
-        
+
         OneTestCase[] privateUseCharacterStrings = {
             new OneTestCase("\u0391", "\u0391", 0),
             new OneTestCase("\u0041", "\u0391", 1),
@@ -3564,7 +3564,7 @@ public class CollationMiscTest extends TestFmwk {
         int[] apiRules = {
             UScript.UNKNOWN, UScript.GREEK
         };
-        
+
         OneTestCase[] privateUseCharacterStrings = {
             new OneTestCase("\u0391", "\u0391", 0),
             new OneTestCase("\u0041", "\u0391", -1),
@@ -3572,7 +3572,7 @@ public class CollationMiscTest extends TestFmwk {
             new OneTestCase("\u0060", "\u0391", -1),
             new OneTestCase("\u0391", "\ue2dc", 1),
         };
-        
+
         /* Test rules creation */
         doTestCollation(privateUseCharacterStrings, strRules);
 
@@ -3600,7 +3600,7 @@ public class CollationMiscTest extends TestFmwk {
             new OneTestCase("\u0060", "\u0391", 1),
             new OneTestCase("\u0024", "\u0041", 1),
         };
-        
+
         /* Test rules creation */
         doTestCollation(privateUseCharacterStrings, strRules);
 
@@ -3627,14 +3627,14 @@ public class CollationMiscTest extends TestFmwk {
             new OneTestCase("\ufa27", "\u0041", -1),
             new OneTestCase("\uD869\uDF00", "\u0041", -1),
         };
-        
+
         /* Test rules creation */
         doTestCollation(privateUseCharacterStrings, strRules);
 
         /* Test collation reordering API */
         doTestOneReorderingAPITestCase(privateUseCharacterStrings, apiRules);
     }
-    
+
     @Test
     public void TestHaniReorderWithOtherRules()
     {
@@ -3652,11 +3652,11 @@ public class CollationMiscTest extends TestFmwk {
             new OneTestCase("\uD869\uDF00", "\u0041", -1),
             new OneTestCase("b", "a", -1),
         };
-        
+
         /* Test rules creation */
         doTestCollation(privateUseCharacterStrings, strRules);
     }
-    
+
     @Test
     public void TestMultipleReorder()
     {
@@ -3667,7 +3667,7 @@ public class CollationMiscTest extends TestFmwk {
         int[] apiRules = {
             UScript.GREEK, UScript.UNKNOWN, ReorderCodes.DIGIT, UScript.LATIN, UScript.HAN
         };
-        
+
         OneTestCase[] collationTestCases = {
             new OneTestCase("\u0391", "\u0041", -1),
             new OneTestCase("\u0031", "\u0041", -1),
@@ -3680,13 +3680,13 @@ public class CollationMiscTest extends TestFmwk {
         /* Test collation reordering API */
         doTestOneReorderingAPITestCase(collationTestCases, apiRules);
     }
-    
+
     @Test
     public void TestFrozeness()
     {
         Collator myCollation = Collator.getInstance(ULocale.CANADA);
         boolean exceptionCaught = false;
-        
+
         myCollation.freeze();
         assertTrue("Collator not frozen.", myCollation.isFrozen());
 
@@ -3698,7 +3698,7 @@ public class CollationMiscTest extends TestFmwk {
         }
         assertTrue("Frozen collator allowed change.", exceptionCaught);
         exceptionCaught = false;
-        
+
         try {
             myCollation.setReorderCodes(ReorderCodes.DEFAULT);
         } catch (UnsupportedOperationException e) {
@@ -3707,7 +3707,7 @@ public class CollationMiscTest extends TestFmwk {
         }
         assertTrue("Frozen collator allowed change.", exceptionCaught);
         exceptionCaught = false;
-        
+
         try {
             myCollation.setVariableTop(12);
         } catch (UnsupportedOperationException e) {
@@ -3716,7 +3716,7 @@ public class CollationMiscTest extends TestFmwk {
         }
         assertTrue("Frozen collator allowed change.", exceptionCaught);
         exceptionCaught = false;
-        
+
         Collator myClone = null;
         try {
             myClone = (Collator) myCollation.clone();
@@ -3725,9 +3725,9 @@ public class CollationMiscTest extends TestFmwk {
             errln("ERROR: unable to clone collator.");
         }
         assertTrue("Clone not frozen as expected.", myClone.isFrozen());
-        
+
         myClone = myClone.cloneAsThawed();
-        assertFalse("Clone not thawed as expected.", myClone.isFrozen());        
+        assertFalse("Clone not thawed as expected.", myClone.isFrozen());
     }
 
     // Test case for Ticket#9409

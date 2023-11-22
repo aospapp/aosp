@@ -19,6 +19,7 @@
     android:id="@+id/main_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
+    <requestFocus />
 
     <android.widget.cts.MockViewForListPopupWindow
         android:id="@+id/anchor_upper_left"

@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
-#define LOG_TAG "JSONObject"
-#include <utils/Log.h>
-
 #include "JSONObject.h"
 
 #include <ctype.h>

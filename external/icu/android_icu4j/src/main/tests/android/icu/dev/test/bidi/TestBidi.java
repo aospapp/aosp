@@ -16,6 +16,7 @@ import org.junit.Test;
 
 import android.icu.text.Bidi;
 import android.icu.text.BidiRun;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Regression test for Bidi class override.
@@ -23,6 +24,7 @@ import android.icu.text.BidiRun;
  * @author Lina Kemmel, Matitiahu Allouche
  */
 
+@MainTestShard
 public class TestBidi extends BidiFmwk {
 
     private static final int MAXLEN = 256;

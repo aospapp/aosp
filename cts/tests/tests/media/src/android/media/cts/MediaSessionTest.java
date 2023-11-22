@@ -15,6 +15,9 @@
  */
 package android.media.cts;
 
+import static android.media.AudioAttributes.USAGE_GAME;
+import static android.media.cts.Utils.compareRemoteUserInfo;
+
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
@@ -28,20 +31,24 @@ import android.media.VolumeProvider;
 import android.media.session.MediaController;
 import android.media.session.MediaSession;
 import android.media.session.MediaSession.QueueItem;
+import android.media.session.MediaSessionManager;
+import android.media.session.MediaSessionManager.RemoteUserInfo;
 import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Parcel;
+import android.os.Process;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.view.KeyEvent;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaSessionTest extends AndroidTestCase {
     // The maximum time to wait for an operation that is expected to succeed.
     private static final long TIME_OUT_MS = 3000L;
@@ -62,12 +69,15 @@ public class MediaSessionTest extends AndroidTestCase {
     private Object mWaitLock = new Object();
     private MediaControllerCallback mCallback = new MediaControllerCallback();
     private MediaSession mSession;
+    private RemoteUserInfo mKeyDispatcherInfo;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         mAudioManager = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
         mSession = new MediaSession(getContext(), TEST_SESSION_TAG);
+        mKeyDispatcherInfo = new MediaSessionManager.RemoteUserInfo(
+                getContext().getPackageName(), Process.myPid(), Process.myUid());
     }
 
     @Override
@@ -88,7 +98,7 @@ public class MediaSessionTest extends AndroidTestCase {
         // Verify by getting the controller and checking all its fields
         MediaController controller = mSession.getController();
         assertNotNull(controller);
-        verifyNewSession(controller, TEST_SESSION_TAG);
+        verifyNewSession(controller);
     }
 
     /**
@@ -300,15 +310,13 @@ public class MediaSessionTest extends AndroidTestCase {
             assertEquals(VolumeProvider.VOLUME_CONTROL_FIXED, info.getVolumeControl());
 
             // test setPlaybackToLocal
-            AudioAttributes attrs = new AudioAttributes.Builder().addTag(TEST_VALUE).build();
+            AudioAttributes attrs = new AudioAttributes.Builder().setUsage(USAGE_GAME).build();
             mSession.setPlaybackToLocal(attrs);
 
             info = controller.getPlaybackInfo();
             assertNotNull(info);
             assertEquals(MediaController.PlaybackInfo.PLAYBACK_TYPE_LOCAL, info.getPlaybackType());
-            Set<String> tags = info.getAudioAttributes().getTags();
-            assertNotNull(tags);
-            assertTrue(tags.contains(TEST_VALUE));
+            assertEquals(attrs, info.getAudioAttributes());
         }
     }
 
@@ -336,36 +344,43 @@ public class MediaSessionTest extends AndroidTestCase {
         simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PLAY);
         assertTrue(sessionCallback.await(TIME_OUT_MS));
         assertEquals(1, sessionCallback.mOnPlayCalledCount);
+        assertTrue(compareRemoteUserInfo(mKeyDispatcherInfo, sessionCallback.mCallerInfo));
 
         sessionCallback.reset(1);
         simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PAUSE);
         assertTrue(sessionCallback.await(TIME_OUT_MS));
         assertTrue(sessionCallback.mOnPauseCalled);
+        assertTrue(compareRemoteUserInfo(mKeyDispatcherInfo, sessionCallback.mCallerInfo));
 
         sessionCallback.reset(1);
         simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_NEXT);
         assertTrue(sessionCallback.await(TIME_OUT_MS));
         assertTrue(sessionCallback.mOnSkipToNextCalled);
+        assertTrue(compareRemoteUserInfo(mKeyDispatcherInfo, sessionCallback.mCallerInfo));
 
         sessionCallback.reset(1);
         simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PREVIOUS);
         assertTrue(sessionCallback.await(TIME_OUT_MS));
         assertTrue(sessionCallback.mOnSkipToPreviousCalled);
+        assertTrue(compareRemoteUserInfo(mKeyDispatcherInfo, sessionCallback.mCallerInfo));
 
         sessionCallback.reset(1);
         simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_STOP);
         assertTrue(sessionCallback.await(TIME_OUT_MS));
         assertTrue(sessionCallback.mOnStopCalled);
+        assertTrue(compareRemoteUserInfo(mKeyDispatcherInfo, sessionCallback.mCallerInfo));
 
         sessionCallback.reset(1);
         simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_FAST_FORWARD);
         assertTrue(sessionCallback.await(TIME_OUT_MS));
         assertTrue(sessionCallback.mOnFastForwardCalled);
+        assertTrue(compareRemoteUserInfo(mKeyDispatcherInfo, sessionCallback.mCallerInfo));
 
         sessionCallback.reset(1);
         simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_REWIND);
         assertTrue(sessionCallback.await(TIME_OUT_MS));
         assertTrue(sessionCallback.mOnRewindCalled);
+        assertTrue(compareRemoteUserInfo(mKeyDispatcherInfo, sessionCallback.mCallerInfo));
 
         // Test PLAY_PAUSE button twice.
         // First, simulate PLAY_PAUSE button while in STATE_PAUSED.
@@ -374,6 +389,7 @@ public class MediaSessionTest extends AndroidTestCase {
         simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
         assertTrue(sessionCallback.await(TIME_OUT_MS));
         assertEquals(1, sessionCallback.mOnPlayCalledCount);
+        assertTrue(compareRemoteUserInfo(mKeyDispatcherInfo, sessionCallback.mCallerInfo));
 
         // Next, simulate PLAY_PAUSE button while in STATE_PLAYING.
         sessionCallback.reset(1);
@@ -381,6 +397,7 @@ public class MediaSessionTest extends AndroidTestCase {
         simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
         assertTrue(sessionCallback.await(TIME_OUT_MS));
         assertTrue(sessionCallback.mOnPauseCalled);
+        assertTrue(compareRemoteUserInfo(mKeyDispatcherInfo, sessionCallback.mCallerInfo));
 
         // Double tap of PLAY_PAUSE is the next track instead of changing PLAY/PAUSE.
         sessionCallback.reset(2);
@@ -391,6 +408,7 @@ public class MediaSessionTest extends AndroidTestCase {
         assertTrue(sessionCallback.mOnSkipToNextCalled);
         assertEquals(0, sessionCallback.mOnPlayCalledCount);
         assertFalse(sessionCallback.mOnPauseCalled);
+        assertTrue(compareRemoteUserInfo(mKeyDispatcherInfo, sessionCallback.mCallerInfo));
 
         // Test if PLAY_PAUSE double tap is considered as two single taps when another media
         // key is pressed.
@@ -402,6 +420,7 @@ public class MediaSessionTest extends AndroidTestCase {
         assertTrue(sessionCallback.await(TIME_OUT_MS));
         assertEquals(2, sessionCallback.mOnPlayCalledCount);
         assertTrue(sessionCallback.mOnStopCalled);
+        assertTrue(compareRemoteUserInfo(mKeyDispatcherInfo, sessionCallback.mCallerInfo));
 
         // Test if media keys are handled in order.
         sessionCallback.reset(2);
@@ -411,10 +430,32 @@ public class MediaSessionTest extends AndroidTestCase {
         assertTrue(sessionCallback.await(TIME_OUT_MS));
         assertEquals(1, sessionCallback.mOnPlayCalledCount);
         assertTrue(sessionCallback.mOnStopCalled);
+        assertTrue(compareRemoteUserInfo(mKeyDispatcherInfo, sessionCallback.mCallerInfo));
         synchronized (mWaitLock) {
             assertEquals(PlaybackState.STATE_STOPPED,
                     mSession.getController().getPlaybackState().getState());
         }
+    }
+
+    /**
+     * Tests {@link MediaSession#setCallback} with {@code null}. No callbacks will be called
+     * once {@code setCallback(null)} is done.
+     */
+    public void testSetCallbackWithNull() throws Exception {
+        MediaSessionCallback sessionCallback = new MediaSessionCallback();
+        mSession.setCallback(sessionCallback, mHandler);
+        mSession.setFlags(MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
+        mSession.setActive(true);
+
+        MediaController controller = mSession.getController();
+        setPlaybackState(PlaybackState.STATE_PLAYING);
+
+        sessionCallback.reset(1);
+        mSession.setCallback(null, mHandler);
+
+        controller.getTransportControls().pause();
+        assertFalse(sessionCallback.await(WAIT_MS));
+        assertFalse("Callback shouldn't be called.", sessionCallback.mOnPauseCalled);
     }
 
     private void setPlaybackState(int state) {
@@ -449,6 +490,8 @@ public class MediaSessionTest extends AndroidTestCase {
         mSession.release();
     }
 
+    // This uses public APIs to dispatch key events, so sessions would consider this as
+    // 'media key event from this application'.
     private void simulateMediaKeyInput(int keyCode) {
         mAudioManager.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
         mAudioManager.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, keyCode));
@@ -492,7 +535,7 @@ public class MediaSessionTest extends AndroidTestCase {
      *
      * @param controller The controller for the session
      */
-    private void verifyNewSession(MediaController controller, String tag) {
+    private void verifyNewSession(MediaController controller) {
         assertEquals("New session has unexpected configuration", 0L, controller.getFlags());
         assertNull("New session has unexpected configuration", controller.getExtras());
         assertNull("New session has unexpected configuration", controller.getMetadata());
@@ -507,7 +550,6 @@ public class MediaSessionTest extends AndroidTestCase {
 
         assertNotNull(controller.getSessionToken());
         assertNotNull(controller.getTransportControls());
-        assertEquals(tag, controller.getTag());
 
         MediaController.PlaybackInfo info = controller.getPlaybackInfo();
         assertNotNull(info);
@@ -637,6 +679,7 @@ public class MediaSessionTest extends AndroidTestCase {
         private boolean mOnRewindCalled;
         private boolean mOnSkipToPreviousCalled;
         private boolean mOnSkipToNextCalled;
+        private RemoteUserInfo mCallerInfo;
 
         public void reset(int count) {
             mLatch = new CountDownLatch(count);
@@ -660,6 +703,7 @@ public class MediaSessionTest extends AndroidTestCase {
         @Override
         public void onPlay() {
             mOnPlayCalledCount++;
+            mCallerInfo = mSession.getCurrentControllerInfo();
             setPlaybackState(PlaybackState.STATE_PLAYING);
             mLatch.countDown();
         }
@@ -667,6 +711,7 @@ public class MediaSessionTest extends AndroidTestCase {
         @Override
         public void onPause() {
             mOnPauseCalled = true;
+            mCallerInfo = mSession.getCurrentControllerInfo();
             setPlaybackState(PlaybackState.STATE_PAUSED);
             mLatch.countDown();
         }
@@ -674,6 +719,7 @@ public class MediaSessionTest extends AndroidTestCase {
         @Override
         public void onStop() {
             mOnStopCalled = true;
+            mCallerInfo = mSession.getCurrentControllerInfo();
             setPlaybackState(PlaybackState.STATE_STOPPED);
             mLatch.countDown();
         }
@@ -681,24 +727,28 @@ public class MediaSessionTest extends AndroidTestCase {
         @Override
         public void onFastForward() {
             mOnFastForwardCalled = true;
+            mCallerInfo = mSession.getCurrentControllerInfo();
             mLatch.countDown();
         }
 
         @Override
         public void onRewind() {
             mOnRewindCalled = true;
+            mCallerInfo = mSession.getCurrentControllerInfo();
             mLatch.countDown();
         }
 
         @Override
         public void onSkipToPrevious() {
             mOnSkipToPreviousCalled = true;
+            mCallerInfo = mSession.getCurrentControllerInfo();
             mLatch.countDown();
         }
 
         @Override
         public void onSkipToNext() {
             mOnSkipToNextCalled = true;
+            mCallerInfo = mSession.getCurrentControllerInfo();
             mLatch.countDown();
         }
     }

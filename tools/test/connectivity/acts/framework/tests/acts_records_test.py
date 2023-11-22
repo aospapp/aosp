@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -48,11 +48,12 @@ class ActsRecordsTest(unittest.TestCase):
         d[records.TestResultEnums.RECORD_EXTRAS] = extras
         d[records.TestResultEnums.RECORD_BEGIN_TIME] = record.begin_time
         d[records.TestResultEnums.RECORD_END_TIME] = record.end_time
-        d[records.TestResultEnums.RECORD_LOG_BEGIN_TIME] = record.log_begin_time
+        d[records.TestResultEnums.
+          RECORD_LOG_BEGIN_TIME] = record.log_begin_time
         d[records.TestResultEnums.RECORD_LOG_END_TIME] = record.log_end_time
         d[records.TestResultEnums.RECORD_UID] = None
         d[records.TestResultEnums.RECORD_CLASS] = None
-        d[records.TestResultEnums.RECORD_EXTRA_ERRORS] = {}
+        d[records.TestResultEnums.RECORD_ADDITIONAL_ERRORS] = {}
         actual_d = record.to_dict()
         self.assertDictEqual(actual_d, d)
         # Verify that these code paths do not cause crashes and yield non-empty

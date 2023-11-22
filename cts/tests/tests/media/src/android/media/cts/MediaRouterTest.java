@@ -30,6 +30,7 @@ import android.media.MediaRouter.RouteCategory;
 import android.media.MediaRouter.RouteInfo;
 import android.media.MediaRouter.UserRouteInfo;
 import android.media.RemoteControlClient;
+import android.platform.test.annotations.AppModeFull;
 import android.test.InstrumentationTestCase;
 
 import java.util.List;
@@ -38,6 +39,7 @@ import java.util.ArrayList;
 /**
  * Test {@link android.media.MediaRouter}.
  */
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaRouterTest extends InstrumentationTestCase {
 
     private static final int TEST_ROUTE_NAME_RESOURCE_ID = R.string.test_user_route_name;
@@ -155,24 +157,11 @@ public class MediaRouterTest extends InstrumentationTestCase {
         Object tag = new Object();
         route.setTag(tag);
         assertEquals(tag, route.getTag());
-
         assertEquals(AudioManager.STREAM_MUSIC, route.getPlaybackStream());
-        if (RouteInfo.PLAYBACK_VOLUME_VARIABLE == route.getVolumeHandling()) {
-            int curVolume = route.getVolume();
-            int maxVolume = route.getVolumeMax();
-            assertTrue(curVolume <= maxVolume);
-            if (!mContext.getResources().getBoolean(
-                    com.android.internal.R.bool.config_safe_media_volume_enabled)) {
-                route.requestSetVolume(maxVolume);
-                assertEquals(maxVolume, route.getVolume());
-                route.requestUpdateVolume(-maxVolume);
-            } else {
-                route.requestSetVolume(0);
-            }
-            assertEquals(0, route.getVolume());
-            route.requestUpdateVolume(curVolume);
-            assertEquals(curVolume, route.getVolume());
-        }
+
+        int curVolume = route.getVolume();
+        int maxVolume = route.getVolumeMax();
+        assertTrue(curVolume <= maxVolume);
     }
 
     /**
@@ -362,8 +351,7 @@ public class MediaRouterTest extends InstrumentationTestCase {
         MediaRouter.SimpleCallback mrsc = (MediaRouter.SimpleCallback) callback;
 
         final int allRouteTypes = MediaRouter.ROUTE_TYPE_LIVE_AUDIO
-                | MediaRouter.ROUTE_TYPE_LIVE_VIDEO | MediaRouter.ROUTE_TYPE_REMOTE_DISPLAY
-                | MediaRouter.ROUTE_TYPE_USER;
+                | MediaRouter.ROUTE_TYPE_LIVE_VIDEO | MediaRouter.ROUTE_TYPE_USER;
         mMediaRouter.addCallback(allRouteTypes, callback);
 
         // Test onRouteAdded().
@@ -376,7 +364,7 @@ public class MediaRouterTest extends InstrumentationTestCase {
         mrc.onRouteAdded(mMediaRouter, callback.mAddedRoute);
         mrsc.onRouteAdded(mMediaRouter, callback.mAddedRoute);
 
-        RouteInfo prevSelectedRoute = mMediaRouter.getSelectedRoute();
+        RouteInfo prevSelectedRoute = mMediaRouter.getSelectedRoute(allRouteTypes);
 
         // Test onRouteSelected() and onRouteUnselected().
         callback.reset();

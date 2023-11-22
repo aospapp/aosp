@@ -12,12 +12,12 @@ import multiprocessing
 import os
 import pprint
 import re
-import time
 from contextlib import contextmanager
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import constants
 from autotest_lib.client.cros.audio import audio_analysis
+from autotest_lib.client.cros.audio import audio_spec
 from autotest_lib.client.cros.audio import audio_data
 from autotest_lib.client.cros.audio import audio_helper
 from autotest_lib.client.cros.audio import audio_quality_measurement
@@ -156,7 +156,7 @@ def has_internal_speaker(host):
 
     """
     board_name = _get_board_name(host)
-    if host.get_board_type() == 'CHROMEBOX' and board_name != 'stumpy':
+    if not audio_spec.has_internal_speaker(host.get_board_type(), board_name):
         logging.info('Board %s does not have speaker.', board_name)
         return False
     return True
@@ -171,7 +171,7 @@ def has_internal_microphone(host):
 
     """
     board_name = _get_board_name(host)
-    if host.get_board_type() == 'CHROMEBOX':
+    if not audio_spec.has_internal_microphone(host.get_board_type()):
         logging.info('Board %s does not have internal microphone.', board_name)
         return False
     return True
@@ -186,7 +186,7 @@ def has_headphone(host):
 
     """
     board_name = _get_board_name(host)
-    if host.get_board_type() == 'CHROMEBIT':
+    if not audio_spec.has_headphone(host.get_board_type()):
         logging.info('Board %s does not have headphone.', board_name)
         return False
     return True
@@ -582,17 +582,26 @@ def check_recorded_frequency(
                         '(%f Hz, %f)' % (test_channel, freq, coeff))
 
         # Filter out the frequencies to be ignored.
-        spectral = [x for x in spectral if not should_be_ignored(x[0])]
+        spectral_post_ignore = [
+                x for x in spectral if not should_be_ignored(x[0])]
 
-        if len(spectral) > 1:
-            first_coeff = spectral[0][1]
-            second_coeff = spectral[1][1]
+        if len(spectral_post_ignore) > 1:
+            first_coeff = spectral_post_ignore[0][1]
+            second_coeff = spectral_post_ignore[1][1]
             if second_coeff > first_coeff * second_peak_ratio:
                 errors.append(
                         'Channel %d: Found large second dominant frequencies: '
-                        '%s' % (test_channel, spectral))
+                        '%s' % (test_channel, spectral_post_ignore))
 
-        dominant_spectrals.append(spectral[0])
+        if not spectral_post_ignore:
+            errors.append(
+                    'Channel %d: No frequency left after removing unwanted '
+                    'frequencies. Spectral: %s; After removing unwanted '
+                    'frequencies: %s' %
+                    (test_channel, spectral, spectral_post_ignore))
+
+        else:
+            dominant_spectrals.append(spectral_post_ignore[0])
 
     if errors:
         raise error.TestFail(', '.join(errors))

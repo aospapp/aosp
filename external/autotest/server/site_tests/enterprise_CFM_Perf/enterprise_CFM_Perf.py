@@ -2,87 +2,67 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import csv, datetime, glob, json, math, os, re, time
+import datetime
+import glob
+import os
+import time
 
-from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros import tpm_utils
-from autotest_lib.server import test
+from autotest_lib.client.common_lib.cros import system_metrics_collector
+from autotest_lib.client.common_lib.cros.cfm.metrics import (
+        media_metrics_collector)
 from autotest_lib.server.cros import cfm_jmidata_log_collector
-from autotest_lib.server.cros.multimedia import remote_facade_factory
+from autotest_lib.server.cros.cfm import cfm_base_test
 
 _SHORT_TIMEOUT = 5
 _MEASUREMENT_DURATION_SECONDS = 10
 _TOTAL_TEST_DURATION_SECONDS = 900
-_PERF_RESULT_FILE = 'perf.csv'
-_JMI_RESULT_FILE = 'jmidata.json'
 
 _BASE_DIR = '/home/chronos/user/Storage/ext/'
 _EXT_ID = 'ikfcpmgefdpheiiomgmhlmmkihchmdlj'
 _JMI_DIR = '/0*/File\ System/000/t/00/*'
 _JMI_SOURCE_DIR = _BASE_DIR + _EXT_ID + _JMI_DIR
 
+class ParticipantCountMetric(system_metrics_collector.Metric):
+    """
+    Metric for getting the current participant count in a call.
+    """
+    def __init__(self, cfm_facade):
+        """
+        Initializes with a cfm_facade.
 
-class enterprise_CFM_Perf(test.test):
+        @param cfm_facade object having a get_participant_count() method.
+        """
+        super(ParticipantCountMetric, self).__init__(
+                'participant_count',
+                'participants',
+                higher_is_better=True)
+        self.cfm_facade = cfm_facade
+
+    def collect_metric(self):
+        """
+        Collects one metric value.
+        """
+        self.values.append(self.cfm_facade.get_participant_count())
+
+
+class enterprise_CFM_Perf(cfm_base_test.CfmBaseTest):
     """This is a server test which clears device TPM and runs
     enterprise_RemoraRequisition client test to enroll the device in to hotrod
     mode. After enrollment is successful, it collects and logs cpu, memory and
     temperature data from the device under test."""
     version = 1
 
-
-    def _cpu_usage(self):
-        """Returns cpu usage in %."""
-        cpu_usage_start = self.system_facade.get_cpu_usage()
-        time.sleep(_MEASUREMENT_DURATION_SECONDS)
-        cpu_usage_end = self.system_facade.get_cpu_usage()
-        return self.system_facade.compute_active_cpu_time(cpu_usage_start,
-                cpu_usage_end) * 100
-
-
-    def _memory_usage(self):
-        """Returns total used memory in %."""
-        total_memory = self.system_facade.get_mem_total()
-        return ((total_memory - self.system_facade.get_mem_free())
-                * 100 / total_memory)
-
-
-    def _temperature_data(self):
-        """Returns temperature sensor data in fahrenheit."""
-        ectool = self.client.run('ectool version', ignore_status=True)
-        if not ectool.exit_status:
-            ec_temp = self.system_facade.get_ec_temperatures()
-            return ec_temp[1]
-        else:
-            temp_sensor_name = 'temp0'
-            if not temp_sensor_name:
-                return 0
-            MOSYS_OUTPUT_RE = re.compile('(\w+)="(.*?)"')
-            values = {}
-            cmd = 'mosys -k sensor print thermal %s' % temp_sensor_name
-            for kv in MOSYS_OUTPUT_RE.finditer(self.client.run_output(cmd)):
-                key, value = kv.groups()
-                if key == 'reading':
-                    value = int(value)
-                values[key] = value
-            return values['reading']
-
-
-    def enroll_device_and_start_hangout(self):
-        """Enroll device into CFM and start hangout session."""
+    def start_hangout(self):
+        """Waits for the landing page and starts a hangout session."""
+        self.cfm_facade.wait_for_hangouts_telemetry_commands()
         current_date = datetime.datetime.now().strftime("%Y-%m-%d")
         hangout_name = current_date + '-cfm-perf'
-
-        self.cfm_facade.enroll_device()
-        self.cfm_facade.skip_oobe_after_enrollment()
         self.cfm_facade.start_new_hangout_session(hangout_name)
 
 
-    def enroll_device_and_join_meeting(self):
-        """Enroll device into CFM and join a meeting session."""
-        self.cfm_facade.enroll_device()
-        self.cfm_facade.skip_oobe_after_enrollment()
-
+    def join_meeting(self):
+        """Waits for the landing page and joins a meeting session."""
         self.cfm_facade.wait_for_meetings_landing_page()
         # Daily meeting for perf testing with 9 remote participants.
         meeting_code = 'nis-rhmz-dyh'
@@ -90,87 +70,18 @@ class enterprise_CFM_Perf(test.test):
 
 
     def collect_perf_data(self):
-        """Use system facade to collect performance data from the DUT using
-        xmlrpc and save it to csv file in results directory. Data collected
-        includes:
-                1. CPU usage
-                2. Memory usage
-                3. Thermal temperature
-                4. Timestamp
-                5. Board name
-                6. Build id
+        """
+        Collects run time data from the DUT using system_metrics_collector.
+        Writes the data to the chrome perf dashboard.
         """
         start_time = time.time()
-        perf_keyval = {}
-        cpu_usage_list = list()
-        memory_usage_list = list()
-        temperature_list = list()
-        board_name = self.system_facade.get_current_board()
-        build_id = self.system_facade.get_chromeos_release_version()
-        perf_file = open(os.path.join(self.resultsdir, _PERF_RESULT_FILE), 'w')
-        writer = csv.writer(perf_file)
-        writer.writerow(['cpu', 'memory', 'temperature', 'timestamp', 'board',
-                         'build'])
         while (time.time() - start_time) < _TOTAL_TEST_DURATION_SECONDS:
-            perf_keyval['cpu_usage'] = self._cpu_usage()
-            perf_keyval['memory_usage'] = self._memory_usage()
-            perf_keyval['temperature'] = self._temperature_data()
-            writer.writerow([perf_keyval['cpu_usage'],
-                             perf_keyval['memory_usage'],
-                             perf_keyval['temperature'],
-                             time.strftime('%Y/%m/%d %H:%M:%S'),
-                             board_name,
-                             build_id])
-            self.write_perf_keyval(perf_keyval)
-            cpu_usage_list.append(perf_keyval['cpu_usage'])
-            memory_usage_list.append(perf_keyval['memory_usage'])
-            temperature_list.append(perf_keyval['temperature'])
             time.sleep(_MEASUREMENT_DURATION_SECONDS)
-        perf_file.close()
-        utils.write_keyval(os.path.join(self.resultsdir, os.pardir),
-                           {'perf_csv_folder': self.resultsdir})
-        self.upload_perf_data(cpu_usage_list,
-                              memory_usage_list,
-                              temperature_list)
-
-
-    def upload_perf_data(self, cpu_usage, memory_usage, temperature):
-        """Write perf results to results-chart.json file for Perf Dashboard.
-
-        @param cpu_usage: list of cpu usage values
-        @param memory_usage: list of memory usage values
-        @param temperature: list of temperature values
-        """
-        avg_cpu_usage = sum(cpu_usage)/len(cpu_usage)
-        avg_memory_usage = sum(memory_usage)/len(memory_usage)
-        avg_temp = sum(temperature)/len(temperature)
-
-        peak_cpu_usage = max(cpu_usage)
-        peak_memory_usage = max(memory_usage)
-        peak_temp = max(temperature)
-
-        self.output_perf_value(description='average_cpu_usage',
-                value=avg_cpu_usage, units='percent', higher_is_better=False)
-        self.output_perf_value(description='average_memory_usage',
-                value=avg_memory_usage, units='percent', higher_is_better=False)
-        self.output_perf_value(description='average_temperature',
-                value=avg_temp, units='Celsius', higher_is_better=False)
-
-        self.output_perf_value(description='cpu_usage',
-                value=cpu_usage, units='percent', higher_is_better=False)
-        self.output_perf_value(description='memory_usage',
-                value=memory_usage, units='percent', higher_is_better=False)
-        self.output_perf_value(description='temperature',
-                value=temperature, units='Celsius', higher_is_better=False)
-
-        self.output_perf_value(description='peak_cpu_usage',
-                value=peak_cpu_usage, units='percent', higher_is_better=False)
-        self.output_perf_value(description='peak_memory_usage',
-                value=peak_memory_usage, units='percent',
-                higher_is_better=False)
-        self.output_perf_value(description='peak_temperature',
-                value=peak_temp, units='Celsius', higher_is_better=False)
-
+            self.metrics_collector.collect_snapshot()
+            if self.is_meeting:
+                # Media metrics collector is only available for Meet.
+                self.media_metrics_collector.collect_snapshot()
+        self.metrics_collector.write_metrics(self.output_perf_value)
 
     def _get_average(self, data_type, jmidata):
         """Computes mean of a list of numbers.
@@ -183,22 +94,6 @@ class enterprise_CFM_Perf(test.test):
         if not data:
             return 0
         return float(sum(data)) / len(data)
-
-
-    def _get_std_dev(self, data_type, jmidata):
-        """Computes standard deviation of a list of numbers.
-
-        @param data_type: Type of data to be retrieved from jmi data log.
-        @param jmidata: Raw jmi data log to parse.
-        @return Standard deviation computed from the list of numbers.
-        """
-        data = self._get_data_from_jmifile(data_type, jmidata)
-        n = len(data)
-        if not data or n == 1:
-            return 0
-        mean = float(sum(data)) / n
-        variance = sum([(elem - mean) ** 2 for elem in data]) / (n -1)
-        return math.sqrt(variance)
 
 
     def _get_max_value(self, data_type, jmidata):
@@ -232,7 +127,8 @@ class enterprise_CFM_Perf(test.test):
 
         @param data_type: Type of data to be retrieved from jmi data log.
         @param jmidata: Raw jmi data log to parse.
-        @return Mean computed from the list of numbers.
+        @return The last value in the jmidata for the specified data_type. 0 if
+                there are no values in the jmidata for this data_type.
         """
         data = self._get_data_from_jmifile(data_type, jmidata)
         if not data:
@@ -247,8 +143,26 @@ class enterprise_CFM_Perf(test.test):
         @param jmidata: Raw jmi data log to parse.
         @return Data for given data type from jmidata log.
         """
-        return cfm_jmidata_log_collector.GetDataFromLogs(
-                self, data_type, jmidata)
+        if self.is_meeting:
+            try:
+                timestamped_values = self.media_metrics_collector.get_metric(
+                        data_type)
+            except KeyError:
+                # Ensure we always return at least one element, or perf uploads
+                # will be sad.
+                return [0]
+            # Strip timestamps.
+            values = [x[1] for x in timestamped_values]
+            # Each entry in values is a list, extract the raw values:
+            res = []
+            for value_list in values:
+                res.extend(value_list)
+            # Ensure we always return at least one element, or perf uploads will
+            # be sad.
+            return res or [0]
+        else:
+            return cfm_jmidata_log_collector.GetDataFromLogs(
+                    self, data_type, jmidata)
 
 
     def _get_file_to_parse(self):
@@ -256,70 +170,20 @@ class enterprise_CFM_Perf(test.test):
 
         @return The newest jmi log file.
         """
-        self.client.get_file(_JMI_SOURCE_DIR, self.resultsdir)
+        self._host.get_file(_JMI_SOURCE_DIR, self.resultsdir)
         source_jmi_files = self.resultsdir + '/0*'
         if not source_jmi_files:
             raise error.TestNAError('JMI data file not found.')
         newest_file = max(glob.iglob(source_jmi_files), key=os.path.getctime)
         return newest_file
 
-
-    def _dump_raw_jmi_data(self, jmidata):
-        """
-        Write the raw JMI data into the _JMI_RESULT_FILE for later processing.
-        """
-        data_types = [
-            'frames_decoded',
-            'frames_encoded',
-            'adaptation_changes',
-            'average_encode_time',
-            'bandwidth_adaptation',
-            'cpu_adaptation',
-            'video_received_frame_height',
-            'video_sent_frame_height',
-            'framerate_decoded',
-            'framerate_outgoing',
-            'framerate_to_renderer',
-            'framerate_received',
-            'framerate_sent',
-            'video_received_frame_width',
-            'video_sent_frame_width',
-            'video_encode_cpu_usage',
-            'video_packets_sent',
-            'video_packets_lost',
-            'cpu_processors',
-            'cpu_percent',
-            'renderer_cpu_percent',
-            'browser_cpu_percent',
-            'gpu_cpu_percent',
-            'num_active_vid_in_streams',
-        ]
-
-        # Collect all the raw JMI values into a dictionary.
-        results = {}
-        for data_type in data_types:
-            data = self._get_data_from_jmifile(data_type, jmidata)
-            if not data:
-                data = -1
-            results[data_type] = data
-
-        # Dump the dictionary as json into a log file.
-        result_file_path = os.path.join(self.resultsdir, _JMI_RESULT_FILE)
-        with open(result_file_path, 'w') as fp:
-            fp.write(json.dumps(results, indent=2))
-
-
     def upload_jmidata(self):
         """
-        Write jmidata results to results-chart.json file for Perf Dashboard
-        and also save the raw data.
+        Write jmidata results to results-chart.json file for Perf Dashboard.
         """
         jmi_file = self._get_file_to_parse()
         jmifile_to_parse = open(jmi_file, 'r')
         jmidata = jmifile_to_parse.read()
-
-        # Start by saving the jmi data separately as raw values in a json file.
-        self._dump_raw_jmi_data(jmidata)
 
         # Compute and save aggregated stats from JMI.
         self.output_perf_value(description='sum_vid_in_frames_decoded',
@@ -334,17 +198,9 @@ class enterprise_CFM_Perf(test.test):
                 value=self._get_last_value('adaptation_changes', jmidata),
                 units='count', higher_is_better=False)
 
-        self.output_perf_value(description='avg_video_out_encode_time',
-                value=self._get_average('average_encode_time', jmidata),
-                units='ms', higher_is_better=False)
-
         self.output_perf_value(description='video_out_encode_time',
                 value=self._get_data_from_jmifile(
                         'average_encode_time', jmidata),
-                units='ms', higher_is_better=False)
-
-        self.output_perf_value(description='std_dev_video_out_encode_time',
-                value=self._get_std_dev('average_encode_time', jmidata),
                 units='ms', higher_is_better=False)
 
         self.output_perf_value(description='max_video_out_encode_time',
@@ -359,39 +215,19 @@ class enterprise_CFM_Perf(test.test):
                 value=self._get_average('cpu_adaptation', jmidata),
                 units='bool', higher_is_better=False)
 
-        self.output_perf_value(description='avg_video_in_res',
-                value=self._get_average('video_received_frame_height', jmidata),
-                units='resolution', higher_is_better=True)
-
         self.output_perf_value(description='video_in_res',
                 value=self._get_data_from_jmifile(
                         'video_received_frame_height', jmidata),
-                units='resolution', higher_is_better=True)
-
-        self.output_perf_value(description='avg_video_out_res',
-                value=self._get_average('video_sent_frame_height', jmidata),
-                units='resolution', higher_is_better=True)
+                units='px', higher_is_better=True)
 
         self.output_perf_value(description='video_out_res',
                 value=self._get_data_from_jmifile(
                         'video_sent_frame_height', jmidata),
                 units='resolution', higher_is_better=True)
 
-        self.output_perf_value(description='std_dev_video_out_res',
-                value=self._get_std_dev('video_sent_frame_height', jmidata),
-                units='resolution', higher_is_better=True)
-
-        self.output_perf_value(description='avg_vid_in_framerate_decoded',
-                value=self._get_average('framerate_decoded', jmidata),
-                units='fps', higher_is_better=True)
-
         self.output_perf_value(description='vid_in_framerate_decoded',
                 value=self._get_data_from_jmifile(
                         'framerate_decoded', jmidata),
-                units='fps', higher_is_better=True)
-
-        self.output_perf_value(description='avg_vid_out_framerate_input',
-                value=self._get_average('framerate_outgoing', jmidata),
                 units='fps', higher_is_better=True)
 
         self.output_perf_value(description='vid_out_framerate_input',
@@ -399,21 +235,9 @@ class enterprise_CFM_Perf(test.test):
                         'framerate_outgoing', jmidata),
                 units='fps', higher_is_better=True)
 
-        self.output_perf_value(description='std_dev_vid_out_framerate_input',
-                value=self._get_std_dev('framerate_outgoing', jmidata),
-                units='fps', higher_is_better=True)
-
-        self.output_perf_value(description='avg_vid_in_framerate_to_renderer',
-                value=self._get_average('framerate_to_renderer', jmidata),
-                units='fps', higher_is_better=True)
-
         self.output_perf_value(description='vid_in_framerate_to_renderer',
                 value=self._get_data_from_jmifile(
                         'framerate_to_renderer', jmidata),
-                units='fps', higher_is_better=True)
-
-        self.output_perf_value(description='avg_vid_in_framerate_received',
-                value=self._get_average('framerate_received', jmidata),
                 units='fps', higher_is_better=True)
 
         self.output_perf_value(description='vid_in_framerate_received',
@@ -421,39 +245,19 @@ class enterprise_CFM_Perf(test.test):
                         'framerate_received', jmidata),
                 units='fps', higher_is_better=True)
 
-        self.output_perf_value(description='avg_vid_out_framerate_sent',
-                value=self._get_average('framerate_sent', jmidata),
-                units='fps', higher_is_better=True)
-
         self.output_perf_value(description='vid_out_framerate_sent',
                 value=self._get_data_from_jmifile('framerate_sent', jmidata),
-                units='fps', higher_is_better=True)
-
-        self.output_perf_value(description='std_dev_vid_out_framerate_sent',
-                value=self._get_std_dev('framerate_sent', jmidata),
-                units='fps', higher_is_better=True)
-
-        self.output_perf_value(description='avg_vid_in_frame_width',
-                value=self._get_average('video_received_frame_width', jmidata),
                 units='fps', higher_is_better=True)
 
         self.output_perf_value(description='vid_in_frame_width',
                 value=self._get_data_from_jmifile(
                         'video_received_frame_width', jmidata),
-                units='fps', higher_is_better=True)
-
-        self.output_perf_value(description='avg_vid_out_frame_width',
-                value=self._get_average('video_sent_frame_width', jmidata),
-                units='fps', higher_is_better=True)
+                units='px', higher_is_better=True)
 
         self.output_perf_value(description='vid_out_frame_width',
                 value=self._get_data_from_jmifile(
                         'video_sent_frame_width', jmidata),
-                units='fps', higher_is_better=True)
-
-        self.output_perf_value(description='avg_vid_out_encode_cpu_usage',
-                value=self._get_average('video_encode_cpu_usage', jmidata),
-                units='percent', higher_is_better=False)
+                units='px', higher_is_better=True)
 
         self.output_perf_value(description='vid_out_encode_cpu_usage',
                 value=self._get_data_from_jmifile(
@@ -469,50 +273,16 @@ class enterprise_CFM_Perf(test.test):
         self.output_perf_value(description='lost_packet_percentage',
                 value=lost_packet_percentage, units='percent',
                 higher_is_better=False)
-
-        num_processors = self._get_data_from_jmifile('cpu_processors', jmidata)
-        avg_total_cpu = self._get_average('cpu_percent', jmidata)
-        avg_render_cpu = self._get_average('renderer_cpu_percent', jmidata)
-        total_cpu = self._get_data_from_jmifile('cpu_percent', jmidata)
-        render_cpu = self._get_data_from_jmifile(
-                'renderer_cpu_percent', jmidata)
-
-        cpu_percentage = avg_total_cpu/num_processors if num_processors else 0
-        render_cpu_percent = (avg_render_cpu/num_processors
-                              if num_processors else 0)
-
-        cpu_usage = ([value / num_processors for value in total_cpu]
-                     if num_processors else 0)
-        render_cpu_usage = ([value / num_processors for value in render_cpu]
-                            if num_processors else 0)
-
-        self.output_perf_value(description='avg_cpu_usage_jmi',
-                value=cpu_percentage,
-                units='percent', higher_is_better=False)
-
         self.output_perf_value(description='cpu_usage_jmi',
-                value=cpu_usage,
+                value=self._get_data_from_jmifile('cpu_percent', jmidata),
                 units='percent', higher_is_better=False)
-
-        self.output_perf_value(description='avg_renderer_cpu_usage',
-                value=render_cpu_percent,
-                units='percent', higher_is_better=False)
-
         self.output_perf_value(description='renderer_cpu_usage',
-                value=render_cpu_usage,
+                value=self._get_data_from_jmifile(
+                    'renderer_cpu_percent', jmidata),
                 units='percent', higher_is_better=False)
-
-        self.output_perf_value(description='avg_browser_cpu_usage',
-                value=self._get_average('browser_cpu_percent', jmidata),
-                units='percent', higher_is_better=False)
-
         self.output_perf_value(description='browser_cpu_usage',
                 value=self._get_data_from_jmifile(
                         'browser_cpu_percent', jmidata),
-                units='percent', higher_is_better=False)
-
-        self.output_perf_value(description='avg_gpu_cpu_usage',
-                value=self._get_average('gpu_cpu_percent', jmidata),
                 units='percent', higher_is_better=False)
 
         self.output_perf_value(description='gpu_cpu_usage',
@@ -520,56 +290,47 @@ class enterprise_CFM_Perf(test.test):
                         'gpu_cpu_percent', jmidata),
                 units='percent', higher_is_better=False)
 
-        self.output_perf_value(description='avg_active_streams',
-                value=self._get_average('num_active_vid_in_streams', jmidata),
-                units='count', higher_is_better=True)
-
         self.output_perf_value(description='active_streams',
                 value=self._get_data_from_jmifile(
                         'num_active_vid_in_streams', jmidata),
                 units='count', higher_is_better=True)
 
-        self.output_perf_value(description='std_dev_active_streams',
-                value=self._get_std_dev('num_active_vid_in_streams', jmidata),
-                units='count', higher_is_better=True)
 
+    def initialize(self, host, run_test_only=False):
+        """
+        Initializes common test properties.
 
-    def run_once(self, host=None, is_meeting=False):
-        self.client = host
+        @param host: a host object representing the DUT.
+        @param run_test_only: Wheter to run only the test or to also perform
+            deprovisioning, enrollment and system reboot. See cfm_base_test.
+        """
+        super(enterprise_CFM_Perf, self).initialize(host, run_test_only)
+        self.system_facade = self._facade_factory.create_system_facade()
+        metrics = system_metrics_collector.create_default_metric_set(
+                self.system_facade)
+        metrics.append(ParticipantCountMetric(self.cfm_facade))
+        self.metrics_collector = (system_metrics_collector.
+                                  SystemMetricsCollector(self.system_facade,
+                                                         metrics))
+        data_point_collector = media_metrics_collector.DataPointCollector(
+                self.cfm_facade)
+        self.media_metrics_collector = (media_metrics_collector
+                                        .MetricsCollector(data_point_collector))
 
-        factory = remote_facade_factory.RemoteFacadeFactory(
-                host, no_chrome=True)
-        self.system_facade = factory.create_system_facade()
-        self.cfm_facade = factory.create_cfm_facade()
+    def run_once(self, is_meeting=False):
+        """Stays in a meeting/hangout and collects perf data."""
+        self.is_meeting = is_meeting
+        if is_meeting:
+            self.join_meeting()
+        else:
+            self.start_hangout()
 
-        tpm_utils.ClearTPMOwnerRequest(self.client)
+        self.collect_perf_data()
 
-        if self.client.servo:
-            self.client.servo.switch_usbkey('dut')
-            self.client.servo.set('usb_mux_sel3', 'dut_sees_usbkey')
-            time.sleep(_SHORT_TIMEOUT)
-            self.client.servo.set('dut_hub1_rst1', 'off')
-            time.sleep(_SHORT_TIMEOUT)
+        if is_meeting:
+            self.cfm_facade.end_meeting_session()
+        else:
+            self.cfm_facade.end_hangout_session()
 
-        try:
-            if is_meeting:
-                self.enroll_device_and_join_meeting()
-            else:
-                self.enroll_device_and_start_hangout()
-
-            self.collect_perf_data()
-
-            if is_meeting:
-                self.cfm_facade.end_meeting_session()
-            else:
-                self.cfm_facade.end_hangout_session()
-
-            self.upload_jmidata()
-        except Exception as e:
-            # Clear tpm to remove device ownership before exiting to ensure
-            # device is not left in an enrolled state.
-            tpm_utils.ClearTPMOwnerRequest(self.client)
-            raise error.TestFail(str(e))
-
-        tpm_utils.ClearTPMOwnerRequest(self.client)
+        self.upload_jmidata()
 

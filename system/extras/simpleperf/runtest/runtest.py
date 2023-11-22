@@ -168,12 +168,16 @@ class Test(object):
           self,
           test_name,
           executable_name,
+          disable_host,
+          record_options,
           report_options,
           symbol_overhead_requirements,
           symbol_children_overhead_requirements,
           symbol_relation_requirements):
     self.test_name = test_name
     self.executable_name = executable_name
+    self.disable_host = disable_host
+    self.record_options = record_options
     self.report_options = report_options
     self.symbol_overhead_requirements = symbol_overhead_requirements
     self.symbol_children_overhead_requirements = (
@@ -184,6 +188,8 @@ class Test(object):
     strs = []
     strs.append('Test test_name=%s' % self.test_name)
     strs.append('\texecutable_name=%s' % self.executable_name)
+    strs.append('\tdisable_host=%s' % self.disable_host)
+    strs.append('\trecord_options=%s' % (' '.join(self.record_options)))
     strs.append('\treport_options=%s' % (' '.join(self.report_options)))
     strs.append('\tsymbol_overhead_requirements:')
     for req in self.symbol_overhead_requirements:
@@ -206,6 +212,8 @@ def load_config_file(config_file):
     assert test.tag == 'test'
     test_name = test.attrib['name']
     executable_name = None
+    disable_host = False
+    record_options = []
     report_options = []
     symbol_overhead_requirements = []
     symbol_children_overhead_requirements = []
@@ -213,6 +221,10 @@ def load_config_file(config_file):
     for test_item in test:
       if test_item.tag == 'executable':
         executable_name = test_item.attrib['name']
+      elif test_item.tag == 'disable_host':
+        disable_host = True
+      elif test_item.tag == 'record':
+        record_options = test_item.attrib['option'].split()
       elif test_item.tag == 'report':
         report_options = test_item.attrib['option'].split()
       elif (test_item.tag == 'symbol_overhead' or
@@ -256,6 +268,8 @@ def load_config_file(config_file):
         Test(
             test_name,
             executable_name,
+            disable_host,
+            record_options,
             report_options,
             symbol_overhead_requirements,
             symbol_children_overhead_requirements,
@@ -403,18 +417,20 @@ class ReportAnalyzer(object):
         continue
       if not line[0].isspace():
         if has_callgraph:
-          m = re.search(r'^([\d\.]+)%\s+([\d\.]+)%\s+(\S+).*\s+(\S+)$', line)
-          children_overhead = float(m.group(1))
-          overhead = float(m.group(2))
-          comm = m.group(3)
-          symbol_name = m.group(4)
+          items = line.split(None, 6)
+          assert len(items) == 7
+          children_overhead = float(items[0][:-1])
+          overhead = float(items[1][:-1])
+          comm = items[2]
+          symbol_name = items[6]
           cur_symbol = Symbol(symbol_name, comm, overhead, children_overhead)
           symbols.append(cur_symbol)
         else:
-          m = re.search(r'^([\d\.]+)%\s+(\S+).*\s+(\S+)$', line)
-          overhead = float(m.group(1))
-          comm = m.group(2)
-          symbol_name = m.group(3)
+          items = line.split(None, 5)
+          assert len(items) == 6
+          overhead = float(items[0][:-1])
+          comm = items[1]
+          symbol_name = items[5]
           cur_symbol = Symbol(symbol_name, comm, overhead, 0)
           symbols.append(cur_symbol)
         # Each report item can have different column depths.
@@ -551,7 +567,10 @@ def build_runner(target, use_callgraph, sampler):
 def test_with_runner(runner, tests):
   report_analyzer = ReportAnalyzer()
   for test in tests:
-    runner.record(test.executable_name, 'perf.data')
+    if test.disable_host and runner.target.startswith('host'):
+      print('Skip test %s on %s' % (test.test_name, runner.target))
+      continue
+    runner.record(test.executable_name, 'perf.data', additional_options = test.record_options)
     if runner.sampler == 'inplace-sampler':
       # TODO: fix this when inplace-sampler actually works.
       runner.report('perf.data', 'perf.report')

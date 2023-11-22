@@ -85,6 +85,9 @@
 @r2 => *pu1_dst
 @r3 =>  dst_strd
 
+.equ    nt_offset,      104
+.equ    mode_offset,    108
+
 .text
 .align 4
 
@@ -107,9 +110,9 @@ gau1_ihevc_planar_factor_addr:
 ihevc_intra_pred_luma_mode_27_to_33_a9q:
 
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
-
-    ldr         r4,[sp,#40]                 @loads nt
-    ldr         r5,[sp,#44]                 @loads mode
+    vpush       {d8 - d15}
+    ldr         r4,[sp,#nt_offset]          @loads nt
+    ldr         r5,[sp,#mode_offset]        @loads mode
     ldr         r6,gai4_ihevc_ang_table_addr @loads word32 gai4_ihevc_ang_table[35]
 ulbl1:
     add         r6,r6,pc
@@ -534,6 +537,7 @@ core_loop_4:
     vst1.32     {d22[0]},[r2],r3
 
 end_loops:
+    vpop        {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 

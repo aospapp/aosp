@@ -20,13 +20,13 @@
 #include <vector>
 
 #include <linux/netlink.h>
-#include <linux/nl80211.h>
 #include <poll.h>
 #include <sys/socket.h>
 
 #include <android-base/logging.h>
 #include <utils/Timers.h>
 
+#include "net/kernel-header-latest/nl80211.h"
 #include "net/mlme_event.h"
 #include "net/mlme_event_handler.h"
 #include "net/nl80211_attribute.h"
@@ -54,7 +54,27 @@ void AppendPacket(vector<unique_ptr<const NL80211Packet>>* vec,
   vec->push_back(std::move(packet));
 }
 
+// Convert enum nl80211_chan_width to enum ChannelBandwidth
+ChannelBandwidth getBandwidthType(uint32_t bandwidth) {
+  switch (bandwidth) {
+    case NL80211_CHAN_WIDTH_20_NOHT:
+      return BW_20_NOHT;
+    case NL80211_CHAN_WIDTH_20:
+      return BW_20;
+    case NL80211_CHAN_WIDTH_40:
+      return BW_40;
+    case NL80211_CHAN_WIDTH_80:
+      return BW_80;
+    case NL80211_CHAN_WIDTH_80P80:
+      return BW_80P80;
+    case NL80211_CHAN_WIDTH_160:
+      return BW_160;
+  }
+  LOG(ERROR) << "Unknown bandwidth type: " << bandwidth;
+  return BW_INVALID;
 }
+
+}  // namespace
 
 NetlinkManager::NetlinkManager(EventLoop* event_loop)
     : started_(false),
@@ -179,12 +199,14 @@ void NetlinkManager::OnNewFamily(unique_ptr<const NL80211Packet> packet) {
     }
     for (auto& group : groups) {
       string group_name;
-      uint32_t group_id;
+      uint32_t group_id = 0;
       if (!group.GetAttributeValue(CTRL_ATTR_MCAST_GRP_NAME, &group_name)) {
         LOG(ERROR) << "Failed to get group name";
+        continue;
       }
       if (!group.GetAttributeValue(CTRL_ATTR_MCAST_GRP_ID, &group_id)) {
         LOG(ERROR) << "Failed to get group id";
+        continue;
       }
       message_types_[family_name].groups[group_name] = group_id;
     }
@@ -525,15 +547,13 @@ void NetlinkManager::BroadcastHandler(unique_ptr<const NL80211Packet> packet) {
     }
     return;
   }
+  if (command == NL80211_CMD_CH_SWITCH_NOTIFY) {
+    OnChannelSwitchEvent(std::move(packet));
+    return;
+  }
 }
 
 void NetlinkManager::OnRegChangeEvent(unique_ptr<const NL80211Packet> packet) {
-  uint32_t wiphy_index;
-  if (!packet->GetAttributeValue(NL80211_ATTR_WIPHY, &wiphy_index)) {
-    LOG(ERROR) << "Failed to get wiphy index from reg changed message";
-    return;
-  }
-
   uint8_t reg_type;
   if (!packet->GetAttributeValue(NL80211_ATTR_REG_TYPE, &reg_type)) {
     LOG(ERROR) << "Failed to get NL80211_ATTR_REG_TYPE";
@@ -563,13 +583,9 @@ void NetlinkManager::OnRegChangeEvent(unique_ptr<const NL80211Packet> packet) {
     return;
   }
 
-  const auto handler = on_reg_domain_changed_handler_.find(wiphy_index);
-  if (handler == on_reg_domain_changed_handler_.end()) {
-    LOG(DEBUG) << "No handler for country code changed event from wiphy"
-               << "with index: " << wiphy_index;
-    return;
+  for (const auto& handler : on_reg_domain_changed_handler_) {
+    handler.second(country_code);
   }
-  handler->second(country_code);
 }
 
 void NetlinkManager::OnMlmeEvent(unique_ptr<const NL80211Packet> packet) {
@@ -685,6 +701,32 @@ void NetlinkManager::OnScanResultsReady(unique_ptr<const NL80211Packet> packet) 
   handler->second(if_index, aborted, ssids, freqs);
 }
 
+void NetlinkManager::OnChannelSwitchEvent(unique_ptr<const NL80211Packet> packet) {
+    uint32_t if_index = 0;
+    if (!packet->GetAttributeValue(NL80211_ATTR_IFINDEX, &if_index)) {
+      LOG(WARNING) << "Failed to get NL80211_ATTR_IFINDEX"
+                   << "from channel switch event";
+      return;
+    }
+    uint32_t frequency = 0;
+    if (!packet->GetAttributeValue(NL80211_ATTR_WIPHY_FREQ, &frequency)) {
+      LOG(WARNING) << "Failed to get NL80211_ATTR_WIPHY_FREQ"
+                   << "from channel switch event";
+      return;
+    }
+    uint32_t bandwidth = 0;
+    if (!packet->GetAttributeValue(NL80211_ATTR_CHANNEL_WIDTH, &bandwidth)) {
+      LOG(WARNING) << "Failed to get NL80211_ATTR_CHANNEL_WIDTH"
+                   << "from channel switch event";
+      return;
+    }
+
+    const auto handler = on_channel_switch_event_handler_.find(if_index);
+    if (handler != on_channel_switch_event_handler_.end()) {
+      handler->second(frequency, getBandwidthType(bandwidth));
+    }
+}
+
 void NetlinkManager::SubscribeStationEvent(
     uint32_t interface_index,
     OnStationEventHandler handler) {
@@ -694,6 +736,17 @@ void NetlinkManager::SubscribeStationEvent(
 void NetlinkManager::UnsubscribeStationEvent(uint32_t interface_index) {
   on_station_event_handler_.erase(interface_index);
 }
+
+void NetlinkManager::SubscribeChannelSwitchEvent(
+      uint32_t interface_index,
+      OnChannelSwitchEventHandler handler) {
+  on_channel_switch_event_handler_[interface_index] = handler;
+}
+
+void NetlinkManager::UnsubscribeChannelSwitchEvent(uint32_t interface_index) {
+  on_channel_switch_event_handler_.erase(interface_index);
+}
+
 
 void NetlinkManager::SubscribeRegDomainChange(
     uint32_t wiphy_index,

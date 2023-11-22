@@ -25,15 +25,18 @@
 
 #include "art_field-inl.h"
 #include "art_method-inl.h"
-#include "atomic.h"
 #include "base/allocator.h"
+#include "base/atomic.h"
 #include "base/enums.h"
-#include "base/logging.h"
+#include "base/logging.h"  // For VLOG.
 #include "base/mutex.h"
+#include "base/safe_map.h"
 #include "base/stl_util.h"
 #include "class_linker-inl.h"
-#include "dex_file-inl.h"
+#include "dex/dex_file-inl.h"
+#include "dex/utf.h"
 #include "fault_handler.h"
+#include "hidden_api.h"
 #include "gc/accounting/card_table-inl.h"
 #include "gc_root.h"
 #include "indirect_reference_table-inl.h"
@@ -49,14 +52,12 @@
 #include "mirror/object_array-inl.h"
 #include "mirror/string-inl.h"
 #include "mirror/throwable.h"
-#include "nativehelper/ScopedLocalRef.h"
+#include "nativehelper/scoped_local_ref.h"
 #include "parsed_options.h"
 #include "reflection.h"
 #include "runtime.h"
-#include "safe_map.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread.h"
-#include "utf.h"
 #include "well_known_classes.h"
 
 namespace {
@@ -78,6 +79,22 @@ namespace art {
 // Consider turning this on when there is errors which could be related to JNI array copies such as
 // things not rendering correctly. E.g. b/16858794
 static constexpr bool kWarnJniAbort = false;
+
+static bool IsCallerTrusted(Thread* self) REQUIRES_SHARED(Locks::mutator_lock_) {
+  return hiddenapi::IsCallerTrusted(GetCallingClass(self, /* num_frames */ 1));
+}
+
+template<typename T>
+ALWAYS_INLINE static bool ShouldBlockAccessToMember(T* member, Thread* self)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  hiddenapi::Action action = hiddenapi::GetMemberAction(
+      member, self, IsCallerTrusted, hiddenapi::kJNI);
+  if (action != hiddenapi::kAllow) {
+    hiddenapi::NotifyHiddenApiListener(member);
+  }
+
+  return action == hiddenapi::kDeny;
+}
 
 // Helpers to call instrumentation functions for fields. These take jobjects so we don't need to set
 // up handles for the rare case where these actually do something. Once these functions return it is
@@ -238,6 +255,9 @@ static jmethodID FindMethodID(ScopedObjectAccess& soa, jclass jni_class,
   } else {
     method = c->FindClassMethod(name, sig, pointer_size);
   }
+  if (method != nullptr && ShouldBlockAccessToMember(method, soa.Self())) {
+    method = nullptr;
+  }
   if (method == nullptr || method->IsStatic() != is_static) {
     ThrowNoSuchMethodError(soa, c, name, sig, is_static ? "static" : "non-static");
     return nullptr;
@@ -314,6 +334,9 @@ static jfieldID FindFieldID(const ScopedObjectAccess& soa, jclass jni_class, con
   } else {
     field = c->FindInstanceField(name, field_type->GetDescriptor(&temp));
   }
+  if (field != nullptr && ShouldBlockAccessToMember(field, soa.Self())) {
+    field = nullptr;
+  }
   if (field == nullptr) {
     soa.Self()->ThrowNewExceptionF("Ljava/lang/NoSuchFieldError;",
                                    "no \"%s\" field \"%s\" in class \"%s\" or its superclasses",
@@ -383,7 +406,7 @@ int ThrowNewException(JNIEnv* env, jclass exception_class, const char* msg, jobj
 }
 
 static JavaVMExt* JavaVmExtFromEnv(JNIEnv* env) {
-  return reinterpret_cast<JNIEnvExt*>(env)->vm;
+  return reinterpret_cast<JNIEnvExt*>(env)->GetVm();
 }
 
 #define CHECK_NON_NULL_ARGUMENT(value) \
@@ -400,13 +423,13 @@ static JavaVMExt* JavaVmExtFromEnv(JNIEnv* env) {
 
 #define CHECK_NON_NULL_ARGUMENT_FN_NAME(name, value, return_val) \
   if (UNLIKELY((value) == nullptr)) { \
-    JavaVmExtFromEnv(env)->JniAbortF(name, #value " == null"); \
+    JavaVmExtFromEnv(env)->JniAbort(name, #value " == null"); \
     return return_val; \
   }
 
 #define CHECK_NON_NULL_MEMCPY_ARGUMENT(length, value) \
   if (UNLIKELY((length) != 0 && (value) == nullptr)) { \
-    JavaVmExtFromEnv(env)->JniAbortF(__FUNCTION__, #value " == null"); \
+    JavaVmExtFromEnv(env)->JniAbort(__FUNCTION__, #value " == null"); \
     return; \
   }
 
@@ -545,7 +568,7 @@ class JNI {
   }
 
   static jboolean ExceptionCheck(JNIEnv* env) {
-    return static_cast<JNIEnvExt*>(env)->self->IsExceptionPending() ? JNI_TRUE : JNI_FALSE;
+    return static_cast<JNIEnvExt*>(env)->self_->IsExceptionPending() ? JNI_TRUE : JNI_FALSE;
   }
 
   static void ExceptionClear(JNIEnv* env) {
@@ -623,8 +646,8 @@ class JNI {
   }
 
   static void DeleteGlobalRef(JNIEnv* env, jobject obj) {
-    JavaVMExt* vm = down_cast<JNIEnvExt*>(env)->vm;
-    Thread* self = down_cast<JNIEnvExt*>(env)->self;
+    JavaVMExt* vm = down_cast<JNIEnvExt*>(env)->GetVm();
+    Thread* self = down_cast<JNIEnvExt*>(env)->self_;
     vm->DeleteGlobalRef(self, obj);
   }
 
@@ -635,8 +658,8 @@ class JNI {
   }
 
   static void DeleteWeakGlobalRef(JNIEnv* env, jweak obj) {
-    JavaVMExt* vm = down_cast<JNIEnvExt*>(env)->vm;
-    Thread* self = down_cast<JNIEnvExt*>(env)->self;
+    JavaVMExt* vm = down_cast<JNIEnvExt*>(env)->GetVm();
+    Thread* self = down_cast<JNIEnvExt*>(env)->self_;
     vm->DeleteWeakGlobalRef(self, obj);
   }
 
@@ -659,7 +682,7 @@ class JNI {
     // it. b/22119403
     ScopedObjectAccess soa(env);
     auto* ext_env = down_cast<JNIEnvExt*>(env);
-    if (!ext_env->locals.Remove(ext_env->local_ref_cookie, obj)) {
+    if (!ext_env->locals_.Remove(ext_env->local_ref_cookie_, obj)) {
       // Attempting to delete a local reference that is not in the
       // topmost local reference frame is a no-op.  DeleteLocalRef returns
       // void and doesn't throw any exceptions, but we should probably
@@ -2310,7 +2333,7 @@ class JNI {
       // first, either as a direct or a virtual method. Then move to
       // the parent.
       ArtMethod* m = nullptr;
-      bool warn_on_going_to_parent = down_cast<JNIEnvExt*>(env)->vm->IsCheckJniEnabled();
+      bool warn_on_going_to_parent = down_cast<JNIEnvExt*>(env)->GetVm()->IsCheckJniEnabled();
       for (ObjPtr<mirror::Class> current_class = c.Get();
            current_class != nullptr;
            current_class = current_class->GetSuperClass()) {
@@ -2364,7 +2387,7 @@ class JNI {
         // TODO: make this a hard register error in the future.
       }
 
-      const void* final_function_ptr = m->RegisterNative(fnPtr, is_fast);
+      const void* final_function_ptr = m->RegisterNative(fnPtr);
       UNUSED(final_function_ptr);
     }
     return JNI_OK;
@@ -2398,10 +2421,12 @@ class JNI {
     ScopedObjectAccess soa(env);
     ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(java_object);
     o = o->MonitorEnter(soa.Self());
+    if (soa.Self()->HoldsLock(o)) {
+      soa.Env()->monitors_.Add(o);
+    }
     if (soa.Self()->IsExceptionPending()) {
       return JNI_ERR;
     }
-    soa.Env()->monitors.Add(o);
     return JNI_OK;
   }
 
@@ -2409,11 +2434,14 @@ class JNI {
     CHECK_NON_NULL_ARGUMENT_RETURN(java_object, JNI_ERR);
     ScopedObjectAccess soa(env);
     ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(java_object);
+    bool remove_mon = soa.Self()->HoldsLock(o);
     o->MonitorExit(soa.Self());
+    if (remove_mon) {
+      soa.Env()->monitors_.Remove(o);
+    }
     if (soa.Self()->IsExceptionPending()) {
       return JNI_ERR;
     }
-    soa.Env()->monitors.Remove(o);
     return JNI_OK;
   }
 
@@ -2453,7 +2481,7 @@ class JNI {
     jobject result = env->NewObject(WellKnownClasses::java_nio_DirectByteBuffer,
                                     WellKnownClasses::java_nio_DirectByteBuffer_init,
                                     address_arg, capacity_arg);
-    return static_cast<JNIEnvExt*>(env)->self->IsExceptionPending() ? nullptr : result;
+    return static_cast<JNIEnvExt*>(env)->self_->IsExceptionPending() ? nullptr : result;
   }
 
   static void* GetDirectBufferAddress(JNIEnv* env, jobject java_buffer) {
@@ -2499,7 +2527,7 @@ class JNI {
     }
 
     std::string error_msg;
-    if (!soa.Env()->locals.EnsureFreeCapacity(static_cast<size_t>(desired_capacity), &error_msg)) {
+    if (!soa.Env()->locals_.EnsureFreeCapacity(static_cast<size_t>(desired_capacity), &error_msg)) {
       std::string caller_error = android::base::StringPrintf("%s: %s", caller, error_msg.c_str());
       soa.Self()->ThrowOutOfMemoryError(caller_error.c_str());
       return JNI_ERR;

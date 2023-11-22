@@ -35,6 +35,7 @@
 
 #ifdef HAVE_LINUX_DM_IOCTL_H
 
+# include "print_fields.h"
 # include <linux/dm-ioctl.h>
 # include <linux/ioctl.h>
 
@@ -43,13 +44,16 @@
 /* Definitions for command which have been added later */
 
 #  ifndef DM_LIST_VERSIONS
-#   define DM_LIST_VERSIONS    _IOWR(DM_IOCTL, 0xd, struct dm_ioctl)
+#   define DM_LIST_VERSIONS    _IOWR(DM_IOCTL, 0x0d, struct dm_ioctl)
 #  endif
 #  ifndef DM_TARGET_MSG
-#   define DM_TARGET_MSG       _IOWR(DM_IOCTL, 0xe, struct dm_ioctl)
+#   define DM_TARGET_MSG       _IOWR(DM_IOCTL, 0x0e, struct dm_ioctl)
 #  endif
 #  ifndef DM_DEV_SET_GEOMETRY
-#   define DM_DEV_SET_GEOMETRY _IOWR(DM_IOCTL, 0xf, struct dm_ioctl)
+#   define DM_DEV_SET_GEOMETRY _IOWR(DM_IOCTL, 0x0f, struct dm_ioctl)
+#  endif
+#  ifndef DM_DEV_ARM_POLL
+#   define DM_DEV_ARM_POLL     _IOWR(DM_IOCTL, 0x10, struct dm_ioctl)
 #  endif
 
 
@@ -62,20 +66,15 @@ dm_decode_device(const unsigned int code, const struct dm_ioctl *ioc)
 	case DM_LIST_VERSIONS:
 		break;
 	default:
-		if (ioc->dev) {
-			tprints(", dev=");
-			print_dev_t(ioc->dev);
-		}
-		if (ioc->name[0]) {
-			tprints(", name=");
-			print_quoted_string(ioc->name, DM_NAME_LEN,
-					    QUOTE_0_TERMINATED);
-		}
-		if (ioc->uuid[0]) {
-			tprints(", uuid=");
-			print_quoted_string(ioc->uuid, DM_UUID_LEN,
-					    QUOTE_0_TERMINATED);
-		}
+		if (ioc->dev)
+			PRINT_FIELD_DEV(", ", *ioc, dev);
+
+		if (ioc->name[0])
+			PRINT_FIELD_CSTRING(", ", *ioc, name);
+
+		if (ioc->uuid[0])
+			PRINT_FIELD_CSTRING(", ", *ioc, uuid);
+
 		break;
 	}
 }
@@ -87,8 +86,7 @@ dm_decode_values(struct tcb *tcp, const unsigned int code,
 	if (entering(tcp)) {
 		switch (code) {
 		case DM_TABLE_LOAD:
-			tprintf(", target_count=%" PRIu32,
-				ioc->target_count);
+			PRINT_FIELD_U(", ", *ioc, target_count);
 			break;
 		case DM_DEV_SUSPEND:
 			if (ioc->flags & DM_SUSPEND_FLAG)
@@ -97,8 +95,7 @@ dm_decode_values(struct tcb *tcp, const unsigned int code,
 		case DM_DEV_RENAME:
 		case DM_DEV_REMOVE:
 		case DM_DEV_WAIT:
-			tprintf(", event_nr=%" PRIu32,
-				ioc->event_nr);
+			PRINT_FIELD_U(", ", *ioc, event_nr);
 			break;
 		}
 	} else if (!syserror(tcp)) {
@@ -113,12 +110,9 @@ dm_decode_values(struct tcb *tcp, const unsigned int code,
 		case DM_TABLE_DEPS:
 		case DM_TABLE_STATUS:
 		case DM_TARGET_MSG:
-			tprintf(", target_count=%" PRIu32,
-				ioc->target_count);
-			tprintf(", open_count=%" PRIu32,
-				ioc->open_count);
-			tprintf(", event_nr=%" PRIu32,
-				ioc->event_nr);
+			PRINT_FIELD_U(", ", *ioc, target_count);
+			PRINT_FIELD_U(", ", *ioc, open_count);
+			PRINT_FIELD_U(", ", *ioc, event_nr);
 			break;
 		}
 	}
@@ -129,8 +123,7 @@ dm_decode_values(struct tcb *tcp, const unsigned int code,
 static void
 dm_decode_flags(const struct dm_ioctl *ioc)
 {
-	tprints(", flags=");
-	printflags(dm_flags, ioc->flags, "DM_???");
+	PRINT_FIELD_FLAGS(", ", *ioc, flags, dm_flags, "DM_???");
 }
 
 static void
@@ -171,15 +164,13 @@ dm_decode_dm_target_spec(struct tcb *const tcp, const kernel_ulong_t addr,
 		if (umove_or_printaddr(tcp, addr + offset, &s))
 			break;
 
-		tprintf("{sector_start=%" PRI__u64 ", length=%" PRI__u64,
-			s.sector_start, s.length);
+		PRINT_FIELD_U("{", s, sector_start);
+		PRINT_FIELD_U(", ", s, length);
 
 		if (exiting(tcp))
-			tprintf(", status=%" PRId32, s.status);
+			PRINT_FIELD_D(", ", s, status);
 
-		tprints(", target_type=");
-		print_quoted_string(s.target_type, DM_MAX_TYPE_NAME,
-				    QUOTE_0_TERMINATED);
+		PRINT_FIELD_CSTRING(", ", s, target_type);
 
 		tprints(", string=");
 		printstr_ex(tcp, addr + offset_end, ioc->data_size - offset_end,
@@ -242,8 +233,9 @@ dm_decode_dm_target_deps(struct tcb *const tcp, const kernel_ulong_t addr,
 	if (s.count > space)
 		goto misplaced;
 
-	tprintf("{count=%u, deps=", s.count);
+	PRINT_FIELD_U("{", s, count);
 
+	tprints(", deps=");
 	print_array(tcp, addr + offset_end, s.count, &dev_buf, sizeof(dev_buf),
 		    umoven_or_printaddr, dm_print_dev, NULL);
 
@@ -266,6 +258,7 @@ dm_decode_dm_name_list(struct tcb *const tcp, const kernel_ulong_t addr,
 	uint32_t offset = ioc->data_start;
 	uint32_t offset_end = 0;
 	uint32_t count;
+	int rc;
 
 	if (ioc->data_start == ioc->data_size)
 		return;
@@ -294,12 +287,38 @@ dm_decode_dm_name_list(struct tcb *const tcp, const kernel_ulong_t addr,
 		if (umove_or_printaddr(tcp, addr + offset, &s))
 			break;
 
-		tprints("{dev=");
-		print_dev_t(s.dev);
+		PRINT_FIELD_DEV("{", s, dev);
+		tprints(", name=");
+		rc = printstr_ex(tcp, addr + offset_end,
+				 ioc->data_size - offset_end,
+				 QUOTE_0_TERMINATED);
 
-		tprints("name=");
-		printstr_ex(tcp, addr + offset_end, ioc->data_size - offset_end,
-			    QUOTE_0_TERMINATED);
+		/*
+		 * In Linux v4.13-rc1~137^2~13 it has been decided to cram in
+		 * one more undocumented field after the device name, as if the
+		 * format decoding was not twisted enough already. So, we have
+		 * to check "next" now, and if it _looks like_ that there is
+		 * a space for one additional integer, let's print it. As if the
+		 * perversity with "name string going further than pointer to
+		 * the next one" wasn't enough. Moreover, the calculation was
+		 * broken for m32 on 64-bit kernels until v4.14-rc4~20^2~3, and
+		 * we have no ability to detect kernel bit-ness (on x86, at
+		 * least), so refrain from printing it for the DM versions below
+		 * 4.37 (the original version was also aligned differently than
+		 * now even on 64 bit).
+		 */
+
+		if ((rc > 0) && ioc->version[1] >= 37) {
+			kernel_ulong_t event_addr =
+				(addr + offset_end + rc + 7) & ~7;
+			uint32_t event_nr;
+
+			if ((event_addr + sizeof(event_nr)) <=
+			    (addr + offset + s.next) &&
+			    !umove(tcp, event_addr, &event_nr))
+				tprintf(", event_nr=%" PRIu32, event_nr);
+		}
+
 		tprints("}");
 
 		if (!s.next)
@@ -397,7 +416,8 @@ dm_decode_dm_target_msg(struct tcb *const tcp, const kernel_ulong_t addr,
 		if (umove_or_printaddr(tcp, addr + offset, &s))
 			return;
 
-		tprintf("{sector=%" PRI__u64 ", message=", s.sector);
+		PRINT_FIELD_U("{", s, sector);
+		tprints(", message=");
 		printstr_ex(tcp, addr + offset_end, ioc->data_size - offset_end,
 			    QUOTE_0_TERMINATED);
 		tprints("}");
@@ -441,6 +461,7 @@ dm_ioctl_has_params(const unsigned int code)
 	case DM_DEV_SUSPEND:
 	case DM_DEV_STATUS:
 	case DM_TABLE_CLEAR:
+	case DM_DEV_ARM_POLL:
 		return false;
 	}
 
@@ -491,7 +512,7 @@ dm_known_ioctl(struct tcb *const tcp, const unsigned int code,
 	}
 
 	if (exiting(tcp) && syserror(tcp) && !ioc_changed)
-		return 1;
+		return RVAL_IOCTL_DECODED;
 
 	/*
 	 * device mapper code uses %d in some places and %u in another, but
@@ -508,7 +529,7 @@ dm_known_ioctl(struct tcb *const tcp, const unsigned int code,
 		goto skip;
 	}
 
-	tprintf(", data_size=%u", ioc->data_size);
+	PRINT_FIELD_U(", ", *ioc, data_size);
 
 	if (ioc->data_size < offsetof(struct dm_ioctl, data)) {
 		tprints_comment("data_size too small");
@@ -516,7 +537,7 @@ dm_known_ioctl(struct tcb *const tcp, const unsigned int code,
 	}
 
 	if (dm_ioctl_has_params(code))
-		tprintf(", data_start=%u", ioc->data_start);
+		PRINT_FIELD_U(", ", *ioc, data_start);
 
 	dm_decode_device(code, ioc);
 	dm_decode_values(tcp, code, ioc);
@@ -565,7 +586,7 @@ dm_known_ioctl(struct tcb *const tcp, const unsigned int code,
 
  skip:
 	tprints("}");
-	return 1;
+	return entering(tcp) ? 0 : RVAL_IOCTL_DECODED;
 }
 
 int
@@ -588,9 +609,10 @@ dm_ioctl(struct tcb *const tcp, const unsigned int code, const kernel_ulong_t ar
 	case DM_LIST_VERSIONS:
 	case DM_TARGET_MSG:
 	case DM_DEV_SET_GEOMETRY:
+	case DM_DEV_ARM_POLL:
 		return dm_known_ioctl(tcp, code, arg);
 	default:
-		return 0;
+		return RVAL_DECODED;
 	}
 }
 
@@ -599,7 +621,7 @@ dm_ioctl(struct tcb *const tcp, const unsigned int code, const kernel_ulong_t ar
 int
 dm_ioctl(struct tcb *const tcp, const unsigned int code, const kernel_ulong_t arg)
 {
-	return 0;
+	return RVAL_DECODED;
 }
 
 # endif /* DM_VERSION_MAJOR == 4 */

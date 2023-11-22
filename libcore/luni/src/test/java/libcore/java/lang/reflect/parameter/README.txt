@@ -1,131 +1,19 @@
-This directory contains the .smali files used to generate .dex files used
+This directory contains a .smali file used to generate a .dex file used
 by libcore.java.lang.reflect.ParameterTest.
 
-The use of .smali files allows construction of valid and invalid
-system annotations for parameter metadata that are then tested in
-ParameterTest.
+The use of .smali allows the generation of invalid system annotations
+for parameter metadata that would be hard for a valid toolchain to
+produce. For example,  invalid array lengths, null/empty parameter names.
 
-Regenerate the .dex files with:
+Regenerate the .dex file with:
 
 make smali
-smali assemble libcore/luni/src/test/java/libcore/java/lang/reflect/parameter/ParameterMetdataTestClasses*.smali \
-    -o libcore/luni/src/test/resources/libcore/java/lang/reflect/parameter/parameter_metadata_test_classes.dex
-
-For reference, the valid smali code should be (roughly) the equivalent of the
-following Java code when compiled using a compiler with .dex parameter metadata support
-enabled.
-
-The smali was generated using Jack to create a .dex file.
-
-For example:
-
-jack -D jack.java.source.version=1.8 \
-  --output-dex . \
-  -cp ${ANDROID_BUILD_TOP}/out/target/common/obj/JAVA_LIBRARIES/core-all_intermediates/classes.jack \
-  src/test/java/libcore/java/lang/reflect/parameter/ParameterMetadataTestClasses.java
-
-It was then decompiled using baksmali, hand modified, and a .dex generated from it using smali.
-
-ParameterMetadataTestClasses* contain valid metadata.
-MetadataVariations* contain variations on valid and invalid metdata that would be difficult to
-generate from a .java file (i.e. invalid cases, null/empty parameter names).
+smali assemble libcore/luni/src/test/java/libcore/java/lang/reflect/parameter/MetadataVariations.smali \
+    -o libcore/luni/src/test/resources/libcore/java/lang/reflect/parameter/metadata_variations.dex
 
 ---------------------
 
-package libcore.java.lang.reflect.parameter;
-
-import java.util.concurrent.Callable;
-import java.util.function.Function;
-
-public class ParameterMetadataTestClasses {
-    static class SingleParameter {
-        SingleParameter(String p0) {}
-
-        void oneParameter(String p0) {}
-    }
-
-    static class GenericParameter {
-        GenericParameter(Function<String, Integer> p0) {}
-
-        void genericParameter(Function<String, Integer> p0) {}
-    }
-
-    static class TwoParameters {
-        TwoParameters(String p0, Integer p1) {}
-
-        void twoParameters(String p0, Integer p1) {}
-    }
-
-    static class FinalParameter {
-        FinalParameter(final String p0) {}
-
-        void finalParameter(final String p0) {}
-    }
-
-    class InnerClass {
-        public InnerClass() {}
-
-        public InnerClass(String p1) {}
-
-        public InnerClass(Function<String, Integer> p1) {}
-    }
-
-    enum TestEnum { ONE, TWO }
-
-    static class SingleVarArgs {
-        SingleVarArgs(String... p0) {}
-
-        void varArgs(String... p0) {}
-    }
-
-    static class MixedVarArgs {
-        MixedVarArgs(Integer[] p0, String... p1) {}
-
-        void both(Integer[] p0, String... p1) {}
-    }
-
-    static class NonVarArgs {
-        NonVarArgs(Integer[] p0) {}
-
-        void notVarArgs(Integer[] p0) {}
-    }
-
-    static class NonIdenticalParameters {
-        void method0(String p1) {}
-
-        void method1(String p1) {}
-    }
-
-    private String outerClassMethod() {
-        return "Howdy";
-    }
-
-    public Class<?> getAnonymousClassWith1ParameterConstructor() {
-        // Deliberately not implemented with a lambda. Do not refactor.
-        Callable<String> anonymousClassObject = new Callable<String>() {
-            @Override
-            public String call() throws Exception {
-                return ParameterMetadataTestClasses.this.outerClassMethod();
-            }
-        };
-        return anonymousClassObject.getClass();
-    }
-
-    public Class<?> getMethodClassWith1ImplicitParameterConstructor() {
-        class MethodClass {
-            MethodClass() {
-                ParameterMetadataTestClasses.this.outerClassMethod();
-            }
-        }
-        return MethodClass.class;
-    }
-
-    public Class<?> getLambdaClassWith1ParameterConstructor() {
-        return ((Callable<String>) ParameterMetadataTestClasses.this::outerClassMethod).getClass();
-    }
-}
-
-----------------
+For reference, MetadataVariations started out as:
 
 package libcore.java.lang.reflect.parameter;
 

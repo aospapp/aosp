@@ -25,10 +25,7 @@
  */
 package org.apache.harmony.jpda.tests.jdwp.ClassType;
 
-import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
-import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
-import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
-import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
+import org.apache.harmony.jpda.tests.framework.jdwp.Field;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
 
 
@@ -56,57 +53,6 @@ public class JDWPClassTypeTestCase extends JDWPSyncTestCase {
       return "Lorg/apache/harmony/jpda/tests/jdwp/ClassType/ClassTypeDebuggee;";
     }
 
-    class FieldInfo {
-        private long fieldID;
-        private String name;
-        private String signature;
-        private int modBits;
-
-        /**
-         * @return Returns the fieldID.
-         */
-        public long getFieldID() {
-            return fieldID;
-        }
-
-        /**
-         * @return Returns the modBits.
-         */
-        public int getModBits() {
-            return modBits;
-        }
-
-        /**
-         * @return Returns the name.
-         */
-        public String getName() {
-            return name;
-        }
-
-        /**
-         * @return Returns the signature.
-         */
-        public String getSignature() {
-            return signature;
-        }
-
-        public FieldInfo(long fieldID, String name, String signature,
-                int modBits) {
-            super();
-            this.fieldID = fieldID;
-            this.name = name;
-            this.signature = signature;
-            this.modBits = modBits;
-        }
-
-        @Override
-        public String toString() {
-            return "fieldID=" + fieldID + "; name='" + name + "'; signature='" + signature
-            + "'; modbits=" + modBits;
-        }
-
-    }
-
     /**
      * Returns for specified class array with information about fields of this class.
      * <BR>Each element of array contains: 
@@ -114,25 +60,8 @@ public class JDWPClassTypeTestCase extends JDWPSyncTestCase {
      * @param refType - ReferenceTypeID, defining class.
      * @return array with information about fields.
      */
-    protected FieldInfo[] jdwpGetFields(long refType) {
-        CommandPacket packet = new CommandPacket(
-                JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
-                JDWPCommands.ReferenceTypeCommandSet.FieldsCommand);
-        packet.setNextValueAsReferenceTypeID(refType);
-        
-        ReplyPacket reply = debuggeeWrapper.vmMirror.performCommand(packet);
-        assertTrue(reply.getErrorCode() == JDWPConstants.Error.NONE);
-        
-        int declared = reply.getNextValueAsInt();
-        FieldInfo[] fields = new FieldInfo[declared];
-        for (int i = 0; i < declared; i++) {
-            fields[i] =
-                new FieldInfo(reply.getNextValueAsFieldID(),
-                              reply.getNextValueAsString(),
-                              reply.getNextValueAsString(),
-                              reply.getNextValueAsInt());
-        }
-        return fields;
+    protected Field[] jdwpGetFields(long refType) {
+        return debuggeeWrapper.vmMirror.getFieldsInfo(refType);
     }
 
 }

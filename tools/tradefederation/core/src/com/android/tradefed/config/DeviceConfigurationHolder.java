@@ -36,6 +36,8 @@ import java.util.Map;
  */
 public class DeviceConfigurationHolder implements IDeviceConfiguration {
     private final String mDeviceName;
+    private final boolean mIsFake;
+
     private IBuildProvider mBuildProvider = new StubBuildProvider();
     private List<ITargetPreparer> mListTargetPreparer = new ArrayList<ITargetPreparer>();
     private IDeviceRecovery mDeviceRecovery = new WaitDeviceRecovery();
@@ -45,11 +47,16 @@ public class DeviceConfigurationHolder implements IDeviceConfiguration {
     private Map<Object, Integer> mFreqMap = new HashMap<>();
 
     public DeviceConfigurationHolder() {
-        mDeviceName = "";
+        this("", false);
     }
 
     public DeviceConfigurationHolder(String deviceName) {
+        this(deviceName, false);
+    }
+
+    public DeviceConfigurationHolder(String deviceName, boolean isFake) {
         mDeviceName = deviceName;
+        mIsFake = isFake;
     }
 
     /**
@@ -60,6 +67,12 @@ public class DeviceConfigurationHolder implements IDeviceConfiguration {
         return mDeviceName;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public boolean isFake() {
+        return mIsFake;
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -68,6 +81,10 @@ public class DeviceConfigurationHolder implements IDeviceConfiguration {
         if (config instanceof IBuildProvider) {
             mBuildProvider = (IBuildProvider) config;
         } else if (config instanceof ITargetPreparer){
+            if (isFake()) {
+                throw new ConfigurationException(
+                        "cannot specify a target_preparer for a isFake=true device.");
+            }
             mListTargetPreparer.add((ITargetPreparer) config);
         } else if (config instanceof IDeviceRecovery) {
             mDeviceRecovery = (IDeviceRecovery) config;

@@ -24,10 +24,14 @@ def main(args):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-a', '--arc', action='store_true',
                         help='Enable ARC and wait for it to start.')
+    parser.add_argument('-d', '--dont_override_profile', action='store_true',
+                        help='Keep files from previous sessions.')
     args = parser.parse_args(args)
 
     # Avoid calling close() on the Chrome object; this keeps the session active.
-    chrome.Chrome(arc_mode=('enabled' if args.arc else None))
+    chrome.Chrome(
+        arc_mode=('enabled' if args.arc else None),
+        dont_override_profile=args.dont_override_profile)
 
 
 if __name__ == '__main__':

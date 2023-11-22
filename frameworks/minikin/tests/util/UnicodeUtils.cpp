@@ -14,73 +14,76 @@
  * limitations under the License.
  */
 
+#include <cstdlib>
+#include <string>
+#include <vector>
+
+#include <cutils/log.h>
 #include <unicode/utf.h>
 #include <unicode/utf8.h>
-#include <cstdlib>
-#include <cutils/log.h>
-#include <vector>
-#include <string>
+
+#include "minikin/U16StringPiece.h"
 
 namespace minikin {
 
 // src is of the form "U+1F431 | 'h' 'i'". Position of "|" gets saved to offset if non-null.
 // Size is returned in an out parameter because gtest needs a void return for ASSERT to work.
 void ParseUnicode(uint16_t* buf, size_t buf_size, const char* src, size_t* result_size,
-        size_t* offset) {
+                  size_t* offset) {
     size_t input_ix = 0;
     size_t output_ix = 0;
     bool seen_offset = false;
 
     while (src[input_ix] != 0) {
         switch (src[input_ix]) {
-        case '\'':
-            // single ASCII char
-            LOG_ALWAYS_FATAL_IF(static_cast<uint8_t>(src[input_ix]) >= 0x80);
-            input_ix++;
-            LOG_ALWAYS_FATAL_IF(src[input_ix] == 0);
-            LOG_ALWAYS_FATAL_IF(output_ix >= buf_size);
-            buf[output_ix++] = (uint16_t)src[input_ix++];
-            LOG_ALWAYS_FATAL_IF(src[input_ix] != '\'');
-            input_ix++;
-            break;
-        case 'u':
-        case 'U': {
-            // Unicode codepoint in hex syntax
-            input_ix++;
-            LOG_ALWAYS_FATAL_IF(src[input_ix] != '+');
-            input_ix++;
-            char* endptr = (char*)src + input_ix;
-            unsigned long int codepoint = strtoul(src + input_ix, &endptr, 16);
-            size_t num_hex_digits = endptr - (src + input_ix);
+            case '\'':
+                // single ASCII char
+                LOG_ALWAYS_FATAL_IF(static_cast<uint8_t>(src[input_ix]) >= 0x80);
+                input_ix++;
+                LOG_ALWAYS_FATAL_IF(src[input_ix] == 0);
+                LOG_ALWAYS_FATAL_IF(output_ix >= buf_size);
+                buf[output_ix++] = (uint16_t)src[input_ix++];
+                LOG_ALWAYS_FATAL_IF(src[input_ix] != '\'');
+                input_ix++;
+                break;
+            case 'u':
+            case 'U': {
+                // Unicode codepoint in hex syntax
+                input_ix++;
+                LOG_ALWAYS_FATAL_IF(src[input_ix] != '+');
+                input_ix++;
+                char* endptr = (char*)src + input_ix;
+                unsigned long int codepoint = strtoul(src + input_ix, &endptr, 16);
+                size_t num_hex_digits = endptr - (src + input_ix);
 
-            // also triggers on invalid number syntax, digits = 0
-            LOG_ALWAYS_FATAL_IF(num_hex_digits < 4u);
-            LOG_ALWAYS_FATAL_IF(num_hex_digits > 6u);
-            LOG_ALWAYS_FATAL_IF(codepoint > 0x10FFFFu);
-            input_ix += num_hex_digits;
-            if (U16_LENGTH(codepoint) == 1) {
-                LOG_ALWAYS_FATAL_IF(output_ix + 1 > buf_size);
-                buf[output_ix++] = codepoint;
-            } else {
-                // UTF-16 encoding
-                LOG_ALWAYS_FATAL_IF(output_ix + 2 > buf_size);
-                buf[output_ix++] = U16_LEAD(codepoint);
-                buf[output_ix++] = U16_TRAIL(codepoint);
+                // also triggers on invalid number syntax, digits = 0
+                LOG_ALWAYS_FATAL_IF(num_hex_digits < 4u);
+                LOG_ALWAYS_FATAL_IF(num_hex_digits > 6u);
+                LOG_ALWAYS_FATAL_IF(codepoint > 0x10FFFFu);
+                input_ix += num_hex_digits;
+                if (U16_LENGTH(codepoint) == 1) {
+                    LOG_ALWAYS_FATAL_IF(output_ix + 1 > buf_size);
+                    buf[output_ix++] = codepoint;
+                } else {
+                    // UTF-16 encoding
+                    LOG_ALWAYS_FATAL_IF(output_ix + 2 > buf_size);
+                    buf[output_ix++] = U16_LEAD(codepoint);
+                    buf[output_ix++] = U16_TRAIL(codepoint);
+                }
+                break;
             }
-            break;
-        }
-        case ' ':
-            input_ix++;
-            break;
-        case '|':
-            LOG_ALWAYS_FATAL_IF(seen_offset);
-            LOG_ALWAYS_FATAL_IF(offset == nullptr);
-            *offset = output_ix;
-            seen_offset = true;
-            input_ix++;
-            break;
-        default:
-            LOG_ALWAYS_FATAL("Unexpected Character");
+            case ' ':
+                input_ix++;
+                break;
+            case '|':
+                LOG_ALWAYS_FATAL_IF(seen_offset);
+                LOG_ALWAYS_FATAL_IF(offset == nullptr);
+                *offset = output_ix;
+                seen_offset = true;
+                input_ix++;
+                break;
+            default:
+                LOG_ALWAYS_FATAL("Unexpected Character");
         }
     }
     LOG_ALWAYS_FATAL_IF(result_size == nullptr);
@@ -114,6 +117,25 @@ std::vector<uint16_t> utf8ToUtf16(const std::string& text) {
         }
     }
     return result;
+}
+
+std::string utf16ToUtf8(const U16StringPiece& u16String) {
+    const uint32_t textLength = u16String.size();
+    uint32_t i = 0;
+    uint32_t c = 0;
+
+    std::string out;
+    out.reserve(textLength * 4);
+
+    while (i < textLength) {
+        U16_NEXT(u16String.data(), i, textLength, c);
+
+        char buf[U8_MAX_LENGTH] = {};
+        uint32_t outIndex = 0;
+        U8_APPEND_UNSAFE(buf, outIndex, c);
+        out.append(buf, outIndex);
+    }
+    return out;
 }
 
 }  // namespace minikin

@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
-# Copyright (c) 2010, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved.<BR>
 #
 # This program and the accompanying materials
 # are licensed and made available under the terms and conditions of the BSD License
@@ -57,7 +57,27 @@ case `uname` in
       fi
       ;;
   Linux*)
-    TARGET_TOOLS=GCC44
+    gcc_version=$(gcc -v 2>&1 | tail -1 | awk '{print $3}')
+    case $gcc_version in
+      4.5.*)
+        TARGET_TOOLS=GCC45
+        ;;
+      4.6.*)
+        TARGET_TOOLS=GCC46
+        ;;
+      4.7.*)
+        TARGET_TOOLS=GCC47
+        ;;
+      4.8.*)
+        TARGET_TOOLS=GCC48
+        ;;
+      4.9.*|4.1[0-9].*|5.*.*)
+        TARGET_TOOLS=GCC49
+        ;;
+      *)
+        TARGET_TOOLS=GCC44
+        ;;
+    esac
     ;;
 
 esac
@@ -106,10 +126,8 @@ done
 #
 echo Running edk2 build for DuetPkg$Processor
 build -p $WORKSPACE/DuetPkg/DuetPkg$Processor.dsc -a $PROCESSOR -t $TARGET_TOOLS -n 3 $*
-echo Running DuetPkg/PostBuild.sh
-$WORKSPACE/DuetPkg/PostBuild.sh $PROCESSOR $TARGET_TOOLS
 echo Running DuetPkg/CreateBootDisk.sh
 
-$WORKSPACE/DuetPkg/CreateBootDisk.sh file $FLOPPY_IMAGE /dev/null FAT12 $PROCESSOR $TARGET_TOOLS
+$WORKSPACE/DuetPkg/CreateBootDisk.sh file $FLOPPY_IMAGE /dev/null FAT12 $PROCESSOR
 exit $?
 

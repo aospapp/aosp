@@ -9,7 +9,6 @@
 
 #include <set>
 
-#include "core/fxcrt/fx_basic.h"
 #include "xfa/fwl/cfwl_event.h"
 
 class CFWL_Event;
@@ -23,13 +22,13 @@ class CFWL_EventTarget {
   void SetEventSource(CFWL_Widget* pSource);
   bool ProcessEvent(CFWL_Event* pEvent);
 
-  bool IsInvalid() const { return m_bInvalid; }
-  void FlagInvalid() { m_bInvalid = true; }
+  bool IsValid() const { return m_bValid; }
+  void FlagInvalid() { m_bValid = false; }
 
  private:
   std::set<CFWL_Widget*> m_widgets;
   CFWL_Widget* m_pListener;
-  bool m_bInvalid;
+  bool m_bValid;
 };
 
 #endif  // XFA_FWL_CFWL_EVENTTARGET_H_

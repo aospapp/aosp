@@ -40,6 +40,14 @@ public final class IntentAsserts {
         assertEquals(expected, intent.getAction());
     }
 
+    public static void assertTargetsComponent(Intent intent, Class<?> expected) {
+        assertEquals(expected.getName(), intent.getComponent().getClassName());
+    }
+
+    public static void assertHasExtra(Intent intent, String key) {
+        assertTrue(intent.getExtras().containsKey(key));
+    }
+
     public static Intent assertHasExtraIntent(Intent intent) {
         Intent extra = (Intent) intent.getExtra(EXTRA_INTENT);
         assertNotNull(extra);
@@ -63,5 +71,9 @@ public final class IntentAsserts {
         List<Parcelable> list = assertHasExtraList(intent, key);
         Assert.assertEquals(size, list.size());
         return list;
+    }
+
+    public static void assertHasData(Intent intent, Uri expected) {
+        assertEquals(expected, intent.getData());
     }
 }

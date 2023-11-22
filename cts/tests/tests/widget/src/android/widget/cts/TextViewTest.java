@@ -43,8 +43,6 @@ import static org.mockito.Mockito.when;
 
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
-import android.annotation.IntDef;
-import android.annotation.Nullable;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.Instrumentation.ActivityMonitor;
@@ -57,6 +55,7 @@ import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Paint.FontMetricsInt;
 import android.graphics.Path;
 import android.graphics.Point;
 import android.graphics.PorterDuff;
@@ -73,8 +72,9 @@ import android.os.Handler;
 import android.os.LocaleList;
 import android.os.Looper;
 import android.os.Parcelable;
-import android.os.ResultReceiver;
 import android.os.SystemClock;
+import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.MediumTest;
@@ -85,9 +85,11 @@ import android.text.Editable;
 import android.text.InputFilter;
 import android.text.InputType;
 import android.text.Layout;
+import android.text.PrecomputedText;
 import android.text.Selection;
 import android.text.Spannable;
 import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextPaint;
 import android.text.TextUtils;
@@ -138,8 +140,6 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
-import android.view.inputmethod.InputMethodManager;
-import android.view.textclassifier.TextClassification;
 import android.view.textclassifier.TextClassifier;
 import android.view.textclassifier.TextSelection;
 import android.widget.EditText;
@@ -189,15 +189,8 @@ public class TextViewTest {
     private static final int SMARTSELECT_END = 40;
     private static final TextClassifier FAKE_TEXT_CLASSIFIER = new TextClassifier() {
         @Override
-        public TextSelection suggestSelection(
-                CharSequence text, int start, int end, LocaleList locales) {
+        public TextSelection suggestSelection(TextSelection.Request request) {
             return new TextSelection.Builder(SMARTSELECT_START, SMARTSELECT_END).build();
-        }
-
-        @Override
-        public TextClassification classifyText(
-                CharSequence text, int start, int end, LocaleList locales) {
-            return new TextClassification.Builder().build();
         }
     };
     private static final int CLICK_TIMEOUT = ViewConfiguration.getDoubleTapTimeout() + 50;
@@ -1638,6 +1631,16 @@ public class TextViewTest {
             fail("Should throw exception with illegal id");
         } catch (NotFoundException e) {
         }
+    }
+
+    @UiThreadTest
+    @Test
+    public void testSetText_PrecomputedText() {
+        final TextView tv = findTextView(R.id.textview_text);
+        final PrecomputedText measured = PrecomputedText.create(
+                "This is an example text.", tv.getTextMetricsParams());
+        tv.setText(measured);
+        assertEquals(measured.toString(), tv.getText().toString());
     }
 
     @Test
@@ -3506,7 +3509,7 @@ public class TextViewTest {
         final float doubleSpacing = mTextView.getLayout().getLineWidth(0);
 
         assertEquals("Double spacing should have two times the spacing of single spacing",
-                doubleSpacing - zeroSpacing, 2f * (singleSpacing - zeroSpacing), 1f);
+                doubleSpacing - zeroSpacing, 2f * (singleSpacing - zeroSpacing), 2f);
     }
 
     @UiThreadTest
@@ -4381,6 +4384,149 @@ public class TextViewTest {
 
     @UiThreadTest
     @Test
+    public void testBaselineAttributes() {
+        mTextView = findTextView(R.id.textview_baseline);
+
+        final int firstBaselineToTopHeight = mTextView.getResources()
+                .getDimensionPixelSize(R.dimen.textview_firstBaselineToTopHeight);
+        final int lastBaselineToBottomHeight = mTextView.getResources()
+                .getDimensionPixelSize(R.dimen.textview_lastBaselineToBottomHeight);
+        final int lineHeight = mTextView.getResources()
+                .getDimensionPixelSize(R.dimen.textview_lineHeight);
+
+        assertEquals(firstBaselineToTopHeight, mTextView.getFirstBaselineToTopHeight());
+        assertEquals(lastBaselineToBottomHeight, mTextView.getLastBaselineToBottomHeight());
+        assertEquals(lineHeight, mTextView.getLineHeight());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testSetFirstBaselineToTopHeight() {
+        mTextView = new TextView(mActivity);
+        mTextView.setText("This is some random text");
+        final int padding = 100;
+        mTextView.setPadding(padding, padding, padding, padding);
+
+        final FontMetricsInt fontMetrics = mTextView.getPaint().getFontMetricsInt();
+        final int fontMetricsTop = Math.max(
+                Math.abs(fontMetrics.top), Math.abs(fontMetrics.ascent));
+
+        int firstBaselineToTopHeight = fontMetricsTop + 10;
+        mTextView.setFirstBaselineToTopHeight(firstBaselineToTopHeight);
+        assertEquals(firstBaselineToTopHeight, mTextView.getFirstBaselineToTopHeight());
+        assertNotEquals(padding, mTextView.getPaddingTop());
+
+        firstBaselineToTopHeight = fontMetricsTop + 40;
+        mTextView.setFirstBaselineToTopHeight(firstBaselineToTopHeight);
+        assertEquals(firstBaselineToTopHeight, mTextView.getFirstBaselineToTopHeight());
+
+        mTextView.setPadding(padding, padding, padding, padding);
+        assertEquals(padding, mTextView.getPaddingTop());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testSetFirstBaselineToTopHeight_tooSmall() {
+        mTextView = new TextView(mActivity);
+        mTextView.setText("This is some random text");
+        final int padding = 100;
+        mTextView.setPadding(padding, padding, padding, padding);
+
+        final FontMetricsInt fontMetrics = mTextView.getPaint().getFontMetricsInt();
+        final int fontMetricsTop = Math.min(
+                Math.abs(fontMetrics.top), Math.abs(fontMetrics.ascent));
+
+        int firstBaselineToTopHeight = fontMetricsTop - 1;
+        mTextView.setFirstBaselineToTopHeight(firstBaselineToTopHeight);
+        assertNotEquals(firstBaselineToTopHeight, mTextView.getFirstBaselineToTopHeight());
+        assertEquals(padding, mTextView.getPaddingTop());
+    }
+
+    @UiThreadTest
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetFirstBaselineToTopHeight_negative() {
+        new TextView(mActivity).setFirstBaselineToTopHeight(-1);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testSetLastBaselineToBottomHeight() {
+        mTextView = new TextView(mActivity);
+        mTextView.setText("This is some random text");
+        final int padding = 100;
+        mTextView.setPadding(padding, padding, padding, padding);
+
+        final FontMetricsInt fontMetrics = mTextView.getPaint().getFontMetricsInt();
+        final int fontMetricsBottom = Math.max(
+                Math.abs(fontMetrics.bottom), Math.abs(fontMetrics.descent));
+
+        int lastBaselineToBottomHeight = fontMetricsBottom + 20;
+        mTextView.setLastBaselineToBottomHeight(lastBaselineToBottomHeight);
+        assertEquals(lastBaselineToBottomHeight, mTextView.getLastBaselineToBottomHeight());
+        assertNotEquals(padding, mTextView.getPaddingBottom());
+
+        lastBaselineToBottomHeight = fontMetricsBottom + 30;
+        mTextView.setLastBaselineToBottomHeight(lastBaselineToBottomHeight);
+        assertEquals(lastBaselineToBottomHeight, mTextView.getLastBaselineToBottomHeight());
+
+        mTextView.setPadding(padding, padding, padding, padding);
+        assertEquals(padding, mTextView.getPaddingBottom());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testSetLastBaselineToBottomHeight_tooSmall() {
+        mTextView = new TextView(mActivity);
+        mTextView.setText("This is some random text");
+        final int padding = 100;
+        mTextView.setPadding(padding, padding, padding, padding);
+
+        final FontMetricsInt fontMetrics = mTextView.getPaint().getFontMetricsInt();
+        final int fontMetricsBottom = Math.min(
+                Math.abs(fontMetrics.bottom), Math.abs(fontMetrics.descent));
+
+        int lastBaselineToBottomHeight = fontMetricsBottom - 1;
+        mTextView.setLastBaselineToBottomHeight(lastBaselineToBottomHeight);
+        assertNotEquals(lastBaselineToBottomHeight, mTextView.getLastBaselineToBottomHeight());
+        assertEquals(padding, mTextView.getPaddingBottom());
+    }
+
+    @UiThreadTest
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetLastBaselineToBottomHeight_negative() {
+        new TextView(mActivity).setLastBaselineToBottomHeight(-1);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testSetLineHeight() {
+        mTextView = new TextView(mActivity);
+        mTextView.setText("This is some random text");
+        final float lineSpacingExtra = 50;
+        final float lineSpacingMultiplier = 0.2f;
+        mTextView.setLineSpacing(lineSpacingExtra, lineSpacingMultiplier);
+
+        mTextView.setLineHeight(100);
+        assertEquals(100, mTextView.getLineHeight());
+        assertNotEquals(lineSpacingExtra, mTextView.getLineSpacingExtra(), 0);
+        assertNotEquals(lineSpacingMultiplier, mTextView.getLineSpacingMultiplier(), 0);
+
+        mTextView.setLineHeight(200);
+        assertEquals(200, mTextView.getLineHeight());
+
+        mTextView.setLineSpacing(lineSpacingExtra, lineSpacingMultiplier);
+        assertEquals(lineSpacingExtra, mTextView.getLineSpacingExtra(), 0);
+        assertEquals(lineSpacingMultiplier, mTextView.getLineSpacingMultiplier(), 0);
+    }
+
+    @UiThreadTest
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetLineHeight_negative() {
+        new TextView(mActivity).setLineHeight(-1);
+    }
+
+    @UiThreadTest
+    @Test
     public void testDeprecatedSetTextAppearance() {
         mTextView = new TextView(mActivity);
 
@@ -4443,6 +4589,75 @@ public class TextViewTest {
 
         mTextView.setTextAppearance(R.style.TextAppearance_Style);
         assertEquals(null, mTextView.getTypeface());
+    }
+
+    @Test
+    public void testXmlTextAppearance() {
+        mTextView = findTextView(R.id.textview_textappearance_attrs1);
+        assertEquals(22f, mTextView.getTextSize(), 0.01f);
+        Typeface italicSans = Typeface.create(Typeface.SANS_SERIF, Typeface.ITALIC);
+        assertEquals(italicSans, mTextView.getTypeface());
+        assertEquals(Typeface.ITALIC, mTextView.getTypeface().getStyle());
+        assertTrue(mTextView.isAllCaps());
+        assertEquals(2.4f, mTextView.getLetterSpacing(), 0.01f);
+        assertEquals("smcp", mTextView.getFontFeatureSettings());
+
+        mTextView = findTextView(R.id.textview_textappearance_attrs2);
+        assertEquals(Typeface.MONOSPACE, mTextView.getTypeface());
+        assertEquals(mActivity.getResources().getColor(R.drawable.red),
+                mTextView.getShadowColor());
+        assertEquals(10.3f, mTextView.getShadowDx(), 0.01f);
+        assertEquals(0.5f, mTextView.getShadowDy(), 0.01f);
+        assertEquals(3.3f, mTextView.getShadowRadius(), 0.01f);
+        assertTrue(mTextView.isElegantTextHeight());
+
+        // This TextView has both a TextAppearance and a style, so the style should override.
+        mTextView = findTextView(R.id.textview_textappearance_attrs3);
+        assertEquals(32f, mTextView.getTextSize(), 0.01f);
+        Typeface boldSerif = Typeface.create(Typeface.SERIF, Typeface.BOLD);
+        assertEquals(boldSerif, mTextView.getTypeface());
+        assertEquals(Typeface.BOLD, mTextView.getTypeface().getStyle());
+        assertFalse(mTextView.isAllCaps());
+        assertEquals(2.6f, mTextView.getLetterSpacing(), 0.01f);
+        assertEquals(mActivity.getResources().getColor(R.drawable.blue),
+                mTextView.getShadowColor());
+        assertEquals(1.3f, mTextView.getShadowDx(), 0.01f);
+        assertEquals(10.5f, mTextView.getShadowDy(), 0.01f);
+        assertEquals(5.3f, mTextView.getShadowRadius(), 0.01f);
+        assertFalse(mTextView.isElegantTextHeight());
+
+        // This TextView has no TextAppearance and has a style, so the style should be applied.
+        mTextView = findTextView(R.id.textview_textappearance_attrs4);
+        assertEquals(32f, mTextView.getTextSize(), 0.01f);
+        assertEquals(boldSerif, mTextView.getTypeface());
+        assertEquals(Typeface.BOLD, mTextView.getTypeface().getStyle());
+        assertFalse(mTextView.isAllCaps());
+        assertEquals(2.6f, mTextView.getLetterSpacing(), 0.01f);
+        assertEquals(mActivity.getResources().getColor(R.drawable.blue),
+                mTextView.getShadowColor());
+        assertEquals(1.3f, mTextView.getShadowDx(), 0.01f);
+        assertEquals(10.5f, mTextView.getShadowDy(), 0.01f);
+        assertEquals(5.3f, mTextView.getShadowRadius(), 0.01f);
+        assertFalse(mTextView.isElegantTextHeight());
+
+        // Note: text, link and hint colors can't be tested due to the default style overriding
+        // values b/63923542
+    }
+
+    @Test
+    public void testXmlTypefaceFontFamilyHierarchy() {
+        // This view has typeface=serif set on the view directly and a fontFamily on the appearance.
+        // In this case, the attr set directly on the view should take precedence.
+        mTextView = findTextView(R.id.textview_textappearance_attrs_serif_fontfamily);
+
+        assertEquals(Typeface.SERIF, mTextView.getTypeface());
+    }
+
+    @Test
+    public void testAttributeReading_allCapsAndPassword() {
+        // This TextView has all caps & password, therefore all caps should be ignored.
+        mTextView = findTextView(R.id.textview_textappearance_attrs_allcaps_password);
+        assertFalse(mTextView.isAllCaps());
     }
 
     @UiThreadTest
@@ -6217,96 +6432,6 @@ public class TextViewTest {
         assertEquals("frac", textView.getFontFeatureSettings());
     }
 
-    private static class SoftInputResultReceiver extends ResultReceiver {
-        private boolean mIsDone;
-        private int mResultCode;
-
-        public SoftInputResultReceiver(Handler handler) {
-            super(handler);
-        }
-
-        @Override
-        protected void onReceiveResult(int resultCode, Bundle resultData) {
-            mResultCode = resultCode;
-            mIsDone = true;
-        }
-
-        public void reset() {
-            mIsDone = false;
-        }
-    }
-
-    @Test
-    public void testAccessShowSoftInputOnFocus() throws Throwable {
-        if (!mActivity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_INPUT_METHODS)) {
-            return;
-        }
-
-        // prepare a test Layout
-        // will add an focusable TextView so that EditText will not get focus at activity start
-        final TextView textView = new TextView(mActivity);
-        textView.setFocusable(true);
-        textView.setFocusableInTouchMode(true);
-        // EditText to test
-        final EditText editText = new EditText(mActivity);
-        editText.setShowSoftInputOnFocus(true);
-        editText.setFocusable(true);
-        editText.setFocusableInTouchMode(true);
-        // prepare and set the layout
-        final LinearLayout layout = new LinearLayout(mActivity);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.addView(textView, new ViewGroup.LayoutParams(LayoutParams.MATCH_PARENT,
-                LayoutParams.WRAP_CONTENT));
-        layout.addView(editText, new ViewGroup.LayoutParams(LayoutParams.MATCH_PARENT,
-                LayoutParams.WRAP_CONTENT));
-        mActivityRule.runOnUiThread(() -> mActivity.setContentView(layout,
-                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT)));
-        mInstrumentation.waitForIdleSync();
-
-        assertTrue(editText.getShowSoftInputOnFocus());
-
-        // And emulate click on it
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, editText);
-
-        // Verify that input method manager is active and accepting text
-        final InputMethodManager imManager = (InputMethodManager) mActivity
-                .getSystemService(Context.INPUT_METHOD_SERVICE);
-        PollingCheck.waitFor(imManager::isActive);
-        assertTrue(imManager.isAcceptingText());
-        assertTrue(imManager.isActive(editText));
-
-        // Since there is no API to check that soft input is showing, we're going to ask
-        // the input method manager to show soft input, passing our custom result receiver.
-        // We're expecting to get UNCHANGED_SHOWN, indicating that the soft input was already
-        // showing before showSoftInput was called.
-        SoftInputResultReceiver receiver = new SoftInputResultReceiver(mHandler);
-        imManager.showSoftInput(editText, 0, receiver);
-        PollingCheck.waitFor(() -> receiver.mIsDone);
-        assertEquals(InputMethodManager.RESULT_UNCHANGED_SHOWN, receiver.mResultCode);
-
-        // Close soft input
-        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
-
-        // Reconfigure our edit text to not show soft input on focus
-        mActivityRule.runOnUiThread(() -> editText.setShowSoftInputOnFocus(false));
-        mInstrumentation.waitForIdleSync();
-        assertFalse(editText.getShowSoftInputOnFocus());
-
-        // Emulate click on it
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, editText);
-
-        // Ask input method manager to show soft input again. This time we're expecting to get
-        // SHOWN, indicating that the soft input was not showing before showSoftInput was called.
-        receiver.reset();
-        imManager.showSoftInput(editText, 0, receiver);
-        PollingCheck.waitFor(() -> receiver.mIsDone);
-        assertEquals(InputMethodManager.RESULT_SHOWN, receiver.mResultCode);
-
-        // Close soft input
-        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
-    }
-
     @Test
     public void testIsSuggestionsEnabled() throws Throwable {
         mTextView = findTextView(R.id.textview_text);
@@ -7594,7 +7719,7 @@ public class TextViewTest {
 
     private boolean isWatch() {
         return (mActivity.getResources().getConfiguration().uiMode
-                & Configuration.UI_MODE_TYPE_WATCH) == Configuration.UI_MODE_TYPE_WATCH;
+                & Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_WATCH;
     }
 
     @Test
@@ -7741,6 +7866,125 @@ public class TextViewTest {
         assertEquals(Typeface.DEFAULT, mTextView.getTypeface());
         mTextView = root.findViewById(R.id.textview_fontxmlresource_textAppearance);
         assertEquals(Typeface.DEFAULT, mTextView.getTypeface());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testFallbackLineSpacing_readsFromLayoutXml() {
+        mActivity.setContentView(R.layout.textview_fallbacklinespacing_layout);
+        mTextView = findTextView(R.id.textview_true);
+        assertTrue(mTextView.isFallbackLineSpacing());
+
+        mTextView = findTextView(R.id.textview_default);
+        assertTrue(mTextView.isFallbackLineSpacing());
+
+        mTextView = findTextView(R.id.textview_false);
+        assertFalse(mTextView.isFallbackLineSpacing());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testFallbackLineSpacing_set_get() {
+        mActivity.setContentView(R.layout.textview_fallbacklinespacing_layout);
+        mTextView = findTextView(R.id.textview_true);
+        assertTrue(mTextView.isFallbackLineSpacing());
+
+        mTextView.setFallbackLineSpacing(false);
+        assertFalse(mTextView.isFallbackLineSpacing());
+
+        mTextView.setFallbackLineSpacing(true);
+        assertTrue(mTextView.isFallbackLineSpacing());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testFallbackLineSpacing_readsFromStyleXml() {
+        mActivity.setContentView(R.layout.textview_fallbacklinespacing_layout);
+        mTextView = findTextView(R.id.textview_style_true);
+        assertTrue(mTextView.isFallbackLineSpacing());
+
+        mTextView = findTextView(R.id.textview_style_default);
+        assertTrue(mTextView.isFallbackLineSpacing());
+
+        mTextView = findTextView(R.id.textview_style_false);
+        assertFalse(mTextView.isFallbackLineSpacing());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testFallbackLineSpacing_textAppearance_set_get() {
+        mActivity.setContentView(R.layout.textview_fallbacklinespacing_layout);
+        mTextView = findTextView(R.id.textview_default);
+        assertTrue(mTextView.isFallbackLineSpacing());
+
+        mTextView.setTextAppearance(R.style.TextAppearance_FallbackLineSpacingFalse);
+        assertFalse(mTextView.isFallbackLineSpacing());
+
+        mTextView.setTextAppearance(R.style.TextAppearance_FallbackLineSpacingTrue);
+        assertTrue(mTextView.isFallbackLineSpacing());
+
+        mTextView.setFallbackLineSpacing(false);
+        mTextView.setTextAppearance(R.style.TextAppearance);
+        assertFalse(mTextView.isFallbackLineSpacing());
+
+        mTextView.setFallbackLineSpacing(true);
+        mTextView.setTextAppearance(R.style.TextAppearance);
+        assertTrue(mTextView.isFallbackLineSpacing());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testTextLayoutParam() {
+        mActivity.setContentView(R.layout.textview_fallbacklinespacing_layout);
+        mTextView = findTextView(R.id.textview_default);
+        PrecomputedText.Params param = mTextView.getTextMetricsParams();
+
+        assertEquals(mTextView.getBreakStrategy(), param.getBreakStrategy());
+        assertEquals(mTextView.getHyphenationFrequency(), param.getHyphenationFrequency());
+
+        assertTrue(param.equals(mTextView.getTextMetricsParams()));
+
+        mTextView.setBreakStrategy(
+                mTextView.getBreakStrategy() == Layout.BREAK_STRATEGY_SIMPLE
+                ?  Layout.BREAK_STRATEGY_BALANCED : Layout.BREAK_STRATEGY_SIMPLE);
+
+        assertFalse(param.equals(mTextView.getTextMetricsParams()));
+
+        mTextView.setTextMetricsParams(param);
+        assertTrue(param.equals(mTextView.getTextMetricsParams()));
+    }
+
+    @Test
+    public void testDynamicLayoutReflowCrash_b75652829() throws Throwable {
+        final SpannableStringBuilder text = new SpannableStringBuilder("abcde");
+        text.setSpan(new UnderlineSpan(), 0, 5, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+        mActivityRule.runOnUiThread(() -> {
+            mTextView = new EditText(mActivity);
+            mActivity.setContentView(mTextView);
+            mTextView.setText(text, BufferType.EDITABLE);
+            mTextView.requestFocus();
+            mTextView.setSelected(true);
+            mTextView.setTextClassifier(TextClassifier.NO_OP);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        mActivityRule.runOnUiThread(() -> {
+            // Set selection and try to start action mode.
+            final Bundle args = new Bundle();
+            args.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, 0);
+            args.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, text.length());
+            mTextView.performAccessibilityAction(
+                    AccessibilityNodeInfo.ACTION_SET_SELECTION, args);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        mActivityRule.runOnUiThread(() -> {
+            Editable editable = (Editable) mTextView.getText();
+            SpannableStringBuilder ssb = new SpannableStringBuilder("a");
+            ssb.setSpan(new UnderlineSpan(), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            editable.replace(5, 5, ssb);
+        });
     }
 
     private void initializeTextForSmartSelection(CharSequence text) throws Throwable {

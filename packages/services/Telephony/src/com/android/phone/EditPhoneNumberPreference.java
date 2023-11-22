@@ -123,8 +123,8 @@ public class EditPhoneNumberPreference extends EditTextPreference {
         setDialogLayoutResource(R.layout.pref_dialog_editphonenumber);
 
         //create intent to bring up contact list
-        mContactListIntent = new Intent(Intent.ACTION_GET_CONTENT);
-        mContactListIntent.setType(Phone.CONTENT_ITEM_TYPE);
+        mContactListIntent = new Intent(Intent.ACTION_PICK);
+        mContactListIntent.setType(Phone.CONTENT_TYPE);
 
         //get the edit phone number default settings
         TypedArray a = context.obtainStyledAttributes(attrs,

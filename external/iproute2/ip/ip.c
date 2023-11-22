@@ -30,9 +30,9 @@ int human_readable;
 int use_iec;
 int show_stats;
 int show_details;
-int resolve_hosts;
 int oneline;
 int brief;
+int json;
 int timestamp;
 const char *_SL_;
 int force;
@@ -49,9 +49,10 @@ static void usage(void)
 	fprintf(stderr,
 "Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }\n"
 "       ip [ -force ] -batch filename\n"
-"where  OBJECT := { link | address | addrlabel | route | rule | neighbor | ntable |\n"
+"where  OBJECT := { link | address | addrlabel | route | rule | neigh | ntable |\n"
 "                   tunnel | tuntap | maddress | mroute | mrule | monitor | xfrm |\n"
-"                   netns | l2tp | fou | tcp_metrics | token | netconf }\n"
+"                   netns | l2tp | fou | macsec | tcp_metrics | token | netconf | ila |\n"
+"                   vrf | sr }\n"
 "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n"
 "                    -h[uman-readable] | -iec |\n"
 "                    -f[amily] { inet | inet6 | ipx | dnet | mpls | bridge | link } |\n"
@@ -84,6 +85,8 @@ static const struct cmd {
 	{ "link",	do_iplink },
 	{ "l2tp",	do_ipl2tp },
 	{ "fou",	do_ipfou },
+	{ "ila",	do_ipila },
+	{ "macsec",	do_ipmacsec },
 	{ "tunnel",	do_iptunnel },
 	{ "tunl",	do_iptunnel },
 	{ "tuntap",	do_iptuntap },
@@ -97,6 +100,8 @@ static const struct cmd {
 	{ "mrule",	do_multirule },
 	{ "netns",	do_netns },
 	{ "netconf",	do_ipnetconf },
+	{ "vrf",	do_ipvrf},
+	{ "sr",		do_seg6 },
 	{ "help",	do_help },
 	{ 0 }
 };
@@ -259,6 +264,8 @@ int main(int argc, char **argv)
 #endif
 		} else if (matches(opt, "-brief") == 0) {
 			++brief;
+		} else if (matches(opt, "-json") == 0) {
+			++json;
 		} else if (matches(opt, "-rcvbuf") == 0) {
 			unsigned int size;
 
@@ -292,6 +299,9 @@ int main(int argc, char **argv)
 	}
 
 	_SL_ = oneline ? "\\" : "\n";
+
+	if (json)
+		check_if_color_enabled();
 
 #ifndef ANDROID
 	if (batch_file)

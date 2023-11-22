@@ -21,13 +21,22 @@
         android:minSdkVersion="25" />
 
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.INSTANT_APP_FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <application
         android:label="@string/app_name">
         <uses-library android:name="android.test.runner" />
         <activity
             android:name=".EphemeralActivity"
-            android:theme="@android:style/Theme.NoDisplay">
+            android:theme="@android:style/Theme.NoDisplay" >
             <!-- TEST: normal app can start w/o knowing about this activity -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -49,7 +58,31 @@
                 <action android:name="com.android.cts.ephemeraltest.START_EPHEMERAL" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEARCH" />
+            </intent-filter>
+            <meta-data android:name="default-url"
+                       android:value="https://ephemeralapp1.cts.android.com/search" />
+            <meta-data
+                       android:name="android.app.searchable"
+                       android:resource="@xml/searchable" />
         </activity>
+        <activity
+            android:name=".EphemeralResult"
+            android:theme="@android:style/Theme.NoDisplay" >
+            <!-- TEST: allow sending results from other instant apps -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="cts.google.com" />
+                <data android:path="/result" />
+            </intent-filter>
+        </activity>
+        <provider android:name=".SearchSuggestionProvider"
+            android:authorities="com.android.cts.ephemeralapp1.Search" />
+
         <activity
             android:name=".EphemeralActivity2"
             android:theme="@android:style/Theme.NoDisplay">
@@ -88,6 +121,7 @@
                 <action android:name="com.android.cts.ephemeraltest.QUERY" />
             </intent-filter>
         </provider>
+        <service android:name=".SomeService"/>
     </application>
 
     <instrumentation

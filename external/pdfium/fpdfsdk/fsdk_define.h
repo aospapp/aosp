@@ -8,6 +8,7 @@
 #define FPDFSDK_FSDK_DEFINE_H_
 
 #include "core/fpdfapi/parser/cpdf_parser.h"
+#include "core/fxge/dib/cfx_dibitmap.h"
 #include "core/fxge/fx_dib.h"
 #include "public/fpdfview.h"
 
@@ -22,18 +23,22 @@
 
 class CPDF_Annot;
 class CPDF_Page;
+class CPDF_PageObject;
 class CPDF_PageRenderContext;
+class CPDF_PathObject;
+class CPDF_Stream;
 class IFSDK_PAUSE_Adapter;
+class FX_PATHPOINT;
 
 // Layering prevents fxcrt from knowing about FPDF_FILEACCESS, so this can't
 // be a static method of IFX_SeekableReadStream.
-CFX_RetainPtr<IFX_SeekableReadStream> MakeSeekableReadStream(
+RetainPtr<IFX_SeekableReadStream> MakeSeekableReadStream(
     FPDF_FILEACCESS* pFileAccess);
 
 #ifdef PDF_ENABLE_XFA
 // Layering prevents fxcrt from knowing about FPDF_FILEHANDLER, so this can't
 // be a static method of IFX_SeekableStream.
-CFX_RetainPtr<IFX_SeekableStream> MakeSeekableStream(
+RetainPtr<IFX_SeekableStream> MakeSeekableStream(
     FPDF_FILEHANDLER* pFileHandler);
 #endif  // PDF_ENABLE_XFA
 
@@ -60,7 +65,28 @@ FPDF_DOCUMENT FPDFDocumentFromCPDFDocument(CPDF_Document* doc);
 
 CPDF_Page* CPDFPageFromFPDFPage(FPDF_PAGE page);
 
+CPDF_PathObject* CPDFPathObjectFromFPDFPageObject(FPDF_PAGEOBJECT page_object);
+
+CPDF_PageObject* CPDFPageObjectFromFPDFPageObject(FPDF_PAGEOBJECT page_object);
+
+CPDF_Object* CPDFObjectFromFPDFAttachment(FPDF_ATTACHMENT attachment);
+
+ByteString CFXByteStringFromFPDFWideString(FPDF_WIDESTRING wide_string);
+
 CFX_DIBitmap* CFXBitmapFromFPDFBitmap(FPDF_BITMAP bitmap);
+
+CFX_FloatRect CFXFloatRectFromFSRECTF(const FS_RECTF& rect);
+void FSRECTFFromCFXFloatRect(const CFX_FloatRect& rect, FS_RECTF* out_rect);
+
+const FX_PATHPOINT* FXPathPointFromFPDFPathSegment(FPDF_PATHSEGMENT segment);
+
+unsigned long Utf16EncodeMaybeCopyAndReturnLength(const WideString& text,
+                                                  void* buffer,
+                                                  unsigned long buflen);
+
+unsigned long DecodeStreamMaybeCopyAndReturnLength(const CPDF_Stream* stream,
+                                                   void* buffer,
+                                                   unsigned long buflen);
 
 void FSDK_SetSandBoxPolicy(FPDF_DWORD policy, FPDF_BOOL enable);
 FPDF_BOOL FSDK_IsSandBoxPolicyEnabled(FPDF_DWORD policy);
@@ -78,5 +104,10 @@ void FPDF_RenderPage_Retail(CPDF_PageRenderContext* pContext,
 void CheckUnSupportError(CPDF_Document* pDoc, uint32_t err_code);
 void CheckUnSupportAnnot(CPDF_Document* pDoc, const CPDF_Annot* pPDFAnnot);
 void ProcessParseError(CPDF_Parser::Error err);
+FPDF_BOOL FPDFPageObj_SetFillColor(FPDF_PAGEOBJECT page_object,
+                                   unsigned int R,
+                                   unsigned int G,
+                                   unsigned int B,
+                                   unsigned int A);
 
 #endif  // FPDFSDK_FSDK_DEFINE_H_

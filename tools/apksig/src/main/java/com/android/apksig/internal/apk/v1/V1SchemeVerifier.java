@@ -39,9 +39,9 @@ import com.android.apksig.internal.util.AndroidSdkVersion;
 import com.android.apksig.internal.util.ByteBufferUtils;
 import com.android.apksig.internal.util.GuaranteedEncodedFormX509Certificate;
 import com.android.apksig.internal.util.InclusiveIntRange;
-import com.android.apksig.internal.util.MessageDigestSink;
 import com.android.apksig.internal.zip.CentralDirectoryRecord;
 import com.android.apksig.internal.zip.LocalFileRecord;
+import com.android.apksig.util.DataSinks;
 import com.android.apksig.util.DataSource;
 import com.android.apksig.zip.ZipFormatException;
 import java.io.ByteArrayInputStream;
@@ -89,6 +89,12 @@ public abstract class V1SchemeVerifier {
      * Verifies the provided APK's JAR signatures and returns the result of verification. APK is
      * considered verified only if {@link Result#verified} is {@code true}. If verification fails,
      * the result will contain errors -- see {@link Result#getErrors()}.
+     *
+     * <p>Verification succeeds iff the APK's JAR signatures are expected to verify on all Android
+     * platform versions in the {@code [minSdkVersion, maxSdkVersion]} range. If the APK's signature
+     * is expected to not verify on any of the specified platform versions, this method returns a
+     * result with one or more errors and whose {@code Result.verified == false}, or this method
+     * throws an exception.
      *
      * @throws ApkFormatException if the APK is malformed
      * @throws IOException if an I/O error occurs when reading the APK
@@ -1859,7 +1865,7 @@ public abstract class V1SchemeVerifier {
                         apk,
                         cdRecord,
                         cdOffsetInApk,
-                        new MessageDigestSink(mds));
+                        DataSinks.asDataSink(mds));
             } catch (ZipFormatException e) {
                 throw new ApkFormatException("Malformed ZIP entry: " + entryName, e);
             } catch (IOException e) {

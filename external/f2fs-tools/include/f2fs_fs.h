@@ -12,16 +12,53 @@
 #ifndef __F2FS_FS_H__
 #define __F2FS_FS_H__
 
-#include <inttypes.h>
-#include <linux/types.h>
-#include <sys/types.h>
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
+#ifdef __ANDROID__
+#define WITH_ANDROID
+#endif
+
+#ifdef WITH_ANDROID
+#include <android_config.h>
+#else
+#define WITH_DUMP
+#define WITH_DEFRAG
+#define WITH_RESIZE
+#define WITH_SLOAD
+#endif
+
+#include <inttypes.h>
+#ifdef HAVE_LINUX_TYPES_H
+#include <linux/types.h>
+#endif
+#include <sys/types.h>
+
 #ifdef HAVE_LINUX_BLKZONED_H
 #include <linux/blkzoned.h>
+#endif
+
+#ifdef HAVE_LIBSELINUX
+#include <selinux/selinux.h>
+#include <selinux/label.h>
+#endif
+
+#ifdef UNUSED
+#elif defined(__GNUC__)
+# define UNUSED(x) UNUSED_ ## x __attribute__((unused))
+#elif defined(__LCLINT__)
+# define UNUSED(x) x
+#else
+# define UNUSED(x) x
+#endif
+
+#ifdef ANDROID_WINDOWS_HOST
+#undef HAVE_LINUX_TYPES_H
+typedef uint64_t u_int64_t;
+typedef uint32_t u_int32_t;
+typedef uint16_t u_int16_t;
+typedef uint8_t u_int8_t;
 #endif
 
 typedef u_int64_t	u64;
@@ -30,9 +67,24 @@ typedef u_int16_t	u16;
 typedef u_int8_t	u8;
 typedef u32		block_t;
 typedef u32		nid_t;
+#ifndef bool
 typedef u8		bool;
+#endif
 typedef unsigned long	pgoff_t;
 typedef unsigned short	umode_t;
+
+#ifndef HAVE_LINUX_TYPES_H
+typedef u8	__u8;
+typedef u16	__u16;
+typedef u32	__u32;
+typedef u64	__u64;
+typedef u16	__le16;
+typedef u32	__le32;
+typedef u64	__le64;
+typedef u16	__be16;
+typedef u32	__be32;
+typedef u64	__be64;
+#endif
 
 #if HAVE_BYTESWAP_H
 #include <byteswap.h>
@@ -167,6 +219,14 @@ static inline uint64_t bswap_64(uint64_t val)
 		printf("%-30s" fmt, #member, ((ptr)->member));	\
 	} while (0)
 
+#define DISP_u16(ptr, member)						\
+	do {								\
+		assert(sizeof((ptr)->member) == 2);			\
+		printf("%-30s" "\t\t[0x%8x : %u]\n",			\
+			#member, le16_to_cpu(((ptr)->member)),		\
+			le16_to_cpu(((ptr)->member)));			\
+	} while (0)
+
 #define DISP_u32(ptr, member)						\
 	do {								\
 		assert(sizeof((ptr)->member) <= 4);			\
@@ -209,7 +269,9 @@ static inline uint64_t bswap_64(uint64_t val)
 		snprintf(buf, len, #member)
 
 /* these are defined in kernel */
+#ifndef PAGE_SIZE
 #define PAGE_SIZE		4096
+#endif
 #define PAGE_CACHE_SIZE		4096
 #define BITS_PER_BYTE		8
 #define F2FS_SUPER_MAGIC	0xF2F52010	/* F2FS Magic Number */
@@ -230,6 +292,7 @@ static inline uint64_t bswap_64(uint64_t val)
 #define VERSION_LEN	256
 
 enum f2fs_config_func {
+	MKFS,
 	FSCK,
 	DUMP,
 	DEFRAG,
@@ -272,6 +335,7 @@ struct f2fs_configuration {
 	u_int64_t device_size;
 	u_int64_t total_sectors;
 	u_int64_t wanted_total_sectors;
+	u_int64_t wanted_sector_size;
 	u_int64_t target_sectors;
 	u_int32_t sectors_per_blk;
 	u_int32_t blks_per_seg;
@@ -292,11 +356,13 @@ struct f2fs_configuration {
 	int trimmed;
 	int func;
 	void *private;
+	int dry_run;
 	int fix_on;
 	int bug_on;
 	int auto_fix;
 	int preen_mode;
 	int ro;
+	int preserve_limits;		/* preserve quota limits */
 	__le32 feature;			/* defined features */
 
 	/* defragmentation parameters */
@@ -308,6 +374,16 @@ struct f2fs_configuration {
 	/* sload parameters */
 	char *from_dir;
 	char *mount_point;
+	char *target_out_dir;
+	char *fs_config_file;
+	time_t fixed_time;
+#ifdef HAVE_LIBSELINUX
+	struct selinux_opt seopt_file[8];
+	int nr_opt;
+#endif
+
+	/* precomputed fs UUID checksum for seeding other checksums */
+	u_int32_t chksum_seed;
 };
 
 #ifdef CONFIG_64BIT
@@ -393,6 +469,7 @@ struct f2fs_configuration {
  */
 #define __round_mask(x, y)	((__typeof__(x))((y)-1))
 #define round_down(x, y)	((x) & ~__round_mask(x, y))
+
 #define min(x, y) ({				\
 	typeof(x) _min1 = (x);			\
 	typeof(y) _min2 = (y);			\
@@ -447,6 +524,12 @@ enum {
 #define F2FS_NODE_INO(sbi)	(sbi->node_ino_num)
 #define F2FS_META_INO(sbi)	(sbi->meta_ino_num)
 
+#define F2FS_MAX_QUOTAS		3
+#define QUOTA_DATA(i)		(2)
+#define QUOTA_INO(sb,t)	(le32_to_cpu((sb)->qf_ino[t]))
+
+#define FS_IMMUTABLE_FL		0x00000010 /* Immutable file */
+
 /* This flag is used by node and meta inodes, and by recovery */
 #define GFP_F2FS_ZERO	(GFP_NOFS | __GFP_ZERO)
 
@@ -460,14 +543,23 @@ enum {
 #define MAX_ACTIVE_NODE_LOGS	8
 #define MAX_ACTIVE_DATA_LOGS	8
 
-#define F2FS_FEATURE_ENCRYPT	0x0001
-#define F2FS_FEATURE_BLKZONED	0x0002
+#define F2FS_FEATURE_ENCRYPT		0x0001
+#define F2FS_FEATURE_BLKZONED		0x0002
+#define F2FS_FEATURE_ATOMIC_WRITE	0x0004
+#define F2FS_FEATURE_EXTRA_ATTR		0x0008
+#define F2FS_FEATURE_PRJQUOTA		0x0010
+#define F2FS_FEATURE_INODE_CHKSUM	0x0020
+#define F2FS_FEATURE_FLEXIBLE_INLINE_XATTR	0x0040
+#define F2FS_FEATURE_QUOTA_INO		0x0080
+#define F2FS_FEATURE_INODE_CRTIME	0x0100
+#define F2FS_FEATURE_VERITY		0x0400	/* reserved */
 
 #define MAX_VOLUME_NAME		512
 
 /*
  * For superblock
  */
+#pragma pack(push, 1)
 struct f2fs_device {
 	__u8 path[MAX_PATH_LEN];
 	__le32 total_segments;
@@ -512,12 +604,14 @@ struct f2fs_super_block {
 	__u8 encryption_level;		/* versioning level for encryption */
 	__u8 encrypt_pw_salt[16];	/* Salt used for string2key algorithm */
 	struct f2fs_device devs[MAX_DEVICES];	/* device list */
-	__u8 reserved[327];		/* valid reserved region */
+	__le32 qf_ino[F2FS_MAX_QUOTAS];	/* quota inode numbers */
+	__u8 reserved[315];		/* valid reserved region */
 } __attribute__((packed));
 
 /*
  * For checkpoint
  */
+#define CP_NOCRC_RECOVERY_FLAG	0x00000200
 #define CP_TRIMMED_FLAG		0x00000100
 #define CP_NAT_BITS_FLAG	0x00000080
 #define CP_CRC_RECOVERY_FLAG	0x00000040
@@ -559,6 +653,9 @@ struct f2fs_checkpoint {
 	unsigned char sit_nat_version_bitmap[1];
 } __attribute__((packed));
 
+#define MAX_SIT_BITMAP_SIZE_IN_CKPT	\
+	(CHECKSUM_OFFSET - sizeof(struct f2fs_checkpoint) + 1 - 64)
+
 /*
  * For orphan inode management
  */
@@ -583,11 +680,12 @@ struct f2fs_extent {
 } __attribute__((packed));
 
 #define F2FS_NAME_LEN		255
-#define F2FS_INLINE_XATTR_ADDRS	50	/* 200 bytes for inline xattrs */
+/* 200 bytes for inline xattrs by default */
+#define DEFAULT_INLINE_XATTR_ADDRS	50
 #define DEF_ADDRS_PER_INODE	923	/* Address Pointers in an Inode */
+#define CUR_ADDRS_PER_INODE(inode)	(DEF_ADDRS_PER_INODE - \
+					__get_extra_isize(inode))
 #define ADDRS_PER_INODE(i)	addrs_per_inode(i)
-#define DEF_ADDRS_PER_INODE_INLINE_XATTR				\
-		(DEF_ADDRS_PER_INODE - F2FS_INLINE_XATTR_ADDRS)
 #define ADDRS_PER_BLOCK         1018	/* Address Pointers in a Direct Block */
 #define NIDS_PER_BLOCK          1018	/* Node IDs in an Indirect Block */
 
@@ -602,22 +700,44 @@ struct f2fs_extent {
 #define F2FS_INLINE_DENTRY	0x04	/* file inline dentry flag */
 #define F2FS_DATA_EXIST		0x08	/* file inline data exist flag */
 #define F2FS_INLINE_DOTS	0x10	/* file having implicit dot dentries */
+#define F2FS_EXTRA_ATTR		0x20	/* file having extra attribute */
 
-#define MAX_INLINE_DATA (sizeof(__le32) *				\
-			(DEF_ADDRS_PER_INODE_INLINE_XATTR - 1))
+#if !defined(offsetof)
+#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#endif
 
+#define F2FS_TOTAL_EXTRA_ATTR_SIZE			\
+	(offsetof(struct f2fs_inode, i_extra_end) -	\
+	offsetof(struct f2fs_inode, i_extra_isize))	\
+
+#define	F2FS_DEF_PROJID		0	/* default project ID */
+
+#define MAX_INLINE_DATA(node) (sizeof(__le32) *				\
+				(DEF_ADDRS_PER_INODE -			\
+				get_inline_xattr_addrs(&node->i) -	\
+				get_extra_isize(node) -			\
+				DEF_INLINE_RESERVED_SIZE))
+#define DEF_MAX_INLINE_DATA	(sizeof(__le32) *			\
+				(DEF_ADDRS_PER_INODE -			\
+				DEFAULT_INLINE_XATTR_ADDRS -		\
+				F2FS_TOTAL_EXTRA_ATTR_SIZE -		\
+				DEF_INLINE_RESERVED_SIZE))
 #define INLINE_DATA_OFFSET	(PAGE_CACHE_SIZE - sizeof(struct node_footer) \
-				- sizeof(__le32)*(DEF_ADDRS_PER_INODE + 5 - 1))
+				- sizeof(__le32)*(DEF_ADDRS_PER_INODE + 5 - \
+				DEF_INLINE_RESERVED_SIZE))
 
 #define DEF_DIR_LEVEL		0
 
 /*
  * i_advise uses FADVISE_XXX_BIT. We can add additional hints later.
  */
-#define FADVISE_COLD_BIT       0x01
-#define FADVISE_LOST_PINO_BIT  0x02
-#define FADVISE_ENCRYPT_BIT    0x04
-#define FADVISE_ENC_NAME_BIT   0x08
+#define FADVISE_COLD_BIT	0x01
+#define FADVISE_LOST_PINO_BIT	0x02
+#define FADVISE_ENCRYPT_BIT	0x04
+#define FADVISE_ENC_NAME_BIT	0x08
+#define FADVISE_KEEP_SIZE_BIT	0x10
+#define FADVISE_HOT_BIT		0x20
+#define FADVISE_VERITY_BIT	0x40	/* reserved */
 
 #define file_is_encrypt(fi)      ((fi)->i_advise & FADVISE_ENCRYPT_BIT)
 #define file_enc_name(fi)        ((fi)->i_advise & FADVISE_ENC_NAME_BIT)
@@ -648,11 +768,22 @@ struct f2fs_inode {
 
 	struct f2fs_extent i_ext;	/* caching a largest extent */
 
-	__le32 i_addr[DEF_ADDRS_PER_INODE];	/* Pointers to data blocks */
-
+	union {
+		struct {
+			__le16 i_extra_isize;	/* extra inode attribute size */
+			__le16 i_inline_xattr_size;	/* inline xattr size, unit: 4 bytes */
+			__le32 i_projid;	/* project id */
+			__le32 i_inode_checksum;/* inode meta checksum */
+			__le64 i_crtime;	/* creation time */
+			__le32 i_crtime_nsec;	/* creation time in nano scale */
+			__le32 i_extra_end[0];	/* for attribute size calculation */
+		} __attribute__((packed));
+		__le32 i_addr[DEF_ADDRS_PER_INODE];	/* Pointers to data blocks */
+	};
 	__le32 i_nid[5];		/* direct(2), indirect(2),
 						double_indirect(1) node id */
 } __attribute__((packed));
+
 
 struct direct_node {
 	__le32 addr[ADDRS_PER_BLOCK];	/* array of data block address */
@@ -671,7 +802,6 @@ enum {
 
 #define XATTR_NODE_OFFSET	((((unsigned int)-1) << OFFSET_BIT_SHIFT) \
 				>> OFFSET_BIT_SHIFT)
-
 struct node_footer {
 	__le32 nid;		/* node id */
 	__le32 ino;		/* inode nunmber */
@@ -721,7 +851,7 @@ struct f2fs_nat_block {
  * disk is 16 TB and it equals to 16 * 1024 * 1024 / 2 segments.
  */
 #define F2FS_MAX_SEGMENT       ((16 * 1024 * 1024) / 2)
-#define MAX_SIT_BITMAP_SIZE    (SEG_ALIGN(ALIGN(F2FS_MAX_SEGMENT, \
+#define MAX_SIT_BITMAP_SIZE    (SEG_ALIGN(SIZE_ALIGN(F2FS_MAX_SEGMENT, \
 						SIT_ENTRY_PER_BLOCK)) * \
 						c.blks_per_seg / 8)
 
@@ -908,24 +1038,21 @@ struct f2fs_dentry_block {
 	struct f2fs_dir_entry dentry[NR_DENTRY_IN_BLOCK];
 	__u8 filename[NR_DENTRY_IN_BLOCK][F2FS_SLOT_LEN];
 } __attribute__((packed));
+#pragma pack(pop)
+
+/* for inline stuff */
+#define DEF_INLINE_RESERVED_SIZE	1
 
 /* for inline dir */
-#define NR_INLINE_DENTRY	(MAX_INLINE_DATA * BITS_PER_BYTE / \
+#define NR_INLINE_DENTRY(node)	(MAX_INLINE_DATA(node) * BITS_PER_BYTE / \
 				((SIZE_OF_DIR_ENTRY + F2FS_SLOT_LEN) * \
 				BITS_PER_BYTE + 1))
-#define INLINE_DENTRY_BITMAP_SIZE	((NR_INLINE_DENTRY + \
+#define INLINE_DENTRY_BITMAP_SIZE(node)	((NR_INLINE_DENTRY(node) + \
 					BITS_PER_BYTE - 1) / BITS_PER_BYTE)
-#define INLINE_RESERVED_SIZE	(MAX_INLINE_DATA - \
+#define INLINE_RESERVED_SIZE(node)	(MAX_INLINE_DATA(node) - \
 				((SIZE_OF_DIR_ENTRY + F2FS_SLOT_LEN) * \
-				NR_INLINE_DENTRY + INLINE_DENTRY_BITMAP_SIZE))
-
-/* inline directory entry structure */
-struct f2fs_inline_dentry {
-	__u8 dentry_bitmap[INLINE_DENTRY_BITMAP_SIZE];
-	__u8 reserved[INLINE_RESERVED_SIZE];
-	struct f2fs_dir_entry dentry[NR_INLINE_DENTRY];
-	__u8 filename[NR_INLINE_DENTRY][F2FS_SLOT_LEN];
-} __attribute__((packed));
+				NR_INLINE_DENTRY(node) + \
+				INLINE_DENTRY_BITMAP_SIZE(node)))
 
 /* file types used in inode_info->flags */
 enum FILE_TYPE {
@@ -954,6 +1081,7 @@ extern int utf8_to_utf16(u_int16_t *, const char *, size_t, size_t);
 extern int utf16_to_utf8(char *, const u_int16_t *, size_t, size_t);
 extern int log_base_2(u_int32_t);
 extern unsigned int addrs_per_inode(struct f2fs_inode *);
+extern __u32 f2fs_inode_chksum(struct f2fs_node *);
 
 extern int get_bits_in_byte(unsigned char n);
 extern int test_and_set_bit_le(u32, u8 *);
@@ -973,7 +1101,9 @@ extern int f2fs_devs_are_umounted(void);
 extern int f2fs_dev_is_umounted(char *);
 extern int f2fs_get_device_info(void);
 extern int get_device_info(int);
-extern void f2fs_finalize_device(void);
+extern int f2fs_init_sparse_file(void);
+extern int f2fs_finalize_device(void);
+extern int f2fs_fsync_device(void);
 
 extern int dev_read(void *, __u64, size_t);
 extern int dev_write(void *, __u64, size_t);
@@ -988,7 +1118,34 @@ extern int dev_reada_block(__u64);
 
 extern int dev_read_version(void *, __u64, size_t);
 extern void get_kernel_version(__u8 *);
+extern void get_kernel_uname_version(__u8 *);
 f2fs_hash_t f2fs_dentry_hash(const unsigned char *, int);
+
+static inline bool f2fs_has_extra_isize(struct f2fs_inode *inode)
+{
+	return (inode->i_inline & F2FS_EXTRA_ATTR);
+}
+
+static inline int __get_extra_isize(struct f2fs_inode *inode)
+{
+	if (f2fs_has_extra_isize(inode))
+		return le16_to_cpu(inode->i_extra_isize) / sizeof(__le32);
+	return 0;
+}
+
+extern struct f2fs_configuration c;
+static inline int get_inline_xattr_addrs(struct f2fs_inode *inode)
+{
+	if (c.feature & cpu_to_le32(F2FS_FEATURE_FLEXIBLE_INLINE_XATTR))
+		return le16_to_cpu(inode->i_inline_xattr_size);
+	else if (inode->i_inline & F2FS_INLINE_XATTR ||
+			inode->i_inline & F2FS_INLINE_DENTRY)
+		return DEFAULT_INLINE_XATTR_ADDRS;
+	else
+		return 0;
+}
+
+#define get_extra_isize(node)	__get_extra_isize(&node->i)
 
 #define F2FS_ZONED_NONE		0
 #define F2FS_ZONED_HA		1
@@ -1059,9 +1216,9 @@ extern int f2fs_reset_zones(int);
 
 extern struct f2fs_configuration c;
 
-#define ALIGN(val, size)	((val) + (size) - 1) / (size)
-#define SEG_ALIGN(blks)		ALIGN(blks, c.blks_per_seg)
-#define ZONE_ALIGN(blks)	ALIGN(blks, c.blks_per_seg * \
+#define SIZE_ALIGN(val, size)	((val) + (size) - 1) / (size)
+#define SEG_ALIGN(blks)		SIZE_ALIGN(blks, c.blks_per_seg)
+#define ZONE_ALIGN(blks)	SIZE_ALIGN(blks, c.blks_per_seg * \
 					c.segs_per_zone)
 
 static inline double get_best_overprovision(struct f2fs_super_block *sb)
@@ -1101,6 +1258,26 @@ static inline __le64 get_cp_crc(struct f2fs_checkpoint *cp)
 
 	cp_ver |= ((u_int64_t)crc << 32);
 	return cpu_to_le64(cp_ver);
+}
+
+static inline int exist_qf_ino(struct f2fs_super_block *sb)
+{
+	int i;
+
+	for (i = 0; i < F2FS_MAX_QUOTAS; i++)
+		if (sb->qf_ino[i])
+			return 1;
+	return 0;
+}
+
+static inline int is_qf_ino(struct f2fs_super_block *sb, nid_t ino)
+{
+	int i;
+
+	for (i = 0; i < F2FS_MAX_QUOTAS; i++)
+		if (sb->qf_ino[i] == ino)
+			return 1;
+	return 0;
 }
 
 #endif	/*__F2FS_FS_H */

@@ -1,7 +1,8 @@
 /** @file
   Boot functions implementation for UefiPxeBc Driver.
 
-  Copyright (c) 2009 - 2014, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2009 - 2016, Intel Corporation. All rights reserved.<BR>
+  (C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -144,7 +145,7 @@ PxeBcSelectBootPrompt (
   Status = gBS->SetTimer (
                   TimeoutEvent,
                   TimerRelative,
-                  Timeout * TICKS_PER_SECOND
+                  MultU64x32 (Timeout, TICKS_PER_SECOND)
                   );
   if (EFI_ERROR (Status)) {
     goto ON_EXIT;
@@ -620,9 +621,19 @@ PxeBcDhcp6BootInfo (
   ASSERT (Cache6->OptList[PXEBC_DHCP6_IDX_BOOT_FILE_URL] != NULL);
 
   //
+  // Set the station address to IP layer.
+  //
+  Status = PxeBcSetIp6Address (Private);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+
+  //
   // Parse (m)tftp server ip address and bootfile name.
   //
   Status = PxeBcExtractBootFileUrl (
+             Private,
              &Private->BootFileName,
              &Private->ServerIp.v6,
              (CHAR8 *) (Cache6->OptList[PXEBC_DHCP6_IDX_BOOT_FILE_URL]->Data),
@@ -632,14 +643,6 @@ PxeBcDhcp6BootInfo (
     return Status;
   }
 
-  //
-  // Set the station address to IP layer.
-  //
-  Status = PxeBcSetIp6Address (Private);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-  
   //
   // Parse the value of boot file size.
   //
@@ -1228,7 +1231,7 @@ ON_EXIT:
   PxeBcUninstallCallback(Private, NewMakeCallback);
 
   if (Status == EFI_SUCCESS) {
-    AsciiPrint ("\n  Succeed to download NBP file.\n");
+    AsciiPrint ("\n  NBP file downloaded successfully.\n");
     return EFI_SUCCESS;
   } else if (Status == EFI_BUFFER_TOO_SMALL && Buffer != NULL) {
     AsciiPrint ("\n  PXE-E05: Buffer size is smaller than the requested file.\n");

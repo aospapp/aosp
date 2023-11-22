@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"សំឡេងប៊្លូធូសត្រូវបានភ្ជាប់"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"សំឡេងប៊្លូធូសត្រូវបានផ្តាច់"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"សំឡេងប៊្លូធូស"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"ឯកសារ​ដែល​មាន​ទំហំ​ធំ​ជាង 4 GB មិន​អាចផ្ទេរ​បាន​ទេ"</string>
 </resources>

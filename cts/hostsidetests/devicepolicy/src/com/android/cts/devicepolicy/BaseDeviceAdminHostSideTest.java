@@ -90,36 +90,21 @@ public abstract class BaseDeviceAdminHostSideTest extends BaseDevicePolicyTest {
         runTests(getDeviceAdminApkPackage(), "DeviceAdminTest");
     }
 
-    private void clearPasswordForDeviceOwner() throws Exception {
-        runTests(getDeviceAdminApkPackage(), "ClearPasswordTest");
-    }
-
-    private void makeDoAndClearPassword() throws Exception {
-        // Clear the password.  We do it by promoting the DA to DO.
-        setDeviceOwner(getAdminReceiverComponent(), mUserId, /*expectFailure*/ false);
-        try {
-            clearPasswordForDeviceOwner();
-        } finally {
-            assertTrue("Failed to clear device owner",
-                    removeAdmin(getAdminReceiverComponent(), mUserId));
-            // Clearing DO removes the DA too, so we need to set it again.
-            setDeviceAdmin(getAdminReceiverComponent(), mUserId);
-        }
-    }
-
     public void testResetPassword_nycRestrictions() throws Exception {
         if (!mHasFeature) {
             return;
         }
 
-        // If there's a password, clear it.
-        makeDoAndClearPassword();
         try {
             runTests(getDeviceAdminApkPackage(), "DeviceAdminPasswordTest",
                             "testResetPassword_nycRestrictions");
         } finally {
-            makeDoAndClearPassword();
+            changeUserCredential(null, "1234", 0);
         }
+    }
+
+    private void clearPasswordForDeviceOwner() throws Exception {
+        runTests(getDeviceAdminApkPackage(), "ClearPasswordTest");
     }
 
     /**
@@ -131,9 +116,6 @@ public abstract class BaseDeviceAdminHostSideTest extends BaseDevicePolicyTest {
         }
 
         setDeviceOwner(getAdminReceiverComponent(), mUserId, /*expectFailure*/ false);
-
-        clearPasswordForDeviceOwner();
-
         try {
             runTests(getDeviceAdminApkPackage(), "DeviceOwnerPasswordTest");
         } finally {

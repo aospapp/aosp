@@ -15,22 +15,26 @@
  */
 package com.android.tradefed.util;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.FileInputStreamSource;
+import com.android.tradefed.result.ILogSaverListener;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.SubprocessEventHelper.BaseTestEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.FailedTestEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.InvocationFailedEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.InvocationStartedEventInfo;
+import com.android.tradefed.util.SubprocessEventHelper.LogAssociationEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.TestEndedEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.TestLogEventInfo;
+import com.android.tradefed.util.SubprocessEventHelper.TestModuleStartedEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.TestRunEndedEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.TestRunFailedEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.TestRunStartedEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.TestStartedEventInfo;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -60,7 +64,10 @@ import java.util.regex.Pattern;
 public class SubprocessTestResultsParser implements Closeable {
 
     private ITestInvocationListener mListener;
-    private TestIdentifier currentTest = null;
+
+    private TestDescription mCurrentTest = null;
+    private IInvocationContext mCurrentModuleContext = null;
+
     private Pattern mPattern = null;
     private Map<String, EventHandler> mHandlerMap = null;
     private EventReceiverThread mEventReceiver = null;
@@ -78,7 +85,10 @@ public class SubprocessTestResultsParser implements Closeable {
         public static final String TEST_RUN_ENDED = "TEST_RUN_ENDED";
         public static final String TEST_RUN_FAILED = "TEST_RUN_FAILED";
         public static final String TEST_RUN_STARTED = "TEST_RUN_STARTED";
+        public static final String TEST_MODULE_STARTED = "TEST_MODULE_STARTED";
+        public static final String TEST_MODULE_ENDED = "TEST_MODULE_ENDED";
         public static final String TEST_LOG = "TEST_LOG";
+        public static final String LOG_ASSOCIATION = "LOG_ASSOCIATION";
         public static final String INVOCATION_STARTED = "INVOCATION_STARTED";
     }
 
@@ -119,7 +129,7 @@ public class SubprocessTestResultsParser implements Closeable {
                 String event = null;
                 while ((event = in.readLine()) != null) {
                     try {
-                        CLog.i("received event: '%s'", event);
+                        CLog.d("received event: '%s'", event);
                         parse(event);
                     } catch (JSONException e) {
                         CLog.e(e);
@@ -210,7 +220,10 @@ public class SubprocessTestResultsParser implements Closeable {
         sb.append(StatusKeys.TEST_RUN_ENDED).append("|");
         sb.append(StatusKeys.TEST_RUN_FAILED).append("|");
         sb.append(StatusKeys.TEST_RUN_STARTED).append("|");
+        sb.append(StatusKeys.TEST_MODULE_STARTED).append("|");
+        sb.append(StatusKeys.TEST_MODULE_ENDED).append("|");
         sb.append(StatusKeys.TEST_LOG).append("|");
+        sb.append(StatusKeys.LOG_ASSOCIATION).append("|");
         sb.append(StatusKeys.INVOCATION_STARTED);
         String patt = String.format("(.*)(%s)( )(.*)", sb.toString());
         mPattern = Pattern.compile(patt);
@@ -227,7 +240,10 @@ public class SubprocessTestResultsParser implements Closeable {
         mHandlerMap.put(StatusKeys.TEST_RUN_ENDED, new TestRunEndedEventHandler());
         mHandlerMap.put(StatusKeys.TEST_RUN_FAILED, new TestRunFailedEventHandler());
         mHandlerMap.put(StatusKeys.TEST_RUN_STARTED, new TestRunStartedEventHandler());
+        mHandlerMap.put(StatusKeys.TEST_MODULE_STARTED, new TestModuleStartedEventHandler());
+        mHandlerMap.put(StatusKeys.TEST_MODULE_ENDED, new TestModuleEndedEventHandler());
         mHandlerMap.put(StatusKeys.TEST_LOG, new TestLogEventHandler());
+        mHandlerMap.put(StatusKeys.LOG_ASSOCIATION, new LogAssociationEventHandler());
         mHandlerMap.put(StatusKeys.INVOCATION_STARTED, new InvocationStartedEventHandler());
     }
 
@@ -284,8 +300,8 @@ public class SubprocessTestResultsParser implements Closeable {
     }
 
     private void checkCurrentTestId(String className, String testName) {
-        if (currentTest == null) {
-            currentTest = new TestIdentifier(className, testName);
+        if (mCurrentTest == null) {
+            mCurrentTest = new TestDescription(className, testName);
             CLog.w("Calling a test event without having called testStarted.");
         }
     }
@@ -318,9 +334,11 @@ public class SubprocessTestResultsParser implements Closeable {
         public void handleEvent(String eventJson) throws JSONException {
             try {
                 TestRunEndedEventInfo rei = new TestRunEndedEventInfo(new JSONObject(eventJson));
-                mListener.testRunEnded(rei.mTime, rei.mRunMetrics);
+                // TODO: Parse directly as proto.
+                mListener.testRunEnded(
+                        rei.mTime, TfMetricProtoUtil.upgradeConvert(rei.mRunMetrics));
             } finally {
-                currentTest = null;
+                mCurrentTest = null;
             }
         }
     }
@@ -338,11 +356,11 @@ public class SubprocessTestResultsParser implements Closeable {
         @Override
         public void handleEvent(String eventJson) throws JSONException {
             TestStartedEventInfo bti = new TestStartedEventInfo(new JSONObject(eventJson));
-            currentTest = new TestIdentifier(bti.mClassName, bti.mTestName);
+            mCurrentTest = new TestDescription(bti.mClassName, bti.mTestName);
             if (bti.mStartTime != null) {
-                mListener.testStarted(currentTest, bti.mStartTime);
+                mListener.testStarted(mCurrentTest, bti.mStartTime);
             } else {
-                mListener.testStarted(currentTest);
+                mListener.testStarted(mCurrentTest);
             }
         }
     }
@@ -352,7 +370,7 @@ public class SubprocessTestResultsParser implements Closeable {
         public void handleEvent(String eventJson) throws JSONException {
             FailedTestEventInfo fti = new FailedTestEventInfo(new JSONObject(eventJson));
             checkCurrentTestId(fti.mClassName, fti.mTestName);
-            mListener.testFailed(currentTest, fti.mTrace);
+            mListener.testFailed(mCurrentTest, fti.mTrace);
         }
     }
 
@@ -363,12 +381,16 @@ public class SubprocessTestResultsParser implements Closeable {
                 TestEndedEventInfo tei = new TestEndedEventInfo(new JSONObject(eventJson));
                 checkCurrentTestId(tei.mClassName, tei.mTestName);
                 if (tei.mEndTime != null) {
-                    mListener.testEnded(currentTest, tei.mEndTime, tei.mRunMetrics);
+                    mListener.testEnded(
+                            mCurrentTest,
+                            tei.mEndTime,
+                            TfMetricProtoUtil.upgradeConvert(tei.mRunMetrics));
                 } else {
-                    mListener.testEnded(currentTest, tei.mRunMetrics);
+                    mListener.testEnded(
+                            mCurrentTest, TfMetricProtoUtil.upgradeConvert(tei.mRunMetrics));
                 }
             } finally {
-                currentTest = null;
+                mCurrentTest = null;
             }
         }
     }
@@ -378,7 +400,7 @@ public class SubprocessTestResultsParser implements Closeable {
         public void handleEvent(String eventJson) throws JSONException {
             BaseTestEventInfo baseTestIgnored = new BaseTestEventInfo(new JSONObject(eventJson));
             checkCurrentTestId(baseTestIgnored.mClassName, baseTestIgnored.mTestName);
-            mListener.testIgnored(currentTest);
+            mListener.testIgnored(mCurrentTest);
         }
     }
 
@@ -388,7 +410,28 @@ public class SubprocessTestResultsParser implements Closeable {
             FailedTestEventInfo FailedAssumption =
                     new FailedTestEventInfo(new JSONObject(eventJson));
             checkCurrentTestId(FailedAssumption.mClassName, FailedAssumption.mTestName);
-            mListener.testAssumptionFailure(currentTest, FailedAssumption.mTrace);
+            mListener.testAssumptionFailure(mCurrentTest, FailedAssumption.mTrace);
+        }
+    }
+
+    private class TestModuleStartedEventHandler implements EventHandler {
+        @Override
+        public void handleEvent(String eventJson) throws JSONException {
+            TestModuleStartedEventInfo module =
+                    new TestModuleStartedEventInfo(new JSONObject(eventJson));
+            mCurrentModuleContext = module.mModuleContext;
+            mListener.testModuleStarted(module.mModuleContext);
+        }
+    }
+
+    private class TestModuleEndedEventHandler implements EventHandler {
+        @Override
+        public void handleEvent(String eventJson) throws JSONException {
+            if (mCurrentModuleContext == null) {
+                CLog.w("Calling testModuleEnded when testModuleStarted was not called.");
+            }
+            mListener.testModuleEnded();
+            mCurrentModuleContext = null;
         }
     }
 
@@ -402,6 +445,18 @@ public class SubprocessTestResultsParser implements Closeable {
                 mListener.testLog(name, logInfo.mLogType, data);
             } finally {
                 FileUtil.deleteFile(logInfo.mDataFile);
+            }
+        }
+    }
+
+    private class LogAssociationEventHandler implements EventHandler {
+        @Override
+        public void handleEvent(String eventJson) throws JSONException {
+            LogAssociationEventInfo assosInfo =
+                    new LogAssociationEventInfo(new JSONObject(eventJson));
+            if (mListener instanceof ILogSaverListener) {
+                ((ILogSaverListener) mListener)
+                        .logAssociation(assosInfo.mDataName, assosInfo.mLoggedFile);
             }
         }
     }
@@ -424,5 +479,10 @@ public class SubprocessTestResultsParser implements Closeable {
      */
     public Long getStartTime() {
         return mStartTime;
+    }
+
+    /** Returns the test that is currently in progress. */
+    public TestDescription getCurrentTest() {
+        return mCurrentTest;
     }
 }

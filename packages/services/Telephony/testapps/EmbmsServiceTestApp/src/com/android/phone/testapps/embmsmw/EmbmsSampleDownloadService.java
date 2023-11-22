@@ -31,8 +31,9 @@ import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.telephony.MbmsDownloadSession;
+import android.telephony.mbms.DownloadProgressListener;
 import android.telephony.mbms.DownloadRequest;
-import android.telephony.mbms.DownloadStateCallback;
+import android.telephony.mbms.DownloadStatusListener;
 import android.telephony.mbms.FileInfo;
 import android.telephony.mbms.FileServiceInfo;
 import android.telephony.mbms.MbmsDownloadSessionCallback;
@@ -143,9 +144,16 @@ public class EmbmsSampleDownloadService extends Service {
         }
 
         @Override
-        public int registerStateCallback(DownloadRequest downloadRequest,
-                DownloadStateCallback callback) throws RemoteException {
-            mDownloadStateCallbacks.put(downloadRequest, callback);
+        public int addStatusListener(DownloadRequest downloadRequest,
+                DownloadStatusListener callback) throws RemoteException {
+            mDownloadStatusCallbacks.put(downloadRequest, callback);
+            return MbmsErrors.SUCCESS;
+        }
+
+        @Override
+        public int addProgressListener(DownloadRequest downloadRequest,
+                DownloadProgressListener callback) throws RemoteException {
+            mDownloadProgressCallbacks.put(downloadRequest, callback);
             return MbmsErrors.SUCCESS;
         }
 
@@ -183,7 +191,9 @@ public class EmbmsSampleDownloadService extends Service {
     // A map of app-identifiers to (maps of service-ids to sets of temp file uris in use)
     private final Map<FrontendAppIdentifier, Map<String, Set<Uri>>> mTempFilesInUse =
             new ConcurrentHashMap<>();
-    private final Map<DownloadRequest, DownloadStateCallback> mDownloadStateCallbacks =
+    private final Map<DownloadRequest, DownloadStatusListener> mDownloadStatusCallbacks =
+            new ConcurrentHashMap<>();
+    private final Map<DownloadRequest, DownloadProgressListener> mDownloadProgressCallbacks =
             new ConcurrentHashMap<>();
 
     private HandlerThread mHandlerThread;
@@ -334,13 +344,14 @@ public class EmbmsSampleDownloadService extends Service {
             UriPathPair tempFile, FileInfo fileToDownload) {
         int result = MbmsDownloadSession.RESULT_SUCCESSFUL;
         // Test Callback
-        DownloadStateCallback c = mDownloadStateCallbacks.get(request);
-        if (c != null) {
-            c.onProgressUpdated(request, fileToDownload, 0, 10, 0, 10);
+        DownloadStatusListener statusListener = mDownloadStatusCallbacks.get(request);
+        DownloadProgressListener progressListener = mDownloadProgressCallbacks.get(request);
+        if (progressListener != null) {
+            progressListener.onProgressUpdated(request, fileToDownload, 0, 10, 0, 10);
         }
         // Test Callback
-        if (c != null) {
-            c.onStateUpdated(request, fileToDownload,
+        if (statusListener != null) {
+            statusListener.onStatusUpdated(request, fileToDownload,
                     MbmsDownloadSession.STATUS_ACTIVELY_DOWNLOADING);
         }
         try {
@@ -367,15 +378,12 @@ public class EmbmsSampleDownloadService extends Service {
             result = MbmsDownloadSession.RESULT_CANCELLED;
         }
         // Test Callback
-        if (c != null) {
-            c.onProgressUpdated(request, fileToDownload, 10, 10, 10, 10);
+        if (progressListener != null) {
+            progressListener.onProgressUpdated(request, fileToDownload, 10, 10, 10, 10);
         }
         // Take a round-trip through the download request serialization to exercise it
-        DownloadRequest request1 = new DownloadRequest.Builder(request.getSourceUri())
-                .setSubscriptionId(request.getSubscriptionId())
-                .setServiceId(request.getFileServiceId())
-                .setOpaqueData(request.getOpaqueData())
-                .build();
+        DownloadRequest request1 = DownloadRequest.Builder.fromSerializedRequest(
+                request.toByteArray()).build();
 
         Intent downloadResultIntent =
                 new Intent(VendorUtils.ACTION_DOWNLOAD_RESULT_INTERNAL);

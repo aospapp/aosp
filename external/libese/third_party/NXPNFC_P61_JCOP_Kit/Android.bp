@@ -11,7 +11,17 @@ cc_library_shared {
         "libdl",
         "libhardware",
     ],
-    cflags: ["-DNXP_LDR_SVC_VER_2=TRUE"],
+    cflags: [
+        "-DNXP_LDR_SVC_VER_2=TRUE",
+        "-Wall",
+        // "-Werror", // has multiple warnings with some asan-userdebug target
+        "-Wno-format",
+        "-Wno-parentheses-equality",
+        "-Wno-tautological-constant-out-of-range-compare",
+        "-Wno-unused-function",
+        "-Wno-unused-parameter",
+        "-Wno-unused-variable",
+    ],
     export_include_dirs: [
         "include/",
         "inc/",

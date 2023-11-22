@@ -35,7 +35,7 @@ import junit.framework.TestCase;
 public class BuildVersionTest extends TestCase {
 
     private static final String LOG_TAG = "BuildVersionTest";
-    private static final int EXPECTED_SDK = 27;
+    private static final int EXPECTED_SDK = 28;
     private static final String EXPECTED_BUILD_VARIANT = "user";
     private static final String EXPECTED_TAG = "release-keys";
     private static final String PLATFORM_VERSIONS_FILE = "platform_versions.txt";

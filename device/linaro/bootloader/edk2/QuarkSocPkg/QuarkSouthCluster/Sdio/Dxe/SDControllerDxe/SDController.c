@@ -2,7 +2,7 @@
 
 The SD host controller driver model and HC protocol routines.
 
-Copyright (c) 2013-2015 Intel Corporation.
+Copyright (c) 2013-2016 Intel Corporation.
 
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
@@ -244,6 +244,7 @@ GetErrorReason (
   @return EFI_SUCCESS
 **/
 EFI_STATUS
+EFIAPI
 SetHighSpeedMode (
   IN  EFI_SD_HOST_IO_PROTOCOL    *This,
   IN  BOOLEAN                    Enable
@@ -1155,7 +1156,7 @@ ResetSDHost (
 
   //
   // To improve SD stability, we zero the MMIO_CLKCTL register and
-  // stall for 50 microseconds before reseting the controller.  We
+  // stall for 50 microseconds before resetting the controller.  We
   // restore the register setting following the reset operation.
   //
   PciIo->Mem.Read (
@@ -1712,7 +1713,7 @@ Exit:
 
 
 /**
-  Stop this driver on ControllerHandle. Support stoping any child handles
+  Stop this driver on ControllerHandle. Support stopping any child handles
   created by this driver.
 
   @param  This                 Protocol instance pointer.

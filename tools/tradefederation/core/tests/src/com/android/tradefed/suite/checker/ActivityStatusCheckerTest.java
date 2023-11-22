@@ -15,14 +15,14 @@
  */
 package com.android.tradefed.suite.checker;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.suite.checker.StatusCheckerResult.CheckStatus;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
@@ -55,7 +55,7 @@ public class ActivityStatusCheckerTest {
                                 + "  mFocusedApp=AppWindowToken{37e3c39 token=Token{312ce85 ActivityRecord{a9437fc "
                                 + "u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t2}}}");
         EasyMock.replay(mMockLogger, mMockDevice);
-        assertTrue(mChecker.postExecutionCheck(mMockDevice));
+        assertEquals(CheckStatus.SUCCESS, mChecker.postExecutionCheck(mMockDevice).getStatus());
         EasyMock.verify(mMockLogger, mMockDevice);
     }
 
@@ -72,7 +72,7 @@ public class ActivityStatusCheckerTest {
         EasyMock.expect(mMockDevice.getScreenshot(EasyMock.anyObject())).andReturn(fake);
         mMockLogger.testLog("status_checker_front_activity", LogDataType.JPEG, fake);
         EasyMock.replay(mMockLogger, mMockDevice);
-        assertFalse(mChecker.postExecutionCheck(mMockDevice));
+        assertEquals(CheckStatus.FAILED, mChecker.postExecutionCheck(mMockDevice).getStatus());
         EasyMock.verify(mMockLogger, mMockDevice);
     }
 }

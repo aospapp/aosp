@@ -117,6 +117,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "test.h"
+#include "safe_macros.h"
 
 void setup(void);
 void cleanup(void);
@@ -278,11 +279,7 @@ int unwrite_dir_setup(int flag)
 	int fd;
 
 	if (!flag) {		/* initial setup */
-		if (mkdir("unwrite_dir", 0777) == -1) {
-			tst_brkm(TBROK, cleanup,
-				 "mkdir(unwrite_dir, 0777) failed, errno:%d %s",
-				 errno, strerror(errno));
-		}
+		SAFE_MKDIR(cleanup, "unwrite_dir", 0777);
 
 		if ((fd = creat("unwrite_dir/file", 0777)) == -1) {
 			tst_brkm(TBROK, cleanup,
@@ -291,17 +288,9 @@ int unwrite_dir_setup(int flag)
 		}
 		close(fd);
 
-		if (chmod("unwrite_dir", 0555) == -1) {
-			tst_brkm(TBROK, cleanup,
-				 "chmod(unwrite_dir, 0555) failed, errno:%d %s",
-				 errno, strerror(errno));
-		}
+		SAFE_CHMOD(cleanup, "unwrite_dir", 0555);
 	} else {		/* resetup */
-		if (chmod("unwrite_dir", 0777) == -1) {
-			tst_brkm(TBROK, cleanup,
-				 "chmod(unwrite_dir, 0777) failed, errno:%d %s",
-				 errno, strerror(errno));
-		}
+		SAFE_CHMOD(cleanup, "unwrite_dir", 0777);
 
 		if ((fd = creat("unwrite_dir/file", 0777)) == -1) {
 			tst_brkm(TBROK, cleanup,
@@ -310,11 +299,7 @@ int unwrite_dir_setup(int flag)
 		}
 		close(fd);
 
-		if (chmod("unwrite_dir", 0555) == -1) {
-			tst_brkm(TBROK, cleanup,
-				 "chmod(unwrite_dir, 0555) failed, errno:%d %s",
-				 errno, strerror(errno));
-		}
+		SAFE_CHMOD(cleanup, "unwrite_dir", 0555);
 	}
 	return 0;
 }
@@ -327,11 +312,7 @@ int unsearch_dir_setup(int flag)
 	int fd;
 
 	if (!flag) {		/* initial setup */
-		if (mkdir("unsearch_dir", 0777) == -1) {
-			tst_brkm(TBROK, cleanup,
-				 "mkdir(unsearch_dir, 0777) failed, errno:%d %s",
-				 errno, strerror(errno));
-		}
+		SAFE_MKDIR(cleanup, "unsearch_dir", 0777);
 
 		if ((fd = creat("unsearch_dir/file", 0777)) == -1) {
 			tst_brkm(TBROK, cleanup,
@@ -340,17 +321,9 @@ int unsearch_dir_setup(int flag)
 		}
 		close(fd);
 
-		if (chmod("unsearch_dir", 0666) == -1) {
-			tst_brkm(TBROK, cleanup,
-				 "chmod(unsearch_dir, 0666) failed, errno:%d %s",
-				 errno, strerror(errno));
-		}
+		SAFE_CHMOD(cleanup, "unsearch_dir", 0666);
 	} else {		/* resetup */
-		if (chmod("unsearch_dir", 0777) == -1) {
-			tst_brkm(TBROK, cleanup,
-				 "chmod(unsearch_dir, 0777) failed, errno:%d %s",
-				 errno, strerror(errno));
-		}
+		SAFE_CHMOD(cleanup, "unsearch_dir", 0777);
 
 		if ((fd = creat("unsearch_dir/file", 0777)) == -1) {
 			tst_brkm(TBROK, cleanup,
@@ -359,11 +332,7 @@ int unsearch_dir_setup(int flag)
 		}
 		close(fd);
 
-		if (chmod("unsearch_dir", 0666) == -1) {
-			tst_brkm(TBROK, cleanup,
-				 "chmod(unsearch_dir, 0666) failed, errno:%d %s",
-				 errno, strerror(errno));
-		}
+		SAFE_CHMOD(cleanup, "unsearch_dir", 0666);
 	}
 	return 0;
 }
@@ -373,11 +342,7 @@ int unsearch_dir_setup(int flag)
  ******************************************************************/
 int dir_setup(int flag)
 {
-	if (mkdir("regdir", 0777) == -1) {
-		tst_brkm(TBROK, cleanup,
-			 "mkdir(unwrite_dir, 0777) failed, errno:%d %s",
-			 errno, strerror(errno));
-	}
+	SAFE_MKDIR(cleanup, "regdir", 0777);
 	return 0;
 }
 

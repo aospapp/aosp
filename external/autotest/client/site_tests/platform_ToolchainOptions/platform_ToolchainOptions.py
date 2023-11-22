@@ -285,6 +285,22 @@ class platform_ToolchainOptions(test.test):
             option_sets.append(self.create_and_filter("hardfp", hardfp_cmd,
                                                       hardfp_whitelist))
 
+        # Verify all binaries are not linked with libgcc_s.so.
+        libgcc_cmd = ("%s -dW {} 2>&1 | grep \"NEEDED\" | "
+                      "(! grep -q \"libgcc_s.so\")" % readelf_cmd)
+        libgcc_whitelist = os.path.join(self.bindir, "libgcc_whitelist")
+        option_sets.append(self.create_and_filter("Libgcc_s Users",
+                                                  libgcc_cmd,
+                                                  libgcc_whitelist))
+
+        # Verify all binaries are not linked with libstdc++.so.
+        libstdcxx_cmd = ("%s -dW {} 2>&1 | grep \"NEEDED\" | "
+                         "(! grep -q \"libstdc++.so\")" % readelf_cmd)
+        libstdcxx_whitelist = os.path.join(self.bindir, "libstdcxx_whitelist")
+        option_sets.append(self.create_and_filter("Libstdc++ Users",
+                                                  libstdcxx_cmd,
+                                                  libstdcxx_whitelist))
+
         fail_msg = ""
 
         # There is currently no way to clear binary prebuilts for all devs.

@@ -9,10 +9,10 @@
 #include "core/fpdfapi/parser/cpdf_document.h"
 #include "core/fpdfapi/parser/cpdf_stream.h"
 #include "core/fpdfapi/parser/cpdf_stream_acc.h"
-#include "core/fxcrt/fx_xml.h"
+#include "core/fxcrt/xml/cxml_element.h"
 
-CPDF_Metadata::CPDF_Metadata(CPDF_Document* pDoc) {
-  CPDF_Dictionary* pRoot = pDoc->GetRoot();
+CPDF_Metadata::CPDF_Metadata(const CPDF_Document* pDoc) {
+  const CPDF_Dictionary* pRoot = pDoc->GetRoot();
   if (!pRoot)
     return;
 
@@ -20,9 +20,9 @@ CPDF_Metadata::CPDF_Metadata(CPDF_Document* pDoc) {
   if (!pStream)
     return;
 
-  CPDF_StreamAcc acc;
-  acc.LoadAllData(pStream, false);
-  m_pXmlElement = CXML_Element::Parse(acc.GetData(), acc.GetSize());
+  auto pAcc = pdfium::MakeRetain<CPDF_StreamAcc>(pStream);
+  pAcc->LoadAllDataFiltered();
+  m_pXmlElement = CXML_Element::Parse(pAcc->GetData(), pAcc->GetSize());
 }
 
 CPDF_Metadata::~CPDF_Metadata() {}

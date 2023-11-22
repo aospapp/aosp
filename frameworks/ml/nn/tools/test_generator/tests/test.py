@@ -145,10 +145,10 @@ def GetOutDir():
 GetOutDir.cache = None
 
 
-def CreateCmd():
+def CreateCmd(run_vts):
   """Creates the test command to run for the current test."""
-  cmd_string = ('%s/test_generator.py'
-                ) % GetOutDir()
+  cmd_string = ('%s/%s_generator.py'
+                ) % (GetOutDir(), "test" if not run_vts else "vts")
   base_args = cmd_string.split()
   rs_files = GetRSFiles()
 
@@ -215,13 +215,13 @@ def CheckTestResult(dir_name, subprocess_ret, tests, args):
 
 
 def ExecTest(dir_name, tests):
-  """Executes an llvm-rs-cc test from dir_name."""
+  """Executes an test generator test from dir_name."""
 
   os.chdir(dir_name)
   stdout_file = open('stdout.txt', 'w+')
   stderr_file = open('stderr.txt', 'w+')
-
-  args = CreateCmd()
+  run_vts = (dir_name[2:5] == 'vts')
+  args = CreateCmd(run_vts)
 
   if Options.verbose > 1:
     print ('Executing:', ' '.join(args))

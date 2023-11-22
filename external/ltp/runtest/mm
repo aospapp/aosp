@@ -46,7 +46,7 @@ mallocstress01	mallocstress
 mmapstress01 mmapstress01 -p 20 -t 0.2
 mmapstress02 mmapstress02
 mmapstress03 mmapstress03
-mmapstress04 TMPFILE=`mktemp /tmp/example.XXXXXXXXXX`; ls -lR /usr/include/ > $TMPFILE; mmapstress04 $TMPFILE
+mmapstress04 mmapstress04
 mmapstress05 mmapstress05
 mmapstress06 mmapstress06 20
 mmapstress07 TMPFILE=`mktemp /tmp/example.XXXXXXXXXXXX`; mmapstress07 $TMPFILE
@@ -89,6 +89,7 @@ vma01 vma01
 vma02 vma02
 vma03 vma03
 vma04 vma04
+vma05 vma05.sh
 
 overcommit_memory01 overcommit_memory
 overcommit_memory02 overcommit_memory -R 0

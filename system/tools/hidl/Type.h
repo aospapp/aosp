@@ -19,20 +19,26 @@
 #define TYPE_H_
 
 #include <android-base/macros.h>
-#include <string>
 #include <utils/Errors.h>
-#include <vector>
 #include <set>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
+#include "DocComment.h"
+#include "Reference.h"
 
 namespace android {
 
-struct Annotation;
+struct ConstantExpression;
 struct Formatter;
-struct ScalarType;
 struct FQName;
+struct ScalarType;
+struct Scope;
 
-struct Type {
-    Type();
+struct Type : DocCommentable {
+    Type(Scope* parent);
     virtual ~Type();
 
     virtual bool isArray() const;
@@ -52,13 +58,82 @@ struct Type {
     virtual bool isTypeDef() const;
     virtual bool isVector() const;
 
+    // Resolves the type by unwrapping typedefs
+    Type* resolve();
+    virtual const Type* resolve() const;
+
+    // All types defined in this type.
+    std::vector<Type*> getDefinedTypes();
+    virtual std::vector<const Type*> getDefinedTypes() const;
+
+    // All types referenced in this type.
+    std::vector<Reference<Type>*> getReferences();
+    virtual std::vector<const Reference<Type>*> getReferences() const;
+
+    // All constant expressions referenced in this type.
+    std::vector<ConstantExpression*> getConstantExpressions();
+    virtual std::vector<const ConstantExpression*> getConstantExpressions() const;
+
+    // All types referenced in this type that must have completed
+    // definiton before being referenced.
+    std::vector<Reference<Type>*> getStrongReferences();
+    virtual std::vector<const Reference<Type>*> getStrongReferences() const;
+
+    // Proceeds recursive pass
+    // Makes sure to visit each node only once.
+    status_t recursivePass(const std::function<status_t(Type*)>& func,
+                           std::unordered_set<const Type*>* visited);
+    status_t recursivePass(const std::function<status_t(const Type*)>& func,
+                           std::unordered_set<const Type*>* visited) const;
+
+    // Recursive tree pass that completes type declarations
+    // that depend on super types
+    virtual status_t resolveInheritance();
+
+    // Recursive tree pass that validates all type-related
+    // syntax restrictions
+    virtual status_t validate() const;
+
+    // Recursive tree pass checkAcyclic return type.
+    // Stores cycle end for nice error messages.
+    struct CheckAcyclicStatus {
+        CheckAcyclicStatus(status_t status, const Type* cycleEnd = nullptr);
+
+        status_t status;
+
+        // If a cycle is found, stores the end of cycle.
+        // While going back in recursion, this is used to stop printing the cycle.
+        const Type* cycleEnd;
+    };
+
+    // Recursive tree pass that ensures that type definitions and references
+    // are acyclic and builds reversed topological order of the types.
+    // If some cases allow using of incomplete types, these cases are to be
+    // declared in Type::getStrongReferences.
+    CheckAcyclicStatus topologicalOrder(std::unordered_map<const Type*, size_t>* reversedOrder,
+                                        std::unordered_set<const Type*>* stack) const;
+
+    // Checks following C++ restriction on forward declaration:
+    // inner struct could be forward declared only inside its parent.
+    status_t checkForwardReferenceRestrictions(const Reference<Type>& ref) const;
+
     virtual const ScalarType *resolveToScalarType() const;
 
     virtual std::string typeName() const = 0;
 
     bool isValidEnumStorageType() const;
     virtual bool isElidableType() const;
+
     virtual bool canCheckEquality() const;
+    bool canCheckEquality(std::unordered_set<const Type*>* visited) const;
+    virtual bool deepCanCheckEquality(std::unordered_set<const Type*>* visited) const;
+
+    // Marks that package proceeding is completed
+    // Post parse passes must be proceeded during owner package parsing
+    void setPostParseCompleted();
+
+    Scope* parent();
+    const Scope* parent() const;
 
     enum StorageMode {
         StorageMode_Stack,
@@ -176,47 +251,65 @@ struct Type {
             const std::string &offset,
             bool isReader) const;
 
-    virtual status_t emitTypeDeclarations(Formatter &out) const;
+    virtual void emitTypeDeclarations(Formatter& out) const;
+
+    virtual void emitGlobalTypeDeclarations(Formatter& out) const;
+
+    // Emit scope C++ forward declaration.
+    // There is no need to forward declare interfaces, as
+    // they are always declared in global scope in dedicated file.
+    virtual void emitTypeForwardDeclaration(Formatter& out) const;
 
     // Emit any declarations pertaining to this type that have to be
     // at global scope, i.e. enum class operators.
-    virtual status_t emitGlobalTypeDeclarations(Formatter &out) const;
+    // For android.hardware.foo@1.0::*, this will be in namespace
+    // android::hardware::foo::V1_0
+    virtual void emitPackageTypeDeclarations(Formatter& out) const;
 
     // Emit any declarations pertaining to this type that have to be
     // at global scope for transport, e.g. read/writeEmbeddedTo/FromParcel
-    virtual status_t emitGlobalHwDeclarations(Formatter &out) const;
+    // For android.hardware.foo@1.0::*, this will be in namespace
+    // android::hardware::foo::V1_0
+    virtual void emitPackageHwDeclarations(Formatter& out) const;
 
-    virtual status_t emitTypeDefinitions(
-            Formatter &out, const std::string prefix) const;
+    virtual void emitTypeDefinitions(Formatter& out, const std::string& prefix) const;
 
-    virtual status_t emitJavaTypeDeclarations(
-            Formatter &out, bool atTopLevel) const;
+    virtual void emitJavaTypeDeclarations(Formatter& out, bool atTopLevel) const;
 
     virtual bool needsEmbeddedReadWrite() const;
-    virtual bool needsResolveReferences() const;
     virtual bool resultNeedsDeref() const;
+
+    bool needsResolveReferences() const;
+    bool needsResolveReferences(std::unordered_set<const Type*>* visited) const;
+    virtual bool deepNeedsResolveReferences(std::unordered_set<const Type*>* visited) const;
 
     // Generates type declaration for vts proto file.
     // TODO (b/30844146): make it a pure virtual method.
-    virtual status_t emitVtsTypeDeclarations(Formatter &out) const;
+    virtual void emitVtsTypeDeclarations(Formatter& out) const;
     // Generates type declaration as attribute of method (return value or method
     // argument) or attribute of compound type for vts proto file.
-    virtual status_t emitVtsAttributeType(Formatter &out) const;
+    virtual void emitVtsAttributeType(Formatter& out) const;
 
     // Returns true iff this type is supported through the Java backend.
-    virtual bool isJavaCompatible() const;
-    virtual bool containsPointer() const;
-    virtual void getAlignmentAndSize(size_t *align, size_t *size) const;
+    bool isJavaCompatible() const;
+    bool isJavaCompatible(std::unordered_set<const Type*>* visited) const;
+    virtual bool deepIsJavaCompatible(std::unordered_set<const Type*>* visited) const;
+    // Returns true iff type contains pointer
+    // (excluding methods and inner types).
+    bool containsPointer() const;
+    bool containsPointer(std::unordered_set<const Type*>* visited) const;
+    virtual bool deepContainsPointer(std::unordered_set<const Type*>* visited) const;
 
-    void setAnnotations(std::vector<Annotation *> *annotations);
-    const std::vector<Annotation *> &annotations() const;
+    virtual void getAlignmentAndSize(size_t *align, size_t *size) const;
 
     virtual void appendToExportedTypesVector(
             std::vector<const Type *> *exportedTypes) const;
 
-    virtual status_t emitExportedHeader(Formatter &out, bool forJava) const;
+    virtual void emitExportedHeader(Formatter& out, bool forJava) const;
 
-protected:
+    virtual bool isNeverStrongReference() const;
+
+   protected:
     void handleError(Formatter &out, ErrorMode mode) const;
 
     void emitReaderWriterEmbeddedForTypeName(
@@ -247,24 +340,37 @@ protected:
             const std::string &methodName,
             const std::string &name) const;
 
-private:
-    std::vector<Annotation *> *mAnnotations;
+   private:
+    bool mIsPostParseCompleted = false;
+    Scope* const mParent;
 
     DISALLOW_COPY_AND_ASSIGN(Type);
 };
 
 /* Base type for VectorType and RefType. */
 struct TemplatedType : public Type {
-    void setElementType(Type *elementType);
-    Type *getElementType() const;
+    void setElementType(const Reference<Type>& elementType);
+    const Type* getElementType() const;
+
+    virtual std::string templatedTypeName() const = 0;
+    std::string typeName() const override;
+
     bool isTemplatedType() const override;
-    virtual bool isCompatibleElementType(Type *elementType) const = 0;
-    status_t emitVtsTypeDeclarations(Formatter &out) const override;
-    status_t emitVtsAttributeType(Formatter &out) const override;
-protected:
-    TemplatedType();
-    Type *mElementType;
-private:
+
+    virtual bool isCompatibleElementType(const Type* elementType) const = 0;
+
+    std::vector<const Reference<Type>*> getReferences() const override;
+
+    virtual status_t validate() const override;
+
+    void emitVtsTypeDeclarations(Formatter& out) const override;
+    void emitVtsAttributeType(Formatter& out) const override;
+
+   protected:
+    TemplatedType(Scope* parent);
+    Reference<Type> mElementType;
+
+   private:
     DISALLOW_COPY_AND_ASSIGN(TemplatedType);
 };
 

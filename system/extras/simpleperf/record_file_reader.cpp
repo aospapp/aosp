@@ -29,6 +29,46 @@
 
 using namespace PerfFileFormat;
 
+namespace PerfFileFormat {
+
+static const std::map<int, std::string> feature_name_map = {
+    {FEAT_TRACING_DATA, "tracing_data"},
+    {FEAT_BUILD_ID, "build_id"},
+    {FEAT_HOSTNAME, "hostname"},
+    {FEAT_OSRELEASE, "osrelease"},
+    {FEAT_VERSION, "version"},
+    {FEAT_ARCH, "arch"},
+    {FEAT_NRCPUS, "nrcpus"},
+    {FEAT_CPUDESC, "cpudesc"},
+    {FEAT_CPUID, "cpuid"},
+    {FEAT_TOTAL_MEM, "total_mem"},
+    {FEAT_CMDLINE, "cmdline"},
+    {FEAT_EVENT_DESC, "event_desc"},
+    {FEAT_CPU_TOPOLOGY, "cpu_topology"},
+    {FEAT_NUMA_TOPOLOGY, "numa_topology"},
+    {FEAT_BRANCH_STACK, "branch_stack"},
+    {FEAT_PMU_MAPPINGS, "pmu_mappings"},
+    {FEAT_GROUP_DESC, "group_desc"},
+    {FEAT_FILE, "file"},
+    {FEAT_META_INFO, "meta_info"},
+};
+
+std::string GetFeatureName(int feature_id) {
+  auto it = feature_name_map.find(feature_id);
+  return it == feature_name_map.end() ? "" : it->second;
+}
+
+int GetFeatureId(const std::string& feature_name) {
+  for (auto& pair : feature_name_map) {
+    if (pair.second == feature_name) {
+      return pair.first;
+    }
+  }
+  return -1;
+}
+
+} // namespace PerfFileFormat
+
 std::unique_ptr<RecordFileReader> RecordFileReader::CreateInstance(const std::string& filename) {
   std::string mode = std::string("rb") + CLOSE_ON_EXEC_MODE;
   FILE* fp = fopen(filename.c_str(), mode.c_str());
@@ -203,6 +243,20 @@ bool RecordFileReader::ReadRecord(std::unique_ptr<Record>& record,
     }
     if (record->type() == SIMPLE_PERF_RECORD_EVENT_ID) {
       ProcessEventIdRecord(*static_cast<EventIdRecord*>(record.get()));
+    } else if (record->type() == PERF_RECORD_SAMPLE) {
+      SampleRecord* r = static_cast<SampleRecord*>(record.get());
+      // Although we have removed ip == 0 callchains when recording dwarf based callgraph,
+      // stack frame based callgraph can also generate ip == 0 callchains. Remove them here
+      // to avoid caller's effort.
+      if (r->sample_type & PERF_SAMPLE_CALLCHAIN) {
+        size_t i;
+        for (i = 0; i < r->callchain_data.ip_nr; ++i) {
+          if (r->callchain_data.ips[i] == 0) {
+            break;
+          }
+        }
+        r->callchain_data.ip_nr = i;
+      }
     }
     if (sorted) {
       record_cache_->Push(std::move(record));

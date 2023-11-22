@@ -228,7 +228,7 @@ public class TestSensorEnvironment {
             boolean isDeviceSuspendTest) {
         this(context, sensor, sensorMightHaveMoreListeners,
                 samplingPeriodUs, maxReportLatencyUs,
-                false /* isDeviceSuspendTest */,
+                isDeviceSuspendTest,
                 false /* isIntegrationTest */);
     }
 

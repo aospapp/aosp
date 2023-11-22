@@ -17,8 +17,14 @@
 #include <radio_hidl_hal_utils_v1_0.h>
 
 void RadioHidlTest::SetUp() {
-    radio =
-        ::testing::VtsHalHidlTargetTestBase::getService<IRadio>(hidl_string(RADIO_SERVICE_NAME));
+    radio = ::testing::VtsHalHidlTargetTestBase::getService<IRadio>(
+        RadioHidlEnvironment::Instance()->getServiceName<IRadio>(hidl_string(RADIO_SERVICE_NAME)));
+    if (radio == NULL) {
+        sleep(60);
+        radio = ::testing::VtsHalHidlTargetTestBase::getService<IRadio>(
+            RadioHidlEnvironment::Instance()->getServiceName<IRadio>(
+                hidl_string(RADIO_SERVICE_NAME)));
+    }
     ASSERT_NE(nullptr, radio.get());
 
     radioRsp = new (std::nothrow) RadioResponse(*this);
@@ -31,33 +37,30 @@ void RadioHidlTest::SetUp() {
 
     radio->setResponseFunctions(radioRsp, radioInd);
 
-    int serial = GetRandomSerialNumber();
-    radio->getIccCardStatus(serial);
-    EXPECT_EQ(std::cv_status::no_timeout, wait());
+    updateSimCardStatus();
     EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp->rspInfo.type);
     EXPECT_EQ(serial, radioRsp->rspInfo.serial);
     EXPECT_EQ(RadioError::NONE, radioRsp->rspInfo.error);
 
-    /* Vts Testing with Sim Absent only. This needs to be removed later in P when sim present
-     * scenarios will be tested. */
-    EXPECT_EQ(CardState::ABSENT, cardStatus.cardState);
+    /* Enforce Vts Testing with Sim Status Present only. */
+    EXPECT_EQ(CardState::PRESENT, cardStatus.cardState);
 }
 
-void RadioHidlTest::TearDown() {}
-
-void RadioHidlTest::notify() {
+void RadioHidlTest::notify(int receivedSerial) {
     std::unique_lock<std::mutex> lock(mtx);
-    count++;
-    cv.notify_one();
+    if (serial == receivedSerial) {
+        count++;
+        cv.notify_one();
+    }
 }
 
-std::cv_status RadioHidlTest::wait() {
+std::cv_status RadioHidlTest::wait(int sec) {
     std::unique_lock<std::mutex> lock(mtx);
 
     std::cv_status status = std::cv_status::no_timeout;
     auto now = std::chrono::system_clock::now();
     while (count == 0) {
-        status = cv.wait_until(lock, now + std::chrono::seconds(TIMEOUT_PERIOD));
+        status = cv.wait_until(lock, now + std::chrono::seconds(sec));
         if (status == std::cv_status::timeout) {
             return status;
         }
@@ -66,16 +69,8 @@ std::cv_status RadioHidlTest::wait() {
     return status;
 }
 
-bool RadioHidlTest::CheckGeneralError() {
-    return (radioRsp->rspInfo.error == RadioError::RADIO_NOT_AVAILABLE ||
-            radioRsp->rspInfo.error == RadioError::NO_MEMORY ||
-            radioRsp->rspInfo.error == RadioError::INTERNAL_ERR ||
-            radioRsp->rspInfo.error == RadioError::SYSTEM_ERR ||
-            radioRsp->rspInfo.error == RadioError::REQUEST_NOT_SUPPORTED ||
-            radioRsp->rspInfo.error == RadioError::CANCELLED);
-}
-
-bool RadioHidlTest::CheckOEMError() {
-    return (radioRsp->rspInfo.error >= RadioError::OEM_ERROR_1 &&
-            radioRsp->rspInfo.error <= RadioError::OEM_ERROR_25);
+void RadioHidlTest::updateSimCardStatus() {
+    serial = GetRandomSerialNumber();
+    radio->getIccCardStatus(serial);
+    EXPECT_EQ(std::cv_status::no_timeout, wait());
 }

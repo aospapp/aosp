@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "JniInvocation.h"
+#include <nativehelper/JniInvocation.h>
 
 #include <dlfcn.h>
 #include <stdlib.h>
@@ -28,6 +28,28 @@
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
 #endif
+
+template <typename T>
+void UNUSED(const T&) {}
+
+bool IsDebuggable() {
+#ifdef __ANDROID__
+  char debuggable[PROP_VALUE_MAX] = {0};
+  __system_property_get("ro.debuggable", debuggable);
+  return strcmp(debuggable, "1") == 0;
+#else
+  return false;
+#endif
+}
+
+int GetLibrarySystemProperty(char* buffer) {
+#ifdef __ANDROID__
+  return __system_property_get("persist.sys.dalvik.vm.lib.2", buffer);
+#else
+  UNUSED(buffer);
+  return 0;
+#endif
+}
 
 JniInvocation* JniInvocation::jni_invocation_ = NULL;
 
@@ -48,22 +70,18 @@ JniInvocation::~JniInvocation() {
   }
 }
 
-#ifdef __ANDROID__
-static const char* kLibrarySystemProperty = "persist.sys.dalvik.vm.lib.2";
-static const char* kDebuggableSystemProperty = "ro.debuggable";
-#endif
 static const char* kLibraryFallback = "libart.so";
 
-template<typename T> void UNUSED(const T&) {}
-
 const char* JniInvocation::GetLibrary(const char* library, char* buffer) {
+  return GetLibrary(library, buffer, &IsDebuggable, &GetLibrarySystemProperty);
+}
+
+const char* JniInvocation::GetLibrary(const char* library, char* buffer, bool (*is_debuggable)(),
+                                      int (*get_library_system_property)(char* buffer)) {
 #ifdef __ANDROID__
   const char* default_library;
 
-  char debuggable[PROP_VALUE_MAX];
-  __system_property_get(kDebuggableSystemProperty, debuggable);
-
-  if (strcmp(debuggable, "1") != 0) {
+  if (!is_debuggable()) {
     // Not a debuggable build.
     // Do not allow arbitrary library. Ignore the library parameter. This
     // will also ignore the default library, but initialize to fallback
@@ -75,7 +93,7 @@ const char* JniInvocation::GetLibrary(const char* library, char* buffer) {
     // Accept the library parameter. For the case it is NULL, load the default
     // library from the system property.
     if (buffer != NULL) {
-      if (__system_property_get(kLibrarySystemProperty, buffer) > 0) {
+      if (get_library_system_property(buffer) > 0) {
         default_library = buffer;
       } else {
         default_library = kLibraryFallback;
@@ -87,6 +105,8 @@ const char* JniInvocation::GetLibrary(const char* library, char* buffer) {
   }
 #else
   UNUSED(buffer);
+  UNUSED(is_debuggable);
+  UNUSED(get_library_system_property);
   const char* default_library = kLibraryFallback;
 #endif
   if (library == NULL) {

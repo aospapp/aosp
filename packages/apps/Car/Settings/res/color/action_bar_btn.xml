@@ -17,8 +17,8 @@
 
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_enabled="true"
-          android:color="@color/car_teal_700" />
+          android:color="@color/car_accent" />
     <item android:state_enabled="false"
           android:alpha="0.5"
-          android:color="@color/car_teal_700" />
+          android:color="@color/car_accent" />
 </selector>

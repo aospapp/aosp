@@ -21,16 +21,17 @@ import android.content.pm.cts.shortcut.device.common.ShortcutManagerDeviceTestBa
 
 public class ShortcutManagerPostBackupTest extends ShortcutManagerDeviceTestBase {
     public void testWithUninstall() {
+        // backup = false, so dynamic shouldn't be restored.
         assertWith(getManager().getDynamicShortcuts())
                 .isEmpty();
 
-        // backup = false, so no pinned shortcuts should be restored.
+        // But manifest shortcuts will be restored anyway, so they'll restored as pinned.
         assertWith(getManager().getPinnedShortcuts())
-                .isEmpty();
+                .haveIds("ms1", "ms2");
 
         assertWith(getManager().getManifestShortcuts())
                 .haveIds("ms1", "ms2")
-                .areAllNotPinned();
+                .areAllPinned();
     }
 
     public void testWithNoUninstall() {
@@ -39,8 +40,8 @@ public class ShortcutManagerPostBackupTest extends ShortcutManagerDeviceTestBase
                 .haveIds("s1", "s2", "s3")
                 .areAllNotPinned();
 
+        // Manifest shortcuts should still be published.
         assertWith(getManager().getManifestShortcuts())
-                .haveIds("ms1", "ms2")
-                .areAllNotPinned();
+                .haveIds("ms1", "ms2");
     }
 }

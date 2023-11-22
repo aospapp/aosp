@@ -5,6 +5,7 @@
 import logging, re, time
 
 from autotest_lib.client.common_lib import error
+from autotest_lib.server.cros import vboot_constants as vboot
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 from autotest_lib.server.cros.watchdog_tester import WatchdogTester
 
@@ -23,6 +24,7 @@ class firmware_EventLog(FirmwareTest):
         super(firmware_EventLog, self).initialize(host, cmdline_args)
         self.host = host
         self.switcher.setup_mode('normal')
+        self.setup_usbkey(usbkey=True, host=False)
 
     def _has_event(self, pattern):
         return bool(filter(re.compile(pattern).search, self._events))
@@ -107,10 +109,13 @@ class firmware_EventLog(FirmwareTest):
 
         logging.info('Verifying eventlog behavior in recovery mode')
         self._cutoff_time = self._now()
-        self.switcher.reboot_to_mode(to_mode='rec', wait_for_dut_up=False)
-        self.switcher.wait_for_client_offline()
-        time.sleep(self.faft_config.firmware_screen)
-        self.switcher.mode_aware_reboot(sync_before_boot=False)
+        self.switcher.reboot_to_mode(to_mode='rec')
+        logging.debug('Check we booted into recovery')
+        self.check_state((self.checkers.crossystem_checker, {
+                         'mainfw_type': 'recovery',
+                         'recovery_reason' : vboot.RECOVERY_REASON['RO_MANUAL'],
+                         }))
+        self.switcher.mode_aware_reboot()
         self.check_state((self.checkers.crossystem_checker, {
                               'devsw_boot': '0',
                               'mainfw_type': 'normal',

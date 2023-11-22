@@ -48,7 +48,7 @@ public class DelaySensorOperation extends SensorOperation {
      * {@inheritDoc}
      */
     @Override
-    public void execute(ISensorTestNode parent) throws InterruptedException {
+    public void execute(ISensorTestNode parent) throws Exception {
         SensorCtsHelper.sleep(mDelay, mTimeUnit);
         mOperation.execute(asTestNode(parent));
     }

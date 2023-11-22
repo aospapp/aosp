@@ -63,7 +63,7 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
 
   void VisitReturn(HReturn* ret) OVERRIDE {
     HConstant* value = ret->InputAt(0)->AsConstant();
-    if ((value != nullptr && Primitive::IsFloatingPointType(value->GetType()))) {
+    if ((value != nullptr && DataType::IsFloatingPointType(value->GetType()))) {
       ReplaceInput(ret, value, 0, true);
     }
   }
@@ -83,6 +83,7 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
   void VisitLoadClass(HLoadClass* load_class) OVERRIDE {
     HLoadClass::LoadKind load_kind = load_class->GetLoadKind();
     if (load_kind == HLoadClass::LoadKind::kBootImageLinkTimePcRelative ||
+        load_kind == HLoadClass::LoadKind::kBootImageClassTable ||
         load_kind == HLoadClass::LoadKind::kBssEntry) {
       HX86ComputeBaseMethodAddress* method_address = GetPCRelativeBasePointer(load_class);
       load_class->AddSpecialInput(method_address);
@@ -92,6 +93,7 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
   void VisitLoadString(HLoadString* load_string) OVERRIDE {
     HLoadString::LoadKind load_kind = load_string->GetLoadKind();
     if (load_kind == HLoadString::LoadKind::kBootImageLinkTimePcRelative ||
+        load_kind == HLoadString::LoadKind::kBootImageInternTable ||
         load_kind == HLoadString::LoadKind::kBssEntry) {
       HX86ComputeBaseMethodAddress* method_address = GetPCRelativeBasePointer(load_string);
       load_string->AddSpecialInput(method_address);
@@ -100,7 +102,7 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
 
   void BinaryFP(HBinaryOperation* bin) {
     HConstant* rhs = bin->InputAt(1)->AsConstant();
-    if (rhs != nullptr && Primitive::IsFloatingPointType(rhs->GetType())) {
+    if (rhs != nullptr && DataType::IsFloatingPointType(rhs->GetType())) {
       ReplaceInput(bin, rhs, 1, false);
     }
   }
@@ -130,12 +132,12 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
   }
 
   void VisitNeg(HNeg* neg) OVERRIDE {
-    if (Primitive::IsFloatingPointType(neg->GetType())) {
+    if (DataType::IsFloatingPointType(neg->GetType())) {
       // We need to replace the HNeg with a HX86FPNeg in order to address the constant area.
       HX86ComputeBaseMethodAddress* method_address = GetPCRelativeBasePointer(neg);
       HGraph* graph = GetGraph();
       HBasicBlock* block = neg->GetBlock();
-      HX86FPNeg* x86_fp_neg = new (graph->GetArena()) HX86FPNeg(
+      HX86FPNeg* x86_fp_neg = new (graph->GetAllocator()) HX86FPNeg(
           neg->GetType(),
           neg->InputAt(0),
           method_address,
@@ -154,7 +156,7 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
     HX86ComputeBaseMethodAddress* method_address = GetPCRelativeBasePointer(switch_insn);
     HGraph* graph = GetGraph();
     HBasicBlock* block = switch_insn->GetBlock();
-    HX86PackedSwitch* x86_switch = new (graph->GetArena()) HX86PackedSwitch(
+    HX86PackedSwitch* x86_switch = new (graph->GetAllocator()) HX86PackedSwitch(
         switch_insn->GetStartValue(),
         switch_insn->GetNumEntries(),
         switch_insn->InputAt(0),
@@ -174,7 +176,7 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
     // Insert the base at the start of the entry block, move it to a better
     // position later in MoveBaseIfNeeded().
     HX86ComputeBaseMethodAddress* method_address =
-        new (GetGraph()->GetArena()) HX86ComputeBaseMethodAddress();
+        new (GetGraph()->GetAllocator()) HX86ComputeBaseMethodAddress();
     if (has_irreducible_loops) {
       cursor->GetBlock()->InsertInstructionBefore(method_address, cursor);
     } else {
@@ -188,7 +190,7 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
   void ReplaceInput(HInstruction* insn, HConstant* value, int input_index, bool materialize) {
     HX86ComputeBaseMethodAddress* method_address = GetPCRelativeBasePointer(insn);
     HX86LoadFromConstantTable* load_constant =
-        new (GetGraph()->GetArena()) HX86LoadFromConstantTable(method_address, value);
+        new (GetGraph()->GetAllocator()) HX86LoadFromConstantTable(method_address, value);
     if (!materialize) {
       load_constant->MarkEmittedAtUseSite();
     }
@@ -223,7 +225,7 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
     HInputsRef inputs = invoke->GetInputs();
     for (size_t i = 0; i < inputs.size(); i++) {
       HConstant* input = inputs[i]->AsConstant();
-      if (input != nullptr && Primitive::IsFloatingPointType(input->GetType())) {
+      if (input != nullptr && DataType::IsFloatingPointType(input->GetType())) {
         ReplaceInput(invoke, input, i, true);
       }
     }

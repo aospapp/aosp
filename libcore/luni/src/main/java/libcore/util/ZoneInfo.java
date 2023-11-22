@@ -335,7 +335,7 @@ public final class ZoneInfo extends TimeZone {
             // This isn't generally useful, but it's exposed by TimeZone.getDSTSavings.
             int lastGmtOffset = gmtOffsets[mTypes[lastStd] & 0xff];
             int lastDstOffset = gmtOffsets[mTypes[lastDst] & 0xff];
-            mDstSavings = Math.abs(lastGmtOffset - lastDstOffset) * 1000;
+            mDstSavings = (lastDstOffset - lastGmtOffset) * 1000;
             mUseDst = true;
         }
 

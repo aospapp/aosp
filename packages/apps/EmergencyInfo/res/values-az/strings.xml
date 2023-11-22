@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Bütün məlumat və kontaktlar silinsin?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Tibbi məlumat və mühüm kontaktları əlavə etmək fövqəladə hallarda ilk cavab verənlərə kömək edə bilər.\n\nHər kəs telefonunuzu kiliddən çıxarmadan kilid ekranından bu məlumatı oxuya və kontakt adlarına klikləməklə onları yığa bilər."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Mühüm məlumat əlavə edin"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"İlk cavab verənlərə mühüm məlumatı tapmaqda kömək edin"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Əvvəlcə respondetlərin məlumatı görməsinə icazə verin"</string>
 </resources>

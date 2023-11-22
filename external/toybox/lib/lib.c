@@ -3,6 +3,7 @@
  * Copyright 2006 Rob Landley <rob@landley.net>
  */
 
+#define SYSLOG_NAMES
 #include "toys.h"
 
 void verror_msg(char *msg, int err, va_list va)
@@ -12,7 +13,9 @@ void verror_msg(char *msg, int err, va_list va)
   fprintf(stderr, "%s: ", toys.which->name);
   if (msg) vfprintf(stderr, msg, va);
   else s+=2;
-  if (err) fprintf(stderr, s, strerror(err));
+  if (err>0) fprintf(stderr, s, strerror(err));
+  if (err<0 && CFG_TOYBOX_HELP)
+    fprintf(stderr, " (see \"%s --help\")", toys.which->name);
   if (msg || err) putc('\n', stderr);
   if (!toys.exitval) toys.exitval++;
 }
@@ -66,12 +69,10 @@ void help_exit(char *msg, ...)
 {
   va_list va;
 
-  if (CFG_TOYBOX_HELP)
-    fprintf(stderr, "See %s --help\n", toys.which->name);
-
-  if (msg) {
+  if (!msg) show_help(stdout);
+  else {
     va_start(va, msg);
-    verror_msg(msg, 0, va);
+    verror_msg(msg, -1, va);
     va_end(va);
   }
 
@@ -335,6 +336,35 @@ int stridx(char *haystack, char needle)
   return off-haystack;
 }
 
+// Convert utf8 sequence to a unicode wide character
+int utf8towc(wchar_t *wc, char *str, unsigned len)
+{
+  unsigned result, mask, first;
+  char *s, c;
+
+  // fast path ASCII
+  if (len && *str<128) return !!(*wc = *str);
+
+  result = first = *(s = str++);
+  if (result<0xc2 || result>0xf4) return -1;
+  for (mask = 6; (first&0xc0)==0xc0; mask += 5, first <<= 1) {
+    if (!--len) return -2;
+    if (((c = *(str++))&0xc0) != 0x80) return -1;
+    result = (result<<6)|(c&0x3f);
+  }
+  result &= (1<<mask)-1;
+  c = str-s;
+
+  // Avoid overlong encodings
+  if (result<(unsigned []){0x80,0x800,0x10000}[c-2]) return -1;
+
+  // Limit unicode so it can't encode anything UTF-16 can't.
+  if (result>0x10ffff || (result>=0xd800 && result<=0xdfff)) return -1;
+  *wc = result;
+
+  return str-s;
+}
+
 char *strlower(char *s)
 {
   char *try, *new;
@@ -348,7 +378,7 @@ char *strlower(char *s)
 
     while (*s) {
       wchar_t c;
-      int len = mbrtowc(&c, s, MB_CUR_MAX, 0);
+      int len = utf8towc(&c, s, MB_CUR_MAX);
 
       if (len < 1) *(new++) = *(s++);
       else {
@@ -606,6 +636,19 @@ void loopfiles_rw(char **argv, int flags, int permissions,
 void loopfiles(char **argv, void (*function)(int fd, char *name))
 {
   loopfiles_rw(argv, O_RDONLY|O_CLOEXEC|WARN_ONLY, 0, function);
+}
+
+// call loopfiles with do_lines()
+static void (*do_lines_bridge)(char **pline, long len);
+static void loopfile_lines_bridge(int fd, char *name)
+{
+  do_lines(fd, do_lines_bridge);
+}
+
+void loopfiles_lines(char **argv, void (*function)(char **pline, long len))
+{
+  do_lines_bridge = function;
+  loopfiles(argv, loopfile_lines_bridge);
 }
 
 // Slow, but small.
@@ -974,21 +1017,58 @@ void names_to_pid(char **names, int (*callback)(pid_t pid, char *name))
   DIR *dp;
   struct dirent *entry;
 
-  if (!(dp = opendir("/proc"))) perror_exit("opendir");
+  if (!(dp = opendir("/proc"))) perror_exit("no /proc");
 
   while ((entry = readdir(dp))) {
-    unsigned u;
-    char *cmd, **curname;
+    unsigned u = atoi(entry->d_name);
+    char *cmd = 0, *comm, **cur;
+    off_t len;
 
-    if (!(u = atoi(entry->d_name))) continue;
-    sprintf(libbuf, "/proc/%u/cmdline", u);
-    if (!(cmd = readfile(libbuf, libbuf, sizeof(libbuf)))) continue;
+    if (!u) continue;
 
-    for (curname = names; *curname; curname++)
-      if (**curname == '/' ? !strcmp(cmd, *curname)
-          : !strcmp(getbasename(cmd), getbasename(*curname)))
-        if (callback(u, *curname)) break;
-    if (*curname) break;
+    // Comm is original name of executable (argv[0] could be #! interpreter)
+    // but it's limited to 15 characters
+    sprintf(libbuf, "/proc/%u/comm", u);
+    len = sizeof(libbuf);
+    if (!(comm = readfileat(AT_FDCWD, libbuf, libbuf, &len)) || !len)
+      continue;
+    if (libbuf[len-1] == '\n') libbuf[--len] = 0;
+
+    for (cur = names; *cur; cur++) {
+      struct stat st1, st2;
+      char *bb = getbasename(*cur);
+      off_t len = strlen(bb);
+
+      // Fast path: only matching a filename (no path) that fits in comm.
+      // `len` must be 14 or less because with a full 15 bytes we don't
+      // know whether the name fit or was truncated.
+      if (len<=14 && bb==*cur && !strcmp(comm, bb)) goto match;
+
+      // If we have a path to existing file only match if same inode
+      if (bb!=*cur && !stat(*cur, &st1)) {
+        char buf[32];
+
+        sprintf(buf, "/proc/%u/exe", u);
+        if (stat(buf, &st1)) continue;
+        if (st1.st_dev != st2.st_dev || st1.st_ino != st2.st_ino) continue;
+        goto match;
+      }
+
+      // Nope, gotta read command line to confirm
+      if (!cmd) {
+        sprintf(cmd = libbuf+16, "/proc/%u/cmdline", u);
+        len = sizeof(libbuf)-17;
+        if (!(cmd = readfileat(AT_FDCWD, cmd, cmd, &len))) continue;
+        // readfile only guarantees one null terminator and we need two
+        // (yes the kernel should do this for us, don't care)
+        cmd[len] = 0;
+      }
+      if (!strcmp(bb, getbasename(cmd))) goto match;
+      if (bb!=*cur && !strcmp(bb, getbasename(cmd+strlen(cmd)+1))) goto match;
+      continue;
+match:
+      if (callback(u, *cur)) break;
+    }
   }
   closedir(dp);
 }
@@ -1263,4 +1343,26 @@ void do_lines(int fd, void (*call)(char **pline, long len))
   }
 
   if (fd) fclose(fp);
+}
+
+// Returns the number of bytes taken by the environment variables. For use
+// when calculating the maximum bytes of environment+argument data that can
+// be passed to exec for find(1) and xargs(1).
+long environ_bytes()
+{
+  long bytes = sizeof(char *);
+  char **ev;
+
+  for (ev = environ; *ev; ev++) bytes += sizeof(char *) + strlen(*ev) + 1;
+
+  return bytes;
+}
+
+// Return unix time in milliseconds
+long long millitime(void)
+{
+  struct timespec ts;
+
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return ts.tv_sec*1000+ts.tv_nsec/1000000;
 }

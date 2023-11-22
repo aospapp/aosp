@@ -16,6 +16,7 @@
 -->
 <resources>
     <dimen name="car_card_bottom_margin">8dp</dimen>
+    <dimen name="car_card_view_corner_radius">8dp</dimen>
     <dimen name="car_list_item_height">100dp</dimen>
     <dimen name="car_list_item_icon_size">64dp</dimen>
     <dimen name="lens_no_compatible_app_installed_icon_size">96dp</dimen>

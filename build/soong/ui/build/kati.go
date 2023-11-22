@@ -59,10 +59,12 @@ func genKatiSuffix(ctx Context, config Config) {
 }
 
 func runKati(ctx Context, config Config) {
+	genKatiSuffix(ctx, config)
+
+	runKatiCleanSpec(ctx, config)
+
 	ctx.BeginTrace("kati")
 	defer ctx.EndTrace()
-
-	genKatiSuffix(ctx, config)
 
 	executable := config.PrebuiltBuildTool("ckati")
 	args := []string{
@@ -75,7 +77,8 @@ func runKati(ctx Context, config Config) {
 		"--color_warnings",
 		"--gen_all_targets",
 		"--werror_find_emulator",
-		"-f", "build/core/main.mk",
+		"--kati_stats",
+		"-f", "build/make/core/main.mk",
 	}
 
 	if !config.Environment().IsFalse("KATI_EMULATE_FIND") {
@@ -101,24 +104,29 @@ func runKati(ctx Context, config Config) {
 	}
 	cmd.Stderr = cmd.Stdout
 
-	// Kati leaks memory, so ensure leak detection is turned off
-	cmd.Environment.Set("ASAN_OPTIONS", "detect_leaks=0")
-
 	cmd.StartOrFatal()
 	katiRewriteOutput(ctx, pipe)
 	cmd.WaitOrFatal()
 }
 
 var katiIncludeRe = regexp.MustCompile(`^(\[\d+/\d+] )?including [^ ]+ ...$`)
+var katiLogRe = regexp.MustCompile(`^\*kati\*: `)
 
 func katiRewriteOutput(ctx Context, pipe io.ReadCloser) {
 	haveBlankLine := true
 	smartTerminal := ctx.IsTerminal()
+	errSmartTerminal := ctx.IsErrTerminal()
 
 	scanner := bufio.NewScanner(pipe)
 	for scanner.Scan() {
 		line := scanner.Text()
 		verbose := katiIncludeRe.MatchString(line)
+
+		// Only put kati debug/stat lines in our verbose log
+		if katiLogRe.MatchString(line) {
+			ctx.Verbose(line)
+			continue
+		}
 
 		// For verbose lines, write them on the current line without a newline,
 		// then overwrite them if the next thing we're printing is another
@@ -148,7 +156,7 @@ func katiRewriteOutput(ctx Context, pipe io.ReadCloser) {
 			// that message instead of overwriting it.
 			fmt.Fprintln(ctx.Stdout())
 			haveBlankLine = true
-		} else if !smartTerminal {
+		} else if !errSmartTerminal {
 			// Most editors display these as garbage, so strip them out.
 			line = string(stripAnsiEscapes([]byte(line)))
 		}
@@ -161,4 +169,34 @@ func katiRewriteOutput(ctx Context, pipe io.ReadCloser) {
 	if !haveBlankLine {
 		fmt.Fprintln(ctx.Stdout())
 	}
+}
+
+func runKatiCleanSpec(ctx Context, config Config) {
+	ctx.BeginTrace("kati cleanspec")
+	defer ctx.EndTrace()
+
+	executable := config.PrebuiltBuildTool("ckati")
+	args := []string{
+		"--ninja",
+		"--ninja_dir=" + config.OutDir(),
+		"--ninja_suffix=" + config.KatiSuffix() + "-cleanspec",
+		"--regen",
+		"--detect_android_echo",
+		"--color_warnings",
+		"--gen_all_targets",
+		"--werror_find_emulator",
+		"--use_find_emulator",
+		"-f", "build/make/core/cleanbuild.mk",
+		"BUILDING_WITH_NINJA=true",
+		"SOONG_MAKEVARS_MK=" + config.SoongMakeVarsMk(),
+	}
+
+	cmd := Command(ctx, config, "ckati", executable, args...)
+	cmd.Sandbox = katiCleanSpecSandbox
+	cmd.Stdout = ctx.Stdout()
+	cmd.Stderr = ctx.Stderr()
+
+	// Kati leaks memory, so ensure leak detection is turned off
+	cmd.Environment.Set("ASAN_OPTIONS", "detect_leaks=0")
+	cmd.RunOrFatal()
 }

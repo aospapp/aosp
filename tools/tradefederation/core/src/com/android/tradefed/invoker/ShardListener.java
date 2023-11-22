@@ -16,19 +16,24 @@
 package com.android.tradefed.invoker;
 
 import com.android.ddmlib.Log.LogLevel;
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.ddmlib.testrunner.TestResult;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.CollectingTestListener;
+import com.android.tradefed.result.ILogSaverListener;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.LogFile;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.TestResult;
+import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.util.TimeUtil;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 /**
  * A {@link ITestInvocationListener} that collects results from a invocation shard (aka an
@@ -78,18 +83,36 @@ public class ShardListener extends CollectingTestListener {
      */
     @Override
     public void testLog(String dataName, LogDataType dataType, InputStreamSource dataStream) {
-        // forward testLog results immediately, since they are not order dependent and there are
-        // not stored by CollectingTestListener
+        // forward testLog results immediately, since result reporters might take action on it.
         synchronized (mMasterListener) {
-            mMasterListener.testLog(dataName, dataType, dataStream);
+            if (mMasterListener instanceof ShardMasterResultForwarder) {
+                // If the listener is a log saver, we should simply forward the testLog not save
+                // again.
+                ((ShardMasterResultForwarder) mMasterListener)
+                        .testLogForward(dataName, dataType, dataStream);
+            } else {
+                mMasterListener.testLog(dataName, dataType, dataStream);
+            }
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void testRunEnded(long elapsedTime, Map<String, String> runMetrics) {
+    public void testLogSaved(
+            String dataName, LogDataType dataType, InputStreamSource dataStream, LogFile logFile) {
+        super.testLogSaved(dataName, dataType, dataStream, logFile);
+        // Forward the testLogSaved callback.
+        synchronized (mMasterListener) {
+            if (mMasterListener instanceof ILogSaverListener) {
+                ((ILogSaverListener) mMasterListener)
+                        .testLogSaved(dataName, dataType, dataStream, logFile);
+            }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void testRunEnded(long elapsedTime, HashMap<String, Metric> runMetrics) {
         super.testRunEnded(elapsedTime, runMetrics);
         CLog.logAndDisplay(LogLevel.INFO, "Sharded test completed: %s",
                 getCurrentRunResults().getName());
@@ -131,7 +154,12 @@ public class ShardListener extends CollectingTestListener {
                 if (runResult.isRunFailure()) {
                     mMasterListener.testRunFailed(runResult.getRunFailureMessage());
                 }
-                mMasterListener.testRunEnded(runResult.getElapsedTime(), runResult.getRunMetrics());
+
+                // Provide a strong association of the run to its logs.
+                forwardLogAssociation(runResult.getRunLoggedFiles(), mMasterListener);
+
+                mMasterListener.testRunEnded(
+                        runResult.getElapsedTime(), runResult.getRunProtoMetrics());
             }
             // Close the last module
             if (moduleContext != null) {
@@ -142,8 +170,8 @@ public class ShardListener extends CollectingTestListener {
         }
     }
 
-    private void forwardTestResults(Map<TestIdentifier, TestResult> testResults) {
-        for (Map.Entry<TestIdentifier, TestResult> testEntry : testResults.entrySet()) {
+    private void forwardTestResults(Map<TestDescription, TestResult> testResults) {
+        for (Map.Entry<TestDescription, TestResult> testEntry : testResults.entrySet()) {
             mMasterListener.testStarted(testEntry.getKey(), testEntry.getValue().getStartTime());
             switch (testEntry.getValue().getStatus()) {
                 case FAILURE:
@@ -160,11 +188,24 @@ public class ShardListener extends CollectingTestListener {
                 default:
                     break;
             }
+            // Provide a strong association of the test to its logs.
+            forwardLogAssociation(testEntry.getValue().getLoggedFiles(), mMasterListener);
+
             if (!testEntry.getValue().getStatus().equals(TestStatus.INCOMPLETE)) {
                 mMasterListener.testEnded(
                         testEntry.getKey(),
                         testEntry.getValue().getEndTime(),
-                        testEntry.getValue().getMetrics());
+                        testEntry.getValue().getProtoMetrics());
+            }
+        }
+    }
+
+    /** Forward to the listener the logAssociated callback on the files. */
+    private void forwardLogAssociation(
+            Map<String, LogFile> loggedFiles, ITestInvocationListener listener) {
+        for (Entry<String, LogFile> logFile : loggedFiles.entrySet()) {
+            if (listener instanceof ILogSaverListener) {
+                ((ILogSaverListener) listener).logAssociation(logFile.getKey(), logFile.getValue());
             }
         }
     }

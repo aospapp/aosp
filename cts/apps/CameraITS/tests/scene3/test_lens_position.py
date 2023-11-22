@@ -23,8 +23,8 @@ import numpy as np
 
 NUM_TRYS = 2
 NUM_STEPS = 6
-SHARPNESS_TOL = 10  # percentage
-POSITION_TOL = 10  # percentage
+SHARPNESS_TOL = 0.1
+POSITION_TOL = 0.1
 FRAME_TIME_TOL = 10  # ms
 VGA_WIDTH = 640
 VGA_HEIGHT = 480
@@ -38,7 +38,7 @@ CHART_SCALE_STOP = 1.35
 CHART_SCALE_STEP = 0.025
 
 
-def test_lens_position(cam, props, fmt, sensitivity, exp, af_fd):
+def test_lens_position(cam, props, fmt, sensitivity, exp, chart):
     """Return fd, sharpness, lens state of the output images.
 
     Args:
@@ -49,23 +49,13 @@ def test_lens_position(cam, props, fmt, sensitivity, exp, af_fd):
             android.sensor.sensitivity
         exp: Exposure time for the 3A request as defined in
             android.sensor.exposureTime
-        af_fd: Focus distance for the 3A request as defined in
-            android.lens.focusDistance
+        chart: Object with chart properties
 
     Returns:
         Dictionary of results for different focal distance captures
         with static lens positions and moving lens positions
         d_static, d_moving
     """
-
-    # initialize chart class
-    chart = its.cv2image.Chart(CHART_FILE, CHART_HEIGHT, CHART_DISTANCE,
-                                CHART_SCALE_START, CHART_SCALE_STOP,
-                                CHART_SCALE_STEP)
-
-    # find chart location
-    xnorm, ynorm, wnorm, hnorm = chart.locate(cam, props, fmt, sensitivity,
-                                              exp, af_fd)
 
     # initialize variables and take data sets
     data_static = {}
@@ -89,11 +79,11 @@ def test_lens_position(cam, props, fmt, sensitivity, exp, af_fd):
         print ' focus distance (diopters): %.3f' % data['fd']
         print ' current lens location (diopters): %.3f' % data['loc']
         y, _, _ = its.image.convert_capture_to_planes(cap, props)
-        chart = its.image.normalize_img(its.image.get_image_patch(y,
-                                                                  xnorm, ynorm,
-                                                                  wnorm, hnorm))
-        its.image.write_image(chart, '%s_stat_i=%d_chart.jpg' % (NAME, i))
-        data['sharpness'] = white_level*its.image.compute_image_sharpness(chart)
+        chart.img = its.image.normalize_img(its.image.get_image_patch(
+                y, chart.xnorm, chart.ynorm, chart.wnorm, chart.hnorm))
+        its.image.write_image(chart.img, '%s_stat_i=%d_chart.jpg' % (NAME, i))
+        data['sharpness'] = white_level*its.image.compute_image_sharpness(
+                chart.img)
         print 'Chart sharpness: %.1f\n' % data['sharpness']
         data_static[i] = data
     # take moving data set
@@ -115,12 +105,12 @@ def test_lens_position(cam, props, fmt, sensitivity, exp, af_fd):
         print ' focus distance (diopters): %.3f' % data['fd']
         print ' current lens location (diopters): %.3f' % data['loc']
         y, _, _ = its.image.convert_capture_to_planes(cap, props)
-        y = its.image.flip_mirror_img_per_argv(y)
-        chart = its.image.normalize_img(its.image.get_image_patch(y,
-                                                                  xnorm, ynorm,
-                                                                  wnorm, hnorm))
-        its.image.write_image(chart, '%s_move_i=%d_chart.jpg' % (NAME, i))
-        data['sharpness'] = white_level*its.image.compute_image_sharpness(chart)
+        y = its.image.rotate_img_per_argv(y)
+        chart.img = its.image.normalize_img(its.image.get_image_patch(
+                y, chart.xnorm, chart.ynorm, chart.wnorm, chart.hnorm))
+        its.image.write_image(chart.img, '%s_move_i=%d_chart.jpg' % (NAME, i))
+        data['sharpness'] = white_level*its.image.compute_image_sharpness(
+                chart.img)
         print 'Chart sharpness: %.1f\n' % data['sharpness']
         data_moving[i] = data
     return data_static, data_moving
@@ -128,19 +118,27 @@ def test_lens_position(cam, props, fmt, sensitivity, exp, af_fd):
 
 def main():
     """Test if focus position is properly reported for moving lenses."""
-
     print '\nStarting test_lens_position.py'
+    # check skip conditions
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
         its.caps.skip_unless(not its.caps.fixed_focus(props))
-        its.caps.skip_unless(its.caps.lens_calibrated(props))
+        its.caps.skip_unless(its.caps.read_3a(props) and
+                             its.caps.lens_calibrated(props))
+    # initialize chart class
+    chart = its.cv2image.Chart(CHART_FILE, CHART_HEIGHT, CHART_DISTANCE,
+                               CHART_SCALE_START, CHART_SCALE_STOP,
+                               CHART_SCALE_STEP)
+
+    with its.device.ItsSession() as cam:
+        mono_camera = its.caps.mono_camera(props)
         fmt = {'format': 'yuv', 'width': VGA_WIDTH, 'height': VGA_HEIGHT}
 
-        # Get proper sensitivity, exposure time, and focus distance with 3A.
-        s, e, _, _, fd = cam.do_3a(get_results=True)
+        # Get proper sensitivity and exposure time with 3A
+        s, e, _, _, _ = cam.do_3a(get_results=True, mono_camera=mono_camera)
 
         # Get sharpness for each focal distance
-        d_stat, d_move = test_lens_position(cam, props, fmt, s, e, fd)
+        d_stat, d_move = test_lens_position(cam, props, fmt, s, e, chart)
         print 'Lens stationary'
         for k in sorted(d_stat):
             print ('i: %d\tfd: %.3f\tlens location (diopters): %.3f \t'
@@ -161,14 +159,19 @@ def main():
         print 'Asserting static lens locations/sharpness are similar'
         for i in range(len(d_stat)/2):
             j = 2 * NUM_STEPS - 1 - i
-            print (' lens position: %.3f'
-                   % d_stat[i]['fd'])
+            rw_msg = 'fd_write: %.3f, fd_read: %.3f, RTOL: %.2f' % (
+                    d_stat[i]['fd'], d_stat[i]['loc'], POSITION_TOL)
+            fr_msg = 'loc_fwd: %.3f, loc_rev: %.3f, RTOL: %.2f' % (
+                    d_stat[i]['loc'], d_stat[j]['loc'], POSITION_TOL)
+            s_msg = 'sharpness_fwd: %.3f, sharpness_rev: %.3f, RTOL: %.2f' % (
+                    d_stat[i]['sharpness'], d_stat[j]['sharpness'],
+                    SHARPNESS_TOL)
             assert np.isclose(d_stat[i]['loc'], d_stat[i]['fd'],
-                              rtol=POSITION_TOL/100.0)
+                              rtol=POSITION_TOL), rw_msg
             assert np.isclose(d_stat[i]['loc'], d_stat[j]['loc'],
-                              rtol=POSITION_TOL/100.0)
+                              rtol=POSITION_TOL), fr_msg
             assert np.isclose(d_stat[i]['sharpness'], d_stat[j]['sharpness'],
-                              rtol=SHARPNESS_TOL/100.0)
+                              rtol=SHARPNESS_TOL), s_msg
         # assert moving frames approximately consecutive with even distribution
         print 'Asserting moving frames are consecutive'
         times = [v['timestamp'] for v in d_move.itervalues()]
@@ -177,9 +180,10 @@ def main():
         # assert reported location/sharpness is correct in moving frames
         print 'Asserting moving lens locations/sharpness are similar'
         for i in range(len(d_move)):
-            print ' lens position: %.3f' % d_stat[i]['fd']
+            m_msg = 'static: %.3f, moving: %.3f, RTOL: %.2f' % (
+                    d_stat[i]['loc'], d_move[i]['loc'], POSITION_TOL)
             assert np.isclose(d_stat[i]['loc'], d_move[i]['loc'],
-                              rtol=POSITION_TOL)
+                              rtol=POSITION_TOL), m_msg
             if d_move[i]['lens_moving'] and i > 0:
                 if d_stat[i]['sharpness'] > d_stat[i-1]['sharpness']:
                     assert (d_stat[i]['sharpness']*(1.0+SHARPNESS_TOL) >
@@ -190,8 +194,9 @@ def main():
                             d_move[i]['sharpness'] >
                             d_stat[i]['sharpness']*(1.0-SHARPNESS_TOL))
             elif not d_move[i]['lens_moving']:
-                assert np.isclose(d_stat[i]['sharpness'],
-                                  d_move[i]['sharpness'], rtol=SHARPNESS_TOL)
+                assert np.isclose(
+                        d_stat[i]['sharpness'], d_move[i]['sharpness'],
+                        rtol=SHARPNESS_TOL)
             else:
                 raise its.error.Error('Lens is moving at frame 0!')
 

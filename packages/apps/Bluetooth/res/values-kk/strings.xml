@@ -100,7 +100,7 @@
     <string name="status_connection_error" msgid="947681831523219891">"Байланыс сәтсіз болды."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"Өтінішті дұрыс орындау мүмкін емес."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Белгісіз қателік."</string>
-    <string name="btopp_live_folder" msgid="7967791481444474554">"Bluetooth қабылданды"</string>
+    <string name="btopp_live_folder" msgid="7967791481444474554">"Bluetooth арқылы алынғандар"</string>
     <string name="opp_notification_group" msgid="3486303082135789982">"Bluetooth бөлісу"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> Толығымен қабылданды."</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> Жіберіліп болды."</string>
@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"Bluetooth дыбысы қосылды"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Bluetooth дыбысы ажыратылды"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth aудиосы"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Көлемі 4 ГБ-тан асатын файлдар тасымалданбайды"</string>
 </resources>

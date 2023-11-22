@@ -168,7 +168,7 @@ abstract class OpenSSLCipherRSA extends CipherSpi {
     }
 
     void doCryptoInit(AlgorithmParameterSpec spec)
-            throws InvalidAlgorithmParameterException {}
+        throws InvalidAlgorithmParameterException, InvalidKeyException {}
 
     void engineInitInternal(int opmode, Key key, AlgorithmParameterSpec spec)
             throws InvalidKeyException, InvalidAlgorithmParameterException {
@@ -204,7 +204,7 @@ abstract class OpenSSLCipherRSA extends CipherSpi {
             if (null == key) {
                 throw new InvalidKeyException("RSA private or public key is null");
             }
-            
+
             throw new InvalidKeyException("Need RSA private or public key");
         }
 
@@ -213,6 +213,29 @@ abstract class OpenSSLCipherRSA extends CipherSpi {
         inputTooLarge = false;
 
         doCryptoInit(spec);
+    }
+
+    @Override
+    protected int engineGetKeySize(Key key) throws InvalidKeyException {
+        if (key instanceof OpenSSLRSAPrivateKey) {
+            return ((OpenSSLRSAPrivateKey) key).getModulus().bitLength();
+        }
+        if (key instanceof RSAPrivateCrtKey) {
+            return ((RSAPrivateCrtKey) key).getModulus().bitLength();
+        }
+        if (key instanceof RSAPrivateKey) {
+            return ((RSAPrivateKey) key).getModulus().bitLength();
+        }
+        if (key instanceof OpenSSLRSAPublicKey) {
+            return ((OpenSSLRSAPublicKey) key).getModulus().bitLength();
+        }
+        if (key instanceof RSAPublicKey) {
+            return ((RSAPublicKey) key).getModulus().bitLength();
+        }
+        if (null == key) {
+            throw new InvalidKeyException("RSA private or public key is null");
+        }
+        throw new InvalidKeyException("Need RSA private or public key");
     }
 
     @Override
@@ -441,7 +464,10 @@ abstract class OpenSSLCipherRSA extends CipherSpi {
                                 EvpMdRef.getJcaDigestAlgorithmStandardNameFromEVP_MD(mgf1Md)),
                         pSrc));
                 return params;
-            } catch (NoSuchAlgorithmException | InvalidParameterSpecException e) {
+            } catch (NoSuchAlgorithmException e) {
+                // We should not get here.
+                throw (Error) new AssertionError("OAEP not supported").initCause(e);
+            } catch (InvalidParameterSpecException e) {
                 throw new RuntimeException("No providers of AlgorithmParameters.OAEP available");
             }
         }
@@ -449,7 +475,7 @@ abstract class OpenSSLCipherRSA extends CipherSpi {
         @Override
         protected void engineSetPadding(String padding) throws NoSuchPaddingException {
             String paddingUpper = padding.toUpperCase(Locale.US);
-            if (paddingUpper.equals("OAEPPadding")) {
+            if (paddingUpper.equals("OAEPPADDING")) {
                 this.padding = NativeConstants.RSA_PKCS1_OAEP_PADDING;
                 return;
             }
@@ -503,7 +529,7 @@ abstract class OpenSSLCipherRSA extends CipherSpi {
 
         @Override
         void doCryptoInit(AlgorithmParameterSpec spec)
-                throws InvalidAlgorithmParameterException {
+            throws InvalidAlgorithmParameterException, InvalidKeyException {
             pkeyCtx = new NativeRef.EVP_PKEY_CTX(encrypting
                             ? NativeCrypto.EVP_PKEY_encrypt_init(key.getNativeRef())
                             : NativeCrypto.EVP_PKEY_decrypt_init(key.getNativeRef()));

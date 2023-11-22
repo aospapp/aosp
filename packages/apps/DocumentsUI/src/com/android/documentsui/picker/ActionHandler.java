@@ -16,7 +16,7 @@
 
 package com.android.documentsui.picker;
 
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.base.State.ACTION_CREATE;
 import static com.android.documentsui.base.State.ACTION_GET_CONTENT;
 import static com.android.documentsui.base.State.ACTION_OPEN;
@@ -41,6 +41,7 @@ import com.android.documentsui.ActivityConfig;
 import com.android.documentsui.DocumentsAccess;
 import com.android.documentsui.Injector;
 import com.android.documentsui.Metrics;
+import com.android.documentsui.Model;
 import com.android.documentsui.base.BooleanConsumer;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
@@ -50,11 +51,10 @@ import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
 import com.android.documentsui.dirlist.AnimationView;
-import com.android.documentsui.dirlist.DocumentDetails;
-import com.android.documentsui.Model;
 import com.android.documentsui.picker.ActionHandler.Addons;
 import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.roots.ProvidersAccess;
+import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
 import com.android.documentsui.services.FileOperationService;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -246,12 +246,12 @@ class ActionHandler<T extends Activity & Addons> extends AbstractActionHandler<T
     }
 
     @Override
-    public boolean openDocument(DocumentDetails details, @ViewType int type,
+    public boolean openItem(ItemDetails details, @ViewType int type,
             @ViewType int fallback) {
-        DocumentInfo doc = mModel.getDocument(details.getModelId());
+        DocumentInfo doc = mModel.getDocument(details.getStableId());
         if (doc == null) {
             Log.w(TAG,
-                    "Can't view item. No Document available for modeId: " + details.getModelId());
+                    "Can't view item. No Document available for modeId: " + details.getStableId());
             return false;
         }
 
@@ -374,6 +374,7 @@ class ActionHandler<T extends Activity & Addons> extends AbstractActionHandler<T
     }
 
     public interface Addons extends CommonAddons {
+        @Override
         void onDocumentPicked(DocumentInfo doc);
 
         /**

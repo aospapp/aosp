@@ -87,6 +87,8 @@
 @   nt
 @   mode
 
+.equ    nt_offset,      40
+
 .text
 .align 4
 
@@ -101,7 +103,7 @@ ihevc_intra_pred_chroma_ver_a9q:
 
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
 
-    ldr         r4,[sp,#40]                 @loads nt
+    ldr         r4,[sp,#nt_offset]          @loads nt
     lsl         r5, r4, #2                  @4nt
 
 

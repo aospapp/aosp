@@ -162,13 +162,15 @@ public class CallerInfo {
    */
   public String callSubject;
 
-  private boolean mIsEmergency;
-  private boolean mIsVoiceMail;
+  public String countryIso;
+
+  private boolean isEmergency;
+  private boolean isVoiceMail;
 
   public CallerInfo() {
     // TODO: Move all the basic initialization here?
-    mIsEmergency = false;
-    mIsVoiceMail = false;
+    isEmergency = false;
+    isVoiceMail = false;
     userType = ContactsUtils.USER_TYPE_CURRENT;
   }
 
@@ -196,135 +198,143 @@ public class CallerInfo {
    */
   public static CallerInfo getCallerInfo(Context context, Uri contactRef, Cursor cursor) {
     CallerInfo info = new CallerInfo();
-    info.photoResource = 0;
-    info.phoneLabel = null;
-    info.numberType = 0;
-    info.numberLabel = null;
     info.cachedPhoto = null;
-    info.isCachedPhotoCurrent = false;
     info.contactExists = false;
+    info.contactRefUri = contactRef;
+    info.isCachedPhotoCurrent = false;
+    info.name = null;
+    info.needUpdate = false;
+    info.numberLabel = null;
+    info.numberType = 0;
+    info.phoneLabel = null;
+    info.photoResource = 0;
     info.userType = ContactsUtils.USER_TYPE_CURRENT;
 
     Log.v(TAG, "getCallerInfo() based on cursor...");
 
-    if (cursor != null) {
-      if (cursor.moveToFirst()) {
-        // TODO: photo_id is always available but not taken
-        // care of here. Maybe we should store it in the
-        // CallerInfo object as well.
-
-        long contactId = 0L;
-        int columnIndex;
-
-        // Look for the name
-        columnIndex = cursor.getColumnIndex(PhoneLookup.DISPLAY_NAME);
-        if (columnIndex != -1) {
-          info.name = cursor.getString(columnIndex);
-        }
-
-        // Look for the number
-        columnIndex = cursor.getColumnIndex(PhoneLookup.NUMBER);
-        if (columnIndex != -1) {
-          info.phoneNumber = cursor.getString(columnIndex);
-        }
-
-        // Look for the normalized number
-        columnIndex = cursor.getColumnIndex(PhoneLookup.NORMALIZED_NUMBER);
-        if (columnIndex != -1) {
-          info.normalizedNumber = cursor.getString(columnIndex);
-        }
-
-        // Look for the label/type combo
-        columnIndex = cursor.getColumnIndex(PhoneLookup.LABEL);
-        if (columnIndex != -1) {
-          int typeColumnIndex = cursor.getColumnIndex(PhoneLookup.TYPE);
-          if (typeColumnIndex != -1) {
-            info.numberType = cursor.getInt(typeColumnIndex);
-            info.numberLabel = cursor.getString(columnIndex);
-            info.phoneLabel =
-                Phone.getTypeLabel(context.getResources(), info.numberType, info.numberLabel)
-                    .toString();
-          }
-        }
-
-        // cache the lookup key for later use to create lookup URIs
-        columnIndex = cursor.getColumnIndex(PhoneLookup.LOOKUP_KEY);
-        if (columnIndex != -1) {
-          info.lookupKeyOrNull = cursor.getString(columnIndex);
-        }
-
-        // Look for the person_id.
-        columnIndex = getColumnIndexForPersonId(contactRef, cursor);
-        if (columnIndex != -1) {
-          contactId = cursor.getLong(columnIndex);
-          // QuickContacts in M doesn't support enterprise contact id
-          if (contactId != 0
-              && (VERSION.SDK_INT >= VERSION_CODES.N
-                  || !Contacts.isEnterpriseContactId(contactId))) {
-            info.contactIdOrZero = contactId;
-            Log.v(TAG, "==> got info.contactIdOrZero: " + info.contactIdOrZero);
-          }
-        } else {
-          // No valid columnIndex, so we can't look up person_id.
-          Log.v(TAG, "Couldn't find contactId column for " + contactRef);
-          // Watch out: this means that anything that depends on
-          // person_id will be broken (like contact photo lookups in
-          // the in-call UI, for example.)
-        }
-
-        // Display photo URI.
-        columnIndex = cursor.getColumnIndex(PhoneLookup.PHOTO_URI);
-        if ((columnIndex != -1) && (cursor.getString(columnIndex) != null)) {
-          info.contactDisplayPhotoUri = Uri.parse(cursor.getString(columnIndex));
-        } else {
-          info.contactDisplayPhotoUri = null;
-        }
-
-        // look for the custom ringtone, create from the string stored
-        // in the database.
-        columnIndex = cursor.getColumnIndex(PhoneLookup.CUSTOM_RINGTONE);
-        if ((columnIndex != -1) && (cursor.getString(columnIndex) != null)) {
-          if (TextUtils.isEmpty(cursor.getString(columnIndex))) {
-            // make it consistent with frameworks/base/.../CallerInfo.java
-            info.contactRingtoneUri = Uri.EMPTY;
-          } else {
-            info.contactRingtoneUri = Uri.parse(cursor.getString(columnIndex));
-          }
-        } else {
-          info.contactRingtoneUri = null;
-        }
-
-        // look for the send to voicemail flag, set it to true only
-        // under certain circumstances.
-        columnIndex = cursor.getColumnIndex(PhoneLookup.SEND_TO_VOICEMAIL);
-        info.shouldSendToVoicemail = (columnIndex != -1) && ((cursor.getInt(columnIndex)) == 1);
-        info.contactExists = true;
-
-        // Determine userType by directoryId and contactId
-        final String directory =
-            contactRef == null
-                ? null
-                : contactRef.getQueryParameter(ContactsContract.DIRECTORY_PARAM_KEY);
-        Long directoryId = null;
-        if (directory != null) {
-          try {
-            directoryId = Long.parseLong(directory);
-          } catch (NumberFormatException e) {
-            // do nothing
-          }
-        }
-        info.userType = ContactsUtils.determineUserType(directoryId, contactId);
-
-        info.nameAlternative =
-            ContactInfoHelper.lookUpDisplayNameAlternative(
-                context, info.lookupKeyOrNull, info.userType, directoryId);
-      }
-      cursor.close();
+    if (cursor == null || !cursor.moveToFirst()) {
+      return info;
     }
 
-    info.needUpdate = false;
-    info.name = normalize(info.name);
-    info.contactRefUri = contactRef;
+    // TODO: photo_id is always available but not taken
+    // care of here. Maybe we should store it in the
+    // CallerInfo object as well.
+
+    long contactId = 0L;
+    int columnIndex;
+
+    // Look for the number
+    columnIndex = cursor.getColumnIndex(PhoneLookup.NUMBER);
+    if (columnIndex != -1) {
+      // The Contacts provider ignores special characters in phone numbers when searching for a
+      // contact. For example, number "123" is considered a match with a contact with number "#123".
+      // We need to check whether the result contains a number that truly matches the query and move
+      // the cursor to that position before filling in the fields in CallerInfo.
+      boolean hasNumberMatch =
+          PhoneNumberHelper.updateCursorToMatchContactLookupUri(cursor, columnIndex, contactRef);
+      if (hasNumberMatch) {
+        info.phoneNumber = cursor.getString(columnIndex);
+      } else {
+        return info;
+      }
+    }
+
+    // Look for the name
+    columnIndex = cursor.getColumnIndex(PhoneLookup.DISPLAY_NAME);
+    if (columnIndex != -1) {
+      info.name = normalize(cursor.getString(columnIndex));
+    }
+
+    // Look for the normalized number
+    columnIndex = cursor.getColumnIndex(PhoneLookup.NORMALIZED_NUMBER);
+    if (columnIndex != -1) {
+      info.normalizedNumber = cursor.getString(columnIndex);
+    }
+
+    // Look for the label/type combo
+    columnIndex = cursor.getColumnIndex(PhoneLookup.LABEL);
+    if (columnIndex != -1) {
+      int typeColumnIndex = cursor.getColumnIndex(PhoneLookup.TYPE);
+      if (typeColumnIndex != -1) {
+        info.numberType = cursor.getInt(typeColumnIndex);
+        info.numberLabel = cursor.getString(columnIndex);
+        info.phoneLabel =
+            Phone.getTypeLabel(context.getResources(), info.numberType, info.numberLabel)
+                .toString();
+      }
+    }
+
+    // cache the lookup key for later use to create lookup URIs
+    columnIndex = cursor.getColumnIndex(PhoneLookup.LOOKUP_KEY);
+    if (columnIndex != -1) {
+      info.lookupKeyOrNull = cursor.getString(columnIndex);
+    }
+
+    // Look for the person_id.
+    columnIndex = getColumnIndexForPersonId(contactRef, cursor);
+    if (columnIndex != -1) {
+      contactId = cursor.getLong(columnIndex);
+      // QuickContacts in M doesn't support enterprise contact id
+      if (contactId != 0
+          && (VERSION.SDK_INT >= VERSION_CODES.N || !Contacts.isEnterpriseContactId(contactId))) {
+        info.contactIdOrZero = contactId;
+        Log.v(TAG, "==> got info.contactIdOrZero: " + info.contactIdOrZero);
+      }
+    } else {
+      // No valid columnIndex, so we can't look up person_id.
+      Log.v(TAG, "Couldn't find contactId column for " + contactRef);
+      // Watch out: this means that anything that depends on
+      // person_id will be broken (like contact photo lookups in
+      // the in-call UI, for example.)
+    }
+
+    // Display photo URI.
+    columnIndex = cursor.getColumnIndex(PhoneLookup.PHOTO_URI);
+    if ((columnIndex != -1) && (cursor.getString(columnIndex) != null)) {
+      info.contactDisplayPhotoUri = Uri.parse(cursor.getString(columnIndex));
+    } else {
+      info.contactDisplayPhotoUri = null;
+    }
+
+    // look for the custom ringtone, create from the string stored
+    // in the database.
+    columnIndex = cursor.getColumnIndex(PhoneLookup.CUSTOM_RINGTONE);
+    if ((columnIndex != -1) && (cursor.getString(columnIndex) != null)) {
+      if (TextUtils.isEmpty(cursor.getString(columnIndex))) {
+        // make it consistent with frameworks/base/.../CallerInfo.java
+        info.contactRingtoneUri = Uri.EMPTY;
+      } else {
+        info.contactRingtoneUri = Uri.parse(cursor.getString(columnIndex));
+      }
+    } else {
+      info.contactRingtoneUri = null;
+    }
+
+    // look for the send to voicemail flag, set it to true only
+    // under certain circumstances.
+    columnIndex = cursor.getColumnIndex(PhoneLookup.SEND_TO_VOICEMAIL);
+    info.shouldSendToVoicemail = (columnIndex != -1) && ((cursor.getInt(columnIndex)) == 1);
+    info.contactExists = true;
+
+    // Determine userType by directoryId and contactId
+    final String directory =
+        contactRef == null
+            ? null
+            : contactRef.getQueryParameter(ContactsContract.DIRECTORY_PARAM_KEY);
+    Long directoryId = null;
+    if (directory != null) {
+      try {
+        directoryId = Long.parseLong(directory);
+      } catch (NumberFormatException e) {
+        // do nothing
+      }
+    }
+    info.userType = ContactsUtils.determineUserType(directoryId, contactId);
+
+    info.nameAlternative =
+        ContactInfoHelper.lookUpDisplayNameAlternative(
+            context, info.lookupKeyOrNull, info.userType, directoryId);
+    cursor.close();
 
     return info;
   }
@@ -457,12 +467,12 @@ public class CallerInfo {
 
   /** @return true if the caller info is an emergency number. */
   public boolean isEmergencyNumber() {
-    return mIsEmergency;
+    return isEmergency;
   }
 
   /** @return true if the caller info is a voicemail number. */
   public boolean isVoiceMailNumber() {
-    return mIsVoiceMail;
+    return isVoiceMail;
   }
 
   /**
@@ -475,8 +485,7 @@ public class CallerInfo {
     name = context.getString(R.string.emergency_call_dialog_number_for_display);
     phoneNumber = null;
 
-    photoResource = R.drawable.img_phone;
-    mIsEmergency = true;
+    isEmergency = true;
     return this;
   }
 
@@ -488,7 +497,7 @@ public class CallerInfo {
    * @return this instance.
    */
   /* package */ CallerInfo markAsVoiceMail(Context context) {
-    mIsVoiceMail = true;
+    isVoiceMail = true;
 
     try {
       // For voicemail calls, we display the voice mail tag
@@ -505,7 +514,6 @@ public class CallerInfo {
       Log.e(TAG, "Cannot access VoiceMail.", se);
     }
     // TODO: There is no voicemail picture?
-    // FIXME: FIND ANOTHER ICON
     // photoResource = android.R.drawable.badge_voicemail;
     return this;
   }
@@ -523,7 +531,7 @@ public class CallerInfo {
    */
   public void updateGeoDescription(Context context, String fallbackNumber) {
     String number = TextUtils.isEmpty(phoneNumber) ? fallbackNumber : phoneNumber;
-    geoDescription = PhoneNumberHelper.getGeoDescription(context, number);
+    geoDescription = PhoneNumberHelper.getGeoDescription(context, number, countryIso);
   }
 
   /** @return a string debug representation of this instance. */
@@ -557,8 +565,8 @@ public class CallerInfo {
           .append("\nshouldSendToVoicemail: " + shouldSendToVoicemail)
           .append("\ncachedPhoto: " + cachedPhoto)
           .append("\nisCachedPhotoCurrent: " + isCachedPhotoCurrent)
-          .append("\nemergency: " + mIsEmergency)
-          .append("\nvoicemail: " + mIsVoiceMail)
+          .append("\nemergency: " + isEmergency)
+          .append("\nvoicemail: " + isVoiceMail)
           .append("\nuserType: " + userType)
           .append(" }")
           .toString();

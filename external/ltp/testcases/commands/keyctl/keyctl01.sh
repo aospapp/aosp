@@ -26,7 +26,6 @@
 #   KEYS: potential uninitialized variable
 #
 
-TST_ID="keyctl01"
 TST_SETUP=setup
 TST_CLEANUP=cleanup
 TST_TESTFUNC=do_test
@@ -35,11 +34,38 @@ TST_NEEDS_TMPDIR=1
 TST_NEEDS_CMDS="keyctl"
 . tst_test.sh
 
+check_keyctl()
+{
+	local nosup
+	for op in $@; do
+		nosup=0
+
+		if ! keyctl 2>&1 | grep -q "keyctl $op"; then
+			nosup=1
+		fi
+
+		if [ "$op" = "request2" ]; then
+			local key=`keyctl request2 user debug:foo bar`
+			if [ $? -ne 0 ]; then
+				nosup=1
+			fi
+		fi
+
+		if [ "$op" = "unlink" ]; then
+			if ! keyctl unlink $key @s; then
+				nosup=1
+			fi
+		fi
+
+		if [ $nosup -ne 0 ]; then
+			tst_brk TCONF "keyctl operation $op not supported"
+		fi
+	done
+}
+
 setup()
 {
-	if tst_kvcmp -le 2.6.33; then
-		tst_brk TCONF "Kernel newer than 2.6.33 is needed"
-	fi
+	check_keyctl negate request2 show unlink
 
 	PATH_KEYSTAT="/proc/key-users"
 	PATH_KEYQUOTA="/proc/sys/kernel/keys/root_maxbytes"
@@ -62,19 +88,26 @@ cleanup()
 
 do_test()
 {
+	local quota_excd=0
 	local maxkeysz=$((ORIG_KEYSZ + 100))
 
-	while true
+	while [ $maxkeysz -ge 0 ]
 	do
 		echo $maxkeysz >$PATH_KEYQUOTA
 
 		keyctl request2 user debug:fred negate @t >temp 2>&1
 		grep -q -E "quota exceeded" temp
 		if [ $? -eq 0 ]; then
+			quota_excd=1
 			break
 		fi
 
 		local key=`keyctl show | awk '/debug:fred/ {print $1}'`
+		if [ -z "$key" ]; then
+			key=`keyctl show | \
+				awk -F ':' '/inaccessible/ {print $1}'`
+		fi
+
 		if [ -n "$key" ]; then
 			keyctl unlink $key @s >/dev/null
 			tst_sleep 50ms
@@ -82,6 +115,10 @@ do_test()
 
 		((maxkeysz -= 4))
 	done
+
+	if [ $quota_excd -eq 0 ]; then
+		tst_res TWARN "Failed to trigger the quota excess"
+	fi
 
 	tst_res TPASS "Bug not reproduced"
 }

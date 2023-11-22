@@ -18,6 +18,7 @@ package com.android.settings.applications.defaultapps;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
@@ -29,6 +30,7 @@ import android.text.TextUtils;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settings.R;
+import com.android.settingslib.applications.DefaultAppInfo;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +46,11 @@ public class DefaultHomePicker extends DefaultAppPickerFragment {
     }
 
     @Override
+    protected int getPreferenceScreenResId() {
+        return R.xml.default_home_settings;
+    }
+
+    @Override
     public int getMetricsCategory() {
         return MetricsProto.MetricsEvent.DEFAULT_HOME_PICKER;
     }
@@ -53,6 +60,7 @@ public class DefaultHomePicker extends DefaultAppPickerFragment {
         final boolean mustSupportManagedProfile = hasManagedProfile();
         final List<DefaultAppInfo> candidates = new ArrayList<>();
         final List<ResolveInfo> homeActivities = new ArrayList<>();
+        final Context context = getContext();
         mPm.getHomeActivities(homeActivities);
 
         for (ResolveInfo resolveInfo : homeActivities) {
@@ -71,7 +79,7 @@ public class DefaultHomePicker extends DefaultAppPickerFragment {
                 summary = null;
             }
             final DefaultAppInfo candidate =
-                    new DefaultAppInfo(mPm, mUserId, activityName, summary, enabled);
+                    new DefaultAppInfo(context, mPm, mUserId, activityName, summary, enabled);
             candidates.add(candidate);
         }
         return candidates;
@@ -104,6 +112,14 @@ public class DefaultHomePicker extends DefaultAppPickerFragment {
                     IntentFilter.MATCH_CATEGORY_EMPTY,
                     allComponents.toArray(new ComponentName[0]),
                     component);
+
+            // Launch the new Home app so the change is immediately visible even if
+            // the Home button is not pressed.
+            final Context context = getContext();
+            Intent i = new Intent(Intent.ACTION_MAIN);
+            i.addCategory(Intent.CATEGORY_HOME);
+            i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(i);
             return true;
         }
         return false;

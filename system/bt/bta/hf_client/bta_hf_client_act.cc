@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  *  Copyright (c) 2014 The Android Open Source Project
- *  Copyright (C) 2003-2012 Broadcom Corporation
+ *  Copyright 2003-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -108,7 +108,7 @@ void bta_hf_client_start_open(tBTA_HF_CLIENT_DATA* p_data) {
     /* Let the incoming connection goes through.                        */
     /* Issue collision for now.                                         */
     /* We will decide what to do when we find incoming connection later.*/
-    bta_hf_client_collision_cback(0, BTA_ID_HS, 0, &client_cb->peer_addr);
+    bta_hf_client_collision_cback(0, BTA_ID_HS, 0, client_cb->peer_addr);
     return;
   }
 
@@ -303,7 +303,7 @@ void bta_hf_client_rfc_close(tBTA_HF_CLIENT_DATA* p_data) {
   evt.conn.bd_addr = client_cb->peer_addr;
 
   /* if not deregistering reopen server */
-  if (bta_hf_client_cb_arr.deregister == false) {
+  if (!bta_hf_client_cb_arr.deregister) {
     /* Make sure SCO is shutdown */
     bta_hf_client_sco_shutdown(client_cb);
 

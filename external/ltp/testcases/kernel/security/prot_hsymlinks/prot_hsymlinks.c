@@ -453,11 +453,7 @@ static int create_check_slinks(const struct user_file *ufile, int owner)
 			slink_info.in_sticky = bdirs[dir].sticky;
 			slink_info.dir_owner = bdirs[dir].owner;
 
-			if (symlink(ufile->path, slink_info.path) == -1) {
-				tst_brkm(TBROK, cleanup,
-					"Can't create symlink: %s",
-					slink_info.path);
-			}
+			SAFE_SYMLINK(cleanup, ufile->path, slink_info.path);
 			result |= check_symlink(&slink_info);
 		}
 	}
@@ -554,8 +550,7 @@ static int try_open(const char *name, int mode)
 	if (fd == -1)
 		return fd;
 
-	if (close(fd) == -1)
-		tst_brkm(TBROK, cleanup, "Can't close file: %s", name);
+	SAFE_CLOSE(cleanup, fd);
 
 	return 0;
 }

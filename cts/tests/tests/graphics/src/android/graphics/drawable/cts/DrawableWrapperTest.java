@@ -36,6 +36,8 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.PixelFormat;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
 import android.graphics.Rect;
 import android.graphics.cts.R;
 import android.graphics.drawable.BitmapDrawable;
@@ -191,6 +193,17 @@ public class DrawableWrapperTest {
         // this method will call contained drawable's getPadding method.
         wrapper.getPadding(new Rect());
         verify(mockDrawable, times(1)).getPadding(any());
+    }
+
+    @Test
+    public void testColorFilter() {
+        Drawable wrappedDrawable = new MockDrawable();
+        DrawableWrapper wrapper = new MyWrapper(wrappedDrawable);
+        PorterDuffColorFilter colorFilter = new PorterDuffColorFilter(Color.BLUE,
+                PorterDuff.Mode.SRC_OVER);
+        wrapper.setColorFilter(colorFilter);
+        ColorFilter obtainedColorFilter = wrapper.getColorFilter();
+        assertEquals("Color filters are not properly returned", colorFilter, obtainedColorFilter);
     }
 
     @Test(expected=NullPointerException.class)
@@ -376,6 +389,7 @@ public class DrawableWrapperTest {
     // of the base abstract methods.
     private static class MockDrawable extends Drawable {
         private boolean mCalledOnLevelChange = false;
+        private ColorFilter mColorFilter;
 
         @Override
         public void draw(Canvas canvas) {
@@ -392,6 +406,12 @@ public class DrawableWrapperTest {
 
         @Override
         public void setColorFilter(ColorFilter cf) {
+            mColorFilter = cf;
+        }
+
+        @Override
+        public ColorFilter getColorFilter() {
+            return mColorFilter;
         }
 
         @Override

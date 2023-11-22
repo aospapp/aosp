@@ -41,7 +41,7 @@
     <string name="menu_compress" msgid="37539111904724188">"압축"</string>
     <string name="menu_extract" msgid="8171946945982532262">"다음 위치에 추출..."</string>
     <string name="menu_rename" msgid="1883113442688817554">"이름 바꾸기"</string>
-    <string name="menu_inspector" msgid="8217713416277319588">"정보 확인"</string>
+    <string name="menu_inspect" msgid="7279855349299446224">"정보 확인"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"<xliff:g id="SOURCE">%1$s</xliff:g>에서 보기"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"새 창"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"잘라내기"</string>
@@ -57,6 +57,8 @@
     <string name="button_move" msgid="8596460499325291272">"이동"</string>
     <string name="button_dismiss" msgid="7235249361023803349">"닫기"</string>
     <string name="button_retry" msgid="4011461781916631389">"다시 시도"</string>
+    <string name="button_clear" msgid="5412304437764369441">"삭제"</string>
+    <string name="button_show_provider" msgid="6905880493806292753">"제공업체 앱에서 보기"</string>
     <string name="not_sorted" msgid="7813496644889115530">"정렬되지 않음"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"이름"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"요약"</string>
@@ -64,14 +66,6 @@
     <string name="sort_dimension_size" msgid="2190547351159472884">"크기"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"마지막 수정 시간"</string>
     <string name="directory_items" msgid="6645621978998614003">"항목 수"</string>
-    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"이 유형의 파일을 여는 앱"</string>
-    <string name="handler_app_belongs_to" msgid="5956928604521893459">"파일 제공업체"</string>
-    <string name="handler_app_button_info_1" msgid="4271199640671067569">"다른 앱에서 이 파일 유형을 열 수 있습니다."</string>
-    <string name="handler_app_button_info_2" msgid="4299969771512815898">"을(를) 더 이상 기본 앱으로 사용하지 않습니다."</string>
-    <string name="handler_app_clear" msgid="206579047716445033">"삭제"</string>
-    <string name="handler_app_show_in" msgid="7923573101129079048">"제공업체에서 표시"</string>
-    <string name="handler_app_not_selected" msgid="8178393676227130360">"선택되지 않음"</string>
-    <string name="handler_app_unknown" msgid="56574249066388341">"알 수 없음"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"오름차순"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"내림차순"</string>
     <string name="drawer_open" msgid="8071673398187261741">"루트 표시"</string>
@@ -79,7 +73,7 @@
     <string name="save_error" msgid="8631128801982095782">"문서를 저장하지 못했습니다."</string>
     <string name="create_error" msgid="3092144450044861994">"폴더를 만들지 못했습니다."</string>
     <string name="query_error" msgid="6625421453613879336">"현재 콘텐츠를 로드할 수 없습니다."</string>
-    <string name="root_recent" msgid="1080156975424341623">"최근순"</string>
+    <string name="root_recent" msgid="1080156975424341623">"최근"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"<xliff:g id="SIZE">%1$s</xliff:g> 남음"</string>
     <string name="root_type_service" msgid="6521366147466512289">"저장용량 서비스"</string>
     <string name="root_type_shortcut" msgid="6059343175525442279">"바로가기"</string>
@@ -90,7 +84,6 @@
     <string name="toast_no_application" msgid="7555319548595113121">"파일을 열 수 없습니다."</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"보관 파일 안에 있는 파일은 열 수 없습니다."</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"일부 문서를 삭제할 수 없습니다."</string>
-    <string name="file_inspector_load_error" msgid="1226344446677541109">"속성을 로드할 수 없습니다."</string>
     <string name="share_via" msgid="8725082736005677161">"공유에 사용할 앱"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"파일 복사"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"파일 압축 중"</string>
@@ -119,11 +112,11 @@
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g>개의 항목을 삭제 중입니다.</item>
     </plurals>
     <string name="undo" msgid="2902438994196400565">"실행취소"</string>
-    <string name="copy_preparing" msgid="5326063807006898223">"사본 준비 중…"</string>
-    <string name="compress_preparing" msgid="6650018601382062672">"압축 준비 중…"</string>
-    <string name="extract_preparing" msgid="58266275455027829">"추출 준비 중…"</string>
-    <string name="move_preparing" msgid="8742573245485449429">"이동 준비 중…"</string>
-    <string name="delete_preparing" msgid="6513863752916028147">"삭제 준비 중..."</string>
+    <string name="copy_preparing" msgid="4759516490222449324">"준비 중..."</string>
+    <string name="compress_preparing" msgid="7401605598969019696">"준비 중..."</string>
+    <string name="extract_preparing" msgid="4796626960061745796">"준비 중..."</string>
+    <string name="move_preparing" msgid="6504239656430530761">"준비 중..."</string>
+    <string name="delete_preparing" msgid="7339349837842802508">"준비 중..."</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g>개의 항목을 복사할 수 없음</item>
@@ -213,5 +206,4 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"보관처리<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g>을(를) 덮어쓰시겠습니까?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"백그라운드에서 계속"</string>
-    <string name="inspector_debug_section" msgid="3447621501565766900">"디버그 정보(개발자 전용)"</string>
 </resources>

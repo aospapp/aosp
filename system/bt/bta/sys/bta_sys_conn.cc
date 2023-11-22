@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2012 Broadcom Corporation
+ *  Copyright 2003-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -97,10 +97,12 @@ void bta_sys_ssr_cfg_register(tBTA_SYS_SSR_CFG_CBACK* p_cback) {
  * Returns          void
  *
  ******************************************************************************/
-void bta_sys_notify_role_chg(const RawAddress& p_bda, uint8_t new_role,
+void bta_sys_notify_role_chg(const RawAddress& peer_addr, uint8_t new_role,
                              uint8_t hci_status) {
+  APPL_TRACE_DEBUG("%s: peer %s new_role:%d hci_status:0x%x", __func__,
+                   peer_addr.ToString().c_str(), new_role, hci_status);
   if (bta_sys_cb.p_role_cb) {
-    bta_sys_cb.p_role_cb(BTA_SYS_ROLE_CHANGE, new_role, hci_status, &p_bda);
+    bta_sys_cb.p_role_cb(BTA_SYS_ROLE_CHANGE, new_role, hci_status, peer_addr);
   }
 }
 
@@ -137,13 +139,13 @@ void bta_sys_collision_register(uint8_t bta_id, tBTA_SYS_CONN_CBACK* p_cback) {
  * Returns          void
  *
  ******************************************************************************/
-void bta_sys_notify_collision(const RawAddress& p_bda) {
+void bta_sys_notify_collision(const RawAddress& peer_addr) {
   uint8_t index;
 
   for (index = 0; index < MAX_COLLISION_REG; index++) {
     if ((bta_sys_cb.colli_reg.id[index] != 0) &&
         (bta_sys_cb.colli_reg.p_coll_cback[index] != NULL)) {
-      bta_sys_cb.colli_reg.p_coll_cback[index](0, BTA_ID_SYS, 0, &p_bda);
+      bta_sys_cb.colli_reg.p_coll_cback[index](0, BTA_ID_SYS, 0, peer_addr);
     }
   }
 }
@@ -190,11 +192,11 @@ void bta_sys_pm_register(tBTA_SYS_CONN_CBACK* p_cback) {
 void bta_sys_conn_open(uint8_t id, uint8_t app_id,
                        const RawAddress& peer_addr) {
   if (bta_sys_cb.prm_cb) {
-    bta_sys_cb.prm_cb(BTA_SYS_CONN_OPEN, id, app_id, &peer_addr);
+    bta_sys_cb.prm_cb(BTA_SYS_CONN_OPEN, id, app_id, peer_addr);
   }
 
   if (bta_sys_cb.ppm_cb) {
-    bta_sys_cb.ppm_cb(BTA_SYS_CONN_OPEN, id, app_id, &peer_addr);
+    bta_sys_cb.ppm_cb(BTA_SYS_CONN_OPEN, id, app_id, peer_addr);
   }
 }
 
@@ -212,11 +214,11 @@ void bta_sys_conn_open(uint8_t id, uint8_t app_id,
 void bta_sys_conn_close(uint8_t id, uint8_t app_id,
                         const RawAddress& peer_addr) {
   if (bta_sys_cb.prm_cb) {
-    bta_sys_cb.prm_cb(BTA_SYS_CONN_CLOSE, id, app_id, &peer_addr);
+    bta_sys_cb.prm_cb(BTA_SYS_CONN_CLOSE, id, app_id, peer_addr);
   }
 
   if (bta_sys_cb.ppm_cb) {
-    bta_sys_cb.ppm_cb(BTA_SYS_CONN_CLOSE, id, app_id, &peer_addr);
+    bta_sys_cb.ppm_cb(BTA_SYS_CONN_CLOSE, id, app_id, peer_addr);
   }
 }
 
@@ -233,7 +235,7 @@ void bta_sys_conn_close(uint8_t id, uint8_t app_id,
  ******************************************************************************/
 void bta_sys_app_open(uint8_t id, uint8_t app_id, const RawAddress& peer_addr) {
   if (bta_sys_cb.ppm_cb) {
-    bta_sys_cb.ppm_cb(BTA_SYS_APP_OPEN, id, app_id, &peer_addr);
+    bta_sys_cb.ppm_cb(BTA_SYS_APP_OPEN, id, app_id, peer_addr);
   }
 }
 
@@ -250,7 +252,7 @@ void bta_sys_app_open(uint8_t id, uint8_t app_id, const RawAddress& peer_addr) {
 void bta_sys_app_close(uint8_t id, uint8_t app_id,
                        const RawAddress& peer_addr) {
   if (bta_sys_cb.ppm_cb) {
-    bta_sys_cb.ppm_cb(BTA_SYS_APP_CLOSE, id, app_id, &peer_addr);
+    bta_sys_cb.ppm_cb(BTA_SYS_APP_CLOSE, id, app_id, peer_addr);
   }
 }
 
@@ -268,11 +270,11 @@ void bta_sys_sco_open(uint8_t id, uint8_t app_id, const RawAddress& peer_addr) {
   /* AG triggers p_sco_cb by bta_sys_sco_use. */
   if ((id != BTA_ID_AG) && (bta_sys_cb.p_sco_cb)) {
     /* without querying BTM_GetNumScoLinks() */
-    bta_sys_cb.p_sco_cb(BTA_SYS_SCO_OPEN, 1, app_id, &peer_addr);
+    bta_sys_cb.p_sco_cb(BTA_SYS_SCO_OPEN, 1, app_id, peer_addr);
   }
 
   if (bta_sys_cb.ppm_cb) {
-    bta_sys_cb.ppm_cb(BTA_SYS_SCO_OPEN, id, app_id, &peer_addr);
+    bta_sys_cb.ppm_cb(BTA_SYS_SCO_OPEN, id, app_id, peer_addr);
   }
 }
 
@@ -292,11 +294,11 @@ void bta_sys_sco_close(uint8_t id, uint8_t app_id,
 
   if ((id != BTA_ID_AG) && (bta_sys_cb.p_sco_cb)) {
     num_sco_links = BTM_GetNumScoLinks();
-    bta_sys_cb.p_sco_cb(BTA_SYS_SCO_CLOSE, num_sco_links, app_id, &peer_addr);
+    bta_sys_cb.p_sco_cb(BTA_SYS_SCO_CLOSE, num_sco_links, app_id, peer_addr);
   }
 
   if (bta_sys_cb.ppm_cb) {
-    bta_sys_cb.ppm_cb(BTA_SYS_SCO_CLOSE, id, app_id, &peer_addr);
+    bta_sys_cb.ppm_cb(BTA_SYS_SCO_CLOSE, id, app_id, peer_addr);
   }
 }
 
@@ -315,7 +317,7 @@ void bta_sys_sco_use(UNUSED_ATTR uint8_t id, uint8_t app_id,
   /* AV streaming need to be suspended before SCO is connected. */
   if (bta_sys_cb.p_sco_cb) {
     /* without querying BTM_GetNumScoLinks() */
-    bta_sys_cb.p_sco_cb(BTA_SYS_SCO_OPEN, 1, app_id, &peer_addr);
+    bta_sys_cb.p_sco_cb(BTA_SYS_SCO_OPEN, 1, app_id, peer_addr);
   }
 }
 
@@ -333,7 +335,7 @@ void bta_sys_sco_unuse(uint8_t id, uint8_t app_id,
                        const RawAddress& peer_addr) {
   if ((bta_sys_cb.p_sco_cb)) {
     uint8_t num_sco_links = BTM_GetNumScoLinks();
-    bta_sys_cb.p_sco_cb(BTA_SYS_SCO_CLOSE, num_sco_links, app_id, &peer_addr);
+    bta_sys_cb.p_sco_cb(BTA_SYS_SCO_CLOSE, num_sco_links, app_id, peer_addr);
   }
 }
 /*******************************************************************************
@@ -366,8 +368,10 @@ void bta_sys_chg_ssr_config(uint8_t id, uint8_t app_id, uint16_t max_latency,
  ******************************************************************************/
 void bta_sys_set_policy(uint8_t id, uint8_t policy,
                         const RawAddress& peer_addr) {
+  APPL_TRACE_DEBUG("%s: peer %s id:%d policy:0x%x", __func__,
+                   peer_addr.ToString().c_str(), id, policy);
   if (bta_sys_cb.p_policy_cb) {
-    bta_sys_cb.p_policy_cb(BTA_SYS_PLCY_SET, id, policy, &peer_addr);
+    bta_sys_cb.p_policy_cb(BTA_SYS_PLCY_SET, id, policy, peer_addr);
   }
 }
 
@@ -383,8 +387,10 @@ void bta_sys_set_policy(uint8_t id, uint8_t policy,
  ******************************************************************************/
 void bta_sys_clear_policy(uint8_t id, uint8_t policy,
                           const RawAddress& peer_addr) {
+  APPL_TRACE_DEBUG("%s: peer %s id:%d policy:0x%x", __func__,
+                   peer_addr.ToString().c_str(), id, policy);
   if (bta_sys_cb.p_policy_cb) {
-    bta_sys_cb.p_policy_cb(BTA_SYS_PLCY_CLR, id, policy, &peer_addr);
+    bta_sys_cb.p_policy_cb(BTA_SYS_PLCY_CLR, id, policy, peer_addr);
   }
 }
 
@@ -399,8 +405,10 @@ void bta_sys_clear_policy(uint8_t id, uint8_t policy,
  *
  ******************************************************************************/
 void bta_sys_set_default_policy(uint8_t id, uint8_t policy) {
+  APPL_TRACE_DEBUG("%s: id:%d policy:0x%x", __func__, id, policy);
   if (bta_sys_cb.p_policy_cb) {
-    bta_sys_cb.p_policy_cb(BTA_SYS_PLCY_DEF_SET, id, policy, NULL);
+    bta_sys_cb.p_policy_cb(BTA_SYS_PLCY_DEF_SET, id, policy,
+                           RawAddress::kEmpty);
   }
 }
 
@@ -415,8 +423,10 @@ void bta_sys_set_default_policy(uint8_t id, uint8_t policy) {
  *
  ******************************************************************************/
 void bta_sys_clear_default_policy(uint8_t id, uint8_t policy) {
+  APPL_TRACE_DEBUG("%s: id:%d policy:0x%x", __func__, id, policy);
   if (bta_sys_cb.p_policy_cb) {
-    bta_sys_cb.p_policy_cb(BTA_SYS_PLCY_DEF_CLR, id, policy, NULL);
+    bta_sys_cb.p_policy_cb(BTA_SYS_PLCY_DEF_CLR, id, policy,
+                           RawAddress::kEmpty);
   }
 }
 
@@ -432,11 +442,11 @@ void bta_sys_clear_default_policy(uint8_t id, uint8_t policy) {
  ******************************************************************************/
 void bta_sys_idle(uint8_t id, uint8_t app_id, const RawAddress& peer_addr) {
   if (bta_sys_cb.prm_cb) {
-    bta_sys_cb.prm_cb(BTA_SYS_CONN_IDLE, id, app_id, &peer_addr);
+    bta_sys_cb.prm_cb(BTA_SYS_CONN_IDLE, id, app_id, peer_addr);
   }
 
   if (bta_sys_cb.ppm_cb) {
-    bta_sys_cb.ppm_cb(BTA_SYS_CONN_IDLE, id, app_id, &peer_addr);
+    bta_sys_cb.ppm_cb(BTA_SYS_CONN_IDLE, id, app_id, peer_addr);
   }
 }
 
@@ -452,11 +462,11 @@ void bta_sys_idle(uint8_t id, uint8_t app_id, const RawAddress& peer_addr) {
  ******************************************************************************/
 void bta_sys_busy(uint8_t id, uint8_t app_id, const RawAddress& peer_addr) {
   if (bta_sys_cb.prm_cb) {
-    bta_sys_cb.prm_cb(BTA_SYS_CONN_BUSY, id, app_id, &peer_addr);
+    bta_sys_cb.prm_cb(BTA_SYS_CONN_BUSY, id, app_id, peer_addr);
   }
 
   if (bta_sys_cb.ppm_cb) {
-    bta_sys_cb.ppm_cb(BTA_SYS_CONN_BUSY, id, app_id, &peer_addr);
+    bta_sys_cb.ppm_cb(BTA_SYS_CONN_BUSY, id, app_id, peer_addr);
   }
 }
 

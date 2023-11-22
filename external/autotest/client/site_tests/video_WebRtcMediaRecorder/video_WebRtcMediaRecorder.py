@@ -15,6 +15,10 @@ EXTRA_BROWSER_ARGS = ['--use-fake-ui-for-media-stream',
                       '--use-fake-device-for-media-stream',
                       '--enable-experimental-web-platform-features']
 
+RECORDING_MIME_TYPES = ['"video/webm; codecs=h264"',
+                        '"video/webm; codecs=vp9"',
+                        '"video/webm; codecs=vp8"']
+
 # Statistics from the loopback.html page.
 TEST_PROGRESS = 'testProgress'
 
@@ -27,7 +31,7 @@ class video_WebRtcMediaRecorder(test.test):
     version = 1
 
 
-    def launch_recorder_test(self, test_name):
+    def launch_recorder_test(self, test_name, params = ''):
         """Launch a recorder test.
 
         @param test_name: Name of test to run.
@@ -40,7 +44,7 @@ class video_WebRtcMediaRecorder(test.test):
             self.tab.Navigate(cr.browser.platform.http_server.UrlOf(
                     os.path.join(self.bindir, 'loopback_mediarecorder.html')))
             self.tab.WaitForDocumentReadyStateToBeComplete()
-            self.tab.EvaluateJavaScript(test_name + "();")
+            self.tab.EvaluateJavaScript(test_name + "(" + params + ");")
             if not self.is_test_completed():
                 logging.error('%s did not complete', test_name)
                 raise error.TestFail('Failed %s' %(test_name))
@@ -83,7 +87,8 @@ class video_WebRtcMediaRecorder(test.test):
         """Runs the video_WebRtcMediaRecorder test."""
         self.launch_recorder_test('testStartAndRecorderState')
         self.launch_recorder_test('testStartStopAndRecorderState')
-        self.launch_recorder_test('testStartAndDataAvailable')
+        for type in RECORDING_MIME_TYPES:
+            self.launch_recorder_test('testStartAndDataAvailable', type)
         self.launch_recorder_test('testStartWithTimeSlice')
         self.launch_recorder_test('testResumeAndRecorderState')
         self.launch_recorder_test('testIllegalResumeThrowsDOMError')

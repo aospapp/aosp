@@ -8,23 +8,28 @@
  *******************************************************************************
  */
 
-/** 
+/**
  * Port From:   ICU4C v2.1 : Collate/CollationGermanTest
  * Source File: $ICU4CRoot/source/test/intltest/decoll.cpp
  **/
- 
+
  package android.icu.dev.test.collator;
- 
+
  import java.util.Locale;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.CollationKey;
 import android.icu.text.Collator;
- 
- public class CollationGermanTest extends TestFmwk{
+import android.icu.testsharding.MainTestShard;
+
+@MainTestShard
+@RunWith(JUnit4.class)
+public class CollationGermanTest extends TestFmwk{
     private static char[][] testSourceCases = {
         {0x47, 0x72, 0x00F6, 0x00DF, 0x65},
         {0x61, 0x62, 0x63},
@@ -71,12 +76,12 @@ import android.icu.text.Collator;
         { -1,        -1 },
         { 0,          1 }
     };
-    
+
     private Collator myCollation = null;
-    
+
     public CollationGermanTest() {
     }
-    
+
     @Before
     public void init() throws Exception {
         myCollation = Collator.getInstance(Locale.GERMAN);
@@ -101,13 +106,13 @@ import android.icu.text.Collator;
             doTest(testSourceCases[i], testTargetCases[i], results[i][1]);
         }
     }
-    
+
     // perform test with strength SECONDARY
     //This method in icu4c has no implementation.
     @Test
     public void TestSecondary(){
     }
-    
+
     // perform test with strength PRIMARY
     @Test
     public void TestPrimary(){
@@ -123,8 +128,8 @@ import android.icu.text.Collator;
             doTest(testSourceCases[i], testTargetCases[i], results[i][0]);
         }
     }
-    
-    
+
+
     //main test routine, tests rules specific to germa locale
     private void doTest(char[] source, char[] target, int result){
         String s = new String(source);
@@ -135,9 +140,9 @@ import android.icu.text.Collator;
         sortKey2 = myCollation.getCollationKey(t);
         int keyResult = sortKey1.compareTo(sortKey2);
         reportCResult(s, t, sortKey1, sortKey2, compareResult, keyResult, compareResult, result);
-        
+
     }
-    
+
     private void reportCResult( String source, String target, CollationKey sourceKey, CollationKey targetKey,
                                 int compareResult, int keyResult, int incResult, int expectedResult ){
         if (expectedResult < -1 || expectedResult > 1)
@@ -151,13 +156,13 @@ import android.icu.text.Collator;
         boolean ok3 = (incResult == expectedResult);
 
         if (ok1 && ok2 && ok3 && !isVerbose()){
-            return;    
+            return;
         }else{
             String msg1 = ok1? "Ok: compare(\"" : "FAIL: compare(\"";
             String msg2 = "\", \"";
             String msg3 = "\") returned ";
             String msg4 = "; expected ";
-            
+
             String sExpect = new String("");
             String sResult = new String("");
             sResult = CollationTest.appendCompareResult(compareResult, sResult);
@@ -167,7 +172,7 @@ import android.icu.text.Collator;
             } else {
                 errln(msg1 + source + msg2 + target + msg3 + sResult + msg4 + sExpect);
             }
-            
+
             msg1 = ok2 ? "Ok: key(\"" : "FAIL: key(\"";
             msg2 = "\").compareTo(key(\"";
             msg3 = "\")) returned ";
@@ -180,7 +185,7 @@ import android.icu.text.Collator;
                 msg2 = " vs. ";
                 errln(msg1 + CollationTest.prettify(sourceKey) + msg2 + CollationTest.prettify(targetKey));
             }
-            
+
             msg1 = ok3 ? "Ok: incCompare(\"" : "FAIL: incCompare(\"";
             msg2 = "\", \"";
             msg3 = "\") returned ";
@@ -191,7 +196,7 @@ import android.icu.text.Collator;
                 logln(msg1 + source + msg2 + target + msg3 + sResult);
             } else {
                 errln(msg1 + source + msg2 + target + msg3 + sResult + msg4 + sExpect);
-            }                
+            }
         }
     }
 }

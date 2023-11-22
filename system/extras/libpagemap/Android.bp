@@ -14,6 +14,7 @@
 
 cc_library {
     name: "libpagemap",
+    defaults: ["system-extras-cflags-defaults"],
     vendor_available: true,
     vndk: {
         enabled: true,
@@ -25,18 +26,19 @@ cc_library {
         "pm_memusage.c",
     ],
     local_include_dirs: ["include"],
-    cflags: ["-Wno-unused-parameter"],
     export_include_dirs: ["include"],
 }
 
 cc_test {
     name: "pagemap_test",
+    defaults: ["system-extras-cflags-defaults"],
     srcs: ["pagemap_test.cpp"],
     shared_libs: ["libpagemap"],
 }
 
 cc_test {
     name: "pagemap_static_test",
+    defaults: ["system-extras-cflags-defaults"],
     srcs: ["pagemap_test.cpp"],
     static_libs: ["libpagemap"],
 }

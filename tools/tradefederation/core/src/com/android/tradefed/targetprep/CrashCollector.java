@@ -53,15 +53,12 @@ public class CrashCollector extends TestFilePushSetup
             description = "The name of crashcollector binary in test artifact bundle.")
     private String mCrashCollectorBinary = "crashcollector";
 
-    @Option(name = "disable", description = "If this preparer should be disabled.")
-    private boolean mDisable = false;
-
     @Option(name = "max-crash-log-size", description = "Max size to retain for crash logs.")
     private long mMaxCrashLogSize = 10 * 1024 * 1024;
 
     boolean shouldDisable(ITestDevice device, IBuildInfo buildInfo)
             throws DeviceNotAvailableException {
-        if (mDisable) {
+        if (isDisabled()) {
             return true;
         }
         // first get pseudo API level to check for platform support
@@ -88,8 +85,8 @@ public class CrashCollector extends TestFilePushSetup
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
-        mDisable = shouldDisable(device, buildInfo);
-        if (mDisable) {
+        boolean shouldDisable = shouldDisable(device, buildInfo);
+        if (shouldDisable) {
             CLog.i("Crash collector disabled.");
             return;
         }

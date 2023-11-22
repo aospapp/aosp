@@ -631,6 +631,14 @@ public class TestServiceClient extends Activity {
               "\0\0\0",
               // Java doesn't handle unicode code points above U+FFFF well.
               new String(Character.toChars(0x1F701)) + "\u03A9");
+        final List<String> utf8_queries_and_nulls = Arrays.asList(
+              "typical string",
+              null,
+              "",
+              "\0\0\0",
+              null,
+              // Java doesn't handle unicode code points above U+FFFF well.
+              new String(Character.toChars(0x1F701)) + "\u03A9");
         try {
             for (String query : utf8_queries) {
                 String response = service.RepeatUtf8CppString(query);
@@ -653,6 +661,30 @@ public class TestServiceClient extends Activity {
                 }
                 for (int i = 0; i < input.length; ++i) {
                     int j = reversed.length - (1 + i);
+                    if (!input[i].equals(reversed[j])) {
+                        mLog.logAndThrow(
+                                "input[" + i + "] = " + input[i] +
+                                " but reversed value = " + reversed[j]);
+                    }
+                }
+            }
+            {
+                String[] input = (String[])utf8_queries_and_nulls.toArray();
+                String echoed[] = new String[input.length];
+                String[] reversed = service.ReverseNullableUtf8CppString(input,
+                    echoed);
+                if (!Arrays.equals(input, echoed)) {
+                    mLog.logAndThrow("Failed to echo utf8 input array back.");
+                }
+                if (input.length != reversed.length) {
+                    mLog.logAndThrow("Reversed utf8 array is the wrong size.");
+                }
+                for (int i = 0; i < input.length; ++i) {
+                    int j = reversed.length - (1 + i);
+                    if (input[i] == null && reversed[j] == null) {
+                        continue;
+                    }
+
                     if (!input[i].equals(reversed[j])) {
                         mLog.logAndThrow(
                                 "input[" + i + "] = " + input[i] +

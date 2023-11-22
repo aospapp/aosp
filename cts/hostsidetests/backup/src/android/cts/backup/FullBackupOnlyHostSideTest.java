@@ -16,9 +16,10 @@
 
 package android.cts.backup;
 
-import static junit.framework.Assert.assertNull;
+import static org.junit.Assert.assertNull;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import org.junit.After;
@@ -75,8 +76,13 @@ public class FullBackupOnlyHostSideTest extends BaseBackupHostSideTest {
 
 
     @After
+    @Override
     public void tearDown() throws Exception {
         super.tearDown();
+
+        if (!mIsBackupSupported) {
+            return;
+        }
 
         // Clear backup data and uninstall the package (in that order!)
         clearBackupDataInLocalTransport(FULLBACKUPONLY_APP_PACKAGE);
@@ -90,6 +96,11 @@ public class FullBackupOnlyHostSideTest extends BaseBackupHostSideTest {
      */
     @Test
     public void testFullBackupOnlyFalse_WithAgent() throws Exception {
+        if (!mIsBackupSupported) {
+            CLog.i("android.software.backup feature is not supported on this device");
+            return;
+        }
+
         installPackage(FULLBACKUPONLY_FALSE_WITH_AGENT_APP_APK, "-d", "-r");
 
         checkFullBackupOnlyDeviceTest("createFiles");
@@ -111,6 +122,11 @@ public class FullBackupOnlyHostSideTest extends BaseBackupHostSideTest {
      */
     @Test
     public void testFullBackupOnlyFalse_NoAgent() throws Exception {
+        if (!mIsBackupSupported) {
+            CLog.i("android.software.backup feature is not supported on this device");
+            return;
+        }
+
         installPackage(FULLBACKUPONLY_FALSE_NO_AGENT_APP_APK, "-d", "-r");
 
         checkFullBackupOnlyDeviceTest("createFiles");
@@ -132,6 +148,11 @@ public class FullBackupOnlyHostSideTest extends BaseBackupHostSideTest {
      */
     @Test
     public void testFullBackupOnlyTrue_WithAgent() throws Exception {
+        if (!mIsBackupSupported) {
+            CLog.i("android.software.backup feature is not supported on this device");
+            return;
+        }
+
         installPackage(FULLBACKUPONLY_TRUE_WITH_AGENT_APP_APK, "-d", "-r");
 
         checkFullBackupOnlyDeviceTest("createFiles");

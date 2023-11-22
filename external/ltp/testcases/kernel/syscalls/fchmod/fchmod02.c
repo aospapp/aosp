@@ -81,6 +81,7 @@
 #include <pwd.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 #define LTPUSER		"nobody"
 #ifdef ANDROID
@@ -196,14 +197,10 @@ void setup(void)
 			 TESTFILE, FILE_MODE, errno, strerror(errno));
 	}
 
-	if (chown(TESTFILE, user1_uid, group1_gid) < 0) {
-		tst_brkm(TBROK, cleanup, "chown(2) of %s failed", TESTFILE);
-	}
+	SAFE_CHOWN(cleanup, TESTFILE, user1_uid, group1_gid);
 
 	/* Set the effective gid of the process to that of user */
-	if (setgid(group1_gid) < 0) {
-		tst_brkm(TBROK, cleanup, "setgid(2) to %d failed", group1_gid);
-	}
+	SAFE_SETGID(cleanup, group1_gid);
 }
 
 /*
@@ -217,10 +214,7 @@ void cleanup(void)
 {
 
 	/* Close the testfile created in the setup() */
-	if (close(fd) == -1) {
-		tst_brkm(TBROK, NULL, "close(%s) Failed, errno=%d : %s",
-			 TESTFILE, errno, strerror(errno));
-	}
+	SAFE_CLOSE(NULL, fd);
 
 	tst_rmdir();
 

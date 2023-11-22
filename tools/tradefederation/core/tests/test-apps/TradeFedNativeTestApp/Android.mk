@@ -23,6 +23,8 @@ include $(CLEAR_VARS)
 # All source files will be bundled into one test module
 LOCAL_SRC_FILES := TradeFedNativeTestApp_test.cpp
 
+LOCAL_CFLAGS := -Wall -Werror
+
 # All gtests in all files should be compiled into one binary
 # The standard naming should conform to: <module_being_tested>tests
 # For example, for libjingle, use libjingletests

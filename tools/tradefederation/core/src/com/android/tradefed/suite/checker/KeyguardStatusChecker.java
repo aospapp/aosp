@@ -19,6 +19,7 @@ import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.suite.checker.StatusCheckerResult.CheckStatus;
 import com.android.tradefed.util.KeyguardControllerState;
 
 /** Checks the keyguard status after module execution. */
@@ -29,7 +30,9 @@ public class KeyguardStatusChecker implements ISystemStatusChecker {
 
     /** {@inheritDoc} */
     @Override
-    public boolean postExecutionCheck(ITestDevice device) throws DeviceNotAvailableException {
+    public StatusCheckerResult postExecutionCheck(ITestDevice device)
+            throws DeviceNotAvailableException {
+        StatusCheckerResult result = new StatusCheckerResult(CheckStatus.SUCCESS);
         // We assume keyguard was dismissed before the module.
         KeyguardControllerState ksc = device.getKeyguardState();
         if (ksc == null) {
@@ -38,21 +41,23 @@ public class KeyguardStatusChecker implements ISystemStatusChecker {
                     LogLevel.DEBUG,
                     "KeyguardControllerState is not supported by the "
                             + "device. Skipping System Checker.");
-            return true;
+            return result;
         }
         mIsKeyguardShowing = ksc.isKeyguardShowing();
         mIsKeyguardOccluded = ksc.isKeyguardOccluded();
         if (mIsKeyguardShowing || mIsKeyguardOccluded) {
-            CLog.logAndDisplay(
-                    LogLevel.WARN,
-                    "SystemChecker - post-execution:\n" + "\tKeyguard on: %s, occluded: %s",
-                    mIsKeyguardShowing,
-                    mIsKeyguardOccluded);
+            String message =
+                    String.format(
+                            "SystemChecker - post-execution:\n" + "\tKeyguard on: %s, occluded: %s",
+                            mIsKeyguardShowing, mIsKeyguardOccluded);
+            CLog.logAndDisplay(LogLevel.WARN, message);
             // best effort to dismiss keyguard: will not work if a secured keyguard was left around
             CLog.w("Also attempting to dismiss keyguard.");
             device.disableKeyguard();
-            return false;
+            result.setStatus(CheckStatus.FAILED);
+            result.setErrorMessage(message);
+            return result;
         }
-        return true;
+        return result;
     }
 }

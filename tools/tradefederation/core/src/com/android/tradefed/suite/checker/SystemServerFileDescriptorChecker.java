@@ -18,6 +18,7 @@ package com.android.tradefed.suite.checker;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.suite.checker.StatusCheckerResult.CheckStatus;
 
 /** Checks if system server appears to be running out of FDs. */
 public class SystemServerFileDescriptorChecker implements ISystemStatusChecker {
@@ -30,38 +31,43 @@ public class SystemServerFileDescriptorChecker implements ISystemStatusChecker {
     private String mBuildType = null;
 
     @Override
-    public boolean preExecutionCheck(ITestDevice device) throws DeviceNotAvailableException {
+    public StatusCheckerResult preExecutionCheck(ITestDevice device)
+            throws DeviceNotAvailableException {
         if (mBuildType == null) {
             // build type not initialized yet, check on device
             mBuildType = device.getProperty(BUILD_TYPE_PROP);
         }
-        return true;
+        return new StatusCheckerResult(CheckStatus.SUCCESS);
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean postExecutionCheck(ITestDevice device) throws DeviceNotAvailableException {
+    public StatusCheckerResult postExecutionCheck(ITestDevice device)
+            throws DeviceNotAvailableException {
         if (USER_BUILD.equals(mBuildType)) {
             CLog.d("Skipping system_server fd check on user builds.");
-            return true;
+            return new StatusCheckerResult(CheckStatus.SUCCESS);
         }
         Integer pid = getIntegerFromCommand(device, "pidof system_server");
         if (pid == null) {
             CLog.d("Unable to find system_server pid.");
-            return true;
+            return new StatusCheckerResult(CheckStatus.SUCCESS);
         }
 
         Integer fds = getIntegerFromCommand(device, "su root ls /proc/" + pid + "/fd | wc -w");
         if (fds == null) {
             CLog.d("Unable to query system_server fd count.");
-            return true;
+            return new StatusCheckerResult(CheckStatus.SUCCESS);
         }
 
         if (fds > MAX_EXPECTED_FDS) {
-            CLog.w("FDs currently allocated in system server " + fds);
-            return false;
+            StatusCheckerResult result = new StatusCheckerResult(CheckStatus.FAILED);
+            String message = String.format("FDs currently allocated in system server %s", fds);
+            CLog.w(message);
+            result.setErrorMessage(message);
+            return result;
         }
-        return true;
+        return new StatusCheckerResult(CheckStatus.SUCCESS);
     }
 
     private static Integer getIntegerFromCommand(ITestDevice device, String command)

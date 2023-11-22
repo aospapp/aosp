@@ -26,5 +26,19 @@
                 <action android:name="com.android.cts.launchertests.support.REGISTER_CALLBACK" />
             </intent-filter>
         </service>
+
+        <activity android:name=".LauncherActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.HOME"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+
+        <receiver android:name=".QuietModeCommandReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="toggle_quiet_mode"/>
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

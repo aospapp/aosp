@@ -159,12 +159,14 @@ void PreviewWindow::onNextFrameAvailable(nsecs_t timestamp,
         return;
     }
 
+    int64_t frame_timestamp = 0L;
     /* Frames come in in YV12/NV12/NV21 format. Since preview window doesn't
      * supports those formats, we need to obtain the frame in RGB565. */
-    res = camera_dev->getCurrentPreviewFrame(img);
+    res = camera_dev->getCurrentPreviewFrame(img, &frame_timestamp);
     if (res == NO_ERROR) {
         /* Show it. */
-        mPreviewWindow->set_timestamp(mPreviewWindow, timestamp);
+        mPreviewWindow->set_timestamp(mPreviewWindow,
+                                      frame_timestamp != 0L ? frame_timestamp : timestamp);
         mPreviewWindow->enqueue_buffer(mPreviewWindow, buffer);
     } else {
         ALOGE("%s: Unable to obtain preview frame: %d", __FUNCTION__, res);

@@ -9,6 +9,11 @@ cc_library_static {
 
         "-O3",
         "-DANDROID",
+        "-Wall",
+        "-Werror",
+        // common/x86/ihevc_sao_ssse3_intr.c: implicit conversion from
+        // 'int' to 'char' changes value from 128 to -128
+        "-Wno-error=constant-conversion",
     ],
 
     export_include_dirs: [
@@ -192,7 +197,7 @@ cc_library_static {
 
             instruction_set: "arm",
 
-            armv7_a_neon: {
+            neon: {
                 srcs: [
                     "decoder/arm/ihevcd_function_selector_a9q.c",
                     "common/arm/ihevc_intra_ref_substitution_a9q.c",
@@ -382,5 +387,13 @@ cc_library_static {
                 "common/x86/ihevc_tables_x86_intr.c",
             ],
         },
+    },
+
+    sanitize: {
+        cfi: true,
+        diag: {
+            cfi: true,
+        },
+        blacklist: "cfi_blacklist.txt",
     },
 }

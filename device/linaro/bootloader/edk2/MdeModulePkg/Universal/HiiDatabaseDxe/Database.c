@@ -1,7 +1,7 @@
 /** @file
 Implementation for EFI_HII_DATABASE_PROTOCOL.
 
-Copyright (c) 2007 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -14,6 +14,12 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 
 #include "HiiDatabase.h"
+
+EFI_HII_PACKAGE_LIST_HEADER    *gRTDatabaseInfoBuffer = NULL;
+EFI_STRING                     gRTConfigRespBuffer    = NULL;
+UINTN                          gDatabaseInfoSize = 0;
+UINTN                          gConfigRespSize = 0;
+BOOLEAN                        gExportConfigResp = TRUE;
 
 /**
   This function generates a HII_DATABASE_RECORD node and adds into hii database.
@@ -350,7 +356,7 @@ InvokeRegisteredFunction (
   @param  NotifyType             The type of change concerning the database.
   @param  PackageList            Pointer to a package list which will be inserted
                                  to.
-  @param  Package                Created GUID pacakge
+  @param  Package                Created GUID package
 
   @retval EFI_SUCCESS            Guid Package is inserted successfully.
   @retval EFI_OUT_OF_RESOURCES   Unable to allocate necessary resources for the new
@@ -734,7 +740,16 @@ RemoveFormPackages (
     PackageList->PackageListHdr.PackageLength -= Package->FormPkgHdr.Length;
     FreePool (Package->IfrData);
     FreePool (Package);
-
+    //
+    // If Hii runtime support feature is enabled,
+    // will export Hii info for runtime use after ReadyToBoot event triggered.
+    // If some driver add/update/remove packages from HiiDatabase after ReadyToBoot,
+    // will need to export the content of HiiDatabase.
+    // But if form packages removed, also need to export the ConfigResp string
+    //
+    if (gExportAfterReadyToBoot) {
+      gExportConfigResp = TRUE;
+    }
   }
 
   return EFI_SUCCESS;
@@ -888,7 +903,7 @@ Error:
  @param  PackageList        Pointer to a package list which will be adjusted.
 
  @retval EFI_SUCCESS  Adjust all string packages successfully.
- @retval others       Can't adjust string packges.
+ @retval others       Can't adjust string packages.
 
 **/
 EFI_STATUS
@@ -1537,7 +1552,7 @@ InsertImagePackage (
   if (ImageInfoOffset != 0) {
     ImageSize = ImagePackage->ImagePkgHdr.Header.Length -
                 sizeof (EFI_HII_IMAGE_PACKAGE_HDR) - PaletteSize;
-    ImagePackage->ImageBlock = (UINT8 *) AllocateZeroPool (ImageSize);
+    ImagePackage->ImageBlock = AllocateZeroPool (ImageSize);
     if (ImagePackage->ImageBlock == NULL) {
       FreePool (ImagePackage->PaletteBlock);
       FreePool (ImagePackage);
@@ -2481,6 +2496,16 @@ AddPackages (
                  (UINT8) (PackageHeader.Type),
                  DatabaseRecord->Handle
                  );
+      //
+      // If Hii runtime support feature is enabled,
+      // will export Hii info for runtime use after ReadyToBoot event triggered.
+      // If some driver add/update/remove packages from HiiDatabase after ReadyToBoot,
+      // will need to export the content of HiiDatabase.
+      // But if form packages added/updated, also need to export the ConfigResp string.
+      //
+      if (gExportAfterReadyToBoot) {
+        gExportConfigResp = TRUE;
+      }
       break;
     case EFI_HII_PACKAGE_KEYBOARD_LAYOUT:
       Status = InsertKeyboardLayoutPackage (
@@ -2775,6 +2800,141 @@ ExportPackageList (
   return EFI_SUCCESS;
 }
 
+/**
+This function mainly use to get and update ConfigResp string.
+
+@param  This                   A pointer to the EFI_HII_DATABASE_PROTOCOL instance.
+
+@retval EFI_SUCCESS            Get the information successfully.
+@retval EFI_OUT_OF_RESOURCES   Not enough memory to store the Configuration Setting data.
+
+**/
+EFI_STATUS
+HiiGetConfigRespInfo(
+  IN CONST EFI_HII_DATABASE_PROTOCOL        *This
+  )
+{
+  EFI_STATUS                          Status;
+  HII_DATABASE_PRIVATE_DATA           *Private;
+  EFI_STRING                          ConfigAltResp;
+  UINTN                               ConfigSize;
+
+  ConfigAltResp        = NULL;
+  ConfigSize           = 0;
+
+  Private = HII_DATABASE_DATABASE_PRIVATE_DATA_FROM_THIS (This);
+
+  //
+  // Get ConfigResp string
+  //
+  Status = HiiConfigRoutingExportConfig(&Private->ConfigRouting,&ConfigAltResp);
+
+  if (!EFI_ERROR (Status)){
+    ConfigSize = StrSize(ConfigAltResp);
+    if (ConfigSize > gConfigRespSize){
+      gConfigRespSize = ConfigSize;
+      if (gRTConfigRespBuffer != NULL){
+        FreePool(gRTConfigRespBuffer);
+      }
+      gRTConfigRespBuffer = (EFI_STRING)AllocateRuntimeZeroPool(ConfigSize);
+      if (gRTConfigRespBuffer == NULL){
+        FreePool(ConfigAltResp);
+        DEBUG ((DEBUG_ERROR, "Not enough memory resource to get the ConfigResp string.\n"));
+        return EFI_OUT_OF_RESOURCES;
+      }
+    } else {
+      ZeroMem(gRTConfigRespBuffer,gConfigRespSize);
+    }
+    CopyMem(gRTConfigRespBuffer,ConfigAltResp,ConfigSize);
+    gBS->InstallConfigurationTable (&gEfiHiiConfigRoutingProtocolGuid, gRTConfigRespBuffer);
+    FreePool(ConfigAltResp);
+  }
+
+  return EFI_SUCCESS;
+
+}
+
+/**
+This is an internal function,mainly use to get HiiDatabase information.
+
+@param  This                   A pointer to the EFI_HII_DATABASE_PROTOCOL instance.
+
+@retval EFI_SUCCESS            Get the information successfully.
+@retval EFI_OUT_OF_RESOURCES   Not enough memory to store the Hiidatabase data.
+
+**/
+EFI_STATUS
+HiiGetDatabaseInfo(
+  IN CONST EFI_HII_DATABASE_PROTOCOL        *This
+  )
+{
+  EFI_STATUS                          Status;
+  EFI_HII_PACKAGE_LIST_HEADER         *DatabaseInfo;
+  UINTN                               DatabaseInfoSize;
+
+  DatabaseInfo         = NULL;
+  DatabaseInfoSize     = 0;
+
+  //
+  // Get HiiDatabase information.
+  //
+  Status = HiiExportPackageLists(This, NULL, &DatabaseInfoSize, DatabaseInfo);
+
+  ASSERT(Status == EFI_BUFFER_TOO_SMALL);
+
+  if(DatabaseInfoSize > gDatabaseInfoSize ) {
+    gDatabaseInfoSize = DatabaseInfoSize;
+    if (gRTDatabaseInfoBuffer != NULL){
+      FreePool(gRTDatabaseInfoBuffer);
+    }
+    gRTDatabaseInfoBuffer = AllocateRuntimeZeroPool(DatabaseInfoSize);
+    if (gRTDatabaseInfoBuffer == NULL){
+      DEBUG ((DEBUG_ERROR, "Not enough memory resource to get the HiiDatabase info.\n"));
+      return EFI_OUT_OF_RESOURCES;
+    }
+  } else {
+    ZeroMem(gRTDatabaseInfoBuffer,gDatabaseInfoSize);
+  }
+  Status = HiiExportPackageLists(This, NULL, &DatabaseInfoSize, gRTDatabaseInfoBuffer);
+  ASSERT_EFI_ERROR (Status);
+  gBS->InstallConfigurationTable (&gEfiHiiDatabaseProtocolGuid, gRTDatabaseInfoBuffer);
+
+  return EFI_SUCCESS;
+
+}
+
+/**
+This  function mainly use to get and update configuration settings information.
+
+@param  This                   A pointer to the EFI_HII_DATABASE_PROTOCOL instance.
+
+@retval EFI_SUCCESS            Get the information successfully.
+@retval EFI_OUT_OF_RESOURCES   Not enough memory to store the Configuration Setting data.
+
+**/
+EFI_STATUS
+HiiGetConfigurationSetting(
+  IN CONST EFI_HII_DATABASE_PROTOCOL        *This
+  )
+{
+  EFI_STATUS                          Status;
+
+  //
+  // Get the HiiDatabase info.
+  //
+  Status = HiiGetDatabaseInfo(This);
+
+  //
+  // Get ConfigResp string
+  //
+  if (gExportConfigResp) {
+    Status = HiiGetConfigRespInfo (This);
+    gExportConfigResp = FALSE;
+  }
+  return Status;
+
+}
+
 
 /**
   This function adds the packages in the package list to the database and returns a handle. If there is a
@@ -2867,12 +3027,21 @@ HiiNewPackageList (
   }
 
   *Handle = DatabaseRecord->Handle;
+
+  //
+  // Check whether need to get the Database and configuration setting info.
+  // Only after ReadyToBoot, need to do the export.
+  //
+  if (gExportAfterReadyToBoot) {
+    HiiGetConfigurationSetting(This);
+  }
+
   return EFI_SUCCESS;
 }
 
 
 /**
-  This function removes the package list that is associated with a handle Handle
+  This function removes the package list that is associated with Handle
   from the HII database. Before removing the package, any registered functions
   with the notification type REMOVE_PACK and the same package type will be called.
 
@@ -2883,7 +3052,7 @@ HiiNewPackageList (
 
   @retval EFI_SUCCESS            The data associated with the Handle was removed
                                  from  the HII database.
-  @retval EFI_NOT_FOUND          The specified andle is not in database.
+  @retval EFI_NOT_FOUND          The specified handle is not in database.
   @retval EFI_INVALID_PARAMETER  The Handle was not valid.
 
 **/
@@ -2972,6 +3141,13 @@ HiiRemovePackageList (
       FreePool (Node->PackageList);
       FreePool (Node);
 
+      //
+      // Check whether need to get the Database and configuration setting info.
+      // Only after ReadyToBoot, need to do the export.
+      //
+      if (gExportAfterReadyToBoot) {
+        HiiGetConfigurationSetting(This);
+      }
       return EFI_SUCCESS;
     }
   }
@@ -3079,7 +3255,19 @@ HiiUpdatePackageList (
       //
       // Add all of the packages within the new package list
       //
-      return AddPackages (Private, EFI_HII_DATABASE_NOTIFY_ADD_PACK, PackageList, Node);
+      Status = AddPackages (Private, EFI_HII_DATABASE_NOTIFY_ADD_PACK, PackageList, Node);
+
+      //
+      // Check whether need to get the Database and configuration setting info.
+      // Only after ReadyToBoot, need to do the export.
+      //
+      if (gExportAfterReadyToBoot) {
+        if (Status == EFI_SUCCESS){
+          HiiGetConfigurationSetting(This);
+        }
+      }
+
+      return Status;
     }
   }
 
@@ -3106,7 +3294,7 @@ HiiUpdatePackageList (
                                  buffer that is required for the handles found.
   @param  Handle                 An array of EFI_HII_HANDLE instances returned.
 
-  @retval EFI_SUCCESS            The matching handles are outputed successfully.
+  @retval EFI_SUCCESS            The matching handles are outputted successfully.
                                  HandleBufferLength is updated with the actual length.
   @retval EFI_BUFFER_TO_SMALL    The HandleBufferLength parameter indicates that
                                  Handle is too small to support the number of
@@ -3212,7 +3400,7 @@ HiiListPackageLists (
         }
         break;
         //
-        // Pesudo-type EFI_HII_PACKAGE_TYPE_ALL will cause all package handles
+        // Pseudo-type EFI_HII_PACKAGE_TYPE_ALL will cause all package handles
         // to be listed.
         //
       case EFI_HII_PACKAGE_TYPE_ALL:
@@ -3269,7 +3457,7 @@ HiiListPackageLists (
                                  Handle is too small to support the number of
                                  handles.      HandleBufferLength is updated with a
                                  value that will enable the data to fit.
-  @retval EFI_NOT_FOUND          The specifiecd Handle could not be found in the
+  @retval EFI_NOT_FOUND          The specified Handle could not be found in the
                                  current database.
   @retval EFI_INVALID_PARAMETER  BufferSize was NULL.
   @retval EFI_INVALID_PARAMETER  The value referenced by BufferSize was not zero 

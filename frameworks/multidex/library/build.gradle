@@ -16,6 +16,25 @@
 
 apply plugin: 'com.android.library'
 
+def generatedResourceDir = project.file('generatedResource')
+def versionFile = new File(generatedResourceDir, 'androidsupportmultidexversion.txt')
+
+task makeVersionFile(type:Exec) {
+
+    doFirst {
+        versionFile.getParentFile().mkdirs()
+    }
+
+    outputs.files versionFile
+
+    commandLine 'sh', '-c', 'git log --format="%H" -n 1 || (echo git hash not available; exit 0)'
+    standardOutput = new ByteArrayOutputStream()
+
+    doLast {
+        versionFile.text = "git.version=" + standardOutput.toString()
+    }
+}
+
 android {
     compileSdkVersion 4
 
@@ -23,10 +42,15 @@ android {
         minSdkVersion 4
     }
 
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_7
+        targetCompatibility JavaVersion.VERSION_1_7
+    }
+
     sourceSets {
         main {
             java.srcDirs         = ['src']
-            resources.srcDirs    = ['res']
+            resources.srcDirs    = ['res', makeVersionFile.outputs]
             res.srcDirs          = ['src']
             manifest.srcFile 'AndroidManifest.xml'
         }
@@ -36,6 +60,10 @@ android {
         // TODO: fix errors and reenable.
         abortOnError false
     }
+}
+
+android.libraryVariants.all {
+    v -> v.getJavaCompiler().dependsOn(makeVersionFile)
 }
 
 uploadArchives {

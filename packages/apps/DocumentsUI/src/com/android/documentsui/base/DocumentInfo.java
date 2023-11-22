@@ -223,6 +223,7 @@ public class DocumentInfo implements Durable, Parcelable {
                 + ", isDeleteSupported=" + isDeleteSupported()
                 + ", isCreateSupported=" + isCreateSupported()
                 + ", isRenameSupported=" + isRenameSupported()
+                + ", isMetadataSupported=" + isMetadataSupported()
                 + "} @ "
                 + derivedUri;
     }
@@ -231,28 +232,28 @@ public class DocumentInfo implements Durable, Parcelable {
         return (flags & Document.FLAG_DIR_SUPPORTS_CREATE) != 0;
     }
 
-    public boolean isDirectory() {
-        return Document.MIME_TYPE_DIR.equals(mimeType);
-    }
-
-    public boolean isWriteSupported() {
-        return (flags & Document.FLAG_SUPPORTS_WRITE) != 0;
-    }
-
     public boolean isDeleteSupported() {
         return (flags & Document.FLAG_SUPPORTS_DELETE) != 0;
     }
 
-    public boolean isRemoveSupported() {
-        return (flags & Document.FLAG_SUPPORTS_REMOVE) != 0;
+    public boolean isMetadataSupported() {
+        return (flags & Document.FLAG_SUPPORTS_METADATA) != 0;
     }
 
     public boolean isMoveSupported() {
         return (flags & Document.FLAG_SUPPORTS_MOVE) != 0;
     }
 
+    public boolean isRemoveSupported() {
+        return (flags & Document.FLAG_SUPPORTS_REMOVE) != 0;
+    }
+
     public boolean isRenameSupported() {
         return (flags & Document.FLAG_SUPPORTS_RENAME) != 0;
+    }
+
+    public boolean isSettingsSupported() {
+        return (flags & Document.FLAG_SUPPORTS_SETTINGS) != 0;
     }
 
     public boolean isThumbnailSupported() {
@@ -261,6 +262,14 @@ public class DocumentInfo implements Durable, Parcelable {
 
     public boolean isWeblinkSupported() {
         return (flags & Document.FLAG_WEB_LINKABLE) != 0;
+    }
+
+    public boolean isWriteSupported() {
+        return (flags & Document.FLAG_SUPPORTS_WRITE) != 0;
+    }
+
+    public boolean isDirectory() {
+        return Document.MIME_TYPE_DIR.equals(mimeType);
     }
 
     public boolean isArchive() {
@@ -282,10 +291,6 @@ public class DocumentInfo implements Durable, Parcelable {
 
     public boolean isVirtual() {
         return (flags & Document.FLAG_VIRTUAL_DOCUMENT) != 0;
-    }
-
-    public boolean isSettingsSupported() {
-        return (flags & Document.FLAG_SUPPORTS_SETTINGS) != 0;
     }
 
     public boolean prefersSortByLastModified() {

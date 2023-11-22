@@ -34,7 +34,7 @@
     <string name="incoming_file_confirm_content" msgid="2752605552743148036">"आगमन फाइल स्वीकार गर्नुहुन्छ?"</string>
     <string name="incoming_file_confirm_cancel" msgid="2973321832477704805">"अस्वीकार गर्नुहोस्"</string>
     <string name="incoming_file_confirm_ok" msgid="281462442932231475">"स्वीकार्नुहोस्"</string>
-    <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"ठीक छ"</string>
+    <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"ठिक छ"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" बाट आगमन फाइल स्वीकार्दा समय सकिएको थियो"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"आगमन फाइल"</string>
     <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> ले <xliff:g id="FILE">%2$s</xliff:g> पठाउन तयार छ"</string>
@@ -59,19 +59,19 @@
     <string name="download_fail_line1" msgid="3846450148862894552">"फाइल प्राप्त भएन"</string>
     <string name="download_fail_line2" msgid="8950394574689971071">"फाइल: <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="download_fail_line3" msgid="3451040656154861722">"कारण: <xliff:g id="REASON">%1$s</xliff:g>"</string>
-    <string name="download_fail_ok" msgid="1521733664438320300">"ठीक छ"</string>
+    <string name="download_fail_ok" msgid="1521733664438320300">"ठिक छ"</string>
     <string name="download_succ_line5" msgid="4509944688281573595">"फाइल प्राप्त भयो"</string>
     <string name="download_succ_ok" msgid="7053688246357050216">"खोल्नुहोस्"</string>
     <string name="upload_line1" msgid="2055952074059709052">"लाई:\"<xliff:g id="RECIPIENT">%1$s</xliff:g> \""</string>
     <string name="upload_line3" msgid="4920689672457037437">"फाइल प्रकार: <xliff:g id="TYPE">%1$s</xliff:g> ( <xliff:g id="SIZE">%2$s</xliff:g> )"</string>
     <string name="upload_line5" msgid="7759322537674229752">"फाइल पठाउँदै..."</string>
     <string name="upload_succ_line5" msgid="5687317197463383601">"फाइल पठाइयो"</string>
-    <string name="upload_succ_ok" msgid="7705428476405478828">"ठीक छ"</string>
+    <string name="upload_succ_ok" msgid="7705428476405478828">"ठिक छ"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"फाइल\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" लाई पठाइएन।"</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"फाइल: <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="upload_fail_ok" msgid="5807702461606714296">"फेरि प्रयास गर्नुहोस्"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"बन्द गर्नुहोस्"</string>
-    <string name="bt_error_btn_ok" msgid="5965151173011534240">"ठीक छ"</string>
+    <string name="bt_error_btn_ok" msgid="5965151173011534240">"ठिक छ"</string>
     <string name="unknown_file" msgid="6092727753965095366">"अज्ञात फाइल"</string>
     <string name="unknown_file_desc" msgid="480434281415453287">"यस प्रकारको फाइल सम्हालन  कुनै अनुप्रयोग छैन।\n"</string>
     <string name="not_exist_file" msgid="3489434189599716133">"फाइल छैन"</string>
@@ -101,7 +101,7 @@
     <string name="status_protocol_error" msgid="3245444473429269539">"अनुरोधलाई सही रूपमा सम्हाल्न सकिँदैन।"</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"अज्ञात त्रुटि।"</string>
     <string name="btopp_live_folder" msgid="7967791481444474554">"ब्लुटुथ प्राप्त भयो"</string>
-    <string name="opp_notification_group" msgid="3486303082135789982">"ब्लुटुथमार्फत गरिने आदान-प्रदान"</string>
+    <string name="opp_notification_group" msgid="3486303082135789982">"ब्लुटुथमार्फत गरिने आदान प्रदान"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> प्राप्त गर्ने कार्य सम्पन्न भयो।"</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> पठाउने कार्य पुरा भयो।"</string>
     <string name="inbound_history_title" msgid="6940914942271327563">"इनबाउन्ड स्थानान्तरण"</string>
@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"ब्लुटुथ सम्बन्धी अडियो यन्त्रलाई जडान गरियो"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"ब्लुटुथ सम्बन्धी अडियो यन्त्रलाई विच्छेद गरियो"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"ब्लुटुथको अडियो"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"४ जि.बि. भन्दा ठूला फाइलहरूलाई स्थानान्तरण गर्न सकिँदैन"</string>
 </resources>

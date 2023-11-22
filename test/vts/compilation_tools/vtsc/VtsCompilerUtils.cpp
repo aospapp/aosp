@@ -154,9 +154,7 @@ string GetCppVariableType(const std::string scalar_type_string) {
 }
 
 string GetCppVariableType(const VariableSpecificationMessage& arg,
-                          const ComponentSpecificationMessage* message,
-                          bool generate_const,
-                          int var_depth) {
+                          bool generate_const) {
   string result;
   switch (arg.type()) {
     case TYPE_VOID:
@@ -193,27 +191,26 @@ string GetCppVariableType(const VariableSpecificationMessage& arg,
     }
     case TYPE_VECTOR:
     {
-      string element_type = GetCppVariableType(arg.vector_value(0), message);
-      if (generate_const && arg.vector_value(0).type() == TYPE_REF) {
-        result = "::android::hardware::hidl_vec<const " + element_type + ">";
-      } else {
-        result = "::android::hardware::hidl_vec<" + element_type + ">";
-      }
+      string element_type = GetCppVariableType(arg.vector_value(0));
+      result = "::android::hardware::hidl_vec<" + element_type + ">";
       break;
     }
     case TYPE_ARRAY:
     {
-      string element_type;
-      if (arg.vector_value(0).type() != TYPE_ARRAY) {
-        element_type = GetCppVariableType(arg.vector_value(0), message);
-        result = "::android::hardware::hidl_array<" + element_type + ","
-            + to_string(arg.vector_size()) + ">";
-      } else {
-        element_type = GetCppVariableType(arg.vector_value(0), message);
-        string prefix = element_type.substr(0, element_type.find(",") + 1);
-        string suffix = element_type.substr(element_type.find(","));
-        result = prefix + " " + to_string(arg.vector_size()) + suffix;
+      VariableSpecificationMessage cur_val = arg;
+      vector<int32_t> array_sizes;
+      while (cur_val.type() == TYPE_ARRAY) {
+        array_sizes.push_back(cur_val.vector_size());
+        VariableSpecificationMessage temp = cur_val.vector_value(0);
+        cur_val = temp;
       }
+      string element_type = GetCppVariableType(cur_val);
+      result = "::android::hardware::hidl_array<" + element_type + ", ";
+      for (size_t i = 0; i < array_sizes.size(); i++) {
+        result += to_string(array_sizes[i]);
+        if (i != array_sizes.size() - 1) result += ", ";
+      }
+      result += ">";
       break;
     }
     case TYPE_STRUCT:
@@ -290,36 +287,38 @@ string GetCppVariableType(const VariableSpecificationMessage& arg,
     {
       result = "void*";
       if (generate_const) {
-        return "const " + result;
+        result = "const " + result;
       }
       return result;
     }
     case TYPE_FMQ_SYNC:
     {
-      string element_type = GetCppVariableType(arg.fmq_value(0), message);
+      string element_type = GetCppVariableType(arg.fmq_value(0));
       result = "::android::hardware::MQDescriptorSync<" + element_type + ">";
       break;
     }
     case TYPE_FMQ_UNSYNC:
     {
-      string element_type = GetCppVariableType(arg.fmq_value(0), message);
+      string element_type = GetCppVariableType(arg.fmq_value(0));
       result = "::android::hardware::MQDescriptorUnsync<" + element_type + ">";
       break;
     }
     case TYPE_REF:
     {
-      string element_type = GetCppVariableType(arg.ref_value(), message,
-                                               false, var_depth + 1);
-      if (element_type.length() > 0) {
-        if (var_depth == 0) {
-          return "const " + element_type + " *";
-        } else {
-          return element_type + " *const";
-        }
+      VariableSpecificationMessage cur_val = arg;
+      int ref_depth = 0;
+      while (cur_val.type() == TYPE_REF) {
+        ref_depth++;
+        VariableSpecificationMessage temp = cur_val.ref_value();
+        cur_val = temp;
       }
-      cerr << __func__ << ":" << __LINE__ << " ERROR"
-           << " TYPE_REF malformed" << endl;
-      exit(-1);
+      string element_type = GetCppVariableType(cur_val);
+      result = element_type;
+      for (int i = 0; i < ref_depth; i++) {
+        result += " const*";
+      }
+      return result;
+      break;
     }
     default:
     {
@@ -578,6 +577,16 @@ string GetVersion(const ComponentSpecificationMessage& message,
   return GetVersionString(message.component_type_version(), for_macro);
 }
 
+int GetMajorVersion(const ComponentSpecificationMessage& message) {
+  string version = GetVersion(message);
+  return stoi(version.substr(0, version.find('.')));
+}
+
+int GetMinorVersion(const ComponentSpecificationMessage& message) {
+  string version = GetVersion(message);
+  return stoi(version.substr(version.find('.') + 1));
+}
+
 string GetComponentBaseName(const ComponentSpecificationMessage& message) {
   if (!message.component_name().empty()) {
     return (message.component_name() == "types"
@@ -608,6 +617,16 @@ FQName GetFQName(const ComponentSpecificationMessage& message) {
   return FQName(message.package(),
                 GetVersionString(message.component_type_version()),
                 GetComponentName(message));
+}
+
+string GetVarString(const string& var_name) {
+  string var_str = var_name;
+  for (size_t i = 0; i < var_name.length(); i++) {
+    if (!isdigit(var_str[i]) && !isalpha(var_str[i])) {
+      var_str[i] = '_';
+    }
+  }
+  return var_str;
 }
 
 }  // namespace vts

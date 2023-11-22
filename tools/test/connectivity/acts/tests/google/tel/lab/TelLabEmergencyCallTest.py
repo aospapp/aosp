@@ -36,6 +36,7 @@ from acts.test_utils.tel.anritsu_utils import set_system_model_lte_wcdma
 from acts.test_utils.tel.anritsu_utils import set_system_model_lte_gsm
 from acts.test_utils.tel.anritsu_utils import set_system_model_wcdma
 from acts.test_utils.tel.anritsu_utils import set_usim_parameters
+from acts.test_utils.tel.anritsu_utils import set_post_sim_params
 from acts.test_utils.tel.tel_defines import CALL_TEARDOWN_PHONE
 from acts.test_utils.tel.tel_defines import DEFAULT_EMERGENCY_CALL_NUMBER
 from acts.test_utils.tel.tel_defines import EMERGENCY_CALL_NUMBERS
@@ -57,16 +58,22 @@ from acts.test_utils.tel.tel_test_utils import ensure_phone_default_state
 from acts.test_utils.tel.tel_test_utils import ensure_phones_idle
 from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
 from acts.test_utils.tel.tel_test_utils import toggle_volte
+from acts.test_utils.tel.tel_test_utils import check_apm_mode_on_by_serial
+from acts.test_utils.tel.tel_test_utils import set_apm_mode_on_by_serial
+from acts.test_utils.tel.tel_test_utils import set_preferred_apn_by_adb
+from acts.test_utils.tel.tel_test_utils import start_qxdm_loggers
 from acts.test_utils.tel.tel_voice_utils import phone_idle_volte
 from acts.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts.test_decorators import test_tracker_info
+from acts.utils import exe_cmd
+
 
 class TelLabEmergencyCallTest(TelephonyBaseTest):
     def __init__(self, controllers):
         TelephonyBaseTest.__init__(self, controllers)
         try:
-            self.stress_test_number = int(self.user_params[
-                "stress_test_number"])
+            self.stress_test_number = int(
+                self.user_params["stress_test_number"])
             self.log.info("Executing {} calls per test in stress test mode".
                           format(self.stress_test_number))
         except KeyError:
@@ -91,6 +98,25 @@ class TelLabEmergencyCallTest(TelephonyBaseTest):
             self.log.warning("Unknown Emergency Number {}".format(
                 self.emergency_call_number))
 
+        # Check for all adb devices on the linux machine, and set APM ON
+        cmd = "|".join(("adb devices", "grep -i device$", "cut -f1"))
+        output = exe_cmd(cmd)
+        list_of_devices = output.decode("utf-8").split("\n")
+        if len(list_of_devices) > 1:
+            for i in range(len(list_of_devices) - 1):
+                self.log.info("Serial %s", list_of_devices[i])
+                if check_apm_mode_on_by_serial(self.ad, list_of_devices[i]):
+                    self.log.info("Device is already in APM ON")
+                else:
+                    self.log.info("Device is not in APM, turning it ON")
+                    set_apm_mode_on_by_serial(self.ad, list_of_devices[i])
+                    if check_apm_mode_on_by_serial(self.ad,
+                                                   list_of_devices[i]):
+                        self.log.info("Device is now in APM ON")
+
+        if self.ad.sim_card == "VzW12349":
+            set_preferred_apn_by_adb(self.ad, "VZWINTERNET")
+
     def setup_class(self):
         try:
             self.anritsu = MD8475A(self.md8475a_ip_address, self.log,
@@ -101,10 +127,15 @@ class TelLabEmergencyCallTest(TelephonyBaseTest):
         return True
 
     def setup_test(self):
+        if getattr(self, "qxdm_log", True):
+            start_qxdm_loggers(self.log, self.android_devices)
         ensure_phone_default_state(self.log, self.ad, check_subscription=False)
         toggle_airplane_mode_by_adb(self.log, self.ad, True)
-        self.ad.adb.shell("setprop net.lte.ims.volte.provisioned 1",
-                          ignore_status=True)
+        try:
+            if self.ad.sim_card == "VzW12349":
+                self.ad.droid.imsSetVolteProvisioning(True)
+        except Exception as e:
+            self.ad.log.error(e)
         # get a handle to virtual phone
         self.virtualPhoneHandle = self.anritsu.get_VirtualPhone()
         return True
@@ -135,6 +166,9 @@ class TelLabEmergencyCallTest(TelephonyBaseTest):
             set_simulation_func(self.anritsu, self.user_params,
                                 self.ad.sim_card)
             set_usim_parameters(self.anritsu, self.ad.sim_card)
+            if is_ims_call or srvcc or csfb_type:
+                set_post_sim_params(self.anritsu, self.user_params,
+                                    self.ad.sim_card)
             self.virtualPhoneHandle.auto_answer = (VirtualPhoneAutoAnswer.ON,
                                                    2)
             if csfb_type:
@@ -168,12 +202,16 @@ class TelLabEmergencyCallTest(TelephonyBaseTest):
             elif srvcc == "InCall":
                 self.anritsu.start_simulation()
                 self.anritsu.send_command("IMSSTARTVN 1")
+                self.anritsu.send_command("IMSSTARTVN 2")
+                self.anritsu.send_command("IMSSTARTVN 3")
                 check_ims_reg = True
                 check_ims_calling = True
             else:
                 self.anritsu.start_simulation()
-            if is_ims_call:
+            if is_ims_call or csfb_type:
                 self.anritsu.send_command("IMSSTARTVN 1")
+                self.anritsu.send_command("IMSSTARTVN 2")
+                self.anritsu.send_command("IMSSTARTVN 3")
 
             iterations = 1
             if self.stress_test_number > 0:
@@ -181,8 +219,8 @@ class TelLabEmergencyCallTest(TelephonyBaseTest):
             successes = 0
             for i in range(1, iterations + 1):
                 if self.stress_test_number:
-                    self.log.info("Running iteration {} of {}".format(
-                        i, iterations))
+                    self.log.info(
+                        "Running iteration {} of {}".format(i, iterations))
                 # FIXME: There's no good reason why this must be true;
                 # I can only assume this was done to work around a problem
                 self.ad.droid.telephonyToggleDataConnection(False)
@@ -191,13 +229,21 @@ class TelLabEmergencyCallTest(TelephonyBaseTest):
                 sim_model = (self.anritsu.get_simulation_model()).split(",")
                 no_of_bts = len(sim_model)
                 for i in range(2, no_of_bts + 1):
-                    self.anritsu.send_command("OUTOFSERVICE OUT,BTS{}".format(
-                        i))
+                    self.anritsu.send_command(
+                        "OUTOFSERVICE OUT,BTS{}".format(i))
 
                 if phone_setup_func is not None:
                     if not phone_setup_func(self.ad):
-                        self.log.error("phone_setup_func failed.")
-                        continue
+                        self.log.warning(
+                            "phone_setup_func failed. Rebooting UE")
+                        self.ad.reboot()
+                        time.sleep(30)
+                        if self.ad.sim_card == "VzW12349":
+                            set_preferred_apn_by_adb(self.ad, "VZWINTERNET")
+                        if not phone_setup_func(self.ad):
+                            self.log.error("phone_setup_func failed.")
+                            continue
+
                 if is_wait_for_registration:
                     self.anritsu.wait_for_registration_state()
 
@@ -207,8 +253,8 @@ class TelLabEmergencyCallTest(TelephonyBaseTest):
                         continue
 
                 for i in range(2, no_of_bts + 1):
-                    self.anritsu.send_command("OUTOFSERVICE IN,BTS{}".format(
-                        i))
+                    self.anritsu.send_command(
+                        "OUTOFSERVICE IN,BTS{}".format(i))
 
                 time.sleep(WAIT_TIME_ANRITSU_REG_AND_CALL)
                 if srlte_csfb or srvcc:
@@ -249,6 +295,7 @@ class TelLabEmergencyCallTest(TelephonyBaseTest):
         return True
 
     def _phone_setup_lte_wcdma(self, ad):
+        toggle_volte(self.log, ad, False)
         return ensure_network_rat(
             self.log,
             ad,
@@ -313,17 +360,17 @@ class TelLabEmergencyCallTest(TelephonyBaseTest):
     @test_tracker_info(uuid="f5c93228-3b43-48a3-b509-796d41625171")
     @TelephonyBaseTest.tel_test_wrap
     def test_emergency_call_lte_wcdma_csfb_redirection(self):
-        """ Test Emergency call functionality on LTE (CSFB to WCDMA).
+        """ Test Emergency call functionality on LTE.
             CSFB type is REDIRECTION
 
         Steps:
         1. Setup CallBox on LTE and WCDMA network, make sure DUT register on LTE network.
-        2. Make an emergency call to 911. Make sure DUT CSFB to WCDMA.
+        2. Make an emergency call to 911. Make sure DUT does not CSFB to WCDMA.
         3. Make sure Anritsu receives the call and accept.
         4. Tear down the call.
 
         Expected Results:
-        2. Emergency call succeed. DUT CSFB to WCDMA.
+        2. Emergency call succeed. DUT does not CSFB to WCDMA.
         3. Anritsu can accept the call.
         4. Tear down call succeed.
 
@@ -334,22 +381,23 @@ class TelLabEmergencyCallTest(TelephonyBaseTest):
             set_system_model_lte_wcdma,
             self._phone_setup_lte_wcdma,
             emergency_number=self.emergency_call_number,
-            csfb_type=CsfbType.CSFB_TYPE_REDIRECTION)
+            csfb_type=CsfbType.CSFB_TYPE_REDIRECTION,
+            is_ims_call=True)
 
     @test_tracker_info(uuid="8deb6b21-2cb0-4241-bcad-6cd62a340b07")
     @TelephonyBaseTest.tel_test_wrap
     def test_emergency_call_lte_wcdma_csfb_handover(self):
-        """ Test Emergency call functionality on LTE (CSFB to WCDMA).
+        """ Test Emergency call functionality on LTE.
             CSFB type is HANDOVER
 
         Steps:
         1. Setup CallBox on LTE and WCDMA network, make sure DUT register on LTE network.
-        2. Make an emergency call to 911. Make sure DUT CSFB to WCDMA.
+        2. Make an emergency call to 911. Make sure DUT does not CSFB to WCDMA.
         3. Make sure Anritsu receives the call and accept.
         4. Tear down the call.
 
         Expected Results:
-        2. Emergency call succeed. DUT CSFB to WCDMA.
+        2. Emergency call succeed. DUT does not CSFB to WCDMA.
         3. Anritsu can accept the call.
         4. Tear down call succeed.
 
@@ -360,7 +408,8 @@ class TelLabEmergencyCallTest(TelephonyBaseTest):
             set_system_model_lte_wcdma,
             self._phone_setup_lte_wcdma,
             emergency_number=self.emergency_call_number,
-            csfb_type=CsfbType.CSFB_TYPE_HANDOVER)
+            csfb_type=CsfbType.CSFB_TYPE_HANDOVER,
+            is_ims_call=True)
 
     @test_tracker_info(uuid="52b6b783-de77-497d-87e0-63c930e6c9bb")
     @TelephonyBaseTest.tel_test_wrap

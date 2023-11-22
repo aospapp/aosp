@@ -18,11 +18,8 @@ package com.android.cellbroadcastreceiver;
 
 import android.app.Application;
 import android.telephony.CellBroadcastMessage;
-import android.util.Log;
-import android.preference.PreferenceManager;
 
 import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The application class loads the default preferences at first start,
@@ -30,13 +27,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class CellBroadcastReceiverApp extends Application {
     private static final String TAG = "CellBroadcastReceiverApp";
-
-    @Override
-    public void onCreate() {
-        super.onCreate();
-        // TODO: fix strict mode violation from the following method call during app creation
-        PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
-    }
 
     /** List of unread non-emergency alerts to show when user selects the notification. */
     private static final ArrayList<CellBroadcastMessage> sNewMessageList =

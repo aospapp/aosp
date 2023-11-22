@@ -1,12 +1,13 @@
 package foo;
 
-import static android.arch.lifecycle.Lifecycle.Event.ON_STOP;
+import static androidx.lifecycle.Lifecycle.Event.ON_STOP;
 
-import android.arch.lifecycle.Lifecycle.Event;
-import android.arch.lifecycle.LifecycleOwner;
-import android.arch.lifecycle.OnLifecycleEvent;
+import androidx.lifecycle.Lifecycle.Event;
+import androidx.lifecycle.LifecycleObserver;
+import androidx.lifecycle.LifecycleOwner;
+import androidx.lifecycle.OnLifecycleEvent;
 
-public class TooManyArgs2 {
+public class TooManyArgs2 implements LifecycleObserver {
     @OnLifecycleEvent(ON_STOP)
     public void onStop(LifecycleOwner provider, Event event) {
     }

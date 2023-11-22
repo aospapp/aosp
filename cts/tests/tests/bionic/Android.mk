@@ -7,9 +7,12 @@ LOCAL_MULTILIB := both
 LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)32
 LOCAL_MODULE_STEM_64 := $(LOCAL_MODULE)64
 
+LOCAL_CFLAGS := -Wall -Werror
+
 LOCAL_LDFLAGS := -Wl,--rpath,\$${ORIGIN}/lib/bionic-loader-test-libs -Wl,--enable-new-dtags -Wl,--export-dynamic
 
 LOCAL_SHARED_LIBRARIES += \
+    ld-android \
     libdl \
     libdl_preempt_test_1 \
     libdl_preempt_test_2 \

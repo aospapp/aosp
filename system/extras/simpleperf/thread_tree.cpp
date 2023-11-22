@@ -109,7 +109,7 @@ void ThreadTree::AddKernelMap(uint64_t start_addr, uint64_t len, uint64_t pgoff,
   MapEntry* map =
       AllocateMap(MapEntry(start_addr, len, pgoff, time, dso, true));
   FixOverlappedMap(&kernel_maps_, map);
-  auto pair = kernel_maps_.insert(map);
+  auto pair = kernel_maps_.maps.insert(map);
   CHECK(pair.second);
 }
 
@@ -134,8 +134,9 @@ void ThreadTree::AddThreadMap(int pid, int tid, uint64_t start_addr,
   MapEntry* map =
       AllocateMap(MapEntry(start_addr, len, pgoff, time, dso, false));
   FixOverlappedMap(thread->maps, map);
-  auto pair = thread->maps->insert(map);
+  auto pair = thread->maps->maps.insert(map);
   CHECK(pair.second);
+  thread->maps->version++;
 }
 
 Dso* ThreadTree::FindUserDsoOrNew(const std::string& filename, uint64_t start_addr) {
@@ -155,7 +156,7 @@ MapEntry* ThreadTree::AllocateMap(const MapEntry& value) {
 }
 
 void ThreadTree::FixOverlappedMap(MapSet* maps, const MapEntry* map) {
-  for (auto it = maps->begin(); it != maps->end();) {
+  for (auto it = maps->maps.begin(); it != maps->maps.end();) {
     if ((*it)->start_addr >= map->get_end_addr()) {
       // No more overlapped maps.
       break;
@@ -168,17 +169,17 @@ void ThreadTree::FixOverlappedMap(MapSet* maps, const MapEntry* map) {
         MapEntry* before = AllocateMap(
             MapEntry(old->start_addr, map->start_addr - old->start_addr,
                      old->pgoff, old->time, old->dso, old->in_kernel));
-        maps->insert(before);
+        maps->maps.insert(before);
       }
       if (old->get_end_addr() > map->get_end_addr()) {
         MapEntry* after = AllocateMap(MapEntry(
             map->get_end_addr(), old->get_end_addr() - map->get_end_addr(),
             map->get_end_addr() - old->start_addr + old->pgoff, old->time,
             old->dso, old->in_kernel));
-        maps->insert(after);
+        maps->maps.insert(after);
       }
 
-      it = maps->erase(it);
+      it = maps->maps.erase(it);
     }
   }
 }
@@ -192,8 +193,8 @@ static MapEntry* FindMapByAddr(const MapSet& maps, uint64_t addr) {
   // on MapComparator.
   MapEntry find_map(addr, std::numeric_limits<uint64_t>::max(), 0,
                     std::numeric_limits<uint64_t>::max(), nullptr, false);
-  auto it = maps.upper_bound(&find_map);
-  if (it != maps.begin() && IsAddrInMap(addr, *--it)) {
+  auto it = maps.maps.upper_bound(&find_map);
+  if (it != maps.maps.begin() && IsAddrInMap(addr, *--it)) {
     return *it;
   }
   return nullptr;
@@ -222,17 +223,27 @@ const MapEntry* ThreadTree::FindMap(const ThreadEntry* thread, uint64_t ip) {
 const Symbol* ThreadTree::FindSymbol(const MapEntry* map, uint64_t ip,
                                      uint64_t* pvaddr_in_file, Dso** pdso) {
   uint64_t vaddr_in_file;
+  const Symbol* symbol = nullptr;
   Dso* dso = map->dso;
-  vaddr_in_file = ip - map->start_addr + map->dso->MinVirtualAddress();
-  const Symbol* symbol = dso->FindSymbol(vaddr_in_file);
-  if (symbol == nullptr && map->in_kernel && dso != kernel_dso_.get()) {
-    // It is in a kernel module, but we can't find the kernel module file, or
-    // the kernel module file contains no symbol. Try finding the symbol in
-    // /proc/kallsyms.
-    vaddr_in_file = ip;
-    dso = kernel_dso_.get();
+  if (!map->in_kernel) {
+    // Find symbol in user space shared libraries.
+    vaddr_in_file = ip - map->start_addr + map->dso->MinVirtualAddress();
     symbol = dso->FindSymbol(vaddr_in_file);
+  } else {
+    if (dso != kernel_dso_.get()) {
+      // Find symbol in kernel modules.
+      vaddr_in_file = ip - map->start_addr + map->dso->MinVirtualAddress();
+      symbol = dso->FindSymbol(vaddr_in_file);
+    }
+    if (symbol == nullptr) {
+      // If the ip address hits the vmlinux, or hits a kernel module, but we can't find its symbol
+      // in the kernel module file, then find its symbol in /proc/kallsyms or vmlinux.
+      vaddr_in_file = ip;
+      dso = kernel_dso_.get();
+      symbol = dso->FindSymbol(vaddr_in_file);
+    }
   }
+
   if (symbol == nullptr) {
     if (show_ip_for_unknown_symbol_) {
       std::string name = android::base::StringPrintf(
@@ -263,7 +274,7 @@ void ThreadTree::ClearThreadAndMap() {
   thread_tree_.clear();
   thread_comm_storage_.clear();
   map_set_storage_.clear();
-  kernel_maps_.clear();
+  kernel_maps_.maps.clear();
   map_storage_.clear();
 }
 

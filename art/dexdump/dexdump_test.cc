@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
+#include <sstream>
 #include <string>
 #include <vector>
-#include <sstream>
 
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "arch/instruction_set.h"
+#include "base/os.h"
+#include "base/utils.h"
 #include "common_runtime_test.h"
-#include "runtime/arch/instruction_set.h"
-#include "runtime/exec_utils.h"
-#include "runtime/os.h"
-#include "runtime/utils.h"
-#include "utils.h"
+#include "exec_utils.h"
 
 namespace art {
 

@@ -31,12 +31,7 @@ target_config = {
     },
 
     'art-test-javac' : {
-        'make' : 'test-art-host-gtest',
-        'run-test' : [],
-        'env' : {
-            'ANDROID_COMPILE_WITH_JACK' : 'false',
-            'ART_USE_READ_BARRIER' : 'true'
-        }
+        'run-test' : ['--jvm']
     },
 
     # ART run-test configurations
@@ -62,6 +57,13 @@ target_config = {
     },
     'art-jit' : {
         'run-test' : ['--jit'],
+        'env' : {
+            'ART_USE_READ_BARRIER' : 'true'
+        }
+    },
+    'art-pictest' : {
+        'run-test' : ['--pictest',
+                      '--optimizing'],
         'env' : {
             'ART_USE_READ_BARRIER' : 'true'
         }
@@ -222,10 +224,13 @@ target_config = {
     },
     'art-heap-poisoning' : {
         'run-test' : ['--interpreter',
-                      '--optimizing'],
+                      '--optimizing',
+                      '--cdex-none'],
         'env' : {
             'ART_USE_READ_BARRIER' : 'false',
-            'ART_HEAP_POISONING' : 'true'
+            'ART_HEAP_POISONING' : 'true',
+            # Disable compact dex to get coverage of standard dex file usage.
+            'ART_DEFAULT_COMPACT_DEX_LEVEL' : 'none'
         }
     },
     'art-preopt' : {
@@ -269,7 +274,9 @@ target_config = {
         'make' :  'test-art-host-gtest',
         'env': {
             'ART_DEFAULT_GC_TYPE' : 'SS',
-            'ART_USE_READ_BARRIER' : 'false'
+            'ART_USE_READ_BARRIER' : 'false',
+            # Disable compact dex to get coverage of standard dex file usage.
+            'ART_DEFAULT_COMPACT_DEX_LEVEL' : 'none'
         }
     },
     'art-gtest-gss-gc': {
@@ -303,7 +310,8 @@ target_config = {
         }
     },
     'art-gtest-valgrind32': {
-        'make' : 'valgrind-test-art-host32',
+      # Disabled: x86 valgrind does not understand SSE4.x
+      # 'make' : 'valgrind-test-art-host32',
         'env': {
             'ART_USE_READ_BARRIER' : 'false'
         }
@@ -314,27 +322,20 @@ target_config = {
             'ART_USE_READ_BARRIER' : 'false'
         }
     },
-    'art-gtest-heap-poisoning': {
-        'make' : 'valgrind-test-art-host64',
-        'env' : {
-            'ART_HEAP_POISONING' : 'true',
-            'ART_USE_READ_BARRIER' : 'false'
-        }
-    },
 
    # ASAN (host) configurations.
 
    # These configurations need detect_leaks=0 to work in non-setup environments like build bots,
    # as our build tools leak. b/37751350
 
-   'art-gtest-asan': {
+    'art-gtest-asan': {
         'make' : 'test-art-host-gtest',
         'env': {
             'SANITIZE_HOST' : 'address',
             'ASAN_OPTIONS' : 'detect_leaks=0'
         }
-   },
-   'art-asan': {
+    },
+    'art-asan': {
         'run-test' : ['--interpreter',
                       '--optimizing',
                       '--jit'],
@@ -342,7 +343,16 @@ target_config = {
             'SANITIZE_HOST' : 'address',
             'ASAN_OPTIONS' : 'detect_leaks=0'
         }
-   },
+    },
+    'art-gtest-heap-poisoning': {
+        'make' : 'test-art-host-gtest',
+        'env' : {
+            'ART_HEAP_POISONING' : 'true',
+            'ART_USE_READ_BARRIER' : 'false',
+            'SANITIZE_HOST' : 'address',
+            'ASAN_OPTIONS' : 'detect_leaks=0'
+        }
+    },
 
    # ART Golem build targets used by go/lem (continuous ART benchmarking),
    # (art-opt-cc is used by default since it mimics the default preopt config),

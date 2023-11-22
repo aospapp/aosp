@@ -17,7 +17,7 @@
 #ifndef BUFFERQUEUE_SOURCE_H_
 #define BUFFERQUEUE_SOURCE_H_
 
-#include <media/stagefright/DataSource.h>
+#include <media/DataSource.h>
 
 // number of SLuint32 fields to store a buffer event message in an item, by mapping each
 //   to the item key (SLuint32), the item size (SLuint32), and the item data (mask on SLuint32)

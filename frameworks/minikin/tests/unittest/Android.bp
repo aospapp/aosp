@@ -30,7 +30,6 @@ cc_test {
     // Shared libraries which are dependencies of minikin; these are not automatically
     // pulled in by the build system (and thus sadly must be repeated).
     shared_libs: [
-        "libskia",
         "libft2",
         "libharfbuzz_ng",
         "libicuuc",
@@ -40,36 +39,36 @@ cc_test {
     ],
 
     srcs: [
+        "AndroidLineBreakerHelperTest.cpp",
+        "BidiUtilsTest.cpp",
         "CmapCoverageTest.cpp",
         "EmojiTest.cpp",
         "FontCollectionTest.cpp",
         "FontCollectionItemizeTest.cpp",
         "FontFamilyTest.cpp",
         "FontLanguageListCacheTest.cpp",
-        "HbFontCacheTest.cpp",
+        "FontUtilsTest.cpp",
+        "HyphenatorMapTest.cpp",
         "HyphenatorTest.cpp",
         "GraphemeBreakTests.cpp",
+        "GreedyLineBreakerTest.cpp",
+        "LayoutCacheTest.cpp",
         "LayoutTest.cpp",
         "LayoutUtilsTest.cpp",
-        "LineBreakerTest.cpp",
+        "LocaleListTest.cpp",
+        "MeasuredTextTest.cpp",
         "MeasurementTests.cpp",
+        "OptimalLineBreakerTest.cpp",
         "SparseBitSetTest.cpp",
+        "StringPieceTest.cpp",
+        "TestMain.cpp",
         "UnicodeUtilsTest.cpp",
         "WordBreakerTests.cpp",
     ],
 
-    cppflags: [
+    cflags: [
         "-Werror",
         "-Wall",
         "-Wextra",
     ],
-
-    multilib: {
-        lib32: {
-            cppflags: ["-DkTestFontDir=\"/data/nativetest/minikin_tests/data/\""],
-        },
-        lib64: {
-            cppflags: ["-DkTestFontDir=\"/data/nativetest64/minikin_tests/data/\""],
-        },
-    },
 }

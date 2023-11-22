@@ -30,4 +30,8 @@ import java.lang.annotation.Target;
 @Target({ElementType.METHOD, ElementType.TYPE})
 public @interface RootPermissionTest {
 
+    // Denotes the patch level when the test was introduced
+    // TODO : Remove the default value. Need one in the interim whilst we undertake
+    // the effort to annotate the existing tests with a corresponding patch-level.
+    String minPatchLevel() default "";
 }

@@ -5,6 +5,9 @@ en_XA{
         "[a b c d e f g h i j k l m n o p q r s t u v w x y z \u2045 å \u2003 ƀ ç ð é"
         " ƒ ĝ ĥ î ĵ ķ ļ ɱ ñ ö þ ǫ ŕ š ţ û ṽ ŵ ẋ ý ž \u2046]"
     }
+    NumberElements{
+        default{"latn"}
+    }
     Version{"2.0"}
     calendar{
         buddhist{
@@ -25,13 +28,18 @@ en_XA{
                 "[MMM d, r]",
                 "[M/d/r]",
                 "[{1}, {0}]",
-                "[{1} 'åţ' {0}]",
-                "[{1} 'åţ' {0}]",
+                "[{1} 'åţ' {0} 'one']",
+                "[{1} 'åţ' {0} 'one']",
                 "[{1}, {0}]",
                 "[{1}, {0}]",
             }
             availableFormats{
+                Bh{"[h B]"}
+                Bhm{"[h:mm B]"}
+                Bhms{"[h:mm:ss B]"}
                 E{"[ccc]"}
+                EBhm{"[E h:mm B]"}
+                EBhms{"[E h:mm:ss B]"}
                 EHm{"[E HH:mm]"}
                 EHms{"[E HH:mm:ss]"}
                 Ed{"[d E]"}
@@ -232,8 +240,8 @@ en_XA{
                 "[MMM d, y G]",
                 "[M/d/y GGGGG]",
                 "[{1}, {0}]",
-                "[{1} 'åţ' {0}]",
-                "[{1} 'åţ' {0}]",
+                "[{1} 'åţ' {0} 'one']",
+                "[{1} 'åţ' {0} 'one']",
                 "[{1}, {0}]",
                 "[{1}, {0}]",
             }
@@ -251,7 +259,12 @@ en_XA{
                 Year{"[{0} {1} one]"}
             }
             availableFormats{
+                Bh{"[h B]"}
+                Bhm{"[h:mm B]"}
+                Bhms{"[h:mm:ss B]"}
                 E{"[ccc]"}
+                EBhm{"[E h:mm B]"}
+                EBhms{"[E h:mm:ss B]"}
                 EHm{"[E HH:mm]"}
                 EHms{"[E HH:mm:ss]"}
                 Ed{"[d E]"}
@@ -411,8 +424,8 @@ en_XA{
                 "[MMM d, y]",
                 "[M/d/yy]",
                 "[{1}, {0}]",
-                "[{1} 'åţ' {0}]",
-                "[{1} 'åţ' {0}]",
+                "[{1} 'åţ' {0} 'one']",
+                "[{1} 'åţ' {0} 'one']",
                 "[{1}, {0}]",
                 "[{1}, {0}]",
             }
@@ -430,7 +443,12 @@ en_XA{
                 Year{"[{0} {1} one]"}
             }
             availableFormats{
+                Bh{"[h B]"}
+                Bhm{"[h:mm B]"}
+                Bhms{"[h:mm:ss B]"}
                 E{"[ccc]"}
+                EBhm{"[E h:mm B]"}
+                EBhms{"[E h:mm:ss B]"}
                 EHm{"[E HH:mm]"}
                 EHms{"[E HH:mm:ss]"}
                 Ed{"[d E]"}
@@ -450,8 +468,8 @@ en_XA{
                 MMM{"[LLL]"}
                 MMMEd{"[E, MMM d]"}
                 MMMMW{
-                    one{"['ŵééķ' Ŵ 'öƒ' MMM one two]"}
-                    other{"['ŵééķ' Ŵ 'öƒ' MMM one two]"}
+                    one{"['ŵééķ' W 'öƒ' MMMM 'one' 'two']"}
+                    other{"['ŵééķ' W 'öƒ' MMMM 'one' 'two']"}
                 }
                 MMMMd{"[MMMM d]"}
                 MMMd{"[MMM d]"}
@@ -474,8 +492,8 @@ en_XA{
                 yQQQ{"[QQQ y]"}
                 yQQQQ{"[QQQQ y]"}
                 yw{
-                    one{"['ŵééķ' ŵ 'öƒ' y one two]"}
-                    other{"['ŵééķ' ŵ 'öƒ' y one two]"}
+                    one{"['ŵééķ' w 'öƒ' Y 'one' 'two']"}
+                    other{"['ŵééķ' w 'öƒ' Y 'one' 'two']"}
                 }
             }
             dayNames{
@@ -728,8 +746,8 @@ en_XA{
                 "[d MMM y]",
                 "[d MMM y]",
                 "[{1}, {0}]",
-                "[{1} 'åţ' {0}]",
-                "[{1} 'åţ' {0}]",
+                "[{1} 'åţ' {0} 'one']",
+                "[{1} 'åţ' {0} 'one']",
                 "[{1}, {0}]",
                 "[{1}, {0}]",
             }
@@ -839,8 +857,8 @@ en_XA{
                 "[MMM d, y G]",
                 "[M/d/y GGGGG]",
                 "[{1}, {0}]",
-                "[{1} 'åţ' {0}]",
-                "[{1} 'åţ' {0}]",
+                "[{1} 'åţ' {0} 'one']",
+                "[{1} 'åţ' {0} 'one']",
                 "[{1}, {0}]",
                 "[{1}, {0}]",
             }
@@ -974,11 +992,24 @@ en_XA{
                 }
             }
         }
+        dayOfYear{
+            dn{"[ðåý öƒ ýéåŕ one two]"}
+        }
+        dayOfYear-short{
+            dn{"[ðåý öƒ ýŕ· one two]"}
+        }
         dayperiod{
             dn{"[ÅṀ⁄ÞṀ one]"}
             dn%variant{"[åɱ⁄þɱ one]"}
         }
+        dayperiod-short{
+            dn{"[ÅṀ⁄ÞṀ one]"}
+            dn%variant{"[åɱ⁄þɱ one]"}
+        }
         era{
+            dn{"[éŕå one]"}
+        }
+        era-short{
             dn{"[éŕå one]"}
         }
         fri{
@@ -1418,8 +1449,23 @@ en_XA{
                 }
             }
         }
+        weekOfMonth{
+            dn{"[ŵééķ öƒ ɱöñţĥ one two]"}
+        }
+        weekOfMonth-short{
+            dn{"[ŵķ· öƒ ɱö· one two]"}
+        }
         weekday{
             dn{"[ðåý öƒ ţĥé ŵééķ one two]"}
+        }
+        weekday-short{
+            dn{"[ðåý öƒ ŵķ· one two]"}
+        }
+        weekdayOfMonth{
+            dn{"[ŵééķðåý öƒ ţĥé ɱöñţĥ one two three]"}
+        }
+        weekdayOfMonth-short{
+            dn{"[ŵķðåý· öƒ ɱö· one two]"}
         }
         year{
             dn{"[ýéåŕ one]"}
@@ -1460,8 +1506,17 @@ en_XA{
         zone{
             dn{"[ţîɱé žöñé one two]"}
         }
+        zone-short{
+            dn{"[žöñé one]"}
+        }
     }
     listPattern{
+        or{
+            2{"[{0} öŕ {1} one]"}
+            end{"[{0}، öŕ {1} one]"}
+            middle{"[{0}، {1} one]"}
+            start{"[{0}، {1} one]"}
+        }
         standard{
             2{"[{0} åñð {1} one]"}
             end{"[{0}، åñð {1} one]"}

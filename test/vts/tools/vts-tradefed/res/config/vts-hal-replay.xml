@@ -16,7 +16,7 @@
 <configuration description="VTS HAL Replay Test Plan">
   <include name="vts-base" />
   <option name="plan" value="vts" />
-  <option name="test-tag" value="vts" />
+  <option name="test-tag" value="vts-star" />
   <option name="vts-plan-result:plan-name" value="vts-hal-replay" />
 
   <!-- For Hidl Hal replay tests -->

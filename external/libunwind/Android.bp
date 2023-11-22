@@ -22,7 +22,6 @@
 cc_defaults {
     name: "libunwind_defaults",
     host_supported: true,
-    vendor_available: true,
 
     cppflags: [
         "-Wno-old-style-cast",
@@ -124,6 +123,7 @@ cc_defaults {
 cc_library {
     name: "libunwind",
     defaults: ["libunwind_defaults"],
+    vendor_available: false,
     vndk: {
         enabled: true,
         support_system_process: true,
@@ -403,19 +403,12 @@ cc_library {
     },
 
     target: {
-        android: {
-            shared_libs: ["libdl"],
-        },
-        linux: {
+        linux_glibc: {
+            // Remove dependencies on libgcc
             ldflags: ["-nostdlib"],
-            host_ldlibs: [
-                "-lc",
-                "-lpthread",
-            ],
         },
         linux_bionic: {
             enabled: true,
-            shared_libs: ["libdl"],
         },
     },
 
@@ -434,6 +427,7 @@ cc_library {
 cc_library_static {
     name: "libunwindbacktrace",
     defaults: ["libunwind_defaults"],
+    vendor_available: true,
     sdk_version: "21",
     srcs: [
         "src/unwind/BacktraceWrapper.c",
@@ -460,8 +454,6 @@ cc_library_static {
         "-Wno-old-style-declaration",
         "-fvisibility=hidden",
     ],
-
-    whole_static_libs: ["libunwind"],
 
     target: {
         linux_bionic: {

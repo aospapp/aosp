@@ -26,7 +26,7 @@ class audio_AudioBasicExternalMicrophone(audio_test.AudioTest):
     """
     version = 1
     DELAY_BEFORE_RECORD_SECONDS = 0.5
-    RECORD_SECONDS = 5
+    RECORD_SECONDS = 9
     DELAY_AFTER_BINDING = 0.5
 
     def run_once(self, host, check_quality=False):
@@ -99,7 +99,7 @@ class audio_AudioBasicExternalMicrophone(audio_test.AudioTest):
         # Removes the beginning of recorded data. This is to avoid artifact
         # caused by Cros device codec initialization in the beginning of
         # recording.
-        recorder.remove_head(1.5)
+        recorder.remove_head(4.5)
 
         recorded_file = os.path.join(self.resultsdir, "recorded_clipped.raw")
         logging.info('Saving clipped data to %s', recorded_file)

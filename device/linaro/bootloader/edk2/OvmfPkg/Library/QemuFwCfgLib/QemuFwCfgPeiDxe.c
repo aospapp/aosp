@@ -17,7 +17,10 @@
 #include <Library/DebugLib.h>
 #include <Library/QemuFwCfgLib.h>
 
+#include "QemuFwCfgLibInternal.h"
+
 STATIC BOOLEAN mQemuFwCfgSupported = FALSE;
+STATIC BOOLEAN mQemuFwCfgDmaSupported;
 
 
 /**
@@ -51,8 +54,10 @@ QemuFwCfgInitialize (
 
   //
   // Enable the access routines while probing to see if it is supported.
+  // For probing we always use the IO Port (IoReadFifo8()) access method.
   //
   mQemuFwCfgSupported = TRUE;
+  mQemuFwCfgDmaSupported = FALSE;
 
   QemuFwCfgSelectItem (QemuFwCfgItemSignature);
   Signature = QemuFwCfgRead32 ();
@@ -68,7 +73,12 @@ QemuFwCfgInitialize (
     return RETURN_SUCCESS;
   }
 
-  DEBUG ((EFI_D_INFO, "QemuFwCfg interface is supported.\n"));
+  if ((Revision & FW_CFG_F_DMA) == 0) {
+    DEBUG ((DEBUG_INFO, "QemuFwCfg interface (IO Port) is supported.\n"));
+  } else {
+    mQemuFwCfgDmaSupported = TRUE;
+    DEBUG ((DEBUG_INFO, "QemuFwCfg interface (DMA) is supported.\n"));
+  }
   return RETURN_SUCCESS;
 }
 
@@ -83,10 +93,24 @@ QemuFwCfgInitialize (
   @retval    FALSE  The interface is not available internally.
 **/
 BOOLEAN
-EFIAPI
 InternalQemuFwCfgIsAvailable (
   VOID
   )
 {
   return mQemuFwCfgSupported;
+}
+
+/**
+  Returns a boolean indicating whether QEMU provides the DMA-like access method
+  for fw_cfg.
+
+  @retval    TRUE   The DMA-like access method is available.
+  @retval    FALSE  The DMA-like access method is unavailable.
+**/
+BOOLEAN
+InternalQemuFwCfgDmaIsAvailable (
+  VOID
+  )
+{
+  return mQemuFwCfgDmaSupported;
 }

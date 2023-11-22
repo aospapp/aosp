@@ -23,9 +23,10 @@ import static org.mockito.Mockito.*;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.net.MacAddress;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 import android.util.Xml;
 
 import com.android.internal.util.FastXmlSerializer;
@@ -56,6 +57,9 @@ public class NetworkListStoreDataTest {
     private static final String TEST_CONNECT_CHOICE = "XmlUtilConnectChoice";
     private static final long TEST_CONNECT_CHOICE_TIMESTAMP = 0x4566;
     private static final String TEST_CREATOR_NAME = "CreatorName";
+    private static final MacAddress TEST_RANDOMIZED_MAC =
+            MacAddress.fromString("da:a1:19:c4:26:fa");
+
     private static final String SINGLE_OPEN_NETWORK_DATA_XML_STRING_FORMAT =
             "<Network>\n"
                     + "<WifiConfiguration>\n"
@@ -93,6 +97,7 @@ public class NetworkListStoreDataTest {
                     + "<int name=\"LastConnectUid\" value=\"0\" />\n"
                     + "<boolean name=\"IsLegacyPasspointConfig\" value=\"false\" />\n"
                     + "<long-array name=\"RoamingConsortiumOIs\" num=\"0\" />\n"
+                    + "<string name=\"RandomizedMacAddress\">%s</string>\n"
                     + "</WifiConfiguration>\n"
                     + "<NetworkStatus>\n"
                     + "<string name=\"SelectionStatus\">NETWORK_SELECTION_ENABLED</string>\n"
@@ -144,6 +149,7 @@ public class NetworkListStoreDataTest {
                     + "<int name=\"LastConnectUid\" value=\"0\" />\n"
                     + "<boolean name=\"IsLegacyPasspointConfig\" value=\"false\" />\n"
                     + "<long-array name=\"RoamingConsortiumOIs\" num=\"0\" />\n"
+                    + "<string name=\"RandomizedMacAddress\">%s</string>\n"
                     + "</WifiConfiguration>\n"
                     + "<NetworkStatus>\n"
                     + "<string name=\"SelectionStatus\">NETWORK_SELECTION_ENABLED</string>\n"
@@ -237,11 +243,13 @@ public class NetworkListStoreDataTest {
         openNetwork.shared = shared;
         openNetwork.setIpConfiguration(
                 WifiConfigurationTestUtil.createDHCPIpConfigurationWithNoProxy());
+        openNetwork.setRandomizedMacAddress(TEST_RANDOMIZED_MAC);
         WifiConfiguration eapNetwork = WifiConfigurationTestUtil.createEapNetwork();
         eapNetwork.shared = shared;
         eapNetwork.creatorName = TEST_CREATOR_NAME;
         eapNetwork.setIpConfiguration(
                 WifiConfigurationTestUtil.createDHCPIpConfigurationWithNoProxy());
+        eapNetwork.setRandomizedMacAddress(TEST_RANDOMIZED_MAC);
         List<WifiConfiguration> networkList = new ArrayList<>();
         networkList.add(openNetwork);
         networkList.add(eapNetwork);
@@ -261,11 +269,13 @@ public class NetworkListStoreDataTest {
         String openNetworkXml = String.format(SINGLE_OPEN_NETWORK_DATA_XML_STRING_FORMAT,
                 openNetwork.configKey().replaceAll("\"", "&quot;"),
                 openNetwork.SSID.replaceAll("\"", "&quot;"),
-                openNetwork.shared, openNetwork.creatorUid, openNetwork.creatorName);
+                openNetwork.shared, openNetwork.creatorUid,
+                openNetwork.creatorName, openNetwork.getRandomizedMacAddress());
         String eapNetworkXml = String.format(SINGLE_EAP_NETWORK_DATA_XML_STRING_FORMAT,
                 eapNetwork.configKey().replaceAll("\"", "&quot;"),
                 eapNetwork.SSID.replaceAll("\"", "&quot;"),
-                eapNetwork.shared, eapNetwork.creatorUid, openNetwork.creatorName);
+                eapNetwork.shared, eapNetwork.creatorUid,
+                eapNetwork.creatorName, eapNetwork.getRandomizedMacAddress());
         return (openNetworkXml + eapNetworkXml).getBytes(StandardCharsets.UTF_8);
     }
 
@@ -398,6 +408,7 @@ public class NetworkListStoreDataTest {
                         + "<int name=\"LastUpdateUid\" value=\"-1\" />\n"
                         + "<null name=\"LastUpdateName\" />\n"
                         + "<int name=\"LastConnectUid\" value=\"0\" />\n"
+                        + "<string name=\"RandomizedMacAddress\">%s</string>\n"
                         + "</WifiConfiguration>\n"
                         + "<NetworkStatus>\n"
                         + "<string name=\"SelectionStatus\">NETWORK_SELECTION_ENABLED</string>\n"
@@ -418,7 +429,8 @@ public class NetworkListStoreDataTest {
         byte[] xmlData = String.format(configFormat,
                 openNetwork.configKey().replaceAll("\"", "&quot;"),
                 openNetwork.SSID.replaceAll("\"", "&quot;"),
-                openNetwork.shared, openNetwork.creatorUid).getBytes(StandardCharsets.UTF_8);
+                openNetwork.shared, openNetwork.creatorUid, openNetwork.getRandomizedMacAddress())
+            .getBytes(StandardCharsets.UTF_8);
         deserializeData(xmlData, true);
     }
 
@@ -434,7 +446,8 @@ public class NetworkListStoreDataTest {
         byte[] xmlData = String.format(SINGLE_OPEN_NETWORK_DATA_XML_STRING_FORMAT,
                 "InvalidConfigKey",
                 openNetwork.SSID.replaceAll("\"", "&quot;"),
-                openNetwork.shared, openNetwork.creatorUid, openNetwork.creatorName)
+                openNetwork.shared, openNetwork.creatorUid,
+                openNetwork.creatorName, openNetwork.getRandomizedMacAddress())
             .getBytes(StandardCharsets.UTF_8);
         deserializeData(xmlData, true);
     }
@@ -468,6 +481,7 @@ public class NetworkListStoreDataTest {
      * Verify that a saved network config with invalid creatorUid resets it to
      * {@link android.os.Process#SYSTEM_UID}.
      */
+    @Test
     public void parseNetworkWithInvalidCreatorUidResetsToSystem() throws Exception {
         WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork();
         openNetwork.creatorUid = -1;
@@ -477,7 +491,8 @@ public class NetworkListStoreDataTest {
         byte[] xmlData = String.format(SINGLE_OPEN_NETWORK_DATA_XML_STRING_FORMAT,
                 openNetwork.configKey().replaceAll("\"", "&quot;"),
                 openNetwork.SSID.replaceAll("\"", "&quot;"),
-                openNetwork.shared, openNetwork.creatorUid, openNetwork.creatorName)
+                openNetwork.shared, openNetwork.creatorUid,
+                openNetwork.creatorName, openNetwork.getRandomizedMacAddress())
             .getBytes(StandardCharsets.UTF_8);
         List<WifiConfiguration> deserializedNetworks = deserializeData(xmlData, true);
         assertEquals(1, deserializedNetworks.size());
@@ -490,6 +505,7 @@ public class NetworkListStoreDataTest {
      * Verify that a saved network config with invalid creatorName resets it to the package name
      * provided {@link PackageManager} for the creatorUid.
      */
+    @Test
     public void parseNetworkWithInvalidCreatorNameResetsToPackageNameForCreatorUid()
             throws Exception {
         String badCreatorName = "bad";
@@ -503,7 +519,8 @@ public class NetworkListStoreDataTest {
         byte[] xmlData = String.format(SINGLE_OPEN_NETWORK_DATA_XML_STRING_FORMAT,
                 openNetwork.configKey().replaceAll("\"", "&quot;"),
                 openNetwork.SSID.replaceAll("\"", "&quot;"),
-                openNetwork.shared, openNetwork.creatorUid, openNetwork.creatorName)
+                openNetwork.shared, openNetwork.creatorUid,
+                openNetwork.creatorName, openNetwork.getRandomizedMacAddress())
             .getBytes(StandardCharsets.UTF_8);
         List<WifiConfiguration> deserializedNetworks = deserializeData(xmlData, true);
         assertEquals(1, deserializedNetworks.size());
@@ -516,6 +533,7 @@ public class NetworkListStoreDataTest {
      * Verify that a saved network config with invalid creatorName resets it to the package name
      * provided {@link PackageManager} for the creatorUid.
      */
+    @Test
     public void parseNetworkWithNullCreatorNameResetsToPackageNameForCreatorUid()
             throws Exception {
         String correctCreatorName = "correct";
@@ -528,7 +546,8 @@ public class NetworkListStoreDataTest {
         byte[] xmlData = String.format(SINGLE_OPEN_NETWORK_DATA_XML_STRING_FORMAT,
                 openNetwork.configKey().replaceAll("\"", "&quot;"),
                 openNetwork.SSID.replaceAll("\"", "&quot;"),
-                openNetwork.shared, openNetwork.creatorUid, openNetwork.creatorName)
+                openNetwork.shared, openNetwork.creatorUid,
+                openNetwork.creatorName, openNetwork.getRandomizedMacAddress())
             .getBytes(StandardCharsets.UTF_8);
         List<WifiConfiguration> deserializedNetworks = deserializeData(xmlData, true);
         assertEquals(1, deserializedNetworks.size());
@@ -540,6 +559,7 @@ public class NetworkListStoreDataTest {
     /**
      * Verify that a saved network config with valid creatorUid is preserved.
      */
+    @Test
     public void parseNetworkWithValidCreatorUid() throws Exception {
         WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork();
         openNetwork.creatorUid = 1324422;
@@ -547,7 +567,8 @@ public class NetworkListStoreDataTest {
         byte[] xmlData = String.format(SINGLE_OPEN_NETWORK_DATA_XML_STRING_FORMAT,
                 openNetwork.configKey().replaceAll("\"", "&quot;"),
                 openNetwork.SSID.replaceAll("\"", "&quot;"),
-                openNetwork.shared, openNetwork.creatorUid, openNetwork.creatorName)
+                openNetwork.shared, openNetwork.creatorUid,
+                openNetwork.creatorName, openNetwork.getRandomizedMacAddress())
             .getBytes(StandardCharsets.UTF_8);
         List<WifiConfiguration> deserializedNetworks = deserializeData(xmlData, true);
         assertEquals(1, deserializedNetworks.size());

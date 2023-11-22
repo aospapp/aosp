@@ -23,14 +23,16 @@ import static com.android.documentsui.base.State.MODE_LIST;
 
 import android.database.Cursor;
 import android.provider.DocumentsContract.Document;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.ViewGroup;
 
 import com.android.documentsui.Model;
+import com.android.documentsui.Model.Update;
 import com.android.documentsui.base.EventListener;
 import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.State;
-import com.android.documentsui.Model.Update;
+import com.android.documentsui.selection.SelectionHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -109,7 +111,7 @@ final class ModelBackedDocumentsAdapter extends DocumentsAdapter {
 
     @Override
     public void onBindViewHolder(DocumentHolder holder, int position, List<Object> payload) {
-        if (payload.contains(SELECTION_CHANGED_MARKER)) {
+        if (payload.contains(SelectionHelper.SELECTION_CHANGED_MARKER)) {
             final boolean selected = mEnv.isSelected(mModelIds.get(position));
             holder.setSelected(selected, true);
         } else {
@@ -156,7 +158,7 @@ final class ModelBackedDocumentsAdapter extends DocumentsAdapter {
     }
 
     @Override
-    public String getModelId(int adapterPosition) {
+    public String getStableId(int adapterPosition) {
         return mModelIds.get(adapterPosition);
     }
 
@@ -166,8 +168,14 @@ final class ModelBackedDocumentsAdapter extends DocumentsAdapter {
     }
 
     @Override
-    public List<String> getModelIds() {
+    public List<String> getStableIds() {
         return mModelIds;
+    }
+
+    @Override
+    public int getPosition(String id) {
+        int position = mModelIds.indexOf(id);
+        return position >= 0 ? position : RecyclerView.NO_POSITION;
     }
 
     @Override
@@ -188,16 +196,5 @@ final class ModelBackedDocumentsAdapter extends DocumentsAdapter {
                 return true;
         }
         return false;
-    }
-
-    @Override
-    public void onItemSelectionChanged(String id) {
-        int position = mModelIds.indexOf(id);
-
-        if (position >= 0) {
-            notifyItemChanged(position, SELECTION_CHANGED_MARKER);
-        } else {
-            Log.w(TAG, "Item change notification received for unknown item: " + id);
-        }
     }
 }

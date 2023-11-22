@@ -1,35 +1,12 @@
 /*
- * Copyright (c) 2014, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2017, ARM Limited and Contributors. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this
- * list of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * Neither the name of ARM nor the names of its contributors may be used
- * to endorse or promote products derived from this software without specific
- * prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <arch.h>
 #include <asm_macros.S>
+#include <debug.h>
 
 	.globl	asm_print_str
 	.globl	asm_print_hex
@@ -41,7 +18,7 @@
 /* The offset to add to get ascii for numerals '0 - 9' */
 #define ASCII_OFFSET_NUM	0x30
 
-#if ASM_ASSERTION
+#if ENABLE_ASSERTIONS
 .section .rodata.assert_str, "aS"
 assert_msg1:
 	.asciz "ASSERT: File "
@@ -78,6 +55,11 @@ dec_print_loop:
  * ---------------------------------------------------------------------------
  */
 func asm_assert
+#if LOG_LEVEL >= LOG_LEVEL_INFO
+	/*
+	 * Only print the output if LOG_LEVEL is higher or equal to
+	 * LOG_LEVEL_INFO, which is the default value for builds with DEBUG=1.
+	 */
 	mov	x5, x0
 	mov	x6, x1
 	/* Ensure the console is initialized */
@@ -96,9 +78,12 @@ func asm_assert
 	b.ne	_assert_loop
 	mov	x4, x6
 	asm_print_line_dec
+	bl	plat_crash_console_flush
 _assert_loop:
-	b	_assert_loop
-#endif
+#endif /* LOG_LEVEL >= LOG_LEVEL_INFO */
+	no_ret	plat_panic_handler
+endfunc asm_assert
+#endif /* ENABLE_ASSERTIONS */
 
 /*
  * This function prints a string from address in x4.
@@ -114,11 +99,12 @@ func asm_print_str
 	b	1b
 2:
 	ret	x3
+endfunc asm_print_str
 
 /*
  * This function prints a hexadecimal number in x4.
  * In: x4 = the hexadecimal to print.
- * Clobber: x30, x0, x5, x1, x2, x3
+ * Clobber: x30, x0 - x3, x5
  */
 func asm_print_hex
 	mov	x3, x30
@@ -138,6 +124,7 @@ func asm_print_hex
 	bl	plat_crash_console_putc
 	cbnz	x5, 1b
 	ret	x3
+endfunc asm_print_hex
 
 	/***********************************************************
 	 * The common implementation of do_panic for all BL stages
@@ -175,7 +162,7 @@ el3_panic:
 	mov	x6, x30
 	bl	plat_crash_console_init
 	/* Check if the console is initialized */
-	cbz	x0, _panic_loop
+	cbz	x0, _panic_handler
 	/* The console is initialized */
 	adr	x4, panic_msg
 	bl	asm_print_str
@@ -183,6 +170,12 @@ el3_panic:
 	/* The panic location is lr -4 */
 	sub	x4, x4, #4
 	bl	asm_print_hex
-_panic_loop:
-	b	_panic_loop
 
+	bl	plat_crash_console_flush
+
+_panic_handler:
+	/* Pass to plat_panic_handler the address from where el3_panic was
+	 * called, not the address of the call from el3_panic. */
+	mov	x30, x6
+	b	plat_panic_handler
+endfunc do_panic

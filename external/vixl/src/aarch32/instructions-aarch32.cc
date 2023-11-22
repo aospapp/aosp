@@ -1,4 +1,4 @@
-// Copyright 2015, VIXL authors
+// Copyright 2017, VIXL authors
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -438,9 +438,8 @@ const char* Shift::GetName() const {
 const char* EncodingSize::GetName() const {
   switch (size_) {
     case Best:
-      return "";
     case Narrow:
-      return ".n";
+      return "";
     case Wide:
       return ".w";
   }

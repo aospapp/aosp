@@ -16,8 +16,8 @@
 package com.android.emergency.preferences;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.nullable;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
@@ -26,7 +26,6 @@ import android.content.SharedPreferences;
 import android.support.v7.preference.PreferenceGroup;
 import android.support.v7.preference.PreferenceManager;
 import android.support.v7.preference.PreferenceScreen;
-import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.emergency.PreferenceKeys;
 import com.android.emergency.TestConfig;
@@ -41,7 +40,6 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link EmergencyEditTextPreference}. */
-@SmallTest
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION)
 public class EmergencyEditTextPreferenceTest {
@@ -77,7 +75,7 @@ public class EmergencyEditTextPreferenceTest {
         mPreference.setKey(PreferenceKeys.KEY_MEDICAL_CONDITIONS);
 
         String medicalConditions = "Asthma";
-        when(mSharedPreferences.getString(eq(mPreference.getKey()), anyString()))
+        when(mSharedPreferences.getString(eq(mPreference.getKey()), nullable(String.class)))
                 .thenReturn(medicalConditions);
 
         mPreference.reloadFromPreference();

@@ -32,6 +32,7 @@ import com.android.cts.verifier.R;  // needed to access resource in CTSVerifier 
 
 public abstract class USBAudioPeripheralActivity extends PassFailButtons.Activity {
     private static final String TAG = "USBAudioPeripheralActivity";
+    private static final boolean DEBUG = false;
 
     // Profile
     protected ProfileManager mProfileManager = new ProfileManager();
@@ -77,6 +78,9 @@ public abstract class USBAudioPeripheralActivity extends PassFailButtons.Activit
     }
 
     private void showProfileStatus() {
+        if (DEBUG) {
+            Log.d(TAG, "showProfileStatus()" + (mSelectedProfile != null));
+        }
         if (mSelectedProfile != null) {
             mProfileNameTx.setText(mSelectedProfile.getName());
             mProfileDescriptionTx.setText(mSelectedProfile.getDescription());
@@ -88,11 +92,19 @@ public abstract class USBAudioPeripheralActivity extends PassFailButtons.Activit
 
     private void showPeripheralStatus() {
         if (mIsPeripheralAttached) {
+            String productName = "";
             if (mOutputDevInfo != null) {
-                mPeripheralNameTx.setText(mOutputDevInfo.getProductName().toString());
+                productName = mOutputDevInfo.getProductName().toString();
             } else if (mInputDevInfo != null) {
-                mPeripheralNameTx.setText(mInputDevInfo.getProductName().toString());
+                productName = mInputDevInfo.getProductName().toString();
             }
+            String ctrlText;
+            if (mSelectedProfile == null) {
+                ctrlText = productName + " - UNSUPPORTED";
+            } else {
+                ctrlText = productName;
+            }
+            mPeripheralNameTx.setText(ctrlText);
         } else {
             mPeripheralNameTx.setText("Disconnected");
         }
@@ -117,7 +129,9 @@ public abstract class USBAudioPeripheralActivity extends PassFailButtons.Activit
             }
         }
         mIsPeripheralAttached = mOutputDevInfo != null || mInputDevInfo != null;
-        // Log.i(TAG, "mIsPeripheralAttached: " + mIsPeripheralAttached);
+        if (DEBUG) {
+            Log.d(TAG, "mIsPeripheralAttached: " + mIsPeripheralAttached);
+        }
 
         // any associated profiles?
         if (mIsPeripheralAttached) {

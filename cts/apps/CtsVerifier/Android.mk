@@ -25,6 +25,11 @@ LOCAL_MULTILIB := both
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-Iaidl-files-under, src)
 
+LOCAL_AIDL_INCLUDES := \
+    frameworks/native/aidl/gui
+
+LOCAL_USE_AAPT2 := true
+
 LOCAL_STATIC_JAVA_LIBRARIES := android-ex-camera2 \
                                compatibility-common-util-devicesidelib \
                                cts-sensors-tests \
@@ -34,23 +39,30 @@ LOCAL_STATIC_JAVA_LIBRARIES := android-ex-camera2 \
                                androidplot \
                                ctsverifier-opencv \
                                core-tests-support \
-                               android-support-v4  \
+                               androidx.legacy_legacy-support-v4  \
                                mockito-target-minus-junit4 \
                                mockwebserver \
                                compatibility-device-util \
-                               platform-test-annotations
+                               platform-test-annotations \
+                               cts-security-test-support-library
 
-LOCAL_JAVA_LIBRARIES := legacy-android-test
+LOCAL_STATIC_ANDROID_LIBRARIES := \
+    androidx.legacy_legacy-support-v4
+
+LOCAL_JAVA_LIBRARIES += telephony-common
+LOCAL_JAVA_LIBRARIES += android.test.runner.stubs
+LOCAL_JAVA_LIBRARIES += android.test.base.stubs
+LOCAL_JAVA_LIBRARIES += android.test.mock.stubs
+LOCAL_JAVA_LIBRARIES += bouncycastle
+LOCAL_JAVA_LIBRARIES += voip-common
 
 LOCAL_PACKAGE_NAME := CtsVerifier
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_JNI_SHARED_LIBRARIES := libctsverifier_jni \
 		libaudioloopback_jni \
-		libnativehelper_compat_libc++
 
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
-
-LOCAL_SDK_VERSION := test_current
 
 LOCAL_DEX_PREOPT := false
 -include cts/error_prone_rules_tests.mk
@@ -75,7 +87,7 @@ LOCAL_SRC_FILES := \
     $(call java-files-in, src/com/android/cts/verifier) \
     $(call all-Iaidl-files-under, src)
 
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-v4 \
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.legacy_legacy-support-v4 \
                                compatibility-common-util-devicesidelib \
                                compatibility-device-util \
 
@@ -91,6 +103,7 @@ include $(BUILD_MULTI_PREBUILT)
 
 pre-installed-apps := \
     CtsEmptyDeviceAdmin \
+    CtsEmptyDeviceOwner \
     CtsPermissionApp \
     NotificationBot
 
@@ -113,7 +126,7 @@ endef
 cts-verifier: CtsVerifier adb $(pre-installed-apps)
 	adb install -r $(PRODUCT_OUT)/data/app/CtsVerifier/CtsVerifier.apk \
 		$(foreach app,$(pre-installed-apps), \
-		    && adb install -r $(call apk-location-for,$(app))) \
+		    && adb install -r -t $(call apk-location-for,$(app))) \
 		&& adb shell "am start -n com.android.cts.verifier/.CtsVerifierActivity"
 
 #
@@ -155,8 +168,6 @@ $(verifier-zip) : $(call intermediates-dir-for,APPS,CtsVerifier)/package.apk | $
 		$(hide) $(ACP) -fpr $(HOST_OUT)/CameraITS $(verifier-dir)
 		$(hide) cd $(cts-dir) && zip -rq $(verifier-dir-name) $(verifier-dir-name)
 
-ifneq ($(filter cts, $(MAKECMDGOALS)),)
-  $(call dist-for-goals, cts, $(verifier-zip):$(verifier-zip-name))
-endif
+$(call dist-for-goals, cts, $(verifier-zip):$(verifier-zip-name))
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

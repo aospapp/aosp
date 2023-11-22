@@ -14,8 +14,14 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Print test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="not-shardable" value="true" />
-    <option name="config-descriptor:metadata" key="component" value="framework" />
+    <option name="config-descriptor:metadata" key="component" value="print" />
+
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="cmd print set-bind-instant-service-allowed true" />
+        <option name="teardown-command" value="cmd print set-bind-instant-service-allowed false" />
+    </target_preparer>
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />

@@ -302,36 +302,6 @@ static void create_firmware_B0(fw_table_t *tng_fw_table, FILE *fp)
     return ;
 }
 
-static void normal_firmware(fw_table_t *topaz_fw_table, FILE *fp)
-{
-    unsigned int i = 0;
-    topaz_fw_codec_t iter = 0;
-    int size = 0;
-
-    printf("fm num is %d\n", FW_NUM);
-
-    /* write fw table into the file */
-    while (iter < FW_NUM) {
-        /* record the size use bytes */
-        topaz_fw_table[iter].header.data_size *= 4;
-        topaz_fw_table[iter].header.text_size *= 4;
-
-        /* write header */
-        fwrite(&(topaz_fw_table[iter].header), sizeof(topaz_fw_table[iter].header), 1, fp);
-
-        /* write text */
-        size = topaz_fw_table[iter].header.text_size;
-        fwrite(topaz_fw_table[iter].fw_text, 1, size, fp);
-
-        /* write data */
-        size = topaz_fw_table[iter].header.data_size;
-        fwrite(topaz_fw_table[iter].fw_data, 1, size, fp);
-
-        ++iter;
-    }
-}
-
-
 
 int main()
 {

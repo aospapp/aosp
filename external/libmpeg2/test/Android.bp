@@ -6,6 +6,8 @@ cc_binary {
         "-DMD5_DISABLE",
         "-DARM",
         "-fPIC",
+        "-Wall",
+        "-Werror",
     ],
     local_include_dirs: [
         "decoder/",

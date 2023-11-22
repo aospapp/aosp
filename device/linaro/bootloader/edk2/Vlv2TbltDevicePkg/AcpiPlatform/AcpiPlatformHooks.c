@@ -33,7 +33,6 @@ Abstract:
 //
 #include "AcpiPlatformHooksLib.h"
 
-extern EFI_GLOBAL_NVS_AREA_PROTOCOL  mGlobalNvsArea;
 extern SYSTEM_CONFIGURATION             mSystemConfiguration;
 
 ENHANCED_SPEEDSTEP_PROTOCOL             *mEistProtocol  = NULL;
@@ -232,7 +231,6 @@ PatchGv3SsdtTable (
   IN OUT   EFI_ACPI_DESCRIPTION_HEADER  *TableHeader
   )
 {
-  EFI_STATUS                  Status;
   UINT8                       *CurrPtr;
   UINT8                       *SsdtPointer;
   UINT32                      Signature;
@@ -328,7 +326,7 @@ PatchGv3SsdtTable (
         continue;
       }
 
-      Status      = EistProt->GetEistTable (EistProt, &EistInfo, (VOID **) &PssState);
+      EistProt->GetEistTable (EistProt, &EistInfo, (VOID **) &PssState);
 
       AdjustSize  = PssTable->NumEntries * sizeof (EFI_PSS_PACKAGE);
       AdjustSize -= EistInfo->NumStates * sizeof (EFI_PSS_PACKAGE);

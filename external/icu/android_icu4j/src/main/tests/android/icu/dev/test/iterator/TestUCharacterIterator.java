@@ -13,11 +13,14 @@ import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.ReplaceableString;
 import android.icu.text.UCharacterIterator;
 import android.icu.text.UTF16;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author ram
@@ -27,19 +30,21 @@ import android.icu.text.UTF16;
  * To enable and disable the creation of type comments go to
  * Window>Preferences>Java>Code Generation.
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class TestUCharacterIterator extends TestFmwk{
 
     // constructor -----------------------------------------------------
-  
+
     /**
      * Constructor
      */
     public TestUCharacterIterator()
     {
     }
-  
+
     // public methods --------------------------------------------------
-  
+
     /**
     * Testing cloning
     */
@@ -71,7 +76,7 @@ public class TestUCharacterIterator extends TestFmwk{
             errln("getText failed for iterator");
         }
     }
-    
+
     /**
      * Testing iteration
      */
@@ -82,18 +87,18 @@ public class TestUCharacterIterator extends TestFmwk{
                                                        ITERATION_STRING_);
         UCharacterIterator iterator2 = UCharacterIterator.getInstance(
                                                        ITERATION_STRING_);
-        iterator.setToStart();                                               
+        iterator.setToStart();
         if (iterator.current() != ITERATION_STRING_.charAt(0)) {
             errln("Iterator failed retrieving first character");
         }
-        iterator.setToLimit(); 
+        iterator.setToLimit();
         if (iterator.previous() != ITERATION_STRING_.charAt(
                                        ITERATION_STRING_.length() - 1)) {
             errln("Iterator failed retrieving last character");
-        }                                               
+        }
         if (iterator.getLength() != ITERATION_STRING_.length()) {
             errln("Iterator failed determining begin and end index");
-        }  
+        }
         iterator2.setIndex(0);
         iterator.setIndex(0);
         int ch = 0;
@@ -101,9 +106,9 @@ public class TestUCharacterIterator extends TestFmwk{
             int index = iterator2.getIndex();
             ch = iterator2.nextCodePoint();
             if (index != ITERATION_SUPPLEMENTARY_INDEX) {
-                if (ch != (int)iterator.next() && 
+                if (ch != iterator.next() &&
                     ch != UCharacterIterator.DONE) {
-                    errln("Error mismatch in next() and nextCodePoint()"); 
+                    errln("Error mismatch in next() and nextCodePoint()");
                 }
             }
             else {
@@ -120,14 +125,14 @@ public class TestUCharacterIterator extends TestFmwk{
             int index = iterator2.getIndex();
             ch = iterator2.previousCodePoint();
             if (index != ITERATION_SUPPLEMENTARY_INDEX) {
-                if (ch != (int)iterator.previous() && 
+                if (ch != iterator.previous() &&
                     ch != UCharacterIterator.DONE) {
                     errln("Error mismatch in previous() and " +
-                          "previousCodePoint()"); 
+                          "previousCodePoint()");
                 }
             }
             else {
-                if (UTF16.getLeadSurrogate(ch) != iterator.previous() || 
+                if (UTF16.getLeadSurrogate(ch) != iterator.previous() ||
                     UTF16.getTrailSurrogate(ch) != iterator.previous()) {
                     errln("Error mismatch in previous and " +
                           "previousCodePoint for supplementary characters");
@@ -135,8 +140,8 @@ public class TestUCharacterIterator extends TestFmwk{
             }
         }
     }
-    
-    //Tests for new API for utf-16 support 
+
+    //Tests for new API for utf-16 support
     @Test
     public void TestIterationUChar32() {
         String text="\u0061\u0062\ud841\udc02\u20ac\ud7ff\ud842\udc06\ud801\udc00\u0061";
@@ -144,15 +149,15 @@ public class TestUCharacterIterator extends TestFmwk{
         int i;
         {
             UCharacterIterator iter = UCharacterIterator.getInstance(text);
-    
+
             String iterText = iter.getText();
             if (!iterText.equals(text))
               errln("iter.getText() failed");
-            
+
             iter.setIndex(1);
             if (iter.currentCodePoint() != UTF16.charAt(text,1))
                 errln("Iterator didn't start out in the right place.");
-    
+
             iter.setToStart();
             c=iter.currentCodePoint();
             i=0;
@@ -160,12 +165,12 @@ public class TestUCharacterIterator extends TestFmwk{
             c=iter.currentCodePoint();
             if(c != UTF16.charAt(text,1) || i!=1)
                 errln("moveCodePointIndex(1) didn't work correctly expected "+ hex(c) +" got "+hex(UTF16.charAt(text,1)) + " i= " + i);
-    
+
             i=iter.moveCodePointIndex(2);
             c=iter.currentCodePoint();
             if(c != UTF16.charAt(text,4) || i!=4)
                 errln("moveCodePointIndex(2) didn't work correctly expected "+ hex(c) +" got "+hex(UTF16.charAt(text,4)) + " i= " + i);
-                
+
             i=iter.moveCodePointIndex(-2);
             c=iter.currentCodePoint();
             if(c != UTF16.charAt(text,1) || i!=1)
@@ -176,11 +181,11 @@ public class TestUCharacterIterator extends TestFmwk{
             c=iter.currentCodePoint();
             if(c != UTF16.charAt(text,(text.length()-3)) || i!=(text.length()-3))
                 errln("moveCodePointIndex(-2) didn't work correctly expected "+ hex(c) +" got "+hex(UTF16.charAt(text,(text.length()-3)) ) + " i= " + i);
-            
+
             iter.setToStart();
             c = iter.currentCodePoint();
             i = 0;
-    
+
             //testing first32PostInc, nextCodePointPostInc, setTostart
             i = 0;
             iter.setToStart();
@@ -189,24 +194,24 @@ public class TestUCharacterIterator extends TestFmwk{
                 errln("first32PostInc failed.  Expected->"+hex(UTF16.charAt(text,i))+" Got-> "+hex(c));
             if(iter.getIndex() != UTF16.getCharCount(c) + i)
                 errln("getIndex() after first32PostInc() failed");
-    
+
             iter.setToStart();
             i=0;
             if (iter.getIndex() != 0)
                 errln("setToStart failed");
-           
+
             logln("Testing forward iteration...");
             do {
                 if (c != UCharacterIterator.DONE)
                     c = iter.nextCodePoint();
-    
+
                 if(c != UTF16.charAt(text,i))
                     errln("Character mismatch at position "+i+", iterator has "+hex(c)+", string has "+hex(UTF16.charAt(text,i)));
-    
+
                 i+=UTF16.getCharCount(c);
                 if(iter.getIndex() != i)
                     errln("getIndex() aftr nextCodePointPostInc() isn't working right");
-                c = iter.currentCodePoint();                   
+                c = iter.currentCodePoint();
                 if( c!=UCharacterIterator.DONE && c != UTF16.charAt(text,i))
                     errln("current() after nextCodePointPostInc() isn't working right");
 
@@ -214,20 +219,20 @@ public class TestUCharacterIterator extends TestFmwk{
             c=iter.nextCodePoint();
             if(c!= UCharacterIterator.DONE)
                 errln("nextCodePointPostInc() didn't return DONE at the beginning");
-    
-    
+
+
         }
-    }  
-    
+    }
+
     class UCharIterator {
-    
+
        public UCharIterator(int[] src, int len, int index){
-            
+
             s=src;
             length=len;
             i=index;
        }
-    
+
         public int current() {
             if(i<length) {
                 return s[i];
@@ -235,7 +240,7 @@ public class TestUCharacterIterator extends TestFmwk{
                 return -1;
             }
         }
-    
+
         public int next() {
             if(i<length) {
                 return s[i++];
@@ -243,7 +248,7 @@ public class TestUCharacterIterator extends TestFmwk{
                 return -1;
             }
         }
-    
+
         public int previous() {
             if(i>0) {
                 return s[--i];
@@ -251,11 +256,11 @@ public class TestUCharacterIterator extends TestFmwk{
                 return -1;
             }
         }
-    
+
         public int getIndex() {
             return i;
         }
-    
+
         private int[] s;
         private int length, i;
     }
@@ -319,37 +324,37 @@ public class TestUCharacterIterator extends TestFmwk{
             0xc4,
             0x1ed0
         };
-    
+
         // expected src indexes corresponding to expect indexes
         int expectIndex[]={
             0,0,
             1,1,
             2,
             3,
-            4 //needed 
+            4 //needed
         };
-    
+
         // initial indexes into the src and expect strings
-        
+
         final int SRC_MIDDLE=4;
         final int EXPECT_MIDDLE=2;
-        
-    
+
+
         // movement vector
         // - for previous(), 0 for current(), + for next()
         // not const so that we can terminate it below for the error message
         String moves="0+0+0--0-0-+++0--+++++++0--------";
-    
-        
-        UCharIterator iter32 = new UCharIterator(expect, expect.length, 
+
+
+        UCharIterator iter32 = new UCharIterator(expect, expect.length,
                                                      EXPECT_MIDDLE);
-    
+
         int c1, c2;
         char m;
-    
+
         // initially set the indexes into the middle of the strings
         iter.setIndex(SRC_MIDDLE);
-    
+
         // move around and compare the iteration code points with
         // the expected ones
         int movesIndex =0;
@@ -361,11 +366,11 @@ public class TestUCharacterIterator extends TestFmwk{
             } else if(m=='0') {
                 c1=iter.currentCodePoint();
                 c2=iter32.current();
-            } else  {// m=='+' 
+            } else  {// m=='+'
                 c1=iter.nextCodePoint();
                 c2=iter32.next();
             }
-    
+
             // compare results
             if(c1!=c2) {
                 // copy the moves until the current (m) move, and terminate
@@ -374,7 +379,7 @@ public class TestUCharacterIterator extends TestFmwk{
                       +"got c1= " + hex(c1) +" != expected c2= "+ hex(c2));
                 break;
             }
-    
+
             // compare indexes
             if(expectIndex[iter.getIndex()]!=iter32.getIndex()) {
                 // copy the moves until the current (m) move, and terminate
@@ -398,7 +403,7 @@ public class TestUCharacterIterator extends TestFmwk{
         int c1, c2;
         char m;
         int movesIndex =0;
-        
+
         while(movesIndex<moves.length()) {
             m=moves.charAt(movesIndex++);
             if(m=='-') {
@@ -407,11 +412,11 @@ public class TestUCharacterIterator extends TestFmwk{
             } else if(m=='0') {
                 c1=wrap_ci.current();
                 c2=ci.current();
-            } else  {// m=='+' 
+            } else  {// m=='+'
                 c1=wrap_ci.next();
                 c2=ci.next();
             }
-    
+
             // compare results
             if(c1!=c2) {
                 // copy the moves until the current (m) move, and terminate
@@ -420,7 +425,7 @@ public class TestUCharacterIterator extends TestFmwk{
                       +"got c1= " + hex(c1) +" != expected c2= "+ hex(c2));
                 break;
             }
-    
+
             // compare indexes
             if(wrap_ci.getIndex()!=ci.getIndex()) {
                 // copy the moves until the current (m) move, and terminate
@@ -453,11 +458,11 @@ public class TestUCharacterIterator extends TestFmwk{
         }
     }
     // private data members ---------------------------------------------
-    
+
     private static final String ITERATION_STRING_ =
                                         "Testing 1 2 3 \ud800\udc00 456";
     private static final int ITERATION_SUPPLEMENTARY_INDEX = 14;
-    
+
     @Test
     public void TestJitterbug1952(){
         //test previous code point
@@ -476,8 +481,8 @@ public class TestUCharacterIterator extends TestFmwk{
         while((ch=iter.nextCodePoint()) !=UCharacterIterator.DONE){
             if(ch!= 0xDC03){
                 errln("iter.nextCodePoint() failed");
-            } 
-        }      
+            }
+        }
     }
-        
+
 }

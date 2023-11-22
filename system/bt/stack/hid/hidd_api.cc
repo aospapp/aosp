@@ -1,7 +1,7 @@
 /******************************************************************************
  *
- *  Copyright (C) 2016 The Android Open Source Project
- *  Copyright (C) 2002-2012 Broadcom Corporation
+ *  Copyright 2016 The Android Open Source Project
+ *  Copyright 2002-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -34,9 +34,7 @@
 #include "hidd_int.h"
 #include "hiddefs.h"
 
-#if HID_DYNAMIC_MEMORY == FALSE
 tHID_DEV_CTB hd_cb;
-#endif
 
 /*******************************************************************************
  *

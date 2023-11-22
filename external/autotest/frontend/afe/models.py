@@ -20,12 +20,17 @@ from autotest_lib.client.common_lib import enum, error, host_protections
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import host_queue_entry_states
 from autotest_lib.client.common_lib import control_data, priorities, decorators
-from autotest_lib.client.common_lib import utils
 from autotest_lib.server import utils as server_utils
 
 # job options and user preferences
 DEFAULT_REBOOT_BEFORE = model_attributes.RebootBefore.IF_DIRTY
 DEFAULT_REBOOT_AFTER = model_attributes.RebootBefore.NEVER
+
+RESPECT_STATIC_LABELS = global_config.global_config.get_config_value(
+        'SKYLAB', 'respect_static_labels', type=bool, default=False)
+
+RESPECT_STATIC_ATTRIBUTES = global_config.global_config.get_config_value(
+        'SKYLAB', 'respect_static_attributes', type=bool, default=False)
 
 
 class AclAccessViolation(Exception):
@@ -144,6 +149,71 @@ class Label(model_logic.ModelWithInvalid, dbmodels.Model):
         return unicode(self.name)
 
 
+    def is_replaced_by_static(self):
+        """Detect whether a label is replaced by a static label.
+
+        'Static' means it can only be modified by skylab inventory tools.
+        """
+        if RESPECT_STATIC_LABELS:
+            replaced = ReplacedLabel.objects.filter(label__id=self.id)
+            if len(replaced) > 0:
+                return True
+
+        return False
+
+
+class StaticLabel(model_logic.ModelWithInvalid, dbmodels.Model):
+    """\
+    Required:
+      name: label name
+
+    Optional:
+      kernel_config: URL/path to kernel config for jobs run on this label.
+      platform: If True, this is a platform label (defaults to False).
+      only_if_needed: Deprecated. This is always False.
+      atomic_group: Deprecated. This is always NULL.
+    """
+    name = dbmodels.CharField(max_length=255, unique=True)
+    kernel_config = dbmodels.CharField(max_length=255, blank=True)
+    platform = dbmodels.BooleanField(default=False)
+    invalid = dbmodels.BooleanField(default=False,
+                                    editable=settings.FULL_ADMIN)
+    only_if_needed = dbmodels.BooleanField(default=False)
+
+    name_field = 'name'
+    objects = model_logic.ModelWithInvalidManager()
+    valid_objects = model_logic.ValidObjectsManager()
+    atomic_group = dbmodels.ForeignKey(AtomicGroup, null=True, blank=True)
+
+    def clean_object(self):
+        self.host_set.clear()
+        self.test_set.clear()
+
+
+    class Meta:
+        """Metadata for class StaticLabel."""
+        db_table = 'afe_static_labels'
+
+
+    def __unicode__(self):
+        return unicode(self.name)
+
+
+class ReplacedLabel(dbmodels.Model, model_logic.ModelExtensions):
+    """The tag to indicate Whether to replace labels with static labels."""
+    label = dbmodels.ForeignKey(Label)
+    objects = model_logic.ExtendedManager()
+
+
+    class Meta:
+        """Metadata for class ReplacedLabel."""
+        db_table = 'afe_replaced_labels'
+
+
+    def __unicode__(self):
+        return unicode(self.label)
+
+
 class Shard(dbmodels.Model, model_logic.ModelExtensions):
 
     hostname = dbmodels.CharField(max_length=255, unique=True)
@@ -156,32 +226,6 @@ class Shard(dbmodels.Model, model_logic.ModelExtensions):
     class Meta:
         """Metadata for class ParameterizedJob."""
         db_table = 'afe_shards'
-
-
-    def rpc_hostname(self):
-        """Get the rpc hostname of the shard.
-
-        @return: Just the shard hostname for all non-testing environments.
-                 The address of the default gateway for vm testing environments.
-        """
-        # TODO: Figure out a better solution for testing. Since no 2 shards
-        # can run on the same host, if the shard hostname is localhost we
-        # conclude that it must be a vm in a test cluster. In such situations
-        # a name of localhost:<port> is necessary to achieve the correct
-        # afe links/redirection from the frontend (this happens through the
-        # host), but for rpcs that are performed *on* the shard, they need to
-        # use the address of the gateway.
-        # In the virtual machine testing environment (i.e., puppylab), each
-        # shard VM has a hostname like localhost:<port>. In the real cluster
-        # environment, a shard node does not have 'localhost' for its hostname.
-        # The following hostname substitution is needed only for the VM
-        # in puppylab.
-        # The 'hostname' should not be replaced in the case of real cluster.
-        if utils.is_puppylab_vm(self.hostname):
-            hostname = self.hostname.split(':')[0]
-            return self.hostname.replace(
-                    hostname, utils.DEFAULT_VM_GATEWAY)
-        return self.hostname
 
 
 class Drone(dbmodels.Model, model_logic.ModelExtensions):
@@ -462,6 +506,8 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
     Protection = host_protections.Protection
     labels = dbmodels.ManyToManyField(Label, blank=True,
                                       db_table='afe_hosts_labels')
+    static_labels = dbmodels.ManyToManyField(
+            StaticLabel, blank=True, db_table='afe_static_hosts_labels')
     locked_by = dbmodels.ForeignKey(User, null=True, blank=True, editable=False)
     name_field = 'hostname'
     objects = model_logic.ModelWithInvalidManager()
@@ -473,6 +519,82 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
     def __init__(self, *args, **kwargs):
         super(Host, self).__init__(*args, **kwargs)
         self._record_attributes(['status'])
+
+
+    @classmethod
+    def classify_labels(cls, label_names):
+        """Split labels to static & non-static.
+
+        @label_names: a list of labels (string).
+
+        @returns: a list of StaticLabel objects & a list of
+                  (non-static) Label objects.
+        """
+        if not label_names:
+            return [], []
+
+        labels = Label.objects.filter(name__in=label_names)
+
+        if not RESPECT_STATIC_LABELS:
+            return [], labels
+
+        return cls.classify_label_objects(labels)
+
+
+    @classmethod
+    def classify_label_objects(cls, label_objects):
+        replaced_labels = ReplacedLabel.objects.filter(label__in=label_objects)
+        replaced_ids = [l.label.id for l in replaced_labels]
+        non_static_labels = [
+                l for l in label_objects if not l.id in replaced_ids]
+        static_label_names = [
+                l.name for l in label_objects if l.id in replaced_ids]
+        static_labels = StaticLabel.objects.filter(name__in=static_label_names)
+        return static_labels, non_static_labels
+
+
+    @classmethod
+    def get_hosts_with_labels(cls, label_names, initial_query):
+        """Get hosts by label filters.
+
+        @param label_names: label (string) lists for fetching hosts.
+        @param initial_query: a model_logic.QuerySet of Host object, e.g.
+
+                Host.objects.all(), Host.valid_objects.all().
+
+            This initial_query cannot be a sliced QuerySet, e.g.
+
+                Host.objects.all().filter(query_limit=10)
+        """
+        if not label_names:
+            return initial_query
+
+        static_labels, non_static_labels = cls.classify_labels(label_names)
+        if len(static_labels) + len(non_static_labels) != len(label_names):
+            # Some labels don't exist in afe db, which means no hosts
+            # should be matched.
+            return set()
+
+        for l in static_labels:
+            initial_query = initial_query.filter(static_labels=l)
+
+        for l in non_static_labels:
+            initial_query = initial_query.filter(labels=l)
+
+        return initial_query
+
+
+    @classmethod
+    def get_hosts_with_label_ids(cls, label_ids, initial_query):
+        """Get hosts by label_id filters.
+
+        @param label_ids: label id (int) lists for fetching hosts.
+        @param initial_query: a list of Host object, e.g.
+            [<Host: 100.107.151.253>, <Host: 100.107.151.251>, ...]
+        """
+        labels = Label.objects.filter(id__in=label_ids)
+        label_names = [l.name for l in labels]
+        return cls.get_hosts_with_labels(label_names, initial_query)
 
 
     @staticmethod
@@ -594,6 +716,7 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
     def clean_object(self):
         self.aclgroup_set.clear()
         self.labels.clear()
+        self.static_labels.clear()
 
 
     def save(self, *args, **kwargs):
@@ -618,20 +741,34 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
         if first_time:
             everyone = AclGroup.objects.get(name='Everyone')
             everyone.hosts.add(self)
+            # remove attributes that may have lingered from an old host and
+            # should not be associated with a new host
+            for host_attribute in self.hostattribute_set.all():
+                self.delete_attribute(host_attribute.attribute)
         self._check_for_updated_attributes()
 
 
     def delete(self):
         AclGroup.check_for_acl_violation_hosts([self])
+        logging.info('Preconditions for deleting host %s...', self.hostname)
         for queue_entry in self.hostqueueentry_set.all():
+            logging.info('  Deleting and aborting hqe %s...', queue_entry)
             queue_entry.deleted = True
             queue_entry.abort()
+            logging.info('  ... done with hqe %s.', queue_entry)
+        for host_attribute in self.hostattribute_set.all():
+            logging.info('  Deleting attribute %s...', host_attribute)
+            self.delete_attribute(host_attribute.attribute)
+            logging.info('  ... done with attribute %s.', host_attribute)
+        logging.info('... preconditions done for host %s.', self.hostname)
+        logging.info('Deleting host %s...', self.hostname)
         super(Host, self).delete()
+        logging.info('... done.')
 
 
     def on_attribute_changed(self, attribute, old_value):
         assert attribute == 'status'
-        logging.info(self.hostname + ' -> ' + self.status)
+        logging.info('%s -> %s', self.hostname, self.status)
 
 
     def enqueue_job(self, job, is_template=False):
@@ -672,10 +809,16 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
             platform.
         """
         Host.objects.populate_relationships(hosts, Label, 'label_list')
+        Host.objects.populate_relationships(hosts, StaticLabel,
+                                            'staticlabel_list')
         errors = []
         for host in hosts:
             platforms = [label.name for label in host.label_list
                          if label.platform]
+            if RESPECT_STATIC_LABELS:
+                platforms += [label.name for label in host.staticlabel_list
+                              if label.platform]
+
             if platforms:
                 # do a join, just in case this host has multiple platforms,
                 # we'll be able to see it
@@ -698,10 +841,16 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
                 or the given board labels cannot be added to the hsots.
         """
         Host.objects.populate_relationships(hosts, Label, 'label_list')
+        Host.objects.populate_relationships(hosts, StaticLabel,
+                                            'staticlabel_list')
         errors = []
         for host in hosts:
             boards = [label.name for label in host.label_list
                       if label.name.startswith('board:')]
+            if RESPECT_STATIC_LABELS:
+                boards += [label.name for label in host.staticlabel_list
+                           if label.name.startswith('board:')]
+
             if not server_utils.board_labels_allowed(boards + new_labels):
                 # do a join, just in case this host has multiple boards,
                 # we'll be able to see it
@@ -728,6 +877,22 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
 
     def _get_attribute_model_and_args(self, attribute):
         return HostAttribute, dict(host=self, attribute=attribute)
+
+
+    def _get_static_attribute_model_and_args(self, attribute):
+        return StaticHostAttribute, dict(host=self, attribute=attribute)
+
+
+    def _is_replaced_by_static_attribute(self, attribute):
+        if RESPECT_STATIC_ATTRIBUTES:
+            model, args = self._get_static_attribute_model_and_args(attribute)
+            try:
+                static_attr = model.objects.get(**args)
+                return True
+            except StaticHostAttribute.DoesNotExist:
+                return False
+
+        return False
 
 
     @classmethod
@@ -793,6 +958,50 @@ class HostAttribute(dbmodels.Model, model_logic.ModelExtensions):
         if data:
             data.pop('id')
         return super(HostAttribute, cls).deserialize(data)
+
+
+class StaticHostAttribute(dbmodels.Model, model_logic.ModelExtensions):
+    """Static arbitrary keyvals associated with hosts."""
+
+    SERIALIZATION_LINKS_TO_KEEP = set(['host'])
+    SERIALIZATION_LOCAL_LINKS_TO_UPDATE = set(['value'])
+    host = dbmodels.ForeignKey(Host)
+    attribute = dbmodels.CharField(max_length=90)
+    value = dbmodels.CharField(max_length=300)
+
+    objects = model_logic.ExtendedManager()
+
+    class Meta:
+        """Metadata for the StaticHostAttribute class."""
+        db_table = 'afe_static_host_attributes'
+
+
+    @classmethod
+    def get_record(cls, data):
+        """Check the database for an identical record.
+
+        Use host_id and attribute to search for a existing record.
+
+        @raises: DoesNotExist, if no record found
+        @raises: MultipleObjectsReturned if multiple records found.
+        """
+        return cls.objects.get(host_id=data['host_id'],
+                               attribute=data['attribute'])
+
+
+    @classmethod
+    def deserialize(cls, data):
+        """Override deserialize in parent class.
+
+        Do not deserialize id as id is not kept consistent on master and shards.
+
+        @param data: A dictionary of data to deserialize.
+
+        @returns: A StaticHostAttribute object.
+        """
+        if data:
+            data.pop('id')
+        return super(StaticHostAttribute, cls).deserialize(data)
 
 
 class Test(dbmodels.Model, model_logic.ModelExtensions):
@@ -1212,10 +1421,8 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
         '  (t1.id = t2.job_id AND t2.complete != 1 AND t2.active != 1 '
         '   AND t2.meta_host IS NULL AND t2.host_id IS NOT NULL '
         '   %(check_known_jobs)s) '
-        'LEFT OUTER JOIN afe_hosts_labels t3 ON (t2.host_id = t3.host_id) '
-        'WHERE (t3.label_id IN '
-        '  (SELECT label_id FROM afe_shards_labels '
-        '   WHERE shard_id = %(shard_id)s))'
+        'LEFT OUTER JOIN %(host_label_table)s t3 ON (t2.host_id = t3.host_id) '
+        'WHERE (t3.%(host_label_column)s IN %(label_ids)s)'
         )
 
     # Even if we had filters about complete, active and aborted
@@ -1264,6 +1471,8 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
                                     shard.id))
 
 
+    RebootBefore = model_attributes.RebootBefore
+    RebootAfter = model_attributes.RebootAfter
     # TIMEOUT is deprecated.
     DEFAULT_TIMEOUT = global_config.global_config.get_config_value(
         'AUTOTEST_WEB', 'job_timeout_default', default=24)
@@ -1451,10 +1660,29 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
             check_known_jobs_exclude = 'AND NOT ' + check_known_jobs
             check_known_jobs_include = 'OR ' + check_known_jobs
 
-        for sql in [cls.SQL_SHARD_JOBS, cls.SQL_SHARD_JOBS_WITH_HOSTS]:
-            query = Job.objects.raw(sql % {
-                    'check_known_jobs': check_known_jobs_exclude,
-                    'shard_id': shard.id})
+        query = Job.objects.raw(cls.SQL_SHARD_JOBS % {
+                'check_known_jobs': check_known_jobs_exclude,
+                'shard_id': shard.id})
+        job_ids |= set([j.id for j in query])
+
+        static_labels, non_static_labels = Host.classify_label_objects(
+                shard.labels.all())
+        if static_labels:
+            label_ids = [str(l.id) for l in static_labels]
+            query = Job.objects.raw(cls.SQL_SHARD_JOBS_WITH_HOSTS % {
+                'check_known_jobs': check_known_jobs_exclude,
+                'host_label_table': 'afe_static_hosts_labels',
+                'host_label_column': 'staticlabel_id',
+                'label_ids': '(%s)' % ','.join(label_ids)})
+            job_ids |= set([j.id for j in query])
+
+        if non_static_labels:
+            label_ids = [str(l.id) for l in non_static_labels]
+            query = Job.objects.raw(cls.SQL_SHARD_JOBS_WITH_HOSTS % {
+                'check_known_jobs': check_known_jobs_exclude,
+                'host_label_table': 'afe_hosts_labels',
+                'host_label_column': 'label_id',
+                'label_ids': '(%s)' % ','.join(label_ids)})
             job_ids |= set([j.id for j in query])
 
         if job_ids:
@@ -1533,6 +1761,26 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
 
     def __unicode__(self):
         return u'%s (%s-%s)' % (self.name, self.id, self.owner)
+
+
+class JobHandoff(dbmodels.Model, model_logic.ModelExtensions):
+    """Jobs that have been handed off to lucifer."""
+
+    job = dbmodels.OneToOneField(Job, on_delete=dbmodels.CASCADE,
+                                 primary_key=True)
+    created = dbmodels.DateTimeField(auto_now_add=True)
+    completed = dbmodels.BooleanField(default=False)
+    drone = dbmodels.CharField(
+        max_length=128, null=True,
+        help_text='''
+The hostname of the drone the job is running on and whose job_aborter
+should be responsible for aborting the job if the job process dies.
+NULL means any drone's job_aborter has free reign to abort the job.
+''')
+
+    class Meta:
+        """Metadata for class Job."""
+        db_table = 'afe_job_handoffs'
 
 
 class JobKeyval(dbmodels.Model, model_logic.ModelExtensions):

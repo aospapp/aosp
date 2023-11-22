@@ -6,6 +6,9 @@ cc_library_static {
     cflags: [
         "-fPIC",
         "-O3",
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-variable",
     ],
 
     export_include_dirs: [
@@ -79,7 +82,7 @@ cc_library_static {
                 "-DDEFAULT_ARCH=D_ARCH_ARM_NONEON",
             ],
 
-            armv7_a_neon: {
+            neon: {
                 srcs: [
                     "decoder/arm/ih264d_function_selector_a9q.c",
                     "common/arm/ih264_intra_pred_chroma_a9q.s",
@@ -228,6 +231,14 @@ cc_library_static {
             ],
         },
     },
+
+    sanitize: {
+    	cfi: true,
+        diag: {
+            cfi: true,
+        },
+        blacklist: "cfi_blacklist.txt",
+    },
 }
 
 cc_library_static {
@@ -242,6 +253,9 @@ cc_library_static {
         "-fPIC",
 
         "-O3",
+        "-Wall",
+        "-Werror",
+        "-Wno-error=constant-conversion",
     ],
 
     export_include_dirs: [
@@ -326,7 +340,7 @@ cc_library_static {
                 "-DDISABLE_NEON",
             ],
 
-            armv7_a_neon: {
+            neon: {
                 srcs: [
                     "encoder/arm/ih264e_function_selector_a9q.c",
                     "common/arm/ih264_resi_trans_quant_a9.s",
@@ -485,6 +499,14 @@ cc_library_static {
                 "encoder/x86/ime_distortion_metrics_sse42.c",
             ],
         },
+    },
+
+    sanitize: {
+    	cfi: true,
+        diag: {
+            cfi: true,
+        },
+        blacklist: "cfi_blacklist.txt",
     },
 }
 

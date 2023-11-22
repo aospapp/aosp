@@ -8,11 +8,7 @@ cc_library_shared {
 
   static_libs: [
     "libbroadcastring",
-    "libhwcomposer-client",
     "libdisplay",
-    "libbufferhubqueue",
-    "libbufferhub",
-    "libpdx_default_transport",
   ],
 
   shared_libs: [
@@ -20,6 +16,8 @@ cc_library_shared {
     "android.hardware.graphics.composer@2.1",
     "android.hardware.graphics.mapper@2.0",
     "libbase",
+    "libbufferhubqueue",
+    "libbinder",
     "libcutils",
     "libfmq",
     "libhardware",
@@ -29,10 +27,16 @@ cc_library_shared {
     "libsync",
     "libui",
     "libutils",
+    "libpdx_default_transport",
   ],
 
-  export_static_lib_headers: [
-    "libhwcomposer-client",
+  header_libs: [
+    "android.hardware.graphics.composer@2.1-command-buffer",
+    "android.hardware.graphics.composer@2.1-hal",
+  ],
+
+  export_header_lib_headers: [
+    "android.hardware.graphics.composer@2.1-hal",
   ],
 
   export_shared_lib_headers: [
@@ -44,6 +48,13 @@ cc_library_shared {
 
   cflags: [
     "-DLOG_TAG=\"vr_hwc\"",
+    "-Wall",
+    "-Werror",
+    // mVrClient unused in vr_composer_client.cpp
+    "-Wno-error=unused-private-field",
+    // Warnings in vr_hwc.cpp to be fixed after sync of goog/master.
+    "-Wno-sign-compare",
+    "-Wno-unused-parameter",
   ],
 
 }
@@ -62,6 +73,11 @@ cc_library_static {
     export_aidl_headers: true,
   },
   export_include_dirs: ["aidl"],
+
+  cflags: [
+    "-Wall",
+    "-Werror",
+  ],
 
   shared_libs: [
     "libbinder",
@@ -92,6 +108,8 @@ cc_library_static {
   ],
   cflags: [
     "-DLOG_TAG=\"vr_hwc\"",
+    "-Wall",
+    "-Werror",
   ],
 }
 
@@ -120,6 +138,8 @@ cc_binary {
   ],
   cflags: [
     "-DLOG_TAG=\"vr_hwc\"",
+    "-Wall",
+    "-Werror",
   ],
   init_rc: [
     "vr_hwc.rc",
@@ -136,6 +156,13 @@ cc_test {
     // NOTE: This needs to be included after the *-impl lib otherwise the
     // symbols in the *-binder library get optimized out.
     "libvr_hwc-binder",
+  ],
+  cflags: [
+    "-Wall",
+    "-Werror",
+    // warnings in vr_composer_test.cpp to be fixed after merge of goog/master
+    "-Wno-sign-compare",
+    "-Wno-unused-parameter",
   ],
   shared_libs: [
     "libbase",

@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Configuration for Telecom Tests">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="telecom" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.TokenRequirement">
         <option name="token" value="sim-card" />

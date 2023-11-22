@@ -17,7 +17,7 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.print.cts">
+        package="android.print.cts" android:targetSandboxVersion="2">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
 
@@ -25,10 +25,13 @@
 
         <uses-library android:name="android.test.runner"/>
 
-        <activity android:name="android.print.cts.PrintDocumentActivity"/>
+        <activity
+            android:name="android.print.test.PrintDocumentActivity"
+            android:configChanges="mnc|mnc|touchscreen|navigation|screenLayout|screenSize|smallestScreenSize|orientation|locale|keyboard|keyboardHidden|fontScale|uiMode|layoutDirection|density"
+            android:theme="@style/NoAnimation" />
 
         <service
-            android:name="android.print.cts.services.FirstPrintService"
+            android:name="android.print.test.services.FirstPrintService"
             android:permission="android.permission.BIND_PRINT_SERVICE">
             <intent-filter>
                 <action android:name="android.printservice.PrintService" />
@@ -40,7 +43,7 @@
         </service>
 
         <service
-            android:name="android.print.cts.services.SecondPrintService"
+            android:name="android.print.test.services.SecondPrintService"
             android:permission="android.permission.BIND_PRINT_SERVICE">
             <intent-filter>
                 <action android:name="android.printservice.PrintService" />
@@ -52,25 +55,28 @@
         </service>
 
         <activity
-            android:name="android.print.cts.services.SettingsActivity"
+            android:name="android.print.test.services.SettingsActivity"
+            android:theme="@style/NoAnimation"
             android:exported="true">
         </activity>
 
         <activity
-            android:name="android.print.cts.services.AddPrintersActivity"
+            android:name="android.print.test.services.AddPrintersActivity"
+            android:theme="@style/NoAnimation"
             android:exported="true">
         </activity>
 
         <activity
-                android:name="android.print.cts.services.InfoActivity"
-                android:exported="true">
+            android:name="android.print.test.services.InfoActivity"
+            android:theme="@style/NoAnimation"
+            android:exported="true">
         </activity>
 
         <activity
-            android:name="android.print.cts.services.CustomPrintOptionsActivity"
+            android:name="android.print.test.services.CustomPrintOptionsActivity"
             android:permission="android.permission.START_PRINT_SERVICE_CONFIG_ACTIVITY"
             android:exported="true"
-            android:theme="@style/Theme.Translucent">
+            android:theme="@style/NoAnimationTranslucent">
         </activity>
 
   </application>

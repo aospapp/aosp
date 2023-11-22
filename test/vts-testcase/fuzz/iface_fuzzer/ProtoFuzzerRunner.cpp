@@ -21,15 +21,17 @@
 
 #include "utils/InterfaceSpecUtil.h"
 #include "vintf/HalManifest.h"
+#include "vintf/Version.h"
 #include "vintf/VintfObject.h"
 
 using android::vintf::HalManifest;
+using android::vintf::Version;
 
-using std::cout;
 using std::cerr;
+using std::cout;
 using std::string;
-using std::vector;
 using std::unordered_map;
+using std::vector;
 
 namespace android {
 namespace vts {
@@ -45,15 +47,21 @@ static string GetDriverName(const CompSpec &comp_spec) {
 }
 
 static string GetServiceName(const CompSpec &comp_spec) {
-  static const HalManifest *vendor_manifest =
-      ::android::vintf::VintfObject::GetDeviceHalManifest();
   string hal_name = comp_spec.package();
+  string hal_version = GetVersionString(comp_spec.component_type_version());
   string iface_name = comp_spec.component_name();
 
-  auto instance_names = vendor_manifest->getInstances(hal_name, iface_name);
+  size_t major_version =
+      std::stoul(hal_version.substr(0, hal_version.find(".")));
+  size_t minor_version =
+      std::stoul(hal_version.substr(hal_version.find(".") + 1));
+
+  auto instance_names =
+      ::android::vintf::VintfObject::GetDeviceHalManifest()->getInstances(
+          hal_name, Version(major_version, minor_version), iface_name);
   if (instance_names.empty()) {
     cerr << "HAL service name not available in VINTF." << endl;
-    exit(1);
+    std::abort();
   }
 
   // For fuzzing we don't care which instance of the HAL is targeted.
@@ -68,14 +76,13 @@ static string GetServiceName(const CompSpec &comp_spec) {
 }
 
 static void *Dlopen(string lib_name) {
-  const char *error;
   // Clear dlerror().
   dlerror();
   void *handle = dlopen(lib_name.c_str(), RTLD_LAZY);
   if (!handle) {
     cerr << __func__ << ": " << dlerror() << endl;
     cerr << __func__ << ": Can't load shared library: " << lib_name << endl;
-    exit(1);
+    std::abort();
   }
   return handle;
 }
@@ -88,7 +95,7 @@ static void *Dlsym(void *handle, string function_name) {
   if ((error = dlerror()) != NULL) {
     cerr << __func__ << ": Can't find: " << function_name << endl;
     cerr << error << endl;
-    exit(1);
+    std::abort();
   }
   return function;
 }
@@ -109,7 +116,7 @@ static void GetService(DriverBase *hal, string service_name, bool binder_mode) {
 
   if (!hal->GetService(false, service_name.c_str())) {
     cerr << __func__ << ": Failed to open HAL in binder mode." << endl;
-    exit(1);
+    std::abort();
   } else {
     cerr << "HAL opened in binder mode." << endl;
     return;
@@ -119,7 +126,6 @@ static void GetService(DriverBase *hal, string service_name, bool binder_mode) {
 DriverBase *ProtoFuzzerRunner::LoadInterface(const CompSpec &comp_spec,
                                              uint64_t hidl_service = 0) {
   DriverBase *hal;
-  const char *error;
   // Clear dlerror().
   dlerror();
 
@@ -184,12 +190,13 @@ void ProtoFuzzerRunner::Execute(const FuncCall &func_call) {
   auto iface_desc = opened_ifaces_.find(iface_name);
   if (iface_desc == opened_ifaces_.end()) {
     cerr << "Interface is not open: " << iface_name << endl;
-    exit(1);
+    std::abort();
   }
 
   FuncSpec result{};
   iface_desc->second.hal_->CallFunction(func_spec, "", &result);
 
+  stats_.RegisterTouch(iface_name, func_spec.name());
   ProcessReturnValue(result);
 }
 
@@ -203,13 +210,21 @@ static string StripNamespace(const string &type) {
 
 void ProtoFuzzerRunner::ProcessReturnValue(const FuncSpec &result) {
   for (const auto &var : result.return_type_hidl()) {
-    if (var.has_hidl_interface_pointer() && var.has_predefined_type()) {
+    // If result contains a pointer to an interface, register it in
+    // opened_ifaces_ table. That pointer must not be a nullptr.
+    if (var.has_hidl_interface_pointer() && var.hidl_interface_pointer() &&
+        var.has_predefined_type()) {
       uint64_t hidl_service = var.hidl_interface_pointer();
       string type = var.predefined_type();
       string iface_name = StripNamespace(type);
 
       const CompSpec *comp_spec = FindCompSpec(iface_name);
       std::shared_ptr<DriverBase> hal{LoadInterface(*comp_spec, hidl_service)};
+
+      // If this interface has not been seen before, record the fact.
+      if (opened_ifaces_.find(iface_name) == opened_ifaces_.end()) {
+        cerr << "Discovered new interface: " << iface_name << endl;
+      }
 
       // Register this interface as opened by the runner.
       opened_ifaces_[iface_name] = {
@@ -223,7 +238,7 @@ const CompSpec *ProtoFuzzerRunner::FindCompSpec(std::string name) {
   auto comp_spec = comp_specs_.find(name);
   if (comp_spec == comp_specs_.end()) {
     cerr << "VTS spec not found: " << name << endl;
-    exit(1);
+    std::abort();
   }
   return &comp_spec->second;
 }

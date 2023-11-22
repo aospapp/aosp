@@ -1,6 +1,7 @@
 // Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 2de6929
 
 #include "bit_reader_core.h"
 
@@ -14,11 +15,9 @@ const int kRegWidthInBits = sizeof(uint64_t) * 8;
 
 namespace media {
 
-BitReaderCore::ByteStreamProvider::ByteStreamProvider() {
-}
+BitReaderCore::ByteStreamProvider::ByteStreamProvider() = default;
 
-BitReaderCore::ByteStreamProvider::~ByteStreamProvider() {
-}
+BitReaderCore::ByteStreamProvider::~ByteStreamProvider() = default;
 
 BitReaderCore::BitReaderCore(ByteStreamProvider* byte_stream_provider)
     : byte_stream_provider_(byte_stream_provider),
@@ -29,8 +28,7 @@ BitReaderCore::BitReaderCore(ByteStreamProvider* byte_stream_provider)
       reg_next_(0) {
 }
 
-BitReaderCore::~BitReaderCore() {
-}
+BitReaderCore::~BitReaderCore() = default;
 
 bool BitReaderCore::ReadFlag(bool* flag) {
   if (nbits_ == 0 && !Refill(1))

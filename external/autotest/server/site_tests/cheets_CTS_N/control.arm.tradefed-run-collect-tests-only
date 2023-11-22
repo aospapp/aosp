@@ -10,7 +10,7 @@ DEPENDENCIES = 'arc'
 JOB_RETRIES = 2
 TEST_TYPE = 'server'
 TIME = 'LENGTHY'
-
+PRIORITY = 70
 DOC = ('Run tradefed to collect all of the available CTS tests for this device/abi.')
 
 
@@ -23,7 +23,7 @@ def run_CTS(machine):
         max_retry=0,
         needs_push_media=False,
         tag='tradefed-run-collect-tests-only',
-        cts_tradefed_args = ['run', 'commandAndExit', 'collect-tests-only'],
+        tradefed_args = ['run', 'commandAndExit', 'collect-tests-only'],
         bundle='arm',
         timeout=3600)
 

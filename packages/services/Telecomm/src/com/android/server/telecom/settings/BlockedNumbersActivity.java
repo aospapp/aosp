@@ -19,7 +19,9 @@ package com.android.server.telecom.settings;
 import android.annotation.Nullable;
 import android.app.ActionBar;
 import android.app.AlertDialog;
+import android.app.Fragment;
 import android.app.FragmentManager;
+import android.app.FragmentTransaction;
 import android.app.ListActivity;
 import android.app.LoaderManager;
 import android.content.BroadcastReceiver;
@@ -137,6 +139,9 @@ public class BlockedNumbersActivity extends ListActivity
 
         updateButterBar();
 
+        updateEnhancedCallBlockingFragment(
+                BlockedNumbersUtil.isEnhancedCallBlockingEnabledByPlatform(this));
+
         mBlockingStatusReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -174,6 +179,30 @@ public class BlockedNumbersActivity extends ListActivity
         } else {
             mButterBar.setVisibility(View.GONE);
         }
+    }
+
+    /**
+     * Update the visibility of {@link EnhancedCallBlockingFragment}.
+     */
+    private void updateEnhancedCallBlockingFragment(boolean show) {
+        FragmentManager fragmentManager = getFragmentManager();
+        Fragment fragment = fragmentManager.findFragmentById(R.id.enhanced_call_blocking_container);
+        if (!show && fragment == null) {
+            // Nothing to show, so bail early.
+            return;
+        }
+        final FragmentTransaction transaction = fragmentManager.beginTransaction();
+        if (show) {
+            if (fragment == null) {
+                fragment = new EnhancedCallBlockingFragment();
+                transaction.add(R.id.enhanced_call_blocking_container, fragment);
+            } else {
+                transaction.show(fragment);
+            }
+        } else {
+            transaction.hide(fragment);
+        }
+        transaction.commit();
     }
 
     @Override

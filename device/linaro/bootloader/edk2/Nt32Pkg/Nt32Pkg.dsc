@@ -4,8 +4,9 @@
 # The Emulation Platform can be used to debug individual modules, prior to creating
 #    a real platform. This also provides an example for how an DSC is created.
 #
+# Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
 # Copyright (c) 2015, Hewlett-Packard Development Company, L.P.<BR>
-# Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+# (C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
 #
 #    This program and the accompanying materials
 #    are licensed and made available under the terms and conditions of the BSD License
@@ -29,7 +30,7 @@
   DSC_SPECIFICATION              = 0x00010005
   OUTPUT_DIRECTORY               = Build/NT32$(ARCH)
   SUPPORTED_ARCHITECTURES        = IA32|X64
-  BUILD_TARGETS                  = DEBUG|RELEASE
+  BUILD_TARGETS                  = DEBUG|RELEASE|NOOPT
   SKUID_IDENTIFIER               = DEFAULT
   FLASH_DEFINITION               = Nt32Pkg/Nt32Pkg.fdf
   #
@@ -43,7 +44,22 @@
   # Defines for default states.  These can be changed on the command line.
   # -D FLAG=VALUE
   #
+  # Note: Secure Boot feature highly depends on the OpenSSL building. To enable this 
+  #       feature, please follow the instructions found in the file "Patch-HOWTO.txt" 
+  #       located in CryptoPkg\Library\OpensslLib to enable the OpenSSL building first.
+  #
   DEFINE SECURE_BOOT_ENABLE      = FALSE
+  
+  #
+  # This flag is to enable or disable TLS feature.  
+  # These can be changed on the command line.
+  # -D FLAG=VALUE
+  #
+  # Note: TLS feature highly depends on the OpenSSL building. To enable this 
+  #       feature, please follow the instructions found in the file "Patch-HOWTO.txt" 
+  #       located in CryptoPkg\Library\OpensslLib to enable the OpenSSL building first.
+  #
+  DEFINE TLS_ENABLE      = FALSE
 
 ################################################################################
 #
@@ -118,7 +134,6 @@
   TimerLib|MdePkg/Library/BaseTimerLibNullTemplate/BaseTimerLibNullTemplate.inf
   SerialPortLib|MdePkg/Library/BaseSerialPortLibNull/BaseSerialPortLibNull.inf
   CapsuleLib|MdeModulePkg/Library/DxeCapsuleLibNull/DxeCapsuleLibNull.inf
-  ImageDecoderLib|MdeModulePkg/Library/ImageDecoderLib/ImageDecoderLib.inf
   BootLogoLib|MdeModulePkg/Library/BootLogoLib/BootLogoLib.inf
   #
   # Platform
@@ -127,17 +142,17 @@
   #
   # Misc
   #
-  DebugLib|IntelFrameworkModulePkg/Library/PeiDxeDebugLibReportStatusCode/PeiDxeDebugLibReportStatusCode.inf
+  DebugLib|MdeModulePkg/Library/PeiDxeDebugLibReportStatusCode/PeiDxeDebugLibReportStatusCode.inf
   DebugPrintErrorLevelLib|MdeModulePkg/Library/DxeDebugPrintErrorLevelLib/DxeDebugPrintErrorLevelLib.inf
   PerformanceLib|MdePkg/Library/BasePerformanceLibNull/BasePerformanceLibNull.inf
   DebugAgentLib|MdeModulePkg/Library/DebugAgentLibNull/DebugAgentLibNull.inf
   CpuExceptionHandlerLib|MdeModulePkg/Library/CpuExceptionHandlerLibNull/CpuExceptionHandlerLibNull.inf
   LockBoxLib|MdeModulePkg/Library/LockBoxNullLib/LockBoxNullLib.inf
+  IntrinsicLib|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf
+  OpensslLib|CryptoPkg/Library/OpensslLib/OpensslLib.inf
   
 !if $(SECURE_BOOT_ENABLE) == TRUE
   PlatformSecureLib|Nt32Pkg/Library/PlatformSecureLib/PlatformSecureLib.inf
-  IntrinsicLib|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf
-  OpensslLib|CryptoPkg/Library/OpensslLib/OpensslLib.inf
   TpmMeasurementLib|SecurityPkg/Library/DxeTpmMeasurementLib/DxeTpmMeasurementLib.inf
   AuthVariableLib|SecurityPkg/Library/AuthVariableLib/AuthVariableLib.inf
 !else
@@ -175,9 +190,7 @@
 [LibraryClasses.common.PEIM]
   PcdLib|MdePkg/Library/PeiPcdLib/PeiPcdLib.inf
   OemHookStatusCodeLib|Nt32Pkg/Library/PeiNt32OemHookStatusCodeLib/PeiNt32OemHookStatusCodeLib.inf
-!if $(SECURE_BOOT_ENABLE) == TRUE  
   BaseCryptLib|CryptoPkg/Library/BaseCryptLib/PeiCryptLib.inf
-!endif
 
 [LibraryClasses.common]
   #
@@ -192,9 +205,8 @@
   PeCoffExtraActionLib|Nt32Pkg/Library/DxeNt32PeCoffExtraActionLib/DxeNt32PeCoffExtraActionLib.inf
   ExtractGuidedSectionLib|MdePkg/Library/DxeExtractGuidedSectionLib/DxeExtractGuidedSectionLib.inf
   WinNtLib|Nt32Pkg/Library/DxeWinNtLib/DxeWinNtLib.inf
-!if $(SECURE_BOOT_ENABLE) == TRUE
   BaseCryptLib|CryptoPkg/Library/BaseCryptLib/BaseCryptLib.inf
-!endif
+  TlsLib|CryptoPkg/Library/TlsLib/TlsLib.inf
 
 [LibraryClasses.common.DXE_CORE]
   HobLib|MdePkg/Library/DxeCoreHobLib/DxeCoreHobLib.inf
@@ -215,9 +227,7 @@
   #
   # Runtime
   #
-!if $(SECURE_BOOT_ENABLE) == TRUE
   BaseCryptLib|CryptoPkg/Library/BaseCryptLib/RuntimeCryptLib.inf
-!endif
 
 ################################################################################
 #
@@ -235,13 +245,12 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxSizeNonPopulateCapsule|0x0
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxSizePopulateCapsule|0x0
   gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x80000040
-  gEfiNt32PkgTokenSpaceGuid.PcdWinNtFirmwareFdSize|0x2a0000
   gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x1f
   gEfiNt32PkgTokenSpaceGuid.PcdWinNtFirmwareVolume|L"..\\Fv\\Nt32.fd"
   gEfiNt32PkgTokenSpaceGuid.PcdWinNtFirmwareBlockSize|0x10000
   gEfiMdePkgTokenSpaceGuid.PcdReportStatusCodePropertyMask|0x0f
   gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange|FALSE
-!if $(SECURE_BOOT_ENABLE) == TRUE
+!if $(SECURE_BOOT_ENABLE) == TRUE || $(TLS_ENABLE) == TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxVariableSize|0x2000
 !endif
 
@@ -276,6 +285,9 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase|0
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase|0
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase|0
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase64|0
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase64|0
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64|0
 
 [PcdsDynamicDefault.Ia32]
   gEfiNt32PkgTokenSpaceGuid.PcdWinNtFileSystem|L".!..\..\..\..\EdkShellBinPkg\Bin\Ia32\Apps"|VOID*|106
@@ -406,6 +418,7 @@
   MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
   MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
   MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
+  FatPkg/EnhancedFatDxe/Fat.inf
   MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
   MdeModulePkg/Bus/Scsi/ScsiBusDxe/ScsiBusDxe.inf     ##This driver follows UEFI specification definition
   MdeModulePkg/Bus/Scsi/ScsiDiskDxe/ScsiDiskDxe.inf    ##This driver follows UEFI specification definition
@@ -442,16 +455,18 @@
   NetworkPkg/DnsDxe/DnsDxe.inf
   NetworkPkg/HttpDxe/HttpDxe.inf
   NetworkPkg/HttpUtilitiesDxe/HttpUtilitiesDxe.inf
+   
+!if $(TLS_ENABLE) == TRUE
+  NetworkPkg/TlsDxe/TlsDxe.inf
+  NetworkPkg/TlsAuthConfigDxe/TlsAuthConfigDxe.inf
+!endif
 
-  MdeModulePkg/Universal/BdsDxe/BdsDxe.inf {
-    <LibraryClasses>
-      NULL|MdeModulePkg/Library/BmpImageDecoderLib/BmpImageDecoderLib.inf
-  }
+  MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
   MdeModulePkg/Application/UiApp/UiApp.inf{
     <LibraryClasses>
-      NULL|MdeModulePkg/Library/DeviceManagerLib/DeviceManagerLib.inf
-      NULL|MdeModulePkg/Library/BootManagerLib/BootManagerLib.inf
-      NULL|MdeModulePkg/Library/BootMaintenanceManagerLib/BootMaintenanceManagerLib.inf
+      NULL|MdeModulePkg/Library/DeviceManagerUiLib/DeviceManagerUiLib.inf
+      NULL|MdeModulePkg/Library/BootManagerUiLib/BootManagerUiLib.inf
+      NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf
   }
   MdeModulePkg/Universal/DriverHealthManagerDxe/DriverHealthManagerDxe.inf
   MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
@@ -465,6 +480,12 @@
   MdeModulePkg/Application/VariableInfo/VariableInfo.inf
 
   MdeModulePkg/Universal/PlatformDriOverrideDxe/PlatformDriOverrideDxe.inf
+  MdeModulePkg/Universal/LoadFileOnFv2/LoadFileOnFv2.inf
+  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf {
+    <LibraryClasses>
+      NULL|IntelFrameworkModulePkg/Library/LegacyBootManagerLib/LegacyBootManagerLib.inf
+  }
+  MdeModulePkg/Logo/LogoDxe.inf
 
 ###################################################################################################
 #
@@ -477,6 +498,7 @@
 ###################################################################################################
 [BuildOptions]
   DEBUG_*_*_DLINK_FLAGS = /EXPORT:InitializeDriver=$(IMAGE_ENTRY_POINT) /BASE:0x10000 /ALIGN:4096 /FILEALIGN:4096 /SUBSYSTEM:CONSOLE
+  NOOPT_*_*_DLINK_FLAGS = /EXPORT:InitializeDriver=$(IMAGE_ENTRY_POINT) /BASE:0x10000 /ALIGN:4096 /FILEALIGN:4096 /SUBSYSTEM:CONSOLE
   RELEASE_*_*_DLINK_FLAGS = /ALIGN:4096 /FILEALIGN:4096
 
 #############################################################################################################

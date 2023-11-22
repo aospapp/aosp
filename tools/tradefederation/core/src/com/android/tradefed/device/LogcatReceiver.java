@@ -17,6 +17,8 @@ package com.android.tradefed.device;
 
 import com.android.tradefed.result.InputStreamSource;
 
+import com.google.errorprone.annotations.MustBeClosed;
+
 /**
  * Class that collects logcat in background. Continues to capture logcat even if device goes
  * offline then online.
@@ -69,11 +71,13 @@ public class LogcatReceiver implements ILogcatReceiver {
         mReceiver.delete();
     }
 
+    @MustBeClosed
     @Override
     public InputStreamSource getLogcatData() {
         return mReceiver.getData();
     }
 
+    @MustBeClosed
     @Override
     public InputStreamSource getLogcatData(int maxBytes) {
         return mReceiver.getData(maxBytes);

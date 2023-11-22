@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Nuk ka kartë SIM ose gabim në kartën SIM"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Rrjeti celular nuk mundësohet"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Telefonatat dalëse janë të kufizuara nga FDN-ja."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"Kërkesa DIAL është modifikuar në kërkesën USSD."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"Kërkesa DIAL është modifikuar në kërkesën SS."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"Kërkesa DIAL është modifikuar në DIAL me një numër tjetër."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Telefonata u ndryshua në kërkesë USSD"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Telefonata u ndryshua në kërkesë SS"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"U ndryshua në një numër tjetër"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"U ndryshua në telefonatë me video"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Telefonata me video u ndryshua në kërkesë SS"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Telefonata me video u ndryshua në kërkesë USSD"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"U ndryshua në një telefonatë të zakonshme"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"U ndryshua në një numër tjetër"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Nuk mund të kryesh telefonata dalëse kur është i aktivizuar bllokimi i telefonatave."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Telefonatat janë të kufizuara nga kontrolli i qasjes."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Telefonatat e urgjencës janë të kufizuara nga kontrolli i qasjes."</string>

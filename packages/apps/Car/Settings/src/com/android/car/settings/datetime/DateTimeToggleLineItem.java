@@ -20,45 +20,41 @@ import android.content.Context;
 import android.content.Intent;
 import android.provider.Settings;
 
-import com.android.car.settings.common.ToggleLineItem;
+import androidx.car.widget.TextListItem;
 
 /**
  * A LineItem that displays and sets system auto date/time.
  */
-class DateTimeToggleLineItem extends ToggleLineItem {
+class DateTimeToggleLineItem extends TextListItem
+        implements DatetimeSettingsFragment.ListRefreshObserver {
     private Context mContext;
     private final String mSettingString;
-    private final String mDesc;
 
     public DateTimeToggleLineItem(Context context, String title, String desc,
             String settingString) {
-        super(title);
+        super(context);
         mContext = context;
         mSettingString = settingString;
-        mDesc = desc;
+        setTitle(title);
+        setBody(desc);
+        setSwitch(
+                isChecked(),
+                /* showDivider= */ false,
+                (button, isChecked) -> {
+                    Settings.Global.putInt(
+                            mContext.getContentResolver(),
+                            mSettingString,
+                            isChecked ? 1 : 0);
+                    mContext.sendBroadcast(new Intent(Intent.ACTION_TIME_CHANGED));
+                });
     }
 
     @Override
-    public void onClick(boolean isChecked) {
-        Settings.Global.putInt(
-                mContext.getContentResolver(),
-                mSettingString,
-                isChecked ? 0 : 1);
-        mContext.sendBroadcast(new Intent(Intent.ACTION_TIME_CHANGED));
+    public void onPreRefresh() {
+        setSwitchState(isChecked());
     }
 
-    @Override
-    public boolean isChecked() {
+    private boolean isChecked() {
         return Settings.Global.getInt(mContext.getContentResolver(), mSettingString, 0) > 0;
-    }
-
-    @Override
-    public CharSequence getDesc() {
-        return mDesc;
-    }
-
-    @Override
-    public boolean isExpandable() {
-        return false;
     }
 }

@@ -56,7 +56,7 @@ static const int DISTRO_VERSION_LENGTH = 13;
 
 // The major version of the distro format supported by this code as a null-terminated char[].
 // See also com.android.timezone.distro.TimeZoneDistro / com.android.timezone.distro.DistroVersion.
-static const char SUPPORTED_DISTRO_MAJOR_VERSION[] = "001";
+static const char SUPPORTED_DISTRO_MAJOR_VERSION[] = "002";
 
 // The length of the distro format major version excluding the \0
 static const size_t SUPPORTED_DISTRO_MAJOR_VERSION_LEN = sizeof(SUPPORTED_DISTRO_MAJOR_VERSION) - 1;

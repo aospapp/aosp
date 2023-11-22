@@ -29,6 +29,7 @@
 using android::binder::Status;
 using android::net::wifi::IPnoScanEvent;
 using android::net::wifi::IScanEvent;
+using android::net::wifi::IWifiScannerImpl;
 using android::hardware::wifi::offload::V1_0::IOffload;
 using android::sp;
 using com::android::server::wifi::wificond::NativeScanResult;
@@ -43,14 +44,31 @@ using std::shared_ptr;
 
 using namespace std::placeholders;
 
+namespace {
+using android::wificond::WiphyFeatures;
+bool IsScanTypeSupported(int scan_type, const WiphyFeatures& wiphy_features) {
+  switch(scan_type) {
+    case IWifiScannerImpl::SCAN_TYPE_LOW_SPAN:
+      return wiphy_features.supports_low_span_oneshot_scan;
+    case IWifiScannerImpl::SCAN_TYPE_LOW_POWER:
+      return wiphy_features.supports_low_power_oneshot_scan;
+    case IWifiScannerImpl::SCAN_TYPE_HIGH_ACCURACY:
+      return wiphy_features.supports_high_accuracy_oneshot_scan;
+    default:
+      CHECK(0) << "Invalid scan type received: " << scan_type;
+  }
+  return {};
+}
+} // namespace
+
 namespace android {
 namespace wificond {
 
-ScannerImpl::ScannerImpl(uint32_t wiphy_index, uint32_t interface_index,
+ScannerImpl::ScannerImpl(uint32_t interface_index,
                          const ScanCapabilities& scan_capabilities,
                          const WiphyFeatures& wiphy_features,
                          ClientInterfaceImpl* client_interface,
-                         NetlinkUtils* netlink_utils, ScanUtils* scan_utils,
+                         ScanUtils* scan_utils,
                          weak_ptr<OffloadServiceUtils> offload_service_utils)
     : valid_(true),
       scan_started_(false),
@@ -58,12 +76,10 @@ ScannerImpl::ScannerImpl(uint32_t wiphy_index, uint32_t interface_index,
       offload_scan_supported_(false),
       pno_scan_running_over_offload_(false),
       pno_scan_results_from_offload_(false),
-      wiphy_index_(wiphy_index),
       interface_index_(interface_index),
       scan_capabilities_(scan_capabilities),
       wiphy_features_(wiphy_features),
       client_interface_(client_interface),
-      netlink_utils_(netlink_utils),
       scan_utils_(scan_utils),
       scan_event_handler_(nullptr) {
   // Subscribe one-shot scan result notification from kernel.
@@ -101,60 +117,6 @@ bool ScannerImpl::CheckIsValid() {
                << "Underlying client interface object was destroyed.";
   }
   return valid_;
-}
-
-Status ScannerImpl::getAvailable2gChannels(
-    std::unique_ptr<vector<int32_t>>* out_frequencies) {
-  if (!CheckIsValid()) {
-    return Status::ok();
-  }
-  BandInfo band_info;
-  if (!netlink_utils_->GetWiphyInfo(wiphy_index_, &band_info,
-                                    &scan_capabilities_, &wiphy_features_)) {
-    LOG(ERROR) << "Failed to get wiphy info from kernel";
-    out_frequencies->reset(nullptr);
-    return Status::ok();
-  }
-
-  out_frequencies->reset(
-      new vector<int32_t>(band_info.band_2g.begin(), band_info.band_2g.end()));
-  return Status::ok();
-}
-
-Status ScannerImpl::getAvailable5gNonDFSChannels(
-    std::unique_ptr<vector<int32_t>>* out_frequencies) {
-  if (!CheckIsValid()) {
-    return Status::ok();
-  }
-  BandInfo band_info;
-  if (!netlink_utils_->GetWiphyInfo(wiphy_index_, &band_info,
-                                    &scan_capabilities_, &wiphy_features_)) {
-    LOG(ERROR) << "Failed to get wiphy info from kernel";
-    out_frequencies->reset(nullptr);
-    return Status::ok();
-  }
-
-  out_frequencies->reset(
-      new vector<int32_t>(band_info.band_5g.begin(), band_info.band_5g.end()));
-  return Status::ok();
-}
-
-Status ScannerImpl::getAvailableDFSChannels(
-    std::unique_ptr<vector<int32_t>>* out_frequencies) {
-  if (!CheckIsValid()) {
-    return Status::ok();
-  }
-  BandInfo band_info;
-  if (!netlink_utils_->GetWiphyInfo(wiphy_index_, &band_info,
-                                    &scan_capabilities_, &wiphy_features_)) {
-    LOG(ERROR) << "Failed to get wiphy info from kernel";
-    out_frequencies->reset(nullptr);
-    return Status::ok();
-  }
-
-  out_frequencies->reset(new vector<int32_t>(band_info.band_dfs.begin(),
-                                             band_info.band_dfs.end()));
-  return Status::ok();
 }
 
 Status ScannerImpl::getScanResults(vector<NativeScanResult>* out_scan_results) {
@@ -195,8 +157,14 @@ Status ScannerImpl::scan(const SingleScanSettings& scan_settings,
     LOG(WARNING) << "Scan already started";
   }
   // Only request MAC address randomization when station is not associated.
-  bool request_random_mac = wiphy_features_.supports_random_mac_oneshot_scan &&
-                            !client_interface_->IsAssociated();
+  bool request_random_mac =
+      wiphy_features_.supports_random_mac_oneshot_scan &&
+      !client_interface_->IsAssociated();
+  int scan_type = scan_settings.scan_type_;
+  if (!IsScanTypeSupported(scan_settings.scan_type_, wiphy_features_)) {
+    LOG(DEBUG) << "Ignoring scan type because device does not support it";
+    scan_type = SCAN_TYPE_DEFAULT;
+  }
 
   // Initialize it with an empty ssid for a wild card scan.
   vector<vector<uint8_t>> ssids = {{}};
@@ -218,8 +186,8 @@ Status ScannerImpl::scan(const SingleScanSettings& scan_settings,
   }
 
   int error_code = 0;
-  if (!scan_utils_->Scan(interface_index_, request_random_mac, ssids, freqs,
-                         &error_code)) {
+  if (!scan_utils_->Scan(interface_index_, request_random_mac, scan_type,
+                         ssids, freqs, &error_code)) {
     CHECK(error_code != ENODEV) << "Driver is in a bad state, restarting wificond";
     *out_success = false;
     return Status::ok();
@@ -318,13 +286,16 @@ bool ScannerImpl::StartPnoScanDefault(const PnoSettings& pno_settings) {
   // Only request MAC address randomization when station is not associated.
   bool request_random_mac = wiphy_features_.supports_random_mac_sched_scan &&
       !client_interface_->IsAssociated();
+  // Always request a low power scan for PNO, if device supports it.
+  bool request_low_power = wiphy_features_.supports_low_power_oneshot_scan;
 
   int error_code = 0;
   if (!scan_utils_->StartScheduledScan(interface_index_,
                                        GenerateIntervalSetting(pno_settings),
-                                       // TODO: honor both rssi thresholds.
+                                       pno_settings.min_2g_rssi_,
                                        pno_settings.min_5g_rssi_,
                                        request_random_mac,
+                                       request_low_power,
                                        scan_ssids,
                                        match_ssids,
                                        freqs,

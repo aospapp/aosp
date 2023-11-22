@@ -23,6 +23,7 @@ import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.support.annotation.Nullable;
+import android.support.annotation.VisibleForTesting;
 import android.support.annotation.WorkerThread;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.ServiceState;
@@ -36,7 +37,6 @@ import com.android.voicemail.impl.scheduling.RetryPolicy;
 import com.android.voicemail.impl.settings.VisualVoicemailSettingsUtil;
 import com.android.voicemail.impl.sms.StatusMessage;
 import com.android.voicemail.impl.sms.StatusSmsFetcher;
-import com.android.voicemail.impl.sync.OmtpVvmSyncService;
 import com.android.voicemail.impl.sync.SyncTask;
 import com.android.voicemail.impl.sync.VvmAccountManager;
 import com.android.voicemail.impl.utils.LoggerUtils;
@@ -61,16 +61,18 @@ public class ActivationTask extends BaseTask {
   private static final int RETRY_TIMES = 4;
   private static final int RETRY_INTERVAL_MILLIS = 5_000;
 
-  private static final String EXTRA_MESSAGE_DATA_BUNDLE = "extra_message_data_bundle";
+  @VisibleForTesting static final String EXTRA_MESSAGE_DATA_BUNDLE = "extra_message_data_bundle";
 
-  private final RetryPolicy mRetryPolicy;
+  private final RetryPolicy retryPolicy;
 
-  private Bundle mMessageData;
+  @Nullable private OmtpVvmCarrierConfigHelper configForTest;
+
+  private Bundle messageData;
 
   public ActivationTask() {
     super(TASK_ACTIVATION);
-    mRetryPolicy = new RetryPolicy(RETRY_TIMES, RETRY_INTERVAL_MILLIS);
-    addPolicy(mRetryPolicy);
+    retryPolicy = new RetryPolicy(RETRY_TIMES, RETRY_INTERVAL_MILLIS);
+    addPolicy(retryPolicy);
   }
 
   /** Has the user gone through the setup wizard yet. */
@@ -106,7 +108,7 @@ public class ActivationTask extends BaseTask {
   @Override
   public void onCreate(Context context, Bundle extras) {
     super.onCreate(context, extras);
-    mMessageData = extras.getParcelable(EXTRA_MESSAGE_DATA_BUNDLE);
+    messageData = extras.getParcelable(EXTRA_MESSAGE_DATA_BUNDLE);
   }
 
   @Override
@@ -133,16 +135,24 @@ public class ActivationTask extends BaseTask {
 
     PreOMigrationHandler.migrate(getContext(), phoneAccountHandle);
 
-    if (!VisualVoicemailSettingsUtil.isEnabled(getContext(), phoneAccountHandle)) {
-      VvmLog.i(TAG, "VVM is disabled");
-      return;
+    OmtpVvmCarrierConfigHelper helper;
+    if (configForTest != null) {
+      helper = configForTest;
+    } else {
+      helper = new OmtpVvmCarrierConfigHelper(getContext(), phoneAccountHandle);
     }
-
-    OmtpVvmCarrierConfigHelper helper =
-        new OmtpVvmCarrierConfigHelper(getContext(), phoneAccountHandle);
     if (!helper.isValid()) {
       VvmLog.i(TAG, "VVM not supported on phoneAccountHandle " + phoneAccountHandle);
       VvmAccountManager.removeAccount(getContext(), phoneAccountHandle);
+      return;
+    }
+
+    if (!VisualVoicemailSettingsUtil.isEnabled(getContext(), phoneAccountHandle)) {
+      if (helper.isLegacyModeEnabled()) {
+        VvmLog.i(TAG, "Setting up filter for legacy mode");
+        helper.activateSmsFilter();
+      }
+      VvmLog.i(TAG, "VVM is disabled");
       return;
     }
 
@@ -158,9 +168,12 @@ public class ActivationTask extends BaseTask {
     }
     VvmLog.i(TAG, "VVM content provider configured - " + helper.getVvmType());
 
-    if (VvmAccountManager.isAccountActivated(getContext(), phoneAccountHandle)) {
+    if (messageData == null
+        && VvmAccountManager.isAccountActivated(getContext(), phoneAccountHandle)) {
       VvmLog.i(TAG, "Account is already activated");
-      onSuccess(getContext(), phoneAccountHandle);
+      // The activated state might come from restored data, the filter still needs to be set up.
+      helper.activateSmsFilter();
+      onSuccess(getContext(), phoneAccountHandle, helper);
       return;
     }
     helper.handleEvent(
@@ -178,15 +191,16 @@ public class ActivationTask extends BaseTask {
     }
 
     helper.activateSmsFilter();
-    VoicemailStatus.Editor status = mRetryPolicy.getVoicemailStatusEditor();
+    VoicemailStatus.Editor status = retryPolicy.getVoicemailStatusEditor();
 
     VisualVoicemailProtocol protocol = helper.getProtocol();
 
     Bundle data;
-    if (mMessageData != null) {
+    boolean isCarrierInitiated = messageData != null;
+    if (isCarrierInitiated) {
       // The content of STATUS SMS is provided to launch this task, no need to request it
       // again.
-      data = mMessageData;
+      data = messageData;
     } else {
       try (StatusSmsFetcher fetcher = new StatusSmsFetcher(getContext(), phoneAccountHandle)) {
         protocol.startActivation(helper, fetcher.getSentIntent());
@@ -220,17 +234,18 @@ public class ActivationTask extends BaseTask {
             + message.getReturnCode());
     if (message.getProvisioningStatus().equals(OmtpConstants.SUBSCRIBER_READY)) {
       VvmLog.d(TAG, "subscriber ready, no activation required");
-      updateSource(getContext(), phoneAccountHandle, message);
+      updateSource(getContext(), phoneAccountHandle, message, helper);
     } else {
       if (helper.supportsProvisioning()) {
         VvmLog.i(TAG, "Subscriber not ready, start provisioning");
-        helper.startProvisioning(this, phoneAccountHandle, status, message, data);
+        helper.startProvisioning(
+            this, phoneAccountHandle, status, message, data, isCarrierInitiated);
 
       } else if (message.getProvisioningStatus().equals(OmtpConstants.SUBSCRIBER_NEW)) {
         VvmLog.i(TAG, "Subscriber new but provisioning is not supported");
         // Ignore the non-ready state and attempt to use the provided info as is.
         // This is probably caused by not completing the new user tutorial.
-        updateSource(getContext(), phoneAccountHandle, message);
+        updateSource(getContext(), phoneAccountHandle, message, helper);
       } else {
         VvmLog.i(TAG, "Subscriber not ready but provisioning is not supported");
         helper.handleEvent(status, OmtpEvents.CONFIG_SERVICE_NOT_AVAILABLE);
@@ -241,24 +256,27 @@ public class ActivationTask extends BaseTask {
   }
 
   private static void updateSource(
-      Context context, PhoneAccountHandle phone, StatusMessage message) {
+      Context context,
+      PhoneAccountHandle phone,
+      StatusMessage message,
+      OmtpVvmCarrierConfigHelper config) {
 
     if (OmtpConstants.SUCCESS.equals(message.getReturnCode())) {
       // Save the IMAP credentials in preferences so they are persistent and can be retrieved.
       VvmAccountManager.addAccount(context, phone, message);
-      onSuccess(context, phone);
+      onSuccess(context, phone, config);
     } else {
       VvmLog.e(TAG, "Visual voicemail not available for subscriber.");
     }
   }
 
-  private static void onSuccess(Context context, PhoneAccountHandle phoneAccountHandle) {
-    OmtpVvmCarrierConfigHelper helper = new OmtpVvmCarrierConfigHelper(context, phoneAccountHandle);
-    helper.handleEvent(
+  private static void onSuccess(
+      Context context, PhoneAccountHandle phoneAccountHandle, OmtpVvmCarrierConfigHelper config) {
+    config.handleEvent(
         VoicemailStatus.edit(context, phoneAccountHandle),
         OmtpEvents.CONFIG_REQUEST_STATUS_SUCCESS);
     clearLegacyVoicemailNotification(context, phoneAccountHandle);
-    SyncTask.start(context, phoneAccountHandle, OmtpVvmSyncService.SYNC_FULL_SYNC);
+    SyncTask.start(context, phoneAccountHandle);
   }
 
   /** Sends a broadcast to the dialer UI to clear legacy voicemail notifications if any. */
@@ -278,5 +296,10 @@ public class ActivationTask extends BaseTask {
             .getSystemService(TelephonyManager.class)
             .createForPhoneAccountHandle(phoneAccountHandle);
     return telephonyManager.getServiceState().getState() == ServiceState.STATE_IN_SERVICE;
+  }
+
+  @VisibleForTesting
+  void setConfigForTest(OmtpVvmCarrierConfigHelper config) {
+    configForTest = config;
   }
 }

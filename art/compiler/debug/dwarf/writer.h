@@ -19,9 +19,11 @@
 
 #include <type_traits>
 #include <vector>
+
+#include <android-base/logging.h>
+
 #include "base/bit_utils.h"
-#include "base/logging.h"
-#include "leb128.h"
+#include "base/leb128.h"
 
 namespace art {
 namespace dwarf {

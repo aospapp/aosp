@@ -13,7 +13,7 @@
 namespace base {
 
 #if !defined(OS_ANDROID) && !defined(__ANDROID__) && !defined(__ANDROID_HOST__)
-Process SpawnMultiProcessTestChild(
+SpawnChildResult SpawnMultiProcessTestChild(
     const std::string& procname,
     const CommandLine& base_command_line,
     const LaunchOptions& options) {
@@ -24,8 +24,23 @@ Process SpawnMultiProcessTestChild(
   if (!command_line.HasSwitch(switches::kTestChildProcess))
     command_line.AppendSwitchASCII(switches::kTestChildProcess, procname);
 
-  return LaunchProcess(command_line, options);
+  SpawnChildResult result;
+  result.process = LaunchProcess(command_line, options);
+  return result;
 }
+
+bool WaitForMultiprocessTestChildExit(const Process& process,
+                                      TimeDelta timeout,
+                                      int* exit_code) {
+  return process.WaitForExitWithTimeout(timeout, exit_code);
+}
+
+bool TerminateMultiProcessTestChild(const Process& process,
+                                    int exit_code,
+                                    bool wait) {
+  return process.Terminate(exit_code, wait);
+}
+
 #endif  // !OS_ANDROID && !__ANDROID__ && !__ANDROID_HOST__
 
 CommandLine GetMultiProcessTestChildBaseCommandLine() {
@@ -39,7 +54,9 @@ CommandLine GetMultiProcessTestChildBaseCommandLine() {
 MultiProcessTest::MultiProcessTest() {
 }
 
-Process MultiProcessTest::SpawnChild(const std::string& procname) {
+// Don't compile on Arc++.
+#if 0
+SpawnChildResult MultiProcessTest::SpawnChild(const std::string& procname) {
   LaunchOptions options;
 #if defined(OS_WIN)
   options.start_hidden = true;
@@ -47,11 +64,12 @@ Process MultiProcessTest::SpawnChild(const std::string& procname) {
   return SpawnChildWithOptions(procname, options);
 }
 
-Process MultiProcessTest::SpawnChildWithOptions(
+SpawnChildResult MultiProcessTest::SpawnChildWithOptions(
     const std::string& procname,
     const LaunchOptions& options) {
   return SpawnMultiProcessTestChild(procname, MakeCmdLine(procname), options);
 }
+#endif
 
 CommandLine MultiProcessTest::MakeCmdLine(const std::string& procname) {
   CommandLine command_line = GetMultiProcessTestChildBaseCommandLine();

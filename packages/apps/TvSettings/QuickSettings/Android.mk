@@ -10,14 +10,7 @@ LOCAL_PROGUARD_FLAG_FILES := proguard.cfg
 LOCAL_SRC_FILES := \
     $(call all-java-files-under, src)
 
-LOCAL_RESOURCE_DIR := \
-    frameworks/support/v17/leanback/res \
-    frameworks/support/v7/preference/res \
-    frameworks/support/v14/preference/res \
-    frameworks/support/v17/preference-leanback/res \
-    frameworks/support/v7/appcompat/res \
-    frameworks/support/v7/recyclerview/res \
-    $(LOCAL_PATH)/res
+LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
 LOCAL_STATIC_ANDROID_LIBRARIES := \
     android-support-v4 \

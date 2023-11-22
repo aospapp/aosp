@@ -15,6 +15,7 @@
  */
 package com.example.android.wearable.wear.wearverifyremoteapp;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -22,7 +23,8 @@ import android.os.Handler;
 import android.os.ResultReceiver;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.wearable.activity.WearableActivity;
+import android.support.wear.ambient.AmbientMode;
+import android.support.wearable.phone.PhoneDeviceType;
 import android.support.wearable.view.ConfirmationOverlay;
 import android.util.Log;
 import android.view.View;
@@ -38,7 +40,6 @@ import com.google.android.gms.wearable.CapabilityInfo;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.Wearable;
 import com.google.android.wearable.intent.RemoteIntent;
-import com.google.android.wearable.playstore.PlayStoreAvailability;
 
 import java.util.Set;
 
@@ -46,7 +47,8 @@ import java.util.Set;
  * Checks if the phone app is installed on remote device. If it is not, allows user to open app
  * listing on the phone's Play or App Store.
  */
-public class MainWearActivity extends WearableActivity implements
+public class MainWearActivity extends Activity implements
+        AmbientMode.AmbientCallbackProvider,
         GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener,
         CapabilityApi.CapabilityListener {
@@ -74,7 +76,7 @@ public class MainWearActivity extends WearableActivity implements
 
     // Links to install mobile app for both Android (Play Store) and iOS.
     // TODO: Replace with your links/packages.
-    private static final String PLAY_STORE_APP_URI =
+    private static final String ANDROID_MARKET_APP_URI =
             "market://details?id=com.example.android.wearable.wear.wearverifyremoteapp";
 
     // TODO: Replace with your links/packages.
@@ -113,7 +115,9 @@ public class MainWearActivity extends WearableActivity implements
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_main);
-        setAmbientEnabled();
+
+        // Enables Ambient mode.
+        AmbientMode.attachAmbientSupport(this);
 
         mInformationTextView = (TextView) findViewById(R.id.information_text_view);
         mRemoteOpenButton = (Button) findViewById(R.id.remote_open_button);
@@ -242,20 +246,16 @@ public class MainWearActivity extends WearableActivity implements
     private void openAppInStoreOnPhone() {
         Log.d(TAG, "openAppInStoreOnPhone()");
 
-        int playStoreAvailabilityOnPhone =
-                PlayStoreAvailability.getPlayStoreAvailabilityOnPhone(getApplicationContext());
-
-        switch (playStoreAvailabilityOnPhone) {
-
-            // Android phone with the Play Store.
-            case PlayStoreAvailability.PLAY_STORE_ON_PHONE_AVAILABLE:
-                Log.d(TAG, "\tPLAY_STORE_ON_PHONE_AVAILABLE");
-
+        int phoneDeviceType = PhoneDeviceType.getPhoneDeviceType(getApplicationContext());
+        switch (phoneDeviceType) {
+            // Paired to Android phone, use Play Store URI.
+            case PhoneDeviceType.DEVICE_TYPE_ANDROID:
+                Log.d(TAG, "\tDEVICE_TYPE_ANDROID");
                 // Create Remote Intent to open Play Store listing of app on remote device.
                 Intent intentAndroid =
                         new Intent(Intent.ACTION_VIEW)
                                 .addCategory(Intent.CATEGORY_BROWSABLE)
-                                .setData(Uri.parse(PLAY_STORE_APP_URI));
+                                .setData(Uri.parse(ANDROID_MARKET_APP_URI));
 
                 RemoteIntent.startRemoteActivity(
                         getApplicationContext(),
@@ -263,9 +263,9 @@ public class MainWearActivity extends WearableActivity implements
                         mResultReceiver);
                 break;
 
-            // Assume iPhone (iOS device) or Android without Play Store (not supported right now).
-            case PlayStoreAvailability.PLAY_STORE_ON_PHONE_UNAVAILABLE:
-                Log.d(TAG, "\tPLAY_STORE_ON_PHONE_UNAVAILABLE");
+            // Paired to iPhone, use iTunes App Store URI
+            case PhoneDeviceType.DEVICE_TYPE_IOS:
+                Log.d(TAG, "\tDEVICE_TYPE_IOS");
 
                 // Create Remote Intent to open App Store listing of app on iPhone.
                 Intent intentIOS =
@@ -279,8 +279,8 @@ public class MainWearActivity extends WearableActivity implements
                         mResultReceiver);
                 break;
 
-            case PlayStoreAvailability.PLAY_STORE_ON_PHONE_ERROR_UNKNOWN:
-                Log.d(TAG, "\tPLAY_STORE_ON_PHONE_ERROR_UNKNOWN");
+            case PhoneDeviceType.DEVICE_TYPE_ERROR_UNKNOWN:
+                Log.d(TAG, "\tDEVICE_TYPE_ERROR_UNKNOWN");
                 break;
         }
     }
@@ -298,5 +298,30 @@ public class MainWearActivity extends WearableActivity implements
             bestNodeId = node;
         }
         return bestNodeId;
+    }
+
+    @Override
+    public AmbientMode.AmbientCallback getAmbientCallback() {
+        return new MyAmbientCallback();
+    }
+
+    private class MyAmbientCallback extends AmbientMode.AmbientCallback {
+        /** Prepares the UI for ambient mode. */
+        @Override
+        public void onEnterAmbient(Bundle ambientDetails) {
+            super.onEnterAmbient(ambientDetails);
+
+            Log.d(TAG, "onEnterAmbient() " + ambientDetails);
+            // In our case, the assets are already in black and white, so we don't update UI.
+        }
+
+        /** Restores the UI to active (non-ambient) mode. */
+        @Override
+        public void onExitAmbient() {
+            super.onExitAmbient();
+
+            Log.d(TAG, "onExitAmbient()");
+            // In our case, the assets are already in black and white, so we don't update UI.
+        }
     }
 }

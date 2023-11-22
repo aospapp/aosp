@@ -74,7 +74,7 @@ public class DownloadsFilePreferenceTest {
 
         assertThat(preference.getTitle()).isEqualTo("FakeFile");
         assertThat(preference.getSummary().toString()).isEqualTo(mReadableDate);
-        assertThat(preference.getItemSize()).isEqualTo("100B");
+        assertThat(preference.getItemSize()).isEqualTo("100 B");
     }
 
     @Test

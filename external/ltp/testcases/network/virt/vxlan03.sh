@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2014-2016 Oracle and/or its affiliates. All Rights Reserved.
+# Copyright (c) 2014-2017 Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -25,6 +25,7 @@
 
 TCID=vxlan03
 TST_TOTAL=4
+TST_NEEDS_TMPDIR=1
 
 virt_type="vxlan"
 start_id=16700000
@@ -42,12 +43,7 @@ vxlan_dst_addr="uni"
 VIRT_PERF_THRESHOLD=${VIRT_PERF_THRESHOLD:-160}
 [ "$VIRT_PERF_THRESHOLD" -lt 160 ] && VIRT_PERF_THRESHOLD=160
 
-cleanup()
-{
-	cleanup_vifaces
-	tst_rhost_run -c "ip link delete ltp_v0 2>/dev/null"
-}
-TST_CLEANUP="cleanup"
+TST_CLEANUP="virt_cleanup"
 
 if [ -z $ip_local -o -z $ip_remote ]; then
 	tst_brkm TBROK "you must specify IP address"
@@ -63,11 +59,14 @@ for n in $(seq 1 2); do
 	tst_resm TINFO "the same VNI must work"
 	# VNI is 24 bits long, so max value, which is not reserved, is 0xFFFFFE
 	vxlan_setup_subnet_$vxlan_dst_addr "id 0xFFFFFE $p" "id 0xFFFFFE $p"
-	virt_compare_netperf
+	virt_netperf_msg_sizes
+	virt_cleanup_rmt
 
 	tst_resm TINFO "different VNI shall not work together"
 	vxlan_setup_subnet_$vxlan_dst_addr "id 0xFFFFFE $p" "id 0xFFFFFD $p"
+	virt_minimize_timeout
 	virt_compare_netperf "fail"
+	virt_cleanup_rmt
 done
 
 tst_exit

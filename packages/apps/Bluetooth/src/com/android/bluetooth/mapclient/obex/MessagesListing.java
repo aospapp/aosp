@@ -33,7 +33,7 @@ class MessagesListing {
 
     private final ArrayList<Message> mMessages;
 
-    public MessagesListing(InputStream in) {
+    MessagesListing(InputStream in) {
         mMessages = new ArrayList<Message>();
 
         parse(in);

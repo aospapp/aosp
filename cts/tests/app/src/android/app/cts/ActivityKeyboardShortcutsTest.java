@@ -56,15 +56,15 @@ public class ActivityKeyboardShortcutsTest
             return;
         }
         // Open activity's options menu
-        mActivity.openOptionsMenu();
+        getInstrumentation().runOnMainSync(() -> mActivity.openOptionsMenu());
         mActivity.waitForMenuToBeOpen();
 
         // Request keyboard shortcuts
-        mActivity.requestShowKeyboardShortcuts();
+        getInstrumentation().runOnMainSync(() -> mActivity.requestShowKeyboardShortcuts());
         mActivity.waitForKeyboardShortcutsToBeRequested();
 
         // Close the shortcuts helper
-        mActivity.dismissKeyboardShortcutsHelper();
+        getInstrumentation().runOnMainSync(() -> mActivity.dismissKeyboardShortcutsHelper());
 
         // THEN the activity's onProvideKeyboardShortcuts should have been
         // triggered to get app specific shortcuts

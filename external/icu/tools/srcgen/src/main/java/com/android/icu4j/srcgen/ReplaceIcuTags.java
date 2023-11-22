@@ -66,6 +66,10 @@ public class ReplaceIcuTags extends BaseTagElementNodeScanner {
         // ICU replaces {@discouraged} with "Discouraged:"
         rewrite.replace(tag, createDiscouragedText(ast, fragments), null /* editGroup */);
         return false;
+      } else if (tagName.equalsIgnoreCase("@category")) {
+        // ICU removes {@category}, this annotation is for use by IDEs, not the API docs.
+        rewrite.remove(tag, null /* editGroup */);
+        return false;
       }
     }
     return true;

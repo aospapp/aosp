@@ -25,18 +25,18 @@ from target_script import TargetScript
 from android import Screen, System
 from android.workload import Workload
 
-
-# Description: This experiments tests suspend/resume by turning off
-# the screen and cutting off USB
-# REQUIRES DEVICE TO BE CONNECTED THROUGH MONSOON SO THAT PASSTHROUGH
-# CAN BE TURNED OFF.
-# The dirty hack we have is we forcefully add 'energy' into the
-# collect parameters so that the USB is cut off (as a side effect, we
-# also measure energy while suspended). There's no way of knowing for
-# sure if device did enter suspend.
 class SuspendResume(Workload):
     """
     Android SuspendResume workload
+
+    This experiments tests suspend/resume by turning off
+    the screen and cutting off USB. You can collect energy and traces
+    with it. REQUIRES DEVICE TO BE CONNECTED THROUGH MONSOON SO THAT
+    PASSTHROUGH CAN BE TURNED OFF.
+    The dirty hack we have is we forcefully add 'energy' into the
+    collect parameters so that the USB is cut off (as a side effect, we
+    also measure energy while suspended). There's no way of knowing for
+    sure if device did enter suspend.
     """
 
     # Package is optional for this test
@@ -94,7 +94,7 @@ class SuspendResume(Workload):
         Screen.unlock(self._target)
 
         # Force the device to suspend
-        self._target.execute('dumpsys deviceidle force-idle deep')
+        System.force_suspend_start(self._target)
 
         sleep(1)
         Screen.set_screen(self._target, on=False)
@@ -107,7 +107,7 @@ class SuspendResume(Workload):
         self.tracingStop(screen_always_on=False)
 
         # Resume normal function
-        self._target.execute('dumpsys deviceidle unforce')
+        System.force_suspend_stop(self._target)
 
         Screen.set_defaults(self._target)
         System.set_airplane_mode(self._target, on=False)

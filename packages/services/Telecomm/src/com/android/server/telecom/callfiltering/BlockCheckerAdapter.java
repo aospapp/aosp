@@ -17,13 +17,22 @@
 package com.android.server.telecom.callfiltering;
 
 import android.content.Context;
+import android.os.Bundle;
 
 import com.android.internal.telephony.BlockChecker;
 
 public class BlockCheckerAdapter {
     public BlockCheckerAdapter() { }
 
-    public boolean isBlocked(Context context, String number) {
-        return BlockChecker.isBlocked(context, number);
+    /**
+     * Check whether the number is blocked.
+     *
+     * @param context the context of the caller.
+     * @param number the number to check.
+     * @param extras the extra attribute of the number.
+     * @return {@code true} if the number is blocked. {@code false} otherwise.
+     */
+    public boolean isBlocked(Context context, String number, Bundle extras) {
+        return BlockChecker.isBlocked(context, number, extras);
     }
 }

@@ -25,24 +25,15 @@ art_cc_binary {
         "-Werror",
         "-Wextra",
     ],
-    include_dirs: ["art/runtime"],
     shared_libs: [
         "libnativehelper",
     ],
     whole_static_libs: ["libsigchain"],
     target: {
-        host: {
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
-            ],
-        },
         android: {
             shared_libs: [
-                "libdl",
                 "liblog",
             ],
-            ldflags: ["-Wl,--export-dynamic"],
         },
         linux: {
             ldflags: ["-Wl,--export-dynamic"],

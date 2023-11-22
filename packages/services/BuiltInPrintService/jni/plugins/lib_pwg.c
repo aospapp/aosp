@@ -28,9 +28,6 @@
 #include "media.h"
 
 #define TAG "lib_pwg"
-#define STANDARD_SCALE_FOR_PDF    72.0
-#define _MI_TO_PIXELS(n, res)      ((n)*(res)+500)/1000.0
-#define _MI_TO_POINTS(n)          _MI_TO_PIXELS(n, STANDARD_SCALE_FOR_PDF)
 
 cups_raster_t *ras_out = NULL;
 cups_page_header2_t header_pwg;

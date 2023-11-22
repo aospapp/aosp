@@ -22,7 +22,7 @@
 
 #include "util/base/logging_raw.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 namespace logging {
 
 namespace {
@@ -57,12 +57,11 @@ LogMessage::LogMessage(LogSeverity severity, const char *file_name,
 }
 
 LogMessage::~LogMessage() {
-  const std::string message = stream_.str();
-  LowLevelLogging(severity_, /* tag = */ "txtClsf", message);
+  LowLevelLogging(severity_, /* tag = */ "txtClsf", stream_.message);
   if (severity_ == FATAL) {
     exit(1);
   }
 }
 
 }  // namespace logging
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2

@@ -71,23 +71,31 @@ public class ThreadPool {
     }
 
     static ThreadFactory defaultThreadFactory() {
-        // Android-changed: System.getSecurityManager always returns null.
-        // if (System.getSecurityManager() == null) {
+        // BEGIN Android-changed: System.getSecurityManager always returns null.
+        /*
+        if (System.getSecurityManager() == null) {
+            return (Runnable r) -> {
+                Thread t = new Thread(r);
+                t.setDaemon(true);
+                return t;
+            };
+        } else {
+            return (Runnable r) -> {
+                PrivilegedAction<Thread> action = () -> {
+                    Thread t = new sun.misc.InnocuousThread(r);
+                    t.setDaemon(true);
+                    return t;
+               };
+               return AccessController.doPrivileged(action);
+           };
+        }
+        */
         return (Runnable r) -> {
             Thread t = new Thread(r);
             t.setDaemon(true);
             return t;
         };
-        // } else {
-        //    return (Runnable r) -> {
-        //        PrivilegedAction<Thread> action = () -> {
-        //            Thread t = new sun.misc.InnocuousThread(r);
-        //            t.setDaemon(true);
-        //            return t;
-        //       };
-        //       return AccessController.doPrivileged(action);
-        //   };
-        // }
+        // END Android-changed: System.getSecurityManager always returns null.
     }
 
     private static class DefaultThreadPoolHolder {

@@ -16,5 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="accessibility_shortcut_toogle_warning" msgid="7758891516165017413">"Khi đã bật phím tắt, nhấn vào cả hai nút quay lại và xuống trong 3 giây sẽ bắt đầu một tính năng trợ năng.\n\n Tính năng trợ năng hiện tại:\n <xliff:g id="SERVICE_NAME">%1$s</xliff:g>\n\n Bạn có thể thay đổi tính năng trong Cài đặt &gt; Trợ năng."</string>
+    <string name="accessibility_shortcut_toogle_warning" msgid="7758891516165017413">"Khi đã bật phím tắt, nhấn vào cả hai nút quay lại và xuống trong 3 giây sẽ bắt đầu một tính năng hỗ trợ tiếp cận.\n\n Tính năng hỗ trợ tiếp cận hiện tại:\n <xliff:g id="SERVICE_NAME">%1$s</xliff:g>\n\n Bạn có thể thay đổi tính năng này trong Cài đặt &gt; Hỗ trợ tiếp cận."</string>
 </resources>

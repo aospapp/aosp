@@ -53,13 +53,17 @@
 
 LOCAL_PATH:= $(call my-dir)
 
-vixl_root := $(LOCAL_PATH)
-vixl_host_out := $(if $(ANDROID_HOST_OUT), $(ANDROID_HOST_OUT), ../../$(HOST_OUT))
-
-.PHONY: run-vixl-tests
-run-vixl-tests: vixl-test-runner
+vixl_timestamp := $(HOST_OUT_NATIVE_TESTS)/vixl-test-runner/test.timestamp
+$(vixl_timestamp): $(HOST_OUT_NATIVE_TESTS)/vixl-test-runner/vixl-test-runner
 	# TODO: Once available, use the appropriate option of vixl-test-runner
 	# to point to the trace files instead of running from the vixl root.
-	cd $(vixl_root) && $(vixl_host_out)/bin/vixl-test-runner --run_all
-	cd $(vixl_root) && $(vixl_host_out)/bin/vixl-test-runner --run_all --debugger
-	@echo vixl tests PASSED
+	echo Running vixl tests
+	cd $(dir $<) && ./$(notdir $<) --run_all
+	cd $(dir $<) && ./$(notdir $<) --run_all --debugger
+	echo vixl tests PASSED
+	touch $@
+
+.PHONY: run-vixl-tests
+run-vixl-tests: $(vixl_timestamp)
+
+vixl_timestamp :=

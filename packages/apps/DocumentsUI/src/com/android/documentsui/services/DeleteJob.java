@@ -16,7 +16,7 @@
 
 package com.android.documentsui.services;
 
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.services.FileOperationService.OPERATION_DELETE;
 
 import android.app.Notification;

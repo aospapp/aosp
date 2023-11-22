@@ -83,8 +83,8 @@ public class AudioRestrictionTest extends BaseDeviceAdminTest {
         }
 
         try {
-            // Set volume of ringtone to be 1.
-            mAudioManager.setStreamVolume(AudioManager.STREAM_RING, 1, /* flag= */ 0);
+            // Set volume of music to be 1.
+            mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 1, /* flag= */ 0);
 
             // Disallow adjusting volume.
             mDevicePolicyManager.addUserRestriction(ADMIN_RECEIVER_COMPONENT,
@@ -93,7 +93,7 @@ public class AudioRestrictionTest extends BaseDeviceAdminTest {
 
             // Verify that volume can't be changed.
             mAudioManager.adjustVolume(AudioManager.ADJUST_RAISE, /* flag= */ 0);
-            assertEquals(1, mAudioManager.getStreamVolume(AudioManager.STREAM_RING));
+            assertEquals(1, mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
 
             // Allowing adjusting volume.
             mDevicePolicyManager.clearUserRestriction(ADMIN_RECEIVER_COMPONENT,
@@ -105,7 +105,7 @@ public class AudioRestrictionTest extends BaseDeviceAdminTest {
             waitUntil(2, new Callable<Integer>() {
                 @Override
                 public Integer call() throws Exception {
-                    return mAudioManager.getStreamVolume(AudioManager.STREAM_RING);
+                    return mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
                 }
             });
         } finally {

@@ -1,4 +1,4 @@
-/* 
+/*
  * If linux/types.h is already been included, assume it has defined
  * everything we need.  (cross fingers)  Other header files may have
  * also defined the types that we need.
@@ -27,7 +27,9 @@ typedef __signed__ long long __s64;
 #define __bitwise		__attribute__((bitwise))
 #define __force			__attribute__((force))
 #else
+#ifndef __bitwise
 #define __bitwise
+#endif
 #define __force
 #endif
 

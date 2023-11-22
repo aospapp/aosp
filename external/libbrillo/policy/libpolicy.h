@@ -26,7 +26,7 @@ class PolicyProvider {
   virtual ~PolicyProvider();
 
   // Constructor for tests only!
-  explicit PolicyProvider(DevicePolicy* device_policy);
+  explicit PolicyProvider(std::unique_ptr<DevicePolicy> device_policy);
 
   // This function will ensure the freshness of the contents that the getters
   // are delivering. Normally contents are cached to prevent unnecessary load.

@@ -222,6 +222,29 @@ def validate_clones(soup):
       validate_error(error_msg)
       success = False
 
+    if matching_entry is not None:
+      entry_hal_major_version = 3
+      entry_hal_minor_version = 2
+      entry_hal_version = matching_entry.get('hal_version')
+      if entry_hal_version is not None:
+        entry_hal_major_version = int(entry_hal_version.partition('.')[0])
+        entry_hal_minor_version = int(entry_hal_version.partition('.')[2])
+
+      clone_hal_major_version = entry_hal_major_version
+      clone_hal_minor_version = entry_hal_minor_version
+      clone_hal_version = clone.get('hal_version')
+      if clone_hal_version is not None:
+        clone_hal_major_version = int(clone_hal_version.partition('.')[0])
+        clone_hal_minor_version = int(clone_hal_version.partition('.')[2])
+
+      if clone_hal_major_version < entry_hal_major_version or \
+          (clone_hal_major_version == entry_hal_major_version and \
+           clone_hal_minor_version < entry_hal_minor_version):
+        error_msg = ("Clone '%s' HAL version '%d.%d' is older than entry target HAL version '%d.%d'" \
+                   % (clone_name, clone_hal_major_version, clone_hal_minor_version, entry_hal_major_version, entry_hal_minor_version))
+        validate_error(error_msg)
+        success = False
+
   return success
 
 # All <entry> elements with container=$foo have a <$foo> child
@@ -279,6 +302,20 @@ def validate_entries(soup):
         validate_error(("Entry '%s' kind '%s' has enum el, but no enum attr")  \
                                % (fully_qualified_name(entry), find_kind(entry),
                                   ))
+        success = False
+
+    deprecated = entry.attrs.get('deprecated')
+    if deprecated and deprecated == 'true':
+      if entry.deprecation_description is None:
+        validate_error(("Entry '%s' in kind '%s' is deprecated, but missing deprecation description") \
+                       % (fully_qualified_name(entry), find_kind(entry),
+                       ))
+        success = False
+    else:
+      if entry.deprecation_description is not None:
+        validate_error(("Entry '%s' in kind '%s' has deprecation description, but is not deprecated") \
+                       % (fully_qualified_name(entry), find_kind(entry),
+                       ))
         success = False
 
   return success

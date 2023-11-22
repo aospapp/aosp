@@ -92,6 +92,7 @@ unspecified registers or condition codes.
  * to expand the macros into assembler assignment statements.
  */
 #include "asm_support.h"
+#include "interpreter/cfi_asm_support.h"
 
 #define MTERP_PROFILE_BRANCHES 1
 #define MTERP_LOGGING 0
@@ -99,6 +100,8 @@ unspecified registers or condition codes.
 /* During bringup, we'll use the shadow frame model instead of rFP */
 /* single-purpose registers, given names for clarity */
 #define rPC      r4
+#define CFI_DEX  4  // DWARF register number of the register holding dex-pc (xPC).
+#define CFI_TMP  0  // DWARF register number of the first argument register (r0).
 #define rFP      r5
 #define rSELF    r6
 #define rINST    r7
@@ -117,7 +120,7 @@ unspecified registers or condition codes.
 #define OFF_FP_METHOD OFF_FP(SHADOWFRAME_METHOD_OFFSET)
 #define OFF_FP_RESULT_REGISTER OFF_FP(SHADOWFRAME_RESULT_REGISTER_OFFSET)
 #define OFF_FP_DEX_PC_PTR OFF_FP(SHADOWFRAME_DEX_PC_PTR_OFFSET)
-#define OFF_FP_CODE_ITEM OFF_FP(SHADOWFRAME_CODE_ITEM_OFFSET)
+#define OFF_FP_DEX_INSTRUCTIONS OFF_FP(SHADOWFRAME_DEX_INSTRUCTIONS_OFFSET)
 #define OFF_FP_SHADOWFRAME OFF_FP(0)
 
 /*
@@ -137,9 +140,8 @@ unspecified registers or condition codes.
 .endm
 
 .macro EXPORT_DEX_PC tmp
-    ldr  \tmp, [rFP, #OFF_FP_CODE_ITEM]
+    ldr  \tmp, [rFP, #OFF_FP_DEX_INSTRUCTIONS]
     str  rPC, [rFP, #OFF_FP_DEX_PC_PTR]
-    add  \tmp, #CODEITEM_INSNS_OFFSET
     sub  \tmp, rPC, \tmp
     asr  \tmp, #1
     str  \tmp, [rFP, #OFF_FP_DEX_PC]
@@ -338,13 +340,11 @@ unspecified registers or condition codes.
 
     .text
     .align  2
-    .global ExecuteMterpImpl
-    .type   ExecuteMterpImpl, %function
 
 /*
  * On entry:
  *  r0  Thread* self/
- *  r1  code_item
+ *  r1  insns_
  *  r2  ShadowFrame
  *  r3  JValue* result_register
  *
@@ -367,8 +367,8 @@ ENTRY ExecuteMterpImpl
     /* Remember the return register */
     str     r3, [r2, #SHADOWFRAME_RESULT_REGISTER_OFFSET]
 
-    /* Remember the code_item */
-    str     r1, [r2, #SHADOWFRAME_CODE_ITEM_OFFSET]
+    /* Remember the dex instruction pointer */
+    str     r1, [r2, #SHADOWFRAME_DEX_INSTRUCTIONS_OFFSET]
 
     /* set up "named" registers */
     mov     rSELF, r0
@@ -376,8 +376,8 @@ ENTRY ExecuteMterpImpl
     add     rFP, r2, #SHADOWFRAME_VREGS_OFFSET     @ point to vregs.
     VREG_INDEX_TO_ADDR rREFS, r0                   @ point to reference array in shadow frame
     ldr     r0, [r2, #SHADOWFRAME_DEX_PC_OFFSET]   @ Get starting dex_pc.
-    add     rPC, r1, #CODEITEM_INSNS_OFFSET        @ Point to base of insns[]
-    add     rPC, rPC, r0, lsl #1                   @ Create direct pointer to 1st dex opcode
+    add     rPC, r1, r0, lsl #1                    @ Create direct pointer to 1st dex opcode
+    CFI_DEFINE_DEX_PC_WITH_OFFSET(CFI_TMP, CFI_DEX, 0)
     EXPORT_PC
 
     /* Starting ibase */
@@ -386,6 +386,7 @@ ENTRY ExecuteMterpImpl
     /* Set up for backwards branches & osr profiling */
     ldr     r0, [rFP, #OFF_FP_METHOD]
     add     r1, rFP, #OFF_FP_SHADOWFRAME
+    mov     r2, rSELF
     bl      MterpSetUpHotnessCountdown
     mov     rPROFILE, r0                @ Starting hotness countdown to rPROFILE
 
@@ -397,7 +398,6 @@ ENTRY ExecuteMterpImpl
 
 
     .global artMterpAsmInstructionStart
-    .type   artMterpAsmInstructionStart, %function
 artMterpAsmInstructionStart = .L_op_nop
     .text
 
@@ -840,19 +840,25 @@ artMterpAsmInstructionStart = .L_op_nop
     .balign 128
 .L_op_const_string: /* 0x1a */
 /* File: arm/op_const_string.S */
-    /* const/string vAA, String@BBBB */
+/* File: arm/const.S */
+    /* const/class vAA, type@BBBB */
+    /* const/method-handle vAA, method_handle@BBBB */
+    /* const/method-type vAA, proto@BBBB */
+    /* const/string vAA, string@@BBBB */
+    .extern MterpConstString
     EXPORT_PC
-    FETCH r0, 1                         @ r0<- BBBB
+    FETCH   r0, 1                       @ r0<- BBBB
     mov     r1, rINST, lsr #8           @ r1<- AA
     add     r2, rFP, #OFF_FP_SHADOWFRAME
     mov     r3, rSELF
-    bl      MterpConstString            @ (index, tgt_reg, shadow_frame, self)
+    bl      MterpConstString                     @ (index, tgt_reg, shadow_frame, self)
     PREFETCH_INST 2                     @ load rINST
     cmp     r0, #0                      @ fail?
     bne     MterpPossibleException      @ let reference interpreter deal with it.
     ADVANCE 2                           @ advance rPC
     GET_INST_OPCODE ip                  @ extract opcode from rINST
     GOTO_OPCODE ip                      @ jump to next instruction
+
 
 /* ------------------------------ */
     .balign 128
@@ -878,19 +884,25 @@ artMterpAsmInstructionStart = .L_op_nop
     .balign 128
 .L_op_const_class: /* 0x1c */
 /* File: arm/op_const_class.S */
-    /* const/class vAA, Class@BBBB */
+/* File: arm/const.S */
+    /* const/class vAA, type@BBBB */
+    /* const/method-handle vAA, method_handle@BBBB */
+    /* const/method-type vAA, proto@BBBB */
+    /* const/string vAA, string@@BBBB */
+    .extern MterpConstClass
     EXPORT_PC
     FETCH   r0, 1                       @ r0<- BBBB
     mov     r1, rINST, lsr #8           @ r1<- AA
     add     r2, rFP, #OFF_FP_SHADOWFRAME
     mov     r3, rSELF
-    bl      MterpConstClass             @ (index, tgt_reg, shadow_frame, self)
-    PREFETCH_INST 2
-    cmp     r0, #0
-    bne     MterpPossibleException
-    ADVANCE 2
+    bl      MterpConstClass                     @ (index, tgt_reg, shadow_frame, self)
+    PREFETCH_INST 2                     @ load rINST
+    cmp     r0, #0                      @ fail?
+    bne     MterpPossibleException      @ let reference interpreter deal with it.
+    ADVANCE 2                           @ advance rPC
     GET_INST_OPCODE ip                  @ extract opcode from rINST
     GOTO_OPCODE ip                      @ jump to next instruction
+
 
 /* ------------------------------ */
     .balign 128
@@ -1826,7 +1838,6 @@ artMterpAsmInstructionStart = .L_op_nop
     mov     r3, r0, lsr #8              @ r3<- CC
     GET_VREG r0, r2                     @ r0<- vBB (array object)
     GET_VREG r1, r3                     @ r1<- vCC (requested index)
-    CLEAR_SHADOW_PAIR r9, r2, r3        @ Zero out the shadow regs
     cmp     r0, #0                      @ null array object?
     beq     common_errNullObject        @ yes, bail
     ldr     r3, [r0, #MIRROR_ARRAY_LENGTH_OFFSET]    @ r3<- arrayObj->length
@@ -1834,6 +1845,7 @@ artMterpAsmInstructionStart = .L_op_nop
     cmp     r1, r3                      @ compare unsigned index, length
     bcs     common_errArrayIndex        @ index >= length, bail
     FETCH_ADVANCE_INST 2                @ advance rPC, load rINST
+    CLEAR_SHADOW_PAIR r9, lr, ip        @ Zero out the shadow regs
     ldrd    r2, [r0, #MIRROR_WIDE_ARRAY_DATA_OFFSET]  @ r2/r3<- vBB[vCC]
     VREG_INDEX_TO_ADDR r9, r9           @ r9<- &fp[AA]
     GET_INST_OPCODE ip                  @ extract opcode from rINST
@@ -7334,55 +7346,169 @@ constvalop_long_to_double:
 /* ------------------------------ */
     .balign 128
 .L_op_invoke_polymorphic: /* 0xfa */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
+/* File: arm/op_invoke_polymorphic.S */
+/* File: arm/invoke_polymorphic.S */
+    /*
+     * invoke-polymorphic handler wrapper.
+     */
+    /* op {vC, vD, vE, vF, vG}, meth@BBBB, proto@HHHH */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB, proto@HHHH */
+    .extern MterpInvokePolymorphic
+    EXPORT_PC
+    mov     r0, rSELF
+    add     r1, rFP, #OFF_FP_SHADOWFRAME
+    mov     r2, rPC
+    mov     r3, rINST
+    bl      MterpInvokePolymorphic
+    cmp     r0, #0
+    beq     MterpException
+    FETCH_ADVANCE_INST 4
+    bl      MterpShouldSwitchInterpreters
+    cmp     r0, #0
+    bne     MterpFallback
+    GET_INST_OPCODE ip
+    GOTO_OPCODE ip
 
 
 /* ------------------------------ */
     .balign 128
 .L_op_invoke_polymorphic_range: /* 0xfb */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
+/* File: arm/op_invoke_polymorphic_range.S */
+/* File: arm/invoke_polymorphic.S */
+    /*
+     * invoke-polymorphic handler wrapper.
+     */
+    /* op {vC, vD, vE, vF, vG}, meth@BBBB, proto@HHHH */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB, proto@HHHH */
+    .extern MterpInvokePolymorphicRange
+    EXPORT_PC
+    mov     r0, rSELF
+    add     r1, rFP, #OFF_FP_SHADOWFRAME
+    mov     r2, rPC
+    mov     r3, rINST
+    bl      MterpInvokePolymorphicRange
+    cmp     r0, #0
+    beq     MterpException
+    FETCH_ADVANCE_INST 4
+    bl      MterpShouldSwitchInterpreters
+    cmp     r0, #0
+    bne     MterpFallback
+    GET_INST_OPCODE ip
+    GOTO_OPCODE ip
 
 
 /* ------------------------------ */
     .balign 128
 .L_op_invoke_custom: /* 0xfc */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
+/* File: arm/op_invoke_custom.S */
+/* File: arm/invoke.S */
+    /*
+     * Generic invoke handler wrapper.
+     */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
+    .extern MterpInvokeCustom
+    EXPORT_PC
+    mov     r0, rSELF
+    add     r1, rFP, #OFF_FP_SHADOWFRAME
+    mov     r2, rPC
+    mov     r3, rINST
+    bl      MterpInvokeCustom
+    cmp     r0, #0
+    beq     MterpException
+    FETCH_ADVANCE_INST 3
+    bl      MterpShouldSwitchInterpreters
+    cmp     r0, #0
+    bne     MterpFallback
+    GET_INST_OPCODE ip
+    GOTO_OPCODE ip
 
+
+    /*
+     * Handle an invoke-custom invocation.
+     *
+     * for: invoke-custom, invoke-custom/range
+     */
+    /* op vB, {vD, vE, vF, vG, vA}, call_site@BBBB */
+    /* op vAA, {vCCCC..v(CCCC+AA-1)}, call_site@BBBB */
 
 /* ------------------------------ */
     .balign 128
 .L_op_invoke_custom_range: /* 0xfd */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
+/* File: arm/op_invoke_custom_range.S */
+/* File: arm/invoke.S */
+    /*
+     * Generic invoke handler wrapper.
+     */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
+    .extern MterpInvokeCustomRange
+    EXPORT_PC
+    mov     r0, rSELF
+    add     r1, rFP, #OFF_FP_SHADOWFRAME
+    mov     r2, rPC
+    mov     r3, rINST
+    bl      MterpInvokeCustomRange
+    cmp     r0, #0
+    beq     MterpException
+    FETCH_ADVANCE_INST 3
+    bl      MterpShouldSwitchInterpreters
+    cmp     r0, #0
+    bne     MterpFallback
+    GET_INST_OPCODE ip
+    GOTO_OPCODE ip
+
 
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_fe: /* 0xfe */
-/* File: arm/op_unused_fe.S */
-/* File: arm/unused.S */
-/*
- * Bail to reference interpreter to throw.
- */
-  b MterpFallback
+.L_op_const_method_handle: /* 0xfe */
+/* File: arm/op_const_method_handle.S */
+/* File: arm/const.S */
+    /* const/class vAA, type@BBBB */
+    /* const/method-handle vAA, method_handle@BBBB */
+    /* const/method-type vAA, proto@BBBB */
+    /* const/string vAA, string@@BBBB */
+    .extern MterpConstMethodHandle
+    EXPORT_PC
+    FETCH   r0, 1                       @ r0<- BBBB
+    mov     r1, rINST, lsr #8           @ r1<- AA
+    add     r2, rFP, #OFF_FP_SHADOWFRAME
+    mov     r3, rSELF
+    bl      MterpConstMethodHandle                     @ (index, tgt_reg, shadow_frame, self)
+    PREFETCH_INST 2                     @ load rINST
+    cmp     r0, #0                      @ fail?
+    bne     MterpPossibleException      @ let reference interpreter deal with it.
+    ADVANCE 2                           @ advance rPC
+    GET_INST_OPCODE ip                  @ extract opcode from rINST
+    GOTO_OPCODE ip                      @ jump to next instruction
 
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_ff: /* 0xff */
-/* File: arm/op_unused_ff.S */
-/* File: arm/unused.S */
-/*
- * Bail to reference interpreter to throw.
- */
-  b MterpFallback
+.L_op_const_method_type: /* 0xff */
+/* File: arm/op_const_method_type.S */
+/* File: arm/const.S */
+    /* const/class vAA, type@BBBB */
+    /* const/method-handle vAA, method_handle@BBBB */
+    /* const/method-type vAA, proto@BBBB */
+    /* const/string vAA, string@@BBBB */
+    .extern MterpConstMethodType
+    EXPORT_PC
+    FETCH   r0, 1                       @ r0<- BBBB
+    mov     r1, rINST, lsr #8           @ r1<- AA
+    add     r2, rFP, #OFF_FP_SHADOWFRAME
+    mov     r3, rSELF
+    bl      MterpConstMethodType                     @ (index, tgt_reg, shadow_frame, self)
+    PREFETCH_INST 2                     @ load rINST
+    cmp     r0, #0                      @ fail?
+    bne     MterpPossibleException      @ let reference interpreter deal with it.
+    ADVANCE 2                           @ advance rPC
+    GET_INST_OPCODE ip                  @ extract opcode from rINST
+    GOTO_OPCODE ip                      @ jump to next instruction
 
 
     .balign 128
-    .size   artMterpAsmInstructionStart, .-artMterpAsmInstructionStart
     .global artMterpAsmInstructionEnd
 artMterpAsmInstructionEnd:
 
@@ -7392,7 +7518,6 @@ artMterpAsmInstructionEnd:
  * ===========================================================================
  */
     .global artMterpAsmSisterStart
-    .type   artMterpAsmSisterStart, %function
     .text
     .balign 4
 artMterpAsmSisterStart:
@@ -7458,14 +7583,11 @@ d2l_maybeNaN:
     mov     r0, #0
     mov     r1, #0
     bx      lr                          @ return 0 for NaN
-
-    .size   artMterpAsmSisterStart, .-artMterpAsmSisterStart
     .global artMterpAsmSisterEnd
 artMterpAsmSisterEnd:
 
 
     .global artMterpAsmAltInstructionStart
-    .type   artMterpAsmAltInstructionStart, %function
     .text
 
 artMterpAsmAltInstructionStart = .L_ALT_op_nop
@@ -11789,7 +11911,7 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_fe: /* 0xfe */
+.L_ALT_op_const_method_handle: /* 0xfe */
 /* File: arm/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -11806,7 +11928,7 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_ff: /* 0xff */
+.L_ALT_op_const_method_type: /* 0xff */
 /* File: arm/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -11822,7 +11944,6 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
     b      MterpCheckBefore     @ (self, shadow_frame, dex_pc_ptr)  @ Tail call.
 
     .balign 128
-    .size   artMterpAsmAltInstructionStart, .-artMterpAsmAltInstructionStart
     .global artMterpAsmAltInstructionEnd
 artMterpAsmAltInstructionEnd:
 /* File: arm/footer.S */
@@ -11925,11 +12046,10 @@ MterpException:
     bl      MterpHandleException                    @ (self, shadow_frame)
     cmp     r0, #0
     beq     MterpExceptionReturn                    @ no local catch, back to caller.
-    ldr     r0, [rFP, #OFF_FP_CODE_ITEM]
+    ldr     r0, [rFP, #OFF_FP_DEX_INSTRUCTIONS]
     ldr     r1, [rFP, #OFF_FP_DEX_PC]
     ldr     rIBASE, [rSELF, #THREAD_CURRENT_IBASE_OFFSET]
-    add     rPC, r0, #CODEITEM_INSNS_OFFSET
-    add     rPC, rPC, r1, lsl #1                    @ generate new dex_pc_ptr
+    add     rPC, r0, r1, lsl #1                     @ generate new dex_pc_ptr
     /* Do we need to switch interpreters? */
     bl      MterpShouldSwitchInterpreters
     cmp     r0, #0

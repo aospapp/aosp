@@ -251,7 +251,7 @@ BootScriptPciCfg2ReadWrite (
 }
 
 /**
-  Internal function to add smbus excute opcode to the table.
+  Internal function to add smbus execute opcode to the table.
 
   @param  Marker                The variable argument list to get the opcode
                                 and associated attributes.
@@ -348,14 +348,14 @@ BootScriptMemPoll (
   UINT8                 *BitMask;
   UINT8                 *BitValue;
   UINTN                Duration;
-  UINTN                LoopTimes;
+  UINT64               LoopTimes;
 
   Width       = VA_ARG (Marker, S3_BOOT_SCRIPT_LIB_WIDTH);
   Address     = VA_ARG (Marker, UINT64);
   BitMask     = VA_ARG (Marker, UINT8 *);
   BitValue    = VA_ARG (Marker, UINT8 *);
   Duration    = (UINTN)VA_ARG (Marker, UINT64);
-  LoopTimes   = (UINTN)VA_ARG (Marker, UINT64);
+  LoopTimes   = VA_ARG (Marker, UINT64);
 
   return S3BootScriptSaveMemPoll (Width, Address, BitMask, BitValue, Duration, LoopTimes);
 }

@@ -23,9 +23,10 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${CMAKE_CURRENT_SOURCE_DIR}/../../loader
 	${CMAKE_CURRENT_SOURCE_DIR}/../../include/vulkan
+	${CMAKE_CURRENT_SOURCE_DIR}/../../libs/cjson/includes
 	)
 
-add_library(vkjson STATIC vkjson.cc vkjson_instance.cc ../../loader/cJSON.c)
+add_library(vkjson STATIC vkjson.cc vkjson_instance.cc ../../libs/cjson/cJSON.c)
 
 if(UNIX)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sign-compare")
@@ -40,8 +41,8 @@ endif()
 target_link_libraries(vkjson_unittest vkjson)
 
 if(WIN32)
-    target_link_libraries(vkjson_info vkjson vulkan-${MAJOR})
+    target_link_libraries(vkjson_info vkjson ${API_LOWERCASE}-${MAJOR})
 elseif(UNIX)
-    target_link_libraries(vkjson_info vkjson vulkan)
+    target_link_libraries(vkjson_info vkjson ${API_LOWERCASE})
 else()
 endif()

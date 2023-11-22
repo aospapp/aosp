@@ -41,22 +41,21 @@ class MyMachineManager(machine_manager.MachineManager):
         assert m.name != machine_name, 'Tried to double-add %s' % machine_name
       cm = machine_manager.MockCrosMachine(machine_name, self.chromeos_root,
                                            'average')
-      assert cm.machine_checksum, ('Could not find checksum for machine %s' %
-                                   machine_name)
+      assert cm.machine_checksum, (
+          'Could not find checksum for machine %s' % machine_name)
       self._all_machines.append(cm)
 
 
 CHROMEOS_ROOT = '/tmp/chromeos-root'
 MACHINE_NAMES = ['lumpy1', 'lumpy2', 'lumpy3', 'daisy1', 'daisy2']
-LABEL_LUMPY = label.MockLabel('lumpy', 'lumpy_chromeos_image', 'autotest_dir',
-                              CHROMEOS_ROOT, 'lumpy',
-                              ['lumpy1', 'lumpy2', 'lumpy3', 'lumpy4'], '', '',
-                              False, 'average,'
-                              'gcc', None)
+LABEL_LUMPY = label.MockLabel(
+    'lumpy', 'lumpy_chromeos_image', 'autotest_dir', CHROMEOS_ROOT, 'lumpy',
+    ['lumpy1', 'lumpy2', 'lumpy3', 'lumpy4'], '', '', False, 'average,'
+    'gcc', None)
 LABEL_MIX = label.MockLabel('mix', 'chromeos_image', 'autotest_dir',
                             CHROMEOS_ROOT, 'mix',
-                            ['daisy1', 'daisy2', 'lumpy3', 'lumpy4'], '', '',
-                            False, 'average', 'gcc', None)
+                            ['daisy1', 'daisy2', 'lumpy3',
+                             'lumpy4'], '', '', False, 'average', 'gcc', None)
 
 
 class MachineManagerTest(unittest.TestCase):
@@ -85,10 +84,9 @@ class MachineManagerTest(unittest.TestCase):
   def setUp(self, mock_isdir):
 
     mock_isdir.return_value = True
-    self.mm = machine_manager.MachineManager('/usr/local/chromeos', 0,
-                                             'average', None,
-                                             self.mock_cmd_exec,
-                                             self.mock_logger)
+    self.mm = machine_manager.MachineManager(
+        '/usr/local/chromeos', 0, 'average', None, self.mock_cmd_exec,
+        self.mock_logger)
 
     self.mock_lumpy1.name = 'lumpy1'
     self.mock_lumpy2.name = 'lumpy2'

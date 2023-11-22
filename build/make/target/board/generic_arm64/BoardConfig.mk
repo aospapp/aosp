@@ -20,12 +20,13 @@ TARGET_ARCH := arm64
 TARGET_ARCH_VARIANT := armv8-a
 TARGET_CPU_VARIANT := generic
 TARGET_CPU_ABI := arm64-v8a
+TARGET_BOOTLOADER_BOARD_NAME := goldfish_$(TARGET_ARCH)
 
 TARGET_2ND_ARCH := arm
 TARGET_2ND_CPU_ABI := armeabi-v7a
 TARGET_2ND_CPU_ABI2 := armeabi
 
-ifneq ($(TARGET_BUILD_APPS)$(filter cts,$(MAKECMDGOALS)),)
+ifneq ($(TARGET_BUILD_APPS)$(filter cts sdk,$(MAKECMDGOALS)),)
 # DO NOT USE
 # DO NOT USE
 #
@@ -35,11 +36,11 @@ ifneq ($(TARGET_BUILD_APPS)$(filter cts,$(MAKECMDGOALS)),)
 # platforms.
 #
 # If you're building a 64 bit platform (and not an application) the
-# ARM-v8 specification allows you to assume NEON and all the features
-# available in a cortex-A15 CPU. You should be able to set :
+# ARM-v8 specification allows you to assume all the features available in an
+# armv7-a-neon CPU. You should set the following as 2nd arch/cpu variant:
 #
-# TARGET_2ND_ARCH_VARIANT := armv7-a-neon
-# TARGET_2ND_CPU_VARIANT := cortex-a15
+# TARGET_2ND_ARCH_VARIANT := armv8-a
+# TARGET_2ND_CPU_VARIANT := generic
 #
 # DO NOT USE
 # DO NOT USE
@@ -50,8 +51,8 @@ TARGET_2ND_CPU_VARIANT := generic
 # DO NOT USE
 # DO NOT USE
 else
-TARGET_2ND_ARCH_VARIANT := armv7-a-neon
-TARGET_2ND_CPU_VARIANT := cortex-a15
+TARGET_2ND_ARCH_VARIANT := armv8-a
+TARGET_2ND_CPU_VARIANT := generic
 endif
 
 
@@ -59,15 +60,6 @@ TARGET_USES_64_BIT_BINDER := true
 
 # no hardware camera
 USE_CAMERA_STUB := true
-
-# Enable dex-preoptimization to speed up the first boot sequence
-# of an SDK AVD. Note that this operation only works on Linux for now
-ifeq ($(HOST_OS),linux)
-  ifeq ($(WITH_DEXPREOPT),)
-    WITH_DEXPREOPT := true
-    WITH_DEXPREOPT_BOOT_IMG_AND_SYSTEM_SERVER_ONLY := false
-  endif
-endif
 
 TARGET_USES_HWC2 := true
 NUM_FRAMEBUFFER_SURFACE_BUFFERS := 3
@@ -81,18 +73,68 @@ BUILD_QEMU_IMAGES := true
 USE_OPENGL_RENDERER := true
 
 TARGET_USERIMAGES_USE_EXT4 := true
-BOARD_SYSTEMIMAGE_PARTITION_SIZE := 2684354560  # 2.5 GB
+# Partition size is default 1.5GB (1536MB) for 64 bits projects
+BOARD_SYSTEMIMAGE_PARTITION_SIZE := 1610612736
 BOARD_USERDATAIMAGE_PARTITION_SIZE := 576716800
 TARGET_COPY_OUT_VENDOR := vendor
 # ~100 MB vendor image. Please adjust system image / vendor image sizes
 # when finalizing them.
 BOARD_VENDORIMAGE_PARTITION_SIZE := 100000000
 BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE := ext4
-BOARD_CACHEIMAGE_PARTITION_SIZE := 69206016
-BOARD_CACHEIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_FLASH_BLOCK_SIZE := 512
 TARGET_USERIMAGES_SPARSE_EXT_DISABLED := true
 DEVICE_MATRIX_FILE   := device/generic/goldfish/compatibility_matrix.xml
 
+# Android generic system image always create metadata partition
+BOARD_USES_METADATA_PARTITION := true
+
+# Set this to create /cache mount point for non-A/B devices that mounts /cache.
+# The partition size doesn't matter, just to make build pass.
+BOARD_CACHEIMAGE_FILE_SYSTEM_TYPE := ext4
+BOARD_CACHEIMAGE_PARTITION_SIZE := 16777216
+
 BOARD_PROPERTY_OVERRIDES_SPLIT_ENABLED := true
 BOARD_SEPOLICY_DIRS += build/target/board/generic/sepolicy
+
+# Android Verified Boot (AVB):
+#   Builds a special vbmeta.img that disables AVB verification.
+#   Otherwise, AVB will prevent the device from booting the generic system.img.
+#   Also checks that BOARD_AVB_ENABLE is not set, to prevent adding verity
+#   metadata into system.img.
+ifeq ($(BOARD_AVB_ENABLE),true)
+$(error BOARD_AVB_ENABLE cannot be set for GSI)
+endif
+BOARD_BUILD_DISABLED_VBMETAIMAGE := true
+
+ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
+# GSI is always userdebug and needs a couple of properties taking precedence
+# over those set by the vendor.
+TARGET_SYSTEM_PROP := build/make/target/board/gsi_system.prop
+endif
+BOARD_VNDK_VERSION := current
+
+# Emulator system image is going to be used as GSI and some vendor still hasn't
+# cleaned up all device specific directories under root!
+
+# TODO(jiyong) These might be SoC specific.
+BOARD_ROOT_EXTRA_FOLDERS += firmware firmware/radio persist
+BOARD_ROOT_EXTRA_SYMLINKS := /vendor/lib/dsp:/dsp
+
+# TODO(b/36764215): remove this setting when the generic system image
+# no longer has QCOM-specific directories under /.
+BOARD_SEPOLICY_DIRS += build/target/board/generic_arm64_ab/sepolicy
+
+# Wifi.
+BOARD_WLAN_DEVICE           := emulator
+BOARD_HOSTAPD_DRIVER        := NL80211
+BOARD_WPA_SUPPLICANT_DRIVER := NL80211
+BOARD_HOSTAPD_PRIVATE_LIB   := lib_driver_cmd_simulated
+BOARD_WPA_SUPPLICANT_PRIVATE_LIB := lib_driver_cmd_simulated
+WPA_SUPPLICANT_VERSION      := VER_0_8_X
+WIFI_DRIVER_FW_PATH_PARAM   := "/dev/null"
+WIFI_DRIVER_FW_PATH_STA     := "/dev/null"
+WIFI_DRIVER_FW_PATH_AP      := "/dev/null"
+
+# Enable A/B update
+TARGET_NO_RECOVERY := true
+BOARD_BUILD_SYSTEM_ROOT_IMAGE := true

@@ -25,13 +25,11 @@ import android.support.annotation.NonNull;
 import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
 import android.support.v17.leanback.widget.GuidedAction;
 import android.text.format.DateUtils;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.data.Program;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.data.ScheduledRecording;
-
 import java.util.List;
 
 /**
@@ -52,13 +50,19 @@ public class DvrAlreadyScheduledFragment extends DvrGuidedStepFragment {
     public void onAttach(Context context) {
         super.onAttach(context);
         mProgram = getArguments().getParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM);
-        DvrManager dvrManager = TvApplication.getSingletons(context).getDvrManager();
-        mDuplicate = dvrManager.getScheduledRecording(mProgram.getTitle(),
-                mProgram.getSeasonNumber(), mProgram.getEpisodeNumber());
+        DvrManager dvrManager = TvSingletons.getSingletons(context).getDvrManager();
+        mDuplicate =
+                dvrManager.getScheduledRecording(
+                        mProgram.getTitle(),
+                        mProgram.getSeasonNumber(),
+                        mProgram.getEpisodeNumber());
         if (mDuplicate == null) {
             dvrManager.addSchedule(mProgram);
-            DvrUiHelper.showAddScheduleToast(context, mProgram.getTitle(),
-                    mProgram.getStartTimeUtcMillis(), mProgram.getEndTimeUtcMillis());
+            DvrUiHelper.showAddScheduleToast(
+                    context,
+                    mProgram.getTitle(),
+                    mProgram.getStartTimeUtcMillis(),
+                    mProgram.getEndTimeUtcMillis());
             dismissDialog();
         }
     }
@@ -67,9 +71,13 @@ public class DvrAlreadyScheduledFragment extends DvrGuidedStepFragment {
     @Override
     public Guidance onCreateGuidance(Bundle savedInstanceState) {
         String title = getString(R.string.dvr_already_scheduled_dialog_title);
-        String description = getString(R.string.dvr_already_scheduled_dialog_description,
-                DateUtils.formatDateTime(getContext(), mDuplicate.getStartTimeMs(),
-                        DateUtils.FORMAT_SHOW_TIME | DateUtils.FORMAT_SHOW_DATE));
+        String description =
+                getString(
+                        R.string.dvr_already_scheduled_dialog_description,
+                        DateUtils.formatDateTime(
+                                getContext(),
+                                mDuplicate.getStartTimeMs(),
+                                DateUtils.FORMAT_SHOW_TIME | DateUtils.FORMAT_SHOW_DATE));
         Drawable image = getResources().getDrawable(R.drawable.ic_warning_white_96dp, null);
         return new Guidance(title, description, null, image);
     }
@@ -77,18 +85,21 @@ public class DvrAlreadyScheduledFragment extends DvrGuidedStepFragment {
     @Override
     public void onCreateActions(@NonNull List<GuidedAction> actions, Bundle savedInstanceState) {
         Context context = getContext();
-        actions.add(new GuidedAction.Builder(context)
-                .id(ACTION_RECORD_ANYWAY)
-                .title(R.string.dvr_action_record_anyway)
-                .build());
-        actions.add(new GuidedAction.Builder(context)
-                .id(ACTION_RECORD_INSTEAD)
-                .title(R.string.dvr_action_record_instead)
-                .build());
-        actions.add(new GuidedAction.Builder(context)
-                .id(ACTION_CANCEL)
-                .title(R.string.dvr_action_record_cancel)
-                .build());
+        actions.add(
+                new GuidedAction.Builder(context)
+                        .id(ACTION_RECORD_ANYWAY)
+                        .title(R.string.dvr_action_record_anyway)
+                        .build());
+        actions.add(
+                new GuidedAction.Builder(context)
+                        .id(ACTION_RECORD_INSTEAD)
+                        .title(R.string.dvr_action_record_instead)
+                        .build());
+        actions.add(
+                new GuidedAction.Builder(context)
+                        .id(ACTION_CANCEL)
+                        .title(R.string.dvr_action_record_cancel)
+                        .build());
     }
 
     @Override

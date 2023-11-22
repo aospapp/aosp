@@ -14,32 +14,45 @@ if [ -z $ANDROID_BUILD_TOP ]; then
   exit 1
 fi
 
-./prepdevice.sh || die "Unable to prepare device"
+adb wait-for-device || die
 
+echo "Running form command test. . ."
 sleep 2
 
-echo "Running tests. . ."
-
-set -x # print commands
-
+# Clobber any existing instance of wpantund
 adb shell killall wpantund 2> /dev/null
 
-adb shell wpantund -s 'system:ot-ncp\ 1' -o Config:Daemon:ExternalNetifManagement 1 &
+# Start wpantund
+echo "+ adb shell wpantund -I wpan5 -s 'system:ot-ncp\ 1' -o Config:Daemon:ExternalNetifManagement 1 &"
+adb shell wpantund -I wpan5 -s 'system:ot-ncp\ 1' -o Config:Daemon:ExternalNetifManagement 1 &
 WPANTUND_PID=$!
 trap "kill -HUP $WPANTUND_PID 2> /dev/null" EXIT INT TERM
 
+# Verify wpantund started properly
 sleep 2
-
 kill -0 $WPANTUND_PID || die "wpantund failed to start"
-
 sleep 2
 
-adb shell lowpanctl status || die
-adb shell lowpanctl form blahnet || die
-adb shell lowpanctl status || die
-adb shell ifconfig wpan0 || die
+echo "+ adb shell lowpanctl -I wpan5 status"
+adb shell lowpanctl -I wpan5 status || die
+echo "+ adb shell lowpanctl -I wpan5 form blahnet"
+adb shell lowpanctl -I wpan5 form blahnet || die
+echo "+ adb shell lowpanctl -I wpan5 status"
+adb shell lowpanctl -I wpan5 status || die
+echo "+ adb shell ifconfig wpan5"
+adb shell ifconfig wpan5 || die
+echo "+ adb shell dumpsys netd"
+adb shell dumpsys netd || die
+echo "+ adb shell ip -6 rule"
+adb shell ip -6 rule || die
+echo "+ adb shell ip -6 route list table wpan5"
+adb shell ip -6 route list table wpan5 || die
 
-set +x # Turn off printing commands
+if [ "shell" = "$1" ]
+then
+	echo "+ adb shell"
+	adb shell
+fi
 
-echo Finished.
+echo "Finished form command test."
 

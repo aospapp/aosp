@@ -16,25 +16,32 @@
 
 package android.filesystem.cts;
 
+import static android.support.test.InstrumentationRegistry.getContext;
+import static android.support.test.InstrumentationRegistry.getInstrumentation;
+
 import android.os.Environment;
 
+import android.support.test.runner.AndroidJUnit4;
 import com.android.compatibility.common.util.CddTest;
-import com.android.compatibility.common.util.CtsAndroidTestCase;
 import com.android.compatibility.common.util.DeviceReportLog;
+import org.junit.After;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class RandomRWTest extends CtsAndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class RandomRWTest {
     private static final String DIR_RANDOM_WR = "RANDOM_WR";
     private static final String DIR_RANDOM_RD = "RANDOM_RD";
     private static final String REPORT_LOG_NAME = "CtsFileSystemTestCases";
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         FileUtil.removeFileOrDir(getContext(), DIR_RANDOM_WR);
         FileUtil.removeFileOrDir(getContext(), DIR_RANDOM_RD);
-        super.tearDown();
     }
 
     @CddTest(requirement="8.2")
+    @Test
     public void testRandomRead() throws Exception {
         final int READ_BUFFER_SIZE = 4 * 1024;
         final long fileSize = FileUtil.getFileSizeExceedingMemory(getContext(), READ_BUFFER_SIZE);
@@ -50,6 +57,7 @@ public class RandomRWTest extends CtsAndroidTestCase {
 
     // It is taking too long in some device, and thus cannot run multiple times
     @CddTest(requirement="8.2")
+    @Test
     public void testRandomUpdate() throws Exception {
         final int WRITE_BUFFER_SIZE = 4 * 1024;
         final long usableSpace = Environment.getDataDirectory().getUsableSpace();

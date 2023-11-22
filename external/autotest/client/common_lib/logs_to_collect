@@ -20,7 +20,8 @@ dev_image/autotest/results
 # might contain useful data when a DUT hangs, times out or crashes.
 /sys/kernel/debug/dri/0/i915_error_state
 
-/dev/pstore/console-ramoops
+# Grab all possible pstore files.  Who knows what goodies might be in there!
+/sys/fs/pstore
 
 /var/log
 /var/spool/crash

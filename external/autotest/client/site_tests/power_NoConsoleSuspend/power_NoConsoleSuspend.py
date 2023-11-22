@@ -4,8 +4,9 @@
 
 import logging, errno, shutil, os
 from autotest_lib.client.bin import test, utils
-from autotest_lib.client.cros import rtc, sys_power
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.cros import rtc
+from autotest_lib.client.cros.power import sys_power
 
 SYSFS_CONSOLE_SUSPEND = '/sys/module/printk/parameters/console_suspend'
 

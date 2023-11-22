@@ -31,21 +31,34 @@
 
 static void print_usage(FILE *f)
 {
-	fprintf(f, "Usage: ip link { add | set | change | replace | del } NAME\n");
-	fprintf(f, "          [ mode { ip6ip6 | ipip6 | any } ]\n");
-	fprintf(f, "          type ip6tnl [ remote ADDR ] [ local ADDR ]\n");
-	fprintf(f, "          [ dev PHYS_DEV ] [ encaplimit ELIM ]\n");
-	fprintf(f ,"          [ hoplimit HLIM ] [ tclass TCLASS ] [ flowlabel FLOWLABEL ]\n");
-	fprintf(f, "          [ dscp inherit ] [ fwmark inherit ]\n");
-	fprintf(f, "\n");
-	fprintf(f, "Where: NAME      := STRING\n");
-	fprintf(f, "       ADDR      := IPV6_ADDRESS\n");
-	fprintf(f, "       ELIM      := { none | 0..255 }(default=%d)\n",
-		IPV6_DEFAULT_TNL_ENCAP_LIMIT);
-	fprintf(f, "       HLIM      := 0..255 (default=%d)\n",
-		DEFAULT_TNL_HOP_LIMIT);
-	fprintf(f, "       TCLASS    := { 0x0..0xff | inherit }\n");
-	fprintf(f, "       FLOWLABEL := { 0x0..0xfffff | inherit }\n");
+	fprintf(f,
+		"Usage: ... ip6tnl [ mode { ip6ip6 | ipip6 | any } ]\n"
+		"                  [ remote ADDR ]\n"
+		"                  [ local ADDR ]\n"
+		"                  [ dev PHYS_DEV ]\n"
+		"                  [ encaplimit ELIM ]\n"
+		"                  [ hoplimit HLIM ]\n"
+		"                  [ tclass TCLASS ]\n"
+		"                  [ flowlabel FLOWLABEL ]\n"
+		"                  [ dscp inherit ]\n"
+		"                  [ fwmark MARK ]\n"
+		"                  [ noencap ]\n"
+		"                  [ encap { fou | gue | none } ]\n"
+		"                  [ encap-sport PORT ]\n"
+		"                  [ encap-dport PORT ]\n"
+		"                  [ [no]encap-csum ]\n"
+		"                  [ [no]encap-csum6 ]\n"
+		"                  [ [no]encap-remcsum ]\n"
+		"                  [ external ]\n"
+		"\n"
+		"Where: ADDR      := IPV6_ADDRESS\n"
+		"       ELIM      := { none | 0..255 }(default=%d)\n"
+		"       HLIM      := 0..255 (default=%d)\n"
+		"       TCLASS    := { 0x0..0xff | inherit }\n"
+		"       FLOWLABEL := { 0x0..0xfffff | inherit }\n"
+		"       MARK      := { 0x0..0xffffffff | inherit }\n",
+		IPV6_DEFAULT_TNL_ENCAP_LIMIT, DEFAULT_TNL_HOP_LIMIT
+	);
 }
 
 static void usage(void) __attribute__((noreturn));
@@ -58,37 +71,38 @@ static void usage(void)
 static int ip6tunnel_parse_opt(struct link_util *lu, int argc, char **argv,
 			       struct nlmsghdr *n)
 {
+	struct ifinfomsg *ifi = (struct ifinfomsg *)(n + 1);
 	struct {
 		struct nlmsghdr n;
 		struct ifinfomsg i;
 		char buf[2048];
-	} req;
-	struct ifinfomsg *ifi = (struct ifinfomsg *)(n + 1);
+	} req = {
+		.n.nlmsg_len = NLMSG_LENGTH(sizeof(*ifi)),
+		.n.nlmsg_flags = NLM_F_REQUEST,
+		.n.nlmsg_type = RTM_GETLINK,
+		.i.ifi_family = preferred_family,
+		.i.ifi_index = ifi->ifi_index,
+	};
 	struct rtattr *tb[IFLA_MAX + 1];
 	struct rtattr *linkinfo[IFLA_INFO_MAX+1];
 	struct rtattr *iptuninfo[IFLA_IPTUN_MAX + 1];
 	int len;
-	struct in6_addr laddr;
-	struct in6_addr raddr;
+	struct in6_addr laddr = {};
+	struct in6_addr raddr = {};
 	__u8 hop_limit = DEFAULT_TNL_HOP_LIMIT;
 	__u8 encap_limit = IPV6_DEFAULT_TNL_ENCAP_LIMIT;
 	__u32 flowinfo = 0;
 	__u32 flags = 0;
 	__u32 link = 0;
 	__u8 proto = 0;
-
-	memset(&laddr, 0, sizeof(laddr));
-	memset(&raddr, 0, sizeof(raddr));
+	__u16 encaptype = 0;
+	__u16 encapflags = TUNNEL_ENCAP_FLAG_CSUM6;
+	__u16 encapsport = 0;
+	__u16 encapdport = 0;
+	__u8 metadata = 0;
+	__u32 fwmark = 0;
 
 	if (!(n->nlmsg_flags & NLM_F_CREATE)) {
-		memset(&req, 0, sizeof(req));
-
-		req.n.nlmsg_len = NLMSG_LENGTH(sizeof(*ifi));
-		req.n.nlmsg_flags = NLM_F_REQUEST;
-		req.n.nlmsg_type = RTM_GETLINK;
-		req.i.ifi_family = preferred_family;
-		req.i.ifi_index = ifi->ifi_index;
-
 		if (rtnl_talk(&rth, &req.n, &req.n, sizeof(req)) < 0) {
 get_failed:
 			fprintf(stderr,
@@ -139,6 +153,11 @@ get_failed:
 
 		if (iptuninfo[IFLA_IPTUN_PROTO])
 			proto = rta_getattr_u8(iptuninfo[IFLA_IPTUN_PROTO]);
+		if (iptuninfo[IFLA_IPTUN_COLLECT_METADATA])
+			metadata = 1;
+
+		if (iptuninfo[IFLA_IPTUN_FWMARK])
+			fwmark = rta_getattr_u32(iptuninfo[IFLA_IPTUN_FWMARK]);
 	}
 
 	while (argc > 0) {
@@ -159,6 +178,7 @@ get_failed:
 				invarg("Cannot guess tunnel mode.", *argv);
 		} else if (strcmp(*argv, "remote") == 0) {
 			inet_prefix addr;
+
 			NEXT_ARG();
 			get_prefix(&addr, *argv, preferred_family);
 			if (addr.family == AF_UNSPEC)
@@ -166,6 +186,7 @@ get_failed:
 			memcpy(&raddr, addr.data, addr.bytelen);
 		} else if (strcmp(*argv, "local") == 0) {
 			inet_prefix addr;
+
 			NEXT_ARG();
 			get_prefix(&addr, *argv, preferred_family);
 			if (addr.family == AF_UNSPEC)
@@ -180,16 +201,18 @@ get_failed:
 			   strcmp(*argv, "ttl") == 0 ||
 			   strcmp(*argv, "hlim") == 0) {
 			__u8 uval;
+
 			NEXT_ARG();
 			if (get_u8(&uval, *argv, 0))
 				invarg("invalid HLIM", *argv);
 			hop_limit = uval;
-		} else if (matches(*argv, "encaplimit") == 0) {
+		} else if (strcmp(*argv, "encaplimit") == 0) {
 			NEXT_ARG();
 			if (strcmp(*argv, "none") == 0) {
 				flags |= IP6_TNL_F_IGN_ENCAP_LIMIT;
 			} else {
 				__u8 uval;
+
 				if (get_u8(&uval, *argv, 0) < -1)
 					invarg("invalid ELIM", *argv);
 				encap_limit = uval;
@@ -200,6 +223,7 @@ get_failed:
 			   strcmp(*argv, "tos") == 0 ||
 			   matches(*argv, "dsfield") == 0) {
 			__u8 uval;
+
 			NEXT_ARG();
 			flowinfo &= ~IP6_FLOWINFO_TCLASS;
 			if (strcmp(*argv, "inherit") == 0)
@@ -213,6 +237,7 @@ get_failed:
 		} else if (strcmp(*argv, "flowlabel") == 0 ||
 			   strcmp(*argv, "fl") == 0) {
 			__u32 uval;
+
 			NEXT_ARG();
 			flowinfo &= ~IP6_FLOWINFO_FLOWLABEL;
 			if (strcmp(*argv, "inherit") == 0)
@@ -232,15 +257,60 @@ get_failed:
 			flags |= IP6_TNL_F_RCV_DSCP_COPY;
 		} else if (strcmp(*argv, "fwmark") == 0) {
 			NEXT_ARG();
-			if (strcmp(*argv, "inherit") != 0)
-				invarg("not inherit", *argv);
-			flags |= IP6_TNL_F_USE_ORIG_FWMARK;
+			if (strcmp(*argv, "inherit") == 0) {
+				flags |= IP6_TNL_F_USE_ORIG_FWMARK;
+				fwmark = 0;
+			} else {
+				if (get_u32(&fwmark, *argv, 0))
+					invarg("invalid fwmark\n", *argv);
+				flags &= ~IP6_TNL_F_USE_ORIG_FWMARK;
+			}
+		} else if (strcmp(*argv, "noencap") == 0) {
+			encaptype = TUNNEL_ENCAP_NONE;
+		} else if (strcmp(*argv, "encap") == 0) {
+			NEXT_ARG();
+			if (strcmp(*argv, "fou") == 0)
+				encaptype = TUNNEL_ENCAP_FOU;
+			else if (strcmp(*argv, "gue") == 0)
+				encaptype = TUNNEL_ENCAP_GUE;
+			else if (strcmp(*argv, "none") == 0)
+				encaptype = TUNNEL_ENCAP_NONE;
+			else
+				invarg("Invalid encap type.", *argv);
+		} else if (strcmp(*argv, "encap-sport") == 0) {
+			NEXT_ARG();
+			if (strcmp(*argv, "auto") == 0)
+				encapsport = 0;
+			else if (get_u16(&encapsport, *argv, 0))
+				invarg("Invalid source port.", *argv);
+		} else if (strcmp(*argv, "encap-dport") == 0) {
+			NEXT_ARG();
+			if (get_u16(&encapdport, *argv, 0))
+				invarg("Invalid destination port.", *argv);
+		} else if (strcmp(*argv, "encap-csum") == 0) {
+			encapflags |= TUNNEL_ENCAP_FLAG_CSUM;
+		} else if (strcmp(*argv, "noencap-csum") == 0) {
+			encapflags &= ~TUNNEL_ENCAP_FLAG_CSUM;
+		} else if (strcmp(*argv, "encap-udp6-csum") == 0) {
+			encapflags |= TUNNEL_ENCAP_FLAG_CSUM6;
+		} else if (strcmp(*argv, "noencap-udp6-csum") == 0) {
+			encapflags &= ~TUNNEL_ENCAP_FLAG_CSUM6;
+		} else if (strcmp(*argv, "encap-remcsum") == 0) {
+			encapflags |= TUNNEL_ENCAP_FLAG_REMCSUM;
+		} else if (strcmp(*argv, "noencap-remcsum") == 0) {
+			encapflags |= ~TUNNEL_ENCAP_FLAG_REMCSUM;
+		} else if (strcmp(*argv, "external") == 0) {
+			metadata = 1;
 		} else
 			usage();
 		argc--, argv++;
 	}
 
 	addattr8(n, 1024, IFLA_IPTUN_PROTO, proto);
+	if (metadata) {
+		addattr_l(n, 1024, IFLA_IPTUN_COLLECT_METADATA, NULL, 0);
+		return 0;
+	}
 	addattr_l(n, 1024, IFLA_IPTUN_LOCAL, &laddr, sizeof(laddr));
 	addattr_l(n, 1024, IFLA_IPTUN_REMOTE, &raddr, sizeof(raddr));
 	addattr8(n, 1024, IFLA_IPTUN_TTL, hop_limit);
@@ -248,13 +318,18 @@ get_failed:
 	addattr32(n, 1024, IFLA_IPTUN_FLOWINFO, flowinfo);
 	addattr32(n, 1024, IFLA_IPTUN_FLAGS, flags);
 	addattr32(n, 1024, IFLA_IPTUN_LINK, link);
+	addattr32(n, 1024, IFLA_IPTUN_FWMARK, fwmark);
+
+	addattr16(n, 1024, IFLA_IPTUN_ENCAP_TYPE, encaptype);
+	addattr16(n, 1024, IFLA_IPTUN_ENCAP_FLAGS, encapflags);
+	addattr16(n, 1024, IFLA_IPTUN_ENCAP_SPORT, htons(encapsport));
+	addattr16(n, 1024, IFLA_IPTUN_ENCAP_DPORT, htons(encapdport));
 
 	return 0;
 }
 
 static void ip6tunnel_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
 {
-	char s1[256];
 	char s2[64];
 	int flags = 0;
 	__u32 flowinfo = 0;
@@ -271,79 +346,191 @@ static void ip6tunnel_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb
 	if (tb[IFLA_IPTUN_PROTO]) {
 		switch (rta_getattr_u8(tb[IFLA_IPTUN_PROTO])) {
 		case IPPROTO_IPIP:
-			fprintf(f, "ipip6 ");
+			print_string(PRINT_ANY, "proto", "%s ", "ipip6");
 			break;
 		case IPPROTO_IPV6:
-			fprintf(f, "ip6ip6 ");
+			print_string(PRINT_ANY, "proto", "%s ", "ip6ip6");
 			break;
 		case 0:
-			fprintf(f, "any ");
+			print_string(PRINT_ANY, "proto", "%s ", "any");
 			break;
 		}
 	}
 
 	if (tb[IFLA_IPTUN_REMOTE]) {
-		fprintf(f, "remote %s ",
-			rt_addr_n2a(AF_INET6,
-				    RTA_PAYLOAD(tb[IFLA_IPTUN_REMOTE]),
-				    RTA_DATA(tb[IFLA_IPTUN_REMOTE]),
-				    s1, sizeof(s1)));
+		print_string(PRINT_ANY,
+			     "remote",
+			     "remote %s ",
+			     rt_addr_n2a_rta(AF_INET6, tb[IFLA_IPTUN_REMOTE]));
 	}
 
 	if (tb[IFLA_IPTUN_LOCAL]) {
-		fprintf(f, "local %s ",
-			rt_addr_n2a(AF_INET6,
-				    RTA_PAYLOAD(tb[IFLA_IPTUN_LOCAL]),
-				    RTA_DATA(tb[IFLA_IPTUN_LOCAL]),
-				    s1, sizeof(s1)));
+		print_string(PRINT_ANY,
+			     "local",
+			     "local %s ",
+			     rt_addr_n2a_rta(AF_INET6, tb[IFLA_IPTUN_LOCAL]));
 	}
 
 	if (tb[IFLA_IPTUN_LINK] && rta_getattr_u32(tb[IFLA_IPTUN_LINK])) {
-		unsigned link = rta_getattr_u32(tb[IFLA_IPTUN_LINK]);
+		unsigned int link = rta_getattr_u32(tb[IFLA_IPTUN_LINK]);
 		const char *n = if_indextoname(link, s2);
 
 		if (n)
-			fprintf(f, "dev %s ", n);
+			print_string(PRINT_ANY, "link", "dev %s ", n);
 		else
-			fprintf(f, "dev %u ", link);
+			print_uint(PRINT_ANY, "link_index", "dev %u ", link);
 	}
 
 	if (flags & IP6_TNL_F_IGN_ENCAP_LIMIT)
-		printf("encaplimit none ");
+		print_bool(PRINT_ANY,
+			   "ip6_tnl_f_ign_encap_limit",
+			   "encaplimit none ",
+			   true);
 	else if (tb[IFLA_IPTUN_ENCAP_LIMIT])
-		fprintf(f, "encaplimit %u ",
-			rta_getattr_u8(tb[IFLA_IPTUN_ENCAP_LIMIT]));
+		print_uint(PRINT_ANY,
+			   "encap_limit",
+			   "encaplimit %u ",
+			   rta_getattr_u8(tb[IFLA_IPTUN_ENCAP_LIMIT]));
 
 	if (tb[IFLA_IPTUN_TTL])
-		fprintf(f, "hoplimit %u ", rta_getattr_u8(tb[IFLA_IPTUN_TTL]));
+		print_uint(PRINT_ANY,
+			   "ttl",
+			   "hoplimit %u ",
+			   rta_getattr_u8(tb[IFLA_IPTUN_TTL]));
 
 	if (flags & IP6_TNL_F_USE_ORIG_TCLASS)
-		printf("tclass inherit ");
+		print_bool(PRINT_ANY,
+			   "ip6_tnl_f_use_orig_tclass",
+			   "tclass inherit ",
+			   true);
 	else if (tb[IFLA_IPTUN_FLOWINFO]) {
 		__u32 val = ntohl(flowinfo & IP6_FLOWINFO_TCLASS);
 
-		printf("tclass 0x%02x ", (__u8)(val >> 20));
+		if (is_json_context()) {
+			SPRINT_BUF(b1);
+
+			snprintf(b1, sizeof(b1), "0x%02x", (__u8)(val >> 20));
+			print_string(PRINT_JSON, "flowinfo_tclass", NULL, b1);
+		} else {
+			printf("tclass 0x%02x ", (__u8)(val >> 20));
+		}
 	}
 
-	if (flags & IP6_TNL_F_USE_ORIG_FLOWLABEL)
-		printf("flowlabel inherit ");
-	else
-		printf("flowlabel 0x%05x ", ntohl(flowinfo & IP6_FLOWINFO_FLOWLABEL));
+	if (flags & IP6_TNL_F_USE_ORIG_FLOWLABEL) {
+		print_bool(PRINT_ANY,
+			   "ip6_tnl_f_use_orig_flowlabel",
+			   "flowlabel inherit ",
+			   true);
+	} else {
+		if (is_json_context()) {
+			SPRINT_BUF(b1);
 
-	printf("(flowinfo 0x%08x) ", ntohl(flowinfo));
+			snprintf(b1, sizeof(b1), "0x%05x",
+				 ntohl(flowinfo & IP6_FLOWINFO_FLOWLABEL));
+			print_string(PRINT_JSON, "flowlabel", NULL, b1);
+		} else {
+			printf("flowlabel 0x%05x ",
+			       ntohl(flowinfo & IP6_FLOWINFO_FLOWLABEL));
+		}
+	}
+
+	if (is_json_context()) {
+		SPRINT_BUF(flwinfo);
+
+		snprintf(flwinfo, sizeof(flwinfo), "0x%08x", ntohl(flowinfo));
+		print_string(PRINT_JSON, "flowinfo", NULL, flwinfo);
+	} else {
+		printf("(flowinfo 0x%08x) ", ntohl(flowinfo));
+
+	}
 
 	if (flags & IP6_TNL_F_RCV_DSCP_COPY)
-		printf("dscp inherit ");
+		print_bool(PRINT_ANY,
+			   "ip6_tnl_f_rcv_dscp_copy",
+			   "dscp inherit ",
+			   true);
 
 	if (flags & IP6_TNL_F_MIP6_DEV)
-		fprintf(f, "mip6 ");
+		print_bool(PRINT_ANY, "ip6_tnl_f_mip6_dev", "mip6 ", true);
 
-	if (flags & IP6_TNL_F_USE_ORIG_FWMARK)
-		fprintf(f, "fwmark inherit ");
+	if (flags & IP6_TNL_F_USE_ORIG_FWMARK) {
+		print_bool(PRINT_ANY,
+			   "ip6_tnl_f_use_orig_fwmark",
+			   "fwmark inherit ",
+			   true);
+	} else if (tb[IFLA_IPTUN_FWMARK]) {
+		__u32 fwmark = rta_getattr_u32(tb[IFLA_IPTUN_FWMARK]);
+
+		if (fwmark) {
+			SPRINT_BUF(b1);
+
+			snprintf(b1, sizeof(b1), "0x%x", fwmark);
+			print_string(PRINT_ANY, "fwmark", "fwmark %s ", b1);
+		}
+	}
+
+	if (tb[IFLA_IPTUN_ENCAP_TYPE] &&
+	    rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_TYPE]) != TUNNEL_ENCAP_NONE) {
+		__u16 type = rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_TYPE]);
+		__u16 flags = rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_FLAGS]);
+		__u16 sport = rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_SPORT]);
+		__u16 dport = rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_DPORT]);
+
+		open_json_object("encap");
+		print_string(PRINT_FP, NULL, "encap ", NULL);
+		switch (type) {
+		case TUNNEL_ENCAP_FOU:
+			print_string(PRINT_ANY, "type", "%s ", "fou");
+			break;
+		case TUNNEL_ENCAP_GUE:
+			print_string(PRINT_ANY, "type", "%s ", "gue");
+			break;
+		default:
+			print_null(PRINT_ANY, "type", "unknown ", NULL);
+			break;
+		}
+
+		if (is_json_context()) {
+			print_uint(PRINT_JSON,
+				   "sport",
+				   NULL,
+				   sport ? ntohs(sport) : 0);
+			print_uint(PRINT_JSON, "dport", NULL, ntohs(dport));
+			print_bool(PRINT_JSON, "csum", NULL,
+				   flags & TUNNEL_ENCAP_FLAG_CSUM);
+			print_bool(PRINT_JSON, "csum6", NULL,
+				   flags & TUNNEL_ENCAP_FLAG_CSUM6);
+			print_bool(PRINT_JSON, "remcsum", NULL,
+				   flags & TUNNEL_ENCAP_FLAG_REMCSUM);
+			close_json_object();
+		} else {
+			if (sport == 0)
+				fputs("encap-sport auto ", f);
+			else
+				fprintf(f, "encap-sport %u", ntohs(sport));
+
+			fprintf(f, "encap-dport %u ", ntohs(dport));
+
+			if (flags & TUNNEL_ENCAP_FLAG_CSUM)
+				fputs("encap-csum ", f);
+			else
+				fputs("noencap-csum ", f);
+
+			if (flags & TUNNEL_ENCAP_FLAG_CSUM6)
+				fputs("encap-csum6 ", f);
+			else
+				fputs("noencap-csum6 ", f);
+
+			if (flags & TUNNEL_ENCAP_FLAG_REMCSUM)
+				fputs("encap-remcsum ", f);
+			else
+				fputs("noencap-remcsum ", f);
+		}
+	}
 }
 
 static void ip6tunnel_print_help(struct link_util *lu, int argc, char **argv,
-	FILE *f)
+				 FILE *f)
 {
 	print_usage(f);
 }

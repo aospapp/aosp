@@ -32,6 +32,15 @@ endif
 
 SYS_SUPPORT_PATH = $(CHRE_PREFIX)/build/sys_support
 
+# Host Toolchain ###############################################################
+
+# The host toolchain is used to compile any programs for the compilation host
+# in order to complete the build.
+
+ifeq ($(CHRE_HOST_CC),)
+CHRE_HOST_CC = g++
+endif
+
 # Makefile Includes ############################################################
 
 # Common Includes

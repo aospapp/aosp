@@ -51,85 +51,6 @@ using ::android::sp;
 #include <media_video_hidl_test_common.h>
 #include <fstream>
 
-// A class for test environment setup
-class ComponentTestEnvironment : public ::testing::Environment {
-   public:
-    virtual void SetUp() {}
-    virtual void TearDown() {}
-
-    ComponentTestEnvironment() : instance("default"), res("/sdcard/media/") {}
-
-    void setInstance(const char* _instance) { instance = _instance; }
-
-    void setComponent(const char* _component) { component = _component; }
-
-    void setRole(const char* _role) { role = _role; }
-
-    void setRes(const char* _res) { res = _res; }
-
-    const hidl_string getInstance() const { return instance; }
-
-    const hidl_string getComponent() const { return component; }
-
-    const hidl_string getRole() const { return role; }
-
-    const hidl_string getRes() const { return res; }
-
-    int initFromOptions(int argc, char** argv) {
-        static struct option options[] = {
-            {"instance", required_argument, 0, 'I'},
-            {"component", required_argument, 0, 'C'},
-            {"role", required_argument, 0, 'R'},
-            {"res", required_argument, 0, 'P'},
-            {0, 0, 0, 0}};
-
-        while (true) {
-            int index = 0;
-            int c = getopt_long(argc, argv, "I:C:R:P:", options, &index);
-            if (c == -1) {
-                break;
-            }
-
-            switch (c) {
-                case 'I':
-                    setInstance(optarg);
-                    break;
-                case 'C':
-                    setComponent(optarg);
-                    break;
-                case 'R':
-                    setRole(optarg);
-                    break;
-                case 'P':
-                    setRes(optarg);
-                    break;
-                case '?':
-                    break;
-            }
-        }
-
-        if (optind < argc) {
-            fprintf(stderr,
-                    "unrecognized option: %s\n\n"
-                    "usage: %s <gtest options> <test options>\n\n"
-                    "test options are:\n\n"
-                    "-I, --instance: HAL instance to test\n"
-                    "-C, --component: OMX component to test\n"
-                    "-R, --role: OMX component Role\n"
-                    "-P, --res: Resource files directory location\n",
-                    argv[optind ?: 1], argv[0]);
-            return 2;
-        }
-        return 0;
-    }
-
-   private:
-    hidl_string instance;
-    hidl_string component;
-    hidl_string role;
-    hidl_string res;
-};
-
 static ComponentTestEnvironment* gEnv = nullptr;
 
 // video decoder test fixture class
@@ -166,6 +87,11 @@ class VideoDecHidlTest : public ::testing::VtsHalHidlTargetTestBase {
                                this->omxNode = _nl;
                            })
                         .isOk());
+        if (status == android::hardware::media::omx::V1_0::Status::NAME_NOT_FOUND) {
+            disableTest = true;
+            std::cout << "[   WARN   ] Test Disabled, component not present\n";
+            return;
+        }
         ASSERT_EQ(status, ::android::hardware::media::omx::V1_0::Status::OK);
         ASSERT_NE(omxNode, nullptr);
         ASSERT_NE(gEnv->getRole().empty(), true) << "Invalid Component Role";
@@ -395,9 +321,9 @@ void GetURLForComponent(VideoDecHidlTest::standardComp comp, char* mURL,
     static const CompToURL kCompToURL[] = {
         {VideoDecHidlTest::standardComp::avc,
          {"bbb_avc_176x144_300kbps_60fps.h264",
-          "bbb_avc_1920x1080_5000kbps_30fps.h264"},
+          "bbb_avc_640x360_768kbps_30fps.h264"},
          {"bbb_avc_176x144_300kbps_60fps.info",
-          "bbb_avc_1920x1080_5000kbps_30fps.info"}},
+          "bbb_avc_640x360_768kbps_30fps.info"}},
         {VideoDecHidlTest::standardComp::hevc,
          {"bbb_hevc_176x144_176kbps_60fps.hevc",
           "bbb_hevc_640x360_1600kbps_30fps.hevc"},
@@ -412,8 +338,8 @@ void GetURLForComponent(VideoDecHidlTest::standardComp comp, char* mURL,
          {"", "bbb_h263_352x288_300kbps_12fps.h263"},
          {"", "bbb_h263_352x288_300kbps_12fps.info"}},
         {VideoDecHidlTest::standardComp::mpeg4,
-         {"", "bbb_mpeg4_1280x720_1000kbps_25fps.m4v"},
-         {"", "bbb_mpeg4_1280x720_1000kbps_25fps.info"}},
+         {"", "bbb_mpeg4_352x288_512kbps_30fps.m4v"},
+         {"", "bbb_mpeg4_352x288_512kbps_30fps.info"}},
         {VideoDecHidlTest::standardComp::vp8,
          {"bbb_vp8_176x144_240kbps_60fps.vp8",
           "bbb_vp8_640x360_2mbps_30fps.vp8"},
@@ -1488,6 +1414,7 @@ int main(int argc, char** argv) {
     gEnv = new ComponentTestEnvironment();
     ::testing::AddGlobalTestEnvironment(gEnv);
     ::testing::InitGoogleTest(&argc, argv);
+    gEnv->init(&argc, argv);
     int status = gEnv->initFromOptions(argc, argv);
     if (status == 0) {
         status = RUN_ALL_TESTS();

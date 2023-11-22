@@ -21,7 +21,7 @@
 #include "base/enums.h"
 #include "base/mutex.h"
 #include "class_linker-inl.h"
-#include "dex_file-inl.h"
+#include "dex/dex_file-inl.h"
 #include "entrypoints/entrypoint_utils-inl.h"
 #include "entrypoints/quick/callee_save_frame.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
@@ -45,7 +45,7 @@ void CheckReferenceResult(Handle<mirror::Object> o, Thread* self) {
   }
   // Make sure that the result is an instance of the type this method was expected to return.
   ArtMethod* method = self->GetCurrentMethod(nullptr);
-  mirror::Class* return_type = method->GetReturnType(true /* resolve */);
+  ObjPtr<mirror::Class> return_type = method->ResolveReturnType();
 
   if (!o->InstanceOf(return_type)) {
     Runtime::Current()->GetJavaVM()->JniAbortF(nullptr,
@@ -108,7 +108,7 @@ JValue InvokeProxyInvocationHandler(ScopedObjectAccessAlreadyRunnable& soa, cons
       ArtMethod* interface_method =
           soa.Decode<mirror::Method>(interface_method_jobj)->GetArtMethod();
       // This can cause thread suspension.
-      mirror::Class* result_type = interface_method->GetReturnType(true /* resolve */);
+      ObjPtr<mirror::Class> result_type = interface_method->ResolveReturnType();
       ObjPtr<mirror::Object> result_ref = soa.Decode<mirror::Object>(result);
       JValue result_unboxed;
       if (!UnboxPrimitiveForResult(result_ref.Ptr(), result_type, &result_unboxed)) {
@@ -245,7 +245,7 @@ ArtMethod* GetCalleeSaveMethodCaller(ArtMethod** sp, CalleeSaveType type, bool d
 CallerAndOuterMethod GetCalleeSaveMethodCallerAndOuterMethod(Thread* self, CalleeSaveType type) {
   CallerAndOuterMethod result;
   ScopedAssertNoThreadSuspension ants(__FUNCTION__);
-  ArtMethod** sp = self->GetManagedStack()->GetTopQuickFrame();
+  ArtMethod** sp = self->GetManagedStack()->GetTopQuickFrameKnownNotTagged();
   auto outer_caller_and_pc = DoGetCalleeSaveMethodOuterCallerAndPc(sp, type);
   result.outer_method = outer_caller_and_pc.first;
   uintptr_t caller_pc = outer_caller_and_pc.second;
@@ -256,7 +256,7 @@ CallerAndOuterMethod GetCalleeSaveMethodCallerAndOuterMethod(Thread* self, Calle
 
 ArtMethod* GetCalleeSaveOuterMethod(Thread* self, CalleeSaveType type) {
   ScopedAssertNoThreadSuspension ants(__FUNCTION__);
-  ArtMethod** sp = self->GetManagedStack()->GetTopQuickFrame();
+  ArtMethod** sp = self->GetManagedStack()->GetTopQuickFrameKnownNotTagged();
   return DoGetCalleeSaveMethodOuterCallerAndPc(sp, type).first;
 }
 

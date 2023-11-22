@@ -33,7 +33,8 @@ def main():
         props = cam.get_camera_properties()
         its.caps.skip_unless(its.caps.manual_sensor(props) and
                              its.caps.manual_post_proc(props) and
-                             its.caps.per_frame_control(props))
+                             its.caps.per_frame_control(props) and
+                             not its.caps.mono_camera(props))
 
         debug = its.caps.debug_mode()
         largest_yuv = its.objects.get_largest_yuv_format(props)

@@ -29,6 +29,8 @@ struct Version {
 
     constexpr Version() : Version(0u, 0u) {}
     constexpr Version(size_t mj, size_t mi) : majorVer(mj), minorVer(mi) {}
+    constexpr Version(const std::pair<size_t, size_t>& pair)
+        : majorVer(pair.first), minorVer(pair.second) {}
 
     size_t majorVer;
     size_t minorVer;
@@ -81,6 +83,14 @@ struct KernelVersion {
     }
     inline bool operator!=(const KernelVersion &other) const {
         return !((*this) == other);
+    }
+
+    inline bool operator<(const KernelVersion& other) const {
+        if (version < other.version) return true;
+        if (version > other.version) return false;
+        if (majorRev < other.majorRev) return true;
+        if (majorRev > other.majorRev) return false;
+        return minorRev < other.minorRev;
     }
 };
 

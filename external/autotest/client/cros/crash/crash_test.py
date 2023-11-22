@@ -78,10 +78,11 @@ class CrashTest(test.test):
     _CRASH_REPORTER_PATH = '/sbin/crash_reporter'
     _CRASH_SENDER_PATH = '/sbin/crash_sender'
     _CRASH_SENDER_RATE_DIR = '/var/lib/crash_sender'
-    _CRASH_SENDER_RUN_PATH = '/var/run/crash_sender.pid'
-    _CRASH_SENDER_LOCK_PATH = '/var/lock/crash_sender'
-    _CRASH_TEST_IN_PROGRESS = '/tmp/crash-test-in-progress'
-    _MOCK_CRASH_SENDING = '/tmp/mock-crash-sending'
+    _CRASH_SENDER_RUN_PATH = '/run/crash_sender.pid'
+    _CRASH_SENDER_LOCK_PATH = '/run/lock/crash_sender'
+    _CRASH_RUN_STATE_DIR = '/run/crash_reporter'
+    _CRASH_TEST_IN_PROGRESS = _CRASH_RUN_STATE_DIR + '/crash-test-in-progress'
+    _MOCK_CRASH_SENDING = _CRASH_RUN_STATE_DIR + '/mock-crash-sending'
     _PAUSE_FILE = '/var/lib/crash_sender_paused'
     _SYSTEM_CRASH_DIR = '/var/spool/crash'
     _FALLBACK_USER_CRASH_DIR = '/home/chronos/crash'
@@ -544,7 +545,7 @@ class CrashTest(test.test):
         script_output = ""
         try:
             script_output = utils.system_output(
-                '/bin/sh -c "%s" 2>&1' % self._CRASH_SENDER_PATH,
+                '%s 2>&1' % self._CRASH_SENDER_PATH,
                 ignore_status=should_fail)
         except error.CmdError as err:
             raise error.TestFail('"%s" returned an unexpected non-zero '

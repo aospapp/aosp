@@ -19,6 +19,7 @@
 #define ENUM_TYPE_H_
 
 #include "ConstantExpression.h"
+#include "Reference.h"
 #include "Scope.h"
 
 #include <vector>
@@ -29,11 +30,14 @@ struct EnumValue;
 struct BitFieldType;
 
 struct EnumType : public Scope {
-    EnumType(const char* localName, const Location& location, Type* storageType, Scope* parent);
+    EnumType(const char* localName, const FQName& fullName, const Location& location,
+             const Reference<Type>& storageType, Scope* parent);
 
     const Type *storageType() const;
     const std::vector<EnumValue *> &values() const;
     void addValue(EnumValue *value);
+
+    void forEachValueFromRoot(const std::function<void(EnumValue*)> f) const;
 
     LocalIdentifier *lookupIdentifier(const std::string &name) const override;
 
@@ -42,7 +46,7 @@ struct EnumType : public Scope {
 
     std::string typeName() const override;
     bool isEnum() const override;
-    bool canCheckEquality() const override;
+    bool deepCanCheckEquality(std::unordered_set<const Type*>* visited) const override;
 
     std::string getCppType(StorageMode mode,
                            bool specifyNamespaces) const override;
@@ -55,8 +59,19 @@ struct EnumType : public Scope {
 
     std::string getVtsType() const override;
 
+    std::string getBitfieldCppType(StorageMode mode, bool specifyNamespaces = true) const;
+    std::string getBitfieldJavaType(bool forInitializer = false) const;
+    std::string getBitfieldJavaWrapperType() const;
+
     // Return the type that corresponds to bitfield<T>.
-    BitFieldType *getBitfieldType() const;
+    const BitFieldType* getBitfieldType() const;
+
+    std::vector<const Reference<Type>*> getReferences() const override;
+    std::vector<const ConstantExpression*> getConstantExpressions() const override;
+
+    status_t resolveInheritance() override;
+    status_t validate() const override;
+    status_t validateUniqueNames() const;
 
     void emitReaderWriter(
             Formatter &out,
@@ -75,15 +90,15 @@ struct EnumType : public Scope {
             const std::string &offset,
             bool isReader) const override;
 
-    status_t emitTypeDeclarations(Formatter &out) const override;
-    status_t emitGlobalTypeDeclarations(Formatter &out) const override;
-    status_t emitTypeDefinitions(Formatter &out, const std::string prefix) const override;
+    void emitTypeDeclarations(Formatter& out) const override;
+    void emitTypeForwardDeclaration(Formatter& out) const override;
+    void emitGlobalTypeDeclarations(Formatter& out) const override;
+    void emitPackageTypeDeclarations(Formatter& out) const override;
 
-    status_t emitJavaTypeDeclarations(
-            Formatter &out, bool atTopLevel) const override;
+    void emitJavaTypeDeclarations(Formatter& out, bool atTopLevel) const override;
 
-    status_t emitVtsTypeDeclarations(Formatter &out) const override;
-    status_t emitVtsAttributeType(Formatter &out) const override;
+    void emitVtsTypeDeclarations(Formatter& out) const override;
+    void emitVtsAttributeType(Formatter& out) const override;
 
     void emitJavaDump(
             Formatter &out,
@@ -95,11 +110,16 @@ struct EnumType : public Scope {
     void appendToExportedTypesVector(
             std::vector<const Type *> *exportedTypes) const override;
 
-    status_t emitExportedHeader(Formatter &out, bool forJava) const override;
+    void emitExportedHeader(Formatter& out, bool forJava) const override;
 
-private:
-    void getTypeChain(std::vector<const EnumType *> *out) const;
+   private:
+    std::vector<const EnumType*> typeChain() const;
+    std::vector<const EnumType*> superTypeChain() const;
+
     const Annotation *findExportAnnotation() const;
+
+    void emitIteratorDeclaration(Formatter& out) const;
+    void emitIteratorDefinitions(Formatter& out) const;
 
     void emitEnumBitwiseOperator(
             Formatter &out,
@@ -112,45 +132,50 @@ private:
             const std::string &op) const;
 
     std::vector<EnumValue *> mValues;
-    Type *mStorageType;
-    BitFieldType *mBitfieldType;
+    Reference<Type> mStorageType;
 
     DISALLOW_COPY_AND_ASSIGN(EnumType);
 };
 
-struct EnumValue : public LocalIdentifier {
-    EnumValue(const char *name, ConstantExpression *value = nullptr);
+struct EnumValue : public LocalIdentifier, DocCommentable {
+    EnumValue(const char* name, ConstantExpression* value, const Location& location);
 
     std::string name() const;
     std::string value(ScalarType::Kind castKind) const;
     std::string cppValue(ScalarType::Kind castKind) const;
     std::string javaValue(ScalarType::Kind castKind) const;
     std::string comment() const;
-    void autofill(const EnumValue *prev, const ScalarType *type);
-    ConstantExpression *constExpr() const;
+    void autofill(const EnumType* prevType, EnumValue* prevValue, const ScalarType* type);
+    ConstantExpression* constExpr() const override;
 
     bool isAutoFill() const;
     bool isEnumValue() const override;
 
+    const Location& location() const;
 
+   private:
     std::string mName;
-    ConstantExpression *mValue;
+    ConstantExpression* mValue;
+    const Location mLocation;
     bool mIsAutoFill;
 
     DISALLOW_COPY_AND_ASSIGN(EnumValue);
 };
 
 struct BitFieldType : public TemplatedType {
+    BitFieldType(Scope* parent);
 
-    std::string typeName() const override;
+    std::string templatedTypeName() const override;
+
+    const EnumType* getElementEnumType() const;
 
     bool isBitField() const override;
 
-    bool isCompatibleElementType(Type *elementType) const override;
+    bool isCompatibleElementType(const Type* elementType) const override;
 
     bool isElidableType() const override;
 
-    bool canCheckEquality() const override;
+    bool deepCanCheckEquality(std::unordered_set<const Type*>* visited) const override;
 
     const ScalarType *resolveToScalarType() const override;
 
@@ -165,9 +190,9 @@ struct BitFieldType : public TemplatedType {
 
     std::string getVtsType() const override;
 
-    EnumType *getEnumType() const;
+    const EnumType* getEnumType() const;
 
-    status_t emitVtsAttributeType(Formatter &out) const override;
+    void emitVtsAttributeType(Formatter& out) const override;
 
     void getAlignmentAndSize(size_t *align, size_t *size) const override;
 

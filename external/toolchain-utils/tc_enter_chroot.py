@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 # Copyright 2010 Google Inc. All Rights Reserved.
 """Script to enter the ChromeOS chroot with mounted sources.
@@ -86,41 +86,47 @@ def Main(argv, return_output=False):
   """The main function."""
 
   parser = argparse.ArgumentParser()
-  parser.add_argument('-c',
-                      '--chromeos_root',
-                      dest='chromeos_root',
-                      default='../..',
-                      help='ChromeOS root checkout directory.')
-  parser.add_argument('-t',
-                      '--toolchain_root',
-                      dest='toolchain_root',
-                      help='Toolchain root directory.')
-  parser.add_argument('-o',
-                      '--output',
-                      dest='output',
-                      help='Toolchain output directory')
-  parser.add_argument('--sudo',
-                      dest='sudo',
-                      action='store_true',
-                      default=False,
-                      help='Run the command with sudo.')
-  parser.add_argument('-r',
-                      '--third_party',
-                      dest='third_party',
-                      help='The third_party directory to mount.')
-  parser.add_argument('-m',
-                      '--other_mounts',
-                      dest='other_mounts',
-                      help='Other mount points in the form: '
-                      'dir:mounted_dir:options')
-  parser.add_argument('-s',
-                      '--mount-scripts-only',
-                      dest='mount_scripts_only',
-                      action='store_true',
-                      default=False,
-                      help='Mount only the scripts dir, and not the sources.')
-  parser.add_argument('passthrough_argv', nargs='*',
-                      help='Command to be executed inside the chroot.')
+  parser.add_argument(
+      '-c',
+      '--chromeos_root',
+      dest='chromeos_root',
+      default='../..',
+      help='ChromeOS root checkout directory.')
+  parser.add_argument(
+      '-t',
+      '--toolchain_root',
+      dest='toolchain_root',
+      help='Toolchain root directory.')
+  parser.add_argument(
+      '-o', '--output', dest='output', help='Toolchain output directory')
+  parser.add_argument(
+      '--sudo',
+      dest='sudo',
+      action='store_true',
+      default=False,
+      help='Run the command with sudo.')
+  parser.add_argument(
+      '-r',
+      '--third_party',
+      dest='third_party',
+      help='The third_party directory to mount.')
+  parser.add_argument(
+      '-m',
+      '--other_mounts',
+      dest='other_mounts',
+      help='Other mount points in the form: '
+      'dir:mounted_dir:options')
+  parser.add_argument(
+      '-s',
+      '--mount-scripts-only',
+      dest='mount_scripts_only',
+      action='store_true',
+      default=False,
+      help='Mount only the scripts dir, and not the sources.')
+  parser.add_argument(
+      'passthrough_argv',
+      nargs='*',
+      help='Command to be executed inside the chroot.')
 
   options = parser.parse_args(argv)
 
@@ -137,8 +143,10 @@ def Main(argv, return_output=False):
     m = 'toolchain_root not specified. Will not mount toolchain dirs.'
     logger.GetLogger().LogWarning(m)
   else:
-    tc_dirs = [options.toolchain_root + '/google_vendor_src_branch/gcc',
-               options.toolchain_root + '/google_vendor_src_branch/binutils']
+    tc_dirs = [
+        options.toolchain_root + '/google_vendor_src_branch/gcc',
+        options.toolchain_root + '/google_vendor_src_branch/binutils'
+    ]
 
   for tc_dir in tc_dirs:
     if not os.path.exists(tc_dir):
@@ -154,9 +162,9 @@ def Main(argv, return_output=False):
     sys.exit(1)
 
   if not os.path.exists(chromeos_root + '/src/scripts/build_packages'):
-    logger.GetLogger(
-    ).LogError(options.chromeos_root + '/src/scripts/build_packages'
-               ' not found!')
+    logger.GetLogger().LogError(options.chromeos_root +
+                                '/src/scripts/build_packages'
+                                ' not found!')
     parser.print_help()
     sys.exit(1)
 
@@ -176,16 +184,16 @@ def Main(argv, return_output=False):
   # Add the third_party mount point if it exists
   if options.third_party:
     third_party_dir = options.third_party
-    logger.GetLogger().LogFatalIf(
-        not os.path.isdir(third_party_dir),
-        '--third_party option is not a valid dir.')
+    logger.GetLogger().LogFatalIf(not os.path.isdir(third_party_dir),
+                                  '--third_party option is not a valid dir.')
   else:
-    third_party_dir = os.path.abspath('%s/../../../third_party' %
-                                      os.path.dirname(__file__))
+    third_party_dir = os.path.abspath(
+        '%s/../../../third_party' % os.path.dirname(__file__))
 
   if os.path.isdir(third_party_dir):
-    mount_point = MountPoint(third_party_dir, ('%s/%s' % (
-        full_mounted_tc_root, os.path.basename(third_party_dir))),
+    mount_point = MountPoint(third_party_dir,
+                             ('%s/%s' % (full_mounted_tc_root,
+                                         os.path.basename(third_party_dir))),
                              getpass.getuser())
     mount_points.append(mount_point)
 
@@ -195,8 +203,8 @@ def Main(argv, return_output=False):
     output = options.toolchain_root + '/output'
 
   if output:
-    mount_points.append(MountPoint(output, full_mounted_tc_root + '/output',
-                                   getpass.getuser()))
+    mount_points.append(
+        MountPoint(output, full_mounted_tc_root + '/output', getpass.getuser()))
 
   # Mount the other mount points
   mount_points += CreateMountPointsFromString(options.other_mounts,
@@ -235,16 +243,16 @@ def Main(argv, return_output=False):
       inner_command = inner_command[3:]
     command_file = 'tc_enter_chroot.cmd'
     command_file_path = chromeos_root + '/src/scripts/' + command_file
-    retv = command_executer.GetCommandExecuter().RunCommand('sudo rm -f ' +
-                                                            command_file_path)
+    retv = command_executer.GetCommandExecuter().RunCommand(
+        'sudo rm -f ' + command_file_path)
     if retv != 0:
       return retv
     f = open(command_file_path, 'w')
     f.write(inner_command)
     f.close()
     logger.GetLogger().LogCmd(inner_command)
-    retv = command_executer.GetCommandExecuter().RunCommand('chmod +x ' +
-                                                            command_file_path)
+    retv = command_executer.GetCommandExecuter().RunCommand(
+        'chmod +x ' + command_file_path)
     if retv != 0:
       return retv
 

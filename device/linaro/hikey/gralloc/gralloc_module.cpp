@@ -18,6 +18,7 @@
 
 #include <errno.h>
 #include <pthread.h>
+#include <string.h>
 
 #include <cutils/log.h>
 #include <cutils/atomic.h>
@@ -135,7 +136,6 @@ static int gralloc_register_buffer(gralloc_module_t const *module, buffer_handle
 	else if (hnd->flags & private_handle_t::PRIV_FLAGS_USES_ION)
 	{
 #if GRALLOC_ARM_DMA_BUF_MODULE
-		int ret;
 		unsigned char *mappedAddress;
 		size_t size = hnd->size;
 		hw_module_t *pmodule = NULL;
@@ -326,9 +326,6 @@ static int gralloc_unlock(gralloc_module_t const *module, buffer_handle_t handle
 	}
 
 	private_handle_t *hnd = (private_handle_t *)handle;
-	int32_t current_value;
-	int32_t new_value;
-	int retry;
 
 	if (hnd->flags & private_handle_t::PRIV_FLAGS_USES_UMP && hnd->writeOwner)
 	{
@@ -342,18 +339,11 @@ static int gralloc_unlock(gralloc_module_t const *module, buffer_handle_t handle
 	{
 #if GRALLOC_ARM_DMA_BUF_MODULE
 		hw_module_t *pmodule = NULL;
-		private_module_t *m = NULL;
 
-		if (hw_get_module(GRALLOC_HARDWARE_MODULE_ID, (const hw_module_t **)&pmodule) == 0)
-		{
-			m = reinterpret_cast<private_module_t *>(pmodule);
-			//ion_sync_fd(m->ion_client, hnd->share_fd);
-		}
-		else
+		if (hw_get_module(GRALLOC_HARDWARE_MODULE_ID, (const hw_module_t **)&pmodule) != 0)
 		{
 			AERR("Couldnot get gralloc module for handle 0x%p\n", handle);
 		}
-
 #endif
 	}
 

@@ -35,7 +35,6 @@ import android.text.TextUtils;
 import com.android.tv.settings.R;
 
 import java.text.Collator;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
@@ -140,8 +139,9 @@ public class AppPicker extends Activity {
                         ai.packageName, ai.loadLabel(pm).toString(), ai.loadIcon(pm)));
             }
 
-            Collections.sort(actions, new Comparator<GuidedAction>() {
+            actions.sort(new Comparator<GuidedAction>() {
                 private final Collator mCollator = Collator.getInstance();
+
                 @Override
                 public int compare(GuidedAction a, GuidedAction b) {
                     return mCollator.compare(a.getTitle(), b.getTitle());

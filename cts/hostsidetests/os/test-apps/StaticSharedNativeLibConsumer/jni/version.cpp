@@ -16,7 +16,11 @@
 
 #include "jni.h"
 
-#include <utils/Log.h>
+#include <android/log.h>
+
+#define ALOG(priority, tag, ...) ((void)__android_log_print(ANDROID_##priority, tag, __VA_ARGS__))
+
+#define ALOGE(...) ALOG(LOG_ERROR, NULL, __VA_ARGS__)
 
 #include "../../StaticSharedNativeLibProvider/native/version.h"
 

@@ -49,6 +49,9 @@ class BinaryTestCase(object):
         envp: string, environment veriable. shoud be in format 'name1=value1 name2=value2...'
               Will be called using 'env <envp> <cmd> <args>'
         args: string, arguments following cmd.
+        name_appendix: string, appendix attached to the test name in display,
+                       typically contains info of parameters used in the test,
+                       e.e. service name used for hal hidl test.
     '''
 
     def __init__(self,
@@ -62,7 +65,8 @@ class BinaryTestCase(object):
                  profiling_library_path=None,
                  cmd='',
                  envp='',
-                 args=''):
+                 args='',
+                 name_appendix=''):
         self.test_suite = test_suite
         self.test_name = test_name
         self.path = path
@@ -74,9 +78,27 @@ class BinaryTestCase(object):
         self.cmd = cmd
         self.envp = envp
         self.args = args
+        self.name_appendix = name_appendix
 
     def __str__(self):
-        return self.put_tag_func(self.full_name, self.tag)
+        return self._GenerateDisplayName()
+
+    def _GenerateDisplayName(self):
+        '''Get a string of test name for display.
+
+        The display name contains three parts: the original full test name, the
+        name appendix which includes more info about the test run, and the
+        tag(s) used by the test.
+        '''
+        return self.put_tag_func(self.full_name + self.name_appendix, self.tag)
+
+    @property
+    def name_appendix(self):
+        return self._name_appendix
+
+    @name_appendix.setter
+    def name_appendix(self, name_appendix):
+        self._name_appendix = name_appendix
 
     @property
     def full_name(self):

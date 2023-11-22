@@ -21,12 +21,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
 import android.hardware.display.DisplayManager;
-import android.media.tv.TvContentRating;
-import android.media.tv.TvTrackInfo;
-import android.os.Bundle;
 import android.media.session.PlaybackState;
+import android.media.tv.TvContentRating;
 import android.media.tv.TvInputManager;
+import android.media.tv.TvTrackInfo;
 import android.media.tv.TvView;
+import android.os.Bundle;
 import android.support.v17.leanback.app.PlaybackFragment;
 import android.support.v17.leanback.app.PlaybackFragmentGlueHost;
 import android.support.v17.leanback.widget.ArrayObjectAdapter;
@@ -37,14 +37,13 @@ import android.support.v17.leanback.widget.ListRow;
 import android.support.v17.leanback.widget.Presenter;
 import android.support.v17.leanback.widget.RowPresenter;
 import android.support.v17.leanback.widget.SinglePresenterSelector;
+import android.util.Log;
 import android.view.Display;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
-import android.util.Log;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.data.BaseProgram;
 import com.android.tv.dialog.PinDialogFragment;
 import com.android.tv.dvr.DvrDataManager;
@@ -57,9 +56,8 @@ import com.android.tv.parental.ContentRatingsManager;
 import com.android.tv.util.TvSettings;
 import com.android.tv.util.TvTrackInfoUtils;
 import com.android.tv.util.Utils;
-
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 
 public class DvrPlaybackOverlayFragment extends PlaybackFragment {
     // TODO: Handles audio focus. Deals with block and ratings.
@@ -104,15 +102,25 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
     public void onCreate(Bundle savedInstanceState) {
         if (DEBUG) Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
-        mVerticalPaddingBase = getActivity().getResources()
-                .getDimensionPixelOffset(R.dimen.dvr_playback_overlay_padding_top_base);
-        mPaddingWithoutRelatedRow = getActivity().getResources()
-                .getDimensionPixelOffset(R.dimen.dvr_playback_overlay_padding_top_no_related_row);
-        mPaddingWithoutSecondaryRow = getActivity().getResources()
-                .getDimensionPixelOffset(R.dimen.dvr_playback_overlay_padding_top_no_secondary_row);
-        mDvrDataManager = TvApplication.getSingletons(getActivity()).getDvrDataManager();
-        mContentRatingsManager = TvApplication.getSingletons(getContext())
-                .getTvInputManagerHelper().getContentRatingsManager();
+        mVerticalPaddingBase =
+                getActivity()
+                        .getResources()
+                        .getDimensionPixelOffset(R.dimen.dvr_playback_overlay_padding_top_base);
+        mPaddingWithoutRelatedRow =
+                getActivity()
+                        .getResources()
+                        .getDimensionPixelOffset(
+                                R.dimen.dvr_playback_overlay_padding_top_no_related_row);
+        mPaddingWithoutSecondaryRow =
+                getActivity()
+                        .getResources()
+                        .getDimensionPixelOffset(
+                                R.dimen.dvr_playback_overlay_padding_top_no_secondary_row);
+        mDvrDataManager = TvSingletons.getSingletons(getActivity()).getDvrDataManager();
+        mContentRatingsManager =
+                TvSingletons.getSingletons(getContext())
+                        .getTvInputManagerHelper()
+                        .getContentRatingsManager();
         if (!mDvrDataManager.isRecordedProgramLoadFinished()) {
             mDvrDataManager.addRecordedProgramLoadFinishedListener(
                     new DvrDataManager.OnRecordedProgramLoadFinishedListener() {
@@ -124,14 +132,14 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
                                 preparePlayback(getActivity().getIntent());
                             }
                         }
-                    }
-            );
+                    });
         } else if (!handleIntent(getActivity().getIntent(), true)) {
             return;
         }
         Point size = new Point();
         ((DisplayManager) getContext().getSystemService(Context.DISPLAY_SERVICE))
-                .getDisplay(Display.DEFAULT_DISPLAY).getSize(size);
+                .getDisplay(Display.DEFAULT_DISPLAY)
+                .getSize(size);
         mWindowWidth = size.x;
         mWindowHeight = size.y;
         mWindowAspectRatio = mAppliedAspectRatio = (float) mWindowWidth / mWindowHeight;
@@ -152,19 +160,20 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
         mTvView = (TvView) getActivity().findViewById(R.id.dvr_tv_view);
         mBlockScreenView = getActivity().findViewById(R.id.block_screen);
         mDvrPlayer = new DvrPlayer(mTvView);
-        mMediaSessionHelper = new DvrPlaybackMediaSessionHelper(
-                getActivity(), MEDIA_SESSION_TAG, mDvrPlayer, this);
+        mMediaSessionHelper =
+                new DvrPlaybackMediaSessionHelper(
+                        getActivity(), MEDIA_SESSION_TAG, mDvrPlayer, this);
         mPlaybackControlHelper = new DvrPlaybackControlHelper(getActivity(), this);
         mRelatedRecordingsRow = getRelatedRecordingsRow();
         mDvrPlayer.setOnTracksAvailabilityChangedListener(
                 new DvrPlayer.OnTracksAvailabilityChangedListener() {
                     @Override
-                    public void onTracksAvailabilityChanged(boolean hasClosedCaption,
-                            boolean hasMultiAudio) {
+                    public void onTracksAvailabilityChanged(
+                            boolean hasClosedCaption, boolean hasMultiAudio) {
                         mPlaybackControlHelper.updateSecondaryRow(hasClosedCaption, hasMultiAudio);
                         if (hasClosedCaption) {
-                            mDvrPlayer.setOnTrackSelectedListener(TvTrackInfo.TYPE_SUBTITLE,
-                                    mOnSubtitleTrackSelectedListener);
+                            mDvrPlayer.setOnTrackSelectedListener(
+                                    TvTrackInfo.TYPE_SUBTITLE, mOnSubtitleTrackSelectedListener);
                             selectBestMatchedTrack(TvTrackInfo.TYPE_SUBTITLE);
                         } else {
                             mDvrPlayer.setOnTrackSelectedListener(TvTrackInfo.TYPE_SUBTITLE, null);
@@ -175,15 +184,18 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
                         updateVerticalPosition();
                         mPlaybackControlHelper.getHost().notifyPlaybackRowChanged();
                     }
-        });
-        mDvrPlayer.setOnAspectRatioChangedListener(new DvrPlayer.OnAspectRatioChangedListener() {
-            @Override
-            public void onAspectRatioChanged(float videoAspectRatio) {
-                updateAspectRatio(videoAspectRatio);
-            }
-        });
-        mPinChecked = getActivity().getIntent()
-                .getBooleanExtra(Utils.EXTRA_KEY_RECORDED_PROGRAM_PIN_CHECKED, false);
+                });
+        mDvrPlayer.setOnAspectRatioChangedListener(
+                new DvrPlayer.OnAspectRatioChangedListener() {
+                    @Override
+                    public void onAspectRatioChanged(float videoAspectRatio) {
+                        updateAspectRatio(videoAspectRatio);
+                    }
+                });
+        mPinChecked =
+                getActivity()
+                        .getIntent()
+                        .getBooleanExtra(Utils.EXTRA_KEY_RECORDED_PROGRAM_PIN_CHECKED, false);
         mDvrPlayer.setOnContentBlockedListener(
                 new DvrPlayer.OnContentBlockedListener() {
                     @Override
@@ -221,20 +233,25 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
                                         PinDialogFragment.DIALOG_TAG);
                     }
                 });
-        setOnItemViewClickedListener(new BaseOnItemViewClickedListener() {
-            @Override
-            public void onItemClicked(Presenter.ViewHolder itemViewHolder, Object item,
-                    RowPresenter.ViewHolder rowViewHolder, Object row) {
-                if (itemViewHolder.view instanceof RecordingCardView) {
-                    setFadingEnabled(false);
-                    long programId = ((RecordedProgram) itemViewHolder.view.getTag()).getId();
-                    if (DEBUG) Log.d(TAG, "Play Related Recording:" + programId);
-                    Intent intent = new Intent(getContext(), DvrPlaybackActivity.class);
-                    intent.putExtra(Utils.EXTRA_KEY_RECORDED_PROGRAM_ID, programId);
-                    getContext().startActivity(intent);
-                }
-            }
-        });
+        setOnItemViewClickedListener(
+                new BaseOnItemViewClickedListener() {
+                    @Override
+                    public void onItemClicked(
+                            Presenter.ViewHolder itemViewHolder,
+                            Object item,
+                            RowPresenter.ViewHolder rowViewHolder,
+                            Object row) {
+                        if (itemViewHolder.view instanceof RecordingCardView) {
+                            setFadingEnabled(false);
+                            long programId =
+                                    ((RecordedProgram) itemViewHolder.view.getTag()).getId();
+                            if (DEBUG) Log.d(TAG, "Play Related Recording:" + programId);
+                            Intent intent = new Intent(getContext(), DvrPlaybackActivity.class);
+                            intent.putExtra(Utils.EXTRA_KEY_RECORDED_PROGRAM_ID, programId);
+                            getContext().startActivity(intent);
+                        }
+                    }
+                });
         if (mProgram != null) {
             setUpRows();
             preparePlayback(getActivity().getIntent());
@@ -265,9 +282,7 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
         super.onDestroy();
     }
 
-    /**
-     * Passes the intent to the fragment.
-     */
+    /** Passes the intent to the fragment. */
     public void onNewIntent(Intent intent) {
         if (mDvrDataManager.isRecordedProgramLoadFinished() && handleIntent(intent, false)) {
             preparePlayback(intent);
@@ -275,8 +290,8 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
     }
 
     /**
-     * Should be called when windows' size is changed in order to notify DVR player
-     * to update it's view width/height and position.
+     * Should be called when windows' size is changed in order to notify DVR player to update it's
+     * view width/height and position.
      */
     public void onWindowSizeChanged(final int windowWidth, final int windowHeight) {
         mWindowWidth = windowWidth;
@@ -285,9 +300,7 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
         updateAspectRatio(mAppliedAspectRatio);
     }
 
-    /**
-     * Returns next recorded episode in the same series as now playing program.
-     */
+    /** Returns next recorded episode in the same series as now playing program. */
     public RecordedProgram getNextEpisode(RecordedProgram program) {
         int position = mRelatedRecordingsRowAdapter.findInsertPosition(program);
         if (position == mRelatedRecordingsRowAdapter.size()) {
@@ -299,9 +312,9 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
 
     /**
      * Returns the tracks of the give type of the current playback.
-
-     * @param trackType Should be {@link TvTrackInfo#TYPE_SUBTITLE}
-     *                  or {@link TvTrackInfo#TYPE_AUDIO}. Or returns {@code null}.
+     *
+     * @param trackType Should be {@link TvTrackInfo#TYPE_SUBTITLE} or {@link
+     *     TvTrackInfo#TYPE_AUDIO}. Or returns {@code null}.
      */
     public ArrayList<TvTrackInfo> getTracks(int trackType) {
         if (trackType == TvTrackInfo.TYPE_AUDIO) {
@@ -312,18 +325,16 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
         return null;
     }
 
-    /**
-     * Returns the ID of the selected track of the given type.
-     */
+    /** Returns the ID of the selected track of the given type. */
     public String getSelectedTrackId(int trackType) {
         return mDvrPlayer.getSelectedTrackId(trackType);
     }
 
     /**
      * Returns the language setting of the given track type.
-
-     * @param trackType Should be {@link TvTrackInfo#TYPE_SUBTITLE}
-     *                  or {@link TvTrackInfo#TYPE_AUDIO}.
+     *
+     * @param trackType Should be {@link TvTrackInfo#TYPE_SUBTITLE} or {@link
+     *     TvTrackInfo#TYPE_AUDIO}.
      * @return {@code null} if no language has been set for the given track type.
      */
     TvTrackInfo getTrackSetting(int trackType) {
@@ -332,10 +343,11 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
 
     /**
      * Selects the given audio or subtitle track for DVR playback.
-     * @param trackType Should be {@link TvTrackInfo#TYPE_SUBTITLE}
-     *                  or {@link TvTrackInfo#TYPE_AUDIO}.
+     *
+     * @param trackType Should be {@link TvTrackInfo#TYPE_SUBTITLE} or {@link
+     *     TvTrackInfo#TYPE_AUDIO}.
      * @param selectedTrack {@code null} to disable the audio or subtitle track according to
-     *                      trackType.
+     *     trackType.
      */
     void selectTrack(int trackType, TvTrackInfo selectedTrack) {
         if (mDvrPlayer.isPlaybackPrepared()) {
@@ -346,8 +358,11 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
     private boolean handleIntent(Intent intent, boolean finishActivity) {
         mProgram = getProgramFromIntent(intent);
         if (mProgram == null) {
-            Toast.makeText(getActivity(), getString(R.string.dvr_program_not_found),
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(
+                            getActivity(),
+                            getString(R.string.dvr_program_not_found),
+                            Toast.LENGTH_SHORT)
+                    .show();
             if (finishActivity) {
                 getActivity().finish();
             }
@@ -359,12 +374,18 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
     private void selectBestMatchedTrack(int trackType) {
         TvTrackInfo selectedTrack = getTrackSetting(trackType);
         if (selectedTrack != null) {
-            TvTrackInfo bestMatchedTrack = TvTrackInfoUtils.getBestTrackInfo(getTracks(trackType),
-                    selectedTrack.getId(), selectedTrack.getLanguage(),
-                    trackType == TvTrackInfo.TYPE_AUDIO ? selectedTrack.getAudioChannelCount() : 0);
-            if (bestMatchedTrack != null && (trackType == TvTrackInfo.TYPE_AUDIO || Utils
-                    .isEqualLanguage(bestMatchedTrack.getLanguage(),
-                            selectedTrack.getLanguage()))) {
+            TvTrackInfo bestMatchedTrack =
+                    TvTrackInfoUtils.getBestTrackInfo(
+                            getTracks(trackType),
+                            selectedTrack.getId(),
+                            selectedTrack.getLanguage(),
+                            trackType == TvTrackInfo.TYPE_AUDIO
+                                    ? selectedTrack.getAudioChannelCount()
+                                    : 0);
+            if (bestMatchedTrack != null
+                    && (trackType == TvTrackInfo.TYPE_AUDIO
+                            || Utils.isEqualLanguage(
+                                    bestMatchedTrack.getLanguage(), selectedTrack.getLanguage()))) {
                 selectTrack(trackType, bestMatchedTrack);
                 return;
             }
@@ -421,7 +442,7 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
         }
         if (mRelatedRecordingsRowAdapter.size() == 0) {
             mRowsAdapter.remove(mRelatedRecordingsRow);
-        } else if (wasEmpty){
+        } else if (wasEmpty) {
             mRowsAdapter.add(mRelatedRecordingsRow);
         }
         updateVerticalPosition();
@@ -446,8 +467,9 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
     private ListRow getRelatedRecordingsRow() {
         mRelatedRecordingCardPresenter = new DvrPlaybackCardPresenter(getActivity());
         mRelatedRecordingsRowAdapter = new RelatedRecordingsAdapter(mRelatedRecordingCardPresenter);
-        HeaderItem header = new HeaderItem(0,
-                getActivity().getString(R.string.dvr_playback_related_recordings));
+        HeaderItem header =
+                new HeaderItem(
+                        0, getActivity().getString(R.string.dvr_playback_related_recordings));
         return new ListRow(header, mRelatedRecordingsRowAdapter);
     }
 
@@ -457,8 +479,8 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
     }
 
     private long getSeekTimeFromIntent(Intent intent) {
-        return intent.getLongExtra(Utils.EXTRA_KEY_RECORDED_PROGRAM_SEEK_TIME,
-                TvInputManager.TIME_SHIFT_INVALID_TIME);
+        return intent.getLongExtra(
+                Utils.EXTRA_KEY_RECORDED_PROGRAM_SEEK_TIME, TvInputManager.TIME_SHIFT_INVALID_TIME);
     }
 
     private void updateVerticalPosition() {

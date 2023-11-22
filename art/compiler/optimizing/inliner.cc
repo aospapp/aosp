@@ -21,10 +21,11 @@
 #include "builder.h"
 #include "class_linker.h"
 #include "constant_folding.h"
+#include "data_type-inl.h"
 #include "dead_code_elimination.h"
 #include "dex/inline_method_analyser.h"
-#include "dex/verified_method.h"
 #include "dex/verification_results.h"
+#include "dex/verified_method.h"
 #include "driver/compiler_driver-inl.h"
 #include "driver/compiler_options.h"
 #include "driver/dex_compilation_unit.h"
@@ -38,10 +39,10 @@
 #include "optimizing_compiler.h"
 #include "reference_type_propagation.h"
 #include "register_allocator_linear_scan.h"
+#include "scoped_thread_state_change-inl.h"
 #include "sharpening.h"
 #include "ssa_builder.h"
 #include "ssa_phi_elimination.h"
-#include "scoped_thread_state_change-inl.h"
 #include "thread.h"
 
 namespace art {
@@ -75,7 +76,7 @@ static constexpr bool kUseAOTInlineCaches = true;
 #define LOG_TRY() LOG_INTERNAL("Try inlinining call: ")
 #define LOG_NOTE() LOG_INTERNAL("Note: ")
 #define LOG_SUCCESS() LOG_INTERNAL("Success: ")
-#define LOG_FAIL(stat) MaybeRecordStat(stat); LOG_INTERNAL("Fail: ")
+#define LOG_FAIL(stats_ptr, stat) MaybeRecordStat(stats_ptr, stat); LOG_INTERNAL("Fail: ")
 #define LOG_FAIL_NO_STAT() LOG_INTERNAL("Fail: ")
 
 std::string HInliner::DepthString(int line) const {
@@ -293,7 +294,7 @@ static dex::TypeIndex FindClassIndexIn(mirror::Class* cls,
     // as there may be different class loaders. So only return the index if it's
     // the right class already resolved with the class loader.
     if (index.IsValid()) {
-      ObjPtr<mirror::Class> resolved = ClassLinker::LookupResolvedType(
+      ObjPtr<mirror::Class> resolved = compilation_unit.GetClassLinker()->LookupResolvedType(
           index, compilation_unit.GetDexCache().Get(), compilation_unit.GetClassLoader().Get());
       if (resolved != cls) {
         index = dex::TypeIndex::Invalid();
@@ -391,6 +392,58 @@ ArtMethod* HInliner::TryCHADevirtualization(ArtMethod* resolved_method) {
   return single_impl;
 }
 
+static bool IsMethodUnverified(CompilerDriver* const compiler_driver, ArtMethod* method)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  if (!method->GetDeclaringClass()->IsVerified()) {
+    if (Runtime::Current()->UseJitCompilation()) {
+      // We're at runtime, we know this is cold code if the class
+      // is not verified, so don't bother analyzing.
+      return true;
+    }
+    uint16_t class_def_idx = method->GetDeclaringClass()->GetDexClassDefIndex();
+    if (!compiler_driver->IsMethodVerifiedWithoutFailures(
+        method->GetDexMethodIndex(), class_def_idx, *method->GetDexFile())) {
+      // Method has soft or hard failures, don't analyze.
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool AlwaysThrows(CompilerDriver* const compiler_driver, ArtMethod* method)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  DCHECK(method != nullptr);
+  // Skip non-compilable and unverified methods.
+  if (!method->IsCompilable() || IsMethodUnverified(compiler_driver, method)) {
+    return false;
+  }
+  // Skip native methods, methods with try blocks, and methods that are too large.
+  CodeItemDataAccessor accessor(method->DexInstructionData());
+  if (!accessor.HasCodeItem() ||
+      accessor.TriesSize() != 0 ||
+      accessor.InsnsSizeInCodeUnits() > kMaximumNumberOfTotalInstructions) {
+    return false;
+  }
+  // Scan for exits.
+  bool throw_seen = false;
+  for (const DexInstructionPcPair& pair : accessor) {
+    switch (pair.Inst().Opcode()) {
+      case Instruction::RETURN:
+      case Instruction::RETURN_VOID:
+      case Instruction::RETURN_WIDE:
+      case Instruction::RETURN_OBJECT:
+      case Instruction::RETURN_VOID_NO_BARRIER:
+        return false;  // found regular control flow back
+      case Instruction::THROW:
+        throw_seen = true;
+        break;
+      default:
+        break;
+    }
+  }
+  return throw_seen;
+}
+
 bool HInliner::TryInline(HInvoke* invoke_instruction) {
   if (invoke_instruction->IsInvokeUnresolved() ||
       invoke_instruction->IsInvokePolymorphic()) {
@@ -430,20 +483,29 @@ bool HInliner::TryInline(HInvoke* invoke_instruction) {
   }
 
   if (actual_method != nullptr) {
+    // Single target.
     bool result = TryInlineAndReplace(invoke_instruction,
                                       actual_method,
                                       ReferenceTypeInfo::CreateInvalid(),
                                       /* do_rtp */ true,
                                       cha_devirtualize);
-    if (result && !invoke_instruction->IsInvokeStaticOrDirect()) {
-      if (cha_devirtualize) {
-        // Add dependency due to devirtulization. We've assumed resolved_method
-        // has single implementation.
-        outermost_graph_->AddCHASingleImplementationDependency(resolved_method);
-        MaybeRecordStat(kCHAInline);
-      } else {
-        MaybeRecordStat(kInlinedInvokeVirtualOrInterface);
+    if (result) {
+      // Successfully inlined.
+      if (!invoke_instruction->IsInvokeStaticOrDirect()) {
+        if (cha_devirtualize) {
+          // Add dependency due to devirtualization. We've assumed resolved_method
+          // has single implementation.
+          outermost_graph_->AddCHASingleImplementationDependency(resolved_method);
+          MaybeRecordStat(stats_, MethodCompilationStat::kCHAInline);
+        } else {
+          MaybeRecordStat(stats_, MethodCompilationStat::kInlinedInvokeVirtualOrInterface);
+        }
       }
+    } else if (!cha_devirtualize && AlwaysThrows(compiler_driver_, actual_method)) {
+      // Set always throws property for non-inlined method call with single target
+      // (unless it was obtained through CHA, because that would imply we have
+      // to add the CHA dependency, which seems not worth it).
+      invoke_instruction->SetAlwaysThrows(true);
     }
     return result;
   }
@@ -532,7 +594,7 @@ bool HInliner::TryInlineFromInlineCache(const DexFile& caller_dex_file,
     }
 
     case kInlineCacheMonomorphic: {
-      MaybeRecordStat(kMonomorphicCall);
+      MaybeRecordStat(stats_, MethodCompilationStat::kMonomorphicCall);
       if (UseOnlyPolymorphicInliningWithNoDeopt()) {
         return TryInlinePolymorphicCall(invoke_instruction, resolved_method, inline_cache);
       } else {
@@ -541,7 +603,7 @@ bool HInliner::TryInlineFromInlineCache(const DexFile& caller_dex_file,
     }
 
     case kInlineCachePolymorphic: {
-      MaybeRecordStat(kPolymorphicCall);
+      MaybeRecordStat(stats_, MethodCompilationStat::kPolymorphicCall);
       return TryInlinePolymorphicCall(invoke_instruction, resolved_method, inline_cache);
     }
 
@@ -550,7 +612,7 @@ bool HInliner::TryInlineFromInlineCache(const DexFile& caller_dex_file,
           << "Interface or virtual call to "
           << caller_dex_file.PrettyMethod(invoke_instruction->GetDexMethodIndex())
           << " is megamorphic and not inlined";
-      MaybeRecordStat(kMegamorphicCall);
+      MaybeRecordStat(stats_, MethodCompilationStat::kMegamorphicCall);
       return false;
     }
 
@@ -681,7 +743,7 @@ HInliner::InlineCacheType HInliner::ExtractClassesFromOfflineProfile(
             << "is invalid in location" << dex_cache->GetDexFile()->GetLocation();
       return kInlineCacheNoData;
     }
-    ObjPtr<mirror::Class> clazz = ClassLinker::LookupResolvedType(
+    ObjPtr<mirror::Class> clazz = caller_compilation_unit_.GetClassLinker()->LookupResolvedType(
           class_ref.type_index,
           dex_cache,
           caller_compilation_unit_.GetClassLoader().Get());
@@ -704,10 +766,10 @@ HInstanceFieldGet* HInliner::BuildGetReceiverClass(ClassLinker* class_linker,
                                                    uint32_t dex_pc) const {
   ArtField* field = class_linker->GetClassRoot(ClassLinker::kJavaLangObject)->GetInstanceField(0);
   DCHECK_EQ(std::string(field->GetName()), "shadow$_klass_");
-  HInstanceFieldGet* result = new (graph_->GetArena()) HInstanceFieldGet(
+  HInstanceFieldGet* result = new (graph_->GetAllocator()) HInstanceFieldGet(
       receiver,
       field,
-      Primitive::kPrimNot,
+      DataType::Type::kReference,
       field->GetOffset(),
       field->IsVolatile(),
       field->GetDexFieldIndex(),
@@ -754,7 +816,7 @@ bool HInliner::TryInlineMonomorphicCall(HInvoke* invoke_instruction,
   dex::TypeIndex class_index = FindClassIndexIn(
       GetMonomorphicType(classes), caller_compilation_unit_);
   if (!class_index.IsValid()) {
-    LOG_FAIL(kNotInlinedDexCache)
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedDexCache)
         << "Call to " << ArtMethod::PrettyMethod(resolved_method)
         << " from inline cache is not inlined because its class is not"
         << " accessible to the caller";
@@ -803,7 +865,7 @@ bool HInliner::TryInlineMonomorphicCall(HInvoke* invoke_instruction,
                                      /* is_first_run */ false);
   rtp_fixup.Run();
 
-  MaybeRecordStat(kInlinedMonomorphicCall);
+  MaybeRecordStat(stats_, MethodCompilationStat::kInlinedMonomorphicCall);
   return true;
 }
 
@@ -811,12 +873,12 @@ void HInliner::AddCHAGuard(HInstruction* invoke_instruction,
                            uint32_t dex_pc,
                            HInstruction* cursor,
                            HBasicBlock* bb_cursor) {
-  HShouldDeoptimizeFlag* deopt_flag = new (graph_->GetArena())
-      HShouldDeoptimizeFlag(graph_->GetArena(), dex_pc);
-  HInstruction* compare = new (graph_->GetArena()) HNotEqual(
+  HShouldDeoptimizeFlag* deopt_flag = new (graph_->GetAllocator())
+      HShouldDeoptimizeFlag(graph_->GetAllocator(), dex_pc);
+  HInstruction* compare = new (graph_->GetAllocator()) HNotEqual(
       deopt_flag, graph_->GetIntConstant(0, dex_pc));
-  HInstruction* deopt = new (graph_->GetArena()) HDeoptimize(
-      graph_->GetArena(), compare, DeoptimizationKind::kCHA, dex_pc);
+  HInstruction* deopt = new (graph_->GetAllocator()) HDeoptimize(
+      graph_->GetAllocator(), compare, DeoptimizationKind::kCHA, dex_pc);
 
   if (cursor != nullptr) {
     bb_cursor->InsertInstructionAfter(deopt_flag, cursor);
@@ -864,20 +926,20 @@ HInstruction* HInliner::AddTypeGuard(HInstruction* receiver,
   // Note that we will just compare the classes, so we don't need Java semantics access checks.
   // Note that the type index and the dex file are relative to the method this type guard is
   // inlined into.
-  HLoadClass* load_class = new (graph_->GetArena()) HLoadClass(graph_->GetCurrentMethod(),
-                                                               class_index,
-                                                               caller_dex_file,
-                                                               klass,
-                                                               is_referrer,
-                                                               invoke_instruction->GetDexPc(),
-                                                               /* needs_access_check */ false);
+  HLoadClass* load_class = new (graph_->GetAllocator()) HLoadClass(graph_->GetCurrentMethod(),
+                                                                   class_index,
+                                                                   caller_dex_file,
+                                                                   klass,
+                                                                   is_referrer,
+                                                                   invoke_instruction->GetDexPc(),
+                                                                   /* needs_access_check */ false);
   HLoadClass::LoadKind kind = HSharpening::ComputeLoadClassKind(
       load_class, codegen_, compiler_driver_, caller_compilation_unit_);
   DCHECK(kind != HLoadClass::LoadKind::kInvalid)
       << "We should always be able to reference a class for inline caches";
-  // Insert before setting the kind, as setting the kind affects the inputs.
-  bb_cursor->InsertInstructionAfter(load_class, receiver_class);
+  // Load kind must be set before inserting the instruction into the graph.
   load_class->SetLoadKind(kind);
+  bb_cursor->InsertInstructionAfter(load_class, receiver_class);
   // In AOT mode, we will most likely load the class from BSS, which will involve a call
   // to the runtime. In this case, the load instruction will need an environment so copy
   // it from the invoke instruction.
@@ -886,11 +948,11 @@ HInstruction* HInliner::AddTypeGuard(HInstruction* receiver,
     load_class->CopyEnvironmentFrom(invoke_instruction->GetEnvironment());
   }
 
-  HNotEqual* compare = new (graph_->GetArena()) HNotEqual(load_class, receiver_class);
+  HNotEqual* compare = new (graph_->GetAllocator()) HNotEqual(load_class, receiver_class);
   bb_cursor->InsertInstructionAfter(compare, load_class);
   if (with_deoptimization) {
-    HDeoptimize* deoptimize = new (graph_->GetArena()) HDeoptimize(
-        graph_->GetArena(),
+    HDeoptimize* deoptimize = new (graph_->GetAllocator()) HDeoptimize(
+        graph_->GetAllocator(),
         compare,
         receiver,
         Runtime::Current()->IsAotCompiler()
@@ -993,7 +1055,7 @@ bool HInliner::TryInlinePolymorphicCall(HInvoke* invoke_instruction,
     return false;
   }
 
-  MaybeRecordStat(kInlinedPolymorphicCall);
+  MaybeRecordStat(stats_, MethodCompilationStat::kInlinedPolymorphicCall);
 
   // Run type propagation to get the guards typed.
   ReferenceTypePropagation rtp_fixup(graph_,
@@ -1011,7 +1073,7 @@ void HInliner::CreateDiamondPatternForPolymorphicInline(HInstruction* compare,
   uint32_t dex_pc = invoke_instruction->GetDexPc();
   HBasicBlock* cursor_block = compare->GetBlock();
   HBasicBlock* original_invoke_block = invoke_instruction->GetBlock();
-  ArenaAllocator* allocator = graph_->GetArena();
+  ArenaAllocator* allocator = graph_->GetAllocator();
 
   // Spit the block after the compare: `cursor_block` will now be the start of the diamond,
   // and the returned block is the start of the then branch (that could contain multiple blocks).
@@ -1143,10 +1205,10 @@ bool HInliner::TryInlinePolymorphicCallToSameTarget(
   HInstanceFieldGet* receiver_class = BuildGetReceiverClass(
       class_linker, receiver, invoke_instruction->GetDexPc());
 
-  Primitive::Type type = Is64BitInstructionSet(graph_->GetInstructionSet())
-      ? Primitive::kPrimLong
-      : Primitive::kPrimInt;
-  HClassTableGet* class_table_get = new (graph_->GetArena()) HClassTableGet(
+  DataType::Type type = Is64BitInstructionSet(graph_->GetInstructionSet())
+      ? DataType::Type::kInt64
+      : DataType::Type::kInt32;
+  HClassTableGet* class_table_get = new (graph_->GetAllocator()) HClassTableGet(
       receiver_class,
       type,
       invoke_instruction->IsInvokeVirtual() ? HClassTableGet::TableKind::kVTable
@@ -1155,7 +1217,7 @@ bool HInliner::TryInlinePolymorphicCallToSameTarget(
       invoke_instruction->GetDexPc());
 
   HConstant* constant;
-  if (type == Primitive::kPrimLong) {
+  if (type == DataType::Type::kInt64) {
     constant = graph_->GetLongConstant(
         reinterpret_cast<intptr_t>(actual_method), invoke_instruction->GetDexPc());
   } else {
@@ -1163,7 +1225,7 @@ bool HInliner::TryInlinePolymorphicCallToSameTarget(
         reinterpret_cast<intptr_t>(actual_method), invoke_instruction->GetDexPc());
   }
 
-  HNotEqual* compare = new (graph_->GetArena()) HNotEqual(class_table_get, constant);
+  HNotEqual* compare = new (graph_->GetAllocator()) HNotEqual(class_table_get, constant);
   if (cursor != nullptr) {
     bb_cursor->InsertInstructionAfter(receiver_class, cursor);
   } else {
@@ -1175,8 +1237,8 @@ bool HInliner::TryInlinePolymorphicCallToSameTarget(
   if (outermost_graph_->IsCompilingOsr()) {
     CreateDiamondPatternForPolymorphicInline(compare, return_replacement, invoke_instruction);
   } else {
-    HDeoptimize* deoptimize = new (graph_->GetArena()) HDeoptimize(
-        graph_->GetArena(),
+    HDeoptimize* deoptimize = new (graph_->GetAllocator()) HDeoptimize(
+        graph_->GetAllocator(),
         compare,
         receiver,
         DeoptimizationKind::kJitSameTarget,
@@ -1199,7 +1261,7 @@ bool HInliner::TryInlinePolymorphicCallToSameTarget(
                                      /* is_first_run */ false);
   rtp_fixup.Run();
 
-  MaybeRecordStat(kInlinedPolymorphicCall);
+  MaybeRecordStat(stats_, MethodCompilationStat::kInlinedPolymorphicCall);
 
   LOG_SUCCESS() << "Inlined same polymorphic target " << actual_method->PrettyMethod();
   return true;
@@ -1210,11 +1272,49 @@ bool HInliner::TryInlineAndReplace(HInvoke* invoke_instruction,
                                    ReferenceTypeInfo receiver_type,
                                    bool do_rtp,
                                    bool cha_devirtualize) {
+  DCHECK(!invoke_instruction->IsIntrinsic());
   HInstruction* return_replacement = nullptr;
   uint32_t dex_pc = invoke_instruction->GetDexPc();
   HInstruction* cursor = invoke_instruction->GetPrevious();
   HBasicBlock* bb_cursor = invoke_instruction->GetBlock();
-  if (!TryBuildAndInline(invoke_instruction, method, receiver_type, &return_replacement)) {
+  bool should_remove_invoke_instruction = false;
+
+  // If invoke_instruction is devirtualized to a different method, give intrinsics
+  // another chance before we try to inline it.
+  bool wrong_invoke_type = false;
+  if (invoke_instruction->GetResolvedMethod() != method &&
+      IntrinsicsRecognizer::Recognize(invoke_instruction, method, &wrong_invoke_type)) {
+    MaybeRecordStat(stats_, MethodCompilationStat::kIntrinsicRecognized);
+    if (invoke_instruction->IsInvokeInterface()) {
+      // We don't intrinsify an invoke-interface directly.
+      // Replace the invoke-interface with an invoke-virtual.
+      HInvokeVirtual* new_invoke = new (graph_->GetAllocator()) HInvokeVirtual(
+          graph_->GetAllocator(),
+          invoke_instruction->GetNumberOfArguments(),
+          invoke_instruction->GetType(),
+          invoke_instruction->GetDexPc(),
+          invoke_instruction->GetDexMethodIndex(),  // Use interface method's dex method index.
+          method,
+          method->GetMethodIndex());
+      HInputsRef inputs = invoke_instruction->GetInputs();
+      for (size_t index = 0; index != inputs.size(); ++index) {
+        new_invoke->SetArgumentAt(index, inputs[index]);
+      }
+      invoke_instruction->GetBlock()->InsertInstructionBefore(new_invoke, invoke_instruction);
+      new_invoke->CopyEnvironmentFrom(invoke_instruction->GetEnvironment());
+      if (invoke_instruction->GetType() == DataType::Type::kReference) {
+        new_invoke->SetReferenceTypeInfo(invoke_instruction->GetReferenceTypeInfo());
+      }
+      // Run intrinsic recognizer again to set new_invoke's intrinsic.
+      IntrinsicsRecognizer::Recognize(new_invoke, method, &wrong_invoke_type);
+      DCHECK_NE(new_invoke->GetIntrinsic(), Intrinsics::kNone);
+      return_replacement = new_invoke;
+      // invoke_instruction is replaced with new_invoke.
+      should_remove_invoke_instruction = true;
+    } else {
+      // invoke_instruction is intrinsified and stays.
+    }
+  } else if (!TryBuildAndInline(invoke_instruction, method, receiver_type, &return_replacement)) {
     if (invoke_instruction->IsInvokeInterface()) {
       DCHECK(!method->IsProxyMethod());
       // Turn an invoke-interface into an invoke-virtual. An invoke-virtual is always
@@ -1236,11 +1336,11 @@ bool HInliner::TryInlineAndReplace(HInvoke* invoke_instruction,
       const DexFile& caller_dex_file = *caller_compilation_unit_.GetDexFile();
       uint32_t dex_method_index = FindMethodIndexIn(
           method, caller_dex_file, invoke_instruction->GetDexMethodIndex());
-      if (dex_method_index == DexFile::kDexNoIndex) {
+      if (dex_method_index == dex::kDexNoIndex) {
         return false;
       }
-      HInvokeVirtual* new_invoke = new (graph_->GetArena()) HInvokeVirtual(
-          graph_->GetArena(),
+      HInvokeVirtual* new_invoke = new (graph_->GetAllocator()) HInvokeVirtual(
+          graph_->GetAllocator(),
           invoke_instruction->GetNumberOfArguments(),
           invoke_instruction->GetType(),
           invoke_instruction->GetDexPc(),
@@ -1253,23 +1353,31 @@ bool HInliner::TryInlineAndReplace(HInvoke* invoke_instruction,
       }
       invoke_instruction->GetBlock()->InsertInstructionBefore(new_invoke, invoke_instruction);
       new_invoke->CopyEnvironmentFrom(invoke_instruction->GetEnvironment());
-      if (invoke_instruction->GetType() == Primitive::kPrimNot) {
+      if (invoke_instruction->GetType() == DataType::Type::kReference) {
         new_invoke->SetReferenceTypeInfo(invoke_instruction->GetReferenceTypeInfo());
       }
       return_replacement = new_invoke;
+      // invoke_instruction is replaced with new_invoke.
+      should_remove_invoke_instruction = true;
     } else {
       // TODO: Consider sharpening an invoke virtual once it is not dependent on the
       // compiler driver.
       return false;
     }
+  } else {
+    // invoke_instruction is inlined.
+    should_remove_invoke_instruction = true;
   }
+
   if (cha_devirtualize) {
     AddCHAGuard(invoke_instruction, dex_pc, cursor, bb_cursor);
   }
   if (return_replacement != nullptr) {
     invoke_instruction->ReplaceWith(return_replacement);
   }
-  invoke_instruction->GetBlock()->RemoveInstruction(invoke_instruction);
+  if (should_remove_invoke_instruction) {
+    invoke_instruction->GetBlock()->RemoveInstruction(invoke_instruction);
+  }
   FixUpReturnReferenceType(method, return_replacement);
   if (do_rtp && ReturnTypeMoreSpecific(invoke_instruction, return_replacement)) {
     // Actual return value has a more specific type than the method's declared
@@ -1300,14 +1408,14 @@ bool HInliner::TryBuildAndInline(HInvoke* invoke_instruction,
                                  ReferenceTypeInfo receiver_type,
                                  HInstruction** return_replacement) {
   if (method->IsProxyMethod()) {
-    LOG_FAIL(kNotInlinedProxy)
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedProxy)
         << "Method " << method->PrettyMethod()
         << " is not inlined because of unimplemented inline support for proxy methods.";
     return false;
   }
 
   if (CountRecursiveCallsOf(method) > kMaximumNumberOfRecursiveCalls) {
-    LOG_FAIL(kNotInlinedRecursiveBudget)
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedRecursiveBudget)
         << "Method "
         << method->PrettyMethod()
         << " is not inlined because it has reached its recursive call budget.";
@@ -1321,10 +1429,10 @@ bool HInliner::TryBuildAndInline(HInvoke* invoke_instruction,
     if (TryPatternSubstitution(invoke_instruction, method, return_replacement)) {
       LOG_SUCCESS() << "Successfully replaced pattern of invoke "
                     << method->PrettyMethod();
-      MaybeRecordStat(kReplacedInvokeWithSimplePattern);
+      MaybeRecordStat(stats_, MethodCompilationStat::kReplacedInvokeWithSimplePattern);
       return true;
     }
-    LOG_FAIL(kNotInlinedWont)
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedWont)
         << "Won't inline " << method->PrettyMethod() << " in "
         << outer_compilation_unit_.GetDexFile()->GetLocation() << " ("
         << caller_compilation_unit_.GetDexFile()->GetLocation() << ") from "
@@ -1334,56 +1442,53 @@ bool HInliner::TryBuildAndInline(HInvoke* invoke_instruction,
 
   bool same_dex_file = IsSameDexFile(*outer_compilation_unit_.GetDexFile(), *method->GetDexFile());
 
-  const DexFile::CodeItem* code_item = method->GetCodeItem();
+  CodeItemDataAccessor accessor(method->DexInstructionData());
 
-  if (code_item == nullptr) {
+  if (!accessor.HasCodeItem()) {
     LOG_FAIL_NO_STAT()
         << "Method " << method->PrettyMethod() << " is not inlined because it is native";
     return false;
   }
 
   size_t inline_max_code_units = compiler_driver_->GetCompilerOptions().GetInlineMaxCodeUnits();
-  if (code_item->insns_size_in_code_units_ > inline_max_code_units) {
-    LOG_FAIL(kNotInlinedCodeItem)
+  if (accessor.InsnsSizeInCodeUnits() > inline_max_code_units) {
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedCodeItem)
         << "Method " << method->PrettyMethod()
         << " is not inlined because its code item is too big: "
-        << code_item->insns_size_in_code_units_
+        << accessor.InsnsSizeInCodeUnits()
         << " > "
         << inline_max_code_units;
     return false;
   }
 
-  if (code_item->tries_size_ != 0) {
-    LOG_FAIL(kNotInlinedTryCatch)
+  if (accessor.TriesSize() != 0) {
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedTryCatch)
         << "Method " << method->PrettyMethod() << " is not inlined because of try block";
     return false;
   }
 
   if (!method->IsCompilable()) {
-    LOG_FAIL(kNotInlinedNotVerified)
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedNotVerified)
         << "Method " << method->PrettyMethod()
         << " has soft failures un-handled by the compiler, so it cannot be inlined";
+    return false;
   }
 
-  if (!method->GetDeclaringClass()->IsVerified()) {
-    uint16_t class_def_idx = method->GetDeclaringClass()->GetDexClassDefIndex();
-    if (Runtime::Current()->UseJitCompilation() ||
-        !compiler_driver_->IsMethodVerifiedWithoutFailures(
-            method->GetDexMethodIndex(), class_def_idx, *method->GetDexFile())) {
-      LOG_FAIL(kNotInlinedNotVerified)
-          << "Method " << method->PrettyMethod()
-          << " couldn't be verified, so it cannot be inlined";
-      return false;
-    }
+  if (IsMethodUnverified(compiler_driver_, method)) {
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedNotVerified)
+        << "Method " << method->PrettyMethod()
+        << " couldn't be verified, so it cannot be inlined";
+    return false;
   }
 
   if (invoke_instruction->IsInvokeStaticOrDirect() &&
       invoke_instruction->AsInvokeStaticOrDirect()->IsStaticWithImplicitClinitCheck()) {
     // Case of a static method that cannot be inlined because it implicitly
     // requires an initialization check of its declaring class.
-    LOG_FAIL(kNotInlinedDexCache) << "Method " << method->PrettyMethod()
-             << " is not inlined because it is static and requires a clinit"
-             << " check that cannot be emitted due to Dex cache limitations";
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedDexCache)
+        << "Method " << method->PrettyMethod()
+        << " is not inlined because it is static and requires a clinit"
+        << " check that cannot be emitted due to Dex cache limitations";
     return false;
   }
 
@@ -1393,7 +1498,7 @@ bool HInliner::TryBuildAndInline(HInvoke* invoke_instruction,
   }
 
   LOG_SUCCESS() << method->PrettyMethod();
-  MaybeRecordStat(kInlinedInvoke);
+  MaybeRecordStat(stats_, MethodCompilationStat::kInlinedInvoke);
   return true;
 }
 
@@ -1403,7 +1508,7 @@ static HInstruction* GetInvokeInputForArgVRegIndex(HInvoke* invoke_instruction,
   size_t input_index = 0;
   for (size_t i = 0; i < arg_vreg_index; ++i, ++input_index) {
     DCHECK_LT(input_index, invoke_instruction->GetNumberOfArguments());
-    if (Primitive::Is64BitType(invoke_instruction->InputAt(input_index)->GetType())) {
+    if (DataType::Is64BitType(invoke_instruction->InputAt(input_index)->GetType())) {
       ++i;
       DCHECK_NE(i, arg_vreg_index);
     }
@@ -1423,7 +1528,7 @@ bool HInliner::TryPatternSubstitution(HInvoke* invoke_instruction,
 
   switch (inline_method.opcode) {
     case kInlineOpNop:
-      DCHECK_EQ(invoke_instruction->GetType(), Primitive::kPrimVoid);
+      DCHECK_EQ(invoke_instruction->GetType(), DataType::Type::kVoid);
       *return_replacement = nullptr;
       break;
     case kInlineOpReturnArg:
@@ -1516,7 +1621,7 @@ bool HInliner::TryPatternSubstitution(HInvoke* invoke_instruction,
         DCHECK(obj != nullptr) << "only non-static methods can have a constructor fence";
 
         HConstructorFence* constructor_fence =
-            new (graph_->GetArena()) HConstructorFence(obj, kNoDexPc, graph_->GetArena());
+            new (graph_->GetAllocator()) HConstructorFence(obj, kNoDexPc, graph_->GetAllocator());
         invoke_instruction->GetBlock()->InsertInstructionBefore(constructor_fence,
                                                                 invoke_instruction);
       }
@@ -1538,10 +1643,10 @@ HInstanceFieldGet* HInliner::CreateInstanceFieldGet(uint32_t field_index,
   ArtField* resolved_field =
       class_linker->LookupResolvedField(field_index, referrer, /* is_static */ false);
   DCHECK(resolved_field != nullptr);
-  HInstanceFieldGet* iget = new (graph_->GetArena()) HInstanceFieldGet(
+  HInstanceFieldGet* iget = new (graph_->GetAllocator()) HInstanceFieldGet(
       obj,
       resolved_field,
-      resolved_field->GetTypeAsPrimitiveType(),
+      DataType::FromShorty(resolved_field->GetTypeDescriptor()[0]),
       resolved_field->GetOffset(),
       resolved_field->IsVolatile(),
       field_index,
@@ -1550,7 +1655,7 @@ HInstanceFieldGet* HInliner::CreateInstanceFieldGet(uint32_t field_index,
       // Read barrier generates a runtime call in slow path and we need a valid
       // dex pc for the associated stack map. 0 is bogus but valid. Bug: 26854537.
       /* dex_pc */ 0);
-  if (iget->GetType() == Primitive::kPrimNot) {
+  if (iget->GetType() == DataType::Type::kReference) {
     // Use the same dex_cache that we used for field lookup as the hint_dex_cache.
     Handle<mirror::DexCache> dex_cache = handles_->NewHandle(referrer->GetDexCache());
     ReferenceTypePropagation rtp(graph_,
@@ -1578,11 +1683,11 @@ HInstanceFieldSet* HInliner::CreateInstanceFieldSet(uint32_t field_index,
     DCHECK(referrer->IsConstructor());
     *is_final = resolved_field->IsFinal();
   }
-  HInstanceFieldSet* iput = new (graph_->GetArena()) HInstanceFieldSet(
+  HInstanceFieldSet* iput = new (graph_->GetAllocator()) HInstanceFieldSet(
       obj,
       value,
       resolved_field,
-      resolved_field->GetTypeAsPrimitiveType(),
+      DataType::FromShorty(resolved_field->GetTypeDescriptor()[0]),
       resolved_field->GetOffset(),
       resolved_field->IsVolatile(),
       field_index,
@@ -1612,6 +1717,7 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
   const DexFile::CodeItem* code_item = resolved_method->GetCodeItem();
   const DexFile& callee_dex_file = *resolved_method->GetDexFile();
   uint32_t method_index = resolved_method->GetDexMethodIndex();
+  CodeItemDebugInfoAccessor code_item_accessor(resolved_method->DexInstructionDebugInfo());
   ClassLinker* class_linker = caller_compilation_unit_.GetClassLinker();
   Handle<mirror::DexCache> dex_cache = NewHandleIfDifferent(resolved_method->GetDexCache(),
                                                             caller_compilation_unit_.GetDexCache(),
@@ -1640,8 +1746,9 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
   }
 
   const int32_t caller_instruction_counter = graph_->GetCurrentInstructionId();
-  HGraph* callee_graph = new (graph_->GetArena()) HGraph(
-      graph_->GetArena(),
+  HGraph* callee_graph = new (graph_->GetAllocator()) HGraph(
+      graph_->GetAllocator(),
+      graph_->GetArenaStack(),
       callee_dex_file,
       method_index,
       compiler_driver_->GetInstructionSet(),
@@ -1658,26 +1765,24 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
   if (stats_ != nullptr) {
     // Reuse one object for all inline attempts from this caller to keep Arena memory usage low.
     if (inline_stats_ == nullptr) {
-      void* storage = graph_->GetArena()->Alloc<OptimizingCompilerStats>(kArenaAllocMisc);
+      void* storage = graph_->GetAllocator()->Alloc<OptimizingCompilerStats>(kArenaAllocMisc);
       inline_stats_ = new (storage) OptimizingCompilerStats;
     } else {
       inline_stats_->Reset();
     }
   }
   HGraphBuilder builder(callee_graph,
+                        code_item_accessor,
                         &dex_compilation_unit,
                         &outer_compilation_unit_,
-                        resolved_method->GetDexFile(),
-                        *code_item,
                         compiler_driver_,
                         codegen_,
                         inline_stats_,
-                        resolved_method->GetQuickenedInfo(class_linker->GetImagePointerSize()),
-                        dex_cache,
+                        resolved_method->GetQuickenedInfo(),
                         handles_);
 
   if (builder.BuildGraph() != kAnalysisSuccess) {
-    LOG_FAIL(kNotInlinedCannotBuild)
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedCannotBuild)
         << "Method " << callee_dex_file.PrettyMethod(method_index)
         << " could not be built, so cannot be inlined";
     return false;
@@ -1685,7 +1790,7 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
 
   if (!RegisterAllocator::CanAllocateRegistersFor(*callee_graph,
                                                   compiler_driver_->GetInstructionSet())) {
-    LOG_FAIL(kNotInlinedRegisterAllocator)
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedRegisterAllocator)
         << "Method " << callee_dex_file.PrettyMethod(method_index)
         << " cannot be inlined because of the register allocator";
     return false;
@@ -1711,7 +1816,7 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
       } else if (argument->IsDoubleConstant()) {
         current->ReplaceWith(
             callee_graph->GetDoubleConstant(argument->AsDoubleConstant()->GetValue()));
-      } else if (argument->GetType() == Primitive::kPrimNot) {
+      } else if (argument->GetType() == DataType::Type::kReference) {
         if (!resolved_method->IsStatic() && parameter_index == 0 && receiver_type.IsValid()) {
           run_rtp = true;
           current->SetReferenceTypeInfo(receiver_type);
@@ -1738,7 +1843,7 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
 
   HBasicBlock* exit_block = callee_graph->GetExitBlock();
   if (exit_block == nullptr) {
-    LOG_FAIL(kNotInlinedInfiniteLoop)
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedInfiniteLoop)
         << "Method " << callee_dex_file.PrettyMethod(method_index)
         << " could not be inlined because it has an infinite loop";
     return false;
@@ -1749,14 +1854,14 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
     if (predecessor->GetLastInstruction()->IsThrow()) {
       if (invoke_instruction->GetBlock()->IsTryBlock()) {
         // TODO(ngeoffray): Support adding HTryBoundary in Hgraph::InlineInto.
-        LOG_FAIL(kNotInlinedTryCatch)
+        LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedTryCatch)
             << "Method " << callee_dex_file.PrettyMethod(method_index)
             << " could not be inlined because one branch always throws and"
             << " caller is in a try/catch block";
         return false;
       } else if (graph_->GetExitBlock() == nullptr) {
         // TODO(ngeoffray): Support adding HExit in the caller graph.
-        LOG_FAIL(kNotInlinedInfiniteLoop)
+        LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedInfiniteLoop)
             << "Method " << callee_dex_file.PrettyMethod(method_index)
             << " could not be inlined because one branch always throws and"
             << " caller does not have an exit block";
@@ -1775,7 +1880,7 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
   }
 
   if (!has_one_return) {
-    LOG_FAIL(kNotInlinedAlwaysThrows)
+    LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedAlwaysThrows)
         << "Method " << callee_dex_file.PrettyMethod(method_index)
         << " could not be inlined because it always throws";
     return false;
@@ -1788,7 +1893,7 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
       if (block->GetLoopInformation()->IsIrreducible()) {
         // Don't inline methods with irreducible loops, they could prevent some
         // optimizations to run.
-        LOG_FAIL(kNotInlinedIrreducibleLoop)
+        LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedIrreducibleLoop)
             << "Method " << callee_dex_file.PrettyMethod(method_index)
             << " could not be inlined because it contains an irreducible loop";
         return false;
@@ -1797,7 +1902,7 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
         // Don't inline methods with loops without exit, since they cause the
         // loop information to be computed incorrectly when updating after
         // inlining.
-        LOG_FAIL(kNotInlinedLoopWithoutExit)
+        LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedLoopWithoutExit)
             << "Method " << callee_dex_file.PrettyMethod(method_index)
             << " could not be inlined because it contains a loop with no exit";
         return false;
@@ -1808,7 +1913,7 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
          !instr_it.Done();
          instr_it.Advance()) {
       if (++number_of_instructions >= inlining_budget_) {
-        LOG_FAIL(kNotInlinedInstructionBudget)
+        LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedInstructionBudget)
             << "Method " << callee_dex_file.PrettyMethod(method_index)
             << " is not inlined because the outer method has reached"
             << " its instruction budget limit.";
@@ -1817,7 +1922,7 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
       HInstruction* current = instr_it.Current();
       if (current->NeedsEnvironment() &&
           (total_number_of_dex_registers_ >= kMaximumNumberOfCumulatedDexRegisters)) {
-        LOG_FAIL(kNotInlinedEnvironmentBudget)
+        LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedEnvironmentBudget)
             << "Method " << callee_dex_file.PrettyMethod(method_index)
             << " is not inlined because its caller has reached"
             << " its environment budget limit.";
@@ -1827,7 +1932,7 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
       if (current->NeedsEnvironment() &&
           !CanEncodeInlinedMethodInStackMap(*caller_compilation_unit_.GetDexFile(),
                                             resolved_method)) {
-        LOG_FAIL(kNotInlinedStackMaps)
+        LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedStackMaps)
             << "Method " << callee_dex_file.PrettyMethod(method_index)
             << " could not be inlined because " << current->DebugName()
             << " needs an environment, is in a different dex file"
@@ -1836,7 +1941,7 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
       }
 
       if (!same_dex_file && current->NeedsDexCacheOfDeclaringClass()) {
-        LOG_FAIL(kNotInlinedDexCache)
+        LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedDexCache)
             << "Method " << callee_dex_file.PrettyMethod(method_index)
             << " could not be inlined because " << current->DebugName()
             << " it is in a different dex file and requires access to the dex cache";
@@ -1848,7 +1953,7 @@ bool HInliner::TryBuildAndInlineHelper(HInvoke* invoke_instruction,
           current->IsUnresolvedStaticFieldSet() ||
           current->IsUnresolvedInstanceFieldSet()) {
         // Entrypoint for unresolved fields does not handle inlined frames.
-        LOG_FAIL(kNotInlinedUnresolvedEntrypoint)
+        LOG_FAIL(stats_, MethodCompilationStat::kNotInlinedUnresolvedEntrypoint)
             << "Method " << callee_dex_file.PrettyMethod(method_index)
             << " could not be inlined because it is using an unresolved"
             << " entrypoint";
@@ -1885,7 +1990,7 @@ void HInliner::RunOptimizations(HGraph* callee_graph,
   // optimization that could lead to a HDeoptimize. The following optimizations do not.
   HDeadCodeElimination dce(callee_graph, inline_stats_, "dead_code_elimination$inliner");
   HConstantFolding fold(callee_graph, "constant_folding$inliner");
-  HSharpening sharpening(callee_graph, codegen_, dex_compilation_unit, compiler_driver_, handles_);
+  HSharpening sharpening(callee_graph, codegen_, compiler_driver_);
   InstructionSimplifier simplify(callee_graph, codegen_, compiler_driver_, inline_stats_);
   IntrinsicsRecognizer intrinsics(callee_graph, inline_stats_);
 
@@ -1920,6 +2025,7 @@ void HInliner::RunOptimizations(HGraph* callee_graph,
     return;
   }
 
+  CodeItemDataAccessor accessor(callee_graph->GetDexFile(), code_item);
   HInliner inliner(callee_graph,
                    outermost_graph_,
                    codegen_,
@@ -1928,7 +2034,7 @@ void HInliner::RunOptimizations(HGraph* callee_graph,
                    compiler_driver_,
                    handles_,
                    inline_stats_,
-                   total_number_of_dex_registers_ + code_item->registers_size_,
+                   total_number_of_dex_registers_ + accessor.RegistersSize(),
                    total_number_of_instructions_ + number_of_instructions,
                    this,
                    depth_ + 1);
@@ -1948,7 +2054,7 @@ static bool IsReferenceTypeRefinement(ReferenceTypeInfo declared_rti,
           declared_rti.IsStrictSupertypeOf(actual_rti);
 }
 
-ReferenceTypeInfo HInliner::GetClassRTI(mirror::Class* klass) {
+ReferenceTypeInfo HInliner::GetClassRTI(ObjPtr<mirror::Class> klass) {
   return ReferenceTypePropagation::IsAdmissible(klass)
       ? ReferenceTypeInfo::Create(handles_->NewHandle(klass))
       : graph_->GetInexactObjectRti();
@@ -1975,10 +2081,9 @@ bool HInliner::ArgumentTypesMoreSpecific(HInvoke* invoke_instruction, ArtMethod*
        param_idx < e;
        ++param_idx, ++input_idx) {
     HInstruction* input = invoke_instruction->InputAt(input_idx);
-    if (input->GetType() == Primitive::kPrimNot) {
-      mirror::Class* param_cls = resolved_method->GetClassFromTypeIndex(
-          param_list->GetTypeItem(param_idx).type_idx_,
-          /* resolve */ false);
+    if (input->GetType() == DataType::Type::kReference) {
+      ObjPtr<mirror::Class> param_cls = resolved_method->LookupResolvedClassFromTypeIndex(
+          param_list->GetTypeItem(param_idx).type_idx_);
       if (IsReferenceTypeRefinement(GetClassRTI(param_cls),
                                     /* declared_can_be_null */ true,
                                     input)) {
@@ -1994,7 +2099,7 @@ bool HInliner::ReturnTypeMoreSpecific(HInvoke* invoke_instruction,
                                       HInstruction* return_replacement) {
   // Check the integrity of reference types and run another type propagation if needed.
   if (return_replacement != nullptr) {
-    if (return_replacement->GetType() == Primitive::kPrimNot) {
+    if (return_replacement->GetType() == DataType::Type::kReference) {
       // Test if the return type is a refinement of the declared return type.
       if (IsReferenceTypeRefinement(invoke_instruction->GetReferenceTypeInfo(),
                                     /* declared_can_be_null */ true,
@@ -2020,14 +2125,14 @@ bool HInliner::ReturnTypeMoreSpecific(HInvoke* invoke_instruction,
 void HInliner::FixUpReturnReferenceType(ArtMethod* resolved_method,
                                         HInstruction* return_replacement) {
   if (return_replacement != nullptr) {
-    if (return_replacement->GetType() == Primitive::kPrimNot) {
+    if (return_replacement->GetType() == DataType::Type::kReference) {
       if (!return_replacement->GetReferenceTypeInfo().IsValid()) {
         // Make sure that we have a valid type for the return. We may get an invalid one when
         // we inline invokes with multiple branches and create a Phi for the result.
         // TODO: we could be more precise by merging the phi inputs but that requires
         // some functionality from the reference type propagation.
         DCHECK(return_replacement->IsPhi());
-        mirror::Class* cls = resolved_method->GetReturnType(false /* resolve */);
+        ObjPtr<mirror::Class> cls = resolved_method->LookupResolvedReturnType();
         return_replacement->SetReferenceTypeInfo(GetClassRTI(cls));
       }
     }

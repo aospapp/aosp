@@ -28,12 +28,9 @@
 
 package com.android.service.ims;
 
-import android.net.Uri;
-
 import java.util.List;
 
 import android.content.Intent;
-import android.app.PendingIntent;
 import android.content.IntentFilter;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -45,25 +42,20 @@ import android.database.ContentObserver;
 import android.content.BroadcastReceiver;
 import android.provider.Settings;
 import android.net.ConnectivityManager;
-import com.android.ims.ImsConfig.FeatureValueConstants;
 import com.android.ims.ImsManager;
-import com.android.ims.ImsConfig;
-import com.android.ims.ImsReasonInfo;
 import com.android.ims.ImsConnectionStateListener;
-import com.android.ims.ImsServiceClass;
 import com.android.ims.ImsException;
 import android.telephony.SubscriptionManager;
+import android.telephony.ims.ImsReasonInfo;
 
 import com.android.ims.RcsManager.ResultCode;
 import com.android.ims.internal.IRcsService;
 import com.android.ims.IRcsPresenceListener;
 import com.android.ims.internal.IRcsPresence;
-import com.android.ims.RcsPresence.PublishState;
 
 import com.android.ims.internal.Logger;
 import com.android.internal.telephony.IccCardConstants;
 import com.android.internal.telephony.TelephonyIntents;
-import com.android.service.ims.RcsStackAdaptor;
 
 import com.android.service.ims.presence.PresencePublication;
 import com.android.service.ims.presence.PresenceSubscriber;
@@ -112,10 +104,9 @@ public class RcsService extends Service{
                 Settings.Global.getUriFor(Settings.Global.MOBILE_DATA),
                 false, mObserver);
 
-        mVtSettingObserver = new VtSettingContentObserver();
+        mSiminfoSettingObserver = new SimInfoContentObserver();
         getContentResolver().registerContentObserver(
-                Settings.Global.getUriFor(Settings.Global.VT_IMS_ENABLED),
-                false, mVtSettingObserver);
+                SubscriptionManager.CONTENT_URI, false, mSiminfoSettingObserver);
 
         mReceiver = new BroadcastReceiver() {
             @Override
@@ -179,7 +170,7 @@ public class RcsService extends Service{
     @Override
     public void onDestroy() {
         getContentResolver().unregisterContentObserver(mObserver);
-        getContentResolver().unregisterContentObserver(mVtSettingObserver);
+        getContentResolver().unregisterContentObserver(mSiminfoSettingObserver);
         if (mReceiver != null) {
             unregisterReceiver(mReceiver);
             mReceiver = null;
@@ -318,21 +309,25 @@ public class RcsService extends Service{
     }
 
 
-    private VtSettingContentObserver mVtSettingObserver;
+    private SimInfoContentObserver mSiminfoSettingObserver;
 
     /**
-     * Receives notifications when Mobile data is enabled or disabled.
+     * Receives notifications when the TelephonyProvider is changed.
      */
-    private class VtSettingContentObserver extends ContentObserver {
-        public VtSettingContentObserver() {
+    private class SimInfoContentObserver extends ContentObserver {
+        public SimInfoContentObserver() {
             super(new Handler());
         }
 
         @Override
         public void onChange(final boolean selfChange) {
-            boolean enabled = Settings.Global.getInt(getContentResolver(),
-                    Settings.Global.VT_IMS_ENABLED, 1) == 1;
-            logger.debug("vt enabled status: " + (enabled ? "ON" : "OFF"));
+            ImsManager imsManager = ImsManager.getInstance(RcsService.this,
+                    SubscriptionManager.getDefaultVoicePhoneId());
+            if (imsManager == null) {
+                return;
+            }
+            boolean enabled = imsManager.isVtEnabledByUser();
+             logger.debug("vt enabled status: " + (enabled ? "ON" : "OFF"));
 
             onVtEnabled(enabled);
         }

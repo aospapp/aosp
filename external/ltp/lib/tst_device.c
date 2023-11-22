@@ -41,14 +41,15 @@
 #define LOOP_CONTROL_FILE "/dev/loop-control"
 
 #define DEV_FILE "test_dev.img"
-#define DEV_SIZE_MB 256
+#define DEV_SIZE_MB 256u
 
 static char dev_path[1024];
 static int device_acquired;
 
 static const char *dev_variants[] = {
 	"/dev/loop%i",
-	"/dev/loop/%i"
+	"/dev/loop/%i",
+	"/dev/block/loop%i"
 };
 
 static int set_dev_path(int dev)
@@ -133,6 +134,7 @@ static int find_free_loopdev(void)
 static int attach_device(const char *dev, const char *file)
 {
 	int dev_fd, file_fd;
+	struct loop_info loopinfo;
 
 	dev_fd = open(dev, O_RDWR);
 	if (dev_fd < 0) {
@@ -152,6 +154,21 @@ static int attach_device(const char *dev, const char *file)
 		close(file_fd);
 		tst_resm(TWARN | TERRNO, "ioctl(%s, LOOP_SET_FD, %s) failed",
 			 dev, file);
+		return 1;
+	}
+
+	/* Old mkfs.btrfs use LOOP_GET_STATUS instead of backing_file to get
+	 * associated filename, so we need to set up the device by calling
+	 * LOOP_SET_FD and LOOP_SET_STATUS.
+	 */
+	memset(&loopinfo, 0, sizeof(loopinfo));
+	strcpy(loopinfo.lo_name, file);
+
+	if (ioctl(dev_fd, LOOP_SET_STATUS, &loopinfo)) {
+		close(dev_fd);
+		close(file_fd);
+		tst_resm(TWARN | TERRNO,
+			 "ioctl(%s, LOOP_SET_STATUS, %s) failed", dev, file);
 		return 1;
 	}
 
@@ -205,7 +222,7 @@ const char *tst_acquire_device__(unsigned int size)
 	unsigned int acq_dev_size;
 	uint64_t ltp_dev_size;
 
-	acq_dev_size = size > DEV_SIZE_MB ? size : DEV_SIZE_MB;
+	acq_dev_size = MAX(size, DEV_SIZE_MB);
 
 	dev = getenv("LTP_DEV");
 
@@ -244,15 +261,8 @@ const char *tst_acquire_device__(unsigned int size)
 
 		ltp_dev_size = ltp_dev_size/1024/1024;
 
-		if (acq_dev_size <= ltp_dev_size) {
-			if (tst_fill_file(dev, 0, 1024, 512)) {
-				tst_resm(TWARN | TERRNO,
-					 "Failed to clear the first 512k of %s",
-					 dev);
-			}
-
+		if (acq_dev_size <= ltp_dev_size)
 			return dev;
-		}
 
 		tst_resm(TINFO, "Skipping $LTP_DEV size %"PRIu64"MB, requested size %uMB",
 				ltp_dev_size, acq_dev_size);
@@ -279,7 +289,7 @@ const char *tst_acquire_device_(void (cleanup_fn)(void), unsigned int size)
 	const char *device;
 
 	if (device_acquired) {
-		tst_brkm(TBROK, cleanup_fn, "Device allready acquired");
+		tst_brkm(TBROK, cleanup_fn, "Device already acquired");
 		return NULL;
 	}
 
@@ -307,7 +317,7 @@ int tst_release_device(const char *dev)
 		return 0;
 
 	/*
-	 * Loop device was created -> we need to deatch it.
+	 * Loop device was created -> we need to detach it.
 	 *
 	 * The file image is deleted in tst_rmdir();
 	 */
@@ -316,6 +326,16 @@ int tst_release_device(const char *dev)
 	device_acquired = 0;
 
 	return ret;
+}
+
+int tst_clear_device(const char *dev)
+{
+	if (tst_fill_file(dev, 0, 1024, 512)) {
+		tst_resm(TWARN, "Failed to clear 512k block on %s", dev);
+		return 1;
+	}
+
+	return 0;
 }
 
 int tst_umount(const char *path)

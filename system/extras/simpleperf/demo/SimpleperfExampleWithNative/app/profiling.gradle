@@ -29,7 +29,7 @@ android {
             // Add lib/xxx/wrap.sh in the apk. This is to enable java profiling on Android O
             // devices.
             sourceSets {
-                main {
+                profiling {
                     resources {
                         srcDir {
                             "profiling_apk_add_dir"

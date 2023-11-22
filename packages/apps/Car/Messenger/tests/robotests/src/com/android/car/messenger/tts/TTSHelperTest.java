@@ -156,5 +156,9 @@ public class TTSHelperTest {
             mStopped = true;
             mError = error;
         }
+        
+        @Override
+        public void onAudioFocusFailed() {
+        }
     }
 }

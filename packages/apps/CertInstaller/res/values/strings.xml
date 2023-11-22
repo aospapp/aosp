@@ -85,6 +85,10 @@
         <item>Wi-Fi</item>
     </string-array>
 
+    <!-- Explain that the issuer of the CA certificate that is about to be installed can inspect
+         all of the traffic of the device. -->
+    <string name="certificate_capabilities_warning">Note: The issuer of this certificate may inspect all traffic to and from the device.</string>
+
     <string name="wifi_title">Wi-Fi Profile</string>
     <string name="wifi_detail_title">Details for %s</string>
     <string name="wifi_detail_label">Details</string>

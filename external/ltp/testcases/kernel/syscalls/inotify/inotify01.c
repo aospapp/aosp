@@ -38,7 +38,8 @@
 #include <string.h>
 #include <sys/syscall.h>
 #include "test.h"
-#include "linux_syscall_numbers.h"
+#include "safe_macros.h"
+#include "lapi/syscalls.h"
 #include "inotify.h"
 
 #if defined(HAVE_SYS_INOTIFY_H)
@@ -80,10 +81,7 @@ int main(int ac, char **av)
 		/*
 		 * generate sequence of events
 		 */
-		if (chmod(fname, 0755) < 0) {
-			tst_brkm(TBROK | TERRNO, cleanup,
-				 "chmod(%s, 0755) failed", fname);
-		}
+		SAFE_CHMOD(cleanup, fname, 0755);
 		event_set[tst_count] = IN_ATTRIB;
 		tst_count++;
 
@@ -101,9 +99,7 @@ int main(int ac, char **av)
 		event_set[tst_count] = IN_ACCESS;
 		tst_count++;
 
-		if (close(fd) == -1) {
-			tst_brkm(TBROK, cleanup, "close(%s) failed", fname);
-		}
+		SAFE_CLOSE(cleanup, fd);
 		event_set[tst_count] = IN_CLOSE_NOWRITE;
 		tst_count++;
 
@@ -121,9 +117,7 @@ int main(int ac, char **av)
 		event_set[tst_count] = IN_MODIFY;
 		tst_count++;
 
-		if (close(fd) == -1) {
-			tst_brkm(TBROK, cleanup, "close(%s) failed", fname);
-		}
+		SAFE_CLOSE(cleanup, fd);
 		event_set[tst_count] = IN_CLOSE_WRITE;
 		tst_count++;
 
@@ -212,9 +206,7 @@ static void setup(void)
 	}
 
 	/* close the file we have open */
-	if (close(fd) == -1) {
-		tst_brkm(TBROK, cleanup, "close(%s) failed", fname);
-	}
+	SAFE_CLOSE(cleanup, fd);
 	if ((fd_notify = myinotify_init()) < 0) {
 		if (errno == ENOSYS) {
 			tst_brkm(TCONF, cleanup,

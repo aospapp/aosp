@@ -25,21 +25,17 @@
 
 package sun.nio.ch;
 
-import java.io.FileDescriptor;
+import java.nio.channels.*;
+import java.util.concurrent.*;
 import java.io.IOException;
+import java.io.FileDescriptor;
 import java.net.InetSocketAddress;
-import java.nio.channels.AcceptPendingException;
-import java.nio.channels.AsynchronousCloseException;
-import java.nio.channels.AsynchronousSocketChannel;
-import java.nio.channels.ClosedChannelException;
-import java.nio.channels.CompletionHandler;
-import java.nio.channels.NotYetBoundException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.security.AccessControlContext;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicBoolean;
 
+import dalvik.annotation.optimization.ReachabilitySensitive;
 import dalvik.system.CloseGuard;
 
 /**
@@ -74,7 +70,8 @@ class UnixAsynchronousServerSocketChannelImpl
     // context for permission check when security manager set
     private AccessControlContext acceptAcc;
 
-    // Android-changed: Add CloseGuard support.
+    // Android-added: CloseGuard support.
+    @ReachabilitySensitive
     private final CloseGuard guard = CloseGuard.get();
 
 
@@ -94,13 +91,13 @@ class UnixAsynchronousServerSocketChannelImpl
 
         // add mapping from file descriptor to this channel
         port.register(fdVal, this);
-        // Android-changed: Add CloseGuard support.
+        // Android-added: CloseGuard support.
         guard.open("close");
     }
 
     @Override
     void implClose() throws IOException {
-        // Android-changed: Add CloseGuard support.
+        // Android-added: CloseGuard support.
         guard.close();
         // remove the mapping
         port.unregister(fdVal);
@@ -133,6 +130,7 @@ class UnixAsynchronousServerSocketChannelImpl
         }
     }
 
+    // Android-added: CloseGuard support.
     protected void finalize() throws Throwable {
         try {
             if (guard != null) {
@@ -382,6 +380,8 @@ class UnixAsynchronousServerSocketChannelImpl
         throws IOException;
 
     static {
+        // Android-removed: Code to load native libraries, doesn't make sense on Android.
+        // IOUtil.load();
         initIDs();
     }
 }

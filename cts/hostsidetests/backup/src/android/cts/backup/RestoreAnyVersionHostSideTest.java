@@ -16,21 +16,16 @@
 
 package android.cts.backup;
 
-import static junit.framework.Assert.assertEquals;
-import static junit.framework.Assert.assertNull;
-import static junit.framework.Assert.assertTrue;
+import static org.junit.Assert.assertNull;
 
-import static org.junit.Assume.assumeTrue;
-
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.targetprep.TargetSetupError;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import java.io.FileNotFoundException;
 
 /**
  * Test checking that restoreAnyVersion manifest flag is respected by backup manager.
@@ -61,8 +56,13 @@ public class RestoreAnyVersionHostSideTest extends BaseBackupHostSideTest {
             "CtsBackupRestoreAnyVersionNoRestoreApp.apk";
 
     @After
+    @Override
     public void tearDown() throws Exception {
         super.tearDown();
+
+        if (!mIsBackupSupported) {
+            return;
+        }
 
         // Clear backup data and uninstall the package (in that order!)
         clearBackupDataInLocalTransport(RESTORE_ANY_VERSION_APP_PACKAGE);
@@ -75,6 +75,11 @@ public class RestoreAnyVersionHostSideTest extends BaseBackupHostSideTest {
      */
     @Test
     public void testRestoreAnyVersion_False() throws Exception {
+        if (!mIsBackupSupported) {
+            CLog.i("android.software.backup feature is not supported on this device");
+            return;
+        }
+
         installNewVersionApp();
 
         saveSharedPreferenceValue();
@@ -96,6 +101,11 @@ public class RestoreAnyVersionHostSideTest extends BaseBackupHostSideTest {
      */
     @Test
     public void testRestoreAnyVersion_True() throws Exception {
+        if (!mIsBackupSupported) {
+            CLog.i("android.software.backup feature is not supported on this device");
+            return;
+        }
+
         installNewVersionApp();
 
         saveSharedPreferenceValue();
@@ -117,6 +127,11 @@ public class RestoreAnyVersionHostSideTest extends BaseBackupHostSideTest {
      */
     @Test
     public void testRestoreAnyVersion_OldBackupToNewApp() throws Exception {
+        if (!mIsBackupSupported) {
+            CLog.i("android.software.backup feature is not supported on this device");
+            return;
+        }
+
         installNoRestoreAnyVersionApp();
 
         saveSharedPreferenceValue();
@@ -137,21 +152,21 @@ public class RestoreAnyVersionHostSideTest extends BaseBackupHostSideTest {
     }
 
     private void installRestoreAnyVersionApp()
-            throws DeviceNotAvailableException, FileNotFoundException {
+            throws DeviceNotAvailableException, TargetSetupError {
         installPackage(RESTORE_ANY_VERSION_APP_APK, "-d", "-r");
 
         checkRestoreAnyVersionDeviceTest("checkAppVersionIsOld");
     }
 
     private void installNoRestoreAnyVersionApp()
-            throws DeviceNotAvailableException, FileNotFoundException {
+            throws DeviceNotAvailableException, TargetSetupError {
         installPackage(NO_RESTORE_ANY_VERSION_APK, "-d", "-r");
 
         checkRestoreAnyVersionDeviceTest("checkAppVersionIsOld");
     }
 
     private void installNewVersionApp()
-            throws DeviceNotAvailableException, FileNotFoundException {
+            throws DeviceNotAvailableException, TargetSetupError {
         installPackage(RESTORE_ANY_VERSION_UPDATE_APK, "-d", "-r");
 
         checkRestoreAnyVersionDeviceTest("checkAppVersionIsNew");

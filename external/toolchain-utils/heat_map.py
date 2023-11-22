@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -14,6 +14,7 @@ import tempfile
 from sets import Set
 
 from cros_utils import command_executer
+
 
 def IsARepoRoot(directory):
   """Returns True if directory is the root of a repo checkout."""
@@ -37,8 +38,8 @@ class HeatMapProducer(object):
     self.perf_report = ''
 
   def copyFileToChroot(self):
-    self.tempDir = tempfile.mkdtemp(
-        prefix=os.path.join(self.chromeos_root, 'src/'))
+    self.tempDir = tempfile.mkdtemp(prefix=os.path.join(self.chromeos_root,
+                                                        'src/'))
     self.temp_perf = os.path.join(self.tempDir, 'perf.data')
     shutil.copy2(self.perf_data, self.temp_perf)
     self.temp_perf_inchroot = os.path.join('~/trunk/src',
@@ -101,24 +102,25 @@ def main(argv):
   """
   parser = argparse.ArgumentParser()
 
-  parser.add_argument('--chromeos_root',
-                      dest='chromeos_root',
-                      required=True,
-                      help='ChromeOS root to use for generate heatmaps.')
-  parser.add_argument('--perf_data',
-                      dest='perf_data',
-                      required=True,
-                      help='The raw perf data.')
-  parser.add_argument('--binary',
-                      dest='binary',
-                      required=False,
-                      help='The name of the binary.',
-                      default='chrome')
-  parser.add_argument('--page_size',
-                      dest='page_size',
-                      required=False,
-                      help='The page size for heat maps.',
-                      default=4096)
+  parser.add_argument(
+      '--chromeos_root',
+      dest='chromeos_root',
+      required=True,
+      help='ChromeOS root to use for generate heatmaps.')
+  parser.add_argument(
+      '--perf_data', dest='perf_data', required=True, help='The raw perf data.')
+  parser.add_argument(
+      '--binary',
+      dest='binary',
+      required=False,
+      help='The name of the binary.',
+      default='chrome')
+  parser.add_argument(
+      '--page_size',
+      dest='page_size',
+      required=False,
+      help='The page size for heat maps.',
+      default=4096)
   options = parser.parse_args(argv)
 
   if not IsARepoRoot(options.chromeos_root):

@@ -58,6 +58,9 @@ class HookResult(object):
         """Python 2/3 glue."""
         return self.__bool__()
 
+    def is_warning(self):
+        return False
+
 
 class HookCommandResult(HookResult):
     """A single hook result based on a CommandResult."""
@@ -71,3 +74,6 @@ class HookCommandResult(HookResult):
 
     def __bool__(self):
         return self.result.returncode not in (None, 0)
+
+    def is_warning(self):
+        return self.result.returncode == 77

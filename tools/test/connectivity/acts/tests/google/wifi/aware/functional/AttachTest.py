@@ -16,12 +16,13 @@
 
 import time
 
+from acts import asserts
+from acts import utils
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.wifi import wifi_test_utils as wutils
 from acts.test_utils.wifi.aware import aware_const as aconsts
 from acts.test_utils.wifi.aware import aware_test_utils as autils
 from acts.test_utils.wifi.aware.AwareBaseTest import AwareBaseTest
-from acts.utils import force_airplane_mode
 
 
 class AttachTest(AwareBaseTest):
@@ -99,14 +100,47 @@ class AttachTest(AwareBaseTest):
     """Function test case / Attach test cases / attempt to attach with wifi off
 
     Validates that if trying to attach with Wi-Fi disabled will receive the
-    expected failure callback. As a side-effect also validates that the broadcast
-    for Aware unavailable is received.
+    expected failure callback. As a side-effect also validates that the
+    broadcast for Aware unavailable is received.
     """
     dut = self.android_devices[0]
     wutils.wifi_toggle_state(dut, False)
     autils.wait_for_event(dut, aconsts.BROADCAST_WIFI_AWARE_NOT_AVAILABLE)
     dut.droid.wifiAwareAttach()
     autils.wait_for_event(dut, aconsts.EVENT_CB_ON_ATTACH_FAILED)
+
+  @test_tracker_info(uuid="7dcc4530-c936-4447-9d22-a7c5b315e2ce")
+  def test_attach_with_doze(self):
+    """Function test case / Attach test cases / attempt to attach with doze on
+
+    Validates that if trying to attach with device in doze mode will receive the
+    expected failure callback. As a side-effect also validates that the
+    broadcast for Aware unavailable is received.
+    """
+    dut = self.android_devices[0]
+    asserts.assert_true(utils.enable_doze(dut), "Can't enable doze")
+    autils.wait_for_event(dut, aconsts.BROADCAST_WIFI_AWARE_NOT_AVAILABLE)
+    dut.droid.wifiAwareAttach()
+    autils.wait_for_event(dut, aconsts.EVENT_CB_ON_ATTACH_FAILED)
+    asserts.assert_true(utils.disable_doze(dut), "Can't disable doze")
+    autils.wait_for_event(dut, aconsts.BROADCAST_WIFI_AWARE_AVAILABLE)
+
+  @test_tracker_info(uuid="2574fd01-8974-4dd0-aeb8-a7194461140e")
+  def test_attach_with_location_off(self):
+    """Function test case / Attach test cases / attempt to attach with location
+    mode off.
+
+    Validates that if trying to attach with device location mode off will
+    receive the expected failure callback. As a side-effect also validates that
+    the broadcast for Aware unavailable is received.
+    """
+    dut = self.android_devices[0]
+    utils.set_location_service(dut, False)
+    autils.wait_for_event(dut, aconsts.BROADCAST_WIFI_AWARE_NOT_AVAILABLE)
+    dut.droid.wifiAwareAttach()
+    autils.wait_for_event(dut, aconsts.EVENT_CB_ON_ATTACH_FAILED)
+    utils.set_location_service(dut, True)
+    autils.wait_for_event(dut, aconsts.BROADCAST_WIFI_AWARE_AVAILABLE)
 
   @test_tracker_info(uuid="7ffde8e7-a010-4b77-97f5-959f263b5249")
   def test_attach_apm_toggle_attach_again(self):
@@ -120,12 +154,12 @@ class AttachTest(AwareBaseTest):
     autils.wait_for_event(dut, aconsts.EVENT_CB_ON_ATTACHED)
 
     # enable airplane mode
-    force_airplane_mode(dut, True)
+    utils.force_airplane_mode(dut, True)
     autils.wait_for_event(dut, aconsts.BROADCAST_WIFI_AWARE_NOT_AVAILABLE)
 
     # wait a few seconds and disable airplane mode
     time.sleep(10)
-    force_airplane_mode(dut, False)
+    utils.force_airplane_mode(dut, False)
     autils.wait_for_event(dut, aconsts.BROADCAST_WIFI_AWARE_AVAILABLE)
 
     # try enabling Aware again (attach)

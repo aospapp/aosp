@@ -29,10 +29,10 @@ LOCAL_SRC_FILES := \
 LOCAL_SHARED_LIBRARIES := \
     libutils \
     liblog \
-    libcutils \
 
 LOCAL_STATIC_LIBRARIES := \
-    libgtest
+    libgtest \
+    libqtaguid \
 
 LOCAL_CTS_TEST_PACKAGE := android.net.native
 # Tag this module as a cts test artifact

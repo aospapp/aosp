@@ -18,8 +18,33 @@
 #include "fsck.h"
 #include <libgen.h>
 #include <ctype.h>
+#include <getopt.h>
+#include "quotaio.h"
 
 struct f2fs_fsck gfsck;
+
+#ifdef WITH_ANDROID
+#include <sparse/sparse.h>
+extern struct sparse_file *f2fs_sparse_file;
+#endif
+
+static char *absolute_path(const char *file)
+{
+	char *ret;
+	char cwd[PATH_MAX];
+
+	if (file[0] != '/') {
+		if (getcwd(cwd, PATH_MAX) == NULL) {
+			fprintf(stderr, "Failed to getcwd\n");
+			exit(EXIT_FAILURE);
+		}
+		ret = malloc(strlen(cwd) + 1 + strlen(file) + 1);
+		if (ret)
+			sprintf(ret, "%s/%s", cwd, file);
+	} else
+		ret = strdup(file);
+	return ret;
+}
 
 void fsck_usage()
 {
@@ -29,7 +54,11 @@ void fsck_usage()
 	MSG(0, "  -d debug level [default:0]\n");
 	MSG(0, "  -f check/fix entire partition\n");
 	MSG(0, "  -p preen mode [default:0 the same as -a [0|1]]\n");
+	MSG(0, "  -S sparse_mode\n");
 	MSG(0, "  -t show directory tree\n");
+	MSG(0, "  -q preserve quota limits\n");
+	MSG(0, "  -y fix all the time\n");
+	MSG(0, "  --dry-run do not really fix corruptions\n");
 	exit(1);
 }
 
@@ -41,6 +70,7 @@ void dump_usage()
 	MSG(0, "  -i inode no (hex)\n");
 	MSG(0, "  -n [NAT dump segno from #1~#2 (decimal), for all 0~-1]\n");
 	MSG(0, "  -s [SIT dump segno from #1~#2 (decimal), for all 0~-1]\n");
+	MSG(0, "  -S sparse_mode\n");
 	MSG(0, "  -a [SSA dump segno from #1~#2 (decimal), for all 0~-1]\n");
 	MSG(0, "  -b blk_addr (in 4KB)\n");
 
@@ -53,6 +83,7 @@ void defrag_usage()
 	MSG(0, "[options]:\n");
 	MSG(0, "  -d debug level [default:0]\n");
 	MSG(0, "  -s start block address [default: main_blkaddr]\n");
+	MSG(0, "  -S sparse_mode\n");
 	MSG(0, "  -l length [default:512 (2MB)]\n");
 	MSG(0, "  -t target block address [default: main_blkaddr + 2MB]\n");
 	MSG(0, "  -i set direction as shrink [default: expand]\n");
@@ -72,8 +103,13 @@ void sload_usage()
 {
 	MSG(0, "\nUsage: sload.f2fs [options] device\n");
 	MSG(0, "[options]:\n");
+	MSG(0, "  -C fs_config\n");
 	MSG(0, "  -f source directory [path of the source directory]\n");
+	MSG(0, "  -p product out directory\n");
+	MSG(0, "  -s file_contexts\n");
+	MSG(0, "  -S sparse_mode\n");
 	MSG(0, "  -t mount point [prefix of target fs path, default:/]\n");
+	MSG(0, "  -T timestamp\n");
 	MSG(0, "  -d debug level [default:0]\n");
 	exit(1);
 }
@@ -109,18 +145,36 @@ void f2fs_parse_options(int argc, char *argv[])
 	int option = 0;
 	char *prog = basename(argv[0]);
 	int err = NOERROR;
+#ifdef WITH_ANDROID
+	int i;
 
+	/* Allow prog names (e.g, sload_f2fs, fsck_f2fs, etc) */
+	for (i = 0; i < strlen(prog); i++) {
+		if (prog[i] == '_')
+			prog[i] = '.';
+	}
+#endif
 	if (argc < 2) {
 		MSG(0, "\tError: Device not specified\n");
 		error_out(prog);
 	}
 
 	if (!strcmp("fsck.f2fs", prog)) {
-		const char *option_string = ":ad:fp:t";
+		const char *option_string = ":ad:fp:q:Sty";
+		int opt = 0;
+		struct option long_opt[] = {
+			{"dry-run", no_argument, 0, 1},
+			{0, 0, 0, 0}
+		};
 
 		c.func = FSCK;
-		while ((option = getopt(argc, argv, option_string)) != EOF) {
+		while ((option = getopt_long(argc, argv, option_string,
+						long_opt, &opt)) != EOF) {
 			switch (option) {
+			case 1:
+				c.dry_run = 1;
+				MSG(0, "Info: Dry run\n");
+				break;
 			case 'a':
 				c.auto_fix = 1;
 				MSG(0, "Info: Fix the reported corruption.\n");
@@ -160,14 +214,21 @@ void f2fs_parse_options(int argc, char *argv[])
 				MSG(0, "Info: Debug level = %d\n", c.dbg_lv);
 				break;
 			case 'f':
+			case 'y':
 				c.fix_on = 1;
 				MSG(0, "Info: Force to fix corruption\n");
+				break;
+			case 'q':
+				c.preserve_limits = atoi(optarg);
+				MSG(0, "Info: Preserve quota limits = %d\n",
+					c.preserve_limits);
+				break;
+			case 'S':
+				c.sparse_mode = 1;
 				break;
 			case 't':
 				c.show_dentry = 1;
 				break;
-
-
 			case ':':
 				if (optopt == 'p') {
 					MSG(0, "Info: Use default preen mode\n");
@@ -189,7 +250,7 @@ void f2fs_parse_options(int argc, char *argv[])
 				break;
 		}
 	} else if (!strcmp("dump.f2fs", prog)) {
-		const char *option_string = "d:i:n:s:a:b:";
+		const char *option_string = "d:i:n:s:Sa:b:";
 		static struct dump_option dump_opt = {
 			.nid = 0,	/* default root ino */
 			.start_nat = -1,
@@ -233,6 +294,9 @@ void f2fs_parse_options(int argc, char *argv[])
 							&dump_opt.start_sit,
 							&dump_opt.end_sit);
 				break;
+			case 'S':
+				c.sparse_mode = 1;
+				break;
 			case 'a':
 				ret = sscanf(optarg, "%d~%d",
 							&dump_opt.start_ssa,
@@ -257,7 +321,7 @@ void f2fs_parse_options(int argc, char *argv[])
 
 		c.private = &dump_opt;
 	} else if (!strcmp("defrag.f2fs", prog)) {
-		const char *option_string = "d:s:l:t:i";
+		const char *option_string = "d:s:Sl:t:i";
 
 		c.func = DEFRAG;
 		while ((option = getopt(argc, argv, option_string)) != EOF) {
@@ -280,6 +344,9 @@ void f2fs_parse_options(int argc, char *argv[])
 				else
 					ret = sscanf(optarg, "%"PRIx64"",
 							&c.defrag_start);
+				break;
+			case 'S':
+				c.sparse_mode = 1;
 				break;
 			case 'l':
 				if (strncmp(optarg, "0x", 2))
@@ -342,11 +409,20 @@ void f2fs_parse_options(int argc, char *argv[])
 				break;
 		}
 	} else if (!strcmp("sload.f2fs", prog)) {
-		const char *option_string = "d:f:t:";
+		const char *option_string = "C:d:f:p:s:St:T:";
+#ifdef HAVE_LIBSELINUX
+		int max_nr_opt = (int)sizeof(c.seopt_file) /
+			sizeof(c.seopt_file[0]);
+		char *token;
+#endif
+		char *p;
 
 		c.func = SLOAD;
 		while ((option = getopt(argc, argv, option_string)) != EOF) {
 			switch (option) {
+			case 'C':
+				c.fs_config_file = absolute_path(optarg);
+				break;
 			case 'd':
 				if (!is_digits(optarg)) {
 					err = EWRONG_OPT;
@@ -357,10 +433,39 @@ void f2fs_parse_options(int argc, char *argv[])
 						c.dbg_lv);
 				break;
 			case 'f':
-				c.from_dir = (char *)optarg;
+				c.from_dir = absolute_path(optarg);
+				break;
+			case 'p':
+				c.target_out_dir = absolute_path(optarg);
+				break;
+			case 's':
+#ifdef HAVE_LIBSELINUX
+				token = strtok(optarg, ",");
+				while (token) {
+					if (c.nr_opt == max_nr_opt) {
+						MSG(0, "\tError: Expected at most %d selinux opts\n",
+										max_nr_opt);
+						error_out(prog);
+					}
+					c.seopt_file[c.nr_opt].type =
+								SELABEL_OPT_PATH;
+					c.seopt_file[c.nr_opt].value =
+								absolute_path(token);
+					c.nr_opt++;
+					token = strtok(NULL, ",");
+				}
+#else
+				MSG(0, "Info: Not support selinux opts\n");
+#endif
+				break;
+			case 'S':
+				c.sparse_mode = 1;
 				break;
 			case 't':
 				c.mount_point = (char *)optarg;
+				break;
+			case 'T':
+				c.fixed_time = strtoul(optarg, &p, 0);
 				break;
 			default:
 				err = EUNKNOWN_OPT;
@@ -407,6 +512,7 @@ static void do_fsck(struct f2fs_sb_info *sbi)
 	struct f2fs_checkpoint *ckpt = F2FS_CKPT(sbi);
 	u32 flag = le32_to_cpu(ckpt->ckpt_flags);
 	u32 blk_cnt;
+	errcode_t ret;
 
 	fsck_init(sbi);
 
@@ -429,7 +535,7 @@ static void do_fsck(struct f2fs_sb_info *sbi)
 				c.fix_on = 1;
 			break;
 		}
-	} else {
+	} else if (c.preen_mode) {
 		/*
 		 * we can hit this in 3 situations:
 		 *  1. fsck -f, fix_on has already been set to 1 when
@@ -443,12 +549,23 @@ static void do_fsck(struct f2fs_sb_info *sbi)
 		c.fix_on = 1;
 	}
 
-	fsck_chk_orphan_node(sbi);
+	fsck_chk_quota_node(sbi);
 
 	/* Traverse all block recursively from root inode */
 	blk_cnt = 1;
+
+	if (c.feature & cpu_to_le32(F2FS_FEATURE_QUOTA_INO)) {
+		ret = quota_init_context(sbi);
+		if (ret) {
+			ASSERT_MSG("quota_init_context failure: %d", ret);
+			return;
+		}
+	}
+	fsck_chk_orphan_node(sbi);
 	fsck_chk_node_blk(sbi, NULL, sbi->root_ino_num,
 			F2FS_FT_DIR, TYPE_INODE, &blk_cnt, NULL);
+	fsck_chk_quota_files(sbi);
+
 	fsck_verify(sbi);
 	fsck_free(sbi);
 }
@@ -554,14 +671,13 @@ static int do_resize(struct f2fs_sb_info *sbi)
 static int do_sload(struct f2fs_sb_info *sbi)
 {
 	if (!c.from_dir) {
-		MSG(0, "\tError: Need source directory\n");
-		sload_usage();
-		return -1;
+		MSG(0, "Info: No source directory, but it's okay.\n");
+		return 0;
 	}
 	if (!c.mount_point)
 		c.mount_point = "/";
 
-	return f2fs_sload(sbi, c.from_dir, c.mount_point, NULL, NULL);
+	return f2fs_sload(sbi);
 }
 
 int main(int argc, char **argv)
@@ -590,6 +706,7 @@ int main(int argc, char **argv)
 	/* Get device */
 	if (f2fs_get_device_info() < 0)
 		return -1;
+
 fsck_again:
 	memset(&gfsck, 0, sizeof(gfsck));
 	gfsck.sbi.fsck = &gfsck;
@@ -608,23 +725,39 @@ fsck_again:
 	case FSCK:
 		do_fsck(sbi);
 		break;
+#ifdef WITH_DUMP
 	case DUMP:
 		do_dump(sbi);
 		break;
-#ifndef WITH_ANDROID
+#endif
+#ifdef WITH_DEFRAG
 	case DEFRAG:
 		ret = do_defrag(sbi);
 		if (ret)
 			goto out_err;
 		break;
+#endif
+#ifdef WITH_RESIZE
 	case RESIZE:
 		if (do_resize(sbi))
 			goto out_err;
 		break;
-	case SLOAD:
-		do_sload(sbi);
-		break;
 #endif
+#ifdef WITH_SLOAD
+	case SLOAD:
+		if (do_sload(sbi))
+			goto out_err;
+
+		f2fs_do_umount(sbi);
+
+		/* fsck to fix missing quota */
+		c.func = FSCK;
+		c.fix_on = 1;
+		goto fsck_again;
+#endif
+	default:
+		ERR_MSG("Wrong program name\n");
+		ASSERT(0);
 	}
 
 	f2fs_do_umount(sbi);
@@ -647,7 +780,9 @@ retry:
 				goto fsck_again;
 		}
 	}
-	f2fs_finalize_device();
+	ret = f2fs_finalize_device();
+	if (ret < 0)
+		return ret;
 
 	printf("\nDone.\n");
 	return 0;

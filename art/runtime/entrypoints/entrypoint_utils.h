@@ -23,24 +23,24 @@
 #include "base/callee_save_type.h"
 #include "base/macros.h"
 #include "base/mutex.h"
-#include "dex_instruction.h"
-#include "dex_file_types.h"
+#include "dex/dex_file_types.h"
+#include "dex/dex_instruction.h"
 #include "gc/allocator_type.h"
 #include "handle.h"
-#include "invoke_type.h"
 #include "jvalue.h"
 
 namespace art {
 
 namespace mirror {
-  class Array;
-  class Class;
-  class Object;
-  class String;
+class Array;
+class Class;
+class Object;
+class String;
 }  // namespace mirror
 
 class ArtField;
 class ArtMethod;
+enum InvokeType : uint32_t;
 class OatQuickMethodHeader;
 class ScopedObjectAccessAlreadyRunnable;
 class Thread;
@@ -143,15 +143,16 @@ inline ArtMethod* FindMethodFast(uint32_t method_idx,
                                  ArtMethod* referrer)
     REQUIRES_SHARED(Locks::mutator_lock_);
 
-inline mirror::Class* ResolveVerifyAndClinit(dex::TypeIndex type_idx,
-                                             ArtMethod* referrer,
-                                             Thread* self,
-                                             bool can_run_clinit,
-                                             bool verify_access)
+inline ObjPtr<mirror::Class> ResolveVerifyAndClinit(dex::TypeIndex type_idx,
+                                                    ArtMethod* referrer,
+                                                    Thread* self,
+                                                    bool can_run_clinit,
+                                                    bool verify_access)
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);
 
-inline mirror::String* ResolveStringFromCode(ArtMethod* referrer, dex::StringIndex string_idx)
+inline ObjPtr<mirror::String> ResolveStringFromCode(ArtMethod* referrer,
+                                                    dex::StringIndex string_idx)
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);
 

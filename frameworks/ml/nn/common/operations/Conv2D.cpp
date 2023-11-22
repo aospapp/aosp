@@ -15,16 +15,21 @@
  */
 
 #include "Operations.h"
-#include "OperationsUtils.h"
+#include "CpuOperationUtils.h"
 
-#include "internal/optimized/optimized_ops.h"
+#include "tensorflow/contrib/lite/kernels/internal/optimized/optimized_ops.h"
 
 namespace android {
 namespace nn {
 
 // If possible we will use this static buffer for the tensor.
-static constexpr int kStaticBufferSize = 1605632;
+static constexpr size_t kStaticBufferSize = 1605632;
 static char static_scratch_buffer[kStaticBufferSize];
+
+// executionMutex is used to protect concurrent access of the static_scratch_buffer
+// and other non-threadsafe resources like gemmlowp::GemmContext.
+// std::mutex is safe for pthreads on Android.
+static std::mutex executionMutex;
 
 #define ANDROID_NN_CONV_PARAMETERS(Type)                                        \
     uint32_t height       = getSizeOfDimension(inputShape, 1);                  \
@@ -38,7 +43,7 @@ static char static_scratch_buffer[kStaticBufferSize];
     uint32_t paddingHeight = (uint32_t)padding_top;                             \
     uint32_t paddingWidth = (uint32_t)padding_left;                             \
                                                                                 \
-    Dims<4> im2colDim;                                                          \
+    tflite::Dims<4> im2colDim;                                                  \
     im2colDim.sizes[3] = (int)getSizeOfDimension(outputShape, 0);               \
     im2colDim.sizes[2] = (int)getSizeOfDimension(outputShape, 1);               \
     im2colDim.sizes[1] = (int)getSizeOfDimension(outputShape, 2);               \
@@ -50,14 +55,25 @@ static char static_scratch_buffer[kStaticBufferSize];
     }                                                                           \
                                                                                 \
     Type* im2colData = nullptr;                                                 \
-    int im2colByteSize = sizeof(Type);                                          \
+    uint64_t im2colByteSize = sizeof(Type);                                     \
+    std::unique_ptr<Type[]> im2colGuard;                                        \
     for (int i=0; i<4; i++) {                                                   \
         im2colByteSize *= im2colDim.sizes[i];                                   \
+    }                                                                           \
+    /* http://b/77982879, tflite::optimized_ops::Conv uses int for offsets */   \
+    if (im2colByteSize >= 0x7fffffff)  {                                        \
+        LOG(ERROR) << "Conv size is too large, not enough memory";              \
+        return false;                                                           \
     }                                                                           \
     if (im2colByteSize <= kStaticBufferSize) {                                  \
         im2colData = reinterpret_cast<Type *>(static_scratch_buffer);           \
     } else {                                                                    \
         im2colData = new (std::nothrow) Type[im2colByteSize / sizeof(Type)];    \
+        if (im2colData == nullptr) {                                            \
+            LOG(ERROR) << "Conv size is too large, not enough memory";          \
+            return false;                                                       \
+        }                                                                       \
+        im2colGuard.reset(im2colData);                                          \
     }
 
 bool convFloat32(const float* inputData, const Shape& inputShape,
@@ -71,21 +87,20 @@ bool convFloat32(const float* inputData, const Shape& inputShape,
 
     ANDROID_NN_CONV_PARAMETERS(float)
 
-    #define ANDROID_NN_CONV(activation)                                        \
-        optimized_ops::Conv<FusedActivationFunctionType::activation>(          \
-            inputData, convertShapeToDims(inputShape),                         \
-            filterData, convertShapeToDims(filterShape),                       \
-            biasData, convertShapeToDims(biasShape),                           \
-            stride_width, stride_height, paddingWidth, paddingHeight,          \
-            outputData, convertShapeToDims(outputShape),                       \
-            im2colData, im2colDim)
+    float output_activation_min, output_activation_max;
+    CalculateActivationRangeFloat(activation, &output_activation_min,
+                                  &output_activation_max);
 
-    ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_CONV)
-    #undef ANDROID_NN_CONV
-
-    if (im2colByteSize > kStaticBufferSize) {
-        delete[] im2colData;
-    }
+    // Prevent concurrent executions that may access the scratch buffer.
+    std::unique_lock<std::mutex> lock(executionMutex);
+    tflite::optimized_ops::Conv(
+            inputData, convertShapeToDims(inputShape),
+            filterData, convertShapeToDims(filterShape),
+            biasData, convertShapeToDims(biasShape),
+            stride_width, stride_height, paddingWidth, paddingHeight,
+            output_activation_min, output_activation_max,
+            outputData, convertShapeToDims(outputShape),
+            im2colData, im2colDim);
     return true;
 }
 
@@ -121,26 +136,21 @@ bool convQuant8(const uint8_t* inputData, const Shape& inputShape,
                                   &output_activation_max);
 
     static gemmlowp::GemmContext gemm_context;
-    // Alow gemmlowp automatcally decide how many threads to use.
+
+    // Prevent concurrent executions that may access the scratch buffer and
+    // gemm_context.
+    std::unique_lock<std::mutex> lock(executionMutex);
+    // Alow gemmlowp automatically decide how many threads to use.
     gemm_context.set_max_num_threads(0);
-
-    #define ANDROID_NN_CONV(activation)                                        \
-        optimized_ops::Conv<FusedActivationFunctionType::activation>(          \
-            inputData, convertShapeToDims(inputShape), inputOffset,            \
-            filterData, convertShapeToDims(filterShape), filterOffset,         \
-            biasData, convertShapeToDims(biasShape),                           \
-            stride_width, stride_height, paddingWidth, paddingHeight,          \
-            outputOffset, output_multiplier, output_shift,                     \
-            output_activation_min, output_activation_max,                      \
-            outputData, convertShapeToDims(outputShape),                       \
-            im2colData, im2colDim, &gemm_context)
-
-    ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_CONV)
-    #undef ANDROID_NN_CONV
-
-    if (im2colByteSize > kStaticBufferSize) {
-        delete[] im2colData;
-    }
+    tflite::optimized_ops::Conv(
+            inputData, convertShapeToDims(inputShape), inputOffset,
+            filterData, convertShapeToDims(filterShape), filterOffset,
+            biasData, convertShapeToDims(biasShape),
+            stride_width, stride_height, paddingWidth, paddingHeight,
+            outputOffset, output_multiplier, output_shift,
+            output_activation_min, output_activation_max,
+            outputData, convertShapeToDims(outputShape),
+            im2colData, im2colDim, &gemm_context);
     return true;
 }
 

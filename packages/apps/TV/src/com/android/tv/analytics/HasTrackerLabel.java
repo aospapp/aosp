@@ -23,8 +23,6 @@ package com.android.tv.analytics;
  */
 public interface HasTrackerLabel {
 
-    /**
-     * Returns the label.
-     */
+    /** Returns the label. */
     String getTrackerLabel();
 }

@@ -19,6 +19,7 @@
 
 TST_TOTAL=1
 TCID="busy_poll03"
+TST_NEEDS_TMPDIR=1
 
 . test_net.sh
 . busy_poll_lib.sh
@@ -38,8 +39,6 @@ set_busy_poll()
 	tst_rhost_run -s -c "sysctl -q -w net.core.busy_poll=$value"
 }
 
-tst_tmpdir
-
 busy_poll_old="$(cat /proc/sys/net/core/busy_poll)"
 rbusy_poll_old=$(tst_rhost_run -c 'cat /proc/sys/net/core/busy_poll')
 
@@ -49,7 +48,7 @@ trap "tst_brkm TBROK 'test interrupted'" INT
 for x in 50 0; do
 	tst_resm TINFO "set low latency busy poll to $x per socket"
 	set_busy_poll $x
-	tst_netload -H $(tst_ipaddr rhost) -d res_$x -b $x -U
+	tst_netload -H $(tst_ipaddr rhost) -d res_$x -b $x -T udp
 done
 
 poll_cmp=$(( 100 - ($(cat res_50) * 100) / $(cat res_0) ))

@@ -17,8 +17,8 @@
 package android.media.cts;
 
 import android.media.cts.R;
-
 import android.content.res.AssetFileDescriptor;
+import android.content.res.Resources;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodec.CodecException;
@@ -44,7 +44,9 @@ import android.view.Surface;
 
 import com.android.compatibility.common.util.MediaUtils;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -1800,5 +1802,258 @@ public class MediaCodecTest extends AndroidTestCase {
             crypto.release();
             drm.closeSession(sessionId);
         }
+    }
+
+    abstract class ByteBufferStream {
+        public abstract ByteBuffer read() throws IOException;
+    }
+
+    class MediaCodecStream extends ByteBufferStream {
+        private ByteBufferStream mBufferInputStream;
+        private InputStream mInputStream;
+        private MediaCodec mCodec;
+        BufferInfo mInfo = new BufferInfo();
+        boolean mSawOutputEOS;
+        boolean mSawInputEOS;
+        boolean mEncode;
+        boolean mSentConfig;
+
+        // result stream
+        private byte[] mBuf = null;
+        private byte[] mCache = null;
+        private int mBufIn = 0;
+        private int mBufOut = 0;
+        private int mBufCounter = 0;
+
+        // helper for bytewise read()
+        private byte[] mOneByte = new byte[1];
+
+        private MediaCodecStream(
+                MediaFormat format,
+                boolean encode) throws Exception {
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            mEncode = encode;
+            if (mEncode) {
+                mCodec = MediaCodec.createEncoderByType(mime);
+            } else {
+                mCodec = MediaCodec.createDecoderByType(mime);
+            }
+            mCodec.configure(format,null, null, encode ? MediaCodec.CONFIGURE_FLAG_ENCODE : 0);
+            mCodec.start();
+        }
+
+        MediaCodecStream(
+                InputStream input,
+                MediaFormat format,
+                boolean encode) throws Exception {
+            this(format, encode);
+            mInputStream = input;
+        }
+
+        MediaCodecStream(
+                ByteBufferStream input,
+                MediaFormat format,
+                boolean encode) throws Exception {
+            this(format, encode);
+            mBufferInputStream = input;
+        }
+
+        public ByteBuffer read() throws IOException {
+
+            if (mSawOutputEOS) {
+                return null;
+            }
+
+            // first push as much data into the codec as possible
+            while (!mSawInputEOS) {
+                Log.i(TAG, "sending data to " + mCodec.getName());
+                int index = mCodec.dequeueInputBuffer(5000);
+                if (index < 0) {
+                    // no input buffer currently available
+                    break;
+                } else {
+                    ByteBuffer buf = mCodec.getInputBuffer(index);
+                    buf.clear();
+                    int inBufLen = buf.limit();
+                    int numRead = 0;
+
+                    if (mBufferInputStream != null) {
+                        ByteBuffer in = null;
+                        do {
+                            in = mBufferInputStream.read();
+                        } while (in != null && in.limit() == 0);
+                        if (in == null) {
+                            mSawInputEOS = true;
+                        } else {
+                            int n = in.limit();
+                            numRead += n;
+                            buf.put(in);
+                        }
+                    } else if (mInputStream != null) {
+                        if (mBuf == null) {
+                            mBuf = new byte[inBufLen];
+                        }
+                        for (numRead = 0; numRead < inBufLen; ) {
+                            int n = mInputStream.read(mBuf, numRead, inBufLen - numRead);
+                            if (n == -1) {
+                                mSawInputEOS = true;
+                                break;
+                            }
+                            numRead += n;
+                        }
+                        buf.put(mBuf, 0, numRead);
+                    } else {
+                        fail("no input");
+                    }
+
+                    int flags = mSawInputEOS ? MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0;
+                    if (!mEncode && !mSentConfig) {
+                        flags |= MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
+                        mSentConfig = true;
+                    }
+                    Log.i(TAG, "queuing input buffer " + index +
+                            ", size " + numRead + ", flags: " + flags +
+                            " on " + mCodec.getName());
+                    mCodec.queueInputBuffer(index,
+                            0 /* offset */,
+                            numRead,
+                            0 /* presentationTimeUs */,
+                            flags);
+                    Log.i(TAG, "queued input buffer " + index + ", size " + numRead);
+                }
+            }
+
+            // now read data from the codec
+            Log.i(TAG, "reading from " + mCodec.getName());
+            int index = mCodec.dequeueOutputBuffer(mInfo, 5000);
+            if (index >= 0) {
+                Log.i(TAG, "got " + mInfo.size + " bytes from " + mCodec.getName());
+                ByteBuffer out = mCodec.getOutputBuffer(index);
+                ByteBuffer ret = ByteBuffer.allocate(mInfo.size);
+                ret.put(out);
+                mCodec.releaseOutputBuffer(index,  false /* render */);
+                if ((mInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                    Log.i(TAG, "saw output EOS on " + mCodec.getName());
+                    mSawOutputEOS = true;
+                }
+                ret.flip(); // prepare buffer for reading from it
+                // XXX chck that first encoded buffer has CSD flags set
+                if (mEncode && mBufCounter++ == 0 && (mInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0) {
+                    fail("first encoded buffer missing CSD flag");
+                }
+                return ret;
+            } else if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                Log.i(TAG, mCodec.getName() + " new format: " + mCodec.getOutputFormat());
+            }
+            return ByteBuffer.allocate(0);
+        }
+
+        public void close() throws IOException {
+            try {
+                if (mInputStream != null) {
+                    mInputStream.close();
+                }
+            } finally {
+                mInputStream = null;
+                try {
+                    if (mCodec != null) {
+                        mCodec.release();
+                    }
+                } finally {
+                    mCodec = null;
+                }
+            }
+        }
+
+        @Override
+        protected void finalize() throws Throwable {
+            if (mCodec != null) {
+                Log.w(TAG, "MediaCodecInputStream wasn't closed");
+                mCodec.release();
+            }
+        }
+    };
+
+    class ByteBufferInputStream extends InputStream {
+        ByteBufferStream mInput;
+        ByteBuffer mBuffer;
+
+        public ByteBufferInputStream(ByteBufferStream in) {
+            mInput = in;
+            mBuffer = ByteBuffer.allocate(0);
+        }
+
+        @Override
+        public int read() throws IOException {
+            while (mBuffer != null && !mBuffer.hasRemaining()) {
+                Log.i(TAG, "reading buffer");
+                mBuffer = mInput.read();
+            }
+
+            if (mBuffer == null) {
+                return -1;
+            }
+
+            return (0xff & mBuffer.get());
+        }
+    };
+
+    private int compareStreams(InputStream test, InputStream reference) {
+        Log.i(TAG, "compareStreams");
+        BufferedInputStream buffered_test = new BufferedInputStream(test);
+        BufferedInputStream buffered_reference = new BufferedInputStream(reference);
+        int numread = 0;
+        try {
+            while (true) {
+                int b1 = buffered_test.read();
+                int b2 = buffered_reference.read();
+                if (b1 != b2) {
+                    Log.e(TAG, "streams differ at " + numread + ": " + b1 + "/" + b2);
+                    return -1;
+                }
+                if (b1 == -1) {
+                    Log.e(TAG, "streams ended at " + numread);
+                    break;
+                }
+                numread++;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "read error", e);
+            return -1;
+        }
+        Log.i(TAG, "compareStreams read " + numread);
+        return numread;
+    }
+
+    public void testFlacIdentity() throws Exception {
+        Resources res = mContext.getResources();
+        InputStream pcmStream1 = res.openRawResource(R.raw.sinesweepraw);
+
+        MediaFormat encodeFormat = new MediaFormat();
+        encodeFormat.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_FLAC);
+        encodeFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, 44100);
+        encodeFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2);
+        encodeFormat.setInteger(MediaFormat.KEY_FLAC_COMPRESSION_LEVEL, 5);
+
+        MediaFormat decodeFormat = new MediaFormat();
+        decodeFormat.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_FLAC);
+        decodeFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, 44100);
+        decodeFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2);
+
+        MediaCodecStream rawToAmr = new MediaCodecStream(pcmStream1, encodeFormat, true);
+        MediaCodecStream amrToRaw = new MediaCodecStream(rawToAmr, decodeFormat, false);
+
+        AssetFileDescriptor masterFd = res.openRawResourceFd(R.raw.sinesweepraw);
+        long masterLength = masterFd.getLength();
+        Log.i(TAG, "source length: " + masterLength);
+        masterFd.close();
+
+        InputStream pcmStream2 = res.openRawResource(R.raw.sinesweepraw);
+
+        assertEquals("not identical after compression",
+                masterLength,
+                compareStreams(new ByteBufferInputStream(amrToRaw), pcmStream2));
+        pcmStream1.close();
+        pcmStream2.close();
     }
 }

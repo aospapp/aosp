@@ -18,6 +18,7 @@
 
 #include <sys/uio.h>
 
+#include <functional>
 #include <memory>
 #include <set>
 #include <vector>
@@ -28,16 +29,21 @@
 #include "art_field-inl.h"
 #include "art_method-inl.h"
 #include "base/enums.h"
+#include "base/safe_map.h"
 #include "base/strlcpy.h"
 #include "base/time_utils.h"
 #include "class_linker-inl.h"
 #include "class_linker.h"
-#include "dex_file-inl.h"
-#include "dex_file_annotations.h"
-#include "dex_instruction.h"
+#include "dex/descriptors_names.h"
+#include "dex/dex_file-inl.h"
+#include "dex/dex_file_annotations.h"
+#include "dex/dex_file_types.h"
+#include "dex/dex_instruction.h"
+#include "dex/utf.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
 #include "gc/accounting/card_table-inl.h"
 #include "gc/allocation_record.h"
+#include "gc/gc_cause.h"
 #include "gc/scoped_gc_critical_section.h"
 #include "gc/space/bump_pointer_space-walk-inl.h"
 #include "gc/space/large_object_space.h"
@@ -54,15 +60,14 @@
 #include "mirror/object_array-inl.h"
 #include "mirror/string-inl.h"
 #include "mirror/throwable.h"
-#include "nativehelper/ScopedLocalRef.h"
-#include "nativehelper/ScopedPrimitiveArray.h"
+#include "nativehelper/scoped_local_ref.h"
+#include "nativehelper/scoped_primitive_array.h"
+#include "oat_file.h"
 #include "obj_ptr-inl.h"
 #include "reflection.h"
-#include "safe_map.h"
 #include "scoped_thread_state_change-inl.h"
 #include "stack.h"
 #include "thread_list.h"
-#include "utf.h"
 #include "well_known_classes.h"
 
 namespace art {
@@ -238,7 +243,7 @@ class DebugInstrumentationListener FINAL : public instrumentation::Instrumentati
     Dbg::PostFieldModificationEvent(method, dex_pc, this_object.Get(), field, &field_value);
   }
 
-  void ExceptionCaught(Thread* thread ATTRIBUTE_UNUSED,
+  void ExceptionThrown(Thread* thread ATTRIBUTE_UNUSED,
                        Handle<mirror::Throwable> exception_object)
       OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
     Dbg::PostException(exception_object.Get());
@@ -262,12 +267,21 @@ class DebugInstrumentationListener FINAL : public instrumentation::Instrumentati
                << " " << dex_pc;
   }
 
+  // TODO Might be worth it to post ExceptionCatch event.
+  void ExceptionHandled(Thread* thread ATTRIBUTE_UNUSED,
+                        Handle<mirror::Throwable> throwable ATTRIBUTE_UNUSED) OVERRIDE {
+    LOG(ERROR) << "Unexpected exception handled event in debugger";
+  }
+
+  // TODO Might be worth it to implement this.
+  void WatchedFramePop(Thread* thread ATTRIBUTE_UNUSED,
+                       const ShadowFrame& frame ATTRIBUTE_UNUSED) OVERRIDE {
+    LOG(ERROR) << "Unexpected WatchedFramePop event in debugger";
+  }
+
  private:
-  static bool IsReturn(ArtMethod* method, uint32_t dex_pc)
-      REQUIRES_SHARED(Locks::mutator_lock_) {
-    const DexFile::CodeItem* code_item = method->GetCodeItem();
-    const Instruction* instruction = Instruction::At(&code_item->insns_[dex_pc]);
-    return instruction->IsReturn();
+  static bool IsReturn(ArtMethod* method, uint32_t dex_pc) REQUIRES_SHARED(Locks::mutator_lock_) {
+    return method->DexInstructions().InstructionAt(dex_pc).IsReturn();
   }
 
   static bool IsListeningToDexPcMoved() REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -311,6 +325,9 @@ static Dbg::HpsgWhat gDdmNhsgWhat;
 bool Dbg::gDebuggerActive = false;
 bool Dbg::gDisposed = false;
 ObjectRegistry* Dbg::gRegistry = nullptr;
+DebuggerActiveMethodInspectionCallback Dbg::gDebugActiveCallback;
+DebuggerDdmCallback Dbg::gDebugDdmCallback;
+InternalDebuggerControlCallback Dbg::gDebuggerControlCallback;
 
 // Deoptimization support.
 std::vector<DeoptimizationRequest> Dbg::deoptimization_requests_;
@@ -327,6 +344,44 @@ uint32_t Dbg::instrumentation_events_ = 0;
 
 Dbg::DbgThreadLifecycleCallback Dbg::thread_lifecycle_callback_;
 Dbg::DbgClassLoadCallback Dbg::class_load_callback_;
+
+void DebuggerDdmCallback::DdmPublishChunk(uint32_t type, const ArrayRef<const uint8_t>& data) {
+  if (gJdwpState == nullptr) {
+    VLOG(jdwp) << "Debugger thread not active, ignoring DDM send: " << type;
+  } else {
+    iovec vec[1];
+    vec[0].iov_base = reinterpret_cast<void*>(const_cast<uint8_t*>(data.data()));
+    vec[0].iov_len = data.size();
+    gJdwpState->DdmSendChunkV(type, vec, 1);
+  }
+}
+
+bool DebuggerActiveMethodInspectionCallback::IsMethodBeingInspected(ArtMethod* m ATTRIBUTE_UNUSED) {
+  return Dbg::IsDebuggerActive();
+}
+
+bool DebuggerActiveMethodInspectionCallback::IsMethodSafeToJit(ArtMethod* m) {
+  return !Dbg::MethodHasAnyBreakpoints(m);
+}
+
+bool DebuggerActiveMethodInspectionCallback::MethodNeedsDebugVersion(
+    ArtMethod* m ATTRIBUTE_UNUSED) {
+  return Dbg::IsDebuggerActive();
+}
+
+void InternalDebuggerControlCallback::StartDebugger() {
+  // Release the mutator lock.
+  ScopedThreadStateChange stsc(art::Thread::Current(), kNative);
+  Dbg::StartJdwp();
+}
+
+void InternalDebuggerControlCallback::StopDebugger() {
+  Dbg::StopJdwp();
+}
+
+bool InternalDebuggerControlCallback::IsDebuggerConfigured() {
+  return Dbg::IsJdwpConfigured();
+}
 
 // Breakpoints.
 static std::vector<Breakpoint> gBreakpoints GUARDED_BY(Locks::breakpoint_lock_);
@@ -509,6 +564,12 @@ void Dbg::StartJdwp() {
   CHECK(gRegistry == nullptr);
   gRegistry = new ObjectRegistry;
 
+  {
+    // Setup the Ddm listener
+    ScopedObjectAccess soa(Thread::Current());
+    Runtime::Current()->GetRuntimeCallbacks()->AddDdmCallback(&gDebugDdmCallback);
+  }
+
   // Init JDWP if the debugger is enabled. This may connect out to a
   // debugger, passively listen for a debugger, or block waiting for a
   // debugger.
@@ -639,6 +700,7 @@ void Dbg::GoActive() {
   }
   instrumentation_events_ = 0;
   gDebuggerActive = true;
+  Runtime::Current()->GetRuntimeCallbacks()->AddMethodInspectionCallback(&gDebugActiveCallback);
   LOG(INFO) << "Debugger is active";
 }
 
@@ -676,6 +738,8 @@ void Dbg::Disconnected() {
         runtime->GetInstrumentation()->DisableDeoptimization(kDbgInstrumentationKey);
       }
       gDebuggerActive = false;
+      Runtime::Current()->GetRuntimeCallbacks()->RemoveMethodInspectionCallback(
+          &gDebugActiveCallback);
     }
   }
 
@@ -691,6 +755,7 @@ void Dbg::ConfigureJdwp(const JDWP::JdwpOptions& jdwp_options) {
   CHECK_NE(jdwp_options.transport, JDWP::kJdwpTransportUnknown);
   gJdwpOptions = jdwp_options;
   gJdwpConfigured = true;
+  Runtime::Current()->GetRuntimeCallbacks()->AddDebuggerControlCallback(&gDebuggerControlCallback);
 }
 
 bool Dbg::IsJdwpConfigured() {
@@ -889,7 +954,7 @@ JDWP::JdwpError Dbg::GetContendedMonitor(JDWP::ObjectId thread_id,
 JDWP::JdwpError Dbg::GetInstanceCounts(const std::vector<JDWP::RefTypeId>& class_ids,
                                        std::vector<uint64_t>* counts) {
   gc::Heap* heap = Runtime::Current()->GetHeap();
-  heap->CollectGarbage(false);
+  heap->CollectGarbage(/* clear_soft_references */ false, gc::GcCause::kGcCauseDebugger);
   VariableSizedHandleScope hs(Thread::Current());
   std::vector<Handle<mirror::Class>> classes;
   counts->clear();
@@ -910,7 +975,7 @@ JDWP::JdwpError Dbg::GetInstances(JDWP::RefTypeId class_id, int32_t max_count,
                                   std::vector<JDWP::ObjectId>* instances) {
   gc::Heap* heap = Runtime::Current()->GetHeap();
   // We only want reachable instances, so do a GC.
-  heap->CollectGarbage(false);
+  heap->CollectGarbage(/* clear_soft_references */ false, gc::GcCause::kGcCauseDebugger);
   JDWP::JdwpError error;
   ObjPtr<mirror::Class> c = DecodeClass(class_id, &error);
   if (c == nullptr) {
@@ -918,7 +983,11 @@ JDWP::JdwpError Dbg::GetInstances(JDWP::RefTypeId class_id, int32_t max_count,
   }
   VariableSizedHandleScope hs(Thread::Current());
   std::vector<Handle<mirror::Object>> raw_instances;
-  Runtime::Current()->GetHeap()->GetInstances(hs, hs.NewHandle(c), max_count, raw_instances);
+  Runtime::Current()->GetHeap()->GetInstances(hs,
+                                              hs.NewHandle(c),
+                                              /* use_is_assignable_from */ false,
+                                              max_count,
+                                              raw_instances);
   for (size_t i = 0; i < raw_instances.size(); ++i) {
     instances->push_back(gRegistry->Add(raw_instances[i].Get()));
   }
@@ -928,7 +997,7 @@ JDWP::JdwpError Dbg::GetInstances(JDWP::RefTypeId class_id, int32_t max_count,
 JDWP::JdwpError Dbg::GetReferringObjects(JDWP::ObjectId object_id, int32_t max_count,
                                          std::vector<JDWP::ObjectId>* referring_objects) {
   gc::Heap* heap = Runtime::Current()->GetHeap();
-  heap->CollectGarbage(false);
+  heap->CollectGarbage(/* clear_soft_references */ false, gc::GcCause::kGcCauseDebugger);
   JDWP::JdwpError error;
   ObjPtr<mirror::Object> o = gRegistry->Get<mirror::Object*>(object_id, &error);
   if (o == nullptr) {
@@ -1470,15 +1539,15 @@ static uint32_t MangleAccessFlags(uint32_t accessFlags) {
  */
 static uint16_t MangleSlot(uint16_t slot, ArtMethod* m)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  const DexFile::CodeItem* code_item = m->GetCodeItem();
-  if (code_item == nullptr) {
+  CodeItemDataAccessor accessor(m->DexInstructionData());
+  if (!accessor.HasCodeItem()) {
     // We should not get here for a method without code (native, proxy or abstract). Log it and
     // return the slot as is since all registers are arguments.
     LOG(WARNING) << "Trying to mangle slot for method without code " << m->PrettyMethod();
     return slot;
   }
-  uint16_t ins_size = code_item->ins_size_;
-  uint16_t locals_size = code_item->registers_size_ - ins_size;
+  uint16_t ins_size = accessor.InsSize();
+  uint16_t locals_size = accessor.RegistersSize() - ins_size;
   if (slot >= locals_size) {
     return slot - locals_size;
   } else {
@@ -1501,8 +1570,8 @@ static size_t GetMethodNumArgRegistersIncludingThis(ArtMethod* method)
  */
 static uint16_t DemangleSlot(uint16_t slot, ArtMethod* m, JDWP::JdwpError* error)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  const DexFile::CodeItem* code_item = m->GetCodeItem();
-  if (code_item == nullptr) {
+  CodeItemDataAccessor accessor(m->DexInstructionData());
+  if (!accessor.HasCodeItem()) {
     // We should not get here for a method without code (native, proxy or abstract). Log it and
     // return the slot as is since all registers are arguments.
     LOG(WARNING) << "Trying to demangle slot for method without code "
@@ -1513,9 +1582,9 @@ static uint16_t DemangleSlot(uint16_t slot, ArtMethod* m, JDWP::JdwpError* error
       return slot;
     }
   } else {
-    if (slot < code_item->registers_size_) {
-      uint16_t ins_size = code_item->ins_size_;
-      uint16_t locals_size = code_item->registers_size_ - ins_size;
+    if (slot < accessor.RegistersSize()) {
+      uint16_t ins_size = accessor.InsSize();
+      uint16_t locals_size = accessor.RegistersSize() - ins_size;
       *error = JDWP::ERR_NONE;
       return (slot < ins_size) ? slot + locals_size : slot - ins_size;
     }
@@ -1612,16 +1681,16 @@ void Dbg::OutputLineTable(JDWP::RefTypeId, JDWP::MethodId method_id, JDWP::Expan
     }
   };
   ArtMethod* m = FromMethodId(method_id);
-  const DexFile::CodeItem* code_item = m->GetCodeItem();
+  CodeItemDebugInfoAccessor accessor(m->DexInstructionDebugInfo());
   uint64_t start, end;
-  if (code_item == nullptr) {
+  if (!accessor.HasCodeItem()) {
     DCHECK(m->IsNative() || m->IsProxyMethod());
     start = -1;
     end = -1;
   } else {
     start = 0;
     // Return the index of the last instruction
-    end = code_item->insns_size_in_code_units_ - 1;
+    end = accessor.InsnsSizeInCodeUnits() - 1;
   }
 
   expandBufAdd8BE(pReply, start);
@@ -1635,8 +1704,10 @@ void Dbg::OutputLineTable(JDWP::RefTypeId, JDWP::MethodId method_id, JDWP::Expan
   context.numItems = 0;
   context.pReply = pReply;
 
-  if (code_item != nullptr) {
-    m->GetDexFile()->DecodeDebugPositionInfo(code_item, DebugCallbackContext::Callback, &context);
+  if (accessor.HasCodeItem()) {
+    m->GetDexFile()->DecodeDebugPositionInfo(accessor.DebugInfoOffset(),
+                                             DebugCallbackContext::Callback,
+                                             &context);
   }
 
   JDWP::Set4BE(expandBufGetBuffer(pReply) + numLinesOffset, context.numItems);
@@ -1676,6 +1747,7 @@ void Dbg::OutputVariableTable(JDWP::RefTypeId, JDWP::MethodId method_id, bool wi
     }
   };
   ArtMethod* m = FromMethodId(method_id);
+  CodeItemDebugInfoAccessor accessor(m->DexInstructionDebugInfo());
 
   // arg_count considers doubles and longs to take 2 units.
   // variable_count considers everything to take 1 unit.
@@ -1691,11 +1763,15 @@ void Dbg::OutputVariableTable(JDWP::RefTypeId, JDWP::MethodId method_id, bool wi
   context.variable_count = 0;
   context.with_generic = with_generic;
 
-  const DexFile::CodeItem* code_item = m->GetCodeItem();
-  if (code_item != nullptr) {
-    m->GetDexFile()->DecodeDebugLocalInfo(
-        code_item, m->IsStatic(), m->GetDexMethodIndex(), DebugCallbackContext::Callback,
-        &context);
+  if (accessor.HasCodeItem()) {
+    m->GetDexFile()->DecodeDebugLocalInfo(accessor.RegistersSize(),
+                                          accessor.InsSize(),
+                                          accessor.InsnsSizeInCodeUnits(),
+                                          accessor.DebugInfoOffset(),
+                                          m->IsStatic(),
+                                          m->GetDexMethodIndex(),
+                                          DebugCallbackContext::Callback,
+                                          &context);
   }
 
   JDWP::Set4BE(expandBufGetBuffer(pReply) + variable_count_offset, context.variable_count);
@@ -1721,9 +1797,9 @@ JDWP::JdwpError Dbg::GetBytecodes(JDWP::RefTypeId, JDWP::MethodId method_id,
   if (m == nullptr) {
     return JDWP::ERR_INVALID_METHODID;
   }
-  const DexFile::CodeItem* code_item = m->GetCodeItem();
-  size_t byte_count = code_item->insns_size_in_code_units_ * 2;
-  const uint8_t* begin = reinterpret_cast<const uint8_t*>(code_item->insns_);
+  CodeItemDataAccessor accessor(m->DexInstructionData());
+  size_t byte_count = accessor.InsnsSizeInCodeUnits() * 2;
+  const uint8_t* begin = reinterpret_cast<const uint8_t*>(accessor.Insns());
   const uint8_t* end = begin + byte_count;
   for (const uint8_t* p = begin; p != end; ++p) {
     bytecodes->push_back(*p);
@@ -1906,7 +1982,7 @@ static JDWP::JdwpError SetArtFieldValue(ArtField* f, mirror::Object* o, uint64_t
           StackHandleScope<2> hs(Thread::Current());
           HandleWrapper<mirror::Object> h_v(hs.NewHandleWrapper(&v));
           HandleWrapper<mirror::Object> h_o(hs.NewHandleWrapper(&o));
-          field_type = f->GetType<true>();
+          field_type = f->ResolveType();
         }
         if (!field_type->IsAssignableFrom(v->GetClass())) {
           return JDWP::ERR_INVALID_OBJECT;
@@ -2205,6 +2281,8 @@ JDWP::JdwpThreadStatus Dbg::ToJdwpThreadStatus(ThreadState state) {
     case kTerminated:
       return JDWP::TS_ZOMBIE;
     case kTimedWaiting:
+    case kWaitingForTaskProcessor:
+    case kWaitingForLockInflation:
     case kWaitingForCheckPointsToRun:
     case kWaitingForDebuggerSend:
     case kWaitingForDebuggerSuspension:
@@ -2904,9 +2982,8 @@ void Dbg::PostLocationEvent(ArtMethod* m, int dex_pc, mirror::Object* this_objec
   Handle<mirror::Throwable> pending_exception(hs.NewHandle(self->GetException()));
   self->ClearException();
   if (kIsDebugBuild && pending_exception != nullptr) {
-    const DexFile::CodeItem* code_item = location.method->GetCodeItem();
-    const Instruction* instr = Instruction::At(&code_item->insns_[location.dex_pc]);
-    CHECK_EQ(Instruction::MOVE_EXCEPTION, instr->Opcode());
+    const Instruction& instr = location.method->DexInstructions().InstructionAt(location.dex_pc);
+    CHECK_EQ(Instruction::MOVE_EXCEPTION, instr.Opcode());
   }
 
   gJdwpState->PostLocationEvent(&location, this_object, event_flags, return_value);
@@ -2960,8 +3037,8 @@ class CatchLocationFinder : public StackVisitor {
       this_at_throw_(handle_scope_.NewHandle<mirror::Object>(nullptr)),
       catch_method_(nullptr),
       throw_method_(nullptr),
-      catch_dex_pc_(DexFile::kDexNoIndex),
-      throw_dex_pc_(DexFile::kDexNoIndex) {
+      catch_dex_pc_(dex::kDexNoIndex),
+      throw_dex_pc_(dex::kDexNoIndex) {
   }
 
   bool VisitFrame() OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -2983,13 +3060,13 @@ class CatchLocationFinder : public StackVisitor {
       throw_dex_pc_ = dex_pc;
     }
 
-    if (dex_pc != DexFile::kDexNoIndex) {
+    if (dex_pc != dex::kDexNoIndex) {
       StackHandleScope<1> hs(GetThread());
       uint32_t found_dex_pc;
       Handle<mirror::Class> exception_class(hs.NewHandle(exception_->GetClass()));
       bool unused_clear_exception;
       found_dex_pc = method->FindCatchBlock(exception_class, dex_pc, &unused_clear_exception);
-      if (found_dex_pc != DexFile::kDexNoIndex) {
+      if (found_dex_pc != dex::kDexNoIndex) {
         catch_method_ = method;
         catch_dex_pc_ = found_dex_pc;
         return false;  // End stack walk.
@@ -3145,7 +3222,7 @@ size_t* Dbg::GetReferenceCounterForEvent(uint32_t instrumentation_event) {
       return &field_read_event_ref_count_;
     case instrumentation::Instrumentation::kFieldWritten:
       return &field_write_event_ref_count_;
-    case instrumentation::Instrumentation::kExceptionCaught:
+    case instrumentation::Instrumentation::kExceptionThrown:
       return &exception_catch_event_ref_count_;
     default:
       return nullptr;
@@ -3782,9 +3859,9 @@ JDWP::JdwpError Dbg::ConfigureStep(JDWP::ObjectId thread_id, JDWP::JdwpStepSize 
   // Find the dex_pc values that correspond to the current line, for line-based single-stepping.
   struct DebugCallbackContext {
     DebugCallbackContext(SingleStepControl* single_step_control_cb,
-                         int32_t line_number_cb, const DexFile::CodeItem* code_item)
+                         int32_t line_number_cb, uint32_t num_insns_in_code_units)
         : single_step_control_(single_step_control_cb), line_number_(line_number_cb),
-          code_item_(code_item), last_pc_valid(false), last_pc(0) {
+          num_insns_in_code_units_(num_insns_in_code_units), last_pc_valid(false), last_pc(0) {
     }
 
     static bool Callback(void* raw_context, const DexFile::PositionInfo& entry) {
@@ -3810,8 +3887,7 @@ JDWP::JdwpError Dbg::ConfigureStep(JDWP::ObjectId thread_id, JDWP::JdwpStepSize 
     ~DebugCallbackContext() {
       // If the line number was the last in the position table...
       if (last_pc_valid) {
-        size_t end = code_item_->insns_size_in_code_units_;
-        for (uint32_t dex_pc = last_pc; dex_pc < end; ++dex_pc) {
+        for (uint32_t dex_pc = last_pc; dex_pc < num_insns_in_code_units_; ++dex_pc) {
           single_step_control_->AddDexPc(dex_pc);
         }
       }
@@ -3819,7 +3895,7 @@ JDWP::JdwpError Dbg::ConfigureStep(JDWP::ObjectId thread_id, JDWP::JdwpStepSize 
 
     SingleStepControl* const single_step_control_;
     const int32_t line_number_;
-    const DexFile::CodeItem* const code_item_;
+    const uint32_t num_insns_in_code_units_;
     bool last_pc_valid;
     uint32_t last_pc;
   };
@@ -3838,9 +3914,11 @@ JDWP::JdwpError Dbg::ConfigureStep(JDWP::ObjectId thread_id, JDWP::JdwpStepSize 
   // Note: if the thread is not running Java code (pure native thread), there is no "current"
   // method on the stack (and no line number either).
   if (m != nullptr && !m->IsNative()) {
-    const DexFile::CodeItem* const code_item = m->GetCodeItem();
-    DebugCallbackContext context(single_step_control, line_number, code_item);
-    m->GetDexFile()->DecodeDebugPositionInfo(code_item, DebugCallbackContext::Callback, &context);
+    CodeItemDebugInfoAccessor accessor(m->DexInstructionDebugInfo());
+    DebugCallbackContext context(single_step_control, line_number, accessor.InsnsSizeInCodeUnits());
+    m->GetDexFile()->DecodeDebugPositionInfo(accessor.DebugInfoOffset(),
+                                             DebugCallbackContext::Callback,
+                                             &context);
   }
 
   // Activate single-step in the thread.
@@ -4008,8 +4086,8 @@ JDWP::JdwpError Dbg::PrepareInvokeMethod(uint32_t request_id, JDWP::ObjectId thr
 
         if (shorty[i + 1] == 'L') {
           // Did we really get an argument of an appropriate reference type?
-          mirror::Class* parameter_type =
-              m->GetClassFromTypeIndex(types->GetTypeItem(i).type_idx_, true /* resolve */);
+          ObjPtr<mirror::Class> parameter_type =
+              m->ResolveClassFromTypeIndex(types->GetTypeItem(i).type_idx_);
           mirror::Object* argument = gRegistry->Get<mirror::Object*>(arg_values[i], &error);
           if (error != JDWP::ERR_NONE) {
             return JDWP::ERR_INVALID_OBJECT;
@@ -4258,47 +4336,28 @@ void Dbg::FinishInvokeMethod(DebugInvokeReq* pReq) {
   }
 }
 
-/*
- * "request" contains a full JDWP packet, possibly with multiple chunks.  We
- * need to process each, accumulate the replies, and ship the whole thing
- * back.
- *
- * Returns "true" if we have a reply.  The reply buffer is newly allocated,
- * and includes the chunk type/length, followed by the data.
- *
- * OLD-TODO: we currently assume that the request and reply include a single
- * chunk.  If this becomes inconvenient we will need to adapt.
- */
-bool Dbg::DdmHandlePacket(JDWP::Request* request, uint8_t** pReplyBuf, int* pReplyLen) {
-  Thread* self = Thread::Current();
-  JNIEnv* env = self->GetJniEnv();
-
-  uint32_t type = request->ReadUnsigned32("type");
-  uint32_t length = request->ReadUnsigned32("length");
-
-  // Create a byte[] corresponding to 'request'.
-  size_t request_length = request->size();
-  ScopedLocalRef<jbyteArray> dataArray(env, env->NewByteArray(request_length));
+bool Dbg::DdmHandleChunk(JNIEnv* env,
+                         uint32_t type,
+                         const ArrayRef<const jbyte>& data,
+                         /*out*/uint32_t* out_type,
+                         /*out*/std::vector<uint8_t>* out_data) {
+  ScopedLocalRef<jbyteArray> dataArray(env, env->NewByteArray(data.size()));
   if (dataArray.get() == nullptr) {
-    LOG(WARNING) << "byte[] allocation failed: " << request_length;
+    LOG(WARNING) << "byte[] allocation failed: " << data.size();
     env->ExceptionClear();
     return false;
   }
-  env->SetByteArrayRegion(dataArray.get(), 0, request_length,
-                          reinterpret_cast<const jbyte*>(request->data()));
-  request->Skip(request_length);
-
-  // Run through and find all chunks.  [Currently just find the first.]
-  ScopedByteArrayRO contents(env, dataArray.get());
-  if (length != request_length) {
-    LOG(WARNING) << StringPrintf("bad chunk found (len=%u pktLen=%zd)", length, request_length);
-    return false;
-  }
-
+  env->SetByteArrayRegion(dataArray.get(),
+                          0,
+                          data.size(),
+                          reinterpret_cast<const jbyte*>(data.data()));
   // Call "private static Chunk dispatch(int type, byte[] data, int offset, int length)".
-  ScopedLocalRef<jobject> chunk(env, env->CallStaticObjectMethod(WellKnownClasses::org_apache_harmony_dalvik_ddmc_DdmServer,
-                                                                 WellKnownClasses::org_apache_harmony_dalvik_ddmc_DdmServer_dispatch,
-                                                                 type, dataArray.get(), 0, length));
+  ScopedLocalRef<jobject> chunk(
+      env,
+      env->CallStaticObjectMethod(
+          WellKnownClasses::org_apache_harmony_dalvik_ddmc_DdmServer,
+          WellKnownClasses::org_apache_harmony_dalvik_ddmc_DdmServer_dispatch,
+          type, dataArray.get(), 0, data.size()));
   if (env->ExceptionCheck()) {
     LOG(INFO) << StringPrintf("Exception thrown by dispatcher for 0x%08x", type);
     env->ExceptionDescribe();
@@ -4322,30 +4381,83 @@ bool Dbg::DdmHandlePacket(JDWP::Request* request, uint8_t** pReplyBuf, int* pRep
    *
    * So we're pretty much stuck with copying data around multiple times.
    */
-  ScopedLocalRef<jbyteArray> replyData(env, reinterpret_cast<jbyteArray>(env->GetObjectField(chunk.get(), WellKnownClasses::org_apache_harmony_dalvik_ddmc_Chunk_data)));
-  jint offset = env->GetIntField(chunk.get(), WellKnownClasses::org_apache_harmony_dalvik_ddmc_Chunk_offset);
-  length = env->GetIntField(chunk.get(), WellKnownClasses::org_apache_harmony_dalvik_ddmc_Chunk_length);
-  type = env->GetIntField(chunk.get(), WellKnownClasses::org_apache_harmony_dalvik_ddmc_Chunk_type);
+  ScopedLocalRef<jbyteArray> replyData(
+      env,
+      reinterpret_cast<jbyteArray>(
+          env->GetObjectField(
+              chunk.get(), WellKnownClasses::org_apache_harmony_dalvik_ddmc_Chunk_data)));
+  jint offset = env->GetIntField(chunk.get(),
+                                 WellKnownClasses::org_apache_harmony_dalvik_ddmc_Chunk_offset);
+  jint length = env->GetIntField(chunk.get(),
+                                 WellKnownClasses::org_apache_harmony_dalvik_ddmc_Chunk_length);
+  *out_type = env->GetIntField(chunk.get(),
+                               WellKnownClasses::org_apache_harmony_dalvik_ddmc_Chunk_type);
 
-  VLOG(jdwp) << StringPrintf("DDM reply: type=0x%08x data=%p offset=%d length=%d", type, replyData.get(), offset, length);
-  if (length == 0 || replyData.get() == nullptr) {
+  VLOG(jdwp) << StringPrintf("DDM reply: type=0x%08x data=%p offset=%d length=%d",
+                             type,
+                             replyData.get(),
+                             offset,
+                             length);
+  out_data->resize(length);
+  env->GetByteArrayRegion(replyData.get(),
+                          offset,
+                          length,
+                          reinterpret_cast<jbyte*>(out_data->data()));
+
+  if (env->ExceptionCheck()) {
+    LOG(INFO) << StringPrintf("Exception thrown when reading response data from dispatcher 0x%08x",
+                              type);
+    env->ExceptionDescribe();
+    env->ExceptionClear();
     return false;
   }
 
-  const int kChunkHdrLen = 8;
-  uint8_t* reply = new uint8_t[length + kChunkHdrLen];
-  if (reply == nullptr) {
-    LOG(WARNING) << "malloc failed: " << (length + kChunkHdrLen);
+  return true;
+}
+
+/*
+ * "request" contains a full JDWP packet, possibly with multiple chunks.  We
+ * need to process each, accumulate the replies, and ship the whole thing
+ * back.
+ *
+ * Returns "true" if we have a reply.  The reply buffer is newly allocated,
+ * and includes the chunk type/length, followed by the data.
+ *
+ * OLD-TODO: we currently assume that the request and reply include a single
+ * chunk.  If this becomes inconvenient we will need to adapt.
+ */
+bool Dbg::DdmHandlePacket(JDWP::Request* request, uint8_t** pReplyBuf, int* pReplyLen) {
+  Thread* self = Thread::Current();
+  JNIEnv* env = self->GetJniEnv();
+
+  uint32_t type = request->ReadUnsigned32("type");
+  uint32_t length = request->ReadUnsigned32("length");
+
+  // Create a byte[] corresponding to 'request'.
+  size_t request_length = request->size();
+  // Run through and find all chunks.  [Currently just find the first.]
+  if (length != request_length) {
+    LOG(WARNING) << StringPrintf("bad chunk found (len=%u pktLen=%zd)", length, request_length);
     return false;
   }
-  JDWP::Set4BE(reply + 0, type);
-  JDWP::Set4BE(reply + 4, length);
-  env->GetByteArrayRegion(replyData.get(), offset, length, reinterpret_cast<jbyte*>(reply + kChunkHdrLen));
 
-  *pReplyBuf = reply;
-  *pReplyLen = length + kChunkHdrLen;
-
-  VLOG(jdwp) << StringPrintf("dvmHandleDdm returning type=%.4s %p len=%d", reinterpret_cast<char*>(reply), reply, length);
+  ArrayRef<const jbyte> data(reinterpret_cast<const jbyte*>(request->data()), request_length);
+  std::vector<uint8_t> out_data;
+  uint32_t out_type = 0;
+  request->Skip(request_length);
+  if (!DdmHandleChunk(env, type, data, &out_type, &out_data) || out_data.empty()) {
+    return false;
+  }
+  const uint32_t kDdmHeaderSize = 8;
+  *pReplyLen = out_data.size() + kDdmHeaderSize;
+  *pReplyBuf = new uint8_t[out_data.size() + kDdmHeaderSize];
+  memcpy((*pReplyBuf) + kDdmHeaderSize, out_data.data(), out_data.size());
+  JDWP::Set4BE(*pReplyBuf, out_type);
+  JDWP::Set4BE((*pReplyBuf) + 4, static_cast<uint32_t>(out_data.size()));
+  VLOG(jdwp)
+      << StringPrintf("dvmHandleDdm returning type=%.4s", reinterpret_cast<char*>(*pReplyBuf))
+      << "0x" << std::hex << reinterpret_cast<uintptr_t>(*pReplyBuf) << std::dec
+      << " len= " << out_data.size();
   return true;
 }
 
@@ -4390,10 +4502,11 @@ void Dbg::DdmSendThreadNotification(Thread* t, uint32_t type) {
     return;
   }
 
+  RuntimeCallbacks* cb = Runtime::Current()->GetRuntimeCallbacks();
   if (type == CHUNK_TYPE("THDE")) {
     uint8_t buf[4];
     JDWP::Set4BE(&buf[0], t->GetThreadId());
-    Dbg::DdmSendChunk(CHUNK_TYPE("THDE"), 4, buf);
+    cb->DdmPublishChunk(CHUNK_TYPE("THDE"), ArrayRef<const uint8_t>(buf));
   } else {
     CHECK(type == CHUNK_TYPE("THCR") || type == CHUNK_TYPE("THNM")) << type;
     ScopedObjectAccessUnchecked soa(Thread::Current());
@@ -4412,7 +4525,7 @@ void Dbg::DdmSendThreadNotification(Thread* t, uint32_t type) {
       JDWP::AppendUtf16BE(bytes, chars, char_count);
     }
     CHECK_EQ(bytes.size(), char_count*2 + sizeof(uint32_t)*2);
-    Dbg::DdmSendChunk(type, bytes);
+    cb->DdmPublishChunk(type, ArrayRef<const uint8_t>(bytes));
   }
 }
 
@@ -4453,26 +4566,6 @@ void Dbg::PostThreadStart(Thread* t) {
 
 void Dbg::PostThreadDeath(Thread* t) {
   Dbg::PostThreadStartOrStop(t, CHUNK_TYPE("THDE"));
-}
-
-void Dbg::DdmSendChunk(uint32_t type, size_t byte_count, const uint8_t* buf) {
-  CHECK(buf != nullptr);
-  iovec vec[1];
-  vec[0].iov_base = reinterpret_cast<void*>(const_cast<uint8_t*>(buf));
-  vec[0].iov_len = byte_count;
-  Dbg::DdmSendChunkV(type, vec, 1);
-}
-
-void Dbg::DdmSendChunk(uint32_t type, const std::vector<uint8_t>& bytes) {
-  DdmSendChunk(type, bytes.size(), &bytes[0]);
-}
-
-void Dbg::DdmSendChunkV(uint32_t type, const iovec* iov, int iov_count) {
-  if (gJdwpState == nullptr) {
-    VLOG(jdwp) << "Debugger thread not active, ignoring DDM send: " << type;
-  } else {
-    gJdwpState->DdmSendChunkV(type, iov, iov_count);
-  }
 }
 
 JDWP::JdwpState* Dbg::GetJdwpState() {
@@ -4552,7 +4645,8 @@ void Dbg::DdmSendHeapInfo(HpifWhen reason) {
   JDWP::Append4BE(bytes, heap->GetBytesAllocated());
   JDWP::Append4BE(bytes, heap->GetObjectsAllocated());
   CHECK_EQ(bytes.size(), 4U + (heap_count * (4 + 8 + 1 + 4 + 4 + 4 + 4)));
-  Dbg::DdmSendChunk(CHUNK_TYPE("HPIF"), bytes);
+  Runtime::Current()->GetRuntimeCallbacks()->DdmPublishChunk(CHUNK_TYPE("HPIF"),
+                                                             ArrayRef<const uint8_t>(bytes));
 }
 
 enum HpsgSolidity {
@@ -4638,7 +4732,8 @@ class HeapChunkContext {
     CHECK_LE(pieceLenField_, p_);
     JDWP::Set4BE(pieceLenField_, totalAllocationUnits_);
 
-    Dbg::DdmSendChunk(type_, p_ - &buf_[0], &buf_[0]);
+    ArrayRef<const uint8_t> out(&buf_[0], p_ - &buf_[0]);
+    Runtime::Current()->GetRuntimeCallbacks()->DdmPublishChunk(type_, out);
     Reset();
   }
 
@@ -4820,6 +4915,7 @@ void Dbg::DdmSendHeapSegments(bool native) {
   if (when == HPSG_WHEN_NEVER) {
     return;
   }
+  RuntimeCallbacks* cb = Runtime::Current()->GetRuntimeCallbacks();
   // Figure out what kind of chunks we'll be sending.
   CHECK(what == HPSG_WHAT_MERGED_OBJECTS || what == HPSG_WHAT_DISTINCT_OBJECTS)
       << static_cast<int>(what);
@@ -4827,7 +4923,8 @@ void Dbg::DdmSendHeapSegments(bool native) {
   // First, send a heap start chunk.
   uint8_t heap_id[4];
   JDWP::Set4BE(&heap_id[0], 1);  // Heap id (bogus; we only have one heap).
-  Dbg::DdmSendChunk(native ? CHUNK_TYPE("NHST") : CHUNK_TYPE("HPST"), sizeof(heap_id), heap_id);
+  cb->DdmPublishChunk(native ? CHUNK_TYPE("NHST") : CHUNK_TYPE("HPST"),
+                      ArrayRef<const uint8_t>(heap_id));
   Thread* self = Thread::Current();
   Locks::mutator_lock_->AssertSharedHeld(self);
 
@@ -4886,7 +4983,8 @@ void Dbg::DdmSendHeapSegments(bool native) {
   }
 
   // Finally, send a heap end chunk.
-  Dbg::DdmSendChunk(native ? CHUNK_TYPE("NHEN") : CHUNK_TYPE("HPEN"), sizeof(heap_id), heap_id);
+  cb->DdmPublishChunk(native ? CHUNK_TYPE("NHEN") : CHUNK_TYPE("HPEN"),
+                      ArrayRef<const uint8_t>(heap_id));
 }
 
 void Dbg::SetAllocTrackingEnabled(bool enable) {

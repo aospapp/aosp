@@ -9,7 +9,7 @@ from autotest_lib.client.common_lib import error
 class platform_KernelVersion(test.test):
     version = 1
 
-    def run_once(self, kernel_version='2.6.31'):
+    def run_once(self, kernel_version='3.8'):
         try:
             utils.check_kernel_ver(kernel_version)
         except error.TestError, e:

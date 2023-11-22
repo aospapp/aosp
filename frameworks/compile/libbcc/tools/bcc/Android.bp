@@ -24,18 +24,14 @@ cc_binary {
     shared_libs: [
         "libbcc",
         "libbcinfo",
-        "libLLVM",
+        "libLLVM_android",
     ],
 
     header_libs: ["slang_headers"],
 
     target: {
-        host: {
-            host_ldlibs: ["-ldl"],
-        },
         android: {
             shared_libs: [
-                "libdl",
                 "liblog",
                 "libvndksupport",
             ],

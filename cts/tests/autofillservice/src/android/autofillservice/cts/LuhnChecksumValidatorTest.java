@@ -22,6 +22,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertThrows;
 
+import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.LuhnChecksumValidator;
 import android.service.autofill.ValueFinder;
 import android.support.test.runner.AndroidJUnit4;
@@ -31,6 +32,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
+@AppModeFull // Unit test
 public class LuhnChecksumValidatorTest {
 
     @Test

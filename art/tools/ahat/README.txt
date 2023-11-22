@@ -30,7 +30,6 @@ TODO:
  * Show somewhere where to send bugs.
  * Include a link to /objects in the overview and menu?
  * Turn on LOCAL_JAVACFLAGS := -Xlint:unchecked -Werror
- * Use hex for object ids in URLs?
 
  * [low priority] by site allocations won't line up if the stack has been
    truncated. Is there any way to manually line them up in that case?
@@ -48,34 +47,34 @@ Things to Test:
    time.
  * That we don't show the 'extra' column in the DominatedList if we are
    showing all the instances.
- * That Instance.asString properly takes into account "offset" and
-   "count" fields, if they are present.
  * Instance.getDexCacheLocation
 
 Reported Issues:
  * Request to be able to sort tables by size.
 
-Perflib Requests:
- * Class objects should have java.lang.Class as their class object, not null.
- * ArrayInstance should have asString() to get the string, without requiring a
-   length function.
- * Document that getHeapIndex returns -1 for no such heap.
- * Look up totalRetainedSize for a heap by Heap object, not by a separate heap
-   index.
- * What's the difference between getId and getUniqueId?
- * I see objects with duplicate references.
- * A way to get overall retained size by heap.
- * A method Instance.isReachable()
-
-Things to move to perflib:
- * Extracting the string from a String Instance.
- * Extracting bitmap data from bitmap instances.
- * Adding up allocations by stack frame.
- * Computing, for each instance, the other instances it dominates.
- * Instance.isRoot and Instance.getRootTypes.
-
 Release History:
- 1.3 Pending
+ 1.6 Pending
+
+ 1.5 December 05, 2017
+   Distinguish between weakly reachable and unreachable instances.
+   Allow hex ids to be used for objects in query parameters.
+   Restore old presentation of sample paths from gc roots.
+   Fix bug in selection of sample paths from gc root.
+   Fix bug in proguard deobfuscation of stack frames.
+   Tighten up and document ahat public API.
+
+ 1.4 October 03, 2017
+   Give better error messages on failure to launch ahat.
+   Properly mark thread and non-default root objects as roots.
+   Improve startup performance, in some cases significantly.
+   Other miscellaneous bug fixes.
+
+ 1.3.1 August 22, 2017
+   Don't include weak references in sample paths.
+
+ 1.3 July 25, 2017
+   Improve diffing of static and instance fields.
+   Improve startup performance by roughly 25%.
 
  1.2 May 26, 2017
    Show registered native sizes of objects.

@@ -19,14 +19,15 @@ LOCAL_PATH := $(call my-dir)
 # Build Dexmaker's tests
 #
 # Run the tests as follows:
-#   vogar --classpath ${ANDROID_PRODUCT_OUT}/obj/JAVA_LIBRARIES/dexmaker-tests_intermediates/classes.jack \
-        com.google.dexmaker
+#   vogar --classpath ${ANDROID_PRODUCT_OUT}/obj/JAVA_LIBRARIES/dexmaker-tests_intermediates/javalib.jar \
+        com.android.dx
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := dexmaker-tests
-LOCAL_SDK_VERSION := 10
-LOCAL_SRC_FILES := $(call all-java-files-under, dexmaker-tests/src/androidTest/java)
+LOCAL_SDK_VERSION := 17
+LOCAL_SRC_FILES := $(call all-java-files-under, src/androidTest/java)
 LOCAL_STATIC_JAVA_LIBRARIES := dexmaker android-support-test
+LOCAL_ERROR_PRONE_FLAGS := -Xep:JUnit4TestNotRun:WARN
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 # Build a test APK
@@ -39,6 +40,7 @@ include $(BUILD_STATIC_JAVA_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 LOCAL_PACKAGE_NAME := DexmakerTests
+LOCAL_SDK_VERSION := current
 LOCAL_STATIC_JAVA_LIBRARIES := \
         dexmaker-tests
 

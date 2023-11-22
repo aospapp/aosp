@@ -30,7 +30,7 @@ class ZombieMetricTest(unittest.TestCase):
         metric_obj = zombie_metric.ZombieMetric(shell=fake_shell)
 
         expected_result = {
-            zombie_metric.ZombieMetric.ADB_ZOMBIES: [('30888', None)],
+            zombie_metric.ZombieMetric.ADB_ZOMBIES: [None],
             zombie_metric.ZombieMetric.NUM_ADB_ZOMBIES: 1,
             zombie_metric.ZombieMetric.FASTBOOT_ZOMBIES: [],
             zombie_metric.ZombieMetric.NUM_FASTBOOT_ZOMBIES: 0,
@@ -46,7 +46,7 @@ class ZombieMetricTest(unittest.TestCase):
         metric_obj = zombie_metric.ZombieMetric(shell=fake_shell)
 
         expected_result = {
-            zombie_metric.ZombieMetric.ADB_ZOMBIES: [('30888', None)],
+            zombie_metric.ZombieMetric.ADB_ZOMBIES: [None],
             zombie_metric.ZombieMetric.NUM_ADB_ZOMBIES: 1,
             zombie_metric.ZombieMetric.FASTBOOT_ZOMBIES: [],
             zombie_metric.ZombieMetric.NUM_FASTBOOT_ZOMBIES: 0,
@@ -63,16 +63,12 @@ class ZombieMetricTest(unittest.TestCase):
         metric_obj = zombie_metric.ZombieMetric(shell=fake_shell)
 
         expected_result = {
-            zombie_metric.ZombieMetric.ADB_ZOMBIES: [('99999', 'OR3G4N0')],
-            zombie_metric.ZombieMetric.NUM_ADB_ZOMBIES:
-            1,
-            zombie_metric.ZombieMetric.FASTBOOT_ZOMBIES: [('12345',
-                                                           'M4RKY_M4RK')],
-            zombie_metric.ZombieMetric.NUM_FASTBOOT_ZOMBIES:
-            1,
+            zombie_metric.ZombieMetric.ADB_ZOMBIES: ['OR3G4N0'],
+            zombie_metric.ZombieMetric.NUM_ADB_ZOMBIES: 1,
+            zombie_metric.ZombieMetric.FASTBOOT_ZOMBIES: ['M4RKY_M4RK'],
+            zombie_metric.ZombieMetric.NUM_FASTBOOT_ZOMBIES: 1,
             zombie_metric.ZombieMetric.OTHER_ZOMBIES: [],
-            zombie_metric.ZombieMetric.NUM_OTHER_ZOMBIES:
-            0
+            zombie_metric.ZombieMetric.NUM_OTHER_ZOMBIES: 0
         }
         self.assertEquals(metric_obj.gather_metric(), expected_result)
 
@@ -83,14 +79,27 @@ class ZombieMetricTest(unittest.TestCase):
         metric_obj = zombie_metric.ZombieMetric(shell=fake_shell)
 
         expected_result = {
-            zombie_metric.ZombieMetric.ADB_ZOMBIES: [('99999', None)],
+            zombie_metric.ZombieMetric.ADB_ZOMBIES: [None],
             zombie_metric.ZombieMetric.NUM_ADB_ZOMBIES: 1,
-            zombie_metric.ZombieMetric.FASTBOOT_ZOMBIES: [('12345', None)],
+            zombie_metric.ZombieMetric.FASTBOOT_ZOMBIES: [None],
             zombie_metric.ZombieMetric.NUM_FASTBOOT_ZOMBIES: 1,
             zombie_metric.ZombieMetric.OTHER_ZOMBIES: [],
             zombie_metric.ZombieMetric.NUM_OTHER_ZOMBIES: 0
         }
         self.assertEquals(metric_obj.gather_metric(), expected_result)
+
+    def test_gather_metric_no_adb_fastboot(self):
+        stdout_string = '12345 Z+ otters'
+        FAKE_RESULT = fake.FakeResult(stdout=stdout_string)
+        fake_shell = fake.MockShellCommand(fake_result=FAKE_RESULT)
+        metric_obj = zombie_metric.ZombieMetric(shell=fake_shell)
+        metric_obj_res = metric_obj.gather_metric()
+        exp_num = 1
+        exp_pid = ['12345']
+
+        self.assertEquals(metric_obj_res[metric_obj.NUM_OTHER_ZOMBIES],
+                          exp_num)
+        self.assertEquals(metric_obj_res[metric_obj.OTHER_ZOMBIES], exp_pid)
 
 
 if __name__ == '__main__':

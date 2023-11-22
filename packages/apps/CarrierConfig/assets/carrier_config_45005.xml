@@ -14,5 +14,6 @@
 <int name="carrier_instant_lettering_length_limit_int" value="16" />
 <boolean name="support_conference_call_bool" value="false" />
 <boolean name="allow_emergency_numbers_in_call_log_bool" value="true" />
+<boolean name="allow_emergency_video_calls_bool" value="true" />
 </carrier_config>
 </carrier_config_list>

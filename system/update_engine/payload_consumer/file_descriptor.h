@@ -39,12 +39,6 @@
 // * Write() returns the number of bytes written: this appears to be more useful
 //   for clients, who may wish to retry or otherwise do something useful with
 //   the remaining data that was not written.
-//
-// * Provides a Reset() method, which will force to abandon a currently open
-//   file descriptor and allow opening another file, without necessarily
-//   properly closing the old one. This may be useful in cases where a "closer"
-//   class does not care whether Close() was successful, but may need to reuse
-//   the same file descriptor again.
 
 namespace chromeos_update_engine {
 
@@ -93,14 +87,15 @@ class FileDescriptor {
                         uint64_t length,
                         int* result) = 0;
 
+  // Flushes any cached data. The descriptor must be opened prior to this
+  // call. Returns false if it fails to write data. Implementations may set
+  // errno accrodingly.
+  virtual bool Flush() = 0;
+
   // Closes a file descriptor. The descriptor must be open prior to this call.
   // Returns true on success, false otherwise. Specific implementations may set
   // errno accordingly.
   virtual bool Close() = 0;
-
-  // Resets the file descriptor, abandoning a currently open file and returning
-  // the descriptor to the closed state.
-  virtual void Reset() = 0;
 
   // Indicates whether or not an implementation sets meaningful errno.
   virtual bool IsSettingErrno() = 0;
@@ -128,8 +123,8 @@ class EintrSafeFileDescriptor : public FileDescriptor {
                 uint64_t start,
                 uint64_t length,
                 int* result) override;
+  bool Flush() override;
   bool Close() override;
-  void Reset() override;
   bool IsSettingErrno() override {
     return true;
   }

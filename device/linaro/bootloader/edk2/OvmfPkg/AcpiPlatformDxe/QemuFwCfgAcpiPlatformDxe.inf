@@ -30,6 +30,7 @@
   QemuFwCfgAcpiPlatform.c
   QemuFwCfgAcpi.c
   EntryPoint.c
+  PciDecoding.c
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -47,7 +48,10 @@
 
 [Protocols]
   gEfiAcpiTableProtocolGuid                     # PROTOCOL ALWAYS_CONSUMED
-  gEfiPciEnumerationCompleteProtocolGuid        # PROTOCOL SOMETIMES_CONSUMED
+  gEfiPciIoProtocolGuid                         # PROTOCOL SOMETIMES_CONSUMED
+
+[Guids]
+  gRootBridgesConnectedEventGroupGuid
 
 [Pcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdPciDisableBusEnumeration

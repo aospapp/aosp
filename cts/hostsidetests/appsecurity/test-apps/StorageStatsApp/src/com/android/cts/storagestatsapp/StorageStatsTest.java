@@ -30,7 +30,6 @@ import static com.android.cts.storageapp.Utils.assertMostlyEquals;
 import static com.android.cts.storageapp.Utils.getSizeManual;
 import static com.android.cts.storageapp.Utils.logCommand;
 import static com.android.cts.storageapp.Utils.makeUniqueFile;
-import static com.android.cts.storageapp.Utils.shouldHaveQuota;
 import static com.android.cts.storageapp.Utils.useFallocate;
 import static com.android.cts.storageapp.Utils.useSpace;
 import static com.android.cts.storageapp.Utils.useWrite;
@@ -46,13 +45,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.UserHandle;
 import android.os.storage.StorageManager;
 import android.support.test.uiautomator.UiDevice;
-import android.system.Os;
-import android.system.StructUtsname;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 import android.util.MutableLong;
@@ -76,19 +74,22 @@ public class StorageStatsTest extends InstrumentationTestCase {
     }
 
     /**
-     * Require that quota support be fully enabled on kernel 3.18 or newer. This
-     * test verifies that both kernel options and the fstab 'quota' option are
-     * enabled.
+     * Require that quota support be fully enabled on devices that first ship
+     * with P. This test verifies that both kernel options and the fstab 'quota'
+     * option are enabled.
      */
-    public void testVerifyQuota() throws Exception {
-        final StructUtsname uname = Os.uname();
-        if (shouldHaveQuota(uname)) {
+    public void testVerify() throws Exception {
+        if (Build.VERSION.FIRST_SDK_INT >= Build.VERSION_CODES.P) {
             final StorageStatsManager stats = getContext()
                     .getSystemService(StorageStatsManager.class);
-            assertTrue("You're running kernel 3.18 or newer (" + uname.release + ") which "
-                    + "means that CONFIG_QUOTA, CONFIG_QFMT_V2, CONFIG_QUOTACTL and the "
-                    + "'quota' fstab option on /data are required",
+            assertTrue("Devices that first ship with P or newer must enable quotas to "
+                    + "support StorageStatsManager APIs. You may need to enable the "
+                    + "CONFIG_QUOTA, CONFIG_QFMT_V2, CONFIG_QUOTACTL kernel options "
+                    + "and add the 'quota' fstab option on /data.",
                     stats.isQuotaSupported(UUID_DEFAULT));
+            assertTrue("Devices that first ship with P or newer must enable resgid to "
+                    + "preserve system stability in the face of abusive apps.",
+                    stats.isReservedSupported(UUID_DEFAULT));
         }
     }
 
@@ -222,6 +223,9 @@ public class StorageStatsTest extends InstrumentationTestCase {
         useWrite(makeUniqueFile(top), 5 * MB_IN_BYTES);
         useWrite(makeUniqueFile(pics), 5 * MB_IN_BYTES);
         useWrite(makeUniqueFile(pics), 5 * MB_IN_BYTES);
+
+        // for fuse file system
+        Thread.sleep(10000);
 
         // TODO: remove this once 34723223 is fixed
         logCommand("sync");

@@ -27,7 +27,7 @@ class login_SameSessionTwice(test.test):
         sm = session_manager.connect(bus_loop)
 
         user = 'first_user@nowhere.com'
-        cryptohome.CryptohomeProxy(bus_loop).ensure_clean_cryptohome_for(user)
+        cryptohome.ensure_clean_cryptohome_for(user)
 
         sm.StartSession(user, '')
         try:

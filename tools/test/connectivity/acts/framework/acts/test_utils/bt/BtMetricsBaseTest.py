@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 import os
+import time
 
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.libs.proto.proto_utils import compile_import_proto, parse_proto_to_ascii
@@ -27,7 +28,6 @@ class BtMetricsBaseTest(BluetoothBaseTest):
     def __init__(self, controllers):
         BluetoothBaseTest.__init__(self, controllers)
         self.bluetooth_proto_path = None
-        self.dongle = self.relay_devices[0]
         self.ad = self.android_devices[0]
 
     def setup_class(self):
@@ -45,8 +45,8 @@ class BtMetricsBaseTest(BluetoothBaseTest):
             except Exception:
                 self.log.error("File not found.")
             if not os.path.isfile(self.bluetooth_proto_path):
-                self.log.error("Unable to find Bluetooth proto {}."
-                               .format(self.bluetooth_proto_path))
+                self.log.error("Unable to find Bluetooth proto {}.".format(
+                    self.bluetooth_proto_path))
                 return False
         for ad in self.android_devices:
             ad.metrics_path = os.path.join(ad.log_path, "BluetoothMetrics")
@@ -69,39 +69,7 @@ class BtMetricsBaseTest(BluetoothBaseTest):
         # Clear all metrics
         for ad in self.android_devices:
             get_bluetooth_metrics(ad, ad.bluetooth_proto_module)
-        self.dongle.setup()
-        tries = 5
-        # Since we are not concerned with pairing in this test, try 5 times.
-        while tries > 0:
-            if self._pair_devices():
-                return True
-            else:
-                tries -= 1
-        return False
-
-    def teardown_test(self):
-        super(BtMetricsBaseTest, self).teardown_test()
-        self.dongle.clean_up()
         return True
-
-    def _pair_devices(self):
-        self.ad.droid.bluetoothStartPairingHelper(False)
-        self.dongle.enter_pairing_mode()
-
-        self.ad.droid.bluetoothBond(self.dongle.mac_address)
-
-        end_time = time.time() + 20
-        self.ad.log.info("Verifying devices are bonded")
-        while time.time() < end_time:
-            bonded_devices = self.ad.droid.bluetoothGetBondedDevices()
-
-            for d in bonded_devices:
-                if d['address'] == self.dongle.mac_address:
-                    self.ad.log.info("Successfully bonded to device.")
-                    self.log.info("Bonded devices:\n{}".format(bonded_devices))
-                return True
-        self.ad.log.info("Failed to bond devices.")
-        return False
 
     def collect_bluetooth_manager_metrics_logs(self, ads):
         """

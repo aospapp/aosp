@@ -16,9 +16,21 @@
 
 package com.android.server.telecom.tests;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
 import android.telecom.Logging.Session;
 import android.telecom.Logging.SessionManager;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.lang.ref.WeakReference;
 
@@ -26,6 +38,7 @@ import java.lang.ref.WeakReference;
  * Unit tests for android.telecom.Logging.SessionManager
  */
 
+@RunWith(JUnit4.class)
 public class SessionManagerTest extends TelecomTestCase {
 
     private static final String TEST_PARENT_NAME = "testParent";
@@ -40,6 +53,7 @@ public class SessionManagerTest extends TelecomTestCase {
     private String mFullSessionMethodName = "";
 
     @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         mTestSessionManager = new SessionManager();
@@ -52,6 +66,7 @@ public class SessionManagerTest extends TelecomTestCase {
     }
 
     @Override
+    @After
     public void tearDown() throws Exception {
         mFullSessionMethodName = "";
         mfullSessionCompleteTime = Session.UNDEFINED;
@@ -63,6 +78,7 @@ public class SessionManagerTest extends TelecomTestCase {
      * Starts a Session on the current thread and verifies that it exists in the HashMap
      */
     @SmallTest
+    @Test
     public void testStartSession() {
         assertTrue(mTestSessionManager.mSessionMapper.isEmpty());
 
@@ -81,6 +97,7 @@ public class SessionManagerTest extends TelecomTestCase {
      * session and the second session will be attached to that thread ID.
      */
     @SmallTest
+    @Test
     public void testStartInvisibleChildSession() {
         assertTrue(mTestSessionManager.mSessionMapper.isEmpty());
 
@@ -105,6 +122,7 @@ public class SessionManagerTest extends TelecomTestCase {
      * End the active Session and verify that it is completed and removed from mSessionMapper.
      */
     @SmallTest
+    @Test
     public void testEndSession() {
         assertTrue(mTestSessionManager.mSessionMapper.isEmpty());
         // Set the thread Id to 0
@@ -129,6 +147,7 @@ public class SessionManagerTest extends TelecomTestCase {
      * into mSessionMapper.
      */
     @SmallTest
+    @Test
     public void testEndInvisibleChildSession() {
         assertTrue(mTestSessionManager.mSessionMapper.isEmpty());
         // Set the thread Id to 0 for the parent
@@ -154,6 +173,7 @@ public class SessionManagerTest extends TelecomTestCase {
      * in a different thread.
      */
     @SmallTest
+    @Test
     public void testCreateSubsession() {
         mTestSessionManager.mCurrentThreadId = () -> TEST_PARENT_THREAD_ID;
         mTestSessionManager.startSession(TEST_PARENT_NAME, null);
@@ -176,6 +196,7 @@ public class SessionManagerTest extends TelecomTestCase {
      * marked as completed and never added to mSessionMapper.
      */
     @SmallTest
+    @Test
     public void testCancelSubsession() {
         mTestSessionManager.mCurrentThreadId = () -> TEST_PARENT_THREAD_ID;
         mTestSessionManager.startSession(TEST_PARENT_NAME, null);
@@ -196,6 +217,7 @@ public class SessionManagerTest extends TelecomTestCase {
      * its parent are in mSessionMapper.
      */
     @SmallTest
+    @Test
     public void testContinueSubsession() {
         mTestSessionManager.mCurrentThreadId = () -> TEST_PARENT_THREAD_ID;
         mTestSessionManager.startSession(TEST_PARENT_NAME, null);
@@ -219,6 +241,7 @@ public class SessionManagerTest extends TelecomTestCase {
      * no longer exists in mSessionMapper.
      */
     @SmallTest
+    @Test
     public void testEndSubsession() {
         mTestSessionManager.mCurrentThreadId = () -> TEST_PARENT_THREAD_ID;
         mTestSessionManager.startSession(TEST_PARENT_NAME, null);
@@ -241,6 +264,7 @@ public class SessionManagerTest extends TelecomTestCase {
      * sessions that are complete as well and note the completion time of the entire chain.
      */
     @SmallTest
+    @Test
     public void testEndSubsessionWithParentComplete() {
         mTestSessionManager.mCurrentThreadId = () -> TEST_PARENT_THREAD_ID;
         mTestSessionManager.startSession(TEST_PARENT_NAME, null);
@@ -276,6 +300,7 @@ public class SessionManagerTest extends TelecomTestCase {
      * correctly generates the child session.
      */
     @SmallTest
+    @Test
     public void testStartExternalSession() {
         mTestSessionManager.mCurrentThreadId = () -> TEST_PARENT_THREAD_ID;
         mTestSessionManager.startSession(TEST_PARENT_NAME, null);
@@ -298,6 +323,7 @@ public class SessionManagerTest extends TelecomTestCase {
      * external session from mSessionMapper.
      */
     @SmallTest
+    @Test
     public void testEndExternalSession() {
         mTestSessionManager.mCurrentThreadId = () -> TEST_PARENT_THREAD_ID;
         mTestSessionManager.startSession(TEST_PARENT_NAME, null);
@@ -323,6 +349,7 @@ public class SessionManagerTest extends TelecomTestCase {
      * the external Session, but the one subsession underneath.
      */
     @SmallTest
+    @Test
     public void testEndExternalSessionListenerCallback() {
         mTestSessionManager.mCurrentThreadId = () -> TEST_PARENT_THREAD_ID;
         mTestSessionManager.startSession(TEST_PARENT_NAME, null);
@@ -346,6 +373,7 @@ public class SessionManagerTest extends TelecomTestCase {
      * Verifies that the recursive method for getting the full ID works correctly.
      */
     @SmallTest
+    @Test
     public void testFullMethodPath() {
         mTestSessionManager.mCurrentThreadId = () -> TEST_PARENT_THREAD_ID;
         mTestSessionManager.startSession(TEST_PARENT_NAME, null);
@@ -364,6 +392,7 @@ public class SessionManagerTest extends TelecomTestCase {
      * correctly to ensure that there are no dangling sessions.
      */
     @SmallTest
+    @Test
     public void testStaleSessionCleanupTimer() {
         mTestSessionManager.mCurrentThreadId = () -> TEST_PARENT_THREAD_ID;
         mTestSessionManager.startSession(TEST_PARENT_NAME, null);

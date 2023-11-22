@@ -13,14 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <benchmark/benchmark.h>
+
+#include "minikin/FontCollection.h"
 
 #include <memory>
 
-#include <minikin/FontCollection.h>
-#include <FontTestUtils.h>
-#include <UnicodeUtils.h>
-#include <MinikinInternal.h>
+#include <benchmark/benchmark.h>
+
+#include "minikin/LocaleList.h"
+
+#include "FontTestUtils.h"
+#include "MinikinInternal.h"
+#include "UnicodeUtils.h"
 
 namespace minikin {
 
@@ -38,8 +42,8 @@ static void BM_FontCollection_construct(benchmark::State& state) {
 BENCHMARK(BM_FontCollection_construct);
 
 static void BM_FontCollection_hasVariationSelector(benchmark::State& state) {
-    std::shared_ptr<FontCollection> collection(
-            getFontCollection(SYSTEM_FONT_PATH, SYSTEM_FONT_XML));
+    auto collection =
+            std::make_shared<FontCollection>(getFontFamilies(SYSTEM_FONT_PATH, SYSTEM_FONT_XML));
 
     uint32_t baseCp = state.range(0);
     uint32_t vsCp = state.range(1);
@@ -55,47 +59,47 @@ static void BM_FontCollection_hasVariationSelector(benchmark::State& state) {
 
 // TODO: Rewrite with BENCHMARK_CAPTURE for better test name.
 BENCHMARK(BM_FontCollection_hasVariationSelector)
-      ->ArgPair(0x2708, 0xFE0F)
-      ->ArgPair(0x2708, 0xFE0E)
-      ->ArgPair(0x3402, 0xE0100);
+        ->ArgPair(0x2708, 0xFE0F)
+        ->ArgPair(0x2708, 0xFE0E)
+        ->ArgPair(0x3402, 0xE0100);
 
 struct ItemizeTestCases {
     std::string itemizeText;
     std::string languageTag;
     std::string labelText;
 } ITEMIZE_TEST_CASES[] = {
-    { "'A' 'n' 'd' 'r' 'o' 'i' 'd'", "en", "English" },
-    { "U+4E16", "zh-Hans", "CJK Ideograph" },
-    { "U+4E16", "zh-Hans,zh-Hant,ja,en,es,pt,fr,de", "CJK Ideograph with many language fallback" },
-    { "U+3402 U+E0100", "ja", "CJK Ideograph with variation selector" },
-    { "'A' 'n' U+0E1A U+0E31 U+0645 U+062D U+0648", "en", "Mixture of English, Thai and Arabic" },
-    { "U+2708 U+FE0E", "en", "Emoji with variation selector" },
-    { "U+0031 U+FE0F U+20E3", "en", "KEYCAP" },
+        {"'A' 'n' 'd' 'r' 'o' 'i' 'd'", "en", "English"},
+        {"U+4E16", "zh-Hans", "CJK Ideograph"},
+        {"U+4E16", "zh-Hans,zh-Hant,ja,en,es,pt,fr,de",
+         "CJK Ideograph with many language fallback"},
+        {"U+3402 U+E0100", "ja", "CJK Ideograph with variation selector"},
+        {"'A' 'n' U+0E1A U+0E31 U+0645 U+062D U+0648", "en", "Mixture of English, Thai and Arabic"},
+        {"U+2708 U+FE0E", "en", "Emoji with variation selector"},
+        {"U+0031 U+FE0F U+20E3", "en", "KEYCAP"},
 };
 
 static void BM_FontCollection_itemize(benchmark::State& state) {
-    std::shared_ptr<FontCollection> collection(
-            getFontCollection(SYSTEM_FONT_PATH, SYSTEM_FONT_XML));
+    auto collection =
+            std::make_shared<FontCollection>(getFontFamilies(SYSTEM_FONT_PATH, SYSTEM_FONT_XML));
 
     size_t testIndex = state.range(0);
     state.SetLabel("Itemize: " + ITEMIZE_TEST_CASES[testIndex].labelText);
 
     uint16_t buffer[64];
     size_t utf16_length = 0;
-    ParseUnicode(
-            buffer, 64, ITEMIZE_TEST_CASES[testIndex].itemizeText.c_str(), &utf16_length, nullptr);
+    ParseUnicode(buffer, 64, ITEMIZE_TEST_CASES[testIndex].itemizeText.c_str(), &utf16_length,
+                 nullptr);
     std::vector<FontCollection::Run> result;
-    FontStyle style(FontStyle::registerLanguageList(ITEMIZE_TEST_CASES[testIndex].languageTag));
+    MinikinPaint paint(collection);
+    paint.localeListId = registerLocaleList(ITEMIZE_TEST_CASES[testIndex].languageTag);
 
-    android::AutoMutex _l(gMinikinLock);
     while (state.KeepRunning()) {
         result.clear();
-        collection->itemize(buffer, utf16_length, style, &result);
+        collection->itemize(buffer, utf16_length, paint, &result);
     }
 }
 
 // TODO: Rewrite with BENCHMARK_CAPTURE once it is available in Android.
-BENCHMARK(BM_FontCollection_itemize)
-    ->Arg(0)->Arg(1)->Arg(2)->Arg(3)->Arg(4)->Arg(5)->Arg(6);
+BENCHMARK(BM_FontCollection_itemize)->Arg(0)->Arg(1)->Arg(2)->Arg(3)->Arg(4)->Arg(5)->Arg(6);
 
 }  // namespace minikin

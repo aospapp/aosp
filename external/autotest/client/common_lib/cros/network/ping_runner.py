@@ -87,7 +87,9 @@ class MacPingDelegate(object):
     def parse_from_output(ping_output):
         """Extract the ping results from stdout.
 
-        @param ping_output string stdout from a ping command.
+        @param ping_output string stdout from a ping/ping6 command.
+
+        stdout from ping command looks like:
 
         PING 8.8.8.8 (8.8.8.8): 56 data bytes
         64 bytes from 8.8.8.8: icmp_seq=0 ttl=57 time=3.770 ms
@@ -98,6 +100,19 @@ class MacPingDelegate(object):
         3 packets transmitted, 3 packets received, 0.0% packet loss
         round-trip min/avg/max/stddev = 3.770/4.279/4.901/0.469 ms
 
+        stdout from ping6 command looks like:
+
+        16 bytes from fdd2:8741:1993:8::, icmp_seq=16 hlim=64 time=1.783 ms
+        16 bytes from fdd2:8741:1993:8::, icmp_seq=17 hlim=64 time=2.150 ms
+        16 bytes from fdd2:8741:1993:8::, icmp_seq=18 hlim=64 time=2.516 ms
+        16 bytes from fdd2:8741:1993:8::, icmp_seq=19 hlim=64 time=1.401 ms
+
+        --- fdd2:8741:1993:8:: ping6 statistics ---
+        20 packets transmitted, 20 packets received, 0.0% packet loss
+        round-trip min/avg/max/std-dev = 1.401/2.122/3.012/0.431 ms
+
+        This function will look for both 'stdev' and 'std-dev' in test results
+        to support both ping and ping6 commands.
         """
         loss_line = (filter(lambda x: x.find('packets transmitted') > 0,
                             ping_output.splitlines()) or [''])[0]
@@ -108,8 +123,7 @@ class MacPingDelegate(object):
                                         loss_line)
         if None in (sent, received, loss):
             raise error.TestFail('Failed to parse transmission statistics.')
-
-        m = re.search('round-trip min\/avg\/max\/stddev = ([0-9.]+)\/([0-9.]+)'
+        m = re.search('round-trip min\/avg\/max\/std-?dev = ([0-9.]+)\/([0-9.]+)'
                       '\/([0-9.]+)\/([0-9.]+) ms', ping_output)
         if m is not None:
             return PingResult(sent, received, loss,

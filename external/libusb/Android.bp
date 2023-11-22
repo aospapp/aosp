@@ -1,6 +1,7 @@
 cc_library {
     name: "libusb",
     host_supported: true,
+    vendor_available: true,
 
     srcs: [
         "libusb/core.c",
@@ -16,18 +17,28 @@ cc_library {
         "libusb/os",
     ],
 
+    cflags: [
+        "-Wall",
+        "-Wno-error=sign-compare",
+        "-Wno-error=switch",
+    ],
+
     target: {
-        android: {
+        linux: {
             srcs: [
                 "libusb/os/linux_usbfs.c",
                 "libusb/os/poll_posix.c",
                 "libusb/os/threads_posix.c",
                 "libusb/os/linux_netlink.c",
             ],
+        },
 
+        android: {
             local_include_dirs: [
                 "android",
             ],
+
+            cflags: ["-Werror"],
         },
 
         darwin: {
@@ -46,23 +57,19 @@ cc_library {
                 "-framework IOKit",
                 "-lobjc"
             ],
+
+            cflags: [
+                "-Wno-unused-parameter",
+                "-Wno-deprecated-declarations"
+            ],
         },
 
-        linux: {
-            srcs: [
-                "libusb/os/linux_usbfs.c",
-                "libusb/os/poll_posix.c",
-                "libusb/os/threads_posix.c",
-                "libusb/os/linux_netlink.c",
-            ],
-
+        linux_glibc: {
             local_include_dirs: [
                 "linux",
             ],
 
-            host_ldlibs: [
-                "-lrt",
-            ],
+            cflags: ["-Werror"],
         },
 
         windows: {
@@ -70,7 +77,6 @@ cc_library {
                 "libusb/os/poll_windows.c",
                 "libusb/os/threads_windows.c",
                 "libusb/os/windows_nt_common.c",
-                "libusb/os/windows_usbdk.c",
                 "libusb/os/windows_winusb.c",
             ],
 
@@ -78,8 +84,8 @@ cc_library {
                 "windows",
             ],
 
-            // Not working yet.
-            enabled: false,
+            cflags: ["-Werror"],
+            enabled: true,
         },
     },
 

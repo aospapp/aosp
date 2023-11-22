@@ -6,6 +6,7 @@ import logging
 import time
 
 from autotest_lib.client.bin import utils
+from autotest_lib.client.common_lib import error as error_lib
 from autotest_lib.client.cros.chameleon import screen_utility_factory
 
 
@@ -19,14 +20,16 @@ class ChameleonScreenTest(object):
     # external detection, mirror mode and fullscreen, to disappear.
     _TEST_IMAGE_STABILIZE_TIME = 10
 
-    def __init__(self, chameleon_port, display_facade, output_dir):
+    def __init__(self, host, chameleon_port, display_facade, output_dir):
         """Initializes the ScreenUtilityFactory objects."""
+        self._host = host
         self._display_facade = display_facade
         factory = screen_utility_factory.ScreenUtilityFactory(
                 chameleon_port, display_facade)
         self._resolution_comparer = factory.create_resolution_comparer()
         self._screen_comparer = factory.create_screen_comparer(output_dir)
         self._mirror_comparer = factory.create_mirror_comparer(output_dir)
+        self._calib_comparer = factory.create_calibration_comparer(output_dir)
         self._calibration_image_tab_descriptor = None
 
 
@@ -65,6 +68,23 @@ class ChameleonScreenTest(object):
                 logging.info('Hide cursor and do screen comparison again...')
                 self._display_facade.hide_cursor()
                 error = self._screen_comparer.compare()
+
+            if error:
+                # On some ARM device, the internal FB has some issue and it
+                # won't get fixed in the near future. As this issue don't
+                # affect users, just the tests. So compare it with the
+                # calibration image directly as an workaround.
+                board = self._host.get_board().replace('board:', '')
+                if board in ['kevin']:
+                    # TODO(waihong): In mirrored mode, using calibration image
+                    # to compare is not feasible due to the size difference.
+                    # Skip the error first and think a better way to compare.
+                    if test_mirrored:
+                        raise error_lib.TestNAError('Test this item manually! '
+                                'Missing CrOS feature, not able to automate.')
+                    logging.info('Compare the calibration image directly...')
+                    error = self._calib_comparer.compare()
+
         if not error and test_mirrored:
             error = self._mirror_comparer.compare()
         if error and error_list is not None:

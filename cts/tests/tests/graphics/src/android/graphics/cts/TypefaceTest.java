@@ -30,6 +30,7 @@ import android.content.Context;
 import android.content.res.AssetManager;
 import android.graphics.Paint;
 import android.graphics.Typeface;
+import android.graphics.Typeface.Builder;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
@@ -43,6 +44,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Locale;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -51,6 +53,25 @@ public class TypefaceTest {
     private static final String MONO = "monospace";
     private static final String DEFAULT = (String)null;
     private static final String INVALID = "invalid-family-name";
+
+    private static final float GLYPH_1EM_WIDTH;
+    private static final float GLYPH_3EM_WIDTH;
+
+    private static float measureText(String text, Typeface typeface) {
+        final Paint paint = new Paint();
+        // Fix the locale so that fix the locale based fallback.
+        paint.setTextLocale(Locale.US);
+        paint.setTypeface(typeface);
+        return paint.measureText(text);
+    }
+
+    static {
+        // 3em.ttf supports "a", "b", "c". The width of "a" is 3em, others are 1em.
+        final Context ctx = InstrumentationRegistry.getTargetContext();
+        final Typeface typeface = ctx.getResources().getFont(R.font.a3em);
+        GLYPH_3EM_WIDTH = measureText("a", typeface);
+        GLYPH_1EM_WIDTH = measureText("b", typeface);
+    }
 
     // list of family names to try when attempting to find a typeface with a given style
     private static final String[] FAMILIES =
@@ -231,11 +252,9 @@ public class TypefaceTest {
     public void testInvalidCmapFont() {
         Typeface typeface = Typeface.createFromAsset(mContext.getAssets(), "bombfont.ttf");
         assertNotNull(typeface);
-        Paint p = new Paint();
         final String testString = "abcde";
-        float widthDefaultTypeface = p.measureText(testString);
-        p.setTypeface(typeface);
-        float widthCustomTypeface = p.measureText(testString);
+        float widthDefaultTypeface = measureText(testString, Typeface.DEFAULT);
+        float widthCustomTypeface = measureText(testString, typeface);
         assertEquals(widthDefaultTypeface, widthCustomTypeface, 1.0f);
     }
 
@@ -243,11 +262,9 @@ public class TypefaceTest {
     public void testInvalidCmapFont2() {
         Typeface typeface = Typeface.createFromAsset(mContext.getAssets(), "bombfont2.ttf");
         assertNotNull(typeface);
-        Paint p = new Paint();
         final String testString = "abcde";
-        float widthDefaultTypeface = p.measureText(testString);
-        p.setTypeface(typeface);
-        float widthCustomTypeface = p.measureText(testString);
+        float widthDefaultTypeface = measureText(testString, Typeface.DEFAULT);
+        float widthCustomTypeface = measureText(testString, typeface);
         assertEquals(widthDefaultTypeface, widthCustomTypeface, 1.0f);
     }
 
@@ -275,11 +292,9 @@ public class TypefaceTest {
         for (final String file : INVALID_CMAP_FONTS) {
             final Typeface typeface = Typeface.createFromAsset(mContext.getAssets(), file);
             assertNotNull(typeface);
-            final Paint p = new Paint();
             final String testString = "\u0100\u0400";
-            final float widthDefaultTypeface = p.measureText(testString);
-            p.setTypeface(typeface);
-            final float widthCustomTypeface = p.measureText(testString);
+            final float widthDefaultTypeface = measureText(testString, Typeface.DEFAULT);
+            final float widthCustomTypeface = measureText(testString, typeface);
             assertEquals(widthDefaultTypeface, widthCustomTypeface, 0.0f);
         }
 
@@ -292,30 +307,28 @@ public class TypefaceTest {
         for (final String file : INVALID_CMAP_VS_FONTS) {
             final Typeface typeface = Typeface.createFromAsset(mContext.getAssets(), file);
             assertNotNull(typeface);
-            final Paint p = new Paint();
             final String testString = "\u0100\uFE00\u0400\uFE00";
-            final float widthDefaultTypeface = p.measureText(testString);
-            p.setTypeface(typeface);
-            final float widthCustomTypeface = p.measureText(testString);
+            final float widthDefaultTypeface = measureText(testString, Typeface.DEFAULT);
+            final float widthCustomTypeface = measureText(testString, typeface);
             assertEquals(widthDefaultTypeface, widthCustomTypeface, 0.0f);
         }
     }
 
     @Test
     public void testCreateFromAsset_cachesTypeface() {
-        Typeface typeface1 = Typeface.createFromAsset(mContext.getAssets(), "bombfont2.ttf");
+        Typeface typeface1 = Typeface.createFromAsset(mContext.getAssets(), "samplefont.ttf");
         assertNotNull(typeface1);
 
-        Typeface typeface2 = Typeface.createFromAsset(mContext.getAssets(), "bombfont2.ttf");
+        Typeface typeface2 = Typeface.createFromAsset(mContext.getAssets(), "samplefont.ttf");
         assertNotNull(typeface2);
         assertSame("Same font asset should return same Typeface object", typeface1, typeface2);
 
-        Typeface typeface3 = Typeface.createFromAsset(mContext.getAssets(), "bombfont.ttf");
+        Typeface typeface3 = Typeface.createFromAsset(mContext.getAssets(), "samplefont2.ttf");
         assertNotNull(typeface3);
         assertNotSame("Different font asset should return different Typeface object",
                 typeface2, typeface3);
 
-        Typeface typeface4 = Typeface.createFromAsset(mContext.getAssets(), "samplefont.ttf");
+        Typeface typeface4 = Typeface.createFromAsset(mContext.getAssets(), "samplefont3.ttf");
         assertNotNull(typeface4);
         assertNotSame("Different font asset should return different Typeface object",
                 typeface2, typeface4);
@@ -498,11 +511,9 @@ public class TypefaceTest {
         for (String fontPath : fontPaths) {
             Typeface typeface = Typeface.createFromAsset(mContext.getAssets(), fontPath);
             assertNotNull(typeface);
-            Paint p = new Paint();
             final String testString = "a";
-            float widthDefaultTypeface = p.measureText(testString);
-            p.setTypeface(typeface);
-            float widthCustomTypeface = p.measureText(testString);
+            float widthDefaultTypeface = measureText(testString, Typeface.DEFAULT);
+            float widthCustomTypeface = measureText(testString, typeface);
             // The width of the glyph "a" from above fonts are 2em.
             // So the width should be different from the default one.
             assertNotEquals(widthDefaultTypeface, widthCustomTypeface, 1.0f);
@@ -521,6 +532,7 @@ public class TypefaceTest {
         final String testString = "WWWWWWWWWWWWWWWWWWWWW";
 
         final Paint p = new Paint();
+        p.setTextLocale(Locale.US);
         p.setTextSize(128);
 
         p.setTypeface(regularTypeface);
@@ -529,6 +541,226 @@ public class TypefaceTest {
         p.setTypeface(blackTypeface);
         final float widthFromBlack = p.measureText(testString);
 
-        assertTrue(Math.abs(widthFromRegular - widthFromBlack) > 1.0f);
+        assertNotEquals(widthFromRegular, widthFromBlack, 1.0f);
+    }
+
+    @Test
+    public void testTypefaceCreate_withExactWeight() {
+        // multiweight_family has following fonts.
+        // - a3em.ttf with weight = 100, style=normal configuration.
+        //   This font supports "a", "b", "c". The weight "a" is 3em, others are 1em.
+        // - b3em.ttf with weight = 400, style=normal configuration.
+        //   This font supports "a", "b", "c". The weight "b" is 3em, others are 1em.
+        // - c3em.ttf with weight = 700, style=normal configuration.
+        //   This font supports "a", "b", "c". The weight "c" is 3em, others are 1em.
+        final Typeface family = mContext.getResources().getFont(R.font.multiweight_family);
+        assertNotNull(family);
+
+        // By default, the font which weight is 400 is selected.
+        assertEquals(GLYPH_1EM_WIDTH, measureText("a", family), 0f);
+        assertEquals(GLYPH_3EM_WIDTH, measureText("b", family), 0f);
+        assertEquals(GLYPH_1EM_WIDTH, measureText("c", family), 0f);
+
+        // Draw with the font which weight is 100.
+        final Typeface thinFamily = Typeface.create(family, 100 /* weight */, false /* italic */);
+        assertEquals(GLYPH_3EM_WIDTH, measureText("a", thinFamily), 0f);
+        assertEquals(GLYPH_1EM_WIDTH, measureText("b", thinFamily), 0f);
+        assertEquals(GLYPH_1EM_WIDTH, measureText("c", thinFamily), 0f);
+
+        // Draw with the font which weight is 700.
+        final Typeface boldFamily = Typeface.create(family, 700 /* weight */, false /* italic */);
+        assertEquals(GLYPH_1EM_WIDTH, measureText("a", boldFamily), 0f);
+        assertEquals(GLYPH_1EM_WIDTH, measureText("b", boldFamily), 0f);
+        assertEquals(GLYPH_3EM_WIDTH, measureText("c", boldFamily), 0f);
+    }
+
+    @Test
+    public void testTypefaceCreate_withExactStyle() {
+        // multiweight_family has following fonts.
+        // - a3em.ttf with weight = 400, style=normal configuration.
+        //   This font supports "a", "b", "c". The weight "a" is 3em, others are 1em.
+        // - b3em.ttf with weight = 400, style=italic configuration.
+        //   This font supports "a", "b", "c". The weight "b" is 3em, others are 1em.
+        // - c3em.ttf with weight = 700, style=italic configuration.
+        //   This font supports "a", "b", "c". The weight "c" is 3em, others are 1em.
+        final Typeface family = mContext.getResources().getFont(R.font.multistyle_family);
+        assertNotNull(family);
+
+        // By default, the normal style font which weight is 400 is selected.
+        assertEquals(GLYPH_3EM_WIDTH, measureText("a", family), 0f);
+        assertEquals(GLYPH_1EM_WIDTH, measureText("b", family), 0f);
+        assertEquals(GLYPH_1EM_WIDTH, measureText("c", family), 0f);
+
+        // Draw with the italic font.
+        final Typeface italicFamily = Typeface.create(family, 400 /* weight */, true /* italic */);
+        assertEquals(GLYPH_1EM_WIDTH, measureText("a", italicFamily), 0f);
+        assertEquals(GLYPH_3EM_WIDTH, measureText("b", italicFamily), 0f);
+        assertEquals(GLYPH_1EM_WIDTH, measureText("c", italicFamily), 0f);
+
+        // Draw with the italic font which weigth is 700.
+        final Typeface boldItalicFamily =
+                Typeface.create(family, 700 /* weight */, true /* italic */);
+        assertEquals(GLYPH_1EM_WIDTH, measureText("a", boldItalicFamily), 0f);
+        assertEquals(GLYPH_1EM_WIDTH, measureText("b", boldItalicFamily), 0f);
+        assertEquals(GLYPH_3EM_WIDTH, measureText("c", boldItalicFamily), 0f);
+    }
+
+    @Test
+    public void testFontVariationSettings() {
+        // WeightEqualsEmVariableFont is a special font generating the outlines a glyph of 1/1000
+        // width of the given wght axis. For example, if 300 is given as the wght value to the font,
+        // the font will generate 0.3em of the glyph for the 'a'..'z' characters.
+        // The minimum, default, maximum value of 'wght' is 0, 0, 1000.
+        // No other axes are supported.
+
+        final AssetManager am = mContext.getAssets();
+        final Paint paint = new Paint();
+        paint.setTextSize(100);  // Make 1em = 100px
+
+        // By default, WeightEqualsEmVariableFont has 0 'wght' value.
+        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf").build());
+        assertEquals(0.0f, paint.measureText("a"), 0.0f);
+
+        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+                .setFontVariationSettings("'wght' 100").build());
+        assertEquals(10.0f, paint.measureText("a"), 0.0f);
+
+        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+                .setFontVariationSettings("'wght' 300").build());
+        assertEquals(30.0f, paint.measureText("a"), 0.0f);
+
+        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+                .setFontVariationSettings("'wght' 800").build());
+        assertEquals(80.0f, paint.measureText("a"), 0.0f);
+
+        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+                .setFontVariationSettings("'wght' 550").build());
+        assertEquals(55.0f, paint.measureText("a"), 0.0f);
+    }
+
+    @Test
+    public void testFontVariationSettings_UnsupportedAxes() {
+        // WeightEqualsEmVariableFont is a special font generating the outlines a glyph of 1/1000
+        // width of the given wght axis. For example, if 300 is given as the wght value to the font,
+        // the font will generate 0.3em of the glyph for the 'a'..'z' characters.
+        // The minimum, default, maximum value of 'wght' is 0, 0, 1000.
+        // No other axes are supported.
+
+        final AssetManager am = mContext.getAssets();
+        final Paint paint = new Paint();
+        paint.setTextSize(100);  // Make 1em = 100px
+
+        // Unsupported axes do not affect the result.
+        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+                .setFontVariationSettings("'wght' 300, 'wdth' 10").build());
+        assertEquals(30.0f, paint.measureText("a"), 0.0f);
+
+        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+                .setFontVariationSettings("'wdth' 10, 'wght' 300").build());
+        assertEquals(30.0f, paint.measureText("a"), 0.0f);
+    }
+
+    @Test
+    public void testFontVariationSettings_OutOfRangeValue() {
+        // WeightEqualsEmVariableFont is a special font generating the outlines a glyph of 1/1000
+        // width of the given wght axis. For example, if 300 is given as the wght value to the font,
+        // the font will generate 0.3em of the glyph for the 'a'..'z' characters.
+        // The minimum, default, maximum value of 'wght' is 0, 0, 1000.
+        // No other axes are supported.
+
+        final AssetManager am = mContext.getAssets();
+        final Paint paint = new Paint();
+        paint.setTextSize(100);  // Make 1em = 100px
+
+        // Out of range value needs to be clipped at the minimum or maximum values.
+        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+                .setFontVariationSettings("'wght' -100").build());
+        assertEquals(0.0f, paint.measureText("a"), 0.0f);
+
+        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+                .setFontVariationSettings("'wght' 1300").build());
+        assertEquals(100.0f, paint.measureText("a"), 0.0f);
+    }
+
+    @Test
+    public void testTypefaceCreate_getWeight() {
+        Typeface typeface = Typeface.DEFAULT;
+        assertEquals(400, typeface.getWeight());
+        assertFalse(typeface.isItalic());
+
+        typeface = Typeface.create(Typeface.DEFAULT, 100, false /* italic */);
+        assertEquals(100, typeface.getWeight());
+        assertFalse(typeface.isItalic());
+
+        typeface = Typeface.create(Typeface.DEFAULT, 100, true /* italic */);
+        assertEquals(100, typeface.getWeight());
+        assertTrue(typeface.isItalic());
+
+        typeface = Typeface.create(Typeface.DEFAULT, 400, false /* italic */);
+        assertEquals(400, typeface.getWeight());
+        assertFalse(typeface.isItalic());
+
+        typeface = Typeface.create(Typeface.DEFAULT, 400, true /* italic */);
+        assertEquals(400, typeface.getWeight());
+        assertTrue(typeface.isItalic());
+
+        typeface = Typeface.create(Typeface.DEFAULT, 700, false /* italic */);
+        assertEquals(700, typeface.getWeight());
+        assertFalse(typeface.isItalic());
+
+        typeface = Typeface.create(Typeface.DEFAULT, 700, true /* italic */);
+        assertEquals(700, typeface.getWeight());
+        assertTrue(typeface.isItalic());
+
+        // Non-standard weight.
+        typeface = Typeface.create(Typeface.DEFAULT, 250, false /* italic */);
+        assertEquals(250, typeface.getWeight());
+        assertFalse(typeface.isItalic());
+
+        typeface = Typeface.create(Typeface.DEFAULT, 250, true /* italic */);
+        assertEquals(250, typeface.getWeight());
+        assertTrue(typeface.isItalic());
+
+    }
+
+    @Test
+    public void testTypefaceCreate_customFont_getWeight() {
+        final AssetManager am = mContext.getAssets();
+
+        Typeface typeface = new Builder(am, "ascii_a3em_weight100_upright.ttf").build();
+        assertEquals(100, typeface.getWeight());
+        assertFalse(typeface.isItalic());
+
+        typeface = new Builder(am, "ascii_b3em_weight100_italic.ttf").build();
+        assertEquals(100, typeface.getWeight());
+        assertTrue(typeface.isItalic());
+
+    }
+
+    @Test
+    public void testTypefaceCreate_customFont_customWeight() {
+        final AssetManager am = mContext.getAssets();
+        Typeface typeface = new Builder(am, "ascii_a3em_weight100_upright.ttf")
+                .setWeight(400).build();
+        assertEquals(400, typeface.getWeight());
+        assertFalse(typeface.isItalic());
+
+        typeface = new Builder(am, "ascii_b3em_weight100_italic.ttf").setWeight(400).build();
+        assertEquals(400, typeface.getWeight());
+        assertTrue(typeface.isItalic());
+    }
+
+    @Test
+    public void testTypefaceCreate_customFont_customItalic() {
+        final AssetManager am = mContext.getAssets();
+
+        Typeface typeface = new Builder(am, "ascii_a3em_weight100_upright.ttf")
+                .setItalic(true).build();
+        assertEquals(100, typeface.getWeight());
+        assertTrue(typeface.isItalic());
+
+        typeface = new Builder(am, "ascii_b3em_weight100_italic.ttf").setItalic(false).build();
+        assertEquals(100, typeface.getWeight());
+        assertFalse(typeface.isItalic());
     }
 }

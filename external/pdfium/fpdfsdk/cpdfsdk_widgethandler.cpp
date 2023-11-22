@@ -25,7 +25,8 @@
 
 CPDFSDK_WidgetHandler::CPDFSDK_WidgetHandler(
     CPDFSDK_FormFillEnvironment* pFormFillEnv)
-    : m_pFormFillEnv(pFormFillEnv), m_pFormFiller(nullptr) {}
+    : m_pFormFillEnv(pFormFillEnv),
+      m_pFormFiller(pFormFillEnv->GetInteractiveFormFiller()) {}
 
 CPDFSDK_WidgetHandler::~CPDFSDK_WidgetHandler() {}
 
@@ -42,12 +43,11 @@ bool CPDFSDK_WidgetHandler::CanAnswer(CPDFSDK_Annot* pAnnot) {
   if ((nFieldFlags & FIELDFLAG_READONLY) == FIELDFLAG_READONLY)
     return false;
 
-  if (pWidget->GetFieldType() == FIELDTYPE_PUSHBUTTON)
+  if (pWidget->GetFieldType() == FormFieldType::kPushButton)
     return true;
 
   CPDF_Page* pPage = pWidget->GetPDFPage();
-  CPDF_Document* pDocument = pPage->m_pDocument;
-  uint32_t dwPermissions = pDocument->GetUserPermissions();
+  uint32_t dwPermissions = pPage->m_pDocument->GetUserPermissions();
   return (dwPermissions & FPDFPERM_FILL_FORM) ||
          (dwPermissions & FPDFPERM_ANNOT_FORM);
 }
@@ -95,7 +95,7 @@ void CPDFSDK_WidgetHandler::OnDraw(CPDFSDK_PageView* pPageView,
                                    bool bDrawAnnots) {
   if (pAnnot->IsSignatureWidget()) {
     static_cast<CPDFSDK_BAAnnot*>(pAnnot)->DrawAppearance(
-        pDevice, pUser2Device, CPDF_Annot::Normal, nullptr);
+        pDevice, *pUser2Device, CPDF_Annot::Normal, nullptr);
   } else {
     if (m_pFormFiller)
       m_pFormFiller->OnDraw(pPageView, pAnnot, pDevice, pUser2Device);
@@ -227,18 +227,23 @@ void CPDFSDK_WidgetHandler::OnLoad(CPDFSDK_Annot* pAnnot) {
   if (!pWidget->IsAppearanceValid())
     pWidget->ResetAppearance(nullptr, false);
 
-  int nFieldType = pWidget->GetFieldType();
-  if (nFieldType == FIELDTYPE_TEXTFIELD || nFieldType == FIELDTYPE_COMBOBOX) {
+  FormFieldType fieldType = pWidget->GetFieldType();
+  if (fieldType == FormFieldType::kTextField ||
+      fieldType == FormFieldType::kComboBox) {
     bool bFormatted = false;
-    CFX_WideString sValue = pWidget->OnFormat(bFormatted);
-    if (bFormatted && nFieldType == FIELDTYPE_COMBOBOX)
+    CPDFSDK_Annot::ObservedPtr pObserved(pWidget);
+    WideString sValue = pWidget->OnFormat(bFormatted);
+    if (!pObserved)
+      return;
+
+    if (bFormatted && fieldType == FormFieldType::kComboBox)
       pWidget->ResetAppearance(&sValue, false);
   }
 
 #ifdef PDF_ENABLE_XFA
   CPDFSDK_PageView* pPageView = pAnnot->GetPageView();
   CPDFXFA_Context* pContext = pPageView->GetFormFillEnv()->GetXFAContext();
-  if (pContext->GetDocType() == DOCTYPE_STATIC_XFA) {
+  if (pContext->GetFormType() == FormType::kXFAForeground) {
     if (!pWidget->IsAppearanceValid() && !pWidget->GetValue().IsEmpty())
       pWidget->ResetAppearance(false);
   }
@@ -273,8 +278,20 @@ CFX_FloatRect CPDFSDK_WidgetHandler::GetViewBBox(CPDFSDK_PageView* pPageView,
                                                  CPDFSDK_Annot* pAnnot) {
   if (!pAnnot->IsSignatureWidget() && m_pFormFiller)
     return CFX_FloatRect(m_pFormFiller->GetViewBBox(pPageView, pAnnot));
+  return CFX_FloatRect();
+}
 
-  return CFX_FloatRect(0, 0, 0, 0);
+WideString CPDFSDK_WidgetHandler::GetSelectedText(CPDFSDK_Annot* pAnnot) {
+  if (!pAnnot->IsSignatureWidget() && m_pFormFiller)
+    return m_pFormFiller->GetSelectedText(pAnnot);
+
+  return WideString();
+}
+
+void CPDFSDK_WidgetHandler::ReplaceSelection(CPDFSDK_Annot* pAnnot,
+                                             const WideString& text) {
+  if (!pAnnot->IsSignatureWidget() && m_pFormFiller)
+    m_pFormFiller->ReplaceSelection(pAnnot, text);
 }
 
 bool CPDFSDK_WidgetHandler::HitTest(CPDFSDK_PageView* pPageView,

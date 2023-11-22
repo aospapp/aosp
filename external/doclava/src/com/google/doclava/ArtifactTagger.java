@@ -23,6 +23,7 @@ import com.google.doclava.apicheck.ApiParseException;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -62,7 +63,7 @@ public class ArtifactTagger {
    *
    * @param classDocs the docs to tag
    */
-  public void tagAll(ClassInfo[] classDocs) {
+  public void tagAll(Collection<ClassInfo> classDocs) {
     // Read through the XML files in order, applying their artifact information
     // to the Javadoc models.
     for (Map.Entry<String, String> artifactSpec : xmlToArtifact.entrySet()) {
@@ -114,7 +115,8 @@ public class ArtifactTagger {
    * @param specApi the spec for this artifact
    * @param classDocs the docs to update
    */
-  private void applyArtifactsFromSpec(String mavenSpec, ApiInfo specApi, ClassInfo[] classDocs) {
+  private void applyArtifactsFromSpec(String mavenSpec, ApiInfo specApi,
+      Collection<ClassInfo> classDocs) {
     for (ClassInfo classDoc : classDocs) {
       PackageInfo packageSpec = specApi.getPackages().get(classDoc.containingPackage().name());
       if (packageSpec != null) {
@@ -139,7 +141,7 @@ public class ArtifactTagger {
    *
    * @param classDocs the docs to verify
    */
-  private void warnForMissingArtifacts(ClassInfo[] classDocs) {
+  private void warnForMissingArtifacts(Collection<ClassInfo> classDocs) {
     for (ClassInfo claz : classDocs) {
       if (checkLevelRecursive(claz) && claz.getArtifact() == null) {
         Errors.error(Errors.NO_ARTIFACT_DATA, claz.position(), "XML missing class "

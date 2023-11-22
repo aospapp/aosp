@@ -1,8 +1,7 @@
 cc_defaults {
     name: "crasher-defaults",
 
-    cppflags: [
-        "-std=gnu++14",
+    cflags: [
         "-W",
         "-Wall",
         "-Wextra",
@@ -18,7 +17,7 @@ cc_defaults {
         arm: {
             srcs: ["arm/crashglue.S"],
 
-            armv7_a_neon: {
+            neon: {
                 asflags: ["-DHAS_VFP_D32"],
             },
         },

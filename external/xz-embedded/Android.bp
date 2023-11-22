@@ -10,7 +10,13 @@ cc_library_static {
     include_dirs: ["external/xz-embedded/userspace/"],
 
     // Enable branch/call/jump filters. See http://b/27817327.
-    cflags: ["-DXZ_DEC_X86", "-DXZ_DEC_ARM", "-DXZ_DEC_ARMTHUMB"],
+    cflags: [
+        "-DXZ_DEC_X86",
+        "-DXZ_DEC_ARM",
+        "-DXZ_DEC_ARMTHUMB",
+        "-Wall",
+        "-Werror",
+    ],
 
     export_include_dirs: ["linux/include/linux/"],
 }

@@ -36,6 +36,7 @@
         <activity android:name="LiveWallpaperActivity"
             android:label="@string/live_wallpaper_picker_label"
             android:theme="@style/LivePickerTheme"
+            android:colorMode="wideColorGamut"
             android:hardwareAccelerated="true">
             <intent-filter>
                 <action android:name="android.service.wallpaper.LIVE_WALLPAPER_CHOOSER" />
@@ -48,6 +49,7 @@
 
         <activity android:name="LiveWallpaperChange"
             android:label="@string/live_wallpaper_preview_title"
+            android:colorMode="wideColorGamut"
             android:theme="@style/Preview">
             <intent-filter>
                 <action android:name="android.service.wallpaper.CHANGE_LIVE_WALLPAPER" />
@@ -57,6 +59,7 @@
 
         <activity android:name="LiveWallpaperPreview"
             android:label="@string/live_wallpaper_preview_title"
+            android:colorMode="wideColorGamut"
             android:theme="@style/Preview" />
     </application>
 

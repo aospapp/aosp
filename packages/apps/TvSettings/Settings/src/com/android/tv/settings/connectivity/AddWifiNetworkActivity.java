@@ -16,193 +16,220 @@
 
 package com.android.tv.settings.connectivity;
 
-import android.app.Fragment;
-import android.net.wifi.WifiConfiguration;
+import android.arch.lifecycle.ViewModelProviders;
 import android.os.Bundle;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
-import com.android.tv.settings.form.FormPage;
-import com.android.tv.settings.form.FormPageResultListener;
+import com.android.tv.settings.connectivity.setup.AdvancedWifiOptionsFlow;
+import com.android.tv.settings.connectivity.setup.ChooseSecurityState;
+import com.android.tv.settings.connectivity.setup.ConnectAuthFailureState;
+import com.android.tv.settings.connectivity.setup.ConnectFailedState;
+import com.android.tv.settings.connectivity.setup.ConnectRejectedByApState;
+import com.android.tv.settings.connectivity.setup.ConnectState;
+import com.android.tv.settings.connectivity.setup.ConnectTimeOutState;
+import com.android.tv.settings.connectivity.setup.EnterPasswordState;
+import com.android.tv.settings.connectivity.setup.EnterSsidState;
+import com.android.tv.settings.connectivity.setup.OptionsOrConnectState;
+import com.android.tv.settings.connectivity.setup.SuccessState;
+import com.android.tv.settings.connectivity.setup.UserChoiceInfo;
+import com.android.tv.settings.connectivity.util.State;
+import com.android.tv.settings.connectivity.util.StateMachine;
+import com.android.tv.settings.core.instrumentation.InstrumentedActivity;
 
 /**
  * Manual-style add wifi network (the kind you'd use for adding a hidden or out-of-range network.)
  */
-public class AddWifiNetworkActivity extends WifiMultiPagedFormActivity
-        implements ConnectToWifiFragment.Listener, TimedMessageWizardFragment.Listener {
-
-    private AdvancedWifiOptionsFlow mAdvancedWifiOptionsFlow;
-    private WifiConfiguration mConfiguration;
-    private WifiSecurity mWifiSecurity;
-    private FormPage mSsidPage;
-    private FormPage mSecurityPage;
-    private FormPage mPasswordPage;
-    private FormPage mConnectPage;
-    private FormPage mSuccessPage;
+public class AddWifiNetworkActivity extends InstrumentedActivity
+            implements State.FragmentChangeListener {
+    private static final String TAG = "AddWifiNetworkActivity";
+    private State mChooseSecurityState;
+    private State mConnectAuthFailureState;
+    private State mConnectFailedState;
+    private State mConnectRejectedByApState;
+    private State mConnectState;
+    private State mConnectTimeOutState;
+    private State mEnterPasswordState;
+    private State mEnterSsidState;
+    private State mSuccessState;
+    private State mOptionsOrConnectState;
+    private State mEnterAdvancedFlowOrRetryState;
+    private State mFinishState;
+    private StateMachine mStateMachine;
+    private final StateMachine.Callback mStateMachineCallback = new StateMachine.Callback() {
+        @Override
+        public void onFinish(int result) {
+            setResult(result);
+            finish();
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        mConfiguration = new WifiConfiguration();
-        mConfiguration.hiddenSSID = true;
-        addPage(WifiFormPageType.ENTER_SSID);
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.wifi_container);
+        mStateMachine = ViewModelProviders.of(this).get(StateMachine.class);
+        mStateMachine.setCallback(mStateMachineCallback);
+        UserChoiceInfo userChoiceInfo = ViewModelProviders.of(this).get(UserChoiceInfo.class);
+        userChoiceInfo.getWifiConfiguration().hiddenSSID = true;
+
+        mEnterSsidState = new EnterSsidState(this);
+        mChooseSecurityState = new ChooseSecurityState(this);
+        mEnterPasswordState = new EnterPasswordState(this);
+        mConnectState = new ConnectState(this);
+        mSuccessState = new SuccessState(this);
+        mOptionsOrConnectState = new OptionsOrConnectState(this);
+        mConnectTimeOutState = new ConnectTimeOutState(this);
+        mConnectRejectedByApState = new ConnectRejectedByApState(this);
+        mConnectFailedState = new ConnectFailedState(this);
+        mConnectAuthFailureState = new ConnectAuthFailureState(this);
+        mFinishState = new FinishState(this);
+        mEnterAdvancedFlowOrRetryState = new EnterAdvancedFlowOrRetryState(this);
+
+        AdvancedWifiOptionsFlow.createFlow(
+                this, true, true, null, mOptionsOrConnectState,
+                mConnectState, AdvancedWifiOptionsFlow.START_DEFAULT_PAGE);
+        AdvancedWifiOptionsFlow.createFlow(
+                this, true, true, null, mEnterAdvancedFlowOrRetryState,
+                mConnectState, AdvancedWifiOptionsFlow.START_DEFAULT_PAGE);
+
+        /* Enter SSID */
+        mStateMachine.addState(
+                mEnterSsidState,
+                StateMachine.CONTINUE,
+                mChooseSecurityState
+        );
+
+        /* Choose security */
+        mStateMachine.addState(
+                mChooseSecurityState,
+                StateMachine.OPTIONS_OR_CONNECT,
+                mOptionsOrConnectState
+        );
+        mStateMachine.addState(
+                mChooseSecurityState,
+                StateMachine.PASSWORD,
+                mEnterPasswordState
+        );
+
+        /* Enter Password */
+        mStateMachine.addState(
+                mEnterPasswordState,
+                StateMachine.OPTIONS_OR_CONNECT,
+                mOptionsOrConnectState
+        );
+
+        /* Options or Connect */
+        mStateMachine.addState(
+                mOptionsOrConnectState,
+                StateMachine.CONNECT,
+                mConnectState
+        );
+
+        /* Connect */
+        mStateMachine.addState(
+                mConnectState,
+                StateMachine.RESULT_REJECTED_BY_AP,
+                mConnectRejectedByApState);
+        mStateMachine.addState(
+                mConnectState,
+                StateMachine.RESULT_UNKNOWN_ERROR,
+                mConnectFailedState);
+        mStateMachine.addState(
+                mConnectState,
+                StateMachine.RESULT_TIMEOUT,
+                mConnectTimeOutState);
+        mStateMachine.addState(
+                mConnectState,
+                StateMachine.RESULT_BAD_AUTH,
+                mConnectAuthFailureState);
+        mStateMachine.addState(
+                mConnectState,
+                StateMachine.RESULT_SUCCESS,
+                mSuccessState);
+
+        /* Connect Failed */
+        mStateMachine.addState(
+                mConnectFailedState,
+                StateMachine.TRY_AGAIN,
+                mOptionsOrConnectState
+        );
+
+        mStateMachine.addState(
+                mConnectFailedState,
+                StateMachine.SELECT_WIFI,
+                mFinishState
+        );
+
+        /* Connect Timeout */
+        mStateMachine.addState(
+                mConnectTimeOutState,
+                StateMachine.TRY_AGAIN,
+                mOptionsOrConnectState
+        );
+        mStateMachine.addState(
+                mConnectTimeOutState,
+                StateMachine.SELECT_WIFI,
+                mFinishState
+        );
+
+        /* Connect Rejected By AP */
+        mStateMachine.addState(
+                mConnectRejectedByApState,
+                StateMachine.TRY_AGAIN,
+                mOptionsOrConnectState);
+        mStateMachine.addState(
+                mConnectRejectedByApState,
+                StateMachine.SELECT_WIFI,
+                mFinishState);
+
+        /* Connect Auth Failure */
+        mStateMachine.addState(
+                mConnectAuthFailureState,
+                StateMachine.TRY_AGAIN,
+                mEnterAdvancedFlowOrRetryState);
+        mStateMachine.addState(
+                mConnectRejectedByApState,
+                StateMachine.SELECT_WIFI,
+                mFinishState);
+
+        /* Enter Advanced Flow or Retry */
+        mStateMachine.addState(
+                mEnterAdvancedFlowOrRetryState,
+                StateMachine.CONTINUE,
+                mEnterSsidState);
+        mStateMachine.setStartState(mEnterSsidState);
+        mStateMachine.start(true);
     }
 
     @Override
-    public void onConnectToWifiCompleted(int reason) {
-        Bundle result = new Bundle();
-        result.putString(FormPage.DATA_KEY_SUMMARY_STRING, Integer.toString(reason));
-        onBundlePageResult(mConnectPage, result);
+    public int getMetricsCategory() {
+        // do not log visibility.
+        return MetricsProto.MetricsEvent.ACTION_WIFI_ADD_NETWORK;
     }
 
     @Override
-    public void onTimedMessageCompleted() {
-        Bundle result = new Bundle();
-        result.putString(FormPage.DATA_KEY_SUMMARY_STRING, "");
-        onBundlePageResult(mSuccessPage, result);
+    public void onBackPressed() {
+        mStateMachine.back();
+    }
+
+    private void updateView(Fragment fragment, boolean movingForward) {
+        if (fragment != null) {
+            FragmentTransaction updateTransaction = getSupportFragmentManager().beginTransaction();
+            if (movingForward) {
+                updateTransaction.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN);
+            } else {
+                updateTransaction.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_CLOSE);
+            }
+            updateTransaction.replace(R.id.wifi_container, fragment, TAG);
+            updateTransaction.commit();
+        }
     }
 
     @Override
-    protected boolean onPageComplete(WifiFormPageType formPageType, FormPage formPage) {
-
-        switch (formPageType) {
-            case ENTER_SSID:
-                mSsidPage = formPage;
-                String ssid = formPage.getDataSummary();
-                WifiConfigHelper.setConfigSsid(mConfiguration, ssid);
-                addPage(WifiFormPageType.CHOOSE_SECURITY);
-                break;
-            case CHOOSE_SECURITY:
-                mSecurityPage = formPage;
-                if (choiceChosen(formPage, R.string.wifi_security_type_none)) {
-                    mWifiSecurity = WifiSecurity.NONE;
-                } else if (choiceChosen(formPage, R.string.wifi_security_type_wep)) {
-                    mWifiSecurity = WifiSecurity.WEP;
-                } else if (choiceChosen(formPage, R.string.wifi_security_type_wpa)) {
-                    mWifiSecurity = WifiSecurity.PSK;
-                } else if (choiceChosen(formPage, R.string.wifi_security_type_eap)) {
-                    mWifiSecurity = WifiSecurity.EAP;
-                }
-                WifiConfigHelper.setConfigKeyManagementBySecurity(mConfiguration, mWifiSecurity);
-                if (mWifiSecurity == WifiSecurity.NONE) {
-                    optionsOrConnect();
-                } else {
-                    addPage(WifiFormPageType.ENTER_PASSWORD);
-                }
-                break;
-            case ENTER_PASSWORD:
-                mPasswordPage = formPage;
-                String password = formPage.getDataSummary();
-                setWifiConfigurationPassword(mConfiguration, mWifiSecurity, password);
-                optionsOrConnect();
-                break;
-            case CONNECT:
-                WifiConfigHelper.saveConfiguration(this, mConfiguration);
-                switch (Integer.valueOf(formPage.getDataSummary())) {
-                    case ConnectToWifiFragment.RESULT_REJECTED_BY_AP:
-                        addPage(WifiFormPageType.CONNECT_REJECTED_BY_AP);
-                        break;
-                    case ConnectToWifiFragment.RESULT_UNKNOWN_ERROR:
-                        addPage(WifiFormPageType.CONNECT_FAILED);
-                        break;
-                    case ConnectToWifiFragment.RESULT_TIMEOUT:
-                        addPage(WifiFormPageType.CONNECT_TIMEOUT);
-                        break;
-                    case ConnectToWifiFragment.RESULT_BAD_AUTHENTICATION:
-                        addPage(WifiFormPageType.CONNECT_AUTHENTICATION_FAILURE);
-                        break;
-                    case ConnectToWifiFragment.RESULT_SUCCESS:
-                        addPage(WifiFormPageType.SUCCESS);
-                        break;
-                    default:
-                        break;
-                }
-                break;
-            case CONNECT_FAILED:
-                // fall through
-            case CONNECT_TIMEOUT:
-                mAdvancedWifiOptionsFlow = new AdvancedWifiOptionsFlow(this, this, true, null);
-                // fall through
-            case CONNECT_REJECTED_BY_AP:
-                if (choiceChosen(formPage, R.string.wifi_action_try_again)) {
-                    optionsOrConnect();
-                }
-                break;
-            case CONNECT_AUTHENTICATION_FAILURE:
-                if (choiceChosen(formPage, R.string.wifi_action_try_again)) {
-                    if (mAdvancedWifiOptionsFlow != null) {
-                        addPage(mAdvancedWifiOptionsFlow.getInitialPage());
-                    } else {
-                        addPage(WifiFormPageType.ENTER_SSID);
-                    }
-                }
-                break;
-            default:
-                if (mAdvancedWifiOptionsFlow != null) {
-                    switch (mAdvancedWifiOptionsFlow.handlePageComplete(formPageType, formPage)) {
-                        case AdvancedWifiOptionsFlow.RESULT_ALL_PAGES_COMPLETE:
-                            connect();
-                            break;
-                        case AdvancedWifiOptionsFlow.RESULT_UNKNOWN_PAGE:
-                        case AdvancedWifiOptionsFlow.RESULT_PAGE_HANDLED:
-                        default:
-                            break;
-                    }
-                }
-                break;
-        }
-        return true;
-    }
-
-    @Override
-    protected void displayPage(FormPage formPage, FormPageResultListener listener, boolean forward) {
-        WifiFormPageType formPageType = getFormPageType(formPage);
-
-        if (formPageType == WifiFormPageType.CONNECT) {
-            mConnectPage = formPage;
-            Fragment fragment = ConnectToWifiFragment.newInstance(
-                    getString(formPageType.getTitleResourceId(), mConfiguration.getPrintableSsid()),
-                    true, mConfiguration);
-            displayFragment(fragment, forward);
-        } else if (formPageType == WifiFormPageType.SUCCESS) {
-            mSuccessPage = formPage;
-            Fragment fragment = TimedMessageWizardFragment.newInstance(
-                    getString(formPageType.getTitleResourceId()));
-            displayFragment(fragment, forward);
-        } else {
-            displayPage(formPageType, mConfiguration.getPrintableSsid(), null, null,
-                    getLastPage(formPageType), null, formPageType != WifiFormPageType.SUCCESS,
-                    formPage, listener, forward, (mAdvancedWifiOptionsFlow != null) ?
-                            mAdvancedWifiOptionsFlow.isEmptyTextAllowed(formPageType) : false);
-        }
-    }
-
-    private FormPage getLastPage(WifiFormPageType formPageType) {
-        switch (formPageType) {
-            case CHOOSE_SECURITY:
-                return mSecurityPage;
-            case ENTER_PASSWORD:
-                return mPasswordPage;
-            case ENTER_SSID:
-                return mSsidPage;
-            default:
-                return (mAdvancedWifiOptionsFlow != null) ? mAdvancedWifiOptionsFlow
-                        .getPreviousPage(formPageType)
-                        : null;
-        }
-    }
-
-    private void connect() {
-        if (mAdvancedWifiOptionsFlow != null) {
-            mAdvancedWifiOptionsFlow.updateConfiguration(mConfiguration);
-        }
-        addPage(WifiFormPageType.CONNECT);
-    }
-
-    private void optionsOrConnect() {
-        if (mAdvancedWifiOptionsFlow != null) {
-            addPage(mAdvancedWifiOptionsFlow.getInitialPage());
-        } else {
-            connect();
-        }
+    public void onFragmentChange(Fragment newFragment, boolean movingForward) {
+        updateView(newFragment, movingForward);
     }
 }

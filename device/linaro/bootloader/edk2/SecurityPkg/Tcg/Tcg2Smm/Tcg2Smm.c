@@ -9,7 +9,7 @@
 
   PhysicalPresenceCallback() and MemoryClearCallback() will receive untrusted input and do some check.
 
-Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2015 - 2017, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials 
 are licensed and made available under the terms and conditions of the BSD License 
 which accompanies this distribution.  The full text of the license may be found at 
@@ -21,6 +21,57 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 **/
 
 #include "Tcg2Smm.h"
+
+typedef enum {
+  PtpInterfaceTis,
+  PtpInterfaceFifo,
+  PtpInterfaceCrb,
+  PtpInterfaceMax,
+} PTP_INTERFACE_TYPE;
+
+/**
+  Return PTP interface type.
+
+  @param[in] Register                Pointer to PTP register.
+
+  @return PTP interface type.
+**/
+PTP_INTERFACE_TYPE
+GetPtpInterface (
+  IN VOID *Register
+  )
+{
+  PTP_CRB_INTERFACE_IDENTIFIER  InterfaceId;
+  PTP_FIFO_INTERFACE_CAPABILITY InterfaceCapability;
+
+  //
+  // Check interface id
+  //
+  InterfaceId.Uint32 = MmioRead32 ((UINTN)&((PTP_CRB_REGISTERS *)Register)->InterfaceId);
+  InterfaceCapability.Uint32 = MmioRead32 ((UINTN)&((PTP_FIFO_REGISTERS *)Register)->InterfaceCapability);
+
+  if (InterfaceId.Bits.InterfaceType == PTP_INTERFACE_IDENTIFIER_INTERFACE_TYPE_TIS) {
+    return PtpInterfaceTis;
+  }
+
+  if ((InterfaceId.Bits.InterfaceType == PTP_INTERFACE_IDENTIFIER_INTERFACE_TYPE_CRB) &&
+      (InterfaceId.Bits.InterfaceVersion == PTP_INTERFACE_IDENTIFIER_INTERFACE_VERSION_CRB) &&
+      (InterfaceId.Bits.CapCRB != 0)) {
+    return PtpInterfaceCrb;
+  }
+
+  if ((InterfaceId.Bits.InterfaceType == PTP_INTERFACE_IDENTIFIER_INTERFACE_TYPE_FIFO) &&
+      (InterfaceId.Bits.InterfaceVersion == PTP_INTERFACE_IDENTIFIER_INTERFACE_VERSION_FIFO) &&
+      (InterfaceId.Bits.CapFIFO != 0) &&
+      (InterfaceCapability.Bits.InterfaceVersion == INTERFACE_CAPABILITY_INTERFACE_VERSION_PTP)) {
+    return PtpInterfaceFifo;
+  }
+
+  //
+  // No Ptp interface available
+  //
+  return PtpInterfaceMax;
+}
 
 EFI_TPM2_ACPI_TABLE  mTpm2AcpiTemplate = {
   {
@@ -68,6 +119,9 @@ PhysicalPresenceCallback (
 {
   UINT32                MostRecentRequest;
   UINT32                Response;
+  UINT32                OperationRequest;
+  UINT32                RequestParameter;
+
 
   if (mTcgNvs->PhysicalPresence.Parameter == TCG_ACPI_FUNCTION_RETURN_REQUEST_RESPONSE_TO_OS) {
     mTcgNvs->PhysicalPresence.ReturnCode = Tcg2PhysicalPresenceLibReturnOperationResponseToOsFunction (
@@ -79,13 +133,18 @@ PhysicalPresenceCallback (
     return EFI_SUCCESS;
   } else if ((mTcgNvs->PhysicalPresence.Parameter == TCG_ACPI_FUNCTION_SUBMIT_REQUEST_TO_BIOS) 
           || (mTcgNvs->PhysicalPresence.Parameter == TCG_ACPI_FUNCTION_SUBMIT_REQUEST_TO_BIOS_2)) {
-    mTcgNvs->PhysicalPresence.ReturnCode = Tcg2PhysicalPresenceLibSubmitRequestToPreOSFunction (
-                                             mTcgNvs->PhysicalPresence.Request,
-                                             mTcgNvs->PhysicalPresence.RequestParameter
+
+    OperationRequest = mTcgNvs->PhysicalPresence.Request;
+    RequestParameter = mTcgNvs->PhysicalPresence.RequestParameter;
+    mTcgNvs->PhysicalPresence.ReturnCode = Tcg2PhysicalPresenceLibSubmitRequestToPreOSFunctionEx (
+                                             &OperationRequest,
+                                             &RequestParameter
                                              );
+    mTcgNvs->PhysicalPresence.Request = OperationRequest;
+    mTcgNvs->PhysicalPresence.RequestParameter = RequestParameter;
   } else if (mTcgNvs->PhysicalPresence.Parameter == TCG_ACPI_FUNCTION_GET_USER_CONFIRMATION_STATUS_FOR_REQUEST) {
-    mTcgNvs->PhysicalPresence.ReturnCode = Tcg2PhysicalPresenceLibGetUserConfirmationStatusFunction (mTcgNvs->PhysicalPresence.Request);
-  } 
+    mTcgNvs->PhysicalPresence.ReturnCode = Tcg2PhysicalPresenceLibGetUserConfirmationStatusFunction (mTcgNvs->PPRequestUserConfirm);
+  }
 
   return EFI_SUCCESS;
 }
@@ -209,6 +268,145 @@ AssignOpRegion (
 }
 
 /**
+  Patch version string of Physical Presence interface supported by platform. The initial string tag in TPM 
+ACPI table is "$PV".
+
+  @param[in, out] Table          The TPM item in ACPI table.
+  @param[in]      PPVer          Version string of Physical Presence interface supported by platform.
+
+  @return                        The allocated address for the found region.
+
+**/
+EFI_STATUS
+UpdatePPVersion (
+  EFI_ACPI_DESCRIPTION_HEADER    *Table,
+  CHAR8                          *PPVer
+  )
+{
+  EFI_STATUS  Status;
+  UINT8       *DataPtr;
+
+  //
+  // Patch some pointers for the ASL code before loading the SSDT.
+  //
+  for (DataPtr  = (UINT8 *)(Table + 1);
+       DataPtr <= (UINT8 *) ((UINT8 *) Table + Table->Length - PHYSICAL_PRESENCE_VERSION_SIZE);
+       DataPtr += 1) {
+    if (AsciiStrCmp((CHAR8 *)DataPtr,  PHYSICAL_PRESENCE_VERSION_TAG) == 0) {
+      Status = AsciiStrCpyS((CHAR8 *)DataPtr, PHYSICAL_PRESENCE_VERSION_SIZE, PPVer);
+      DEBUG((EFI_D_INFO, "TPM2 Physical Presence Interface Version update status 0x%x\n", Status));
+      return Status;
+    }
+  }
+
+  return EFI_NOT_FOUND;
+}
+
+/**
+  Patch TPM2 device HID string.  The initial string tag in TPM2 ACPI table is "NNN0000".
+
+  @param[in, out] Table          The TPM2 SSDT ACPI table.
+
+  @return                               HID Update status.
+
+**/
+EFI_STATUS
+UpdateHID (
+  EFI_ACPI_DESCRIPTION_HEADER    *Table
+  )
+{
+  EFI_STATUS  Status;
+  UINT8       *DataPtr;
+  CHAR8       Hid[TPM_HID_ACPI_SIZE];
+  UINT32      ManufacturerID;
+  UINT32      FirmwareVersion1;
+  UINT32      FirmwareVersion2;
+  BOOLEAN     PnpHID;
+
+  PnpHID = TRUE;
+
+  //
+  // Initialize HID with Default PNP string
+  //
+  ZeroMem(Hid, TPM_HID_ACPI_SIZE);
+
+  //
+  // Get Manufacturer ID
+  //
+  Status = Tpm2GetCapabilityManufactureID(&ManufacturerID);
+  if (!EFI_ERROR(Status)) {
+    DEBUG((EFI_D_INFO, "TPM_PT_MANUFACTURER 0x%08x\n", ManufacturerID));
+    //
+    // ManufacturerID defined in TCG Vendor ID Registry 
+    // may tailed with 0x00 or 0x20
+    //
+    if ((ManufacturerID >> 24) == 0x00 || ((ManufacturerID >> 24) == 0x20)) {
+      //
+      //  HID containing PNP ID "NNN####"
+      //   NNN is uppercase letter for Vendor ID specified by manufacturer
+      //
+      CopyMem(Hid, &ManufacturerID, 3);
+    } else {
+      //
+      //  HID containing ACP ID "NNNN####"
+      //   NNNN is uppercase letter for Vendor ID specified by manufacturer
+      //
+      CopyMem(Hid, &ManufacturerID, 4);
+      PnpHID = FALSE;
+    }
+  } else {
+    DEBUG ((EFI_D_ERROR, "Get TPM_PT_MANUFACTURER failed %x!\n", Status));
+    ASSERT(FALSE);
+    return Status;
+  }
+
+  Status = Tpm2GetCapabilityFirmwareVersion(&FirmwareVersion1, &FirmwareVersion2);
+  if (!EFI_ERROR(Status)) {
+    DEBUG((EFI_D_INFO, "TPM_PT_FIRMWARE_VERSION_1 0x%x\n", FirmwareVersion1));
+    DEBUG((EFI_D_INFO, "TPM_PT_FIRMWARE_VERSION_2 0x%x\n", FirmwareVersion2));
+    //
+    //   #### is Firmware Version 1
+    //
+    if (PnpHID) {
+      AsciiSPrint(Hid + 3, TPM_HID_PNP_SIZE - 3, "%02d%02d", ((FirmwareVersion1 & 0xFFFF0000) >> 16), (FirmwareVersion1 && 0x0000FFFF));
+    } else {
+      AsciiSPrint(Hid + 4, TPM_HID_ACPI_SIZE - 4, "%02d%02d", ((FirmwareVersion1 & 0xFFFF0000) >> 16), (FirmwareVersion1 && 0x0000FFFF));
+    }
+    
+  } else {
+    DEBUG ((EFI_D_ERROR, "Get TPM_PT_FIRMWARE_VERSION_X failed %x!\n", Status));
+    ASSERT(FALSE);
+    return Status;
+  }
+
+  //
+  // Patch HID in ASL code before loading the SSDT.
+  //
+  for (DataPtr  = (UINT8 *)(Table + 1);
+       DataPtr <= (UINT8 *) ((UINT8 *) Table + Table->Length - TPM_HID_PNP_SIZE);
+       DataPtr += 1) {
+    if (AsciiStrCmp((CHAR8 *)DataPtr,  TPM_HID_TAG) == 0) {
+      if (PnpHID) {
+        CopyMem(DataPtr, Hid, TPM_HID_PNP_SIZE);
+        //
+        // if HID is PNP ID, patch the last byte in HID TAG to Noop
+        //
+        *(DataPtr + TPM_HID_PNP_SIZE) = AML_NOOP_OP;
+      } else {
+
+        CopyMem(DataPtr, Hid, TPM_HID_ACPI_SIZE);
+      }
+      DEBUG((DEBUG_INFO, "TPM2 ACPI _HID is patched to %a\n", DataPtr));
+
+      return Status;
+    }
+  }
+
+  DEBUG((EFI_D_ERROR, "TPM2 ACPI HID TAG for patch not found!\n"));
+  return EFI_NOT_FOUND;
+}
+
+/**
   Initialize and publish TPM items in ACPI table.
 
   @retval   EFI_SUCCESS     The TCG ACPI table is published successfully.
@@ -235,6 +433,19 @@ PublishAcpiTable (
              );
   ASSERT_EFI_ERROR (Status);
 
+  //
+  // Update Table version before measuring it to PCR
+  //
+  Status = UpdatePPVersion(Table, (CHAR8 *)PcdGetPtr(PcdTcgPhysicalPresenceInterfaceVer));
+  ASSERT_EFI_ERROR (Status);
+
+  //
+  // Update TPM2 HID before measuring it to PCR
+  //
+  Status = UpdateHID(Table);
+  if (EFI_ERROR(Status)) {
+    return Status;
+  }
 
   //
   // Measure to PCR[0] with event EV_POST_CODE ACPI DATA
@@ -255,7 +466,7 @@ PublishAcpiTable (
   ASSERT (mTcgNvs != NULL);
 
   //
-  // Publish the TPM ACPI table
+  // Publish the TPM ACPI table. Table is re-checksumed.
   //
   Status = gBS->LocateProtocol (&gEfiAcpiTableProtocolGuid, NULL, (VOID **) &AcpiTable);
   ASSERT_EFI_ERROR (Status);
@@ -288,6 +499,8 @@ PublishTpm2 (
   EFI_ACPI_TABLE_PROTOCOL        *AcpiTable;
   UINTN                          TableKey;
   UINT64                         OemTableId;
+  EFI_TPM2_ACPI_CONTROL_AREA     *ControlArea;
+  PTP_INTERFACE_TYPE             InterfaceType;
 
   //
   // Measure to PCR[0] with event EV_POST_CODE ACPI DATA
@@ -300,6 +513,25 @@ PublishTpm2 (
     &mTpm2AcpiTemplate,
     sizeof(mTpm2AcpiTemplate)
     );
+
+  InterfaceType = GetPtpInterface ((VOID *) (UINTN) PcdGet64 (PcdTpmBaseAddress));
+  switch (InterfaceType) {
+  case PtpInterfaceCrb:
+    mTpm2AcpiTemplate.StartMethod = EFI_TPM2_ACPI_TABLE_START_METHOD_COMMAND_RESPONSE_BUFFER_INTERFACE;
+    mTpm2AcpiTemplate.AddressOfControlArea = PcdGet64 (PcdTpmBaseAddress) + 0x40;
+    ControlArea = (EFI_TPM2_ACPI_CONTROL_AREA *)(UINTN)mTpm2AcpiTemplate.AddressOfControlArea;
+    ControlArea->CommandSize  = 0xF80;
+    ControlArea->ResponseSize = 0xF80;
+    ControlArea->Command      = PcdGet64 (PcdTpmBaseAddress) + 0x80;
+    ControlArea->Response     = PcdGet64 (PcdTpmBaseAddress) + 0x80;
+    break;
+  case PtpInterfaceFifo:
+  case PtpInterfaceTis:
+    break;
+  default:
+    DEBUG((EFI_D_ERROR, "TPM2 InterfaceType get error! %d\n", InterfaceType));
+    break;
+  }
 
   CopyMem (mTpm2AcpiTemplate.Header.OemId, PcdGetPtr (PcdAcpiDefaultOemId), sizeof (mTpm2AcpiTemplate.Header.OemId));
   OemTableId = PcdGet64 (PcdAcpiDefaultOemTableId);

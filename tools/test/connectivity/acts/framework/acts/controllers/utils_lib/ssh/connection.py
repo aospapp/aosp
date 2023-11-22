@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import collections
-import logging
 import os
 import re
 import shutil
@@ -22,17 +21,18 @@ import threading
 import time
 import uuid
 
+from acts import logger
 from acts.controllers.utils_lib import host_utils
 from acts.controllers.utils_lib.ssh import formatter
 from acts.libs.proc import job
 
 
 class Error(Exception):
-    """An error occured during an ssh operation."""
+    """An error occurred during an ssh operation."""
 
 
 class CommandError(Exception):
-    """An error occured with the command.
+    """An error occurred with the command.
 
     Attributes:
         result: The results of the ssh command that had the error.
@@ -46,8 +46,9 @@ class CommandError(Exception):
         self.result = result
 
     def __str__(self):
-        return 'cmd: %s\nstdout: %s\nstderr: %s' % (
-            self.result.command, self.result.stdout, self.result.stderr)
+        return 'cmd: %s\nstdout: %s\nstderr: %s' % (self.result.command,
+                                                    self.result.stdout,
+                                                    self.result.stderr)
 
 
 _Tunnel = collections.namedtuple('_Tunnel',
@@ -71,7 +72,7 @@ class SshConnection(object):
     def __init__(self, settings):
         """
         Args:
-            settings: The ssh settings to use for this conneciton.
+            settings: The ssh settings to use for this connection.
             formatter: The object that will handle formatting ssh command
                        for use with the background job.
         """
@@ -82,17 +83,23 @@ class SshConnection(object):
         self._master_ssh_tempdir = None
         self._tunnels = list()
 
+        def log_line(msg):
+            return '[SshConnection | %s] %s' % (self._settings.hostname, msg)
+
+        self.log = logger.create_logger(log_line)
+
     def __del__(self):
         self.close()
 
     def setup_master_ssh(self, timeout_seconds=5):
         """Sets up the master ssh connection.
 
-        Sets up the inital master ssh connection if it has not already been
+        Sets up the initial master ssh connection if it has not already been
         started.
 
         Args:
-            timeout_seconds: The time to wait for the master ssh connection to be made.
+            timeout_seconds: The time to wait for the master ssh connection to
+            be made.
 
         Raises:
             Error: When setting up the master ssh connection fails.
@@ -102,8 +109,8 @@ class SshConnection(object):
                 socket_path = self.socket_path
                 if (not os.path.exists(socket_path) or
                         self._master_ssh_proc.poll() is not None):
-                    logging.debug('Master ssh connection to %s is down.',
-                                  self._settings.hostname)
+                    self.log.debug('Master ssh connection to %s is down.',
+                                   self._settings.hostname)
                     self._cleanup_master_ssh()
 
             if self._master_ssh_proc is None:
@@ -127,8 +134,7 @@ class SshConnection(object):
                     self._settings,
                     extra_flags=extra_flags,
                     extra_options=extra_options)
-                logging.info('Starting master ssh connection to %s',
-                             self._settings.hostname)
+                self.log.info('Starting master ssh connection.')
                 self._master_ssh_proc = job.run_async(master_cmd)
 
                 end_time = time.time() + timeout_seconds
@@ -146,7 +152,8 @@ class SshConnection(object):
             timeout=3600,
             ignore_status=False,
             env=None,
-            io_encoding='utf-8'):
+            io_encoding='utf-8',
+            attempts=2):
         """Runs a remote command over ssh.
 
         Will ssh to a remote host and run a command. This method will
@@ -159,8 +166,9 @@ class SshConnection(object):
             ignore_status: bool True to ignore the exit code of the remote
                            subprocess.  Note that if you do ignore status codes,
                            you should handle non-zero exit codes explicitly.
-            env: dict enviroment variables to setup on the remote host.
+            env: dict environment variables to setup on the remote host.
             io_encoding: str unicode encoding of command output.
+            attempts: Number of attempts before giving up on command failures.
 
         Returns:
             A job.Result containing the results of the ssh command.
@@ -170,14 +178,16 @@ class SshConnection(object):
             Error: When the ssh connection failed to be created.
             CommandError: Ssh worked, but the command had an error executing.
         """
+        if attempts == 0:
+            return None
         if env is None:
             env = {}
 
         try:
             self.setup_master_ssh(self._settings.connect_timeout)
         except Error:
-            logging.warning('Failed to create master ssh connection, using '
-                            'normal ssh connection.')
+            self.log.warning('Failed to create master ssh connection, using '
+                             'normal ssh connection.')
 
         extra_options = {'BatchMode': True}
         if self._master_ssh_proc:
@@ -191,9 +201,8 @@ class SshConnection(object):
 
         dns_retry_count = 2
         while True:
-            result = job.run(terminal_command,
-                             ignore_status=True,
-                             timeout=timeout)
+            result = job.run(
+                terminal_command, ignore_status=True, timeout=timeout)
             output = result.stdout
 
             # Check for a connected message to prevent false negatives.
@@ -212,7 +221,7 @@ class SshConnection(object):
                     duration=result.duration,
                     did_timeout=result.did_timeout,
                     encoding=result._encoding)
-                if result.exit_status:
+                if result.exit_status and not ignore_status:
                     raise job.Error(result)
                 return result
 
@@ -226,7 +235,7 @@ class SshConnection(object):
                 dns_retry_count -= 1
                 if not dns_retry_count:
                     raise Error('DNS failed to find host.', result)
-                logging.debug('Failed to connecto to host, retrying...')
+                self.log.debug('Failed to connect to host, retrying...')
             else:
                 break
 
@@ -250,7 +259,15 @@ class SshConnection(object):
         if unknown_host:
             raise Error('Unknown host.', result)
 
-        raise Error('The job failed for unkown reasons.', result)
+        self.log.error('An unknown error has occurred. Job result: %s' % result)
+        ping_output = job.run(
+            'ping %s -c 3 -w 1' % self._settings.hostname, ignore_status=True)
+        self.log.error('Ping result: %s' % ping_output)
+        if attempts > 1:
+            self._cleanup_master_ssh()
+            self.run(command, timeout, ignore_status, env, io_encoding,
+                     attempts - 1)
+        raise Error('The job failed for unknown reasons.', result)
 
     def run_async(self, command, env=None):
         """Starts up a background command over ssh.
@@ -261,7 +278,7 @@ class SshConnection(object):
         Args:
             command: The command to execute over ssh. Can be either a string
                      or a list.
-            env: A dictonary of enviroment variables to setup on the remote
+            env: A dictonary of environment variables to setup on the remote
                  host.
 
         Returns:
@@ -290,14 +307,14 @@ class SshConnection(object):
         """
         # If a master SSH connection is running, kill it.
         if self._master_ssh_proc is not None:
-            logging.debug('Nuking master_ssh_job.')
+            self.log.debug('Nuking master_ssh_job.')
             self._master_ssh_proc.kill()
             self._master_ssh_proc.wait()
             self._master_ssh_proc = None
 
         # Remove the temporary directory for the master SSH socket.
         if self._master_ssh_tempdir is not None:
-            logging.debug('Cleaning master_ssh_tempdir.')
+            self.log.debug('Cleaning master_ssh_tempdir.')
             shutil.rmtree(self._master_ssh_tempdir)
             self._master_ssh_tempdir = None
 
@@ -335,13 +352,13 @@ class SshConnection(object):
             self._settings,
             extra_flags=extra_flags,
             extra_options=extra_options)
-        logging.debug('Full tunnel command: %s', tunnel_cmd)
+        self.log.debug('Full tunnel command: %s', tunnel_cmd)
         # Exec the ssh process directly so that when we deliver signals, we
         # deliver them straight to the child process.
         tunnel_proc = job.run_async(tunnel_cmd)
-        logging.debug('Started ssh tunnel, local = %d'
-                      ' remote = %d, pid = %d', local_port, port,
-                      tunnel_proc.pid)
+        self.log.debug('Started ssh tunnel, local = %d'
+                       ' remote = %d, pid = %d', local_port, port,
+                       tunnel_proc.pid)
         self._tunnels.append(_Tunnel(local_port, port, tunnel_proc))
         return local_port
 
@@ -394,9 +411,9 @@ class SshConnection(object):
         """
         # TODO: This may belong somewhere else: b/3257251
         free_port_cmd = (
-            'python -c "import socket; s=socket.socket(); '
-            's.bind((\'%s\', 0)); print(s.getsockname()[1]); s.close()"'
-        ) % interface_name
+                            'python -c "import socket; s=socket.socket(); '
+                            's.bind((\'%s\', 0)); print(s.getsockname()[1]); s.close()"'
+                        ) % interface_name
         port = int(self.run(free_port_cmd).stdout)
         # Yield to the os to ensure the port gets cleaned up.
         time.sleep(0.001)

@@ -15,26 +15,40 @@
  */
 package com.android.car.dialer;
 
+import android.support.v7.widget.RecyclerView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import com.android.car.view.CarListItemViewHolder;
+import android.widget.TextView;
 
-public class CallLogViewHolder extends CarListItemViewHolder {
-    public View card;
-    public ViewGroup container;
-    public LinearLayout callType;
-    public CallTypeIconsView callTypeIconsView;
-    public ImageView smallIcon;
+/**
+ * A {@link android.support.v7.widget.RecyclerView.ViewHolder} that will hold layouts that
+ * are inflated by {@link StrequentsAdapter}.
+ */
+public class CallLogViewHolder extends RecyclerView.ViewHolder {
+    public final FrameLayout iconContainer;
+    public final ImageView icon;
+    public final TextView title;
+    public final TextView text;
+    public final View card;
+    public final ViewGroup container;
+    public final LinearLayout callType;
+    public final CallTypeIconsView callTypeIconsView;
+    public final ImageView smallIcon;
 
     public CallLogViewHolder(View v) {
-        super(v, R.layout.car_textview);
+        super(v);
 
+        icon = v.findViewById(R.id.icon);
+        iconContainer = v.findViewById(R.id.icon_container);
+        title = v.findViewById(R.id.title);
+        text = v.findViewById(R.id.text);
         card = v.findViewById(R.id.call_log_card);
-        callType = (LinearLayout) v.findViewById(R.id.call_type);
-        callTypeIconsView = (CallTypeIconsView) v.findViewById(R.id.call_type_icons);
-        smallIcon = (ImageView) v.findViewById(R.id.small_icon);
-        container = (ViewGroup) v.findViewById(R.id.container);
+        callType = v.findViewById(R.id.call_type);
+        callTypeIconsView = v.findViewById(R.id.call_type_icons);
+        smallIcon = v.findViewById(R.id.small_icon);
+        container = v.findViewById(R.id.container);
     }
 }

@@ -12,7 +12,7 @@
 
 #include "third_party/base/ptr_util.h"
 #include "third_party/base/stl_util.h"
-#include "xfa/fde/tto/fde_textout.h"
+#include "xfa/fde/cfde_textout.h"
 #include "xfa/fwl/cfwl_app.h"
 #include "xfa/fwl/cfwl_messagekey.h"
 #include "xfa/fwl/cfwl_messagemouse.h"
@@ -32,8 +32,7 @@ CFWL_ListBox::CFWL_ListBox(const CFWL_App* app,
                            std::unique_ptr<CFWL_WidgetProperties> properties,
                            CFWL_Widget* pOuter)
     : CFWL_Widget(app, std::move(properties), pOuter),
-      m_dwTTOStyles(0),
-      m_iTTOAligns(0),
+      m_iTTOAligns(FDE_TextAlignment::kTopLeft),
       m_hAnchor(nullptr),
       m_fScorllBarWidth(0),
       m_bLButtonDown(false),
@@ -57,20 +56,20 @@ void CFWL_ListBox::Update() {
 
   switch (m_pProperties->m_dwStyleExes & FWL_STYLEEXT_LTB_AlignMask) {
     case FWL_STYLEEXT_LTB_LeftAlign: {
-      m_iTTOAligns = FDE_TTOALIGNMENT_CenterLeft;
+      m_iTTOAligns = FDE_TextAlignment::kCenterLeft;
       break;
     }
     case FWL_STYLEEXT_LTB_RightAlign: {
-      m_iTTOAligns = FDE_TTOALIGNMENT_CenterRight;
+      m_iTTOAligns = FDE_TextAlignment::kCenterRight;
       break;
     }
     case FWL_STYLEEXT_LTB_CenterAlign:
     default: {
-      m_iTTOAligns = FDE_TTOALIGNMENT_Center;
+      m_iTTOAligns = FDE_TextAlignment::kCenter;
       break;
     }
   }
-  m_dwTTOStyles |= FDE_TTOSTYLE_SingleLine;
+  m_dwTTOStyles.single_line_ = true;
   m_fScorllBarWidth = GetScrollWidth();
   CalcSize(false);
 }
@@ -91,8 +90,8 @@ FWL_WidgetHit CFWL_ListBox::HitTest(const CFX_PointF& point) {
   return FWL_WidgetHit::Unknown;
 }
 
-void CFWL_ListBox::DrawWidget(CFX_Graphics* pGraphics,
-                              const CFX_Matrix* pMatrix) {
+void CFWL_ListBox::DrawWidget(CXFA_Graphics* pGraphics,
+                              const CFX_Matrix& matrix) {
   if (!pGraphics)
     return;
   if (!m_pProperties->m_pThemeProvider)
@@ -101,21 +100,19 @@ void CFWL_ListBox::DrawWidget(CFX_Graphics* pGraphics,
   IFWL_ThemeProvider* pTheme = m_pProperties->m_pThemeProvider;
   pGraphics->SaveGraphState();
   if (HasBorder())
-    DrawBorder(pGraphics, CFWL_Part::Border, pTheme, pMatrix);
+    DrawBorder(pGraphics, CFWL_Part::Border, pTheme, matrix);
 
   CFX_RectF rtClip(m_rtConent);
   if (IsShowScrollBar(false))
     rtClip.height -= m_fScorllBarWidth;
   if (IsShowScrollBar(true))
     rtClip.width -= m_fScorllBarWidth;
-  if (pMatrix)
-    pMatrix->TransformRect(rtClip);
 
-  pGraphics->SetClipRect(rtClip);
+  pGraphics->SetClipRect(matrix.TransformRect(rtClip));
   if ((m_pProperties->m_dwStyles & FWL_WGTSTYLE_NoBackground) == 0)
-    DrawBkground(pGraphics, pTheme, pMatrix);
+    DrawBkground(pGraphics, pTheme, &matrix);
 
-  DrawItems(pGraphics, pTheme, pMatrix);
+  DrawItems(pGraphics, pTheme, &matrix);
   pGraphics->RestoreGraphState();
 }
 
@@ -306,11 +303,11 @@ void CFWL_ListBox::SetFocusItem(CFWL_ListItem* pItem) {
 
 CFWL_ListItem* CFWL_ListBox::GetItemAtPoint(const CFX_PointF& point) {
   CFX_PointF pos = point - m_rtConent.TopLeft();
-  FX_FLOAT fPosX = 0.0f;
+  float fPosX = 0.0f;
   if (m_pHorzScrollBar)
     fPosX = m_pHorzScrollBar->GetPos();
 
-  FX_FLOAT fPosY = 0.0;
+  float fPosY = 0.0;
   if (m_pVertScrollBar)
     fPosY = m_pVertScrollBar->GetPos();
 
@@ -334,7 +331,7 @@ bool CFWL_ListBox::ScrollToVisible(CFWL_ListItem* pItem) {
 
   CFX_RectF rtItem = pItem ? pItem->GetRect() : CFX_RectF();
   bool bScroll = false;
-  FX_FLOAT fPosY = m_pVertScrollBar->GetPos();
+  float fPosY = m_pVertScrollBar->GetPos();
   rtItem.Offset(0, -fPosY + m_rtConent.top);
   if (rtItem.top < m_rtConent.top) {
     fPosY += rtItem.top - m_rtConent.top;
@@ -352,7 +349,7 @@ bool CFWL_ListBox::ScrollToVisible(CFWL_ListItem* pItem) {
   return true;
 }
 
-void CFWL_ListBox::DrawBkground(CFX_Graphics* pGraphics,
+void CFWL_ListBox::DrawBkground(CXFA_Graphics* pGraphics,
                                 IFWL_ThemeProvider* pTheme,
                                 const CFX_Matrix* pMatrix) {
   if (!pGraphics)
@@ -375,14 +372,14 @@ void CFWL_ListBox::DrawBkground(CFX_Graphics* pGraphics,
   pTheme->DrawBackground(&param);
 }
 
-void CFWL_ListBox::DrawItems(CFX_Graphics* pGraphics,
+void CFWL_ListBox::DrawItems(CXFA_Graphics* pGraphics,
                              IFWL_ThemeProvider* pTheme,
                              const CFX_Matrix* pMatrix) {
-  FX_FLOAT fPosX = 0.0f;
+  float fPosX = 0.0f;
   if (m_pHorzScrollBar)
     fPosX = m_pHorzScrollBar->GetPos();
 
-  FX_FLOAT fPosY = 0.0f;
+  float fPosY = 0.0f;
   if (m_pVertScrollBar)
     fPosY = m_pVertScrollBar->GetPos();
 
@@ -408,7 +405,7 @@ void CFWL_ListBox::DrawItems(CFX_Graphics* pGraphics,
   }
 }
 
-void CFWL_ListBox::DrawItem(CFX_Graphics* pGraphics,
+void CFWL_ListBox::DrawItem(CXFA_Graphics* pGraphics,
                             IFWL_ThemeProvider* pTheme,
                             CFWL_ListItem* pItem,
                             int32_t Index,
@@ -447,7 +444,7 @@ void CFWL_ListBox::DrawItem(CFX_Graphics* pGraphics,
   if (!pItem)
     return;
 
-  CFX_WideString wsText = pItem->GetText();
+  WideString wsText = pItem->GetText();
   if (wsText.GetLength() <= 0)
     return;
 
@@ -484,11 +481,10 @@ CFX_SizeF CFWL_ListBox::CalcSize(bool bAutoSize) {
                        pUIMargin.height);
   }
 
-  FX_FLOAT fWidth = GetMaxTextWidth();
+  float fWidth = GetMaxTextWidth();
   fWidth += 2 * kItemTextMargin;
   if (!bAutoSize) {
-    FX_FLOAT fActualWidth =
-        m_rtClient.width - rtUIMargin.left - rtUIMargin.width;
+    float fActualWidth = m_rtClient.width - rtUIMargin.left - rtUIMargin.width;
     fWidth = std::max(fWidth, fActualWidth);
   }
   m_fItemHeight = CalcItemHeight();
@@ -502,7 +498,7 @@ CFX_SizeF CFWL_ListBox::CalcSize(bool bAutoSize) {
   if (bAutoSize)
     return fs;
 
-  FX_FLOAT iHeight = m_rtClient.height;
+  float iHeight = m_rtClient.height;
   bool bShowVertScr = false;
   bool bShowHorzScr = false;
   if (!bShowVertScr && (m_pProperties->m_dwStyles & FWL_WGTSTYLE_VScroll))
@@ -527,8 +523,8 @@ CFX_SizeF CFWL_ListBox::CalcSize(bool bAutoSize) {
     m_pVertScrollBar->SetPageSize(rtScrollBar.height * 9 / 10);
     m_pVertScrollBar->SetStepSize(m_fItemHeight);
 
-    FX_FLOAT fPos =
-        std::min(std::max(m_pVertScrollBar->GetPos(), 0.f), szRange.height);
+    float fPos =
+        pdfium::clamp(m_pVertScrollBar->GetPos(), 0.0f, szRange.height);
     m_pVertScrollBar->SetPos(fPos);
     m_pVertScrollBar->SetTrackPos(fPos);
     if ((m_pProperties->m_dwStyleExes & FWL_STYLEEXT_LTB_ShowScrollBarFocus) ==
@@ -559,8 +555,8 @@ CFX_SizeF CFWL_ListBox::CalcSize(bool bAutoSize) {
     m_pHorzScrollBar->SetPageSize(fWidth * 9 / 10);
     m_pHorzScrollBar->SetStepSize(fWidth / 10);
 
-    FX_FLOAT fPos =
-        std::min(std::max(m_pHorzScrollBar->GetPos(), 0.f), szRange.height);
+    float fPos =
+        pdfium::clamp(m_pHorzScrollBar->GetPos(), 0.0f, szRange.height);
     m_pHorzScrollBar->SetPos(fPos);
     m_pHorzScrollBar->SetTrackPos(fPos);
     if ((m_pProperties->m_dwStyleExes & FWL_STYLEEXT_LTB_ShowScrollBarFocus) ==
@@ -584,8 +580,8 @@ CFX_SizeF CFWL_ListBox::CalcSize(bool bAutoSize) {
 
 void CFWL_ListBox::UpdateItemSize(CFWL_ListItem* pItem,
                                   CFX_SizeF& size,
-                                  FX_FLOAT fWidth,
-                                  FX_FLOAT fItemHeight,
+                                  float fWidth,
+                                  float fItemHeight,
                                   bool bAutoSize) const {
   if (!bAutoSize && pItem) {
     CFX_RectF rtItem(0, size.height, fWidth, fItemHeight);
@@ -595,8 +591,8 @@ void CFWL_ListBox::UpdateItemSize(CFWL_ListItem* pItem,
   size.height += fItemHeight;
 }
 
-FX_FLOAT CFWL_ListBox::GetMaxTextWidth() {
-  FX_FLOAT fRet = 0.0f;
+float CFWL_ListBox::GetMaxTextWidth() {
+  float fRet = 0.0f;
   int32_t iCount = CountItems(this);
   for (int32_t i = 0; i < iCount; i++) {
     CFWL_ListItem* pItem = GetItem(this, i);
@@ -610,12 +606,12 @@ FX_FLOAT CFWL_ListBox::GetMaxTextWidth() {
   return fRet;
 }
 
-FX_FLOAT CFWL_ListBox::GetScrollWidth() {
+float CFWL_ListBox::GetScrollWidth() {
   IFWL_ThemeProvider* theme = GetAvailableTheme();
   return theme ? theme->GetScrollBarWidth() : 0.0f;
 }
 
-FX_FLOAT CFWL_ListBox::CalcItemHeight() {
+float CFWL_ListBox::CalcItemHeight() {
   IFWL_ThemeProvider* theme = GetAvailableTheme();
   CFWL_ThemePart part;
   part.m_pWidget = this;
@@ -631,8 +627,8 @@ void CFWL_ListBox::InitVerticalScrollBar() {
   prop->m_dwStates = FWL_WGTSTATE_Invisible;
   prop->m_pParent = this;
   prop->m_pThemeProvider = m_pScrollBarTP;
-  m_pVertScrollBar =
-      pdfium::MakeUnique<CFWL_ScrollBar>(m_pOwnerApp, std::move(prop), this);
+  m_pVertScrollBar = pdfium::MakeUnique<CFWL_ScrollBar>(m_pOwnerApp.Get(),
+                                                        std::move(prop), this);
 }
 
 void CFWL_ListBox::InitHorizontalScrollBar() {
@@ -644,8 +640,8 @@ void CFWL_ListBox::InitHorizontalScrollBar() {
   prop->m_dwStates = FWL_WGTSTATE_Invisible;
   prop->m_pParent = this;
   prop->m_pThemeProvider = m_pScrollBarTP;
-  m_pHorzScrollBar =
-      pdfium::MakeUnique<CFWL_ScrollBar>(m_pOwnerApp, std::move(prop), this);
+  m_pHorzScrollBar = pdfium::MakeUnique<CFWL_ScrollBar>(m_pOwnerApp.Get(),
+                                                        std::move(prop), this);
 }
 
 bool CFWL_ListBox::IsShowScrollBar(bool bVert) {
@@ -715,9 +711,9 @@ void CFWL_ListBox::OnProcessEvent(CFWL_Event* pEvent) {
   }
 }
 
-void CFWL_ListBox::OnDrawWidget(CFX_Graphics* pGraphics,
-                                const CFX_Matrix* pMatrix) {
-  DrawWidget(pGraphics, pMatrix);
+void CFWL_ListBox::OnDrawWidget(CXFA_Graphics* pGraphics,
+                                const CFX_Matrix& matrix) {
+  DrawWidget(pGraphics, matrix);
 }
 
 void CFWL_ListBox::OnFocusChanged(CFWL_Message* pMsg, bool bSet) {
@@ -838,11 +834,11 @@ void CFWL_ListBox::OnVK(CFWL_ListItem* pItem, bool bShift, bool bCtrl) {
 
 bool CFWL_ListBox::OnScroll(CFWL_ScrollBar* pScrollBar,
                             CFWL_EventScroll::Code dwCode,
-                            FX_FLOAT fPos) {
+                            float fPos) {
   CFX_SizeF fs;
   pScrollBar->GetRange(&fs.width, &fs.height);
-  FX_FLOAT iCurPos = pScrollBar->GetPos();
-  FX_FLOAT fStep = pScrollBar->GetStepSize();
+  float iCurPos = pScrollBar->GetPos();
+  float fStep = pScrollBar->GetStepSize();
   switch (dwCode) {
     case CFWL_EventScroll::Code::Min: {
       fPos = fs.width;
@@ -911,9 +907,9 @@ int32_t CFWL_ListBox::GetItemIndex(CFWL_Widget* pWidget, CFWL_ListItem* pItem) {
   return it != m_ItemArray.end() ? it - m_ItemArray.begin() : -1;
 }
 
-CFWL_ListItem* CFWL_ListBox::AddString(const CFX_WideStringC& wsAdd) {
+CFWL_ListItem* CFWL_ListBox::AddString(const WideStringView& wsAdd) {
   m_ItemArray.emplace_back(
-      pdfium::MakeUnique<CFWL_ListItem>(CFX_WideString(wsAdd)));
+      pdfium::MakeUnique<CFWL_ListItem>(WideString(wsAdd)));
   return m_ItemArray.back().get();
 }
 

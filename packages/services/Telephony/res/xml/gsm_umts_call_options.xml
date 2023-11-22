@@ -10,6 +10,11 @@
         android:persistent="false" />
 
     <PreferenceScreen
+         android:key="call_barring_key"
+         android:title="@string/labelCallBarring"
+         android:persistent="false" />
+
+    <PreferenceScreen
         android:key="additional_gsm_call_settings_key"
         android:title="@string/additional_gsm_call_settings"
         android:persistent="false" />

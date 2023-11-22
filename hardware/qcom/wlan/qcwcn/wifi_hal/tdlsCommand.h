@@ -90,13 +90,13 @@ public:
 
     virtual void setSubCmd(u32 subcmd);
 
-    virtual int requestResponse();
+    virtual wifi_error requestResponse();
 
     virtual int handleEvent(WifiEvent &event);
 
     virtual int handleResponse(WifiEvent &reply);
 
-    virtual int setCallbackHandler(wifi_tdls_handler nHandler, u32 event);
+    virtual wifi_error setCallbackHandler(wifi_tdls_handler nHandler, u32 event);
 
     virtual void unregisterHandler(u32 subCmd);
 

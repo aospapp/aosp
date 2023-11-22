@@ -41,7 +41,7 @@ IptablesBaseTest::IptablesBaseTest() {
 int IptablesBaseTest::fake_android_fork_exec(int argc, char* argv[], int *status, bool, bool) {
     std::string cmd = argv[0];
     for (int i = 1; i < argc; i++) {
-        if (argv[i] == NULL) break;  // NatController likes to pass in invalid argc values.
+        if (argv[i] == NULL) break;
         cmd += " ";
         cmd += argv[i];
     }
@@ -111,10 +111,6 @@ void IptablesBaseTest::expectIptablesRestoreCommands(const ExpectedIptablesComma
             "iptables-restore command " << i << " differs";
     }
     sRestoreCmds.clear();
-}
-
-void IptablesBaseTest::setReturnValues(const std::deque<int>& returnValues) {
-    sReturnValues = returnValues;
 }
 
 std::vector<std::string> IptablesBaseTest::sCmds = {};

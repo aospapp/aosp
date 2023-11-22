@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN un lietotnes"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Piezīme. Sertifikāta izsniedzējs var pārbaudīt visu ierīcē saņemto un nosūtīto datplūsmu."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi profils"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"Detalizēta informācija par: %s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Detalizēta informācija"</string>

@@ -213,9 +213,9 @@
     <string name="clear_all_message">Clear all information and contacts?</string>
     <!-- Information footer describing the use of emergency information. [CHAR LIMIT=NONE] -->
     <string name="emergency_info_footer">Adding medical information and emergency contacts can help first responders in an emergency.\n\nAnyone can read this information from your lock screen, and dial your contacts by tapping their names, without unlocking your phone.</string>
-    <!-- Title for a suggestion to a user to set up their emergency information [CHAR_LIMIT=60] -->
+    <!-- Title for a suggestion to a user to set up their emergency information [CHAR_LIMIT=46] -->
     <string name="settings_suggestion_title">Add emergency information</string>
-    <!-- Explanatory text for a suggestion to a user to set up their emergency information [CHAR_LIMIT=NONE] -->
-    <string name="settings_suggestion_body">Help first responders find important information</string>
+    <!-- Explanatory text for a suggestion to a user to set up their emergency information [CHAR_LIMIT=55] -->
+    <string name="settings_suggestion_body">Let first responders see your information</string>
 
 </resources>

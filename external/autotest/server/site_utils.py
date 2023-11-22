@@ -949,6 +949,8 @@ def _report_result_size_metrics(result_size_info):
                                    fields=fields)
 
 
+@metrics.SecondsTimerDecorator(
+        'chromeos/autotest/result_collection/collect_result_sizes_duration')
 def collect_result_sizes(path, log=logging.debug):
     """Collect the result sizes information and build result summary.
 
@@ -970,11 +972,16 @@ def collect_result_sizes(path, log=logging.debug):
              sizes.
     """
     try:
-        client_collected_bytes, summary = result_utils.merge_summaries(path)
+        client_collected_bytes, summary, files = result_utils.merge_summaries(
+                path)
         result_size_info = result_utils_lib.get_result_size_info(
                 client_collected_bytes, summary)
         html_file = os.path.join(path, result_view.DEFAULT_RESULT_SUMMARY_NAME)
         result_view.build(client_collected_bytes, summary, html_file)
+
+        # Delete all summary files after final view is built.
+        for summary_file in files:
+            os.remove(summary_file)
     except:
         log('Failed to calculate result sizes based on directory summaries for '
             'directory %s. Fall back to record the total size.\nException: %s' %

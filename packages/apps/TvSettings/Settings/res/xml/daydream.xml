@@ -21,14 +21,14 @@
     <!-- TODO: use a custom fragment here to add icon and other chrome -->
     <ListPreference
         android:key="activeDream"
-        android:persistent="false"
+        android:persistent="true"
         android:title="@string/device_daydreams_select"
         android:summary="%s"
         android:dialogTitle="@string/device_daydreams_select" />
 
     <com.android.tv.settings.device.display.daydream.DreamTimePreference
         android:key="dreamTime"
-        android:persistent="false"
+        android:persistent="true"
         android:title="@string/device_daydreams_sleep"
         android:summary="@string/device_daydreams_sleep_summary"
         android:dialogTitle="@string/device_daydreams_sleep"
@@ -37,7 +37,7 @@
 
     <com.android.tv.settings.device.display.daydream.DreamTimePreference
         android:key="sleepTime"
-        android:persistent="false"
+        android:persistent="true"
         android:title="@string/device_daydreams_screen_off"
         android:summary="@string/device_daydreams_sleep_summary"
         android:dialogTitle="@string/device_daydreams_screen_off"
@@ -46,7 +46,7 @@
 
     <Preference
         android:key="dreamNow"
-        android:persistent="false"
+        android:persistent="true"
         android:title="@string/device_daydreams_test" />
 
 </PreferenceScreen>

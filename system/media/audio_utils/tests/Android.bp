@@ -24,6 +24,26 @@ cc_test {
 }
 
 cc_binary {
+    name: "primitives_benchmark",
+    host_supported: true,
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+
+    srcs: ["primitives_benchmark.cpp"],
+    cflags: [
+        "-Werror",
+        "-Wall",
+    ],
+    static_libs: [
+        "libgoogle-benchmark",
+        "libaudioutils",
+    ],
+}
+
+cc_binary {
     name: "fifo_tests",
     host_supported: true,
     srcs: ["fifo_tests.cpp"],
@@ -160,6 +180,63 @@ cc_test {
         "-Wall",
         "-Werror",
         "-Wextra",
+    ],
+    target: {
+        android: {
+            shared_libs: ["libaudioutils"],
+        },
+        host: {
+            static_libs: ["libaudioutils"],
+        },
+    }
+}
+
+cc_test {
+    name: "channels_tests",
+    host_supported: true,
+
+    shared_libs: [
+        "libcutils",
+        "liblog",
+    ],
+    srcs: ["channels_tests.cpp"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+    target: {
+        android: {
+            shared_libs: ["libaudioutils"],
+        },
+        host: {
+            static_libs: ["libaudioutils"],
+        },
+    }
+}
+
+cc_test {
+    name: "string_tests",
+    host_supported: false,
+
+    shared_libs: ["libaudioutils"],
+    srcs: ["string_tests.cpp"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+}
+
+cc_test {
+    name: "format_tests",
+    host_supported: true,
+
+    shared_libs: [
+        "liblog",
+    ],
+    srcs: ["format_tests.cpp"],
+    cflags: [
+        "-Werror",
+        "-Wall",
     ],
     target: {
         android: {

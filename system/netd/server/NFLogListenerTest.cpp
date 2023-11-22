@@ -19,7 +19,7 @@
 #include <iostream>
 #include <mutex>
 
-#include <endian.h>
+#include <arpa/inet.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <linux/netfilter/nfnetlink_log.h>
@@ -92,7 +92,7 @@ class NFLogListenerTest : public testing::Test {
 
         msg.nlmsg.nlmsg_type = kNFLogPacketMsgType;
         msg.nlmsg.nlmsg_len = sizeof(msg);
-        msg.nfmsg.res_id = htobe16(type);
+        msg.nfmsg.res_id = htons(type);
         mPacketFn(msg.nlmsg, drop(makeSlice(msg), sizeof(msg.nlmsg)));
     }
 
@@ -121,7 +121,7 @@ TEST_F(NFLogListenerTest, dispatchOk) {
     constexpr uint16_t kType = 38;
     const auto dispatchFn = [&invocations, kType](const nlmsghdr&, const nfgenmsg& nfmsg,
                                                   const netdutils::Slice) {
-        EXPECT_EQ(kType, be16toh(nfmsg.res_id));
+        EXPECT_EQ(kType, ntohs(nfmsg.res_id));
         ++invocations;
     };
     subscribe(kType, dispatchFn);

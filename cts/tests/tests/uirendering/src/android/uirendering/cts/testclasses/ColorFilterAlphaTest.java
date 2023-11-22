@@ -15,6 +15,7 @@
  */
 package android.uirendering.cts.testclasses;
 
+import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -29,6 +30,7 @@ import android.uirendering.cts.bitmapverifiers.SamplePointVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.CanvasClient;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -89,7 +91,7 @@ public class ColorFilterAlphaTest extends ActivityTestBase {
                 0xFFC21A1A, 0xFFC93333, 0xFFD04D4D, 0xFFD66666, 0xFFBB0000 } },
     };
 
-    @Parameterized.Parameters(name = "{0}")
+    @Parameterized.Parameters
     public static List<XfermodeTest.Config> configs() {
         return XfermodeTest.configs(MODES_AND_EXPECTED_COLORS);
     }
@@ -123,12 +125,11 @@ public class ColorFilterAlphaTest extends ActivityTestBase {
     }
 
 
-    @Override
+    @Before
     public void setUp() {
-        super.setUp();
-
         // temporary - ensure test isn't capturing window bg only
-        getInstrumentation().runOnMainSync(() -> getActivity().getWindow().setBackgroundDrawable(
+        final Activity activity = getActivity();
+        getInstrumentation().runOnMainSync(() -> activity.getWindow().setBackgroundDrawable(
                         new ColorDrawable(Color.GREEN)));
 
     }

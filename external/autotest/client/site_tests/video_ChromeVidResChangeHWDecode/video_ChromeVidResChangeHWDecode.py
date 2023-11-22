@@ -42,11 +42,6 @@ class video_ChromeVidResChangeHWDecode(test.test):
                  event_timeout = 120)
             player.load_video()
             player.play()
-            # Waits for histogram updated for the test video.
-            histogram_verifier.verify(
-                    cr,
-                    constants.MEDIA_GVD_INIT_STATUS,
-                    constants.MEDIA_GVD_BUCKET)
 
             # Verify the video playback.
             for i in range(1, video_len/2):
@@ -60,3 +55,9 @@ class video_ChromeVidResChangeHWDecode(test.test):
                     timeout=video_len,
                     exception=error.TestError('Video did not end successfully'),
                     sleep_interval=1)
+
+            # Make sure decode is hardware accelerated.
+            histogram_verifier.verify(
+                    cr,
+                    constants.MEDIA_GVD_INIT_STATUS,
+                    constants.MEDIA_GVD_BUCKET)

@@ -82,6 +82,8 @@ wifi_error cleanupGscanHandlers(hal_info *info)
             delete event_handlers->gScanPnoSetPasspointListCmdEventHandler;
         }
         memset(event_handlers, 0, sizeof(gscan_event_handlers));
+        free(info->gscan_handlers);
+        info->gscan_handlers = NULL;
         return WIFI_SUCCESS;
     }
     ALOGE ("%s: info or info->gscan_handlers NULL", __FUNCTION__);
@@ -92,7 +94,8 @@ wifi_error cleanupGscanHandlers(hal_info *info)
 wifi_error wifi_get_valid_channels(wifi_interface_handle handle,
        int band, int max_channels, wifi_channel *channels, int *num_channels)
 {
-    int requestId, ret = 0;
+    int requestId;
+    wifi_error ret;
     GScanCommand *gScanCommand;
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(handle);
@@ -122,12 +125,12 @@ wifi_error wifi_get_valid_channels(wifi_interface_handle handle,
     }
     /* Create the NL message. */
     ret = gScanCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Set the interface Id of the message. */
     ret = gScanCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Add the vendor specific attributes for the NL command. */
@@ -155,19 +158,17 @@ wifi_error wifi_get_valid_channels(wifi_interface_handle handle,
 
     /* Send the msg and wait for a response. */
     ret = gScanCommand->requestResponse();
-    if (ret) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("%s: Error %d happened. ", __FUNCTION__, ret);
-    }
 
 cleanup:
     delete gScanCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 wifi_error wifi_get_gscan_capabilities(wifi_interface_handle handle,
                                  wifi_gscan_capabilities *capabilities)
 {
-    wifi_error ret = WIFI_SUCCESS;
     wifi_handle wifiHandle = getWifiHandle(handle);
     hal_info *info = getHalInfo(wifiHandle);
 
@@ -183,7 +184,7 @@ wifi_error wifi_get_gscan_capabilities(wifi_interface_handle handle,
 
     memcpy(capabilities, &info->capa.gscan_capa, sizeof(wifi_gscan_capabilities));
 
-    return mapErrorKernelToWifiHAL(ret);
+    return WIFI_SUCCESS;
 }
 
 wifi_error wifi_start_gscan(wifi_request_id id,
@@ -191,7 +192,7 @@ wifi_error wifi_start_gscan(wifi_request_id id,
                             wifi_scan_cmd_params params,
                             wifi_scan_result_handler handler)
 {
-    int ret = 0;
+    wifi_error ret;
     u32 i, j;
     GScanCommand *gScanCommand;
     struct nlattr *nlData;
@@ -232,12 +233,12 @@ wifi_error wifi_start_gscan(wifi_request_id id,
 
     /* Create the NL message. */
     ret = gScanCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Set the interface Id of the message. */
     ret = gScanCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Add the vendor specific attributes for the NL command. */
@@ -378,7 +379,7 @@ wifi_error wifi_start_gscan(wifi_request_id id,
     }
 
     ret = gScanCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s : requestResponse Error:%d", __FUNCTION__, ret);
         goto cleanup;
     }
@@ -391,19 +392,19 @@ wifi_error wifi_start_gscan(wifi_request_id id,
 cleanup:
     delete gScanCommand;
     /* Disable Event Handling if ret != 0 */
-    if (ret && gScanStartCmdEventHandler) {
+    if ((ret != WIFI_SUCCESS) && gScanStartCmdEventHandler) {
         ALOGI("%s: Error ret:%d, disable event handling",
             __FUNCTION__, ret);
         gScanStartCmdEventHandler->disableEventHandling();
     }
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 
 }
 
 wifi_error wifi_stop_gscan(wifi_request_id id,
                             wifi_interface_handle iface)
 {
-    int ret = 0;
+    wifi_error ret;
     GScanCommand *gScanCommand;
     struct nlattr *nlData;
 
@@ -441,12 +442,12 @@ wifi_error wifi_stop_gscan(wifi_request_id id,
 
     /* Create the NL message. */
     ret = gScanCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Set the interface Id of the message. */
     ret = gScanCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Add the vendor specific attributes for the NL command. */
@@ -457,15 +458,14 @@ wifi_error wifi_stop_gscan(wifi_request_id id,
     ret = gScanCommand->put_u32(
             QCA_WLAN_VENDOR_ATTR_GSCAN_SUBCMD_CONFIG_PARAM_REQUEST_ID,
             id);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     gScanCommand->attr_end(nlData);
 
     ret = gScanCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("%s: requestResponse Error:%d",__FUNCTION__, ret);
-    }
 
     /* Disable Event Handling. */
     if (gScanStartCmdEventHandler) {
@@ -474,7 +474,7 @@ wifi_error wifi_stop_gscan(wifi_request_id id,
 
 cleanup:
     delete gScanCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 /* Set the GSCAN BSSID Hotlist. */
@@ -483,7 +483,8 @@ wifi_error wifi_set_bssid_hotlist(wifi_request_id id,
                                     wifi_bssid_hotlist_params params,
                                     wifi_hotlist_ap_found_handler handler)
 {
-    int i, numAp, ret = 0;
+    int i, numAp;
+    wifi_error ret;
     GScanCommand *gScanCommand;
     struct nlattr *nlData, *nlApThresholdParamList;
     interface_info *ifaceInfo = getIfaceInfo(iface);
@@ -523,12 +524,12 @@ wifi_error wifi_set_bssid_hotlist(wifi_request_id id,
 
     /* Create the NL message. */
     ret = gScanCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Set the interface Id of the message. */
     ret = gScanCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Add the vendor specific attributes for the NL command. */
@@ -619,7 +620,7 @@ wifi_error wifi_set_bssid_hotlist(wifi_request_id id,
     }
 
     ret = gScanCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: requestResponse Error:%d",__FUNCTION__, ret);
         goto cleanup;
     }
@@ -632,18 +633,18 @@ wifi_error wifi_set_bssid_hotlist(wifi_request_id id,
 cleanup:
     delete gScanCommand;
     /* Disable Event Handling if ret != 0 */
-    if (ret && gScanSetBssidHotlistCmdEventHandler) {
+    if ((ret != WIFI_SUCCESS) && gScanSetBssidHotlistCmdEventHandler) {
         ALOGI("%s: Error ret:%d, disable event handling",
             __FUNCTION__, ret);
         gScanSetBssidHotlistCmdEventHandler->disableEventHandling();
     }
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 wifi_error wifi_reset_bssid_hotlist(wifi_request_id id,
                             wifi_interface_handle iface)
 {
-    int ret = 0;
+    wifi_error ret;
     GScanCommand *gScanCommand;
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
@@ -683,12 +684,12 @@ wifi_error wifi_reset_bssid_hotlist(wifi_request_id id,
 
     /* Create the NL message. */
     ret = gScanCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Set the interface Id of the message. */
     ret = gScanCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Add the vendor specific attributes for the NL command. */
@@ -698,15 +699,14 @@ wifi_error wifi_reset_bssid_hotlist(wifi_request_id id,
 
     ret = gScanCommand->put_u32(
             QCA_WLAN_VENDOR_ATTR_GSCAN_SUBCMD_CONFIG_PARAM_REQUEST_ID, id);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     gScanCommand->attr_end(nlData);
 
     ret = gScanCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("%s: requestResponse Error:%d",__FUNCTION__, ret);
-    }
 
     /* Disable Event Handling. */
     if (gScanSetBssidHotlistCmdEventHandler) {
@@ -715,7 +715,7 @@ wifi_error wifi_reset_bssid_hotlist(wifi_request_id id,
 
 cleanup:
     delete gScanCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 /* Set the GSCAN Significant AP Change list. */
@@ -724,7 +724,8 @@ wifi_error wifi_set_significant_change_handler(wifi_request_id id,
                                     wifi_significant_change_params params,
                                     wifi_significant_change_handler handler)
 {
-    int i, numAp, ret = 0;
+    int i, numAp;
+    wifi_error ret;
     GScanCommand *gScanCommand;
     struct nlattr *nlData, *nlApThresholdParamList;
     interface_info *ifaceInfo = getIfaceInfo(iface);
@@ -763,12 +764,12 @@ wifi_error wifi_set_significant_change_handler(wifi_request_id id,
 
     /* Create the NL message. */
     ret = gScanCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Set the interface Id of the message. */
     ret = gScanCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Add the vendor specific attributes for the NL command. */
@@ -871,7 +872,7 @@ wifi_error wifi_set_significant_change_handler(wifi_request_id id,
     }
 
     ret = gScanCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: requestResponse Error:%d",__FUNCTION__, ret);
         goto cleanup;
     }
@@ -883,20 +884,20 @@ wifi_error wifi_set_significant_change_handler(wifi_request_id id,
 
 cleanup:
     /* Disable Event Handling if ret != 0 */
-    if (ret && gScanSetSignificantChangeCmdEventHandler) {
+    if ((ret != WIFI_SUCCESS) && gScanSetSignificantChangeCmdEventHandler) {
         ALOGI("%s: Error ret:%d, disable event handling",
             __FUNCTION__, ret);
         gScanSetSignificantChangeCmdEventHandler->disableEventHandling();
     }
     delete gScanCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 /* Clear the GSCAN Significant AP change list. */
 wifi_error wifi_reset_significant_change_handler(wifi_request_id id,
                                             wifi_interface_handle iface)
 {
-    int ret = 0;
+    wifi_error ret;
     GScanCommand *gScanCommand;
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
@@ -937,12 +938,12 @@ wifi_error wifi_reset_significant_change_handler(wifi_request_id id,
 
     /* Create the NL message. */
     ret = gScanCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Set the interface Id of the message. */
     ret = gScanCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Add the vendor specific attributes for the NL command. */
@@ -953,15 +954,14 @@ wifi_error wifi_reset_significant_change_handler(wifi_request_id id,
     ret = gScanCommand->put_u32(
                     QCA_WLAN_VENDOR_ATTR_GSCAN_SUBCMD_CONFIG_PARAM_REQUEST_ID,
                     id);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     gScanCommand->attr_end(nlData);
 
     ret = gScanCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("%s: requestResponse Error:%d",__FUNCTION__, ret);
-    }
 
     /* Disable Event Handling. */
     if (gScanSetSignificantChangeCmdEventHandler) {
@@ -970,7 +970,7 @@ wifi_error wifi_reset_significant_change_handler(wifi_request_id id,
 
 cleanup:
     delete gScanCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 /* Get the GSCAN cached scan results. */
@@ -979,7 +979,8 @@ wifi_error wifi_get_cached_gscan_results(wifi_interface_handle iface,
                                             wifi_cached_scan_results *results,
                                             int *num)
 {
-    int requestId, ret = 0, retRequestRsp = 0;
+    int requestId, retRequestRsp = 0;
+    wifi_error ret;
     GScanCommand *gScanCommand;
     struct nlattr *nlData;
 
@@ -1014,14 +1015,14 @@ wifi_error wifi_get_cached_gscan_results(wifi_interface_handle iface,
     }
 
     ret = gScanCommand->allocRspParams(eGScanGetCachedResultsRspParams);
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to allocate memory for response struct. Error:%d",
             __FUNCTION__, ret);
         goto cleanup;
     }
 
     ret = gScanCommand->allocCachedResultsTemp(max, results);
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to allocate memory for temp gscan cached list. "
             "Error:%d", __FUNCTION__, ret);
         goto cleanup;
@@ -1032,20 +1033,17 @@ wifi_error wifi_get_cached_gscan_results(wifi_interface_handle iface,
 
     /* Create the NL message. */
     ret = gScanCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Set the interface Id of the message. */
     ret = gScanCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Add the vendor specific attributes for the NL command. */
     nlData = gScanCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
     if (!nlData)
-        goto cleanup;
-
-    if (ret < 0)
         goto cleanup;
 
     if (gScanCommand->put_u32(
@@ -1068,6 +1066,9 @@ wifi_error wifi_get_cached_gscan_results(wifi_interface_handle iface,
     if (retRequestRsp != 0) {
         ALOGE("%s: requestResponse Error:%d",
             __FUNCTION__, retRequestRsp);
+        /* It's possible to get ETIMEDOUT after receiving few results from
+         * driver. Copy and forward them to framework.
+         */
         if (retRequestRsp != -ETIMEDOUT) {
             /* Proceed to cleanup & return no results */
             goto cleanup;
@@ -1094,13 +1095,13 @@ wifi_error wifi_get_cached_gscan_results(wifi_interface_handle iface,
 cleanup:
     gScanCommand->freeRspParams(eGScanGetCachedResultsRspParams);
     delete gScanCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 /* Random MAC OUI for PNO */
 wifi_error wifi_set_scanning_mac_oui(wifi_interface_handle handle, oui scan_oui)
 {
-    int ret = 0;
+    wifi_error ret;
     struct nlattr *nlData;
     WifiVendorCommand *vCommand = NULL;
     interface_info *iinfo = getIfaceInfo(handle);
@@ -1116,11 +1117,11 @@ wifi_error wifi_set_scanning_mac_oui(wifi_interface_handle handle, oui scan_oui)
 
     /* create the message */
     ret = vCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     ret = vCommand->set_iface_id(iinfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Add the vendor specific attributes for the NL command. */
@@ -1136,20 +1137,20 @@ wifi_error wifi_set_scanning_mac_oui(wifi_interface_handle handle, oui scan_oui)
             QCA_WLAN_VENDOR_ATTR_SET_SCANNING_MAC_OUI,
             (char *)scan_oui,
             WIFI_SCANNING_MAC_OUI_LENGTH);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     vCommand->attr_end(nlData);
 
     ret = vCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: requestResponse Error:%d",__FUNCTION__, ret);
         goto cleanup;
     }
 
 cleanup:
     delete vCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 
@@ -1174,35 +1175,38 @@ GScanCommand::~GScanCommand()
 
 
 /* This function implements creation of Vendor command */
-int GScanCommand::create() {
-    int ret = mMsg.create(NL80211_CMD_VENDOR, 0, 0);
-    if (ret < 0) {
+wifi_error GScanCommand::create() {
+    wifi_error ret;
+
+    ret = mMsg.create(NL80211_CMD_VENDOR, 0, 0);
+    if (ret != WIFI_SUCCESS)
         return ret;
-    }
 
     /* Insert the oui in the msg */
     ret = mMsg.put_u32(NL80211_ATTR_VENDOR_ID, mVendor_id);
-    if (ret < 0)
-        goto out;
+    if (ret != WIFI_SUCCESS)
+        return ret;
+
     /* Insert the subcmd in the msg */
     ret = mMsg.put_u32(NL80211_ATTR_VENDOR_SUBCMD, mSubcmd);
-    if (ret < 0)
-        goto out;
+    if (ret != WIFI_SUCCESS)
+        return ret;
 
      ALOGV("%s: mVendor_id = %d, Subcmd = %d.",
         __FUNCTION__, mVendor_id, mSubcmd);
-out:
+
     return ret;
 }
 
-int GScanCommand::requestResponse()
+wifi_error GScanCommand::requestResponse()
 {
     return WifiCommand::requestResponse(mMsg);
 }
 
-int GScanCommand::handleResponse(WifiEvent &reply) {
+int GScanCommand::handleResponse(WifiEvent &reply)
+{
     int i = 0;
-    int ret = WIFI_SUCCESS;
+    wifi_error ret = WIFI_SUCCESS;
     u32 val;
 
     WifiVendorCommand::handleResponse(reply);
@@ -1374,7 +1378,7 @@ int GScanCommand::handleResponse(WifiEvent &reply) {
 }
 
 /* Called to parse and extract cached results. */
-int GScanCommand:: gscan_get_cached_results(
+wifi_error GScanCommand:: gscan_get_cached_results(
                                       wifi_cached_scan_results *cached_results,
                                       struct nlattr **tb_vendor)
 {
@@ -1654,7 +1658,8 @@ wifi_error wifi_set_epno_list(wifi_request_id id,
                                 const wifi_epno_params *epno_params,
                                 wifi_epno_handler handler)
 {
-    int i, ret = 0, num_networks;
+    int i, num_networks;
+    wifi_error ret;
     GScanCommand *gScanCommand;
     struct nlattr *nlData, *nlPnoParamList;
     interface_info *ifaceInfo = getIfaceInfo(iface);
@@ -1694,14 +1699,14 @@ wifi_error wifi_set_epno_list(wifi_request_id id,
 
     /* Create the NL message. */
     ret = gScanCommand->create();
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to create the NL msg. Error:%d", __FUNCTION__, ret);
         goto cleanup;
     }
 
     /* Set the interface Id of the message. */
     ret = gScanCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to set iface id. Error:%d", __FUNCTION__, ret);
         goto cleanup;
     }
@@ -1815,7 +1820,7 @@ wifi_error wifi_set_epno_list(wifi_request_id id,
     }
 
     ret = gScanCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: requestResponse Error:%d",__FUNCTION__, ret);
         goto cleanup;
     }
@@ -1828,18 +1833,18 @@ wifi_error wifi_set_epno_list(wifi_request_id id,
 cleanup:
     delete gScanCommand;
     /* Disable Event Handling if ret != 0 */
-    if (ret && gScanSetPnoListCmdEventHandler) {
+    if ((ret != WIFI_SUCCESS) && gScanSetPnoListCmdEventHandler) {
         ALOGI("%s: Error ret:%d, disable event handling",
             __FUNCTION__, ret);
         gScanSetPnoListCmdEventHandler->disableEventHandling();
     }
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 /* Reset the ePNO list - no ePNO networks should be matched after this */
 wifi_error wifi_reset_epno_list(wifi_request_id id, wifi_interface_handle iface)
 {
-    int ret = 0;
+    wifi_error ret;
     GScanCommand *gScanCommand;
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
@@ -1863,14 +1868,14 @@ wifi_error wifi_reset_epno_list(wifi_request_id id, wifi_interface_handle iface)
 
     /* Create the NL message. */
     ret = gScanCommand->create();
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to create the NL msg. Error:%d", __FUNCTION__, ret);
         goto cleanup;
     }
 
     /* Set the interface Id of the message. */
     ret = gScanCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to set iface id. Error:%d", __FUNCTION__, ret);
         goto cleanup;
     }
@@ -1897,13 +1902,12 @@ wifi_error wifi_reset_epno_list(wifi_request_id id, wifi_interface_handle iface)
     gScanCommand->attr_end(nlData);
 
     ret = gScanCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("%s: requestResponse Error:%d",__FUNCTION__, ret);
-    }
 
 cleanup:
     delete gScanCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 /* Set the ePNO Passpoint List. */
@@ -1912,7 +1916,8 @@ wifi_error wifi_set_passpoint_list(wifi_request_id id,
                                    wifi_passpoint_network *networks,
                                    wifi_passpoint_event_handler handler)
 {
-    int i, ret = 0;
+    int i;
+    wifi_error ret;
     GScanCommand *gScanCommand;
     struct nlattr *nlData, *nlPasspointNetworksParamList;
     interface_info *ifaceInfo = getIfaceInfo(iface);
@@ -1951,14 +1956,14 @@ wifi_error wifi_set_passpoint_list(wifi_request_id id,
 
     /* Create the NL message. */
     ret = gScanCommand->create();
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to create the NL msg. Error:%d", __FUNCTION__, ret);
         goto cleanup;
     }
 
     /* Set the interface Id of the message. */
     ret = gScanCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to set iface id. Error:%d", __FUNCTION__, ret);
         goto cleanup;
     }
@@ -2054,7 +2059,7 @@ wifi_error wifi_set_passpoint_list(wifi_request_id id,
     }
 
     ret = gScanCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: requestResponse Error:%d",__FUNCTION__, ret);
         goto cleanup;
     }
@@ -2067,18 +2072,18 @@ wifi_error wifi_set_passpoint_list(wifi_request_id id,
 cleanup:
     delete gScanCommand;
     /* Disable Event Handling if ret != 0 */
-    if (ret && gScanPnoSetPasspointListCmdEventHandler) {
+    if ((ret != WIFI_SUCCESS) && gScanPnoSetPasspointListCmdEventHandler) {
         ALOGI("%s: Error ret:%d, disable event handling",
             __FUNCTION__, ret);
         gScanPnoSetPasspointListCmdEventHandler->disableEventHandling();
     }
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 wifi_error wifi_reset_passpoint_list(wifi_request_id id,
                             wifi_interface_handle iface)
 {
-    int ret = 0;
+    wifi_error ret;
     GScanCommand *gScanCommand;
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
@@ -2118,14 +2123,14 @@ wifi_error wifi_reset_passpoint_list(wifi_request_id id,
 
     /* Create the NL message. */
     ret = gScanCommand->create();
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to create the NL msg. Error:%d", __FUNCTION__, ret);
         goto cleanup;
     }
 
     /* Set the interface Id of the message. */
     ret = gScanCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to set iface id. Error:%d", __FUNCTION__, ret);
         goto cleanup;
     }
@@ -2140,7 +2145,7 @@ wifi_error wifi_reset_passpoint_list(wifi_request_id id,
 
     ret = gScanCommand->put_u32(
             QCA_WLAN_VENDOR_ATTR_GSCAN_SUBCMD_CONFIG_PARAM_REQUEST_ID, id);
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to add vendor data attributes. Error:%d",
             __FUNCTION__, ret);
         goto cleanup;
@@ -2149,9 +2154,8 @@ wifi_error wifi_reset_passpoint_list(wifi_request_id id,
     gScanCommand->attr_end(nlData);
 
     ret = gScanCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("%s: requestResponse Error:%d",__FUNCTION__, ret);
-    }
 
     /* Disable Event Handling. */
     if (gScanPnoSetPasspointListCmdEventHandler) {
@@ -2160,10 +2164,10 @@ wifi_error wifi_reset_passpoint_list(wifi_request_id id,
 
 cleanup:
     delete gScanCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
-int GScanCommand::allocCachedResultsTemp(int max,
+wifi_error GScanCommand::allocCachedResultsTemp(int max,
                                      wifi_cached_scan_results *cached_results)
 {
     /* Alloc memory for "max" number of cached results. */
@@ -2187,31 +2191,29 @@ int GScanCommand::allocCachedResultsTemp(int max,
 /*
  * Allocates memory for the subCmd response struct and initializes status = -1
  */
-int GScanCommand::allocRspParams(eGScanRspRarams cmd)
+wifi_error GScanCommand::allocRspParams(eGScanRspRarams cmd)
 {
-    int ret = 0;
     switch(cmd)
     {
         case eGScanGetCachedResultsRspParams:
             mGetCachedResultsRspParams = (GScanGetCachedResultsRspParams *)
                 malloc(sizeof(GScanGetCachedResultsRspParams));
             if (!mGetCachedResultsRspParams)
-                ret = -1;
-            else {
-                mGetCachedResultsRspParams->num_cached_results = 0;
-                mGetCachedResultsRspParams->more_data = false;
-                mGetCachedResultsRspParams->cachedResultsStartingIndex = -1;
-                mGetCachedResultsRspParams->lastProcessedScanId = -1;
-                mGetCachedResultsRspParams->wifiScanResultsStartingIndex = -1;
-                mGetCachedResultsRspParams->max = 0;
-                mGetCachedResultsRspParams->cached_results = NULL;
-            }
+                return WIFI_ERROR_OUT_OF_MEMORY;
+
+            mGetCachedResultsRspParams->num_cached_results = 0;
+            mGetCachedResultsRspParams->more_data = false;
+            mGetCachedResultsRspParams->cachedResultsStartingIndex = -1;
+            mGetCachedResultsRspParams->lastProcessedScanId = -1;
+            mGetCachedResultsRspParams->wifiScanResultsStartingIndex = -1;
+            mGetCachedResultsRspParams->max = 0;
+            mGetCachedResultsRspParams->cached_results = NULL;
         break;
         default:
             ALOGD("%s: Wrong request for alloc.", __FUNCTION__);
-            ret = -1;
+            return WIFI_ERROR_NOT_SUPPORTED;
     }
-    return ret;
+    return WIFI_SUCCESS;
 }
 
 void GScanCommand::freeRspParams(eGScanRspRarams cmd)

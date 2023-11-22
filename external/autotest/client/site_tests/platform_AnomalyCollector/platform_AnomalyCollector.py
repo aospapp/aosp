@@ -15,7 +15,7 @@ class platform_AnomalyCollector(test.test):
         # Restart the anomaly collector daemon, trigger a test kernel warning,
         # and verify that a warning file is created.
         utils.system("stop anomaly-collector")
-        utils.system("rm -rf /var/run/anomaly-collector")
+        utils.system("rm -rf /run/anomaly-collector")
         utils.system("start anomaly-collector")
         utils.system("sleep 0.1")
         lkdtm = "/sys/kernel/debug/provoke-crash/DIRECT"
@@ -24,4 +24,4 @@ class platform_AnomalyCollector(test.test):
         else:
             utils.system("echo warning > /proc/breakme")
         utils.system("sleep 0.1")
-        utils.system("test -f /var/run/anomaly-collector/warning")
+        utils.system("test -f /run/anomaly-collector/warning")

@@ -17,10 +17,21 @@
 #ifndef ART_RUNTIME_COMMON_DEX_OPERATIONS_H_
 #define ART_RUNTIME_COMMON_DEX_OPERATIONS_H_
 
+#include "android-base/logging.h"
 #include "art_field.h"
 #include "art_method.h"
+#include "base/macros.h"
+#include "base/mutex.h"
 #include "class_linker.h"
+#include "dex/code_item_accessors.h"
+#include "dex/primitive.h"
+#include "handle_scope-inl.h"
+#include "instrumentation.h"
+#include "interpreter/shadow_frame.h"
 #include "interpreter/unstarted_runtime.h"
+#include "mirror/class.h"
+#include "mirror/object.h"
+#include "obj_ptr-inl.h"
 #include "runtime.h"
 #include "stack.h"
 #include "thread.h"
@@ -42,7 +53,7 @@ namespace interpreter {
 }  // namespace interpreter
 
 inline void PerformCall(Thread* self,
-                        const DexFile::CodeItem* code_item,
+                        const CodeItemDataAccessor& accessor,
                         ArtMethod* caller_method,
                         const size_t first_dest_reg,
                         ShadowFrame* callee_frame,
@@ -51,13 +62,25 @@ inline void PerformCall(Thread* self,
     REQUIRES_SHARED(Locks::mutator_lock_) {
   if (LIKELY(Runtime::Current()->IsStarted())) {
     if (use_interpreter_entrypoint) {
-      interpreter::ArtInterpreterToInterpreterBridge(self, code_item, callee_frame, result);
+      interpreter::ArtInterpreterToInterpreterBridge(self, accessor, callee_frame, result);
     } else {
       interpreter::ArtInterpreterToCompiledCodeBridge(
           self, caller_method, callee_frame, first_dest_reg, result);
     }
   } else {
-    interpreter::UnstartedRuntime::Invoke(self, code_item, callee_frame, result, first_dest_reg);
+    interpreter::UnstartedRuntime::Invoke(self, accessor, callee_frame, result, first_dest_reg);
+  }
+}
+
+template <typename T>
+inline void DCheckStaticState(Thread* self, T* entity) REQUIRES_SHARED(Locks::mutator_lock_) {
+  if (kIsDebugBuild) {
+    ObjPtr<mirror::Class> klass = entity->GetDeclaringClass();
+    if (entity->IsStatic()) {
+      klass->AssertInitializedOrInitializingInThread(self);
+    } else {
+      CHECK(klass->IsInitializing() || klass->IsErroneousResolved());
+    }
   }
 }
 
@@ -68,7 +91,7 @@ static ALWAYS_INLINE bool DoFieldGetCommon(Thread* self,
                                            ArtField* field,
                                            JValue* result)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  field->GetDeclaringClass()->AssertInitializedOrInitializingInThread(self);
+  DCheckStaticState(self, field);
 
   // Report this field access to instrumentation if needed.
   instrumentation::Instrumentation* instrumentation = Runtime::Current()->GetInstrumentation();
@@ -126,7 +149,7 @@ ALWAYS_INLINE bool DoFieldPutCommon(Thread* self,
                                     ArtField* field,
                                     JValue& value)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  field->GetDeclaringClass()->AssertInitializedOrInitializingInThread(self);
+  DCheckStaticState(self, field);
 
   // Report this field access to instrumentation if needed. Since we only have the offset of
   // the field from the base of the object, we need to look for it first.
@@ -179,7 +202,7 @@ ALWAYS_INLINE bool DoFieldPutCommon(Thread* self,
           StackHandleScope<2> hs(self);
           HandleWrapperObjPtr<mirror::Object> h_reg(hs.NewHandleWrapper(&reg));
           HandleWrapperObjPtr<mirror::Object> h_obj(hs.NewHandleWrapper(&obj));
-          field_class = field->GetType<true>();
+          field_class = field->ResolveType();
         }
         if (!reg->VerifierInstanceOf(field_class.Ptr())) {
           // This should never happen.
@@ -198,6 +221,11 @@ ALWAYS_INLINE bool DoFieldPutCommon(Thread* self,
     case Primitive::kPrimVoid: {
       LOG(FATAL) << "Unreachable " << field_type;
       break;
+    }
+  }
+  if (transaction_active) {
+    if (UNLIKELY(self->IsExceptionPending())) {
+      return false;
     }
   }
   return true;

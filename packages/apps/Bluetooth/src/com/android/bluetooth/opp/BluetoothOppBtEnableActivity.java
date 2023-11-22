@@ -32,8 +32,6 @@
 
 package com.android.bluetooth.opp;
 
-import com.android.bluetooth.R;
-
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
@@ -41,14 +39,15 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.bluetooth.R;
 import com.android.internal.app.AlertActivity;
 import com.android.internal.app.AlertController;
 
 /**
  * This class is designed to show BT enable confirmation dialog;
  */
-public class BluetoothOppBtEnableActivity extends AlertActivity implements
-        DialogInterface.OnClickListener {
+public class BluetoothOppBtEnableActivity extends AlertActivity
+        implements DialogInterface.OnClickListener {
     private BluetoothOppManager mOppManager;
 
     @Override
@@ -71,13 +70,15 @@ public class BluetoothOppBtEnableActivity extends AlertActivity implements
 
     private View createView() {
         View view = getLayoutInflater().inflate(R.layout.confirm_dialog, null);
-        TextView contentView = (TextView)view.findViewById(R.id.content);
-        contentView.setText(getString(R.string.bt_enable_line1) + "\n\n"
-                + getString(R.string.bt_enable_line2) + "\n");
+        TextView contentView = (TextView) view.findViewById(R.id.content);
+        contentView.setText(
+                getString(R.string.bt_enable_line1) + "\n\n" + getString(R.string.bt_enable_line2)
+                        + "\n");
 
         return view;
     }
 
+    @Override
     public void onClick(DialogInterface dialog, int which) {
         switch (which) {
             case DialogInterface.BUTTON_POSITIVE:

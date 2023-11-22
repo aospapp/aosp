@@ -4,10 +4,14 @@
 
 __author__ = 'dshi@google.com (Dan Shi)'
 
-import common
+import cPickle as pickle
 import os
 import random
+import shutil
+import tempfile
 import unittest
+
+import common
 from autotest_lib.client.bin import site_sysinfo
 from autotest_lib.client.common_lib import autotemp
 
@@ -93,6 +97,174 @@ class diffable_logdir_test(unittest.TestCase):
             file_path = file_path.replace('src', 'dest')
             with open(file_path, 'r') as f:
                 self.assertEqual(file_name, f.read())
+
+
+class LogdirTestCase(unittest.TestCase):
+    """Tests logdir.run"""
+
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tempdir)
+
+        self.from_dir = os.path.join(self.tempdir, 'from')
+        self.to_dir = os.path.join(self.tempdir, 'to')
+        os.mkdir(self.from_dir)
+        os.mkdir(self.to_dir)
+
+    def _destination_path(self, relative_path, from_dir=None):
+        """The expected destination path for a subdir of the source directory"""
+        if from_dir is None:
+            from_dir = self.from_dir
+        return '%s%s' % (self.to_dir, os.path.join(from_dir, relative_path))
+
+    def test_run_recreates_absolute_source_path(self):
+        """When copying files, the absolute path from the source is recreated
+        in the destination folder.
+        """
+        os.mkdir(os.path.join(self.from_dir, 'fubar'))
+        logdir = site_sysinfo.logdir(self.from_dir)
+        logdir.run(self.to_dir)
+        destination_path= self._destination_path('fubar')
+        self.assertTrue(os.path.exists(destination_path),
+                        msg='Failed to copy to %s' % destination_path)
+
+    def test_run_skips_symlinks(self):
+        os.mkdir(os.path.join(self.from_dir, 'real'))
+        os.symlink(os.path.join(self.from_dir, 'real'),
+                   os.path.join(self.from_dir, 'symlink'))
+
+        logdir = site_sysinfo.logdir(self.from_dir)
+        logdir.run(self.to_dir)
+
+        destination_path_real = self._destination_path('real')
+        self.assertTrue(os.path.exists(destination_path_real),
+                        msg='real directory was not copied to %s' %
+                        destination_path_real)
+        destination_path_link = self._destination_path('symlink')
+        self.assertFalse(
+                os.path.exists(destination_path_link),
+                msg='symlink was copied to %s' % destination_path_link)
+
+    def test_run_resolves_symlinks_to_source_root(self):
+        """run tries hard to get to the source directory before copying.
+
+        Within the source folder, we skip any symlinks, but we first try to
+        resolve symlinks to the source root itself.
+        """
+        os.mkdir(os.path.join(self.from_dir, 'fubar'))
+        from_symlink = os.path.join(self.tempdir, 'from_symlink')
+        os.symlink(self.from_dir, from_symlink)
+
+        logdir = site_sysinfo.logdir(from_symlink)
+        logdir.run(self.to_dir)
+
+        destination_path = self._destination_path('fubar')
+        self.assertTrue(os.path.exists(destination_path),
+                        msg='Failed to copy to %s' % destination_path)
+
+    def test_run_excludes_common_patterns(self):
+        os.mkdir(os.path.join(self.from_dir, 'autoserv2344'))
+        deeper_subdir = os.path.join('prefix', 'autoserv', 'suffix')
+        os.makedirs(os.path.join(self.from_dir, deeper_subdir))
+
+        logdir = site_sysinfo.logdir(self.from_dir)
+        logdir.run(self.to_dir)
+
+        destination_path = self._destination_path('autoserv2344')
+        self.assertFalse(os.path.exists(destination_path),
+                         msg='Copied banned file to %s' % destination_path)
+        destination_path = self._destination_path(deeper_subdir)
+        self.assertFalse(os.path.exists(destination_path),
+                         msg='Copied banned file to %s' % destination_path)
+
+    def test_run_ignores_exclude_patterns_in_leading_dirs(self):
+        """Exclude patterns should only be applied to path suffixes within
+        from_dir, not to the root directory itself.
+        """
+        exclude_pattern_dir = os.path.join(self.from_dir, 'autoserv2344')
+        os.makedirs(os.path.join(exclude_pattern_dir, 'fubar'))
+        logdir = site_sysinfo.logdir(exclude_pattern_dir)
+        logdir.run(self.to_dir)
+        destination_path = self._destination_path('fubar',
+                                                  from_dir=exclude_pattern_dir)
+        self.assertTrue(os.path.exists(destination_path),
+                        msg='Failed to copy to %s' % destination_path)
+
+    def test_pickle_unpickle_equal(self):
+        """Sanity check pickle-unpickle round-trip."""
+        logdir = site_sysinfo.logdir(
+                self.from_dir,
+                excludes=(site_sysinfo.logdir.DEFAULT_EXCLUDES + ('a',)))
+        # base_job uses protocol 2 to pickle. We follow suit.
+        logdir_pickle = pickle.dumps(logdir, protocol=2)
+        unpickled_logdir = pickle.loads(logdir_pickle)
+
+        self.assertEqual(unpickled_logdir, logdir)
+
+    def test_pickle_enforce_required_attributes(self):
+        """Some attributes from this object should never be dropped.
+
+        When running a client test against an older build, we pickle the objects
+        of this class from newer version of the class and unpicle to older
+        versions of the class. The older versions require some attributes to be
+        present.
+        """
+        logdir = site_sysinfo.logdir(
+                self.from_dir,
+                excludes=(site_sysinfo.logdir.DEFAULT_EXCLUDES + ('a',)))
+        # base_job uses protocol 2 to pickle. We follow suit.
+        logdir_pickle = pickle.dumps(logdir, protocol=2)
+        logdir = pickle.loads(logdir_pickle)
+
+        self.assertEqual(logdir.additional_exclude, 'a')
+
+    def test_pickle_enforce_required_attributes_default(self):
+        """Some attributes from this object should never be dropped.
+
+        When running a client test against an older build, we pickle the objects
+        of this class from newer version of the class and unpicle to older
+        versions of the class. The older versions require some attributes to be
+        present.
+        """
+        logdir = site_sysinfo.logdir(self.from_dir)
+        # base_job uses protocol 2 to pickle. We follow suit.
+        logdir_pickle = pickle.dumps(logdir, protocol=2)
+        logdir = pickle.loads(logdir_pickle)
+
+        self.assertEqual(logdir.additional_exclude, None)
+
+    def test_unpickle_handle_missing__excludes(self):
+        """Sanely handle missing _excludes attribute from pickles
+
+        This can happen when running brand new version of this class that
+        introduced this attribute from older server side code in prod.
+        """
+        logdir = site_sysinfo.logdir(self.from_dir)
+        delattr(logdir, '_excludes')
+        # base_job uses protocol 2 to pickle. We follow suit.
+        logdir_pickle = pickle.dumps(logdir, protocol=2)
+        logdir = pickle.loads(logdir_pickle)
+
+        self.assertEqual(logdir._excludes,
+                         site_sysinfo.logdir.DEFAULT_EXCLUDES)
+
+    def test_unpickle_handle_missing__excludes_default(self):
+        """Sanely handle missing _excludes attribute from pickles
+
+        This can happen when running brand new version of this class that
+        introduced this attribute from older server side code in prod.
+        """
+        logdir = site_sysinfo.logdir(
+                self.from_dir,
+                excludes=(site_sysinfo.logdir.DEFAULT_EXCLUDES + ('a',)))
+        delattr(logdir, '_excludes')
+        # base_job uses protocol 2 to pickle. We follow suit.
+        logdir_pickle = pickle.dumps(logdir, protocol=2)
+        logdir = pickle.loads(logdir_pickle)
+
+        self.assertEqual(
+                logdir._excludes,
+                (site_sysinfo.logdir.DEFAULT_EXCLUDES + ('a',)))
 
 
 if __name__ == '__main__':

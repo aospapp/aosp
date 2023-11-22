@@ -18,4 +18,5 @@
     <dimen name="keyboard_key_size">96dp</dimen>
     <dimen name="keyboard_half_key_size">48dp</dimen>
     <dimen name="keyboard_key_horizontal_tiny_gap">4dp</dimen>
+    <dimen name="keyboard_key_spacebar_width">400dp</dimen>
 </resources>

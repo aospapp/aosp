@@ -16,14 +16,15 @@
 package com.android.tradefed.testtype;
 
 import static com.google.common.truth.Truth.assertThat;
+
 import static org.mockito.AdditionalMatchers.gt;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyCollection;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.anyString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -31,16 +32,18 @@ import com.android.ddmlib.IDevice;
 import com.android.ddmlib.testrunner.IRemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.ITestLogger;
-import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.ITestLifeCycleReceiver;
+import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.TestRunResult;
+import com.android.tradefed.result.ddmlib.TestRunToTestInvocationForwarder;
 import com.android.tradefed.util.ICompressionStrategy;
 import com.android.tradefed.util.ListInstrumentationParser;
 import com.android.tradefed.util.ListInstrumentationParser.InstrumentationTarget;
@@ -65,8 +68,8 @@ import org.mockito.stubbing.Answer;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -88,19 +91,19 @@ public class CodeCoverageTestBaseTest {
     private static final String RUNNER_NAME2 = "android.test.InstrumentationTestRunner";
     private static final String RUNNER_NAME3 = "com.example.custom.Runner";
 
-    private static final TestIdentifier FOO_TEST1 = new TestIdentifier(".FooTest", "test1");
-    private static final TestIdentifier FOO_TEST2 = new TestIdentifier(".FooTest", "test2");
-    private static final TestIdentifier FOO_TEST3 = new TestIdentifier(".FooTest", "test3");
-    private static final List<TestIdentifier> FOO_TESTS =
+    private static final TestDescription FOO_TEST1 = new TestDescription(".FooTest", "test1");
+    private static final TestDescription FOO_TEST2 = new TestDescription(".FooTest", "test2");
+    private static final TestDescription FOO_TEST3 = new TestDescription(".FooTest", "test3");
+    private static final List<TestDescription> FOO_TESTS =
             ImmutableList.of(FOO_TEST1, FOO_TEST2, FOO_TEST3);
 
-    private static final TestIdentifier BAR_TEST1 = new TestIdentifier(".BarTest", "test1");
-    private static final TestIdentifier BAR_TEST2 = new TestIdentifier(".BarTest", "test2");
-    private static final List<TestIdentifier> BAR_TESTS = ImmutableList.of(BAR_TEST1, BAR_TEST2);
+    private static final TestDescription BAR_TEST1 = new TestDescription(".BarTest", "test1");
+    private static final TestDescription BAR_TEST2 = new TestDescription(".BarTest", "test2");
+    private static final List<TestDescription> BAR_TESTS = ImmutableList.of(BAR_TEST1, BAR_TEST2);
 
-    private static final TestIdentifier BAZ_TEST1 = new TestIdentifier(".BazTest", "test1");
-    private static final TestIdentifier BAZ_TEST2 = new TestIdentifier(".BazTest", "test2");
-    private static final List<TestIdentifier> BAZ_TESTS = ImmutableList.of(BAZ_TEST1, BAZ_TEST2);
+    private static final TestDescription BAZ_TEST1 = new TestDescription(".BazTest", "test1");
+    private static final TestDescription BAZ_TEST2 = new TestDescription(".BazTest", "test2");
+    private static final List<TestDescription> BAZ_TESTS = ImmutableList.of(BAZ_TEST1, BAZ_TEST2);
 
     private static final ByteString FAKE_REPORT_CONTENTS =
             ByteString.copyFromUtf8("Mi estas kovrado raporto");
@@ -124,7 +127,7 @@ public class CodeCoverageTestBaseTest {
     @Mock ListInstrumentationParser mInstrumentationParser;
 
     // Fake test data
-    @Mock TestDataRegistry<List<TestIdentifier>> mTests;
+    @Mock TestDataRegistry<List<TestDescription>> mTests;
 
     @Mock TestDataRegistry<ByteString> mMeasurements;
 
@@ -141,7 +144,7 @@ public class CodeCoverageTestBaseTest {
         doAnswer(CALL_RUNNER)
                 .when(mDevice)
                 .runInstrumentationTests(
-                        any(IRemoteAndroidTestRunner.class), any(ITestRunListener.class));
+                        any(IRemoteAndroidTestRunner.class), any(ITestLifeCycleReceiver.class));
         mCoverageTest = new CodeCoverageTestStub();
     }
 
@@ -150,7 +153,7 @@ public class CodeCoverageTestBaseTest {
         XML(LogDataType.JACOCO_XML),
         HTML(LogDataType.HTML);
 
-        private LogDataType mLogDataType;
+        private final LogDataType mLogDataType;
 
         private FakeReportFormat(LogDataType logDataType) {
             mLogDataType = logDataType;
@@ -243,7 +246,7 @@ public class CodeCoverageTestBaseTest {
     }
 
     @Test
-    public void testRun() throws DeviceNotAvailableException, IOException {
+    public void testRun() throws DeviceNotAvailableException {
         // Prepare some test data
         doReturn(ImmutableList.of(new InstrumentationTarget(PACKAGE_NAME1, RUNNER_NAME1, "")))
                 .when(mInstrumentationParser)
@@ -275,8 +278,7 @@ public class CodeCoverageTestBaseTest {
     }
 
     @Test
-    public void testRun_multipleInstrumentationTargets()
-            throws DeviceNotAvailableException, IOException {
+    public void testRun_multipleInstrumentationTargets() throws DeviceNotAvailableException {
         // Prepare some test data
         ImmutableList<InstrumentationTarget> targets =
                 ImmutableList.of(
@@ -321,7 +323,7 @@ public class CodeCoverageTestBaseTest {
         doReturn(ImmutableList.of(new InstrumentationTarget(PACKAGE_NAME1, RUNNER_NAME1, "")))
                 .when(mInstrumentationParser)
                 .getInstrumentationTargets();
-        List<List<TestIdentifier>> shards = Lists.partition(FOO_TESTS, 1);
+        List<List<TestDescription>> shards = Lists.partition(FOO_TESTS, 1);
 
         // Indicate that the test should be split into 3 shards
         doReturn(FOO_TESTS).when(mTests).get(PACKAGE_NAME1, RUNNER_NAME1, 0, 1);
@@ -656,9 +658,9 @@ public class CodeCoverageTestBaseTest {
     public void testGetNumberOfShards() throws DeviceNotAvailableException {
         // Prepare some test data
         InstrumentationTarget target = new InstrumentationTarget(PACKAGE_NAME1, RUNNER_NAME1, "");
-        List<TestIdentifier> tests = new ArrayList<>();
+        List<TestDescription> tests = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
-            tests.add(new TestIdentifier(PACKAGE_NAME1, String.format("test%d", i)));
+            tests.add(new TestDescription(PACKAGE_NAME1, String.format("test%d", i)));
         }
 
         // Set up mocks
@@ -673,9 +675,9 @@ public class CodeCoverageTestBaseTest {
     public void testGetNumberOfShards_allTestsInSingleShard() throws DeviceNotAvailableException {
         // Prepare some test data
         InstrumentationTarget target = new InstrumentationTarget(PACKAGE_NAME1, RUNNER_NAME1, "");
-        List<TestIdentifier> tests = new ArrayList<>();
+        List<TestDescription> tests = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
-            tests.add(new TestIdentifier(PACKAGE_NAME1, String.format("test%d", i)));
+            tests.add(new TestDescription(PACKAGE_NAME1, String.format("test%d", i)));
         }
 
         // Set up mocks
@@ -690,16 +692,16 @@ public class CodeCoverageTestBaseTest {
     public void testCollectTests() throws DeviceNotAvailableException {
         // Prepare some test data
         InstrumentationTarget target = new InstrumentationTarget(PACKAGE_NAME1, RUNNER_NAME1, "");
-        List<TestIdentifier> tests = new ArrayList<>();
+        List<TestDescription> tests = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
-            tests.add(new TestIdentifier(PACKAGE_NAME1, String.format("test%d", i)));
+            tests.add(new TestDescription(PACKAGE_NAME1, String.format("test%d", i)));
         }
 
         // Set up mocks
         doReturn(tests).when(mTests).get(eq(PACKAGE_NAME1), eq(RUNNER_NAME1), anyInt(), anyInt());
 
         // Collect the tests
-        Collection<TestIdentifier> collectedTests = mCoverageTest.collectTests(target, 0, 1);
+        Collection<TestDescription> collectedTests = mCoverageTest.collectTests(target, 0, 1);
 
         // Verify that all of the tests were returned
         assertThat(collectedTests).containsExactlyElementsIn(tests);
@@ -710,9 +712,9 @@ public class CodeCoverageTestBaseTest {
         // Prepare some test data
         InstrumentationTarget target = new InstrumentationTarget(PACKAGE_NAME1, RUNNER_NAME1, "");
         int numShards = 3;
-        List<TestIdentifier> tests = new ArrayList<>();
+        List<TestDescription> tests = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
-            tests.add(new TestIdentifier(PACKAGE_NAME1, String.format("test%d", i)));
+            tests.add(new TestDescription(PACKAGE_NAME1, String.format("test%d", i)));
         }
 
         // Set up mocks
@@ -722,21 +724,21 @@ public class CodeCoverageTestBaseTest {
                 .when(mTests)
                 .get(eq(PACKAGE_NAME1), eq(RUNNER_NAME1), eq(0), eq(2));
 
-        List<List<TestIdentifier>> shards =
+        List<List<TestDescription>> shards =
                 Lists.partition(tests, (int) Math.ceil((double) tests.size() / numShards));
         int currentIndex = 0;
-        for (List<TestIdentifier> shard : shards) {
-            doReturn(shards.get(currentIndex))
+        for (List<TestDescription> shard : shards) {
+            doReturn(shard)
                     .when(mTests)
                     .get(PACKAGE_NAME1, RUNNER_NAME1, currentIndex, shards.size());
             currentIndex++;
         }
 
         // Collect the tests in shards
-        ArrayList<TestIdentifier> allCollectedTests = new ArrayList<>();
+        ArrayList<TestDescription> allCollectedTests = new ArrayList<>();
         for (int shardIndex = 0; shardIndex < numShards; shardIndex++) {
             // Verify that each shard contains some tests
-            Collection<TestIdentifier> collectedTests =
+            Collection<TestDescription> collectedTests =
                     mCoverageTest.collectTests(target, shardIndex, numShards);
             assertThat(collectedTests).containsExactlyElementsIn(shards.get(shardIndex));
 
@@ -747,7 +749,7 @@ public class CodeCoverageTestBaseTest {
     }
 
     @Test
-    public void testCreateTestRunner() throws DeviceNotAvailableException {
+    public void testCreateTestRunner() {
         // Prepare some test data
         InstrumentationTarget target = new InstrumentationTarget(PACKAGE_NAME1, RUNNER_NAME1, "");
 
@@ -760,7 +762,7 @@ public class CodeCoverageTestBaseTest {
     }
 
     @Test
-    public void testCreateTestRunner_withArgs() throws DeviceNotAvailableException {
+    public void testCreateTestRunner_withArgs() {
         // Prepare some test data
         InstrumentationTarget target = new InstrumentationTarget(PACKAGE_NAME1, RUNNER_NAME1, "");
         Map<String, String> args = ImmutableMap.of("arg1", "value1", "arg2", "value2");
@@ -776,7 +778,7 @@ public class CodeCoverageTestBaseTest {
     }
 
     @Test
-    public void testCreateTestRunner_withShards() throws DeviceNotAvailableException {
+    public void testCreateTestRunner_withShards() {
         // Prepare some test data
         InstrumentationTarget target = new InstrumentationTarget(PACKAGE_NAME1, RUNNER_NAME1, "");
         int shardIndex = 3;
@@ -792,7 +794,7 @@ public class CodeCoverageTestBaseTest {
     }
 
     @Test
-    public void testCreateCoverageTest() throws DeviceNotAvailableException {
+    public void testCreateCoverageTest() {
         // Prepare some test data
         InstrumentationTarget target = new InstrumentationTarget(PACKAGE_NAME1, RUNNER_NAME1, "");
 
@@ -806,7 +808,7 @@ public class CodeCoverageTestBaseTest {
     }
 
     @Test
-    public void testCreateCoverageTest_withArgs() throws DeviceNotAvailableException {
+    public void testCreateCoverageTest_withArgs() {
         // Prepare some test data
         InstrumentationTarget target = new InstrumentationTarget(PACKAGE_NAME1, RUNNER_NAME1, "");
         Map<String, String> args = ImmutableMap.of("arg1", "value1", "arg2", "value2");
@@ -824,7 +826,7 @@ public class CodeCoverageTestBaseTest {
     }
 
     @Test
-    public void testCreateCoverageTest_withShards() throws DeviceNotAvailableException {
+    public void testCreateCoverageTest_withShards() {
         // Prepare some test data
         InstrumentationTarget target = new InstrumentationTarget(PACKAGE_NAME1, RUNNER_NAME1, "");
         int shardIndex = 3;
@@ -843,7 +845,10 @@ public class CodeCoverageTestBaseTest {
     private static final Answer<Void> CALL_RUNNER =
             invocation -> {
                 Object[] args = invocation.getArguments();
-                ((IRemoteAndroidTestRunner) args[0]).run((ITestRunListener) args[1]);
+                ((IRemoteAndroidTestRunner) args[0])
+                        .run(
+                                new TestRunToTestInvocationForwarder(
+                                        (ITestLifeCycleReceiver) args[1]));
                 return null;
             };
 
@@ -872,16 +877,24 @@ public class CodeCoverageTestBaseTest {
         public void run(Collection<ITestRunListener> listeners) {
             int shardIndex = Integer.parseInt(getArgs().getOrDefault("shardIndex", "0"));
             int numShards = Integer.parseInt(getArgs().getOrDefault("numShards", "1"));
-            List<TestIdentifier> tests =
+            List<TestDescription> tests =
                     mTests.get(getPackageName(), getRunnerName(), shardIndex, numShards);
 
             // Start the test run
             listeners.stream().forEach(l -> l.testRunStarted(getPackageName(), tests.size()));
 
             // Run each of the tests
-            for (TestIdentifier test : tests) {
-                listeners.stream().forEach(l -> l.testStarted(test));
-                listeners.stream().forEach(l -> l.testEnded(test, ImmutableMap.of()));
+            for (TestDescription test : tests) {
+                listeners
+                        .stream()
+                        .forEach(l -> l.testStarted(TestDescription.convertToIdentifier(test)));
+                listeners
+                        .stream()
+                        .forEach(
+                                l ->
+                                        l.testEnded(
+                                                TestDescription.convertToIdentifier(test),
+                                                ImmutableMap.of()));
             }
 
             // Mock out the coverage measurement if necessary

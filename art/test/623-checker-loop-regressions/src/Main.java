@@ -19,6 +19,8 @@
  */
 public class Main {
 
+  private static native void ensureJitCompiled(Class<?> cls, String methodName);
+
   /// CHECK-START: int Main.earlyExitFirst(int) loop_optimization (before)
   /// CHECK-DAG: Phi loop:<<Loop:B\d+>> outer_loop:none
   /// CHECK-DAG: Phi loop:<<Loop>>      outer_loop:none
@@ -281,16 +283,14 @@ public class Main {
   }
 
   /// CHECK-START: void Main.string2Bytes(char[], java.lang.String) loop_optimization (before)
-  /// CHECK-DAG: Phi      loop:<<Loop:B\d+>> outer_loop:none
-  /// CHECK-DAG: ArrayGet loop:<<Loop>>      outer_loop:none
+  /// CHECK-DAG: ArrayGet loop:<<Loop:B\d+>> outer_loop:none
   /// CHECK-DAG: ArraySet loop:<<Loop>>      outer_loop:none
   //
   /// CHECK-START-ARM: void Main.string2Bytes(char[], java.lang.String) loop_optimization (after)
   /// CHECK-NOT: VecLoad
   //
   /// CHECK-START-ARM64: void Main.string2Bytes(char[], java.lang.String) loop_optimization (after)
-  /// CHECK-DAG: Phi      loop:<<Loop:B\d+>> outer_loop:none
-  /// CHECK-DAG: VecLoad  loop:<<Loop>>      outer_loop:none
+  /// CHECK-DAG: VecLoad  loop:<<Loop:B\d+>> outer_loop:none
   /// CHECK-DAG: VecStore loop:<<Loop>>      outer_loop:none
   //
   // NOTE: should correctly deal with compressed and uncompressed cases.
@@ -333,25 +333,22 @@ public class Main {
   /// CHECK-DAG:               ArraySet [{{l\d+}},<<Phi>>,<<One>>] loop:<<Loop>>      outer_loop:none
   //
   /// CHECK-START-ARM: void Main.oneBoth(short[], char[]) loop_optimization (after)
-  /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                        loop:none
-  /// CHECK-DAG: <<Repl:d\d+>> VecReplicateScalar [<<One>>]         loop:none
-  /// CHECK-DAG: <<Phi:i\d+>>  Phi                                  loop:<<Loop:B\d+>> outer_loop:none
-  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi>>,<<Repl>>] loop:<<Loop>>      outer_loop:none
-  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi>>,<<Repl>>] loop:<<Loop>>      outer_loop:none
+  /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                             loop:none
+  /// CHECK-DAG: <<Repl:d\d+>> VecReplicateScalar [<<One>>]              loop:none
+  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi:i\d+>>,<<Repl>>] loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi>>,<<Repl>>]      loop:<<Loop>>      outer_loop:none
   //
   /// CHECK-START-ARM64: void Main.oneBoth(short[], char[]) loop_optimization (after)
-  /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                        loop:none
-  /// CHECK-DAG: <<Repl:d\d+>> VecReplicateScalar [<<One>>]         loop:none
-  /// CHECK-DAG: <<Phi:i\d+>>  Phi                                  loop:<<Loop:B\d+>> outer_loop:none
-  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi>>,<<Repl>>] loop:<<Loop>>      outer_loop:none
-  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi>>,<<Repl>>] loop:<<Loop>>      outer_loop:none
+  /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                             loop:none
+  /// CHECK-DAG: <<Repl:d\d+>> VecReplicateScalar [<<One>>]              loop:none
+  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi:i\d+>>,<<Repl>>] loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi>>,<<Repl>>]      loop:<<Loop>>      outer_loop:none
   //
   /// CHECK-START-MIPS64: void Main.oneBoth(short[], char[]) loop_optimization (after)
-  /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                        loop:none
-  /// CHECK-DAG: <<Repl:d\d+>> VecReplicateScalar [<<One>>]         loop:none
-  /// CHECK-DAG: <<Phi:i\d+>>  Phi                                  loop:<<Loop:B\d+>> outer_loop:none
-  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi>>,<<Repl>>] loop:<<Loop>>      outer_loop:none
-  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi>>,<<Repl>>] loop:<<Loop>>      outer_loop:none
+  /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                             loop:none
+  /// CHECK-DAG: <<Repl:d\d+>> VecReplicateScalar [<<One>>]              loop:none
+  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi:i\d+>>,<<Repl>>] loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi>>,<<Repl>>]      loop:<<Loop>>      outer_loop:none
   //
   // Bug b/37764324: integral same-length packed types can be mixed freely.
   private static void oneBoth(short[] a, char[] b) {
@@ -382,12 +379,10 @@ public class Main {
   /// CHECK-START-ARM: void Main.typeConv(byte[], byte[]) loop_optimization (after)
   /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                         loop:none
   /// CHECK-DAG: <<Repl:d\d+>> VecReplicateScalar [<<One>>]          loop:none
-  /// CHECK-DAG: <<Phi1:i\d+>> Phi                                   loop:<<Loop1:B\d+>> outer_loop:none
-  /// CHECK-DAG: <<Load:d\d+>> VecLoad [{{l\d+}},<<Phi1>>]           loop:<<Loop1>>      outer_loop:none
+  /// CHECK-DAG: <<Load:d\d+>> VecLoad [{{l\d+}},<<Phi1:i\d+>>]      loop:<<Loop1:B\d+>> outer_loop:none
   /// CHECK-DAG: <<Vadd:d\d+>> VecAdd [<<Load>>,<<Repl>>]            loop:<<Loop1>>      outer_loop:none
   /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi1>>,<<Vadd>>] loop:<<Loop1>>      outer_loop:none
-  /// CHECK-DAG: <<Phi2:i\d+>> Phi                                   loop:<<Loop2:B\d+>> outer_loop:none
-  /// CHECK-DAG: <<Get:b\d+>>  ArrayGet [{{l\d+}},<<Phi2>>]          loop:<<Loop2>>      outer_loop:none
+  /// CHECK-DAG: <<Get:b\d+>>  ArrayGet [{{l\d+}},<<Phi2:i\d+>>]     loop:<<Loop2:B\d+>> outer_loop:none
   /// CHECK-DAG: <<Add:i\d+>>  Add [<<Get>>,<<One>>]                 loop:<<Loop2>>      outer_loop:none
   /// CHECK-DAG: <<Cnv:b\d+>>  TypeConversion [<<Add>>]              loop:<<Loop2>>      outer_loop:none
   /// CHECK-DAG:               ArraySet [{{l\d+}},<<Phi2>>,<<Cnv>>]  loop:<<Loop2>>      outer_loop:none
@@ -395,12 +390,10 @@ public class Main {
   /// CHECK-START-ARM64: void Main.typeConv(byte[], byte[]) loop_optimization (after)
   /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                         loop:none
   /// CHECK-DAG: <<Repl:d\d+>> VecReplicateScalar [<<One>>]          loop:none
-  /// CHECK-DAG: <<Phi1:i\d+>> Phi                                   loop:<<Loop1:B\d+>> outer_loop:none
-  /// CHECK-DAG: <<Load:d\d+>> VecLoad [{{l\d+}},<<Phi1>>]           loop:<<Loop1>>      outer_loop:none
+  /// CHECK-DAG: <<Load:d\d+>> VecLoad [{{l\d+}},<<Phi1:i\d+>>]      loop:<<Loop1:B\d+>> outer_loop:none
   /// CHECK-DAG: <<Vadd:d\d+>> VecAdd [<<Load>>,<<Repl>>]            loop:<<Loop1>>      outer_loop:none
   /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi1>>,<<Vadd>>] loop:<<Loop1>>      outer_loop:none
-  /// CHECK-DAG: <<Phi2:i\d+>> Phi                                   loop:<<Loop2:B\d+>> outer_loop:none
-  /// CHECK-DAG: <<Get:b\d+>>  ArrayGet [{{l\d+}},<<Phi2>>]          loop:<<Loop2>>      outer_loop:none
+  /// CHECK-DAG: <<Get:b\d+>>  ArrayGet [{{l\d+}},<<Phi2:i\d+>>]     loop:<<Loop2:B\d+>> outer_loop:none
   /// CHECK-DAG: <<Add:i\d+>>  Add [<<Get>>,<<One>>]                 loop:<<Loop2>>      outer_loop:none
   /// CHECK-DAG: <<Cnv:b\d+>>  TypeConversion [<<Add>>]              loop:<<Loop2>>      outer_loop:none
   /// CHECK-DAG:               ArraySet [{{l\d+}},<<Phi2>>,<<Cnv>>]  loop:<<Loop2>>      outer_loop:none
@@ -408,12 +401,10 @@ public class Main {
   /// CHECK-START-MIPS64: void Main.typeConv(byte[], byte[]) loop_optimization (after)
   /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                         loop:none
   /// CHECK-DAG: <<Repl:d\d+>> VecReplicateScalar [<<One>>]          loop:none
-  /// CHECK-DAG: <<Phi1:i\d+>> Phi                                   loop:<<Loop1:B\d+>> outer_loop:none
-  /// CHECK-DAG: <<Load:d\d+>> VecLoad [{{l\d+}},<<Phi1>>]           loop:<<Loop1>>      outer_loop:none
+  /// CHECK-DAG: <<Load:d\d+>> VecLoad [{{l\d+}},<<Phi1:i\d+>>]      loop:<<Loop1:B\d+>> outer_loop:none
   /// CHECK-DAG: <<Vadd:d\d+>> VecAdd [<<Load>>,<<Repl>>]            loop:<<Loop1>>      outer_loop:none
   /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi1>>,<<Vadd>>] loop:<<Loop1>>      outer_loop:none
-  /// CHECK-DAG: <<Phi2:i\d+>> Phi                                   loop:<<Loop2:B\d+>> outer_loop:none
-  /// CHECK-DAG: <<Get:b\d+>>  ArrayGet [{{l\d+}},<<Phi2>>]          loop:<<Loop2>>      outer_loop:none
+  /// CHECK-DAG: <<Get:b\d+>>  ArrayGet [{{l\d+}},<<Phi2:i\d+>>]     loop:<<Loop2:B\d+>> outer_loop:none
   /// CHECK-DAG: <<Add:i\d+>>  Add [<<Get>>,<<One>>]                 loop:<<Loop2>>      outer_loop:none
   /// CHECK-DAG: <<Cnv:b\d+>>  TypeConversion [<<Add>>]              loop:<<Loop2>>      outer_loop:none
   /// CHECK-DAG:               ArraySet [{{l\d+}},<<Phi2>>,<<Cnv>>]  loop:<<Loop2>>      outer_loop:none
@@ -426,7 +417,188 @@ public class Main {
     }
   }
 
+  // Environment of an instruction, removed during SimplifyInduction, should be adjusted.
+  //
+  /// CHECK-START: void Main.inductionMax(int[]) loop_optimization (before)
+  /// CHECK-DAG: Phi loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK-DAG: Phi loop:<<Loop>>      outer_loop:none
+  //
+  /// CHECK-START: void Main.inductionMax(int[]) loop_optimization (after)
+  /// CHECK-NOT: Phi
+  private static void inductionMax(int[] a) {
+   int s = 0;
+    for (int i = 0; i < 10; i++) {
+      s = Math.max(s, 5);
+    }
+  }
+
+  /// CHECK-START: int Main.feedsIntoDeopt(int[]) loop_optimization (before)
+  /// CHECK-DAG: Phi loop:<<Loop1:B\d+>> outer_loop:none
+  /// CHECK-DAG: Phi loop:<<Loop1>>      outer_loop:none
+  /// CHECK-DAG: Phi loop:<<Loop2:B\d+>> outer_loop:none
+  //
+  /// CHECK-EVAL: "<<Loop1>>" != "<<Loop2>>"
+  //
+  /// CHECK-START: int Main.feedsIntoDeopt(int[]) loop_optimization (after)
+  /// CHECK-DAG: Phi loop:{{B\d+}} outer_loop:none
+  /// CHECK-NOT: Phi
+  static int feedsIntoDeopt(int[] a) {
+    // Reduction should be removed.
+    int r = 0;
+    for (int i = 0; i < 100; i++) {
+      r += 10;
+    }
+    // Even though uses feed into deopts of BCE.
+    for (int i = 1; i < 100; i++) {
+      a[i] = a[i - 1];
+    }
+    return r;
+  }
+
+  static int absCanBeNegative(int x) {
+    int a[] = { 1, 2, 3 };
+    int y = 0;
+    for (int i = Math.abs(x); i < a.length; i++) {
+      y += a[i];
+    }
+    return y;
+  }
+
+  // b/65478356: sum up 2-dim array.
+  static int sum(int[][] a) {
+    int sum = 0;
+    for (int y = 0; y < a.length; y++) {
+      int[] aa = a[y];
+      for (int x = 0; x < aa.length; x++) {
+        sum += aa[x];
+      }
+    }
+    return sum;
+  }
+
+  // Large loop body should not break unrolling computation.
+  static void largeBody(int[] x) {
+    for (int i = 0; i < 100; i++) {
+      x[i] = x[i] * 1 + x[i] * 2 + x[i] * 3 + x[i] * 4 + x[i] * 5 + x[i] * 6 +
+          x[i] * 7 + x[i] * 8 + x[i] * 9 + x[i] * 10 + x[i] * 11 + x[i] * 12 +
+          x[i] * 13 + x[i] * 14 + x[i] * 15 + x[i] * 1 + x[i] * 2 + x[i] * 3 + x[i] * 4 +
+          x[i] * 5 + x[i] * 6 + x[i] * 7 + x[i] * 8 + x[i] * 9 + x[i] * 10 + x[i] * 11 +
+          x[i] * 12 + x[i] * 13 + x[i] * 14 + x[i] * 15 + x[i] * 1 + x[i] * 2 + x[i] * 3 +
+          x[i] * 4 + x[i] * 5;
+    }
+  }
+
+  // Mixed of 16-bit and 8-bit array references.
+  static void castAndNarrow(byte[] x, char[] y) {
+    for (int i = 0; i < x.length; i++) {
+      x[i] = (byte) ((short) y[i] +  1);
+    }
+  }
+
+  // Avoid bad scheduler-SIMD interaction.
+  static int doNotMoveSIMD() {
+    int sum = 0;
+    for (int j = 0; j <= 8; j++) {
+      int[] a = new int[17];    // a[i] = 0;
+                                // ConstructorFence ?
+      for (int i = 0; i < a.length; i++) {
+        a[i] += 1;              // a[i] = 1;
+      }
+      for (int i = 0; i < a.length; i++) {
+        sum += a[i];            // expect a[i] = 1;
+      }
+    }
+    return sum;
+  }
+
+  // Ensure spilling saves full SIMD values.
+  private static final int reduction32Values(int[] a, int[] b, int[] c, int[] d) {
+    int s0 = 0;
+    int s1 = 0;
+    int s2 = 0;
+    int s3 = 0;
+    int s4 = 0;
+    int s5 = 0;
+    int s6 = 0;
+    int s7 = 0;
+    int s8 = 0;
+    int s9 = 0;
+    int s10 = 0;
+    int s11 = 0;
+    int s12 = 0;
+    int s13 = 0;
+    int s14 = 0;
+    int s15 = 0;
+    int s16 = 0;
+    int s17 = 0;
+    int s18 = 0;
+    int s19 = 0;
+    int s20 = 0;
+    int s21 = 0;
+    int s22 = 0;
+    int s23 = 0;
+    int s24 = 0;
+    int s25 = 0;
+    int s26 = 0;
+    int s27 = 0;
+    int s28 = 0;
+    int s29 = 0;
+    int s30 = 0;
+    int s31 = 0;
+    for (int i = 1; i < 100; i++) {
+      s0 += a[i];
+      s1 += b[i];
+      s2 += c[i];
+      s3 += d[i];
+      s4 += a[i];
+      s5 += b[i];
+      s6 += c[i];
+      s7 += d[i];
+      s8 += a[i];
+      s9 += b[i];
+      s10 += c[i];
+      s11 += d[i];
+      s12 += a[i];
+      s13 += b[i];
+      s14 += c[i];
+      s15 += d[i];
+      s16 += a[i];
+      s17 += b[i];
+      s18 += c[i];
+      s19 += d[i];
+      s20 += a[i];
+      s21 += b[i];
+      s22 += c[i];
+      s23 += d[i];
+      s24 += a[i];
+      s25 += b[i];
+      s26 += c[i];
+      s27 += d[i];
+      s28 += a[i];
+      s29 += b[i];
+      s30 += c[i];
+      s31 += d[i];
+    }
+    return s0 + s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s13 + s14 + s15 +
+           s16 + s17 + s18 + s19 + s20 + s21 + s22 + s23 +
+           s24 + s25 + s26 + s27 + s28 + s29 + s30 + s31;
+  }
+
+  public static int reductionIntoReplication() {
+    int[] a = { 1, 2, 3, 4 };
+    int x = 0;
+    for (int i = 0; i < 4; i++) {
+      x += a[i];
+    }
+    for (int i = 0; i < 4; i++) {
+      a[i] = x;
+    }
+    return a[3];
+  }
+
   public static void main(String[] args) {
+    System.loadLibrary(args[0]);
+
     expectEquals(10, earlyExitFirst(-1));
     for (int i = 0; i <= 10; i++) {
       expectEquals(i, earlyExitFirst(i));
@@ -538,6 +710,76 @@ public class Main {
     for (int i = 0; i < 259; i++) {
       expectEquals((byte)(i + 1), b1[i]);
     }
+
+    inductionMax(yy);
+
+    int[] f = new int[100];
+    f[0] = 11;
+    expectEquals(1000, feedsIntoDeopt(f));
+    for (int i = 0; i < 100; i++) {
+      expectEquals(11, f[i]);
+    }
+
+    expectEquals(0, absCanBeNegative(-3));
+    expectEquals(3, absCanBeNegative(-2));
+    expectEquals(5, absCanBeNegative(-1));
+    expectEquals(6, absCanBeNegative(0));
+    expectEquals(5, absCanBeNegative(1));
+    expectEquals(3, absCanBeNegative(2));
+    expectEquals(0, absCanBeNegative(3));
+    expectEquals(0, absCanBeNegative(Integer.MAX_VALUE));
+    // Abs(min_int) = min_int.
+    int verify = 0;
+    try {
+      absCanBeNegative(Integer.MIN_VALUE);
+      verify = 1;
+    } catch (ArrayIndexOutOfBoundsException e) {
+      verify = 2;
+    }
+    expectEquals(2, verify);
+
+    int[][] x = new int[128][128];
+    for (int i = 0; i < 128; i++) {
+      for (int j = 0; j < 128; j++) {
+        x[i][j] = -i - j;
+      }
+    }
+    expectEquals(-2080768, sum(x));
+
+    largeBody(f);
+    for (int i = 0; i < 100; i++) {
+      expectEquals(2805, f[i]);
+    }
+
+    char[] cx = new char[259];
+    for (int i = 0; i < 259; i++) {
+      cx[i] = (char) (i - 100);
+    }
+    castAndNarrow(b1, cx);
+    for (int i = 0; i < 259; i++) {
+      expectEquals((byte)((short) cx[i] + 1), b1[i]);
+    }
+
+    expectEquals(153, doNotMoveSIMD());
+
+    // This test exposed SIMDization issues on x86 and x86_64
+    // so we make sure the test runs with JIT enabled.
+    ensureJitCompiled(Main.class, "reduction32Values");
+    {
+      int[] a1 = new int[100];
+      int[] a2 = new int[100];
+      int[] a3 = new int[100];
+      int[] a4 = new int[100];
+      for (int i = 0; i < 100; i++) {
+        a1[i] = i;
+        a2[i] = 1;
+        a3[i] = 100 - i;
+        a4[i] = i % 16;
+      }
+      expectEquals(85800, reduction32Values(a1, a2, a3, a4));
+    }
+
+    expectEquals(10, reductionIntoReplication());
 
     System.out.println("passed");
   }

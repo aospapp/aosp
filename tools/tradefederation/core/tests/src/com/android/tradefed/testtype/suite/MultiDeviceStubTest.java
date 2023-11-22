@@ -15,17 +15,18 @@
  */
 package com.android.tradefed.testtype.suite;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.IInvocationContextReceiver;
 import com.android.tradefed.testtype.IMultiDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /** Stub Test class that uses multiple devices. */
@@ -64,11 +65,11 @@ public class MultiDeviceStubTest
                             mDeviceBuildInfos.size(), mExpectedDevice));
         }
         for (int i = 0; i < 2; i++) {
-            TestIdentifier tid = new TestIdentifier(getClass().getSimpleName(), "test" + i);
+            TestDescription tid = new TestDescription(getClass().getSimpleName(), "test" + i);
             listener.testStarted(tid, 0);
-            listener.testEnded(tid, 5, Collections.emptyMap());
+            listener.testEnded(tid, 5, new HashMap<String, Metric>());
         }
-        listener.testRunEnded(500, Collections.emptyMap());
+        listener.testRunEnded(500, new HashMap<String, Metric>());
     }
 
     public void setExceptedDevice(int num) {

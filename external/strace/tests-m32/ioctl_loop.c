@@ -39,6 +39,7 @@
 #include <sys/sysmacros.h>
 #include <linux/ioctl.h>
 #include <linux/loop.h>
+#include "print_fields.h"
 #include "xlat/loop_cmds.h"
 
 #ifndef ABBREV
@@ -81,8 +82,7 @@ print_loop_info(struct loop_info * const info, bool print_encrypt,
 	else
 		printf("%#x /* LO_FLAGS_??? */", info->lo_flags);
 
-	printf(", lo_name=\"%.*s\"",
-	       (int) sizeof(info->lo_name) - 1, info->lo_name);
+	PRINT_FIELD_CSTRING(", ", *info, lo_name);
 
 	if (VERBOSE || print_encrypt)
 		printf(", lo_encrypt_key=\"%.*s\"",
@@ -144,17 +144,16 @@ print_loop_info64(struct loop_info64 * const info64, bool print_encrypt,
 		printf("%s", flags);
 	else
 		printf("%#x /* LO_FLAGS_??? */", info64->lo_flags);
-	printf(", lo_file_name=\"%.*s\"",
-	       (int) sizeof(info64->lo_file_name) - 1, info64->lo_file_name);
+	PRINT_FIELD_CSTRING(", ", *info64, lo_file_name);
 
-	if (VERBOSE || print_encrypt)
-		printf(", lo_crypt_name=\"%.*s\", lo_encrypt_key=\"%.*s\"",
-		       (int) sizeof(info64->lo_crypt_name) - 1,
-		       info64->lo_crypt_name,
+	if (VERBOSE || print_encrypt) {
+		PRINT_FIELD_CSTRING(", ", *info64, lo_crypt_name);
+		printf(", lo_encrypt_key=\"%.*s\"",
 		       encrypt_key ? (int) strlen(encrypt_key) :
 		       (int) sizeof(info64->lo_encrypt_key),
 		       encrypt_key ? encrypt_key :
 		       (char *) info64->lo_encrypt_key);
+	}
 
 # if VERBOSE
 	printf(", lo_init=[%#" PRIx64 ", %#" PRIx64 "]}",
@@ -189,11 +188,11 @@ main(void)
 	       _IOC_SIZE((unsigned int) unknown_loop_cmd),
 	       (unsigned long) magic);
 
-	ioctl(-1, LOOP_SET_DIRECT_IO + 1, magic);
+	ioctl(-1, LOOP_SET_BLOCK_SIZE + 1, magic);
 	printf("ioctl(-1, _IOC(0, 0x4c, %#x, %#x), %#lx) = "
 	       "-1 EBADF (%m)\n",
-	       _IOC_NR(LOOP_SET_DIRECT_IO + 1),
-	       _IOC_SIZE(LOOP_SET_DIRECT_IO + 1),
+	       _IOC_NR(LOOP_SET_BLOCK_SIZE + 1),
+	       _IOC_SIZE(LOOP_SET_BLOCK_SIZE + 1),
 	       (unsigned long) magic);
 
 	ioctl(-1, LOOP_CTL_GET_FREE + 1, magic);
@@ -302,6 +301,11 @@ main(void)
 	/* LOOP_SET_DIRECT_IO */
 	ioctl(-1, LOOP_SET_DIRECT_IO, magic);
 	printf("ioctl(-1, LOOP_SET_DIRECT_IO, %lu) = -1 EBADF (%m)\n",
+	       (unsigned long) magic);
+
+	/* LOOP_SET_BLOCK_SIZE */
+	ioctl(-1, LOOP_SET_BLOCK_SIZE, magic);
+	printf("ioctl(-1, LOOP_SET_BLOCK_SIZE, %lu) = -1 EBADF (%m)\n",
 	       (unsigned long) magic);
 
 	/* LOOP_CTL_ADD */

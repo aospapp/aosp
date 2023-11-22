@@ -48,17 +48,14 @@ cc_binary {
     ],
 
     shared_libs: [
-        "libLLVM",
+        "libLLVM_android",
+        "libz",
     ],
 
     target: {
         host: {
-            shared_libs: ["libz-host"],
             static_libs: MCLD_ARM_LIBS + MCLD_AARCH64_LIBS +
                 MCLD_MIPS_LIBS + MCLD_X86_LIBS,
-        },
-        android: {
-            shared_libs: ["libz"],
         },
 
         // Add target specific code generation libraries

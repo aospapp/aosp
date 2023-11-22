@@ -34,16 +34,15 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * A {@link ITargetPreparer} that pushes one or more files/dirs from a
- * {@link IDeviceBuildInfo#getTestsDir()} folder onto device.
- * <p>
- * This preparer will look in alternate directories if the tests zip does not exist or does not
+ * A {@link ITargetPreparer} that pushes one or more files/dirs from a {@link
+ * IDeviceBuildInfo#getTestsDir()} folder onto device.
+ *
+ * <p>This preparer will look in alternate directories if the tests zip does not exist or does not
  * contain the required apk. The search will go in order from the last alternative dir specified to
  * the first.
- * </p>
  */
 @OptionClass(alias = "tests-zip-file")
-public class TestFilePushSetup implements ITargetPreparer {
+public class TestFilePushSetup extends BaseTargetPreparer {
 
     @Option(name = "test-file-name", description =
             "the relative path of a test zip file/directory to install on device. Can be repeated.",

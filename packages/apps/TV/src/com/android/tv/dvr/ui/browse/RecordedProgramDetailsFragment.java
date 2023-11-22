@@ -22,17 +22,14 @@ import android.os.Bundle;
 import android.support.v17.leanback.widget.Action;
 import android.support.v17.leanback.widget.OnActionClickedListener;
 import android.support.v17.leanback.widget.SparseArrayObjectAdapter;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.DvrWatchedPositionManager;
 import com.android.tv.dvr.data.RecordedProgram;
 
-/**
- * {@link android.support.v17.leanback.app.DetailsFragment} for recorded program in DVR.
- */
+/** {@link android.support.v17.leanback.app.DetailsFragment} for recorded program in DVR. */
 public class RecordedProgramDetailsFragment extends DvrDetailsFragment
         implements DvrDataManager.RecordedProgramListener {
     private static final int ACTION_RESUME_PLAYING = 1;
@@ -47,17 +44,17 @@ public class RecordedProgramDetailsFragment extends DvrDetailsFragment
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        mDvrDataManager = TvApplication.getSingletons(getContext()).getDvrDataManager();
+        mDvrDataManager = TvSingletons.getSingletons(getContext()).getDvrDataManager();
         mDvrDataManager.addRecordedProgramListener(this);
         super.onCreate(savedInstanceState);
     }
 
     @Override
     public void onCreateInternal() {
-        mDvrWatchedPositionManager = TvApplication.getSingletons(getActivity())
-                .getDvrWatchedPositionManager();
-        setDetailsOverviewRow(DetailsContent
-                .createFromRecordedProgram(getContext(), mRecordedProgram));
+        mDvrWatchedPositionManager =
+                TvSingletons.getSingletons(getActivity()).getDvrWatchedPositionManager();
+        setDetailsOverviewRow(
+                DetailsContent.createFromRecordedProgram(getContext(), mRecordedProgram));
     }
 
     @Override
@@ -95,20 +92,36 @@ public class RecordedProgramDetailsFragment extends DvrDetailsFragment
         Resources res = getResources();
         if (mDvrWatchedPositionManager.getWatchedStatus(mRecordedProgram)
                 == DvrWatchedPositionManager.DVR_WATCHED_STATUS_WATCHING) {
-            adapter.set(ACTION_RESUME_PLAYING, new Action(ACTION_RESUME_PLAYING,
-                    res.getString(R.string.dvr_detail_resume_play), null,
-                    res.getDrawable(R.drawable.lb_ic_play)));
-            adapter.set(ACTION_PLAY_FROM_BEGINNING, new Action(ACTION_PLAY_FROM_BEGINNING,
-                    res.getString(R.string.dvr_detail_play_from_beginning), null,
-                    res.getDrawable(R.drawable.lb_ic_replay)));
+            adapter.set(
+                    ACTION_RESUME_PLAYING,
+                    new Action(
+                            ACTION_RESUME_PLAYING,
+                            res.getString(R.string.dvr_detail_resume_play),
+                            null,
+                            res.getDrawable(R.drawable.lb_ic_play)));
+            adapter.set(
+                    ACTION_PLAY_FROM_BEGINNING,
+                    new Action(
+                            ACTION_PLAY_FROM_BEGINNING,
+                            res.getString(R.string.dvr_detail_play_from_beginning),
+                            null,
+                            res.getDrawable(R.drawable.lb_ic_replay)));
         } else {
-            adapter.set(ACTION_PLAY_FROM_BEGINNING, new Action(ACTION_PLAY_FROM_BEGINNING,
-                    res.getString(R.string.dvr_detail_watch), null,
-                    res.getDrawable(R.drawable.lb_ic_play)));
+            adapter.set(
+                    ACTION_PLAY_FROM_BEGINNING,
+                    new Action(
+                            ACTION_PLAY_FROM_BEGINNING,
+                            res.getString(R.string.dvr_detail_watch),
+                            null,
+                            res.getDrawable(R.drawable.lb_ic_play)));
         }
-        adapter.set(ACTION_DELETE_RECORDING, new Action(ACTION_DELETE_RECORDING,
-                res.getString(R.string.dvr_detail_delete), null,
-                res.getDrawable(R.drawable.ic_delete_32dp)));
+        adapter.set(
+                ACTION_DELETE_RECORDING,
+                new Action(
+                        ACTION_DELETE_RECORDING,
+                        res.getString(R.string.dvr_detail_delete),
+                        null,
+                        res.getDrawable(R.drawable.ic_delete_32dp)));
         return adapter;
     }
 
@@ -120,11 +133,13 @@ public class RecordedProgramDetailsFragment extends DvrDetailsFragment
                 if (action.getId() == ACTION_PLAY_FROM_BEGINNING) {
                     startPlayback(mRecordedProgram, TvInputManager.TIME_SHIFT_INVALID_TIME);
                 } else if (action.getId() == ACTION_RESUME_PLAYING) {
-                    startPlayback(mRecordedProgram, mDvrWatchedPositionManager
-                            .getWatchedPosition(mRecordedProgram.getId()));
+                    startPlayback(
+                            mRecordedProgram,
+                            mDvrWatchedPositionManager.getWatchedPosition(
+                                    mRecordedProgram.getId()));
                 } else if (action.getId() == ACTION_DELETE_RECORDING) {
-                    DvrManager dvrManager = TvApplication
-                            .getSingletons(getActivity()).getDvrManager();
+                    DvrManager dvrManager =
+                            TvSingletons.getSingletons(getActivity()).getDvrManager();
                     dvrManager.removeRecordedProgram(mRecordedProgram);
                     getActivity().finish();
                 }
@@ -133,10 +148,10 @@ public class RecordedProgramDetailsFragment extends DvrDetailsFragment
     }
 
     @Override
-    public void onRecordedProgramsAdded(RecordedProgram... recordedPrograms) { }
+    public void onRecordedProgramsAdded(RecordedProgram... recordedPrograms) {}
 
     @Override
-    public void onRecordedProgramsChanged(RecordedProgram... recordedPrograms) { }
+    public void onRecordedProgramsChanged(RecordedProgram... recordedPrograms) {}
 
     @Override
     public void onRecordedProgramsRemoved(RecordedProgram... recordedPrograms) {

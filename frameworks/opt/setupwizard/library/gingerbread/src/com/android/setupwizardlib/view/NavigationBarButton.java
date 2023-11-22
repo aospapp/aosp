@@ -16,6 +16,7 @@
 
 package com.android.setupwizardlib.view;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.PorterDuff;
@@ -30,6 +31,7 @@ import android.widget.Button;
  * Button for navigation bar, which includes tinting of its compound drawables to be used for dark
  * and light themes.
  */
+@SuppressLint("AppCompatCustomView")
 public class NavigationBarButton extends Button {
 
     public NavigationBarButton(Context context) {

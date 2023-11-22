@@ -27,7 +27,7 @@ limitations under the License.
         android:layout_height="wrap_content"
         android:layout_marginBottom="-8dp"
         android:visibility="gone"
-        style="@style/CarKey1" />
+        style="@style/TextAppearance.Car.Key1" />
 
     <TextView
         android:id="@+id/dialpad_letters"
@@ -36,7 +36,7 @@ limitations under the License.
         android:layout_height="wrap_content"
         android:textAllCaps="true"
         android:visibility="gone"
-        style="@style/CarKey2" />
+        style="@style/TextAppearance.Car.Key2" />
 
     <ImageView
         android:id="@+id/dialpad_image"

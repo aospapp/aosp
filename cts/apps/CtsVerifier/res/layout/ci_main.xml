@@ -14,26 +14,20 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="fill_parent"
-    android:layout_height="fill_parent"
-    android:gravity="bottom"
-    android:orientation="vertical" >
-
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:fillViewport="true"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
     <LinearLayout
-        android:layout_width="fill_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:gravity="bottom"
-        android:orientation="horizontal" >
-
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
         <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="fill_parent"
-            android:layout_weight="2"
-            android:gravity="bottom"
-            android:orientation="vertical" >
-
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
             <TextView
                 android:id="@+id/camera_text"
                 android:layout_width="wrap_content"
@@ -76,12 +70,8 @@
                     android:enabled="false"
                     android:text="@string/ci_start_test_button_caption" />
 
+                </LinearLayout>
             </LinearLayout>
-
-        </LinearLayout>
-
+        <include layout="@layout/pass_fail_buttons" />
     </LinearLayout>
-
-    <include layout="@layout/pass_fail_buttons" />
-
-</LinearLayout>
+</ScrollView>

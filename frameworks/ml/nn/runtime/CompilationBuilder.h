@@ -20,9 +20,13 @@
 #include "ExecutionPlan.h"
 #include "NeuralNetworks.h"
 
+#include <memory>
+#include <vector>
+
 namespace android {
 namespace nn {
 
+class Device;
 class ExecutionBuilder;
 class ModelBuilder;
 
@@ -34,9 +38,15 @@ public:
 
     int setPreference(int32_t preference);
 
+    int setPartitioning(uint32_t partitioning);
+
     int finish();
 
+    int finish(const std::vector<std::shared_ptr<Device>>& devices);
+
     int createExecution(ExecutionBuilder** execution);
+
+    const ExecutionPlan& forTest_getExecutionPlan() const { return mPlan; }
 
 private:
     const ModelBuilder* mModel;
@@ -45,6 +55,11 @@ private:
 
     // Whether the application prefers to go fast or use low power for this execution.
     int32_t mPreference = ANEURALNETWORKS_PREFER_FAST_SINGLE_ANSWER;
+
+    // See class DeviceManager.  When CompilationBuilder is
+    // instantiated, we capture partitioning from DeviceManager; but
+    // we can override this later.
+    uint32_t mPartitioning;
 
     // Once the compilation has been finished, we should not allow further
     // modifications to the compilation.

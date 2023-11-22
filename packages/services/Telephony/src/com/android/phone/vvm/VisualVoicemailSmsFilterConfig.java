@@ -92,6 +92,7 @@ public class VisualVoicemailSmsFilterConfig {
                         VisualVoicemailSmsFilterSettings.DEFAULT_ORIGINATING_NUMBERS))
                 .setDestinationPort(reader.getInt(DESTINATION_PORT_KEY,
                         VisualVoicemailSmsFilterSettings.DEFAULT_DESTINATION_PORT))
+                .setPackageName(packageName)
                 .build();
     }
 

@@ -15,28 +15,28 @@
  */
 package com.android.tv.tests.ui;
 
-import static com.android.tv.testing.uihelper.UiDeviceAsserts.assertHas;
-import static com.android.tv.testing.uihelper.UiDeviceAsserts.assertWaitForCondition;
-
-import android.support.test.filters.LargeTest;
+import android.support.test.filters.MediumTest;
 import android.support.test.uiautomator.Until;
-
 import com.android.tv.guide.ProgramGuide;
 import com.android.tv.testing.uihelper.Constants;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link ProgramGuide}.
- */
-@LargeTest
-public class ProgramGuideTest extends LiveChannelsTestCase {
+/** Tests for {@link ProgramGuide}. */
+@MediumTest
+@RunWith(JUnit4.class)
+public class ProgramGuideTest {
+    @Rule public final LiveChannelsTestController controller = new LiveChannelsTestController();
 
+    @Test
     public void testCancel() {
-        mLiveChannelsHelper.assertAppStarted();
-        mMenuHelper.assertPressProgramGuide();
-        assertWaitForCondition(mDevice,
-                Until.hasObject(Constants.PROGRAM_GUIDE));
-        mDevice.pressBack();
-        assertWaitForCondition(mDevice, Until.gone(Constants.PROGRAM_GUIDE));
-        assertHas(mDevice, Constants.MENU, false);
+        controller.liveChannelsHelper.assertAppStarted();
+        controller.menuHelper.assertPressProgramGuide();
+        controller.assertWaitForCondition(Until.hasObject(Constants.PROGRAM_GUIDE));
+        controller.pressBack();
+        controller.assertWaitForCondition(Until.gone(Constants.PROGRAM_GUIDE));
+        controller.assertHas(Constants.MENU, false);
     }
 }

@@ -1,7 +1,6 @@
 /** @file
 *
-*  Copyright (c) 2014-2015, Linaro Limited. All rights reserved.
-*  Copyright (c) 2014-2015, Hisilicon Limited. All rights reserved.
+*  Copyright (c) 2014-2017, Linaro Limited. All rights reserved.
 *
 *  This program and the accompanying materials
 *  are licensed and made available under the terms and conditions of the BSD License
@@ -16,9 +15,9 @@
 #include <Library/ArmPlatformLib.h>
 #include <Library/DebugLib.h>
 #include <Library/HobLib.h>
-#include <Library/PcdLib.h>
 #include <Library/IoLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/PcdLib.h>
 
 #include <Hi6220.h>
 
@@ -51,16 +50,12 @@ HiKeyInitMemorySize (
   IN VOID
   )
 {
-  UINT32               Count, Data, MemorySize;
+  UINT32               Data;
+  UINT64               MemorySize;
 
-  Count = 0;
-  while (MmioRead32 (MDDRC_AXI_BASE + AXI_REGION_MAP_OFFSET (Count)) != 0) {
-    Count++;
-  }
-  Data = MmioRead32 (MDDRC_AXI_BASE + AXI_REGION_MAP_OFFSET (Count - 1));
-  MemorySize = 16 << ((Data >> 8) & 0x7);
-  MemorySize += Data << 24;
-  return (UINT64) (MemorySize << 20);
+  Data = MmioRead32 (MDDRC_AXI_BASE + AXI_REGION_MAP);
+  MemorySize = HIKEY_REGION_SIZE(Data);
+  return MemorySize;
 }
 
 /**
@@ -88,36 +83,37 @@ ArmPlatformGetVirtualMemoryMap (
   UINT64                        MemorySize, AdditionalMemorySize;
 
   MemorySize = HiKeyInitMemorySize ();
+  if (MemorySize == 0) {
+    MemorySize = PcdGet64 (PcdSystemMemorySize);
+  }
 
   ResourceAttributes = (
-      EFI_RESOURCE_ATTRIBUTE_PRESENT |
-      EFI_RESOURCE_ATTRIBUTE_INITIALIZED |
-      EFI_RESOURCE_ATTRIBUTE_UNCACHEABLE |
-      EFI_RESOURCE_ATTRIBUTE_WRITE_COMBINEABLE |
-      EFI_RESOURCE_ATTRIBUTE_WRITE_THROUGH_CACHEABLE |
-      EFI_RESOURCE_ATTRIBUTE_WRITE_BACK_CACHEABLE |
-      EFI_RESOURCE_ATTRIBUTE_TESTED
+    EFI_RESOURCE_ATTRIBUTE_PRESENT |
+    EFI_RESOURCE_ATTRIBUTE_INITIALIZED |
+    EFI_RESOURCE_ATTRIBUTE_WRITE_COMBINEABLE |
+    EFI_RESOURCE_ATTRIBUTE_WRITE_THROUGH_CACHEABLE |
+    EFI_RESOURCE_ATTRIBUTE_WRITE_BACK_CACHEABLE |
+    EFI_RESOURCE_ATTRIBUTE_TESTED
   );
 
   // Create initial Base Hob for system memory.
   BuildResourceDescriptorHob (
-      EFI_RESOURCE_SYSTEM_MEMORY,
-      ResourceAttributes,
-      PcdGet64 (PcdSystemMemoryBase),
-      PcdGet64 (PcdSystemMemorySize)
+    EFI_RESOURCE_SYSTEM_MEMORY,
+    ResourceAttributes,
+    PcdGet64 (PcdSystemMemoryBase),
+    PcdGet64 (PcdSystemMemorySize)
   );
 
   NextHob.Raw = GetHobList ();
   Count = sizeof (HiKeyReservedMemoryBuffer) / sizeof (struct HiKeyReservedMemory);
-  while ((NextHob.Raw = GetNextHob (EFI_HOB_TYPE_RESOURCE_DESCRIPTOR, NextHob.Raw)) != NULL)
-  {
-    if (Index >= Count)
+  while ((NextHob.Raw = GetNextHob (EFI_HOB_TYPE_RESOURCE_DESCRIPTOR, NextHob.Raw)) != NULL) {
+    if (Index >= Count) {
       break;
+    }
     if ((NextHob.ResourceDescriptor->ResourceType == EFI_RESOURCE_SYSTEM_MEMORY) &&
         (HiKeyReservedMemoryBuffer[Index].Offset >= NextHob.ResourceDescriptor->PhysicalStart) &&
         ((HiKeyReservedMemoryBuffer[Index].Offset + HiKeyReservedMemoryBuffer[Index].Size) <=
-         NextHob.ResourceDescriptor->PhysicalStart + NextHob.ResourceDescriptor->ResourceLength))
-    {
+         NextHob.ResourceDescriptor->PhysicalStart + NextHob.ResourceDescriptor->ResourceLength)) {
       ResourceAttributes = NextHob.ResourceDescriptor->ResourceAttribute;
       ResourceLength = NextHob.ResourceDescriptor->ResourceLength;
       ResourceTop = NextHob.ResourceDescriptor->PhysicalStart + ResourceLength;
@@ -132,8 +128,7 @@ ArmPlatformGetVirtualMemoryMap (
       NextHob.ResourceDescriptor->ResourceLength = HiKeyReservedMemoryBuffer[Index].Offset - NextHob.ResourceDescriptor->PhysicalStart;
 
       // If there is some memory available on the top of the reserved memory then create a HOB
-      if (ReservedTop < ResourceTop)
-      {
+      if (ReservedTop < ResourceTop) {
         BuildResourceDescriptorHob (EFI_RESOURCE_SYSTEM_MEMORY,
                                     ResourceAttributes,
                                     ReservedTop,
@@ -148,13 +143,12 @@ ArmPlatformGetVirtualMemoryMap (
   if (AdditionalMemorySize >= SIZE_1GB) {
     // Declared the additional memory
     ResourceAttributes =
-        EFI_RESOURCE_ATTRIBUTE_PRESENT |
-        EFI_RESOURCE_ATTRIBUTE_INITIALIZED |
-        EFI_RESOURCE_ATTRIBUTE_UNCACHEABLE |
-        EFI_RESOURCE_ATTRIBUTE_WRITE_COMBINEABLE |
-        EFI_RESOURCE_ATTRIBUTE_WRITE_THROUGH_CACHEABLE |
-        EFI_RESOURCE_ATTRIBUTE_WRITE_BACK_CACHEABLE |
-        EFI_RESOURCE_ATTRIBUTE_TESTED;
+      EFI_RESOURCE_ATTRIBUTE_PRESENT |
+      EFI_RESOURCE_ATTRIBUTE_INITIALIZED |
+      EFI_RESOURCE_ATTRIBUTE_WRITE_COMBINEABLE |
+      EFI_RESOURCE_ATTRIBUTE_WRITE_THROUGH_CACHEABLE |
+      EFI_RESOURCE_ATTRIBUTE_WRITE_BACK_CACHEABLE |
+      EFI_RESOURCE_ATTRIBUTE_TESTED;
 
     BuildResourceDescriptorHob (
       EFI_RESOURCE_SYSTEM_MEMORY,
@@ -167,13 +161,13 @@ ArmPlatformGetVirtualMemoryMap (
 
   VirtualMemoryTable = (ARM_MEMORY_REGION_DESCRIPTOR*)AllocatePages(EFI_SIZE_TO_PAGES (sizeof(ARM_MEMORY_REGION_DESCRIPTOR) * MAX_VIRTUAL_MEMORY_MAP_DESCRIPTORS));
   if (VirtualMemoryTable == NULL) {
-      return;
+    return;
   }
 
   if (FeaturePcdGet(PcdCacheEnable) == TRUE) {
-      CacheAttributes = DDR_ATTRIBUTES_CACHED;
+    CacheAttributes = DDR_ATTRIBUTES_CACHED;
   } else {
-      CacheAttributes = DDR_ATTRIBUTES_UNCACHED;
+    CacheAttributes = DDR_ATTRIBUTES_UNCACHED;
   }
 
   Index = 0;

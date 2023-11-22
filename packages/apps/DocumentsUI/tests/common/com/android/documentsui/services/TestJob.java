@@ -107,4 +107,8 @@ public class TestJob extends Job {
                 service.getString(android.R.string.cancel),
                 R.drawable.ic_cab_cancel);
     }
+
+    @Override
+    void finish() {
+    }
 }

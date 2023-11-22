@@ -21,9 +21,8 @@ _ARC_SUPPORT_HOST_URL = 'chrome-extension://cnbgggchhmkkdmeppjobngjoejnihlei/'
 _ARC_SUPPORT_HOST_PAGENAME = '_generated_background_page.html'
 _DUMPSTATE_DEFAULT_TIMEOUT = 20
 _DUMPSTATE_PATH = '/var/log/arc-dumpstate.log'
-_DUMPSTATE_PIPE_PATH = '/var/run/arc/bugreport/pipe'
-_USERNAME = 'arcplusplustest@gmail.com'
-_USERNAME_DISPLAY = 'arcplusplustest@gmail.com'
+_DUMPSTATE_PIPE_PATH = '/run/arc/bugreport/pipe'
+_USERNAME = 'crosarcplusplustest@gmail.com'
 _ARCP_URL = 'https://sites.google.com/a/chromium.org/dev/chromium-os' \
                 '/testing/arcplusplus-testing/arcp'
 _OPT_IN_BEGIN = 'Initializing ARC opt-in flow.'
@@ -128,6 +127,14 @@ def _save_android_dumpstate(timeout=_DUMPSTATE_DEFAULT_TIMEOUT):
         logging.exception('Failed to save Android dumpstate.')
 
 
+def get_test_account_info():
+    """Retrieve test account information."""
+    with tempfile.NamedTemporaryFile() as pltp:
+        file_utils.download_file(_ARCP_URL, pltp.name)
+        password = pltp.read().rstrip()
+    return (_USERNAME, password)
+
+
 def set_browser_options_for_opt_in(b_options):
     """
     Setup Chrome for gaia login and opt_in.
@@ -135,10 +142,7 @@ def set_browser_options_for_opt_in(b_options):
     @param b_options: browser options object used by chrome.Chrome.
 
     """
-    b_options.username = _USERNAME
-    with tempfile.NamedTemporaryFile() as pltp:
-        file_utils.download_file(_ARCP_URL, pltp.name)
-        b_options.password = pltp.read().rstrip()
+    b_options.username, b_options.password = get_test_account_info()
     b_options.disable_default_apps = False
     b_options.disable_component_extensions_with_background_pages = False
     b_options.gaia_login = True
@@ -261,7 +265,7 @@ def opt_in_and_wait_for_completion(extension_main_page):
         """
         err_msg = extension_main_page.EvaluateJavaScript(js_read_error_message)
         err_msg = err_msg.strip()
-        logging.error('Error: %s', err_msg.strip())
+        logging.error('Error: %r', err_msg.encode('utf8'))
         if err_msg:
             raise error.TestFail('Opt-in app error: %s' % err_msg)
         else:

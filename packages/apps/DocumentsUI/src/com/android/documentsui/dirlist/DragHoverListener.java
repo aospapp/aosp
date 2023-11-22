@@ -24,9 +24,9 @@ import android.view.View.OnDragListener;
 
 import com.android.documentsui.ItemDragListener;
 import com.android.documentsui.ItemDragListener.DragHost;
-import com.android.documentsui.ui.ViewAutoScroller;
-import com.android.documentsui.ui.ViewAutoScroller.ScrollActionDelegate;
-import com.android.documentsui.ui.ViewAutoScroller.ScrollDistanceDelegate;
+import com.android.documentsui.selection.ViewAutoScroller;
+import com.android.documentsui.selection.ViewAutoScroller.ScrollHost;
+import com.android.documentsui.selection.ViewAutoScroller.ScrollerCallbacks;
 
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
@@ -66,14 +66,15 @@ class DragHoverListener implements OnDragListener {
             Predicate<View> isScrollView,
             BooleanSupplier scrollUpSupplier,
             BooleanSupplier scrollDownSupplier,
-            ViewAutoScroller.ScrollActionDelegate actionDelegate) {
+            ViewAutoScroller.ScrollerCallbacks scrollCallbacks) {
+
         mDragHandler = dragHandler;
         mHeight = heightSupplier;
         mIsScrollView = isScrollView;
         mCanScrollUp = scrollUpSupplier;
         mCanScrollDown = scrollDownSupplier;
 
-        ScrollDistanceDelegate distanceDelegate = new ScrollDistanceDelegate() {
+        ScrollHost scrollHost = new ScrollHost() {
             @Override
             public Point getCurrentPosition() {
                 return mCurrentPosition;
@@ -90,13 +91,14 @@ class DragHoverListener implements OnDragListener {
             }
         };
 
-        mDragScroller = new ViewAutoScroller(distanceDelegate, actionDelegate);
+        mDragScroller = new ViewAutoScroller(scrollHost, scrollCallbacks);
     }
 
     static DragHoverListener create(
             ItemDragListener<? extends DragHost> dragHandler,
             View scrollView) {
-        ScrollActionDelegate actionDelegate = new ScrollActionDelegate() {
+
+        ScrollerCallbacks scrollCallbacks = new ScrollerCallbacks() {
             @Override
             public void scrollBy(int dy) {
                 scrollView.scrollBy(0, dy);
@@ -113,13 +115,15 @@ class DragHoverListener implements OnDragListener {
                 scrollView.removeCallbacks(r);
             }
         };
+
         DragHoverListener listener = new DragHoverListener(
                 dragHandler,
                 scrollView::getHeight,
                 (view) -> (scrollView == view),
                 () -> scrollView.canScrollVertically(-1),
                 () -> scrollView.canScrollVertically(1),
-                actionDelegate);
+                scrollCallbacks);
+
         return listener;
     }
 

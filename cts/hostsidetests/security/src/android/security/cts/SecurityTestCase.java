@@ -46,8 +46,9 @@ public class SecurityTestCase extends DeviceTestCase {
      * Allows a CTS test to pass if called after a planned reboot.
      */
     public void updateKernelStartTime() throws Exception {
+        String uptime = getDevice().executeShellCommand("cat /proc/uptime");
         kernelStartTime = System.currentTimeMillis()/1000 -
-            Integer.parseInt(getDevice().executeShellCommand("cut -f1 -d. /proc/uptime").trim());
+            Integer.parseInt(uptime.substring(0, uptime.indexOf('.')));
     }
 
     /**
@@ -82,7 +83,7 @@ public class SecurityTestCase extends DeviceTestCase {
      */
     @Override
     public void tearDown() throws Exception {
-        getDevice().waitForDeviceOnline(60 * 1000);
+        getDevice().waitForDeviceAvailable(120 * 1000);
         String uptime = getDevice().executeShellCommand("cat /proc/uptime");
         assertTrue("Phone has had a hard reset",
             (System.currentTimeMillis()/1000 -
@@ -98,5 +99,11 @@ public class SecurityTestCase extends DeviceTestCase {
 
     public void assertNotMatches(String pattern, String input) throws Exception {
         assertFalse("Pattern found", Pattern.matches(pattern, input));
+    }
+
+    public void assertNotMatchesMultiLine(String pattern, String input) throws Exception {
+       assertFalse("Pattern found",
+                   Pattern.compile(pattern,
+                   Pattern.DOTALL).matcher(input).matches());
     }
 }

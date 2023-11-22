@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2017-2018 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,8 +45,17 @@
 	STRACE_PRINTF("%s%s=%llu", (prefix_), #field_,			\
 		      zero_extend_signed_to_ull((where_).field_))
 
+#define PRINT_FIELD_U_CAST(prefix_, where_, field_, type_)		\
+	STRACE_PRINTF("%s%s=%llu", (prefix_), #field_,			\
+		      zero_extend_signed_to_ull((type_) (where_).field_))
+
 #define PRINT_FIELD_X(prefix_, where_, field_)				\
 	STRACE_PRINTF("%s%s=%#llx", (prefix_), #field_,			\
+		      zero_extend_signed_to_ull((where_).field_))
+
+#define PRINT_FIELD_0X(prefix_, where_, field_)				\
+	STRACE_PRINTF("%s%s=%#0*llx", (prefix_), #field_,		\
+		      (int) sizeof((where_).field_) * 2,		\
 		      zero_extend_signed_to_ull((where_).field_))
 
 #define PRINT_FIELD_COOKIE(prefix_, where_, field_)			\
@@ -56,13 +66,120 @@
 #define PRINT_FIELD_FLAGS(prefix_, where_, field_, xlat_, dflt_)	\
 	do {								\
 		STRACE_PRINTF("%s%s=", (prefix_), #field_);		\
-		printflags((xlat_), (where_).field_, (dflt_));		\
+		printflags64((xlat_),					\
+			     zero_extend_signed_to_ull((where_).field_),\
+			     (dflt_));					\
 	} while (0)
 
 #define PRINT_FIELD_XVAL(prefix_, where_, field_, xlat_, dflt_)		\
 	do {								\
 		STRACE_PRINTF("%s%s=", (prefix_), #field_);		\
-		printxval((xlat_), (where_).field_, (dflt_));		\
+		printxval64((xlat_),					\
+			    zero_extend_signed_to_ull((where_).field_),	\
+			    (dflt_));		\
+	} while (0)
+
+/*
+ * Generic "ID" printing. ID is considered unsigned except for the special value
+ * of -1.
+ */
+#define PRINT_FIELD_ID(prefix_, where_, field_)					\
+	do {										\
+		if (sign_extend_unsigned_to_ll((where_).field_) == -1LL)		\
+			STRACE_PRINTF("%s%s=-1", (prefix_), #field_);			\
+		else									\
+			STRACE_PRINTF("%s%s=%llu", (prefix_), #field_,			\
+				      zero_extend_signed_to_ull((where_).field_));	\
+	} while (0)
+
+#define PRINT_FIELD_UID PRINT_FIELD_ID
+
+#define PRINT_FIELD_STRING(prefix_, where_, field_, len_, style_)	\
+	do {								\
+		STRACE_PRINTF("%s%s=", (prefix_), #field_);		\
+		print_quoted_string((const char *)(where_).field_,	\
+				    (len_), (style_));			\
+	} while (0)
+
+#define PRINT_FIELD_CSTRING(prefix_, where_, field_)			\
+	do {								\
+		STRACE_PRINTF("%s%s=", (prefix_), #field_);		\
+		print_quoted_cstring((const char *)(where_).field_,	\
+				     sizeof((where_).field_));		\
+	} while (0)
+
+#define PRINT_FIELD_HEX_ARRAY(prefix_, where_, field_)			\
+	do {								\
+		STRACE_PRINTF("%s%s=", (prefix_), #field_);		\
+		print_quoted_string((const char *)(where_).field_,	\
+				     sizeof((where_).field_) +		\
+					    MUST_BE_ARRAY((where_).field_), \
+				    QUOTE_FORCE_HEX); \
+	} while (0)
+
+#define PRINT_FIELD_INET_ADDR(prefix_, where_, field_, af_)		\
+	do {								\
+		STRACE_PRINTF(prefix_);					\
+		print_inet_addr((af_), &(where_).field_,		\
+				sizeof((where_).field_), #field_);	\
+	} while (0)
+
+#define PRINT_FIELD_INET4_ADDR(prefix_, where_, field_)			\
+	STRACE_PRINTF("%s%s=inet_addr(\"%s\")", (prefix_), #field_,	\
+		      inet_ntoa((where_).field_))
+
+#define PRINT_FIELD_NET_PORT(prefix_, where_, field_)			\
+	STRACE_PRINTF("%s%s=htons(%u)", (prefix_), #field_,		\
+		      ntohs((where_).field_))
+
+#define PRINT_FIELD_IFINDEX(prefix_, where_, field_)			\
+	do {								\
+		STRACE_PRINTF("%s%s=", (prefix_), #field_);		\
+		print_ifindex((where_).field_);				\
+	} while (0)
+
+#define PRINT_FIELD_SOCKADDR(prefix_, where_, field_)			\
+	do {								\
+		STRACE_PRINTF("%s%s=", (prefix_), #field_);		\
+		print_sockaddr(&(where_).field_,			\
+			       sizeof((where_).field_));		\
+	} while (0)
+
+#define PRINT_FIELD_DEV(prefix_, where_, field_)			\
+	do {								\
+		STRACE_PRINTF("%s%s=", (prefix_), #field_);		\
+		print_dev_t((where_).field_);				\
+	} while (0)
+
+#define PRINT_FIELD_PTR(prefix_, where_, field_)			\
+	do {								\
+		STRACE_PRINTF("%s%s=", (prefix_), #field_);		\
+		printaddr((mpers_ptr_t) (where_).field_);		\
+	} while (0)
+
+#define PRINT_FIELD_FD(prefix_, where_, field_, tcp_)			\
+	do {								\
+		STRACE_PRINTF("%s%s=", (prefix_), #field_);		\
+		printfd((tcp_), (where_).field_);			\
+	} while (0)
+
+#define PRINT_FIELD_STRN(prefix_, where_, field_, len_, tcp_)		\
+	do {								\
+		STRACE_PRINTF("%s%s=", (prefix_), #field_);		\
+		printstrn((tcp_), (where_).field_, (len_));		\
+	} while (0)
+
+
+#define PRINT_FIELD_STR(prefix_, where_, field_, tcp_)			\
+	do {								\
+		STRACE_PRINTF("%s%s=", (prefix_), #field_);		\
+		printstr((tcp_), (where_).field_);			\
+	} while (0)
+
+#define PRINT_FIELD_PATH(prefix_, where_, field_, tcp_)			\
+	do {								\
+		STRACE_PRINTF("%s%s=", (prefix_), #field_);		\
+		printpath((tcp_), (where_).field_);			\
 	} while (0)
 
 #endif /* !STRACE_PRINT_FIELDS_H */

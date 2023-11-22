@@ -23,19 +23,23 @@ class CPDF_Color {
   void Copy(const CPDF_Color* pSrc);
 
   void SetColorSpace(CPDF_ColorSpace* pCS);
-  void SetValue(FX_FLOAT* comp);
-  void SetValue(CPDF_Pattern* pPattern, FX_FLOAT* comp, int ncomps);
+  void SetValue(const float* comp);
+  void SetValue(CPDF_Pattern* pPattern, const float* comp, uint32_t ncomps);
 
-  bool GetRGB(int& R, int& G, int& B) const;
+  bool GetRGB(int* R, int* G, int* B) const;
   CPDF_Pattern* GetPattern() const;
   const CPDF_ColorSpace* GetColorSpace() const { return m_pCS; }
 
  protected:
   void ReleaseBuffer();
   void ReleaseColorSpace();
+  bool IsPatternInternal() const;
 
-  CPDF_ColorSpace* m_pCS;
-  FX_FLOAT* m_pBuffer;
+  // TODO(thestig): Convert this to a smart pointer or vector.
+  // |m_pBuffer| is created by |m_pCS|, so if it is non-null, then so is
+  // |m_pCS|.
+  float* m_pBuffer = nullptr;
+  CPDF_ColorSpace* m_pCS = nullptr;
 };
 
 #endif  // CORE_FPDFAPI_PAGE_CPDF_COLOR_H_

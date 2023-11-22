@@ -7,12 +7,14 @@ LOCAL_JAVA_LIBRARIES := telephony-common
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-proto-files-under, proto)
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
+LOCAL_USE_AAPT2 := true
 
 LOCAL_PROTOC_OPTIMIZE_TYPE := nano
 LOCAL_PROTOC_FLAGS := --proto_path=$(LOCAL_PATH)/proto/
 LOCAL_PROTO_JAVA_OUTPUT_PARAMS := optional_field_style=accessors
 
 LOCAL_PACKAGE_NAME := Telecom
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_CERTIFICATE := platform
 LOCAL_PRIVILEGED_MODULE := true

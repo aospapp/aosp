@@ -16,11 +16,12 @@
 <configuration description="Runs a subset of CTS tests that can heavily exercise HALs">
 
     <include name="cts" />
+    <option name="compatibility-build-provider:url-suite-name-override" value="CTS" />
+    <option name="dynamic-config-pusher:dynamic-resource-name" value="vts-tradefed" />
 
     <option name="plan" value="cts-vendor-interface" />
 
     <!-- Include test modules -->
-    <option name="compatibility:include-filter" value="CtsAadbHostTestCases" />
     <option name="compatibility:include-filter" value="CtsAccessibilityServiceTestCases" />
     <option name="compatibility:include-filter" value="CtsAccountManagerTestCases" />
     <option name="compatibility:include-filter" value="CtsAnimationTestCases" />
@@ -62,7 +63,7 @@
     <option name="compatibility:include-filter" value="CtsViewTestCases" />
     <option name="compatibility:include-filter" value="CtsWebkitTestCases" />
     <option name="compatibility:include-filter" value="CtsWidgetTestCases" />
-    <option name="compatibility:include-filter" value="CtsWindowManagerHostTestCases" />
+    <option name="compatibility:include-filter" value="CtsWindowManagerDeviceTestCases" />
 
     <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:include-annotation:com.android.compatibility.common.util.VendorInterfaceTest" />
     <option name="compatibility:test-arg" value="com.android.compatibility.common.tradefed.testtype.JarHostTest:include-annotation:com.android.compatibility.common.util.VendorInterfaceTest" />

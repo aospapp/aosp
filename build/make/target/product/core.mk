@@ -42,21 +42,24 @@ PRODUCT_PACKAGES += \
     KeyChain \
     Keyguard \
     LatinIME \
-    Launcher2 \
+    Launcher3QuickStep \
     ManagedProvisioning \
     MtpDocumentsProvider \
-    PicoTts \
     PacProcessor \
     libpac \
     PrintSpooler \
     PrintRecommendationService \
     ProxyHandler \
     QuickSearchBox \
+    SecureElement \
     Settings \
+    SettingsIntelligence \
     SharedStorageBackup \
+    SimAppDialog \
     StorageManager \
     Telecom \
     TeleService \
+    Traceur \
     VpnDialogs \
     vr \
     MmsService

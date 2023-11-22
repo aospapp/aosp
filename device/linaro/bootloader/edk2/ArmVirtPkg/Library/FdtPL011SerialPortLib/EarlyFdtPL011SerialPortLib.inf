@@ -36,10 +36,12 @@
   ArmPlatformPkg/ArmPlatformPkg.dec
   ArmVirtPkg/ArmVirtPkg.dec
 
-[FixedPcd]
+[Pcd]
   gArmVirtTokenSpaceGuid.PcdDeviceTreeInitialBaseAddress
 
+[FixedPcd]
   gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate
   gEfiMdePkgTokenSpaceGuid.PcdUartDefaultDataBits
   gEfiMdePkgTokenSpaceGuid.PcdUartDefaultParity
   gEfiMdePkgTokenSpaceGuid.PcdUartDefaultStopBits
+  gArmPlatformTokenSpaceGuid.PL011UartClkInHz

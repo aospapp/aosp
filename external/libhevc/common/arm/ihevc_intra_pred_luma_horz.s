@@ -84,6 +84,8 @@
 @r2 => *pu1_dst
 @r3 =>  dst_strd
 
+.equ    nt_offset,      104
+
 .text
 .align 4
 
@@ -97,9 +99,8 @@
 ihevc_intra_pred_luma_horz_a9q:
 
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
-
-    ldr         r4,[sp,#40]                 @loads nt
-    @ldr        r5,[sp,#44]                     @loads mode
+    vpush       {d8 - d15}
+    ldr         r4,[sp,#nt_offset]          @loads nt
 
     lsl         r6,r4,#1                    @two_nt
 
@@ -185,6 +186,7 @@ core_loop_32:
     vst1.8      {q4},[r2],r3
     vst1.8      {q4},[r9],r3
     bgt         core_loop_32
+    vpop        {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
     b           end_func
 
@@ -258,7 +260,7 @@ core_loop_16:
     vst1.8      {q5},[r2],r3
     vst1.8      {q6},[r2],r3
     vst1.8      {q7},[r2],r3
-
+    vpop        {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
     b           end_func
 
@@ -301,6 +303,7 @@ core_loop_8:
 
     vst1.8      {d8},[r2],r3
     vst1.8      {d9},[r2],r3
+    vpop        {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
     b           end_func
 
@@ -331,7 +334,7 @@ core_loop_4:
     vst1.32     {d3[0]},[r2],r3
     vst1.32     {d4[0]},[r2],r3
     vst1.32     {d5[0]},[r2],r3
-
+    vpop        {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 end_func:
 

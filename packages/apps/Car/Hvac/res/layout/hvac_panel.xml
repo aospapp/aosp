@@ -109,6 +109,11 @@ and animate only the children -->
                 android:translationY="@dimen/hvac_panel_row_animation_height_shift"
                 android:layout_marginTop="@dimen/hvac_panel_margin"
                 android:layout_marginBottom="@dimen/hvac_panel_row_margin">
+            <com.android.car.hvac.ui.ToggleButton
+                    android:id="@+id/hvac_master_switch"
+                    android:background="@drawable/hvac_panel_button_bg"
+                    android:layout_marginStart="@dimen/hvac_panel_margin"
+                    style="@style/HvacButton"/>
             <com.android.car.hvac.ui.SeatWarmerButton
                     android:id="@+id/left_seat_heater"
                     android:src="@drawable/ic_seat_heat_off"

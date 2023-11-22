@@ -28,14 +28,8 @@ from cros_utils import logger
 
 from cros_utils import buildbot_utils
 
-# CL that updated GCC ebuilds to use 'next_gcc'.
-USE_NEXT_GCC_PATCH = '230260'
-
-# CL that uses LLVM to build the peppy image.
-USE_LLVM_PATCH = '295217'
-
 # CL that uses LLVM-Next to build the images (includes chrome).
-USE_LLVM_NEXT_PATCH = '424123'
+USE_LLVM_NEXT_PATCH = '513590'
 
 CROSTC_ROOT = '/usr/local/google/crostc'
 ROLE_ACCOUNT = 'mobiletc-prebuild'
@@ -78,7 +72,7 @@ class ToolchainComparator(object):
     self._ce = command_executer.GetCommandExecuter()
     self._l = logger.GetLogger()
     self._build = '%s-release' % board
-    self._patches = patches.split(',')
+    self._patches = patches.split(',') if patches else []
     self._patches_string = '_'.join(str(p) for p in self._patches)
     self._noschedv2 = noschedv2
 
@@ -105,9 +99,7 @@ class ToolchainComparator(object):
     mo = re.search(TRYBOT_IMAGE_RE, trybot_image)
     assert mo
     dirname = IMAGE_DIR.replace('\\', '').format(**mo.groupdict())
-    version = buildbot_utils.GetGSContent(self._chromeos_root,
-                                          dirname + '/LATEST-master')
-    return dirname + '/' + version
+    return buildbot_utils.GetLatestImage(self._chromeos_root, dirname)
 
   def _GetNonAFDOImageName(self, trybot_image):
     """Given a trybot artifact name, get corresponding non-AFDO image name.
@@ -158,13 +150,10 @@ class ToolchainComparator(object):
     experiment_file_dir = os.path.join(self._chromeos_root, '..', self._weekday)
     experiment_file_name = '%s_toolchain_experiment.txt' % self._board
 
-    compiler_string = 'gcc'
+    compiler_string = 'llvm'
     if USE_LLVM_NEXT_PATCH in self._patches_string:
       experiment_file_name = '%s_llvm_next_experiment.txt' % self._board
       compiler_string = 'llvm_next'
-    elif USE_LLVM_PATCH in self._patches_string:
-      experiment_file_name = '%s_llvm_experiment.txt' % self._board
-      compiler_string = 'llvm'
 
     experiment_file = os.path.join(experiment_file_dir, experiment_file_name)
     experiment_header = """
@@ -175,12 +164,12 @@ class ToolchainComparator(object):
     experiment_tests = """
     benchmark: all_toolchain_perf {
       suite: telemetry_Crosperf
-      iterations: 3
+      iterations: 0
     }
 
     benchmark: page_cycler_v2.typical_25 {
       suite: telemetry_Crosperf
-      iterations: 2
+      iterations: 0
       run_local: False
       retries: 0
     }
@@ -195,7 +184,7 @@ class ToolchainComparator(object):
           vanilla_image {
             chromeos_root: %s
             build: %s
-            compiler: gcc
+            compiler: llvm
           }
           """ % (self._chromeos_root, vanilla_image)
       f.write(official_image)
@@ -206,14 +195,12 @@ class ToolchainComparator(object):
           nonafdo_image {
             chromeos_root: %s
             build: %s
-            compiler: gcc
+            compiler: llvm
           }
           """ % (self._chromeos_root, nonafdo_image)
         f.write(official_nonafdo_image)
 
       label_string = '%s_trybot_image' % compiler_string
-      if USE_NEXT_GCC_PATCH in self._patches:
-        label_string = 'gcc_next_trybot_image'
 
       # Reuse autotest files from vanilla image for trybot images
       autotest_files = os.path.join('/tmp', vanilla_image, 'autotest_files')
@@ -251,11 +238,9 @@ class ToolchainComparator(object):
     filename = os.path.join(self._reports_dir, 'msg_body.html')
     if (os.path.exists(filename) and
         os.path.exists(os.path.expanduser(MAIL_PROGRAM))):
-      email_title = 'buildbot test results'
+      email_title = 'buildbot llvm test results'
       if USE_LLVM_NEXT_PATCH in self._patches_string:
         email_title = 'buildbot llvm_next test results'
-      elif USE_LLVM_PATCH in self._patches_string:
-        email_title = 'buildbot llvm test results'
       command = ('cat %s | %s -s "%s, %s" -team -html' %
                  (filename, MAIL_PROGRAM, email_title, self._board))
       self._ce.RunCommand(command)
@@ -341,13 +326,9 @@ def Main(argv):
   if not options.chromeos_root:
     print('Please specify the ChromeOS root directory.')
     return 1
-  if options.patches:
-    patches = options.patches
-  else:
-    patches = USE_NEXT_GCC_PATCH
 
   fc = ToolchainComparator(options.board, options.remote, options.chromeos_root,
-                           options.weekday, patches, options.noschedv2)
+                           options.weekday, options.patches, options.noschedv2)
   return fc.DoAll()
 
 

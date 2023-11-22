@@ -39,7 +39,7 @@ import java.util.List;
  * please look at {@link TestAppInstallSetup}.
  */
 @OptionClass(alias = "all-tests-zip-installer")
-public class InstallAllTestZipAppsSetup implements ITargetCleaner {
+public class InstallAllTestZipAppsSetup extends BaseTargetPreparer implements ITargetCleaner {
     @Option(
         name = "install-arg",
         description =
@@ -67,9 +67,6 @@ public class InstallAllTestZipAppsSetup implements ITargetCleaner {
     @Option(name = "test-zip-name", description = "File name for test zip containing APKs.")
     private String mTestZipName;
 
-    @Option(name = "disable", description = "Disable this target preparer.")
-    private boolean mDisable;
-
     List<String> mPackagesInstalled = new ArrayList<>();
 
     public void setTestZipName(String testZipName) {
@@ -80,10 +77,6 @@ public class InstallAllTestZipAppsSetup implements ITargetCleaner {
         mStopInstallOnFailure = stopInstallOnFailure;
     }
 
-    public void setDisable(boolean disable) {
-        mDisable = disable;
-    }
-
     public void setCleanup(boolean cleanup) {
         mCleanup = cleanup;
     }
@@ -92,7 +85,7 @@ public class InstallAllTestZipAppsSetup implements ITargetCleaner {
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
             throws TargetSetupError, DeviceNotAvailableException {
-        if (mDisable) {
+        if (isDisabled()) {
             CLog.d("InstallAllTestZipAppsSetup disabled, skipping setUp");
             return;
         }
@@ -242,7 +235,7 @@ public class InstallAllTestZipAppsSetup implements ITargetCleaner {
     @Override
     public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
             throws DeviceNotAvailableException {
-        if (mDisable) {
+        if (isDisabled()) {
             CLog.d("InstallAllTestZipAppsSetup disabled, skipping tearDown");
             return;
         }

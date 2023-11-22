@@ -139,12 +139,10 @@ int main() {
     attempts.store(0);
 
     std::thread t0(killSockets, sin, KILL_INTERVAL_MS, &lock);
-    std::thread *connectThreads[CONNECT_THREADS];
     for (size_t i = 0; i < CONNECT_THREADS; i++) {
-        connectThreads[i] = new std::thread(connectLoop, sin, listensock, &lock, &attempts);
+        std::thread(connectLoop, sin, listensock, &lock, &attempts).detach();
     }
-    std::thread t1(progressThread, &attempts);
-    t1.join();
 
+    progressThread(&attempts);
     return 0;
 }

@@ -16,103 +16,116 @@
 
 package com.android.tv.tests.ui;
 
-import static com.android.tv.testing.uihelper.UiDeviceAsserts.assertHas;
-import static com.android.tv.testing.uihelper.UiDeviceAsserts.assertWaitForCondition;
-
-import android.support.test.filters.LargeTest;
+import android.support.test.filters.MediumTest;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Until;
-
 import com.android.tv.R;
 import com.android.tv.testing.testinput.ChannelStateData;
 import com.android.tv.testing.testinput.TvTestInputConstants;
 import com.android.tv.testing.uihelper.Constants;
 import com.android.tv.testing.uihelper.DialogHelper;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * Basic tests for the LiveChannels app.
- */
-@LargeTest
-public class LiveChannelsAppTest extends LiveChannelsTestCase {
+/** Basic tests for the LiveChannels app. */
+@MediumTest
+@RunWith(JUnit4.class)
+public class LiveChannelsAppTest {
+    @Rule public final LiveChannelsTestController controller = new LiveChannelsTestController();
+
     private BySelector mBySettingsSidePanel;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mLiveChannelsHelper.assertAppStarted();
-        pressKeysForChannel(TvTestInputConstants.CH_1_DEFAULT_DONT_MODIFY);
-        getInstrumentation().waitForIdleSync();
-        mBySettingsSidePanel = mSidePanelHelper.bySidePanelTitled(
-                R.string.side_panel_title_settings);
+    @Before
+    public void setUp() throws Exception {
+        controller.liveChannelsHelper.assertAppStarted();
+        controller.pressKeysForChannel(TvTestInputConstants.CH_1_DEFAULT_DONT_MODIFY);
+        controller.waitForIdleSync();
+        mBySettingsSidePanel =
+                controller.sidePanelHelper.bySidePanelTitled(R.string.side_panel_title_settings);
     }
 
+    @Test
     public void testSettingsCancel() {
-        mMenuHelper.assertPressOptionsSettings();
-        BySelector byChannelSourcesSidePanel = mSidePanelHelper
-                .bySidePanelTitled(R.string.settings_channel_source_item_customize_channels);
-        assertWaitForCondition(mDevice, Until.hasObject(byChannelSourcesSidePanel));
-        mDevice.pressBack();
-        assertWaitForCondition(mDevice, Until.gone(byChannelSourcesSidePanel));
-        assertHas(mDevice, Constants.MENU, false);
+        controller.menuHelper.assertPressOptionsSettings();
+        BySelector byChannelSourcesSidePanel =
+                controller.sidePanelHelper.bySidePanelTitled(
+                        R.string.settings_channel_source_item_customize_channels);
+        controller.assertWaitForCondition(Until.hasObject(byChannelSourcesSidePanel));
+        controller.pressBack();
+        controller.assertWaitForCondition(Until.gone(byChannelSourcesSidePanel));
+        controller.assertHas(Constants.MENU, false);
     }
 
+    @Test
     public void testClosedCaptionsCancel() {
-        mMenuHelper.assertPressOptionsClosedCaptions();
-        BySelector byClosedCaptionSidePanel = mSidePanelHelper
-                .bySidePanelTitled(R.string.side_panel_title_closed_caption);
-        assertWaitForCondition(mDevice, Until.hasObject(byClosedCaptionSidePanel));
-        mDevice.pressBack();
-        assertWaitForCondition(mDevice, Until.gone(byClosedCaptionSidePanel));
-        assertHas(mDevice, Constants.MENU, false);
+        controller.menuHelper.assertPressOptionsClosedCaptions();
+        BySelector byClosedCaptionSidePanel =
+                controller.sidePanelHelper.bySidePanelTitled(
+                        R.string.side_panel_title_closed_caption);
+        controller.assertWaitForCondition(Until.hasObject(byClosedCaptionSidePanel));
+        controller.pressBack();
+        controller.assertWaitForCondition(Until.gone(byClosedCaptionSidePanel));
+        controller.assertHas(Constants.MENU, false);
     }
 
+    @Test
     public void testDisplayModeCancel() {
         ChannelStateData data = new ChannelStateData();
-        data.mTvTrackInfos.add(com.android.tv.testing.Constants.SVGA_VIDEO_TRACK);
-        data.mSelectedVideoTrackId = com.android.tv.testing.Constants.SVGA_VIDEO_TRACK
-                .getId();
-        updateThenTune(data, TvTestInputConstants.CH_2);
+        data.mTvTrackInfos.add(com.android.tv.testing.constants.Constants.SVGA_VIDEO_TRACK);
+        data.mSelectedVideoTrackId =
+                com.android.tv.testing.constants.Constants.SVGA_VIDEO_TRACK.getId();
+        controller.updateThenTune(data, TvTestInputConstants.CH_2);
 
-        mMenuHelper.assertPressOptionsDisplayMode();
-        BySelector byDisplayModeSidePanel = mSidePanelHelper
-                .bySidePanelTitled(R.string.side_panel_title_display_mode);
-        assertWaitForCondition(mDevice, Until.hasObject(byDisplayModeSidePanel));
-        mDevice.pressBack();
-        assertWaitForCondition(mDevice, Until.gone(byDisplayModeSidePanel));
-        assertHas(mDevice, Constants.MENU, false);
+        controller.menuHelper.assertPressOptionsDisplayMode();
+        BySelector byDisplayModeSidePanel =
+                controller.sidePanelHelper.bySidePanelTitled(
+                        R.string.side_panel_title_display_mode);
+        controller.assertWaitForCondition(Until.hasObject(byDisplayModeSidePanel));
+        controller.pressBack();
+        controller.assertWaitForCondition(Until.gone(byDisplayModeSidePanel));
+        controller.assertHas(Constants.MENU, false);
     }
 
+    @Test
     public void testMenu() {
-        mDevice.pressMenu();
+        controller.pressMenu();
 
-        assertWaitForCondition(mDevice, Until.hasObject(Constants.MENU));
-        assertHas(mDevice, mMenuHelper.getByChannels(), true);
+        controller.assertWaitForCondition(Until.hasObject(Constants.MENU));
+        controller.assertHas(controller.menuHelper.getByChannels(), true);
     }
 
+    @Test
     public void testMultiAudioCancel() {
         ChannelStateData data = new ChannelStateData();
-        data.mTvTrackInfos.add(com.android.tv.testing.Constants.GENERIC_AUDIO_TRACK);
-        updateThenTune(data, TvTestInputConstants.CH_2);
+        data.mTvTrackInfos.add(com.android.tv.testing.constants.Constants.GENERIC_AUDIO_TRACK);
+        controller.updateThenTune(data, TvTestInputConstants.CH_2);
 
-        mMenuHelper.assertPressOptionsMultiAudio();
-        BySelector byMultiAudioSidePanel = mSidePanelHelper
-                .bySidePanelTitled(R.string.side_panel_title_multi_audio);
-        assertWaitForCondition(mDevice, Until.hasObject(byMultiAudioSidePanel));
-        mDevice.pressBack();
-        assertWaitForCondition(mDevice, Until.gone(byMultiAudioSidePanel));
-        assertHas(mDevice, Constants.MENU, false);
+        controller.menuHelper.assertPressOptionsMultiAudio();
+        BySelector byMultiAudioSidePanel =
+                controller.sidePanelHelper.bySidePanelTitled(R.string.side_panel_title_multi_audio);
+        controller.assertWaitForCondition(Until.hasObject(byMultiAudioSidePanel));
+        controller.pressBack();
+        controller.assertWaitForCondition(Until.gone(byMultiAudioSidePanel));
+        controller.assertHas(Constants.MENU, false);
     }
 
+    @Ignore("b/72156196")
+    @Test
     public void testPinCancel() {
-        mMenuHelper.showMenu();
-        mMenuHelper.assertPressOptionsSettings();
-        assertWaitForCondition(mDevice, Until.hasObject(mBySettingsSidePanel));
-        mSidePanelHelper.assertNavigateToItem(R.string.settings_parental_controls);
-        mDevice.pressDPadCenter();
-        DialogHelper dialogHelper = new DialogHelper(mDevice, mTargetResources);
+        controller.menuHelper.showMenu();
+        controller.menuHelper.assertPressOptionsSettings();
+        controller.assertWaitForCondition(Until.hasObject(mBySettingsSidePanel));
+        controller.sidePanelHelper.assertNavigateToItem(R.string.settings_parental_controls);
+        controller.pressDPadCenter();
+        DialogHelper dialogHelper =
+                new DialogHelper(controller.getUiDevice(), controller.getTargetResources());
         dialogHelper.assertWaitForPinDialogOpen();
-        mDevice.pressBack();
+        controller.pressBack();
         dialogHelper.assertWaitForPinDialogClose();
-        assertHas(mDevice, Constants.MENU, false);
+        controller.assertHas(Constants.MENU, false);
     }
 }

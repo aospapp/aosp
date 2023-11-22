@@ -15,7 +15,10 @@
 package cc
 
 import (
+	"strings"
+
 	"github.com/google/blueprint"
+	"github.com/google/blueprint/pathtools"
 	"github.com/google/blueprint/proptools"
 
 	"android/soong/android"
@@ -28,90 +31,65 @@ func init() {
 var (
 	proto = pctx.AndroidStaticRule("protoc",
 		blueprint.RuleParams{
-			Command:     "$protocCmd --cpp_out=$outDir $protoFlags $in",
+			Command:     "$protocCmd --cpp_out=$protoOutParams:$outDir -I $protoBase $protoFlags $in",
 			CommandDeps: []string{"$protocCmd"},
-		}, "protoFlags", "outDir")
+		}, "protoFlags", "protoOutParams", "protoBase", "outDir")
 )
 
-// TODO(ccross): protos are often used to communicate between multiple modules.  If the only
-// way to convert a proto to source is to reference it as a source file, and external modules cannot
-// reference source files in other modules, then every module that owns a proto file will need to
-// export a library for every type of external user (lite vs. full, c vs. c++ vs. java).  It would
-// be better to support a proto module type that exported a proto file along with some include dirs,
-// and then external modules could depend on the proto module but use their own settings to
-// generate the source.
-
+// genProto creates a rule to convert a .proto file to generated .pb.cc and .pb.h files and returns
+// the paths to the generated files.
 func genProto(ctx android.ModuleContext, protoFile android.Path,
-	protoFlags string) (android.ModuleGenPath, android.ModuleGenPath) {
+	protoFlags, protoOutParams string, root bool) (ccFile, headerFile android.WritablePath) {
 
-	outFile := android.GenPathWithExt(ctx, "proto", protoFile, "pb.cc")
-	headerFile := android.GenPathWithExt(ctx, "proto", protoFile, "pb.h")
-	ctx.ModuleBuild(pctx, android.ModuleBuildParams{
+	var protoBase string
+	if root {
+		protoBase = "."
+		ccFile = android.GenPathWithExt(ctx, "proto", protoFile, "pb.cc")
+		headerFile = android.GenPathWithExt(ctx, "proto", protoFile, "pb.h")
+	} else {
+		rel := protoFile.Rel()
+		protoBase = strings.TrimSuffix(protoFile.String(), rel)
+		ccFile = android.PathForModuleGen(ctx, "proto", pathtools.ReplaceExtension(rel, "pb.cc"))
+		headerFile = android.PathForModuleGen(ctx, "proto", pathtools.ReplaceExtension(rel, "pb.h"))
+	}
+
+	ctx.Build(pctx, android.BuildParams{
 		Rule:        proto,
 		Description: "protoc " + protoFile.Rel(),
-		Outputs:     android.WritablePaths{outFile, headerFile},
+		Outputs:     android.WritablePaths{ccFile, headerFile},
 		Input:       protoFile,
 		Args: map[string]string{
-			"outDir":     protoDir(ctx).String(),
-			"protoFlags": protoFlags,
+			"outDir":         android.ProtoDir(ctx).String(),
+			"protoFlags":     protoFlags,
+			"protoOutParams": protoOutParams,
+			"protoBase":      protoBase,
 		},
 	})
 
-	return outFile, headerFile
+	return ccFile, headerFile
 }
 
-// protoDir returns the module's "gen/proto" directory
-func protoDir(ctx android.ModuleContext) android.ModuleGenPath {
-	return android.PathForModuleGen(ctx, "proto")
-}
-
-// protoSubDir returns the module's "gen/proto/path/to/module" directory
-func protoSubDir(ctx android.ModuleContext) android.ModuleGenPath {
-	return android.PathForModuleGen(ctx, "proto", ctx.ModuleDir())
-}
-
-type ProtoProperties struct {
-	Proto struct {
-		// Proto generator type (full, lite)
-		Type *string `android:"arch_variant"`
-
-		// Link statically against the protobuf runtime
-		Static bool `android:"arch_variant"`
-
-		// list of directories that will be added to the protoc include paths.
-		Include_dirs []string
-
-		// list of directories relative to the Android.bp file that will
-		// be added to the protoc include paths.
-		Local_include_dirs []string
-	} `android:"arch_variant"`
-}
-
-func protoDeps(ctx BaseModuleContext, deps Deps, p *ProtoProperties) Deps {
+func protoDeps(ctx BaseModuleContext, deps Deps, p *android.ProtoProperties, static bool) Deps {
 	var lib string
-	var static bool
 
-	switch proptools.String(p.Proto.Type) {
+	switch String(p.Proto.Type) {
 	case "full":
-		if ctx.sdk() {
+		if ctx.useSdk() {
 			lib = "libprotobuf-cpp-full-ndk"
 			static = true
 		} else {
 			lib = "libprotobuf-cpp-full"
 		}
 	case "lite", "":
-		if ctx.sdk() {
+		if ctx.useSdk() {
 			lib = "libprotobuf-cpp-lite-ndk"
 			static = true
 		} else {
 			lib = "libprotobuf-cpp-lite"
-			if p.Proto.Static {
-				static = true
-			}
 		}
 	default:
 		ctx.PropertyErrorf("proto.type", "unknown proto type %q",
-			proptools.String(p.Proto.Type))
+			String(p.Proto.Type))
 	}
 
 	if static {
@@ -125,23 +103,20 @@ func protoDeps(ctx BaseModuleContext, deps Deps, p *ProtoProperties) Deps {
 	return deps
 }
 
-func protoFlags(ctx ModuleContext, flags Flags, p *ProtoProperties) Flags {
+func protoFlags(ctx ModuleContext, flags Flags, p *android.ProtoProperties) Flags {
 	flags.CFlags = append(flags.CFlags, "-DGOOGLE_PROTOBUF_NO_RTTI")
-	flags.GlobalFlags = append(flags.GlobalFlags,
-		"-I"+protoSubDir(ctx).String(),
-		"-I"+protoDir(ctx).String(),
-	)
 
-	if len(p.Proto.Local_include_dirs) > 0 {
-		localProtoIncludeDirs := android.PathsForModuleSrc(ctx, p.Proto.Local_include_dirs)
-		flags.protoFlags = append(flags.protoFlags, includeDirsToFlags(localProtoIncludeDirs))
+	flags.ProtoRoot = android.ProtoCanonicalPathFromRoot(ctx, p)
+	if flags.ProtoRoot {
+		flags.GlobalFlags = append(flags.GlobalFlags, "-I"+android.ProtoSubDir(ctx).String())
 	}
-	if len(p.Proto.Include_dirs) > 0 {
-		rootProtoIncludeDirs := android.PathsForSource(ctx, p.Proto.Include_dirs)
-		flags.protoFlags = append(flags.protoFlags, includeDirsToFlags(rootProtoIncludeDirs))
-	}
+	flags.GlobalFlags = append(flags.GlobalFlags, "-I"+android.ProtoDir(ctx).String())
 
-	flags.protoFlags = append(flags.protoFlags, "-I .")
+	flags.protoFlags = android.ProtoFlags(ctx, p)
+
+	if proptools.String(p.Proto.Type) == "lite" {
+		flags.protoOutParams = append(flags.protoOutParams, "lite")
+	}
 
 	return flags
 }

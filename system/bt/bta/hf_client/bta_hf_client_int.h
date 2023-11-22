@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  *  Copyright (c) 2014 The Android Open Source Project
- *  Copyright (C) 2003-2012 Broadcom Corporation
+ *  Copyright 2003-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -218,7 +218,7 @@ extern bool bta_hf_client_allocate_handle(const RawAddress& bd_addr,
 extern void bta_hf_client_app_callback(uint16_t event, tBTA_HF_CLIENT* data);
 extern void bta_hf_client_collision_cback(tBTA_SYS_CONN_STATUS status,
                                           uint8_t id, uint8_t app_id,
-                                          const RawAddress* peer_addr);
+                                          const RawAddress& peer_addr);
 extern void bta_hf_client_resume_open(tBTA_HF_CLIENT_CB* client_cb);
 extern tBTA_STATUS bta_hf_client_api_enable(tBTA_HF_CLIENT_CBACK* p_cback,
                                             tBTA_SEC sec_mask,

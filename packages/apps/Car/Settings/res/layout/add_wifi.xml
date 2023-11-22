@@ -27,7 +27,7 @@
             android:id="@+id/wifi_name_display"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            style="@style/CarBody1.SingleLine" />
+            style="@style/TextAppearance.Car.Body1.SingleLine" />
         <android.support.design.widget.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -37,7 +37,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:focusableInTouchMode="true"
-                style="@style/CarBody1"
+                style="@style/TextAppearance.Car.Body1"
                 android:hint="@string/wifi_ssid_hint" />
         </android.support.design.widget.TextInputLayout>
     </ViewSwitcher>
@@ -51,7 +51,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:focusableInTouchMode="true"
-            style="@style/CarBody1"
+            style="@style/TextAppearance.Car.Body1"
             android:inputType="textPassword"
             android:hint="@string/wifi_password" />
     </android.support.design.widget.TextInputLayout>

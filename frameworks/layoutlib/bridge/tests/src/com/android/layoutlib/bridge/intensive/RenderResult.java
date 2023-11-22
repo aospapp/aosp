@@ -28,7 +28,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-class RenderResult {
+public class RenderResult {
     private final List<ViewInfo> mRootViews;
     private final List<ViewInfo> mSystemViews;
     private final Result mRenderResult;
@@ -51,7 +51,7 @@ class RenderResult {
     }
 
     @Nullable
-    Result getResult() {
+    public Result getResult() {
         return mRenderResult;
     }
 

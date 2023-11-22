@@ -18,6 +18,7 @@ package com.android.tv.settings;
 
 import android.app.Activity;
 import android.app.Fragment;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.transition.Scene;
@@ -28,6 +29,9 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+
+import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
+import com.android.settingslib.core.instrumentation.SharedPreferencesLogger;
 
 public abstract class TvSettingsActivity extends Activity {
     private static final String TAG = "TvSettingsActivity";
@@ -118,4 +122,21 @@ public abstract class TvSettingsActivity extends Activity {
     }
 
     protected abstract Fragment createSettingsFragment();
+
+    private String getMetricsTag() {
+        String tag = getClass().getName();
+        if (tag.startsWith("com.android.tv.settings.")) {
+            tag = tag.replace("com.android.tv.settings.", "");
+        }
+        return tag;
+    }
+
+    @Override
+    public SharedPreferences getSharedPreferences(String name, int mode) {
+        if (name.equals(getPackageName() + "_preferences")) {
+            return new SharedPreferencesLogger(this, getMetricsTag(),
+                    new MetricsFeatureProvider());
+        }
+        return super.getSharedPreferences(name, mode);
+    }
 }

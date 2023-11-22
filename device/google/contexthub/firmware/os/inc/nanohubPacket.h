@@ -166,6 +166,7 @@ enum NanohubFirmwareChunkReply {
     NANOHUB_FIRMWARE_CHUNK_REPLY_RESTART,
     NANOHUB_FIRMWARE_CHUNK_REPLY_CANCEL,
     NANOHUB_FIRMWARE_CHUNK_REPLY_CANCEL_NO_RETRY,
+    NANOHUB_FIRMWARE_CHUNK_REPLY_NO_SPACE,
 };
 
 SET_PACKED_STRUCT_MODE_ON
@@ -278,18 +279,6 @@ struct NanohubWriteEventResponse {
 } ATTRIBUTE_PACKED;
 SET_PACKED_STRUCT_MODE_OFF
 
-SET_PACKED_STRUCT_MODE_ON
-struct NanohubHalHdr {
-    uint64_t appId;
-    uint8_t len;
-    uint8_t msg;
-} ATTRIBUTE_PACKED;
-SET_PACKED_STRUCT_MODE_OFF
-
-#define NANOHUB_HAL_EXT_APPS_ON     0
-#define NANOHUB_HAL_EXT_APPS_OFF    1
-#define NANOHUB_HAL_EXT_APP_DELETE  2
-
 // this behaves more stable w.r.t. endianness than bit field
 // this is setting byte fields in MgmtStatus response
 // the high-order bit, if set, is indication of counter overflow
@@ -310,32 +299,46 @@ struct MgmtStatus {
 } ATTRIBUTE_PACKED;
 SET_PACKED_STRUCT_MODE_OFF
 
+#ifdef LEGACY_HAL_ENABLED
+
 SET_PACKED_STRUCT_MODE_ON
-struct NanohubHalMgmtRx {
+struct NanohubHalLegacyHdr {
+    uint64_t appId;
+    uint8_t len;
+    uint8_t msg;
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+#define NANOHUB_HAL_LEGACY_EXT_APPS_ON      0
+#define NANOHUB_HAL_LEGACY_EXT_APPS_OFF     1
+#define NANOHUB_HAL_LEGACY_EXT_APP_DELETE   2
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalLegacyMgmtRx {
     __le64 appId;
     struct MgmtStatus stat;
 } ATTRIBUTE_PACKED;
 SET_PACKED_STRUCT_MODE_OFF
 
 SET_PACKED_STRUCT_MODE_ON
-struct NanohubHalMgmtTx {
-    struct NanohubHalHdr hdr;
+struct NanohubHalLegacyMgmtTx {
+    struct NanohubHalLegacyHdr hdr;
     __le32 status;
 } ATTRIBUTE_PACKED;
 SET_PACKED_STRUCT_MODE_OFF
 
-#define NANOHUB_HAL_QUERY_MEMINFO   3
-#define NANOHUB_HAL_QUERY_APPS      4
+#define NANOHUB_HAL_LEGACY_QUERY_MEMINFO    3
+#define NANOHUB_HAL_LEGACY_QUERY_APPS       4
 
 SET_PACKED_STRUCT_MODE_ON
-struct NanohubHalQueryAppsRx {
+struct NanohubHalLegacyQueryAppsRx {
     __le32 idx;
 } ATTRIBUTE_PACKED;
 SET_PACKED_STRUCT_MODE_OFF
 
 SET_PACKED_STRUCT_MODE_ON
-struct NanohubHalQueryAppsTx {
-    struct NanohubHalHdr hdr;
+struct NanohubHalLegacyQueryAppsTx {
+    struct NanohubHalLegacyHdr hdr;
     __le64 appId;
     __le32 version;
     __le32 flashUse;
@@ -343,22 +346,205 @@ struct NanohubHalQueryAppsTx {
 } ATTRIBUTE_PACKED;
 SET_PACKED_STRUCT_MODE_OFF
 
-#define NANOHUB_HAL_QUERY_RSA_KEYS  5
+#define NANOHUB_HAL_LEGACY_QUERY_RSA_KEYS   5
 
 SET_PACKED_STRUCT_MODE_ON
-struct NanohubHalQueryRsaKeysRx {
+struct NanohubHalLegacyQueryRsaKeysRx {
     __le32 offset;
 } ATTRIBUTE_PACKED;
 SET_PACKED_STRUCT_MODE_OFF
 
 SET_PACKED_STRUCT_MODE_ON
-struct NanohubHalQueryRsaKeysTx {
-    struct NanohubHalHdr hdr;
+struct NanohubHalLegacyQueryRsaKeysTx {
+    struct NanohubHalLegacyHdr hdr;
     uint8_t data[];
 } ATTRIBUTE_PACKED;
 SET_PACKED_STRUCT_MODE_OFF
 
-#define NANOHUB_HAL_START_UPLOAD    6
+#define NANOHUB_HAL_LEGACY_START_UPLOAD     6
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalLegacyStartUploadRx {
+    uint8_t isOs;
+    __le32 length;
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalLegacyStartUploadTx {
+    struct NanohubHalLegacyHdr hdr;
+    uint8_t success;
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+#define NANOHUB_HAL_LEGACY_CONT_UPLOAD      7
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalLegacyContUploadRx {
+    __le32 offset;
+    uint8_t data[];
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalLegacyContUploadTx {
+    struct NanohubHalLegacyHdr hdr;
+    uint8_t success;
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+#define NANOHUB_HAL_LEGACY_FINISH_UPLOAD    8
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalLegacyFinishUploadTx {
+    struct NanohubHalLegacyHdr hdr;
+    uint8_t success;
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+#define NANOHUB_HAL_LEGACY_REBOOT           9
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalLegacyRebootTx {
+    struct NanohubHalLegacyHdr hdr;
+    __le32 reason;
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+#endif /* LEGACY_HAL_ENABLED */
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalHdr {
+    __le64 appId;
+    uint8_t len;
+    __le32 transactionId;
+    __le16 unused;
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalRet {
+    uint8_t msg;
+    __le32 status;
+} ATTRIBUTE_PACKED;
+
+#define NANOHUB_HAL_APP_MGMT            0x10
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalAppMgmtRx {
+    __le64 appId;
+    uint8_t cmd;
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+#define NANOHUB_HAL_APP_MGMT_START      0
+#define NANOHUB_HAL_APP_MGMT_STOP       1
+#define NANOHUB_HAL_APP_MGMT_UNLOAD     2
+#define NANOHUB_HAL_APP_MGMT_DELETE     3
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalAppMgmtTx {
+    struct NanohubHalHdr hdr;
+    struct NanohubHalRet ret;
+    uint8_t cmd;
+    struct MgmtStatus stat;
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+#define NANOHUB_HAL_SYS_MGMT            0x11
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalSysMgmtRx {
+    uint8_t cmd;
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+#define NANOHUB_HAL_SYS_MGMT_ERASE      0
+#define NANOHUB_HAL_SYS_MGMT_REBOOT     1
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalSysMgmtTx {
+    struct NanohubHalHdr hdr;
+    struct NanohubHalRet ret;
+    uint8_t cmd;
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+#define NANOHUB_HAL_APP_INFO            0x12
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalAppInfoRx {
+    __le32 addr;
+    uint8_t tags[HOST_HUB_CHRE_PACKET_MAX_LEN - sizeof(__le32)];
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+#define NANOHUB_HAL_APP_INFO_APPID          0x00
+#define NANOHUB_HAL_APP_INFO_CRC            0x01
+#define NANOHUB_HAL_APP_INFO_TID            0x02
+#define NANOHUB_HAL_APP_INFO_VERSION        0x03
+#define NANOHUB_HAL_APP_INFO_ADDR           0x04
+#define NANOHUB_HAL_APP_INFO_SIZE           0x05
+#define NANOHUB_HAL_APP_INFO_HEAP           0x06
+#define NANOHUB_HAL_APP_INFO_DATA           0x07
+#define NANOHUB_HAL_APP_INFO_BSS            0x08
+#define NANOHUB_HAL_APP_INFO_CHRE_MAJOR     0x09
+#define NANOHUB_HAL_APP_INFO_CHRE_MINOR     0x0A
+#define NANOHUB_HAL_APP_INFO_END            0xFF
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalAppInfoTx {
+    struct NanohubHalHdr hdr;
+    struct NanohubHalRet ret;
+    uint8_t data[HOST_HUB_CHRE_PACKET_MAX_LEN - sizeof(struct NanohubHalRet)];
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+#define NANOHUB_HAL_SYS_INFO            0x13
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalSysInfoRx {
+    uint8_t tags[HOST_HUB_CHRE_PACKET_MAX_LEN];
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+#define NANOHUB_HAL_SYS_INFO_HEAP_FREE      0x0F
+#define NANOHUB_HAL_SYS_INFO_RAM_SIZE       0x12
+#define NANOHUB_HAL_SYS_INFO_EEDATA_SIZE    0x13
+#define NANOHUB_HAL_SYS_INFO_EEDATA_FREE    0x14
+#define NANOHUB_HAL_SYS_INFO_CODE_SIZE      0x15
+#define NANOHUB_HAL_SYS_INFO_CODE_FREE      0x16
+#define NANOHUB_HAL_SYS_INFO_SHARED_SIZE    0x17
+#define NANOHUB_HAL_SYS_INFO_SHARED_FREE    0x18
+#define NANOHUB_HAL_SYS_INFO_END            0xFF
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalSysInfoTx {
+    struct NanohubHalHdr hdr;
+    struct NanohubHalRet ret;
+    uint8_t data[HOST_HUB_CHRE_PACKET_MAX_LEN - sizeof(struct NanohubHalRet)];
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+#define NANOHUB_HAL_KEY_INFO            0x14
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalKeyInfoRx {
+    uint32_t keyNum;
+    uint32_t dataOffset;
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubHalKeyInfoTx {
+    struct NanohubHalHdr hdr;
+    struct NanohubHalRet ret;
+    uint32_t keyLength;
+    uint8_t data[NANOHUB_RSA_KEY_CHUNK_LEN];
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+#define NANOHUB_HAL_START_UPLOAD        0x16
 
 SET_PACKED_STRUCT_MODE_ON
 struct NanohubHalStartUploadRx {
@@ -370,41 +556,34 @@ SET_PACKED_STRUCT_MODE_OFF
 SET_PACKED_STRUCT_MODE_ON
 struct NanohubHalStartUploadTx {
     struct NanohubHalHdr hdr;
-    uint8_t success;
+    struct NanohubHalRet ret;
 } ATTRIBUTE_PACKED;
 SET_PACKED_STRUCT_MODE_OFF
 
-#define NANOHUB_HAL_CONT_UPLOAD     7
+#define NANOHUB_HAL_CONT_UPLOAD         0x17
 
 SET_PACKED_STRUCT_MODE_ON
 struct NanohubHalContUploadRx {
     __le32 offset;
-    uint8_t data[];
+    uint8_t data[HOST_HUB_CHRE_PACKET_MAX_LEN-sizeof(__le32)];
 } ATTRIBUTE_PACKED;
-SET_PACKED_STRUCT_MODE_OFF
+SET_PACKED_STRUCT_MODE_ON
 
 SET_PACKED_STRUCT_MODE_ON
 struct NanohubHalContUploadTx {
     struct NanohubHalHdr hdr;
-    uint8_t success;
+    struct NanohubHalRet ret;
 } ATTRIBUTE_PACKED;
 SET_PACKED_STRUCT_MODE_OFF
 
-#define NANOHUB_HAL_FINISH_UPLOAD   8
+#define NANOHUB_HAL_FINISH_UPLOAD       0x18
 
 SET_PACKED_STRUCT_MODE_ON
 struct NanohubHalFinishUploadTx {
     struct NanohubHalHdr hdr;
-    uint8_t success;
-} ATTRIBUTE_PACKED;
-SET_PACKED_STRUCT_MODE_OFF
-
-#define NANOHUB_HAL_REBOOT          9
-
-SET_PACKED_STRUCT_MODE_ON
-struct NanohubHalRebootTx {
-    struct NanohubHalHdr hdr;
-    __le32 reason;
+    struct NanohubHalRet ret;
+    __le32 addr;
+    __le32 crc;
 } ATTRIBUTE_PACKED;
 SET_PACKED_STRUCT_MODE_OFF
 

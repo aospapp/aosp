@@ -11,6 +11,7 @@ adb_host_sanitize :=
 adb_target_sanitize :=
 
 ADB_COMMON_CFLAGS := \
+    -frtti \
     -Wall -Wextra -Werror \
     -Wno-unused-parameter \
     -Wno-missing-field-initializers \
@@ -35,6 +36,7 @@ ADB_COMMON_darwin_CFLAGS := \
 #   CreateFileW(path_wide.c_str());
 ADB_COMMON_windows_CFLAGS := \
     -DUNICODE=1 -D_UNICODE=1 \
+    -D_POSIX_SOURCE
 
 # libadb
 # =========================================================
@@ -101,6 +103,8 @@ LIBADB_windows_SRC_FILES := \
     sysdeps_win32.cpp \
     sysdeps/win32/errno.cpp \
     sysdeps/win32/stat.cpp \
+    client/usb_dispatch.cpp \
+    client/usb_libusb.cpp \
     client/usb_windows.cpp \
 
 LIBADB_TEST_windows_SRCS := \
@@ -108,7 +112,6 @@ LIBADB_TEST_windows_SRCS := \
     sysdeps_win32_test.cpp \
 
 include $(CLEAR_VARS)
-LOCAL_CLANG := true
 LOCAL_MODULE := libadbd_usb
 LOCAL_CFLAGS := $(LIBADB_CFLAGS) -DADB_HOST=0
 LOCAL_SRC_FILES := daemon/usb.cpp
@@ -117,12 +120,11 @@ LOCAL_SANITIZE := $(adb_target_sanitize)
 
 # Even though we're building a static library (and thus there's no link step for
 # this to take effect), this adds the includes to our path.
-LOCAL_STATIC_LIBRARIES := libcrypto_utils libcrypto libbase
+LOCAL_STATIC_LIBRARIES := libcrypto_utils libcrypto libbase libasyncio
 
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
-LOCAL_CLANG := true
 LOCAL_MODULE := libadbd
 LOCAL_CFLAGS := $(LIBADB_CFLAGS) -DADB_HOST=0
 LOCAL_SRC_FILES := \
@@ -161,9 +163,7 @@ LOCAL_SANITIZE := $(adb_host_sanitize)
 
 # Even though we're building a static library (and thus there's no link step for
 # this to take effect), this adds the includes to our path.
-LOCAL_STATIC_LIBRARIES := libcrypto_utils libcrypto libbase libmdnssd
-LOCAL_STATIC_LIBRARIES_linux := libusb
-LOCAL_STATIC_LIBRARIES_darwin := libusb
+LOCAL_STATIC_LIBRARIES := libcrypto_utils libcrypto libbase libmdnssd libusb
 
 LOCAL_C_INCLUDES_windows := development/host/windows/usb/api/
 LOCAL_MULTILIB := first
@@ -171,7 +171,6 @@ LOCAL_MULTILIB := first
 include $(BUILD_HOST_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
-LOCAL_CLANG := true
 LOCAL_MODULE := adbd_test
 LOCAL_CFLAGS := -DADB_HOST=0 $(LIBADB_CFLAGS)
 LOCAL_SRC_FILES := \
@@ -233,16 +232,14 @@ LOCAL_STATIC_LIBRARIES := \
     libdiagnose_usb \
     libmdnssd \
     libgmock_host \
-
-LOCAL_STATIC_LIBRARIES_linux := libusb
-LOCAL_STATIC_LIBRARIES_darwin := libusb
+    libusb \
 
 # Set entrypoint to wmain from sysdeps_win32.cpp instead of main
 LOCAL_LDFLAGS_windows := -municode
 LOCAL_LDLIBS_linux := -lrt -ldl -lpthread
 LOCAL_LDLIBS_darwin := -framework CoreFoundation -framework IOKit -lobjc
 LOCAL_LDLIBS_windows := -lws2_32 -luserenv
-LOCAL_STATIC_LIBRARIES_windows := AdbWinApi
+LOCAL_SHARED_LIBRARIES_windows := AdbWinApi
 
 LOCAL_MULTILIB := first
 
@@ -259,8 +256,8 @@ LOCAL_LDLIBS_darwin := -lpthread -framework CoreFoundation -framework IOKit -fra
 # Use wmain instead of main
 LOCAL_LDFLAGS_windows := -municode
 LOCAL_LDLIBS_windows := -lws2_32 -lgdi32
-LOCAL_STATIC_LIBRARIES_windows := AdbWinApi
-LOCAL_REQUIRED_MODULES_windows := AdbWinApi AdbWinUsbApi
+LOCAL_SHARED_LIBRARIES_windows := AdbWinApi
+LOCAL_REQUIRED_MODULES_windows := AdbWinUsbApi
 
 LOCAL_SRC_FILES := \
     adb_client.cpp \
@@ -301,13 +298,11 @@ LOCAL_STATIC_LIBRARIES := \
     libdiagnose_usb \
     liblog \
     libmdnssd \
+    libusb \
 
 # Don't use libcutils on Windows.
 LOCAL_STATIC_LIBRARIES_darwin := libcutils
 LOCAL_STATIC_LIBRARIES_linux := libcutils
-
-LOCAL_STATIC_LIBRARIES_darwin += libusb
-LOCAL_STATIC_LIBRARIES_linux += libusb
 
 LOCAL_CXX_STL := libc++_static
 
@@ -329,8 +324,6 @@ endif
 # =========================================================
 
 include $(CLEAR_VARS)
-
-LOCAL_CLANG := true
 
 LOCAL_SRC_FILES := \
     daemon/main.cpp \
@@ -365,6 +358,7 @@ LOCAL_SANITIZE := $(adb_target_sanitize)
 LOCAL_STRIP_MODULE := keep_symbols
 LOCAL_STATIC_LIBRARIES := \
     libadbd \
+    libasyncio \
     libavb_user \
     libbase \
     libqemu_pipe \

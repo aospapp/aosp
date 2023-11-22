@@ -74,6 +74,8 @@ class JMIDataV3Helper(cfm_jmidata_helper_base.JMIDataHelperBase):
                                  jmi_obj[key] == 'true')):
                             jmi_obj[key] = 1 if jmi_obj[key] == 'true' else 0
                         data_list.append(jmi_obj[key])
+        if not data_list:
+            data_list = [0]
         return data_list
 
     def GetAudioReceivedBytesList(self):
@@ -198,6 +200,8 @@ class JMIDataV3Helper(cfm_jmidata_helper_base.JMIDataHelperBase):
                                 frame_rate != 0:
                             video_streams += 1
             num_video_streams.append(video_streams)
+        if not num_video_streams:
+            num_video_streams = [0]
         return num_video_streams
 
     def GetCpuUsageList(self, cpu_type):

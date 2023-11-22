@@ -36,21 +36,19 @@ import android.support.v17.leanback.widget.SparseArrayObjectAdapter;
 import android.support.v17.leanback.widget.VerticalGridView;
 import android.text.TextUtils;
 import android.widget.Toast;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
-import com.android.tv.data.Channel;
+import com.android.tv.common.util.CommonUtils;
 import com.android.tv.data.ChannelDataManager;
+import com.android.tv.data.api.Channel;
 import com.android.tv.dialog.PinDialogFragment;
 import com.android.tv.dialog.PinDialogFragment.OnPinCheckedListener;
 import com.android.tv.dvr.data.RecordedProgram;
 import com.android.tv.dvr.ui.DvrUiHelper;
 import com.android.tv.parental.ParentalControlSettings;
-import com.android.tv.util.ImageLoader;
 import com.android.tv.util.ToastUtils;
-import com.android.tv.util.Utils;
-
+import com.android.tv.util.images.ImageLoader;
 import java.io.File;
 
 abstract class DvrDetailsFragment extends DetailsFragment {
@@ -77,8 +75,8 @@ abstract class DvrDetailsFragment extends DetailsFragment {
     public void onStart() {
         super.onStart();
         // TODO: remove the workaround of b/30401180.
-        VerticalGridView container = (VerticalGridView) getActivity()
-                .findViewById(R.id.container_list);
+        VerticalGridView container =
+                (VerticalGridView) getActivity().findViewById(R.id.container_list);
         // Need to manually modify offset. Please refer DetailsFragment.setVerticalGridViewLayout.
         container.setItemAlignmentOffset(0);
         container.setWindowAlignmentOffset(
@@ -86,27 +84,23 @@ abstract class DvrDetailsFragment extends DetailsFragment {
     }
 
     private void setupAdapter() {
-        DetailsOverviewRowPresenter rowPresenter = new DetailsOverviewRowPresenter(
-                new DetailsContentPresenter(getActivity()));
-        rowPresenter.setBackgroundColor(getResources().getColor(R.color.common_tv_background,
-                null));
-        rowPresenter.setSharedElementEnterTransition(getActivity(),
-                DvrDetailsActivity.SHARED_ELEMENT_NAME);
+        DetailsOverviewRowPresenter rowPresenter =
+                new DetailsOverviewRowPresenter(new DetailsContentPresenter(getActivity()));
+        rowPresenter.setBackgroundColor(
+                getResources().getColor(R.color.common_tv_background, null));
+        rowPresenter.setSharedElementEnterTransition(
+                getActivity(), DvrDetailsActivity.SHARED_ELEMENT_NAME);
         rowPresenter.setOnActionClickedListener(onCreateOnActionClickedListener());
         mRowsAdapter = new ArrayObjectAdapter(onCreatePresenterSelector(rowPresenter));
         setAdapter(mRowsAdapter);
     }
 
-    /**
-     * Returns details views' rows adapter.
-     */
+    /** Returns details views' rows adapter. */
     protected ArrayObjectAdapter getRowsAdapter() {
-        return  mRowsAdapter;
+        return mRowsAdapter;
     }
 
-    /**
-     * Sets details overview.
-     */
+    /** Sets details overview. */
     protected void setDetailsOverviewRow(DetailsContent detailsContent) {
         mDetailsOverview = new DetailsOverviewRow(detailsContent);
         mDetailsOverview.setActionsAdapter(onCreateActionsAdapter());
@@ -114,9 +108,7 @@ abstract class DvrDetailsFragment extends DetailsFragment {
         onLoadLogoAndBackgroundImages(detailsContent);
     }
 
-    /**
-     * Creates and returns presenter selector will be used by rows adaptor.
-     */
+    /** Creates and returns presenter selector will be used by rows adaptor. */
     protected PresenterSelector onCreatePresenterSelector(
             DetailsOverviewRowPresenter rowPresenter) {
         ClassPresenterSelector presenterSelector = new ClassPresenterSelector();
@@ -130,11 +122,9 @@ abstract class DvrDetailsFragment extends DetailsFragment {
      * do anything after calling {@link #onCreate(Bundle)}. If there's something subclasses have to
      * do after the super class did onCreate, it should override this method and put the codes here.
      */
-    protected void onCreateInternal() { }
+    protected void onCreateInternal() {}
 
-    /**
-     * Updates actions of details overview.
-     */
+    /** Updates actions of details overview. */
     protected void updateActions() {
         mDetailsOverview.setActionsAdapter(onCreateActionsAdapter());
     }
@@ -142,14 +132,12 @@ abstract class DvrDetailsFragment extends DetailsFragment {
     /**
      * Loads recording details according to the arguments the fragment got.
      *
-     * @return false if cannot find valid recordings, else return true. If the return value
-     *         is false, the detail activity and fragment will be ended.
+     * @return false if cannot find valid recordings, else return true. If the return value is
+     *     false, the detail activity and fragment will be ended.
      */
     abstract boolean onLoadRecordingDetails(Bundle args);
 
-    /**
-     * Creates actions users can interact with and their adaptor for this fragment.
-     */
+    /** Creates actions users can interact with and their adaptor for this fragment. */
     abstract SparseArrayObjectAdapter onCreateActionsAdapter();
 
     /**
@@ -158,66 +146,76 @@ abstract class DvrDetailsFragment extends DetailsFragment {
      */
     abstract OnActionClickedListener onCreateOnActionClickedListener();
 
-    /**
-     * Loads logo and background images for detail fragments.
-     */
+    /** Loads logo and background images for detail fragments. */
     protected void onLoadLogoAndBackgroundImages(DetailsContent detailsContent) {
         Drawable logoDrawable = null;
         Drawable backgroundDrawable = null;
         if (TextUtils.isEmpty(detailsContent.getLogoImageUri())) {
-            logoDrawable = getContext().getResources()
-                    .getDrawable(R.drawable.dvr_default_poster, null);
+            logoDrawable =
+                    getContext().getResources().getDrawable(R.drawable.dvr_default_poster, null);
             mDetailsOverview.setImageDrawable(logoDrawable);
         }
         if (TextUtils.isEmpty(detailsContent.getBackgroundImageUri())) {
-            backgroundDrawable = getContext().getResources()
-                    .getDrawable(R.drawable.dvr_default_poster, null);
+            backgroundDrawable =
+                    getContext().getResources().getDrawable(R.drawable.dvr_default_poster, null);
             mBackgroundHelper.setBackground(backgroundDrawable);
         }
         if (logoDrawable != null && backgroundDrawable != null) {
             return;
         }
-        if (logoDrawable == null && backgroundDrawable == null
-                && detailsContent.getLogoImageUri().equals(
-                detailsContent.getBackgroundImageUri())) {
-            ImageLoader.loadBitmap(getContext(), detailsContent.getLogoImageUri(),
-                    new MyImageLoaderCallback(this, LOAD_LOGO_IMAGE | LOAD_BACKGROUND_IMAGE,
-                            getContext()));
+        if (logoDrawable == null
+                && backgroundDrawable == null
+                && detailsContent
+                        .getLogoImageUri()
+                        .equals(detailsContent.getBackgroundImageUri())) {
+            ImageLoader.loadBitmap(
+                    getContext(),
+                    detailsContent.getLogoImageUri(),
+                    new MyImageLoaderCallback(
+                            this, LOAD_LOGO_IMAGE | LOAD_BACKGROUND_IMAGE, getContext()));
             return;
         }
         if (logoDrawable == null) {
             int imageWidth = getResources().getDimensionPixelSize(R.dimen.dvr_details_poster_width);
-            int imageHeight = getResources()
-                    .getDimensionPixelSize(R.dimen.dvr_details_poster_height);
-            ImageLoader.loadBitmap(getContext(), detailsContent.getLogoImageUri(),
-                    imageWidth, imageHeight,
+            int imageHeight =
+                    getResources().getDimensionPixelSize(R.dimen.dvr_details_poster_height);
+            ImageLoader.loadBitmap(
+                    getContext(),
+                    detailsContent.getLogoImageUri(),
+                    imageWidth,
+                    imageHeight,
                     new MyImageLoaderCallback(this, LOAD_LOGO_IMAGE, getContext()));
         }
         if (backgroundDrawable == null) {
-            ImageLoader.loadBitmap(getContext(), detailsContent.getBackgroundImageUri(),
+            ImageLoader.loadBitmap(
+                    getContext(),
+                    detailsContent.getBackgroundImageUri(),
                     new MyImageLoaderCallback(this, LOAD_BACKGROUND_IMAGE, getContext()));
         }
     }
 
     protected void startPlayback(RecordedProgram recordedProgram, long seekTimeMs) {
-        if (Utils.isInBundledPackageSet(recordedProgram.getPackageName()) &&
-                !isDataUriAccessible(recordedProgram.getDataUri())) {
+        if (CommonUtils.isInBundledPackageSet(recordedProgram.getPackageName())
+                && !isDataUriAccessible(recordedProgram.getDataUri())) {
             // Since cleaning RecordedProgram from forgotten storage will take some time,
             // ignore playback until cleaning is finished.
-            ToastUtils.show(getContext(),
+            ToastUtils.show(
+                    getContext(),
                     getContext().getResources().getString(R.string.dvr_toast_recording_deleted),
                     Toast.LENGTH_SHORT);
             return;
         }
         long programId = recordedProgram.getId();
-        ParentalControlSettings parental = TvApplication.getSingletons(getActivity())
-                .getTvInputManagerHelper().getParentalControlSettings();
+        ParentalControlSettings parental =
+                TvSingletons.getSingletons(getActivity())
+                        .getTvInputManagerHelper()
+                        .getParentalControlSettings();
         if (!parental.isParentalControlsEnabled()) {
             DvrUiHelper.startPlaybackActivity(getContext(), programId, seekTimeMs, false);
             return;
         }
         ChannelDataManager channelDataManager =
-                TvApplication.getSingletons(getActivity()).getChannelDataManager();
+                TvSingletons.getSingletons(getActivity()).getChannelDataManager();
         Channel channel = channelDataManager.getChannel(recordedProgram.getChannelId());
         if (channel != null && channel.isLocked()) {
             checkPinToPlay(recordedProgram, seekTimeMs);
@@ -249,36 +247,43 @@ abstract class DvrDetailsFragment extends DetailsFragment {
     private void checkPinToPlay(RecordedProgram recordedProgram, long seekTimeMs) {
         SoftPreconditions.checkState(getActivity() instanceof DvrDetailsActivity);
         if (getActivity() instanceof DvrDetailsActivity) {
-            ((DvrDetailsActivity) getActivity()).setOnPinCheckListener(new OnPinCheckedListener() {
-                @Override
-                public void onPinChecked(boolean checked, int type, String rating) {
-                    ((DvrDetailsActivity) getActivity()).setOnPinCheckListener(null);
-                    if (checked && type == PinDialogFragment.PIN_DIALOG_TYPE_UNLOCK_PROGRAM) {
-                        DvrUiHelper.startPlaybackActivity(getContext(), recordedProgram.getId(),
-                                seekTimeMs, true);
-                    }
-                }
-            });
+            ((DvrDetailsActivity) getActivity())
+                    .setOnPinCheckListener(
+                            new OnPinCheckedListener() {
+                                @Override
+                                public void onPinChecked(boolean checked, int type, String rating) {
+                                    ((DvrDetailsActivity) getActivity())
+                                            .setOnPinCheckListener(null);
+                                    if (checked
+                                            && type
+                                                    == PinDialogFragment
+                                                            .PIN_DIALOG_TYPE_UNLOCK_PROGRAM) {
+                                        DvrUiHelper.startPlaybackActivity(
+                                                getContext(),
+                                                recordedProgram.getId(),
+                                                seekTimeMs,
+                                                true);
+                                    }
+                                }
+                            });
             PinDialogFragment.create(PinDialogFragment.PIN_DIALOG_TYPE_UNLOCK_PROGRAM)
                     .show(getActivity().getFragmentManager(), PinDialogFragment.DIALOG_TAG);
         }
     }
 
-    private static class MyImageLoaderCallback extends
-            ImageLoader.ImageLoaderCallback<DvrDetailsFragment> {
+    private static class MyImageLoaderCallback
+            extends ImageLoader.ImageLoaderCallback<DvrDetailsFragment> {
         private final Context mContext;
         private final int mLoadType;
 
-        public MyImageLoaderCallback(DvrDetailsFragment fragment,
-                int loadType, Context context) {
+        public MyImageLoaderCallback(DvrDetailsFragment fragment, int loadType, Context context) {
             super(fragment);
             mLoadType = loadType;
             mContext = context;
         }
 
         @Override
-        public void onBitmapLoaded(DvrDetailsFragment fragment,
-                @Nullable Bitmap bitmap) {
+        public void onBitmapLoaded(DvrDetailsFragment fragment, @Nullable Bitmap bitmap) {
             Drawable drawable;
             int loadType = mLoadType;
             if (bitmap == null) {

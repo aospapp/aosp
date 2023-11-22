@@ -36,9 +36,8 @@ import android.provider.Settings;
 import android.service.notification.StatusBarNotification;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject;
+import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
-import android.support.test.uiautomator.UiScrollable;
 import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 import android.text.SpannableStringBuilder;
@@ -82,6 +81,7 @@ public class NotificationHelper {
         mInst = inst;
         mNotificationManager = nm;
         mContext = inst.getContext();
+
         // create the channels we need
         mBuzzyChannel = getChannel(true);
         mQuietChannel = getChannel(false);
@@ -100,60 +100,6 @@ public class NotificationHelper {
         Thread.sleep(LONG_TIMEOUT * 2);
     }
 
-    /**
-     * Sets the screen lock pin
-     * @param pin 4 digits
-     * @return false if a pin is already set or pin value is not 4 digits
-     * @throws UiObjectNotFoundException
-     */
-    public boolean setScreenLockPin(int pin) throws Exception {
-        if (pin >= 0 && pin <= 9999) {
-            navigateToScreenLock();
-            if (new UiObject(new UiSelector().text("Confirm your PIN")).exists()) {
-                UiObject pinField = new UiObject(
-                        new UiSelector().className(EditText.class.getName()));
-                pinField.setText(String.format("%04d", pin));
-                mDevice.pressEnter();
-            }
-            new UiObject(new UiSelector().text("PIN")).click();
-            // If there's an option to set 'require PIN to start device'
-            // choose 'No thanks', otherwise just skip ahead.
-            if (new UiObject(new UiSelector().text("No thanks")).exists()) {
-                clickText("No thanks");
-            }
-            UiObject pinField = new UiObject(new UiSelector().className(EditText.class.getName()));
-            pinField.setText(String.format("%04d", pin));
-            mDevice.pressEnter();
-            pinField.setText(String.format("%04d", pin));
-            mDevice.pressEnter();
-            clickText("Hide sensitive notification content");
-            clickText("DONE");
-            return true;
-        }
-        return false;
-    }
-
-    public boolean removeScreenLock(int pin, String mode) throws Exception {
-        navigateToScreenLock();
-        if (new UiObject(new UiSelector().text("Re-enter your PIN")).exists()) {
-            UiObject pinField = new UiObject(new UiSelector().className(EditText.class.getName()));
-            pinField.setText(String.format("%04d", pin));
-            mDevice.pressEnter();
-            clickText(mode);
-            clickText("YES, REMOVE");
-        } else {
-            clickText(mode);
-        }
-        return true;
-    }
-
-    public void unlockScreenByPin(int pin) throws Exception {
-        String command = String.format(" %s %s %s", "input", "text", Integer.toString(pin));
-        executeAdbCommand(command);
-        Thread.sleep(SHORT_TIMEOUT);
-        mDevice.pressEnter();
-    }
-
     public void enableNotificationViaAdb(boolean isShow) {
         String command = String.format(" %s %s %s %s %s", "settings", "put", "secure",
                 "lock_screen_show_notifications",
@@ -169,11 +115,7 @@ public class NotificationHelper {
 
     private void navigateToScreenLock() throws Exception {
         launchSettingsPage(mInst.getContext(), Settings.ACTION_SECURITY_SETTINGS);
-        new UiObject(new UiSelector().text("Screen lock")).click();
-    }
-
-    private void clickText(String text) throws UiObjectNotFoundException {
-        mDevice.wait(Until.findObject(By.text(text)), LONG_TIMEOUT).click();
+        mDevice.wait(Until.findObject(By.text("Screen lock")), LONG_TIMEOUT).click();
     }
 
     public void sendNotification(int id, int visibility, String title) throws Exception {
@@ -318,32 +260,7 @@ public class NotificationHelper {
         Thread.sleep(LONG_TIMEOUT * 2);
     }
 
-    /**
-     * This is the main list view containing the items that settings are possible for
-     */
-    public static class SettingsListView {
-        public static boolean selectSettingsFor(String name) throws UiObjectNotFoundException {
-            UiScrollable settingsList = new UiScrollable(
-                    new UiSelector().resourceId("android:id/content"));
-            UiObject appSettings = settingsList.getChildByText(LIST_ITEM_VALUE, name);
-            if (appSettings != null) {
-                return appSettings.click();
-            }
-            return false;
-        }
-
-        public boolean checkSettingsExists(String name) {
-            try {
-                UiScrollable settingsList = new UiScrollable(LIST_VIEW);
-                UiObject appSettings = settingsList.getChildByText(LIST_ITEM_VALUE, name);
-                return appSettings.exists();
-            } catch (UiObjectNotFoundException e) {
-                return false;
-            }
-        }
-    }
-
-    public void sendNotificationsWithInLineReply(int notificationId, boolean isHeadsUp) {
+    public void sendNotificationsWithInlineReply(int notificationId, boolean isHeadsUp) {
         Notification.Action action = new Notification.Action.Builder(
                 R.drawable.stat_notify_email, "Reply", ToastService.getPendingIntent(mContext,
                         "inline reply test"))

@@ -284,4 +284,29 @@ int computeNeededBufferSize(
     return end - start;
 }
 
+void computePackingOffsets2D(
+        GLsizei width, GLsizei height,
+        GLenum format, GLenum type,
+        int packAlignment,
+        int packRowLength,
+        int packSkipPixels,
+        int packSkipRows,
+        int* startOffset,
+        int* packingPixelRowSize,
+        int* packingTotalRowSize) {
+
+    int widthTotal = (packRowLength == 0) ? width : packRowLength;
+    int totalRowSize = computePitch(widthTotal, format, type, packAlignment);
+    int pixelsOnlyRowSize = computePitch(width, format, type, packAlignment);
+
+    int packingOffsetStart =
+        computePackingOffset(
+                format, type, widthTotal, height, packAlignment, packSkipPixels, packSkipRows, 0 /* skip images = 0 */);
+
+    if (startOffset) *startOffset = packingOffsetStart;
+    if (packingPixelRowSize) *packingPixelRowSize = pixelsOnlyRowSize;
+    if (packingTotalRowSize) *packingTotalRowSize = totalRowSize;
+}
+
+
 } // namespace GLESTextureUtils

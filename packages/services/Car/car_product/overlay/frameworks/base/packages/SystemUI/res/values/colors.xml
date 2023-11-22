@@ -38,4 +38,6 @@
     <color name="car_teal_700">#ff00796b</color>
     <color name="car_grey_300">#ffe0e0e0</color>
     <color name="car_grey_900">#ff212121</color>
+
+    <color name="keyguard_button_text_color">@android:color/black</color>
 </resources>

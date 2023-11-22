@@ -18,7 +18,7 @@
     <!-- Title of the Files application [CHAR LIMIT=32] -->
     <string name="files_label">Files</string>
 
-    <!-- Title of the Downloads application, which sometimes Files is known as [CHAR LIMIT=32] -->
+    <!-- Title of the Downloads application, which sometimes Files is known as [CHAR LIMIT=16] -->
     <string name="downloads_label">Downloads</string>
 
     <!-- Title of the documents application [CHAR LIMIT=32] -->
@@ -67,8 +67,8 @@
     <string name="menu_extract">Extract to\u2026</string>
     <!-- Menu item that renames the selected document [CHAR LIMIT=28] -->
     <string name="menu_rename">Rename</string>
-    <!--Menu item that displays properties about the selected document [CHAR LIMIT=28] -->
-    <string name="menu_inspector">Get info</string>
+    <!-- Menu item that displays properties about the selected document [CHAR LIMIT=28] -->
+    <string name="menu_inspect">Get info</string>
     <!-- Menu item that renames the selected document [CHAR LIMIT=28] -->
     <string name="menu_view_in_owner">View in <xliff:g id="source" example="Google Drive">%1$s</xliff:g></string>
 
@@ -103,6 +103,11 @@
     <!-- Button label that hides the error bar [CHAR LIMIT=24] -->
     <string name="button_dismiss">Dismiss</string>
     <string name="button_retry">Try Again</string>
+    <!-- Button label that removes the default application to open a file. -->
+    <string name="button_clear">Clear</string>
+    <!-- Button label that show in the providers service. Many providers have their own app such
+     as google drive. Pressing this button would open in the file in the providers app. -->
+    <string name="button_show_provider">Show in provider</string>
 
     <!-- A string used to show user that currently documents are not sorted in any given order. [CHAR_LIMIT=30] -->
     <string name="not_sorted">Not sorted</string>
@@ -119,26 +124,6 @@
 
     <!--Table header for number of items in a folder.-->
     <string name="directory_items">Number of items</string>
-
-    <!--File properties dialog section title. In this section we show information about the default handler application for this type of file.-->
-    <string name="handler_app_file_opens_with">This kind of file opens with</string>
-    <!--File properties dialog section title. In this section we show information about a files provider. (e.g. system, drive, dropbox, etc)-->
-    <string name="handler_app_belongs_to">This file belongs to</string>
-
-    <!--File properties dialog button description for clearing the default app. the name of the app
-     will be inserted programmatically inbetween these two strings-->
-    <string name="handler_app_button_info_1">Other apps can open this file type. Clear</string>
-    <string name="handler_app_button_info_2">as the default.</string>
-
-    <!--File properties dialog button label to clear the default app-->
-    <string name="handler_app_clear">Clear</string>
-    <!--File properties dialog button label to show a document in a provider-->
-    <string name="handler_app_show_in">Show in provider</string>
-
-    <!--File properties dialog user message if a default app has not been selected-->
-    <string name="handler_app_not_selected">Not selected</string>
-    <!--File properties dialog user message if the default app is unknown-->
-    <string name="handler_app_unknown">Unknown</string>
 
     <!-- content description to describe ascending sorting used with upward arrow in table header. -->
     <string name="sort_direction_ascending">Ascending</string>
@@ -183,9 +168,6 @@
     <!-- Toast shown when some of the selected documents failed to be deleted [CHAR LIMIT=48] -->
     <string name="toast_failed_delete">Unable to delete some documents</string>
 
-    <!-- Toast shown when a files document info fails to load-->
-    <string name="file_inspector_load_error">Properties could not be loaded</string>
-
     <!-- Title of dialog when prompting user to select an app to share documents with [CHAR LIMIT=32] -->
     <string name="share_via">Share via</string>
 
@@ -229,15 +211,15 @@
     <!-- Text shown for the undo button -->
     <string name="undo">Undo</string>
     <!-- Text shown on the notification while DocumentsUI performs setup in preparation for copying files [CHAR LIMIT=32] -->
-    <string name="copy_preparing">Preparing for copy\u2026</string>
+    <string name="copy_preparing">Preparing...</string>
     <!-- Text shown on the notification while DocumentsUI performs setup in preparation for compressing files [CHAR LIMIT=32] -->
-    <string name="compress_preparing">Preparing for compress\u2026</string>
+    <string name="compress_preparing">Preparing...</string>
     <!-- Text shown on the notification while DocumentsUI performs setup in preparation for extracting files [CHAR LIMIT=32] -->
-    <string name="extract_preparing">Preparing for extract\u2026</string>
+    <string name="extract_preparing">Preparing...</string>
     <!-- Text shown on the notification while DocumentsUI performs setup in preparation for moving files [CHAR LIMIT=32] -->
-    <string name="move_preparing">Preparing for move\u2026</string>
+    <string name="move_preparing">Preparing...</string>
     <!-- Text shown on the notification while DocumentsUI performs setup in preparation for deleting files [CHAR LIMIT=32] -->
-    <string name="delete_preparing">Preparing for delete\u2026</string>
+    <string name="delete_preparing">Preparing...</string>
     <!-- Text progress shown on the notification while DocumentsUI is deleting files. -->
     <string name="delete_progress"><xliff:g id="count" example="3">%1$d</xliff:g> / <xliff:g id="totalCount" example="5">%2$d</xliff:g></string>
     <!-- Title of the copy error notification [CHAR LIMIT=48] -->
@@ -386,8 +368,4 @@
 
     <!-- Button for continuing a file operation in background, eg. copying, moving or extracting. [CHAR LIMIT=48] -->
     <string name="continue_in_background">Continue in background</string>
-
-    <!-- Title of inspector's debug info section. [CHAR LIMIT=48] -->
-    <string name="inspector_debug_section">Debug info (dev only)</string>
-
 </resources>

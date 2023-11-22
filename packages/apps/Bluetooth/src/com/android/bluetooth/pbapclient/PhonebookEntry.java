@@ -18,8 +18,8 @@ package com.android.bluetooth.pbapclient;
 import com.android.vcard.VCardEntry;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 
 /**
  *  A simpler more public version of VCardEntry.
@@ -41,11 +41,12 @@ public class PhonebookEntry {
             }
 
             Name n = ((Name) o);
-            return (family == n.family || family != null && family.equals(n.family)) &&
-                    (given == n.given ||  given != null && given.equals(n.given)) &&
-                    (middle == n.middle || middle != null && middle.equals(n.middle)) &&
-                    (prefix == n.prefix || prefix != null && prefix.equals(n.prefix)) &&
-                    (suffix == n.suffix || suffix != null && suffix.equals(n.suffix));
+            return (Objects.equals(family, n.family) || family != null && family.equals(n.family))
+                    && (Objects.equals(given, n.given) || given != null && given.equals(n.given))
+                    && (Objects.equals(middle, n.middle) || middle != null && middle.equals(
+                    n.middle)) && (Objects.equals(prefix, n.prefix)
+                    || prefix != null && prefix.equals(n.prefix)) && (
+                    Objects.equals(suffix, n.suffix) || suffix != null && suffix.equals(n.suffix));
         }
 
         @Override
@@ -87,7 +88,7 @@ public class PhonebookEntry {
             }
 
             Phone p = (Phone) o;
-            return (number == p.number || number != null && number.equals(p.number))
+            return (Objects.equals(number, p.number) || number != null && number.equals(p.number))
                     && type == p.type;
         }
 

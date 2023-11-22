@@ -21,6 +21,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Trace;
+import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.suitebuilder.annotation.Suppress;
 import android.util.Log;
@@ -34,6 +35,7 @@ import android.view.SurfaceHolder;
  * SurfaceFlinger allows a "desired presentation time" value to be passed along with buffers of
  * data.  This exercises that feature.
  */
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class PresentationSyncTest extends ActivityInstrumentationTestCase2<MediaStubActivity>
         implements SurfaceHolder.Callback {
     private static final String TAG = "PresentationSyncTest";

@@ -64,7 +64,7 @@ class Lock {
     }
     while (atomic_exchange_explicit(&state, LockedWithWaiter, memory_order_acquire) != Unlocked) {
       // TODO: As the critical section is brief, it is a better choice to spin a few times befor sleeping.
-      __futex_wait_ex(&state, process_shared, LockedWithWaiter, false, nullptr);
+      __futex_wait_ex(&state, process_shared, LockedWithWaiter);
     }
     return;
   }
@@ -74,6 +74,21 @@ class Lock {
       __futex_wake_ex(&state, process_shared, 1);
     }
   }
+};
+
+class LockGuard {
+ public:
+  LockGuard(Lock& lock) : lock_(lock) {
+    lock_.lock();
+  }
+  ~LockGuard() {
+    lock_.unlock();
+  }
+
+  DISALLOW_COPY_AND_ASSIGN(LockGuard);
+
+ private:
+  Lock& lock_;
 };
 
 #endif  // _BIONIC_LOCK_H

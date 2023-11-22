@@ -14,6 +14,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_JACK_COVERAGE_INCLUDE_FILTER := com.android.calllogbackup.*
 
 LOCAL_PACKAGE_NAME := CallLogBackup
+LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_CERTIFICATE := shared
 LOCAL_PRIVILEGED_MODULE := true
 

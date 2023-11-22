@@ -21,13 +21,14 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.content.pm.Signature;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v17.leanback.widget.GuidanceStylist;
-import android.util.Log;
 
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.settingslib.Utils;
 import com.android.settingslib.applications.ApplicationsState;
+import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
 import com.android.tv.settings.R;
 
 import java.util.ArrayList;
@@ -35,9 +36,6 @@ import java.util.HashSet;
 import java.util.List;
 
 public class EnableDisablePreference extends AppActionPreference {
-    private static final String TAG = "EnableDisablePreference";
-
-    private static Signature sSystemSignature;
 
     private final PackageManager mPackageManager;
 
@@ -75,7 +73,7 @@ public class EnableDisablePreference extends AppActionPreference {
             return false;
         }
         return !(homePackages.contains(mEntry.info.packageName) ||
-                isSystemPackage(mPackageManager, packageInfo));
+                Utils.isSystemPackage(getContext().getResources(), mPackageManager, packageInfo));
     }
 
     private HashSet<String> getHomePackages() {
@@ -113,29 +111,6 @@ public class EnableDisablePreference extends AppActionPreference {
         return false;
     }
 
-    /**
-     * Determine whether a package is a "system package", in which case certain things (like
-     * disabling notifications or disabling the package altogether) should be disallowed.
-     */
-    private static boolean isSystemPackage(PackageManager pm, PackageInfo pkg) {
-        if (sSystemSignature == null) {
-            try {
-                final PackageInfo sys = pm.getPackageInfo("android", PackageManager.GET_SIGNATURES);
-                sSystemSignature = getFirstSignature(sys);
-            } catch (PackageManager.NameNotFoundException e) {
-                Log.e(TAG, "Could not look up system signature", e);
-            }
-        }
-        return sSystemSignature != null && sSystemSignature.equals(getFirstSignature(pkg));
-    }
-
-    private static Signature getFirstSignature(PackageInfo pkg) {
-        if (pkg != null && pkg.signatures != null && pkg.signatures.length > 0) {
-            return pkg.signatures[0];
-        }
-        return null;
-    }
-
     @Override
     public String getFragment() {
         return ConfirmationFragment.class.getName();
@@ -149,6 +124,8 @@ public class EnableDisablePreference extends AppActionPreference {
             args.putString(ARG_PACKAGE_NAME, packageName);
             args.putBoolean(ARG_ENABLE, enable);
         }
+
+        private final MetricsFeatureProvider mMetricsFeatureProvider = new MetricsFeatureProvider();
 
         @NonNull
         @Override
@@ -166,11 +143,14 @@ public class EnableDisablePreference extends AppActionPreference {
 
         @Override
         public void onOk() {
+            boolean enable = getArguments().getBoolean(ARG_ENABLE);
+            mMetricsFeatureProvider.action(getContext(), enable
+                    ? MetricsEvent.ACTION_SETTINGS_ENABLE_APP
+                    : MetricsEvent.ACTION_SETTINGS_DISABLE_APP);
             getActivity().getPackageManager().setApplicationEnabledSetting(
-                    getArguments().getString(ARG_PACKAGE_NAME),
-                    getArguments().getBoolean(ARG_ENABLE) ?
-                            PackageManager.COMPONENT_ENABLED_STATE_DEFAULT :
-                            PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER,
+                    getArguments().getString(ARG_PACKAGE_NAME), enable
+                            ? PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+                            : PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER,
                     0);
         }
     }

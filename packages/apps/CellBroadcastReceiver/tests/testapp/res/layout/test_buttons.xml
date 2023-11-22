@@ -138,6 +138,42 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
 
+    <Button android:id="@+id/button_gsm_cmas_pres_alert"
+        android:text="@string/button_gsm_cmas_pres_alert"
+        android:layout_marginLeft="20dp"
+        android:layout_marginTop="10dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <Button android:id="@+id/button_gsm_cmas_extreme_alert"
+        android:text="@string/button_gsm_cmas_extreme_alert"
+        android:layout_marginLeft="20dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <Button android:id="@+id/button_gsm_cmas_severe_alert"
+        android:text="@string/button_gsm_cmas_severe_alert"
+        android:layout_marginLeft="20dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <Button android:id="@+id/button_gsm_cmas_amber_alert"
+        android:text="@string/button_gsm_cmas_amber_alert"
+        android:layout_marginLeft="20dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <Button android:id="@+id/button_gsm_cmas_monthly_test"
+        android:text="@string/button_gsm_cmas_monthly_test"
+        android:layout_marginLeft="20dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+    <Button android:id="@+id/button_gsm_public_safety_message"
+        android:text="@string/button_gsm_public_safety_message"
+        android:layout_marginLeft="20dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
     <!-- Other Alerts -->
     <Button android:id="@+id/button_gsm_7bit_type"
         android:text="@string/button_gsm_7bit_type"

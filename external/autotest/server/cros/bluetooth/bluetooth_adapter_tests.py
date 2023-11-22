@@ -17,12 +17,17 @@ from autotest_lib.server import test
 from autotest_lib.client.bin.input.linux_input import (
         BTN_LEFT, BTN_RIGHT, EV_KEY, EV_REL, REL_X, REL_Y, REL_WHEEL)
 
+
+REBOOTING_CHAMELEON = False
+
 Event = recorder.Event
 
 
 # Delay binding the methods since host is only available at run time.
 SUPPORTED_DEVICE_TYPES = {
-        'MOUSE': lambda host: host.chameleon.get_bluetooh_hid_mouse}
+    'MOUSE': lambda host: host.chameleon.get_bluetooth_hid_mouse,
+    'LE_MOUSE': lambda host: host.chameleon.get_bluetooth_hog_mouse
+}
 
 
 def method_name():
@@ -70,10 +75,10 @@ def get_bluetooth_emulated_device(host, device_type):
 
     """
 
-    def _retry_device_method(method_name):
+    def _retry_device_method(method_name, legal_falsy_values=[]):
         """retry the emulated device's method.
 
-        The method is invoked as device.xxxx() e.g., device.GetChipName().
+        The method is invoked as device.xxxx() e.g., device.GetAdvertisedName().
 
         Note that the method name string is provided to get the device's actual
         method object at run time through getattr(). The rebinding is required
@@ -83,10 +88,10 @@ def get_bluetooth_emulated_device(host, device_type):
         Given a device's method, it is not feasible to get the method name
         through __name__ attribute. This limitation is due to the fact that
         the device is a dotted object of an XML RPC server proxy.
-        As an example, with the method name 'GetChipName', we could derive the
-        correspoinding method device.GetChipName. On the contrary, given
-        device.GetChipName, it is not feasible to get the method name by
-        device.GetChipName.__name__
+        As an example, with the method name 'GetAdvertisedName', we could
+        derive the correspoinding method device.GetAdvertisedName. On the
+        contrary, given device.GetAdvertisedName, it is not feasible to get the
+        method name by device.GetAdvertisedName.__name__
 
         Also note that if the device method fails at the first time, we would
         try to fix the problem by re-creating the serial device and see if the
@@ -94,13 +99,17 @@ def get_bluetooth_emulated_device(host, device_type):
         if the problem is fixed. If yes, execute the target method the second
         time.
 
+        The default values exist for uses of this function before the options
+        were added, ideally we should change zero_ok to False.
+
         @param method_name: the string of the method name.
+        @param legal_falsy_values: Values that are falsy but might be OK.
 
         @returns: the result returned by the device's method.
 
         """
         result = _run_method(getattr(device, method_name), method_name)
-        if _is_successful(result):
+        if _is_successful(result, legal_falsy_values):
             return result
 
         logging.error('%s failed the 1st time. Try to fix the serial device.',
@@ -121,23 +130,47 @@ def get_bluetooth_emulated_device(host, device_type):
     # Get the bluetooth device object and query some important properties.
     device = SUPPORTED_DEVICE_TYPES[device_type](host)()
 
+    # Get some properties of the kit
+    # NOTE: Strings updated here must be kept in sync with Chameleon.
+    device._capabilities = _retry_device_method('GetCapabilities')
+    device._transports = device._capabilities["CAP_TRANSPORTS"]
+    device._is_le_only = ("TRANSPORT_LE" in device._transports and
+                          len(device._transports) == 1)
+    device._has_pin = device._capabilities["CAP_HAS_PIN"]
+    device.can_init_connection = device._capabilities["CAP_INIT_CONNECT"]
+
     _retry_device_method('Init')
     logging.info('device type: %s', device_type)
 
-    device.name = _retry_device_method('GetChipName')
+    device.name = _retry_device_method('GetAdvertisedName')
     logging.info('device name: %s', device.name)
 
     device.address = _retry_device_method('GetLocalBluetoothAddress')
     logging.info('address: %s', device.address)
 
-    device.pin = _retry_device_method('GetPinCode')
+    pin_falsy_values = [] if device._has_pin else [None]
+    device.pin = _retry_device_method('GetPinCode', pin_falsy_values)
     logging.info('pin: %s', device.pin)
 
-    device.class_of_service = _retry_device_method('GetClassOfService')
-    logging.info('class of service: 0x%04X', device.class_of_service)
+    class_falsy_values = [None] if device._is_le_only else [0]
 
-    device.class_of_device = _retry_device_method('GetClassOfDevice')
-    logging.info('class of device: 0x%04X', device.class_of_device)
+    # Class of service is None for LE-only devices. Don't fail or parse it.
+    device.class_of_service = _retry_device_method('GetClassOfService',
+                                                   class_falsy_values)
+    if device._is_le_only:
+      parsed_class_of_service = device.class_of_service
+    else:
+      parsed_class_of_service = "0x%04X" % device.class_of_service
+    logging.info('class of service: %s', parsed_class_of_service)
+
+    device.class_of_device = _retry_device_method('GetClassOfDevice',
+                                                  class_falsy_values)
+    # Class of device is None for LE-only devices. Don't fail or parse it.
+    if device._is_le_only:
+      parsed_class_of_device = device.class_of_device
+    else:
+      parsed_class_of_device = "0x%04X" % device.class_of_device
+    logging.info('class of device: %s', parsed_class_of_device)
 
     device.device_type = _retry_device_method('GetHIDDeviceType')
     logging.info('device type: %s', device.device_type)
@@ -177,6 +210,10 @@ def recreate_serial_device(device):
 def _reboot_chameleon(host, device):
     REBOOT_SLEEP_SECS = 40
 
+    if not REBOOTING_CHAMELEON:
+        logging.info('Skip rebooting chameleon.')
+        return False
+
     # Close the bluetooth peripheral device and reboot the chameleon board.
     device.Close()
     logging.info('rebooting chameleon...')
@@ -202,17 +239,23 @@ def _reboot_chameleon(host, device):
     return True
 
 
-def _is_successful(result):
-    """Is the method result successful?
+def _is_successful(result, legal_falsy_values=[]):
+    """Is the method result considered successful?
+
+    Some method results, for example that of class_of_service, may be 0 which is
+    considered a valid result. Occassionally, None is acceptable.
+
+    The default values exist for uses of this function before the options were
+    added, ideally we should change zero_ok to False.
 
     @param result: a method result
+    @param legal_falsy_values: Values that are falsy but might be OK.
 
-    @returns: True if bool(result) is True or result is 0.
-              Some method result, e.g., class_of_service, may be 0
-              which is considered a valid result.
-
+    @returns: True if bool(result) is True, or if result is 0 and zero_ok, or if
+              result is None and none_ok.
     """
-    return bool(result) or result is 0
+    truthiness_of_result = bool(result)
+    return truthiness_of_result or result in legal_falsy_values
 
 
 def fix_serial_device(host, device):
@@ -362,6 +405,7 @@ def test_case_log(method):
     """
     @functools.wraps(method)
     def wrapper(instance, *args, **kwargs):
+        """Log the name of the wrapped method before execution"""
         logging.info('\n<... %s ...>', method.__name__)
         method(instance, *args, **kwargs)
     return wrapper
@@ -443,7 +487,11 @@ class BluetoothAdapterTests(test.test):
 
         """
         logging.info('The DUT suspends for %d seconds...', suspend_time)
-        self.host.suspend(suspend_time=suspend_time)
+        try:
+            self.host.suspend(suspend_time=suspend_time)
+        except error.AutoservSuspendError:
+            logging.error('The DUT did not suspend for %d seconds', suspend_time)
+            pass
         logging.info('The DUT is waken up.')
 
 
@@ -1220,8 +1268,17 @@ class BluetoothAdapterTests(test.test):
         """
 
 
-        def within_tolerance(a, b, ratio=0.1):
-            return abs(a - b) / abs(a) <= ratio
+        def within_tolerance(expected, actual, max_error=0.1):
+            """Determine if the percent error is within specified tolerance.
+
+            @param expected: The expected value.
+            @param actual: The actual (measured) value.
+            @param max_error: The maximum percent error acceptable.
+
+            @returns: True if the percent error is less than or equal to
+                      max_error.
+            """
+            return abs(expected - actual) / abs(expected) <= max_error
 
 
         start_str = 'Set Advertising Intervals:'
@@ -2013,6 +2070,19 @@ class BluetoothAdapterTests(test.test):
 
         # The count of registered advertisements.
         self.count_advertisements = 0
+
+
+    def check_chameleon(self):
+        """Check the existence of chameleon_host.
+
+        The chameleon_host is specified in --args as follows
+
+        (cr) $ test_that --args "chameleon_host=$CHAMELEON_IP" "$DUT_IP" <test>
+
+        """
+        if self.host.chameleon is None:
+            raise error.TestError('Have to specify chameleon_host IP.')
+
 
     def run_once(self, *args, **kwargs):
         """This method should be implemented by children classes.

@@ -19,6 +19,8 @@
 
 #include "accessible_object.h"
 #include "base/enums.h"
+#include "dex/modifiers.h"
+#include "dex/primitive.h"
 #include "gc_root.h"
 #include "obj_ptr.h"
 #include "object.h"
@@ -69,10 +71,7 @@ class MANAGED Field : public AccessibleObject {
     return (GetAccessFlags() & kAccVolatile) != 0;
   }
 
-  ALWAYS_INLINE Primitive::Type GetTypeAsPrimitiveType()
-      REQUIRES_SHARED(Locks::mutator_lock_) {
-    return GetType()->GetPrimitiveType();
-  }
+  ALWAYS_INLINE Primitive::Type GetTypeAsPrimitiveType() REQUIRES_SHARED(Locks::mutator_lock_);
 
   mirror::Class* GetType() REQUIRES_SHARED(Locks::mutator_lock_) {
     return GetFieldObject<mirror::Class>(OFFSET_OF_OBJECT_MEMBER(Field, type_));

@@ -19,13 +19,15 @@
     <build_provider class="com.android.tradefed.build.BootstrapBuildProvider" />
     <!-- Provides a mechanism for overwriting the preloaded classes that is disabled by default. -->
     <target_preparer class="com.android.tradefed.targetprep.PreloadedClassesPreparer">
-        <option name="skip" value="true" />
+        <option name="disable" value="true" />
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.DeviceSetup">
         <option name="screen-always-on" value="on" />
         <option name="screen-adaptive-brightness" value="off" />
         <option name="screen-brightness" value="30" />
     </target_preparer>
+
+    <template-include name="preparers" default="empty" />
 
     <template-include name="test" />
 

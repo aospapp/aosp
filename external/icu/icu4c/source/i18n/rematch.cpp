@@ -1,4 +1,4 @@
-// Copyright (C) 2016 and later: Unicode, Inc. and others.
+// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 /*
 **************************************************************************
@@ -438,7 +438,7 @@ RegexMatcher &RegexMatcher::appendReplacement(UText *dest,
                         status = U_REGEX_INVALID_CAPTURE_GROUP_NAME;
                     }
                 }
-                        
+
             } else if (u_isdigit(nextChar)) {
                 // $n    Scan for a capture group number
                 int32_t numCaptureGroups = fPattern->fGroupMap->size();
@@ -459,7 +459,7 @@ RegexMatcher &RegexMatcher::appendReplacement(UText *dest,
                         break;
                     }
                     (void)UTEXT_NEXT32(replacement);
-                    groupNum=groupNum*10 + nextDigitVal; 
+                    groupNum=groupNum*10 + nextDigitVal;
                     ++numDigits;
                 }
             } else {
@@ -2187,7 +2187,7 @@ int32_t  RegexMatcher::split(UText *input,
                     break;
                 }
                 i++;
-                dest[i] = utext_extract_replace(fInputText, dest[i], 
+                dest[i] = utext_extract_replace(fInputText, dest[i],
                                                start64(groupNum, status), end64(groupNum, status), &status);
             }
 
@@ -2200,7 +2200,7 @@ int32_t  RegexMatcher::split(UText *input,
                     if (dest[i] == NULL) {
                         dest[i] = utext_openUChars(NULL, NULL, 0, &status);
                     } else {
-                        static UChar emptyString[] = {(UChar)0};
+                        static const UChar emptyString[] = {(UChar)0};
                         utext_replace(dest[i], 0, utext_nativeLength(dest[i]), emptyString, 0, &status);
                     }
                 }
@@ -3566,7 +3566,14 @@ GC_Done:
                         }
                     }
                     fp = StateSave(fp, fp->fPatIdx, status);
+                } else {
+                    // Increment time-out counter. (StateSave() does it if count >= minCount)
+                    fTickCounter--;
+                    if (fTickCounter <= 0) {
+                        IncrementTime(status);    // Re-initializes fTickCounter
+                    }
                 }
+
                 fp->fPatIdx = opValue + 4;    // Loop back.
             }
             break;
@@ -3623,6 +3630,11 @@ GC_Done:
                     // We haven't met the minimum number of matches yet.
                     //   Loop back for another one.
                     fp->fPatIdx = opValue + 4;    // Loop back.
+                    // Increment time-out counter. (StateSave() does it if count >= minCount)
+                    fTickCounter--;
+                    if (fTickCounter <= 0) {
+                        IncrementTime(status);    // Re-initializes fTickCounter
+                    }
                 } else {
                     // We do have the minimum number of matches.
 
@@ -5099,6 +5111,12 @@ GC_Done:
                         }
                     }
                     fp = StateSave(fp, fp->fPatIdx, status);
+                } else {
+                    // Increment time-out counter. (StateSave() does it if count >= minCount)
+                    fTickCounter--;
+                    if (fTickCounter <= 0) {
+                        IncrementTime(status);    // Re-initializes fTickCounter
+                    }
                 }
                 fp->fPatIdx = opValue + 4;    // Loop back.
             }
@@ -5156,6 +5174,10 @@ GC_Done:
                     // We haven't met the minimum number of matches yet.
                     //   Loop back for another one.
                     fp->fPatIdx = opValue + 4;    // Loop back.
+                    fTickCounter--;
+                    if (fTickCounter <= 0) {
+                        IncrementTime(status);    // Re-initializes fTickCounter
+                    }
                 } else {
                     // We do have the minimum number of matches.
 
@@ -5447,7 +5469,7 @@ GC_Done:
                 if (lbStartIdx < 0) {
                     // First time through loop.
                     lbStartIdx = fp->fInputIdx - minML;
-                    if (lbStartIdx > 0) {
+                    if (lbStartIdx > 0 && lbStartIdx < fInputLength) {
                         U16_SET_CP_START(inputBuf, 0, lbStartIdx);
                     }
                 } else {
@@ -5524,7 +5546,7 @@ GC_Done:
                 if (lbStartIdx < 0) {
                     // First time through loop.
                     lbStartIdx = fp->fInputIdx - minML;
-                    if (lbStartIdx > 0) {
+                    if (lbStartIdx > 0 && lbStartIdx < fInputLength) {
                         U16_SET_CP_START(inputBuf, 0, lbStartIdx);
                     }
                 } else {

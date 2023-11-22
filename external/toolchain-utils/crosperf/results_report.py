@@ -92,9 +92,13 @@ def _AppendUntilLengthIs(gen, the_list, target_len):
 
 def _FilterPerfReport(event_threshold, report):
   """Filters out entries with `< event_threshold` percent in a perf report."""
+
   def filter_dict(m):
-    return {fn_name: pct for fn_name, pct in m.iteritems()
-            if pct >= event_threshold}
+    return {
+        fn_name: pct
+        for fn_name, pct in m.iteritems() if pct >= event_threshold
+    }
+
   return {event: filter_dict(m) for event, m in report.iteritems()}
 
 
@@ -109,8 +113,11 @@ class _PerfTable(object):
   percentage of time spent in function_name).
   """
 
-  def __init__(self, benchmark_names_and_iterations, label_names,
-               read_perf_report, event_threshold=None):
+  def __init__(self,
+               benchmark_names_and_iterations,
+               label_names,
+               read_perf_report,
+               event_threshold=None):
     """Constructor.
 
     read_perf_report is a function that takes a label name, benchmark name, and
@@ -143,8 +150,8 @@ class _PerfTable(object):
 
 
 def _GetResultsTableHeader(ben_name, iterations):
-  benchmark_info = ('Benchmark:  {0};  Iterations: {1}'
-                    .format(ben_name, iterations))
+  benchmark_info = ('Benchmark:  {0};  Iterations: {1}'.format(
+      ben_name, iterations))
   cell = Cell()
   cell.string_value = benchmark_info
   cell.header = True
@@ -157,8 +164,9 @@ def _ParseColumn(columns, iteration):
     if column.result.__class__.__name__ != 'RawResult':
       new_column.append(column)
     else:
-      new_column.extend(Column(LiteralResult(i), Format(), str(i + 1))
-                        for i in xrange(iteration))
+      new_column.extend(
+          Column(LiteralResult(i), Format(), str(i + 1))
+          for i in xrange(iteration))
   return new_column
 
 
@@ -199,9 +207,10 @@ def _GetPerfTables(benchmark_results, columns, table_type):
     benchmark_data = p_table.perf_data[benchmark]
     table = []
     for event in benchmark_data:
-      tg = TableGenerator(benchmark_data[event],
-                          benchmark_results.label_names,
-                          sort=TableGenerator.SORT_BY_VALUES_DESC)
+      tg = TableGenerator(
+          benchmark_data[event],
+          benchmark_results.label_names,
+          sort=TableGenerator.SORT_BY_VALUES_DESC)
       table = tg.GetTable(ResultsReport.PERF_ROWS)
       parsed_columns = _ParseColumn(columns, iterations)
       tf = TableFormatter(table, parsed_columns)
@@ -227,22 +236,24 @@ class ResultsReport(object):
     return get_tables(self.benchmark_results, columns, table_type)
 
   def GetFullTables(self, perf=False):
-    columns = [Column(RawResult(), Format()),
-               Column(MinResult(), Format()),
-               Column(MaxResult(), Format()),
-               Column(AmeanResult(), Format()),
-               Column(StdResult(), Format(), 'StdDev'),
-               Column(CoeffVarResult(), CoeffVarFormat(), 'StdDev/Mean'),
-               Column(GmeanRatioResult(), RatioFormat(), 'GmeanSpeedup'),
-               Column(PValueResult(), PValueFormat(), 'p-value')]
+    columns = [
+        Column(RawResult(), Format()), Column(MinResult(), Format()), Column(
+            MaxResult(), Format()), Column(AmeanResult(), Format()), Column(
+                StdResult(), Format(), 'StdDev'),
+        Column(CoeffVarResult(), CoeffVarFormat(), 'StdDev/Mean'), Column(
+            GmeanRatioResult(), RatioFormat(), 'GmeanSpeedup'), Column(
+                PValueResult(), PValueFormat(), 'p-value')
+    ]
     return self._GetTablesWithColumns(columns, 'full', perf)
 
   def GetSummaryTables(self, perf=False):
-    columns = [Column(AmeanResult(), Format()),
-               Column(StdResult(), Format(), 'StdDev'),
-               Column(CoeffVarResult(), CoeffVarFormat(), 'StdDev/Mean'),
-               Column(GmeanRatioResult(), RatioFormat(), 'GmeanSpeedup'),
-               Column(PValueResult(), PValueFormat(), 'p-value')]
+    columns = [
+        Column(AmeanResult(), Format()), Column(StdResult(), Format(),
+                                                'StdDev'),
+        Column(CoeffVarResult(), CoeffVarFormat(), 'StdDev/Mean'), Column(
+            GmeanRatioResult(), RatioFormat(), 'GmeanSpeedup'), Column(
+                PValueResult(), PValueFormat(), 'p-value')
+    ]
     return self._GetTablesWithColumns(columns, 'summary', perf)
 
 
@@ -299,12 +310,16 @@ class TextResultsReport(ResultsReport):
   def GetStatusTable(self):
     """Generate the status table by the tabulator."""
     table = [['', '']]
-    columns = [Column(LiteralResult(iteration=0), Format(), 'Status'),
-               Column(LiteralResult(iteration=1), Format(), 'Failing Reason')]
+    columns = [
+        Column(LiteralResult(iteration=0), Format(), 'Status'), Column(
+            LiteralResult(iteration=1), Format(), 'Failing Reason')
+    ]
 
     for benchmark_run in self.experiment.benchmark_runs:
-      status = [benchmark_run.name, [benchmark_run.timeline.GetLastEvent(),
-                                     benchmark_run.failure_reason]]
+      status = [
+          benchmark_run.name,
+          [benchmark_run.timeline.GetLastEvent(), benchmark_run.failure_reason]
+      ]
       table.append(status)
     cell_table = TableFormatter(table, columns).GetCellTable('status')
     return [cell_table]
@@ -316,7 +331,7 @@ class TextResultsReport(ResultsReport):
 
     sections = []
     if experiment is not None:
-      title_contents = "Results report for '%s'" % (experiment.name, )
+      title_contents = "Results report for '%s'" % (experiment.name,)
     else:
       title_contents = 'Results report'
     sections.append(self._MakeTitle(title_contents))
@@ -348,8 +363,10 @@ def _GetHTMLCharts(label_names, test_results):
     # Fun fact: label_names is actually *entirely* useless as a param, since we
     # never add headers. We still need to pass it anyway.
     table = TableGenerator(runs, label_names).GetTable()
-    columns = [Column(AmeanResult(), Format()), Column(MinResult(), Format()),
-               Column(MaxResult(), Format())]
+    columns = [
+        Column(AmeanResult(), Format()), Column(MinResult(), Format()), Column(
+            MaxResult(), Format())
+    ]
     tf = TableFormatter(table, columns)
     data_table = tf.GetCellTable('full', headers=False)
 
@@ -365,10 +382,10 @@ def _GetHTMLCharts(label_names, test_results):
       chart.AddSeries('Max', 'line', 'black')
       cur_index = 1
       for label in label_names:
-        chart.AddRow([label,
-                      cur_row_data[cur_index].value,
-                      cur_row_data[cur_index + 1].value,
-                      cur_row_data[cur_index + 2].value])
+        chart.AddRow([
+            label, cur_row_data[cur_index].value,
+            cur_row_data[cur_index + 1].value, cur_row_data[cur_index + 2].value
+        ])
         if isinstance(cur_row_data[cur_index].value, str):
           chart = None
           break
@@ -387,8 +404,8 @@ class HTMLResultsReport(ResultsReport):
 
   @staticmethod
   def FromExperiment(experiment):
-    return HTMLResultsReport(BenchmarkResults.FromExperiment(experiment),
-                             experiment=experiment)
+    return HTMLResultsReport(
+        BenchmarkResults.FromExperiment(experiment), experiment=experiment)
 
   def GetReport(self):
     label_names = self.benchmark_results.label_names
@@ -404,13 +421,14 @@ class HTMLResultsReport(ResultsReport):
     if self.experiment is not None:
       experiment_file = self.experiment.experiment_file
     # Use kwargs for sanity, and so that testing is a bit easier.
-    return templates.GenerateHTMLPage(perf_table=perf_table,
-                                      chart_js=chart_javascript,
-                                      summary_table=summary_table,
-                                      print_table=_PrintTable,
-                                      chart_divs=chart_divs,
-                                      full_table=full_table,
-                                      experiment_file=experiment_file)
+    return templates.GenerateHTMLPage(
+        perf_table=perf_table,
+        chart_js=chart_javascript,
+        summary_table=summary_table,
+        print_table=_PrintTable,
+        chart_divs=chart_divs,
+        full_table=full_table,
+        experiment_file=experiment_file)
 
 
 def ParseStandardPerfReport(report_data):
@@ -446,12 +464,12 @@ def ParseStandardPerfReport(report_data):
   #
   # Note that we're looking at stripped lines, so there is no space at the
   # start.
-  perf_regex = re.compile(r'^(\d+(?:.\d*)?)%' # N.NN%
-                          r'\s*\d+' # samples count (ignored)
-                          r'\s*\S+' # command (ignored)
-                          r'\s*\S+' # shared_object (ignored)
-                          r'\s*\[.\]' # location (ignored)
-                          r'\s*(\S.+)' # function
+  perf_regex = re.compile(r'^(\d+(?:.\d*)?)%'  # N.NN%
+                          r'\s*\d+'  # samples count (ignored)
+                          r'\s*\S+'  # command (ignored)
+                          r'\s*\S+'  # shared_object (ignored)
+                          r'\s*\[.\]'  # location (ignored)
+                          r'\s*(\S.+)'  # function
                          )
 
   stripped_lines = (l.strip() for l in report_data)
@@ -511,17 +529,23 @@ def _ReadExperimentPerfReport(results_directory, label_name, benchmark_name,
 # Split out so that testing (specifically: mocking) is easier
 def _ExperimentToKeyvals(experiment, for_json_report):
   """Converts an experiment to keyvals."""
-  return OrganizeResults(experiment.benchmark_runs, experiment.labels,
-                         json_report=for_json_report)
+  return OrganizeResults(
+      experiment.benchmark_runs, experiment.labels, json_report=for_json_report)
 
 
 class BenchmarkResults(object):
   """The minimum set of fields that any ResultsReport will take."""
-  def __init__(self, label_names, benchmark_names_and_iterations, run_keyvals,
+
+  def __init__(self,
+               label_names,
+               benchmark_names_and_iterations,
+               run_keyvals,
                read_perf_report=None):
     if read_perf_report is None:
+
       def _NoPerfReport(*_args, **_kwargs):
         return {}
+
       read_perf_report = _NoPerfReport
 
     self.label_names = label_names
@@ -557,10 +581,15 @@ def _Unlist(l):
   """If l is a list, extracts the first element of l. Otherwise, returns l."""
   return l[0] if isinstance(l, list) else l
 
+
 class JSONResultsReport(ResultsReport):
   """Class that generates JSON reports for experiments."""
 
-  def __init__(self, benchmark_results, date=None, time=None, experiment=None,
+  def __init__(self,
+               benchmark_results,
+               date=None,
+               time=None,
+               experiment=None,
                json_args=None):
     """Construct a JSONResultsReport.
 
@@ -589,8 +618,8 @@ class JSONResultsReport(ResultsReport):
 
   @staticmethod
   def FromExperiment(experiment, date=None, time=None, json_args=None):
-    benchmark_results = BenchmarkResults.FromExperiment(experiment,
-                                                        for_json_report=True)
+    benchmark_results = BenchmarkResults.FromExperiment(
+        experiment, for_json_report=True)
     return JSONResultsReport(benchmark_results, date, time, experiment,
                              json_args)
 

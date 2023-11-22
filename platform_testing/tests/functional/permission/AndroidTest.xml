@@ -14,12 +14,14 @@
      limitations under the License.
 -->
 <configuration description="Runs Permission Functional Tests.">
-    <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
+    <option name="test-suite-tag" value="apct" />
+    <option name="test-suite-tag" value="apct-instrumentation" />
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="PermissionFunctionalTests.apk" />
         <option name="test-file-name" value="PermissionTestAppMV1.apk" />
     </target_preparer>
 
-    <option name="test-suite-tag" value="apct" />
     <option name="test-tag" value="PermissionTests" />
     <test class="com.android.tradefed.testtype.InstrumentationTest" >
         <option name="package" value="com.android.functional.permissiontests" />

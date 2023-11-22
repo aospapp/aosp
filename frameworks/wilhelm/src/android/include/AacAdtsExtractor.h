@@ -19,14 +19,13 @@
 
 #include <utils/Vector.h>
 
+#include <media/DataSource.h>
+#include <media/MediaSource.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
-#include <media/stagefright/DataSource.h>
 #include <media/stagefright/MediaBufferGroup.h>
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/MediaErrors.h>
-#include <media/stagefright/MediaExtractor.h>
-#include <media/stagefright/MediaSource.h>
 #include <media/stagefright/MetaData.h>
 #include <utils/String8.h>
 
@@ -49,7 +48,7 @@ public:
     virtual sp<MetaData> getFormat();
 
     virtual status_t read(
-            MediaBuffer **buffer, const ReadOptions *options = NULL);
+            MediaBufferBase **buffer, const ReadOptions *options = NULL);
 
 protected:
     virtual ~AacAdtsSource();
@@ -71,15 +70,12 @@ private:
 };
 
 
-class AacAdtsExtractor : public MediaExtractor {
+class AacAdtsExtractor : public RefBase {
 public:
     explicit AacAdtsExtractor(const sp<DataSource> &source);
 
-    virtual size_t countTracks();
-    virtual sp<IMediaSource> getTrack(size_t index);
-    virtual sp<MetaData> getTrackMetaData(size_t index, uint32_t flags);
+    virtual sp<MediaSource> getTrack(size_t index);
 
-    virtual sp<MetaData> getMetaData();
 
 protected:
     virtual ~AacAdtsExtractor();

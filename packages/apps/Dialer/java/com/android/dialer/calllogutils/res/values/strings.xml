@@ -127,4 +127,19 @@
 
   <!-- String used for displaying calls to the voicemail number in the call log -->
   <string name="voicemail_string">Voicemail</string>
+
+  <!-- String to be displayed to indicate in the call log that a call just now occurred. -->
+  <string name="just_now">Just now</string>
+
+  <!-- Text to show in call log for a video call. [CHAR LIMIT=16] -->
+  <string name="new_call_log_video">Video</string>
+
+  <!-- String used to display calls from unknown numbers in the call log.  [CHAR LIMIT=30] -->
+  <string name="new_call_log_unknown">Unknown</string>
+
+  <!-- String used to display calls from blocked numbers in the call log.   [CHAR LIMIT=30] -->
+  <string name="new_call_log_secondary_blocked">Blocked</string>
+
+  <!-- String used to display calls from spam numbers in the call log.   [CHAR LIMIT=30] -->
+  <string name="new_call_log_secondary_spam">Spam</string>
 </resources>

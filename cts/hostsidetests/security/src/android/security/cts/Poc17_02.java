@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,15 @@ package android.security.cts;
 
 import android.platform.test.annotations.SecurityTest;
 
-@SecurityTest
 public class Poc17_02 extends SecurityTestCase {
-
-    /**
-     *  b/31796345
-     */
-    @SecurityTest
-    public void testPocCVE_2017_0451() throws Exception {
-	enableAdbRoot(getDevice());
-        if(containsDriver(getDevice(), "/dev/voice_svc")) {
-            AdbUtils.runPoc("CVE-2017-0451", getDevice(), 60);
-        }
-    }
+  /**
+   *  b/32799236
+   */
+  @SecurityTest
+  public void testPocCVE_2017_0426() throws Exception {
+      AdbUtils.runCommandLine("logcat -c", getDevice());
+      AdbUtils.runPoc("CVE-2017-0426", getDevice(), 60);
+      String logcatOut = AdbUtils.runCommandLine("logcat -d", getDevice());
+      assertNotMatches("[\\s\\n\\S]*Bugreports file in wrong path[\\s\\n\\S]*", logcatOut);
+  }
 }

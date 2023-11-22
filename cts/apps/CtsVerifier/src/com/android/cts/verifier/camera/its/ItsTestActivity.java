@@ -79,7 +79,7 @@ public class ItsTestActivity extends DialogTestListActivity {
     private final ResultReceiver mResultsReceiver = new ResultReceiver();
 
     // Initialized in onCreate
-    ArrayList<String> mNonLegacyCameraIds = null;
+    ArrayList<String> mToBeTestedCameraIds = null;
 
     // Scenes
     private static final ArrayList<String> mSceneIds = new ArrayList<String> () { {
@@ -164,7 +164,7 @@ public class ItsTestActivity extends DialogTestListActivity {
                     return;
                 }
 
-                if (!mNonLegacyCameraIds.contains(cameraId)) {
+                if (!mToBeTestedCameraIds.contains(cameraId)) {
                     Log.e(TAG, "Unknown camera id " + cameraId + " reported to ITS");
                     return;
                 }
@@ -214,7 +214,7 @@ public class ItsTestActivity extends DialogTestListActivity {
                         mExecutedScenes.clear();
                         mAllScenes.clear();
                         for (String scene : scenes) {
-                            for (String c : mNonLegacyCameraIds) {
+                            for (String c : mToBeTestedCameraIds) {
                                 mAllScenes.add(new ResultKey(c, scene));
                             }
                         }
@@ -333,20 +333,22 @@ public class ItsTestActivity extends DialogTestListActivity {
         CameraManager manager = (CameraManager) this.getSystemService(Context.CAMERA_SERVICE);
         try {
             String[] cameraIds = manager.getCameraIdList();
-            mNonLegacyCameraIds = new ArrayList<String>();
-            boolean allCamerasAreLegacy = true;
+            mToBeTestedCameraIds = new ArrayList<String>();
             for (String id : cameraIds) {
                 CameraCharacteristics characteristics = manager.getCameraCharacteristics(id);
-                if (characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)
-                        != CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY) {
-                    mNonLegacyCameraIds.add(id);
-                    allCamerasAreLegacy = false;
+                int hwLevel = characteristics.get(
+                        CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL);
+                if (hwLevel
+                        != CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY &&
+                        hwLevel
+                        != CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL) {
+                    mToBeTestedCameraIds.add(id);
                 }
             }
-            if (allCamerasAreLegacy) {
+            if (mToBeTestedCameraIds.size() == 0) {
                 showToast(R.string.all_legacy_devices);
                 ItsTestActivity.this.getReportLog().setSummary(
-                        "PASS: all cameras on this device are LEGACY"
+                        "PASS: all cameras on this device are LEGACY or EXTERNAL"
                         , 1.0, ResultType.NEUTRAL, ResultUnit.NONE);
                 setTestResultAndFinish(true);
             }
@@ -375,7 +377,7 @@ public class ItsTestActivity extends DialogTestListActivity {
     }
 
     protected void setupItsTests(ArrayTestListAdapter adapter) {
-        for (String cam : mNonLegacyCameraIds) {
+        for (String cam : mToBeTestedCameraIds) {
             for (String scene : mSceneIds) {
                 adapter.add(new DialogTestListItem(this,
                 testTitle(cam, scene),
@@ -403,10 +405,10 @@ public class ItsTestActivity extends DialogTestListActivity {
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
+    public void onDestroy() {
         Log.d(TAG, "unregister ITS result receiver");
         unregisterReceiver(mResultsReceiver);
+        super.onDestroy();
     }
 
     @Override

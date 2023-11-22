@@ -63,7 +63,7 @@ class ChrootedAvahi(object):
             'avahi:x:238:\n',
     }
     AVAHI_LOG_FILE = '/var/log/avahi.log'
-    AVAHI_PID_FILE = 'var/run/avahi-daemon/pid'
+    AVAHI_PID_FILE = 'run/avahi-daemon/pid'
     AVAHI_UP_TIMEOUT_SECONDS = 10
 
 

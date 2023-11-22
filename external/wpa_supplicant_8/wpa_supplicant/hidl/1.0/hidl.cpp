@@ -21,13 +21,14 @@ extern "C" {
 }
 
 using android::hardware::configureRpcThreadpool;
-using android::hardware::IPCThreadState;
+using android::hardware::setupTransportPolling;
+using android::hardware::handleTransportPoll;
 using android::hardware::wifi::supplicant::V1_0::implementation::HidlManager;
 
 void wpas_hidl_sock_handler(
-    int /* sock */, void * /* eloop_ctx */, void * /* sock_ctx */)
+    int sock, void * /* eloop_ctx */, void * /* sock_ctx */)
 {
-	IPCThreadState::self()->handlePolledCommands();
+	handleTransportPoll(sock);
 }
 
 struct wpas_hidl_priv *wpas_hidl_init(struct wpa_global *global)
@@ -43,8 +44,7 @@ struct wpas_hidl_priv *wpas_hidl_init(struct wpa_global *global)
 	wpa_printf(MSG_DEBUG, "Initing hidl control");
 
 	configureRpcThreadpool(1, true /* callerWillJoin */);
-	IPCThreadState::self()->disableBackgroundScheduling(true);
-	IPCThreadState::self()->setupPolling(&priv->hidl_fd);
+	priv->hidl_fd = setupTransportPolling();
 	if (priv->hidl_fd < 0)
 		goto err;
 
@@ -77,7 +77,6 @@ void wpas_hidl_deinit(struct wpas_hidl_priv *priv)
 
 	HidlManager::destroyInstance();
 	eloop_unregister_read_sock(priv->hidl_fd);
-	IPCThreadState::shutdown();
 	os_free(priv);
 }
 

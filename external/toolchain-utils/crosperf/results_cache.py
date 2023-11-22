@@ -12,7 +12,6 @@ import pickle
 import re
 import tempfile
 import json
-import sys
 
 from cros_utils import command_executer
 from cros_utils import misc
@@ -67,9 +66,8 @@ class Result(object):
       if not os.path.isdir(dest_dir):
         command = 'mkdir -p %s' % dest_dir
         self.ce.RunCommand(command)
-      dest_file = os.path.join(dest_dir,
-                               ('%s.%s' % (os.path.basename(file_to_copy),
-                                           file_index)))
+      dest_file = os.path.join(
+          dest_dir, ('%s.%s' % (os.path.basename(file_to_copy), file_index)))
       ret = self.ce.CopyFiles(file_to_copy, dest_file, recursive=False)
       if ret:
         raise IOError('Could not copy results file: %s' % file_to_copy)
@@ -230,10 +228,10 @@ class Result(object):
                                                        perf_data_file)
       perf_report_file = '%s.report' % perf_data_file
       if os.path.exists(perf_report_file):
-        raise RuntimeError('Perf report file already exists: %s' %
-                           perf_report_file)
-      chroot_perf_report_file = misc.GetInsideChrootPath(self.chromeos_root,
-                                                         perf_report_file)
+        raise RuntimeError(
+            'Perf report file already exists: %s' % perf_report_file)
+      chroot_perf_report_file = misc.GetInsideChrootPath(
+          self.chromeos_root, perf_report_file)
       perf_path = os.path.join(self.chromeos_root, 'chroot', 'usr/bin/perf')
 
       perf_file = '/usr/sbin/perf'
@@ -366,8 +364,8 @@ class Result(object):
       self.retval = pickle.load(f)
 
     # Untar the tarball to a temporary directory
-    self.temp_dir = tempfile.mkdtemp(
-        dir=os.path.join(self.chromeos_root, 'chroot', 'tmp'))
+    self.temp_dir = tempfile.mkdtemp(dir=os.path.join(self.chromeos_root,
+                                                      'chroot', 'tmp'))
 
     command = ('cd %s && tar xf %s' %
                (self.temp_dir, os.path.join(cache_dir, AUTOTEST_TARBALL)))
@@ -439,8 +437,8 @@ class Result(object):
     if ret:
       command = 'rm -rf {0}'.format(temp_dir)
       self.ce.RunCommand(command)
-      raise RuntimeError('Could not move dir %s to dir %s' %
-                         (temp_dir, cache_dir))
+      raise RuntimeError('Could not move dir %s to dir %s' % (temp_dir,
+                                                              cache_dir))
 
   @classmethod
   def CreateFromRun(cls,

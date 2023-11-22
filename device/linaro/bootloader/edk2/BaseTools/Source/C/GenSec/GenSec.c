@@ -1,7 +1,7 @@
 /** @file
 Creates output file that is a properly formed section per the PI spec.
 
-Copyright (c) 2004 - 2014, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials                          
 are licensed and made available under the terms and conditions of the BSD License         
 which accompanies this distribution.  The full text of the license may be found at        
@@ -267,10 +267,10 @@ Returns:
   STATUS                    Status;
 
   if (InputFileNum > 1) {
-    Error (NULL, 0, 2000, "Invalid paramter", "more than one input file specified");
+    Error (NULL, 0, 2000, "Invalid parameter", "more than one input file specified");
     return STATUS_ERROR;
   } else if (InputFileNum < 1) {
-    Error (NULL, 0, 2000, "Invalid paramter", "no input file specified");
+    Error (NULL, 0, 2000, "Invalid parameter", "no input file specified");
     return STATUS_ERROR;
   }
   //
@@ -296,7 +296,7 @@ Returns:
   // Size must fit in 3 bytes
   //
   //if (TotalLength >= MAX_SECTION_SIZE) {
-  //  Error (NULL, 0, 2000, "Invalid paramter", "%s file size (0x%X) exceeds section size limit(%uM).", InputFileName[0], (unsigned) TotalLength, MAX_SECTION_SIZE>>20);
+  //  Error (NULL, 0, 2000, "Invalid parameter", "%s file size (0x%X) exceeds section size limit(%uM).", InputFileName[0], (unsigned) TotalLength, MAX_SECTION_SIZE>>20);
   //  goto Done;
   //}
   HeaderLength = sizeof (EFI_COMMON_SECTION_HEADER);
@@ -436,12 +436,12 @@ Returns:
   UINT32                     HeaderSize;
 
   if (InputFileNum < 1) {
-    Error (NULL, 0, 2000, "Invalid paramter", "must specify at least one input file");
+    Error (NULL, 0, 2000, "Invalid parameter", "must specify at least one input file");
     return EFI_INVALID_PARAMETER;
   }
 
   if (BufferLength == NULL) {
-    Error (NULL, 0, 2000, "Invalid paramter", "BufferLength can't be NULL");
+    Error (NULL, 0, 2000, "Invalid parameter", "BufferLength can't be NULL");
     return EFI_INVALID_PARAMETER;
   }
 
@@ -667,6 +667,10 @@ Returns:
     return Status;
   }
 
+  if (FileBuffer == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+
   CompressFunction = NULL;
 
   //
@@ -698,7 +702,7 @@ Returns:
     break;
 
   default:
-    Error (NULL, 0, 2000, "Invalid paramter", "unknown compression type");
+    Error (NULL, 0, 2000, "Invalid parameter", "unknown compression type");
     free (FileBuffer);
     return EFI_ABORTED;
   }
@@ -731,13 +735,17 @@ Returns:
 
       return Status;
     }
+
+    if (FileBuffer == NULL) {
+      return EFI_OUT_OF_RESOURCES;
+    }
   }
 
   DebugMsg (NULL, 0, 9, "comprss file size", 
             "the original section size is %d bytes and the compressed section size is %u bytes", (unsigned) InputLength, (unsigned) CompressedLength);
 
   //if (TotalLength >= MAX_SECTION_SIZE) {
-  //  Error (NULL, 0, 2000, "Invalid paramter", "The size of all files exceeds section size limit(%uM).", MAX_SECTION_SIZE>>20);
+  //  Error (NULL, 0, 2000, "Invalid parameter", "The size of all files exceeds section size limit(%uM).", MAX_SECTION_SIZE>>20);
   //  if (FileBuffer != NULL) {
   //    free (FileBuffer);
   //  }
@@ -890,8 +898,19 @@ Returns:
   }
 
   if (InputLength == 0) {
+    if (FileBuffer != NULL) {
+      free (FileBuffer);
+    }
     Error (NULL, 0, 2000, "Invalid parameter", "the size of input file %s can't be zero", InputFileName);
     return EFI_NOT_FOUND;
+  }
+
+  //
+  // InputLength != 0, but FileBuffer == NULL means out of resources.
+  //
+  if (FileBuffer == NULL) {
+    Error (NULL, 0, 4001, "Resource", "memory cannot be allcoated");
+    return EFI_OUT_OF_RESOURCES;
   }
 
   //
@@ -1203,7 +1222,7 @@ Returns:
         InputFileAlign = (UINT32 *) malloc (MAXIMUM_INPUT_FILE_NUM * sizeof (UINT32));
         if (InputFileAlign == NULL) {
           Error (NULL, 0, 4001, "Resource", "memory cannot be allocated!");
-          return 1;
+          goto Finish;
         }
         memset (InputFileAlign, 1, MAXIMUM_INPUT_FILE_NUM * sizeof (UINT32));
       } else if (InputFileAlignNum % MAXIMUM_INPUT_FILE_NUM == 0) {
@@ -1214,7 +1233,7 @@ Returns:
 
         if (InputFileAlign == NULL) {
           Error (NULL, 0, 4001, "Resource", "memory cannot be allocated!");
-          return 1;
+          goto Finish;
         }
         memset (&(InputFileAlign[InputFileNum]), 1, (MAXIMUM_INPUT_FILE_NUM * sizeof (UINT32)));
       }
@@ -1237,7 +1256,7 @@ Returns:
       InputFileName = (CHAR8 **) malloc (MAXIMUM_INPUT_FILE_NUM * sizeof (CHAR8 *));
       if (InputFileName == NULL) {
         Error (NULL, 0, 4001, "Resource", "memory cannot be allcoated");
-        return 1;
+        goto Finish;
       }
       memset (InputFileName, 0, (MAXIMUM_INPUT_FILE_NUM * sizeof (CHAR8 *)));
     } else if (InputFileNum % MAXIMUM_INPUT_FILE_NUM == 0) {
@@ -1251,7 +1270,7 @@ Returns:
 
       if (InputFileName == NULL) {
         Error (NULL, 0, 4001, "Resource", "memory cannot be allcoated");
-        return 1;
+        goto Finish;
       }
       memset (&(InputFileName[InputFileNum]), 0, (MAXIMUM_INPUT_FILE_NUM * sizeof (CHAR8 *)));
     }
@@ -1365,7 +1384,9 @@ Returns:
   //
   // GuidValue is only required by Guided section.
   //
-  if ((SectType != EFI_SECTION_GUID_DEFINED) && (CompareGuid (&VendorGuid, &mZeroGuid) != 0)) {
+  if ((SectType != EFI_SECTION_GUID_DEFINED) &&
+    (SectionName != NULL) &&
+    (CompareGuid (&VendorGuid, &mZeroGuid) != 0)) {
     fprintf (stdout, "Warning: the input guid value is not required for this section type %s\n", SectionName);
   }
   

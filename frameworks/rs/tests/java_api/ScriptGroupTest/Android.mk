@@ -19,7 +19,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) \
                    $(call all-renderscript-files-under, src)
@@ -28,5 +28,6 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
 LOCAL_RENDERSCRIPT_FLAGS := -target-api 0
 
 LOCAL_PACKAGE_NAME := ScriptGroupTest
+LOCAL_SDK_VERSION := current
 
 include $(BUILD_PACKAGE)

@@ -24,10 +24,10 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.android.car.view.PagedListView;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import androidx.car.widget.PagedListView;
 
 /**
  *  An adapter that will parse a list of contacts given by a {@link Cursor} that display the

@@ -51,7 +51,7 @@
         adb shell am instrument -w -e class com.android.server.telecom.tests.unit.FooUnitTest \
                                com.android.server.telecom.tests/android.test.InstrumentationTestRunner
     -->
-    <instrumentation android:name="android.test.InstrumentationTestRunner"
+    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
             android:targetPackage="com.android.server.telecom.tests"
             android:label="Telecomm application tests"
             android:debuggable="true"/>

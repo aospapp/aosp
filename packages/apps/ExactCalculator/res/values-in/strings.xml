@@ -75,13 +75,13 @@
     <string name="approximate" msgid="7117143366610670836">"(±1 dalam digit terakhir)"</string>
     <string name="menu_leading" msgid="2338520833272667740">"Jawab dengan digit depan"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"Jawab sebagai pecahan"</string>
-    <string name="menu_licenses" msgid="1890541368064108592">"Lisensi sumber terbuka"</string>
-    <string name="menu_history" msgid="9006222701220105452">"Riwayat"</string>
+    <string name="menu_licenses" msgid="1890541368064108592">"Lisensi open source"</string>
+    <string name="menu_history" msgid="9006222701220105452">"Histori"</string>
     <string name="menu_clear_history" msgid="2336526604226069572">"Hapus"</string>
-    <string name="title_history" msgid="7820912156315181539">"Riwayat"</string>
+    <string name="title_history" msgid="7820912156315181539">"Histori"</string>
     <string name="desc_navigate_up" msgid="6208699569165589623">"Navigasi naik"</string>
     <string name="dialog_timeout" msgid="9069768442342329065">"Waktu habis"</string>
-    <string name="dialog_clear" msgid="7137395395908350702">"Hapus riwayat dan memori?"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"Hapus histori dan memori?"</string>
     <string name="title_current_expression" msgid="2442754548537900591">"Ekspresi Saat Ini"</string>
-    <string name="no_history" msgid="4331262030447527188">"Tidak Ada Riwayat"</string>
+    <string name="no_history" msgid="4331262030447527188">"Tidak Ada Histori"</string>
 </resources>

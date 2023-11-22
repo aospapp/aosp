@@ -32,10 +32,8 @@ class VtsKernelHwBinderTest(base_test.BaseTestClass):
     """
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
-        self.dut.shell.InvokeTerminal(
-            "VtsKernelHwBinderTest")  # creates a remote shell instance.
-        self.shell = self.dut.shell.VtsKernelHwBinderTest
+        self.dut = self.android_devices[0]
+        self.shell = self.dut.shell
 
     def testHwbinderExistence(self):
         """Checks that hwbinder node exists.

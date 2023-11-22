@@ -28,7 +28,6 @@ class network_DefaultProfileCreation(test.test):
         'CheckPortalList=ethernet,wifi,cellular',
         'IgnoredDNSSearchPaths=gateway.2wire.net',
         'LinkMonitorTechnologies=wifi',
-        'PortalURL=http://www.gstatic.com/generate_204',
         'PortalCheckInterval=30',
         ]
     PROFILE_LOAD_TIMEOUT_SECONDS = 5

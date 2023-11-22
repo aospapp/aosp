@@ -42,7 +42,7 @@ public class ShortcutManagerConfigActivityTest extends ShortcutManagerCtsTestsBa
     public void testGetShortcutConfigActivityList() throws Exception {
         setDefaultLauncher(getInstrumentation(), mLauncherContext1);
 
-        runWithCaller(mLauncherContext1, () -> {
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
             assertNotNull(getConfigActivity());
             assertNotNull(getLauncherApps().getShortcutConfigActivityIntent(getConfigActivity()));
         });
@@ -50,7 +50,7 @@ public class ShortcutManagerConfigActivityTest extends ShortcutManagerCtsTestsBa
         // Get config activity works even for non-default activity.
         setDefaultLauncher(getInstrumentation(), mLauncherContext4);
 
-        runWithCaller(mLauncherContext1, () -> {
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
             assertNotNull(getConfigActivity());
             // throws exception when default launcher is different.
             assertExpectException(SecurityException.class, null, () ->
@@ -61,7 +61,7 @@ public class ShortcutManagerConfigActivityTest extends ShortcutManagerCtsTestsBa
     public void testCorrectIntentSenderCreated() throws Throwable {
         setDefaultLauncher(getInstrumentation(), mLauncherContext1);
         final AtomicReference<IntentSender> sender = new AtomicReference<>();
-        runWithCaller(mLauncherContext1, () ->
+        runWithCallerWithStrictMode(mLauncherContext1, () ->
             sender.set(getLauncherApps().getShortcutConfigActivityIntent(getConfigActivity())));
 
         Instrumentation.ActivityMonitor monitor =
@@ -87,7 +87,7 @@ public class ShortcutManagerConfigActivityTest extends ShortcutManagerCtsTestsBa
     public void testCreateShortcutResultIntent_defaultLauncher() throws Exception {
         setDefaultLauncher(getInstrumentation(), mLauncherContext1);
         PinItemRequest request = getShortcutRequestForPackage1();
-        runWithCaller(mLauncherContext1, () -> {
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
             assertTrue(request.isValid());
             assertTrue(request.accept());
         });
@@ -99,7 +99,7 @@ public class ShortcutManagerConfigActivityTest extends ShortcutManagerCtsTestsBa
 
         setDefaultLauncher(getInstrumentation(), mLauncherContext4);
         // Launcher1 can still access the request
-        runWithCaller(mLauncherContext1, () -> {
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
             assertTrue(request.isValid());
             assertTrue(request.accept());
         });
@@ -110,7 +110,7 @@ public class ShortcutManagerConfigActivityTest extends ShortcutManagerCtsTestsBa
         PinItemRequest request = getShortcutRequestForPackage1();
 
         // Launcher1 can still access the request
-        runWithCaller(mLauncherContext1, () -> {
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
             assertFalse(request.isValid());
             assertExpectException(SecurityException.class, null, request::accept);
         });
@@ -118,7 +118,7 @@ public class ShortcutManagerConfigActivityTest extends ShortcutManagerCtsTestsBa
 
     private PinItemRequest getShortcutRequestForPackage1() {
         final AtomicReference<PinItemRequest> result = new AtomicReference<>();
-        runWithCaller(mPackageContext1, () -> {
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
             final ShortcutInfo shortcut = makeShortcutBuilder(SHORTCUT_ID)
                     .setShortLabel("label1")
                     .setIntent(new Intent(Intent.ACTION_MAIN))

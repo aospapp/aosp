@@ -16,6 +16,11 @@
 
 package com.android.server.telecom.tests;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 
 import android.os.Process;
@@ -31,6 +36,10 @@ import com.android.server.telecom.CallAudioRouteStateMachine;
 
 import java.util.List;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 
@@ -39,13 +48,27 @@ import static org.mockito.Mockito.verify;
  * TODO: Add unit tests which ensure that auto-speakerphone does not occur when using a wired
  * headset or a bluetooth headset.
  */
+@RunWith(JUnit4.class)
 public class VideoCallTests extends TelecomSystemTest {
+
+    @Override
+    @Before
+    public void setUp() throws Exception {
+        super.setUp();
+    }
+
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
+    }
 
     /**
      * Tests to ensure an incoming video-call is automatically routed to the speakerphone when
      * the call is answered and neither a wired headset nor bluetooth headset are connected.
      */
     @MediumTest
+    @Test
     public void testAutoSpeakerphoneIncomingBidirectional() throws Exception {
         // Start an incoming video call.
         IdPair ids = startAndMakeActiveIncomingCall("650-555-1212",
@@ -62,6 +85,7 @@ public class VideoCallTests extends TelecomSystemTest {
      * party dialer to answer an incoming video call a a one-way video call.
      */
     @MediumTest
+    @Test
     public void testAutoSpeakerphoneIncomingReceiveOnly() throws Exception {
         // Start an incoming video call.
         IdPair ids = startAndMakeActiveIncomingCall("650-555-1212",
@@ -76,6 +100,7 @@ public class VideoCallTests extends TelecomSystemTest {
      * in speaker mode.
      */
     @MediumTest
+    @Test
     public void testAutoSpeakerphoneOutgoingBidirectional() throws Exception {
         // Start an incoming video call.
         IdPair ids = startAndMakeActiveOutgoingCall("650-555-1212",
@@ -91,6 +116,7 @@ public class VideoCallTests extends TelecomSystemTest {
      * APIs do and a third party incall UI could choose to support that.
      */
     @MediumTest
+    @Test
     public void testAutoSpeakerphoneOutgoingTransmitOnly() throws Exception {
         // Start an incoming video call.
         IdPair ids = startAndMakeActiveOutgoingCall("650-555-1212",
@@ -106,6 +132,7 @@ public class VideoCallTests extends TelecomSystemTest {
      * APIs do and a third party incall UI could choose to support that.
      */
     @MediumTest
+    @Test
     public void testNoAutoSpeakerphoneOnOutgoing() throws Exception {
         // Start an incoming video call.
         IdPair ids = startAndMakeActiveOutgoingCall("650-555-1212",
@@ -119,6 +146,7 @@ public class VideoCallTests extends TelecomSystemTest {
      * Tests to ensure an incoming audio-only call is routed to the earpiece.
      */
     @MediumTest
+    @Test
     public void testNoAutoSpeakerphoneOnIncoming() throws Exception {
 
         // Start an incoming video call.
@@ -134,6 +162,7 @@ public class VideoCallTests extends TelecomSystemTest {
      * video calling. This is important for the call log.
      */
     @LargeTest
+    @Test
     public void testIncomingVideoCallMissedCheckVideoHistory() throws Exception {
         IdPair ids = startIncomingPhoneCall("650-555-1212", mPhoneAccountA0.getAccountHandle(),
                 VideoProfile.STATE_BIDIRECTIONAL, mConnectionServiceFixtureA);
@@ -150,6 +179,7 @@ public class VideoCallTests extends TelecomSystemTest {
      * video calling. This is important for the call log.
      */
     @LargeTest
+    @Test
     public void testIncomingVideoCallRejectedCheckVideoHistory() throws Exception {
         IdPair ids = startIncomingPhoneCall("650-555-1212", mPhoneAccountA0.getAccountHandle(),
                 VideoProfile.STATE_BIDIRECTIONAL, mConnectionServiceFixtureA);
@@ -167,6 +197,7 @@ public class VideoCallTests extends TelecomSystemTest {
      * video calling. This is important for the call log.
      */
     @LargeTest
+    @Test
     public void testOutgoingVideoCallCanceledCheckVideoHistory() throws Exception {
         IdPair ids = startOutgoingPhoneCall("650-555-1212", mPhoneAccountA0.getAccountHandle(),
                 mConnectionServiceFixtureA, Process.myUserHandle(),
@@ -184,6 +215,7 @@ public class VideoCallTests extends TelecomSystemTest {
      * video calling. This is important for the call log.
      */
     @LargeTest
+    @Test
     public void testOutgoingVideoCallRejectedCheckVideoHistory() throws Exception {
         IdPair ids = startOutgoingPhoneCall("650-555-1212", mPhoneAccountA0.getAccountHandle(),
                 mConnectionServiceFixtureA, Process.myUserHandle(),
@@ -201,6 +233,7 @@ public class VideoCallTests extends TelecomSystemTest {
      * shows that the call was audio only. This is important for the call log.
      */
     @LargeTest
+    @Test
     public void testOutgoingVideoCallAnsweredAsAudio() throws Exception {
         IdPair ids = startOutgoingPhoneCall("650-555-1212", mPhoneAccountA0.getAccountHandle(),
                 mConnectionServiceFixtureA, Process.myUserHandle(),

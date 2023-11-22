@@ -32,9 +32,6 @@ cc_defaults {
         "liblog",
         "libmetricslogger",
     ],
-    whole_static_libs: ["libgtest_prod"],
-    // Clang is required because of C++14
-    clang: true,
 }
 
 // bootstat static library
@@ -66,7 +63,19 @@ cc_binary {
     name: "bootstat",
     defaults: ["bootstat_defaults"],
     static_libs: ["libbootstat"],
+    shared_libs: [
+        "liblogcat",
+        "libstatslog"
+    ],
     init_rc: ["bootstat.rc"],
+    product_variables: {
+        pdk: {
+            enabled: false,
+        },
+        debuggable: {
+            init_rc: ["bootstat-debug.rc"],
+        },
+    },
     srcs: ["bootstat.cpp"],
 }
 

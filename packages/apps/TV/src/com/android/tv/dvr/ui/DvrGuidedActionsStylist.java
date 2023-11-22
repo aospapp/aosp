@@ -24,12 +24,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
-
 import com.android.tv.R;
 
-/**
- * Stylist class used for DVR settings {@link GuidedStepFragment}.
- */
+/** Stylist class used for DVR settings {@link GuidedStepFragment}. */
 public class DvrGuidedActionsStylist extends GuidedActionsStylist {
     private static boolean sInitialized;
     private static float sWidthWeight;
@@ -68,11 +65,13 @@ public class DvrGuidedActionsStylist extends GuidedActionsStylist {
             return;
         }
         sInitialized = true;
-        sItemHeight = context.getResources().getDimensionPixelSize(
-                R.dimen.dvr_settings_one_line_action_container_height);
+        sItemHeight =
+                context.getResources()
+                        .getDimensionPixelSize(
+                                R.dimen.dvr_settings_one_line_action_container_height);
         TypedValue outValue = new TypedValue();
-        context.getResources().getValue(R.dimen.dvr_settings_button_actions_list_width_weight,
-                outValue, true);
+        context.getResources()
+                .getValue(R.dimen.dvr_settings_button_actions_list_width_weight, outValue, true);
         sWidthWeight = outValue.getFloat();
     }
 }

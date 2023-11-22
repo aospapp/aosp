@@ -14,12 +14,14 @@
      limitations under the License.
 -->
 <configuration description="Config for VTS Target-Side Binary Codelab test cases">
+    <option name="config-descriptor:metadata" key="plan" value="vts-codelab" />
+    <option name="config-descriptor:metadata" key="plan" value="vts-staging-selftest" />
+
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="push-group" value="HostDrivenTest.push" />
         <option name="push" value="DATA/nativetest/vts_codelab_target_binary->/data/nativetest/vts_codelab_target_binary" />
         <option name="push" value="DATA/nativetest64/vts_codelab_target_binary->/data/nativetest64/vts_codelab_target_binary" />
     </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer" />
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsCodelabTargetBinary" />
         <option name="binary-test-source" value="_32bit::DATA/nativetest/vts_codelab_target_binary/vts_codelab_target_binary->/data/nativetest/vts_codelab_target_binary/vts_codelab_target_binary" />

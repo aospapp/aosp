@@ -50,6 +50,20 @@ public interface ILogSaverListener extends ITestInvocationListener {
             LogFile logFile);
 
     /**
+     * In some cases, log must be strongly associated with a test cases, but the opportunity to do
+     * so on the direct {@link #testLogSaved(String, LogDataType, InputStreamSource, LogFile)}
+     * callback is not possible. Thus, this callback allows to provide a strong association
+     * explicitly.
+     *
+     * @param dataName The name of the data
+     * @param logFile the {@link LogFile} that was logged before and should be associated with the
+     *     test case.
+     */
+    public default void logAssociation(String dataName, LogFile logFile) {
+        // Do nothing by default
+    }
+
+    /**
      * Set the {@link ILogSaver} to allow the implementor to save files.
      *
      * @param logSaver the {@link ILogSaver}

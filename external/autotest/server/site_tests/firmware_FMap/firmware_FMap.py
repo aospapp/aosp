@@ -75,6 +75,7 @@ class firmware_FMap(FirmwareTest):
 
     def initialize(self, host, cmdline_args, dev_mode=False):
         super(firmware_FMap, self).initialize(host, cmdline_args)
+        self.switcher.setup_mode('dev' if dev_mode else 'normal')
 
     def run_cmd(self, command):
         """

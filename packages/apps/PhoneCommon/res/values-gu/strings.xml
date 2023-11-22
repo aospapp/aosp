@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"કોઈ SIM નથી અથવા SIM ભૂલ"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"સેલ્યુલર નેટવર્ક ઉપલબ્ધ નથી"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"FDN દ્વારા આઉટગોઇંગ કૉલ્સ પ્રતિબંધિત કરાયેલ છે."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL વિનંતીને USSD વિનંતી પર સંશોધિત કરી."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL વિનંતીને SS વિનંતી પર સંશોધિત કરી."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL વિનંતીને DIAL પર અલગ નંબર સાથે સંશોધિત કરી."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"કૉલને USSD વિનંતીમાં બદલ્યો"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"કૉલને SS વિનંતીમાં બદલ્યો"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"અલગ નંબરમાં બદલ્યો"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"વીડિઓ કૉલમાં બદલ્યો"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"વીડિઓ કૉલને SS વિનંતીમાં બદલવામાં આવ્યો"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"વીડિઓ કૉલને USSD વિનંતીમાં બદલવામાં આવ્યો"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"નિયમિત કૉલમાં બદલ્યો"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"અલગ નંબરમાં બદલ્યો"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"કૉલ બેરિંગ ચાલુ હોય ત્યારે આઉટગોઇંગ કૉલ્સ કરી શકાતા નથી."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"ઍક્સેસ નિયંત્રણ દ્વારા કૉલ્સ પ્રતિબંધિત કરાયેલ છે."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"ઍક્સેસ નિયંત્રણ દ્વારા કટોકટીના કૉલ્સ પ્રતિબંધિત કરાયેલ છે."</string>

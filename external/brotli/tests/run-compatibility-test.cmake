@@ -1,9 +1,10 @@
 string(REGEX REPLACE "([a-zA-Z0-9\\.]+)\\.compressed(\\.[0-9]+)?$" "\\1" REFERENCE_DATA "${INPUT}")
-get_filename_component(OUTPUT_NAME "${REFERENCE_DATA}" NAME)
+string(REGEX REPLACE "\\.compressed" "" OUTPUT_FILE "${INPUT}")
+get_filename_component(OUTPUT_NAME "${OUTPUT_FILE}" NAME)
 
 execute_process(
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-  COMMAND ${BROTLI_WRAPPER} ${BROTLI_CLI} --force --decompress --input ${INPUT} --output ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_NAME}.unbro
+  COMMAND ${BROTLI_WRAPPER} ${BROTLI_CLI} --force --decompress ${INPUT} --output=${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_NAME}.unbr
   RESULT_VARIABLE result)
 if(result)
   message(FATAL_ERROR "Decompression failed")
@@ -25,4 +26,4 @@ function(test_file_equality f1 f2)
   endif()
 endfunction()
 
-test_file_equality("${REFERENCE_DATA}" "${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_NAME}.unbro")
+test_file_equality("${REFERENCE_DATA}" "${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_NAME}.unbr")

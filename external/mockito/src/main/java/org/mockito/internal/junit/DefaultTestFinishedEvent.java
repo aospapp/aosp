@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2018 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockito.internal.junit;
 
 public class DefaultTestFinishedEvent implements TestFinishedEvent {
@@ -11,15 +15,13 @@ public class DefaultTestFinishedEvent implements TestFinishedEvent {
         this.testFailure = testFailure;
     }
 
+    @Override
     public Throwable getFailure() {
         return testFailure;
     }
 
-    public Object getTestClassInstance() {
-        return testClassInstance;
-    }
-
-    public String getTestMethodName() {
-        return testMethodName;
+    @Override
+    public String getTestName() {
+        return testClassInstance.getClass().getSimpleName() + "." + testMethodName;
     }
 }

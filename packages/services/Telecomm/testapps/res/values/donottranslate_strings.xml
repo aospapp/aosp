@@ -68,6 +68,13 @@
 
     <string name="getKeyButton">Get Key Json</string>
 
+    <string name="earpieceButton">Earpiece/Wired</string>
+
+    <string name="speakerButton">Speakerphone</string>
+
+    <string name="setBtDeviceButton">Set BT device</string>
+
+    <string name="currentRouteLabel">Current audio route</string>
     <!-- String for button in SelfManagedCallingActivity. -->
     <string name="checkIfPermittedBeforeCallingButton">Check if calls permitted before calling</string>
 

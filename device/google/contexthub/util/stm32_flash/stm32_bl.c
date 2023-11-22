@@ -100,19 +100,34 @@ static uint8_t read_ack_loop(handle_t *handle)
 /* erase a single sector */
 uint8_t erase_sector(handle_t *handle, uint16_t sector)
 {
+    uint8_t buffer[sizeof(uint16_t)+sizeof(uint16_t)+1];
     uint8_t ret;
 
     handle->write_cmd(handle, handle->cmd_erase);
     ret = handle->read_ack(handle);
-    if (sector < 0xFFF0 && ret == CMD_ACK) {
+    if (ret != CMD_ACK)
+        return ret;
+
+    if (sector >= 0xFFF0) {
+        /* special erase */
+        write_cnt(handle, sector);
+    } else if (handle->no_extra_sync) {
+        /* sector erase without extra sync (UART case) */
+        buffer[0] = 0;  /* MSB num of sectors - 1 */
+        buffer[1] = 0;  /* LSB num of sectors - 1 */
+        buffer[2] = (sector >> 8) & 0xFF;
+        buffer[3] = (sector     ) & 0xFF;
+        handle->write_data(handle, buffer, sizeof(uint16_t)+sizeof(uint16_t));
+    } else {
+        /* sector erase */
         write_cnt(handle, 0x0000);
         ret = read_ack_loop(handle);
-    }
-    if (ret == CMD_ACK) {
+        if (ret != CMD_ACK)
+            return ret;
         write_cnt(handle, sector);
-        ret = read_ack_loop(handle);
     }
-    return ret;
+
+    return read_ack_loop(handle);
 }
 
 /* read memory - this will chop the request into 256 byte reads */

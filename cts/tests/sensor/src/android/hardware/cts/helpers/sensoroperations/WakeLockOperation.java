@@ -60,7 +60,7 @@ public class WakeLockOperation extends SensorOperation {
      * {@inheritDoc}
      */
     @Override
-    public void execute(ISensorTestNode parent) throws InterruptedException {
+    public void execute(ISensorTestNode parent) throws Exception {
         PowerManager pm = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
         WakeLock wakeLock = pm.newWakeLock(mWakeLockFlags, TAG);
         wakeLock.acquire();

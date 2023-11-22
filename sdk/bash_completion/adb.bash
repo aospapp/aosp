@@ -293,7 +293,17 @@ _adb_cmd_shell_pm() {
 
     if (( $i == $COMP_CWORD )) ; then
         cur="${COMP_WORDS[COMP_CWORD]}"
-        candidates="-l -lf -p clear create-user default-state disable disable-until-used disable-user dump enable get-app-link get-install-location get-max-users grant hide install install-abandon install-commit install-create install-write list move-package move-primary-storage path remove-user reset-permissions revoke set-app-link set-installer set-install-location set-permission-enforced trim-caches unhide uninstall"
+        candidates="-l -lf -p clear create-user default-state disable"
+        candidates+=" disable-until-used disable-user dump enable"
+        candidates+=" get-app-link get-install-location get-max-users"
+        candidates+=" get-max-running-users grant hide install"
+        candidates+=" install-abandon install-commit install-create"
+        candidates+=" install-write list move-package"
+        candidates+=" move-primary-storage path remove-user"
+        candidates+=" reset-permissions revoke set-app-link"
+        candidates+=" set-installer set-install-location"
+        candidates+=" set-permission-enforced trim-caches unhide"
+        candidates+=" uninstall"
         COMPREPLY=( $(compgen -W "$candidates" -- "$cur") )
         return 0
     fi

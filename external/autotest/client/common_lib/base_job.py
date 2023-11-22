@@ -790,6 +790,8 @@ class base_job(object):
         '_state', 'automatic_test_tag', None)
     max_result_size_KB = _job_state.property_factory(
         '_state', 'max_result_size_KB', 0)
+    fast = _job_state.property_factory(
+        '_state', 'fast', False)
 
     # the use_sequence_number property
     _sequence_number = _job_state.property_factory(

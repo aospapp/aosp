@@ -37,11 +37,15 @@ class NetworkChroot(object):
     # Includes directories containing the system bus socket and machine ID.
     DBUS_BRIDGE_DIRECTORIES = ('run/dbus/', 'var/lib/dbus/')
 
-    ROOT_DIRECTORIES = ('etc',  'tmp', 'var', 'var/log', 'var/run')
+    ROOT_DIRECTORIES = ('etc',  'tmp', 'var', 'var/log', 'run', 'run/lock')
+    ROOT_SYMLINKS = (
+        ('var/run', '/run'),
+        ('var/lock', '/run/lock'),
+    )
     STARTUP = 'etc/chroot_startup.sh'
     STARTUP_DELAY_SECONDS = 5
-    STARTUP_PID_FILE = 'var/run/vpn_startup.pid'
-    STARTUP_SLEEPER_PID_FILE = 'var/run/vpn_sleeper.pid'
+    STARTUP_PID_FILE = 'run/vpn_startup.pid'
+    STARTUP_SLEEPER_PID_FILE = 'run/vpn_sleeper.pid'
     COPIED_CONFIG_FILES = [
         'etc/ld.so.cache'
     ]
@@ -239,6 +243,10 @@ class NetworkChroot(object):
             dst_path = self.chroot_path(config_file)
             if os.path.exists(src_path):
                 shutil.copyfile(src_path, dst_path)
+
+        for src_path, target_path in self.ROOT_SYMLINKS:
+            link_path = self.chroot_path(src_path)
+            os.symlink(target_path, link_path)
 
 
     def move_interface_to_chroot_namespace(self):

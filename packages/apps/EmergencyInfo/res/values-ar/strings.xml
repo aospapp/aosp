@@ -71,7 +71,7 @@
     <string name="ab_positive" msgid="1931300033534642005">"‏A B موجب"</string>
     <string name="ab_negative" msgid="2064555613093591729">"‏A B سالب"</string>
     <string name="h_h" msgid="2183333409760379720">"H H"</string>
-    <string name="allergies" msgid="2789200777539258165">"حساسية"</string>
+    <string name="allergies" msgid="2789200777539258165">"الحساسية"</string>
     <string name="unknown_allergies" msgid="4383115953418061237">"غير معروفة"</string>
     <string name="allergies_hint" msgid="5488918780522184147">"الفول السوداني مثلاً"</string>
     <string name="medications" msgid="644428945685557183">"الأدوية"</string>
@@ -80,7 +80,7 @@
     <string name="medical_conditions" msgid="3555690011498283592">"ملاحظات طبية"</string>
     <string name="unknown_medical_conditions" msgid="8051364895172053770">"غير معروفة"</string>
     <string name="medical_conditions_hint" msgid="6959152183029062882">"الربو مثلاً"</string>
-    <string name="organ_donor" msgid="5953509460007124827">"ترغب بوهب أعضائك"</string>
+    <string name="organ_donor" msgid="5953509460007124827">"وهب الأعضاء"</string>
     <string name="unknown_organ_donor" msgid="2780515342875494225">"غير معروف"</string>
     <string name="yes" msgid="5829765567799916128">"نعم"</string>
     <string name="no" msgid="1681689233660683509">"لا"</string>
@@ -103,7 +103,7 @@
     <string name="clear_all" msgid="8899013032870561633">"مسح الكل"</string>
     <string name="clear" msgid="3648880442502887163">"مسح"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"هل تريد مسح جميع المعلومات وجهات الاتصال؟"</string>
-    <string name="emergency_info_footer" msgid="8751758742506410146">"يمكن لإضافة المعلومات الطبية وجهات الاتصال أن تساعد فرق الاستجابة الفورية في حالات الطوارئ.\n\nويمكن لأي شخص قراءة هذه المعلومات من شاشة التأمين ومكالمة جهات الاتصال التابعة لك بالنقر على أسمائها من دون الحاجة إلى فتح قفل هاتفك."</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"يمكن لإضافة المعلومات الطبية وجهات الاتصال أن تساعد فرق الاستجابة الفورية في حالات الطوارئ.\n\nويمكن لأي شخص قراءة هذه المعلومات من شاشة القفل ومكالمة جهات الاتصال التابعة لك بالنقر على أسمائها من دون الحاجة إلى فتح قفل هاتفك."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"إضافة معلومات الطوارئ"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"مساعدة أول المستجيبين في العثور على المعلومات المهمة"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"السماح لفِرق الإغاثة الفورية بالاطلاع على معلوماتك"</string>
 </resources>

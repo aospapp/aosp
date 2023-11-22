@@ -34,6 +34,16 @@ import java.io.FileNotFoundException;
  */
 public class DemoProvider extends TestRootProvider {
 
+    public static final String DIR_INFO = "show info";
+    public static final String DIR_ERROR = "show error";
+    public static final String DIR_ERROR_AND_INFO = "show both error and info";
+    public static final String DIR_THROW = "throw a nice exception";
+    public static final String DIR_AUTH = "throw a authentication exception";
+
+    public static final String MSG_INFO = "All files in this root support settings.";
+    public static final String MSG_ERROR = "I'm an error. Don't judge me.";
+    public static final String MSG_ERROR_AND_INFO = "ERROR: Both ERROR and INFO returned.";
+
     private static final String ROOT_ID = "demo-root";
     private static final String ROOT_DOC_ID = "root0";
 
@@ -61,10 +71,8 @@ public class DemoProvider extends TestRootProvider {
         Bundle extras = c.getExtras();
 
         switch (parentDocumentId) {
-            case "show info":
-                extras.putString(
-                        DocumentsContract.EXTRA_INFO,
-                        "All files in this root support settings from owner.");
+            case DIR_INFO:
+                extras.putString(DocumentsContract.EXTRA_INFO, MSG_INFO);
                 addFolder(c, "folder");
                 addFile(c, "zzz");
                 for (int i = 0; i < 100; i++) {
@@ -72,25 +80,19 @@ public class DemoProvider extends TestRootProvider {
                 }
                 break;
 
-            case "show error":
-                extras.putString(
-                        DocumentsContract.EXTRA_ERROR,
-                        "I'm a synthetic ERROR. Don't judge me.");
+            case DIR_ERROR:
+                extras.putString(DocumentsContract.EXTRA_ERROR, MSG_ERROR);
                 break;
 
-            case "show both error and info":
-                extras.putString(
-                        DocumentsContract.EXTRA_INFO,
-                        "INFO: I'm confused. I've show both ERROR and INFO.");
-                extras.putString(
-                        DocumentsContract.EXTRA_ERROR,
-                        "ERROR: I'm confused. I've show both ERROR and INFO.");
+            case DIR_ERROR_AND_INFO:
+                extras.putString(DocumentsContract.EXTRA_INFO, MSG_INFO);
+                extras.putString(DocumentsContract.EXTRA_ERROR, MSG_ERROR_AND_INFO);
                 break;
 
-            case "throw a nice exception":
+            case DIR_THROW:
                 throw new RuntimeException();
 
-            case "throw a authentication exception":
+            case DIR_AUTH:
                 Intent intent = new Intent("com.android.documentsui.test.action.AUTHENTICATE");
                 PendingIntent pIntent = PendingIntent.getActivity(getContext(),
                         AbstractActionHandler.CODE_AUTHENTICATION, intent, 0);
@@ -98,11 +100,11 @@ public class DemoProvider extends TestRootProvider {
                         pIntent);
 
             default:
-                addFolder(c, "show info");
-                addFolder(c, "show error");
-                addFolder(c, "show both error and info");
-                addFolder(c, "throw a nice exception");
-                addFolder(c, "throw a authentication exception");
+                addFolder(c, DIR_INFO);
+                addFolder(c, DIR_ERROR);
+                addFolder(c, DIR_ERROR_AND_INFO);
+                addFolder(c, DIR_THROW);
+                addFolder(c, DIR_AUTH);
                 break;
         }
 

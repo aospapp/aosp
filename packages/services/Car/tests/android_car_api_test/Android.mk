@@ -21,6 +21,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := AndroidCarApiTest
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 # for system|priviledged permission.
 LOCAL_CERTIFICATE := platform
@@ -32,12 +33,12 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_PROGUARD_ENABLED := disabled
 
-LOCAL_STATIC_JAVA_LIBRARIES := junit legacy-android-test
+LOCAL_STATIC_JAVA_LIBRARIES := junit
 LOCAL_STATIC_JAVA_LIBRARIES += \
         android-support-test \
         android.hidl.base-V1.0-java \
         android.hardware.automotive.vehicle-V2.0-java \
 
-LOCAL_JAVA_LIBRARIES := android.car android.test.runner
+LOCAL_JAVA_LIBRARIES := android.car android.test.runner android.test.base
 
 include $(BUILD_PACKAGE)

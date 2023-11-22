@@ -45,7 +45,10 @@ development/sdk/plat_tools_source.properties  platform-tools/source.properties
 bin/adb                                 strip platform-tools/adb
 bin/fastboot                            strip platform-tools/fastboot
 bin/mke2fs                              strip platform-tools/mke2fs
+bin/mke2fs.conf                         platform-tools/mke2fs.conf
 bin/e2fsdroid                           strip platform-tools/e2fsdroid
+bin/make_f2fs                           strip platform-tools/make_f2fs
+bin/sload_f2fs                          strip platform-tools/sload_f2fs
 bin/sqlite3                             strip platform-tools/sqlite3
 bin/dmtracedump                         strip platform-tools/dmtracedump
 bin/etc1tool                            strip platform-tools/etc1tool
@@ -98,14 +101,6 @@ prebuilts/sdk/renderscript/lib/arm/librsjni.so        build-tools/${PLATFORM_NAM
 prebuilts/sdk/renderscript/lib/arm/libblasV8.so       build-tools/${PLATFORM_NAME}/renderscript/lib/blas/armeabi-v7a/libblasV8.so
 prebuilts/sdk/renderscript/lib/arm/librsrt_arm.bc     build-tools/${PLATFORM_NAME}/renderscript/lib/bc/armeabi-v7a/libclcore.bc
 
-prebuilts/sdk/renderscript/lib/mips/libc.so            build-tools/${PLATFORM_NAME}/renderscript/lib/intermediates/mips/libc.so
-prebuilts/sdk/renderscript/lib/mips/libm.so            build-tools/${PLATFORM_NAME}/renderscript/lib/intermediates/mips/libm.so
-prebuilts/sdk/renderscript/lib/mips/libcompiler_rt.a   build-tools/${PLATFORM_NAME}/renderscript/lib/intermediates/mips/libcompiler_rt.a
-prebuilts/sdk/renderscript/lib/mips/libRSSupport.so    build-tools/${PLATFORM_NAME}/renderscript/lib/packaged/mips/libRSSupport.so
-prebuilts/sdk/renderscript/lib/mips/librsjni.so        build-tools/${PLATFORM_NAME}/renderscript/lib/packaged/mips/librsjni.so
-prebuilts/sdk/renderscript/lib/mips/libblasV8.so       build-tools/${PLATFORM_NAME}/renderscript/lib/blas/mips/libblasV8.so
-prebuilts/sdk/renderscript/lib/mips/librsrt_mips.bc    build-tools/${PLATFORM_NAME}/renderscript/lib/bc/mips/libclcore.bc
-
 prebuilts/sdk/renderscript/lib/x86/libc.so            build-tools/${PLATFORM_NAME}/renderscript/lib/intermediates/x86/libc.so
 prebuilts/sdk/renderscript/lib/x86/libm.so            build-tools/${PLATFORM_NAME}/renderscript/lib/intermediates/x86/libm.so
 prebuilts/sdk/renderscript/lib/x86/libcompiler_rt.a   build-tools/${PLATFORM_NAME}/renderscript/lib/intermediates/x86/libcompiler_rt.a
@@ -139,19 +134,17 @@ bin/dx                                        build-tools/${PLATFORM_NAME}/dx
 framework/dx.jar                              build-tools/${PLATFORM_NAME}/lib/dx.jar
 bin/dexdump                                   build-tools/${PLATFORM_NAME}/dexdump
 
+# d8
+prebuilts/r8/d8-master.jar                    build-tools/${PLATFORM_NAME}/lib/d8.jar
+prebuilts/r8/d8                               build-tools/${PLATFORM_NAME}/d8
+
 # multi-dex
 ${OUT_DIR}/host/common/obj/JAVA_LIBRARIES/shrinkedAndroid_intermediates/shrinkedAndroid.jar  build-tools/${PLATFORM_NAME}/lib/shrinkedAndroid.jar
 dalvik/dx/etc/mainDexClasses.rules                                                           build-tools/${PLATFORM_NAME}/mainDexClasses.rules
 dalvik/dx/etc/mainDexClassesNoAapt.rules                                                     build-tools/${PLATFORM_NAME}/mainDexClassesNoAapt.rules
 
-# Jack & Jill
-prebuilts/sdk/tools/jacks/jack-${JACK_SDKTOOL_VERSION}.jar                build-tools/${PLATFORM_NAME}/jack.jar
-prebuilts/sdk/tools/jills/jill-${JACK_SDKTOOL_VERSION}.jar                build-tools/${PLATFORM_NAME}/jill.jar
-
-# The Jack reporter tool for code coverage
-prebuilts/sdk/tools/jack-jacoco-reporter.jar                              build-tools/${PLATFORM_NAME}/jack-jacoco-reporter.jar
-prebuilts/sdk/tools/jack-coverage-plugin.jar                              build-tools/${PLATFORM_NAME}/jack-coverage-plugin.jar
-
+# Lambda stubs for use by javac
+${OUT_DIR}/target/common/obj/JAVA_LIBRARIES/core-lambda-stubs_intermediates/classes.jar       build-tools/${PLATFORM_NAME}/core-lambda-stubs.jar
 
 ##############################################################################
 # Platform Component
@@ -171,6 +164,10 @@ development/build/optional.json                                                 
 ${OUT_DIR}/target/common/obj/JAVA_LIBRARIES/org.apache.http.legacy_intermediates/javalib.jar  platforms/${PLATFORM_NAME}/optional/org.apache.http.legacy.jar
 # deprecated APIs
 ${OUT_DIR}/target/common/obj/JAVA_LIBRARIES/android_uiautomator_intermediates/javalib.jar     platforms/${PLATFORM_NAME}/uiautomator.jar
+# Test APIs
+${OUT_DIR}/target/common/obj/JAVA_LIBRARIES/android.test.mock.stubs_intermediates/javalib.jar   platforms/${PLATFORM_NAME}/optional/android.test.mock.jar
+${OUT_DIR}/target/common/obj/JAVA_LIBRARIES/android.test.base.stubs_intermediates/javalib.jar   platforms/${PLATFORM_NAME}/optional/android.test.base.jar
+${OUT_DIR}/target/common/obj/JAVA_LIBRARIES/android.test.runner.stubs_intermediates/javalib.jar platforms/${PLATFORM_NAME}/optional/android.test.runner.jar
 
 # the aidl precompiled include
 obj/framework.aidl                                                                            platforms/${PLATFORM_NAME}/framework.aidl
@@ -238,7 +235,7 @@ development/sdk/sdk_files_NOTICE.txt      platforms/${PLATFORM_NAME}/skins/NOTIC
 system-qemu.img                                 system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/system.img
 vendor-qemu.img                                 system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/vendor.img
 ramdisk.img                                system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/ramdisk.img
-userdata.img                               system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/userdata.img
+data/misc                                        system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/data/misc
 system/build.prop                          system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/build.prop
 
 # Note: the kernel image is handled by sdk-android-<abi>.atree now.
@@ -453,4 +450,3 @@ sdk/files/README_add-ons.txt add-ons/README.txt
 ##############################################################################
 # Tests Component
 ##############################################################################
-system/app/EmulatorSmokeTests/EmulatorSmokeTests.apk tests/emulator-test-apps/EmulatorSmokeTests.apk

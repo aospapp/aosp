@@ -31,6 +31,7 @@ import android.icu.util.ULocale;
 
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author srl
@@ -39,6 +40,7 @@ import junitparams.Parameters;
  * analog of dadrcal.cpp
  *
  */
+@MainTestShard
 @RunWith(JUnitParamsRunner.class)
 public class DataDrivenCalendarTest extends TestFmwk {
 

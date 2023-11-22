@@ -22,6 +22,7 @@
 #include <android-base/unique_fd.h>
 #include <hardware/hardware.h>
 #include <sync/sync.h>
+#include <ui/GraphicTypes.h>
 
 #define HWC2_INCLUDE_STRINGIFICATION
 #define HWC2_USE_CPP11
@@ -33,6 +34,9 @@
 #include "Hwc2TestLayers.h"
 #include "Hwc2TestClientTarget.h"
 #include "Hwc2TestVirtualDisplay.h"
+
+using android::ui::ColorMode;
+using android::ui::Dataspace;
 
 void hwc2TestHotplugCallback(hwc2_callback_data_t callbackData,
         hwc2_display_t display, int32_t connected);
@@ -382,7 +386,9 @@ public:
         if (outErr) {
             *outErr = err;
         } else {
-            ASSERT_EQ(err, HWC2_ERROR_NONE) << "failed to set cursor position";
+            ASSERT_TRUE((err == HWC2_ERROR_NONE) ||
+                (err == HWC2_ERROR_BAD_LAYER)) <<
+                "failed to set cursor position";
         }
     }
 
@@ -437,14 +443,14 @@ public:
     }
 
     void setLayerDataspace(hwc2_display_t display, hwc2_layer_t layer,
-            android_dataspace_t dataspace, hwc2_error_t* outErr = nullptr)
+            Dataspace dataspace, hwc2_error_t* outErr = nullptr)
     {
         auto pfn = reinterpret_cast<HWC2_PFN_SET_LAYER_DATASPACE>(
                 getFunction(HWC2_FUNCTION_SET_LAYER_DATASPACE));
         ASSERT_TRUE(pfn) << "failed to get function";
 
         auto err = static_cast<hwc2_error_t>(pfn(mHwc2Device, display,
-                layer, dataspace));
+                layer, static_cast<int>(dataspace)));
         if (outErr) {
             *outErr = err;
         } else {
@@ -652,7 +658,7 @@ public:
             hwc2_layer_request_t request = requests.at(i);
 
             EXPECT_EQ(std::count(layers.begin(), layers.end(), requestedLayer),
-                    0) << "get display requests returned an unknown layer";
+                    1) << "get display requests returned an unknown layer";
             EXPECT_NE(request, 0) << "returned empty request for layer "
                     << requestedLayer;
 
@@ -785,14 +791,14 @@ public:
 
     void getClientTargetSupport(hwc2_display_t display, int32_t width,
             int32_t height, android_pixel_format_t format,
-            android_dataspace_t dataspace, hwc2_error_t* outErr = nullptr)
+            Dataspace dataspace, hwc2_error_t* outErr = nullptr)
     {
         auto pfn = reinterpret_cast<HWC2_PFN_GET_CLIENT_TARGET_SUPPORT>(
                 getFunction(HWC2_FUNCTION_GET_CLIENT_TARGET_SUPPORT));
         ASSERT_TRUE(pfn) << "failed to get function";
 
         auto err = static_cast<hwc2_error_t>(pfn(mHwc2Device, display, width,
-                height, format, dataspace));
+                height, format, static_cast<int>(dataspace)));
         if (outErr) {
             *outErr = err;
         } else {
@@ -802,7 +808,7 @@ public:
     }
 
     void setClientTarget(hwc2_display_t display, buffer_handle_t handle,
-            int32_t acquireFence, android_dataspace_t dataspace,
+            int32_t acquireFence, Dataspace dataspace,
             hwc_region_t damage, hwc2_error_t* outErr = nullptr)
     {
         auto pfn = reinterpret_cast<HWC2_PFN_SET_CLIENT_TARGET>(
@@ -810,7 +816,7 @@ public:
         ASSERT_TRUE(pfn) << "failed to get function";
 
         auto err = static_cast<hwc2_error_t>(pfn(mHwc2Device, display, handle,
-                acquireFence, dataspace, damage));
+                acquireFence, static_cast<int>(dataspace), damage));
         if (outErr) {
             *outErr = err;
         } else {
@@ -863,7 +869,7 @@ public:
     }
 
     void getColorModes(hwc2_display_t display,
-            std::vector<android_color_mode_t>* outColorModes,
+            std::vector<ColorMode>* outColorModes,
             hwc2_error_t* outErr = nullptr)
     {
         auto pfn = reinterpret_cast<HWC2_PFN_GET_COLOR_MODES>(
@@ -890,7 +896,7 @@ public:
         }
     }
 
-    void setColorMode(hwc2_display_t display, android_color_mode_t colorMode,
+    void setColorMode(hwc2_display_t display, ColorMode colorMode,
             hwc2_error_t* outErr = nullptr)
     {
         auto pfn = reinterpret_cast<HWC2_PFN_SET_COLOR_MODE>(
@@ -903,7 +909,7 @@ public:
             *outErr = err;
         } else {
             ASSERT_EQ(err, HWC2_ERROR_NONE) << "failed to set color mode "
-                    << colorMode;
+                    << static_cast<int>(colorMode);
         }
     }
 
@@ -1603,9 +1609,10 @@ protected:
         EXPECT_EQ(layers.size(), fences.size());
 
         for (int32_t fence : fences) {
-            EXPECT_GE(sync_wait(fence, msWait), 0);
-            if (fence >= 0)
+            if (fence >= 0) {
+                EXPECT_GE(sync_wait(fence, msWait), 0);
                 close(fence);
+            }
         }
     }
 
@@ -1643,8 +1650,9 @@ protected:
                 testLayers->getBlendMode(layer)));
         EXPECT_NO_FATAL_FAILURE(setLayerColor(display, layer,
                 testLayers->getColor(layer)));
-        EXPECT_NO_FATAL_FAILURE(setCursorPosition(display, layer, cursor.left,
-                cursor.top));
+        if (composition == HWC2_COMPOSITION_CURSOR)
+            EXPECT_NO_FATAL_FAILURE(setCursorPosition(display, layer,
+            cursor.left, cursor.top));
         EXPECT_NO_FATAL_FAILURE(setLayerDataspace(display, layer,
                 testLayers->getDataspace(layer)));
         EXPECT_NO_FATAL_FAILURE(setLayerDisplayFrame(display, layer,
@@ -1684,7 +1692,7 @@ protected:
             const std::set<hwc2_layer_t>& clearLayers, bool flipClientTarget,
             const Area& displayArea)
     {
-        android_dataspace_t dataspace = HAL_DATASPACE_UNKNOWN;
+        Dataspace dataspace = Dataspace::UNKNOWN;
         hwc_region_t damage = { };
         buffer_handle_t handle;
         int32_t acquireFence;
@@ -1769,6 +1777,145 @@ protected:
             ASSERT_NO_FATAL_FAILURE(disableVsync(display));
             ASSERT_NO_FATAL_FAILURE(setPowerMode(display, HWC2_POWER_MODE_OFF));
         }
+    }
+
+    void createAndPresentVirtualDisplay(size_t layerCnt,
+            Hwc2TestCoverage coverage,
+            const std::unordered_map<Hwc2TestPropertyName, Hwc2TestCoverage>&
+            coverageExceptions)
+    {
+        Hwc2TestVirtualDisplay testVirtualDisplay(coverage);
+        hwc2_display_t display;
+        android_pixel_format_t desiredFormat = HAL_PIXEL_FORMAT_RGBA_8888;
+
+        do {
+            // Items dependent on the display dimensions
+            hwc2_error_t err = HWC2_ERROR_NONE;
+            const UnsignedArea& dimension =
+                    testVirtualDisplay.getDisplayDimension();
+            ASSERT_NO_FATAL_FAILURE(createVirtualDisplay(dimension.width,
+                    dimension.height, &desiredFormat, &display, &err));
+            ASSERT_TRUE(err == HWC2_ERROR_NONE)
+                    << "Cannot allocate virtual display";
+
+            ASSERT_NO_FATAL_FAILURE(setPowerMode(display, HWC2_POWER_MODE_ON));
+            ASSERT_NO_FATAL_FAILURE(enableVsync(display));
+
+            std::vector<hwc2_config_t> configs;
+            ASSERT_NO_FATAL_FAILURE(getDisplayConfigs(display, &configs));
+
+            for (auto config : configs) {
+                ASSERT_NO_FATAL_FAILURE(setActiveConfig(display, config));
+
+                Area displayArea;
+                ASSERT_NO_FATAL_FAILURE(getActiveDisplayArea(display,
+                        &displayArea));
+
+                std::vector<hwc2_layer_t> layers;
+                ASSERT_NO_FATAL_FAILURE(createLayers(display, &layers,
+                        layerCnt));
+                Hwc2TestLayers testLayers(layers, coverage, displayArea,
+                        coverageExceptions);
+
+                /*
+                 * Layouts that do not cover an entire virtual display will
+                 * cause undefined behavior.
+                 * Enable optimizeLayouts to avoid this.
+                 */
+                testLayers.optimizeLayouts();
+                do {
+                    // Items dependent on the testLayers properties
+                    std::set<hwc2_layer_t> clientLayers;
+                    std::set<hwc2_layer_t> clearLayers;
+                    uint32_t numTypes, numRequests;
+                    bool hasChanges, skip;
+                    bool flipClientTarget;
+                    int32_t presentFence;
+                    Hwc2TestClientTarget testClientTarget;
+                    buffer_handle_t outputBufferHandle;
+                    android::base::unique_fd outputBufferReleaseFence;
+
+                    ASSERT_NO_FATAL_FAILURE(setLayerProperties(display, layers,
+                            &testLayers, &skip));
+
+                    if (skip)
+                        continue;
+
+                    ASSERT_NO_FATAL_FAILURE(validateDisplay(display, &numTypes,
+                            &numRequests, &hasChanges));
+
+                    if (hasChanges)
+                        EXPECT_LE(numTypes, static_cast<uint32_t>(layers.size()))
+                                << "wrong number of requests";
+
+                    ASSERT_NO_FATAL_FAILURE(handleCompositionChanges(display,
+                            testLayers, layers, numTypes, &clientLayers));
+
+                    ASSERT_NO_FATAL_FAILURE(handleRequests(display, layers,
+                            numRequests, &clearLayers, &flipClientTarget));
+                    ASSERT_NO_FATAL_FAILURE(setClientTarget(display,
+                            &testClientTarget, testLayers, clientLayers,
+                            clearLayers, flipClientTarget, displayArea));
+                    ASSERT_NO_FATAL_FAILURE(acceptDisplayChanges(display));
+
+                    ASSERT_EQ(testVirtualDisplay.getOutputBuffer(
+                            &outputBufferHandle, &outputBufferReleaseFence), 0);
+                    ASSERT_NO_FATAL_FAILURE(setOutputBuffer(display,
+                            outputBufferHandle, outputBufferReleaseFence));
+
+                    EXPECT_NO_FATAL_FAILURE(presentDisplay(display,
+                            &presentFence));
+                    ASSERT_NO_FATAL_FAILURE(closeFences(display, presentFence));
+
+                    ASSERT_EQ(testVirtualDisplay.verifyOutputBuffer(&testLayers,
+                            &layers, &clearLayers), 0);
+
+                    /*
+                     * Upscaling the image causes minor pixel differences.
+                     * Work around this by using some threshold.
+                     *
+                     * Fail test if we are off by more than 1% of our
+                     * pixels.
+                     */
+                    ComparatorResult& comparatorResult = ComparatorResult::get();
+                    int threshold = (dimension.width * dimension.height) / 100;
+                    double diffPercent = (comparatorResult.getDifferentPixelCount() * 100.0) /
+                            (dimension.width * dimension.height);
+
+                    if (comparatorResult.getDifferentPixelCount() != 0)
+                        EXPECT_TRUE(false)
+                                << comparatorResult.getDifferentPixelCount() << " pixels ("
+                                << diffPercent << "%) are different.";
+
+                    if (comparatorResult.getDifferentPixelCount() > threshold) {
+                        EXPECT_TRUE(false)
+                                << "Mismatched pixel count exceeds threshold. "
+                                << "Writing buffers to file.";
+
+                        const ::testing::TestInfo* const test_info =
+                                ::testing::UnitTest::GetInstance()
+                                ->current_test_info();
+
+                        EXPECT_EQ(testVirtualDisplay.writeBuffersToFile(
+                                test_info->name()), 0)
+                                << "Failed to write buffers.";
+                    }
+
+                    ASSERT_LE(comparatorResult.getDifferentPixelCount(), threshold)
+                            << comparatorResult.getDifferentPixelCount() << " pixels ("
+                            << diffPercent << "%) are different. "
+                            << "Exceeds 1% threshold, terminating test. "
+                            << "Test case: " << testLayers.dump();
+
+                } while (testLayers.advance());
+
+                ASSERT_NO_FATAL_FAILURE(destroyLayers(display,
+                        std::move(layers)));
+            }
+            ASSERT_NO_FATAL_FAILURE(disableVsync(display));
+            ASSERT_NO_FATAL_FAILURE(setPowerMode(display, HWC2_POWER_MODE_OFF));
+            ASSERT_NO_FATAL_FAILURE(destroyVirtualDisplay(display));
+        } while (testVirtualDisplay.advance());
     }
 
     hwc2_device_t* mHwc2Device = nullptr;
@@ -2895,7 +3042,6 @@ TEST_F(Hwc2Test, SET_CURSOR_POSITION_composition_type_unset)
     ASSERT_NO_FATAL_FAILURE(setLayerProperty(Hwc2TestCoverage::Complete,
             [] (Hwc2Test* test, hwc2_display_t display, hwc2_layer_t layer,
                     Hwc2TestLayer* testLayer, hwc2_error_t* outErr) {
-
                 const hwc_rect_t cursorPosition = testLayer->getCursorPosition();
                 EXPECT_NO_FATAL_FAILURE(test->setCursorPosition(display, layer,
                         cursorPosition.left, cursorPosition.top, outErr));
@@ -3571,7 +3717,7 @@ TEST_F(Hwc2Test, GET_CLIENT_TARGET_SUPPORT_unsupported)
  * layer. */
 TEST_F(Hwc2Test, SET_CLIENT_TARGET_basic)
 {
-    const android_dataspace_t dataspace = HAL_DATASPACE_UNKNOWN;
+    const Dataspace dataspace = Dataspace::UNKNOWN;
     const hwc_region_t damage = { };
     const size_t layerCnt = 1;
 
@@ -3650,7 +3796,7 @@ TEST_F(Hwc2Test, SET_CLIENT_TARGET_bad_display)
     std::set<hwc2_layer_t> clientLayers;
     std::set<hwc2_layer_t> flipClientTargetLayers;
     bool flipClientTarget = true;
-    const android_dataspace_t dataspace = HAL_DATASPACE_UNKNOWN;
+    const Dataspace dataspace = Dataspace::UNKNOWN;
     const hwc_region_t damage = { };
     buffer_handle_t handle;
     int32_t acquireFence;
@@ -4110,33 +4256,33 @@ TEST_F(Hwc2Test, GET_RELEASE_FENCES_bad_display)
     EXPECT_EQ(err, HWC2_ERROR_BAD_DISPLAY) << "returned wrong error code";
 }
 
-static const std::array<android_color_mode, 9> androidColorModes = {{
-    HAL_COLOR_MODE_NATIVE,
-    HAL_COLOR_MODE_STANDARD_BT601_625,
-    HAL_COLOR_MODE_STANDARD_BT601_625_UNADJUSTED,
-    HAL_COLOR_MODE_STANDARD_BT601_525,
-    HAL_COLOR_MODE_STANDARD_BT601_525_UNADJUSTED,
-    HAL_COLOR_MODE_STANDARD_BT709,
-    HAL_COLOR_MODE_DCI_P3,
-    HAL_COLOR_MODE_SRGB,
-    HAL_COLOR_MODE_ADOBE_RGB,
+static const std::array<ColorMode, 9> androidColorModes = {{
+    ColorMode::NATIVE,
+    ColorMode::STANDARD_BT601_625,
+    ColorMode::STANDARD_BT601_625_UNADJUSTED,
+    ColorMode::STANDARD_BT601_525,
+    ColorMode::STANDARD_BT601_525_UNADJUSTED,
+    ColorMode::STANDARD_BT709,
+    ColorMode::DCI_P3,
+    ColorMode::SRGB,
+    ColorMode::ADOBE_RGB,
 }};
 
 /* TESTCASE: Tests that the HWC2 can get the color modes for a display. The
- * display must support HAL_COLOR_MODE_NATIVE */
+ * display must support ColorMode::NATIVE */
 TEST_F(Hwc2Test, GET_COLOR_MODES)
 {
     ASSERT_NO_FATAL_FAILURE(setActiveDisplayConfig(
             [] (Hwc2Test* test, hwc2_display_t display) {
 
-                std::vector<android_color_mode_t> colorModes;
+                std::vector<ColorMode> colorModes;
 
                 ASSERT_NO_FATAL_FAILURE(test->getColorModes(display,
                         &colorModes));
 
                 EXPECT_NE(std::count(colorModes.begin(), colorModes.end(),
-                        HAL_COLOR_MODE_NATIVE), 0) << "all displays"
-                        " must support HAL_COLOR_MODE_NATIVE";
+                        ColorMode::NATIVE), 0) << "all displays"
+                        " must support ColorMode::NATIVE";
             }
     ));
 }
@@ -4145,7 +4291,7 @@ TEST_F(Hwc2Test, GET_COLOR_MODES)
 TEST_F(Hwc2Test, GET_COLOR_MODES_bad_display)
 {
     hwc2_display_t display;
-    std::vector<android_color_mode_t> colorModes;
+    std::vector<ColorMode> colorModes;
     hwc2_error_t err = HWC2_ERROR_NONE;
 
     ASSERT_NO_FATAL_FAILURE(getBadDisplay(&display));
@@ -4160,7 +4306,7 @@ TEST_F(Hwc2Test, SET_COLOR_MODES)
     ASSERT_NO_FATAL_FAILURE(setActiveDisplayConfig(
             [] (Hwc2Test* test, hwc2_display_t display) {
 
-                const android_color_mode_t colorMode = HAL_COLOR_MODE_NATIVE;
+                const ColorMode colorMode = ColorMode::NATIVE;
 
                 EXPECT_NO_FATAL_FAILURE(test->setColorMode(display, colorMode));
             }
@@ -4171,7 +4317,7 @@ TEST_F(Hwc2Test, SET_COLOR_MODES)
 TEST_F(Hwc2Test, SET_COLOR_MODES_bad_display)
 {
     hwc2_display_t display;
-    const android_color_mode_t colorMode = HAL_COLOR_MODE_NATIVE;
+    const ColorMode colorMode = ColorMode::NATIVE;
     hwc2_error_t err = HWC2_ERROR_NONE;
 
     ASSERT_NO_FATAL_FAILURE(getBadDisplay(&display));
@@ -4186,8 +4332,7 @@ TEST_F(Hwc2Test, SET_COLOR_MODES_bad_parameter)
     ASSERT_NO_FATAL_FAILURE(setActiveDisplayConfig(
             [] (Hwc2Test* test, hwc2_display_t display) {
 
-                const android_color_mode_t colorMode =
-                        static_cast<android_color_mode_t>(-1);
+                const ColorMode colorMode = static_cast<ColorMode>(-1);
                 hwc2_error_t err = HWC2_ERROR_NONE;
 
                 ASSERT_NO_FATAL_FAILURE(test->setColorMode(display, colorMode,
@@ -4406,11 +4551,11 @@ TEST_F(Hwc2Test, DESTROY_VIRTUAL_DISPLAY_bad_display)
 /* TESTCASE: Tests that the HWC2 cannot destroy a physical display. */
 TEST_F(Hwc2Test, DESTROY_VIRTUAL_DISPLAY_bad_parameter)
 {
-    hwc2_display_t display = HWC_DISPLAY_PRIMARY;
     hwc2_error_t err = HWC2_ERROR_NONE;
-
-    ASSERT_NO_FATAL_FAILURE(destroyVirtualDisplay(display, &err));
-    EXPECT_EQ(err, HWC2_ERROR_BAD_PARAMETER) << "returned wrong error code";
+    for (auto display : mDisplays) {
+        ASSERT_NO_FATAL_FAILURE(destroyVirtualDisplay(display, &err));
+        EXPECT_EQ(err, HWC2_ERROR_BAD_PARAMETER) << "returned wrong error code";
+    }
 }
 
 /* TESTCASE: Tests that the HWC2 can get the max virtual display count. */
@@ -4476,7 +4621,7 @@ TEST_F(Hwc2Test, SET_OUTPUT_BUFFER)
                 buffer_handle_t handle;
                 android::base::unique_fd acquireFence;
 
-                if (testVirtualDisplay->getBuffer(&handle, &acquireFence) >= 0)
+                if (testVirtualDisplay->getOutputBuffer(&handle, &acquireFence) >= 0)
                     EXPECT_NO_FATAL_FAILURE(test->setOutputBuffer(display,
                             handle, acquireFence));
             }));
@@ -4496,7 +4641,7 @@ TEST_F(Hwc2Test, SET_OUTPUT_BUFFER_bad_display)
 
                 ASSERT_NO_FATAL_FAILURE(test->getBadDisplay(&badDisplay));
 
-                if (testVirtualDisplay->getBuffer(&handle, &acquireFence) < 0)
+                if (testVirtualDisplay->getOutputBuffer(&handle, &acquireFence) < 0)
                     return;
 
                 ASSERT_NO_FATAL_FAILURE(test->setOutputBuffer(badDisplay,
@@ -4536,7 +4681,7 @@ TEST_F(Hwc2Test, SET_OUTPUT_BUFFER_unsupported)
             android::base::unique_fd acquireFence;
             hwc2_error_t err = HWC2_ERROR_NONE;
 
-            if (testVirtualDisplay.getBuffer(&handle, &acquireFence) < 0)
+            if (testVirtualDisplay.getOutputBuffer(&handle, &acquireFence) < 0)
                 continue;
 
             ASSERT_NO_FATAL_FAILURE(setOutputBuffer(display, handle,
@@ -4553,4 +4698,75 @@ TEST_F(Hwc2Test, DUMP)
     std::string buffer;
 
     ASSERT_NO_FATAL_FAILURE(dump(&buffer));
+}
+
+/*
+ * TODO(b/64724708): Hwc2TestPropertyName::BufferArea MUST be default for all
+ * virtual display tests as we don't handle this case correctly.
+ *
+ * Only default dataspace is supported in our drawing code.
+ */
+const std::unordered_map<Hwc2TestPropertyName, Hwc2TestCoverage>
+        virtualDisplayExceptions =
+        {{Hwc2TestPropertyName::BufferArea, Hwc2TestCoverage::Default},
+        {Hwc2TestPropertyName::Dataspace, Hwc2TestCoverage::Default}};
+
+/* TESTCASE: Tests that the HWC2 can present 1 layer with default coverage on a
+ * virtual display. */
+TEST_F(Hwc2Test, PRESENT_VIRTUAL_DISPLAY_default_1)
+{
+    Hwc2TestCoverage coverage = Hwc2TestCoverage::Default;
+    const size_t layerCnt = 1;
+    ASSERT_NO_FATAL_FAILURE(createAndPresentVirtualDisplay(layerCnt, coverage,
+            virtualDisplayExceptions));
+}
+
+/* TESTCASE: Tests that the HWC2 can present 1 layer with basic coverage on a
+ * virtual display. */
+TEST_F(Hwc2Test, PRESENT_VIRTUAL_DISPLAY_basic_1)
+{
+    Hwc2TestCoverage coverage = Hwc2TestCoverage::Basic;
+    const size_t layerCnt = 1;
+    ASSERT_NO_FATAL_FAILURE(createAndPresentVirtualDisplay(layerCnt, coverage,
+            virtualDisplayExceptions));
+}
+
+/* TESTCASE: Tests that the HWC2 can present 2 layers with default coverage on a
+ * virtual display. */
+TEST_F(Hwc2Test, PRESENT_VIRTUAL_DISPLAY_default_2)
+{
+    Hwc2TestCoverage coverage = Hwc2TestCoverage::Default;
+    const size_t layerCnt = 2;
+    ASSERT_NO_FATAL_FAILURE(createAndPresentVirtualDisplay(layerCnt, coverage,
+            virtualDisplayExceptions));
+}
+
+/* TESTCASE: Tests that the HWC2 can present 3 layers with default coverage on a
+ * virtual display. */
+TEST_F(Hwc2Test, PRESENT_VIRTUAL_DISPLAY_default_3)
+{
+    Hwc2TestCoverage coverage = Hwc2TestCoverage::Default;
+    const size_t layerCnt = 3;
+    ASSERT_NO_FATAL_FAILURE(createAndPresentVirtualDisplay(layerCnt, coverage,
+            virtualDisplayExceptions));
+}
+
+/* TESTCASE: Tests that the HWC2 can present 4 layers with default coverage on a
+ * virtual display. */
+TEST_F(Hwc2Test, PRESENT_VIRTUAL_DISPLAY_default_4)
+{
+    Hwc2TestCoverage coverage = Hwc2TestCoverage::Default;
+    const size_t layerCnt = 4;
+    ASSERT_NO_FATAL_FAILURE(createAndPresentVirtualDisplay(layerCnt, coverage,
+            virtualDisplayExceptions));
+}
+
+/* TESTCASE: Tests that the HWC2 can present 5 layers with default coverage on a
+ * virtual display. */
+TEST_F(Hwc2Test, PRESENT_VIRTUAL_DISPLAY_default_5)
+{
+    Hwc2TestCoverage coverage = Hwc2TestCoverage::Default;
+    const size_t layerCnt = 5;
+    ASSERT_NO_FATAL_FAILURE(createAndPresentVirtualDisplay(layerCnt, coverage,
+            virtualDisplayExceptions));
 }

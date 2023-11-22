@@ -2,7 +2,8 @@
 # Beagle board package.
 #
 # Copyright (c) 2009 - 2010, Apple Inc. All rights reserved.<BR>
-# Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2015 - 2016, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2016, Linaro Ltd. All rights reserved.<BR>
 #
 #    This program and the accompanying materials
 #    are licensed and made available under the terms and conditions of the BSD License
@@ -32,7 +33,8 @@
 
 
 [LibraryClasses.common]
-  ArmLib|ArmPkg/Library/ArmLib/ArmV7/ArmV7Lib.inf
+  ArmLib|ArmPkg/Library/ArmLib/ArmBaseLib.inf
+  ArmMmuLib|ArmPkg/Library/ArmMmuLib/ArmMmuBaseLib.inf
   ArmPlatformLib|BeagleBoardPkg/Library/BeagleBoardLib/BeagleBoardLib.inf
   ArmCpuLib|ArmPkg/Drivers/ArmCpuLib/ArmCortexA8Lib/ArmCortexA8Lib.inf
   ArmPlatformStackLib|ArmPlatformPkg/Library/ArmPlatformStackLib/ArmPlatformStackLib.inf
@@ -54,7 +56,7 @@
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
 
   BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
-  BaseMemoryLib|ArmPkg/Library/BaseMemoryLibStm/BaseMemoryLibStm.inf
+  BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
 
   EfiResetSystemLib|BeagleBoardPkg/Library/ResetSystemLib/ResetSystemLib.inf
 
@@ -84,7 +86,7 @@
 
   CacheMaintenanceLib|ArmPkg/Library/ArmCacheMaintenanceLib/ArmCacheMaintenanceLib.inf
   DefaultExceptionHandlerLib|ArmPkg/Library/DefaultExceptionHandlerLib/DefaultExceptionHandlerLib.inf
-  CpuExceptionHandlerLib|MdeModulePkg/Library/CpuExceptionHandlerLibNull/CpuExceptionHandlerLibNull.inf
+  CpuExceptionHandlerLib|ArmPkg/Library/ArmExceptionLib/ArmExceptionLib.inf
   PrePiLib|EmbeddedPkg/Library/PrePiLib/PrePiLib.inf
 
   SerialPortLib|Omap35xxPkg/Library/SerialPortLib/SerialPortLib.inf
@@ -127,14 +129,20 @@
   DmaLib|ArmPkg/Library/ArmDmaLib/ArmDmaLib.inf
 
   NetLib|MdeModulePkg/Library/DxeNetLib/DxeNetLib.inf
-  BdsLib|ArmPkg/Library/BdsLib/BdsLib.inf
   FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
 
-[LibraryClasses.common.SEC]
-  ArmLib|ArmPkg/Library/ArmLib/ArmV7/ArmV7LibPrePi.inf
+  UefiBootManagerLib|MdeModulePkg/Library/UefiBootManagerLib/UefiBootManagerLib.inf
+  PlatformBootManagerLib|ArmPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
+  CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf
 
+  # UiApp dependencies
+  ReportStatusCodeLib|MdeModulePkg/Library/DxeReportStatusCodeLib/DxeReportStatusCodeLib.inf
+  FileExplorerLib|MdeModulePkg/Library/FileExplorerLib/FileExplorerLib.inf
+  DxeServicesLib|MdePkg/Library/DxeServicesLib/DxeServicesLib.inf
+
+[LibraryClasses.common.SEC]
   PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
-  ReportStatusCodeLib|IntelFrameworkModulePkg/Library/PeiDxeDebugLibReportStatusCode/PeiDxeDebugLibReportStatusCode.inf
+  ReportStatusCodeLib|MdeModulePkg/Library/PeiDxeDebugLibReportStatusCode/PeiDxeDebugLibReportStatusCode.inf
   UefiDecompressLib|MdePkg/Library/BaseUefiDecompressLib/BaseUefiDecompressLib.inf
   ExtractGuidedSectionLib|EmbeddedPkg/Library/PrePiExtractGuidedSectionLib/PrePiExtractGuidedSectionLib.inf
   LzmaDecompressLib|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
@@ -156,7 +164,7 @@
 
 [LibraryClasses.common.PEI_CORE]
   PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
-  ReportStatusCodeLib|IntelFrameworkModulePkg/Library/PeiDxeDebugLibReportStatusCode/PeiDxeDebugLibReportStatusCode.inf
+  ReportStatusCodeLib|MdeModulePkg/Library/PeiDxeDebugLibReportStatusCode/PeiDxeDebugLibReportStatusCode.inf
 
 [LibraryClasses.common.DXE_CORE]
   HobLib|MdePkg/Library/DxeCoreHobLib/DxeCoreHobLib.inf
@@ -177,6 +185,7 @@
   DxeServicesLib|MdePkg/Library/DxeServicesLib/DxeServicesLib.inf
   SecurityManagementLib|MdeModulePkg/Library/DxeSecurityManagementLib/DxeSecurityManagementLib.inf
   PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
+  NonDiscoverableDeviceRegistrationLib|MdeModulePkg/Library/NonDiscoverableDeviceRegistrationLib/NonDiscoverableDeviceRegistrationLib.inf
 
 [LibraryClasses.common.UEFI_APPLICATION]
   ReportStatusCodeLib|IntelFrameworkModulePkg/Library/DxeReportStatusCodeLibFramework/DxeReportStatusCodeLib.inf
@@ -213,10 +222,10 @@
 
 [BuildOptions]
   XCODE:*_*_ARM_PLATFORM_FLAGS == -arch armv7
-
   GCC:*_*_ARM_PLATFORM_FLAGS == -march=armv7-a
-
   RVCT:*_*_ARM_PLATFORM_FLAGS == --cpu Cortex-A8
+
+  *_*_*_CC_FLAGS = -DDISABLE_NEW_DEPRECATED_INTERFACES
 
 ################################################################################
 #
@@ -285,17 +294,21 @@
 #  DEBUG_WARN      0x00000002  // Warnings
 #  DEBUG_LOAD      0x00000004  // Load events
 #  DEBUG_FS        0x00000008  // EFI File system
-#  DEBUG_POOL      0x00000010  // Alloc & Free's
-#  DEBUG_PAGE      0x00000020  // Alloc & Free's
-#  DEBUG_INFO      0x00000040  // Verbose
-#  DEBUG_DISPATCH  0x00000080  // PEI/DXE Dispatchers
+#  DEBUG_POOL      0x00000010  // Alloc & Free (pool)
+#  DEBUG_PAGE      0x00000020  // Alloc & Free (page)
+#  DEBUG_INFO      0x00000040  // Informational debug messages
+#  DEBUG_DISPATCH  0x00000080  // PEI/DXE/SMM Dispatchers
 #  DEBUG_VARIABLE  0x00000100  // Variable
 #  DEBUG_BM        0x00000400  // Boot Manager
 #  DEBUG_BLKIO     0x00001000  // BlkIo Driver
-#  DEBUG_NET       0x00004000  // SNI Driver
+#  DEBUG_NET       0x00004000  // SNP Driver
 #  DEBUG_UNDI      0x00010000  // UNDI Driver
-#  DEBUG_LOADFILE  0x00020000  // UNDI Driver
+#  DEBUG_LOADFILE  0x00020000  // LoadFile
 #  DEBUG_EVENT     0x00080000  // Event messages
+#  DEBUG_GCD       0x00100000  // Global Coherency Database changes
+#  DEBUG_CACHE     0x00200000  // Memory range cachability changes
+#  DEBUG_VERBOSE   0x00400000  // Detailed debug messages that may
+#                              // significantly impact boot performance
 #  DEBUG_ERROR     0x80000000  // Error
   gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x8000000F
 
@@ -325,6 +338,7 @@
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiLoaderCode|10
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiLoaderData|0
 
+  gEfiMdePkgTokenSpaceGuid.PcdDefaultTerminalType|4
 
 #
 # Beagle board Specific PCDs
@@ -347,6 +361,9 @@
   gEmbeddedTokenSpaceGuid.PcdEmbeddedPerformanceCounterPeriodInNanoseconds|77
   gEmbeddedTokenSpaceGuid.PcdEmbeddedPerformanceCounterFrequencyInHz|13000000
 
+  # OMAP Interrupt Controller
+  gEmbeddedTokenSpaceGuid.PcdInterruptBaseAddress|0x48200000
+
   # We want to use the Shell Libraries but don't want it to initialise
   # automatically. We initialise the libraries when the command is called by the
   # Shell.
@@ -357,13 +374,15 @@
   #
   gArmTokenSpaceGuid.PcdArmUncachedMemoryMask|0x0000000040000000
 
-  gArmPlatformTokenSpaceGuid.PcdDefaultBootDescription|L"Linux from SD"
-  gArmPlatformTokenSpaceGuid.PcdDefaultBootDevicePath|L"VenHw(B615F1F5-5088-43CD-809C-A16E52487D00)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/Image"
-  gArmPlatformTokenSpaceGuid.PcdDefaultBootArgument|"console=tty0 console=ttyS2,115200n8 root=UUID=a4af765b-c2b5-48f4-9564-7a4e9104c4f6 rootwait ro earlyprintk"
   gEfiMdePkgTokenSpaceGuid.PcdPlatformBootTimeOut|10
 
-  gArmPlatformTokenSpaceGuid.PcdDefaultConOutPaths|L"VenHw(D3987D4B-971A-435F-8CAF-4967EB627241)/Uart(115200,8,N,1)/VenPcAnsi();VenHw(E68088EF-D1A4-4336-C1DB-4D3A204730A6)"
-  gArmPlatformTokenSpaceGuid.PcdDefaultConInPaths|L"VenHw(D3987D4B-971A-435F-8CAF-4967EB627241)/Uart(115200,8,N,1)/VenPcAnsi()"
+  # GUID of the UEFI Shell
+  gEfiIntelFrameworkModulePkgTokenSpaceGuid.PcdShellFile|{ 0x83, 0xA5, 0x04, 0x7C, 0x3E, 0x9E, 0x1C, 0x4F, 0xAD, 0x65, 0xE0, 0x52, 0x68, 0xD0, 0xB4, 0xD1 }
+
+  # GUID of the UI app
+  gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{ 0x21, 0xaa, 0x2c, 0x46, 0x14, 0x76, 0x03, 0x45, 0x83, 0x6e, 0x8a, 0xb6, 0xf4, 0x66, 0x23, 0x31 }
+
+  gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange|FALSE
 
 ################################################################################
 #
@@ -423,11 +442,13 @@
   MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
   MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
   MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
+  FatPkg/EnhancedFatDxe/Fat.inf
 
   #
   # USB
   #
   Omap35xxPkg/PciEmulation/PciEmulation.inf
+  MdeModulePkg/Bus/Pci/NonDiscoverablePciDeviceDxe/NonDiscoverablePciDeviceDxe.inf
 
   MdeModulePkg/Bus/Pci/EhciDxe/EhciDxe.inf {
     <PcdsFixedAtBuild>
@@ -471,13 +492,32 @@
   #
   MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
   MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
-  ArmPlatformPkg/Bds/Bds.inf
+  MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe.inf
+  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
+  MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
+  MdeModulePkg/Application/UiApp/UiApp.inf {
+    <LibraryClasses>
+      NULL|MdeModulePkg/Library/DeviceManagerUiLib/DeviceManagerUiLib.inf
+      NULL|MdeModulePkg/Library/BootManagerUiLib/BootManagerUiLib.inf
+      NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf
+  }
+  ShellPkg/Application/Shell/Shell.inf {
+    <LibraryClasses>
+      ShellCommandLib|ShellPkg/Library/UefiShellCommandLib/UefiShellCommandLib.inf
+      NULL|ShellPkg/Library/UefiShellLevel2CommandsLib/UefiShellLevel2CommandsLib.inf
+      NULL|ShellPkg/Library/UefiShellLevel1CommandsLib/UefiShellLevel1CommandsLib.inf
+      NULL|ShellPkg/Library/UefiShellLevel3CommandsLib/UefiShellLevel3CommandsLib.inf
+      NULL|ShellPkg/Library/UefiShellDriver1CommandsLib/UefiShellDriver1CommandsLib.inf
+      NULL|ShellPkg/Library/UefiShellDebug1CommandsLib/UefiShellDebug1CommandsLib.inf
+      NULL|ShellPkg/Library/UefiShellInstall1CommandsLib/UefiShellInstall1CommandsLib.inf
+      NULL|ShellPkg/Library/UefiShellNetwork1CommandsLib/UefiShellNetwork1CommandsLib.inf
+      NULL|ShellPkg/Library/UefiShellTftpCommandLib/UefiShellTftpCommandLib.inf
+      HandleParsingLib|ShellPkg/Library/UefiHandleParsingLib/UefiHandleParsingLib.inf
+      PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
+      BcfgCommandLib|ShellPkg/Library/UefiShellBcfgCommandLib/UefiShellBcfgCommandLib.inf
 
-  # Legacy Linux Loader
-  ArmPkg/Application/LinuxLoader/LinuxLoader.inf
-
-  #
-  # Example Application
-  #
-  MdeModulePkg/Application/HelloWorld/HelloWorld.inf
-
+    <PcdsFixedAtBuild>
+      gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0xFF
+      gEfiShellPkgTokenSpaceGuid.PcdShellLibAutoInitialize|FALSE
+      gEfiMdePkgTokenSpaceGuid.PcdUefiLibMaxPrintBufferSize|8000
+  }

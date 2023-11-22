@@ -14,6 +14,7 @@
  * the License.
  */
 
+#include <inttypes.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <errno.h>
@@ -127,7 +128,8 @@ bool TaskSave::handleReport()
             if (it->second.getType() == TaskCase::Value::ETypeDouble) {
                 details.appendFormat("   %s: %f\n", it->first.string(), it->second.getDouble());
             } else { //64bit int
-                details.appendFormat("   %s: %lld\n", it->first.string(), it->second.getInt64());
+                details.appendFormat("   %s: %" PRId64 "\n", it->first.string(),
+                                     it->second.getInt64());
             }
         }
         MSG("%s", details.string());

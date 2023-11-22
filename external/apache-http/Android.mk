@@ -67,8 +67,17 @@ LOCAL_MODULE := org.apache.http.legacy.boot
 LOCAL_MODULE_TAGS := optional
 LOCAL_JAVA_LIBRARIES := $(apache_http_java_libs)
 LOCAL_SRC_FILES := $(apache_http_src_files)
-LOCAL_SDK_VERSION := 21
 LOCAL_MODULE_TAGS := optional
+LOCAL_DEX_PREOPT_APP_IMAGE := false
+ifeq ($(REMOVE_OAHL_FROM_BCP),true)
+# Previously, this JAR was included on the bootclasspath so was compiled using
+# the speed-profile. ensures that it continues to be compiled using the
+# speed-profile in order to avoid regressing the performance, particularly of
+# app launch times. Without this it would be compiled using quicken (which is
+# interpreter + JIT) and so would be slower.
+LOCAL_DEX_PREOPT_GENERATE_PROFILE := true
+LOCAL_DEX_PREOPT_PROFILE_CLASS_LISTING := $(LOCAL_PATH)/art-profile/$(LOCAL_MODULE).prof.txt
+endif
 include $(BUILD_JAVA_LIBRARY)
 
 ##############################################
@@ -109,6 +118,7 @@ APACHE_HTTP_LEGACY_REMOVED_API_FILE := $(LOCAL_PATH)/api/apache-http-legacy-remo
 
 LOCAL_DROIDDOC_OPTIONS:= \
     -stubpackages $(subst $(space),:,$(apache_http_packages)) \
+    -hidePackage com.android.okhttp \
     -stubs $(TARGET_OUT_COMMON_INTERMEDIATES)/JAVA_LIBRARIES/org.apache.http.legacy_intermediates/src \
     -nodocs \
     -api $(APACHE_HTTP_LEGACY_OUTPUT_API_FILE) \

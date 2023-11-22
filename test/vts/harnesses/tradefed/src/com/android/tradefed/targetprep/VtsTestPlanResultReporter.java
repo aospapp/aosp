@@ -31,8 +31,11 @@ import java.util.NoSuchElementException;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.targetprep.multi.IMultiTargetPreparer;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
@@ -49,10 +52,12 @@ import com.android.vts.proto.VtsReportMessage.TestPlanReportMessage;
  * an OAuth2 credential kept in a json file.
  */
 @OptionClass(alias = "vts-plan-result")
-public class VtsTestPlanResultReporter implements ITargetPreparer, ITargetCleaner {
+public class VtsTestPlanResultReporter
+        implements ITargetPreparer, ITargetCleaner, IMultiTargetPreparer {
     private static final String PLUS_ME = "https://www.googleapis.com/auth/plus.me";
     private static final String TEST_PLAN_EXECUTION_RESULT = "vts-test-plan-execution-result";
     private static final String TEST_PLAN_REPORT_FILE = "TEST_PLAN_REPORT_FILE";
+    private static final String TEST_PLAN_REPORT_FILE_NAME = "status.json";
     private static VtsVendorConfigFileUtil configReader = null;
     private static VtsDashboardUtil dashboardUtil = null;
     private static final int BASE_TIMEOUT_MSECS = 1000 * 60;
@@ -77,7 +82,7 @@ public class VtsTestPlanResultReporter implements ITargetPreparer, ITargetCleane
         try {
             mStatusDir = FileUtil.createTempDir(TEST_PLAN_EXECUTION_RESULT);
             if (mStatusDir != null) {
-                File statusFile = new File(mStatusDir, "status.json");
+                File statusFile = new File(mStatusDir, TEST_PLAN_REPORT_FILE_NAME);
                 buildInfo.setFile(TEST_PLAN_REPORT_FILE, statusFile, buildInfo.getBuildId());
             }
         } catch (IOException ex) {
@@ -93,6 +98,15 @@ public class VtsTestPlanResultReporter implements ITargetPreparer, ITargetCleane
         configReader = new VtsVendorConfigFileUtil();
         configReader.LoadVendorConfig(buildInfo);
         dashboardUtil = new VtsDashboardUtil(configReader);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setUp(IInvocationContext context)
+            throws TargetSetupError, DeviceNotAvailableException {
+        setUp(context.getDevices().get(0), context.getBuildInfos().get(0));
     }
 
     /**
@@ -131,4 +145,12 @@ public class VtsTestPlanResultReporter implements ITargetPreparer, ITargetCleane
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void tearDown(IInvocationContext context, Throwable e)
+            throws DeviceNotAvailableException {
+        tearDown(context.getDevices().get(0), context.getBuildInfos().get(0), e);
+    }
 }

@@ -113,6 +113,18 @@ public class NativeUtilTest {
     }
 
     /**
+     * Test that conversion of non utf-8 SSID string to bytes fail.
+     */
+    @Test
+    public void testNonUtf8SsidDecodeFails() throws Exception {
+        try {
+            NativeUtil.decodeSsid("\"\ud800\"");
+            fail("Expected ssid decode to fail");
+        } catch (IllegalArgumentException e) {
+        }
+    }
+
+    /**
      * Test that conversion of ssid bytes to hex string ssid works.
      */
     @Test

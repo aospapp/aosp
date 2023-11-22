@@ -37,9 +37,9 @@
 
 #define LOG_TAG "netd_test"
 // TODO: make this dynamic and stop depending on implementation details.
-#define TEST_OEM_NETWORK "oem29"
 #define TEST_NETID 30
 
+#include "resolv_netid.h"
 #include "NetdClient.h"
 
 #include <gtest/gtest.h>
@@ -55,11 +55,13 @@
 #include "android/net/INetd.h"
 #include "android/net/metrics/INetdEventListener.h"
 #include "binder/IServiceManager.h"
+#include "netdutils/SocketOption.h"
 
 using android::base::StringPrintf;
 using android::base::StringAppendF;
 using android::net::ResolverStats;
 using android::net::metrics::INetdEventListener;
+using android::netdutils::enableSockopt;
 
 // Emulates the behavior of UnorderedElementsAreArray, which currently cannot be used.
 // TODO: Use UnorderedElementsAreArray, which depends on being able to compile libgmock_host,
@@ -281,7 +283,7 @@ TEST_F(ResolverTest, GetHostByName) {
     dns.addMapping(host_name, ns_type::ns_t_a, "1.2.3.3");
     ASSERT_TRUE(dns.startServer());
     std::vector<std::string> servers = { listen_addr };
-    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains, mDefaultParams_Binder));
 
     const hostent* result;
 
@@ -389,7 +391,7 @@ TEST_F(ResolverTest, GetAddrInfo) {
 
 
     std::vector<std::string> servers = { listen_addr };
-    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains, mDefaultParams_Binder));
     dns.clearQueries();
     dns2.clearQueries();
 
@@ -422,7 +424,7 @@ TEST_F(ResolverTest, GetAddrInfo) {
 
     // Change the DNS resolver, ensure that queries are still cached.
     servers = { listen_addr2 };
-    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains, mDefaultParams_Binder));
     dns.clearQueries();
     dns2.clearQueries();
 
@@ -456,12 +458,61 @@ TEST_F(ResolverTest, GetAddrInfoV4) {
     dns.addMapping(host_name, ns_type::ns_t_a, "1.2.3.5");
     ASSERT_TRUE(dns.startServer());
     std::vector<std::string> servers = { listen_addr };
-    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains, mDefaultParams_Binder));
 
     addrinfo hints;
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
     EXPECT_EQ(0, getaddrinfo("hola", nullptr, &hints, &result));
+    EXPECT_EQ(1U, GetNumQueries(dns, host_name));
+    EXPECT_EQ("1.2.3.5", ToString(result));
+    if (result) {
+        freeaddrinfo(result);
+        result = nullptr;
+    }
+}
+
+TEST_F(ResolverTest, GetHostByNameBrokenEdns) {
+    const char* listen_addr = "127.0.0.3";
+    const char* listen_srv = "53";
+    const char* host_name = "edns.example.com.";
+    test::DNSResponder dns(listen_addr, listen_srv, 250, ns_rcode::ns_r_servfail, 1.0);
+    dns.addMapping(host_name, ns_type::ns_t_a, "1.2.3.3");
+    dns.setFailOnEdns(true);  // This is the only change from the basic test.
+    ASSERT_TRUE(dns.startServer());
+    std::vector<std::string> servers = { listen_addr };
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains, mDefaultParams_Binder));
+
+    const hostent* result;
+
+    dns.clearQueries();
+    result = gethostbyname("edns");
+    EXPECT_EQ(1U, GetNumQueriesForType(dns, ns_type::ns_t_a, host_name));
+    ASSERT_FALSE(result == nullptr);
+    ASSERT_EQ(4, result->h_length);
+    ASSERT_FALSE(result->h_addr_list[0] == nullptr);
+    EXPECT_EQ("1.2.3.3", ToString(result));
+    EXPECT_TRUE(result->h_addr_list[1] == nullptr);
+}
+
+TEST_F(ResolverTest, GetAddrInfoBrokenEdns) {
+    addrinfo* result = nullptr;
+
+    const char* listen_addr = "127.0.0.5";
+    const char* listen_srv = "53";
+    const char* host_name = "edns2.example.com.";
+    test::DNSResponder dns(listen_addr, listen_srv, 250,
+                           ns_rcode::ns_r_servfail, 1.0);
+    dns.addMapping(host_name, ns_type::ns_t_a, "1.2.3.5");
+    dns.setFailOnEdns(true);  // This is the only change from the basic test.
+    ASSERT_TRUE(dns.startServer());
+    std::vector<std::string> servers = { listen_addr };
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains, mDefaultParams_Binder));
+
+    addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    EXPECT_EQ(0, getaddrinfo("edns2", nullptr, &hints, &result));
     EXPECT_EQ(1U, GetNumQueries(dns, host_name));
     EXPECT_EQ("1.2.3.5", ToString(result));
     if (result) {
@@ -480,7 +531,7 @@ TEST_F(ResolverTest, MultidomainResolution) {
     dns.addMapping(host_name, ns_type::ns_t_a, "1.2.3.3");
     ASSERT_TRUE(dns.startServer());
     std::vector<std::string> servers = { listen_addr };
-    ASSERT_TRUE(SetResolversForNetwork(searchDomains, servers, mDefaultParams));
+    ASSERT_TRUE(SetResolversForNetwork(servers, searchDomains, mDefaultParams_Binder));
 
     dns.clearQueries();
     const hostent* result = gethostbyname("nihao");
@@ -510,12 +561,9 @@ TEST_F(ResolverTest, GetAddrInfoV6_failing) {
     ASSERT_TRUE(dns1.startServer());
     std::vector<std::string> servers = { listen_addr0, listen_addr1 };
     // <sample validity in s> <success threshold in percent> <min samples> <max samples>
-    unsigned sample_validity = 300;
-    int success_threshold = 25;
     int sample_count = 8;
-    std::string params = StringPrintf("%u %d %d %d", sample_validity, success_threshold,
-            sample_count, sample_count);
-    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, params));
+    const std::vector<int> params = { 300, 25, sample_count, sample_count };
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains, params));
 
     // Repeatedly perform resolutions for non-existing domains until MAXNSSAMPLES resolutions have
     // reached the dns0, which is set to fail. No more requests should then arrive at that server
@@ -576,8 +624,8 @@ TEST_F(ResolverTest, GetAddrInfoV6_concurrent) {
                 }
             }
             if (serverSubset.empty()) serverSubset = servers;
-            ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, serverSubset,
-                    mDefaultParams));
+            ASSERT_TRUE(SetResolversForNetwork(serverSubset, mDefaultSearchDomains,
+                    mDefaultParams_Binder));
             addrinfo hints;
             memset(&hints, 0, sizeof(hints));
             hints.ai_family = AF_INET6;
@@ -644,7 +692,7 @@ TEST_F(ResolverTest, SearchPathChange) {
     ASSERT_TRUE(dns.startServer());
     std::vector<std::string> servers = { listen_addr };
     std::vector<std::string> domains = { "domain1.org" };
-    ASSERT_TRUE(SetResolversForNetwork(domains, servers, mDefaultParams));
+    ASSERT_TRUE(SetResolversForNetwork(servers, domains, mDefaultParams_Binder));
 
     addrinfo hints;
     memset(&hints, 0, sizeof(hints));
@@ -657,7 +705,7 @@ TEST_F(ResolverTest, SearchPathChange) {
 
     // Test that changing the domain search path on its own works.
     domains = { "domain2.org" };
-    ASSERT_TRUE(SetResolversForNetwork(domains, servers, mDefaultParams));
+    ASSERT_TRUE(SetResolversForNetwork(servers, domains, mDefaultParams_Binder));
     dns.clearQueries();
 
     EXPECT_EQ(0, getaddrinfo("test13", nullptr, &hints, &result));
@@ -710,8 +758,7 @@ TEST_F(ResolverTest, GetHostByName_TlsMissing) {
 
     // There's nothing listening on this address, so validation will either fail or
     /// hang.  Either way, queries will continue to flow to the DNSResponder.
-    auto rv = mNetdSrv->addPrivateDnsServer(listen_addr, 853, "", {});
-    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
+    ASSERT_TRUE(SetResolversWithTls(servers, mDefaultSearchDomains, mDefaultParams_Binder, "", {}));
 
     const hostent* result;
 
@@ -719,7 +766,8 @@ TEST_F(ResolverTest, GetHostByName_TlsMissing) {
     ASSERT_FALSE(result == nullptr);
     EXPECT_EQ("1.2.3.3", ToString(result));
 
-    rv = mNetdSrv->removePrivateDnsServer(listen_addr);
+    // Clear TLS bit.
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains,  mDefaultParams_Binder));
     dns.stopServer();
 }
 
@@ -743,13 +791,14 @@ TEST_F(ResolverTest, GetHostByName_TlsBroken) {
         .sin_port = htons(853),
     };
     ASSERT_TRUE(inet_pton(AF_INET, listen_addr, &tlsServer.sin_addr));
+    enableSockopt(s, SOL_SOCKET, SO_REUSEPORT);
+    enableSockopt(s, SOL_SOCKET, SO_REUSEADDR);
     ASSERT_FALSE(bind(s, reinterpret_cast<struct sockaddr*>(&tlsServer), sizeof(tlsServer)));
     ASSERT_FALSE(listen(s, 1));
 
-    auto rv = mNetdSrv->addPrivateDnsServer(listen_addr, 853, "", {});
-    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
+    // Trigger TLS validation.
+    ASSERT_TRUE(SetResolversWithTls(servers, mDefaultSearchDomains, mDefaultParams_Binder, "", {}));
 
-    // SetResolversForNetwork should have triggered a validation connection to this address.
     struct sockaddr_storage cliaddr;
     socklen_t sin_size = sizeof(cliaddr);
     int new_fd = accept(s, reinterpret_cast<struct sockaddr *>(&cliaddr), &sin_size);
@@ -774,7 +823,8 @@ TEST_F(ResolverTest, GetHostByName_TlsBroken) {
     ASSERT_FALSE(result == nullptr);
     EXPECT_EQ("1.2.3.2", ToString(result));
 
-    rv = mNetdSrv->removePrivateDnsServer(listen_addr);
+    // Clear TLS bit.
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains,  mDefaultParams_Binder));
     dns.stopServer();
     close(s);
 }
@@ -795,8 +845,7 @@ TEST_F(ResolverTest, GetHostByName_Tls) {
 
     test::DnsTlsFrontend tls(listen_addr, listen_tls, listen_addr, listen_udp);
     ASSERT_TRUE(tls.startServer());
-    auto rv = mNetdSrv->addPrivateDnsServer(listen_addr, 853, "", {});
-    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
+    ASSERT_TRUE(SetResolversWithTls(servers, mDefaultSearchDomains, mDefaultParams_Binder, "", {}));
 
     const hostent* result;
 
@@ -810,17 +859,22 @@ TEST_F(ResolverTest, GetHostByName_Tls) {
     // Wait for query to get counted.
     EXPECT_TRUE(tls.waitForQueries(2, 5000));
 
-    // Stop the TLS server.  Since it's already been validated, queries will
-    // continue to be routed to it.
+    // Stop the TLS server.  Since we're in opportunistic mode, queries will
+    // fall back to the locally-assigned (clear text) nameservers.
     tls.stopServer();
 
+    dns.clearQueries();
     result = gethostbyname("tls2");
-    EXPECT_TRUE(result == nullptr);
-    EXPECT_EQ(HOST_NOT_FOUND, h_errno);
+    EXPECT_FALSE(result == nullptr);
+    EXPECT_EQ("1.2.3.2", ToString(result));
+    const auto queries = dns.queries();
+    EXPECT_EQ(1U, queries.size());
+    EXPECT_EQ("tls2.example.com.", queries[0].first);
+    EXPECT_EQ(ns_t_a, queries[0].second);
 
-    // Remove the TLS server setting.  Queries should now be routed to the
-    // UDP endpoint.
-    rv = mNetdSrv->removePrivateDnsServer(listen_addr);
+    // Reset the resolvers without enabling TLS.  Queries should still be routed
+    // to the UDP endpoint.
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains, mDefaultParams_Binder));
 
     result = gethostbyname("tls3");
     ASSERT_FALSE(result == nullptr);
@@ -833,32 +887,37 @@ TEST_F(ResolverTest, GetHostByName_TlsFingerprint) {
     const char* listen_addr = "127.0.0.3";
     const char* listen_udp = "53";
     const char* listen_tls = "853";
-    const char* host_name = "tlsfingerprint.example.com.";
     test::DNSResponder dns(listen_addr, listen_udp, 250, ns_rcode::ns_r_servfail, 1.0);
-    dns.addMapping(host_name, ns_type::ns_t_a, "1.2.3.1");
     ASSERT_TRUE(dns.startServer());
-    std::vector<std::string> servers = { listen_addr };
+    for (int chain_length = 1; chain_length <= 3; ++chain_length) {
+        const char* host_name = StringPrintf("tlsfingerprint%d.example.com.", chain_length).c_str();
+        dns.addMapping(host_name, ns_type::ns_t_a, "1.2.3.1");
+        std::vector<std::string> servers = { listen_addr };
 
-    test::DnsTlsFrontend tls(listen_addr, listen_tls, listen_addr, listen_udp);
-    ASSERT_TRUE(tls.startServer());
-    auto rv = mNetdSrv->addPrivateDnsServer(listen_addr, 853, "SHA-256",
-            { base64Encode(tls.fingerprint()) });
-    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
+        test::DnsTlsFrontend tls(listen_addr, listen_tls, listen_addr, listen_udp);
+        tls.set_chain_length(chain_length);
+        ASSERT_TRUE(tls.startServer());
+        ASSERT_TRUE(SetResolversWithTls(servers, mDefaultSearchDomains, mDefaultParams_Binder, "",
+                { base64Encode(tls.fingerprint()) }));
 
-    const hostent* result;
+        const hostent* result;
 
-    // Wait for validation to complete.
-    EXPECT_TRUE(tls.waitForQueries(1, 5000));
+        // Wait for validation to complete.
+        EXPECT_TRUE(tls.waitForQueries(1, 5000));
 
-    result = gethostbyname("tlsfingerprint");
-    ASSERT_FALSE(result == nullptr);
-    EXPECT_EQ("1.2.3.1", ToString(result));
+        result = gethostbyname(StringPrintf("tlsfingerprint%d", chain_length).c_str());
+        EXPECT_FALSE(result == nullptr);
+        if (result) {
+            EXPECT_EQ("1.2.3.1", ToString(result));
 
-    // Wait for query to get counted.
-    EXPECT_TRUE(tls.waitForQueries(2, 5000));
+            // Wait for query to get counted.
+            EXPECT_TRUE(tls.waitForQueries(2, 5000));
+        }
 
-    rv = mNetdSrv->removePrivateDnsServer(listen_addr);
-    tls.stopServer();
+        // Clear TLS bit to ensure revalidation.
+        ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains,  mDefaultParams_Binder));
+        tls.stopServer();
+    }
     dns.stopServer();
 }
 
@@ -876,25 +935,18 @@ TEST_F(ResolverTest, GetHostByName_BadTlsFingerprint) {
     ASSERT_TRUE(tls.startServer());
     std::vector<uint8_t> bad_fingerprint = tls.fingerprint();
     bad_fingerprint[5] += 1;  // Corrupt the fingerprint.
-    auto rv = mNetdSrv->addPrivateDnsServer(listen_addr, 853, "SHA-256",
-            { base64Encode(bad_fingerprint) });
-    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
-
-    const hostent* result;
+    ASSERT_TRUE(SetResolversWithTls(servers, mDefaultSearchDomains, mDefaultParams_Binder, "",
+            { base64Encode(bad_fingerprint) }));
 
     // The initial validation should fail at the fingerprint check before
     // issuing a query.
     EXPECT_FALSE(tls.waitForQueries(1, 500));
 
-    result = gethostbyname("badtlsfingerprint");
-    ASSERT_FALSE(result == nullptr);
-    EXPECT_EQ("1.2.3.1", ToString(result));
+    // A fingerprint was provided and failed to match, so the query should fail.
+    EXPECT_EQ(nullptr, gethostbyname("badtlsfingerprint"));
 
-    // The query should have bypassed the TLS frontend, because validation
-    // failed.
-    EXPECT_FALSE(tls.waitForQueries(1, 500));
-
-    rv = mNetdSrv->removePrivateDnsServer(listen_addr);
+    // Clear TLS bit.
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains,  mDefaultParams_Binder));
     tls.stopServer();
     dns.stopServer();
 }
@@ -915,9 +967,8 @@ TEST_F(ResolverTest, GetHostByName_TwoTlsFingerprints) {
     ASSERT_TRUE(tls.startServer());
     std::vector<uint8_t> bad_fingerprint = tls.fingerprint();
     bad_fingerprint[5] += 1;  // Corrupt the fingerprint.
-    auto rv = mNetdSrv->addPrivateDnsServer(listen_addr, 853, "SHA-256",
-            { base64Encode(bad_fingerprint), base64Encode(tls.fingerprint()) });
-    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
+    ASSERT_TRUE(SetResolversWithTls(servers, mDefaultSearchDomains, mDefaultParams_Binder, "",
+            { base64Encode(bad_fingerprint), base64Encode(tls.fingerprint()) }));
 
     const hostent* result;
 
@@ -931,7 +982,8 @@ TEST_F(ResolverTest, GetHostByName_TwoTlsFingerprints) {
     // Wait for query to get counted.
     EXPECT_TRUE(tls.waitForQueries(2, 5000));
 
-    rv = mNetdSrv->removePrivateDnsServer(listen_addr);
+    // Clear TLS bit.
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains,  mDefaultParams_Binder));
     tls.stopServer();
     dns.stopServer();
 }
@@ -950,9 +1002,8 @@ TEST_F(ResolverTest, GetHostByName_TlsFingerprintGoesBad) {
 
     test::DnsTlsFrontend tls(listen_addr, listen_tls, listen_addr, listen_udp);
     ASSERT_TRUE(tls.startServer());
-    auto rv = mNetdSrv->addPrivateDnsServer(listen_addr, 853, "SHA-256",
-            { base64Encode(tls.fingerprint()) });
-    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
+    ASSERT_TRUE(SetResolversWithTls(servers, mDefaultSearchDomains, mDefaultParams_Binder, "",
+            { base64Encode(tls.fingerprint()) }));
 
     const hostent* result;
 
@@ -975,7 +1026,8 @@ TEST_F(ResolverTest, GetHostByName_TlsFingerprintGoesBad) {
     ASSERT_TRUE(result == nullptr);
     EXPECT_EQ(HOST_NOT_FOUND, h_errno);
 
-    rv = mNetdSrv->removePrivateDnsServer(listen_addr);
+    // Clear TLS bit.
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains,  mDefaultParams_Binder));
     tls.stopServer();
     dns.stopServer();
 }
@@ -1001,11 +1053,8 @@ TEST_F(ResolverTest, GetHostByName_TlsFailover) {
     test::DnsTlsFrontend tls2(listen_addr2, listen_tls, listen_addr2, listen_udp);
     ASSERT_TRUE(tls1.startServer());
     ASSERT_TRUE(tls2.startServer());
-    auto rv = mNetdSrv->addPrivateDnsServer(listen_addr1, 853, "SHA-256",
-            { base64Encode(tls1.fingerprint()) });
-    rv = mNetdSrv->addPrivateDnsServer(listen_addr2, 853, "SHA-256",
-            { base64Encode(tls2.fingerprint()) });
-    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
+    ASSERT_TRUE(SetResolversWithTls(servers, mDefaultSearchDomains, mDefaultParams_Binder, "",
+            { base64Encode(tls1.fingerprint()), base64Encode(tls2.fingerprint()) }));
 
     const hostent* result;
 
@@ -1035,11 +1084,39 @@ TEST_F(ResolverTest, GetHostByName_TlsFailover) {
     EXPECT_EQ(2U, dns1.queries().size());
     EXPECT_EQ(2U, dns2.queries().size());
 
-    rv = mNetdSrv->removePrivateDnsServer(listen_addr1);
-    rv = mNetdSrv->removePrivateDnsServer(listen_addr2);
+    // Clear TLS bit.
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains,  mDefaultParams_Binder));
     tls2.stopServer();
     dns1.stopServer();
     dns2.stopServer();
+}
+
+TEST_F(ResolverTest, GetHostByName_BadTlsName) {
+    const char* listen_addr = "127.0.0.3";
+    const char* listen_udp = "53";
+    const char* listen_tls = "853";
+    const char* host_name = "badtlsname.example.com.";
+    test::DNSResponder dns(listen_addr, listen_udp, 250, ns_rcode::ns_r_servfail, 1.0);
+    dns.addMapping(host_name, ns_type::ns_t_a, "1.2.3.1");
+    ASSERT_TRUE(dns.startServer());
+    std::vector<std::string> servers = { listen_addr };
+
+    test::DnsTlsFrontend tls(listen_addr, listen_tls, listen_addr, listen_udp);
+    ASSERT_TRUE(tls.startServer());
+    ASSERT_TRUE(SetResolversWithTls(servers, mDefaultSearchDomains, mDefaultParams_Binder,
+            "www.example.com", {}));
+
+    // The TLS server's certificate doesn't chain to a known CA, and a nonempty name was specified,
+    // so the client should fail the TLS handshake before ever issuing a query.
+    EXPECT_FALSE(tls.waitForQueries(1, 500));
+
+    // The query should fail hard, because a name was specified.
+    EXPECT_EQ(nullptr, gethostbyname("badtlsname"));
+
+    // Clear TLS bit.
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains,  mDefaultParams_Binder));
+    tls.stopServer();
+    dns.stopServer();
 }
 
 TEST_F(ResolverTest, GetAddrInfo_Tls) {
@@ -1055,9 +1132,8 @@ TEST_F(ResolverTest, GetAddrInfo_Tls) {
 
     test::DnsTlsFrontend tls(listen_addr, listen_tls, listen_addr, listen_udp);
     ASSERT_TRUE(tls.startServer());
-    auto rv = mNetdSrv->addPrivateDnsServer(listen_addr, 853, "SHA-256",
-            { base64Encode(tls.fingerprint()) });
-    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
+    ASSERT_TRUE(SetResolversWithTls(servers, mDefaultSearchDomains, mDefaultParams_Binder, "",
+            { base64Encode(tls.fingerprint()) }));
 
     // Wait for validation to complete.
     EXPECT_TRUE(tls.waitForQueries(1, 5000));
@@ -1079,7 +1155,172 @@ TEST_F(ResolverTest, GetAddrInfo_Tls) {
     // Wait for both A and AAAA queries to get counted.
     EXPECT_TRUE(tls.waitForQueries(3, 5000));
 
-    rv = mNetdSrv->removePrivateDnsServer(listen_addr);
+    // Clear TLS bit.
+    ASSERT_TRUE(SetResolversForNetwork(servers, mDefaultSearchDomains,  mDefaultParams_Binder));
     tls.stopServer();
     dns.stopServer();
+}
+
+TEST_F(ResolverTest, TlsBypass) {
+    const char OFF[] = "off";
+    const char OPPORTUNISTIC[] = "opportunistic";
+    const char STRICT[] = "strict";
+
+    const char GETHOSTBYNAME[] = "gethostbyname";
+    const char GETADDRINFO[] = "getaddrinfo";
+    const char GETADDRINFOFORNET[] = "getaddrinfofornet";
+
+    const unsigned BYPASS_NETID = NETID_USE_LOCAL_NAMESERVERS | TEST_NETID;
+
+    const std::vector<uint8_t> NOOP_FINGERPRINT(test::SHA256_SIZE, 0U);
+
+    const char ADDR4[] = "192.0.2.1";
+    const char ADDR6[] = "2001:db8::1";
+
+    const char cleartext_addr[] = "127.0.0.53";
+    const char cleartext_port[] = "53";
+    const char tls_port[] = "853";
+    const std::vector<std::string> servers = { cleartext_addr };
+
+    test::DNSResponder dns(cleartext_addr, cleartext_port, 250, ns_rcode::ns_r_servfail, 1.0);
+    ASSERT_TRUE(dns.startServer());
+
+    test::DnsTlsFrontend tls(cleartext_addr, tls_port, cleartext_addr, cleartext_port);
+
+    struct TestConfig {
+        const std::string mode;
+        const bool withWorkingTLS;
+        const std::string method;
+
+        std::string asHostName() const {
+            return StringPrintf("%s.%s.%s.",
+                                mode.c_str(),
+                                withWorkingTLS ? "tlsOn" : "tlsOff",
+                                method.c_str());
+        }
+    } testConfigs[]{
+        {OFF,           false, GETHOSTBYNAME},
+        {OPPORTUNISTIC, false, GETHOSTBYNAME},
+        {STRICT,        false, GETHOSTBYNAME},
+        {OFF,           true,  GETHOSTBYNAME},
+        {OPPORTUNISTIC, true,  GETHOSTBYNAME},
+        {STRICT,        true,  GETHOSTBYNAME},
+        {OFF,           false, GETADDRINFO},
+        {OPPORTUNISTIC, false, GETADDRINFO},
+        {STRICT,        false, GETADDRINFO},
+        {OFF,           true,  GETADDRINFO},
+        {OPPORTUNISTIC, true,  GETADDRINFO},
+        {STRICT,        true,  GETADDRINFO},
+        {OFF,           false, GETADDRINFOFORNET},
+        {OPPORTUNISTIC, false, GETADDRINFOFORNET},
+        {STRICT,        false, GETADDRINFOFORNET},
+        {OFF,           true,  GETADDRINFOFORNET},
+        {OPPORTUNISTIC, true,  GETADDRINFOFORNET},
+        {STRICT,        true,  GETADDRINFOFORNET},
+    };
+
+    for (const auto& config : testConfigs) {
+        const std::string testHostName = config.asHostName();
+        SCOPED_TRACE(testHostName);
+
+        // Don't tempt test bugs due to caching.
+        const char* host_name = testHostName.c_str();
+        dns.addMapping(host_name, ns_type::ns_t_a, ADDR4);
+        dns.addMapping(host_name, ns_type::ns_t_aaaa, ADDR6);
+
+        if (config.withWorkingTLS) ASSERT_TRUE(tls.startServer());
+
+        if (config.mode == OFF) {
+            ASSERT_TRUE(SetResolversForNetwork(
+                    servers, mDefaultSearchDomains,  mDefaultParams_Binder));
+        } else if (config.mode == OPPORTUNISTIC) {
+            ASSERT_TRUE(SetResolversWithTls(
+                    servers, mDefaultSearchDomains, mDefaultParams_Binder, "", {}));
+            // Wait for validation to complete.
+            if (config.withWorkingTLS) EXPECT_TRUE(tls.waitForQueries(1, 5000));
+        } else if (config.mode == STRICT) {
+            // We use the existence of fingerprints to trigger strict mode,
+            // rather than hostname validation.
+            const auto& fingerprint =
+                    (config.withWorkingTLS) ? tls.fingerprint() : NOOP_FINGERPRINT;
+            ASSERT_TRUE(SetResolversWithTls(
+                    servers, mDefaultSearchDomains, mDefaultParams_Binder, "",
+                    { base64Encode(fingerprint) }));
+            // Wait for validation to complete.
+            if (config.withWorkingTLS) EXPECT_TRUE(tls.waitForQueries(1, 5000));
+        } else {
+            FAIL() << "Unsupported Private DNS mode: " << config.mode;
+        }
+
+        const int tlsQueriesBefore = tls.queries();
+
+        const hostent* h_result = nullptr;
+        addrinfo* ai_result = nullptr;
+
+        if (config.method == GETHOSTBYNAME) {
+            ASSERT_EQ(0, setNetworkForResolv(BYPASS_NETID));
+            h_result = gethostbyname(host_name);
+
+            EXPECT_EQ(1U, GetNumQueriesForType(dns, ns_type::ns_t_a, host_name));
+            ASSERT_FALSE(h_result == nullptr);
+            ASSERT_EQ(4, h_result->h_length);
+            ASSERT_FALSE(h_result->h_addr_list[0] == nullptr);
+            EXPECT_EQ(ADDR4, ToString(h_result));
+            EXPECT_TRUE(h_result->h_addr_list[1] == nullptr);
+        } else if (config.method == GETADDRINFO) {
+            ASSERT_EQ(0, setNetworkForResolv(BYPASS_NETID));
+            EXPECT_EQ(0, getaddrinfo(host_name, nullptr, nullptr, &ai_result));
+
+            EXPECT_LE(1U, GetNumQueries(dns, host_name));
+            // Could be A or AAAA
+            const std::string result_str = ToString(ai_result);
+            EXPECT_TRUE(result_str == ADDR4 || result_str == ADDR6)
+                << ", result_str='" << result_str << "'";
+        } else if (config.method == GETADDRINFOFORNET) {
+            EXPECT_EQ(0, android_getaddrinfofornet(
+                    host_name, nullptr, nullptr, BYPASS_NETID, MARK_UNSET, &ai_result));
+
+            EXPECT_LE(1U, GetNumQueries(dns, host_name));
+            // Could be A or AAAA
+            const std::string result_str = ToString(ai_result);
+            EXPECT_TRUE(result_str == ADDR4 || result_str == ADDR6)
+                << ", result_str='" << result_str << "'";
+        } else {
+            FAIL() << "Unsupported query method: " << config.method;
+        }
+
+        const int tlsQueriesAfter = tls.queries();
+        EXPECT_EQ(0, tlsQueriesAfter - tlsQueriesBefore);
+
+        // TODO: Use ScopedAddrinfo or similar once it is available in a common header file.
+        if (ai_result != nullptr) freeaddrinfo(ai_result);
+
+        // Clear per-process resolv netid.
+        ASSERT_EQ(0, setNetworkForResolv(NETID_UNSET));
+        tls.stopServer();
+        dns.clearQueries();
+    }
+
+    dns.stopServer();
+}
+
+TEST_F(ResolverTest, StrictMode_NoTlsServers) {
+    const std::vector<uint8_t> NOOP_FINGERPRINT(test::SHA256_SIZE, 0U);
+    const char cleartext_addr[] = "127.0.0.53";
+    const char cleartext_port[] = "53";
+    const std::vector<std::string> servers = { cleartext_addr };
+
+    test::DNSResponder dns(cleartext_addr, cleartext_port, 250, ns_rcode::ns_r_servfail, 1.0);
+    const char* host_name = "strictmode.notlsips.example.com.";
+    dns.addMapping(host_name, ns_type::ns_t_a, "1.2.3.4");
+    dns.addMapping(host_name, ns_type::ns_t_aaaa, "::1.2.3.4");
+    ASSERT_TRUE(dns.startServer());
+
+    ASSERT_TRUE(SetResolversWithTls(
+            servers, mDefaultSearchDomains, mDefaultParams_Binder,
+            {}, "", { base64Encode(NOOP_FINGERPRINT) }));
+
+    addrinfo* ai_result = nullptr;
+    EXPECT_NE(0, getaddrinfo(host_name, nullptr, nullptr, &ai_result));
+    EXPECT_EQ(0U, GetNumQueries(dns, host_name));
 }

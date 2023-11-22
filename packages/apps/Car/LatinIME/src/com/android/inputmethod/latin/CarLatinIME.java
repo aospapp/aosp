@@ -15,9 +15,10 @@
  */
 package com.android.inputmethod.latin;
 
+import android.car.Car;
 import android.car.CarNotConnectedException;
-import android.car.hardware.CarSensorEvent;
-import android.car.hardware.CarSensorManager;
+import android.car.drivingstate.CarUxRestrictions;
+import android.car.drivingstate.CarUxRestrictionsManager;
 import android.content.ComponentName;
 import android.content.ServiceConnection;
 import android.content.res.Configuration;
@@ -27,8 +28,6 @@ import android.inputmethodservice.Keyboard;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
-import android.car.Car;
-
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -47,10 +46,10 @@ import javax.annotation.concurrent.GuardedBy;
 /**
  * IME for car use case. 2 features are added compared to the original IME.
  * <ul>
- *     <li> Monitor driving status, and put a lockout screen on top of the current keyboard if
- *          keyboard input is not allowed.
- *     <li> Add a close keyboard button so that user dismiss the keyboard when "back" button is not
- *          present in the system navigation bar.
+ * <li> Monitor driving status, and put a lockout screen on top of the current keyboard if
+ * keyboard input is not allowed.
+ * <li> Add a close keyboard button so that user dismiss the keyboard when "back" button is not
+ * present in the system navigation bar.
  * </ul>
  */
 public class CarLatinIME extends InputMethodService {
@@ -71,7 +70,7 @@ public class CarLatinIME extends InputMethodService {
     private Keyboard mQweKeyboard;
     private Keyboard mSymbolKeyboard;
     private Car mCar;
-    private CarSensorManager mSensorManager;
+    private CarUxRestrictionsManager mUxRManager;
 
     private View mLockoutView;
     private KeyboardView mPopupKeyboardView;
@@ -87,9 +86,11 @@ public class CarLatinIME extends InputMethodService {
 
     private static final class HideKeyboardHandler extends Handler {
         private final WeakReference<CarLatinIME> mIME;
+
         public HideKeyboardHandler(CarLatinIME ime) {
             mIME = new WeakReference<CarLatinIME>(ime);
         }
+
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
@@ -107,10 +108,13 @@ public class CarLatinIME extends InputMethodService {
                 public void onServiceConnected(ComponentName name, IBinder service) {
                     Log.d(TAG, "Car Service connected");
                     try {
-                        mSensorManager = (CarSensorManager) mCar.getCarManager(Car.SENSOR_SERVICE);
-                        mSensorManager.registerListener(mCarSensorListener,
-                                CarSensorManager.SENSOR_TYPE_DRIVING_STATUS,
-                                CarSensorManager.SENSOR_RATE_FASTEST);
+                        mUxRManager = (CarUxRestrictionsManager) mCar.getCarManager(
+                                Car.CAR_UX_RESTRICTION_SERVICE);
+                        if (mUxRManager != null) {
+                            mUxRManager.registerListener(mCarUxRListener);
+                        } else {
+                            Log.e(TAG, "CarUxRestrictions service not available");
+                        }
                     } catch (CarNotConnectedException e) {
                         Log.e(TAG, "car not connected", e);
                     }
@@ -122,17 +126,16 @@ public class CarLatinIME extends InputMethodService {
                 }
             };
 
-    private final CarSensorManager.OnSensorChangedListener mCarSensorListener =
-            new CarSensorManager.OnSensorChangedListener() {
+    private final CarUxRestrictionsManager.OnUxRestrictionsChangedListener mCarUxRListener =
+            new CarUxRestrictionsManager.OnUxRestrictionsChangedListener() {
                 @Override
-                public void onSensorChanged(CarSensorEvent event) {
-                    if (event.sensorType != CarSensorManager.SENSOR_TYPE_DRIVING_STATUS) {
+                public void onUxRestrictionsChanged(CarUxRestrictions restrictions) {
+                    if (restrictions == null) {
                         return;
                     }
-                    int drivingStatus = event.getDrivingStatusData(null).status;
-
                     boolean keyboardEnabled =
-                            (drivingStatus & CarSensorEvent.DRIVE_STATUS_NO_KEYBOARD_INPUT) == 0;
+                            (restrictions.getActiveRestrictions()
+                                    & CarUxRestrictions.UX_RESTRICTIONS_NO_KEYBOARD) == 0;
                     mHandler.sendMessage(mHandler.obtainMessage(
                             MSG_ENABLE_KEYBOARD, keyboardEnabled ? 1 : 0, 0, null));
                 }
@@ -182,7 +185,6 @@ public class CarLatinIME extends InputMethodService {
         }
         return v;
     }
-
 
 
     @Override
@@ -260,7 +262,7 @@ public class CarLatinIME extends InputMethodService {
                 @Override
                 public void onKey(int primaryCode, int[] keyCodes) {
                     if (Log.isLoggable(TAG, Log.DEBUG)) {
-                      Log.d(TAG, "onKey " + primaryCode);
+                        Log.d(TAG, "onKey " + primaryCode);
                     }
                     InputConnection inputConnection = getCurrentInputConnection();
                     switch (primaryCode) {
@@ -309,22 +311,31 @@ public class CarLatinIME extends InputMethodService {
                             }
                             break;
                         case KEYCODE_ENTER:
-                            final int imeOptionsActionId = getImeOptionsActionIdFromEditorInfo(mEditorInfo);
+                            final int imeOptionsActionId = getImeOptionsActionIdFromEditorInfo(
+                                    mEditorInfo);
                             if (IME_ACTION_CUSTOM_LABEL == imeOptionsActionId) {
-                                // Either we have an actionLabel and we should performEditorAction with
+                                // Either we have an actionLabel and we should
+                                // performEditorAction with
                                 // actionId regardless of its value.
                                 inputConnection.performEditorAction(mEditorInfo.actionId);
                             } else if (EditorInfo.IME_ACTION_NONE != imeOptionsActionId) {
-                                // We didn't have an actionLabel, but we had another action to execute.
-                                // EditorInfo.IME_ACTION_NONE explicitly means no action. In contrast,
-                                // EditorInfo.IME_ACTION_UNSPECIFIED is the default value for an action, so it
-                                // means there should be an action and the app didn't bother to set a specific
-                                // code for it - presumably it only handles one. It does not have to be treated
-                                // in any specific way: anything that is not IME_ACTION_NONE should be sent to
+                                // We didn't have an actionLabel, but we had another action to
+                                // execute.
+                                // EditorInfo.IME_ACTION_NONE explicitly means no action. In
+                                // contrast,
+                                // EditorInfo.IME_ACTION_UNSPECIFIED is the default value for an
+                                // action, so it
+                                // means there should be an action and the app didn't bother to
+                                // set a specific
+                                // code for it - presumably it only handles one. It does not have
+                                // to be treated
+                                // in any specific way: anything that is not IME_ACTION_NONE
+                                // should be sent to
                                 // performEditorAction.
                                 inputConnection.performEditorAction(imeOptionsActionId);
                             } else {
-                                // No action label, and the action from imeOptions is NONE: this is a regular
+                                // No action label, and the action from imeOptions is NONE: this
+                                // is a regular
                                 // enter key that should input a carriage return.
                                 String txt = Character.toString((char) primaryCode);
                                 if (mKeyboardView.isShifted()) {
@@ -345,7 +356,7 @@ public class CarLatinIME extends InputMethodService {
                                 commitText = commitText.toUpperCase(mLocale);
                             }
                             if (Log.isLoggable(TAG, Log.DEBUG)) {
-                              Log.d(TAG, "commitText " + commitText);
+                                Log.d(TAG, "commitText " + commitText);
                             }
                             inputConnection.commitText(commitText, 1);
                             updateCapitalization();

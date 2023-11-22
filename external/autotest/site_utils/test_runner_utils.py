@@ -532,11 +532,18 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
     last_job_id = afe.get_jobs()[-1].id
     job_id_digits = len(str(last_job_id))
     codes = []
-    for job in afe.get_jobs():
-        code, _ = run_job(job, remote, autotest_path, results_directory,
-                fast_mode, job_id_digits, ssh_verbosity, ssh_options, args,
-                pretend, autoserv_verbose, host_attributes)
-        codes.append(code)
+    job_queue = afe.get_jobs()
+    completed_job_ids = set()
+    while job_queue:
+      for job in job_queue:
+          code, _ = run_job(job, remote, autotest_path, results_directory,
+                  fast_mode, job_id_digits, ssh_verbosity, ssh_options, args,
+                  pretend, autoserv_verbose, host_attributes)
+          completed_job_ids.add(job.id)
+          codes.append(code)
+      new_jobs = set(job for job in afe.get_jobs(not_yet_run=True, running=True)
+                     if job.id not in completed_job_ids)
+      job_queue = list(new_jobs)
     return codes
 
 

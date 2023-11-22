@@ -30,13 +30,22 @@ import com.android.server.telecom.BluetoothHeadsetProxy;
 import com.android.server.telecom.TelecomSystem;
 import com.android.server.telecom.bluetooth.BluetoothDeviceManager;
 import com.android.server.telecom.bluetooth.BluetoothRouteManager;
+import com.android.server.telecom.bluetooth.BluetoothStateReceiver;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.verify;
 
+@RunWith(JUnit4.class)
 public class BluetoothDeviceManagerTest extends TelecomTestCase {
     @Mock BluetoothRouteManager mRouteManager;
     @Mock BluetoothHeadsetProxy mHeadsetProxy;
@@ -50,6 +59,8 @@ public class BluetoothDeviceManagerTest extends TelecomTestCase {
     private BluetoothDevice device2;
     private BluetoothDevice device3;
 
+    @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         device1 = makeBluetoothDevice("00:00:00:00:00:01");
@@ -67,19 +78,14 @@ public class BluetoothDeviceManagerTest extends TelecomTestCase {
                 serviceCaptor.capture(), eq(BluetoothProfile.HEADSET));
         serviceListenerUnderTest = serviceCaptor.getValue();
 
-        ArgumentCaptor<BroadcastReceiver> receiverCaptor =
-                ArgumentCaptor.forClass(BroadcastReceiver.class);
-        ArgumentCaptor<IntentFilter> intentFilterCaptor =
-                ArgumentCaptor.forClass(IntentFilter.class);
-        verify(mContext).registerReceiver(receiverCaptor.capture(), intentFilterCaptor.capture());
-        assertTrue(intentFilterCaptor.getValue().hasAction(
-                BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED));
-        receiverUnderTest = receiverCaptor.getValue();
+        receiverUnderTest = new BluetoothStateReceiver(mBluetoothDeviceManager,
+                null /* route mgr not needed here */);
 
         mBluetoothDeviceManager.setHeadsetServiceForTesting(mHeadsetProxy);
     }
 
     @SmallTest
+    @Test
     public void testSingleDeviceConnectAndDisconnect() {
         receiverUnderTest.onReceive(mContext,
                 buildConnectionActionIntent(BluetoothHeadset.STATE_CONNECTED, device1));
@@ -93,6 +99,7 @@ public class BluetoothDeviceManagerTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testMultiDeviceConnectAndDisconnect() {
         receiverUnderTest.onReceive(mContext,
                 buildConnectionActionIntent(BluetoothHeadset.STATE_CONNECTED, device1));
@@ -115,6 +122,7 @@ public class BluetoothDeviceManagerTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testExclusionaryGetRecentDevices() {
         receiverUnderTest.onReceive(mContext,
                 buildConnectionActionIntent(BluetoothHeadset.STATE_CONNECTED, device1));
@@ -132,6 +140,7 @@ public class BluetoothDeviceManagerTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testHeadsetServiceDisconnect() {
         receiverUnderTest.onReceive(mContext,
                 buildConnectionActionIntent(BluetoothHeadset.STATE_CONNECTED, device1));
@@ -139,8 +148,8 @@ public class BluetoothDeviceManagerTest extends TelecomTestCase {
                 buildConnectionActionIntent(BluetoothHeadset.STATE_CONNECTED, device2));
         serviceListenerUnderTest.onServiceDisconnected(0);
 
-        verify(mRouteManager).onDeviceLost(device1);
-        verify(mRouteManager).onDeviceLost(device2);
+        verify(mRouteManager).onDeviceLost(device1.getAddress());
+        verify(mRouteManager).onDeviceLost(device2.getAddress());
         assertNull(mBluetoothDeviceManager.getHeadsetService());
         assertEquals(0, mBluetoothDeviceManager.getNumConnectedDevices());
     }

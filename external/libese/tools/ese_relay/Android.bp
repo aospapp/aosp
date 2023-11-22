@@ -23,7 +23,13 @@ cc_defaults {
             enabled: false,
         },
     },
-    cflags: ["-std=c99", "-D_FORTIFY_SOURCE=2"],
+    cflags: [
+        "-std=c99",
+        "-D_FORTIFY_SOURCE=2",
+        "-Wall",
+        "-Werror",
+        "-Wno-error=unused-variable",
+    ],
     srcs: ["ese_relay.c"],
     shared_libs: [
         "liblog",

@@ -5,6 +5,7 @@
 import logging
 import multiprocessing
 import os
+import threading
 import time
 
 from autotest_lib.client.common_lib import autotemp
@@ -37,6 +38,9 @@ class MasterSsh(object):
         self._master_tempdir = None
 
         self._lock = multiprocessing.Lock()
+
+    def __del__(self):
+        self.close()
 
     @property
     def _socket_path(self):
@@ -130,6 +134,7 @@ class ConnectionPool(object):
 
     def __init__(self):
         self._pool = {}
+        self._lock = threading.Lock()
 
     def get(self, hostname, user, port):
         """Returns MasterSsh instance for the given endpoint.
@@ -144,11 +149,15 @@ class ConnectionPool(object):
         @param port: Port number sshd is listening.
         """
         key = (hostname, user, port)
-        master_ssh = self._pool.get(key)
-        if not master_ssh:
-            master_ssh = MasterSsh(hostname, user, port)
-            self._pool[key] = master_ssh
-        return master_ssh
+        logging.debug('Get master ssh connection for %s@%s:%d', user, hostname,
+                      port)
+
+        with self._lock:
+            conn = self._pool.get(key)
+            if not conn:
+                conn = MasterSsh(hostname, user, port)
+                self._pool[key] = conn
+            return conn
 
     def shutdown(self):
         """Closes all ssh multiplex connections."""

@@ -18,7 +18,13 @@
  * instance is being created.
  */
 
-BPF_ARRAY4(map_sh, 0, PIN_OBJECT_NS, 1); /* or PIN_GLOBAL_NS, or PIN_NONE */
+struct bpf_elf_map __section_maps map_sh = {
+	.type		= BPF_MAP_TYPE_ARRAY,
+	.size_key	= sizeof(uint32_t),
+	.size_value	= sizeof(uint32_t),
+	.pinning	= PIN_OBJECT_NS, /* or PIN_GLOBAL_NS, or PIN_NONE */
+	.max_elem	= 1,
+};
 
 __section("egress")
 int emain(struct __sk_buff *skb)
@@ -35,12 +41,11 @@ int emain(struct __sk_buff *skb)
 __section("ingress")
 int imain(struct __sk_buff *skb)
 {
-	char fmt[] = "map val: %d\n";
 	int key = 0, *val;
 
 	val = map_lookup_elem(&map_sh, &key);
 	if (val)
-		trace_printk(fmt, sizeof(fmt), *val);
+		printt("map val: %d\n", *val);
 
 	return BPF_H_DEFAULT;
 }

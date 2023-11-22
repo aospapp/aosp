@@ -20,14 +20,15 @@ import android.annotation.TargetApi;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
-import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.TelephonyManager;
 import android.telephony.VisualVoicemailSms;
+import com.android.dialer.callintent.CallInitiationType;
+import com.android.dialer.callintent.CallIntentBuilder;
+import com.android.dialer.precall.PreCall;
 import com.android.voicemail.VoicemailClient;
 import com.android.voicemail.impl.OmtpConstants;
 import com.android.voicemail.impl.OmtpVvmCarrierConfigHelper;
@@ -79,6 +80,7 @@ public class LegacyModeSmsHandler {
     VvmLog.i(TAG, "sending voicemail notification");
     Intent intent = new Intent(VoicemailClient.ACTION_SHOW_LEGACY_VOICEMAIL);
     intent.setPackage(context.getPackageName());
+    intent.putExtra(VoicemailClient.EXTRA_IS_LEGACY_MODE, true);
     intent.putExtra(TelephonyManager.EXTRA_PHONE_ACCOUNT_HANDLE, phoneAccountHandle);
     // Setting voicemail message count to non-zero will show the telephony voicemail
     // notification, and zero will clear it.
@@ -93,13 +95,17 @@ public class LegacyModeSmsHandler {
           PendingIntent.getActivity(
               context,
               CALL_VOICEMAIL_REQUEST_CODE,
-              new Intent(
-                  Intent.ACTION_CALL, Uri.fromParts(PhoneAccount.SCHEME_VOICEMAIL, "", null)),
+              PreCall.getIntent(
+                  context,
+                  CallIntentBuilder.forVoicemail(
+                      phoneAccountHandle, CallInitiationType.Type.LEGACY_VOICEMAIL_NOTIFICATION)),
               PendingIntent.FLAG_UPDATE_CURRENT);
     } else {
       Intent launchVoicemailSettingsIntent =
           new Intent(TelephonyManager.ACTION_CONFIGURE_VOICEMAIL);
       launchVoicemailSettingsIntent.putExtra(TelephonyManager.EXTRA_HIDE_PUBLIC_SETTINGS, true);
+      launchVoicemailSettingsIntent.putExtra(
+          TelephonyManager.EXTRA_PHONE_ACCOUNT_HANDLE, phoneAccountHandle);
 
       launchVoicemailSettingsPendingIntent =
           PendingIntent.getActivity(

@@ -17,10 +17,11 @@
 package com.android.bluetooth.btservice;
 
 import com.android.bluetooth.a2dp.A2dpService;
-import com.android.bluetooth.hid.HidService;
+import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
+import com.android.bluetooth.hid.HidDeviceService;
+import com.android.bluetooth.hid.HidHostService;
 import com.android.bluetooth.pan.PanService;
-import com.android.internal.R;
 
 // Factory class to create instances of static services. Useful in mocking the service objects.
 public class ServiceFactory {
@@ -32,11 +33,19 @@ public class ServiceFactory {
         return HeadsetService.getHeadsetService();
     }
 
-    public HidService getHidService() {
-        return HidService.getHidService();
+    public HidHostService getHidHostService() {
+        return HidHostService.getHidHostService();
+    }
+
+    public HidDeviceService getHidDeviceService() {
+        return HidDeviceService.getHidDeviceService();
     }
 
     public PanService getPanService() {
         return PanService.getPanService();
+    }
+
+    public HearingAidService getHearingAidService() {
+        return HearingAidService.getHearingAidService();
     }
 }

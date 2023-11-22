@@ -29,6 +29,14 @@ class PlatformSensorBase {
 
   //! The name of this sensor for the Linux platform.
   char sensorName[kMaxSensorNameSize];
+
+  /**
+   * Copies the supplied event to the sensor's last event and marks last event
+   * valid.
+   *
+   * @param event The pointer to the event to copy from.
+   */
+  void setLastEvent(const ChreSensorData *event);
 };
 
 }  // namespace chre

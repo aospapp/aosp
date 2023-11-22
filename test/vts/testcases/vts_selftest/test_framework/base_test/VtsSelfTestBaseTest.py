@@ -57,6 +57,10 @@ class VtsSelfTestBaseTest(base_test.BaseTestClass):
     '''Two hello world test cases which use the shell driver.'''
 
     def setUpClass(self):
+        # Since we are running the actual test cases, run_as_vts_self_test
+        # must be set to False.
+        self.run_as_vts_self_test = False
+
         self.dut = self.android_devices[0]
         self.shell = self.dut.shell
 

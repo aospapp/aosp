@@ -158,13 +158,12 @@ class TestMethods(unittest.TestCase):
         callback_func() is called and the value of the global counter is
         increased by one.
         """
-        func_id = "1"  # to maintain the key for function pointer
-
         def callback_func():
             self._counter += 1
 
         # Function should be registered with RegisterCallback
-        self._callback_server.RegisterCallback(func_id, callback_func)
+        func_id = self._callback_server.RegisterCallback(callback_func)
+        self.assertEqual(func_id, '0')
 
         # Capture the previous value of global counter
         prev_value = self._counter
@@ -186,8 +185,6 @@ class TestMethods(unittest.TestCase):
         if function is not registered. It also checks whether it's incremented
         by 1 when the function is registered.
         """
-        func_id = "11"  # to maintain the key for function pointer
-
         def callback_func():
             self._counter += 1
 
@@ -195,7 +192,10 @@ class TestMethods(unittest.TestCase):
         prev_value = self._counter
 
         # Function should be registered with RegisterCallback
-        self._callback_server.RegisterCallback(func_id, callback_func)
+        func_id = self._callback_server.RegisterCallback(callback_func)
+
+        found_func_id = self._callback_server.GetCallbackId(callback_func)
+        self.assertEqual(func_id, found_func_id)
 
         # Connect to server
         response_message = self.ConnectToServer(func_id)

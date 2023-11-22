@@ -169,30 +169,6 @@ public class Utils {
         return success;
     }
 
-    public static boolean shouldHaveQuota(StructUtsname uname) throws Exception {
-        try (BufferedReader br = new BufferedReader(new FileReader("/proc/mounts"))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                final String[] fields = line.split(" ");
-                final String target = fields[1];
-                final String format = fields[2];
-
-                if (target.equals("/data") && !format.equals("ext4")) {
-                    Log.d(TAG, "Assuming no quota support because /data is " + format);
-                    return false;
-                }
-            }
-        }
-
-        final Matcher matcher = Pattern.compile("(\\d+)\\.(\\d+)").matcher(uname.release);
-        if (!matcher.find()) {
-            throw new IllegalStateException("Failed to parse version: " + uname.release);
-        }
-        final int major = Integer.parseInt(matcher.group(1));
-        final int minor = Integer.parseInt(matcher.group(2));
-        return (major > 3 || (major == 3 && minor >= 18));
-    }
-
     public static void logCommand(String... cmd) throws Exception {
         final Process proc = new ProcessBuilder(cmd).redirectErrorStream(true).start();
 

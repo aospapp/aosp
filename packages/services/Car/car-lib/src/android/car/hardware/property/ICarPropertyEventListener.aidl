@@ -28,6 +28,6 @@ oneway interface ICarPropertyEventListener {
      * Called when an event is triggered in response to one of the calls (such as on tune) or
      * asynchronously (such as on announcement).
      */
-    void onEvent(in CarPropertyEvent event) = 0;
+    void onEvent(in List<CarPropertyEvent> events) = 0;
 }
 

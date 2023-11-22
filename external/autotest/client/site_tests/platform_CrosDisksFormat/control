@@ -8,7 +8,7 @@ PURPOSE = "Verify that cros-disks can format supported filesystems correctly"
 
 CRITERIA = """
 """
-ATTRIBUTES = "suite:regression"
+ATTRIBUTES = "suite:bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"

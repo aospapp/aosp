@@ -15,12 +15,13 @@
  */
 package com.android.car.vehiclehal.test;
 
-import static java.lang.Integer.toHexString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
+import static org.junit.Assert.fail;
+
+import static java.lang.Integer.toHexString;
 
 import android.annotation.Nullable;
 import android.car.Car;
@@ -29,41 +30,22 @@ import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarSensorManager;
 import android.car.hardware.CarSensorManager.OnSensorChangedListener;
 import android.car.hardware.hvac.CarHvacManager;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.ServiceConnection;
-import android.hardware.automotive.vehicle.V2_0.IVehicle;
-import android.hardware.automotive.vehicle.V2_0.StatusCode;
-import android.hardware.automotive.vehicle.V2_0.VehicleArea;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyGroup;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyType;
-import android.os.Handler;
-import android.os.HandlerThread;
-import android.os.IBinder;
-import android.os.RemoteException;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
 import android.support.test.runner.AndroidJUnit4;
-import android.test.suitebuilder.annotation.MediumTest;
+import android.util.Log;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
 
 import com.google.android.collect.Lists;
 
-import com.android.car.vehiclehal.VehiclePropValueBuilder;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -76,66 +58,8 @@ import java.util.concurrent.TimeUnit;
  */
 @MediumTest
 @RunWith(AndroidJUnit4.class)
-public class E2ePerformanceTest {
+public class E2ePerformanceTest extends E2eCarTestBase {
     private static String TAG = Utils.concatTag(E2ePerformanceTest.class);
-
-    private IVehicle mVehicle;
-    private final CarConnectionListener mConnectionListener = new CarConnectionListener();
-    private Context mContext;
-    private Car mCar;
-
-    private static Handler sEventHandler;
-    private static final HandlerThread sHandlerThread = new HandlerThread(TAG);
-
-    private static final int DEFAULT_WAIT_TIMEOUT_MS = 1000;
-
-    private static final int GENERATE_FAKE_DATA_CONTROLLING_PROPERTY = 0x0666
-            | VehiclePropertyGroup.VENDOR
-            | VehicleArea.GLOBAL
-            | VehiclePropertyType.COMPLEX;
-
-    private static final int CMD_START = 1;
-    private static final int CMD_STOP = 0;
-
-    private HalEventsGenerator mEventsGenerator;
-
-    @BeforeClass
-    public static void setupEventHandler() {
-        sHandlerThread.start();
-        sEventHandler = new Handler(sHandlerThread.getLooper());
-    }
-
-    @Before
-    public void connectToVehicleHal() throws Exception {
-        mVehicle = Utils.getVehicle();
-
-        mVehicle.getPropConfigs(Lists.newArrayList(GENERATE_FAKE_DATA_CONTROLLING_PROPERTY),
-                (status, propConfigs) -> assumeTrue(status == StatusCode.OK));
-
-        mEventsGenerator = new HalEventsGenerator(mVehicle);
-    }
-
-    @Before
-    public void connectToCarService() throws Exception {
-        mContext = InstrumentationRegistry.getContext();
-        mCar = Car.createCar(mContext, mConnectionListener, sEventHandler);
-        assertNotNull(mCar);
-        mCar.connect();
-        mConnectionListener.waitForConnection(DEFAULT_WAIT_TIMEOUT_MS);
-    }
-
-    @After
-    public void disconnect() throws Exception {
-        if (mVehicle != null) {
-            mEventsGenerator.stop();
-            mVehicle = null;
-            mEventsGenerator = null;
-        }
-        if (mCar != null) {
-            mCar.disconnect();
-            mCar = null;
-        }
-    }
 
     @Test
     public void singleOnChangeProperty() throws Exception {
@@ -146,14 +70,13 @@ public class E2ePerformanceTest {
     @Test
     public void singleContinuousProperty() throws Exception {
         verifyEventsFromSingleProperty(
-                CarSensorManager.SENSOR_TYPE_RPM, VehicleProperty.ENGINE_RPM);
+                CarSensorManager.SENSOR_TYPE_CAR_SPEED, VehicleProperty.PERF_VEHICLE_SPEED);
     }
 
     @Test
     public void benchmarkEventBandwidthThroughCarService() throws Exception {
         int[] mgrProperties = new int[] {
                 CarSensorManager.SENSOR_TYPE_ODOMETER,
-                CarSensorManager.SENSOR_TYPE_RPM,
                 CarSensorManager.SENSOR_TYPE_CAR_SPEED
         };
         // Expecting to receive at least 10 events within 150ms.
@@ -168,23 +91,23 @@ public class E2ePerformanceTest {
                     mgr.isSensorSupported(mgrPropId));
         }
 
-        mEventsGenerator
-                .reset()
+        VhalEventGenerator odometerGenerator = new LinearVhalEventGenerator(mVehicle)
+                .setProp(VehicleProperty.PERF_ODOMETER)
                 .setIntervalMs(EVENT_INTERVAL_MS)
                 .setInitialValue(1000)
                 .setIncrement(1.0f)
-                .setDispersion(100)
-                .start(VehicleProperty.PERF_ODOMETER);
+                .setDispersion(100);
 
-        mEventsGenerator
-                .start(VehicleProperty.ENGINE_RPM);
 
-        mEventsGenerator
+        VhalEventGenerator speedGenerator = new LinearVhalEventGenerator(mVehicle)
+                .setProp(VehicleProperty.PERF_VEHICLE_SPEED)
                 .setIntervalMs(EVENT_INTERVAL_MS)
                 .setInitialValue(20.0f)
                 .setIncrement(0.1f)
-                .setDispersion(10)
-                .start(VehicleProperty.PERF_VEHICLE_SPEED);
+                .setDispersion(10);
+
+        odometerGenerator.start();
+        speedGenerator.start();
 
         SparseArray<CountDownLatch> eventsCounters = new SparseArray<>();
         for (int i = 0; i < mgrProperties.length; i++) {
@@ -202,7 +125,9 @@ public class E2ePerformanceTest {
         }
         boolean allEventsReceived = awaitCountDownLatches(latches, WAIT_TIME);
         mgr.unregisterListener(listener);
-        mEventsGenerator.stop();
+
+        odometerGenerator.stop();
+        speedGenerator.stop();
 
         if (!allEventsReceived) {
             SparseIntArray missingEventsPerProperty = new SparseIntArray();
@@ -233,8 +158,8 @@ public class E2ePerformanceTest {
         boolean value = false;
         long actualIterations = 0;
         while (SystemClock.elapsedRealtimeNanos() < start + TEST_DURATION_NANO) {
-            mgr.setBooleanProperty(PROP, 0, value);
-            boolean actualValue = mgr.getBooleanProperty(PROP, 0);
+            mgr.setBooleanProperty(PROP, 1, value);
+            boolean actualValue = mgr.getBooleanProperty(PROP, 1);
             assertEquals(value, actualValue);
             value = !value;
             actualIterations++;
@@ -259,6 +184,27 @@ public class E2ePerformanceTest {
 
         final int EXPECTED_INVOCATIONS = 1000;  // How many time get/set will be called.
         final int EXPECTED_DURATION_MS = 2500;
+        // This is a stress test and it can be flaky because it shares resources with all currently
+        // running process. Let's have this number of attempt before giving up.
+        final int ATTEMPTS = 3;
+
+        for (int curAttempt = 0; curAttempt < ATTEMPTS; curAttempt++) {
+            long missingInvocations = stressTestHvacProperties(mgr, cfg,
+                    EXPECTED_INVOCATIONS, EXPECTED_DURATION_MS);
+            if (missingInvocations == 0) return;  // All done.
+
+            Log.w(TAG, "Failed to invoke get/set " + EXPECTED_INVOCATIONS
+                            + " within " + EXPECTED_DURATION_MS + "ms"
+                            + ", actually invoked: "
+                            + (EXPECTED_INVOCATIONS - missingInvocations));
+        }
+        fail("Failed to invoke get/set " + EXPECTED_INVOCATIONS + " within "
+                + EXPECTED_DURATION_MS + "ms. Number of attempts: " + ATTEMPTS
+                + ". See logs for details.");
+    }
+
+    private long stressTestHvacProperties(CarHvacManager mgr, CarPropertyConfig<Float> cfg,
+            int EXPECTED_INVOCATIONS, int EXPECTED_DURATION_MS) throws InterruptedException {
         CountDownLatch counter = new CountDownLatch(EXPECTED_INVOCATIONS);
 
         List<Thread> threads = new ArrayList<>(Lists.newArrayList(
@@ -271,15 +217,12 @@ public class E2ePerformanceTest {
 
         counter.await(EXPECTED_DURATION_MS, TimeUnit.MILLISECONDS);
         long missingInvocations = counter.getCount();
-        assertTrue("Failed to invoke get/set " + EXPECTED_INVOCATIONS
-                + " within " + EXPECTED_DURATION_MS + "ms"
-                        + ", actually invoked: " + (EXPECTED_INVOCATIONS - missingInvocations),
-                missingInvocations == 0);
 
         for (Thread t : threads) {
             t.join(10000);  // Let thread join to not interfere with other test.
             assertFalse(t.isAlive());
         }
+        return missingInvocations;
     }
 
     private void invokeSetAndGetForHvacFloat(CarHvacManager mgr,
@@ -329,12 +272,14 @@ public class E2ePerformanceTest {
         assertNotNull(mgr);
         assertTrue(mgr.isSensorSupported(mgrPropId));
 
-        mEventsGenerator
+        VhalEventGenerator generator = new LinearVhalEventGenerator(mVehicle)
+                .setProp(halPropId)
                 .setIntervalMs(10)
                 .setInitialValue(INITIAL_VALUE)
                 .setIncrement(INCREMENT)
-                .setDispersion(100)
-                .start(halPropId);
+                .setDispersion(100);
+
+        generator.start();
 
         CountDownLatch latch = new CountDownLatch(EXPECTED_EVENTS);
         OnSensorChangedListener listener = event -> latch.countDown();
@@ -343,25 +288,11 @@ public class E2ePerformanceTest {
         try {
             assertTrue(latch.await(EXPECTED_TIME_DURATION_MS, TimeUnit.MILLISECONDS));
         } finally {
+            generator.stop();
             mgr.unregisterListener(listener);
         }
     }
 
-    private static class CarConnectionListener implements ServiceConnection {
-        private final Semaphore mConnectionWait = new Semaphore(0);
-
-        void waitForConnection(long timeoutMs) throws InterruptedException {
-            mConnectionWait.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS);
-        }
-
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            mConnectionWait.release();
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) { }
-    }
 
     private static boolean awaitCountDownLatches(CountDownLatch[] latches, long timeoutMs)
             throws InterruptedException {
@@ -374,69 +305,5 @@ public class E2ePerformanceTest {
         }
 
         return true;
-    }
-
-    static class HalEventsGenerator {
-        private final IVehicle mVehicle;
-
-        private long mIntervalMs;
-        private float mInitialValue;
-        private float mDispersion;
-        private float mIncrement;
-
-        HalEventsGenerator(IVehicle vehicle) {
-            mVehicle = vehicle;
-            reset();
-        }
-
-        HalEventsGenerator reset() {
-            mIntervalMs = 1000;
-            mInitialValue = 1000;
-            mDispersion = 0;
-            mInitialValue = 0;
-            return this;
-        }
-
-        HalEventsGenerator setIntervalMs(long intervalMs) {
-            mIntervalMs = intervalMs;
-            return this;
-        }
-
-        HalEventsGenerator setInitialValue(float initialValue) {
-            mInitialValue = initialValue;
-            return this;
-        }
-
-        HalEventsGenerator setDispersion(float dispersion) {
-            mDispersion = dispersion;
-            return this;
-        }
-
-        HalEventsGenerator setIncrement(float increment) {
-            mIncrement = increment;
-            return this;
-        }
-
-        void start(int propId) throws RemoteException {
-            VehiclePropValue request =
-                    VehiclePropValueBuilder.newBuilder(GENERATE_FAKE_DATA_CONTROLLING_PROPERTY)
-                        .addIntValue(CMD_START, propId)
-                        .setInt64Value(mIntervalMs * 1000_000)
-                        .addFloatValue(mInitialValue, mDispersion, mIncrement)
-                        .build();
-            assertEquals(StatusCode.OK, mVehicle.set(request));
-        }
-
-        void stop() throws RemoteException {
-            stop(0);
-        }
-
-        void stop(int propId) throws RemoteException {
-            VehiclePropValue request =
-                    VehiclePropValueBuilder.newBuilder(GENERATE_FAKE_DATA_CONTROLLING_PROPERTY)
-                        .addIntValue(CMD_STOP, propId)
-                        .build();
-            assertEquals(StatusCode.OK, mVehicle.set(request));
-        }
     }
 }

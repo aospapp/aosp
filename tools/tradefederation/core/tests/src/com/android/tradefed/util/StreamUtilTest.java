@@ -17,9 +17,11 @@ package com.android.tradefed.util;
 
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.InputStreamSource;
+import com.android.tradefed.util.StreamUtil;
 
 import junit.framework.TestCase;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -75,6 +77,22 @@ public class StreamUtilTest extends TestCase {
             final InputStream stream = source.createInputStream();
             final String output = StreamUtil.getStringFromStream(stream);
             assertEquals(contents, output);
+        }
+    }
+
+    /**
+     * Verify that {@link StreamUtil#getBufferedReaderFromStreamSrc} works as expected.
+     */
+    public void testGetBufferedReaderFromInputStream() throws Exception {
+        final String contents = "this is a string";
+        BufferedReader output = null;
+        try (InputStreamSource source = new ByteArrayInputStreamSource(contents.getBytes())) {
+            output = StreamUtil.getBufferedReaderFromStreamSrc(source);
+            assertEquals(contents, output.readLine());
+        } finally {
+            if (null != output) {
+                output.close();
+            }
         }
     }
 

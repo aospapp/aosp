@@ -39,9 +39,7 @@ namespace android {
 namespace wificond {
 namespace {
 
-constexpr int kSupplicantStartupTimeoutSeconds = 3;
-constexpr int kSupplicantDeathTimeoutSeconds = 3;
-
+const char kInterfaceName[] = "wlan0";
 }  // namespace
 
 TEST(ClientInterfaceTest, CanCreateClientInterfaces) {
@@ -50,7 +48,8 @@ TEST(ClientInterfaceTest, CanCreateClientInterfaces) {
 
   // We should be able to create an client interface.
   sp<IClientInterface> client_interface;
-  EXPECT_TRUE(service->createClientInterface(&client_interface).isOk());
+  EXPECT_TRUE(service->createClientInterface(
+      kInterfaceName, &client_interface).isOk());
   EXPECT_NE(nullptr, client_interface.get());
 
   // The interface should start out down.
@@ -60,55 +59,32 @@ TEST(ClientInterfaceTest, CanCreateClientInterfaces) {
   InterfaceTool if_tool;
   EXPECT_FALSE(if_tool.GetUpState(if_name.c_str()));
 
-  // Mark the interface as up, just to test that we mark it down on teardown.
+  // Mark the interface as up, just to test that we mark it down on tearDown.
   EXPECT_TRUE(if_tool.SetUpState(if_name.c_str(), true));
   EXPECT_TRUE(if_tool.GetUpState(if_name.c_str()));
 
   // We should not be able to create two client interfaces.
   sp<IClientInterface> client_interface2;
-  EXPECT_TRUE(service->createClientInterface(&client_interface2).isOk());
+  EXPECT_TRUE(service->createClientInterface(
+      kInterfaceName, &client_interface2).isOk());
   EXPECT_EQ(nullptr, client_interface2.get());
 
   // We can tear down the created interface.
-  EXPECT_TRUE(service->tearDownInterfaces().isOk());
+  bool succes = false;
+  EXPECT_TRUE(service->tearDownClientInterface(kInterfaceName, &succes).isOk());
+  EXPECT_TRUE(succes);
   EXPECT_FALSE(if_tool.GetUpState(if_name.c_str()));
-}
 
-TEST(ClientInterfaceTest, CanStartStopSupplicant) {
-  ScopedDevModeWificond dev_mode;
-  sp<IWificond> service = dev_mode.EnterDevModeOrDie();
-  sp<IClientInterface> client_interface;
-  EXPECT_TRUE(service->createClientInterface(&client_interface).isOk());
-  ASSERT_NE(nullptr, client_interface.get());
-
-  for (int iteration = 0; iteration < 4; iteration++) {
-    bool supplicant_started = false;
-    EXPECT_TRUE(client_interface->enableSupplicant(&supplicant_started).isOk());
-    EXPECT_TRUE(supplicant_started);
-
-    EXPECT_TRUE(WaitForTrue(SupplicantIsRunning,
-                            kSupplicantStartupTimeoutSeconds))
-        << "Failed on iteration " << iteration;
-
-    // We look for supplicant so quickly that we miss when it dies on startup
-    sleep(1);
-    EXPECT_TRUE(SupplicantIsRunning()) << "Failed on iteration " << iteration;
-
-    bool supplicant_stopped = false;
-    EXPECT_TRUE(
-        client_interface->disableSupplicant(&supplicant_stopped).isOk());
-    EXPECT_TRUE(supplicant_stopped);
-
-    EXPECT_TRUE(WaitForTrue(SupplicantIsDead, kSupplicantDeathTimeoutSeconds))
-        << "Failed on iteration " << iteration;
-  }
+  // Teardown everything at the end of the test.
+  EXPECT_TRUE(service->tearDownInterfaces().isOk());
 }
 
 TEST(ClientInterfaceTest, CanGetMacAddress) {
   ScopedDevModeWificond dev_mode;
   sp<IWificond> service = dev_mode.EnterDevModeOrDie();
   sp<IClientInterface> client_interface;
-  EXPECT_TRUE(service->createClientInterface(&client_interface).isOk());
+  EXPECT_TRUE(service->createClientInterface(
+      kInterfaceName, &client_interface).isOk());
   ASSERT_NE(nullptr, client_interface.get());
   vector<uint8_t> mac_address;
   EXPECT_TRUE(client_interface->getMacAddress(&mac_address).isOk());

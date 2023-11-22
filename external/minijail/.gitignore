@@ -8,10 +8,13 @@
 *.so
 
 # Executables when compiling in-tree.
-libminijail_unittest
-minijail0
-syscall_filter_unittest
-parse_seccomp_policy
+/libminijail_unittest
+/minijail0
+/minijail0_cli_unittest
+/syscall_filter_unittest
+/system_unittest
+/util_unittest
+/parse_seccomp_policy
 
 # common.mk TEST().
 *.test

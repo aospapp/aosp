@@ -127,9 +127,10 @@
     <string name="reverting_settings" msgid="4752151682666912828">"正在還原設定…"</string>
     <string name="response_error" msgid="6674110501330139405">"網絡傳回非預期回應。"</string>
     <string name="exception_error" msgid="7027667130619518211">"網絡或 SIM 卡錯誤。"</string>
-    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"SS 要求已修改為 DIAL 要求。"</string>
-    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"SS 要求已修改為 USSD 要求。"</string>
-    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"SS 要求已修改為新的 SS 要求。"</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="4440038807310535377">"SS 要求已變更為一般通話"</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="6095812685884176176">"SS 要求已變更為 USSD 要求"</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="7920654012697945858">"已變更為新的 SS 要求"</string>
+    <string name="stk_cc_ss_to_dial_video_error" msgid="3873905132181743781">"SS 要求已變更為視像通話"</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"您的「手機」應用程式已開啟固定撥號設定，因此部分撥號相關功能無法正常運作。"</string>
     <string name="radio_off_error" msgid="2304459933248513376">"查看這些設定前，請先開啟無線電。"</string>
     <string name="close_dialog" msgid="2365884406356986917">"確定"</string>
@@ -158,16 +159,16 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"新的 PIN 包含無效字元。"</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"無法變更 PIN"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"不支援的訊息類型，撥打 <xliff:g id="NUMBER">%s</xliff:g> 即可聆聽。"</string>
-    <string name="mobile_networks" msgid="5540397602919106177">"流動網絡設定"</string>
     <string name="network_settings_title" msgid="514120489499925574">"流動網絡"</string>
     <string name="label_available" msgid="1181658289009300430">"可用的網絡"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"正在搜尋..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"找不到網絡。"</string>
-    <string name="network_query_error" msgid="6828516148953325006">"搜尋網絡時發生錯誤。"</string>
+    <string name="network_query_error" msgid="8466081377231178298">"找不到網絡，請再試一次。"</string>
     <string name="register_on_network" msgid="9055203954040805084">"正在註冊 <xliff:g id="NETWORK">%s</xliff:g>..."</string>
     <string name="not_allowed" msgid="5613353860205691579">"您的 SIM 卡無法連接這個網絡。"</string>
     <string name="connect_later" msgid="2308119155752343975">"目前無法連接這個網絡，請稍後再試。"</string>
     <string name="registration_done" msgid="495135664535876612">"已在網絡上完成註冊。"</string>
+    <string name="already_auto" msgid="6067116884321285507">"已選取自動選取功能。"</string>
     <string name="select_automatically" msgid="1046727200631770962">"自動選取網絡"</string>
     <string name="network_select_title" msgid="7733107364757544558">"網絡"</string>
     <string name="register_automatically" msgid="6017849844573519637">"自動註冊..."</string>
@@ -175,6 +176,36 @@
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"更改網絡操作模式"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"偏好的網絡類型"</string>
     <string name="forbidden_network" msgid="4384929668343563440">"(禁止)"</string>
+    <string name="choose_network_title" msgid="4023911977543009350">"選擇網絡"</string>
+    <string name="network_disconnected" msgid="2227251609006103194">"已解除連接"</string>
+    <string name="network_connected" msgid="1288589103624338857">"已連接"</string>
+    <string name="network_connecting" msgid="4927203097283533783">"正在連接…"</string>
+    <string name="network_could_not_connect" msgid="8254009365807767243">"無法連接"</string>
+  <string-array name="preferred_network_mode_choices">
+    <item msgid="3628460389382468528">"首選 GSM/WCDMA"</item>
+    <item msgid="8442633436636425221">"只限 GSM"</item>
+    <item msgid="2032314385791760810">"只限 WCDMA"</item>
+    <item msgid="6334554401059422303">"GSM/WCDMA 自動切換"</item>
+    <item msgid="1462198368200398663">"CDMA/EvDo 自動切換"</item>
+    <item msgid="3611460019185359968">"CDMA (沒有 EvDo)"</item>
+    <item msgid="545430093607698090">"只限 EvDo"</item>
+    <item msgid="4286774020869405140">"CDMA/EvDo/GSM/WCDMA"</item>
+    <item msgid="4006002265696868538">"CDMA + LTE/EvDo"</item>
+    <item msgid="8973936140318359205">"GSM/WCDMA/LTE"</item>
+    <item msgid="3471059554252610472">"全球"</item>
+    <item msgid="2882615514545171802">"LTE"</item>
+    <item msgid="8076204422288290116">"LTE/WCDMA"</item>
+    <item msgid="3982984144824159726">"只限 TDSCDMA"</item>
+    <item msgid="3686191974505922271">"TDSCDMA/WCDMA"</item>
+    <item msgid="7135671700201836475">"LTE/TDSCDMA"</item>
+    <item msgid="3736619459066330755">"TDSCDMA/GSM"</item>
+    <item msgid="4778666570887216861">"LTE/TDSCDMA/GSM"</item>
+    <item msgid="2952322596201849456">"TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="115984258536697617">"LTE/TDSCDMA/WCDMA"</item>
+    <item msgid="7957991936217192636">"LTE/TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="2828588917858484655">"TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+    <item msgid="4989979948139945854">"LTE/TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+  </string-array>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"慣用網絡模式：偏好 WCDMA"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"慣用網絡模式：僅限 GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"慣用網絡模式：僅限 WCDMA"</string>
@@ -192,21 +223,15 @@
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"首選網絡模式：LTE / GSM / UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"慣用網絡模式：LTE / CDMA"</string>
     <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"首選網絡模式：TDSCDMA"</string>
-  <string-array name="preferred_network_mode_choices">
-    <item msgid="7886739962255042385">"LTE/WCDMA"</item>
-    <item msgid="577652050447385699">"LTE"</item>
-    <item msgid="6813597571293773656">"全球"</item>
-    <item msgid="127064712132619032">"GSM/WCDMA/LTE"</item>
-    <item msgid="1126767511633425977">"CDMA + LTE/EvDo"</item>
-    <item msgid="6389676313771670660">"CDMA/EvDo/GSM/WCDMA"</item>
-    <item msgid="545430093607698090">"只限 EvDo"</item>
-    <item msgid="1508557726283094448">"CDMA (無 EvDo)"</item>
-    <item msgid="4341433122263841224">"CDMA/EvDo 自動切換"</item>
-    <item msgid="5958053792390386668">"GSM/WCDMA 自動切換"</item>
-    <item msgid="7913148405605373434">"只限 WCDMA"</item>
-    <item msgid="1524224863879435516">"只限 GSM"</item>
-    <item msgid="3817924849415716259">"首選 GSM/WCDMA"</item>
-  </string-array>
+    <string name="preferred_network_mode_tdscdma_wcdma_summary" msgid="2405154895437348623">"首選網絡模式：TDSCDMA/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_summary" msgid="2104702896644235637">"首選網絡模式：LTE/TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_summary" msgid="4893784445338396204">"首選網絡模式：TDSCDMA/GSM"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_summary" msgid="1815169717046729757">"首選網絡模式：LTE/GSM/TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_wcdma_summary" msgid="2195358773359424099">"首選網絡模式：TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_wcdma_summary" msgid="1181424059695667803">"首選網絡模式：LTE/TDSCDMA/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_wcdma_summary" msgid="2526539326505354382">"首選網絡模式：LTE/TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="8195248059196614939">"首選網絡模式：TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="5596733053095592791">"首選網絡模式：LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
     <string name="call_category" msgid="5863978196309462052">"通話"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"網絡"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"強化 4G LTE 模式"</string>
@@ -218,14 +243,16 @@
     <string name="roaming" msgid="7894878421600247140">"漫遊"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"漫遊時連線到數據服務"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"漫遊時連線到數據服務"</string>
-    <string name="roaming_reenable_message" msgid="8913735676127858115">"您已離開主網絡覆蓋範圍，且已關閉數據漫遊，因此數據連線已中斷。"</string>
+    <string name="roaming_reenable_message" msgid="6843814381576397939">"數據漫遊已關閉。輕按以開啟。"</string>
+    <string name="roaming_notification_title" msgid="4749053220884743110">"流動數據連線中斷"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"您可能需要支付龐大的費用。"</string>
+    <string name="roaming_check_price_warning" msgid="7497570906830902550">"請聯絡您的網絡供應商查詢定價。"</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"要允許數據漫遊嗎？"</string>
-    <string name="data_usage_title" msgid="8759619109516889802">"數據用量"</string>
+    <string name="data_usage_title" msgid="4042209259808900283">"應用程式數據用量"</string>
     <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_2">%2$s</xliff:g>期間使用了 <xliff:g id="ID_1">%1$s</xliff:g>流動數據"</string>
     <string name="advanced_options_title" msgid="8074895510265488035">"進階設定"</string>
     <string name="carrier_settings_euicc" msgid="6714062862127226405">"流動網絡供應商"</string>
-    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"流動網絡供應商, esim, sim, euicc"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="6861505396475991277">"流動網絡供應商, eSIM 卡, SIM 卡, euicc, 切換流動網絡供應商, 新增流動網絡供應商"</string>
     <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="mobile_data_settings_title" msgid="4661165467914727157">"流動數據"</string>
     <string name="mobile_data_settings_summary" msgid="5087255915840576895">"使用流動網絡數據"</string>
@@ -405,7 +432,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"正在刪除固定撥號…"</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"固定撥號已刪除。"</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"您所輸入的 PIN 碼不正確，FDN 未更新。"</string>
-    <string name="fdn_invalid_number" msgid="8602417141715473998">"號碼空白或超過 20 位數，FDN 未更新。"</string>
+    <string name="fdn_invalid_number" msgid="2062898833049589309">"號碼超過 20 位數，FDN 未更新。"</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN 無法更新。PIN2 碼不正確或電話號碼被拒。"</string>
     <string name="fdn_failed" msgid="540018079008319747">"FDN 操作失敗。"</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"正在從 SIM 卡讀取..."</string>
@@ -488,6 +515,7 @@
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"緊急通話時無法進入飛行模式。"</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"無法通話。<xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> 不是緊急號碼。"</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"無法通話。撥打緊急號碼。"</string>
+    <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"無法撥打緊急電話"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"使用鍵盤撥號"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"按住"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"結束"</string>
@@ -508,6 +536,9 @@
     <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"無法匯入聯絡人"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"助聽器"</string>
     <string name="hac_mode_summary" msgid="6833851160514929341">"開啟助聽器相容功能"</string>
+    <string name="rtt_mode_title" msgid="6954652435543570121">"即時文字短訊 (RTT) 通話"</string>
+    <string name="rtt_mode_summary" msgid="5146344277246544580">"允許在語音通話中傳送訊息"</string>
+    <string name="rtt_mode_more_information" msgid="6080420780730383030">"RTT 可協助耳聾、有聽力障礙、語言失能或不僅僅需要語音的通話者。&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;瞭解詳情&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - RTT 通話內容會儲存為訊息轉錄內容 \n       &lt;br&gt; - RTT 不適用於視像通話"</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"關閉 TTY"</item>
     <item msgid="3971695875449640648">"TTY 完整模式"</item>
@@ -619,4 +650,107 @@
     <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"您可以透過「<xliff:g id="PROVIDER_NAME">%s</xliff:g>」增加數據"</string>
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"增加數據"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"取消"</string>
+    <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"通話已結束"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"無線電已關閉"</string>
+    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"沒有 SIM 卡或 SIM 卡錯誤"</string>
+    <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"無法使用流動網絡"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"未指派 (未分配) 號碼"</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"沒有通往目的地的路線"</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"不允許此頻道"</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"流動網絡供應商已決定禁止"</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"一般通話清除功能"</string>
+    <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"使用者忙碌"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"使用者沒有回應"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"使用者警示，無回應"</string>
+    <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"通話被拒"</string>
+    <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"已變更號碼"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"先佔"</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"未選取使用者清除功能"</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"目的地無效"</string>
+    <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"號碼格式無效 (號碼不完整)"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"設施被拒"</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"回應狀態查詢"</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"一般，未指定"</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"線路/頻道無效"</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"網絡暫停服務"</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"暫時故障"</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"切換設備阻塞"</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"已捨棄存取權資訊"</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"無法使用要求的線路/頻道"</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"無法使用資源，未指定"</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"無法提供服務品質"</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"未導入要求的設施"</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"CUG 內禁止來電"</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"未授權承載網絡功能"</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"尚未提供承載網絡功能"</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"無法使用服務或選項，未指定"</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"未導入承載網絡服務"</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM 等於或大於 ACMmax"</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"未導入要求的設施"</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"僅提供受限數碼資訊承載網絡功能"</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"未導入服務或選項，未指定"</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"交易識別碼值無效"</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"使用者不是 CUG 成員"</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"不兼容的目的地"</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"轉接網絡選項無效"</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"訊息語意不正確"</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"必要資訊無效"</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"訊息類型不存在或未導入"</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"訊息類型與通訊協定狀態不兼容"</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"資訊元素不存在或未導入"</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"條件式 IE 錯誤"</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"訊息與通訊協定狀態不兼容"</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"在計時器到期時復原"</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"通訊協定錯誤，未指定"</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"互通功能，未指定"</string>
+    <string name="labelCallBarring" msgid="3452870940716226978">"通話限制"</string>
+    <string name="sum_call_barring_enabled" msgid="6804489690436703488">"開啟"</string>
+    <string name="sum_call_barring_disabled" msgid="5900772179198857783">"關閉"</string>
+    <string name="call_barring_baoc" msgid="1199843944333106035">"所有外撥電話"</string>
+    <string name="call_barring_baoc_enabled" msgid="8112118391869380361">"要停止封鎖所有外撥電話嗎？"</string>
+    <string name="call_barring_baoc_disabled" msgid="7806697133004697974">"要封鎖所有外撥電話嗎？"</string>
+    <string name="call_barring_baoic" msgid="3162154267825211826">"國際外撥電話"</string>
+    <string name="call_barring_baoic_enabled" msgid="2634377543147258105">"要停止封鎖所有國際外撥電話嗎？"</string>
+    <string name="call_barring_baoic_disabled" msgid="5817895648306183464">"要封鎖國際外撥電話嗎？"</string>
+    <string name="call_barring_baoicr" msgid="8951699885885742076">"國際漫遊外撥電話"</string>
+    <string name="call_barring_baoicr_enabled" msgid="2519630715322138317">"要停止封鎖所有國際漫遊外撥電話嗎？"</string>
+    <string name="call_barring_baoicr_disabled" msgid="5831267468931377699">"要封鎖國際漫遊外撥電話嗎？"</string>
+    <string name="call_barring_baic" msgid="5272726081458339912">"所有來電"</string>
+    <string name="call_barring_baic_enabled" msgid="2457134916223203380">"要停止封鎖所有來電嗎？"</string>
+    <string name="call_barring_baic_disabled" msgid="6945604947500275636">"要封鎖所有來電嗎？"</string>
+    <string name="call_barring_baicr" msgid="5728784220691481693">"國際漫遊來電"</string>
+    <string name="call_barring_baicr_enabled" msgid="6533336994391716127">"要停止封鎖所有國際漫遊來電嗎？"</string>
+    <string name="call_barring_baicr_disabled" msgid="6746329853943256566">"要封鎖國際漫遊來電嗎？"</string>
+    <string name="call_barring_deactivate_all" msgid="5269788384941003415">"全部停用"</string>
+    <string name="call_barring_deactivate_all_description" msgid="4972365443287257704">"停用所有通話限制設定"</string>
+    <string name="call_barring_deactivate_success" msgid="8014685598632000936">"已停用通話限制"</string>
+    <string name="call_barring_change_pwd" msgid="6887420609726284232">"變更密碼"</string>
+    <string name="call_barring_change_pwd_description" msgid="5505087790260233953">"變更通話限制密碼"</string>
+    <string name="call_barring_change_pwd_description_disabled" msgid="7630770327645349957">"無法變更通話限制密碼"</string>
+    <string name="call_barring_pwd_not_match" msgid="6716711689350314525">"密碼不相符"</string>
+    <string name="call_barring_right_pwd_number" msgid="2902966502520410446">"輸入 4 位數密碼"</string>
+    <string name="call_barring_change_pwd_success" msgid="3278310763742760321">"已變更密碼"</string>
+    <string name="call_barring_old_pwd" msgid="6080515987320238522">"舊密碼"</string>
+    <string name="call_barring_new_pwd" msgid="7048532299150269547">"新密碼"</string>
+    <string name="call_barring_confirm_pwd" msgid="1947167278466285411">"確認密碼"</string>
+    <string name="messageCallBarring" msgid="2412123220272136055">"輸入密碼"</string>
+    <string name="call_barring_settings" msgid="80766145008623645">"通話限制設定"</string>
+    <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"要停用所有通話限制設定嗎？"</string>
+    <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"通話已轉向。"</string>
+    <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"通話已轉駁。"</string>
+    <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"通話尚待接聽。"</string>
+    <string name="supp_service_clir_suppression_rejected" msgid="1581851661582189045">"號碼封鎖遭拒。"</string>
+    <string name="supp_service_closed_user_group_call" msgid="5761735840904590950">"已關閉使用者群組通話。"</string>
+    <string name="supp_service_incoming_calls_barred" msgid="3248813207307882723">"來電遭封鎖。"</string>
+    <string name="supp_service_outgoing_calls_barred" msgid="1962644621292054081">"撥出電話遭封鎖。"</string>
+    <string name="supp_service_call_forwarding_active" msgid="1253134771682248735">"已啟用來電轉駁。"</string>
+    <string name="supp_service_additional_call_forwarded" msgid="5228624725214727315">"已再轉駁一通來電。"</string>
+    <string name="supp_service_additional_ect_connected" msgid="6396964292513707102">"已完成明確通話轉移。"</string>
+    <string name="supp_service_additional_ect_connecting" msgid="5443373059716058480">"正在進行明確通話轉移。"</string>
+    <string name="supp_service_call_on_hold" msgid="1478976782361795422">"通話目前保留。"</string>
+    <string name="supp_service_call_resumed" msgid="1656475289958070674">"通話繼續。"</string>
+    <string name="supp_service_deflected_call" msgid="138970419873492166">"來電已轉向。"</string>
+    <string name="supp_service_forwarded_call" msgid="4509980341645679803">"來電已轉駁。"</string>
+    <string name="supp_service_conference_call" msgid="4448616364004466832">"正在加入電話會議。"</string>
+    <string name="supp_service_held_call_released" msgid="2030677825038709779">"通話已取消保留。"</string>
 </resources>

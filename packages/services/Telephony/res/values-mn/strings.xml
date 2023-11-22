@@ -127,9 +127,10 @@
     <string name="reverting_settings" msgid="4752151682666912828">"Тохиргоог буцааж байна…"</string>
     <string name="response_error" msgid="6674110501330139405">"Сүлжээний гэнэтийн хариу."</string>
     <string name="exception_error" msgid="7027667130619518211">"Сүлжээ буюу SIM картны алдаа."</string>
-    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"SS хүсэлтийг DIAL хүсэлт болгон өөрчилсөн."</string>
-    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"SS хүсэлтийг USSD хүсэлт болгон өөрчилсөн."</string>
-    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"SS хүсэлтийг шинэ SS хүсэлт болгон өөрчилсөн."</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="4440038807310535377">"SS хүсэлтийг ердийн дуудлага болгож өөрчилсөн"</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="6095812685884176176">"SS хүсэлтийг USSD хүсэлт болгон өөрчилсөн"</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="7920654012697945858">"Шинэ SS хүсэлт рүү өөрчилсөн"</string>
+    <string name="stk_cc_ss_to_dial_video_error" msgid="3873905132181743781">"SS хүсэлтийг видео дуудлага болгож өөрчилсөн"</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"Таны Phone апп-н FDN тохиргоо асаалттай байна. Тус шалтгаанаар дуудлагатай холбоотой зарим функц ажиллахгүй."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"Эдгээр тохиргоог харахын өмнө радиог асаана уу."</string>
     <string name="close_dialog" msgid="2365884406356986917">"OK"</string>
@@ -158,16 +159,16 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"Шинэ PIN-д буруу тэмдэгт агуулагдаж байна."</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"PIN-г өөрчлөх боломжгүй"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"Дэмжигдээгүй зурвасын төрөл, сонсохын тулд <xliff:g id="NUMBER">%s</xliff:g> руу залгана уу."</string>
-    <string name="mobile_networks" msgid="5540397602919106177">"Мобайль сүлжээний тохиргоо"</string>
     <string name="network_settings_title" msgid="514120489499925574">"Мобайл сүлжээ"</string>
     <string name="label_available" msgid="1181658289009300430">"Боломжтой сүлжээнүүд"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Хайж байна..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Сүлжээ олдсонгүй."</string>
-    <string name="network_query_error" msgid="6828516148953325006">"Сүлжээ хайх явцад алдаа гарлаа."</string>
+    <string name="network_query_error" msgid="8466081377231178298">"Сүлжээ олдсонгүй. Дахин оролдоно уу."</string>
     <string name="register_on_network" msgid="9055203954040805084">"Бүртгэж байна <xliff:g id="NETWORK">%s</xliff:g>…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"Таны SIM карт энэ сүлжээнд холбогдохыг зөвшөөрөхгүй байна."</string>
     <string name="connect_later" msgid="2308119155752343975">"Сүлжээнд одоо холбогдох боломжгүй байна. Дараа дахин оролдоно уу."</string>
     <string name="registration_done" msgid="495135664535876612">"Сүлжээнд бүртгэгдсэн."</string>
+    <string name="already_auto" msgid="6067116884321285507">"Аль хэдийн автомат сонголтонд байна."</string>
     <string name="select_automatically" msgid="1046727200631770962">"Сүлжээг автоматаар сонгох"</string>
     <string name="network_select_title" msgid="7733107364757544558">"Сүлжээ"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Автомат бүртгэл…"</string>
@@ -175,6 +176,36 @@
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"Сүлжээний ажиллах төлвийг өөрчлөх"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Сүлжээний үндсэн төрөл"</string>
     <string name="forbidden_network" msgid="4384929668343563440">"(хориотой)"</string>
+    <string name="choose_network_title" msgid="4023911977543009350">"Сүлжээ сонгоно уу"</string>
+    <string name="network_disconnected" msgid="2227251609006103194">"Салсан"</string>
+    <string name="network_connected" msgid="1288589103624338857">"Холбогдсон"</string>
+    <string name="network_connecting" msgid="4927203097283533783">"Холбогдож байна..."</string>
+    <string name="network_could_not_connect" msgid="8254009365807767243">"Холбогдож чадсангүй"</string>
+  <string-array name="preferred_network_mode_choices">
+    <item msgid="3628460389382468528">"GSM/WCDMA эхэнд нь"</item>
+    <item msgid="8442633436636425221">"Зөвхөн GSM"</item>
+    <item msgid="2032314385791760810">"Зөвхөн WCDMA"</item>
+    <item msgid="6334554401059422303">"GSM/WCDMA автомат"</item>
+    <item msgid="1462198368200398663">"CDMA/EvDo автомат"</item>
+    <item msgid="3611460019185359968">"CDMA w/o EvDo"</item>
+    <item msgid="545430093607698090">"Зөвхөн EvDo"</item>
+    <item msgid="4286774020869405140">"CDMA/EvDo/GSM/WCDMA"</item>
+    <item msgid="4006002265696868538">"CDMA + LTE/EvDo"</item>
+    <item msgid="8973936140318359205">"GSM/WCDMA/LTE"</item>
+    <item msgid="3471059554252610472">"Олон улсын"</item>
+    <item msgid="2882615514545171802">"LTE"</item>
+    <item msgid="8076204422288290116">"LTE / WCDMA"</item>
+    <item msgid="3982984144824159726">"Зөвхөн TDSCDMA"</item>
+    <item msgid="3686191974505922271">"TDSCDMA/WCDMA"</item>
+    <item msgid="7135671700201836475">"LTE/TDSCDMA"</item>
+    <item msgid="3736619459066330755">"TDSCDMA/GSM"</item>
+    <item msgid="4778666570887216861">"LTE/TDSCDMA/GSM"</item>
+    <item msgid="2952322596201849456">"TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="115984258536697617">"LTE/TDSCDMA/WCDMA"</item>
+    <item msgid="7957991936217192636">"LTE/TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="2828588917858484655">"TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+    <item msgid="4989979948139945854">"LTE/TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+  </string-array>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Давуу сүлжээний төлөв: WCDMA давуутай"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Давуу сүлжээний төлөв: зөвхөн GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Давуу сүлжээний төлөв: зөвхөн WCDMA"</string>
@@ -192,21 +223,15 @@
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"Хамгийн тохиромжтой горимууд: LTE / GSM / UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"Давуу сүлжээний төлөв: LTE / CDMA"</string>
     <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"Давуу сүлжээний төлөв: TDSCDMA"</string>
-  <string-array name="preferred_network_mode_choices">
-    <item msgid="7886739962255042385">"LTE / WCDMA"</item>
-    <item msgid="577652050447385699">"LTE"</item>
-    <item msgid="6813597571293773656">"Глобаль"</item>
-    <item msgid="127064712132619032">"GSM/WCDMA/LTE"</item>
-    <item msgid="1126767511633425977">"CDMA + LTE/EvDo"</item>
-    <item msgid="6389676313771670660">"CDMA/EvDo/GSM/WCDMA"</item>
-    <item msgid="545430093607698090">"Зөвхөн EvDo"</item>
-    <item msgid="1508557726283094448">"CDMA w/o EvDo"</item>
-    <item msgid="4341433122263841224">"CDMA/EvDo авто"</item>
-    <item msgid="5958053792390386668">"GSM/WCDMA авто"</item>
-    <item msgid="7913148405605373434">"Зөвхөн WCDMA"</item>
-    <item msgid="1524224863879435516">"Зөвхөн GSM"</item>
-    <item msgid="3817924849415716259">"GSM/WCDMA эхэнд нь"</item>
-  </string-array>
+    <string name="preferred_network_mode_tdscdma_wcdma_summary" msgid="2405154895437348623">"Давуу сүлжээний горим: TDSCDMA / WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_summary" msgid="2104702896644235637">"Давуу сүлжээний горим: LTE / TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_summary" msgid="4893784445338396204">":Давуу сүлжээний горим: TDSCDMA / GSM"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_summary" msgid="1815169717046729757">"Давуу сүлжээний горим: LTE/GSM/TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_wcdma_summary" msgid="2195358773359424099">"Давуу сүлжээний горим: TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_wcdma_summary" msgid="1181424059695667803">"Давуу сүлжээний горим LTE/TDSCDMA/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_wcdma_summary" msgid="2526539326505354382">"Давуу сүлжээний горим: LTE/TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="8195248059196614939">"Давуу сүлжээний төлөв: CDMA/EvDo/GSM/WCDMAj"</string>
+    <string name="preferred_network_mode_lte_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="5596733053095592791">"Давуу сүлжээний горим: LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
     <string name="call_category" msgid="5863978196309462052">"Залгаж байна"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"Сүлжээ"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Сайжруулсан 4G LTE горим"</string>
@@ -218,14 +243,16 @@
     <string name="roaming" msgid="7894878421600247140">"Роуминг"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Роумингтэй үед дата үйлчилгээнд холбогдох"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Роумингтэй үед дата үйлчилгээнд холбогдох"</string>
-    <string name="roaming_reenable_message" msgid="8913735676127858115">"Та төрөлх сүлжээнээс дата роумингыг унтраагаад гарсан тул дата холболтоо алдлаа."</string>
+    <string name="roaming_reenable_message" msgid="6843814381576397939">"Дата роуминг унтарсан байна. Асаах бол товшино уу."</string>
+    <string name="roaming_notification_title" msgid="4749053220884743110">"Мобайл дата холболт салсан"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"Таны төлбөр өндөр гарах магадлалтайг анхааруулж байна."</string>
+    <string name="roaming_check_price_warning" msgid="7497570906830902550">"Үнийг нь өөрийн сүлжээний нийлүүлэгчээс шалгана уу."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Дата роуминг үйлчилгээг идэвхжүүлэх үү?"</string>
-    <string name="data_usage_title" msgid="8759619109516889802">"Дата ашиглалт"</string>
+    <string name="data_usage_title" msgid="4042209259808900283">"Аппын дата ашиглалт"</string>
     <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_1">%1$s</xliff:g> мобайл дата ашигласан <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="8074895510265488035">"Нарийвчилсан"</string>
     <string name="carrier_settings_euicc" msgid="6714062862127226405">"Оператор компани"</string>
-    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"carrier, esim, sim, euicc"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="6861505396475991277">"үүрэн холбооны компани, esim, sim, euicc, үүрэн холбооны компани сэлгэх, үүрэн холбооны компани нэмэх"</string>
     <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="mobile_data_settings_title" msgid="4661165467914727157">"Мобайл дата"</string>
     <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Мобайл сүлжээг ашиглан датанд хандах"</string>
@@ -399,7 +426,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"Тогтвортой залгах дугаарыг устгаж байна…"</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"Тогтвортой залгах дугаарыг устгав."</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"Та буруу PIN оруулсан учир FDN шинэчлэгдсэнгүй."</string>
-    <string name="fdn_invalid_number" msgid="8602417141715473998">"Дугаар хоосон, эсвэл 20 цифрээс хэтэрсэн учир FDN шинэчлэгдээгүй."</string>
+    <string name="fdn_invalid_number" msgid="2062898833049589309">"Дугаар 20 цифрээс хэтэрсэн учир FDN шинэчлэгдээгүй."</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN шинэчлэгдсэнгүй. PIN2 буруу байсан, эсхүл утасны дугаар зөвшөөрөгдсөнгүй."</string>
     <string name="fdn_failed" msgid="540018079008319747">"ФДН ажиллуулах амжилтгүй."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"SIM картаас уншиж байна…"</string>
@@ -482,6 +509,7 @@
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Яаралтай дуудлагын дундуур нислэгийн горимд шилжих боломжгүй."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"Дуудлага хийх боломжгүй. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> нь түргэн тусламжийн дугаар биш байна."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Дуудлага хийх боломжгүй. Түргэн тусламжийн дугаар луу залга."</string>
+    <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"Яаралтай тусламжийн дуудлага хийх боломжгүй"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Залгахдаа гар ашиглах"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"Саатуулах"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"Дуусгах"</string>
@@ -502,6 +530,9 @@
     <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"Харилцагчийн жагсаалтыг импортолж чадсангүй"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"Сонсголын төхөөрөмж"</string>
     <string name="hac_mode_summary" msgid="6833851160514929341">"Сонсголын төхөөрөмж тааруулагчийг асаана уу"</string>
+    <string name="rtt_mode_title" msgid="6954652435543570121">"Шууд мессежлэх (RTT) дуудлага"</string>
+    <string name="rtt_mode_summary" msgid="5146344277246544580">"Дуудлагын дотор зурвас бичихийг зөвшөөрөх"</string>
+    <string name="rtt_mode_more_information" msgid="6080420780730383030">"RTT нь дүлий, хатуу чихтэй, хэл ярианы хөгжлийн бэрхшээлтэй, эсвэл хэн нэгний тусламжтай ярьдаг дуудлага хийгчдэд тусладаг.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Дэлгэрэнгүй үзэх&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - RTT дуудлага нь зурвасын сийрүүлэг хэлбэрээр хадгалагдана\n       &lt;br&gt; - RTT нь видео дуудлага хийхэд боломжгүй"</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"TTY Унтраасан"</item>
     <item msgid="3971695875449640648">"TTY Дүүрэн"</item>
@@ -613,4 +644,107 @@
     <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Та <xliff:g id="PROVIDER_NAME">%s</xliff:g>-р дамжуулан дата нэмэх шаардлагатай болж магадгүй"</string>
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"ДАТА НЭМЭХ"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ЦУЦЛАХ"</string>
+    <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"Дуудлага дууссан"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"Радио идэвхгүй"</string>
+    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"SIM карт байхгүй эсвэл SIM картын алдаа"</string>
+    <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"Мобайл сүлжээ байхгүй"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"Оноогоогүй (хуваарилаагүй) дугаар"</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"Чиглэлд хүрэх замнал байхгүй"</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"Сувгийг хүлээн авах боломжгүй"</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"Оператор саатуулсан гэж тодорхойлсон"</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"Энгийн дуудлага арилгалт"</string>
+    <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"Хэрэглэгч завгүй"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"Хариу өгөх хэрэглэгч байхгүй"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"Хэрэглэгчийн анхааруулга, хариу байхгүй"</string>
+    <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"Дуудлагыг тасалсан"</string>
+    <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"Дугаар өөрчлөгдсөн"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"Давуу эрх"</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"Сонгосон хэрэглэгчийн арилгалт байхгүй"</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"Чиглэл ажиллагаагүй"</string>
+    <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"Дугаарын формат буруу (дугаар дутуу)"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"Төхөөрөмж татгалзсан"</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"ТӨЛӨВИЙН ХҮСЭЛТИЙН хариу"</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"Энгийн, тодорхойлоогүй"</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"Боломжтой сүлжээ/суваг байхгүй"</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"Сүлжээ ажиллагаагүй"</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"Түр зуурын алдаа"</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"Сэлгэх төхөөрөмж гацсан"</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"Хандалтын мэдээллийг устгасан"</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"Хүссэн сүлжээ/сувгийг ашиглах боломжгүй"</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"Ашиглах боломжтой нөөц байхгүй, тодорхойлоогүй"</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"Үйлчилгээний чанарыг ашиглах боломжгүй"</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"Хүссэн төхөөрөмж бүртгэгдээгүй"</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"Ирж буй дуудлага CUG дотор саатсан"</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"Эзэмшигчийн чадавхийг зөвшөөрөөгүй"</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"Эзэмшигчийн чадавхийг одоогоор мэдэх боломжгүй"</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"Үйлчилгээ эсвэл сонголт байхгүй, тодорхойлоогүй"</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"Эзэмшигчийн үйлчилгээ хийгдээгүй"</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM нь ACMmax-с их буюу тэнцүү"</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"Хүссэн төхөөрөмж ажиллаагүй"</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"Зөвхөн хязгаарлагдмал дижитал мэдээлэл эзэмшигчийн чадавхийг ашиглах боломжтой"</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"Үйлчилгээ эсвэл сонголтыг гүйцэтгээгүй, тодорхойлоогүй"</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"Гүйлгээний таниулагчийн утга буруу"</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"Хэрэглэгч CUG-н гишүүн биш"</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"Нийцэхгүй чиглэл"</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"Дамжих сүлжээний сонголт буруу"</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"Утгын хувьд буруу зурвас"</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"Заавал байх мэдээлэл буруу"</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"Зурвасын төрөл байхгүй эсвэл хэрэгжээгүй"</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"Зурвасын төрөл протоколын горимтой нийцэхгүй"</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"Мэдээллийн бүрдэл байхгүй эсвэл хэрэгжээгүй"</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"Нөхцөлт IE алдаа"</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"Зурвас протоколын горимтой нийцэхгүй"</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"Хугацаа хэмжигч дуусах үед сэргээх"</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"Протоколын алдаа, тодорхойлоогүй"</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"Харилцан үйлчилж буй, тодорхойлоогүй"</string>
+    <string name="labelCallBarring" msgid="3452870940716226978">"Дуудлага хаах"</string>
+    <string name="sum_call_barring_enabled" msgid="6804489690436703488">"Идэвхтэй"</string>
+    <string name="sum_call_barring_disabled" msgid="5900772179198857783">"Идэвхгүй"</string>
+    <string name="call_barring_baoc" msgid="1199843944333106035">"Бүх гарч буй"</string>
+    <string name="call_barring_baoc_enabled" msgid="8112118391869380361">"Бүх гарч буй дуудлагыг хориглохыг идэвхгүй болгох уу?"</string>
+    <string name="call_barring_baoc_disabled" msgid="7806697133004697974">"Бүх гарч буй дуудлагыг хориглох уу?"</string>
+    <string name="call_barring_baoic" msgid="3162154267825211826">"Гарч буй олон улсын"</string>
+    <string name="call_barring_baoic_enabled" msgid="2634377543147258105">"Гарч буй олон улсын дуудлагуудыг хориглохыг идэвхгүй болгох уу?"</string>
+    <string name="call_barring_baoic_disabled" msgid="5817895648306183464">"Гарч буй олон улсын дуудлагуудыг хориглох уу?"</string>
+    <string name="call_barring_baoicr" msgid="8951699885885742076">"Гарч буй олон улсын роуминг"</string>
+    <string name="call_barring_baoicr_enabled" msgid="2519630715322138317">"Гарч буй олон улсын роумингыг хориглохыг идэвхгүй болгох уу?"</string>
+    <string name="call_barring_baoicr_disabled" msgid="5831267468931377699">"Гарч буй олон улсын роумингыг хориглох уу?"</string>
+    <string name="call_barring_baic" msgid="5272726081458339912">"Бүх ирж буй"</string>
+    <string name="call_barring_baic_enabled" msgid="2457134916223203380">"Бүх ирж буй дуудлагыг хориглохыг идэвхгүй болгох уу?"</string>
+    <string name="call_barring_baic_disabled" msgid="6945604947500275636">"Бүх ирж буй дуудлагыг хориглох уу?"</string>
+    <string name="call_barring_baicr" msgid="5728784220691481693">"Ирж буй олон улсын роуминг"</string>
+    <string name="call_barring_baicr_enabled" msgid="6533336994391716127">"Бүх ирж буй олон улсын роумингыг хориглохыг идэвхгүй болгох уу?"</string>
+    <string name="call_barring_baicr_disabled" msgid="6746329853943256566">"Ирж буй олон улсын роумингыг хориглох уу?"</string>
+    <string name="call_barring_deactivate_all" msgid="5269788384941003415">"Бүгдийг идэвхгүй болгох"</string>
+    <string name="call_barring_deactivate_all_description" msgid="4972365443287257704">"Бүх дуудлага хаах тохиргоог идэвхгүй болгох"</string>
+    <string name="call_barring_deactivate_success" msgid="8014685598632000936">"Дуудлага хаахыг идэвхгүй болгосон"</string>
+    <string name="call_barring_change_pwd" msgid="6887420609726284232">"Нууц үг солих"</string>
+    <string name="call_barring_change_pwd_description" msgid="5505087790260233953">"Дуудлага хаах нууц үгийг өөрчлөх"</string>
+    <string name="call_barring_change_pwd_description_disabled" msgid="7630770327645349957">"Дуудлага хаах нууц үгийг өөрчлөх боломжгүй."</string>
+    <string name="call_barring_pwd_not_match" msgid="6716711689350314525">"Нууц үг таарахгүй байна"</string>
+    <string name="call_barring_right_pwd_number" msgid="2902966502520410446">"4 дугаартай нууц үг оруулна уу"</string>
+    <string name="call_barring_change_pwd_success" msgid="3278310763742760321">"Нууц үгийг өөрчилсөн"</string>
+    <string name="call_barring_old_pwd" msgid="6080515987320238522">"Хуучин нууц үг"</string>
+    <string name="call_barring_new_pwd" msgid="7048532299150269547">"Шинэ нууц үг"</string>
+    <string name="call_barring_confirm_pwd" msgid="1947167278466285411">"Нууц үг баталгаажуулах"</string>
+    <string name="messageCallBarring" msgid="2412123220272136055">"Нууц үг оруулна уу"</string>
+    <string name="call_barring_settings" msgid="80766145008623645">"Дуудлага хаах тохиргоо"</string>
+    <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"Бүх дуудлага хаах тохиргоог идэвхгүй болгох уу?"</string>
+    <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"Дуудлагыг шилжүүлсэн."</string>
+    <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"Дуудлагыг дамжуулсан."</string>
+    <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"Дуудлагыг хүлээлгэж байна."</string>
+    <string name="supp_service_clir_suppression_rejected" msgid="1581851661582189045">"Дугаар хориглохоос татгалзсан."</string>
+    <string name="supp_service_closed_user_group_call" msgid="5761735840904590950">"Хаалттай хэрэглэгчийн групп дуудлага."</string>
+    <string name="supp_service_incoming_calls_barred" msgid="3248813207307882723">"Ирж буй дуудлагыг хаасан."</string>
+    <string name="supp_service_outgoing_calls_barred" msgid="1962644621292054081">"Гарах дуудлагыг хаасан."</string>
+    <string name="supp_service_call_forwarding_active" msgid="1253134771682248735">"Дуудлага дамжуулахыг идэвхжүүлсэн."</string>
+    <string name="supp_service_additional_call_forwarded" msgid="5228624725214727315">"Нэмэлт дуудлагыг дамжуулсан."</string>
+    <string name="supp_service_additional_ect_connected" msgid="6396964292513707102">"Ил дуудлагыг шилжүүлж дууссан."</string>
+    <string name="supp_service_additional_ect_connecting" msgid="5443373059716058480">"Ил дуудлагыг шилжүүлж байна."</string>
+    <string name="supp_service_call_on_hold" msgid="1478976782361795422">"Дуудлага хүлээлгэсэн."</string>
+    <string name="supp_service_call_resumed" msgid="1656475289958070674">"Дуудлагыг үргэлжлүүлсэн."</string>
+    <string name="supp_service_deflected_call" msgid="138970419873492166">"Дуудлагыг шилжүүлсэн."</string>
+    <string name="supp_service_forwarded_call" msgid="4509980341645679803">"Дамжуулсан дуудлага."</string>
+    <string name="supp_service_conference_call" msgid="4448616364004466832">"Хурлын дуудлагад нэгдэж байна."</string>
+    <string name="supp_service_held_call_released" msgid="2030677825038709779">"Хүлээлгэсэн дуудлагыг холбосон."</string>
 </resources>

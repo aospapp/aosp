@@ -32,6 +32,8 @@
 
 namespace test {
 
+constexpr int SHA256_SIZE = 32;
+
 /*
  * Simple DNS over TLS reverse proxy that forwards to a UDP backend.
  * Only handles a single request at a time.
@@ -59,6 +61,8 @@ public:
     bool stopServer();
     int queries() const { return queries_; }
     bool waitForQueries(int number, int timeoutMs) const;
+    void set_chain_length(int length) { chain_length_ = length; }
+    // Represents a fingerprint from the middle of the certificate chain.
     const std::vector<uint8_t>& fingerprint() const { return fingerprint_; }
 
 private:
@@ -73,9 +77,10 @@ private:
     int socket_ = -1;
     int backend_socket_ = -1;
     std::atomic<int> queries_;
-    std::atomic<bool> terminate_ GUARDED_BY(update_mutex_);
+    std::atomic<bool> terminate_;
     std::thread handler_thread_ GUARDED_BY(update_mutex_);
     std::mutex update_mutex_;
+    int chain_length_ = 1;
     std::vector<uint8_t> fingerprint_;
 };
 

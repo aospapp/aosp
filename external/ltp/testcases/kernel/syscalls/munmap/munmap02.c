@@ -76,6 +76,7 @@
 #include <sys/mman.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 #define TEMPFILE	"mmapfile"
 
@@ -185,10 +186,7 @@ void setup(void)
 	 * move the file pointer to maplength position from the beginning
 	 * of the file.
 	 */
-	if (lseek(fildes, map_len, SEEK_SET) == -1) {
-		tst_brkm(TBROK, cleanup, "lseek() fails on %s, errno=%d : %s",
-			 TEMPFILE, errno, strerror(errno));
-	}
+	SAFE_LSEEK(cleanup, fildes, map_len, SEEK_SET);
 
 	/* Write one byte into temporary file */
 	if (write(fildes, "a", 1) != 1) {
@@ -263,16 +261,10 @@ void cleanup(void)
 	map_len = map_len - page_sz;
 
 	/* unmap the portion of the region of the file left unmapped */
-	if (munmap(addr, map_len) < 0) {
-		tst_brkm(TBROK, NULL,
-			 "munmap() fails to unmap portion of mapped region");
-	}
+	SAFE_MUNMAP(NULL, addr, map_len);
 
 	/* Close the temporary file */
-	if (close(fildes) < 0) {
-		tst_brkm(TBROK, NULL, "close() on %s Failed, errno=%d : %s",
-			 TEMPFILE, errno, strerror(errno));
-	}
+	SAFE_CLOSE(NULL, fildes);
 
 	tst_rmdir();
 }

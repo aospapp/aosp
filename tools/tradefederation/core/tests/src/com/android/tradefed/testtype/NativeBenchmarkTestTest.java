@@ -19,22 +19,24 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.android.ddmlib.FileListingService;
-import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.IFileEntry;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
+import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Unit tests for {@link NativeBenchmarkTest}
- */
+/** Unit tests for {@link NativeBenchmarkTest}. */
+@RunWith(JUnit4.class)
 public class NativeBenchmarkTestTest {
 
     private NativeBenchmarkTest mBenchmark;
@@ -98,14 +100,17 @@ public class NativeBenchmarkTestTest {
 
     @Test
     public void testRun_setMaxFrequency() throws Exception {
-        mBenchmark = new NativeBenchmarkTest() {
-            @Override
-            protected void doRunAllTestsInSubdirectory(
-                    IFileEntry rootEntry, ITestDevice testDevice, ITestRunListener listener)
-                    throws DeviceNotAvailableException {
-                // empty on purpose
-            }
-        };
+        mBenchmark =
+                new NativeBenchmarkTest() {
+                    @Override
+                    protected void doRunAllTestsInSubdirectory(
+                            IFileEntry rootEntry,
+                            ITestDevice testDevice,
+                            ITestInvocationListener listener)
+                            throws DeviceNotAvailableException {
+                        // empty on purpose
+                    }
+                };
         mBenchmark.setDevice(mDevice);
         OptionSetter setter = new OptionSetter(mBenchmark);
         setter.setOptionValue("max-cpu-freq", "true");
@@ -140,7 +145,7 @@ public class NativeBenchmarkTestTest {
         EasyMock.expectLastCall();
         mListener.testRunStarted(EasyMock.eq(fakeRunName), EasyMock.anyInt());
         EasyMock.expectLastCall();
-        mListener.testRunEnded(EasyMock.anyLong(), EasyMock.anyObject());
+        mListener.testRunEnded(EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
         EasyMock.expectLastCall();
         replayMocks(fakeEntry);
         mBenchmark.run(mListener);

@@ -16,12 +16,12 @@
 
 package com.android.documentsui.dirlist;
 
+import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
+
 import android.content.Context;
+import android.view.MotionEvent;
 import android.view.ViewGroup;
 import android.widget.Space;
-
-import com.android.documentsui.base.DocumentInfo;
-import com.android.documentsui.base.Events.InputEvent;
 
 /**
  * Base class for all non-Document Holder classes.
@@ -36,12 +36,7 @@ abstract class MessageHolder extends DocumentHolder {
     }
 
     @Override
-    public boolean isInSelectionHotspot(InputEvent event) {
-        return false;
-    }
-
-    @Override
-    public boolean isInDragHotspot(InputEvent event) {
-        return false;
+    public ItemDetails getItemDetails() {
+        return null;
     }
 }

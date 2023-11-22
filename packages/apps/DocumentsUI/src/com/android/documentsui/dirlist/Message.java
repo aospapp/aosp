@@ -159,7 +159,7 @@ abstract class Message {
 
         private void updateToCantDisplayContentMessage() {
             update(mEnv.getContext().getResources().getText(R.string.cant_display_content), null,
-                    mEnv.getContext().getDrawable(R.drawable.cabinet));
+                    mEnv.getContext().getDrawable(R.drawable.empty));
         }
 
         private void updateToInflatedEmptyMessage() {
@@ -172,7 +172,7 @@ abstract class Message {
             } else {
                 message = mEnv.getContext().getResources().getText(R.string.empty);
             }
-            update(message, null, mEnv.getContext().getDrawable(R.drawable.cabinet));
+            update(message, null, mEnv.getContext().getDrawable(R.drawable.empty));
         }
     }
 }

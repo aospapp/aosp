@@ -9,7 +9,7 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_MODULE:= test-fb-refresh
 
-LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter
 
 include $(BUILD_EXECUTABLE)
 
@@ -20,5 +20,5 @@ LOCAL_SRC_FILES := fb_test.c
 LOCAL_MODULE = test-fb-simple
 LOCAL_FORCE_STATIC_EXECUTABLE := true
 LOCAL_STATIC_LIBRARIES := libc
-LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter
 include $(BUILD_EXECUTABLE)

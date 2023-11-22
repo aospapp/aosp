@@ -36,6 +36,12 @@
 @*
 @*******************************************************************************/
 
+.equ    qp_offset_u_offset,     40
+.equ    qp_offset_v_offset,     44
+.equ    tc_offset_div2_offset,  48
+.equ    filter_p_offset,        52
+.equ    filter_q_offset,        56
+
 .text
 .align 4
 
@@ -62,17 +68,17 @@ ihevc_deblk_chroma_horz_a9q:
     add         r6,r0,r1
     add         r1,r2,r3
     vmovl.u8    q0,d0
-    ldr         r10,[sp,#0x28]
+    ldr         r10,[sp,#qp_offset_u_offset]
     vld1.8      {d2},[r12]
     add         r2,r1,#1
-    ldr         r4,[sp,#0x30]
+    ldr         r4,[sp,#tc_offset_div2_offset]
     vld1.8      {d4},[r5]
-    ldr         r8,[sp,#0x34]
+    ldr         r8,[sp,#filter_p_offset]
     vld1.8      {d16},[r6]
-    ldr         r9,[sp,#0x38]
+    ldr         r9,[sp,#filter_q_offset]
     adds        r1,r10,r2,asr #1
     vmovl.u8    q1,d2
-    ldr         r7,[sp,#0x2c]
+    ldr         r7,[sp,#qp_offset_v_offset]
     ldr         r3,gai4_ihevc_qp_table_addr
 ulbl1:
     add         r3, r3, pc

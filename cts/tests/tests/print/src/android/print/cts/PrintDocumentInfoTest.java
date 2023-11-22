@@ -16,6 +16,11 @@
 
 package android.print.cts;
 
+import static android.print.test.Utils.eventually;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import android.os.ParcelFileDescriptor;
 import android.print.PageRange;
 import android.print.PrintAttributes;
@@ -29,14 +34,16 @@ import android.print.PrintDocumentInfo;
 import android.print.PrinterCapabilitiesInfo;
 import android.print.PrinterId;
 import android.print.PrinterInfo;
-import android.print.cts.services.FirstPrintService;
-import android.print.cts.services.PrintServiceCallbacks;
-import android.print.cts.services.PrinterDiscoverySessionCallbacks;
-import android.print.cts.services.SecondPrintService;
-import android.print.cts.services.StubbablePrinterDiscoverySession;
+import android.print.test.BasePrintTest;
+import android.print.test.services.FirstPrintService;
+import android.print.test.services.PrintServiceCallbacks;
+import android.print.test.services.PrinterDiscoverySessionCallbacks;
+import android.print.test.services.SecondPrintService;
+import android.print.test.services.StubbablePrinterDiscoverySession;
 import android.printservice.PrintJob;
 import android.printservice.PrintService;
 import android.support.test.runner.AndroidJUnit4;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,16 +52,12 @@ import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-import static android.print.cts.Utils.eventually;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
 /**
  * This test verifies that the system respects the {@link PrintDocumentAdapter}
  * contract and invokes all callbacks as expected.
  */
 @RunWith(AndroidJUnit4.class)
-public class PrintDocumentInfoTest extends android.print.cts.BasePrintTest {
+public class PrintDocumentInfoTest extends BasePrintTest {
     private static boolean sIsDefaultPrinterSet;
 
     @Before

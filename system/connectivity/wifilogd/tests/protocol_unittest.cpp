@@ -33,6 +33,27 @@ namespace wifilogd {
 //     2. We need to maintain compatibility with older clients talking to
 //        newer versions of wifilogd.
 
+TEST(ProtocolTest, AsciiMessageChainingWorks) {
+  using protocol::AsciiMessage;
+  uint8_t tagLen = 3;
+  uint16_t dataLen = 7;
+  const auto ascii_message_header =
+      AsciiMessage().set_tag_len(tagLen).set_data_len(dataLen);
+  EXPECT_EQ(tagLen, ascii_message_header.tag_len);
+  EXPECT_EQ(dataLen, ascii_message_header.data_len);
+}
+
+TEST(ProtocolTest, AsciiMessageNonChainingWorks) {
+  using protocol::AsciiMessage;
+  uint8_t tagLen = 3;
+  uint16_t dataLen = 7;
+  AsciiMessage ascii_message_header = AsciiMessage();
+  ascii_message_header.set_tag_len(tagLen);
+  ascii_message_header.set_data_len(dataLen);
+  EXPECT_EQ(tagLen, ascii_message_header.tag_len);
+  EXPECT_EQ(dataLen, ascii_message_header.data_len);
+}
+
 TEST(ProtocolTest, AsciiMessageLayoutIsUnchanged) {
   using protocol::AsciiMessage;
   ASSERT_TRUE(std::is_standard_layout<AsciiMessage>::value);

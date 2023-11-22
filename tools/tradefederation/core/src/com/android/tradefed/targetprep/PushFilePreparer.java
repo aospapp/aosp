@@ -18,6 +18,7 @@ package com.android.tradefed.targetprep;
 
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.Log;
+import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.config.Option;
@@ -34,11 +35,12 @@ import java.util.Collection;
 /**
  * A {@link ITargetPreparer} that attempts to push any number of files from any host path to any
  * device path.
- * <p />
- * Should be performed *after* a new build is flashed, and *after* DeviceSetup is run (if enabled)
+ *
+ * <p>Should be performed *after* a new build is flashed, and *after* DeviceSetup is run (if
+ * enabled)
  */
 @OptionClass(alias = "push-file")
-public class PushFilePreparer implements ITargetCleaner {
+public class PushFilePreparer extends BaseTargetPreparer implements ITargetCleaner {
     private static final String LOG_TAG = "PushFilePreparer";
     private static final String MEDIA_SCAN_INTENT =
             "am broadcast -a android.intent.action.MEDIA_MOUNTED -d file://%s "
@@ -104,7 +106,17 @@ public class PushFilePreparer implements ITargetCleaner {
         }
 
         if (buildInfo instanceof IDeviceBuildInfo) {
-            File testsDir = ((IDeviceBuildInfo) buildInfo).getTestsDir();
+            IDeviceBuildInfo deviceBuild = (IDeviceBuildInfo) buildInfo;
+            // If it exists always look first in the ANDROID_TARGET_OUT_TESTCASES
+            File targetTestCases = deviceBuild.getFile(BuildInfoFileKey.TARGET_LINKED_DIR);
+            if (targetTestCases != null) {
+                src = FileUtil.findFile(targetTestCases, fileName);
+            }
+            if (src != null && src.exists()) {
+                return src;
+            }
+            // Search the full tests dir if no target dir is available.
+            File testsDir = deviceBuild.getTestsDir();
             return FileUtil.findFile(testsDir, fileName);
         }
         return null;

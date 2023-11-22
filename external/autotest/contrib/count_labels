@@ -23,6 +23,7 @@ Standard input to this command is the output of some variant of
 category of label to be counted:
   -p: Count \"pool:\" label values.
   -b: Count \"board:\" label values.
+  -m: Count \"model:\" label values.
   -v: Count \"variant:\" label values.
   -l <label>: Count values of labels named \"<label>:\"
 
@@ -51,10 +52,11 @@ usage() {
 
 COUNT=0
 ERR=0
-while getopts 'hpbvl:' flag; do
+while getopts 'hpbmvl:' flag; do
     case $flag in
         p) LABEL=pool ;;
         b) LABEL=board ;;
+        m) LABEL=model ;;
         v) LABEL=variant ;;
         l) LABEL=$OPTARG ;;
         h|\?) ERR=1 ;;

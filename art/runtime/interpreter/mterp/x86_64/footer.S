@@ -98,10 +98,9 @@ MterpException:
     call    SYMBOL(MterpHandleException)
     testb   %al, %al
     jz      MterpExceptionReturn
-    movq    OFF_FP_CODE_ITEM(rFP), %rax
+    movq    OFF_FP_DEX_INSTRUCTIONS(rFP), %rax
     mov     OFF_FP_DEX_PC(rFP), %ecx
-    leaq    CODEITEM_INSNS_OFFSET(%rax), rPC
-    leaq    (rPC, %rcx, 2), rPC
+    leaq    (%rax, %rcx, 2), rPC
     movq    rPC, OFF_FP_DEX_PC_PTR(rFP)
     /* Do we need to switch interpreters? */
     call    SYMBOL(MterpShouldSwitchInterpreters)
@@ -152,7 +151,7 @@ MterpCommonTakenBranch:
 .L_resume_backward_branch:
     movq    rSELF, %rax
     testl   $$(THREAD_SUSPEND_OR_CHECKPOINT_REQUEST), THREAD_FLAGS_OFFSET(%rax)
-    REFRESH_IBASE
+    REFRESH_IBASE_REG %rax
     leaq    (rPC, rINSTq, 2), rPC
     FETCH_INST
     jnz     .L_suspend_request_pending

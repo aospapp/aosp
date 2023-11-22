@@ -100,7 +100,7 @@
     <string name="status_connection_error" msgid="947681831523219891">"Ühendus ebaõnnestus."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"Taotlust ei saa õigesti käsitleda."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Tundmatu viga."</string>
-    <string name="btopp_live_folder" msgid="7967791481444474554">"Bluetooth vastu võetud"</string>
+    <string name="btopp_live_folder" msgid="7967791481444474554">"Bluetoothiga vastu võetud"</string>
     <string name="opp_notification_group" msgid="3486303082135789982">"Jagamine Bluetoothiga"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> vastuvõtmine lõpetatud."</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> saatmine lõpetatud."</string>
@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"Bluetoothi heli on ühendatud"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Bluetoothi heli ühendus on katkestatud"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetoothi heli"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Faile, mis on üle 4 GB, ei saa üle kanda"</string>
 </resources>

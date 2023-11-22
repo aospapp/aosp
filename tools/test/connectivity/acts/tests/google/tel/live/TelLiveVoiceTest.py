@@ -18,20 +18,13 @@
 """
 
 import time
-import os
+
+from acts import signals
 from acts.test_decorators import test_tracker_info
-from acts.test_utils.tel.tel_subscription_utils import \
-    get_subid_from_slot_index
-from acts.test_utils.tel.tel_subscription_utils import set_subid_for_data
-from acts.test_utils.tel.tel_subscription_utils import \
-    set_subid_for_message
-from acts.test_utils.tel.tel_subscription_utils import \
-    set_subid_for_outgoing_call
 from acts.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts.test_utils.tel.tel_defines import DIRECTION_MOBILE_ORIGINATED
 from acts.test_utils.tel.tel_defines import DIRECTION_MOBILE_TERMINATED
 from acts.test_utils.tel.tel_defines import GEN_2G
-from acts.test_utils.tel.tel_defines import GEN_3G
 from acts.test_utils.tel.tel_defines import GEN_4G
 from acts.test_utils.tel.tel_defines import CALL_STATE_ACTIVE
 from acts.test_utils.tel.tel_defines import CALL_STATE_HOLDING
@@ -40,14 +33,9 @@ from acts.test_utils.tel.tel_defines import MAX_WAIT_TIME_NW_SELECTION
 from acts.test_utils.tel.tel_defines import NETWORK_SERVICE_DATA
 from acts.test_utils.tel.tel_defines import PHONE_TYPE_CDMA
 from acts.test_utils.tel.tel_defines import PHONE_TYPE_GSM
-from acts.test_utils.tel.tel_defines import RAT_3G
-from acts.test_utils.tel.tel_defines import RAT_FAMILY_WLAN
-from acts.test_utils.tel.tel_defines import WAIT_TIME_ANDROID_STATE_SETTLING
-from acts.test_utils.tel.tel_defines import WAIT_TIME_CHANGE_DATA_SUB_ID
 from acts.test_utils.tel.tel_defines import WAIT_TIME_IN_CALL
 from acts.test_utils.tel.tel_defines import WAIT_TIME_IN_CALL_FOR_IMS
 from acts.test_utils.tel.tel_defines import WFC_MODE_CELLULAR_PREFERRED
-from acts.test_utils.tel.tel_defines import WFC_MODE_DISABLED
 from acts.test_utils.tel.tel_defines import WFC_MODE_WIFI_ONLY
 from acts.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
 from acts.test_utils.tel.tel_subscription_utils import \
@@ -57,31 +45,25 @@ from acts.test_utils.tel.tel_subscription_utils import \
 from acts.test_utils.tel.tel_test_utils import call_setup_teardown
 from acts.test_utils.tel.tel_test_utils import \
     call_voicemail_erase_all_pending_voicemail
-from acts.test_utils.tel.tel_test_utils import \
-    ensure_network_generation_for_subscription
 from acts.test_utils.tel.tel_test_utils import active_file_download_task
 from acts.utils import adb_shell_ping
-from acts.test_utils.tel.tel_test_utils import ensure_wifi_connected
 from acts.test_utils.tel.tel_test_utils import ensure_network_generation
+from acts.test_utils.tel.tel_test_utils import get_mobile_data_usage
 from acts.test_utils.tel.tel_test_utils import get_phone_number
 from acts.test_utils.tel.tel_test_utils import hangup_call
 from acts.test_utils.tel.tel_test_utils import initiate_call
-from acts.test_utils.tel.tel_test_utils import is_droid_in_rat_family
 from acts.test_utils.tel.tel_test_utils import multithread_func
 from acts.test_utils.tel.tel_test_utils import num_active_calls
 from acts.test_utils.tel.tel_test_utils import phone_number_formatter
+from acts.test_utils.tel.tel_test_utils import remove_mobile_data_usage_limit
 from acts.test_utils.tel.tel_test_utils import run_multithread_func
-from acts.test_utils.tel.tel_test_utils import set_call_state_listen_level
+from acts.test_utils.tel.tel_test_utils import set_mobile_data_usage_limit
 from acts.test_utils.tel.tel_test_utils import set_phone_number
-from acts.test_utils.tel.tel_test_utils import set_wfc_mode
-from acts.test_utils.tel.tel_test_utils import setup_sim
-from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts.test_utils.tel.tel_test_utils import verify_http_connection
 from acts.test_utils.tel.tel_test_utils import verify_incall_state
 from acts.test_utils.tel.tel_test_utils import wait_for_cell_data_connection
 from acts.test_utils.tel.tel_test_utils import wait_for_ringing_call
-from acts.test_utils.tel.tel_test_utils import wait_for_not_network_rat
-from acts.test_utils.tel.tel_test_utils import wifi_toggle_state
+from acts.test_utils.tel.tel_test_utils import wait_for_state
 from acts.test_utils.tel.tel_test_utils import start_adb_tcpdump
 from acts.test_utils.tel.tel_test_utils import stop_adb_tcpdump
 from acts.test_utils.tel.tel_test_utils import set_wifi_to_default
@@ -124,11 +106,13 @@ class TelLiveVoiceTest(TelephonyBaseTest):
         self.long_duration_call_total_duration = self.user_params.get(
             "long_duration_call_total_duration",
             DEFAULT_LONG_DURATION_CALL_TOTAL_DURATION)
+        self.tcpdump_proc = [None, None]
+        self.number_of_devices = 2
 
     """ Tests Begin """
 
     @TelephonyBaseTest.tel_test_wrap
-    @test_tracker_info(uuid="8036004e-e42e-441f-b32d-96069be71ec2")
+    @test_tracker_info(uuid="fca3f9e1-447a-416f-9a9c-50b7161981bf")
     def test_call_mo_voice_general(self):
         """ General voice to voice call.
 
@@ -152,7 +136,7 @@ class TelLiveVoiceTest(TelephonyBaseTest):
                                         None, None)
 
     @TelephonyBaseTest.tel_test_wrap
-    @test_tracker_info(uuid="448e1597-c28f-4e1d-88fd-3158e6b7c630")
+    @test_tracker_info(uuid="69faeb84-3830-47c0-ad80-dc657381a83b")
     def test_call_mt_voice_general(self):
         """ General voice to voice call.
 
@@ -213,6 +197,9 @@ class TelLiveVoiceTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
+        if self.android_devices[0].droid.telephonyGetSimCountryIso() == "ca":
+            raise signals.TestSkip("7 digit dialing not supported")
+
         ads = self.android_devices
 
         tasks = [(phone_setup_volte, (self.log, ads[0])), (phone_setup_volte,
@@ -246,6 +233,9 @@ class TelLiveVoiceTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
+        if self.android_devices[0].droid.telephonyGetSimCountryIso() == "ca":
+            raise signals.TestSkip("10 digit dialing not supported")
+
         ads = self.android_devices
 
         tasks = [(phone_setup_volte, (self.log, ads[0])), (phone_setup_volte,
@@ -583,41 +573,49 @@ class TelLiveVoiceTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail.
         """
+        result = True
         try:
-            (tcpdump_pid, tcpdump_file) = \
-                                      start_adb_tcpdump(ads[0], self.test_name)
+            self.tcpdump_proc[0] = start_adb_tcpdump(ads[0], self.test_name)
+            self.tcpdump_proc[1] = start_adb_tcpdump(ads[1], self.test_name)
             tasks = [(phone_setup_iwlan, (self.log, ads[0], apm_mode, wfc_mode,
                                           wifi_ssid, wifi_pwd)),
                      (phone_setup_iwlan, (self.log, ads[1], apm_mode, wfc_mode,
                                           wifi_ssid, wifi_pwd))]
             if not multithread_func(self.log, tasks):
                 self.log.error("Phone Failed to Set Up Properly.")
+                result = False
                 return False
 
             ad_ping = ads[0]
 
-            call_task = (two_phone_call_short_seq, (
-                self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan,
-                ads[1], phone_idle_iwlan, is_phone_in_call_iwlan, None,
-                WAIT_TIME_IN_CALL_FOR_IMS))
+            call_task = (two_phone_call_short_seq,
+                         (self.log, ads[0], phone_idle_iwlan,
+                          is_phone_in_call_iwlan, ads[1], phone_idle_iwlan,
+                          is_phone_in_call_iwlan, None,
+                          WAIT_TIME_IN_CALL_FOR_IMS))
             ping_task = (adb_shell_ping, (ad_ping, DEFAULT_PING_DURATION))
 
             results = run_multithread_func(self.log, [ping_task, call_task])
 
             if not results[1]:
                 self.log.error("Call setup failed in active ICMP transfer.")
-                return False
             if results[0]:
                 self.log.info(
                     "ICMP transfer succeeded with parallel phone call.")
-                return True
             else:
                 self.log.error(
                     "ICMP transfer failed with parallel phone call.")
-                return False
+            result = all(results)
+            return result
         finally:
-            if tcpdump_pid is not None:
-                stop_adb_tcpdump(ads[0], tcpdump_pid, tcpdump_file)
+            if self.tcpdump_proc[0] is not None:
+                stop_adb_tcpdump(ads[0], self.tcpdump_proc[0], not result,
+                                 self.test_name)
+                self.tcpdump_proc[0] = None
+            if self.tcpdump_proc[1] is not None:
+                stop_adb_tcpdump(ads[1], self.tcpdump_proc[1], not result,
+                                 self.test_name)
+                self.tcpdump_proc[1] = None
 
     @test_tracker_info(uuid="a4a043c0-f4ba-4405-9262-42c752cc4487")
     @TelephonyBaseTest.tel_test_wrap
@@ -667,18 +665,35 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
         ads = [self.android_devices[0], self.android_devices[1]]
-        tasks = [(phone_setup_iwlan_cellular_preferred, (
-            self.log, ads[0], self.wifi_network_ssid, self.wifi_network_pass)),
-                 (phone_setup_iwlan_cellular_preferred,
-                  (self.log, ads[1], self.wifi_network_ssid,
-                   self.wifi_network_pass))]
-        if not multithread_func(self.log, tasks):
-            self.log.error("Phone Failed to Set Up Properly.")
-            return False
+        result = True
+        try:
+            self.tcpdump_proc[0] = start_adb_tcpdump(ads[0], self.test_name)
+            self.tcpdump_proc[1] = start_adb_tcpdump(ads[1], self.test_name)
+            tasks = [(phone_setup_iwlan_cellular_preferred,
+                      (self.log, ads[0], self.wifi_network_ssid,
+                       self.wifi_network_pass)),
+                     (phone_setup_iwlan_cellular_preferred,
+                      (self.log, ads[1], self.wifi_network_ssid,
+                       self.wifi_network_pass))]
+            if not multithread_func(self.log, tasks):
+                self.log.error("Phone Failed to Set Up Properly.")
+                result = False
+                return False
 
-        return two_phone_call_short_seq(
-            self.log, ads[0], None, is_phone_in_call_not_iwlan, ads[1], None,
-            is_phone_in_call_not_iwlan, None, WAIT_TIME_IN_CALL_FOR_IMS)
+            result = two_phone_call_short_seq(
+                self.log, ads[0], None, is_phone_in_call_not_iwlan, ads[1],
+                None, is_phone_in_call_not_iwlan, None,
+                WAIT_TIME_IN_CALL_FOR_IMS)
+            return result
+        finally:
+            if self.tcpdump_proc[0] is not None:
+                stop_adb_tcpdump(ads[0], self.tcpdump_proc[0], not result,
+                                 self.test_name)
+                self.tcpdump_proc[0] = None
+            if self.tcpdump_proc[1] is not None:
+                stop_adb_tcpdump(ads[1], self.tcpdump_proc[1], not result,
+                                 self.test_name)
+                self.tcpdump_proc[1] = None
 
     @test_tracker_info(uuid="0d63c250-d9e7-490c-8c48-0a6afbad5f88")
     @TelephonyBaseTest.tel_test_wrap
@@ -745,19 +760,28 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
         ads = self.android_devices
+        result = True
+        try:
+            self.tcpdump_proc[0] = start_adb_tcpdump(ads[0], self.test_name)
+            tasks = [(phone_setup_iwlan,
+                      (self.log, ads[0], False, WFC_MODE_WIFI_ONLY,
+                       self.wifi_network_ssid, self.wifi_network_pass)),
+                     (phone_setup_volte, (self.log, ads[1]))]
+            if not multithread_func(self.log, tasks):
+                self.log.error("Phone Failed to Set Up Properly.")
+                result = False
+                return result
 
-        tasks = [(phone_setup_iwlan,
-                  (self.log, ads[0], False, WFC_MODE_WIFI_ONLY,
-                   self.wifi_network_ssid, self.wifi_network_pass)),
-                 (phone_setup_volte, (self.log, ads[1]))]
-        if not multithread_func(self.log, tasks):
-            self.log.error("Phone Failed to Set Up Properly.")
-            return False
-
-        return two_phone_call_short_seq(
-            self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan, ads[1],
-            phone_idle_volte, is_phone_in_call_volte, None,
-            WAIT_TIME_IN_CALL_FOR_IMS)
+            result = two_phone_call_short_seq(
+                self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan,
+                ads[1], phone_idle_volte, is_phone_in_call_volte, None,
+                WAIT_TIME_IN_CALL_FOR_IMS)
+            return result
+        finally:
+            if self.tcpdump_proc[0] is not None:
+                stop_adb_tcpdump(ads[0], self.tcpdump_proc[0], not result,
+                                 self.test_name)
+                self.tcpdump_proc[0] = None
 
     @test_tracker_info(uuid="6e0630a9-63b2-4ea1-8ec9-6560f001905c")
     @TelephonyBaseTest.tel_test_wrap
@@ -773,19 +797,28 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
         ads = self.android_devices
+        result = True
+        try:
+            self.tcpdump_proc[0] = start_adb_tcpdump(ads[0], self.test_name)
+            tasks = [(phone_setup_iwlan,
+                      (self.log, ads[0], False, WFC_MODE_WIFI_PREFERRED,
+                       self.wifi_network_ssid, self.wifi_network_pass)),
+                     (phone_setup_volte, (self.log, ads[1]))]
+            if not multithread_func(self.log, tasks):
+                self.log.error("Phone Failed to Set Up Properly.")
+                result = False
+                return result
 
-        tasks = [(phone_setup_iwlan,
-                  (self.log, ads[0], False, WFC_MODE_WIFI_PREFERRED,
-                   self.wifi_network_ssid, self.wifi_network_pass)),
-                 (phone_setup_volte, (self.log, ads[1]))]
-        if not multithread_func(self.log, tasks):
-            self.log.error("Phone Failed to Set Up Properly.")
-            return False
-
-        return two_phone_call_short_seq(
-            self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan, ads[1],
-            phone_idle_volte, is_phone_in_call_volte, None,
-            WAIT_TIME_IN_CALL_FOR_IMS)
+            result = two_phone_call_short_seq(
+                self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan,
+                ads[1], phone_idle_volte, is_phone_in_call_volte, None,
+                WAIT_TIME_IN_CALL_FOR_IMS)
+            return result
+        finally:
+            if self.tcpdump_proc[0] is not None:
+                stop_adb_tcpdump(ads[0], self.tcpdump_proc[0], not result,
+                                 self.test_name)
+                self.tcpdump_proc[0] = None
 
     @test_tracker_info(uuid="51077985-2229-491f-9a54-1ff53871758c")
     @TelephonyBaseTest.tel_test_wrap
@@ -801,19 +834,28 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
         ads = self.android_devices
+        result = True
+        try:
+            self.tcpdump_proc[0] = start_adb_tcpdump(ads[0], self.test_name)
+            tasks = [(phone_setup_iwlan,
+                      (self.log, ads[0], True, WFC_MODE_WIFI_ONLY,
+                       self.wifi_network_ssid, self.wifi_network_pass)),
+                     (phone_setup_volte, (self.log, ads[1]))]
+            if not multithread_func(self.log, tasks):
+                self.log.error("Phone Failed to Set Up Properly.")
+                result = False
+                return result
 
-        tasks = [(phone_setup_iwlan,
-                  (self.log, ads[0], True, WFC_MODE_WIFI_ONLY,
-                   self.wifi_network_ssid, self.wifi_network_pass)),
-                 (phone_setup_volte, (self.log, ads[1]))]
-        if not multithread_func(self.log, tasks):
-            self.log.error("Phone Failed to Set Up Properly.")
-            return False
-
-        return two_phone_call_short_seq(
-            self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan, ads[1],
-            phone_idle_volte, is_phone_in_call_volte, None,
-            WAIT_TIME_IN_CALL_FOR_IMS)
+            result = two_phone_call_short_seq(
+                self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan,
+                ads[1], phone_idle_volte, is_phone_in_call_volte, None,
+                WAIT_TIME_IN_CALL_FOR_IMS)
+            return result
+        finally:
+            if self.tcpdump_proc[0] is not None:
+                stop_adb_tcpdump(ads[0], self.tcpdump_proc[0], not result,
+                                 self.test_name)
+                self.tcpdump_proc[0] = None
 
     @test_tracker_info(uuid="fff9edcd-1ace-4f2d-a09b-06f3eea56cca")
     @TelephonyBaseTest.tel_test_wrap
@@ -829,19 +871,28 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
         ads = self.android_devices
+        result = True
+        try:
+            self.tcpdump_proc[0] = start_adb_tcpdump(ads[0], self.test_name)
+            tasks = [(phone_setup_iwlan,
+                      (self.log, ads[0], True, WFC_MODE_WIFI_PREFERRED,
+                       self.wifi_network_ssid, self.wifi_network_pass)),
+                     (phone_setup_volte, (self.log, ads[1]))]
+            if not multithread_func(self.log, tasks):
+                self.log.error("Phone Failed to Set Up Properly.")
+                result = False
+                return result
 
-        tasks = [(phone_setup_iwlan,
-                  (self.log, ads[0], True, WFC_MODE_WIFI_PREFERRED,
-                   self.wifi_network_ssid, self.wifi_network_pass)),
-                 (phone_setup_volte, (self.log, ads[1]))]
-        if not multithread_func(self.log, tasks):
-            self.log.error("Phone Failed to Set Up Properly.")
-            return False
-
-        return two_phone_call_short_seq(
-            self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan, ads[1],
-            phone_idle_volte, is_phone_in_call_volte, None,
-            WAIT_TIME_IN_CALL_FOR_IMS)
+            result = two_phone_call_short_seq(
+                self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan,
+                ads[1], phone_idle_volte, is_phone_in_call_volte, None,
+                WAIT_TIME_IN_CALL_FOR_IMS)
+            return result
+        finally:
+            if self.tcpdump_proc[0] is not None:
+                stop_adb_tcpdump(ads[0], self.tcpdump_proc[0], not result,
+                                 self.test_name)
+                self.tcpdump_proc[0] = None
 
     @test_tracker_info(uuid="8591554e-4e38-406c-97bf-8921d5329c47")
     @TelephonyBaseTest.tel_test_wrap
@@ -857,19 +908,29 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
         ads = self.android_devices
-        # Turn OFF WiFi for Phone B
-        set_wifi_to_default(self.log, ads[1])
-        tasks = [(phone_setup_iwlan,
-                  (self.log, ads[0], False, WFC_MODE_WIFI_ONLY,
-                   self.wifi_network_ssid, self.wifi_network_pass)),
-                 (phone_setup_csfb, (self.log, ads[1]))]
-        if not multithread_func(self.log, tasks):
-            self.log.error("Phone Failed to Set Up Properly.")
-            return False
+        result = True
+        try:
+            self.tcpdump_proc[0] = start_adb_tcpdump(ads[0], self.test_name)
+            # Turn OFF WiFi for Phone B
+            set_wifi_to_default(self.log, ads[1])
+            tasks = [(phone_setup_iwlan,
+                      (self.log, ads[0], False, WFC_MODE_WIFI_ONLY,
+                       self.wifi_network_ssid, self.wifi_network_pass)),
+                     (phone_setup_csfb, (self.log, ads[1]))]
+            if not multithread_func(self.log, tasks):
+                self.log.error("Phone Failed to Set Up Properly.")
+                result = False
+                return result
 
-        return two_phone_call_short_seq(
-            self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan, ads[1],
-            phone_idle_csfb, is_phone_in_call_csfb, None)
+            result = two_phone_call_short_seq(
+                self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan,
+                ads[1], phone_idle_csfb, is_phone_in_call_csfb, None)
+            return result
+        finally:
+            if self.tcpdump_proc[0] is not None:
+                stop_adb_tcpdump(ads[0], self.tcpdump_proc[0], not result,
+                                 self.test_name)
+                self.tcpdump_proc[0] = None
 
     @test_tracker_info(uuid="9711888d-5b1e-4d05-86e9-98f94f46098b")
     @TelephonyBaseTest.tel_test_wrap
@@ -885,19 +946,29 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
         ads = self.android_devices
-        # Turn OFF WiFi for Phone B
-        set_wifi_to_default(self.log, ads[1])
-        tasks = [(phone_setup_iwlan,
-                  (self.log, ads[0], False, WFC_MODE_WIFI_PREFERRED,
-                   self.wifi_network_ssid, self.wifi_network_pass)),
-                 (phone_setup_csfb, (self.log, ads[1]))]
-        if not multithread_func(self.log, tasks):
-            self.log.error("Phone Failed to Set Up Properly.")
-            return False
+        result = True
+        try:
+            self.tcpdump_proc[0] = start_adb_tcpdump(ads[0], self.test_name)
+            # Turn OFF WiFi for Phone B
+            set_wifi_to_default(self.log, ads[1])
+            tasks = [(phone_setup_iwlan,
+                      (self.log, ads[0], False, WFC_MODE_WIFI_PREFERRED,
+                       self.wifi_network_ssid, self.wifi_network_pass)),
+                     (phone_setup_csfb, (self.log, ads[1]))]
+            if not multithread_func(self.log, tasks):
+                self.log.error("Phone Failed to Set Up Properly.")
+                result = False
+                return result
 
-        return two_phone_call_short_seq(
-            self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan, ads[1],
-            phone_idle_csfb, is_phone_in_call_csfb, None)
+            result = two_phone_call_short_seq(
+                self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan,
+                ads[1], phone_idle_csfb, is_phone_in_call_csfb, None)
+            return result
+        finally:
+            if self.tcpdump_proc[0] is not None:
+                stop_adb_tcpdump(ads[0], self.tcpdump_proc[0], not result,
+                                 self.test_name)
+                self.tcpdump_proc[0] = None
 
     @test_tracker_info(uuid="902c96a4-858f-43ff-bd56-6d7d27004320")
     @TelephonyBaseTest.tel_test_wrap
@@ -913,19 +984,29 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
         ads = self.android_devices
-        # Turn OFF WiFi for Phone B
-        set_wifi_to_default(self.log, ads[1])
-        tasks = [(phone_setup_iwlan,
-                  (self.log, ads[0], True, WFC_MODE_WIFI_ONLY,
-                   self.wifi_network_ssid, self.wifi_network_pass)),
-                 (phone_setup_csfb, (self.log, ads[1]))]
-        if not multithread_func(self.log, tasks):
-            self.log.error("Phone Failed to Set Up Properly.")
-            return False
+        result = True
+        try:
+            self.tcpdump_proc[0] = start_adb_tcpdump(ads[0], self.test_name)
+            # Turn OFF WiFi for Phone B
+            set_wifi_to_default(self.log, ads[1])
+            tasks = [(phone_setup_iwlan,
+                      (self.log, ads[0], True, WFC_MODE_WIFI_ONLY,
+                       self.wifi_network_ssid, self.wifi_network_pass)),
+                     (phone_setup_csfb, (self.log, ads[1]))]
+            if not multithread_func(self.log, tasks):
+                self.log.error("Phone Failed to Set Up Properly.")
+                result = False
+                return result
 
-        return two_phone_call_short_seq(
-            self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan, ads[1],
-            phone_idle_csfb, is_phone_in_call_csfb, None)
+            result = two_phone_call_short_seq(
+                self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan,
+                ads[1], phone_idle_csfb, is_phone_in_call_csfb, None)
+            return result
+        finally:
+            if self.tcpdump_proc[0] is not None:
+                stop_adb_tcpdump(ads[0], self.tcpdump_proc[0], not result,
+                                 self.test_name)
+                self.tcpdump_proc[0] = None
 
     @test_tracker_info(uuid="362a5396-ebda-4706-a73a-d805e5028fd7")
     @TelephonyBaseTest.tel_test_wrap
@@ -941,19 +1022,29 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
         ads = self.android_devices
-        # Turn OFF WiFi for Phone B
-        set_wifi_to_default(self.log, ads[1])
-        tasks = [(phone_setup_iwlan,
-                  (self.log, ads[0], True, WFC_MODE_WIFI_PREFERRED,
-                   self.wifi_network_ssid, self.wifi_network_pass)),
-                 (phone_setup_csfb, (self.log, ads[1]))]
-        if not multithread_func(self.log, tasks):
-            self.log.error("Phone Failed to Set Up Properly.")
-            return False
+        result = True
+        try:
+            self.tcpdump_proc[0] = start_adb_tcpdump(ads[0], self.test_name)
+            # Turn OFF WiFi for Phone B
+            set_wifi_to_default(self.log, ads[1])
+            tasks = [(phone_setup_iwlan,
+                      (self.log, ads[0], True, WFC_MODE_WIFI_PREFERRED,
+                       self.wifi_network_ssid, self.wifi_network_pass)),
+                     (phone_setup_csfb, (self.log, ads[1]))]
+            if not multithread_func(self.log, tasks):
+                self.log.error("Phone Failed to Set Up Properly.")
+                result = False
+                return result
 
-        return two_phone_call_short_seq(
-            self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan, ads[1],
-            phone_idle_csfb, is_phone_in_call_csfb, None)
+            result = two_phone_call_short_seq(
+                self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan,
+                ads[1], phone_idle_csfb, is_phone_in_call_csfb, None)
+            return result
+        finally:
+            if self.tcpdump_proc[0] is not None:
+                stop_adb_tcpdump(ads[0], self.tcpdump_proc[0], not result,
+                                 self.test_name)
+                self.tcpdump_proc[0] = None
 
     @test_tracker_info(uuid="647bb859-46bc-4e3e-b6ab-7944d3bbcc26")
     @TelephonyBaseTest.tel_test_wrap
@@ -969,19 +1060,29 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
         ads = self.android_devices
-        # Turn OFF WiFi for Phone B
-        set_wifi_to_default(self.log, ads[1])
-        tasks = [(phone_setup_iwlan,
-                  (self.log, ads[0], False, WFC_MODE_WIFI_ONLY,
-                   self.wifi_network_ssid, self.wifi_network_pass)),
-                 (phone_setup_voice_3g, (self.log, ads[1]))]
-        if not multithread_func(self.log, tasks):
-            self.log.error("Phone Failed to Set Up Properly.")
-            return False
+        result = True
+        try:
+            self.tcpdump_proc[0] = start_adb_tcpdump(ads[0], self.test_name)
+            # Turn OFF WiFi for Phone B
+            set_wifi_to_default(self.log, ads[1])
+            tasks = [(phone_setup_iwlan,
+                      (self.log, ads[0], False, WFC_MODE_WIFI_ONLY,
+                       self.wifi_network_ssid, self.wifi_network_pass)),
+                     (phone_setup_voice_3g, (self.log, ads[1]))]
+            if not multithread_func(self.log, tasks):
+                self.log.error("Phone Failed to Set Up Properly.")
+                result = False
+                return result
 
-        return two_phone_call_short_seq(
-            self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan, ads[1],
-            phone_idle_3g, is_phone_in_call_3g, None)
+            result = two_phone_call_short_seq(
+                self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan,
+                ads[1], phone_idle_3g, is_phone_in_call_3g, None)
+            return result
+        finally:
+            if self.tcpdump_proc[0] is not None:
+                stop_adb_tcpdump(ads[0], self.tcpdump_proc[0], not result,
+                                 self.test_name)
+                self.tcpdump_proc[0] = None
 
     @test_tracker_info(uuid="3688ea1f-a52d-4a35-9df4-d5ed0985e49b")
     @TelephonyBaseTest.tel_test_wrap
@@ -997,19 +1098,29 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
         ads = self.android_devices
-        # Turn OFF WiFi for Phone B
-        set_wifi_to_default(self.log, ads[1])
-        tasks = [(phone_setup_iwlan,
-                  (self.log, ads[0], False, WFC_MODE_WIFI_PREFERRED,
-                   self.wifi_network_ssid, self.wifi_network_pass)),
-                 (phone_setup_voice_3g, (self.log, ads[1]))]
-        if not multithread_func(self.log, tasks):
-            self.log.error("Phone Failed to Set Up Properly.")
-            return False
+        result = True
+        try:
+            self.tcpdump_proc[0] = start_adb_tcpdump(ads[0], self.test_name)
+            # Turn OFF WiFi for Phone B
+            set_wifi_to_default(self.log, ads[1])
+            tasks = [(phone_setup_iwlan,
+                      (self.log, ads[0], False, WFC_MODE_WIFI_PREFERRED,
+                       self.wifi_network_ssid, self.wifi_network_pass)),
+                     (phone_setup_voice_3g, (self.log, ads[1]))]
+            if not multithread_func(self.log, tasks):
+                self.log.error("Phone Failed to Set Up Properly.")
+                result = False
+                return result
 
-        return two_phone_call_short_seq(
-            self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan, ads[1],
-            phone_idle_3g, is_phone_in_call_3g, None)
+            result = two_phone_call_short_seq(
+                self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan,
+                ads[1], phone_idle_3g, is_phone_in_call_3g, None)
+            return result
+        finally:
+            if self.tcpdump_proc[0] is not None:
+                stop_adb_tcpdump(ads[0], self.tcpdump_proc[0], not result,
+                                 self.test_name)
+                self.tcpdump_proc[0] = None
 
     @test_tracker_info(uuid="f4efc821-fbaf-4ec2-b89b-5a47354344f0")
     @TelephonyBaseTest.tel_test_wrap
@@ -1025,19 +1136,29 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
         ads = self.android_devices
-        # Turn OFF WiFi for Phone B
-        set_wifi_to_default(self.log, ads[1])
-        tasks = [(phone_setup_iwlan,
-                  (self.log, ads[0], True, WFC_MODE_WIFI_ONLY,
-                   self.wifi_network_ssid, self.wifi_network_pass)),
-                 (phone_setup_voice_3g, (self.log, ads[1]))]
-        if not multithread_func(self.log, tasks):
-            self.log.error("Phone Failed to Set Up Properly.")
-            return False
+        result = True
+        try:
+            self.tcpdump_proc[0] = start_adb_tcpdump(ads[0], self.test_name)
+            # Turn OFF WiFi for Phone B
+            set_wifi_to_default(self.log, ads[1])
+            tasks = [(phone_setup_iwlan,
+                      (self.log, ads[0], True, WFC_MODE_WIFI_ONLY,
+                       self.wifi_network_ssid, self.wifi_network_pass)),
+                     (phone_setup_voice_3g, (self.log, ads[1]))]
+            if not multithread_func(self.log, tasks):
+                self.log.error("Phone Failed to Set Up Properly.")
+                result = False
+                return False
 
-        return two_phone_call_short_seq(
-            self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan, ads[1],
-            phone_idle_3g, is_phone_in_call_3g, None)
+            result = two_phone_call_short_seq(
+                self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan,
+                ads[1], phone_idle_3g, is_phone_in_call_3g, None)
+            return result
+        finally:
+            if self.tcpdump_proc[0] is not None:
+                stop_adb_tcpdump(ads[0], self.tcpdump_proc[0], not result,
+                                 self.test_name)
+                self.tcpdump_proc[0] = None
 
     @test_tracker_info(uuid="2b1345b7-3b62-44bd-91ad-9c5a4925b0e1")
     @TelephonyBaseTest.tel_test_wrap
@@ -1053,19 +1174,29 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
         ads = self.android_devices
-        # Turn OFF WiFi for Phone B
-        set_wifi_to_default(self.log, ads[1])
-        tasks = [(phone_setup_iwlan,
-                  (self.log, ads[0], True, WFC_MODE_WIFI_PREFERRED,
-                   self.wifi_network_ssid, self.wifi_network_pass)),
-                 (phone_setup_voice_3g, (self.log, ads[1]))]
-        if not multithread_func(self.log, tasks):
-            self.log.error("Phone Failed to Set Up Properly.")
-            return False
+        result = True
+        try:
+            self.tcpdump_proc[0] = start_adb_tcpdump(ads[0], self.test_name)
+            # Turn OFF WiFi for Phone B
+            set_wifi_to_default(self.log, ads[1])
+            tasks = [(phone_setup_iwlan,
+                      (self.log, ads[0], True, WFC_MODE_WIFI_PREFERRED,
+                       self.wifi_network_ssid, self.wifi_network_pass)),
+                     (phone_setup_voice_3g, (self.log, ads[1]))]
+            if not multithread_func(self.log, tasks):
+                self.log.error("Phone Failed to Set Up Properly.")
+                result = False
+                return False
 
-        return two_phone_call_short_seq(
-            self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan, ads[1],
-            phone_idle_3g, is_phone_in_call_3g, None)
+            result = two_phone_call_short_seq(
+                self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan,
+                ads[1], phone_idle_3g, is_phone_in_call_3g, None)
+            return result
+        finally:
+            if self.tcpdump_proc[0] is not None:
+                stop_adb_tcpdump(ads[0], self.tcpdump_proc[0], not result,
+                                 self.test_name)
+                self.tcpdump_proc[0] = None
 
     @test_tracker_info(uuid="7b3fea22-114a-442e-aa12-dde3b6001681")
     @TelephonyBaseTest.tel_test_wrap
@@ -1179,7 +1310,7 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             phone_idle_iwlan, is_phone_in_call_iwlan, None,
             WAIT_TIME_IN_CALL_FOR_IMS)
 
-    @test_tracker_info(uuid="7049de19-3abf-48df-868f-18d0af829393")
+    @test_tracker_info(uuid="a7293d6c-0fdb-4842-984a-e4c6395fd41d")
     @TelephonyBaseTest.tel_test_wrap
     def test_call_epdg_to_epdg_long_wfc_wifi_preferred(self):
         """ WiFi Preferred, WiFi calling to WiFi Calling test
@@ -1243,7 +1374,7 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             phone_idle_iwlan, is_phone_in_call_iwlan, None,
             WAIT_TIME_IN_CALL_FOR_IMS)
 
-    @test_tracker_info(uuid="2b926e4a-f493-41fa-98af-20d25ec132bb")
+    @test_tracker_info(uuid="3c751d79-7159-4407-a63c-96f835dd6cb0")
     @TelephonyBaseTest.tel_test_wrap
     def test_call_epdg_to_epdg_long_apm_wfc_wifi_preferred(self):
         """ Airplane + WiFi Preferred, WiFi calling to WiFi Calling test
@@ -1275,7 +1406,7 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             phone_idle_iwlan, is_phone_in_call_iwlan, None,
             WAIT_TIME_IN_CALL_FOR_IMS)
 
-    @test_tracker_info(uuid="30d5d573-043f-4d8b-98e0-e7f7bc9b8d6f")
+    @test_tracker_info(uuid="9deab765-e2da-4826-bae8-ba8755551a1b")
     @TelephonyBaseTest.tel_test_wrap
     def test_call_csfb_3g_to_csfb_3g_long(self):
         """ CSFB 3G to CSFB 3G call test
@@ -1380,8 +1511,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
         self.log.info("Final Count - Success: {}, Failure: {} - {}%".format(
             success_count, fail_count,
             str(100 * success_count / (success_count + fail_count))))
-        if success_count / (success_count + fail_count
-                            ) >= MINIMUM_SUCCESS_RATE:
+        if success_count / (
+                success_count + fail_count) >= MINIMUM_SUCCESS_RATE:
             return True
         else:
             return False
@@ -1439,8 +1570,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
         self.log.info("Final Count - Success: {}, Failure: {} - {}%".format(
             success_count, fail_count,
             str(100 * success_count / (success_count + fail_count))))
-        if success_count / (success_count + fail_count
-                            ) >= MINIMUM_SUCCESS_RATE:
+        if success_count / (
+                success_count + fail_count) >= MINIMUM_SUCCESS_RATE:
             return True
         else:
             return False
@@ -1498,8 +1629,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
         self.log.info("Final Count - Success: {}, Failure: {} - {}%".format(
             success_count, fail_count,
             str(100 * success_count / (success_count + fail_count))))
-        if success_count / (success_count + fail_count
-                            ) >= MINIMUM_SUCCESS_RATE:
+        if success_count / (
+                success_count + fail_count) >= MINIMUM_SUCCESS_RATE:
             return True
         else:
             return False
@@ -1557,8 +1688,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
         self.log.info("Final Count - Success: {}, Failure: {} - {}%".format(
             success_count, fail_count,
             str(100 * success_count / (success_count + fail_count))))
-        if success_count / (success_count + fail_count
-                            ) >= MINIMUM_SUCCESS_RATE:
+        if success_count / (
+                success_count + fail_count) >= MINIMUM_SUCCESS_RATE:
             return True
         else:
             return False
@@ -1616,8 +1747,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
         self.log.info("Final Count - Success: {}, Failure: {} - {}%".format(
             success_count, fail_count,
             str(100 * success_count / (success_count + fail_count))))
-        if success_count / (success_count + fail_count
-                            ) >= MINIMUM_SUCCESS_RATE:
+        if success_count / (
+                success_count + fail_count) >= MINIMUM_SUCCESS_RATE:
             return True
         else:
             return False
@@ -1669,8 +1800,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         self.log.info("Final Count - Success: {}, Failure: {}".format(
             success_count, fail_count))
-        if success_count / (success_count + fail_count
-                            ) >= MINIMUM_SUCCESS_RATE:
+        if success_count / (
+                success_count + fail_count) >= MINIMUM_SUCCESS_RATE:
             return True
         else:
             return False
@@ -1722,8 +1853,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         self.log.info("Final Count - Success: {}, Failure: {}".format(
             success_count, fail_count))
-        if success_count / (success_count + fail_count
-                            ) >= MINIMUM_SUCCESS_RATE:
+        if success_count / (
+                success_count + fail_count) >= MINIMUM_SUCCESS_RATE:
             return True
         else:
             return False
@@ -1810,8 +1941,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MO Call Hold/Unhold Test.")
@@ -1855,8 +1986,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MO Call Hold/Unhold Test.")
@@ -1900,8 +2031,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MO Call Hold/Unhold Test.")
@@ -1945,8 +2076,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MO Call Hold/Unhold Test.")
@@ -1990,8 +2121,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MT Call Hold/Unhold Test.")
@@ -2035,8 +2166,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MT Call Hold/Unhold Test.")
@@ -2080,8 +2211,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MT Call Hold/Unhold Test.")
@@ -2125,8 +2256,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MT Call Hold/Unhold Test.")
@@ -2168,8 +2299,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MO Call Hold/Unhold Test.")
@@ -2211,8 +2342,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MT Call Hold/Unhold Test.")
@@ -2258,8 +2389,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MO Call Hold/Unhold Test.")
@@ -2305,8 +2436,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MT Call Hold/Unhold Test.")
@@ -2352,8 +2483,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MO Call Hold/Unhold Test.")
@@ -2399,8 +2530,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MT Call Hold/Unhold Test.")
@@ -2645,7 +2776,7 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             self.log, ads[0], phone_idle_2g, is_phone_in_call_2g, ads[1],
             phone_idle_2g, is_phone_in_call_2g, None)
 
-    @test_tracker_info(uuid="6e24e64f-aa0e-4101-89ed-4cc30c738c7e")
+    @test_tracker_info(uuid="947f3178-735b-4ac2-877c-a06a94972457")
     @TelephonyBaseTest.tel_test_wrap
     def test_call_2g_to_2g_long(self):
         """ Test 2g<->2g call functionality.
@@ -2698,8 +2829,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MO Call Hold/Unhold Test.")
@@ -2744,8 +2875,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ads[0].droid.telecomCallClearCallList()
         if num_active_calls(self.log, ads[0]) != 0:
-            self.log.error("Phone {} Call List is not empty."
-                           .format(ads[0].serial))
+            self.log.error("Phone {} Call List is not empty.".format(
+                ads[0].serial))
             return False
 
         self.log.info("Begin MT Call Hold/Unhold Test.")
@@ -2886,13 +3017,13 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         ad_caller.droid.telecomCallClearCallList()
         if num_active_calls(self.log, ad_caller) != 0:
-            self.log.error(
-                "Phone {} has ongoing calls.".format(ad_caller.serial))
+            self.log.error("Phone {} has ongoing calls.".format(
+                ad_caller.serial))
             return False
 
         if not initiate_call(self.log, ad_caller, callee_number):
-            self.log.error(
-                "Phone was {} unable to initate a call".format(ads[0].serial))
+            self.log.error("Phone was {} unable to initate a call".format(
+                ads[0].serial))
             return False
 
         if not wait_for_ringing_call(self.log, ad_callee, caller_number):
@@ -2962,7 +3093,7 @@ class TelLiveVoiceTest(TelephonyBaseTest):
                                  caller_verifier, callee_verifier,
                                  wait_time_in_call):
             #wait time for active data transfer
-            time.sleep(10)
+            time.sleep(5)
             return call_setup_teardown(log, ad_caller, ad_callee, ad_hangup,
                                        caller_verifier, callee_verifier,
                                        wait_time_in_call)
@@ -2974,9 +3105,6 @@ class TelLiveVoiceTest(TelephonyBaseTest):
                 self.log.error("Device failed to reselect in %s.",
                                MAX_WAIT_TIME_NW_SELECTION)
                 return False
-
-            #toggle_airplane_mode(self.log, self.android_devices[0], False)
-            #wifi_toggle_state(self.log, self.android_devices[0], False)
 
             self.android_devices[0].droid.telephonyToggleDataConnection(True)
             if not wait_for_cell_data_connection(
@@ -2996,10 +3124,23 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             ad_callee = self.android_devices[0]
         ad_download = self.android_devices[0]
 
+        ad_download.ensure_screen_on()
+        ad_download.adb.shell('am start -a android.intent.action.VIEW -d '
+                              '"https://www.youtube.com/watch?v=VHF-XK0Vg1s"')
+        if wait_for_state(ad_download.droid.audioIsMusicActive, True, 15, 1):
+            ad_download.log.info("Before call, audio is in MUSIC_state")
+        else:
+            ad_download.log.warning("Before call, audio is not in MUSIC state")
         call_task = (_call_setup_teardown, (self.log, ad_caller, ad_callee,
-                                            ad_caller, None, None, 60))
+                                            ad_caller, None, None, 30))
         download_task = active_file_download_task(self.log, ad_download)
         results = run_multithread_func(self.log, [download_task, call_task])
+        if wait_for_state(ad_download.droid.audioIsMusicActive, True, 15, 1):
+            ad_download.log.info("After call hangup, audio is back to music")
+        else:
+            ad_download.log.warning(
+                "After call hang up, audio is not back to music")
+        ad_download.force_stop_apk("com.google.android.youtube")
         if not results[1]:
             self.log.error("Call setup failed in active data transfer.")
             return False
@@ -3009,8 +3150,9 @@ class TelLiveVoiceTest(TelephonyBaseTest):
         elif not allow_data_transfer_interruption:
             self.log.error("Data transfer failed with parallel phone call.")
             return False
-        ad_download.log.info("Retry data transfer after call hung up")
-        return download_task[0](*download_task[1])
+        else:
+            ad_download.log.info("Retry data transfer after call hung up")
+            return download_task[0](*download_task[1])
 
     @test_tracker_info(uuid="aa40e7e1-e64a-480b-86e4-db2242449555")
     @TelephonyBaseTest.tel_test_wrap
@@ -3353,6 +3495,442 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             return False
         return self._test_call_setup_in_active_data_transfer(
             None, DIRECTION_MOBILE_TERMINATED)
+
+    def _test_call_setup_in_active_youtube_video(
+            self,
+            nw_gen=None,
+            call_direction=DIRECTION_MOBILE_ORIGINATED,
+            allow_data_transfer_interruption=False):
+        """Test call can be established during active data connection.
+
+        Turn off airplane mode, disable WiFi, enable Cellular Data.
+        Make sure phone in <nw_gen>.
+        Starting playing youtube video.
+        Initiate a voice call. Verify call can be established.
+
+        Returns:
+            True if success.
+            False if failed.
+        """
+        if nw_gen:
+            if not ensure_network_generation(
+                    self.log, self.android_devices[0], nw_gen,
+                    MAX_WAIT_TIME_NW_SELECTION, NETWORK_SERVICE_DATA):
+                self.log.error("Device failed to reselect in %s.",
+                               MAX_WAIT_TIME_NW_SELECTION)
+                return False
+        else:
+            ensure_phones_default_state(self.log, self.android_devices)
+        self.android_devices[0].droid.telephonyToggleDataConnection(True)
+        if not wait_for_cell_data_connection(self.log, self.android_devices[0],
+                                             True):
+            self.log.error("Data connection is not on cell")
+            return False
+
+        if not verify_http_connection(self.log, self.android_devices[0]):
+            self.log.error("HTTP connection is not available")
+            return False
+
+        if call_direction == DIRECTION_MOBILE_ORIGINATED:
+            ad_caller = self.android_devices[0]
+            ad_callee = self.android_devices[1]
+        else:
+            ad_caller = self.android_devices[1]
+            ad_callee = self.android_devices[0]
+        ad_download = self.android_devices[0]
+
+        ad_download.log.info("Open an youtube video")
+        ad_download.ensure_screen_on()
+        ad_download.adb.shell('am start -a android.intent.action.VIEW -d '
+                              '"https://www.youtube.com/watch?v=VHF-XK0Vg1s"')
+        if wait_for_state(ad_download.droid.audioIsMusicActive, True, 15, 1):
+            ad_download.log.info("Before call, audio is in MUSIC_state")
+        else:
+            ad_download.log.warning("Before call, audio is not in MUSIC state")
+
+        if not call_setup_teardown(self.log, ad_caller, ad_callee, ad_caller,
+                                   None, None, 30):
+            self.log.error("Call setup failed in active youtube video")
+            result = False
+        else:
+            self.log.info("Call setup succeed in active youtube video")
+            result = True
+
+        if wait_for_state(ad_download.droid.audioIsMusicActive, True, 15, 1):
+            ad_download.log.info("After call hangup, audio is back to music")
+        else:
+            ad_download.log.warning(
+                "After call hang up, audio is not back to music")
+        ad_download.force_stop_apk("com.google.android.youtube")
+        return result
+
+    @test_tracker_info(uuid="1dc9f03f-1b6c-4c17-993b-3acafdc26ea3")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mo_voice_general_in_active_youtube_video(self):
+        """Test call can be established during active youtube video.
+
+        Turn off airplane mode, disable WiFi, enable Cellular Data.
+        Make sure phone in <nw_gen>.
+        Starting an youtube video.
+        Initiate a MO voice call. Verify call can be established.
+
+        Returns:
+            True if success.
+            False if failed.
+        """
+        return self._test_call_setup_in_active_youtube_video(
+            None, DIRECTION_MOBILE_ORIGINATED)
+
+    @test_tracker_info(uuid="32bc8fab-a0b9-4d47-8afb-940d1fdcde02")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mt_voice_general_in_active_youtube_video(self):
+        """Test call can be established during active youtube video.
+
+        Turn off airplane mode, disable WiFi, enable Cellular Data.
+        Make sure phone in <nw_gen>.
+        Starting an youtube video.
+        Initiate a MT voice call. Verify call can be established.
+
+        Returns:
+            True if success.
+            False if failed.
+        """
+        return self._test_call_setup_in_active_youtube_video(
+            None, DIRECTION_MOBILE_TERMINATED)
+
+    @test_tracker_info(uuid="72204212-e0c8-4447-be3f-ae23b2a63a1c")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mo_voice_volte_in_active_youtube_video(self):
+        """Test call can be established during active youtube video.
+
+        Turn off airplane mode, disable WiFi, enable Cellular Data.
+        Make sure phone in <nw_gen>.
+        Starting an youtube video.
+        Initiate a MO voice call. Verify call can be established.
+
+        Returns:
+            True if success.
+            False if failed.
+        """
+        if not phone_setup_volte(self.log, self.android_devices[0]):
+            self.android_devices[0].log.error("Failed to setup VoLTE")
+            return False
+        return self._test_call_setup_in_active_youtube_video(
+            GEN_4G, DIRECTION_MOBILE_ORIGINATED)
+
+    @test_tracker_info(uuid="84cd3ab9-a2b2-4ef9-b531-ee6201bec128")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mt_voice_volte_in_active_youtube_video(self):
+        """Test call can be established during active youtube video.
+
+        Turn off airplane mode, disable WiFi, enable Cellular Data.
+        Make sure phone in <nw_gen>.
+        Starting an youtube video.
+        Initiate a MT voice call. Verify call can be established.
+
+        Returns:
+            True if success.
+            False if failed.
+        """
+        if not phone_setup_volte(self.log, self.android_devices[0]):
+            self.android_devices[0].log.error("Failed to setup VoLTE")
+            return False
+        return self._test_call_setup_in_active_youtube_video(
+            GEN_4G, DIRECTION_MOBILE_TERMINATED)
+
+    @test_tracker_info(uuid="a8dca8d3-c44c-40a6-be56-931b4be5499b")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mo_voice_csfb_in_active_youtube_video(self):
+        """Test call can be established during active youbube video.
+
+        Turn off airplane mode, disable WiFi, enable Cellular Data.
+        Make sure phone in <nw_gen>.
+        Starting an youtube video.
+        Initiate a MO voice call. Verify call can be established.
+
+        Returns:
+            True if success.
+            False if failed.
+        """
+        if not phone_setup_csfb(self.log, self.android_devices[0]):
+            self.android_devices[0].log.error("Failed to setup VoLTE")
+            return False
+        return self._test_call_setup_in_active_youtube_video(
+            GEN_4G,
+            DIRECTION_MOBILE_ORIGINATED,
+            allow_data_transfer_interruption=True)
+
+    @test_tracker_info(uuid="d11f7263-f51d-4ea3-916a-0df4f52023ce")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mt_voice_csfb_in_active_youtube_video(self):
+        """Test call can be established during active youtube video.
+
+        Turn off airplane mode, disable WiFi, enable Cellular Data.
+        Make sure phone in <nw_gen>.
+        Starting an youtube video.
+        Initiate a MT voice call. Verify call can be established.
+
+        Returns:
+            True if success.
+            False if failed.
+        """
+        if not phone_setup_csfb(self.log, self.android_devices[0]):
+            self.android_devices[0].log.error("Failed to setup VoLTE")
+            return False
+        return self._test_call_setup_in_active_youtube_video(
+            GEN_4G,
+            DIRECTION_MOBILE_TERMINATED,
+            allow_data_transfer_interruption=True)
+
+    @test_tracker_info(uuid="676378b4-94b7-4ad7-8242-7ccd2bf1efba")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mo_voice_3g_in_active_youtube_video(self):
+        """Test call can be established during active youtube video.
+
+        Turn off airplane mode, disable WiFi, enable Cellular Data.
+        Make sure phone in <nw_gen>.
+        Starting an youtube video.
+        Initiate a MO voice call. Verify call can be established.
+
+        Returns:
+            True if success.
+            False if failed.
+        """
+        if not phone_setup_voice_3g(self.log, self.android_devices[0]):
+            self.android_devices[0].log.error("Failed to setup 3G")
+            return False
+        return self._test_call_setup_in_active_youtube_video(
+            GEN_3G,
+            DIRECTION_MOBILE_ORIGINATED,
+            allow_data_transfer_interruption=True)
+
+    @test_tracker_info(uuid="6216fc6d-2aa2-4eb9-90e2-5791cb31c12e")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mt_voice_3g_in_active_youtube_video(self):
+        """Test call can be established during active youtube video.
+
+        Turn off airplane mode, disable WiFi, enable Cellular Data.
+        Make sure phone in <nw_gen>.
+        Starting youtube video.
+        Initiate a MT voice call. Verify call can be established.
+
+        Returns:
+            True if success.
+            False if failed.
+        """
+        if not phone_setup_voice_3g(self.log, self.android_devices[0]):
+            self.android_devices[0].log.error("Failed to setup 3G")
+            return False
+        return self._test_call_setup_in_active_youtube_video(
+            GEN_3G,
+            DIRECTION_MOBILE_TERMINATED,
+            allow_data_transfer_interruption=True)
+
+    @test_tracker_info(uuid="58ec9783-6f8e-49f6-8dae-9dd33108b6f9")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mo_voice_2g_in_active_youtube_video(self):
+        """Test call can be established during active youtube video.
+
+        Turn off airplane mode, disable WiFi, enable Cellular Data.
+        Make sure phone in <nw_gen>.
+        Starting youtube video.
+        Initiate a MO voice call. Verify call can be established.
+
+        Returns:
+            True if success.
+            False if failed.
+        """
+        if not phone_setup_voice_2g(self.log, self.android_devices[0]):
+            self.android_devices[0].log.error("Failed to setup voice in 2G")
+            return False
+        return self._test_call_setup_in_active_youtube_video(
+            GEN_2G,
+            DIRECTION_MOBILE_ORIGINATED,
+            allow_data_transfer_interruption=True)
+
+    @test_tracker_info(uuid="e8ba7c0c-48a3-4fc6-aa34-a2e1c570521a")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mt_voice_2g_in_active_youtube_video(self):
+        """Test call can be established during active youtube video.
+
+        Turn off airplane mode, disable WiFi, enable Cellular Data.
+        Make sure phone in <nw_gen>.
+        Starting an youtube video.
+        Initiate a MT voice call. Verify call can be established.
+
+        Returns:
+            True if success.
+            False if failed.
+        """
+        if not phone_setup_voice_2g(self.log, self.android_devices[0]):
+            self.android_devices[0].log.error("Failed to setup voice in 2G")
+            return False
+        return self._test_call_setup_in_active_youtube_video(
+            GEN_2G,
+            DIRECTION_MOBILE_TERMINATED,
+            allow_data_transfer_interruption=True)
+
+    @test_tracker_info(uuid="eb8971c1-b34a-430f-98df-0d4554c7ab12")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mo_voice_wifi_wfc_in_active_youtube_video(self):
+        """Test call can be established during active youtube video.
+
+        Turn off airplane mode, turn on wfc and wifi.
+        Starting youtube video.
+        Initiate a MO voice call. Verify call can be established.
+
+        Returns:
+            True if success.
+            False if failed.
+        """
+        if not phone_setup_iwlan(self.log, self.android_devices[0], False,
+                                 WFC_MODE_WIFI_PREFERRED,
+                                 self.wifi_network_ssid,
+                                 self.wifi_network_pass):
+            self.android_devices[0].log.error(
+                "Failed to setup IWLAN with NON-APM WIFI WFC on")
+            return False
+        return self._test_call_setup_in_active_youtube_video(
+            None, DIRECTION_MOBILE_ORIGINATED)
+
+    @test_tracker_info(uuid="275a93d6-1f39-40c8-893f-ff77afd09e54")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mt_voice_wifi_wfc_in_active_youtube_video(self):
+        """Test call can be established during active youtube_video.
+
+        Turn off airplane mode, turn on wfc and wifi.
+        Starting an youtube video.
+        Initiate a MT voice call. Verify call can be established.
+
+        Returns:
+            True if success.
+            False if failed.
+        """
+        if not phone_setup_iwlan(self.log, self.android_devices[0], False,
+                                 WFC_MODE_WIFI_PREFERRED,
+                                 self.wifi_network_ssid,
+                                 self.wifi_network_pass):
+            self.android_devices[0].log.error(
+                "Failed to setup iwlan with APM off and WIFI and WFC on")
+            return False
+        return self._test_call_setup_in_active_youtube_video(
+            None, DIRECTION_MOBILE_TERMINATED)
+
+    @test_tracker_info(uuid="ea087709-d4df-4223-b80c-1b33bacbd5a2")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mo_voice_apm_wifi_wfc_in_active_youtube_video(self):
+        """Test call can be established during active youtube video.
+
+        Turn on wifi-calling, airplane mode and wifi.
+        Starting an youtube video.
+        Initiate a MO voice call. Verify call can be established.
+
+        Returns:
+            True if success.
+            False if failed.
+        """
+        if not phone_setup_iwlan(self.log, self.android_devices[0], True,
+                                 WFC_MODE_WIFI_PREFERRED,
+                                 self.wifi_network_ssid,
+                                 self.wifi_network_pass):
+            self.android_devices[0].log.error(
+                "Failed to setup iwlan with APM, WIFI and WFC on")
+            return False
+        return self._test_call_setup_in_active_youtube_video(
+            None, DIRECTION_MOBILE_ORIGINATED)
+
+    @test_tracker_info(uuid="44cc14e0-60c7-4fdb-ad26-31fdc4e52aaf")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mt_voice_apm_wifi_wfc_in_active_youtube_video(self):
+        """Test call can be established during active youtube video.
+
+        Turn on wifi-calling, airplane mode and wifi.
+        Starting youtube video.
+        Initiate a MT voice call. Verify call can be established.
+
+        Returns:
+            True if success.
+            False if failed.
+        """
+        if not phone_setup_iwlan(self.log, self.android_devices[0], True,
+                                 WFC_MODE_WIFI_PREFERRED,
+                                 self.wifi_network_ssid,
+                                 self.wifi_network_pass):
+            self.android_devices[0].log.error(
+                "Failed to setup iwlan with APM, WIFI and WFC on")
+            return False
+        return self._test_call_setup_in_active_youtube_video(
+            None, DIRECTION_MOBILE_TERMINATED)
+
+    @test_tracker_info(uuid="f367de12-1fd8-488d-816f-091deaacb791")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_wfc_wifi_preferred_after_mobile_data_usage_limit_reached(
+            self):
+        """ WiFi Preferred, WiFi calling test after data limit reached
+
+        1. Set the data limit to the current usage
+        2. Setup PhoneA WFC mode: WIFI_PREFERRED.
+        3. Make Sure PhoneB is in 3G mode.
+        4. Call from PhoneA to PhoneB, accept on PhoneB, hang up on PhoneA.
+        5. Call from PhoneA to PhoneB, accept on PhoneB, hang up on PhoneB.
+
+        Returns:
+            True if pass; False if fail.
+        """
+        ads = self.android_devices
+        try:
+            subscriber_id = ads[0].droid.telephonyGetSubscriberId()
+            data_usage = get_mobile_data_usage(ads[0], subscriber_id)
+            set_mobile_data_usage_limit(ads[0], data_usage, subscriber_id)
+
+            # Turn OFF WiFi for Phone B
+            set_wifi_to_default(self.log, ads[1])
+            tasks = [(phone_setup_iwlan,
+                      (self.log, ads[0], False, WFC_MODE_WIFI_PREFERRED,
+                       self.wifi_network_ssid, self.wifi_network_pass)),
+                     (phone_setup_voice_3g, (self.log, ads[1]))]
+            if not multithread_func(self.log, tasks):
+                self.log.error("Phone Failed to Set Up Properly.")
+                return False
+
+            return two_phone_call_short_seq(
+                self.log, ads[0], phone_idle_iwlan, is_phone_in_call_iwlan,
+                ads[1], phone_idle_3g, is_phone_in_call_3g, None)
+        finally:
+            remove_mobile_data_usage_limit(ads[0], subscriber_id)
+
+    @test_tracker_info(uuid="af943c7f-2b42-408f-b8a3-2d360a7483f7")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_volte_after_mobile_data_usage_limit_reached(self):
+        """ VoLTE to VoLTE call test after mobile data usage limit reached
+
+        1. Set the data limit to the current usage
+        2. Make Sure PhoneA is in LTE mode (with VoLTE).
+        3. Make Sure PhoneB is in LTE mode (with VoLTE).
+        4. Call from PhoneA to PhoneB, accept on PhoneB, hang up on PhoneA.
+        5. Call from PhoneA to PhoneB, accept on PhoneB, hang up on PhoneB.
+
+        Returns:
+            True if pass; False if fail.
+        """
+        ads = self.android_devices
+        try:
+            subscriber_id = ads[0].droid.telephonyGetSubscriberId()
+            data_usage = get_mobile_data_usage(ads[0], subscriber_id)
+            set_mobile_data_usage_limit(ads[0], data_usage, subscriber_id)
+
+            tasks = [(phone_setup_volte, (self.log, ads[0])),
+                     (phone_setup_volte, (self.log, ads[1]))]
+            if not multithread_func(self.log, tasks):
+                self.log.error("Phone Failed to Set Up Properly.")
+                return False
+
+            return two_phone_call_short_seq(
+                self.log, ads[0], phone_idle_volte, is_phone_in_call_volte,
+                ads[1], phone_idle_volte, is_phone_in_call_volte, None,
+                WAIT_TIME_IN_CALL_FOR_IMS)
+        finally:
+            remove_mobile_data_usage_limit(ads[0], subscriber_id)
 
 
 """ Tests End """

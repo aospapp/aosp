@@ -1,4 +1,4 @@
-.TH "decode.h" 3 "Tue Feb 28 2017" "Brotli" \" -*- nroff -*-
+.TH "decode.h" 3 "Wed Aug 2 2017" "Brotli" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -22,6 +22,10 @@ decode.h \- API for Brotli decompression\&.
 .SS "Typedefs"
 
 .in +1c
+.ti -1c
+.RI "typedef enum \fBBrotliDecoderParameter\fP \fBBrotliDecoderParameter\fP"
+.br
+.RI "\fIOptions to be used with \fBBrotliDecoderSetParameter\fP\&. \fP"
 .ti -1c
 .RI "typedef struct BrotliDecoderStateStruct \fBBrotliDecoderState\fP"
 .br
@@ -68,9 +72,9 @@ decode.h \- API for Brotli decompression\&.
 .br
 .RI "\fIChecks if instance has already consumed input\&. \fP"
 .ti -1c
-.RI "void \fBBrotliDecoderSetCustomDictionary\fP (\fBBrotliDecoderState\fP *state, size_t size, const uint8_t dict[size])"
+.RI "\fBBROTLI_BOOL\fP \fBBrotliDecoderSetParameter\fP (\fBBrotliDecoderState\fP *state, \fBBrotliDecoderParameter\fP param, uint32_t value)"
 .br
-.RI "\fIPrepends LZ77 dictionary\&. \fP"
+.RI "\fISets the specified parameter to the given decoder instance\&. \fP"
 .ti -1c
 .RI "const uint8_t * \fBBrotliDecoderTakeOutput\fP (\fBBrotliDecoderState\fP *state, size_t *size)"
 .br
@@ -115,6 +119,10 @@ BROTLI_DECODER_ERROR_CODES_LIST(CASE_, NEWLINE_)
 The value of the last error code, negative integer\&. All other error code values are in the range from \fBBROTLI_LAST_ERROR_CODE\fP to \fC-1\fP\&. There are also 4 other possible non-error codes \fC0\fP \&.\&. \fC3\fP in \fBBrotliDecoderErrorCode\fP enumeration\&. 
 .SH "Typedef Documentation"
 .PP 
+.SS "typedef enum \fBBrotliDecoderParameter\fP  \fBBrotliDecoderParameter\fP"
+
+.PP
+Options to be used with \fBBrotliDecoderSetParameter\fP\&. 
 .SS "typedef struct BrotliDecoderStateStruct \fBBrotliDecoderState\fP"
 
 .PP
@@ -125,6 +133,16 @@ Opaque structure that holds decoder state\&. Allocated and initialized with \fBB
 
 .PP
 Error code for detailed logging / production debugging\&. See \fBBrotliDecoderGetErrorCode\fP and \fBBROTLI_LAST_ERROR_CODE\fP\&. 
+.SS "enum \fBBrotliDecoderParameter\fP"
+
+.PP
+Options to be used with \fBBrotliDecoderSetParameter\fP\&. 
+.PP
+\fBEnumerator\fP
+.in +1c
+.TP
+\fB\fIBROTLI_DECODER_PARAM_DISABLE_RING_BUFFER_REALLOCATION \fP\fP
+Disable 'canny' ring buffer allocation strategy\&. Ring buffer is allocated according to window size, despite the real size of the content\&. 
 .SS "enum \fBBrotliDecoderResult\fP"
 
 .PP
@@ -233,9 +251,9 @@ Input is never overconsumed, so \fCnext_in\fP and \fCavailable_in\fP could be pa
 .RS 4
 \fBBROTLI_DECODER_RESULT_ERROR\fP if input is corrupted, memory allocation failed, arguments were invalid, etc\&.; use \fBBrotliDecoderGetErrorCode\fP to get detailed error code 
 .PP
-\fBBROTLI_DECODER_RESULT_NEEDS_MORE_INPUT\fP decoding is blocked until more output space is provided 
+\fBBROTLI_DECODER_RESULT_NEEDS_MORE_INPUT\fP decoding is blocked until more input data is provided 
 .PP
-\fBBROTLI_DECODER_RESULT_NEEDS_MORE_OUTPUT\fP decoding is blocked until more input data is provided 
+\fBBROTLI_DECODER_RESULT_NEEDS_MORE_OUTPUT\fP decoding is blocked until more output space is provided 
 .PP
 \fBBROTLI_DECODER_RESULT_SUCCESS\fP decoding is finished, no more input might be consumed and no more output will be produced 
 .RE
@@ -324,39 +342,25 @@ Checks if instance has already consumed input\&. Instance that returns \fBBROTLI
 .RE
 .PP
 
-.SS "void BrotliDecoderSetCustomDictionary (\fBBrotliDecoderState\fP * state, size_t size, const uint8_t dict[size])"
+.SS "\fBBROTLI_BOOL\fP BrotliDecoderSetParameter (\fBBrotliDecoderState\fP * state, \fBBrotliDecoderParameter\fP param, uint32_t value)"
 
 .PP
-Prepends LZ77 dictionary\&. Fills the fresh \fBBrotliDecoderState\fP with additional data corpus for LZ77 backward references\&.
-.PP
-\fBNote:\fP
-.RS 4
-Not to be confused with the static dictionary (see RFC7932 section 8)\&. 
-.RE
-.PP
-\fBWarning:\fP
-.RS 4
-The dictionary must exist in memory until decoding is done and is owned by the caller\&.
-.RE
-.PP
-Workflow:
-.IP "1." 4
-Allocate and initialize state with \fBBrotliDecoderCreateInstance\fP
-.IP "2." 4
-Invoke \fBBrotliDecoderSetCustomDictionary\fP
-.IP "3." 4
-Use \fBBrotliDecoderDecompressStream\fP
-.IP "4." 4
-Clean up and free state with \fBBrotliDecoderDestroyInstance\fP
-.PP
+Sets the specified parameter to the given decoder instance\&. 
 .PP
 \fBParameters:\fP
 .RS 4
 \fIstate\fP decoder instance 
 .br
-\fIsize\fP length of \fCdict\fP; should be less or equal to 2^24 (16MiB), otherwise the dictionary will be ignored 
+\fIparam\fP parameter to set 
 .br
-\fIdict\fP 'dictionary'; \fBMUST\fP be the same as used during compression 
+\fIvalue\fP new parameter value 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fBBROTLI_FALSE\fP if parameter is unrecognized, or value is invalid 
+.PP
+\fBBROTLI_TRUE\fP if value is accepted 
 .RE
 .PP
 

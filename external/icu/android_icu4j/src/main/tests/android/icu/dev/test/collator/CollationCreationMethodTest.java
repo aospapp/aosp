@@ -7,35 +7,40 @@
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
- 
+
 package android.icu.dev.test.collator;
 
 import java.util.Locale;
 import java.util.Random;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.CollationKey;
 import android.icu.text.Collator;
 import android.icu.text.RuleBasedCollator;
+import android.icu.testsharding.MainTestShard;
 
 
 /**
- * 
- * CollationCreationMethodTest checks to ensure that the collators act the same whether they are created by choosing a 
+ *
+ * CollationCreationMethodTest checks to ensure that the collators act the same whether they are created by choosing a
  * locale and loading the data from file, or by using rules.
- * 
+ *
  * @author Brian Rower - IBM - August 2008
  *
  */
-public class CollationCreationMethodTest extends TestFmwk 
+@MainTestShard
+@RunWith(JUnit4.class)
+public class CollationCreationMethodTest extends TestFmwk
 {
     @Test
     public void TestRuleVsLocaleCreationMonkey()
     {
         //create a RBC from a collator reader by reading in a locale collation file
-        //also create one simply from a rules string (which should be 
+        //also create one simply from a rules string (which should be
         //pulled from the locale collation file)
         //and then do crazy monkey testing on it to make sure they are the same.
         int x,y,z;
@@ -61,8 +66,8 @@ public class CollationCreationMethodTest extends TestFmwk
                 localeCollator = (RuleBasedCollator)Collator.getInstance(locale);
                 logln("Rules for " + locale + " are: " + localeCollator.getRules());
                 ruleCollator = new RuleBasedCollator(localeCollator.getRules());
-            } 
-            catch (Exception e) 
+            }
+            catch (Exception e)
             {
                 warnln("ERROR: in creation of collator of locale " + locale.getDisplayName() + ": " + e);
                 return;
@@ -77,7 +82,7 @@ public class CollationCreationMethodTest extends TestFmwk
 
                 key1 = localeCollator.getCollationKey(randString1);
                 key2 = ruleCollator.getCollationKey(randString1);
-               
+
                 report(locale.getDisplayName(), randString1, key1, key2);
             }
         }
@@ -109,9 +114,9 @@ public class CollationCreationMethodTest extends TestFmwk
         return s;
     }
 
-    private void report(String localeName, String string1, CollationKey k1, CollationKey k2) 
+    private void report(String localeName, String string1, CollationKey k1, CollationKey k2)
     {
-        if (!k1.equals(k2)) 
+        if (!k1.equals(k2))
         {
             StringBuilder msg = new StringBuilder();
             msg.append("With ").append(localeName).append(" collator\n and input string: ").append(string1).append('\n');

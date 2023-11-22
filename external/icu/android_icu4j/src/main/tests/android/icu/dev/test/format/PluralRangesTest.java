@@ -12,6 +12,8 @@ package android.icu.dev.test.format;
 import java.util.Arrays;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.SimpleFormatterImpl;
@@ -24,11 +26,14 @@ import android.icu.util.Currency;
 import android.icu.util.Measure;
 import android.icu.util.MeasureUnit;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author markdavis
- * 
+ *
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class PluralRangesTest extends TestFmwk {
     @Test
     public void TestLocaleData() {

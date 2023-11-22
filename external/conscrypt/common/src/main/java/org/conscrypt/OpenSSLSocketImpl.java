@@ -32,7 +32,7 @@ import javax.net.ssl.SSLSession;
  * @hide
  */
 @Internal
-public abstract class OpenSSLSocketImpl extends AbstractConscryptSocket {
+public abstract class OpenSSLSocketImpl extends ConscryptSocketBase {
     OpenSSLSocketImpl() throws IOException {
     }
 
@@ -111,21 +111,35 @@ public abstract class OpenSSLSocketImpl extends AbstractConscryptSocket {
     public abstract void setChannelIdPrivateKey(PrivateKey privateKey);
 
     @Override
+    @Deprecated
     public final byte[] getNpnSelectedProtocol() {
         return super.getNpnSelectedProtocol();
     }
 
     @Override
+    @Deprecated
     public final void setNpnProtocols(byte[] npnProtocols) {
         super.setNpnProtocols(npnProtocols);
     }
 
     @Override
-    public abstract byte[] getAlpnSelectedProtocol();
+    @Deprecated
+    public final void setAlpnProtocols(String[] alpnProtocols) {
+        setApplicationProtocols(alpnProtocols == null ? EmptyArray.STRING : alpnProtocols);
+    }
 
+    @Deprecated
     @Override
-    public abstract void setAlpnProtocols(String[] alpnProtocols);
+    public final byte[] getAlpnSelectedProtocol() {
+        return SSLUtils.toProtocolBytes(getApplicationProtocol());
+    }
 
+    /**
+     * @deprecated Use {@link #setAlpnProtocols(String[])} instead.
+     */
     @Override
-    public abstract void setAlpnProtocols(byte[] alpnProtocols);
+    @Deprecated
+    public final void setAlpnProtocols(byte[] protocols) {
+        setApplicationProtocols(SSLUtils.decodeProtocols(protocols == null ? EmptyArray.BYTE : protocols));
+    }
 }

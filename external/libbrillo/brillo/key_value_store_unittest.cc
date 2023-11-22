@@ -40,8 +40,8 @@ class KeyValueStoreTest : public ::testing::Test {
 TEST_F(KeyValueStoreTest, LoadAndSaveFromFile) {
   base::ScopedTempDir temp_dir_;
   CHECK(temp_dir_.CreateUniqueTempDir());
-  base::FilePath temp_file_ = temp_dir_.path().Append("temp.conf");
-  base::FilePath saved_temp_file_ = temp_dir_.path().Append("saved_temp.conf");
+  base::FilePath temp_file_ = temp_dir_.GetPath().Append("temp.conf");
+  base::FilePath saved_temp_file_ = temp_dir_.GetPath().Append("saved_temp.conf");
 
   string blob = "A=B\n# Comment\n";
   ASSERT_EQ(blob.size(), base::WriteFile(temp_file_, blob.data(), blob.size()));

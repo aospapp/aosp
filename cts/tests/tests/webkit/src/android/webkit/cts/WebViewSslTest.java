@@ -898,8 +898,8 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
     }
 
     private void clearClientCertPreferences() {
-       final AtomicBoolean cleared = new AtomicBoolean(false);
-        mOnUiThread.clearClientCertPreferences(new Runnable() {
+        final AtomicBoolean cleared = new AtomicBoolean(false);
+        WebView.clearClientCertPreferences(new Runnable() {
             @Override
             public void run() {
                 cleared.set(true);

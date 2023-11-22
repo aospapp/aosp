@@ -16,37 +16,48 @@
 
 package com.android.tv.tests.ui;
 
-import static com.android.tv.testing.uihelper.UiDeviceAsserts.assertWaitForCondition;
-
-import android.support.test.filters.SmallTest;
+import android.support.test.filters.MediumTest;
 import android.support.test.uiautomator.Until;
-
 import com.android.tv.R;
 import com.android.tv.testing.uihelper.Constants;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-@SmallTest
-public class ChannelBannerViewTest extends LiveChannelsTestCase {
+/** Tests for {@link com.android.tv.ui.ChannelBannerView} */
+@MediumTest
+@RunWith(JUnit4.class)
+public class ChannelBannerViewTest {
+    @Rule public final LiveChannelsTestController controller = new LiveChannelsTestController();
+
     // Channel banner show duration with the grace period.
     private long mShowDurationMillis;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mLiveChannelsHelper.assertAppStarted();
-        mShowDurationMillis = mTargetResources.getInteger(R.integer.channel_banner_show_duration)
-                + Constants.MAX_SHOW_DELAY_MILLIS;
+    @Before
+    public void setUp() throws Exception {
+        controller.liveChannelsHelper.assertAppStarted();
+        mShowDurationMillis =
+                controller.getTargetResources().getInteger(R.integer.channel_banner_show_duration)
+                        + Constants.MAX_SHOW_DELAY_MILLIS;
     }
 
+    @Ignore("b/73727914")
+    @Test
     public void testChannelBannerAppearDisappear() {
-        mDevice.pressDPadCenter();
-        assertWaitForCondition(mDevice, Until.hasObject(Constants.CHANNEL_BANNER));
-        assertWaitForCondition(mDevice, Until.gone(Constants.CHANNEL_BANNER), mShowDurationMillis);
+        controller.pressDPadCenter();
+        controller.assertWaitForCondition(Until.hasObject(Constants.CHANNEL_BANNER));
+        controller.assertWaitForCondition(
+                Until.gone(Constants.CHANNEL_BANNER), mShowDurationMillis);
     }
 
+    @Test
     public void testChannelBannerShownWhenTune() {
-        mDevice.pressDPadDown();
-        assertWaitForCondition(mDevice, Until.hasObject(Constants.CHANNEL_BANNER));
-        mDevice.pressDPadUp();
-        assertWaitForCondition(mDevice, Until.hasObject(Constants.CHANNEL_BANNER));
+        controller.pressDPadDown();
+        controller.assertWaitForCondition(Until.hasObject(Constants.CHANNEL_BANNER));
+        controller.pressDPadUp();
+        controller.assertWaitForCondition(Until.hasObject(Constants.CHANNEL_BANNER));
     }
 }

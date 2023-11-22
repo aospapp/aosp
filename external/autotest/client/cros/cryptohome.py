@@ -65,6 +65,7 @@ def ensure_clean_cryptohome_for(user, password=None):
     """
     if not password:
         password = ''.join(random.sample(string.ascii_lowercase, 6))
+    unmount_vault(user)
     remove_vault(user)
     mount_vault(user, password, create=True)
 
@@ -234,13 +235,16 @@ def get_tpm_attestation_status():
     return status
 
 
-def take_tpm_ownership():
+def take_tpm_ownership(wait_for_ownership=True):
     """Take TPM owernship.
 
-    Blocks until TPM is owned.
+    Args:
+        wait_for_ownership: block until TPM is owned if true
     """
     __run_cmd(CRYPTOHOME_CMD + ' --action=tpm_take_ownership')
-    __run_cmd(CRYPTOHOME_CMD + ' --action=tpm_wait_ownership')
+    if wait_for_ownership:
+        while not get_tpm_status()['Owned']:
+            time.sleep(0.1)
 
 
 def verify_ek():
@@ -276,12 +280,16 @@ def remove_all_vaults():
             shutil.rmtree(abs_item)
 
 
-def mount_vault(user, password, create=False):
-    """Mount the given user's vault."""
-    args = [CRYPTOHOME_CMD, '--action=mount', '--user=%s' % user,
+def mount_vault(user, password, create=False, key_label='bar'):
+    """Mount the given user's vault. Mounts should be created by calling this
+    function with create=True, and can be used afterwards with create=False.
+    Only try to mount existing vaults created with this function.
+
+    """
+    args = [CRYPTOHOME_CMD, '--action=mount_ex', '--user=%s' % user,
             '--password=%s' % password, '--async']
     if create:
-        args.append('--create')
+        args += ['--key_label=%s' % key_label, '--create']
     logging.info(__run_cmd(' '.join(args)))
     # Ensure that the vault exists in the shadow directory.
     user_hash = get_user_hash(user)
@@ -306,18 +314,20 @@ def mount_vault(user, password, create=False):
 
 
 def mount_guest():
-    """Mount the given user's vault."""
+    """Mount the guest vault."""
     args = [CRYPTOHOME_CMD, '--action=mount_guest', '--async']
     logging.info(__run_cmd(' '.join(args)))
-    # Ensure that the guest tmpfs is mounted.
+    # Ensure that the guest vault is mounted.
     if not is_guest_vault_mounted(allow_fail=True):
-        raise ChromiumOSError('Cryptohome did not mount tmpfs.')
+        raise ChromiumOSError('Cryptohome did not mount guest vault.')
 
 
 def test_auth(user, password):
-    cmd = [CRYPTOHOME_CMD, '--action=test_auth', '--user=%s' % user,
+    cmd = [CRYPTOHOME_CMD, '--action=check_key_ex', '--user=%s' % user,
            '--password=%s' % password, '--async']
-    return 'Authentication succeeded' in utils.system_output(cmd)
+    out = __run_cmd(' '.join(cmd))
+    logging.info(out)
+    return 'Key authenticated.' in out
 
 
 def unmount_vault(user):
@@ -403,9 +413,12 @@ def is_vault_mounted(user, regexes=None, allow_fail=False):
         if not re.match(device_regex, mount_info[0]):
             return False
 
-        if re.match(constants.CRYPTOHOME_FS_REGEX_EXT4, mount_info[2]):
-            # We are using ext4 crypto. Check there is an encryption key for
-            # that directory.
+        if (re.match(constants.CRYPTOHOME_FS_REGEX_EXT4, mount_info[2])
+            and not(re.match(constants.CRYPTOHOME_DEV_REGEX_LOOP_DEVICE,
+                             mount_info[0]))):
+            # Ephemeral cryptohome uses ext4 mount from a loop device,
+            # otherwise it should be ext4 crypto. Check there is an encryption
+            # key for that directory.
             find_key_cmd_list = ['e4crypt  get_policy %s' % (mount_info[1]),
                                  'cut -d \' \' -f 2']
             key = __run_cmd(' | ' .join(find_key_cmd_list))
@@ -419,10 +432,17 @@ def is_vault_mounted(user, regexes=None, allow_fail=False):
 
 
 def is_guest_vault_mounted(allow_fail=False):
-    """Check whether a vault backed by tmpfs is mounted for the guest user."""
+    """Check whether a vault is mounted for the guest user.
+       It should be a mount of an ext4 partition on a loop device
+       or be backed by tmpfs.
+    """
     return is_vault_mounted(
         user=GUEST_USER_NAME,
         regexes={
+            # Remove tmpfs support when it becomes unnecessary as all guest
+            # modes will use ext4 on a loop device.
+            constants.CRYPTOHOME_FS_REGEX_EXT4 :
+                constants.CRYPTOHOME_DEV_REGEX_LOOP_DEVICE,
             constants.CRYPTOHOME_FS_REGEX_TMPFS :
                 constants.CRYPTOHOME_DEV_REGEX_GUEST,
         },
@@ -539,6 +559,20 @@ def do_dircrypto_migration(user, password, timeout=600):
         timeout=timeout,
         exception=error.TestError(
                 'Timeout waiting for dircrypto migration to finish'))
+
+
+def change_password(user, password, new_password):
+    args = [
+            CRYPTOHOME_CMD,
+            '--action=migrate_key',
+            '--async',
+            '--user=%s' % user,
+            '--old_password=%s' % password,
+            '--password=%s' % new_password]
+    out = __run_cmd(' '.join(args))
+    logging.info(out)
+    if 'Key migration succeeded.' not in out:
+        raise ChromiumOSError('Key migration failed.')
 
 
 class CryptohomeProxy(DBusClient):
@@ -684,3 +718,15 @@ class CryptohomeProxy(DBusClient):
             password = ''.join(random.sample(string.ascii_lowercase, 6))
         self.remove(user)
         self.mount(user, password, create=True)
+
+    def lock_install_attributes(self, attrs):
+        """Set and lock install attributes for the device.
+
+        @param attrs: dict of install attributes.
+        """
+        take_tpm_ownership()
+        for key, value in attrs.items():
+            if not self.__call(self.iface.InstallAttributesSet, key,
+                               dbus.ByteArray(value + '\0')):
+                return False
+        return self.__call(self.iface.InstallAttributesFinalize)

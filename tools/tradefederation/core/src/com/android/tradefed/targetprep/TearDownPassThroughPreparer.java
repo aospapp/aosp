@@ -28,11 +28,13 @@ import java.util.Collection;
 
 /**
  * Allows for running tearDown on preparers that are included in a config as an object.
- * <p/>
- * When a preparer is included as an object in a config rather than an {@link ITargetPreparer},
- * it's tearDown will not be called. Referencing it from this preparer will make sure that it's tearDown will be called.
+ *
+ * <p>When a preparer is included as an object in a config rather than an {@link ITargetPreparer},
+ * it's tearDown will not be called. Referencing it from this preparer will make sure that it's
+ * tearDown will be called.
  */
-public class TearDownPassThroughPreparer implements IConfigurationReceiver, ITargetCleaner {
+public class TearDownPassThroughPreparer extends BaseTargetPreparer
+        implements IConfigurationReceiver, ITargetCleaner {
     private IConfiguration mConfiguration;
 
     @Option(name = "preparer", description = "names of preparers to tearDown")

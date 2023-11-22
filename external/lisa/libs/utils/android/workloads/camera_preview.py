@@ -40,7 +40,7 @@ class CameraPreview(Workload):
         self._log = logging.getLogger('CameraPreview')
         self._log.debug('Workload created')
 
-    def run(self, out_dir, duration_s=30, collect='surfaceflinger'):
+    def run(self, out_dir, duration_s=30, collect='surfaceflinger, systrace'):
         """
         Run a camera preview workload
 

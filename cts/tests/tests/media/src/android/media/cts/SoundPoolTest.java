@@ -24,6 +24,7 @@ import android.content.res.AssetFileDescriptor;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.SoundPool;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import java.io.File;
@@ -33,6 +34,7 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 abstract class SoundPoolTest extends AndroidTestCase {
 
     private static final int SOUNDPOOL_STREAMS = 4;

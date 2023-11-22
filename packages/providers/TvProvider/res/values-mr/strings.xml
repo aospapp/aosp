@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="7454398782183407432">"टीव्ही संचय"</string>
+    <string name="app_label" msgid="7454398782183407432">"टीव्ही स्टोरेज"</string>
     <string name="permlab_readTvListings" msgid="5272001606068276291">"सर्व टीव्ही सूची वाचा"</string>
     <string name="permdesc_readTvListings" msgid="1165157606059567535">"आपल्या डिव्हाइसवर उपलब्ध असलेल्या सर्व टीव्ही सूची वाचा"</string>
 </resources>

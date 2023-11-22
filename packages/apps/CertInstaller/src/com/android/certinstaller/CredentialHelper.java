@@ -331,8 +331,13 @@ class CredentialHelper {
                     return false;
                 }
 
-                // Since the cert is installed by real user, the cert is approved by the user
-                dpm.approveCaCert(alias, UserHandle.myUserId(), true);
+                // Some CTS verifier test asks testers to reset auto approved CA cert by removing
+                // lock sreen, but it's not possible if we don't have Android lock screen. (e.g.
+                // Android is running in the container).  In this case, disable auto cert approval.
+                if (context.getResources().getBoolean(R.bool.config_auto_cert_approval)) {
+                    // Since the cert is installed by real user, the cert is approved by the user
+                    dpm.approveCaCert(alias, UserHandle.myUserId(), true);
+                }
             }
         }
         return true;

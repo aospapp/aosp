@@ -19,6 +19,8 @@
     package="android.abioverride.app">
 
     <application android:use32bitAbi="true" android:multiArch="true">
+        <uses-library android:name="android.test.runner" />
+
         <activity android:name=".AbiOverrideActivity" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

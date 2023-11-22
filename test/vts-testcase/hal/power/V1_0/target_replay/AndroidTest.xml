@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for VTS VtsHalPowerV1_0TargetReplay test cases">
+    <option name="config-descriptor:metadata" key="plan" value="vts-hal-replay" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="abort-on-push-failure" value="false"/>
         <option name="push-group" value="HalHidlHostTest.push"/>
@@ -23,7 +24,6 @@
         <option name="push" value="DATA/lib/android.hardware.power@1.0-vts.driver.so->/data/local/tmp/32/android.hardware.power@1.0-vts.driver.so"/>
         <option name="push" value="DATA/lib64/android.hardware.power@1.0-vts.driver.so->/data/local/tmp/64/android.hardware.power@1.0-vts.driver.so"/>
     </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer"/>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsHalPowerV1_0TargetReplay"/>
         <option name="binary-test-type" value="hal_hidl_replay_test"/>
@@ -31,8 +31,6 @@
         <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/power/V1_0/android.hardware.power_1.0_16558631751.vts.trace"/>
         <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/power/V1_0/android.hardware.power_1.0_16053566180.vts.trace"/>
         <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/power/V1_0/android.hardware.power_1.0_16273110837.vts.trace"/>
-        <option name="hal-hidl-package-name" value="android.hardware.power@1.0"/>
-        <option name="precondition-lshal" value="android.hardware.power@1.0"/>
         <option name="test-timeout" value="5m"/>
     </test>
 </configuration>

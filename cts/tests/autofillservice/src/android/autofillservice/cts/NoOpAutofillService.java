@@ -21,21 +21,27 @@ import android.service.autofill.FillCallback;
 import android.service.autofill.FillRequest;
 import android.service.autofill.SaveCallback;
 import android.service.autofill.SaveRequest;
+import android.util.Log;
 
 /**
  * {@link AutofillService} implementation that does not do anything...
  */
 public class NoOpAutofillService extends AutofillService {
 
+    private static final String TAG = "NoOpAutofillService";
+
     static final String SERVICE_NAME = NoOpAutofillService.class.getPackage().getName()
             + "/." + NoOpAutofillService.class.getSimpleName();
+    static final String SERVICE_LABEL = "NoOpAutofillService";
 
     @Override
     public void onFillRequest(FillRequest request, CancellationSignal cancellationSignal,
             FillCallback callback) {
+        Log.d(TAG, "onFillRequest()");
     }
 
     @Override
     public void onSaveRequest(SaveRequest request, SaveCallback callback) {
+        Log.d(TAG, "onFillResponse()");
     }
 }

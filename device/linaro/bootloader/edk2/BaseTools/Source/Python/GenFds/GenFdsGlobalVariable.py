@@ -1,7 +1,7 @@
 ## @file
 # Global variables for GenFds
 #
-#  Copyright (c) 2007 - 2014, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -68,6 +68,7 @@ class GenFdsGlobalVariable:
     BuildRuleFamily = "MSFT"
     ToolChainFamily = "MSFT"
     __BuildRuleDatabase = None
+    GuidToolDefinition = {}
     
     #
     # The list whose element are flags to indicate if large FFS or SECTION files exist in FV.
@@ -284,8 +285,6 @@ class GenFdsGlobalVariable:
         GenFdsGlobalVariable.FfsDir = os.path.join(GenFdsGlobalVariable.FvDir, 'Ffs')
         if not os.path.exists(GenFdsGlobalVariable.FfsDir) :
             os.makedirs(GenFdsGlobalVariable.FfsDir)
-        if ArchList != None:
-            GenFdsGlobalVariable.ArchList = ArchList
 
         T_CHAR_LF = '\n'
         #
@@ -430,11 +429,18 @@ class GenFdsGlobalVariable:
     def GenerateFfs(Output, Input, Type, Guid, Fixed=False, CheckSum=False, Align=None,
                     SectionAlign=None):
         Cmd = ["GenFfs", "-t", Type, "-g", Guid]
+        mFfsValidAlign = ["0", "8", "16", "128", "512", "1K", "4K", "32K", "64K"]
         if Fixed == True:
             Cmd += ["-x"]
         if CheckSum:
             Cmd += ["-s"]
         if Align not in [None, '']:
+            if Align not in mFfsValidAlign:
+                Align = GenFdsGlobalVariable.GetAlignment (Align)
+                for index in range(0, len(mFfsValidAlign) - 1):
+                    if ((Align > GenFdsGlobalVariable.GetAlignment(mFfsValidAlign[index])) and (Align <= GenFdsGlobalVariable.GetAlignment(mFfsValidAlign[index + 1]))):
+                        break
+                Align = mFfsValidAlign[index + 1]
             Cmd += ["-a", Align]
 
         Cmd += ["-o", Output]

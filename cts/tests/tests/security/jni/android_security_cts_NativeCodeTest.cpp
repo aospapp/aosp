@@ -263,18 +263,14 @@ static jboolean android_security_cts_NativeCodeTest_doPipeReadVTest(JNIEnv*, job
      * set up to overflow iov[OVERFLOW_BUF] on non-atomic redo in kernel
      * function pipe_iov_copy_to_user
      */
-    iovs[OVERFLOW_BUF - 1].iov_len = IOV_LEN*10;
-    iovs[OVERFLOW_BUF].iov_base = bufs[OVERFLOW_BUF];
-    iovs[OVERFLOW_BUF].iov_len = IOV_LEN;
-
-    overflow_addr = mmap((void *) FIXED_ADDR, PAGE_SIZE, PROT_READ | PROT_WRITE,
-            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-
-    bufs[OVERFLOW_BUF] = overflow_addr;
+    bufs[OVERFLOW_BUF] = mmap((void*)(FIXED_ADDR), PAGE_SIZE, PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
     if (bufs[OVERFLOW_BUF] == MAP_FAILED) {
         ALOGE("mmap fixed addr failed:%s", strerror(errno));
         goto __close_pipe;
     }
+    iovs[OVERFLOW_BUF].iov_base = bufs[OVERFLOW_BUF];
+    iovs[OVERFLOW_BUF].iov_len = IOV_LEN;
 
     for (i = 0; i < BUFS; i++) {
         if (i == OVERFLOW_BUF) {

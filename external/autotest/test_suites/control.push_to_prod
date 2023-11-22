@@ -37,10 +37,6 @@ from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
-# Needs to be done to generate the control files for the suite.
-ds = dev_server.ImageServer.resolve(build)
-ds.stage_artifacts(build, artifacts=['au_suite'])
-
 # Values specified in this bug template will override default values when
 # filing bugs on tests that are a part of this suite. If left unspecified
 # the bug filer will fallback to it's defaults.

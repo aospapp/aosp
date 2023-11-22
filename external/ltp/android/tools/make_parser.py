@@ -161,8 +161,8 @@ class MakeParser(object):
         self.result = []
         self.dir_stack = []
 
-        entering_directory = re.compile(r"make.*: Entering directory `(.*)'")
-        leaving_directory = re.compile(r"make.*: Leaving directory `(.*)'")
+        entering_directory = re.compile(r"make.*: Entering directory [`,'](.*)'")
+        leaving_directory = re.compile(r"make.*: Leaving directory [`,'](.*)'")
 
         with open(input_path, 'r') as f:
             for line in f:

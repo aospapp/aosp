@@ -5,19 +5,20 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 LOCAL_CERTIFICATE := platform
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
+LOCAL_JAVA_LIBRARIES := android.test.runner android.test.base
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-test \
     mockito-target-minus-junit4 \
     espresso-core \
     truth-prebuilt \
-    legacy-android-test
+    testables
 
 # Include all test java files.
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := ExtServicesUnitTests
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_INSTRUMENTATION_FOR := ExtServices
 

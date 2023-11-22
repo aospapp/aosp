@@ -21,9 +21,11 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.audiofx.PresetReverb;
 import android.os.Looper;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class PresetReverbTest extends PostProcTestBase {
 
     private String TAG = "PresetReverbTest";

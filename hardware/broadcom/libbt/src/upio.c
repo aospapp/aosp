@@ -36,6 +36,9 @@
 #include "bt_vendor_brcm.h"
 #include "upio.h"
 #include "userial_vendor.h"
+#include <stdio.h>
+#include <unistd.h>
+#include <time.h>
 
 /******************************************************************************
 **  Constants & Macros

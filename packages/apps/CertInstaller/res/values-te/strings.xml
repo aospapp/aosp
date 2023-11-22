@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN మరియు అనువర్తనాలు"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"గమనిక: ఈ ప్రమాణపత్రాన్ని జారీ చేసిన వారు పరికరానికి సంబంధించిన మొత్తం రాకపోకల ట్రాఫిక్‌ని పరిశీలించవచ్చు."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi ప్రొఫైల్"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%s వివరాలు"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"వివరాలు"</string>

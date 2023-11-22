@@ -21,16 +21,12 @@ import android.os.Bundle;
 import android.support.v17.leanback.widget.Action;
 import android.support.v17.leanback.widget.OnActionClickedListener;
 import android.support.v17.leanback.widget.SparseArrayObjectAdapter;
-import android.text.TextUtils;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.ui.DvrUiHelper;
 
-/**
- * {@link RecordingDetailsFragment} for scheduled recording in DVR.
- */
+/** {@link RecordingDetailsFragment} for scheduled recording in DVR. */
 public class ScheduledRecordingDetailsFragment extends RecordingDetailsFragment {
     private static final int ACTION_VIEW_SCHEDULE = 1;
     private static final int ACTION_CANCEL = 2;
@@ -38,11 +34,14 @@ public class ScheduledRecordingDetailsFragment extends RecordingDetailsFragment 
     private DvrManager mDvrManager;
     private Action mScheduleAction;
     private boolean mHideViewSchedule;
+    private String mFailedMessage;
 
     @Override
     public void onCreate(Bundle savedInstance) {
-        mDvrManager = TvApplication.getSingletons(getContext()).getDvrManager();
-        mHideViewSchedule = getArguments().getBoolean(DvrDetailsActivity.HIDE_VIEW_SCHEDULE);
+        Bundle args = getArguments();
+        mDvrManager = TvSingletons.getSingletons(getContext()).getDvrManager();
+        mHideViewSchedule = args.getBoolean(DvrDetailsActivity.HIDE_VIEW_SCHEDULE);
+        mFailedMessage = args.getString(DvrDetailsActivity.EXTRA_FAILED_MESSAGE);
         super.onCreate(savedInstance);
     }
 
@@ -55,19 +54,37 @@ public class ScheduledRecordingDetailsFragment extends RecordingDetailsFragment 
     }
 
     @Override
+    protected void onCreateInternal() {
+        if (mFailedMessage == null) {
+            super.onCreateInternal();
+            return;
+        }
+        setDetailsOverviewRow(
+                DetailsContent.createFromFailedScheduledRecording(
+                        getContext(), getScheduledRecording(), mFailedMessage));
+    }
+
+    @Override
     protected SparseArrayObjectAdapter onCreateActionsAdapter() {
         SparseArrayObjectAdapter adapter =
                 new SparseArrayObjectAdapter(new ActionPresenterSelector());
         Resources res = getResources();
         if (!mHideViewSchedule) {
-            mScheduleAction = new Action(ACTION_VIEW_SCHEDULE,
-                    res.getString(R.string.dvr_detail_view_schedule), null,
-                    res.getDrawable(getScheduleIconId()));
+            mScheduleAction =
+                    new Action(
+                            ACTION_VIEW_SCHEDULE,
+                            res.getString(R.string.dvr_detail_view_schedule),
+                            null,
+                            res.getDrawable(getScheduleIconId()));
             adapter.set(ACTION_VIEW_SCHEDULE, mScheduleAction);
         }
-        adapter.set(ACTION_CANCEL, new Action(ACTION_CANCEL,
-                res.getString(R.string.dvr_detail_cancel_recording), null,
-                res.getDrawable(R.drawable.ic_dvr_cancel_32dp)));
+        adapter.set(
+                ACTION_CANCEL,
+                new Action(
+                        ACTION_CANCEL,
+                        res.getString(R.string.dvr_detail_cancel_recording),
+                        null,
+                        res.getDrawable(R.drawable.ic_dvr_cancel_32dp)));
         return adapter;
     }
 

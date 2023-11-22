@@ -46,17 +46,16 @@ class BinderUpdateEngineBrilloService : public android::brillo::BnUpdateEngine,
   }
 
   // ServiceObserverInterface overrides.
-  void SendStatusUpdate(int64_t last_checked_time,
-                        double progress,
-                        update_engine::UpdateStatus status,
-                        const std::string& new_version,
-                        int64_t new_size) override;
+  void SendStatusUpdate(
+      const update_engine::UpdateEngineStatus& update_engine_status) override;
   void SendPayloadApplicationComplete(ErrorCode error_code) override {}
 
   // android::brillo::BnUpdateEngine overrides.
+  android::binder::Status SetUpdateAttemptFlags(int flags) override;
   android::binder::Status AttemptUpdate(const android::String16& app_version,
                                         const android::String16& omaha_url,
-                                        int flags) override;
+                                        int flags,
+                                        bool* out_result) override;
   android::binder::Status AttemptRollback(bool powerwash) override;
   android::binder::Status CanRollback(bool* out_can_rollback) override;
   android::binder::Status ResetStatus() override;

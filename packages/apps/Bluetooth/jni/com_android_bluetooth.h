@@ -18,7 +18,7 @@
 #ifndef COM_ANDROID_BLUETOOTH_H
 #define COM_ANDROID_BLUETOOTH_H
 
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 #include "android_runtime/AndroidRuntime.h"
 #include "android_runtime/Log.h"
 #include "hardware/bluetooth.h"
@@ -81,11 +81,13 @@ int register_com_android_bluetooth_a2dp_sink(JNIEnv* env);
 
 int register_com_android_bluetooth_avrcp(JNIEnv* env);
 
+int register_com_android_bluetooth_avrcp_target(JNIEnv* env);
+
 int register_com_android_bluetooth_avrcp_controller(JNIEnv* env);
 
-int register_com_android_bluetooth_hid(JNIEnv* env);
+int register_com_android_bluetooth_hid_host(JNIEnv* env);
 
-int register_com_android_bluetooth_hidd(JNIEnv* env);
+int register_com_android_bluetooth_hid_device(JNIEnv* env);
 
 int register_com_android_bluetooth_hdp(JNIEnv* env);
 
@@ -95,6 +97,7 @@ int register_com_android_bluetooth_gatt (JNIEnv* env);
 
 int register_com_android_bluetooth_sdp (JNIEnv* env);
 
+int register_com_android_bluetooth_hearing_aid(JNIEnv* env);
 }
 
 #endif /* COM_ANDROID_BLUETOOTH_H */

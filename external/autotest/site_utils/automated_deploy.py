@@ -35,6 +35,13 @@ PROD_BRANCH = 'prod'
 MASTER_AFE = 'cautotest'
 NOTIFY_GROUP = 'chromeos-infra-discuss@google.com'
 
+# CIPD packages whose prod refs should be updated.
+_CIPD_PACKAGES = (
+        'chromiumos/infra/lucifer',
+        'chromiumos/infra/tast-cmd',
+        'chromiumos/infra/tast-remote-tests-cros',
+)
+
 
 class AutoDeployException(Exception):
     """Raised when any deploy step fails."""
@@ -52,6 +59,9 @@ def parse_arguments():
             help='Skip updating autotest prod branch. Default is False.')
     parser.add_argument('--skip_chromite', action='store_true', default=False,
             help='Skip updating chromite prod branch. Default is False.')
+    parser.add_argument('--force_update', action='store_true', default=False,
+            help=('Force a deployment without updating both autotest and '
+                  'chromite prod branch'))
     parser.add_argument('--autotest_hash', type=str, default=None,
             help='Update autotest prod branch to the given hash. If it is not'
                  ' specified, autotest prod branch will be rebased to '
@@ -68,6 +78,9 @@ def parse_arguments():
         parser.print_help()
         print 'Cannot specify skip_* and *_hash options at the same time.'
         sys.exit(1)
+    if results.force_update:
+      results.skip_autotest = True
+      results.skip_chromite = True
     return results
 
 
@@ -162,7 +175,10 @@ def get_pushed_commits(repo, repo_dir, pushed_commits_range):
             pushed_commits = autotest_commits
 
         print 'Successfully got pushed CLs for %s repo!\n' % repo
-        return '\n%s:\n%s\n%s\n' % (repo, get_commits_cmd, pushed_commits)
+        displayed_cmd = get_commits_cmd
+        if repo == 'autotest':
+          displayed_cmd += ' | grep autotest'
+        return '\n%s:\n%s\n%s\n' % (repo, displayed_cmd, pushed_commits)
 
 
 def kick_off_deploy():
@@ -173,10 +189,10 @@ def kick_off_deploy():
     print 'Start deploying changes to all lab servers...'
     with infra.chdir(AUTOTEST_DIR):
         # Then kick off the deploy script.
-        deploy_cmd = ('runlocalssh ./site_utils/deploy_server.py --afe=%s' %
+        deploy_cmd = ('runlocalssh ./site_utils/deploy_server.py -x --afe=%s' %
                       MASTER_AFE)
         infra.local_runner(deploy_cmd, stream_output=True)
-        print 'Successfully deploy changes to all lab servers.!'
+        print 'Successfully deployed changes to all lab servers.'
 
 
 def main(args):
@@ -188,6 +204,10 @@ def main(args):
     if not options.skip_chromite:
         repos.update({'chromite': options.chromite_hash})
 
+    print 'Moving CIPD prod refs to prod-next'
+    for pkg in _CIPD_PACKAGES:
+        subprocess.check_call(['cipd', 'set-ref', pkg, '-version', 'prod-next',
+                               '-ref', 'prod'])
     try:
         # update_log saves the git log of the updated repo.
         update_log = ''

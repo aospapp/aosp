@@ -16,7 +16,7 @@
 
 package com.android.documentsui;
 
-import static com.android.documentsui.base.Shared.VERBOSE;
+import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
 import android.content.AsyncTaskLoader;
 import android.content.ContentProviderClient;
@@ -43,6 +43,7 @@ import com.android.documentsui.base.FilteringCursorWrapper;
 import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.roots.RootCursorWrapper;
+import com.android.documentsui.selection.ContentLock;
 import com.android.documentsui.sorting.SortModel;
 
 import libcore.io.IoUtils;
@@ -74,7 +75,7 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
             Uri uri,
             SortModel model,
             Lookup<String, String> fileTypeLookup,
-            DirectoryReloadLock lock,
+            ContentLock lock,
             boolean inSearchMode) {
 
         super(context, ProviderExecutor.forAuthority(root.authority));
@@ -226,10 +227,10 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
     }
 
     private static final class LockingContentObserver extends ContentObserver {
-        private final DirectoryReloadLock mLock;
+        private final ContentLock mLock;
         private final Runnable mContentChangedCallback;
 
-        public LockingContentObserver(DirectoryReloadLock lock, Runnable contentChangedCallback) {
+        public LockingContentObserver(ContentLock lock, Runnable contentChangedCallback) {
             super(new Handler(Looper.getMainLooper()));
             mLock = lock;
             mContentChangedCallback = contentChangedCallback;
@@ -242,7 +243,7 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
 
         @Override
         public void onChange(boolean selfChange) {
-            mLock.tryUpdate(mContentChangedCallback);
+            mLock.runWhenUnlocked(mContentChangedCallback);
         }
     }
 }

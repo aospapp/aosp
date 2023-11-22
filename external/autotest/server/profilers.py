@@ -2,7 +2,7 @@ import os, shutil, tempfile, logging
 
 import common
 from autotest_lib.client.common_lib import utils, error, profiler_manager
-from autotest_lib.server import profiler, autotest, standalone_profiler, hosts
+from autotest_lib.server import profiler, autotest, standalone_profiler
 
 
 PROFILER_TMPDIR = '/tmp/profilers'
@@ -62,7 +62,7 @@ class profilers(profiler_manager.profiler_manager):
         """
         Install autotest on any current job hosts.
         """
-        in_use_hosts = set()
+        in_use_hosts = dict()
         # find hosts in use but not used by us
         for host in self.job.hosts:
             if host.hostname not in self.job.machines:
@@ -72,8 +72,8 @@ class profilers(profiler_manager.profiler_manager):
                 continue
             autodir = host.get_autodir()
             if not (autodir and autodir.startswith(PROFILER_TMPDIR)):
-                in_use_hosts.add(host.hostname)
-        logging.debug('Hosts currently in use: %s', in_use_hosts)
+                in_use_hosts[host.hostname] = host
+        logging.debug('Hosts currently in use: %s', set(in_use_hosts))
 
         # determine what valid host objects we already have installed
         profiler_hosts = set()
@@ -84,26 +84,21 @@ class profilers(profiler_manager.profiler_manager):
                 # the profiler was wiped out somehow, drop this install
                 logging.warning('The profiler client on %s at %s was deleted',
                                 host.hostname, profiler_dir)
-                host.close()
                 del self.installed_hosts[host.hostname]
         logging.debug('Hosts with profiler clients already installed: %s',
                       profiler_hosts)
 
         # install autotest on any new hosts in use
-        for hostname in in_use_hosts - profiler_hosts:
-            host = hosts.create_host(hostname)
+        for hostname in set(in_use_hosts) - profiler_hosts:
+            host = in_use_hosts[hostname]
             tmp_dir = host.get_tmp_dir(parent=PROFILER_TMPDIR)
             at = autotest.Autotest(host)
             at.install_no_autoserv(autodir=tmp_dir)
             self.installed_hosts[host.hostname] = (host, at, tmp_dir)
 
         # drop any installs from hosts no longer in job.hosts
-        hostnames_to_drop = profiler_hosts - in_use_hosts
-        hosts_to_drop = [self.installed_hosts[hostname][0]
-                         for hostname in hostnames_to_drop]
-        for host in hosts_to_drop:
-            host.close()
-            del self.installed_hosts[host.hostname]
+        for hostname in profiler_hosts - set(in_use_hosts):
+            del self.installed_hosts[hostname]
 
 
     def _get_hosts(self, host=None):

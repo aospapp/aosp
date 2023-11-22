@@ -19,7 +19,7 @@
     package="android.app.usage.app">
 
     <application>
-        <activity android:name=".TestActivity">
+        <activity android:name="android.app.usage.app.TestActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.DEFAULT" />

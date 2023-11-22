@@ -33,16 +33,14 @@ import android.support.annotation.MainThread;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.WorkerThread;
-
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.WeakHandler;
-import com.android.tv.data.Channel;
+import com.android.tv.common.util.PermissionUtils;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.Program;
 import com.android.tv.data.WatchedHistoryManager;
-import com.android.tv.util.PermissionUtils;
+import com.android.tv.data.api.Channel;
 import com.android.tv.util.TvUriMatcher;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -52,6 +50,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/** Manages teh data need to make recommendations. */
 public class RecommendationDataManager implements WatchedHistoryManager.Listener {
     private static final int MSG_START = 1000;
     private static final int MSG_STOP = 1001;
@@ -84,40 +83,38 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
     private final HandlerThread mHandlerThread;
     private final Handler mHandler;
     private final Handler mMainHandler;
-    @Nullable
-    private WatchedHistoryManager mWatchedHistoryManager;
+    @Nullable private WatchedHistoryManager mWatchedHistoryManager;
     private final ChannelDataManager mChannelDataManager;
     private final ChannelDataManager.Listener mChannelDataListener =
             new ChannelDataManager.Listener() {
-        @Override
-        @MainThread
-        public void onLoadFinished() {
-            updateChannelData();
-        }
+                @Override
+                @MainThread
+                public void onLoadFinished() {
+                    updateChannelData();
+                }
 
-        @Override
-        @MainThread
-        public void onChannelListUpdated() {
-            updateChannelData();
-        }
+                @Override
+                @MainThread
+                public void onChannelListUpdated() {
+                    updateChannelData();
+                }
 
-        @Override
-        @MainThread
-        public void onChannelBrowsableChanged() {
-            updateChannelData();
-        }
-    };
+                @Override
+                @MainThread
+                public void onChannelBrowsableChanged() {
+                    updateChannelData();
+                }
+            };
 
     // For thread safety, this variable is handled only on main thread.
     private final List<Listener> mListeners = new ArrayList<>();
 
     /**
-     * Gets instance of RecommendationDataManager, and adds a {@link Listener}.
-     * The listener methods will be called in the same thread as its caller of the method.
-     * Note that {@link #release(Listener)} should be called when this manager is not needed
-     * any more.
+     * Gets instance of RecommendationDataManager, and adds a {@link Listener}. The listener methods
+     * will be called in the same thread as its caller of the method. Note that {@link
+     * #release(Listener)} should be called when this manager is not needed any more.
      */
-    public synchronized static RecommendationDataManager acquireManager(
+    public static synchronized RecommendationDataManager acquireManager(
             Context context, @NonNull Listener listener) {
         if (sManager == null) {
             sManager = new RecommendationDataManager(context);
@@ -129,7 +126,7 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
     private final TvInputCallback mInternalCallback =
             new TvInputCallback() {
                 @Override
-                public void onInputStateChanged(String inputId, int state) { }
+                public void onInputStateChanged(String inputId, int state) {}
 
                 @Override
                 public void onInputAdded(String inputId) {
@@ -144,8 +141,8 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
                     for (ChannelRecord channelRecord : mChannelRecordMap.values()) {
                         if (channelRecord.getChannel().getInputId().equals(inputId)) {
                             channelRecord.setInputRemoved(false);
-                            mAvailableChannelRecordMap.put(channelRecord.getChannel().getId(),
-                                    channelRecord);
+                            mAvailableChannelRecordMap.put(
+                                    channelRecord.getChannel().getId(), channelRecord);
                             channelRecordMapChanged = true;
                         }
                     }
@@ -179,7 +176,7 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
                 }
 
                 @Override
-                public void onInputUpdated(String inputId) { }
+                public void onInputUpdated(String inputId) {}
             };
 
     private RecommendationDataManager(Context context) {
@@ -189,48 +186,44 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
         mHandler = new RecommendationHandler(mHandlerThread.getLooper(), this);
         mMainHandler = new RecommendationMainHandler(Looper.getMainLooper(), this);
         mContentObserver = new RecommendationContentObserver(mHandler);
-        mChannelDataManager = TvApplication.getSingletons(mContext).getChannelDataManager();
-        runOnMainThread(new Runnable() {
-            @Override
-            public void run() {
-                start();
-            }
-        });
+        mChannelDataManager = TvSingletons.getSingletons(mContext).getChannelDataManager();
+        runOnMainThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        start();
+                    }
+                });
     }
 
     /**
-     * Removes the {@link Listener}, and releases RecommendationDataManager
-     * if there are no listeners remained.
+     * Removes the {@link Listener}, and releases RecommendationDataManager if there are no
+     * listeners remained.
      */
     public void release(@NonNull final Listener listener) {
-        runOnMainThread(new Runnable() {
-            @Override
-            public void run() {
-                removeListener(listener);
-                if (mListeners.size() == 0) {
-                    stop();
-                }
-            }
-        });
+        runOnMainThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        removeListener(listener);
+                        if (mListeners.size() == 0) {
+                            stop();
+                        }
+                    }
+                });
     }
 
-    /**
-     * Returns a {@link ChannelRecord} corresponds to the channel ID {@code ChannelId}.
-     */
+    /** Returns a {@link ChannelRecord} corresponds to the channel ID {@code ChannelId}. */
     public ChannelRecord getChannelRecord(long channelId) {
         return mAvailableChannelRecordMap.get(channelId);
     }
 
-    /**
-     * Returns the number of channels registered in ChannelRecord map.
-     */
+    /** Returns the number of channels registered in ChannelRecord map. */
     public int getChannelRecordCount() {
         return mAvailableChannelRecordMap.size();
     }
 
-    /**
-     * Returns a Collection of ChannelRecords.
-     */
+    /** Returns a Collection of ChannelRecords. */
     public Collection<ChannelRecord> getChannelRecords() {
         return Collections.unmodifiableCollection(mAvailableChannelRecordMap.values());
     }
@@ -264,12 +257,13 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
     }
 
     private void addListener(Listener listener) {
-        runOnMainThread(new Runnable() {
-            @Override
-            public void run() {
-                mListeners.add(listener);
-            }
-        });
+        runOnMainThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        mListeners.add(listener);
+                    }
+                });
     }
 
     @MainThread
@@ -286,10 +280,11 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
                 mWatchedHistoryManager.setListener(this);
                 mWatchedHistoryManager.start();
             } else {
-                mContext.getContentResolver().registerContentObserver(
-                        TvContract.WatchedPrograms.CONTENT_URI, true, mContentObserver);
-                mHandler.obtainMessage(MSG_UPDATE_WATCH_HISTORY,
-                        TvContract.WatchedPrograms.CONTENT_URI)
+                mContext.getContentResolver()
+                        .registerContentObserver(
+                                TvContract.WatchedPrograms.CONTENT_URI, true, mContentObserver);
+                mHandler.obtainMessage(
+                                MSG_UPDATE_WATCH_HISTORY, TvContract.WatchedPrograms.CONTENT_URI)
                         .sendToTarget();
             }
             mTvInputManager = (TvInputManager) mContext.getSystemService(Context.TV_INPUT_SERVICE);
@@ -333,7 +328,8 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
                 }
             }
         }
-        if (isChannelRecordMapChanged && mChannelRecordMapLoaded
+        if (isChannelRecordMapChanged
+                && mChannelRecordMapLoaded
                 && !mHandler.hasMessages(MSG_NOTIFY_CHANNEL_RECORD_MAP_CHANGED)) {
             mHandler.sendEmptyMessage(MSG_NOTIFY_CHANNEL_RECORD_MAP_CHANGED);
         }
@@ -356,14 +352,15 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
             final ChannelRecord channelRecord =
                     updateChannelRecordFromWatchedProgram(watchedProgram);
             if (mChannelRecordMapLoaded && channelRecord != null) {
-                runOnMainThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        for (Listener l : mListeners) {
-                            l.onNewWatchLog(channelRecord);
-                        }
-                    }
-                });
+                runOnMainThread(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                for (Listener l : mListeners) {
+                                    l.onNewWatchLog(channelRecord);
+                                }
+                            }
+                        });
             }
         }
         if (!mChannelRecordMapLoaded) {
@@ -374,96 +371,99 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
     private WatchedProgram convertFromWatchedHistoryManagerRecords(
             WatchedHistoryManager.WatchedRecord watchedRecord) {
         long endTime = watchedRecord.watchedStartTime + watchedRecord.duration;
-        Program program = new Program.Builder()
-                .setChannelId(watchedRecord.channelId)
-                .setTitle("")
-                .setStartTimeUtcMillis(watchedRecord.watchedStartTime)
-                .setEndTimeUtcMillis(endTime)
-                .build();
+        Program program =
+                new Program.Builder()
+                        .setChannelId(watchedRecord.channelId)
+                        .setTitle("")
+                        .setStartTimeUtcMillis(watchedRecord.watchedStartTime)
+                        .setEndTimeUtcMillis(endTime)
+                        .build();
         return new WatchedProgram(program, watchedRecord.watchedStartTime, endTime);
     }
 
     @Override
     public void onLoadFinished() {
-        for (WatchedHistoryManager.WatchedRecord record
-                : mWatchedHistoryManager.getWatchedHistory()) {
-            updateChannelRecordFromWatchedProgram(
-                    convertFromWatchedHistoryManagerRecords(record));
+        for (WatchedHistoryManager.WatchedRecord record :
+                mWatchedHistoryManager.getWatchedHistory()) {
+            updateChannelRecordFromWatchedProgram(convertFromWatchedHistoryManagerRecords(record));
         }
         mHandler.sendEmptyMessage(MSG_NOTIFY_CHANNEL_RECORD_MAP_LOADED);
     }
 
     @Override
     public void onNewRecordAdded(WatchedHistoryManager.WatchedRecord watchedRecord) {
-        final ChannelRecord channelRecord = updateChannelRecordFromWatchedProgram(
-                convertFromWatchedHistoryManagerRecords(watchedRecord));
+        final ChannelRecord channelRecord =
+                updateChannelRecordFromWatchedProgram(
+                        convertFromWatchedHistoryManagerRecords(watchedRecord));
         if (mChannelRecordMapLoaded && channelRecord != null) {
-            runOnMainThread(new Runnable() {
-                @Override
-                public void run() {
-                    for (Listener l : mListeners) {
-                        l.onNewWatchLog(channelRecord);
-                    }
-                }
-            });
+            runOnMainThread(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            for (Listener l : mListeners) {
+                                l.onNewWatchLog(channelRecord);
+                            }
+                        }
+                    });
         }
     }
 
     private WatchedProgram createWatchedProgramFromWatchedProgramCursor(Cursor cursor) {
         // Have to initiate the indexes of WatchedProgram Columns.
         if (mIndexWatchChannelId == -1) {
-            mIndexWatchChannelId = cursor.getColumnIndex(
-                    TvContract.WatchedPrograms.COLUMN_CHANNEL_ID);
-            mIndexProgramTitle = cursor.getColumnIndex(
-                    TvContract.WatchedPrograms.COLUMN_TITLE);
-            mIndexProgramStartTime = cursor.getColumnIndex(
-                    TvContract.WatchedPrograms.COLUMN_START_TIME_UTC_MILLIS);
-            mIndexProgramEndTime = cursor.getColumnIndex(
-                    TvContract.WatchedPrograms.COLUMN_END_TIME_UTC_MILLIS);
-            mIndexWatchStartTime = cursor.getColumnIndex(
-                    TvContract.WatchedPrograms.COLUMN_WATCH_START_TIME_UTC_MILLIS);
-            mIndexWatchEndTime = cursor.getColumnIndex(
-                    TvContract.WatchedPrograms.COLUMN_WATCH_END_TIME_UTC_MILLIS);
+            mIndexWatchChannelId =
+                    cursor.getColumnIndex(TvContract.WatchedPrograms.COLUMN_CHANNEL_ID);
+            mIndexProgramTitle = cursor.getColumnIndex(TvContract.WatchedPrograms.COLUMN_TITLE);
+            mIndexProgramStartTime =
+                    cursor.getColumnIndex(TvContract.WatchedPrograms.COLUMN_START_TIME_UTC_MILLIS);
+            mIndexProgramEndTime =
+                    cursor.getColumnIndex(TvContract.WatchedPrograms.COLUMN_END_TIME_UTC_MILLIS);
+            mIndexWatchStartTime =
+                    cursor.getColumnIndex(
+                            TvContract.WatchedPrograms.COLUMN_WATCH_START_TIME_UTC_MILLIS);
+            mIndexWatchEndTime =
+                    cursor.getColumnIndex(
+                            TvContract.WatchedPrograms.COLUMN_WATCH_END_TIME_UTC_MILLIS);
         }
 
-        Program program = new Program.Builder()
-                .setChannelId(cursor.getLong(mIndexWatchChannelId))
-                .setTitle(cursor.getString(mIndexProgramTitle))
-                .setStartTimeUtcMillis(cursor.getLong(mIndexProgramStartTime))
-                .setEndTimeUtcMillis(cursor.getLong(mIndexProgramEndTime))
-                .build();
+        Program program =
+                new Program.Builder()
+                        .setChannelId(cursor.getLong(mIndexWatchChannelId))
+                        .setTitle(cursor.getString(mIndexProgramTitle))
+                        .setStartTimeUtcMillis(cursor.getLong(mIndexProgramStartTime))
+                        .setEndTimeUtcMillis(cursor.getLong(mIndexProgramEndTime))
+                        .build();
 
-        return new WatchedProgram(program,
-                cursor.getLong(mIndexWatchStartTime),
-                cursor.getLong(mIndexWatchEndTime));
+        return new WatchedProgram(
+                program, cursor.getLong(mIndexWatchStartTime), cursor.getLong(mIndexWatchEndTime));
     }
 
     private void onNotifyChannelRecordMapLoaded() {
         mChannelRecordMapLoaded = true;
-        runOnMainThread(new Runnable() {
-            @Override
-            public void run() {
-                for (Listener l : mListeners) {
-                    l.onChannelRecordLoaded();
-                }
-            }
-        });
+        runOnMainThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        for (Listener l : mListeners) {
+                            l.onChannelRecordLoaded();
+                        }
+                    }
+                });
     }
 
     private void onNotifyChannelRecordMapChanged() {
-        runOnMainThread(new Runnable() {
-            @Override
-            public void run() {
-                for (Listener l : mListeners) {
-                    l.onChannelRecordChanged();
-                }
-            }
-        });
+        runOnMainThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        for (Listener l : mListeners) {
+                            l.onChannelRecordChanged();
+                        }
+                    }
+                });
     }
 
-    /**
-     * Returns true if ChannelRecords are added into mChannelRecordMap or removed from it.
-     */
+    /** Returns true if ChannelRecords are added into mChannelRecordMap or removed from it. */
     private boolean updateChannelRecordMapFromChannel(Channel channel) {
         if (!channel.isBrowsable()) {
             mChannelRecordMap.remove(channel.getId());
@@ -507,8 +507,8 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
         public void onChange(final boolean selfChange, final Uri uri) {
             switch (TvUriMatcher.match(uri)) {
                 case TvUriMatcher.MATCH_WATCHED_PROGRAM_ID:
-                    if (!mHandler.hasMessages(MSG_UPDATE_WATCH_HISTORY,
-                            TvContract.WatchedPrograms.CONTENT_URI)) {
+                    if (!mHandler.hasMessages(
+                            MSG_UPDATE_WATCH_HISTORY, TvContract.WatchedPrograms.CONTENT_URI)) {
                         mHandler.obtainMessage(MSG_UPDATE_WATCH_HISTORY, uri).sendToTarget();
                     }
                     break;
@@ -524,15 +524,11 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
         }
     }
 
-    /**
-     * A listener interface to receive notification about the recommendation data.
-     *
-     * @MainThread
-     */
+    /** A listener interface to receive notification about the recommendation data. @MainThread */
     public interface Listener {
         /**
-         * Called when loading channel record map from database is finished.
-         * It will be called after RecommendationDataManager.start() is finished.
+         * Called when loading channel record map from database is finished. It will be called after
+         * RecommendationDataManager.start() is finished.
          *
          * <p>Note that this method is called on the main thread.
          */
@@ -601,6 +597,6 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
         }
 
         @Override
-        protected void handleMessage(Message msg, @NonNull RecommendationDataManager referent) { }
+        protected void handleMessage(Message msg, @NonNull RecommendationDataManager referent) {}
     }
 }

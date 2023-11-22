@@ -115,10 +115,19 @@ class audio_LeftRightInternalSpeaker(audio_test.AudioTest):
         self.audio_facade.set_selected_output_volume(80)
 
         if player == 'native':
+            data_format=dict(file_type='raw',
+                             sample_format='S16_LE',
+                             channel=2,
+                             rate=48000)
             if channel == 'left':
-                sound_file = audio_test_data.LEFT_CHANNEL_TEST_FILE
+                frequencies = [440, 0]
             else:
-                sound_file = audio_test_data.RIGHT_CHANNEL_TEST_FILE
+                frequencies = [0, 440]
+            sound_file = audio_test_data.GenerateAudioTestData(
+                    data_format=data_format,
+                    path=os.path.join(self.bindir, '440_half.raw'),
+                    duration_secs=10,
+                    frequencies=frequencies)
 
             logging.info('Going to use cras_test_client on CrOS')
             logging.info('Playing the file %s', sound_file)
@@ -128,6 +137,8 @@ class audio_LeftRightInternalSpeaker(audio_test.AudioTest):
             self.sound_recorder.start_recording()
             time.sleep(self.RECORD_SECONDS)
             self.sound_recorder.stop_recording()
+            self.sound_source.stop_playback()
+            sound_file.delete()
             logging.info('Recording finished. Was done in format %s',
                          self.sound_recorder.data_format)
 

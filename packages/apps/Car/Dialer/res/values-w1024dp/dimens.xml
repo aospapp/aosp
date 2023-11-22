@@ -22,17 +22,14 @@
 
     <dimen name="call_fab_elevation">8dp</dimen>
     <dimen name="dial_number_call_button_width">160dp</dimen>
-    <dimen name="bksp_button_width">160dp</dimen>
 
     <dimen name="in_call_card_corner_radius">160dp</dimen>
     <dimen name="in_call_large_contact_photo_size">632dp</dimen>
     <dimen name="in_call_card_margin_right">304dp</dimen>
-    <dimen name="in_call_content_card_margin_start">@dimen/stream_content_keyline_1</dimen>
+    <dimen name="in_call_content_card_margin_start">@dimen/car_keyline_1</dimen>
     <dimen name="in_call_text_max_width">460dp</dimen>
-    <dimen name="in_call_button_size">160dp</dimen>
     <dimen name="in_call_button_spacing">48dp</dimen>
     <dimen name="in_call_card_dialpad_width">468dp</dimen>
-    <dimen name="in_call_card_dialpad_horizontal_spacing">56dp</dimen>
 
     <dimen name="car_card_view_corner_radius">0dp</dimen>
 
@@ -40,5 +37,4 @@
 
     <dimen name="call_log_icon_size">76dp</dimen>
     <dimen name="call_log_last_card_bottom_margin">@dimen/call_log_card_overlap</dimen>
-    <dimen name="call_log_last_card_corner_radius">16dp</dimen>
 </resources>

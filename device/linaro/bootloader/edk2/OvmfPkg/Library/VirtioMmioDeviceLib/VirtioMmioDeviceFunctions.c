@@ -22,7 +22,7 @@ EFI_STATUS
 EFIAPI
 VirtioMmioGetDeviceFeatures (
   IN VIRTIO_DEVICE_PROTOCOL *This,
-  OUT UINT32                *DeviceFeatures
+  OUT UINT64                *DeviceFeatures
   )
 {
   VIRTIO_MMIO_DEVICE *Device;
@@ -34,26 +34,6 @@ VirtioMmioGetDeviceFeatures (
   Device = VIRTIO_MMIO_DEVICE_FROM_VIRTIO_DEVICE (This);
 
   *DeviceFeatures = VIRTIO_CFG_READ (Device, VIRTIO_MMIO_OFFSET_HOST_FEATURES);
-
-  return EFI_SUCCESS;
-}
-
-EFI_STATUS
-EFIAPI
-VirtioMmioGetQueueAddress (
-  IN  VIRTIO_DEVICE_PROTOCOL *This,
-  OUT UINT32                 *QueueAddress
-  )
-{
-  VIRTIO_MMIO_DEVICE *Device;
-
-  if (QueueAddress == NULL) {
-    return EFI_INVALID_PARAMETER;
-  }
-
-  Device = VIRTIO_MMIO_DEVICE_FROM_VIRTIO_DEVICE (This);
-
-  *QueueAddress = VIRTIO_CFG_READ (Device, VIRTIO_MMIO_OFFSET_QUEUE_PFN);
 
   return EFI_SUCCESS;
 }
@@ -200,15 +180,16 @@ VirtioMmioSetQueueSel (
 
 EFI_STATUS
 VirtioMmioSetQueueAddress (
-  VIRTIO_DEVICE_PROTOCOL *This,
-  UINT32                  Address
+  IN VIRTIO_DEVICE_PROTOCOL  *This,
+  IN VRING                   *Ring
   )
 {
   VIRTIO_MMIO_DEVICE *Device;
 
   Device = VIRTIO_MMIO_DEVICE_FROM_VIRTIO_DEVICE (This);
 
-  VIRTIO_CFG_WRITE (Device, VIRTIO_MMIO_OFFSET_QUEUE_PFN, Address);
+  VIRTIO_CFG_WRITE (Device, VIRTIO_MMIO_OFFSET_QUEUE_PFN,
+    (UINT32)((UINTN)Ring->Base >> EFI_PAGE_SHIFT));
 
   return EFI_SUCCESS;
 }
@@ -217,14 +198,18 @@ EFI_STATUS
 EFIAPI
 VirtioMmioSetGuestFeatures (
   VIRTIO_DEVICE_PROTOCOL *This,
-  UINT32                  Features
+  UINT64                  Features
   )
 {
   VIRTIO_MMIO_DEVICE *Device;
 
   Device = VIRTIO_MMIO_DEVICE_FROM_VIRTIO_DEVICE (This);
 
-  VIRTIO_CFG_WRITE (Device, VIRTIO_MMIO_OFFSET_GUEST_FEATURES, Features);
+  if (Features > MAX_UINT32) {
+    return EFI_UNSUPPORTED;
+  }
+  VIRTIO_CFG_WRITE (Device, VIRTIO_MMIO_OFFSET_GUEST_FEATURES,
+    (UINT32)Features);
 
   return EFI_SUCCESS;
 }

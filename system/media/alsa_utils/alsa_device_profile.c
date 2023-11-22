@@ -79,16 +79,16 @@ void profile_init(alsa_device_profile* profile, int direction)
     profile_reset(profile);
 }
 
-bool profile_is_initialized(alsa_device_profile* profile)
+bool profile_is_initialized(const alsa_device_profile* profile)
 {
     return profile->card >= 0 && profile->device >= 0;
 }
 
-bool profile_is_valid(alsa_device_profile* profile) {
+bool profile_is_valid(const alsa_device_profile* profile) {
     return profile->is_valid;
 }
 
-bool profile_is_cached_for(alsa_device_profile* profile, int card, int device) {
+bool profile_is_cached_for(const alsa_device_profile* profile, int card, int device) {
     return card == profile->card && device == profile->device;
 }
 
@@ -107,7 +107,7 @@ static unsigned int round_to_16_mult(unsigned int size)
 /*
  * Returns the system defined minimum period size based on the supplied sample rate.
  */
-unsigned profile_calc_min_period_size(alsa_device_profile* profile, unsigned sample_rate)
+unsigned profile_calc_min_period_size(const alsa_device_profile* profile, unsigned sample_rate)
 {
     ALOGV("profile_calc_min_period_size(%p, rate:%d)", profile, sample_rate);
     if (profile == NULL) {
@@ -123,7 +123,7 @@ unsigned profile_calc_min_period_size(alsa_device_profile* profile, unsigned sam
     }
 }
 
-unsigned int profile_get_period_size(alsa_device_profile* profile, unsigned sample_rate)
+unsigned int profile_get_period_size(const alsa_device_profile* profile, unsigned sample_rate)
 {
     unsigned int period_size = profile_calc_min_period_size(profile, sample_rate);
     ALOGV("profile_get_period_size(rate:%d) = %d", sample_rate, period_size);
@@ -133,7 +133,7 @@ unsigned int profile_get_period_size(alsa_device_profile* profile, unsigned samp
 /*
  * Sample Rate
  */
-unsigned profile_get_default_sample_rate(alsa_device_profile* profile)
+unsigned profile_get_default_sample_rate(const alsa_device_profile* profile)
 {
     /*
      * TODO this won't be right in general. we should store a preferred rate as we are scanning.
@@ -142,7 +142,7 @@ unsigned profile_get_default_sample_rate(alsa_device_profile* profile)
     return profile_is_valid(profile) ? profile->sample_rates[0] : DEFAULT_SAMPLE_RATE;
 }
 
-bool profile_is_sample_rate_valid(alsa_device_profile* profile, unsigned rate)
+bool profile_is_sample_rate_valid(const alsa_device_profile* profile, unsigned rate)
 {
     if (profile_is_valid(profile)) {
         size_t index;
@@ -161,7 +161,7 @@ bool profile_is_sample_rate_valid(alsa_device_profile* profile, unsigned rate)
 /*
  * Format
  */
-enum pcm_format profile_get_default_format(alsa_device_profile* profile)
+enum pcm_format profile_get_default_format(const alsa_device_profile* profile)
 {
     /*
      * TODO this won't be right in general. we should store a preferred format as we are scanning.
@@ -169,7 +169,7 @@ enum pcm_format profile_get_default_format(alsa_device_profile* profile)
     return profile_is_valid(profile) ? profile->formats[0] : DEFAULT_SAMPLE_FORMAT;
 }
 
-bool profile_is_format_valid(alsa_device_profile* profile, enum pcm_format fmt) {
+bool profile_is_format_valid(const alsa_device_profile* profile, enum pcm_format fmt) {
     if (profile_is_valid(profile)) {
         size_t index;
         for (index = 0; profile->formats[index] != PCM_FORMAT_INVALID; index++) {
@@ -187,12 +187,12 @@ bool profile_is_format_valid(alsa_device_profile* profile, enum pcm_format fmt) 
 /*
  * Channels
  */
-unsigned profile_get_default_channel_count(alsa_device_profile* profile)
+unsigned profile_get_default_channel_count(const alsa_device_profile* profile)
 {
     return profile_is_valid(profile) ? profile->channel_counts[0] : DEFAULT_CHANNEL_COUNT;
 }
 
-unsigned profile_get_closest_channel_count(alsa_device_profile* profile, unsigned count)
+unsigned profile_get_closest_channel_count(const alsa_device_profile* profile, unsigned count)
 {
     if (profile_is_valid(profile)) {
         if (count < profile->min_channel_count) {
@@ -207,7 +207,7 @@ unsigned profile_get_closest_channel_count(alsa_device_profile* profile, unsigne
     }
 }
 
-bool profile_is_channel_count_valid(alsa_device_profile* profile, unsigned count)
+bool profile_is_channel_count_valid(const alsa_device_profile* profile, unsigned count)
 {
     if (profile_is_initialized(profile)) {
         return count >= profile->min_channel_count && count <= profile->max_channel_count;
@@ -216,7 +216,7 @@ bool profile_is_channel_count_valid(alsa_device_profile* profile, unsigned count
     }
 }
 
-static bool profile_test_sample_rate(alsa_device_profile* profile, unsigned rate)
+static bool profile_test_sample_rate(const alsa_device_profile* profile, unsigned rate)
 {
     struct pcm_config config = profile->default_config;
     config.rate = rate;
@@ -415,10 +415,11 @@ bool profile_read_device_info(alsa_device_profile* profile)
 
     profile->is_valid = true;
 
+    pcm_params_free(alsa_hw_params);
     return true;
 }
 
-char * profile_get_sample_rate_strs(alsa_device_profile* profile)
+char * profile_get_sample_rate_strs(const alsa_device_profile* profile)
 {
     /* if we assume that rate strings are about 5 characters (48000 is 5), plus ~1 for a
      * delimiter "|" this buffer has room for about 22 rate strings which seems like
@@ -451,7 +452,7 @@ char * profile_get_sample_rate_strs(alsa_device_profile* profile)
     return strdup(buffer);
 }
 
-char * profile_get_format_strs(alsa_device_profile* profile)
+char * profile_get_format_strs(const alsa_device_profile* profile)
 {
     /* if we assume that format strings are about 24 characters (AUDIO_FORMAT_PCM_16_BIT is 23),
      * plus ~1 for a delimiter "|" this buffer has room for about 10 format strings which seems
@@ -482,7 +483,7 @@ char * profile_get_format_strs(alsa_device_profile* profile)
     return strdup(buffer);
 }
 
-char * profile_get_channel_count_strs(alsa_device_profile* profile)
+char * profile_get_channel_count_strs(const alsa_device_profile* profile)
 {
     // FIXME implicit fixed channel count assumption here (FCC_8).
     // we use only the canonical even number channel position masks.

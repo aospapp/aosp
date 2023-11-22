@@ -53,6 +53,11 @@ class FakeTTSEngine implements TTSEngine {
         mOnInitListener = null;
     }
 
+    @Override
+    public int getStream() {
+        return TextToSpeech.Engine.DEFAULT_STREAM;
+    }
+
     void startRequest(String utteranceId) {
         mProgressListener.onStart(utteranceId);
     }

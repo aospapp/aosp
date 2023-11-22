@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Të pastrohen të gjitha informacionet dhe kontaktet?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Shtimi i informacioneve mjekësore dhe kontakteve të urgjencës mund t\'i ndihmojë personat e parë që përgjigjen në rast urgjence.\n\nÇdo person mund t\'i lexojë këto informacione nga ekrani yt i kyçjes dhe t\'i telefonojë kontaktet e tua duke trokitur tek emrat, pa e shkyçur telefonin."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Shto informacionet e urgjencës"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Ndihmo personat e parë që përgjigjen që të gjejnë informacione të rëndësishme"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Lejo shërbimet e emergjencës të shohin informacionin tënd"</string>
 </resources>

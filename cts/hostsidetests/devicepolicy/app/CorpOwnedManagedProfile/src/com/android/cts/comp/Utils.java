@@ -19,7 +19,7 @@ import android.content.Context;
 import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.util.Log;
 
 import java.util.List;

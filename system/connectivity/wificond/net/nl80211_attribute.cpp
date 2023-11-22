@@ -31,6 +31,14 @@ template class NL80211Attr<vector<uint8_t>>;
 template class NL80211Attr<string>;
 
 // For BaseNL80211Attr
+
+BaseNL80211Attr::BaseNL80211Attr(int id,
+    const vector<uint8_t>& raw_buffer) {
+  size_t size = raw_buffer.size();
+  InitHeaderAndResize(id, size);
+  memcpy(data_.data() + NLA_HDRLEN, raw_buffer.data(), raw_buffer.size());
+}
+
 void BaseNL80211Attr::InitHeaderAndResize(int attribute_id,
                                           int payload_length) {
   data_.resize(NLA_HDRLEN + NLA_ALIGN(payload_length), 0);
@@ -83,12 +91,42 @@ bool BaseNL80211Attr::GetAttributeImpl(const uint8_t* buf,
 }
 
 
+bool BaseNL80211Attr::Merge(const BaseNL80211Attr& other_attr) {
+  if (!other_attr.IsValid()) {
+    LOG(ERROR) << "Can not merge invalid attribute";
+    return false;
+  }
+  if (GetAttributeId() != other_attr.GetAttributeId()) {
+    LOG(ERROR) << "Can not merge attributes with different ids";
+    return false;
+  }
+
+  auto our_header = reinterpret_cast<nlattr*>(data_.data());
+  int our_len_without_padding = our_header->nla_len;
+  auto other_header =
+      reinterpret_cast<const nlattr*>(other_attr.GetConstData().data());
+  int other_len_without_padding = other_header->nla_len;
+  // Update the length to include the content of |other_attr|.
+  int total_len_without_padding =
+      our_len_without_padding + other_len_without_padding - NLA_HDRLEN;
+  our_header->nla_len = total_len_without_padding;
+
+  // Remove padding 0s.
+  data_.resize(our_len_without_padding);
+  // Insert content of |other_attr|.
+  data_.insert(
+      data_.end(),
+      reinterpret_cast<const uint8_t*>(other_header) + NLA_HDRLEN,
+      reinterpret_cast<const uint8_t*>(other_header) +
+          other_len_without_padding);
+  // Add padding 0s.
+  data_.resize(NLA_ALIGN(total_len_without_padding), 0);
+  return true;
+}
+
 // For NL80211Attr<std::vector<uint8_t>>
 NL80211Attr<vector<uint8_t>>::NL80211Attr(int id,
-    const vector<uint8_t>& raw_buffer) {
-  size_t size = raw_buffer.size();
-  InitHeaderAndResize(id, size);
-  memcpy(data_.data() + NLA_HDRLEN, raw_buffer.data(), raw_buffer.size());
+    const vector<uint8_t>& raw_buffer) : BaseNL80211Attr(id, raw_buffer) {
 }
 
 NL80211Attr<vector<uint8_t>>::NL80211Attr(

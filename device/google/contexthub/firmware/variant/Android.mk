@@ -14,5 +14,5 @@
 # limitations under the License.
 #
 
-subdirs := nucleo lunchbox linux
+subdirs := nucleo lunchbox linux neonkey argonkey
 include $(call all-named-subdir-makefiles,$(subdirs))

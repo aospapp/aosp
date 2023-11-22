@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"ಬ್ಲೂಟೂತ್‌ ಆಡಿಯೊ ಸಂಪರ್ಕಗೊಂಡಿದೆ"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"ಬ್ಲೂಟೂತ್‌ ಆಡಿಯೊ ಸಂಪರ್ಕ ಕಡಿತಗೊಂಡಿದೆ"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"ಬ್ಲೂಟೂತ್‌ ಆಡಿಯೊ"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4GB ಗಿಂತ ದೊಡ್ಡದಾದ ಫೈಲ್‌ಗಳನ್ನು ವರ್ಗಾಯಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
 </resources>

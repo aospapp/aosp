@@ -43,13 +43,15 @@
     <uses-permission android:name="android.permission.BODY_SENSORS" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application android:label="Android TestCase"
                 android:icon="@drawable/size_48x48"
                 android:maxRecents="1"
                 android:multiArch="true"
                 android:name="android.app.stubs.MockApplication"
-                android:supportsRtl="true">
+                android:supportsRtl="true"
+                android:usesCleartextTraffic="true">
         <uses-library android:name="android.test.runner" />
         <uses-library android:name="org.apache.http.legacy" android:required="false" />
 
@@ -103,6 +105,8 @@
         </receiver>
 
         <service android:name="android.app.stubs.MockService" />
+
+        <service android:name="android.app.stubs.NullService" />
 
         <activity android:name="android.app.stubs.SearchManagerStubActivity"
                 android:label="SearchManagerStubActivity">
@@ -326,45 +330,6 @@
         <activity android:name="android.app.stubs.ToolbarActivity"
                   android:theme="@android:style/Theme.Material.Light.NoActionBar" />
 
-        <activity android:name="android.app.stubs.MaxAspectRatioActivity"
-                  android:label="MaxAspectRatioActivity"
-                  android:resizeableActivity="false"
-                  android:maxAspectRatio="1.0">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
-
-        <activity android:name="android.app.stubs.MetaDataMaxAspectRatioActivity"
-                  android:label="MetaDataMaxAspectRatioActivity"
-                  android:resizeableActivity="false">
-            <meta-data android:name="android.max_aspect" android:value="1.0" />
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
-
-        <activity android:name="android.app.stubs.MaxAspectRatioResizeableActivity"
-                  android:label="MaxAspectRatioResizeableActivity"
-                  android:resizeableActivity="true"
-                  android:maxAspectRatio="1.0">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
-
-        <activity android:name="android.app.stubs.MaxAspectRatioUnsetActivity"
-                  android:label="MaxAspectRatioUnsetActivity"
-                  android:resizeableActivity="false">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
-
         <service
             android:name="android.app.stubs.LiveWallpaper"
             android:icon="@drawable/robot"
@@ -380,6 +345,14 @@
             </meta-data>
         </service>
 
+        <service android:name="android.app.stubs.MockNotificationListener"
+                 android:exported="true"
+                 android:label="MockNotificationListener"
+                 android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

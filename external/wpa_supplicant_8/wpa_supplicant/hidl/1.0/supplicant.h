@@ -40,6 +40,7 @@ public:
 	Supplicant(struct wpa_global* global);
 	~Supplicant() override = default;
 	bool isValid();
+	bool ensureConfigFileExists();
 
 	// Hidl methods exposed.
 	Return<void> getInterface(

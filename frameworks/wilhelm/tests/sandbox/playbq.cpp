@@ -47,23 +47,6 @@ SLuint32 nativeByteOrder;   // of platform
 audio_format_t transferFormat = AUDIO_FORMAT_DEFAULT;
 size_t sfframesize = 0;
 
-// FIXME move to audio_utils
-// swap adjacent bytes; this would normally be in <unistd.h> but is missing here
-static void swab(const void *from, void *to, ssize_t n)
-{
-    // from and to as char pointers
-    const char *from_ch = (const char *) from;
-    char *to_ch = (char *) to;
-    // note that we don't swap the last odd byte
-    while (n >= 2) {
-        to_ch[0] = from_ch[1];
-        to_ch[1] = from_ch[0];
-        to_ch += 2;
-        from_ch += 2;
-        n -= 2;
-    }
-}
-
 static audio_utils_fifo *fifo;
 static audio_utils_fifo_reader *fifoReader;
 static audio_utils_fifo_writer *fifoWriter;

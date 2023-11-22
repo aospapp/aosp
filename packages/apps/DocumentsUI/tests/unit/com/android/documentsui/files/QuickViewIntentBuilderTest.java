@@ -59,9 +59,10 @@ public class QuickViewIntentBuilderTest {
         Set<String> features = new HashSet<>(
                 Arrays.asList(intent.getStringArrayExtra(Intent.EXTRA_QUICK_VIEW_FEATURES)));
 
-        assertEquals("Unexpected features set: " + features, 5, features.size());
+        assertEquals("Unexpected features set: " + features, 6, features.size());
         assertTrue(features.contains(QuickViewConstants.FEATURE_VIEW));
         assertTrue(features.contains(QuickViewConstants.FEATURE_EDIT));
+        assertTrue(features.contains(QuickViewConstants.FEATURE_DELETE));
         assertTrue(features.contains(QuickViewConstants.FEATURE_SEND));
         assertTrue(features.contains(QuickViewConstants.FEATURE_DOWNLOAD));
         assertTrue(features.contains(QuickViewConstants.FEATURE_PRINT));

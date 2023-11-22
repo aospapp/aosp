@@ -39,8 +39,9 @@ class network_WiFi_UpdateRouter(test.test):
                                 '7424.0.2015_09_03_1514'),
         'panther': StableVersion('trybot-panther-test-ap/R47-7424.0.0-b10',
                                  '7424.0.2015_09_03_1532'),
-        'whirlwind': StableVersion('trybot-whirlwind-test-ap/R50-7849.0.0-b13',
-                                   '7849.0.2016_01_20_2033')
+        'whirlwind': StableVersion('trybot-whirlwind-test-ap-tryjob/'
+                                   'R65-10323.33.0-c40061',
+                                   '10323.33.2018_02_15_1605')
     }
 
 
@@ -74,10 +75,21 @@ class network_WiFi_UpdateRouter(test.test):
 
 
     def run_once(self, host):
+        """Update route associated with host.
+
+        @param host DUT connected to AP that needs update
+
+        """
         router_hostname = site_linux_router.build_router_hostname(
                 client_hostname=host.hostname,
                 router_hostname=self._router_hostname_from_cmdline)
-        router_host = hosts.create_host(router_hostname)
+        # Use CrosHost for all router hosts and avoid host detection.
+        # Host detection would use JetstreamHost for Whirlwind routers.
+        # JetstreamHost assumes ap-daemons are running.
+        # Testbed routers run the testbed-ap profile with no ap-daemons.
+        # TODO(ecgh): crbug.com/757075 Fix testbed-ap JetstreamHost detection.
+        router_host = hosts.create_host(router_hostname,
+                                        host_class=hosts.CrosHost)
         board = router_host.get_board().split(':', 1)[1]  # Remove 'board:'
         desired = self.STABLE_VERSIONS.get(board, None)
         if desired is None:

@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """Diff 2 chromiumos images by comparing each elf file.
 
    The script diffs every *ELF* files by dissembling every *executable*
@@ -53,8 +53,8 @@ class CrosImage(object):
       self.stateful = '/tmp/{0}.stateful'.format(mount_basename)
       self.unmount_script = '/tmp/{0}.unmount.sh'.format(mount_basename)
     else:
-      self.rootfs = tempfile.mkdtemp(suffix='.rootfs',
-                                     prefix='chromiumos_image_diff')
+      self.rootfs = tempfile.mkdtemp(
+          suffix='.rootfs', prefix='chromiumos_image_diff')
       ## rootfs is like /tmp/tmpxyz012.rootfs.
       match = re.match(r'^(.*)\.rootfs$', self.rootfs)
       basename = match.group(1)
@@ -78,14 +78,15 @@ class CrosImage(object):
   def CreateUnmountScript(self):
     command = ('sudo umount {r}/usr/local {r}/usr/share/oem '
                '{r}/var {r}/mnt/stateful_partition {r}; sudo umount {s} ; '
-               'rmdir {r} ; rmdir {s}\n').format(r=self.rootfs, s=self.stateful)
+               'rmdir {r} ; rmdir {s}\n').format(
+                   r=self.rootfs, s=self.stateful)
     f = open(self.unmount_script, 'w')
     f.write(command)
     f.close()
-    self._ce.RunCommand('chmod +x {}'.format(self.unmount_script),
-                        print_to_console=False)
-    self.logger.LogOutput('Created an unmount script - "{0}"'.format(
-        self.unmount_script))
+    self._ce.RunCommand(
+        'chmod +x {}'.format(self.unmount_script), print_to_console=False)
+    self.logger.LogOutput(
+        'Created an unmount script - "{0}"'.format(self.unmount_script))
 
   def UnmountImage(self):
     """Unmount the image and delete mount point."""
@@ -114,11 +115,12 @@ class CrosImage(object):
       Always true
     """
 
-    self.logger.LogOutput('Finding all elf files in "{0}" ...'.format(
-        self.rootfs))
+    self.logger.LogOutput(
+        'Finding all elf files in "{0}" ...'.format(self.rootfs))
     # Note '\;' must be prefixed by 'r'.
     command = ('find "{0}" -type f -exec '
-               'bash -c \'file -b "{{}}" | grep -q "ELF"\'' r' \; '
+               'bash -c \'file -b "{{}}" | grep -q "ELF"\''
+               r' \; '
                r'-exec echo "{{}}" \;').format(self.rootfs)
     self.logger.LogCmd(command)
     _, out, _ = self._ce.RunCommandWOutput(command, print_to_console=False)
@@ -142,8 +144,8 @@ class ImageComparator(object):
     if self.tempf1 and self.tempf2:
       command_executer.GetCommandExecuter().RunCommand(
           'rm {0} {1}'.format(self.tempf1, self.tempf2))
-      logger.GetLogger('Removed "{0}" and "{1}".'.format(
-          self.tempf1, self.tempf2))
+      logger.GetLogger(
+          'Removed "{0}" and "{1}".'.format(self.tempf1, self.tempf2))
 
   def CheckElfFileSetEquality(self):
     """Checking whether images have exactly number of elf files."""
@@ -183,8 +185,8 @@ class ImageComparator(object):
     match_count = 0
     i1 = self.images[0]
     i2 = self.images[1]
-    self.logger.LogOutput('Start comparing {0} elf file by file ...'.format(
-        len(i1.elf_files)))
+    self.logger.LogOutput(
+        'Start comparing {0} elf file by file ...'.format(len(i1.elf_files)))
     ## Note - i1.elf_files and i2.elf_files have exactly the same entries here.
 
     ## Create 2 temp files to be used for all disassembed files.
@@ -205,35 +207,41 @@ class ImageComparator(object):
             'Error:  We\'re comparing the SAME file - {0}'.format(f1))
         continue
 
-      command = ('objdump -d "{f1}" > {tempf1} ; '
-                 'objdump -d "{f2}" > {tempf2} ; '
-                 # Remove path string inside the dissemble
-                 'sed -i \'s!{rootfs1}!!g\' {tempf1} ; '
-                 'sed -i \'s!{rootfs2}!!g\' {tempf2} ; '
-                 'diff {tempf1} {tempf2} 1>/dev/null 2>&1').format(
-                     f1=full_path1, f2=full_path2,
-                     rootfs1=i1.rootfs, rootfs2=i2.rootfs,
-                     tempf1=self.tempf1, tempf2=self.tempf2)
+      command = (
+          'objdump -d "{f1}" > {tempf1} ; '
+          'objdump -d "{f2}" > {tempf2} ; '
+          # Remove path string inside the dissemble
+          'sed -i \'s!{rootfs1}!!g\' {tempf1} ; '
+          'sed -i \'s!{rootfs2}!!g\' {tempf2} ; '
+          'diff {tempf1} {tempf2} 1>/dev/null 2>&1').format(
+              f1=full_path1,
+              f2=full_path2,
+              rootfs1=i1.rootfs,
+              rootfs2=i2.rootfs,
+              tempf1=self.tempf1,
+              tempf2=self.tempf2)
       ret = cmde.RunCommand(command, print_to_console=False)
       if ret != 0:
-        self.logger.LogOutput('*** Not match - "{0}" "{1}"'.format(
-            full_path1, full_path2))
+        self.logger.LogOutput(
+            '*** Not match - "{0}" "{1}"'.format(full_path1, full_path2))
         mismatch_list.append(f1)
         if self.diff_file:
-          command = (
-              'echo "Diffs of disassemble of \"{f1}\" and \"{f2}\"" '
-              '>> {diff_file} ; diff {tempf1} {tempf2} '
-              '>> {diff_file}').format(
-                  f1=full_path1, f2=full_path2, diff_file=self.diff_file,
-                  tempf1=self.tempf1, tempf2=self.tempf2)
+          command = ('echo "Diffs of disassemble of \"{f1}\" and \"{f2}\"" '
+                     '>> {diff_file} ; diff {tempf1} {tempf2} '
+                     '>> {diff_file}').format(
+                         f1=full_path1,
+                         f2=full_path2,
+                         diff_file=self.diff_file,
+                         tempf1=self.tempf1,
+                         tempf2=self.tempf2)
           cmde.RunCommand(command, print_to_console=False)
       else:
         match_count += 1
     ## End of comparing every elf files.
 
     if not mismatch_list:
-      self.logger.LogOutput('** COOL, ALL {0} BINARIES MATCHED!! **'.format(
-          match_count))
+      self.logger.LogOutput(
+          '** COOL, ALL {0} BINARIES MATCHED!! **'.format(match_count))
       return True
 
     mismatch_str = 'Found {0} mismatch:\n'.format(len(mismatch_list))
@@ -252,24 +260,44 @@ def Main(argv):
 
   parser = argparse.ArgumentParser()
   parser.add_argument(
-      '--no_unmount', action='store_true', dest='no_unmount', default=False,
+      '--no_unmount',
+      action='store_true',
+      dest='no_unmount',
+      default=False,
       help='Do not unmount after finish, this is useful for debugging.')
   parser.add_argument(
-      '--chromeos_root', dest='chromeos_root', default=None, action='store',
+      '--chromeos_root',
+      dest='chromeos_root',
+      default=None,
+      action='store',
       help=('[Optional] Specify a chromeos tree instead of '
             'deducing it from image path so that we can compare '
             '2 images that are downloaded.'))
   parser.add_argument(
-      '--mount_basename', dest='mount_basename', default=None, action='store',
+      '--mount_basename',
+      dest='mount_basename',
+      default=None,
+      action='store',
       help=('Specify a meaningful name for the mount point. With this being '
             'set, the mount points would be "/tmp/mount_basename.x.rootfs" '
             ' and "/tmp/mount_basename.x.stateful". (x is 1 or 2).'))
-  parser.add_argument('--diff_file', dest='diff_file', default=None,
-                      help='Dumping all the diffs (if any) to the diff file')
-  parser.add_argument('--image1', dest='image1', default=None,
-                      required=True, help=('Image 1 file name.'))
-  parser.add_argument('--image2', dest='image2', default=None,
-                      required=True, help=('Image 2 file name.'))
+  parser.add_argument(
+      '--diff_file',
+      dest='diff_file',
+      default=None,
+      help='Dumping all the diffs (if any) to the diff file')
+  parser.add_argument(
+      '--image1',
+      dest='image1',
+      default=None,
+      required=True,
+      help=('Image 1 file name.'))
+  parser.add_argument(
+      '--image2',
+      dest='image2',
+      default=None,
+      required=True,
+      help=('Image 2 file name.'))
   options = parser.parse_args(argv[1:])
 
   if options.mount_basename and options.mount_basename.find('/') >= 0:

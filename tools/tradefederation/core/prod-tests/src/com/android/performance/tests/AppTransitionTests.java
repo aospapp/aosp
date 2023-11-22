@@ -18,7 +18,6 @@ package com.android.performance.tests;
 
 import com.android.ddmlib.testrunner.IRemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestResult;
 import com.android.loganalysis.item.LatencyItem;
 import com.android.loganalysis.item.TransitionDelayItem;
 import com.android.loganalysis.parser.EventsLogParser;
@@ -33,12 +32,14 @@ import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.TestResult;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.SimpleStats;
 import com.android.tradefed.util.StreamUtil;
 import com.android.tradefed.util.ZipUtil;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -48,8 +49,10 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Test that drives the transition delays during different user behavior like
@@ -109,11 +112,12 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
     @Option(name = "runner", description = "The instrumentation test runner class name to use.")
     private String mRunnerName = "android.support.test.runner.AndroidJUnitRunner";
 
+    @Option(name = "run-arg",
+            description = "Additional test specific arguments to provide.")
+    private Map<String, String> mArgMap = new LinkedHashMap<String, String>();
+
     @Option(name = "launcher-activity", description = "Home activity name")
     private String mLauncherActivity = ".NexusLauncherActivity";
-
-    @Option(name = "recents-activity", description = "Recents activity name")
-    private String mRecentsActivity = ".recents.RecentsActivity";
 
     @Option(name = "class",
             description = "test class to run, may be repeated; multiple classess will be run"
@@ -126,6 +130,11 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
 
     @Option(name = "latency-iteration", description = "Iterations to be used in the latency tests.")
     private int mLatencyIteration = 10;
+
+    @Option(name = "timeout",
+            description = "Aborts the test run if any test takes longer than the specified number "
+                    + "of milliseconds. For no timeout, set to 0.", isTimeVal = true)
+    private long mTestTimeout = 45 * 60 * 1000;  // default to 45 minutes
 
     private ITestDevice mDevice = null;
     private IRemoteAndroidTestRunner mRunner = null;
@@ -224,6 +233,9 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
                 analyzeLatencyInfo(parseLatencyInfo());
             } finally {
                 stopEventsLogs(mLaunchEventsLogs, TEST_LATENCY);
+                if (isTraceDirEnabled()) {
+                    uploadTraceFiles(listener, TEST_LATENCY);
+                }
             }
         }
 
@@ -263,10 +275,14 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
                 PACKAGE_NAME, mRunnerName, mDevice.getIDevice());
         runner.setMethodName(CLASS_NAME, testName);
         runner.addInstrumentationArg("launch_apps", launchApps);
+        runner.setMaxTimeout(mTestTimeout, TimeUnit.MILLISECONDS);
         if (null != preLaunchApps && !preLaunchApps.isEmpty()) {
             runner.addInstrumentationArg("pre_launch_apps", preLaunchApps);
         }
         runner.addInstrumentationArg("launch_iteration", Integer.toString(mLaunchIteration));
+        for (Map.Entry<String, String> entry : getTestRunArgMap().entrySet()) {
+            runner.addInstrumentationArg(entry.getKey(), entry.getValue());
+        }
         if (isTraceDirEnabled()) {
             mDevice.executeShellCommand(String.format("rm -rf %s/%s", mTraceDirectory, testName));
             runner.addInstrumentationArg("trace_directory", mTraceDirectory);
@@ -286,6 +302,15 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
             runner.setClassNames(mClasses.toArray(new String[] {}));
         }
         runner.addInstrumentationArg("iteration_count", Integer.toString(mLatencyIteration));
+        for (Map.Entry<String, String> entry : getTestRunArgMap().entrySet()) {
+            runner.addInstrumentationArg(entry.getKey(), entry.getValue());
+        }
+        if (isTraceDirEnabled()) {
+            mDevice.executeShellCommand(String.format("rm -rf %s/%s", mTraceDirectory,
+                    TEST_LATENCY));
+            runner.addInstrumentationArg("trace_directory",
+                    String.format("%s/%s", mTraceDirectory, TEST_LATENCY));
+        }
         return runner;
     }
 
@@ -310,12 +335,10 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
      * @param logReceiver
      */
     private void stopEventsLogs(LogcatReceiver logReceiver,String launchDesc) {
-        InputStreamSource logcatData = logReceiver.getLogcatData();
-        try {
+        try (InputStreamSource logcatData = logReceiver.getLogcatData()) {
             mListener.testLog(
                     String.format("%s-%s", EVENTS_LOG, launchDesc), LogDataType.TEXT, logcatData);
         } finally {
-            StreamUtil.cancel(logcatData);
             logReceiver.stop();
         }
     }
@@ -391,18 +414,14 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
      */
     private List<TransitionDelayItem> parseTransitionDelayInfo() {
         List<TransitionDelayItem> transitionDelayItems = null;
-        InputStreamSource logcatData = mLaunchEventsLogs.getLogcatData();
-        InputStream logcatStream = logcatData.createInputStream();
-        InputStreamReader streamReader = new InputStreamReader(logcatStream);
-        try (BufferedReader reader = new BufferedReader(streamReader)) {
+        try (InputStreamSource logcatData = mLaunchEventsLogs.getLogcatData();
+                InputStream logcatStream = logcatData.createInputStream();
+                InputStreamReader streamReader = new InputStreamReader(logcatStream);
+                BufferedReader reader = new BufferedReader(streamReader)) {
             transitionDelayItems = mEventsLogParser.parseTransitionDelayInfo(reader);
         } catch (IOException e) {
             CLog.e("Problem in parsing the transition delay items from events log");
             CLog.e(e);
-        } finally {
-            StreamUtil.cancel(logcatData);
-            StreamUtil.close(logcatStream);
-            StreamUtil.close(streamReader);
         }
         return transitionDelayItems;
     }
@@ -412,18 +431,14 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
      */
     private List<LatencyItem> parseLatencyInfo() {
         List<LatencyItem> latencyItems = null;
-        InputStreamSource logcatData = mLaunchEventsLogs.getLogcatData();
-        InputStream logcatStream = logcatData.createInputStream();
-        InputStreamReader streamReader = new InputStreamReader(logcatStream);
-        try (BufferedReader reader = new BufferedReader(streamReader)) {
+        try (InputStreamSource logcatData = mLaunchEventsLogs.getLogcatData();
+                InputStream logcatStream = logcatData.createInputStream();
+                InputStreamReader streamReader = new InputStreamReader(logcatStream);
+                BufferedReader reader = new BufferedReader(streamReader)) {
             latencyItems = mEventsLogParser.parseLatencyInfo(reader);
         } catch (IOException e) {
             CLog.e("Problem in parsing the latency items from events log");
             CLog.e(e);
-        } finally {
-            StreamUtil.cancel(logcatData);
-            StreamUtil.close(logcatStream);
-            StreamUtil.close(streamReader);
         }
         return latencyItems;
     }
@@ -436,11 +451,11 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
     private void analyzeColdLaunchDelay(List<TransitionDelayItem> transitionDelayItems) {
         Map<String, String> cmpNameAppMap = reverseAppCmpInfoMap(getAppComponentInfoMap());
         Map<String, List<Long>> appKeyTransitionDelayMap = new HashMap<>();
-        //Handle launcher to cold app launch transition
+        // Handle launcher to cold app launch transition
         for (TransitionDelayItem delayItem : transitionDelayItems) {
             if (cmpNameAppMap.containsKey(delayItem.getComponentName())) {
                 String appName = cmpNameAppMap.get(delayItem.getComponentName());
-                if (delayItem.getStartingWindowDelay() != -1) {
+                if (delayItem.getStartingWindowDelay() != null) {
                     if (appKeyTransitionDelayMap.containsKey(appName)) {
                         appKeyTransitionDelayMap.get(appName).add(
                                 delayItem.getStartingWindowDelay());
@@ -474,11 +489,12 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
             if (null != prevAppName) {
                 if (delayItem.getComponentName().contains(mLauncherActivity)) {
                     if (appToHomeKeyTransitionDelayMap.containsKey(prevAppName)) {
-                        appToHomeKeyTransitionDelayMap.get(prevAppName).add(
-                                delayItem.getTransitionDelay());
+                        appToHomeKeyTransitionDelayMap
+                                .get(prevAppName)
+                                .add(delayItem.getWindowDrawnDelay());
                     } else {
                         List<Long> delayTimeList = new ArrayList<Long>();
-                        delayTimeList.add(delayItem.getTransitionDelay());
+                        delayTimeList.add(delayItem.getWindowDrawnDelay());
                         appToHomeKeyTransitionDelayMap.put(prevAppName, delayTimeList);
                     }
                     prevAppName = null;
@@ -488,7 +504,7 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
             // Handle launcher to hot app launch transition
             if (cmpNameAppMap.containsKey(delayItem.getComponentName())) {
                 // Not to consider the first cold launch for the app.
-                if (delayItem.getTransitionDelay() == -1) {
+                if (delayItem.getStartingWindowDelay() != null) {
                     continue;
                 }
                 String appName = cmpNameAppMap.get(delayItem.getComponentName());
@@ -510,10 +526,7 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
     }
 
     /**
-     * Analyze and report app to recents transition delay info. Not accounting the first
-     * launch transition delay to avoid the cold launch of the apps or the cold launch of
-     * recents activity. The first launch in the iterations cannot always be cold launch for
-     * the app as well because the apps could be part of preapps list.
+     * Analyze and report app to recents transition delay info.
      *
      * @param transitionDelayItems
      */
@@ -521,20 +534,15 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
         Map<String, String> cmpNameAppMap = reverseAppCmpInfoMap(getAppComponentInfoMap());
         Map<String, List<Long>> appKeyTransitionDelayMap = new HashMap<>();
         String prevAppName = null;
-        Long prevTransitionDelay = -1L;
         for (TransitionDelayItem delayItem : transitionDelayItems) {
-            if (delayItem.getComponentName().contains(mRecentsActivity)) {
-                //Consider the previous app only if it is cold launch
-                if (prevTransitionDelay != -1) {
-                    if (appKeyTransitionDelayMap.containsKey(prevAppName)) {
-                        appKeyTransitionDelayMap.get(prevAppName).add(
-                                delayItem.getTransitionDelay());
-                    } else {
-                        if (null != prevAppName) {
-                            List<Long> delayTimeList = new ArrayList<Long>();
-                            delayTimeList.add(delayItem.getTransitionDelay());
-                            appKeyTransitionDelayMap.put(prevAppName, delayTimeList);
-                        }
+            if (delayItem.getComponentName().contains(mLauncherActivity)) {
+                if (appKeyTransitionDelayMap.containsKey(prevAppName)) {
+                    appKeyTransitionDelayMap.get(prevAppName).add(delayItem.getWindowDrawnDelay());
+                } else {
+                    if (null != prevAppName) {
+                        List<Long> delayTimeList = new ArrayList<Long>();
+                        delayTimeList.add(delayItem.getWindowDrawnDelay());
+                        appKeyTransitionDelayMap.put(prevAppName, delayTimeList);
                     }
                 }
                 prevAppName = null;
@@ -543,7 +551,6 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
 
             if (cmpNameAppMap.containsKey(delayItem.getComponentName())) {
                 prevAppName = cmpNameAppMap.get(delayItem.getComponentName());
-                prevTransitionDelay = delayItem.getTransitionDelay();
             }
         }
         //Removing the first cold launch to recents transition delay.
@@ -564,12 +571,12 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
         Map<String, List<Long>> appKeyTransitionDelayMap = new HashMap<>();
         boolean isRecentsBefore = false;
         for (TransitionDelayItem delayItem : transitionDelayItems) {
-            if (delayItem.getComponentName().contains(mRecentsActivity)) {
+            if (delayItem.getComponentName().contains(mLauncherActivity)) {
                 isRecentsBefore = true;
                 continue;
             }
             if (isRecentsBefore && cmpNameAppMap.containsKey(delayItem.getComponentName())) {
-                if (delayItem.getTransitionDelay() == -1) {
+                if (delayItem.getStartingWindowDelay() != null) {
                     continue;
                 }
                 String appName = cmpNameAppMap.get(delayItem.getComponentName());
@@ -580,8 +587,8 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
                     delayTimeList.add(delayItem.getTransitionDelay());
                     appKeyTransitionDelayMap.put(appName, delayTimeList);
                 }
-                isRecentsBefore = false;
             }
+            isRecentsBefore = false;
         }
         removeAdditionalLaunchInfo(appKeyTransitionDelayMap);
         computeAndUploadResults(TEST_HOT_LAUNCH_FROM_RECENTS, appKeyTransitionDelayMap);
@@ -616,7 +623,7 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
      */
     private void removeAdditionalLaunchInfo(Map<String, List<Long>> appKeyTransitionDelayMap) {
         for (List<Long> delayList : appKeyTransitionDelayMap.values()) {
-            if (delayList.size() == (mLaunchIteration + 1)) {
+            while (delayList.size() > mLaunchIteration) {
                 delayList.remove(0);
             }
         }
@@ -652,7 +659,7 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
             activityMetrics.put(appNameKey + "_std_dev", stats.stdev().toString());
         }
         mListener.testRunStarted(reportingKey, 0);
-        mListener.testRunEnded(0, activityMetrics);
+        mListener.testRunEnded(0, TfMetricProtoUtil.upgradeConvert(activityMetrics));
     }
 
     /**
@@ -686,6 +693,20 @@ public class AppTransitionTests implements IRemoteTest, IDeviceTest {
     @Override
     public ITestDevice getDevice() {
         return mDevice;
+    }
+
+    /**
+     * @return the arguments map to pass to the test runner.
+     */
+    public Map<String, String> getTestRunArgMap() {
+        return mArgMap;
+    }
+
+    /**
+     * @param runArgMap the arguments to pass to the test runner.
+     */
+    public void setTestRunArgMap(Map<String, String> runArgMap) {
+        mArgMap = runArgMap;
     }
 
 }

@@ -16,6 +16,7 @@
 
 package android.view.accessibility.cts;
 
+import android.platform.test.annotations.Presubmit;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.view.accessibility.AccessibilityNodeProvider;
@@ -23,6 +24,7 @@ import android.view.accessibility.AccessibilityNodeProvider;
 /**
  * Class for testing {@link AccessibilityNodeProvider}.
  */
+@Presubmit
 public class AccessibilityNodeProviderTest extends AndroidTestCase {
     @SmallTest
     public void testDefaultBehavior() {

@@ -20,6 +20,7 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.media.cts.R;
 
@@ -35,6 +36,7 @@ import java.util.Arrays;
  * The stream is later decoded by vp8/vp9 decoder to verify frames are decodable and to
  * calculate PSNR values for various bitrates.
  */
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class VpxEncoderTest extends VpxCodecTestBase {
 
     private static final String ENCODED_IVF_BASE = "football";

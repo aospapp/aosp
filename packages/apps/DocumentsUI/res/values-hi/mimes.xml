@@ -39,7 +39,7 @@
     <string name="gdraw_file_type" msgid="655688091676820371">"Google आरेखण"</string>
     <string name="gtable_file_type" msgid="7332773878374650335">"Google टेबल"</string>
     <string name="gform_file_type" msgid="4803176103746107611">"Google फ़ॉर्म"</string>
-    <string name="gmap_file_type" msgid="6684180781808007016">"Google मानचित्र"</string>
+    <string name="gmap_file_type" msgid="6684180781808007016">"Google मैप"</string>
     <string name="gsite_file_type" msgid="3742812051249149526">"Google साइट"</string>
     <string name="directory_type" msgid="2702987727566226354">"फ़ोल्डर"</string>
 </resources>

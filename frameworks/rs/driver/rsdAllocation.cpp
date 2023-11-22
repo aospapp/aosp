@@ -764,6 +764,15 @@ void rsdAllocationSetSurface(const Context *rsc, Allocation *alloc, ANativeWindo
             return;
         }
 
+        if (alloc->mHal.state.usageFlags & RS_ALLOCATION_USAGE_SCRIPT) {
+            r = ANativeWindow_setUsage(nw,
+                    AHARDWAREBUFFER_USAGE_CPU_READ_RARELY | AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN);
+            if (r) {
+                rsc->setError(RS_ERROR_DRIVER, "Error setting IO output buffer usage.");
+                return;
+            }
+        }
+
         IoGetBuffer(rsc, alloc, nw);
         drv->wndSurface = nw;
     }

@@ -7,7 +7,7 @@
 #include "core/fpdfapi/page/cpdf_meshstream.h"
 
 #include "core/fpdfapi/page/cpdf_colorspace.h"
-#include "core/fpdfapi/page/pageint.h"
+#include "core/fpdfapi/page/cpdf_function.h"
 #include "core/fpdfapi/parser/cpdf_array.h"
 
 namespace {
@@ -107,14 +107,18 @@ CPDF_MeshStream::CPDF_MeshStream(
       m_xmin(0),
       m_xmax(0),
       m_ymin(0),
-      m_ymax(0) {
+      m_ymax(0),
+      m_pStream(pdfium::MakeRetain<CPDF_StreamAcc>(pShadingStream)) {
   memset(&m_ColorMin, 0, sizeof(m_ColorMin));
   memset(&m_ColorMax, 0, sizeof(m_ColorMax));
 }
 
+CPDF_MeshStream::~CPDF_MeshStream() {}
+
 bool CPDF_MeshStream::Load() {
-  m_Stream.LoadAllData(m_pShadingStream);
-  m_BitStream.Init(m_Stream.GetData(), m_Stream.GetSize());
+  m_pStream->LoadAllDataFiltered();
+  m_BitStream = pdfium::MakeUnique<CFX_BitStream>(m_pStream->GetData(),
+                                                  m_pStream->GetSize());
   CPDF_Dictionary* pDict = m_pShadingStream->GetDict();
   m_nCoordBits = pDict->GetIntegerFor("BitsPerCoordinate");
   m_nComponentBits = pDict->GetIntegerFor("BitsPerComponent");
@@ -155,20 +159,20 @@ bool CPDF_MeshStream::Load() {
 }
 
 bool CPDF_MeshStream::CanReadFlag() const {
-  return m_BitStream.BitsRemaining() >= m_nFlagBits;
+  return m_BitStream->BitsRemaining() >= m_nFlagBits;
 }
 
 bool CPDF_MeshStream::CanReadCoords() const {
-  return m_BitStream.BitsRemaining() / 2 >= m_nCoordBits;
+  return m_BitStream->BitsRemaining() / 2 >= m_nCoordBits;
 }
 
 bool CPDF_MeshStream::CanReadColor() const {
-  return m_BitStream.BitsRemaining() / m_nComponentBits >= m_nComponents;
+  return m_BitStream->BitsRemaining() / m_nComponentBits >= m_nComponents;
 }
 
 uint32_t CPDF_MeshStream::ReadFlag() {
   ASSERT(ShouldCheckBitsPerFlag(m_type));
-  return m_BitStream.GetBits(m_nFlagBits) & 0x03;
+  return m_BitStream->GetBits(m_nFlagBits) & 0x03;
 }
 
 CFX_PointF CPDF_MeshStream::ReadCoords() {
@@ -176,49 +180,47 @@ CFX_PointF CPDF_MeshStream::ReadCoords() {
 
   CFX_PointF pos;
   if (m_nCoordBits == 32) {
-    pos.x = m_xmin +
-            m_BitStream.GetBits(m_nCoordBits) * (m_xmax - m_xmin) /
-                static_cast<double>(m_CoordMax);
-    pos.y = m_ymin +
-            m_BitStream.GetBits(m_nCoordBits) * (m_ymax - m_ymin) /
-                static_cast<double>(m_CoordMax);
+    pos.x = m_xmin + m_BitStream->GetBits(m_nCoordBits) * (m_xmax - m_xmin) /
+                         static_cast<double>(m_CoordMax);
+    pos.y = m_ymin + m_BitStream->GetBits(m_nCoordBits) * (m_ymax - m_ymin) /
+                         static_cast<double>(m_CoordMax);
   } else {
     pos.x = m_xmin +
-            m_BitStream.GetBits(m_nCoordBits) * (m_xmax - m_xmin) / m_CoordMax;
+            m_BitStream->GetBits(m_nCoordBits) * (m_xmax - m_xmin) / m_CoordMax;
     pos.y = m_ymin +
-            m_BitStream.GetBits(m_nCoordBits) * (m_ymax - m_ymin) / m_CoordMax;
+            m_BitStream->GetBits(m_nCoordBits) * (m_ymax - m_ymin) / m_CoordMax;
   }
   return pos;
 }
 
-std::tuple<FX_FLOAT, FX_FLOAT, FX_FLOAT> CPDF_MeshStream::ReadColor() {
+std::tuple<float, float, float> CPDF_MeshStream::ReadColor() {
   ASSERT(ShouldCheckBPC(m_type));
 
-  FX_FLOAT color_value[kMaxComponents];
+  float color_value[kMaxComponents];
   for (uint32_t i = 0; i < m_nComponents; ++i) {
-    color_value[i] = m_ColorMin[i] +
-                     m_BitStream.GetBits(m_nComponentBits) *
-                         (m_ColorMax[i] - m_ColorMin[i]) / m_ComponentMax;
+    color_value[i] = m_ColorMin[i] + m_BitStream->GetBits(m_nComponentBits) *
+                                         (m_ColorMax[i] - m_ColorMin[i]) /
+                                         m_ComponentMax;
   }
 
-  FX_FLOAT r;
-  FX_FLOAT g;
-  FX_FLOAT b;
+  float r = 0.0;
+  float g = 0.0;
+  float b = 0.0;
   if (m_funcs.empty()) {
-    m_pCS->GetRGB(color_value, r, g, b);
-    return std::tuple<FX_FLOAT, FX_FLOAT, FX_FLOAT>(r, g, b);
+    m_pCS->GetRGB(color_value, &r, &g, &b);
+    return std::tuple<float, float, float>(r, g, b);
   }
 
-  FX_FLOAT result[kMaxComponents];
-  FXSYS_memset(result, 0, sizeof(result));
+  float result[kMaxComponents];
+  memset(result, 0, sizeof(result));
   int nResults;
   for (const auto& func : m_funcs) {
     if (func && func->CountOutputs() <= kMaxComponents)
-      func->Call(color_value, 1, result, nResults);
+      func->Call(color_value, 1, result, &nResults);
   }
 
-  m_pCS->GetRGB(result, r, g, b);
-  return std::tuple<FX_FLOAT, FX_FLOAT, FX_FLOAT>(r, g, b);
+  m_pCS->GetRGB(result, &r, &g, &b);
+  return std::tuple<float, float, float>(r, g, b);
 }
 
 bool CPDF_MeshStream::ReadVertex(const CFX_Matrix& pObject2Bitmap,
@@ -235,23 +237,26 @@ bool CPDF_MeshStream::ReadVertex(const CFX_Matrix& pObject2Bitmap,
   if (!CanReadColor())
     return false;
   std::tie(vertex->r, vertex->g, vertex->b) = ReadColor();
-  m_BitStream.ByteAlign();
+  m_BitStream->ByteAlign();
   return true;
 }
 
-bool CPDF_MeshStream::ReadVertexRow(const CFX_Matrix& pObject2Bitmap,
-                                    int count,
-                                    CPDF_MeshVertex* vertex) {
-  for (int i = 0; i < count; i++) {
-    if (m_BitStream.IsEOF() || !CanReadCoords())
-      return false;
+std::vector<CPDF_MeshVertex> CPDF_MeshStream::ReadVertexRow(
+    const CFX_Matrix& pObject2Bitmap,
+    int count) {
+  std::vector<CPDF_MeshVertex> vertices;
+  for (int i = 0; i < count; ++i) {
+    if (m_BitStream->IsEOF() || !CanReadCoords())
+      return std::vector<CPDF_MeshVertex>();
 
-    vertex[i].position = pObject2Bitmap.Transform(ReadCoords());
+    vertices.push_back(CPDF_MeshVertex());
+    CPDF_MeshVertex& vertex = vertices.back();
+    vertex.position = pObject2Bitmap.Transform(ReadCoords());
     if (!CanReadColor())
-      return false;
+      return std::vector<CPDF_MeshVertex>();
 
-    std::tie(vertex[i].r, vertex[i].g, vertex[i].b) = ReadColor();
-    m_BitStream.ByteAlign();
+    std::tie(vertex.r, vertex.g, vertex.b) = ReadColor();
+    m_BitStream->ByteAlign();
   }
-  return true;
+  return vertices;
 }

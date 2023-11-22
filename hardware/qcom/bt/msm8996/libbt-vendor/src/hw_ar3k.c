@@ -34,8 +34,9 @@ extern "C" {
 
 #define LOG_TAG "bt_vendor"
 
+#include <sys/uio.h>
 #include <sys/socket.h>
-#include <utils/Log.h>
+#include <log/log.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>
@@ -49,6 +50,7 @@ extern "C" {
 #include <string.h>
 #include <termios.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "bt_hci_bdroid.h"
 #include "hci_uart.h"

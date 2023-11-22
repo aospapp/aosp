@@ -24,7 +24,6 @@ import shutil
 import signal
 import subprocess
 import sys
-import tempfile
 import time
 import traceback
 
@@ -187,47 +186,16 @@ class DroneUtility(object):
             self._warn('Error occured when killing processes. Error: %s' % e)
 
 
-    def _convert_old_host_log(self, log_path):
-        """
-        For backwards compatibility only.  This can safely be removed in the
-        future.
-
-        The scheduler used to create files at results/hosts/<hostname>, and
-        append all host logs to that file.  Now, it creates directories at
-        results/hosts/<hostname>, and places individual timestamped log files
-        into that directory.
-
-        This can be a problem the first time the scheduler runs after upgrading.
-        To work around that, we'll look for a file at the path where the
-        directory should be, and if we find one, we'll automatically convert it
-        to a directory containing the old logfile.
-        """
-        # move the file out of the way
-        temp_dir = tempfile.mkdtemp(suffix='.convert_host_log')
-        base_name = os.path.basename(log_path)
-        temp_path = os.path.join(temp_dir, base_name)
-        os.rename(log_path, temp_path)
-
-        os.mkdir(log_path)
-
-        # and move it into the new directory
-        os.rename(temp_path, os.path.join(log_path, 'old_log'))
-        os.rmdir(temp_dir)
-
-
     def _ensure_directory_exists(self, path):
+        if not os.path.exists(path):
+            os.makedirs(path)
+            return
         if os.path.isdir(path):
             return
-
-        if os.path.exists(path):
-            # path exists already, but as a file, not a directory
-            if '/hosts/' in path:
-                self._convert_old_host_log(path)
-                return
-            else:
-                raise IOError('Path %s exists as a file, not a directory')
-
-        os.makedirs(path)
+        assert os.path.isfile(path)
+        if '/hosts/' in path:
+            return
+        raise IOError('Path %s exists as a file, not a directory')
 
 
     def execute_command(self, command, working_directory, log_file,
@@ -400,9 +368,9 @@ class DroneUtility(object):
                                (hostname, source_path, destination_path))
 
 
-    def sync_send_file_to(self, hostname, source_path, destination_path,
+    def _sync_send_file_to(self, hostname, source_path, destination_path,
                            can_fail):
-        logging.debug('sync_send_file_to. hostname: %s, source_path: %s, '
+        logging.debug('_sync_send_file_to. hostname: %s, source_path: %s, '
                       'destination_path: %s, can_fail:%s', hostname,
                       source_path, destination_path, can_fail)
         host = create_host(hostname)
@@ -431,7 +399,7 @@ class DroneUtility(object):
 
     def send_file_to(self, hostname, source_path, destination_path,
                      can_fail=False):
-        self.run_async_command(self.sync_send_file_to,
+        self.run_async_command(self._sync_send_file_to,
                                (hostname, source_path, destination_path,
                                 can_fail))
 

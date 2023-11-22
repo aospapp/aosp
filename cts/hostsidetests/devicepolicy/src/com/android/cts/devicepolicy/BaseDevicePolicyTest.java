@@ -18,19 +18,26 @@ package com.android.cts.devicepolicy;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.ddmlib.testrunner.TestResult;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.Option;
 import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.CollectingTestListener;
+import com.android.tradefed.result.FileInputStreamSource;
+import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.TestResult;
+import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.TarUtil;
 
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -47,6 +54,14 @@ import javax.annotation.Nullable;
  * owner, etc.
  */
 public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiver {
+
+    @Option(
+            name = "skip-device-admin-feature-check",
+            description = "Flag that allows to skip the check for android.software.device_admin "
+                + "and run the tests no matter what. This is useful for system that do not what "
+                + "to expose that feature publicly."
+    )
+    private boolean mSkipDeviceAdminFeatureCheck = false;
 
     private static final String RUNNER = "android.support.test.runner.AndroidJUnitRunner";
 
@@ -116,8 +131,10 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     protected void setUp() throws Exception {
         super.setUp();
         assertNotNull(mCtsBuild);  // ensure build has been set before test is run.
-        mHasFeature = getDevice().getApiLevel() >= 21 /* Build.VERSION_CODES.L */
-                && hasDeviceFeature("android.software.device_admin");
+        mHasFeature = getDevice().getApiLevel() >= 21; /* Build.VERSION_CODES.L */
+        if (!mSkipDeviceAdminFeatureCheck) {
+            mHasFeature = mHasFeature && hasDeviceFeature("android.software.device_admin");
+        }
         mSupportsMultiUser = getMaxNumberOfUsersSupported() > 1;
         mSupportsFbe = hasDeviceFeature("android.software.file_based_encryption");
         mFixedPackages = getDevice().getInstalledPackageNames();
@@ -184,6 +201,13 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         getDevice().startUser(userId);
     }
 
+    /**
+     * Starts switching to the user with the given ID.
+     *
+     * <p>This is not blocking. Some operations will be flaky if called immediately afterwards, such
+     * as {@link #wakeupAndDismissKeyguard()}. Call {@link #waitForBroadcastIdle()} between this
+     * method and those operations to ensure that switching the user has finished.
+     */
     protected void switchUser(int userId) throws Exception {
         // TODO Move this logic to ITestDevice
         executeShellCommand("am switch-user " + userId);
@@ -191,6 +215,10 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
 
     protected int getMaxNumberOfUsersSupported() throws DeviceNotAvailableException {
         return getDevice().getMaxNumberOfUsersSupported();
+    }
+
+    protected int getMaxNumberOfRunningUsersSupported() throws DeviceNotAvailableException {
+        return getDevice().getMaxNumberOfRunningUsersSupported();
     }
 
     protected int getUserFlags(int userId) throws DeviceNotAvailableException {
@@ -219,6 +247,16 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         return getDevice().listUsers();
     }
 
+    protected  ArrayList<Integer> listRunningUsers() throws DeviceNotAvailableException {
+        ArrayList<Integer> runningUsers = new ArrayList<>();
+        for (int userId : listUsers()) {
+            if (getDevice().isUserRunning(userId)) {
+                runningUsers.add(userId);
+            }
+        }
+        return runningUsers;
+    }
+
     protected int getFirstManagedProfileUserId() throws DeviceNotAvailableException {
         for (int userId : listUsers()) {
             if ((getUserFlags(userId) & FLAG_MANAGED_PROFILE) != 0) {
@@ -229,16 +267,21 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         return 0;
     }
 
+    private void stopUserAsync(int userId) throws Exception {
+        String stopUserCommand = "am stop-user -f " + userId;
+        CLog.d("starting command \"" + stopUserCommand);
+        CLog.d("Output for command " + stopUserCommand + ": "
+                + getDevice().executeShellCommand(stopUserCommand));
+    }
+
     protected void stopUser(int userId) throws Exception {
-        // Wait for the broadcast queue to be idle first to workaround the stop-user timeout issue.
-        waitForBroadcastIdle();
         String stopUserCommand = "am stop-user -w -f " + userId;
         CLog.d("starting command \"" + stopUserCommand + "\" and waiting.");
         CLog.d("Output for command " + stopUserCommand + ": "
                 + getDevice().executeShellCommand(stopUserCommand));
     }
 
-    private void waitForBroadcastIdle() throws DeviceNotAvailableException {
+    protected void waitForBroadcastIdle() throws DeviceNotAvailableException, IOException {
         CollectingOutputReceiver receiver = new CollectingOutputReceiver();
         try {
             // we allow 8min for the command to complete and 4min for the command to start to
@@ -249,6 +292,24 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
             String output = receiver.getOutput();
             CLog.d("Output from 'am wait-for-broadcast-idle': %s", output);
             if (!output.contains("All broadcast queues are idle!")) {
+                // Gather the system_server dump data for investigation.
+                File heapDump = getDevice().dumpHeap("system_server", "/data/local/tmp/dump.hprof");
+                if (heapDump != null) {
+                    // If file is too too big, tar if with TarUtil.
+                    String pid = getDevice().getProcessPid("system_server");
+                    // gzip the file it's quite big
+                    File heapDumpGz = TarUtil.gzip(heapDump);
+                    try (FileInputStreamSource source = new FileInputStreamSource(heapDumpGz)) {
+                        addTestLog(
+                                String.format("system_server_dump.%s.%s.hprof",
+                                        pid, getDevice().getDeviceDate()),
+                                LogDataType.GZIP, source);
+                    } finally {
+                        FileUtil.deleteFile(heapDump);
+                    }
+                } else {
+                    CLog.e("Failed to capture the dumpheap from system_server");
+                }
                 // the call most likely failed we should fail the test
                 fail("'am wait-for-broadcase-idle' did not complete.");
                 // TODO: consider adding a reboot or recovery before failing if necessary
@@ -263,12 +324,24 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
             String stopUserCommand = "am stop-user -w -f " + userId;
             CLog.d("stopping and removing user " + userId);
             getDevice().executeShellCommand(stopUserCommand);
-            assertTrue("Couldn't remove user", getDevice().removeUser(userId));
+            // Ephemeral users may have already been removed after being stopped.
+            if (listUsers().contains(userId)) {
+                assertTrue("Couldn't remove user", getDevice().removeUser(userId));
+            }
         }
     }
 
     protected void removeTestUsers() throws Exception {
-        for (int userId : getUsersCreatedByTests()) {
+        List<Integer> usersCreatedByTests = getUsersCreatedByTests();
+
+        // The time spent on stopUser is depend on how busy the broadcast queue is.
+        // To optimize the time to remove multiple test users, we mark all users as
+        // stopping first, so no more broadcasts will be sent to these users, which make the queue
+        // less busy.
+        for (int userId : usersCreatedByTests) {
+            stopUserAsync(userId);
+        }
+        for (int userId : usersCreatedByTests) {
             removeUser(userId);
         }
     }
@@ -350,7 +423,7 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         if (result.hasFailedTests()) {
             // build a meaningful error message
             StringBuilder errorBuilder = new StringBuilder("On-device tests failed:\n");
-            for (Map.Entry<TestIdentifier, TestResult> resultEntry :
+            for (Map.Entry<TestDescription, TestResult> resultEntry :
                     result.getTestResults().entrySet()) {
                 if (!resultEntry.getValue().getStatus().equals(TestStatus.PASSED)) {
                     errorBuilder.append(resultEntry.getKey().toString());
@@ -396,6 +469,12 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     protected boolean canCreateAdditionalUsers(int numberOfUsers)
             throws DeviceNotAvailableException {
         return listUsers().size() + numberOfUsers <= getMaxNumberOfUsersSupported();
+    }
+
+    /** Checks whether it is possible to start the desired number of users. */
+    protected boolean canStartAdditionalUsers(int numberOfUsers)
+            throws DeviceNotAvailableException {
+        return listRunningUsers().size() + numberOfUsers <= getMaxNumberOfRunningUsersSupported();
     }
 
     protected boolean hasDeviceFeature(String requiredFeature) throws DeviceNotAvailableException {
@@ -806,5 +885,29 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     protected void wakeupAndDismissKeyguard() throws Exception {
         executeShellCommand("input keyevent KEYCODE_WAKEUP");
         executeShellCommand("wm dismiss-keyguard");
+    }
+
+    protected void startActivityAsUser(int userId, String packageName, String activityName)
+        throws Exception {
+        wakeupAndDismissKeyguard();
+        String command = "am start -W --user " + userId + " " + packageName + "/" + activityName;
+        getDevice().executeShellCommand(command);
+    }
+
+    protected String getDefaultLauncher() throws Exception {
+        final String PREFIX = "Launcher: ComponentInfo{";
+        final String POSTFIX = "}";
+        final String commandOutput =
+                getDevice().executeShellCommand("cmd shortcut get-default-launcher");
+        if (commandOutput == null) {
+            return null;
+        }
+        String[] lines = commandOutput.split("\\r?\\n");
+        for (String line : lines) {
+            if (line.startsWith(PREFIX) && line.endsWith(POSTFIX)) {
+                return line.substring(PREFIX.length(), line.length() - POSTFIX.length());
+            }
+        }
+        throw new Exception("Default launcher not found");
     }
 }

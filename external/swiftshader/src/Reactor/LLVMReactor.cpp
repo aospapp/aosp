@@ -32,10 +32,10 @@
 #include "LLVMRoutine.hpp"
 #include "LLVMRoutineManager.hpp"
 #include "x86.hpp"
-#include "CPUID.hpp"
-#include "Thread.hpp"
-#include "Memory.hpp"
-#include "MutexLock.hpp"
+#include "Common/CPUID.hpp"
+#include "Common/Thread.hpp"
+#include "Common/Memory.hpp"
+#include "Common/MutexLock.hpp"
 
 #include <fstream>
 
@@ -2791,7 +2791,7 @@ namespace sw
 	RValue<Short4> RoundShort4(RValue<Float4> cast)
 	{
 		RValue<Int4> int4 = RoundInt(cast);
-		return As<Short4>(Pack(int4, int4));
+		return As<Short4>(PackSigned(int4, int4));
 	}
 
 	RValue<Short4> Max(RValue<Short4> x, RValue<Short4> y)
@@ -2824,11 +2824,18 @@ namespace sw
 		return x86::pmaddwd(x, y);
 	}
 
-	RValue<SByte8> Pack(RValue<Short4> x, RValue<Short4> y)
+	RValue<SByte8> PackSigned(RValue<Short4> x, RValue<Short4> y)
 	{
 		auto result = x86::packsswb(x, y);
 
 		return As<SByte8>(Swizzle(As<Int4>(result), 0x88));
+	}
+
+	RValue<Byte8> PackUnsigned(RValue<Short4> x, RValue<Short4> y)
+	{
+		auto result = x86::packuswb(x, y);
+
+		return As<Byte8>(Swizzle(As<Int4>(result), 0x88));
 	}
 
 	RValue<Int2> UnpackLow(RValue<Short4> x, RValue<Short4> y)
@@ -2899,7 +2906,7 @@ namespace sw
 			if(CPUID::supportsSSE4_1())
 			{
 				Int4 int4(Min(cast, Float4(0xFFFF)));   // packusdw takes care of 0x0000 saturation
-				*this = As<Short4>(Pack(As<UInt4>(int4), As<UInt4>(int4)));
+				*this = As<Short4>(PackUnsigned(int4, int4));
 			}
 			else
 			{
@@ -3091,13 +3098,6 @@ namespace sw
 	RValue<UShort4> Average(RValue<UShort4> x, RValue<UShort4> y)
 	{
 		return x86::pavgw(x, y);
-	}
-
-	RValue<Byte8> Pack(RValue<UShort4> x, RValue<UShort4> y)
-	{
-		auto result = x86::packuswb(x, y);
-
-		return As<Byte8>(Swizzle(As<Int4>(result), 0x88));
 	}
 
 	Type *UShort4::getType()
@@ -4786,7 +4786,10 @@ namespace sw
 
 	RValue<Int4> CmpLT(RValue<Int4> x, RValue<Int4> y)
 	{
-		return RValue<Int4>(Nucleus::createSExt(Nucleus::createICmpSLT(x.value, y.value), Int4::getType()));
+		// FIXME: An LLVM bug causes SExt(ICmpCC()) to produce 0 or 1 instead of 0 or ~0
+		//        Restore the following line when LLVM is updated to a version where this issue is fixed.
+		// return RValue<Int4>(Nucleus::createSExt(Nucleus::createICmpSLT(x.value, y.value), Int4::getType()));
+		return RValue<Int4>(Nucleus::createSExt(Nucleus::createICmpSGE(x.value, y.value), Int4::getType())) ^ Int4(0xFFFFFFFF);
 	}
 
 	RValue<Int4> CmpLE(RValue<Int4> x, RValue<Int4> y)
@@ -4799,7 +4802,10 @@ namespace sw
 
 	RValue<Int4> CmpNEQ(RValue<Int4> x, RValue<Int4> y)
 	{
-		return RValue<Int4>(Nucleus::createSExt(Nucleus::createICmpNE(x.value, y.value), Int4::getType()));
+		// FIXME: An LLVM bug causes SExt(ICmpCC()) to produce 0 or 1 instead of 0 or ~0
+		//        Restore the following line when LLVM is updated to a version where this issue is fixed.
+		// return RValue<Int4>(Nucleus::createSExt(Nucleus::createICmpNE(x.value, y.value), Int4::getType()));
+		return RValue<Int4>(Nucleus::createSExt(Nucleus::createICmpEQ(x.value, y.value), Int4::getType())) ^ Int4(0xFFFFFFFF);
 	}
 
 	RValue<Int4> CmpNLT(RValue<Int4> x, RValue<Int4> y)
@@ -4812,7 +4818,10 @@ namespace sw
 
 	RValue<Int4> CmpNLE(RValue<Int4> x, RValue<Int4> y)
 	{
-		return RValue<Int4>(Nucleus::createSExt(Nucleus::createICmpSGT(x.value, y.value), Int4::getType()));
+		// FIXME: An LLVM bug causes SExt(ICmpCC()) to produce 0 or 1 instead of 0 or ~0
+		//        Restore the following line when LLVM is updated to a version where this issue is fixed.
+		// return RValue<Int4>(Nucleus::createSExt(Nucleus::createICmpSGT(x.value, y.value), Int4::getType()));
+		return RValue<Int4>(Nucleus::createSExt(Nucleus::createICmpSLE(x.value, y.value), Int4::getType())) ^ Int4(0xFFFFFFFF);
 	}
 
 	RValue<Int4> Max(RValue<Int4> x, RValue<Int4> y)
@@ -4846,9 +4855,14 @@ namespace sw
 		return x86::cvtps2dq(cast);
 	}
 
-	RValue<Short8> Pack(RValue<Int4> x, RValue<Int4> y)
+	RValue<Short8> PackSigned(RValue<Int4> x, RValue<Int4> y)
 	{
 		return x86::packssdw(x, y);
+	}
+
+	RValue<UShort8> PackUnsigned(RValue<Int4> x, RValue<Int4> y)
+	{
+		return x86::packusdw(x, y);
 	}
 
 	RValue<Int> Extract(RValue<Int4> x, int i)
@@ -5178,11 +5192,6 @@ namespace sw
 			RValue<UInt4> less = CmpLT(x, y);
 			return (x & less) | (y & ~less);
 		}
-	}
-
-	RValue<UShort8> Pack(RValue<UInt4> x, RValue<UInt4> y)
-	{
-		return x86::packusdw(As<Int4>(x), As<Int4>(y));
 	}
 
 	Type *UInt4::getType()
@@ -5791,6 +5800,16 @@ namespace sw
 		return RValue<Int4>(Nucleus::createSExt(Nucleus::createFCmpOGT(x.value, y.value), Int4::getType()));
 	}
 
+	RValue<Int4> IsInf(RValue<Float4> x)
+	{
+		return CmpEQ(As<Int4>(x) & Int4(0x7FFFFFFF), Int4(0x7F800000));
+	}
+
+	RValue<Int4> IsNan(RValue<Float4> x)
+	{
+		return ~CmpEQ(x, x);
+	}
+
 	RValue<Float4> Round(RValue<Float4> x)
 	{
 		if(CPUID::supportsSSE4_1())
@@ -6205,7 +6224,7 @@ namespace sw
 			return As<SByte8>(V(::builder->CreateCall2(packsswb, x.value, y.value)));
 		}
 
-		RValue<Byte8> packuswb(RValue<UShort4> x, RValue<UShort4> y)
+		RValue<Byte8> packuswb(RValue<Short4> x, RValue<Short4> y)
 		{
 			llvm::Function *packuswb = llvm::Intrinsic::getDeclaration(::module, llvm::Intrinsic::x86_sse2_packuswb_128);
 

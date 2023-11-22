@@ -2,6 +2,7 @@
   Declaration of the boot file download function.
 
 Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+(C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
 This program and the accompanying materials are licensed and made available under 
 the terms and conditions of the BSD License that accompanies this distribution.  
 The full text of the license may be found at
@@ -16,11 +17,9 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #define __EFI_HTTP_BOOT_HTTP_H__
 
 #define HTTP_BOOT_REQUEST_TIMEOUT            5000      // 5 seconds in uints of millisecond.
+#define HTTP_BOOT_RESPONSE_TIMEOUT           5000      // 5 seconds in uints of millisecond.
 #define HTTP_BOOT_BLOCK_SIZE                 1500
 
-#define HTTP_FIELD_NAME_USER_AGENT           "User-Agent"
-#define HTTP_FIELD_NAME_HOST                 "Host"
-#define HTTP_FIELD_NAME_ACCEPT               "Accept"
 
 
 #define HTTP_USER_AGENT_EFI_HTTP_BOOT        "UefiHttpBoot/1.0"
@@ -41,7 +40,8 @@ typedef struct {
 typedef struct {
   LIST_ENTRY                 Link;            // Link to the CacheList in driver's private data.
   EFI_HTTP_REQUEST_DATA      *RequestData;
-  HTTP_IO_RESOPNSE_DATA      *ResponseData;   // Not include any message-body data.
+  HTTP_IO_RESPONSE_DATA      *ResponseData;   // Not include any message-body data.
+  HTTP_BOOT_IMAGE_TYPE       ImageType;
   UINTN                      EntityLength;
   LIST_ENTRY                 EntityDataList;  // Entity data (message-body)
 } HTTP_BOOT_CACHE_CONTENT;
@@ -107,6 +107,7 @@ HttpBootCreateHttpIo (
   @param[out]      Buffer          The memory buffer to transfer the file to. IF Buffer is NULL,
                                    then the size of the requested file is returned in
                                    BufferSize.
+  @param[out]      ImageType       The image type of the downloaded file.
 
   @retval EFI_SUCCESS              The file was loaded.
   @retval EFI_INVALID_PARAMETER    BufferSize is NULL or Buffer Size is not NULL but Buffer is NULL.
@@ -122,7 +123,8 @@ HttpBootGetBootFile (
   IN     HTTP_BOOT_PRIVATE_DATA   *Private,
   IN     BOOLEAN                  HeaderOnly,
   IN OUT UINTN                    *BufferSize,
-     OUT UINT8                    *Buffer
+     OUT UINT8                    *Buffer,
+     OUT HTTP_BOOT_IMAGE_TYPE     *ImageType
   );
 
 /**

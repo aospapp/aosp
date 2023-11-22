@@ -8,7 +8,6 @@
 # parse-platforms.py and platforms.config.
 #
 
-TOOLS_DIR="`dirname $0`"
 . "$TOOLS_DIR"/common-functions
 
 function usage

@@ -9,8 +9,8 @@
 #include "xfa/fwl/cfwl_listbox.h"
 #include "xfa/fwl/cfwl_themebackground.h"
 #include "xfa/fwl/cfwl_widget.h"
-#include "xfa/fxgraphics/cfx_color.h"
-#include "xfa/fxgraphics/cfx_path.h"
+#include "xfa/fxgraphics/cxfa_gecolor.h"
+#include "xfa/fxgraphics/cxfa_gepath.h"
 
 CFWL_ListBoxTP::CFWL_ListBoxTP() {}
 
@@ -39,11 +39,6 @@ void CFWL_ListBoxTP::DrawBackground(CFWL_ThemeBackground* pParams) {
                       &pParams->m_rtPart, pParams->m_pData, &pParams->m_matrix);
       break;
     }
-    case CFWL_Part::Icon: {
-      pParams->m_pGraphics->StretchImage(pParams->m_pImage, pParams->m_rtPart,
-                                         &pParams->m_matrix);
-      break;
-    }
     case CFWL_Part::Check: {
       uint32_t color = 0xFF000000;
       if (pParams->m_dwStates == CFWL_PartState_Checked) {
@@ -59,18 +54,17 @@ void CFWL_ListBoxTP::DrawBackground(CFWL_ThemeBackground* pParams) {
   }
 }
 
-void CFWL_ListBoxTP::DrawListBoxItem(CFX_Graphics* pGraphics,
+void CFWL_ListBoxTP::DrawListBoxItem(CXFA_Graphics* pGraphics,
                                      uint32_t dwStates,
                                      const CFX_RectF* prtItem,
                                      void* pData,
                                      CFX_Matrix* pMatrix) {
   if (dwStates & CFWL_PartState_Selected) {
     pGraphics->SaveGraphState();
-    CFX_Color crFill(FWLTHEME_COLOR_BKSelected);
-    pGraphics->SetFillColor(&crFill);
+    pGraphics->SetFillColor(CXFA_GEColor(FWLTHEME_COLOR_BKSelected));
     CFX_RectF rt(*prtItem);
-    CFX_Path path;
-#if (_FX_OS_ == _FX_MACOSX_)
+    CXFA_GEPath path;
+#if (_FX_OS_ == _FX_OS_MACOSX_)
     path.AddRectangle(rt.left, rt.top, rt.width - 1, rt.height - 1);
 #else
     path.AddRectangle(rt.left, rt.top, rt.width, rt.height);

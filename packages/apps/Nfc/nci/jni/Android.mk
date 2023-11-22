@@ -12,6 +12,10 @@ endif
 
 LOCAL_CFLAGS += -Wall -Wextra -Wno-unused-parameter -Werror
 
+ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
+LOCAL_CFLAGS += -DDCHECK_ALWAYS_ON
+endif
+
 LOCAL_SRC_FILES := $(call all-subdir-cpp-files) $(call all-subdir-c-files)
 
 LOCAL_C_INCLUDES += \
@@ -26,7 +30,8 @@ LOCAL_C_INCLUDES += \
     $(VOB_COMPONENTS)/hal/int \
     $(VOB_COMPONENTS)/include \
     $(VOB_COMPONENTS)/gki/ulinux \
-    $(VOB_COMPONENTS)/gki/common
+    $(VOB_COMPONENTS)/gki/common \
+    system/nfc/utils/include
 
 LOCAL_SHARED_LIBRARIES := \
     libicuuc \
@@ -35,6 +40,8 @@ LOCAL_SHARED_LIBRARIES := \
     libutils \
     liblog \
     libnfc-nci \
+    libchrome \
+    libbase \
 
 LOCAL_STATIC_LIBRARIES := libxml2
 

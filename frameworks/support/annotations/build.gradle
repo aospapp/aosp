@@ -1,7 +1,8 @@
-apply plugin: android.support.SupportJavaLibraryPlugin
+import androidx.build.LibraryGroups
+import androidx.build.LibraryVersions
 
-sourceSets {
-    main.java.srcDir 'src'
+plugins {
+    id("SupportJavaLibraryPlugin")
 }
 
 jar {
@@ -12,9 +13,10 @@ jar {
     // themselves have been manually extracted into the
     // external-annotations directory, and those are packaged separately
     // below by the annotationsZip task.
-    exclude('android/support/annotation/ProductionVisibility.class')
-    exclude('android/support/annotation/DimensionUnit.class')
+    exclude('androidx/annotation/ProductionVisibility.class')
+    exclude('androidx/annotation/DimensionUnit.class')
     preserveFileTimestamps = false
+    reproducibleFileOrder = true
 }
 
 // configuration for the javadoc to include all source sets.
@@ -31,12 +33,6 @@ if (JavaVersion.current().isJava8Compatible()) {
     }
 }
 
-// custom tasks for creating source/javadoc jars
-task sourcesJar(type: Jar, dependsOn:classes) {
-    classifier = 'sources'
-    from sourceSets.main.allSource
-}
-
 task javadocJar(type: Jar, dependsOn:javadoc) {
     classifier         'javadoc'
     from               javadoc.destinationDir
@@ -50,14 +46,15 @@ task annotationsZip(type: Zip) {
 // add javadoc/source/annotations jar tasks as artifacts
 artifacts {
     archives jar
-    archives sourcesJar
     archives javadocJar
     archives annotationsZip
 }
 
 supportLibrary {
-    name 'Android Support Library Annotations'
-    publish true
-    inceptionYear '2013'
-    description "The Support Library is a static library that you can add to your Android application in order to use APIs that are either not available for older platform versions or utility APIs that aren't a part of the framework APIs."
+    name = "Android Support Library Annotations"
+    publish = true
+    mavenVersion = LibraryVersions.SUPPORT_LIBRARY
+    mavenGroup = LibraryGroups.ANNOTATION
+    inceptionYear = "2013"
+    description = "The Support Library is a static library that you can add to your Android application in order to use APIs that are either not available for older platform versions or utility APIs that aren't a part of the framework APIs."
 }

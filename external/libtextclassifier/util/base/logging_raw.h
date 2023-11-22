@@ -21,7 +21,7 @@
 
 #include "util/base/logging_levels.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 namespace logging {
 
 // Low-level logging primitive.  Logs a message, with the indicated log
@@ -31,6 +31,6 @@ void LowLevelLogging(LogSeverity severity, const std::string &tag,
                      const std::string &message);
 
 }  // namespace logging
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
 #endif  // LIBTEXTCLASSIFIER_UTIL_BASE_LOGGING_RAW_H_

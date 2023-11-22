@@ -125,7 +125,7 @@ class policy_DisableScreenshots(
             raise error.TestFail('Screenshot should be captured')
 
 
-    def run_test_case(self, case):
+    def run_once(self, case):
         """
         Setup and run the test configured for the specified test case.
 
@@ -133,5 +133,6 @@ class policy_DisableScreenshots(
 
         """
         case_value = self.TEST_CASES[case]
-        self.setup_case(self.POLICY_NAME, case_value, self.SUPPORTING_POLICIES)
+        self.SUPPORTING_POLICIES[self.POLICY_NAME] = case_value
+        self.setup_case(user_policies=self.SUPPORTING_POLICIES)
         self._test_screenshot_disabled(case_value)

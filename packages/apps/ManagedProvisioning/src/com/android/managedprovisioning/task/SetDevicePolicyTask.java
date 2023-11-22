@@ -68,9 +68,8 @@ public class SetDevicePolicyTask extends AbstractProvisioningTask {
     public void run(int userId) {
         boolean success;
         try {
-            ComponentName adminComponent = mUtils.findDeviceAdmin(
-                    mProvisioningParams.deviceAdminPackageName,
-                    mProvisioningParams.deviceAdminComponentName, mContext);
+            ComponentName adminComponent =
+                    mProvisioningParams.inferDeviceAdminComponentName(mUtils, mContext, userId);
             String adminPackage = adminComponent.getPackageName();
 
             enableDevicePolicyApp(adminPackage);

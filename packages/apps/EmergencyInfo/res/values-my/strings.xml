@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"အရေးပေါ်အချက်အလက်"</string>
-    <string name="medical_info_title" msgid="3000192781136934887">"ဆေးဘက်ဆိုင်ရာအချက်အလက်များ"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"ဆေးကုသမှုဆိုင်ရာ အချက်အလက်များ"</string>
     <string name="edit_medical_info" msgid="6733720353375319476">"အချက်အလက်များကို တည်းဖြတ်ရန်"</string>
     <string name="edit_info" msgid="5973929805855224805">"အရေးပေါ် အချက်အလက်များကို တည်းဖြတ်ပါ"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"အချက်အလက်"</string>
@@ -96,7 +96,7 @@
     <string name="fail_add_contact" msgid="6511490846952942291">"အဆက်အသွယ်အချက်အလက်များကို ကောင်းမွန်စွာ ဖတ်၍မရပါ"</string>
     <string name="remove" msgid="1243949503772376064">"ဖယ်ရှားပါ"</string>
     <string name="cancel" msgid="7401575239009060939">"မလုပ်တော့"</string>
-    <string name="ok" msgid="163967937451981024">"အိုကေ"</string>
+    <string name="ok" msgid="163967937451981024">"OK"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"ဖုန်းပိုင်ရှင်နှင့် ပတ်သက်သည့် အချက်အလက်များ မရှိပါ"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"ဤအရာသည် သင့်ဖုန်းဖြစ်ပါက အရေးပေါ်ကိစ္စကြုံလာလျှင် ပြသမည့် အချက်အလက်များထည့်ရန် ခဲတံသင်္ကေတကို တို့ပါ"</string>
@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"အချက်အလက်နှင့် အဆက်အသွယ်အားလုံးကို ရှင်းမလား။"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"ကျန်းမာရေးအချက်အလက်များနှင့် အရေးပေါ် အဆက်အသွယ်များကို ထည့်သွင်းခြင်းအားဖြင့် အရေးပေါ်အခြေအနေတစ်ခုတွင် ဦးဆုံးတုံ့ပြန်သူများက ၎င်းအချက်အလက်များကို တွေ့မြင်နိုင်ရန် ကူညီပေးပါသည်။\n\nသင့်ဖုန်းကို လော့ခ်ဖွင့်စရာမလိုဘဲ သင့်အဆက်အသွယ်များကို လော့ခ်ချထားချိန်မျက်နှာပြင်တွင် ဤအချက်အလက်များကို မည်သူမဆိုဖတ်နိုင်ပြီး သင့်အဆက်အသွယ်များ၏ အမည်ကို တို့၍ ၎င်းတို့ကို ဖုန်းဆက်နိုင်ပါသည်။"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"အရေးပေါ်အချက်အလက်များကို ထည့်သွင်းရန်"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"အရေးကြီးသော အချက်အလက်များကို ဦးဆုံးတုံ့ပြန်သူများက တွေ့မြင်နိုင်ရန် ကူညီပေးပါ"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"ပထမဆုံးတုံ့ပြန်သူက သင့်အချက်အလက်များကို မြင်အောင်လုပ်ပါ"</string>
 </resources>

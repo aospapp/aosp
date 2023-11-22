@@ -58,7 +58,7 @@ _lite_test_general() {
       build_dir="packages/services/Telecomm/tests"
       apk_loc="data/app/TelecomUnitTests/TelecomUnitTests.apk"
       package_prefix="com.android.server.telecom.tests"
-      instrumentation="android.test.InstrumentationTestRunner";;
+      instrumentation="android.support.test.runner.AndroidJUnitRunner";;
     "telephony")
       build_dir="frameworks/opt/telephony/tests/"
       apk_loc="data/app/FrameworksTelephonyTests/FrameworksTelephonyTests.apk"

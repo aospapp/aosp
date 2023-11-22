@@ -19,11 +19,11 @@
         android:title="@string/accessibility_shortcut">
     <SwitchPreference
             android:key="enable"
-            android:persistent="false"
+            android:persistent="true"
             android:title="@string/accessibility_shortcut_enable" />
     <Preference
             android:key="service"
-            android:persistent="false"
+            android:persistent="true"
             android:title="@string/accessibility_shortcut_service"
             android:fragment="com.android.tv.settings.accessibility.AccessibilityShortcutServiceFragment"/>
     <Preference

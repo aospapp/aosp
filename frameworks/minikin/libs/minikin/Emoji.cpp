@@ -14,26 +14,23 @@
  * limitations under the License.
  */
 
-#include <minikin/Emoji.h>
+#include "minikin/Emoji.h"
 
 namespace minikin {
 
 bool isNewEmoji(uint32_t c) {
-    // Emoji characters new in Unicode emoji 5.0.
-    // From http://www.unicode.org/Public/emoji/5.0/emoji-data.txt
-    // TODO: Remove once emoji-data.text 5.0 is in ICU or update to 6.0.
-    if (c < 0x1F6F7 || c > 0x1F9E6) {
+    // Emoji characters new in Unicode emoji 11
+    // From https://www.unicode.org/Public/emoji/11.0/emoji-data.txt
+    // TODO: Remove once emoji-data.text 11 is in ICU or update to 11.
+    if (c < 0x1F6F9 || c > 0x1F9FF) {
         // Optimization for characters outside the new emoji range.
         return false;
     }
-    return (0x1F6F7 <= c && c <= 0x1F6F8)
-            || c == 0x1F91F
-            || (0x1F928 <= c && c <= 0x1F92F)
-            || (0x1F931 <= c && c <= 0x1F932)
-            || c == 0x1F94C
-            || (0x1F95F <= c && c <= 0x1F96B)
-            || (0x1F992 <= c && c <= 0x1F997)
-            || (0x1F9D0 <= c && c <= 0x1F9E6);
+    return c == 0x265F || c == 0x267E || c == 0x1F6F9 || (0x1F94D <= c && c <= 0x1F94F) ||
+           (0x1F96C <= c && c <= 0x1F970) || (0x1F973 <= c && c <= 0x1F976) || c == 0x1F97A ||
+           (0x1F97C <= c && c <= 0x1F97F) || (0x1F998 <= c && c <= 0x1F9A2) ||
+           (0x1F9B0 <= c && c <= 0x1F9B9) || (0x1F9C1 <= c && c <= 0x1F9C2) ||
+           (0x1F9E7 <= c && c <= 0x1F9FF);
 }
 
 bool isEmoji(uint32_t c) {
@@ -53,12 +50,10 @@ bool isEmojiBase(uint32_t c) {
     if (c == 0x1F91D || c == 0x1F93C) {
         return true;
     }
-    // Emoji Modifier Base characters new in Unicode emoji 5.0.
-    // From http://www.unicode.org/Public/emoji/5.0/emoji-data.txt
-    // TODO: Remove once emoji-data.text 5.0 is in ICU or update to 6.0.
-    if (c == 0x1F91F
-            || (0x1F931 <= c && c <= 0x1F932)
-            || (0x1F9D1 <= c && c <= 0x1F9DD)) {
+    // Emoji Modifier Base characters new in Unicode emoji 11
+    // From https://www.unicode.org/Public/emoji/11.0/emoji-data.txt
+    // TODO: Remove once emoji-data.text 11 is in ICU or update to 11.
+    if ((0x1F9B5 <= c && c <= 0x1F9B6) || (0x1F9B8 <= c && c <= 0x1F9B9)) {
         return true;
     }
     return u_hasBinaryProperty(c, UCHAR_EMOJI_MODIFIER_BASE);
@@ -74,4 +69,3 @@ UCharDirection emojiBidiOverride(const void* /* context */, UChar32 c) {
 }
 
 }  // namespace minikin
-

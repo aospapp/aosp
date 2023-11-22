@@ -18,6 +18,8 @@ package com.android.layoutlib.bridge.intensive.util;
 
 import com.android.ide.common.rendering.api.AssetRepository;
 
+import android.annotation.NonNull;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -28,6 +30,12 @@ import java.io.InputStream;
  * {@link AssetRepository} used for render tests.
  */
 public class TestAssetRepository extends AssetRepository {
+    private final String mAssetPath;
+
+    public TestAssetRepository(@NonNull String assetPath) {
+        mAssetPath = assetPath;
+    }
+
     private static InputStream open(String path) throws FileNotFoundException {
         File asset = new File(path);
         if (asset.isFile()) {
@@ -44,7 +52,7 @@ public class TestAssetRepository extends AssetRepository {
 
     @Override
     public InputStream openAsset(String path, int mode) throws IOException {
-        return open(path);
+        return open(mAssetPath + path);
     }
 
     @Override

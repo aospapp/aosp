@@ -17,16 +17,15 @@
 package com.android.dx.mockito;
 
 import com.android.dx.stock.ProxyBuilder;
-import org.mockito.internal.debugging.LocationImpl;
-import org.mockito.internal.invocation.InvocationImpl;
-import org.mockito.internal.invocation.MockitoMethod;
-import org.mockito.internal.invocation.realmethod.RealMethod;
-import org.mockito.internal.progress.SequenceNumber;
+
+import org.mockito.Mockito;
+import org.mockito.invocation.InvocationFactory.RealMethodBehavior;
 import org.mockito.invocation.MockHandler;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
+
+import static org.mockito.Mockito.withSettings;
 
 /**
  * Handles proxy method invocations to dexmaker's InvocationHandler by calling
@@ -40,18 +39,24 @@ final class InvocationHandlerAdapter implements InvocationHandler {
     }
 
     @Override
-    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+    public Object invoke(final Object proxy, final Method method, final Object[] rawArgs)
+            throws Throwable {
         // args can be null if the method invoked has no arguments, but Mockito expects a non-null array
-        args = args != null ? args : new Object[0];
+        Object[] args = rawArgs != null ? rawArgs : new Object[0];
         if (isEqualsMethod(method)) {
             return proxy == args[0];
         } else if (isHashCodeMethod(method)) {
             return System.identityHashCode(proxy);
         }
 
-        ProxiedMethod proxiedMethod = new ProxiedMethod(method);
-        return handler.handle(new InvocationImpl(proxy, proxiedMethod, args, SequenceNumber.next(),
-                proxiedMethod, new LocationImpl()));
+        return handler.handle(Mockito.framework().getInvocationFactory().createInvocation(proxy,
+                withSettings().build(proxy.getClass().getSuperclass()), method,
+                new RealMethodBehavior() {
+            @Override
+            public Object call() throws Throwable {
+                return ProxyBuilder.callSuper(proxy, method, rawArgs);
+            }
+        }, args));
     }
 
     public MockHandler getHandler() {
@@ -71,53 +76,5 @@ final class InvocationHandlerAdapter implements InvocationHandler {
     private static boolean isHashCodeMethod(Method method) {
         return method.getName().equals("hashCode")
                 && method.getParameterTypes().length == 0;
-    }
-
-    private static class ProxiedMethod implements MockitoMethod, RealMethod {
-        private final Method method;
-
-        ProxiedMethod(Method method) {
-            this.method = method;
-        }
-
-        @Override
-        public String getName() {
-            return method.getName();
-        }
-
-        @Override
-        public Class<?> getReturnType() {
-            return method.getReturnType();
-        }
-
-        @Override
-        public Class<?>[] getParameterTypes() {
-            return method.getParameterTypes();
-        }
-
-        @Override
-        public Class<?>[] getExceptionTypes() {
-            return method.getExceptionTypes();
-        }
-
-        @Override
-        public boolean isVarArgs() {
-            return method.isVarArgs();
-        }
-
-        @Override
-        public Method getJavaMethod() {
-            return method;
-        }
-
-        @Override
-        public Object invoke(Object target, Object[] arguments) throws Throwable {
-            return ProxyBuilder.callSuper(target, method, arguments);
-        }
-
-        @Override
-        public boolean isAbstract() {
-            return Modifier.isAbstract(method.getModifiers());
-        }
     }
 }

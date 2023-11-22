@@ -24,18 +24,18 @@ import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.targetprep.BaseTargetPreparer;
 import com.android.tradefed.targetprep.BuildError;
-import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.util.FileUtil;
 
 import java.io.File;
 
 /**
- * A ITargetPreparer that forwards the location of the tests/data/app dir from the
- * {@link IDeviceBuildInfo} as an {@link Option}.
+ * A ITargetPreparer that forwards the location of the tests/data/app dir from the {@link
+ * IDeviceBuildInfo} as an {@link Option}.
  */
-public class TestDirForwarder implements ITargetPreparer, IConfigurationReceiver {
+public class TestDirForwarder extends BaseTargetPreparer implements IConfigurationReceiver {
 
     private IConfiguration mConfig = null;
 

@@ -15,6 +15,7 @@
 #ifndef FRONTEND_ACTION_FACTORY_H_
 #define FRONTEND_ACTION_FACTORY_H_
 
+#include <ir_representation.h>
 #include <clang/Tooling/Tooling.h>
 
 #include <vector>
@@ -22,13 +23,15 @@
 class HeaderCheckerFrontendActionFactory
     : public clang::tooling::FrontendActionFactory {
  private:
-  std::string dump_name_;
-  const std::vector<std::string> &export_header_dirs_;
+  const std::string &dump_name_;
+  std::set<std::string> &exported_headers_;
+  abi_util::TextFormatIR text_format_;
 
  public:
   HeaderCheckerFrontendActionFactory(
       const std::string &dump_name,
-      const std::vector<std::string> &exported_header_dirs);
+      std::set<std::string> &exported_headers,
+      abi_util::TextFormatIR text_format);
 
   clang::FrontendAction *create() override;
 };

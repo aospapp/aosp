@@ -22,16 +22,17 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.IFileEntry;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.RunUtil;
-import com.android.ddmlib.testrunner.TestIdentifier;
 
 import java.io.File;
-import java.util.Collections;
+import java.util.HashMap;
 
 /**
  *  Test for running Skia native tests.
@@ -95,22 +96,21 @@ public class SkiaTest implements IRemoteTest, IDeviceTest {
         String fullPath = mNativeTestDevicePath + "/"
                 + mSkiaApp + "/" + mSkiaApp;
         IFileEntry app = mDevice.getFileEntry(fullPath);
-        TestIdentifier testId = new TestIdentifier(mSkiaApp, "testFileExists");
+        TestDescription testId = new TestDescription(mSkiaApp, "testFileExists");
         listener.testStarted(testId);
         if (app == null) {
             CLog.w("Could not find test %s in %s!", fullPath, mDevice.getSerialNumber());
             listener.testFailed(testId, "Device does not have " + fullPath);
-            listener.testEnded(testId, null);
+            listener.testEnded(testId, new HashMap<String, Metric>());
         } else {
             // The test for detecting the file has ended.
-            listener.testEnded(testId, null);
+            listener.testEnded(testId, new HashMap<String, Metric>());
             prepareDevice();
             runTest(app);
             retrieveFiles(mSkiaApp, listener);
         }
 
-        listener.testRunEnded(System.currentTimeMillis() - start,
-                Collections.<String, String>emptyMap());
+        listener.testRunEnded(System.currentTimeMillis() - start, new HashMap<String, Metric>());
     }
 
     /**
@@ -163,27 +163,29 @@ public class SkiaTest implements IRemoteTest, IDeviceTest {
     }
 
     /**
-     *  Retrieve a file from the device and upload it to the listener.
+     * Retrieve a file from the device and upload it to the listener.
      *
-     *  Each file for uploading is considered its own test, so we can track
-     *  whether or not uploading succeeded.
+     * <p>Each file for uploading is considered its own test, so we can track whether or not
+     * uploading succeeded.
      *
-     *  @param remoteFile File on the device.
-     *  @param testIdClass String to be passed to TestIdentifier's constructor
-     *          as className.
-     *  @param testIdMethod String passed to TestIdentifier's constructor as
-     *          testName.
-     *  @param listener Listener for reporting test failure/success and
-     *          uploading files.
-     *  @param type LogDataType of the file being uploaded.
+     * @param remoteFile File on the device.
+     * @param testIdClass String to be passed to TestDescription's constructor as className.
+     * @param testIdMethod String passed to TestDescription's constructor as testName.
+     * @param listener Listener for reporting test failure/success and uploading files.
+     * @param type LogDataType of the file being uploaded.
      */
-    private void retrieveAndUploadFile(File remoteFile, String testIdClass, String testIdMethod,
-            ITestInvocationListener listener, LogDataType type) throws DeviceNotAvailableException {
+    private void retrieveAndUploadFile(
+            File remoteFile,
+            String testIdClass,
+            String testIdMethod,
+            ITestInvocationListener listener,
+            LogDataType type)
+            throws DeviceNotAvailableException {
         String remotePath = remoteFile.getPath();
         CLog.v("adb pull %s (using pullFile)", remotePath);
         File localFile = mDevice.pullFile(remotePath);
 
-        TestIdentifier testId = new TestIdentifier(testIdClass, testIdMethod);
+        TestDescription testId = new TestDescription(testIdClass, testIdMethod);
         listener.testStarted(testId);
         if (localFile == null) {
             listener.testFailed(testId, "Failed to pull " + remotePath);
@@ -197,7 +199,7 @@ public class SkiaTest implements IRemoteTest, IDeviceTest {
                 CLog.w("Failed to delete temporary file %s", localFile.getPath());
             }
         }
-        listener.testEnded(testId, null);
+        listener.testEnded(testId, new HashMap<String, Metric>());
     }
 
     /**

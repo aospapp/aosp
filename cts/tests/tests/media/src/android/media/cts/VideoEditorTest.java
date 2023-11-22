@@ -18,8 +18,10 @@ package android.media.cts;
 
 import android.media.cts.R;
 
+import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class VideoEditorTest extends ActivityInstrumentationTestCase2<MediaStubActivity> {
 
     public VideoEditorTest() {

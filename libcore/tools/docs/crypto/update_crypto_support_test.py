@@ -34,6 +34,7 @@ LAST_UPDATED_TEXT = '2009-02-13 23:31:30 UTC'
 
 
 class TestUpdateData(unittest.TestCase):
+    maxDiff = None
     def test_find_by_name(self):
         self.assertIsNone(update_crypto_support.find_by_name([], 'foo'))
         self.assertIsNone(
@@ -359,6 +360,31 @@ class TestUpdateData(unittest.TestCase):
                 'api_level': '72',
                 'last_updated': LAST_UPDATED_TEXT})
 
+    def test_update_data_preserve_notes(self):
+        self.assertEqual(
+            do_update_data(
+                {'categories': [
+                    {'name': 'MessageDigest',
+                     'algorithms': [
+                         {'name': 'SHA-1',
+                          'note': 'SHA-1 note',
+                          'supported_api_levels': '1+'},
+                         {'name': 'SHA-2',
+                          'supported_api_levels': '1-22',
+                          'deprecated': 'true'}]}]},
+                {'MessageDigest': ['SHA-1']}),
+            {'categories': [
+                {'name': 'MessageDigest',
+                 'algorithms': [
+                     {'name': 'SHA-1',
+                      'note': 'SHA-1 note',
+                      'supported_api_levels': '1+'},
+                     {'name': 'SHA-2',
+                      'supported_api_levels': '1-22',
+                      'deprecated': 'true'}]}],
+                'api_level': '72',
+                'last_updated': LAST_UPDATED_TEXT})
+
     def test_update_name_matching(self):
         self.assertEqual(
             do_update_data(
@@ -377,12 +403,12 @@ class TestUpdateData(unittest.TestCase):
             {'categories': [
                 {'name': 'MessageDigest',
                  'algorithms': [
-                     {'name': 'Sha-1',
-                      'supported_api_levels': '1+'},
+                     {'name': 'SHA-3',
+                      'supported_api_levels': '7+'},
                      {'name': 'Sha-2',
                       'supported_api_levels': '1-22,72+'},
-                     {'name': 'Sha-3',
-                      'supported_api_levels': '7+'}]}],
+                     {'name': 'sha-1',
+                      'supported_api_levels': '1+'}]}],
                 'api_level': '72',
                 'last_updated': LAST_UPDATED_TEXT})
         self.assertEqual(
@@ -390,25 +416,25 @@ class TestUpdateData(unittest.TestCase):
                 {'categories': [
                     {'name': 'MessageDigest',
                      'algorithms': [
-                         {'name': 'sha-1',
-                          'supported_api_levels': '1+'},
                          {'name': 'Sha-2',
                           'supported_api_levels': '1-22',
                           'deprecated': 'true'},
                          {'name': 'SHA-3',
-                          'supported_api_levels': '7+'}]}]},
+                          'supported_api_levels': '7+'},
+                         {'name': 'sha-1',
+                          'supported_api_levels': '1+'}]}]},
                 {'MessageDigest': ['SHA-1', 'SHA-3']},
                 {'SHA-1': 'Sha-1', 'SHA-3': 'Sha-3'}),
             {'categories': [
                 {'name': 'MessageDigest',
                  'algorithms': [
-                     {'name': 'Sha-1',
-                      'supported_api_levels': '1+'},
+                     {'name': 'SHA-3',
+                      'supported_api_levels': '7+'},
                      {'name': 'Sha-2',
                       'supported_api_levels': '1-22',
                       'deprecated': 'true'},
-                     {'name': 'Sha-3',
-                      'supported_api_levels': '7+'}]}],
+                     {'name': 'sha-1',
+                      'supported_api_levels': '1+'}]}],
                 'api_level': '72',
                 'last_updated': LAST_UPDATED_TEXT})
 

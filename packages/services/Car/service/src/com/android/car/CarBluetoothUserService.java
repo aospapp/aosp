@@ -23,6 +23,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothMapClient;
 import android.bluetooth.BluetoothPbapClient;
+import android.bluetooth.BluetoothPan;
 import android.car.ICarBluetoothUserService;
 import android.util.Log;
 
@@ -40,6 +41,7 @@ public class CarBluetoothUserService extends ICarBluetoothUserService.Stub {
     private BluetoothHeadsetClient mBluetoothHeadsetClient = null;
     private BluetoothPbapClient mBluetoothPbapClient = null;
     private BluetoothMapClient mBluetoothMapClient = null;
+    private BluetoothPan mBluetoothPan = null;
     private List<Integer> mProfilesToConnect;
 
     public CarBluetoothUserService(PerUserCarService service) {
@@ -49,7 +51,8 @@ public class CarBluetoothUserService extends ICarBluetoothUserService.Stub {
                 BluetoothProfile.HEADSET_CLIENT,
                 BluetoothProfile.PBAP_CLIENT,
                 BluetoothProfile.A2DP_SINK,
-                BluetoothProfile.MAP_CLIENT);
+                BluetoothProfile.MAP_CLIENT,
+                BluetoothProfile.PAN);
     }
 
     /**
@@ -95,6 +98,9 @@ public class CarBluetoothUserService extends ICarBluetoothUserService.Stub {
         if (mBluetoothMapClient != null) {
             mBluetoothAdapter.closeProfileProxy(BluetoothProfile.MAP_CLIENT, mBluetoothMapClient);
         }
+        if (mBluetoothPan != null) {
+            mBluetoothAdapter.closeProfileProxy(BluetoothProfile.PAN, mBluetoothPan);
+        }
     }
 
     /**
@@ -123,6 +129,11 @@ public class CarBluetoothUserService extends ICarBluetoothUserService.Stub {
                 break;
             case BluetoothProfile.MAP_CLIENT:
                 if (mBluetoothMapClient != null) {
+                    return true;
+                }
+                break;
+            case BluetoothProfile.PAN:
+                if (mBluetoothPan != null) {
                     return true;
                 }
                 break;
@@ -155,6 +166,9 @@ public class CarBluetoothUserService extends ICarBluetoothUserService.Stub {
             case BluetoothProfile.PBAP_CLIENT:
                 mBluetoothPbapClient.connect(device);
                 break;
+
+            case BluetoothProfile.PAN:
+                mBluetoothPan.connect(device);
 
             default:
                 Log.d(TAG, "Unknown profile");
@@ -219,6 +233,10 @@ public class CarBluetoothUserService extends ICarBluetoothUserService.Stub {
                             mBluetoothMapClient = (BluetoothMapClient) proxy;
                             break;
 
+                        case BluetoothProfile.PAN:
+                            mBluetoothPan = (BluetoothPan) proxy;
+                            break;
+
                         default:
                             if (DBG) {
                                 Log.d(TAG, "Unhandled profile");
@@ -246,6 +264,10 @@ public class CarBluetoothUserService extends ICarBluetoothUserService.Stub {
 
                         case BluetoothProfile.MAP_CLIENT:
                             mBluetoothMapClient = null;
+                            break;
+
+                        case BluetoothProfile.PAN:
+                            mBluetoothPan = null;
                             break;
 
                         default:

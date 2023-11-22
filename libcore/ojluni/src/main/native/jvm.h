@@ -166,7 +166,7 @@ JNIEXPORT jint JNICALL
 JVM_ActiveProcessorCount(void);
 
 JNIEXPORT jstring JVM_NativeLoad(JNIEnv* env, jstring javaFilename,
-                                 jobject javaLoader, jstring javaLibrarySearchPath);
+                                 jobject javaLoader);
 
 JNIEXPORT void * JNICALL
 JVM_LoadLibrary(const char *name);

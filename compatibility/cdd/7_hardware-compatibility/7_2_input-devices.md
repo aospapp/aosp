@@ -8,11 +8,6 @@ to navigate between the UI elements.
 
 ### 7.2.1\. Keyboard
 
-*    [H-0-1]  Handheld device implementations MUST include support for
-third-party Input Method Editor (IME) applications.
-*    [T-0-1] Television device implementations  MUST include support for
-third-party Input Method Editor (IME) applications.
-
 If device implementations include support for third-party
 Input Method Editor (IME) applications, they:
 
@@ -33,10 +28,6 @@ Device implementations:
 
 Android includes support for d-pad, trackball, and wheel as mechanisms for
 non-touch navigation.
-
-Television device implementations:
-
-*    [T-0-1] MUST support [D-pad](https://developer.android.com/reference/android/content/res/Configuration.html#NAVIGATION_DPAD).
 
 Device implementations:
 
@@ -59,28 +50,13 @@ The [Home](http://developer.android.com/reference/android/view/KeyEvent.html#`KE
 and [Back](http://developer.android.com/reference/android/view/KeyEvent.html#`KEYCODE_BACK`)
 functions typically provided via an interaction with a dedicated physical button
 or a distinct portion of the touch screen, are essential to the Android
-navigation paradigm and therefore:
+navigation paradigm and therefore, device implementations:
 
-*   [H-0-1] Android Handheld device implementations MUST provide the Home,
-    Recents, and Back functions.
-*   [H-0-2] Android Handheld device implementations MUST send both the normal
-    and long press event of the the Back function ([`KEYCODE_BACK`](http://developer.android.com/reference/android/view/KeyEvent.html#KEYCODE_BACK))
-    to the foreground application.
-*   [T-0-1] Android Television device implementations MUST provide the Home
-    and Back functions.
-*   [T-0-2] Android Television device implementations MUST send both the normal
-    and long press event of the the Back function ([`KEYCODE_BACK`](http://developer.android.com/reference/android/view/KeyEvent.html#KEYCODE_BACK))
-    to the foreground application.
-*   [W-0-1] Android Watch device implementations MUST have the Home function
-    available to the user, and the Back function except for when it is in
-    `UI_MODE_TYPE_WATCH`.
-*   [A-0-1] Automotive device implementations MUST provide the Home function
-    and MAY provide Back and Recent functions.
-*   [A-0-2] Automotive device implementations MUST send both the normal
-    and long press event of the the Back function ([`KEYCODE_BACK`](http://developer.android.com/reference/android/view/KeyEvent.html#KEYCODE_BACK))
-    to the foreground application.
-
-*   [C-0-1] MUST provide the Home function.
+*   [C-0-1] MUST provide a user affordance to launch installed applications
+    that have an activity with the `<intent-filter>` set with `ACTION=MAIN` and
+    `CATEGORY=LAUNCHER` or `CATEGORY=LEANBACK_LAUNCHER` for Television device
+    implementations.
+    The Home function SHOULD be the mechanism for this user affordance.
 *   SHOULD provide buttons for the Recents and Back function.
 
 If the Home, Recents, or Back functions are provided, they:
@@ -144,9 +120,6 @@ are associated with a display such that the user has the impression of directly
 manipulating items on screen. Since the user is directly touching the screen,
 the system does not require any additional affordances to indicate the objects
 being manipulated.
-
-*    [H-0-1] Handheld device implementations MUST support touchscreen input.
-*    [W-0-2] Watch device implementations MUST support touchscreen input.
 
 Device implementations:
 
@@ -235,10 +208,6 @@ or more pointer inputs fully independently.
 ### 7.2.6\. Game Controller Support
 
 #### 7.2.6.1\. Button Mappings
-
-Television device implementations:
-*    [T-0-1] MUST include support for game controllers and declare the
-`android.hardware.gamepad` feature flag.
 
 If device implementations declare the `android.hardware.gamepad` feature flag,
 they:
@@ -381,8 +350,5 @@ href="http://developer.android.com/reference/android/view/MotionEvent.html">Moti
 
 ### 7.2.7\. Remote Control
 
-Television device implementations:
+See [Section 2.3.1](#2_3_1_hardware) for device-specific requirements.
 
-*    SHOULD provide a remote control from which users can access
-[non-touch navigation](#7_2_2_non-touch_navigation) and
-[core navigation keys](#7_2_3_navigation_keys) inputs.

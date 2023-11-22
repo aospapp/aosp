@@ -33,10 +33,9 @@ import java.io.Writer;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Objects;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipOutputStream;
-
-import javax.xml.bind.DatatypeConverter;
 
 /**
  * Utility class for managing input streams.
@@ -137,6 +136,16 @@ public class StreamUtil {
         }
         list.trimToSize();
         return list;
+    }
+
+    /**
+     * Return a BuffferedReader to read the contents from the given InputstreamSource.
+     *
+     * @param stream the {@link InputStreamSource}
+     * @return a BuffferedReader
+     */
+    public static BufferedReader getBufferedReaderFromStreamSrc(InputStreamSource stream) {
+        return new BufferedReader(new InputStreamReader(stream.createInputStream()));
     }
 
     /**
@@ -309,7 +318,29 @@ public class StreamUtil {
             // Read through the stream to update digest.
         }
         input.close();
-        String md5 = DatatypeConverter.printHexBinary(md.digest()).toLowerCase();
+        String md5 = bytesToHexString(md.digest());
         return md5;
+    }
+
+    private static final char[] HEX_CHARS = {
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+    };
+
+    /**
+     * Converts a byte array into a String of hexadecimal characters.
+     *
+     * @param bytes an array of bytes
+     * @return hex string representation of bytes array
+     */
+    private static String bytesToHexString(byte[] bytes) {
+        Objects.requireNonNull(bytes);
+        StringBuilder sb = new StringBuilder(2 * bytes.length);
+        for (int i = 0; i < bytes.length; i++) {
+            int b = 0x0f & (bytes[i] >> 4);
+            sb.append(HEX_CHARS[b]);
+            b = 0x0f & bytes[i];
+            sb.append(HEX_CHARS[b]);
+        }
+        return sb.toString();
     }
 }

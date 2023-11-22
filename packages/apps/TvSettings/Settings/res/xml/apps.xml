@@ -16,22 +16,35 @@
   -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-        android:title="@string/device_apps">
+                  android:title="@string/applications_category_title">
+
+    <PreferenceCategory
+        android:key="recently_used_apps_category"
+        android:title="@string/apps_recently_used_category_title"
+        android:layout="@layout/preference_category_compact_layout">
+        <!-- Placeholder for a list of recent apps -->
+    </PreferenceCategory>
+
+    <!-- See all apps button -->
     <Preference
+        android:key="see_all_apps"
+        android:title="@string/apps_see_all_apps"
+        android:fragment="com.android.tv.settings.device.apps.AllAppsFragment" />
+
+    <PreferenceCategory
+        android:key="permissions"
+        android:title="@string/apps_permissions_category_title"
+        android:layout="@layout/preference_category_compact_layout">
+
+        <Preference
             android:key="Permissions"
             android:title="@string/device_apps_permissions">
-        <intent android:action="android.intent.action.MANAGE_PERMISSIONS"/>
-    </Preference>
-    <Preference
-            android:key="AppUsage"
-            android:title="@string/usage_access"
-            android:fragment="com.android.tv.settings.device.apps.specialaccess.ManageAppUsageAccess"/>
-    <PreferenceCategory
-            android:key="DownloadedPreferenceGroup"
-            android:title="@string/apps_downloaded"
-            android:orderingFromXml="false"/>
-    <PreferenceCategory
-            android:key="SystemPreferenceGroup"
-            android:title="@string/apps_system"
-            android:orderingFromXml="false"/>
+            <intent android:action="android.intent.action.MANAGE_PERMISSIONS"/>
+        </Preference>
+        <Preference
+            android:key="special_access"
+            android:title="@string/special_access"
+            android:fragment="com.android.tv.settings.device.apps.specialaccess.SpecialAppAccess"/>
+    </PreferenceCategory>
+
 </PreferenceScreen>

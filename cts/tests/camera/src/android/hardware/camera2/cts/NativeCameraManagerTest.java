@@ -16,12 +16,14 @@
 
 package android.hardware.camera2.cts;
 
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
 /**
  * <p>Basic test for CameraManager class.</p>
  */
+@AppModeFull
 public class NativeCameraManagerTest extends AndroidTestCase {
     private static final String TAG = "NativeCameraManagerTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);

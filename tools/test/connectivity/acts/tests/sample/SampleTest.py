@@ -16,15 +16,14 @@
 
 from acts.base_test import BaseTestClass
 
-class SampleTest(BaseTestClass):
 
+class SampleTest(BaseTestClass):
     def __init__(self, controllers):
         BaseTestClass.__init__(self, controllers)
-        self.tests = (
-            "test_make_toast",
-        )
+        self.tests = ("test_make_toast", )
 
     """Tests"""
+
     def test_make_toast(self):
         for ad in self.android_devices:
             ad.droid.makeToast("Hello World.")

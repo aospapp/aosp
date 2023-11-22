@@ -22,20 +22,29 @@
 
 #include "array.h"
 #include "base/bit_utils.h"
+#include "base/globals.h"
+#include "base/utils.h"
 #include "class.h"
 #include "common_throws.h"
+#include "dex/utf.h"
 #include "gc/heap-inl.h"
-#include "globals.h"
 #include "runtime.h"
 #include "thread.h"
-#include "utf.h"
-#include "utils.h"
 
 namespace art {
 namespace mirror {
 
 inline uint32_t String::ClassSize(PointerSize pointer_size) {
+#ifdef USE_D8_DESUGAR
+  // Two lambdas in CharSequence:
+  //   lambda$chars$0$CharSequence
+  //   lambda$codePoints$1$CharSequence
+  // which were virtual functions in standalone desugar, becomes
+  // direct functions with D8 desugaring.
+  uint32_t vtable_entries = Object::kVTableLength + 54;
+#else
   uint32_t vtable_entries = Object::kVTableLength + 56;
+#endif
   return Class::ComputeClassSize(true, vtable_entries, 0, 0, 0, 1, 2, pointer_size);
 }
 

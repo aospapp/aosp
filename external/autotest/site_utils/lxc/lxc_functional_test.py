@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # Copyright 2015 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -16,12 +17,12 @@ import argparse
 import logging
 import os
 import tempfile
-import time
 
 import common
 from autotest_lib.client.bin import utils
+from autotest_lib.client.common_lib import error
 from autotest_lib.site_utils import lxc
-from autotest_lib.site_utils.lxc import unittest_logging
+from autotest_lib.site_utils.lxc import unittest_setup
 
 
 TEST_JOB_ID = 123
@@ -175,22 +176,22 @@ parallel_simple(run, machines)
 """
 
 
-def setup_base(bucket):
+def setup_base(container_path):
     """Test setup base container works.
 
     @param bucket: ContainerBucket to interact with containers.
     """
-    logging.info('Rebuild base container in folder %s.', bucket.container_path)
-    bucket.setup_base()
-    containers = bucket.get_all()
-    logging.info('Containers created: %s', containers.keys())
+    logging.info('Rebuild base container in folder %s.', container_path)
+    image = lxc.BaseImage(container_path)
+    image.setup()
+    logging.info('Base container created: %s', image.get().name)
 
 
-def setup_test(bucket, name, skip_cleanup):
+def setup_test(bucket, container_id, skip_cleanup):
     """Test container can be created from base container.
 
     @param bucket: ContainerBucket to interact with containers.
-    @param name: Name of the test container.
+    @param container_id: ID of the test container.
     @param skip_cleanup: Set to True to skip cleanup, used to troubleshoot
                          container failures.
 
@@ -198,8 +199,9 @@ def setup_test(bucket, name, skip_cleanup):
     """
     logging.info('Create test container.')
     os.makedirs(RESULT_PATH)
-    container = bucket.setup_test(name, TEST_JOB_ID, AUTOTEST_SERVER_PKG,
-                                  RESULT_PATH, skip_cleanup=skip_cleanup,
+    container = bucket.setup_test(container_id, TEST_JOB_ID,
+                                  AUTOTEST_SERVER_PKG, RESULT_PATH,
+                                  skip_cleanup=skip_cleanup,
                                   job_folder=TEST_JOB_FOLDER,
                                   dut_name='192.168.0.3')
 
@@ -231,7 +233,7 @@ def test_share(container):
     host_test_script = os.path.join(RESULT_PATH, TEST_SCRIPT)
     with open(host_test_script, 'w') as script:
         if utils.is_moblab():
-            script.write(TEST_SCRIPT_CONTENT)
+            script.write(TEST_SCRIPT_CONTENT % {'ts_mon_test': ''})
         else:
             script.write(TEST_SCRIPT_CONTENT %
                          {'ts_mon_test': TEST_SCRIPT_CONTENT_TS_MON})
@@ -329,23 +331,17 @@ def main(options):
 
     @param options: Options to run the script.
     """
-    # Force to run the test as superuser.
-    # TODO(dshi): crbug.com/459344 Set remove this enforcement when test
-    # container can be unprivileged container.
-    if utils.sudo_require_password():
-        logging.warn('SSP requires root privilege to run commands, please '
-                     'grant root access to this process.')
-        utils.run('sudo true')
+    # Verify that the test is running as the correct user.
+    unittest_setup.verify_user()
 
     log_level=(logging.DEBUG if options.verbose else logging.INFO)
-    unittest_logging.setup(log_level)
+    unittest_setup.setup_logging(log_level)
 
+    setup_base(TEMP_DIR)
     bucket = lxc.ContainerBucket(TEMP_DIR)
 
-    setup_base(bucket)
-    container_test_name = (lxc.TEST_CONTAINER_NAME_FMT %
-                           (TEST_JOB_ID, time.time(), os.getpid()))
-    container = setup_test(bucket, container_test_name, options.skip_cleanup)
+    container_id = lxc.ContainerId.create(TEST_JOB_ID)
+    container = setup_test(bucket, container_id, options.skip_cleanup)
     test_share(container)
     test_autoserv(container)
     if options.dut:
@@ -361,6 +357,11 @@ if __name__ == '__main__':
     options = parse_options()
     try:
         main(options)
+    except:
+        # If the cleanup code below raises additional errors, they obfuscate the
+        # actual error in the test.  Highlight the error to aid in debugging.
+        logging.exception('ERROR:\n%s', error.format_error())
+        raise
     finally:
         if not options.skip_cleanup:
             logging.info('Cleaning up temporary directory %s.', TEMP_DIR)

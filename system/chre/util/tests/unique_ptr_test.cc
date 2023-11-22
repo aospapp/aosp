@@ -103,3 +103,26 @@ TEST(UniquePtr, Release) {
   value2->~Value();
   chre::memoryFree(value2);
 }
+
+TEST(UniquePtr, Reset) {
+  Value::constructionCounter = 0;
+
+  {
+    UniquePtr<Value> myInt = MakeUnique<Value>(0xcafe);
+    EXPECT_EQ(myInt.get()->value, 0xcafe);
+    EXPECT_EQ(Value::constructionCounter, 1);
+    myInt.reset(nullptr);
+    EXPECT_EQ(myInt.get(), nullptr);
+    EXPECT_EQ(Value::constructionCounter, 0);
+
+    myInt = MakeUnique<Value>(0xcafe);
+    UniquePtr<Value> myInt2 = MakeUnique<Value>(0xface);
+    EXPECT_EQ(Value::constructionCounter, 2);
+    myInt.reset(myInt2.release());
+    EXPECT_EQ(Value::constructionCounter, 1);
+    EXPECT_EQ(myInt.get()->value, 0xface);
+    EXPECT_EQ(myInt2.get(), nullptr);
+  }
+
+  EXPECT_EQ(Value::constructionCounter, 0);
+}

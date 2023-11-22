@@ -9,6 +9,9 @@ TARGET_CFLAGS = -DCHRE_MESSAGE_TO_HOST_MAX_SIZE=2048
 TARGET_VARIANT_SRCS = $(GOOGLE_X86_GOOGLETEST_SRCS)
 TARGET_VARIANT_SRCS += $(GOOGLETEST_SRCS)
 
+TARGET_CFLAGS += $(SIM_CFLAGS)
+TARGET_VARIANT_SRCS += $(SIM_SRCS)
+
 # Add a symbol to determine when building for a test.
 TARGET_CFLAGS += -DGTEST
 
@@ -37,6 +40,7 @@ TARGET_BUILD_BIN = true
 # Link in libraries for the final executable.
 TARGET_BIN_LDFLAGS += -lrt -ldl
 TARGET_BIN_LDFLAGS += -lpthread
+TARGET_BIN_LDFLAGS += $(shell pkg-config --libs sndfile)
 
 include $(CHRE_PREFIX)/build/build_template.mk
 endif

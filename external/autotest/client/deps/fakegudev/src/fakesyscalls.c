@@ -186,12 +186,6 @@ setup_redirection_map (void)
   g_strfreev (redirections);
 }
 
-#ifdef __use_clang_fortify
-/* Clang-style FORTIFY requires that all FORTIFY'ed function redeclarations and
- * redefinitions be marked with the overloadable attribute.
- */
-__attribute__((overloadable))
-#endif
 int
 open (const char *pathname, int flags, ...)
 {

@@ -12,6 +12,7 @@ package android.icu.dev.test.bidi;
 import org.junit.Test;
 
 import android.icu.text.Bidi;
+import android.icu.testsharding.MainTestShard;
 
 
 /**
@@ -20,6 +21,7 @@ import android.icu.text.Bidi;
  * Ported from C by Ramy Said
  */
 
+@MainTestShard
 public class TestReorderArabicMathSymbols extends BidiFmwk {
 
     private static final String[] logicalOrder = {

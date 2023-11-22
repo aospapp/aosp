@@ -24,6 +24,7 @@
 #include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 
 #include "netdutils/Slice.h"
 #include "netdutils/Socket.h"
@@ -46,6 +47,9 @@ class Syscalls {
 
     virtual Status getsockname(Fd sock, sockaddr* addr, socklen_t* addrlen) const = 0;
 
+    virtual Status getsockopt(Fd sock, int level, int optname, void *optval,
+                              socklen_t *optlen) const = 0;
+
     virtual Status setsockopt(Fd sock, int level, int optname, const void* optval,
                               socklen_t optlen) const = 0;
 
@@ -56,6 +60,8 @@ class Syscalls {
     virtual StatusOr<UniqueFd> eventfd(unsigned int initval, int flags) const = 0;
 
     virtual StatusOr<int> ppoll(pollfd* fds, nfds_t nfds, double timeout) const = 0;
+
+    virtual StatusOr<size_t> writev(Fd fd, const std::vector<iovec>& iov) const = 0;
 
     virtual StatusOr<size_t> write(Fd fd, const Slice buf) const = 0;
 
@@ -109,6 +115,11 @@ class Syscalls {
         socklen_t addrlen = sizeof(addr);
         RETURN_IF_NOT_OK(getsockname(sock, asSockaddrPtr(&addr), &addrlen));
         return addr;
+    }
+
+    template <typename SockoptT>
+    Status getsockopt(Fd sock, int level, int optname, void* optval, socklen_t* optlen) const {
+        return getsockopt(sock, level, optname, optval, optlen);
     }
 
     template <typename SockoptT>

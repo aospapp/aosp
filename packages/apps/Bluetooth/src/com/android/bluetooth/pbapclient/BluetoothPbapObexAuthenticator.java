@@ -30,14 +30,14 @@ import javax.obex.PasswordAuthentication;
 
 class BluetoothPbapObexAuthenticator implements Authenticator {
 
-    private final static String TAG = "BluetoothPbapObexAuthenticator";
+    private static final String TAG = "BluetoothPbapObexAuthenticator";
 
     //Default session key for legacy devices is 0000
     private String mSessionKey = "0000";
 
     private final Handler mCallback;
 
-    public BluetoothPbapObexAuthenticator(Handler callback) {
+    BluetoothPbapObexAuthenticator(Handler callback) {
         mCallback = callback;
     }
 

@@ -41,6 +41,8 @@ import java.security.Security;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPrivateCrtKey;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -206,7 +208,8 @@ public class KeyStoreTest extends TestCase {
         // TODO enable AndroidKeyStore when CTS can set up the keystore
         return (StandardNames.IS_RI && ks.getProvider().getName().equals("BC"))
                 || "AndroidKeyStore".equalsIgnoreCase(ks.getType())
-                || "TimaKeyStore".equalsIgnoreCase(ks.getType());
+                || "TimaKeyStore".equalsIgnoreCase(ks.getType())
+                || "KnoxAndroidKeyStore".equalsIgnoreCase(ks.getType());
     }
 
     private static boolean isNullPasswordAllowed(KeyStore ks) {
@@ -1682,8 +1685,15 @@ public class KeyStoreTest extends TestCase {
                 assertEquals(expected.getKey(alias, null),
                              actual.getKey(alias, null));
             } else {
-                assertEquals(expected.getKey(alias, PASSWORD_KEY),
-                             actual.getKey(alias, PASSWORD_KEY));
+                Key actualKey = actual.getKey(alias, PASSWORD_KEY);
+                Key expectedKey = expected.getKey(alias, PASSWORD_KEY);
+                if (actualKey instanceof RSAPrivateKey &&
+                    expectedKey instanceof RSAPrivateKey) {
+                  assertEquals(((RSAPrivateKey)actualKey).getModulus(),
+                               ((RSAPrivateKey)expectedKey).getModulus());
+                } else {
+                  assertEquals(actualKey, expectedKey);
+                }
             }
             assertEquals(expected.getCertificate(alias), actual.getCertificate(alias));
         }

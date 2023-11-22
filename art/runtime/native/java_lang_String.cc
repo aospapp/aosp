@@ -25,7 +25,7 @@
 #include "mirror/string-inl.h"
 #include "mirror/string.h"
 #include "native_util.h"
-#include "nativehelper/ScopedLocalRef.h"
+#include "nativehelper/scoped_local_ref.h"
 #include "scoped_fast_native_object_access-inl.h"
 #include "scoped_thread_state_change-inl.h"
 #include "verify_object.h"
@@ -37,7 +37,7 @@ static jchar String_charAt(JNIEnv* env, jobject java_this, jint index) {
   return soa.Decode<mirror::String>(java_this)->CharAt(index);
 }
 
-static jint String_compareTo(JNIEnv* env, jobject java_this, jobject java_rhs) {
+static jint String_compareTo(JNIEnv* env, jobject java_this, jstring java_rhs) {
   ScopedFastNativeObjectAccess soa(env);
   if (UNLIKELY(java_rhs == nullptr)) {
     ThrowNullPointerException("rhs == null");
@@ -48,7 +48,7 @@ static jint String_compareTo(JNIEnv* env, jobject java_this, jobject java_rhs) {
   }
 }
 
-static jstring String_concat(JNIEnv* env, jobject java_this, jobject java_string_arg) {
+static jstring String_concat(JNIEnv* env, jobject java_this, jstring java_string_arg) {
   ScopedFastNativeObjectAccess soa(env);
   if (UNLIKELY(java_string_arg == nullptr)) {
     ThrowNullPointerException("string arg == null");
@@ -66,13 +66,6 @@ static jstring String_concat(JNIEnv* env, jobject java_this, jobject java_string
   }
   jobject string_original = (length_this == 0) ? java_string_arg : java_this;
   return reinterpret_cast<jstring>(string_original);
-}
-
-static jint String_fastIndexOf(JNIEnv* env, jobject java_this, jint ch, jint start) {
-  ScopedFastNativeObjectAccess soa(env);
-  // This method does not handle supplementary characters. They're dealt with in managed code.
-  DCHECK_LE(ch, 0xffff);
-  return soa.Decode<mirror::String>(java_this)->FastIndexOf(ch, start);
 }
 
 static jstring String_fastSubstring(JNIEnv* env, jobject java_this, jint start, jint length) {
@@ -121,7 +114,6 @@ static JNINativeMethod gMethods[] = {
   FAST_NATIVE_METHOD(String, compareTo, "(Ljava/lang/String;)I"),
   FAST_NATIVE_METHOD(String, concat, "(Ljava/lang/String;)Ljava/lang/String;"),
   FAST_NATIVE_METHOD(String, doReplace, "(CC)Ljava/lang/String;"),
-  FAST_NATIVE_METHOD(String, fastIndexOf, "(II)I"),
   FAST_NATIVE_METHOD(String, fastSubstring, "(II)Ljava/lang/String;"),
   FAST_NATIVE_METHOD(String, getCharsNoCheck, "(II[CI)V"),
   FAST_NATIVE_METHOD(String, intern, "()Ljava/lang/String;"),

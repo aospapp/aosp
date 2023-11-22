@@ -11,6 +11,6 @@ LOCAL_SRC_FILES := cld80211_lib.c
 LOCAL_CFLAGS += -Wall -Werror -Wno-unused-parameter
 LOCAL_COPY_HEADERS_TO := cld80211-lib
 LOCAL_COPY_HEADERS := cld80211_lib.h
-LOCAL_PROPRIETARY_MODULE := true
+LOCAL_VENDOR_MODULE := true
 include $(BUILD_SHARED_LIBRARY)
 

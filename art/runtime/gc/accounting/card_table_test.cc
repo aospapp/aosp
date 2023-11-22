@@ -18,19 +18,19 @@
 
 #include <string>
 
-#include "atomic.h"
+#include "base/atomic.h"
+#include "base/utils.h"
 #include "common_runtime_test.h"
 #include "handle_scope-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/string-inl.h"  // Strings are easiest to allocate
 #include "scoped_thread_state_change-inl.h"
 #include "thread_pool.h"
-#include "utils.h"
 
 namespace art {
 
 namespace mirror {
-  class Object;
+class Object;
 }  // namespace mirror
 
 namespace gc {

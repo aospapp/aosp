@@ -8,7 +8,7 @@ PURPOSE = "Test the cpu usage and dropped frame count of VP8 video playback"
 CRITERIA = """
 The test outputs the cpu usage and dropped frame count of VP8 video playback.
 """
-ATTRIBUTES = "suite:crosbolt_perf_nightly"
+ATTRIBUTES = "suite:crosbolt_perf_perbuild"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"

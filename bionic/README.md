@@ -1,3 +1,8 @@
+Using bionic
+============
+
+See the [additional documentation](docs/).
+
 Working on bionic
 =================
 
@@ -43,7 +48,7 @@ publicly-exported header file.
 
 #### benchmarks/ --- benchmarks
 
-The `benchmarks/` directory contains benchmarks.
+The `benchmarks/` directory contains benchmarks, with its own [documentation](benchmarks/README.md).
 
 
 What's in libc/?
@@ -139,8 +144,23 @@ libc/
 </pre>
 
 
-Adding system calls
--------------------
+Adding libc wrappers for system calls
+-------------------------------------
+
+The first question you should ask is "should I add a libc wrapper for
+this system call?". The answer is usually "no".
+
+The answer is "yes" if the system call is part of the POSIX standard.
+
+The answer is probably "yes" if the system call has a wrapper in at
+least one other C library.
+
+The answer may be "yes" if the system call has three/four distinct
+users in different projects, and there isn't a more specific library
+that would make more sense as the place to add the wrapper.
+
+In all other cases, you should use
+[syscall(3)](http://man7.org/linux/man-pages/man2/syscall.2.html) instead.
 
 Adding a system call usually involves:
 
@@ -152,7 +172,8 @@ Adding a system call usually involves:
      kernel uapi header files, in which case you just need to make sure that
      the appropriate POSIX header file in libc/include/ includes the
      relevant file or files.
-  4. Add function declarations to the appropriate header file.
+  4. Add function declarations to the appropriate header file. Don't forget
+     to include the appropriate `__INTRODUCED_IN()`.
   5. Add the function name to the correct section in libc/libc.map.txt and
      run `./libc/tools/genversion-scripts.py`.
   6. Add at least basic tests. Even a test that deliberately supplies
@@ -170,6 +191,10 @@ As mentioned above, this is currently a two-step process:
   1. Use generate_uapi_headers.sh to go from a Linux source tree to appropriate
      contents for external/kernel-headers/.
   2. Run update_all.py to scrub those headers and import them into bionic.
+
+Note that if you're actually just trying to expose device-specific headers to
+build your device drivers, you shouldn't modify bionic. Instead use
+`TARGET_DEVICE_KERNEL_HEADERS` and friends described in [config.mk](https://android.googlesource.com/platform/build/+/master/core/config.mk#186).
 
 
 Updating tzdata
@@ -202,13 +227,13 @@ The tests are all built from the tests/ directory.
 
     $ mma # In $ANDROID_ROOT/bionic.
     $ adb root && adb remount && adb sync
-    $ adb shell /data/nativetest/bionic-unit-tests/bionic-unit-tests32
+    $ adb shell /data/nativetest/bionic-unit-tests/bionic-unit-tests
     $ adb shell \
-        /data/nativetest/bionic-unit-tests-static/bionic-unit-tests-static32
+        /data/nativetest/bionic-unit-tests-static/bionic-unit-tests-static
     # Only for 64-bit targets
-    $ adb shell /data/nativetest64/bionic-unit-tests/bionic-unit-tests64
+    $ adb shell /data/nativetest64/bionic-unit-tests/bionic-unit-tests
     $ adb shell \
-        /data/nativetest64/bionic-unit-tests-static/bionic-unit-tests-static64
+        /data/nativetest64/bionic-unit-tests-static/bionic-unit-tests-static
 
 Note that we use our own custom gtest runner that offers a superset of the
 options documented at
@@ -277,7 +302,7 @@ For either host or target coverage, you must first:
     $ adb shell \
         GCOV_PREFIX=/data/local/tmp/gcov \
         GCOV_PREFIX_STRIP=`echo $ANDROID_BUILD_TOP | grep -o / | wc -l` \
-        /data/nativetest/bionic-unit-tests/bionic-unit-tests32
+        /data/nativetest/bionic-unit-tests/bionic-unit-tests
     $ acov
 
 `acov` will pull all coverage information from the device, push it to the right
@@ -294,25 +319,6 @@ First, build and run the host tests as usual (see above).
 The coverage report is now available at `covreport/index.html`.
 
 
-Running the benchmarks
-----------------------
-
-### Device benchmarks
-
-    $ mma
-    $ adb remount
-    $ adb sync
-    $ adb shell /data/nativetest/bionic-benchmarks/bionic-benchmarks
-    $ adb shell /data/nativetest64/bionic-benchmarks/bionic-benchmarks
-
-You can use `--benchmark_filter=getpid` to just run benchmarks with "getpid"
-in their name.
-
-### Host benchmarks
-
-See the "Host tests" section of "Running the tests" above.
-
-
 Attaching GDB to the tests
 --------------------------
 
@@ -327,54 +333,4 @@ each test from being forked, run the tests with the flag `--no-isolate`.
 32-bit ABI bugs
 ---------------
 
-### `off_t` is 32-bit.
-
-On 32-bit Android, `off_t` is a signed 32-bit integer. This limits functions
-that use `off_t` to working on files no larger than 2GiB.
-
-Android does not require the `_LARGEFILE_SOURCE` macro to be used to make
-`fseeko` and `ftello` available. Instead they're always available from API
-level 24 where they were introduced, and never available before then.
-
-Android also does not require the `_LARGEFILE64_SOURCE` macro to be used
-to make `off64_t` and corresponding functions such as `ftruncate64` available.
-Instead, whatever subset of those functions was available at your target API
-level will be visible.
-
-There are a couple of exceptions to note. Firstly, `off64_t` and the single
-function `lseek64` were available right from the beginning in API 3. Secondly,
-Android has always silently inserted `O_LARGEFILE` into any open call, so if
-all you need are functions like `read` that don't take/return `off_t`, large
-files have always worked.
-
-Android support for `_FILE_OFFSET_BITS=64` (which turns `off_t` into `off64_t`
-and replaces each `off_t` function with its `off64_t` counterpart, such as
-`lseek` in the source becoming `lseek64` at runtime) was added late. Even when
-it became available for the platform, it wasn't available from the NDK until
-r15. Before NDK r15, `_FILE_OFFSET_BITS=64` silently did nothing: all code
-compiled with that was actually using a 32-bit `off_t`. With a new enough NDK,
-the situation becomes complicated. If you're targeting an API before 21, almost
-all functions that take an `off_t` become unavailable. You've asked for their
-64-bit equivalents, and none of them (except `lseek`/`lseek64`) exist. As you
-increase your target API level, you'll have more and more of the functions
-available. API 12 adds some of the `<unistd.h>` functions, API 21 adds `mmap`,
-and by API 24 you have everything including `<stdio.h>`. See the
-[linker map](libc/libc.map.txt) for full details.
-
-In the 64-bit ABI, `off_t` is always 64-bit.
-
-### `sigset_t` is too small for real-time signals.
-
-On 32-bit Android, `sigset_t` is too small for ARM and x86 (but correct for
-MIPS). This means that there is no support for real-time signals in 32-bit
-code.
-
-In the 64-bit ABI, `sigset_t` is the correct size for every architecture.
-
-### `time_t` is 32-bit.
-
-On 32-bit Android, `time_t` is 32-bit. The header `<time64.h>` and type
-`time64_t` exist as a workaround, but the kernel interfaces exposed on 32-bit
-Android all use the 32-bit `time_t`.
-
-In the 64-bit ABI, `time_t` is 64-bit.
+See [32-bit ABI bugs](docs/32-bit-abi.md).

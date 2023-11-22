@@ -24,7 +24,13 @@
 <table>
     <?cs set:cur_row = #0 ?>
     <?cs each:cl = letter ?>
-        <tr class="<?cs if:count % #2 ?>alt-color<?cs /if ?> api apilevel-<?cs var:cl.since ?>" >
+        <tr class="api apilevel-<?cs var:cl.since ?>"<?cs
+            if:cl.since ?>
+            data-version-added="<?cs var:cl.since ?>"<?cs
+            /if ?><?cs
+            if:cl.deprecatedsince
+              ?> data-version-deprecated="<?cs var:cl.deprecatedsince ?>"<?cs
+            /if ?> >
             <td class="jd-linkcol"><?cs call:type_link(cl.type) ?></td>
             <td class="jd-descrcol" width="100%">
               <?cs call:short_descr(cl) ?>&nbsp;

@@ -21,7 +21,7 @@
 
 #include <string>
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 // Read-only "view" of a piece of data.  Does not own the underlying data.
 class StringPiece {
@@ -51,6 +51,8 @@ class StringPiece {
   size_t size() const { return size_; }
   size_t length() const { return size_; }
 
+  bool empty() const { return size_ == 0; }
+
   // Returns a std::string containing a copy of the underlying data.
   std::string ToString() const {
     return std::string(data(), size());
@@ -61,6 +63,6 @@ class StringPiece {
   size_t size_;
 };
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
 #endif  // LIBTEXTCLASSIFIER_UTIL_STRINGS_STRINGPIECE_H_

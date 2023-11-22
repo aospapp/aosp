@@ -34,19 +34,17 @@ static constexpr uint8_t kLittleEndianRepresentation[4] = {
   0x01, 0x02, 0x03, 0x04 };
 
 TEST(EndianTest, LittleEndianToLittleEndianHost) {
-  alignas(alignof(uint32_t)) uint8_t bytes[4];
-  ::memcpy(bytes, kLittleEndianRepresentation, sizeof(bytes));
-  uint32_t *valuePtr = reinterpret_cast<uint32_t*>(bytes);
+  uint32_t value;
+  ::memcpy(&value, kLittleEndianRepresentation, sizeof(value));
 
-  nanoapp_testing::littleEndianToHost(valuePtr);
-  EXPECT_EQ(0, ::memcmp(bytes, kLittleEndianRepresentation, sizeof(bytes)));
+  value = nanoapp_testing::littleEndianToHost(value);
+  EXPECT_EQ(0, ::memcmp(&value, kLittleEndianRepresentation, sizeof(value)));
 }
 
 TEST(EndianTest, LittleEndianHostToLittleEndian) {
-  alignas(alignof(uint32_t)) uint8_t bytes[4];
-  ::memcpy(bytes, kLittleEndianRepresentation, sizeof(bytes));
-  uint32_t *valuePtr = reinterpret_cast<uint32_t*>(bytes);
+  uint32_t value;
+  ::memcpy(&value, kLittleEndianRepresentation, sizeof(value));
 
-  nanoapp_testing::hostToLittleEndian(valuePtr);
-  EXPECT_EQ(0, ::memcmp(bytes, kLittleEndianRepresentation, sizeof(bytes)));
+  value = nanoapp_testing::hostToLittleEndian(value);
+  EXPECT_EQ(0, ::memcmp(&value, kLittleEndianRepresentation, sizeof(value)));
 }

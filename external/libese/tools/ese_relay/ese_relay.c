@@ -70,7 +70,6 @@ int setup_socket(const char *name) {
 
 int main() {
   int server_fd = setup_socket(LOG_TAG);
-  int client_fd = -1;
   struct EseInterface ese;
   ese_relay_init(&ese);
 

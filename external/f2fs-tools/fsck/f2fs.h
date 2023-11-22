@@ -11,6 +11,7 @@
 #ifndef _F2FS_H_
 #define _F2FS_H_
 
+#include <f2fs_fs.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -18,13 +19,13 @@
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
+#ifdef HAVE_MNTENT_H
 #include <mntent.h>
+#endif
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <assert.h>
-
-#include <f2fs_fs.h>
 
 #define EXIT_ERR_CODE		(-1)
 #define ver_after(a, b) (typecheck(unsigned long long, a) &&            \
@@ -49,6 +50,7 @@ struct node_info {
 
 struct f2fs_nm_info {
 	block_t nat_blkaddr;
+	block_t nat_blocks;
 	nid_t max_nid;
 	nid_t init_scan_nid;
 	nid_t next_scan_nid;
@@ -64,12 +66,6 @@ struct f2fs_nm_info {
 struct seg_entry {
 	unsigned short valid_blocks;    /* # of valid blocks */
 	unsigned char *cur_valid_map;   /* validity bitmap of blocks */
-	/*
-	 * # of valid blocks and the validity bitmap stored in the the last
-	 * checkpoint pack. This information is used by the SSR mode.
-	 */
-	unsigned short ckpt_valid_blocks;
-	unsigned char *ckpt_valid_map;
 	unsigned char type;             /* segment type like CURSEG_XXX_TYPE */
 	unsigned char orig_type;        /* segment type like CURSEG_XXX_TYPE */
 	unsigned long long mtime;       /* modification time of the segment */
@@ -129,6 +125,7 @@ struct f2fs_dentry_ptr {
 	struct f2fs_dir_entry *dentry;
 	__u8 (*filename)[F2FS_SLOT_LEN];
 	int max;
+	int nr_bitmap;
 };
 
 struct dentry {
@@ -232,7 +229,9 @@ static inline struct sit_info *SIT_I(struct f2fs_sb_info *sbi)
 
 static inline void *inline_data_addr(struct f2fs_node *node_blk)
 {
-	return (void *)&(node_blk->i.i_addr[1]);
+	int ofs = get_extra_isize(node_blk) + DEF_INLINE_RESERVED_SIZE;
+
+	return (void *)&(node_blk->i.i_addr[ofs]);
 }
 
 static inline unsigned int ofs_of_node(struct f2fs_node *node_blk)
@@ -273,7 +272,7 @@ static inline void *__bitmap_ptr(struct f2fs_sb_info *sbi, int flag)
 static inline bool is_set_ckpt_flags(struct f2fs_checkpoint *cp, unsigned int f)
 {
 	unsigned int ckpt_flags = le32_to_cpu(cp->ckpt_flags);
-	return ckpt_flags & f;
+	return ckpt_flags & f ? 1 : 0;
 }
 
 static inline block_t __start_cp_addr(struct f2fs_sb_info *sbi)
@@ -365,21 +364,12 @@ static inline bool IS_VALID_NID(struct f2fs_sb_info *sbi, u32 nid)
 
 static inline bool IS_VALID_BLK_ADDR(struct f2fs_sb_info *sbi, u32 addr)
 {
-	int i;
-
 	if (addr >= le64_to_cpu(F2FS_RAW_SUPER(sbi)->block_count) ||
 				addr < SM_I(sbi)->main_blkaddr) {
 		DBG(1, "block addr [0x%x]\n", addr);
 		return 0;
 	}
-
-	for (i = 0; i < NO_CHECK_TYPE; i++) {
-		struct curseg_info *curseg = CURSEG_I(sbi, i);
-
-		if (START_BLOCK(sbi, curseg->segno) +
-					curseg->next_blkoff == addr)
-			return 0;
-	}
+	/* next block offset will be checked at the end of fsck. */
 	return 1;
 }
 
@@ -451,14 +441,13 @@ static inline int map_de_type(umode_t mode)
 
 static inline void *inline_xattr_addr(struct f2fs_inode *inode)
 {
-	return (void *)&(inode->i_addr[DEF_ADDRS_PER_INODE_INLINE_XATTR]);
+	return (void *)&(inode->i_addr[DEF_ADDRS_PER_INODE -
+				get_inline_xattr_addrs(inode)]);
 }
 
 static inline int inline_xattr_size(struct f2fs_inode *inode)
 {
-	if (inode->i_inline & F2FS_INLINE_XATTR)
-		return F2FS_INLINE_XATTR_ADDRS << 2;
-	return 0;
+	return get_inline_xattr_addrs(inode) * sizeof(__le32);
 }
 
 extern int lookup_nat_in_journal(struct f2fs_sb_info *sbi, u32 nid, struct f2fs_nat_entry *ne);

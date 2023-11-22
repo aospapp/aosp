@@ -16,7 +16,7 @@
 
 package com.android.documentsui.sidebar;
 
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
 import android.util.Log;
 import android.view.View;

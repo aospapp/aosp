@@ -258,6 +258,7 @@ public class Test912 {
         "java.nio.charset.CoderMalfunctionError",
         "java.util.NoSuchElementException",
         "java.io.FileNotFoundException",  // b/63581208
+        "java.util.zip.ZipException",     // b/63581208
     };
     for (String s : PRELOAD_FOR_JIT) {
       Class.forName(s);
@@ -397,6 +398,7 @@ public class Test912 {
     public static double dummy = Math.random();  // So it can't be compile-time initialized.
   }
 
+  @SuppressWarnings("RandomCast")
   private static class TestForInitFail {
     public static int dummy = ((int)Math.random())/0;  // So it throws when initializing.
   }

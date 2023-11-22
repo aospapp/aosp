@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2015 Oracle and/or its affiliates. All Rights Reserved.
+# Copyright (c) 2015-2017 Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -25,18 +25,14 @@
 
 TCID=vlan03
 TST_TOTAL=6
+TST_NEEDS_TMPDIR=1
 
 virt_type="vlan"
 
 . test_net.sh
 . virt_lib.sh
 
-cleanup()
-{
-	cleanup_vifaces
-	tst_rhost_run -c "ip link delete ltp_v0 2>/dev/null"
-}
-TST_CLEANUP="cleanup"
+TST_CLEANUP="virt_cleanup"
 
 if [ -z $ip_local -o -z $ip_remote ]; then
 	tst_brkm TBROK "you must specify IP address"
@@ -58,11 +54,14 @@ for n in $(seq 1 3); do
 
 	tst_resm TINFO "networks with the same VLAN ID must work"
 	virt_setup "id 4094 $p" "id 4094 $p"
-	virt_compare_netperf
+	virt_netperf_msg_sizes
+	virt_cleanup_rmt
 
 	tst_resm TINFO "different VLAN ID shall not work together"
 	virt_setup "id 4093 $p" "id 4094 $p"
+	virt_minimize_timeout
 	virt_compare_netperf "fail"
+	virt_cleanup_rmt
 done
 
 tst_exit

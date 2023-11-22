@@ -97,17 +97,22 @@ public class CompanionDeviceTestActivity extends PassFailButtons.Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_CODE_CHOOSER) {
 
-            if (resultCode != RESULT_OK) fail("Activity result code " + resultCode);
+            if (resultCode != RESULT_OK) {
+                fail("Activity result code " + resultCode);
+                return;
+            }
 
             List<String> newAssociations = mCompanionDeviceManager.getAssociations();
             if (!newAssociations.containsAll(mInitialAssociations)) {
                 fail("New associations " + newAssociations
                         + " lack some of the original items from "
                         + mInitialAssociations);
+                return;
             }
             if (newAssociations.size() != mInitialAssociations.size() + 1) {
                 fail("New associations " + newAssociations + " are not 1 item larger from initial "
                         + mInitialAssociations);
+                return;
             }
 
             BluetoothDevice associatedDevice
@@ -115,6 +120,7 @@ public class CompanionDeviceTestActivity extends PassFailButtons.Activity {
             String deviceAddress = associatedDevice.getAddress();
             if (!newAssociations.contains(deviceAddress)) {
                 fail("Selected device is not present among new associations " + newAssociations);
+                return;
             }
 
             mCompanionDeviceManager.disassociate(associatedDevice.getAddress());
@@ -123,6 +129,7 @@ public class CompanionDeviceTestActivity extends PassFailButtons.Activity {
                 fail("Disassociating device " + deviceAddress
                         + " did not remove it from associations list"
                         + associations);
+                return;
             }
 
             if (!isFinishing()) {

@@ -1,18 +1,18 @@
 /*
-* Copyright (C) 2016 The Android Open Source Project
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License
-*/
+ * Copyright (C) 2016 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License
+ */
 
 package com.android.tv.dvr.ui.list;
 
@@ -23,10 +23,8 @@ import android.os.Build;
 import android.support.v17.leanback.widget.ClassPresenterSelector;
 import android.util.ArrayMap;
 import android.util.Log;
-
-import com.android.tv.ApplicationSingletons;
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.data.Program;
 import com.android.tv.dvr.DvrDataManager;
@@ -35,16 +33,13 @@ import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.ui.list.SchedulesHeaderRow.SeriesRecordingHeaderRow;
 import com.android.tv.util.Utils;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-/**
- * An adapter for series schedule row.
- */
+/** An adapter for series schedule row. */
 @TargetApi(Build.VERSION_CODES.N)
 class SeriesScheduleRowAdapter extends ScheduleRowAdapter {
     private static final String TAG = "SeriesRowAdapter";
@@ -57,7 +52,9 @@ class SeriesScheduleRowAdapter extends ScheduleRowAdapter {
     private final Map<Long, Program> mPrograms = new ArrayMap<>();
     private SeriesRecordingHeaderRow mHeaderRow;
 
-    public SeriesScheduleRowAdapter(Context context, ClassPresenterSelector classPresenterSelector,
+    public SeriesScheduleRowAdapter(
+            Context context,
+            ClassPresenterSelector classPresenterSelector,
             SeriesRecording seriesRecording) {
         super(context, classPresenterSelector);
         mSeriesRecording = seriesRecording;
@@ -67,7 +64,7 @@ class SeriesScheduleRowAdapter extends ScheduleRowAdapter {
         } else {
             mInputId = null;
         }
-        ApplicationSingletons singletons = TvApplication.getSingletons(context);
+        TvSingletons singletons = TvSingletons.getSingletons(context);
         mDvrManager = singletons.getDvrManager();
         mDataManager = singletons.getDvrDataManager();
         setHasStableIds(true);
@@ -83,9 +80,7 @@ class SeriesScheduleRowAdapter extends ScheduleRowAdapter {
         super.stop();
     }
 
-    /**
-     * Sets the programs to show.
-     */
+    /** Sets the programs to show. */
     public void setPrograms(List<Program> programs) {
         if (programs == null) {
             programs = Collections.emptyList();
@@ -95,8 +90,13 @@ class SeriesScheduleRowAdapter extends ScheduleRowAdapter {
         List<Program> sortedPrograms = new ArrayList<>(programs);
         Collections.sort(sortedPrograms);
         List<EpisodicProgramRow> rows = new ArrayList<>();
-        mHeaderRow = new SeriesRecordingHeaderRow(mSeriesRecording.getTitle(),
-                null, sortedPrograms.size(), mSeriesRecording, programs);
+        mHeaderRow =
+                new SeriesRecordingHeaderRow(
+                        mSeriesRecording.getTitle(),
+                        null,
+                        sortedPrograms.size(),
+                        mSeriesRecording,
+                        programs);
         for (Program program : sortedPrograms) {
             ScheduledRecording schedule =
                     mDataManager.getScheduledRecordingForProgramId(program.getId());
@@ -122,8 +122,14 @@ class SeriesScheduleRowAdapter extends ScheduleRowAdapter {
                 ++conflicts;
             }
         }
-        return conflicts == 0 ? null : getContext().getResources().getQuantityString(
-                R.plurals.dvr_series_schedules_header_description, conflicts, conflicts);
+        return conflicts == 0
+                ? null
+                : getContext()
+                        .getResources()
+                        .getQuantityString(
+                                R.plurals.dvr_series_schedules_header_description,
+                                conflicts,
+                                conflicts);
     }
 
     @Override

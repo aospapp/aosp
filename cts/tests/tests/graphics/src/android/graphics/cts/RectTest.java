@@ -487,6 +487,8 @@ public class RectTest {
         assertEquals(2, mRect.top);
         assertEquals(3, mRect.right);
         assertEquals(4, mRect.bottom);
+
+        p.recycle();
     }
 
     @Test

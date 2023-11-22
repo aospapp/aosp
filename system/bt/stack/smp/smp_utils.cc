@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -315,8 +315,7 @@ bool smp_send_msg_to_L2CAP(const RawAddress& rem_bda, BT_HDR* p_toL2CAP) {
   l2cap_ret = L2CA_SendFixedChnlData(fixed_cid, rem_bda, p_toL2CAP);
   if (l2cap_ret == L2CAP_DW_FAILED) {
     smp_cb.total_tx_unacked -= 1;
-    SMP_TRACE_ERROR("SMP   failed to pass msg:0x%0x to L2CAP",
-                    *((uint8_t*)(p_toL2CAP + 1) + p_toL2CAP->offset));
+    SMP_TRACE_ERROR("SMP failed to pass msg to L2CAP");
     return false;
   } else
     return true;
@@ -332,8 +331,10 @@ bool smp_send_msg_to_L2CAP(const RawAddress& rem_bda, BT_HDR* p_toL2CAP) {
 bool smp_send_cmd(uint8_t cmd_code, tSMP_CB* p_cb) {
   BT_HDR* p_buf;
   bool sent = false;
-  uint8_t failure = SMP_PAIR_INTERNAL_ERR;
-  SMP_TRACE_EVENT("smp_send_cmd on l2cap cmd_code=0x%x", cmd_code);
+
+  SMP_TRACE_EVENT("%s: on l2cap cmd_code=0x%x, pairing_bda=%s", __func__,
+                  cmd_code, p_cb->pairing_bda.ToString().c_str());
+
   if (cmd_code <= (SMP_OPCODE_MAX + 1 /* for SMP_OPCODE_PAIR_COMMITM */) &&
       smp_cmd_build_act[cmd_code] != NULL) {
     p_buf = (*smp_cmd_build_act[cmd_code])(cmd_code, p_cb);
@@ -346,10 +347,12 @@ bool smp_send_cmd(uint8_t cmd_code, tSMP_CB* p_cb) {
   }
 
   if (!sent) {
+    tSMP_INT_DATA smp_int_data;
+    smp_int_data.status = SMP_PAIR_INTERNAL_ERR;
     if (p_cb->smp_over_br) {
-      smp_br_state_machine_event(p_cb, SMP_BR_AUTH_CMPL_EVT, &failure);
+      smp_br_state_machine_event(p_cb, SMP_BR_AUTH_CMPL_EVT, &smp_int_data);
     } else {
-      smp_sm_event(p_cb, SMP_AUTH_CMPL_EVT, &failure);
+      smp_sm_event(p_cb, SMP_AUTH_CMPL_EVT, &smp_int_data);
     }
   }
   return sent;
@@ -366,15 +369,16 @@ bool smp_send_cmd(uint8_t cmd_code, tSMP_CB* p_cb) {
  ******************************************************************************/
 void smp_rsp_timeout(UNUSED_ATTR void* data) {
   tSMP_CB* p_cb = &smp_cb;
-  uint8_t failure = SMP_RSP_TIMEOUT;
 
   SMP_TRACE_EVENT("%s state:%d br_state:%d", __func__, p_cb->state,
                   p_cb->br_state);
 
+  tSMP_INT_DATA smp_int_data;
+  smp_int_data.status = SMP_RSP_TIMEOUT;
   if (p_cb->smp_over_br) {
-    smp_br_state_machine_event(p_cb, SMP_BR_AUTH_CMPL_EVT, &failure);
+    smp_br_state_machine_event(p_cb, SMP_BR_AUTH_CMPL_EVT, &smp_int_data);
   } else {
-    smp_sm_event(p_cb, SMP_AUTH_CMPL_EVT, &failure);
+    smp_sm_event(p_cb, SMP_AUTH_CMPL_EVT, &smp_int_data);
   }
 }
 
@@ -394,9 +398,10 @@ void smp_delayed_auth_complete_timeout(UNUSED_ATTR void* data) {
    * the state is still in bond pending.
    */
   if (smp_get_state() == SMP_STATE_BOND_PENDING) {
-    uint8_t reason = SMP_SUCCESS;
     SMP_TRACE_EVENT("%s sending delayed auth complete.", __func__);
-    smp_sm_event(&smp_cb, SMP_AUTH_CMPL_EVT, &reason);
+    tSMP_INT_DATA smp_int_data;
+    smp_int_data.status = SMP_SUCCESS;
+    smp_sm_event(&smp_cb, SMP_AUTH_CMPL_EVT, &smp_int_data);
   }
 }
 
@@ -788,7 +793,9 @@ void smp_convert_string_to_tk(BT_OCTET16 tk, uint32_t passkey) {
   key.key_type = SMP_KEY_TYPE_TK;
   key.p_data = tk;
 
-  smp_sm_event(&smp_cb, SMP_KEY_READY_EVT, &key);
+  tSMP_INT_DATA smp_int_data;
+  smp_int_data.key = key;
+  smp_sm_event(&smp_cb, SMP_KEY_READY_EVT, &smp_int_data);
 }
 
 /*******************************************************************************
@@ -916,7 +923,8 @@ void smp_proc_pairing_cmpl(tSMP_CB* p_cb) {
   tSMP_EVT_DATA evt_data = {0};
   tSMP_CALLBACK* p_callback = p_cb->p_callback;
 
-  SMP_TRACE_DEBUG("smp_proc_pairing_cmpl ");
+  SMP_TRACE_DEBUG("%s: pairing_bda=%s", __func__,
+                  p_cb->pairing_bda.ToString().c_str());
 
   evt_data.cmplt.reason = p_cb->status;
   evt_data.cmplt.smp_over_br = p_cb->smp_over_br;
@@ -1523,7 +1531,9 @@ bool smp_request_oob_data(tSMP_CB* p_cb) {
 
   p_cb->req_oob_type = req_oob_type;
   p_cb->cb_evt = SMP_SC_OOB_REQ_EVT;
-  smp_sm_event(p_cb, SMP_TK_REQ_EVT, &req_oob_type);
+  tSMP_INT_DATA smp_int_data;
+  smp_int_data.req_oob_type = req_oob_type;
+  smp_sm_event(p_cb, SMP_TK_REQ_EVT, &smp_int_data);
 
   return true;
 }

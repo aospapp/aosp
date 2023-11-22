@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """Script to bootstrap the chroot using new toolchain.
 
 This script allows you to build/install a customized version of gcc/binutils,
@@ -33,7 +33,6 @@ import argparse
 import os
 import re
 import sys
-
 
 from cros_utils import command_executer
 from cros_utils import logger
@@ -92,14 +91,14 @@ class Bootstrapper(object):
   def SubmitToLocalBranch(self):
     """Copy source code to the chromium source tree and submit it locally."""
     if self._gcc_dir:
-      if not self.SubmitToolToLocalBranch(tool_name='gcc',
-                                          tool_dir=self._gcc_dir):
+      if not self.SubmitToolToLocalBranch(
+          tool_name='gcc', tool_dir=self._gcc_dir):
         return False
       self._gcc_branch = TEMP_BRANCH_NAME
 
     if self._binutils_dir:
-      if not self.SubmitToolToLocalBranch(tool_name='binutils',
-                                          tool_dir=self._binutils_dir):
+      if not self.SubmitToolToLocalBranch(
+          tool_name='binutils', tool_dir=self._binutils_dir):
         return False
       self._binutils_branch = TEMP_BRANCH_NAME
 
@@ -122,8 +121,8 @@ class Bootstrapper(object):
 
     # 0. Test to see if git tree is free of local changes.
     if not misc.IsGitTreeClean(chrome_tool_dir):
-      self._logger.LogError('Git repository "{0}" not clean, aborted.'.format(
-          chrome_tool_dir))
+      self._logger.LogError(
+          'Git repository "{0}" not clean, aborted.'.format(chrome_tool_dir))
       return False
 
     # 1. Checkout/create a (new) branch for testing.
@@ -135,9 +134,8 @@ class Bootstrapper(object):
       return False
 
     if self.IsTreeSame(tool_dir, chrome_tool_dir):
-      self._logger.LogOutput(
-          '"{0}" and "{1}" are the same, sync skipped.'.format(tool_dir,
-                                                               chrome_tool_dir))
+      self._logger.LogOutput('"{0}" and "{1}" are the same, sync skipped.'.
+                             format(tool_dir, chrome_tool_dir))
       return True
 
     # 2. Sync sources from user provided tool dir to chromiumos tool git.
@@ -163,17 +161,15 @@ class Bootstrapper(object):
     cmd = 'cd {0} && git log -1 --pretty=oneline'.format(tool_dir)
     tool_dir_extra_info = None
     ret, tool_dir_extra_info, _ = self._ce.RunCommandWOutput(
-        cmd,
-        print_to_console=False)
+        cmd, print_to_console=False)
     commit_message = 'Synced with tool source tree at - "{0}".'.format(tool_dir)
     if not ret:
       commit_message += '\nGit log for {0}:\n{1}'.format(
           tool_dir, tool_dir_extra_info.strip())
 
     if chrome_tool_repo.CommitLocally(commit_message):
-      self._logger.LogError(
-          'Commit to local branch "{0}" failed, aborted.'.format(
-              TEMP_BRANCH_NAME))
+      self._logger.LogError('Commit to local branch "{0}" failed, aborted.'.
+                            format(TEMP_BRANCH_NAME))
       return False
     return True
 
@@ -219,12 +215,12 @@ class Bootstrapper(object):
       command = ('cd "{0}" && git cat-file -p {1} '
                  '| grep -E "^tree [a-f0-9]+$" '
                  '| cut -d" " -f2').format(chrome_tool_dir, tool_branch)
-      ret, stdout, _ = self._ce.RunCommandWOutput(command,
-                                                  print_to_console=False)
+      ret, stdout, _ = self._ce.RunCommandWOutput(
+          command, print_to_console=False)
       # Pipe operation always has a zero return value. So need to check if
       # stdout is valid.
-      if not ret and stdout and re.match('[0-9a-h]{40}', stdout.strip(),
-                                         re.IGNORECASE):
+      if not ret and stdout and re.match('[0-9a-h]{40}',
+                                         stdout.strip(), re.IGNORECASE):
         tool_branch_tree = stdout.strip()
         self._logger.LogOutput('Find tree for {0} branch "{1}" - "{2}"'.format(
             tool_name, tool_branch, tool_branch_tree))
@@ -270,8 +266,8 @@ class Bootstrapper(object):
     """
 
     # To get the active gcc ebuild file, we need a workable chroot first.
-    if not os.path.exists(os.path.join(
-        self._chromeos_root, 'chroot')) and self._ce.RunCommand(
+    if not os.path.exists(
+        os.path.join(self._chromeos_root, 'chroot')) and self._ce.RunCommand(
             'cd "{0}" && cros_sdk --create'.format(self._chromeos_root)):
       self._logger.LogError(('Failed to install a initial chroot, aborted.\n'
                              'If previous bootstrap failed, do a '
@@ -284,12 +280,12 @@ class Bootstrapper(object):
         'equery w sys-devel/{0}'.format(tool_name),
         print_to_console=True)
     if rv:
-      self._logger.LogError(('Failed to execute inside chroot '
-                             '"equery w sys-devel/{0}", aborted.').format(
-                                 tool_name))
+      self._logger.LogError(
+          ('Failed to execute inside chroot '
+           '"equery w sys-devel/{0}", aborted.').format(tool_name))
       return (False, None, None)
-    m = re.match(r'^.*/({0}/(.*\.ebuild))$'.format(EBUILD_PATH_PATTERN.format(
-        tool_name)), stdout)
+    m = re.match(r'^.*/({0}/(.*\.ebuild))$'.format(
+        EBUILD_PATH_PATTERN.format(tool_name)), stdout)
     if not m:
       self._logger.LogError(
           ('Failed to find {0} ebuild file, aborted. '
@@ -324,7 +320,6 @@ class Bootstrapper(object):
       tooltree = self._binutils_branch_tree
       toolebuild = self._binutils_ebuild_file
 
-
     assert tool
 
     # An example for the following variables would be:
@@ -336,10 +331,8 @@ class Bootstrapper(object):
     if not toolgithash:
       return False
     toolcomponents = 'toolchain/{}'.format(tool)
-    return self.InplaceModifyToolEbuildFile(toolcomponents,
-                                            toolgithash,
-                                            tooltree,
-                                            toolebuild)
+    return self.InplaceModifyToolEbuildFile(toolcomponents, toolgithash,
+                                            tooltree, toolebuild)
 
   @staticmethod
   def ResetToolEbuildFile(chromeos_root, tool_name):
@@ -357,8 +350,8 @@ class Bootstrapper(object):
         path=('sys-devel/{0}/{0}-*.ebuild'.format(tool_name)),
         staged=False)
     if rv:
-      cmd = 'cd {0} && git checkout --'.format(os.path.join(
-          chromeos_root, CHROMIUMOS_OVERLAY_PATH))
+      cmd = 'cd {0} && git checkout --'.format(
+          os.path.join(chromeos_root, CHROMIUMOS_OVERLAY_PATH))
       for g in rv:
         cmd += ' ' + g
       rv = command_executer.GetCommandExecuter().RunCommand(cmd)
@@ -401,12 +394,8 @@ class Bootstrapper(object):
                              repo, print_to_console=True))
     return repo
 
-
-  def InplaceModifyToolEbuildFile(self,
-                                  tool_components,
-                                  tool_branch_githash,
-                                  tool_branch_tree,
-                                  tool_ebuild_file):
+  def InplaceModifyToolEbuildFile(self, tool_components, tool_branch_githash,
+                                  tool_branch_tree, tool_ebuild_file):
     """Using sed to fill properly values into the ebuild file.
 
     Args:
@@ -433,10 +422,8 @@ class Bootstrapper(object):
                ' # The following line is modified by script.\' '
                '-e \'s!^CROS_WORKON_TREE=".*"$!CROS_WORKON_TREE="{3}"!\' '
                '{4}').format('/home/{}/ndk-root'.format(os.environ['USER']),
-                             tool_components,
-                             tool_branch_githash,
-                             tool_branch_tree,
-                             tool_ebuild_file)
+                             tool_components, tool_branch_githash,
+                             tool_branch_tree, tool_ebuild_file)
     rv = self._ce.RunCommand(command)
     if rv:
       self._logger.LogError(
@@ -477,12 +464,11 @@ class Bootstrapper(object):
       True if operation succeeds.
     """
 
-    chroot_ndk_root = os.path.join(self._chromeos_root, 'chroot',
-                                   'home', os.environ['USER'],
-                                   'ndk-root')
+    chroot_ndk_root = os.path.join(self._chromeos_root, 'chroot', 'home',
+                                   os.environ['USER'], 'ndk-root')
     self._ce.RunCommand('mkdir -p {}'.format(chroot_ndk_root))
-    if self._ce.RunCommand('sudo mount --bind {} {}'.format(
-        self._ndk_dir, chroot_ndk_root)):
+    if self._ce.RunCommand(
+        'sudo mount --bind {} {}'.format(self._ndk_dir, chroot_ndk_root)):
       self._logger.LogError('Failed to mount ndk dir into chroot')
       return False
 
@@ -509,25 +495,24 @@ class Bootstrapper(object):
           target_built.add(target)
           command = 'sudo emerge cross-{0}/{1}'.format(target, tool_name)
 
-        rv = self._ce.ChrootRunCommand(self._chromeos_root,
-                                       command,
-                                       print_to_console=True)
+        rv = self._ce.ChrootRunCommand(
+            self._chromeos_root, command, print_to_console=True)
         if rv:
-          self._logger.LogError('Build {0} failed for {1}, aborted.'.format(
-              tool_name, board))
+          self._logger.LogError(
+              'Build {0} failed for {1}, aborted.'.format(tool_name, board))
           failed.append(board)
         else:
-          self._logger.LogOutput('Successfully built {0} for board {1}.'.format(
-              tool_name, board))
+          self._logger.LogOutput(
+              'Successfully built {0} for board {1}.'.format(tool_name, board))
     finally:
       # Make sure we un-mount ndk-root before we leave here, regardless of the
       # build result of the tool. Otherwise we may inadvertently delete ndk-root
       # dir, which is not part of the chroot and could be disastrous.
       if chroot_ndk_root:
         if self._ce.RunCommand('sudo umount {}'.format(chroot_ndk_root)):
-          self._logger.LogWarning(('Failed to umount "{}", please check '
-                                   'before deleting chroot.').format(
-                                       chroot_ndk_root))
+          self._logger.LogWarning(
+              ('Failed to umount "{}", please check '
+               'before deleting chroot.').format(chroot_ndk_root))
 
       # Clean up soft links created during build.
       self._ce.RunCommand('cd {}/toolchain/{} && git clean -df'.format(
@@ -556,8 +541,8 @@ class Bootstrapper(object):
         self._chromeos_root, logfile)
     rv = self._ce.RunCommand(command, print_to_console=True)
     if rv:
-      self._logger.LogError('Bootstrapping failed, log file - "{0}"\n'.format(
-          logfile))
+      self._logger.LogError(
+          'Bootstrapping failed, log file - "{0}"\n'.format(logfile))
       return False
 
     self._logger.LogOutput('Bootstrap succeeded.')
@@ -642,87 +627,99 @@ class Bootstrapper(object):
 
 def Main(argv):
   parser = argparse.ArgumentParser()
-  parser.add_argument('-c',
-                      '--chromeos_root',
-                      dest='chromeos_root',
-                      help=('Optional. ChromeOs root dir. '
-                            'When not specified, chromeos root will be deduced'
-                            ' from current working directory.'))
-  parser.add_argument('--ndk_dir',
-                      dest='ndk_dir',
-                      help=('Topmost android ndk dir, required. '
-                            'Do not need to include the "toolchain/*" part.'))
-  parser.add_argument('--gcc_branch',
-                      dest='gcc_branch',
-                      help=('The branch to test against. '
-                            'This branch must be a local branch '
-                            'inside "src/third_party/gcc". '
-                            'Notice, this must not be used with "--gcc_dir".'))
-  parser.add_argument('--binutils_branch',
-                      dest='binutils_branch',
-                      help=('The branch to test against binutils. '
-                            'This branch must be a local branch '
-                            'inside "src/third_party/binutils". '
-                            'Notice, this must not be used with '
-                            '"--binutils_dir".'))
-  parser.add_argument('-g',
-                      '--gcc_dir',
-                      dest='gcc_dir',
-                      help=('Use a local gcc tree to do bootstrapping. '
-                            'Notice, this must not be used with '
-                            '"--gcc_branch".'))
-  parser.add_argument('--binutils_dir',
-                      dest='binutils_dir',
-                      help=('Use a local binutils tree to do bootstrapping. '
-                            'Notice, this must not be used with '
-                            '"--binutils_branch".'))
-  parser.add_argument('--fixperm',
-                      dest='fixperm',
-                      default=False,
-                      action='store_true',
-                      help=('Fix the (notorious) permission error '
-                            'while trying to bootstrap the chroot. '
-                            'Note this takes an extra 10-15 minutes '
-                            'and is only needed once per chromiumos tree.'))
-  parser.add_argument('--setup_tool_ebuild_file_only',
-                      dest='setup_tool_ebuild_file_only',
-                      default=False,
-                      action='store_true',
-                      help=('Setup gcc and/or binutils ebuild file '
-                            'to pick up the branch (--gcc/binutils_branch) or '
-                            'use gcc and/or binutils source '
-                            '(--gcc/binutils_dir) and exit. Keep chroot as is.'
-                            ' This should not be used with '
-                            '--gcc/binutils_dir/branch options.'))
-  parser.add_argument('--reset_tool_ebuild_file',
-                      dest='reset_tool_ebuild_file',
-                      default=False,
-                      action='store_true',
-                      help=('Reset the modification that is done by this '
-                            'script. Note, when this script is running, it '
-                            'will modify the active gcc/binutils ebuild file. '
-                            'Use this option to reset (what this script has '
-                            'done) and exit. This should not be used with -- '
-                            'gcc/binutils_dir/branch options.'))
-  parser.add_argument('--board',
-                      dest='board',
-                      default=None,
-                      help=('Only build toolchain for specific board(s). '
-                            'Use "host" to build for host. '
-                            'Use "," to seperate multiple boards. '
-                            'This does not perform a chroot bootstrap.'))
-  parser.add_argument('--bootstrap',
-                      dest='bootstrap',
-                      default=False,
-                      action='store_true',
-                      help=('Performs a chroot bootstrap. '
-                            'Note, this will *destroy* your current chroot.'))
-  parser.add_argument('--disable-2nd-bootstrap',
-                      dest='disable_2nd_bootstrap',
-                      default=False,
-                      action='store_true',
-                      help=('Disable a second bootstrap '
-                            '(build of amd64-host stage).'))
+  parser.add_argument(
+      '-c',
+      '--chromeos_root',
+      dest='chromeos_root',
+      help=('Optional. ChromeOs root dir. '
+            'When not specified, chromeos root will be deduced'
+            ' from current working directory.'))
+  parser.add_argument(
+      '--ndk_dir',
+      dest='ndk_dir',
+      help=('Topmost android ndk dir, required. '
+            'Do not need to include the "toolchain/*" part.'))
+  parser.add_argument(
+      '--gcc_branch',
+      dest='gcc_branch',
+      help=('The branch to test against. '
+            'This branch must be a local branch '
+            'inside "src/third_party/gcc". '
+            'Notice, this must not be used with "--gcc_dir".'))
+  parser.add_argument(
+      '--binutils_branch',
+      dest='binutils_branch',
+      help=('The branch to test against binutils. '
+            'This branch must be a local branch '
+            'inside "src/third_party/binutils". '
+            'Notice, this must not be used with '
+            '"--binutils_dir".'))
+  parser.add_argument(
+      '-g',
+      '--gcc_dir',
+      dest='gcc_dir',
+      help=('Use a local gcc tree to do bootstrapping. '
+            'Notice, this must not be used with '
+            '"--gcc_branch".'))
+  parser.add_argument(
+      '--binutils_dir',
+      dest='binutils_dir',
+      help=('Use a local binutils tree to do bootstrapping. '
+            'Notice, this must not be used with '
+            '"--binutils_branch".'))
+  parser.add_argument(
+      '--fixperm',
+      dest='fixperm',
+      default=False,
+      action='store_true',
+      help=('Fix the (notorious) permission error '
+            'while trying to bootstrap the chroot. '
+            'Note this takes an extra 10-15 minutes '
+            'and is only needed once per chromiumos tree.'))
+  parser.add_argument(
+      '--setup_tool_ebuild_file_only',
+      dest='setup_tool_ebuild_file_only',
+      default=False,
+      action='store_true',
+      help=('Setup gcc and/or binutils ebuild file '
+            'to pick up the branch (--gcc/binutils_branch) or '
+            'use gcc and/or binutils source '
+            '(--gcc/binutils_dir) and exit. Keep chroot as is.'
+            ' This should not be used with '
+            '--gcc/binutils_dir/branch options.'))
+  parser.add_argument(
+      '--reset_tool_ebuild_file',
+      dest='reset_tool_ebuild_file',
+      default=False,
+      action='store_true',
+      help=('Reset the modification that is done by this '
+            'script. Note, when this script is running, it '
+            'will modify the active gcc/binutils ebuild file. '
+            'Use this option to reset (what this script has '
+            'done) and exit. This should not be used with -- '
+            'gcc/binutils_dir/branch options.'))
+  parser.add_argument(
+      '--board',
+      dest='board',
+      default=None,
+      help=('Only build toolchain for specific board(s). '
+            'Use "host" to build for host. '
+            'Use "," to seperate multiple boards. '
+            'This does not perform a chroot bootstrap.'))
+  parser.add_argument(
+      '--bootstrap',
+      dest='bootstrap',
+      default=False,
+      action='store_true',
+      help=('Performs a chroot bootstrap. '
+            'Note, this will *destroy* your current chroot.'))
+  parser.add_argument(
+      '--disable-2nd-bootstrap',
+      dest='disable_2nd_bootstrap',
+      default=False,
+      action='store_true',
+      help=('Disable a second bootstrap '
+            '(build of amd64-host stage).'))
 
   options = parser.parse_args(argv)
   # Trying to deduce chromeos root from current directory.
@@ -740,12 +737,12 @@ def Main(argv):
     parser.error('Missing or failing to deduce mandatory option "--chromeos".')
     return 1
 
-  options.chromeos_root = os.path.abspath(os.path.expanduser(
-      options.chromeos_root))
+  options.chromeos_root = os.path.abspath(
+      os.path.expanduser(options.chromeos_root))
 
   if not os.path.isdir(options.chromeos_root):
-    logger.GetLogger().LogError('"{0}" does not exist.'.format(
-        options.chromeos_root))
+    logger.GetLogger().LogError(
+        '"{0}" does not exist.'.format(options.chromeos_root))
     return 1
 
   options.ndk_dir = os.path.expanduser(options.ndk_dir)
@@ -755,8 +752,8 @@ def Main(argv):
 
   # Some tolerance regarding user input. We only need the ndk_root part, do not
   # include toolchain/(gcc|binutils)/ part in this option.
-  options.ndk_dir = re.sub(
-      '/toolchain(/gcc|/binutils)?/?$', '', options.ndk_dir)
+  options.ndk_dir = re.sub('/toolchain(/gcc|/binutils)?/?$', '',
+                           options.ndk_dir)
 
   if not (os.path.isdir(options.ndk_dir) and
           os.path.isdir(os.path.join(options.ndk_dir, 'toolchain'))):
@@ -766,11 +763,11 @@ def Main(argv):
 
   if options.fixperm:
     # Fix perm error before continuing.
-    cmd = (
-        r'sudo find "{0}" \( -name ".cache" -type d -prune \) -o '
-        r'\( -name "chroot" -type d -prune \) -o '
-        r'\( -type f -exec chmod a+r {{}} \; \) -o '
-        r'\( -type d -exec chmod a+rx {{}} \; \)').format(options.chromeos_root)
+    cmd = (r'sudo find "{0}" \( -name ".cache" -type d -prune \) -o '
+           r'\( -name "chroot" -type d -prune \) -o '
+           r'\( -type f -exec chmod a+r {{}} \; \) -o '
+           r'\( -type d -exec chmod a+rx {{}} \; \)'
+          ).format(options.chromeos_root)
     logger.GetLogger().LogOutput(
         'Fixing perm issues for chromeos root, this might take some time.')
     command_executer.GetCommandExecuter().RunCommand(cmd)
@@ -792,8 +789,8 @@ def Main(argv):
   if options.gcc_dir:
     options.gcc_dir = os.path.abspath(os.path.expanduser(options.gcc_dir))
     if not os.path.isdir(options.gcc_dir):
-      logger.GetLogger().LogError('"{0}" does not exist.'.format(
-          options.gcc_dir))
+      logger.GetLogger().LogError(
+          '"{0}" does not exist.'.format(options.gcc_dir))
       return 1
 
   if options.gcc_branch and options.gcc_dir:
@@ -801,11 +798,11 @@ def Main(argv):
     return 1
 
   if options.binutils_dir:
-    options.binutils_dir = os.path.abspath(os.path.expanduser(
-        options.binutils_dir))
+    options.binutils_dir = os.path.abspath(
+        os.path.expanduser(options.binutils_dir))
     if not os.path.isdir(options.binutils_dir):
-      logger.GetLogger().LogError('"{0}" does not exist.'.format(
-          options.binutils_dir))
+      logger.GetLogger().LogError(
+          '"{0}" does not exist.'.format(options.binutils_dir))
       return 1
 
   if options.binutils_branch and options.binutils_dir:
@@ -813,8 +810,8 @@ def Main(argv):
                  '"--binutils_branch" can be specified.')
     return 1
 
-  if (not (options.binutils_branch or options.binutils_dir or options.gcc_branch
-           or options.gcc_dir)):
+  if (not (options.binutils_branch or options.binutils_dir or
+           options.gcc_branch or options.gcc_dir)):
     parser.error(('At least one of "--gcc_dir", "--gcc_branch", '
                   '"--binutils_dir" and "--binutils_branch" must '
                   'be specified.'))

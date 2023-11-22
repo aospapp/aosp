@@ -664,6 +664,29 @@ size_t GLClientState::clearBufferNumElts(GLenum buffer) const
     return 1;
 }
 
+void GLClientState::getPackingOffsets2D(GLsizei width, GLsizei height, GLenum format, GLenum type, int* startOffset, int* pixelRowSize, int* totalRowSize, int* skipRows) const
+{
+    if (width <= 0 || height <= 0) {
+        *startOffset = 0;
+        *pixelRowSize = 0;
+        *totalRowSize = 0;
+        return;
+    }
+
+    GLESTextureUtils::computePackingOffsets2D(
+            width, height,
+            format, type,
+            m_pixelStore.pack_alignment,
+            m_pixelStore.pack_row_length,
+            m_pixelStore.pack_skip_pixels,
+            m_pixelStore.pack_skip_rows,
+            startOffset,
+            pixelRowSize,
+            totalRowSize);
+
+    *skipRows = m_pixelStore.pack_skip_rows;
+}
+
 void GLClientState::setNumActiveUniformsInUniformBlock(GLuint program, GLuint uniformBlockIndex, GLint numActiveUniforms) {
     UniformBlockInfoKey key;
     key.program = program;

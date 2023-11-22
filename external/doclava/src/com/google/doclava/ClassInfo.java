@@ -22,16 +22,21 @@ import com.sun.javadoc.ClassDoc;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Predicate;
 
 public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Scoped, Resolvable {
 
@@ -197,6 +202,29 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
   public void init3(ArrayList<TypeInfo> types, ArrayList<ClassInfo> realInnerClasses) {
     mTypeParameters = types;
     mRealInnerClasses = realInnerClasses;
+  }
+
+  public class ClassMemberInfo extends MemberInfo {
+    public ClassMemberInfo() {
+      super(ClassInfo.this.getRawCommentText(), ClassInfo.this.name(), ClassInfo.this.name(),
+          ClassInfo.this, ClassInfo.this, ClassInfo.this.isPublic(), ClassInfo.this.isProtected(),
+          ClassInfo.this.isPackagePrivate(), ClassInfo.this.isPrivate(), ClassInfo.this.isFinal(),
+          ClassInfo.this.isStatic(), false, ClassInfo.this.kind(), ClassInfo.this.position(),
+          ClassInfo.this.annotations());
+    }
+
+    @Override
+    public boolean isExecutable() {
+      return false;
+    }
+  }
+
+  /**
+   * Return representation of this class as {@link MemberInfo}. This normally
+   * doesn't make any sense, but it's useful for {@link Predicate} testing.
+   */
+  public MemberInfo asMemberInfo() {
+    return new ClassMemberInfo();
   }
 
   public ArrayList<ClassInfo> getRealInnerClasses() {
@@ -806,6 +834,114 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     return mExhaustiveFields;
   }
 
+  /**
+   * Return list of ancestor classes that contribute to this class through
+   * inheritance. Ordered from most general to most specific with all interfaces
+   * listed before concrete classes.
+   */
+  public List<ClassInfo> gatherAncestorClasses() {
+    LinkedList<ClassInfo> classes = gatherAncestorClasses(new LinkedList<>());
+    classes.removeLast();
+    return classes;
+  }
+
+  private LinkedList<ClassInfo> gatherAncestorClasses(LinkedList<ClassInfo> classes) {
+    classes.add(0, this);
+    if (mRealSuperclass != null) {
+      mRealSuperclass.gatherAncestorClasses(classes);
+    }
+    if (mRealInterfaces != null) {
+      for (ClassInfo clazz : mRealInterfaces) {
+        clazz.gatherAncestorClasses(classes);
+      }
+    }
+    return classes;
+  }
+
+  /**
+   * Return superclass matching the given predicate. When a superclass doesn't
+   * match, we'll keep crawling up the tree until we find someone who matches.
+   */
+  public ClassInfo filteredSuperclass(Predicate<MemberInfo> predicate) {
+    if (mRealSuperclass == null) {
+      return null;
+    } else if (predicate.test(mRealSuperclass.asMemberInfo())) {
+      return mRealSuperclass;
+    } else {
+      return mRealSuperclass.filteredSuperclass(predicate);
+    }
+  }
+
+  /**
+   * Return interfaces matching the given predicate. When a superclass or
+   * interface doesn't match, we'll keep crawling up the tree until we find
+   * someone who matches.
+   */
+  public Collection<ClassInfo> filteredInterfaces(Predicate<MemberInfo> predicate) {
+    return filteredInterfaces(predicate, new LinkedHashSet<>());
+  }
+
+  private LinkedHashSet<ClassInfo> filteredInterfaces(Predicate<MemberInfo> predicate,
+      LinkedHashSet<ClassInfo> classes) {
+    if (mRealSuperclass != null && !predicate.test(mRealSuperclass.asMemberInfo())) {
+      mRealSuperclass.filteredInterfaces(predicate, classes);
+    }
+    if (mRealInterfaces != null) {
+      for (ClassInfo clazz : mRealInterfaces) {
+        if (predicate.test(clazz.asMemberInfo())) {
+          classes.add(clazz);
+        } else {
+          clazz.filteredInterfaces(predicate, classes);
+        }
+      }
+    }
+    return classes;
+  }
+
+  /**
+   * Return methods matching the given predicate. Forcibly includes local
+   * methods that override a matching method in an ancestor class.
+   */
+  public Collection<MethodInfo> filteredMethods(Predicate<MemberInfo> predicate) {
+    Set<MethodInfo> methods = new LinkedHashSet<>();
+    for (MethodInfo method : getExhaustiveMethods()) {
+      if (predicate.test(method) || (method.findPredicateOverriddenMethod(predicate) != null)) {
+        methods.remove(method);
+        methods.add(method);
+      }
+    }
+    return methods;
+  }
+
+  /**
+   * Return fields matching the given predicate. Also clones fields from
+   * ancestors that would match had they been defined in this class.
+   */
+  public Collection<FieldInfo> filteredFields(Predicate<MemberInfo> predicate) {
+    Set<FieldInfo> fields = new LinkedHashSet<>();
+    if (Doclava.showUnannotated) {
+      for (ClassInfo clazz : gatherAncestorClasses()) {
+        if (!clazz.isInterface()) continue;
+        for (FieldInfo field : clazz.getExhaustiveFields()) {
+          if (!predicate.test(field)) {
+            field = field.cloneForClass(this);
+            if (predicate.test(field)) {
+              fields.remove(field);
+              fields.add(field);
+            }
+          }
+        }
+      }
+    }
+    for (FieldInfo field : getExhaustiveFields()) {
+      if (predicate.test(field)) {
+        fields.remove(field);
+        fields.add(field);
+      }
+    }
+    return fields;
+  }
+
   public void addMethod(MethodInfo method) {
     mApiCheckMethods.put(method.getHashableName(), method);
 
@@ -1227,7 +1363,7 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     // known subclasses
     TreeMap<String, ClassInfo> direct = new TreeMap<String, ClassInfo>();
     TreeMap<String, ClassInfo> indirect = new TreeMap<String, ClassInfo>();
-    ClassInfo[] all = Converter.rootClasses();
+    Collection<ClassInfo> all = Converter.rootClasses();
     for (ClassInfo cl : all) {
       if (cl.superclass() != null && cl.superclass().equals(this)) {
         direct.put(cl.name(), cl);
@@ -1424,7 +1560,7 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     if (ctp.classInfo().mIsIncluded) {
       data.setValue(base + ".included", "true");
     } else {
-      Doclava.federationTagger.tagAll(new ClassInfo[] {ctp.classInfo()});
+      Doclava.federationTagger.tagAll(Arrays.asList(ctp.classInfo()));
       if (!ctp.classInfo().getFederatedReferences().isEmpty()) {
         FederatedSite site = ctp.classInfo().getFederatedReferences().iterator().next();
         data.setValue(base + ".link", site.linkFor(ctp.classInfo().htmlPage()));
@@ -1719,14 +1855,6 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     return rv;
   }
 
-  public boolean equals(ClassInfo that) {
-    if (that != null) {
-      return this.qualifiedName().equals(that.qualifiedName());
-    } else {
-      return false;
-    }
-  }
-
   public void setNonWrittenConstructors(ArrayList<MethodInfo> nonWritten) {
     mNonWrittenConstructors = nonWritten;
   }
@@ -1777,6 +1905,23 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
   @Override
   public String toString() {
     return this.qualifiedName();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    } else if (o instanceof ClassInfo) {
+      final ClassInfo c = (ClassInfo) o;
+      return mQualifiedName.equals(c.mQualifiedName);
+    } else {
+      return false;
+    }
+  }
+
+  @Override
+  public int hashCode() {
+    return mQualifiedName.hashCode();
   }
 
   public void setReasonIncluded(String reason) {
@@ -2048,16 +2193,20 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
          * abstractness affects how users use it. See also Stubs.methodIsOverride().
          */
         MethodInfo mi = ClassInfo.overriddenMethod(mInfo, this);
-        if (mi == null ||
-            mi.isAbstract() != mInfo.isAbstract()) {
-          Errors.error(Errors.ADDED_METHOD, mInfo.position(), "Added public method "
-              + mInfo.prettyQualifiedSignature());
-          if (diffMode) {
-            newMethods.add(mInfo);
-          }
+        if (mi == null && mInfo.isAbstract()) {
+          Errors.error(Errors.ADDED_ABSTRACT_METHOD, mInfo.position(),
+              "Added abstract public method "
+              + mInfo.prettyQualifiedSignature() + " to existing class");
           consistent = false;
+        } else if (mi == null || mi.isAbstract() != mInfo.isAbstract()) {
+            Errors.error(Errors.ADDED_METHOD, mInfo.position(), "Added public method "
+                + mInfo.prettyQualifiedSignature());
+            if (diffMode) {
+              newMethods.add(mInfo);
+            }
+            consistent = false;
+          }
         }
-      }
     }
     if (diffMode) {
       Collections.sort(newMethods, MethodInfo.comparator);

@@ -306,6 +306,10 @@ class Ping6Test(multinetwork_base.MultiNetworkBaseTest):
     self.assertEqual(len(data), len(rcvd))
     self.assertEqual(data[6:].encode("hex"), rcvd[6:].encode("hex"))
 
+  @staticmethod
+  def IsAlmostEqual(expected, actual, delta):
+    return abs(expected - actual) < delta
+
   def CheckSockStatFile(self, name, srcaddr, srcport, dstaddr, dstport, state,
                         txmem=0, rxmem=0):
     expected = ["%s:%04X" % (net_test.FormatSockStatAddress(srcaddr), srcport),
@@ -313,8 +317,20 @@ class Ping6Test(multinetwork_base.MultiNetworkBaseTest):
                 "%02X" % state,
                 "%08X:%08X" % (txmem, rxmem),
                 str(os.getuid()), "2", "0"]
-    actual = self.ReadProcNetSocket(name)[-1]
-    self.assertListEqual(expected, actual)
+    for actual in self.ReadProcNetSocket(name):
+      # Check that rxmem and txmem don't differ too much from each other.
+      actual_txmem, actual_rxmem = expected[3].split(":")
+      if self.IsAlmostEqual(txmem, int(actual_txmem, 16), txmem / 4):
+        return
+      if self.IsAlmostEqual(rxmem, int(actual_rxmem, 16), rxmem / 4):
+        return
+
+      # Check all the parameters except rxmem and txmem.
+      expected[3] = actual[3]
+      if expected == actual:
+        return
+
+    self.fail("Cound not find socket matching %s" % expected)
 
   def testIPv4SendWithNoConnection(self):
     s = net_test.IPv4PingSocket()
@@ -468,7 +484,7 @@ class Ping6Test(multinetwork_base.MultiNetworkBaseTest):
     s5.bind(("0.0.0.0", 167))
     s4.sendto(net_test.IPV4_PING, (net_test.IPV4_ADDR, 44))
     self.assertValidPingResponse(s5, net_test.IPV4_PING)
-    net_test.SetSocketTimeout(s4, 100)
+    csocket.SetSocketTimeout(s4, 100)
     self.assertRaisesErrno(errno.EAGAIN, s4.recv, 32768)
 
     # If SO_REUSEADDR is turned off, then we get EADDRINUSE.

@@ -18,7 +18,6 @@ cc_library_static {
     name: "libc++abi",
     host_supported: true,
     vendor_available: true,
-    clang: true,
     srcs: [
         "src/abort_message.cpp",
         "src/cxa_aux_runtime.cpp",
@@ -28,7 +27,6 @@ cc_library_static {
         "src/cxa_exception_storage.cpp",
         "src/cxa_guard.cpp",
         "src/cxa_handlers.cpp",
-        "src/cxa_new_delete.cpp",
         "src/cxa_personality.cpp",
         "src/cxa_thread_atexit.cpp",
         "src/cxa_unexpected.cpp",
@@ -37,19 +35,22 @@ cc_library_static {
         "src/fallback_malloc.cpp",
         "src/private_typeinfo.cpp",
         "src/stdlib_exception.cpp",
+        "src/stdlib_new_delete.cpp",
         "src/stdlib_stdexcept.cpp",
         "src/stdlib_typeinfo.cpp",
     ],
     include_dirs: ["external/libcxx/include"],
     local_include_dirs:  ["include"],
     export_include_dirs: ["include"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     cppflags: [
         "-std=c++14",
         "-fexceptions",
-        "-Wall",
         "-Wextra",
         "-Wno-unused-function",
-        "-Werror",
     ],
     sanitize: {
         never: true,
@@ -84,7 +85,7 @@ cc_library_static {
         darwin: {
             // libcxxabi really doesn't like the non-LLVM assembler on Darwin
             asflags: ["-integrated-as"],
-            cflags: ["-integrated-as"],
+            cflags: ["-integrated-as", "-D_LIBCPP_DISABLE_AVAILABILITY"],
             cppflags: ["-integrated-as"],
         },
         linux_bionic: {

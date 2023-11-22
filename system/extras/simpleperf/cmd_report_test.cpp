@@ -459,7 +459,7 @@ TEST_F(ReportCommandTest, raw_period_option) {
   Report(PERF_DATA, {"--raw-period"});
   ASSERT_TRUE(success);
   ASSERT_NE(content.find("GlobalFunc"), std::string::npos);
-  ASSERT_EQ(content.find("%"), std::string::npos);
+  ASSERT_EQ(content.find('%'), std::string::npos);
 }
 
 TEST_F(ReportCommandTest, full_callgraph_option) {
@@ -469,6 +469,21 @@ TEST_F(ReportCommandTest, full_callgraph_option) {
   Report(CALLGRAPH_FP_PERF_DATA, {"-g", "--full-callgraph"});
   ASSERT_TRUE(success);
   ASSERT_EQ(content.find("skipped in brief callgraph mode"), std::string::npos);
+}
+
+TEST_F(ReportCommandTest, report_offcpu_time) {
+  Report(PERF_DATA_WITH_TRACE_OFFCPU, {"--children"});
+  ASSERT_TRUE(success);
+  ASSERT_NE(content.find("Time in ns"), std::string::npos);
+  bool found = false;
+  for (auto& line : lines) {
+    if (line.find("SleepFunction") != std::string::npos) {
+      ASSERT_NE(line.find("38.77%"), std::string::npos);
+      found = true;
+      break;
+    }
+  }
+  ASSERT_TRUE(found);
 }
 
 #if defined(__linux__)
@@ -492,19 +507,26 @@ TEST_F(ReportCommandTest, dwarf_callgraph) {
 }
 
 TEST_F(ReportCommandTest, report_dwarf_callgraph_of_nativelib_in_apk) {
-  // NATIVELIB_IN_APK_PERF_DATA is recorded on arm64, so can only report
-  // callgraph on arm64.
-  if (GetBuildArch() == ARCH_ARM64) {
-    Report(NATIVELIB_IN_APK_PERF_DATA, {"-g"});
-    ASSERT_NE(content.find(GetUrlInApk(APK_FILE, NATIVELIB_IN_APK)),
-              std::string::npos);
-    ASSERT_NE(content.find("Func2"), std::string::npos);
-    ASSERT_NE(content.find("Func1"), std::string::npos);
-    ASSERT_NE(content.find("GlobalFunc"), std::string::npos);
-  } else {
-    GTEST_LOG_(INFO)
-        << "This test does nothing as it is only run on arm64 devices";
-  }
+  Report(NATIVELIB_IN_APK_PERF_DATA, {"-g"});
+  ASSERT_NE(content.find(GetUrlInApk(APK_FILE, NATIVELIB_IN_APK)),
+            std::string::npos);
+  ASSERT_NE(content.find("Func2"), std::string::npos);
+  ASSERT_NE(content.find("Func1"), std::string::npos);
+  ASSERT_NE(content.find("GlobalFunc"), std::string::npos);
+}
+
+TEST_F(ReportCommandTest, exclude_kernel_callchain) {
+  TEST_REQUIRE_HOST_ROOT();
+  OMIT_TEST_ON_NON_NATIVE_ABIS();
+  std::vector<std::unique_ptr<Workload>> workloads;
+  CreateProcesses(1, &workloads);
+  std::string pid = std::to_string(workloads[0]->GetPid());
+  TemporaryFile tmpfile;
+  ASSERT_TRUE(RecordCmd()->Run({"--trace-offcpu", "-e", "cpu-cycles:u", "-p", pid,
+                                "--duration", "2", "-o", tmpfile.path, "-g"}));
+  ReportRaw(tmpfile.path, {"-g"});
+  ASSERT_TRUE(success);
+  ASSERT_EQ(content.find("[kernel.kallsyms]"), std::string::npos);
 }
 
 #endif

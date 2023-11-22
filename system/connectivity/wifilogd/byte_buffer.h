@@ -32,7 +32,7 @@ namespace wifilogd {
 // memory allocation.
 //
 // Usage could be as follows:
-//     const auto& buffer = ByteBuffer<1024>()
+//     const auto buffer = ByteBuffer<1024>()
 //         .AppendOrDie(header.data(), header.size())
 //         .AppendOrDie(body.data(), body.size());
 //     write(fd, buffer.data(), buffer.size());

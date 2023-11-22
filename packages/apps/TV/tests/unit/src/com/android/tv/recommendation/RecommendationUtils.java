@@ -17,50 +17,57 @@
 package com.android.tv.recommendation;
 
 import android.content.Context;
-
-import com.android.tv.data.Channel;
-import com.android.tv.testing.Utils;
-
-import org.mockito.Matchers;
-import org.mockito.Mockito;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
-
+import com.android.tv.data.ChannelImpl;
+import com.android.tv.data.api.Channel;
+import com.android.tv.testing.utils.Utils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Random;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
+import org.mockito.Matchers;
+import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 public class RecommendationUtils {
     private static final long INVALID_CHANNEL_ID = -1;
 
-    /**
-     * Create a mock RecommendationDataManager backed by a {@link ChannelRecordSortedMapHelper}.
-     */
+    /** Create a mock RecommendationDataManager backed by a {@link ChannelRecordSortedMapHelper}. */
     public static RecommendationDataManager createMockRecommendationDataManager(
             final ChannelRecordSortedMapHelper channelRecordSortedMap) {
         RecommendationDataManager dataManager = Mockito.mock(RecommendationDataManager.class);
-        Mockito.doAnswer(new Answer<Integer>() {
-            @Override
-            public Integer answer(InvocationOnMock invocation) throws Throwable {
-                return channelRecordSortedMap.size();
-            }
-        }).when(dataManager).getChannelRecordCount();
-        Mockito.doAnswer(new Answer<Collection<ChannelRecord>>() {
-            @Override
-            public Collection<ChannelRecord> answer(InvocationOnMock invocation) throws Throwable {
-                return channelRecordSortedMap.values();
-            }
-        }).when(dataManager).getChannelRecords();
-        Mockito.doAnswer(new Answer<ChannelRecord>() {
-            @Override
-            public ChannelRecord answer(InvocationOnMock invocation) throws Throwable {
-                long channelId = (long) invocation.getArguments()[0];
-                return channelRecordSortedMap.get(channelId);
-            }
-        }).when(dataManager).getChannelRecord(Matchers.anyLong());
+        Mockito.doAnswer(
+                        new Answer<Integer>() {
+                            @Override
+                            public Integer answer(InvocationOnMock invocation) throws Throwable {
+                                return channelRecordSortedMap.size();
+                            }
+                        })
+                .when(dataManager)
+                .getChannelRecordCount();
+        Mockito.doAnswer(
+                        new Answer<Collection<ChannelRecord>>() {
+                            @Override
+                            public Collection<ChannelRecord> answer(InvocationOnMock invocation)
+                                    throws Throwable {
+                                return channelRecordSortedMap.values();
+                            }
+                        })
+                .when(dataManager)
+                .getChannelRecords();
+        Mockito.doAnswer(
+                        new Answer<ChannelRecord>() {
+                            @Override
+                            public ChannelRecord answer(InvocationOnMock invocation)
+                                    throws Throwable {
+                                long channelId = (long) invocation.getArguments()[0];
+                                return channelRecordSortedMap.get(channelId);
+                            }
+                        })
+                .when(dataManager)
+                .getChannelRecord(Matchers.anyLong());
         return dataManager;
     }
 
@@ -82,9 +89,9 @@ public class RecommendationUtils {
         }
 
         /**
-         * Add new {@code numberOfChannels} channels by adding channel record to
-         * {@code channelRecordMap} with no history.
-         * This action corresponds to loading channels in the RecommendationDataManger.
+         * Add new {@code numberOfChannels} channels by adding channel record to {@code
+         * channelRecordMap} with no history. This action corresponds to loading channels in the
+         * RecommendationDataManger.
          */
         public void addChannels(int numberOfChannels) {
             for (int i = 0; i < numberOfChannels; ++i) {
@@ -100,21 +107,21 @@ public class RecommendationUtils {
          */
         public Channel addChannel() {
             long channelId = size();
-            Channel channel = new Channel.Builder().setId(channelId).build();
+            ChannelImpl channel = new ChannelImpl.Builder().setId(channelId).build();
             ChannelRecord channelRecord = new ChannelRecord(mContext, channel, false);
             put(channelId, channelRecord);
             return channel;
         }
 
         /**
-         * Add the watch logs which its durationTime is under {@code maxWatchDurationMs}.
-         * Add until latest watch end time becomes bigger than {@code watchEndTimeMs},
-         * starting from {@code watchStartTimeMs}.
+         * Add the watch logs which its durationTime is under {@code maxWatchDurationMs}. Add until
+         * latest watch end time becomes bigger than {@code watchEndTimeMs}, starting from {@code
+         * watchStartTimeMs}.
          *
          * @return true if adding watch log success, otherwise false.
          */
-        public boolean addRandomWatchLogs(long watchStartTimeMs, long watchEndTimeMs,
-                long maxWatchDurationMs) {
+        public boolean addRandomWatchLogs(
+                long watchStartTimeMs, long watchEndTimeMs, long maxWatchDurationMs) {
             long latestWatchEndTimeMs = watchStartTimeMs;
             long previousChannelId = INVALID_CHANNEL_ID;
             List<Long> channelIdList = new ArrayList<>(keySet());
@@ -143,13 +150,13 @@ public class RecommendationUtils {
          */
         public boolean addWatchLog(long channelId, long watchStartTimeMs, long durationTimeMs) {
             ChannelRecord channelRecord = get(channelId);
-            if (channelRecord == null ||
-                    watchStartTimeMs + durationTimeMs > System.currentTimeMillis()) {
+            if (channelRecord == null
+                    || watchStartTimeMs + durationTimeMs > System.currentTimeMillis()) {
                 return false;
             }
 
-            channelRecord.logWatchHistory(new WatchedProgram(null, watchStartTimeMs,
-                    watchStartTimeMs + durationTimeMs));
+            channelRecord.logWatchHistory(
+                    new WatchedProgram(null, watchStartTimeMs, watchStartTimeMs + durationTimeMs));
             if (mRecommender != null) {
                 mRecommender.onNewWatchLog(channelRecord);
             }

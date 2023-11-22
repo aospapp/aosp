@@ -44,10 +44,11 @@ TEST(UnicodeTest, IsXidContinue) {
 TEST(UnicodeTest, IsJavaIdentifier) {
   EXPECT_TRUE(IsJavaIdentifier("FøøBar_12"));
   EXPECT_TRUE(IsJavaIdentifier("Føø$Bar"));
+  EXPECT_TRUE(IsJavaIdentifier("_FøøBar"));
+  EXPECT_TRUE(IsJavaIdentifier("$Føø$Bar"));
 
   EXPECT_FALSE(IsJavaIdentifier("12FøøBar"));
-  EXPECT_FALSE(IsJavaIdentifier("_FøøBar"));
-  EXPECT_FALSE(IsJavaIdentifier("$Føø$Bar"));
+  EXPECT_FALSE(IsJavaIdentifier(".Hello"));
 }
 
 TEST(UnicodeTest, IsValidResourceEntryName) {
@@ -62,6 +63,7 @@ TEST(UnicodeTest, IsValidResourceEntryName) {
   EXPECT_FALSE(IsValidResourceEntryName("Føø/Bar"));
   EXPECT_FALSE(IsValidResourceEntryName("Føø:Bar"));
   EXPECT_FALSE(IsValidResourceEntryName("Føø;Bar"));
+  EXPECT_FALSE(IsValidResourceEntryName("0_resource_name_obfuscated"));
 }
 
 }  // namespace text

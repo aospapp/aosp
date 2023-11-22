@@ -7,15 +7,14 @@
 
 int maxClients;
 int *fdClient;
-char *serveur;
-int fdServeur;
+char *server_name;
+int fdServer;
 extern char message[M_SIZE];
 
 int serverReceiveClient(int c)
 {
 	char tmp[M_SIZE];
 	int r, s;
-	/* Il faut etre sur que l'on lit _exactement_ la trame envoyee (M_SIZE) */
 	/* Ensure we read _exactly_ M_SIZE characters in the message */
 	memset(message, 0, M_SIZE);
 	memset(tmp, 0, M_SIZE);
@@ -24,8 +23,7 @@ int serverReceiveClient(int c)
 
 	while (s < M_SIZE) {
 		r = read(fdClient[c], tmp, M_SIZE - s);
-		/* On complete le message au fur et a mesure */
-		/* Loop until we have a complete  message */
+		/* Loop until we have a complete message */
 		strncpy(message + s, tmp, r);
 		s += r;
 	}
@@ -37,13 +35,13 @@ int serverSendClient(int n)
 	return write(fdClient[n], message, M_SIZE);
 }
 
-int clientReceiveNet()
+int clientReceiveNet(void)
 {
 	readFromServer(message);
 	return 0;
 }
 
-int setupConnectionServeur()
+int setupConnectionServer(void)
 {
 	struct sockaddr_in local;
 	int c;
@@ -73,9 +71,6 @@ int setupConnectionServeur()
 	}
 	size = sizeof(struct sockaddr_in);
 	for (c = 0; c < maxClients; c++) {
-
-		/* On accepte les connections clientes */
-		/* Accept incoming connections */
 		if ((fdClient[c] =
 		     accept(sock, (struct sockaddr *)&remote, &size)) == -1) {
 			perror("accept");
@@ -91,7 +86,7 @@ int writeToClient(int c, char *message)
 	return write(fdClient[c], message, 512);
 }
 
-int serverCloseConnection()
+int serverCloseConnection(void)
 {
 	int c;
 	for (c = 0; c < maxClients; c++)
@@ -111,15 +106,6 @@ int writeToAllClients(char *foo)
 int setupClients(int type, char *fname, int nThread)
 {
 	/*
-	 * Envoi des parametres a tous les clients
-	 *
-	 * on doit envoyer 3 parametres :
-	 * - l'emplacement du fichier test
-	 * - Le nombre d'esclaves
-	 * - Le type de sous processus : thread ou process
-	 */
-
-	/*
 	 * Send parameters to all slaves :
 	 *
 	 * We must send :
@@ -127,36 +113,35 @@ int setupClients(int type, char *fname, int nThread)
 	 * - the number of slaves for each client
 	 * - The kind of slaves : process or thread
 	 */
-
 	char message[512];
 	sprintf(message, "%d:%s:%d::", type, fname, nThread);
 	writeToAllClients(message);
 	return 0;
 }
 
-int configureServeur(int max)
+int configureServer(int max)
 {
 	maxClients = max;
 	fdClient = malloc(sizeof(int) * max);
 
-	setupConnectionServeur();
+	setupConnectionServer();
 
 	return 0;
 }
 
-int setupConnectionClient()
+int setupConnectionClient(void)
 {
 
 	struct hostent *server;
 	struct sockaddr_in serv_addr;
 
-	if (!(server = gethostbyname(serveur))) {
+	if (!(server = gethostbyname(server_name))) {
 		printf("erreur DNS\n");
 		return 1;
 	}
 
-	fdServeur = socket(AF_INET, SOCK_STREAM, 0);
-	if (fdServeur < 0) {
+	fdServer = socket(AF_INET, SOCK_STREAM, 0);
+	if (fdServer < 0) {
 		perror("socket");
 		return 1;
 	}
@@ -164,7 +149,7 @@ int setupConnectionClient()
 	serv_addr.sin_addr = *(struct in_addr *)server->h_addr;
 	serv_addr.sin_port = htons(PORT);
 	serv_addr.sin_family = AF_INET;
-	if (connect(fdServeur, (struct sockaddr *)&serv_addr, sizeof(serv_addr))
+	if (connect(fdServer, (struct sockaddr *)&serv_addr, sizeof(serv_addr))
 	    < 0) {
 		perror("connect");
 		return 1;
@@ -176,15 +161,13 @@ int readFromServer(char *message)
 {
 	char tmp[M_SIZE];
 	int r, s;
-	/* Il faut etre sur que l'on lit _exactement_ la trame envoyee de taille M_SIZE */
 	/* Ensure we read exactly M_SIZE characters */
 	memset(message, 0, M_SIZE);
 	memset(tmp, 0, M_SIZE);
 	r = 0;
 	s = 0;
 	while (s < M_SIZE) {
-		r = read(fdServeur, tmp, M_SIZE - s);
-		/* On complete le message au fur et a mesure */
+		r = read(fdServer, tmp, M_SIZE - s);
 		/* Loop until we have a complete message */
 		strncpy(message + s, tmp, r);
 		s += r;
@@ -212,7 +195,7 @@ int getConfiguration(int *type, char *fname, int *nThread)
 
 int configureClient(char *s)
 {
-	serveur = s;
+	server_name = s;
 	setupConnectionClient();
 	return 0;
 }

@@ -301,9 +301,13 @@ public final class ConnectionPool {
         continue;
       }
 
-      // We've discovered a leaked allocation. This is an application bug.
-      Internal.logger.warning("A connection to " + connection.getRoute().getAddress().url()
-          + " was leaked. Did you forget to close a response body?");
+      // Android-removed: Drop warning about a leak that may not be the app's fault.
+      // We can't tell here whether the app accessed the response body (InputStream) or
+      // only the header fields; at least in the latter case, the app has done nothing
+      // wrong so we shouldn't warn. http://b/64789755
+      // // We've discovered a leaked allocation. This is an application bug.
+      // Internal.logger.warning("A connection to " + connection.getRoute().getAddress().url()
+      //      + " was leaked. Did you forget to close a response body?");
       references.remove(i);
       connection.noNewStreams = true;
 

@@ -1041,6 +1041,7 @@ OMX_ERRORTYPE omx_vdec::decide_dpb_buffer_mode(bool split_opb_dpb_with_same_colo
     bool cpu_access = (capture_capability != V4L2_PIX_FMT_NV12_UBWC) &&
         capture_capability != V4L2_PIX_FMT_NV12_TP10_UBWC;
     bool tp10_enable = !drv_ctx.idr_only_decoding &&
+        !client_buffers.is_color_conversion_enabled() &&
         dpb_bit_depth == MSM_VIDC_BIT_DEPTH_10;
     bool dither_enable = true;
 
@@ -5086,12 +5087,11 @@ OMX_ERRORTYPE  omx_vdec::set_parameter(OMX_IN OMX_HANDLETYPE     hComp,
                     if (!rc) {
                         DEBUG_PRINT_HIGH("%s buffer mode",
                            (metabuffer->bStoreMetaData == true)? "Enabled dynamic" : "Disabled dynamic");
-                               dynamic_buf_mode = metabuffer->bStoreMetaData;
                     } else {
                         DEBUG_PRINT_ERROR("Failed to %s buffer mode",
                            (metabuffer->bStoreMetaData == true)? "enable dynamic" : "disable dynamic");
-                        eRet = OMX_ErrorUnsupportedSetting;
                     }
+                    dynamic_buf_mode = metabuffer->bStoreMetaData;
                 } else {
                     DEBUG_PRINT_ERROR(
                        "OMX_QcomIndexParamVideoMetaBufferMode not supported for port: %u",
@@ -6729,7 +6729,7 @@ OMX_ERRORTYPE  omx_vdec::allocate_input_buffer(
     OMX_BUFFERHEADERTYPE *input = NULL;
     unsigned   i = 0;
     unsigned char *buf_addr = NULL;
-    int pmem_fd = -1;
+    int pmem_fd = -1, ret = 0;
 
     (void) hComp;
     (void) port;
@@ -6742,6 +6742,21 @@ OMX_ERRORTYPE  omx_vdec::allocate_input_buffer(
     }
 
     if (!m_inp_mem_ptr) {
+        struct v4l2_requestbuffers bufreq;
+        bufreq.memory = V4L2_MEMORY_USERPTR;
+        bufreq.type=V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+        bufreq.count = drv_ctx.ip_buf.actualcount;
+        ret = ioctl(drv_ctx.video_driver_fd,VIDIOC_REQBUFS, &bufreq);
+        if (ret) {
+            DEBUG_PRINT_ERROR("Setting buffer requirements (reqbufs) failed %s", strerror(errno));
+            /*TODO: How to handle this case */
+            eRet = OMX_ErrorInsufficientResources;
+        } else if (bufreq.count != drv_ctx.ip_buf.actualcount) {
+            DEBUG_PRINT_ERROR("%s Count(%d) is not expected to change to %d",
+                __FUNCTION__, drv_ctx.ip_buf.actualcount, bufreq.count);
+            eRet = OMX_ErrorInsufficientResources;
+        }
+
         DEBUG_PRINT_HIGH("Allocate i/p buffer Header: Cnt(%d) Sz(%u)",
                 drv_ctx.ip_buf.actualcount,
                 (unsigned int)drv_ctx.ip_buf.buffer_size);
@@ -11022,6 +11037,12 @@ void omx_vdec::convert_color_space_info(OMX_U32 primaries, OMX_U32 range,
             break;
         case MSM_VIDC_TRANSFER_SRGB:
             aspects->mTransfer = ColorAspects::TransferSRGB;
+            break;
+        case MSM_VIDC_TRANSFER_SMPTE_ST2084:
+            aspects->mTransfer = ColorAspects::TransferST2084;
+            break;
+        case MSM_VIDC_TRANSFER_HLG:
+            aspects->mTransfer = ColorAspects::TransferHLG;
             break;
         default:
             //aspects->mTransfer = ColorAspects::TransferOther;

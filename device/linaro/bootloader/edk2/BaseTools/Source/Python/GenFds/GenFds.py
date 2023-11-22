@@ -1,7 +1,7 @@
 ## @file
 # generate flash image
 #
-#  Copyright (c) 2007 - 2014, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -38,13 +38,14 @@ from Common.Misc import DirCache, PathClass
 from Common.Misc import SaveFileOnChange
 from Common.Misc import ClearDuplicatedInf
 from Common.Misc import GuidStructureStringToGuidString
+from Common.Misc import CheckPcdDatum
 from Common.BuildVersion import gBUILD_VERSION
 from Common.MultipleWorkspace import MultipleWorkspace as mws
 
 ## Version and Copyright
 versionNumber = "1.0" + ' ' + gBUILD_VERSION
 __version__ = "%prog Version " + versionNumber
-__copyright__ = "Copyright (c) 2007 - 2014, Intel Corporation  All rights reserved."
+__copyright__ = "Copyright (c) 2007 - 2016, Intel Corporation  All rights reserved."
 
 ## Tool entrance method
 #
@@ -118,13 +119,9 @@ def main():
 
         if (Options.BuildTarget):
             GenFdsGlobalVariable.TargetName = Options.BuildTarget
-        else:
-            EdkLogger.error("GenFds", OPTION_MISSING, "Missing build target")
 
         if (Options.ToolChain):
             GenFdsGlobalVariable.ToolChainTag = Options.ToolChain
-        else:
-            EdkLogger.error("GenFds", OPTION_MISSING, "Missing tool chain tag")
 
         if (Options.activePlatform):
             ActivePlatform = Options.activePlatform
@@ -138,18 +135,10 @@ def main():
 
             if not os.path.exists(ActivePlatform)  :
                 EdkLogger.error("GenFds", FILE_NOT_FOUND, "ActivePlatform doesn't exist!")
-
-            if os.path.normcase (ActivePlatform).find(Workspace) == 0:
-                ActivePlatform = mws.relpath(ActivePlatform, Workspace)
-            if len(ActivePlatform) > 0 :
-                if ActivePlatform[0] == '\\' or ActivePlatform[0] == '/':
-                    ActivePlatform = ActivePlatform[1:]
-            else:
-                EdkLogger.error("GenFds", FILE_NOT_FOUND, "ActivePlatform doesn't exist!")
         else:
             EdkLogger.error("GenFds", OPTION_MISSING, "Missing active platform")
 
-        GenFdsGlobalVariable.ActivePlatform = PathClass(NormPath(ActivePlatform), Workspace)
+        GenFdsGlobalVariable.ActivePlatform = PathClass(NormPath(ActivePlatform))
 
         if (Options.ConfDirectory):
             # Get alternate Conf location, if it is absolute, then just use the absolute directory name
@@ -163,12 +152,31 @@ def main():
                 # This also handles someone specifying the Conf directory in the workspace. Using --conf=Conf
                 ConfDirectoryPath = os.path.join(GenFdsGlobalVariable.WorkSpaceDir, ConfDirectoryPath)
         else:
-            # Get standard WORKSPACE/Conf, use the absolute path to the WORKSPACE/Conf
-            ConfDirectoryPath = mws.join(GenFdsGlobalVariable.WorkSpaceDir, 'Conf')
+            if "CONF_PATH" in os.environ.keys():
+                ConfDirectoryPath = os.path.normcase(os.environ["CONF_PATH"])
+            else:
+                # Get standard WORKSPACE/Conf, use the absolute path to the WORKSPACE/Conf
+                ConfDirectoryPath = mws.join(GenFdsGlobalVariable.WorkSpaceDir, 'Conf')
         GenFdsGlobalVariable.ConfDir = ConfDirectoryPath
         BuildConfigurationFile = os.path.normpath(os.path.join(ConfDirectoryPath, "target.txt"))
         if os.path.isfile(BuildConfigurationFile) == True:
-            TargetTxtClassObject.TargetTxtClassObject(BuildConfigurationFile)
+            TargetTxt = TargetTxtClassObject.TargetTxtClassObject()
+            TargetTxt.LoadTargetTxtFile(BuildConfigurationFile)
+            # if no build target given in command line, get it from target.txt
+            if not GenFdsGlobalVariable.TargetName:
+                BuildTargetList = TargetTxt.TargetTxtDictionary[DataType.TAB_TAT_DEFINES_TARGET]
+                if len(BuildTargetList) != 1:
+                    EdkLogger.error("GenFds", OPTION_VALUE_INVALID, ExtraData="Only allows one instance for Target.")
+                GenFdsGlobalVariable.TargetName = BuildTargetList[0]
+
+            # if no tool chain given in command line, get it from target.txt
+            if not GenFdsGlobalVariable.ToolChainTag:
+                ToolChainList = TargetTxt.TargetTxtDictionary[DataType.TAB_TAT_DEFINES_TOOL_CHAIN_TAG]
+                if ToolChainList == None or len(ToolChainList) == 0:
+                    EdkLogger.error("GenFds", RESOURCE_NOT_AVAILABLE, ExtraData="No toolchain given. Don't know how to build.")
+                if len(ToolChainList) != 1:
+                    EdkLogger.error("GenFds", OPTION_VALUE_INVALID, ExtraData="Only allows one instance for ToolChain.")
+                GenFdsGlobalVariable.ToolChainTag = ToolChainList[0]
         else:
             EdkLogger.error("GenFds", FILE_NOT_FOUND, ExtraData=BuildConfigurationFile)
 
@@ -183,6 +191,8 @@ def main():
                     Pair = Pair[:-1]
                 List = Pair.split('=')
                 if len(List) == 2:
+                    if not List[1].strip():
+                        EdkLogger.error("GenFds", OPTION_VALUE_INVALID, ExtraData="No Value given for Macro %s" %List[0])
                     if List[0].strip() == "EFI_SOURCE":
                         GlobalData.gEfiSource = List[1].strip()
                         GlobalData.gGlobalDefines["EFI_SOURCE"] = GlobalData.gEfiSource
@@ -198,6 +208,14 @@ def main():
                 else:
                     GlobalData.gCommandLineDefines[List[0].strip()] = "TRUE"
         os.environ["WORKSPACE"] = Workspace
+
+        # Use the -t and -b option as gGlobalDefines's TOOLCHAIN and TARGET if they are not defined
+        if "TARGET" not in GlobalData.gGlobalDefines.keys():
+            GlobalData.gGlobalDefines["TARGET"] = GenFdsGlobalVariable.TargetName
+        if "TOOLCHAIN" not in GlobalData.gGlobalDefines.keys():
+            GlobalData.gGlobalDefines["TOOLCHAIN"] = GenFdsGlobalVariable.ToolChainTag
+        if "TOOL_CHAIN_TAG" not in GlobalData.gGlobalDefines.keys():
+            GlobalData.gGlobalDefines['TOOL_CHAIN_TAG'] = GenFdsGlobalVariable.ToolChainTag
 
         """call Workspace build create database"""
         GlobalData.gDatabasePath = os.path.normpath(os.path.join(ConfDirectoryPath, GlobalData.gDatabasePath))
@@ -274,6 +292,14 @@ def main():
                 EdkLogger.error("GenFds", OPTION_VALUE_INVALID,
                                 "No such a Capsule in FDF file: %s" % Options.uiCapName)
 
+        GenFdsGlobalVariable.WorkSpace = BuildWorkSpace
+        if ArchList != None:
+            GenFdsGlobalVariable.ArchList = ArchList
+
+        if Options.OptionPcd:
+            GlobalData.BuildOptionPcd = Options.OptionPcd
+            CheckBuildOptionPcd()
+
         """Modify images from build output if the feature of loading driver at fixed address is on."""
         if GenFdsGlobalVariable.FixedLoadAddress:
             GenFds.PreprocessImage(BuildWorkSpace, GenFdsGlobalVariable.ActivePlatform)
@@ -300,7 +326,7 @@ def main():
                     "\nPython",
                     CODE_ERROR,
                     "Tools code failure",
-                    ExtraData="Please send email to edk2-devel@lists.sourceforge.net for help, attaching following call stack trace!\n",
+                    ExtraData="Please send email to edk2-devel@lists.01.org for help, attaching following call stack trace!\n",
                     RaiseError=False
                     )
         EdkLogger.quiet(traceback.format_exc())
@@ -316,7 +342,137 @@ def SingleCheckCallback(option, opt_str, value, parser):
         gParamCheck.append(option)
     else:
         parser.error("Option %s only allows one instance in command line!" % option)
-        
+
+def CheckBuildOptionPcd():
+    for Arch in GenFdsGlobalVariable.ArchList:
+        PkgList  = GenFdsGlobalVariable.WorkSpace.GetPackageList(GenFdsGlobalVariable.ActivePlatform, Arch, GenFdsGlobalVariable.TargetName, GenFdsGlobalVariable.ToolChainTag)
+        for i, pcd in enumerate(GlobalData.BuildOptionPcd):
+            if type(pcd) is tuple:
+                continue
+            (pcdname, pcdvalue) = pcd.split('=')
+            if not pcdvalue:
+                EdkLogger.error('GenFds', OPTION_MISSING, "No Value specified for the PCD %s." % (pcdname))
+            if '.' in pcdname:
+                (TokenSpaceGuidCName, TokenCName) = pcdname.split('.')
+                HasTokenSpace = True
+            else:
+                TokenCName = pcdname
+                TokenSpaceGuidCName = ''
+                HasTokenSpace = False
+            TokenSpaceGuidCNameList = []
+            FoundFlag = False
+            PcdDatumType = ''
+            NewValue = ''
+            for package in PkgList:
+                for key in package.Pcds:
+                    PcdItem = package.Pcds[key]
+                    if HasTokenSpace:
+                        if (PcdItem.TokenCName, PcdItem.TokenSpaceGuidCName) == (TokenCName, TokenSpaceGuidCName):
+                            PcdDatumType = PcdItem.DatumType
+                            NewValue = BuildOptionPcdValueFormat(TokenSpaceGuidCName, TokenCName, PcdDatumType, pcdvalue)
+                            FoundFlag = True
+                    else:
+                        if PcdItem.TokenCName == TokenCName:
+                            if not PcdItem.TokenSpaceGuidCName in TokenSpaceGuidCNameList:
+                                if len (TokenSpaceGuidCNameList) < 1:
+                                    TokenSpaceGuidCNameList.append(PcdItem.TokenSpaceGuidCName)
+                                    PcdDatumType = PcdItem.DatumType
+                                    TokenSpaceGuidCName = PcdItem.TokenSpaceGuidCName
+                                    NewValue = BuildOptionPcdValueFormat(TokenSpaceGuidCName, TokenCName, PcdDatumType, pcdvalue)
+                                    FoundFlag = True
+                                else:
+                                    EdkLogger.error(
+                                            'GenFds',
+                                            PCD_VALIDATION_INFO_ERROR,
+                                            "The Pcd %s is found under multiple different TokenSpaceGuid: %s and %s." % (TokenCName, PcdItem.TokenSpaceGuidCName, TokenSpaceGuidCNameList[0])
+                                            )
+
+            GlobalData.BuildOptionPcd[i] = (TokenSpaceGuidCName, TokenCName, NewValue)
+
+def BuildOptionPcdValueFormat(TokenSpaceGuidCName, TokenCName, PcdDatumType, Value):
+    if PcdDatumType == 'VOID*':
+        if Value.startswith('L'):
+            if not Value[1]:
+                EdkLogger.error('GenFds', OPTION_VALUE_INVALID, 'For Void* type PCD, when specify the Value in the command line, please use the following format: "string", L"string", B"{...}"')
+            Value = Value[0] + '"' + Value[1:] + '"'
+        elif Value.startswith('B'):
+            if not Value[1]:
+                EdkLogger.error('GenFds', OPTION_VALUE_INVALID, 'For Void* type PCD, when specify the Value in the command line, please use the following format: "string", L"string", B"{...}"')
+            Value = Value[1:]
+        else:
+            if not Value[0]:
+                EdkLogger.error('GenFds', OPTION_VALUE_INVALID, 'For Void* type PCD, when specify the Value in the command line, please use the following format: "string", L"string", B"{...}"')
+            Value = '"' + Value + '"'
+
+    IsValid, Cause = CheckPcdDatum(PcdDatumType, Value)
+    if not IsValid:
+        EdkLogger.error('build', FORMAT_INVALID, Cause, ExtraData="%s.%s" % (TokenSpaceGuidCName, TokenCName))
+    if PcdDatumType == 'BOOLEAN':
+        Value = Value.upper()
+        if Value == 'TRUE' or Value == '1':
+            Value = '1'
+        elif Value == 'FALSE' or Value == '0':
+            Value = '0'
+    return  Value
+
+## FindExtendTool()
+#
+#  Find location of tools to process data
+#
+#  @param  KeyStringList    Filter for inputs of section generation
+#  @param  CurrentArchList  Arch list
+#  @param  NameGuid         The Guid name
+#
+def FindExtendTool(KeyStringList, CurrentArchList, NameGuid):
+    # if user not specify filter, try to deduce it from global data.
+    if KeyStringList == None or KeyStringList == []:
+        Target = GenFdsGlobalVariable.TargetName
+        ToolChain = GenFdsGlobalVariable.ToolChainTag
+        ToolDb = ToolDefClassObject.ToolDefDict(GenFdsGlobalVariable.ConfDir).ToolsDefTxtDatabase
+        if ToolChain not in ToolDb['TOOL_CHAIN_TAG']:
+            EdkLogger.error("GenFds", GENFDS_ERROR, "Can not find external tool because tool tag %s is not defined in tools_def.txt!" % ToolChain)
+        KeyStringList = [Target + '_' + ToolChain + '_' + CurrentArchList[0]]
+        for Arch in CurrentArchList:
+            if Target + '_' + ToolChain + '_' + Arch not in KeyStringList:
+                KeyStringList.append(Target + '_' + ToolChain + '_' + Arch)
+
+    if GenFdsGlobalVariable.GuidToolDefinition:
+        if NameGuid in GenFdsGlobalVariable.GuidToolDefinition.keys():
+            return GenFdsGlobalVariable.GuidToolDefinition[NameGuid]
+
+    ToolDefinition = ToolDefClassObject.ToolDefDict(GenFdsGlobalVariable.ConfDir).ToolsDefTxtDictionary
+    ToolPathTmp = None
+    ToolOption = None
+    for ToolDef in ToolDefinition.items():
+        if NameGuid == ToolDef[1]:
+            KeyList = ToolDef[0].split('_')
+            Key = KeyList[0] + \
+                  '_' + \
+                  KeyList[1] + \
+                  '_' + \
+                  KeyList[2]
+            if Key in KeyStringList and KeyList[4] == 'GUID':
+
+                ToolPath = ToolDefinition.get(Key + \
+                                               '_' + \
+                                               KeyList[3] + \
+                                               '_' + \
+                                               'PATH')
+
+                ToolOption = ToolDefinition.get(Key + \
+                                                '_' + \
+                                                KeyList[3] + \
+                                                '_' + \
+                                                'FLAGS')
+                if ToolPathTmp == None:
+                    ToolPathTmp = ToolPath
+                else:
+                    if ToolPathTmp != ToolPath:
+                        EdkLogger.error("GenFds", GENFDS_ERROR, "Don't know which tool to use, %s or %s ?" % (ToolPathTmp, ToolPath))
+
+    GenFdsGlobalVariable.GuidToolDefinition[NameGuid] = (ToolPathTmp, ToolOption)
+    return ToolPathTmp, ToolOption
+
 ## Parse command line options
 #
 # Using standard Python module optparse to parse command line option of this tool.
@@ -349,6 +505,7 @@ def myOptionParser():
     Parser.add_option("-s", "--specifyaddress", dest="FixedAddress", action="store_true", type=None, help="Specify driver load address.")
     Parser.add_option("--conf", action="store", type="string", dest="ConfDirectory", help="Specify the customized Conf directory.")
     Parser.add_option("--ignore-sources", action="store_true", dest="IgnoreSources", default=False, help="Focus to a binary build and ignore all source files")
+    Parser.add_option("--pcd", action="append", dest="OptionPcd", help="Set PCD value by command line. Format: \"PcdName=Value\" ")
 
     (Options, args) = Parser.parse_args()
     return Options

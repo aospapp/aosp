@@ -84,6 +84,23 @@ public class UnifiedReal {
         this(new BoundedRational(n));
     }
 
+    public static UnifiedReal valueOf(double x) {
+        if (x == 0.0 || x == 1.0) {
+            return valueOf((long) x);
+        }
+        return new UnifiedReal(BoundedRational.valueOf(x));
+    }
+
+    public static UnifiedReal valueOf(long x) {
+        if (x == 0) {
+            return UnifiedReal.ZERO;
+        } else if (x == 1) {
+            return UnifiedReal.ONE;
+        } else {
+            return new UnifiedReal(BoundedRational.valueOf(x));
+        }
+    }
+
     // Various helpful constants
     private final static BigInteger BIG_24 = BigInteger.valueOf(24);
     private final static int DEFAULT_COMPARE_TOLERANCE = -1000;
@@ -173,8 +190,8 @@ public class UnifiedReal {
     }
 
     /**
-     * Given a constructive real cr, try to determine whether cr is the square root of
-     * a small integer.  If so, return its square as a BoundedRational.  Otherwise return null.
+     * Given a constructive real cr, try to determine whether cr is the logarithm of a small
+     * integer.  If so, return exp(cr) as a BoundedRational.  Otherwise return null.
      * We make this determination by simple table lookup, so spurious null returns are
      * entirely possible, or even likely.
      */
@@ -419,7 +436,8 @@ public class UnifiedReal {
 
     /**
      * Return a double approximation.
-     * TODO: Result is correctly rounded if known to be rational.
+     * Rational arguments are currently rounded to nearest, with ties away from zero.
+     * TODO: Improve rounding.
      */
     public double doubleValue() {
         if (mCrFactor == CR_ONE) {
@@ -506,9 +524,25 @@ public class UnifiedReal {
 
     /**
      * Returns true if values are definitely known to be equal, false in all other cases.
+     * This does not satisfy the contract for Object.equals().
      */
     public boolean definitelyEquals(UnifiedReal u) {
         return isComparable(u) && compareTo(u) == 0;
+    }
+
+    @Override
+    public int hashCode() {
+        // Better useless than wrong. Probably.
+        return 0;
+    }
+
+    @Override
+    public boolean equals(Object r) {
+        if (r == null || !(r instanceof UnifiedReal)) {
+            return false;
+        }
+        // This is almost certainly a programming error. Don't even try.
+        throw new AssertionError("Can't compare UnifiedReals for exact equality");
     }
 
     /**
@@ -669,7 +703,14 @@ public class UnifiedReal {
         return multiply(u.inverse());
     }
 
+    /**
+     * Return the square root.
+     * This may fail to return a known rational value, even when the result is rational.
+     */
     public UnifiedReal sqrt() {
+        if (definitelyZero()) {
+            return ZERO;
+        }
         if (mCrFactor == CR_ONE) {
             BoundedRational ratSqrt;
             // Check for all arguments of the form <perfect rational square> * small_int,
@@ -866,15 +907,23 @@ public class UnifiedReal {
 
     private static final BigInteger BIG_TWO = BigInteger.valueOf(2);
 
+    // The (in abs value) integral exponent for which we attempt to use a recursive
+    // algorithm for evaluating pow(). The recursive algorithm works independent of the sign of the
+    // base, and can produce rational results. But it can become slow for very large exponents.
+    private static final BigInteger RECURSIVE_POW_LIMIT = BigInteger.valueOf(1000);
+    // The corresponding limit when we're using rational arithmetic. This should fail fast
+    // anyway, but we avoid ridiculously deep recursion.
+    private static final BigInteger HARD_RECURSIVE_POW_LIMIT = BigInteger.ONE.shiftLeft(1000);
+
     /**
-     * Compute an integral power of a constrive real, using the standard recursive algorithm.
+     * Compute an integral power of a constructive real, using the standard recursive algorithm.
      * exp is known to be positive.
      */
     private static CR recursivePow(CR base, BigInteger exp) {
         if (exp.equals(BigInteger.ONE)) {
             return base;
         }
-        if (exp.and(BigInteger.ONE).intValue() == 1) {
+        if (exp.testBit(0)) {
             return base.multiply(recursivePow(base, exp.subtract(BigInteger.ONE)));
         }
         CR tmp = recursivePow(base, exp.shiftRight(1));
@@ -885,27 +934,61 @@ public class UnifiedReal {
     }
 
     /**
+     * Compute an integral power of a constructive real, using the exp function when
+     * we safely can. Use recursivePow when we can't. exp is known to be nozero.
+     */
+    private UnifiedReal expLnPow(BigInteger exp) {
+        int sign = signum(DEFAULT_COMPARE_TOLERANCE);
+        if (sign > 0) {
+            // Safe to take the log. This avoids deep recursion for huge exponents, which
+            // may actually make sense here.
+            return new UnifiedReal(crValue().ln().multiply(CR.valueOf(exp)).exp());
+        } else if (sign < 0) {
+            CR result = crValue().negate().ln().multiply(CR.valueOf(exp)).exp();
+            if (exp.testBit(0) /* odd exponent */) {
+                result = result.negate();
+            }
+            return new UnifiedReal(result);
+        } else {
+            // Base of unknown sign with integer exponent. Use a recursive computation.
+            // (Another possible option would be to use the absolute value of the base, and then
+            // adjust the sign at the end.  But that would have to be done in the CR
+            // implementation.)
+            if (exp.signum() < 0) {
+                // This may be very expensive if exp.negate() is large.
+                return new UnifiedReal(recursivePow(crValue(), exp.negate()).inverse());
+            } else {
+                return new UnifiedReal(recursivePow(crValue(), exp));
+            }
+        }
+    }
+
+
+    /**
      * Compute an integral power of this.
      * This recurses roughly as deeply as the number of bits in the exponent, and can, in
      * ridiculous cases, result in a stack overflow.
      */
     private UnifiedReal pow(BigInteger exp) {
-        if (exp.signum() < 0) {
-            return pow(exp.negate()).inverse();
-        }
         if (exp.equals(BigInteger.ONE)) {
             return this;
         }
         if (exp.signum() == 0) {
-            // Questionable if base has undefined value.  Java.lang.Math.pow() returns 1 anyway,
-            // so we do the same.
+            // Questionable if base has undefined value or is 0.
+            // Java.lang.Math.pow() returns 1 anyway, so we do the same.
             return ONE;
         }
-        if (mCrFactor == CR_ONE) {
+        BigInteger absExp = exp.abs();
+        if (mCrFactor == CR_ONE && absExp.compareTo(HARD_RECURSIVE_POW_LIMIT) <= 0) {
             final BoundedRational ratPow = mRatFactor.pow(exp);
+            // We count on this to fail, e.g. for very large exponents, when it would
+            // otherwise be too expensive.
             if (ratPow != null) {
-                return new UnifiedReal(mRatFactor.pow(exp));
+                return new UnifiedReal(ratPow);
             }
+        }
+        if (absExp.compareTo(RECURSIVE_POW_LIMIT) > 0) {
+            return expLnPow(exp);
         }
         BoundedRational square = getSquare(mCrFactor);
         if (square != null) {
@@ -920,19 +1003,15 @@ public class UnifiedReal {
                 }
             }
         }
-        if (signum(DEFAULT_COMPARE_TOLERANCE) > 0) {
-            // Safe to take the log. This avoids deep recursion for huge exponents, which
-            // may actually make sense here.
-            return new UnifiedReal(crValue().ln().multiply(CR.valueOf(exp)).exp());
-        } else {
-            // Possibly negative base with integer exponent. Use a recursive computation.
-            // (Another possible option would be to use the absolute value of the base, and then
-            // adjust the sign at the end.  But that would have to be done in the CR
-            // implementation.)
-            return new UnifiedReal(recursivePow(crValue(), exp));
-        }
+        return expLnPow(exp);
     }
 
+    /**
+     * Return this ^ expon.
+     * This is really only well-defined for a positive base, particularly since
+     * 0^x is not continuous at zero. (0^0 = 1 (as is epsilon^0), but 0^epsilon is 0.
+     * We nonetheless try to do reasonable things at zero, when we recognize that case.
+     */
     public UnifiedReal pow(UnifiedReal expon) {
         if (mCrFactor == CR_E) {
             if (mRatFactor.equals(BoundedRational.ONE)) {
@@ -956,6 +1035,14 @@ public class UnifiedReal {
                 }
             }
         }
+        // If the exponent were known zero, we would have handled it above.
+        if (definitelyZero()) {
+            return ZERO;
+        }
+        int sign = signum(DEFAULT_COMPARE_TOLERANCE);
+        if (sign < 0) {
+            throw new ArithmeticException("Negative base for pow() with non-integer exponent");
+        }
         return new UnifiedReal(crValue().ln().multiply(expon.crValue()).exp());
     }
 
@@ -964,7 +1051,7 @@ public class UnifiedReal {
      */
     private static long pow16(int n) {
         if (n > 10) {
-            throw new AssertionError("Unexpexted pow16 argument");
+            throw new AssertionError("Unexpected pow16 argument");
         }
         long result = n*n;
         result *= result;
@@ -1011,6 +1098,9 @@ public class UnifiedReal {
     }
 
     public UnifiedReal ln() {
+        if (mCrFactor == CR_E) {
+            return new UnifiedReal(mRatFactor, CR_ONE).ln().add(ONE);
+        }
         if (isComparable(ZERO)) {
             if (signum() <= 0) {
                 throw new ArithmeticException("log(non-positive)");
@@ -1069,9 +1159,6 @@ public class UnifiedReal {
         }
         final BoundedRational crExp = getExp(mCrFactor);
         if (crExp != null) {
-            if (mRatFactor.signum() < 0) {
-                return negate().exp().inverse();
-            }
             boolean needSqrt = false;
             BoundedRational ratExponent = mRatFactor;
             BigInteger asBI = BoundedRational.asBigInteger(ratExponent);

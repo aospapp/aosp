@@ -10,9 +10,6 @@ import mmap
 import os
 import re
 
-from contextlib import closing
-
-from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.cros import chrome_binary_test
@@ -28,6 +25,7 @@ TIME_BINARY = '/usr/local/bin/time'
 # The format used for 'time': <real time> <kernel time> <user time>
 TIME_OUTPUT_FORMAT = '%e %S %U'
 
+FRAME_STATS_SUFFIX = 'frame-data.csv'
 TEST_LOG_SUFFIX = 'test.log'
 TIME_LOG_SUFFIX = 'time.log'
 
@@ -46,10 +44,9 @@ KEY_CPU_KERNEL_USAGE = 'cpu_usage.kernel'
 KEY_CPU_USER_USAGE = 'cpu_usage.user'
 
 # Units of performance values:
-# (These strings should match chromium/src/tools/perf/unit-info.json.)
 UNIT_MILLISECOND = 'milliseconds'
 UNIT_MICROSECOND = 'us'
-UNIT_PERCENT = 'percent'
+UNIT_RATIO = 'ratio'
 UNIT_FPS = 'fps'
 
 RE_FPS = re.compile(r'^Measured encoder FPS: ([+\-]?[0-9.]+)$', re.MULTILINE)
@@ -131,9 +128,76 @@ class video_VEAPerf(chrome_binary_test.ChromeBinaryTest):
         with open(time_log_file) as f:
             content = f.read()
         r, s, u = (float(x) for x in content.split())
-        self._logperf(test_name, KEY_CPU_USER_USAGE, u / r, UNIT_PERCENT)
-        self._logperf(test_name, KEY_CPU_KERNEL_USAGE, s / r, UNIT_PERCENT)
+        self._logperf(test_name, KEY_CPU_USER_USAGE, u / r, UNIT_RATIO)
+        self._logperf(test_name, KEY_CPU_KERNEL_USAGE, s / r, UNIT_RATIO)
 
+    def _analyze_frame_stats(self, test_name, frame_stats_file):
+        """
+        Analyzes quality from --frame_stats output CSV. Assumes YUV420 (for MSE
+        samples per channel).
+        """
+        def mse_to_psnr(samples, peak, mse):
+            """
+            Generate PSNR from MSE for a frame.
+            """
+            MAX_PSNR = 100.0
+            # Prevent a divide-by-zero, MSE at 0 is perfect quality (no error).
+            if mse == 0:
+                return MAX_PSNR
+            psnr = 10.0 * math.log10(peak * peak * samples / float(mse))
+            return min(psnr, MAX_PSNR)
+
+        frame_ssim = {'y': [], 'u': [], 'v': [], 'combined': []}
+        frame_psnr = {'y': [], 'u': [], 'v': [], 'combined': []}
+        for line in open(frame_stats_file):
+            (frame, width, height,
+                ssim_y, ssim_u, ssim_v, mse_y, mse_u, mse_v) = line.split(',')
+            # Skip CSV header.
+            if frame == 'frame':
+                continue
+            frame = int(frame)
+            width = int(width)
+            height = int(height)
+            ssim_y = float(ssim_y)
+            ssim_u = float(ssim_u)
+            ssim_v = float(ssim_v)
+            mse_y = int(mse_y)
+            mse_u = int(mse_u)
+            mse_v = int(mse_v)
+
+            frame_ssim['y'].append(ssim_y)
+            frame_ssim['u'].append(ssim_u)
+            frame_ssim['v'].append(ssim_v)
+            # Weighting of YUV channels for SSIM taken from libvpx.
+            frame_ssim['combined'].append(
+                0.8 * ssim_y + 0.1 * (ssim_u + ssim_v))
+
+            # Samples per MSE score assumes YUV420 subsampling.
+            frame_psnr['y'].append(
+                mse_to_psnr(width * height * 4 / 4, 255, mse_y))
+            frame_psnr['u'].append(
+                mse_to_psnr(width * height * 1 / 4, 255, mse_u))
+            frame_psnr['v'].append(
+                mse_to_psnr(width * height * 1 / 4, 255, mse_v))
+            frame_psnr['combined'].append(
+                mse_to_psnr(
+                    width * height * 6 / 4, 255, mse_y + mse_u + mse_v))
+
+        for channel in ['y', 'u', 'v', 'combined']:
+            # Log stats with a key similar to 'quality.ssim.y.max'. For combined
+            # stats the channel is omitted ('quality.ssim.max').
+            key = 'quality.%s'
+            if channel is not 'combined':
+                key += '.' + channel
+            key += '.%s'
+            for (stat, func) in [('min', min), ('max', max),
+                                 ('avg', lambda x: sum(x) / len(x))]:
+                self._logperf(test_name, key % ('ssim', stat),
+                              func(frame_ssim[channel]), None,
+                              higher_is_better=True)
+                self._logperf(test_name, key % ('psnr', stat),
+                              func(frame_psnr[channel]), None,
+                              higher_is_better=True)
 
     def _get_profile_name(self, profile):
         """
@@ -226,9 +290,28 @@ class video_VEAPerf(chrome_binary_test.ChromeBinaryTest):
         self._analyze_encode_latency(test_name, test_log_file)
         self._analyze_cpu_usage(test_name, time_log_file)
 
+        # TODO(pbos): Measure quality at more bitrates.
+        # Generate SSIM/PSNR scores (objective quality metrics).
+        test_log_file = self._get_result_filename(test_name, 'quality',
+                                                  TEST_LOG_SUFFIX)
+        frame_stats_file = self._get_result_filename(test_name, 'quality',
+                                                    FRAME_STATS_SUFFIX)
+        vea_args = [
+            '--gtest_filter=SimpleEncode/*/0',
+            '--test_stream_data=%s' % test_stream_data,
+            '--frame_stats="%s"' % frame_stats_file,
+            '--output_log="%s"' % test_log_file,
+            helper_logger.chrome_vmodule_flag(),
+            '--ozone-platform=gbm']
+        self.run_chrome_test_binary(VEA_BINARY, ' '.join(vea_args))
+        self._analyze_frame_stats(test_name, frame_stats_file)
+
     @helper_logger.video_log_wrapper
     @chrome_binary_test.nuke_chrome
     def run_once(self, test_cases):
+        """
+        Tests ChromeOS video hardware encoder performance.
+        """
         last_error = None
         for (path, on_cloud, width, height, requested_bit_rate,
              profile, requested_frame_rate) in test_cases:

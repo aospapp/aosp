@@ -28,3 +28,5 @@ LOCAL_JAVA_LIBRARIES := services
 LOCAL_MODULE := ethernet-service
 
 include $(BUILD_JAVA_LIBRARY)
+
+include $(call all-makefiles-under,$(LOCAL_PATH))

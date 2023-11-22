@@ -76,15 +76,16 @@ public class HostEmulationManager {
     // Variables below are for a non-payment service,
     // that is typically only bound in the STATE_XFER state.
     Messenger mService;
-    boolean mServiceBound;
-    ComponentName mServiceName;
+    boolean mServiceBound = false;
+    ComponentName mServiceName = null;
 
     // Variables below are for a payment service,
     // which is typically bound persistently to improve on
     // latency.
     Messenger mPaymentService;
-    boolean mPaymentServiceBound;
-    ComponentName mPaymentServiceName;
+    boolean mPaymentServiceBound = false;
+    ComponentName mPaymentServiceName = null;
+    ComponentName mLastBoundPaymentServiceName;
 
     // mActiveService denotes the service interface
     // that is the current active one, until a new SELECT AID
@@ -283,10 +284,10 @@ public class HostEmulationManager {
     }
 
     Messenger bindServiceIfNeededLocked(ComponentName service) {
-        if (mPaymentServiceBound && mPaymentServiceName.equals(service)) {
+        if (mPaymentServiceName != null && mPaymentServiceName.equals(service)) {
             Log.d(TAG, "Service already bound as payment service.");
             return mPaymentService;
-        } else if (mServiceBound && mServiceName.equals(service)) {
+        } else if (mServiceName != null && mServiceName.equals(service)) {
             Log.d(TAG, "Service already bound as regular service.");
             return mService;
         } else {
@@ -296,6 +297,7 @@ public class HostEmulationManager {
             aidIntent.setComponent(service);
             if (mContext.bindServiceAsUser(aidIntent, mConnection,
                     Context.BIND_AUTO_CREATE, UserHandle.CURRENT)) {
+                mServiceBound = true;
             } else {
                 Log.e(TAG, "Could not bind service.");
             }
@@ -350,8 +352,11 @@ public class HostEmulationManager {
 
         Intent intent = new Intent(HostApduService.SERVICE_INTERFACE);
         intent.setComponent(service);
-        if (!mContext.bindServiceAsUser(intent, mPaymentConnection,
+        mLastBoundPaymentServiceName = service;
+        if (mContext.bindServiceAsUser(intent, mPaymentConnection,
                 Context.BIND_AUTO_CREATE, new UserHandle(userId))) {
+          mPaymentServiceBound = true;
+        } else {
             Log.e(TAG, "Could not bind (persistent) payment service.");
         }
     }
@@ -414,9 +419,12 @@ public class HostEmulationManager {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             synchronized (mLock) {
+                /* Preferred Payment Service has been changed. */
+                if (!mLastBoundPaymentServiceName.equals(name)) {
+                    return;
+                }
                 mPaymentServiceName = name;
                 mPaymentService = new Messenger(service);
-                mPaymentServiceBound = true;
             }
         }
 
@@ -434,8 +442,11 @@ public class HostEmulationManager {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             synchronized (mLock) {
+                /* Service is already deactivated, don't bind */
+                if (mState == STATE_IDLE) {
+                  return;
+                }
                 mService = new Messenger(service);
-                mServiceBound = true;
                 mServiceName = name;
                 Log.d(TAG, "Service bound");
                 mState = STATE_XFER;

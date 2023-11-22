@@ -9,6 +9,7 @@
  */
 #include <assert.h>
 #include <stdlib.h>
+#include "./vpx_dsp_rtcd.h"
 #include "vpx_ports/mem.h"
 
 DECLARE_PROTECTED(const int16_t vpx_rv[]) = {

@@ -25,6 +25,8 @@ enum DisabledChecks : int32_t {
     ENABLE_ALL_CHECKS = 0,
     // Disable AVB version check in RuntimeInfo::checkCompatibility
     DISABLE_AVB_CHECK = 1 << 0,
+    // Disable RuntimeInfo <-> Framework Matrix check. This implies DISABLE_AVB_CHECK.
+    DISABLE_RUNTIME_INFO = 1 << 1,
 };
 
 }  // namespace vintf

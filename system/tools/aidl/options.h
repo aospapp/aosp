@@ -54,12 +54,22 @@ class JavaOptions final {
   std::string dep_file_name_;
   bool auto_dep_file_{false};
   bool dep_file_ninja_{false};
+  bool gen_traces_{false};
   std::vector<std::string> files_to_preprocess_;
+
+  // The following are for testability, but cannot be influenced on the command line.
+
+  // Threshold of interface methods to enable outlining of onTransact cases.
+  size_t onTransact_outline_threshold_{275u};
+  // Number of cases to _not_ outline, if outlining is enabled.
+  size_t onTransact_non_outline_count_{275u};
 
  private:
   JavaOptions() = default;
 
   FRIEND_TEST(EndToEndTest, IExampleInterface);
+  FRIEND_TEST(EndToEndTest, IExampleInterface_WithTrace);
+  FRIEND_TEST(EndToEndTest, IExampleInterface_Outlining);
   FRIEND_TEST(AidlTest, FailOnParcelable);
   FRIEND_TEST(AidlTest, WritePreprocessedFile);
   FRIEND_TEST(AidlTest, WritesCorrectDependencyFile);
@@ -86,6 +96,7 @@ class CppOptions final {
   std::vector<std::string> ImportPaths() const { return import_paths_; }
   std::string DependencyFilePath() const { return dep_file_name_; }
   bool DependencyFileNinja() const { return dep_file_ninja_; }
+  bool ShouldGenTraces() const { return gen_traces_; }
 
  private:
   CppOptions() = default;
@@ -95,6 +106,7 @@ class CppOptions final {
   std::string output_header_dir_;
   std::string output_file_name_;
   std::string dep_file_name_;
+  bool gen_traces_{false};
   bool dep_file_ninja_{false};
 
   FRIEND_TEST(CppOptionsTests, ParsesCompileCpp);

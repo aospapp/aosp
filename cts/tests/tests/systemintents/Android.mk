@@ -27,7 +27,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsSystemIntentTestCases
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner legacy-android-test
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner android-support-test
 
 LOCAL_SDK_VERSION := test_current
 

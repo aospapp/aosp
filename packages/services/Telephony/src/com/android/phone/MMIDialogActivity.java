@@ -25,7 +25,6 @@ import android.os.Handler;
 import android.os.Message;
 import android.telephony.SubscriptionManager;
 import android.util.Log;
-import android.widget.Toast;
 
 import com.android.internal.telephony.CallManager;
 import com.android.internal.telephony.MmiCode;
@@ -56,6 +55,11 @@ public class MMIDialogActivity extends Activity {
         int subId = intent.getIntExtra(PhoneConstants.SUBSCRIPTION_KEY,
                 SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
         mPhone = PhoneGlobals.getPhone(subId);
+        if (mPhone == null) {
+            Log.w(TAG, "onCreate: invalid subscription id (" + subId + ") lead to null"
+                    + " Phone.");
+            finish();
+        }
         mHandler = new Handler() {
                 @Override
                 public void handleMessage(Message msg) {

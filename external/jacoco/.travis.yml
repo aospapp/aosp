@@ -6,6 +6,11 @@ install: true
 # Use container-based infrastructure:
 sudo: false
 
+addons:
+  apt:
+    packages:
+      - openjdk-6-jdk
+
 # Keep Maven local repository between builds:
 cache:
   directories:
@@ -19,12 +24,12 @@ env:
   - JDK=8
     ECJ=true
   - JDK=8-ea
-  - JDK=9-ea
-  - JDK=9-ea-stable
+  - JDK=9
+  - JDK=10-ea
 
 matrix:
   allow_failures:
     - env: JDK=8-ea
-    - env: JDK=9-ea
+    - env: JDK=10-ea
 
 script: ./.travis.sh

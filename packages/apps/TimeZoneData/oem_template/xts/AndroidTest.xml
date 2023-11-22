@@ -21,8 +21,8 @@
         <!-- OEM-INSTRUCTION: Change this to match the package name of the data app -->
         <option name="set-option" value="oem-data-app-package-name:com.oemcorp.android.timezone.data" />
         <!-- OEM-INSTRUCTION: Change this to match the name of the target used to include the test .apks -->
-	<!--
-	   This has to match the name of the .apk files included in the test
+        <!--
+           This has to match the name of the .apk files included in the test
            suite. For example, if the value below is "oem-data-app-apk-prefix:TimeZoneData"
            the test will look for TimeZoneData_test1.apk and TimeZoneData_test2.apk, etc. during tests.
           -->

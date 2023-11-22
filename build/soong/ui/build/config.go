@@ -15,12 +15,14 @@
 package build
 
 import (
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"android/soong/shared"
 )
@@ -34,10 +36,12 @@ type configImpl struct {
 	environ   *Environment
 
 	// From the arguments
-	parallel  int
-	keepGoing int
-	verbose   bool
-	dist      bool
+	parallel   int
+	keepGoing  int
+	verbose    bool
+	checkbuild bool
+	dist       bool
+	skipMake   bool
 
 	// From the product config
 	katiArgs     []string
@@ -103,6 +107,9 @@ func NewConfig(ctx Context, args ...string) Config {
 		"MAKEFLAGS",
 		"MAKELEVEL",
 		"MFLAGS",
+
+		// Set in envsetup.sh, reset in makefiles
+		"ANDROID_JAVA_TOOLCHAIN",
 	)
 
 	// Tell python not to spam the source tree with .pyc files.
@@ -116,14 +123,12 @@ func NewConfig(ctx Context, args ...string) Config {
 		log.Fatalln("Error verifying tree state:", err)
 	}
 
-	if srcDir, err := filepath.Abs("."); err == nil {
-		if strings.ContainsRune(srcDir, ' ') {
-			log.Println("You are building in a directory whose absolute path contains a space character:")
-			log.Println()
-			log.Printf("%q\n", srcDir)
-			log.Println()
-			log.Fatalln("Directory names containing spaces are not supported")
-		}
+	if srcDir := absPath(ctx, "."); strings.ContainsRune(srcDir, ' ') {
+		log.Println("You are building in a directory whose absolute path contains a space character:")
+		log.Println()
+		log.Printf("%q\n", srcDir)
+		log.Println()
+		log.Fatalln("Directory names containing spaces are not supported")
 	}
 
 	if outDir := ret.OutDir(); strings.ContainsRune(outDir, ' ') {
@@ -142,6 +147,56 @@ func NewConfig(ctx Context, args ...string) Config {
 		log.Fatalln("Directory names containing spaces are not supported")
 	}
 
+	// Configure Java-related variables, including adding it to $PATH
+	java8Home := filepath.Join("prebuilts/jdk/jdk8", ret.HostPrebuiltTag())
+	java9Home := filepath.Join("prebuilts/jdk/jdk9", ret.HostPrebuiltTag())
+	javaHome := func() string {
+		if override, ok := ret.environ.Get("OVERRIDE_ANDROID_JAVA_HOME"); ok {
+			return override
+		}
+		v, ok := ret.environ.Get("EXPERIMENTAL_USE_OPENJDK9")
+		if !ok {
+			v2, ok2 := ret.environ.Get("RUN_ERROR_PRONE")
+			if ok2 && (v2 == "true") {
+				v = "false"
+			} else {
+				v = "1.8"
+			}
+		}
+		if v != "false" {
+			return java9Home
+		}
+		return java8Home
+	}()
+	absJavaHome := absPath(ctx, javaHome)
+
+	ret.configureLocale(ctx)
+
+	newPath := []string{filepath.Join(absJavaHome, "bin")}
+	if path, ok := ret.environ.Get("PATH"); ok && path != "" {
+		newPath = append(newPath, path)
+	}
+	ret.environ.Unset("OVERRIDE_ANDROID_JAVA_HOME")
+	ret.environ.Set("JAVA_HOME", absJavaHome)
+	ret.environ.Set("ANDROID_JAVA_HOME", javaHome)
+	ret.environ.Set("ANDROID_JAVA8_HOME", java8Home)
+	ret.environ.Set("ANDROID_JAVA9_HOME", java9Home)
+	ret.environ.Set("PATH", strings.Join(newPath, string(filepath.ListSeparator)))
+
+	outDir := ret.OutDir()
+	buildDateTimeFile := filepath.Join(outDir, "build_date.txt")
+	var content string
+	if buildDateTime, ok := ret.environ.Get("BUILD_DATETIME"); ok && buildDateTime != "" {
+		content = buildDateTime
+	} else {
+		content = strconv.FormatInt(time.Now().Unix(), 10)
+	}
+	err := ioutil.WriteFile(buildDateTimeFile, []byte(content), 0777)
+	if err != nil {
+		ctx.Fatalln("Failed to write BUILD_DATETIME to file:", err)
+	}
+	ret.environ.Set("BUILD_DATETIME_FILE", buildDateTimeFile)
+
 	return Config{ret}
 }
 
@@ -149,14 +204,11 @@ func (c *configImpl) parseArgs(ctx Context, args []string) {
 	for i := 0; i < len(args); i++ {
 		arg := strings.TrimSpace(args[i])
 		if arg == "--make-mode" {
-			continue
 		} else if arg == "showcommands" {
 			c.verbose = true
-			continue
-		} else if arg == "dist" {
-			c.dist = true
-		}
-		if arg[0] == '-' {
+		} else if arg == "--skip-make" {
+			c.skipMake = true
+		} else if len(arg) > 0 && arg[0] == '-' {
 			parseArgNum := func(def int) int {
 				if len(arg) > 2 {
 					p, err := strconv.ParseUint(arg[2:], 10, 31)
@@ -174,9 +226,9 @@ func (c *configImpl) parseArgs(ctx Context, args []string) {
 				return def
 			}
 
-			if arg[1] == 'j' {
+			if len(arg) > 1 && arg[1] == 'j' {
 				c.parallel = parseArgNum(c.parallel)
-			} else if arg[1] == 'k' {
+			} else if len(arg) > 1 && arg[1] == 'k' {
 				c.keepGoing = parseArgNum(0)
 			} else {
 				ctx.Fatalln("Unknown option:", arg)
@@ -184,8 +236,59 @@ func (c *configImpl) parseArgs(ctx Context, args []string) {
 		} else if k, v, ok := decodeKeyValue(arg); ok && len(k) > 0 {
 			c.environ.Set(k, v)
 		} else {
+			if arg == "dist" {
+				c.dist = true
+			} else if arg == "checkbuild" {
+				c.checkbuild = true
+			}
 			c.arguments = append(c.arguments, arg)
 		}
+	}
+}
+
+func (c *configImpl) configureLocale(ctx Context) {
+	cmd := Command(ctx, Config{c}, "locale", "locale", "-a")
+	output, err := cmd.Output()
+
+	var locales []string
+	if err == nil {
+		locales = strings.Split(string(output), "\n")
+	} else {
+		// If we're unable to list the locales, let's assume en_US.UTF-8
+		locales = []string{"en_US.UTF-8"}
+		ctx.Verbosef("Failed to list locales (%q), falling back to %q", err, locales)
+	}
+
+	// gettext uses LANGUAGE, which is passed directly through
+
+	// For LANG and LC_*, only preserve the evaluated version of
+	// LC_MESSAGES
+	user_lang := ""
+	if lc_all, ok := c.environ.Get("LC_ALL"); ok {
+		user_lang = lc_all
+	} else if lc_messages, ok := c.environ.Get("LC_MESSAGES"); ok {
+		user_lang = lc_messages
+	} else if lang, ok := c.environ.Get("LANG"); ok {
+		user_lang = lang
+	}
+
+	c.environ.UnsetWithPrefix("LC_")
+
+	if user_lang != "" {
+		c.environ.Set("LC_MESSAGES", user_lang)
+	}
+
+	// The for LANG, use C.UTF-8 if it exists (Debian currently, proposed
+	// for others)
+	if inList("C.UTF-8", locales) {
+		c.environ.Set("LANG", "C.UTF-8")
+	} else if inList("en_US.UTF-8", locales) {
+		c.environ.Set("LANG", "en_US.UTF-8")
+	} else if inList("en_US.utf8", locales) {
+		// These normalize to the same thing
+		c.environ.Set("LANG", "en_US.UTF-8")
+	} else {
+		ctx.Fatalln("System doesn't support either C.UTF-8 or en_US.UTF-8")
 	}
 }
 
@@ -218,8 +321,6 @@ func (c *configImpl) Tapas(ctx Context, apps []string, arch, variant string) {
 
 	var product string
 	switch arch {
-	case "armv5":
-		product = "generic_armv5"
 	case "arm", "":
 		product = "aosp_arm"
 	case "arm64":
@@ -265,6 +366,9 @@ func (c *configImpl) DistDir() string {
 }
 
 func (c *configImpl) NinjaArgs() []string {
+	if c.skipMake {
+		return c.arguments
+	}
 	return c.ninjaArgs
 }
 
@@ -276,11 +380,21 @@ func (c *configImpl) TempDir() string {
 	return shared.TempDirForOutDir(c.SoongOutDir())
 }
 
+func (c *configImpl) FileListDir() string {
+	return filepath.Join(c.OutDir(), ".module_paths")
+}
+
 func (c *configImpl) KatiSuffix() string {
 	if c.katiSuffix != "" {
 		return c.katiSuffix
 	}
 	panic("SetKatiSuffix has not been called")
+}
+
+// Checkbuild returns true if "checkbuild" was one of the build goals, which means that the
+// user is interested in additional checks at the expense of build time.
+func (c *configImpl) Checkbuild() bool {
+	return c.checkbuild
 }
 
 func (c *configImpl) Dist() bool {
@@ -289,6 +403,10 @@ func (c *configImpl) Dist() bool {
 
 func (c *configImpl) IsVerbose() bool {
 	return c.verbose
+}
+
+func (c *configImpl) SkipMake() bool {
+	return c.skipMake
 }
 
 func (c *configImpl) TargetProduct() string {
@@ -355,6 +473,14 @@ func (c *configImpl) SetKatiSuffix(suffix string) {
 	c.katiSuffix = suffix
 }
 
+func (c *configImpl) LastKatiSuffixFile() string {
+	return filepath.Join(c.OutDir(), "last_kati_suffix")
+}
+
+func (c *configImpl) HasKatiSuffix() bool {
+	return c.katiSuffix != ""
+}
+
 func (c *configImpl) KatiEnvFile() string {
 	return filepath.Join(c.OutDir(), "env"+c.KatiSuffix()+".sh")
 }
@@ -368,6 +494,9 @@ func (c *configImpl) SoongNinjaFile() string {
 }
 
 func (c *configImpl) CombinedNinjaFile() string {
+	if c.katiSuffix == "" {
+		return filepath.Join(c.OutDir(), "combined.ninja")
+	}
 	return filepath.Join(c.OutDir(), "combined"+c.KatiSuffix()+".ninja")
 }
 
@@ -380,11 +509,7 @@ func (c *configImpl) SoongMakeVarsMk() string {
 }
 
 func (c *configImpl) ProductOut() string {
-	if buildType, ok := c.environ.Get("TARGET_BUILD_TYPE"); ok && buildType == "debug" {
-		return filepath.Join(c.OutDir(), "debug", "target", "product", c.TargetDevice())
-	} else {
-		return filepath.Join(c.OutDir(), "target", "product", c.TargetDevice())
-	}
+	return filepath.Join(c.OutDir(), "target", "product", c.TargetDevice())
 }
 
 func (c *configImpl) DevicePreviousProductConfig() string {
@@ -392,11 +517,7 @@ func (c *configImpl) DevicePreviousProductConfig() string {
 }
 
 func (c *configImpl) hostOutRoot() string {
-	if buildType, ok := c.environ.Get("HOST_BUILD_TYPE"); ok && buildType == "debug" {
-		return filepath.Join(c.OutDir(), "debug", "host")
-	} else {
-		return filepath.Join(c.OutDir(), "host")
-	}
+	return filepath.Join(c.OutDir(), "host")
 }
 
 func (c *configImpl) HostOut() string {
@@ -422,21 +543,13 @@ func (c *configImpl) HostPrebuiltTag() string {
 	}
 }
 
-func (c *configImpl) HostAsan() bool {
+func (c *configImpl) PrebuiltBuildTool(name string) string {
 	if v, ok := c.environ.Get("SANITIZE_HOST"); ok {
 		if sanitize := strings.Fields(v); inList("address", sanitize) {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *configImpl) PrebuiltBuildTool(name string) string {
-	// (b/36182021) We're seeing rare ckati crashes, so always enable asan kati on the build servers.
-	if c.HostAsan() || (c.Dist() && name == "ckati") {
-		asan := filepath.Join("prebuilts/build-tools", c.HostPrebuiltTag(), "asan/bin", name)
-		if _, err := os.Stat(asan); err == nil {
-			return asan
+			asan := filepath.Join("prebuilts/build-tools", c.HostPrebuiltTag(), "asan/bin", name)
+			if _, err := os.Stat(asan); err == nil {
+				return asan
+			}
 		}
 	}
 	return filepath.Join("prebuilts/build-tools", c.HostPrebuiltTag(), "bin", name)

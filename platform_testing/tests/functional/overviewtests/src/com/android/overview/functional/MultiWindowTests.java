@@ -28,6 +28,7 @@ import android.graphics.Rect;
 import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.platform.test.annotations.Presubmit;
 import android.support.test.launcherhelper.ILauncherStrategy;
 import android.support.test.launcherhelper.LauncherStrategyFactory;
 import android.support.test.uiautomator.By;
@@ -77,6 +78,7 @@ public class MultiWindowTests extends InstrumentationTestCase {
         return mDevice.getLauncherPackageName();
     }
 
+    @Presubmit
     @MediumTest
     public void testDockingUndockingOnMultiwindow()  throws Exception {
         mOverviewHelper.dockAppToTopMultiwindowSlot(CALCULATOR_PACKAGE, "Calculator");

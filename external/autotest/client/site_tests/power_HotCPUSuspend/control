@@ -4,7 +4,7 @@
 
 AUTHOR = "Chrome OS Team"
 NAME = "power_HotCPUSuspend"
-ATTRIBUTES = "suite:kernel_per-build_regression"
+ATTRIBUTES = "suite:kernel_daily_regression"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"

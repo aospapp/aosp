@@ -26,12 +26,14 @@ LOCAL_PACKAGE_NAME := CtsStaticSharedLibProviderRecursive
 
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/keysets/cts-keyset-test-b
 
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_AAPT_FLAGS := --shared-lib
 
 LOCAL_EXPORT_PACKAGE_RESOURCES := true
+
+LOCAL_SDK_VERSION := current
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

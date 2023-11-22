@@ -206,7 +206,6 @@ uint32_t black32 = 0x0;
 
 void draw_grid(int w, int h, void* _loc) {
     int i, j;
-    int v;
     int stride = fi.line_length / (vi.bits_per_pixel >> 3);
     uint16_t *loc = _loc;
     uint32_t *loc32 = _loc;

@@ -4,7 +4,7 @@
 # It should typically be created elsewhere.
 
 options="-Lexport-header \
-         -r tests:system/tools/hidl/test/\
+         -r hidl.tests:system/tools/hidl/test/\
          -r android.hidl:system/libhidl/transport\
          -r android.hardware:hardware/interfaces"
 

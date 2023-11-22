@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Nema SIM-a ili SIM ima pogrešku"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Mobilna mreža nije dostupna"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Odlazne pozive ograničava FDN."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL zahtjev izmijenjen je u USSD zahtjev."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL zahtjev izmijenjen je u SS zahtjev."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL zahtjev izmijenjen je u DIAL zahtjev s različitim brojem."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Poziv promijenjen u USSD zahtjev"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Poziv promijenjen u SS zahtjev"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Promijenjeno u drugi broj"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Promijenjeno u videopoziv"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Videopoziv promijenjen u SS zahtjev"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Videopoziv promijenjen u USSD zahtjev"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Promijenjeno u obični poziv"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Promijenjeno u drugi broj"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Odlazni pozivi nisu mogući dok je pozivanje zabranjeno."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Kontrola pristupa ograničava pozive."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Kontrola pristupa ograničava hitne pozive."</string>

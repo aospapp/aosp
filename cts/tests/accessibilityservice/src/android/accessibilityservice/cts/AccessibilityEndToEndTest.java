@@ -16,30 +16,56 @@
 
 package android.accessibilityservice.cts;
 
+import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils
+        .filterForEventType;
+import static android.accessibilityservice.cts.utils.RunOnMainUtils.getOnMain;
+import static android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
+        .ACTION_HIDE_TOOLTIP;
+import static android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
+        .ACTION_SHOW_TOOLTIP;
+
+import static org.hamcrest.core.IsEqual.equalTo;
+import static org.hamcrest.core.IsNull.nullValue;
+import static org.hamcrest.core.IsNull.notNullValue;
+import static org.hamcrest.Matchers.in;
+import static org.hamcrest.Matchers.not;
+import static org.junit.Assert.assertThat;
+
+import android.accessibilityservice.cts.activities.AccessibilityEndToEndActivity;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Instrumentation;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.app.UiAutomation;
+import android.appwidget.AppWidgetHost;
+import android.appwidget.AppWidgetManager;
+import android.appwidget.AppWidgetProviderInfo;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.os.Process;
+import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 
-import android.accessibilityservice.cts.R;
-
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 
 /**
  * This class performs end-to-end testing of the accessibility feature by
@@ -51,6 +77,14 @@ public class AccessibilityEndToEndTest extends
 
     private static final String LOG_TAG = "AccessibilityEndToEndTest";
 
+    private static final String GRANT_BIND_APP_WIDGET_PERMISSION_COMMAND =
+            "appwidget grantbind --package android.accessibilityservice.cts --user 0";
+
+    private static final String REVOKE_BIND_APP_WIDGET_PERMISSION_COMMAND =
+            "appwidget revokebind --package android.accessibilityservice.cts --user 0";
+
+    private static final String APP_WIDGET_PROVIDER_PACKAGE = "foo.bar.baz";
+
     /**
      * Creates a new instance for testing {@link AccessibilityEndToEndActivity}.
      */
@@ -59,6 +93,7 @@ public class AccessibilityEndToEndTest extends
     }
 
     @MediumTest
+    @Presubmit
     public void testTypeViewSelectedAccessibilityEvent() throws Throwable {
         // create and populate the expected event
         final AccessibilityEvent expected = AccessibilityEvent.obtain();
@@ -100,6 +135,7 @@ public class AccessibilityEndToEndTest extends
     }
 
     @MediumTest
+    @Presubmit
     public void testTypeViewClickedAccessibilityEvent() throws Throwable {
         // create and populate the expected event
         final AccessibilityEvent expected = AccessibilityEvent.obtain();
@@ -136,6 +172,7 @@ public class AccessibilityEndToEndTest extends
     }
 
     @MediumTest
+    @Presubmit
     public void testTypeViewLongClickedAccessibilityEvent() throws Throwable {
         // create and populate the expected event
         final AccessibilityEvent expected = AccessibilityEvent.obtain();
@@ -172,6 +209,7 @@ public class AccessibilityEndToEndTest extends
     }
 
     @MediumTest
+    @Presubmit
     public void testTypeViewFocusedAccessibilityEvent() throws Throwable {
         // create and populate the expected event
         final AccessibilityEvent expected = AccessibilityEvent.obtain();
@@ -179,37 +217,22 @@ public class AccessibilityEndToEndTest extends
         expected.setClassName(Button.class.getName());
         expected.setPackageName(getActivity().getPackageName());
         expected.getText().add(getActivity().getString(R.string.button_title));
-        expected.setItemCount(3);
-        expected.setCurrentItemIndex(2);
+        expected.setItemCount(4);
+        expected.setCurrentItemIndex(3);
         expected.setEnabled(true);
 
-        final Button button = (Button) getActivity().findViewById(R.id.button);
+        final Button button = (Button) getActivity().findViewById(R.id.buttonWithTooltip);
 
         AccessibilityEvent awaitedEvent =
             getInstrumentation().getUiAutomation().executeAndWaitForEvent(
-                new Runnable() {
-            @Override
-            public void run() {
-                // trigger the event
-                getActivity().runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        button.requestFocus();
-                    }
-                });
-            }},
-            new UiAutomation.AccessibilityEventFilter() {
-                // check the received event
-                @Override
-                public boolean accept(AccessibilityEvent event) {
-                    return equalsAccessiblityEvent(event, expected);
-                }
-            },
-            TIMEOUT_ASYNC_PROCESSING);
+                    () -> getActivity().runOnUiThread(() -> button.requestFocus()),
+                    (event) -> equalsAccessiblityEvent(event, expected),
+                    TIMEOUT_ASYNC_PROCESSING);
         assertNotNull("Did not receive expected event: " + expected, awaitedEvent);
     }
 
     @MediumTest
+    @Presubmit
     public void testTypeViewTextChangedAccessibilityEvent() throws Throwable {
         // focus the edit text
         final EditText editText = (EditText) getActivity().findViewById(R.id.edittext);
@@ -278,6 +301,7 @@ public class AccessibilityEndToEndTest extends
     }
 
     @MediumTest
+    @Presubmit
     public void testTypeWindowStateChangedAccessibilityEvent() throws Throwable {
         // create and populate the expected event
         final AccessibilityEvent expected = AccessibilityEvent.obtain();
@@ -314,7 +338,9 @@ public class AccessibilityEndToEndTest extends
     }
 
     @MediumTest
+    @AppModeFull
     @SuppressWarnings("deprecation")
+    @Presubmit
     public void testTypeNotificationStateChangedAccessibilityEvent() throws Throwable {
         // No notification UI on televisions.
         if ((getActivity().getResources().getConfiguration().uiMode
@@ -430,6 +456,295 @@ public class AccessibilityEndToEndTest extends
         }
     }
 
+    @MediumTest
+    public void testPackageNameCannotBeFaked() throws Exception {
+        getActivity().runOnUiThread(() -> {
+            // Set the activity to report fake package for events and nodes
+            getActivity().setReportedPackageName("foo.bar.baz");
+
+            // Make sure node package cannot be faked
+            AccessibilityNodeInfo root = getInstrumentation().getUiAutomation()
+                    .getRootInActiveWindow();
+            assertPackageName(root, getActivity().getPackageName());
+        });
+
+        // Make sure event package cannot be faked
+        try {
+            getInstrumentation().getUiAutomation().executeAndWaitForEvent(() ->
+                getInstrumentation().runOnMainSync(() ->
+                    getActivity().findViewById(R.id.button).requestFocus())
+                , (AccessibilityEvent event) ->
+                    event.getEventType() == AccessibilityEvent.TYPE_VIEW_FOCUSED
+                            && event.getPackageName().equals(getActivity().getPackageName())
+                , TIMEOUT_ASYNC_PROCESSING);
+        } catch (TimeoutException e) {
+            fail("Events from fake package should be fixed to use the correct package");
+        }
+    }
+
+    @AppModeFull
+    @MediumTest
+    @Presubmit
+    public void testPackageNameCannotBeFakedAppWidget() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
+        getInstrumentation().runOnMainSync(() -> {
+            // Set the activity to report fake package for events and nodes
+            getActivity().setReportedPackageName(APP_WIDGET_PROVIDER_PACKAGE);
+
+            // Make sure we cannot report nodes as if from the widget package
+            AccessibilityNodeInfo root = getInstrumentation().getUiAutomation()
+                    .getRootInActiveWindow();
+            assertPackageName(root, getActivity().getPackageName());
+        });
+
+        // Make sure we cannot send events as if from the widget package
+        try {
+            getInstrumentation().getUiAutomation().executeAndWaitForEvent(() ->
+                getInstrumentation().runOnMainSync(() ->
+                    getActivity().findViewById(R.id.button).requestFocus())
+                , (AccessibilityEvent event) ->
+                    event.getEventType() == AccessibilityEvent.TYPE_VIEW_FOCUSED
+                            && event.getPackageName().equals(getActivity().getPackageName())
+                , TIMEOUT_ASYNC_PROCESSING);
+        } catch (TimeoutException e) {
+            fail("Should not be able to send events from a widget package if no widget hosted");
+        }
+
+        // Create a host and start listening.
+        final AppWidgetHost host = new AppWidgetHost(getInstrumentation().getTargetContext(), 0);
+        host.deleteHost();
+        host.startListening();
+
+        // Well, app do not have this permission unless explicitly granted
+        // by the user. Now we will pretend for the user and grant it.
+        grantBindAppWidgetPermission();
+
+        // Allocate an app widget id to bind.
+        final int appWidgetId = host.allocateAppWidgetId();
+        try {
+            // Grab a provider we defined to be bound.
+            final AppWidgetProviderInfo provider = getAppWidgetProviderInfo();
+
+            // Bind the widget.
+            final boolean widgetBound = getAppWidgetManager().bindAppWidgetIdIfAllowed(
+                    appWidgetId, provider.getProfile(), provider.provider, null);
+            assertTrue(widgetBound);
+
+            // Make sure the app can use the package of a widget it hosts
+            getInstrumentation().runOnMainSync(() -> {
+                // Make sure we can report nodes as if from the widget package
+                AccessibilityNodeInfo root = getInstrumentation().getUiAutomation()
+                        .getRootInActiveWindow();
+                assertPackageName(root, APP_WIDGET_PROVIDER_PACKAGE);
+            });
+
+            // Make sure we can send events as if from the widget package
+            try {
+                getInstrumentation().getUiAutomation().executeAndWaitForEvent(() ->
+                    getInstrumentation().runOnMainSync(() ->
+                        getActivity().findViewById(R.id.button).performClick())
+                    , (AccessibilityEvent event) ->
+                            event.getEventType() == AccessibilityEvent.TYPE_VIEW_CLICKED
+                                    && event.getPackageName().equals(APP_WIDGET_PROVIDER_PACKAGE)
+                    , TIMEOUT_ASYNC_PROCESSING);
+            } catch (TimeoutException e) {
+                fail("Should be able to send events from a widget package if widget hosted");
+            }
+        } finally {
+            // Clean up.
+            host.deleteAppWidgetId(appWidgetId);
+            host.deleteHost();
+            revokeBindAppWidgetPermission();
+        }
+    }
+
+    @MediumTest
+    @Presubmit
+    public void testViewHeadingReportedToAccessibility() throws Exception {
+        final Instrumentation instrumentation = getInstrumentation();
+        final EditText editText = (EditText) getOnMain(instrumentation, () -> {
+            return getActivity().findViewById(R.id.edittext);
+        });
+        // Make sure the edittext was populated properly from xml
+        final boolean editTextIsHeading = getOnMain(instrumentation, () -> {
+            return editText.isAccessibilityHeading();
+        });
+        assertTrue("isAccessibilityHeading not populated properly from xml", editTextIsHeading);
+
+        final UiAutomation uiAutomation = instrumentation.getUiAutomation();
+        final AccessibilityNodeInfo editTextNode = uiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByViewId(
+                        "android.accessibilityservice.cts:id/edittext")
+                .get(0);
+        assertTrue("isAccessibilityHeading not reported to accessibility",
+                editTextNode.isHeading());
+
+        uiAutomation.executeAndWaitForEvent(() -> instrumentation.runOnMainSync(() ->
+                        editText.setAccessibilityHeading(false)),
+                filterForEventType(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED),
+                TIMEOUT_ASYNC_PROCESSING);
+        editTextNode.refresh();
+        assertFalse("isAccessibilityHeading not reported to accessibility after update",
+                editTextNode.isHeading());
+    }
+
+    @MediumTest
+    @Presubmit
+    public void testTooltipTextReportedToAccessibility() {
+        final Instrumentation instrumentation = getInstrumentation();
+        final UiAutomation uiAutomation = instrumentation.getUiAutomation();
+        final AccessibilityNodeInfo buttonNode = uiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByViewId(
+                        "android.accessibilityservice.cts:id/buttonWithTooltip")
+                .get(0);
+        assertEquals("Tooltip text not reported to accessibility",
+                instrumentation.getContext().getString(R.string.button_tooltip),
+                buttonNode.getTooltipText());
+    }
+
+    @MediumTest
+    public void testTooltipTextActionsReportedToAccessibility() throws Exception {
+        final Instrumentation instrumentation = getInstrumentation();
+        final UiAutomation uiAutomation = instrumentation.getUiAutomation();
+        final AccessibilityNodeInfo buttonNode = uiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByViewId(
+                        "android.accessibilityservice.cts:id/buttonWithTooltip")
+                .get(0);
+        assertFalse(hasTooltipShowing(R.id.buttonWithTooltip));
+        assertThat(ACTION_SHOW_TOOLTIP, in(buttonNode.getActionList()));
+        assertThat(ACTION_HIDE_TOOLTIP, not(in(buttonNode.getActionList())));
+        uiAutomation.executeAndWaitForEvent(() -> buttonNode.performAction(
+                ACTION_SHOW_TOOLTIP.getId()),
+                filterForEventType(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED),
+                TIMEOUT_ASYNC_PROCESSING);
+
+        // The button should now be showing the tooltip, so it should have the option to hide it.
+        buttonNode.refresh();
+        assertThat(ACTION_HIDE_TOOLTIP, in(buttonNode.getActionList()));
+        assertThat(ACTION_SHOW_TOOLTIP, not(in(buttonNode.getActionList())));
+        assertTrue(hasTooltipShowing(R.id.buttonWithTooltip));
+    }
+
+    @MediumTest
+    public void testTraversalBeforeReportedToAccessibility() throws Exception {
+        final Instrumentation instrumentation = getInstrumentation();
+        final UiAutomation uiAutomation = instrumentation.getUiAutomation();
+        final AccessibilityNodeInfo buttonNode = uiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByViewId(
+                        "android.accessibilityservice.cts:id/buttonWithTooltip")
+                .get(0);
+        final AccessibilityNodeInfo beforeNode = buttonNode.getTraversalBefore();
+        assertThat(beforeNode, notNullValue());
+        assertThat(beforeNode.getViewIdResourceName(),
+                equalTo("android.accessibilityservice.cts:id/edittext"));
+
+        uiAutomation.executeAndWaitForEvent(() -> instrumentation.runOnMainSync(
+                () -> getActivity().findViewById(R.id.buttonWithTooltip)
+                        .setAccessibilityTraversalBefore(View.NO_ID)),
+                filterForEventType(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED),
+                TIMEOUT_ASYNC_PROCESSING);
+
+        buttonNode.refresh();
+        assertThat(buttonNode.getTraversalBefore(), nullValue());
+    }
+
+    @MediumTest
+    public void testTraversalAfterReportedToAccessibility() throws Exception {
+        final Instrumentation instrumentation = getInstrumentation();
+        final UiAutomation uiAutomation = instrumentation.getUiAutomation();
+        final AccessibilityNodeInfo editNode = uiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByViewId(
+                        "android.accessibilityservice.cts:id/edittext")
+                .get(0);
+        final AccessibilityNodeInfo afterNode = editNode.getTraversalAfter();
+        assertThat(afterNode, notNullValue());
+        assertThat(afterNode.getViewIdResourceName(),
+                equalTo("android.accessibilityservice.cts:id/buttonWithTooltip"));
+
+        uiAutomation.executeAndWaitForEvent(() -> instrumentation.runOnMainSync(
+                () -> getActivity().findViewById(R.id.edittext)
+                        .setAccessibilityTraversalAfter(View.NO_ID)),
+                filterForEventType(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED),
+                TIMEOUT_ASYNC_PROCESSING);
+
+        editNode.refresh();
+        assertThat(editNode.getTraversalAfter(), nullValue());
+    }
+
+    @MediumTest
+    public void testLabelForReportedToAccessibility() throws Exception {
+        final Instrumentation instrumentation = getInstrumentation();
+        final UiAutomation uiAutomation = instrumentation.getUiAutomation();
+        uiAutomation.executeAndWaitForEvent(() -> instrumentation.runOnMainSync(() -> getActivity()
+                .findViewById(R.id.edittext).setLabelFor(R.id.buttonWithTooltip)),
+                filterForEventType(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED),
+                TIMEOUT_ASYNC_PROCESSING);
+        // TODO: b/78022650: This code should move above the executeAndWait event. It's here because
+        // the a11y cache doesn't get notified when labelFor changes, so the node with the
+        // labledBy isn't updated.
+        final AccessibilityNodeInfo editNode = uiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByViewId(
+                        "android.accessibilityservice.cts:id/edittext")
+                .get(0);
+        editNode.refresh();
+        final AccessibilityNodeInfo labelForNode = editNode.getLabelFor();
+        assertThat(labelForNode, notNullValue());
+        // Labeled node should indicate that it is labeled by the other one
+        assertThat(labelForNode.getLabeledBy(), equalTo(editNode));
+    }
+
+    private static void assertPackageName(AccessibilityNodeInfo node, String packageName) {
+        if (node == null) {
+            return;
+        }
+        assertEquals(packageName, node.getPackageName());
+        final int childCount = node.getChildCount();
+        for (int i = 0; i < childCount; i++) {
+            AccessibilityNodeInfo child = node.getChild(i);
+            if (child != null) {
+                assertPackageName(child, packageName);
+            }
+        }
+    }
+
+    private AppWidgetProviderInfo getAppWidgetProviderInfo() {
+        final ComponentName componentName = new ComponentName(
+                "foo.bar.baz", "foo.bar.baz.MyAppWidgetProvider");
+        final List<AppWidgetProviderInfo> providers = getAppWidgetManager().getInstalledProviders();
+        final int providerCount = providers.size();
+        for (int i = 0; i < providerCount; i++) {
+            final AppWidgetProviderInfo provider = providers.get(i);
+            if (componentName.equals(provider.provider)
+                    && Process.myUserHandle().equals(provider.getProfile())) {
+                return provider;
+            }
+        }
+        return null;
+    }
+
+    private void grantBindAppWidgetPermission() throws Exception {
+        ShellCommandBuilder.execShellCommand(getInstrumentation().getUiAutomation(),
+                GRANT_BIND_APP_WIDGET_PERMISSION_COMMAND);
+    }
+
+    private void revokeBindAppWidgetPermission() throws Exception {
+        ShellCommandBuilder.execShellCommand(getInstrumentation().getUiAutomation(),
+                REVOKE_BIND_APP_WIDGET_PERMISSION_COMMAND);
+    }
+
+    private AppWidgetManager getAppWidgetManager() {
+        return (AppWidgetManager) getInstrumentation().getTargetContext()
+                .getSystemService(Context.APPWIDGET_SERVICE);
+    }
+
+    private boolean hasAppWidgets() {
+        return getInstrumentation().getTargetContext().getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_APP_WIDGETS);
+    }
+
     /**
      * Compares all properties of the <code>first</code> and the
      * <code>second</code>.
@@ -489,5 +804,16 @@ public class AccessibilityEndToEndTest extends
             }
         }
         return true;
+    }
+
+    private boolean hasTooltipShowing(int id) {
+        return getOnMain(getInstrumentation(), () -> {
+            final View viewWithTooltip = getActivity().findViewById(id);
+            if (viewWithTooltip == null) {
+                return false;
+            }
+            final View tooltipView = viewWithTooltip.getTooltipView();
+            return (tooltipView != null) && (tooltipView.getParent() != null);
+        });
     }
 }

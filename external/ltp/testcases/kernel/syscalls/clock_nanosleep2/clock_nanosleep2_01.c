@@ -26,7 +26,7 @@
 #include <sys/syscall.h>
 
 #include "tst_test.h"
-#include "linux_syscall_numbers.h"
+#include "lapi/syscalls.h"
 
 #define NSEC_IN_SEC 1000000000
 
@@ -57,6 +57,5 @@ static void verify_clock_nanosleep2(void)
 }
 
 static struct tst_test test = {
-	.tid = "clock_nanosleep2_01",
 	.test_all = verify_clock_nanosleep2,
 };

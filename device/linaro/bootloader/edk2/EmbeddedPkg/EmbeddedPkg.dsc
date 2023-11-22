@@ -4,6 +4,7 @@
 #
 # Copyright (c) 2007 - 2015, Intel Corporation. All rights reserved.<BR>
 # Copyright (c) 2012-2015, ARM Ltd. All rights reserved.<BR>
+# Copyright (c) 2016, Linaro Ltd. All rights reserved.<BR>
 #
 #    This program and the accompanying materials
 #    are licensed and made available under the terms and conditions of the BSD License
@@ -59,7 +60,7 @@
   UefiDecompressLib|MdePkg/Library/BaseUefiDecompressLib/BaseUefiDecompressLib.inf
   EfiFileLib|EmbeddedPkg/Library/EfiFileLib/EfiFileLib.inf
 
-  ReportStatusCodeLib|IntelFrameworkModulePkg/Library/PeiDxeDebugLibReportStatusCode/PeiDxeDebugLibReportStatusCode.inf
+  ReportStatusCodeLib|MdeModulePkg/Library/PeiDxeDebugLibReportStatusCode/PeiDxeDebugLibReportStatusCode.inf
 
   PeCoffGetEntryPointLib|MdePkg/Library/BasePeCoffGetEntryPointLib/BasePeCoffGetEntryPointLib.inf
   PeCoffLib|MdePkg/Library/BasePeCoffLib/BasePeCoffLib.inf
@@ -134,12 +135,7 @@
   # Add support for GCC stack protector
   NULL|MdePkg/Library/BaseStackCheckLib/BaseStackCheckLib.inf
 
-[LibraryClasses.ARM]
-  ArmLib|ArmPkg/Library/ArmLib/ArmV7/ArmV7Lib.inf
-
-[LibraryClasses.AARCH64]
-  ArmLib|ArmPkg/Library/ArmLib/AArch64/AArch64Lib.inf
-
+  ArmLib|ArmPkg/Library/ArmLib/ArmBaseLib.inf
 
 ################################################################################
 #
@@ -189,7 +185,6 @@
   gEmbeddedTokenSpaceGuid.PcdEmbeddedDefaultTextColor|0x07
   gEmbeddedTokenSpaceGuid.PcdEmbeddedMemVariableStoreSize|0x10000
 
-  gEmbeddedTokenSpaceGuid.PcdPrePiHobBase|0
   gEmbeddedTokenSpaceGuid.PcdPrePiStackBase|0
   gEmbeddedTokenSpaceGuid.PcdPrePiStackSize|0
 
@@ -233,7 +228,7 @@
 
 [BuildOptions]
   RVCT:*_*_ARM_PLATFORM_FLAGS == --cpu=7-A.security
-
+  *_*_*_CC_FLAGS  = -DDISABLE_NEW_DEPRECATED_INTERFACES
 
 ################################################################################
 #
@@ -285,6 +280,15 @@
   EmbeddedPkg/Drivers/Isp1761UsbDxe/Isp1761UsbDxe.inf
   EmbeddedPkg/Drivers/Lan9118Dxe/Lan9118Dxe.inf
   EmbeddedPkg/Drivers/SataSiI3132Dxe/SataSiI3132Dxe.inf
+
+  EmbeddedPkg/Library/AcpiLib/AcpiLib.inf
+  EmbeddedPkg/Library/DebugAgentTimerLibNull/DebugAgentTimerLibNull.inf
+  EmbeddedPkg/Library/DxeHobPeCoffLib/DxeHobPeCoffLib.inf
+  EmbeddedPkg/Library/EblNetworkLib/EblNetworkLib.inf
+  EmbeddedPkg/Library/FdtLib/FdtLib.inf
+  EmbeddedPkg/Library/GdbDebugAgent/GdbDebugAgent.inf
+  EmbeddedPkg/Library/PrePiHobLib/PrePiHobLib.inf
+  EmbeddedPkg/Library/PrePiMemoryAllocationLib/PrePiMemoryAllocationLib.inf
 
 [Components.IA32, Components.X64, Components.IPF, Components.ARM]
   EmbeddedPkg/GdbStub/GdbStub.inf

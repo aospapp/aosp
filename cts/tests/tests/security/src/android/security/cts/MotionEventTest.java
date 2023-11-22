@@ -21,6 +21,8 @@ import static org.junit.Assert.assertEquals;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
+import android.content.Context;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Point;
 import android.os.ParcelFileDescriptor;
@@ -129,9 +131,15 @@ public class MotionEventTest {
         injectTap(viewLocation.x, viewLocation.y);
 
         List<MotionEvent> outsideEvents = listener.getOutsideEvents();
-        assertEquals(2, outsideEvents.size());
-        for (MotionEvent e : outsideEvents) {
-            assertEquals(0, e.getFlags() & MotionEvent.FLAG_WINDOW_IS_OBSCURED);
+
+        if (isRunningInVR()) {
+            // In VR mode we should be prevented from seeing any events.
+            assertEquals(0, outsideEvents.size());
+        } else {
+            assertEquals(2, outsideEvents.size());
+            for (MotionEvent e : outsideEvents) {
+                assertEquals(0, e.getFlags() & MotionEvent.FLAG_WINDOW_IS_OBSCURED);
+            }
         }
     }
 
@@ -196,5 +204,11 @@ public class MotionEventTest {
         public List<MotionEvent> getOutsideEvents() {
             return mOutsideEvents;
         }
+    }
+
+    private boolean isRunningInVR() {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        return (context.getResources().getConfiguration().uiMode &
+                Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_VR_HEADSET;
     }
 }

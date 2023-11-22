@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN at mga app"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Tandaan: Maaaring suriin ng nagbigay ng certificate na ito ang lahat ng trapiko papunta at mula sa device."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Profile ng Wi-Fi"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"Mga detalye para sa %s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Mga Detalye"</string>

@@ -28,8 +28,7 @@ adb root || die
 adb wait-for-device || die
 adb remount || die
 adb shell stop || die
-adb disable-verity
-adb sync || die
+adb sync system || die
 adb shell start || die
 
 sleep 2

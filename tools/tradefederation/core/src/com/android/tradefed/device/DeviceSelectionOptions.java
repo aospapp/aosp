@@ -17,6 +17,7 @@ package com.android.tradefed.device;
 
 import com.android.ddmlib.IDevice;
 import com.android.tradefed.config.Option;
+import com.android.tradefed.device.DeviceManager.FastbootDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 
 import java.util.ArrayList;
@@ -82,11 +83,30 @@ public class DeviceSelectionOptions implements IDeviceSelection {
         "amount. Scale: 0-100")
     private Integer mMaxBattery = null;
 
-    @Option(name = "require-battery-check", description = "_If_ --min-battery and/or " +
-            "--max-battery is specified, skip devices that have an unknown battery level.  Note " +
-            "that this may leave restart-looping devices in limbo indefinitely without manual " +
-            "intervention.")
+    @Option(
+        name = "max-battery-temperature",
+        description =
+                "only run this test on a device whose battery temperature is strictly "
+                        + "less than the given amount. Scale: Degrees celsius"
+    )
+    private Integer mMaxBatteryTemperature = null;
+
+    @Option(
+        name = "require-battery-check",
+        description =
+                "_If_ --min-battery and/or "
+                        + "--max-battery is specified, enforce the check. If "
+                        + "require-battery-check=false, then no battery check will occur."
+    )
     private boolean mRequireBatteryCheck = true;
+
+    @Option(
+        name = "require-battery-temp-check",
+        description =
+                "_If_ --max-battery-temperature is specified, enforce the battery checking. If "
+                        + "require-battery-temp-check=false, then no temperature check will occur."
+    )
+    private boolean mRequireBatteryTemperatureCheck = true;
 
     @Option(name = "min-sdk-level", description = "Only run this test on devices that support " +
             "this Android SDK/API level")
@@ -100,10 +120,6 @@ public class DeviceSelectionOptions implements IDeviceSelection {
     private boolean mFetchedEnvVariable = false;
 
     private static final String VARIANT_SEPARATOR = ":";
-
-    public static final String DEVICE_PRODUCT_PROPERTY = "ro.hardware";
-    public static final String DEVICE_VARIANT_PROPERTY = "ro.product.device";
-    public static final String DEVICE_SDK_PROPERTY = "ro.build.version.sdk";
 
     /**
      * Add a serial number to the device selection options.
@@ -148,15 +164,13 @@ public class DeviceSelectionOptions implements IDeviceSelection {
         mPropertyMap.put(propertyKey, propValue);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public Collection<String> getSerials() {
+    public Collection<String> getSerials(IDevice device) {
         // If no serial was explicitly set, use the environment variable ANDROID_SERIAL.
         if (mSerials.isEmpty() && !mFetchedEnvVariable) {
             String env_serial = fetchEnvironmentVariable("ANDROID_SERIAL");
-            if (env_serial != null) {
+            if (env_serial != null && !(device instanceof StubDevice)) {
                 mSerials.add(env_serial);
             }
             mFetchedEnvVariable = true;
@@ -279,6 +293,16 @@ public class DeviceSelectionOptions implements IDeviceSelection {
         return mMaxBattery;
     }
 
+    /** Sets the maximum battery level */
+    public void setMaxBatteryTemperature(Integer maxBatteryTemperature) {
+        mMaxBatteryTemperature = maxBatteryTemperature;
+    }
+
+    /** Gets the requested maximum battery level */
+    public Integer getMaxBatteryTemperature() {
+        return mMaxBatteryTemperature;
+    }
+
     /**
      * Sets whether battery check is required for devices with unknown battery level
      */
@@ -291,6 +315,16 @@ public class DeviceSelectionOptions implements IDeviceSelection {
      */
     public boolean getRequireBatteryCheck() {
         return mRequireBatteryCheck;
+    }
+
+    /** Sets whether battery temp check is required for devices with unknown battery temperature */
+    public void setRequireBatteryTemperatureCheck(boolean requireCheckTemprature) {
+        mRequireBatteryTemperatureCheck = requireCheckTemprature;
+    }
+
+    /** Gets whether battery temp check is required for devices with unknown battery temperature */
+    public boolean getRequireBatteryTemperatureCheck() {
+        return mRequireBatteryTemperatureCheck;
     }
 
     /**
@@ -324,7 +358,7 @@ public class DeviceSelectionOptions implements IDeviceSelection {
      */
     @Override
     public boolean matches(IDevice device) {
-        Collection<String> serials = getSerials();
+        Collection<String> serials = getSerials(device);
         Collection<String> excludeSerials = getExcludeSerials();
         Map<String, Collection<String>> productVariants = splitOnVariant(getProductTypes());
         Collection<String> productTypes = productVariants.keySet();
@@ -374,37 +408,74 @@ public class DeviceSelectionOptions implements IDeviceSelection {
             return false;
         }
         if ((mMinSdk != null) || (mMaxSdk != null)) {
-          int deviceSdkLevel = getDeviceSdkLevel(device);
-          if (deviceSdkLevel < 0) {
-              return false;
-          }
-          if (mMinSdk != null && deviceSdkLevel < mMinSdk) {
-              return false;
-          }
-          if (mMaxSdk != null && mMaxSdk < deviceSdkLevel) {
-              return false;
-          }
+            int deviceSdkLevel = getDeviceSdkLevel(device);
+            if (deviceSdkLevel < 0) {
+                return false;
+            }
+            if (mMinSdk != null && deviceSdkLevel < mMinSdk) {
+                return false;
+            }
+            if (mMaxSdk != null && mMaxSdk < deviceSdkLevel) {
+                return false;
+            }
         }
-        if ((mMinBattery != null) || (mMaxBattery != null)) {
-            Integer deviceBattery = getBatteryLevel(device);
-            if (mRequireBatteryCheck && (deviceBattery == null)) {
-                // Couldn't determine battery level when that check is required; reject device
-                return false;
+        // If battery check is required and we have a min/max battery requested
+        if (mRequireBatteryCheck) {
+            if (((mMinBattery != null) || (mMaxBattery != null))
+                    && (!(device instanceof StubDevice) || (device instanceof FastbootDevice))) {
+                // Only check battery on physical device. (FastbootDevice placeholder is always for
+                // a physical device
+                if (device instanceof FastbootDevice) {
+                    // Ready battery of fastboot device does not work and could lead to weird log.
+                    return false;
+                }
+                Integer deviceBattery = getBatteryLevel(device);
+                if (deviceBattery == null) {
+                    // Couldn't determine battery level when that check is required; reject device
+                    return false;
+                }
+                if (isLessAndNotNull(deviceBattery, mMinBattery)) {
+                    // deviceBattery < mMinBattery
+                    return false;
+                }
+                if (isLessEqAndNotNull(mMaxBattery, deviceBattery)) {
+                    // mMaxBattery <= deviceBattery
+                    return false;
+                }
             }
-            if (isLessAndNotNull(deviceBattery, mMinBattery)) {
-                // deviceBattery < mMinBattery
-                return false;
-            }
-            if (isLessEqAndNotNull(mMaxBattery, deviceBattery)) {
-                // mMaxBattery <= deviceBattery
-                return false;
+        }
+        // If temperature check is required and we have a max temperature requested.
+        if (mRequireBatteryTemperatureCheck) {
+            if (mMaxBatteryTemperature != null
+                    && (!(device instanceof StubDevice) || (device instanceof FastbootDevice))) {
+                // Only check battery temp on physical device. (FastbootDevice placeholder is
+                // always for a physical device
+
+                if (device instanceof FastbootDevice) {
+                    // Cannot get battery temperature
+                    return false;
+                }
+
+                // Extract the temperature from the file
+                IBatteryTemperature temp = new BatteryTemperature();
+                Integer deviceBatteryTemp = temp.getBatteryTemperature(device);
+
+                if (deviceBatteryTemp <= 0) {
+                    // Couldn't determine battery temp when that check is required; reject device
+                    return false;
+                }
+
+                if (isLessEqAndNotNull(mMaxBatteryTemperature, deviceBatteryTemp)) {
+                    // mMaxBatteryTemperature <= deviceBatteryTemp
+                    return false;
+                }
             }
         }
 
         return extraMatching(device);
     }
 
-    /** Extra validation step that maybe overriden if it does not make sense. */
+    /** Extra validation step that maybe overridden if it does not make sense. */
     protected boolean extraMatching(IDevice device) {
         // Any device that extends TcpDevice and is not a TcpDevice will be rejected.
         if (device instanceof TcpDevice && !device.getClass().isAssignableFrom(TcpDevice.class)) {
@@ -459,7 +530,11 @@ public class DeviceSelectionOptions implements IDeviceSelection {
 
     @Override
     public String getDeviceProductType(IDevice device) {
-        return getProperty(device, DEVICE_PRODUCT_PROPERTY);
+        String prop = getProperty(device, DeviceProperties.BOARD);
+        if (prop != null) {
+            prop = prop.toLowerCase();
+        }
+        return prop;
     }
 
     private String getProperty(IDevice device, String propName) {
@@ -468,7 +543,14 @@ public class DeviceSelectionOptions implements IDeviceSelection {
 
     @Override
     public String getDeviceProductVariant(IDevice device) {
-        return getProperty(device, DEVICE_VARIANT_PROPERTY);
+        String prop = getProperty(device, DeviceProperties.VARIANT);
+        if (prop == null) {
+            prop = getProperty(device, DeviceProperties.VARIANT_LEGACY);
+        }
+        if (prop != null) {
+            prop = prop.toLowerCase();
+        }
+        return prop;
     }
 
     @Override
@@ -493,7 +575,7 @@ public class DeviceSelectionOptions implements IDeviceSelection {
      */
     private int getDeviceSdkLevel(IDevice device) {
         int apiLevel = -1;
-        String prop = getProperty(device, DEVICE_SDK_PROPERTY);
+        String prop = getProperty(device, DeviceProperties.SDK_VERSION);
         try {
             apiLevel = Integer.parseInt(prop);
         } catch (NumberFormatException nfe) {

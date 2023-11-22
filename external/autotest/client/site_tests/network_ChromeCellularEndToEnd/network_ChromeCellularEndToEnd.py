@@ -6,12 +6,12 @@ import logging, json
 
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import sys_power
 from autotest_lib.client.cros.networking.chrome_testing \
         import chrome_networking_test_context as cntc
 from autotest_lib.client.cros.networking.chrome_testing \
         import chrome_networking_test_api as cnta
 from autotest_lib.client.cros.networking.chrome_testing import test_utils
+from autotest_lib.client.cros.power import sys_power
 from collections import namedtuple
 
 NetworkInfo = namedtuple('NetworkInfo', ['name', 'guid', 'connectionState',

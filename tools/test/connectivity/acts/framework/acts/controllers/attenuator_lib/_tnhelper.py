@@ -20,7 +20,7 @@ Helper module for common telnet capability to communicate with AttenuatorInstrum
 User code shouldn't need to directly access this class.
 """
 
-
+import logging
 import telnetlib
 from acts.controllers import attenuator
 
@@ -44,7 +44,7 @@ class _TNHelper(object):
     def open(self, host, port=23):
         if self._tn:
             self._tn.close()
-
+        logging.debug("Attenuator IP = %s" % host)
         self._tn = telnetlib.Telnet()
         self._tn.open(host, port, 10)
 

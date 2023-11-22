@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 2014 Samsung System LSI
+ * Copyright 2014 Samsung System LSI
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -356,7 +356,7 @@ void on_remove_record_event(int handle) {
   if (handle != -1 && handle != 0) {
     bool result;
     result = SDP_DeleteRecord(handle);
-    if (result == false) {
+    if (!result) {
       BTIF_TRACE_ERROR("  Unable to remove handle 0x%08x", handle);
     }
   }

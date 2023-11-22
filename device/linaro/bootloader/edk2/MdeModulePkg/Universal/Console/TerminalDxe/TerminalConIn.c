@@ -2,7 +2,8 @@
   Implementation for EFI_SIMPLE_TEXT_INPUT_PROTOCOL protocol.
 
 (C) Copyright 2014 Hewlett-Packard Development Company, L.P.<BR>
-Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
+Copyright (C) 2016 Silicon Graphics, Inc. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -93,6 +94,7 @@ TerminalConInReset (
   TerminalDevice->RawFiFo->Head     = TerminalDevice->RawFiFo->Tail;
   TerminalDevice->UnicodeFiFo->Head = TerminalDevice->UnicodeFiFo->Tail;
   TerminalDevice->EfiKeyFiFo->Head  = TerminalDevice->EfiKeyFiFo->Tail;
+  TerminalDevice->EfiKeyFiFoForNotify->Head = TerminalDevice->EfiKeyFiFoForNotify->Tail;
 
   if (EFI_ERROR (Status)) {
     REPORT_STATUS_CODE_WITH_DEVICE_PATH (
@@ -547,7 +549,7 @@ TerminalConInTimerHandler (
     Status = SerialIo->SetAttributes (
                         SerialIo,
                         Mode->BaudRate,
-                        0, // the device's default FIFO depth
+                        Mode->ReceiveFifoDepth,
                         (UINT32) SerialInTimeOut,
                         (EFI_PARITY_TYPE) (Mode->Parity),
                         (UINT8) Mode->DataBits,
@@ -595,6 +597,59 @@ TerminalConInTimerHandler (
   // according to different terminal type supported.
   //
   TranslateRawDataToEfiKey (TerminalDevice);
+}
+
+/**
+  Process key notify.
+
+  @param  Event                 Indicates the event that invoke this function.
+  @param  Context               Indicates the calling context.
+**/
+VOID
+EFIAPI
+KeyNotifyProcessHandler (
+  IN  EFI_EVENT                 Event,
+  IN  VOID                      *Context
+  )
+{
+  BOOLEAN                       HasKey;
+  TERMINAL_DEV                  *TerminalDevice;
+  EFI_INPUT_KEY                 Key;
+  EFI_KEY_DATA                  KeyData;
+  LIST_ENTRY                    *Link;
+  LIST_ENTRY                    *NotifyList;
+  TERMINAL_CONSOLE_IN_EX_NOTIFY *CurrentNotify;
+  EFI_TPL                       OldTpl;
+
+  TerminalDevice = (TERMINAL_DEV *) Context;
+
+  //
+  // Invoke notification functions.
+  //
+  NotifyList = &TerminalDevice->NotifyList;
+  while (TRUE) {
+    //
+    // Enter critical section
+    //  
+    OldTpl = gBS->RaiseTPL (TPL_NOTIFY);
+    HasKey = EfiKeyFiFoForNotifyRemoveOneKey (TerminalDevice->EfiKeyFiFoForNotify, &Key);
+    CopyMem (&KeyData.Key, &Key, sizeof (EFI_INPUT_KEY));
+    KeyData.KeyState.KeyShiftState  = 0;
+    KeyData.KeyState.KeyToggleState = 0;
+    //
+    // Leave critical section
+    //
+    gBS->RestoreTPL (OldTpl);
+    if (!HasKey) {
+      break;
+    }
+    for (Link = GetFirstNode (NotifyList); !IsNull (NotifyList, Link); Link = GetNextNode (NotifyList, Link)) {
+      CurrentNotify = CR (Link, TERMINAL_CONSOLE_IN_EX_NOTIFY, NotifyEntry, TERMINAL_CONSOLE_IN_EX_NOTIFY_SIGNATURE);
+      if (IsKeyRegistered (&CurrentNotify->KeyData, &KeyData)) {
+        CurrentNotify->KeyNotificationFn (&KeyData);
+      }
+    }
+  }
 }
 
 /**
@@ -765,6 +820,126 @@ IsRawFiFoFull (
 /**
   Insert one pre-fetched key into the FIFO buffer.
 
+  @param  EfiKeyFiFo            Pointer to instance of EFI_KEY_FIFO.
+  @param  Input                 The key will be input.
+
+  @retval TRUE                  If insert successfully.
+  @retval FALSE                 If FIFO buffer is full before key insertion,
+                                and the key is lost.
+
+**/
+BOOLEAN
+EfiKeyFiFoForNotifyInsertOneKey (
+  EFI_KEY_FIFO                  *EfiKeyFiFo,
+  EFI_INPUT_KEY                 *Input
+  )
+{
+  UINT8                         Tail;
+
+  Tail = EfiKeyFiFo->Tail;
+
+  if (IsEfiKeyFiFoForNotifyFull (EfiKeyFiFo)) {
+    //
+    // FIFO is full
+    //
+    return FALSE;
+  }
+
+  CopyMem (&EfiKeyFiFo->Data[Tail], Input, sizeof (EFI_INPUT_KEY));
+
+  EfiKeyFiFo->Tail = (UINT8) ((Tail + 1) % (FIFO_MAX_NUMBER + 1));
+
+  return TRUE;
+}
+
+/**
+  Remove one pre-fetched key out of the FIFO buffer.
+
+  @param  EfiKeyFiFo            Pointer to instance of EFI_KEY_FIFO.
+  @param  Output                The key will be removed.
+
+  @retval TRUE                  If remove successfully.
+  @retval FALSE                 If FIFO buffer is empty before remove operation.
+
+**/
+BOOLEAN
+EfiKeyFiFoForNotifyRemoveOneKey (
+  EFI_KEY_FIFO                  *EfiKeyFiFo,
+  EFI_INPUT_KEY                 *Output
+  )
+{
+  UINT8                         Head;
+
+  Head = EfiKeyFiFo->Head;
+  ASSERT (Head < FIFO_MAX_NUMBER + 1);
+
+  if (IsEfiKeyFiFoForNotifyEmpty (EfiKeyFiFo)) {
+    //
+    // FIFO is empty
+    //
+    Output->ScanCode    = SCAN_NULL;
+    Output->UnicodeChar = 0;
+    return FALSE;
+  }
+
+  CopyMem (Output, &EfiKeyFiFo->Data[Head], sizeof (EFI_INPUT_KEY));
+
+  EfiKeyFiFo->Head = (UINT8) ((Head + 1) % (FIFO_MAX_NUMBER + 1));
+
+  return TRUE;
+}
+
+/**
+  Clarify whether FIFO buffer is empty.
+
+  @param  EfiKeyFiFo            Pointer to instance of EFI_KEY_FIFO.
+
+  @retval TRUE                  If FIFO buffer is empty.
+  @retval FALSE                 If FIFO buffer is not empty.
+
+**/
+BOOLEAN
+IsEfiKeyFiFoForNotifyEmpty (
+  EFI_KEY_FIFO                  *EfiKeyFiFo
+  )
+{
+  if (EfiKeyFiFo->Head == EfiKeyFiFo->Tail) {
+    return TRUE;
+  } else {
+    return FALSE;
+  }
+}
+
+/**
+  Clarify whether FIFO buffer is full.
+
+  @param  EfiKeyFiFo            Pointer to instance of EFI_KEY_FIFO.
+
+  @retval TRUE                  If FIFO buffer is full.
+  @retval FALSE                 If FIFO buffer is not full.
+
+**/
+BOOLEAN
+IsEfiKeyFiFoForNotifyFull (
+  EFI_KEY_FIFO                  *EfiKeyFiFo
+  )
+{
+  UINT8                         Tail;
+  UINT8                         Head;
+
+  Tail = EfiKeyFiFo->Tail;
+  Head = EfiKeyFiFo->Head;
+
+  if (((Tail + 1) % (FIFO_MAX_NUMBER + 1)) == Head) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+/**
+  Insert one pre-fetched key into the FIFO buffer.
+
   @param  TerminalDevice       Terminal driver private structure.
   @param  Key                  The key will be input.
 
@@ -792,7 +967,7 @@ EfiKeyFiFoInsertOneKey (
   KeyData.KeyState.KeyToggleState = 0;
 
   //
-  // Invoke notification functions if exist
+  // Signal KeyNotify process event if this key pressed matches any key registered.
   //
   NotifyList = &TerminalDevice->NotifyList;
   for (Link = GetFirstNode (NotifyList); !IsNull (NotifyList,Link); Link = GetNextNode (NotifyList,Link)) {
@@ -803,7 +978,13 @@ EfiKeyFiFoInsertOneKey (
                       TERMINAL_CONSOLE_IN_EX_NOTIFY_SIGNATURE
                       );
     if (IsKeyRegistered (&CurrentNotify->KeyData, &KeyData)) {
-      CurrentNotify->KeyNotificationFn (&KeyData);
+      //
+      // The key notification function needs to run at TPL_CALLBACK
+      // while current TPL is TPL_NOTIFY. It will be invoked in
+      // KeyNotifyProcessHandler() which runs at TPL_CALLBACK.
+      //
+      EfiKeyFiFoForNotifyInsertOneKey (TerminalDevice->EfiKeyFiFoForNotify, Key);
+      gBS->SignalEvent (TerminalDevice->KeyNotifyProcessEvent);
     }
   }
   if (IsEfiKeyFiFoFull (TerminalDevice)) {
@@ -1374,7 +1555,7 @@ UnicodeToEfiKey (
           break;
         }
       } else if (TerminalDevice->TerminalType == TTYTERMTYPE) {
-        /* Also accept VT100 escape codes for F1-F4 for TTY term */
+        /* Also accept VT100 escape codes for F1-F4, HOME and END for TTY term */
         switch (UnicodeChar) {
         case 'P':
           Key.ScanCode = SCAN_F1;
@@ -1387,6 +1568,12 @@ UnicodeToEfiKey (
           break;
         case 'S':
           Key.ScanCode = SCAN_F4;
+          break;
+        case 'H':
+          Key.ScanCode = SCAN_HOME;
+          break;
+        case 'F':
+          Key.ScanCode = SCAN_END;
           break;
         }
       }
@@ -1429,12 +1616,14 @@ UnicodeToEfiKey (
           break;
         case 'H':
           if (TerminalDevice->TerminalType == PCANSITYPE ||
-              TerminalDevice->TerminalType == VT100TYPE) {
+              TerminalDevice->TerminalType == VT100TYPE  ||
+              TerminalDevice->TerminalType == TTYTERMTYPE) {
             Key.ScanCode = SCAN_HOME;
           }
           break;
         case 'F':
-          if (TerminalDevice->TerminalType == PCANSITYPE) {
+          if (TerminalDevice->TerminalType == PCANSITYPE ||
+              TerminalDevice->TerminalType == TTYTERMTYPE) {
             Key.ScanCode = SCAN_END;
           }
           break;
@@ -1573,8 +1762,17 @@ UnicodeToEfiKey (
           TerminalDevice->TtyEscapeStr[TerminalDevice->TtyEscapeIndex] = 0; /* Terminate string */
           EscCode = (UINT16) StrDecimalToUintn(TerminalDevice->TtyEscapeStr);
           switch (EscCode) {
+          case 2:
+              Key.ScanCode = SCAN_INSERT;
+              break;
           case 3:
               Key.ScanCode = SCAN_DELETE;
+              break;
+          case 5:
+              Key.ScanCode = SCAN_PAGE_UP;
+              break;
+          case 6:
+              Key.ScanCode = SCAN_PAGE_DOWN;
               break;
           case 11:
           case 12:

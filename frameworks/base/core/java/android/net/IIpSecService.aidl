@@ -16,11 +16,13 @@
 
 package android.net;
 
+import android.net.LinkAddress;
 import android.net.Network;
 import android.net.IpSecConfig;
 import android.net.IpSecUdpEncapResponse;
 import android.net.IpSecSpiResponse;
 import android.net.IpSecTransformResponse;
+import android.net.IpSecTunnelInterfaceResponse;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
@@ -30,8 +32,8 @@ import android.os.ParcelFileDescriptor;
  */
 interface IIpSecService
 {
-    IpSecSpiResponse reserveSecurityParameterIndex(
-            int direction, in String remoteAddress, int requestedSpi, in IBinder binder);
+    IpSecSpiResponse allocateSecurityParameterIndex(
+            in String destinationAddress, int requestedSpi, in IBinder binder);
 
     void releaseSecurityParameterIndex(int resourceId);
 
@@ -39,11 +41,35 @@ interface IIpSecService
 
     void closeUdpEncapsulationSocket(int resourceId);
 
-    IpSecTransformResponse createTransportModeTransform(in IpSecConfig c, in IBinder binder);
+    IpSecTunnelInterfaceResponse createTunnelInterface(
+            in String localAddr,
+            in String remoteAddr,
+            in Network underlyingNetwork,
+            in IBinder binder,
+            in String callingPackage);
 
-    void deleteTransportModeTransform(int transformId);
+    void addAddressToTunnelInterface(
+            int tunnelResourceId,
+            in LinkAddress localAddr,
+            in String callingPackage);
 
-    void applyTransportModeTransform(in ParcelFileDescriptor socket, int transformId);
+    void removeAddressFromTunnelInterface(
+            int tunnelResourceId,
+            in LinkAddress localAddr,
+            in String callingPackage);
 
-    void removeTransportModeTransform(in ParcelFileDescriptor socket, int transformId);
+    void deleteTunnelInterface(int resourceId, in String callingPackage);
+
+    IpSecTransformResponse createTransform(
+            in IpSecConfig c, in IBinder binder, in String callingPackage);
+
+    void deleteTransform(int transformId);
+
+    void applyTransportModeTransform(
+            in ParcelFileDescriptor socket, int direction, int transformId);
+
+    void applyTunnelModeTransform(
+            int tunnelResourceId, int direction, int transformResourceId, in String callingPackage);
+
+    void removeTransportModeTransforms(in ParcelFileDescriptor socket);
 }

@@ -10,7 +10,8 @@
 // UNSUPPORTED: c++98, c++03, c++11, c++14
 // UNSUPPORTED: sanitizer-new-delete
 
-// XFAIL: no-aligned-allocation
+// NOTE: GCC doesn't provide a -faligned-allocation flag
+// XFAIL: no-aligned-allocation && !gcc
 
 // test operator new replacement
 
@@ -23,7 +24,7 @@
 
 #include "test_macros.h"
 
-constexpr auto OverAligned = alignof(std::max_align_t) * 2;
+constexpr auto OverAligned = __STDCPP_DEFAULT_NEW_ALIGNMENT__ * 2;
 
 bool A_constructed = false;
 

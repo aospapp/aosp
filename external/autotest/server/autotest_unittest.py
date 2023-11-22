@@ -12,7 +12,7 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.test_utils import mock
 
 
-class TestBaseAutotest(unittest.TestCase):
+class TestAutotest(unittest.TestCase):
     def setUp(self):
         # create god
         self.god = mock.mock_god()
@@ -69,9 +69,9 @@ class TestBaseAutotest(unittest.TestCase):
         utils.get_server_dir.expect_call().and_return(self.serverdir)
 
         # create the autotest object
-        self.base_autotest = autotest.BaseAutotest(self.host)
-        self.base_autotest.job = self.host.job
-        self.god.stub_function(self.base_autotest, "_install_using_send_file")
+        self.autotest = autotest.Autotest(self.host)
+        self.autotest.job = self.host.job
+        self.god.stub_function(self.autotest, "_install_using_send_file")
 
         # stub out abspath
         self.god.stub_function(os.path, "abspath")
@@ -85,15 +85,11 @@ class TestBaseAutotest(unittest.TestCase):
 
         # setup
         self.god.stub_class(packages, "PackageManager")
-        self.base_autotest.got = False
+        self.autotest.got = False
         location = os.path.join(self.serverdir, '../client')
         location = os.path.abspath.expect_call(location).and_return(location)
 
         # record
-        os.getcwd.expect_call().and_return('cwd')
-        os.chdir.expect_call(os.path.join(self.serverdir, '../client'))
-        utils.system.expect_call('tools/make_clean', ignore_status=True)
-        os.chdir.expect_call('cwd')
         utils.get.expect_call(os.path.join(self.serverdir,
             '../client')).and_return('source_material')
 
@@ -123,9 +119,11 @@ class TestBaseAutotest(unittest.TestCase):
                                        type=bool).and_return(False)
         self.host.send_file.expect_call('source_material', 'autodir',
                                         delete_dest=True)
+        self.god.stub_function(autotest.Autotest, "_send_shadow_config")
+        autotest.Autotest._send_shadow_config.expect_call()
 
         # run and check
-        self.base_autotest.install_full_client()
+        self.autotest.install_full_client()
         self.god.check_playback()
 
 
@@ -136,13 +134,16 @@ class TestBaseAutotest(unittest.TestCase):
         c.get_config_value.expect_call('PACKAGES',
             'fetch_location', type=list, default=[]).and_return([])
 
+        os.path.exists.expect_call('/etc/cros_chroot_version').and_return(True)
         c.get_config_value.expect_call('PACKAGES',
                                        'serve_packages_from_autoserv',
                                        type=bool).and_return(True)
-        self.base_autotest._install_using_send_file.expect_call(self.host,
-                                                                'autodir')
+        self.autotest._install_using_send_file.expect_call(self.host,
+                                                           'autodir')
+        self.god.stub_function(autotest.Autotest, "_send_shadow_config")
+        autotest.Autotest._send_shadow_config.expect_call()
         # run and check
-        self.base_autotest.install()
+        self.autotest.install()
         self.god.check_playback()
 
 
@@ -152,18 +153,20 @@ class TestBaseAutotest(unittest.TestCase):
         c = autotest.global_config.global_config
         c.get_config_value.expect_call('PACKAGES',
             'fetch_location', type=list, default=[]).and_return(['repo'])
+        os.path.exists.expect_call('/etc/cros_chroot_version').and_return(True)
         pkgmgr = packages.PackageManager.expect_new('autodir',
             repo_urls=['repo'], hostname='hostname', do_locking=False,
             run_function=self.host.run, run_function_dargs=dict(timeout=600))
         pkg_dir = os.path.join('autodir', 'packages')
-        cmd = ('cd autodir && ls | grep -v "^packages$"'
-               ' | xargs rm -rf && rm -rf .[!.]*')
+        cmd = ('cd autodir && ls | grep -v "^packages$" | '
+               'grep -v "^result_tools$" | '
+               'xargs rm -rf && rm -rf .[!.]*')
         self.host.run.expect_call(cmd)
         pkgmgr.install_pkg.expect_call('autotest', 'client', pkg_dir,
                                        'autodir', preserve_install_dir=True)
 
         # run and check
-        self.base_autotest.install()
+        self.autotest.install()
         self.god.check_playback()
 
 
@@ -174,13 +177,13 @@ class TestBaseAutotest(unittest.TestCase):
         control = "control"
 
         # stub out install
-        self.god.stub_function(self.base_autotest, "install")
+        self.god.stub_function(self.autotest, "install")
 
         # record
-        self.base_autotest.install.expect_call(self.host, use_packaging=True)
+        self.autotest.install.expect_call(self.host, use_packaging=True)
         self.host.wait_up.expect_call(timeout=30)
         os.path.abspath.expect_call('.').and_return('.')
-        run_obj = autotest._Run.expect_new(self.host, '.', None, False)
+        run_obj = autotest._Run.expect_new(self.host, '.', None, False, False)
         tag = None
         run_obj.manual_control_file = os.path.join('autodir',
                                                    'control.%s' % tag)
@@ -189,6 +192,7 @@ class TestBaseAutotest(unittest.TestCase):
         run_obj.tag = tag
         run_obj.autodir = 'autodir'
         run_obj.verify_machine.expect_call()
+        run_obj.background = False
         debug = os.path.join('.', 'debug')
         os.makedirs.expect_call(debug)
         delete_file_list = [run_obj.remote_control_file,
@@ -209,6 +213,7 @@ class TestBaseAutotest(unittest.TestCase):
         cfile_new = "args = []\njob.add_repository(['repo'])\n"
         cfile_new += cfile_orig
 
+        os.path.exists.expect_call('/etc/cros_chroot_version').and_return(True)
         autotest.open.expect_call("temp").and_return(cfile)
         cfile.read.expect_call().and_return(cfile_orig)
         autotest.open.expect_call("temp", 'w').and_return(cfile)
@@ -229,7 +234,7 @@ class TestBaseAutotest(unittest.TestCase):
                                             client_disconnect_timeout=240)
 
         # run and check output
-        self.base_autotest.run(control, timeout=30)
+        self.autotest.run(control, timeout=30)
         self.god.check_playback()
 
 

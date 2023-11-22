@@ -24,7 +24,10 @@ import java.util.List;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
+import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.text.CurrencyPluralInfo;
 import com.ibm.icu.text.DecimalFormat;
 import com.ibm.icu.text.DecimalFormatSymbols;
@@ -34,7 +37,8 @@ import com.ibm.icu.util.ULocale;
 // This is an API test, not a unit test.  It doesn't test very many cases, and doesn't
 // try to test the full functionality.  It just calls each function in the class and
 // verifies that it works on a basic level.
-public class IntlTestDecimalFormatAPIC extends com.ibm.icu.dev.test.TestFmwk {
+@RunWith(JUnit4.class)
+public class IntlTestDecimalFormatAPIC extends TestFmwk {
 
     // This test checks various generic API methods in DecimalFormat to achieve 100% API coverage.
     @Test
@@ -146,33 +150,25 @@ public class IntlTestDecimalFormatAPIC extends com.ibm.icu.dev.test.TestFmwk {
         pat.setPositivePrefix("+");
         posPrefix = pat.getPositivePrefix();
         logln("Positive prefix (should be +): " + posPrefix);
-        if (posPrefix != "+") {
-            errln("ERROR: setPositivePrefix() failed");
-        }
+        assertEquals("ERROR: setPositivePrefix() failed", "+", posPrefix);
 
         String negPrefix;
         pat.setNegativePrefix("-");
         negPrefix = pat.getNegativePrefix();
         logln("Negative prefix (should be -): " + negPrefix);
-        if (negPrefix != "-") {
-            errln("ERROR: setNegativePrefix() failed");
-        }
+        assertEquals("ERROR: setNegativePrefix() failed", "-", negPrefix);
 
         String posSuffix;
         pat.setPositiveSuffix("_");
         posSuffix = pat.getPositiveSuffix();
         logln("Positive suffix (should be _): " + posSuffix);
-        if (posSuffix != "_") {
-            errln("ERROR: setPositiveSuffix() failed");
-        }
+        assertEquals("ERROR: setPositiveSuffix() failed", "_", posSuffix);
 
         String negSuffix;
         pat.setNegativeSuffix("~");
         negSuffix = pat.getNegativeSuffix();
         logln("Negative suffix (should be ~): " + negSuffix);
-        if (negSuffix != "~") {
-            errln("ERROR: setNegativeSuffix() failed");
-        }
+        assertEquals("ERROR: setNegativeSuffix() failed", "~", negSuffix);
 
         long multiplier = 0;
         pat.setMultiplier(8);
@@ -228,7 +224,7 @@ public class IntlTestDecimalFormatAPIC extends com.ibm.icu.dev.test.TestFmwk {
         s2 = pat.toPattern();
         logln("Extracted pattern is " + s2);
         if (!s2.equals(p1)) {
-            errln("ERROR: toPattern() result did not match pattern applied");
+            errln("ERROR: toPattern() result did not match pattern applied: " + p1 + " vs " + s2);
         }
 
         String p2 = new String("#,##0.0# FF;(#,##0.0# FF)");
@@ -237,9 +233,7 @@ public class IntlTestDecimalFormatAPIC extends com.ibm.icu.dev.test.TestFmwk {
         String s3;
         s3 = pat.toLocalizedPattern();
         logln("Extracted pattern is " + s3);
-        if (!s3.equals(p2)) {
-            errln("ERROR: toLocalizedPattern() result did not match pattern applied");
-        }
+        assertEquals("ERROR: toLocalizedPattern() result did not match pattern applied", p2, s3);
 
         // ======= Test getStaticClassID()
 
@@ -288,7 +282,7 @@ public class IntlTestDecimalFormatAPIC extends com.ibm.icu.dev.test.TestFmwk {
             }
 
             //for +2.55 with RoundingIncrement=1.0
-            pat.setRoundingIncrement(1.0);
+            pat.setRoundingIncrement(java.math.BigDecimal.ONE);
             resultStr = pat.format(Roundingnumber);
             message = "round(" + Roundingnumber
                     + "," + mode + ",FALSE) with RoundingIncrement=1.0==>";

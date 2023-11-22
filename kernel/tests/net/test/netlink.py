@@ -24,7 +24,13 @@ import struct
 import sys
 
 import cstruct
+import util
 
+### Base netlink constants. See include/uapi/linux/netlink.h.
+NETLINK_ROUTE = 0
+NETLINK_SOCK_DIAG = 4
+NETLINK_XFRM = 6
+NETLINK_GENERIC = 16
 
 # Request constants.
 NLM_F_REQUEST = 1
@@ -47,11 +53,9 @@ NLAttr = cstruct.Struct("NLAttr", "=HH", "nla_len nla_type")
 # Alignment / padding.
 NLA_ALIGNTO = 4
 
-
-def PaddedLength(length):
-  # TODO: This padding is probably overly simplistic.
-  return NLA_ALIGNTO * ((length / NLA_ALIGNTO) + (length % NLA_ALIGNTO != 0))
-
+# List of attributes that can appear more than once in a given netlink message.
+# These can appear more than once but don't seem to contain any data.
+DUP_ATTRS_OK = ["INET_DIAG_NONE", "IFLA_PAD"]
 
 class NetlinkSocket(object):
   """A basic netlink socket object."""
@@ -68,9 +72,16 @@ class NetlinkSocket(object):
   def _NlAttr(self, nla_type, data):
     datalen = len(data)
     # Pad the data if it's not a multiple of NLA_ALIGNTO bytes long.
-    padding = "\x00" * (PaddedLength(datalen) - datalen)
+    padding = "\x00" * util.GetPadLength(NLA_ALIGNTO, datalen)
     nla_len = datalen + len(NLAttr)
     return NLAttr((nla_len, nla_type)).Pack() + data + padding
+
+  def _NlAttrIPAddress(self, nla_type, family, address):
+    return self._NlAttr(nla_type, socket.inet_pton(family, address))
+
+  def _NlAttrStr(self, nla_type, value):
+    value = value + "\x00"
+    return self._NlAttr(nla_type, value.encode("UTF-8"))
 
   def _NlAttrU32(self, nla_type, value):
     return self._NlAttr(nla_type, struct.pack("=I", value))
@@ -90,7 +101,18 @@ class NetlinkSocket(object):
     """No-op, nonspecific version of decode."""
     return nla_type, nla_data
 
-  def _ParseAttributes(self, command, msg, data):
+  def _ReadNlAttr(self, data):
+    # Read the nlattr header.
+    nla, data = cstruct.Read(data, NLAttr)
+
+    # Read the data.
+    datalen = nla.nla_len - len(nla)
+    padded_len = util.GetPadLength(NLA_ALIGNTO, datalen) + datalen
+    nla_data, data = data[:datalen], data[padded_len:]
+
+    return nla, nla_data, data
+
+  def _ParseAttributes(self, command, msg, data, nested=0):
     """Parses and decodes netlink attributes.
 
     Takes a block of NLAttr data structures, decodes them using Decode, and
@@ -100,6 +122,7 @@ class NetlinkSocket(object):
       command: An integer, the rtnetlink command being carried out.
       msg: A Struct, the type of the data after the netlink header.
       data: A byte string containing a sequence of NLAttr data structures.
+      nested: An integer, how deep we're currently nested.
 
     Returns:
       A dictionary mapping attribute types (integers) to decoded values.
@@ -109,32 +132,31 @@ class NetlinkSocket(object):
     """
     attributes = {}
     while data:
-      # Read the nlattr header.
-      nla, data = cstruct.Read(data, NLAttr)
-
-      # Read the data.
-      datalen = nla.nla_len - len(nla)
-      padded_len = PaddedLength(nla.nla_len) - len(nla)
-      nla_data, data = data[:datalen], data[padded_len:]
+      nla, nla_data, data = self._ReadNlAttr(data)
 
       # If it's an attribute we know about, try to decode it.
       nla_name, nla_data = self._Decode(command, msg, nla.nla_type, nla_data)
 
-      # We only support unique attributes for now, except for INET_DIAG_NONE,
-      # which can appear more than once but doesn't seem to contain any data.
-      if nla_name in attributes and nla_name != "INET_DIAG_NONE":
+      if nla_name in attributes and nla_name not in DUP_ATTRS_OK:
         raise ValueError("Duplicate attribute %s" % nla_name)
 
       attributes[nla_name] = nla_data
-      self._Debug("      %s" % str((nla_name, nla_data)))
+      if not nested:
+        self._Debug("      %s" % (str((nla_name, nla_data))))
 
     return attributes
 
-  def __init__(self):
+  def _OpenNetlinkSocket(self, family, groups=None):
+    sock = socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, family)
+    if groups:
+      sock.bind((0,  groups))
+    sock.connect((0, 0))  # The kernel.
+    return sock
+
+  def __init__(self, family):
     # Global sequence number.
     self.seq = 0
-    self.sock = socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, self.FAMILY)
-    self.sock.connect((0, 0))  # The kernel.
+    self.sock = self._OpenNetlinkSocket(family)
     self.pid = self.sock.getsockname()[1]
 
   def MaybeDebugCommand(self, command, flags, data):
@@ -163,7 +185,7 @@ class NetlinkSocket(object):
     if hdr.type == NLMSG_ERROR:
       error = NLMsgErr(data).error
       if error:
-        raise IOError(error, os.strerror(-error))
+        raise IOError(-error, os.strerror(-error))
     else:
       raise ValueError("Expected ACK, got type %d" % hdr.type)
 

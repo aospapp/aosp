@@ -18,16 +18,30 @@
 
 #pylint: disable=C0111
 
-import fcntl, json, os, re, sys, shutil, stat, tempfile, time, traceback
+import fcntl
+import json
 import logging
+import os
+import re
+import shutil
+import stat
+import sys
+import tempfile
+import time
+import traceback
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils as client_utils
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = client_utils.metrics_mock
 
 
 class base_test(object):
     preserve_srcdir = False
-    network_destabilizing = False
 
     def __init__(self, job, bindir, outputdir):
         self.job = job
@@ -360,11 +374,16 @@ class base_test(object):
                        postprocess_profiled_run, args, dargs):
         self.drop_caches_between_iterations()
         # execute iteration hooks
-        logging.debug('starting before_iteration_hooks')
-        for hook in self.before_iteration_hooks:
-            hook(self)
-        logging.debug('before_iteration_hooks completed')
+        if not self.job.fast:
+            logging.debug('Starting before_iteration_hooks for %s',
+                          self.tagged_testname)
+            with metrics.SecondsTimer(
+                    'chromeos/autotest/job/before_iteration_hook_duration'):
+                for hook in self.before_iteration_hooks:
+                    hook(self)
+            logging.debug('before_iteration_hooks completed')
 
+        finished = False
         try:
             if profile_only:
                 if not self.job.profilers.present():
@@ -384,16 +403,21 @@ class base_test(object):
 
             self.postprocess_iteration()
             self.analyze_perf_constraints(constraints)
+            finished = True
         # Catch and re-raise to let after_iteration_hooks see the exception.
         except Exception as e:
             logging.debug('Test failed due to %s. Exception log follows the '
                           'after_iteration_hooks.', str(e))
             raise
         finally:
-            logging.debug('starting after_iteration_hooks')
-            for hook in reversed(self.after_iteration_hooks):
-                hook(self)
-            logging.debug('after_iteration_hooks completed')
+            if not finished or not self.job.fast:
+                logging.debug('Starting after_iteration_hooks for %s',
+                              self.tagged_testname)
+                with metrics.SecondsTimer(
+                        'chromeos/autotest/job/after_iteration_hook_duration'):
+                    for hook in reversed(self.after_iteration_hooks):
+                        hook(self)
+                logging.debug('after_iteration_hooks completed')
 
 
     def execute(self, iterations=None, test_length=None, profile_only=None,
@@ -550,9 +574,6 @@ class base_test(object):
         self.job.logging.tee_redirect_debug_dir(self.debugdir,
                                                 log_name=self.tagged_testname)
         try:
-            if self.network_destabilizing:
-                self.job.disable_warnings("NETWORK")
-
             # write out the test attributes into a keyval
             dargs   = dargs.copy()
             run_cleanup = dargs.pop('run_cleanup', self.job.run_test_cleanup)
@@ -646,19 +667,11 @@ class base_test(object):
                 finally:
                     self.job.logging.restore()
         except error.AutotestError:
-            if self.network_destabilizing:
-                self.job.enable_warnings("NETWORK")
             # Pass already-categorized errors on up.
             raise
         except Exception, e:
-            if self.network_destabilizing:
-                self.job.enable_warnings("NETWORK")
             # Anything else is an ERROR in our own code, not execute().
             raise error.UnhandledTestError(e)
-        else:
-            if self.network_destabilizing:
-                self.job.enable_warnings("NETWORK")
-
 
     def runsubtest(self, url, *args, **dargs):
         """
@@ -890,8 +903,12 @@ def runtest(job, url, tag, args, dargs,
     try:
         mytest = global_namespace['mytest']
         mytest.success = False
-        if before_test_hook:
-            before_test_hook(mytest)
+        if not job.fast and before_test_hook:
+            logging.info('Starting before_hook for %s', mytest.tagged_testname)
+            with metrics.SecondsTimer(
+                    'chromeos/autotest/job/before_hook_duration'):
+                before_test_hook(mytest)
+            logging.info('before_hook completed')
 
         # we use the register iteration hooks methods to register the passed
         # in hooks
@@ -903,7 +920,11 @@ def runtest(job, url, tag, args, dargs,
         mytest.success = True
     finally:
         os.chdir(pwd)
-        if after_test_hook:
-            after_test_hook(mytest)
-        shutil.rmtree(mytest.tmpdir, ignore_errors=True)
+        if after_test_hook and (not mytest.success or not job.fast):
+            logging.info('Starting after_hook for %s', mytest.tagged_testname)
+            with metrics.SecondsTimer(
+                    'chromeos/autotest/job/after_hook_duration'):
+                after_test_hook(mytest)
+            logging.info('after_hook completed')
 
+        shutil.rmtree(mytest.tmpdir, ignore_errors=True)

@@ -18,10 +18,13 @@ package com.android.compatibility.common.util;
 
 import android.webkit.ValueCallback;
 
+import junit.framework.Assert;
+
 public class EvaluateJsResultPollingCheck extends PollingCheck
         implements ValueCallback<String> {
     private String mActualResult;
     private String mExpectedResult;
+    private boolean mGotResult;
 
     public EvaluateJsResultPollingCheck(String expected) {
         mExpectedResult = expected;
@@ -29,11 +32,20 @@ public class EvaluateJsResultPollingCheck extends PollingCheck
 
     @Override
     public synchronized boolean check() {
-        return mExpectedResult.equals(mActualResult);
+        return mGotResult;
+    }
+
+    @Override
+    public void run() {
+        super.run();
+        synchronized (this) {
+            Assert.assertEquals(mExpectedResult, mActualResult);
+        }
     }
 
     @Override
     public synchronized void onReceiveValue(String result) {
+        mGotResult = true;
         mActualResult = result;
     }
 }

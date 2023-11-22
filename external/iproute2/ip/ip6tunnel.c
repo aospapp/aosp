@@ -50,7 +50,7 @@ static void usage(void)
 	fprintf(stderr, "          [ mode { ip6ip6 | ipip6 | ip6gre | vti6 | any } ]\n");
 	fprintf(stderr, "          [ remote ADDR local ADDR ] [ dev PHYS_DEV ]\n");
 	fprintf(stderr, "          [ encaplimit ELIM ]\n");
-	fprintf(stderr ,"          [ hoplimit TTL ] [ tclass TCLASS ] [ flowlabel FLOWLABEL ]\n");
+	fprintf(stderr, "          [ hoplimit TTL ] [ tclass TCLASS ] [ flowlabel FLOWLABEL ]\n");
 	fprintf(stderr, "          [ dscp inherit ]\n");
 	fprintf(stderr, "          [ [i|o]seq ] [ [i|o]key KEY ] [ [i|o]csum ]\n");
 	fprintf(stderr, "\n");
@@ -77,10 +77,11 @@ static void print_tunnel(struct ip6_tnl_parm2 *p)
 	printf("%s: %s/ipv6 remote %s local %s",
 	       p->name,
 	       tnl_strproto(p->proto),
-	       format_host(AF_INET6, 16, &p->raddr, s1, sizeof(s1)),
-	       rt_addr_n2a(AF_INET6, 16, &p->laddr, s2, sizeof(s2)));
+	       format_host_r(AF_INET6, 16, &p->raddr, s1, sizeof(s1)),
+	       rt_addr_n2a_r(AF_INET6, 16, &p->laddr, s2, sizeof(s2)));
 	if (p->link) {
 		const char *n = ll_index_to_name(p->link);
+
 		if (n)
 			printf(" dev %s", n);
 	}
@@ -96,6 +97,7 @@ static void print_tunnel(struct ip6_tnl_parm2 *p)
 		printf(" tclass inherit");
 	else {
 		__u32 val = ntohl(p->flowinfo & IP6_FLOWINFO_TCLASS);
+
 		printf(" tclass 0x%02x", (__u8)(val >> 20));
 	}
 
@@ -109,16 +111,17 @@ static void print_tunnel(struct ip6_tnl_parm2 *p)
 	if (p->flags & IP6_TNL_F_RCV_DSCP_COPY)
 		printf(" dscp inherit");
 
-	if (p->proto == IPPROTO_GRE) {
-		if ((p->i_flags & GRE_KEY) && (p->o_flags & GRE_KEY) && p->o_key == p->i_key)
-			printf(" key %u", ntohl(p->i_key));
-		else if ((p->i_flags | p->o_flags) & GRE_KEY) {
-			if (p->i_flags & GRE_KEY)
-				printf(" ikey %u", ntohl(p->i_key));
-			if (p->o_flags & GRE_KEY)
-				printf(" okey %u", ntohl(p->o_key));
-		}
+	if ((p->i_flags & GRE_KEY) && (p->o_flags & GRE_KEY) &&
+	    p->o_key == p->i_key)
+		printf(" key %u", ntohl(p->i_key));
+	else {
+		if (p->i_flags & GRE_KEY)
+			printf(" ikey %u", ntohl(p->i_key));
+		if (p->o_flags & GRE_KEY)
+			printf(" okey %u", ntohl(p->o_key));
+	}
 
+	if (p->proto == IPPROTO_GRE) {
 		if (p->i_flags & GRE_SEQ)
 			printf("%s  Drop packets out of sequence.", _SL_);
 		if (p->i_flags & GRE_CSUM)
@@ -133,9 +136,7 @@ static void print_tunnel(struct ip6_tnl_parm2 *p)
 static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
 {
 	int count = 0;
-	char medium[IFNAMSIZ];
-
-	memset(medium, 0, sizeof(medium));
+	const char *medium = NULL;
 
 	while (argc > 0) {
 		if (strcmp(*argv, "mode") == 0) {
@@ -158,11 +159,12 @@ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
 				 strcmp(*argv, "any") == 0)
 				p->proto = 0;
 			else {
-				fprintf(stderr,"Unknown tunnel mode \"%s\"\n", *argv);
+				fprintf(stderr, "Unknown tunnel mode \"%s\"\n", *argv);
 				exit(-1);
 			}
 		} else if (strcmp(*argv, "remote") == 0) {
 			inet_prefix raddr;
+
 			NEXT_ARG();
 			get_prefix(&raddr, *argv, preferred_family);
 			if (raddr.family == AF_UNSPEC)
@@ -170,6 +172,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
 			memcpy(&p->raddr, &raddr.data, sizeof(p->raddr));
 		} else if (strcmp(*argv, "local") == 0) {
 			inet_prefix laddr;
+
 			NEXT_ARG();
 			get_prefix(&laddr, *argv, preferred_family);
 			if (laddr.family == AF_UNSPEC)
@@ -177,13 +180,14 @@ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
 			memcpy(&p->laddr, &laddr.data, sizeof(p->laddr));
 		} else if (strcmp(*argv, "dev") == 0) {
 			NEXT_ARG();
-			strncpy(medium, *argv, IFNAMSIZ - 1);
+			medium = *argv;
 		} else if (strcmp(*argv, "encaplimit") == 0) {
 			NEXT_ARG();
 			if (strcmp(*argv, "none") == 0) {
 				p->flags |= IP6_TNL_F_IGN_ENCAP_LIMIT;
 			} else {
 				__u8 uval;
+
 				if (get_u8(&uval, *argv, 0) < -1)
 					invarg("invalid ELIM", *argv);
 				p->encap_limit = uval;
@@ -193,6 +197,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
 			   strcmp(*argv, "ttl") == 0 ||
 			   strcmp(*argv, "hlim") == 0) {
 			__u8 uval;
+
 			NEXT_ARG();
 			if (get_u8(&uval, *argv, 0))
 				invarg("invalid TTL", *argv);
@@ -202,6 +207,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
 			   strcmp(*argv, "tos") == 0 ||
 			   matches(*argv, "dsfield") == 0) {
 			__u8 uval;
+
 			NEXT_ARG();
 			p->flowinfo &= ~IP6_FLOWINFO_TCLASS;
 			if (strcmp(*argv, "inherit") == 0)
@@ -215,6 +221,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
 		} else if (strcmp(*argv, "flowlabel") == 0 ||
 			   strcmp(*argv, "fl") == 0) {
 			__u32 uval;
+
 			NEXT_ARG();
 			p->flowinfo &= ~IP6_FLOWINFO_FLOWLABEL;
 			if (strcmp(*argv, "inherit") == 0)
@@ -266,10 +273,11 @@ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
 				usage();
 			if (p->name[0])
 				duparg2("name", *argv);
-			strncpy(p->name, *argv, IFNAMSIZ - 1);
+			if (get_ifname(p->name, *argv))
+				invarg("\"name\" not a valid ifname", *argv);
 			if (cmd == SIOCCHGTUNNEL && count == 0) {
-				struct ip6_tnl_parm2 old_p;
-				memset(&old_p, 0, sizeof(old_p));
+				struct ip6_tnl_parm2 old_p = {};
+
 				if (tnl_get_ioctl(*argv, &old_p))
 					return -1;
 				*p = old_p;
@@ -278,7 +286,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
 		count++;
 		argc--; argv++;
 	}
-	if (medium[0]) {
+	if (medium) {
 		p->link = ll_name_to_index(medium);
 		if (p->link == 0) {
 			fprintf(stderr, "Cannot find device \"%s\"\n", medium);
@@ -307,10 +315,10 @@ static int ip6_tnl_parm_match(const struct ip6_tnl_parm2 *p1,
 {
 	return ((!p1->link || p1->link == p2->link) &&
 		(!p1->name[0] || strcmp(p1->name, p2->name) == 0) &&
-		(memcmp(&p1->laddr, &in6addr_any, sizeof(p1->laddr)) == 0 ||
-		 memcmp(&p1->laddr, &p2->laddr, sizeof(p1->laddr)) == 0) &&
-		(memcmp(&p1->raddr, &in6addr_any, sizeof(p1->raddr)) == 0 ||
-		 memcmp(&p1->raddr, &p2->raddr, sizeof(p1->raddr)) == 0) &&
+		(IN6_IS_ADDR_UNSPECIFIED(&p1->laddr) ||
+		 IN6_ARE_ADDR_EQUAL(&p1->laddr, &p2->laddr)) &&
+		(IN6_IS_ADDR_UNSPECIFIED(&p1->raddr) ||
+		 IN6_ARE_ADDR_EQUAL(&p1->raddr, &p2->raddr)) &&
 		(!p1->proto || !p2->proto || p1->proto == p2->proto) &&
 		(!p1->encap_limit || p1->encap_limit == p2->encap_limit) &&
 		(!p1->hop_limit || p1->hop_limit == p2->hop_limit) &&
@@ -326,6 +334,7 @@ static int do_tunnels_list(struct ip6_tnl_parm2 *p)
 	char buf[512];
 	int err = -1;
 	FILE *fp = fopen("/proc/net/dev", "r");
+
 	if (fp == NULL) {
 		perror("fopen");
 		return -1;
@@ -341,7 +350,7 @@ static int do_tunnels_list(struct ip6_tnl_parm2 *p)
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
 		char name[IFNAMSIZ];
 		int index, type;
-		struct ip6_tnl_parm2 p1;
+		struct ip6_tnl_parm2 p1 = {};
 		char *ptr;
 
 		buf[sizeof(buf) - 1] = '\0';
@@ -362,7 +371,6 @@ static int do_tunnels_list(struct ip6_tnl_parm2 *p)
 		}
 		if (type != ARPHRD_TUNNEL6 && type != ARPHRD_IP6GRE)
 			continue;
-		memset(&p1, 0, sizeof(p1));
 		ip6_tnl_parm_init(&p1, 0);
 		if (type == ARPHRD_IP6GRE)
 			p1.proto = IPPROTO_GRE;
@@ -387,14 +395,14 @@ static int do_tunnels_list(struct ip6_tnl_parm2 *p)
 
 static int do_show(int argc, char **argv)
 {
-        struct ip6_tnl_parm2 p;
+	struct ip6_tnl_parm2 p;
 
 	ll_init_map(&rth);
 	ip6_tnl_parm_init(&p, 0);
 	p.proto = 0;  /* default to any */
 
-        if (parse_args(argc, argv, SIOCGETTUNNEL, &p) < 0)
-                return -1;
+	if (parse_args(argc, argv, SIOCGETTUNNEL, &p) < 0)
+		return -1;
 
 	if (!p.name[0] || show_stats)
 		do_tunnels_list(&p);
@@ -405,7 +413,7 @@ static int do_show(int argc, char **argv)
 		printf("\n");
 	}
 
-        return 0;
+	return 0;
 }
 
 static int do_add(int cmd, int argc, char **argv)

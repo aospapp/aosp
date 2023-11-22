@@ -35,7 +35,9 @@ import android.util.Log;
 import android.widget.Toast;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Class used to create, update and cancel the notification used to display and update call state
@@ -44,10 +46,15 @@ import java.util.List;
 public class CallServiceNotifier {
     private static final CallServiceNotifier INSTANCE = new CallServiceNotifier();
 
-    static final String CALL_PROVIDER_ID = "testapps_TestConnectionService_CALL_PROVIDER_ID";
-    static final String SIM_SUBSCRIPTION_ID = "testapps_TestConnectionService_SIM_SUBSCRIPTION_ID";
-    static final String CONNECTION_MANAGER_ID =
+    public static final String CALL_PROVIDER_ID = "testapps_TestConnectionService_CALL_PROVIDER_ID";
+    public static final String SIM_SUBSCRIPTION_ID =
+            "testapps_TestConnectionService_SIM_SUBSCRIPTION_ID";
+    public static final String SIM_SUBSCRIPTION_ID2 =
+            "testapps_TestConnectionService_SIM_SUBSCRIPTION_ID2";
+    public static final String CONNECTION_MANAGER_ID =
             "testapps_TestConnectionService_CONNECTION_MANAGER_ID";
+
+    private Map<String, PhoneAccountHandle> mPhoneAccountMap = new HashMap<>();
 
     /**
      * Static notification IDs.
@@ -110,10 +117,11 @@ public class CallServiceNotifier {
         testBundle.putString("EXTRA_STR1", "Hello");
         testBundle.putString("EXTRA_STR2", "There");
 
+        PhoneAccountHandle handle1 = new PhoneAccountHandle(
+                new ComponentName(context, TestConnectionService.class), CALL_PROVIDER_ID);
+        mPhoneAccountMap.put(CALL_PROVIDER_ID, handle1);
         telecomManager.registerPhoneAccount(PhoneAccount.builder(
-                new PhoneAccountHandle(
-                        new ComponentName(context, TestConnectionService.class),
-                        CALL_PROVIDER_ID),
+                handle1,
                 "TelecomTestApp Call Provider")
                 .setAddress(Uri.parse("tel:555-TEST"))
                 .setSubscriptionAddress(Uri.parse("tel:555-TEST"))
@@ -130,10 +138,11 @@ public class CallServiceNotifier {
                 .setExtras(testBundle)
                 .build());
 
+        PhoneAccountHandle handle2 = new PhoneAccountHandle(
+                new ComponentName(context, TestConnectionService.class), SIM_SUBSCRIPTION_ID);
+        mPhoneAccountMap.put(SIM_SUBSCRIPTION_ID, handle2);
         telecomManager.registerPhoneAccount(PhoneAccount.builder(
-                new PhoneAccountHandle(
-                        new ComponentName(context, TestConnectionService.class),
-                        SIM_SUBSCRIPTION_ID),
+                handle2,
                 "TelecomTestApp SIM Subscription")
                 .setAddress(Uri.parse("tel:555-TSIM"))
                 .setSubscriptionAddress(Uri.parse("tel:555-TSIM"))
@@ -149,11 +158,31 @@ public class CallServiceNotifier {
                 .setShortDescription("a short description for the sim subscription")
                 .build());
 
+        PhoneAccountHandle handle3 = new PhoneAccountHandle(
+                new ComponentName(context, TestConnectionService.class), SIM_SUBSCRIPTION_ID2);
+        mPhoneAccountMap.put(SIM_SUBSCRIPTION_ID2, handle3);
         telecomManager.registerPhoneAccount(PhoneAccount.builder(
-                        new PhoneAccountHandle(
-                                new ComponentName(context, TestConnectionManager.class),
-                                CONNECTION_MANAGER_ID),
-                        "TelecomTestApp CONNECTION MANAGER")
+                handle3,
+                "TelecomTestApp SIM Subscription 2")
+                .setAddress(Uri.parse("tel:555-TSI2"))
+                .setSubscriptionAddress(Uri.parse("tel:555-TSI2"))
+                .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER |
+                        PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION |
+                        PhoneAccount.CAPABILITY_VIDEO_CALLING |
+                        PhoneAccount.CAPABILITY_RTT |
+                        PhoneAccount.CAPABILITY_VIDEO_CALLING_RELIES_ON_PRESENCE)
+                .setIcon(Icon.createWithResource(
+                        context.getResources(), R.drawable.stat_sys_phone_call))
+                .setHighlightColor(Color.CYAN)
+                .setShortDescription("a short description for the sim subscription")
+                .build());
+
+        PhoneAccountHandle handle4 = new PhoneAccountHandle(
+                new ComponentName(context, TestConnectionManager.class), CONNECTION_MANAGER_ID);
+        mPhoneAccountMap.put(CONNECTION_MANAGER_ID, handle4);
+        telecomManager.registerPhoneAccount(PhoneAccount.builder(
+                handle4,
+                "TelecomTestApp CONNECTION MANAGER")
                 .setAddress(Uri.parse("tel:555-CMGR"))
                 .setSubscriptionAddress(Uri.parse("tel:555-CMGR"))
                 .setCapabilities(PhoneAccount.CAPABILITY_CONNECTION_MANAGER)
@@ -162,6 +191,10 @@ public class CallServiceNotifier {
                 // TODO: Add icon tint (Color.BLUE)
                 .setShortDescription("a short description for the connection manager")
                 .build());
+    }
+
+    public PhoneAccountHandle getPhoneAccountHandle(String id) {
+        return mPhoneAccountMap.get(id);
     }
 
     /**

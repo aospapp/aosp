@@ -61,4 +61,4 @@ LOCAL_CFLAGS :=  \
 
 endif #ifeq ($(PFW_NETWORKING),false)
 
-LOCAL_CLANG := true
+LOCAL_CFLAGS += -Wall -Werror

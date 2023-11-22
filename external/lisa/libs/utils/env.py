@@ -26,7 +26,7 @@ import time
 import unittest
 
 import devlib
-from devlib.utils.misc import memoized
+from devlib.utils.misc import memoized, which
 from devlib import Platform, TargetError
 from trappy.stats.Topology import Topology
 
@@ -102,6 +102,21 @@ class TestEnv(ShareState):
             Port for Android connection default port is 5555
         **ANDROID_HOME**
             Path to Android SDK. Defaults to ``$ANDROID_HOME`` from the
+            environment.
+        **ANDROID_BUILD_TOP**
+            Path to Android root directory. Defaults to ``$ANDROID_BUILD_TOP`` from the
+            environment.
+        **TARGET_PRODUCT**
+            Target product in the lunch target. Defaults to ``$TARGET_PRODUCT`` from the
+            environment.
+        **TARGET_BUILD_VARIANT**
+            Target build variant in the lunch target. Defaults to ``$TARGET_BUILD_VARIANT`` from the
+            environment.
+        **ANDROID_PRODUCT_OUT**
+            Path to Android output directory. Defaults to ``$ANDROID_PRODUCT_OUT`` from the
+            environment.
+        **DEVICE_LISA_HOME**
+            Path to device-specific LISA directory. Set to ``$DEVICE_LISA_HOME`` from the
             environment.
         **rtapp-calib**
             Calibration values for RT-App. If unspecified, LISA will
@@ -205,6 +220,11 @@ class TestEnv(ShareState):
         # Keep track of android support
         self.LISA_HOME = os.environ.get('LISA_HOME', '/vagrant')
         self.ANDROID_HOME = os.environ.get('ANDROID_HOME', None)
+        self.ANDROID_BUILD_TOP = os.environ.get('ANDROID_BUILD_TOP', None)
+        self.TARGET_PRODUCT = os.environ.get('TARGET_PRODUCT', None)
+        self.TARGET_BUILD_VARIANT = os.environ.get('TARGET_BUILD_VARIANT', None)
+        self.ANDROID_PRODUCT_OUT = os.environ.get('ANDROID_PRODUCT_OUT', None)
+        self.DEVICE_LISA_HOME = os.environ.get('DEVICE_LISA_HOME', None)
         self.CATAPULT_HOME = os.environ.get('CATAPULT_HOME',
                 os.path.join(self.LISA_HOME, 'tools', 'catapult'))
 
@@ -258,14 +278,6 @@ class TestEnv(ShareState):
         if '__features__' not in self.conf:
             self.conf['__features__'] = []
 
-        self._init()
-
-        # Initialize FTrace events collection
-        self._init_ftrace(True)
-
-        # Initialize RT-App calibration values
-        self.calibration()
-
         # Initialize local results folder
         # test configuration overrides target one
         self.res_dir = (self.test_conf.get('results_dir') or
@@ -289,6 +301,14 @@ class TestEnv(ShareState):
         if os.path.islink(res_lnk):
             os.remove(res_lnk)
         os.symlink(self.res_dir, res_lnk)
+
+        self._init()
+
+        # Initialize FTrace events collection
+        self._init_ftrace(True)
+
+        # Initialize RT-App calibration values
+        self.calibration()
 
         # Initialize energy probe instrument
         self._init_energy(True)
@@ -404,6 +424,11 @@ class TestEnv(ShareState):
                 self._fastboot = os.path.join(self.ANDROID_HOME,
                                               'platform-tools', 'fastboot')
                 os.environ['ANDROID_HOME'] = self.ANDROID_HOME
+                os.environ['ANDROID_BUILD_TOP'] = self.ANDROID_BUILD_TOP
+                os.environ['TARGET_PRODUCT'] = self.TARGET_PRODUCT
+                os.environ['TARGET_BUILD_VARIANT'] = self.TARGET_BUILD_VARIANT
+                os.environ['ANDROID_PRODUCT_OUT'] = self.ANDROID_PRODUCT_OUT
+                os.environ['DEVICE_LISA_HOME'] = self.DEVICE_LISA_HOME
                 os.environ['CATAPULT_HOME'] = self.CATAPULT_HOME
             else:
                 self._log.info('Android SDK not found as ANDROID_HOME not defined, using PATH for platform tools')
@@ -416,6 +441,11 @@ class TestEnv(ShareState):
 
             self._log.info('External tools using:')
             self._log.info('   ANDROID_HOME: %s', self.ANDROID_HOME)
+            self._log.info('   ANDROID_BUILD_TOP: %s', self.ANDROID_BUILD_TOP)
+            self._log.info('   TARGET_PRODUCT: %s', self.TARGET_PRODUCT)
+            self._log.info('   TARGET_BUILD_VARIANT: %s', self.TARGET_BUILD_VARIANT)
+            self._log.info('   ANDROID_PRODUCT_OUT: %s', self.ANDROID_PRODUCT_OUT)
+            self._log.info('   DEVICE_LISA_HOME: %s', self.DEVICE_LISA_HOME)
             self._log.info('   CATAPULT_HOME: %s', self.CATAPULT_HOME)
 
             if not os.path.exists(self._adb):
@@ -431,7 +461,7 @@ class TestEnv(ShareState):
         # Setup board default if not specified by configuration
         self.nrg_model = None
         platform = None
-        self.__modules = []
+        self.__modules = ['cpufreq', 'cpuidle']
         if 'board' not in self.conf:
             self.conf['board'] = 'UNKNOWN'
 
@@ -457,11 +487,22 @@ class TestEnv(ShareState):
             self.__modules = [ "cpufreq", "cpuidle" ]
             platform = Platform(model='hikey')
 
+        # Initialize HiKey960 board
+        elif self.conf['board'].upper() == 'HIKEY960':
+            self.__modules = ['bl', 'cpufreq', 'cpuidle']
+            platform = Platform(model='hikey960')
+
         # Initialize Pixel phone
         elif self.conf['board'].upper() == 'PIXEL':
             self.nrg_model = pixel_energy
             self.__modules = ['bl', 'cpufreq']
             platform = Platform(model='pixel')
+
+        # Initialize gem5 platform
+        elif self.conf['board'].upper() == 'GEM5':
+            self.nrg_model = None
+            self.__modules=['cpufreq']
+            platform = self._init_target_gem5()
 
         elif self.conf['board'] != 'UNKNOWN':
             # Initilize from platform descriptor (if available)
@@ -474,7 +515,8 @@ class TestEnv(ShareState):
                     core_clusters = self._get_clusters(core_names),
                     big_core=board.get('big_core', None)
                 )
-                self.__modules=board.get('modules', [])
+                if 'modules' in board:
+                    self.__modules = board['modules']
 
         ########################################################################
         # Modules configuration
@@ -571,12 +613,64 @@ class TestEnv(ShareState):
                 raise RuntimeError('Failed to initialized [{}] module, '
                         'update your kernel or test configurations'.format(module))
 
+        if ('skip_nrg_model' in self.conf) and self.conf['skip_nrg_model']:
+            return
         if not self.nrg_model:
             try:
                 self._log.info('Attempting to read energy model from target')
                 self.nrg_model = EnergyModel.from_target(self.target)
             except (TargetError, RuntimeError, ValueError) as e:
                 self._log.error("Couldn't read target energy model: %s", e)
+
+    def _init_target_gem5(self):
+        system = self.conf['gem5']['system']
+        simulator = self.conf['gem5']['simulator']
+
+        # Get gem5 binary arguments
+        args = simulator.get('args', [])
+        args.append('--listener-mode=on')
+
+        # Get platform description
+        args.append(system['platform']['description'])
+
+        # Get platform arguments
+        args += system['platform'].get('args', [])
+        args += ['--kernel {}'.format(system['kernel']),
+                 '--dtb {}'.format(system['dtb']),
+                 '--disk-image {}'.format(system['disk'])]
+
+        # Gather all arguments
+        args = ' '.join(args)
+
+        diod_path = which('diod')
+        if diod_path is None:
+            raise RuntimeError('Failed to find "diod" on your host machine, '
+                               'check your installation or your PATH variable')
+
+        # Setup virtio
+        # Brackets are there to let the output dir be created automatically
+        virtio_args = '--which-diod={} --workload-automation-vio={{}}'.format(diod_path)
+
+        # Change conf['board'] to include platform information
+        suffix = os.path.splitext(os.path.basename(
+            system['platform']['description']))[0]
+        self.conf['board'] = self.conf['board'].lower() + suffix
+
+        board = self._load_board(self.conf['board'])
+
+        # Merge all arguments
+        platform = devlib.platform.gem5.Gem5SimulationPlatform(
+            name = 'gem5',
+            gem5_bin = simulator['bin'],
+            gem5_args = args,
+            gem5_virtio = virtio_args,
+            host_output_dir = self.res_dir,
+            core_names = board['cores'] if board else None,
+            core_clusters = self._get_clusters(board['cores']) if board else None,
+            big_core = board.get('big_core', None) if board else None,
+        )
+
+        return platform
 
     def install_tools(self, tools):
         """

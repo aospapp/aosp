@@ -51,16 +51,24 @@ interface IInstalld {
             @nullable @utf8InCpp String outputPath, int dexFlags,
             @utf8InCpp String compilerFilter, @nullable @utf8InCpp String uuid,
             @nullable @utf8InCpp String sharedLibraries,
-            @nullable @utf8InCpp String seInfo, boolean downgrade);
+            @nullable @utf8InCpp String seInfo, boolean downgrade, int targetSdkVersion,
+            @nullable @utf8InCpp String profileName,
+            @nullable @utf8InCpp String dexMetadataPath,
+            @nullable @utf8InCpp String compilationReason);
 
     void rmdex(@utf8InCpp String codePath, @utf8InCpp String instructionSet);
 
-    boolean mergeProfiles(int uid, @utf8InCpp String packageName);
-    boolean dumpProfiles(int uid, @utf8InCpp String packageName, @utf8InCpp String codePaths);
+    boolean mergeProfiles(int uid, @utf8InCpp String packageName, @utf8InCpp String profileName);
+    boolean dumpProfiles(int uid, @utf8InCpp String packageName, @utf8InCpp String  profileName,
+            @utf8InCpp String codePath);
     boolean copySystemProfile(@utf8InCpp String systemProfile, int uid,
-            @utf8InCpp String packageName);
-    void clearAppProfiles(@utf8InCpp String packageName);
+            @utf8InCpp String packageName, @utf8InCpp String profileName);
+    void clearAppProfiles(@utf8InCpp String packageName, @utf8InCpp String profileName);
     void destroyAppProfiles(@utf8InCpp String packageName);
+
+    boolean createProfileSnapshot(int appId, @utf8InCpp String packageName,
+            @utf8InCpp String profileName, @utf8InCpp String classpath);
+    void destroyProfileSnapshot(@utf8InCpp String packageName, @utf8InCpp String profileName);
 
     void idmap(@utf8InCpp String targetApkPath, @utf8InCpp String overlayApkPath, int uid);
     void removeIdmap(@utf8InCpp String overlayApkPath);
@@ -77,11 +85,21 @@ interface IInstalld {
             @utf8InCpp String outputPath);
     void deleteOdex(@utf8InCpp String apkPath, @utf8InCpp String instructionSet,
             @nullable @utf8InCpp String outputPath);
+    void installApkVerity(@utf8InCpp String filePath, in FileDescriptor verityInput,
+            int contentSize);
+    void assertFsverityRootHashMatches(@utf8InCpp String filePath, in byte[] expectedHash);
 
     boolean reconcileSecondaryDexFile(@utf8InCpp String dexPath, @utf8InCpp String pkgName,
         int uid, in @utf8InCpp String[] isas, @nullable @utf8InCpp String volume_uuid,
         int storage_flag);
 
+    byte[] hashSecondaryDexFile(@utf8InCpp String dexPath, @utf8InCpp String pkgName,
+        int uid, @nullable @utf8InCpp String volumeUuid, int storageFlag);
+
     void invalidateMounts();
     boolean isQuotaSupported(@nullable @utf8InCpp String uuid);
+
+    boolean prepareAppProfile(@utf8InCpp String packageName,
+        int userId, int appId, @utf8InCpp String profileName, @utf8InCpp String codePath,
+        @nullable @utf8InCpp String dexMetadata);
 }

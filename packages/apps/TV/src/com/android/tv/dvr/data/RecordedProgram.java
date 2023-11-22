@@ -28,99 +28,97 @@ import android.net.Uri;
 import android.os.Build;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
-
 import com.android.tv.common.R;
 import com.android.tv.common.TvContentRatingCache;
+import com.android.tv.common.util.CommonUtils;
 import com.android.tv.data.BaseProgram;
 import com.android.tv.data.GenreItems;
 import com.android.tv.data.InternalDataUtils;
-import com.android.tv.util.Utils;
-
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Immutable instance of {@link android.media.tv.TvContract.RecordedPrograms}.
- */
+/** Immutable instance of {@link android.media.tv.TvContract.RecordedPrograms}. */
 @TargetApi(Build.VERSION_CODES.N)
 public class RecordedProgram extends BaseProgram {
     public static final int ID_NOT_SET = -1;
 
-    public final static String[] PROJECTION = {
-            // These are in exactly the order listed in RecordedPrograms
-            RecordedPrograms._ID,
-            RecordedPrograms.COLUMN_PACKAGE_NAME,
-            RecordedPrograms.COLUMN_INPUT_ID,
-            RecordedPrograms.COLUMN_CHANNEL_ID,
-            RecordedPrograms.COLUMN_TITLE,
-            RecordedPrograms.COLUMN_SEASON_DISPLAY_NUMBER,
-            RecordedPrograms.COLUMN_SEASON_TITLE,
-            RecordedPrograms.COLUMN_EPISODE_DISPLAY_NUMBER,
-            RecordedPrograms.COLUMN_EPISODE_TITLE,
-            RecordedPrograms.COLUMN_START_TIME_UTC_MILLIS,
-            RecordedPrograms.COLUMN_END_TIME_UTC_MILLIS,
-            RecordedPrograms.COLUMN_BROADCAST_GENRE,
-            RecordedPrograms.COLUMN_CANONICAL_GENRE,
-            RecordedPrograms.COLUMN_SHORT_DESCRIPTION,
-            RecordedPrograms.COLUMN_LONG_DESCRIPTION,
-            RecordedPrograms.COLUMN_VIDEO_WIDTH,
-            RecordedPrograms.COLUMN_VIDEO_HEIGHT,
-            RecordedPrograms.COLUMN_AUDIO_LANGUAGE,
-            RecordedPrograms.COLUMN_CONTENT_RATING,
-            RecordedPrograms.COLUMN_POSTER_ART_URI,
-            RecordedPrograms.COLUMN_THUMBNAIL_URI,
-            RecordedPrograms.COLUMN_SEARCHABLE,
-            RecordedPrograms.COLUMN_RECORDING_DATA_URI,
-            RecordedPrograms.COLUMN_RECORDING_DATA_BYTES,
-            RecordedPrograms.COLUMN_RECORDING_DURATION_MILLIS,
-            RecordedPrograms.COLUMN_RECORDING_EXPIRE_TIME_UTC_MILLIS,
-            RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG1,
-            RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG2,
-            RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG3,
-            RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG4,
-            RecordedPrograms.COLUMN_VERSION_NUMBER,
-            RecordedPrograms.COLUMN_INTERNAL_PROVIDER_DATA,
+    public static final String[] PROJECTION = {
+        // These are in exactly the order listed in RecordedPrograms
+        RecordedPrograms._ID,
+        RecordedPrograms.COLUMN_PACKAGE_NAME,
+        RecordedPrograms.COLUMN_INPUT_ID,
+        RecordedPrograms.COLUMN_CHANNEL_ID,
+        RecordedPrograms.COLUMN_TITLE,
+        RecordedPrograms.COLUMN_SEASON_DISPLAY_NUMBER,
+        RecordedPrograms.COLUMN_SEASON_TITLE,
+        RecordedPrograms.COLUMN_EPISODE_DISPLAY_NUMBER,
+        RecordedPrograms.COLUMN_EPISODE_TITLE,
+        RecordedPrograms.COLUMN_START_TIME_UTC_MILLIS,
+        RecordedPrograms.COLUMN_END_TIME_UTC_MILLIS,
+        RecordedPrograms.COLUMN_BROADCAST_GENRE,
+        RecordedPrograms.COLUMN_CANONICAL_GENRE,
+        RecordedPrograms.COLUMN_SHORT_DESCRIPTION,
+        RecordedPrograms.COLUMN_LONG_DESCRIPTION,
+        RecordedPrograms.COLUMN_VIDEO_WIDTH,
+        RecordedPrograms.COLUMN_VIDEO_HEIGHT,
+        RecordedPrograms.COLUMN_AUDIO_LANGUAGE,
+        RecordedPrograms.COLUMN_CONTENT_RATING,
+        RecordedPrograms.COLUMN_POSTER_ART_URI,
+        RecordedPrograms.COLUMN_THUMBNAIL_URI,
+        RecordedPrograms.COLUMN_SEARCHABLE,
+        RecordedPrograms.COLUMN_RECORDING_DATA_URI,
+        RecordedPrograms.COLUMN_RECORDING_DATA_BYTES,
+        RecordedPrograms.COLUMN_RECORDING_DURATION_MILLIS,
+        RecordedPrograms.COLUMN_RECORDING_EXPIRE_TIME_UTC_MILLIS,
+        RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG1,
+        RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG2,
+        RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG3,
+        RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG4,
+        RecordedPrograms.COLUMN_VERSION_NUMBER,
+        RecordedPrograms.COLUMN_INTERNAL_PROVIDER_DATA,
     };
 
     public static RecordedProgram fromCursor(Cursor cursor) {
         int index = 0;
-        Builder builder = builder()
-                .setId(cursor.getLong(index++))
-                .setPackageName(cursor.getString(index++))
-                .setInputId(cursor.getString(index++))
-                .setChannelId(cursor.getLong(index++))
-                .setTitle(cursor.getString(index++))
-                .setSeasonNumber(cursor.getString(index++))
-                .setSeasonTitle(cursor.getString(index++))
-                .setEpisodeNumber(cursor.getString(index++))
-                .setEpisodeTitle(cursor.getString(index++))
-                .setStartTimeUtcMillis(cursor.getLong(index++))
-                .setEndTimeUtcMillis(cursor.getLong(index++))
-                .setBroadcastGenres(cursor.getString(index++))
-                .setCanonicalGenres(cursor.getString(index++))
-                .setShortDescription(cursor.getString(index++))
-                .setLongDescription(cursor.getString(index++))
-                .setVideoWidth(cursor.getInt(index++))
-                .setVideoHeight(cursor.getInt(index++))
-                .setAudioLanguage(cursor.getString(index++))
-                .setContentRatings(
-                        TvContentRatingCache.getInstance().getRatings(cursor.getString(index++)))
-                .setPosterArtUri(cursor.getString(index++))
-                .setThumbnailUri(cursor.getString(index++))
-                .setSearchable(cursor.getInt(index++) == 1)
-                .setDataUri(cursor.getString(index++))
-                .setDataBytes(cursor.getLong(index++))
-                .setDurationMillis(cursor.getLong(index++))
-                .setExpireTimeUtcMillis(cursor.getLong(index++))
-                .setInternalProviderFlag1(cursor.getInt(index++))
-                .setInternalProviderFlag2(cursor.getInt(index++))
-                .setInternalProviderFlag3(cursor.getInt(index++))
-                .setInternalProviderFlag4(cursor.getInt(index++))
-                .setVersionNumber(cursor.getInt(index++));
-        if (Utils.isInBundledPackageSet(builder.mPackageName)) {
+        Builder builder =
+                builder()
+                        .setId(cursor.getLong(index++))
+                        .setPackageName(cursor.getString(index++))
+                        .setInputId(cursor.getString(index++))
+                        .setChannelId(cursor.getLong(index++))
+                        .setTitle(cursor.getString(index++))
+                        .setSeasonNumber(cursor.getString(index++))
+                        .setSeasonTitle(cursor.getString(index++))
+                        .setEpisodeNumber(cursor.getString(index++))
+                        .setEpisodeTitle(cursor.getString(index++))
+                        .setStartTimeUtcMillis(cursor.getLong(index++))
+                        .setEndTimeUtcMillis(cursor.getLong(index++))
+                        .setBroadcastGenres(cursor.getString(index++))
+                        .setCanonicalGenres(cursor.getString(index++))
+                        .setShortDescription(cursor.getString(index++))
+                        .setLongDescription(cursor.getString(index++))
+                        .setVideoWidth(cursor.getInt(index++))
+                        .setVideoHeight(cursor.getInt(index++))
+                        .setAudioLanguage(cursor.getString(index++))
+                        .setContentRatings(
+                                TvContentRatingCache.getInstance()
+                                        .getRatings(cursor.getString(index++)))
+                        .setPosterArtUri(cursor.getString(index++))
+                        .setThumbnailUri(cursor.getString(index++))
+                        .setSearchable(cursor.getInt(index++) == 1)
+                        .setDataUri(cursor.getString(index++))
+                        .setDataBytes(cursor.getLong(index++))
+                        .setDurationMillis(cursor.getLong(index++))
+                        .setExpireTimeUtcMillis(cursor.getLong(index++))
+                        .setInternalProviderFlag1(cursor.getInt(index++))
+                        .setInternalProviderFlag2(cursor.getInt(index++))
+                        .setInternalProviderFlag3(cursor.getInt(index++))
+                        .setInternalProviderFlag4(cursor.getInt(index++))
+                        .setVersionNumber(cursor.getInt(index++));
+        if (CommonUtils.isInBundledPackageSet(builder.mPackageName)) {
             InternalDataUtils.deserializeInternalProviderData(cursor.getBlob(index), builder);
         }
         return builder.build();
@@ -138,12 +136,14 @@ public class RecordedProgram extends BaseProgram {
         values.put(RecordedPrograms.COLUMN_SEASON_TITLE, recordedProgram.mSeasonTitle);
         values.put(RecordedPrograms.COLUMN_EPISODE_DISPLAY_NUMBER, recordedProgram.mEpisodeNumber);
         values.put(RecordedPrograms.COLUMN_EPISODE_TITLE, recordedProgram.mTitle);
-        values.put(RecordedPrograms.COLUMN_START_TIME_UTC_MILLIS,
-                recordedProgram.mStartTimeUtcMillis);
+        values.put(
+                RecordedPrograms.COLUMN_START_TIME_UTC_MILLIS, recordedProgram.mStartTimeUtcMillis);
         values.put(RecordedPrograms.COLUMN_END_TIME_UTC_MILLIS, recordedProgram.mEndTimeUtcMillis);
-        values.put(RecordedPrograms.COLUMN_BROADCAST_GENRE,
+        values.put(
+                RecordedPrograms.COLUMN_BROADCAST_GENRE,
                 safeEncode(recordedProgram.mBroadcastGenres));
-        values.put(RecordedPrograms.COLUMN_CANONICAL_GENRE,
+        values.put(
+                RecordedPrograms.COLUMN_CANONICAL_GENRE,
                 safeEncode(recordedProgram.mCanonicalGenres));
         values.put(RecordedPrograms.COLUMN_SHORT_DESCRIPTION, recordedProgram.mShortDescription);
         values.put(RecordedPrograms.COLUMN_LONG_DESCRIPTION, recordedProgram.mLongDescription);
@@ -158,33 +158,40 @@ public class RecordedProgram extends BaseProgram {
             values.put(RecordedPrograms.COLUMN_VIDEO_HEIGHT, recordedProgram.mVideoHeight);
         }
         values.put(RecordedPrograms.COLUMN_AUDIO_LANGUAGE, recordedProgram.mAudioLanguage);
-        values.put(RecordedPrograms.COLUMN_CONTENT_RATING,
+        values.put(
+                RecordedPrograms.COLUMN_CONTENT_RATING,
                 TvContentRatingCache.contentRatingsToString(recordedProgram.mContentRatings));
         values.put(RecordedPrograms.COLUMN_POSTER_ART_URI, recordedProgram.mPosterArtUri);
         values.put(RecordedPrograms.COLUMN_THUMBNAIL_URI, recordedProgram.mThumbnailUri);
         values.put(RecordedPrograms.COLUMN_SEARCHABLE, recordedProgram.mSearchable ? 1 : 0);
-        values.put(RecordedPrograms.COLUMN_RECORDING_DATA_URI,
-                safeToString(recordedProgram.mDataUri));
+        values.put(
+                RecordedPrograms.COLUMN_RECORDING_DATA_URI, safeToString(recordedProgram.mDataUri));
         values.put(RecordedPrograms.COLUMN_RECORDING_DATA_BYTES, recordedProgram.mDataBytes);
-        values.put(RecordedPrograms.COLUMN_RECORDING_DURATION_MILLIS,
-                recordedProgram.mDurationMillis);
-        values.put(RecordedPrograms.COLUMN_RECORDING_EXPIRE_TIME_UTC_MILLIS,
+        values.put(
+                RecordedPrograms.COLUMN_RECORDING_DURATION_MILLIS, recordedProgram.mDurationMillis);
+        values.put(
+                RecordedPrograms.COLUMN_RECORDING_EXPIRE_TIME_UTC_MILLIS,
                 recordedProgram.mExpireTimeUtcMillis);
-        values.put(RecordedPrograms.COLUMN_INTERNAL_PROVIDER_DATA,
+        values.put(
+                RecordedPrograms.COLUMN_INTERNAL_PROVIDER_DATA,
                 InternalDataUtils.serializeInternalProviderData(recordedProgram));
-        values.put(RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG1,
+        values.put(
+                RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG1,
                 recordedProgram.mInternalProviderFlag1);
-        values.put(RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG2,
+        values.put(
+                RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG2,
                 recordedProgram.mInternalProviderFlag2);
-        values.put(RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG3,
+        values.put(
+                RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG3,
                 recordedProgram.mInternalProviderFlag3);
-        values.put(RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG4,
+        values.put(
+                RecordedPrograms.COLUMN_INTERNAL_PROVIDER_FLAG4,
                 recordedProgram.mInternalProviderFlag4);
         values.put(RecordedPrograms.COLUMN_VERSION_NUMBER, recordedProgram.mVersionNumber);
         return values;
     }
 
-    public static class Builder{
+    public static class Builder {
         private long mId = ID_NOT_SET;
         private String mPackageName;
         private String mInputId;
@@ -414,18 +421,45 @@ public class RecordedProgram extends BaseProgram {
                 // If series ID is not set, generate it for the episodic program of other TV input.
                 setSeriesId(BaseProgram.generateSeriesId(mPackageName, mTitle));
             }
-            return new RecordedProgram(mId, mPackageName, mInputId, mChannelId, mTitle, mSeriesId,
-                    mSeasonNumber, mSeasonTitle, mEpisodeNumber, mEpisodeTitle, mStartTimeUtcMillis,
-                    mEndTimeUtcMillis, mBroadcastGenres, mCanonicalGenres, mShortDescription,
-                    mLongDescription, mVideoWidth, mVideoHeight, mAudioLanguage, mContentRatings,
-                    mPosterArtUri, mThumbnailUri, mSearchable, mDataUri, mDataBytes,
-                    mDurationMillis, mExpireTimeUtcMillis, mInternalProviderFlag1,
-                    mInternalProviderFlag2, mInternalProviderFlag3, mInternalProviderFlag4,
+            return new RecordedProgram(
+                    mId,
+                    mPackageName,
+                    mInputId,
+                    mChannelId,
+                    mTitle,
+                    mSeriesId,
+                    mSeasonNumber,
+                    mSeasonTitle,
+                    mEpisodeNumber,
+                    mEpisodeTitle,
+                    mStartTimeUtcMillis,
+                    mEndTimeUtcMillis,
+                    mBroadcastGenres,
+                    mCanonicalGenres,
+                    mShortDescription,
+                    mLongDescription,
+                    mVideoWidth,
+                    mVideoHeight,
+                    mAudioLanguage,
+                    mContentRatings,
+                    mPosterArtUri,
+                    mThumbnailUri,
+                    mSearchable,
+                    mDataUri,
+                    mDataBytes,
+                    mDurationMillis,
+                    mExpireTimeUtcMillis,
+                    mInternalProviderFlag1,
+                    mInternalProviderFlag2,
+                    mInternalProviderFlag3,
+                    mInternalProviderFlag4,
                     mVersionNumber);
         }
     }
 
-    public static Builder builder() { return new Builder(); }
+    public static Builder builder() {
+        return new Builder();
+    }
 
     public static Builder buildFrom(RecordedProgram orig) {
         return builder()
@@ -470,7 +504,7 @@ public class RecordedProgram extends BaseProgram {
                     }
                     return Long.compare(lhs.mId, rhs.mId);
                 }
-    };
+            };
 
     private static final long CLIPPED_THRESHOLD_MS = TimeUnit.MINUTES.toMillis(5);
 
@@ -507,15 +541,38 @@ public class RecordedProgram extends BaseProgram {
     private final int mInternalProviderFlag4;
     private final int mVersionNumber;
 
-    private RecordedProgram(long id, String packageName, String inputId, long channelId,
-            String title, String seriesId, String seasonNumber, String seasonTitle,
-            String episodeNumber, String episodeTitle, long startTimeUtcMillis,
-            long endTimeUtcMillis, String[] broadcastGenres, String[] canonicalGenres,
-            String shortDescription, String longDescription, int videoWidth, int videoHeight,
-            String audioLanguage, TvContentRating[] contentRatings, String posterArtUri,
-            String thumbnailUri, boolean searchable, Uri dataUri, long dataBytes,
-            long durationMillis, long expireTimeUtcMillis, int internalProviderFlag1,
-            int internalProviderFlag2, int internalProviderFlag3, int internalProviderFlag4,
+    private RecordedProgram(
+            long id,
+            String packageName,
+            String inputId,
+            long channelId,
+            String title,
+            String seriesId,
+            String seasonNumber,
+            String seasonTitle,
+            String episodeNumber,
+            String episodeTitle,
+            long startTimeUtcMillis,
+            long endTimeUtcMillis,
+            String[] broadcastGenres,
+            String[] canonicalGenres,
+            String shortDescription,
+            String longDescription,
+            int videoWidth,
+            int videoHeight,
+            String audioLanguage,
+            TvContentRating[] contentRatings,
+            String posterArtUri,
+            String thumbnailUri,
+            boolean searchable,
+            Uri dataUri,
+            long dataBytes,
+            long durationMillis,
+            long expireTimeUtcMillis,
+            int internalProviderFlag1,
+            int internalProviderFlag2,
+            int internalProviderFlag3,
+            int internalProviderFlag4,
             int versionNumber) {
         mId = id;
         mPackageName = packageName;
@@ -564,9 +621,7 @@ public class RecordedProgram extends BaseProgram {
         return mCanonicalGenres;
     }
 
-    /**
-     * Returns array of canonical genre ID's for this recorded program.
-     */
+    /** Returns array of canonical genre ID's for this recorded program. */
     @Override
     public int[] getCanonicalGenreIds() {
         if (mCanonicalGenres == null) {
@@ -623,11 +678,15 @@ public class RecordedProgram extends BaseProgram {
         if (!TextUtils.isEmpty(mEpisodeNumber)) {
             if (TextUtils.equals(mSeasonNumber, "0")) {
                 // Do not show "S0: ".
-                return String.format(context.getResources().getString(
-                        R.string.display_episode_number_format_no_season_number), mEpisodeNumber);
+                return String.format(
+                        context.getResources()
+                                .getString(R.string.display_episode_number_format_no_season_number),
+                        mEpisodeNumber);
             } else {
-                return String.format(context.getResources().getString(
-                        R.string.display_episode_number_format), mSeasonNumber, mEpisodeNumber);
+                return String.format(
+                        context.getResources().getString(R.string.display_episode_number_format),
+                        mSeasonNumber,
+                        mEpisodeNumber);
             }
         }
         return null;
@@ -734,9 +793,7 @@ public class RecordedProgram extends BaseProgram {
         return mVideoWidth;
     }
 
-    /**
-     * Checks whether the recording has been clipped or not.
-     */
+    /** Checks whether the recording has been clipped or not. */
     public boolean isClipped() {
         return mEndTimeUtcMillis - mStartTimeUtcMillis - mDurationMillis > CLIPPED_THRESHOLD_MS;
     }
@@ -746,40 +803,38 @@ public class RecordedProgram extends BaseProgram {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         RecordedProgram that = (RecordedProgram) o;
-        return Objects.equals(mId, that.mId) &&
-                Objects.equals(mChannelId, that.mChannelId) &&
-                Objects.equals(mSeriesId, that.mSeriesId) &&
-                Objects.equals(mSeasonNumber, that.mSeasonNumber) &&
-                Objects.equals(mSeasonTitle, that.mSeasonTitle) &&
-                Objects.equals(mEpisodeNumber, that.mEpisodeNumber) &&
-                Objects.equals(mStartTimeUtcMillis, that.mStartTimeUtcMillis) &&
-                Objects.equals(mEndTimeUtcMillis, that.mEndTimeUtcMillis) &&
-                Objects.equals(mVideoWidth, that.mVideoWidth) &&
-                Objects.equals(mVideoHeight, that.mVideoHeight) &&
-                Objects.equals(mSearchable, that.mSearchable) &&
-                Objects.equals(mDataBytes, that.mDataBytes) &&
-                Objects.equals(mDurationMillis, that.mDurationMillis) &&
-                Objects.equals(mExpireTimeUtcMillis, that.mExpireTimeUtcMillis) &&
-                Objects.equals(mInternalProviderFlag1, that.mInternalProviderFlag1) &&
-                Objects.equals(mInternalProviderFlag2, that.mInternalProviderFlag2) &&
-                Objects.equals(mInternalProviderFlag3, that.mInternalProviderFlag3) &&
-                Objects.equals(mInternalProviderFlag4, that.mInternalProviderFlag4) &&
-                Objects.equals(mVersionNumber, that.mVersionNumber) &&
-                Objects.equals(mTitle, that.mTitle) &&
-                Objects.equals(mEpisodeTitle, that.mEpisodeTitle) &&
-                Arrays.equals(mBroadcastGenres, that.mBroadcastGenres) &&
-                Arrays.equals(mCanonicalGenres, that.mCanonicalGenres) &&
-                Objects.equals(mShortDescription, that.mShortDescription) &&
-                Objects.equals(mLongDescription, that.mLongDescription) &&
-                Objects.equals(mAudioLanguage, that.mAudioLanguage) &&
-                Arrays.equals(mContentRatings, that.mContentRatings) &&
-                Objects.equals(mPosterArtUri, that.mPosterArtUri) &&
-                Objects.equals(mThumbnailUri, that.mThumbnailUri);
+        return Objects.equals(mId, that.mId)
+                && Objects.equals(mChannelId, that.mChannelId)
+                && Objects.equals(mSeriesId, that.mSeriesId)
+                && Objects.equals(mSeasonNumber, that.mSeasonNumber)
+                && Objects.equals(mSeasonTitle, that.mSeasonTitle)
+                && Objects.equals(mEpisodeNumber, that.mEpisodeNumber)
+                && Objects.equals(mStartTimeUtcMillis, that.mStartTimeUtcMillis)
+                && Objects.equals(mEndTimeUtcMillis, that.mEndTimeUtcMillis)
+                && Objects.equals(mVideoWidth, that.mVideoWidth)
+                && Objects.equals(mVideoHeight, that.mVideoHeight)
+                && Objects.equals(mSearchable, that.mSearchable)
+                && Objects.equals(mDataBytes, that.mDataBytes)
+                && Objects.equals(mDurationMillis, that.mDurationMillis)
+                && Objects.equals(mExpireTimeUtcMillis, that.mExpireTimeUtcMillis)
+                && Objects.equals(mInternalProviderFlag1, that.mInternalProviderFlag1)
+                && Objects.equals(mInternalProviderFlag2, that.mInternalProviderFlag2)
+                && Objects.equals(mInternalProviderFlag3, that.mInternalProviderFlag3)
+                && Objects.equals(mInternalProviderFlag4, that.mInternalProviderFlag4)
+                && Objects.equals(mVersionNumber, that.mVersionNumber)
+                && Objects.equals(mTitle, that.mTitle)
+                && Objects.equals(mEpisodeTitle, that.mEpisodeTitle)
+                && Arrays.equals(mBroadcastGenres, that.mBroadcastGenres)
+                && Arrays.equals(mCanonicalGenres, that.mCanonicalGenres)
+                && Objects.equals(mShortDescription, that.mShortDescription)
+                && Objects.equals(mLongDescription, that.mLongDescription)
+                && Objects.equals(mAudioLanguage, that.mAudioLanguage)
+                && Arrays.equals(mContentRatings, that.mContentRatings)
+                && Objects.equals(mPosterArtUri, that.mPosterArtUri)
+                && Objects.equals(mThumbnailUri, that.mThumbnailUri);
     }
 
-    /**
-     * Hashes based on the ID.
-     */
+    /** Hashes based on the ID. */
     @Override
     public int hashCode() {
         return Objects.hash(mId);
@@ -788,42 +843,80 @@ public class RecordedProgram extends BaseProgram {
     @Override
     public String toString() {
         return "RecordedProgram"
-                + "[" +  mId +
-                "]{ mPackageName=" + mPackageName +
-                ", mInputId='" + mInputId + '\'' +
-                ", mChannelId='" + mChannelId + '\'' +
-                ", mTitle='" + mTitle + '\'' +
-                ", mSeriesId='" + mSeriesId + '\'' +
-                ", mEpisodeNumber=" + mEpisodeNumber +
-                ", mEpisodeTitle='" + mEpisodeTitle + '\'' +
-                ", mStartTimeUtcMillis=" + mStartTimeUtcMillis +
-                ", mEndTimeUtcMillis=" + mEndTimeUtcMillis +
-                ", mBroadcastGenres=" +
-                        (mBroadcastGenres != null ? Arrays.toString(mBroadcastGenres) : "null") +
-                ", mCanonicalGenres=" +
-                        (mCanonicalGenres != null ? Arrays.toString(mCanonicalGenres) : "null") +
-                ", mShortDescription='" + mShortDescription + '\'' +
-                ", mLongDescription='" + mLongDescription + '\'' +
-                ", mVideoHeight=" + mVideoHeight +
-                ", mVideoWidth=" + mVideoWidth +
-                ", mAudioLanguage='" + mAudioLanguage + '\'' +
-                ", mContentRatings='" +
-                        TvContentRatingCache.contentRatingsToString(mContentRatings) + '\'' +
-                ", mPosterArtUri=" + mPosterArtUri +
-                ", mThumbnailUri=" + mThumbnailUri +
-                ", mSearchable=" + mSearchable +
-                ", mDataUri=" + mDataUri +
-                ", mDataBytes=" + mDataBytes +
-                ", mDurationMillis=" + mDurationMillis +
-                ", mExpireTimeUtcMillis=" + mExpireTimeUtcMillis +
-                ", mInternalProviderFlag1=" + mInternalProviderFlag1 +
-                ", mInternalProviderFlag2=" + mInternalProviderFlag2 +
-                ", mInternalProviderFlag3=" + mInternalProviderFlag3 +
-                ", mInternalProviderFlag4=" + mInternalProviderFlag4 +
-                ", mSeasonNumber=" + mSeasonNumber +
-                ", mSeasonTitle=" + mSeasonTitle +
-                ", mVersionNumber=" + mVersionNumber +
-                '}';
+                + "["
+                + mId
+                + "]{ mPackageName="
+                + mPackageName
+                + ", mInputId='"
+                + mInputId
+                + '\''
+                + ", mChannelId='"
+                + mChannelId
+                + '\''
+                + ", mTitle='"
+                + mTitle
+                + '\''
+                + ", mSeriesId='"
+                + mSeriesId
+                + '\''
+                + ", mEpisodeNumber="
+                + mEpisodeNumber
+                + ", mEpisodeTitle='"
+                + mEpisodeTitle
+                + '\''
+                + ", mStartTimeUtcMillis="
+                + mStartTimeUtcMillis
+                + ", mEndTimeUtcMillis="
+                + mEndTimeUtcMillis
+                + ", mBroadcastGenres="
+                + (mBroadcastGenres != null ? Arrays.toString(mBroadcastGenres) : "null")
+                + ", mCanonicalGenres="
+                + (mCanonicalGenres != null ? Arrays.toString(mCanonicalGenres) : "null")
+                + ", mShortDescription='"
+                + mShortDescription
+                + '\''
+                + ", mLongDescription='"
+                + mLongDescription
+                + '\''
+                + ", mVideoHeight="
+                + mVideoHeight
+                + ", mVideoWidth="
+                + mVideoWidth
+                + ", mAudioLanguage='"
+                + mAudioLanguage
+                + '\''
+                + ", mContentRatings='"
+                + TvContentRatingCache.contentRatingsToString(mContentRatings)
+                + '\''
+                + ", mPosterArtUri="
+                + mPosterArtUri
+                + ", mThumbnailUri="
+                + mThumbnailUri
+                + ", mSearchable="
+                + mSearchable
+                + ", mDataUri="
+                + mDataUri
+                + ", mDataBytes="
+                + mDataBytes
+                + ", mDurationMillis="
+                + mDurationMillis
+                + ", mExpireTimeUtcMillis="
+                + mExpireTimeUtcMillis
+                + ", mInternalProviderFlag1="
+                + mInternalProviderFlag1
+                + ", mInternalProviderFlag2="
+                + mInternalProviderFlag2
+                + ", mInternalProviderFlag3="
+                + mInternalProviderFlag3
+                + ", mInternalProviderFlag4="
+                + mInternalProviderFlag4
+                + ", mSeasonNumber="
+                + mSeasonNumber
+                + ", mSeasonTitle="
+                + mSeasonTitle
+                + ", mVersionNumber="
+                + mVersionNumber
+                + '}';
     }
 
     @Nullable
@@ -836,9 +929,7 @@ public class RecordedProgram extends BaseProgram {
         return genres == null ? null : TvContract.Programs.Genres.encode(genres);
     }
 
-    /**
-     * Returns an array containing all of the elements in the list.
-     */
+    /** Returns an array containing all of the elements in the list. */
     public static RecordedProgram[] toArray(Collection<RecordedProgram> recordedPrograms) {
         return recordedPrograms.toArray(new RecordedProgram[recordedPrograms.size()]);
     }

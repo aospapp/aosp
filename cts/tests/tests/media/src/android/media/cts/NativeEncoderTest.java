@@ -23,6 +23,7 @@ import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.view.Surface;
 import android.webkit.cts.CtsTestServer;
@@ -44,6 +45,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class NativeEncoderTest extends MediaPlayerTestBase {
     private static final String TAG = "NativeEncoderTest";
     private static Resources mResources;

@@ -5,6 +5,7 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := bootctl.cpp
 LOCAL_MODULE := bootctl
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_SHARED_LIBRARIES := \
     libhidlbase \
     libhidltransport \

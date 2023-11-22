@@ -24,10 +24,20 @@
 
 #include <log/log.h>
 
-#include <backtrace/backtrace_constants.h>
+#include <android-base/stringprintf.h>
+#include <backtrace/Backtrace.h>
 #include <backtrace/BacktraceMap.h>
+#include <backtrace/backtrace_constants.h>
 
 #include "thread_utils.h"
+
+using android::base::StringPrintf;
+
+std::string backtrace_map_t::Name() const {
+  if (!name.empty()) return name;
+  if (start == 0 && end == 0) return "";
+  return StringPrintf("<anonymous:%" PRIPTR ">", start);
+}
 
 BacktraceMap::BacktraceMap(pid_t pid) : pid_(pid) {
   if (pid_ < 0) {
@@ -38,11 +48,12 @@ BacktraceMap::BacktraceMap(pid_t pid) : pid_(pid) {
 BacktraceMap::~BacktraceMap() {
 }
 
-void BacktraceMap::FillIn(uintptr_t addr, backtrace_map_t* map) {
+void BacktraceMap::FillIn(uint64_t addr, backtrace_map_t* map) {
   ScopedBacktraceMapIteratorLock lock(this);
-  for (BacktraceMap::const_iterator it = begin(); it != end(); ++it) {
-    if (addr >= it->start && addr < it->end) {
-      *map = *it;
+  for (auto it = begin(); it != end(); ++it) {
+    const backtrace_map_t* entry = *it;
+    if (addr >= entry->start && addr < entry->end) {
+      *map = *entry;
       return;
     }
   }
@@ -145,13 +156,3 @@ BacktraceMap* BacktraceMap::Create(pid_t pid, bool /*uncached*/) {
   return map;
 }
 #endif
-
-BacktraceMap* BacktraceMap::Create(pid_t pid, const std::vector<backtrace_map_t>& maps) {
-    BacktraceMap* backtrace_map = new BacktraceMap(pid);
-    backtrace_map->maps_.insert(backtrace_map->maps_.begin(), maps.begin(), maps.end());
-    std::sort(backtrace_map->maps_.begin(), backtrace_map->maps_.end(),
-            [](const backtrace_map_t& map1, const backtrace_map_t& map2) {
-              return map1.start < map2.start;
-            });
-    return backtrace_map;
-}

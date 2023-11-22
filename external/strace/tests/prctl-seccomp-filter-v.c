@@ -2,6 +2,7 @@
  * Check verbose decoding of prctl PR_SET_SECCOMP SECCOMP_MODE_FILTER.
  *
  * Copyright (c) 2015-2016 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2016-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,9 +41,7 @@
 #ifdef HAVE_LINUX_SECCOMP_H
 # include <linux/seccomp.h>
 #endif
-#ifdef HAVE_LINUX_FILTER_H
-# include <linux/filter.h>
-#endif
+#include <linux/filter.h>
 
 #if defined HAVE_PRCTL \
  && defined PR_SET_NO_NEW_PRIVS \
@@ -115,7 +114,7 @@ main(void)
 	PRINT_DENY_SYSCALL(sync, EBUSY),
 	PRINT_DENY_SYSCALL(setsid, EPERM),
 
-	printf("BPF_STMT(BPF_RET|BPF_K, SECCOMP_RET_KILL)");
+	printf("BPF_STMT(BPF_RET|BPF_K, SECCOMP_RET_KILL_THREAD)");
 
 	puts("]}) = 0");
 	puts("+++ exited with 0 +++");

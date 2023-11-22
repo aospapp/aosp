@@ -39,17 +39,13 @@ size_t __fbufsize(FILE* fp) {
   return fp->_bf._size;
 }
 
-/* For a _SRW stream, we don't know whether we last read or wrote.
 int __freading(FILE* fp) {
-  return (fp->_flags & _SRD) != 0 || ...;
+  return (fp->_flags & __SRD) != 0;
 }
-*/
 
-/* For a _SRW stream, we don't know whether we last read or wrote.
-int __fwriting(FILE*) {
-  return (fp->_flags & _SWR) != 0 || ...;
+int __fwriting(FILE* fp) {
+  return (fp->_flags & __SWR) != 0;
 }
-*/
 
 int __freadable(FILE* fp) {
   return (fp->_flags & (__SRD|__SRW)) != 0;
@@ -74,6 +70,10 @@ size_t __fpending(FILE* fp) {
 void _flushlbf() {
   // If we flush all streams, we know we've flushed all the line-buffered streams.
   fflush(NULL);
+}
+
+void __fseterr(FILE* fp) {
+  fp->_flags |= __SERR;
 }
 
 int __fsetlocking(FILE* fp, int type) {

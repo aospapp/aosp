@@ -23,18 +23,16 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.preference.PreferenceManager;
-import android.telephony.CarrierConfigManager;
 import android.telephony.SmsManager;
 import android.telephony.SubscriptionManager;
 import android.util.Log;
 
-import com.android.cellbroadcastreceiver.CellBroadcastAlertService.AlertType;
 import com.android.cellbroadcastreceiver.CellBroadcastChannelManager.CellBroadcastChannelRange;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.telephony.cdma.sms.SmsEnvelope;
-import com.android.internal.telephony.gsm.SmsCbConstants;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * This service manages enabling and disabling ranges of message identifiers
@@ -127,188 +125,129 @@ public class CellBroadcastConfigService extends IntentService {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
 
         // boolean for each user preference checkbox, true for checked, false for unchecked
-        // Note: If enableEmergencyAlerts is false, it disables ALL emergency broadcasts
+        // Note: If enableAlertsMasterToggle is false, it disables ALL emergency broadcasts
         // except for CMAS presidential. i.e. to receive CMAS severe alerts, both
-        // enableEmergencyAlerts AND enableCmasSevereAlerts must be true.
-        boolean enableEmergencyAlerts = enableForSub && prefs.getBoolean(
-                CellBroadcastSettings.KEY_ENABLE_EMERGENCY_ALERTS, true);
+        // enableAlertsMasterToggle AND enableCmasSevereAlerts must be true.
+        boolean enableAlertsMasterToggle = enableForSub && prefs.getBoolean(
+                CellBroadcastSettings.KEY_ENABLE_ALERTS_MASTER_TOGGLE, true);
 
-        boolean enableEtwsAlerts = enableEmergencyAlerts;
+        boolean enableEtwsAlerts = enableAlertsMasterToggle;
 
         // CMAS Presidential must be always on (See 3GPP TS 22.268 Section 6.2) regardless
         // user's preference
         boolean enablePresidential = enableForSub;
 
-        boolean enableCmasExtremeAlerts = enableEmergencyAlerts && prefs.getBoolean(
+        boolean enableCmasExtremeAlerts = enableAlertsMasterToggle && prefs.getBoolean(
                 CellBroadcastSettings.KEY_ENABLE_CMAS_EXTREME_THREAT_ALERTS, true);
 
-        boolean enableCmasSevereAlerts = enableEmergencyAlerts && prefs.getBoolean(
+        boolean enableCmasSevereAlerts = enableAlertsMasterToggle && prefs.getBoolean(
                 CellBroadcastSettings.KEY_ENABLE_CMAS_SEVERE_THREAT_ALERTS, true);
 
-        boolean enableCmasAmberAlerts = enableEmergencyAlerts && prefs.getBoolean(
+        boolean enableCmasAmberAlerts = enableAlertsMasterToggle && prefs.getBoolean(
                 CellBroadcastSettings.KEY_ENABLE_CMAS_AMBER_ALERTS, true);
 
-        // Check if ETWS/CMAS test message is forced disabled on the device.
-        boolean forceDisableEtwsCmasTest =
-                CellBroadcastSettings.isFeatureEnabled(this,
-                        CarrierConfigManager.KEY_CARRIER_FORCE_DISABLE_ETWS_CMAS_TEST_BOOL, false);
-
-        boolean enableEtwsTestAlerts = !forceDisableEtwsCmasTest &&
-                enableEmergencyAlerts &&
-                prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_ETWS_TEST_ALERTS, false);
-
-        boolean enableCmasTestAlerts = !forceDisableEtwsCmasTest &&
-                enableEmergencyAlerts &&
-                prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_CMAS_TEST_ALERTS, false);
+        boolean enableTestAlerts = enableAlertsMasterToggle
+                && prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_TEST_ALERTS, false);
 
         boolean enableAreaUpdateInfoAlerts = Resources.getSystem().getBoolean(
                 com.android.internal.R.bool.config_showAreaUpdateInfoSettings)
                 && prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_AREA_UPDATE_INFO_ALERTS,
                 false);
 
+        // Non-CMAS channels
+        boolean enablePublicSafetyMessagesChannelAlerts = enableAlertsMasterToggle
+                && prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_PUBLIC_SAFETY_MESSAGES,
+                true);
+
+        boolean enableEmergencyAlerts = enableAlertsMasterToggle && prefs.getBoolean(
+                CellBroadcastSettings.KEY_ENABLE_EMERGENCY_ALERTS, true);
+
         if (VDBG) {
-            log("enableEmergencyAlerts = " + enableEmergencyAlerts);
+            log("enableAlertsMasterToggle = " + enableAlertsMasterToggle);
             log("enableEtwsAlerts = " + enableEtwsAlerts);
             log("enablePresidential = " + enablePresidential);
             log("enableCmasExtremeAlerts = " + enableCmasExtremeAlerts);
             log("enableCmasSevereAlerts = " + enableCmasExtremeAlerts);
             log("enableCmasAmberAlerts = " + enableCmasAmberAlerts);
-            log("forceDisableEtwsCmasTest = " + forceDisableEtwsCmasTest);
-            log("enableEtwsTestAlerts = " + enableEtwsTestAlerts);
-            log("enableCmasTestAlerts = " + enableCmasTestAlerts);
+            log("enableTestAlerts = " + enableTestAlerts);
             log("enableAreaUpdateInfoAlerts = " + enableAreaUpdateInfoAlerts);
+            log("enablePublicSafetyMessagesChannelAlerts = "
+                    + enablePublicSafetyMessagesChannelAlerts);
+            log("enableEmergencyAlerts = " + enableEmergencyAlerts);
         }
 
-        /** Enable CDMA CMAS series messages. */
+        /** Enable CMAS series messages. */
 
-        // Enable/Disable CDMA Presidential messages.
+        // Enable/Disable Presidential messages.
         setCellBroadcastRange(manager, enablePresidential,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_CDMA,
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT,
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT);
+                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+                R.array.cmas_presidential_alerts_channels_range_strings));
 
-        // Enable/Disable CDMA CMAS extreme messages.
+        // Enable/Disable CMAS extreme messages.
         setCellBroadcastRange(manager, enableCmasExtremeAlerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_CDMA,
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_EXTREME_THREAT,
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_EXTREME_THREAT);
+                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+                R.array.cmas_alert_extreme_channels_range_strings));
 
-        // Enable/Disable CDMA CMAS severe messages.
+        // Enable/Disable CMAS severe messages.
         setCellBroadcastRange(manager, enableCmasSevereAlerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_CDMA,
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_SEVERE_THREAT,
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_SEVERE_THREAT);
+                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+                R.array.cmas_alerts_severe_range_strings));
 
-        // Enable/Disable CDMA CMAS amber alert messages.
+        // Enable/Disable CMAS amber alert messages.
         setCellBroadcastRange(manager, enableCmasAmberAlerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_CDMA,
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_CHILD_ABDUCTION_EMERGENCY,
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_CHILD_ABDUCTION_EMERGENCY);
+                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+                R.array.cmas_amber_alerts_channels_range_strings));
 
-        // Enable/Disable CDMA CMAS test messages.
-        setCellBroadcastRange(manager, enableCmasTestAlerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_CDMA,
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_TEST_MESSAGE,
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_TEST_MESSAGE);
+        // Enable/Disable test messages.
+        setCellBroadcastRange(manager, enableTestAlerts,
+                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+                R.array.required_monthly_test_range_strings));
+        setCellBroadcastRange(manager, enableTestAlerts,
+                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+                        R.array.exercise_alert_range_strings));
+        setCellBroadcastRange(manager, enableTestAlerts,
+                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+                        R.array.operator_defined_alert_range_strings));
 
-        // Enable GSM ETWS series messages.
-
-        // Enable/Disable GSM ETWS messages (4352~4354).
+        // Enable/Disable GSM ETWS messages.
         setCellBroadcastRange(manager, enableEtwsAlerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                SmsCbConstants.MESSAGE_ID_ETWS_EARTHQUAKE_WARNING,
-                SmsCbConstants.MESSAGE_ID_ETWS_EARTHQUAKE_AND_TSUNAMI_WARNING);
+                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+                R.array.etws_alerts_range_strings));
 
-        // Enable/Disable GSM ETWS messages (4356)
-        setCellBroadcastRange(manager, enableEtwsAlerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                SmsCbConstants.MESSAGE_ID_ETWS_OTHER_EMERGENCY_TYPE,
-                SmsCbConstants.MESSAGE_ID_ETWS_OTHER_EMERGENCY_TYPE);
+        // Enable/Disable GSM ETWS test messages.
+        setCellBroadcastRange(manager, enableTestAlerts,
+                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+                R.array.etws_test_alerts_range_strings));
 
-        // Enable/Disable GSM ETWS test messages (4355).
-        setCellBroadcastRange(manager, enableEtwsTestAlerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                SmsCbConstants.MESSAGE_ID_ETWS_TEST_MESSAGE,
-                SmsCbConstants.MESSAGE_ID_ETWS_TEST_MESSAGE);
+        // Enable/Disable GSM public safety messages.
+        setCellBroadcastRange(manager, enablePublicSafetyMessagesChannelAlerts,
+                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+                        R.array.public_safety_messages_channels_range_strings));
 
-        // Enable GSM CMAS series messages.
+        /** Enable non-CMAS series messages. */
 
-        // Enable/Disable GSM CMAS presidential message (4370).
-        setCellBroadcastRange(manager, enablePresidential,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL);
-
-        // Enable/Disable GSM CMAS extreme messages (4371~4372).
-        setCellBroadcastRange(manager, enableCmasExtremeAlerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_EXTREME_IMMEDIATE_OBSERVED,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_EXTREME_IMMEDIATE_LIKELY);
-
-        // Enable/Disable GSM CMAS severe messages (4373~4378).
-        setCellBroadcastRange(manager, enableCmasSevereAlerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_EXTREME_EXPECTED_OBSERVED,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_SEVERE_EXPECTED_LIKELY);
-
-        // Enable/Disable GSM CMAS amber alert messages (4379).
-        setCellBroadcastRange(manager, enableCmasAmberAlerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_CHILD_ABDUCTION_EMERGENCY,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_CHILD_ABDUCTION_EMERGENCY);
-
-        // Enable/Disable GSM CMAS test messages (4380~4382).
-        setCellBroadcastRange(manager, enableCmasTestAlerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_REQUIRED_MONTHLY_TEST,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_OPERATOR_DEFINED_USE);
-
-
-        // Enable GSM CMAS series messages for additional languages.
-
-        // Enable/Disable GSM CMAS presidential messages for additional languages (4383).
-        setCellBroadcastRange(manager, enablePresidential,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL_LANGUAGE,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL_LANGUAGE);
-
-        // Enable/Disable GSM CMAS extreme messages for additional languages (4384~4385).
-        setCellBroadcastRange(manager, enableCmasExtremeAlerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_EXTREME_IMMEDIATE_OBSERVED_LANGUAGE,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_EXTREME_IMMEDIATE_LIKELY_LANGUAGE);
-
-        // Enable/Disable GSM CMAS severe messages for additional languages (4386~4391).
-        setCellBroadcastRange(manager, enableCmasSevereAlerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_EXTREME_EXPECTED_OBSERVED_LANGUAGE,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_SEVERE_EXPECTED_LIKELY_LANGUAGE);
-
-        // Enable/Disable GSM CMAS amber alert messages for additional languages (4392).
-        setCellBroadcastRange(manager, enableCmasAmberAlerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_CHILD_ABDUCTION_EMERGENCY_LANGUAGE,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_CHILD_ABDUCTION_EMERGENCY_LANGUAGE);
-
-        // Enable/Disable GSM CMAS test messages for additional languages (4393~4395).
-        setCellBroadcastRange(manager, enableCmasTestAlerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_REQUIRED_MONTHLY_TEST_LANGUAGE,
-                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_OPERATOR_DEFINED_USE_LANGUAGE);
+        setCellBroadcastRange(manager, enableEmergencyAlerts,
+                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+                R.array.emergency_alerts_channels_range_strings));
 
         // Enable/Disable additional channels based on carrier specific requirement.
         ArrayList<CellBroadcastChannelRange> ranges = CellBroadcastChannelManager
-                .getInstance().getCellBroadcastChannelRanges(this);
-
+                .getInstance().getCellBroadcastChannelRanges(this,
+                R.array.additional_cbs_channels_strings);
         if (ranges != null) {
             for (CellBroadcastChannelRange range: ranges) {
-                if (range.mAlertType == AlertType.AREA && !enableAreaUpdateInfoAlerts) {
-                    // Skip area update info channels if it's not enabled.
-                    continue;
+                boolean enableAlerts;
+                switch (range.mAlertType) {
+                    case AREA:
+                        enableAlerts = enableAreaUpdateInfoAlerts;
+                        break;
+                    case TEST:
+                        enableAlerts = enableTestAlerts;
+                        break;
+                    default:
+                        enableAlerts = enableAlertsMasterToggle;
                 }
-                setCellBroadcastRange(manager, enableEmergencyAlerts,
-                        SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                        range.mStartId, range.mEndId);
+                setCellBroadcastRange(manager, enableAlerts, new ArrayList<>(Arrays.asList(range)));
             }
         }
     }
@@ -316,16 +255,18 @@ public class CellBroadcastConfigService extends IntentService {
      * Enable/disable cell broadcast with messages id range
      * @param manager SMS manager
      * @param enable True for enabling cell broadcast with id range, otherwise for disabling.
-     * @param type GSM or CDMA
-     * @param start Cell broadcast id range start
-     * @param end Cell broadcast id range end
+     * @param ranges Cell broadcast id ranges
      */
-    private boolean setCellBroadcastRange(
-            SmsManager manager, boolean enable, int type, int start, int end) {
-        if (enable) {
-            return manager.enableCellBroadcastRange(start, end, type);
-        } else {
-            return manager.disableCellBroadcastRange(start, end, type);
+    private void setCellBroadcastRange(
+            SmsManager manager, boolean enable, List<CellBroadcastChannelRange> ranges) {
+        if (ranges != null) {
+            for (CellBroadcastChannelRange range: ranges) {
+                if (enable) {
+                    manager.enableCellBroadcastRange(range.mStartId, range.mEndId, range.mRat);
+                } else {
+                    manager.disableCellBroadcastRange(range.mStartId, range.mEndId, range.mRat);
+                }
+            }
         }
     }
 

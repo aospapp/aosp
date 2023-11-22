@@ -29,6 +29,7 @@
 #endif
 
 #include "helper.h"
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -182,13 +183,13 @@ static jmethodID findAppropriateMethod(JNIEnv *env, char **errorMsg,
 // TODO: Missing functions:
 //   AllocObject
 
-static char *help_CallBooleanMethod(JNIEnv *env, callType ct, ...) {
+static char *help_CallBooleanMethod(JNIEnv *env, int ct, ...) {
     va_list args;
     va_start(args, ct);
 
     char *msg;
     jobject o = getStandardInstance(env);
-    jmethodID method = findAppropriateMethod(env, &msg, ct,
+    jmethodID method = findAppropriateMethod(env, &msg, (callType)ct,
             "returnBoolean", "()Z");
 
     if (method == NULL) {
@@ -287,13 +288,13 @@ TEST_DECLARATION(CallStaticBooleanMethodV) {
     return help_CallBooleanMethod(env, STATIC_VA);
 }
 
-static char *help_CallByteMethod(JNIEnv *env, callType ct, ...) {
+static char *help_CallByteMethod(JNIEnv *env, int ct, ...) {
     va_list args;
     va_start(args, ct);
 
     char *msg;
     jobject o = getStandardInstance(env);
-    jmethodID method = findAppropriateMethod(env, &msg, ct,
+    jmethodID method = findAppropriateMethod(env, &msg, (callType)ct,
             "returnByte", "()B");
 
     if (method == NULL) {
@@ -392,13 +393,13 @@ TEST_DECLARATION(CallStaticByteMethodV) {
     return help_CallByteMethod(env, STATIC_VA);
 }
 
-static char *help_CallShortMethod(JNIEnv *env, callType ct, ...) {
+static char *help_CallShortMethod(JNIEnv *env, int ct, ...) {
     va_list args;
     va_start(args, ct);
 
     char *msg;
     jobject o = getStandardInstance(env);
-    jmethodID method = findAppropriateMethod(env, &msg, ct,
+    jmethodID method = findAppropriateMethod(env, &msg, (callType)ct,
             "returnShort", "()S");
 
     if (method == NULL) {
@@ -497,13 +498,13 @@ TEST_DECLARATION(CallStaticShortMethodV) {
     return help_CallShortMethod(env, STATIC_VA);
 }
 
-static char *help_CallCharMethod(JNIEnv *env, callType ct, ...) {
+static char *help_CallCharMethod(JNIEnv *env, int ct, ...) {
     va_list args;
     va_start(args, ct);
 
     char *msg;
     jobject o = getStandardInstance(env);
-    jmethodID method = findAppropriateMethod(env, &msg, ct,
+    jmethodID method = findAppropriateMethod(env, &msg, (callType)ct,
             "returnChar", "()C");
 
     if (method == NULL) {
@@ -602,13 +603,13 @@ TEST_DECLARATION(CallStaticCharMethodV) {
     return help_CallCharMethod(env, STATIC_VA);
 }
 
-static char *help_CallIntMethod(JNIEnv *env, callType ct, ...) {
+static char *help_CallIntMethod(JNIEnv *env, int ct, ...) {
     va_list args;
     va_start(args, ct);
 
     char *msg;
     jobject o = getStandardInstance(env);
-    jmethodID method = findAppropriateMethod(env, &msg, ct,
+    jmethodID method = findAppropriateMethod(env, &msg, (callType)ct,
             "returnInt", "()I");
 
     if (method == NULL) {
@@ -707,13 +708,13 @@ TEST_DECLARATION(CallStaticIntMethodV) {
     return help_CallIntMethod(env, STATIC_VA);
 }
 
-static char *help_CallLongMethod(JNIEnv *env, callType ct, ...) {
+static char *help_CallLongMethod(JNIEnv *env, int ct, ...) {
     va_list args;
     va_start(args, ct);
 
     char *msg;
     jobject o = getStandardInstance(env);
-    jmethodID method = findAppropriateMethod(env, &msg, ct,
+    jmethodID method = findAppropriateMethod(env, &msg, (callType)ct,
             "returnLong", "()J");
 
     if (method == NULL) {
@@ -773,7 +774,7 @@ static char *help_CallLongMethod(JNIEnv *env, callType ct, ...) {
 
     va_end(args);
 
-    return FAIL_IF_UNEQUAL("%lld", -80080080087LL, result);
+    return FAIL_IF_UNEQUAL("%" PRId64, -80080080087LL, result);
 }
 
 TEST_DECLARATION(CallLongMethod) {
@@ -812,13 +813,13 @@ TEST_DECLARATION(CallStaticLongMethodV) {
     return help_CallLongMethod(env, STATIC_VA);
 }
 
-static char *help_CallFloatMethod(JNIEnv *env, callType ct, ...) {
+static char *help_CallFloatMethod(JNIEnv *env, int ct, ...) {
     va_list args;
     va_start(args, ct);
 
     char *msg;
     jobject o = getStandardInstance(env);
-    jmethodID method = findAppropriateMethod(env, &msg, ct,
+    jmethodID method = findAppropriateMethod(env, &msg, (callType)ct,
             "returnFloat", "()F");
 
     if (method == NULL) {
@@ -917,13 +918,13 @@ TEST_DECLARATION(CallStaticFloatMethodV) {
     return help_CallFloatMethod(env, STATIC_VA);
 }
 
-static char *help_CallDoubleMethod(JNIEnv *env, callType ct, ...) {
+static char *help_CallDoubleMethod(JNIEnv *env, int ct, ...) {
     va_list args;
     va_start(args, ct);
 
     char *msg;
     jobject o = getStandardInstance(env);
-    jmethodID method = findAppropriateMethod(env, &msg, ct,
+    jmethodID method = findAppropriateMethod(env, &msg, (callType)ct,
             "returnDouble", "()D");
 
     if (method == NULL) {
@@ -1022,13 +1023,13 @@ TEST_DECLARATION(CallStaticDoubleMethodV) {
     return help_CallDoubleMethod(env, STATIC_VA);
 }
 
-static char *help_CallVoidMethod(JNIEnv *env, callType ct, ...) {
+static char *help_CallVoidMethod(JNIEnv *env, int ct, ...) {
     va_list args;
     va_start(args, ct);
 
     char *msg;
     jobject o = getStandardInstance(env);
-    jmethodID method = findAppropriateMethod(env, &msg, ct,
+    jmethodID method = findAppropriateMethod(env, &msg, (callType)ct,
             "nop", "()V");
 
     if (method == NULL) {
@@ -1127,13 +1128,13 @@ TEST_DECLARATION(CallStaticVoidMethodV) {
     return help_CallVoidMethod(env, STATIC_VA);
 }
 
-static char *help_CallObjectMethod(JNIEnv *env, callType ct, ...) {
+static char *help_CallObjectMethod(JNIEnv *env, int ct, ...) {
     va_list args;
     va_start(args, ct);
 
     char *msg;
     jobject o = getStandardInstance(env);
-    jmethodID method = findAppropriateMethod(env, &msg, ct,
+    jmethodID method = findAppropriateMethod(env, &msg, (callType)ct,
             "returnString", "()Ljava/lang/String;");
 
     if (method == NULL) {
@@ -1250,13 +1251,13 @@ TEST_DECLARATION(CallStaticObjectMethodV) {
     return help_CallObjectMethod(env, STATIC_VA);
 }
 
-static char *help_TakeOneOfEach(JNIEnv *env, callType ct, ...) {
+static char *help_TakeOneOfEach(JNIEnv *env, int ct, ...) {
     va_list args;
     va_start(args, ct);
 
     char *msg;
     jobject o = getStandardInstance(env);
-    jmethodID method = findAppropriateMethod(env, &msg, ct,
+    jmethodID method = findAppropriateMethod(env, &msg, (callType)ct,
             "takeOneOfEach", "(DFJICSBZLjava/lang/String;)Z");
 
     if (method == NULL) {
@@ -1265,8 +1266,8 @@ static char *help_TakeOneOfEach(JNIEnv *env, callType ct, ...) {
     }
 
     jvalue jargs[] = {
-        {d: 0.0}, {f: 1.0f}, {j: 2LL}, {i: 3}, {c: 4}, {s: 5}, {b: 6},
-        {z: true}, {l: biscuits}
+        {.d = 0.0}, {.f = 1.0f}, {.j = 2LL}, {.i = 3}, {.c = 4}, {.s = 5},
+        {.b = 6}, {.z = true}, {.l = biscuits}
     };
 
     jboolean result;
@@ -1372,13 +1373,13 @@ TEST_DECLARATION(StaticTakeOneOfEachV) {
             (jboolean) true, biscuits);
 }
 
-static char *help_TakeCoolHandLuke(JNIEnv *env, callType ct, ...) {
+static char *help_TakeCoolHandLuke(JNIEnv *env, int ct, ...) {
     va_list args;
     va_start(args, ct);
 
     char *msg;
     jobject o = getStandardInstance(env);
-    jmethodID method = findAppropriateMethod(env, &msg, ct,
+    jmethodID method = findAppropriateMethod(env, &msg, (callType)ct,
             "takeCoolHandLuke",
             "(IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII)Z");
 
@@ -1388,17 +1389,17 @@ static char *help_TakeCoolHandLuke(JNIEnv *env, callType ct, ...) {
     }
 
     jvalue jargs[] = {
-        {i: 1}, {i: 2}, {i: 3}, {i: 4},
-        {i: 5}, {i: 6}, {i: 7}, {i: 8}, {i: 9}, 
-        {i: 10}, {i: 11}, {i: 12}, {i: 13}, {i: 14},
-        {i: 15}, {i: 16}, {i: 17}, {i: 18}, {i: 19}, 
-        {i: 20}, {i: 21}, {i: 22}, {i: 23}, {i: 24},
-        {i: 25}, {i: 26}, {i: 27}, {i: 28}, {i: 29}, 
-        {i: 30}, {i: 31}, {i: 32}, {i: 33}, {i: 34},
-        {i: 35}, {i: 36}, {i: 37}, {i: 38}, {i: 39}, 
-        {i: 40}, {i: 41}, {i: 42}, {i: 43}, {i: 44},
-        {i: 45}, {i: 46}, {i: 47}, {i: 48}, {i: 49},
-        {i: 50}
+        {.i = 1}, {.i = 2}, {.i = 3}, {.i = 4},
+        {.i = 5}, {.i = 6}, {.i = 7}, {.i = 8}, {.i = 9}, 
+        {.i = 10}, {.i = 11}, {.i = 12}, {.i = 13}, {.i = 14},
+        {.i = 15}, {.i = 16}, {.i = 17}, {.i = 18}, {.i = 19}, 
+        {.i = 20}, {.i = 21}, {.i = 22}, {.i = 23}, {.i = 24},
+        {.i = 25}, {.i = 26}, {.i = 27}, {.i = 28}, {.i = 29}, 
+        {.i = 30}, {.i = 31}, {.i = 32}, {.i = 33}, {.i = 34},
+        {.i = 35}, {.i = 36}, {.i = 37}, {.i = 38}, {.i = 39}, 
+        {.i = 40}, {.i = 41}, {.i = 42}, {.i = 43}, {.i = 44},
+        {.i = 45}, {.i = 46}, {.i = 47}, {.i = 48}, {.i = 49},
+        {.i = 50}
     };
 
     jboolean result;

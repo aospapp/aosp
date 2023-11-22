@@ -16,20 +16,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="com.android.cts.norestart"
+    android:targetSandboxVersion="2"
     tools:ignore="MissingVersion" >
-
-    <uses-sdk
-        android:minSdkVersion="8"
-        android:targetSdkVersion="23" />
 
     <application
         tools:ignore="AllowBackup,MissingApplicationIcon" >
         <activity
             android:name=".NoRestartActivity"
-            android:launchMode="singleTop" >
+            android:launchMode="singleTop">
             <intent-filter>
-                <action android:name="com.android.cts.norestart.START" />
+                <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="foo.com" />
+                <data android:path="/bar" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -37,4 +38,8 @@
             </intent-filter>
             </activity>
     </application>
+
+    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+             android:targetPackage="com.android.cts.norestart" />
+
 </manifest>

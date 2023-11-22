@@ -20,6 +20,8 @@
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib import font_manager as fm
+from matplotlib import __version__ as matplotlib_version
+from packaging import version
 import pandas as pd
 import pylab as pl
 import operator
@@ -214,6 +216,17 @@ class ResidencyAnalysis(AnalysisModule):
         controller: name of the controller
         idle: Consider idle time?
         """
+        required_version = '1.4'
+        if version.parse(matplotlib_version) >= version.parse(required_version):
+            plt.style.use('ggplot')
+        else:
+            logging.info("matplotlib version ({}) is too old to support ggplot. Upgrade to version {}"\
+                         .format(matplotlib_version, required_version))
+
+        suffix = 'with_idle' if idle else 'without_idle'
+        figname = '{}/residency_for_{}_{}_{}.png'\
+            .format(self._trace.plots_dir, cgroup, controller, suffix)
+
         df = self._dfg_cpu_residencies_cgroup(controller)
 	# Plot per-CPU break down for a single CGroup (Single pie plot)
         if cgroup != 'all':
@@ -221,7 +234,6 @@ class ResidencyAnalysis(AnalysisModule):
             df = df.drop('total', 1)
             df = df.apply(lambda x: x*10)
 
-            plt.style.use('ggplot')
             colors = plt.rcParams['axes.color_cycle']
             fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(8,8))
             patches, texts, autotexts = axes.pie(df.loc[cgroup], labels=df.columns, autopct='%.2f', colors=colors)
@@ -233,7 +245,7 @@ class ResidencyAnalysis(AnalysisModule):
             plt.setp(autotexts, fontproperties=proptease)
             plt.setp(texts, fontproperties=proptease)
 
-            plt.show()
+            pl.savefig(figname, bbox_inches='tight')
             return
 
 	# Otherwise, Plot per-CGroup of a Controller down for each CPU
@@ -241,7 +253,6 @@ class ResidencyAnalysis(AnalysisModule):
             df = df[pd.isnull(df.index) != True]
         # Bug in matplot lib causes plotting issues when residency is < 1
         df = df.apply(lambda x: x*10)
-        plt.style.use('ggplot')
         colors = plt.rcParams['axes.color_cycle']
         fig, axes = plt.subplots(nrows=5, ncols=2, figsize=(12,30))
 
@@ -250,7 +261,7 @@ class ResidencyAnalysis(AnalysisModule):
             ax.set(ylabel='', title=col, aspect='equal')
 
         axes[0, 0].legend(bbox_to_anchor=(0, 0.5))
-        plt.show()
+        pl.savefig(figname, bbox_inches='tight')
 
 
 

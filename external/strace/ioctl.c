@@ -224,6 +224,33 @@ ioctl_decode_command_number(struct tcb *tcp)
 	}
 }
 
+/**
+ * Decode arg parameter of the ioctl call.
+ *
+ * @return There are two flags of the return value important for the purposes of
+ *         processing by SYS_FUNC(ioctl):
+ *          - RVAL_IOCTL_DECODED: indicates that ioctl decoder code
+ *                                has printed arg parameter;
+ *          - RVAL_DECODED: indicates that decoding is done.
+ *         As a result, the following behaviour is expected:
+ *          - on entering:
+ *            - 0: decoding should be continued on exiting;
+ *            - RVAL_IOCTL_DECODED: decoding on exiting is not needed
+ *                                  and decoder has printed arg value;
+ *            - RVAL_DECODED: decoding on exiting is not needed
+ *                            and generic handler should print arg value.
+ *          - on exiting:
+ *            - 0: generic handler should print arg value;
+ *            - RVAL_IOCTL_DECODED: decoder has printed arg value.
+ *
+ *         Note that it makes no sense to return just RVAL_DECODED on exiting,
+ *         but, of course, it is not prohibited (for example, it may be useful
+ *         in cases where the return path is common on entering and on exiting
+ *         the syscall).
+ *
+ *         SYS_FUNC(ioctl) converts RVAL_IOCTL_DECODED flag to RVAL_DECODED,
+ *         and passes all other bits of ioctl_decode return value unchanged.
+ */
 static int
 ioctl_decode(struct tcb *tcp)
 {
@@ -260,15 +287,21 @@ ioctl_decode(struct tcb *tcp)
 		return scsi_ioctl(tcp, code, arg);
 	case 'L':
 		return loop_ioctl(tcp, code, arg);
+#ifdef HAVE_STRUCT_MTD_WRITE_REQ
 	case 'M':
 		return mtd_ioctl(tcp, code, arg);
+#endif
+#ifdef HAVE_STRUCT_UBI_ATTACH_REQ_MAX_BEB_PER1024
 	case 'o':
 	case 'O':
 		return ubi_ioctl(tcp, code, arg);
+#endif
 	case 'V':
 		return v4l2_ioctl(tcp, code, arg);
+#ifdef HAVE_STRUCT_PTP_SYS_OFFSET
 	case '=':
 		return ptp_ioctl(tcp, code, arg);
+#endif
 #ifdef HAVE_LINUX_INPUT_H
 	case 'E':
 		return evdev_ioctl(tcp, code, arg);
@@ -286,6 +319,10 @@ ioctl_decode(struct tcb *tcp)
 #ifdef HAVE_LINUX_DM_IOCTL_H
 	case 0xfd:
 		return dm_ioctl(tcp, code, arg);
+#endif
+#ifdef HAVE_LINUX_KVM_H
+	case 0xae:
+		return kvm_ioctl(tcp, code, arg);
 #endif
 	default:
 		break;
@@ -319,16 +356,11 @@ SYS_FUNC(ioctl)
 		ret = ioctl_decode(tcp) | RVAL_DECODED;
 	}
 
-	if (ret & RVAL_DECODED) {
-		ret &= ~RVAL_DECODED;
-		if (ret)
-			--ret;
-		else
-			tprintf(", %#" PRI_klx, tcp->u_arg[2]);
+	if (ret & RVAL_IOCTL_DECODED) {
+		ret &= ~RVAL_IOCTL_DECODED;
 		ret |= RVAL_DECODED;
-	} else {
-		if (ret)
-			--ret;
+	} else if (ret & RVAL_DECODED) {
+		tprintf(", %#" PRI_klx, tcp->u_arg[2]);
 	}
 
 	return ret;

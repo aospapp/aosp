@@ -29,6 +29,18 @@
         android:id="@+id/texture_view_2"
         android:layout_width="160dp"
         android:layout_height="120dp"/>
+    <TextureView
+        android:id="@+id/texture_view_3"
+        android:layout_width="160dp"
+        android:layout_height="120dp"/>
+    <TextureView
+        android:id="@+id/texture_view_4"
+        android:layout_width="160dp"
+        android:layout_height="120dp"/>
+    <TextureView
+        android:id="@+id/texture_view_5"
+        android:layout_width="160dp"
+        android:layout_height="120dp"/>
     <SurfaceView
         android:id="@+id/surface_view_1"
         android:layout_width="160dp"

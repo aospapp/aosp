@@ -31,7 +31,11 @@ import proguard.classfile.util.ClassUtil;
 import proguard.util.ListUtil;
 
 import java.io.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.StringTokenizer;
 
 /**
  * This Task allows to configure and run ProGuard from Gradle.

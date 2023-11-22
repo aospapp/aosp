@@ -1,7 +1,7 @@
 /** @file
   Initialize TPM2 device and measure FVs before handing off control to DXE.
 
-Copyright (c) 2013 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2013 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials 
 are licensed and made available under the terms and conditions of the BSD License 
 which accompanies this distribution.  The full text of the license may be found at 
@@ -133,41 +133,6 @@ EFI_PEI_NOTIFY_DESCRIPTOR           mNotifyList[] = {
 EFI_PEI_FIRMWARE_VOLUME_INFO_MEASUREMENT_EXCLUDED_PPI *mMeasurementExcludedFvPpi;
 
 /**
-  This function get digest from digest list.
-
-  @param HashAlg    digest algorithm
-  @param DigestList digest list
-  @param Digest     digest
-
-  @retval EFI_SUCCESS   Sha1Digest is found and returned.
-  @retval EFI_NOT_FOUND Sha1Digest is not found.
-**/
-EFI_STATUS
-Tpm2GetDigestFromDigestList (
-  IN TPMI_ALG_HASH      HashAlg,
-  IN TPML_DIGEST_VALUES *DigestList,
-  IN VOID               *Digest
-  )
-{
-  UINTN  Index;
-  UINT16 DigestSize;
-
-  DigestSize = GetHashSizeFromAlgo (HashAlg);
-  for (Index = 0; Index < DigestList->count; Index++) {
-    if (DigestList->digests[Index].hashAlg == HashAlg) {
-      CopyMem (
-        Digest,
-        &DigestList->digests[Index].digest,
-        DigestSize
-        );
-      return EFI_SUCCESS;
-    }
-  }
-
-  return EFI_NOT_FOUND;
-}
-
-/**
   Record all measured Firmware Volum Information into a Guid Hob
   Guid Hob payload layout is 
 
@@ -249,7 +214,7 @@ LogHashEvent (
       DEBUG ((EFI_D_INFO, "  LogFormat - 0x%08x\n", mTreeEventInfo[Index].LogFormat));
       switch (mTreeEventInfo[Index].LogFormat) {
       case TREE_EVENT_LOG_FORMAT_TCG_1_2:
-        Status = Tpm2GetDigestFromDigestList (TPM_ALG_SHA1, DigestList, &NewEventHdr->Digest);
+        Status = GetDigestFromDigestList (TPM_ALG_SHA1, DigestList, &NewEventHdr->Digest);
         if (!EFI_ERROR (Status)) {
           HobData = BuildGuidHob (
                      &gTcgEventEntryHobGuid,
@@ -431,8 +396,8 @@ MeasureFvImage (
   //
   // Add new FV into the measured FV list.
   //
-  ASSERT (mMeasuredBaseFvIndex < FixedPcdGet32 (PcdPeiCoreMaxFvSupported));
-  if (mMeasuredBaseFvIndex < FixedPcdGet32 (PcdPeiCoreMaxFvSupported)) {
+  ASSERT (mMeasuredBaseFvIndex < PcdGet32 (PcdPeiCoreMaxFvSupported));
+  if (mMeasuredBaseFvIndex < PcdGet32 (PcdPeiCoreMaxFvSupported)) {
     mMeasuredBaseFvInfo[mMeasuredBaseFvIndex].BlobBase   = FvBase;
     mMeasuredBaseFvInfo[mMeasuredBaseFvIndex].BlobLength = FvLength;
     mMeasuredBaseFvIndex++;
@@ -543,8 +508,8 @@ FirmwareVolmeInfoPpiNotifyCallback (
   //
   if (Fv->ParentFvName != NULL || Fv->ParentFileName != NULL ) {
     
-    ASSERT (mMeasuredChildFvIndex < FixedPcdGet32 (PcdPeiCoreMaxFvSupported));
-    if (mMeasuredChildFvIndex < FixedPcdGet32 (PcdPeiCoreMaxFvSupported)) {
+    ASSERT (mMeasuredChildFvIndex < PcdGet32 (PcdPeiCoreMaxFvSupported));
+    if (mMeasuredChildFvIndex < PcdGet32 (PcdPeiCoreMaxFvSupported)) {
       //
       // Check whether FV is in the measured child FV list.
       //

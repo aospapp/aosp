@@ -1,6 +1,7 @@
 // Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 77118c9
 
 #ifndef ACCELERATED_VIDEO_DECODER_H_
 #define ACCELERATED_VIDEO_DECODER_H_

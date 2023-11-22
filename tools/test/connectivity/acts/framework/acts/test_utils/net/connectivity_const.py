@@ -53,6 +53,34 @@ VPN_STATE_FAILED = 5
 # This is a random value as of now
 VPN_TIMEOUT = 15
 
+# Connectiivty Manager constants
+TYPE_MOBILE = 0
+TYPE_WIFI = 1
+
+# Multipath preference constants
+MULTIPATH_PREFERENCE_NONE = 0
+MULTIPATH_PREFERENCE_HANDOVER = 1 << 0
+MULTIPATH_PREFERENCE_RELIABILITY = 1 << 1
+MULTIPATH_PREFERENCE_PERFORMANCE = 1 << 2
+
+# IpSec constants
+SOCK_STREAM = 1
+SOCK_DGRAM = 2
+AF_INET = 2
+AF_INET6 = 10
+DIRECTION_IN = 0
+DIRECTION_OUT = 1
+MODE_TRANSPORT = 0
+MODE_TUNNEL = 1
+CRYPT_NULL = "ecb(cipher_null)"
+CRYPT_AES_CBC = "cbc(aes)"
+AUTH_HMAC_MD5 = "hmac(md5)"
+AUTH_HMAC_SHA1 = "hmac(sha1)"
+AUTH_HMAC_SHA256 = "hmac(sha256)"
+AUTH_HMAC_SHA384 = "hmac(sha384)"
+AUTH_HMAC_SHA512 = "hmac(sha512)"
+AUTH_CRYPT_AES_GCM = "rfc4106(gcm(aes))"
+
 # Constants for VpnProfile
 class VpnProfile(object):
     """ This class contains all the possible

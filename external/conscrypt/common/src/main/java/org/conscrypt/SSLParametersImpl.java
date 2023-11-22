@@ -65,8 +65,6 @@ final class SSLParametersImpl implements Cloneable {
     private final PSKKeyManager pskKeyManager;
     // source of X.509 certificate based authentication trust decisions or null if not provided
     private final X509TrustManager x509TrustManager;
-    // source of random numbers
-    private SecureRandom secureRandom;
 
     // protocols enabled for SSL connection
     String[] enabledProtocols;
@@ -95,7 +93,8 @@ final class SSLParametersImpl implements Cloneable {
     byte[] sctExtension;
     byte[] ocspResponse;
 
-    byte[] alpnProtocols;
+    byte[] applicationProtocols = EmptyArray.BYTE;
+    ApplicationProtocolSelectorAdapter applicationProtocolSelector;
     boolean useSessionTickets;
     private Boolean useSni;
 
@@ -137,13 +136,6 @@ final class SSLParametersImpl implements Cloneable {
             x509TrustManager = findFirstX509TrustManager(tms);
         }
 
-        // initialize secure random
-        // We simply use the SecureRandom passed in by the caller. If it's
-        // null, we don't replace it by a new instance. The native code below
-        // then directly accesses /dev/urandom. Not the most elegant solution,
-        // but faster than going through the SecureRandom object.
-        secureRandom = sr;
-
         // initialize the list of cipher suites and protocols enabled by default
         enabledProtocols = NativeCrypto.checkEnabledProtocols(
                 protocols == null ? NativeCrypto.DEFAULT_PROTOCOLS : protocols).clone();
@@ -151,6 +143,9 @@ final class SSLParametersImpl implements Cloneable {
         boolean pskCipherSuitesNeeded = pskKeyManager != null;
         enabledCipherSuites = getDefaultCipherSuites(
                 x509CipherSuitesNeeded, pskCipherSuitesNeeded);
+
+        // We ignore the SecureRandom passed in by the caller. The native code below
+        // directly accesses /dev/urandom, which makes it irrelevant.
     }
 
     static SSLParametersImpl getDefault() throws KeyManagementException {
@@ -239,33 +234,24 @@ final class SSLParametersImpl implements Cloneable {
     }
 
     /**
-     * Sets the list of ALPN protocols. This method internally converts the protocols to their
-     * wire-format form.
+     * Sets the list of ALPN protocols.
      *
-     * @param alpnProtocols the list of ALPN protocols
-     * @see #setAlpnProtocols(byte[])
+     * @param protocols the list of ALPN protocols
      */
-    void setAlpnProtocols(String[] alpnProtocols) {
-        setAlpnProtocols(SSLUtils.toLengthPrefixedList(alpnProtocols));
+    void setApplicationProtocols(String[] protocols) {
+        this.applicationProtocols = SSLUtils.encodeProtocols(protocols);
+    }
+
+    String[] getApplicationProtocols() {
+        return SSLUtils.decodeProtocols(applicationProtocols);
     }
 
     /**
-     * Alternate version of {@link #setAlpnProtocols(String[])} that directly sets the list of
-     * ALPN in the wire-format form used by BoringSSL (length-prefixed 8-bit strings).
-     * Requires that all strings be encoded with US-ASCII.
-     *
-     * @param alpnProtocols the encoded form of the ALPN protocol list
-     * @see #setAlpnProtocols(String[])
+     * Used for server-mode only. Sets or clears the application-provided ALPN protocol selector.
+     * If set, will override the protocol list provided by {@link #setApplicationProtocols(String[])}.
      */
-    void setAlpnProtocols(byte[] alpnProtocols) {
-        if (alpnProtocols != null && alpnProtocols.length == 0) {
-            throw new IllegalArgumentException("alpnProtocols.length == 0");
-        }
-        this.alpnProtocols = alpnProtocols;
-    }
-
-    byte[] getAlpnProtocols() {
-        return alpnProtocols;
+    void setApplicationProtocolSelector(ApplicationProtocolSelectorAdapter applicationProtocolSelector) {
+        this.applicationProtocolSelector = applicationProtocolSelector;
     }
 
     /**

@@ -21,12 +21,12 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_MODULE := CtsHostsideWebViewTests
 
-LOCAL_JAVA_LIBRARIES := tradefed
+LOCAL_JAVA_LIBRARIES := tradefed compatibility-host-util
 
 LOCAL_CTS_TEST_PACKAGE := android.webkit.hostside
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 

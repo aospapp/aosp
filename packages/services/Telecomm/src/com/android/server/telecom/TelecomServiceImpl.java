@@ -17,6 +17,7 @@
 package com.android.server.telecom;
 
 import static android.Manifest.permission.CALL_PHONE;
+import static android.Manifest.permission.CALL_PRIVILEGED;
 import static android.Manifest.permission.DUMP;
 import static android.Manifest.permission.MODIFY_PHONE_STATE;
 import static android.Manifest.permission.READ_PHONE_STATE;
@@ -766,15 +767,17 @@ public class TelecomServiceImpl {
          * @see android.telecom.TelecomManager#endCall
          */
         @Override
-        public boolean endCall() {
+        public boolean endCall(String callingPackage) {
             try {
                 Log.startSession("TSI.eC");
                 synchronized (mLock) {
-                    enforceModifyPermission();
+                    if (!enforceAnswerCallPermission(callingPackage, Binder.getCallingUid())) {
+                        throw new SecurityException("requires ANSWER_PHONE_CALLS permission");
+                    }
 
                     long token = Binder.clearCallingIdentity();
                     try {
-                        return endCallInternal();
+                        return endCallInternal(callingPackage);
                     } finally {
                         Binder.restoreCallingIdentity(token);
                     }
@@ -980,15 +983,9 @@ public class TelecomServiceImpl {
         public boolean isTtySupported(String callingPackage) {
             try {
                 Log.startSession("TSI.iTS");
-                if (!isPrivilegedDialerCalling(callingPackage)) {
-                    try {
-                        enforceModifyPermission(
-                                "isTtySupported requires MODIFY_PHONE_STATE permission.");
-                    } catch (SecurityException e) {
-                        EventLog.writeEvent(0x534e4554, "62347125", "isTtySupported: " +
-                                callingPackage);
-                        throw e;
-                    }
+                if (!canReadPhoneState(callingPackage, "isTtySupported")) {
+                    throw new SecurityException("Only default dialer or an app with" +
+                            "READ_PRIVILEGED_PHONE_STATE or READ_PHONE_STATE can call this api");
                 }
 
                 synchronized (mLock) {
@@ -1074,6 +1071,55 @@ public class TelecomServiceImpl {
                     } else {
                         Log.w(this, "Null phoneAccountHandle. Ignoring request to add new" +
                                 " incoming call");
+                    }
+                }
+            } finally {
+                Log.endSession();
+            }
+        }
+
+        /**
+         * @see android.telecom.TelecomManager#acceptHandover
+         */
+        @Override
+        public void acceptHandover(Uri srcAddr, int videoState, PhoneAccountHandle destAcct) {
+            try {
+                Log.startSession("TSI.aHO");
+                synchronized (mLock) {
+                    Log.i(this, "acceptHandover; srcAddr=%s, videoState=%s, dest=%s",
+                            Log.pii(srcAddr), VideoProfile.videoStateToString(videoState),
+                            destAcct);
+
+                    if (destAcct != null && destAcct.getComponentName() != null) {
+                        mAppOpsManager.checkPackage(
+                                Binder.getCallingUid(),
+                                destAcct.getComponentName().getPackageName());
+                        enforceUserHandleMatchesCaller(destAcct);
+                        enforcePhoneAccountIsRegisteredEnabled(destAcct,
+                                Binder.getCallingUserHandle());
+                        if (isSelfManagedConnectionService(destAcct)) {
+                            // Self-managed phone account, ensure it has MANAGE_OWN_CALLS.
+                            mContext.enforceCallingOrSelfPermission(
+                                    android.Manifest.permission.MANAGE_OWN_CALLS,
+                                    "Self-managed phone accounts must have MANAGE_OWN_CALLS " +
+                                            "permission.");
+                        }
+                        if (!enforceAcceptHandoverPermission(
+                                destAcct.getComponentName().getPackageName(),
+                                Binder.getCallingUid())) {
+                            throw new SecurityException("App must be granted runtime "
+                                    + "ACCEPT_HANDOVER permission.");
+                        }
+
+                        long token = Binder.clearCallingIdentity();
+                        try {
+                            mCallsManager.acceptHandover(srcAddr, videoState, destAcct);
+                        } finally {
+                            Binder.restoreCallingIdentity(token);
+                        }
+                    } else {
+                        Log.w(this, "Null phoneAccountHandle. Ignoring request " +
+                                "to handover the call");
                     }
                 }
             } finally {
@@ -1184,12 +1230,20 @@ public class TelecomServiceImpl {
 
                 final boolean hasCallPermission = mContext.checkCallingPermission(CALL_PHONE) ==
                         PackageManager.PERMISSION_GRANTED;
+                // The Emergency Dialer has call privileged permission and uses this to place
+                // emergency calls.  We ensure permission checks in
+                // NewOutgoingCallIntentBroadcaster#process pass by sending this to
+                // Telecom as an ACTION_CALL_PRIVILEGED intent (which makes sense since the
+                // com.android.phone process has that permission).
+                final boolean hasCallPrivilegedPermission = mContext.checkCallingPermission(
+                        CALL_PRIVILEGED) == PackageManager.PERMISSION_GRANTED;
 
                 synchronized (mLock) {
                     final UserHandle userHandle = Binder.getCallingUserHandle();
                     long token = Binder.clearCallingIdentity();
                     try {
-                        final Intent intent = new Intent(Intent.ACTION_CALL, handle);
+                        final Intent intent = new Intent(hasCallPrivilegedPermission ?
+                                Intent.ACTION_CALL_PRIVILEGED : Intent.ACTION_CALL, handle);
                         if (extras != null) {
                             extras.setDefusable(true);
                             intent.putExtras(extras);
@@ -1197,7 +1251,8 @@ public class TelecomServiceImpl {
                         mUserCallIntentProcessorFactory.create(mContext, userHandle)
                                 .processIntent(
                                         intent, callingPackage, isSelfManaged ||
-                                                (hasCallAppOp && hasCallPermission));
+                                                (hasCallAppOp && hasCallPermission),
+                                        true /* isLocalInvocation */);
                     } finally {
                         Binder.restoreCallingIdentity(token);
                     }
@@ -1413,6 +1468,24 @@ public class TelecomServiceImpl {
         return true;
     }
 
+    /**
+     * @return {@code true} if the app has the handover permission and has received runtime
+     * permission to perform that operation, {@code false}.
+     * @throws SecurityException same as {@link Context#enforceCallingOrSelfPermission}
+     */
+    private boolean enforceAcceptHandoverPermission(String packageName, int uid) {
+        mContext.enforceCallingOrSelfPermission(Manifest.permission.ACCEPT_HANDOVER,
+                "App requires ACCEPT_HANDOVER permission to accept handovers.");
+
+        final int opCode = AppOpsManager.permissionToOpCode(Manifest.permission.ACCEPT_HANDOVER);
+        if (opCode != AppOpsManager.OP_ACCEPT_HANDOVER || (
+                mAppOpsManager.checkOp(opCode, uid, packageName)
+                        != AppOpsManager.MODE_ALLOWED)) {
+            return false;
+        }
+        return true;
+    }
+
     private Context mContext;
     private AppOpsManager mAppOpsManager;
     private PackageManager mPackageManager;
@@ -1493,7 +1566,7 @@ public class TelecomServiceImpl {
         }
     }
 
-    private boolean endCallInternal() {
+    private boolean endCallInternal(String callingPackage) {
         // Always operate on the foreground call if one exists, otherwise get the first call in
         // priority order by call-state.
         Call call = mCallsManager.getForegroundCall();
@@ -1508,9 +1581,9 @@ public class TelecomServiceImpl {
 
         if (call != null) {
             if (call.getState() == CallState.RINGING) {
-                call.reject(false /* rejectWithMessage */, null);
+                call.reject(false /* rejectWithMessage */, null, callingPackage);
             } else {
-                call.disconnect();
+                call.disconnect(0 /* disconnectionTimeout */, callingPackage);
             }
             return true;
         }

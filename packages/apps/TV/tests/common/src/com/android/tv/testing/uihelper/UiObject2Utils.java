@@ -19,9 +19,7 @@ import android.graphics.Point;
 import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiObject2;
 
-/**
- * Static utility methods for {@link UiObject2}s.
- */
+/** Static utility methods for {@link UiObject2}s. */
 public class UiObject2Utils {
 
     public static boolean hasSiblingInDirection(UiObject2 theUiObject, Direction direction) {
@@ -56,6 +54,5 @@ public class UiObject2Utils {
         return false;
     }
 
-    private UiObject2Utils() {
-    }
+    private UiObject2Utils() {}
 }

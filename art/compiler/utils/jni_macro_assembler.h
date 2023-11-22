@@ -19,12 +19,13 @@
 
 #include <vector>
 
+#include <android-base/logging.h>
+
 #include "arch/instruction_set.h"
 #include "base/arena_allocator.h"
 #include "base/arena_object.h"
 #include "base/array_ref.h"
 #include "base/enums.h"
-#include "base/logging.h"
 #include "base/macros.h"
 #include "managed_register.h"
 #include "offsets.h"
@@ -46,7 +47,7 @@ template <PointerSize kPointerSize>
 class JNIMacroAssembler : public DeletableArenaObject<kArenaAllocAssembler> {
  public:
   static std::unique_ptr<JNIMacroAssembler<kPointerSize>> Create(
-      ArenaAllocator* arena,
+      ArenaAllocator* allocator,
       InstructionSet instruction_set,
       const InstructionSetFeatures* instruction_set_features = nullptr);
 
@@ -66,7 +67,13 @@ class JNIMacroAssembler : public DeletableArenaObject<kArenaAllocAssembler> {
                           const ManagedRegisterEntrySpills& entry_spills) = 0;
 
   // Emit code that will remove an activation from the stack
-  virtual void RemoveFrame(size_t frame_size, ArrayRef<const ManagedRegister> callee_save_regs) = 0;
+  //
+  // Argument `may_suspend` must be `true` if the compiled method may be
+  // suspended during its execution (otherwise `false`, if it is impossible
+  // to suspend during its execution).
+  virtual void RemoveFrame(size_t frame_size,
+                           ArrayRef<const ManagedRegister> callee_save_regs,
+                           bool may_suspend) = 0;
 
   virtual void IncreaseFrameSize(size_t adjust) = 0;
   virtual void DecreaseFrameSize(size_t adjust) = 0;
@@ -216,8 +223,15 @@ class JNIMacroAssembler : public DeletableArenaObject<kArenaAllocAssembler> {
    */
   virtual DebugFrameOpCodeWriterForAssembler& cfi() = 0;
 
+  void SetEmitRunTimeChecksInDebugMode(bool value) {
+    emit_run_time_checks_in_debug_mode_ = value;
+  }
+
  protected:
-  explicit JNIMacroAssembler() {}
+  JNIMacroAssembler() {}
+
+  // Should run-time checks be emitted in debug mode?
+  bool emit_run_time_checks_in_debug_mode_ = false;
 };
 
 // A "Label" class used with the JNIMacroAssembler
@@ -262,7 +276,7 @@ class JNIMacroAssemblerFwd : public JNIMacroAssembler<kPointerSize> {
   }
 
  protected:
-  explicit JNIMacroAssemblerFwd(ArenaAllocator* arena) : asm_(arena) {}
+  explicit JNIMacroAssemblerFwd(ArenaAllocator* allocator) : asm_(allocator) {}
 
   T asm_;
 };

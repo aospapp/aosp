@@ -18,6 +18,8 @@
     package="android.content.pm.cts.shortcut.upgrade">
 
     <application>
+        <uses-library android:name="android.test.runner" />
+
         <activity android:name="Launcher" android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

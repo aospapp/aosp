@@ -19,7 +19,7 @@ cc_library {
         enabled: true,
         support_system_process: true,
     },
-    cflags: libhidl_flags,
+    defaults: ["libhidl-defaults"],
     shared_libs: [
         "libbase",
         "liblog",
@@ -27,17 +27,20 @@ cc_library {
         "libcutils",
         "libhidlbase",
         "libhidltransport",
-        "android.hidl.memory@1.0"
+        "android.hidl.memory@1.0",
+        "android.hidl.memory.token@1.0",
     ],
     local_include_dirs: ["include"],
     export_include_dirs: ["include"],
 
     export_shared_lib_headers: [
         "android.hidl.memory@1.0",
+        "android.hidl.memory.token@1.0",
         "libhidlbase"
     ],
 
     srcs: [
+        "HidlMemoryToken.cpp",
         "mapping.cpp"
     ],
 

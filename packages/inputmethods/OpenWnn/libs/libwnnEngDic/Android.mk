@@ -18,6 +18,6 @@ LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/../libwnnDictionary/include
 
 LOCAL_CFLAGS += \
-	-O
+	-O -Wall -Werror
 
 include $(BUILD_SHARED_LIBRARY)

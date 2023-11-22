@@ -203,12 +203,15 @@ cc_library_shared {
     static_libs: [
         "libopensles_helper",
         "libOpenSLESUT",
+        "libstagefright_metadatautils",
     ],
 
     shared_libs: [
         "liblog",
         "libutils",
         "libmedia",
+        "libmedia_omx",
+        "libmediaextractor",
         "libaudioclient",
         "libaudiomanager",
         "libbinder",

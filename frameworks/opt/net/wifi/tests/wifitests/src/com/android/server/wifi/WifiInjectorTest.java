@@ -19,7 +19,7 @@ package com.android.server.wifi;
 import static org.mockito.Mockito.*;
 
 import android.content.Context;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import org.junit.Before;
 import org.junit.Test;

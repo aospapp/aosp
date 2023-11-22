@@ -19,22 +19,17 @@ package com.android.tv.dvr.ui;
 import android.app.Activity;
 import android.os.Bundle;
 import android.support.v17.leanback.app.GuidedStepFragment;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.Starter;
 
-/**
- * Activity to show details view in DVR.
- */
+/** Activity to show details view in DVR. */
 public class DvrSeriesDeletionActivity extends Activity {
-    /**
-     * Name of series id added to the Intent.
-     */
+    /** Name of series id added to the Intent. */
     public static final String SERIES_RECORDING_ID = "series_recording_id";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        TvApplication.setCurrentRunningProcess(this, true);
+        Starter.start(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_dvr_series_settings);
         // Check savedInstanceState to prevent that activity is being showed with animation.

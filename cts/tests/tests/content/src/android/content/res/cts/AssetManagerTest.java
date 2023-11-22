@@ -15,8 +15,16 @@
  */
 package android.content.res.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assert.fail;
+
+import android.content.Context;
 import android.content.cts.R;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -25,67 +33,84 @@ import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.TypedValue;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.HashSet;
 
-
-public class AssetManagerTest extends AndroidTestCase{
+@RunWith(AndroidJUnit4.class)
+public class AssetManagerTest {
     private AssetManager mAssets;
+    private Context mContext;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    private Context getContext() {
+        return mContext;
+    }
+
+    @Before
+    public void setUp() throws Exception {
+        mContext = InstrumentationRegistry.getContext();
         mAssets = mContext.getAssets();
     }
 
     @SmallTest
-    public void testAssetOperations() throws IOException, XmlPullParserException {
-        final Resources res = getContext().getResources();
-        final TypedValue value = new TypedValue();
-        res.getValue(R.raw.text, value, true);
+    @Test
+    public void testAssetOperations() throws Exception {
         final String fileName = "text.txt";
-        InputStream inputStream = mAssets.open(fileName);
-        assertNotNull(inputStream);
         final String expect = "OneTwoThreeFourFiveSixSevenEightNineTen";
+
+        final TypedValue value = new TypedValue();
+        final Resources res = getContext().getResources();
+        res.getValue(R.raw.text, value, true);
+
+        InputStream inputStream = mAssets.open(fileName);
+        assertThat(inputStream).isNotNull();
         assertContextEquals(expect, inputStream);
+
         inputStream = mAssets.open(fileName, AssetManager.ACCESS_BUFFER);
-        assertNotNull(inputStream);
+        assertThat(inputStream).isNotNull();
         assertContextEquals(expect, inputStream);
 
         AssetFileDescriptor assetFileDes = mAssets.openFd(fileName);
-        assertNotNull(assetFileDes);
+        assertThat(assetFileDes).isNotNull();
         assertContextEquals(expect, assetFileDes.createInputStream());
+
         assetFileDes = mAssets.openNonAssetFd(value.string.toString());
-        assertNotNull(assetFileDes);
+        assertThat(assetFileDes).isNotNull();
         assertContextEquals(expect, assetFileDes.createInputStream());
+
         assetFileDes = mAssets.openNonAssetFd(value.assetCookie, value.string.toString());
-        assertNotNull(assetFileDes);
+        assertThat(assetFileDes).isNotNull();
         assertContextEquals(expect, assetFileDes.createInputStream());
 
         XmlResourceParser parser = mAssets.openXmlResourceParser("AndroidManifest.xml");
-        assertNotNull(parser);
+        assertThat(parser).isNotNull();
         XmlUtils.beginDocument(parser, "manifest");
         parser = mAssets.openXmlResourceParser(0, "AndroidManifest.xml");
-        assertNotNull(parser);
+        assertThat(parser).isNotNull();
         beginDocument(parser, "manifest");
 
         String[] files = mAssets.list("");
-        boolean result = false;
-        for (int i = 0; i < files.length; i++) {
-            if (files[i].equals(fileName)) {
-                result = true;
-                break;
-            }
-        }
-        assertTrue(result);
+        assertThat(files).isNotNull();
+
+        // We don't do an exact match because the framework can add asset files and this test
+        // would be too brittle.
+        assertThat(files).asList().containsAllOf(fileName, "subdir");
+
+        files = mAssets.list("subdir");
+        assertThat(files).isNotNull();
+        assertThat(files).asList().contains("subdir_text.txt");
+
+        // This directory doesn't exist.
+        assertThat(mAssets.list("__foo__bar__dir__")).asList().isEmpty();
 
         try {
             mAssets.open("notExistFile.txt", AssetManager.ACCESS_BUFFER);
@@ -115,12 +140,12 @@ public class AssetManagerTest extends AndroidTestCase{
             // expected
         }
 
-        assertNotNull(mAssets.getLocales());
-
+        assertThat(mAssets.getLocales()).isNotNull();
     }
 
     @SmallTest
-    public void testClose() throws IOException, XmlPullParserException {
+    @Test
+    public void testClose() throws Exception {
         final AssetManager assets = new AssetManager();
         assets.close();
 
@@ -136,6 +161,7 @@ public class AssetManagerTest extends AndroidTestCase{
     }
 
     @SmallTest
+    @Test
     public void testGetNonSystemLocales() {
         // This is the list of locales built into this test package. It is basically the locales
         // specified in the Android.mk files (assuming they have corresponding resources), plus the
@@ -166,9 +192,6 @@ public class AssetManagerTest extends AndroidTestCase{
             "xx-YY"
         };
 
-        final HashSet<String> KNOWN_LOCALES_SET =
-                new HashSet<String>(Arrays.asList(KNOWN_LOCALES));
-
         final String PSEUDO_OR_EMPTY_LOCALES[] = {
             "",
             "en-XA",
@@ -177,31 +200,26 @@ public class AssetManagerTest extends AndroidTestCase{
 
         String locales[] = mAssets.getNonSystemLocales();
         HashSet<String> localesSet = new HashSet<String>(Arrays.asList(locales));
-        for (String l : PSEUDO_OR_EMPTY_LOCALES) {
-            localesSet.remove(l);
-        }
-
-        assertEquals(KNOWN_LOCALES_SET, localesSet);
+        localesSet.removeAll(Arrays.asList(PSEUDO_OR_EMPTY_LOCALES));
+        assertThat(localesSet).containsExactlyElementsIn(Arrays.asList(KNOWN_LOCALES));
     }
 
     private void assertContextEquals(final String expect, final InputStream inputStream)
             throws IOException {
-        final BufferedReader bf = new BufferedReader(new InputStreamReader(inputStream));
-        final String result = bf.readLine();
-        inputStream.close();
-        assertNotNull(result);
-        assertEquals(expect, result);
+        try (final BufferedReader bf = new BufferedReader(new InputStreamReader(inputStream))) {
+            assertThat(bf.readLine()).isEqualTo(expect);
+        }
     }
 
-    private void beginDocument(final XmlPullParser parser,final  String firstElementName)
+    private void beginDocument(final XmlPullParser parser, final String firstElementName)
             throws XmlPullParserException, IOException {
         int type;
         while ((type = parser.next()) != XmlPullParser.START_TAG) {
         }
+
         if (type != XmlPullParser.START_TAG) {
             fail("No start tag found");
         }
-        assertEquals(firstElementName, parser.getName());
+        assertThat(firstElementName).isEqualTo(parser.getName());
     }
-
 }

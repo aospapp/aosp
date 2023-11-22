@@ -49,8 +49,8 @@ public class Authenticator extends AbstractAccountAuthenticator {
 
     // Ignore attempts to confirm credentials
     @Override
-    public Bundle confirmCredentials(AccountAuthenticatorResponse r, Account account,
-            Bundle bundle) throws NetworkErrorException {
+    public Bundle confirmCredentials(AccountAuthenticatorResponse r, Account account, Bundle bundle)
+            throws NetworkErrorException {
         Log.d(TAG, "got call", new Exception());
         return null;
     }

@@ -22,15 +22,11 @@ import (
 
 var (
 	linuxBionicCflags = ClangFilterUnknownCflags([]string{
-		"-fno-exceptions", // from build/core/combo/select.mk
-		"-Wno-multichar",  // from build/core/combo/select.mk
-
 		"-fdiagnostics-color",
 
 		"-Wa,--noexecstack",
 
 		"-fPIC",
-		"-no-canonical-prefixes",
 
 		"-U_FORTIFY_SOURCE",
 		"-D_FORTIFY_SOURCE=2",
@@ -43,20 +39,10 @@ var (
 		"-fno-short-enums",
 		"-funswitch-loops",
 		"-funwind-tables",
-		"-no-canonical-prefixes",
 		"-fno-canonical-system-headers",
-
-		// HOST_RELEASE_CFLAGS
-		"-O2", // from build/core/combo/select.mk
-		"-g",  // from build/core/combo/select.mk
-		"-fno-strict-aliasing", // from build/core/combo/select.mk
 
 		// Tell clang where the gcc toolchain is
 		"--gcc-toolchain=${LinuxBionicGccRoot}",
-
-		// TODO: We're not really android, but we don't have a triple yet b/31393676
-		"-U__ANDROID__",
-		"-fno-emulated-tls",
 
 		// This is normally in ClangExtraTargetCflags, but this is considered host
 		"-nostdlibinc",
@@ -69,7 +55,6 @@ var (
 		"-Wl,--build-id=md5",
 		"-Wl,--warn-shared-textrel",
 		"-Wl,--fatal-warnings",
-		"-Wl,--gc-sections",
 		"-Wl,--hash-style=gnu",
 		"-Wl,--no-undefined-version",
 
@@ -82,7 +67,7 @@ func init() {
 	pctx.StaticVariable("LinuxBionicCflags", strings.Join(linuxBionicCflags, " "))
 	pctx.StaticVariable("LinuxBionicLdflags", strings.Join(linuxBionicLdflags, " "))
 
-	pctx.StaticVariable("LinuxBionicIncludeFlags", bionicHeaders("x86_64", "x86"))
+	pctx.StaticVariable("LinuxBionicIncludeFlags", bionicHeaders("x86"))
 
 	// Use the device gcc toolchain for now
 	pctx.StaticVariable("LinuxBionicGccRoot", "${X86_64GccRoot}")
@@ -142,7 +127,9 @@ func (t *toolchainLinuxBionic) ClangLdflags() string {
 }
 
 func (t *toolchainLinuxBionic) ToolchainClangCflags() string {
-	return "-m64 -march=x86-64"
+	return "-m64 -march=x86-64" +
+		// TODO: We're not really android, but we don't have a triple yet b/31393676
+		" -U__ANDROID__ -fno-emulated-tls"
 }
 
 func (t *toolchainLinuxBionic) ToolchainClangLdflags() string {

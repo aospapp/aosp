@@ -17,6 +17,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := TvSettings
+LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_CERTIFICATE := platform
 LOCAL_MODULE_TAGS := optional
 LOCAL_PROGUARD_FLAG_FILES := proguard.cfg
@@ -29,7 +30,11 @@ LOCAL_STATIC_ANDROID_LIBRARIES := \
     android-support-v7-appcompat \
     android-support-v14-preference \
     android-support-v17-preference-leanback \
-    android-support-v17-leanback
+    android-support-v17-leanback \
+    android-arch-lifecycle-extensions
+
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    android-arch-lifecycle-common-java8
 
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
@@ -42,3 +47,8 @@ LOCAL_SRC_FILES := \
 include frameworks/base/packages/SettingsLib/common.mk
 
 include $(BUILD_PACKAGE)
+
+# Use the following include to make our test apk.
+ifeq (,$(ONE_SHOT_MAKEFILE))
+include $(call all-makefiles-under,$(LOCAL_PATH))
+endif

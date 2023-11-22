@@ -35,33 +35,33 @@ import java.text.ParseException;
 
 /* BMessage as defined by MAP_SPEC_V101 Section 3.1.3 Message format (x-bt/message) */
 class BmessageParser {
-    private final static String TAG = "BmessageParser";
-    private final static boolean DBG = false;
+    private static final String TAG = "BmessageParser";
+    private static final boolean DBG = false;
 
-    private final static String CRLF = "\r\n";
+    private static final String CRLF = "\r\n";
 
-    private final static Property BEGIN_BMSG = new Property("BEGIN", "BMSG");
-    private final static Property END_BMSG = new Property("END", "BMSG");
+    private static final Property BEGIN_BMSG = new Property("BEGIN", "BMSG");
+    private static final Property END_BMSG = new Property("END", "BMSG");
 
-    private final static Property BEGIN_VCARD = new Property("BEGIN", "VCARD");
-    private final static Property END_VCARD = new Property("END", "VCARD");
+    private static final Property BEGIN_VCARD = new Property("BEGIN", "VCARD");
+    private static final Property END_VCARD = new Property("END", "VCARD");
 
-    private final static Property BEGIN_BENV = new Property("BEGIN", "BENV");
-    private final static Property END_BENV = new Property("END", "BENV");
+    private static final Property BEGIN_BENV = new Property("BEGIN", "BENV");
+    private static final Property END_BENV = new Property("END", "BENV");
 
-    private final static Property BEGIN_BBODY = new Property("BEGIN", "BBODY");
-    private final static Property END_BBODY = new Property("END", "BBODY");
+    private static final Property BEGIN_BBODY = new Property("BEGIN", "BBODY");
+    private static final Property END_BBODY = new Property("END", "BBODY");
 
-    private final static Property BEGIN_MSG = new Property("BEGIN", "MSG");
-    private final static Property END_MSG = new Property("END", "MSG");
+    private static final Property BEGIN_MSG = new Property("BEGIN", "MSG");
+    private static final Property END_MSG = new Property("END", "MSG");
 
-    private final static int CRLF_LEN = 2;
+    private static final int CRLF_LEN = 2;
 
     /*
      * length of "container" for 'message' in bmessage-body-content:
      * BEGIN:MSG<CRLF> + <CRLF> + END:MSG<CRFL>
      */
-    private final static int MSG_CONTAINER_LEN = 22;
+    private static final int MSG_CONTAINER_LEN = 22;
     private final Bmessage mBmsg;
     private BmsgTokenizer mParser;
 
@@ -69,7 +69,7 @@ class BmessageParser {
         mBmsg = new Bmessage();
     }
 
-    static public Bmessage createBmessage(String str) {
+    public static Bmessage createBmessage(String str) {
         BmessageParser p = new BmessageParser();
 
         if (DBG) {
@@ -262,6 +262,7 @@ class BmessageParser {
             prop = mParser.next();
 
             if (prop.name.equals("PARTID")) {
+                // Do nothing
             } else if (prop.name.equals("ENCODING")) {
                 mBmsg.mBbodyEncoding = prop.value;
 
@@ -422,7 +423,7 @@ class BmessageParser {
     }
 
     private class VcardHandler implements VCardEntryHandler {
-        VCardEntry vcard;
+        public VCardEntry vcard;
 
         @Override
         public void onStart() {

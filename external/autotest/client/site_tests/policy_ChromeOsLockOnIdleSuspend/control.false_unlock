@@ -4,7 +4,7 @@
 
 AUTHOR = 'scunningham'
 NAME = 'policy_ChromeOsLockOnIdleSuspend.false_unlock'
-ATTRIBUTES = 'suite:regression'
+ATTRIBUTES = 'suite:regression, suite:policy'
 TIME = 'SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'enterprise'

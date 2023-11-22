@@ -64,7 +64,8 @@ public class BluetoothFacade extends RpcReceiver {
 
     public BluetoothFacade(FacadeManager manager) {
         super(manager);
-        mBluetoothAdapter = MainThread.run(manager.getService(), new Callable<BluetoothAdapter>() {
+        mBluetoothAdapter = MainThread.run(manager.getService(),
+                new Callable<BluetoothAdapter>() {
             @Override
             public BluetoothAdapter call() throws Exception {
                 return BluetoothAdapter.getDefaultAdapter();
@@ -87,7 +88,8 @@ public class BluetoothFacade extends RpcReceiver {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (action.equals(BluetoothDevice.ACTION_FOUND)) {
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                BluetoothDevice device = intent.getParcelableExtra(
+                        BluetoothDevice.EXTRA_DEVICE);
                 Log.d("Found device " + device.getAliasName());
                 if (!DiscoveredDevices.containsKey(device.getAddress())) {
                     String name = device.getAliasName();
@@ -124,11 +126,15 @@ public class BluetoothFacade extends RpcReceiver {
                 if (state == BluetoothAdapter.STATE_ON) {
                     msg.putString("State", "ON");
                     mEventFacade.postEvent("BluetoothStateChangedOn", msg);
-                    if (!mIsMultiBroadcast) mService.unregisterReceiver(mStateReceiver);
+                    if (!mIsMultiBroadcast) {
+                        mService.unregisterReceiver(mStateReceiver);
+                    }
                 } else if(state == BluetoothAdapter.STATE_OFF) {
                     msg.putString("State", "OFF");
                     mEventFacade.postEvent("BluetoothStateChangedOff", msg);
-                    if (!mIsMultiBroadcast) mService.unregisterReceiver(mStateReceiver);
+                    if (!mIsMultiBroadcast) {
+                        mService.unregisterReceiver(mStateReceiver);
+                    }
                 }
                 msg.clear();
             }
@@ -155,10 +161,18 @@ public class BluetoothFacade extends RpcReceiver {
 
 
     public static boolean deviceMatch(BluetoothDevice device, String deviceID) {
-        return deviceID.equals(device.getAliasName()) || deviceID.equals(device.getAddress());
+        return deviceID.equals(device.getAliasName()) || deviceID.equals(
+                device.getAddress());
     }
 
-    public static <T> BluetoothDevice getDevice(ConcurrentHashMap<String, T> devices, String device)
+    /**
+     * Get Bluetooth device.
+     * @param devices - HashMap of Device Address and Bluetooth device name.
+     * @param device - name of the device.
+     * @return the device name if it exits.
+     */
+    public static <T> BluetoothDevice getDevice(
+            ConcurrentHashMap<String, T> devices, String device)
             throws Exception {
         if (devices.containsKey(device)) {
             return (BluetoothDevice) devices.get(device);
@@ -167,7 +181,14 @@ public class BluetoothFacade extends RpcReceiver {
         }
     }
 
-    public static BluetoothDevice getDevice(Collection<BluetoothDevice> devices, String deviceID)
+    /**
+     * Get Bluetooth device.
+     * @param devices - Collection of device IDs.
+     * @param deviceID - ID of the desired device.
+     * @return the Bluetooth device if the device ID is matched.
+     */
+    public static BluetoothDevice getDevice(
+            Collection<BluetoothDevice> devices, String deviceID)
             throws Exception {
         Log.d("Looking for " + deviceID);
         for (BluetoothDevice bd : devices) {
@@ -180,7 +201,14 @@ public class BluetoothFacade extends RpcReceiver {
         throw new Exception("Can't find device " + deviceID);
     }
 
-    public static boolean deviceExists(Collection<BluetoothDevice> devices, String deviceID) {
+    /**
+     * Verify device existence.
+     * @param devices - Collection of device IDs.
+     * @param deviceID - ID of the desired device.
+     * @return if the device Exists or not.
+     */
+    public static boolean deviceExists(
+            Collection<BluetoothDevice> devices, String deviceID) {
         for (BluetoothDevice bd : devices) {
             if (deviceMatch(bd, deviceID)) {
                 Log.d("Found match " + bd.getAliasName() + " " + bd.getAddress());
@@ -204,8 +232,8 @@ public class BluetoothFacade extends RpcReceiver {
             @RpcDefault("300")
             Integer duration) {
         Log.d("Making discoverable for " + duration + " seconds.\n");
-        mBluetoothAdapter
-                .setScanMode(BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE, duration);
+        mBluetoothAdapter.setScanMode(
+                BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE, duration);
     }
 
     @Rpc(description = "Requests that the device be not discoverable.")
@@ -483,7 +511,8 @@ public class BluetoothFacade extends RpcReceiver {
 
     @Override
     public void shutdown() {
-        for (Map.Entry<String, BluetoothConnection> entry : connections.entrySet()) {
+        for (Map.Entry<String,
+                BluetoothConnection> entry : connections.entrySet()) {
             entry.getValue().stop();
         }
         if (mMultiStateReceiver != null ) bluetoothStopListeningForAdapterStateChange();

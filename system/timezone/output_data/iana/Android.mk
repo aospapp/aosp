@@ -11,8 +11,11 @@ include $(BUILD_PREBUILT)
 
 ifeq ($(WITH_HOST_DALVIK),true)
 
+# A host version of the tzdata module for use by
+# hostdex rules.
+
 include $(CLEAR_VARS)
-LOCAL_MODULE := tzdata-host
+LOCAL_MODULE := tzdata
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_IS_HOST_MODULE := true
 LOCAL_SRC_FILES := tzdata

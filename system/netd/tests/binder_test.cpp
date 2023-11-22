@@ -37,17 +37,21 @@
 #include <android-base/macros.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
+#include <bpf/BpfUtils.h>
 #include <cutils/multiuser.h>
 #include <gtest/gtest.h>
 #include <logwrap/logwrap.h>
 #include <netutils/ifc.h>
 
+#include "InterfaceController.h"
 #include "NetdConstants.h"
 #include "Stopwatch.h"
+#include "XfrmController.h"
 #include "tun_interface.h"
 #include "android/net/INetd.h"
 #include "android/net/UidRange.h"
 #include "binder/IServiceManager.h"
+#include "netdutils/Syscalls.h"
 
 #define IP_PATH "/system/bin/ip"
 #define IP6TABLES_PATH "/system/bin/ip6tables"
@@ -58,12 +62,27 @@ using namespace android;
 using namespace android::base;
 using namespace android::binder;
 using android::base::StartsWith;
+using android::bpf::hasBpfSupport;
 using android::net::INetd;
 using android::net::TunInterface;
 using android::net::UidRange;
+using android::net::XfrmController;
+using android::netdutils::sSyscalls;
+using android::os::PersistableBundle;
+
+#define SKIP_IF_BPF_SUPPORTED         \
+    do {                              \
+        if (hasBpfSupport()) return;  \
+    } while (0);
 
 static const char* IP_RULE_V4 = "-4";
 static const char* IP_RULE_V6 = "-6";
+static const int TEST_NETID1 = 65501;
+static const int TEST_NETID2 = 65502;
+constexpr int BASE_UID = AID_USER_OFFSET * 5;
+
+static const std::string NO_SOCKET_ALLOW_RULE("! owner UID match 0-4294967294");
+static const std::string ESP_ALLOW_RULE("esp");
 
 class BinderTest : public ::testing::Test {
 
@@ -79,6 +98,13 @@ public:
     void SetUp() override {
         ASSERT_NE(nullptr, mNetd.get());
     }
+
+    void TearDown() override {
+        mNetd->networkDestroy(TEST_NETID1);
+        mNetd->networkDestroy(TEST_NETID2);
+    }
+
+    bool allocateIpSecResources(bool expectOk, int32_t *spi);
 
     // Static because setting up the tun interface takes about 40ms.
     static void SetUpTestCase() {
@@ -158,7 +184,31 @@ static int iptablesRuleLineLength(const char *binary, const char *chainName) {
     return listIptablesRule(binary, chainName).size();
 }
 
+static bool iptablesRuleExists(const char *binary,
+                               const char *chainName,
+                               const std::string expectedRule) {
+    std::vector<std::string> rules = listIptablesRule(binary, chainName);
+    for(std::string &rule: rules) {
+        if(rule.find(expectedRule) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool iptablesNoSocketAllowRuleExists(const char *chainName){
+    return iptablesRuleExists(IPTABLES_PATH, chainName, NO_SOCKET_ALLOW_RULE) &&
+           iptablesRuleExists(IP6TABLES_PATH, chainName, NO_SOCKET_ALLOW_RULE);
+}
+
+static bool iptablesEspAllowRuleExists(const char *chainName){
+    return iptablesRuleExists(IPTABLES_PATH, chainName, ESP_ALLOW_RULE) &&
+           iptablesRuleExists(IP6TABLES_PATH, chainName, ESP_ALLOW_RULE);
+}
+
 TEST_F(BinderTest, TestFirewallReplaceUidChain) {
+    SKIP_IF_BPF_SUPPORTED;
+
     std::string chainName = StringPrintf("netd_binder_test_%u", arc4random_uniform(10000));
     const int kNumUids = 500;
     std::vector<int32_t> noUids(0);
@@ -173,8 +223,10 @@ TEST_F(BinderTest, TestFirewallReplaceUidChain) {
         mNetd->firewallReplaceUidChain(String16(chainName.c_str()), true, uids, &ret);
     }
     EXPECT_EQ(true, ret);
-    EXPECT_EQ((int) uids.size() + 7, iptablesRuleLineLength(IPTABLES_PATH, chainName.c_str()));
-    EXPECT_EQ((int) uids.size() + 13, iptablesRuleLineLength(IP6TABLES_PATH, chainName.c_str()));
+    EXPECT_EQ((int) uids.size() + 9, iptablesRuleLineLength(IPTABLES_PATH, chainName.c_str()));
+    EXPECT_EQ((int) uids.size() + 15, iptablesRuleLineLength(IP6TABLES_PATH, chainName.c_str()));
+    EXPECT_EQ(true, iptablesNoSocketAllowRuleExists(chainName.c_str()));
+    EXPECT_EQ(true, iptablesEspAllowRuleExists(chainName.c_str()));
     {
         TimedOperation op("Clearing whitelist chain");
         mNetd->firewallReplaceUidChain(String16(chainName.c_str()), false, noUids, &ret);
@@ -190,6 +242,8 @@ TEST_F(BinderTest, TestFirewallReplaceUidChain) {
     EXPECT_EQ(true, ret);
     EXPECT_EQ((int) uids.size() + 5, iptablesRuleLineLength(IPTABLES_PATH, chainName.c_str()));
     EXPECT_EQ((int) uids.size() + 5, iptablesRuleLineLength(IP6TABLES_PATH, chainName.c_str()));
+    EXPECT_EQ(false, iptablesNoSocketAllowRuleExists(chainName.c_str()));
+    EXPECT_EQ(false, iptablesEspAllowRuleExists(chainName.c_str()));
 
     {
         TimedOperation op("Clearing blacklist chain");
@@ -204,6 +258,101 @@ TEST_F(BinderTest, TestFirewallReplaceUidChain) {
     mNetd->firewallReplaceUidChain(String16(veryLongStringName.c_str()), true, noUids, &ret);
     EXPECT_EQ(false, ret);
 }
+
+TEST_F(BinderTest, TestVirtualTunnelInterface) {
+    static const struct TestData {
+        const std::string& family;
+        const std::string& deviceName;
+        const std::string& localAddress;
+        const std::string& remoteAddress;
+        int32_t iKey;
+        int32_t oKey;
+    } kTestData[] = {
+        {"IPV4", "test_vti", "127.0.0.1", "8.8.8.8", 0x1234 + 53, 0x1234 + 53},
+        {"IPV6", "test_vti6", "::1", "2001:4860:4860::8888", 0x1234 + 50, 0x1234 + 50},
+    };
+
+    for (unsigned int i = 0; i < arraysize(kTestData); i++) {
+        const auto& td = kTestData[i];
+
+        binder::Status status;
+
+        // Create Virtual Tunnel Interface.
+        status = mNetd->addVirtualTunnelInterface(td.deviceName, td.localAddress, td.remoteAddress,
+                                                  td.iKey, td.oKey);
+        EXPECT_TRUE(status.isOk()) << td.family << status.exceptionMessage();
+
+        // Update Virtual Tunnel Interface.
+        status = mNetd->updateVirtualTunnelInterface(td.deviceName, td.localAddress,
+                                                     td.remoteAddress, td.iKey, td.oKey);
+        EXPECT_TRUE(status.isOk()) << td.family << status.exceptionMessage();
+
+        // Remove Virtual Tunnel Interface.
+        status = mNetd->removeVirtualTunnelInterface(td.deviceName);
+        EXPECT_TRUE(status.isOk()) << td.family << status.exceptionMessage();
+    }
+}
+
+// IPsec tests are not run in 32 bit mode; both 32-bit kernels and
+// mismatched ABIs (64-bit kernel with 32-bit userspace) are unsupported.
+#if INTPTR_MAX != INT32_MAX
+#define RETURN_FALSE_IF_NEQ(_expect_, _ret_) \
+        do { if ((_expect_) != (_ret_)) return false; } while(false)
+bool BinderTest::allocateIpSecResources(bool expectOk, int32_t *spi) {
+    netdutils::Status status = XfrmController::ipSecAllocateSpi(0, "::", "::1", 123, spi);
+    SCOPED_TRACE(status);
+    RETURN_FALSE_IF_NEQ(status.ok(), expectOk);
+
+    // Add a policy
+    status = XfrmController::ipSecAddSecurityPolicy(0, 0, "::", "::1", 123, 0, 0);
+    SCOPED_TRACE(status);
+    RETURN_FALSE_IF_NEQ(status.ok(), expectOk);
+
+    // Add an ipsec interface
+    status = netdutils::statusFromErrno(
+            XfrmController::addVirtualTunnelInterface(
+                    "ipsec_test", "::", "::1", 0xF00D, 0xD00D, false),
+            "addVirtualTunnelInterface");
+    return (status.ok() == expectOk);
+}
+
+TEST_F(BinderTest, TestXfrmControllerInit) {
+    netdutils::Status status;
+    status = XfrmController::Init();
+    SCOPED_TRACE(status);
+
+    // Older devices or devices with mismatched Kernel/User ABI cannot support the IPsec
+    // feature.
+    if (status.code() == EOPNOTSUPP) return;
+
+    ASSERT_TRUE(status.ok());
+
+    int32_t spi = 0;
+
+    ASSERT_TRUE(allocateIpSecResources(true, &spi));
+    ASSERT_TRUE(allocateIpSecResources(false, &spi));
+
+    status = XfrmController::Init();
+    ASSERT_TRUE(status.ok());
+    ASSERT_TRUE(allocateIpSecResources(true, &spi));
+
+    // Clean up
+    status = XfrmController::ipSecDeleteSecurityAssociation(0, "::", "::1", 123, spi, 0);
+    SCOPED_TRACE(status);
+    ASSERT_TRUE(status.ok());
+
+    status = XfrmController::ipSecDeleteSecurityPolicy(0, 0, "::", "::1", 0, 0);
+    SCOPED_TRACE(status);
+    ASSERT_TRUE(status.ok());
+
+    // Remove Virtual Tunnel Interface.
+    status = netdutils::statusFromErrno(
+            XfrmController::removeVirtualTunnelInterface("ipsec_test"),
+            "removeVirtualTunnelInterface");
+
+    ASSERT_TRUE(status.ok());
+}
+#endif
 
 static int bandwidthDataSaverEnabled(const char *binary) {
     std::vector<std::string> lines = listIptablesRule(binary, "bw_data_saver");
@@ -291,8 +440,7 @@ static bool ipRuleExistsForRange(const uint32_t priority, const UidRange& range,
     std::string suffix = StringPrintf(" iif lo uidrange %d-%d %s\n",
             range.getStart(), range.getStop(), action.c_str());
     for (std::string line : rules) {
-        if (android::base::StartsWith(line, prefix.c_str())
-                && android::base::EndsWith(line, suffix.c_str())) {
+        if (android::base::StartsWith(line, prefix) && android::base::EndsWith(line, suffix)) {
             return true;
         }
     }
@@ -307,13 +455,56 @@ static bool ipRuleExistsForRange(const uint32_t priority, const UidRange& range,
     return existsIp4;
 }
 
+TEST_F(BinderTest, TestNetworkInterfaces) {
+    EXPECT_TRUE(mNetd->networkCreatePhysical(TEST_NETID1, "").isOk());
+    EXPECT_EQ(EEXIST, mNetd->networkCreatePhysical(TEST_NETID1, "").serviceSpecificErrorCode());
+    EXPECT_EQ(EEXIST, mNetd->networkCreateVpn(TEST_NETID1, false, true).serviceSpecificErrorCode());
+    EXPECT_TRUE(mNetd->networkCreateVpn(TEST_NETID2, false, true).isOk());
+
+    EXPECT_TRUE(mNetd->networkAddInterface(TEST_NETID1, sTun.name()).isOk());
+    EXPECT_EQ(EBUSY,
+              mNetd->networkAddInterface(TEST_NETID2, sTun.name()).serviceSpecificErrorCode());
+
+    EXPECT_TRUE(mNetd->networkDestroy(TEST_NETID1).isOk());
+    EXPECT_TRUE(mNetd->networkAddInterface(TEST_NETID2, sTun.name()).isOk());
+    EXPECT_TRUE(mNetd->networkDestroy(TEST_NETID2).isOk());
+}
+
+TEST_F(BinderTest, TestNetworkUidRules) {
+    const uint32_t RULE_PRIORITY_SECURE_VPN = 12000;
+
+    EXPECT_TRUE(mNetd->networkCreateVpn(TEST_NETID1, false, true).isOk());
+    EXPECT_EQ(EEXIST, mNetd->networkCreateVpn(TEST_NETID1, false, true).serviceSpecificErrorCode());
+    EXPECT_TRUE(mNetd->networkAddInterface(TEST_NETID1, sTun.name()).isOk());
+
+    std::vector<UidRange> uidRanges = {
+        {BASE_UID + 8005, BASE_UID + 8012},
+        {BASE_UID + 8090, BASE_UID + 8099}
+    };
+    UidRange otherRange(BASE_UID + 8190, BASE_UID + 8299);
+    std::string suffix = StringPrintf("lookup %s ", sTun.name().c_str());
+
+    EXPECT_TRUE(mNetd->networkAddUidRanges(TEST_NETID1, uidRanges).isOk());
+
+    EXPECT_TRUE(ipRuleExistsForRange(RULE_PRIORITY_SECURE_VPN, uidRanges[0], suffix));
+    EXPECT_FALSE(ipRuleExistsForRange(RULE_PRIORITY_SECURE_VPN, otherRange, suffix));
+    EXPECT_TRUE(mNetd->networkRemoveUidRanges(TEST_NETID1, uidRanges).isOk());
+    EXPECT_FALSE(ipRuleExistsForRange(RULE_PRIORITY_SECURE_VPN, uidRanges[0], suffix));
+
+    EXPECT_TRUE(mNetd->networkAddUidRanges(TEST_NETID1, uidRanges).isOk());
+    EXPECT_TRUE(ipRuleExistsForRange(RULE_PRIORITY_SECURE_VPN, uidRanges[1], suffix));
+    EXPECT_TRUE(mNetd->networkDestroy(TEST_NETID1).isOk());
+    EXPECT_FALSE(ipRuleExistsForRange(RULE_PRIORITY_SECURE_VPN, uidRanges[1], suffix));
+
+    EXPECT_EQ(ENONET, mNetd->networkDestroy(TEST_NETID1).serviceSpecificErrorCode());
+}
+
 TEST_F(BinderTest, TestNetworkRejectNonSecureVpn) {
     constexpr uint32_t RULE_PRIORITY = 12500;
 
-    constexpr int baseUid = AID_USER_OFFSET * 5;
     std::vector<UidRange> uidRanges = {
-        {baseUid + 150, baseUid + 224},
-        {baseUid + 226, baseUid + 300}
+        {BASE_UID + 150, BASE_UID + 224},
+        {BASE_UID + 226, BASE_UID + 300}
     };
 
     const std::vector<std::string> initialRulesV4 = listIpRules(IP_RULE_V4);
@@ -636,80 +827,133 @@ static std::string base64Encode(const std::vector<uint8_t>& input) {
     return std::string(reinterpret_cast<char*>(output_bytes));
 }
 
-TEST_F(BinderTest, TestAddPrivateDnsServer) {
+TEST_F(BinderTest, TestSetResolverConfiguration_Tls) {
+    const std::vector<std::string> LOCALLY_ASSIGNED_DNS{"8.8.8.8", "2001:4860:4860::8888"};
     std::vector<uint8_t> fp(SHA256_SIZE);
+    std::vector<uint8_t> short_fp(1);
+    std::vector<uint8_t> long_fp(SHA256_SIZE + 1);
+    std::vector<std::string> test_domains;
+    std::vector<int> test_params = { 300, 25, 8, 8 };
+    unsigned test_netid = 0;
     static const struct TestData {
-        const std::string address;
-        const int port;
-        const std::string fingerprintAlgorithm;
-        const std::set<std::vector<uint8_t>> fingerprints;
+        const std::vector<std::string> servers;
+        const std::string tlsName;
+        const std::vector<std::vector<uint8_t>> tlsFingerprints;
         const int expectedReturnCode;
-    } kTestData[] = {
-        { "192.0.2.1", 853, "", {}, INetd::PRIVATE_DNS_SUCCESS },
-        { "2001:db8::2", 65535, "", {}, INetd::PRIVATE_DNS_SUCCESS },
-        { "192.0.2.3", 443, "SHA-256", { fp }, INetd::PRIVATE_DNS_SUCCESS },
-        { "2001:db8::4", 1, "SHA-256", { fp }, INetd::PRIVATE_DNS_SUCCESS },
-        { "192.0.*.5", 853, "", {}, INetd::PRIVATE_DNS_BAD_ADDRESS },
-        { "", 853, "", {}, INetd::PRIVATE_DNS_BAD_ADDRESS },
-        { "2001:dg8::6", 65535, "", {}, INetd::PRIVATE_DNS_BAD_ADDRESS },
-        { "192.0.2.7", 0, "SHA-256", { fp }, INetd::PRIVATE_DNS_BAD_PORT },
-        { "2001:db8::8", 65536, "", {}, INetd::PRIVATE_DNS_BAD_PORT },
-        { "192.0.2.9", 50053, "SHA-512", { fp }, INetd::PRIVATE_DNS_UNKNOWN_ALGORITHM },
-        { "2001:db8::a", 853, "", { fp }, INetd::PRIVATE_DNS_BAD_FINGERPRINT },
-        { "192.0.2.11", 853, "SHA-256", {}, INetd::PRIVATE_DNS_BAD_FINGERPRINT },
-        { "2001:db8::c", 853, "SHA-256", { { 1 } }, INetd::PRIVATE_DNS_BAD_FINGERPRINT },
-        { "192.0.2.12", 853, "SHA-256", { std::vector<uint8_t>(SHA256_SIZE + 1) },
-                INetd::PRIVATE_DNS_BAD_FINGERPRINT },
-        { "2001:db8::e", 1, "SHA-256", { fp, fp, fp }, INetd::PRIVATE_DNS_SUCCESS },
-        { "192.0.2.14", 853, "SHA-256", { fp, { 1 } }, INetd::PRIVATE_DNS_BAD_FINGERPRINT },
+    } kTlsTestData[] = {
+        { {"192.0.2.1"}, "", {}, 0 },
+        { {"2001:db8::2"}, "host.name", {}, 0 },
+        { {"192.0.2.3"}, "@@@@", { fp }, 0 },
+        { {"2001:db8::4"}, "", { fp }, 0 },
+        { {}, "", {}, 0 },
+        { {""}, "", {}, EINVAL },
+        { {"192.0.*.5"}, "", {}, EINVAL },
+        { {"2001:dg8::6"}, "", {}, EINVAL },
+        { {"2001:db8::c"}, "", { short_fp }, EINVAL },
+        { {"192.0.2.12"}, "", { long_fp }, EINVAL },
+        { {"2001:db8::e"}, "", { fp, fp, fp }, 0 },
+        { {"192.0.2.14"}, "", { fp, short_fp }, EINVAL },
     };
 
-    for (unsigned int i = 0; i < arraysize(kTestData); i++) {
-        const auto &td = kTestData[i];
+    for (unsigned int i = 0; i < arraysize(kTlsTestData); i++) {
+        const auto &td = kTlsTestData[i];
 
         std::vector<std::string> fingerprints;
-        for (const std::vector<uint8_t>& fingerprint : td.fingerprints) {
+        for (const auto& fingerprint : td.tlsFingerprints) {
             fingerprints.push_back(base64Encode(fingerprint));
         }
-        const binder::Status status = mNetd->addPrivateDnsServer(
-                td.address, td.port, td.fingerprintAlgorithm, fingerprints);
+        binder::Status status = mNetd->setResolverConfiguration(
+                test_netid, LOCALLY_ASSIGNED_DNS, test_domains, test_params,
+                td.tlsName, td.servers, fingerprints);
 
-        if (td.expectedReturnCode == INetd::PRIVATE_DNS_SUCCESS) {
+        if (td.expectedReturnCode == 0) {
             SCOPED_TRACE(String8::format("test case %d should have passed", i));
             SCOPED_TRACE(status.toString8());
             EXPECT_EQ(0, status.exceptionCode());
         } else {
             SCOPED_TRACE(String8::format("test case %d should have failed", i));
             EXPECT_EQ(binder::Status::EX_SERVICE_SPECIFIC, status.exceptionCode());
+            EXPECT_EQ(td.expectedReturnCode, status.serviceSpecificErrorCode());
         }
-        EXPECT_EQ(td.expectedReturnCode, status.serviceSpecificErrorCode());
+    }
+    // Ensure TLS is disabled before the start of the next test.
+    mNetd->setResolverConfiguration(
+        test_netid, kTlsTestData[0].servers, test_domains, test_params,
+        "", {}, {});
+}
+
+void expectNoTestCounterRules() {
+    for (const auto& binary : { IPTABLES_PATH, IP6TABLES_PATH }) {
+        std::string command = StringPrintf("%s -w -nvL tetherctrl_counters", binary);
+        std::string allRules = Join(runCommand(command), "\n");
+        EXPECT_EQ(std::string::npos, allRules.find("netdtest_"));
     }
 }
 
-TEST_F(BinderTest, TestRemovePrivateDnsServer) {
-    static const struct TestData {
-        const std::string address;
-        const int expectedReturnCode;
-    } kTestData[] = {
-        { "192.0.2.1", INetd::PRIVATE_DNS_SUCCESS },
-        { "2001:db8::2", INetd::PRIVATE_DNS_SUCCESS },
-        { "192.0.*.3", INetd::PRIVATE_DNS_BAD_ADDRESS },
-        { "2001:dg8::4", INetd::PRIVATE_DNS_BAD_ADDRESS },
-        { "", INetd::PRIVATE_DNS_BAD_ADDRESS },
-    };
+void addTetherCounterValues(const char *path, std::string if1, std::string if2, int byte, int pkt) {
+    runCommand(StringPrintf("%s -w -A tetherctrl_counters -i %s -o %s -j RETURN -c %d %d",
+                            path, if1.c_str(), if2.c_str(), pkt, byte));
+}
 
-    for (unsigned int i = 0; i < arraysize(kTestData); i++) {
-        const auto &td = kTestData[i];
+void delTetherCounterValues(const char *path, std::string if1, std::string if2) {
+    runCommand(StringPrintf("%s -w -D tetherctrl_counters -i %s -o %s -j RETURN",
+                            path, if1.c_str(), if2.c_str()));
+    runCommand(StringPrintf("%s -w -D tetherctrl_counters -i %s -o %s -j RETURN",
+                            path, if2.c_str(), if1.c_str()));
+}
 
-        const binder::Status status = mNetd->removePrivateDnsServer(td.address);
+TEST_F(BinderTest, TestTetherGetStats) {
+    expectNoTestCounterRules();
 
-        if (td.expectedReturnCode == INetd::PRIVATE_DNS_SUCCESS) {
-            SCOPED_TRACE(String8::format("test case %d should have passed", i));
-            EXPECT_EQ(0, status.exceptionCode());
-        } else {
-            SCOPED_TRACE(String8::format("test case %d should have failed", i));
-            EXPECT_EQ(binder::Status::EX_SERVICE_SPECIFIC, status.exceptionCode());
+    // TODO: fold this into more comprehensive tests once we have binder RPCs for enabling and
+    // disabling tethering. We don't check the return value because these commands will fail if
+    // tethering is already enabled.
+    runCommand(StringPrintf("%s -w -N tetherctrl_counters", IPTABLES_PATH));
+    runCommand(StringPrintf("%s -w -N tetherctrl_counters", IP6TABLES_PATH));
+
+    std::string intIface1 = StringPrintf("netdtest_%u", arc4random_uniform(10000));
+    std::string intIface2 = StringPrintf("netdtest_%u", arc4random_uniform(10000));
+    std::string intIface3 = StringPrintf("netdtest_%u", arc4random_uniform(10000));
+    std::string extIface1 = StringPrintf("netdtest_%u", arc4random_uniform(10000));
+    std::string extIface2 = StringPrintf("netdtest_%u", arc4random_uniform(10000));
+
+    addTetherCounterValues(IPTABLES_PATH,  intIface1, extIface1, 123, 111);
+    addTetherCounterValues(IP6TABLES_PATH, intIface1, extIface1, 456,  10);
+    addTetherCounterValues(IPTABLES_PATH,  extIface1, intIface1, 321, 222);
+    addTetherCounterValues(IP6TABLES_PATH, extIface1, intIface1, 654,  20);
+    // RX is from external to internal, and TX is from internal to external.
+    // So rxBytes is 321 + 654  = 975, txBytes is 123 + 456 = 579, etc.
+    std::vector<int64_t> expected1 = { 975, 242, 579, 121 };
+
+    addTetherCounterValues(IPTABLES_PATH,  intIface2, extIface2, 1000, 333);
+    addTetherCounterValues(IP6TABLES_PATH, intIface2, extIface2, 3000,  30);
+
+    addTetherCounterValues(IPTABLES_PATH,  extIface2, intIface2, 2000, 444);
+    addTetherCounterValues(IP6TABLES_PATH, extIface2, intIface2, 4000,  40);
+
+    addTetherCounterValues(IP6TABLES_PATH, intIface3, extIface2, 1000,  25);
+    addTetherCounterValues(IP6TABLES_PATH, extIface2, intIface3, 2000,  35);
+    std::vector<int64_t> expected2 = { 8000, 519, 5000, 388 };
+
+    PersistableBundle stats;
+    binder::Status status = mNetd->tetherGetStats(&stats);
+    EXPECT_TRUE(status.isOk()) << "Getting tethering stats failed: " << status;
+
+    std::vector<int64_t> actual1;
+    EXPECT_TRUE(stats.getLongVector(String16(extIface1.c_str()), &actual1));
+    EXPECT_EQ(expected1, actual1);
+
+    std::vector<int64_t> actual2;
+    EXPECT_TRUE(stats.getLongVector(String16(extIface2.c_str()), &actual2));
+    EXPECT_EQ(expected2, actual2);
+
+    for (const auto& path : { IPTABLES_PATH, IP6TABLES_PATH }) {
+        delTetherCounterValues(path, intIface1, extIface1);
+        delTetherCounterValues(path, intIface2, extIface2);
+        if (path == IP6TABLES_PATH) {
+            delTetherCounterValues(path, intIface3, extIface2);
         }
-        EXPECT_EQ(td.expectedReturnCode, status.serviceSpecificErrorCode());
     }
+
+    expectNoTestCounterRules();
 }

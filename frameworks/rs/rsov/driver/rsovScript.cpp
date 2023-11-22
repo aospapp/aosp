@@ -725,7 +725,7 @@ class ParseMD {
     for (std::string::size_type pos = 0; pos < s.size(); pos++) {
       std::string::size_type begin = pos;
 
-      while (s[pos] != D && pos <= s.size()) pos++;
+      while (pos <= s.size() && s[pos] != D) pos++;
       std::string found = s.substr(begin, pos - begin);
       if (each) each(found);
       if (all) result.push_back(found);

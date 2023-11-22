@@ -856,7 +856,7 @@
     <string name="spoken_emoji_1F514" msgid="7027268683047322521">"Bel"</string>
     <string name="spoken_emoji_1F515" msgid="8903179856036069242">"Bel dengan tanda coret"</string>
     <string name="spoken_emoji_1F516" msgid="108097933937925381">"Bookmark"</string>
-    <string name="spoken_emoji_1F517" msgid="2450846665734313397">"Simbol tautan"</string>
+    <string name="spoken_emoji_1F517" msgid="2450846665734313397">"Simbol link"</string>
     <string name="spoken_emoji_1F518" msgid="7028220286841437832">"Tombol radio"</string>
     <string name="spoken_emoji_1F519" msgid="8211189165075445687">"Tulisan BACK dengan panah ke kiri di atas"</string>
     <string name="spoken_emoji_1F51A" msgid="823966751787338892">"Tulisan END dengan panah ke kiri di atas"</string>
@@ -1082,7 +1082,7 @@
     <!-- no translation found for spoken_emoji_1F644 (446284817942609022) -->
     <skip />
     <string name="spoken_emoji_1F645" msgid="5202090629227587076">"Wajah dengan isyarat tidak setuju"</string>
-    <string name="spoken_emoji_1F646" msgid="6734425134415138134">"Wajah dengan isyarat oke"</string>
+    <string name="spoken_emoji_1F646" msgid="6734425134415138134">"Wajah dengan gestur oke"</string>
     <string name="spoken_emoji_1F647" msgid="1090285518444205483">"Orang yang membungkuk dalam-dalam"</string>
     <string name="spoken_emoji_1F648" msgid="8978535230610522356">"Monyet menutup mata"</string>
     <string name="spoken_emoji_1F649" msgid="8486145279809495102">"Monyet menutup telinga"</string>

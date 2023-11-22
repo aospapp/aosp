@@ -19,6 +19,7 @@ package android.hardware.cts;
 import android.hardware.Camera;
 import android.hardware.Camera.Parameters;
 import android.hardware.cts.helpers.CameraUtils;
+import android.platform.test.annotations.AppModeFull;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.util.Log;
 
@@ -30,6 +31,7 @@ import junit.framework.TestSuite;
 import java.util.Collections;
 import java.util.List;
 
+@AppModeFull
 @LargeTest
 public class Camera_SizeTest extends CtsAndroidTestCase {
 

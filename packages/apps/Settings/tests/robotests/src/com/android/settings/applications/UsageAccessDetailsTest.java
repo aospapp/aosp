@@ -16,32 +16,28 @@
 
 package com.android.settings.applications;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
+import android.os.Bundle;
 
 import com.android.internal.logging.nano.MetricsProto;
-import com.android.settings.testutils.SettingsRobolectricTestRunner;
-import com.android.settings.TestConfig;
 import com.android.settings.testutils.FakeFeatureFactory;
+import com.android.settings.testutils.SettingsRobolectricTestRunner;
+import com.android.settingslib.applications.ApplicationsState;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Answers;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowApplication;
+import org.robolectric.RuntimeEnvironment;
 
 @RunWith(SettingsRobolectricTestRunner.class)
-@Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION)
 public class UsageAccessDetailsTest {
-
-    @Mock(answer = Answers.RETURNS_DEEP_STUBS)
-    private Context mContext;
 
     private FakeFeatureFactory mFeatureFactory;
     private UsageAccessDetails mFragment;
@@ -49,10 +45,9 @@ public class UsageAccessDetailsTest {
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        FakeFeatureFactory.setupForTest(mContext);
-        mFeatureFactory = (FakeFeatureFactory) FakeFeatureFactory.getFactory(mContext);
+        mFeatureFactory = FakeFeatureFactory.setupForTest();
         mFragment = new UsageAccessDetails();
-        mFragment.onAttach(ShadowApplication.getInstance().getApplicationContext());
+        mFragment.onAttach(RuntimeEnvironment.application);
     }
 
     @Test
@@ -64,5 +59,15 @@ public class UsageAccessDetailsTest {
         mFragment.logSpecialPermissionChange(false, "app");
         verify(mFeatureFactory.metricsFeatureProvider).action(nullable(Context.class),
                 eq(MetricsProto.MetricsEvent.APP_SPECIAL_PERMISSION_USAGE_VIEW_DENY), eq("app"));
+    }
+
+    @Test
+    public void refreshUi_hasNoAppEntry_shouldReturnFalse() {
+        mFragment.mState = mock(ApplicationsState.class);
+        mFragment.setArguments(new Bundle());
+
+        assertThat(mFragment.refreshUi()).isFalse();
+        assertThat(mFragment.mAppEntry).isNull();
+        assertThat(mFragment.mPackageInfo).isNull();
     }
 }

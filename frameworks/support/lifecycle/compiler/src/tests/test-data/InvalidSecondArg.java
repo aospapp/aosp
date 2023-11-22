@@ -1,11 +1,12 @@
 package foo;
 
-import static android.arch.lifecycle.Lifecycle.Event.ON_ANY;
+import static androidx.lifecycle.Lifecycle.Event.ON_ANY;
 
-import android.arch.lifecycle.LifecycleOwner;
-import android.arch.lifecycle.OnLifecycleEvent;
+import androidx.lifecycle.LifecycleObserver;
+import androidx.lifecycle.LifecycleOwner;
+import androidx.lifecycle.OnLifecycleEvent;
 
-public class InvalidSecondArg {
+public class InvalidSecondArg implements LifecycleObserver {
     @OnLifecycleEvent(ON_ANY)
     public void onStop(LifecycleOwner provider, Object lastEvent) {
     }

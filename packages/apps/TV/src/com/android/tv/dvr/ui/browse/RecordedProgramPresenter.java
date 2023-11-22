@@ -18,17 +18,14 @@ package com.android.tv.dvr.ui.browse;
 
 import android.content.Context;
 import android.media.tv.TvInputManager;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.dvr.DvrWatchedPositionManager;
 import com.android.tv.dvr.DvrWatchedPositionManager.WatchedPositionChangedListener;
 import com.android.tv.dvr.data.RecordedProgram;
 import com.android.tv.util.Utils;
 
-/**
- * Presents a {@link RecordedProgram} in the {@link DvrBrowseFragment}.
- */
+/** Presents a {@link RecordedProgram} in the {@link DvrBrowseFragment}. */
 public class RecordedProgramPresenter extends DvrItemPresenter<RecordedProgram> {
     private final DvrWatchedPositionManager mDvrWatchedPositionManager;
     private String mTodayString;
@@ -53,10 +50,16 @@ public class RecordedProgramPresenter extends DvrItemPresenter<RecordedProgram> 
         }
 
         private void setProgressBar(long watchedPositionMs) {
-            ((RecordingCardView) view).setProgressBar(
-                    (watchedPositionMs == TvInputManager.TIME_SHIFT_INVALID_TIME) ? null
-                            : Math.min(100, (int) (100.0f * watchedPositionMs
-                                    / mProgram.getDurationMillis())));
+            ((RecordingCardView) view)
+                    .setProgressBar(
+                            (watchedPositionMs == TvInputManager.TIME_SHIFT_INVALID_TIME)
+                                    ? null
+                                    : Math.min(
+                                            100,
+                                            (int)
+                                                    (100.0f
+                                                            * watchedPositionMs
+                                                            / mProgram.getDurationMillis())));
         }
 
         @Override
@@ -86,15 +89,15 @@ public class RecordedProgramPresenter extends DvrItemPresenter<RecordedProgram> 
         }
     }
 
-    RecordedProgramPresenter(Context context, boolean showEpisodeTitle,
-            boolean expandTitleWhenFocused) {
+    RecordedProgramPresenter(
+            Context context, boolean showEpisodeTitle, boolean expandTitleWhenFocused) {
         super(context);
         mTodayString = mContext.getString(R.string.dvr_date_today);
         mYesterdayString = mContext.getString(R.string.dvr_date_yesterday);
         mDvrWatchedPositionManager =
-                TvApplication.getSingletons(mContext).getDvrWatchedPositionManager();
-        mProgressBarColor = mContext.getResources()
-                .getColor(R.color.play_controls_progress_bar_watched);
+                TvSingletons.getSingletons(mContext).getDvrWatchedPositionManager();
+        mProgressBarColor =
+                mContext.getResources().getColor(R.color.play_controls_progress_bar_watched);
         mShowEpisodeTitle = showEpisodeTitle;
         mExpandTitleWhenFocused = expandTitleWhenFocused;
     }
@@ -114,29 +117,37 @@ public class RecordedProgramPresenter extends DvrItemPresenter<RecordedProgram> 
         final RecordedProgramViewHolder viewHolder = (RecordedProgramViewHolder) baseHolder;
         final RecordingCardView cardView = viewHolder.getView();
         DetailsContent details = DetailsContent.createFromRecordedProgram(mContext, program);
-        cardView.setTitle(mShowEpisodeTitle ?
-                program.getEpisodeDisplayTitle(mContext) : details.getTitle());
+        cardView.setTitle(
+                mShowEpisodeTitle ? program.getEpisodeDisplayTitle(mContext) : details.getTitle());
         cardView.setImageUri(details.getLogoImageUri(), details.isUsingChannelLogo());
         cardView.setContent(generateMajorContent(program), generateMinorContent(program));
         cardView.setDetailBackgroundImageUri(details.getBackgroundImageUri());
     }
 
     private String generateMajorContent(RecordedProgram program) {
-        int dateDifference = Utils.computeDateDifference(program.getStartTimeUtcMillis(),
-                System.currentTimeMillis());
+        int dateDifference =
+                Utils.computeDateDifference(
+                        program.getStartTimeUtcMillis(), System.currentTimeMillis());
         if (dateDifference == 0) {
             return mTodayString;
         } else if (dateDifference == 1) {
             return mYesterdayString;
         } else {
-            return Utils.getDurationString(mContext, program.getStartTimeUtcMillis(),
-                    program.getStartTimeUtcMillis(), false, true, false, 0);
+            return Utils.getDurationString(
+                    mContext,
+                    program.getStartTimeUtcMillis(),
+                    program.getStartTimeUtcMillis(),
+                    false,
+                    true,
+                    false,
+                    0);
         }
     }
 
     private String generateMinorContent(RecordedProgram program) {
         int durationMinutes = Math.max(1, Utils.getRoundOffMinsFromMs(program.getDurationMillis()));
-        return mContext.getResources().getQuantityString(
-                R.plurals.dvr_program_duration, durationMinutes, durationMinutes);
+        return mContext.getResources()
+                .getQuantityString(
+                        R.plurals.dvr_program_duration, durationMinutes, durationMinutes);
     }
 }

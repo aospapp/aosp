@@ -19,6 +19,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SmallTest;
@@ -35,13 +36,13 @@ import java.io.IOException;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
+@AppModeFull
 public class ExternalSourcesTest {
 
     private Context mContext;
     private PackageManager mPm;
     private String mPackageName;
     private UiDevice mUiDevice;
-    private boolean mHasFeature;
 
     @Before
     public void setUp() throws Exception {
@@ -49,7 +50,6 @@ public class ExternalSourcesTest {
         mPm = mContext.getPackageManager();
         mPackageName = mContext.getPackageName();
         mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        mHasFeature = !mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
     }
 
     private void setAppOpsMode(String mode) throws IOException {
@@ -86,9 +86,6 @@ public class ExternalSourcesTest {
 
     @Test
     public void testManageUnknownSourcesExists() {
-        if (!mHasFeature) {
-            return;
-        }
         Intent manageUnknownSources = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
         ResolveInfo info = mPm.resolveActivity(manageUnknownSources, 0);
         Assert.assertNotNull("No activity found for " + manageUnknownSources.getAction(), info);

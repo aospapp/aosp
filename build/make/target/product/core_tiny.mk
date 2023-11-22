@@ -41,6 +41,7 @@ PRODUCT_PACKAGES += \
     DefaultContainerService \
     ExtShared \
     ExtServices \
+    SecureElement \
     SettingsProvider \
     Shell \
     WallpaperBackup \
@@ -59,7 +60,7 @@ PRODUCT_PACKAGES += \
     iptables \
     gatekeeperd \
     keystore \
-    keystore.default \
+    ld.config.txt \
     ld.mc \
     libaaudio \
     libOpenMAXAL \
@@ -71,11 +72,10 @@ PRODUCT_PACKAGES += \
     libwilhelm \
     libdrmframework_jni \
     libdrmframework \
-    make_ext4fs \
+    mke2fs \
     e2fsck \
     resize2fs \
     tune2fs \
-    nullwebview \
     screencap \
     sensorservice \
     uiautomator \
@@ -96,16 +96,25 @@ endif
 # The order matters
 PRODUCT_BOOT_JARS := \
     $(TARGET_CORE_JARS) \
-    legacy-test \
     ext \
     framework \
     telephony-common \
     voip-common \
     ims-common \
-    nullwebview \
-    org.apache.http.legacy.boot \
     android.hidl.base-V1.0-java \
     android.hidl.manager-V1.0-java
+
+ifeq ($(REMOVE_OAHL_FROM_BCP),true)
+PRODUCT_BOOT_JARS += framework-oahl-backward-compatibility
+else
+PRODUCT_BOOT_JARS += org.apache.http.legacy.boot
+endif
+
+ifeq ($(REMOVE_ATB_FROM_BCP),true)
+PRODUCT_BOOT_JARS += framework-atb-backward-compatibility
+else
+PRODUCT_BOOT_JARS += android.test.base
+endif
 
 # The order of PRODUCT_SYSTEM_SERVER_JARS matters.
 PRODUCT_SYSTEM_SERVER_JARS := \

@@ -16,13 +16,26 @@
 
 #include "util/utf8/unicodetext.h"
 
-#include "base.h"
+#include <string.h>
+
+#include <algorithm>
+
 #include "util/strings/utf8.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 // *************** Data representation **********
 // Note: the copy constructor is undefined.
+
+UnicodeText::Repr& UnicodeText::Repr::operator=(Repr&& src) {
+  if (ours_ && data_) delete[] data_;
+  data_ = src.data_;
+  size_ = src.size_;
+  capacity_ = src.capacity_;
+  ours_ = src.ours_;
+  src.ours_ = false;
+  return *this;
+}
 
 void UnicodeText::Repr::PointTo(const char* data, int size) {
   if (ours_ && data_) delete[] data_;  // If we owned the old buffer, free it.
@@ -86,6 +99,11 @@ UnicodeText::UnicodeText() {}
 
 UnicodeText::UnicodeText(const UnicodeText& src) { Copy(src); }
 
+UnicodeText& UnicodeText::operator=(UnicodeText&& src) {
+  this->repr_ = std::move(src.repr_);
+  return *this;
+}
+
 UnicodeText& UnicodeText::Copy(const UnicodeText& src) {
   repr_.Copy(src.repr_.data_, src.repr_.size_);
   return *this;
@@ -106,7 +124,87 @@ UnicodeText& UnicodeText::AppendUTF8(const char* utf8, int len) {
   return *this;
 }
 
+const char* UnicodeText::data() const { return repr_.data_; }
+
+int UnicodeText::size_bytes() const { return repr_.size_; }
+
+namespace {
+
+enum {
+  RuneError = 0xFFFD,  // Decoding error in UTF.
+  RuneMax = 0x10FFFF,  // Maximum rune value.
+};
+
+int runetochar(const char32 rune, char* dest) {
+  // Convert to unsigned for range check.
+  uint32 c;
+
+  // 1 char 00-7F
+  c = rune;
+  if (c <= 0x7F) {
+    dest[0] = static_cast<char>(c);
+    return 1;
+  }
+
+  // 2 char 0080-07FF
+  if (c <= 0x07FF) {
+    dest[0] = 0xC0 | static_cast<char>(c >> 1 * 6);
+    dest[1] = 0x80 | (c & 0x3F);
+    return 2;
+  }
+
+  // Range check
+  if (c > RuneMax) {
+    c = RuneError;
+  }
+
+  // 3 char 0800-FFFF
+  if (c <= 0xFFFF) {
+    dest[0] = 0xE0 | static_cast<char>(c >> 2 * 6);
+    dest[1] = 0x80 | ((c >> 1 * 6) & 0x3F);
+    dest[2] = 0x80 | (c & 0x3F);
+    return 3;
+  }
+
+  // 4 char 10000-1FFFFF
+  dest[0] = 0xF0 | static_cast<char>(c >> 3 * 6);
+  dest[1] = 0x80 | ((c >> 2 * 6) & 0x3F);
+  dest[2] = 0x80 | ((c >> 1 * 6) & 0x3F);
+  dest[3] = 0x80 | (c & 0x3F);
+  return 4;
+}
+
+}  // namespace
+
+UnicodeText& UnicodeText::AppendCodepoint(char32 ch) {
+  char str[4];
+  int char_len = runetochar(ch, str);
+  repr_.append(str, char_len);
+  return *this;
+}
+
 void UnicodeText::clear() { repr_.clear(); }
+
+int UnicodeText::size_codepoints() const {
+  return std::distance(begin(), end());
+}
+
+bool UnicodeText::empty() const { return size_bytes() == 0; }
+
+bool UnicodeText::is_valid() const {
+  return IsValidUTF8(repr_.data_, repr_.size_);
+}
+
+bool UnicodeText::operator==(const UnicodeText& other) const {
+  if (repr_.size_ != other.repr_.size_) {
+    return false;
+  }
+  return memcmp(repr_.data_, other.repr_.data_, repr_.size_) == 0;
+}
+
+std::string UnicodeText::ToUTF8String() const {
+  return UTF8Substring(begin(), end());
+}
 
 std::string UnicodeText::UTF8Substring(const const_iterator& first,
                                        const const_iterator& last) {
@@ -186,8 +284,16 @@ UnicodeText UTF8ToUnicodeText(const char* utf8_buf, int len, bool do_copy) {
   return t;
 }
 
+UnicodeText UTF8ToUnicodeText(const char* utf8_buf, bool do_copy) {
+  return UTF8ToUnicodeText(utf8_buf, strlen(utf8_buf), do_copy);
+}
+
 UnicodeText UTF8ToUnicodeText(const std::string& str, bool do_copy) {
   return UTF8ToUnicodeText(str.data(), str.size(), do_copy);
 }
 
-}  // namespace libtextclassifier
+UnicodeText UTF8ToUnicodeText(const std::string& str) {
+  return UTF8ToUnicodeText(str, /*do_copy=*/true);
+}
+
+}  // namespace libtextclassifier2

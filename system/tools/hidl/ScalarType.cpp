@@ -20,9 +20,7 @@
 
 namespace android {
 
-ScalarType::ScalarType(Kind kind)
-    : mKind(kind) {
-}
+ScalarType::ScalarType(Kind kind, Scope* parent) : Type(parent), mKind(kind) {}
 
 const ScalarType *ScalarType::resolveToScalarType() const {
     return this;
@@ -41,7 +39,7 @@ bool ScalarType::isElidableType() const {
     return true;
 }
 
-bool ScalarType::canCheckEquality() const {
+bool ScalarType::deepCanCheckEquality(std::unordered_set<const Type*>* /* visited */) const {
     return true;
 }
 
@@ -279,10 +277,9 @@ void ScalarType::emitJavaFieldReaderWriter(
         << ");\n";
 }
 
-status_t ScalarType::emitVtsTypeDeclarations(Formatter &out) const {
+void ScalarType::emitVtsTypeDeclarations(Formatter& out) const {
     out << "type: " << getVtsType() << "\n";
     out << "scalar_type: \"" << getVtsScalarType() << "\"\n";
-    return OK;
 }
 
 void ScalarType::getAlignmentAndSize(size_t *align, size_t *size) const {

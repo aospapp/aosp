@@ -31,11 +31,14 @@ cc_binary {
         "trusty_keymaster_ipc.cpp",
         "trusty_keymaster_main.cpp",
     ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     shared_libs: [
         "libcrypto",
         "libcutils",
         "libkeymaster_portable",
-        "libkeymaster_staging",
         "libtrusty",
         "libkeymaster_messages",
         "libsoftkeymasterdevice",

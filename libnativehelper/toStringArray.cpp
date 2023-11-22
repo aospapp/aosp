@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "JniConstants.h"
-#include "toStringArray.h"
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/toStringArray.h>
 
 jobjectArray newStringArray(JNIEnv* env, size_t count) {
     return env->NewObjectArray(count, JniConstants::stringClass, NULL);

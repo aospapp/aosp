@@ -11,6 +11,7 @@ package android.icu.dev.test.stringprep;
 
 import android.icu.text.StringPrepParseException;
 import android.icu.text.UCharacterIterator;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author ram
@@ -18,6 +19,7 @@ import android.icu.text.UCharacterIterator;
  * To change the template for this generated type comment go to
  * Window>Preferences>Java>Code Generation>Code and Comments
  */
+@MainTestShard
 public class IDNAReference {
     
     private static char[] ACE_PREFIX = new char[]{ 0x0078,0x006E,0x002d,0x002d } ;

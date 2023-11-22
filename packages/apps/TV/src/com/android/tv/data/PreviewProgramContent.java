@@ -17,21 +17,19 @@
 package com.android.tv.data;
 
 import android.content.Context;
-import android.media.tv.TvContract;
 import android.net.Uri;
+import android.support.annotation.VisibleForTesting;
+import android.support.media.tv.TvContractCompat;
 import android.text.TextUtils;
 import android.util.Pair;
-
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
+import com.android.tv.data.api.Channel;
 import com.android.tv.dvr.data.RecordedProgram;
-
 import java.util.Objects;
 
-/**
- * A class to store the content of preview programs.
- */
+/** A class to store the content of preview programs. */
 public class PreviewProgramContent {
-    private final static String PARAM_INPUT = "input";
+    @VisibleForTesting static final String PARAM_INPUT = "input";
 
     private long mId;
     private long mPreviewChannelId;
@@ -43,59 +41,71 @@ public class PreviewProgramContent {
     private Uri mIntentUri;
     private Uri mPreviewVideoUri;
 
-    /**
-     * Create preview program content from {@link Program}
-     */
-    public static PreviewProgramContent createFromProgram(Context context,
-            long previewChannelId, Program program) {
-        Channel channel = TvApplication.getSingletons(context).getChannelDataManager()
-                .getChannel(program.getChannelId());
-        if (channel == null) {
-            return null;
-        }
+    /** Create preview program content from {@link Program} */
+    public static PreviewProgramContent createFromProgram(
+            Context context, long previewChannelId, Program program) {
+        Channel channel =
+                TvSingletons.getSingletons(context)
+                        .getChannelDataManager()
+                        .getChannel(program.getChannelId());
+        return channel == null ? null : createFromProgram(previewChannelId, program, channel);
+    }
+
+    /** Create preview program content from {@link RecordedProgram} */
+    public static PreviewProgramContent createFromRecordedProgram(
+            Context context, long previewChannelId, RecordedProgram recordedProgram) {
+        Channel channel =
+                TvSingletons.getSingletons(context)
+                        .getChannelDataManager()
+                        .getChannel(recordedProgram.getChannelId());
+        return createFromRecordedProgram(previewChannelId, recordedProgram, channel);
+    }
+
+    @VisibleForTesting
+    static PreviewProgramContent createFromProgram(
+            long previewChannelId, Program program, Channel channel) {
         String channelDisplayName = channel.getDisplayName();
         return new PreviewProgramContent.Builder()
                 .setId(program.getId())
                 .setPreviewChannelId(previewChannelId)
-                .setType(TvContract.PreviewPrograms.TYPE_CHANNEL)
+                .setType(TvContractCompat.PreviewPrograms.TYPE_CHANNEL)
                 .setLive(true)
                 .setTitle(program.getTitle())
-                .setDescription(!TextUtils.isEmpty(channelDisplayName)
-                        ? channelDisplayName : channel.getDisplayNumber())
+                .setDescription(
+                        !TextUtils.isEmpty(channelDisplayName)
+                                ? channelDisplayName
+                                : channel.getDisplayNumber())
                 .setPosterArtUri(Uri.parse(program.getPosterArtUri()))
                 .setIntentUri(channel.getUri())
-                .setPreviewVideoUri(PreviewDataManager.PreviewDataUtils.addQueryParamToUri(
-                        channel.getUri(), new Pair<>(PARAM_INPUT, channel.getInputId())))
+                .setPreviewVideoUri(
+                        PreviewDataManager.PreviewDataUtils.addQueryParamToUri(
+                                channel.getUri(), new Pair<>(PARAM_INPUT, channel.getInputId())))
                 .build();
     }
 
-    /**
-     * Create preview program content from {@link RecordedProgram}
-     */
-    public static PreviewProgramContent createFromRecordedProgram(
-            Context context, long previewChannelId, RecordedProgram recordedProgram) {
-        Channel channel = TvApplication.getSingletons(context).getChannelDataManager()
-                .getChannel(recordedProgram.getChannelId());
-        String channelDisplayName = null;
-        if (channel != null) {
-            channelDisplayName = channel.getDisplayName();
-        }
-        Uri recordedProgramUri = TvContract.buildRecordedProgramUri(recordedProgram.getId());
+    @VisibleForTesting
+    static PreviewProgramContent createFromRecordedProgram(
+            long previewChannelId, RecordedProgram recordedProgram, Channel channel) {
+        String channelDisplayName = channel == null ? null : channel.getDisplayName();
+        Uri recordedProgramUri = TvContractCompat.buildRecordedProgramUri(recordedProgram.getId());
         return new PreviewProgramContent.Builder()
                 .setId(recordedProgram.getId())
                 .setPreviewChannelId(previewChannelId)
-                .setType(TvContract.PreviewPrograms.TYPE_CLIP)
+                .setType(TvContractCompat.PreviewPrograms.TYPE_CLIP)
                 .setTitle(recordedProgram.getTitle())
                 .setDescription(channelDisplayName != null ? channelDisplayName : "")
                 .setPosterArtUri(Uri.parse(recordedProgram.getPosterArtUri()))
                 .setIntentUri(recordedProgramUri)
-                .setPreviewVideoUri(PreviewDataManager.PreviewDataUtils.addQueryParamToUri(
-                        recordedProgramUri, new Pair<>(PARAM_INPUT, recordedProgram.getInputId())))
+                .setPreviewVideoUri(
+                        PreviewDataManager.PreviewDataUtils.addQueryParamToUri(
+                                recordedProgramUri,
+                                new Pair<>(PARAM_INPUT, recordedProgram.getInputId())))
                 .build();
     }
 
-    private PreviewProgramContent() { }
+    private PreviewProgramContent() {}
 
+    @SuppressWarnings("ReferenceEquality")
     public void copyFrom(PreviewProgramContent other) {
         if (this == other) {
             return;
@@ -119,58 +129,42 @@ public class PreviewProgramContent {
         return mId;
     }
 
-    /**
-     * Returns the preview channel id which the preview program belongs to.
-     */
+    /** Returns the preview channel id which the preview program belongs to. */
     public long getPreviewChannelId() {
         return mPreviewChannelId;
     }
 
-    /**
-     * Returns the type of the preview program.
-     */
+    /** Returns the type of the preview program. */
     public int getType() {
         return mType;
     }
 
-    /**
-     * Returns whether the preview program is live or not.
-     */
+    /** Returns whether the preview program is live or not. */
     public boolean getLive() {
         return mLive;
     }
 
-    /**
-     * Returns the title of the preview program.
-     */
+    /** Returns the title of the preview program. */
     public String getTitle() {
         return mTitle;
     }
 
-    /**
-     * Returns the description of the preview program.
-     */
+    /** Returns the description of the preview program. */
     public String getDescription() {
         return mDescription;
     }
 
-    /**
-     * Returns the poster art uri of the preview program.
-     */
+    /** Returns the poster art uri of the preview program. */
     public Uri getPosterArtUri() {
         return mPosterArtUri;
     }
 
-    /**
-     * Returns the intent uri of the preview program.
-     */
+    /** Returns the intent uri of the preview program. */
     public Uri getIntentUri() {
         return mIntentUri;
     }
 
-    /**
-     * Returns the preview video uri of the preview program.
-     */
+    /** Returns the preview video uri of the preview program. */
     public Uri getPreviewVideoUri() {
         return mPreviewVideoUri;
     }
@@ -194,8 +188,16 @@ public class PreviewProgramContent {
 
     @Override
     public int hashCode() {
-        return Objects.hash(mId, mPreviewChannelId, mType, mLive, mTitle, mDescription,
-                mPosterArtUri, mIntentUri, mPreviewVideoUri);
+        return Objects.hash(
+                mId,
+                mPreviewChannelId,
+                mType,
+                mLive,
+                mTitle,
+                mDescription,
+                mPosterArtUri,
+                mIntentUri,
+                mPreviewVideoUri);
     }
 
     public static final class Builder {

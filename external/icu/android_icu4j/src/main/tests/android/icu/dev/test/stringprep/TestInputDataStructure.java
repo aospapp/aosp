@@ -13,10 +13,12 @@ package android.icu.dev.test.stringprep;
 
 import org.junit.Ignore;
 import org.junit.Test;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author limaoyu
  */
+@MainTestShard
 public class TestInputDataStructure {
     
     // TODO(junit): not running before - added empty test to keep failures away

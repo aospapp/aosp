@@ -1,7 +1,7 @@
 @REM @file
 @REM   Windows batch file to build BIOS ROM
 @REM
-@REM Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved.<BR>
+@REM Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
 @REM This program and the accompanying materials
 @REM are licensed and made available under the terms and conditions of the BSD License
 @REM which accompanies this distribution.  The full text of the license may be found at
@@ -29,7 +29,8 @@ set Arch=X64
 set Source=0
 
 :: Clean up previous build files.
-if exist %WORKSPACE%\edk2.log del %WORKSPACE%\edk2.log
+if exist %WORKSPACE%\%PLATFORM_PACKAGE%\EDK2_%PLATFORM_PACKAGE%.log del %WORKSPACE%\%PLATFORM_PACKAGE%\EDK2_%PLATFORM_PACKAGE%.log
+if exist %WORKSPACE%\%PLATFORM_PACKAGE%\EDK2_%PLATFORM_PACKAGE%.report del %WORKSPACE%\%PLATFORM_PACKAGE%\EDK2_%PLATFORM_PACKAGE%.report
 if exist %WORKSPACE%\unitool.log del %WORKSPACE%\unitool.log
 if exist %WORKSPACE%\Conf\target.txt del %WORKSPACE%\Conf\target.txt
 if exist %WORKSPACE%\Conf\tools_def.txt del %WORKSPACE%\Conf\tools_def.txt
@@ -61,18 +62,30 @@ copy /y nul %auto_config_inc% >nul
 if /i "%~1"=="/?" goto Usage
 
 if /i "%~1"=="/l" (
-    set Build_Flags=%Build_Flags% -j EDK2.log
+    set Build_Flags=%Build_Flags% -j %PLATFORM_PACKAGE%\EDK2_%PLATFORM_PACKAGE%.log
+    shift
+    goto OptLoop
+)
+if /i "%~1"=="/y" (
+    set Build_Flags=%Build_Flags% -y %PLATFORM_PACKAGE%\EDK2_%PLATFORM_PACKAGE%.report
+    shift
+    goto OptLoop
+)
+if /i "%~1"=="/m" (
+    if defined NUMBER_OF_PROCESSORS (
+        set /a build_threads=%NUMBER_OF_PROCESSORS%+1
+    )
     shift
     goto OptLoop
 )
 if /i "%~1" == "/c" (
     echo Removing previous build files ...
     if exist build (
-        del /f/s/q build > null
+        del /f/s/q build > nul
         rmdir /s/q build
     )
     if exist conf\.cache (
-        del /f/s/q conf\.cache > null
+        del /f/s/q conf\.cache > nul
         rmdir /s/q conf\.cache
     )
     echo.
@@ -205,7 +218,7 @@ if %ERRORLEVEL% NEQ 0 goto BldFail
 
 echo.
 echo Invoking EDK2 build...
-build %Build_Flags%
+call build %Build_Flags%
 
 if %ERRORLEVEL% NEQ 0 goto BldFail
 
@@ -234,6 +247,7 @@ del /f/q ver_strings >nul
 
 set BIOS_Name=%BOARD_ID%_%Arch%_%BUILD_TYPE%_%VERSION_MAJOR%_%VERSION_MINOR%.ROM
 copy /y/b %BUILD_PATH%\FV\Vlv%Arch%.fd  %WORKSPACE%\%BIOS_Name% >nul
+copy /y/b %BUILD_PATH%\FV\Vlv%Arch%.fd  %BUILD_PATH%\FV\Vlv.ROM >nul
 
 echo.
 echo Build location:     %BUILD_PATH%
@@ -241,6 +255,12 @@ echo BIOS ROM Created:   %BIOS_Name%
 echo.
 echo -------------------- The EDKII BIOS build has successfully completed. --------------------
 echo.
+
+@REM build capsule here
+if "%openssl_path%" == "" goto Exit
+echo > %BUILD_PATH%\FV\SYSTEMFIRMWAREUPDATECARGO.Fv
+build -p %PLATFORM_PACKAGE%\PlatformCapsule.dsc
+
 goto Exit
 
 :Usage
@@ -251,6 +271,9 @@ echo.
 echo Usage: bld_vlv.bat [options] PlatformType [Build Target]
 echo.
 echo    /c    CleanAll before building
+echo    /l    Generate build log file
+echo    /y    Generate build report file
+echo    /m    Enable multi-processor build
 echo    /IA32 Set Arch to IA32 (default: X64)
 echo    /X64  Set Arch to X64 (default: X64)
 echo.

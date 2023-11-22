@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """Common utility functions."""
 
 DEFAULT_OBJECT_NUMBER = 1238

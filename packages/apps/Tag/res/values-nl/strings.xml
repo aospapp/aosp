@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"Gegevens van NFC-tag"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Contactgegevens voor ^1"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"De app heeft telefoonmachtiging nodig om te kunnen bellen. Je kunt deze machtiging beheren via Instellingen."</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Deze app heeft machtiging voor toegang tot externe opslag nodig om toegang te krijgen tot bestanden. Je kunt deze machtigingen beheren via Instellingen"</string>
 </resources>

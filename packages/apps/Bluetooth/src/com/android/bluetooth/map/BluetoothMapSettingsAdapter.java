@@ -15,10 +15,6 @@
 
 package com.android.bluetooth.map;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.ContentValues;
@@ -30,18 +26,20 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseExpandableListAdapter;
 import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.ExpandableListView;
 import android.widget.ExpandableListView.OnGroupExpandListener;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.CompoundButton;
 
 import com.android.bluetooth.R;
-
-import com.android.bluetooth.map.BluetoothMapAccountItem;
 import com.android.bluetooth.mapapi.BluetoothMapContract;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class BluetoothMapSettingsAdapter extends BaseExpandableListAdapter {
     private static final boolean D = BluetoothMapService.DEBUG;
@@ -50,39 +48,39 @@ public class BluetoothMapSettingsAdapter extends BaseExpandableListAdapter {
     private boolean mCheckAll = true;
     public LayoutInflater mInflater;
     public Activity mActivity;
-    /*needed to prevent random checkbox toggles due to item reuse */
-    ArrayList<Boolean> mPositionArray;
-    private LinkedHashMap<BluetoothMapAccountItem,
-                            ArrayList<BluetoothMapAccountItem>> mProupList;
+    /*needed to prevent random checkbox toggles due to item reuse */ ArrayList<Boolean>
+            mPositionArray;
+    private LinkedHashMap<BluetoothMapAccountItem, ArrayList<BluetoothMapAccountItem>> mProupList;
     private ArrayList<BluetoothMapAccountItem> mMainGroup;
     private int[] mGroupStatus;
     /* number of accounts possible to share */
     private int mSlotsLeft = 10;
 
 
-    public BluetoothMapSettingsAdapter(Activity act,
-                                            ExpandableListView listView,
-                                            LinkedHashMap<BluetoothMapAccountItem,
-                                              ArrayList<BluetoothMapAccountItem>> groupsList,
-                                            int enabledAccountsCounts) {
+    public BluetoothMapSettingsAdapter(Activity act, ExpandableListView listView,
+            LinkedHashMap<BluetoothMapAccountItem, ArrayList<BluetoothMapAccountItem>> groupsList,
+            int enabledAccountsCounts) {
         mActivity = act;
         this.mProupList = groupsList;
         mInflater = act.getLayoutInflater();
         mGroupStatus = new int[groupsList.size()];
-        mSlotsLeft = mSlotsLeft-enabledAccountsCounts;
+        mSlotsLeft = mSlotsLeft - enabledAccountsCounts;
 
         listView.setOnGroupExpandListener(new OnGroupExpandListener() {
 
+            @Override
             public void onGroupExpand(int groupPosition) {
                 BluetoothMapAccountItem group = mMainGroup.get(groupPosition);
-                if (mProupList.get(group).size() > 0)
+                if (mProupList.get(group).size() > 0) {
                     mGroupStatus[groupPosition] = 1;
+                }
 
             }
         });
         mMainGroup = new ArrayList<BluetoothMapAccountItem>();
-        for (Map.Entry<BluetoothMapAccountItem, 
-                ArrayList<BluetoothMapAccountItem>> mapEntry : mProupList.entrySet()) {
+        for (Map.Entry<BluetoothMapAccountItem, ArrayList<BluetoothMapAccountItem>> mapEntry :
+                mProupList
+                .entrySet()) {
             mMainGroup.add(mapEntry.getKey());
         }
     }
@@ -92,6 +90,7 @@ public class BluetoothMapSettingsAdapter extends BaseExpandableListAdapter {
         BluetoothMapAccountItem item = mMainGroup.get(groupPosition);
         return mProupList.get(item).get(childPosition);
     }
+
     private ArrayList<BluetoothMapAccountItem> getChild(BluetoothMapAccountItem group) {
         return mProupList.get(group);
     }
@@ -102,8 +101,8 @@ public class BluetoothMapSettingsAdapter extends BaseExpandableListAdapter {
     }
 
     @Override
-    public View getChildView(final int groupPosition, final int childPosition,
-            boolean isLastChild, View convertView, ViewGroup parent) {
+    public View getChildView(final int groupPosition, final int childPosition, boolean isLastChild,
+            View convertView, ViewGroup parent) {
 
 
         final ChildHolder holder;
@@ -111,83 +110,84 @@ public class BluetoothMapSettingsAdapter extends BaseExpandableListAdapter {
             convertView = mInflater.inflate(R.layout.bluetooth_map_settings_account_item, null);
             holder = new ChildHolder();
             holder.cb = (CheckBox) convertView.findViewById(R.id.bluetooth_map_settings_item_check);
-            holder.title = 
-                (TextView) convertView.findViewById(R.id.bluetooth_map_settings_item_text_view);
+            holder.title =
+                    (TextView) convertView.findViewById(R.id.bluetooth_map_settings_item_text_view);
             convertView.setTag(holder);
         } else {
             holder = (ChildHolder) convertView.getTag();
         }
-            final BluetoothMapAccountItem child =  getChild(groupPosition, childPosition);
-            holder.cb.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+        final BluetoothMapAccountItem child = getChild(groupPosition, childPosition);
+        holder.cb.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 
-                public void onCheckedChanged(CompoundButton buttonView,
-                        boolean isChecked) {
-                    BluetoothMapAccountItem parentGroup = 
-                          (BluetoothMapAccountItem)getGroup(groupPosition);
-                    boolean oldIsChecked = child.mIsChecked; // needed to prevent updates on UI redraw
-                    child.mIsChecked = isChecked;
-                    if (isChecked) {
-                        ArrayList<BluetoothMapAccountItem> childList = getChild(parentGroup);
-                        int childIndex = childList.indexOf(child);
-                        boolean isAllChildClicked = true;
-                        if(mSlotsLeft-childList.size() >=0){
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                BluetoothMapAccountItem parentGroup =
+                        (BluetoothMapAccountItem) getGroup(groupPosition);
+                boolean oldIsChecked = child.mIsChecked; // needed to prevent updates on UI redraw
+                child.mIsChecked = isChecked;
+                if (isChecked) {
+                    ArrayList<BluetoothMapAccountItem> childList = getChild(parentGroup);
+                    int childIndex = childList.indexOf(child);
+                    boolean isAllChildClicked = true;
+                    if (mSlotsLeft - childList.size() >= 0) {
 
-                            for (int i = 0; i < childList.size(); i++) {
-                                if (i != childIndex) {
-                                    BluetoothMapAccountItem siblings = childList.get(i);
-                                    if (!siblings.mIsChecked) {
-                                        isAllChildClicked = false;
-                                            BluetoothMapSettingsDataHolder.mCheckedChilds.put(
-                                                child.getName(), parentGroup.getName());
-                                        break;
+                        for (int i = 0; i < childList.size(); i++) {
+                            if (i != childIndex) {
+                                BluetoothMapAccountItem siblings = childList.get(i);
+                                if (!siblings.mIsChecked) {
+                                    isAllChildClicked = false;
+                                    BluetoothMapSettingsDataHolder.sCheckedChilds.put(
+                                            child.getName(), parentGroup.getName());
+                                    break;
 
-                                    }
                                 }
                             }
-                        }else {
-                            showWarning(mActivity.getString(
-                                R.string.bluetooth_map_settings_no_account_slots_left));
-                            isAllChildClicked = false;
-                            child.mIsChecked = false;
                         }
-                        if (isAllChildClicked) {
-                            parentGroup.mIsChecked = true;
-                            if(!(BluetoothMapSettingsDataHolder.mCheckedChilds.containsKey(
-                                child.getName())==true)){
-                                BluetoothMapSettingsDataHolder.mCheckedChilds.put(child.getName(),
-                                        parentGroup.getName());
-                            }
-                            mCheckAll = false;
-                        }
-
-
                     } else {
-                        if (parentGroup.mIsChecked) {
-                            parentGroup.mIsChecked = false;
-                            mCheckAll = false;
-                            BluetoothMapSettingsDataHolder.mCheckedChilds.remove(child.getName());
-                        } else {
-                            mCheckAll = true;
-                            BluetoothMapSettingsDataHolder.mCheckedChilds.remove(child.getName());
-                        }
-                        // child.isChecked =false;
+                        showWarning(mActivity.getString(
+                                R.string.bluetooth_map_settings_no_account_slots_left));
+                        isAllChildClicked = false;
+                        child.mIsChecked = false;
                     }
-                    notifyDataSetChanged();
-                    if(child.mIsChecked != oldIsChecked){
-                        updateAccount(child);
+                    if (isAllChildClicked) {
+                        parentGroup.mIsChecked = true;
+                        if (!(BluetoothMapSettingsDataHolder.sCheckedChilds.containsKey(
+                                child.getName()))) {
+                            BluetoothMapSettingsDataHolder.sCheckedChilds.put(child.getName(),
+                                    parentGroup.getName());
+                        }
+                        mCheckAll = false;
                     }
 
+
+                } else {
+                    if (parentGroup.mIsChecked) {
+                        parentGroup.mIsChecked = false;
+                        mCheckAll = false;
+                        BluetoothMapSettingsDataHolder.sCheckedChilds.remove(child.getName());
+                    } else {
+                        mCheckAll = true;
+                        BluetoothMapSettingsDataHolder.sCheckedChilds.remove(child.getName());
+                    }
+                    // child.isChecked =false;
+                }
+                notifyDataSetChanged();
+                if (child.mIsChecked != oldIsChecked) {
+                    updateAccount(child);
                 }
 
-            });
+            }
 
-            holder.cb.setChecked(child.mIsChecked);
-            holder.title.setText(child.getName());
-            if(D)Log.i("childs are", BluetoothMapSettingsDataHolder.mCheckedChilds.toString());
-            return convertView;
+        });
+
+        holder.cb.setChecked(child.mIsChecked);
+        holder.title.setText(child.getName());
+        if (D) {
+            Log.i("childs are", BluetoothMapSettingsDataHolder.sCheckedChilds.toString());
+        }
+        return convertView;
 
     }
-
 
 
     @Override
@@ -222,20 +222,20 @@ public class BluetoothMapSettingsAdapter extends BaseExpandableListAdapter {
     }
 
     @Override
-    public View getGroupView(int groupPosition, boolean isExpanded,
-            View convertView, ViewGroup parent) {
+    public View getGroupView(int groupPosition, boolean isExpanded, View convertView,
+            ViewGroup parent) {
 
         final GroupHolder holder;
 
         if (convertView == null) {
             convertView = mInflater.inflate(R.layout.bluetooth_map_settings_account_group, null);
             holder = new GroupHolder();
-            holder.cb = 
-                (CheckBox) convertView.findViewById(R.id.bluetooth_map_settings_group_checkbox);
-            holder.imageView = (ImageView) convertView
-                    .findViewById(R.id.bluetooth_map_settings_group_icon);
-            holder.title = 
-                (TextView) convertView.findViewById(R.id.bluetooth_map_settings_group_text_view);
+            holder.cb =
+                    (CheckBox) convertView.findViewById(R.id.bluetooth_map_settings_group_checkbox);
+            holder.imageView =
+                    (ImageView) convertView.findViewById(R.id.bluetooth_map_settings_group_icon);
+            holder.title = (TextView) convertView.findViewById(
+                    R.id.bluetooth_map_settings_group_text_view);
             convertView.setTag(holder);
         } else {
             holder = (GroupHolder) convertView.getTag();
@@ -249,19 +249,18 @@ public class BluetoothMapSettingsAdapter extends BaseExpandableListAdapter {
 
         holder.cb.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 
-            public void onCheckedChanged(CompoundButton buttonView,
-                    boolean isChecked) {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (mCheckAll) {
                     ArrayList<BluetoothMapAccountItem> childItem = getChild(groupItem);
-                    for (BluetoothMapAccountItem children : childItem)
-                    {
+                    for (BluetoothMapAccountItem children : childItem) {
                         boolean oldIsChecked = children.mIsChecked;
-                        if(mSlotsLeft >0){
+                        if (mSlotsLeft > 0) {
                             children.mIsChecked = isChecked;
-                            if(oldIsChecked != children.mIsChecked){
+                            if (oldIsChecked != children.mIsChecked) {
                                 updateAccount(children);
                             }
-                        }else {
+                        } else {
                             showWarning(mActivity.getString(
                                     R.string.bluetooth_map_settings_no_account_slots_left));
                             isChecked = false;
@@ -272,9 +271,11 @@ public class BluetoothMapSettingsAdapter extends BaseExpandableListAdapter {
                 notifyDataSetChanged();
                 new Handler().postDelayed(new Runnable() {
 
+                    @Override
                     public void run() {
-                        if (!mCheckAll)
+                        if (!mCheckAll) {
                             mCheckAll = true;
+                        }
                     }
                 }, 50);
 
@@ -307,33 +308,36 @@ public class BluetoothMapSettingsAdapter extends BaseExpandableListAdapter {
         public TextView title;
         public CheckBox cb;
     }
+
     public void updateAccount(BluetoothMapAccountItem account) {
         updateSlotCounter(account.mIsChecked);
-        if(D)Log.d(TAG,"Updating account settings for "
-                +account.getName() +". Value is:"+account.mIsChecked);
+        if (D) {
+            Log.d(TAG, "Updating account settings for " + account.getName() + ". Value is:"
+                    + account.mIsChecked);
+        }
         ContentResolver mResolver = mActivity.getContentResolver();
-        Uri uri = Uri.parse(account.mBase_uri_no_account+"/"+BluetoothMapContract.TABLE_ACCOUNT);
+        Uri uri =
+                Uri.parse(account.mBase_uri_no_account + "/" + BluetoothMapContract.TABLE_ACCOUNT);
         ContentValues values = new ContentValues();
-        values.put(BluetoothMapContract.AccountColumns.FLAG_EXPOSE, ((account.mIsChecked)?1:0)); 
+        values.put(BluetoothMapContract.AccountColumns.FLAG_EXPOSE, ((account.mIsChecked) ? 1 : 0));
         values.put(BluetoothMapContract.AccountColumns._ID, account.getId()); // get title
-        mResolver.update(uri, values, null ,null);
+        mResolver.update(uri, values, null, null);
 
     }
-    private void updateSlotCounter(boolean isChecked){
-        if(isChecked)
-        {
+
+    private void updateSlotCounter(boolean isChecked) {
+        if (isChecked) {
             mSlotsLeft--;
-        }else {
+        } else {
             mSlotsLeft++;
         }
         CharSequence text;
 
-        if (mSlotsLeft <=0)
-        {
+        if (mSlotsLeft <= 0) {
             text = mActivity.getString(R.string.bluetooth_map_settings_no_account_slots_left);
-        }else {
-            text= mActivity.getString(R.string.bluetooth_map_settings_count) 
-                + " "+ String.valueOf(mSlotsLeft);
+        } else {
+            text = mActivity.getString(R.string.bluetooth_map_settings_count) + " "
+                    + String.valueOf(mSlotsLeft);
         }
 
         int duration = Toast.LENGTH_SHORT;
@@ -341,7 +345,8 @@ public class BluetoothMapSettingsAdapter extends BaseExpandableListAdapter {
         Toast toast = Toast.makeText(mActivity, text, duration);
         toast.show();
     }
-    private void showWarning(String text){
+
+    private void showWarning(String text) {
         int duration = Toast.LENGTH_SHORT;
 
         Toast toast = Toast.makeText(mActivity, text, duration);

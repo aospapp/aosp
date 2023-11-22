@@ -18,8 +18,10 @@
 #define ANDROID_VINTF_HAL_GROUP_H
 
 #include <map>
+#include <set>
 
 #include "MapValueIterator.h"
+#include "Version.h"
 
 namespace android {
 namespace vintf {
@@ -28,12 +30,17 @@ namespace vintf {
 // Hal.getName() must return a string indicating the name.
 template <typename Hal>
 struct HalGroup {
+    using InstanceType = typename Hal::InstanceType;
+
    public:
     virtual ~HalGroup() {}
     // Move all hals from another HalGroup to this.
-    bool addAll(HalGroup&& other) {
-        for (auto& pair : other.mHals) {
+    bool addAllHals(HalGroup* other, std::string* error = nullptr) {
+        for (auto& pair : other->mHals) {
             if (!add(std::move(pair.second))) {
+                if (error) {
+                    *error = pair.first;
+                }
                 return false;
             }
         }
@@ -41,13 +48,91 @@ struct HalGroup {
     }
 
     // Add an hal to this HalGroup so that it can be constructed programatically.
-    bool add(Hal&& hal) {
-        if (!shouldAdd(hal)) {
-            return false;
+    virtual bool add(Hal&& hal) { return addInternal(std::move(hal)) != nullptr; }
+
+    // Get all hals with the given name (e.g "android.hardware.camera").
+    // There could be multiple hals that matches the same given name.
+    // TODO(b/74247301) Deprecated; use forEachInstanceOfPackage instead.
+    std::vector<const Hal*> getHals(const std::string& name) const {
+        std::vector<const Hal*> ret;
+        auto range = mHals.equal_range(name);
+        for (auto it = range.first; it != range.second; ++it) {
+            ret.push_back(&it->second);
         }
-        std::string name = hal.getName();
-        mHals.emplace(std::move(name), std::move(hal));  // always succeed
+        return ret;
+    }
+
+    // Get all hals with the given name (e.g "android.hardware.camera").
+    // There could be multiple hals that matches the same given name.
+    // Non-const version of the above getHals() method.
+    // TODO(b/74247301) Deprecated; use forEachInstanceOfPackage instead.
+    std::vector<Hal*> getHals(const std::string& name) {
+        std::vector<Hal*> ret;
+        auto range = mHals.equal_range(name);
+        for (auto it = range.first; it != range.second; ++it) {
+            ret.push_back(&it->second);
+        }
+        return ret;
+    }
+
+    // Apply func to all instances.
+    bool forEachInstance(const std::function<bool(const InstanceType&)>& func) const {
+        for (const auto& hal : getHals()) {
+            bool cont = hal.forEachInstance(func);
+            if (!cont) return false;
+        }
         return true;
+    }
+
+    bool forEachInstanceOfPackage(const std::string& package,
+                                  const std::function<bool(const InstanceType&)>& func) const {
+        for (const auto* hal : getHals(package)) {
+            if (!hal->forEachInstance(func)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Apply func to all instances of package@expectVersion::*/*.
+    // For example, if a.h.foo@1.1::IFoo/default is in "this" and getFqInstances
+    // is called with a.h.foo@1.0, then a.h.foo@1.1::IFoo/default is returned.
+    virtual bool forEachInstanceOfVersion(
+        const std::string& package, const Version& expectVersion,
+        const std::function<bool(const InstanceType&)>& func) const = 0;
+
+    // Apply func to instances of package@expectVersion::interface/*.
+    // For example, if a.h.foo@1.1::IFoo/default is in "this" and getFqInstances
+    // is called with a.h.foo@1.0::IFoo, then a.h.foo@1.1::IFoo/default is returned.
+    bool forEachInstanceOfInterface(const std::string& package, const Version& expectVersion,
+                                    const std::string& interface,
+                                    const std::function<bool(const InstanceType&)>& func) const {
+        return forEachInstanceOfVersion(package, expectVersion,
+                                        [&func, &interface](const InstanceType& e) {
+                                            if (e.interface() == interface) {
+                                                return func(e);
+                                            }
+                                            return true;
+                                        });
+    }
+
+    // Alternative to forEachInstanceOfInterface if you need a vector instead.
+    // If interface is empty, returns all instances of package@version;
+    // else return all instances of package@version::interface.
+    std::vector<InstanceType> getFqInstances(const std::string& package,
+                                             const Version& expectVersion,
+                                             const std::string& interface = "") const {
+        std::vector<InstanceType> v;
+        auto mapToVector = [&v](const auto& e) {
+            v.push_back(e);
+            return true;
+        };
+        if (interface.empty()) {
+            (void)forEachInstanceOfVersion(package, expectVersion, mapToVector);
+        } else {
+            (void)forEachInstanceOfInterface(package, expectVersion, interface, mapToVector);
+        }
+        return v;
     }
 
    protected:
@@ -75,6 +160,15 @@ struct HalGroup {
             return nullptr;
         }
         return &(it->second);
+    }
+
+    Hal* addInternal(Hal&& hal) {
+        if (!shouldAdd(hal)) {
+            return nullptr;
+        }
+        std::string name = hal.getName();
+        auto it = mHals.emplace(std::move(name), std::move(hal));  // always succeeds
+        return &it->second;
     }
 };
 

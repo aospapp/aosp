@@ -18,21 +18,20 @@ package com.android.tv.guide;
 
 import android.support.annotation.MainThread;
 import android.support.annotation.Nullable;
+import android.support.annotation.VisibleForTesting;
 import android.util.ArraySet;
 import android.util.Log;
-
-import com.android.tv.data.Channel;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.GenreItems;
 import com.android.tv.data.Program;
 import com.android.tv.data.ProgramDataManager;
+import com.android.tv.data.api.Channel;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrScheduleManager;
 import com.android.tv.dvr.DvrScheduleManager.OnConflictStateChangeListener;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -40,9 +39,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Manages the channels and programs for the program guide.
- */
+/** Manages the channels and programs for the program guide. */
 @MainThread
 public class ProgramManager {
     private static final String TAG = "ProgramManager";
@@ -60,7 +57,7 @@ public class ProgramManager {
     private final TvInputManagerHelper mTvInputManagerHelper;
     private final ChannelDataManager mChannelDataManager;
     private final ProgramDataManager mProgramDataManager;
-    private final DvrDataManager mDvrDataManager;  // Only set if DVR is enabled
+    private final DvrDataManager mDvrDataManager; // Only set if DVR is enabled
     private final DvrScheduleManager mDvrScheduleManager;
 
     private long mStartUtcMillis;
@@ -127,51 +124,67 @@ public class ProgramManager {
 
     private final DvrDataManager.ScheduledRecordingListener mScheduledRecordingListener =
             new DvrDataManager.ScheduledRecordingListener() {
-        @Override
-        public void onScheduledRecordingAdded(ScheduledRecording... scheduledRecordings) {
-            for (ScheduledRecording schedule : scheduledRecordings) {
-                TableEntry oldEntry = getTableEntry(schedule);
-                if (oldEntry != null) {
-                    TableEntry newEntry = new TableEntry(oldEntry.channelId, oldEntry.program,
-                            schedule, oldEntry.entryStartUtcMillis,
-                            oldEntry.entryEndUtcMillis, oldEntry.isBlocked());
-                    updateEntry(oldEntry, newEntry);
+                @Override
+                public void onScheduledRecordingAdded(ScheduledRecording... scheduledRecordings) {
+                    for (ScheduledRecording schedule : scheduledRecordings) {
+                        TableEntry oldEntry = getTableEntry(schedule);
+                        if (oldEntry != null) {
+                            TableEntry newEntry =
+                                    new TableEntry(
+                                            oldEntry.channelId,
+                                            oldEntry.program,
+                                            schedule,
+                                            oldEntry.entryStartUtcMillis,
+                                            oldEntry.entryEndUtcMillis,
+                                            oldEntry.isBlocked());
+                            updateEntry(oldEntry, newEntry);
+                        }
+                    }
                 }
-            }
-        }
 
-        @Override
-        public void onScheduledRecordingRemoved(ScheduledRecording... scheduledRecordings) {
-            for (ScheduledRecording schedule : scheduledRecordings) {
-                TableEntry oldEntry = getTableEntry(schedule);
-                if (oldEntry != null) {
-                    TableEntry newEntry = new TableEntry(oldEntry.channelId, oldEntry.program, null,
-                            oldEntry.entryStartUtcMillis, oldEntry.entryEndUtcMillis,
-                            oldEntry.isBlocked());
-                    updateEntry(oldEntry, newEntry);
+                @Override
+                public void onScheduledRecordingRemoved(ScheduledRecording... scheduledRecordings) {
+                    for (ScheduledRecording schedule : scheduledRecordings) {
+                        TableEntry oldEntry = getTableEntry(schedule);
+                        if (oldEntry != null) {
+                            TableEntry newEntry =
+                                    new TableEntry(
+                                            oldEntry.channelId,
+                                            oldEntry.program,
+                                            null,
+                                            oldEntry.entryStartUtcMillis,
+                                            oldEntry.entryEndUtcMillis,
+                                            oldEntry.isBlocked());
+                            updateEntry(oldEntry, newEntry);
+                        }
+                    }
                 }
-            }
-        }
 
-        @Override
-        public void onScheduledRecordingStatusChanged(ScheduledRecording... scheduledRecordings) {
-            for (ScheduledRecording schedule : scheduledRecordings) {
-                TableEntry oldEntry = getTableEntry(schedule);
-                if (oldEntry != null) {
-                    TableEntry newEntry = new TableEntry(oldEntry.channelId, oldEntry.program,
-                            schedule, oldEntry.entryStartUtcMillis,
-                            oldEntry.entryEndUtcMillis, oldEntry.isBlocked());
-                    updateEntry(oldEntry, newEntry);
+                @Override
+                public void onScheduledRecordingStatusChanged(
+                        ScheduledRecording... scheduledRecordings) {
+                    for (ScheduledRecording schedule : scheduledRecordings) {
+                        TableEntry oldEntry = getTableEntry(schedule);
+                        if (oldEntry != null) {
+                            TableEntry newEntry =
+                                    new TableEntry(
+                                            oldEntry.channelId,
+                                            oldEntry.program,
+                                            schedule,
+                                            oldEntry.entryStartUtcMillis,
+                                            oldEntry.entryEndUtcMillis,
+                                            oldEntry.isBlocked());
+                            updateEntry(oldEntry, newEntry);
+                        }
+                    }
                 }
-            }
-        }
-    };
+            };
 
     private final OnConflictStateChangeListener mOnConflictStateChangeListener =
             new OnConflictStateChangeListener() {
                 @Override
-                public void onConflictStateChange(boolean conflict,
-                        ScheduledRecording... schedules) {
+                public void onConflictStateChange(
+                        boolean conflict, ScheduledRecording... schedules) {
                     for (ScheduledRecording schedule : schedules) {
                         TableEntry entry = getTableEntry(schedule);
                         if (entry != null) {
@@ -181,8 +194,10 @@ public class ProgramManager {
                 }
             };
 
-    public ProgramManager(TvInputManagerHelper tvInputManagerHelper,
-            ChannelDataManager channelDataManager, ProgramDataManager programDataManager,
+    public ProgramManager(
+            TvInputManagerHelper tvInputManagerHelper,
+            ChannelDataManager channelDataManager,
+            ProgramDataManager programDataManager,
             @Nullable DvrDataManager dvrDataManager,
             @Nullable DvrScheduleManager dvrScheduleManager) {
         mTvInputManagerHelper = tvInputManagerHelper;
@@ -221,52 +236,39 @@ public class ProgramManager {
         }
     }
 
-    /**
-     * Adds a {@link Listener}.
-     */
+    /** Adds a {@link Listener}. */
     void addListener(Listener listener) {
         mListeners.add(listener);
     }
 
-    /**
-     * Registers a listener to be invoked when table entries are updated.
-     */
+    /** Registers a listener to be invoked when table entries are updated. */
     void addTableEntriesUpdatedListener(TableEntriesUpdatedListener listener) {
         mTableEntriesUpdatedListeners.add(listener);
     }
 
-    /**
-     * Registers a listener to be invoked when a table entry is changed.
-     */
+    /** Registers a listener to be invoked when a table entry is changed. */
     void addTableEntryChangedListener(TableEntryChangedListener listener) {
         mTableEntryChangedListeners.add(listener);
     }
 
-    /**
-     * Removes a {@link Listener}.
-     */
+    /** Removes a {@link Listener}. */
     void removeListener(Listener listener) {
         mListeners.remove(listener);
     }
 
-    /**
-     * Removes a previously installed table entries update listener.
-     */
+    /** Removes a previously installed table entries update listener. */
     void removeTableEntriesUpdatedListener(TableEntriesUpdatedListener listener) {
         mTableEntriesUpdatedListeners.remove(listener);
     }
 
-    /**
-     * Removes a previously installed table entry changed listener.
-     */
+    /** Removes a previously installed table entry changed listener. */
     void removeTableEntryChangedListener(TableEntryChangedListener listener) {
         mTableEntryChangedListeners.remove(listener);
     }
 
     /**
-     * Resets channel list with given genre.
-     * Caller should call {@link #buildGenreFilters()} prior to call this API to make
-     * This notifies channel updates to listeners.
+     * Resets channel list with given genre. Caller should call {@link #buildGenreFilters()} prior
+     * to call this API to make This notifies channel updates to listeners.
      */
     void resetChannelListWithGenre(int genreId) {
         if (genreId == mSelectedGenreId) {
@@ -275,8 +277,14 @@ public class ProgramManager {
         mFilteredChannels = mGenreChannelList.get(genreId);
         mSelectedGenreId = genreId;
         if (DEBUG) {
-            Log.d(TAG, "resetChannelListWithGenre: " + GenreItems.getCanonicalGenre(genreId)
-                    + " has " + mFilteredChannels.size() + " channels out of " + mChannels.size());
+            Log.d(
+                    TAG,
+                    "resetChannelListWithGenre: "
+                            + GenreItems.getCanonicalGenre(genreId)
+                            + " has "
+                            + mFilteredChannels.size()
+                            + " channels out of "
+                            + mChannels.size());
         }
         if (mGenreChannelList.get(mSelectedGenreId) == null) {
             throw new IllegalStateException("Genre filter isn't ready.");
@@ -284,9 +292,7 @@ public class ProgramManager {
         notifyChannelsUpdated();
     }
 
-    /**
-     * Update the initial time range to manage. It updates program entries and genre as well.
-     */
+    /** Update the initial time range to manage. It updates program entries and genre as well. */
     void updateInitialTimeRange(long startUtcMillis, long endUtcMillis) {
         mStartUtcMillis = startUtcMillis;
         if (endUtcMillis > mEndUtcMillis) {
@@ -298,10 +304,7 @@ public class ProgramManager {
         setTimeRange(startUtcMillis, endUtcMillis);
     }
 
-
-    /**
-     * Shifts the time range by the given time. Also makes ProgramGuide scroll the views.
-     */
+    /** Shifts the time range by the given time. Also makes ProgramGuide scroll the views. */
     void shiftTime(long timeMillisToScroll) {
         long fromUtcMillis = mFromUtcMillis + timeMillisToScroll;
         long toUtcMillis = mToUtcMillis + timeMillisToScroll;
@@ -316,23 +319,17 @@ public class ProgramManager {
         setTimeRange(fromUtcMillis, toUtcMillis);
     }
 
-    /**
-     * Returned the scrolled(shifted) time in milliseconds.
-     */
+    /** Returned the scrolled(shifted) time in milliseconds. */
     long getShiftedTime() {
         return mFromUtcMillis - mStartUtcMillis;
     }
 
-    /**
-     * Returns the start time set by {@link #updateInitialTimeRange}.
-     */
+    /** Returns the start time set by {@link #updateInitialTimeRange}. */
     long getStartTime() {
         return mStartUtcMillis;
     }
 
-    /**
-     * Returns the program index of the program with {@code entryId} or -1 if not found.
-     */
+    /** Returns the program index of the program with {@code entryId} or -1 if not found. */
     int getProgramIdIndex(long channelId, long entryId) {
         List<TableEntry> entries = mChannelIdEntriesMap.get(channelId);
         if (entries != null) {
@@ -345,38 +342,29 @@ public class ProgramManager {
         return -1;
     }
 
-    /**
-     * Returns the program index of the program at {@code time} or -1 if not found.
-     */
+    /** Returns the program index of the program at {@code time} or -1 if not found. */
     int getProgramIndexAtTime(long channelId, long time) {
         List<TableEntry> entries = mChannelIdEntriesMap.get(channelId);
         for (int i = 0; i < entries.size(); ++i) {
             TableEntry entry = entries.get(i);
-            if (entry.entryStartUtcMillis <= time
-                    && time < entry.entryEndUtcMillis) {
+            if (entry.entryStartUtcMillis <= time && time < entry.entryEndUtcMillis) {
                 return i;
             }
         }
         return -1;
     }
 
-    /**
-     * Returns the start time of currently managed time range, in UTC millisecond.
-     */
+    /** Returns the start time of currently managed time range, in UTC millisecond. */
     long getFromUtcMillis() {
         return mFromUtcMillis;
     }
 
-    /**
-     * Returns the end time of currently managed time range, in UTC millisecond.
-     */
+    /** Returns the end time of currently managed time range, in UTC millisecond. */
     long getToUtcMillis() {
         return mToUtcMillis;
     }
 
-    /**
-     * Returns the number of the currently managed channels.
-     */
+    /** Returns the number of the currently managed channels. */
     int getChannelCount() {
         return mFilteredChannels.size();
     }
@@ -393,15 +381,15 @@ public class ProgramManager {
     }
 
     /**
-     * Returns the index of provided {@link Channel} within the currently managed channels.
-     * Returns -1 if such a channel is not found.
+     * Returns the index of provided {@link Channel} within the currently managed channels. Returns
+     * -1 if such a channel is not found.
      */
     int getChannelIndex(Channel channel) {
         return mFilteredChannels.indexOf(channel);
     }
 
     /**
-     * Returns the index of channel with  {@code channelId} within the currently managed channels.
+     * Returns the index of channel with {@code channelId} within the currently managed channels.
      * Returns -1 if such a channel is not found.
      */
     int getChannelIndex(long channelId) {
@@ -425,9 +413,7 @@ public class ProgramManager {
         return mChannelIdEntriesMap.get(channelId).get(index);
     }
 
-    /**
-     * Returns list genre ID's which has a channel.
-     */
+    /** Returns list genre ID's which has a channel. */
     List<Integer> getFilteredGenreIds() {
         return mFilteredGenreIds;
     }
@@ -457,15 +443,13 @@ public class ProgramManager {
         buildGenreFilters();
     }
 
-    /**
-     * Updates the table entries without notifying the change.
-     */
+    /** Updates the table entries without notifying the change. */
     private void updateTableEntriesWithoutNotification(boolean clear) {
         if (clear) {
             mChannelIdEntriesMap.clear();
         }
-        boolean parentalControlsEnabled = mTvInputManagerHelper.getParentalControlSettings()
-                .isParentalControlsEnabled();
+        boolean parentalControlsEnabled =
+                mTvInputManagerHelper.getParentalControlSettings().isParentalControlsEnabled();
         for (Channel channel : mChannels) {
             long channelId = channel.getId();
             // Inline the updating of the mChannelIdEntriesMap here so we can only call
@@ -475,8 +459,12 @@ public class ProgramManager {
 
             int size = entries.size();
             if (DEBUG) {
-                Log.d(TAG, "Programs are loaded for channel " + channel.getId()
-                        + ", loaded size = " + size);
+                Log.d(
+                        TAG,
+                        "Programs are loaded for channel "
+                                + channel.getId()
+                                + ", loaded size = "
+                                + size);
             }
             if (size == 0) {
                 continue;
@@ -496,14 +484,19 @@ public class ProgramManager {
                 } else {
                     TableEntry lastEntry = entries.get(entries.size() - 1);
                     if (mEndUtcMillis > lastEntry.entryEndUtcMillis) {
-                        entries.add(new TableEntry(channelId, lastEntry.entryEndUtcMillis,
-                                mEndUtcMillis));
+                        entries.add(
+                                new TableEntry(
+                                        channelId, lastEntry.entryEndUtcMillis, mEndUtcMillis));
                     } else if (lastEntry.entryEndUtcMillis == Long.MAX_VALUE) {
                         entries.remove(entries.size() - 1);
-                        entries.add(new TableEntry(lastEntry.channelId, lastEntry.program,
-                                lastEntry.scheduledRecording,
-                                lastEntry.entryStartUtcMillis, mEndUtcMillis,
-                                lastEntry.mIsBlocked));
+                        entries.add(
+                                new TableEntry(
+                                        lastEntry.channelId,
+                                        lastEntry.program,
+                                        lastEntry.scheduledRecording,
+                                        lastEntry.entryStartUtcMillis,
+                                        mEndUtcMillis,
+                                        lastEntry.mIsBlocked));
                     }
                 }
             }
@@ -511,11 +504,10 @@ public class ProgramManager {
     }
 
     /**
-     * Build genre filters based on the current programs.
-     * This categories channels by its current program's canonical genres
-     * and subsequent @{link resetChannelListWithGenre(int)} calls will reset channel list
-     * with built channel list.
-     * This is expected to be called whenever program guide is shown.
+     * Build genre filters based on the current programs. This categories channels by its current
+     * program's canonical genres and subsequent @{link resetChannelListWithGenre(int)} calls will
+     * reset channel list with built channel list. This is expected to be called whenever program
+     * guide is shown.
      */
     private void buildGenreFilters() {
         if (DEBUG) Log.d(TAG, "buildGenreFilters");
@@ -572,9 +564,13 @@ public class ProgramManager {
 
     private void setTimeRange(long fromUtcMillis, long toUtcMillis) {
         if (DEBUG) {
-            Log.d(TAG, "setTimeRange. {FromTime="
-                    + Utils.toTimeString(fromUtcMillis) + ", ToTime="
-                    + Utils.toTimeString(toUtcMillis) + "}");
+            Log.d(
+                    TAG,
+                    "setTimeRange. {FromTime="
+                            + Utils.toTimeString(fromUtcMillis)
+                            + ", ToTime="
+                            + Utils.toTimeString(toUtcMillis)
+                            + "}");
         }
         if (mFromUtcMillis != fromUtcMillis || mToUtcMillis != toUtcMillis) {
             mFromUtcMillis = fromUtcMillis;
@@ -585,8 +581,8 @@ public class ProgramManager {
 
     private List<TableEntry> createProgramEntries(long channelId, boolean parentalControlsEnabled) {
         List<TableEntry> entries = new ArrayList<>();
-        boolean channelLocked = parentalControlsEnabled
-                && mChannelDataManager.getChannel(channelId).isLocked();
+        boolean channelLocked =
+                parentalControlsEnabled && mChannelDataManager.getChannel(channelId).isLocked();
         if (channelLocked) {
             entries.add(new TableEntry(channelId, mStartUtcMillis, Long.MAX_VALUE, true));
         } else {
@@ -597,20 +593,27 @@ public class ProgramManager {
                     // Dummy program.
                     continue;
                 }
-                long programStartTime = Math.max(program.getStartTimeUtcMillis(),
-                        mStartUtcMillis);
+                long programStartTime = Math.max(program.getStartTimeUtcMillis(), mStartUtcMillis);
                 long programEndTime = program.getEndTimeUtcMillis();
                 if (programStartTime > lastProgramEndTime) {
                     // Gap since the last program.
-                    entries.add(new TableEntry(channelId, lastProgramEndTime,
-                            programStartTime));
+                    entries.add(new TableEntry(channelId, lastProgramEndTime, programStartTime));
                     lastProgramEndTime = programStartTime;
                 }
                 if (programEndTime > lastProgramEndTime) {
-                    ScheduledRecording scheduledRecording = mDvrDataManager == null ? null
-                            : mDvrDataManager.getScheduledRecordingForProgramId(program.getId());
-                    entries.add(new TableEntry(channelId, program, scheduledRecording,
-                            lastProgramEndTime, programEndTime, false));
+                    ScheduledRecording scheduledRecording =
+                            mDvrDataManager == null
+                                    ? null
+                                    : mDvrDataManager.getScheduledRecordingForProgramId(
+                                            program.getId());
+                    entries.add(
+                            new TableEntry(
+                                    channelId,
+                                    program,
+                                    scheduledRecording,
+                                    lastProgramEndTime,
+                                    programEndTime,
+                                    false));
                     lastProgramEndTime = programEndTime;
                 }
             }
@@ -622,9 +625,15 @@ public class ProgramManager {
                 // If the first entry's width doesn't have enough width, it is not good to show
                 // the first entry from UI perspective. So we clip it out.
                 entries.remove(0);
-                entries.set(0, new TableEntry(secondEntry.channelId, secondEntry.program,
-                        secondEntry.scheduledRecording, mStartUtcMillis,
-                        secondEntry.entryEndUtcMillis, secondEntry.mIsBlocked));
+                entries.set(
+                        0,
+                        new TableEntry(
+                                secondEntry.channelId,
+                                secondEntry.program,
+                                secondEntry.scheduledRecording,
+                                mStartUtcMillis,
+                                secondEntry.entryEndUtcMillis,
+                                secondEntry.mIsBlocked));
             }
         }
         return entries;
@@ -662,8 +671,8 @@ public class ProgramManager {
 
     /**
      * Entry for program guide table. An "entry" can be either an actual program or a gap between
-     * programs. This is needed for {@link ProgramListAdapter} because
-     * {@link android.support.v17.leanback.widget.HorizontalGridView} ignores margins between items.
+     * programs. This is needed for {@link ProgramListAdapter} because {@link
+     * android.support.v17.leanback.widget.HorizontalGridView} ignores margins between items.
      */
     static class TableEntry {
         /** Channel ID which this entry is included. */
@@ -686,18 +695,27 @@ public class ProgramManager {
             this(channelId, null, startUtcMillis, endUtcMillis, false);
         }
 
-        private TableEntry(long channelId, long startUtcMillis, long endUtcMillis,
-                           boolean blocked) {
+        private TableEntry(
+                long channelId, long startUtcMillis, long endUtcMillis, boolean blocked) {
             this(channelId, null, null, startUtcMillis, endUtcMillis, blocked);
         }
 
-        private TableEntry(long channelId, Program program, long entryStartUtcMillis,
-                           long entryEndUtcMillis, boolean isBlocked) {
+        private TableEntry(
+                long channelId,
+                Program program,
+                long entryStartUtcMillis,
+                long entryEndUtcMillis,
+                boolean isBlocked) {
             this(channelId, program, null, entryStartUtcMillis, entryEndUtcMillis, isBlocked);
         }
 
-        private TableEntry(long channelId, Program program, ScheduledRecording scheduledRecording,
-                           long entryStartUtcMillis, long entryEndUtcMillis, boolean isBlocked) {
+        private TableEntry(
+                long channelId,
+                Program program,
+                ScheduledRecording scheduledRecording,
+                long entryStartUtcMillis,
+                long entryEndUtcMillis,
+                boolean isBlocked) {
             this.channelId = channelId;
             this.program = program;
             this.scheduledRecording = scheduledRecording;
@@ -706,46 +724,34 @@ public class ProgramManager {
             mIsBlocked = isBlocked;
         }
 
-        /**
-         * A stable id useful for {@link android.support.v7.widget.RecyclerView.Adapter}.
-         */
+        /** A stable id useful for {@link android.support.v7.widget.RecyclerView.Adapter}. */
         long getId() {
             // using a negative entryEndUtcMillis keeps it from conflicting with program Id
             return program != null ? program.getId() : -entryEndUtcMillis;
         }
 
-        /**
-         * Returns true if this is a gap.
-         */
+        /** Returns true if this is a gap. */
         boolean isGap() {
-            return !Program.isValid(program);
+            return !Program.isProgramValid(program);
         }
 
-        /**
-         * Returns true if this channel is blocked.
-         */
+        /** Returns true if this channel is blocked. */
         boolean isBlocked() {
             return mIsBlocked;
         }
 
-        /**
-         * Returns true if this program is on the air.
-         */
+        /** Returns true if this program is on the air. */
         boolean isCurrentProgram() {
             long current = System.currentTimeMillis();
             return entryStartUtcMillis <= current && entryEndUtcMillis > current;
         }
 
-        /**
-         * Returns if this program has the genre.
-         */
+        /** Returns if this program has the genre. */
         boolean hasGenre(int genreId) {
             return !isGap() && program.hasGenre(genreId);
         }
 
-        /**
-         * Returns the width of table entry, in pixels.
-         */
+        /** Returns the width of table entry, in pixels. */
         int getWidth() {
             return GuideUtils.convertMillisToPixel(entryStartUtcMillis, entryEndUtcMillis);
         }
@@ -753,17 +759,42 @@ public class ProgramManager {
         @Override
         public String toString() {
             return "TableEntry{"
-                    + "hashCode=" + hashCode()
-                    + ", channelId=" + channelId
-                    + ", program=" + program
-                    + ", startTime=" + Utils.toTimeString(entryStartUtcMillis)
-                    + ", endTimeTime=" + Utils.toTimeString(entryEndUtcMillis) + "}";
+                    + "hashCode="
+                    + hashCode()
+                    + ", channelId="
+                    + channelId
+                    + ", program="
+                    + program
+                    + ", startTime="
+                    + Utils.toTimeString(entryStartUtcMillis)
+                    + ", endTimeTime="
+                    + Utils.toTimeString(entryEndUtcMillis)
+                    + "}";
         }
+    }
+
+    @VisibleForTesting
+    public static TableEntry createTableEntryForTest(
+            long channelId,
+            Program program,
+            ScheduledRecording scheduledRecording,
+            long entryStartUtcMillis,
+            long entryEndUtcMillis,
+            boolean isBlocked) {
+        return new TableEntry(
+                channelId,
+                program,
+                scheduledRecording,
+                entryStartUtcMillis,
+                entryEndUtcMillis,
+                isBlocked);
     }
 
     interface Listener {
         void onGenresUpdated();
+
         void onChannelsUpdated();
+
         void onTimeRangeUpdated();
     }
 
@@ -777,12 +808,12 @@ public class ProgramManager {
 
     static class ListenerAdapter implements Listener {
         @Override
-        public void onGenresUpdated() { }
+        public void onGenresUpdated() {}
 
         @Override
-        public void onChannelsUpdated() { }
+        public void onChannelsUpdated() {}
 
         @Override
-        public void onTimeRangeUpdated() { }
+        public void onTimeRangeUpdated() {}
     }
 }

@@ -37,7 +37,7 @@ class display_NoEdid(test.test):
         errors = []
         for chameleon_port in finder.iterate_all_ports():
             screen_test = chameleon_screen_test.ChameleonScreenTest(
-                    chameleon_port, display_facade, self.outputdir)
+                    host, chameleon_port, display_facade, self.outputdir)
 
             with chameleon_port.use_edid(edid.NO_EDID):
                 connector_name = utils.wait_for_value_changed(

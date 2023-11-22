@@ -21,12 +21,15 @@ import static org.conscrypt.TestUtils.readTestFile;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyListOf;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.KeyManagementException;
@@ -34,7 +37,7 @@ import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -45,6 +48,8 @@ import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLHandshakeException;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
@@ -56,6 +61,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
+import org.mockito.Mockito;
 
 @RunWith(Parameterized.class)
 public class ConscryptSocketTest {
@@ -63,14 +69,70 @@ public class ConscryptSocketTest {
     private static final char[] EMPTY_PASSWORD = new char[0];
 
     /**
+     * Factories for underlying sockets.
+     */
+    public enum UnderlyingSocketType {
+        NONE {
+            @Override
+            Socket newClientSocket(
+                    OpenSSLContextImpl context, ServerSocket server, SSLSocketFactory factory) {
+                return null;
+            }
+
+            @Override
+            Socket newServerSocket(OpenSSLContextImpl context, ServerSocket server,
+                    SSLSocketFactory factory) throws IOException {
+                return server.accept();
+            }
+        },
+        PLAIN {
+            @Override
+            Socket newClientSocket(OpenSSLContextImpl context, ServerSocket server,
+                    SSLSocketFactory factory) throws IOException {
+                return new Socket(server.getInetAddress(), server.getLocalPort());
+            }
+
+            @Override
+            Socket newServerSocket(OpenSSLContextImpl context, ServerSocket server,
+                    SSLSocketFactory factory) throws IOException {
+                return server.accept();
+            }
+        },
+        SSL {
+            @Override
+            Socket newClientSocket(OpenSSLContextImpl context, ServerSocket server,
+                    SSLSocketFactory factory) throws IOException {
+                SSLSocket sslSocket = (SSLSocket) factory.createSocket(
+                        server.getInetAddress(), server.getLocalPort());
+                sslSocket.setUseClientMode(true);
+                return sslSocket;
+            }
+
+            @Override
+            Socket newServerSocket(OpenSSLContextImpl context, ServerSocket server,
+                    SSLSocketFactory factory) throws IOException {
+                SSLSocket sslSocket =
+                        (SSLSocket) factory.createSocket(server.accept(), null, -1, true);
+                sslSocket.setUseClientMode(false);
+                return sslSocket;
+            }
+        };
+
+        abstract Socket newClientSocket(OpenSSLContextImpl context, ServerSocket server,
+                SSLSocketFactory factory) throws IOException;
+        abstract Socket newServerSocket(OpenSSLContextImpl context, ServerSocket server,
+                SSLSocketFactory factory) throws IOException;
+    }
+
+    /**
      * Various factories for SSL server sockets.
      */
     public enum SocketType {
-        DEFAULT(false) {
+        FILE_DESCRIPTOR(false) {
             @Override
             void assertSocketType(Socket socket) {
                 assertTrue("Unexpected socket type: " + socket.getClass().getName(),
-                        socket instanceof OpenSSLSocketImpl);
+                        socket instanceof ConscryptFileDescriptorSocket);
             }
         },
         ENGINE(true) {
@@ -87,38 +149,63 @@ public class ConscryptSocketTest {
             this.useEngineSocket = useEngineSocket;
         }
 
-        AbstractConscryptSocket createClientSocket(
-                OpenSSLContextImpl context, ServerSocket listener) throws IOException {
-            SSLSocketFactory factory = context.engineGetSocketFactory();
-            Conscrypt.SocketFactories.setUseEngineSocket(factory, useEngineSocket);
-            AbstractConscryptSocket socket = (AbstractConscryptSocket) factory.createSocket(
-                    listener.getInetAddress(), listener.getLocalPort());
-            assertSocketType(socket);
-            socket.setUseClientMode(true);
-            return socket;
+        AbstractConscryptSocket newClientSocket(OpenSSLContextImpl context, ServerSocket server,
+                UnderlyingSocketType underlyingSocketType) throws IOException {
+            SSLSocketFactory factory = socketFactory(context);
+            Socket underlying = underlyingSocketType.newClientSocket(context, server, factory);
+            if (underlying != null) {
+                return newClientSocket(context, server, underlying);
+            }
+            return init(factory.createSocket(server.getInetAddress(), server.getLocalPort()), true);
         }
 
-        AbstractConscryptSocket createServerSocket(
-                OpenSSLContextImpl context, ServerSocket listener) throws IOException {
-            SSLSocketFactory factory = context.engineGetSocketFactory();
-            Conscrypt.SocketFactories.setUseEngineSocket(factory, useEngineSocket);
-            AbstractConscryptSocket socket = (AbstractConscryptSocket) factory.createSocket(
-                    listener.accept(), null, -1, // hostname, port
-                    true); // autoclose
-            assertSocketType(socket);
-            socket.setUseClientMode(false);
-            return socket;
+        AbstractConscryptSocket newClientSocket(OpenSSLContextImpl context, ServerSocket server,
+                Socket underlying) throws IOException {
+            SSLSocketFactory factory = socketFactory(context);
+            return init(factory.createSocket(underlying, server.getInetAddress().getHostName(),
+                                server.getLocalPort(), true),
+                    true);
+        }
+
+        AbstractConscryptSocket newServerSocket(OpenSSLContextImpl context, ServerSocket server,
+                UnderlyingSocketType underlyingSocketType) throws IOException {
+            SSLSocketFactory factory = socketFactory(context);
+            Socket underlying = underlyingSocketType.newServerSocket(context, server, factory);
+            return init(socketFactory(context).createSocket(underlying, null, -1, true), false);
         }
 
         abstract void assertSocketType(Socket socket);
+
+        private SSLSocketFactory socketFactory(OpenSSLContextImpl context) {
+            SSLSocketFactory factory = context.engineGetSocketFactory();
+            Conscrypt.setUseEngineSocket(factory, useEngineSocket);
+            return factory;
+        }
+
+        private AbstractConscryptSocket init(Socket socket, boolean useClientMode) {
+            assertSocketType(socket);
+            AbstractConscryptSocket sslSocket = (AbstractConscryptSocket) socket;
+            sslSocket.setUseClientMode(useClientMode);
+            return sslSocket;
+        }
     }
 
-    @Parameters(name = "{0}")
-    public static Iterable<SocketType> data() {
-        return Arrays.asList(SocketType.DEFAULT, SocketType.ENGINE);
+    @Parameters(name = "{0} wrapping {1}")
+    public static Object[][] data() {
+        return new Object[][] {
+            {SocketType.FILE_DESCRIPTOR, UnderlyingSocketType.NONE},
+            {SocketType.FILE_DESCRIPTOR, UnderlyingSocketType.PLAIN},
+            // Not supported: {SocketType.FILE_DESCRIPTOR, UnderlyingSocketType.SSL},
+            {SocketType.ENGINE, UnderlyingSocketType.NONE},
+            {SocketType.ENGINE, UnderlyingSocketType.PLAIN},
+            {SocketType.ENGINE, UnderlyingSocketType.SSL}};
     }
 
-    @Parameter public SocketType socketType;
+    @Parameter
+    public SocketType socketType;
+
+    @Parameter(1)
+    public UnderlyingSocketType underlyingSocketType;
 
     private X509Certificate ca;
     private X509Certificate cert;
@@ -151,6 +238,7 @@ public class ConscryptSocketTest {
     abstract class Hooks implements HandshakeCompletedListener {
         KeyManager[] keyManagers;
         TrustManager[] trustManagers;
+        String[] alpnProtocols;
 
         abstract AbstractConscryptSocket createSocket(ServerSocket listener) throws IOException;
 
@@ -194,8 +282,11 @@ public class ConscryptSocketTest {
         @Override
         AbstractConscryptSocket createSocket(ServerSocket listener) throws IOException {
             AbstractConscryptSocket socket =
-                    socketType.createClientSocket(createContext(), listener);
+                    socketType.newClientSocket(createContext(), listener, underlyingSocketType);
             socket.setHostname(hostname);
+            if (alpnProtocols != null) {
+                Conscrypt.setApplicationProtocols(socket, alpnProtocols);
+            }
             return socket;
         }
     }
@@ -203,6 +294,7 @@ public class ConscryptSocketTest {
     class ServerHooks extends Hooks {
         byte[] sctTLSExtension;
         byte[] ocspResponse;
+        ApplicationProtocolSelector alpnProtocolSelector;
 
         @Override
         public OpenSSLContextImpl createContext() throws IOException {
@@ -219,7 +311,15 @@ public class ConscryptSocketTest {
 
         @Override
         AbstractConscryptSocket createSocket(ServerSocket listener) throws IOException {
-            return socketType.createServerSocket(createContext(), listener);
+            AbstractConscryptSocket socket =
+                    socketType.newServerSocket(createContext(), listener, underlyingSocketType);
+            if (alpnProtocols != null) {
+                Conscrypt.setApplicationProtocols(socket, alpnProtocols);
+            }
+            if (alpnProtocolSelector != null) {
+                Conscrypt.setApplicationProtocolSelector(socket, alpnProtocolSelector);
+            }
+            return socket;
         }
     }
 
@@ -291,13 +391,16 @@ public class ConscryptSocketTest {
         }
 
         Future<AbstractConscryptSocket> handshake(final ServerSocket listener, final Hooks hooks) {
-            return executor.submit(() -> {
-                AbstractConscryptSocket socket = hooks.createSocket(listener);
-                socket.addHandshakeCompletedListener(hooks);
+            return executor.submit(new Callable<AbstractConscryptSocket>() {
+                @Override
+                public AbstractConscryptSocket call() throws Exception {
+                    AbstractConscryptSocket socket = hooks.createSocket(listener);
+                    socket.addHandshakeCompletedListener(hooks);
 
-                socket.startHandshake();
+                    socket.startHandshake();
 
-                return socket;
+                    return socket;
+                }
             });
         }
     }
@@ -309,6 +412,80 @@ public class ConscryptSocketTest {
 
         assertTrue(connection.clientHooks.isHandshakeCompleted);
         assertTrue(connection.serverHooks.isHandshakeCompleted);
+    }
+
+    @Test
+    public void alpnWithProtocolListShouldSucceed() throws Exception {
+        TestConnection c = new TestConnection(new X509Certificate[] {cert, ca}, certKey);
+
+        // Configure ALPN protocols
+        String[] clientAlpnProtocols = new String[]{"http/1.1", "foo", "spdy/2"};
+        String[] serverAlpnProtocols = new String[]{"spdy/2", "foo", "bar"};
+
+        c.clientHooks.alpnProtocols = clientAlpnProtocols;
+        c.serverHooks.alpnProtocols = serverAlpnProtocols;
+
+        c.doHandshake();
+
+        assertEquals("spdy/2", Conscrypt.getApplicationProtocol(c.client));
+        assertEquals("spdy/2", Conscrypt.getApplicationProtocol(c.server));
+    }
+
+    @Test
+    public void alpnWithProtocolListShouldFail() throws Exception {
+        TestConnection c = new TestConnection(new X509Certificate[] {cert, ca}, certKey);
+
+        // Configure ALPN protocols
+        String[] clientAlpnProtocols = new String[]{"http/1.1", "foo", "spdy/2"};
+        String[] serverAlpnProtocols = new String[]{"h2", "bar", "baz"};
+
+        c.clientHooks.alpnProtocols = clientAlpnProtocols;
+        c.serverHooks.alpnProtocols = serverAlpnProtocols;
+
+        c.doHandshake();
+
+        assertNull(Conscrypt.getApplicationProtocol(c.client));
+        assertNull(Conscrypt.getApplicationProtocol(c.server));
+    }
+
+    @Test
+    public void alpnWithServerProtocolSelectorShouldSucceed() throws Exception {
+        TestConnection c = new TestConnection(new X509Certificate[] {cert, ca}, certKey);
+
+        // Configure client ALPN protocols
+        String[] clientAlpnProtocols = new String[]{"http/1.1", "foo", "spdy/2"};
+        c.clientHooks.alpnProtocols = clientAlpnProtocols;
+
+        // Configure server selector
+        ApplicationProtocolSelector selector = Mockito.mock(ApplicationProtocolSelector.class);
+        when(selector.selectApplicationProtocol(any(SSLSocket.class), anyListOf(String.class)))
+                .thenReturn("spdy/2");
+        c.serverHooks.alpnProtocolSelector = selector;
+
+        c.doHandshake();
+
+        assertEquals("spdy/2", Conscrypt.getApplicationProtocol(c.client));
+        assertEquals("spdy/2", Conscrypt.getApplicationProtocol(c.server));
+    }
+
+    @Test
+    public void alpnWithServerProtocolSelectorShouldFail() throws Exception {
+        TestConnection c = new TestConnection(new X509Certificate[] {cert, ca}, certKey);
+
+        // Configure client ALPN protocols
+        String[] clientAlpnProtocols = new String[]{"http/1.1", "foo", "spdy/2"};
+        c.clientHooks.alpnProtocols = clientAlpnProtocols;
+
+        // Configure server selector
+        ApplicationProtocolSelector selector = Mockito.mock(ApplicationProtocolSelector.class);
+        when(selector.selectApplicationProtocol(any(SSLSocket.class), anyListOf(String.class)))
+                .thenReturn("h2");
+        c.serverHooks.alpnProtocolSelector = selector;
+
+        c.doHandshake();
+
+        assertNull(Conscrypt.getApplicationProtocol(c.client));
+        assertNull(Conscrypt.getApplicationProtocol(c.server));
     }
 
     @Test
@@ -368,21 +545,45 @@ public class ConscryptSocketTest {
         assertThat(connection.clientException.getCause(), instanceOf(CertificateException.class));
     }
 
+    @Test
+    @SuppressWarnings("deprecation")
+    public void setAlpnProtocolWithNullShouldSucceed() throws Exception {
+        ServerSocket listening = newServerSocket();
+        OpenSSLSocketImpl clientSocket = null;
+        try {
+            Socket underlying = new Socket(listening.getInetAddress(), listening.getLocalPort());
+            clientSocket = (OpenSSLSocketImpl) socketType.newClientSocket(
+                    new ClientHooks().createContext(), listening, underlying);
+
+            // Both versions should succeed.
+            clientSocket.setAlpnProtocols((byte[]) null);
+            clientSocket.setAlpnProtocols((String[]) null);
+        } finally {
+            if (clientSocket != null) {
+                clientSocket.close();
+            }
+            listening.close();
+        }
+    }
+
     // http://b/27250522
     @Test
     public void test_setSoTimeout_doesNotCreateSocketImpl() throws Exception {
         ServerSocket listening = newServerSocket();
-        Socket underlying = new Socket(listening.getInetAddress(), listening.getLocalPort());
+        try {
+            Socket underlying = new Socket(listening.getInetAddress(), listening.getLocalPort());
+            Socket socket = socketType.newClientSocket(
+                    new ClientHooks().createContext(), listening, underlying);
+            socketType.assertSocketType(socket);
+            socket.setSoTimeout(1000);
+            socket.close();
 
-        Socket socket = TestUtils.getConscryptSocketFactory(socketType == SocketType.ENGINE)
-                                .createSocket(underlying, null, listening.getLocalPort(), false);
-        socketType.assertSocketType(socket);
-        socket.setSoTimeout(1000);
-        socket.close();
-
-        Field f = Socket.class.getDeclaredField("created");
-        f.setAccessible(true);
-        assertFalse(f.getBoolean(socket));
+            Field f = Socket.class.getDeclaredField("created");
+            f.setAccessible(true);
+            assertFalse(f.getBoolean(socket));
+        } finally {
+            listening.close();
+        }
     }
 
     @Test
@@ -410,7 +611,20 @@ public class ConscryptSocketTest {
         assertFalse(connection.serverHooks.isHandshakeCompleted);
     }
 
+    @Test
+    public void savedSessionWorksAfterClose() throws Exception {
+        TestConnection connection = new TestConnection(new X509Certificate[] {cert, ca}, certKey);
+        connection.doHandshake();
+
+        SSLSession session = connection.client.getSession();
+        String cipherSuite = session.getCipherSuite();
+
+        connection.client.close();
+
+        assertEquals(cipherSuite, session.getCipherSuite());
+    }
+
     private static ServerSocket newServerSocket() throws IOException {
-        return new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
+        return new ServerSocket(0, 50, TestUtils.getLoopbackAddress());
     }
 }

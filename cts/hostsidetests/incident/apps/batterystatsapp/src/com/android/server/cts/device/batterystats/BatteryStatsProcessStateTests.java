@@ -37,7 +37,7 @@ public class BatteryStatsProcessStateTests extends BatteryStatsDeviceTestBase {
         intent.setClass(mContext, SimpleForegroundService.class);
         Log.i(TAG, "Starting foreground service.");
         mContext.startForegroundService(intent);
-        Thread.sleep(3000);
+        Thread.sleep(2000);
     }
 
     @Test

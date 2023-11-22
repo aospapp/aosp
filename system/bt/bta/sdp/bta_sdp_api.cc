@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2014 The Android Open Source Project
+ *  Copyright 2014 The Android Open Source Project
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ tBTA_SDP_STATUS BTA_SdpEnable(tBTA_SDP_DM_CBACK* p_cback) {
   tBTA_SDP_STATUS status = BTA_SDP_FAILURE;
 
   APPL_TRACE_API(__func__);
-  if (p_cback && false == bta_sys_is_register(BTA_ID_SDP)) {
+  if (p_cback && !bta_sys_is_register(BTA_ID_SDP)) {
     memset(&bta_sdp_cb, 0, sizeof(tBTA_SDP_CB));
 
     /* register with BTA system manager */
@@ -87,7 +87,8 @@ tBTA_SDP_STATUS BTA_SdpEnable(tBTA_SDP_DM_CBACK* p_cback) {
  *                  BTA_SDP_FAILURE, otherwise.
  *
  ******************************************************************************/
-tBTA_SDP_STATUS BTA_SdpSearch(const RawAddress& bd_addr, tSDP_UUID* uuid) {
+tBTA_SDP_STATUS BTA_SdpSearch(const RawAddress& bd_addr,
+                              const bluetooth::Uuid& uuid) {
   tBTA_SDP_API_SEARCH* p_msg =
       (tBTA_SDP_API_SEARCH*)osi_malloc(sizeof(tBTA_SDP_API_SEARCH));
 
@@ -95,8 +96,7 @@ tBTA_SDP_STATUS BTA_SdpSearch(const RawAddress& bd_addr, tSDP_UUID* uuid) {
 
   p_msg->hdr.event = BTA_SDP_API_SEARCH_EVT;
   p_msg->bd_addr = bd_addr;
-  // p_msg->uuid = uuid;
-  memcpy(&(p_msg->uuid), uuid, sizeof(tSDP_UUID));
+  p_msg->uuid = uuid;
 
   bta_sys_sendmsg(p_msg);
 

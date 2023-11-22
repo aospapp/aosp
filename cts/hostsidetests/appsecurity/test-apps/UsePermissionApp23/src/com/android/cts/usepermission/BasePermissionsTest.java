@@ -17,7 +17,6 @@
 package com.android.cts.usepermission;
 
 import static junit.framework.Assert.assertEquals;
-
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
@@ -47,16 +46,13 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import android.widget.ScrollView;
 import android.widget.Switch;
-
-import junit.framework.Assert;
-
-import org.junit.Before;
-import org.junit.runner.RunWith;
-
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeoutException;
+import junit.framework.Assert;
+import org.junit.Before;
+import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public abstract class BasePermissionsTest {
@@ -69,67 +65,6 @@ public abstract class BasePermissionsTest {
     private static final String LOG_TAG = "BasePermissionsTest";
 
     private static Map<String, String> sPermissionToLabelResNameMap = new ArrayMap<>();
-    static {
-        // Contacts
-        sPermissionToLabelResNameMap.put(Manifest.permission.READ_CONTACTS,
-                "@android:string/permgrouplab_contacts");
-        sPermissionToLabelResNameMap.put(Manifest.permission.WRITE_CONTACTS,
-                "@android:string/permgrouplab_contacts");
-        // Calendar
-        sPermissionToLabelResNameMap.put(Manifest.permission.READ_CALENDAR,
-                "@android:string/permgrouplab_calendar");
-        sPermissionToLabelResNameMap.put(Manifest.permission.WRITE_CALENDAR,
-                "@android:string/permgrouplab_calendar");
-        // SMS
-        sPermissionToLabelResNameMap.put(Manifest.permission.SEND_SMS,
-                "@android:string/permgrouplab_sms");
-        sPermissionToLabelResNameMap.put(Manifest.permission.RECEIVE_SMS,
-                "@android:string/permgrouplab_sms");
-        sPermissionToLabelResNameMap.put(Manifest.permission.READ_SMS,
-                "@android:string/permgrouplab_sms");
-        sPermissionToLabelResNameMap.put(Manifest.permission.RECEIVE_WAP_PUSH,
-                "@android:string/permgrouplab_sms");
-        sPermissionToLabelResNameMap.put(Manifest.permission.RECEIVE_MMS,
-                "@android:string/permgrouplab_sms");
-        sPermissionToLabelResNameMap.put("android.permission.READ_CELL_BROADCASTS",
-                "@android:string/permgrouplab_sms");
-        // Storage
-        sPermissionToLabelResNameMap.put(Manifest.permission.READ_EXTERNAL_STORAGE,
-                "@android:string/permgrouplab_storage");
-        sPermissionToLabelResNameMap.put(Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                "@android:string/permgrouplab_storage");
-        // Location
-        sPermissionToLabelResNameMap.put(Manifest.permission.ACCESS_FINE_LOCATION,
-                "@android:string/permgrouplab_location");
-        sPermissionToLabelResNameMap.put(Manifest.permission.ACCESS_COARSE_LOCATION,
-                "@android:string/permgrouplab_location");
-        // Phone
-        sPermissionToLabelResNameMap.put(Manifest.permission.READ_PHONE_STATE,
-                "@android:string/permgrouplab_phone");
-        sPermissionToLabelResNameMap.put(Manifest.permission.CALL_PHONE,
-                "@android:string/permgrouplab_phone");
-        sPermissionToLabelResNameMap.put("android.permission.ACCESS_IMS_CALL_SERVICE",
-                "@android:string/permgrouplab_phone");
-        sPermissionToLabelResNameMap.put(Manifest.permission.READ_CALL_LOG,
-                "@android:string/permgrouplab_phone");
-        sPermissionToLabelResNameMap.put(Manifest.permission.WRITE_CALL_LOG,
-                "@android:string/permgrouplab_phone");
-        sPermissionToLabelResNameMap.put(Manifest.permission.ADD_VOICEMAIL,
-                "@android:string/permgrouplab_phone");
-        sPermissionToLabelResNameMap.put(Manifest.permission.USE_SIP,
-                "@android:string/permgrouplab_phone");
-        sPermissionToLabelResNameMap.put(Manifest.permission.PROCESS_OUTGOING_CALLS,
-                "@android:string/permgrouplab_phone");
-        // Microphone
-        sPermissionToLabelResNameMap.put(Manifest.permission.RECORD_AUDIO,
-                "@android:string/permgrouplab_microphone");
-        // Camera
-        sPermissionToLabelResNameMap.put(Manifest.permission.CAMERA,
-                "@android:string/permgrouplab_camera");
-        // Body sensors
-        sPermissionToLabelResNameMap.put(Manifest.permission.BODY_SENSORS,
-                "@android:string/permgrouplab_sensors");
-    }
 
     private Context mContext;
     private Resources mPlatformResources;
@@ -168,6 +103,143 @@ public abstract class BasePermissionsTest {
         return activity;
     }
 
+    private void initPermissionToLabelMap(boolean permissionReviewMode) {
+        if (!permissionReviewMode) {
+            // Contacts
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.READ_CONTACTS, "@android:string/permgrouplab_contacts");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.WRITE_CONTACTS, "@android:string/permgrouplab_contacts");
+            // Calendar
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.READ_CALENDAR, "@android:string/permgrouplab_calendar");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.WRITE_CALENDAR, "@android:string/permgrouplab_calendar");
+            // SMS
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.SEND_SMS, "@android:string/permgrouplab_sms");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.RECEIVE_SMS, "@android:string/permgrouplab_sms");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.READ_SMS, "@android:string/permgrouplab_sms");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.RECEIVE_WAP_PUSH, "@android:string/permgrouplab_sms");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.RECEIVE_MMS, "@android:string/permgrouplab_sms");
+            sPermissionToLabelResNameMap.put(
+                    "android.permission.READ_CELL_BROADCASTS", "@android:string/permgrouplab_sms");
+            // Storage
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    "@android:string/permgrouplab_storage");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    "@android:string/permgrouplab_storage");
+            // Location
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    "@android:string/permgrouplab_location");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    "@android:string/permgrouplab_location");
+            // Phone
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.READ_PHONE_STATE, "@android:string/permgrouplab_phone");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.CALL_PHONE, "@android:string/permgrouplab_phone");
+            sPermissionToLabelResNameMap.put(
+                    "android.permission.ACCESS_IMS_CALL_SERVICE",
+                    "@android:string/permgrouplab_phone");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.READ_CALL_LOG, "@android:string/permgrouplab_phone");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.WRITE_CALL_LOG, "@android:string/permgrouplab_phone");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.ADD_VOICEMAIL, "@android:string/permgrouplab_phone");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.USE_SIP, "@android:string/permgrouplab_phone");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.PROCESS_OUTGOING_CALLS,
+                    "@android:string/permgrouplab_phone");
+            // Microphone
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.RECORD_AUDIO, "@android:string/permgrouplab_microphone");
+            // Camera
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.CAMERA, "@android:string/permgrouplab_camera");
+            // Body sensors
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.BODY_SENSORS, "@android:string/permgrouplab_sensors");
+        } else {
+            // Contacts
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.READ_CONTACTS, "@android:string/permlab_readContacts");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.WRITE_CONTACTS, "@android:string/permlab_writeContacts");
+            // Calendar
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.READ_CALENDAR, "@android:string/permgrouplab_calendar");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.WRITE_CALENDAR, "@android:string/permgrouplab_calendar");
+            // SMS
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.SEND_SMS, "@android:string/permlab_sendSms");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.RECEIVE_SMS, "@android:string/permlab_receiveSms");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.READ_SMS, "@android:string/permlab_readSms");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.RECEIVE_WAP_PUSH, "@android:string/permlab_receiveWapPush");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.RECEIVE_MMS, "@android:string/permlab_receiveMms");
+            sPermissionToLabelResNameMap.put(
+                    "android.permission.READ_CELL_BROADCASTS",
+                    "@android:string/permlab_readCellBroadcasts");
+            // Storage
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    "@android:string/permgrouplab_storage");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    "@android:string/permgrouplab_storage");
+            // Location
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    "@android:string/permgrouplab_location");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    "@android:string/permgrouplab_location");
+            // Phone
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.READ_PHONE_STATE, "@android:string/permlab_readPhoneState");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.CALL_PHONE, "@android:string/permlab_callPhone");
+            sPermissionToLabelResNameMap.put(
+                    "android.permission.ACCESS_IMS_CALL_SERVICE",
+                    "@android:string/permlab_accessImsCallService");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.READ_CALL_LOG, "@android:string/permlab_readCallLog");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.WRITE_CALL_LOG, "@android:string/permlab_writeCallLog");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.ADD_VOICEMAIL, "@android:string/permlab_addVoicemail");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.USE_SIP, "@android:string/permlab_use_sip");
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.PROCESS_OUTGOING_CALLS,
+                    "@android:string/permlab_processOutgoingCalls");
+            // Microphone
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.RECORD_AUDIO, "@android:string/permgrouplab_microphone");
+            // Camera
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.CAMERA, "@android:string/permgrouplab_camera");
+            // Body sensors
+            sPermissionToLabelResNameMap.put(
+                    Manifest.permission.BODY_SENSORS, "@android:string/permgrouplab_sensors");
+        }
+    }
+
     @Before
     public void beforeTest() {
         mContext = InstrumentationRegistry.getTargetContext();
@@ -178,7 +250,9 @@ public abstract class BasePermissionsTest {
             /* cannot happen */
         }
 
-        mWatch = mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
+        PackageManager packageManager = mContext.getPackageManager();
+        mWatch = packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH);
+        initPermissionToLabelMap(packageManager.isPermissionReviewModeEnabled());
 
         UiObject2 button = getUiDevice().findObject(By.text("Close"));
         if (button != null) {
@@ -278,6 +352,7 @@ public abstract class BasePermissionsTest {
         // Open the app details settings
         Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
         intent.addCategory(Intent.CATEGORY_DEFAULT);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.setData(Uri.parse("package:" + mContext.getPackageName()));
         startActivity(intent);
 
@@ -358,6 +433,7 @@ public abstract class BasePermissionsTest {
             try {
                 getInstrumentation().getContext().startActivity(intent);
             } catch (Exception e) {
+                Log.e(LOG_TAG, "Cannot start activity: " + intent, e);
                 fail("Cannot start activity: " + intent);
             }
         }, (AccessibilityEvent event) -> event.getEventType()

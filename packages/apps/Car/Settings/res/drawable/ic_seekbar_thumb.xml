@@ -18,11 +18,11 @@
 <shape
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="oval">
-    <solid android:color="@color/car_teal_700" />
+    <solid android:color="@color/car_accent" />
     <size
         android:width="30dp"
         android:height="30dp" />
     <stroke
         android:width="1dp"
-        android:color="@color/car_teal_700" />
+        android:color="@color/car_accent" />
 </shape>

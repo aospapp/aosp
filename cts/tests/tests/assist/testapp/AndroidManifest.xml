@@ -55,8 +55,12 @@
                 <category android:name="android.intent.category.VOICE" />
             </intent-filter>
         </activity>
+        <!-- resizeableActivity makes the ScreenshotActivity run on Primary display to accommodate
+             assumptions about screenshot display vs TestStartActivity display in this test.
+             See b/70032125 -->
         <activity android:name=".ScreenshotActivity"
-                  android:label="Screenshot Test Activity">
+                  android:label="Screenshot Test Activity"
+                  android:resizeableActivity="false">
             <intent-filter>
                 <action android:name="android.intent.action.TEST_APP_SCREENSHOT" />
                 <category android:name="android.intent.category.DEFAULT" />

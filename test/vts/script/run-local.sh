@@ -30,3 +30,4 @@ PYTHONPATH=$PYTHONPATH:.. python -m vts.testcases.host.light.conventional.Sample
 # PYTHONPATH=$PYTHONPATH:.. python -m vts.testcases.hal.tv.cec.V1_0.host.VtsHalTvCecV1_0HostTest
 # PYTHONPATH=$PYTHONPATH:.. python -m vts.testcases.host.shell.SampleShellTest
 # PYTHONPATH=$PYTHONPATH:.. python -m vts.testcases.fuzz_test.lib_bionic.LibBionicLibmFuzzTest
+# PYTHONPATH=$PYTHONPATH:.. python -m vts.testcases.system.libc.LibcTest

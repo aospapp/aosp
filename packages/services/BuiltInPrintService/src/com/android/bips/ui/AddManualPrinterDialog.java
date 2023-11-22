@@ -18,8 +18,10 @@
 package com.android.bips.ui;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -45,27 +47,28 @@ import java.util.regex.Pattern;
  * Allows the user to enter printer address manually
  */
 class AddManualPrinterDialog extends AlertDialog implements TextWatcher,
-        TextView.OnEditorActionListener, View.OnKeyListener {
+        TextView.OnEditorActionListener, View.OnKeyListener, ManualDiscovery.PrinterAddCallback {
     private static final String TAG = AddManualPrinterDialog.class.getSimpleName();
     private static final boolean DEBUG = false;
 
     /**
-     * A regex that matches IP addresses and domain names like "192.168.1.101" and
-     * "printer1.company.com"
+     * A regex matching any printer URI with optional protocol, port and path.
      */
-    private static final String NAME_IP_REGEX =
-            "[a-zA-Z0-9]+(\\-[a-zA-Z0-9]+)*(\\.[a-zA-Z0-9]+(\\-[a-zA-Z0-9]+)*)*";
-    private static final String HOSTNAME_REGEXP = "^" + NAME_IP_REGEX + "$";
-    private static final Pattern HOSTNAME_PATTERN = Pattern.compile(HOSTNAME_REGEXP);
+    private static final String URI_REGEX =
+            "(ipp[s]?://)?[a-zA-Z0-9]+(\\-[a-zA-Z0-9]+)*(\\.[a-zA-Z0-9]+(\\-[a-zA-Z0-9]+)*)*(:[0-9]+)?(/.*)?";
+    private static final String FULL_URI_REGEX = "^" + URI_REGEX + "$";
+    private static final Pattern FULL_URI_PATTERN = Pattern.compile(FULL_URI_REGEX);
 
     private final ManualDiscovery mDiscovery;
+    private final Activity mActivity;
     private TextView mHostnameView;
     private Button mAddButton;
     private ProgressBar mProgressBar;
 
-    AddManualPrinterDialog(Context context, ManualDiscovery discovery) {
-        super(context);
+    AddManualPrinterDialog(Activity activity, ManualDiscovery discovery) {
+        super(activity);
         mDiscovery = discovery;
+        mActivity = activity;
     }
 
     @SuppressLint("InflateParams")
@@ -74,7 +77,7 @@ class AddManualPrinterDialog extends AlertDialog implements TextWatcher,
         if (DEBUG) Log.d(TAG, "onCreate");
         View view = getLayoutInflater().inflate(R.layout.manual_printer_add, null);
         setView(view);
-        setTitle(R.string.add_manual_printer);
+        setTitle(R.string.add_printer_by_ip);
         setButton(AlertDialog.BUTTON_NEGATIVE, getContext().getString(android.R.string.cancel),
                 (OnClickListener) null);
         setButton(AlertDialog.BUTTON_POSITIVE, getContext().getString(R.string.add),
@@ -82,8 +85,8 @@ class AddManualPrinterDialog extends AlertDialog implements TextWatcher,
 
         super.onCreate(savedInstanceState);
         mAddButton = getButton(AlertDialog.BUTTON_POSITIVE);
-        mHostnameView = (TextView) findViewById(R.id.hostname);
-        mProgressBar = (ProgressBar) findViewById(R.id.progress);
+        mHostnameView = findViewById(R.id.hostname);
+        mProgressBar = findViewById(R.id.progress);
 
         mAddButton.setOnClickListener(view1 -> addPrinter());
 
@@ -96,6 +99,13 @@ class AddManualPrinterDialog extends AlertDialog implements TextWatcher,
         openKeyboard(mHostnameView);
 
         updateButtonState();
+    }
+
+    @Override
+    protected void onStop() {
+        if (DEBUG) Log.d(TAG, "onStop()");
+        super.onStop();
+        mDiscovery.cancelAddManualPrinter(this);
     }
 
     private void openKeyboard(TextView view) {
@@ -112,9 +122,8 @@ class AddManualPrinterDialog extends AlertDialog implements TextWatcher,
 
     private void updateButtonState() {
         String hostname = mHostnameView.getText().toString();
-        Matcher hostMatch = HOSTNAME_PATTERN.matcher(hostname);
-
-        mAddButton.setEnabled(hostMatch.matches());
+        Matcher uriMatcher = FULL_URI_PATTERN.matcher(hostname);
+        mAddButton.setEnabled(uriMatcher.matches());
     }
 
     /** Attempt to add the printer based on current data */
@@ -125,23 +134,31 @@ class AddManualPrinterDialog extends AlertDialog implements TextWatcher,
         mProgressBar.setVisibility(View.VISIBLE);
 
         // Begin an attempt to add the printer
-        mDiscovery.addManualPrinter(mHostnameView.getText().toString(),
-                new ManualDiscovery.PrinterAddCallback() {
-                    @Override
-                    public void onFound(DiscoveredPrinter printer, boolean supported) {
-                        if (supported) {
-                            // Success case
-                            dismiss();
-                        } else {
-                            error(getContext().getString(R.string.printer_not_supported));
-                        }
-                    }
+        String uriString = mHostnameView.getText().toString();
+        Uri printerUri;
+        if (uriString.contains("://")) {
+            printerUri = Uri.parse(uriString);
+        } else {
+            // create a schemeless URI
+            printerUri = Uri.parse("://" + uriString);
+        }
+        mDiscovery.addManualPrinter(printerUri, this);
+    }
 
-                    @Override
-                    public void onNotFound() {
-                        error(getContext().getString(R.string.no_printer_found));
-                    }
-                });
+    @Override
+    public void onFound(DiscoveredPrinter printer, boolean supported) {
+        if (supported) {
+            // Success case
+            dismiss();
+            mActivity.finish();
+        } else {
+            error(getContext().getString(R.string.printer_not_supported));
+        }
+    }
+
+    @Override
+    public void onNotFound() {
+        error(getContext().getString(R.string.no_printer_found));
     }
 
     /** Inform user of error and allow them to correct it */

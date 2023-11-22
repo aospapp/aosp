@@ -17,13 +17,12 @@
 
 package com.android.bips.discovery;
 
+import android.net.Uri;
 import android.util.Log;
-
-import com.android.bips.BuiltInPrintService;
-import com.android.bips.util.WifiMonitor;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 /** Combines the behavior of multiple child {@link Discovery} objects to a single one */
@@ -32,59 +31,75 @@ public class MultiDiscovery extends Discovery {
     private static final boolean DEBUG = false;
 
     private final List<Discovery> mDiscoveries = new ArrayList<>();
+    private final List<Discovery> mStartedDiscoveries = new ArrayList<>();
     private final Listener mChildListener;
-    private final WifiMonitor.Factory mWifiMonitorFactory;
-    private WifiMonitor mWifiMonitor;
 
-    public MultiDiscovery(BuiltInPrintService printService, WifiMonitor.Factory wifiMonitorFactory,
-            Discovery... discoveries) {
-        super(printService);
-        mDiscoveries.addAll(Arrays.asList(discoveries));
-        mWifiMonitorFactory = wifiMonitorFactory;
+    /**
+     * Construct an aggregate discovery mechanism, with preferred discovery mechanisms first
+     */
+    public MultiDiscovery(Discovery first, Discovery... rest) {
+        super(first.getPrintService());
+        mDiscoveries.add(first);
+        mDiscoveries.addAll(Arrays.asList(rest));
         mChildListener = new Listener() {
             @Override
             public void onPrinterFound(DiscoveredPrinter printer) {
-                DiscoveredPrinter oldPrinter = getPrinter(printer.getUri());
-                if (oldPrinter != null) {
-                    printer = printer.bestOf(oldPrinter);
-                }
-
-                MultiDiscovery.this.printerFound(printer);
+                printerFound(first(printer.getUri()));
             }
 
             @Override
             public void onPrinterLost(DiscoveredPrinter printer) {
-                MultiDiscovery.this.printerLost(printer.getUri());
+                // Merge remaining printer records, if any
+                DiscoveredPrinter first = first(printer.getUri());
+                if (first == null) {
+                    printerLost(printer.getUri());
+                } else {
+                    printerFound(first);
+                }
             }
         };
+    }
+
+    /** For a given URI return the first matching record, based on discovery mechanism order */
+    private DiscoveredPrinter first(Uri printerUri) {
+        for (Discovery discovery : getChildren()) {
+            DiscoveredPrinter found = discovery.getPrinter(printerUri);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
     }
 
     @Override
     void onStart() {
         if (DEBUG) Log.d(TAG, "onStart()");
-        mWifiMonitor = mWifiMonitorFactory.create(getPrintService(), connected -> {
-            if (connected) {
-                if (DEBUG) Log.d(TAG, "Connected, starting discovery");
-                for (Discovery discovery : mDiscoveries) {
-                    discovery.start(mChildListener);
-                }
-            } else {
-                if (DEBUG) Log.d(TAG, "Disconnected, stopping discovery");
-                for (Discovery discovery : mDiscoveries) {
-                    discovery.stop(mChildListener);
-                }
-                allPrintersLost();
-            }
-        });
+        for (Discovery discovery : mDiscoveries) {
+            discovery.start(mChildListener);
+            mStartedDiscoveries.add(discovery);
+        }
+    }
+
+    private void stopAndClearAll() {
+        for (Discovery discovery : mStartedDiscoveries) {
+            discovery.stop(mChildListener);
+        }
+        mStartedDiscoveries.clear();
+        allPrintersLost();
     }
 
     @Override
     void onStop() {
         if (DEBUG) Log.d(TAG, "onStop()");
-        mWifiMonitor.close();
-        for (Discovery discovery : mDiscoveries) {
-            discovery.stop(mChildListener);
+        stopAndClearAll();
+    }
+
+    @Override
+    Collection<Discovery> getChildren() {
+        List<Discovery> children = new ArrayList<>();
+        for (Discovery child : mDiscoveries) {
+            children.addAll(child.getChildren());
         }
-        allPrintersLost();
+        return children;
     }
 }

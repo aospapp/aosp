@@ -15,12 +15,15 @@
  */
 package com.android.tradefed.invoker.shard;
 
+import com.android.annotations.VisibleForTesting;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.IRescheduler;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IDeviceTest;
+import com.android.tradefed.testtype.IInvocationContextReceiver;
+import com.android.tradefed.testtype.IMultiDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IRuntimeHintProvider;
 import com.android.tradefed.testtype.IShardableTest;
@@ -64,7 +67,7 @@ public class StrictShardHelper extends ShardHelper {
                 // not sharded
                 splitList = listAllTests;
             } else {
-                splitList = splitTests(listAllTests, shardCount, shardIndex);
+                splitList = splitTests(listAllTests, shardCount).get(shardIndex);
             }
             aggregateSuiteModules(splitList);
             config.setTests(splitList);
@@ -112,6 +115,13 @@ public class StrictShardHelper extends ShardHelper {
                 if (test instanceof IDeviceTest) {
                     ((IDeviceTest) test).setDevice(context.getDevices().get(0));
                 }
+                if (test instanceof IMultiDeviceTest) {
+                    ((IMultiDeviceTest) test).setDeviceInfos(context.getDeviceBuildMap());
+                }
+                if (test instanceof IInvocationContextReceiver) {
+                    ((IInvocationContextReceiver) test).setInvocationContext(context);
+                }
+
                 // Handling of the ITestSuite is a special case, we do not allow pool of tests
                 // since each shard needs to be independent.
                 if (test instanceof ITestSuite) {
@@ -138,18 +148,43 @@ public class StrictShardHelper extends ShardHelper {
      * consistent. It is acceptable to return an empty list if no tests can be run in the shard.
      *
      * <p>Implement this in order to provide a test suite specific sharding. The default
-     * implementation strictly split by number of tests which is not always optimal. TODO: improve
-     * the splitting criteria.
+     * implementation attempts to balance the number of IRemoteTest per shards as much as possible
+     * as a first step, then use a minor criteria or run-hint to adjust the lists a bit more.
      *
      * @param fullList the initial full list of {@link IRemoteTest} containing all the tests that
      *     need to run.
      * @param shardCount the total number of shard that need to run.
-     * @param shardIndex the index of the current shard that needs to run.
-     * @return a list of {@link IRemoteTest} that need to run in the current shard.
+     * @return a list of list {@link IRemoteTest}s that have been assigned to each shard. The list
+     *     size will be the shardCount.
      */
-    private List<IRemoteTest> splitTests(
-            List<IRemoteTest> fullList, int shardCount, int shardIndex) {
+    @VisibleForTesting
+    protected List<List<IRemoteTest>> splitTests(List<IRemoteTest> fullList, int shardCount) {
         List<List<IRemoteTest>> shards = new ArrayList<>();
+        // We are using Match.ceil to avoid the last shard having too much extra.
+        int numPerShard = (int) Math.ceil(fullList.size() / (float) shardCount);
+
+        boolean needsCorrection = false;
+        float correctionRatio = 0f;
+        if (fullList.size() > shardCount) {
+            // In some cases because of the Math.ceil, some combination might run out of tests
+            // before the last shard, in that case we populate a correction to rebalance the tests.
+            needsCorrection = (numPerShard * (shardCount - 1)) > fullList.size();
+            correctionRatio = numPerShard - ((fullList.size() / (float) shardCount));
+        }
+        // Recalculate the number of tests per shard with the correction taken into account.
+        numPerShard = (int) Math.floor(numPerShard - correctionRatio);
+        // Based of the parameters, distribute the tests accross shards.
+        shards = balancedDistrib(fullList, shardCount, numPerShard, needsCorrection);
+        // Do last minute rebalancing
+        topBottom(shards, shardCount);
+        return shards;
+    }
+
+    private List<List<IRemoteTest>> balancedDistrib(
+            List<IRemoteTest> fullList, int shardCount, int numPerShard, boolean needsCorrection) {
+        List<List<IRemoteTest>> shards = new ArrayList<>();
+        List<IRemoteTest> correctionList = new ArrayList<>();
+        int correctionSize = 0;
 
         // Generate all the shards
         for (int i = 0; i < shardCount; i++) {
@@ -160,10 +195,16 @@ public class StrictShardHelper extends ShardHelper {
                 shards.add(shardList);
                 continue;
             }
-            int numPerShard = (int) Math.ceil(fullList.size() / (float) shardCount);
+
             if (i == shardCount - 1) {
-                // last shard take everything remaining.
-                shardList = fullList.subList(i * numPerShard, fullList.size());
+                // last shard take everything remaining except the correction:
+                if (needsCorrection) {
+                    // We omit the size of the correction needed.
+                    correctionSize = fullList.size() - (numPerShard + (i * numPerShard));
+                    correctionList =
+                            fullList.subList(fullList.size() - correctionSize, fullList.size());
+                }
+                shardList = fullList.subList(i * numPerShard, fullList.size() - correctionSize);
                 shards.add(new ArrayList<>(shardList));
                 continue;
             }
@@ -171,9 +212,16 @@ public class StrictShardHelper extends ShardHelper {
             shards.add(new ArrayList<>(shardList));
         }
 
-        // do last minute rebalancing
-        topBottom(shards, shardCount);
-        return shards.get(shardIndex);
+        // If we have correction omitted tests, disperse them on each shard, at this point the
+        // number of tests in correction is ensured to be bellow the number of shards.
+        for (int i = 0; i < shardCount; i++) {
+            if (i < correctionList.size()) {
+                shards.get(i).add(correctionList.get(i));
+            } else {
+                break;
+            }
+        }
+        return shards;
     }
 
     /**

@@ -23,8 +23,8 @@
 
 #define LOG_TAG "JNIHelp"
 
-#include "JniConstants.h"
-#include "JNIHelp.h"
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/JNIHelp.h>
 #include "ALog-priv.h"
 
 #include <stdio.h>
@@ -33,6 +33,55 @@
 #include <assert.h>
 
 #include <string>
+
+namespace {
+
+// java.io.FileDescriptor.descriptor.
+jfieldID fileDescriptorDescriptorField = nullptr;
+
+// void java.io.FileDescriptor.<init>().
+jmethodID fileDescriptorInitMethod = nullptr;
+// Object java.lang.ref.Reference.get()
+jmethodID referenceGetMethod = nullptr;
+
+jfieldID FindField(JNIEnv* env, jclass klass, const char* name, const char* desc) {
+    jfieldID result = env->GetFieldID(klass, name, desc);
+    if (result == NULL) {
+        ALOGV("failed to find field '%s:%s'", name, desc);
+        abort();
+    }
+    return result;
+}
+
+jmethodID FindMethod(JNIEnv* env, jclass klass, const char* name, const char* signature) {
+    jmethodID result = env->GetMethodID(klass, name, signature);
+    if (result == NULL) {
+        ALOGV("failed to find method '%s%s'", name, signature);
+        abort();
+    }
+    return result;
+}
+
+void InitFieldsAndMethods(JNIEnv* env) {
+    JniConstants::init(env);  // Ensure that classes are cached.
+    fileDescriptorDescriptorField = FindField(env, JniConstants::fileDescriptorClass, "descriptor",
+            "I");
+    fileDescriptorInitMethod = FindMethod(env, JniConstants::fileDescriptorClass, "<init>", "()V");
+    referenceGetMethod = FindMethod(env, JniConstants::referenceClass, "get",
+            "()Ljava/lang/Object;");
+}
+
+}
+
+namespace android {
+
+void ClearJNIHelpLocalCache() {
+    fileDescriptorDescriptorField = nullptr;
+    fileDescriptorInitMethod = nullptr;
+    referenceGetMethod = nullptr;
+}
+
+}
 
 /**
  * Equivalent to ScopedLocalRef, but for C_JNIEnv instead. (And slightly more powerful.)
@@ -326,9 +375,11 @@ const char* jniStrError(int errnum, char* buf, size_t buflen) {
 
 jobject jniCreateFileDescriptor(C_JNIEnv* env, int fd) {
     JNIEnv* e = reinterpret_cast<JNIEnv*>(env);
-    JniConstants::init(e);
-    static jmethodID ctor = e->GetMethodID(JniConstants::fileDescriptorClass, "<init>", "()V");
-    jobject fileDescriptor = (*env)->NewObject(e, JniConstants::fileDescriptorClass, ctor);
+    if (fileDescriptorInitMethod == nullptr) {
+        InitFieldsAndMethods(e);
+    }
+    jobject fileDescriptor = (*env)->NewObject(e, JniConstants::fileDescriptorClass,
+            fileDescriptorInitMethod);
     // NOTE: NewObject ensures that an OutOfMemoryError will be seen by the Java
     // caller if the alloc fails, so we just return NULL when that happens.
     if (fileDescriptor != NULL)  {
@@ -339,10 +390,12 @@ jobject jniCreateFileDescriptor(C_JNIEnv* env, int fd) {
 
 int jniGetFDFromFileDescriptor(C_JNIEnv* env, jobject fileDescriptor) {
     JNIEnv* e = reinterpret_cast<JNIEnv*>(env);
-    JniConstants::init(e);
-    static jfieldID fid = e->GetFieldID(JniConstants::fileDescriptorClass, "descriptor", "I");
+    if (fileDescriptorDescriptorField == nullptr) {
+        InitFieldsAndMethods(e);
+    }
     if (fileDescriptor != NULL) {
-        return (*env)->GetIntField(e, fileDescriptor, fid);
+        return (*env)->GetIntField(e, fileDescriptor,
+                fileDescriptorDescriptorField);
     } else {
         return -1;
     }
@@ -350,16 +403,18 @@ int jniGetFDFromFileDescriptor(C_JNIEnv* env, jobject fileDescriptor) {
 
 void jniSetFileDescriptorOfFD(C_JNIEnv* env, jobject fileDescriptor, int value) {
     JNIEnv* e = reinterpret_cast<JNIEnv*>(env);
-    JniConstants::init(e);
-    static jfieldID fid = e->GetFieldID(JniConstants::fileDescriptorClass, "descriptor", "I");
-    (*env)->SetIntField(e, fileDescriptor, fid, value);
+    if (fileDescriptorDescriptorField == nullptr) {
+        InitFieldsAndMethods(e);
+    }
+    (*env)->SetIntField(e, fileDescriptor, fileDescriptorDescriptorField, value);
 }
 
 jobject jniGetReferent(C_JNIEnv* env, jobject ref) {
     JNIEnv* e = reinterpret_cast<JNIEnv*>(env);
-    JniConstants::init(e);
-    static jmethodID get = e->GetMethodID(JniConstants::referenceClass, "get", "()Ljava/lang/Object;");
-    return (*env)->CallObjectMethod(e, ref, get);
+    if (referenceGetMethod == nullptr) {
+        InitFieldsAndMethods(e);
+    }
+    return (*env)->CallObjectMethod(e, ref, referenceGetMethod);
 }
 
 jstring jniCreateString(C_JNIEnv* env, const jchar* unicodeChars, jsize len) {

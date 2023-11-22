@@ -21,13 +21,11 @@ PolicyProvider::PolicyProvider()
 #endif
 }
 
-PolicyProvider::PolicyProvider(DevicePolicy* device_policy)
-    : device_policy_(device_policy),
-      device_policy_is_loaded_(true) {
-}
+PolicyProvider::PolicyProvider(std::unique_ptr<DevicePolicy> device_policy)
+    : device_policy_(std::move(device_policy)),
+      device_policy_is_loaded_(true) {}
 
-PolicyProvider::~PolicyProvider() {
-}
+PolicyProvider::~PolicyProvider() {}
 
 bool PolicyProvider::Reload() {
   if (!device_policy_)

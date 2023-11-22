@@ -18,14 +18,17 @@ LOCAL_ERROR_PRONE_FLAGS:= -XDandroidCompatible=false \
                           -Xep:ArrayToString:ERROR \
                           -Xep:BoxedPrimitiveConstructor:ERROR \
                           -Xep:ConstantField:ERROR \
+                          -Xep:DeadException:ERROR \
                           -Xep:EqualsIncompatibleType:ERROR \
                           -Xep:FormatString:ERROR \
                           -Xep:GetClassOnClass:ERROR \
                           -Xep:IdentityBinaryExpression:ERROR \
                           -Xep:JUnit3TestNotRun:ERROR \
+                          -Xep:JUnit4ClassUsedInJUnit3:ERROR \
                           -Xep:JUnitAmbiguousTestClass:ERROR \
                           -Xep:MissingFail:ERROR \
                           -Xep:MissingOverride:ERROR \
+                          -Xep:MustBeClosedChecker:ERROR \
                           -Xep:Overrides:ERROR \
                           -Xep:PackageLocation:ERROR \
                           -Xep:ReferenceEquality:ERROR \

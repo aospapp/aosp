@@ -20,6 +20,7 @@ import java.io.File;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Enumeration;
 import java.util.List;
 
@@ -53,7 +54,7 @@ public class BaseDexClassLoader extends ClassLoader {
      * @param dexPath the list of jar/apk files containing classes and
      * resources, delimited by {@code File.pathSeparator}, which
      * defaults to {@code ":"} on Android.
-     * @param optimizedDirectory this parameter is deprecated and has no effect
+     * @param optimizedDirectory this parameter is deprecated and has no effect since API level 26.
      * @param librarySearchPath the list of directories containing native
      * libraries, delimited by {@code File.pathSeparator}; may be
      * {@code null}
@@ -61,8 +62,16 @@ public class BaseDexClassLoader extends ClassLoader {
      */
     public BaseDexClassLoader(String dexPath, File optimizedDirectory,
             String librarySearchPath, ClassLoader parent) {
+        this(dexPath, optimizedDirectory, librarySearchPath, parent, false);
+    }
+
+    /**
+     * @hide
+     */
+    public BaseDexClassLoader(String dexPath, File optimizedDirectory,
+            String librarySearchPath, ClassLoader parent, boolean isTrusted) {
         super(parent);
-        this.pathList = new DexPathList(this, dexPath, librarySearchPath, null);
+        this.pathList = new DexPathList(this, dexPath, librarySearchPath, null, isTrusted);
 
         if (reporter != null) {
             reportClassLoaderChain();
@@ -136,7 +145,23 @@ public class BaseDexClassLoader extends ClassLoader {
      * @hide
      */
     public void addDexPath(String dexPath) {
-        pathList.addDexPath(dexPath, null /*optimizedDirectory*/);
+        addDexPath(dexPath, false /*isTrusted*/);
+    }
+
+    /**
+     * @hide
+     */
+    public void addDexPath(String dexPath, boolean isTrusted) {
+        pathList.addDexPath(dexPath, null /*optimizedDirectory*/, isTrusted);
+    }
+
+    /**
+     * Adds additional native paths for consideration in subsequent calls to
+     * {@link #findLibrary(String)}
+     * @hide
+     */
+    public void addNativePath(Collection<String> libPaths) {
+        pathList.addNativePath(libPaths);
     }
 
     @Override

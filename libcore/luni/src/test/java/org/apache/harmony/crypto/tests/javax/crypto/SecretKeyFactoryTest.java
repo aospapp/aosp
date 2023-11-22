@@ -362,6 +362,9 @@ public class SecretKeyFactoryTest extends TestCase {
         SecretKeyFactory[] skF = createSKFac();
         assertNotNull("SecretKeyFactory object were not created", skF);
         for (int i = 0; i < skF.length; i++) {
+            // This both serves to ensure that we're testing the default provider and forces
+            // the implementation to lock in the provider, even if later calls fail
+            assertEquals(defaultProvider, skF[i].getProvider());
             try {
                 skF[i].generateSecret(null);
                 fail("generateSecret(null): InvalidKeySpecException must be thrown");

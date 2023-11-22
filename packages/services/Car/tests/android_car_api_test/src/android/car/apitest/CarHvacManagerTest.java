@@ -16,8 +16,8 @@
 package android.car.apitest;
 
 import android.car.Car;
-import android.car.hardware.hvac.CarHvacManager;
 import android.car.hardware.CarPropertyConfig;
+import android.car.hardware.hvac.CarHvacManager;
 import android.hardware.automotive.vehicle.V2_0.VehicleHvacFanDirection;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
@@ -55,13 +55,9 @@ public class CarHvacManagerTest extends CarApiTestBase {
     }
 
     public void testHvacPosition() {
-        assertEquals(CarHvacManager.FAN_POSITION_FACE, VehicleHvacFanDirection.FACE);
-        assertEquals(CarHvacManager.FAN_POSITION_FLOOR, VehicleHvacFanDirection.FLOOR);
-        assertEquals(CarHvacManager.FAN_POSITION_FACE_AND_FLOOR,
-                VehicleHvacFanDirection.FACE_AND_FLOOR);
-        assertEquals(CarHvacManager.FAN_POSITION_DEFROST, VehicleHvacFanDirection.DEFROST);
-        assertEquals(CarHvacManager.FAN_POSITION_DEFROST_AND_FLOOR,
-                VehicleHvacFanDirection.DEFROST_AND_FLOOR);
+        assertEquals(CarHvacManager.FAN_DIRECTION_FACE, VehicleHvacFanDirection.FACE);
+        assertEquals(CarHvacManager.FAN_DIRECTION_FLOOR, VehicleHvacFanDirection.FLOOR);
+        assertEquals(CarHvacManager.FAN_DIRECTION_DEFROST, VehicleHvacFanDirection.DEFROST);
     }
 
     private void assertTypeAndZone(CarPropertyConfig property) {
@@ -69,8 +65,8 @@ public class CarHvacManagerTest extends CarApiTestBase {
             case CarHvacManager.ID_MIRROR_DEFROSTER_ON: // non-zoned bool
                 checkTypeAndGlobal(Boolean.class, true, property);
                 break;
-            case CarHvacManager.ID_STEERING_WHEEL_TEMP: // non-zoned int
-            case CarHvacManager.ID_TEMPERATURE_UNITS:
+            case CarHvacManager.ID_STEERING_WHEEL_HEAT: // non-zoned int
+            case CarHvacManager.ID_TEMPERATURE_DISPLAY_UNITS:
                 checkTypeAndGlobal(Integer.class, true, property);
                 checkIntMinMax(property);
                 break;
@@ -84,12 +80,12 @@ public class CarHvacManagerTest extends CarApiTestBase {
                 break;
             case CarHvacManager.ID_ZONED_FAN_SPEED_SETPOINT: // zoned int
             case CarHvacManager.ID_ZONED_FAN_SPEED_RPM:
-            case CarHvacManager.ID_ZONED_FAN_POSITION_AVAILABLE:
+            case CarHvacManager.ID_ZONED_FAN_DIRECTION_AVAILABLE:
             case CarHvacManager.ID_ZONED_SEAT_TEMP:
                 checkTypeAndGlobal(Integer.class, false, property);
                 checkIntMinMax(property);
                 break;
-            case CarHvacManager.ID_ZONED_FAN_POSITION:
+            case CarHvacManager.ID_ZONED_FAN_DIRECTION:
                 checkTypeAndGlobal(Integer.class, false, property);
                 break;
             case CarHvacManager.ID_ZONED_AC_ON: // zoned boolean
@@ -120,10 +116,10 @@ public class CarHvacManagerTest extends CarApiTestBase {
             assertTrue(areaIds.length > 0);
             assertEquals(areaIds.length, property.getAreaCount());
 
-            for (int areId : areaIds) {
-                assertTrue(property.hasArea(areId));
-                int min = property.getMinValue(areId);
-                int max = property.getMaxValue(areId);
+            for (int areaId : areaIds) {
+                assertTrue(property.hasArea(areaId));
+                int min = property.getMinValue(areaId);
+                int max = property.getMaxValue(areaId);
                 assertTrue(min <= max);
             }
         } else {

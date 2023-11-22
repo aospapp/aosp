@@ -28,7 +28,7 @@
 namespace art {
 
 namespace mirror {
-  class Array;
+class Array;
 }  // namespace mirror
 
 class ArtMethod;
@@ -101,7 +101,6 @@ class JavaVMExt : public JavaVM {
   bool LoadNativeLibrary(JNIEnv* env,
                          const std::string& path,
                          jobject class_loader,
-                         jstring library_path,
                          std::string* error_msg);
 
   // Unload native libraries with cleared class loaders.
@@ -123,7 +122,9 @@ class JavaVMExt : public JavaVM {
 
   void DumpReferenceTables(std::ostream& os)
       REQUIRES_SHARED(Locks::mutator_lock_)
-      REQUIRES(!Locks::jni_globals_lock_, !Locks::jni_weak_globals_lock_);
+      REQUIRES(!Locks::jni_globals_lock_,
+               !Locks::jni_weak_globals_lock_,
+               !Locks::alloc_tracker_lock_);
 
   bool SetCheckJniEnabled(bool enabled);
 
@@ -198,6 +199,11 @@ class JavaVMExt : public JavaVM {
 
   static bool IsBadJniVersion(int version);
 
+  // Return the library search path for the given classloader, if the classloader is of a
+  // well-known type. The jobject will be a local reference and is expected to be managed by the
+  // caller.
+  static jstring GetLibrarySearchPath(JNIEnv* env, jobject class_loader);
+
  private:
   // The constructor should not be called directly. It may leave the object in
   // an erroneous state, and the result needs to be checked.
@@ -209,6 +215,8 @@ class JavaVMExt : public JavaVM {
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(Locks::jni_weak_globals_lock_);
 
+  void CheckGlobalRefAllocationTracking();
+
   Runtime* const runtime_;
 
   // Used for testing. By default, we'll LOG(FATAL) the reason.
@@ -217,7 +225,7 @@ class JavaVMExt : public JavaVM {
 
   // Extra checking.
   bool check_jni_;
-  bool force_copy_;
+  const bool force_copy_;
   const bool tracing_enabled_;
 
   // Extra diagnostics.
@@ -244,6 +252,10 @@ class JavaVMExt : public JavaVM {
 
   // TODO Maybe move this to Runtime.
   std::vector<GetEnvHook> env_hooks_;
+
+  size_t enable_allocation_tracking_delta_;
+  std::atomic<bool> allocation_tracking_enabled_;
+  std::atomic<bool> old_allocation_tracking_state_;
 
   DISALLOW_COPY_AND_ASSIGN(JavaVMExt);
 };

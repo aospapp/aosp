@@ -81,4 +81,8 @@ bool PlatformSensor::getSamplingStatus(
   return false;
 }
 
+void PlatformSensorBase::setLastEvent(const ChreSensorData *event) {
+  // TODO: Implement this.
+}
+
 }  // namespace chre

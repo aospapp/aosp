@@ -15,10 +15,12 @@ import org.junit.Test;
 
 import android.icu.dev.test.TestBoilerplate;
 import android.icu.dev.util.UnicodeMap;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Moved from UnicodeMapTest
  */
+@MainTestShard
 public class UnicodeMapBoilerplateTest extends TestBoilerplate<UnicodeMap> {
 
     private static String[] TEST_VALUES = {"A", "B", "C", "D", "E", "F"};

@@ -155,7 +155,7 @@ def merge_dfs(pr_df, sec_df, pivot):
         data['Time'] = data['Time'][1]
         merged_data.append(data)
 
-    df = pd.concat([pr_df, sec_df], keys=['primary', 'secondary']).sort(columns='__line')
+    df = pd.concat([pr_df, sec_df], keys=['primary', 'secondary']).sort_values(by='__line')
     apply_callback(df, df_fn)
     merged_df = pd.DataFrame.from_dict(merged_data)
     merged_df.set_index('Time', inplace=True)

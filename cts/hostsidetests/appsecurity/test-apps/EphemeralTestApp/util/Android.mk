@@ -23,5 +23,7 @@ LOCAL_SRC_FILES := \
 
 LOCAL_MODULE := cts-aia-util
 
+LOCAL_SDK_VERSION := current
+
 include $(BUILD_STATIC_JAVA_LIBRARY)
 

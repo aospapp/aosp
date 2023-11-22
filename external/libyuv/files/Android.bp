@@ -53,6 +53,7 @@ cc_library {
 
     cflags: [
         "-Wall",
+        "-Werror",
         "-Wno-unused-parameter",
         "-fexceptions",
         "-DHAVE_JPEG",
@@ -75,6 +76,7 @@ cc_test {
     name: "libyuv_unittest",
     static_libs: ["libyuv"],
     shared_libs: ["libjpeg"],
+    cflags: ["-Wall", "-Werror"],
 
     srcs: [
         "unit_test/unit_test.cc",

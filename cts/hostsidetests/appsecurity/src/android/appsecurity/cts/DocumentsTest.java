@@ -16,12 +16,14 @@
 
 package android.appsecurity.cts;
 
+import android.platform.test.annotations.AppModeFull;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 
 /**
  * Set of tests that verify behavior of
  * {@link android.provider.DocumentsContract} and related intents.
  */
+@AppModeFull // TODO: Needs porting to instant
 public class DocumentsTest extends DocumentsTestCase {
     private static final String PROVIDER_PKG = "com.android.cts.documentprovider";
     private static final String PROVIDER_APK = "CtsDocumentProvider.apk";

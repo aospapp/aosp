@@ -20,6 +20,7 @@
 
     <application>
         <uses-library android:name="android.test.runner" />
+        <uses-library android:name="org.apache.http.legacy" />
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

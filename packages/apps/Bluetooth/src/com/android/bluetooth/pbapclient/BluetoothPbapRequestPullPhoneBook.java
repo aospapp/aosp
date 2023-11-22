@@ -20,7 +20,6 @@ import android.accounts.Account;
 import android.util.Log;
 
 import com.android.vcard.VCardEntry;
-import com.android.bluetooth.pbapclient.ObexAppParameters;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -44,8 +43,7 @@ final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
 
     private final byte mFormat;
 
-    public BluetoothPbapRequestPullPhoneBook(
-            String pbName, Account account, long filter, byte format,
+    BluetoothPbapRequestPullPhoneBook(String pbName, Account account, long filter, byte format,
             int maxListCount, int listStartOffset) {
         mAccount = account;
         if (maxListCount < 0 || maxListCount > 65535) {

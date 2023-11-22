@@ -50,7 +50,7 @@
     <string name="cancel_delete_profile" msgid="5155447537894046036">"បោះបង់"</string>
     <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"ដើម្បី​រៀបចំ​កម្រងព័ត៌មាន​ការងារ​របស់​អ្នក ឧបករណ៍​របស់​អ្នកត្រូវ​តែ​អ៊ិនគ្រីប។ វាអាច​ចំណាយ​ពេល​បន្តិច។"</string>
     <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"ដើម្បី​រៀបចំ​ឧបករណ៍​នេះ វាត្រូវ​តែ​អ៊ិនគ្រីប​ជាមុនសិន។ វាអាច​ចំណាយពេល​បន្តិច។"</string>
-    <string name="encrypt_this_device_question" msgid="8719916619866892601">"អ៊ីនគ្រីប​ឧបករណ៍​នេះ?"</string>
+    <string name="encrypt_this_device_question" msgid="8719916619866892601">"អ៊ិនគ្រិប​ឧបករណ៍​នេះ?"</string>
     <string name="encrypt" msgid="1749320161747489212">"អ៊ិនគ្រីប"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"ការ​ដាក់​លេខ​កូដ​បាន​បញ្ចប់"</string>
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"ប៉ះដើម្បីបន្តការដំឡើងប្រវត្តិរូបការងាររបស់អ្នក"</string>
@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"កំពុង​រៀប​ចំ​ឧបករណ៍ការងារ…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"កំពុងដំណើរការទិន្នន័យដំឡើង…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"កំពុងភ្ជាប់ទៅ Wi-Fi…"</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"កំពុង​ភ្ជាប់ទៅ​បណ្ដាញ​​ទូរសព្ទ​ចល័ត…"</string>
     <string name="progress_download" msgid="3522436271691064624">"កំពុងទាញយកកម្មវិធីគ្រប់គ្រង…"</string>
     <string name="progress_install" msgid="2258045670385866183">"កំពុងដំឡើងកម្មវិធីគ្រប់គ្រង…"</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"កំពុងលុបកម្មវិធីប្រព័ន្ធដែលមិនចាំបាច់…"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"អ្នក​ត្រៀម​នឹង​បង្កើត​កម្រង​ព័ត៌មាន​ការងារ ដែលស្ថិត​ក្រោម​ការគ្រប់គ្រង និង​តាមដាន​ដោយស្ថាប័ន​របស់​អ្នក។ លក្ខខណ្ឌ​របស់ <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> នឹងត្រូវបានអនុវត្ត។"</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"កម្រង​ព័ត៌មាន​នឹងត្រូវ​បានបង្កើតឡើង​សម្រាប់​កម្មវិធី​ការងារ​របស់​អ្នក។ កម្រង​ព័ត៌មាន​នេះ និង​ផ្នែក​ផ្សេង​ទៀត​នៃ​ឧបករណ៍​របស់អ្នក​នឹង​ស្ថិត​ក្រោម​ការគ្រប់គ្រង និង​តាមដាន​ដោយ​ស្ថាប័ន​របស់​អ្នក។ លក្ខខណ្ឌ​នឹង​ត្រូវបាន​អនុវត្ត។"</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"កម្រង​ព័ត៌មាន​នឹងត្រូវ​បានបង្កើតឡើង​សម្រាប់​កម្មវិធី​ការងារ​របស់​អ្នក។ កម្រង​ព័ត៌មាន​នេះ និង​ផ្នែក​ផ្សេង​ទៀត​នៃ​ឧបករណ៍​របស់អ្នក​នឹង​ស្ថិត​ក្រោម​ការគ្រប់គ្រង និង​តាមដាន​ដោយ​ស្ថាប័ន​របស់​អ្នក។ លក្ខខណ្ឌ​របស់ <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> នឹងត្រូវបានអនុវត្ត។"</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"ឧបករណ៍នេះ​នឹង​ស្ថិតក្រោម​ការ​គ្រប់គ្រង និង​រក្សា​ឲ្យ​មាន​សុវត្ថិភាព​ដោយ <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>។ លក្ខខណ្ឌ​នឹង​ត្រូវបាន​អនុវត្ត។ <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"ឧបករណ៍នេះ​នឹង​ស្ថិតក្រោម​ការ​គ្រប់គ្រង និង​រក្សា​ឲ្យ​មាន​សុវត្ថិភាព​ដោយ <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ។ លក្ខណ្ឌដែលបានពី <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> នឹង​ត្រូវបាន​អនុវត្ត។ <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"ឧបករណ៍​នេះ​នឹងត្រូវបាន​គ្រប់គ្រង​ ត្រួតពិនិត្យ និង​រក្សាសុវត្ថិភាព​ដោយ <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ។ លក្ខខណ្ឌ​នឹងត្រូវ​អនុវត្ត។ <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"ឧបករណ៍​នេះ​នឹងត្រូវបាន​គ្រប់គ្រង​ ត្រួតពិនិត្យ និង​រក្សាសុវត្ថិភាព​ដោយ <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ។ លក្ខខណ្ឌពី <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> នឹងត្រូវ​អនុវត្ត។ <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"តំណនេះ​មិនមាន​សុវត្ថិភាពទេ និង​មិនអាច​បើក​បានទេ រហូតដល់​ការរៀបចំ​ឧបករណ៍​ត្រូវបាន​បញ្ចប់៖ <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"ប្រសិន​បើអ្នក​មាន​សំណួរ សូម​ទាក់ទង​ទៅ <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> របស់អ្នក។"</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"ប្រសិន​បើអ្នក​មាន​សំណួរ សូម​ទាក់ទង​ទៅ​អ្នកគ្រប់គ្រង​របស់ស្ថាប័ន​របស់អ្នក"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> និង <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"វាអាចចំណាយពីរបីនាទី"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"កម្មវិធី​ការងាររបស់អ្នក​នឹងត្រូវបានរក្សាទុក​នៅក្នុង​កម្រងព័ត៌មាននេះ​ ហើយនឹងស្ថិតក្រោម​ការគ្រប់គ្រង​របស់ស្ថាប័ន​របស់អ្នក"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"ឧបករណ៍​នេះនឹង​ត្រូវបាន​រក្សា​សុវត្ថិភាព និង​​គ្រប់គ្រង​ដោយ​​ស្ថាប័នរបស់​​អ្នក"</string>
 </resources>

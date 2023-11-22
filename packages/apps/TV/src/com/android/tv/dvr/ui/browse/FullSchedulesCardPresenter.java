@@ -19,20 +19,15 @@ package com.android.tv.dvr.ui.browse;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.view.View;
-import android.view.ViewGroup;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.ui.DvrUiHelper;
 import com.android.tv.util.Utils;
-
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Presents a {@link ScheduledRecording} in the {@link DvrBrowseFragment}.
- */
+/** Presents a {@link ScheduledRecording} in the {@link DvrBrowseFragment}. */
 class FullSchedulesCardPresenter extends DvrItemPresenter<Object> {
     private final Drawable mIconDrawable;
     private final String mCardTitleText;
@@ -54,16 +49,26 @@ class FullSchedulesCardPresenter extends DvrItemPresenter<Object> {
 
         cardView.setTitle(mCardTitleText);
         cardView.setImage(mIconDrawable);
-        List<ScheduledRecording> scheduledRecordings = TvApplication.getSingletons(mContext)
-                .getDvrDataManager().getAvailableScheduledRecordings();
+        List<ScheduledRecording> scheduledRecordings =
+                TvSingletons.getSingletons(mContext)
+                        .getDvrDataManager()
+                        .getAvailableScheduledRecordings();
         int fullDays = 0;
         if (!scheduledRecordings.isEmpty()) {
-            fullDays = Utils.computeDateDifference(System.currentTimeMillis(),
-                    Collections.max(scheduledRecordings, ScheduledRecording.START_TIME_COMPARATOR)
-                    .getStartTimeMs()) + 1;
+            fullDays =
+                    Utils.computeDateDifference(
+                                    System.currentTimeMillis(),
+                                    Collections.max(
+                                                    scheduledRecordings,
+                                                    ScheduledRecording.START_TIME_COMPARATOR)
+                                            .getStartTimeMs())
+                            + 1;
         }
-        cardView.setContent(mContext.getResources().getQuantityString(
-                R.plurals.dvr_full_schedule_card_view_content, fullDays, fullDays), null);
+        cardView.setContent(
+                mContext.getResources()
+                        .getQuantityString(
+                                R.plurals.dvr_full_schedule_card_view_content, fullDays, fullDays),
+                null);
     }
 
     @Override

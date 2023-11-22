@@ -101,10 +101,12 @@ EFI_STATUS
 EFIAPI
 VirtioPciGetDeviceFeatures (
   IN VIRTIO_DEVICE_PROTOCOL *This,
-  OUT UINT32                *DeviceFeatures
+  OUT UINT64                *DeviceFeatures
   )
 {
   VIRTIO_PCI_DEVICE         *Dev;
+  EFI_STATUS                Status;
+  UINT32                    Features32;
 
   if (DeviceFeatures == NULL) {
     return EFI_INVALID_PARAMETER;
@@ -112,27 +114,12 @@ VirtioPciGetDeviceFeatures (
 
   Dev = VIRTIO_PCI_DEVICE_FROM_VIRTIO_DEVICE (This);
 
-  return VirtioPciIoRead (Dev, VIRTIO_PCI_OFFSET_DEVICE_FEATURES, sizeof (UINT32),
-      sizeof (UINT32), DeviceFeatures);
-}
-
-EFI_STATUS
-EFIAPI
-VirtioPciGetQueueAddress (
-  IN  VIRTIO_DEVICE_PROTOCOL *This,
-  OUT UINT32                 *QueueAddress
-  )
-{
-  VIRTIO_PCI_DEVICE         *Dev;
-
-  if (QueueAddress == NULL) {
-    return EFI_INVALID_PARAMETER;
+  Status = VirtioPciIoRead (Dev, VIRTIO_PCI_OFFSET_DEVICE_FEATURES,
+             sizeof (UINT32), sizeof (UINT32), &Features32);
+  if (!EFI_ERROR (Status)) {
+    *DeviceFeatures = Features32;
   }
-
-  Dev = VIRTIO_PCI_DEVICE_FROM_VIRTIO_DEVICE (This);
-
-  return VirtioPciIoRead (Dev, VIRTIO_PCI_OFFSET_QUEUE_ADDRESS, sizeof (UINT32),
-      sizeof (UINT32), QueueAddress);
+  return Status;
 }
 
 EFI_STATUS
@@ -177,13 +164,16 @@ EFI_STATUS
 EFIAPI
 VirtioPciSetGuestFeatures (
   IN VIRTIO_DEVICE_PROTOCOL  *This,
-  IN UINT32                   Features
+  IN UINT64                   Features
   )
 {
   VIRTIO_PCI_DEVICE *Dev;
 
   Dev = VIRTIO_PCI_DEVICE_FROM_VIRTIO_DEVICE (This);
 
+  if (Features > MAX_UINT32) {
+    return EFI_UNSUPPORTED;
+  }
   return VirtioPciIoWrite (Dev, VIRTIO_PCI_OFFSET_GUEST_FEATURES,
       sizeof (UINT32), Features);
 }
@@ -191,8 +181,8 @@ VirtioPciSetGuestFeatures (
 EFI_STATUS
 EFIAPI
 VirtioPciSetQueueAddress (
-  VIRTIO_DEVICE_PROTOCOL    *This,
-  UINT32                    Address
+  IN VIRTIO_DEVICE_PROTOCOL  *This,
+  IN VRING                   *Ring
   )
 {
   VIRTIO_PCI_DEVICE *Dev;
@@ -200,7 +190,7 @@ VirtioPciSetQueueAddress (
   Dev = VIRTIO_PCI_DEVICE_FROM_VIRTIO_DEVICE (This);
 
   return VirtioPciIoWrite (Dev, VIRTIO_PCI_OFFSET_QUEUE_ADDRESS, sizeof (UINT32),
-      Address);
+      (UINT32)((UINTN)Ring->Base >> EFI_PAGE_SHIFT));
 }
 
 EFI_STATUS

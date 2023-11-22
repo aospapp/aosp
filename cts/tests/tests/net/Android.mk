@@ -24,7 +24,12 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 # Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
 
-LOCAL_JAVA_LIBRARIES := voip-common conscrypt org.apache.http.legacy
+LOCAL_JAVA_LIBRARIES := \
+    voip-common \
+    conscrypt \
+    org.apache.http.legacy \
+    android.test.base.stubs \
+
 
 LOCAL_JNI_SHARED_LIBRARIES := libcts_jni libnativedns_jni \
                               libnativemultinetwork_jni libnativehelper_compat_libc++
@@ -41,10 +46,11 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     ctstestserver \
     mockwebserver \
     junit \
-    legacy-android-test
+    truth-prebuilt
 
 # uncomment when b/13249961 is fixed
 #LOCAL_SDK_VERSION := current
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests

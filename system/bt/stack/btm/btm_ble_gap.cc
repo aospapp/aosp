@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2008-2014 Broadcom Corporation
+ *  Copyright 2008-2014 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -435,7 +435,7 @@ tBTM_STATUS BTM_BleObserve(bool start, uint8_t duration,
                              ? BTM_BLE_SCAN_MODE_ACTI
                              : p_inq->scan_type;
 /* assume observe always not using white list */
-#if (defined BLE_PRIVACY_SPT && BLE_PRIVACY_SPT == true)
+#if (defined BLE_PRIVACY_SPT && BLE_PRIVACY_SPT == TRUE)
       /* enable resolving list */
       btm_ble_enable_resolving_list_for_platform(BTM_BLE_RL_SCAN);
 #endif
@@ -485,37 +485,38 @@ static void btm_ble_vendor_capability_vsc_cmpl_cback(
   BTM_TRACE_DEBUG("%s", __func__);
 
   /* Check status of command complete event */
-  if ((p_vcs_cplt_params->opcode == HCI_BLE_VENDOR_CAP_OCF) &&
-      (p_vcs_cplt_params->param_len > 0)) {
-    p = p_vcs_cplt_params->p_param_buf;
-    STREAM_TO_UINT8(status, p);
+  CHECK(p_vcs_cplt_params->opcode == HCI_BLE_VENDOR_CAP_OCF);
+  CHECK(p_vcs_cplt_params->param_len > 0);
+
+  p = p_vcs_cplt_params->p_param_buf;
+  STREAM_TO_UINT8(status, p);
+
+  if (status != HCI_SUCCESS) {
+    BTM_TRACE_DEBUG("%s: Status = 0x%02x (0 is success)", __func__, status);
+    return;
+  }
+  STREAM_TO_UINT8(btm_cb.cmn_ble_vsc_cb.adv_inst_max, p);
+  STREAM_TO_UINT8(btm_cb.cmn_ble_vsc_cb.rpa_offloading, p);
+  STREAM_TO_UINT16(btm_cb.cmn_ble_vsc_cb.tot_scan_results_strg, p);
+  STREAM_TO_UINT8(btm_cb.cmn_ble_vsc_cb.max_irk_list_sz, p);
+  STREAM_TO_UINT8(btm_cb.cmn_ble_vsc_cb.filter_support, p);
+  STREAM_TO_UINT8(btm_cb.cmn_ble_vsc_cb.max_filter, p);
+  STREAM_TO_UINT8(btm_cb.cmn_ble_vsc_cb.energy_support, p);
+
+  if (p_vcs_cplt_params->param_len >
+      BTM_VSC_CHIP_CAPABILITY_RSP_LEN_L_RELEASE) {
+    STREAM_TO_UINT16(btm_cb.cmn_ble_vsc_cb.version_supported, p);
+  } else {
+    btm_cb.cmn_ble_vsc_cb.version_supported = BTM_VSC_CHIP_CAPABILITY_L_VERSION;
   }
 
-  if (status == HCI_SUCCESS) {
-    STREAM_TO_UINT8(btm_cb.cmn_ble_vsc_cb.adv_inst_max, p);
-    STREAM_TO_UINT8(btm_cb.cmn_ble_vsc_cb.rpa_offloading, p);
-    STREAM_TO_UINT16(btm_cb.cmn_ble_vsc_cb.tot_scan_results_strg, p);
-    STREAM_TO_UINT8(btm_cb.cmn_ble_vsc_cb.max_irk_list_sz, p);
-    STREAM_TO_UINT8(btm_cb.cmn_ble_vsc_cb.filter_support, p);
-    STREAM_TO_UINT8(btm_cb.cmn_ble_vsc_cb.max_filter, p);
-    STREAM_TO_UINT8(btm_cb.cmn_ble_vsc_cb.energy_support, p);
-
-    if (p_vcs_cplt_params->param_len >
-        BTM_VSC_CHIP_CAPABILITY_RSP_LEN_L_RELEASE) {
-      STREAM_TO_UINT16(btm_cb.cmn_ble_vsc_cb.version_supported, p);
-    } else {
-      btm_cb.cmn_ble_vsc_cb.version_supported =
-          BTM_VSC_CHIP_CAPABILITY_L_VERSION;
-    }
-
-    if (btm_cb.cmn_ble_vsc_cb.version_supported >=
-        BTM_VSC_CHIP_CAPABILITY_M_VERSION) {
-      STREAM_TO_UINT16(btm_cb.cmn_ble_vsc_cb.total_trackable_advertisers, p);
-      STREAM_TO_UINT16(btm_cb.cmn_ble_vsc_cb.extended_scan_support, p);
-      STREAM_TO_UINT16(btm_cb.cmn_ble_vsc_cb.debug_logging_supported, p);
-    }
-    btm_cb.cmn_ble_vsc_cb.values_read = true;
+  if (btm_cb.cmn_ble_vsc_cb.version_supported >=
+      BTM_VSC_CHIP_CAPABILITY_M_VERSION) {
+    STREAM_TO_UINT16(btm_cb.cmn_ble_vsc_cb.total_trackable_advertisers, p);
+    STREAM_TO_UINT16(btm_cb.cmn_ble_vsc_cb.extended_scan_support, p);
+    STREAM_TO_UINT16(btm_cb.cmn_ble_vsc_cb.debug_logging_supported, p);
   }
+  btm_cb.cmn_ble_vsc_cb.values_read = true;
 
   BTM_TRACE_DEBUG(
       "%s: stat=%d, irk=%d, ADV ins:%d, rpa=%d, ener=%d, ext_scan=%d", __func__,
@@ -576,7 +577,7 @@ extern void BTM_BleGetVendorCapabilities(tBTM_BLE_VSC_CB* p_cmn_vsc_cb) {
 #if (BLE_VND_INCLUDED == TRUE)
 extern void BTM_BleReadControllerFeatures(
     tBTM_BLE_CTRL_FEATURES_CBACK* p_vsc_cback) {
-  if (true == btm_cb.cmn_ble_vsc_cb.values_read) return;
+  if (btm_cb.cmn_ble_vsc_cb.values_read) return;
 
   BTM_TRACE_DEBUG("BTM_BleReadControllerFeatures");
 
@@ -630,7 +631,8 @@ bool BTM_BleConfigPrivacy(bool privacy_mode) {
   /* if LE is not supported, return error */
   if (!controller_get_interface()->supports_ble()) return false;
 
-  uint8_t addr_resolution = 0;
+  tGAP_BLE_ATTR_VALUE gap_ble_attr_value;
+  gap_ble_attr_value.addr_resolution = 0;
   if (!privacy_mode) /* if privacy disabled, always use public address */
   {
     p_cb->addr_mgnt_cb.own_addr_type = BLE_ADDR_PUBLIC;
@@ -645,7 +647,7 @@ bool BTM_BleConfigPrivacy(bool privacy_mode) {
     /* 4.2 controller only allow privacy 1.2 or mixed mode, resolvable private
      * address in controller */
     if (controller_get_interface()->supports_ble_privacy()) {
-      addr_resolution = 1;
+      gap_ble_attr_value.addr_resolution = 1;
       /* check vendor specific capability */
       p_cb->privacy_mode =
           btm_cb.ble_ctr_cb.mixed_mode ? BTM_PRIVACY_MIXED : BTM_PRIVACY_1_2;
@@ -653,8 +655,7 @@ bool BTM_BleConfigPrivacy(bool privacy_mode) {
       p_cb->privacy_mode = BTM_PRIVACY_1_1;
   }
 
-  GAP_BleAttrDBUpdate(GATT_UUID_GAP_CENTRAL_ADDR_RESOL,
-                      (tGAP_BLE_ATTR_VALUE*)&addr_resolution);
+  GAP_BleAttrDBUpdate(GATT_UUID_GAP_CENTRAL_ADDR_RESOL, &gap_ble_attr_value);
 
   return true;
 #else
@@ -722,6 +723,7 @@ void BTM_BleStartAutoConn() {
  *
  ******************************************************************************/
 void BTM_BleClearBgConnDev(void) {
+  if (!controller_get_interface()->supports_ble()) return;
   btm_ble_start_auto_conn(false);
   btm_ble_clear_white_list();
   gatt_reset_bgdev_list();
@@ -1841,10 +1843,10 @@ void btm_clear_all_pending_le_entry(void) {
   }
 }
 
-void btm_ble_process_adv_addr(RawAddress& bda, uint8_t addr_type) {
+void btm_ble_process_adv_addr(RawAddress& bda, uint8_t* addr_type) {
 #if (BLE_PRIVACY_SPT == TRUE)
   /* map address to security record */
-  bool match = btm_identity_addr_to_random_pseudo(&bda, &addr_type, false);
+  bool match = btm_identity_addr_to_random_pseudo(&bda, addr_type, false);
 
   VLOG(1) << __func__ << ": bda=" << bda;
   /* always do RRA resolution on host */
@@ -1909,13 +1911,20 @@ void btm_ble_process_ext_adv_pkt(uint8_t data_len, uint8_t* data) {
 
     uint8_t* pkt_data = p;
     p += pkt_data_len; /* Advance to the the next packet*/
-
-    if (rssi >= 21 && rssi <= 126) {
-      BTM_TRACE_ERROR("%s: bad rssi value in advertising report: ", __func__,
-                      pkt_data_len, rssi);
+    if (p > data + data_len) {
+      LOG(ERROR) << "Invalid pkt_data_len: " << +pkt_data_len;
+      return;
     }
 
-    btm_ble_process_adv_addr(bda, addr_type);
+    if (rssi >= 21 && rssi <= 126) {
+      BTM_TRACE_ERROR("%s: bad rssi value in advertising report: %d", __func__,
+                      rssi);
+    }
+
+    if (addr_type != BLE_ADDR_ANONYMOUS) {
+      btm_ble_process_adv_addr(bda, &addr_type);
+    }
+
     btm_ble_process_adv_pkt_cont(event_type, addr_type, bda, primary_phy,
                                  secondary_phy, advertising_sid, tx_power, rssi,
                                  periodic_adv_int, pkt_data_len, pkt_data);
@@ -1954,6 +1963,10 @@ void btm_ble_process_adv_pkt(uint8_t data_len, uint8_t* data) {
 
     uint8_t* pkt_data = p;
     p += pkt_data_len; /* Advance to the the rssi byte */
+    if (p > data + data_len - sizeof(rssi)) {
+      LOG(ERROR) << "Invalid pkt_data_len: " << +pkt_data_len;
+      return;
+    }
 
     STREAM_TO_INT8(rssi, p);
 
@@ -1962,7 +1975,7 @@ void btm_ble_process_adv_pkt(uint8_t data_len, uint8_t* data) {
                       pkt_data_len, rssi);
     }
 
-    btm_ble_process_adv_addr(bda, addr_type);
+    btm_ble_process_adv_addr(bda, &addr_type);
 
     uint16_t event_type;
     if (legacy_evt_type == 0x00) {  // ADV_IND;
@@ -2013,7 +2026,8 @@ static void btm_ble_process_adv_pkt_cont(
   bool is_start =
       ble_evt_type_is_legacy(evt_type) && is_scannable && !is_scan_resp;
 
-  if (is_start) AdvertiseDataParser::RemoveTrailingZeros(tmp);
+  if (ble_evt_type_is_legacy(evt_type))
+    AdvertiseDataParser::RemoveTrailingZeros(tmp);
 
   // We might have send scan request to this device before, but didn't get the
   // response. In such case make sure data is put at start, not appended to
@@ -2140,17 +2154,7 @@ void btm_ble_process_phy_update_pkt(uint8_t len, uint8_t* data) {
   STREAM_TO_UINT8(tx_phy, p);
   STREAM_TO_UINT8(rx_phy, p);
 
-  tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev_by_handle(handle);
-  if (!p_dev_rec) {
-    BTM_TRACE_WARNING("%s: No Device Found!", __func__);
-    return;
-  }
-
-  tGATT_TCB* p_tcb =
-      gatt_find_tcb_by_addr(p_dev_rec->ble.pseudo_addr, BT_TRANSPORT_LE);
-  if (p_tcb == NULL) return;
-
-  gatt_notify_phy_updated(p_tcb, tx_phy, rx_phy, status);
+  gatt_notify_phy_updated(status, handle, tx_phy, rx_phy);
 }
 
 /*******************************************************************************
@@ -2257,8 +2261,7 @@ static void btm_ble_stop_observe(void) {
 
   if (!BTM_BLE_IS_SCAN_ACTIVE(p_ble_cb->scan_activity)) btm_ble_stop_scan();
 
-  if (p_obs_cb)
-    (p_obs_cb)((tBTM_INQUIRY_CMPL*)&btm_cb.btm_inq_vars.inq_cmpl_info);
+  if (p_obs_cb) (p_obs_cb)(&btm_cb.btm_inq_vars.inq_cmpl_info);
 }
 /*******************************************************************************
  *
@@ -2564,7 +2567,7 @@ void btm_ble_update_link_topology_mask(uint8_t link_role, bool increase) {
  ******************************************************************************/
 void btm_ble_update_mode_operation(uint8_t link_role, const RawAddress* bd_addr,
                                    uint8_t status) {
-  if (status == HCI_ERR_DIRECTED_ADVERTISING_TIMEOUT) {
+  if (status == HCI_ERR_ADVERTISING_TIMEOUT) {
     btm_cb.ble_ctr_cb.inq_var.adv_mode = BTM_BLE_ADV_DISABLE;
     /* make device fall back into undirected adv mode by default */
     btm_cb.ble_ctr_cb.inq_var.directed_conn = BTM_BLE_CONNECT_EVT;
@@ -2579,7 +2582,7 @@ void btm_ble_update_mode_operation(uint8_t link_role, const RawAddress* bd_addr,
 
   /* in case of disconnected, we must cancel bgconn and restart
      in order to add back device to white list in order to reconnect */
-  btm_ble_bgconn_cancel_if_disconnected(*bd_addr);
+  if (bd_addr) btm_ble_bgconn_cancel_if_disconnected(*bd_addr);
 
   /* when no connection is attempted, and controller is not rejecting last
      request

@@ -52,6 +52,12 @@ class DynamicVector : public NonCopyable {
   DynamicVector(DynamicVector<ElementType>&& other);
 
   /**
+   * Move-constructs a dynamic vector from another. The other dynamic vector is
+   * left in an empty state.
+   */
+  DynamicVector& operator=(DynamicVector<ElementType>&& other);
+
+  /**
    * Destructs the objects and releases the memory owned by the vector.
    */
   ~DynamicVector();
@@ -178,6 +184,17 @@ class DynamicVector : public NonCopyable {
    * @return true if the resize operation was successful.
    */
   bool reserve(size_type newCapacity);
+
+  /**
+   * Resizes the vector to a new size. If the new capacity is smaller than the
+   * current size, the extraneous objects at the end are destructed. If the new
+   * capacity is larger than the current size, the new objects are
+   * default-constructed.
+   *
+   * @param size The new size of the vector.
+   * @return true if the resize operation was successful.
+   */
+  bool resize(size_type newSize);
 
   /**
    * Inserts an element into the vector at a given index. If a resize of the

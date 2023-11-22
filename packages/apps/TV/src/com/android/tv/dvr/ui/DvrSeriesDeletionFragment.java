@@ -26,9 +26,8 @@ import android.support.v17.leanback.widget.GuidedActionsStylist;
 import android.text.TextUtils;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.Toast;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrManager;
@@ -37,7 +36,6 @@ import com.android.tv.dvr.data.RecordedProgram;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.ui.GuidedActionsStylistWithDivider;
 import com.android.tv.util.Utils;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -45,9 +43,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Fragment for DVR series recording settings.
- */
+/** Fragment for DVR series recording settings. */
 public class DvrSeriesDeletionFragment extends GuidedStepFragment {
     private static final long WATCHED_TIME_UNIT_THRESHOLD = TimeUnit.MINUTES.toMillis(2);
 
@@ -68,18 +64,23 @@ public class DvrSeriesDeletionFragment extends GuidedStepFragment {
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        mSeriesRecordingId = getArguments()
-                .getLong(DvrSeriesDeletionActivity.SERIES_RECORDING_ID, -1);
+        mSeriesRecordingId =
+                getArguments().getLong(DvrSeriesDeletionActivity.SERIES_RECORDING_ID, -1);
         SoftPreconditions.checkArgument(mSeriesRecordingId != -1);
-        mDvrDataManager = TvApplication.getSingletons(context).getDvrDataManager();
+        mDvrDataManager = TvSingletons.getSingletons(context).getDvrDataManager();
         mDvrWatchedPositionManager =
-                TvApplication.getSingletons(context).getDvrWatchedPositionManager();
+                TvSingletons.getSingletons(context).getDvrWatchedPositionManager();
         mRecordings = mDvrDataManager.getRecordedPrograms(mSeriesRecordingId);
-        mOneLineActionHeight = getResources().getDimensionPixelSize(
-                R.dimen.dvr_settings_one_line_action_container_height);
+        mOneLineActionHeight =
+                getResources()
+                        .getDimensionPixelSize(
+                                R.dimen.dvr_settings_one_line_action_container_height);
         if (mRecordings.isEmpty()) {
-            Toast.makeText(getActivity(), getString(R.string.dvr_series_deletion_no_recordings),
-                    Toast.LENGTH_LONG).show();
+            Toast.makeText(
+                            getActivity(),
+                            getString(R.string.dvr_series_deletion_no_recordings),
+                            Toast.LENGTH_LONG)
+                    .show();
             finishGuidedStepFragments();
             return;
         }
@@ -93,28 +94,35 @@ public class DvrSeriesDeletionFragment extends GuidedStepFragment {
         if (series != null) {
             breadcrumb = series.getTitle();
         }
-        return new Guidance(getString(R.string.dvr_series_deletion_title),
-                getString(R.string.dvr_series_deletion_description), breadcrumb, null);
+        return new Guidance(
+                getString(R.string.dvr_series_deletion_title),
+                getString(R.string.dvr_series_deletion_description),
+                breadcrumb,
+                null);
     }
 
     @Override
     public void onCreateActions(List<GuidedAction> actions, Bundle savedInstanceState) {
-        actions.add(new GuidedAction.Builder(getActivity())
-                .id(ACTION_ID_SELECT_WATCHED)
-                .title(getString(R.string.dvr_series_select_watched))
-                .build());
-        actions.add(new GuidedAction.Builder(getActivity())
-                .id(ACTION_ID_SELECT_ALL)
-                .title(getString(R.string.dvr_series_select_all))
-                .build());
+        actions.add(
+                new GuidedAction.Builder(getActivity())
+                        .id(ACTION_ID_SELECT_WATCHED)
+                        .title(getString(R.string.dvr_series_select_watched))
+                        .build());
+        actions.add(
+                new GuidedAction.Builder(getActivity())
+                        .id(ACTION_ID_SELECT_ALL)
+                        .title(getString(R.string.dvr_series_select_all))
+                        .build());
         actions.add(GuidedActionsStylistWithDivider.createDividerAction(getContext()));
         for (RecordedProgram recording : mRecordings) {
             long watchedPositionMs =
                     mDvrWatchedPositionManager.getWatchedPosition(recording.getId());
             String title = recording.getEpisodeDisplayTitle(getContext());
             if (TextUtils.isEmpty(title)) {
-                title = TextUtils.isEmpty(recording.getTitle()) ?
-                        getString(R.string.channel_banner_no_title) : recording.getTitle();
+                title =
+                        TextUtils.isEmpty(recording.getTitle())
+                                ? getString(R.string.channel_banner_no_title)
+                                : recording.getTitle();
             }
             String description;
             if (watchedPositionMs != TvInputManager.TIME_SHIFT_INVALID_TIME) {
@@ -123,24 +131,27 @@ public class DvrSeriesDeletionFragment extends GuidedStepFragment {
             } else {
                 description = getString(R.string.dvr_series_never_watched);
             }
-            actions.add(new GuidedAction.Builder(getActivity())
-                    .id(recording.getId())
-                    .title(title)
-                    .description(description)
-                    .checkSetId(GuidedAction.CHECKBOX_CHECK_SET_ID)
-                    .build());
+            actions.add(
+                    new GuidedAction.Builder(getActivity())
+                            .id(recording.getId())
+                            .title(title)
+                            .description(description)
+                            .checkSetId(GuidedAction.CHECKBOX_CHECK_SET_ID)
+                            .build());
         }
     }
 
     @Override
     public void onCreateButtonActions(List<GuidedAction> actions, Bundle savedInstanceState) {
-        actions.add(new GuidedAction.Builder(getActivity())
-                .id(ACTION_ID_DELETE)
-                .title(getString(R.string.dvr_detail_delete))
-                .build());
-        actions.add(new GuidedAction.Builder(getActivity())
-                .clickAction(GuidedAction.ACTION_ID_CANCEL)
-                .build());
+        actions.add(
+                new GuidedAction.Builder(getActivity())
+                        .id(ACTION_ID_DELETE)
+                        .title(getString(R.string.dvr_detail_delete))
+                        .build());
+        actions.add(
+                new GuidedAction.Builder(getActivity())
+                        .clickAction(GuidedAction.ACTION_ID_CANCEL)
+                        .build());
     }
 
     @Override
@@ -155,12 +166,19 @@ public class DvrSeriesDeletionFragment extends GuidedStepFragment {
                 }
             }
             if (!idsToDelete.isEmpty()) {
-                DvrManager dvrManager = TvApplication.getSingletons(getActivity()).getDvrManager();
+                DvrManager dvrManager = TvSingletons.getSingletons(getActivity()).getDvrManager();
                 dvrManager.removeRecordedPrograms(idsToDelete);
             }
-            Toast.makeText(getContext(), getResources().getQuantityString(
-                    R.plurals.dvr_msg_episodes_deleted, idsToDelete.size(), idsToDelete.size(),
-                    mRecordings.size()), Toast.LENGTH_LONG).show();
+            Toast.makeText(
+                            getContext(),
+                            getResources()
+                                    .getQuantityString(
+                                            R.plurals.dvr_msg_episodes_deleted,
+                                            idsToDelete.size(),
+                                            idsToDelete.size(),
+                                            mRecordings.size()),
+                            Toast.LENGTH_LONG)
+                    .show();
             finishGuidedStepFragments();
         } else if (actionId == GuidedAction.ACTION_ID_CANCEL) {
             finishGuidedStepFragments();
@@ -218,13 +236,17 @@ public class DvrSeriesDeletionFragment extends GuidedStepFragment {
 
     private String getWatchedString(long watchedPositionMs, long durationMs) {
         if (durationMs > WATCHED_TIME_UNIT_THRESHOLD) {
-            return getResources().getString(R.string.dvr_series_watched_info_minutes,
-                    Math.max(1, Utils.getRoundOffMinsFromMs(watchedPositionMs)),
-                    Utils.getRoundOffMinsFromMs(durationMs));
+            return getResources()
+                    .getString(
+                            R.string.dvr_series_watched_info_minutes,
+                            Math.max(1, Utils.getRoundOffMinsFromMs(watchedPositionMs)),
+                            Utils.getRoundOffMinsFromMs(durationMs));
         } else {
-            return getResources().getString(R.string.dvr_series_watched_info_seconds,
-                    Math.max(1, TimeUnit.MILLISECONDS.toSeconds(watchedPositionMs)),
-                    TimeUnit.MILLISECONDS.toSeconds(durationMs));
+            return getResources()
+                    .getString(
+                            R.string.dvr_series_watched_info_seconds,
+                            Math.max(1, TimeUnit.MILLISECONDS.toSeconds(watchedPositionMs)),
+                            TimeUnit.MILLISECONDS.toSeconds(durationMs));
         }
     }
 
@@ -246,8 +268,10 @@ public class DvrSeriesDeletionFragment extends GuidedStepFragment {
     }
 
     private void updateSelectAllState(GuidedAction selectAll, boolean select) {
-        selectAll.setTitle(select ? getString(R.string.dvr_series_deselect_all)
-                : getString(R.string.dvr_series_select_all));
+        selectAll.setTitle(
+                select
+                        ? getString(R.string.dvr_series_deselect_all)
+                        : getString(R.string.dvr_series_select_all));
         notifyActionChanged(findActionPositionById(ACTION_ID_SELECT_ALL));
     }
 }

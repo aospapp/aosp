@@ -24,19 +24,16 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
-
-
-
 bool heapInit(void);
 void* heapAlloc(uint32_t sz);
 void heapFree(void* ptr);
 int heapFreeAll(uint32_t tid);
-
+int heapGetFreeSize(int *numChunks, int *largestChunk);
+int heapGetTaskSize(uint32_t tid);
 
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif
 

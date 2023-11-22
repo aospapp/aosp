@@ -17,8 +17,9 @@
 #ifndef VTS_COMPILATION_TOOLS_VTSC_CODE_GEN_PROFILER_PROFILERCODEGENBASE_H_
 #define VTS_COMPILATION_TOOLS_VTSC_CODE_GEN_PROFILER_PROFILERCODEGENBASE_H_
 
-#include <hidl-util/Formatter.h>
+#include <android-base/macros.h>
 #include <hidl-util/FQName.h>
+#include <hidl-util/Formatter.h>
 #include <iostream>
 #include <string>
 

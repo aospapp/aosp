@@ -94,6 +94,8 @@ struct private_module_t
 	pthread_mutex_t lock;
 	buffer_handle_t currentBuffer;
 	int ion_client;
+	int system_heap_id;
+	bool gralloc_legacy_ion;
 	mali_dpy_type dpy_type;
 
 	struct fb_var_screeninfo info;

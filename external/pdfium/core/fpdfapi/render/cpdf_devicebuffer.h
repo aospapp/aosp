@@ -10,6 +10,8 @@
 #include <memory>
 
 #include "core/fxcrt/fx_coordinates.h"
+#include "core/fxcrt/retain_ptr.h"
+#include "core/fxcrt/unowned_ptr.h"
 
 class CFX_DIBitmap;
 class CFX_RenderDevice;
@@ -20,21 +22,22 @@ class CPDF_DeviceBuffer {
  public:
   CPDF_DeviceBuffer();
   ~CPDF_DeviceBuffer();
+
   bool Initialize(CPDF_RenderContext* pContext,
                   CFX_RenderDevice* pDevice,
                   FX_RECT* pRect,
                   const CPDF_PageObject* pObj,
                   int max_dpi);
   void OutputToDevice();
-  CFX_DIBitmap* GetBitmap() const { return m_pBitmap.get(); }
+  RetainPtr<CFX_DIBitmap> GetBitmap() const { return m_pBitmap; }
   const CFX_Matrix* GetMatrix() const { return &m_Matrix; }
 
  private:
-  CFX_RenderDevice* m_pDevice;
-  CPDF_RenderContext* m_pContext;
+  UnownedPtr<CFX_RenderDevice> m_pDevice;
+  UnownedPtr<CPDF_RenderContext> m_pContext;
+  UnownedPtr<const CPDF_PageObject> m_pObject;
+  RetainPtr<CFX_DIBitmap> m_pBitmap;
   FX_RECT m_Rect;
-  const CPDF_PageObject* m_pObject;
-  std::unique_ptr<CFX_DIBitmap> m_pBitmap;
   CFX_Matrix m_Matrix;
 };
 

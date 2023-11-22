@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Cancellare tutte le informazioni e i contatti?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Aggiungendo informazioni mediche e contatti di emergenza puoi aiutare i soccorritori in caso di emergenze.\n\nChiunque può leggere queste informazioni dalla schermata di blocco e chiamare i tuoi contatti toccandone il nome senza sbloccare il telefono."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Aggiungi informazioni per le emergenze"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Aiuta i soccorritori a trovare informazioni importanti"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Mostra ai soccorritori le tue informazioni"</string>
 </resources>

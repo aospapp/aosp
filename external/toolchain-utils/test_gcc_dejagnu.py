@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 # Copyright 2010 Google Inc. All Rights Reserved.
 """Script adapter used by automation client for testing dejagnu.
@@ -41,8 +41,10 @@ class DejagnuAdapter(object):
     self._cleanup = cleanup
 
   def SetupChromeOS(self):
-    cmd = [setup_chromeos.__file__, '--dir=' + self._chromeos_root,
-           '--minilayout', '--jobs=8']
+    cmd = [
+        setup_chromeos.__file__, '--dir=' + self._chromeos_root, '--minilayout',
+        '--jobs=8'
+    ]
     ret = setup_chromeos.Main(cmd)
     if ret:
       raise RuntimeError('Failed to checkout chromeos')
@@ -54,9 +56,8 @@ class DejagnuAdapter(object):
 
   def SetupBoard(self):
     cmd = './setup_board --board=' + self._board
-    ret = self._cmd_exec.ChrootRunCommand(self._chromeos_root,
-                                          cmd,
-                                          terminated_timeout=4000)
+    ret = self._cmd_exec.ChrootRunCommand(
+        self._chromeos_root, cmd, terminated_timeout=4000)
     if ret:
       raise RuntimeError('Failed to setup board.')
 
@@ -73,17 +74,20 @@ class DejagnuAdapter(object):
     ret = self._cmd_exec.RunCommand(cmd)
 
   def BuildGCC(self):
-    build_gcc_args = [build_tc.__file__, '--board=' + self._board,
-                      '--chromeos_root=' + self._chromeos_root,
-                      '--gcc_dir=' + self._gcc_dir]
+    build_gcc_args = [
+        build_tc.__file__, '--board=' + self._board,
+        '--chromeos_root=' + self._chromeos_root, '--gcc_dir=' + self._gcc_dir
+    ]
     ret = build_tc.Main(build_gcc_args)
     if ret:
       raise RuntimeError('Building gcc failed.')
 
   def CheckGCC(self):
-    args = [run_dejagnu.__file__, '--board=' + self._board,
-            '--chromeos_root=' + self._chromeos_root,
-            '--mount=' + self._gcc_dir, '--remote=' + self._remote]
+    args = [
+        run_dejagnu.__file__, '--board=' + self._board,
+        '--chromeos_root=' + self._chromeos_root, '--mount=' + self._gcc_dir,
+        '--remote=' + self._remote
+    ]
     if self._cleanup:
       args.append('--cleanup=' + self._cleanup)
     if self._runtestflags:
@@ -102,9 +106,9 @@ def GetNumNewFailures(input_str):
     print(l)
     if not start_counting and 'Build results not in the manifest' in l:
       start_counting = True
-    elif start_counting and l and (
-        l.find('UNRESOLVED:') == 0 or l.find('FAIL:') == 0 or
-        l.find('XFAIL:') == 0 or l.find('XPASS:') == 0):
+    elif start_counting and l and (l.find('UNRESOLVED:') == 0 or
+                                   l.find('FAIL:') == 0 or l.find('XFAIL:') == 0
+                                   or l.find('XPASS:') == 0):
       n_failures = n_failures + 1
   if not start_counting:
     return -1
@@ -146,8 +150,7 @@ def EmailResult(result):
     # email exception? Just log it on console.
     print('Sending email failed - {0}'
           'Subject: {1}'
-          'Text: {2}').format(
-              str(e), subject, email_text)
+          'Text: {2}').format(str(e), subject, email_text)
 
 
 def ProcessArguments(argv):
@@ -156,35 +159,41 @@ def ProcessArguments(argv):
       description=('This script is used by nightly client to test gcc. '
                    'DO NOT run it unless you know what you are doing.'),
       usage='test_gcc_dejagnu.py options')
-  parser.add_argument('-b',
-                      '--board',
-                      dest='board',
-                      help=('Required. Specify board type. For example '
-                            '\'lumpy\' and \'daisy\''))
-  parser.add_argument('-r',
-                      '--remote',
-                      dest='remote',
-                      help=('Required. Specify remote board address'))
-  parser.add_argument('-g',
-                      '--gcc_dir',
-                      dest='gcc_dir',
-                      default='gcc.live',
-                      help=('Optional. Specify gcc checkout directory.'))
-  parser.add_argument('-c',
-                      '--chromeos_root',
-                      dest='chromeos_root',
-                      default='chromeos.live',
-                      help=('Optional. Specify chromeos checkout directory.'))
-  parser.add_argument('--cleanup',
-                      dest='cleanup',
-                      default=None,
-                      help=('Optional. Do cleanup after the test.'))
-  parser.add_argument('--runtestflags',
-                      dest='runtestflags',
-                      default=None,
-                      help=('Optional. Options to RUNTESTFLAGS env var '
-                            'while invoking make check. '
-                            '(Mainly used for testing purpose.)'))
+  parser.add_argument(
+      '-b',
+      '--board',
+      dest='board',
+      help=('Required. Specify board type. For example '
+            '\'lumpy\' and \'daisy\''))
+  parser.add_argument(
+      '-r',
+      '--remote',
+      dest='remote',
+      help=('Required. Specify remote board address'))
+  parser.add_argument(
+      '-g',
+      '--gcc_dir',
+      dest='gcc_dir',
+      default='gcc.live',
+      help=('Optional. Specify gcc checkout directory.'))
+  parser.add_argument(
+      '-c',
+      '--chromeos_root',
+      dest='chromeos_root',
+      default='chromeos.live',
+      help=('Optional. Specify chromeos checkout directory.'))
+  parser.add_argument(
+      '--cleanup',
+      dest='cleanup',
+      default=None,
+      help=('Optional. Do cleanup after the test.'))
+  parser.add_argument(
+      '--runtestflags',
+      dest='runtestflags',
+      default=None,
+      help=('Optional. Options to RUNTESTFLAGS env var '
+            'while invoking make check. '
+            '(Mainly used for testing purpose.)'))
 
   options = parser.parse_args(argv[1:])
 

@@ -25,10 +25,16 @@ import android.net.wifi.IInterfaceEventCallback;
 interface IWificond {
 
     // Create a network interface suitable for use as an AP.
-    @nullable IApInterface createApInterface();
+    @nullable IApInterface createApInterface(@utf8InCpp String iface_name);
 
     // Create a network interface suitable for use as a WiFi client.
-    @nullable IClientInterface createClientInterface();
+    @nullable IClientInterface createClientInterface(@utf8InCpp String iface_name);
+
+    // Remove a previously created AP network interface.
+    boolean tearDownApInterface(@utf8InCpp String iface_name);
+
+    // Remove a previously created STA network interface.
+    boolean tearDownClientInterface(@utf8InCpp String iface_name);
 
     // Tear down all existing interfaces.  This should enable clients to create
     // future interfaces immediately after this method returns.
@@ -39,6 +45,29 @@ interface IWificond {
 
     // @return list of the currently configured IApInterface instances.
     List<IBinder> GetApInterfaces();
+
+    // Returns an array of available frequencies for 2.4GHz channels.
+    // Returrns null on failure.
+    @nullable int[] getAvailable2gChannels();
+
+    // Returns an array of available frequencies for 5GHz non-DFS channels.
+    // Returrns null on failure.
+    @nullable int[] getAvailable5gNonDFSChannels();
+
+    // Returns an array of available frequencies for DFS channels.
+    // This also includes passive only frequecies which are not for DFS channels.
+    // Returrns null on failure.
+    @nullable int[] getAvailableDFSChannels();
+
+    // Enable wpa_supplicant.
+    // Returns true if supplicant was successfully enabled,
+    // or is already enabled.
+    boolean enableSupplicant();
+
+    // Disable wpa_supplicant.
+    // Returns true if supplicant was successfully disabled,
+    // or is already disabled.
+    boolean disableSupplicant();
 
     // Register a callback to receive interface status updates.
     //

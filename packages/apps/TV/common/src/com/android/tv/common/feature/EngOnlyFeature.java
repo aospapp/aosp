@@ -17,16 +17,13 @@
 package com.android.tv.common.feature;
 
 import android.content.Context;
-
 import com.android.tv.common.BuildConfig;
 
-/**
- * A feature that is only available on {@link BuildConfig#ENG} builds.
- */
+/** A feature that is only available on {@link BuildConfig#ENG} builds. */
 public final class EngOnlyFeature implements Feature {
     public static final Feature ENG_ONLY_FEATURE = new EngOnlyFeature();
 
-    private EngOnlyFeature() { }
+    private EngOnlyFeature() {}
 
     @Override
     public boolean isEnabled(Context context) {

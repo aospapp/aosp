@@ -76,6 +76,11 @@ $code=<<___;
 # define __ARM_ARCH__ __LINUX_ARM_ARCH__
 #endif
 
+@ Silence ARMv8 deprecated IT instruction warnings. This file is used by both
+@ ARMv7 and ARMv8 processors and does not use ARMv8 instructions. (ARMv8 AES
+@ instructions are in aesv8-armx.pl.)
+.arch  armv7-a
+
 .text
 #if defined(__thumb2__) && !defined(__APPLE__)
 .syntax	unified
@@ -200,7 +205,7 @@ asm_AES_encrypt:
 #ifndef	__thumb2__
 	sub	r3,pc,#8		@ asm_AES_encrypt
 #else
-	adr	r3,asm_AES_encrypt
+	adr	r3,.
 #endif
 	stmdb   sp!,{r1,r4-r12,lr}
 #ifdef	__APPLE__
@@ -450,7 +455,7 @@ _armv4_AES_set_encrypt_key:
 #ifndef	__thumb2__
 	sub	r3,pc,#8		@ asm_AES_set_encrypt_key
 #else
-	adr	r3,asm_AES_set_encrypt_key
+	adr	r3,.
 #endif
 	teq	r0,#0
 #ifdef	__thumb2__
@@ -976,7 +981,7 @@ asm_AES_decrypt:
 #ifndef	__thumb2__
 	sub	r3,pc,#8		@ asm_AES_decrypt
 #else
-	adr	r3,asm_AES_decrypt
+	adr	r3,.
 #endif
 	stmdb   sp!,{r1,r4-r12,lr}
 #ifdef	__APPLE__

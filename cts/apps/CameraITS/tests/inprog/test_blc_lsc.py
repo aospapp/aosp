@@ -63,9 +63,8 @@ def main():
         for e in exposures:
             req = its.objects.manual_capture_request(ae_sen,e)
             req["android.tonemap.mode"] = 0
-            req["android.tonemap.curveRed"] = tmap
-            req["android.tonemap.curveGreen"] = tmap
-            req["android.tonemap.curveBlue"] = tmap
+            req["android.tonemap.curve"] = {
+                "red": tmap, "green": tmap, "blue": tmap}
             req["android.colorCorrection.transform"] = awb_transform_rat
             req["android.colorCorrection.gains"] = awb_gains
             reqs.append(req)

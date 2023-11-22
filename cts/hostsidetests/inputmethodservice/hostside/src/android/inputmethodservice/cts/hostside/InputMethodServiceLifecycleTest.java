@@ -22,51 +22,63 @@ import static android.inputmethodservice.cts.common.DeviceEventConstants.EXTRA_E
 import static android.inputmethodservice.cts.common.DeviceEventConstants.EXTRA_EVENT_TYPE;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.RECEIVER_COMPONENT;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
+import android.inputmethodservice.cts.common.EditTextAppConstants;
 import android.inputmethodservice.cts.common.EventProviderConstants.EventTableConstants;
 import android.inputmethodservice.cts.common.Ime1Constants;
 import android.inputmethodservice.cts.common.Ime2Constants;
 import android.inputmethodservice.cts.common.test.DeviceTestConstants;
 import android.inputmethodservice.cts.common.test.ShellCommandUtils;
 import android.inputmethodservice.cts.common.test.TestInfo;
+import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.AppModeInstant;
 
-import com.android.compatibility.common.tradefed.testtype.CompatibilityHostTestBase;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-@RunWith(DeviceJUnit4ClassRunner.class)
-public class InputMethodServiceLifecycleTest extends CompatibilityHostTestBase {
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
-    private String mDefaultImeId;
+@RunWith(DeviceJUnit4ClassRunner.class)
+public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
+
+    private static final long TIMEOUT = TimeUnit.MICROSECONDS.toMillis(20000);
+    private static final long POLLING_INTERVAL = TimeUnit.MICROSECONDS.toMillis(200);
 
     @Before
     public void setUp() throws Exception {
         // Skip whole tests when DUT has no android.software.input_methods feature.
-        assumeTrue(Boolean.parseBoolean(shell(
-                ShellCommandUtils.hasFeature(ShellCommandUtils.FEATURE_INPUT_METHODS))));
-        mDefaultImeId = shell(ShellCommandUtils.getCurrentIme());
+        assumeTrue(hasDeviceFeature(ShellCommandUtils.FEATURE_INPUT_METHODS));
         cleanUpTestImes();
         shell(ShellCommandUtils.deleteContent(EventTableConstants.CONTENT_URI));
     }
 
     @After
     public void tearDown() throws Exception {
-        shell(ShellCommandUtils.setCurrentIme(mDefaultImeId));
-        cleanUpTestImes();
+        shell(ShellCommandUtils.resetImes());
     }
 
-    @Test
-    public void testSwitchIme() throws Exception {
+    private void installPossibleInstantPackage(String apkFileName, boolean instant)
+            throws Exception {
+        if (instant) {
+            installPackage(apkFileName, "-r", "--instant");
+        } else {
+            installPackage(apkFileName, "-r");
+        }
+    }
+
+    private void testSwitchIme(boolean instant) throws Exception {
         final TestInfo testSwitchIme1ToIme2 = new TestInfo(DeviceTestConstants.PACKAGE,
                 DeviceTestConstants.TEST_CLASS, DeviceTestConstants.TEST_SWITCH_IME1_TO_IME2);
         sendTestStartEvent(testSwitchIme1ToIme2);
+        installPossibleInstantPackage(EditTextAppConstants.APK, instant);
         installPackage(Ime1Constants.APK, "-r");
         installPackage(Ime2Constants.APK, "-r");
         shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
@@ -76,71 +88,203 @@ public class InputMethodServiceLifecycleTest extends CompatibilityHostTestBase {
         assertTrue(runDeviceTestMethod(testSwitchIme1ToIme2));
     }
 
+    @AppModeFull
     @Test
-    public void testUninstallCurrentIme() throws Exception {
-        installAndSetIme1();
-
-        final TestInfo testIme1IsNotCurrentIme = new TestInfo(DeviceTestConstants.PACKAGE,
-                DeviceTestConstants.TEST_CLASS, DeviceTestConstants.TEST_IME1_IS_NOT_CURRENT_IME);
-        sendTestStartEvent(testIme1IsNotCurrentIme);
-        uninstallPackageIfExists(Ime1Constants.PACKAGE);
-        assertTrue(runDeviceTestMethod(testIme1IsNotCurrentIme));
-        assertEquals(shell(ShellCommandUtils.getCurrentIme()), mDefaultImeId);
+    public void testSwitchImeull() throws Exception {
+        testSwitchIme(false);
     }
 
+    @AppModeInstant
     @Test
-    public void testDisableCurrentIme() throws Exception {
-        installAndSetIme1();
-
-        final TestInfo testIme1IsNotCurrentIme = new TestInfo(DeviceTestConstants.PACKAGE,
-                DeviceTestConstants.TEST_CLASS, DeviceTestConstants.TEST_IME1_IS_NOT_CURRENT_IME);
-        sendTestStartEvent(testIme1IsNotCurrentIme);
-        shell(ShellCommandUtils.disableIme(Ime1Constants.IME_ID));
-        assertTrue(runDeviceTestMethod(testIme1IsNotCurrentIme));
-        assertEquals(shell(ShellCommandUtils.getCurrentIme()), mDefaultImeId);
+    public void testSwitchImeInstant() throws Exception {
+        testSwitchIme(true);
     }
 
-    @Test
-    public void testSearchView_giveFocusShowIme() throws Exception {
-        installAndSetIme1();
-
-        final TestInfo testGiveFocusShowIme1 = new TestInfo(DeviceTestConstants.PACKAGE,
-                DeviceTestConstants.TEST_CLASS,
-                DeviceTestConstants.TEST_SEARCH_VIEW_GIVE_FOCUS_SHOW_IME1);
-        sendTestStartEvent(testGiveFocusShowIme1);
-        assertTrue(runDeviceTestMethod(testGiveFocusShowIme1));
-    }
-
-    @Test
-    public void testSearchView_setQueryHideIme() throws Exception {
-        installAndSetIme1();
-
-        final TestInfo testSetQueryHideIme1 = new TestInfo(DeviceTestConstants.PACKAGE,
-                DeviceTestConstants.TEST_CLASS,
-                DeviceTestConstants.TEST_SEARCH_VIEW_SET_QUERY_HIDE_IME1);
-        sendTestStartEvent(testSetQueryHideIme1);
-        assertTrue(runDeviceTestMethod(testSetQueryHideIme1));
-    }
-
-    @Test
-    public void testOnStartInputCalledOnce() throws Exception {
-        installAndSetIme1();
-
-        final TestInfo testSetQueryHideIme1 = new TestInfo(DeviceTestConstants.PACKAGE,
-                DeviceTestConstants.TEST_CLASS,
-                DeviceTestConstants.TEST_ON_START_INPUT_CALLED_ONCE_IME1);
-        sendTestStartEvent(testSetQueryHideIme1);
-        assertTrue(runDeviceTestMethod(testSetQueryHideIme1));
-    }
-
-    private void installAndSetIme1() throws Exception {
+    private void testUninstallCurrentIme(boolean instant) throws Exception {
         final TestInfo testCreateIme1 = new TestInfo(DeviceTestConstants.PACKAGE,
-            DeviceTestConstants.TEST_CLASS, DeviceTestConstants.TEST_CREATE_IME1);
+                DeviceTestConstants.TEST_CLASS, DeviceTestConstants.TEST_CREATE_IME1);
         sendTestStartEvent(testCreateIme1);
+        installPossibleInstantPackage(EditTextAppConstants.APK, instant);
         installPackage(Ime1Constants.APK, "-r");
         shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
         shell(ShellCommandUtils.setCurrentIme(Ime1Constants.IME_ID));
         assertTrue(runDeviceTestMethod(testCreateIme1));
+
+        uninstallPackageIfExists(Ime1Constants.PACKAGE);
+        assertImeNotSelectedInSecureSettings(Ime1Constants.IME_ID, TIMEOUT);
+    }
+
+    @AppModeFull
+    @Test
+    public void testUninstallCurrentImeFull() throws Exception {
+        testUninstallCurrentIme(false);
+    }
+
+    @AppModeInstant
+    @Test
+    public void testUninstallCurrentImeInstant() throws Exception {
+        testUninstallCurrentIme(true);
+    }
+
+    private void testDisableCurrentIme(boolean instant) throws Exception {
+        final TestInfo testCreateIme1 = new TestInfo(DeviceTestConstants.PACKAGE,
+                DeviceTestConstants.TEST_CLASS, DeviceTestConstants.TEST_CREATE_IME1);
+        sendTestStartEvent(testCreateIme1);
+        installPossibleInstantPackage(EditTextAppConstants.APK, instant);
+        installPackage(Ime1Constants.APK, "-r");
+        shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
+        shell(ShellCommandUtils.setCurrentIme(Ime1Constants.IME_ID));
+        assertTrue(runDeviceTestMethod(testCreateIme1));
+
+        shell(ShellCommandUtils.disableIme(Ime1Constants.IME_ID));
+        assertImeNotSelectedInSecureSettings(Ime1Constants.IME_ID, TIMEOUT);
+    }
+
+    @AppModeFull
+    @Test
+    public void testDisableCurrentImeFull() throws Exception {
+        testDisableCurrentIme(false);
+    }
+
+    @AppModeInstant
+    @Test
+    public void testDisableCurrentImeInstant() throws Exception {
+        testDisableCurrentIme(true);
+    }
+
+    private void testSwitchInputMethod(boolean instant) throws Exception {
+        final TestInfo testSetInputMethod = new TestInfo(
+                DeviceTestConstants.PACKAGE, DeviceTestConstants.TEST_CLASS,
+                DeviceTestConstants.TEST_SWITCH_INPUTMETHOD);
+        sendTestStartEvent(testSetInputMethod);
+        installPossibleInstantPackage(EditTextAppConstants.APK, instant);
+        installPackage(Ime1Constants.APK, "-r");
+        installPackage(Ime2Constants.APK, "-r");
+        shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
+        shell(ShellCommandUtils.enableIme(Ime2Constants.IME_ID));
+        shell(ShellCommandUtils.setCurrentIme(Ime1Constants.IME_ID));
+
+        assertTrue(runDeviceTestMethod(testSetInputMethod));
+    }
+
+    @AppModeFull
+    @Test
+    public void testSwitchInputMethodFull() throws Exception {
+        testSwitchInputMethod(false);
+    }
+
+    @AppModeInstant
+    @Test
+    public void testSwitchInputMethodInstant() throws Exception {
+        testSwitchInputMethod(true);
+    }
+
+    private void testSwitchToNextInput(boolean instant) throws Exception {
+        final TestInfo testSwitchInputs = new TestInfo(
+                DeviceTestConstants.PACKAGE, DeviceTestConstants.TEST_CLASS,
+                DeviceTestConstants.TEST_SWITCH_NEXT_INPUT);
+        sendTestStartEvent(testSwitchInputs);
+        installPossibleInstantPackage(EditTextAppConstants.APK, instant);
+        installPackage(Ime1Constants.APK, "-r");
+        installPackage(Ime2Constants.APK, "-r");
+        shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
+        // Make sure that there is at least one more IME that specifies
+        // supportsSwitchingToNextInputMethod="true"
+        shell(ShellCommandUtils.enableIme(Ime2Constants.IME_ID));
+        shell(ShellCommandUtils.setCurrentIme(Ime1Constants.IME_ID));
+
+        assertTrue(runDeviceTestMethod(testSwitchInputs));
+    }
+
+    @AppModeFull
+    @Test
+    public void testSwitchToNextInputFull() throws Exception {
+        testSwitchToNextInput(false);
+    }
+
+    @AppModeInstant
+    @Test
+    public void testSwitchToNextInputInstant() throws Exception {
+        testSwitchToNextInput(true);
+    }
+
+    private void testSwitchToPreviousInput(boolean instant) throws Exception {
+        final TestInfo testSwitchInputs = new TestInfo(
+                DeviceTestConstants.PACKAGE, DeviceTestConstants.TEST_CLASS,
+                DeviceTestConstants.TEST_SWITCH_PREVIOUS_INPUT);
+        sendTestStartEvent(testSwitchInputs);
+        installPossibleInstantPackage(EditTextAppConstants.APK, instant);
+        installPackage(Ime1Constants.APK, "-r");
+        installPackage(Ime2Constants.APK, "-r");
+        shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
+        shell(ShellCommandUtils.enableIme(Ime2Constants.IME_ID));
+        shell(ShellCommandUtils.setCurrentIme(Ime1Constants.IME_ID));
+
+        assertTrue(runDeviceTestMethod(testSwitchInputs));
+    }
+
+    @AppModeFull
+    @Test
+    public void testSwitchToPreviousInputFull() throws Exception {
+        testSwitchToPreviousInput(false);
+    }
+
+    @AppModeInstant
+    @Test
+    public void testSwitchToPreviousInputInstant() throws Exception {
+        testSwitchToPreviousInput(true);
+    }
+
+    private void testInputUnbindsOnImeStopped(boolean instant) throws Exception {
+        final TestInfo testUnbind = new TestInfo(
+                DeviceTestConstants.PACKAGE, DeviceTestConstants.TEST_CLASS,
+                DeviceTestConstants.TEST_INPUT_UNBINDS_ON_IME_STOPPED);
+        sendTestStartEvent(testUnbind);
+        installPossibleInstantPackage(EditTextAppConstants.APK, instant);
+        installPackage(Ime1Constants.APK, "-r");
+        installPackage(Ime2Constants.APK, "-r");
+        shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
+        shell(ShellCommandUtils.enableIme(Ime2Constants.IME_ID));
+        shell(ShellCommandUtils.setCurrentIme(Ime1Constants.IME_ID));
+
+        assertTrue(runDeviceTestMethod(testUnbind));
+    }
+
+    @AppModeFull
+    @Test
+    public void testInputUnbindsOnImeStoppedFull() throws Exception {
+        testInputUnbindsOnImeStopped(false);
+    }
+
+    @AppModeInstant
+    @Test
+    public void testInputUnbindsOnImeStoppedInstant() throws Exception {
+        testInputUnbindsOnImeStopped(true);
+    }
+
+    private void testInputUnbindsOnAppStop(boolean instant) throws Exception {
+        final TestInfo testUnbind = new TestInfo(
+                DeviceTestConstants.PACKAGE, DeviceTestConstants.TEST_CLASS,
+                DeviceTestConstants.TEST_INPUT_UNBINDS_ON_APP_STOPPED);
+        sendTestStartEvent(testUnbind);
+        installPossibleInstantPackage(EditTextAppConstants.APK, instant);
+        installPackage(Ime1Constants.APK, "-r");
+        shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
+        shell(ShellCommandUtils.setCurrentIme(Ime1Constants.IME_ID));
+
+        assertTrue(runDeviceTestMethod(testUnbind));
+    }
+
+    @AppModeFull
+    @Test
+    public void testInputUnbindsOnAppStopFull() throws Exception {
+        testInputUnbindsOnAppStop(false);
+    }
+
+    @AppModeInstant
+    @Test
+    public void testInputUnbindsOnAppStopInstant() throws Exception {
+        testInputUnbindsOnAppStop(true);
     }
 
     private void sendTestStartEvent(final TestInfo deviceTest) throws Exception {
@@ -166,8 +310,28 @@ public class InputMethodServiceLifecycleTest extends CompatibilityHostTestBase {
     }
 
     private void uninstallPackageIfExists(final String packageName) throws Exception {
-        if (isPackageInstalled(packageName)) {
-            uninstallPackage(packageName);
+        if (isPackageInstalled(getDevice(), packageName)) {
+            uninstallPackage(getDevice(), packageName);
+        }
+    }
+
+    /**
+     * Makes sure that the given IME is not in the stored in the secure settings as the current IME.
+     *
+     * @param imeId IME ID to be monitored
+     * @param timeout timeout in millisecond
+     */
+    private void assertImeNotSelectedInSecureSettings(String imeId, long timeout) throws Exception {
+        while (true) {
+            if (timeout < 0) {
+                throw new TimeoutException(imeId + " is still the current IME even after "
+                        + timeout + " msec.");
+            }
+            if (!imeId.equals(shell(ShellCommandUtils.getCurrentIme()))) {
+                break;
+            }
+            Thread.sleep(POLLING_INTERVAL);
+            timeout -= POLLING_INTERVAL;
         }
     }
 }

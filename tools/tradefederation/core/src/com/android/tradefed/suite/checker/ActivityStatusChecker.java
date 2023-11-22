@@ -22,6 +22,7 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestLoggerReceiver;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.suite.checker.StatusCheckerResult.CheckStatus;
 import com.android.tradefed.util.StreamUtil;
 
 /** Status checker for left over activities running at the end of a module. */
@@ -30,17 +31,21 @@ public class ActivityStatusChecker implements ISystemStatusChecker, ITestLoggerR
     private ITestLogger mLogger;
 
     @Override
-    public boolean postExecutionCheck(ITestDevice device) throws DeviceNotAvailableException {
+    public StatusCheckerResult postExecutionCheck(ITestDevice device)
+            throws DeviceNotAvailableException {
         return isFrontActivityLauncher(device);
     }
 
-    private boolean isFrontActivityLauncher(ITestDevice device) throws DeviceNotAvailableException {
+    private StatusCheckerResult isFrontActivityLauncher(ITestDevice device)
+            throws DeviceNotAvailableException {
+        StatusCheckerResult result = new StatusCheckerResult();
         String output =
                 device.executeShellCommand(
                         "dumpsys window windows | grep -E 'mCurrentFocus|mFocusedApp'");
         CLog.d("dumpsys window windows: %s", output);
         if (output.contains("Launcher")) {
-            return true;
+            result.setStatus(CheckStatus.SUCCESS);
+            return result;
         } else {
             InputStreamSource screen = device.getScreenshot("JPEG");
             try {
@@ -49,7 +54,9 @@ public class ActivityStatusChecker implements ISystemStatusChecker, ITestLoggerR
                 StreamUtil.cancel(screen);
             }
             // TODO: Add a step to return to home page, or refresh the device (reboot?)
-            return false;
+            result.setStatus(CheckStatus.FAILED);
+            result.setErrorMessage("Launcher activity is not in front.");
+            return result;
         }
     }
 

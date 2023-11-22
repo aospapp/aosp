@@ -29,7 +29,9 @@ import android.os.UserHandle;
 import android.support.annotation.NonNull;
 import android.support.v17.leanback.widget.GuidanceStylist;
 
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settingslib.applications.ApplicationsState;
+import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
 import com.android.tv.settings.R;
 
 public class ForceStopPreference extends AppActionPreference {
@@ -75,6 +77,9 @@ public class ForceStopPreference extends AppActionPreference {
     public static class ConfirmationFragment extends AppActionPreference.ConfirmationFragment {
         private static final String ARG_PACKAGE_NAME = "packageName";
 
+        private final MetricsFeatureProvider mMetricsFeatureProvider =
+                new MetricsFeatureProvider();
+
         private static void prepareArgs(@NonNull Bundle args, String packageName) {
             args.putString(ARG_PACKAGE_NAME, packageName);
         }
@@ -92,9 +97,12 @@ public class ForceStopPreference extends AppActionPreference {
 
         @Override
         public void onOk() {
+            String pkgName = getArguments().getString(ARG_PACKAGE_NAME);
+            mMetricsFeatureProvider.action(getContext(), MetricsEvent.ACTION_APP_FORCE_STOP,
+                    pkgName);
             ActivityManager am = (ActivityManager)
                     getActivity().getSystemService(Context.ACTIVITY_SERVICE);
-            am.forceStopPackage(getArguments().getString(ARG_PACKAGE_NAME));
+            am.forceStopPackage(pkgName);
         }
     }
 }

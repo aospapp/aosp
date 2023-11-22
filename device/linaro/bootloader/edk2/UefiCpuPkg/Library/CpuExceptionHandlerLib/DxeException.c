@@ -1,7 +1,7 @@
 /** @file
   CPU exception handler library implemenation for DXE modules.
 
-  Copyright (c) 2013, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2013 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -19,8 +19,32 @@
 
 CONST UINTN    mDoFarReturnFlag  = 0;
 
-extern SPIN_LOCK                   mDisplayMessageSpinLock;
-extern EFI_CPU_INTERRUPT_HANDLER   *mExternalInterruptHandler;
+//
+// Image align size for DXE/SMM
+//
+CONST UINTN      mImageAlignSize = SIZE_4KB;
+
+RESERVED_VECTORS_DATA       mReservedVectorsData[CPU_EXCEPTION_NUM];
+EFI_CPU_INTERRUPT_HANDLER   mExternalInterruptHandlerTable[CPU_EXCEPTION_NUM];
+UINTN                       mEnabledInterruptNum = 0;
+
+EXCEPTION_HANDLER_DATA      mExceptionHandlerData;
+
+/**
+  Common exception handler.
+
+  @param ExceptionType  Exception type.
+  @param SystemContext  Pointer to EFI_SYSTEM_CONTEXT.
+**/
+VOID
+EFIAPI
+CommonExceptionHandler (
+  IN EFI_EXCEPTION_TYPE          ExceptionType, 
+  IN EFI_SYSTEM_CONTEXT          SystemContext
+  )
+{
+  CommonExceptionHandlerWorker (ExceptionType, SystemContext, &mExceptionHandlerData);
+}
 
 /**
   Initializes all CPU exceptions entries and provides the default exception handlers.
@@ -44,7 +68,10 @@ InitializeCpuExceptionHandlers (
   IN EFI_VECTOR_HANDOFF_INFO       *VectorInfo OPTIONAL
   )
 {
-  return InitializeCpuExceptionHandlersWorker (VectorInfo);
+  mExceptionHandlerData.ReservedVectors          = mReservedVectorsData;
+  mExceptionHandlerData.ExternalInterruptHandler = mExternalInterruptHandlerTable;
+  InitializeSpinLock (&mExceptionHandlerData.DisplayMessageSpinLock);
+  return InitializeCpuExceptionHandlersWorker (VectorInfo, &mExceptionHandlerData);
 }
 
 /**
@@ -77,20 +104,22 @@ InitializeCpuInterruptHandlers (
   UINTN                              Index;
   UINTN                              InterruptEntry;
   UINT8                              *InterruptEntryCode;
+  RESERVED_VECTORS_DATA              *ReservedVectors;
+  EFI_CPU_INTERRUPT_HANDLER          *ExternalInterruptHandler;
 
-  mReservedVectors = AllocatePool (sizeof (RESERVED_VECTORS_DATA) * CPU_INTERRUPT_NUM);
-  ASSERT (mReservedVectors != NULL);
-  SetMem ((VOID *) mReservedVectors, sizeof (RESERVED_VECTORS_DATA) * CPU_INTERRUPT_NUM, 0xff);
+  ReservedVectors = AllocatePool (sizeof (RESERVED_VECTORS_DATA) * CPU_INTERRUPT_NUM);
+  ASSERT (ReservedVectors != NULL);
+  SetMem ((VOID *) ReservedVectors, sizeof (RESERVED_VECTORS_DATA) * CPU_INTERRUPT_NUM, 0xff);
   if (VectorInfo != NULL) {
-    Status = ReadAndVerifyVectorInfo (VectorInfo, mReservedVectors, CPU_INTERRUPT_NUM);
+    Status = ReadAndVerifyVectorInfo (VectorInfo, ReservedVectors, CPU_INTERRUPT_NUM);
     if (EFI_ERROR (Status)) {
-      FreePool (mReservedVectors);
+      FreePool (ReservedVectors);
       return EFI_INVALID_PARAMETER;
     }
   }
-  InitializeSpinLock (&mDisplayMessageSpinLock);
-  mExternalInterruptHandler = AllocateZeroPool (sizeof (EFI_CPU_INTERRUPT_HANDLER) * CPU_INTERRUPT_NUM);
-  ASSERT (mExternalInterruptHandler != NULL);
+
+  ExternalInterruptHandler = AllocateZeroPool (sizeof (EFI_CPU_INTERRUPT_HANDLER) * CPU_INTERRUPT_NUM);
+  ASSERT (ExternalInterruptHandler != NULL);
 
   //
   // Read IDT descriptor and calculate IDT size
@@ -124,7 +153,12 @@ InitializeCpuInterruptHandlers (
   }
 
   TemplateMap.ExceptionStart = (UINTN) InterruptEntryCode;
-  UpdateIdtTable (IdtTable, &TemplateMap, CPU_INTERRUPT_NUM);
+  mExceptionHandlerData.IdtEntryCount            = CPU_INTERRUPT_NUM;
+  mExceptionHandlerData.ReservedVectors          = ReservedVectors;
+  mExceptionHandlerData.ExternalInterruptHandler = ExternalInterruptHandler;
+  InitializeSpinLock (&mExceptionHandlerData.DisplayMessageSpinLock);
+
+  UpdateIdtTable (IdtTable, &TemplateMap, &mExceptionHandlerData);
 
   //
   // Load Interrupt Descriptor Table
@@ -166,5 +200,5 @@ RegisterCpuInterruptHandler (
   IN EFI_CPU_INTERRUPT_HANDLER     InterruptHandler
   )
 {
-  return RegisterCpuInterruptHandlerWorker (InterruptType, InterruptHandler);
+  return RegisterCpuInterruptHandlerWorker (InterruptType, InterruptHandler, &mExceptionHandlerData);
 }

@@ -37,13 +37,17 @@ void GnssCapabilitiesTest::setUp(uint32_t messageSize,
       allCapabilities |= CHRE_GNSS_CAPABILITIES_LOCATION
           | CHRE_GNSS_CAPABILITIES_MEASUREMENTS;
     }
+    if (mApiVersion >= CHRE_API_VERSION_1_2) {
+      allCapabilities |=
+          CHRE_GNSS_CAPABILITIES_GNSS_ENGINE_BASED_PASSIVE_LISTENER;
+    }
 
     // Call the new API
     uint32_t capabilities = chreGnssGetCapabilities();
 
     // Clear out known capabilities, any remaining are unknown
     if ((capabilities & ~allCapabilities) != 0) {
-      if (mApiVersion > CHRE_API_VERSION_1_1) {
+      if (mApiVersion > CHRE_API_VERSION_1_2) {
         nanoapp_testing::sendFatalFailureToHost(
             "New version with unknown capabilities encountered:",
             &capabilities);

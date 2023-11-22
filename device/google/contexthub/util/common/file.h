@@ -18,6 +18,8 @@
 
 #define FILE_H_
 
+#include <stdio.h> // for SEEK_SET
+
 #include <media/stagefright/foundation/ABase.h>
 #include <utils/Errors.h>
 

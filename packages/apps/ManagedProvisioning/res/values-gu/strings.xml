@@ -46,7 +46,7 @@
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"તમે પહેલેથી કાર્યાલયની પ્રોફાઇલ ધરાવો છો. નિમ્નલિખિત ઍપ્લિકેશનના ઉપયોગ દ્વારા તેનું સંચાલન થાય છે:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"આગળ વધતા પહેલાં, "<a href="#read_this_link">"આ વાંચો"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"જો ચાલુ રાખો છો, તો આ પ્રોફાઇલમાંની તમામ ઍપ્લિકેશનો અને ડેટા કાઢી નાખવામાં આવશે."</string>
-    <string name="delete_profile" msgid="2299218578684663459">"કાઢી નાખો"</string>
+    <string name="delete_profile" msgid="2299218578684663459">"ડિલીટ કરો"</string>
     <string name="cancel_delete_profile" msgid="5155447537894046036">"રદ કરો"</string>
     <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"તમારી કાર્યાલયની પ્રોફાઇલ સેટ કરવા માટે, તમારા ઉપકરણને એન્ક્રિપ્ટ કરવાની જરૂર છે. આમાં થોડો સમય લાગી શકે છે."</string>
     <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"આ ઉપકરણ સેટ કરવા માટે, તેને પહેલાં એન્ક્રિપ્ટ કરવાની જરૂર છે. આમાં થોડો સમય લાગી શકે છે."</string>
@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"કાર્ય ઉપકરણ સેટ કરી રહ્યાં છીએ..."</string>
     <string name="progress_data_process" msgid="1707745321954672971">"સેટઅપ ડેટા પર પ્રક્રિયા કરી રહ્યું છે..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"વાઇ-ફાઇ સાથે કનેક્ટ કરી રહ્યું છે..."</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"મોબાઇલ નેટવર્કથી કનેક્ટ થઈ રહ્યાં છીએ…"</string>
     <string name="progress_download" msgid="3522436271691064624">"વ્યવસ્થાપક ઍપ્લિકેશન ડાઉનલોડ કરી રહ્યું છે..."</string>
     <string name="progress_install" msgid="2258045670385866183">"વ્યવસ્થાપક ઍપ્લિકેશન ઇન્સ્ટોલ કરે છે..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"બિન-આવશ્યક સિસ્ટમ ઍપ્લિકેશનો દૂર કરે છે…"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"તમે એક કાર્યાલયની પ્રોફાઇલ બનાવવા જઈ રહ્યા છો, જેનું સંચાલન અને નિયમન તમારી સંસ્થા દ્વારા થશે. <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>ની શરતો લાગુ થશે."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"તમારી કાર્ય ઍપ્લિકેશનો માટે એક પ્રોફાઇલ બનાવવામાં આવશે. આ પ્રોફાઇલનું અને તમારા બાકીના ઉપકરણનું સંચાલન અને નિયમન તમારી સંસ્થા દ્વારા થશે. શરતો લાગુ થશે."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"તમારી કાર્ય ઍપ્લિકેશનો માટે એક પ્રોફાઇલ બનાવવામાં આવશે. આ પ્રોફાઇલનું અને તમારા બાકીના ઉપકરણનું સંચાલન અને નિયમન તમારી સંસ્થા દ્વારા થશે. <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>ની શરતો લાગુ થશે."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"આ ઉપકરણનું સંચાલન અને સુરક્ષા <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> દ્વારા કરવામાં આવશે. શરતો લાગુ થશે. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"આ ઉપકરણનું સંચાલન અને સુરક્ષા <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> દ્વારા કરવામાં આવશે. <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>ની શરતો લાગુ થશે. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"આ ઉપકરણને <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> દ્વારા મેનેજ કરવામાં, મોનિટર કરવામાં અને સુરક્ષિત રાખવામાં આવશે. શરતો લાગુ થશે. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"આ ઉપકરણને <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> દ્વારા મેનેજ કરવામાં, મોનિટર કરવામાં અને સુરક્ષિત રાખવામાં આવશે. શરતો લાગુ થશે. <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>ની શરતો લાગુ થશે. . <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"આ લિંક સુરક્ષિત નથી અને જ્યાં સુધી ઉપકરણનું સેટઅપ પૂર્ણ ન થાય, ત્યાં સુધી તે ખોલી શકાશે નહીં: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"જો તમને પ્રશ્નો હોય, તો તમારા <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>નો સંપર્ક કરો."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"જો તમને પ્રશ્નો હોય, તો તમારી સંસ્થાના વ્યવસ્થાપકનો સંપર્ક કરો"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> અને <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"આમાં થોડો સમય લાગી શકે છે"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"તમારી કાર્ય ઍપ આ પ્રોફાઇલમાં રાખવામાં આવશે અને તમારી સંસ્થા દ્વારા મેનેજ કરવામાં આવશે"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"આ ઉપકરણને તમારી સંસ્થા દ્વારા સુરક્ષિત રાખવામાં તેમજ મેનેજ કરવામાં આવશે"</string>
 </resources>

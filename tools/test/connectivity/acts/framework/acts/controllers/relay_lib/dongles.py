@@ -23,7 +23,7 @@ from acts.controllers.relay_lib.helpers import validate_key
 # Necessary timeout inbetween commands
 CMD_TIMEOUT = 1.2
 # Pairing mode activation wait time
-PAIRING_MODE_WAIT_TIME = 6
+PAIRING_MODE_WAIT_TIME = 4.5
 SINGLE_ACTION_SHORT_WAIT_TIME = 0.6
 SINGLE_ACTION_LONG_WAIT_TIME = 2.0
 MISSING_RELAY_MSG = 'Relay config for Three button  "%s" missing relay "%s".'

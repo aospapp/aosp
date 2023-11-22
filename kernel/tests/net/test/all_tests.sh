@@ -16,6 +16,27 @@
 
 readonly PREFIX="#####"
 readonly RETRIES=2
+test_prefix=
+
+function checkArgOrExit() {
+  if [[ $# -lt 2 ]]; then
+    echo "Missing argument for option $1" >&2
+    exit 1
+  fi
+}
+
+function usageAndExit() {
+  cat >&2 << EOF
+  all_tests.sh - test runner with support for flake testing
+
+  all_tests.sh [options]
+
+  options:
+  -h, --help                     show this menu
+  -p, --prefix=TEST_PREFIX       specify a prefix for the tests to be run
+EOF
+  exit 0
+}
 
 function maybePlural() {
   # $1 = integer to use for plural check
@@ -27,7 +48,6 @@ function maybePlural() {
     echo "$2"
   fi
 }
-
 
 function runTest() {
   local cmd="$1"
@@ -46,10 +66,39 @@ function runTest() {
   echo >&2 "Warning: '$cmd' FLAKY, passed $RETRIES/$((RETRIES + 1))"
 }
 
+# Parse arguments
+while [ -n "$1" ]; do
+  case "$1" in
+    -h|--help)
+      usageAndExit
+      ;;
+    -p|--prefix)
+      checkArgOrExit $@
+      test_prefix=$2
+      shift 2
+      ;;
+    *)
+      echo "Unknown option $1" >&2
+      echo >&2
+      usageAndExit
+      ;;
+  esac
+done
 
-readonly tests=$(find . -name '*_test.py' -type f -executable)
+# Find the relevant tests
+if [[ -z $test_prefix ]]; then
+  readonly tests=$(eval "find . -name '*_test.py' -type f -executable")
+else
+  readonly tests=$(eval "find . -name '$test_prefix*' -type f -executable")
+fi
+
+# Give some readable status messages
 readonly count=$(echo $tests | wc -w)
-echo "$PREFIX Found $count $(maybePlural $count test tests)."
+if [[ -z $test_prefix ]]; then
+  echo "$PREFIX Found $count $(maybePlural $count test tests)."
+else
+  echo "$PREFIX Found $count $(maybePlural $count test tests) with prefix $test_prefix."
+fi
 
 exit_code=0
 

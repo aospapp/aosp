@@ -126,10 +126,11 @@ class Experiment(object):
           full_name = '%s_%s_%s' % (label.name, benchmark.name, iteration)
           logger_to_use = logger.Logger(self.log_dir, 'run.%s' % (full_name),
                                         True)
-          benchmark_runs.append(benchmark_run.BenchmarkRun(
-              benchmark_run_name, benchmark, label, iteration,
-              self.cache_conditions, self.machine_manager, logger_to_use,
-              self.log_level, self.share_cache))
+          benchmark_runs.append(
+              benchmark_run.BenchmarkRun(benchmark_run_name, benchmark, label,
+                                         iteration, self.cache_conditions,
+                                         self.machine_manager, logger_to_use,
+                                         self.log_level, self.share_cache))
 
     return benchmark_runs
 

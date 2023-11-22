@@ -18,14 +18,19 @@ package android.graphics.cts;
 import static android.support.test.InstrumentationRegistry.getInstrumentation;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
+import android.util.TypedValue;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.Arrays;
+import java.util.List;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -64,14 +69,52 @@ public class ColorTest {
                 { 0xff000000, android.R.color.widget_edittext_dark },
         };
 
+        List<Integer> expectedColorStateLists = Arrays.asList(
+                android.R.color.primary_text_dark,
+                android.R.color.primary_text_dark_nodisable,
+                android.R.color.primary_text_light,
+                android.R.color.primary_text_light_nodisable,
+                android.R.color.secondary_text_dark,
+                android.R.color.secondary_text_dark_nodisable,
+                android.R.color.secondary_text_light,
+                android.R.color.secondary_text_light_nodisable,
+                android.R.color.tab_indicator_text,
+                android.R.color.tertiary_text_dark,
+                android.R.color.tertiary_text_light,
+                android.R.color.widget_edittext_dark
+        );
+
         Resources resources = getInstrumentation().getTargetContext().getResources();
         for (int[] pair : colors) {
-            int value = resources.getColor(pair[1], null);
-            assertEquals("Color = " + Integer.toHexString(value) + ", "
-                            + Integer.toHexString(pair[0]) + " expected",
-                    pair[0],
-                    value);
+            final int resourceId = pair[1];
+            final int expectedColor = pair[0];
 
+            // validate color from getColor
+            int observedColor = resources.getColor(resourceId, null);
+            assertEquals("Color = " + Integer.toHexString(observedColor) + ", "
+                            + Integer.toHexString(expectedColor) + " expected",
+                    expectedColor,
+                    observedColor);
+
+            // validate color from getValue
+            TypedValue value = new TypedValue();
+            resources.getValue(resourceId, value, true);
+
+            // colors shouldn't depend on config changes
+            assertEquals(0, value.changingConfigurations);
+
+            if (expectedColorStateLists.contains(resourceId)) {
+                // ColorStateLists are strings
+                assertEquals("CSLs should be strings", TypedValue.TYPE_STRING, value.type);
+            } else {
+                // colors should be raw ints
+                assertTrue("Type should be int",
+                        value.type >= TypedValue.TYPE_FIRST_INT
+                        && value.type <= TypedValue.TYPE_LAST_INT);
+
+                // Validate color from getValue
+                assertEquals("Color should be expected value", expectedColor, value.data);
+            }
         }
         assertEquals("Test no longer in sync with colors in android.R.color",
                 colors.length,

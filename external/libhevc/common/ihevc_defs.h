@@ -313,7 +313,7 @@ enum
 #define SPS_MAX_SUB_LAYERS  7
 
 /* Maximum long term reference pics */
-#define MAX_LTREF_PICS_SPS 16
+#define MAX_LTREF_PICS_SPS 32
 
 #define MAX_STREF_PICS_SPS 64
 

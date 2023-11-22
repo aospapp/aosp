@@ -13,6 +13,7 @@
 package android.icu.dev.test.normalizer;
 
 import android.icu.dev.test.UTF16Util;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Implements Unicode Normalization Forms C, D, KC, KD.<br>
@@ -21,6 +22,7 @@ import android.icu.dev.test.UTF16Util;
  * Updates for supplementary code points:
  * Vladimir Weinstein & Markus Scherer
  */
+@MainTestShard
 public class UnicodeNormalizer {
 //    static final String copyright = "Copyright (C) 1998-2003 International Business Machines Corporation and Unicode, Inc.";
 

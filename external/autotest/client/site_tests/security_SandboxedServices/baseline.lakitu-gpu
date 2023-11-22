@@ -1,4 +1,7 @@
 exe,euser,egroup,pidns,caps,nonewprivs,filter
+
+# See the baseline file for docs.
+
 cloud-init,root,root,No,No,No,No
 device_policy_m,root,root,No,No,No,No
 first-boot,root,root,No,No,No,No
@@ -29,6 +32,7 @@ google_instance,root,root,No,No,No,No
 google_network_,root,root,No,No,No,No
 
 # For GPUs
+nvidia-persiste,root,root,No,No,No,No
 # TODO(edjee): Once all the following two are removed, baseline-lakitu-gpu can
 # be a symbolic link to baseline.lakitu .
 # TODO(edjee): Remove nvidia-cuda-dev once http://b/32811301 is fixed.

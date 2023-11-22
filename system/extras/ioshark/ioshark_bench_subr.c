@@ -29,8 +29,11 @@
 #include <sys/vfs.h>
 #include <sys/statvfs.h>
 #include <sys/mman.h>
+#include <inttypes.h>
 #include "ioshark.h"
 #include "ioshark_bench.h"
+#define _BSD_SOURCE
+#include <endian.h>
 
 extern char *progname;
 extern int verbose, summary_mode;
@@ -399,10 +402,15 @@ get_blockdev_name(char *bdev)
 	/* strncmp needed because of the trailing '\n' */
 	if (strncmp(dev_name, "bullhead", strlen("bullhead")) == 0 ||
 	    strncmp(dev_name, "angler", strlen("angler")) == 0 ||
-	    strncmp(dev_name, "shamu", strlen("shamu")) == 0) {
+	    strncmp(dev_name, "shamu", strlen("shamu")) == 0 ||
+	    strncmp(dev_name, "aosp_gobo", strlen("aosp_gobo")) == 0 ||
+	    strncmp(dev_name, "full_k37_y33_gms", strlen("full_k37_y33_gms")) == 0 ||
+	    strncmp(dev_name, "fugu", strlen("fugu")) == 0) {
 		strcpy(bdev, "mmcblk0");
 	} else if (strncmp(dev_name, "marlin", strlen("marlin")) == 0 ||
-		   strncmp(dev_name, "sailfish", strlen("sailfish")) == 0) {
+		   strncmp(dev_name, "sailfish", strlen("sailfish")) == 0 ||
+		   strncmp(dev_name, "taimen", strlen("taimen")) == 0 ||
+		   strncmp(dev_name, "walleye", strlen("walleye")) == 0) {
 		strcpy(bdev, "sda");
 	} else if (blockdev_name != NULL) {
 		strcpy(bdev, blockdev_name);
@@ -645,4 +653,73 @@ is_readonly_mount(char *filename, size_t size)
 		return 0;
 	else
 		return 1;
+}
+
+int
+ioshark_read_header(FILE *fp, struct ioshark_header *header)
+{
+	if (fread(header, sizeof(struct ioshark_header), 1, fp) != 1)
+		return -1;
+	header->version = be64toh(header->version);
+	header->num_files = be64toh(header->num_files);
+	header->num_io_operations = be64toh(header->num_io_operations);
+	return 1;
+}
+
+int
+ioshark_read_file_state(FILE *fp, struct ioshark_file_state *state)
+{
+	if (fread(state, sizeof(struct ioshark_file_state), 1, fp) != 1)
+		return -1;
+	state->fileno = be64toh(state->fileno);
+	state->size = be64toh(state->size);
+	state->global_filename_ix = be64toh(state->global_filename_ix);
+	return 1;
+}
+
+int
+ioshark_read_file_op(FILE *fp, struct ioshark_file_operation *file_op)
+{
+	if (fread(file_op, sizeof(struct ioshark_file_operation), 1, fp) != 1)
+		return -1;
+	file_op->delta_us = be64toh(file_op->delta_us);
+	file_op->op_union.enum_size = be32toh(file_op->op_union.enum_size);
+	file_op->fileno = be64toh(file_op->fileno);
+	switch (file_op->ioshark_io_op) {
+	case IOSHARK_LSEEK:
+	case IOSHARK_LLSEEK:
+		file_op->lseek_offset = be64toh(file_op->lseek_offset);
+		file_op->lseek_action = be32toh(file_op->lseek_action);
+		break;
+	case IOSHARK_PREAD64:
+	case IOSHARK_PWRITE64:
+		file_op->prw_offset = be64toh(file_op->prw_offset);
+		file_op->prw_len = be64toh(file_op->prw_len);
+		break;
+	case IOSHARK_READ:
+	case IOSHARK_WRITE:
+		file_op->rw_len = be64toh(file_op->rw_len);
+		break;
+	case IOSHARK_MMAP:
+	case IOSHARK_MMAP2:
+		file_op->mmap_offset = be64toh(file_op->mmap_offset);
+		file_op->mmap_len = be64toh(file_op->mmap_len);
+		file_op->mmap_prot = be32toh(file_op->mmap_prot);
+		break;
+	case IOSHARK_OPEN:
+		file_op->open_flags = be32toh(file_op->open_flags);
+		file_op->open_mode = be32toh(file_op->open_mode);
+		break;
+	case IOSHARK_FSYNC:
+	case IOSHARK_FDATASYNC:
+		break;
+	case IOSHARK_CLOSE:
+		break;
+	default:
+		fprintf(stderr, "%s: unknown FILE_OP %d\n",
+			progname, file_op->ioshark_io_op);
+		exit(EXIT_FAILURE);
+		break;
+	}
+	return 1;
 }

@@ -24,11 +24,10 @@ import android.content.Intent;
 import android.provider.Settings;
 import android.util.Log;
 
-import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
-import com.android.bluetooth.a2dpsink.mbs.A2dpMediaBrowserService;
-
-import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.a2dpsink.mbs.A2dpMediaBrowserService;
+import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
+import com.android.bluetooth.btservice.ProfileService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,14 +43,12 @@ public class A2dpSinkService extends ProfileService {
     private A2dpSinkStateMachine mStateMachine;
     private static A2dpSinkService sA2dpSinkService;
 
-    protected String getName() {
-        return TAG;
-    }
-
+    @Override
     protected IProfileServiceBinder initBinder() {
         return new BluetoothA2dpSinkBinder(this);
     }
 
+    @Override
     protected boolean start() {
         if (DBG) {
             Log.d(TAG, "start()");
@@ -64,11 +61,13 @@ public class A2dpSinkService extends ProfileService {
         return true;
     }
 
+    @Override
     protected boolean stop() {
         if (DBG) {
             Log.d(TAG, "stop()");
         }
-        if(mStateMachine != null) {
+        setA2dpSinkService(null);
+        if (mStateMachine != null) {
             mStateMachine.doQuit();
         }
         Intent stopIntent = new Intent(this, A2dpMediaBrowserService.class);
@@ -76,57 +75,40 @@ public class A2dpSinkService extends ProfileService {
         return true;
     }
 
-    protected boolean cleanup() {
-        if (mStateMachine!= null) {
+    @Override
+    protected void cleanup() {
+        if (mStateMachine != null) {
             mStateMachine.cleanup();
         }
-        clearA2dpSinkService();
-        return true;
     }
 
     //API Methods
 
-    public static synchronized A2dpSinkService getA2dpSinkService(){
-        if (sA2dpSinkService != null && sA2dpSinkService.isAvailable()) {
-            if (DBG) Log.d(TAG, "getA2dpSinkService(): returning " + sA2dpSinkService);
-            return sA2dpSinkService;
+    public static synchronized A2dpSinkService getA2dpSinkService() {
+        if (sA2dpSinkService == null) {
+            Log.w(TAG, "getA2dpSinkService(): service is null");
+            return null;
         }
-        if (DBG)  {
-            if (sA2dpSinkService == null) {
-                Log.d(TAG, "getA2dpSinkService(): service is NULL");
-            } else if (!(sA2dpSinkService.isAvailable())) {
-                Log.d(TAG,"getA2dpSinkService(): service is not available");
-            }
+        if (!sA2dpSinkService.isAvailable()) {
+            Log.w(TAG, "getA2dpSinkService(): service is not available ");
+            return null;
         }
-        return null;
+        return sA2dpSinkService;
     }
 
     private static synchronized void setA2dpSinkService(A2dpSinkService instance) {
-        if (instance != null && instance.isAvailable()) {
-            if (DBG) Log.d(TAG, "setA2dpSinkService(): set to: " + sA2dpSinkService);
-            sA2dpSinkService = instance;
-        } else {
-            if (DBG)  {
-                if (sA2dpSinkService == null) {
-                    Log.d(TAG, "setA2dpSinkService(): service not available");
-                } else if (!sA2dpSinkService.isAvailable()) {
-                    Log.d(TAG,"setA2dpSinkService(): service is cleaning up");
-                }
-            }
+        if (DBG) {
+            Log.d(TAG, "setA2dpSinkService(): set to: " + instance);
         }
-    }
-
-    private static synchronized void clearA2dpSinkService() {
-        sA2dpSinkService = null;
+        sA2dpSinkService = instance;
     }
 
     public boolean connect(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM,
-                                       "Need BLUETOOTH ADMIN permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
 
         int connectionState = mStateMachine.getConnectionState(device);
-        if (connectionState == BluetoothProfile.STATE_CONNECTED ||
-            connectionState == BluetoothProfile.STATE_CONNECTING) {
+        if (connectionState == BluetoothProfile.STATE_CONNECTED
+                || connectionState == BluetoothProfile.STATE_CONNECTING) {
             return false;
         }
 
@@ -139,11 +121,10 @@ public class A2dpSinkService extends ProfileService {
     }
 
     boolean disconnect(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM,
-                                       "Need BLUETOOTH ADMIN permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
         int connectionState = mStateMachine.getConnectionState(device);
-        if (connectionState != BluetoothProfile.STATE_CONNECTED &&
-            connectionState != BluetoothProfile.STATE_CONNECTING) {
+        if (connectionState != BluetoothProfile.STATE_CONNECTED
+                && connectionState != BluetoothProfile.STATE_CONNECTING) {
             return false;
         }
 
@@ -167,23 +148,20 @@ public class A2dpSinkService extends ProfileService {
     }
 
     public boolean setPriority(BluetoothDevice device, int priority) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM,
-                                       "Need BLUETOOTH_ADMIN permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         Settings.Global.putInt(getContentResolver(),
-            Settings.Global.getBluetoothA2dpSrcPriorityKey(device.getAddress()),
-            priority);
+                Settings.Global.getBluetoothA2dpSrcPriorityKey(device.getAddress()), priority);
         if (DBG) {
-            Log.d(TAG,"Saved priority " + device + " = " + priority);
+            Log.d(TAG, "Saved priority " + device + " = " + priority);
         }
         return true;
     }
 
     public int getPriority(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM,
-                                       "Need BLUETOOTH_ADMIN permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         int priority = Settings.Global.getInt(getContentResolver(),
-            Settings.Global.getBluetoothA2dpSrcPriorityKey(device.getAddress()),
-            BluetoothProfile.PRIORITY_UNDEFINED);
+                Settings.Global.getBluetoothA2dpSrcPriorityKey(device.getAddress()),
+                BluetoothProfile.PRIORITY_UNDEFINED);
         return priority;
     }
 
@@ -197,12 +175,12 @@ public class A2dpSinkService extends ProfileService {
      */
     public void informAvrcpPassThroughCmd(BluetoothDevice device, int keyCode, int keyState) {
         if (mStateMachine != null) {
-            if (keyCode == AvrcpControllerService.PASS_THRU_CMD_ID_PLAY &&
-                keyState == AvrcpControllerService.KEY_STATE_RELEASED) {
+            if (keyCode == AvrcpControllerService.PASS_THRU_CMD_ID_PLAY
+                    && keyState == AvrcpControllerService.KEY_STATE_RELEASED) {
                 mStateMachine.sendMessage(A2dpSinkStateMachine.EVENT_AVRCP_CT_PLAY);
-            } else if ((keyCode == AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE ||
-                       keyCode == AvrcpControllerService.PASS_THRU_CMD_ID_STOP) &&
-                       keyState == AvrcpControllerService.KEY_STATE_RELEASED) {
+            } else if ((keyCode == AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE
+                    || keyCode == AvrcpControllerService.PASS_THRU_CMD_ID_STOP)
+                    && keyState == AvrcpControllerService.KEY_STATE_RELEASED) {
                 mStateMachine.sendMessage(A2dpSinkStateMachine.EVENT_AVRCP_CT_PAUSE);
             }
         }
@@ -225,9 +203,21 @@ public class A2dpSinkService extends ProfileService {
         }
     }
 
+    /**
+     * Called by AVRCP controller to establish audio focus.
+     *
+     * In order to perform streaming the A2DP sink must have audio focus.  This interface allows the
+     * associated MediaSession to inform the sink of intent to play and then allows streaming to be
+     * started from either the source or the sink endpoint.
+     */
+    public void requestAudioFocus(BluetoothDevice device, boolean request) {
+        if (mStateMachine != null) {
+            mStateMachine.sendMessage(A2dpSinkStateMachine.EVENT_REQUEST_FOCUS);
+        }
+    }
+
     synchronized boolean isA2dpPlaying(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM,
-                                       "Need BLUETOOTH permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         if (DBG) {
             Log.d(TAG, "isA2dpPlaying(" + device + ")");
         }
@@ -241,12 +231,12 @@ public class A2dpSinkService extends ProfileService {
 
     //Binder object: Must be static class or memory leak may occur
     private static class BluetoothA2dpSinkBinder extends IBluetoothA2dpSink.Stub
-        implements IProfileServiceBinder {
+            implements IProfileServiceBinder {
         private A2dpSinkService mService;
 
         private A2dpSinkService getService() {
             if (!Utils.checkCaller()) {
-                Log.w(TAG,"A2dp call not allowed for non-active user");
+                Log.w(TAG, "A2dp call not allowed for non-active user");
                 return null;
             }
 
@@ -260,65 +250,94 @@ public class A2dpSinkService extends ProfileService {
             mService = svc;
         }
 
-        public boolean cleanup()  {
+        @Override
+        public void cleanup() {
             mService = null;
-            return true;
         }
 
+        @Override
         public boolean connect(BluetoothDevice device) {
             A2dpSinkService service = getService();
-            if (service == null) return false;
+            if (service == null) {
+                return false;
+            }
             return service.connect(device);
         }
 
+        @Override
         public boolean disconnect(BluetoothDevice device) {
             A2dpSinkService service = getService();
-            if (service == null) return false;
+            if (service == null) {
+                return false;
+            }
             return service.disconnect(device);
         }
 
+        @Override
         public List<BluetoothDevice> getConnectedDevices() {
             A2dpSinkService service = getService();
-            if (service == null) return new ArrayList<BluetoothDevice>(0);
+            if (service == null) {
+                return new ArrayList<BluetoothDevice>(0);
+            }
             return service.getConnectedDevices();
         }
 
+        @Override
         public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
             A2dpSinkService service = getService();
-            if (service == null) return new ArrayList<BluetoothDevice>(0);
+            if (service == null) {
+                return new ArrayList<BluetoothDevice>(0);
+            }
             return service.getDevicesMatchingConnectionStates(states);
         }
 
+        @Override
         public int getConnectionState(BluetoothDevice device) {
             A2dpSinkService service = getService();
-            if (service == null) return BluetoothProfile.STATE_DISCONNECTED;
+            if (service == null) {
+                return BluetoothProfile.STATE_DISCONNECTED;
+            }
             return service.getConnectionState(device);
         }
 
+        @Override
         public boolean isA2dpPlaying(BluetoothDevice device) {
             A2dpSinkService service = getService();
-            if (service == null) return false;
+            if (service == null) {
+                return false;
+            }
             return service.isA2dpPlaying(device);
         }
 
+        @Override
         public boolean setPriority(BluetoothDevice device, int priority) {
             A2dpSinkService service = getService();
-            if (service == null) return false;
+            if (service == null) {
+                return false;
+            }
             return service.setPriority(device, priority);
         }
 
+        @Override
         public int getPriority(BluetoothDevice device) {
             A2dpSinkService service = getService();
-            if (service == null) return BluetoothProfile.PRIORITY_UNDEFINED;
+            if (service == null) {
+                return BluetoothProfile.PRIORITY_UNDEFINED;
+            }
             return service.getPriority(device);
         }
 
+        @Override
         public BluetoothAudioConfig getAudioConfig(BluetoothDevice device) {
             A2dpSinkService service = getService();
-            if (service == null) return null;
+            if (service == null) {
+                return null;
+            }
             return service.getAudioConfig(device);
         }
-    };
+    }
+
+    ;
 
     @Override
     public void dump(StringBuilder sb) {

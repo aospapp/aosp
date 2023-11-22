@@ -18,13 +18,25 @@ package com.android.timezone.xts;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
+import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil;
-import com.android.tradefed.testtype.DeviceTestCase;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.util.FileUtil;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.util.function.BooleanSupplier;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Class for host-side tests that the time zone rules update feature works as intended. This is
@@ -48,9 +60,8 @@ import java.util.function.BooleanSupplier;
  * This test attempts to handle both of these cases.
  *
  */
-// TODO(nfuller): Switch this to JUnit4 when HostTest supports @Option with JUnit4.
-// http://b/64015928
-public class TimeZoneUpdateHostTest extends DeviceTestCase implements IBuildReceiver {
+@RunWith(DeviceJUnit4ClassRunner.class)
+public class TimeZoneUpdateHostTest implements IDeviceTest, IBuildReceiver {
 
     // These must match equivalent values in RulesManagerService dumpsys code.
     private static final String STAGED_OPERATION_NONE = "None";
@@ -59,6 +70,7 @@ public class TimeZoneUpdateHostTest extends DeviceTestCase implements IBuildRece
     private static final String INSTALL_STATE_INSTALLED = "Installed";
 
     private IBuildInfo mBuildInfo;
+    private ITestDevice mDevice;
     private File mTempDir;
 
     @Option(name = "oem-data-app-package-name",
@@ -89,28 +101,34 @@ public class TimeZoneUpdateHostTest extends DeviceTestCase implements IBuildRece
     }
 
     @Override
+    public void setDevice(ITestDevice device) {
+        mDevice = device;
+    }
+
+    @Override
+    public ITestDevice getDevice() {
+        return mDevice;
+    }
+
+    @Before
     public void setUp() throws Exception {
-        super.setUp();
         createTempDir();
         resetDeviceToClean();
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         resetDeviceToClean();
         deleteTempDir();
-        super.tearDown();
     }
 
-    // @Before
-    public void createTempDir() throws Exception {
+    private void createTempDir() throws Exception {
         mTempDir = File.createTempFile("timeZoneUpdateTest", null);
         assertTrue(mTempDir.delete());
         assertTrue(mTempDir.mkdir());
     }
 
-    // @After
-    public void deleteTempDir() throws Exception {
+    private void deleteTempDir() throws Exception {
         FileUtil.recursiveDelete(mTempDir);
     }
 
@@ -118,9 +136,7 @@ public class TimeZoneUpdateHostTest extends DeviceTestCase implements IBuildRece
      * Reset the device to having no installed time zone data outside of the /system/priv-app
      * version that came with the system image.
      */
-    // @Before
-    // @After
-    public void resetDeviceToClean() throws Exception {
+    private void resetDeviceToClean() throws Exception {
         // If this fails the data app isn't present on device. No point in starting.
         assertTrue(getTimeZoneDataPackageName() + " not installed",
                 isPackageInstalled(getTimeZoneDataPackageName()));
@@ -135,31 +151,40 @@ public class TimeZoneUpdateHostTest extends DeviceTestCase implements IBuildRece
         for (int i = 0; i < 2; i++) {
             logDeviceTimeZoneState();
 
+            // Even if there's no distro installed, there may be an updated APK installed, so try to
+            // remove it unconditionally.
             String errorCode = uninstallPackage(getTimeZoneDataPackageName());
             if (errorCode != null) {
                 // Failed to uninstall, which we take to mean the device is "clean".
                 break;
             }
-            // Success, meaning there was something that could be uninstalled, so we should wait
-            // for the device to react to the uninstall and reboot. If the time zone update system
-            // is not configured correctly this is likely to be where tests fail.
-
-            // If the package we uninstalled was not valid then there would be nothing installed and
-            // so nothing will be staged by the uninstall. Check and do what it takes to get the
-            // device to having nothing installed again.
-            if (INSTALL_STATE_INSTALLED.equals(getCurrentInstallState())) {
-                // We expect the device to get to the staged state "UNINSTALL", meaning it will try
-                // to revert to no distro installed on next boot.
+            // Success, meaning there was an APK that could be uninstalled.
+            // If there is a distro installed we need wait for the distro uninstall that should now
+            // become staged.
+            boolean distroIsInstalled = INSTALL_STATE_INSTALLED.equals(getCurrentInstallState());
+            if (distroIsInstalled) {
+                // It may take a short while before we can detect anything: the package manager
+                // should have triggered an intent, and the PackageTracker has to receive that and
+                // send its own intent, which then has to be acted on before we could detect an
+                // operation in progress. We expect the device eventually to get to the staged state
+                // "UNINSTALL", meaning it will try to revert to no distro installed on next boot.
                 waitForStagedUninstall();
 
                 rebootDeviceAndWaitForRestart();
+            } else {
+                // There was an apk installed, but no time zone distro was installed. It was
+                // probably a "bad" .apk that was rejected. The update app will request an uninstall
+                // anyway just to be sure, so we'll give it a chance to do that before continuing
+                // otherwise we could get an "operation in progress" later on when we're not
+                // expecting it.
+                Thread.sleep(10000);
             }
         }
         assertActiveRulesVersion(getSystemRulesVersion());
         assertEquals(STAGED_OPERATION_NONE, getStagedOperationType());
     }
 
-    // @Test
+    @Test
     public void testInstallNewerRulesVersion() throws Exception {
         // This information must match the rules version in test1: IANA version=2030a, revision=1
         String test1VersionInfo = "2030a,1";
@@ -185,7 +210,49 @@ public class TimeZoneUpdateHostTest extends DeviceTestCase implements IBuildRece
         assertEquals(test1VersionInfo, getCurrentInstalledVersion());
     }
 
-    // @Test
+    @Test
+    public void testInstallNewerRulesVersion_secondaryUser() throws Exception {
+        ITestDevice device = getDevice();
+        if (!device.isMultiUserSupported()) {
+            // Just pass on non-multi-user devices.
+            return;
+        }
+
+        int userId = device.createUser("TimeZoneTest", false /* guest */, false /* ephemeral */);
+        try {
+
+            // This information must match the rules version in test1: IANA version=2030a, revision=1
+            String test1VersionInfo = "2030a,1";
+
+            // Confirm the staged / install state before we start.
+            assertFalse(test1VersionInfo.equals(getCurrentInstalledVersion()));
+            assertEquals(STAGED_OPERATION_NONE, getStagedOperationType());
+
+            File appFile = getTimeZoneDataApkFile("test1");
+
+            // Install the app for the test user. It should still all work.
+            device.installPackageForUser(appFile, true /* reinstall */, userId);
+
+            waitForStagedInstall(test1VersionInfo);
+
+            // Confirm the install state hasn't changed.
+            assertFalse(test1VersionInfo.equals(getCurrentInstalledVersion()));
+
+            // Now reboot, and the staged version should become the installed version.
+            rebootDeviceAndWaitForRestart();
+
+            // After reboot, check the state.
+            assertEquals(STAGED_OPERATION_NONE, getStagedOperationType());
+            assertEquals(INSTALL_STATE_INSTALLED, getCurrentInstallState());
+            assertEquals(test1VersionInfo, getCurrentInstalledVersion());
+        }
+        finally {
+            // If this fails, the device may be left in a bad state.
+            device.removeUser(userId);
+        }
+    }
+
+    @Test
     public void testInstallOlderRulesVersion() throws Exception {
         File appFile = getTimeZoneDataApkFile("test2");
         getDevice().installPackage(appFile, true /* reinstall */);
@@ -215,8 +282,10 @@ public class TimeZoneUpdateHostTest extends DeviceTestCase implements IBuildRece
     }
 
     private void assertActiveRulesVersion(String expectedRulesVersion) throws Exception {
-        // Dumpsys reports the version reported by ICU and libcore, but they should always match.
-        String expectedActiveRulesVersion = expectedRulesVersion + "," + expectedRulesVersion;
+        // Dumpsys reports the version reported by ICU, ZoneInfoDB and TimeZoneFinder and they
+        // should always match.
+        String expectedActiveRulesVersion =
+                expectedRulesVersion + "," + expectedRulesVersion + "," + expectedRulesVersion;
 
         String actualActiveRulesVersion =
                 waitForNoOperationInProgressAndReturn(StateType.ACTIVE_RULES_VERSION);
@@ -286,7 +355,7 @@ public class TimeZoneUpdateHostTest extends DeviceTestCase implements IBuildRece
     private static void waitForCondition(BooleanSupplier condition) throws Exception {
         int count = 0;
         boolean lastResult;
-        while (!(lastResult = condition.getAsBoolean()) && count++ < 30) {
+        while (!(lastResult = condition.getAsBoolean()) && count++ < 120) {
             Thread.sleep(1000);
         }
         // Some conditions may not be stable so using the lastResult instead of
@@ -344,9 +413,7 @@ public class TimeZoneUpdateHostTest extends DeviceTestCase implements IBuildRece
     private File getTimeZoneDataApkFile(String testId) throws Exception {
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuildInfo);
         String fileName = getTimeZoneDataApkName(testId);
-
-        // TODO(nfuller): Replace with getTestFile(fileName) when it's available in aosp/master.
-        return new File(buildHelper.getTestsDir(), fileName);
+        return buildHelper.getTestFile(fileName);
     }
 
     private boolean isPackageInstalled(String pkg) throws Exception {

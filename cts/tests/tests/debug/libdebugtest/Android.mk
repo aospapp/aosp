@@ -22,6 +22,8 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := libdebugtest
 
+LOCAL_CFLAGS := -Wall -Werror
+
 # Don't include this package in any configuration by default.
 LOCAL_MODULE_TAGS := optional
 
@@ -29,6 +31,7 @@ LOCAL_SRC_FILES := \
 	android_debug_cts.cpp
 
 LOCAL_SHARED_LIBRARIES := liblog
+LOCAL_WHOLE_STATIC_LIBRARIES := libnativetesthelper_jni
 
 LOCAL_SDK_VERSION := 23
 LOCAL_NDK_STL_VARIANT := c++_static

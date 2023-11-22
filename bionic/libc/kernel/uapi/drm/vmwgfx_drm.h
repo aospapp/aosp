@@ -26,6 +26,7 @@
 #define DRM_VMW_GET_PARAM 0
 #define DRM_VMW_ALLOC_DMABUF 1
 #define DRM_VMW_UNREF_DMABUF 2
+#define DRM_VMW_HANDLE_CLOSE 2
 #define DRM_VMW_CURSOR_BYPASS 3
 #define DRM_VMW_CONTROL_STREAM 4
 #define DRM_VMW_CLAIM_STREAM 5
@@ -103,6 +104,8 @@ union drm_vmw_surface_reference_arg {
   struct drm_vmw_surface_arg req;
 };
 #define DRM_VMW_EXECBUF_VERSION 2
+#define DRM_VMW_EXECBUF_FLAG_IMPORT_FENCE_FD (1 << 0)
+#define DRM_VMW_EXECBUF_FLAG_EXPORT_FENCE_FD (1 << 1)
 struct drm_vmw_execbuf_arg {
   __u64 commands;
   __u32 command_size;
@@ -111,14 +114,14 @@ struct drm_vmw_execbuf_arg {
   __u32 version;
   __u32 flags;
   __u32 context_handle;
-  __u32 pad64;
+  __s32 imported_fence_fd;
 };
 struct drm_vmw_fence_rep {
   __u32 handle;
   __u32 mask;
   __u32 seqno;
   __u32 passed_seqno;
-  __u32 pad64;
+  __s32 fd;
   __s32 error;
 };
 struct drm_vmw_alloc_dmabuf_req {
@@ -313,6 +316,10 @@ enum drm_vmw_extended_context {
 union drm_vmw_extended_context_arg {
   enum drm_vmw_extended_context req;
   struct drm_vmw_context_arg rep;
+};
+struct drm_vmw_handle_close_arg {
+  __u32 handle;
+  __u32 pad64;
 };
 #ifdef __cplusplus
 #endif

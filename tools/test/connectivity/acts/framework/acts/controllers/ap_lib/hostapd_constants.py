@@ -59,12 +59,12 @@ CHANNEL_MAP = {
     2457: 10,
     2462: 11,
     # 12, 13 are only legitimate outside the US.
-    2467: 12,
-    2472: 13,
+    # 2467: 12,
+    # 2472: 13,
     # 14 is for Japan, DSSS and CCK only.
-    2484: 14,
+    # 2484: 14,
     # 34 valid in Japan.
-    5170: 34,
+    # 5170: 34,
     # 36-116 valid in the US, except 38, 42, and 46, which have
     # mixed international support.
     5180: 36,
@@ -74,6 +74,7 @@ CHANNEL_MAP = {
     5220: 44,
     5230: 46,
     5240: 48,
+    # DFS channels.
     5260: 52,
     5280: 56,
     5300: 60,
@@ -94,8 +95,12 @@ CHANNEL_MAP = {
     # 144 is supported by a subset of WiFi chips
     # (e.g. bcm4354, but not ath9k).
     5720: 144,
+    # End DFS channels.
     5745: 149,
+    5755: 151,
     5765: 153,
+    5775: 155,
+    5795: 159,
     5785: 157,
     5805: 161,
     5825: 165
@@ -110,6 +115,7 @@ MODE_11AC_MIXED = 'ac-mixed'
 MODE_11AC_PURE = 'ac-only'
 
 N_CAPABILITY_LDPC = object()
+N_CAPABILITY_HT20 = object()
 N_CAPABILITY_HT40_PLUS = object()
 N_CAPABILITY_HT40_MINUS = object()
 N_CAPABILITY_GREENFIELD = object()
@@ -122,6 +128,7 @@ N_CAPABILITY_RX_STBC123 = object()
 N_CAPABILITY_DSSS_CCK_40 = object()
 N_CAPABILITIES_MAPPING = {
     N_CAPABILITY_LDPC: '[LDPC]',
+    N_CAPABILITY_HT20: '[HT20]',
     N_CAPABILITY_HT40_PLUS: '[HT40+]',
     N_CAPABILITY_HT40_MINUS: '[HT40-]',
     N_CAPABILITY_GREENFIELD: '[GF]',
@@ -212,10 +219,12 @@ VHT_CHANNEL_WIDTH_80_80 = 3
 # tolerate HT40+ on channel 7 (not allowed in the US).  We take the loose
 # definition so that we don't prohibit testing in either domain.
 HT40_ALLOW_MAP = {
-    N_CAPABILITY_HT40_MINUS_CHANNELS: tuple(
+    N_CAPABILITY_HT40_MINUS_CHANNELS:
+    tuple(
         itertools.chain(
             range(6, 14), range(40, 65, 8), range(104, 137, 8), [153, 161])),
-    N_CAPABILITY_HT40_PLUS_CHANNELS: tuple(
+    N_CAPABILITY_HT40_PLUS_CHANNELS:
+    tuple(
         itertools.chain(
             range(1, 8), range(36, 61, 8), range(100, 133, 8), [149, 157]))
 }

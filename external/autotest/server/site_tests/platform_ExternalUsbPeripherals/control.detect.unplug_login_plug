@@ -51,18 +51,18 @@ def run(machine):
 
     usb_list = ["\"Kingston Technology Company Inc.\"",
                 "\"Alcor Micro Corp.\"",
-                "\"Microsoft Corp.|C-Media Electronics, Inc. Audio Adapter\"",
+                "\"USB PnP Sound Device: USB Audio|C-Media Electronics, Inc.* Audio\"",
                ]
     usb_checks = {
         # USB Audio Output devices
         str("cras_test_client --dump_server_info | "
             "awk \"/Output Devices:/,/Output Nodes:/\" | grep -E ") :
-            ["\"Microsoft LifeChat LX-3000: USB Audio|C-Media USB Headphone Set: USB Audio\"" ],
+            ["\"USB PnP Sound Device: USB Audio|C-Media USB Headphone Set: USB Audio\"" ],
         # USB Audio Input devices
         str("loggedin:cras_test_client --dump_server_info | "
             "awk \"/Input Devices:/,/Input Nodes:/\" | grep -E ") :
             ["\"TeckNet: USB Audio|USB 2.0 PC Camera\"",
-             "\"Microsoft LifeChat LX-3000: USB Audio|C-Media USB Headphone Set: USB Audio\""],
+             "\"USB PnP Sound Device: USB Audio|C-Media USB Headphone Set: USB Audio\""],
         # USB stick four partitions volumes
         "loggedin:ls -l /media/removable/ | grep -i " :
             ["\"SD Card\"", "ExFAT", "Ext4", "FAT", "NTFS"],

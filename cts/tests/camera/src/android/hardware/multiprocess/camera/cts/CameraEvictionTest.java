@@ -26,6 +26,7 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.cts.CameraCtsActivity;
 import android.os.Handler;
+import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
 
@@ -40,6 +41,7 @@ import static org.mockito.Mockito.*;
 /**
  * Tests for multi-process camera usage behavior.
  */
+@AppModeFull
 public class CameraEvictionTest extends ActivityInstrumentationTestCase2<CameraCtsActivity> {
 
     public static final String TAG = "CameraEvictionTest";
@@ -227,17 +229,14 @@ public class CameraEvictionTest extends ActivityInstrumentationTestCase2<CameraC
         verify(spyStateCb, times(1)).onOpened(any(CameraDevice.class));
 
         // Verify that we can no longer open the camera, as it is held by a higher priority process
-        boolean openException = false;
         try {
             manager.openCamera(chosenCamera, spyStateCb, cameraHandler);
+            fail("Didn't receive exception when trying to open camera held by higher priority " +
+                    "process.");
         } catch(CameraAccessException e) {
             assertTrue("Received incorrect camera exception when opening camera: " + e,
                     e.getReason() == CameraAccessException.CAMERA_IN_USE);
-            openException = true;
         }
-
-        assertTrue("Didn't receive exception when trying to open camera held by higher priority " +
-                "process.", openException);
 
         // Verify that attempting to open the camera didn't cause anything weird to happen in the
         // other process.

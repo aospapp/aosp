@@ -26,17 +26,17 @@ from android import Screen, System
 from android.workload import Workload
 
 
-# Description: This experiments tests suspend/resume by turning off
-# the screen and cutting off USB
-# REQUIRES DEVICE TO BE CONNECTED THROUGH MONSOON SO THAT PASSTHROUGH
-# CAN BE TURNED OFF.
-# The dirty hack we have is we forcefully add 'energy' into the
-# collect parameters so that the USB is cut off (as a side effect, we
-# also measure energy while idle). There's no way of knowing for
-# sure if device did enter idle.
 class IdleResume(Workload):
     """
     Android IdleResume workload
+
+    This workload tests suspend/resume by turning off the screen and cutting off
+    USB. You can collect energy and traces with it.
+    IT REQUIRES DEVICE TO BE CONNECTED THROUGH MONSOON SO THAT PASSTHROUGH CAN
+    BE TURNED OFF.  The dirty hack we have is we forcefully add 'energy' into the
+    collect parameters so that the USB is cut off (as a side effect, we also
+    measure energy while idle). There's no way of knowing for sure if device did
+    enter idle.
     """
 
     # Package is optional for this test
@@ -96,7 +96,7 @@ class IdleResume(Workload):
         Screen.unlock(self._target)
 
         # Force the device to suspend
-        self._target.execute('dumpsys deviceidle force-idle deep')
+        System.force_suspend_start(self._target)
 
         # Prevent the device from fully suspending by holding a partial wakelock
         System.wakelock(self._target, take=True)
@@ -112,7 +112,7 @@ class IdleResume(Workload):
         self.tracingStop(screen_always_on=False)
 
         # Resume normal function
-        self._target.execute('dumpsys deviceidle unforce')
+        System.force_suspend_stop(self._target)
 
         # Release wakelock
         System.wakelock(self._target, take=False)

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2005-2012 Broadcom Corporation
+ *  Copyright 2005-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -52,4 +52,4 @@ const tBTA_HH_CFG bta_hh_cfg = {
     BTA_HH_DISC_BUF_SIZE /* HH SDP discovery database size */
 };
 
-tBTA_HH_CFG* p_bta_hh_cfg = (tBTA_HH_CFG*)&bta_hh_cfg;
+const tBTA_HH_CFG* p_bta_hh_cfg = &bta_hh_cfg;

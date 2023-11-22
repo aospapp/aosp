@@ -38,6 +38,12 @@ class BtCarPairingTest(BluetoothBaseTest):
         self.car = self.android_devices[0]
         self.ph = self.android_devices[1]
 
+    def teardown_test(self):
+        for ad in self.android_devices:
+            bt_test_utils.clear_bonded_devices(ad)
+        # Give the stack time to unbond.
+        time.sleep(UNBOND_TIMEOUT)
+
     @test_tracker_info(uuid='f56e915-eef7-45cd-b5a6-771f6ef72602')
     @BluetoothBaseTest.bt_test_wrap
     def test_simple_pairing(self):

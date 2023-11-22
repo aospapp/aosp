@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2015 Google Inc.
+ *  Copyright 2015 Google Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 
 #include "btif/include/btif_debug.h"
 #include "btif/include/btif_debug_btsnoop.h"
-#include "include/bt_target.h"
+#include "internal_include/bt_target.h"
 
 void btif_debug_init(void) {
 #if (BTSNOOP_MEM == TRUE)

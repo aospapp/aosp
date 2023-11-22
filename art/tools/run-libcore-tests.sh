@@ -19,24 +19,18 @@ if [ ! -d libcore ]; then
   exit 1
 fi
 
+source build/envsetup.sh >&/dev/null # for get_build_var, setpaths
+setpaths # include platform prebuilt java, javac, etc in $PATH.
+
 if [ -z "$ANDROID_PRODUCT_OUT" ] ; then
   JAVA_LIBRARIES=out/target/common/obj/JAVA_LIBRARIES
 else
   JAVA_LIBRARIES=${ANDROID_PRODUCT_OUT}/../../common/obj/JAVA_LIBRARIES
 fi
 
-using_jack=true
-if [[ $ANDROID_COMPILE_WITH_JACK == false ]]; then
-  using_jack=false
-fi
-
 function classes_jar_path {
   local var="$1"
   local suffix="jar"
-
-  if $using_jack; then
-    suffix="jack"
-  fi
 
   echo "${JAVA_LIBRARIES}/${var}_intermediates/classes.${suffix}"
 }
@@ -69,9 +63,7 @@ fi
 use_jit=true
 
 # Packages that currently work correctly with the expectation files.
-working_packages=("dalvik.system"
-                  "libcore.icu"
-                  "libcore.io"
+working_packages=("libcore.dalvik.system"
                   "libcore.java.lang"
                   "libcore.java.math"
                   "libcore.java.text"
@@ -80,9 +72,11 @@ working_packages=("dalvik.system"
                   "libcore.javax.security"
                   "libcore.javax.sql"
                   "libcore.javax.xml"
-                  "libcore.net"
-                  "libcore.reflect"
-                  "libcore.util"
+                  "libcore.libcore.icu"
+                  "libcore.libcore.io"
+                  "libcore.libcore.net"
+                  "libcore.libcore.reflect"
+                  "libcore.libcore.util"
                   "org.apache.harmony.annotation"
                   "org.apache.harmony.crypto"
                   "org.apache.harmony.luni"
@@ -145,12 +139,8 @@ done
 # the default timeout.
 vogar_args="$vogar_args --timeout 480"
 
-# Switch between using jack or javac+desugar+dx
-if $using_jack; then
-  vogar_args="$vogar_args --toolchain jack --language JO"
-else
-  vogar_args="$vogar_args --toolchain jdk --language CUR"
-fi
+# set the toolchain to use.
+vogar_args="$vogar_args --toolchain d8 --language CUR"
 
 # JIT settings.
 if $use_jit; then

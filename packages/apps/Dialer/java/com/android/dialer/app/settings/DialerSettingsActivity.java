@@ -18,6 +18,7 @@ package com.android.dialer.app.settings;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
@@ -31,14 +32,17 @@ import android.telecom.TelecomManager;
 import android.telephony.TelephonyManager;
 import android.view.MenuItem;
 import android.widget.Toast;
-import com.android.contacts.common.compat.TelephonyManagerCompat;
 import com.android.dialer.about.AboutPhoneFragment;
 import com.android.dialer.app.R;
+import com.android.dialer.assisteddialing.ConcreteCreator;
 import com.android.dialer.blocking.FilteredNumberCompat;
 import com.android.dialer.common.LogUtil;
+import com.android.dialer.compat.telephony.TelephonyManagerCompat;
+import com.android.dialer.configprovider.ConfigProviderBindings;
 import com.android.dialer.proguard.UsedByReflection;
+import com.android.dialer.util.PermissionsUtil;
+import com.android.dialer.voicemail.settings.VoicemailSettingsFragment;
 import com.android.voicemail.VoicemailClient;
-import com.android.voicemail.VoicemailComponent;
 import java.util.List;
 
 /** Activity for dialer settings. */
@@ -46,13 +50,30 @@ import java.util.List;
 @UsedByReflection(value = "AndroidManifest-app.xml")
 public class DialerSettingsActivity extends AppCompatPreferenceActivity {
 
-  protected SharedPreferences mPreferences;
+  protected SharedPreferences preferences;
   private boolean migrationStatusOnBuildHeaders;
+  private List<Header> headers;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
+    LogUtil.enterBlock("DialerSettingsActivity.onCreate");
     super.onCreate(savedInstanceState);
-    mPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+    preferences = PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());
+
+    Intent intent = getIntent();
+    Uri data = intent.getData();
+    if (data != null) {
+      String headerToOpen = data.getSchemeSpecificPart();
+      if (headerToOpen != null && headers != null) {
+        for (Header header : headers) {
+          if (headerToOpen.equals(header.fragment)) {
+            LogUtil.i("DialerSettingsActivity.onCreate", "switching to header: " + headerToOpen);
+            switchToHeader(header);
+            break;
+          }
+        }
+      }
+    }
   }
 
   @Override
@@ -69,6 +90,9 @@ public class DialerSettingsActivity extends AppCompatPreferenceActivity {
 
   @Override
   public void onBuildHeaders(List<Header> target) {
+    // Keep a reference to the list of headers (since PreferenceActivity.getHeaders() is @Hide)
+    headers = target;
+
     if (showDisplayOptions()) {
       Header displayOptionsHeader = new Header();
       displayOptionsHeader.titleRes = R.string.display_options_title;
@@ -78,7 +102,6 @@ public class DialerSettingsActivity extends AppCompatPreferenceActivity {
 
     Header soundSettingsHeader = new Header();
     soundSettingsHeader.titleRes = R.string.sounds_and_vibration_title;
-    soundSettingsHeader.fragment = SoundSettingsFragment.class.getName();
     soundSettingsHeader.id = R.id.settings_header_sounds_and_vibration;
     target.add(soundSettingsHeader);
 
@@ -135,10 +158,28 @@ public class DialerSettingsActivity extends AppCompatPreferenceActivity {
       target.add(accessibilitySettingsHeader);
     }
 
-    Header aboutPhoneHeader = new Header();
-    aboutPhoneHeader.titleRes = R.string.about_phone_label;
-    aboutPhoneHeader.fragment = AboutPhoneFragment.class.getName();
-    target.add(aboutPhoneHeader);
+    boolean isAssistedDialingEnabled =
+        ConcreteCreator.isAssistedDialingEnabled(
+            ConfigProviderBindings.get(getApplicationContext()));
+    LogUtil.i(
+        "DialerSettingsActivity.onBuildHeaders",
+        "showing assisted dialing header: " + isAssistedDialingEnabled);
+    if (isAssistedDialingEnabled) {
+
+      Header assistedDialingSettingsHeader = new Header();
+      assistedDialingSettingsHeader.titleRes =
+          com.android.dialer.assisteddialing.ui.R.string.assisted_dialing_setting_title;
+      assistedDialingSettingsHeader.intent =
+          new Intent("com.android.dialer.app.settings.SHOW_ASSISTED_DIALING_SETTINGS");
+      target.add(assistedDialingSettingsHeader);
+    }
+
+    if (showAbout()) {
+      Header aboutPhoneHeader = new Header();
+      aboutPhoneHeader.titleRes = R.string.about_phone_label;
+      aboutPhoneHeader.fragment = AboutPhoneFragment.class.getName();
+      target.add(aboutPhoneHeader);
+    }
   }
 
   private void addVoicemailSettings(List<Header> target, boolean isPrimaryUser) {
@@ -146,12 +187,15 @@ public class DialerSettingsActivity extends AppCompatPreferenceActivity {
       LogUtil.i("DialerSettingsActivity.addVoicemailSettings", "user not primary user");
       return;
     }
-    String voicemailSettingsFragment =
-        VoicemailComponent.get(this).getVoicemailClient().getSettingsFragment();
-    if (voicemailSettingsFragment == null) {
+    if (VERSION.SDK_INT < VERSION_CODES.O) {
       LogUtil.i(
           "DialerSettingsActivity.addVoicemailSettings",
-          "VoicemailClient does not provide settings");
+          "Dialer voicemail settings not supported by system");
+      return;
+    }
+
+    if (!PermissionsUtil.hasReadPhoneStatePermissions(this)) {
+      LogUtil.i("DialerSettingsActivity.addVoicemailSettings", "Missing READ_PHONE_STATE");
       return;
     }
 
@@ -165,7 +209,8 @@ public class DialerSettingsActivity extends AppCompatPreferenceActivity {
       voicemailSettings.fragment = PhoneAccountSelectionFragment.class.getName();
       Bundle bundle = new Bundle();
       bundle.putString(
-          PhoneAccountSelectionFragment.PARAM_TARGET_FRAGMENT, voicemailSettingsFragment);
+          PhoneAccountSelectionFragment.PARAM_TARGET_FRAGMENT,
+          VoicemailSettingsFragment.class.getName());
       bundle.putString(
           PhoneAccountSelectionFragment.PARAM_PHONE_ACCOUNT_HANDLE_KEY,
           VoicemailClient.PARAM_PHONE_ACCOUNT_HANDLE);
@@ -177,7 +222,7 @@ public class DialerSettingsActivity extends AppCompatPreferenceActivity {
     } else {
       LogUtil.i(
           "DialerSettingsActivity.addVoicemailSettings", "showing single-SIM voicemail settings");
-      voicemailSettings.fragment = voicemailSettingsFragment;
+      voicemailSettings.fragment = VoicemailSettingsFragment.class.getName();
       Bundle bundle = new Bundle();
       bundle.putParcelable(VoicemailClient.PARAM_PHONE_ACCOUNT_HANDLE, soleAccount);
       voicemailSettings.fragmentArguments = bundle;
@@ -208,6 +253,11 @@ public class DialerSettingsActivity extends AppCompatPreferenceActivity {
     return result;
   }
 
+  /** Whether "about" should be shown in settings. Override to hide about. */
+  public boolean showAbout() {
+    return true;
+  }
+
   /**
    * Returns {@code true} or {@code false} based on whether the display options setting should be
    * shown. For languages such as Chinese, Japanese, or Korean, display options aren't useful since
@@ -220,22 +270,32 @@ public class DialerSettingsActivity extends AppCompatPreferenceActivity {
         && getResources().getBoolean(R.bool.config_sort_order_user_changeable);
   }
 
+  /**
+   * For the "sounds and vibration" setting, we go directly to the system sound settings fragment.
+   * This helps since:
+   * <li>We don't need a separate Dialer sounds and vibrations fragment, as everything we need is
+   *     present in the system sounds fragment.
+   * <li>OEM's e.g Moto that support dual sim ring-tones no longer need to update the dialer sound
+   *     and settings fragment.
+   *
+   *     <p>For all other settings, we launch our our preferences fragment.
+   */
   @Override
   public void onHeaderClick(Header header, int position) {
     if (header.id == R.id.settings_header_sounds_and_vibration) {
-      // If we don't have the permission to write to system settings, go to system sound
-      // settings instead. Otherwise, perform the super implementation (which launches our
-      // own preference fragment.
+
       if (!Settings.System.canWrite(this)) {
         Toast.makeText(
                 this,
                 getResources().getString(R.string.toast_cannot_write_system_settings),
                 Toast.LENGTH_SHORT)
             .show();
-        startActivity(new Intent(Settings.ACTION_SOUND_SETTINGS));
-        return;
       }
+
+      startActivity(new Intent(Settings.ACTION_SOUND_SETTINGS));
+      return;
     }
+
     super.onHeaderClick(header, position);
   }
 

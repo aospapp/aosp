@@ -16,11 +16,15 @@
 
 package com.android.cellbroadcastreceiver;
 
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+
 import android.app.Service;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.telephony.CarrierConfigManager;
 import android.test.ServiceTestCase;
 import android.util.Log;
@@ -33,6 +37,8 @@ public abstract class CellBroadcastServiceTestCase<T extends Service> extends Se
 
     @Mock
     protected CarrierConfigManager mMockedCarrierConfigManager;
+    @Mock
+    Resources mResources;
 
     Intent mServiceIntentToVerify;
 
@@ -64,6 +70,11 @@ public abstract class CellBroadcastServiceTestCase<T extends Service> extends Se
         }
 
         @Override
+        public Resources getResources() {
+            return mResources;
+        }
+
+        @Override
         public void startActivity(Intent intent) {
             mActivityIntentToVerify = intent;
         }
@@ -89,6 +100,10 @@ public abstract class CellBroadcastServiceTestCase<T extends Service> extends Se
         MockitoAnnotations.initMocks(this);
         mContext = new TestContextWrapper(getContext());
         setContext(mContext);
+    }
+
+    void putResources(int id, String[] values) {
+        doReturn(values).when(mResources).getStringArray(eq(id));
     }
 }
 

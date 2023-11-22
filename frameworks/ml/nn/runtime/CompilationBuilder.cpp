@@ -28,11 +28,16 @@ namespace android {
 namespace nn {
 
 CompilationBuilder::CompilationBuilder(const ModelBuilder* model) :
-    mModel(model) {
+        mModel(model), mPartitioning(DeviceManager::get()->getPartitioning()) {
     VLOG(COMPILATION) << "CompilationBuilder::CompilationBuilder";
 }
 
 int CompilationBuilder::finish() {
+    // Get the list of HAL devices.
+    return finish(DeviceManager::get()->getDrivers());
+}
+
+int CompilationBuilder::finish(const std::vector<std::shared_ptr<Device>>& devices) {
     if (mFinished) {
         LOG(ERROR) << "ANeuralNetworksCompilation_finish called more than once";
         return ANEURALNETWORKS_BAD_STATE;
@@ -41,14 +46,25 @@ int CompilationBuilder::finish() {
 
     mFinished = true;
 
-    if (uint32_t p = DeviceManager::get()->getPartitioning()) {
-        // Get the list of HAL devices.
-        const std::vector<std::shared_ptr<Device>>& devices = DeviceManager::get()->getDrivers();
-
+    if (mPartitioning) {
         int n = mModel->partitionTheWork(devices, mPreference, &mPlan);
-        if (!DeviceManager::partitioningAllowsFallback(p) &&
-            (n != ANEURALNETWORKS_NO_ERROR)) {
-            return n;
+        switch (n) {
+            case ANEURALNETWORKS_NO_ERROR:
+                break;
+            case ANEURALNETWORKS_UNEXPECTED_NULL:
+            case ANEURALNETWORKS_BAD_DATA:
+                // The two error codes above should only be used for errors in the user's
+                // request. In case of a user error, we won't try any fallback.
+                // TODO: Document this in NeuralNetworks.h and in the HAL. Make sure
+                // driver writers know which code they can return.
+                return n;
+            default:
+                // The error might be recoverable. Return the error only if falling back
+                // is not allowed.
+                if (!DeviceManager::partitioningAllowsFallback(mPartitioning)) {
+                    return n;
+                }
+                break;
         }
     }
 
@@ -70,13 +86,24 @@ int CompilationBuilder::setPreference(int32_t preference) {
     return ANEURALNETWORKS_NO_ERROR;
 }
 
+int CompilationBuilder::setPartitioning(uint32_t partitioning) {
+    if (mFinished) {
+        LOG(ERROR) <<
+                "ANeuralNetworksCompilation_setPartitioning can't modify after compilation finished";
+        return ANEURALNETWORKS_BAD_STATE;
+    }
+
+    mPartitioning = partitioning;
+    return ANEURALNETWORKS_NO_ERROR;
+}
+
 int CompilationBuilder::createExecution(ExecutionBuilder **execution) {
     if (!mFinished) {
         LOG(ERROR) << "ANeuralNetworksExecution_create passed an unfinished compilation";
         *execution = nullptr;
         return ANEURALNETWORKS_BAD_STATE;
     }
-    *execution = new ExecutionBuilder(this);
+    *execution = new (std::nothrow) ExecutionBuilder(this);
     return (*execution ? ANEURALNETWORKS_NO_ERROR : ANEURALNETWORKS_OUT_OF_MEMORY);
 }
 

@@ -2,33 +2,15 @@
 
 subdirs = ["android"]
 
-//##########################################################################
-// Build fsstress
-
-cc_binary {
-    name: "fsstress",
-    host_supported: true,
-
-    srcs: ["fsstress.c"],
-    cflags: ["-W", "-Wall", "-Wno-macro-redefined"],
-    system_shared_libs: ["libc", "libdl"],
-
-    target: {
-        darwin: {
-            enabled: false,
-        },
-    },
-}
-
 //########################################################################
 // Build add_ext4_encrypt
 
 cc_binary {
     name: "add_ext4_encrypt",
     host_supported: true,
+    defaults: ["e2fsprogs-defaults"],
 
     srcs: ["add_ext4_encrypt.c"],
-    cflags: ["-W", "-Wall", "-Wno-macro-redefined"],
     shared_libs: [
         "libext2fs",
         "libext2_com_err",

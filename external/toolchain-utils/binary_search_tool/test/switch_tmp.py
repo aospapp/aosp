@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """Change portions of the object files to good.
 
 This file is a test switch script. Used only for the test test_tmp_cleanup.

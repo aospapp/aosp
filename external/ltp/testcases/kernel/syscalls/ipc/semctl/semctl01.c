@@ -47,6 +47,7 @@
 #endif
 #include <sys/wait.h>
 #include "ipcsem.h"
+#include "safe_macros.h"
 
 char *TCID = "semctl01";
 
@@ -127,16 +128,14 @@ static void kill_all_children(void)
 	int j, status;
 
 	for (j = 0; j < NCHILD; j++) {
-		if (kill(pid_arr[j], SIGKILL) == -1)
-			tst_brkm(TBROK | TERRNO, cleanup, "child kill failed");
+		SAFE_KILL(cleanup, pid_arr[j], SIGKILL);
 	}
 
 	/*
 	 * make sure children finished before we proceed with next testcase
 	 */
 	for (j = 0; j < NCHILD; j++) {
-		if (wait(&status) == -1)
-			tst_brkm(TBROK | TERRNO, cleanup, "wait() failed");
+		SAFE_WAIT(cleanup, &status);
 	}
 }
 

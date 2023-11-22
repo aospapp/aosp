@@ -1,6 +1,5 @@
 #
-#  Copyright (c) 2014-2015, Linaro Limited. All rights reserved.
-#  Copyright (c) 2014-2015, Hisilicon Limited. All rights reserved.
+#  Copyright (c) 2014-2017, Linaro Limited. All rights reserved.
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -67,6 +66,7 @@ FV = FVMAIN_COMPACT
 ################################################################################
 
 [FV.FvMain]
+FvNameGuid         = 69b7d469-55a2-49d8-a426-42bfb22f5b9d
 BlockSize          = 0x40
 NumBlocks          = 0         # This FV gets compressed so make it just big enough
 FvAlignment        = 8         # FV alignment and FV attributes setting.
@@ -112,23 +112,33 @@ READ_LOCK_STATUS   = TRUE
 
   INF MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf
 
+  INF MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
+
   #
   # GPIO
   #
   INF ArmPlatformPkg/Drivers/PL061GpioDxe/PL061GpioDxe.inf
-  INF OpenPlatformPkg/Platforms/Hisilicon/HiKey/HiKeyGpio/HiKeyGpio.inf
+  INF OpenPlatformPkg/Platforms/Hisilicon/HiKey/HiKeyGpioDxe/HiKeyGpioDxe.inf
+
+  #
+  # Virtual Keyboard
+  #
+  INF OpenPlatformPkg/Drivers/Keyboard/VirtualKeyboardDxe/VirtualKeyboardDxe.inf
 
   #
   # Multimedia Card Interface
   #
-  INF EmbeddedPkg/Universal/MmcDxe/MmcDxe.inf
-  INF OpenPlatformPkg/Drivers/Mmc/DwEmmcDxe/DwEmmcDxe.inf
-  INF OpenPlatformPkg/Drivers/Mmc/DwSdDxe/DwSdDxe.inf
+  INF OpenPlatformPkg/Platforms/Hisilicon/HiKey/HiKeyMmcDxe/HiKeyMmcDxe.inf
+  INF MdeModulePkg/Bus/Pci/NonDiscoverablePciDeviceDxe/NonDiscoverablePciDeviceDxe.inf
+  INF OpenPlatformPkg/Drivers/SdMmc/DwMmcHcDxe/DwMmcHcDxe.inf
+  INF MdeModulePkg/Bus/Sd/EmmcDxe/EmmcDxe.inf
+  #INF MdeModulePkg/Bus/Sd/SdDxe/SdDxe.inf
+
+  INF OpenPlatformPkg/Platforms/Hisilicon/HiKey/HiKeyDxe/HiKeyDxe.inf
 
   #
   # USB Host Support
   #
-  INF OpenPlatformPkg/Drivers/Usb/DwUsbHostDxe/DwUsbHostDxe.inf
   INF MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe.inf
 
   #
@@ -141,12 +151,18 @@ READ_LOCK_STATUS   = TRUE
   #
   INF EmbeddedPkg/Drivers/AndroidFastbootTransportUsbDxe/FastbootTransportUsbDxe.inf
   INF OpenPlatformPkg/Drivers/Usb/DwUsbDxe/DwUsbDxe.inf
+  INF OpenPlatformPkg/Platforms/Hisilicon/HiKey/HiKeyFastbootDxe/HiKeyFastbootDxe.inf
+  INF OpenPlatformPkg/Platforms/Hisilicon/HiKey/HiKeyUsbDxe/HiKeyUsbDxe.inf
 
   #
   # Fastboot
   #
   INF EmbeddedPkg/Application/AndroidFastboot/AndroidFastbootApp.inf
-  INF OpenPlatformPkg/Platforms/Hisilicon/HiKey/HiKeyFastbootDxe/HiKeyFastbootDxe.inf
+
+  #
+  # Android Loader
+  #
+  INF EmbeddedPkg/Application/AndroidBoot/AndroidBootApp.inf
 
   #
   # UEFI Network Stack
@@ -171,40 +187,27 @@ READ_LOCK_STATUS   = TRUE
   #
   INF MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
   INF MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
-  INF FatBinPkg/EnhancedFatDxe/Fat.inf
+  INF FatPkg/EnhancedFatDxe/Fat.inf
   INF MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
 
   INF MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
-  INF MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
-  INF OpenPlatformPkg/Drivers/Variable/BlockVariableDxe/BlockVariableDxe.inf
+  INF MdeModulePkg/Universal/Variable/EmuRuntimeDxe/EmuVariableRuntimeDxe.inf
 
   INF MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
 
   #
   # UEFI applications
   #
-  INF ShellBinPkg/UefiShell/UefiShell.inf
+  INF ShellPkg/Application/Shell/Shell.inf
 
   #
   # Bds
   #
   INF MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
-  INF ArmPlatformPkg/Bds/Bds.inf
-
-  # add Device Tree to the Firmware Volume
-  FILE FREEFORM = 91148425-CDD2-4830-8BD0-C61C6DEA3621 {
-    SECTION RAW = OpenPlatformPkg/Platforms/Hisilicon/HiKey/DeviceTree/hi6220-hikey.dtb
-  }
-
-  #
-  # Legacy Linux Loader
-  #
-  INF ArmPkg/Application/LinuxLoader/LinuxLoader.inf
-
-  #
-  # HiKey Platform
-  #
-  INF OpenPlatformPkg/Platforms/Hisilicon/HiKey/HiKeyDxe/HiKeyDxe.inf
+  INF MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe.inf
+  INF MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
+  INF MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
+  INF MdeModulePkg/Application/UiApp/UiApp.inf
 
 [FV.FVMAIN_COMPACT]
 FvAlignment        = 8
@@ -224,7 +227,7 @@ READ_STATUS        = TRUE
 READ_LOCK_CAP      = TRUE
 READ_LOCK_STATUS   = TRUE
 
-  INF ArmPlatformPkg/PrePi/PeiMPCore.inf
+  INF ArmPlatformPkg/PrePi/PeiUniCore.inf
 
   FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
     SECTION GUIDED EE4E5898-3914-4259-9D6E-DC7BD79403CF PROCESSING_REQUIRED = TRUE {

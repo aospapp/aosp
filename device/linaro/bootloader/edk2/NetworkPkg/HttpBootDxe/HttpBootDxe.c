@@ -1,7 +1,7 @@
 /** @file
   Driver Binding functions implementation for UEFI HTTP boot.
 
-Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2015 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials are licensed and made available under 
 the terms and conditions of the BSD License that accompanies this distribution.  
 The full text of the license may be found at
@@ -321,7 +321,7 @@ HttpBootIp4DxeDriverBindingStart (
                   );
 
   if (!EFI_ERROR (Status)) {
-      Private = HTTP_BOOT_PRIVATE_DATA_FROM_ID(Id);
+    Private = HTTP_BOOT_PRIVATE_DATA_FROM_ID(Id);
   } else {
     //
     // Initialize the private data structure.
@@ -332,7 +332,6 @@ HttpBootIp4DxeDriverBindingStart (
     }
     Private->Signature = HTTP_BOOT_PRIVATE_DATA_SIGNATURE;
     Private->Controller = ControllerHandle;
-    Private->Image = This->ImageHandle;
     InitializeListHead (&Private->CacheList);
     //
     // Get the NII interface if it exists, it's not required.
@@ -365,6 +364,14 @@ HttpBootIp4DxeDriverBindingStart (
     }
 
     //
+    // Initialize the HII configuration form.
+    //
+    Status = HttpBootConfigFormInit (Private);
+    if (EFI_ERROR (Status)) {
+      goto ON_ERROR;
+    }
+
+    //
     // Install a protocol with Caller Id Guid to the NIC, this is just to build the relationship between
     // NIC handle and the private data.
     //
@@ -391,8 +398,9 @@ HttpBootIp4DxeDriverBindingStart (
   if (Private->Ip4Nic == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
-  Private->Ip4Nic->Private   = Private;
-  Private->Ip4Nic->Signature = HTTP_BOOT_VIRTUAL_NIC_SIGNATURE;
+  Private->Ip4Nic->Private     = Private;
+  Private->Ip4Nic->ImageHandle = This->DriverBindingHandle;
+  Private->Ip4Nic->Signature   = HTTP_BOOT_VIRTUAL_NIC_SIGNATURE;
   
   //
   // Create DHCP4 child instance.
@@ -508,8 +516,9 @@ HttpBootIp4DxeDriverBindingStart (
 
     
 ON_ERROR:
-  
+
   HttpBootDestroyIp4Children (This, Private);
+  HttpBootConfigFormUnload (Private);
   FreePool (Private);
 
   return Status;
@@ -615,6 +624,11 @@ HttpBootIp4DxeDriverBindingStop (
     // Release the cached data.
     //
     HttpBootFreeCacheList (Private);
+
+    //
+    // Unload the config form.
+    //
+    HttpBootConfigFormUnload (Private);
     
     gBS->UninstallProtocolInterface (
            NicHandle,
@@ -779,7 +793,7 @@ HttpBootIp6DxeDriverBindingStart (
                   );
   
   if (!EFI_ERROR (Status)) {
-      Private = HTTP_BOOT_PRIVATE_DATA_FROM_ID(Id);
+    Private = HTTP_BOOT_PRIVATE_DATA_FROM_ID(Id);
   } else {
     //
     // Initialize the private data structure.
@@ -790,7 +804,6 @@ HttpBootIp6DxeDriverBindingStart (
     }
     Private->Signature = HTTP_BOOT_PRIVATE_DATA_SIGNATURE;
     Private->Controller = ControllerHandle;
-    Private->Image = This->ImageHandle;
     InitializeListHead (&Private->CacheList);
     //
     // Get the NII interface if it exists, it's not required.
@@ -823,6 +836,14 @@ HttpBootIp6DxeDriverBindingStart (
     }
 
     //
+    // Initialize the HII configuration form.
+    //
+    Status = HttpBootConfigFormInit (Private);
+    if (EFI_ERROR (Status)) {
+      goto ON_ERROR;
+    }
+
+    //
     // Install a protocol with Caller Id Guid to the NIC, this is just to build the relationship between
     // NIC handle and the private data.
     //
@@ -849,9 +870,10 @@ HttpBootIp6DxeDriverBindingStart (
   if (Private->Ip6Nic == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
-  Private->Ip6Nic->Private   = Private;
-  Private->Ip6Nic->Signature = HTTP_BOOT_VIRTUAL_NIC_SIGNATURE;
-
+  Private->Ip6Nic->Private     = Private;
+  Private->Ip6Nic->ImageHandle = This->DriverBindingHandle;
+  Private->Ip6Nic->Signature   = HTTP_BOOT_VIRTUAL_NIC_SIGNATURE;
+  
   //
   // Create Dhcp6 child and open Dhcp6 protocol
   Status = NetLibCreateServiceChild (
@@ -989,12 +1011,12 @@ HttpBootIp6DxeDriverBindingStart (
   return EFI_SUCCESS;
    
 ON_ERROR:
-  
- HttpBootDestroyIp6Children(This, Private);
- FreePool (Private);
 
- return Status;
- 
+  HttpBootDestroyIp6Children(This, Private);
+  HttpBootConfigFormUnload (Private);
+  FreePool (Private);
+
+  return Status;
 }
 
 /**
@@ -1096,7 +1118,12 @@ HttpBootIp6DxeDriverBindingStop (
     // Release the cached data.
     //
     HttpBootFreeCacheList (Private);
-        
+
+    //
+    // Unload the config form.
+    //
+    HttpBootConfigFormUnload (Private);
+
     gBS->UninstallProtocolInterface (
            NicHandle,
            &gEfiCallerIdGuid,
@@ -1128,6 +1155,7 @@ HttpBootDxeDriverEntryPoint (
   )
 {
   EFI_STATUS   Status;
+
   //
   // Install UEFI Driver Model protocol(s).
   //

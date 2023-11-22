@@ -105,7 +105,7 @@ class ExpectationBasedFilter extends Filter {
             if (expectationStore != null) {
                 Expectation expectation = expectationStore.get(testName);
                 if (expectation.getResult() != Result.SUCCESS) {
-                    Log.d(CoreTestRunner.TAG, "Excluding test " + testDescription
+                    Log.d(TAG, "Excluding test " + testDescription
                             + " as it matches expectation: " + expectation);
                     return false;
                 }

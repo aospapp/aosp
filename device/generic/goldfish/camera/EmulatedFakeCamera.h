@@ -24,7 +24,6 @@
  */
 
 #include "EmulatedCamera.h"
-#include "EmulatedFakeCameraDevice.h"
 
 namespace android {
 
@@ -66,7 +65,7 @@ protected:
     bool                        mFacingBack;
 
     /* Contained fake camera device object. */
-    EmulatedFakeCameraDevice    mFakeCameraDevice;
+    EmulatedCameraDevice        *mFakeCameraDevice;
 };
 
 }; /* namespace android */

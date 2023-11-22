@@ -29,6 +29,7 @@ import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.media.MediaPlayer;
 import android.os.Environment;
+import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
 import android.view.Surface;
@@ -59,6 +60,7 @@ import java.util.concurrent.CountDownLatch;
  * MediaMuxer.
  */
 @TargetApi(18)
+@AppModeFull(reason = "Instant apps cannot access the SD card")
 public class ExtractDecodeEditEncodeMuxTest
         extends ActivityInstrumentationTestCase2<MediaStubActivity> {
 

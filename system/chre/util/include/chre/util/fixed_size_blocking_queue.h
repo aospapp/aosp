@@ -42,6 +42,7 @@ class FixedSizeBlockingQueue : public NonCopyable {
    * @return true if the element is pushed successfully.
    */
   bool push(const ElementType& element);
+  bool push(ElementType&& element);
 
   /**
    * Pops one element from the queue. If the queue is empty, the thread will
@@ -60,6 +61,37 @@ class FixedSizeBlockingQueue : public NonCopyable {
    * Determines the current size of the BlockingQueue.
    */
   size_t size();
+
+  /**
+   * Removes an element from the array queue given an index. It returns false if
+   * the index is out of bounds of the underlying array queue.
+   *
+   * @param index Requested index in range [0,size()-1]
+   * @return true if the indexed element has been removed successfully.
+   */
+  bool remove(size_t index);
+
+  /**
+   * Obtains an element of the array queue given an index. It is illegal to
+   * index this array queue out of bounds and the user of the API must check the
+   * size() function prior to indexing this array queue to ensure that they will
+   * not read out of bounds.
+   *
+   * @param index Requested index in range [0,size()-1]
+   * @return The element.
+   */
+  ElementType& operator[](size_t index);
+
+  /**
+   * Obtains a const element of the queue given an index. It is illegal to index
+   * this queue out of bounds and the user of the API must check the size()
+   * function prior to indexing this queue to ensure that they will not read out
+   * of bounds.
+   *
+   * @param index Requested index in the rante [0,size()-1]
+   * @return The element.
+   */
+  const ElementType& operator[](size_t index) const;
 
  private:
   //! The mutex used to ensure thread-safety.

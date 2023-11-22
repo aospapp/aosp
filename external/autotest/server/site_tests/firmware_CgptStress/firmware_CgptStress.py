@@ -26,7 +26,10 @@ class firmware_CgptStress(FirmwareTest):
         self.setup_kernel('a')
 
     def cleanup(self):
-        self.restore_cgpt_attributes()
+        try:
+            self.restore_cgpt_attributes()
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_CgptStress, self).cleanup()
 
     def run_once(self):

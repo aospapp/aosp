@@ -57,6 +57,7 @@
 #include <sys/mman.h>
 
 #include "test.h"
+#include "safe_macros.h"
 #include "compat_16.h"
 
 #define TEST_USER       "nobody"
@@ -199,16 +200,14 @@ static void setup_eperm(int pos LTP_ATTRIBUTE_UNUSED)
 	if ((fd = open(TEST_FILE1, O_RDWR | O_CREAT, 0666)) == -1)
 		tst_brkm(TBROK | TERRNO, cleanup, "open failed");
 
-	if (close(fd) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "close failed");
+	SAFE_CLOSE(cleanup, fd);
 
 	/* become root once more */
 	if (seteuid(0) == -1)
 		tst_resm(TBROK | TERRNO, "setuid(0) failed");
 
 	/* create symling to testfile */
-	if (symlink(TEST_FILE1, SFILE1) < 0)
-		tst_brkm(TBROK | TERRNO, cleanup, "symlink failed");
+	SAFE_SYMLINK(cleanup, TEST_FILE1, SFILE1);
 
 	/* back to the user nobody */
 	if (seteuid(ltpuser->pw_uid) == -1)
@@ -229,27 +228,19 @@ static void setup_eacces(int pos LTP_ATTRIBUTE_UNUSED)
 	int fd;
 
 	/* create a test directory */
-	if (mkdir(DIR_TEMP, MODE_RWX) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "mkdir failed");
+	SAFE_MKDIR(cleanup, DIR_TEMP, MODE_RWX);
 
 	/* create a file under test directory */
 	if ((fd = open(TEST_FILE2, O_RDWR | O_CREAT, 0666)) == -1)
 		tst_brkm(TBROK | TERRNO, cleanup, "open failed");
 
-	if (close(fd) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "close failed");
+	SAFE_CLOSE(cleanup, fd);
 
 	/* create a symlink of testfile */
-	if (symlink(TEST_FILE2, SFILE2) < 0) {
-		tst_brkm(TBROK | TERRNO, cleanup, "symlink(2) %s to %s failed",
-			 TEST_FILE2, SFILE2);
-	}
+	SAFE_SYMLINK(cleanup, TEST_FILE2, SFILE2);
 
 	/* modify mode permissions on test directory */
-	if (chmod(DIR_TEMP, FILE_MODE) < 0) {
-		tst_brkm(TBROK | TERRNO, cleanup, "chmod(2) %s failed",
-			 DIR_TEMP);
-	}
+	SAFE_CHMOD(cleanup, DIR_TEMP, FILE_MODE);
 }
 
 /*
@@ -298,9 +289,7 @@ static void setup_enotdir(int pos LTP_ATTRIBUTE_UNUSED)
 		tst_brkm(TBROK | TERRNO, cleanup, "open(2) %s failed", TFILE3);
 	}
 
-	if (close(fd) == -1) {
-		tst_brkm(TBROK | TERRNO, cleanup, "close(2) %s failed", TFILE3);
-	}
+	SAFE_CLOSE(cleanup, fd);
 }
 
 /*

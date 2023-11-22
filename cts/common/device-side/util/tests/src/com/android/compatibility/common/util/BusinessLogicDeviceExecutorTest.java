@@ -28,6 +28,7 @@ import android.support.test.runner.AndroidJUnit4;
 
 import org.junit.AssumptionViolatedException;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -292,6 +293,7 @@ public class BusinessLogicDeviceExecutorTest {
     }
 
     // throw AssertionFailedError
+    @Ignore
     public void method9() throws AssertionFailedError {
         assertTrue(false);
     }

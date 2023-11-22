@@ -89,9 +89,17 @@ public class AlarmClockTestBase extends ActivityInstrumentationTestCase2<TestSta
               intent = new Intent(AlarmClock.ACTION_DISMISS_ALARM);
               break;
 
+          case DISMISS_TIMER:
+              intent = new Intent(AlarmClock.ACTION_DISMISS_TIMER);
+              break;
+
           case SET_ALARM:
           case SET_ALARM_FOR_DISMISSAL:
               intent = new Intent(AlarmClock.ACTION_SET_ALARM);
+              break;
+
+          case SET_TIMER_FOR_DISMISSAL:
+              intent = new Intent(AlarmClock.ACTION_SET_TIMER);
               break;
 
           case SNOOZE_ALARM:

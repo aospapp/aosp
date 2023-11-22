@@ -26,6 +26,8 @@ import android.autofillservice.cts.VirtualContainerView.Line;
 import android.autofillservice.cts.VirtualContainerView.Line.OneTimeLineWatcher;
 import android.graphics.Canvas;
 import android.os.Bundle;
+import android.text.InputType;
+import android.widget.EditText;
 
 /**
  * A custom activity that uses {@link Canvas} to draw the following fields:
@@ -38,7 +40,10 @@ import android.os.Bundle;
 public class VirtualContainerActivity extends AbstractAutoFillActivity {
 
     static final String BLANK_VALUE = "        ";
+    static final String INITIAL_URL_BAR_VALUE = "ftp://dev.null/4/8/15/16/23/42";
 
+    EditText mUrlBar;
+    EditText mUrlBar2;
     VirtualContainerView mCustomView;
 
     Line mUsername;
@@ -52,10 +57,15 @@ public class VirtualContainerActivity extends AbstractAutoFillActivity {
 
         setContentView(R.layout.virtual_container_activity);
 
+        mUrlBar = findViewById(R.id.my_url_bar);
+        mUrlBar2 = findViewById(R.id.my_url_bar2);
         mCustomView = findViewById(R.id.virtual_container_view);
 
-        mUsername = mCustomView.addLine(ID_USERNAME_LABEL, "Username", ID_USERNAME, BLANK_VALUE);
-        mPassword = mCustomView.addLine(ID_PASSWORD_LABEL, "Password", ID_PASSWORD, BLANK_VALUE);
+        mUrlBar.setText(INITIAL_URL_BAR_VALUE);
+        mUsername = mCustomView.addLine(ID_USERNAME_LABEL, "Username", ID_USERNAME, BLANK_VALUE,
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_NORMAL);
+        mPassword = mCustomView.addLine(ID_PASSWORD_LABEL, "Password", ID_PASSWORD, BLANK_VALUE,
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
     }
 
     /**

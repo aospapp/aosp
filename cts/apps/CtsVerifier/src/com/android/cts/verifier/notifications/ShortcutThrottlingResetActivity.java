@@ -60,12 +60,12 @@ public class ShortcutThrottlingResetActivity extends InteractiveVerifierActivity
     private final AtomicReference<Intent> mReplyIntent = new AtomicReference<>(null);
 
     @Override
-    int getTitleResource() {
+    protected int getTitleResource() {
         return R.string.shortcut_reset_test;
     }
 
     @Override
-    int getInstructionsResource() {
+    protected int getInstructionsResource() {
         return R.string.shortcut_reset_info;
     }
 
@@ -108,12 +108,12 @@ public class ShortcutThrottlingResetActivity extends InteractiveVerifierActivity
     /** Make sure the helper package is installed. */
     protected class CheckForBot extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.shortcut_reset_bot);
         }
 
         @Override
-        void test() {
+        protected void test() {
             PackageManager pm = mContext.getPackageManager();
             try {
                 pm.getPackageInfo(NOTIFICATION_BOT_PACKAGE, 0);
@@ -131,12 +131,12 @@ public class ShortcutThrottlingResetActivity extends InteractiveVerifierActivity
      */
     protected class SetupNotification extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.shortcut_reset_start);
         }
 
         @Override
-        void test() {
+        protected void test() {
             final Intent intent = new Intent(ACTION_RESET_SETUP_NOTIFICATION);
             intent.setPackage(NOTIFICATION_BOT_PACKAGE);
 
@@ -157,12 +157,12 @@ public class ShortcutThrottlingResetActivity extends InteractiveVerifierActivity
      */
     protected class WaitForTestReply extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.shortcut_reset_prompt_inline_reply);
         }
 
         @Override
-        void test() {
+        protected void test() {
             final Intent replyIntent = mReplyIntent.get();
             if (replyIntent == null) {
                 // Reply not received yet.
@@ -180,12 +180,12 @@ public class ShortcutThrottlingResetActivity extends InteractiveVerifierActivity
      */
     protected class CheckResult extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.shortcut_reset_check_result);
         }
 
         @Override
-        void test() {
+        protected void test() {
             final Intent replyIntent = mReplyIntent.get();
             if (replyIntent == null) {
                 logFail("Internal error, replyIntent shouldn't be null here.");

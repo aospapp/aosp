@@ -20,25 +20,20 @@ import android.content.Context;
 import android.content.Intent;
 import android.media.tv.TvInputInfo;
 import android.view.View;
-
-import com.android.tv.ApplicationSingletons;
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.analytics.Tracker;
 import com.android.tv.common.feature.CommonFeatures;
-import com.android.tv.data.Channel;
+import com.android.tv.data.ChannelImpl;
+import com.android.tv.data.api.Channel;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.recommendation.Recommender;
-import com.android.tv.util.SetupUtils;
 import com.android.tv.util.TvInputManagerHelper;
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * An adapter of the Channels row.
- */
+/** An adapter of the Channels row. */
 public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<ChannelsRowItem> {
     // There are four special cards: guide, setup, dvr, applink.
     private static final int SIZE_OF_VIEW_TYPE = 5;
@@ -50,60 +45,66 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
     private final int mMaxCount;
     private final int mMinCount;
 
-    private final View.OnClickListener mGuideOnClickListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View view) {
-            mTracker.sendMenuClicked(R.string.channels_item_program_guide);
-            getMainActivity().getOverlayManager().showProgramGuide();
-        }
-    };
+    private final View.OnClickListener mGuideOnClickListener =
+            new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    mTracker.sendMenuClicked(R.string.channels_item_program_guide);
+                    getMainActivity().getOverlayManager().showProgramGuide();
+                }
+            };
 
-    private final View.OnClickListener mSetupOnClickListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View view) {
-            mTracker.sendMenuClicked(R.string.channels_item_setup);
-            getMainActivity().getOverlayManager().showSetupFragment();
-        }
-    };
+    private final View.OnClickListener mSetupOnClickListener =
+            new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    mTracker.sendMenuClicked(R.string.channels_item_setup);
+                    getMainActivity().getOverlayManager().showSetupFragment();
+                }
+            };
 
-    private final View.OnClickListener mDvrOnClickListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View view) {
-            mTracker.sendMenuClicked(R.string.channels_item_dvr);
-            getMainActivity().getOverlayManager().showDvrManager();
-        }
-    };
+    private final View.OnClickListener mDvrOnClickListener =
+            new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    mTracker.sendMenuClicked(R.string.channels_item_dvr);
+                    getMainActivity().getOverlayManager().showDvrManager();
+                }
+            };
 
-    private final View.OnClickListener mAppLinkOnClickListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View view) {
-            mTracker.sendMenuClicked(R.string.channels_item_app_link);
-            Intent intent = ((AppLinkCardView) view).getIntent();
-            if (intent != null) {
-                getMainActivity().startActivitySafe(intent);
-            }
-        }
-    };
+    private final View.OnClickListener mAppLinkOnClickListener =
+            new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    mTracker.sendMenuClicked(R.string.channels_item_app_link);
+                    Intent intent = ((AppLinkCardView) view).getIntent();
+                    if (intent != null) {
+                        getMainActivity().startActivitySafe(intent);
+                    }
+                }
+            };
 
-    private final View.OnClickListener mChannelOnClickListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View view) {
-            // Always send the label "Channels" because the channel ID or name or number might be
-            // sensitive.
-            mTracker.sendMenuClicked(R.string.menu_title_channels);
-            getMainActivity().tuneToChannel((Channel) view.getTag());
-            getMainActivity().hideOverlaysForTune();
-        }
-    };
+    private final View.OnClickListener mChannelOnClickListener =
+            new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    // Always send the label "Channels" because the channel ID or name or number
+                    // might be
+                    // sensitive.
+                    mTracker.sendMenuClicked(R.string.menu_title_channels);
+                    getMainActivity().tuneToChannel((Channel) view.getTag());
+                    getMainActivity().hideOverlaysForTune();
+                }
+            };
 
-    public ChannelsRowAdapter(Context context, Recommender recommender,
-            int minCount, int maxCount) {
+    public ChannelsRowAdapter(
+            Context context, Recommender recommender, int minCount, int maxCount) {
         super(context);
         mContext = context;
-        ApplicationSingletons appSingletons = TvApplication.getSingletons(context);
-        mTracker = appSingletons.getTracker();
+        TvSingletons tvSingletons = TvSingletons.getSingletons(context);
+        mTracker = tvSingletons.getTracker();
         if (CommonFeatures.DVR.isEnabled(context)) {
-            mDvrDataManager = appSingletons.getDvrDataManager();
+            mDvrDataManager = tvSingletons.getDvrDataManager();
         } else {
             mDvrDataManager = null;
         }
@@ -168,7 +169,7 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
         }
         if (needToShowAppLinkItem()) {
             ChannelsRowItem.APP_LINK_ITEM.setChannel(
-                    new Channel.Builder(getMainActivity().getCurrentChannel()).build());
+                    new ChannelImpl.Builder(getMainActivity().getCurrentChannel()).build());
             items.add(ChannelsRowItem.APP_LINK_ITEM);
         }
         for (Channel channel : getRecentChannels()) {
@@ -189,10 +190,11 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
             ++currentIndex;
         }
         if (updateItem(needToShowAppLinkItem(), ChannelsRowItem.APP_LINK_ITEM, currentIndex)) {
-            if (!getMainActivity().getCurrentChannel()
+            if (!getMainActivity()
+                    .getCurrentChannel()
                     .hasSameReadOnlyInfo(ChannelsRowItem.APP_LINK_ITEM.getChannel())) {
                 ChannelsRowItem.APP_LINK_ITEM.setChannel(
-                        new Channel.Builder(getMainActivity().getCurrentChannel()).build());
+                        new ChannelImpl.Builder(getMainActivity().getCurrentChannel()).build());
                 notifyItemChanged(currentIndex);
             }
             ++currentIndex;
@@ -213,9 +215,7 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
         }
     }
 
-    /**
-     * Returns {@code true} if the item should be shown.
-     */
+    /** Returns {@code true} if the item should be shown. */
     private boolean updateItem(boolean needToShow, ChannelsRowItem item, int index) {
         List<ChannelsRowItem> items = getItemList();
         boolean isItemInList = index < items.size() && item.equals(items.get(index));
@@ -230,14 +230,14 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
     }
 
     private boolean needToShowSetupItem() {
-        TvInputManagerHelper inputManager =
-                TvApplication.getSingletons(mContext).getTvInputManagerHelper();
-        return SetupUtils.getInstance(mContext).hasNewInput(inputManager);
+        TvSingletons singletons = TvSingletons.getSingletons(mContext);
+        TvInputManagerHelper inputManager = singletons.getTvInputManagerHelper();
+        return singletons.getSetupUtils().hasNewInput(inputManager);
     }
 
     private boolean needToShowDvrItem() {
         TvInputManagerHelper inputManager =
-                TvApplication.getSingletons(mContext).getTvInputManagerHelper();
+                TvSingletons.getSingletons(mContext).getTvInputManagerHelper();
         if (mDvrDataManager != null) {
             for (TvInputInfo info : inputManager.getTvInputInfos(true, true)) {
                 if (info.canRecord()) {
@@ -250,7 +250,7 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
 
     private boolean needToShowAppLinkItem() {
         TvInputManagerHelper inputManager =
-                TvApplication.getSingletons(mContext).getTvInputManagerHelper();
+                TvSingletons.getSingletons(mContext).getTvInputManagerHelper();
         Channel currentChannel = getMainActivity().getCurrentChannel();
         return currentChannel != null
                 && currentChannel.getAppLinkType(mContext) != Channel.APP_LINK_TYPE_NONE
@@ -289,8 +289,10 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
 
     private static boolean addChannelToList(
             List<Channel> channelList, Channel channel, long currentChannelId) {
-        if (channel == null || channel.getId() == currentChannelId
-                || channelList.contains(channel) || !channel.isBrowsable()) {
+        if (channel == null
+                || channel.getId() == currentChannelId
+                || channelList.contains(channel)
+                || !channel.isBrowsable()) {
             return false;
         }
         channelList.add(channel);

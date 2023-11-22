@@ -15,6 +15,7 @@ import static android.hardware.camera2.cts.CameraTestUtils.*;
 import static com.android.ex.camera2.blocking.BlockingSessionCallback.*;
 
 import android.graphics.ImageFormat;
+import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraConstrainedHighSpeedCaptureSession;
@@ -38,6 +39,7 @@ import android.media.MediaFormat;
 import android.media.MediaRecorder;
 import android.os.Environment;
 import android.os.SystemClock;
+import android.platform.test.annotations.AppModeFull;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.util.Log;
 import android.util.Range;
@@ -59,12 +61,14 @@ import java.util.HashMap;
  * CameraDevice video recording use case tests by using MediaRecorder and
  * MediaCodec.
  */
+@AppModeFull
 @LargeTest
 public class RecordingTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "RecordingTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
     private static final boolean DEBUG_DUMP = Log.isLoggable(TAG, Log.DEBUG);
     private static final int RECORDING_DURATION_MS = 3000;
+    private static final int PREVIEW_DURATION_MS = 3000;
     private static final float DURATION_MARGIN = 0.2f;
     private static final double FRAME_DURATION_ERROR_TOLERANCE_MS = 3.0;
     private static final float FRAMEDURATION_MARGIN = 0.2f;
@@ -119,6 +123,13 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                 if (!mStaticInfo.isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] +
                             " does not support color outputs, skipping");
+                    continue;
+                }
+
+                // External camera doesn't support CamcorderProfile recording
+                if (mStaticInfo.isExternalCamera()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support CamcorderProfile, skipping");
                     continue;
                 }
 
@@ -295,7 +306,118 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
     }
 
     public void testConstrainedHighSpeedRecording() throws Exception {
-        constrainedHighSpeedRecording();
+        constrainedHighSpeedRecording(/*enableSessionParams*/ false);
+        constrainedHighSpeedRecording(/*enableSessionParams*/ true);
+    }
+
+    public void testAbandonedHighSpeedRequest() throws Exception {
+        for (String id : mCameraIds) {
+            try {
+                Log.i(TAG, "Testing bad suface for createHighSpeedRequestList for camera " + id);
+                // Re-use the MediaRecorder object for the same camera device.
+                mMediaRecorder = new MediaRecorder();
+                openDevice(id);
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
+                if (!mStaticInfo.isConstrainedHighSpeedVideoSupported()) {
+                    Log.i(TAG, "Camera " + id +
+                            " does not support constrained high speed video, skipping");
+                    continue;
+                }
+
+                StreamConfigurationMap config =
+                        mStaticInfo.getValueFromKeyNonNull(
+                                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+                Size[] highSpeedVideoSizes = config.getHighSpeedVideoSizes();
+                Size size = highSpeedVideoSizes[0];
+                Range<Integer> fpsRange = getHighestHighSpeedFixedFpsRangeForSize(config, size);
+                mCollector.expectNotNull("Unable to find the fixed frame rate fps range for " +
+                        "size " + size, fpsRange);
+                if (fpsRange == null) {
+                    continue;
+                }
+
+                int captureRate = fpsRange.getLower();
+                int videoFramerate = captureRate / SLOWMO_SLOW_FACTOR;
+                // Skip the test if the highest recording FPS supported by CamcorderProfile
+                if (fpsRange.getUpper() > getFpsFromHighSpeedProfileForSize(size)) {
+                    Log.w(TAG, "high speed recording " + size + "@" + captureRate + "fps"
+                            + " is not supported by CamcorderProfile");
+                    continue;
+                }
+
+                mOutMediaFileName = VIDEO_FILE_PATH + "/test_video.mp4";
+                prepareRecording(size, videoFramerate, captureRate);
+                updatePreviewSurfaceWithVideo(size, captureRate);
+
+                List<Surface> outputSurfaces = new ArrayList<Surface>(2);
+                assertTrue("Both preview and recording surfaces should be valid",
+                        mPreviewSurface.isValid() && mRecordingSurface.isValid());
+
+                outputSurfaces.add(mPreviewSurface);
+                outputSurfaces.add(mRecordingSurface);
+
+                mSessionListener = new BlockingSessionCallback();
+                mSession = configureCameraSession(mCamera, outputSurfaces, /*highSpeed*/true,
+                        mSessionListener, mHandler);
+
+                CaptureRequest.Builder requestBuilder =
+                        mCamera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+                requestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange);
+                requestBuilder.addTarget(mPreviewSurface);
+                requestBuilder.addTarget(mRecordingSurface);
+
+                // 1. Test abandoned MediaRecorder
+                releaseRecorder();
+                try {
+                    List<CaptureRequest> slowMoRequests =
+                            ((CameraConstrainedHighSpeedCaptureSession) mSession).
+                            createHighSpeedRequestList(requestBuilder.build());
+                    fail("Create high speed request on abandoned surface must fail!");
+                } catch (IllegalArgumentException e) {
+                    Log.i(TAG, "Release recording surface test passed");
+                    // expected
+                }
+
+                // 2. Test abandoned preview surface
+                mMediaRecorder = new MediaRecorder();
+                SurfaceTexture preview = new SurfaceTexture(/*random int*/ 1);
+                Surface previewSurface = new Surface(preview);
+                preview.setDefaultBufferSize(size.getWidth(), size.getHeight());
+
+                outputSurfaces = new ArrayList<Surface>();
+                outputSurfaces.add(previewSurface);
+
+                prepareRecording(size, videoFramerate, captureRate);
+                updatePreviewSurfaceWithVideo(size, captureRate);
+
+                mSession = configureCameraSession(mCamera, outputSurfaces, /*highSpeed*/true,
+                        mSessionListener, mHandler);
+
+                requestBuilder = mCamera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+                requestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange);
+                requestBuilder.addTarget(previewSurface);
+
+                // Abandon preview surface.
+                previewSurface.release();
+
+                try {
+                    List<CaptureRequest> slowMoRequests =
+                            ((CameraConstrainedHighSpeedCaptureSession) mSession).
+                            createHighSpeedRequestList(requestBuilder.build());
+                    fail("Create high speed request on abandoned preview surface must fail!");
+                } catch (IllegalArgumentException e) {
+                    Log.i(TAG, "Release preview surface test passed");
+                    // expected
+                }
+            } finally {
+                closeDevice();
+                releaseRecorder();
+            }
+        }
     }
 
     /**
@@ -317,6 +439,11 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                 if (!mStaticInfo.isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] +
                             " does not support color outputs, skipping");
+                    continue;
+                }
+                if (mStaticInfo.isExternalCamera()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support CamcorderProfile, skipping");
                     continue;
                 }
                 initSupportedVideoSize(mCameraIds[i]);
@@ -400,6 +527,25 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                         + sz.toString() + ".mp4";
             }
 
+            // Allow external camera to use variable fps range
+            Range<Integer> fpsRange = null;
+            if (mStaticInfo.isExternalCamera()) {
+                Range<Integer>[] availableFpsRange =
+                        mStaticInfo.getAeAvailableTargetFpsRangesChecked();
+
+                boolean foundRange = false;
+                int minFps = 0;
+                for (int i = 0; i < availableFpsRange.length; i += 1) {
+                    if (minFps < availableFpsRange[i].getLower()
+                            && VIDEO_FRAME_RATE == availableFpsRange[i].getUpper()) {
+                        minFps = availableFpsRange[i].getLower();
+                        foundRange = true;
+                    }
+                }
+                assertTrue("Cannot find FPS range for maxFps " + VIDEO_FRAME_RATE, foundRange);
+                fpsRange = Range.create(minFps, VIDEO_FRAME_RATE);
+            }
+
             // Use AVC and AAC a/v compression format.
             prepareRecording(sz, VIDEO_FRAME_RATE, VIDEO_FRAME_RATE);
 
@@ -409,7 +555,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
             // Start recording
             SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
             if (!startSharedRecording(/* useMediaRecorder */true, resultListener,
-                    /*useVideoStab*/false)) {
+                    /*useVideoStab*/false, fpsRange)) {
                 mMediaRecorder.reset();
                 continue;
             }
@@ -420,11 +566,19 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
             // Stop recording and preview
             stopRecording(/* useMediaRecorder */true);
             // Convert number of frames camera produced into the duration in unit of ms.
-            float frameDurationMs = 1000.0f / VIDEO_FRAME_RATE;
-            float durationMs = resultListener.getTotalNumFrames() * frameDurationMs;
+            float frameDurationMinMs = 1000.0f / VIDEO_FRAME_RATE;
+            float durationMinMs = resultListener.getTotalNumFrames() * frameDurationMinMs;
+            float durationMaxMs = durationMinMs;
+            float frameDurationMaxMs = 0.f;
+            if (fpsRange != null) {
+                frameDurationMaxMs = 1000.0f / fpsRange.getLower();
+                durationMaxMs = resultListener.getTotalNumFrames() * frameDurationMaxMs;
+            }
 
             // Validation.
-            validateRecording(sz, durationMs, frameDurationMs, FRMDRP_RATE_TOLERANCE);
+            validateRecording(sz, durationMinMs, durationMaxMs,
+                    frameDurationMinMs, frameDurationMaxMs,
+                    FRMDRP_RATE_TOLERANCE);
 
             break;
         }
@@ -495,7 +649,8 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                     // Start recording
                     SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
                     startSlowMotionRecording(/*useMediaRecorder*/true, videoFramerate, captureRate,
-                            fpsRange, resultListener, /*useHighSpeedSession*/false);
+                            fpsRange, resultListener, /*useHighSpeedSession*/false,
+                            /*enableHighSpeedParams*/ false);
 
                     // Record certain duration.
                     SystemClock.sleep(RECORDING_DURATION_MS);
@@ -517,7 +672,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
         }
     }
 
-    private void constrainedHighSpeedRecording() throws Exception {
+    private void constrainedHighSpeedRecording(boolean enableSessionParams) throws Exception {
         for (String id : mCameraIds) {
             try {
                 Log.i(TAG, "Testing constrained high speed recording for camera " + id);
@@ -550,31 +705,47 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                             continue;
                         }
 
+                        SimpleCaptureCallback previewResultListener = new SimpleCaptureCallback();
+
+                        // prepare preview surface by using video size.
+                        updatePreviewSurfaceWithVideo(size, captureRate);
+
+                        startConstrainedPreview(fpsRange, previewResultListener);
+
                         mOutMediaFileName = VIDEO_FILE_PATH + "/test_cslowMo_video_" + captureRate +
                                 "fps_" + id + "_" + size.toString() + ".mp4";
 
                         prepareRecording(size, VIDEO_FRAME_RATE, captureRate);
 
-                        // prepare preview surface by using video size.
-                        updatePreviewSurfaceWithVideo(size, captureRate);
+                        SystemClock.sleep(PREVIEW_DURATION_MS);
 
-                        // Start recording
+                        stopCameraStreaming();
+
                         SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+                        // Start recording
                         startSlowMotionRecording(/*useMediaRecorder*/true, VIDEO_FRAME_RATE,
                                 captureRate, fpsRange, resultListener,
-                                /*useHighSpeedSession*/true);
+                                /*useHighSpeedSession*/true,
+                                /*enableHighSpeedParams*/ enableSessionParams);
 
                         // Record certain duration.
                         SystemClock.sleep(RECORDING_DURATION_MS);
 
                         // Stop recording and preview
                         stopRecording(/*useMediaRecorder*/true);
+
+                        startConstrainedPreview(fpsRange, previewResultListener);
+
                         // Convert number of frames camera produced into the duration in unit of ms.
                         float frameDurationMs = 1000.0f / VIDEO_FRAME_RATE;
                         float durationMs = resultListener.getTotalNumFrames() * frameDurationMs;
 
                         // Validation.
                         validateRecording(size, durationMs, frameDurationMs, FRMDRP_RATE_TOLERANCE);
+
+                        SystemClock.sleep(PREVIEW_DURATION_MS);
+
+                        stopCameraStreaming();
                     }
                 }
 
@@ -635,9 +806,30 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
         return fixedRanges;
     }
 
+    private void startConstrainedPreview(Range<Integer> fpsRange,
+            CameraCaptureSession.CaptureCallback listener) throws Exception {
+        List<Surface> outputSurfaces = new ArrayList<Surface>(1);
+        assertTrue("Preview surface should be valid", mPreviewSurface.isValid());
+        outputSurfaces.add(mPreviewSurface);
+        mSessionListener = new BlockingSessionCallback();
+        mSession = configureCameraSession(mCamera, outputSurfaces, /*isHighSpeed*/ true,
+                mSessionListener, mHandler);
+
+        List<CaptureRequest> slowMoRequests = null;
+        CaptureRequest.Builder requestBuilder =
+            mCamera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+        requestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange);
+        requestBuilder.addTarget(mPreviewSurface);
+        slowMoRequests = ((CameraConstrainedHighSpeedCaptureSession) mSession).
+            createHighSpeedRequestList(requestBuilder.build());
+
+        mSession.setRepeatingBurst(slowMoRequests, listener, mHandler);
+    }
+
     private void startSlowMotionRecording(boolean useMediaRecorder, int videoFrameRate,
             int captureRate, Range<Integer> fpsRange,
-            CameraCaptureSession.CaptureCallback listener, boolean useHighSpeedSession) throws Exception {
+            CameraCaptureSession.CaptureCallback listener, boolean useHighSpeedSession,
+            boolean enableHighSpeedParams) throws Exception {
         List<Surface> outputSurfaces = new ArrayList<Surface>(2);
         assertTrue("Both preview and recording surfaces should be valid",
                 mPreviewSurface.isValid() && mRecordingSurface.isValid());
@@ -648,8 +840,13 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
             outputSurfaces.add(mReaderSurface);
         }
         mSessionListener = new BlockingSessionCallback();
-        mSession = configureCameraSession(mCamera, outputSurfaces, useHighSpeedSession,
-                mSessionListener, mHandler);
+        if (useHighSpeedSession && enableHighSpeedParams) {
+            mSession = buildConstrainedCameraSession(mCamera, outputSurfaces, useHighSpeedSession,
+                    mSessionListener, mHandler);
+        } else {
+            mSession = configureCameraSession(mCamera, outputSurfaces, useHighSpeedSession,
+                    mSessionListener, mHandler);
+        }
 
         // Create slow motion request list
         List<CaptureRequest> slowMoRequests = null;
@@ -807,6 +1004,25 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                         + sz.toString() + ".mp4";
             }
 
+            // Allow external camera to use variable fps range
+            Range<Integer> fpsRange = null;
+            if (mStaticInfo.isExternalCamera()) {
+                Range<Integer>[] availableFpsRange =
+                        mStaticInfo.getAeAvailableTargetFpsRangesChecked();
+
+                boolean foundRange = false;
+                int minFps = 0;
+                for (int i = 0; i < availableFpsRange.length; i += 1) {
+                    if (minFps < availableFpsRange[i].getLower()
+                            && VIDEO_FRAME_RATE == availableFpsRange[i].getUpper()) {
+                        minFps = availableFpsRange[i].getLower();
+                        foundRange = true;
+                    }
+                }
+                assertTrue("Cannot find FPS range for maxFps " + VIDEO_FRAME_RATE, foundRange);
+                fpsRange = Range.create(minFps, VIDEO_FRAME_RATE);
+            }
+
             // Use AVC and AAC a/v compression format.
             prepareRecording(sz, VIDEO_FRAME_RATE, VIDEO_FRAME_RATE);
 
@@ -815,7 +1031,9 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
 
             // Start recording
             SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
-            startRecording(/* useMediaRecorder */true, resultListener, /*useVideoStab*/false);
+            startRecording(
+                    /* useMediaRecorder */true, resultListener,
+                    /*useVideoStab*/false, fpsRange);
 
             // Record certain duration.
             SystemClock.sleep(RECORDING_DURATION_MS);
@@ -823,11 +1041,19 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
             // Stop recording and preview
             stopRecording(/* useMediaRecorder */true);
             // Convert number of frames camera produced into the duration in unit of ms.
-            float frameDurationMs = 1000.0f / VIDEO_FRAME_RATE;
-            float durationMs = resultListener.getTotalNumFrames() * frameDurationMs;
+            float frameDurationMinMs = 1000.0f / VIDEO_FRAME_RATE;
+            float durationMinMs = resultListener.getTotalNumFrames() * frameDurationMinMs;
+            float durationMaxMs = durationMinMs;
+            float frameDurationMaxMs = 0.f;
+            if (fpsRange != null) {
+                frameDurationMaxMs = 1000.0f / fpsRange.getLower();
+                durationMaxMs = resultListener.getTotalNumFrames() * frameDurationMaxMs;
+            }
 
             // Validation.
-            validateRecording(sz, durationMs, frameDurationMs, FRMDRP_RATE_TOLERANCE);
+            validateRecording(sz, durationMinMs, durationMaxMs,
+                    frameDurationMinMs, frameDurationMaxMs,
+                    FRMDRP_RATE_TOLERANCE);
         }
     }
 
@@ -858,6 +1084,12 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                     if (!mStaticInfo.isColorOutputSupported()) {
                         Log.i(TAG, "Camera " + id +
                                 " does not support color outputs, skipping");
+                        continue;
+                    }
+
+                    if (mStaticInfo.isExternalCamera()) {
+                        Log.i(TAG, "Camera " + id +
+                                " does not support CamcorderProfile, skipping");
                         continue;
                     }
 
@@ -1052,6 +1284,14 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                 updatePreviewSurfaceWithVideo(videoSz, profile.videoFrameRate);
 
                 prepareVideoSnapshot(videoSnapshotRequestBuilder, imageListener);
+                Range<Integer> fpsRange = Range.create(profile.videoFrameRate,
+                        profile.videoFrameRate);
+                videoSnapshotRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
+                        fpsRange);
+                if (mStaticInfo.isVideoStabilizationSupported()) {
+                    videoSnapshotRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
+                            CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_ON);
+                }
                 CaptureRequest request = videoSnapshotRequestBuilder.build();
 
                 // Start recording
@@ -1250,6 +1490,12 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
 
     private void startRecording(boolean useMediaRecorder,
             CameraCaptureSession.CaptureCallback listener, boolean useVideoStab) throws Exception {
+        startRecording(useMediaRecorder, listener, useVideoStab, /*variableFpsRange*/null);
+    }
+
+    private void startRecording(boolean useMediaRecorder,
+            CameraCaptureSession.CaptureCallback listener, boolean useVideoStab,
+            Range<Integer> variableFpsRange) throws Exception {
         if (!mStaticInfo.isVideoStabilizationSupported() && useVideoStab) {
             throw new IllegalArgumentException("Video stabilization is not supported");
         }
@@ -1269,7 +1515,9 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
         CaptureRequest.Builder recordingRequestBuilder =
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
         // Make sure camera output frame rate is set to correct value.
-        Range<Integer> fpsRange = Range.create(mVideoFrameRate, mVideoFrameRate);
+        Range<Integer> fpsRange = (variableFpsRange == null) ?
+                Range.create(mVideoFrameRate, mVideoFrameRate) : variableFpsRange;
+
         recordingRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange);
         if (useVideoStab) {
             recordingRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
@@ -1294,7 +1542,8 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
      * @return true if success, false if sharing is not supported.
      */
     private boolean startSharedRecording(boolean useMediaRecorder,
-            CameraCaptureSession.CaptureCallback listener, boolean useVideoStab) throws Exception {
+            CameraCaptureSession.CaptureCallback listener, boolean useVideoStab,
+            Range<Integer> variableFpsRange) throws Exception {
         if (!mStaticInfo.isVideoStabilizationSupported() && useVideoStab) {
             throw new IllegalArgumentException("Video stabilization is not supported");
         }
@@ -1319,7 +1568,9 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
         CaptureRequest.Builder recordingRequestBuilder =
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
         // Make sure camera output frame rate is set to correct value.
-        Range<Integer> fpsRange = Range.create(mVideoFrameRate, mVideoFrameRate);
+        Range<Integer> fpsRange = (variableFpsRange == null) ?
+                Range.create(mVideoFrameRate, mVideoFrameRate) : variableFpsRange;
+
         recordingRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange);
         if (useVideoStab) {
             recordingRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
@@ -1378,9 +1629,30 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
     private void validateRecording(
             Size sz, float expectedDurationMs, float expectedFrameDurationMs,
             float frameDropTolerance) throws Exception {
+        validateRecording(sz,
+                expectedDurationMs,  /*fixed FPS recording*/0.f,
+                expectedFrameDurationMs, /*fixed FPS recording*/0.f,
+                frameDropTolerance);
+    }
+
+    private void validateRecording(
+            Size sz,
+            float expectedDurationMinMs,      // Min duration (maxFps)
+            float expectedDurationMaxMs,      // Max duration (minFps). 0.f for fixed fps recording
+            float expectedFrameDurationMinMs, // maxFps
+            float expectedFrameDurationMaxMs, // minFps. 0.f for fixed fps recording
+            float frameDropTolerance) throws Exception {
         File outFile = new File(mOutMediaFileName);
         assertTrue("No video is recorded", outFile.exists());
-        float maxFrameDuration = expectedFrameDurationMs * (1.0f + FRAMEDURATION_MARGIN);
+        float maxFrameDuration = expectedFrameDurationMinMs * (1.0f + FRAMEDURATION_MARGIN);
+        if (expectedFrameDurationMaxMs > 0.f) {
+            maxFrameDuration = expectedFrameDurationMaxMs * (1.0f + FRAMEDURATION_MARGIN);
+        }
+
+        if (expectedDurationMaxMs == 0.f) {
+            expectedDurationMaxMs = expectedDurationMinMs;
+        }
+
         MediaExtractor extractor = new MediaExtractor();
         try {
             extractor.setDataSource(mOutMediaFileName);
@@ -1412,8 +1684,8 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                     " got " + videoSz.toString(), videoSz.equals(sz));
             float duration = (float) (durationUs / 1000);
             if (VERBOSE) {
-                Log.v(TAG, String.format("Video duration: recorded %fms, expected %fms",
-                                         duration, expectedDurationMs));
+                Log.v(TAG, String.format("Video duration: recorded %fms, expected [%f,%f]ms",
+                                         duration, expectedDurationMinMs, expectedDurationMaxMs));
             }
 
             // Do rest of validation only for better-than-LEGACY devices
@@ -1421,15 +1693,15 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
 
             // TODO: Don't skip this one for video snapshot on LEGACY
             assertTrue(String.format(
-                    "Camera %s: Video duration doesn't match: recorded %fms, expected %fms.",
-                    mCamera.getId(), duration, expectedDurationMs),
-                    Math.abs(duration - expectedDurationMs) <
-                    DURATION_MARGIN * expectedDurationMs);
+                    "Camera %s: Video duration doesn't match: recorded %fms, expected [%f,%f]ms.",
+                    mCamera.getId(), duration, expectedDurationMinMs, expectedDurationMaxMs),
+                    duration > expectedDurationMinMs * (1.f - DURATION_MARGIN) &&
+                            duration < expectedDurationMaxMs * (1.f + DURATION_MARGIN));
 
             // Check for framedrop
             long lastSampleUs = 0;
             int frameDropCount = 0;
-            int expectedFrameCount = (int) (expectedDurationMs / expectedFrameDurationMs);
+            int expectedFrameCount = (int) (expectedDurationMinMs / expectedFrameDurationMinMs);
             ArrayList<Long> timestamps = new ArrayList<Long>(expectedFrameCount);
             while (true) {
                 timestamps.add(extractor.getSampleTime());
@@ -1445,17 +1717,21 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                 if (frameDurationMs > maxFrameDuration) {
                     Log.w(TAG, String.format(
                         "Frame drop at %d: expectation %f, observed %f",
-                        i, expectedFrameDurationMs, frameDurationMs));
+                        i, expectedFrameDurationMinMs, frameDurationMs));
                     frameDropCount++;
                 }
                 prevSampleUs = currentSampleUs;
             }
-            float frameDropRate = 100.f * frameDropCount / expectedFrameCount;
+            float frameDropRate = 100.f * frameDropCount / timestamps.size();
             Log.i(TAG, String.format("Frame drop rate %d/%d (%f%%)",
-                frameDropCount, expectedFrameCount, frameDropRate));
+                frameDropCount, timestamps.size(), frameDropRate));
             assertTrue(String.format(
-                    "Camera %s: Video frame drop rate too high: %f%%, tolerance %f%%.",
-                    mCamera.getId(), frameDropRate, frameDropTolerance),
+                    "Camera %s: Video frame drop rate too high: %f%%, tolerance %f%%. " +
+                    "Video size: %s, expectedDuration [%f,%f], expectedFrameDuration %f, " +
+                    "frameDropCnt %d, frameCount %d",
+                    mCamera.getId(), frameDropRate, frameDropTolerance,
+                    sz.toString(), expectedDurationMinMs, expectedDurationMaxMs,
+                    expectedFrameDurationMinMs, frameDropCount, timestamps.size()),
                     frameDropRate < frameDropTolerance);
         } finally {
             extractor.release();

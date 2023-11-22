@@ -18,18 +18,13 @@ package com.android.tv.data;
 
 import android.os.Parcel;
 import android.os.Parcelable;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-/**
- * A convenience class for the list of {@link Parcelable}s.
- */
+/** A convenience class for the list of {@link Parcelable}s. */
 public final class ParcelableList<T extends Parcelable> implements Parcelable {
-    /**
-     * Create instance from {@link Parcel}.
-     */
+    /** Create instance from {@link Parcel}. */
     public static ParcelableList fromParcel(Parcel in) {
         ParcelableList list = new ParcelableList();
         int length = in.readInt();
@@ -41,32 +36,29 @@ public final class ParcelableList<T extends Parcelable> implements Parcelable {
         return list;
     }
 
-    /**
-     * A creator for {@link ParcelableList}.
-     */
-    public static final Creator<ParcelableList> CREATOR = new Creator<ParcelableList>() {
-        @Override
-        public ParcelableList createFromParcel(Parcel in) {
-            return ParcelableList.fromParcel(in);
-        }
+    /** A creator for {@link ParcelableList}. */
+    public static final Creator<ParcelableList> CREATOR =
+            new Creator<ParcelableList>() {
+                @Override
+                public ParcelableList createFromParcel(Parcel in) {
+                    return ParcelableList.fromParcel(in);
+                }
 
-        @Override
-        public ParcelableList[] newArray(int size) {
-            return new ParcelableList[size];
-        }
-    };
+                @Override
+                public ParcelableList[] newArray(int size) {
+                    return new ParcelableList[size];
+                }
+            };
 
     private final List<T> mList = new ArrayList<>();
 
-    private ParcelableList() { }
+    private ParcelableList() {}
 
     public ParcelableList(Collection<T> initialList) {
         mList.addAll(initialList);
     }
 
-    /**
-     * Returns the list.
-     */
+    /** Returns the list. */
     public List<T> getList() {
         return new ArrayList<T>(mList);
     }

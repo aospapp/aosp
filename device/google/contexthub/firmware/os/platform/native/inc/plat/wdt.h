@@ -22,6 +22,8 @@ extern "C" {
 #endif
 
 void wdtInit(){}
+void wdtEnableClk(){}
+void wdtDisableClk(){}
 
 #ifdef __cplusplus
 }

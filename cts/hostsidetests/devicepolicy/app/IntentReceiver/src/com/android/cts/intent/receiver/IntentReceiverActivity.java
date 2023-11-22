@@ -57,8 +57,14 @@ public class IntentReceiverActivity extends Activity {
     private static final String ACTION_JUST_CREATE =
             "com.android.cts.action.JUST_CREATE";
 
-    public static final String RECEIVING_ACTIVITY_CREATED_ACTION
-            = "com.android.cts.deviceowner.RECEIVING_ACTIVITY_CREATED_ACTION";
+    private static final String ACTION_CREATE_AND_WAIT =
+            "com.android.cts.action.CREATE_AND_WAIT";
+
+    private static final String RECEIVER_ACTIVITY_CREATED_ACTION =
+            "com.android.cts.deviceowner.action.RECEIVER_ACTIVITY_CREATED";
+
+    private static final String RECEIVER_ACTIVITY_DESTROYED_ACTION =
+            "com.android.cts.deviceowner.action.RECEIVER_ACTIVITY_DESTROYED";
 
     public static final String ACTION_NOTIFY_URI_CHANGE
             = "com.android.cts.action.NOTIFY_URI_CHANGE";
@@ -131,10 +137,19 @@ public class IntentReceiverActivity extends Activity {
                 getContentResolver().unregisterContentObserver(uriObserver);
                 handlerThread.quit();
             }
-        } else if (ACTION_JUST_CREATE.equals(action)) {
-            sendBroadcast(new Intent(RECEIVING_ACTIVITY_CREATED_ACTION));
+        } else if (ACTION_JUST_CREATE.equals(action) || ACTION_CREATE_AND_WAIT.equals(action)) {
+            sendBroadcast(new Intent(RECEIVER_ACTIVITY_CREATED_ACTION));
         }
-        finish();
+
+        if (!ACTION_CREATE_AND_WAIT.equals(action)) {
+            finish();
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        sendBroadcast(new Intent(RECEIVER_ACTIVITY_DESTROYED_ACTION));
+        super.onDestroy();
     }
 
     private class UriObserver extends ContentObserver {

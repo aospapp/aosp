@@ -29,8 +29,8 @@ If device implementations declare `android.software.device_admin`, they:
 *   [C-1-1] MUST support enrolling a Device Policy Client (DPC) as a
     [Device Owner app](
     http://developer.android.com/reference/android/app/admin/DevicePolicyManager.html#isDeviceOwnerApp%28java.lang.String%29)
-    as described below:.
-    *   when the device implementation has no user data is configured yet, it:
+    as described below:
+    *   When the device implementation has no user data is configured yet, it:
         *    [C-1-3] MUST report `true` for [`DevicePolicyManager.isProvisioningAllowed(ACTION_PROVISION_MANAGED_DEVICE)`](https://developer.android.com/reference/android/app/admin/DevicePolicyManager.html\#isProvisioningAllowed\(java.lang.String\)).
         *    [C-1-4] MUST enroll the DPC application as the Device Owner app in
              response to the intent action [`android.app.action.PROVISION_MANAGED_DEVICE`](http://developer.android.com/reference/android/app/admin/DevicePolicyManager.html#ACTION_PROVISION_MANAGED_DEVICE).

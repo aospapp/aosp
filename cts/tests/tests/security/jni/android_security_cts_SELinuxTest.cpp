@@ -15,10 +15,10 @@
  */
 
 #include <jni.h>
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/ScopedLocalRef.h>
+#include <nativehelper/ScopedUtfChars.h>
 #include <selinux/selinux.h>
-#include <JNIHelp.h>
-#include <ScopedLocalRef.h>
-#include <ScopedUtfChars.h>
 
 #include <memory>
 

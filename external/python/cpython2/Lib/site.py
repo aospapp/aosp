@@ -203,6 +203,10 @@ def check_enableusersite():
     False: Disabled by user (command line option)
     True: Safe and enabled
     """
+    # GOOGLE(nanzhang): Don't enable user-site directories,
+    # everything's supposed to be hermetic.
+    return None
+
     if sys.flags.no_user_site:
         return False
 
@@ -518,7 +522,9 @@ def main():
     known_paths = removeduppaths()
     if ENABLE_USER_SITE is None:
         ENABLE_USER_SITE = check_enableusersite()
-    known_paths = addusersitepackages(known_paths)
+    if ENABLE_USER_SITE:
+        known_paths = addusersitepackages(known_paths)
+
     known_paths = addsitepackages(known_paths)
     if sys.platform == 'os2emx':
         setBEGINLIBPATH()

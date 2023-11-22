@@ -19,6 +19,7 @@ package android.security.cts;
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
+import android.os.Process;
 import android.platform.test.annotations.SecurityTest;
 import android.util.Log;
 import java.lang.reflect.Field;
@@ -75,6 +76,11 @@ public class IsolatedService extends Service {
         public IBinder getSystemService(String serviceName) {
             return getServiceFromServiceManager(serviceName);
         }
+
+        public boolean getProcessIsIsolated() {
+            return Process.isIsolated();
+        }
+
     };
 
     @Override

@@ -31,12 +31,13 @@ class ShellBinaryCrashTest(base_test.BaseTestClass):
     EXIT_CODE_SEGFAULT = 139
 
     def setUpClass(self):
+        self.run_as_vts_self_test = False
         self.dut = self.registerController(android_device)[0]
 
     def testCrashBinary(self):
         """Tests whether the agent survives when a called binary crashes."""
         self.dut.shell.InvokeTerminal("my_shell1")
-        target = "/data/local/tmp/64/vts_test_binary_crash_app"
+        target = "/data/local/tmp/vts_test_binary_crash_app"
         results = self.dut.shell.my_shell1.Execute(
             ["chmod 755 %s" % target, target])
         logging.info(str(results[const.STDOUT]))
@@ -51,7 +52,7 @@ class ShellBinaryCrashTest(base_test.BaseTestClass):
     def testSegmentFaultBinary(self):
         """Tests whether the agent survives when a binary leads to segfault."""
         self.dut.shell.InvokeTerminal("my_shell1")
-        target = "/data/local/tmp/32/connect01"
+        target = "/data/local/tmp/vts_test_binary_seg_fault"
         results = self.dut.shell.my_shell1.Execute(
             ["chmod 755 %s" % target, target])
         logging.info(str(results[const.STDOUT]))

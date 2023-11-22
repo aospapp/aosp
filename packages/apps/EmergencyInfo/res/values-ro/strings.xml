@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Ștergeți toate informațiile și persoanele de contact?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Adăugând informații medicale și persoane de contact pentru urgențe, îi puteți ajuta pe cei care acordă primul ajutor în caz de urgență.\n\nOricine poate să citească aceste informații de pe ecranul de blocare și să apeleze persoanele de contact atingându-le numele, fără să deblocheze telefonul."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Adăugați informații în caz de urgență"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Ajutați-i pe cei care acordă primul ajutor să găsească informații importante"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Lăsați echipa de prim ajutor să vă vadă informațiile"</string>
 </resources>

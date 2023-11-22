@@ -33,7 +33,7 @@ class firmware_FAFTSetup(FirmwareTest):
             self.ec.send_command("chan 0")
             expected_output = ["Chip:\s+[^\r\n]*\r\n",
                                "RO:\s+[^\r\n]*\r\n",
-                               "RW:\s+[^\r\n]*\r\n",
+                               "RW_?[AB]?:\s+[^\r\n]*\r\n",
                                "Build:\s+[^\r\n]*\r\n"]
             self.ec.send_command_get_output("version",
                                             expected_output)

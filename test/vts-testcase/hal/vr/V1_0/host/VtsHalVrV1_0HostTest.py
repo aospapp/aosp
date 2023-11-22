@@ -19,30 +19,18 @@ import logging
 import time
 
 from vts.runners.host import asserts
-from vts.runners.host import base_test
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
-from vts.utils.python.precondition import precondition_utils
+from vts.testcases.template.hal_hidl_host_test import hal_hidl_host_test
 
 
-class VrHidlTest(base_test.BaseTestClass):
+class VrHidlTest(hal_hidl_host_test.HalHidlHostTest):
     """A simple testcase for the VR HIDL HAL."""
+
+    TEST_HAL_SERVICES = {"android.hardware.vr@1.0::IVr"}
 
     def setUpClass(self):
         """Creates a mirror and turns on the framework-layer VR service."""
-        self.dut = self.registerController(android_device)[0]
-
-        self.dut.shell.InvokeTerminal("one")
-        self.dut.shell.one.Execute("setenforce 0")  # SELinux permissive mode
-        if not precondition_utils.CanRunHidlHalTest(
-            self, self.dut, self.dut.shell.one):
-            self._skip_all_testcases = True
-            return
-
-        # Test using the binderized mode
-        self.dut.shell.one.Execute(
-            "setprop vts.hal.vts.hidl.get_stub true")
-
+        super(VrHidlTest, self).setUpClass()
         self.dut.hal.InitHidlHal(
             target_type="vr",
             target_basepaths=self.dut.libPaths,
@@ -50,22 +38,6 @@ class VrHidlTest(base_test.BaseTestClass):
             target_package="android.hardware.vr",
             target_component_name="IVr",
             bits=int(self.abi_bitness))
-
-    def tearDownClass(self):
-        """ If profiling is enabled for the test, collect the profiling data
-            and disable profiling after the test is done.
-        """
-        if not self._skip_all_testcases and self.profiling.enabled:
-            self.profiling.ProcessAndUploadTraceData()
-
-    def setUp(self):
-        if self.profiling.enabled:
-            self.profiling.EnableVTSProfiling(self.dut.shell.one)
-
-    def tearDown(self):
-        if self.profiling.enabled:
-            self.profiling.ProcessTraceDataForTestCase(self.dut)
-            self.profiling.DisableVTSProfiling(self.dut.shell.one)
 
     def testVrBasic(self):
         """A simple test case which just calls each registered function."""

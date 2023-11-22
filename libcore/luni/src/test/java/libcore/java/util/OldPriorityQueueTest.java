@@ -21,7 +21,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
 import junit.framework.TestCase;
-import libcore.util.SerializationTester;
+import libcore.libcore.util.SerializationTester;
 
 public class OldPriorityQueueTest extends TestCase {
     public void test_ConstructorI() {
@@ -52,6 +52,7 @@ public class OldPriorityQueueTest extends TestCase {
         assertTrue(queue.remove("AA"));
     }
 
+    @SuppressWarnings("CollectionIncompatibleType")
     public void test_remove_Ljava_lang_Object_not_exists() {
         Integer[] array = { 2, 45, 7, -12, 9, 23, 17, 1118, 10, 16, 39 };
         List<Integer> list = Arrays.asList(array);

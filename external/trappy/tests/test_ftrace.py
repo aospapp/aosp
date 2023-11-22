@@ -170,6 +170,22 @@ class TestFTrace(BaseTestThermal):
 
         self.assertEqual(trace.get_duration(), duration)
 
+    def test_ftrace_duration_window(self):
+        """Test that duration is correct with time window (normalize_time=True)"""
+        trace = trappy.FTrace(normalize_time=True, window=[1, 5])
+
+        duration = trace.thermal_governor.data_frame.index[-1] - trace.thermal.data_frame.index[0]
+
+        self.assertEqual(trace.get_duration(), duration)
+
+    def test_ftrace_duration_window_not_normalized(self):
+        """Test that duration is correct with time window (normalize_time=False)"""
+        trace = trappy.FTrace(normalize_time=False, window=[1, 5])
+
+        duration = trace.thermal_governor.data_frame.index[-1] - trace.thermal.data_frame.index[0]
+
+        self.assertEqual(trace.get_duration(), duration)
+
     def test_ftrace_duration_not_normalized(self):
         """Test get_duration: normalize_time=True"""
 
@@ -350,6 +366,26 @@ class TestFTrace(BaseTestThermal):
         trace = trappy.FTrace(abs_window=(1585, 1589.1))
         self.assertEquals(trace.thermal.data_frame.iloc[0]["temp"], 68989)
         self.assertEquals(trace.thermal.data_frame.iloc[-1]["temp"], 69530)
+
+    def test_parse_tracing_mark_write_events(self):
+        """Check that tracing_mark_write events are parsed without errors"""
+
+        in_data = """     sh-1379  [002]   353.397813: print:                tracing_mark_write: TRACE_MARKER_START
+     shutils-1381  [001]   353.680439: print:                tracing_mark_write: cpu_frequency:        state=450000 cpu_id=5"""
+
+        with open("trace.txt", "w") as fout:
+            fout.write(in_data)
+
+        try:
+            trace = trappy.FTrace()
+        except TypeError as e:
+            self.fail("tracing_mark_write parsing failed with {} exception"\
+                      .format(e.message))
+        # The second event is recognised as a cpu_frequency event and therefore
+        # put under trace.cpu_frequency
+        self.assertEquals(trace.tracing_mark_write.data_frame.iloc[-1]["string"],
+                          "TRACE_MARKER_START")
+        self.assertEquals(len(trace.tracing_mark_write.data_frame), 1)
 
 
 @unittest.skipUnless(utils_tests.trace_cmd_installed(),

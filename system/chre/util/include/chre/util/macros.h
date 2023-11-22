@@ -21,6 +21,7 @@
  * Obtains the number of elements in a C-style array.
  */
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
+#define ARRAY_END(array) (array + ARRAY_SIZE(array))
 
 /**
  * Performs macro expansion then converts the value into a string literal
@@ -28,13 +29,20 @@
 #define STRINGIFY(x) STRINGIFY2(x)
 #define STRINGIFY2(x) #x
 
-/**
- * Exports a symbol with default visibility.
- */
+// Compiler-specific functionality
 #if defined(__clang__) || defined(__GNUC__)
+
+//! Exports a symbol so it is accessible outside the .so (symbols are hidden by
+//! default)
 #define DLL_EXPORT __attribute__((visibility("default")))
+
+//! Marks a symbol as weak, so that it may be overridden at link time
+#define WEAK_SYMBOL __attribute__((weak))
+
 #else
-#warn "DLL_EXPORT left undefined"
+
+#warning "Missing compiler-specific macros"
+
 #endif
 
 #endif  // CHRE_UTIL_MACROS_H_

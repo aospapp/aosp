@@ -400,6 +400,7 @@ int benchmarkMemset(const char *name, const command_data_t &cmd_data, void_func_
 int benchmarkMemsetCold(const char *name, const command_data_t &cmd_data, void_func_t func) {
     memset_func_t memset_func = reinterpret_cast<memset_func_t>(func);
     COLD_ONE_BUF(name, cmd_data, ;, memset_func(buf, l, size));
+    (void)buffer_size;
 
     return 0;
 }
@@ -430,7 +431,7 @@ int benchmarkMemmoveBackwards(const char *name, const command_data_t &cmd_data, 
     memcpy_func_t memmove_func = reinterpret_cast<memcpy_func_t>(func);
 
     size_t size = cmd_data.args[0];
-    size_t alloc_size = size * 2 + 3 * cmd_data.dst_align;
+    size_t alloc_size = size * 2 + 3 * cmd_data.dst_align; // should alloc_size be used?
     uint8_t* src = allocateAlignedMemory(size, cmd_data.src_align, cmd_data.src_or_mask);
     if (!src)
         return -1;

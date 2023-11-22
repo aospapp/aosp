@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -94,7 +94,9 @@ static void smp_connect_callback(uint16_t channel, const RawAddress& bd_addr,
   tSMP_CB* p_cb = &smp_cb;
   tSMP_INT_DATA int_data;
 
-  SMP_TRACE_EVENT("SMDBG l2c %s", __func__);
+  SMP_TRACE_EVENT("%s: SMDBG l2c: bd_addr=%s, p_cb->pairing_bda=%s", __func__,
+                  bd_addr.ToString().c_str(),
+                  p_cb->pairing_bda.ToString().c_str());
 
   if (transport == BT_TRANSPORT_BR_EDR || bd_addr.IsEmpty()) return;
 
@@ -138,9 +140,10 @@ static void smp_data_received(uint16_t channel, const RawAddress& bd_addr,
   tSMP_CB* p_cb = &smp_cb;
   uint8_t* p = (uint8_t*)(p_buf + 1) + p_buf->offset;
   uint8_t cmd;
-  SMP_TRACE_EVENT("SMDBG l2c %s", __func__);
 
   STREAM_TO_UINT8(cmd, p);
+
+  SMP_TRACE_EVENT("%s: SMDBG l2c, cmd=0x%x", __func__, cmd);
 
   /* sanity check */
   if ((SMP_OPCODE_MAX < cmd) || (SMP_OPCODE_MIN > cmd)) {
@@ -183,7 +186,9 @@ static void smp_data_received(uint16_t channel, const RawAddress& bd_addr,
 
     p_cb->rcvd_cmd_code = cmd;
     p_cb->rcvd_cmd_len = (uint8_t)p_buf->len;
-    smp_sm_event(p_cb, cmd, p);
+    tSMP_INT_DATA smp_int_data;
+    smp_int_data.p_data = p;
+    smp_sm_event(p_cb, cmd, &smp_int_data);
   }
 
   osi_free(p_buf);
@@ -204,12 +209,14 @@ static void smp_tx_complete_callback(uint16_t cid, uint16_t num_pkt) {
   else
     SMP_TRACE_ERROR("Unexpected %s: num_pkt = %d", __func__, num_pkt);
 
-  uint8_t reason = SMP_SUCCESS;
   if (p_cb->total_tx_unacked == 0 && p_cb->wait_for_authorization_complete) {
-    if (cid == L2CAP_SMP_CID)
-      smp_sm_event(p_cb, SMP_AUTH_CMPL_EVT, &reason);
-    else
-      smp_br_state_machine_event(p_cb, SMP_BR_AUTH_CMPL_EVT, &reason);
+    tSMP_INT_DATA smp_int_data;
+    smp_int_data.status = SMP_SUCCESS;
+    if (cid == L2CAP_SMP_CID) {
+      smp_sm_event(p_cb, SMP_AUTH_CMPL_EVT, &smp_int_data);
+    } else {
+      smp_br_state_machine_event(p_cb, SMP_BR_AUTH_CMPL_EVT, &smp_int_data);
+    }
   }
 }
 
@@ -236,10 +243,11 @@ static void smp_br_connect_callback(uint16_t channel, const RawAddress& bd_addr,
     return;
   }
 
-  if (bd_addr != p_cb->pairing_bda) return;
-
   VLOG(1) << __func__ << " for pairing BDA: " << bd_addr
+          << ", pairing_bda:" << p_cb->pairing_bda
           << " Event: " << ((connected) ? "connected" : "disconnected");
+
+  if (bd_addr != p_cb->pairing_bda) return;
 
   if (connected) {
     if (!p_cb->connect_initialized) {
@@ -304,7 +312,9 @@ static void smp_br_data_received(uint16_t channel, const RawAddress& bd_addr,
 
     p_cb->rcvd_cmd_code = cmd;
     p_cb->rcvd_cmd_len = (uint8_t)p_buf->len;
-    smp_br_state_machine_event(p_cb, cmd, p);
+    tSMP_INT_DATA smp_int_data;
+    smp_int_data.p_data = p;
+    smp_br_state_machine_event(p_cb, cmd, &smp_int_data);
   }
 
   osi_free(p_buf);

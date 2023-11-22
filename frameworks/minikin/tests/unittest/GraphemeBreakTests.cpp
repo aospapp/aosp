@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
+#include "minikin/GraphemeBreak.h"
+
+#include <vector>
+
 #include <gtest/gtest.h>
-#include <UnicodeUtils.h>
-#include <minikin/GraphemeBreak.h>
+
+#include "UnicodeUtils.h"
 
 namespace minikin {
 
@@ -44,10 +48,10 @@ TEST(GraphemeBreak, utf16) {
     // tests for invalid UTF-16
     EXPECT_TRUE(IsBreak("U+D800 | U+D800"));  // two leading surrogates
     EXPECT_TRUE(IsBreak("U+DC00 | U+DC00"));  // two trailing surrogates
-    EXPECT_TRUE(IsBreak("'a' | U+D800"));  // lonely leading surrogate
-    EXPECT_TRUE(IsBreak("U+DC00 | 'a'"));  // lonely trailing surrogate
-    EXPECT_TRUE(IsBreak("U+D800 | 'a'"));  // leading surrogate followed by non-surrogate
-    EXPECT_TRUE(IsBreak("'a' | U+DC00"));  // non-surrogate followed by trailing surrogate
+    EXPECT_TRUE(IsBreak("'a' | U+D800"));     // lonely leading surrogate
+    EXPECT_TRUE(IsBreak("U+DC00 | 'a'"));     // lonely trailing surrogate
+    EXPECT_TRUE(IsBreak("U+D800 | 'a'"));     // leading surrogate followed by non-surrogate
+    EXPECT_TRUE(IsBreak("'a' | U+DC00"));     // non-surrogate followed by trailing surrogate
 }
 
 TEST(GraphemeBreak, rules) {
@@ -93,15 +97,15 @@ TEST(GraphemeBreak, rules) {
 
     // Rule GB12 and Rule GB13, Regional_Indicator x Regional_Indicator
     EXPECT_FALSE(IsBreak("U+1F1FA | U+1F1F8"));
-    EXPECT_TRUE(IsBreak("U+1F1FA U+1F1F8 | U+1F1FA U+1F1F8")); // Regional indicator pair (flag)
-    EXPECT_FALSE(IsBreak("U+1F1FA | U+1F1F8 U+1F1FA U+1F1F8")); // Regional indicator pair (flag)
-    EXPECT_FALSE(IsBreak("U+1F1FA U+1F1F8 U+1F1FA | U+1F1F8")); // Regional indicator pair (flag)
+    EXPECT_TRUE(IsBreak("U+1F1FA U+1F1F8 | U+1F1FA U+1F1F8"));   // Regional indicator pair (flag)
+    EXPECT_FALSE(IsBreak("U+1F1FA | U+1F1F8 U+1F1FA U+1F1F8"));  // Regional indicator pair (flag)
+    EXPECT_FALSE(IsBreak("U+1F1FA U+1F1F8 U+1F1FA | U+1F1F8"));  // Regional indicator pair (flag)
 
-    EXPECT_TRUE(IsBreak("U+1F1FA U+1F1F8 | U+1F1FA"));  // Regional indicator pair (flag)
+    EXPECT_TRUE(IsBreak("U+1F1FA U+1F1F8 | U+1F1FA"));   // Regional indicator pair (flag)
     EXPECT_FALSE(IsBreak("U+1F1FA | U+1F1F8 U+1F1FA"));  // Regional indicator pair (flag)
     // Same case as the two above, knowing that the first two characters ligate, which is what
     // would typically happen.
-    const float firstPairLigated[] = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0}; // Two entries per codepoint
+    const float firstPairLigated[] = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0};  // Two entries per codepoint
     EXPECT_TRUE(IsBreakWithAdvances(firstPairLigated, "U+1F1FA U+1F1F8 | U+1F1FA"));
     EXPECT_FALSE(IsBreakWithAdvances(firstPairLigated, "U+1F1FA | U+1F1F8 U+1F1FA"));
     // Repeat the tests, But now the font doesn't have a ligature for the first two characters,
@@ -111,7 +115,7 @@ TEST(GraphemeBreak, rules) {
     EXPECT_FALSE(IsBreakWithAdvances(secondPairLigated, "U+1F1FA U+1F1F8 | U+1F1FA"));
     EXPECT_TRUE(IsBreakWithAdvances(secondPairLigated, "U+1F1FA | U+1F1F8 U+1F1FA"));
 
-    EXPECT_TRUE(IsBreak("'a' U+1F1FA U+1F1F8 | U+1F1FA"));  // Regional indicator pair (flag)
+    EXPECT_TRUE(IsBreak("'a' U+1F1FA U+1F1F8 | U+1F1FA"));   // Regional indicator pair (flag)
     EXPECT_FALSE(IsBreak("'a' U+1F1FA | U+1F1F8 U+1F1FA"));  // Regional indicator pair (flag)
 
     EXPECT_TRUE(
@@ -131,9 +135,9 @@ TEST(GraphemeBreak, rules) {
 
     // Rule GB999, Any ÷ Any
     EXPECT_TRUE(IsBreak("'a' | 'b'"));
-    EXPECT_TRUE(IsBreak("'f' | 'i'"));  // probable ligature
-    EXPECT_TRUE(IsBreak("U+0644 | U+0627"));  // probable ligature, lam + alef
-    EXPECT_TRUE(IsBreak("U+4E00 | U+4E00"));  // CJK ideographs
+    EXPECT_TRUE(IsBreak("'f' | 'i'"));              // probable ligature
+    EXPECT_TRUE(IsBreak("U+0644 | U+0627"));        // probable ligature, lam + alef
+    EXPECT_TRUE(IsBreak("U+4E00 | U+4E00"));        // CJK ideographs
     EXPECT_TRUE(IsBreak("'a' | U+1F1FA U+1F1F8"));  // Regional indicator pair (flag)
     EXPECT_TRUE(IsBreak("U+1F1FA U+1F1F8 | 'a'"));  // Regional indicator pair (flag)
 
@@ -168,10 +172,10 @@ TEST(GraphemeBreak, rules) {
 
 TEST(GraphemeBreak, tailoring) {
     // control characters that we interpret as "extend"
-    EXPECT_FALSE(IsBreak("'a' | U+00AD"));  // soft hyphen
-    EXPECT_FALSE(IsBreak("'a' | U+200B"));  // zwsp
-    EXPECT_FALSE(IsBreak("'a' | U+200E"));  // lrm
-    EXPECT_FALSE(IsBreak("'a' | U+202A"));  // lre
+    EXPECT_FALSE(IsBreak("'a' | U+00AD"));   // soft hyphen
+    EXPECT_FALSE(IsBreak("'a' | U+200B"));   // zwsp
+    EXPECT_FALSE(IsBreak("'a' | U+200E"));   // lrm
+    EXPECT_FALSE(IsBreak("'a' | U+202A"));   // lre
     EXPECT_FALSE(IsBreak("'a' | U+E0041"));  // tag character
 
     // UTC-approved characters for the Prepend class
@@ -183,32 +187,32 @@ TEST(GraphemeBreak, tailoring) {
     EXPECT_FALSE(IsBreak("U+0915 | U+094D U+0915"));  // Devanagari ka+virama+ka
     EXPECT_FALSE(IsBreak("U+0915 U+094D | U+0915"));  // Devanagari ka+virama+ka
     EXPECT_FALSE(IsBreak("U+0E01 | U+0E3A U+0E01"));  // thai phinthu = pure killer
-    EXPECT_TRUE(IsBreak("U+0E01 U+0E3A | U+0E01"));  // thai phinthu = pure killer
+    EXPECT_TRUE(IsBreak("U+0E01 U+0E3A | U+0E01"));   // thai phinthu = pure killer
 
     // Repetition of above tests, but with a given advances array that implies everything
     // became just one cluster.
     const float conjoined[] = {1.0, 0.0, 0.0};
     EXPECT_FALSE(IsBreakWithAdvances(conjoined,
-            "U+0915 | U+094D U+0915"));  // Devanagari ka+virama+ka
+                                     "U+0915 | U+094D U+0915"));  // Devanagari ka+virama+ka
     EXPECT_FALSE(IsBreakWithAdvances(conjoined,
-            "U+0915 U+094D | U+0915"));  // Devanagari ka+virama+ka
+                                     "U+0915 U+094D | U+0915"));  // Devanagari ka+virama+ka
     EXPECT_FALSE(IsBreakWithAdvances(conjoined,
-            "U+0E01 | U+0E3A U+0E01"));  // thai phinthu = pure killer
+                                     "U+0E01 | U+0E3A U+0E01"));  // thai phinthu = pure killer
     EXPECT_TRUE(IsBreakWithAdvances(conjoined,
-            "U+0E01 U+0E3A | U+0E01"));  // thai phinthu = pure killer
+                                    "U+0E01 U+0E3A | U+0E01"));  // thai phinthu = pure killer
 
     // Repetition of above tests, but with a given advances array that the virama did not
     // form a cluster with the following consonant. The difference is that there is now
     // a grapheme break after the virama in ka+virama+ka.
     const float separate[] = {1.0, 0.0, 1.0};
     EXPECT_FALSE(IsBreakWithAdvances(separate,
-            "U+0915 | U+094D U+0915"));  // Devanagari ka+virama+ka
+                                     "U+0915 | U+094D U+0915"));  // Devanagari ka+virama+ka
     EXPECT_TRUE(IsBreakWithAdvances(separate,
-            "U+0915 U+094D | U+0915"));  // Devanagari ka+virama+ka
+                                    "U+0915 U+094D | U+0915"));  // Devanagari ka+virama+ka
     EXPECT_FALSE(IsBreakWithAdvances(separate,
-            "U+0E01 | U+0E3A U+0E01"));  // thai phinthu = pure killer
+                                     "U+0E01 | U+0E3A U+0E01"));  // thai phinthu = pure killer
     EXPECT_TRUE(IsBreakWithAdvances(separate,
-            "U+0E01 U+0E3A | U+0E01"));  // thai phinthu = pure killer
+                                    "U+0E01 U+0E3A | U+0E01"));  // thai phinthu = pure killer
 
     // suppress grapheme breaks in zwj emoji sequences
     EXPECT_FALSE(IsBreak("U+1F469 U+200D | U+2764 U+FE0F U+200D U+1F48B U+200D U+1F468"));
@@ -230,8 +234,8 @@ TEST(GraphemeBreak, tailoring) {
 }
 
 TEST(GraphemeBreak, emojiModifiers) {
-    EXPECT_FALSE(IsBreak("U+261D | U+1F3FB"));  // white up pointing index + modifier
-    EXPECT_FALSE(IsBreak("U+270C | U+1F3FB"));  // victory hand + modifier
+    EXPECT_FALSE(IsBreak("U+261D | U+1F3FB"));   // white up pointing index + modifier
+    EXPECT_FALSE(IsBreak("U+270C | U+1F3FB"));   // victory hand + modifier
     EXPECT_FALSE(IsBreak("U+1F466 | U+1F3FB"));  // boy + modifier
     EXPECT_FALSE(IsBreak("U+1F466 | U+1F3FC"));  // boy + modifier
     EXPECT_FALSE(IsBreak("U+1F466 | U+1F3FD"));  // boy + modifier
@@ -277,10 +281,10 @@ TEST(GraphemeBreak, emojiModifiers) {
     EXPECT_TRUE(IsBreakWithAdvances(unligated1_1_2, "U+270C U+FE0F | U+1F3FB"));
 
     // heart is not an emoji base
-    EXPECT_TRUE(IsBreak("U+2764 | U+1F3FB"));  // heart + modifier
+    EXPECT_TRUE(IsBreak("U+2764 | U+1F3FB"));         // heart + modifier
     EXPECT_TRUE(IsBreak("U+2764 U+FE0E | U+1F3FB"));  // heart + emoji style + modifier
     EXPECT_TRUE(IsBreak("U+2764 U+FE0F | U+1F3FB"));  // heart + emoji style + modifier
-    EXPECT_TRUE(IsBreak("U+1F3FB | U+1F3FB"));  // modifier + modifier
+    EXPECT_TRUE(IsBreak("U+1F3FB | U+1F3FB"));        // modifier + modifier
 
     // rat is not an emoji modifer
     EXPECT_TRUE(IsBreak("U+1F466 | U+1F400"));  // boy + rat
@@ -307,7 +311,7 @@ TEST(GraphemeBreak, genderBalancedEmoji) {
 }
 
 TEST(GraphemeBreak, offsets) {
-    uint16_t string[] = { 0x0041, 0x06DD, 0x0045, 0x0301, 0x0049, 0x0301 };
+    uint16_t string[] = {0x0041, 0x06DD, 0x0045, 0x0301, 0x0049, 0x0301};
     EXPECT_TRUE(GraphemeBreak::isGraphemeBreak(nullptr, string, 2, 3, 2));
     EXPECT_FALSE(GraphemeBreak::isGraphemeBreak(nullptr, string, 2, 3, 3));
     EXPECT_TRUE(GraphemeBreak::isGraphemeBreak(nullptr, string, 2, 3, 4));

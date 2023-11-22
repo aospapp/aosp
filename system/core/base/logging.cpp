@@ -45,7 +45,7 @@
 
 // Headers for LogMessage::LogLine.
 #ifdef __ANDROID__
-#include <log/log.h>
+#include <android/log.h>
 #include <android/set_abort_message.h>
 #else
 #include <sys/types.h>
@@ -80,7 +80,9 @@ static thread_id GetThreadId() {
 #if defined(__BIONIC__)
   return gettid();
 #elif defined(__APPLE__)
-  return syscall(SYS_thread_selfid);
+  uint64_t tid;
+  pthread_threadid_np(NULL, &tid);
+  return tid;
 #elif defined(__linux__)
   return syscall(__NR_gettid);
 #elif defined(_WIN32)
@@ -137,9 +139,27 @@ static AbortFunction& Aborter() {
   return aborter;
 }
 
-static std::string& ProgramInvocationName() {
-  static auto& programInvocationName = *new std::string(getprogname());
-  return programInvocationName;
+static std::recursive_mutex& TagLock() {
+  static auto& tag_lock = *new std::recursive_mutex();
+  return tag_lock;
+}
+static std::string* gDefaultTag;
+std::string GetDefaultTag() {
+  std::lock_guard<std::recursive_mutex> lock(TagLock());
+  if (gDefaultTag == nullptr) {
+    return "";
+  }
+  return *gDefaultTag;
+}
+void SetDefaultTag(const std::string& tag) {
+  std::lock_guard<std::recursive_mutex> lock(TagLock());
+  if (gDefaultTag != nullptr) {
+    delete gDefaultTag;
+    gDefaultTag = nullptr;
+  }
+  if (!tag.empty()) {
+    gDefaultTag = new std::string(tag);
+  }
 }
 
 static bool gInitialized = false;
@@ -185,8 +205,8 @@ void KernelLogger(android::base::LogId, android::base::LogSeverity severity,
 }
 #endif
 
-void StderrLogger(LogId, LogSeverity severity, const char*, const char* file,
-                  unsigned int line, const char* message) {
+void StderrLogger(LogId, LogSeverity severity, const char* tag, const char* file, unsigned int line,
+                  const char* message) {
   struct tm now;
   time_t t = time(nullptr);
 
@@ -203,8 +223,8 @@ void StderrLogger(LogId, LogSeverity severity, const char*, const char* file,
   static_assert(arraysize(log_characters) - 1 == FATAL + 1,
                 "Mismatch in size of log_characters and values in LogSeverity");
   char severity_char = log_characters[severity];
-  fprintf(stderr, "%s %c %s %5d %5d %s:%u] %s\n", ProgramInvocationName().c_str(),
-          severity_char, timestamp, getpid(), GetThreadId(), file, line, message);
+  fprintf(stderr, "%s %c %s %5d %5d %s:%u] %s\n", tag ? tag : "nullptr", severity_char, timestamp,
+          getpid(), GetThreadId(), file, line, message);
 }
 
 void DefaultAborter(const char* abort_message) {
@@ -267,8 +287,7 @@ void InitLogging(char* argv[], LogFunction&& logger, AbortFunction&& aborter) {
   // Linux to recover this, but we don't have that luxury on the Mac/Windows,
   // and there are a couple of argv[0] variants that are commonly used.
   if (argv != nullptr) {
-    std::lock_guard<std::mutex> lock(LoggingLock());
-    ProgramInvocationName() = basename(argv[0]);
+    SetDefaultTag(basename(argv[0]));
   }
 
   const char* tags = getenv("ANDROID_LOG_TAGS");
@@ -342,14 +361,14 @@ static const char* GetFileBasename(const char* file) {
 // checks/logging in a function.
 class LogMessageData {
  public:
-  LogMessageData(const char* file, unsigned int line, LogId id,
-                 LogSeverity severity, int error)
+  LogMessageData(const char* file, unsigned int line, LogId id, LogSeverity severity,
+                 const char* tag, int error)
       : file_(GetFileBasename(file)),
         line_number_(line),
         id_(id),
         severity_(severity),
-        error_(error) {
-  }
+        tag_(tag),
+        error_(error) {}
 
   const char* GetFile() const {
     return file_;
@@ -362,6 +381,8 @@ class LogMessageData {
   LogSeverity GetSeverity() const {
     return severity_;
   }
+
+  const char* GetTag() const { return tag_; }
 
   LogId GetId() const {
     return id_;
@@ -385,15 +406,19 @@ class LogMessageData {
   const unsigned int line_number_;
   const LogId id_;
   const LogSeverity severity_;
+  const char* const tag_;
   const int error_;
 
   DISALLOW_COPY_AND_ASSIGN(LogMessageData);
 };
 
-LogMessage::LogMessage(const char* file, unsigned int line, LogId id,
-                       LogSeverity severity, int error)
-    : data_(new LogMessageData(file, line, id, severity, error)) {
-}
+LogMessage::LogMessage(const char* file, unsigned int line, LogId id, LogSeverity severity,
+                       const char* tag, int error)
+    : data_(new LogMessageData(file, line, id, severity, tag, error)) {}
+
+LogMessage::LogMessage(const char* file, unsigned int line, LogId id, LogSeverity severity,
+                       int error)
+    : LogMessage(file, line, id, severity, nullptr, error) {}
 
 LogMessage::~LogMessage() {
   // Check severity again. This is duplicate work wrt/ LOG macros, but not LOG_STREAM.
@@ -411,16 +436,16 @@ LogMessage::~LogMessage() {
     // Do the actual logging with the lock held.
     std::lock_guard<std::mutex> lock(LoggingLock());
     if (msg.find('\n') == std::string::npos) {
-      LogLine(data_->GetFile(), data_->GetLineNumber(), data_->GetId(),
-              data_->GetSeverity(), msg.c_str());
+      LogLine(data_->GetFile(), data_->GetLineNumber(), data_->GetId(), data_->GetSeverity(),
+              data_->GetTag(), msg.c_str());
     } else {
       msg += '\n';
       size_t i = 0;
       while (i < msg.size()) {
         size_t nl = msg.find('\n', i);
         msg[nl] = '\0';
-        LogLine(data_->GetFile(), data_->GetLineNumber(), data_->GetId(),
-                data_->GetSeverity(), &msg[i]);
+        LogLine(data_->GetFile(), data_->GetLineNumber(), data_->GetId(), data_->GetSeverity(),
+                data_->GetTag(), &msg[i]);
         // Undo the zero-termination so we can give the complete message to the aborter.
         msg[nl] = '\n';
         i = nl + 1;
@@ -438,10 +463,22 @@ std::ostream& LogMessage::stream() {
   return data_->GetBuffer();
 }
 
-void LogMessage::LogLine(const char* file, unsigned int line, LogId id,
-                         LogSeverity severity, const char* message) {
-  const char* tag = ProgramInvocationName().c_str();
-  Logger()(id, severity, tag, file, line, message);
+void LogMessage::LogLine(const char* file, unsigned int line, LogId id, LogSeverity severity,
+                         const char* tag, const char* message) {
+  if (tag == nullptr) {
+    std::lock_guard<std::recursive_mutex> lock(TagLock());
+    if (gDefaultTag == nullptr) {
+      gDefaultTag = new std::string(getprogname());
+    }
+    Logger()(id, severity, gDefaultTag->c_str(), file, line, message);
+  } else {
+    Logger()(id, severity, tag, file, line, message);
+  }
+}
+
+void LogMessage::LogLine(const char* file, unsigned int line, LogId id, LogSeverity severity,
+                         const char* message) {
+  LogLine(file, line, id, severity, nullptr, message);
 }
 
 LogSeverity GetMinimumLogSeverity() {

@@ -40,7 +40,8 @@ def main():
         its.caps.skip_unless(its.caps.raw_output(props) and
                              its.caps.post_raw_sensitivity_boost(props) and
                              its.caps.compute_target_exposure(props) and
-                             its.caps.per_frame_control(props))
+                             its.caps.per_frame_control(props) and
+                             not its.caps.mono_camera(props))
 
         w,h = its.objects.get_available_output_sizes(
                 "yuv", props, (1920, 1080))[0]

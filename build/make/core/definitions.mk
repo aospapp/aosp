@@ -167,7 +167,7 @@ endef
 # $(1): directory to search under
 # Ignores $(1)/Android.mk
 define first-makefiles-under
-$(shell build/tools/findleaves.py $(FIND_LEAVES_EXCLUDES) \
+$(shell build/make/tools/findleaves.py $(FIND_LEAVES_EXCLUDES) \
         --mindepth=2 $(addprefix --dir=,$(1)) Android.mk)
 endef
 
@@ -671,26 +671,27 @@ endef
 ## $(2): Non-empty if IS_HOST_MODULE
 ###########################################################
 
-# $(1): library name
-# $(2): Non-empty if IS_HOST_MODULE
-define _java-lib-dir
-$(call intermediates-dir-for, \
-	JAVA_LIBRARIES,$(1),$(2),COMMON)
-endef
-
-# $(1): library name
-# $(2): Non-empty if IS_HOST_MODULE
-define _java-lib-full-classes.jar
-$(call _java-lib-dir,$(1),$(2))/classes.jar
-endef
-
 # Get the jar files (you can pass to "javac -classpath") of static or shared
 # Java libraries that you want to link against.
 # $(1): library name list
 # $(2): Non-empty if IS_HOST_MODULE
 define java-lib-files
-$(foreach lib,$(1),$(call _java-lib-full-classes.jar,$(lib),$(2)))
+$(foreach lib,$(1),$(call intermediates-dir-for,JAVA_LIBRARIES,$(lib),$(2),COMMON)/classes.jar)
 endef
+
+# Get the header jar files (you can pass to "javac -classpath") of static or shared
+# Java libraries that you want to link against.
+# $(1): library name list
+# $(2): Non-empty if IS_HOST_MODULE
+ifneq ($(TURBINE_ENABLED),false)
+define java-lib-header-files
+$(foreach lib,$(1),$(call intermediates-dir-for,JAVA_LIBRARIES,$(lib),$(2),COMMON)/classes-header.jar)
+endef
+else
+define java-lib-header-files
+$(call java-lib-files,$(1),$(2))
+endef
+endif
 
 # Get the dependency files (you can put on the right side of "|" of a build rule)
 # of the Java libraries.
@@ -704,24 +705,25 @@ define java-lib-deps
 $(call java-lib-files,$(1),$(2))
 endef
 
-
-###########################################################
-## Convert "core ext framework" to "out/.../classes.jack ..."
-## $(1): library list
-## $(2): Non-empty if IS_HOST_MODULE
-###########################################################
-
-# $(1): library name
-# $(2): Non-empty if IS_HOST_MODULE
-define _jack-lib-full-classes
-$(call _java-lib-dir,$(1),$(2))/classes.jack
-endef
-
+# Get the jar files (you can pass to "javac -classpath") of static or shared
+# APK libraries that you want to link against.
 # $(1): library name list
-# $(2): Non-empty if IS_HOST_MODULE
-define jack-lib-files
-$(foreach lib,$(1),$(call _jack-lib-full-classes,$(lib),$(2)))
+define app-lib-files
+$(foreach lib,$(1),$(call intermediates-dir-for,APPS,$(lib),,COMMON)/classes.jar)
 endef
+
+# Get the header jar files (you can pass to "javac -classpath") of static or shared
+# APK libraries that you want to link against.
+# $(1): library name list
+ifneq ($(TURBINE_ENABLED),false)
+define app-lib-header-files
+$(foreach lib,$(1),$(call intermediates-dir-for,APPS,$(lib),,COMMON)/classes-header.jar)
+endef
+else
+define app-lib-header-files
+$(call app-lib-files,$(1))
+endef
+endif
 
 ###########################################################
 ## Returns true if $(1) and $(2) are equal.  Returns
@@ -1034,9 +1036,9 @@ $(hide) $(RS_CC_ASAN_OPTIONS) $(PRIVATE_RS_CC) \
   $(PRIVATE_RS_FLAGS) \
   $(foreach inc,$(PRIVATE_RS_INCLUDES),$(addprefix -I , $(inc))) \
   $(PRIVATE_RS_SOURCE_FILES)
+$(SOONG_ZIP) -o $@ -C $(PRIVATE_RS_OUTPUT_DIR)/src -D $(PRIVATE_RS_OUTPUT_DIR)/src
+$(SOONG_ZIP) -o $(PRIVATE_RS_OUTPUT_RES_ZIP) -C $(PRIVATE_RS_OUTPUT_DIR)/res -D $(PRIVATE_RS_OUTPUT_DIR)/res
 $(call _merge-renderscript-d,$(PRIVATE_DEP_FILES),$@.d)
-$(hide) mkdir -p $(dir $@)
-$(hide) touch $@
 endef
 
 define transform-bc-to-so
@@ -1048,8 +1050,9 @@ $(hide) $(PRIVATE_CXX) -shared -Wl,-soname,$(notdir $@) -nostdlib \
 	-Wl,-rpath,\$$ORIGIN/../lib \
 	$(dir $@)/$(notdir $(<:.bc=.o)) \
 	$(RS_PREBUILT_COMPILER_RT) \
-	-o $@ $(TARGET_GLOBAL_LDFLAGS) -Wl,--hash-style=sysv -L prebuilts/gcc/ \
-	$(RS_PREBUILT_LIBPATH) \
+	-o $@ $(TARGET_GLOBAL_LDFLAGS) -Wl,--hash-style=sysv \
+	-L $(SOONG_OUT_DIR)/ndk/platforms/android-$(PRIVATE_SDK_VERSION)/arch-$(TARGET_ARCH)/usr/lib64 \
+	-L $(SOONG_OUT_DIR)/ndk/platforms/android-$(PRIVATE_SDK_VERSION)/arch-$(TARGET_ARCH)/usr/lib \
 	$(call intermediates-dir-for,SHARED_LIBRARIES,libRSSupport)/libRSSupport.so \
 	-lm -lc
 endef
@@ -1553,7 +1556,7 @@ $(hide) ldir=$(PRIVATE_INTERMEDIATES_DIR)/WHOLE/$(basename $(notdir $(1)))_objs;
         filelist="$$filelist $$ldir/$$ext$$f"; \
     done ; \
     $($(PRIVATE_2ND_ARCH_VAR_PREFIX)TARGET_AR) $($(PRIVATE_2ND_ARCH_VAR_PREFIX)TARGET_GLOBAL_ARFLAGS) \
-        $(2) $$filelist
+        $(PRIVATE_ARFLAGS) $(2) $$filelist
 
 endef
 
@@ -1720,6 +1723,10 @@ define delete-dummy.o-if-no-objs
 $(if $(PRIVATE_ALL_OBJECTS),,$(hide) $($(PRIVATE_2ND_ARCH_VAR_PREFIX)$(PRIVATE_PREFIX)AR) d $(1) $(dir $(1))dummy.o \
   && rm -f $(dir $(1))dummy.o)
 endef
+else
+create-dummy.o-if-no-objs =
+get-dummy.o-if-no-objs =
+delete-dummy.o-if-no-objs =
 endif  # HOST_OS is darwin
 
 # Explicitly delete the archive first so that ar doesn't
@@ -1842,6 +1849,7 @@ if $(PRIVATE_STRIP) --strip-all -R .comment $< -o $@; then \
   $(PRIVATE_NM) -D $< --format=posix --defined-only | awk '{ print $$1 }' | sort >$@.dynsyms && \
   $(PRIVATE_NM) $< --format=posix --defined-only | awk '{ if ($$2 == "T" || $$2 == "t" || $$2 == "D") print $$1 }' | sort >$@.funcsyms && \
   comm -13 $@.dynsyms $@.funcsyms >$@.keep_symbols && \
+  echo >>$@.keep_symbols && \
   $(PRIVATE_OBJCOPY) --rename-section .debug_frame=saved_debug_frame $@.debug $@.mini_debuginfo && \
   $(PRIVATE_OBJCOPY) -S --remove-section .gdb_index --remove-section .comment --keep-symbols=$@.keep_symbols $@.mini_debuginfo && \
   $(PRIVATE_OBJCOPY) --rename-section saved_debug_frame=.debug_frame $@.mini_debuginfo && \
@@ -1999,17 +2007,6 @@ endef
 ## Commands for running javac to make .class files
 ###########################################################
 
-# Add BUILD_NUMBER to apps default version name if it's unbundled build.
-ifdef TARGET_BUILD_APPS
-TARGET_BUILD_WITH_APPS_VERSION_NAME := true
-endif
-
-ifdef TARGET_BUILD_WITH_APPS_VERSION_NAME
-APPS_DEFAULT_VERSION_NAME := $(PLATFORM_VERSION)-$(BUILD_NUMBER_FROM_FILE)
-else
-APPS_DEFAULT_VERSION_NAME := $(PLATFORM_VERSION)
-endif
-
 # b/37750224
 AAPT_ASAN_OPTIONS := ASAN_OPTIONS=detect_leaks=0
 
@@ -2025,11 +2022,12 @@ AAPT_ASAN_OPTIONS := ASAN_OPTIONS=detect_leaks=0
 # This rule creates the R.java and Manifest.java files, both of which
 # are PRODUCT-neutral.  Don't pass PRIVATE_PRODUCT_AAPT_CONFIG to this invocation.
 define create-resource-java-files
-@mkdir -p $(PRIVATE_SOURCE_INTERMEDIATES_DIR)
 @mkdir -p $(dir $(PRIVATE_RESOURCE_PUBLICS_OUTPUT))
+rm -rf $(PRIVATE_JAVA_GEN_DIR)
+mkdir -p $(PRIVATE_JAVA_GEN_DIR)
 $(hide) $(AAPT_ASAN_OPTIONS) $(AAPT) package $(PRIVATE_AAPT_FLAGS) -m \
     $(eval # PRIVATE_PRODUCT_AAPT_CONFIG is intentionally missing-- see comment.) \
-    $(addprefix -J , $(PRIVATE_SOURCE_INTERMEDIATES_DIR)) \
+    $(addprefix -J , $(PRIVATE_JAVA_GEN_DIR)) \
     $(addprefix -M , $(PRIVATE_ANDROID_MANIFEST)) \
     $(addprefix -P , $(PRIVATE_RESOURCE_PUBLICS_OUTPUT)) \
     $(addprefix -S , $(PRIVATE_RESOURCE_DIR)) \
@@ -2043,28 +2041,31 @@ $(hide) $(AAPT_ASAN_OPTIONS) $(AAPT) package $(PRIVATE_AAPT_FLAGS) -m \
     $(addprefix --rename-manifest-package , $(PRIVATE_MANIFEST_PACKAGE_NAME)) \
     $(addprefix --rename-instrumentation-target-package , $(PRIVATE_MANIFEST_INSTRUMENTATION_FOR)) \
     --skip-symbols-without-default-localization
+$(SOONG_ZIP) -o $(PRIVATE_SRCJAR) -C $(PRIVATE_JAVA_GEN_DIR) -D $(PRIVATE_JAVA_GEN_DIR)
+# So that we re-run aapt when the list of input files change
+$(hide) echo $(PRIVATE_RESOURCE_LIST) >/dev/null
 endef
 
-# Search for generated R.java/Manifest.java, copy the found R.java as $@.
+# Search for generated R.java/Manifest.java in $1, copy the found R.java as $2.
 # Also copy them to a central 'R' directory to make it easier to add the files to an IDE.
 define find-generated-R.java
-$(hide) for GENERATED_MANIFEST_FILE in `find $(PRIVATE_SOURCE_INTERMEDIATES_DIR) \
+$(hide) for GENERATED_MANIFEST_FILE in `find $(1) \
   -name Manifest.java 2> /dev/null`; do \
     dir=`awk '/package/{gsub(/\./,"/",$$2);gsub(/;/,"",$$2);print $$2;exit}' $$GENERATED_MANIFEST_FILE`; \
     mkdir -p $(TARGET_COMMON_OUT_ROOT)/R/$$dir; \
     $(ACP) -fp $$GENERATED_MANIFEST_FILE $(TARGET_COMMON_OUT_ROOT)/R/$$dir; \
   done;
-$(hide) for GENERATED_R_FILE in `find $(PRIVATE_SOURCE_INTERMEDIATES_DIR) \
+$(hide) for GENERATED_R_FILE in `find $(1) \
   -name R.java 2> /dev/null`; do \
     dir=`awk '/package/{gsub(/\./,"/",$$2);gsub(/;/,"",$$2);print $$2;exit}' $$GENERATED_R_FILE`; \
     mkdir -p $(TARGET_COMMON_OUT_ROOT)/R/$$dir; \
     $(ACP) -fp $$GENERATED_R_FILE $(TARGET_COMMON_OUT_ROOT)/R/$$dir \
       || exit 31; \
-    $(ACP) -fp $$GENERATED_R_FILE $@ || exit 32; \
+    $(ACP) -fp $$GENERATED_R_FILE $(2) || exit 32; \
   done;
 @# Ensure that the target file is always created, i.e. also in case we did not
 @# enter the GENERATED_R_FILE-loop above. This avoids unnecessary rebuilding.
-$(hide) touch $@
+$(hide) touch $(2)
 endef
 
 ###########################################################
@@ -2079,6 +2080,13 @@ define aapt2-compile-resource-dirs
 @mkdir -p $(dir $@)
 $(hide) $(AAPT2) compile -o $@ $(addprefix --dir ,$(PRIVATE_SOURCE_RES_DIRS)) \
   $(PRIVATE_AAPT2_CFLAGS) --legacy
+endef
+
+# TODO(b/74574557): use aapt2 compile --zip if it gets implemented
+define aapt2-compile-resource-zips
+@mkdir -p $(dir $@)
+$(ZIPSYNC) -d $@.contents -l $@.list $(PRIVATE_SOURCE_RES_ZIPS)
+$(hide) $(AAPT2) compile -o $@ --dir $@.contents $(PRIVATE_AAPT2_CFLAGS) --legacy
 endef
 
 # Set up rule to compile one resource file with aapt2.
@@ -2105,15 +2113,18 @@ endef
 
 define aapt2-link
 @mkdir -p $(dir $@)
+rm -rf $(PRIVATE_JAVA_GEN_DIR)
+mkdir -p $(PRIVATE_JAVA_GEN_DIR)
 $(call dump-words-to-file,$(PRIVATE_RES_FLAT),$(dir $@)aapt2-flat-list)
 $(call dump-words-to-file,$(PRIVATE_OVERLAY_FLAT),$(dir $@)aapt2-flat-overlay-list)
 $(hide) $(AAPT2) link -o $@ \
   $(PRIVATE_AAPT_FLAGS) \
+  $(if $(PRIVATE_STATIC_LIBRARY_EXTRA_PACKAGES),$$(cat $(PRIVATE_STATIC_LIBRARY_EXTRA_PACKAGES))) \
   $(addprefix --manifest ,$(PRIVATE_ANDROID_MANIFEST)) \
   $(addprefix -I ,$(PRIVATE_AAPT_INCLUDES)) \
   $(addprefix -I ,$(PRIVATE_SHARED_ANDROID_LIBRARIES)) \
   $(addprefix -A ,$(PRIVATE_ASSET_DIR)) \
-  $(addprefix --java ,$(PRIVATE_SOURCE_INTERMEDIATES_DIR)) \
+  $(addprefix --java ,$(PRIVATE_JAVA_GEN_DIR)) \
   $(addprefix --proguard ,$(PRIVATE_PROGUARD_OPTIONS_FILE)) \
   $(addprefix --min-sdk-version ,$(PRIVATE_DEFAULT_APP_TARGET_SDK)) \
   $(addprefix --target-sdk-version ,$(PRIVATE_DEFAULT_APP_TARGET_SDK)) \
@@ -2126,6 +2137,8 @@ $(hide) $(AAPT2) link -o $@ \
   $(addprefix --rename-instrumentation-target-package ,$(PRIVATE_MANIFEST_INSTRUMENTATION_FOR)) \
   -R \@$(dir $@)aapt2-flat-overlay-list \
   \@$(dir $@)aapt2-flat-list
+$(SOONG_ZIP) -o $(PRIVATE_SRCJAR) -C $(PRIVATE_JAVA_GEN_DIR) -D $(PRIVATE_JAVA_GEN_DIR)
+$(EXTRACT_JAR_PACKAGES) -i $(PRIVATE_SRCJAR) -o $(PRIVATE_AAPT_EXTRA_PACKAGES) --prefix '--extra-packages '
 endef
 
 ###########################################################
@@ -2184,58 +2197,79 @@ define unzip-jar-files
       exit 1; \
     fi; \
     unzip -qo $$f -d $(2); \
+    rm -f $(2)/module-info.class; \
   done
   $(if $(PRIVATE_DONT_DELETE_JAR_META_INF),,$(hide) rm -rf $(2)/META-INF)
 endef
 
-# Call jack
+# Return jar arguments to compress files in a given directory
+# $(1): directory
 #
-define call-jack
- JACK_VERSION=$(PRIVATE_JACK_VERSION) $(JACK) $(DEFAULT_JACK_EXTRA_ARGS)
+# Returns an @-file argument that contains the output of a subshell
+# that looks like -C $(1) path/to/file1 -C $(1) path/to/file2
+# Also adds "-C out/empty ." which avoids errors in jar when
+# there are no files in the directory.
+define jar-args-sorted-files-in-directory
+    @<(find $(1) -type f | sort | $(JAR_ARGS) $(1); echo "-C $(EMPTY_DIRECTORY) .")
 endef
 
-# Common definition to invoke javac on the host and target.
-#
+# append additional Java sources(resources/Proto sources, and etc) to $(1).
+define fetch-additional-java-source
+$(hide) if [ -d "$(PRIVATE_SOURCE_INTERMEDIATES_DIR)" ]; then \
+    find $(PRIVATE_SOURCE_INTERMEDIATES_DIR) -name '*.java' -and -not -name '.*' >> $(1); \
+fi
+$(if $(PRIVATE_HAS_PROTO_SOURCES), \
+    $(hide) find $(PRIVATE_PROTO_SOURCE_INTERMEDIATES_DIR) -name '*.java' -and -not -name '.*' >> $(1))
+endef
+
 # Some historical notes:
 # - below we write the list of java files to java-source-list to avoid argument
 #   list length problems with Cygwin
 # - we filter out duplicate java file names because eclipse's compiler
 #   doesn't like them.
+define write-java-source-list
+@echo "$($(PRIVATE_PREFIX)DISPLAY) Java source list: $(PRIVATE_MODULE)"
+$(hide) rm -f $@
+$(call dump-words-to-file,$(sort $(PRIVATE_JAVA_SOURCES)),$@.tmp)
+$(call fetch-additional-java-source,$@.tmp)
+$(hide) tr ' ' '\n' < $@.tmp | $(NORMALIZE_PATH) | sort -u > $@
+endef
+
+# Common definition to invoke javac on the host and target.
 #
 # $(1): javac
-# $(2): bootclasspath
+# $(2): classpath_libs
 define compile-java
 $(hide) rm -f $@
 $(hide) rm -rf $(PRIVATE_CLASS_INTERMEDIATES_DIR) $(PRIVATE_ANNO_INTERMEDIATES_DIR)
 $(hide) mkdir -p $(dir $@)
 $(hide) mkdir -p $(PRIVATE_CLASS_INTERMEDIATES_DIR) $(PRIVATE_ANNO_INTERMEDIATES_DIR)
-$(call unzip-jar-files,$(PRIVATE_STATIC_JAVA_LIBRARIES),$(PRIVATE_CLASS_INTERMEDIATES_DIR))
-$(call dump-words-to-file,$(PRIVATE_JAVA_SOURCES),$(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list)
-$(hide) if [ -d "$(PRIVATE_SOURCE_INTERMEDIATES_DIR)" ]; then \
-          find $(PRIVATE_SOURCE_INTERMEDIATES_DIR) -name '*.java' -and -not -name '.*' >> $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list; \
-fi
-$(if $(PRIVATE_HAS_PROTO_SOURCES), \
-    $(hide) find $(PRIVATE_PROTO_SOURCE_INTERMEDIATES_DIR) -name '*.java' -and -not -name '.*' >> $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list )
-$(if $(PRIVATE_HAS_RS_SOURCES), \
-    $(hide) find $(PRIVATE_RS_SOURCE_INTERMEDIATES_DIR) -name '*.java' -and -not -name '.*' >> $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list )
-$(hide) tr ' ' '\n' < $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list \
-    | $(NORMALIZE_PATH) | sort -u > $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list-uniq
-$(hide) if [ -s $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list-uniq ] ; then \
-    $(SOONG_JAVAC_WRAPPER) $(1) -encoding UTF-8 \
+$(if $(PRIVATE_SRCJARS),\
+    $(ZIPSYNC) -d $(PRIVATE_SRCJAR_INTERMEDIATES_DIR) -l $(PRIVATE_SRCJAR_LIST_FILE) -f "*.java" $(PRIVATE_SRCJARS))
+$(hide) if [ -s $(PRIVATE_JAVA_SOURCE_LIST) $(if $(PRIVATE_SRCJARS),-o -s $(PRIVATE_SRCJAR_LIST_FILE) )] ; then \
+    $(SOONG_JAVAC_WRAPPER) $(JAVAC_WRAPPER) $(1) -encoding UTF-8 \
     $(if $(findstring true,$(PRIVATE_WARNINGS_ENABLE)),$(xlint_unchecked),) \
-    $(2) \
-    $(addprefix -classpath ,$(strip \
-        $(call normalize-path-list,$(PRIVATE_ALL_JAVA_LIBRARIES)))) \
+    $(if $(PRIVATE_USE_SYSTEM_MODULES), \
+      $(addprefix --system=,$(PRIVATE_SYSTEM_MODULES_DIR)), \
+      $(addprefix -bootclasspath ,$(strip \
+          $(call normalize-path-list,$(PRIVATE_BOOTCLASSPATH)) \
+          $(PRIVATE_EMPTY_BOOTCLASSPATH)))) \
+    $(if $(PRIVATE_USE_SYSTEM_MODULES), \
+      $(if $(PRIVATE_PATCH_MODULE), \
+        --patch-module=$(PRIVATE_PATCH_MODULE)=$(call normalize-path-list,. $(2)))) \
+    $(addprefix -classpath ,$(call normalize-path-list,$(strip \
+      $(if $(PRIVATE_USE_SYSTEM_MODULES), \
+        $(filter-out $(PRIVATE_SYSTEM_MODULES_LIBS),$(PRIVATE_BOOTCLASSPATH))) \
+      $(2)))) \
     $(if $(findstring true,$(PRIVATE_WARNINGS_ENABLE)),$(xlint_unchecked),) \
-    -extdirs "" -d $(PRIVATE_CLASS_INTERMEDIATES_DIR) -s $(PRIVATE_ANNO_INTERMEDIATES_DIR) \
+    -d $(PRIVATE_CLASS_INTERMEDIATES_DIR) -s $(PRIVATE_ANNO_INTERMEDIATES_DIR) \
     $(PRIVATE_JAVACFLAGS) \
-    \@$(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list-uniq \
+    \@$(PRIVATE_JAVA_SOURCE_LIST) \
+    $(if $(PRIVATE_SRCJARS),\@$(PRIVATE_SRCJAR_LIST_FILE)) \
     || ( rm -rf $(PRIVATE_CLASS_INTERMEDIATES_DIR) ; exit 41 ) \
 fi
-$(if $(PRIVATE_JAVA_LAYERS_FILE), $(hide) build/tools/java-layers.py \
-    $(PRIVATE_JAVA_LAYERS_FILE) \@$(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list-uniq,)
-$(hide) rm -f $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list
-$(hide) rm -f $(PRIVATE_CLASS_INTERMEDIATES_DIR)/java-source-list-uniq
+$(if $(PRIVATE_JAVA_LAYERS_FILE), $(hide) build/make/tools/java-layers.py \
+    $(PRIVATE_JAVA_LAYERS_FILE) @$(PRIVATE_JAVA_SOURCE_LIST),)
 $(if $(PRIVATE_JAR_EXCLUDE_FILES), $(hide) find $(PRIVATE_CLASS_INTERMEDIATES_DIR) \
     -name $(word 1, $(PRIVATE_JAR_EXCLUDE_FILES)) \
     $(addprefix -o -name , $(wordlist 2, 999, $(PRIVATE_JAR_EXCLUDE_FILES))) \
@@ -2248,153 +2282,32 @@ $(if $(PRIVATE_JAR_PACKAGES), \
 $(if $(PRIVATE_JAR_EXCLUDE_PACKAGES), $(hide) rm -rf \
     $(foreach pkg, $(PRIVATE_JAR_EXCLUDE_PACKAGES), \
         $(PRIVATE_CLASS_INTERMEDIATES_DIR)/$(subst .,/,$(pkg))))
-$(if $(PRIVATE_JAR_MANIFEST), \
-    $(hide) sed -e "s/%BUILD_NUMBER%/$(BUILD_NUMBER_FROM_FILE)/" \
-            $(PRIVATE_JAR_MANIFEST) > $(dir $@)/manifest.mf && \
-        $(JAR) -cfm $@ $(dir $@)/manifest.mf \
-            -C $(PRIVATE_CLASS_INTERMEDIATES_DIR) ., \
-    $(hide) $(JAR) -cf $@ -C $(PRIVATE_CLASS_INTERMEDIATES_DIR) .)
+$(hide) $(JAR) -cf $@ $(call jar-args-sorted-files-in-directory,$(PRIVATE_CLASS_INTERMEDIATES_DIR))
 $(if $(PRIVATE_EXTRA_JAR_ARGS),$(call add-java-resources-to,$@))
 endef
 
-define transform-java-to-classes.jar
-@echo "$($(PRIVATE_PREFIX)DISPLAY) Java: $(PRIVATE_MODULE) ($(PRIVATE_CLASS_INTERMEDIATES_DIR))"
-$(call compile-java,$(TARGET_JAVAC),$(PRIVATE_BOOTCLASSPATH))
-endef
-
-# Invoke Jack to compile java from source to dex and jack files.
-#
-# Some historical notes:
-# - below we write the list of java files to java-source-list to avoid argument
-#   list length problems with Cygwin
-# - we filter out duplicate java file names because Jack doesn't like them.
-define jack-java-to-dex
-$(hide) rm -f $@
-$(hide) rm -f $(PRIVATE_CLASSES_JACK)
-$(hide) rm -rf $(PRIVATE_JACK_INTERMEDIATES_DIR)
-$(hide) mkdir -p $(dir $@)
-$(hide) mkdir -p $(dir $(PRIVATE_CLASSES_JACK))
-$(hide) mkdir -p $(PRIVATE_JACK_INTERMEDIATES_DIR)
-$(if $(PRIVATE_JACK_INCREMENTAL_DIR),$(hide) mkdir -p $(PRIVATE_JACK_INCREMENTAL_DIR))
-$(call dump-words-to-file,$(PRIVATE_JAVA_SOURCES),$(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list)
-$(if $(PRIVATE_SOURCE_INTERMEDIATES_DIR), \
-    $(hide) if [ -d "$(PRIVATE_SOURCE_INTERMEDIATES_DIR)" ]; then \
-            find $(PRIVATE_SOURCE_INTERMEDIATES_DIR) -name '*.java' >> $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list; \
-    fi)
-$(if $(PRIVATE_HAS_PROTO_SOURCES), \
-    $(hide) find $(PRIVATE_PROTO_SOURCE_INTERMEDIATES_DIR) -name '*.java' >> $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list )
-$(if $(PRIVATE_HAS_RS_SOURCES), \
-    $(hide) find $(PRIVATE_RS_SOURCE_INTERMEDIATES_DIR) -name '*.java' >> $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list )
-$(hide) tr ' ' '\n' < $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list \
-    | $(NORMALIZE_PATH) | sort -u > $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list-uniq
-$(if $(PRIVATE_JACK_PROGUARD_FLAGS), \
-    $(hide) echo -basedirectory $(CURDIR) > $@.flags; \
-    echo $(PRIVATE_JACK_PROGUARD_FLAGS) >> $@.flags; \
-)
-$(if $(PRIVATE_EXTRA_JAR_ARGS),
-    $(hide) mkdir -p $@.res.tmp
-    $(hide) $(call create-empty-package-at,$@.res.tmp.zip)
-    $(hide) $(call add-java-resources-to,$@.res.tmp.zip)
-    $(hide) unzip -qo $@.res.tmp.zip -d $@.res.tmp
-    $(hide) rm $@.res.tmp.zip)
-$(if $(PRIVATE_JACK_IMPORT_JAR),
-    $(hide) mkdir -p $@.tmpjill.res
-    $(hide) unzip -qo $(PRIVATE_JACK_IMPORT_JAR) -d $@.tmpjill.res
-    $(hide) find $@.tmpjill.res -iname "*.class" -delete)
-$(hide) if [ -s $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list-uniq ] ; then \
-    export tmpEcjArg="@$(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list-uniq"; \
-else \
-    export tmpEcjArg=""; \
-fi; \
-$(call call-jack) \
-    $(strip $(PRIVATE_JACK_FLAGS)) \
-    $(strip $(PRIVATE_JACK_COVERAGE_OPTIONS)) \
-    $(if $(NO_OPTIMIZE_DX), \
-        -D jack.dex.optimize="false") \
-    $(if $(PRIVATE_RMTYPEDEFS), \
-        -D jack.android.remove-typedef="true") \
-    $(if $(PRIVATE_JACK_IMPORT_JAR), \
-        --import $(PRIVATE_JACK_IMPORT_JAR) --import-resource $@.tmpjill.res) \
+define transform-java-to-header.jar
+@echo "$($(PRIVATE_PREFIX)DISPLAY) Turbine: $(PRIVATE_MODULE)"
+@mkdir -p $(dir $@)
+@rm -rf $(dir $@)/classes-turbine
+@mkdir $(dir $@)/classes-turbine
+$(hide) if [ -s $(PRIVATE_JAVA_SOURCE_LIST) -o -n "$(PRIVATE_SRCJARS)" ] ; then \
+    $(JAVA) -jar $(TURBINE) \
+    --output $@.premerged --temp_dir $(dir $@)/classes-turbine \
+    --sources \@$(PRIVATE_JAVA_SOURCE_LIST) --source_jars $(PRIVATE_SRCJARS) \
+    --javacopts $(PRIVATE_JAVACFLAGS) $(COMMON_JDK_FLAGS) \
+    $(addprefix --bootclasspath ,$(strip \
+         $(call normalize-path-list,$(PRIVATE_BOOTCLASSPATH)) \
+         $(PRIVATE_EMPTY_BOOTCLASSPATH))) \
     $(addprefix --classpath ,$(strip \
-        $(call normalize-path-list,$(PRIVATE_JACK_SHARED_LIBRARIES)))) \
-    $(addprefix --import ,$(call reverse-list,$(PRIVATE_STATIC_JACK_LIBRARIES))) \
-    $(addprefix --pluginpath ,$(strip \
-         $(call normalize-path-list,$(PRIVATE_JACK_PLUGIN_PATH)))) \
-    $(if $(PRIVATE_JACK_PLUGIN),--plugin $(call normalize-comma-list,$(PRIVATE_JACK_PLUGIN))) \
-    $(if $(PRIVATE_EXTRA_JAR_ARGS),--import-resource $@.res.tmp) \
-    -D jack.android.min-api-level=$(PRIVATE_JACK_MIN_SDK_VERSION) \
-    -D jack.import.resource.policy=keep-first \
-    -D jack.import.type.policy=keep-first \
-    --output-jack $(PRIVATE_CLASSES_JACK) \
-    $(if $(PRIVATE_JACK_INCREMENTAL_DIR),--incremental-folder $(PRIVATE_JACK_INCREMENTAL_DIR)) \
-    --output-dex $(PRIVATE_JACK_INTERMEDIATES_DIR) \
-    $(addprefix --config-jarjar ,$(strip $(PRIVATE_JARJAR_RULES))) \
-    $(if $(PRIVATE_JACK_PROGUARD_FLAGS),--config-proguard $@.flags) \
-    $$tmpEcjArg \
-    || ( rm -rf $(PRIVATE_CLASSES_JACK); exit 41 )
-$(hide) mv $(PRIVATE_JACK_INTERMEDIATES_DIR)/classes*.dex $(dir $@)
-$(hide) rm -f $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list
-$(if $(PRIVATE_EXTRA_JAR_ARGS),$(hide) rm -rf $@.res.tmp)
-$(hide) mv $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list-uniq $(PRIVATE_JACK_INTERMEDIATES_DIR).java-source-list
-$(if $(PRIVATE_JAR_PACKAGES), $(hide) echo unsupported options PRIVATE_JAR_PACKAGES in $@; exit 53)
-$(if $(PRIVATE_JAR_EXCLUDE_PACKAGES), $(hide) echo unsupported options JAR_EXCLUDE_PACKAGES in $@; exit 53)
-$(if $(PRIVATE_JAR_MANIFEST), $(hide) echo unsupported options JAR_MANIFEST in $@; exit 53)
-endef
-
-# Invoke Jack to compile java source just to check it compiles correctly.
-#
-# Some historical notes:
-# - below we write the list of java files to java-source-list to avoid argument
-#   list length problems with Cygwin
-# - we filter out duplicate java file names because Jack doesn't like them.
-define jack-check-java
-$(hide) rm -f $@
-$(hide) rm -f $@.java-source-list
-$(hide) rm -f $@.java-source-list-uniq
-$(hide) mkdir -p $(dir $@)
-$(if $(PRIVATE_JACK_INCREMENTAL_DIR),$(hide) mkdir -p $(PRIVATE_JACK_INCREMENTAL_DIR))
-$(call dump-words-to-file,$(PRIVATE_JAVA_SOURCES),$@.java-source-list)
-$(hide) if [ -d "$(PRIVATE_SOURCE_INTERMEDIATES_DIR)" ]; then \
-          find $(PRIVATE_SOURCE_INTERMEDIATES_DIR) -name '*.java' >> $@.java-source-list; \
+        $(call normalize-path-list,$(PRIVATE_ALL_JAVA_HEADER_LIBRARIES)))) \
+    || ( rm -rf $(dir $@)/classes-turbine ; exit 41 ) && \
+    $(MERGE_ZIPS) -j --ignore-duplicates -stripDir META-INF $@.tmp $@.premerged $(call reverse-list,$(PRIVATE_STATIC_JAVA_HEADER_LIBRARIES)) ; \
+else \
+    $(MERGE_ZIPS) -j --ignore-duplicates -stripDir META-INF $@.tmp $(call reverse-list,$(PRIVATE_STATIC_JAVA_HEADER_LIBRARIES)) ; \
 fi
-$(if $(PRIVATE_HAS_PROTO_SOURCES), \
-    $(hide) find $(PRIVATE_PROTO_SOURCE_INTERMEDIATES_DIR) -name '*.java' >> $@.java-source-list )
-$(if $(PRIVATE_HAS_RS_SOURCES), \
-    $(hide) find $(PRIVATE_RS_SOURCE_INTERMEDIATES_DIR) -name '*.java' >> $@.java-source-list )
-$(hide) tr ' ' '\n' < $@.java-source-list \
-    | sort -u > $@.java-source-list-uniq
-$(hide) if [ -s $@.java-source-list-uniq ] ; then \
-	$(call call-jack,$(PRIVATE_JACK_EXTRA_ARGS)) \
-	    $(strip $(PRIVATE_JACK_FLAGS)) \
-	    $(strip $(PRIVATE_JACK_DEBUG_FLAGS)) \
-	    $(addprefix --classpath ,$(strip \
-	        $(call normalize-path-list,$(call reverse-list,$(PRIVATE_STATIC_JACK_LIBRARIES)) $(PRIVATE_JACK_SHARED_LIBRARIES)))) \
-	    -D jack.import.resource.policy=keep-first \
-	    -D jack.android.min-api-level=$(PRIVATE_JACK_MIN_SDK_VERSION) \
-	    -D jack.import.type.policy=keep-first \
-	    $(if $(PRIVATE_JACK_INCREMENTAL_DIR),--incremental-folder $(PRIVATE_JACK_INCREMENTAL_DIR)) \
-	    @$@.java-source-list-uniq; \
-fi
-touch $@
-endef
-
-define transform-jar-to-jack
-	$(hide) mkdir -p $(dir $@)
-	$(hide) mkdir -p $@.tmpjill.res
-	$(hide) unzip -qo $< -d $@.tmpjill.res
-	$(hide) find $@.tmpjill.res -iname "*.class" -delete
-	$(hide) $(call call-jack) \
-	    $(PRIVATE_JACK_FLAGS) \
-	    $(addprefix --pluginpath ,$(strip \
-                $(call normalize-path-list,$(PRIVATE_JACK_PLUGIN_PATH)))) \
-	    $(if $(PRIVATE_JACK_PLUGIN),--plugin $(call normalize-comma-list,$(PRIVATE_JACK_PLUGIN))) \
-        -D jack.import.resource.policy=keep-first \
-        -D jack.import.type.policy=keep-first \
-        -D jack.android.min-api-level=$(PRIVATE_JACK_MIN_SDK_VERSION) \
-	    --import $< \
-	    --import-resource $@.tmpjill.res \
-	    --output-jack $@
-	$(hide) rm -rf $@.tmpjill.res
+$(hide) $(ZIPTIME) $@.tmp
+$(hide) $(call commit-change-for-toc,$@)
 endef
 
 # Moves $1.tmp to $1 if necessary. This is designed to be used with
@@ -2407,26 +2320,6 @@ $(hide) if cmp -s $1.tmp $1 ; then \
 else \
  mv $1.tmp $1 ; \
 fi
-endef
-
-# b/37756495
-IJAR_ASAN_OPTIONS := ASAN_OPTIONS=detect_leaks=0
-
-## Rule to create a table of contents from a .jar file.
-## Must be called with $(eval).
-# $(1): A .jar file
-define _transform-jar-to-toc
-$1.toc: $1 | $(IJAR)
-	@echo Generating TOC: $$@
-	$(hide) $(IJAR_ASAN_OPTIONS) $(IJAR) $$< $$@.tmp
-	$$(call commit-change-for-toc,$$@)
-endef
-
-## Define a rule which generates .jar.toc and mark it as .KATI_RESTAT.
-# $(1): A .jar file
-define define-jar-to-toc-rule
-$(eval $(call _transform-jar-to-toc,$1))\
-$(eval .KATI_RESTAT: $1.toc)
 endef
 
 ifeq (,$(TARGET_BUILD_APPS))
@@ -2458,75 +2351,6 @@ endef
 endif  # TARGET_BUILD_APPS
 
 
-# Invoke Jack to compile java from source to jack files without shrink or obfuscation.
-#
-# Some historical notes:
-# - below we write the list of java files to java-source-list to avoid argument
-#   list length problems with Cygwin
-# - we filter out duplicate java file names because Jack doesn't like them.
-define java-to-jack
-$(hide) rm -f $@
-$(hide) rm -rf $(PRIVATE_JACK_INTERMEDIATES_DIR)
-$(hide) mkdir -p $(dir $@)
-$(hide) mkdir -p $(PRIVATE_JACK_INTERMEDIATES_DIR)
-$(if $(PRIVATE_JACK_INCREMENTAL_DIR),$(hide) mkdir -p $(PRIVATE_JACK_INCREMENTAL_DIR))
-$(call dump-words-to-file,$(PRIVATE_JAVA_SOURCES),$(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list)
-$(hide) if [ -d "$(PRIVATE_SOURCE_INTERMEDIATES_DIR)" ]; then \
-          find $(PRIVATE_SOURCE_INTERMEDIATES_DIR) -name '*.java' >> $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list; \
-fi
-$(if $(PRIVATE_HAS_PROTO_SOURCES), \
-    $(hide) find $(PRIVATE_PROTO_SOURCE_INTERMEDIATES_DIR) -name '*.java' >> $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list )
-$(if $(PRIVATE_HAS_RS_SOURCES), \
-    $(hide) find $(PRIVATE_RS_SOURCE_INTERMEDIATES_DIR) -name '*.java' >> $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list )
-$(hide) tr ' ' '\n' < $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list \
-    | $(NORMALIZE_PATH) | sort -u > $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list-uniq
-$(if $(PRIVATE_JACK_PROGUARD_FLAGS), \
-    $(hide) echo -basedirectory $(CURDIR) > $@.flags; \
-    echo $(PRIVATE_JACK_PROGUARD_FLAGS) >> $@.flags; \
-)
-$(if $(PRIVATE_EXTRA_JAR_ARGS),
-	$(hide) mkdir -p $@.res.tmp
-	$(hide) $(call create-empty-package-at,$@.res.tmp.zip)
-	$(hide) $(call add-java-resources-to,$@.res.tmp.zip)
-	$(hide) unzip -qo $@.res.tmp.zip -d $@.res.tmp
-	$(hide) rm $@.res.tmp.zip)
-$(hide) if [ -s $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list-uniq ] ; then \
-    export tmpEcjArg="@$(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list-uniq"; \
-else \
-    export tmpEcjArg=""; \
-fi; \
-$(call call-jack) \
-    $(strip $(PRIVATE_JACK_FLAGS)) \
-    $(if $(NO_OPTIMIZE_DX), \
-        -D jack.dex.optimize="false") \
-    $(addprefix --classpath ,$(strip \
-        $(call normalize-path-list,$(PRIVATE_JACK_SHARED_LIBRARIES)))) \
-    $(addprefix --import ,$(call reverse-list,$(PRIVATE_STATIC_JACK_LIBRARIES))) \
-    $(addprefix --pluginpath ,$(strip \
-        $(call normalize-path-list,$(PRIVATE_JACK_PLUGIN_PATH)))) \
-    $(if $(PRIVATE_JACK_PLUGIN),--plugin $(call normalize-comma-list,$(PRIVATE_JACK_PLUGIN))) \
-    $(if $(PRIVATE_EXTRA_JAR_ARGS),--import-resource $@.res.tmp) \
-    -D jack.import.resource.policy=keep-first \
-    -D jack.import.type.policy=keep-first \
-    -D jack.android.min-api-level=$(PRIVATE_JACK_MIN_SDK_VERSION) \
-    $(if $(PRIVATE_JACK_INCREMENTAL_DIR),--incremental-folder $(PRIVATE_JACK_INCREMENTAL_DIR)) \
-    --output-jack $@ \
-    $(addprefix --config-jarjar ,$(strip $(PRIVATE_JARJAR_RULES))) \
-    $(if $(PRIVATE_JACK_PROGUARD_FLAGS),--config-proguard $@.flags) \
-    $$tmpEcjArg \
-    || ( rm -f $@ ; exit 41 )
-$(hide) rm -f $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list
-$(if $(PRIVATE_EXTRA_JAR_ARGS),$(hide) rm -rf $@.res.tmp)
-$(hide) mv $(PRIVATE_JACK_INTERMEDIATES_DIR)/java-source-list-uniq $(PRIVATE_JACK_INTERMEDIATES_DIR).java-source-list
-$(if $(PRIVATE_JAR_PACKAGES), $(hide) echo unsupported options PRIVATE_JAR_PACKAGES in $@; exit 53)
-$(if $(PRIVATE_JAR_EXCLUDE_PACKAGES), $(hide) echo unsupported options JAR_EXCLUDE_PACKAGES in $@; exit 53)
-$(if $(PRIVATE_JAR_MANIFEST), $(hide) echo unsupported options JAR_MANIFEST in $@; exit 53)
-endef
-
-define desugar-classpath
-$(filter-out -classpath -bootclasspath "",$(subst :,$(space),$(1)))
-endef
-
 # Takes an sdk version that might be PLATFORM_VERSION_CODENAME (for example P),
 # returns a number greater than the highest existing sdk version if it is, or
 # the input if it is not.
@@ -2542,12 +2366,12 @@ $(hide) rm -f $@ $@.tmp
 @rm -rf $(dir $@)/desugar_dumped_classes
 @mkdir $(dir $@)/desugar_dumped_classes
 $(hide) $(JAVA) \
-    $(if $(EXPERIMENTAL_USE_OPENJDK9),--add-opens java.base/java.lang.invoke=ALL-UNNAMED,) \
+    $(if $(USE_OPENJDK9),--add-opens java.base/java.lang.invoke=ALL-UNNAMED,) \
     -Djdk.internal.lambda.dumpProxyClasses=$(abspath $(dir $@))/desugar_dumped_classes \
     -jar $(DESUGAR) \
-    $(addprefix --bootclasspath_entry ,$(call desugar-bootclasspath,$(PRIVATE_BOOTCLASSPATH))) \
-    $(addprefix --classpath_entry ,$(PRIVATE_ALL_JAVA_LIBRARIES)) \
-    --min_sdk_version $(call codename-or-sdk-to-sdk,$(PRIVATE_DEFAULT_APP_TARGET_SDK)) \
+    $(addprefix --bootclasspath_entry ,$(PRIVATE_BOOTCLASSPATH)) \
+    $(addprefix --classpath_entry ,$(PRIVATE_SHARED_JAVA_HEADER_LIBRARIES)) \
+    --min_sdk_version $(call codename-or-sdk-to-sdk,$(PRIVATE_MIN_SDK_VERSION)) \
     --allow_empty_bootclasspath \
     $(if $(filter --core-library,$(PRIVATE_DX_FLAGS)),--core_library) \
     -i $< -o $@.tmp
@@ -2561,7 +2385,7 @@ define transform-classes.jar-to-dex
 $(hide) rm -f $(dir $@)classes*.dex
 $(hide) $(DX_COMMAND) \
     --dex --output=$(dir $@) \
-    --min-sdk-version=$(call codename-or-sdk-to-sdk,$(PRIVATE_DEFAULT_APP_TARGET_SDK)) \
+    --min-sdk-version=$(PRIVATE_MIN_SDK_VERSION) \
     $(if $(NO_OPTIMIZE_DX), \
         --no-optimize) \
     $(if $(GENERATE_DEX_DEBUG), \
@@ -2570,6 +2394,21 @@ $(hide) $(DX_COMMAND) \
 	    --dump-width=1000) \
     $(PRIVATE_DX_FLAGS) \
     $<
+endef
+
+
+define transform-classes-d8.jar-to-dex
+@echo "target Dex: $(PRIVATE_MODULE)"
+@mkdir -p $(dir $@)
+$(hide) rm -f $(dir $@)classes*.dex $(dir $@)d8_input.jar
+$(hide) $(ZIP2ZIP) -j -i $< -o $(dir $@)d8_input.jar "**/*.class"
+$(hide) $(DX_COMMAND) \
+    --output $(dir $@) \
+    --min-api $(PRIVATE_MIN_SDK_VERSION) \
+    $(subst --main-dex-list=, --main-dex-list , \
+        $(filter-out --core-library --multi-dex --minimal-main-dex,$(PRIVATE_DX_FLAGS))) \
+    $(dir $@)d8_input.jar
+$(hide) rm -f $(dir $@)d8_input.jar
 endef
 
 # Create a mostly-empty .jar file that we'll add to later.
@@ -2628,6 +2467,8 @@ $(hide) $(AAPT_ASAN_OPTIONS) $(AAPT) package -u $(PRIVATE_AAPT_FLAGS) \
     $(addprefix --rename-instrumentation-target-package , $(PRIVATE_MANIFEST_INSTRUMENTATION_FOR)) \
     --skip-symbols-without-default-localization \
     -F $@
+# So that we re-run aapt when the list of input files change
+$(hide) echo $(PRIVATE_RESOURCE_LIST) >/dev/null
 endef
 
 # We need the extra blank line, so that the command will be on a separate line.
@@ -2677,17 +2518,15 @@ $(hide) $(JAR) uf $(1) @$(1).jar-arg-list
 @rm -f $(1).jar-arg-list
 endef
 
-# Add resources carried by static Jack libraries.
-#
-define add-carried-jack-resources
- $(hide) if [ -d $(PRIVATE_JACK_INTERMEDIATES_DIR) ] ; then \
-    find $(PRIVATE_JACK_INTERMEDIATES_DIR) -type f | sort \
-        | sed -e "s?^$(PRIVATE_JACK_INTERMEDIATES_DIR)/? -C \"$(PRIVATE_JACK_INTERMEDIATES_DIR)\" \"?" -e "s/$$/\"/" \
-        > $(dir $@)jack_res_jar_flags; \
-    if [ -s $(dir $@)jack_res_jar_flags ] ; then \
-        $(JAR) uf $@ @$(dir $@)jack_res_jar_flags; \
-    fi; \
-fi
+# Add resources (non .class files) from a jar to a package
+# $(1): the package file
+# $(2): the jar file
+# $(3): temporary directory
+define add-jar-resources-to-package
+  rm -rf $(3)
+  mkdir -p $(3)
+  unzip -qo $(2) -d $(3) $$(zipinfo -1 $(2) | grep -v -E "\.class$$")
+  $(JAR) uf $(1) $(call jar-args-sorted-files-in-directory,$(3))
 endef
 
 # Sign a package using the specified key/cert.
@@ -2696,14 +2535,10 @@ define sign-package
 $(call sign-package-arg,$@)
 endef
 
-# signapk uses internal APIs from sun.security.{pkcs,x509}; see http://b/37137869
 # $(1): the package file we are signing.
 define sign-package-arg
 $(hide) mv $(1) $(1).unsigned
-$(hide) $(JAVA) -Djava.library.path=$(SIGNAPK_JNI_LIBRARY_PATH) \
-    $(if $(EXPERIMENTAL_USE_OPENJDK9),--add-exports java.base/sun.security.pkcs=ALL-UNNAMED,) \
-    $(if $(EXPERIMENTAL_USE_OPENJDK9),--add-exports java.base/sun.security.x509=ALL-UNNAMED,) \
-    -jar $(SIGNAPK_JAR) \
+$(hide) $(JAVA) -Djava.library.path=$(SIGNAPK_JNI_LIBRARY_PATH) -jar $(SIGNAPK_JAR) \
     $(PRIVATE_CERTIFICATE) $(PRIVATE_PRIVATE_KEY) \
     $(PRIVATE_ADDITIONAL_CERTIFICATES) $(1).unsigned $(1).signed
 $(hide) mv $(1).signed $(1)
@@ -2738,14 +2573,27 @@ define remove-timestamps-from-package
 $(hide) $(ZIPTIME) $@
 endef
 
+# Uncompress dex files embedded in an apk.
+#
+define uncompress-dexs
+$(hide) if (zipinfo $@ '*.dex' 2>/dev/null | grep -v ' stor ' >/dev/null) ; then \
+  tmpdir=$@.tmpdir; \
+  rm -rf $$tmpdir && mkdir $$tmpdir; \
+  unzip -q $@ '*.dex' -d $$tmpdir && \
+  zip -qd $@ '*.dex' && \
+  ( cd $$tmpdir && find . -type f | sort | zip -qD -X -0 ../$(notdir $@) -@ ) && \
+  rm -rf $$tmpdir; \
+  fi
+endef
+
 # Uncompress shared libraries embedded in an apk.
 #
 define uncompress-shared-libs
 $(hide) if (zipinfo $@ $(PRIVATE_EMBEDDED_JNI_LIBS) 2>/dev/null | grep -v ' stor ' >/dev/null) ; then \
   rm -rf $(dir $@)uncompressedlibs && mkdir $(dir $@)uncompressedlibs; \
-  unzip $@ $(PRIVATE_EMBEDDED_JNI_LIBS) -d $(dir $@)uncompressedlibs && \
-  zip -d $@ 'lib/*.so' && \
-  ( cd $(dir $@)uncompressedlibs && find lib -type f | sort | zip -D -X -0 ../$(notdir $@) -@ ) && \
+  unzip -q $@ $(PRIVATE_EMBEDDED_JNI_LIBS) -d $(dir $@)uncompressedlibs && \
+  zip -qd $@ 'lib/*.so' && \
+  ( cd $(dir $@)uncompressedlibs && find lib -type f | sort | zip -qD -X -0 ../$(notdir $@) -@ ) && \
   rm -rf $(dir $@)uncompressedlibs; \
   fi
 endef
@@ -2757,8 +2605,15 @@ endef
 # Note: we intentionally don't clean PRIVATE_CLASS_INTERMEDIATES_DIR
 # in transform-java-to-classes for the sake of vm-tests.
 define transform-host-java-to-package
-@echo "$($(PRIVATE_PREFIX)DISPLAY) Java: $(PRIVATE_MODULE) ($(PRIVATE_CLASS_INTERMEDIATES_DIR))"
-$(call compile-java,$(HOST_JAVAC),$(PRIVATE_BOOTCLASSPATH))
+@echo "Host Java: $(PRIVATE_MODULE) ($(PRIVATE_CLASS_INTERMEDIATES_DIR))"
+$(call compile-java,$(HOST_JAVAC),$(PRIVATE_ALL_JAVA_LIBRARIES))
+endef
+
+# Note: we intentionally don't clean PRIVATE_CLASS_INTERMEDIATES_DIR
+# in transform-java-to-classes for the sake of vm-tests.
+define transform-host-java-to-dalvik-package
+@echo "Dalvik Java: $(PRIVATE_MODULE) ($(PRIVATE_CLASS_INTERMEDIATES_DIR))"
+$(call compile-java,$(HOST_JAVAC),$(PRIVATE_ALL_JAVA_HEADER_LIBRARIES))
 endef
 
 ###########################################################
@@ -2783,6 +2638,14 @@ $(2): $(1)
 	$$(copy-file-to-target)
 endef
 
+define copy-and-uncompress-dexs
+$(2): $(1) $(ZIPALIGN)
+	@echo "Uncompress dexs in: $$@"
+	$$(copy-file-to-target)
+	$$(uncompress-dexs)
+	$$(align-package)
+endef
+
 # Copies many files.
 # $(1): The files to copy.  Each entry is a ':' separated src:dst pair
 # Evaluates to the list of the dst files (ie suitable for a dependency list)
@@ -2799,9 +2662,9 @@ endef
 # $(1): source file
 # $(2): destination file, must end with .xml.
 define copy-xml-file-checked
-$(2): $(1)
+$(2): $(1) $(XMLLINT)
 	@echo "Copy xml: $$@"
-	$(hide) xmllint $$< >/dev/null  # Don't print the xml file to stdout.
+	$(hide) $(XMLLINT) $$< >/dev/null  # Don't print the xml file to stdout.
 	$$(copy-file-to-target)
 endef
 
@@ -2822,7 +2685,7 @@ endef
 define copy-file-to-target
 @mkdir -p $(dir $@)
 $(hide) rm -f $@
-$(hide) cp $< $@
+$(hide) cp "$<" "$@"
 endef
 
 # The same as copy-file-to-target, but use the local
@@ -2830,7 +2693,7 @@ endef
 define copy-file-to-target-with-cp
 @mkdir -p $(dir $@)
 $(hide) rm -f $@
-$(hide) cp -p $< $@
+$(hide) cp -p "$<" "$@"
 endef
 
 # The same as copy-file-to-target, but strip out "# comment"-style
@@ -2898,14 +2761,89 @@ $(3): | $(1)
 	$(hide) ln -sf $(2) $$@
 endef
 
+# Copy an apk to a target location while removing classes*.dex
+# $(1): source file
+# $(2): destination file
+# $(3): LOCAL_DEX_PREOPT, if nostripping then leave classes*.dex
+define dexpreopt-copy-jar
+$(2): $(1)
+	@echo "Copy: $$@"
+	$$(copy-file-to-target)
+	$(if $(filter nostripping,$(3)),,$$(call dexpreopt-remove-classes.dex,$$@))
+endef
+
+# $(1): the .jar or .apk to remove classes.dex. Note that if all dex files
+# are uncompressed in the archive, then dexopt will not do a copy of the dex
+# files and we should not strip.
+define dexpreopt-remove-classes.dex
+$(hide) if (zipinfo $1 '*.dex' 2>/dev/null | grep -v ' stor ' >/dev/null) ; then \
+zip --quiet --delete $(1) classes.dex; \
+dex_index=2; \
+while zip --quiet --delete $(1) classes$${dex_index}.dex > /dev/null; do \
+  let dex_index=dex_index+1; \
+done \
+fi
+endef
+
+define hiddenapi-copy-dex-files
+$(2): $(1) $(HIDDENAPI) $(INTERNAL_PLATFORM_HIDDENAPI_LIGHT_GREYLIST) \
+      $(INTERNAL_PLATFORM_HIDDENAPI_DARK_GREYLIST) $(INTERNAL_PLATFORM_HIDDENAPI_BLACKLIST)
+	@rm -rf $(dir $(2))
+	@mkdir -p $(dir $(2))
+	find $(dir $(1)) -maxdepth 1 -name "classes*.dex" | sort | \
+		xargs -I{} cp -f {} $(dir $(2))
+	find $(dir $(2)) -name "classes*.dex" | sort | sed 's/^/--dex=/' | \
+		xargs $(HIDDENAPI) --light-greylist=$(INTERNAL_PLATFORM_HIDDENAPI_LIGHT_GREYLIST) \
+		                   --dark-greylist=$(INTERNAL_PLATFORM_HIDDENAPI_DARK_GREYLIST) \
+		                   --blacklist=$(INTERNAL_PLATFORM_HIDDENAPI_BLACKLIST)
+endef
+
+define hiddenapi-copy-soong-jar
+$(2): PRIVATE_FOLDER := $(dir $(2))dex-hiddenapi
+$(2): $(1) $(HIDDENAPI) $(SOONG_ZIP) $(MERGE_ZIPS) $(INTERNAL_PLATFORM_HIDDENAPI_LIGHT_GREYLIST) \
+      $(INTERNAL_PLATFORM_HIDDENAPI_DARK_GREYLIST) $(INTERNAL_PLATFORM_HIDDENAPI_BLACKLIST)
+	@echo "Hidden API: $$@"
+	$$(copy-file-to-target)
+	@rm -rf $${PRIVATE_FOLDER}
+	@mkdir -p $${PRIVATE_FOLDER}
+	unzip -q $(2) 'classes*.dex' -d $${PRIVATE_FOLDER}
+	find $${PRIVATE_FOLDER} -name "classes*.dex" | sort | sed 's/^/--dex=/' | \
+		xargs $(HIDDENAPI) --light-greylist=$(INTERNAL_PLATFORM_HIDDENAPI_LIGHT_GREYLIST) \
+		                   --dark-greylist=$(INTERNAL_PLATFORM_HIDDENAPI_DARK_GREYLIST) \
+		                   --blacklist=$(INTERNAL_PLATFORM_HIDDENAPI_BLACKLIST)
+	$(SOONG_ZIP) -o $${PRIVATE_FOLDER}/classes.dex.jar -C $${PRIVATE_FOLDER} -D $${PRIVATE_FOLDER}
+	$(MERGE_ZIPS) -D -zipToNotStrip $${PRIVATE_FOLDER}/classes.dex.jar -stripFile "classes*.dex" \
+		$(2) $${PRIVATE_FOLDER}/classes.dex.jar $(1)
+endef
+
 ###########################################################
 ## Commands to call Proguard
 ###########################################################
+ifdef TARGET_OPENJDK9
+define transform-jar-to-proguard
+@echo Skipping Proguard: $< $@
+$(hide) cp '$<' $@
+endef
+else
 define transform-jar-to-proguard
 @echo Proguard: $@
-$(hide) $(PROGUARD) -injars '$<$(PRIVATE_PROGUARD_INJAR_FILTERS)' \
-    -outjars $@ $(PRIVATE_PROGUARD_FLAGS) \
+$(hide) $(PROGUARD) -injars $< -outjars $@ $(PRIVATE_PROGUARD_FLAGS) \
     $(addprefix -injars , $(PRIVATE_EXTRA_INPUT_JAR))
+endef
+endif
+
+
+###########################################################
+## Commands to call R8
+###########################################################
+define transform-jar-to-dex-r8
+@echo R8: $@
+$(hide) $(R8_COMPAT_PROGUARD) -injars '$<' \
+    --min-api $(PRIVATE_MIN_SDK_VERSION) \
+    --force-proguard-compatibility --output $(subst classes.dex,,$@) \
+    $(PRIVATE_PROGUARD_FLAGS) \
+    $(addprefix -injars , $(PRIVATE_EXTRA_INPUT_JAR)) \
+    $(PRIVATE_DX_FLAGS)
 endef
 
 ###########################################################
@@ -2928,39 +2866,16 @@ ifndef get-file-size
 $(error HOST_OS must define get-file-size)
 endif
 
-# Convert a partition data size (eg, as reported in /proc/mtd) to the
-# size of the image used to flash that partition (which includes a
-# spare area for each page).
-# $(1): the partition data size
-define image-size-from-data-size
-$(strip $(eval _isfds_value := $$(shell echo $$$$(($(1) / $(BOARD_NAND_PAGE_SIZE) * \
-  ($(BOARD_NAND_PAGE_SIZE)+$(BOARD_NAND_SPARE_SIZE))))))\
-$(if $(filter 0, $(_isfds_value)),$(shell echo $$(($(BOARD_NAND_PAGE_SIZE)+$(BOARD_NAND_SPARE_SIZE)))),$(_isfds_value))\
-$(eval _isfds_value :=))
-endef
-
 # $(1): The file(s) to check (often $@)
-# $(2): The maximum total image size, in decimal bytes.
-#    Make sure to take into account any reserved space needed for the FS.
-#
-# If $(2) is empty, evaluates to "true"
-#
-# Reserve bad blocks.  Make sure that MAX(1% of partition size, 2 blocks)
-# is left over after the image has been flashed.  Round the 1% up to the
-# next whole flash block size.
-define assert-max-file-size
+# $(2): The partition size.
+define assert-max-image-size
 $(if $(2), \
   size=$$(for i in $(1); do $(call get-file-size,$$i); echo +; done; echo 0); \
   total=$$(( $$( echo "$$size" ) )); \
   printname=$$(echo -n "$(1)" | tr " " +); \
-  img_blocksize=$(call image-size-from-data-size,$(BOARD_FLASH_BLOCK_SIZE)); \
-  twoblocks=$$((img_blocksize * 2)); \
-  onepct=$$((((($(2) / 100) - 1) / img_blocksize + 1) * img_blocksize)); \
-  reserve=$$((twoblocks > onepct ? twoblocks : onepct)); \
-  maxsize=$$(($(2) - reserve)); \
-  echo "$$printname maxsize=$$maxsize blocksize=$$img_blocksize total=$$total reserve=$$reserve"; \
+  maxsize=$$(($(2))); \
   if [ "$$total" -gt "$$maxsize" ]; then \
-    echo "error: $$printname too large ($$total > [$(2) - $$reserve])"; \
+    echo "error: $$printname too large ($$total > $$maxsize)"; \
     false; \
   elif [ "$$total" -gt $$((maxsize - 32768)) ]; then \
     echo "WARNING: $$printname approaching size limit ($$total now; limit $$maxsize)"; \
@@ -2968,17 +2883,6 @@ $(if $(2), \
  , \
   true \
  )
-endef
-
-# Like assert-max-file-size, but the second argument is a partition
-# size, which we'll convert to a max image size before checking it
-# against the files.
-#
-# $(1): The file(s) to check (often $@)
-# $(2): The partition size.
-define assert-max-image-size
-$(if $(2), \
-  $(call assert-max-file-size,$(1),$(call image-size-from-data-size,$(2))))
 endef
 
 
@@ -3157,9 +3061,11 @@ STATS.MODULE_TYPE := \
   HOST_DALVIK_JAVA_LIBRARY \
   HOST_DALVIK_STATIC_JAVA_LIBRARY \
   base_rules \
-  HEADER_LIBRARY
+  HEADER_LIBRARY \
+  HOST_TEST_CONFIG \
+  TARGET_TEST_CONFIG
 
-$(foreach $(s),$(STATS.MODULE_TYPE),$(eval STATS.MODULE_TYPE.$(s) :=))
+$(foreach s,$(STATS.MODULE_TYPE),$(eval STATS.MODULE_TYPE.$(s) :=))
 define record-module-type
 $(strip $(if $(LOCAL_RECORDED_MODULE_TYPE),,
   $(if $(filter-out $(SOONG_ANDROID_MK),$(LOCAL_MODULE_MAKEFILE)),
@@ -3189,7 +3095,7 @@ endef
 define create-suite-dependencies
 $(foreach suite, $(LOCAL_COMPATIBILITY_SUITE), \
   $(eval COMPATIBILITY.$(suite).FILES := \
-    $(COMPATIBILITY.$(suite).FILES) $(foreach f,$(my_compat_dist_$(suite)),$(call word-colon,2,$(f))))) \
+    $$(COMPATIBILITY.$(suite).FILES) $$(foreach f,$$(my_compat_dist_$(suite)),$$(call word-colon,2,$$(f))))) \
 $(eval $(my_all_targets) : $(call copy-many-files, \
   $(sort $(foreach suite,$(LOCAL_COMPATIBILITY_SUITE),$(my_compat_dist_$(suite))))))
 endef
@@ -3330,6 +3236,122 @@ ifeq ($(TEST_MAKE_clean_path),true)
 endif
 
 ###########################################################
+## Given a filepath, returns nonempty if the path cannot be
+## validated to be contained in the current directory
+## This is, this function checks for '/' and '..'
+##
+## $(1): path to validate
+define try-validate-path-is-subdir
+$(strip 
+    $(if $(filter /%,$(1)),
+        $(1) starts with a slash
+    )
+    $(if $(filter ../%,$(call clean-path,$(1))),
+        $(1) escapes its parent using '..'
+    )
+    $(if $(strip $(1)),
+    ,
+        '$(1)' is empty
+    )
+)
+endef
+
+define validate-path-is-subdir
+$(if $(call try-validate-path-is-subdir,$(1)),
+  $(call pretty-error, Illegal path: $(call try-validate-path-is-subdir,$(1)))
+)
+endef
+
+###########################################################
+## Given a space-delimited list of filepaths, returns
+## nonempty if any cannot be validated to be contained in
+## the current directory
+##
+## $(1): path list to validate
+define try-validate-paths-are-subdirs
+$(strip \
+  $(foreach my_path,$(1),\
+    $(call try-validate-path-is-subdir,$(my_path))\
+  )
+)
+endef
+
+define validate-paths-are-subdirs
+$(if $(call try-validate-paths-are-subdirs,$(1)),
+    $(call pretty-error,Illegal paths:\'$(call try-validate-paths-are-subdirs,$(1))\')
+)
+endef
+
+###########################################################
+## Tests of try-validate-path-is-subdir
+##     and  try-validate-paths-are-subdirs
+define test-validate-paths-are-subdirs
+$(eval my_error := $(call try-validate-path-is-subdir,/tmp)) \
+$(if $(call streq,$(my_error),/tmp starts with a slash),
+,
+  $(error incorrect error message for path /tmp. Got '$(my_error)')
+) \
+$(eval my_error := $(call try-validate-path-is-subdir,../sibling)) \
+$(if $(call streq,$(my_error),../sibling escapes its parent using '..'),
+,
+  $(error incorrect error message for path ../sibling. Got '$(my_error)')
+) \
+$(eval my_error := $(call try-validate-path-is-subdir,child/../../sibling)) \
+$(if $(call streq,$(my_error),child/../../sibling escapes its parent using '..'),
+,
+  $(error incorrect error message for path child/../../sibling. Got '$(my_error)')
+) \
+$(eval my_error := $(call try-validate-path-is-subdir,)) \
+$(if $(call streq,$(my_error),'' is empty),
+,
+  $(error incorrect error message for empty path ''. Got '$(my_error)')
+) \
+$(eval my_error := $(call try-validate-path-is-subdir,subdir/subsubdir)) \
+$(if $(call streq,$(my_error),),
+,
+  $(error rejected valid path 'subdir/subsubdir'. Got '$(my_error)')
+)
+
+$(eval my_error := $(call try-validate-paths-are-subdirs,a/b /c/d e/f))
+$(if $(call streq,$(my_error),/c/d starts with a slash),
+,
+  $(error incorrect error message for path list 'a/b /c/d e/f'. Got '$(my_error)')
+)
+$(eval my_error := $(call try-validate-paths-are-subdirs,a/b c/d))
+$(if $(call streq,$(my_error),),
+,
+  $(error rejected valid path list 'a/b c/d'. Got '$(my_error)')
+)
+endef
+# run test
+$(strip $(call test-validate-paths-are-subdirs))
+
+###########################################################
+## Validate jacoco class filters and convert them to
+## file arguments
+## Jacoco class filters are comma-separated lists of class
+## files (android.app.Application), and may have '*' as the
+## last character to match all classes in a package
+## including subpackages.
+define jacoco-class-filter-to-file-args
+$(strip $(call jacoco-validate-file-args,\
+  $(subst $(comma),$(space),\
+    $(subst .,/,\
+      $(strip $(1))))))
+endef
+
+define jacoco-validate-file-args
+$(strip $(1)\
+  $(call validate-paths-are-subdirs,$(1))
+  $(foreach arg,$(1),\
+    $(if $(findstring ?,$(arg)),$(call pretty-error,\
+      '?' filters are not supported in LOCAL_JACK_COVERAGE_INCLUDE_FILTER or LOCAL_JACK_COVERAGE_EXCLUDE_FILTER))\
+    $(if $(findstring *,$(patsubst %*,%,$(arg))),$(call pretty-error,\
+      '*' is only supported at the end of a filter in LOCAL_JACK_COVERAGE_INCLUDE_FILTER or LOCAL_JACK_COVERAGE_EXCLUDE_FILTER))\
+  ))
+endef
+
+###########################################################
 ## Other includes
 ###########################################################
 
@@ -3409,3 +3431,43 @@ $(foreach source,$(ENFORCE_RRO_SOURCES), \
   $(eval ALL_MODULES.$(enforce_rro_source_module).REQUIRED += $(enforce_rro_module)) \
 )
 endef
+
+###########################################################
+## Find system_$(VER) in LOCAL_SDK_VERSION
+##
+## $(1): LOCAL_SDK_VERSION
+###########################################################
+define has-system-sdk-version
+$(filter system_%,$(1))
+endef
+
+###########################################################
+## Get numerical version in LOCAL_SDK_VERSION
+##
+## $(1): LOCAL_SDK_VERSION
+###########################################################
+define get-numeric-sdk-version
+$(filter-out current,\
+  $(if $(call has-system-sdk-version,$(1)),$(patsubst system_%,%,$(1)),$(1)))
+endef
+
+# Convert to lower case without requiring a shell, which isn't cacheable.
+to-lower=$(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(subst G,g,$(subst H,h,$(subst I,i,$(subst J,j,$(subst K,k,$(subst L,l,$(subst M,m,$(subst N,n,$(subst O,o,$(subst P,p,$(subst Q,q,$(subst R,r,$(subst S,s,$(subst T,t,$(subst U,u,$(subst V,v,$(subst W,w,$(subst X,x,$(subst Y,y,$(subst Z,z,$1))))))))))))))))))))))))))
+
+# Convert to upper case without requiring a shell, which isn't cacheable.
+to-upper=$(subst a,A,$(subst b,B,$(subst c,C,$(subst d,D,$(subst e,E,$(subst f,F,$(subst g,G,$(subst h,H,$(subst i,I,$(subst j,J,$(subst k,K,$(subst l,L,$(subst m,M,$(subst n,N,$(subst o,O,$(subst p,P,$(subst q,Q,$(subst r,R,$(subst s,S,$(subst t,T,$(subst u,U,$(subst v,V,$(subst w,W,$(subst x,X,$(subst y,Y,$(subst z,Z,$1))))))))))))))))))))))))))
+
+# Sanity-check to-lower and to-upper
+lower := abcdefghijklmnopqrstuvwxyz-_
+upper := ABCDEFGHIJKLMNOPQRSTUVWXYZ-_
+
+ifneq ($(lower),$(call to-lower,$(upper)))
+  $(error to-lower sanity check failure)
+endif
+
+ifneq ($(upper),$(call to-upper,$(lower)))
+  $(error to-upper sanity check failure)
+endif
+
+lower :=
+upper :=

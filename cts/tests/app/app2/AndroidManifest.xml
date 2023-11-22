@@ -19,6 +19,8 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application>
+        <uses-library android:name="android.test.runner" />
+
         <service android:name="android.app.stubs.LocalService"
                  android:exported="true"/>
         <service android:name=".AlertWindowService"

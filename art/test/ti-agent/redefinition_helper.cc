@@ -16,9 +16,9 @@
 
 #include "common_helper.h"
 
+#include <cstdio>
 #include <deque>
 #include <map>
-#include <stdio.h>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -332,7 +332,7 @@ extern "C" JNIEXPORT void JNICALL Java_art_Redefinition_doCommonClassRetransform
                     "Unable to create temporary jvmtiEnv for RetransformClasses call.");
       return;
     }
-    SetAllCapabilities(real_env);
+    SetStandardCapabilities(real_env);
   } else {
     real_env = jvmti_env;
   }
@@ -373,36 +373,30 @@ jint OnLoad(JavaVM* vm,
 }  // namespace common_transform
 
 static void SetupCommonRedefine() {
-  jvmtiCapabilities caps;
-  jvmti_env->GetPotentialCapabilities(&caps);
+  jvmtiCapabilities caps = GetStandardCapabilities();
   caps.can_retransform_classes = 0;
   caps.can_retransform_any_class = 0;
   jvmti_env->AddCapabilities(&caps);
 }
 
 static void SetupCommonRetransform() {
-  SetAllCapabilities(jvmti_env);
-  jvmtiEventCallbacks cb;
-  memset(&cb, 0, sizeof(cb));
-  cb.ClassFileLoadHook = common_retransform::CommonClassFileLoadHookRetransformable;
-  jvmtiError res = jvmti_env->SetEventCallbacks(&cb, sizeof(cb));
+  SetStandardCapabilities(jvmti_env);
+  current_callbacks.ClassFileLoadHook = common_retransform::CommonClassFileLoadHookRetransformable;
+  jvmtiError res = jvmti_env->SetEventCallbacks(&current_callbacks, sizeof(current_callbacks));
   CHECK_EQ(res, JVMTI_ERROR_NONE);
   common_retransform::gTransformations.clear();
 }
 
 static void SetupCommonTransform() {
   // Don't set the retransform caps
-  jvmtiCapabilities caps;
-  jvmti_env->GetPotentialCapabilities(&caps);
+  jvmtiCapabilities caps = GetStandardCapabilities();
   caps.can_retransform_classes = 0;
   caps.can_retransform_any_class = 0;
   jvmti_env->AddCapabilities(&caps);
 
   // Use the same callback as the retransform test.
-  jvmtiEventCallbacks cb;
-  memset(&cb, 0, sizeof(cb));
-  cb.ClassFileLoadHook = common_retransform::CommonClassFileLoadHookRetransformable;
-  jvmtiError res = jvmti_env->SetEventCallbacks(&cb, sizeof(cb));
+  current_callbacks.ClassFileLoadHook = common_retransform::CommonClassFileLoadHookRetransformable;
+  jvmtiError res = jvmti_env->SetEventCallbacks(&current_callbacks, sizeof(current_callbacks));
   CHECK_EQ(res, JVMTI_ERROR_NONE);
   common_retransform::gTransformations.clear();
 }

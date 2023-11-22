@@ -19,6 +19,7 @@ package android.location.cts;
 import android.location.GnssMeasurement;
 import android.location.GnssMeasurementsEvent;
 import android.location.GpsStatus;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
 import java.util.Arrays;
@@ -90,6 +91,7 @@ public class GnssMeasurementWhenNoLocationTest extends GnssTestCase {
     /**
      * Test for GPS measurements before a location fix.
      */
+    @AppModeFull(reason = "Requires use of extra LocationManager commands")
     public void testGnssMeasurementWhenNoLocation() throws Exception {
         // Checks if GPS hardware feature is present, skips test (pass) if not,
         // and hard asserts that Location/GPS (Provider) is turned on if is Cts Verifier.
@@ -180,8 +182,8 @@ public class GnssMeasurementWhenNoLocationTest extends GnssTestCase {
 
         // Verify mandatory fields of GnssMeasurement
         for (GnssMeasurement measurement : gpsMeasurements) {
-            TestMeasurementUtil.assertAllGnssMeasurementMandatoryFields(measurement,
-                    softAssert, timeInNs);
+            TestMeasurementUtil.assertAllGnssMeasurementMandatoryFields(mTestLocationManager,
+                    measurement, softAssert, timeInNs);
         }
         softAssert.assertAll();
     }

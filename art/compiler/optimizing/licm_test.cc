@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+#include "licm.h"
+
 #include "base/arena_allocator.h"
 #include "builder.h"
-#include "licm.h"
 #include "nodes.h"
 #include "optimizing_unit_test.h"
 #include "side_effects_analysis.h"
@@ -26,12 +27,10 @@ namespace art {
 /**
  * Fixture class for the LICM tests.
  */
-class LICMTest : public CommonCompilerTest {
+class LICMTest : public OptimizingUnitTest {
  public:
   LICMTest()
-      : pool_(),
-        allocator_(&pool_),
-        entry_(nullptr),
+      : entry_(nullptr),
         loop_preheader_(nullptr),
         loop_header_(nullptr),
         loop_body_(nullptr),
@@ -40,7 +39,7 @@ class LICMTest : public CommonCompilerTest {
         parameter_(nullptr),
         int_constant_(nullptr),
         float_constant_(nullptr) {
-    graph_ = CreateGraph(&allocator_);
+    graph_ = CreateGraph();
   }
 
   ~LICMTest() { }
@@ -48,12 +47,12 @@ class LICMTest : public CommonCompilerTest {
   // Builds a singly-nested loop structure in CFG. Tests can further populate
   // the basic blocks with instructions to set up interesting scenarios.
   void BuildLoop() {
-    entry_ = new (&allocator_) HBasicBlock(graph_);
-    loop_preheader_ = new (&allocator_) HBasicBlock(graph_);
-    loop_header_ = new (&allocator_) HBasicBlock(graph_);
-    loop_body_ = new (&allocator_) HBasicBlock(graph_);
-    return_ = new (&allocator_) HBasicBlock(graph_);
-    exit_ = new (&allocator_) HBasicBlock(graph_);
+    entry_ = new (GetAllocator()) HBasicBlock(graph_);
+    loop_preheader_ = new (GetAllocator()) HBasicBlock(graph_);
+    loop_header_ = new (GetAllocator()) HBasicBlock(graph_);
+    loop_body_ = new (GetAllocator()) HBasicBlock(graph_);
+    return_ = new (GetAllocator()) HBasicBlock(graph_);
+    exit_ = new (GetAllocator()) HBasicBlock(graph_);
 
     graph_->AddBlock(entry_);
     graph_->AddBlock(loop_preheader_);
@@ -74,18 +73,18 @@ class LICMTest : public CommonCompilerTest {
     return_->AddSuccessor(exit_);
 
     // Provide boiler-plate instructions.
-    parameter_ = new (&allocator_) HParameterValue(graph_->GetDexFile(),
-                                                   dex::TypeIndex(0),
-                                                   0,
-                                                   Primitive::kPrimNot);
+    parameter_ = new (GetAllocator()) HParameterValue(graph_->GetDexFile(),
+                                                      dex::TypeIndex(0),
+                                                      0,
+                                                      DataType::Type::kReference);
     entry_->AddInstruction(parameter_);
     int_constant_ = graph_->GetIntConstant(42);
     float_constant_ = graph_->GetFloatConstant(42.0f);
-    loop_preheader_->AddInstruction(new (&allocator_) HGoto());
-    loop_header_->AddInstruction(new (&allocator_) HIf(parameter_));
-    loop_body_->AddInstruction(new (&allocator_) HGoto());
-    return_->AddInstruction(new (&allocator_) HReturnVoid());
-    exit_->AddInstruction(new (&allocator_) HExit());
+    loop_preheader_->AddInstruction(new (GetAllocator()) HGoto());
+    loop_header_->AddInstruction(new (GetAllocator()) HIf(parameter_));
+    loop_body_->AddInstruction(new (GetAllocator()) HGoto());
+    return_->AddInstruction(new (GetAllocator()) HReturnVoid());
+    exit_->AddInstruction(new (GetAllocator()) HExit());
   }
 
   // Performs LICM optimizations (after proper set up).
@@ -97,8 +96,6 @@ class LICMTest : public CommonCompilerTest {
   }
 
   // General building fields.
-  ArenaPool pool_;
-  ArenaAllocator allocator_;
   HGraph* graph_;
 
   // Specific basic blocks.
@@ -122,18 +119,18 @@ TEST_F(LICMTest, FieldHoisting) {
   BuildLoop();
 
   // Populate the loop with instructions: set/get field with different types.
-  HInstruction* get_field = new (&allocator_) HInstanceFieldGet(parameter_,
-                                                                nullptr,
-                                                                Primitive::kPrimLong,
-                                                                MemberOffset(10),
-                                                                false,
-                                                                kUnknownFieldIndex,
-                                                                kUnknownClassDefIndex,
-                                                                graph_->GetDexFile(),
-                                                                0);
+  HInstruction* get_field = new (GetAllocator()) HInstanceFieldGet(parameter_,
+                                                                   nullptr,
+                                                                   DataType::Type::kInt64,
+                                                                   MemberOffset(10),
+                                                                   false,
+                                                                   kUnknownFieldIndex,
+                                                                   kUnknownClassDefIndex,
+                                                                   graph_->GetDexFile(),
+                                                                   0);
   loop_body_->InsertInstructionBefore(get_field, loop_body_->GetLastInstruction());
-  HInstruction* set_field = new (&allocator_) HInstanceFieldSet(
-      parameter_, int_constant_, nullptr, Primitive::kPrimInt, MemberOffset(20),
+  HInstruction* set_field = new (GetAllocator()) HInstanceFieldSet(
+      parameter_, int_constant_, nullptr, DataType::Type::kInt32, MemberOffset(20),
       false, kUnknownFieldIndex, kUnknownClassDefIndex, graph_->GetDexFile(), 0);
   loop_body_->InsertInstructionBefore(set_field, loop_body_->GetLastInstruction());
 
@@ -149,26 +146,26 @@ TEST_F(LICMTest, NoFieldHoisting) {
 
   // Populate the loop with instructions: set/get field with same types.
   ScopedNullHandle<mirror::DexCache> dex_cache;
-  HInstruction* get_field = new (&allocator_) HInstanceFieldGet(parameter_,
-                                                                nullptr,
-                                                                Primitive::kPrimLong,
-                                                                MemberOffset(10),
-                                                                false,
-                                                                kUnknownFieldIndex,
-                                                                kUnknownClassDefIndex,
-                                                                graph_->GetDexFile(),
-                                                                0);
+  HInstruction* get_field = new (GetAllocator()) HInstanceFieldGet(parameter_,
+                                                                   nullptr,
+                                                                   DataType::Type::kInt64,
+                                                                   MemberOffset(10),
+                                                                   false,
+                                                                   kUnknownFieldIndex,
+                                                                   kUnknownClassDefIndex,
+                                                                   graph_->GetDexFile(),
+                                                                   0);
   loop_body_->InsertInstructionBefore(get_field, loop_body_->GetLastInstruction());
-  HInstruction* set_field = new (&allocator_) HInstanceFieldSet(parameter_,
-                                                                get_field,
-                                                                nullptr,
-                                                                Primitive::kPrimLong,
-                                                                MemberOffset(10),
-                                                                false,
-                                                                kUnknownFieldIndex,
-                                                                kUnknownClassDefIndex,
-                                                                graph_->GetDexFile(),
-                                                                0);
+  HInstruction* set_field = new (GetAllocator()) HInstanceFieldSet(parameter_,
+                                                                   get_field,
+                                                                   nullptr,
+                                                                   DataType::Type::kInt64,
+                                                                   MemberOffset(10),
+                                                                   false,
+                                                                   kUnknownFieldIndex,
+                                                                   kUnknownClassDefIndex,
+                                                                   graph_->GetDexFile(),
+                                                                   0);
   loop_body_->InsertInstructionBefore(set_field, loop_body_->GetLastInstruction());
 
   EXPECT_EQ(get_field->GetBlock(), loop_body_);
@@ -182,11 +179,11 @@ TEST_F(LICMTest, ArrayHoisting) {
   BuildLoop();
 
   // Populate the loop with instructions: set/get array with different types.
-  HInstruction* get_array = new (&allocator_) HArrayGet(
-      parameter_, int_constant_, Primitive::kPrimInt, 0);
+  HInstruction* get_array = new (GetAllocator()) HArrayGet(
+      parameter_, int_constant_, DataType::Type::kInt32, 0);
   loop_body_->InsertInstructionBefore(get_array, loop_body_->GetLastInstruction());
-  HInstruction* set_array = new (&allocator_) HArraySet(
-      parameter_, int_constant_, float_constant_, Primitive::kPrimFloat, 0);
+  HInstruction* set_array = new (GetAllocator()) HArraySet(
+      parameter_, int_constant_, float_constant_, DataType::Type::kFloat32, 0);
   loop_body_->InsertInstructionBefore(set_array, loop_body_->GetLastInstruction());
 
   EXPECT_EQ(get_array->GetBlock(), loop_body_);
@@ -200,11 +197,11 @@ TEST_F(LICMTest, NoArrayHoisting) {
   BuildLoop();
 
   // Populate the loop with instructions: set/get array with same types.
-  HInstruction* get_array = new (&allocator_) HArrayGet(
-      parameter_, int_constant_, Primitive::kPrimFloat, 0);
+  HInstruction* get_array = new (GetAllocator()) HArrayGet(
+      parameter_, int_constant_, DataType::Type::kFloat32, 0);
   loop_body_->InsertInstructionBefore(get_array, loop_body_->GetLastInstruction());
-  HInstruction* set_array = new (&allocator_) HArraySet(
-      parameter_, get_array, float_constant_, Primitive::kPrimFloat, 0);
+  HInstruction* set_array = new (GetAllocator()) HArraySet(
+      parameter_, get_array, float_constant_, DataType::Type::kFloat32, 0);
   loop_body_->InsertInstructionBefore(set_array, loop_body_->GetLastInstruction());
 
   EXPECT_EQ(get_array->GetBlock(), loop_body_);

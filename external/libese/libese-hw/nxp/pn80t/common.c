@@ -174,6 +174,8 @@ int nxp_pn80t_poll(struct EseInterface *ese, uint8_t poll_for, float timeout,
 #define ATTACK_COUNTER 0xF2
 #define RESTRICTED_MODE_PENALTY 0xF3
 uint32_t nxp_pn80t_send_cooldown(struct EseInterface *ese, bool end) {
+  struct NxpState *ns = NXP_PN80T_STATE(ese);
+  const struct Pn80tPlatform *platform = ese->ops->opts;
   const static uint8_t kEndofApduSession[] = {0x5a, 0xc5, 0x00, 0xc5};
   const static uint8_t kResetSession[] = {0x5a, 0xc4, 0x00, 0xc4};
   const uint8_t *const message = end ? kEndofApduSession : kResetSession;
@@ -226,6 +228,8 @@ uint32_t nxp_pn80t_send_cooldown(struct EseInterface *ese, bool end) {
           ALOGI("- Timer 0x%.2X: %d", tag, cooldown);
           if (cooldown > max_wait) {
             max_wait = cooldown;
+            /* Wait 25ms Guard time to make sure eSE is in DPD mode */
+            platform->wait(ns->handle, 25000);
           }
           break;
         default:

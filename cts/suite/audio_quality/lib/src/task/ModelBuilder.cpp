@@ -87,7 +87,7 @@ TaskGeneric* ModelBuilder::parseTestDescriptionXml(const android::String8& xmlFi
 {
     XMLDocument doc;
     int error = doc.LoadFile(xmlFileName.string());
-    if (error != XML_NO_ERROR) {
+    if (error != XML_SUCCESS) {
         LOGE("ModelBuilder::parseTestDescriptionXml cannot load file %s: %d", xmlFileName.string(), error);
         return NULL;
     }

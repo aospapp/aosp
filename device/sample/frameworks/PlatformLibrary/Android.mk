@@ -33,6 +33,7 @@ LOCAL_MODULE_TAGS := optional
 
 # This is the target being built.
 LOCAL_MODULE:= com.example.android.platform_library
+LOCAL_SDK_VERSION := current
 
 include $(BUILD_JAVA_LIBRARY)
 

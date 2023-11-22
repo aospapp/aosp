@@ -48,6 +48,8 @@ class LayoutScraper(object):
         "VBLOCK_B": "VBOOTB",
         "FW_MAIN_A": "FVMAIN",
         "FW_MAIN_B": "FVMAINB",
+        "RW_FWID_A": "RW_FWID_A",
+        "RW_FWID_B": "RW_FWID_B",
         # Memory Training data cache for recovery boots
         # Added on Nov 09, 2016
         "RECOVERY_MRC_CACHE": "RECOVERY_MRC_CACHE",
@@ -56,6 +58,8 @@ class LayoutScraper(object):
         "EC_MAIN_B": "ECMAINB",
         # EC firmware layout
         "EC_RW": "EC_RW",
+        "EC_RW_B": "EC_RW_B",
+        "RW_FWID": "RW_FWID",
         }
 
     def __init__(self, os_if):
@@ -117,7 +121,9 @@ class LayoutScraper(object):
         base = -1
         for section_base, section_end in ost:
             if section_base <= base or section_end + 1 < section_base:
-                raise TestError('bad section at 0x%x..0x%x' % (
+                # Overlapped section is possible, like the fwid which is
+                # inside the main fw section.
+                self.os_if.log('overlapped section at 0x%x..0x%x' % (
                         section_base, section_end))
             base = section_end
         if base > file_size:
@@ -285,7 +291,8 @@ class flashrom_util(object):
         if len(data) != pos[1] - pos[0] + 1:
             # Pad the main firmware body since we trimed it down before.
             if (len(data) < pos[1] - pos[0] + 1 and section_name in
-                    ('FVMAIN', 'FVMAINB', 'ECMAINA', 'ECMAINB')):
+                    ('FVMAIN', 'FVMAINB', 'ECMAINA', 'ECMAINB',
+                     'RW_FWID')):
                 pad = base_image[pos[1]]
                 data = data + pad * (pos[1] - pos[0] + 1 - len(data))
             else:

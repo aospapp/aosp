@@ -41,7 +41,7 @@ class TestResultEnums(object):
     RECORD_RESULT = "Result"
     RECORD_UID = "UID"
     RECORD_EXTRAS = "Extras"
-    RECORD_EXTRA_ERRORS = "Extra Errors"
+    RECORD_ADDITIONAL_ERRORS = "Extra Errors"
     RECORD_DETAILS = "Details"
     TEST_RESULT_PASS = "PASS"
     TEST_RESULT_FAIL = "FAIL"
@@ -74,7 +74,7 @@ class TestResultRecord(object):
         self.result = None
         self.extras = None
         self.details = None
-        self.extra_errors = {}
+        self.additional_errors = {}
 
     def test_begin(self):
         """Call this when the test case it records begins execution.
@@ -97,7 +97,7 @@ class TestResultRecord(object):
         self.end_time = utils.get_current_epoch_time()
         self.log_end_time = logger.epoch_to_log_line_timestamp(self.end_time)
         self.result = result
-        if self.extra_errors:
+        if self.additional_errors:
             self.result = TestResultEnums.TEST_RESULT_UNKNOWN
         if isinstance(e, signals.TestSignal):
             self.details = e.details
@@ -161,7 +161,7 @@ class TestResultRecord(object):
             e: An exception object.
         """
         self.result = TestResultEnums.TEST_RESULT_UNKNOWN
-        self.extra_errors[tag] = str(e)
+        self.additional_errors[tag] = str(e)
 
     def __str__(self):
         d = self.to_dict()
@@ -175,10 +175,10 @@ class TestResultRecord(object):
         return "%s %s %s" % (t, self.test_name, self.result)
 
     def to_dict(self):
-        """Gets a dictionary representating the content of this class.
+        """Gets a dictionary representing the content of this class.
 
         Returns:
-            A dictionary representating the content of this class.
+            A dictionary representing the content of this class.
         """
         d = {}
         d[TestResultEnums.RECORD_NAME] = self.test_name
@@ -191,7 +191,7 @@ class TestResultRecord(object):
         d[TestResultEnums.RECORD_UID] = self.uid
         d[TestResultEnums.RECORD_EXTRAS] = self.extras
         d[TestResultEnums.RECORD_DETAILS] = self.details
-        d[TestResultEnums.RECORD_EXTRA_ERRORS] = self.extra_errors
+        d[TestResultEnums.RECORD_ADDITIONAL_ERRORS] = self.additional_errors
         return d
 
     def json_str(self):
@@ -235,6 +235,8 @@ class TestResult(object):
         self.blocked = []
         self.unknown = []
         self.controller_info = {}
+        self.post_run_data = {}
+        self.extras = {}
 
     def __add__(self, r):
         """Overrides '+' operator for TestResult class.
@@ -275,6 +277,15 @@ class TestResult(object):
             return
         self.controller_info[name] = info
 
+    def set_extra_data(self, name, info):
+        try:
+            json.dumps(info)
+        except TypeError:
+            logging.warning("Controller info for %s is not JSON serializable! "
+                            "Coercing it to string." % name)
+            info = str(info)
+        self.extras[name] = info
+
     def add_record(self, record):
         """Adds a test record to test result.
 
@@ -297,24 +308,13 @@ class TestResult(object):
             self.executed.append(record)
             self.unknown.append(record)
 
-    def add_controller_info(self, name, info):
-        try:
-            json.dumps(info)
-        except TypeError:
-            logging.warning(("Controller info for %s is not JSON serializable!"
-                             " Coercing it to string.") % name)
-            self.controller_info[name] = str(info)
-            return
-        self.controller_info[name] = info
-
     @property
     def is_all_pass(self):
         """True if no tests failed or threw errors, False otherwise."""
-        num_of_failures = (
-            len(self.failed) + len(self.unknown) + len(self.blocked))
-        if num_of_failures == 0:
-            return True
-        return False
+        num_of_failures = (len(self.failed) +
+                           len(self.unknown) +
+                           len(self.blocked))
+        return num_of_failures == 0
 
     def json_str(self):
         """Converts this test result to a string in json format.
@@ -336,6 +336,7 @@ class TestResult(object):
         d["ControllerInfo"] = self.controller_info
         d["Results"] = [record.to_dict() for record in self.executed]
         d["Summary"] = self.summary_dict()
+        d["Extras"] = self.extras
         json_str = json.dumps(d, indent=4, sort_keys=True)
         return json_str
 

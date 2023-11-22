@@ -14,29 +14,33 @@
  * limitations under the License.
  */
 
-import android.support.LibraryVersions
-import android.support.SupportLibraryExtension;
+import static androidx.build.dependencies.DependenciesKt.*
+import androidx.build.LibraryGroups
+import androidx.build.LibraryVersions
+import androidx.build.SupportLibraryExtension;
 
-apply plugin: android.support.SupportJavaLibraryPlugin
+plugins {
+    id("SupportJavaLibraryPlugin")
+}
 
 sourceSets {
     test.java.srcDirs += 'src/tests/kotlin'
 }
-project.ext.noDocs = true
 dependencies {
-    compile project(":room:common")
-    compile libs.kotlin.stdlib
-    compile libs.gson
-    testCompile libs.junit
-    testCompile libs.ij_annotations
-    testCompile libs.mockito_core
+    compile(project(":room:room-common"))
+    compile(KOTLIN_STDLIB)
+    compile(GSON)
+    testCompile(JUNIT)
+    testCompile(INTELLIJ_ANNOTATIONS)
+    testCompile(MOCKITO_CORE)
 }
 
-version = LibraryVersions.ROOM.toString()
 supportLibrary {
-    name 'Android Room Migration'
-    publish true
-    inceptionYear '2017'
-    description "Android Room Migration"
-    url SupportLibraryExtension.ARCHITECTURE_URL
+    name = "Android Room Migration"
+    publish = true
+    mavenVersion = LibraryVersions.ROOM
+    mavenGroup = LibraryGroups.ROOM
+    inceptionYear = "2017"
+    description = "Android Room Migration"
+    url = SupportLibraryExtension.ARCHITECTURE_URL
 }

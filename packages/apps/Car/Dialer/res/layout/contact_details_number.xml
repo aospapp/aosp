@@ -18,21 +18,23 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="@dimen/call_log_card_overlap"
     android:focusable="true">
 
-    <com.android.car.stream.ui.StreamCardView
+    <androidx.car.widget.ColumnCardView
         android:id="@+id/card"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center">
 
-        <include layout="@layout/car_list_item_2" />
+        <include layout="@layout/contact_detail_card_content"/>
+
         <View
+            android:id="@+id/divider"
             android:layout_width="match_parent"
-            android:layout_height="@dimen/car_divider_height"
+            android:layout_height="@dimen/car_list_divider_height"
+            android:layout_marginStart="@dimen/car_keyline_1"
+            android:layout_marginEnd="@dimen/car_keyline_1"
             android:background="@color/car_list_divider"
-            android:layout_gravity="bottom"
-            android:layout_marginLeft="@dimen/stream_card_keyline_2" />
-    </com.android.car.stream.ui.StreamCardView>
+            android:layout_gravity="bottom"/>
+    </androidx.car.widget.ColumnCardView>
 </FrameLayout>

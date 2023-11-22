@@ -27,6 +27,7 @@ import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -54,7 +55,18 @@ public class PrefsBackupHelperTest {
     public void setUp() {
         mDefaultPrefs = InstrumentationRegistry.getContext().getSharedPreferences("prefs1", 0);
         mBackupPrefs = InstrumentationRegistry.getContext().getSharedPreferences("prefs2", 0);
+        clearSharedPrefs();
         mPrefsBackupHelper = new PrefsBackupHelper(mDefaultPrefs);
+    }
+
+    @After
+    public void tearDown() {
+        clearSharedPrefs();
+    }
+
+    private void clearSharedPrefs() {
+        mDefaultPrefs.edit().clear().commit();
+        mBackupPrefs.edit().clear().commit();
     }
 
     @Test

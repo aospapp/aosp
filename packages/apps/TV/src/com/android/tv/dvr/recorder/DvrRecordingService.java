@@ -29,21 +29,20 @@ import android.support.annotation.Nullable;
 import android.support.annotation.RequiresApi;
 import android.support.annotation.VisibleForTesting;
 import android.util.Log;
-
-import com.android.tv.ApplicationSingletons;
 import com.android.tv.InputSessionManager;
 import com.android.tv.InputSessionManager.OnRecordingSessionChangeListener;
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.Starter;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.feature.CommonFeatures;
+import com.android.tv.common.util.Clock;
 import com.android.tv.dvr.WritableDvrDataManager;
-import com.android.tv.util.Clock;
 import com.android.tv.util.RecurringRunner;
 
 /**
- * DVR recording service. This service should be a foreground service and send a notification
- * to users to do long-running recording task.
+ * DVR recording service. This service should be a foreground service and send a notification to
+ * users to do long-running recording task.
  *
  * <p>This service is waken up when there's a scheduled recording coming soon and at boot completed
  * since schedules have to be loaded from databases in order to set new recording alarms, which
@@ -67,9 +66,9 @@ public class DvrRecordingService extends Service {
     /**
      * Starts the service in foreground.
      *
-     * @param startForRecording {@code true} if there are upcoming recordings in
-     *                          {@link RecordingScheduler#SOON_DURATION_IN_MS} and the service is
-     *                          started in foreground for those recordings.
+     * @param startForRecording {@code true} if there are upcoming recordings in {@link
+     *     RecordingScheduler#SOON_DURATION_IN_MS} and the service is started in foreground for
+     *     those recordings.
      */
     @MainThread
     static void startForegroundService(Context context, boolean startForRecording) {
@@ -99,7 +98,8 @@ public class DvrRecordingService extends Service {
     @VisibleForTesting boolean mIsRecording;
     private boolean mForeground;
 
-    @VisibleForTesting final OnRecordingSessionChangeListener mOnRecordingSessionChangeListener =
+    @VisibleForTesting
+    final OnRecordingSessionChangeListener mOnRecordingSessionChangeListener =
             new OnRecordingSessionChangeListener() {
                 @Override
                 public void onRecordingSessionChange(final boolean create, final int count) {
@@ -114,18 +114,22 @@ public class DvrRecordingService extends Service {
 
     @Override
     public void onCreate() {
-        TvApplication.setCurrentRunningProcess(this, true);
+        Starter.start(this);
         if (DEBUG) Log.d(TAG, "onCreate");
         super.onCreate();
         SoftPreconditions.checkFeatureEnabled(this, CommonFeatures.DVR, TAG);
         sInstance = this;
-        ApplicationSingletons singletons = TvApplication.getSingletons(this);
+        TvSingletons singletons = TvSingletons.getSingletons(this);
         WritableDvrDataManager dataManager =
                 (WritableDvrDataManager) singletons.getDvrDataManager();
         mSessionManager = singletons.getInputSessionManager();
         mSessionManager.addOnRecordingSessionChangeListener(mOnRecordingSessionChangeListener);
-        mReaperRunner = new RecurringRunner(this, java.util.concurrent.TimeUnit.DAYS.toMillis(1),
-                new ScheduledProgramReaper(dataManager, Clock.SYSTEM), null);
+        mReaperRunner =
+                new RecurringRunner(
+                        this,
+                        java.util.concurrent.TimeUnit.DAYS.toMillis(1),
+                        new ScheduledProgramReaper(dataManager, Clock.SYSTEM),
+                        null);
         mReaperRunner.start();
         mContentTitle = getString(R.string.dvr_notification_content_title);
         mContentTextRecording = getString(R.string.dvr_notification_content_text_recording);
@@ -179,13 +183,16 @@ public class DvrRecordingService extends Service {
 
     @VisibleForTesting
     protected void startForegroundInternal(boolean hasUpcomingRecording) {
-        // STOPSHIP: Replace the content title with real UX strings
-        Notification.Builder builder = new Notification.Builder(this)
-                .setContentTitle(mContentTitle)
-                .setContentText(hasUpcomingRecording ? mContentTextRecording : mContentTextLoading)
-                .setSmallIcon(R.drawable.ic_dvr);
-        Notification notification = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ?
-                builder.setChannelId(DVR_NOTIFICATION_CHANNEL_ID).build() : builder.build();
+        Notification.Builder builder =
+                new Notification.Builder(this)
+                        .setContentTitle(mContentTitle)
+                        .setContentText(
+                                hasUpcomingRecording ? mContentTextRecording : mContentTextLoading)
+                        .setSmallIcon(R.drawable.ic_dvr);
+        Notification notification =
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                        ? builder.setChannelId(DVR_NOTIFICATION_CHANNEL_ID).build()
+                        : builder.build();
         startForeground(ONGOING_NOTIFICATION_ID, notification);
     }
 
@@ -196,10 +203,11 @@ public class DvrRecordingService extends Service {
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // STOPSHIP: Replace the channel name with real UX strings
-            mNotificationChannel = new NotificationChannel(DVR_NOTIFICATION_CHANNEL_ID,
-                    getString(R.string.dvr_notification_channel_name),
-                    NotificationManager.IMPORTANCE_LOW);
+            mNotificationChannel =
+                    new NotificationChannel(
+                            DVR_NOTIFICATION_CHANNEL_ID,
+                            getString(R.string.dvr_notification_channel_name),
+                            NotificationManager.IMPORTANCE_LOW);
             ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE))
                     .createNotificationChannel(mNotificationChannel);
         }

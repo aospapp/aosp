@@ -41,17 +41,13 @@ import android.os.Message;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Surface;
-
 import com.android.tv.input.TunerHelper;
-import com.android.tv.testing.ChannelInfo;
+import com.android.tv.testing.data.ChannelInfo;
 import com.android.tv.testing.testinput.ChannelState;
-
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Simple TV input service which provides test channels.
- */
+/** Simple TV input service which provides test channels. */
 public class TestTvInputService extends TvInputService {
     private static final String TAG = "TestTvInputService";
     private static final int REFRESH_DELAY_MS = 1000 / 5;
@@ -93,9 +89,7 @@ public class TestTvInputService extends TvInputService {
         return new SimpleRecordingSessionImpl(this, inputId);
     }
 
-    /**
-     * Simple session implementation that just display some text.
-     */
+    /** Simple session implementation that just display some text. */
     private class SimpleSessionImpl extends Session {
         private static final int MSG_SEEK = 1000;
         private static final int SEEK_DELAY_MS = 300;
@@ -118,28 +112,36 @@ public class TestTvInputService extends TvInputService {
         // The current playback speed rate.
         private float mSpeed;
 
-        private final Handler mHandler = new Handler(Looper.myLooper()) {
-            @Override
-            public void handleMessage(Message msg) {
-                if (msg.what == MSG_SEEK) {
-                    // Actually, this input doesn't play any videos, it just shows the image.
-                    // So we should simulate the playback here by changing the current playback
-                    // position periodically in order to test the time shift.
-                    // If the playback is paused, the current playback position doesn't need to be
-                    // changed.
-                    if (mPausedTimeMs == 0) {
-                        long currentTimeMs = System.currentTimeMillis();
-                        mCurrentPositionMs += (long) ((currentTimeMs
-                                - mLastCurrentPositionUpdateTimeMs) * mSpeed);
-                        mCurrentPositionMs = Math.max(mRecordStartTimeMs,
-                                Math.min(mCurrentPositionMs, currentTimeMs));
-                        mLastCurrentPositionUpdateTimeMs = currentTimeMs;
+        private final Handler mHandler =
+                new Handler(Looper.myLooper()) {
+                    @Override
+                    public void handleMessage(Message msg) {
+                        if (msg.what == MSG_SEEK) {
+                            // Actually, this input doesn't play any videos, it just shows the
+                            // image.
+                            // So we should simulate the playback here by changing the current
+                            // playback
+                            // position periodically in order to test the time shift.
+                            // If the playback is paused, the current playback position doesn't need
+                            // to be
+                            // changed.
+                            if (mPausedTimeMs == 0) {
+                                long currentTimeMs = System.currentTimeMillis();
+                                mCurrentPositionMs +=
+                                        (long)
+                                                ((currentTimeMs - mLastCurrentPositionUpdateTimeMs)
+                                                        * mSpeed);
+                                mCurrentPositionMs =
+                                        Math.max(
+                                                mRecordStartTimeMs,
+                                                Math.min(mCurrentPositionMs, currentTimeMs));
+                                mLastCurrentPositionUpdateTimeMs = currentTimeMs;
+                            }
+                            sendEmptyMessageDelayed(MSG_SEEK, SEEK_DELAY_MS);
+                        }
+                        super.handleMessage(msg);
                     }
-                    sendEmptyMessageDelayed(MSG_SEEK, SEEK_DELAY_MS);
-                }
-                super.handleMessage(msg);
-            }
-        };
+                };
 
         SimpleSessionImpl(Context context) {
             super(context);
@@ -213,7 +215,8 @@ public class TestTvInputService extends TvInputService {
             mChannelUri = channelUri;
             ChannelInfo info = mBackend.getChannelInfo(channelUri);
             synchronized (mDrawRunnable) {
-                if (info == null || mChannel == null
+                if (info == null
+                        || mChannel == null
                         || mChannel.originalNetworkId != info.originalNetworkId) {
                     mCurrentState = null;
                 }
@@ -231,8 +234,9 @@ public class TestTvInputService extends TvInputService {
                 Log.i(TAG, "Tuning to " + mChannel);
             }
             notifyTimeShiftStatusChanged(TvInputManager.TIME_SHIFT_STATUS_AVAILABLE);
-            mRecordStartTimeMs = mCurrentPositionMs = mLastCurrentPositionUpdateTimeMs
-                    = System.currentTimeMillis();
+            mRecordStartTimeMs =
+                    mCurrentPositionMs =
+                            mLastCurrentPositionUpdateTimeMs = System.currentTimeMillis();
             mPausedTimeMs = 0;
             mHandler.sendEmptyMessageDelayed(MSG_SEEK, SEEK_DELAY_MS);
             mSpeed = 1;
@@ -269,8 +273,8 @@ public class TestTvInputService extends TvInputService {
 
         @Override
         public void onTimeShiftPause() {
-            mCurrentPositionMs = mPausedTimeMs = mLastCurrentPositionUpdateTimeMs
-                    = System.currentTimeMillis();
+            mCurrentPositionMs =
+                    mPausedTimeMs = mLastCurrentPositionUpdateTimeMs = System.currentTimeMillis();
         }
 
         @Override
@@ -283,8 +287,9 @@ public class TestTvInputService extends TvInputService {
         @Override
         public void onTimeShiftSeekTo(long timeMs) {
             mLastCurrentPositionUpdateTimeMs = System.currentTimeMillis();
-            mCurrentPositionMs = Math.max(mRecordStartTimeMs,
-                    Math.min(timeMs, mLastCurrentPositionUpdateTimeMs));
+            mCurrentPositionMs =
+                    Math.max(
+                            mRecordStartTimeMs, Math.min(timeMs, mLastCurrentPositionUpdateTimeMs));
         }
 
         @Override
@@ -354,14 +359,14 @@ public class TestTvInputService extends TvInputService {
                 }
             }
 
-            private void update(ChannelState oldState, ChannelState newState,
-                    ChannelInfo currentChannel) {
+            private void update(
+                    ChannelState oldState, ChannelState newState, ChannelInfo currentChannel) {
                 Log.i(TAG, "Updating channel " + currentChannel.number + " state to " + newState);
                 notifyTracksChanged(newState.getTrackInfoList());
                 if (oldState == null || oldState.getTuneStatus() != newState.getTuneStatus()) {
                     if (newState.getTuneStatus() == ChannelState.TUNE_STATUS_VIDEO_AVAILABLE) {
                         notifyVideoAvailable();
-                        //TODO handle parental controls.
+                        // TODO handle parental controls.
                         notifyContentAllowed();
                         setAudioTrack(newState.getSelectedAudioTrackId());
                         setVideoTrack(newState.getSelectedVideoTrackId());
@@ -379,20 +384,20 @@ public class TestTvInputService extends TvInputService {
 
     private class SimpleRecordingSessionImpl extends RecordingSession {
         private final String[] PROGRAM_PROJECTION = {
-                Programs.COLUMN_TITLE,
-                Programs.COLUMN_EPISODE_TITLE,
-                Programs.COLUMN_SHORT_DESCRIPTION,
-                Programs.COLUMN_POSTER_ART_URI,
-                Programs.COLUMN_THUMBNAIL_URI,
-                Programs.COLUMN_CANONICAL_GENRE,
-                Programs.COLUMN_CONTENT_RATING,
-                Programs.COLUMN_START_TIME_UTC_MILLIS,
-                Programs.COLUMN_END_TIME_UTC_MILLIS,
-                Programs.COLUMN_VIDEO_WIDTH,
-                Programs.COLUMN_VIDEO_HEIGHT,
-                Programs.COLUMN_SEASON_DISPLAY_NUMBER,
-                Programs.COLUMN_SEASON_TITLE,
-                Programs.COLUMN_EPISODE_DISPLAY_NUMBER,
+            Programs.COLUMN_TITLE,
+            Programs.COLUMN_EPISODE_TITLE,
+            Programs.COLUMN_SHORT_DESCRIPTION,
+            Programs.COLUMN_POSTER_ART_URI,
+            Programs.COLUMN_THUMBNAIL_URI,
+            Programs.COLUMN_CANONICAL_GENRE,
+            Programs.COLUMN_CONTENT_RATING,
+            Programs.COLUMN_START_TIME_UTC_MILLIS,
+            Programs.COLUMN_END_TIME_UTC_MILLIS,
+            Programs.COLUMN_VIDEO_WIDTH,
+            Programs.COLUMN_VIDEO_HEIGHT,
+            Programs.COLUMN_SEASON_DISPLAY_NUMBER,
+            Programs.COLUMN_SEASON_TITLE,
+            Programs.COLUMN_EPISODE_DISPLAY_NUMBER,
         };
 
         private final String mInputId;
@@ -442,8 +447,14 @@ public class TestTvInputService extends TvInputService {
                     long time = System.currentTimeMillis();
                     if (programHintUri != null) {
                         // Retrieves program info from mProgramHintUri
-                        try (Cursor c = getContentResolver().query(programHintUri,
-                                PROGRAM_PROJECTION, null, null, null)) {
+                        try (Cursor c =
+                                getContentResolver()
+                                        .query(
+                                                programHintUri,
+                                                PROGRAM_PROJECTION,
+                                                null,
+                                                null,
+                                                null)) {
                             if (c != null && c.getCount() > 0) {
                                 storeRecordedProgram(c, startTime, endTime);
                                 return null;
@@ -453,11 +464,19 @@ public class TestTvInputService extends TvInputService {
                         }
                     }
                     // Retrieves the current program
-                    try (Cursor c = getContentResolver().query(
-                            TvContract.buildProgramsUriForChannel(channelUri, startTime,
-                                    endTime - startTime < MAX_COMMAND_DELAY ? startTime :
-                                            endTime - MAX_COMMAND_DELAY),
-                            PROGRAM_PROJECTION, null, null, null)) {
+                    try (Cursor c =
+                            getContentResolver()
+                                    .query(
+                                            TvContract.buildProgramsUriForChannel(
+                                                    channelUri,
+                                                    startTime,
+                                                    endTime - startTime < MAX_COMMAND_DELAY
+                                                            ? startTime
+                                                            : endTime - MAX_COMMAND_DELAY),
+                                            PROGRAM_PROJECTION,
+                                            null,
+                                            null,
+                                            null)) {
                         if (c != null && c.getCount() == 1) {
                             storeRecordedProgram(c, startTime, endTime);
                             return null;
@@ -472,10 +491,9 @@ public class TestTvInputService extends TvInputService {
                 private void storeRecordedProgram(Cursor c, long startTime, long endTime) {
                     ContentValues values = new ContentValues();
                     values.put(RecordedPrograms.COLUMN_INPUT_ID, mInputId);
-                    values.put(RecordedPrograms.COLUMN_CHANNEL_ID,
-                            ContentUris.parseId(channelUri));
-                    values.put(RecordedPrograms.COLUMN_RECORDING_DURATION_MILLIS,
-                            endTime - startTime);
+                    values.put(RecordedPrograms.COLUMN_CHANNEL_ID, ContentUris.parseId(channelUri));
+                    values.put(
+                            RecordedPrograms.COLUMN_RECORDING_DURATION_MILLIS, endTime - startTime);
                     if (c != null) {
                         int index = 0;
                         c.moveToNext();
@@ -492,15 +510,15 @@ public class TestTvInputService extends TvInputService {
                         values.put(Programs.COLUMN_VIDEO_HEIGHT, c.getLong(index++));
                         values.put(Programs.COLUMN_SEASON_DISPLAY_NUMBER, c.getString(index++));
                         values.put(Programs.COLUMN_SEASON_TITLE, c.getString(index++));
-                        values.put(Programs.COLUMN_EPISODE_DISPLAY_NUMBER,
-                                c.getString(index++));
+                        values.put(Programs.COLUMN_EPISODE_DISPLAY_NUMBER, c.getString(index++));
                     } else {
                         values.put(RecordedPrograms.COLUMN_TITLE, "No program info");
                         values.put(RecordedPrograms.COLUMN_START_TIME_UTC_MILLIS, startTime);
                         values.put(RecordedPrograms.COLUMN_END_TIME_UTC_MILLIS, endTime);
                     }
-                    Uri uri = getContentResolver()
-                            .insert(TvContract.RecordedPrograms.CONTENT_URI, values);
+                    Uri uri =
+                            getContentResolver()
+                                    .insert(TvContract.RecordedPrograms.CONTENT_URI, values);
                     notifyRecordingStopped(uri);
                 }
             }.execute();

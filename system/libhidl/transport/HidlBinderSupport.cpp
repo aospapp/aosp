@@ -204,5 +204,20 @@ void joinBinderRpcThreadpool() {
     IPCThreadState::self()->joinThreadPool();
 }
 
+int setupBinderPolling() {
+    int fd;
+    int err = IPCThreadState::self()->setupPolling(&fd);
+
+    if (err != OK) {
+        ALOGE("Failed to setup binder polling: %d (%s)", err, strerror(err));
+    }
+
+    return err == OK ? fd : -1;
+}
+
+status_t handleBinderPoll() {
+    return IPCThreadState::self()->handlePolledCommands();
+}
+
 }  // namespace hardware
 }  // namespace android

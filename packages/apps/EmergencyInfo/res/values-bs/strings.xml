@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Obrisati sve informacije i kontakte?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Dodavanje informacija o zdravstvenom stanju i kontaktima za hitne slučajeve može pomoći osobama koje prve reagiraju u hitnim slučajevima.\n\nSvako može pročitati te informacije s vašeg zaključanog ekrana i bez otključavanja ekrana pozvati vaše kontakte dodirom na njihovo ime."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Dodajte informacije za hitne slučajeve"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Pomozite prvim osobama koje će reagirati da pronađu važne informacije"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Omogući da oni koji prvi reagiraju vide informaciju"</string>
 </resources>

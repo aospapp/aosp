@@ -33,8 +33,7 @@ include device/google/muskie/device-common.mk
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.sf.lcd_density=420
 
-# HWUI cache sizes
-PRODUCT_PROPERTY_OVERRIDES += \
-    ro.hwui.texture_cache_size=56 \
-    ro.hwui.layer_cache_size=32 \
-    ro.hwui.path_cache_size=16
+# Enable Perfetto traced
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+    persist.traced.enable=1
+

@@ -16,6 +16,7 @@
 
 package android.media.cts;
 
+import android.platform.test.annotations.AppModeFull;
 import java.io.IOException;
 
 
@@ -38,6 +39,7 @@ import com.android.compatibility.common.util.CtsAndroidTestCase;
  * Test MIDI when there may be no MIDI devices available. There is not much we
  * can test without a device.
  */
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MidiSoloTest extends CtsAndroidTestCase {
     private static final String TAG = "MidiSoloTest";
     private final static int LOCAL_STORAGE_SIZE = 256;

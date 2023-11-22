@@ -30,7 +30,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner nativetesthelper
 
 LOCAL_JNI_SHARED_LIBRARIES := libdebugtest
 

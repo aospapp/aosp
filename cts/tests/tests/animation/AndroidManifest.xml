@@ -15,7 +15,8 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.animation.cts">
+    package="android.animation.cts"
+    android:targetSandboxVersion="2">
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application>
         <activity android:name="android.animation.cts.AnimationActivity"

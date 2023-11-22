@@ -21,7 +21,6 @@
 #include "common_runtime_test.h"
 #include "quick/quick_method_frame_info.h"
 
-
 // asm_support.h declares tests next to the #defines. We use asm_support_check.h to (safely)
 // generate CheckAsmSupportOffsetsAndSizes using gtest's EXPECT for the tests. We also use the
 // RETURN_TYPE, HEADER and FOOTER defines from asm_support_check.h to try to ensure that any
@@ -89,6 +88,11 @@ static constexpr size_t kFrameSizeSaveRefsOnly = FRAME_SIZE_SAVE_REFS_ONLY;
 #undef FRAME_SIZE_SAVE_REFS_ONLY
 static constexpr size_t kFrameSizeSaveRefsAndArgs = FRAME_SIZE_SAVE_REFS_AND_ARGS;
 #undef FRAME_SIZE_SAVE_REFS_AND_ARGS
+static constexpr size_t kFrameSizeSaveEverythingForClinit = FRAME_SIZE_SAVE_EVERYTHING_FOR_CLINIT;
+#undef FRAME_SIZE_SAVE_EVERYTHING_FOR_CLINIT
+static constexpr size_t kFrameSizeSaveEverythingForSuspendCheck =
+    FRAME_SIZE_SAVE_EVERYTHING_FOR_SUSPEND_CHECK;
+#undef FRAME_SIZE_SAVE_EVERYTHING_FOR_SUSPEND_CHECK
 static constexpr size_t kFrameSizeSaveEverything = FRAME_SIZE_SAVE_EVERYTHING;
 #undef FRAME_SIZE_SAVE_EVERYTHING
 #undef BAKER_MARK_INTROSPECTION_FIELD_LDR_NARROW_ENTRYPOINT_OFFSET
@@ -110,6 +114,11 @@ static constexpr size_t kFrameSizeSaveRefsOnly = FRAME_SIZE_SAVE_REFS_ONLY;
 #undef FRAME_SIZE_SAVE_REFS_ONLY
 static constexpr size_t kFrameSizeSaveRefsAndArgs = FRAME_SIZE_SAVE_REFS_AND_ARGS;
 #undef FRAME_SIZE_SAVE_REFS_AND_ARGS
+static constexpr size_t kFrameSizeSaveEverythingForClinit = FRAME_SIZE_SAVE_EVERYTHING_FOR_CLINIT;
+#undef FRAME_SIZE_SAVE_EVERYTHING_FOR_CLINIT
+static constexpr size_t kFrameSizeSaveEverythingForSuspendCheck =
+    FRAME_SIZE_SAVE_EVERYTHING_FOR_SUSPEND_CHECK;
+#undef FRAME_SIZE_SAVE_EVERYTHING_FOR_SUSPEND_CHECK
 static constexpr size_t kFrameSizeSaveEverything = FRAME_SIZE_SAVE_EVERYTHING;
 #undef FRAME_SIZE_SAVE_EVERYTHING
 #undef BAKER_MARK_INTROSPECTION_ARRAY_SWITCH_OFFSET
@@ -127,8 +136,17 @@ static constexpr size_t kFrameSizeSaveRefsOnly = FRAME_SIZE_SAVE_REFS_ONLY;
 #undef FRAME_SIZE_SAVE_REFS_ONLY
 static constexpr size_t kFrameSizeSaveRefsAndArgs = FRAME_SIZE_SAVE_REFS_AND_ARGS;
 #undef FRAME_SIZE_SAVE_REFS_AND_ARGS
+static constexpr size_t kFrameSizeSaveEverythingForClinit = FRAME_SIZE_SAVE_EVERYTHING_FOR_CLINIT;
+#undef FRAME_SIZE_SAVE_EVERYTHING_FOR_CLINIT
+static constexpr size_t kFrameSizeSaveEverythingForSuspendCheck =
+    FRAME_SIZE_SAVE_EVERYTHING_FOR_SUSPEND_CHECK;
+#undef FRAME_SIZE_SAVE_EVERYTHING_FOR_SUSPEND_CHECK
 static constexpr size_t kFrameSizeSaveEverything = FRAME_SIZE_SAVE_EVERYTHING;
 #undef FRAME_SIZE_SAVE_EVERYTHING
+#undef BAKER_MARK_INTROSPECTION_REGISTER_COUNT
+#undef BAKER_MARK_INTROSPECTION_FIELD_ARRAY_ENTRY_SIZE
+#undef BAKER_MARK_INTROSPECTION_GC_ROOT_ENTRIES_OFFSET
+#undef BAKER_MARK_INTROSPECTION_GC_ROOT_ENTRY_SIZE
 }  // namespace mips
 
 namespace mips64 {
@@ -139,8 +157,17 @@ static constexpr size_t kFrameSizeSaveRefsOnly = FRAME_SIZE_SAVE_REFS_ONLY;
 #undef FRAME_SIZE_SAVE_REFS_ONLY
 static constexpr size_t kFrameSizeSaveRefsAndArgs = FRAME_SIZE_SAVE_REFS_AND_ARGS;
 #undef FRAME_SIZE_SAVE_REFS_AND_ARGS
+static constexpr size_t kFrameSizeSaveEverythingForClinit = FRAME_SIZE_SAVE_EVERYTHING_FOR_CLINIT;
+#undef FRAME_SIZE_SAVE_EVERYTHING_FOR_CLINIT
+static constexpr size_t kFrameSizeSaveEverythingForSuspendCheck =
+    FRAME_SIZE_SAVE_EVERYTHING_FOR_SUSPEND_CHECK;
+#undef FRAME_SIZE_SAVE_EVERYTHING_FOR_SUSPEND_CHECK
 static constexpr size_t kFrameSizeSaveEverything = FRAME_SIZE_SAVE_EVERYTHING;
 #undef FRAME_SIZE_SAVE_EVERYTHING
+#undef BAKER_MARK_INTROSPECTION_REGISTER_COUNT
+#undef BAKER_MARK_INTROSPECTION_FIELD_ARRAY_ENTRY_SIZE
+#undef BAKER_MARK_INTROSPECTION_GC_ROOT_ENTRIES_OFFSET
+#undef BAKER_MARK_INTROSPECTION_GC_ROOT_ENTRY_SIZE
 }  // namespace mips64
 
 namespace x86 {
@@ -151,6 +178,11 @@ static constexpr size_t kFrameSizeSaveRefsOnly = FRAME_SIZE_SAVE_REFS_ONLY;
 #undef FRAME_SIZE_SAVE_REFS_ONLY
 static constexpr size_t kFrameSizeSaveRefsAndArgs = FRAME_SIZE_SAVE_REFS_AND_ARGS;
 #undef FRAME_SIZE_SAVE_REFS_AND_ARGS
+static constexpr size_t kFrameSizeSaveEverythingForClinit = FRAME_SIZE_SAVE_EVERYTHING_FOR_CLINIT;
+#undef FRAME_SIZE_SAVE_EVERYTHING_FOR_CLINIT
+static constexpr size_t kFrameSizeSaveEverythingForSuspendCheck =
+    FRAME_SIZE_SAVE_EVERYTHING_FOR_SUSPEND_CHECK;
+#undef FRAME_SIZE_SAVE_EVERYTHING_FOR_SUSPEND_CHECK
 static constexpr size_t kFrameSizeSaveEverything = FRAME_SIZE_SAVE_EVERYTHING;
 #undef FRAME_SIZE_SAVE_EVERYTHING
 }  // namespace x86
@@ -163,25 +195,36 @@ static constexpr size_t kFrameSizeSaveRefsOnly = FRAME_SIZE_SAVE_REFS_ONLY;
 #undef FRAME_SIZE_SAVE_REFS_ONLY
 static constexpr size_t kFrameSizeSaveRefsAndArgs = FRAME_SIZE_SAVE_REFS_AND_ARGS;
 #undef FRAME_SIZE_SAVE_REFS_AND_ARGS
+static constexpr size_t kFrameSizeSaveEverythingForClinit = FRAME_SIZE_SAVE_EVERYTHING_FOR_CLINIT;
+#undef FRAME_SIZE_SAVE_EVERYTHING_FOR_CLINIT
+static constexpr size_t kFrameSizeSaveEverythingForSuspendCheck =
+    FRAME_SIZE_SAVE_EVERYTHING_FOR_SUSPEND_CHECK;
+#undef FRAME_SIZE_SAVE_EVERYTHING_FOR_SUSPEND_CHECK
 static constexpr size_t kFrameSizeSaveEverything = FRAME_SIZE_SAVE_EVERYTHING;
 #undef FRAME_SIZE_SAVE_EVERYTHING
 }  // namespace x86_64
 
 // Check architecture specific constants are sound.
-#define TEST_ARCH(Arch, arch)                             \
-  TEST_F(ArchTest, Arch) {                                \
-    CheckFrameSize(InstructionSet::k##Arch,               \
-                   CalleeSaveType::kSaveAllCalleeSaves,   \
-                   arch::kFrameSizeSaveAllCalleeSaves);   \
-    CheckFrameSize(InstructionSet::k##Arch,               \
-                   CalleeSaveType::kSaveRefsOnly,         \
-                   arch::kFrameSizeSaveRefsOnly);         \
-    CheckFrameSize(InstructionSet::k##Arch,               \
-                   CalleeSaveType::kSaveRefsAndArgs,      \
-                   arch::kFrameSizeSaveRefsAndArgs);      \
-    CheckFrameSize(InstructionSet::k##Arch,               \
-                   CalleeSaveType::kSaveEverything,       \
-                   arch::kFrameSizeSaveEverything);       \
+#define TEST_ARCH(Arch, arch)                                       \
+  TEST_F(ArchTest, Arch) {                                          \
+    CheckFrameSize(InstructionSet::k##Arch,                         \
+                   CalleeSaveType::kSaveAllCalleeSaves,             \
+                   arch::kFrameSizeSaveAllCalleeSaves);             \
+    CheckFrameSize(InstructionSet::k##Arch,                         \
+                   CalleeSaveType::kSaveRefsOnly,                   \
+                   arch::kFrameSizeSaveRefsOnly);                   \
+    CheckFrameSize(InstructionSet::k##Arch,                         \
+                   CalleeSaveType::kSaveRefsAndArgs,                \
+                   arch::kFrameSizeSaveRefsAndArgs);                \
+    CheckFrameSize(InstructionSet::k##Arch,                         \
+                   CalleeSaveType::kSaveEverything,                 \
+                   arch::kFrameSizeSaveEverything);                 \
+    CheckFrameSize(InstructionSet::k##Arch,                         \
+                   CalleeSaveType::kSaveEverythingForClinit,        \
+                   arch::kFrameSizeSaveEverythingForClinit);        \
+    CheckFrameSize(InstructionSet::k##Arch,                         \
+                   CalleeSaveType::kSaveEverythingForSuspendCheck,  \
+                   arch::kFrameSizeSaveEverythingForSuspendCheck);  \
   }
 TEST_ARCH(Arm, arm)
 TEST_ARCH(Arm64, arm64)

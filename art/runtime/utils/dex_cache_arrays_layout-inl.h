@@ -19,12 +19,13 @@
 
 #include "dex_cache_arrays_layout.h"
 
+#include <android-base/logging.h>
+
 #include "base/bit_utils.h"
-#include "base/logging.h"
+#include "dex/primitive.h"
 #include "gc_root.h"
 #include "globals.h"
 #include "mirror/dex_cache.h"
-#include "primitive.h"
 
 namespace art {
 

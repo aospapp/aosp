@@ -18,14 +18,28 @@ package com.android.dialer.binary.basecomponent;
 
 import com.android.dialer.calllog.CallLogComponent;
 import com.android.dialer.calllog.database.CallLogDatabaseComponent;
+import com.android.dialer.calllog.ui.CallLogUiComponent;
+import com.android.dialer.commandline.CommandLineComponent;
 import com.android.dialer.common.concurrent.DialerExecutorComponent;
 import com.android.dialer.configprovider.ConfigProviderComponent;
+import com.android.dialer.duo.DuoComponent;
 import com.android.dialer.enrichedcall.EnrichedCallComponent;
-import com.android.dialer.lightbringer.LightbringerComponent;
+import com.android.dialer.feedback.FeedbackComponent;
+import com.android.dialer.glidephotomanager.GlidePhotoManagerComponent;
 import com.android.dialer.main.MainComponent;
+import com.android.dialer.metrics.MetricsComponent;
+import com.android.dialer.phonelookup.PhoneLookupComponent;
+import com.android.dialer.phonenumbergeoutil.PhoneNumberGeoUtilComponent;
+import com.android.dialer.precall.PreCallComponent;
+import com.android.dialer.preferredsim.suggestion.SimSuggestionComponent;
 import com.android.dialer.simulator.SimulatorComponent;
+import com.android.dialer.spam.SpamComponent;
+import com.android.dialer.storage.StorageComponent;
+import com.android.dialer.strictmode.StrictModeComponent;
 import com.android.incallui.calllocation.CallLocationComponent;
 import com.android.incallui.maps.MapsComponent;
+import com.android.incallui.speakeasy.SpeakEasyComponent;
+import com.android.newbubble.NewBubbleComponent;
 import com.android.voicemail.VoicemailComponent;
 
 /**
@@ -36,11 +50,25 @@ public interface BaseDialerRootComponent
     extends CallLocationComponent.HasComponent,
         CallLogComponent.HasComponent,
         CallLogDatabaseComponent.HasComponent,
+        CallLogUiComponent.HasComponent,
         ConfigProviderComponent.HasComponent,
+        CommandLineComponent.HasComponent,
         DialerExecutorComponent.HasComponent,
-        MainComponent.HasComponent,
+        DuoComponent.HasComponent,
         EnrichedCallComponent.HasComponent,
+        FeedbackComponent.HasComponent,
+        GlidePhotoManagerComponent.HasComponent,
+        MainComponent.HasComponent,
         MapsComponent.HasComponent,
+        MetricsComponent.HasComponent,
+        NewBubbleComponent.HasComponent,
+        PhoneLookupComponent.HasComponent,
+        PhoneNumberGeoUtilComponent.HasComponent,
+        PreCallComponent.HasComponent,
+        SimSuggestionComponent.HasComponent,
         SimulatorComponent.HasComponent,
-        VoicemailComponent.HasComponent,
-        LightbringerComponent.HasComponent {}
+        SpamComponent.HasComponent,
+        SpeakEasyComponent.HasComponent,
+        StorageComponent.HasComponent,
+        StrictModeComponent.HasComponent,
+        VoicemailComponent.HasComponent {}

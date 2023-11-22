@@ -15,6 +15,7 @@
  */
 package com.android.documentsui.inspector.actions;
 
+import android.annotation.StringRes;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -83,5 +84,9 @@ public final class ClearDefaultAppAction extends Action {
         } else {
             return null;
         }
+    }
+
+    public @StringRes int getButtonLabel() {
+        return R.string.button_clear;
     }
 }

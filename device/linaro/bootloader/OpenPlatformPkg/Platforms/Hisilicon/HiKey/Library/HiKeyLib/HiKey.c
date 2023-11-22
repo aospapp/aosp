@@ -1,7 +1,6 @@
 /** @file
 *
-*  Copyright (c) 2014-2015, Linaro Limited. All rights reserved.
-*  Copyright (c) 2014-2015, Hisilicon Limited. All rights reserved.
+*  Copyright (c) 2014-2017, Linaro Limited. All rights reserved.
 *
 *  This program and the accompanying materials
 *  are licensed and made available under the terms and conditions of the BSD License
@@ -13,9 +12,9 @@
 *
 **/
 
-#include <Library/IoLib.h>
 #include <Library/ArmPlatformLib.h>
 #include <Library/DebugLib.h>
+#include <Library/IoLib.h>
 #include <Library/PcdLib.h>
 
 #include <Ppi/ArmMpCoreInfo.h>

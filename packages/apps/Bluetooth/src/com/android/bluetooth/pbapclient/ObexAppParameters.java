@@ -35,7 +35,7 @@ public final class ObexAppParameters {
         mParams = new HashMap<Byte, byte[]>();
 
         if (raw != null) {
-            for (int i = 0; i < raw.length;) {
+            for (int i = 0; i < raw.length; ) {
                 if (raw.length - i < 2) {
                     break;
                 }

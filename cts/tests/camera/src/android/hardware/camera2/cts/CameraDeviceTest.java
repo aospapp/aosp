@@ -35,21 +35,26 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
+import android.hardware.camera2.cts.helpers.StaticMetadata.CheckLevel;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
 import android.hardware.camera2.params.MeteringRectangle;
+import android.hardware.camera2.params.InputConfiguration;
 import android.hardware.camera2.params.OutputConfiguration;
+import android.hardware.camera2.params.SessionConfiguration;
+import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.ImageReader;
+import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.SystemClock;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Range;
 import android.view.Surface;
 
 import com.android.ex.camera2.blocking.BlockingSessionCallback;
 import com.android.ex.camera2.blocking.BlockingStateCallback;
+import com.android.ex.camera2.exceptions.TimeoutRuntimeException;
 import com.android.ex.camera2.utils.StateWaiter;
-
-import org.mockito.compat.ArgumentMatcher;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,12 +67,17 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Set;
 import android.util.Size;
+
+import org.mockito.ArgumentMatcher;
+
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
  * <p>Basic test for CameraDevice APIs.</p>
  */
+@AppModeFull
 public class CameraDeviceTest extends Camera2AndroidTestCase {
     private static final String TAG = "CameraDeviceTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -89,7 +99,7 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
             CameraDevice.TEMPLATE_PREVIEW,
             CameraDevice.TEMPLATE_RECORD,
             CameraDevice.TEMPLATE_STILL_CAPTURE,
-            CameraDevice.TEMPLATE_VIDEO_SNAPSHOT
+            CameraDevice.TEMPLATE_VIDEO_SNAPSHOT,
     };
 
     private static int[] sInvalidTemplates = new int[] {
@@ -356,19 +366,23 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
     }
 
     public void testCameraDeviceCapture() throws Exception {
-        runCaptureTest(/*burst*/false, /*repeating*/false, /*abort*/false);
+        runCaptureTest(/*burst*/false, /*repeating*/false, /*abort*/false, /*useExecutor*/false);
+        runCaptureTest(/*burst*/false, /*repeating*/false, /*abort*/false, /*useExecutor*/true);
     }
 
     public void testCameraDeviceCaptureBurst() throws Exception {
-        runCaptureTest(/*burst*/true, /*repeating*/false, /*abort*/false);
+        runCaptureTest(/*burst*/true, /*repeating*/false, /*abort*/false, /*useExecutor*/false);
+        runCaptureTest(/*burst*/true, /*repeating*/false, /*abort*/false, /*useExecutor*/true);
     }
 
     public void testCameraDeviceRepeatingRequest() throws Exception {
-        runCaptureTest(/*burst*/false, /*repeating*/true, /*abort*/false);
+        runCaptureTest(/*burst*/false, /*repeating*/true, /*abort*/false, /*useExecutor*/false);
+        runCaptureTest(/*burst*/false, /*repeating*/true, /*abort*/false, /*useExecutor*/true);
     }
 
     public void testCameraDeviceRepeatingBurst() throws Exception {
-        runCaptureTest(/*burst*/true, /*repeating*/true, /*abort*/false);
+        runCaptureTest(/*burst*/true, /*repeating*/true, /*abort*/false, /*useExecutor*/ false);
+        runCaptureTest(/*burst*/true, /*repeating*/true, /*abort*/false, /*useExecutor*/ true);
     }
 
     /**
@@ -380,8 +394,10 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
      * </p>
      */
     public void testCameraDeviceAbort() throws Exception {
-        runCaptureTest(/*burst*/false, /*repeating*/true, /*abort*/true);
-        runCaptureTest(/*burst*/true, /*repeating*/true, /*abort*/true);
+        runCaptureTest(/*burst*/false, /*repeating*/true, /*abort*/true, /*useExecutor*/false);
+        runCaptureTest(/*burst*/false, /*repeating*/true, /*abort*/true, /*useExecutor*/true);
+        runCaptureTest(/*burst*/true, /*repeating*/true, /*abort*/true, /*useExecutor*/false);
+        runCaptureTest(/*burst*/true, /*repeating*/true, /*abort*/true, /*useExecutor*/true);
         /**
          * TODO: this is only basic test of abort. we probably should also test below cases:
          *
@@ -782,6 +798,384 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
         }
     }
 
+    /**
+     * Test session configuration.
+     */
+    public void testSessionConfiguration() throws Exception {
+        ArrayList<OutputConfiguration> outConfigs = new ArrayList<OutputConfiguration> ();
+        outConfigs.add(new OutputConfiguration(new Size(1, 1), SurfaceTexture.class));
+        outConfigs.add(new OutputConfiguration(new Size(2, 2), SurfaceTexture.class));
+        mSessionMockListener = spy(new BlockingSessionCallback());
+        HandlerExecutor executor = new HandlerExecutor(mHandler);
+        InputConfiguration inputConfig = new InputConfiguration(1, 1, ImageFormat.PRIVATE);
+
+        SessionConfiguration regularSessionConfig = new SessionConfiguration(
+                SessionConfiguration.SESSION_REGULAR, outConfigs, executor, mSessionMockListener);
+
+        SessionConfiguration highspeedSessionConfig = new SessionConfiguration(
+                SessionConfiguration.SESSION_HIGH_SPEED, outConfigs, executor, mSessionMockListener);
+
+        assertEquals("Session configuration output doesn't match",
+                regularSessionConfig.getOutputConfigurations(), outConfigs);
+
+        assertEquals("Session configuration output doesn't match",
+                regularSessionConfig.getOutputConfigurations(),
+                highspeedSessionConfig.getOutputConfigurations());
+
+        assertEquals("Session configuration callback doesn't match",
+                regularSessionConfig.getStateCallback(), mSessionMockListener);
+
+        assertEquals("Session configuration callback doesn't match",
+                regularSessionConfig.getStateCallback(),
+                highspeedSessionConfig.getStateCallback());
+
+        assertEquals("Session configuration executor doesn't match",
+                regularSessionConfig.getExecutor(), executor);
+
+        assertEquals("Session configuration handler doesn't match",
+                regularSessionConfig.getExecutor(), highspeedSessionConfig.getExecutor());
+
+        regularSessionConfig.setInputConfiguration(inputConfig);
+        assertEquals("Session configuration input doesn't match",
+                regularSessionConfig.getInputConfiguration(), inputConfig);
+
+        try {
+            highspeedSessionConfig.setInputConfiguration(inputConfig);
+            fail("No exception for valid input configuration in hight speed session configuration");
+        } catch (UnsupportedOperationException e) {
+            //expected
+        }
+
+        assertEquals("Session configuration input doesn't match",
+                highspeedSessionConfig.getInputConfiguration(), null);
+
+        for (int i = 0; i < mCameraIds.length; i++) {
+            try {
+                openDevice(mCameraIds[i], mCameraMockListener);
+                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
+
+                CaptureRequest.Builder builder =
+                    mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+                CaptureRequest request = builder.build();
+
+                regularSessionConfig.setSessionParameters(request);
+                highspeedSessionConfig.setSessionParameters(request);
+
+                assertEquals("Session configuration parameters doesn't match",
+                        regularSessionConfig.getSessionParameters(), request);
+
+                assertEquals("Session configuration parameters doesn't match",
+                        regularSessionConfig.getSessionParameters(),
+                        highspeedSessionConfig.getSessionParameters());
+            }
+            finally {
+                closeDevice(mCameraIds[i], mCameraMockListener);
+            }
+        }
+    }
+
+    /**
+     * Check for any state leakage in case of internal re-configure
+     */
+    public void testSessionParametersStateLeak() throws Exception {
+        for (int i = 0; i < mCameraIds.length; i++) {
+            try {
+                openDevice(mCameraIds[i], mCameraMockListener);
+                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
+                testSessionParametersStateLeakByCamera(mCameraIds[i]);
+            }
+            finally {
+                closeDevice(mCameraIds[i], mCameraMockListener);
+            }
+        }
+    }
+
+    /**
+     * Check for any state leakage in case of internal re-configure
+     */
+    private void testSessionParametersStateLeakByCamera(String cameraId)
+            throws Exception {
+        int outputFormat = ImageFormat.YUV_420_888;
+        Size outputSize = mOrderedPreviewSizes.get(0);
+
+        CameraCharacteristics characteristics = mCameraManager.getCameraCharacteristics(cameraId);
+        StreamConfigurationMap config = characteristics.get(
+                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+        List <CaptureRequest.Key<?>> sessionKeys = characteristics.getAvailableSessionKeys();
+        if (sessionKeys == null) {
+            return;
+        }
+
+        if (config.isOutputSupportedFor(outputFormat)) {
+            outputSize = config.getOutputSizes(outputFormat)[0];
+        } else {
+            return;
+        }
+
+        ImageReader imageReader = ImageReader.newInstance(outputSize.getWidth(),
+                outputSize.getHeight(), outputFormat, /*maxImages*/3);
+
+        class OnReadyCaptureStateCallback extends CameraCaptureSession.StateCallback {
+            private ConditionVariable onReadyTriggeredCond = new ConditionVariable();
+            private boolean onReadyTriggered = false;
+
+            @Override
+            public void onConfigured(CameraCaptureSession session) {
+            }
+
+            @Override
+            public void onConfigureFailed(CameraCaptureSession session) {
+            }
+
+            @Override
+            public synchronized void onReady(CameraCaptureSession session) {
+                onReadyTriggered = true;
+                onReadyTriggeredCond.open();
+            }
+
+            public void waitForOnReady(long timeout) {
+                synchronized (this) {
+                    if (onReadyTriggered) {
+                        onReadyTriggered = false;
+                        onReadyTriggeredCond.close();
+                        return;
+                    }
+                }
+
+                if (onReadyTriggeredCond.block(timeout)) {
+                    synchronized (this) {
+                        onReadyTriggered = false;
+                        onReadyTriggeredCond.close();
+                    }
+                } else {
+                    throw new TimeoutRuntimeException("Unable to receive onReady after "
+                        + timeout + "ms");
+                }
+            }
+        }
+
+        OnReadyCaptureStateCallback sessionListener = new OnReadyCaptureStateCallback();
+
+        try {
+            mSessionMockListener = spy(new BlockingSessionCallback(sessionListener));
+            mSessionWaiter = mSessionMockListener.getStateWaiter();
+            List<OutputConfiguration> outputs = new ArrayList<>();
+            outputs.add(new OutputConfiguration(imageReader.getSurface()));
+            SessionConfiguration sessionConfig = new SessionConfiguration(
+                    SessionConfiguration.SESSION_REGULAR, outputs,
+                    new HandlerExecutor(mHandler), mSessionMockListener);
+
+            CaptureRequest.Builder builder =
+                    mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+            builder.addTarget(imageReader.getSurface());
+            CaptureRequest request = builder.build();
+
+            sessionConfig.setSessionParameters(request);
+            mCamera.createCaptureSession(sessionConfig);
+
+            mSession = mSessionMockListener.waitAndGetSession(SESSION_CONFIGURE_TIMEOUT_MS);
+            sessionListener.waitForOnReady(SESSION_CONFIGURE_TIMEOUT_MS);
+
+            SimpleCaptureCallback captureListener = new SimpleCaptureCallback();
+            ImageDropperListener imageListener = new ImageDropperListener();
+            imageReader.setOnImageAvailableListener(imageListener, mHandler);
+
+            // To check the state leak condition, we need a capture request that has
+            // at least one session pararameter value difference from the initial session
+            // parameters configured above. Scan all available template types for the
+            // required delta.
+            CaptureRequest.Builder requestBuilder = null;
+            ArrayList<CaptureRequest.Builder> builders = new ArrayList<CaptureRequest.Builder> ();
+            if (mStaticInfo.isCapabilitySupported(
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR)) {
+                builders.add(mCamera.createCaptureRequest(CameraDevice.TEMPLATE_MANUAL));
+            }
+            if (mStaticInfo.isCapabilitySupported(
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING)
+                    || mStaticInfo.isCapabilitySupported(
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_YUV_REPROCESSING)) {
+                builders.add(mCamera.createCaptureRequest(CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG));
+            }
+            builders.add(mCamera.createCaptureRequest(CameraDevice.TEMPLATE_VIDEO_SNAPSHOT));
+            builders.add(mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW));
+            builders.add(mCamera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD));
+            for (CaptureRequest.Key<?> key : sessionKeys) {
+                Object sessionValue = builder.get(key);
+                for (CaptureRequest.Builder newBuilder : builders) {
+                    Object currentValue = newBuilder.get(key);
+                    if ((sessionValue == null) && (currentValue == null)) {
+                        continue;
+                    }
+
+                    if (((sessionValue == null) && (currentValue != null)) ||
+                            ((sessionValue != null) && (currentValue == null)) ||
+                            (!sessionValue.equals(currentValue))) {
+                        requestBuilder = newBuilder;
+                        break;
+                    }
+                }
+
+                if (requestBuilder != null) {
+                    break;
+                }
+            }
+
+            if (requestBuilder != null) {
+                requestBuilder.addTarget(imageReader.getSurface());
+                request = requestBuilder.build();
+                mSession.setRepeatingRequest(request, captureListener, mHandler);
+                try {
+                    sessionListener.waitForOnReady(SESSION_CONFIGURE_TIMEOUT_MS);
+                    fail("Camera shouldn't switch to ready state when session parameters are " +
+                            "modified");
+                } catch (TimeoutRuntimeException e) {
+                    //expected
+                }
+            }
+        } finally {
+            imageReader.close();
+            mSession.close();
+        }
+    }
+
+    /**
+     * Verify creating a session with additional parameters.
+     */
+    public void testCreateSessionWithParameters() throws Exception {
+        for (int i = 0; i < mCameraIds.length; i++) {
+            try {
+                openDevice(mCameraIds[i], mCameraMockListener);
+                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
+
+                testCreateSessionWithParametersByCamera(mCameraIds[i], /*reprocessable*/false);
+                testCreateSessionWithParametersByCamera(mCameraIds[i], /*reprocessable*/true);
+            }
+            finally {
+                closeDevice(mCameraIds[i], mCameraMockListener);
+            }
+        }
+    }
+
+    /**
+     * Verify creating a session with additional parameters works
+     */
+    private void testCreateSessionWithParametersByCamera(String cameraId, boolean reprocessable)
+            throws Exception {
+        final int SESSION_TIMEOUT_MS = 1000;
+        final int CAPTURE_TIMEOUT_MS = 3000;
+        int inputFormat = ImageFormat.YUV_420_888;
+        int outputFormat = inputFormat;
+        Size outputSize = mOrderedPreviewSizes.get(0);
+        Size inputSize = outputSize;
+        InputConfiguration inputConfig = null;
+
+        if (VERBOSE) {
+            Log.v(TAG, "Testing creating session with parameters for camera " + cameraId);
+        }
+
+        CameraCharacteristics characteristics = mCameraManager.getCameraCharacteristics(cameraId);
+        StreamConfigurationMap config = characteristics.get(
+                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+
+        if (reprocessable) {
+            //Pick a supported i/o format and size combination.
+            //Ideally the input format should match the output.
+            boolean found = false;
+            int inputFormats [] = config.getInputFormats();
+            if (inputFormats.length == 0) {
+                return;
+            }
+
+            for (int inFormat : inputFormats) {
+                int outputFormats [] = config.getValidOutputFormatsForInput(inputFormat);
+                for (int outFormat : outputFormats) {
+                    if (inFormat == outFormat) {
+                        inputFormat = inFormat;
+                        outputFormat = outFormat;
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) {
+                    break;
+                }
+            }
+
+            //In case the above combination doesn't exist, pick the first first supported
+            //pair.
+            if (!found) {
+                inputFormat = inputFormats[0];
+                int outputFormats [] = config.getValidOutputFormatsForInput(inputFormat);
+                assertTrue("No output formats supported for input format: " + inputFormat,
+                        (outputFormats.length > 0));
+                outputFormat = outputFormats[0];
+            }
+
+            Size inputSizes[] = config.getInputSizes(inputFormat);
+            Size outputSizes[] = config.getOutputSizes(outputFormat);
+            assertTrue("No valid sizes supported for input format: " + inputFormat,
+                    (inputSizes.length > 0));
+            assertTrue("No valid sizes supported for output format: " + outputFormat,
+                    (outputSizes.length > 0));
+
+            inputSize = inputSizes[0];
+            outputSize = outputSizes[0];
+            inputConfig = new InputConfiguration(inputSize.getWidth(),
+                    inputSize.getHeight(), inputFormat);
+        } else {
+            if (config.isOutputSupportedFor(outputFormat)) {
+                outputSize = config.getOutputSizes(outputFormat)[0];
+            } else {
+                return;
+            }
+        }
+
+        ImageReader imageReader = ImageReader.newInstance(outputSize.getWidth(),
+                outputSize.getHeight(), outputFormat, /*maxImages*/1);
+
+        try {
+            mSessionMockListener = spy(new BlockingSessionCallback());
+            mSessionWaiter = mSessionMockListener.getStateWaiter();
+            List<OutputConfiguration> outputs = new ArrayList<>();
+            outputs.add(new OutputConfiguration(imageReader.getSurface()));
+            SessionConfiguration sessionConfig = new SessionConfiguration(
+                    SessionConfiguration.SESSION_REGULAR, outputs,
+                    new HandlerExecutor(mHandler), mSessionMockListener);
+
+            CaptureRequest.Builder builder =
+                    mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+            builder.addTarget(imageReader.getSurface());
+            CaptureRequest request = builder.build();
+
+            sessionConfig.setInputConfiguration(inputConfig);
+            sessionConfig.setSessionParameters(request);
+            mCamera.createCaptureSession(sessionConfig);
+
+            mSession = mSessionMockListener.waitAndGetSession(SESSION_CONFIGURE_TIMEOUT_MS);
+
+            // Verify we can capture a frame with the session.
+            SimpleCaptureCallback captureListener = new SimpleCaptureCallback();
+            SimpleImageReaderListener imageListener = new SimpleImageReaderListener();
+            imageReader.setOnImageAvailableListener(imageListener, mHandler);
+
+            mSession.capture(request, captureListener, mHandler);
+            captureListener.getCaptureResultForRequest(request, CAPTURE_TIMEOUT_MS);
+            imageListener.getImage(CAPTURE_TIMEOUT_MS).close();
+        } finally {
+            imageReader.close();
+            mSession.close();
+        }
+    }
 
     /**
      * Verify creating sessions back to back and only the last one is valid for
@@ -868,9 +1262,15 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
         SurfaceTexture output2 = new SurfaceTexture(2);
         Surface output2Surface = new Surface(output2);
 
-        List<Surface> outputSurfaces = new ArrayList<>(
-            Arrays.asList(output1Surface, output2Surface));
-        mCamera.createCaptureSession(outputSurfaces, mSessionMockListener, mHandler);
+        ArrayList<OutputConfiguration> outConfigs = new ArrayList<OutputConfiguration> ();
+        outConfigs.add(new OutputConfiguration(output1Surface));
+        outConfigs.add(new OutputConfiguration(output2Surface));
+        SessionConfiguration sessionConfig = new SessionConfiguration(
+                SessionConfiguration.SESSION_REGULAR, outConfigs,
+                new HandlerExecutor(mHandler), mSessionMockListener);
+        CaptureRequest.Builder r = mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+        sessionConfig.setSessionParameters(r.build());
+        mCamera.createCaptureSession(sessionConfig);
 
         mSession = mSessionMockListener.waitAndGetSession(SESSION_CONFIGURE_TIMEOUT_MS);
 
@@ -911,7 +1311,7 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
 
         // Use output1
 
-        CaptureRequest.Builder r = mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+        r = mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
         r.addTarget(output1Surface);
 
         mSession.capture(r.build(), null, null);
@@ -931,7 +1331,7 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
 
         mSessionMockListener = spy(new BlockingSessionCallback());
 
-        outputSurfaces = new ArrayList<>(
+        ArrayList<Surface> outputSurfaces = new ArrayList<Surface>(
             Arrays.asList(output1Surface, output3Surface));
         mCamera.createCaptureSession(outputSurfaces, mSessionMockListener, mHandler);
 
@@ -994,6 +1394,9 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
             // expected
         }
 
+        output1.release();
+        output2.release();
+        output3.release();
     }
 
     private void prepareTestForSharedSurfacesByCamera() throws Exception {
@@ -1151,14 +1554,13 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
     }
 
     private class IsCaptureResultNotEmpty
-            extends ArgumentMatcher<TotalCaptureResult> {
+            implements ArgumentMatcher<TotalCaptureResult> {
         @Override
-        public boolean matchesObject(Object obj) {
+        public boolean matches(TotalCaptureResult result) {
             /**
              * Do the simple verification here. Only verify the timestamp for now.
              * TODO: verify more required capture result metadata fields.
              */
-            TotalCaptureResult result = (TotalCaptureResult) obj;
             Long timeStamp = result.get(CaptureResult.SENSOR_TIMESTAMP);
             if (timeStamp != null && timeStamp.longValue() > 0L) {
                 return true;
@@ -1176,8 +1578,11 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
      * {@link CameraCaptureSession#setRepeatingRequest} for repeating capture.
      * @param abort If the test uses {@link CameraCaptureSession#abortCaptures} to stop the
      * repeating capture.  It has no effect if repeating is false.
+     * @param useExecutor If the test uses {@link java.util.concurrent.Executor} instead of
+     * {@link android.os.Handler} for callback invocation.
      */
-    private void runCaptureTest(boolean burst, boolean repeating, boolean abort) throws Exception {
+    private void runCaptureTest(boolean burst, boolean repeating, boolean abort,
+            boolean useExecutor) throws Exception {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
                 openDevice(mCameraIds[i], mCameraMockListener);
@@ -1198,12 +1603,14 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                                 sTemplates[j] != CameraDevice.TEMPLATE_PREVIEW) {
                             continue;
                         }
-                        captureSingleShot(mCameraIds[i], sTemplates[j], repeating, abort);
+
+                        captureSingleShot(mCameraIds[i], sTemplates[j], repeating, abort,
+                                useExecutor);
                     }
                 }
                 else {
                     // Test: burst of one shot
-                    captureBurstShot(mCameraIds[i], sTemplates, 1, repeating, abort);
+                    captureBurstShot(mCameraIds[i], sTemplates, 1, repeating, abort, useExecutor);
 
                     int template = mStaticInfo.isColorOutputSupported() ?
                         CameraDevice.TEMPLATE_STILL_CAPTURE :
@@ -1217,11 +1624,14 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                     };
 
                     // Test: burst of 5 shots of the same template type
-                    captureBurstShot(mCameraIds[i], templates, templates.length, repeating, abort);
+                    captureBurstShot(mCameraIds[i], templates, templates.length, repeating, abort,
+                            useExecutor);
 
-                    // Test: burst of 5 shots of different template types
-                    captureBurstShot(
-                            mCameraIds[i], sTemplates, sTemplates.length, repeating, abort);
+                    if (mStaticInfo.isColorOutputSupported()) {
+                        // Test: burst of 6 shots of different template types
+                        captureBurstShot(mCameraIds[i], sTemplates, sTemplates.length, repeating,
+                                abort, useExecutor);
+                    }
                 }
                 verify(mCameraMockListener, never())
                         .onError(
@@ -1244,11 +1654,12 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
     private void captureSingleShot(
             String id,
             int template,
-            boolean repeating, boolean abort) throws Exception {
+            boolean repeating, boolean abort, boolean useExecutor) throws Exception {
 
         assertEquals("Bad initial state for preparing to capture",
                 mLatestSessionState, SESSION_READY);
 
+        final Executor executor = useExecutor ? new HandlerExecutor(mHandler) : null;
         CaptureRequest.Builder requestBuilder = mCamera.createCaptureRequest(template);
         assertNotNull("Failed to create capture request", requestBuilder);
         requestBuilder.addTarget(mReaderSurface);
@@ -1260,7 +1671,11 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                     id, template));
         }
 
-        startCapture(requestBuilder.build(), repeating, mockCaptureCallback, mHandler);
+        if (executor != null) {
+            startCapture(requestBuilder.build(), repeating, mockCaptureCallback, executor);
+        } else {
+            startCapture(requestBuilder.build(), repeating, mockCaptureCallback, mHandler);
+        }
         waitForSessionState(SESSION_ACTIVE, SESSION_ACTIVE_TIMEOUT_MS);
 
         int expectedCaptureResultCount = repeating ? REPEATING_CAPTURE_EXPECTED_RESULT_COUNT : 1;
@@ -1275,11 +1690,19 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                 // Capture a single capture, and verify the result.
                 SimpleCaptureCallback resultCallback = new SimpleCaptureCallback();
                 CaptureRequest singleRequest = requestBuilder.build();
-                mSession.capture(singleRequest, resultCallback, mHandler);
+                if (executor != null) {
+                    mSession.captureSingleRequest(singleRequest, executor, resultCallback);
+                } else {
+                    mSession.capture(singleRequest, resultCallback, mHandler);
+                }
                 resultCallback.getCaptureResultForRequest(singleRequest, CAPTURE_RESULT_TIMEOUT_MS);
 
                 // Resume the repeating, and verify that results are returned.
-                mSession.setRepeatingRequest(singleRequest, resultCallback, mHandler);
+                if (executor != null) {
+                    mSession.setSingleRepeatingRequest(singleRequest, executor, resultCallback);
+                } else {
+                    mSession.setRepeatingRequest(singleRequest, resultCallback, mHandler);
+                }
                 for (int i = 0; i < REPEATING_CAPTURE_EXPECTED_RESULT_COUNT; i++) {
                     resultCallback.getCaptureResult(CAPTURE_RESULT_TIMEOUT_MS);
                 }
@@ -1294,7 +1717,7 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
             int[] templates,
             int len,
             boolean repeating,
-            boolean abort) throws Exception {
+            boolean abort, boolean useExecutor) throws Exception {
 
         assertEquals("Bad initial state for preparing to capture",
                 mLatestSessionState, SESSION_READY);
@@ -1302,6 +1725,7 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
         assertTrue("Invalid args to capture function", len <= templates.length);
         List<CaptureRequest> requests = new ArrayList<CaptureRequest>();
         List<CaptureRequest> postAbortRequests = new ArrayList<CaptureRequest>();
+        final Executor executor = useExecutor ? new HandlerExecutor(mHandler) : null;
         for (int i = 0; i < len; i++) {
             // Skip video snapshots for LEGACY mode
             if (mStaticInfo.isHardwareLevelLegacy() &&
@@ -1313,6 +1737,7 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                     templates[i] != CameraDevice.TEMPLATE_PREVIEW) {
                 continue;
             }
+
             CaptureRequest.Builder requestBuilder = mCamera.createCaptureRequest(templates[i]);
             assertNotNull("Failed to create capture request", requestBuilder);
             requestBuilder.addTarget(mReaderSurface);
@@ -1329,10 +1754,18 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
         }
 
         if (!repeating) {
-            mSession.captureBurst(requests, mockCaptureCallback, mHandler);
+            if (executor != null) {
+                mSession.captureBurstRequests(requests, executor, mockCaptureCallback);
+            } else {
+                mSession.captureBurst(requests, mockCaptureCallback, mHandler);
+            }
         }
         else {
-            mSession.setRepeatingBurst(requests, mockCaptureCallback, mHandler);
+            if (executor != null) {
+                mSession.setRepeatingBurstRequests(requests, executor, mockCaptureCallback);
+            } else {
+                mSession.setRepeatingBurst(requests, mockCaptureCallback, mHandler);
+            }
         }
         waitForSessionState(SESSION_ACTIVE, SESSION_READY_TIMEOUT_MS);
 
@@ -1351,7 +1784,11 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
 
                 // Capture a burst of captures, and verify the results.
                 SimpleCaptureCallback resultCallback = new SimpleCaptureCallback();
-                mSession.captureBurst(postAbortRequests, resultCallback, mHandler);
+                if (executor != null) {
+                    mSession.captureBurstRequests(postAbortRequests, executor, resultCallback);
+                } else {
+                    mSession.captureBurst(postAbortRequests, resultCallback, mHandler);
+                }
                 // Verify that the results are returned.
                 for (int i = 0; i < postAbortRequests.size(); i++) {
                     resultCallback.getCaptureResultForRequest(
@@ -1359,7 +1796,11 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                 }
 
                 // Resume the repeating, and verify that results are returned.
-                mSession.setRepeatingBurst(requests, resultCallback, mHandler);
+                if (executor != null) {
+                    mSession.setRepeatingBurstRequests(requests, executor, resultCallback);
+                } else {
+                    mSession.setRepeatingBurst(requests, resultCallback, mHandler);
+                }
                 for (int i = 0; i < REPEATING_CAPTURE_EXPECTED_RESULT_COUNT; i++) {
                     resultCallback.getCaptureResult(CAPTURE_RESULT_TIMEOUT_MS);
                 }
@@ -1581,11 +2022,9 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
      */
     private void checkRequestForTemplate(CaptureRequest.Builder request, int template,
             CameraCharacteristics props) {
-        // 3A settings--control.mode.
-        if (template != CameraDevice.TEMPLATE_MANUAL) {
-            mCollector.expectKeyValueEquals(request, CONTROL_MODE,
-                    CaptureRequest.CONTROL_MODE_AUTO);
-        }
+        Integer hwLevel = props.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL);
+        boolean isExternalCamera = (hwLevel ==
+                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL);
 
         // 3A settings--AE/AWB/AF.
         Integer maxRegionsAeVal = props.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE);
@@ -1607,6 +2046,8 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
             mCollector.expectKeyValueEquals(request, CONTROL_AWB_MODE,
                     CaptureRequest.CONTROL_AWB_MODE_OFF);
         } else {
+            mCollector.expectKeyValueEquals(request, CONTROL_MODE,
+                    CaptureRequest.CONTROL_MODE_AUTO);
             if (mStaticInfo.isColorOutputSupported()) {
                 mCollector.expectKeyValueEquals(request, CONTROL_AE_MODE,
                         CaptureRequest.CONTROL_AE_MODE_ON);
@@ -1679,11 +2120,15 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
             }
         }
 
-        float[] availableFocalLen =
-                props.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
-        if (availableFocalLen.length > 1) {
-            mCollector.expectKeyValueNotNull(request, LENS_FOCAL_LENGTH);
+
+        if (!isExternalCamera) {
+            float[] availableFocalLen =
+                    props.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+            if (availableFocalLen.length > 1) {
+                mCollector.expectKeyValueNotNull(request, LENS_FOCAL_LENGTH);
+            }
         }
+
 
         mCollector.expectEquals("Lens optical stabilization must be present in request if " +
                         "available optical stabilizations are present in metadata, and vice-versa.",
@@ -1697,6 +2142,11 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
             if (availableOIS.length > 1) {
                 mCollector.expectKeyValueNotNull(request, LENS_OPTICAL_STABILIZATION_MODE);
             }
+        }
+
+        if (mStaticInfo.areKeysAvailable(SENSOR_TEST_PATTERN_MODE)) {
+            mCollector.expectKeyValueEquals(request, SENSOR_TEST_PATTERN_MODE,
+                    CaptureRequest.SENSOR_TEST_PATTERN_MODE_OFF);
         }
 
         if (mStaticInfo.areKeysAvailable(BLACK_LEVEL_LOCK)) {
@@ -1737,9 +2187,10 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                 availableCaps.contains(REQUEST_AVAILABLE_CAPABILITIES_YUV_REPROCESSING) ||
                 availableCaps.contains(REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING);
 
+
         if (template == CameraDevice.TEMPLATE_STILL_CAPTURE) {
-            // Not enforce high quality here, as some devices may not effectively have high quality
-            // mode.
+
+            // Ok with either FAST or HIGH_QUALITY
             if (mStaticInfo.areKeysAvailable(COLOR_CORRECTION_MODE)) {
                 mCollector.expectKeyValueNotEquals(
                         request, COLOR_CORRECTION_MODE,
@@ -1764,6 +2215,12 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                             CaptureRequest.EDGE_MODE_OFF);
                 }
             }
+            if (mStaticInfo.areKeysAvailable(SHADING_MODE)) {
+                List<Integer> availableShadingModes =
+                        Arrays.asList(toObject(mStaticInfo.getAvailableShadingModesChecked()));
+                mCollector.expectKeyValueEquals(request, SHADING_MODE,
+                        CaptureRequest.SHADING_MODE_HIGH_QUALITY);
+            }
 
             mCollector.expectEquals("Noise reduction mode must be present in request if " +
                             "available noise reductions are present in metadata, and vice-versa.",
@@ -1783,6 +2240,27 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                 } else {
                     mCollector.expectKeyValueEquals(
                             request, NOISE_REDUCTION_MODE, CaptureRequest.NOISE_REDUCTION_MODE_OFF);
+                }
+            }
+
+            mCollector.expectEquals("Hot pixel mode must be present in request if " +
+                            "available hot pixel modes are present in metadata, and vice-versa.",
+                    mStaticInfo.areKeysAvailable(CameraCharacteristics.
+                            HOT_PIXEL_AVAILABLE_HOT_PIXEL_MODES),
+                    mStaticInfo.areKeysAvailable(CaptureRequest.HOT_PIXEL_MODE));
+
+            if (mStaticInfo.areKeysAvailable(HOT_PIXEL_MODE)) {
+                List<Integer> availableHotPixelModes =
+                        Arrays.asList(toObject(
+                                mStaticInfo.getAvailableHotPixelModesChecked()));
+                if (availableHotPixelModes
+                        .contains(CaptureRequest.HOT_PIXEL_MODE_HIGH_QUALITY)) {
+                    mCollector.expectKeyValueEquals(
+                            request, HOT_PIXEL_MODE,
+                            CaptureRequest.HOT_PIXEL_MODE_HIGH_QUALITY);
+                } else {
+                    mCollector.expectKeyValueEquals(
+                            request, HOT_PIXEL_MODE, CaptureRequest.HOT_PIXEL_MODE_OFF);
                 }
             }
 
@@ -1814,7 +2292,15 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
             mCollector.expectKeyValueEquals(request, NOISE_REDUCTION_MODE,
                     CaptureRequest.NOISE_REDUCTION_MODE_ZERO_SHUTTER_LAG);
         } else if (template == CameraDevice.TEMPLATE_PREVIEW ||
-                template == CameraDevice.TEMPLATE_RECORD){
+                template == CameraDevice.TEMPLATE_RECORD) {
+
+            // Ok with either FAST or HIGH_QUALITY
+            if (mStaticInfo.areKeysAvailable(COLOR_CORRECTION_MODE)) {
+                mCollector.expectKeyValueNotEquals(
+                        request, COLOR_CORRECTION_MODE,
+                        CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX);
+            }
+
             if (mStaticInfo.areKeysAvailable(EDGE_MODE)) {
                 List<Integer> availableEdgeModes =
                         Arrays.asList(toObject(mStaticInfo.getAvailableEdgeModesChecked()));
@@ -1825,6 +2311,13 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                     mCollector.expectKeyValueEquals(request, EDGE_MODE,
                             CaptureRequest.EDGE_MODE_OFF);
                 }
+            }
+
+            if (mStaticInfo.areKeysAvailable(SHADING_MODE)) {
+                List<Integer> availableShadingModes =
+                        Arrays.asList(toObject(mStaticInfo.getAvailableShadingModesChecked()));
+                mCollector.expectKeyValueEquals(request, SHADING_MODE,
+                        CaptureRequest.SHADING_MODE_FAST);
             }
 
             if (mStaticInfo.areKeysAvailable(NOISE_REDUCTION_MODE)) {
@@ -1839,6 +2332,21 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                 } else {
                     mCollector.expectKeyValueEquals(
                             request, NOISE_REDUCTION_MODE, CaptureRequest.NOISE_REDUCTION_MODE_OFF);
+                }
+            }
+
+            if (mStaticInfo.areKeysAvailable(HOT_PIXEL_MODE)) {
+                List<Integer> availableHotPixelModes =
+                        Arrays.asList(toObject(
+                                mStaticInfo.getAvailableHotPixelModesChecked()));
+                if (availableHotPixelModes
+                        .contains(CaptureRequest.HOT_PIXEL_MODE_FAST)) {
+                    mCollector.expectKeyValueEquals(
+                            request, HOT_PIXEL_MODE,
+                            CaptureRequest.HOT_PIXEL_MODE_FAST);
+                } else {
+                    mCollector.expectKeyValueEquals(
+                            request, HOT_PIXEL_MODE, CaptureRequest.HOT_PIXEL_MODE_OFF);
                 }
             }
 
@@ -1907,7 +2415,12 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                         CaptureRequest.TONEMAP_MODE_PRESET_CURVE);
             }
             if (mStaticInfo.areKeysAvailable(STATISTICS_LENS_SHADING_MAP_MODE)) {
-                mCollector.expectKeyValueNotNull(request, STATISTICS_LENS_SHADING_MAP_MODE);
+                mCollector.expectKeyValueEquals(request, STATISTICS_LENS_SHADING_MAP_MODE,
+                        CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE_OFF);
+            }
+            if (mStaticInfo.areKeysAvailable(STATISTICS_HOT_PIXEL_MAP_MODE)) {
+                mCollector.expectKeyValueEquals(request, STATISTICS_HOT_PIXEL_MAP_MODE,
+                        false);
             }
         }
 
@@ -1934,7 +2447,34 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                     DEFAULT_POST_RAW_SENSITIVITY_BOOST);
         }
 
-        mCollector.expectKeyValueEquals(request, CONTROL_CAPTURE_INTENT, template);
+        switch(template) {
+            case CameraDevice.TEMPLATE_PREVIEW:
+                mCollector.expectKeyValueEquals(request, CONTROL_CAPTURE_INTENT,
+                        CameraCharacteristics.CONTROL_CAPTURE_INTENT_PREVIEW);
+                break;
+            case CameraDevice.TEMPLATE_STILL_CAPTURE:
+                mCollector.expectKeyValueEquals(request, CONTROL_CAPTURE_INTENT,
+                        CameraCharacteristics.CONTROL_CAPTURE_INTENT_STILL_CAPTURE);
+                break;
+            case CameraDevice.TEMPLATE_RECORD:
+                mCollector.expectKeyValueEquals(request, CONTROL_CAPTURE_INTENT,
+                        CameraCharacteristics.CONTROL_CAPTURE_INTENT_VIDEO_RECORD);
+                break;
+            case CameraDevice.TEMPLATE_VIDEO_SNAPSHOT:
+                mCollector.expectKeyValueEquals(request, CONTROL_CAPTURE_INTENT,
+                        CameraCharacteristics.CONTROL_CAPTURE_INTENT_VIDEO_SNAPSHOT);
+                break;
+            case CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG:
+                mCollector.expectKeyValueEquals(request, CONTROL_CAPTURE_INTENT,
+                        CameraCharacteristics.CONTROL_CAPTURE_INTENT_ZERO_SHUTTER_LAG);
+                break;
+            case CameraDevice.TEMPLATE_MANUAL:
+                mCollector.expectKeyValueEquals(request, CONTROL_CAPTURE_INTENT,
+                        CameraCharacteristics.CONTROL_CAPTURE_INTENT_MANUAL);
+                break;
+            default:
+                // Skip unknown templates here
+        }
 
         // TODO: use the list of keys from CameraCharacteristics to avoid expecting
         //       keys which are not available by this CameraDevice.
@@ -2004,6 +2544,26 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
             mSession.setRepeatingRequest(request, listener, handler);
         } else {
             mSession.capture(request, listener, handler);
+        }
+    }
+
+    /**
+     * Start capture with given {@link #CaptureRequest}.
+     *
+     * @param request The {@link #CaptureRequest} to be captured.
+     * @param repeating If the capture is single capture or repeating.
+     * @param listener The {@link #CaptureCallback} camera device used to notify callbacks.
+     * @param executor The executor used to invoke callbacks.
+     */
+    protected void startCapture(CaptureRequest request, boolean repeating,
+            CameraCaptureSession.CaptureCallback listener, Executor executor)
+                    throws CameraAccessException {
+        if (VERBOSE) Log.v(TAG, "Starting capture from session");
+
+        if (repeating) {
+            mSession.setSingleRepeatingRequest(request, executor, listener);
+        } else {
+            mSession.captureSingleRequest(request, executor, listener);
         }
     }
 

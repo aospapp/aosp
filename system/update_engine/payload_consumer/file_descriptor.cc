@@ -123,16 +123,17 @@ bool EintrSafeFileDescriptor::BlkIoctl(int request,
 #endif  // defined(BLKZEROOUT)
 }
 
+bool EintrSafeFileDescriptor::Flush() {
+  CHECK_GE(fd_, 0);
+  return true;
+}
+
 bool EintrSafeFileDescriptor::Close() {
   CHECK_GE(fd_, 0);
   if (IGNORE_EINTR(close(fd_)))
     return false;
-  Reset();
-  return true;
-}
-
-void EintrSafeFileDescriptor::Reset() {
   fd_ = -1;
+  return true;
 }
 
 }  // namespace chromeos_update_engine

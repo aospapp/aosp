@@ -23,31 +23,39 @@
 LOCAL_PATH := $(call my-dir)
 
 # Custom C/C++ compilation flags:
-MY_LIBTEXTCLASSIFIER_CFLAGS := \
-    -Wno-unused-parameter \
-    -Wno-sign-compare \
-    -Wno-missing-field-initializers \
+MY_LIBTEXTCLASSIFIER_WARNING_CFLAGS := \
+    -Wall \
+    -Werror \
     -Wno-ignored-qualifiers \
+    -Wno-missing-field-initializers \
+    -Wno-sign-compare \
+    -Wno-tautological-constant-out-of-range-compare \
     -Wno-undefined-var-template \
-    -fvisibility=hidden
+    -Wno-unused-function \
+    -Wno-unused-parameter \
+
+MY_LIBTEXTCLASSIFIER_CFLAGS := \
+    $(MY_LIBTEXTCLASSIFIER_WARNING_CFLAGS) \
+    -fvisibility=hidden \
+    -DLIBTEXTCLASSIFIER_UNILIB_ICU \
+    -DZLIB_CONST
 
 # Only enable debug logging in userdebug/eng builds.
 ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
   MY_LIBTEXTCLASSIFIER_CFLAGS += -DTC_DEBUG_LOGGING=1
 endif
 
-# ------------------------
-# libtextclassifier_protos
-# ------------------------
+# -----------------
+# flatbuffers
+# -----------------
 
+# Empty static library so that other projects can include just the basic
+# FlatBuffers headers as a module.
 include $(CLEAR_VARS)
-
-LOCAL_MODULE := libtextclassifier_protos
-
-LOCAL_STRIP_MODULE := $(LIBTEXTCLASSIFIER_STRIP_OPTS)
-
-LOCAL_SRC_FILES := $(call all-proto-files-under, .)
-LOCAL_SHARED_LIBRARIES := libprotobuf-cpp-lite
+LOCAL_MODULE := flatbuffers
+LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
+LOCAL_EXPORT_CPPFLAGS := -std=c++11 -fexceptions -Wall \
+    -DFLATBUFFERS_TRACK_VERIFIER_BUFFER_SIZE
 
 include $(BUILD_STATIC_LIBRARY)
 
@@ -58,22 +66,31 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_MODULE := libtextclassifier
 
-proto_sources_dir := $(generated_sources_dir)
-
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_CFLAGS += $(MY_LIBTEXTCLASSIFIER_CFLAGS)
 LOCAL_STRIP_MODULE := $(LIBTEXTCLASSIFIER_STRIP_OPTS)
 
-LOCAL_SRC_FILES := $(filter-out tests/%,$(call all-subdir-cpp-files))
-LOCAL_C_INCLUDES += $(proto_sources_dir)/proto/external/libtextclassifier
+LOCAL_SRC_FILES := $(filter-out tests/% %_test.cc test-util.%,$(call all-subdir-cpp-files))
 
-LOCAL_STATIC_LIBRARIES += libtextclassifier_protos
-LOCAL_SHARED_LIBRARIES += libprotobuf-cpp-lite
+LOCAL_C_INCLUDES := $(TOP)/external/zlib
+LOCAL_C_INCLUDES += $(TOP)/external/tensorflow
+LOCAL_C_INCLUDES += $(TOP)/external/flatbuffers/include
+
 LOCAL_SHARED_LIBRARIES += liblog
-LOCAL_SHARED_LIBRARIES += libicuuc libicui18n
+LOCAL_SHARED_LIBRARIES += libicuuc
+LOCAL_SHARED_LIBRARIES += libicui18n
+LOCAL_SHARED_LIBRARIES += libtflite
+LOCAL_SHARED_LIBRARIES += libz
+
+LOCAL_STATIC_LIBRARIES += flatbuffers
+
+LOCAL_REQUIRED_MODULES := textclassifier.en.model
+LOCAL_REQUIRED_MODULES += textclassifier.universal.model
 
 LOCAL_ADDITIONAL_DEPENDENCIES += $(LOCAL_PATH)/jni.lds
 LOCAL_LDFLAGS += -Wl,-version-script=$(LOCAL_PATH)/jni.lds
+LOCAL_CPPFLAGS_32 += -DLIBTEXTCLASSIFIER_TEST_DATA_DIR="\"/data/nativetest/libtextclassifier_tests/test_data/\""
+LOCAL_CPPFLAGS_64 += -DLIBTEXTCLASSIFIER_TEST_DATA_DIR="\"/data/nativetest64/libtextclassifier_tests/test_data/\""
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -91,162 +108,45 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_CFLAGS += $(MY_LIBTEXTCLASSIFIER_CFLAGS)
 LOCAL_STRIP_MODULE := $(LIBTEXTCLASSIFIER_STRIP_OPTS)
 
-LOCAL_TEST_DATA := $(call find-test-data-in-subdirs, $(LOCAL_PATH), *, tests/testdata)
+LOCAL_TEST_DATA := $(call find-test-data-in-subdirs, $(LOCAL_PATH), *, test_data)
 
-LOCAL_CPPFLAGS_32 += -DTEST_DATA_DIR="\"/data/nativetest/libtextclassifier_tests/tests/testdata/\""
-LOCAL_CPPFLAGS_64 += -DTEST_DATA_DIR="\"/data/nativetest64/libtextclassifier_tests/tests/testdata/\""
+LOCAL_CPPFLAGS_32 += -DLIBTEXTCLASSIFIER_TEST_DATA_DIR="\"/data/nativetest/libtextclassifier_tests/test_data/\""
+LOCAL_CPPFLAGS_64 += -DLIBTEXTCLASSIFIER_TEST_DATA_DIR="\"/data/nativetest64/libtextclassifier_tests/test_data/\""
 
 LOCAL_SRC_FILES := $(call all-subdir-cpp-files)
-LOCAL_C_INCLUDES += $(proto_sources_dir)/proto/external/libtextclassifier
 
-LOCAL_STATIC_LIBRARIES += libtextclassifier_protos libgmock
-LOCAL_SHARED_LIBRARIES += libprotobuf-cpp-lite
+LOCAL_C_INCLUDES := $(TOP)/external/zlib
+LOCAL_C_INCLUDES += $(TOP)/external/tensorflow
+LOCAL_C_INCLUDES += $(TOP)/external/flatbuffers/include
+
+LOCAL_STATIC_LIBRARIES += libgmock
 LOCAL_SHARED_LIBRARIES += liblog
-LOCAL_SHARED_LIBRARIES += libicuuc libicui18n
+LOCAL_SHARED_LIBRARIES += libicuuc
+LOCAL_SHARED_LIBRARIES += libicui18n
+LOCAL_SHARED_LIBRARIES += libtflite
+LOCAL_SHARED_LIBRARIES += libz
+
+LOCAL_STATIC_LIBRARIES += flatbuffers
 
 include $(BUILD_NATIVE_TEST)
-
-# ------------
-# LangId model
-# ------------
-
-include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.langid.model
-LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER := google
-LOCAL_SRC_FILES     := ./models/textclassifier.langid.model
-LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
-include $(BUILD_PREBUILT)
 
 # ----------------------
 # Smart Selection models
 # ----------------------
 
 include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.ar.model
+LOCAL_MODULE        := textclassifier.en.model
 LOCAL_MODULE_CLASS  := ETC
 LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.ar.model
+LOCAL_SRC_FILES     := ./models/textclassifier.en.model
 LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.de.model
+LOCAL_MODULE        := textclassifier.universal.model
 LOCAL_MODULE_CLASS  := ETC
 LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.de.model
-LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.en.model
-LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.en.model
-LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.es.model
-LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.es.model
-LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.fr.model
-LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.fr.model
-LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.it.model
-LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.it.model
-LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.ja.model
-LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.ja.model
-LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.ko.model
-LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.ko.model
-LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.nl.model
-LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.nl.model
-LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.pl.model
-LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.pl.model
-LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.pt.model
-LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.pt.model
-LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.ru.model
-LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.ru.model
-LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.th.model
-LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.th.model
-LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.tr.model
-LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.tr.model
-LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.zh-Hant.model
-LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.zh-Hant.model
-LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.zh.model
-LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.zh.model
+LOCAL_SRC_FILES     := ./models/textclassifier.universal.model
 LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
 include $(BUILD_PREBUILT)
 
@@ -255,9 +155,7 @@ include $(BUILD_PREBUILT)
 # -----------------------
 
 include $(CLEAR_VARS)
-LOCAL_MODULE           := textclassifier.smartselection.bundle1
-LOCAL_REQUIRED_MODULES := textclassifier.smartselection.en.model
-LOCAL_REQUIRED_MODULES += textclassifier.smartselection.es.model
-LOCAL_REQUIRED_MODULES += textclassifier.smartselection.de.model
-LOCAL_REQUIRED_MODULES += textclassifier.smartselection.fr.model
+LOCAL_MODULE           := textclassifier.bundle1
+LOCAL_REQUIRED_MODULES := textclassifier.en.model
+LOCAL_CFLAGS := $(MY_LIBTEXTCLASSIFIER_WARNING_CFLAGS)
 include $(BUILD_STATIC_LIBRARY)

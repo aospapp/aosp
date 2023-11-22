@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -35,7 +35,16 @@ bt_status_t btif_queue_connect(uint16_t uuid, const RawAddress* bda,
                                btif_connect_cb_t connect_cb);
 void btif_queue_cleanup(uint16_t uuid);
 void btif_queue_advance();
+
+/**
+ * Dispatch the next pending connect request.
+ * NOTE: Must be called on the JNI thread.
+ *
+ * @return BT_STATUS_SUCCESS on success, otherwise the corresponding error
+ * code
+ */
 bt_status_t btif_queue_connect_next(void);
+
 void btif_queue_release();
 
 #endif

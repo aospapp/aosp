@@ -1,3 +1,0 @@
-tty:!:5:power,brltty
-video:!:27:root,chronos,arc-camera,dlm,rtanalytics
-input:!:222:cras,power,chronos

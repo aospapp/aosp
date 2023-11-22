@@ -16,6 +16,7 @@
 
 package android.appsecurity.cts;
 
+import android.platform.test.annotations.AppModeFull;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -28,6 +29,7 @@ import com.android.tradefed.testtype.IBuildReceiver;
  * Set of tests that verify behavior of runtime permissions, including both
  * dynamic granting and behavior of legacy apps.
  */
+@AppModeFull // TODO: Needs porting to instant
 public class UsesLibraryHostTest extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
     private static final String PKG = "com.android.cts.useslibrary";
 

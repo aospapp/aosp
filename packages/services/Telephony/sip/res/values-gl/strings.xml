@@ -22,12 +22,12 @@
     <string name="sip_receive_calls" msgid="426678617137462173">"Recibir chamadas entrantes"</string>
     <string name="sip_receive_calls_summary" msgid="946161517528227523">"Consome máis batería"</string>
     <string name="sip_call_options_title" msgid="8421210494703869806">"Utilizar chamadas SIP"</string>
-    <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"Utilizar chamadas SIP (só coa wifi)"</string>
+    <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"Utilizar chamadas SIP (só por wifi)"</string>
     <string name="sip_call_options_entry_1" msgid="7217659161237099900">"Para todas as chamadas cando a rede de datos está dispoñible"</string>
     <string name="sip_call_options_entry_2" msgid="1815335903940609729">"Só para chamadas SIP"</string>
     <string name="sip_call_options_wifi_only_entry_1" msgid="1358513095551847314">"Para todas as chamadas"</string>
     <string name="add_sip_account" msgid="800843669753980091">"Engadir conta"</string>
-    <string name="remove_sip_account" msgid="1367664438506503690">"Eliminar conta"</string>
+    <string name="remove_sip_account" msgid="1367664438506503690">"Quitar conta"</string>
     <string name="sip_account_list" msgid="5610858485304821480">"Contas SIP"</string>
     <string name="saving_account" msgid="5336529880235177448">"Gardando a conta..."</string>
     <string name="removing_account" msgid="5537351356808985756">"Eliminando a conta..."</string>

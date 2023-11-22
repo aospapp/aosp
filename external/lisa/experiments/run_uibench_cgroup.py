@@ -1,4 +1,20 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright (C) 2017, ARM Limited, Google, and contributors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 # This experiment enables CGroup tracing for UiBench workloads
 # The main difference between the run_uibench.py experiment is:
 # - post_collect_start hook used to dump fake cgroup events
@@ -33,20 +49,19 @@ parser.add_argument('--test', dest='test_name', action='store',
                     default='UiBenchJankTests#testGLTextureView',
                     help='which test to run')
 
-parser.add_argument('--duration', dest='duration_s', action='store',
-                    default=30, type=int,
-                    help='Duration of test (default 30s)')
+parser.add_argument('--iterations', dest='iterations', action='store',
+                    default=10, type=int,
+                    help='Number of times to repeat the tests per run (default 10)')
 
 parser.add_argument('--serial', dest='serial', action='store',
                     help='Serial number of device to test')
 
 args = parser.parse_args()
 
-def experiment():
+def experiment(outdir):
     # Get workload
     wload = Workload.getInstance(te, 'UiBench')
 
-    outdir=te.res_dir + '_' + args.out_prefix
     try:
         shutil.rmtree(outdir)
     except:
@@ -55,7 +70,7 @@ def experiment():
     os.makedirs(outdir)
 
     # Run UiBench
-    wload.run(outdir, test_name=args.test_name, duration_s=args.duration_s, collect=args.collect)
+    wload.run(outdir, test_name=args.test_name, iterations=args.iterations, collect=args.collect)
 
     # Dump platform descriptor
     te.platform_dump(te.res_dir)
@@ -100,6 +115,8 @@ my_conf = {
 
     # Tools required by the experiments
     "tools"   : [ 'taskset'],
+
+    "skip_nrg_model" : True,
 }
 
 if args.serial:
@@ -109,4 +126,18 @@ if args.serial:
 te = TestEnv(my_conf, wipe=False)
 target = te.target
 
-results = experiment()
+outdir=te.res_dir + '_' + args.out_prefix
+results = experiment(outdir)
+
+trace_file = os.path.join(outdir, "trace.html")
+tr = Trace(None, trace_file,
+    cgroup_info = {
+	'cgroups': ['foreground', 'background', 'system-background', 'top-app', 'rt'],
+	'controller_ids': { 4: 'cpuset', 2: 'schedtune' }
+    },
+    events=[ 'sched_switch', 'cgroup_attach_task_devlib', 'cgroup_attach_task', 'sched_process_fork' ],
+    normalize_time=False)
+
+tr.data_frame.cpu_residencies_cgroup('schedtune')
+tr.analysis.residency.plot_cgroup('schedtune', idle=False)
+tr.analysis.residency.plot_cgroup('schedtune', idle=True)

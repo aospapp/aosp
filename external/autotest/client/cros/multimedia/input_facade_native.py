@@ -10,6 +10,7 @@ import logging
 
 from autotest_lib.client.bin.input import input_event_recorder
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.cros.graphics import graphics_utils
 
 
 class InputFacadeNativeError(Exception):
@@ -67,3 +68,11 @@ class InputFacadeNative(object):
             raise error.TestError('input facade: input device name not given')
         events = self.recorder.get_events()
         return json.dumps(events)
+
+
+    def press_keys(self, key_list):
+        """ Simulating key press
+
+        @param key_list: A list of key strings, e.g. ['LEFTCTRL', 'F4']
+        """
+        graphics_utils.press_keys(key_list)

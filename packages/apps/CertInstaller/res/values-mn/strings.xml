@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN болон апп"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Санамж: Энэ гэрчилгээг олгогч нь төхөөрөмжид хийгдэж буй болон төхөөрөмжөөс хийж буй бүх үйлдэлд нөлөөлж болзошгүй."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi Профайл"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%s-ийн талаарх дэлгэрэнгүй мэдээлэл"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Дэлгэрэнгүй"</string>

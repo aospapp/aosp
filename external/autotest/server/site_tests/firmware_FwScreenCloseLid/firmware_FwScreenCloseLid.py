@@ -56,11 +56,14 @@ class firmware_FwScreenCloseLid(FirmwareTest):
             self.corrupt_usb_kernel(usb_dev)
 
     def cleanup(self):
-        if self.faft_config.has_lid:
-            self.servo.switch_usbkey('host')
-            usb_dev = self.servo.probe_host_usb_dev()
-            # Restore kernel of USB stick which is corrupted on setup phase.
-            self.restore_usb_kernel(usb_dev)
+        try:
+            if self.faft_config.has_lid:
+                self.servo.switch_usbkey('host')
+                usb_dev = self.servo.probe_host_usb_dev()
+                # Restore kernel of USB stick which is corrupted on setup phase.
+                self.restore_usb_kernel(usb_dev)
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_FwScreenCloseLid, self).cleanup()
 
     def run_once(self):
@@ -68,7 +71,8 @@ class firmware_FwScreenCloseLid(FirmwareTest):
             logging.info('This test does nothing on devices without lid.')
             return
 
-        if self.faft_config.fw_bypasser_type != 'ctrl_d_bypasser':
+        if (self.faft_config.fw_bypasser_type != 'ctrl_d_bypasser'
+          and self.faft_config.fw_bypasser_type != 'tablet_detachable_bypasser'):
             raise error.TestNAError("This test is only valid on devices with "
                                     "screens.")
 
@@ -84,7 +88,7 @@ class firmware_FwScreenCloseLid(FirmwareTest):
                           'devsw_boot': '1',
                           'mainfw_type': 'developer',
                           }))
-        self.switcher.mode_aware_reboot(wait_for_dut_up=False)
+        self.switcher.simple_reboot()
         self.run_shutdown_process(self.wait_fw_screen_and_close_lid,
                                   pre_power_action=self.servo.lid_open,
                                   run_power_action=False,
@@ -99,7 +103,7 @@ class firmware_FwScreenCloseLid(FirmwareTest):
                           'devsw_boot': '1',
                           'mainfw_type': 'developer',
                           }))
-        self.switcher.mode_aware_reboot(wait_for_dut_up=False)
+        self.switcher.simple_reboot()
         self.run_shutdown_process(self.wait_second_screen_and_close_lid,
                                   pre_power_action=self.servo.lid_open,
                                   run_power_action=False,
@@ -114,7 +118,7 @@ class firmware_FwScreenCloseLid(FirmwareTest):
                           'mainfw_type': 'developer',
                           }))
         self.faft_client.system.request_recovery_boot()
-        self.switcher.mode_aware_reboot(wait_for_dut_up=False)
+        self.switcher.simple_reboot()
         self.run_shutdown_process(self.wait_longer_fw_screen_and_close_lid,
                                   pre_power_action=self.servo.lid_open,
                                   run_power_action=False,
@@ -130,7 +134,7 @@ class firmware_FwScreenCloseLid(FirmwareTest):
                           'mainfw_type': 'developer',
                           }))
         self.faft_client.system.request_recovery_boot()
-        self.switcher.mode_aware_reboot(wait_for_dut_up=False)
+        self.switcher.simple_reboot()
         self.run_shutdown_process(self.wait_yuck_screen_and_close_lid,
                                   pre_power_action=self.servo.lid_open,
                                   run_power_action=False,
@@ -153,7 +157,7 @@ class firmware_FwScreenCloseLid(FirmwareTest):
                           'mainfw_type': 'normal',
                           }))
         self.faft_client.system.request_recovery_boot()
-        self.switcher.mode_aware_reboot(wait_for_dut_up=False)
+        self.switcher.simple_reboot()
         self.run_shutdown_process(self.wait_longer_fw_screen_and_close_lid,
                                   pre_power_action=self.servo.lid_open,
                                   run_power_action=False,

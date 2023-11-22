@@ -28,12 +28,10 @@ cc_library {
         host: {
             cflags: ["-D_GNU_SOURCE", "-DFEC_NO_KLOG"]
         },
-        linux: {
+        linux_glibc: {
             sanitize: {
                 misc_undefined: ["integer"],
             },
         },
     },
-
-    clang: true,
 }

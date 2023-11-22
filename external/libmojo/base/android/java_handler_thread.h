@@ -14,7 +14,6 @@
 namespace base {
 
 class MessageLoop;
-class WaitableEvent;
 
 namespace android {
 
@@ -41,10 +40,15 @@ class BASE_EXPORT JavaHandlerThread {
                   const JavaParamRef<jobject>& obj,
                   jlong event);
 
+  virtual void StartMessageLoop();
+  virtual void StopMessageLoop();
+
   static bool RegisterBindings(JNIEnv* env);
 
- private:
+ protected:
   std::unique_ptr<base::MessageLoop> message_loop_;
+
+ private:
   ScopedJavaGlobalRef<jobject> java_thread_;
 };
 

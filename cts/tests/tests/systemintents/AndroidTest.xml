@@ -15,6 +15,7 @@
   ~ limitations under the License
   -->
 <configuration description="Config for CTS system intent test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
     <option name="not-shardable" value="true" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">

@@ -42,4 +42,9 @@ cc_test_library {
         "libutils",
         "android.hardware.tests.foo@1.0",
     ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-parameter",
+    ],
 }

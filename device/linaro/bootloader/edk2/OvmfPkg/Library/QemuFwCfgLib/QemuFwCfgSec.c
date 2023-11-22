@@ -19,6 +19,7 @@
 #include <Library/DebugLib.h>
 #include <Library/QemuFwCfgLib.h>
 
+#include "QemuFwCfgLibInternal.h"
 
 /**
   Returns a boolean indicating if the firmware configuration interface
@@ -67,7 +68,6 @@ QemuFwCfgIsAvailable (
   @retval    FALSE  The interface is not available internally.
 **/
 BOOLEAN
-EFIAPI
 InternalQemuFwCfgIsAvailable (
   VOID
   )
@@ -78,4 +78,19 @@ InternalQemuFwCfgIsAvailable (
   // path.
   //
   return TRUE;
+}
+
+/**
+  Returns a boolean indicating whether QEMU provides the DMA-like access method
+  for fw_cfg.
+
+  @retval    TRUE   The DMA-like access method is available.
+  @retval    FALSE  The DMA-like access method is unavailable.
+**/
+BOOLEAN
+InternalQemuFwCfgDmaIsAvailable (
+  VOID
+  )
+{
+  return FALSE;
 }

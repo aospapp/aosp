@@ -41,6 +41,8 @@
 #include <cutils/properties.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <unistd.h>
 #include "bt_hci_bdroid.h"
 #include "bt_vendor_brcm.h"
 #include "esco_parameters.h"

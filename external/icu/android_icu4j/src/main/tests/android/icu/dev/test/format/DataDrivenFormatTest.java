@@ -34,12 +34,14 @@ import android.icu.util.ULocale;
 
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author srl
  * @author sgill
  *
  */
+@MainTestShard
 @RunWith(JUnitParamsRunner.class)
 public class DataDrivenFormatTest extends TestFmwk {
 

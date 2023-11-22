@@ -288,6 +288,18 @@ class IwRunnerTest(unittest.TestCase):
 
     INFO_IFACE = 'wlan-2400mhz'
 
+    PHY_INFO_FRAGMENTATION = str(
+        'Wiphy phy1\n'
+        '        max # scan SSIDs: 20\n'
+        '        max scan IEs length: 425 bytes\n'
+        '        Fragmentation threshold: 256\n'
+        '        Retry short limit: 7\n'
+        '        Retry long limit: 4\n')
+
+    INFO_PHY = 'phy1'
+
+    PHY_FRAGMENTATION_THRESHOLD = 256
+
 
     def verify_values(self, iw_bss_1, iw_bss_2):
         """Checks all of the IWBss values
@@ -441,6 +453,15 @@ class IwRunnerTest(unittest.TestCase):
         self.assertEquals(
             runner.get_radio_config(self.INFO_IFACE),
             self.RADIO_CONFIG_AP_MODE)
+
+
+    def test_fragmentation_threshold(self):
+        """Test fragmentation threshold parsing."""
+        host = self.host(self.PHY_INFO_FRAGMENTATION)
+        runner = iw_runner.IwRunner(remote_host=host)
+        self.assertEquals(
+            runner.get_fragmentation_threshold(self.INFO_PHY),
+            self.PHY_FRAGMENTATION_THRESHOLD)
 
 
 if __name__ == '__main__':

@@ -108,4 +108,9 @@
     <dimen name="floating_action_button_width">67dp</dimen>
     <dimen name="floating_action_button_height">67dp</dimen>
     <dimen name="floating_action_button_margin_bottom">32dp</dimen>
+
+    <dimen name="signal_strength_icon_size">24dp</dimen>
+
+    <!-- The size of the "emergency calling unavailable" message shown in the emergency dialer -->
+    <dimen name="emergency_call_warning_size">16sp</dimen>
 </resources>

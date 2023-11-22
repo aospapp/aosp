@@ -24,6 +24,10 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.os.Bundle;
+import android.os.PersistableBundle;
+import android.telephony.CarrierConfigManager;
+
+import com.android.internal.telephony.Phone;
 
 /**
  * A dialog fragment that asks the user if they are sure they want to turn on data roaming
@@ -41,6 +45,11 @@ public class RoamingDialogFragment extends DialogFragment implements OnClickList
     // the host activity which implements the listening interface
     private RoamingDialogListener mListener;
 
+    private Phone mPhone;
+
+    public void setPhone(Phone phone) {
+        mPhone = phone;
+    }
 
     @Override
     public void onAttach(Context context) {
@@ -59,8 +68,17 @@ public class RoamingDialogFragment extends DialogFragment implements OnClickList
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+        int title = R.string.roaming_alert_title;
+        if (mPhone != null) {
+            PersistableBundle carrierConfig =
+                    PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
+            if (carrierConfig != null && carrierConfig.getBoolean(
+                    CarrierConfigManager.KEY_CHECK_PRICING_WITH_CARRIER_FOR_DATA_ROAMING_BOOL)) {
+                title = R.string.roaming_check_price_warning;
+            }
+        }
         builder.setMessage(getResources().getString(R.string.roaming_warning))
-                .setTitle(R.string.roaming_alert_title)
+                .setTitle(title)
                 .setIconAttribute(android.R.attr.alertDialogIcon)
                 .setPositiveButton(android.R.string.yes, this)
                 .setNegativeButton(android.R.string.no, this);

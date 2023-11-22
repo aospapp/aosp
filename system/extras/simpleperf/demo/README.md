@@ -10,8 +10,8 @@
 ## Introduction
 
 Simpleperf is a native profiler used on Android platform. It can be used to profile Android
-applications. It's document is at [here](https://android.googlesource.com/platform/system/extras/+/master/simpleperf/README.md).
-Instructions of preparing your Android application for profiling are [here](https://android.googlesource.com/platform/system/extras/+/master/simpleperf/README.md#Android-application-profiling).
+applications. Its documentation is [here](https://android.googlesource.com/platform/system/extras/+/master/simpleperf/doc/README.md).
+Instructions of preparing your Android application for profiling are [here](https://android.googlesource.com/platform/system/extras/+/master/simpleperf/doc/README.md#Android-application-profiling).
 This directory is to show examples of using simpleperf to profile Android applications. The
 meaning of each directory is as below:
 
@@ -22,20 +22,30 @@ meaning of each directory is as below:
 
 It can be downloaded as below:
 
-    $ git clone https://android.googlesource.com/platform/system/extras
-    $ cd extras/simpleperf/demo
+```sh
+$ git clone https://android.googlesource.com/platform/system/extras
+$ cd extras/simpleperf/demo
+```
 
-## Profiling Java application
+The testing environment:
 
-    Android Studio project: SimpleExamplePureJava
-    test device: Android O (Google Pixel XL)
-    test device: Android N (Google Nexus 5X)
+```
+Android Studio 3.0
+test device: Android O (Google Pixel 2)
+test device: Android N (Google Nexus 6P)
+Please make sure your device having Android version >= N.
+```
+
+## Profile a Java application
+
+Android Studio project: SimpleExamplePureJava
 
 steps:
-1. Build and install app:
-```
+1. Build and install the application:
+
+```sh
 # Open SimpleperfExamplesPureJava project with Android Studio,
-# and build this project sucessfully, otherwise the `./gradlew` command below will fail.
+# and build this project successfully, otherwise the `./gradlew` command below will fail.
 $ cd SimpleperfExamplePureJava
 
 # On windows, use "gradlew" instead.
@@ -44,73 +54,60 @@ $ adb install -r app/build/outputs/apk/app-profiling.apk
 ```
 
 2. Record profiling data:
-```
+
+```sh
 $ cd ../../scripts/
+# app_profiler.py collects profiling data in perf.data, and binaries on device in binary_cache/.
 $ python app_profiler.py -p com.example.simpleperf.simpleperfexamplepurejava
 ```
 
 3. Show profiling data:
-```
-a. show call graph in txt mode
-    # On windows, use "bin\windows\x86\simpleperf" instead.
-    $ bin/linux/x86_64/simpleperf report -g | more
-        If on other hosts, use corresponding simpleperf binary.
-b. show call graph in gui mode
-    $ python report.py -g
-c. show samples in source code
-    $ python annotate.py -s ../demo/SimpleperfExamplePureJava
-    $ gvim annotated_files/java/com/example/simpleperf/simpleperfexamplepurejava/MainActivity.java
-        check the annoated source file MainActivity.java.
+
+```sh
+# report_html.py generates profiling result in report.html.
+$ python report_html.py --add_source_code --source_dirs ../demo --add_disassembly
 ```
 
-## Profiling Java/C++ application
+## Profile a Java/C++ application
 
-    Android Studio project: SimpleExampleWithNative
-    test device: Android O (Google Pixel XL)
-    test device: Android N (Google Nexus 5X)
+Android Studio project: SimpleExampleWithNative
 
 steps:
-1. Build and install app:
-```
+1. Build and install the application:
+
+```sh
 # Open SimpleperfExamplesWithNative project with Android Studio,
 # and build this project sucessfully, otherwise the `./gradlew` command below will fail.
 $ cd SimpleperfExampleWithNative
 
 # On windows, use "gradlew" instead.
 $ ./gradlew clean assemble
-$ adb install -r app/build/outputs/apk/app-profiling.apk
+$ adb install -r app/build/outputs/apk/profiling/app-profiling.apk
 ```
 
 2. Record profiling data:
-```
+
+```sh
 $ cd ../../scripts/
+# app_profiler.py collects profiling data in perf.data, and binaries on device in binary_cache/.
 $ python app_profiler.py -p com.example.simpleperf.simpleperfexamplewithnative
-    It runs the application and collects profiling data in perf.data, binaries on device in binary_cache/.
 ```
 
 3. Show profiling data:
-```
-a. show call graph in txt mode
-    # On windows, use "bin\windows\x86\simpleperf" instead.
-    $ bin/linux/x86_64/simpleperf report -g | more
-        If on other hosts, use corresponding simpleperf binary.
-b. show call graph in gui mode
-    $ python report.py -g
-c. show samples in source code
-    $ python annotate.py -s ../demo/SimpleperfExampleWithNative
-    $ find . -name "native-lib.cpp" | xargs gvim
-        check the annoated source file native-lib.cpp.
+
+```sh
+# report_html.py generates profiling result in report.html.
+$ python report_html.py --add_source_code --source_dirs ../demo --add_disassembly
 ```
 
-## Profiling Kotlin application
+## Profile a Kotlin application
 
-    Android Studio project: SimpleExampleOfKotlin
-    test device: Android O (Google Pixel XL)
-    test device: Android N (Google Nexus 5X)
+Android Studio project: SimpleExampleOfKotlin
 
 steps:
-1. Build and install app:
-```
+1. Build and install the application:
+
+```sh
 # Open SimpleperfExamplesOfKotlin project with Android Studio,
 # and build this project sucessfully, otherwise the `./gradlew` command below will fail.
 $ cd SimpleperfExampleOfKotlin
@@ -121,22 +118,16 @@ $ adb install -r app/build/outputs/apk/profiling/app-profiling.apk
 ```
 
 2. Record profiling data:
-```
+
+```sh
 $ cd ../../scripts/
+# app_profiler.py collects profiling data in perf.data, and binaries on device in binary_cache/.
 $ python app_profiler.py -p com.example.simpleperf.simpleperfexampleofkotlin
-    It runs the application and collects profiling data in perf.data, binaries on device in binary_cache/.
 ```
 
 3. Show profiling data:
-```
-a. show call graph in txt mode
-    # On windows, use "bin\windows\x86\simpleperf" instead.
-    $ bin/linux/x86_64/simpleperf report -g | more
-        If on other hosts, use corresponding simpleperf binary.
-b. show call graph in gui mode
-    $ python report.py -g
-c. show samples in source code
-    $ python annotate.py -s ../demo/SimpleperfExampleOfKotlin
-    $ find . -name "MainActivity.kt" | xargs gvim
-        check the annoated source file MainActivity.kt.
+
+```sh
+# report_html.py generates profiling result in report.html.
+$ python report_html.py --add_source_code --source_dirs ../demo --add_disassembly
 ```

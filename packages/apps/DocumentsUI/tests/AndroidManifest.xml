@@ -124,6 +124,15 @@
                 <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
             </intent-filter>
         </provider>
+
+        <service android:name="com.android.documentsui.services.TestNotificationService"
+                 android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+                 android:process="com.android.documentsui">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

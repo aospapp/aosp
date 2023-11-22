@@ -21,14 +21,14 @@ import android.content.pm.PackageManager;
 import android.os.ParcelFileDescriptor;
 import android.test.InstrumentationTestCase;
 
+import com.android.compatibility.common.util.LogcatInspector;
+
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Base class for backup instrumentation tests.
@@ -41,9 +41,14 @@ public class BaseBackupCtsTest extends InstrumentationTestCase {
     private static final String LOCAL_TRANSPORT =
             "android/com.android.internal.backup.LocalTransport";
 
-    private static final int SMALL_LOGCAT_DELAY = 1000;
-
     private boolean isBackupSupported;
+    private LogcatInspector mLogcatInspector =
+            new LogcatInspector() {
+                @Override
+                protected InputStream executeShellCommand(String command) throws IOException {
+                    return executeStreamedShellCommand(getInstrumentation(), command);
+                }
+            };
 
     @Override
     protected void setUp() throws Exception {
@@ -73,55 +78,16 @@ public class BaseBackupCtsTest extends InstrumentationTestCase {
         return output.contains("* " + LOCAL_TRANSPORT);
     }
 
-    /**
-     * Attempts to clear logcat.
-     *
-     * Clearing logcat is known to be unreliable, so this methods also output a unique separator
-     * that can be used to find this point in the log even if clearing failed.
-     * @return a unique separator string
-     * @throws Exception
-     */
-    protected String clearLogcat() throws Exception {
-        exec("logcat -c");
-        String uniqueString = ":::" + UUID.randomUUID().toString();
-        exec("log -t " + APP_LOG_TAG + " " + uniqueString);
-        return uniqueString;
+    /** See {@link LogcatInspector#mark(String)}. */
+    protected String markLogcat() throws Exception {
+        return mLogcatInspector.mark(APP_LOG_TAG);
     }
 
-    /**
-     * Wait for up to maxTimeoutInSeconds for the given strings to appear in the logcat in the given order.
-     * By passing the separator returned by {@link #clearLogcat} as the first string you can ensure that only
-     * logs emitted after that call to clearLogcat are found.
-     *
-     * @throws AssertionError if the strings are not found in the given time.
-     */
+    /** See {@link LogcatInspector#assertLogcatContainsInOrder(String, int, String...)}. */
     protected void waitForLogcat(int maxTimeoutInSeconds, String... logcatStrings)
-        throws Exception {
-        long timeout = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(maxTimeoutInSeconds);
-        int stringIndex = 0;
-        while (timeout >= System.currentTimeMillis()) {
-            FileInputStream fis = executeStreamedShellCommand(getInstrumentation(),
-                    "logcat -v brief -d " + APP_LOG_TAG + ":* *:S");
-            BufferedReader log = new BufferedReader(new InputStreamReader(fis));
-            String line;
-            stringIndex = 0;
-            while ((line = log.readLine()) != null) {
-                if (line.contains(logcatStrings[stringIndex])) {
-                    stringIndex++;
-                    if (stringIndex >= logcatStrings.length) {
-                        drainAndClose(log);
-                        return;
-                    }
-                }
-            }
-            closeQuietly(log);
-            // In case the key has not been found, wait for the log to update before
-            // performing the next search.
-            Thread.sleep(SMALL_LOGCAT_DELAY);
-        }
-        fail("Couldn't find " + logcatStrings[stringIndex] +
-            (stringIndex > 0 ? " after " + logcatStrings[stringIndex - 1] : "") +
-            " within " + maxTimeoutInSeconds + " seconds ");
+            throws Exception {
+        mLogcatInspector.assertLogcatContainsInOrder(
+                APP_LOG_TAG + ":* *:S", maxTimeoutInSeconds, logcatStrings);
     }
 
     protected void createTestFileOfSize(String packageName, int size) throws Exception {
@@ -145,8 +111,8 @@ public class BaseBackupCtsTest extends InstrumentationTestCase {
         }
     }
 
-    private static FileInputStream executeStreamedShellCommand(Instrumentation instrumentation,
-                                                               String command) throws Exception {
+    private static FileInputStream executeStreamedShellCommand(
+            Instrumentation instrumentation, String command) throws IOException {
         final ParcelFileDescriptor pfd =
                 instrumentation.getUiAutomation().executeShellCommand(command);
         return new ParcelFileDescriptor.AutoCloseInputStream(pfd);

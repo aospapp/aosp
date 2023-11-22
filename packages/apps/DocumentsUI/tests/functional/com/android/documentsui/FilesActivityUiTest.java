@@ -63,18 +63,6 @@ public class FilesActivityUiTest extends ActivityTest<FilesActivity> {
         bots.main.assertWindowTitle("Images");
     }
 
-    public void testProtectedFolder_showsAuthenticationUi() throws Exception {
-        // If feature is disabled, this test is a no-op.
-        if (features.isRemoteActionsEnabled()) {
-            bots.roots.openRoot("Demo Root");
-            bots.main.switchToListMode();
-            bots.directory.openDocument("throw a authentication exception");
-            bots.directory.assertHeaderMessageText(
-                    "To view this directory, sign in to DocumentsUI Tests");
-        }
-
-    }
-
     public void testFilesListed() throws Exception {
         bots.directory.assertDocumentsPresent("file0.log", "file1.png", "file2.csv");
     }
@@ -118,7 +106,7 @@ public class FilesActivityUiTest extends ActivityTest<FilesActivity> {
         Instrumentation.ActivityMonitor monitor = new Instrumentation.ActivityMonitor(
                 InspectorActivity.class.getName(), null, false);
         bots.directory.selectDocument("file0.log");
-        bots.main.clickActionItem("Properties");
+        bots.main.clickActionItem("Get info");
         monitor.waitForActivityWithTimeout(TIMEOUT);
     }
 

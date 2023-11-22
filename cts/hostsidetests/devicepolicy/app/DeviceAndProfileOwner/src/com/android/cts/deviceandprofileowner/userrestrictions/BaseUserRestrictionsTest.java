@@ -60,6 +60,7 @@ public abstract class BaseUserRestrictionsTest extends BaseDeviceAdminTest {
             UserManager.DISALLOW_SMS,
             UserManager.DISALLOW_FUN,
             UserManager.DISALLOW_CREATE_WINDOWS,
+            UserManager.DISALLOW_SYSTEM_ERROR_DIALOGS,
             UserManager.DISALLOW_CROSS_PROFILE_COPY_PASTE,
             UserManager.DISALLOW_OUTGOING_BEAM,
             UserManager.DISALLOW_SAFE_BOOT,
@@ -91,7 +92,8 @@ public abstract class BaseUserRestrictionsTest extends BaseDeviceAdminTest {
 
             // PO can set them too, but when DO sets them, they're global.
             UserManager.DISALLOW_ADJUST_VOLUME,
-            UserManager.DISALLOW_UNMUTE_MICROPHONE
+            UserManager.DISALLOW_UNMUTE_MICROPHONE,
+            UserManager.DISALLOW_SYSTEM_ERROR_DIALOGS
     };
 
     public static final String[] HIDDEN_AND_PROHIBITED = new String[] {

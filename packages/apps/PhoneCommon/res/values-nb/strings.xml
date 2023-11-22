@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Ikke noe SIM-kort eller SIM-kortfeil"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Mobilnettverket er ikke tilgjengelig"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Utgående anrop har anropsbegrensning."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL-forespørselen er endret til en USSD-forespørsel."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL-forespørselen er endret til en SS-forespørsel."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL-forespørselen er endret til DIAL med annet nummer."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Anropet ble endret til USSD-forespørsel"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Anropet ble endret til SS-forespørsel"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Endret til et annet nummer"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Endret til videoanrop"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Videoanropet ble endret til SS-forespørsel"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Videoanropet ble endret til USSD-forespørsel"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Endret til vanlig anrop"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Endret til et annet nummer"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Kan ikke foreta utgående samtaler når anropssperring er på."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Samtaler er begrenset av tilgangskontrollen."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Nødanrop er begrenset av tilgangskontrollen."</string>

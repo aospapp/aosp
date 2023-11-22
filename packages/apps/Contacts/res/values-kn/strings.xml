@@ -489,7 +489,7 @@
     <string name="call_subject_type_and_number" msgid="7667188212129152558">"<xliff:g id="TYPE">%1$s</xliff:g> • <xliff:g id="NUMBER">%2$s</xliff:g>"</string>
     <string name="about_build_version" msgid="1765533099416999801">"ಬಿಲ್ಡ್ ಆವೃತ್ತಿ"</string>
     <string name="about_open_source_licenses" msgid="6479990452352919641">"ತೆರೆದ ಮೂಲ ಪರವಾನಗಿಗಳು"</string>
-    <string name="about_open_source_licenses_summary" msgid="57418386931763994">"ಮುಕ್ತ ಮೂಲ ಸಾಫ್ಟ್‌ವೇರ್‌ಗಾಗಿ ಪರವಾನಗಿ ವಿವರಗಳು"</string>
+    <string name="about_open_source_licenses_summary" msgid="57418386931763994">"ಓಪನ್ ಸೋರ್ಸ್ ಸಾಫ್ಟ್‌ವೇರ್‌ಗಾಗಿ ಪರವಾನಗಿ ವಿವರಗಳು"</string>
     <string name="about_privacy_policy" msgid="3705518622499152626">"ಗೌಪ್ಯತೆ ನೀತಿ"</string>
     <string name="about_terms_of_service" msgid="4642400812150296723">"ಸೇವಾ ನಿಯಮಗಳು"</string>
     <string name="activity_title_licenses" msgid="5467767062737708066">"ತೆರೆದ ಮೂಲ ಪರವಾನಗಿಗಳು"</string>
@@ -529,4 +529,6 @@
     <string name="importing_sim_failed_message" msgid="3345258302998021066">"ಸಿಮ್‌ ಕಾರ್ಡ್‌ನಿಂದ ಸಂಪರ್ಕಗಳನ್ನು ಆಮದು ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
     <string name="importing_sim_in_progress_title" msgid="3638299581276676109">"ಸಿಮ್‌ ಆಮದು ಮಾಡಲಾಗುತ್ತಿದೆ"</string>
     <string name="contacts_default_notification_channel" msgid="4754058700611188581">"ಅಧಿಸೂಚನೆಗಳು"</string>
+    <string name="yes_button" msgid="1268479086848288060">"ಹೌದು"</string>
+    <string name="no_button" msgid="5742815694687835125">"ಇಲ್ಲ"</string>
 </resources>

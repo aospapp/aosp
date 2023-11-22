@@ -74,7 +74,7 @@ class LabHealthInstallDependencies(cmd.Command):
 def main():
     setuptools.setup(
         name='LabHealth',
-        version='0.1',
+        version='0.3',
         description='Android Test Lab Health',
         license='Apache2.0',
         cmdclass={

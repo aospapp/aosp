@@ -16,6 +16,10 @@
 
 #include "event_selection_set.h"
 
+#include <algorithm>
+#include <atomic>
+#include <thread>
+
 #include <android-base/logging.h>
 
 #include "environment.h"
@@ -53,6 +57,66 @@ bool IsDwarfCallChainSamplingSupported() {
   return IsEventAttrSupported(attr);
 }
 
+bool IsDumpingRegsForTracepointEventsSupported() {
+  const EventType* event_type = FindEventTypeByName("sched:sched_switch", false);
+  if (event_type == nullptr) {
+    return false;
+  }
+  std::atomic<bool> done(false);
+  std::atomic<pid_t> thread_id(0);
+  std::thread thread([&]() {
+    thread_id = gettid();
+    while (!done) {
+      usleep(1);
+    }
+    usleep(1);  // Make a sched out to generate one sample.
+  });
+  while (thread_id == 0) {
+    usleep(1);
+  }
+  perf_event_attr attr = CreateDefaultPerfEventAttr(*event_type);
+  attr.freq = 0;
+  attr.sample_period = 1;
+  std::unique_ptr<EventFd> event_fd =
+      EventFd::OpenEventFile(attr, thread_id, -1, nullptr);
+  if (event_fd == nullptr) {
+    return false;
+  }
+  if (!event_fd->CreateMappedBuffer(4, true)) {
+    return false;
+  }
+  done = true;
+  thread.join();
+
+  std::vector<char> buffer;
+  size_t buffer_pos = 0;
+  size_t size = event_fd->GetAvailableMmapData(buffer, buffer_pos);
+  std::vector<std::unique_ptr<Record>> records =
+      ReadRecordsFromBuffer(attr, buffer.data(), size);
+  for (auto& r : records) {
+    if (r->type() == PERF_RECORD_SAMPLE) {
+      auto& record = *static_cast<SampleRecord*>(r.get());
+      if (record.ip_data.ip != 0) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool IsSettingClockIdSupported() {
+  const EventType* type = FindEventTypeByName("cpu-cycles");
+  if (type == nullptr) {
+    return false;
+  }
+  // Check if the kernel supports setting clockid, which was added in kernel 4.0. Just check with
+  // one clockid is enough. Because all needed clockids were supported before kernel 4.0.
+  perf_event_attr attr = CreateDefaultPerfEventAttr(*type);
+  attr.use_clockid = 1;
+  attr.clockid = CLOCK_MONOTONIC;
+  return IsEventAttrSupported(attr);
+}
+
 bool EventSelectionSet::BuildAndCheckEventSelection(
     const std::string& event_name, EventSelection* selection) {
   std::unique_ptr<EventTypeAndModifier> event_type = ParseEventType(event_name);
@@ -78,6 +142,20 @@ bool EventSelectionSet::BuildAndCheckEventSelection(
   selection->event_attr.exclude_host = event_type->exclude_host;
   selection->event_attr.exclude_guest = event_type->exclude_guest;
   selection->event_attr.precise_ip = event_type->precise_ip;
+  if (!for_stat_cmd_) {
+    if (event_type->event_type.type == PERF_TYPE_TRACEPOINT) {
+      selection->event_attr.freq = 0;
+      selection->event_attr.sample_period = DEFAULT_SAMPLE_PERIOD_FOR_TRACEPOINT_EVENT;
+    } else {
+      selection->event_attr.freq = 1;
+      uint64_t freq = DEFAULT_SAMPLE_FREQ_FOR_NONTRACEPOINT_EVENT;
+      uint64_t max_freq;
+      if (GetMaxSampleFrequency(&max_freq)) {
+        freq = std::min(freq, max_freq);
+      }
+      selection->event_attr.sample_freq = freq;
+    }
+  }
   if (!IsEventAttrSupported(selection->event_attr)) {
     LOG(ERROR) << "Event type '" << event_type->name
                << "' is not supported on the device";
@@ -97,12 +175,12 @@ bool EventSelectionSet::BuildAndCheckEventSelection(
   return true;
 }
 
-bool EventSelectionSet::AddEventType(const std::string& event_name) {
-  return AddEventGroup(std::vector<std::string>(1, event_name));
+bool EventSelectionSet::AddEventType(const std::string& event_name, size_t* group_id) {
+  return AddEventGroup(std::vector<std::string>(1, event_name), group_id);
 }
 
 bool EventSelectionSet::AddEventGroup(
-    const std::vector<std::string>& event_names) {
+    const std::vector<std::string>& event_names, size_t* group_id) {
   EventSelectionGroup group;
   for (const auto& event_name : event_names) {
     EventSelection selection;
@@ -113,7 +191,20 @@ bool EventSelectionSet::AddEventGroup(
   }
   groups_.push_back(std::move(group));
   UnionSampleType();
+  if (group_id != nullptr) {
+    *group_id = groups_.size() - 1;
+  }
   return true;
+}
+
+std::vector<const EventType*> EventSelectionSet::GetEvents() const {
+  std::vector<const EventType*> result;
+  for (const auto& group : groups_) {
+    for (const auto& selection : group) {
+      result.push_back(&selection.event_type_modifier.event_type);
+    }
+  }
+  return result;
 }
 
 std::vector<const EventType*> EventSelectionSet::GetTracepointEvents() const {
@@ -127,6 +218,17 @@ std::vector<const EventType*> EventSelectionSet::GetTracepointEvents() const {
     }
   }
   return result;
+}
+
+bool EventSelectionSet::ExcludeKernel() const {
+  for (const auto& group : groups_) {
+    for (const auto& selection : group) {
+      if (!selection.event_type_modifier.exclude_kernel) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 bool EventSelectionSet::HasInplaceSampler() const {
@@ -213,37 +315,15 @@ void EventSelectionSet::SampleIdAll() {
   }
 }
 
-void EventSelectionSet::SetSampleFreq(uint64_t sample_freq) {
-  for (auto& group : groups_) {
-    for (auto& selection : group) {
+void EventSelectionSet::SetSampleSpeed(size_t group_id, const SampleSpeed& speed) {
+  CHECK_LT(group_id, groups_.size());
+  for (auto& selection : groups_[group_id]) {
+    if (speed.UseFreq()) {
       selection.event_attr.freq = 1;
-      selection.event_attr.sample_freq = sample_freq;
-    }
-  }
-}
-
-void EventSelectionSet::SetSamplePeriod(uint64_t sample_period) {
-  for (auto& group : groups_) {
-    for (auto& selection : group) {
+      selection.event_attr.sample_freq = speed.sample_freq;
+    } else {
       selection.event_attr.freq = 0;
-      selection.event_attr.sample_period = sample_period;
-    }
-  }
-}
-
-void EventSelectionSet::UseDefaultSampleFreq() {
-  for (auto& group : groups_) {
-    for (auto& selection : group) {
-      if (selection.event_type_modifier.event_type.type ==
-          PERF_TYPE_TRACEPOINT) {
-        selection.event_attr.freq = 0;
-        selection.event_attr.sample_period =
-            DEFAULT_SAMPLE_PERIOD_FOR_TRACEPOINT_EVENT;
-      } else {
-        selection.event_attr.freq = 1;
-        selection.event_attr.sample_freq =
-            DEFAULT_SAMPLE_FREQ_FOR_NONTRACEPOINT_EVENT;
-      }
+      selection.event_attr.sample_period = speed.sample_period;
     }
   }
 }
@@ -310,6 +390,15 @@ void EventSelectionSet::SetInherit(bool enable) {
   }
 }
 
+void EventSelectionSet::SetClockId(int clock_id) {
+  for (auto& group : groups_) {
+    for (auto& selection : group) {
+      selection.event_attr.use_clockid = 1;
+      selection.event_attr.clockid = clock_id;
+    }
+  }
+}
+
 bool EventSelectionSet::NeedKernelSymbol() const {
   for (const auto& group : groups_) {
     for (const auto& selection : group) {
@@ -343,17 +432,14 @@ bool EventSelectionSet::OpenEventFilesOnGroup(EventSelectionGroup& group,
   for (auto& selection : group) {
     std::unique_ptr<EventFd> event_fd =
         EventFd::OpenEventFile(selection.event_attr, tid, cpu, group_fd, false);
-    if (event_fd != nullptr) {
-      LOG(VERBOSE) << "OpenEventFile for " << event_fd->Name();
-      event_fds.push_back(std::move(event_fd));
-    } else {
-      if (failed_event_type != nullptr) {
+    if (!event_fd) {
         *failed_event_type = selection.event_type_modifier.name;
         return false;
-      }
     }
+    LOG(VERBOSE) << "OpenEventFile for " << event_fd->Name();
+    event_fds.push_back(std::move(event_fd));
     if (group_fd == nullptr) {
-      group_fd = event_fd.get();
+      group_fd = event_fds.back().get();
     }
   }
   for (size_t i = 0; i < group.size(); ++i) {

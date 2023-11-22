@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2005-2012 Broadcom Corporation
+ *  Copyright 2005-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -400,7 +400,7 @@ bool bta_hh_hdl_event(BT_HDR* p_msg) {
             * force the index to be IDX_INVALID
             */
           if ((index != BTA_HH_IDX_INVALID) &&
-              (bta_hh_cb.kdev[index].in_use == false)) {
+              (!bta_hh_cb.kdev[index].in_use)) {
             index = BTA_HH_IDX_INVALID;
           }
         }

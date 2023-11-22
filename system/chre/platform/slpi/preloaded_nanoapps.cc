@@ -16,41 +16,42 @@
 
 #include "chre/platform/slpi/preloaded_nanoapps.h"
 
-#include "chre/core/nanoapp.h"
+#include "chre/core/event_loop_manager.h"
 #include "chre/platform/fatal_error.h"
 #include "chre/util/macros.h"
-#include "chre/util/unique_ptr.h"
 
 namespace chre {
 
-/**
- * Loads nanoapps that are standalone .so file (i.e. not static nanoapps), but
- * are pre-loaded in the system image.
- *
- * @param eventLoop The event loop where these nanoapps should run
- */
-void loadPreloadedNanoapps(EventLoop *eventLoop) {
-  struct PreloadedNanoappDescriptor {
-    const uint64_t appId;
-    const char *filename;
-    UniquePtr<Nanoapp> nanoapp;
-  };
+// The CHRE build variant can supply this macro to override the detault list of
+// preloaded nanoapps. This list is supplied empty to ensure that the symbol is
+// available for platforms with no preloaded nanoapps.
+#ifndef CHRE_VARIANT_SUPPLIES_PRELOADED_NANOAPP_LIST
 
-  // The list of nanoapps to be loaded from the filesystem of the device.
-  // TODO: allow these to be overridden by target-specific build configuration
-  static PreloadedNanoappDescriptor preloadedNanoapps[] = {
-    { 0x476f6f676c00100b, "activity.so", MakeUnique<Nanoapp>() },
-    { 0x476f6f676c001004, "geofence.so", MakeUnique<Nanoapp>() },
-    { 0x476f6f676c00100c, "wifi_offload.so", MakeUnique<Nanoapp>() },
-  };
+//! The default list of preloaded nanoapps to load.
+PreloadedNanoappDescriptor kPreloadedNanoappList[] = {};
 
-  for (size_t i = 0; i < ARRAY_SIZE(preloadedNanoapps); i++) {
-    if (preloadedNanoapps[i].nanoapp.isNull()) {
-      FATAL_ERROR("Couldn't allocate memory for preloaded nanoapp");
-    } else {
-      preloadedNanoapps[i].nanoapp->loadFromFile(preloadedNanoapps[i].appId,
-                                                 preloadedNanoapps[i].filename);
-      eventLoop->startNanoapp(preloadedNanoapps[i].nanoapp);
+//! The size of the default preloaded nanoapp list.
+const size_t kPreloadedNanoappCount = ARRAY_SIZE(kPreloadedNanoappList);
+
+#endif  // CHRE_VARIANT_SUPPLIES_PRELOADED_NANOAPP_LIST
+
+void loadPreloadedNanoapps() {
+  // Compare with zero to allow the compiler to optimize away the loop.
+  // Tautological comparisons are not warnings when comparing a const with
+  // another const.
+  if (kPreloadedNanoappCount > 0) {
+    // Cast the kPreloadedNanoappCount to size_t to avoid tautological comparison
+    // warnings when the kStaticNanoappCount is zero.
+    EventLoop& eventLoop = EventLoopManagerSingleton::get()->getEventLoop();
+    size_t nanoappCount = reinterpret_cast<size_t>(kPreloadedNanoappCount);
+    for (size_t i = 0; i < nanoappCount; i++) {
+      auto& app = kPreloadedNanoappList[i];
+      if (app.nanoapp.isNull()) {
+        FATAL_ERROR("Couldn't allocate memory for preloaded nanoapp");
+      } else {
+        app.nanoapp->loadFromFile(app.appId, app.filename);
+        eventLoop.startNanoapp(app.nanoapp);
+      }
     }
   }
 }

@@ -1,7 +1,7 @@
 /** @file
   Support functions declaration for UEFI HTTP boot driver.
 
-Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2015 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials are licensed and made available under 
 the terms and conditions of the BSD License that accompanies this distribution.  
 The full text of the license may be found at
@@ -79,6 +79,17 @@ HttpBootShowIp4Addr (
 VOID
 HttpBootShowIp6Addr (
   IN EFI_IPv6_ADDRESS   *Ip
+  );
+
+/**
+  This function is to display the HTTP error status.
+
+  @param[in]      StatusCode      The status code value in HTTP message.
+
+**/
+VOID
+HttpBootPrintErrorMessage (
+  EFI_HTTP_STATUS_CODE            StatusCode
   );
 
 //
@@ -168,7 +179,7 @@ typedef union {
 } HTTP_IO_CONFIG_DATA;
 
 //
-// HTTO_IO wrapper of the EFI HTTP service.
+// HTTP_IO wrapper of the EFI HTTP service.
 //
 typedef struct {
   UINT8                     IpVersion;
@@ -185,6 +196,8 @@ typedef struct {
 
   BOOLEAN                   IsTxDone;
   BOOLEAN                   IsRxDone;
+
+  EFI_EVENT                 TimeoutEvent;
 } HTTP_IO;
 
 //
@@ -196,7 +209,8 @@ typedef struct {
   EFI_HTTP_HEADER             *Headers;
   UINTN                       BodyLength;
   CHAR8                       *Body;
-} HTTP_IO_RESOPNSE_DATA;
+  EFI_STATUS                  Status;
+} HTTP_IO_RESPONSE_DATA;
 
 /**
   Retrieve the host address using the EFI_DNS6_PROTOCOL.
@@ -303,7 +317,7 @@ HttpIoSendRequest (
                                 FALSE to continue receive the previous response message.
   @param[out]  ResponseData     Point to a wrapper of the received response data.
   
-  @retval EFI_SUCCESS            The HTTP resopnse is received.
+  @retval EFI_SUCCESS            The HTTP response is received.
   @retval EFI_INVALID_PARAMETER  One or more parameters are invalid.
   @retval EFI_OUT_OF_RESOURCES   Failed to allocate memory.
   @retval EFI_DEVICE_ERROR       An unexpected network or system error occurred.
@@ -314,7 +328,72 @@ EFI_STATUS
 HttpIoRecvResponse (
   IN      HTTP_IO                  *HttpIo,
   IN      BOOLEAN                  RecvMsgHeader,
-     OUT  HTTP_IO_RESOPNSE_DATA    *ResponseData
+     OUT  HTTP_IO_RESPONSE_DATA    *ResponseData
   );
 
+/**
+  Get the URI address string from the input device path.
+
+  Caller need to free the buffer in the UriAddress pointer.
+  
+  @param[in]   FilePath         Pointer to the device path which contains a URI device path node.
+  @param[out]  UriAddress       The URI address string extract from the device path.
+  
+  @retval EFI_SUCCESS            The URI string is returned.
+  @retval EFI_OUT_OF_RESOURCES   Failed to allocate memory.
+
+**/
+EFI_STATUS
+HttpBootParseFilePath (
+  IN     EFI_DEVICE_PATH_PROTOCOL     *FilePath,
+     OUT CHAR8                        **UriAddress
+  );
+
+/**
+  This function returns the image type according to server replied HTTP message
+  and also the image's URI info.
+
+  @param[in]    Uri              The pointer to the image's URI string.
+  @param[in]    UriParser        URI Parse result returned by NetHttpParseUrl(). 
+  @param[in]    HeaderCount      Number of HTTP header structures in Headers list. 
+  @param[in]    Headers          Array containing list of HTTP headers.
+  @param[out]   ImageType        The image type of the downloaded file.
+  
+  @retval EFI_SUCCESS            The image type is returned in ImageType.
+  @retval EFI_INVALID_PARAMETER  ImageType, Uri or UriParser is NULL.
+  @retval EFI_INVALID_PARAMETER  HeaderCount is not zero, and Headers is NULL.
+  @retval EFI_NOT_FOUND          Failed to identify the image type.
+  @retval Others                 Unexpect error happened.
+
+**/
+EFI_STATUS
+HttpBootCheckImageType (
+  IN      CHAR8                  *Uri,
+  IN      VOID                   *UriParser,
+  IN      UINTN                  HeaderCount,
+  IN      EFI_HTTP_HEADER        *Headers,
+     OUT  HTTP_BOOT_IMAGE_TYPE   *ImageType
+  );
+
+/**
+  This function register the RAM disk info to the system.
+  
+  @param[in]       Private         The pointer to the driver's private data.
+  @param[in]       BufferSize      The size of Buffer in bytes.
+  @param[in]       Buffer          The base address of the RAM disk.
+  @param[in]       ImageType       The image type of the file in Buffer.
+
+  @retval EFI_SUCCESS              The RAM disk has been registered.
+  @retval EFI_NOT_FOUND            No RAM disk protocol instances were found.
+  @retval EFI_UNSUPPORTED          The ImageType is not supported.
+  @retval Others                   Unexpected error happened.
+
+**/
+EFI_STATUS
+HttpBootRegisterRamDisk (
+  IN  HTTP_BOOT_PRIVATE_DATA       *Private,
+  IN  UINTN                        BufferSize,
+  IN  VOID                         *Buffer,
+  IN  HTTP_BOOT_IMAGE_TYPE         ImageType
+  );
 #endif

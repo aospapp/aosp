@@ -28,7 +28,7 @@ class kernel_ConfigVerify(test.test):
         # Security; provides some protections against SYN flooding.
         'SYN_COOKIES',
         # Security; make sure PID_NS, NET_NS, and USER_NS are enabled for
-        # chrome's layer 1 sandbox.
+        # Chrome's layer 1 sandbox.
         'PID_NS',
         'NET_NS',
         'USER_NS',
@@ -42,7 +42,7 @@ class kernel_ConfigVerify(test.test):
         'BLK_DEV_SR',
         'BT',
         'TUN',
-        # Useful modules for users that should not be removed
+        # Useful modules for users that should not be removed.
         'USB_SERIAL_OTI6858',
     ]
     IS_ENABLED = [
@@ -55,7 +55,7 @@ class kernel_ConfigVerify(test.test):
         'CHARLIE_THE_UNICORN',  # Config not in real kernel config var list.
         # Dangerous; allows direct physical memory writing.
         'ACPI_CUSTOM_METHOD',
-        # Dangerous; disables brk ASLR.
+        # Dangerous; disables brk(2) ASLR.
         'COMPAT_BRK',
         # Dangerous; disables VDSO ASLR.
         'COMPAT_VDSO',
@@ -67,6 +67,15 @@ class kernel_ConfigVerify(test.test):
         'HIBERNATION',
         # Assists heap memory attacks; best to keep interface disabled.
         'INET_DIAG',
+        # We don't need to provide access to *all* symbols in /proc/kallsyms.
+        'KALLSYMS_ALL',
+        # bpf(2) syscall can be used to generate code patterns in kernel memory.
+        'BPF_SYSCALL',
+        # This callback can be subverted to point to arbitrary programs.  We
+        # require firmware to be in the rootfs at normal locations which lets
+        # the kernel locate things itself.
+        'FW_LOADER_USER_HELPER',
+        'FW_LOADER_USER_HELPER_FALLBACK',
     ]
     IS_EXCLUSIVE = [
         # Security; no surprise binary formats.
@@ -128,13 +137,16 @@ class kernel_ConfigVerify(test.test):
         },
     ]
 
-    def is_arm_family(self, arch):
-      return arch in ['armv7l', 'aarch64']
-
     def is_x86_family(self, arch):
+      """
+      Returns true if the architecture is x86 family.
+      """
       return arch in ['i386', 'x86_64']
 
     def run_once(self):
+        """
+        The actual test.
+        """
         # Cache the architecture to avoid redundant execs to "uname".
         arch = utils.get_arch()
         userspace_arch = utils.get_arch_userspace()
@@ -160,7 +172,8 @@ class kernel_ConfigVerify(test.test):
             for entry in self.IS_EXCLUSIVE:
                 if entry['regex'] == 'BINFMT_':
                     entry['builtin'].append('BINFMT_MISC')
-
+                if entry['regex'] == '.*_FS$':
+                    entry['module'].append('NFS_FS')
 
         if utils.compare_versions(kernel_ver, "3.18") >= 0:
             for entry in self.IS_EXCLUSIVE:
@@ -171,6 +184,13 @@ class kernel_ConfigVerify(test.test):
             for entry in self.IS_EXCLUSIVE:
                 if entry['regex'] == '.*_FS$':
                     entry['builtin'].append('EXT4_USE_FOR_EXT23')
+
+        if utils.compare_versions(kernel_ver, "4.4") >= 0 and \
+            utils.compare_versions(kernel_ver, "4.12") < 0:
+            for entry in self.IS_EXCLUSIVE:
+                if entry['regex'] == '.*_FS$':
+                    entry['builtin'].append('ESD_FS')
+                    entry['builtin'].append('CONFIGFS_FS')
 
         if utils.compare_versions(kernel_ver, "3.14") >= 0:
             self.IS_MISSING.remove('INET_DIAG')
@@ -185,13 +205,11 @@ class kernel_ConfigVerify(test.test):
         # Run the dynamic checks.
 
         # Security; NULL-address hole should be as large as possible.
-        # Upstream kernel recommends 64k, which should be large enough to
-        # catch nearly all dereferenced structures.
-        wanted = '65536'
-        if self.is_arm_family(arch):
-            # ... except on ARM where it shouldn't be larger than 32k due
-            # to historical ELF load location.
-            wanted = '32768'
+        # Upstream kernel recommends 64k, which should be large enough
+        # to catch nearly all dereferenced structures. For
+        # compatibility with ARM binaries (even on x86) this needs to
+        # be 32k.
+        wanted = '32768'
         config.has_value('DEFAULT_MMAP_MIN_ADDR', [wanted])
 
         # Security; make sure NX page table bits are usable.
@@ -202,21 +220,20 @@ class kernel_ConfigVerify(test.test):
                 config.has_builtin('X86_64')
 
         # Security; marks data segments as RO/NX, text as RO.
-        if (arch == 'armv7l' and
-            utils.compare_versions(kernel_ver, "3.8") < 0):
-            config.is_missing('DEBUG_RODATA')
-            config.is_missing('DEBUG_SET_MODULE_RONX')
-        else:
+        if utils.compare_versions(kernel_ver, "4.11") < 0:
             config.has_builtin('DEBUG_RODATA')
             config.has_builtin('DEBUG_SET_MODULE_RONX')
+        else:
+            config.has_builtin('STRICT_KERNEL_RWX')
+            config.has_builtin('STRICT_MODULE_RWX')
 
-            if arch == 'aarch64':
-                config.has_builtin('DEBUG_ALIGN_RODATA')
+        if arch == 'aarch64':
+            config.has_builtin('DEBUG_ALIGN_RODATA')
 
         # NaCl; allow mprotect+PROT_EXEC on noexec mapped files.
         config.has_value('MMAP_NOEXEC_TAINT', ['0'])
 
-        # Kernel: make sure port 0xED is the one used for I/O delay
+        # Kernel: make sure port 0xED is the one used for I/O delay.
         if self.is_x86_family(arch):
             config.has_builtin('IO_DELAY_0XED')
             needed = config.get('CONFIG_IO_DELAY_TYPE_0XED', None)

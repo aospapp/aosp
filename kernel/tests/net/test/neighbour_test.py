@@ -22,6 +22,7 @@ import unittest
 
 from scapy import all as scapy
 
+import csocket
 import multinetwork_base
 import net_test
 
@@ -87,7 +88,7 @@ class NeighbourTest(multinetwork_base.MultiNetworkBaseTest):
     self.ifindex = self.ifindices[self.netid]
 
   def GetNeighbour(self, addr):
-    version = 6 if ":" in addr else 4
+    version = csocket.AddressVersion(addr)
     for msg, args in self.iproute.DumpNeighbours(version):
       if args["NDA_DST"] == addr:
         return msg, args
@@ -114,7 +115,7 @@ class NeighbourTest(multinetwork_base.MultiNetworkBaseTest):
         self.assertEquals(attrs[name], actual_attrs[name])
 
   def ExpectProbe(self, is_unicast, addr):
-    version = 6 if ":" in addr else 4
+    version = csocket.AddressVersion(addr)
     if version == 6:
       llsrc = self.MyMacAddress(self.netid)
       if is_unicast:
@@ -143,7 +144,7 @@ class NeighbourTest(multinetwork_base.MultiNetworkBaseTest):
 
   def ReceiveUnicastAdvertisement(self, addr, mac, srcaddr=None, dstaddr=None,
                                   S=1, O=0, R=1):
-    version = 6 if ":" in addr else 4
+    version = csocket.AddressVersion(addr)
     if srcaddr is None:
       srcaddr = addr
     if dstaddr is None:

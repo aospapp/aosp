@@ -278,7 +278,8 @@ class WiFiTestContextManager(object):
                          connect_name)
             return None
 
-        logging.info('Connected successfully to %s.', connect_name)
+        logging.info('Connected successfully to %s, signal level: %r.',
+                     connect_name, self.client.wifi_signal_level)
         return assoc_result
 
 

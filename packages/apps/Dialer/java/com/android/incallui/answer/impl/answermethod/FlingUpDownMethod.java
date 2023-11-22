@@ -28,6 +28,7 @@ import android.content.res.ColorStateList;
 import android.graphics.PorterDuff.Mode;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.os.Trace;
 import android.support.annotation.ColorInt;
 import android.support.annotation.FloatRange;
 import android.support.annotation.IntDef;
@@ -157,6 +158,7 @@ public class FlingUpDownMethod extends AnswerMethod implements OnProgressChanged
 
   @Override
   public void onStart() {
+    Trace.beginSection("FlingUpDownMethod.onStart");
     super.onStart();
     falsingManager.onScreenOn();
     if (getView() != null) {
@@ -170,22 +172,26 @@ public class FlingUpDownMethod extends AnswerMethod implements OnProgressChanged
         startSwipeToAnswerEntryAnimation();
       }
     }
+    Trace.endSection();
   }
 
   @Override
   public void onStop() {
+    Trace.beginSection("FlingUpDownMethod.onStop");
     endAnimation();
     falsingManager.onScreenOff();
     if (getActivity().isFinishing()) {
       setAnimationState(AnimationState.COMPLETED);
     }
     super.onStop();
+    Trace.endSection();
   }
 
   @Nullable
   @Override
   public View onCreateView(
       LayoutInflater layoutInflater, @Nullable ViewGroup viewGroup, @Nullable Bundle bundle) {
+    Trace.beginSection("FlingUpDownMethod.onCreateView");
     View view = layoutInflater.inflate(R.layout.swipe_up_down_method, viewGroup, false);
 
     contactPuckContainer = view.findViewById(R.id.incoming_call_puck_container);
@@ -242,6 +248,7 @@ public class FlingUpDownMethod extends AnswerMethod implements OnProgressChanged
         (ViewGroup) view.findViewById(R.id.hint_container),
         contactPuckContainer,
         swipeToAnswerText);
+    Trace.endSection();
     return view;
   }
 
@@ -328,6 +335,8 @@ public class FlingUpDownMethod extends AnswerMethod implements OnProgressChanged
     }
     if (getParent().isVideoCall() || getParent().isVideoUpgradeRequest()) {
       contactPuckIcon.setImageResource(R.drawable.quantum_ic_videocam_white_24);
+    } else if (getParent().isRttCall()) {
+      contactPuckIcon.setImageResource(R.drawable.quantum_ic_rtt_vd_theme_24);
     } else {
       contactPuckIcon.setImageResource(R.drawable.quantum_ic_call_white_24);
     }
@@ -363,11 +372,10 @@ public class FlingUpDownMethod extends AnswerMethod implements OnProgressChanged
   public void setHintText(@Nullable CharSequence hintText) {
     if (hintText == null) {
       swipeToAnswerText.setText(R.string.call_incoming_swipe_to_answer);
-      swipeToRejectText.setText(R.string.call_incoming_swipe_to_reject);
     } else {
       swipeToAnswerText.setText(hintText);
-      swipeToRejectText.setText(null);
     }
+    swipeToRejectText.setText(R.string.call_incoming_swipe_to_reject);
   }
 
   @Override
@@ -400,6 +408,7 @@ public class FlingUpDownMethod extends AnswerMethod implements OnProgressChanged
   }
 
   private void updateSwipeTextAndPuckForTouch() {
+    Trace.beginSection("FlingUpDownMethod.updateSwipeTextAndPuckForTouch");
     // Clamp progress value between -1 and 1.
     final float clampedProgress = MathUtil.clamp(swipeProgress, -1 /* min */, 1 /* max */);
     final float positiveAdjustedProgress = Math.abs(clampedProgress);
@@ -413,9 +422,7 @@ public class FlingUpDownMethod extends AnswerMethod implements OnProgressChanged
     // spec timeline can be divided into 9 slots. Each slot is equivalent to 83ms in the spec.
     // Therefore, we use 9 slots of 83ms to map user gesture into the spec timeline.
     //
-    // See specs -
-    // Accept: https://direct.googleplex.com/#/spec/8510001
-    // Decline: https://direct.googleplex.com/#/spec/3850001
+
     final float progressSlots = 9;
 
     // Fade out the "swipe up to answer". It only takes 1 slot to complete the fade.
@@ -473,6 +480,7 @@ public class FlingUpDownMethod extends AnswerMethod implements OnProgressChanged
     }
 
     getParent().onAnswerProgressUpdate(clampedProgress);
+    Trace.endSection();
   }
 
   private void startSwipeToAnswerSwipeAnimation() {

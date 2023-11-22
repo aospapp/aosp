@@ -37,7 +37,6 @@ namespace wificond {
 namespace {
 
 constexpr int kTimeoutSeconds = 3;
-
 }  // namespace
 
 TEST(ServiceTest, ShouldTearDownSystemOnStartup) {
@@ -45,11 +44,8 @@ TEST(ServiceTest, ShouldTearDownSystemOnStartup) {
   ScopedDevModeWificond dev_mode;
   sp<IWificond> service = dev_mode.EnterDevModeOrDie();
 
-  sp<IClientInterface> client_interface;
-  EXPECT_TRUE(service->createClientInterface(&client_interface).isOk());
-
   bool supplicant_started = false;
-  EXPECT_TRUE(client_interface->enableSupplicant(&supplicant_started).isOk());
+  EXPECT_TRUE(service->enableSupplicant(&supplicant_started).isOk());
   EXPECT_TRUE(supplicant_started);
 
   EXPECT_TRUE(WaitForTrue(SupplicantIsRunning, kTimeoutSeconds));
@@ -64,6 +60,33 @@ TEST(ServiceTest, ShouldTearDownSystemOnStartup) {
   // Restart wificond, which should kill supplicant on startup.
   service = dev_mode.EnterDevModeOrDie();
   EXPECT_TRUE(WaitForTrue(SupplicantIsDead, kTimeoutSeconds));
+}
+
+TEST(ServiceTest, CanStartStopSupplicant) {
+  ScopedDevModeWificond dev_mode;
+  sp<IWificond> service = dev_mode.EnterDevModeOrDie();
+
+  for (int iteration = 0; iteration < 4; iteration++) {
+    bool supplicant_started = false;
+    EXPECT_TRUE(service->enableSupplicant(&supplicant_started).isOk());
+    EXPECT_TRUE(supplicant_started);
+
+    EXPECT_TRUE(WaitForTrue(SupplicantIsRunning,
+                            kTimeoutSeconds))
+        << "Failed on iteration " << iteration;
+
+    // We look for supplicant so quickly that we miss when it dies on startup
+    sleep(1);
+    EXPECT_TRUE(SupplicantIsRunning()) << "Failed on iteration " << iteration;
+
+    bool supplicant_stopped = false;
+    EXPECT_TRUE(
+        service->disableSupplicant(&supplicant_stopped).isOk());
+    EXPECT_TRUE(supplicant_stopped);
+
+    EXPECT_TRUE(WaitForTrue(SupplicantIsDead, kTimeoutSeconds))
+        << "Failed on iteration " << iteration;
+  }
 }
 
 }  // namespace wificond

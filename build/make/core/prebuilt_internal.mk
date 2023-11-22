@@ -20,19 +20,19 @@ my_32_64_bit_suffix := $(if $($(LOCAL_2ND_ARCH_VAR_PREFIX)$(my_prefix)IS_64_BIT)
 
 ifdef LOCAL_PREBUILT_MODULE_FILE
   my_prebuilt_src_file := $(LOCAL_PREBUILT_MODULE_FILE)
+else ifdef LOCAL_SRC_FILES_$($(my_prefix)$(LOCAL_2ND_ARCH_VAR_PREFIX)ARCH)
+  my_prebuilt_src_file := $(LOCAL_PATH)/$(LOCAL_SRC_FILES_$($(my_prefix)$(LOCAL_2ND_ARCH_VAR_PREFIX)ARCH))
+  LOCAL_SRC_FILES_$($(my_prefix)$(LOCAL_2ND_ARCH_VAR_PREFIX)ARCH) :=
+else ifdef LOCAL_SRC_FILES_$(my_32_64_bit_suffix)
+  my_prebuilt_src_file := $(LOCAL_PATH)/$(LOCAL_SRC_FILES_$(my_32_64_bit_suffix))
+  LOCAL_SRC_FILES_$(my_32_64_bit_suffix) :=
+else ifdef LOCAL_SRC_FILES
+  my_prebuilt_src_file := $(LOCAL_PATH)/$(LOCAL_SRC_FILES)
+  LOCAL_SRC_FILES :=
+else ifdef LOCAL_REPLACE_PREBUILT_APK_INSTALLED
+  # This is handled specially below
 else
-  ifdef LOCAL_SRC_FILES_$($(my_prefix)$(LOCAL_2ND_ARCH_VAR_PREFIX)ARCH)
-    my_prebuilt_src_file := $(LOCAL_PATH)/$(LOCAL_SRC_FILES_$($(my_prefix)$(LOCAL_2ND_ARCH_VAR_PREFIX)ARCH))
-    LOCAL_SRC_FILES_$($(my_prefix)$(LOCAL_2ND_ARCH_VAR_PREFIX)ARCH) :=
-  else
-    ifdef LOCAL_SRC_FILES_$(my_32_64_bit_suffix)
-      my_prebuilt_src_file := $(LOCAL_PATH)/$(LOCAL_SRC_FILES_$(my_32_64_bit_suffix))
-      LOCAL_SRC_FILES_$(my_32_64_bit_suffix) :=
-    else
-      my_prebuilt_src_file := $(LOCAL_PATH)/$(LOCAL_SRC_FILES)
-      LOCAL_SRC_FILES :=
-    endif
-  endif
+  $(call pretty-error,No source files specified)
 endif
 
 LOCAL_CHECKED_MODULE := $(my_prebuilt_src_file)
@@ -173,10 +173,21 @@ else
 endif
 export_cflags :=
 
+include $(BUILD_SYSTEM)/allowed_ndk_types.mk
+
 ifdef LOCAL_SDK_VERSION
-my_link_type := native:ndk
+my_link_type := native:ndk:$(my_ndk_stl_family):$(my_ndk_stl_link_type)
 else ifdef LOCAL_USE_VNDK
-my_link_type := native:vendor
+    _name := $(patsubst %.vendor,%,$(LOCAL_MODULE))
+    ifneq ($(filter $(_name),$(VNDK_CORE_LIBRARIES) $(VNDK_SAMEPROCESS_LIBRARIES) $(LLNDK_LIBRARIES)),)
+        ifeq ($(filter $(_name),$(VNDK_PRIVATE_LIBRARIES)),)
+            my_link_type := native:vndk
+        else
+            my_link_type := native:vndk_private
+        endif
+    else
+        my_link_type := native:vendor
+    endif
 else
 my_link_type := native:platform
 endif
@@ -228,7 +239,7 @@ ifneq (,$(strip $(LOCAL_PREBUILT_COVERAGE_ARCHIVE)))
     else
       my_coverage_path := $(TARGET_OUT_COVERAGE)/$(patsubst $(PRODUCT_OUT)/%,%,$(my_module_path))
     endif
-    my_coverage_path := $(my_coverage_path)/$(basename $(my_installed_module_stem)).gcnodir
+    my_coverage_path := $(my_coverage_path)/$(patsubst %.so,%,$(my_installed_module_stem)).gcnodir
     $(eval $(call copy-one-file,$(LOCAL_PREBUILT_COVERAGE_ARCHIVE),$(my_coverage_path)))
     $(LOCAL_BUILT_MODULE): $(my_coverage_path)
   endif
@@ -379,6 +390,9 @@ endif
 $(built_module) : $(my_prebuilt_src_file) | $(ZIPALIGN) $(SIGNAPK_JAR)
 	$(transform-prebuilt-to-target)
 	$(uncompress-shared-libs)
+ifeq (true, $(LOCAL_UNCOMPRESS_DEX))
+	$(uncompress-dexs)
+endif  # LOCAL_UNCOMPRESS_DEX
 ifdef LOCAL_DEX_PREOPT
 ifneq ($(BUILD_PLATFORM_ZIP),)
 	@# Keep a copy of apk with classes.dex unstripped
@@ -403,10 +417,18 @@ endif  # LOCAL_COMPRESSED_MODULE
 endif  # ! LOCAL_REPLACE_PREBUILT_APK_INSTALLED
 
 ###############################
-## Rule to build the odex file
+## Rule to build the odex file.
+# In case we don't strip the built module, use it, as dexpreopt
+# can do optimizations based on whether the built module only
+# contains uncompressed dex code.
 ifdef LOCAL_DEX_PREOPT
+ifeq (nostripping,$(LOCAL_DEX_PREOPT))
+$(built_odex) : $(built_module)
+	$(call dexpreopt-one-file,$<,$@)
+else
 $(built_odex) : $(my_prebuilt_src_file)
 	$(call dexpreopt-one-file,$<,$@)
+endif
 endif
 
 ###############################
@@ -470,11 +492,7 @@ $(built_odex) : $(dir $(LOCAL_BUILT_MODULE))% : $(my_prebuilt_src_file)
 	@echo "Dexpreopt Jar: $(PRIVATE_MODULE) ($@)"
 	$(call dexpreopt-one-file,$<,$@)
 
-$(built_module) : $(my_prebuilt_src_file)
-	$(call copy-file-to-target)
-ifneq (nostripping,$(LOCAL_DEX_PREOPT))
-	$(call dexpreopt-remove-classes.dex,$@)
-endif
+$(eval $(call dexpreopt-copy-jar,$(my_prebuilt_src_file),$(built_module),$(LOCAL_DEX_PREOPT)))
 endif # boot jar
 else # ! LOCAL_DEX_PREOPT
 $(built_module) : $(my_prebuilt_src_file)
@@ -500,6 +518,7 @@ ifdef LOCAL_IS_HOST_MODULE
 # for host java libraries deps should be in the common dir, so we make a copy in
 # the common dir.
 common_classes_jar := $(intermediates.COMMON)/classes.jar
+common_header_jar := $(intermediates.COMMON)/classes-header.jar
 
 $(common_classes_jar): PRIVATE_MODULE := $(LOCAL_MODULE)
 $(common_classes_jar): PRIVATE_PREFIX := $(my_prefix)
@@ -507,10 +526,16 @@ $(common_classes_jar): PRIVATE_PREFIX := $(my_prefix)
 $(common_classes_jar) : $(my_src_jar)
 	$(transform-prebuilt-to-target)
 
+ifneq ($(TURBINE_ENABLED),false)
+$(common_header_jar) : $(my_src_jar)
+	$(transform-prebuilt-to-target)
+endif
+
 else # !LOCAL_IS_HOST_MODULE
 # for target java libraries, the LOCAL_BUILT_MODULE is in a product-specific dir,
 # while the deps should be in the common dir, so we make a copy in the common dir.
 common_classes_jar := $(intermediates.COMMON)/classes.jar
+common_header_jar := $(intermediates.COMMON)/classes-header.jar
 common_classes_pre_proguard_jar := $(intermediates.COMMON)/classes-pre-proguard.jar
 common_javalib_jar := $(intermediates.COMMON)/javalib.jar
 
@@ -519,6 +544,10 @@ $(common_classes_jar) $(common_classes_pre_proguard_jar) $(common_javalib_jar): 
 
 ifeq ($(LOCAL_SDK_VERSION),system_current)
 my_link_type := java:system
+else ifneq (,$(call has-system-sdk-version,$(LOCAL_SDK_VERSION)))
+my_link_type := java:system
+else ifeq ($(LOCAL_SDK_VERSION),core_current)
+my_link_type := java:core
 else ifneq ($(LOCAL_SDK_VERSION),)
 my_link_type := java:sdk
 else
@@ -542,18 +571,39 @@ else  # ! prebuilt_module_is_dex_javalib
 my_src_aar := $(filter %.aar, $(my_prebuilt_src_file))
 ifneq ($(my_src_aar),)
 # This is .aar file, archive of classes.jar and Android resources.
-my_src_jar := $(intermediates.COMMON)/aar/classes.jar
 
+# run Jetifier if needed
+LOCAL_JETIFIER_INPUT_FILE := $(my_src_aar)
+include $(BUILD_SYSTEM)/jetifier.mk
+my_src_aar := $(LOCAL_JETIFIER_OUTPUT_FILE)
+
+my_src_jar := $(intermediates.COMMON)/aar/classes.jar
+my_src_proguard_options := $(intermediates.COMMON)/aar/proguard.txt
+
+$(my_src_jar) : .KATI_IMPLICIT_OUTPUTS := $(my_src_proguard_options)
 $(my_src_jar) : $(my_src_aar)
 	$(hide) rm -rf $(dir $@) && mkdir -p $(dir $@) $(dir $@)/res
 	$(hide) unzip -qo -d $(dir $@) $<
 	# Make sure the extracted classes.jar has a new timestamp.
 	$(hide) touch $@
+	# Make sure the proguard file exists and has a new timestamp.
+	$(hide) touch $(dir $@)/proguard.txt
+else
+
+# run Jetifier if needed
+LOCAL_JETIFIER_INPUT_FILE := $(my_src_jar)
+include $(BUILD_SYSTEM)/jetifier.mk
+my_src_jar := $(LOCAL_JETIFIER_OUTPUT_FILE)
 
 endif
 
 $(common_classes_jar) : $(my_src_jar)
 	$(transform-prebuilt-to-target)
+
+ifneq ($(TURBINE_ENABLED),false)
+$(common_header_jar) : $(my_src_jar)
+	$(transform-prebuilt-to-target)
+endif
 
 $(common_classes_pre_proguard_jar) : $(my_src_jar)
 	$(transform-prebuilt-to-target)
@@ -561,28 +611,30 @@ $(common_classes_pre_proguard_jar) : $(my_src_jar)
 $(common_javalib_jar) : $(common_classes_jar)
 	$(transform-prebuilt-to-target)
 
-$(call define-jar-to-toc-rule, $(common_classes_jar))
+ifdef LOCAL_AAPT2_ONLY
+LOCAL_USE_AAPT2 := true
+endif
 
 ifdef LOCAL_USE_AAPT2
 ifneq ($(my_src_aar),)
+
+$(intermediates.COMMON)/export_proguard_flags : $(my_src_proguard_options)
+	$(transform-prebuilt-to-target)
+
 LOCAL_SDK_RES_VERSION:=$(strip $(LOCAL_SDK_RES_VERSION))
 ifeq ($(LOCAL_SDK_RES_VERSION),)
   LOCAL_SDK_RES_VERSION:=$(LOCAL_SDK_VERSION)
 endif
 
 framework_res_package_export :=
-framework_res_package_export_deps :=
 # Please refer to package.mk
 ifneq ($(LOCAL_NO_STANDARD_LIBRARIES),true)
 ifneq ($(filter-out current system_current test_current,$(LOCAL_SDK_RES_VERSION))$(if $(TARGET_BUILD_APPS),$(filter current system_current test_current,$(LOCAL_SDK_RES_VERSION))),)
 framework_res_package_export := \
     $(HISTORICAL_SDK_VERSIONS_ROOT)/$(LOCAL_SDK_RES_VERSION)/android.jar
-framework_res_package_export_deps := $(framework_res_package_export)
 else
 framework_res_package_export := \
     $(call intermediates-dir-for,APPS,framework-res,,COMMON)/package-export.apk
-framework_res_package_export_deps := \
-    $(dir $(framework_res_package_export))src/R.stamp
 endif
 endif
 
@@ -590,7 +642,7 @@ my_res_package := $(intermediates.COMMON)/package-res.apk
 
 # We needed only very few PRIVATE variables and aapt2.mk input variables. Reset the unnecessary ones.
 $(my_res_package): PRIVATE_AAPT2_CFLAGS :=
-$(my_res_package): PRIVATE_AAPT_FLAGS := --static-lib --no-static-lib-packages
+$(my_res_package): PRIVATE_AAPT_FLAGS := --static-lib --no-static-lib-packages --auto-add-overlay
 $(my_res_package): PRIVATE_ANDROID_MANIFEST := $(intermediates.COMMON)/aar/AndroidManifest.xml
 $(my_res_package): PRIVATE_AAPT_INCLUDES := $(framework_res_package_export)
 $(my_res_package): PRIVATE_SOURCE_INTERMEDIATES_DIR :=
@@ -600,7 +652,7 @@ $(my_res_package): PRIVATE_DEFAULT_APP_TARGET_SDK :=
 $(my_res_package): PRIVATE_PRODUCT_AAPT_CONFIG :=
 $(my_res_package): PRIVATE_PRODUCT_AAPT_PREF_CONFIG :=
 $(my_res_package): PRIVATE_TARGET_AAPT_CHARACTERISTICS :=
-$(my_res_package) : $(framework_res_package_export_deps)
+$(my_res_package) : $(framework_res_package_export)
 
 full_android_manifest :=
 my_res_resources :=
@@ -622,25 +674,6 @@ $(built_module) : $(common_javalib_jar)
 endif # ! prebuilt_module_is_dex_javalib
 endif # LOCAL_IS_HOST_MODULE is not set
 
-ifneq ($(prebuilt_module_is_dex_javalib),true)
-
-ifdef LOCAL_JACK_ENABLED
-# We may be building classes.jack from a host jar for host dalvik Java library.
-$(intermediates.COMMON)/classes.jack : PRIVATE_JACK_FLAGS:=$(LOCAL_JACK_FLAGS)
-$(intermediates.COMMON)/classes.jack : PRIVATE_JACK_MIN_SDK_VERSION := $(if $(strip $(LOCAL_MIN_SDK_VERSION)),$(LOCAL_MIN_SDK_VERSION),1)
-$(intermediates.COMMON)/classes.jack : PRIVATE_JACK_PLUGIN_PATH := $(LOCAL_JACK_PLUGIN_PATH)
-$(intermediates.COMMON)/classes.jack : PRIVATE_JACK_PLUGIN := $(LOCAL_JACK_PLUGIN)
-$(intermediates.COMMON)/classes.jack : $(LOCAL_JACK_PLUGIN_PATH) $(my_src_jar) \
-        $(LOCAL_ADDITIONAL_DEPENDENCIES) $(JACK_DEFAULT_ARGS) $(JACK) \
-        | setup-jack-server
-	$(transform-jar-to-jack)
-
-# Update timestamps of .toc files for prebuilts so dependents will be
-# always rebuilt.
-$(intermediates.COMMON)/classes.dex.toc: $(intermediates.COMMON)/classes.jack
-	touch $@
-endif # LOCAL_JACK_ENABLED
-endif # ! prebuilt_module_is_dex_javalib
 endif # JAVA_LIBRARIES
 
 $(built_module) : $(LOCAL_ADDITIONAL_DEPENDENCIES)

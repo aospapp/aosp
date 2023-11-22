@@ -27,15 +27,15 @@ import android.preference.PreferenceManager;
 import android.support.annotation.WorkerThread;
 import android.text.TextUtils;
 import android.util.Log;
-
+import com.android.tv.common.CommonConstants;
+import com.android.tv.common.util.Clock;
 import com.android.tv.data.Program;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-/** The helper class for {@link com.android.tv.data.epg.EpgFetcher} */
+/** The helper class for {@link EpgFetcher} */
 class EpgFetchHelper {
     private static final String TAG = "EpgFetchHelper";
     private static final boolean DEBUG = false;
@@ -45,15 +45,15 @@ class EpgFetchHelper {
 
     // Value: Long
     private static final String KEY_LAST_UPDATED_EPG_TIMESTAMP =
-            "com.android.tv.data.epg.EpgFetcher.LastUpdatedEpgTimestamp";
+            CommonConstants.BASE_PACKAGE + ".data.epg.EpgFetcher.LastUpdatedEpgTimestamp";
     // Value: String
     private static final String KEY_LAST_LINEUP_ID =
-            "com.android.tv.data.epg.EpgFetcher.LastLineupId";
+            CommonConstants.BASE_PACKAGE + ".data.epg.EpgFetcher.LastLineupId";
 
     private static long sLastEpgUpdatedTimestamp = -1;
     private static String sLastLineupId;
 
-    private EpgFetchHelper() { }
+    private EpgFetchHelper() {}
 
     /**
      * Updates newly fetched EPG data for the given channel to local providers. The method will
@@ -61,18 +61,19 @@ class EpgFetchHelper {
      * of that channel in the database one by one. It will update the matched old program, or insert
      * the new program if there is no matching program can be found in the database and at the same
      * time remove those old programs which conflicts with the inserted one.
-
+     *
      * @param channelId the target channel ID.
      * @param fetchedPrograms the newly fetched program data.
      * @return {@code true} if new program data are successfully updated. Otherwise {@code false}.
      */
-    static boolean updateEpgData(Context context, long channelId, List<Program> fetchedPrograms) {
+    static boolean updateEpgData(
+            Context context, Clock clock, long channelId, List<Program> fetchedPrograms) {
         final int fetchedProgramsCount = fetchedPrograms.size();
         if (fetchedProgramsCount == 0) {
             return false;
         }
         boolean updated = false;
-        long startTimeMs = System.currentTimeMillis();
+        long startTimeMs = clock.currentTimeMillis();
         long endTimeMs = startTimeMs + PROGRAM_QUERY_DURATION_MS;
         List<Program> oldPrograms = queryPrograms(context, channelId, startTimeMs, endTimeMs);
         int oldProgramsIndex = 0;
@@ -82,8 +83,10 @@ class EpgFetchHelper {
         // or insert new program if there is no matching program in the database.
         ArrayList<ContentProviderOperation> ops = new ArrayList<>();
         while (newProgramsIndex < fetchedProgramsCount) {
-            Program oldProgram = oldProgramsIndex < oldPrograms.size()
-                    ? oldPrograms.get(oldProgramsIndex) : null;
+            Program oldProgram =
+                    oldProgramsIndex < oldPrograms.size()
+                            ? oldPrograms.get(oldProgramsIndex)
+                            : null;
             Program newProgram = fetchedPrograms.get(newProgramsIndex);
             boolean addNewProgram = false;
             if (oldProgram != null) {
@@ -95,18 +98,20 @@ class EpgFetchHelper {
                     // Partial match. Update the old program with the new one.
                     // NOTE: Use 'update' in this case instead of 'insert' and 'delete'. There
                     // could be application specific settings which belong to the old program.
-                    ops.add(ContentProviderOperation.newUpdate(
-                            TvContract.buildProgramUri(oldProgram.getId()))
-                            .withValues(Program.toContentValues(newProgram))
-                            .build());
+                    ops.add(
+                            ContentProviderOperation.newUpdate(
+                                            TvContract.buildProgramUri(oldProgram.getId()))
+                                    .withValues(Program.toContentValues(newProgram))
+                                    .build());
                     oldProgramsIndex++;
                     newProgramsIndex++;
                 } else if (oldProgram.getEndTimeUtcMillis() < newProgram.getEndTimeUtcMillis()) {
                     // No match. Remove the old program first to see if the next program in
                     // {@code oldPrograms} partially matches the new program.
-                    ops.add(ContentProviderOperation.newDelete(
-                            TvContract.buildProgramUri(oldProgram.getId()))
-                            .build());
+                    ops.add(
+                            ContentProviderOperation.newDelete(
+                                            TvContract.buildProgramUri(oldProgram.getId()))
+                                    .build());
                     oldProgramsIndex++;
                 } else {
                     // No match. The new program does not match any of the old programs. Insert
@@ -120,10 +125,10 @@ class EpgFetchHelper {
                 newProgramsIndex++;
             }
             if (addNewProgram) {
-                ops.add(ContentProviderOperation
-                        .newInsert(Programs.CONTENT_URI)
-                        .withValues(Program.toContentValues(newProgram))
-                        .build());
+                ops.add(
+                        ContentProviderOperation.newInsert(Programs.CONTENT_URI)
+                                .withValues(Program.toContentValues(newProgram))
+                                .build());
             }
             // Throttle the batch operation not to cause TransactionTooLargeException.
             if (ops.size() > BATCH_OPERATION_COUNT || newProgramsIndex >= fetchedProgramsCount) {
@@ -150,11 +155,17 @@ class EpgFetchHelper {
         return updated;
     }
 
-    private static List<Program> queryPrograms(Context context, long channelId,
-            long startTimeMs, long endTimeMs) {
-        try (Cursor c = context.getContentResolver().query(
-                TvContract.buildProgramsUriForChannel(channelId, startTimeMs, endTimeMs),
-                Program.PROJECTION, null, null, Programs.COLUMN_START_TIME_UTC_MILLIS)) {
+    private static List<Program> queryPrograms(
+            Context context, long channelId, long startTimeMs, long endTimeMs) {
+        try (Cursor c =
+                context.getContentResolver()
+                        .query(
+                                TvContract.buildProgramsUriForChannel(
+                                        channelId, startTimeMs, endTimeMs),
+                                Program.PROJECTION,
+                                null,
+                                null,
+                                Programs.COLUMN_START_TIME_UTC_MILLIS)) {
             if (c == null) {
                 return Collections.emptyList();
             }
@@ -167,8 +178,8 @@ class EpgFetchHelper {
     }
 
     /**
-     * Returns {@code true} if the {@code oldProgram} needs to be updated with the
-     * {@code newProgram}.
+     * Returns {@code true} if the {@code oldProgram} needs to be updated with the {@code
+     * newProgram}.
      */
     private static boolean hasSameTitleAndOverlap(Program oldProgram, Program newProgram) {
         // NOTE: Here, we update the old program if it has the same title and overlaps with the
@@ -186,24 +197,25 @@ class EpgFetchHelper {
      * every time when it needs to fetch EPG data.
      */
     @WorkerThread
-    synchronized static void setLastLineupId(Context context, String lineupId) {
+    static synchronized void setLastLineupId(Context context, String lineupId) {
         if (DEBUG) {
             if (lineupId == null) {
                 Log.d(TAG, "Clear stored lineup id: " + sLastLineupId);
             }
         }
         sLastLineupId = lineupId;
-        PreferenceManager.getDefaultSharedPreferences(context).edit()
-                .putString(KEY_LAST_LINEUP_ID, lineupId).apply();
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putString(KEY_LAST_LINEUP_ID, lineupId)
+                .apply();
     }
 
-    /**
-     * Gets the last known lineup ID from shared preferences.
-     */
-    synchronized static String getLastLineupId(Context context) {
+    /** Gets the last known lineup ID from shared preferences. */
+    static synchronized String getLastLineupId(Context context) {
         if (sLastLineupId == null) {
-            sLastLineupId = PreferenceManager.getDefaultSharedPreferences(context)
-                    .getString(KEY_LAST_LINEUP_ID, null);
+            sLastLineupId =
+                    PreferenceManager.getDefaultSharedPreferences(context)
+                            .getString(KEY_LAST_LINEUP_ID, null);
         }
         if (DEBUG) Log.d(TAG, "Last lineup is " + sLastLineupId);
         return sLastLineupId;
@@ -214,19 +226,20 @@ class EpgFetchHelper {
      * out-dated, it's not necessary for EPG fetcher to fetch EPG again.
      */
     @WorkerThread
-    synchronized static void setLastEpgUpdatedTimestamp(Context context, long timestamp) {
+    static synchronized void setLastEpgUpdatedTimestamp(Context context, long timestamp) {
         sLastEpgUpdatedTimestamp = timestamp;
-        PreferenceManager.getDefaultSharedPreferences(context).edit().putLong(
-                KEY_LAST_UPDATED_EPG_TIMESTAMP, timestamp).apply();
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putLong(KEY_LAST_UPDATED_EPG_TIMESTAMP, timestamp)
+                .apply();
     }
 
-    /**
-     * Gets the last updated timestamp of EPG data.
-     */
-    synchronized static long getLastEpgUpdatedTimestamp(Context context) {
+    /** Gets the last updated timestamp of EPG data. */
+    static synchronized long getLastEpgUpdatedTimestamp(Context context) {
         if (sLastEpgUpdatedTimestamp < 0) {
-            sLastEpgUpdatedTimestamp = PreferenceManager.getDefaultSharedPreferences(context)
-                    .getLong(KEY_LAST_UPDATED_EPG_TIMESTAMP, 0);
+            sLastEpgUpdatedTimestamp =
+                    PreferenceManager.getDefaultSharedPreferences(context)
+                            .getLong(KEY_LAST_UPDATED_EPG_TIMESTAMP, 0);
         }
         return sLastEpgUpdatedTimestamp;
     }

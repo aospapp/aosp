@@ -194,7 +194,7 @@ public final class VMDebug {
         if (fd == null) {
             throw new NullPointerException("fd == null");
         }
-        startMethodTracingFd(traceFileName, fd, checkBufferSize(bufferSize), flags,
+        startMethodTracingFd(traceFileName, fd.getInt$(), checkBufferSize(bufferSize), flags,
                              samplingEnabled, intervalUs, streamingOutput);
     }
 
@@ -219,7 +219,8 @@ public final class VMDebug {
     }
 
     private static native void startMethodTracingDdmsImpl(int bufferSize, int flags, boolean samplingEnabled, int intervalUs);
-    private static native void startMethodTracingFd(String traceFileName, FileDescriptor fd, int bufferSize, int flags, boolean samplingEnabled, int intervalUs, boolean streamingOutput);
+    private static native void startMethodTracingFd(String traceFileName, int fd, int bufferSize,
+            int flags, boolean samplingEnabled, int intervalUs, boolean streamingOutput);
     private static native void startMethodTracingFilename(String traceFileName, int bufferSize, int flags, boolean samplingEnabled, int intervalUs);
 
     /**
@@ -340,7 +341,12 @@ public final class VMDebug {
      * @param fd Descriptor of open file that will receive the output.
      *        If this is null, the fileName is used instead.
      */
-    public static native void dumpHprofData(String fileName, FileDescriptor fd)
+    public static void dumpHprofData(String fileName, FileDescriptor fd)
+            throws IOException {
+       dumpHprofData(fileName, fd != null ? fd.getInt$() : -1);
+    }
+
+    private static native void dumpHprofData(String fileName, int fd)
             throws IOException;
 
     /**
@@ -387,10 +393,10 @@ public final class VMDebug {
      * objects to get counted.
      *
      * @param klass the class to be counted.
-     * @param assignable if false, direct instances of klass are
-     *                   counted.  If true, instances that are
-     *                   assignable to klass, as defined by
-     *                   {@link Class#isAssignableFrom} are counted.
+     * @param assignable if true, any instance whose class is assignable to
+     *                   <code>klass</code>, as defined by {@link Class#isAssignableFrom},
+     *                   is counted. If false, only instances whose class is
+     *                   equal to <code>klass</code> are counted.
      * @return the number of matching instances.
      */
     public static native long countInstancesOfClass(Class klass, boolean assignable);
@@ -401,14 +407,31 @@ public final class VMDebug {
      * objects to get counted.
      *
      * @param classes the classes to be counted.
-     * @param assignable if false, direct instances of klass are
-     *                   counted.  If true, instances that are
-     *                   assignable to klass, as defined by
-     *                   {@link Class#isAssignableFrom} are counted.
-     * @return an array containing the number of matching instances. The value for
-     * an index is the number of instances of the class at that index in number classes.
+     * @param assignable if true, any instance whose class is assignable to
+     *                   <code>classes[i]</code>, as defined by {@link Class#isAssignableFrom},
+     *                   is counted. If false, only instances whose class is
+     *                   equal to <code>classes[i]</code> are counted.
+     * @return an array containing the number of matching instances. The value
+     *         for index <code>i</code> is the number of instances of
+     *         the class <code>classes[i]</code>
      */
     public static native long[] countInstancesOfClasses(Class[] classes, boolean assignable);
+
+    /**
+     * Gets instances of classes on the Java heap.
+     * It is the caller's responsibility to do GC if they don't want unreachable
+     * objects to be included.
+     *
+     * @param classes the classes to get instances of.
+     * @param assignable if true, any instance whose class is assignable to
+     *                   <code>classes[i]</code>, as defined by {@link Class#isAssignableFrom},
+     *                   is included. If false, only instances whose class is
+     *                   equal to <code>classes[i]</code> are included.
+     * @return an array containing the list of matching instances. The value
+     *         for index <code>i</code> is an array containing the instances
+     *         of the class <code>classes[i]</code>
+     */
+    public static native Object[][] getInstancesOfClasses(Class[] classes, boolean assignable);
 
     /**
      * Export the heap per-space stats for dumpsys meminfo.
@@ -489,5 +512,32 @@ public final class VMDebug {
      *
      * @param agent The path to the agent .so file plus optional agent arguments.
      */
-    public static native void attachAgent(String agent) throws IOException;
+    public static void attachAgent(String agent) throws IOException {
+        attachAgent(agent, null);
+    }
+
+    /**
+     * Attaches an agent to the VM.
+     *
+     * @param agent The path to the agent .so file plus optional agent arguments.
+     * @param classLoader The classloader to use as a loading context.
+     */
+    public static void attachAgent(String agent, ClassLoader classLoader) throws IOException {
+        nativeAttachAgent(agent, classLoader);
+    }
+
+    private static native void nativeAttachAgent(String agent, ClassLoader classLoader)
+            throws IOException;
+
+    /**
+     * Exempts a class from any future non-SDK API access checks.
+     * Methods declared in the class will be allowed to perform
+     * reflection/JNI against the framework completely unrestricted.
+     * Note that this does not affect uses of non-SDK APIs that the class links against.
+     * Note that this does not affect methods declared outside this class, e.g.
+     * inherited from a superclass or an implemented interface.
+     *
+     * @param klass The class whose methods should be exempted.
+     */
+    public static native void allowHiddenApiReflectionFrom(Class<?> klass);
 }

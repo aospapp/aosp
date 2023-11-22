@@ -20,12 +20,12 @@ cc_library_headers {
     header_libs: [
         "liblog_headers",
         "libsystem_headers",
-        "libcutils_headers"
+        "libcutils_headers",
     ],
     export_header_lib_headers: [
         "liblog_headers",
         "libsystem_headers",
-        "libcutils_headers"
+        "libcutils_headers",
     ],
     export_include_dirs: ["include"],
 
@@ -43,8 +43,8 @@ cc_library_headers {
     },
 }
 
-cc_library {
-    name: "libutils",
+cc_defaults {
+    name: "libutils_defaults",
     vendor_available: true,
     vndk: {
         enabled: true,
@@ -52,8 +52,76 @@ cc_library {
     },
     host_supported: true,
 
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+    include_dirs: ["external/safe-iop/include"],
+    header_libs: [
+        "libutils_headers",
+    ],
+    export_header_lib_headers: [
+        "libutils_headers",
+    ],
+
+    shared_libs: [
+        "liblog",
+    ],
+
+    arch: {
+        mips: {
+            cflags: ["-DALIGN_DOUBLE"],
+        },
+    },
+
+    target: {
+        android: {
+            cflags: ["-fvisibility=protected"],
+
+            shared_libs: [
+                "libcutils",
+                "libdl",
+                "libvndksupport",
+            ],
+
+            sanitize: {
+                misc_undefined: ["integer"],
+            },
+        },
+
+        host: {
+            cflags: ["-DLIBUTILS_NATIVE=1"],
+
+            shared: {
+                enabled: false,
+            },
+        },
+
+        linux_bionic: {
+            enabled: true,
+        },
+
+        darwin: {
+            cflags: ["-Wno-unused-parameter"],
+        },
+
+        windows: {
+            cflags: [
+                // Under MinGW, ctype.h doesn't need multi-byte support
+                "-DMB_CUR_MAX=1",
+                "-Wno-unused-private-field",
+            ],
+
+            enabled: true,
+        },
+    },
+}
+
+cc_library {
+    name: "libutils",
+    defaults: ["libutils_defaults"],
+
     srcs: [
-        "CallStack.cpp",
         "FileMap.cpp",
         "JenkinsHash.cpp",
         "NativeHandle.cpp",
@@ -75,17 +143,26 @@ cc_library {
         "misc.cpp",
     ],
 
-    cflags: ["-Werror"],
-    include_dirs: ["external/safe-iop/include"],
-    header_libs: [
-        "libutils_headers",
-    ],
-    export_header_lib_headers: [
-        "libutils_headers",
-    ],
+    target: {
+        android: {
+            srcs: [
+                "Trace.cpp",
+            ],
+        },
+        linux: {
+            srcs: [
+                "Looper.cpp",
+            ],
+        },
+    },
+}
 
-    shared_libs: [
-        "liblog",
+cc_library {
+    name: "libutilscallstack",
+    defaults: ["libutils_defaults"],
+
+    srcs: [
+        "CallStack.cpp",
     ],
 
     arch: {
@@ -96,61 +173,17 @@ cc_library {
 
     target: {
         android: {
-            srcs: [
-                "Looper.cpp",
-                "ProcessCallStack.cpp",
-                "Trace.cpp",
-            ],
-
-            cflags: ["-fvisibility=protected"],
-
             shared_libs: [
+                "libutils",
                 "libbacktrace",
-                "libcutils",
-                "libdl",
-                "libvndksupport",
             ],
-
-            sanitize: {
-                misc_undefined: ["integer"],
-            },
         },
-
-        host: {
-            cflags: ["-DLIBUTILS_NATIVE=1"],
-
-            shared: {
-                enabled: false,
-            },
-        },
-
         linux: {
             srcs: [
-                "Looper.cpp",
                 "ProcessCallStack.cpp",
             ],
-        },
-        linux_bionic: {
-            enabled: true,
-            srcs: [
-                "Looper.cpp",
-                "ProcessCallStack.cpp",
-            ],
-        },
-
-        darwin: {
-            cflags: ["-Wno-unused-parameter"],
-        },
-
-        // Under MinGW, ctype.h doesn't need multi-byte support
-        windows: {
-            cflags: ["-DMB_CUR_MAX=1"],
-
-            enabled: true,
         },
     },
-
-    clang: true,
 }
 
 // Include subdirectory makefiles
@@ -162,6 +195,8 @@ cc_test {
     static_libs: ["libutils"],
     shared_libs: ["liblog"],
     srcs: ["SharedBufferTest.cpp"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
 }
-
-subdirs = ["tests"]

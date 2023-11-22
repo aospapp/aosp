@@ -18,7 +18,7 @@ package com.android.server.wifi.scanner;
 
 import static com.android.server.wifi.ScanTestUtil.setupMockChannels;
 
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import org.junit.Before;
 
@@ -34,7 +34,9 @@ public class HalWifiScannerTest extends BaseWifiScannerImplTest {
                 new int[]{2400, 2450},
                 new int[]{5150, 5175},
                 new int[]{5600, 5650});
-        mScanner = new HalWifiScannerImpl(mContext, mWifiNative, mWifiMonitor, mLooper.getLooper(),
-                mClock);
+        mScanner = new HalWifiScannerImpl(mContext, BaseWifiScannerImplTest.IFACE_NAME,
+                mWifiNative, mWifiMonitor, mLooper.getLooper(), mClock);
     }
+
+    // Subtle: tests are inherited from base class.
 }

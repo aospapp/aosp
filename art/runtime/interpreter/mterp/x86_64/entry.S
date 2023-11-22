@@ -24,7 +24,7 @@
 /*
  * On entry:
  *  0  Thread* self
- *  1  code_item
+ *  1  insns_
  *  2  ShadowFrame
  *  3  JValue* result_register
  *
@@ -50,22 +50,23 @@ SYMBOL(ExecuteMterpImpl):
     movq    IN_ARG3, SHADOWFRAME_RESULT_REGISTER_OFFSET(IN_ARG2)
 
     /* Remember the code_item */
-    movq    IN_ARG1, SHADOWFRAME_CODE_ITEM_OFFSET(IN_ARG2)
+    movq    IN_ARG1, SHADOWFRAME_DEX_INSTRUCTIONS_OFFSET(IN_ARG2)
 
     /* set up "named" registers */
     movl    SHADOWFRAME_NUMBER_OF_VREGS_OFFSET(IN_ARG2), %eax
     leaq    SHADOWFRAME_VREGS_OFFSET(IN_ARG2), rFP
     leaq    (rFP, %rax, 4), rREFS
     movl    SHADOWFRAME_DEX_PC_OFFSET(IN_ARG2), %eax
-    leaq    CODEITEM_INSNS_OFFSET(IN_ARG1), rPC
-    leaq    (rPC, %rax, 2), rPC
+    leaq    (IN_ARG1, %rax, 2), rPC
+    CFI_DEFINE_DEX_PC_WITH_OFFSET(CFI_TMP, CFI_DEX, 0)
     EXPORT_PC
 
     /* Starting ibase */
     movq    IN_ARG0, rSELF
-    REFRESH_IBASE
+    REFRESH_IBASE_REG IN_ARG0
 
     /* Set up for backwards branches & osr profiling */
+    movq    IN_ARG0, OUT_ARG2  /* Set up OUT_ARG2 before clobbering IN_ARG0 */
     movq    OFF_FP_METHOD(rFP), OUT_ARG0
     leaq    OFF_FP_SHADOWFRAME(rFP), OUT_ARG1
     call    SYMBOL(MterpSetUpHotnessCountdown)

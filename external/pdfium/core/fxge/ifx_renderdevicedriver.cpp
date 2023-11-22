@@ -8,7 +8,7 @@
 
 #include "core/fxcrt/fx_coordinates.h"
 #include "core/fxge/cfx_pathdata.h"
-#include "core/fxge/cfx_renderdevice.h"
+#include "core/fxge/dib/cfx_dibitmap.h"
 
 IFX_RenderDeviceDriver::~IFX_RenderDeviceDriver() {}
 
@@ -39,42 +39,35 @@ bool IFX_RenderDeviceDriver::FillRectWithBlend(const FX_RECT* pRect,
   return false;
 }
 
-bool IFX_RenderDeviceDriver::DrawCosmeticLine(FX_FLOAT x1,
-                                              FX_FLOAT y1,
-                                              FX_FLOAT x2,
-                                              FX_FLOAT y2,
+bool IFX_RenderDeviceDriver::DrawCosmeticLine(const CFX_PointF& ptMoveTo,
+                                              const CFX_PointF& ptLineTo,
                                               uint32_t color,
                                               int blend_type) {
   return false;
 }
 
-bool IFX_RenderDeviceDriver::GetDIBits(CFX_DIBitmap* pBitmap,
+bool IFX_RenderDeviceDriver::GetDIBits(const RetainPtr<CFX_DIBitmap>& pBitmap,
                                        int left,
                                        int top) {
   return false;
 }
 
-CFX_DIBitmap* IFX_RenderDeviceDriver::GetBackDrop() {
-  return nullptr;
+RetainPtr<CFX_DIBitmap> IFX_RenderDeviceDriver::GetBackDrop() {
+  return RetainPtr<CFX_DIBitmap>();
 }
 
-bool IFX_RenderDeviceDriver::ContinueDIBits(void* handle, IFX_Pause* pPause) {
+bool IFX_RenderDeviceDriver::ContinueDIBits(CFX_ImageRenderer* handle,
+                                            IFX_PauseIndicator* pPause) {
   return false;
 }
-
-void IFX_RenderDeviceDriver::CancelDIBits(void* handle) {}
 
 bool IFX_RenderDeviceDriver::DrawDeviceText(int nChars,
                                             const FXTEXT_CHARPOS* pCharPos,
                                             CFX_Font* pFont,
                                             const CFX_Matrix* pObject2Device,
-                                            FX_FLOAT font_size,
+                                            float font_size,
                                             uint32_t color) {
   return false;
-}
-
-void* IFX_RenderDeviceDriver::GetPlatformSurface() const {
-  return nullptr;
 }
 
 int IFX_RenderDeviceDriver::GetDriverType() const {
@@ -91,12 +84,13 @@ bool IFX_RenderDeviceDriver::DrawShading(const CPDF_ShadingPattern* pPattern,
   return false;
 }
 
-bool IFX_RenderDeviceDriver::SetBitsWithMask(const CFX_DIBSource* pBitmap,
-                                             const CFX_DIBSource* pMask,
-                                             int left,
-                                             int top,
-                                             int bitmap_alpha,
-                                             int blend_type) {
+bool IFX_RenderDeviceDriver::SetBitsWithMask(
+    const RetainPtr<CFX_DIBSource>& pBitmap,
+    const RetainPtr<CFX_DIBSource>& pMask,
+    int left,
+    int top,
+    int bitmap_alpha,
+    int blend_type) {
   return false;
 }
 

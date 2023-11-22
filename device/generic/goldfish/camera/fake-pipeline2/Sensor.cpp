@@ -325,10 +325,10 @@ bool Sensor::threadLoop() {
                     captureRaw(b.img, gain, b.stride);
                     break;
                 case HAL_PIXEL_FORMAT_RGB_888:
-                    captureRGB(b.img, gain, b.stride);
+                    captureRGB(b.img, gain, b.width, b.height);
                     break;
                 case HAL_PIXEL_FORMAT_RGBA_8888:
-                    captureRGBA(b.img, gain, b.stride);
+                    captureRGBA(b.img, gain, b.width, b.height);
                     break;
                 case HAL_PIXEL_FORMAT_BLOB:
                     if (b.dataSpace != HAL_DATASPACE_DEPTH) {
@@ -339,7 +339,7 @@ bool Sensor::threadLoop() {
                         bAux.streamId = 0;
                         bAux.width = b.width;
                         bAux.height = b.height;
-                        bAux.format = HAL_PIXEL_FORMAT_RGB_888;
+                        bAux.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
                         bAux.stride = b.width;
                         bAux.buffer = NULL;
                         // TODO: Reuse these
@@ -350,14 +350,14 @@ bool Sensor::threadLoop() {
                     }
                     break;
                 case HAL_PIXEL_FORMAT_YCbCr_420_888:
-                    captureNV21(b.img, gain, b.stride);
-                    break;
+                    captureNV21(b.img, gain, b.width, b.height);
+                   break;
                 case HAL_PIXEL_FORMAT_YV12:
                     // TODO:
                     ALOGE("%s: Format %x is TODO", __FUNCTION__, b.format);
                     break;
                 case HAL_PIXEL_FORMAT_Y16:
-                    captureDepth(b.img, gain, b.stride);
+                    captureDepth(b.img, gain, b.width, b.height);
                     break;
                 default:
                     ALOGE("%s: Unknown format %x, no output", __FUNCTION__,
@@ -428,66 +428,80 @@ void Sensor::captureRaw(uint8_t *img, uint32_t gain, uint32_t stride) {
     ALOGVV("Raw sensor image captured");
 }
 
-void Sensor::captureRGBA(uint8_t *img, uint32_t gain, uint32_t stride) {
+void Sensor::captureRGBA(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height) {
     float totalGain = gain/100.0 * kBaseGainFactor;
     // In fixed-point math, calculate total scaling from electrons to 8bpp
     int scale64x = 64 * totalGain * 255 / kMaxRawValue;
-    uint32_t inc = ceil( (float) mResolution[0] / stride);
+    unsigned int DivH= (float)mResolution[1]/height * (0x1 << 10);
+    unsigned int DivW = (float)mResolution[0]/width * (0x1 << 10);
 
-    for (unsigned int y = 0, outY = 0; y < mResolution[1]; y+=inc, outY++ ) {
-        uint8_t *px = img + outY * stride * 4;
+    for (unsigned int outY = 0; outY < height; outY++) {
+        unsigned int y = outY * DivH >> 10;
+        uint8_t *px = img + outY * width * 4;
         mScene.setReadoutPixel(0, y);
-        for (unsigned int x = 0; x < mResolution[0]; x+=inc) {
+        unsigned int lastX = 0;
+        const uint32_t *pixel = mScene.getPixelElectrons();
+        for (unsigned int outX = 0; outX < width; outX++) {
             uint32_t rCount, gCount, bCount;
+            unsigned int x = outX * DivW >> 10;
+            if (x - lastX > 0) {
+                for (unsigned int k = 0; k < (x-lastX); k++) {
+                     pixel = mScene.getPixelElectrons();
+                }
+            }
+            lastX = x;
             // TODO: Perfect demosaicing is a cheat
-            const uint32_t *pixel = mScene.getPixelElectrons();
-            rCount = pixel[Scene::R]  * scale64x;
-            gCount = pixel[Scene::Gr] * scale64x;
-            bCount = pixel[Scene::B]  * scale64x;
+            rCount = (pixel[Scene::R]+(outX+outY)%64) * scale64x;
+            gCount = (pixel[Scene::Gr]+(outX+outY)%64) * scale64x;
+            bCount = (pixel[Scene::B]+(outX+outY)%64) * scale64x;
 
             *px++ = rCount < 255*64 ? rCount / 64 : 255;
             *px++ = gCount < 255*64 ? gCount / 64 : 255;
             *px++ = bCount < 255*64 ? bCount / 64 : 255;
             *px++ = 255;
-            for (unsigned int j = 1; j < inc; j++)
-                mScene.getPixelElectrons();
-        }
+         }
         // TODO: Handle this better
         //simulatedTime += mRowReadoutTime;
     }
     ALOGVV("RGBA sensor image captured");
 }
 
-void Sensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
+void Sensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height) {
     float totalGain = gain/100.0 * kBaseGainFactor;
     // In fixed-point math, calculate total scaling from electrons to 8bpp
     int scale64x = 64 * totalGain * 255 / kMaxRawValue;
-    uint32_t inc = ceil( (float) mResolution[0] / stride);
+    unsigned int DivH= (float)mResolution[1]/height * (0x1 << 10);
+    unsigned int DivW = (float)mResolution[0]/width * (0x1 << 10);
 
-    for (unsigned int y = 0, outY = 0; y < mResolution[1]; y += inc, outY++ ) {
+    for (unsigned int outY = 0; outY < height; outY++) {
+        unsigned int y = outY * DivH >> 10;
+        uint8_t *px = img + outY * width * 3;
         mScene.setReadoutPixel(0, y);
-        uint8_t *px = img + outY * stride * 3;
-        for (unsigned int x = 0; x < mResolution[0]; x += inc) {
+        unsigned int lastX = 0;
+        const uint32_t *pixel = mScene.getPixelElectrons();
+        for (unsigned int outX = 0; outX < width; outX++) {
             uint32_t rCount, gCount, bCount;
-            // TODO: Perfect demosaicing is a cheat
-            const uint32_t *pixel = mScene.getPixelElectrons();
-            rCount = pixel[Scene::R]  * scale64x;
-            gCount = pixel[Scene::Gr] * scale64x;
-            bCount = pixel[Scene::B]  * scale64x;
+            unsigned int x = outX * DivW >> 10;
+            if (x - lastX > 0) {
+                for (unsigned int k = 0; k < (x-lastX); k++) {
+                    pixel = mScene.getPixelElectrons();
+                }
+            }
+            lastX = x;
+           // TODO: Perfect demosaicing is a cheat
+            rCount = (pixel[Scene::R]+(outX+outY)%64)  * scale64x;
+            gCount = (pixel[Scene::Gr]+(outX+outY)%64) * scale64x;
+            bCount = (pixel[Scene::B]+(outX+outY)%64)  * scale64x;
 
             *px++ = rCount < 255*64 ? rCount / 64 : 255;
             *px++ = gCount < 255*64 ? gCount / 64 : 255;
             *px++ = bCount < 255*64 ? bCount / 64 : 255;
-            for (unsigned int j = 1; j < inc; j++)
-                mScene.getPixelElectrons();
-        }
-        // TODO: Handle this better
-        //simulatedTime += mRowReadoutTime;
+         }
     }
     ALOGVV("RGB sensor image captured");
 }
 
-void Sensor::captureNV21(uint8_t *img, uint32_t gain, uint32_t stride) {
+void Sensor::captureNV21(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height) {
     float totalGain = gain/100.0 * kBaseGainFactor;
     // Using fixed-point math with 6 bits of fractional precision.
     // In fixed-point math, calculate total scaling from electrons to 8bpp
@@ -504,27 +518,33 @@ void Sensor::captureNV21(uint8_t *img, uint32_t gain, uint32_t stride) {
     const int scaleOut = 64;
     const int scaleOutSq = scaleOut * scaleOut; // after multiplies
 
-    // inc = how many pixels to skip while reading every next pixel
-    // horizontally.
-    uint32_t inc = ceil( (float) mResolution[0] / stride);
-    // outH = projected vertical resolution based on stride.
-    uint32_t outH = mResolution[1] / inc;
-    for (unsigned int y = 0, outY = 0;
-         y < mResolution[1]; y+=inc, outY++) {
-        uint8_t *pxY = img + outY * stride;
-        uint8_t *pxVU = img + (outH + outY / 2) * stride;
-        mScene.setReadoutPixel(0,y);
-        for (unsigned int outX = 0; outX < stride; outX++) {
+    unsigned int DivH= (float)mResolution[1]/height * (0x1 << 10);
+    unsigned int DivW = (float)mResolution[0]/width * (0x1 << 10);
+    for (unsigned int outY = 0; outY < height; outY++) {
+        unsigned int y = outY * DivH >> 10;
+        uint8_t *pxY = img + outY * width;
+        uint8_t *pxVU = img + (height + outY / 2) * width;
+        mScene.setReadoutPixel(0, y);
+        unsigned int lastX = 0;
+        const uint32_t *pixel = mScene.getPixelElectrons();
+         for (unsigned int outX = 0; outX < width; outX++) {
             int32_t rCount, gCount, bCount;
-            // TODO: Perfect demosaicing is a cheat
-            const uint32_t *pixel = mScene.getPixelElectrons();
-            rCount = pixel[Scene::R]  * scale64x;
+            unsigned int x = outX * DivW >> 10;
+            if (x - lastX > 0) {
+                for (unsigned int k = 0; k < (x-lastX); k++) {
+                     pixel = mScene.getPixelElectrons();
+                }
+            }
+            lastX = x;
+            //Slightly different color for the same Scene, result in larger
+            //jpeg image size requried by CTS test
+            //android.provider.cts.MediaStoreUiTest#testImageCapture
+            rCount = (pixel[Scene::R]+(outX+outY)%64)  * scale64x;
             rCount = rCount < saturationPoint ? rCount : saturationPoint;
-            gCount = pixel[Scene::Gr] * scale64x;
+            gCount = (pixel[Scene::Gr]+(outX+outY)%64) * scale64x;
             gCount = gCount < saturationPoint ? gCount : saturationPoint;
-            bCount = pixel[Scene::B]  * scale64x;
+            bCount = (pixel[Scene::B]+(outX+outY)%64)  * scale64x;
             bCount = bCount < saturationPoint ? bCount : saturationPoint;
-
             *pxY++ = (rgbToY[0] * rCount +
                     rgbToY[1] * gCount +
                     rgbToY[2] * bCount) / scaleOutSq;
@@ -538,32 +558,35 @@ void Sensor::captureNV21(uint8_t *img, uint32_t gain, uint32_t stride) {
                         rgbToCb[2] * bCount +
                         rgbToCb[3]) / scaleOutSq;
             }
-            for (unsigned int j = 1; j < inc; j++)
-                mScene.getPixelElectrons();
         }
     }
     ALOGVV("NV21 sensor image captured");
 }
 
-void Sensor::captureDepth(uint8_t *img, uint32_t gain, uint32_t stride) {
+void Sensor::captureDepth(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height) {
     float totalGain = gain/100.0 * kBaseGainFactor;
     // In fixed-point math, calculate scaling factor to 13bpp millimeters
     int scale64x = 64 * totalGain * 8191 / kMaxRawValue;
-    uint32_t inc = ceil( (float) mResolution[0] / stride);
+    unsigned int DivH= (float)mResolution[1]/height * (0x1 << 10);
+    unsigned int DivW = (float)mResolution[0]/width * (0x1 << 10);
 
-    for (unsigned int y = 0, outY = 0; y < mResolution[1]; y += inc, outY++ ) {
+    for (unsigned int outY = 0; outY < height; outY++) {
+        unsigned int y = outY * DivH >> 10;
+        uint16_t *px = ((uint16_t*)img) + outY * width;
         mScene.setReadoutPixel(0, y);
-        uint16_t *px = ((uint16_t*)img) + outY * stride;
-        for (unsigned int x = 0; x < mResolution[0]; x += inc) {
+        unsigned int lastX = 0;
+        const uint32_t *pixel = mScene.getPixelElectrons();
+        for (unsigned int outX = 0; outX < width; outX++) {
             uint32_t depthCount;
-            // TODO: Make up real depth scene instead of using green channel
-            // as depth
-            const uint32_t *pixel = mScene.getPixelElectrons();
+            unsigned int x = outX * DivW >> 10;
+            if (x - lastX > 0) {
+                for (unsigned int k = 0; k < (x-lastX); k++) {
+                     pixel = mScene.getPixelElectrons();
+                }
+            }
+            lastX = x;
             depthCount = pixel[Scene::Gr] * scale64x;
-
             *px++ = depthCount < 8191*64 ? depthCount / 64 : 0;
-            for (unsigned int j = 1; j < inc; j++)
-                mScene.getPixelElectrons();
         }
         // TODO: Handle this better
         //simulatedTime += mRowReadoutTime;

@@ -19,6 +19,7 @@ import com.android.ddmlib.IShellOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.IFileEntry;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 
 import junit.framework.TestCase;
@@ -26,7 +27,7 @@ import junit.framework.TestCase;
 import org.easymock.Capture;
 import org.easymock.EasyMock;
 
-import java.util.Map;
+import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -36,7 +37,7 @@ public class NativeStressTestTest extends TestCase {
 
     private static final String RUN_NAME = "run-name";
     private ITestInvocationListener mMockListener;
-    private Capture<Map<String, String>> mCapturedMetricMap;
+    private Capture<HashMap<String, Metric>> mCapturedMetricMap;
     private NativeStressTest mNativeTest;
     private ITestDevice mMockDevice;
     private IFileEntry mMockStressFile;
@@ -49,7 +50,7 @@ public class NativeStressTestTest extends TestCase {
         super.setUp();
         mNativeTest = new NativeStressTest();
         mMockListener = EasyMock.createMock(ITestInvocationListener.class);
-        mCapturedMetricMap = new Capture<Map<String, String>>();
+        mCapturedMetricMap = new Capture<HashMap<String, Metric>>();
         // expect this call
         mMockListener.testRunStarted(RUN_NAME, 0);
         mMockListener.testRunEnded(EasyMock.anyLong(), EasyMock.capture(mCapturedMetricMap));

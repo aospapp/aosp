@@ -87,11 +87,15 @@ public class WriteExternalStorageTest extends AndroidTestCase {
     }
 
     public void testWriteExternalStorage() throws Exception {
+        final long testValue = 12345000;
         assertExternalStorageMounted();
 
         // Write a value and make sure we can read it back
         writeInt(TEST_FILE, 32);
         assertEquals(readInt(TEST_FILE), 32);
+
+        assertTrue("Must be able to set last modified", TEST_FILE.setLastModified(testValue));
+        assertEquals(testValue, TEST_FILE.lastModified());
     }
 
     public void testWriteExternalStorageDirs() throws Exception {
@@ -164,6 +168,7 @@ public class WriteExternalStorageTest extends AndroidTestCase {
         final File otherCache = new File(ourCache.getAbsolutePath()
                 .replace(getContext().getPackageName(), PACKAGE_NONE));
         deleteContents(otherCache);
+        otherCache.delete();
 
         assertTrue(otherCache.mkdirs());
         assertDirReadWriteAccess(otherCache);

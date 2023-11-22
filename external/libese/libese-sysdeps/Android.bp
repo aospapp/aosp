@@ -22,21 +22,21 @@ cc_library {
     local_include_dirs: [
         "include",
     ],
-    cflags: ["-std=c99"],
+    cflags: [
+        "-std=c99",
+        "-Wall",
+        "-Werror",
+    ],
     debug:  {
         cflags: ["-DLOG_NDEBUG=0"],
     },
     target: {
-        android: {
+        linux: {
             srcs: ["android-sysdeps.c"],
         },
 
         darwin: {
             srcs: ["darwin-sysdeps.c"],
-        },
-
-        linux: {
-            srcs: ["android-sysdeps.c"],
         },
     },
 

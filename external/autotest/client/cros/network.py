@@ -10,102 +10,9 @@ import urllib2
 
 import common
 
-# Import 'flimflam_test_path' first in order to import 'routing'.
-# Disable warning about flimflam_test_path not being used since it is used
-# to find routing but not explicitly used as a module.
-# pylint: disable-msg=W0611
-import flimflam_test_path
-import routing
-
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros.cellular import mm
-
-
-def _Bug24628WorkaroundEnable(modem):
-    """Enables a modem.  Try again if a SerialResponseTimeout is received."""
-    # http://code.google.com/p/chromium-os/issues/detail?id=24628
-    tries = 5
-    while tries > 0:
-        try:
-            modem.Enable(True)
-            return
-        except dbus.exceptions.DBusException, e:
-            logging.error('Enable failed: %s', e)
-            tries -= 1
-            if tries > 0:
-                logging.error('_Bug24628WorkaroundEnable:  sleeping')
-                time.sleep(6)
-                logging.error('_Bug24628WorkaroundEnable:  retrying')
-            else:
-                raise
-
-
-# TODO(rochberg):  Move modem-specific functions to cellular/cell_utils
-def ResetAllModems(conn_mgr):
-    """
-    Disables/Enables cycle all modems to ensure valid starting state.
-
-    @param conn_mgr: Connection manager (shill)
-    """
-    service = conn_mgr.FindCellularService()
-    if not service:
-        conn_mgr.EnableTechnology('cellular')
-        service = conn_mgr.FindCellularService()
-
-    logging.info('ResetAllModems: found service %s', service)
-
-    try:
-        if service:
-            service.SetProperty('AutoConnect', False),
-    except dbus.exceptions.DBusException, e:
-        # The service object may disappear, we can safely ignore it.
-        if e._dbus_error_name != 'org.freedesktop.DBus.Error.UnknownMethod':
-            raise
-
-    for manager, path in mm.EnumerateDevices():
-        modem = manager.GetModem(path)
-        version = modem.GetVersion()
-        # Icera modems behave weirdly if we cancel the operation while the
-        # modem is connecting or disconnecting. Work around the issue by waiting
-        # until the connect/disconnect operation completes.
-        # TODO(benchan): Remove this workaround once the issue is addressed
-        # on the modem side.
-        utils.poll_for_condition(
-            lambda: not modem.IsConnectingOrDisconnecting(),
-            exception=utils.TimeoutError('Timed out waiting for modem to ' +
-                                         'finish connecting/disconnecting'),
-            sleep_interval=1,
-            timeout=30)
-        modem.Enable(False)
-        # Although we disable at the ModemManager level, we need to wait for
-        # shill to process the disable to ensure the modem is in a stable state
-        # before continuing else we may end up trying to enable a modem that
-        # is still in the process of disabling.
-        cm_device = conn_mgr.FindElementByPropertySubstring('Device',
-                                                            'DBus.Object',
-                                                            path)
-        utils.poll_for_condition(
-            lambda: not cm_device.GetProperties()['Powered'],
-            exception=utils.TimeoutError(
-                'Timed out waiting for shill device disable'),
-            sleep_interval=1,
-            timeout=30)
-        assert modem.IsDisabled()
-
-        if 'Y3300XXKB1' in version:
-            _Bug24628WorkaroundEnable(modem)
-        else:
-            modem.Enable(True)
-            # Wait for shill to process the enable for the same reason as
-            # above (during disable).
-            utils.poll_for_condition(
-                lambda: cm_device.GetProperties()['Powered'],
-                exception=utils.TimeoutError(
-                    'Timed out waiting for shill device enable'),
-                sleep_interval=1,
-                timeout=30)
-            assert modem.IsEnabled()
+from autotest_lib.client.cros import routing
 
 
 class IpTablesContext(object):
@@ -201,32 +108,28 @@ def CheckInterfaceForDestination(host, expected_interface):
             a different interface than the expected one.
 
     """
-    # socket.getaddrinfo() returns a list of tuples in one of the following
-    # forms:
-    #
-    # For IPv4 address:
-    #   (family, type, proto, canonname, (address, port))
-    # For IPv6 address:
-    #   (family, type, proto, canonname, (address, port, flow_info, scope_id))
-    #
-    # As routing.NetworkRoutes currently supports only IPv4 routes / addresses,
-    # we filter out any IPv6 address reported by socket.getaddrinfo().
-    #
-    # TODO(benchan): Fix this limitation after porting routes.NetworkRoutes to
-    # support both IPv4 and IPv6 (crbug.com/742046).
+    # addrinfo records: (family, type, proto, canonname, (addr, port))
     server_addresses = [record[4][0]
-                        for record in socket.getaddrinfo(host, 80)
-                        if len(record[4][0]) == 2]
+                        for record in socket.getaddrinfo(host, 80)]
 
+    route_found = False
     routes = routing.NetworkRoutes()
     for address in server_addresses:
-        interface = routes.getRouteFor(address).interface
+        route = routes.getRouteFor(address)
+        if not route:
+            continue
+
+        route_found = True
+
+        interface = route.interface
         logging.info('interface for %s: %s', address, interface)
         if interface != expected_interface:
             raise error.TestFail('Target server %s uses interface %s'
                                  '(%s expected).' %
                                  (address, interface, expected_interface))
 
+    if not route_found:
+        raise error.TestFail('No route found for "%s".' % host)
 
 FETCH_URL_PATTERN_FOR_TEST = \
     'http://testing-chargen.appspot.com/download?size=%d'

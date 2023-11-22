@@ -17,9 +17,10 @@ package com.android.tradefed.result;
 
 import static org.junit.Assert.*;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
+import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.SubprocessTestResultsParser;
 
@@ -28,9 +29,10 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
 import java.io.File;
-import java.util.Collections;
+import java.util.HashMap;
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Unit Tests for {@link SubprocessResultsReporter}
@@ -50,10 +52,10 @@ public class SubprocessResultsReporterTest {
      */
     @Test
     public void testPrintEvent_Inop() {
-        TestIdentifier testId = new TestIdentifier("com.fakeclass", "faketest");
+        TestDescription testId = new TestDescription("com.fakeclass", "faketest");
         mReporter.testStarted(testId);
         mReporter.testFailed(testId, "fake failure");
-        mReporter.testEnded(testId, Collections.emptyMap());
+        mReporter.testEnded(testId, new HashMap<String, Metric>());
         mReporter.printEvent(null, null);
     }
 
@@ -67,7 +69,7 @@ public class SubprocessResultsReporterTest {
         try {
             setter.setOptionValue("subprocess-report-file", tmpReportFile.getAbsolutePath());
             mReporter.testRunStarted("TEST", 5);
-            mReporter.testRunEnded(100, Collections.emptyMap());
+            mReporter.testRunEnded(100, new HashMap<String, Metric>());
             String content = FileUtil.readStringFromFile(tmpReportFile);
             assertEquals("TEST_RUN_STARTED {\"testCount\":5,\"runName\":\"TEST\"}\n"
                     + "TEST_RUN_ENDED {\"time\":100}\n", content);
@@ -101,7 +103,7 @@ public class SubprocessResultsReporterTest {
      */
     @Test
     public void testPrintEvent_printToSocket() throws Exception {
-        TestIdentifier testId = new TestIdentifier("com.fakeclass", "faketest");
+        TestDescription testId = new TestDescription("com.fakeclass", "faketest");
         ITestInvocationListener mMockListener = EasyMock.createMock(ITestInvocationListener.class);
         SubprocessTestResultsParser receiver =
                 new SubprocessTestResultsParser(mMockListener, true, new InvocationContext());
@@ -124,6 +126,59 @@ public class SubprocessResultsReporterTest {
             EasyMock.verify(mMockListener);
         } finally {
             receiver.close();
+        }
+    }
+
+    @Test
+    public void testTestLog() throws ConfigurationException, IOException {
+        byte[] logData = new byte[1024];
+        InputStreamSource logStreamSource = new ByteArrayInputStreamSource(logData);
+        ITestInvocationListener mMockListener = EasyMock.createMock(ITestInvocationListener.class);
+        try (SubprocessTestResultsParser receiver =
+                new SubprocessTestResultsParser(mMockListener, true, new InvocationContext())) {
+            OptionSetter setter = new OptionSetter(mReporter);
+            setter.setOptionValue(
+                    "subprocess-report-port", Integer.toString(receiver.getSocketServerPort()));
+            setter.setOptionValue("output-test-log", "true");
+            mMockListener.testLog(
+                    EasyMock.eq("subprocess-foo"),
+                    EasyMock.eq(LogDataType.TEXT),
+                    EasyMock.anyObject());
+            EasyMock.replay(mMockListener);
+
+            mReporter.testLog("foo", LogDataType.TEXT, logStreamSource);
+            mReporter.close();
+            receiver.joinReceiver(500);
+
+            EasyMock.verify(mMockListener);
+        }
+    }
+
+    @Test
+    public void testTestLog_disabled() throws ConfigurationException, IOException {
+        byte[] logData = new byte[1024];
+        InputStreamSource logStreamSource = new ByteArrayInputStreamSource(logData);
+        AtomicBoolean testLogCalled = new AtomicBoolean(false);
+        ITestInvocationListener mMockListener =
+                new CollectingTestListener() {
+                    @Override
+                    public void testLog(
+                            String dataName, LogDataType dataType, InputStreamSource dataStream) {
+                        testLogCalled.set(true);
+                    }
+                };
+        try (SubprocessTestResultsParser receiver =
+                new SubprocessTestResultsParser(mMockListener, true, new InvocationContext())) {
+            OptionSetter setter = new OptionSetter(mReporter);
+            setter.setOptionValue(
+                    "subprocess-report-port", Integer.toString(receiver.getSocketServerPort()));
+            setter.setOptionValue("output-test-log", "false");
+
+            mReporter.testLog("foo", LogDataType.TEXT, logStreamSource);
+            mReporter.close();
+            receiver.joinReceiver(500);
+
+            assertFalse(testLogCalled.get());
         }
     }
 }

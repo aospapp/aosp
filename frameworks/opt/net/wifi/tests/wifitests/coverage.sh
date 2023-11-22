@@ -40,6 +40,7 @@ make \
   -f build/core/main.mk \
   MODULES-IN-frameworks-opt-net-wifi-tests \
   MODULES-IN-system-core \
+  MODULES-IN-external-jacoco \
   FrameworksWifiTests
 
 adb root
@@ -49,7 +50,7 @@ adb shell rm -f $REMOTE_COVERAGE_OUTPUT_FILE
 
 adb install -r -g "$OUT/data/app/FrameworksWifiTests/FrameworksWifiTests.apk"
 
-adb shell am instrument -e coverage true -w 'com.android.server.wifi.test/com.android.server.wifi.CustomTestRunner'
+adb shell am instrument -e coverage true --no-hidden-api-checks -w 'com.android.server.wifi.test/com.android.server.wifi.CustomTestRunner'
 
 mkdir -p $OUTPUT_DIR
 
@@ -57,10 +58,11 @@ adb pull $REMOTE_COVERAGE_OUTPUT_FILE $COVERAGE_OUTPUT_FILE
 
 java -jar $REPORTER_JAR \
   report \
-  -classfiles $ANDROID_PRODUCT_OUT/../../common/obj/APPS/FrameworksWifiTests_intermediates/jacoco/report-resources/jacoco-report-classes.jar \
-  -html $OUTPUT_DIR \
-  -sourcefiles $ANDROID_BUILD_TOP/frameworks/opt/net/wifi/tests/wifitests/src -sourcefiles $ANDROID_BUILD_TOP/frameworks/opt/net/wifi/service/java \
-  -name wifi-coverage \
+  --classfiles $ANDROID_PRODUCT_OUT/../../common/obj/APPS/FrameworksWifiTests_intermediates/jacoco/report-resources/jacoco-report-classes.jar \
+  --html $OUTPUT_DIR \
+  --sourcefiles $ANDROID_BUILD_TOP/frameworks/opt/net/wifi/tests/wifitests/src \
+  --sourcefiles $ANDROID_BUILD_TOP/frameworks/opt/net/wifi/service/java \
+  --name wifi-coverage \
   $COVERAGE_OUTPUT_FILE
 
 echo Created report at $OUTPUT_DIR/index.html

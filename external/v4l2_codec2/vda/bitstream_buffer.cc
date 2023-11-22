@@ -1,6 +1,7 @@
 // Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 2de6929
 
 #include "bitstream_buffer.h"
 
@@ -22,6 +23,6 @@ BitstreamBuffer::BitstreamBuffer(int32_t id,
 
 BitstreamBuffer::BitstreamBuffer(const BitstreamBuffer& other) = default;
 
-BitstreamBuffer::~BitstreamBuffer() {}
+BitstreamBuffer::~BitstreamBuffer() = default;
 
 }  // namespace media

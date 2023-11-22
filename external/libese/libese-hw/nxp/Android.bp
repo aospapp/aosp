@@ -27,6 +27,12 @@ cc_library {
     ],
     local_include_dirs: ["include"],
     export_include_dirs: ["include"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-error=unused-variable",
+        "-Wno-format",
+    ],
     target: {
         darwin: {
           enabled: false,
@@ -56,10 +62,19 @@ cc_library {
     name: "libese-hw-nxp-pn80t-spidev",
     defaults: ["pn80t_platform"],
     srcs: ["pn80t/linux_spidev.c"],
+    cflags: [
+        "-Wno-format",
+    ],
 }
 
 cc_library {
     name: "libese-hw-nxp-pn80t-nq-nci",
     defaults: ["pn80t_platform"],
     srcs: ["pn80t/nq_nci.c"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-error=unused-variable",
+        "-Wno-format",
+    ],
 }

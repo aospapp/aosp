@@ -83,14 +83,7 @@ EFI_STATUS
 EFIAPI
 VirtioPciGetDeviceFeatures (
   IN VIRTIO_DEVICE_PROTOCOL *This,
-  OUT UINT32                *DeviceFeatures
-  );
-
-EFI_STATUS
-EFIAPI
-VirtioPciGetQueueAddress (
-  IN  VIRTIO_DEVICE_PROTOCOL *This,
-  OUT UINT32                 *QueueAddress
+  OUT UINT64                *DeviceFeatures
   );
 
 EFI_STATUS
@@ -125,14 +118,14 @@ EFI_STATUS
 EFIAPI
 VirtioPciSetGuestFeatures (
   IN VIRTIO_DEVICE_PROTOCOL  *This,
-  IN UINT32                   Features
+  IN UINT64                   Features
   );
 
 EFI_STATUS
 EFIAPI
 VirtioPciSetQueueAddress (
-  VIRTIO_DEVICE_PROTOCOL         *This,
-  UINT32                         Address
+  IN VIRTIO_DEVICE_PROTOCOL  *This,
+  IN VRING                   *Ring
   );
 
 EFI_STATUS

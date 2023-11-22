@@ -27,16 +27,14 @@ namespace keymaster {
 class AsymmetricKey;
 class AsymmetricKeyFactory : public KeyFactory {
   public:
-    explicit AsymmetricKeyFactory(const KeymasterContext* context) : KeyFactory(context) {}
-
-    keymaster_error_t LoadKey(const KeymasterKeyBlob& key_material,
+    keymaster_error_t LoadKey(KeymasterKeyBlob&& key_material,
                               const AuthorizationSet& additional_params,
-                              const AuthorizationSet& hw_enforced,
-                              const AuthorizationSet& sw_enforced,
+                              AuthorizationSet&& hw_enforced,
+                              AuthorizationSet&& sw_enforced,
                               UniquePtr<Key>* key) const override;
 
-    virtual keymaster_error_t CreateEmptyKey(const AuthorizationSet& hw_enforced,
-                                             const AuthorizationSet& sw_enforced,
+    virtual keymaster_error_t CreateEmptyKey(AuthorizationSet&& hw_enforced,
+                                             AuthorizationSet&& sw_enforced,
                                              UniquePtr<AsymmetricKey>* key) const = 0;
 
     virtual keymaster_algorithm_t keymaster_key_type() const = 0;

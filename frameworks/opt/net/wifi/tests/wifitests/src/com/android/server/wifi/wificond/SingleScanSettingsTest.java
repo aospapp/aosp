@@ -16,11 +16,13 @@
 
 package com.android.server.wifi.wificond;
 
+import android.net.wifi.IWifiScannerImpl;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import android.os.Parcel;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import org.junit.Test;
 
@@ -57,6 +59,8 @@ public class SingleScanSettingsTest {
         hiddenNetwork2.ssid = TEST_SSID_2;
 
         SingleScanSettings scanSettings = new SingleScanSettings();
+        scanSettings.scanType = IWifiScannerImpl.SCAN_TYPE_HIGH_ACCURACY;
+
         scanSettings.channelSettings =
                 new ArrayList(Arrays.asList(channelSettings1, channelSettings2));
         scanSettings.hiddenNetworks = new ArrayList(Arrays.asList(hiddenNetwork1, hiddenNetwork2));

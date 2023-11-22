@@ -571,12 +571,34 @@ public class PhoneAccountRegistrar {
      * specified URI scheme.
      *
      * @param uriScheme The URI scheme.
+     * @param includeDisabledAccounts {@code} if disabled {@link PhoneAccount}s should be included
+     *      in the results.
+     * @param userHandle The {@link UserHandle} to retrieve the {@link PhoneAccount}s for.
      * @return The phone account handles.
      */
     public List<PhoneAccountHandle> getCallCapablePhoneAccounts(
             String uriScheme, boolean includeDisabledAccounts, UserHandle userHandle) {
+        return getCallCapablePhoneAccounts(uriScheme, includeDisabledAccounts, userHandle,
+                0 /* capabilities */);
+    }
+
+    /**
+     * Retrieves a list of all phone account call provider phone accounts supporting the
+     * specified URI scheme.
+     *
+     * @param uriScheme The URI scheme.
+     * @param includeDisabledAccounts {@code} if disabled {@link PhoneAccount}s should be included
+     *      in the results.
+     * @param userHandle The {@link UserHandle} to retrieve the {@link PhoneAccount}s for.
+     * @param capabilities Extra {@link PhoneAccount} capabilities which matching
+     *      {@link PhoneAccount}s must have.
+     * @return The phone account handles.
+     */
+    public List<PhoneAccountHandle> getCallCapablePhoneAccounts(
+            String uriScheme, boolean includeDisabledAccounts, UserHandle userHandle,
+            int capabilities) {
         return getPhoneAccountHandles(
-                PhoneAccount.CAPABILITY_CALL_PROVIDER,
+                PhoneAccount.CAPABILITY_CALL_PROVIDER | capabilities,
                 PhoneAccount.CAPABILITY_EMERGENCY_CALLS_ONLY /*excludedCapabilities*/,
                 uriScheme, null, includeDisabledAccounts, userHandle);
     }

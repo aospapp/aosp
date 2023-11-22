@@ -171,7 +171,9 @@ static enum match_type identical(LogBufferElement* elem,
     }
 
     // audit message (except sequence number) identical?
-    if (last->isBinary()) {
+    if (last->isBinary() &&
+        (lenl > static_cast<ssize_t>(sizeof(android_log_event_string_t))) &&
+        (lenr > static_cast<ssize_t>(sizeof(android_log_event_string_t)))) {
         if (fastcmp<memcmp>(msgl, msgr, sizeof(android_log_event_string_t) -
                                             sizeof(int32_t))) {
             return DIFFERENT;
@@ -198,7 +200,7 @@ static enum match_type identical(LogBufferElement* elem,
 
 int LogBuffer::log(log_id_t log_id, log_time realtime, uid_t uid, pid_t pid,
                    pid_t tid, const char* msg, unsigned short len) {
-    if ((log_id >= LOG_ID_MAX) || (log_id < 0)) {
+    if (log_id >= LOG_ID_MAX) {
         return -EINVAL;
     }
 
@@ -212,13 +214,19 @@ int LogBuffer::log(log_id_t log_id, log_time realtime, uid_t uid, pid_t pid,
     if (log_id != LOG_ID_SECURITY) {
         int prio = ANDROID_LOG_INFO;
         const char* tag = nullptr;
-        if (log_id == LOG_ID_EVENTS) {
+        size_t tag_len = 0;
+        if (log_id == LOG_ID_EVENTS || log_id == LOG_ID_STATS) {
             tag = tagToName(elem->getTag());
+            if (tag) {
+                tag_len = strlen(tag);
+            }
         } else {
             prio = *msg;
             tag = msg + 1;
+            tag_len = strnlen(tag, len - 1);
         }
-        if (!__android_log_is_loggable(prio, tag, ANDROID_LOG_VERBOSE)) {
+        if (!__android_log_is_loggable_len(prio, tag, tag_len,
+                                           ANDROID_LOG_VERBOSE)) {
             // Log traffic received to total
             wrlock();
             stats.addTotal(elem);
@@ -1107,9 +1115,6 @@ log_time LogBuffer::flushTo(SocketClient* reader, const log_time& start,
         // client wants to start from the beginning
         it = mLogElements.begin();
     } else {
-        // 3 second limit to continue search for out-of-order entries.
-        log_time min = start - pruneMargin;
-
         // Cap to 300 iterations we look back for out-of-order entries.
         size_t count = 300;
 
@@ -1125,7 +1130,7 @@ log_time LogBuffer::flushTo(SocketClient* reader, const log_time& start,
             } else if (element->getRealTime() == start) {
                 last = ++it;
                 break;
-            } else if (!--count || (element->getRealTime() < min)) {
+            } else if (!--count) {
                 break;
             }
         }

@@ -27,8 +27,8 @@ import android.app.Fragment;
 import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
 import android.content.Intent;
 import android.service.autofill.SaveInfo;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import android.view.ViewGroup;
 import android.widget.EditText;
 
@@ -36,10 +36,15 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 /**
  * Tests that the session finishes when the views and fragments go away
  */
 public class AutoFinishSessionTest extends AutoFillServiceTestCase {
+
+    private static final String ID_BUTTON = "button";
+
     @Rule
     public final AutofillActivityTestRule<FragmentContainerActivity> mActivityRule =
             new AutofillActivityTestRule<>(FragmentContainerActivity.class);
@@ -62,13 +67,12 @@ public class AutoFinishSessionTest extends AutoFillServiceTestCase {
 
     // firstRemove and secondRemove run in the UI Thread; firstCheck doesn't
     private void removeViewsBaseTest(@NonNull Runnable firstRemove, @Nullable Runnable firstCheck,
-            @Nullable Runnable secondRemove, String... viewsToSave)
-            throws Exception {
+            @Nullable Runnable secondRemove, String... viewsToSave) throws Exception {
         enableService();
 
         // Set expectations.
         sReplier.addResponse(new CannedFillResponse.Builder()
-                .setFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE)
+                .setSaveInfoFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE)
                 .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, viewsToSave).build());
 
         // Trigger autofill
@@ -79,7 +83,7 @@ public class AutoFinishSessionTest extends AutoFillServiceTestCase {
 
         sReplier.getNextFillRequest();
 
-        sUiBot.assertNoDatasets();
+        mUiBot.assertNoDatasetsEver();
 
         // remove first set of views
         mActivity.syncRunOnUiThread(() -> {
@@ -99,7 +103,7 @@ public class AutoFinishSessionTest extends AutoFillServiceTestCase {
         }
 
         // Save should be shows after all remove operations were executed
-        sUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
+        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
 
         SaveRequest saveRequest = sReplier.getNextSaveRequest();
         for (String view : viewsToSave) {
@@ -110,11 +114,24 @@ public class AutoFinishSessionTest extends AutoFillServiceTestCase {
 
     @Test
     public void removeBothViewsToFinishSession() throws Exception {
+        final AtomicReference<Exception> ref = new AtomicReference<>();
         removeViewsBaseTest(
                 () -> ((ViewGroup) mEditText1.getParent()).removeView(mEditText1),
-                () -> sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC),
+                () -> assertSaveNotShowing(ref),
                 () -> ((ViewGroup) mEditText2.getParent()).removeView(mEditText2),
                 "editText1", "editText2");
+        final Exception e = ref.get();
+        if (e != null) {
+            throw e;
+        }
+    }
+
+    private void assertSaveNotShowing(AtomicReference<Exception> ref) {
+        try {
+            mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+        } catch (Exception e) {
+            ref.set(e);
+        }
     }
 
     @Test
@@ -185,7 +202,7 @@ public class AutoFinishSessionTest extends AutoFillServiceTestCase {
 
         // Set expectations.
         sReplier.addResponse(new CannedFillResponse.Builder()
-                .setFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE)
+                .setSaveInfoFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE)
                 .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, "editText1").build());
 
         // Trigger autofill
@@ -196,7 +213,7 @@ public class AutoFinishSessionTest extends AutoFillServiceTestCase {
 
         sReplier.getNextFillRequest();
 
-        sUiBot.assertNoDatasets();
+        mUiBot.assertNoDatasetsEver();
 
         mActivity.syncRunOnUiThread(() -> {
             mEditText1.setText("editText1-filled");
@@ -212,20 +229,20 @@ public class AutoFinishSessionTest extends AutoFillServiceTestCase {
             mActivity.syncRunOnUiThread(removeInBackGround);
         }
 
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
 
         // Remove previously started activity from top
-        sUiBot.selectById("android.autofillservice.cts:id/button");
+        mUiBot.selectByRelativeId(ID_BUTTON);
         mActivity.waitUntilResumed();
 
         if (removeInForeGroup != null) {
-            sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+            mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
 
             mActivity.syncRunOnUiThread(removeInForeGroup);
         }
 
         // Save should be shows after all remove operations were executed
-        sUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
+        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
 
         SaveRequest saveRequest = sReplier.getNextSaveRequest();
         assertThat(findNodeByResourceId(saveRequest.structure, "editText1")

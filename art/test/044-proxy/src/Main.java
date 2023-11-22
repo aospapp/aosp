@@ -32,6 +32,7 @@ public class Main {
         FloatSelect.main(null);
         NativeProxy.main(args);
         ConstructorProxy.main();
+        OOMEOnDispatch.main(args);
     }
 
     // The following code maps from the actual proxy class names (eg $Proxy2) to their test output
@@ -53,4 +54,8 @@ public class Main {
     private static final HashMap<String, String> proxyClassNameMap = new HashMap<String, String>();
 
     private static int uniqueTestProxyClassNum = 0;
+
+    static native void startJit();
+    static native void stopJit();
+    static native void waitForCompilation();
 }

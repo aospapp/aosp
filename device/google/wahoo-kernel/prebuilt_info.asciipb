@@ -1,0 +1,170 @@
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel"
+    file_pair {
+      source_file: "*.ko"
+      dest_file: "*.ko"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel_debug_api"
+    file_pair {
+      source_file: "Image.gz-dtb"
+      dest_file: "Image.gz-dtb.debug_api"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel_debug_hang"
+    file_pair {
+      source_file: "Image.gz-dtb"
+      dest_file: "Image.gz-dtb.debug_hang"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel_debug_locking"
+    file_pair {
+      source_file: "Image.gz-dtb"
+      dest_file: "Image.gz-dtb.debug_locking"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel_debug_memory"
+    file_pair {
+      source_file: "Image.gz-dtb"
+      dest_file: "Image.gz-dtb.debug_memory"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel_kasan"
+    file_pair {
+      source_file: "Image.gz-dtb"
+      dest_file: "Image.gz-dtb.kasan"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel"
+    file_pair {
+      source_file: "Image.lz4-dtb"
+      dest_file: "Image.lz4-dtb"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel_gcc"
+    file_pair {
+      source_file: "Image.lz4-dtb"
+      dest_file: "Image.lz4-dtb.gcc"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel_cfi"
+    file_pair {
+      source_file: "Image.lz4-dtb"
+      dest_file: "Image.lz4-dtb.kcfi"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel_debug_api"
+    file_pair {
+      source_file: "*.ko"
+      dest_file: "debug_api/"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel_debug_hang"
+    file_pair {
+      source_file: "*.ko"
+      dest_file: "debug_hang/"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel_debug_locking"
+    file_pair {
+      source_file: "*.ko"
+      dest_file: "debug_locking/"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel_debug_memory"
+    file_pair {
+      source_file: "*.ko"
+      dest_file: "debug_memory/"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel"
+    file_pair {
+      source_file: "dtbo.img"
+      dest_file: "dtbo.img"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel_gcc"
+    file_pair {
+      source_file: "*.ko"
+      dest_file: "gcc/"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel_kasan"
+    file_pair {
+      source_file: "*.ko"
+      dest_file: "kasan/"
+    }
+  }
+}
+drops {
+  android_build_drop {
+    build_id: "4761644"
+    target: "kernel_cfi"
+    file_pair {
+      source_file: "*.ko"
+      dest_file: "kcfi/"
+    }
+  }
+}

@@ -107,11 +107,17 @@ public interface ICommandOptions {
      */
     public boolean takeBugreportOnInvocationEnded();
 
+    /** Sets whether or not to capture a bugreport at the end of the invocation. */
+    public void setBugreportOnInvocationEnded(boolean takeBugreport);
+
     /**
      * Return true if a bugreportz should be taken instead of bugreport during the test invocation
      * final bugreport.
      */
     public boolean takeBugreportzOnInvocationEnded();
+
+    /** Sets whether or not to capture a bugreportz at the end of the invocation. */
+    public void setBugreportzOnInvocationEnded(boolean takeBugreportz);
 
     /**
      * Return the invocation timeout specified. 0 if no timeout to be used.

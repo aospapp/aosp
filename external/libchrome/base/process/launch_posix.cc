@@ -60,6 +60,8 @@
 #if defined(OS_MACOSX)
 #include <crt_externs.h>
 #include <sys/event.h>
+
+#include "base/feature_list.h"
 #else
 extern char** environ;
 #endif
@@ -69,6 +71,11 @@ namespace base {
 #if !defined(OS_NACL_NONSFI)
 
 namespace {
+
+#if defined(OS_MACOSX)
+const Feature kMacLaunchProcessPosixSpawn{"MacLaunchProcessPosixSpawn",
+                                          FEATURE_ENABLED_BY_DEFAULT};
+#endif
 
 // Get the process's "environment" (i.e. the thing that setenv/getenv
 // work with).
@@ -156,12 +163,7 @@ int sys_rt_sigaction(int sig, const struct kernel_sigaction* act,
 // See crbug.com/177956.
 void ResetChildSignalHandlersToDefaults(void) {
   for (int signum = 1; ; ++signum) {
-#if defined(ANDROID)
-    struct kernel_sigaction act;
-    memset(&act, 0, sizeof(act));
-#else
     struct kernel_sigaction act = {0};
-#endif
     int sigaction_get_ret = sys_rt_sigaction(signum, nullptr, &act);
     if (sigaction_get_ret && errno == EINVAL) {
 #if !defined(NDEBUG)
@@ -296,6 +298,15 @@ Process LaunchProcess(const CommandLine& cmdline,
 
 Process LaunchProcess(const std::vector<std::string>& argv,
                       const LaunchOptions& options) {
+#if defined(OS_MACOSX)
+  if (FeatureList::IsEnabled(kMacLaunchProcessPosixSpawn)) {
+    // TODO(rsesek): Do this unconditionally. There is one user for each of
+    // these two options. https://crbug.com/179923.
+    if (!options.pre_exec_delegate && options.current_directory.empty())
+      return LaunchProcessPosixSpawn(argv, options);
+  }
+#endif
+
   size_t fd_shuffle_size = 0;
   if (options.fds_to_remap) {
     fd_shuffle_size = options.fds_to_remap->size();
@@ -492,7 +503,10 @@ Process LaunchProcess(const std::vector<std::string>& argv,
       options.pre_exec_delegate->RunAsyncSafe();
     }
 
-    execvp(argv_cstr[0], argv_cstr.get());
+    const char* executable_path = !options.real_path.empty() ?
+        options.real_path.value().c_str() : argv_cstr[0];
+
+    execvp(executable_path, argv_cstr.get());
 
     RAW_LOG(ERROR, "LaunchProcess: failed to execvp:");
     RAW_LOG(ERROR, argv_cstr[0]);
@@ -646,6 +660,14 @@ bool GetAppOutputAndError(const CommandLine& cl, std::string* output) {
   int exit_code;
   bool result =
       GetAppOutputInternal(cl.argv(), nullptr, true, output, true, &exit_code);
+  return result && exit_code == EXIT_SUCCESS;
+}
+
+bool GetAppOutputAndError(const std::vector<std::string>& argv,
+                          std::string* output) {
+  int exit_code;
+  bool result =
+      GetAppOutputInternal(argv, nullptr, true, output, true, &exit_code);
   return result && exit_code == EXIT_SUCCESS;
 }
 

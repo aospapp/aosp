@@ -38,12 +38,12 @@
 #include "commandlineflags.h"
 #include "complexity.h"
 #include "counter.h"
+#include "internal_macros.h"
 #include "log.h"
 #include "mutex.h"
 #include "re.h"
-#include "stat.h"
+#include "statistics.h"
 #include "string_util.h"
-#include "sysinfo.h"
 #include "timers.h"
 
 DEFINE_bool(benchmark_list_tests, false,
@@ -99,19 +99,14 @@ DEFINE_bool(benchmark_counters_tabular, false,
 DEFINE_int32(v, 0, "The level of verbose logging to output");
 
 namespace benchmark {
-namespace internal {
-
-void UseCharPointer(char const volatile*) {}
-
-}  // end namespace internal
 
 namespace {
-
 static const size_t kMaxIterations = 1000000000;
-
 }  // end namespace
 
 namespace internal {
+
+void UseCharPointer(char const volatile*) {}
 
 class ThreadManager {
  public:
@@ -180,7 +175,9 @@ class ThreadTimer {
     CHECK(running_);
     running_ = false;
     real_time_used_ += ChronoClockNow() - start_real_time_;
-    cpu_time_used_ += ThreadCPUUsage() - start_cpu_time_;
+    // Floating point error can result in the subtraction producing a negative
+    // time. Guard against that.
+    cpu_time_used_ += std::max<double>(ThreadCPUUsage() - start_cpu_time_, 0);
   }
 
   // Called by each thread
@@ -256,6 +253,7 @@ BenchmarkReporter::Run CreateRunReport(
     report.complexity_n = results.complexity_n;
     report.complexity = b.complexity;
     report.complexity_lambda = b.complexity_lambda;
+    report.statistics = b.statistics;
     report.counters = results.counters;
     internal::Finish(&report.counters, seconds, b.threads);
   }
@@ -401,7 +399,7 @@ State::State(size_t max_iters, const std::vector<int>& ranges, int thread_i,
              internal::ThreadManager* manager)
     : started_(false),
       finished_(false),
-      total_iterations_(0),
+      total_iterations_(max_iters + 1),
       range_(ranges),
       bytes_processed_(0),
       items_processed_(0),
@@ -414,6 +412,7 @@ State::State(size_t max_iters, const std::vector<int>& ranges, int thread_i,
       timer_(timer),
       manager_(manager) {
   CHECK(max_iterations != 0) << "At least one iteration must be run";
+  CHECK(total_iterations_ != 0) << "max iterations wrapped around";
   CHECK_LT(thread_index, threads) << "thread_index must be less than threads";
 }
 
@@ -438,7 +437,7 @@ void State::SkipWithError(const char* msg) {
       manager_->results.has_error_ = true;
     }
   }
-  total_iterations_ = max_iterations;
+  total_iterations_ = 1;
   if (timer_->running()) timer_->StopTimer();
 }
 
@@ -463,8 +462,8 @@ void State::FinishKeepRunning() {
   if (!error_occurred_) {
     PauseTiming();
   }
-  // Total iterations now is one greater than max iterations. Fix this.
-  total_iterations_ = max_iterations;
+  // Total iterations has now wrapped around zero. Fix this.
+  total_iterations_ = 1;
   finished_ = true;
   manager_->StartStopBarrier();
 }
@@ -481,19 +480,19 @@ void RunBenchmarks(const std::vector<Benchmark::Instance>& benchmarks,
   // Determine the width of the name field using a minimum width of 10.
   bool has_repetitions = FLAGS_benchmark_repetitions > 1;
   size_t name_field_width = 10;
+  size_t stat_field_width = 0;
   for (const Benchmark::Instance& benchmark : benchmarks) {
     name_field_width =
         std::max<size_t>(name_field_width, benchmark.name.size());
     has_repetitions |= benchmark.repetitions > 1;
+
+    for(const auto& Stat : *benchmark.statistics)
+      stat_field_width = std::max<size_t>(stat_field_width, Stat.name_.size());
   }
-  if (has_repetitions) name_field_width += std::strlen("_stddev");
+  if (has_repetitions) name_field_width += 1 + stat_field_width;
 
   // Print header here
   BenchmarkReporter::Context context;
-  context.num_cpus = NumCPUs();
-  context.mhz_per_cpu = CyclesPerSecond() / 1000000.0f;
-
-  context.cpu_scaling_enabled = CpuScalingEnabled();
   context.name_field_width = name_field_width;
 
   // Keep track of runing times of all instances of current benchmark
@@ -595,13 +594,13 @@ size_t RunSpecifiedBenchmarks(BenchmarkReporter* console_reporter,
   auto& Err = console_reporter->GetErrorStream();
 
   std::string const& fname = FLAGS_benchmark_out;
-  if (fname == "" && file_reporter) {
+  if (fname.empty() && file_reporter) {
     Err << "A custom file reporter was provided but "
            "--benchmark_out=<file> was not specified."
         << std::endl;
     std::exit(1);
   }
-  if (fname != "") {
+  if (!fname.empty()) {
     output_file.open(fname);
     if (!output_file.is_open()) {
       Err << "invalid file name: '" << fname << std::endl;

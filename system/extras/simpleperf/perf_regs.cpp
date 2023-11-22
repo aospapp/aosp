@@ -16,6 +16,8 @@
 
 #include "perf_regs.h"
 
+#include <string.h>
+
 #include <unordered_map>
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
@@ -75,25 +77,6 @@ std::string GetArchString(ArchType arch) {
       break;
   }
   return "unknown";
-}
-
-// If strict_check, must have arch1 == arch2.
-// Otherwise, allow X86_32 with X86_64, ARM with ARM64.
-bool IsArchTheSame(ArchType arch1, ArchType arch2, bool strict_check) {
-  if (strict_check) {
-    return arch1 == arch2;
-  }
-  switch (arch1) {
-    case ARCH_X86_32:
-    case ARCH_X86_64:
-      return arch2 == ARCH_X86_32 || arch2 == ARCH_X86_64;
-    case ARCH_ARM64:
-    case ARCH_ARM:
-      return arch2 == ARCH_ARM64 || arch2 == ARCH_ARM;
-    default:
-      break;
-  }
-  return arch1 == arch2;
 }
 
 uint64_t GetSupportedRegMask(ArchType arch) {
@@ -167,53 +150,32 @@ std::string GetRegName(size_t regno, ArchType arch) {
   }
 }
 
-RegSet CreateRegSet(int abi, uint64_t valid_mask, const uint64_t* valid_regs) {
-  RegSet regs;
-  regs.valid_mask = valid_mask;
+RegSet::RegSet(int abi, uint64_t valid_mask, const uint64_t* valid_regs)
+    : valid_mask(valid_mask) {
+  arch = (abi == PERF_SAMPLE_REGS_ABI_32) ? ScopedCurrentArch::GetCurrentArch32()
+                                          : ScopedCurrentArch::GetCurrentArch();
+  memset(data, 0, sizeof(data));
   for (int i = 0, j = 0; i < 64; ++i) {
     if ((valid_mask >> i) & 1) {
-      regs.data[i] = valid_regs[j++];
+      data[i] = valid_regs[j++];
     }
   }
-  if (ScopedCurrentArch::GetCurrentArch() == ARCH_ARM64 &&
-      abi == PERF_SAMPLE_REGS_ABI_32) {
-    // The kernel dumps arm64 regs, but we need arm regs. So map arm64
-    // regs into arm regs.
-    regs.data[PERF_REG_ARM_PC] = regs.data[PERF_REG_ARM64_PC];
+  if (ScopedCurrentArch::GetCurrentArch() == ARCH_ARM64 && abi == PERF_SAMPLE_REGS_ABI_32) {
+    // The kernel dumps arm64 regs, but we need arm regs. So map arm64 regs into arm regs.
+    data[PERF_REG_ARM_PC] = data[PERF_REG_ARM64_PC];
   }
-  return regs;
 }
 
-void SetIpReg(ArchType arch, uint64_t ip, RegSet* regs) {
-  int regno;
-  switch (arch) {
-    case ARCH_X86_64:
-    case ARCH_X86_32:
-      regno = PERF_REG_X86_IP;
-      break;
-    case ARCH_ARM:
-      regno = PERF_REG_ARM_PC;
-      break;
-    case ARCH_ARM64:
-      regno = PERF_REG_ARM64_PC;
-      break;
-    default:
-      return;
-  }
-  regs->valid_mask |= (1ULL << regno);
-  regs->data[regno] = ip;
-}
-
-bool GetRegValue(const RegSet& regs, size_t regno, uint64_t* value) {
+bool RegSet::GetRegValue(size_t regno, uint64_t* value) const {
   CHECK_LT(regno, 64U);
-  if ((regs.valid_mask >> regno) & 1) {
-    *value = regs.data[regno];
+  if ((valid_mask >> regno) & 1) {
+    *value = data[regno];
     return true;
   }
   return false;
 }
 
-bool GetSpRegValue(const RegSet& regs, ArchType arch, uint64_t* value) {
+bool RegSet::GetSpRegValue(uint64_t* value) const {
   size_t regno;
   switch (arch) {
     case ARCH_X86_32:
@@ -231,5 +193,24 @@ bool GetSpRegValue(const RegSet& regs, ArchType arch, uint64_t* value) {
     default:
       return false;
   }
-  return GetRegValue(regs, regno, value);
+  return GetRegValue(regno, value);
+}
+
+bool RegSet::GetIpRegValue(uint64_t* value) const {
+  size_t regno;
+  switch (arch) {
+    case ARCH_X86_64:
+    case ARCH_X86_32:
+      regno = PERF_REG_X86_IP;
+      break;
+    case ARCH_ARM:
+      regno = PERF_REG_ARM_PC;
+      break;
+    case ARCH_ARM64:
+      regno = PERF_REG_ARM64_PC;
+      break;
+    default:
+      return false;
+  }
+  return GetRegValue(regno, value);
 }

@@ -48,6 +48,7 @@ import android.hardware.camera2.cts.rs.ScriptYuvMeans2dTo1d;
 import android.hardware.camera2.cts.rs.ScriptYuvToRgb;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.platform.test.annotations.AppModeFull;
 import android.renderscript.Allocation;
 import android.renderscript.Script.LaunchOptions;
 import android.test.AndroidTestCase;
@@ -71,6 +72,7 @@ import java.util.List;
  *
  * <p>YUV_420_888: flexible YUV420, it is a mandatory format for camera.</p>
  */
+@AppModeFull
 public class AllocationTest extends AndroidTestCase {
     private static final String TAG = "AllocationTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -379,6 +381,20 @@ public class AllocationTest extends AndroidTestCase {
         checkNotNull("request", request);
         checkNotNull("graph", graph);
 
+        long exposureTimeNs = -1;
+        int controlMode = -1;
+        int aeMode = -1;
+        if (request.get(CaptureRequest.CONTROL_MODE) != null) {
+            controlMode = request.get(CaptureRequest.CONTROL_MODE);
+        }
+        if (request.get(CaptureRequest.CONTROL_AE_MODE) != null) {
+            aeMode = request.get(CaptureRequest.CONTROL_AE_MODE);
+        }
+        if ((request.get(CaptureRequest.SENSOR_EXPOSURE_TIME) != null) &&
+                ((controlMode == CaptureRequest.CONTROL_MODE_OFF) ||
+                 (aeMode == CaptureRequest.CONTROL_AE_MODE_OFF))) {
+            exposureTimeNs = request.get(CaptureRequest.SENSOR_EXPOSURE_TIME);
+        }
         mSession.capture(request, new CameraCaptureSession.CaptureCallback() {
             @Override
             public void onCaptureCompleted(CameraCaptureSession session, CaptureRequest request,
@@ -388,7 +404,12 @@ public class AllocationTest extends AndroidTestCase {
         }, mHandler);
 
         if (VERBOSE) Log.v(TAG, "Waiting for single shot buffer");
-        graph.advanceInputWaiting();
+        if (exposureTimeNs > 0) {
+            graph.advanceInputWaiting(
+                    java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(exposureTimeNs));
+        } else {
+            graph.advanceInputWaiting();
+        }
         if (VERBOSE) Log.v(TAG, "Got the buffer");
         graph.execute();
     }

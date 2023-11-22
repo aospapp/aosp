@@ -26,8 +26,7 @@
 #include <binder/IServiceManager.h>
 #include <binder/ProcessState.h>
 #include <cutils/properties.h>
-#include <hwbinder/IPCThreadState.h>
-#include <hwbinder/ProcessState.h>
+#include <hidl/HidlTransportSupport.h>
 #include <libminijail.h>
 #include <utils/String16.h>
 #include <wifi_system/interface_tool.h>
@@ -93,10 +92,8 @@ int SetupBinderOrCrash() {
 
 // Setup our interface to the hw Binder driver or die trying.
 int SetupHwBinderOrCrash() {
-  int binder_fd = -1;
-  android::hardware::ProcessState::self()->setThreadPoolConfiguration(1, true);
-  int err = android::hardware::IPCThreadState::self()->setupPolling(&binder_fd);
-  CHECK_EQ(err, 0) << "Error setting up hw binder polling: " << strerror(-err);
+  android::hardware::configureRpcThreadpool(1, true /* callerWillJoin */);
+  int binder_fd  = android::hardware::setupTransportPolling();
   CHECK_GE(binder_fd, 0) << "Invalid hw binder FD: " << binder_fd;
   return binder_fd;
 }
@@ -116,7 +113,7 @@ void OnBinderReadReady(int fd) {
 }
 
 void OnHwBinderReadReady(int fd) {
-  android::hardware::IPCThreadState::self()->handlePolledCommands();
+  android::hardware::handleTransportPoll(fd);
 }
 
 int main(int argc, char** argv) {
@@ -151,7 +148,6 @@ int main(int argc, char** argv) {
       unique_ptr<HostapdManager>(new HostapdManager()),
       &netlink_utils,
       &scan_utils));
-  server->CleanUpSystemState();
   RegisterServiceOrCrash(server.get());
 
   event_dispatcher->Poll();

@@ -25,7 +25,8 @@
 #include <sys/wait.h>
 
 #include "test.h"
-#include "linux_syscall_numbers.h"
+#include "safe_macros.h"
+#include "lapi/syscalls.h"
 
 char *TCID = "exit_group01";
 int testno;
@@ -43,9 +44,7 @@ static void verify_exit_group(void)
 	if (cpid == 0) {
 		TEST(ltp_syscall(__NR_exit_group, 4));
 	} else {
-		w = wait(&status);
-		if (w == -1)
-			tst_brkm(TBROK | TERRNO, NULL, "wait() failed");
+		w = SAFE_WAIT(NULL, &status);
 
 		if (WIFEXITED(status) && (WEXITSTATUS(status) == 4)) {
 			tst_resm(TPASS, "exit_group() succeeded");

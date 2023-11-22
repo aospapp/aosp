@@ -20,6 +20,7 @@
     <!-- Theme attributes -->
     <attr name="suwLayoutTheme" format="reference" />
     <attr name="suwMarginSides" format="dimension|reference" />
+    <attr name="suwEditTextBackgroundColor" format="color" />
 
     <!-- Subset of values in "gravity" in frameworks/base/core/res/res/values/attrs.xml. Only
          horizontal values are listed here as the header does not support vertical gravity. -->
@@ -37,13 +38,17 @@
         <!-- Push object to the end of its container, not changing its size. -->
         <flag name="end" value="0x00800005" />
     </attr>
+    <attr name="suwGlifIconStyle" format="reference" />
 
+    <attr name="suwButtonAllCaps" format="boolean" />
+    <attr name="suwButtonCornerRadius" format="dimension" />
+    <attr name="suwButtonFontFamily" format="string|reference" />
     <attr name="suwCardBackground" format="color|reference" />
-    <attr name="suwFillContentLayoutStyle" format="reference" />
     <attr name="suwDividerCondition">
         <enum name="either" value="0" />
         <enum name="both" value="1" />
     </attr>
+    <attr name="suwFillContentLayoutStyle" format="reference" />
     <attr name="suwListItemIconColor" format="color" />
     <attr name="suwNavBarBackgroundColor" format="color" />
     <attr name="suwNavBarButtonBackground" format="color|reference" />
@@ -102,6 +107,8 @@
         <attr name="suwBackgroundBaseColor" format="color" />
         <attr name="suwColorPrimary" />
         <attr name="suwFooter" format="reference" />
+        <attr name="suwLayoutFullscreen" format="boolean" />
+        <attr name="suwStickyHeader" format="reference" />
     </declare-styleable>
 
     <declare-styleable name="SuwStatusBarBackgroundLayout">

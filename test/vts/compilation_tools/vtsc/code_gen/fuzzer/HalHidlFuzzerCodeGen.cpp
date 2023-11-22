@@ -111,8 +111,7 @@ void HalHidlFuzzerCodeGen::GenerateReturnCallback(
   size_t num_cb_arg = func_spec.return_type_hidl_size();
   for (size_t i = 0; i < num_cb_arg; ++i) {
     const auto &return_val = func_spec.return_type_hidl(i);
-    out << GetCppVariableType(return_val, nullptr,
-                              IsConstType(return_val.type()));
+    out << GetCppVariableType(return_val, IsConstType(return_val.type()));
     out << " arg" << i << ((i != num_cb_arg - 1) ? ", " : "");
   }
   out << "){};\n\n";

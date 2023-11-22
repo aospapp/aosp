@@ -30,6 +30,7 @@ import com.android.phone.common.util.ViewUtil;
 public class ResizingTextEditText extends EditText {
     private final int mOriginalTextSize;
     private final int mMinTextSize;
+    private boolean mIsResizeEnabled = true;
 
     public ResizingTextEditText(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -43,12 +44,20 @@ public class ResizingTextEditText extends EditText {
     @Override
     protected void onTextChanged(CharSequence text, int start, int lengthBefore, int lengthAfter) {
         super.onTextChanged(text, start, lengthBefore, lengthAfter);
-        ViewUtil.resizeText(this, mOriginalTextSize, mMinTextSize);
+        if (mIsResizeEnabled) {
+            ViewUtil.resizeText(this, mOriginalTextSize, mMinTextSize);
+        }
     }
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
-        ViewUtil.resizeText(this, mOriginalTextSize, mMinTextSize);
+        if (mIsResizeEnabled) {
+            ViewUtil.resizeText(this, mOriginalTextSize, mMinTextSize);
+        }
+    }
+
+    public void setResizeEnabled(boolean isEnabled) {
+        mIsResizeEnabled = isEnabled;
     }
 }

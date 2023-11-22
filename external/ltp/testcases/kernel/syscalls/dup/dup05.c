@@ -116,6 +116,7 @@
 #include <string.h>
 #include <signal.h>
 #include "test.h"
+#include "safe_macros.h"
 
 void setup();
 void cleanup();
@@ -146,9 +147,7 @@ int main(int ac, char **av)
 			tst_resm(TPASS, "dup returned %ld",
 				 TEST_RETURN);
 
-			if (close(TEST_RETURN) == -1)
-				tst_brkm(TBROK | TERRNO, cleanup,
-					 "close failed");
+			SAFE_CLOSE(cleanup, TEST_RETURN);
 		}
 
 	}
@@ -168,8 +167,7 @@ void setup(void)
 	tst_tmpdir();
 
 	sprintf(Fname, "dupfile");
-	if (mkfifo(Fname, 0777) == -1)
-		tst_brkm(TBROK, cleanup, "mkfifo failed");
+	SAFE_MKFIFO(cleanup, Fname, 0777);
 	if ((fd = open(Fname, O_RDWR, 0700)) == -1)
 		tst_brkm(TBROK, cleanup, "open failed");
 }

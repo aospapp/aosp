@@ -36,27 +36,49 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import libcore.util.CountryTimeZones.TimeZoneMapping;
 
 /**
- * A structure that can find matching time zones.
+ * A class that can find matching time zones by loading data from the tzlookup.xml file.
  */
-public class TimeZoneFinder {
+public final class TimeZoneFinder {
 
     private static final String TZLOOKUP_FILE_NAME = "tzlookup.xml";
+
+    // Root element. e.g. <timezones ianaversion="2017b">
     private static final String TIMEZONES_ELEMENT = "timezones";
+    private static final String IANA_VERSION_ATTRIBUTE = "ianaversion";
+
+    // Country zones section. e.g. <countryzones>
     private static final String COUNTRY_ZONES_ELEMENT = "countryzones";
+
+    // Country data. e.g. <country code="gb" default="Europe/London" everutc="y">
     private static final String COUNTRY_ELEMENT = "country";
     private static final String COUNTRY_CODE_ATTRIBUTE = "code";
-    private static final String ID_ELEMENT = "id";
+    private static final String DEFAULT_TIME_ZONE_ID_ATTRIBUTE = "default";
+    private static final String EVER_USES_UTC_ATTRIBUTE = "everutc";
+
+    // Country -> Time zone mapping. e.g. <id>ZoneId</id>, <id picker="n">ZoneId</id>,
+    // <id notafter={timestamp}>ZoneId</id>
+    // The default for the picker attribute when unspecified is "y".
+    // The notafter attribute is optional. It specifies a timestamp (time in milliseconds from Unix
+    // epoch start) after which the zone is not (effectively) in use. If unspecified the zone is in
+    // use forever.
+    private static final String ZONE_ID_ELEMENT = "id";
+    private static final String ZONE_SHOW_IN_PICKER_ATTRIBUTE = "picker";
+    private static final String ZONE_NOT_USED_AFTER_ATTRIBUTE = "notafter";
+
+    private static final String TRUE_ATTRIBUTE_VALUE = "y";
+    private static final String FALSE_ATTRIBUTE_VALUE = "n";
 
     private static TimeZoneFinder instance;
 
     private final ReaderSupplier xmlSource;
 
-    // Cached fields for the last country looked up.
-    private String lastCountryIso;
-    private List<TimeZone> lastCountryTimeZones;
+    // Cached field for the last country looked up.
+    private CountryTimeZones lastCountryTimeZones;
 
     private TimeZoneFinder(ReaderSupplier xmlSource) {
         this.xmlSource = xmlSource;
@@ -124,9 +146,39 @@ public class TimeZoneFinder {
      */
     public void validate() throws IOException {
         try {
-            processXml(new CountryZonesValidator());
+            processXml(new TimeZonesValidator());
         } catch (XmlPullParserException e) {
             throw new IOException("Parsing error", e);
+        }
+    }
+
+    /**
+     * Returns the IANA rules version associated with the data. If there is no version information
+     * or there is a problem reading the file then {@code null} is returned.
+     */
+    public String getIanaVersion() {
+        IanaVersionExtractor ianaVersionExtractor = new IanaVersionExtractor();
+        try {
+            processXml(ianaVersionExtractor);
+            return ianaVersionExtractor.getIanaVersion();
+        } catch (XmlPullParserException | IOException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Loads all the country &lt;-&gt; time zone mapping data into memory. This method can return
+     * {@code null} in the event of an error while reading the underlying data files.
+     */
+    public CountryZonesFinder getCountryZonesFinder() {
+        CountryZonesLookupExtractor extractor = new CountryZonesLookupExtractor();
+        try {
+            processXml(extractor);
+
+            return extractor.getCountryZonesLookup();
+        } catch (XmlPullParserException | IOException e) {
+            System.logW("Error reading country zones ", e);
+            return null;
         }
     }
 
@@ -141,100 +193,100 @@ public class TimeZoneFinder {
      * Otherwise the first match found is returned.
      */
     public TimeZone lookupTimeZoneByCountryAndOffset(
-            String countryIso, int offsetSeconds, boolean isDst, long whenMillis, TimeZone bias) {
+            String countryIso, int offsetMillis, boolean isDst, long whenMillis, TimeZone bias) {
 
-        List<TimeZone> candidates = lookupTimeZonesByCountry(countryIso);
-        if (candidates == null || candidates.isEmpty()) {
+        CountryTimeZones countryTimeZones = lookupCountryTimeZones(countryIso);
+        if (countryTimeZones == null) {
             return null;
         }
-
-        TimeZone firstMatch = null;
-        for (int i = 0; i < candidates.size(); i++) {
-            TimeZone match = candidates.get(i);
-            if (!offsetMatchesAtTime(match, offsetSeconds, isDst, whenMillis)) {
-                continue;
-            }
-
-            if (firstMatch == null) {
-                if (bias == null) {
-                    // No bias, so we can stop at the first match.
-                    return match;
-                }
-                // We have to carry on checking in case the bias matches. We want to return the
-                // first if it doesn't, though.
-                firstMatch = match;
-            }
-
-            // Check if match is also the bias. There must be a bias otherwise we'd have terminated
-            // already.
-            if (match.getID().equals(bias.getID())) {
-                return match;
-            }
-        }
-        // Return firstMatch, which can be null if there was no match.
-        return firstMatch;
+        CountryTimeZones.OffsetResult offsetResult =
+                countryTimeZones.lookupByOffsetWithBias(offsetMillis, isDst, whenMillis, bias);
+        return offsetResult != null ? offsetResult.mTimeZone : null;
     }
 
     /**
-     * Returns {@code true} if the specified offset, DST state and time would be valid in the
-     * timeZone.
+     * Returns a "default" time zone ID known to be used in the specified country. This is
+     * the time zone ID that can be used if only the country code is known and can be presumed to be
+     * the "best" choice in the absence of other information. For countries with more than one zone
+     * the time zone will not be correct for everybody.
+     *
+     * <p>If the country code is not recognized or there is an error during lookup this can return
+     * null.
      */
-    private static boolean offsetMatchesAtTime(TimeZone timeZone, int offsetMillis, boolean isDst,
-            long whenMillis) {
-        int[] offsets = new int[2];
-        timeZone.getOffset(whenMillis, false /* local */, offsets);
-
-        // offsets[1] == 0 when the zone is not in DST.
-        boolean zoneIsDst = offsets[1] != 0;
-        if (isDst != zoneIsDst) {
-            return false;
-        }
-        return offsetMillis == (offsets[0] + offsets[1]);
+    public String lookupDefaultTimeZoneIdByCountry(String countryIso) {
+        CountryTimeZones countryTimeZones = lookupCountryTimeZones(countryIso);
+        return countryTimeZones == null ? null : countryTimeZones.getDefaultTimeZoneId();
     }
 
     /**
      * Returns an immutable list of frozen ICU time zones known to be used in the specified country.
      * If the country code is not recognized or there is an error during lookup this can return
      * null. The TimeZones returned will never contain {@link TimeZone#UNKNOWN_ZONE}. This method
-     * can return an empty list in a case when the underlying configuration references only unknown
+     * can return an empty list in a case when the underlying data files reference only unknown
      * zone IDs.
      */
     public List<TimeZone> lookupTimeZonesByCountry(String countryIso) {
-        synchronized(this) {
-            if (countryIso.equals(lastCountryIso)) {
+        CountryTimeZones countryTimeZones = lookupCountryTimeZones(countryIso);
+        return countryTimeZones == null ? null : countryTimeZones.getIcuTimeZones();
+    }
+
+    /**
+     * Returns an immutable list of time zone IDs known to be used in the specified country.
+     * If the country code is not recognized or there is an error during lookup this can return
+     * null. The IDs returned will all be valid for use with
+     * {@link java.util.TimeZone#getTimeZone(String)} and
+     * {@link android.icu.util.TimeZone#getTimeZone(String)}. This method can return an empty list
+     * in a case when the underlying data files reference only unknown zone IDs.
+     */
+    public List<String> lookupTimeZoneIdsByCountry(String countryIso) {
+        CountryTimeZones countryTimeZones = lookupCountryTimeZones(countryIso);
+        return countryTimeZones == null
+                ? null : extractTimeZoneIds(countryTimeZones.getTimeZoneMappings());
+    }
+
+    /**
+     * Returns a {@link CountryTimeZones} object associated with the specified country code.
+     * Caching is handled as needed. If the country code is not recognized or there is an error
+     * during lookup this method can return null.
+     */
+    public CountryTimeZones lookupCountryTimeZones(String countryIso) {
+        synchronized (this) {
+            if (lastCountryTimeZones != null && lastCountryTimeZones.isForCountryCode(countryIso)) {
                 return lastCountryTimeZones;
             }
         }
 
-        CountryZonesExtractor extractor = new CountryZonesExtractor(countryIso);
-        List<TimeZone> countryTimeZones = null;
+        SelectiveCountryTimeZonesExtractor extractor =
+                new SelectiveCountryTimeZonesExtractor(countryIso);
         try {
             processXml(extractor);
-            countryTimeZones = extractor.getMatchedZones();
-        } catch (IOException e) {
+
+            CountryTimeZones countryTimeZones = extractor.getValidatedCountryTimeZones();
+            if (countryTimeZones == null) {
+                // None matched. Return the null but don't change the cached value.
+                return null;
+            }
+
+            // Update the cached value.
+            synchronized (this) {
+                lastCountryTimeZones = countryTimeZones;
+            }
+            return countryTimeZones;
+        } catch (XmlPullParserException | IOException e) {
             System.logW("Error reading country zones ", e);
 
-            // Clear the cached code so we will try again next time.
-            countryIso = null;
-        } catch (XmlPullParserException e) {
-            System.logW("Error reading country zones ", e);
-            // We want to cache the null. This won't get better over time.
+            // Error - don't change the cached value.
+            return null;
         }
-
-        synchronized(this) {
-            lastCountryIso = countryIso;
-            lastCountryTimeZones = countryTimeZones;
-        }
-        return countryTimeZones;
     }
 
     /**
-     * Processes the XML, applying the {@link CountryZonesProcessor} to the &lt;countryzones&gt;
+     * Processes the XML, applying the {@link TimeZonesProcessor} to the &lt;countryzones&gt;
      * element. Processing can terminate early if the
-     * {@link CountryZonesProcessor#process(String, List, String)} returns
-     * {@link CountryZonesProcessor#HALT} or it throws an exception.
+     * {@link TimeZonesProcessor#processCountryZones(String, String, boolean, List, String)} returns
+     * {@link TimeZonesProcessor#HALT} or it throws an exception.
      */
-    private void processXml(CountryZonesProcessor processor)
+    private void processXml(TimeZonesProcessor processor)
             throws XmlPullParserException, IOException {
         try (Reader reader = xmlSource.get()) {
             XmlPullParserFactory xmlPullParserFactory = XmlPullParserFactory.newInstance();
@@ -245,14 +297,16 @@ public class TimeZoneFinder {
 
             /*
              * The expected XML structure is:
-             * <timezones>
+             * <timezones ianaversion="2017b">
              *   <countryzones>
-             *     <country code="us">
+             *     <country code="us" default="America/New_York">
              *       <id>America/New_York"</id>
+             *       ...
+             *       <id picker="n">America/Indiana/Vincennes</id>
              *       ...
              *       <id>America/Los_Angeles</id>
              *     </country>
-             *     <country code="gb">
+             *     <country code="gb" default="Europe/London">
              *       <id>Europe/London</id>
              *     </country>
              *   </countryzones>
@@ -261,11 +315,19 @@ public class TimeZoneFinder {
 
             findRequiredStartTag(parser, TIMEZONES_ELEMENT);
 
+            // We do not require the ianaversion attribute be present. It is metadata that helps
+            // with versioning but is not required.
+            String ianaVersion = parser.getAttributeValue(
+                    null /* namespace */, IANA_VERSION_ATTRIBUTE);
+            if (processor.processHeader(ianaVersion) == TimeZonesProcessor.HALT) {
+                return;
+            }
+
             // There is only one expected sub-element <countryzones> in the format currently, skip
             // over anything before it.
             findRequiredStartTag(parser, COUNTRY_ZONES_ELEMENT);
 
-            if (processCountryZones(parser, processor) == CountryZonesProcessor.HALT) {
+            if (processCountryZones(parser, processor) == TimeZonesProcessor.HALT) {
                 return;
             }
 
@@ -285,7 +347,7 @@ public class TimeZoneFinder {
     }
 
     private static boolean processCountryZones(XmlPullParser parser,
-            CountryZonesProcessor processor) throws IOException, XmlPullParserException {
+            TimeZonesProcessor processor) throws IOException, XmlPullParserException {
 
         // Skip over any unexpected elements and process <country> elements.
         while (findOptionalStartTag(parser, COUNTRY_ELEMENT)) {
@@ -298,12 +360,27 @@ public class TimeZoneFinder {
                     throw new XmlPullParserException(
                             "Unable to find country code: " + parser.getPositionDescription());
                 }
+                String defaultTimeZoneId = parser.getAttributeValue(
+                        null /* namespace */, DEFAULT_TIME_ZONE_ID_ATTRIBUTE);
+                if (defaultTimeZoneId == null || defaultTimeZoneId.isEmpty()) {
+                    throw new XmlPullParserException("Unable to find default time zone ID: "
+                            + parser.getPositionDescription());
+                }
+                Boolean everUsesUtc = parseBooleanAttribute(
+                        parser, EVER_USES_UTC_ATTRIBUTE, null /* defaultValue */);
+                if (everUsesUtc == null) {
+                    // There is no valid default: we require this to be specified.
+                    throw new XmlPullParserException(
+                            "Unable to find UTC hint attribute (" + EVER_USES_UTC_ATTRIBUTE + "): "
+                            + parser.getPositionDescription());
+                }
 
                 String debugInfo = parser.getPositionDescription();
-                List<String> timeZoneIds = parseZoneIds(parser);
-                if (processor.process(code, timeZoneIds, debugInfo)
-                        == CountryZonesProcessor.HALT) {
-                    return CountryZonesProcessor.HALT;
+                List<TimeZoneMapping> timeZoneMappings = parseTimeZoneMappings(parser);
+                boolean result = processor.processCountryZones(code, defaultTimeZoneId, everUsesUtc,
+                        timeZoneMappings, debugInfo);
+                if (result == TimeZonesProcessor.HALT) {
+                    return TimeZonesProcessor.HALT;
                 }
             }
 
@@ -311,26 +388,76 @@ public class TimeZoneFinder {
             checkOnEndTag(parser, COUNTRY_ELEMENT);
         }
 
-        return CountryZonesExtractor.CONTINUE;
+        return TimeZonesProcessor.CONTINUE;
     }
 
-    private static List<String> parseZoneIds(XmlPullParser parser)
+    private static List<TimeZoneMapping> parseTimeZoneMappings(XmlPullParser parser)
             throws IOException, XmlPullParserException {
-        List<String> timeZones = new ArrayList<>();
+        List<TimeZoneMapping> timeZoneMappings = new ArrayList<>();
 
         // Skip over any unexpected elements and process <id> elements.
-        while (findOptionalStartTag(parser, ID_ELEMENT)) {
+        while (findOptionalStartTag(parser, ZONE_ID_ELEMENT)) {
+            // The picker attribute is optional and defaulted to true.
+            boolean showInPicker = parseBooleanAttribute(
+                    parser, ZONE_SHOW_IN_PICKER_ATTRIBUTE, true /* defaultValue */);
+            Long notUsedAfter = parseLongAttribute(
+                    parser, ZONE_NOT_USED_AFTER_ATTRIBUTE, null /* defaultValue */);
             String zoneIdString = consumeText(parser);
 
             // Make sure we are on the </id> element.
-            checkOnEndTag(parser, ID_ELEMENT);
+            checkOnEndTag(parser, ZONE_ID_ELEMENT);
 
-            // Process the zone ID.
-            timeZones.add(zoneIdString);
+            // Process the TimeZoneMapping.
+            if (zoneIdString == null || zoneIdString.length() == 0) {
+                throw new XmlPullParserException("Missing text for " + ZONE_ID_ELEMENT + "): "
+                        + parser.getPositionDescription());
+            }
+
+            TimeZoneMapping timeZoneMapping =
+                    new TimeZoneMapping(zoneIdString, showInPicker, notUsedAfter);
+            timeZoneMappings.add(timeZoneMapping);
         }
 
         // The list is made unmodifiable to avoid callers changing it.
-        return Collections.unmodifiableList(timeZones);
+        return Collections.unmodifiableList(timeZoneMappings);
+    }
+
+    /**
+     * Parses an attribute value, which must be either {@code null} or a valid signed long value.
+     * If the attribute value is {@code null} then {@code defaultValue} is returned. If the
+     * attribute is present but not a valid long value then an XmlPullParserException is thrown.
+     */
+    private static Long parseLongAttribute(XmlPullParser parser, String attributeName,
+            Long defaultValue) throws XmlPullParserException {
+        String attributeValueString = parser.getAttributeValue(null /* namespace */, attributeName);
+        if (attributeValueString == null) {
+            return defaultValue;
+        }
+        try {
+            return Long.parseLong(attributeValueString);
+        } catch (NumberFormatException e) {
+            throw new XmlPullParserException("Attribute \"" + attributeName
+                    + "\" is not a long value: " + parser.getPositionDescription());
+        }
+    }
+
+    /**
+     * Parses an attribute value, which must be either {@code null}, {@code "y"} or {@code "n"}.
+     * If the attribute value is {@code null} then {@code defaultValue} is returned. If the
+     * attribute is present but not "y" or "n" then an XmlPullParserException is thrown.
+     */
+    private static Boolean parseBooleanAttribute(XmlPullParser parser,
+            String attributeName, Boolean defaultValue) throws XmlPullParserException {
+        String attributeValueString = parser.getAttributeValue(null /* namespace */, attributeName);
+        if (attributeValueString == null) {
+            return defaultValue;
+        }
+        boolean isTrue = TRUE_ATTRIBUTE_VALUE.equals(attributeValueString);
+        if (!(isTrue || FALSE_ATTRIBUTE_VALUE.equals(attributeValueString))) {
+            throw new XmlPullParserException("Attribute \"" + attributeName
+                    + "\" is not \"y\" or \"n\": " + parser.getPositionDescription());
+        }
+        return isTrue;
     }
 
     private static void findRequiredStartTag(XmlPullParser parser, String elementName)
@@ -467,91 +594,151 @@ public class TimeZoneFinder {
     }
 
     /**
-     * Processes &lt;countryzones&gt; data.
+     * Processes &lt;timezones&gt; data.
      */
-    private interface CountryZonesProcessor {
+    private interface TimeZonesProcessor {
 
         boolean CONTINUE = true;
         boolean HALT = false;
 
         /**
-         * Returns {@code #CONTINUE} if processing of the XML should continue, {@code HALT} if it
-         * should stop (but without considering this an error). Problems with parser are reported as
-         * an exception.
+         * Return {@link #CONTINUE} if processing of the XML should continue, {@link #HALT} if it
+         * should stop (but without considering this an error). Problems with the data are
+         * reported as an exception.
+         *
+         * <p>The default implementation returns {@link #CONTINUE}.
          */
-        boolean process(String countryCode, List<String> timeZoneIds, String debugInfo)
-                throws XmlPullParserException;
+        default boolean processHeader(String ianaVersion) throws XmlPullParserException {
+            return CONTINUE;
+        }
+
+        /**
+         * Returns {@link #CONTINUE} if processing of the XML should continue, {@link #HALT} if it
+         * should stop (but without considering this an error). Problems with the data are
+         * reported as an exception.
+         *
+         * <p>The default implementation returns {@link #CONTINUE}.
+         */
+        default boolean processCountryZones(String countryIso, String defaultTimeZoneId,
+                boolean everUsesUtc, List<TimeZoneMapping> timeZoneMappings, String debugInfo)
+                throws XmlPullParserException {
+            return CONTINUE;
+        }
     }
 
     /**
-     * Validates &lt;countryzones&gt; elements. To be valid the country ISO code must be unique
-     * and it must not be empty.
+     * Validates &lt;countryzones&gt; elements. Intended to be used before a proposed installation
+     * of new data. To be valid the country ISO code must be normalized, unique, the default time
+     * zone ID must be one of the time zones IDs and the time zone IDs list must not be empty. The
+     * IDs themselves are not checked against other data to see if they are recognized because other
+     * classes will not have been updated with the associated new time zone data yet and so will not
+     * be aware of newly added IDs.
      */
-    private static class CountryZonesValidator implements CountryZonesProcessor {
+    private static class TimeZonesValidator implements TimeZonesProcessor {
 
         private final Set<String> knownCountryCodes = new HashSet<>();
 
         @Override
-        public boolean process(String countryCode, List<String> timeZoneIds, String debugInfo)
+        public boolean processCountryZones(String countryIso, String defaultTimeZoneId,
+                boolean everUsesUtc, List<TimeZoneMapping> timeZoneMappings, String debugInfo)
                 throws XmlPullParserException {
-            if (knownCountryCodes.contains(countryCode)) {
-                throw new XmlPullParserException("Second entry for country code: " + countryCode
+            if (!normalizeCountryIso(countryIso).equals(countryIso)) {
+                throw new XmlPullParserException("Country code: " + countryIso
+                        + " is not normalized at " + debugInfo);
+            }
+            if (knownCountryCodes.contains(countryIso)) {
+                throw new XmlPullParserException("Second entry for country code: " + countryIso
                         + " at " + debugInfo);
             }
-            if (timeZoneIds.isEmpty()) {
-                throw new XmlPullParserException("No time zone IDs for country code: " + countryCode
+            if (timeZoneMappings.isEmpty()) {
+                throw new XmlPullParserException("No time zone IDs for country code: " + countryIso
                         + " at " + debugInfo);
             }
-
-            // We don't validate the zone IDs - they may be new and we can't easily check them
-            // against other timezone data that may be associated with this file.
-
-            knownCountryCodes.add(countryCode);
+            if (!TimeZoneMapping.containsTimeZoneId(timeZoneMappings, defaultTimeZoneId)) {
+                throw new XmlPullParserException("defaultTimeZoneId for country code: "
+                        + countryIso + " is not one of the zones " + timeZoneMappings + " at "
+                        + debugInfo);
+            }
+            knownCountryCodes.add(countryIso);
 
             return CONTINUE;
         }
     }
 
     /**
-     * Extracts the zones associated with a country code, halting when the country code is matched
-     * and making them available via {@link #getMatchedZones()}.
+     * Reads just the IANA version from the file header. The version is then available via
+     * {@link #getIanaVersion()}.
      */
-    private static class CountryZonesExtractor implements CountryZonesProcessor {
+    private static class IanaVersionExtractor implements TimeZonesProcessor {
+
+        private String ianaVersion;
+
+        @Override
+        public boolean processHeader(String ianaVersion) throws XmlPullParserException {
+            this.ianaVersion = ianaVersion;
+            return HALT;
+        }
+
+        public String getIanaVersion() {
+            return ianaVersion;
+        }
+    }
+
+    /**
+     * Reads all country time zone information into memory and makes it available as a
+     * {@link CountryZonesFinder}.
+     */
+    private static class CountryZonesLookupExtractor implements TimeZonesProcessor {
+        private List<CountryTimeZones> countryTimeZonesList = new ArrayList<>(250 /* default */);
+
+        @Override
+        public boolean processCountryZones(String countryIso, String defaultTimeZoneId,
+                boolean everUsesUtc, List<TimeZoneMapping> timeZoneMappings, String debugInfo)
+                throws XmlPullParserException {
+
+            CountryTimeZones countryTimeZones = CountryTimeZones.createValidated(
+                    countryIso, defaultTimeZoneId, everUsesUtc, timeZoneMappings, debugInfo);
+            countryTimeZonesList.add(countryTimeZones);
+            return CONTINUE;
+        }
+
+        CountryZonesFinder getCountryZonesLookup() {
+            return new CountryZonesFinder(countryTimeZonesList);
+        }
+    }
+
+    /**
+     * Extracts <em>validated</em> time zones information associated with a specific country code.
+     * Processing is halted when the country code is matched and the validated result is also made
+     * available via {@link #getValidatedCountryTimeZones()}.
+     */
+    private static class SelectiveCountryTimeZonesExtractor implements TimeZonesProcessor {
 
         private final String countryCodeToMatch;
-        private List<TimeZone> matchedZones;
+        private CountryTimeZones validatedCountryTimeZones;
 
-        private CountryZonesExtractor(String countryCodeToMatch) {
-            this.countryCodeToMatch = countryCodeToMatch;
+        private SelectiveCountryTimeZonesExtractor(String countryCodeToMatch) {
+            this.countryCodeToMatch = normalizeCountryIso(countryCodeToMatch);
         }
 
         @Override
-        public boolean process(String countryCode, List<String> timeZoneIds, String debugInfo) {
-            if (!countryCodeToMatch.equals(countryCode)) {
+        public boolean processCountryZones(String countryIso, String defaultTimeZoneId,
+                boolean everUsesUtc, List<TimeZoneMapping> timeZoneMappings, String debugInfo) {
+            countryIso = normalizeCountryIso(countryIso);
+            if (!countryCodeToMatch.equals(countryIso)) {
                 return CONTINUE;
             }
+            validatedCountryTimeZones = CountryTimeZones.createValidated(countryIso,
+                    defaultTimeZoneId, everUsesUtc, timeZoneMappings, debugInfo);
 
-            List<TimeZone> timeZones = new ArrayList<>();
-            for (String zoneIdString : timeZoneIds) {
-                TimeZone tz = TimeZone.getTimeZone(zoneIdString);
-                if (tz.getID().equals(TimeZone.UNKNOWN_ZONE_ID)) {
-                    System.logW("Skipping invalid zone: " + zoneIdString + " at " + debugInfo);
-                } else {
-                    // The zone is frozen to prevent mutation by callers.
-                    timeZones.add(tz.freeze());
-                }
-            }
-            matchedZones = Collections.unmodifiableList(timeZones);
             return HALT;
         }
 
         /**
-         * Returns the matched zones, or {@code null} if there were no matches. Unknown zone IDs are
-         * ignored so the list can be empty if there were no zones or the zone IDs were not
-         * recognized.
+         * Returns the CountryTimeZones that matched, or {@code null} if there were no matches.
          */
-        List<TimeZone> getMatchedZones() {
-            return matchedZones;
+        CountryTimeZones getValidatedCountryTimeZones() {
+            return validatedCountryTimeZones;
         }
     }
 
@@ -576,5 +763,19 @@ public class TimeZoneFinder {
         static ReaderSupplier forString(String xml) {
             return () -> new StringReader(xml);
         }
+    }
+
+    private static List<String> extractTimeZoneIds(List<TimeZoneMapping> timeZoneMappings) {
+        List<String> zoneIds = new ArrayList<>(timeZoneMappings.size());
+        for (TimeZoneMapping timeZoneMapping : timeZoneMappings) {
+            zoneIds.add(timeZoneMapping.timeZoneId);
+        }
+        return Collections.unmodifiableList(zoneIds);
+    }
+
+    static String normalizeCountryIso(String countryIso) {
+        // Lowercase ASCII is normalized for the purposes of the input files and the code in this
+        // class and related classes.
+        return countryIso.toLowerCase(Locale.US);
     }
 }

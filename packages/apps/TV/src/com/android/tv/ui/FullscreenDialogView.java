@@ -26,7 +26,6 @@ import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.animation.AnimationUtils;
 import android.widget.FrameLayout;
-
 import com.android.tv.MainActivity;
 import com.android.tv.R;
 import com.android.tv.dialog.FullscreenDialogFragment;
@@ -58,41 +57,39 @@ public class FullscreenDialogView extends FrameLayout
 
     public FullscreenDialogView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
-        mLinearOutSlowIn = AnimationUtils.loadInterpolator(context,
-                android.R.interpolator.linear_out_slow_in);
-        mFastOutLinearIn = AnimationUtils.loadInterpolator(context,
-                android.R.interpolator.fast_out_linear_in);
-        getViewTreeObserver().addOnGlobalLayoutListener(
-                new ViewTreeObserver.OnGlobalLayoutListener() {
-                    @Override
-                    public void onGlobalLayout() {
-                        getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                        startEnterAnimation();
-                    }
-                });
+        mLinearOutSlowIn =
+                AnimationUtils.loadInterpolator(context, android.R.interpolator.linear_out_slow_in);
+        mFastOutLinearIn =
+                AnimationUtils.loadInterpolator(context, android.R.interpolator.fast_out_linear_in);
+        getViewTreeObserver()
+                .addOnGlobalLayoutListener(
+                        new ViewTreeObserver.OnGlobalLayoutListener() {
+                            @Override
+                            public void onGlobalLayout() {
+                                getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                                startEnterAnimation();
+                            }
+                        });
     }
 
     protected MainActivity getActivity() {
         return mActivity;
     }
 
-    /**
-     * Gets the host {@link Dialog}.
-     */
+    /** Gets the host {@link Dialog}. */
     protected Dialog getDialog() {
         return mDialog;
     }
 
-    /**
-     * Dismisses the host {@link Dialog}.
-     */
+    /** Dismisses the host {@link Dialog}. */
     protected void dismiss() {
-        startExitAnimation(new Runnable() {
-            @Override
-            public void run() {
-                mDialog.dismiss();
-            }
-        });
+        startExitAnimation(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        mDialog.dismiss();
+                    }
+                });
     }
 
     @Override
@@ -102,51 +99,48 @@ public class FullscreenDialogView extends FrameLayout
     }
 
     @Override
-    public void onBackPressed() { }
+    public void onBackPressed() {}
 
     @Override
-    public void onDestroy() { }
+    public void onDestroy() {}
 
-    /**
-     * Transitions to another view inside the host {@link Dialog}.
-     */
+    /** Transitions to another view inside the host {@link Dialog}. */
     public void transitionTo(final FullscreenDialogView v) {
         mSkipExitAlphaAnimation = true;
         v.mSkipEnterAlphaAnimation = true;
         v.initialize(mActivity, mDialog);
-        startExitAnimation(new Runnable() {
-            @Override
-            public void run() {
-                new Handler().postDelayed(new Runnable() {
+        startExitAnimation(
+                new Runnable() {
                     @Override
                     public void run() {
-                        v.initialize(getActivity(), getDialog());
-                        getDialog().setContentView(v);
+                        new Handler()
+                                .postDelayed(
+                                        new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                v.initialize(getActivity(), getDialog());
+                                                getDialog().setContentView(v);
+                                            }
+                                        },
+                                        TRANSITION_INTERVAL_MS);
                     }
-                }, TRANSITION_INTERVAL_MS);
-            }
-        });
+                });
     }
 
-    /**
-     * Called when an enter animation starts. Sub-view specific animation can be implemented.
-     */
-    protected void onStartEnterAnimation(TimeInterpolator interpolator, long duration) {
-    }
+    /** Called when an enter animation starts. Sub-view specific animation can be implemented. */
+    protected void onStartEnterAnimation(TimeInterpolator interpolator, long duration) {}
 
-    /**
-     * Called when an exit animation starts. Sub-view specific animation can be implemented.
-     */
-    protected void onStartExitAnimation(TimeInterpolator interpolator, long duration,
-            Runnable onAnimationEnded) {
-    }
+    /** Called when an exit animation starts. Sub-view specific animation can be implemented. */
+    protected void onStartExitAnimation(
+            TimeInterpolator interpolator, long duration, Runnable onAnimationEnded) {}
 
     private void startEnterAnimation() {
         if (DEBUG) Log.d(TAG, "start an enter animation");
         View backgroundView = findViewById(R.id.background);
         if (!mSkipEnterAlphaAnimation) {
             backgroundView.setAlpha(0);
-            backgroundView.animate()
+            backgroundView
+                    .animate()
                     .alpha(1.0f)
                     .setInterpolator(mLinearOutSlowIn)
                     .setDuration(FADE_IN_DURATION_MS)
@@ -160,7 +154,8 @@ public class FullscreenDialogView extends FrameLayout
         if (DEBUG) Log.d(TAG, "start an exit animation");
         View backgroundView = findViewById(R.id.background);
         if (!mSkipExitAlphaAnimation) {
-            backgroundView.animate()
+            backgroundView
+                    .animate()
                     .alpha(0.0f)
                     .setInterpolator(mFastOutLinearIn)
                     .setDuration(FADE_OUT_DURATION_MS)

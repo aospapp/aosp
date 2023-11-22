@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Usunąć wszystkie informacje i kontakty?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Dodanie informacji medycznych i kontaktów alarmowych może pomóc ratownikom w sytuacji alarmowej.\n\nKażdy będzie mógł odczytać te informacje na ekranie blokady oraz zadzwonić do Twoich kontaktów bez konieczności odblokowywania telefonu – wystarczy, że kliknie nazwę kontaktu."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Dodawanie informacji alarmowych"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Pomóż ratownikom znaleźć ważne informacje"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Ratownicy będą mogli zobaczyć informacje o Tobie"</string>
 </resources>

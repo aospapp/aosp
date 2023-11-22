@@ -68,23 +68,23 @@ class FuguRemote(GenericRelayDevice):
         Holds down the 'Home' and 'Back' buttons for a little over 5 seconds.
         """
         with SynchronizeRelays():
-            self.relays[Buttons.HOME.value].set_nc()
-            self.relays[Buttons.BACK.value].set_nc()
+            self.hold_down(Buttons.HOME.value)
+            self.hold_down(Buttons.BACK.value)
 
         time.sleep(PAIRING_MODE_WAIT_TIME)
 
         with SynchronizeRelays():
-            self.relays[Buttons.HOME.value].set_no()
-            self.relays[Buttons.BACK.value].set_no()
+            self.release(Buttons.HOME.value)
+            self.release(Buttons.BACK.value)
 
     def press_play_pause(self):
         """Briefly presses the Play/Pause button."""
-        self.relays[Buttons.PLAY_PAUSE.value].set_nc_for()
+        self.press(Buttons.PLAY_PAUSE.value)
 
     def press_home(self):
         """Briefly presses the Home button."""
-        self.relays[Buttons.HOME.value].set_nc_for()
+        self.press(Buttons.HOME.value)
 
     def press_back(self):
         """Briefly presses the Back button."""
-        self.relays[Buttons.BACK.value].set_nc_for()
+        self.press(Buttons.BACK.value)

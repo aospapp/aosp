@@ -281,6 +281,7 @@ public class Errors {
   public static final Error REMOVED_DEPRECATED_CLASS = new Error(28, REMOVED_CLASS);
   public static final Error REMOVED_DEPRECATED_METHOD = new Error(29, REMOVED_METHOD);
   public static final Error REMOVED_DEPRECATED_FIELD = new Error(30, REMOVED_FIELD);
+  public static final Error ADDED_ABSTRACT_METHOD = new Error(31, ADDED_METHOD);
 
   // Errors in javadoc generation
   public static final Error UNRESOLVED_LINK = new Error(101, LINT);

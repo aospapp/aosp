@@ -22,10 +22,11 @@
 
 #include "base/dumpable.h"
 #include "base/histogram-inl.h"
-#include "base/logging.h"
+#include "base/logging.h"  // For VLOG_IS_ON.
 #include "base/mutex-inl.h"
 #include "base/systrace.h"
 #include "base/time_utils.h"
+#include "base/utils.h"
 #include "gc/accounting/heap_bitmap.h"
 #include "gc/gc_pause_listener.h"
 #include "gc/heap.h"
@@ -34,7 +35,6 @@
 #include "runtime.h"
 #include "thread-current-inl.h"
 #include "thread_list.h"
-#include "utils.h"
 
 namespace art {
 namespace gc {

@@ -1,31 +1,7 @@
 /*
  * Copyright (c) 2014, ARM Limited and Contributors. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this
- * list of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * Neither the name of ARM nor the names of its contributors may be used
- * to endorse or promote products derived from this software without specific
- * prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <assert.h>
@@ -67,18 +43,15 @@ typedef struct intr_type_desc {
 static intr_type_desc_t intr_type_descs[MAX_INTR_TYPES];
 
 /*******************************************************************************
- * This function validates the interrupt type. EL3 interrupts are currently not
- * supported.
+ * This function validates the interrupt type.
  ******************************************************************************/
 static int32_t validate_interrupt_type(uint32_t type)
 {
-	if (type == INTR_TYPE_EL3)
-		return -ENOTSUP;
+	if (type == INTR_TYPE_S_EL1 || type == INTR_TYPE_NS ||
+			type == INTR_TYPE_EL3)
+		return 0;
 
-	if (type != INTR_TYPE_S_EL1 && type != INTR_TYPE_NS)
-		return -EINVAL;
-
-	return 0;
+	return -EINVAL;
 }
 
 /*******************************************************************************
@@ -94,6 +67,9 @@ static int32_t validate_routing_model(uint32_t type, uint32_t flags)
 
 	if (type == INTR_TYPE_NS)
 		return validate_ns_interrupt_rm(flags);
+
+	if (type == INTR_TYPE_EL3)
+		return validate_el3_interrupt_rm(flags);
 
 	return -EINVAL;
 }
@@ -129,7 +105,12 @@ static void set_scr_el3_from_rm(uint32_t type,
 	flag = get_interrupt_rm_flag(interrupt_type_flags, security_state);
 	bit_pos = plat_interrupt_type_to_line(type, security_state);
 	intr_type_descs[type].scr_el3[security_state] = flag << bit_pos;
-	cm_write_scr_el3_bit(security_state, bit_pos, flag);
+
+	/* Update scr_el3 only if there is a context available. If not, it
+	 * will be updated later during context initialization which will obtain
+	 * the scr_el3 value to be used via get_scr_el3_from_routing_model() */
+	if (cm_get_context(security_state))
+		cm_write_scr_el3_bit(security_state, bit_pos, flag);
 }
 
 /*******************************************************************************

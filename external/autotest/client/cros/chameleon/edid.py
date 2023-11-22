@@ -22,10 +22,12 @@ def is_edid_supported(host, width, height):
     """
     # TODO: Support client test that the host is not a CrosHost.
     platform = host.get_platform()
-    prefix = platform.lower().split('_')[0]
-    if prefix in ('snow', 'spring', 'skate', 'peach', 'veyron'):
+    if platform in ('snow', 'spring', 'skate', 'pi', 'jerry'):
         if (width, height) in [(1280, 800), (1440, 900), (1600, 900),
                                (3840, 2160)]:
+            return False
+    if platform in ('kahlee',):
+        if (width, height) in [(3840, 2160)]:
             return False
     return True
 

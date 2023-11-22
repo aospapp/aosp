@@ -20,8 +20,8 @@
 #include <utils/String8.h>
 #include <ui/Region.h>
 
-#include "clz.h"
 #include "Transform.h"
+#include "clz.h"
 
 // ---------------------------------------------------------------------------
 
@@ -224,6 +224,27 @@ Rect Transform::transform(const Rect& bounds, bool roundOutwards) const
     return r;
 }
 
+FloatRect Transform::transform(const FloatRect& bounds) const
+{
+    vec2 lt(bounds.left, bounds.top);
+    vec2 rt(bounds.right, bounds.top);
+    vec2 lb(bounds.left, bounds.bottom);
+    vec2 rb(bounds.right, bounds.bottom);
+
+    lt = transform(lt);
+    rt = transform(rt);
+    lb = transform(lb);
+    rb = transform(rb);
+
+    FloatRect r;
+    r.left = min(lt[0], rt[0], lb[0], rb[0]);
+    r.top = min(lt[1], rt[1], lb[1], rb[1]);
+    r.right = max(lt[0], rt[0], lb[0], rb[0]);
+    r.bottom = max(lt[1], rt[1], lb[1], rb[1]);
+
+    return r;
+}
+
 Region Transform::transform(const Region& reg) const
 {
     Region out;
@@ -386,6 +407,23 @@ void Transform::dump(const char* name) const
     ALOGD("%.4f  %.4f  %.4f", m[0][0], m[1][0], m[2][0]);
     ALOGD("%.4f  %.4f  %.4f", m[0][1], m[1][1], m[2][1]);
     ALOGD("%.4f  %.4f  %.4f", m[0][2], m[1][2], m[2][2]);
+}
+
+Transform::orientation_flags Transform::fromRotation(ISurfaceComposer::Rotation rotation) {
+    // Convert to surfaceflinger's internal rotation type.
+    switch (rotation) {
+        case ISurfaceComposer::eRotateNone:
+            return Transform::ROT_0;
+        case ISurfaceComposer::eRotate90:
+            return Transform::ROT_90;
+        case ISurfaceComposer::eRotate180:
+            return Transform::ROT_180;
+        case ISurfaceComposer::eRotate270:
+            return Transform::ROT_270;
+        default:
+            ALOGE("Invalid rotation passed to captureScreen(): %d\n", rotation);
+            return Transform::ROT_0;
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -23,6 +23,7 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.util.Log;
@@ -51,6 +52,7 @@ public class NoProcessOutgoingCallPermissionTest extends AndroidTestCase {
      *   {@link android.Manifest.permission#PROCESS_OUTGOING_CALL}
      */
     // TODO: add back to LargeTest when test can cancel initiated call
+    @AppModeFull(reason = "Instant apps cannot start the ACTION_CALL action")
     public void testProcessOutgoingCall() {
         final PackageManager pm = getContext().getPackageManager();
         if (!pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY) ||

@@ -38,7 +38,7 @@ import android.graphics.pdf.cts.R;
 import android.graphics.pdf.PdfRenderer;
 import android.graphics.pdf.PdfRenderer.Page;
 import android.os.ParcelFileDescriptor;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
@@ -62,6 +62,7 @@ public class PdfRendererTest {
     private static final int A5_PORTRAIT_PRINTSCALING_NONE =
             R.raw.a5_portrait_rgbb_1_6_printscaling_none;
     private static final int TWO_PAGES = R.raw.two_pages;
+    private static final int PROTECTED_PDF = R.raw.protected_pdf;
 
     private Context mContext;
 
@@ -76,12 +77,28 @@ public class PdfRendererTest {
     }
 
     @Test
-    @Ignore("Makes all subsequent tests fail")
     public void constructRendererFromNonPDF() throws Exception {
         // Open jpg as if it was a PDF
-        ParcelFileDescriptor fd = mContext.getResources().openRawResourceFd(R.raw.testimage)
-                .getParcelFileDescriptor();
-        verifyException(() -> new PdfRenderer(fd), IOException.class);
+        verifyException(() -> createRenderer(R.raw.testimage, mContext), IOException.class);
+    }
+
+    @Test
+    public void constructRendererFromProtectedPDF() throws Exception {
+        verifyException(() -> createRenderer(PROTECTED_PDF, mContext), SecurityException.class);
+    }
+
+    @Test
+    public void rendererRecoversAfterFailure() throws Exception {
+        // Create rendered to prevent lib from being unloaded
+        PdfRenderer firstRenderer = createRenderer(A4_PORTRAIT, mContext);
+
+        verifyException(() -> createRenderer(PROTECTED_PDF, mContext), SecurityException.class);
+
+        // We can create new renderers after we failed to create one
+        PdfRenderer renderer = createRenderer(TWO_PAGES, mContext);
+        renderer.close();
+
+        firstRenderer.close();
     }
 
     @Test

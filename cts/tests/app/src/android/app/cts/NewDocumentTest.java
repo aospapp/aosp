@@ -35,6 +35,7 @@ public class NewDocumentTest extends AndroidTestCase {
         final Intent intent = new Intent();
         intent.setClass(getContext(), NewDocumentTestActivity.class);
         intent.setData(TEST_URI);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
         try (final Receiver receiver = new Receiver(NewDocumentTestActivity.NOTIFY_RESUME)) {
             getContext().startActivity(intent);

@@ -34,6 +34,10 @@ cc_library_static {
         "ssid.cc",
         "utility.cc",
     ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     shared_libs: [
         "libcutils",
         "liblog",

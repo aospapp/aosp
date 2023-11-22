@@ -305,15 +305,16 @@ public class LambdaImplementationTest extends TestCase {
         // Sanity check that the lambdas do the same thing.
         assertEquals(r1.call(), r2.call());
 
-        // Unclear if any of this is *guaranteed* to be true.
+        // Two lambdas from different definitions can share the same class or may not so there are
+        // no assertions about the classes for the instances. See JLS 15.27.4.
 
-        // Check the objects are not the same and do not equal. This could influence collection
-        // behavior.
-        assertNotSame(r1, r2);
-        assertTrue(!r1.equals(r2));
-
-        // Two lambdas from different definitions can share the same class or may not.
-        // See JLS 15.27.4.
+        // We cannot assert anything about the reference equality or equals() behavior of the
+        // instances themselves either.
+        // Implementations are free to return the same object or different if the lambdas are
+        // equivalent.  It may affect collections behavior so no code should assume anything about
+        // the identity of the lambda instance.
+        // See the JSR-000335, Part E: Typing and Evaluation. Sharing of stateless instances is not
+        // explicitly called out in the JLS.
     }
 
     /**
@@ -352,9 +353,11 @@ public class LambdaImplementationTest extends TestCase {
         int classModifiers = lambdaClass.getModifiers();
         assertTrue(Modifier.isFinal(classModifiers));
 
+        // We have seen optimizations that make lambdas public so we do not make any assertions
+        // about class visibility: they can be package-private or public. http://b/73255857
+
         // Unexpected modifiers
         assertFalse(Modifier.isPrivate(classModifiers));
-        assertFalse(Modifier.isPublic(classModifiers));
         assertFalse(Modifier.isProtected(classModifiers));
         assertFalse(Modifier.isStatic(classModifiers));
         assertFalse(Modifier.isSynchronized(classModifiers));

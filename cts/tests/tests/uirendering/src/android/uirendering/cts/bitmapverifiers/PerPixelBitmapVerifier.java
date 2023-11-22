@@ -17,8 +17,7 @@ package android.uirendering.cts.bitmapverifiers;
 
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.support.annotation.ColorInt;
-import android.uirendering.cts.testinfrastructure.ActivityTestBase;
+import androidx.annotation.ColorInt;
 import android.uirendering.cts.util.CompareUtils;
 import android.util.Log;
 
@@ -77,10 +76,8 @@ public abstract class PerPixelBitmapVerifier extends BitmapVerifier {
         Log.d(TAG, failures + " failures observed out of "
                 + toleratedFailures + " tolerated failures");
         if (!success) {
-            mDifferenceBitmap = Bitmap.createBitmap(ActivityTestBase.TEST_WIDTH,
-                    ActivityTestBase.TEST_HEIGHT, Bitmap.Config.ARGB_8888);
-            mDifferenceBitmap.setPixels(differenceMap, offset, stride, 0, 0,
-                    ActivityTestBase.TEST_WIDTH, ActivityTestBase.TEST_HEIGHT);
+            mDifferenceBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            mDifferenceBitmap.setPixels(differenceMap, offset, stride, 0, 0, width, height);
         }
         return success;
     }

@@ -15,65 +15,54 @@
  */
 package com.android.dialer.calllog.ui;
 
-import android.app.Fragment;
-import android.app.LoaderManager.LoaderCallbacks;
-import android.content.CursorLoader;
-import android.content.Loader;
 import android.database.Cursor;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
+import android.support.annotation.VisibleForTesting;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.LoaderManager.LoaderCallbacks;
+import android.support.v4.content.Loader;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import com.android.dialer.calllog.CallLogComponent;
-import com.android.dialer.calllog.CallLogFramework;
-import com.android.dialer.calllog.CallLogFramework.CallLogUi;
-import com.android.dialer.calllog.database.contract.AnnotatedCallLogContract.CoalescedAnnotatedCallLog;
+import com.android.dialer.calllog.RefreshAnnotatedCallLogReceiver;
 import com.android.dialer.common.LogUtil;
-import com.android.dialer.common.concurrent.DialerExecutor;
-import com.android.dialer.common.concurrent.DialerExecutorComponent;
-import com.android.dialer.common.concurrent.DialerExecutorFactory;
+import com.android.dialer.common.concurrent.DefaultFutureCallback;
+import com.android.dialer.common.concurrent.ThreadUtil;
+import com.android.dialer.metrics.Metrics;
+import com.android.dialer.metrics.MetricsComponent;
+import com.android.dialer.metrics.jank.RecyclerViewJankLogger;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.MoreExecutors;
+import java.util.concurrent.TimeUnit;
 
 /** The "new" call log fragment implementation, which is built on top of the annotated call log. */
-public final class NewCallLogFragment extends Fragment
-    implements CallLogUi, LoaderCallbacks<Cursor> {
+public final class NewCallLogFragment extends Fragment implements LoaderCallbacks<Cursor> {
 
-  /*
-   * This is a reasonable time that it might take between related call log writes, that also
-   * shouldn't slow down single-writes too much. For example, when populating the database using
-   * the simulator, using this value results in ~6 refresh cycles (on a release build) to write 120
-   * call log entries.
-   */
-  private static final long WAIT_MILLIS = 100L;
+  @VisibleForTesting
+  static final long MARK_ALL_CALLS_READ_WAIT_MILLIS = TimeUnit.SECONDS.toMillis(3);
 
-  private DialerExecutor<Boolean> refreshAnnotatedCallLogTask;
+  private RefreshAnnotatedCallLogReceiver refreshAnnotatedCallLogReceiver;
   private RecyclerView recyclerView;
+
+  private boolean shouldMarkCallsRead = false;
+  private final Runnable setShouldMarkCallsReadTrue = () -> shouldMarkCallsRead = true;
 
   public NewCallLogFragment() {
     LogUtil.enterBlock("NewCallLogFragment.NewCallLogFragment");
   }
 
   @Override
-  public void onCreate(Bundle state) {
-    super.onCreate(state);
+  public void onActivityCreated(@Nullable Bundle savedInstanceState) {
+    super.onActivityCreated(savedInstanceState);
 
-    LogUtil.enterBlock("NewCallLogFragment.onCreate");
+    LogUtil.enterBlock("NewCallLogFragment.onActivityCreated");
 
-    CallLogComponent component = CallLogComponent.get(getContext());
-    CallLogFramework callLogFramework = component.callLogFramework();
-    callLogFramework.attachUi(this);
-
-    DialerExecutorFactory dialerExecutorFactory =
-        DialerExecutorComponent.get(getContext()).dialerExecutorFactory();
-
-    refreshAnnotatedCallLogTask =
-        dialerExecutorFactory
-            .createUiTaskBuilder(
-                getFragmentManager(),
-                "NewCallLogFragment.refreshAnnotatedCallLog",
-                component.getRefreshAnnotatedCallLogWorker())
-            .build();
+    refreshAnnotatedCallLogReceiver = new RefreshAnnotatedCallLogReceiver(getContext());
   }
 
   @Override
@@ -87,23 +76,94 @@ public final class NewCallLogFragment extends Fragment
   public void onResume() {
     super.onResume();
 
-    LogUtil.enterBlock("NewCallLogFragment.onResume");
+    boolean isHidden = isHidden();
+    LogUtil.i("NewCallLogFragment.onResume", "isHidden = %s", isHidden);
 
-    CallLogFramework callLogFramework = CallLogComponent.get(getContext()).callLogFramework();
-    callLogFramework.attachUi(this);
-
-    // TODO: Consider doing this when fragment becomes visible.
-    checkAnnotatedCallLogDirtyAndRefreshIfNecessary();
+    // As a fragment's onResume() is tied to the containing Activity's onResume(), being resumed is
+    // not equivalent to becoming visible.
+    // For example, when an activity with a hidden fragment is resumed, the fragment's onResume()
+    // will be called but it is not visible.
+    if (!isHidden) {
+      onFragmentShown();
+    }
   }
 
   @Override
   public void onPause() {
     super.onPause();
-
     LogUtil.enterBlock("NewCallLogFragment.onPause");
 
-    CallLogFramework callLogFramework = CallLogComponent.get(getContext()).callLogFramework();
-    callLogFramework.detachUi();
+    onFragmentHidden();
+  }
+
+  @Override
+  public void onHiddenChanged(boolean hidden) {
+    super.onHiddenChanged(hidden);
+    LogUtil.i("NewCallLogFragment.onHiddenChanged", "hidden = %s", hidden);
+
+    if (hidden) {
+      onFragmentHidden();
+    } else {
+      onFragmentShown();
+    }
+  }
+
+  /**
+   * To be called when the fragment becomes visible.
+   *
+   * <p>Note that for a fragment, being resumed is not equivalent to becoming visible.
+   *
+   * <p>For example, when an activity with a hidden fragment is resumed, the fragment's onResume()
+   * will be called but it is not visible.
+   */
+  private void onFragmentShown() {
+    registerRefreshAnnotatedCallLogReceiver();
+
+    CallLogComponent.get(getContext())
+        .getRefreshAnnotatedCallLogNotifier()
+        .notify(/* checkDirty = */ true);
+
+    // There are some types of data that we show in the call log that are not represented in the
+    // AnnotatedCallLog. For example, CP2 information for invalid numbers can sometimes only be
+    // fetched at display time. Because of this, we need to clear the adapter's cache and update it
+    // whenever the user arrives at the call log (rather than relying on changes to the CursorLoader
+    // alone).
+    if (recyclerView.getAdapter() != null) {
+      ((NewCallLogAdapter) recyclerView.getAdapter()).clearCache();
+      recyclerView.getAdapter().notifyDataSetChanged();
+    }
+
+    // We shouldn't mark the calls as read immediately when the 3 second timer expires because we
+    // don't want to disrupt the UI; instead we set a bit indicating to mark them read when the user
+    // leaves the fragment (in onPause).
+    shouldMarkCallsRead = false;
+    ThreadUtil.getUiThreadHandler()
+        .postDelayed(setShouldMarkCallsReadTrue, MARK_ALL_CALLS_READ_WAIT_MILLIS);
+  }
+
+  /**
+   * To be called when the fragment becomes hidden.
+   *
+   * <p>This can happen in the following two cases:
+   *
+   * <ul>
+   *   <li>hide the fragment but keep the parent activity visible (e.g., calling {@link
+   *       android.support.v4.app.FragmentTransaction#hide(Fragment)} in an activity, or
+   *   <li>the parent activity is paused.
+   * </ul>
+   */
+  private void onFragmentHidden() {
+    // This is pending work that we don't actually need to follow through with.
+    ThreadUtil.getUiThreadHandler().removeCallbacks(setShouldMarkCallsReadTrue);
+
+    unregisterRefreshAnnotatedCallLogReceiver();
+
+    if (shouldMarkCallsRead) {
+      Futures.addCallback(
+          CallLogComponent.get(getContext()).getClearMissedCalls().clearAll(),
+          new DefaultFutureCallback<>(),
+          MoreExecutors.directExecutor());
+    }
   }
 
   @Override
@@ -113,38 +173,58 @@ public final class NewCallLogFragment extends Fragment
 
     View view = inflater.inflate(R.layout.new_call_log_fragment, container, false);
     recyclerView = view.findViewById(R.id.new_call_log_recycler_view);
+    recyclerView.addOnScrollListener(
+        new RecyclerViewJankLogger(
+            MetricsComponent.get(getContext()).metrics(), Metrics.NEW_CALL_LOG_JANK_EVENT_NAME));
 
     getLoaderManager().restartLoader(0, null, this);
 
     return view;
   }
 
-  private void checkAnnotatedCallLogDirtyAndRefreshIfNecessary() {
-    LogUtil.enterBlock("NewCallLogFragment.checkAnnotatedCallLogDirtyAndRefreshIfNecessary");
-    refreshAnnotatedCallLogTask.executeSerialWithWait(false /* skipDirtyCheck */, WAIT_MILLIS);
+  private void registerRefreshAnnotatedCallLogReceiver() {
+    LogUtil.enterBlock("NewCallLogFragment.registerRefreshAnnotatedCallLogReceiver");
+
+    LocalBroadcastManager.getInstance(getContext())
+        .registerReceiver(
+            refreshAnnotatedCallLogReceiver, RefreshAnnotatedCallLogReceiver.getIntentFilter());
   }
 
-  @Override
-  public void invalidateUi() {
-    LogUtil.enterBlock("NewCallLogFragment.invalidateUi");
-    refreshAnnotatedCallLogTask.executeSerialWithWait(true /* skipDirtyCheck */, WAIT_MILLIS);
+  private void unregisterRefreshAnnotatedCallLogReceiver() {
+    LogUtil.enterBlock("NewCallLogFragment.unregisterRefreshAnnotatedCallLogReceiver");
+
+    // Cancel pending work as we don't need it any more.
+    CallLogComponent.get(getContext()).getRefreshAnnotatedCallLogNotifier().cancel();
+
+    LocalBroadcastManager.getInstance(getContext())
+        .unregisterReceiver(refreshAnnotatedCallLogReceiver);
   }
 
   @Override
   public Loader<Cursor> onCreateLoader(int id, Bundle args) {
     LogUtil.enterBlock("NewCallLogFragment.onCreateLoader");
-    // CoalescedAnnotatedCallLog requires that all params be null.
-    return new CursorLoader(
-        getContext(), CoalescedAnnotatedCallLog.CONTENT_URI, null, null, null, null);
+    return new CoalescedAnnotatedCallLogCursorLoader(getContext());
   }
 
   @Override
   public void onLoadFinished(Loader<Cursor> loader, Cursor newCursor) {
     LogUtil.enterBlock("NewCallLogFragment.onLoadFinished");
 
-    // TODO: Handle empty cursor by showing empty view.
-    recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-    recyclerView.setAdapter(new NewCallLogAdapter(newCursor));
+    if (newCursor == null) {
+      // This might be possible when the annotated call log hasn't been created but we're trying
+      // to show the call log.
+      LogUtil.w("NewCallLogFragment.onLoadFinished", "null cursor");
+      return;
+    }
+
+    // TODO(zachh): Handle empty cursor by showing empty view.
+    if (recyclerView.getAdapter() == null) {
+      recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+      recyclerView.setAdapter(
+          new NewCallLogAdapter(getContext(), newCursor, System::currentTimeMillis));
+    } else {
+      ((NewCallLogAdapter) recyclerView.getAdapter()).updateCursor(newCursor);
+    }
   }
 
   @Override

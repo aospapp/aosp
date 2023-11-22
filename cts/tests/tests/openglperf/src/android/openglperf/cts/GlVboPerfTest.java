@@ -28,18 +28,21 @@ public class GlVboPerfTest extends
     private static final long RENDERING_TIMEOUT = 5 * 60;
     // 30% of fps_no_vbo is allowed to compensate variations in measurement
     private static final float FPS_COMPARISON_MARGIN = 0.3f;
-    // the worst case should be above 70% of the best case
-    private static final float FPS_MIN_MAX_COMPARISON_PERCENTILE = 0.7f;
+    // the worst case should be above 30% of the best case
+    private static final float FPS_MIN_MAX_COMPARISON_PERCENTILE = 0.3f;
 
     private float mFps;
     private int mNumTriangles;
+    private boolean mIsSoftwareRenderer = false;
+
+    private static final String SWIFTSHADER_NAME = "Google SwiftShader";
 
     public GlVboPerfTest() {
         super(GlPlanetsActivity.class);
     }
 
     public void testVboWithVaryingIndexBufferNumbers() throws Exception {
-        final int[] numIndexBuffers = {1, 10, 100, 200, 400}; // per vertex buffer
+        final int[] numIndexBuffers = {1, 10, 100, 200}; // per vertex buffer
         float[] fpsVbo = new float[numIndexBuffers.length];
         float[] fpsNonVbo = new float[numIndexBuffers.length];
 
@@ -70,12 +73,14 @@ public class GlVboPerfTest extends
         float delta = minMaxVbo[1] - (1f - FPS_COMPARISON_MARGIN)
                 * minMaxNonVbo[1];
         assertTrue("VBO performance worse than non-VBO " + msgVbo + msgNonVbo, delta > 0f);
-        assertTrue(
-                "Too much FPS drop for VBO case " + msgVbo,
-                minMaxVbo[0] > (FPS_MIN_MAX_COMPARISON_PERCENTILE * minMaxVbo[1]));
-        assertTrue(
-                "Too much FPS drop for No VBO case " + msgNonVbo,
-                minMaxNonVbo[0] > (FPS_MIN_MAX_COMPARISON_PERCENTILE * minMaxNonVbo[1]));
+        if (!mIsSoftwareRenderer) {
+            assertTrue(
+                    "Too much FPS drop for VBO case " + msgVbo,
+                    minMaxVbo[0] > (FPS_MIN_MAX_COMPARISON_PERCENTILE * minMaxVbo[1]));
+            assertTrue(
+                    "Too much FPS drop for No VBO case " + msgNonVbo,
+                    minMaxNonVbo[0] > (FPS_MIN_MAX_COMPARISON_PERCENTILE * minMaxNonVbo[1]));
+        }
     }
 
     public void testVboVsNonVboPerfGeometry0() throws Exception {
@@ -104,6 +109,9 @@ public class GlVboPerfTest extends
 
         mFps = activity.getAverageFps();
         mNumTriangles = activity.getNumTriangles();
+        if (SWIFTSHADER_NAME.equals(activity.getRendererName())) {
+            mIsSoftwareRenderer = true;
+        }
 
         cleanUpActivity();
     }

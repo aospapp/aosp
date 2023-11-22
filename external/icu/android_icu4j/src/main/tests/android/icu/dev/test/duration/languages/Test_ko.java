@@ -13,10 +13,12 @@
 package android.icu.dev.test.duration.languages;
 
 import android.icu.dev.test.duration.LanguageTestFmwk;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Test cases for ko
  */
+@MainTestShard
 public class Test_ko extends LanguageTestFmwk {
   public Test_ko() {
     super("ko", false);

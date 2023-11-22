@@ -8,6 +8,7 @@
 #define XFA_FWL_CFWL_DATETIMEPICKER_H_
 
 #include <memory>
+#include <utility>
 
 #include "xfa/fwl/cfwl_datetimeedit.h"
 #include "xfa/fwl/cfwl_event.h"
@@ -39,21 +40,22 @@ class CFWL_DateTimePicker : public CFWL_Widget {
   FWL_Type GetClassID() const override;
   void Update() override;
   FWL_WidgetHit HitTest(const CFX_PointF& point) override;
-  void DrawWidget(CFX_Graphics* pGraphics, const CFX_Matrix* pMatrix) override;
+  void DrawWidget(CXFA_Graphics* pGraphics, const CFX_Matrix& matrix) override;
   void SetThemeProvider(IFWL_ThemeProvider* pTP) override;
   void OnProcessMessage(CFWL_Message* pMessage) override;
-  void OnDrawWidget(CFX_Graphics* pGraphics,
-                    const CFX_Matrix* pMatrix) override;
+  void OnDrawWidget(CXFA_Graphics* pGraphics,
+                    const CFX_Matrix& matrix) override;
 
   void GetCurSel(int32_t& iYear, int32_t& iMonth, int32_t& iDay);
   void SetCurSel(int32_t iYear, int32_t iMonth, int32_t iDay);
 
-  void SetEditText(const CFX_WideString& wsText);
-  CFX_WideString GetEditText() const;
+  void SetEditText(const WideString& wsText);
+  WideString GetEditText() const;
 
-  int32_t CountSelRanges() const { return m_pEdit->CountSelRanges(); }
-  int32_t GetSelRange(int32_t nIndex, int32_t* nStart) const {
-    return m_pEdit->GetSelRange(nIndex, nStart);
+  bool HasSelection() const { return m_pEdit->HasSelection(); }
+  // Returns <start, count> of the selection.
+  std::pair<size_t, size_t> GetSelection() const {
+    return m_pEdit->GetSelection();
   }
 
   CFX_RectF GetBBox() const;
@@ -67,13 +69,10 @@ class CFWL_DateTimePicker : public CFWL_Widget {
   CFWL_FormProxy* GetFormProxy() const { return m_pForm.get(); }
 
  private:
-  void DrawDropDownButton(CFX_Graphics* pGraphics,
+  void DrawDropDownButton(CXFA_Graphics* pGraphics,
                           IFWL_ThemeProvider* pTheme,
                           const CFX_Matrix* pMatrix);
-  void FormatDateString(int32_t iYear,
-                        int32_t iMonth,
-                        int32_t iDay,
-                        CFX_WideString& wsText);
+  WideString FormatDateString(int32_t iYear, int32_t iMonth, int32_t iDay);
   void ResetEditAlignment();
   void InitProxyForm();
   void OnFocusChanged(CFWL_Message* pMsg, bool bSet);
@@ -88,7 +87,7 @@ class CFWL_DateTimePicker : public CFWL_Widget {
   bool DisForm_IsNeedShowButton() const;
   void DisForm_Update();
   CFX_RectF DisForm_GetBBox() const;
-  void DisForm_DrawWidget(CFX_Graphics* pGraphics, const CFX_Matrix* pMatrix);
+  void DisForm_DrawWidget(CXFA_Graphics* pGraphics, const CFX_Matrix* pMatrix);
   void DisForm_OnFocusChanged(CFWL_Message* pMsg, bool bSet);
 
   CFX_RectF m_rtBtn;
@@ -101,7 +100,7 @@ class CFWL_DateTimePicker : public CFWL_Widget {
   std::unique_ptr<CFWL_DateTimeEdit> m_pEdit;
   std::unique_ptr<CFWL_MonthCalendar> m_pMonthCal;
   std::unique_ptr<CFWL_FormProxy> m_pForm;
-  FX_FLOAT m_fBtn;
+  float m_fBtn;
 };
 
 #endif  // XFA_FWL_CFWL_DATETIMEPICKER_H_

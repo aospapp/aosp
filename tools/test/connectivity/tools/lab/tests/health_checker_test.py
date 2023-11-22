@@ -16,6 +16,7 @@
 
 import io
 import mock
+import sys
 import unittest
 
 from health_checker import HealthChecker
@@ -158,6 +159,50 @@ class HealthCheckerTestCase(unittest.TestCase):
         self.assertEqual(
             set(checker.get_unhealthy(fake_metric_response)),
             set(expected_unhealthy))
+
+    def test_catch_key_error_metric_name(self):
+        fake_config = {
+            "not_verify": {
+                "devices": {
+                    "constant": "device",
+                    "compare": "EQUALS_DICT"
+                }
+            }
+        }
+        checker = HealthChecker(fake_config)
+        fake_metric_response = {
+            'verify': {
+                'devices': {
+                    'serialnumber': 'device'
+                }
+            }
+        }
+        try:
+            checker.get_unhealthy(fake_metric_response)
+        except KeyError as error:
+            self.fail('did not catch %s' % error)
+
+    def test_catch_key_error_metric_field(self):
+        fake_config = {
+            "verify": {
+                "not_devices": {
+                    "constant": "device",
+                    "compare": "EQUALS_DICT"
+                }
+            }
+        }
+        checker = HealthChecker(fake_config)
+        fake_metric_response = {
+            'verify': {
+                'devices': {
+                    'serialnumber': 'device'
+                }
+            }
+        }
+        try:
+            checker.get_unhealthy(fake_metric_response)
+        except KeyError as error:
+            self.fail('get_unhealthy did not internally handle %s' % error)
 
 
 if __name__ == '__main__':

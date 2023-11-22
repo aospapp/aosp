@@ -33,11 +33,12 @@ SERVICE_STABILITY_TIMER = 60
 # A dict to map update_commands defined in config file to repos or files that
 # decide whether need to update these commands. E.g. if no changes under
 # frontend repo, no need to update afe.
-COMMANDS_TO_REPOS_DICT = {'afe': 'frontend/',
-                          'tko': 'tko/'}
+COMMANDS_TO_REPOS_DICT = {'afe': 'frontend/client/',
+                          'tko': 'frontend/client/'}
 BUILD_EXTERNALS_COMMAND = 'build_externals'
-# Services present on all hosts.
-UNIVERSAL_SERVICES = ['sysmon']
+
+_RESTART_SERVICES_FILE = os.path.join(os.environ['HOME'],
+                                      'push_restart_services')
 
 AFE = frontend_wrappers.RetryingAFE(
         server=server_utils.get_global_afe_hostname(), timeout_min=5,
@@ -65,6 +66,25 @@ def strip_terminal_codes(text):
     return re.sub(ESC+r'\[[^m]*m', '', text)
 
 
+def _clean_pyc_files():
+    print('Removing .pyc files')
+    try:
+        subprocess.check_output([
+                'find', '.',
+                '(',
+                # These are ignored to reduce IO load (crbug.com/759780).
+                '-path', './site-packages',
+                '-o', '-path', './containers',
+                '-o', '-path', './logs',
+                '-o', '-path', './results',
+                ')',
+                '-prune',
+                '-o', '-name', '*.pyc',
+                '-exec', 'rm', '-f', '{}', '+'])
+    except Exception as e:
+        print('Warning: fail to remove .pyc! %s' % e)
+
+
 def verify_repo_clean():
     """This function cleans the current repo then verifies that it is valid.
 
@@ -79,6 +99,16 @@ def verify_repo_clean():
 
     if not 'working directory clean' in out:
         raise DirtyTreeException(out)
+
+
+def _clean_externals():
+    """Clean untracked files within ExternalSource and site-packages/
+
+    @raises subprocess.CalledProcessError on a git command failure.
+    """
+    dirs_to_clean = ['site-packages/', 'ExternalSource/']
+    cmd = ['git', 'clean', '-fxd'] + dirs_to_clean
+    subprocess.check_output(cmd)
 
 
 def repo_versions():
@@ -154,12 +184,8 @@ def repo_sync(update_push_servers=False):
         print('Updating server to prod branch')
         subprocess.check_output(['git', 'checkout', 'cros/prod'],
                                 stderr=subprocess.STDOUT)
-    # Remove .pyc files via pyclean, which is a package on all ubuntu server.
-    print('Removing .pyc files')
-    try:
-        subprocess.check_output(['pyclean', '.', '-q'])
-    except Exception as e:
-        print('Warning: fail to remove .pyc! %s' % e)
+    _clean_pyc_files()
+
 
 def discover_update_commands():
     """Lookup the commands to run on this server.
@@ -176,22 +202,16 @@ def discover_update_commands():
         return []
 
 
-def discover_restart_services():
+def get_restart_services():
     """Find the services that need restarting on the current server.
 
     These commonly come from shadow_config.ini, since they vary by server type.
 
-    @returns List of service names in string format.
+    @returns Iterable of service names in string format.
     """
-    services = list(UNIVERSAL_SERVICES)
-    try:
-        # Look up services from shadow_config.ini.
-        extra_services = global_config.global_config.get_config_value(
-                'UPDATE', 'services', type=list)
-        services.extend(extra_services)
-    except (ConfigParser.NoSectionError, global_config.ConfigError):
-        pass
-    return services
+    with open(_RESTART_SERVICES_FILE) as f:
+        for line in f:
+            yield line.rstrip()
 
 
 def update_command(cmd_tag, dryrun=False, use_chromite_master=False):
@@ -267,7 +287,7 @@ def service_status(service_name):
 
     @raises subprocess.CalledProcessError on a command failure.
     """
-    return subprocess.check_output(['sudo', 'status', service_name])
+    return subprocess.check_output(['sudo', 'service', service_name, 'status'])
 
 
 def restart_services(service_names, dryrun=False, skip_service_status=False):
@@ -338,7 +358,7 @@ def run_deploy_actions(cmds_skip=set(), dryrun=False,
             update_command(cmd, dryrun=dryrun,
                            use_chromite_master=use_chromite_master)
 
-    services = discover_restart_services()
+    services = list(get_restart_services())
     if services:
         print('Restarting Services:', ', '.join(services))
         restart_services(services, dryrun=dryrun,
@@ -418,6 +438,11 @@ def parse_arguments(args):
     parser.add_argument('--update_push_servers', action='store_true',
                         help='Indicate to update test_push server. If not '
                              'specify, then update server to production.')
+    parser.add_argument('--force-clean-externals', action='store_true',
+                        default=False,
+                        help='Force a cleanup of all untracked files within '
+                             'site-packages/ and ExternalSource/, so that '
+                             'build_externals will build from scratch.')
     parser.add_argument('--force_update', action='store_true',
                         help='Force to run the update commands for afe, tko '
                              'and build_externals')
@@ -433,7 +458,11 @@ def parse_arguments(args):
     if results.dryrun:
         results.verify = False
         results.update = False
+        results.force_clean_externals = False
 
+    if not results.update_push_servers:
+      print('Will skip service check for pushing servers in prod.')
+      results.skip_service_status = True
     return results
 
 
@@ -458,12 +487,7 @@ def _sync_chromiumos_repo():
     print('Updating ~chromeos-test/chromiumos')
     with ChangeDir(os.path.expanduser('~chromeos-test/chromiumos')):
         ret = subprocess.call(['repo', 'sync'], stderr=subprocess.STDOUT)
-        # Remove .pyc files via pyclean, which is a package on all ubuntu server
-        print('Removing .pyc files')
-        try:
-            subprocess.check_output(['pyclean', '.', '-q'])
-        except Exception as e:
-            print('Warning: fail to remove .pyc! %s' % e)
+        _clean_pyc_files()
     if ret != 0:
         print('Update failed, exited with status: %d' % ret)
 
@@ -480,6 +504,11 @@ def main(args):
         verify_repo_clean()
         print('Tree status: clean')
 
+    if behaviors.force_clean_externals:
+       print('Cleaning all external packages and their cache...')
+       _clean_externals()
+       print('...done.')
+
     versions_before = repo_versions()
     versions_after = set()
     cmd_versions_before = repo_versions_to_decide_whether_run_cmd_update()
@@ -490,7 +519,6 @@ def main(args):
         repo_sync(behaviors.update_push_servers)
         versions_after = repo_versions()
         cmd_versions_after = repo_versions_to_decide_whether_run_cmd_update()
-
         _sync_chromiumos_repo()
 
     if behaviors.actions:

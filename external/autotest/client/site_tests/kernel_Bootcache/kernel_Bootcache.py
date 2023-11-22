@@ -5,12 +5,14 @@
 # found in the LICENSE file.
 
 import logging, optparse, os, shutil, re, string
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.bin import utils, test
 
 class kernel_Bootcache(test.test):
-    """Run the boot cache test
+    """Run the boot cache test on 3.8 Kernel version
     """
     version = 1
+    KERNEL_VER = '3.8'
     Bin = '/usr/local/opt/punybench/bin/'
 
 
@@ -35,6 +37,10 @@ class kernel_Bootcache(test.test):
 
 
     def run_once(self, args=[]):
+        kernel_ver = os.uname()[2]
+        if utils.compare_versions(kernel_ver, self.KERNEL_VER) != 0:
+            raise error.TestNAError('Applicable to 3.8 Kernel only')
+
         """Run the boot cache test.
         """
         self._run('bootcachetest', "")

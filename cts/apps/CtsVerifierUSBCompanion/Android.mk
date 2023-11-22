@@ -21,13 +21,13 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-annotations junit
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.annotation_annotation junit
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsVerifierUSBCompanion
 
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := 25
 
 LOCAL_DEX_PREOPT := false
 

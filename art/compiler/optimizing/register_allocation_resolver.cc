@@ -16,16 +16,16 @@
 
 #include "register_allocation_resolver.h"
 
+#include "base/bit_vector-inl.h"
 #include "code_generator.h"
 #include "linear_order.h"
 #include "ssa_liveness_analysis.h"
 
 namespace art {
 
-RegisterAllocationResolver::RegisterAllocationResolver(ArenaAllocator* allocator,
-                                                       CodeGenerator* codegen,
+RegisterAllocationResolver::RegisterAllocationResolver(CodeGenerator* codegen,
                                                        const SsaLivenessAnalysis& liveness)
-      : allocator_(allocator),
+      : allocator_(codegen->GetGraph()->GetAllocator()),
         codegen_(codegen),
         liveness_(liveness) {}
 
@@ -36,7 +36,7 @@ void RegisterAllocationResolver::Resolve(ArrayRef<HInstruction* const> safepoint
                                          size_t float_spill_slots,
                                          size_t double_spill_slots,
                                          size_t catch_phi_spill_slots,
-                                         const ArenaVector<LiveInterval*>& temp_intervals) {
+                                         ArrayRef<LiveInterval* const> temp_intervals) {
   size_t spill_slots = int_spill_slots
                      + long_spill_slots
                      + float_spill_slots
@@ -100,24 +100,27 @@ void RegisterAllocationResolver::Resolve(ArrayRef<HInstruction* const> safepoint
       // [art method            ].
       size_t slot = current->GetSpillSlot();
       switch (current->GetType()) {
-        case Primitive::kPrimDouble:
+        case DataType::Type::kFloat64:
           slot += long_spill_slots;
           FALLTHROUGH_INTENDED;
-        case Primitive::kPrimLong:
+        case DataType::Type::kUint64:
+        case DataType::Type::kInt64:
           slot += float_spill_slots;
           FALLTHROUGH_INTENDED;
-        case Primitive::kPrimFloat:
+        case DataType::Type::kFloat32:
           slot += int_spill_slots;
           FALLTHROUGH_INTENDED;
-        case Primitive::kPrimNot:
-        case Primitive::kPrimInt:
-        case Primitive::kPrimChar:
-        case Primitive::kPrimByte:
-        case Primitive::kPrimBoolean:
-        case Primitive::kPrimShort:
+        case DataType::Type::kReference:
+        case DataType::Type::kUint32:
+        case DataType::Type::kInt32:
+        case DataType::Type::kUint16:
+        case DataType::Type::kUint8:
+        case DataType::Type::kInt8:
+        case DataType::Type::kBool:
+        case DataType::Type::kInt16:
           slot += reserved_out_slots;
           break;
-        case Primitive::kPrimVoid:
+        case DataType::Type::kVoid:
           LOG(FATAL) << "Unexpected type for interval " << current->GetType();
       }
       current->SetSpillSlot(slot * kVRegSize);
@@ -205,12 +208,12 @@ void RegisterAllocationResolver::Resolve(ArrayRef<HInstruction* const> safepoint
     size_t temp_index = liveness_.GetTempIndex(temp);
     LocationSummary* locations = at->GetLocations();
     switch (temp->GetType()) {
-      case Primitive::kPrimInt:
+      case DataType::Type::kInt32:
         locations->SetTempAt(temp_index, Location::RegisterLocation(temp->GetRegister()));
         break;
 
-      case Primitive::kPrimDouble:
-        if (codegen_->NeedsTwoRegisters(Primitive::kPrimDouble)) {
+      case DataType::Type::kFloat64:
+        if (codegen_->NeedsTwoRegisters(DataType::Type::kFloat64)) {
           Location location = Location::FpuRegisterPairLocation(
               temp->GetRegister(), temp->GetHighInterval()->GetRegister());
           locations->SetTempAt(temp_index, location);
@@ -383,7 +386,7 @@ void RegisterAllocationResolver::ConnectSiblings(LiveInterval* interval) {
          safepoint_position = safepoint_position->GetNext()) {
       DCHECK(current->CoversSlow(safepoint_position->GetPosition()));
 
-      if (current->GetType() == Primitive::kPrimNot) {
+      if (current->GetType() == DataType::Type::kReference) {
         DCHECK(interval->GetDefinedBy()->IsActualObject())
             << interval->GetDefinedBy()->DebugName()
             << '(' << interval->GetDefinedBy()->GetId() << ')'
@@ -507,13 +510,13 @@ void RegisterAllocationResolver::AddMove(HParallelMove* move,
                                          Location source,
                                          Location destination,
                                          HInstruction* instruction,
-                                         Primitive::Type type) const {
-  if (type == Primitive::kPrimLong
+                                         DataType::Type type) const {
+  if (type == DataType::Type::kInt64
       && codegen_->ShouldSplitLongMoves()
       // The parallel move resolver knows how to deal with long constants.
       && !source.IsConstant()) {
-    move->AddMove(source.ToLow(), destination.ToLow(), Primitive::kPrimInt, instruction);
-    move->AddMove(source.ToHigh(), destination.ToHigh(), Primitive::kPrimInt, nullptr);
+    move->AddMove(source.ToLow(), destination.ToLow(), DataType::Type::kInt32, instruction);
+    move->AddMove(source.ToHigh(), destination.ToHigh(), DataType::Type::kInt32, nullptr);
   } else {
     move->AddMove(source, destination, type, instruction);
   }

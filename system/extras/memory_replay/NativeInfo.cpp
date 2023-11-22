@@ -25,6 +25,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <android-base/unique_fd.h>
+
 #include "LineBuffer.h"
 #include "NativeInfo.h"
 
@@ -55,7 +57,6 @@ void GetNativeInfo(int smaps_fd, size_t* pss_bytes, size_t* va_bytes) {
       total_pss_bytes += native_pss_kB * 1024;
     }
   }
-  close(smaps_fd);
   *pss_bytes = total_pss_bytes;
   *va_bytes = total_va_bytes;
 }
@@ -64,7 +65,7 @@ void PrintNativeInfo(const char* preamble) {
   size_t pss_bytes;
   size_t va_bytes;
 
-  int smaps_fd = open("/proc/self/smaps", O_RDONLY);
+  android::base::unique_fd smaps_fd(open("/proc/self/smaps", O_RDONLY));
   if (smaps_fd == -1) {
     err(1, "Cannot open /proc/self/smaps: %s\n", strerror(errno));
   }
@@ -73,6 +74,4 @@ void PrintNativeInfo(const char* preamble) {
   printf("%sNative PSS: %zu bytes %0.2fMB\n", preamble, pss_bytes, pss_bytes/(1024*1024.0));
   printf("%sNative VA Space: %zu bytes %0.2fMB\n", preamble, va_bytes, va_bytes/(1024*1024.0));
   fflush(stdout);
-
-  close(smaps_fd);
 }

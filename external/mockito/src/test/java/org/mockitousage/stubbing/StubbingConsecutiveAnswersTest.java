@@ -11,7 +11,7 @@ import org.mockito.exceptions.base.MockitoException;
 import org.mockitousage.IMethods;
 import org.mockitoutil.TestBase;
 
-import static junit.framework.TestCase.*;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 public class StubbingConsecutiveAnswersTest extends TestBase {
@@ -178,7 +178,7 @@ public class StubbingConsecutiveAnswersTest extends TestBase {
     }
 
     @Test
-    public void should_mix_consecutive_returns_with_excepions() throws Exception {
+    public void should_mix_consecutive_returns_with_exceptions() throws Exception {
         when(mock.simpleMethod())
                 .thenThrow(new IllegalArgumentException())
                 .thenReturn("one")

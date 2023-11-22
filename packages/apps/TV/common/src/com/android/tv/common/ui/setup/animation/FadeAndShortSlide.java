@@ -29,15 +29,12 @@ import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-/**
- * Execute horizontal slide of 1/4 width and fade (to workaround bug 23718734)
- */
+/** Execute horizontal slide of 1/4 width and fade (to workaround bug 23718734) */
 public class FadeAndShortSlide extends Visibility {
     private static final TimeInterpolator APPEAR_INTERPOLATOR = new DecelerateInterpolator();
     private static final TimeInterpolator DISAPPEAR_INTERPOLATOR = new AccelerateInterpolator();
@@ -48,39 +45,45 @@ public class FadeAndShortSlide extends Visibility {
 
     private static final int DEFAULT_DISTANCE = 200;
 
-    private static abstract class CalculateSlide {
+    private abstract static class CalculateSlide {
         /** Returns the translation value for view when it goes out of the scene */
-        public abstract float getGoneX(ViewGroup sceneRoot, View view, int[] position,
-                int distance);
+        public abstract float getGoneX(
+                ViewGroup sceneRoot, View view, int[] position, int distance);
     }
 
-    private static final CalculateSlide sCalculateStart = new CalculateSlide() {
-        @Override
-        public float getGoneX(ViewGroup sceneRoot, View view, int[] position, int distance) {
-            final boolean isRtl = sceneRoot.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
-            final float x;
-            if (isRtl) {
-                x = view.getTranslationX() + distance;
-            } else {
-                x = view.getTranslationX() - distance;
-            }
-            return x;
-        }
-    };
+    private static final CalculateSlide sCalculateStart =
+            new CalculateSlide() {
+                @Override
+                public float getGoneX(
+                        ViewGroup sceneRoot, View view, int[] position, int distance) {
+                    final boolean isRtl =
+                            sceneRoot.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
+                    final float x;
+                    if (isRtl) {
+                        x = view.getTranslationX() + distance;
+                    } else {
+                        x = view.getTranslationX() - distance;
+                    }
+                    return x;
+                }
+            };
 
-    private static final CalculateSlide sCalculateEnd = new CalculateSlide() {
-        @Override
-        public float getGoneX(ViewGroup sceneRoot, View view, int[] position, int distance) {
-            final boolean isRtl = sceneRoot.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
-            final float x;
-            if (isRtl) {
-                x = view.getTranslationX() - distance;
-            } else {
-                x = view.getTranslationX() + distance;
-            }
-            return x;
-        }
-    };
+    private static final CalculateSlide sCalculateEnd =
+            new CalculateSlide() {
+                @Override
+                public float getGoneX(
+                        ViewGroup sceneRoot, View view, int[] position, int distance) {
+                    final boolean isRtl =
+                            sceneRoot.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
+                    final float x;
+                    if (isRtl) {
+                        x = view.getTranslationX() - distance;
+                    } else {
+                        x = view.getTranslationX() + distance;
+                    }
+                    return x;
+                }
+            };
 
     private static final ViewPositionComparator sViewPositionComparator =
             new ViewPositionComparator();
@@ -131,9 +134,10 @@ public class FadeAndShortSlide extends Visibility {
         getTransitionTargets((ViewGroup) parentForDelay, transitionTargets);
         sViewPositionComparator.mParentForDelay = parentForDelay;
         sViewPositionComparator.mIsLtr = view.getLayoutDirection() == View.LAYOUT_DIRECTION_LTR;
-        sViewPositionComparator.mToLeft = sViewPositionComparator.mIsLtr
-                ? mSlideEdge == (appear ? Gravity.END : Gravity.START)
-                : mSlideEdge == (appear ? Gravity.START : Gravity.END);
+        sViewPositionComparator.mToLeft =
+                sViewPositionComparator.mIsLtr
+                        ? mSlideEdge == (appear ? Gravity.END : Gravity.START)
+                        : mSlideEdge == (appear ? Gravity.START : Gravity.END);
         Collections.sort(transitionTargets, sViewPositionComparator);
         return transitionTargets.indexOf(view);
     }
@@ -180,8 +184,8 @@ public class FadeAndShortSlide extends Visibility {
         captureValues(transitionValues);
         int delayIndex = getDelayOrder(transitionValues.view, false);
         if (delayIndex > 0) {
-            transitionValues.values.put(PROPNAME_DELAY,
-                    delayIndex * SetupAnimationHelper.DELAY_BETWEEN_SIBLINGS_MS);
+            transitionValues.values.put(
+                    PROPNAME_DELAY, delayIndex * SetupAnimationHelper.DELAY_BETWEEN_SIBLINGS_MS);
         }
     }
 
@@ -192,8 +196,8 @@ public class FadeAndShortSlide extends Visibility {
         captureValues(transitionValues);
         int delayIndex = getDelayOrder(transitionValues.view, true);
         if (delayIndex > 0) {
-            transitionValues.values.put(PROPNAME_DELAY,
-                    delayIndex * SetupAnimationHelper.DELAY_BETWEEN_SIBLINGS_MS);
+            transitionValues.values.put(
+                    PROPNAME_DELAY, delayIndex * SetupAnimationHelper.DELAY_BETWEEN_SIBLINGS_MS);
         }
     }
 
@@ -212,7 +216,10 @@ public class FadeAndShortSlide extends Visibility {
     }
 
     @Override
-    public Animator onAppear(ViewGroup sceneRoot, View view, TransitionValues startValues,
+    public Animator onAppear(
+            ViewGroup sceneRoot,
+            View view,
+            TransitionValues startValues,
             TransitionValues endValues) {
         if (endValues == null) {
             return null;
@@ -221,15 +228,16 @@ public class FadeAndShortSlide extends Visibility {
         int left = position[0];
         float endX = view.getTranslationX();
         float startX = mSlideCalculator.getGoneX(sceneRoot, view, position, mDistance);
-        final Animator slideAnimator = TranslationAnimationCreator.createAnimation(view, endValues,
-                left, startX, endX, APPEAR_INTERPOLATOR, this);
+        final Animator slideAnimator =
+                TranslationAnimationCreator.createAnimation(
+                        view, endValues, left, startX, endX, APPEAR_INTERPOLATOR, this);
         if (slideAnimator == null) {
             return null;
         }
         mFade.setInterpolator(APPEAR_INTERPOLATOR);
         final AnimatorSet set = new AnimatorSet();
         set.play(slideAnimator).with(mFade.onAppear(sceneRoot, view, startValues, endValues));
-        Long delay = (Long ) endValues.values.get(PROPNAME_DELAY);
+        Long delay = (Long) endValues.values.get(PROPNAME_DELAY);
         if (delay != null) {
             set.setStartDelay(delay);
         }
@@ -237,7 +245,10 @@ public class FadeAndShortSlide extends Visibility {
     }
 
     @Override
-    public Animator onDisappear(ViewGroup sceneRoot, final View view, TransitionValues startValues,
+    public Animator onDisappear(
+            ViewGroup sceneRoot,
+            final View view,
+            TransitionValues startValues,
             TransitionValues endValues) {
         if (startValues == null) {
             return null;
@@ -246,8 +257,9 @@ public class FadeAndShortSlide extends Visibility {
         int left = position[0];
         float startX = view.getTranslationX();
         float endX = mSlideCalculator.getGoneX(sceneRoot, view, position, mDistance);
-        final Animator slideAnimator = TranslationAnimationCreator.createAnimation(view,
-                startValues, left, startX, endX, DISAPPEAR_INTERPOLATOR, this);
+        final Animator slideAnimator =
+                TranslationAnimationCreator.createAnimation(
+                        view, startValues, left, startX, endX, DISAPPEAR_INTERPOLATOR, this);
         if (slideAnimator == null) { // slideAnimator is null if startX == endX
             return null;
         }
@@ -257,13 +269,14 @@ public class FadeAndShortSlide extends Visibility {
         if (fadeAnimator == null) {
             return null;
         }
-        fadeAnimator.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animator) {
-                fadeAnimator.removeListener(this);
-                view.setAlpha(0.0f);
-            }
-        });
+        fadeAnimator.addListener(
+                new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animator) {
+                        fadeAnimator.removeListener(this);
+                        view.setAlpha(0.0f);
+                    }
+                });
 
         final AnimatorSet set = new AnimatorSet();
         set.play(slideAnimator).with(fadeAnimator);
@@ -300,9 +313,7 @@ public class FadeAndShortSlide extends Visibility {
         return super.setDuration(scaledDuration);
     }
 
-    /**
-     * Sets the moving distance in pixel.
-     */
+    /** Sets the moving distance in pixel. */
     public void setDistance(int distance) {
         mDistance = distance;
     }

@@ -23,7 +23,7 @@
 #include <utils/Log.h>
 
 static constexpr const char* kListFlag = "--list_registered_services";
-static constexpr const char* kServceInstanceFlag = "--hal_service_instance";
+static constexpr const char* kServiceInstanceFlag = "--hal_service_instance";
 
 using namespace std;
 
@@ -70,7 +70,7 @@ void VtsHalHidlTargetTestEnvBase::init(int* argc, char** argv) {
 }
 
 bool VtsHalHidlTargetTestEnvBase::parseVtsTestOption(const char* arg) {
-  // str and flag must not be NULL.
+  // arg must not be NULL.
   if (arg == NULL) return false;
 
   if (strncmp(arg, kListFlag, strlen(kListFlag)) == 0) {
@@ -78,9 +78,9 @@ bool VtsHalHidlTargetTestEnvBase::parseVtsTestOption(const char* arg) {
     return true;
   }
 
-  if (strncmp(arg, kServceInstanceFlag, strlen(kServceInstanceFlag)) == 0) {
-    // value is the past after "--hal_service_instance="
-    const char* value = arg + strlen(kServceInstanceFlag) + 1;
+  if (strncmp(arg, kServiceInstanceFlag, strlen(kServiceInstanceFlag)) == 0) {
+    // value is the part after "--hal_service_instance="
+    const char* value = arg + strlen(kServiceInstanceFlag) + 1;
     addHalServiceInstance(string(value));
     return true;
   }
@@ -88,33 +88,36 @@ bool VtsHalHidlTargetTestEnvBase::parseVtsTestOption(const char* arg) {
 }
 
 void VtsHalHidlTargetTestEnvBase::addHalServiceInstance(
-    string halServiceInstance) {
+    const string& halServiceInstance) {
   // hal_service_instance follows the format:
   // package@version::interface/service_name e.g.:
   // android.hardware.vibrator@1.0::IVibrator/default
-  string instance_name =
+  string instanceName =
       halServiceInstance.substr(0, halServiceInstance.find('/'));
-  string service_name =
+  string serviceName =
       halServiceInstance.substr(halServiceInstance.find('/') + 1);
   // Fail the process if trying to pass multiple service names for the same
   // service instance.
-  if (halServiceInstances_.find(instance_name) != halServiceInstances_.end()) {
-    ALOGE("Exisitng instance %s with name %s", instance_name.c_str(),
-          halServiceInstances_[instance_name].c_str());
+  if (halServiceInstances_.find(instanceName) != halServiceInstances_.end()) {
+    ALOGE("Exisitng instance %s with name %s", instanceName.c_str(),
+          halServiceInstances_[instanceName].c_str());
     abort();
   }
-  halServiceInstances_[instance_name] = service_name;
+  halServiceInstances_[instanceName] = serviceName;
 }
 
-string VtsHalHidlTargetTestEnvBase::getServiceName(string instanceName) {
+string VtsHalHidlTargetTestEnvBase::getServiceName(const string& instanceName,
+                                                   const string& defaultName) {
   if (halServiceInstances_.find(instanceName) != halServiceInstances_.end()) {
     return halServiceInstances_[instanceName];
   }
   // Could not find the instance.
-  return "";
+  ALOGE("Does not find service name for %s, using default name: %s",
+        instanceName.c_str(), defaultName.c_str());
+  return defaultName;
 }
 
-void VtsHalHidlTargetTestEnvBase::registerTestService(string FQName) {
+void VtsHalHidlTargetTestEnvBase::registerTestService(const string& FQName) {
   registeredHalServices_.insert(FQName);
 }
 
@@ -122,6 +125,7 @@ void VtsHalHidlTargetTestEnvBase::listRegisteredServices() {
   for (string service : registeredHalServices_) {
     printf("hal_service: %s\n", service.c_str());
   }
+  printf("service_comb_mode: %d\n", mode_);
 }
 
 }  // namespace testing

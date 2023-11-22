@@ -16,25 +16,30 @@
 
 package android.accessibilityservice.cts;
 
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyFloat;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
+
 import android.accessibilityservice.AccessibilityService.MagnificationController;
 import android.accessibilityservice.AccessibilityService.MagnificationController.OnMagnificationChangedListener;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Instrumentation;
 import android.content.Context;
-import android.content.res.Resources;
 import android.graphics.Region;
-import android.provider.Settings;
+import android.platform.test.annotations.AppModeFull;
 import android.test.InstrumentationTestCase;
 import android.util.DisplayMetrics;
 import android.view.WindowManager;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.mockito.Mockito.*;
-
 /**
  * Class for testing {@link AccessibilityServiceInfo}.
  */
+@AppModeFull
 public class AccessibilityMagnificationTest extends InstrumentationTestCase {
 
     /** Maximum timeout when waiting for a magnification callback. */

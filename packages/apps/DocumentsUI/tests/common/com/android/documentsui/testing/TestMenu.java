@@ -18,6 +18,7 @@ package com.android.documentsui.testing;
 
 import android.util.SparseArray;
 import android.view.Menu;
+import android.widget.SearchView;
 
 import com.android.documentsui.R;
 
@@ -48,8 +49,9 @@ public abstract class TestMenu implements Menu {
                 R.id.dir_menu_rename,
                 R.id.dir_menu_delete,
                 R.id.dir_menu_view_in_owner,
-                R.id.dir_menu_open_in_new_window,
                 R.id.dir_menu_paste_into_folder,
+                R.id.dir_menu_inspect,
+                R.id.dir_menu_open_in_new_window,
                 R.id.root_menu_eject_root,
                 R.id.root_menu_open_in_new_window,
                 R.id.root_menu_paste_into_folder,
@@ -64,7 +66,7 @@ public abstract class TestMenu implements Menu {
                 R.id.action_menu_move_to,
                 R.id.action_menu_compress,
                 R.id.action_menu_rename,
-                R.id.action_menu_inspector,
+                R.id.action_menu_inspect,
                 R.id.action_menu_view_in_owner,
                 R.id.option_menu_search,
                 R.id.option_menu_debug,
@@ -74,7 +76,8 @@ public abstract class TestMenu implements Menu {
                 R.id.option_menu_create_dir,
                 R.id.option_menu_select_all,
                 R.id.option_menu_advanced,
-                R.id.option_menu_settings);
+                R.id.option_menu_settings,
+                R.id.option_menu_inspect);
     }
 
 
@@ -86,6 +89,11 @@ public abstract class TestMenu implements Menu {
         for (int id : ids) {
             TestMenuItem item = TestMenuItem.create(id);
             menu.addMenuItem(id, item);
+
+            // Used by SearchViewManager
+            if (id == R.id.option_menu_search) {
+                item.setActionView(Mockito.mock(SearchView.class));
+            }
         }
         return menu;
     }

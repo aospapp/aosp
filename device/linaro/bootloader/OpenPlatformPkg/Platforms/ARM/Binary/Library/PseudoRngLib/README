@@ -1,0 +1,8 @@
+This pseudo-random implementation of RngLib is unsafe, and is not intended for
+use in production. It is provided for development purposes only, and only to be
+used on development platforms that lack any hardware peripherals to implement
+RngLib properly.
+
+Note that this code blindly assumes the availability of the AES instructions,
+and the accessibility of the cycle counter. If either is not available, this
+code will crash.

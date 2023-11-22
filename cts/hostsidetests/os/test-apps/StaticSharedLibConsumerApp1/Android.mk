@@ -29,7 +29,8 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 LOCAL_RES_LIBRARIES := CtsStaticSharedLibProviderApp1
 
 LOCAL_PACKAGE_NAME := CtsStaticSharedLibConsumerApp1
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

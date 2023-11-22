@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"Konfigurerer jobbenheten …"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Behandler konfigureringsdata …"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Kobler til Wi-Fi …"</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Kobler til mobilnettverk …"</string>
     <string name="progress_download" msgid="3522436271691064624">"Laster ned admin-appen …"</string>
     <string name="progress_install" msgid="2258045670385866183">"Installerer admin-appen …"</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Fjerner unødvendige systemapper …"</string>
@@ -101,13 +102,13 @@
     <string name="work_profile_setup_later_message" msgid="122069011117225292">"Du kan konfigurere jobbprofilen din senere i appen for enhetsadministrering som brukes av organisasjonen din"</string>
     <string name="continue_button" msgid="7177918589510964446">"Fortsett"</string>
     <string name="work_profile_setup_stop" msgid="6772128629992514750">"Stopp"</string>
-    <string name="dismiss" msgid="9009534756748565880">"Avvis"</string>
+    <string name="dismiss" msgid="9009534756748565880">"Lukk"</string>
     <string name="profile_owner_info" msgid="8975319972303812298">"Du er i ferd med å opprette en jobbprofil som blir administrert og overvåket av organisasjonen din. Vilkår gjelder."</string>
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Du er i ferd med å opprette en jobbprofil som blir administrert og overvåket av organisasjonen din. Vilkårene fra <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> gjelder."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"En profil opprettes for jobbappene dine. Denne profilen og resten av enheten din blir administrert og overvåket av organisasjonen din. Vilkår gjelder."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"En profil opprettes for jobbappene dine. Denne profilen og resten av enheten din blir administrert og overvåket av organisasjonen din. Vilkårene fra <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> gjelder."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"Denne enheten blir administrert og holdes sikker av <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Vilkår gjelder. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"Denne enheten blir administrert og holdes sikker av <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Vilkårene fra <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> gjelder. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"Denne enheten blir administrert, overvåket og holdes sikker av <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Vilkår gjelder. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Denne enheten blir administrert, overvåket og holdes sikker av <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Vilkårene fra <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> gjelder. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Denne linken er usikker og kan ikke åpnes før enheten er ferdig konfigurert: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"Ta kontakt med <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> hvis du har spørsmål."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"Ta kontakt med administratoren for organisasjonen din hvis du har spørsmål"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> og <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"Dette kan ta noen minutter"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"Jobbappene dine oppbevares i denne profilen og administreres av organisasjonen din"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"Denne enheten holdes sikker og administreres av organisasjonen din"</string>
 </resources>

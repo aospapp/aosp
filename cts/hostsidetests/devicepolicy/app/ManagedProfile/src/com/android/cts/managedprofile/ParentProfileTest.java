@@ -77,6 +77,7 @@ public class ParentProfileTest extends BaseManagedProfileTest {
             .add("setTrustAgentConfiguration")
             .add("getRequiredStrongAuthTimeout")
             .add("setRequiredStrongAuthTimeout")
+            .add("isDeviceIdAttestationSupported")
             .build();
 
     private static final String LOG_TAG = "ParentProfileTest";

@@ -2,7 +2,7 @@
   Light-weight Memory Management Routines for OpenSSL-based Crypto
   Library at Runtime Phase.
 
-Copyright (c) 2009 - 2012, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2009 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -204,7 +204,7 @@ LookupFreeMemRegion (
   }
 
   //
-  // No availabe region for object allocation!
+  // No available region for object allocation!
   //
   return (UINTN)(-1);
 }
@@ -396,6 +396,10 @@ void *realloc (void *ptr, size_t size)
   UINTN  StartPageIndex;
   UINTN  PageCount;
 
+  if (ptr == NULL) {
+    return malloc (size);
+  }
+
   //
   // Get Original Size of ptr
   //
@@ -434,5 +438,11 @@ void *realloc (void *ptr, size_t size)
 /* Deallocates or frees a memory block */
 void free (void *ptr)
 {
-  RuntimeFreeMem (ptr);
+  //
+  // In Standard C, free() handles a null pointer argument transparently. This
+  // is not true of RuntimeFreeMem() below, so protect it.
+  //
+  if (ptr != NULL) {
+    RuntimeFreeMem (ptr);
+  }
 }

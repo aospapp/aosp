@@ -37,21 +37,14 @@ class firmware_SelfSignedBoot(FirmwareTest):
             raise error.TestError("Unable to find USB disk")
 
     def cleanup(self):
-        self.faft_client.system.set_dev_boot_usb(self.original_dev_boot_usb)
-        self.disable_crossystem_selfsigned()
-        self.ensure_internal_device_boot()
-        self.resignimage_recoverykeys()
+        try:
+            self.faft_client.system.set_dev_boot_usb(self.original_dev_boot_usb)
+            self.disable_crossystem_selfsigned()
+            self.ensure_dev_internal_boot(self.original_dev_boot_usb)
+            self.resignimage_recoverykeys()
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_SelfSignedBoot, self).cleanup()
-
-    def ensure_internal_device_boot(self):
-        """Ensure internal device boot; if not, reboot into it.
-
-        If not, it may be a test failure during step 3 or 5, try to reboot
-        and press Ctrl-D to internal device boot.
-        """
-        if self.faft_client.system.is_removable_device_boot():
-            logging.info('Reboot into internal disk...')
-            self.switcher.mode_aware_reboot()
 
     def resignimage_ssdkeys(self):
         """Re-signing the USB image using the SSD keys."""
@@ -109,8 +102,10 @@ class firmware_SelfSignedBoot(FirmwareTest):
         self.switcher.wait_for_client()
 
         logging.info("Expected USB boot.")
-        self.check_state((self.checkers.dev_boot_usb_checker, True,
-                          'Not USB boot, Ctrl-U not work'))
+        # After signing USB image with SSD developer keys, kernkey_vfy value
+        # is expected as 'sig' when booted in USB image.
+        self.check_state((self.checkers.dev_boot_usb_checker, (True, False),
+                          'Device not booted from USB image properly.'))
         self.switcher.mode_aware_reboot()
 
         logging.info("Check and done.")

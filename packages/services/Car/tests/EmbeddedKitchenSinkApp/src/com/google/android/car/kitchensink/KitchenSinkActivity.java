@@ -16,7 +16,11 @@
 
 package com.google.android.car.kitchensink;
 
+
+import android.car.hardware.CarSensorManager;
 import android.car.hardware.hvac.CarHvacManager;
+import android.car.hardware.power.CarPowerManager;
+import android.car.hardware.property.CarPropertyManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -24,17 +28,15 @@ import android.support.car.Car;
 import android.support.car.CarAppFocusManager;
 import android.support.car.CarConnectionCallback;
 import android.support.car.CarNotConnectedException;
-import android.support.car.hardware.CarSensorManager;
 import android.support.v4.app.Fragment;
 import android.util.Log;
-import android.view.HapticFeedbackConstants;
-import android.view.View;
-import android.widget.ImageView;
-import android.widget.Toast;
 
-import com.android.car.app.CarDrawerActivity;
-import com.android.car.app.CarDrawerAdapter;
-import com.android.car.app.DrawerItemViewHolder;
+import androidx.car.drawer.CarDrawerActivity;
+import androidx.car.drawer.CarDrawerAdapter;
+import androidx.car.drawer.DrawerItemViewHolder;
+
+import com.google.android.car.kitchensink.activityview.ActivityViewTestFragment;
+import com.google.android.car.kitchensink.alertdialog.AlertDialogTestFragment;
 import com.google.android.car.kitchensink.assistant.CarAssistantFragment;
 import com.google.android.car.kitchensink.audio.AudioTestFragment;
 import com.google.android.car.kitchensink.bluetooth.BluetoothHeadsetFragment;
@@ -42,15 +44,21 @@ import com.google.android.car.kitchensink.bluetooth.MapMceTestFragment;
 import com.google.android.car.kitchensink.cluster.InstrumentClusterFragment;
 import com.google.android.car.kitchensink.cube.CubesTestFragment;
 import com.google.android.car.kitchensink.diagnostic.DiagnosticTestFragment;
+import com.google.android.car.kitchensink.displayinfo.DisplayInfoFragment;
 import com.google.android.car.kitchensink.hvac.HvacTestFragment;
 import com.google.android.car.kitchensink.input.InputTestFragment;
 import com.google.android.car.kitchensink.job.JobSchedulerFragment;
+import com.google.android.car.kitchensink.notification.NotificationFragment;
 import com.google.android.car.kitchensink.orientation.OrientationTestFragment;
-import com.google.android.car.kitchensink.radio.RadioTestFragment;
+import com.google.android.car.kitchensink.power.PowerTestFragment;
+import com.google.android.car.kitchensink.property.PropertyTestFragment;
 import com.google.android.car.kitchensink.sensor.SensorsTestFragment;
 import com.google.android.car.kitchensink.setting.CarServiceSettingsActivity;
+import com.google.android.car.kitchensink.storagelifetime.StorageLifetimeFragment;
 import com.google.android.car.kitchensink.touch.TouchTestFragment;
+import com.google.android.car.kitchensink.vhal.VehicleHalFragment;
 import com.google.android.car.kitchensink.volume.VolumeTestFragment;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -132,26 +140,33 @@ public class KitchenSinkActivity extends CarDrawerActivity {
 
     private final List<MenuEntry> mMenuEntries = new ArrayList<MenuEntry>() {
         {
-            add("audio", AudioTestFragment.class);
-            add("hvac", HvacTestFragment.class);
-            add("job scheduler", JobSchedulerFragment.class);
-            add("inst cluster", InstrumentClusterFragment.class);
-            add("input test", InputTestFragment.class);
-            add("radio", RadioTestFragment.class);
+            add("alert window", AlertDialogTestFragment.class);
             add("assistant", CarAssistantFragment.class);
-            add("sensors", SensorsTestFragment.class);
-            add("diagnostic", DiagnosticTestFragment.class);
-            add("volume test", VolumeTestFragment.class);
-            add("touch test", TouchTestFragment.class);
-            add("cubes test", CubesTestFragment.class);
-            add("orientation test", OrientationTestFragment.class);
+            add("audio", AudioTestFragment.class);
             add("bluetooth headset",BluetoothHeadsetFragment.class);
             add("bluetooth messaging test", MapMceTestFragment.class);
+            add("cubes test", CubesTestFragment.class);
+            add("diagnostic", DiagnosticTestFragment.class);
+            add("display info", DisplayInfoFragment.class);
+            add("hvac", HvacTestFragment.class);
+            add("inst cluster", InstrumentClusterFragment.class);
+            add("input test", InputTestFragment.class);
+            add("job scheduler", JobSchedulerFragment.class);
+            add("notification", NotificationFragment.class);
+            add("orientation test", OrientationTestFragment.class);
+            add("power test", PowerTestFragment.class);
+            add("property test", PropertyTestFragment.class);
+            add("sensors", SensorsTestFragment.class);
+            add("storage lifetime", StorageLifetimeFragment.class);
+            add("touch test", TouchTestFragment.class);
+            add("volume test", VolumeTestFragment.class);
+            add("vehicle hal", VehicleHalFragment.class);
             add("car service settings", () -> {
                 Intent intent = new Intent(KitchenSinkActivity.this,
                     CarServiceSettingsActivity.class);
                 startActivity(intent);
             });
+            add("activity view", ActivityViewTestFragment.class);
             add("quit", KitchenSinkActivity.this::finish);
         }
 
@@ -164,19 +179,21 @@ public class KitchenSinkActivity extends CarDrawerActivity {
     };
     private Car mCarApi;
     private CarHvacManager mHvacManager;
-    private CarSensorManager mCarSensorManager;
+    private CarPowerManager mPowerManager;
+    private CarPropertyManager mPropertyManager;
+    private CarSensorManager mSensorManager;
     private CarAppFocusManager mCarAppFocusManager;
-
-    private final CarSensorManager.OnSensorChangedListener mListener = (manager, event) -> {
-        switch (event.sensorType) {
-            case CarSensorManager.SENSOR_TYPE_DRIVING_STATUS:
-                Log.d(TAG, "driving status:" + event.intValues[0]);
-                break;
-        }
-    };
 
     public CarHvacManager getHvacManager() {
         return mHvacManager;
+    }
+
+    public CarPowerManager getPowerManager() {
+        return mPowerManager;
+    }
+
+    public CarPropertyManager getPropertyManager() {
+        return mPropertyManager;
     }
 
     @Override
@@ -184,9 +201,14 @@ public class KitchenSinkActivity extends CarDrawerActivity {
         return new DrawerAdapter();
     }
 
+    public CarSensorManager getSensorManager() {
+        return mSensorManager;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setToolbarElevation(0f);
         setMainContent(R.layout.kitchen_content);
         // Connection to Car Service does not work for non-automotive yet.
         if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
@@ -229,9 +251,6 @@ public class KitchenSinkActivity extends CarDrawerActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (mCarSensorManager != null) {
-            mCarSensorManager.removeListener(mListener);
-        }
         if (mCarApi != null) {
             mCarApi.disconnect();
         }
@@ -251,10 +270,12 @@ public class KitchenSinkActivity extends CarDrawerActivity {
             Log.d(TAG, "Connected to Car Service");
             try {
                 mHvacManager = (CarHvacManager) mCarApi.getCarManager(android.car.Car.HVAC_SERVICE);
-                mCarSensorManager = (CarSensorManager) mCarApi.getCarManager(Car.SENSOR_SERVICE);
-                mCarSensorManager.addListener(mListener,
-                        CarSensorManager.SENSOR_TYPE_DRIVING_STATUS,
-                        CarSensorManager.SENSOR_RATE_NORMAL);
+                mPowerManager = (CarPowerManager) mCarApi.getCarManager(
+                    android.car.Car.POWER_SERVICE);
+                mPropertyManager = (CarPropertyManager) mCarApi.getCarManager(
+                    android.car.Car.PROPERTY_SERVICE);
+                mSensorManager = (CarSensorManager) mCarApi.getCarManager(
+                    android.car.Car.SENSOR_SERVICE);
                 mCarAppFocusManager =
                         (CarAppFocusManager) mCarApi.getCarManager(Car.APP_FOCUS_SERVICE);
             } catch (CarNotConnectedException e) {
@@ -298,7 +319,7 @@ public class KitchenSinkActivity extends CarDrawerActivity {
 
             mMenuEntries.get(position).onClick();
 
-            closeDrawer();
+            getDrawerController().closeDrawer();
         }
     }
 }

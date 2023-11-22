@@ -87,6 +87,7 @@ public class CollapsibleCheckboxPreferenceGroupTest {
                 .isEqualTo(View.VISIBLE);
     }
 
+    @Test
     public void loadCompleteUpdate_disablesWhenNothingToDelete() {
         when(mDeletionType.getLoadingStatus()).thenReturn(LoadingStatus.EMPTY);
         mPreference.switchSpinnerToCheckboxOrDisablePreference(0, mDeletionType.getLoadingStatus());
@@ -95,6 +96,7 @@ public class CollapsibleCheckboxPreferenceGroupTest {
         assertThat(mPreference.isEnabled()).isFalse();
     }
 
+    @Test
     public void loadCompleteUpdate_enabledWhenDeletableContentFound() {
         when(mDeletionType.getLoadingStatus()).thenReturn(LoadingStatus.COMPLETE);
         mPreference.switchSpinnerToCheckboxOrDisablePreference(

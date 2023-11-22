@@ -21,7 +21,7 @@
 
 #include "util/base/integral_types.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 uint32 Hash32(const char *data, size_t n, uint32 seed);
 
@@ -33,6 +33,6 @@ static inline uint32 Hash32WithDefaultSeed(const std::string &input) {
   return Hash32WithDefaultSeed(input.data(), input.size());
 }
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
 #endif  // LIBTEXTCLASSIFIER_UTIL_HASH_HASH_H_

@@ -15,9 +15,10 @@
 package blueprint
 
 import (
+	"crypto/md5"
 	"fmt"
-	"reflect"
 	"sort"
+	"strings"
 )
 
 type GlobPath struct {
@@ -32,8 +33,14 @@ func verifyGlob(fileName, pattern string, excludes []string, g GlobPath) {
 	if pattern != g.Pattern {
 		panic(fmt.Errorf("Mismatched patterns %q and %q for glob file %q", pattern, g.Pattern, fileName))
 	}
-	if !reflect.DeepEqual(g.Excludes, excludes) {
+	if len(excludes) != len(g.Excludes) {
 		panic(fmt.Errorf("Mismatched excludes %v and %v for glob file %q", excludes, g.Excludes, fileName))
+	}
+
+	for i := range excludes {
+		if g.Excludes[i] != excludes[i] {
+			panic(fmt.Errorf("Mismatched excludes %v and %v for glob file %q", excludes, g.Excludes, fileName))
+		}
 	}
 }
 
@@ -106,9 +113,16 @@ func globToString(pattern string) string {
 }
 
 func globToFileName(pattern string, excludes []string) string {
-	ret := globToString(pattern)
+	name := globToString(pattern)
+	excludeName := ""
 	for _, e := range excludes {
-		ret += "__" + globToString(e)
+		excludeName += "__" + globToString(e)
 	}
-	return ret + ".glob"
+
+	// Prevent file names from reaching ninja's path component limit
+	if strings.Count(name, "/")+strings.Count(excludeName, "/") > 30 {
+		excludeName = fmt.Sprintf("___%x", md5.Sum([]byte(excludeName)))
+	}
+
+	return name + excludeName + ".glob"
 }

@@ -15,24 +15,29 @@
  */
 package com.android.tradefed.testtype;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
-
-import junit.framework.TestCase;
+import com.android.tradefed.result.TestDescription;
 
 import org.easymock.EasyMock;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.HashMap;
 
-/**
- * Unit tests for {@link InstrumentationSerialTest}.
- */
-public class InstrumentationSerialTestTest extends TestCase {
+/** Unit tests for {@link InstrumentationSerialTest}. */
+@RunWith(JUnit4.class)
+public class InstrumentationSerialTestTest {
 
     /** The {@link InstrumentationSerialTest} under test, with all dependencies mocked out */
     private InstrumentationSerialTest mInstrumentationSerialTest;
@@ -41,32 +46,29 @@ public class InstrumentationSerialTestTest extends TestCase {
     private ITestDevice mMockTestDevice;
     private ITestInvocationListener mMockListener;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
+    @Before
+    public void setUp() throws Exception {
         mMockTestDevice = EasyMock.createMock(ITestDevice.class);
         mMockListener = EasyMock.createMock(ITestInvocationListener.class);
 
         EasyMock.expect(mMockTestDevice.getSerialNumber()).andStubReturn("serial");
     }
 
-    /**
-     * Test normal run scenario with a single test.
-     */
+    /** Test normal run scenario with a single test. */
+    @Test
     public void testRun() throws DeviceNotAvailableException, ConfigurationException {
         final String packageName = "com.foo";
-        final TestIdentifier test = new TestIdentifier("FooTest", "testFoo");
-        final Collection<TestIdentifier> testList = new ArrayList<TestIdentifier>(1);
+        final TestDescription test = new TestDescription("FooTest", "testFoo");
+        final Collection<TestDescription> testList = new ArrayList<TestDescription>(1);
         testList.add(test);
         final InstrumentationTest mockITest =
                 new InstrumentationTest() {
                     @Override
                     public void run(ITestInvocationListener listener) {
                         listener.testRunStarted(packageName, 1);
-                        listener.testStarted(test, 5l);
-                        listener.testEnded(test, 10l, Collections.emptyMap());
-                        listener.testRunEnded(0, Collections.emptyMap());
+                        listener.testStarted(test);
+                        listener.testEnded(test, 10l, new HashMap<String, Metric>());
+                        listener.testRunEnded(0, new HashMap<String, Metric>());
                     }
                 };
 
@@ -83,10 +85,10 @@ public class InstrumentationSerialTestTest extends TestCase {
                     }
                 };
         mMockListener.testRunStarted(packageName, 1);
-        mMockListener.testStarted(EasyMock.eq(test), EasyMock.eq(5l));
+        mMockListener.testStarted(EasyMock.eq(test), EasyMock.anyLong());
         mMockListener.testEnded(
-                EasyMock.eq(test), EasyMock.eq(10l), EasyMock.eq(Collections.emptyMap()));
-        mMockListener.testRunEnded(0, Collections.emptyMap());
+                EasyMock.eq(test), EasyMock.eq(10l), EasyMock.eq(new HashMap<String, Metric>()));
+        mMockListener.testRunEnded(0, new HashMap<String, Metric>());
 
         EasyMock.replay(mMockListener, mMockTestDevice);
         mInstrumentationSerialTest.run(mMockListener);
@@ -100,21 +102,22 @@ public class InstrumentationSerialTestTest extends TestCase {
      * Test {@link InstrumentationSerialTest#run} when the test run fails without executing the
      * test.
      */
-    @SuppressWarnings("unchecked")
+    @Test
     public void testRun_runFailure() throws DeviceNotAvailableException, ConfigurationException {
         final String packageName = "com.foo";
-        final TestIdentifier test = new TestIdentifier("FooTest", "testFoo");
+        final TestDescription test = new TestDescription("FooTest", "testFoo");
         final String runFailureMsg = "run failed";
-        final Collection<TestIdentifier> testList = new ArrayList<TestIdentifier>(1);
+        final Collection<TestDescription> testList = new ArrayList<TestDescription>(1);
         testList.add(test);
-        final InstrumentationTest mockITest = new InstrumentationTest() {
-            @Override
-            public void run(ITestInvocationListener listener) {
-                listener.testRunStarted(packageName, 1);
-                listener.testRunFailed(runFailureMsg);
-                listener.testRunEnded(0, Collections.EMPTY_MAP);
-            }
-        };
+        final InstrumentationTest mockITest =
+                new InstrumentationTest() {
+                    @Override
+                    public void run(ITestInvocationListener listener) {
+                        listener.testRunStarted(packageName, 1);
+                        listener.testRunFailed(runFailureMsg);
+                        listener.testRunEnded(0, new HashMap<String, Metric>());
+                    }
+                };
         // mock out InstrumentationTest that will be used to create InstrumentationSerialTest
         mockITest.setDevice(mMockTestDevice);
         mockITest.setPackageName(packageName);
@@ -131,15 +134,15 @@ public class InstrumentationSerialTestTest extends TestCase {
         EasyMock.expectLastCall().times(expectedAttempts);
         mMockListener.testRunFailed(runFailureMsg);
         EasyMock.expectLastCall().times(expectedAttempts);
-        mMockListener.testRunEnded(0, Collections.EMPTY_MAP);
-        EasyMock.expectLastCall().times(expectedAttempts);
+        mMockListener.testRunEnded(0, new HashMap<String, Metric>());
+        EasyMock.expectLastCall().times(expectedAttempts - 1);
+        mMockListener.testRunEnded(0, new HashMap<String, Metric>());
 
         // now expect test to be marked as failed
-        mMockListener.testStarted(EasyMock.eq(test), EasyMock.anyLong());
+        mMockListener.testStarted(EasyMock.eq(test));
         mMockListener.testFailed(EasyMock.eq(test),
                 EasyMock.contains(runFailureMsg));
-        mMockListener.testEnded(
-                EasyMock.eq(test), EasyMock.anyLong(), EasyMock.eq(Collections.EMPTY_MAP));
+        mMockListener.testEnded(EasyMock.eq(test), EasyMock.eq(new HashMap<String, Metric>()));
 
         EasyMock.replay(mMockListener, mMockTestDevice);
         mInstrumentationSerialTest.run(mMockListener);
@@ -149,12 +152,12 @@ public class InstrumentationSerialTestTest extends TestCase {
         EasyMock.verify(mMockListener, mMockTestDevice);
     }
 
-    /**
-     * Test that IllegalArgumentException is thrown when attempting run without setting device.
-     */
+    /** Test that IllegalArgumentException is thrown when attempting run without setting device. */
+    @Test
     public void testRun_noDevice() throws DeviceNotAvailableException, ConfigurationException {
-        mInstrumentationSerialTest = new InstrumentationSerialTest(new InstrumentationTest(),
-                new ArrayList<TestIdentifier>());
+        mInstrumentationSerialTest =
+                new InstrumentationSerialTest(
+                        new InstrumentationTest(), new ArrayList<TestDescription>());
         EasyMock.replay(mMockListener);
         try {
             mInstrumentationSerialTest.run(mMockListener);

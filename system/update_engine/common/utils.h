@@ -88,8 +88,8 @@ bool ReadAll(
 bool PReadAll(int fd, void* buf, size_t count, off_t offset,
               ssize_t* out_bytes_read);
 
-bool PReadAll(const FileDescriptorPtr& fd, void* buf, size_t count, off_t offset,
-              ssize_t* out_bytes_read);
+bool PReadAll(const FileDescriptorPtr& fd, void* buf, size_t count,
+              off_t offset, ssize_t* out_bytes_read);
 
 // Opens |path| for reading and appends its entire content to the container
 // pointed to by |out_p|. Returns true upon successfully reading all of the
@@ -256,6 +256,16 @@ bool VectorIndexOf(const std::vector<T>& vect, const T& value,
   }
 }
 
+// Return the total number of blocks in the passed |extents| collection.
+template <class T>
+uint64_t BlocksInExtents(const T& extents) {
+  uint64_t sum = 0;
+  for (const auto& ext : extents) {
+    sum += ext.num_blocks();
+  }
+  return sum;
+}
+
 // Converts seconds into human readable notation including days, hours, minutes
 // and seconds. For example, 185 will yield 3m5s, 4300 will yield 1h11m40s, and
 // 360000 will yield 4d4h0m0s.  Zero padding not applied. Seconds are always
@@ -307,9 +317,6 @@ bool ConvertToOmahaInstallDate(base::Time time, int *out_num_days);
 // |minor_version| to that value. Return whether the value was found and valid.
 bool GetMinorVersion(const brillo::KeyValueStore& store,
                      uint32_t* minor_version);
-
-// Returns whether zlib |fingerprint| is compatible with zlib we are using.
-bool IsZlibCompatible(const std::string& fingerprint);
 
 // This function reads the specified data in |extents| into |out_data|. The
 // extents are read from the file at |path|. |out_data_size| is the size of

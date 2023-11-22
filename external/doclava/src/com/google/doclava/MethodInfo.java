@@ -27,13 +27,16 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.function.Predicate;
 
 public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolvable {
   public static final Comparator<MethodInfo> comparator = new Comparator<MethodInfo>() {
+    @Override
     public int compare(MethodInfo a, MethodInfo b) {
-        return a.name().compareTo(b.name());
+      // TODO: expand to compare signature for better sorting
+      return a.name().compareTo(b.name());
     }
   };
 
@@ -124,27 +127,22 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
     return null;
   }
 
-  public MethodInfo findPredicateOverriddenMethod(Predicate<MethodInfo> predicate) {
+  public MethodInfo findPredicateOverriddenMethod(Predicate<MemberInfo> predicate) {
     if (mReturnType == null) {
       // ctor
       return null;
     }
     if (mOverriddenMethod != null) {
-      if (predicate.test(mOverriddenMethod)) {
+      if (equals(mOverriddenMethod) && !mOverriddenMethod.isStatic()
+          && predicate.test(mOverriddenMethod)) {
         return mOverriddenMethod;
       }
     }
 
-    ArrayList<ClassInfo> queue = new ArrayList<ClassInfo>();
-    if (containingClass().realSuperclass() != null
-        && containingClass().realSuperclass().isAbstract()) {
-      queue.add(containingClass().realSuperclass());
-    }
-    addInterfaces(containingClass().realInterfaces(), queue);
-    for (ClassInfo iface : queue) {
-      for (MethodInfo me : iface.methods()) {
-        if (predicate.test(me)) {
-          return me;
+    for (ClassInfo clazz : containingClass().gatherAncestorClasses()) {
+      for (MethodInfo method : clazz.getExhaustiveMethods()) {
+        if (equals(method) && !method.isStatic() && predicate.test(method)) {
+          return method;
         }
       }
     }
@@ -258,7 +256,12 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
    */
   public MethodInfo cloneForClass(ClassInfo newContainingClass,
       Map<String, TypeInfo> typeArgumentMapping) {
-    TypeInfo returnType = mReturnType.getTypeWithArguments(typeArgumentMapping);
+    if (newContainingClass == containingClass()) {
+      return this;
+    }
+    TypeInfo returnType = (mReturnType != null)
+        ? mReturnType.getTypeWithArguments(typeArgumentMapping)
+        : null;
     ArrayList<ParameterInfo> parameters = new ArrayList<ParameterInfo>();
     for (ParameterInfo pi : mParameters) {
       parameters.add(pi.cloneWithTypeArguments(typeArgumentMapping));
@@ -730,6 +733,23 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
     return this.name();
   }
 
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    } else if (o instanceof MethodInfo) {
+      final MethodInfo m = (MethodInfo) o;
+      return mName.equals(m.mName) && signature().equals(m.signature());
+    } else {
+      return false;
+    }
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(mName, signature());
+  }
+
   public void setReason(String reason) {
     mReasonOpened = reason;
   }
@@ -889,8 +909,6 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
           + " to " + mInfo.scope());
     }
 
-    // Changing the deprecated annotation is binary- and source-compatible, but
-    // we still need to log the API change.
     if (!isDeprecated() == mInfo.isDeprecated()) {
       Errors.error(Errors.CHANGED_DEPRECATED, mInfo.position(), "Method "
           + mInfo.prettyQualifiedSignature() + " has changed deprecation state " + isDeprecated()
@@ -898,14 +916,16 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
       consistent = false;
     }
 
-    // Changing the synchronized modifier is binary- and source-compatible (see
-    // JLS 3 13.4.20), but we still need to log the API change.
+    // see JLS 3 13.4.20 "Adding or deleting a synchronized modifier of a method does not break "
+    // "compatibility with existing binaries."
+    /*
     if (mIsSynchronized != mInfo.mIsSynchronized) {
       Errors.error(Errors.CHANGED_SYNCHRONIZED, mInfo.position(), "Method " + mInfo.qualifiedName()
           + " has changed 'synchronized' qualifier from " + mIsSynchronized + " to "
           + mInfo.mIsSynchronized);
       consistent = false;
     }
+    */
 
     for (ClassInfo exception : thrownExceptions()) {
       if (!mInfo.throwsException(exception)) {
@@ -934,7 +954,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
     return consistent;
   }
 
-  private TypeInfo getTypeParameter(String qualifiedTypeName) {
+  public TypeInfo getTypeParameter(String qualifiedTypeName) {
     if (hasTypeParameters()) {
       for (TypeInfo parameter : mTypeParameters) {
         if (parameter.qualifiedTypeName().equals(qualifiedTypeName)) {

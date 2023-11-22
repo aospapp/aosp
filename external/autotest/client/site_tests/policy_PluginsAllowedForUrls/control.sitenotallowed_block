@@ -4,7 +4,8 @@
 
 AUTHOR = 'scunningham'
 NAME = 'policy_PluginsAllowedForUrls.sitenotallowed_block'
-ATTRIBUTES = 'suite:regression'
+# TODO crbug.com/712394: reenable this test
+# ATTRIBUTES = 'suite:regression, suite:policy'
 TIME = 'SHORT'
 TEST_CATEGORY = 'General'
 TEST_CLASS = 'enterprise'

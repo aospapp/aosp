@@ -24,16 +24,16 @@ class network_WiFi_MalformedProbeResp(wifi_cell_test_base.WiFiCellTestBase):
 
     def run_once(self):
         """Sets up a router, connects to it, pings it, and repeats."""
-        if self.context.router.board == "panther":
-            raise error.TestNAError('Panther router does not support manual '
-                                    'beacon frame generation')
         configuration = hostap_config.HostapConfig(
                 channel=self.PROBE_RESPONSE_TEST_CHANNEL,
                 mode=hostap_config.HostapConfig.MODE_11B)
         self.context.router.require_capabilities(
-            [site_linux_system.LinuxSystem.CAPABILITY_SEND_MANAGEMENT_FRAME])
+            [site_linux_system.LinuxSystem.CAPABILITY_SEND_MANAGEMENT_FRAME,
+             site_linux_system.LinuxSystem.CAPABILITY_MULTI_AP_SAME_BAND])
 
         self.context.configure(configuration)
+        # Configure 2nd AP to inject the malformed probe responses.
+        self.context.configure(configuration, multi_interface=True)
         client_mac = self.context.client.wifi_mac
 
         pretest_reset_count = self.context.client.get_num_card_resets()
@@ -42,7 +42,7 @@ class network_WiFi_MalformedProbeResp(wifi_cell_test_base.WiFiCellTestBase):
                 configuration.frequency,
                 ht_type=configuration.ht_packet_capture_mode)
         assoc_params = xmlrpc_datatypes.AssociationParameters()
-        assoc_params.ssid = self.context.router.get_ssid()
+        assoc_params.ssid = self.context.router.get_ssid(instance=0)
         assoc_result = self.context.assert_connect_wifi(assoc_params)
         start_time = time.time()
         count = 1
@@ -58,7 +58,8 @@ class network_WiFi_MalformedProbeResp(wifi_cell_test_base.WiFiCellTestBase):
                     frame_count=0,
                     delay=self.PROBE_RESPONSE_DELAY_MSEC,
                     dest_addr=client_mac,
-                    probe_resp_footer='\xdd\xb7\x00\x1a\x11\x01\x01\x02\x03'):
+                    probe_resp_footer='\xdd\xb7\x00\x1a\x11\x01\x01\x02\x03',
+                    instance=1):
                 while time.time() - start_time < self.SCAN_LOOP_SEC:
                     bss_list = self.context.client.iw_runner.scan(
                             self.context.client.wifi_if, [2412])

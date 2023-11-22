@@ -106,6 +106,10 @@ public interface Features {
             return isEnabled(R.bool.feature_content_refresh);
         }
 
+        private boolean isFunPolicyEnabled() {
+            return !mUserMgr.hasUserRestriction(UserManager.DISALLOW_FUN);
+        }
+
         private boolean isDebugPolicyEnabled() {
             return !mUserMgr.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES);
         }
@@ -120,15 +124,12 @@ public interface Features {
             return isEnabled(R.bool.feature_folders_in_search_results);
         }
 
-        private boolean isFunPolicyEnabled() {
-            return !mUserMgr.hasUserRestriction(UserManager.DISALLOW_FUN);
-        }
-
         @Override
         public boolean isGestureScaleEnabled() {
             return isEnabled(R.bool.feature_gesture_scale);
         }
 
+        @Override
         public boolean isInspectorEnabled() {
             return isEnabled(R.bool.feature_inspector);
         }

@@ -37,7 +37,7 @@ from acts.test_utils.bt.bt_test_utils import take_btsnoop_logs
 
 class ConcurrentBleScanningTest(BluetoothBaseTest):
     default_timeout = 20
-    max_concurrent_scans = 28
+    max_concurrent_scans = 27
 
     def __init__(self, controllers):
         BluetoothBaseTest.__init__(self, controllers)

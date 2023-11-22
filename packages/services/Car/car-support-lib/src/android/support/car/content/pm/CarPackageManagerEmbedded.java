@@ -38,7 +38,7 @@ public class CarPackageManagerEmbedded extends CarPackageManager {
     public boolean isActivityAllowedWhileDriving(String packageName, String className)
             throws CarNotConnectedException {
         try {
-            return mManager.isActivityAllowedWhileDriving(packageName, className);
+            return mManager.isActivityDistractionOptimized(packageName, className);
         } catch (android.car.CarNotConnectedException e) {
             throw new CarNotConnectedException(e);
         }
@@ -48,7 +48,7 @@ public class CarPackageManagerEmbedded extends CarPackageManager {
     public boolean isServiceAllowedWhileDriving(String packageName, String className)
             throws CarNotConnectedException {
         try {
-            return mManager.isServiceAllowedWhileDriving(packageName, className);
+            return mManager.isServiceDistractionOptimized(packageName, className);
         } catch (android.car.CarNotConnectedException e) {
             throw new CarNotConnectedException(e);
         }

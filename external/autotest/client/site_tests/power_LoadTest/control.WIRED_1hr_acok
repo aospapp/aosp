@@ -22,4 +22,4 @@ loop_count = 1
 
 job.run_test('power_LoadTest', loop_time=loop_time, loop_count=loop_count,
              test_low_batt_p=6, ac_ok=True, check_network=False,
-             tag='WIRED_1hr_acok')
+             tag=NAME.split('.')[1], gaia_login=False)

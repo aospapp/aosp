@@ -102,6 +102,10 @@
 @   r5 =>  ht
 @   r6 =>  wd
 
+.equ    coeff_offset,   104
+.equ    ht_offset,      108
+.equ    wd_offset,      112
+
 .text
 .align 4
 
@@ -115,16 +119,17 @@
 ihevc_inter_pred_luma_vert_w16inp_w16out_a9q:
 
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
+    vpush        {d8 - d15}
 
-    ldr         r12,[sp,#40]                @load pi1_coeff
+    ldr         r12,[sp,#coeff_offset]                @load pi1_coeff
     mov         r6,r3,lsl #1
-    ldr         r5,[sp,#48]                 @load wd
+    ldr         r5,[sp,#wd_offset]                 @load wd
     vld1.8      {d0},[r12]                  @coeff = vld1_s8(pi1_coeff)
     mov         r2, r2, lsl #1
     sub         r12,r2,r2,lsl #2            @src_ctrd & pi1_coeff
     @vabs.s8    d0,d0               @vabs_s8(coeff)
     add         r0,r0,r12                   @r0->pu1_src    r12->pi1_coeff
-    ldr         r3,[sp,#44]                 @load ht
+    ldr         r3,[sp,#ht_offset]                 @load ht
     subs        r7,r3,#0                    @r3->ht
     @ble        end_loops           @end loop jump
     vmovl.s8    q0,d0
@@ -393,6 +398,7 @@ epilog_end:
 
 end_loops:
 
+    vpop         {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 

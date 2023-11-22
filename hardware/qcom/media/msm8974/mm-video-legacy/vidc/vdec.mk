@@ -83,6 +83,8 @@ LOCAL_SRC_FILES         += vdec/src/omx_vdec.cpp
 LOCAL_SRC_FILES         += common/src/extra_data_handler.cpp
 LOCAL_SRC_FILES         += common/src/vidc_color_converter.cpp
 
+LOCAL_CFLAGS            += -Wno-error
+
 include $(BUILD_SHARED_LIBRARY)
 
 # ---------------------------------------------------------------------------------

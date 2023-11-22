@@ -29,6 +29,7 @@
 #include "print_fields.h"
 
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/socket.h>
 #include "netlink.h"
@@ -62,14 +63,15 @@ print_nlattr(const unsigned int nla_len, const char *const nla_type)
 	do {								\
 		struct nlmsghdr *const nlh =				\
 			(nlh0_) - (NLA_HDRLEN + (slen_));		\
-		struct nlattr *const nla = NLMSG_ATTR(nlh, (hdrlen_));	\
+		struct nlattr *const TEST_NLATTR_nla =			\
+			NLMSG_ATTR(nlh, (hdrlen_));			\
 		const unsigned int nla_len =				\
 			NLA_HDRLEN + (nla_data_len_);			\
 		const unsigned int msg_len =				\
 			NLMSG_SPACE(hdrlen_) + nla_len;			\
 									\
 		(init_msg_)(nlh, msg_len);				\
-		init_nlattr(nla, nla_len, (nla_type_),			\
+		init_nlattr(TEST_NLATTR_nla, nla_len, (nla_type_),	\
 			   (src_), (slen_));				\
 									\
 		const char *const errstr =				\
@@ -95,23 +97,24 @@ print_nlattr(const unsigned int nla_len, const char *const nla_type)
 		(nla_type_), #nla_type_,				\
 		(nla_data_len_), (src_), (slen_), __VA_ARGS__)
 
-#define TEST_NLATTR_OBJECT(fd_, nlh0_, hdrlen_,				\
-			   init_msg_, print_msg_,			\
-			   nla_type_, pattern_, obj_, ...)		\
+#define TEST_NLATTR_OBJECT_EX_(fd_, nlh0_, hdrlen_,			\
+			       init_msg_, print_msg_,			\
+			       nla_type_, nla_type_str_,		\
+			       pattern_, obj_, fallback_func, ...)	\
 	do {								\
-		const int plen = sizeof(obj_) - 1 > DEFAULT_STRLEN	\
+		const unsigned int plen =				\
+			sizeof(obj_) - 1 > DEFAULT_STRLEN		\
 			? DEFAULT_STRLEN : (int) sizeof(obj_) - 1;	\
 		/* len < sizeof(obj_) */				\
 		TEST_NLATTR_((fd_), (nlh0_), (hdrlen_),			\
 			(init_msg_), (print_msg_),			\
-			(nla_type_), #nla_type_,			\
-			sizeof(obj_) - 1,				\
-			(pattern_), sizeof(obj_) - 1,			\
-			printf("\"%.*s\"", plen, (pattern_)));		\
+			(nla_type_), (nla_type_str_),			\
+			plen, (pattern_), plen,				\
+			(fallback_func)((pattern_), plen));		\
 		/* short read of sizeof(obj_) */			\
 		TEST_NLATTR_((fd_), (nlh0_), (hdrlen_),			\
 			(init_msg_), (print_msg_),			\
-			(nla_type_), #nla_type_,			\
+			(nla_type_), (nla_type_str_),			\
 			sizeof(obj_),					\
 			(pattern_), sizeof(obj_) - 1,			\
 			printf("%p",					\
@@ -119,26 +122,44 @@ print_nlattr(const unsigned int nla_len, const char *const nla_type)
 		/* sizeof(obj_) */					\
 		TEST_NLATTR_((fd_), (nlh0_), (hdrlen_),			\
 			(init_msg_), (print_msg_),			\
-			(nla_type_), #nla_type_,			\
+			(nla_type_), (nla_type_str_),			\
 			sizeof(obj_),					\
 			&(obj_), sizeof(obj_),				\
 			__VA_ARGS__);					\
 	} while (0)
 
+#define TEST_NLATTR_OBJECT_EX(fd_, nlh0_, hdrlen_,			\
+			      init_msg_, print_msg_,			\
+			      nla_type_,				\
+			      pattern_, obj_, fallback_func, ...)	\
+	TEST_NLATTR_OBJECT_EX_((fd_), (nlh0_), (hdrlen_),		\
+			       (init_msg_), (print_msg_),		\
+			       (nla_type_), #nla_type_,			\
+			       (pattern_), (obj_), (fallback_func),	\
+			       __VA_ARGS__)
+
+#define TEST_NLATTR_OBJECT(fd_, nlh0_, hdrlen_,				\
+			   init_msg_, print_msg_,			\
+			   nla_type_, pattern_, obj_, ...)		\
+	TEST_NLATTR_OBJECT_EX_((fd_), (nlh0_), (hdrlen_),		\
+			       (init_msg_), (print_msg_),		\
+			       (nla_type_), #nla_type_,			\
+			       (pattern_), (obj_), print_quoted_hex,	\
+			       __VA_ARGS__)
+
 #define TEST_NLATTR_ARRAY(fd_, nlh0_, hdrlen_,				\
 			  init_msg_, print_msg_,			\
 			  nla_type_, pattern_, obj_, print_elem_)	\
 	do {								\
-		const int plen =					\
+		const unsigned int plen =				\
 			sizeof((obj_)[0]) - 1 > DEFAULT_STRLEN		\
 			? DEFAULT_STRLEN : (int) sizeof((obj_)[0]) - 1;	\
 		/* len < sizeof((obj_)[0]) */				\
 		TEST_NLATTR_((fd_), (nlh0_), (hdrlen_),			\
 			(init_msg_), (print_msg_),			\
 			(nla_type_), #nla_type_,			\
-			sizeof((obj_)[0]) - 1,				\
-			(pattern_), sizeof((obj_)[0]) - 1,		\
-			printf("\"%.*s\"", plen, (pattern_)));		\
+			plen, (pattern_), plen,				\
+			print_quoted_hex((pattern_), plen));		\
 		/* sizeof((obj_)[0]) < len < sizeof(obj_) */		\
 		TEST_NLATTR_((fd_), (nlh0_), (hdrlen_),			\
 			(init_msg_), (print_msg_),			\
@@ -180,4 +201,126 @@ print_nlattr(const unsigned int nla_len, const char *const nla_type)
 				(print_elem_)(&(obj_)[i]);		\
 			}						\
 			printf("]"));					\
+	} while (0)
+
+#define TEST_NESTED_NLATTR_OBJECT_EX_(fd_, nlh0_, hdrlen_,		\
+				      init_msg_, print_msg_,		\
+				      nla_type_, nla_type_str_,		\
+				      pattern_, obj_, depth_, ...)	\
+	do {								\
+		const unsigned int plen =				\
+			sizeof(obj_) - 1 > DEFAULT_STRLEN		\
+			? DEFAULT_STRLEN : (int) sizeof(obj_) - 1;	\
+		/* len < sizeof(obj_) */				\
+		TEST_NLATTR_((fd_), (nlh0_) - NLA_HDRLEN * depth_,	\
+			(hdrlen_) + NLA_HDRLEN * depth_,		\
+			(init_msg_), (print_msg_),			\
+			(nla_type_), (nla_type_str_),			\
+			plen, (pattern_), plen,				\
+			print_quoted_hex((pattern_), plen);		\
+			size_t i;					\
+			for (i = 0; i < depth_; ++i)			\
+				printf("}"));				\
+		/* short read of sizeof(obj_) */			\
+		TEST_NLATTR_((fd_), (nlh0_) - NLA_HDRLEN * depth_,	\
+			(hdrlen_) + NLA_HDRLEN * depth_,		\
+			(init_msg_), (print_msg_),			\
+			(nla_type_), (nla_type_str_),			\
+			sizeof(obj_),					\
+			(pattern_), sizeof(obj_) - 1,			\
+			printf("%p", RTA_DATA(TEST_NLATTR_nla));	\
+			size_t i;					\
+			for (i = 0; i < depth_; ++i)			\
+				printf("}"));				\
+		/* sizeof(obj_) */					\
+		TEST_NLATTR_((fd_), (nlh0_) - NLA_HDRLEN * depth_,	\
+			(hdrlen_) + NLA_HDRLEN * depth_,		\
+			(init_msg_), (print_msg_),			\
+			(nla_type_), (nla_type_str_),			\
+			sizeof(obj_),					\
+			&(obj_), sizeof(obj_),				\
+			__VA_ARGS__;					\
+			size_t i;					\
+			for (i = 0; i < depth_; ++i)			\
+				printf("}"));				\
+	} while (0)
+
+#define TEST_NESTED_NLATTR_OBJECT_EX(fd_, nlh0_, hdrlen_,		\
+				     init_msg_, print_msg_,		\
+				     nla_type_, pattern_, obj_,		\
+				     depth_, ...)			\
+	TEST_NESTED_NLATTR_OBJECT_EX_((fd_), (nlh0_), (hdrlen_),	\
+				      (init_msg_), (print_msg_),	\
+				      (nla_type_), #nla_type_,		\
+				      (pattern_), (obj_), (depth_),	\
+				      __VA_ARGS__)
+
+#define TEST_NESTED_NLATTR_OBJECT(fd_, nlh0_, hdrlen_,			\
+				  init_msg_, print_msg_,		\
+				  nla_type_, pattern_, obj_, ...)	\
+	TEST_NESTED_NLATTR_OBJECT_EX_((fd_), (nlh0_), (hdrlen_),	\
+				      (init_msg_), (print_msg_),	\
+				      (nla_type_), #nla_type_,		\
+				      (pattern_), (obj_), 1,		\
+				      __VA_ARGS__)
+
+#define TEST_NESTED_NLATTR_ARRAY(fd_, nlh0_, hdrlen_,			\
+				 init_msg_, print_msg_,			\
+				 nla_type_, pattern_, obj_, print_elem_)\
+	do {								\
+		const unsigned int plen =				\
+			sizeof((obj_)[0]) - 1 > DEFAULT_STRLEN		\
+			? DEFAULT_STRLEN : (int) sizeof((obj_)[0]) - 1;	\
+		/* len < sizeof((obj_)[0]) */				\
+		TEST_NLATTR_((fd_), (nlh0_) - NLA_HDRLEN,		\
+			(hdrlen_) + NLA_HDRLEN,				\
+			(init_msg_), (print_msg_),			\
+			(nla_type_), #nla_type_,			\
+			plen, (pattern_), plen,				\
+			print_quoted_hex((pattern_), plen);		\
+			printf("}"));					\
+		/* sizeof((obj_)[0]) < len < sizeof(obj_) */		\
+		TEST_NLATTR_((fd_), (nlh0_) - NLA_HDRLEN,		\
+			(hdrlen_) + NLA_HDRLEN,				\
+			(init_msg_), (print_msg_),			\
+			(nla_type_), #nla_type_,			\
+			sizeof(obj_) - 1,				\
+			&(obj_), sizeof(obj_) - 1,			\
+			printf("[");					\
+			size_t i;					\
+			for (i = 0; i < ARRAY_SIZE(obj_) - 1; ++i) {	\
+				if (i) printf(", ");			\
+				(print_elem_)(&(obj_)[i]);		\
+			}						\
+			printf("]}"));					\
+		/* short read of sizeof(obj_) */			\
+		TEST_NLATTR_((fd_), (nlh0_) - NLA_HDRLEN,		\
+			(hdrlen_) + NLA_HDRLEN,				\
+			(init_msg_), (print_msg_),			\
+			(nla_type_), #nla_type_,			\
+			sizeof(obj_),					\
+			&(obj_), sizeof(obj_) - 1,			\
+			printf("[");					\
+			size_t i;					\
+			for (i = 0; i < ARRAY_SIZE(obj_) - 1; ++i) {	\
+				if (i) printf(", ");			\
+				(print_elem_)(&(obj_)[i]);		\
+			}						\
+			printf(", %p]}",				\
+			       RTA_DATA(TEST_NLATTR_nla)		\
+			        + sizeof((obj_)[0])));			\
+		/* sizeof(obj_) */					\
+		TEST_NLATTR_((fd_), (nlh0_) - NLA_HDRLEN,		\
+			(hdrlen_) + NLA_HDRLEN,				\
+			(init_msg_), (print_msg_),			\
+			(nla_type_), #nla_type_,			\
+			sizeof(obj_),					\
+			&(obj_), sizeof(obj_),				\
+			printf("[");					\
+			size_t i;					\
+			for (i = 0; i < ARRAY_SIZE(obj_); ++i) {	\
+				if (i) printf(", ");			\
+				(print_elem_)(&(obj_)[i]);		\
+			}						\
+			printf("]}"));					\
 	} while (0)

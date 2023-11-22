@@ -28,6 +28,8 @@ PRODUCT_PROPERTY_OVERRIDES += vendor.audio.adm.buffering.ms=3
 PRODUCT_PROPERTY_OVERRIDES += audio_hal.period_multiplier=2
 PRODUCT_PROPERTY_OVERRIDES += af.fast_track_multiplier=1
 
+# Whether by default, the eSIM system UI, including that in SUW and Settings, will be shown.
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += esim.enable_esim_system_ui_by_default=false
 
 # Pro audio feature
 PRODUCT_COPY_FILES += \
@@ -67,7 +69,8 @@ endif
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/init-common.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init-$(PRODUCT_HARDWARE).rc \
     $(LOCAL_PATH)/init.common.usb.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.$(PRODUCT_HARDWARE).usb.rc \
-    $(LOCAL_PATH)/init.insmod.cfg:$(TARGET_COPY_OUT_VENDOR)/etc/init.insmod.cfg
+    $(LOCAL_PATH)/init.insmod.cfg:$(TARGET_COPY_OUT_VENDOR)/etc/init.insmod.cfg \
+    $(LOCAL_PATH)/init.insmod_charger.cfg:$(TARGET_COPY_OUT_VENDOR)/etc/init.insmod_charger.cfg
 
 # Input device files
 PRODUCT_COPY_FILES += \
@@ -82,20 +85,63 @@ BOARD_VENDOR_KERNEL_MODULES += \
     device/google/wahoo-kernel/gcc/synaptics_dsx_core_htc.ko \
     device/google/wahoo-kernel/gcc/synaptics_dsx_rmi_dev_htc.ko \
     device/google/wahoo-kernel/gcc/synaptics_dsx_fw_update_htc.ko \
-    device/google/wahoo-kernel/gcc/htc_battery.ko
+    device/google/wahoo-kernel/gcc/htc_battery.ko \
+    device/google/wahoo-kernel/gcc/wlan.ko
 else ifeq (,$(filter-out walleye_kasan, $(TARGET_PRODUCT)))
 # if TARGET_PRODUCT == *_kasan
 BOARD_VENDOR_KERNEL_MODULES += \
     device/google/wahoo-kernel/kasan/synaptics_dsx_core_htc.ko \
     device/google/wahoo-kernel/kasan/synaptics_dsx_rmi_dev_htc.ko \
     device/google/wahoo-kernel/kasan/synaptics_dsx_fw_update_htc.ko \
-    device/google/wahoo-kernel/kasan/htc_battery.ko
+    device/google/wahoo-kernel/kasan/htc_battery.ko \
+    device/google/wahoo-kernel/kasan/wlan.ko
+else ifeq (,$(filter-out walleye_kcfi, $(TARGET_PRODUCT)))
+# if TARGET_PRODUCT == *_kcfi
+BOARD_VENDOR_KERNEL_MODULES += \
+    device/google/wahoo-kernel/kcfi/synaptics_dsx_core_htc.ko \
+    device/google/wahoo-kernel/kcfi/synaptics_dsx_rmi_dev_htc.ko \
+    device/google/wahoo-kernel/kcfi/synaptics_dsx_fw_update_htc.ko \
+    device/google/wahoo-kernel/kcfi/htc_battery.ko \
+    device/google/wahoo-kernel/kcfi/wlan.ko
+else ifeq (,$(filter-out walleye_kernel_debug_memory, $(TARGET_PRODUCT)))
+# if TARGET == walleye_kernel_debug_memory
+BOARD_VENDOR_KERNEL_MODULES += \
+    device/google/wahoo-kernel/debug_memory/synaptics_dsx_core_htc.ko \
+    device/google/wahoo-kernel/debug_memory/synaptics_dsx_rmi_dev_htc.ko \
+    device/google/wahoo-kernel/debug_memory/synaptics_dsx_fw_update_htc.ko \
+    device/google/wahoo-kernel/debug_memory/htc_battery.ko \
+    device/google/wahoo-kernel/debug_memory/wlan.ko
+else ifeq (,$(filter-out walleye_kernel_debug_locking, $(TARGET_PRODUCT)))
+# if TARGET == walleye_kernel_debug_locking
+BOARD_VENDOR_KERNEL_MODULES += \
+    device/google/wahoo-kernel/debug_locking/synaptics_dsx_core_htc.ko \
+    device/google/wahoo-kernel/debug_locking/synaptics_dsx_rmi_dev_htc.ko \
+    device/google/wahoo-kernel/debug_locking/synaptics_dsx_fw_update_htc.ko \
+    device/google/wahoo-kernel/debug_locking/htc_battery.ko \
+    device/google/wahoo-kernel/debug_locking/wlan.ko
+else ifeq (,$(filter-out walleye_kernel_debug_hang, $(TARGET_PRODUCT)))
+# if TARGET == walleye_kernel_debug_hang
+BOARD_VENDOR_KERNEL_MODULES += \
+    device/google/wahoo-kernel/debug_hang/synaptics_dsx_core_htc.ko \
+    device/google/wahoo-kernel/debug_hang/synaptics_dsx_rmi_dev_htc.ko \
+    device/google/wahoo-kernel/debug_hang/synaptics_dsx_fw_update_htc.ko \
+    device/google/wahoo-kernel/debug_hang/htc_battery.ko \
+    device/google/wahoo-kernel/debug_hang/wlan.ko
+else ifeq (,$(filter-out walleye_kernel_debug_api, $(TARGET_PRODUCT)))
+# if TARGET == walleye_kernel_debug_api
+BOARD_VENDOR_KERNEL_MODULES += \
+    device/google/wahoo-kernel/debug_api/synaptics_dsx_core_htc.ko \
+    device/google/wahoo-kernel/debug_api/synaptics_dsx_rmi_dev_htc.ko \
+    device/google/wahoo-kernel/debug_api/synaptics_dsx_fw_update_htc.ko \
+    device/google/wahoo-kernel/debug_api/htc_battery.ko \
+    device/google/wahoo-kernel/debug_api/wlan.ko
 else
 BOARD_VENDOR_KERNEL_MODULES += \
     device/google/wahoo-kernel/synaptics_dsx_core_htc.ko \
     device/google/wahoo-kernel/synaptics_dsx_rmi_dev_htc.ko \
     device/google/wahoo-kernel/synaptics_dsx_fw_update_htc.ko \
-    device/google/wahoo-kernel/htc_battery.ko
+    device/google/wahoo-kernel/htc_battery.ko \
+    device/google/wahoo-kernel/wlan.ko
 endif
 
 PRODUCT_COPY_FILES += \
@@ -112,17 +158,6 @@ PRODUCT_COPY_FILES += \
 #IMU calibration
 PRODUCT_PROPERTY_OVERRIDES += \
   persist.config.calibration_fac=/persist/sensors/calibration/calibration.xml
-
-# HWUI common settings
-PRODUCT_PROPERTY_OVERRIDES += \
-    ro.hwui.gradient_cache_size=1 \
-    ro.hwui.drop_shadow_cache_size=6 \
-    ro.hwui.r_buffer_cache_size=8 \
-    ro.hwui.texture_cache_flushrate=0.4 \
-    ro.hwui.text_small_cache_width=1024 \
-    ro.hwui.text_small_cache_height=1024 \
-    ro.hwui.text_large_cache_width=2048 \
-    ro.hwui.text_large_cache_height=1024
 
 # NFC/camera interaction workaround - DO NOT COPY TO NEW DEVICES
 PRODUCT_PROPERTY_OVERRIDES += \

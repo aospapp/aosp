@@ -16,10 +16,17 @@
 
 package com.android.compatibility.common.util;
 
+import com.android.compatibility.common.util.SystemUtil;
+
 import android.os.Build;
+import android.support.test.InstrumentationRegistry;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Device-side utility class for reading properties and gathering information for testing
@@ -33,7 +40,11 @@ public class PropertyUtil {
      */
     public static final String FIRST_API_LEVEL = "ro.product.first_api_level";
     private static final String BUILD_TYPE_PROPERTY = "ro.build.type";
+    private static final String MANUFACTURER_PROPERTY = "ro.product.manufacturer";
     private static final String TAG_DEV_KEYS = "dev-keys";
+
+    public static final String GOOGLE_SETTINGS_QUERY =
+            "content query --uri content://com.google.settings/partner";
 
     /** Value to be returned by getPropertyInt() if property is not found */
     public static int INT_VALUE_IF_UNSET = -1;
@@ -69,6 +80,33 @@ public class PropertyUtil {
         return (firstApiLevel == INT_VALUE_IF_UNSET) ? Build.VERSION.SDK_INT : firstApiLevel;
     }
 
+    /**
+     * Return the manufacturer of this product. If unset, return null.
+     */
+    public static String getManufacturer() {
+        return getProperty(MANUFACTURER_PROPERTY);
+    }
+
+    /** Returns a mapping from client ID names to client ID values */
+    public static Map<String, String> getClientIds() throws IOException {
+        Map<String,String> clientIds = new HashMap<>();
+        String queryOutput = SystemUtil.runShellCommand(
+                InstrumentationRegistry.getInstrumentation(), GOOGLE_SETTINGS_QUERY);
+        for (String line : queryOutput.split("[\\r?\\n]+")) {
+            // Expected line format: "Row: 1 _id=123, name=<property_name>, value=<property_value>"
+            Pattern pattern = Pattern.compile("name=([a-z_]*), value=(.*)$");
+            Matcher matcher = pattern.matcher(line);
+            if (matcher.find()) {
+                String name = matcher.group(1);
+                String value = matcher.group(2);
+                if (name.contains("client_id")) {
+                    clientIds.put(name, value); // only add name-value pair for client ids
+                }
+            }
+        }
+        return clientIds;
+    }
+
     /** Returns whether the property exists on this device */
     public static boolean propertyExists(String property) {
         return getProperty(property) != null;
@@ -80,6 +118,19 @@ public class PropertyUtil {
             return !propertyExists(property); // null value implies property does not exist
         }
         return value.equals(getProperty(property));
+    }
+
+    /**
+     * Returns whether the property value matches a given regular expression. The method uses
+     * String.matches(), requiring a complete match (i.e. expression matches entire value string)
+     */
+    public static boolean propertyMatches(String property, String regex) {
+        if (regex == null || regex.isEmpty()) {
+            // null or empty pattern implies property does not exist
+            return !propertyExists(property);
+        }
+        String value = getProperty(property);
+        return (value == null) ? false : value.matches(regex);
     }
 
     /**

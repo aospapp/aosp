@@ -15,14 +15,15 @@
 #include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/threading/thread_task_runner_handle.h"
 #include "gin/array_buffer.h"
 #include "gin/public/isolate_holder.h"
 #include "gin/v8_initializer.h"
 #include "mojo/common/data_pipe_utils.h"
 #include "mojo/edk/js/mojo_runner_delegate.h"
 #include "mojo/edk/js/tests/js_to_cpp.mojom.h"
-#include "mojo/edk/test/test_utils.h"
 #include "mojo/public/cpp/bindings/binding.h"
+#include "mojo/public/cpp/bindings/lib/validation_errors.h"
 #include "mojo/public/cpp/system/core.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -104,12 +105,11 @@ js_to_cpp::EchoArgsPtr BuildSampleEchoArgs() {
   args->double_val = kExpectedDoubleVal;
   args->double_inf = kExpectedDoubleInf;
   args->double_nan = kExpectedDoubleNan;
-  args->name = "coming";
-  Array<String> string_array(3);
-  string_array[0] = "one";
-  string_array[1] = "two";
-  string_array[2] = "three";
-  args->string_array = std::move(string_array);
+  args->name.emplace("coming");
+  args->string_array.emplace(3);
+  (*args->string_array)[0] = "one";
+  (*args->string_array)[1] = "two";
+  (*args->string_array)[2] = "three";
   return args;
 }
 
@@ -128,10 +128,10 @@ void CheckSampleEchoArgs(js_to_cpp::EchoArgsPtr arg) {
   EXPECT_EQ(kExpectedDoubleVal, arg->double_val);
   EXPECT_EQ(kExpectedDoubleInf, arg->double_inf);
   EXPECT_NAN(arg->double_nan);
-  EXPECT_EQ(std::string("coming"), arg->name.get());
-  EXPECT_EQ(std::string("one"), arg->string_array[0].get());
-  EXPECT_EQ(std::string("two"), arg->string_array[1].get());
-  EXPECT_EQ(std::string("three"), arg->string_array[2].get());
+  EXPECT_EQ(std::string("coming"), *arg->name);
+  EXPECT_EQ(std::string("one"), (*arg->string_array)[0]);
+  EXPECT_EQ(std::string("two"), (*arg->string_array)[1]);
+  EXPECT_EQ(std::string("three"), (*arg->string_array)[2]);
   CheckDataPipe(std::move(arg->data_handle));
   CheckMessagePipe(arg->message_handle.get());
 }
@@ -146,18 +146,23 @@ void CheckSampleEchoArgsList(const js_to_cpp::EchoArgsListPtr& list) {
 // More forgiving checks are needed in the face of potentially corrupt
 // messages. The values don't matter so long as all accesses are within
 // bounds.
-void CheckCorruptedString(const String& arg) {
-  if (arg.is_null())
-    return;
+void CheckCorruptedString(const std::string& arg) {
   for (size_t i = 0; i < arg.size(); ++i)
     g_waste_accumulator += arg[i];
 }
 
-void CheckCorruptedStringArray(const Array<String>& string_array) {
-  if (string_array.is_null())
+void CheckCorruptedString(const base::Optional<std::string>& arg) {
+  if (!arg)
     return;
-  for (size_t i = 0; i < string_array.size(); ++i)
-    CheckCorruptedString(string_array[i]);
+  CheckCorruptedString(*arg);
+}
+
+void CheckCorruptedStringArray(
+    const base::Optional<std::vector<std::string>>& string_array) {
+  if (!string_array)
+    return;
+  for (size_t i = 0; i < string_array->size(); ++i)
+    CheckCorruptedString((*string_array)[i]);
 }
 
 void CheckCorruptedDataPipe(MojoHandle data_pipe_handle) {
@@ -297,7 +302,7 @@ class EchoCppSideConnection : public CppSideConnection {
     EXPECT_EQ(-1, special_arg->si32);
     EXPECT_EQ(-1, special_arg->si16);
     EXPECT_EQ(-1, special_arg->si8);
-    EXPECT_EQ(std::string("going"), special_arg->name.To<std::string>());
+    EXPECT_EQ(std::string("going"), *special_arg->name);
     CheckSampleEchoArgsList(list->next);
   }
 
@@ -383,11 +388,11 @@ class JsToCppTest : public testing::Test {
     cpp_side->set_run_loop(&run_loop_);
 
     js_to_cpp::JsSidePtr js_side;
-    auto js_side_proxy = GetProxy(&js_side);
+    auto js_side_proxy = MakeRequest(&js_side);
 
     cpp_side->set_js_side(js_side.get());
     js_to_cpp::CppSidePtr cpp_side_ptr;
-    cpp_side->Bind(GetProxy(&cpp_side_ptr));
+    cpp_side->Bind(MakeRequest(&cpp_side_ptr));
 
     js_side->SetCppSide(std::move(cpp_side_ptr));
 
@@ -399,7 +404,7 @@ class JsToCppTest : public testing::Test {
     gin::IsolateHolder::Initialize(gin::IsolateHolder::kStrictMode,
                                    gin::IsolateHolder::kStableV8Extras,
                                    gin::ArrayBufferAllocator::SharedInstance());
-    gin::IsolateHolder instance;
+    gin::IsolateHolder instance(base::ThreadTaskRunnerHandle::Get());
     MojoRunnerDelegate delegate;
     gin::ShellRunner runner(&delegate, instance.isolate());
     delegate.Start(&runner, js_side_proxy.PassMessagePipe().release().value(),
@@ -429,12 +434,18 @@ TEST_F(JsToCppTest, Echo) {
 }
 
 TEST_F(JsToCppTest, BitFlip) {
+  // These tests generate a lot of expected validation errors. Suppress logging.
+  mojo::internal::ScopedSuppressValidationErrorLoggingForTests log_suppression;
+
   BitFlipCppSideConnection cpp_side_connection;
   RunTest("mojo/edk/js/tests/js_to_cpp_tests", &cpp_side_connection);
   EXPECT_TRUE(cpp_side_connection.DidSucceed());
 }
 
 TEST_F(JsToCppTest, BackPointer) {
+  // These tests generate a lot of expected validation errors. Suppress logging.
+  mojo::internal::ScopedSuppressValidationErrorLoggingForTests log_suppression;
+
   BackPointerCppSideConnection cpp_side_connection;
   RunTest("mojo/edk/js/tests/js_to_cpp_tests", &cpp_side_connection);
   EXPECT_TRUE(cpp_side_connection.DidSucceed());

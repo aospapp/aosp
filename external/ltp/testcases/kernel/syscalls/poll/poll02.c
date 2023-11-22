@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Cyril Hrubis <chrubis@suse.cz>
+ * Copyright (C) 2015-2017 Cyril Hrubis <chrubis@suse.cz>
  *
  * This program is free software;  you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,105 +19,53 @@
 /*
  * Check that poll() timeouts correctly.
  */
-#include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <sys/poll.h>
 
-#include "test.h"
-#include "safe_macros.h"
-
-char *TCID = "poll02";
-int TST_TOTAL = 1;
-
-static char *opt_sleep_ms;
-
-static option_t opts[] = {
-	{"s:", NULL, &opt_sleep_ms},
-	{NULL, NULL, NULL},
-};
-
-static void help(void);
-static void setup(void);
-static void cleanup(void);
+#include "tst_timer_test.h"
 
 static int fds[2];
 
-int main(int ac, char **av)
+int sample_fn(int clk_id, long long usec)
 {
-	int lc, treshold;
-	long long elapsed_ms, sleep_ms = 100;
+	unsigned int sleep_ms = usec / 1000;
 
-	tst_parse_opts(ac, av, opts, help);
+	struct pollfd pfds[] = {
+		{.fd = fds[0], .events = POLLIN}
+	};
 
-	if (opt_sleep_ms) {
-		sleep_ms = atoll(opt_sleep_ms);
+	tst_timer_start(clk_id);
+	TEST(poll(pfds, 1, sleep_ms));
+	tst_timer_stop();
+	tst_timer_sample();
 
-		if (sleep_ms == 0)
-			tst_brkm(TBROK, NULL, "Invalid timeout '%s'", opt_sleep_ms);
+	if (TEST_RETURN != 0) {
+		tst_res(TFAIL | TTERRNO, "poll() returned %li", TEST_RETURN);
+		return 1;
 	}
 
-	treshold = sleep_ms / 100 + 10;
-
-	setup();
-
-	for (lc = 0; TEST_LOOPING(lc); lc++) {
-		struct pollfd pfds[] = {
-			{.fd = fds[0], .events = POLLIN}
-		};
-
-		tst_timer_start(CLOCK_MONOTONIC);
-		TEST(poll(pfds, 1, sleep_ms));
-		tst_timer_stop();
-
-		if (TEST_RETURN != 0) {
-			tst_resm(TFAIL, "poll() haven't timeouted ret=%li",
-				 TEST_RETURN);
-			continue;
-		}
-
-		elapsed_ms = tst_timer_elapsed_ms();
-
-		if (elapsed_ms < sleep_ms) {
-			tst_resm(TFAIL,
-			         "poll() woken up too early %llims, expected %llims",
-				 elapsed_ms, sleep_ms);
-			continue;
-		}
-
-		if (elapsed_ms - sleep_ms > treshold) {
-			tst_resm(TFAIL,
-			         "poll() slept too long %llims, expected %llims, threshold %i",
-				 elapsed_ms, sleep_ms, treshold);
-			continue;
-		}
-
-		tst_resm(TPASS, "poll() slept %llims, expected %llims, treshold %i",
-		         elapsed_ms, sleep_ms, treshold);
-	}
-
-	cleanup();
-	tst_exit();
+	return 0;
 }
 
 static void setup(void)
 {
-	tst_timer_check(CLOCK_MONOTONIC);
-
-	SAFE_PIPE(NULL, fds);
+	SAFE_PIPE(fds);
 }
 
 static void cleanup(void)
 {
-	if (close(fds[0]))
-		tst_resm(TWARN | TERRNO, "close(fds[0]) failed");
+	if (fds[0] > 0)
+		SAFE_CLOSE(fds[0]);
 
-	if (close(fds[1]))
-		tst_resm(TWARN | TERRNO, "close(fds[1]) failed");
+	if (fds[1] > 0)
+		SAFE_CLOSE(fds[1]);
 }
 
-static void help(void)
-{
-	printf("  -s      poll() timeout lenght in ms\n");
-}
+static struct tst_test test = {
+	.scall = "poll()",
+	.sample = sample_fn,
+	.setup = setup,
+	.cleanup = cleanup,
+};

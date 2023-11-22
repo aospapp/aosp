@@ -45,10 +45,16 @@ public class CarAppFocusManagerTest extends CarApiTestBase {
 
         // Request all application focuses and abandon them to ensure no active context is present
         // when test starts.
+        int[] activeTypes =  mManager.getActiveAppTypes();
         FocusOwnershipCallback owner = new FocusOwnershipCallback();
-        mManager.requestAppFocus(CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION, owner);
-        mManager.requestAppFocus(CarAppFocusManager.APP_FOCUS_TYPE_VOICE_COMMAND, owner);
-        mManager.abandonAppFocus(owner);
+        for (int i = 0; i < activeTypes.length; i++) {
+            mManager.requestAppFocus(activeTypes[i], owner);
+            owner.waitForOwnershipGrantAndAssert(DEFAULT_WAIT_TIMEOUT_MS, activeTypes[i]);
+            mManager.abandonAppFocus(owner, activeTypes[i]);
+            owner.waitForOwnershipLossAndAssert(
+                    DEFAULT_WAIT_TIMEOUT_MS, activeTypes[i]);
+        }
+
     }
 
     public void testSetActiveNullListener() throws Exception {

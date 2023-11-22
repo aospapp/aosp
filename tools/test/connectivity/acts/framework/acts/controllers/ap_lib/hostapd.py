@@ -61,7 +61,7 @@ class Hostapd(object):
         Args:
             config: Configs to start the hostapd with.
             timeout: Time to wait for DHCP server to come up.
-            additional_parameters: A dicitonary of parameters that can sent
+            additional_parameters: A dictionary of parameters that can sent
                                    directly into the hostapd config file.  This
                                    can be used for debugging and or adding one
                                    off parameters into the config.
@@ -69,7 +69,7 @@ class Hostapd(object):
         Returns:
             True if the daemon could be started. Note that the daemon can still
             start and not work. Invalid configurations can take a long amount
-            of time to be produced, and because the daemon runs indefinetly
+            of time to be produced, and because the daemon runs indefinitely
             it's impossible to wait on. If you need to check if configs are ok
             then periodic checks to is_running and logs should be used.
         """
@@ -103,7 +103,7 @@ class Hostapd(object):
     def is_alive(self):
         """
         Returns:
-            True if the deamon is running.
+            True if the daemon is running.
         """
         return self._shell.is_alive(self._identifier)
 
@@ -166,8 +166,8 @@ class Hostapd(object):
         if bad_config:
             raise Error('Interface failed to start', self)
 
-        bad_config = self._shell.search_file("Interface %s wasn't started" %
-                                             self._interface, self._log_file)
+        bad_config = self._shell.search_file(
+            "Interface %s wasn't started" % self._interface, self._log_file)
         if bad_config:
             raise Error('Interface failed to start', self)
 

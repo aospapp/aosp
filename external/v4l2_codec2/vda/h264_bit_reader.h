@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 //
 // This file contains an implementation of an H264 Annex-B video stream parser.
+// Note: ported from Chromium commit head: 77be7ae
 
 #ifndef H264_BIT_READER_H_
 #define H264_BIT_READER_H_

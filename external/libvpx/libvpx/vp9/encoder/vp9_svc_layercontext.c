@@ -36,6 +36,8 @@ void vp9_init_layer_context(VP9_COMP *const cpi) {
   svc->scaled_temp_is_alloc = 0;
   svc->scaled_one_half = 0;
   svc->current_superframe = 0;
+  svc->non_reference_frame = 0;
+
   for (i = 0; i < REF_FRAMES; ++i) svc->ref_frame_index[i] = -1;
   for (sl = 0; sl < oxcf->ss_number_layers; ++sl) {
     svc->ext_frame_flags[sl] = 0;
@@ -173,7 +175,7 @@ void vp9_update_layer_context_change_config(VP9_COMP *const cpi,
         RATE_CONTROL *const lrc = &lc->rc;
 
         lc->spatial_layer_target_bandwidth = spatial_layer_target;
-        bitrate_alloc = (float)lc->target_bandwidth / spatial_layer_target;
+        bitrate_alloc = (float)lc->target_bandwidth / target_bandwidth;
         lrc->starting_buffer_level =
             (int64_t)(rc->starting_buffer_level * bitrate_alloc);
         lrc->optimal_buffer_level =
@@ -351,6 +353,7 @@ void vp9_save_layer_context(VP9_COMP *const cpi) {
   }
 }
 
+#if !CONFIG_REALTIME_ONLY
 void vp9_init_second_pass_spatial_svc(VP9_COMP *cpi) {
   SVC *const svc = &cpi->svc;
   int i;
@@ -366,6 +369,7 @@ void vp9_init_second_pass_spatial_svc(VP9_COMP *cpi) {
   }
   svc->spatial_layer_id = 0;
 }
+#endif  // !CONFIG_REALTIME_ONLY
 
 void vp9_inc_frame_in_layer(VP9_COMP *const cpi) {
   LAYER_CONTEXT *const lc =
@@ -386,9 +390,9 @@ int vp9_is_upper_layer_key_frame(const VP9_COMP *const cpi) {
              .is_key_frame;
 }
 
-static void get_layer_resolution(const int width_org, const int height_org,
-                                 const int num, const int den, int *width_out,
-                                 int *height_out) {
+void get_layer_resolution(const int width_org, const int height_org,
+                          const int num, const int den, int *width_out,
+                          int *height_out) {
   int w, h;
 
   if (width_out == NULL || height_out == NULL || den == 0) return;
@@ -603,6 +607,7 @@ int vp9_one_pass_cbr_svc_start_layer(VP9_COMP *const cpi) {
   LAYER_CONTEXT *lc = NULL;
   if (cpi->svc.number_spatial_layers > 1) cpi->svc.use_base_mv = 1;
   cpi->svc.force_zero_mode_spatial_ref = 1;
+  cpi->svc.mi_stride[cpi->svc.spatial_layer_id] = cpi->common.mi_stride;
 
   if (cpi->svc.temporal_layering_mode == VP9E_TEMPORAL_LAYERING_MODE_0212) {
     set_flags_and_fb_idx_for_temporal_mode3(cpi);
@@ -652,9 +657,9 @@ int vp9_one_pass_cbr_svc_start_layer(VP9_COMP *const cpi) {
                        lc->scaling_factor_num, lc->scaling_factor_den, &width,
                        &height);
 
-  // For low resolutions: set phase of the filter = 8 (for symmetric averaging
-  // filter), use bilinear for now.
-  if (width <= 320 && height <= 240) {
+  // For resolutions <= VGA: set phase of the filter = 8 (for symmetric
+  // averaging filter), use bilinear for now.
+  if (width * height <= 640 * 480) {
     cpi->svc.downsample_filter_type[cpi->svc.spatial_layer_id] = BILINEAR;
     cpi->svc.downsample_filter_phase[cpi->svc.spatial_layer_id] = 8;
   }
@@ -675,6 +680,12 @@ int vp9_one_pass_cbr_svc_start_layer(VP9_COMP *const cpi) {
         break;
       }
     }
+  }
+
+  cpi->svc.non_reference_frame = 0;
+  if (cpi->common.frame_type != KEY_FRAME && !cpi->ext_refresh_last_frame &&
+      !cpi->ext_refresh_golden_frame && !cpi->ext_refresh_alt_ref_frame) {
+    cpi->svc.non_reference_frame = 1;
   }
 
   if (vp9_set_size_literal(cpi, width, height) != 0)
@@ -850,4 +861,29 @@ void vp9_svc_reset_key_frame(VP9_COMP *const cpi) {
   }
   vp9_update_temporal_layer_framerate(cpi);
   vp9_restore_layer_context(cpi);
+}
+
+void vp9_svc_check_reset_layer_rc_flag(VP9_COMP *const cpi) {
+  SVC *svc = &cpi->svc;
+  int sl, tl;
+  for (sl = 0; sl < svc->number_spatial_layers; ++sl) {
+    // Check for reset based on avg_frame_bandwidth for spatial layer sl.
+    int layer = LAYER_IDS_TO_IDX(sl, svc->number_temporal_layers - 1,
+                                 svc->number_temporal_layers);
+    LAYER_CONTEXT *lc = &svc->layer_context[layer];
+    RATE_CONTROL *lrc = &lc->rc;
+    if (lrc->avg_frame_bandwidth > (3 * lrc->last_avg_frame_bandwidth >> 1) ||
+        lrc->avg_frame_bandwidth < (lrc->last_avg_frame_bandwidth >> 1)) {
+      // Reset for all temporal layers with spatial layer sl.
+      for (tl = 0; tl < svc->number_temporal_layers; ++tl) {
+        int layer = LAYER_IDS_TO_IDX(sl, tl, svc->number_temporal_layers);
+        LAYER_CONTEXT *lc = &svc->layer_context[layer];
+        RATE_CONTROL *lrc = &lc->rc;
+        lrc->rc_1_frame = 0;
+        lrc->rc_2_frame = 0;
+        lrc->bits_off_target = lrc->optimal_buffer_level;
+        lrc->buffer_level = lrc->optimal_buffer_level;
+      }
+    }
+  }
 }

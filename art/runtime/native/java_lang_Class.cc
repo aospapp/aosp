@@ -23,29 +23,126 @@
 #include "base/enums.h"
 #include "class_linker-inl.h"
 #include "common_throws.h"
-#include "dex_file-inl.h"
-#include "dex_file_annotations.h"
+#include "dex/descriptors_names.h"
+#include "dex/dex_file-inl.h"
+#include "dex/dex_file_annotations.h"
+#include "dex/utf.h"
+#include "hidden_api.h"
 #include "jni_internal.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
 #include "mirror/field-inl.h"
 #include "mirror/method.h"
+#include "mirror/method_handles_lookup.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
 #include "mirror/string-inl.h"
 #include "native_util.h"
 #include "nativehelper/jni_macros.h"
-#include "nativehelper/ScopedLocalRef.h"
-#include "nativehelper/ScopedUtfChars.h"
+#include "nativehelper/scoped_local_ref.h"
+#include "nativehelper/scoped_utf_chars.h"
 #include "nth_caller_visitor.h"
 #include "obj_ptr-inl.h"
 #include "reflection.h"
 #include "scoped_fast_native_object_access-inl.h"
 #include "scoped_thread_state_change-inl.h"
-#include "utf.h"
 #include "well_known_classes.h"
 
 namespace art {
+
+// Returns true if the first caller outside of the Class class or java.lang.invoke package
+// is in a platform DEX file.
+static bool IsCallerTrusted(Thread* self) REQUIRES_SHARED(Locks::mutator_lock_) {
+  // Walk the stack and find the first frame not from java.lang.Class and not from java.lang.invoke.
+  // This is very expensive. Save this till the last.
+  struct FirstExternalCallerVisitor : public StackVisitor {
+    explicit FirstExternalCallerVisitor(Thread* thread)
+        : StackVisitor(thread, nullptr, StackVisitor::StackWalkKind::kIncludeInlinedFrames),
+          caller(nullptr) {
+    }
+
+    bool VisitFrame() REQUIRES_SHARED(Locks::mutator_lock_) {
+      ArtMethod *m = GetMethod();
+      if (m == nullptr) {
+        // Attached native thread. Assume this is *not* boot class path.
+        caller = nullptr;
+        return false;
+      } else if (m->IsRuntimeMethod()) {
+        // Internal runtime method, continue walking the stack.
+        return true;
+      }
+
+      ObjPtr<mirror::Class> declaring_class = m->GetDeclaringClass();
+      if (declaring_class->IsBootStrapClassLoaded()) {
+        if (declaring_class->IsClassClass()) {
+          return true;
+        }
+        // Check classes in the java.lang.invoke package. At the time of writing, the
+        // classes of interest are MethodHandles and MethodHandles.Lookup, but this
+        // is subject to change so conservatively cover the entire package.
+        // NB Static initializers within java.lang.invoke are permitted and do not
+        // need further stack inspection.
+        ObjPtr<mirror::Class> lookup_class = mirror::MethodHandlesLookup::StaticClass();
+        if ((declaring_class == lookup_class || declaring_class->IsInSamePackage(lookup_class))
+            && !m->IsClassInitializer()) {
+          return true;
+        }
+      }
+
+      caller = m;
+      return false;
+    }
+
+    ArtMethod* caller;
+  };
+
+  FirstExternalCallerVisitor visitor(self);
+  visitor.WalkStack();
+  return visitor.caller != nullptr &&
+         hiddenapi::IsCallerTrusted(visitor.caller->GetDeclaringClass());
+}
+
+// Returns true if the first non-ClassClass caller up the stack is not allowed to
+// access hidden APIs. This can be *very* expensive. Never call this in a loop.
+ALWAYS_INLINE static bool ShouldEnforceHiddenApi(Thread* self)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  hiddenapi::EnforcementPolicy policy = Runtime::Current()->GetHiddenApiEnforcementPolicy();
+  return policy != hiddenapi::EnforcementPolicy::kNoChecks && !IsCallerTrusted(self);
+}
+
+// Returns true if the first non-ClassClass caller up the stack should not be
+// allowed access to `member`.
+template<typename T>
+ALWAYS_INLINE static bool ShouldBlockAccessToMember(T* member, Thread* self)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  hiddenapi::Action action = hiddenapi::GetMemberAction(
+      member, self, IsCallerTrusted, hiddenapi::kReflection);
+  if (action != hiddenapi::kAllow) {
+    hiddenapi::NotifyHiddenApiListener(member);
+  }
+
+  return action == hiddenapi::kDeny;
+}
+
+// Returns true if a class member should be discoverable with reflection given
+// the criteria. Some reflection calls only return public members
+// (public_only == true), some members should be hidden from non-boot class path
+// callers (enforce_hidden_api == true).
+template<typename T>
+ALWAYS_INLINE static bool IsDiscoverable(bool public_only,
+                                         bool enforce_hidden_api,
+                                         T* member)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  if (public_only && ((member->GetAccessFlags() & kAccPublic) == 0)) {
+    return false;
+  }
+
+  return hiddenapi::GetMemberAction(member,
+                                    nullptr,
+                                    [enforce_hidden_api] (Thread*) { return !enforce_hidden_api; },
+                                    hiddenapi::kNone)
+      != hiddenapi::kDeny;
+}
 
 ALWAYS_INLINE static inline ObjPtr<mirror::Class> DecodeClass(
     const ScopedFastNativeObjectAccess& soa, jobject java_class)
@@ -104,6 +201,12 @@ static jclass Class_classForName(JNIEnv* env, jclass, jstring javaName, jboolean
   return soa.AddLocalReference<jclass>(c.Get());
 }
 
+static jclass Class_getPrimitiveClass(JNIEnv* env, jclass, jstring name) {
+  ScopedFastNativeObjectAccess soa(env);
+  ObjPtr<mirror::Class> klass = mirror::Class::GetPrimitiveClass(soa.Decode<mirror::String>(name));
+  return soa.AddLocalReference<jclass>(klass);
+}
+
 static jstring Class_getNameNative(JNIEnv* env, jobject javaThis) {
   ScopedFastNativeObjectAccess soa(env);
   StackHandleScope<1> hs(soa.Self());
@@ -146,11 +249,11 @@ static jobjectArray Class_getInterfacesInternal(JNIEnv* env, jobject javaThis) {
   // with kActiveTransaction == false.
   DCHECK(!Runtime::Current()->IsActiveTransaction());
 
+  ClassLinker* linker = Runtime::Current()->GetClassLinker();
   MutableHandle<mirror::Class> interface(hs.NewHandle<mirror::Class>(nullptr));
   for (uint32_t i = 0; i < num_ifaces; ++i) {
     const dex::TypeIndex type_idx = iface_list->GetTypeItem(i).type_idx_;
-    interface.Assign(ClassLinker::LookupResolvedType(
-        type_idx, klass->GetDexCache(), klass->GetClassLoader()));
+    interface.Assign(linker->LookupResolvedType(type_idx, klass.Get()));
     ifaces->SetWithoutChecks<false>(i, interface.Get());
   }
 
@@ -164,17 +267,16 @@ static mirror::ObjectArray<mirror::Field>* GetDeclaredFields(
   IterationRange<StrideIterator<ArtField>> ifields = klass->GetIFields();
   IterationRange<StrideIterator<ArtField>> sfields = klass->GetSFields();
   size_t array_size = klass->NumInstanceFields() + klass->NumStaticFields();
-  if (public_only) {
-    // Lets go subtract all the non public fields.
-    for (ArtField& field : ifields) {
-      if (!field.IsPublic()) {
-        --array_size;
-      }
+  bool enforce_hidden_api = ShouldEnforceHiddenApi(self);
+  // Lets go subtract all the non discoverable fields.
+  for (ArtField& field : ifields) {
+    if (!IsDiscoverable(public_only, enforce_hidden_api, &field)) {
+      --array_size;
     }
-    for (ArtField& field : sfields) {
-      if (!field.IsPublic()) {
-        --array_size;
-      }
+  }
+  for (ArtField& field : sfields) {
+    if (!IsDiscoverable(public_only, enforce_hidden_api, &field)) {
+      --array_size;
     }
   }
   size_t array_idx = 0;
@@ -184,7 +286,7 @@ static mirror::ObjectArray<mirror::Field>* GetDeclaredFields(
     return nullptr;
   }
   for (ArtField& field : ifields) {
-    if (!public_only || field.IsPublic()) {
+    if (IsDiscoverable(public_only, enforce_hidden_api, &field)) {
       auto* reflect_field = mirror::Field::CreateFromArtField<kRuntimePointerSize>(self,
                                                                                    &field,
                                                                                    force_resolve);
@@ -199,7 +301,7 @@ static mirror::ObjectArray<mirror::Field>* GetDeclaredFields(
     }
   }
   for (ArtField& field : sfields) {
-    if (!public_only || field.IsPublic()) {
+    if (IsDiscoverable(public_only, enforce_hidden_api, &field)) {
       auto* reflect_field = mirror::Field::CreateFromArtField<kRuntimePointerSize>(self,
                                                                                    &field,
                                                                                    force_resolve);
@@ -354,8 +456,15 @@ static jobject Class_getPublicFieldRecursive(JNIEnv* env, jobject javaThis, jstr
     ThrowNullPointerException("name == null");
     return nullptr;
   }
-  return soa.AddLocalReference<jobject>(
-      GetPublicFieldRecursive(soa.Self(), DecodeClass(soa, javaThis), name_string));
+
+  StackHandleScope<1> hs(soa.Self());
+  Handle<mirror::Field> field = hs.NewHandle(GetPublicFieldRecursive(
+      soa.Self(), DecodeClass(soa, javaThis), name_string));
+  if (field.Get() == nullptr ||
+      ShouldBlockAccessToMember(field->GetArtField(), soa.Self())) {
+    return nullptr;
+  }
+  return soa.AddLocalReference<jobject>(field.Get());
 }
 
 static jobject Class_getDeclaredField(JNIEnv* env, jobject javaThis, jstring name) {
@@ -369,7 +478,7 @@ static jobject Class_getDeclaredField(JNIEnv* env, jobject javaThis, jstring nam
   Handle<mirror::Class> h_klass = hs.NewHandle(DecodeClass(soa, javaThis));
   Handle<mirror::Field> result =
       hs.NewHandle(GetDeclaredField(soa.Self(), h_klass.Get(), h_string.Get()));
-  if (result == nullptr) {
+  if (result == nullptr || ShouldBlockAccessToMember(result->GetArtField(), soa.Self())) {
     std::string name_str = h_string->ToModifiedUtf8();
     if (name_str == "value" && h_klass->IsStringClass()) {
       // We log the error for this specific case, as the user might just swallow the exception.
@@ -394,29 +503,39 @@ static jobject Class_getDeclaredConstructorInternal(
   ScopedFastNativeObjectAccess soa(env);
   DCHECK_EQ(Runtime::Current()->GetClassLinker()->GetImagePointerSize(), kRuntimePointerSize);
   DCHECK(!Runtime::Current()->IsActiveTransaction());
-  ObjPtr<mirror::Constructor> result =
+
+  StackHandleScope<1> hs(soa.Self());
+  Handle<mirror::Constructor> result = hs.NewHandle(
       mirror::Class::GetDeclaredConstructorInternal<kRuntimePointerSize, false>(
       soa.Self(),
       DecodeClass(soa, javaThis),
-      soa.Decode<mirror::ObjectArray<mirror::Class>>(args));
-  return soa.AddLocalReference<jobject>(result);
+      soa.Decode<mirror::ObjectArray<mirror::Class>>(args)));
+  if (result == nullptr || ShouldBlockAccessToMember(result->GetArtMethod(), soa.Self())) {
+    return nullptr;
+  }
+  return soa.AddLocalReference<jobject>(result.Get());
 }
 
-static ALWAYS_INLINE inline bool MethodMatchesConstructor(ArtMethod* m, bool public_only)
+static ALWAYS_INLINE inline bool MethodMatchesConstructor(
+    ArtMethod* m, bool public_only, bool enforce_hidden_api)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   DCHECK(m != nullptr);
-  return (!public_only || m->IsPublic()) && !m->IsStatic() && m->IsConstructor();
+  return m->IsConstructor() &&
+         !m->IsStatic() &&
+         IsDiscoverable(public_only, enforce_hidden_api, m);
 }
 
 static jobjectArray Class_getDeclaredConstructorsInternal(
     JNIEnv* env, jobject javaThis, jboolean publicOnly) {
   ScopedFastNativeObjectAccess soa(env);
   StackHandleScope<2> hs(soa.Self());
+  bool public_only = (publicOnly != JNI_FALSE);
+  bool enforce_hidden_api = ShouldEnforceHiddenApi(soa.Self());
   Handle<mirror::Class> h_klass = hs.NewHandle(DecodeClass(soa, javaThis));
   size_t constructor_count = 0;
   // Two pass approach for speed.
   for (auto& m : h_klass->GetDirectMethods(kRuntimePointerSize)) {
-    constructor_count += MethodMatchesConstructor(&m, publicOnly != JNI_FALSE) ? 1u : 0u;
+    constructor_count += MethodMatchesConstructor(&m, public_only, enforce_hidden_api) ? 1u : 0u;
   }
   auto h_constructors = hs.NewHandle(mirror::ObjectArray<mirror::Constructor>::Alloc(
       soa.Self(), mirror::Constructor::ArrayClass(), constructor_count));
@@ -426,7 +545,7 @@ static jobjectArray Class_getDeclaredConstructorsInternal(
   }
   constructor_count = 0;
   for (auto& m : h_klass->GetDirectMethods(kRuntimePointerSize)) {
-    if (MethodMatchesConstructor(&m, publicOnly != JNI_FALSE)) {
+    if (MethodMatchesConstructor(&m, public_only, enforce_hidden_api)) {
       DCHECK_EQ(Runtime::Current()->GetClassLinker()->GetImagePointerSize(), kRuntimePointerSize);
       DCHECK(!Runtime::Current()->IsActiveTransaction());
       auto* constructor = mirror::Constructor::CreateFromArtMethod<kRuntimePointerSize, false>(
@@ -442,30 +561,38 @@ static jobjectArray Class_getDeclaredConstructorsInternal(
 }
 
 static jobject Class_getDeclaredMethodInternal(JNIEnv* env, jobject javaThis,
-                                               jobject name, jobjectArray args) {
+                                               jstring name, jobjectArray args) {
   ScopedFastNativeObjectAccess soa(env);
+  StackHandleScope<1> hs(soa.Self());
   DCHECK_EQ(Runtime::Current()->GetClassLinker()->GetImagePointerSize(), kRuntimePointerSize);
   DCHECK(!Runtime::Current()->IsActiveTransaction());
-  ObjPtr<mirror::Method> result =
+  Handle<mirror::Method> result = hs.NewHandle(
       mirror::Class::GetDeclaredMethodInternal<kRuntimePointerSize, false>(
           soa.Self(),
           DecodeClass(soa, javaThis),
           soa.Decode<mirror::String>(name),
-          soa.Decode<mirror::ObjectArray<mirror::Class>>(args));
-  return soa.AddLocalReference<jobject>(result);
+          soa.Decode<mirror::ObjectArray<mirror::Class>>(args)));
+  if (result == nullptr || ShouldBlockAccessToMember(result->GetArtMethod(), soa.Self())) {
+    return nullptr;
+  }
+  return soa.AddLocalReference<jobject>(result.Get());
 }
 
 static jobjectArray Class_getDeclaredMethodsUnchecked(JNIEnv* env, jobject javaThis,
                                                       jboolean publicOnly) {
   ScopedFastNativeObjectAccess soa(env);
   StackHandleScope<2> hs(soa.Self());
+
+  bool enforce_hidden_api = ShouldEnforceHiddenApi(soa.Self());
+  bool public_only = (publicOnly != JNI_FALSE);
+
   Handle<mirror::Class> klass = hs.NewHandle(DecodeClass(soa, javaThis));
   size_t num_methods = 0;
-  for (auto& m : klass->GetDeclaredMethods(kRuntimePointerSize)) {
-    auto modifiers = m.GetAccessFlags();
+  for (ArtMethod& m : klass->GetDeclaredMethods(kRuntimePointerSize)) {
+    uint32_t modifiers = m.GetAccessFlags();
     // Add non-constructor declared methods.
-    if ((publicOnly == JNI_FALSE || (modifiers & kAccPublic) != 0) &&
-        (modifiers & kAccConstructor) == 0) {
+    if ((modifiers & kAccConstructor) == 0 &&
+        IsDiscoverable(public_only, enforce_hidden_api, &m)) {
       ++num_methods;
     }
   }
@@ -476,10 +603,10 @@ static jobjectArray Class_getDeclaredMethodsUnchecked(JNIEnv* env, jobject javaT
     return nullptr;
   }
   num_methods = 0;
-  for (auto& m : klass->GetDeclaredMethods(kRuntimePointerSize)) {
-    auto modifiers = m.GetAccessFlags();
-    if ((publicOnly == JNI_FALSE || (modifiers & kAccPublic) != 0) &&
-        (modifiers & kAccConstructor) == 0) {
+  for (ArtMethod& m : klass->GetDeclaredMethods(kRuntimePointerSize)) {
+    uint32_t modifiers = m.GetAccessFlags();
+    if ((modifiers & kAccConstructor) == 0 &&
+        IsDiscoverable(public_only, enforce_hidden_api, &m)) {
       DCHECK_EQ(Runtime::Current()->GetClassLinker()->GetImagePointerSize(), kRuntimePointerSize);
       DCHECK(!Runtime::Current()->IsActiveTransaction());
       auto* method =
@@ -693,11 +820,11 @@ static jobject Class_newInstance(JNIEnv* env, jobject javaThis) {
       return nullptr;
     }
   }
-  auto* constructor = klass->GetDeclaredConstructor(
+  ArtMethod* constructor = klass->GetDeclaredConstructor(
       soa.Self(),
       ScopedNullHandle<mirror::ObjectArray<mirror::Class>>(),
       kRuntimePointerSize);
-  if (UNLIKELY(constructor == nullptr)) {
+  if (UNLIKELY(constructor == nullptr) || ShouldBlockAccessToMember(constructor, soa.Self())) {
     soa.Self()->ThrowNewExceptionF("Ljava/lang/InstantiationException;",
                                    "%s has no zero argument constructor",
                                    klass->PrettyClass().c_str());
@@ -778,6 +905,7 @@ static JNINativeMethod gMethods[] = {
   FAST_NATIVE_METHOD(Class, getInnerClassFlags, "(I)I"),
   FAST_NATIVE_METHOD(Class, getInnerClassName, "()Ljava/lang/String;"),
   FAST_NATIVE_METHOD(Class, getInterfacesInternal, "()[Ljava/lang/Class;"),
+  FAST_NATIVE_METHOD(Class, getPrimitiveClass, "(Ljava/lang/String;)Ljava/lang/Class;"),
   FAST_NATIVE_METHOD(Class, getNameNative, "()Ljava/lang/String;"),
   FAST_NATIVE_METHOD(Class, getPublicDeclaredFields, "()[Ljava/lang/reflect/Field;"),
   FAST_NATIVE_METHOD(Class, getSignatureAnnotation, "()[Ljava/lang/String;"),

@@ -22,6 +22,8 @@ import android.media.AudioRecord;
 
 import android.util.Log;
 
+import java.lang.Math;
+
 /**
  * Records audio data to a stream.
  */
@@ -115,12 +117,10 @@ public class StreamRecorder {
     }
 
     private boolean open_internal(int numChans, int sampleRate) {
-        Log.i(TAG, "StreamRecorder.open_internal(chans:" + numChans + ", rate:" + sampleRate);
-
         mNumChannels = numChans;
         mSampleRate = sampleRate;
 
-        int chanMask = AudioUtils.countToIndexMask(numChans);
+        int chanPosMask = AudioUtils.countToInPositionMask(numChans);
         int bufferSizeInBytes = 2048;   // Some, non-critical value
 
         try {
@@ -128,7 +128,7 @@ public class StreamRecorder {
                     .setAudioFormat(new AudioFormat.Builder()
                             .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
                             .setSampleRate(mSampleRate)
-                            .setChannelIndexMask(chanMask)
+                            .setChannelMask(chanPosMask)
                             .build())
                     .setBufferSizeInBytes(bufferSizeInBytes)
                     .build();
@@ -146,6 +146,11 @@ public class StreamRecorder {
         if (sucess) {
             mNumBurstFrames = numBurstFrames;
             mBurstBuffer = new float[mNumBurstFrames * mNumChannels];
+            // put some non-zero data in the burst buffer.
+            // this is to verify that the record is putting SOMETHING into each channel.
+            for(int index = 0; index < mBurstBuffer.length; index++) {
+                mBurstBuffer[index] = (float)(Math.random() * 2.0) - 1.0f;
+            }
         }
 
         return sucess;

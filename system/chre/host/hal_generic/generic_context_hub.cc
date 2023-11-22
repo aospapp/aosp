@@ -23,8 +23,8 @@
 #include <cinttypes>
 #include <vector>
 
+#include <log/log.h>
 #include <unistd.h>
-#include <utils/Log.h>
 
 namespace android {
 namespace hardware {
@@ -32,6 +32,7 @@ namespace contexthub {
 namespace V1_0 {
 namespace implementation {
 
+using ::android::chre::getStringFromByteVector;
 using ::android::hardware::Return;
 using ::android::hardware::contexthub::V1_0::AsyncEventType;
 using ::android::hardware::contexthub::V1_0::Result;
@@ -64,7 +65,7 @@ constexpr uint16_t extractChrePatchVersion(uint32_t chreVersion) {
  */
 int hidlHandleToFileDescriptor(const hidl_handle& hh) {
   const native_handle_t *handle = hh.getNativeHandle();
-  return (handle->numFds >= 1) ? handle->data[0] : -1;
+  return (handle != nullptr && handle->numFds >= 1) ? handle->data[0] : -1;
 }
 
 }  // anonymous namespace
@@ -225,22 +226,48 @@ Return<Result> GenericContextHub::loadNanoApp(
   if (hubId != kDefaultHubId) {
     result = Result::BAD_PARAMS;
   } else {
-    FlatBufferBuilder builder(128 + appBinary.customBinary.size());
+    std::lock_guard<std::mutex> lock(mPendingLoadTransactionMutex);
+
+    if (mPendingLoadTransaction.has_value()) {
+      ALOGE("Pending load transaction exists. Overriding pending request");
+    }
+
     uint32_t targetApiVersion = (appBinary.targetChreApiMajorVersion << 24) |
                                 (appBinary.targetChreApiMinorVersion << 16);
-    HostProtocolHost::encodeLoadNanoappRequest(
-        builder, transactionId, appBinary.appId, appBinary.appVersion,
-        targetApiVersion, appBinary.customBinary);
-    if (!mClient.sendMessage(builder.GetBufferPointer(), builder.GetSize())) {
-      result = Result::UNKNOWN_FAILURE;
-    } else {
-      result = Result::OK;
+    mPendingLoadTransaction = FragmentedLoadTransaction(
+        transactionId, appBinary.appId, appBinary.appVersion, targetApiVersion,
+        appBinary.customBinary, kLoadFragmentSizeBytes);
+
+    result = sendFragmentedLoadNanoAppRequest(
+        mPendingLoadTransaction.value());
+    if (result != Result::OK) {
+      mPendingLoadTransaction.reset();
     }
   }
 
   ALOGD("Attempted to send load nanoapp request for app of size %zu with ID "
         "0x%016" PRIx64 " as transaction ID %" PRIu32 ": result %" PRIu32,
         appBinary.customBinary.size(), appBinary.appId, transactionId, result);
+
+  return result;
+}
+
+Result GenericContextHub::sendFragmentedLoadNanoAppRequest(
+    FragmentedLoadTransaction& transaction) {
+  Result result;
+  const FragmentedLoadRequest& request = transaction.getNextRequest();
+
+  FlatBufferBuilder builder(128 + request.binary.size());
+  HostProtocolHost::encodeFragmentedLoadNanoappRequest(builder, request);
+
+  if (!mClient.sendMessage(builder.GetBufferPointer(), builder.GetSize())) {
+    ALOGE("Failed to send load request message (fragment ID = %zu)",
+          request.fragmentId);
+    result = Result::UNKNOWN_FAILURE;
+  } else {
+    mCurrentFragmentId = request.fragmentId;
+    result = Result::OK;
+  }
 
   return result;
 }
@@ -330,51 +357,42 @@ void GenericContextHub::SocketCallbacks::onDisconnected() {
 }
 
 void GenericContextHub::SocketCallbacks::handleNanoappMessage(
-    uint64_t appId, uint32_t messageType, uint16_t hostEndpoint,
-    const void *messageData, size_t messageDataLen) {
+    const fbs::NanoappMessageT& message) {
   ContextHubMsg msg;
-  msg.appName = appId;
-  msg.hostEndPoint = hostEndpoint;
-  msg.msgType = messageType;
+  msg.appName = message.app_id;
+  msg.hostEndPoint = message.host_endpoint;
+  msg.msgType = message.message_type;
+  msg.msg = message.message;
 
-  // Dropping const from messageData when we wrap it in hidl_vec here. This is
-  // safe because we won't modify it here, and the ContextHubMsg we pass to
-  // the callback is const.
-  msg.msg.setToExternal(
-      const_cast<uint8_t *>(static_cast<const uint8_t *>(messageData)),
-      messageDataLen, false /* shouldOwn */);
   invokeClientCallback([&]() {
     mParent.mCallbacks->handleClientMsg(msg);
   });
 }
 
 void GenericContextHub::SocketCallbacks::handleHubInfoResponse(
-    const char *name, const char *vendor,
-    const char *toolchain, uint32_t legacyPlatformVersion,
-    uint32_t legacyToolchainVersion, float peakMips, float stoppedPower,
-    float sleepPower, float peakPower, uint32_t maxMessageLen,
-    uint64_t platformId, uint32_t version) {
+    const fbs::HubInfoResponseT& response) {
   ALOGD("Got hub info response");
 
   std::lock_guard<std::mutex> lock(mParent.mHubInfoMutex);
   if (mParent.mHubInfoValid) {
     ALOGI("Ignoring duplicate/unsolicited hub info response");
   } else {
-    mParent.mHubInfo.name = name;
-    mParent.mHubInfo.vendor = vendor;
-    mParent.mHubInfo.toolchain = toolchain;
-    mParent.mHubInfo.platformVersion = legacyPlatformVersion;
-    mParent.mHubInfo.toolchainVersion = legacyToolchainVersion;
+    mParent.mHubInfo.name = getStringFromByteVector(response.name);
+    mParent.mHubInfo.vendor = getStringFromByteVector(response.vendor);
+    mParent.mHubInfo.toolchain = getStringFromByteVector(response.toolchain);
+    mParent.mHubInfo.platformVersion = response.platform_version;
+    mParent.mHubInfo.toolchainVersion = response.toolchain_version;
     mParent.mHubInfo.hubId = kDefaultHubId;
 
-    mParent.mHubInfo.peakMips = peakMips;
-    mParent.mHubInfo.stoppedPowerDrawMw = stoppedPower;
-    mParent.mHubInfo.sleepPowerDrawMw = sleepPower;
-    mParent.mHubInfo.peakPowerDrawMw = peakPower;
+    mParent.mHubInfo.peakMips = response.peak_mips;
+    mParent.mHubInfo.stoppedPowerDrawMw = response.stopped_power;
+    mParent.mHubInfo.sleepPowerDrawMw = response.sleep_power;
+    mParent.mHubInfo.peakPowerDrawMw = response.peak_power;
 
-    mParent.mHubInfo.maxSupportedMsgLen = maxMessageLen;
-    mParent.mHubInfo.chrePlatformId = platformId;
+    mParent.mHubInfo.maxSupportedMsgLen = response.max_msg_len;
+    mParent.mHubInfo.chrePlatformId = response.platform_id;
 
+    uint32_t version = response.chre_platform_version;
     mParent.mHubInfo.chreApiMajorVersion = extractChreApiMajorVersion(version);
     mParent.mHubInfo.chreApiMinorVersion = extractChreApiMinorVersion(version);
     mParent.mHubInfo.chrePatchVersion = extractChrePatchVersion(version);
@@ -418,14 +436,58 @@ void GenericContextHub::SocketCallbacks::handleNanoappListResponse(
 
 void GenericContextHub::SocketCallbacks::handleLoadNanoappResponse(
     const ::chre::fbs::LoadNanoappResponseT& response) {
-  ALOGV("Got load nanoapp response for transaction %" PRIu32 " with result %d",
-        response.transaction_id, response.success);
+  ALOGV("Got load nanoapp response for transaction %" PRIu32 " fragment %"
+        PRIu32 " with result %d", response.transaction_id, response.fragment_id,
+        response.success);
+  std::unique_lock<std::mutex> lock(mParent.mPendingLoadTransactionMutex);
 
-  invokeClientCallback([&]() {
-    TransactionResult result = (response.success) ?
-        TransactionResult::SUCCESS : TransactionResult::FAILURE;
-    mParent.mCallbacks->handleTxnResult(response.transaction_id, result);
-  });
+  // TODO: Handle timeout in receiving load response
+  if (!mParent.mPendingLoadTransaction.has_value()) {
+    ALOGE("Dropping unexpected load response (no pending transaction exists)");
+  } else {
+    FragmentedLoadTransaction& transaction =
+        mParent.mPendingLoadTransaction.value();
+
+    if (!mParent.isExpectedLoadResponseLocked(response)) {
+      ALOGE("Dropping unexpected load response, expected transaction %"
+            PRIu32 " fragment %" PRIu32 ", received transaction %" PRIu32
+            " fragment %" PRIu32, transaction.getTransactionId(),
+            mParent.mCurrentFragmentId, response.transaction_id,
+            response.fragment_id);
+    } else {
+      TransactionResult result;
+      bool continueLoadRequest = false;
+      if (response.success && !transaction.isComplete()) {
+        if (mParent.sendFragmentedLoadNanoAppRequest(transaction)
+            == Result::OK) {
+          continueLoadRequest = true;
+          result = TransactionResult::SUCCESS;
+        } else {
+          result = TransactionResult::FAILURE;
+        }
+      } else {
+        result = (response.success) ?
+            TransactionResult::SUCCESS : TransactionResult::FAILURE;
+      }
+
+      if (!continueLoadRequest) {
+        mParent.mPendingLoadTransaction.reset();
+        lock.unlock();
+        invokeClientCallback([&]() {
+          mParent.mCallbacks->handleTxnResult(response.transaction_id, result);
+        });
+      }
+    }
+  }
+}
+
+bool GenericContextHub::isExpectedLoadResponseLocked(
+    const ::chre::fbs::LoadNanoappResponseT& response) {
+  return mPendingLoadTransaction.has_value()
+      && (mPendingLoadTransaction->getTransactionId()
+          == response.transaction_id)
+      && (response.fragment_id == 0
+          || mCurrentFragmentId == response.fragment_id);
 }
 
 void GenericContextHub::SocketCallbacks::handleUnloadNanoappResponse(

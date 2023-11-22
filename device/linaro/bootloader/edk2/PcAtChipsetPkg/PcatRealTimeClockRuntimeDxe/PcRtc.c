@@ -1,7 +1,7 @@
 /** @file
   RTC Architectural Protocol GUID as defined in DxeCis 0.96.
 
-Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -13,6 +13,16 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 **/
 
 #include "PcRtc.h"
+
+//
+// Days of month.
+//
+UINTN mDayOfMonth[] = { 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+
+//
+// The name of NV variable to store the timezone and daylight saving information.
+//
+CHAR16 mTimeZoneVariableName[] = L"RTC";
 
 /**
   Compare the Hour, Minute and Second of the From time and the To time.
@@ -182,11 +192,11 @@ PcRtcInit (
   //
   DataSize = sizeof (UINT32);
   Status = EfiGetVariable (
-             L"RTC",
+             mTimeZoneVariableName,
              &gEfiCallerIdGuid,
              NULL,
              &DataSize,
-             (VOID *) &TimerVar
+             &TimerVar
              );
   if (!EFI_ERROR (Status)) {
     Time.TimeZone = (INT16) TimerVar;
@@ -477,15 +487,29 @@ PcRtcSetTime (
   //
   // Write timezone and daylight to RTC variable
   //
-  TimerVar = Time->Daylight;
-  TimerVar = (UINT32) ((TimerVar << 16) | (UINT16)(Time->TimeZone));
-  Status =  EfiSetVariable (
-              L"RTC",
-              &gEfiCallerIdGuid,
-              EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
-              sizeof (TimerVar),
-              &TimerVar
-              );
+  if ((Time->TimeZone == EFI_UNSPECIFIED_TIMEZONE) && (Time->Daylight == 0)) {
+    Status = EfiSetVariable (
+               mTimeZoneVariableName,
+               &gEfiCallerIdGuid,
+               0,
+               0,
+               NULL
+               );
+    if (Status == EFI_NOT_FOUND) {
+      Status = EFI_SUCCESS;
+    }
+  } else {
+    TimerVar = Time->Daylight;
+    TimerVar = (UINT32) ((TimerVar << 16) | (UINT16)(Time->TimeZone));
+    Status = EfiSetVariable (
+               mTimeZoneVariableName,
+               &gEfiCallerIdGuid,
+               EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+               sizeof (TimerVar),
+               &TimerVar
+               );
+  }
+
   if (EFI_ERROR (Status)) {
     if (!EfiAtRuntime ()) {
       EfiReleaseLock (&Global->RtcLock);
@@ -987,28 +1011,13 @@ DayValid (
   IN  EFI_TIME  *Time
   )
 {
-  INTN  DayOfMonth[12];
-
-  DayOfMonth[0] = 31;
-  DayOfMonth[1] = 29;
-  DayOfMonth[2] = 31;
-  DayOfMonth[3] = 30;
-  DayOfMonth[4] = 31;
-  DayOfMonth[5] = 30;
-  DayOfMonth[6] = 31;
-  DayOfMonth[7] = 31;
-  DayOfMonth[8] = 30;
-  DayOfMonth[9] = 31;
-  DayOfMonth[10] = 30;
-  DayOfMonth[11] = 31;
-
   //
   // The validity of Time->Month field should be checked before
   //
   ASSERT (Time->Month >=1);
   ASSERT (Time->Month <=12);
   if (Time->Day < 1 ||
-      Time->Day > DayOfMonth[Time->Month - 1] ||
+      Time->Day > mDayOfMonth[Time->Month - 1] ||
       (Time->Month == 2 && (!IsLeapYear (Time) && Time->Day > 28))
       ) {
     return FALSE;
@@ -1144,21 +1153,7 @@ IsWithinOneDay (
   IN EFI_TIME  *To
   )
 {
-  UINT8   DayOfMonth[12];
   BOOLEAN Adjacent;
-
-  DayOfMonth[0] = 31;
-  DayOfMonth[1] = 29;
-  DayOfMonth[2] = 31;
-  DayOfMonth[3] = 30;
-  DayOfMonth[4] = 31;
-  DayOfMonth[5] = 30;
-  DayOfMonth[6] = 31;
-  DayOfMonth[7] = 31;
-  DayOfMonth[8] = 30;
-  DayOfMonth[9] = 31;
-  DayOfMonth[10] = 30;
-  DayOfMonth[11] = 31;
 
   Adjacent = FALSE;
 
@@ -1186,7 +1181,7 @@ IsWithinOneDay (
             Adjacent = TRUE;
           }
         }
-      } else if (From->Day == DayOfMonth[From->Month - 1]) {
+      } else if (From->Day == mDayOfMonth[From->Month - 1]) {
         if ((CompareHMS(From, To) >= 0)) {
            Adjacent = TRUE;
         }
@@ -1235,12 +1230,73 @@ ScanTableInSDT (
     //
     Table = 0;
     CopyMem (&Table, (VOID *) (EntryBase + Index * TablePointerSize), TablePointerSize);
+
+    if (Table == NULL) {
+      continue;
+    }
+
     if (Table->Signature == Signature) {
       return Table;
     }
   }
 
   return NULL;
+}
+
+/**
+  Get the century RTC address from the ACPI FADT table.
+
+  @return  The century RTC address or 0 if not found.
+**/
+UINT8
+GetCenturyRtcAddress (
+  VOID
+  )
+{
+  EFI_STATUS                                    Status;
+  EFI_ACPI_2_0_ROOT_SYSTEM_DESCRIPTION_POINTER  *Rsdp;
+  EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE     *Fadt;
+
+  Status = EfiGetSystemConfigurationTable (&gEfiAcpiTableGuid, (VOID **) &Rsdp);
+  if (EFI_ERROR (Status)) {
+    Status = EfiGetSystemConfigurationTable (&gEfiAcpi10TableGuid, (VOID **) &Rsdp);
+  }
+
+  if (EFI_ERROR (Status) || (Rsdp == NULL)) {
+    return 0;
+  }
+
+  Fadt = NULL;
+
+  //
+  // Find FADT in XSDT
+  //
+  if (Rsdp->Revision >= EFI_ACPI_2_0_ROOT_SYSTEM_DESCRIPTION_POINTER_REVISION && Rsdp->XsdtAddress != 0) {
+    Fadt = ScanTableInSDT (
+             (EFI_ACPI_DESCRIPTION_HEADER *) (UINTN) Rsdp->XsdtAddress,
+             EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE_SIGNATURE,
+             sizeof (UINTN)
+             );
+  }
+
+  //
+  // Find FADT in RSDT
+  //
+  if (Fadt == NULL && Rsdp->RsdtAddress != 0) {
+    Fadt = ScanTableInSDT (
+             (EFI_ACPI_DESCRIPTION_HEADER *) (UINTN) Rsdp->RsdtAddress,
+             EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE_SIGNATURE,
+             sizeof (UINT32)
+             );
+  }
+
+  if ((Fadt != NULL) &&
+      (Fadt->Century > RTC_ADDRESS_REGISTER_D) && (Fadt->Century < 0x80)
+      ) {
+    return Fadt->Century;
+  } else {
+    return 0;
+  }
 }
 
 /**
@@ -1260,47 +1316,14 @@ PcRtcAcpiTableChangeCallback (
   IN VOID             *Context
   )
 {
-  EFI_STATUS                                    Status;
-  EFI_ACPI_2_0_ROOT_SYSTEM_DESCRIPTION_POINTER  *Rsdp;
-  EFI_ACPI_DESCRIPTION_HEADER                   *Rsdt;
-  EFI_ACPI_DESCRIPTION_HEADER                   *Xsdt;
-  EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE     *Fadt;
-  EFI_TIME                                      Time;
-  UINT8                                         Century;
+  EFI_STATUS          Status;
+  EFI_TIME            Time;
+  UINT8               CenturyRtcAddress;
+  UINT8               Century;
 
-  Status = EfiGetSystemConfigurationTable (&gEfiAcpiTableGuid, (VOID **) &Rsdp);
-  if (EFI_ERROR (Status)) {
-    Status = EfiGetSystemConfigurationTable (&gEfiAcpi10TableGuid, (VOID **) &Rsdp);
-  }
-
-  if (EFI_ERROR (Status)) {
-    return;
-  }
-
-  ASSERT (Rsdp != NULL);
-
-  //
-  // Find FADT in XSDT
-  //
-  Fadt = NULL;
-  if (Rsdp->Revision >= EFI_ACPI_2_0_ROOT_SYSTEM_DESCRIPTION_POINTER_REVISION) {
-    Xsdt = (EFI_ACPI_DESCRIPTION_HEADER *) (UINTN) Rsdp->XsdtAddress;
-    Fadt = ScanTableInSDT (Xsdt, EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE_SIGNATURE, sizeof (UINT64));
-  }
-
-  if (Fadt == NULL) {
-    //
-    // Find FADT in RSDT
-    //
-    Rsdt = (EFI_ACPI_DESCRIPTION_HEADER *) (UINTN) Rsdp->RsdtAddress;
-    Fadt = ScanTableInSDT (Rsdt, EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE_SIGNATURE, sizeof (UINT32));
-  }
-
-  if ((Fadt != NULL) &&
-      (Fadt->Century > RTC_ADDRESS_REGISTER_D) && (Fadt->Century < 0x80) &&
-      (mModuleGlobal.CenturyRtcAddress != Fadt->Century)
-      ) {
-    mModuleGlobal.CenturyRtcAddress = Fadt->Century;
+  CenturyRtcAddress = GetCenturyRtcAddress ();
+  if ((CenturyRtcAddress != 0) && (mModuleGlobal.CenturyRtcAddress != CenturyRtcAddress)) {
+    mModuleGlobal.CenturyRtcAddress = CenturyRtcAddress;
     Status = PcRtcGetTime (&Time, NULL, &mModuleGlobal);
     if (!EFI_ERROR (Status)) {
       Century = (UINT8) (Time.Year / 100);

@@ -22,6 +22,30 @@ ifeq ($(my_clang),true)
   endif
 endif
 
+# Disable global integer_overflow in excluded paths.
+ifneq ($(filter integer_overflow, $(my_global_sanitize)),)
+  combined_exclude_paths := $(INTEGER_OVERFLOW_EXCLUDE_PATHS) \
+                            $(PRODUCT_INTEGER_OVERFLOW_EXCLUDE_PATHS)
+
+  ifneq ($(strip $(foreach dir,$(subst $(comma),$(space),$(combined_exclude_paths)),\
+         $(filter $(dir)%,$(LOCAL_PATH)))),)
+    my_global_sanitize := $(filter-out integer_overflow,$(my_global_sanitize))
+    my_global_sanitize_diag := $(filter-out integer_overflow,$(my_global_sanitize_diag))
+  endif
+endif
+
+# Disable global CFI in excluded paths
+ifneq ($(filter cfi, $(my_global_sanitize)),)
+  combined_exclude_paths := $(CFI_EXCLUDE_PATHS) \
+                            $(PRODUCT_CFI_EXCLUDE_PATHS)
+
+  ifneq ($(strip $(foreach dir,$(subst $(comma),$(space),$(combined_exclude_paths)),\
+         $(filter $(dir)%,$(LOCAL_PATH)))),)
+    my_global_sanitize := $(filter-out cfi,$(my_global_sanitize))
+    my_global_sanitize_diag := $(filter-out cfi,$(my_global_sanitize_diag))
+  endif
+endif
+
 ifneq ($(my_global_sanitize),)
   my_sanitize := $(my_global_sanitize) $(my_sanitize)
 endif
@@ -72,6 +96,20 @@ ifeq ($(LOCAL_SANITIZE),never)
   my_sanitize_diag :=
 endif
 
+# Enable CFI in included paths (for Arm64 only).
+ifeq ($(filter cfi, $(my_sanitize)),)
+  ifneq ($(filter arm64,$(TARGET_$(LOCAL_2ND_ARCH_VAR_PREFIX)ARCH)),)
+    combined_include_paths := $(CFI_INCLUDE_PATHS) \
+                              $(PRODUCT_CFI_INCLUDE_PATHS)
+
+    ifneq ($(strip $(foreach dir,$(subst $(comma),$(space),$(combined_include_paths)),\
+           $(filter $(dir)%,$(LOCAL_PATH)))),)
+      my_sanitize := cfi $(my_sanitize)
+      my_sanitize_diag := cfi $(my_sanitize_diag)
+    endif
+  endif
+endif
+
 # If CFI is disabled globally, remove it from my_sanitize.
 ifeq ($(strip $(ENABLE_CFI)),false)
   my_sanitize := $(filter-out cfi,$(my_sanitize))
@@ -96,6 +134,12 @@ ifneq ($(filter mips mips64,$(TARGET_$(LOCAL_2ND_ARCH_VAR_PREFIX)ARCH)),)
   my_sanitize_diag := $(filter-out cfi,$(my_sanitize_diag))
 endif
 
+# Disable CFI for host targets
+ifdef LOCAL_IS_HOST_MODULE
+  my_sanitize := $(filter-out cfi,$(my_sanitize))
+  my_sanitize_diag := $(filter-out cfi,$(my_sanitize_diag))
+endif
+
 # Support for local sanitize blacklist paths.
 ifneq ($(my_sanitize)$(my_global_sanitize),)
   ifneq ($(LOCAL_SANITIZE_BLACKLIST),)
@@ -103,17 +147,8 @@ ifneq ($(my_sanitize)$(my_global_sanitize),)
   endif
 endif
 
+# Disable integer_overflow if LOCAL_NOSANITIZE=integer.
 ifneq ($(filter integer_overflow, $(my_global_sanitize) $(my_sanitize)),)
-  # Disable integer_overflow in excluded paths.
-  combined_exclude_paths := $(INTEGER_OVERFLOW_EXCLUDE_PATHS) \
-                            $(PRODUCT_INTEGER_OVERFLOW_EXCLUDE_PATHS)
-
-  ifneq ($(strip $(foreach dir,$(subst $(comma),$(space),$(combined_exclude_paths)),\
-         $(filter $(dir)%,$(LOCAL_PATH)))),)
-    my_sanitize := $(filter-out integer_overflow,$(my_sanitize))
-    my_sanitize_diag := $(filter-out integer_overflow,$(my_sanitize_diag))
-  endif
-  # Disable integer_overflow if LOCAL_NOSANITIZE=integer.
   ifneq ($(filter integer, $(strip $(LOCAL_NOSANITIZE))),)
     my_sanitize := $(filter-out integer_overflow,$(my_sanitize))
     my_sanitize_diag := $(filter-out integer_overflow,$(my_sanitize_diag))
@@ -134,6 +169,8 @@ ifneq ($(filter thread,$(my_sanitize)),)
     else
         $(error $(LOCAL_PATH): $(LOCAL_MODULE): TSAN cannot be used for 32-bit modules.)
     endif
+  else
+    my_shared_libraries += $(TSAN_RUNTIME_LIBRARY)
   endif
 endif
 
@@ -172,7 +209,7 @@ ifneq ($(filter coverage,$(my_sanitize)),)
   ifeq ($(filter address,$(my_sanitize)),)
     $(error $(LOCAL_PATH): $(LOCAL_MODULE): Use of 'coverage' also requires 'address')
   endif
-  my_cflags += -fsanitize-coverage=trace-pc-guard
+  my_cflags += -fsanitize-coverage=trace-pc-guard,indirect-calls,trace-cmp
   my_sanitize := $(filter-out coverage,$(my_sanitize))
 endif
 
@@ -182,19 +219,17 @@ ifneq ($(filter integer_overflow,$(my_sanitize)),)
 
       # Respect LOCAL_NOSANITIZE for integer-overflow flags.
       ifeq ($(filter signed-integer-overflow, $(strip $(LOCAL_NOSANITIZE))),)
-        my_cflags += -fsanitize=signed-integer-overflow
+        my_sanitize += signed-integer-overflow
       endif
       ifeq ($(filter unsigned-integer-overflow, $(strip $(LOCAL_NOSANITIZE))),)
-        my_cflags += -fsanitize=unsigned-integer-overflow
+        my_sanitize += unsigned-integer-overflow
       endif
-      my_cflags += -fsanitize-trap=all
-      my_cflags += -ftrap-function=abort
       my_cflags += $(INTEGER_OVERFLOW_EXTRA_CFLAGS)
 
       # Check for diagnostics mode (on by default).
       ifneq ($(filter integer_overflow,$(my_sanitize_diag)),)
-        my_cflags += -fno-sanitize-trap=signed-integer-overflow,unsigned-integer-overflow
-        my_shared_libraries := $($(LOCAL_2ND_ARCH_VAR_PREFIX)UBSAN_RUNTIME_LIBRARY) $(my_shared_libraries)
+        my_sanitize_diag += signed-integer-overflow
+        my_sanitize_diag += unsigned-integer-overflow
       endif
     endif
   endif
@@ -214,7 +249,6 @@ ifneq ($(my_sanitize),)
   ifdef LOCAL_IS_HOST_MODULE
     my_cflags += -fno-sanitize-recover=all
     my_ldflags += -fsanitize=$(fsanitize_arg)
-    my_ldlibs += -lrt -ldl
   else
     my_cflags += -fsanitize-trap=all
     my_cflags += -ftrap-function=abort
@@ -231,12 +265,21 @@ ifneq ($(filter cfi,$(my_sanitize)),)
   # entire module.
   LOCAL_ARM_MODE := thumb
   my_cflags += $(CFI_EXTRA_CFLAGS)
+  # Only append the default visibility flag if -fvisibility has not already been
+  # set to hidden.
+  ifeq ($(filter -fvisibility=hidden,$(LOCAL_CFLAGS)),)
+    my_cflags += -fvisibility=default
+  endif
   my_ldflags += $(CFI_EXTRA_LDFLAGS)
   my_arflags += --plugin $(LLVM_PREBUILTS_PATH)/../lib64/LLVMgold.so
-  # Workaround for b/33678192. CFI jumptables need Thumb2 codegen.  Revert when
-  # Clang is updated past r290384.
-  ifneq ($(filter arm,$(TARGET_$(LOCAL_2ND_ARCH_VAR_PREFIX)ARCH)),)
-    my_ldflags += -march=armv7-a
+
+  ifeq ($(LOCAL_FORCE_STATIC_EXECUTABLE),true)
+        my_ldflags := $(filter-out -fsanitize-cfi-cross-dso,$(my_ldflags))
+        my_cflags := $(filter-out -fsanitize-cfi-cross-dso,$(my_cflags))
+  else
+        # Apply the version script to non-static executables
+        my_ldflags += -Wl,--version-script,build/soong/cc/config/cfi_exports.map
+        LOCAL_ADDITIONAL_DEPENDENCIES += build/soong/cc/config/cfi_exports.map
   endif
 endif
 
@@ -246,7 +289,6 @@ ifneq ($(filter address,$(my_global_sanitize) $(my_sanitize)),)
   ifdef LOCAL_IS_HOST_MODULE
     # -nodefaultlibs (provided with libc++) prevents the driver from linking
     # libraries needed with -fsanitize=address. http://b/18650275 (WAI)
-    my_ldlibs += -lm -lpthread
     my_ldflags += -Wl,--no-as-needed
   else
     # Add asan libraries unless LOCAL_MODULE is the asan library.
@@ -284,9 +326,25 @@ ifneq ($(filter address,$(my_sanitize)),)
   endif
 endif
 
-ifneq ($(filter undefined,$(my_sanitize)),)
-  ifndef LOCAL_IS_HOST_MODULE
-    $(error ubsan is not yet supported on the target)
+# Use minimal diagnostics when integer overflow is enabled; never do it for HOST or AUX modules
+ifeq ($(LOCAL_IS_HOST_MODULE)$(LOCAL_IS_AUX_MODULE),)
+  # Pre-emptively add UBSAN minimal runtime incase a static library dependency requires it
+  ifeq ($(filter STATIC_LIBRARIES,$(LOCAL_MODULE_CLASS)),)
+    ifndef LOCAL_SDK_VERSION
+      my_static_libraries += $($(LOCAL_2ND_ARCH_VAR_PREFIX)UBSAN_MINIMAL_RUNTIME_LIBRARY)
+      my_ldflags += -Wl,--exclude-libs,$($(LOCAL_2ND_ARCH_VAR_PREFIX)UBSAN_MINIMAL_RUNTIME_LIBRARY).a
+    endif
+  endif
+  ifneq ($(filter unsigned-integer-overflow signed-integer-overflow integer,$(my_sanitize)),)
+    ifeq ($(filter unsigned-integer-overflow signed-integer overflow integer,$(my_sanitize_diag)),)
+      ifeq ($(filter cfi,$(my_sanitize_diag)),)
+        ifeq ($(filter address,$(my_sanitize)),)
+          my_cflags += -fsanitize-minimal-runtime
+          my_cflags += -fno-sanitize-trap=integer
+          my_cflags += -fno-sanitize-recover=integer
+        endif
+      endif
+    endif
   endif
 endif
 
@@ -296,11 +354,16 @@ ifneq ($(strip $(LOCAL_SANITIZE_RECOVER)),)
 endif
 
 ifneq ($(my_sanitize_diag),)
-  notrap_arg := $(subst $(space),$(comma),$(my_sanitize_diag)),
-  my_cflags += -fno-sanitize-trap=$(notrap_arg)
-  # Diagnostic requires a runtime library, unless ASan or TSan are also enabled.
-  ifeq ($(filter address thread,$(my_sanitize)),)
-    # Does not have to be the first DT_NEEDED unlike ASan.
-    my_shared_libraries += $($(LOCAL_2ND_ARCH_VAR_PREFIX)UBSAN_RUNTIME_LIBRARY)
+  # TODO(vishwath): Add diagnostic support for static executables once
+  # we switch to clang-4393122 (which adds the static ubsan runtime
+  # that this depends on)
+  ifneq ($(LOCAL_FORCE_STATIC_EXECUTABLE),true)
+    notrap_arg := $(subst $(space),$(comma),$(my_sanitize_diag)),
+    my_cflags += -fno-sanitize-trap=$(notrap_arg)
+    # Diagnostic requires a runtime library, unless ASan or TSan are also enabled.
+    ifeq ($(filter address thread,$(my_sanitize)),)
+      # Does not have to be the first DT_NEEDED unlike ASan.
+      my_shared_libraries += $($(LOCAL_2ND_ARCH_VAR_PREFIX)UBSAN_RUNTIME_LIBRARY)
+    endif
   endif
 endif

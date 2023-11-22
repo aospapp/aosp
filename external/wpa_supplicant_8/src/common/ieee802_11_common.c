@@ -250,6 +250,12 @@ static int ieee802_11_parse_extension(const u8 *pos, size_t elen,
 			break;
 		elems->fils_nonce = pos;
 		break;
+	case WLAN_EID_EXT_OWE_DH_PARAM:
+		if (elen < 2)
+			break;
+		elems->owe_dh = pos;
+		elems->owe_dh_len = elen;
+		break;
 	default:
 		if (show_errors) {
 			wpa_printf(MSG_MSGDUMP,
@@ -1113,7 +1119,7 @@ static int ieee80211_chan_to_freq_global(u8 op_class, u8 chan)
 			return -1;
 		return 5000 + 5 * chan;
 	case 129: /* center freqs 50, 114; 160 MHz */
-		if (chan < 50 || chan > 114)
+		if (chan < 36 || chan > 128)
 			return -1;
 		return 5000 + 5 * chan;
 	case 180: /* 60 GHz band, channels 1..4 */
@@ -1427,6 +1433,40 @@ const u8 * get_ie(const u8 *ies, size_t len, u8 eid)
 }
 
 
+/**
+ * get_ie_ext - Fetch a specified extended information element from IEs buffer
+ * @ies: Information elements buffer
+ * @len: Information elements buffer length
+ * @ext: Information element extension identifier (WLAN_EID_EXT_*)
+ * Returns: Pointer to the information element (id field) or %NULL if not found
+ *
+ * This function returns the first matching information element in the IEs
+ * buffer or %NULL in case the element is not found.
+ */
+const u8 * get_ie_ext(const u8 *ies, size_t len, u8 ext)
+{
+	const u8 *end;
+
+	if (!ies)
+		return NULL;
+
+	end = ies + len;
+
+	while (end - ies > 1) {
+		if (2 + ies[1] > end - ies)
+			break;
+
+		if (ies[0] == WLAN_EID_EXTENSION && ies[1] >= 1 &&
+		    ies[2] == ext)
+			return ies;
+
+		ies += 2 + ies[1];
+	}
+
+	return NULL;
+}
+
+
 size_t mbo_add_ie(u8 *buf, size_t len, const u8 *attr, size_t attr_len)
 {
 	/*
@@ -1593,4 +1633,106 @@ const struct oper_class_map * get_oper_class(const char *country, u8 op_class)
 		return NULL;
 
 	return op;
+}
+
+
+int ieee802_11_parse_candidate_list(const char *pos, u8 *nei_rep,
+				    size_t nei_rep_len)
+{
+	u8 *nei_pos = nei_rep;
+	const char *end;
+
+	/*
+	 * BSS Transition Candidate List Entries - Neighbor Report elements
+	 * neighbor=<BSSID>,<BSSID Information>,<Operating Class>,
+	 * <Channel Number>,<PHY Type>[,<hexdump of Optional Subelements>]
+	 */
+	while (pos) {
+		u8 *nei_start;
+		long int val;
+		char *endptr, *tmp;
+
+		pos = os_strstr(pos, " neighbor=");
+		if (!pos)
+			break;
+		if (nei_pos + 15 > nei_rep + nei_rep_len) {
+			wpa_printf(MSG_DEBUG,
+				   "Not enough room for additional neighbor");
+			return -1;
+		}
+		pos += 10;
+
+		nei_start = nei_pos;
+		*nei_pos++ = WLAN_EID_NEIGHBOR_REPORT;
+		nei_pos++; /* length to be filled in */
+
+		if (hwaddr_aton(pos, nei_pos)) {
+			wpa_printf(MSG_DEBUG, "Invalid BSSID");
+			return -1;
+		}
+		nei_pos += ETH_ALEN;
+		pos += 17;
+		if (*pos != ',') {
+			wpa_printf(MSG_DEBUG, "Missing BSSID Information");
+			return -1;
+		}
+		pos++;
+
+		val = strtol(pos, &endptr, 0);
+		WPA_PUT_LE32(nei_pos, val);
+		nei_pos += 4;
+		if (*endptr != ',') {
+			wpa_printf(MSG_DEBUG, "Missing Operating Class");
+			return -1;
+		}
+		pos = endptr + 1;
+
+		*nei_pos++ = atoi(pos); /* Operating Class */
+		pos = os_strchr(pos, ',');
+		if (pos == NULL) {
+			wpa_printf(MSG_DEBUG, "Missing Channel Number");
+			return -1;
+		}
+		pos++;
+
+		*nei_pos++ = atoi(pos); /* Channel Number */
+		pos = os_strchr(pos, ',');
+		if (pos == NULL) {
+			wpa_printf(MSG_DEBUG, "Missing PHY Type");
+			return -1;
+		}
+		pos++;
+
+		*nei_pos++ = atoi(pos); /* PHY Type */
+		end = os_strchr(pos, ' ');
+		tmp = os_strchr(pos, ',');
+		if (tmp && (!end || tmp < end)) {
+			/* Optional Subelements (hexdump) */
+			size_t len;
+
+			pos = tmp + 1;
+			end = os_strchr(pos, ' ');
+			if (end)
+				len = end - pos;
+			else
+				len = os_strlen(pos);
+			if (nei_pos + len / 2 > nei_rep + nei_rep_len) {
+				wpa_printf(MSG_DEBUG,
+					   "Not enough room for neighbor subelements");
+				return -1;
+			}
+			if (len & 0x01 ||
+			    hexstr2bin(pos, nei_pos, len / 2) < 0) {
+				wpa_printf(MSG_DEBUG,
+					   "Invalid neighbor subelement info");
+				return -1;
+			}
+			nei_pos += len / 2;
+			pos = end;
+		}
+
+		nei_start[1] = nei_pos - nei_start - 2;
+	}
+
+	return nei_pos - nei_rep;
 }

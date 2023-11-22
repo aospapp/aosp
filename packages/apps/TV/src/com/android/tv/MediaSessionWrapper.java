@@ -16,6 +16,7 @@
 
 package com.android.tv;
 
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -28,12 +29,12 @@ import android.media.tv.TvInputInfo;
 import android.os.AsyncTask;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
-
-import com.android.tv.data.Channel;
 import com.android.tv.data.Program;
-import com.android.tv.util.ImageLoader;
+import com.android.tv.data.api.Channel;
 import com.android.tv.util.Utils;
+import com.android.tv.util.images.ImageLoader;
 
 /**
  * A wrapper class for {@link MediaSession} to support common operations on media sessions for
@@ -41,34 +42,47 @@ import com.android.tv.util.Utils;
  */
 class MediaSessionWrapper {
     private static final String MEDIA_SESSION_TAG = "com.android.tv.mediasession";
-    private static PlaybackState MEDIA_SESSION_STATE_PLAYING = new PlaybackState.Builder()
-            .setState(PlaybackState.STATE_PLAYING, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1.0f)
-            .build();
-    private static PlaybackState MEDIA_SESSION_STATE_STOPPED = new PlaybackState.Builder()
-            .setState(PlaybackState.STATE_STOPPED, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 0.0f)
-            .build();
+
+    private static final PlaybackState MEDIA_SESSION_STATE_PLAYING =
+            new PlaybackState.Builder()
+                    .setState(
+                            PlaybackState.STATE_PLAYING,
+                            PlaybackState.PLAYBACK_POSITION_UNKNOWN,
+                            1.0f)
+                    .build();
+
+    private static final PlaybackState MEDIA_SESSION_STATE_STOPPED =
+            new PlaybackState.Builder()
+                    .setState(
+                            PlaybackState.STATE_STOPPED,
+                            PlaybackState.PLAYBACK_POSITION_UNKNOWN,
+                            0.0f)
+                    .build();
 
     private final Context mContext;
     private final MediaSession mMediaSession;
     private int mNowPlayingCardWidth;
     private int mNowPlayingCardHeight;
 
-    MediaSessionWrapper(Context context) {
+    MediaSessionWrapper(Context context, PendingIntent pendingIntent) {
         mContext = context;
         mMediaSession = new MediaSession(context, MEDIA_SESSION_TAG);
-        mMediaSession.setCallback(new MediaSession.Callback() {
-            @Override
-            public boolean onMediaButtonEvent(@NonNull Intent mediaButtonIntent) {
-                // Consume the media button event here. Should not send it to other apps.
-                return true;
-            }
-        });
-        mMediaSession.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS |
-                MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
-        mNowPlayingCardWidth = mContext.getResources().getDimensionPixelSize(
-                R.dimen.notif_card_img_max_width);
-        mNowPlayingCardHeight = mContext.getResources().getDimensionPixelSize(
-                R.dimen.notif_card_img_height);
+        mMediaSession.setCallback(
+                new MediaSession.Callback() {
+                    @Override
+                    public boolean onMediaButtonEvent(@NonNull Intent mediaButtonIntent) {
+                        // Consume the media button event here. Should not send it to other apps.
+                        return true;
+                    }
+                });
+        mMediaSession.setFlags(
+                MediaSession.FLAG_HANDLES_MEDIA_BUTTONS
+                        | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
+        mMediaSession.setSessionActivity(pendingIntent);
+        mNowPlayingCardWidth =
+                mContext.getResources().getDimensionPixelSize(R.dimen.notif_card_img_max_width);
+        mNowPlayingCardHeight =
+                mContext.getResources().getDimensionPixelSize(R.dimen.notif_card_img_height);
     }
 
     /**
@@ -90,8 +104,8 @@ class MediaSessionWrapper {
     /**
      * Updates media session according to the current TV playback status.
      *
-     * @param blocked {@code true} if the current channel is blocked, either by user settings or
-     *                the current program's content ratings.
+     * @param blocked {@code true} if the current channel is blocked, either by user settings or the
+     *     current program's content ratings.
      * @param currentChannel The currently playing channel.
      * @param currentProgram The currently playing program.
      */
@@ -103,10 +117,12 @@ class MediaSessionWrapper {
 
         // If the channel is blocked, display a lock and a short text on the Now Playing Card
         if (blocked) {
-            Bitmap art = BitmapFactory.decodeResource(mContext.getResources(),
-                    R.drawable.ic_message_lock_preview);
-            updateMediaMetadata(mContext.getResources()
-                    .getString(R.string.channel_banner_locked_channel_title), art);
+            Bitmap art =
+                    BitmapFactory.decodeResource(
+                            mContext.getResources(), R.drawable.ic_message_lock_preview);
+            updateMediaMetadata(
+                    mContext.getResources().getString(R.string.channel_banner_locked_channel_title),
+                    art);
             setPlaybackState(true);
             return;
         }
@@ -139,22 +155,32 @@ class MediaSessionWrapper {
 
     private String getChannelName(Channel channel) {
         if (channel.isPassthrough()) {
-            TvInputInfo input = TvApplication.getSingletons(mContext).getTvInputManagerHelper()
-                    .getTvInputInfo(channel.getInputId());
+            TvInputInfo input =
+                    TvSingletons.getSingletons(mContext)
+                            .getTvInputManagerHelper()
+                            .getTvInputInfo(channel.getInputId());
             return Utils.loadLabel(mContext, input);
         } else {
             return channel.getDisplayName();
         }
     }
 
-    private void updatePosterArt(Channel currentChannel, Program currentProgram,
-            String cardTitleText, @Nullable Bitmap posterArt, @Nullable String posterArtUri) {
+    private void updatePosterArt(
+            Channel currentChannel,
+            Program currentProgram,
+            String cardTitleText,
+            @Nullable Bitmap posterArt,
+            @Nullable String posterArtUri) {
         if (posterArt != null) {
             updateMediaMetadata(cardTitleText, posterArt);
         } else if (posterArtUri != null) {
-            ImageLoader.loadBitmap(mContext, posterArtUri, mNowPlayingCardWidth,
-                    mNowPlayingCardHeight, new ProgramPosterArtCallback(this, currentChannel,
-                            currentProgram, cardTitleText));
+            ImageLoader.loadBitmap(
+                    mContext,
+                    posterArtUri,
+                    mNowPlayingCardWidth,
+                    mNowPlayingCardHeight,
+                    new ProgramPosterArtCallback(
+                            this, currentChannel, currentProgram, cardTitleText));
         } else {
             updateMediaMetadata(cardTitleText, R.drawable.default_now_card);
         }
@@ -176,7 +202,7 @@ class MediaSessionWrapper {
     }
 
     private void updateMediaMetadata(final String title, final int imageResId) {
-        new AsyncTask<Void, Void, Void> () {
+        new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... arg0) {
                 MediaMetadata.Builder builder = new MediaMetadata.Builder();
@@ -192,14 +218,22 @@ class MediaSessionWrapper {
         }.execute();
     }
 
-    private static class ProgramPosterArtCallback extends
-            ImageLoader.ImageLoaderCallback<MediaSessionWrapper> {
+    @VisibleForTesting
+    MediaSession getMediaSession() {
+        return mMediaSession;
+    }
+
+    private static class ProgramPosterArtCallback
+            extends ImageLoader.ImageLoaderCallback<MediaSessionWrapper> {
         private final Channel mChannel;
         private final Program mProgram;
         private final String mCardTitleText;
 
-        ProgramPosterArtCallback(MediaSessionWrapper sessionWrapper, Channel channel,
-                Program program, String cardTitleText) {
+        ProgramPosterArtCallback(
+                MediaSessionWrapper sessionWrapper,
+                Channel channel,
+                Program program,
+                String cardTitleText) {
             super(sessionWrapper);
             mChannel = channel;
             mProgram = program;

@@ -33,7 +33,7 @@ public class InspectorActivity extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_ACTION_BAR);
-        setContentView(R.layout.document_inspector_activity);
+        setContentView(R.layout.inspector_activity);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setActionBar(toolbar);
@@ -45,10 +45,7 @@ public class InspectorActivity extends Activity {
 
         if (mFragment == null) {
             Intent intent = getIntent();
-
             mFragment = InspectorFragment.newInstance(intent);
-
-
             fragmentManager.beginTransaction()
                     .add(R.id.fragment_container, mFragment)
                     .commit();

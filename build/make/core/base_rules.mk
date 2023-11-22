@@ -65,6 +65,18 @@ else
   my_host_cross :=
 endif
 
+_path := $(LOCAL_MODULE_PATH) $(LOCAL_MODULE_PATH_32) $(LOCAL_MODULE_PATH_64)
+ifneq ($(filter $(TARGET_OUT_VENDOR)%,$(_path)),)
+LOCAL_VENDOR_MODULE := true
+else ifneq ($(filter $(TARGET_OUT_OEM)/%,$(_path)),)
+LOCAL_OEM_MODULE := true
+else ifneq ($(filter $(TARGET_OUT_ODM)/%,$(_path)),)
+LOCAL_ODM_MODULE := true
+else ifneq ($(filter $(TARGET_OUT_PRODUCT)/%,$(_path)),)
+LOCAL_PRODUCT_MODULE := true
+endif
+_path :=
+
 ifndef LOCAL_PROPRIETARY_MODULE
   LOCAL_PROPRIETARY_MODULE := $(LOCAL_VENDOR_MODULE)
 endif
@@ -76,6 +88,7 @@ $(call pretty-error,Only one of LOCAL_PROPRIETARY_MODULE[$(LOCAL_PROPRIETARY_MOD
 endif
 
 include $(BUILD_SYSTEM)/local_vndk.mk
+include $(BUILD_SYSTEM)/local_systemsdk.mk
 
 my_module_tags := $(LOCAL_MODULE_TAGS)
 ifeq ($(my_host_cross),true)
@@ -95,6 +108,13 @@ endif
 # a .mk file, because a few users of LOCAL_ADDITIONAL_DEPENDENCIES don't include
 # base_rules.mk, but it will fix the most common ones.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(filter-out %.mk,$(LOCAL_ADDITIONAL_DEPENDENCIES))
+
+my_bad_deps := $(strip $(foreach dep,$(filter-out | ||,$(LOCAL_ADDITIONAL_DEPENDENCIES)),\
+                 $(if $(findstring /,$(dep)),,$(dep))))
+ifneq ($(my_bad_deps),)
+$(call pretty-warning,"Bad LOCAL_ADDITIONAL_DEPENDENCIES: $(my_bad_deps)")
+$(call pretty-error,"LOCAL_ADDITIONAL_DEPENDENCIES must only contain paths (not module names)")
+endif
 
 ###########################################################
 ## Validate and define fallbacks for input LOCAL_* variables.
@@ -131,7 +151,7 @@ endif
 # makefiles. Anything else is either a typo or a source of unexpected
 # behaviors.
 ifneq ($(filter-out debug eng tests optional samples,$(my_module_tags)),)
-$(call pretty-warning,unusual tags $(my_module_tags))
+$(call pretty-error,unusual tags: $(filter-out debug eng tests optional samples,$(my_module_tags)))
 endif
 
 # Add implicit tags.
@@ -182,6 +202,8 @@ else ifeq (true,$(LOCAL_OEM_MODULE))
   partition_tag := _OEM
 else ifeq (true,$(LOCAL_ODM_MODULE))
   partition_tag := _ODM
+else ifeq (true,$(LOCAL_PRODUCT_MODULE))
+  partition_tag := _PRODUCT
 else ifeq (NATIVE_TESTS,$(LOCAL_MODULE_CLASS))
   partition_tag := _DATA
 else
@@ -443,6 +465,50 @@ endif
 endif
 
 ###########################################################
+## Test Data
+###########################################################
+my_test_data_pairs :=
+my_installed_test_data :=
+# Source to relative dst file paths for reuse in LOCAL_COMPATIBILITY_SUITE.
+my_test_data_file_pairs :=
+
+ifneq ($(filter NATIVE_TESTS,$(LOCAL_MODULE_CLASS)),)
+ifneq ($(strip $(LOCAL_TEST_DATA)),)
+ifneq (true,$(LOCAL_UNINSTALLABLE_MODULE))
+
+my_test_data_pairs := $(strip $(foreach td,$(LOCAL_TEST_DATA), \
+    $(eval _file := $(call word-colon,2,$(td))) \
+    $(if $(_file), \
+      $(eval _src_base := $(call word-colon,1,$(td))), \
+      $(eval _src_base := $(LOCAL_PATH)) \
+        $(eval _file := $(call word-colon,1,$(td)))) \
+    $(if $(findstring ..,$(_file)),$(error $(LOCAL_MODULE_MAKEFILE): LOCAL_TEST_DATA may not include '..': $(_file))) \
+    $(if $(filter /%,$(_src_base) $(_file)),$(error $(LOCAL_MODULE_MAKEFILE): LOCAL_TEST_DATA may not include absolute paths: $(_src_base) $(_file))) \
+    $(eval my_test_data_file_pairs := $(my_test_data_file_pairs) $(call append-path,$(_src_base),$(_file)):$(_file)) \
+    $(call append-path,$(_src_base),$(_file)):$(call append-path,$(my_module_path),$(_file))))
+
+my_installed_test_data := $(call copy-many-files,$(my_test_data_pairs))
+$(LOCAL_INSTALLED_MODULE): $(my_installed_test_data)
+
+endif
+endif
+endif
+
+# For test modules that lack a suite tag, set null-suite as the default.
+# We only support adding a default suite to native tests, native benchmarks, and instrumentation tests.
+# This is because they are the only tests we currently auto-generate test configs for.
+ifndef LOCAL_COMPATIBILITY_SUITE
+ifneq ($(filter NATIVE_TESTS NATIVE_BENCHMARK, $(LOCAL_MODULE_CLASS)),)
+LOCAL_COMPATIBILITY_SUITE := null-suite
+endif
+ifneq ($(filter APPS, $(LOCAL_MODULE_CLASS)),)
+ifneq ($(filter $(my_module_tags),tests),)
+LOCAL_COMPATIBILITY_SUITE := null-suite
+endif
+endif
+endif
+
+###########################################################
 ## Compatibility suite files.
 ###########################################################
 ifdef LOCAL_COMPATIBILITY_SUITE
@@ -451,19 +517,22 @@ ifdef LOCAL_COMPATIBILITY_SUITE
 # separate the multiple architectures into subdirectories of the testcase folder.
 arch_dir :=
 is_native :=
+multi_arch :=
 ifeq ($(LOCAL_MODULE_CLASS),NATIVE_TESTS)
   is_native := true
+  multi_arch := true
 endif
 ifeq ($(LOCAL_MODULE_CLASS),NATIVE_BENCHMARK)
   is_native := true
+  multi_arch := true
 endif
 ifdef LOCAL_MULTILIB
-  is_native := true
+  multi_arch := true
 endif
-ifdef is_native
+ifdef multi_arch
   arch_dir := /$($(my_prefix)$(LOCAL_2ND_ARCH_VAR_PREFIX)ARCH)
-  is_native :=
 endif
+multi_arch :=
 
 # The module itself.
 $(foreach suite, $(LOCAL_COMPATIBILITY_SUITE), \
@@ -483,12 +552,43 @@ $(foreach suite, $(LOCAL_COMPATIBILITY_SUITE), \
     $(foreach dir, $(call compatibility_suite_dirs,$(suite)), \
       $(s):$(dir)/$(n)))))
 
+test_config := $(wildcard $(LOCAL_PATH)/AndroidTest.xml)
+ifeq (,$(test_config))
+  ifneq (true,$(is_native))
+    is_instrumentation_test := true
+    ifeq (true, $(LOCAL_IS_HOST_MODULE))
+      is_instrumentation_test := false
+    endif
+    # If LOCAL_MODULE_CLASS is not APPS, it's certainly not an instrumentation
+    # test. However, some packages for test data also have LOCAL_MODULE_CLASS
+    # set to APPS. These will require flag LOCAL_DISABLE_AUTO_GENERATE_TEST_CONFIG
+    # to disable auto-generating test config file.
+    ifneq (APPS, $(LOCAL_MODULE_CLASS))
+      is_instrumentation_test := false
+    endif
+  endif
+  # CTS modules can be used for test data, so test config files must be
+  # explicitly created using AndroidTest.xml
+  ifeq (,$(filter cts, $(LOCAL_COMPATIBILITY_SUITE)))
+    ifneq (true, $(LOCAL_DISABLE_AUTO_GENERATE_TEST_CONFIG))
+      ifeq (true, $(filter true,$(is_native) $(is_instrumentation_test)))
+        include $(BUILD_SYSTEM)/autogen_test_config.mk
+        test_config := $(autogen_test_config_file)
+        autogen_test_config_file :=
+      endif
+    endif
+  endif
+endif
 
-ifneq (,$(wildcard $(LOCAL_PATH)/AndroidTest.xml))
+is_instrumentation_test :=
+
+ifneq (,$(test_config))
 $(foreach suite, $(LOCAL_COMPATIBILITY_SUITE), \
   $(eval my_compat_dist_$(suite) += $(foreach dir, $(call compatibility_suite_dirs,$(suite)), \
-    $(LOCAL_PATH)/AndroidTest.xml:$(dir)/$(LOCAL_MODULE).config)))
+    $(test_config):$(dir)/$(LOCAL_MODULE).config)))
 endif
+
+test_config :=
 
 ifneq (,$(wildcard $(LOCAL_PATH)/DynamicConfig.xml))
 $(foreach suite, $(LOCAL_COMPATIBILITY_SUITE), \
@@ -504,36 +604,22 @@ $(foreach extra_config, $(wildcard $(LOCAL_PATH)/$(LOCAL_MODULE)_*.config), \
 endif
 endif # $(my_prefix)$(LOCAL_MODULE_CLASS)_$(LOCAL_MODULE)_compat_files
 
+ifneq ($(my_test_data_file_pairs),)
+$(foreach pair, $(my_test_data_file_pairs), \
+  $(eval parts := $(subst :,$(space),$(pair))) \
+  $(eval src_path := $(word 1,$(parts))) \
+  $(eval file := $(word 2,$(parts))) \
+  $(foreach suite, $(LOCAL_COMPATIBILITY_SUITE), \
+    $(eval my_compat_dist_$(suite) += $(foreach dir, $(call compatibility_suite_dirs,$(suite),$(arch_dir)), \
+      $(src_path):$(call append-path,$(dir),$(file))))))
+endif
+
+arch_dir :=
+is_native :=
+
 $(call create-suite-dependencies)
 
 endif  # LOCAL_COMPATIBILITY_SUITE
-
-###########################################################
-## Test Data
-###########################################################
-my_test_data_pairs :=
-my_installed_test_data :=
-
-ifneq ($(filter NATIVE_TESTS,$(LOCAL_MODULE_CLASS)),)
-ifneq ($(strip $(LOCAL_TEST_DATA)),)
-ifneq (true,$(LOCAL_UNINSTALLABLE_MODULE))
-
-my_test_data_pairs := $(strip $(foreach td,$(LOCAL_TEST_DATA), \
-    $(eval _file := $(call word-colon,2,$(td))) \
-    $(if $(_file), \
-      $(eval _base := $(call word-colon,1,$(td))), \
-      $(eval _base := $(LOCAL_PATH)) \
-        $(eval _file := $(call word-colon,1,$(td)))) \
-    $(if $(findstring ..,$(_file)),$(error $(LOCAL_MODULE_MAKEFILE): LOCAL_TEST_DATA may not include '..': $(_file))) \
-    $(if $(filter /%,$(_base) $(_file)),$(error $(LOCAL_MODULE_MAKEFILE): LOCAL_TEST_DATA may not include absolute paths: $(_base) $(_file))) \
-    $(call append-path,$(_base),$(_file)):$(call append-path,$(my_module_path),$(_file))))
-
-my_installed_test_data := $(call copy-many-files,$(my_test_data_pairs))
-$(LOCAL_INSTALLED_MODULE): $(my_installed_test_data)
-
-endif
-endif
-endif
 
 ###########################################################
 ## Register with ALL_MODULES
@@ -579,6 +665,12 @@ ALL_MODULES.$(my_register_name).REQUIRED := \
 ALL_MODULES.$(my_register_name).EXPLICITLY_REQUIRED := \
     $(strip $(ALL_MODULES.$(my_register_name).EXPLICITLY_REQUIRED)\
         $(my_required_modules))
+ALL_MODULES.$(my_register_name).TARGET_REQUIRED := \
+    $(strip $(ALL_MODULES.$(my_register_name).TARGET_REQUIRED)\
+        $(LOCAL_TARGET_REQUIRED_MODULES))
+ALL_MODULES.$(my_register_name).HOST_REQUIRED := \
+    $(strip $(ALL_MODULES.$(my_register_name).HOST_REQUIRED)\
+        $(LOCAL_HOST_REQUIRED_MODULES))
 ALL_MODULES.$(my_register_name).EVENT_LOG_TAGS := \
     $(ALL_MODULES.$(my_register_name).EVENT_LOG_TAGS) $(event_log_tags)
 ALL_MODULES.$(my_register_name).MAKEFILE := \
@@ -591,6 +683,7 @@ ifdef LOCAL_2ND_ARCH_VAR_PREFIX
 ALL_MODULES.$(my_register_name).FOR_2ND_ARCH := true
 endif
 ALL_MODULES.$(my_register_name).FOR_HOST_CROSS := $(my_host_cross)
+ALL_MODULES.$(my_register_name).COMPATIBILITY_SUITES := $(LOCAL_COMPATIBILITY_SUITE)
 
 INSTALLABLE_FILES.$(LOCAL_INSTALLED_MODULE).MODULE := $(my_register_name)
 
@@ -619,7 +712,7 @@ ALL_MODULE_TAGS := $(sort $(ALL_MODULE_TAGS) $(my_module_tags))
 
 # Add this module name to the tag list of each specified tag.
 $(foreach tag,$(my_module_tags),\
-    $(eval ALL_MODULE_NAME_TAGS.$(tag) += $(my_register_name)))
+    $(eval ALL_MODULE_NAME_TAGS.$(tag) := $$(ALL_MODULE_NAME_TAGS.$(tag)) $(my_register_name)))
 
 ###########################################################
 ## umbrella targets used to verify builds
@@ -646,7 +739,7 @@ endif
 
 
 ifdef j_or_n
-$(j_or_n) $(h_or_t) $(j_or_n)-$(h_or_t) : $(my_checked_module)
+$(j_or_n) $(h_or_t) $(j_or_n)-$(h_or_hc_or_t) : $(my_checked_module)
 ifneq (,$(filter $(my_module_tags),tests))
 $(j_or_n)-$(h_or_t)-tests $(j_or_n)-tests $(h_or_t)-tests : $(my_checked_module)
 endif
@@ -654,6 +747,15 @@ $(LOCAL_MODULE)-$(h_or_hc_or_t) : $(my_all_targets)
 ifeq ($(j_or_n),native)
 $(LOCAL_MODULE)-$(h_or_hc_or_t)$(my_32_64_bit_suffix) : $(my_all_targets)
 endif
+endif
+
+###########################################################
+# Ensure privileged applications always have LOCAL_PRIVILEGED_MODULE
+###########################################################
+ifndef LOCAL_PRIVILEGED_MODULE
+  ifneq (,$(filter $(TARGET_OUT_APPS_PRIVILEGED)/% $(TARGET_OUT_VENDOR_APPS_PRIVILEGED)/%,$(my_module_path)))
+    LOCAL_PRIVILEGED_MODULE := true
+  endif
 endif
 
 ###########################################################

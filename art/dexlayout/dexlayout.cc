@@ -33,24 +33,27 @@
 
 #include "android-base/stringprintf.h"
 
+#include "base/logging.h"  // For VLOG_IS_ON.
+#include "base/os.h"
+#include "base/utils.h"
+#include "dex/art_dex_file_loader.h"
+#include "dex/descriptors_names.h"
+#include "dex/dex_file-inl.h"
+#include "dex/dex_file_layout.h"
+#include "dex/dex_file_loader.h"
+#include "dex/dex_file_types.h"
+#include "dex/dex_file_verifier.h"
+#include "dex/dex_instruction-inl.h"
 #include "dex_ir_builder.h"
-#include "dex_file-inl.h"
-#include "dex_file_layout.h"
-#include "dex_file_verifier.h"
-#include "dex_instruction-inl.h"
 #include "dex_verify.h"
 #include "dex_visualize.h"
 #include "dex_writer.h"
 #include "jit/profile_compilation_info.h"
 #include "mem_map.h"
-#include "os.h"
-#include "utils.h"
 
 namespace art {
 
 using android::base::StringPrintf;
-
-static constexpr uint32_t kDexCodeItemAlignment = 4;
 
 /*
  * Flags for use with createAccessFlagStr().
@@ -366,7 +369,7 @@ static std::unique_ptr<char[]> IndexString(dex_ir::Header* header,
   std::unique_ptr<char[]> buf(new char[buf_size]);
   // Determine index and width of the string.
   uint32_t index = 0;
-  uint32_t secondary_index = DexFile::kDexNoIndex;
+  uint32_t secondary_index = dex::kDexNoIndex;
   uint32_t width = 4;
   switch (Instruction::FormatOf(dec_insn->Opcode())) {
     // SOME NOT SUPPORTED:
@@ -818,37 +821,6 @@ void DexLayout::DumpCatches(const dex_ir::CodeItem* code) {
 }
 
 /*
- * Dumps all positions table entries associated with the code.
- */
-void DexLayout::DumpPositionInfo(const dex_ir::CodeItem* code) {
-  dex_ir::DebugInfoItem* debug_info = code->DebugInfo();
-  if (debug_info == nullptr) {
-    return;
-  }
-  std::vector<std::unique_ptr<dex_ir::PositionInfo>>& positions = debug_info->GetPositionInfo();
-  for (size_t i = 0; i < positions.size(); ++i) {
-    fprintf(out_file_, "        0x%04x line=%d\n", positions[i]->address_, positions[i]->line_);
-  }
-}
-
-/*
- * Dumps all locals table entries associated with the code.
- */
-void DexLayout::DumpLocalInfo(const dex_ir::CodeItem* code) {
-  dex_ir::DebugInfoItem* debug_info = code->DebugInfo();
-  if (debug_info == nullptr) {
-    return;
-  }
-  std::vector<std::unique_ptr<dex_ir::LocalInfo>>& locals = debug_info->GetLocalInfo();
-  for (size_t i = 0; i < locals.size(); ++i) {
-    dex_ir::LocalInfo* entry = locals[i].get();
-    fprintf(out_file_, "        0x%04x - 0x%04x reg=%d %s %s %s\n",
-            entry->start_address_, entry->end_address_, entry->reg_,
-            entry->name_.c_str(), entry->descriptor_.c_str(), entry->signature_.c_str());
-  }
-}
-
-/*
  * Dumps a single instruction.
  */
 void DexLayout::DumpInstruction(const dex_ir::CodeItem* code,
@@ -1078,23 +1050,70 @@ void DexLayout::DumpBytecodes(uint32_t idx, const dex_ir::CodeItem* code, uint32
           code_offset, code_offset, dot.c_str(), name, type_descriptor.c_str());
 
   // Iterate over all instructions.
-  const uint16_t* insns = code->Insns();
-  for (uint32_t insn_idx = 0; insn_idx < code->InsnsSize();) {
-    const Instruction* instruction = Instruction::At(&insns[insn_idx]);
-    const uint32_t insn_width = instruction->SizeInCodeUnits();
+  for (const DexInstructionPcPair& inst : code->Instructions()) {
+    const uint32_t insn_width = inst->SizeInCodeUnits();
     if (insn_width == 0) {
-      fprintf(stderr, "GLITCH: zero-width instruction at idx=0x%04x\n", insn_idx);
+      LOG(WARNING) << "GLITCH: zero-width instruction at idx=0x" << std::hex << inst.DexPc();
       break;
     }
-    DumpInstruction(code, code_offset, insn_idx, insn_width, instruction);
-    insn_idx += insn_width;
+    DumpInstruction(code, code_offset, inst.DexPc(), insn_width, &inst.Inst());
   }  // for
 }
 
 /*
+ * Callback for dumping each positions table entry.
+ */
+static bool DumpPositionsCb(void* context, const DexFile::PositionInfo& entry) {
+  FILE* out_file = reinterpret_cast<FILE*>(context);
+  fprintf(out_file, "        0x%04x line=%d\n", entry.address_, entry.line_);
+  return false;
+}
+
+/*
+ * Callback for dumping locals table entry.
+ */
+static void DumpLocalsCb(void* context, const DexFile::LocalInfo& entry) {
+  const char* signature = entry.signature_ != nullptr ? entry.signature_ : "";
+  FILE* out_file = reinterpret_cast<FILE*>(context);
+  fprintf(out_file, "        0x%04x - 0x%04x reg=%d %s %s %s\n",
+          entry.start_address_, entry.end_address_, entry.reg_,
+          entry.name_, entry.descriptor_, signature);
+}
+
+/*
+ * Lookup functions.
+ */
+static const char* StringDataByIdx(uint32_t idx, dex_ir::Collections& collections) {
+  dex_ir::StringId* string_id = collections.GetStringIdOrNullPtr(idx);
+  if (string_id == nullptr) {
+    return nullptr;
+  }
+  return string_id->Data();
+}
+
+static const char* StringDataByTypeIdx(uint16_t idx, dex_ir::Collections& collections) {
+  dex_ir::TypeId* type_id = collections.GetTypeIdOrNullPtr(idx);
+  if (type_id == nullptr) {
+    return nullptr;
+  }
+  dex_ir::StringId* string_id = type_id->GetStringId();
+  if (string_id == nullptr) {
+    return nullptr;
+  }
+  return string_id->Data();
+}
+
+
+/*
  * Dumps code of a method.
  */
-void DexLayout::DumpCode(uint32_t idx, const dex_ir::CodeItem* code, uint32_t code_offset) {
+void DexLayout::DumpCode(uint32_t idx,
+                         const dex_ir::CodeItem* code,
+                         uint32_t code_offset,
+                         const char* declaring_class_descriptor,
+                         const char* method_name,
+                         bool is_static,
+                         const dex_ir::ProtoId* proto) {
   fprintf(out_file_, "      registers     : %d\n", code->RegistersSize());
   fprintf(out_file_, "      ins           : %d\n", code->InsSize());
   fprintf(out_file_, "      outs          : %d\n", code->OutsSize());
@@ -1110,10 +1129,48 @@ void DexLayout::DumpCode(uint32_t idx, const dex_ir::CodeItem* code, uint32_t co
   DumpCatches(code);
 
   // Positions and locals table in the debug info.
+  dex_ir::DebugInfoItem* debug_info = code->DebugInfo();
   fprintf(out_file_, "      positions     : \n");
-  DumpPositionInfo(code);
+  if (debug_info != nullptr) {
+    DexFile::DecodeDebugPositionInfo(debug_info->GetDebugInfo(),
+                                     [this](uint32_t idx) {
+                                       return StringDataByIdx(idx, this->header_->GetCollections());
+                                     },
+                                     DumpPositionsCb,
+                                     out_file_);
+  }
   fprintf(out_file_, "      locals        : \n");
-  DumpLocalInfo(code);
+  if (debug_info != nullptr) {
+    std::vector<const char*> arg_descriptors;
+    const dex_ir::TypeList* parameters = proto->Parameters();
+    if (parameters != nullptr) {
+      const dex_ir::TypeIdVector* parameter_type_vector = parameters->GetTypeList();
+      if (parameter_type_vector != nullptr) {
+        for (const dex_ir::TypeId* type_id : *parameter_type_vector) {
+          arg_descriptors.push_back(type_id->GetStringId()->Data());
+        }
+      }
+    }
+    DexFile::DecodeDebugLocalInfo(debug_info->GetDebugInfo(),
+                                  "DexLayout in-memory",
+                                  declaring_class_descriptor,
+                                  arg_descriptors,
+                                  method_name,
+                                  is_static,
+                                  code->RegistersSize(),
+                                  code->InsSize(),
+                                  code->InsnsSize(),
+                                  [this](uint32_t idx) {
+                                    return StringDataByIdx(idx, this->header_->GetCollections());
+                                  },
+                                  [this](uint32_t idx) {
+                                    return
+                                        StringDataByTypeIdx(dchecked_integral_cast<uint16_t>(idx),
+                                                            this->header_->GetCollections());
+                                  },
+                                  DumpLocalsCb,
+                                  out_file_);
+  }
 }
 
 /*
@@ -1140,7 +1197,13 @@ void DexLayout::DumpMethod(uint32_t idx, uint32_t flags, const dex_ir::CodeItem*
       fprintf(out_file_, "      code          : (none)\n");
     } else {
       fprintf(out_file_, "      code          -\n");
-      DumpCode(idx, code, code->GetOffset());
+      DumpCode(idx,
+               code,
+               code->GetOffset(),
+               back_descriptor,
+               name,
+               (flags & kAccStatic) != 0,
+               method_id->Proto());
     }
     if (options_.disassemble_) {
       fputc('\n', out_file_);
@@ -1158,7 +1221,7 @@ void DexLayout::DumpMethod(uint32_t idx, uint32_t flags, const dex_ir::CodeItem*
       fprintf(out_file_, "<method name=\"%s\"\n", name);
       const char* return_type = strrchr(type_descriptor, ')');
       if (return_type == nullptr) {
-        fprintf(stderr, "bad method type descriptor '%s'\n", type_descriptor);
+        LOG(ERROR) << "bad method type descriptor '" << type_descriptor << "'";
         goto bail;
       }
       std::string dot(DescriptorToDotWrapper(return_type + 1));
@@ -1177,7 +1240,7 @@ void DexLayout::DumpMethod(uint32_t idx, uint32_t flags, const dex_ir::CodeItem*
 
     // Parameters.
     if (type_descriptor[0] != '(') {
-      fprintf(stderr, "ERROR: bad descriptor '%s'\n", type_descriptor);
+      LOG(ERROR) << "ERROR: bad descriptor '" << type_descriptor << "'";
       goto bail;
     }
     char* tmp_buf = reinterpret_cast<char*>(malloc(strlen(type_descriptor) + 1));
@@ -1196,7 +1259,7 @@ void DexLayout::DumpMethod(uint32_t idx, uint32_t flags, const dex_ir::CodeItem*
       } else {
         // Primitive char, copy it.
         if (strchr("ZBCSIFJD", *base) == nullptr) {
-          fprintf(stderr, "ERROR: bad method signature '%s'\n", base);
+          LOG(ERROR) << "ERROR: bad method signature '" << base << "'";
           break;  // while
         }
         *cp++ = *base++;
@@ -1306,7 +1369,7 @@ void DexLayout::DumpClass(int idx, char** last_package) {
   if (!(class_descriptor[0] == 'L' &&
         class_descriptor[strlen(class_descriptor)-1] == ';')) {
     // Arrays and primitives should not be defined explicitly. Keep going?
-    fprintf(stderr, "Malformed class name '%s'\n", class_descriptor);
+    LOG(ERROR) << "Malformed class name '" << class_descriptor << "'";
   } else if (options_.output_format_ == kOutputXml) {
     char* mangle = strdup(class_descriptor + 1);
     mangle[strlen(mangle)-1] = '\0';
@@ -1497,7 +1560,7 @@ void DexLayout::DumpDexFile() {
   }
 }
 
-std::vector<dex_ir::ClassData*> DexLayout::LayoutClassDefsAndClassData(const DexFile* dex_file) {
+void DexLayout::LayoutClassDefsAndClassData(const DexFile* dex_file) {
   std::vector<dex_ir::ClassDef*> new_class_def_order;
   for (std::unique_ptr<dex_ir::ClassDef>& class_def : header_->GetCollections().ClassDefs()) {
     dex::TypeIndex type_idx(class_def->ClassType()->GetIndex());
@@ -1511,24 +1574,38 @@ std::vector<dex_ir::ClassData*> DexLayout::LayoutClassDefsAndClassData(const Dex
       new_class_def_order.push_back(class_def.get());
     }
   }
-  uint32_t class_defs_offset = header_->GetCollections().ClassDefsOffset();
-  uint32_t class_data_offset = header_->GetCollections().ClassDatasOffset();
   std::unordered_set<dex_ir::ClassData*> visited_class_data;
-  std::vector<dex_ir::ClassData*> new_class_data_order;
-  for (uint32_t i = 0; i < new_class_def_order.size(); ++i) {
-    dex_ir::ClassDef* class_def = new_class_def_order[i];
-    class_def->SetIndex(i);
-    class_def->SetOffset(class_defs_offset);
-    class_defs_offset += dex_ir::ClassDef::ItemSize();
+  size_t class_data_index = 0;
+  dex_ir::CollectionVector<dex_ir::ClassData>::Vector& class_datas =
+      header_->GetCollections().ClassDatas();
+  for (dex_ir::ClassDef* class_def : new_class_def_order) {
     dex_ir::ClassData* class_data = class_def->GetClassData();
     if (class_data != nullptr && visited_class_data.find(class_data) == visited_class_data.end()) {
-      class_data->SetOffset(class_data_offset);
-      class_data_offset += class_data->GetSize();
       visited_class_data.insert(class_data);
-      new_class_data_order.push_back(class_data);
+      // Overwrite the existing vector with the new ordering, note that the sets of objects are
+      // equivalent, but the order changes. This is why this is not a memory leak.
+      // TODO: Consider cleaning this up with a shared_ptr.
+      class_datas[class_data_index].release();
+      class_datas[class_data_index].reset(class_data);
+      ++class_data_index;
     }
   }
-  return new_class_data_order;
+  CHECK_EQ(class_data_index, class_datas.size());
+
+  if (DexLayout::kChangeClassDefOrder) {
+    // This currently produces dex files that violate the spec since the super class class_def is
+    // supposed to occur before any subclasses.
+    dex_ir::CollectionVector<dex_ir::ClassDef>::Vector& class_defs =
+        header_->GetCollections().ClassDefs();
+    CHECK_EQ(new_class_def_order.size(), class_defs.size());
+    for (size_t i = 0; i < class_defs.size(); ++i) {
+      // Overwrite the existing vector with the new ordering, note that the sets of objects are
+      // equivalent, but the order changes. This is why this is not a memory leak.
+      // TODO: Consider cleaning this up with a shared_ptr.
+      class_defs[i].release();
+      class_defs[i].reset(new_class_def_order[i]);
+    }
+  }
 }
 
 void DexLayout::LayoutStringData(const DexFile* dex_file) {
@@ -1578,11 +1655,11 @@ void DexLayout::LayoutStringData(const DexFile* dex_file) {
           continue;
         }
         // Add const-strings.
-        for (dex_ir::StringId* id : *fixups->StringIds()) {
+        for (dex_ir::StringId* id : fixups->StringIds()) {
           from_hot_method[id->GetIndex()] = true;
         }
         // Add field classes, names, and types.
-        for (dex_ir::FieldId* id : *fixups->FieldIds()) {
+        for (dex_ir::FieldId* id : fixups->FieldIds()) {
           // TODO: Only visit field ids from static getters and setters.
           from_hot_method[id->Class()->GetStringId()->GetIndex()] = true;
           from_hot_method[id->Name()->GetIndex()] = true;
@@ -1590,7 +1667,7 @@ void DexLayout::LayoutStringData(const DexFile* dex_file) {
         }
         // For clinits, add referenced method classes, names, and protos.
         if (is_clinit) {
-          for (dex_ir::MethodId* id : *fixups->MethodIds()) {
+          for (dex_ir::MethodId* id : fixups->MethodIds()) {
             from_hot_method[id->Class()->GetStringId()->GetIndex()] = true;
             from_hot_method[id->Name()->GetIndex()] = true;
             is_shorty[id->Proto()->Shorty()->GetIndex()] = true;
@@ -1601,23 +1678,9 @@ void DexLayout::LayoutStringData(const DexFile* dex_file) {
   }
   // Sort string data by specified order.
   std::vector<dex_ir::StringId*> string_ids;
-  size_t min_offset = std::numeric_limits<size_t>::max();
-  size_t max_offset = 0;
-  size_t hot_bytes = 0;
   for (auto& string_id : header_->GetCollections().StringIds()) {
     string_ids.push_back(string_id.get());
-    const size_t cur_offset = string_id->DataItem()->GetOffset();
-    CHECK_NE(cur_offset, 0u);
-    min_offset = std::min(min_offset, cur_offset);
-    dex_ir::StringData* data = string_id->DataItem();
-    const size_t element_size = data->GetSize() + 1;  // Add one extra for null.
-    size_t end_offset = cur_offset + element_size;
-    if (is_shorty[string_id->GetIndex()] || from_hot_method[string_id->GetIndex()]) {
-      hot_bytes += element_size;
-    }
-    max_offset = std::max(max_offset, end_offset);
   }
-  VLOG(compiler) << "Hot string data bytes " << hot_bytes << "/" << max_offset - min_offset;
   std::sort(string_ids.begin(),
             string_ids.end(),
             [&is_shorty, &from_hot_method](const dex_ir::StringId* a,
@@ -1633,61 +1696,41 @@ void DexLayout::LayoutStringData(const DexFile* dex_file) {
     if (a_is_shorty != b_is_shorty) {
       return a_is_shorty < b_is_shorty;
     }
-    // Preserve order.
-    return a->DataItem()->GetOffset() < b->DataItem()->GetOffset();
+    // Order by index by default.
+    return a->GetIndex() < b->GetIndex();
   });
-  // Now we know what order we want the string data, reorder the offsets.
-  size_t offset = min_offset;
+  dex_ir::CollectionVector<dex_ir::StringData>::Vector& string_datas =
+      header_->GetCollections().StringDatas();
+  // Now we know what order we want the string data, reorder them.
+  size_t data_index = 0;
   for (dex_ir::StringId* string_id : string_ids) {
-    dex_ir::StringData* data = string_id->DataItem();
-    data->SetOffset(offset);
-    offset += data->GetSize() + 1;  // Add one extra for null.
+    string_datas[data_index].release();
+    string_datas[data_index].reset(string_id->DataItem());
+    ++data_index;
   }
-  if (offset > max_offset) {
-    const uint32_t diff = offset - max_offset;
-    // If we expanded the string data section, we need to update the offsets or else we will
-    // corrupt the next section when writing out.
-    FixupSections(header_->GetCollections().StringDatasOffset(), diff);
-    // Update file size.
-    header_->SetFileSize(header_->FileSize() + diff);
+  if (kIsDebugBuild) {
+    std::unordered_set<dex_ir::StringData*> visited;
+    for (const std::unique_ptr<dex_ir::StringData>& data : string_datas) {
+      visited.insert(data.get());
+    }
+    for (auto& string_id : header_->GetCollections().StringIds()) {
+      CHECK(visited.find(string_id->DataItem()) != visited.end());
+    }
   }
+  CHECK_EQ(data_index, string_datas.size());
 }
 
 // Orders code items according to specified class data ordering.
-// NOTE: If the section following the code items is byte aligned, the last code item is left in
-// place to preserve alignment. Layout needs an overhaul to handle movement of other sections.
-int32_t DexLayout::LayoutCodeItems(const DexFile* dex_file,
-                                   std::vector<dex_ir::ClassData*> new_class_data_order) {
-  // Do not move code items if class data section precedes code item section.
-  // ULEB encoding is variable length, causing problems determining the offset of the code items.
-  // TODO: We should swap the order of these sections in the future to avoid this issue.
-  uint32_t class_data_offset = header_->GetCollections().ClassDatasOffset();
-  uint32_t code_item_offset = header_->GetCollections().CodeItemsOffset();
-  if (class_data_offset < code_item_offset) {
-    return 0;
-  }
-
-  // Find the last code item so we can leave it in place if the next section is not 4 byte aligned.
-  dex_ir::CodeItem* last_code_item = nullptr;
-  std::unordered_set<dex_ir::CodeItem*> visited_code_items;
-  bool is_code_item_aligned = IsNextSectionCodeItemAligned(code_item_offset);
-  if (!is_code_item_aligned) {
-    for (auto& code_item_pair : header_->GetCollections().CodeItems()) {
-      std::unique_ptr<dex_ir::CodeItem>& code_item = code_item_pair.second;
-      if (last_code_item == nullptr
-          || last_code_item->GetOffset() < code_item->GetOffset()) {
-        last_code_item = code_item.get();
-      }
-    }
-  }
-
+void DexLayout::LayoutCodeItems(const DexFile* dex_file) {
   static constexpr InvokeType invoke_types[] = {
     kDirect,
     kVirtual
   };
 
-  const size_t num_layout_types = static_cast<size_t>(LayoutType::kLayoutTypeCount);
-  std::unordered_set<dex_ir::CodeItem*> code_items[num_layout_types];
+  std::unordered_map<dex_ir::CodeItem*, LayoutType>& code_item_layout =
+      layout_hotness_info_.code_item_layout_;
+
+  // Assign hotness flags to all code items.
   for (InvokeType invoke_type : invoke_types) {
     for (std::unique_ptr<dex_ir::ClassDef>& class_def : header_->GetCollections().ClassDefs()) {
       const bool is_profile_class =
@@ -1703,7 +1746,7 @@ int32_t DexLayout::LayoutCodeItems(const DexFile* dex_file,
                                 : class_data->VirtualMethods())) {
         const dex_ir::MethodId *method_id = method->GetMethodId();
         dex_ir::CodeItem *code_item = method->GetCodeItem();
-        if (code_item == last_code_item || code_item == nullptr) {
+        if (code_item == nullptr) {
           continue;
         }
         // Separate executed methods (clinits and profiled methods) from unexecuted methods.
@@ -1725,170 +1768,60 @@ int32_t DexLayout::LayoutCodeItems(const DexFile* dex_file,
         } else if (hotness.IsInProfile()) {
           state = LayoutType::kLayoutTypeSometimesUsed;
         }
-        code_items[static_cast<size_t>(state)].insert(code_item);
-      }
-    }
-  }
-
-  // Total_diff includes diffs generated by clinits, executed, and non-executed methods.
-  int32_t total_diff = 0;
-  // The relative placement has no effect on correctness; it is used to ensure
-  // the layout is deterministic
-  for (size_t index = 0; index < num_layout_types; ++index) {
-    const std::unordered_set<dex_ir::CodeItem*>& code_items_set = code_items[index];
-    // diff is reset for each class of code items.
-    int32_t diff = 0;
-    const uint32_t start_offset = code_item_offset;
-    for (dex_ir::ClassData* data : new_class_data_order) {
-      data->SetOffset(data->GetOffset() + diff);
-      for (InvokeType invoke_type : invoke_types) {
-        for (auto &method : *(invoke_type == InvokeType::kDirect
-                                  ? data->DirectMethods()
-                                  : data->VirtualMethods())) {
-          dex_ir::CodeItem* code_item = method->GetCodeItem();
-          if (code_item != nullptr &&
-              code_items_set.find(code_item) != code_items_set.end()) {
-            diff += UnsignedLeb128Size(code_item_offset)
-                - UnsignedLeb128Size(code_item->GetOffset());
-            code_item->SetOffset(code_item_offset);
-            code_item_offset +=
-                RoundUp(code_item->GetSize(), kDexCodeItemAlignment);
-          }
+        auto it = code_item_layout.emplace(code_item, state);
+        if (!it.second) {
+          LayoutType& layout_type = it.first->second;
+          // Already exists, merge the hotness.
+          layout_type = MergeLayoutType(layout_type, state);
         }
       }
     }
-    DexLayoutSection& code_section = dex_sections_.sections_[static_cast<size_t>(
-        DexLayoutSections::SectionType::kSectionTypeCode)];
-    code_section.parts_[index].offset_ = start_offset;
-    code_section.parts_[index].size_ = code_item_offset - start_offset;
-    for (size_t i = 0; i < num_layout_types; ++i) {
-      VLOG(dex) << "Code item layout bucket " << i << " count=" << code_items[i].size()
-                << " bytes=" << code_section.parts_[i].size_;
-    }
-    total_diff += diff;
   }
-  // Adjust diff to be 4-byte aligned.
-  return RoundUp(total_diff, kDexCodeItemAlignment);
-}
 
-bool DexLayout::IsNextSectionCodeItemAligned(uint32_t offset) {
-  dex_ir::Collections& collections = header_->GetCollections();
-  std::set<uint32_t> section_offsets;
-  section_offsets.insert(collections.MapListOffset());
-  section_offsets.insert(collections.TypeListsOffset());
-  section_offsets.insert(collections.AnnotationSetRefListsOffset());
-  section_offsets.insert(collections.AnnotationSetItemsOffset());
-  section_offsets.insert(collections.ClassDatasOffset());
-  section_offsets.insert(collections.CodeItemsOffset());
-  section_offsets.insert(collections.StringDatasOffset());
-  section_offsets.insert(collections.DebugInfoItemsOffset());
-  section_offsets.insert(collections.AnnotationItemsOffset());
-  section_offsets.insert(collections.EncodedArrayItemsOffset());
-  section_offsets.insert(collections.AnnotationsDirectoryItemsOffset());
-
-  auto found = section_offsets.find(offset);
-  if (found != section_offsets.end()) {
-    found++;
-    if (found != section_offsets.end()) {
-      return *found % kDexCodeItemAlignment == 0;
+  dex_ir::CollectionVector<dex_ir::CodeItem>::Vector& code_items =
+        header_->GetCollections().CodeItems();
+  if (VLOG_IS_ON(dex)) {
+    size_t layout_count[static_cast<size_t>(LayoutType::kLayoutTypeCount)] = {};
+    for (const std::unique_ptr<dex_ir::CodeItem>& code_item : code_items) {
+      auto it = code_item_layout.find(code_item.get());
+      DCHECK(it != code_item_layout.end());
+      ++layout_count[static_cast<size_t>(it->second)];
+    }
+    for (size_t i = 0; i < static_cast<size_t>(LayoutType::kLayoutTypeCount); ++i) {
+      LOG(INFO) << "Code items in category " << i << " count=" << layout_count[i];
     }
   }
-  return false;
-}
 
-// Adjust offsets of every item in the specified section by diff bytes.
-template<class T> void DexLayout::FixupSection(std::map<uint32_t, std::unique_ptr<T>>& map,
-                                               uint32_t diff) {
-  for (auto& pair : map) {
-    std::unique_ptr<T>& item = pair.second;
-    item->SetOffset(item->GetOffset() + diff);
-  }
-}
-
-// Adjust offsets of all sections with an address after the specified offset by diff bytes.
-void DexLayout::FixupSections(uint32_t offset, uint32_t diff) {
-  dex_ir::Collections& collections = header_->GetCollections();
-  uint32_t map_list_offset = collections.MapListOffset();
-  if (map_list_offset > offset) {
-    collections.SetMapListOffset(map_list_offset + diff);
-  }
-
-  uint32_t type_lists_offset = collections.TypeListsOffset();
-  if (type_lists_offset > offset) {
-    collections.SetTypeListsOffset(type_lists_offset + diff);
-    FixupSection(collections.TypeLists(), diff);
-  }
-
-  uint32_t annotation_set_ref_lists_offset = collections.AnnotationSetRefListsOffset();
-  if (annotation_set_ref_lists_offset > offset) {
-    collections.SetAnnotationSetRefListsOffset(annotation_set_ref_lists_offset + diff);
-    FixupSection(collections.AnnotationSetRefLists(), diff);
-  }
-
-  uint32_t annotation_set_items_offset = collections.AnnotationSetItemsOffset();
-  if (annotation_set_items_offset > offset) {
-    collections.SetAnnotationSetItemsOffset(annotation_set_items_offset + diff);
-    FixupSection(collections.AnnotationSetItems(), diff);
-  }
-
-  uint32_t class_datas_offset = collections.ClassDatasOffset();
-  if (class_datas_offset > offset) {
-    collections.SetClassDatasOffset(class_datas_offset + diff);
-    FixupSection(collections.ClassDatas(), diff);
-  }
-
-  uint32_t code_items_offset = collections.CodeItemsOffset();
-  if (code_items_offset > offset) {
-    collections.SetCodeItemsOffset(code_items_offset + diff);
-    FixupSection(collections.CodeItems(), diff);
-  }
-
-  uint32_t string_datas_offset = collections.StringDatasOffset();
-  if (string_datas_offset > offset) {
-    collections.SetStringDatasOffset(string_datas_offset + diff);
-    FixupSection(collections.StringDatas(), diff);
-  }
-
-  uint32_t debug_info_items_offset = collections.DebugInfoItemsOffset();
-  if (debug_info_items_offset > offset) {
-    collections.SetDebugInfoItemsOffset(debug_info_items_offset + diff);
-    FixupSection(collections.DebugInfoItems(), diff);
-  }
-
-  uint32_t annotation_items_offset = collections.AnnotationItemsOffset();
-  if (annotation_items_offset > offset) {
-    collections.SetAnnotationItemsOffset(annotation_items_offset + diff);
-    FixupSection(collections.AnnotationItems(), diff);
-  }
-
-  uint32_t encoded_array_items_offset = collections.EncodedArrayItemsOffset();
-  if (encoded_array_items_offset > offset) {
-    collections.SetEncodedArrayItemsOffset(encoded_array_items_offset + diff);
-    FixupSection(collections.EncodedArrayItems(), diff);
-  }
-
-  uint32_t annotations_directory_items_offset = collections.AnnotationsDirectoryItemsOffset();
-  if (annotations_directory_items_offset > offset) {
-    collections.SetAnnotationsDirectoryItemsOffset(annotations_directory_items_offset + diff);
-    FixupSection(collections.AnnotationsDirectoryItems(), diff);
-  }
+  // Sort the code items vector by new layout. The writing process will take care of calculating
+  // all the offsets. Stable sort to preserve any existing locality that might be there.
+  std::stable_sort(code_items.begin(),
+                   code_items.end(),
+                   [&](const std::unique_ptr<dex_ir::CodeItem>& a,
+                       const std::unique_ptr<dex_ir::CodeItem>& b) {
+    auto it_a = code_item_layout.find(a.get());
+    auto it_b = code_item_layout.find(b.get());
+    DCHECK(it_a != code_item_layout.end());
+    DCHECK(it_b != code_item_layout.end());
+    const LayoutType layout_type_a = it_a->second;
+    const LayoutType layout_type_b = it_b->second;
+    return layout_type_a < layout_type_b;
+  });
 }
 
 void DexLayout::LayoutOutputFile(const DexFile* dex_file) {
   LayoutStringData(dex_file);
-  std::vector<dex_ir::ClassData*> new_class_data_order = LayoutClassDefsAndClassData(dex_file);
-  int32_t diff = LayoutCodeItems(dex_file, new_class_data_order);
-  // Move sections after ClassData by diff bytes.
-  FixupSections(header_->GetCollections().ClassDatasOffset(), diff);
-  // Update file size.
-  header_->SetFileSize(header_->FileSize() + diff);
+  LayoutClassDefsAndClassData(dex_file);
+  LayoutCodeItems(dex_file);
 }
 
-void DexLayout::OutputDexFile(const DexFile* dex_file) {
-  const std::string& dex_file_location = dex_file->GetLocation();
-  std::string error_msg;
+bool DexLayout::OutputDexFile(const DexFile* input_dex_file,
+                              bool compute_offsets,
+                              std::unique_ptr<DexContainer>* dex_container,
+                              std::string* error_msg) {
+  const std::string& dex_file_location = input_dex_file->GetLocation();
   std::unique_ptr<File> new_file;
-  if (!options_.output_to_memmap_) {
+  // If options_.output_dex_directory_ is non null, we are outputting to a file.
+  if (options_.output_dex_directory_ != nullptr) {
     std::string output_location(options_.output_dex_directory_);
     size_t last_slash = dex_file_location.rfind('/');
     std::string dex_file_directory = dex_file_location.substr(0, last_slash + 1);
@@ -1902,58 +1835,52 @@ void DexLayout::OutputDexFile(const DexFile* dex_file) {
     new_file.reset(OS::CreateEmptyFile(output_location.c_str()));
     if (new_file == nullptr) {
       LOG(ERROR) << "Could not create dex writer output file: " << output_location;
-      return;
+      return false;
     }
-    if (ftruncate(new_file->Fd(), header_->FileSize()) != 0) {
-      LOG(ERROR) << "Could not grow dex writer output file: " << output_location;;
-      new_file->Erase();
-      return;
-    }
-    mem_map_.reset(MemMap::MapFile(header_->FileSize(), PROT_READ | PROT_WRITE, MAP_SHARED,
-        new_file->Fd(), 0, /*low_4gb*/ false, output_location.c_str(), &error_msg));
-  } else {
-    mem_map_.reset(MemMap::MapAnonymous("layout dex", nullptr, header_->FileSize(),
-        PROT_READ | PROT_WRITE, /* low_4gb */ false, /* reuse */ false, &error_msg));
   }
-  if (mem_map_ == nullptr) {
-    LOG(ERROR) << "Could not create mem map for dex writer output: " << error_msg;
-    if (new_file != nullptr) {
-      new_file->Erase();
-    }
-    return;
+  if (!DexWriter::Output(this, dex_container, compute_offsets, error_msg)) {
+    return false;
   }
-  DexWriter::Output(header_, mem_map_.get());
   if (new_file != nullptr) {
+    DexContainer* const container = dex_container->get();
+    DexContainer::Section* const main_section = container->GetMainSection();
+    if (!new_file->WriteFully(main_section->Begin(), main_section->Size())) {
+      LOG(ERROR) << "Failed to write main section for dex file " << dex_file_location;
+      new_file->Erase();
+      return false;
+    }
+    DexContainer::Section* const data_section = container->GetDataSection();
+    if (!new_file->WriteFully(data_section->Begin(), data_section->Size())) {
+      LOG(ERROR) << "Failed to write data section for dex file " << dex_file_location;
+      new_file->Erase();
+      return false;
+    }
     UNUSED(new_file->FlushCloseOrErase());
   }
-  // Verify the output dex file's structure for debug builds.
-  if (kIsDebugBuild) {
-    std::string location = "memory mapped file for " + dex_file_location;
-    std::unique_ptr<const DexFile> output_dex_file(DexFile::Open(mem_map_->Begin(),
-                                                                 mem_map_->Size(),
-                                                                 location,
-                                                                 header_->Checksum(),
-                                                                 /*oat_dex_file*/ nullptr,
-                                                                 /*verify*/ true,
-                                                                 /*verify_checksum*/ false,
-                                                                 &error_msg));
-    DCHECK(output_dex_file != nullptr) << "Failed to re-open output file:" << error_msg;
-  }
-  // Do IR-level comparison between input and output. This check ignores potential differences
-  // due to layout, so offsets are not checked. Instead, it checks the data contents of each item.
-  if (kIsDebugBuild || options_.verify_output_) {
-    std::unique_ptr<dex_ir::Header> orig_header(dex_ir::DexIrBuilder(*dex_file));
-    CHECK(VerifyOutputDexFile(orig_header.get(), header_, &error_msg)) << error_msg;
-  }
+  return true;
 }
 
 /*
  * Dumps the requested sections of the file.
  */
-void DexLayout::ProcessDexFile(const char* file_name,
+bool DexLayout::ProcessDexFile(const char* file_name,
                                const DexFile* dex_file,
-                               size_t dex_file_index) {
-  std::unique_ptr<dex_ir::Header> header(dex_ir::DexIrBuilder(*dex_file));
+                               size_t dex_file_index,
+                               std::unique_ptr<DexContainer>* dex_container,
+                               std::string* error_msg) {
+  const bool has_output_container = dex_container != nullptr;
+  const bool output = options_.output_dex_directory_ != nullptr || has_output_container;
+
+  // Try to avoid eagerly assigning offsets to find bugs since GetOffset will abort if the offset
+  // is unassigned.
+  bool eagerly_assign_offsets = false;
+  if (options_.visualize_pattern_ || options_.show_section_statistics_ || options_.dump_) {
+    // These options required the offsets for dumping purposes.
+    eagerly_assign_offsets = true;
+  }
+  std::unique_ptr<dex_ir::Header> header(dex_ir::DexIrBuilder(*dex_file,
+                                                               eagerly_assign_offsets,
+                                                               GetOptions()));
   SetHeader(header.get());
 
   if (options_.verbose_) {
@@ -1963,12 +1890,12 @@ void DexLayout::ProcessDexFile(const char* file_name,
 
   if (options_.visualize_pattern_) {
     VisualizeDexLayout(header_, dex_file, dex_file_index, info_);
-    return;
+    return true;
   }
 
   if (options_.show_section_statistics_) {
     ShowDexSectionStatistics(header_, dex_file_index);
-    return;
+    return true;
   }
 
   // Dump dex file.
@@ -1976,13 +1903,69 @@ void DexLayout::ProcessDexFile(const char* file_name,
     DumpDexFile();
   }
 
-  // Output dex file as file or memmap.
-  if (options_.output_dex_directory_ != nullptr || options_.output_to_memmap_) {
-    if (info_ != nullptr) {
+  // In case we are outputting to a file, keep it open so we can verify.
+  if (output) {
+    // Layout information about what strings and code items are hot. Used by the writing process
+    // to generate the sections that are stored in the oat file.
+    bool do_layout = info_ != nullptr;
+    if (do_layout) {
       LayoutOutputFile(dex_file);
     }
-    OutputDexFile(dex_file);
+    // The output needs a dex container, use a temporary one.
+    std::unique_ptr<DexContainer> temp_container;
+    if (dex_container == nullptr) {
+      dex_container = &temp_container;
+    }
+    // If we didn't set the offsets eagerly, we definitely need to compute them here.
+    if (!OutputDexFile(dex_file, do_layout || !eagerly_assign_offsets, dex_container, error_msg)) {
+      return false;
+    }
+
+    // Clear header before verifying to reduce peak RAM usage.
+    const size_t file_size = header_->FileSize();
+    header.reset();
+
+    // Verify the output dex file's structure, only enabled by default for debug builds.
+    if (options_.verify_output_ && has_output_container) {
+      std::string location = "memory mapped file for " + std::string(file_name);
+      // Dex file verifier cannot handle compact dex.
+      bool verify = options_.compact_dex_level_ == CompactDexLevel::kCompactDexLevelNone;
+      const ArtDexFileLoader dex_file_loader;
+      DexContainer::Section* const main_section = (*dex_container)->GetMainSection();
+      DexContainer::Section* const data_section = (*dex_container)->GetDataSection();
+      DCHECK_EQ(file_size, main_section->Size())
+          << main_section->Size() << " " << data_section->Size();
+      std::unique_ptr<const DexFile> output_dex_file(
+          dex_file_loader.OpenWithDataSection(
+              main_section->Begin(),
+              main_section->Size(),
+              data_section->Begin(),
+              data_section->Size(),
+              location,
+              /* checksum */ 0,
+              /*oat_dex_file*/ nullptr,
+              verify,
+              /*verify_checksum*/ false,
+              error_msg));
+      CHECK(output_dex_file != nullptr) << "Failed to re-open output file:" << *error_msg;
+
+      // Do IR-level comparison between input and output. This check ignores potential differences
+      // due to layout, so offsets are not checked. Instead, it checks the data contents of each
+      // item.
+      //
+      // Regenerate output IR to catch any bugs that might happen during writing.
+      std::unique_ptr<dex_ir::Header> output_header(
+          dex_ir::DexIrBuilder(*output_dex_file,
+                               /*eagerly_assign_offsets*/ true,
+                               GetOptions()));
+      std::unique_ptr<dex_ir::Header> orig_header(
+          dex_ir::DexIrBuilder(*dex_file,
+                               /*eagerly_assign_offsets*/ true,
+                               GetOptions()));
+      CHECK(VerifyOutputDexFile(output_header.get(), orig_header.get(), error_msg)) << *error_msg;
+    }
   }
+  return true;
 }
 
 /*
@@ -1997,12 +1980,13 @@ int DexLayout::ProcessFile(const char* file_name) {
   // all of which are Zip archives with "classes.dex" inside.
   const bool verify_checksum = !options_.ignore_bad_checksum_;
   std::string error_msg;
+  const ArtDexFileLoader dex_file_loader;
   std::vector<std::unique_ptr<const DexFile>> dex_files;
-  if (!DexFile::Open(file_name, file_name, verify_checksum, &error_msg, &dex_files)) {
+  if (!dex_file_loader.Open(
+        file_name, file_name, /* verify */ true, verify_checksum, &error_msg, &dex_files)) {
     // Display returned error message to user. Note that this error behavior
     // differs from the error messages shown by the original Dalvik dexdump.
-    fputs(error_msg.c_str(), stderr);
-    fputc('\n', stderr);
+    LOG(ERROR) << error_msg;
     return -1;
   }
 
@@ -2012,7 +1996,14 @@ int DexLayout::ProcessFile(const char* file_name) {
     fprintf(out_file_, "Checksum verified\n");
   } else {
     for (size_t i = 0; i < dex_files.size(); i++) {
-      ProcessDexFile(file_name, dex_files[i].get(), i);
+      // Pass in a null container to avoid output by default.
+      if (!ProcessDexFile(file_name,
+                          dex_files[i].get(),
+                          i,
+                          /*dex_container*/ nullptr,
+                          &error_msg)) {
+        LOG(WARNING) << "Failed to run dex file " << i << " in " << file_name << " : " << error_msg;
+      }
     }
   }
   return 0;

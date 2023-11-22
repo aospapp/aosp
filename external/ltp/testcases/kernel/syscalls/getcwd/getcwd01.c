@@ -74,14 +74,7 @@ static void verify_getcwd(unsigned int n)
 	tst_res(TPASS | TTERRNO, "getcwd() failed as expected");
 }
 
-static void setup(void)
-{
-	SAFE_CHDIR("/tmp");
-}
-
 static struct tst_test test = {
-	.tid = "getcwd01",
-	.setup = setup,
 	.tcnt = ARRAY_SIZE(tcases),
 	.test = verify_getcwd
 };

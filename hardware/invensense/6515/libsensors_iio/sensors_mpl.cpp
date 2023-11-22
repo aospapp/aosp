@@ -30,7 +30,7 @@
 
 #include <linux/input.h>
 
-#include <utils/Atomic.h>
+#include <cutils/atomic.h>
 #include <utils/Log.h>
 #include <utils/SystemClock.h>
 

@@ -697,11 +697,13 @@ std::pair<SupplicantStatus, std::string> P2pIface::connectInternal(
 		wps_method = WPS_PIN_KEYPAD;
 		break;
 	}
+	int vht = wpa_s->conf->p2p_go_vht;
+	int ht40 = wpa_s->conf->p2p_go_ht40 || vht;
 	const char* pin = pre_selected_pin.length() > 0 ? pre_selected_pin.data() : nullptr;
 	int new_pin = wpas_p2p_connect(
 	    wpa_s, peer_address.data(), pin, wps_method,
 	    persistent, false, join_existing_group, false, go_intent_signed, 0, 0, -1,
-	    false, false, false, VHT_CHANWIDTH_USE_HT, nullptr, 0);
+	    false, ht40, vht, VHT_CHANWIDTH_USE_HT, nullptr, 0);
 	if (new_pin < 0) {
 		return {{SupplicantStatusCode::FAILURE_UNKNOWN, ""}, {}};
 	}

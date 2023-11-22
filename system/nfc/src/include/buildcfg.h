@@ -26,15 +26,6 @@
 #define NFC_CONTORLLER_ID (1)
 #endif
 
-#define BTE_APPL_MAX_USERIAL_DEV_NAME (256)
-
-#ifdef BT_TRACE_VERBOSE
-#undef BT_TRACE_VERBOSE
-#endif
-#define BT_TRACE_VERBOSE TRUE
-
-#define TRACE_TASK_INCLUDED TRUE
-
 #define GKI_BUF1_MAX 0
 // 2 is in use
 #define GKI_BUF3_MAX 30
@@ -51,38 +42,11 @@
 #define GKI_BUF0_SIZE 268
 #define GKI_BUF0_MAX 40
 
-#define NCI_BUF_POOL_ID GKI_POOL_ID_0
 #define GKI_NUM_FIXED_BUF_POOLS 4
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-extern uint8_t* scru_dump_hex(uint8_t* p, char* p_title, uint32_t len,
-                              uint32_t trace_layer, uint32_t trace_type);
-extern void ScrLog(uint32_t trace_set_mask, const char* fmt_str, ...);
 extern void DispNci(uint8_t* p, uint16_t len, bool is_recv);
-
-extern void downloadFirmwarePatchFile(uint32_t brcm_hw_id);
 
 void ProtoDispAdapterDisplayNciPacket(uint8_t* nciPacket, uint16_t nciPacketLen,
                                       bool is_recv);
 #define DISP_NCI ProtoDispAdapterDisplayNciPacket
-#define LOGMSG_TAG_NAME "BrcmNfcNfa"
-
-#ifndef _TIMEB
-#define _TIMEB
-struct _timeb {
-  long time;
-  short millitm;
-  short timezone;
-  short dstflag;
-};
-void _ftime(struct _timeb*);
-
-#endif
-
-#ifdef __cplusplus
-};
-#endif
 #endif

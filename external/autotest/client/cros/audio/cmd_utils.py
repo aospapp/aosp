@@ -8,6 +8,7 @@ import itertools
 import logging
 import os
 import pipes
+import pwd
 import select
 import subprocess
 import threading
@@ -157,7 +158,8 @@ def wait_and_check_returncode(*popens):
         raise RuntimeError(error_message)
 
 
-def execute(args, stdin=None, stdout=TEE_TO_LOGS, stderr=TEE_TO_LOGS):
+def execute(args, stdin=None, stdout=TEE_TO_LOGS, stderr=TEE_TO_LOGS,
+            run_as=None):
     """Executes a child command and wait for it.
 
     Returns the output from standard output if 'stdout' is subprocess.PIPE.
@@ -167,14 +169,35 @@ def execute(args, stdin=None, stdout=TEE_TO_LOGS, stderr=TEE_TO_LOGS):
     @param stdin: the executed program's standard input
     @param stdout: the executed program's standard output
     @param stderr: the executed program's standard error
+    @param run_as: if not None, run the command as the given user
     """
-    ps = popen(args, stdin=stdin, stdout=stdout, stderr=stderr)
+    ps = popen(args, stdin=stdin, stdout=stdout, stderr=stderr,
+               run_as=run_as)
     out = ps.communicate()[0] if stdout == subprocess.PIPE else None
     wait_and_check_returncode(ps)
     return out
 
 
-def popen(args, stdin=None, stdout=TEE_TO_LOGS, stderr=TEE_TO_LOGS, env=None):
+def _run_as(user):
+    """Changes the uid and gid of the running process to be that of the
+    given user and configures its supplementary groups.
+
+    Don't call this function directly, instead wrap it in a lambda and
+    pass that to the preexec_fn argument of subprocess.Popen.
+
+    Example usage:
+    subprocess.Popen(..., preexec_fn=lambda: _run_as('chronos'))
+
+    @param user: the user to run as
+    """
+    pw = pwd.getpwnam(user)
+    os.setgid(pw.pw_gid)
+    os.initgroups(user, pw.pw_gid)
+    os.setuid(pw.pw_uid)
+
+
+def popen(args, stdin=None, stdout=TEE_TO_LOGS, stderr=TEE_TO_LOGS, env=None,
+          run_as=None):
     """Returns a Popen object just as subprocess.Popen does but with the
     executed command stored in Popen.command.
 
@@ -183,6 +206,7 @@ def popen(args, stdin=None, stdout=TEE_TO_LOGS, stderr=TEE_TO_LOGS, env=None):
     @param stdout: the executed program's standard output
     @param stderr: the executed program's standard error
     @param env: the executed program's environment
+    @param run_as: if not None, run the command as the given user
     """
     command_id = _command_serial_number.next()
     prefix = '[%04d] ' % command_id
@@ -195,10 +219,14 @@ def popen(args, stdin=None, stdout=TEE_TO_LOGS, stderr=TEE_TO_LOGS, env=None):
     command = ' '.join(pipes.quote(x) for x in args)
     logging.info('%sRunning: %s', prefix, command)
 
+    preexec_fn = None
+    if run_as is not None:
+        preexec_fn = lambda: _run_as(run_as)
+
     # The lock is required for http://crbug.com/323843.
     with _popen_lock:
         ps = subprocess.Popen(args, stdin=stdin, stdout=stdout, stderr=stderr,
-                              env=env)
+                              env=env, preexec_fn=preexec_fn)
     logging.info('%spid is %d', prefix, ps.pid)
     ps.command_id = command_id
     ps.command = command

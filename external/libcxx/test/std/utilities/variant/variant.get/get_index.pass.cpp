@@ -10,6 +10,13 @@
 
 // UNSUPPORTED: c++98, c++03, c++11, c++14
 
+// XFAIL: with_system_cxx_lib=macosx10.12
+// XFAIL: with_system_cxx_lib=macosx10.11
+// XFAIL: with_system_cxx_lib=macosx10.10
+// XFAIL: with_system_cxx_lib=macosx10.9
+// XFAIL: with_system_cxx_lib=macosx10.7
+// XFAIL: with_system_cxx_lib=macosx10.8
+
 // <variant>
 
 // template <size_t I, class... Types>
@@ -252,7 +259,7 @@ void test_throws_for_all_value_categories() {
   auto test = [](auto idx, auto &&v) {
     using Idx = decltype(idx);
     try {
-      std::get<Idx::value>(std::forward<decltype(v)>(v));
+      TEST_IGNORE_NODISCARD std::get<Idx::value>(std::forward<decltype(v)>(v));
     } catch (const std::bad_variant_access &) {
       return true;
     } catch (...) { /* ... */

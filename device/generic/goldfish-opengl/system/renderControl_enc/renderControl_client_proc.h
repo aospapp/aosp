@@ -45,6 +45,7 @@ typedef int (renderControl_APIENTRY *rcDestroySyncKHR_client_proc_t) (void * ctx
 typedef void (renderControl_APIENTRY *rcSetPuid_client_proc_t) (void * ctx, uint64_t);
 typedef int (renderControl_APIENTRY *rcUpdateColorBufferDMA_client_proc_t) (void * ctx, uint32_t, GLint, GLint, GLint, GLint, GLenum, GLenum, void*, uint32_t);
 typedef uint32_t (renderControl_APIENTRY *rcCreateColorBufferDMA_client_proc_t) (void * ctx, uint32_t, uint32_t, GLenum, int);
+typedef void (renderControl_APIENTRY *rcWaitSyncKHR_client_proc_t) (void * ctx, uint64_t, EGLint);
 
 
 #endif

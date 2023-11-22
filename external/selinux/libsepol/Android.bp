@@ -1,10 +1,11 @@
 common_CFLAGS = [
     "-D_GNU_SOURCE",
     "-Wall",
+    "-Werror",
     "-W",
     "-Wundef",
     "-Wshadow",
-    "-Wmissing-noreturn",
+    "-Wno-error=missing-noreturn",
     "-Wmissing-format-attribute",
 ]
 
@@ -86,6 +87,16 @@ cc_library {
         "cil/include",
         "include",
     ],
+    stl: "none",
+    // The host version of libsepol is loaded by the system python, which does
+    // not have the sanitizer runtimes.
+    target: {
+        host: {
+            sanitize: {
+                never: true,
+            },
+        },
+    },
 }
 
 cc_binary_host {

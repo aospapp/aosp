@@ -19,7 +19,12 @@ PRODUCT_IS_ATV := true
 PRODUCT_PACKAGES := \
     TvProvider \
     TvSettings \
+    SettingsIntelligence \
     tv_input.default
+
+ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
+PRODUCT_PACKAGES += Traceur
+endif
 
 PRODUCT_COPY_FILES := \
     device/google/atv/permissions/tv_core_hardware.xml:system/etc/permissions/tv_core_hardware.xml
@@ -66,11 +71,11 @@ PRODUCT_PACKAGES += \
     CalendarProvider \
     CaptivePortalLogin \
     CertInstaller \
+    DocumentsUIMinimal \
     ExternalStorageProvider \
     FusedLocation \
     InputDevices \
     KeyChain \
-    PicoTts \
     PacProcessor \
     PrintSpooler \
     ProxyHandler \
@@ -115,23 +120,12 @@ endif
 # To enable access to /dev/dvb*
 BOARD_SEPOLICY_DIRS += device/google/atv/sepolicy
 
-# This property defines the tutorial content for this device
-PRODUCT_PROPERTY_OVERRIDES += \
-    ro.tutorials_content.android=android8
-
-# Content for ATV Tutorials / Post-Setup Tour
-PRODUCT_COPY_FILES += \
-    device/google/atv/tutorial-library-google.zip.etag:system/media/tutorial-library-google.zip.etag
-
-PRODUCT_COPY_FILES += \
-    device/google/atv/tutorial-library-google.zip:system/media/tutorial-library-google.zip
 
 # Copy .kl file for generic voice remotes
 PRODUCT_COPY_FILES += \
     device/google/atv/Generic.kl:system/usr/keylayout/Generic.kl
 
 $(call inherit-product-if-exists, frameworks/base/data/sounds/AudioTv.mk)
-$(call inherit-product-if-exists, external/svox/pico/lang/all_pico_languages.mk)
 $(call inherit-product-if-exists, frameworks/base/data/fonts/fonts.mk)
 $(call inherit-product-if-exists, external/google-fonts/dancing-script/fonts.mk)
 $(call inherit-product-if-exists, external/google-fonts/carrois-gothic-sc/fonts.mk)

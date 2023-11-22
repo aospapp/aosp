@@ -43,7 +43,7 @@ import android.graphics.Region;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Parcelable;
 import android.os.SystemClock;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.LargeTest;

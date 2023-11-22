@@ -17,12 +17,14 @@
 package android.media.cts;
 
 import android.os.Bundle;
+import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.RequiresDevice;
 import android.support.test.filters.SmallTest;
 import android.test.ActivityInstrumentationTestCase2;
 
 @SmallTest
 @RequiresDevice
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class ResourceManagerTest
         extends ActivityInstrumentationTestCase2<ResourceManagerStubActivity> {
 

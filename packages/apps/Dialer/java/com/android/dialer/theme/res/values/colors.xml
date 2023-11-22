@@ -38,10 +38,13 @@
 
   <!-- Primary text color in the Phone app -->
   <color name="dialer_primary_text_color">#333333</color>
+  <color name="dialer_primary_text_color_white">#ffffff</color>
   <color name="dialer_edit_text_hint_color">#DE78909C</color>
 
   <!-- Secondary text color in the Phone app -->
   <color name="dialer_secondary_text_color">#636363</color>
+  <!-- 38% opacity -->
+  <color name="dialer_secondary_text_color_hiden">#61000000</color>
 
   <!-- Color of the theme of the Dialer app -->
   <color name="dialtacts_theme_color">@color/dialer_theme_color</color>
@@ -55,7 +58,6 @@
   <!-- Colors for the notification actions -->
   <color name="notification_action_accept">#097138</color>
   <color name="notification_action_dismiss">#A52714</color>
-  <color name="notification_action_end_call">#FFFFFF</color>
   <color name="notification_action_answer_video">#097138</color>
 
   <!-- Background color of action bars -->
@@ -66,6 +68,9 @@
 
   <color name="blue_grey_100">#CFD8DC</color>
 
-  <!-- Color of call type icons in call log, e.g. voicemail, video, WiFi, HD etc. -->
-  <color name="call_type_icon_color">#89000000</color>
+  <!-- 54% opacity -->
+  <color name="icon_color_grey">#89000000</color>
+
+  <!-- Color for bubble -->
+  <color name="dialer_end_call_button_color">#BD2A2A</color>
 </resources>

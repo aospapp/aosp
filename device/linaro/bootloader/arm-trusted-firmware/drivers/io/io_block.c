@@ -1,293 +1,425 @@
 /*
- * Copyright (c) 2014-2015, Linaro Ltd and Contributors. All rights reserved.
- * Copyright (c) 2014-2015, Hisilicon Ltd and Contributors. All rights reserved.
+ * Copyright (c) 2016-2017, ARM Limited and Contributors. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this
- * list of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * Neither the name of ARM nor the names of its contributors may be used
- * to endorse or promote products derived from this software without specific
- * prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <assert.h>
-#include <bl_common.h>
 #include <debug.h>
 #include <errno.h>
 #include <io_block.h>
 #include <io_driver.h>
 #include <io_storage.h>
-#include <mmio.h>
-#include <stdint.h>
+#include <platform_def.h>
 #include <string.h>
+#include <utils.h>
 
-/* As we need to be able to keep state for seek, only one file can be open
- * at a time. Make this a structure and point to the entity->info. When we
- * can malloc memory we can change this to support more open files.
- */
 typedef struct {
-	/* Use the 'in_use' flag as any value for base and file_pos could be
-	 * valid.
-	 */
-	int		in_use;
-	uintptr_t	base;
-	size_t		file_pos;
-	uint32_t	flags;
-} file_state_t;
+	io_block_dev_spec_t	*dev_spec;
+	uintptr_t		base;
+	size_t			file_pos;
+	size_t			size;
+} block_dev_state_t;
 
-struct block_info {
-	struct block_ops	ops;
-	int			init;
-	uint32_t		flags;
-};
+#define is_power_of_2(x)	((x != 0) && ((x & (x - 1)) == 0))
 
-static file_state_t current_file = {0};
-
-static struct block_info block_info;
+io_type_t device_type_block(void);
 
 static int block_open(io_dev_info_t *dev_info, const uintptr_t spec,
 		      io_entity_t *entity);
 static int block_seek(io_entity_t *entity, int mode, ssize_t offset);
-static int block_read(io_entity_t *entity, uintptr_t buffer,
-		      size_t length, size_t *length_read);
-static int block_write(io_entity_t *entity, uintptr_t buffer,
+static int block_read(io_entity_t *entity, uintptr_t buffer, size_t length,
+		      size_t *length_read);
+static int block_write(io_entity_t *entity, const uintptr_t buffer,
 		       size_t length, size_t *length_written);
 static int block_close(io_entity_t *entity);
+static int block_dev_open(const uintptr_t dev_spec, io_dev_info_t **dev_info);
+static int block_dev_close(io_dev_info_t *dev_info);
 
-static int blk_dev_init(io_dev_info_t *dev_info,
-			const uintptr_t init_params);
-static int blk_dev_open(const uintptr_t dev_spec, io_dev_info_t **dev_info);
-static int blk_dev_close(io_dev_info_t *dev_info);
+static const io_dev_connector_t block_dev_connector = {
+	.dev_open	= block_dev_open
+};
 
-/* Identify the device type as block */
+static const io_dev_funcs_t block_dev_funcs = {
+	.type		= device_type_block,
+	.open		= block_open,
+	.seek		= block_seek,
+	.size		= NULL,
+	.read		= block_read,
+	.write		= block_write,
+	.close		= block_close,
+	.dev_init	= NULL,
+	.dev_close	= block_dev_close,
+};
+
+static block_dev_state_t state_pool[MAX_IO_BLOCK_DEVICES];
+static io_dev_info_t dev_info_pool[MAX_IO_BLOCK_DEVICES];
+
+/* Track number of allocated block state */
+static unsigned int block_dev_count;
+
 io_type_t device_type_block(void)
 {
 	return IO_TYPE_BLOCK;
 }
 
-static const io_dev_connector_t blk_dev_connector = {
-	.dev_open = blk_dev_open
-};
-
-static const io_dev_funcs_t blk_dev_funcs = {
-	.type = device_type_block,
-	.open = block_open,
-	.seek = block_seek,
-	.size = NULL,
-	.read = block_read,
-	.write = block_write,
-	.close = block_close,
-	.dev_init = blk_dev_init,
-	.dev_close = blk_dev_close,
-};
-
-
-/* No state associated with this device so structure can be const */
-static const io_dev_info_t blk_dev_info = {
-	.funcs = &blk_dev_funcs,
-	.info = (uintptr_t)&block_info,
-};
-
-/* Open a connection to the block device */
-static int blk_dev_open(const uintptr_t dev_spec __attribute__((unused)),
-			   io_dev_info_t **dev_info)
+/* Locate a block state in the pool, specified by address */
+static int find_first_block_state(const io_block_dev_spec_t *dev_spec,
+				  unsigned int *index_out)
 {
-	struct block_ops	*funcs, *block_spec;
-
-	assert(dev_info != NULL);
-	*dev_info = (io_dev_info_t *)&blk_dev_info; /* cast away const */
-
-	if (dev_spec) {
-		funcs = &block_info.ops;
-		block_spec = (struct block_ops *)dev_spec;
-		funcs->init = block_spec->init;
-		funcs->read = block_spec->read;
-		funcs->write = block_spec->write;
+	int result = -ENOENT;
+	for (int index = 0; index < MAX_IO_BLOCK_DEVICES; ++index) {
+		/* dev_spec is used as identifier since it's unique */
+		if (state_pool[index].dev_spec == dev_spec) {
+			result = 0;
+			*index_out = index;
+			break;
+		}
 	}
-
-	return IO_SUCCESS;
+	return result;
 }
 
-/* Close a connection to the block device */
-static int blk_dev_close(io_dev_info_t *dev_info)
+/* Allocate a device info from the pool and return a pointer to it */
+static int allocate_dev_info(io_dev_info_t **dev_info)
 {
-	/* NOP */
-	/* TODO: Consider tracking open files and cleaning them up here */
-	return IO_SUCCESS;
-}
+	int result = -ENOMEM;
+	assert(dev_info != NULL);
 
-
-/* Open a file on the block device */
-/* TODO: Can we do any sensible limit checks on requested memory */
-static int block_open(io_dev_info_t *dev_info, const uintptr_t spec,
-			     io_entity_t *entity)
-{
-	int result = IO_FAIL;
-	const io_block_spec_t *block_spec = (io_block_spec_t *)spec;
-	struct block_info *info = (struct block_info *)(dev_info->info);
-
-	/* Since we need to track open state for seek() we only allow one open
-	 * spec at a time. When we have dynamic memory we can malloc and set
-	 * entity->info.
-	 */
-	if (current_file.in_use == 0) {
-		assert(block_spec != NULL);
-		assert(entity != NULL);
-
-		current_file.in_use = 1;
-		current_file.base = block_spec->offset;
-		/* File cursor offset for seek and incremental reads etc. */
-		current_file.file_pos = 0;
-		current_file.flags = info->flags;
-		entity->info = (uintptr_t)&current_file;
-		result = IO_SUCCESS;
-	} else {
-		WARN("A block device is already active. Close first.\n");
-		result = IO_RESOURCES_EXHAUSTED;
+	if (block_dev_count < MAX_IO_BLOCK_DEVICES) {
+		unsigned int index = 0;
+		result = find_first_block_state(NULL, &index);
+		assert(result == 0);
+		/* initialize dev_info */
+		dev_info_pool[index].funcs = &block_dev_funcs;
+		dev_info_pool[index].info = (uintptr_t)&state_pool[index];
+		*dev_info = &dev_info_pool[index];
+		++block_dev_count;
 	}
 
 	return result;
 }
 
-/* Seek to a particular file offset on the block device */
+
+/* Release a device info to the pool */
+static int free_dev_info(io_dev_info_t *dev_info)
+{
+	int result;
+	unsigned int index = 0;
+	block_dev_state_t *state;
+	assert(dev_info != NULL);
+
+	state = (block_dev_state_t *)dev_info->info;
+	result = find_first_block_state(state->dev_spec, &index);
+	if (result ==  0) {
+		/* free if device info is valid */
+		zeromem(state, sizeof(block_dev_state_t));
+		zeromem(dev_info, sizeof(io_dev_info_t));
+		--block_dev_count;
+	}
+
+	return result;
+}
+
+static int block_open(io_dev_info_t *dev_info, const uintptr_t spec,
+		      io_entity_t *entity)
+{
+	block_dev_state_t *cur;
+	io_block_spec_t *region;
+
+	assert((dev_info->info != (uintptr_t)NULL) &&
+	       (spec != (uintptr_t)NULL) &&
+	       (entity->info == (uintptr_t)NULL));
+
+	region = (io_block_spec_t *)spec;
+	cur = (block_dev_state_t *)dev_info->info;
+	assert(((region->offset % cur->dev_spec->block_size) == 0) &&
+	       ((region->length % cur->dev_spec->block_size) == 0));
+
+	cur->base = region->offset;
+	cur->size = region->length;
+	cur->file_pos = 0;
+
+	entity->info = (uintptr_t)cur;
+	return 0;
+}
+
+/* parameter offset is relative address at here */
 static int block_seek(io_entity_t *entity, int mode, ssize_t offset)
 {
-	int result = IO_FAIL;
+	block_dev_state_t *cur;
 
-	/* We only support IO_SEEK_SET for the moment. */
-	if (mode == IO_SEEK_SET) {
-		assert(entity != NULL);
+	assert(entity->info != (uintptr_t)NULL);
 
-		/* TODO: can we do some basic limit checks on seek? */
-		((file_state_t *)entity->info)->file_pos = offset;
-		result = IO_SUCCESS;
-	} else {
-		result = IO_FAIL;
+	cur = (block_dev_state_t *)entity->info;
+	assert((offset >= 0) && (offset < cur->size));
+
+	switch (mode) {
+	case IO_SEEK_SET:
+		cur->file_pos = offset;
+		break;
+	case IO_SEEK_CUR:
+		cur->file_pos += offset;
+		break;
+	default:
+		return -EINVAL;
 	}
-
-	return result;
+	assert(cur->file_pos < cur->size);
+	return 0;
 }
 
-
-/* Read data from a file on the block device */
-static int block_read(io_entity_t *entity, uintptr_t buffer,
-		      size_t length, size_t *length_read)
+static int block_read(io_entity_t *entity, uintptr_t buffer, size_t length,
+		      size_t *length_read)
 {
-	file_state_t *fp;
-	int result;
+	block_dev_state_t *cur;
+	io_block_spec_t *buf;
+	io_block_ops_t *ops;
+	size_t aligned_length, skip, count, left, padding, block_size;
+	int lba;
+	int buffer_not_aligned;
 
-	assert(entity != NULL);
-	assert(buffer != (uintptr_t)NULL);
-	assert(length_read != NULL);
+	assert(entity->info != (uintptr_t)NULL);
+	cur = (block_dev_state_t *)entity->info;
+	ops = &(cur->dev_spec->ops);
+	buf = &(cur->dev_spec->buffer);
+	block_size = cur->dev_spec->block_size;
+	assert((length <= cur->size) &&
+	       (length > 0) &&
+	       (ops->read != 0));
 
-	fp = (file_state_t *)entity->info;
-
-	if (!block_info.ops.read) {
-		ERROR("There's no read function on the block device.\n");
-		return IO_NOT_SUPPORTED;
+	if ((buffer & (block_size - 1)) != 0) {
+		/*
+		 * buffer isn't aligned with block size.
+		 * Block device always relies on DMA operation.
+		 * It's better to make the buffer as block size aligned.
+		 */
+		buffer_not_aligned = 1;
+	} else {
+		buffer_not_aligned = 0;
 	}
-	result = block_info.ops.read(fp->base + fp->file_pos, length,
-				     buffer, fp->flags);
-	if (result) {
-		WARN("Failed to read block offset 0x%x\n",
-		     fp->base + fp->file_pos);
-		return result;
-	}
 
+	skip = cur->file_pos % block_size;
+	aligned_length = ((skip + length) + (block_size - 1)) &
+			 ~(block_size - 1);
+	padding = aligned_length - (skip + length);
+	left = aligned_length;
+	do {
+		lba = (cur->file_pos + cur->base) / block_size;
+		if (left >= buf->length) {
+			/*
+			 * Since left is larger, it's impossible to padding.
+			 *
+			 * If buffer isn't aligned, we need to use aligned
+			 * buffer instead.
+			 */
+			if (skip || buffer_not_aligned) {
+				/*
+				 * The beginning address (file_pos) isn't
+				 * aligned with block size, we need to use
+				 * block buffer to read block. Since block
+				 * device is always relied on DMA operation.
+				 */
+				count = ops->read(lba, buf->offset,
+						  buf->length);
+			} else {
+				count = ops->read(lba, buffer, buf->length);
+			}
+			assert(count == buf->length);
+			cur->file_pos += count - skip;
+			if (skip || buffer_not_aligned) {
+				/*
+				 * Since there's not aligned block size caused
+				 * by skip or not aligned buffer, block buffer
+				 * is used to store data.
+				 */
+				memcpy((void *)buffer,
+				       (void *)(buf->offset + skip),
+				       count - skip);
+			}
+			left = left - (count - skip);
+		} else {
+			if (skip || padding || buffer_not_aligned) {
+				/*
+				 * The beginning address (file_pos) isn't
+				 * aligned with block size, we have to read
+				 * full block by block buffer instead.
+				 * The size isn't aligned with block size.
+				 * Use block buffer to avoid overflow.
+				 *
+				 * If buffer isn't aligned, use block buffer
+				 * to avoid DMA error.
+				 */
+				count = ops->read(lba, buf->offset, left);
+			} else
+				count = ops->read(lba, buffer, left);
+			assert(count == left);
+			left = left - (skip + padding);
+			cur->file_pos += left;
+			if (skip || padding || buffer_not_aligned) {
+				/*
+				 * Since there's not aligned block size or
+				 * buffer, block buffer is used to store data.
+				 */
+				memcpy((void *)buffer,
+				       (void *)(buf->offset + skip),
+				       left);
+			}
+			/* It's already the last block operation */
+			left = 0;
+		}
+		skip = cur->file_pos % block_size;
+	} while (left > 0);
 	*length_read = length;
-	/* advance the file 'cursor' for incremental reads */
-	fp->file_pos += length;
 
-	return IO_SUCCESS;
+	return 0;
 }
 
-static int block_write(io_entity_t *entity, uintptr_t buffer,
+static int block_write(io_entity_t *entity, const uintptr_t buffer,
 		       size_t length, size_t *length_written)
 {
-	file_state_t *fp;
-	int result;
+	block_dev_state_t *cur;
+	io_block_spec_t *buf;
+	io_block_ops_t *ops;
+	size_t aligned_length, skip, count, left, padding, block_size;
+	int lba;
+	int buffer_not_aligned;
 
-	assert(entity != NULL);
-	assert(buffer != (uintptr_t)NULL);
-	assert(length_written != NULL);
+	assert(entity->info != (uintptr_t)NULL);
+	cur = (block_dev_state_t *)entity->info;
+	ops = &(cur->dev_spec->ops);
+	buf = &(cur->dev_spec->buffer);
+	block_size = cur->dev_spec->block_size;
+	assert((length <= cur->size) &&
+	       (length > 0) &&
+	       (ops->read != 0) &&
+	       (ops->write != 0));
 
-	fp = (file_state_t *)entity->info;
-
-	if (!block_info.ops.write) {
-		ERROR("There's no write function on the block device.\n");
-		return IO_NOT_SUPPORTED;
+	if ((buffer & (block_size - 1)) != 0) {
+		/*
+		 * buffer isn't aligned with block size.
+		 * Block device always relies on DMA operation.
+		 * It's better to make the buffer as block size aligned.
+		 */
+		buffer_not_aligned = 1;
+	} else {
+		buffer_not_aligned = 0;
 	}
-	result = block_info.ops.write(fp->base + fp->file_pos, length,
-				      buffer, fp->flags);
-	if (result) {
-		WARN("Failed to write block offset 0x%x\n",
-		     fp->base + fp->file_pos);
-		return result;
-	}
 
+	skip = cur->file_pos % block_size;
+	aligned_length = ((skip + length) + (block_size - 1)) &
+			 ~(block_size - 1);
+	padding = aligned_length - (skip + length);
+	left = aligned_length;
+	do {
+		lba = (cur->file_pos + cur->base) / block_size;
+		if (left >= buf->length) {
+			/* Since left is larger, it's impossible to padding. */
+			if (skip || buffer_not_aligned) {
+				/*
+				 * The beginning address (file_pos) isn't
+				 * aligned with block size or buffer isn't
+				 * aligned, we need to use block buffer to
+				 * write block.
+				 */
+				count = ops->read(lba, buf->offset,
+						  buf->length);
+				assert(count == buf->length);
+				memcpy((void *)(buf->offset + skip),
+				       (void *)buffer,
+				       count - skip);
+				count = ops->write(lba, buf->offset,
+						   buf->length);
+			} else
+				count = ops->write(lba, buffer, buf->length);
+			assert(count == buf->length);
+			cur->file_pos += count - skip;
+			left = left - (count - skip);
+		} else {
+			if (skip || padding || buffer_not_aligned) {
+				/*
+				 * The beginning address (file_pos) isn't
+				 * aligned with block size, we need to avoid
+				 * poluate data in the beginning. Reading and
+				 * skipping the beginning is the only way.
+				 * The size isn't aligned with block size.
+				 * Use block buffer to avoid overflow.
+				 *
+				 * If buffer isn't aligned, use block buffer
+				 * to avoid DMA error.
+				 */
+				count = ops->read(lba, buf->offset, left);
+				assert(count == left);
+				memcpy((void *)(buf->offset + skip),
+				       (void *)buffer,
+				       left - skip - padding);
+				count = ops->write(lba, buf->offset, left);
+			} else
+				count = ops->write(lba, buffer, left);
+			assert(count == left);
+			cur->file_pos += left - (skip + padding);
+			/* It's already the last block operation */
+			left = 0;
+		}
+		skip = cur->file_pos % block_size;
+	} while (left > 0);
 	*length_written = length;
-	/* advance the file 'cursor' for incremental reads */
-	fp->file_pos += length;
-
-	return IO_SUCCESS;
+	return 0;
 }
 
-/* Close a file on the BLOCK device */
 static int block_close(io_entity_t *entity)
 {
-	assert(entity != NULL);
-
-	entity->info = 0;
-
-	/* This would be a mem free() if we had malloc.*/
-	memset((void *)&current_file, 0, sizeof(current_file));
-
-	return IO_SUCCESS;
+	entity->info = (uintptr_t)NULL;
+	return 0;
 }
 
-static int blk_dev_init(io_dev_info_t *dev_info, const uintptr_t init_params)
+static int block_dev_open(const uintptr_t dev_spec, io_dev_info_t **dev_info)
 {
-	struct block_info *info = (struct block_info *)(dev_info->info);
+	block_dev_state_t *cur;
+	io_block_spec_t *buffer;
+	io_dev_info_t *info;
+	size_t block_size;
+	int result;
 
-	if (!info->init) {
-		if (block_info.ops.init)
-			block_info.ops.init();
-		info->init = 1;
-	}
-	info->flags = init_params;
-	return IO_SUCCESS;
+	assert(dev_info != NULL);
+	result = allocate_dev_info(&info);
+	if (result)
+		return -ENOENT;
+
+	cur = (block_dev_state_t *)info->info;
+	/* dev_spec is type of io_block_dev_spec_t. */
+	cur->dev_spec = (io_block_dev_spec_t *)dev_spec;
+	buffer = &(cur->dev_spec->buffer);
+	block_size = cur->dev_spec->block_size;
+	assert((block_size > 0) &&
+	       (is_power_of_2(block_size) != 0) &&
+	       ((buffer->offset % block_size) == 0) &&
+	       ((buffer->length % block_size) == 0));
+
+	*dev_info = info;	/* cast away const */
+	(void)block_size;
+	(void)buffer;
+	return 0;
+}
+
+static int block_dev_close(io_dev_info_t *dev_info)
+{
+	return free_dev_info(dev_info);
 }
 
 /* Exported functions */
 
-/* Register the block driver with the IO abstraction */
+/* Register the Block driver with the IO abstraction */
 int register_io_dev_block(const io_dev_connector_t **dev_con)
 {
-	int result = IO_FAIL;
+	int result;
+
 	assert(dev_con != NULL);
 
-	result = io_register_device(&blk_dev_info);
-	if (result == IO_SUCCESS)
-		*dev_con = &blk_dev_connector;
-
+	/*
+	 * Since dev_info isn't really used in io_register_device, always
+	 * use the same device info at here instead.
+	 */
+	result = io_register_device(&dev_info_pool[0]);
+	if (result == 0)
+		*dev_con = &block_dev_connector;
 	return result;
 }

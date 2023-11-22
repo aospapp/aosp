@@ -81,7 +81,7 @@
     <string name="title_history" msgid="7820912156315181539">"Таржымал"</string>
     <string name="desc_navigate_up" msgid="6208699569165589623">"Жогору чабыттоо"</string>
     <string name="dialog_timeout" msgid="9069768442342329065">"Таймаут"</string>
-    <string name="dialog_clear" msgid="7137395395908350702">"Таржымал менен эстутум тазалансынбы?"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"Буга чейин эсептелген нерселер тазалансынбы?"</string>
     <string name="title_current_expression" msgid="2442754548537900591">"Учурдагы туюнтма"</string>
     <string name="no_history" msgid="4331262030447527188">"Таржымал жок"</string>
 </resources>

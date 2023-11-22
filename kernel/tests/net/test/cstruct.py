@@ -147,6 +147,12 @@ def Struct(name, fmt, fieldnames, substructs={}):
     # A dictionary that maps field names to their offsets in the struct.
     _offsets = dict(zip(_fieldnames, offset_list))
 
+    # Check that the number of field names matches the number of fields.
+    numfields = len(struct.unpack(_format, "\x00" * _length))
+    if len(_fieldnames) != numfields:
+      raise ValueError("Invalid cstruct: \"%s\" has %d elements, \"%s\" has %d."
+                       % (fmt, numfields, fieldnames, len(_fieldnames)))
+
     def _SetValues(self, values):
       # Replace self._values with the given list. We can't do direct assignment
       # because of the __setattr__ overload on this class.

@@ -43,7 +43,7 @@ class hardware_DiskFirmwareUpgrade(test.test):
         in a well-known state.
 
         @param host:     machine to use.
-        @param disk_fw_packages: directory of firmare to use and
+        @param disk_fw_packages: directory of firmware to use and
                          expected return code. See control for details.
         """
 
@@ -85,6 +85,7 @@ class hardware_DiskFirmwareUpgrade(test.test):
                             expected_result=results[0],
                             upgrade_required=results[1])
                 result_dir = '-'.join([self.TEST_NAME, str(i), '~base'])
+                # After the test run, reinstall regular firmware.
                 self._client_at.run_test(
                         self.TEST_NAME,
                         results_dir=result_dir,

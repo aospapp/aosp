@@ -12,7 +12,6 @@
 #
 
 [Defines]
-  USE_ARM_BDS         = FALSE
   SECURE_BOOT_ENABLE  = FALSE
 
 [BuildOptions.common.EDKII.DXE_RUNTIME_DRIVER]
@@ -58,9 +57,7 @@
   #
   PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
 
-  # 1/123 faster than Stm or Vstm version
-  #BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
-  BaseMemoryLib|ArmPkg/Library/BaseMemoryLibStm/BaseMemoryLibStm.inf
+  BaseMemoryLib|MdePkg/Library/BaseMemoryLibOptDxe/BaseMemoryLibOptDxe.inf
 
   # Networking Requirements
   NetLib|MdeModulePkg/Library/DxeNetLib/DxeNetLib.inf
@@ -71,7 +68,7 @@
   # ARM Architectural Libraries
   CacheMaintenanceLib|ArmPkg/Library/ArmCacheMaintenanceLib/ArmCacheMaintenanceLib.inf
   DefaultExceptionHandlerLib|ArmPkg/Library/DefaultExceptionHandlerLib/DefaultExceptionHandlerLib.inf
-  CpuExceptionHandlerLib|MdeModulePkg/Library/CpuExceptionHandlerLibNull/CpuExceptionHandlerLibNull.inf
+  CpuExceptionHandlerLib|ArmPkg/Library/ArmExceptionLib/ArmExceptionLib.inf
   ArmDisassemblerLib|ArmPkg/Library/ArmDisassemblerLib/ArmDisassemblerLib.inf
   DmaLib|ArmPkg/Library/ArmDmaLib/ArmDmaLib.inf
   ArmGicLib|ArmPkg/Drivers/ArmGic/ArmGicLib.inf
@@ -85,8 +82,10 @@
   ArmPlatformSysConfigLib|ArmPlatformPkg/ArmVExpressPkg/Library/ArmVExpressSysConfigLib/ArmVExpressSysConfigLib.inf
   NorFlashPlatformLib|ArmPlatformPkg/ArmVExpressPkg/Library/NorFlashArmVExpressLib/NorFlashArmVExpressLib.inf
   EfiResetSystemLib|ArmPlatformPkg/ArmVExpressPkg/Library/ResetSystemLib/ResetSystemLib.inf
+!ifdef EDK2_ENABLE_PL111
   # ARM PL111 Lcd Driver
   LcdPlatformLib|ArmPlatformPkg/ArmVExpressPkg/Library/PL111LcdArmVExpressLib/PL111LcdArmVExpressLib.inf
+!endif
   # ARM PL031 RTC Driver
   RealTimeClockLib|ArmPlatformPkg/Library/PL031RealTimeClockLib/PL031RealTimeClockLib.inf
   # ARM PL354 SMC Driver
@@ -119,7 +118,8 @@
   SemihostLib|ArmPkg/Library/SemihostLib/SemihostLib.inf
 
   # BDS Libraries
-  BdsLib|ArmPkg/Library/BdsLib/BdsLib.inf
+  UefiBootManagerLib|MdeModulePkg/Library/UefiBootManagerLib/UefiBootManagerLib.inf
+  PlatformBootManagerLib|ArmPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
 
   AcpiLib|EmbeddedPkg/Library/AcpiLib/AcpiLib.inf
   FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
@@ -149,12 +149,8 @@
 !endif
   VarCheckLib|MdeModulePkg/Library/VarCheckLib/VarCheckLib.inf
 
-!if $(USE_ARM_BDS) == FALSE
   CapsuleLib|MdeModulePkg/Library/DxeCapsuleLibNull/DxeCapsuleLibNull.inf
-  GenericBdsLib|IntelFrameworkModulePkg/Library/GenericBdsLib/GenericBdsLib.inf
-  PlatformBdsLib|ArmPlatformPkg/Library/PlatformIntelBdsLib/PlatformIntelBdsLib.inf
   CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf
-!endif
 
 [LibraryClasses.common.SEC]
   ArmPlatformSecExtraActionLib|ArmPlatformPkg/Library/DebugSecExtraActionLib/DebugSecExtraActionLib.inf
@@ -190,6 +186,7 @@
   ExtractGuidedSectionLib|MdePkg/Library/PeiExtractGuidedSectionLib/PeiExtractGuidedSectionLib.inf
 
   PeiServicesTablePointerLib|ArmPkg/Library/PeiServicesTablePointerLib/PeiServicesTablePointerLib.inf
+  BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
 
 [LibraryClasses.common.PEIM]
   HobLib|MdePkg/Library/PeiHobLib/PeiHobLib.inf
@@ -208,6 +205,7 @@
 
 [LibraryClasses.common.SEC, LibraryClasses.common.PEIM]
   MemoryInitPeiLib|ArmPlatformPkg/MemoryInitPei/MemoryInitPeiLib.inf
+  BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
 
 [LibraryClasses.common.DXE_CORE]
   HobLib|MdePkg/Library/DxeCoreHobLib/DxeCoreHobLib.inf
@@ -231,6 +229,11 @@
   PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
   HiiLib|MdeModulePkg/Library/UefiHiiLib/UefiHiiLib.inf
+
+  # UiApp dependencies
+  ReportStatusCodeLib|MdeModulePkg/Library/DxeReportStatusCodeLib/DxeReportStatusCodeLib.inf
+  FileExplorerLib|MdeModulePkg/Library/FileExplorerLib/FileExplorerLib.inf
+  DxeServicesLib|MdePkg/Library/DxeServicesLib/DxeServicesLib.inf
 
 [LibraryClasses.common.UEFI_DRIVER]
   ReportStatusCodeLib|IntelFrameworkModulePkg/Library/DxeReportStatusCodeLibFramework/DxeReportStatusCodeLib.inf
@@ -342,19 +345,21 @@
   #  DEBUG_WARN      0x00000002  // Warnings
   #  DEBUG_LOAD      0x00000004  // Load events
   #  DEBUG_FS        0x00000008  // EFI File system
-  #  DEBUG_POOL      0x00000010  // Alloc & Free's
-  #  DEBUG_PAGE      0x00000020  // Alloc & Free's
-  #  DEBUG_INFO      0x00000040  // Verbose
-  #  DEBUG_DISPATCH  0x00000080  // PEI/DXE Dispatchers
+  #  DEBUG_POOL      0x00000010  // Alloc & Free (pool)
+  #  DEBUG_PAGE      0x00000020  // Alloc & Free (page)
+  #  DEBUG_INFO      0x00000040  // Informational debug messages
+  #  DEBUG_DISPATCH  0x00000080  // PEI/DXE/SMM Dispatchers
   #  DEBUG_VARIABLE  0x00000100  // Variable
   #  DEBUG_BM        0x00000400  // Boot Manager
   #  DEBUG_BLKIO     0x00001000  // BlkIo Driver
-  #  DEBUG_NET       0x00004000  // SNI Driver
+  #  DEBUG_NET       0x00004000  // SNP Driver
   #  DEBUG_UNDI      0x00010000  // UNDI Driver
-  #  DEBUG_LOADFILE  0x00020000  // UNDI Driver
+  #  DEBUG_LOADFILE  0x00020000  // LoadFile
   #  DEBUG_EVENT     0x00080000  // Event messages
   #  DEBUG_GCD       0x00100000  // Global Coherency Database changes
   #  DEBUG_CACHE     0x00200000  // Memory range cachability changes
+  #  DEBUG_VERBOSE   0x00400000  // Detailed debug messages that may
+  #                              // significantly impact boot performance
   #  DEBUG_ERROR     0x80000000  // Error
   gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x8000000F
 
@@ -421,10 +426,11 @@
   # Shell.
   gEfiShellPkgTokenSpaceGuid.PcdShellLibAutoInitialize|FALSE
 
-!if $(USE_ARM_BDS) == FALSE
   gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange|FALSE
   gEfiIntelFrameworkModulePkgTokenSpaceGuid.PcdShellFile|{ 0x83, 0xA5, 0x04, 0x7C, 0x3E, 0x9E, 0x1C, 0x4F, 0xAD, 0x65, 0xE0, 0x52, 0x68, 0xD0, 0xB4, 0xD1 }
-!endif
+
+  # use the TTY terminal type
+  gEfiMdePkgTokenSpaceGuid.PcdDefaultTerminalType|4
 
 !ifdef EDK2_ENABLE_SMSC_91X
   # Ethernet (SMSC 91C111)
@@ -438,8 +444,14 @@
   gEfiSecurityPkgTokenSpaceGuid.PcdRemovableMediaImageVerificationPolicy|0x04
 !endif
 
+  # GUID of the UI app
+  gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{ 0x21, 0xaa, 0x2c, 0x46, 0x14, 0x76, 0x03, 0x45, 0x83, 0x6e, 0x8a, 0xb6, 0xf4, 0x66, 0x23, 0x31 }
+
 [Components.common]
-  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
+  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf {
+    <LibraryClasses>
+      PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
+  }
 
   # Versatile Express FileSystem
   ArmPlatformPkg/FileSystem/BootMonFs/BootMonFs.inf
@@ -469,7 +481,10 @@
   #
   # Android Fastboot
   #
-  EmbeddedPkg/Application/AndroidFastboot/AndroidFastbootApp.inf
+  EmbeddedPkg/Application/AndroidFastboot/AndroidFastbootApp.inf {
+    <LibraryClasses>
+      BdsLib|ArmPkg/Library/BdsLib/BdsLib.inf
+  }
   EmbeddedPkg/Drivers/AndroidFastbootTransportUsbDxe/FastbootTransportUsbDxe.inf
   ArmPlatformPkg/ArmVExpressPkg/ArmVExpressFastBootDxe/ArmVExpressFastBootDxe.inf
 
@@ -479,7 +494,26 @@
   #
   # FDT installation
   #
-  EmbeddedPkg/Drivers/FdtPlatformDxe/FdtPlatformDxe.inf
+  EmbeddedPkg/Drivers/FdtPlatformDxe/FdtPlatformDxe.inf {
+    <LibraryClasses>
+      BdsLib|ArmPkg/Library/BdsLib/BdsLib.inf
+  }
 
-  # Legacy Linux Loader
-  ArmPkg/Application/LinuxLoader/LinuxLoader.inf
+  #
+  # UEFI application (Shell Embedded Boot Loader)
+  #
+  ShellPkg/Application/Shell/Shell.inf {
+    <LibraryClasses>
+      ShellCommandLib|ShellPkg/Library/UefiShellCommandLib/UefiShellCommandLib.inf
+      NULL|ShellPkg/Library/UefiShellLevel2CommandsLib/UefiShellLevel2CommandsLib.inf
+      NULL|ShellPkg/Library/UefiShellLevel1CommandsLib/UefiShellLevel1CommandsLib.inf
+      NULL|ShellPkg/Library/UefiShellLevel3CommandsLib/UefiShellLevel3CommandsLib.inf
+      NULL|ShellPkg/Library/UefiShellDriver1CommandsLib/UefiShellDriver1CommandsLib.inf
+      NULL|ShellPkg/Library/UefiShellDebug1CommandsLib/UefiShellDebug1CommandsLib.inf
+      NULL|ShellPkg/Library/UefiShellInstall1CommandsLib/UefiShellInstall1CommandsLib.inf
+      NULL|ShellPkg/Library/UefiShellNetwork1CommandsLib/UefiShellNetwork1CommandsLib.inf
+      NULL|ShellPkg/Library/UefiShellTftpCommandLib/UefiShellTftpCommandLib.inf
+      HandleParsingLib|ShellPkg/Library/UefiHandleParsingLib/UefiHandleParsingLib.inf
+      PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
+      BcfgCommandLib|ShellPkg/Library/UefiShellBcfgCommandLib/UefiShellBcfgCommandLib.inf
+  }

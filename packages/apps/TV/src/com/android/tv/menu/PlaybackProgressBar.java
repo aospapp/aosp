@@ -24,12 +24,9 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
 import android.util.AttributeSet;
 import android.view.View;
-
 import com.android.tv.R;
 
-/**
- * A progress bar control which has two progresses which start in the middle of the control.
- */
+/** A progress bar control which has two progresses which start in the middle of the control. */
 public class PlaybackProgressBar extends View {
     private final LayerDrawable mProgressDrawable;
     private final Drawable mPrimaryDrawable;
@@ -51,11 +48,12 @@ public class PlaybackProgressBar extends View {
         this(context, attrs, defStyleAttr, 0);
     }
 
-    public PlaybackProgressBar(Context context, AttributeSet attrs, int defStyleAttr,
-                               int defStyleRes) {
+    public PlaybackProgressBar(
+            Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
-        TypedArray a = context.obtainStyledAttributes(
-                attrs, R.styleable.PlaybackProgressBar, defStyleAttr, defStyleRes);
+        TypedArray a =
+                context.obtainStyledAttributes(
+                        attrs, R.styleable.PlaybackProgressBar, defStyleAttr, defStyleRes);
         mProgressDrawable =
                 (LayerDrawable) a.getDrawable(R.styleable.PlaybackProgressBar_progressDrawable);
         mPrimaryDrawable = mProgressDrawable.findDrawableByLayerId(android.R.id.progress);
@@ -98,9 +96,7 @@ public class PlaybackProgressBar extends View {
         }
     }
 
-    /**
-     * Sets the start and end position of the progress.
-     */
+    /** Sets the start and end position of the progress. */
     public void setProgressRange(long start, long end) {
         start = constrain(start, 0, mMax);
         end = constrain(end, start, mMax);
@@ -112,9 +108,7 @@ public class PlaybackProgressBar extends View {
         }
     }
 
-    /**
-     * Sets the progress position.
-     */
+    /** Sets the progress position. */
     public void setProgress(long progress) {
         progress = constrain(progress, mProgressStart, mProgressEnd);
         if (progress != mProgress) {

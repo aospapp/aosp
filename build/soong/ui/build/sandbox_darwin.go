@@ -16,17 +16,17 @@ package build
 
 import (
 	"os/exec"
-	"path/filepath"
 )
 
 type Sandbox string
 
 const (
-	noSandbox     = ""
-	globalSandbox = "build/soong/ui/build/sandbox/darwin/global.sb"
-	makeSandbox   = globalSandbox
-	soongSandbox  = globalSandbox
-	katiSandbox   = globalSandbox
+	noSandbox            = ""
+	globalSandbox        = "build/soong/ui/build/sandbox/darwin/global.sb"
+	dumpvarsSandbox      = globalSandbox
+	soongSandbox         = globalSandbox
+	katiSandbox          = globalSandbox
+	katiCleanSpecSandbox = globalSandbox
 )
 
 var sandboxExecPath string
@@ -49,14 +49,8 @@ func (c *Cmd) sandboxSupported() bool {
 
 func (c *Cmd) wrapSandbox() {
 	homeDir, _ := c.Environment.Get("HOME")
-	outDir, err := filepath.Abs(c.config.OutDir())
-	if err != nil {
-		c.ctx.Fatalln("Failed to get absolute path of OUT_DIR:", err)
-	}
-	distDir, err := filepath.Abs(c.config.DistDir())
-	if err != nil {
-		c.ctx.Fatalln("Failed to get absolute path of DIST_DIR:", err)
-	}
+	outDir := absPath(c.ctx, c.config.OutDir())
+	distDir := absPath(c.ctx, c.config.DistDir())
 
 	c.Args[0] = c.Path
 	c.Path = sandboxExecPath

@@ -738,7 +738,8 @@ bool getProtoInfo(DexFile* pDexFile, u4 protoIdx, ProtoInfo* pProtoInfo)
             return false;
         }
         const char* param = dexStringByTypeIdx(pDexFile, paramTypes->list[i].typeIdx);
-        size_t newUsed = bufUsed + strlen(param);
+        size_t paramLen = strlen(param);
+        size_t newUsed = bufUsed + paramLen;
         if (newUsed > bufSize) {
             char* newBuf = (char*)realloc(buf, newUsed);
             if (newBuf == NULL) {
@@ -748,7 +749,7 @@ bool getProtoInfo(DexFile* pDexFile, u4 protoIdx, ProtoInfo* pProtoInfo)
             buf = newBuf;
             bufSize = newUsed;
         }
-        strncat(buf + bufUsed - 1, param, bufSize - (bufUsed - 1));
+        memcpy(buf + bufUsed - 1, param, paramLen + 1);
         bufUsed = newUsed;
     }
 
@@ -915,8 +916,26 @@ static char* indexString(DexFile* pDexFile, const DecodedInstruction* pDecInsn, 
             free(protoInfo.parameterTypes);
         }
         break;
-    case kCallSiteRef:
+    case kIndexCallSiteRef:
         outSize = snprintf(buf, bufSize, "call_site@%0*x", width, index);
+        break;
+    case kIndexMethodHandleRef:
+        outSize = snprintf(buf, bufSize, "methodhandle@%0*x", width, index);
+        break;
+    case kIndexProtoRef:
+        {
+            ProtoInfo protoInfo;
+            if (getProtoInfo(pDexFile, index, &protoInfo)) {
+                outSize = snprintf(buf, bufSize, "(%s)%s // proto@%0*x",
+                                   protoInfo.parameterTypes, protoInfo.returnType,
+                                   width, index);
+
+            } else {
+                outSize = snprintf(buf, bufSize, "<proto?> // proto@%0*x",
+                                   width, secondaryIndex);
+            }
+            free(protoInfo.parameterTypes);
+        }
         break;
     default:
         outSize = snprintf(buf, bufSize, "<?>");
@@ -1645,15 +1664,6 @@ bail:
 
 
 /*
- * Advance "ptr" to ensure 32-bit alignment.
- */
-static inline const u1* align32(const u1* ptr)
-{
-    return (u1*) (((uintptr_t) ptr + 3) & ~0x03);
-}
-
-
-/*
  * Dump a map in the "differential" format.
  *
  * TODO: show a hex dump of the compressed data.  (We can show the
@@ -1978,7 +1988,6 @@ static u8 readUnsignedLittleEndian(const u1** pData, u4 size, bool fillOnRight =
         result = (result >> 8) | (((u8)*data++) << 56);
     }
 
-    u8 oldResult = result;
     if (!fillOnRight) {
         result >>= (8u - size) * 8;
     }

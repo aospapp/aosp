@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"NFC etiketaren datuak"</string>
     <string name="vcard_title" msgid="7122634780732426007">"^1 kontaktuarekin harremanetan jartzeko informazioa"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Aplikazioak telefonoa erabiltzeko baimena behar du deiak egin ahal izateko. Baimenak kudeatzeko, joan Ezarpenak atalera."</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Aplikazioak kanpoko memoria erabiltzeko baimena behar du fitxategiak atzitu ahal izateko. Tag aplikazioaren baimenak kudeatzeko, joan Ezarpenak atalera."</string>
 </resources>

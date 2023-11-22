@@ -230,29 +230,6 @@ public abstract class LaunchedDebugger extends JDWPTestCase {
         logWriter.println(" ");
     }
 
-    @Override
-    protected String getMethodName(long classID, long methodID) {
-        CommandPacket packet = new CommandPacket(
-                JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
-                JDWPCommands.ReferenceTypeCommandSet.MethodsCommand);
-        packet.setNextValueAsClassID(classID);
-        ReplyPacket reply = debuggeeWrapper.vmMirror.performCommand(packet);
-        if (!checkReplyPacketWithoutFail(reply, "ReferenceType::Methods command")) {
-            throw new TestErrorException("Error during performing ReferenceType::Method command");
-        }
-        int methods = reply.getNextValueAsInt();
-        for (int i = 0; i < methods; i++) {
-            long mid = reply.getNextValueAsMethodID();
-            String name = reply.getNextValueAsString();
-            reply.getNextValueAsString();
-            reply.getNextValueAsInt();
-            if (mid == methodID) {
-                return name;
-            }
-        }
-        return "unknown";
-    }
-
     //////////////////////////////////////////////////////////////////////////////////////
 
     /**

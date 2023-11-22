@@ -16,7 +16,4 @@
 <resources>
     <!-- The max width of content in apps for adaptive responsive -->
     <dimen name="apps_max_content_width">748dp</dimen>
-
-    <!-- Touch Keyboard -->
-    <dimen name="in_call_button_size">116dp</dimen>
 </resources>

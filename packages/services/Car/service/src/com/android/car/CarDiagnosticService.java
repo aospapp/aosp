@@ -411,6 +411,13 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
             diagnosticCapabilities.isFreezeFrameSupported();
     }
 
+    public boolean isSelectiveClearFreezeFramesSupported() {
+        DiagnosticCapabilities diagnosticCapabilities =
+            getDiagnosticHal().getDiagnosticCapabilities();
+        return isClearFreezeFramesSupported() &&
+                diagnosticCapabilities.isSelectiveClearFreezeFramesSupported();
+    }
+
     // ICarDiagnostic implementations
 
     @Override
@@ -441,14 +448,18 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
     @Override
     public boolean clearFreezeFrames(long... timestamps) {
         mDiagnosticClearPermission.assertGranted();
-        if (mDiagnosticHal.getDiagnosticCapabilities().isFreezeFrameClearSupported()) {
-            mFreezeFrameDiagnosticRecords.lock();
-            mDiagnosticHal.clearFreezeFrames(timestamps);
-            mFreezeFrameDiagnosticRecords.clearEvents();
-            mFreezeFrameDiagnosticRecords.unlock();
-            return true;
+        if (!isClearFreezeFramesSupported())
+            return false;
+        if (timestamps != null && timestamps.length != 0) {
+            if (!isSelectiveClearFreezeFramesSupported()) {
+                return false;
+            }
         }
-        return false;
+        mFreezeFrameDiagnosticRecords.lock();
+        mDiagnosticHal.clearFreezeFrames(timestamps);
+        mFreezeFrameDiagnosticRecords.clearEvents();
+        mFreezeFrameDiagnosticRecords.unlock();
+        return true;
     }
 
     /**
@@ -458,6 +469,7 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
      * @param listener
      * @return null if not found.
      */
+    @GuardedBy("mDiagnosticLock")
     private CarDiagnosticService.DiagnosticClient findDiagnosticClientLocked(
             ICarDiagnosticEventListener listener) {
         IBinder binder = listener.asBinder();
@@ -600,7 +612,7 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
 
         @Override
         CarDiagnosticEvent update(@NonNull CarDiagnosticEvent newEvent) {
-            newEvent = Objects.requireNonNull(newEvent);
+            Objects.requireNonNull(newEvent);
             if((null == mLastEvent) || mLastEvent.isEarlierThan(newEvent))
                 mLastEvent = newEvent;
             return mLastEvent;

@@ -52,7 +52,7 @@ RewriteRule ^/afe/server/admin - [R=404]
        Options +ExecCGI
     </LocationMatch>
 
-    WSGISocketPrefix /var/run/wsgi
+    WSGISocketPrefix /run/wsgi
     # Note: this maximum-requests argument is required because of a memory leak in the django admin pages.
     # The WSGIDaemonProcess directive prevents mpm_prefork from recycling the
     # memory that Django uses, as it is tied up in the daemon. We can prevent

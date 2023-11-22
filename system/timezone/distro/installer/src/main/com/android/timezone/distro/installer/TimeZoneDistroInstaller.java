@@ -21,11 +21,14 @@ import com.android.timezone.distro.FileUtils;
 import com.android.timezone.distro.StagedDistroOperation;
 import com.android.timezone.distro.TimeZoneDistro;
 
+import android.annotation.IntDef;
 import android.util.Slog;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import libcore.util.TimeZoneFinder;
 import libcore.util.ZoneInfoDB;
 
@@ -34,6 +37,17 @@ import libcore.util.ZoneInfoDB;
  * testing. This class is not thread-safe: callers are expected to handle mutual exclusion.
  */
 public class TimeZoneDistroInstaller {
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = { "INSTALL_" }, value = {
+            INSTALL_SUCCESS,
+            INSTALL_FAIL_BAD_DISTRO_STRUCTURE,
+            INSTALL_FAIL_BAD_DISTRO_FORMAT_VERSION,
+            INSTALL_FAIL_RULES_TOO_OLD,
+            INSTALL_FAIL_VALIDATION_ERROR,
+    })
+    private @interface InstallResultType {}
+
     /** {@link #stageInstallWithErrorCode(TimeZoneDistro)} result code: Success. */
     public final static int INSTALL_SUCCESS = 0;
 
@@ -56,6 +70,14 @@ public class TimeZoneDistroInstaller {
      * validation.
      */
     public final static int INSTALL_FAIL_VALIDATION_ERROR = 4;
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = { "UNINSTALL_" }, value = {
+            UNINSTALL_SUCCESS,
+            UNINSTALL_NOTHING_INSTALLED,
+            UNINSTALL_FAIL,
+    })
+    private @interface UninstallResultType {}
 
     /**
      * {@link #stageUninstall()} result code: An uninstall has been successfully staged.
@@ -127,21 +149,10 @@ public class TimeZoneDistroInstaller {
      * Stage an install of the supplied content, to be installed the next time the device boots.
      *
      * <p>Errors during unpacking or staging will throw an {@link IOException}.
-     * If the distro content is invalid this method returns {@code false}.
-     * If the installation completed successfully this method returns {@code true}.
-     */
-    public boolean install(TimeZoneDistro distro) throws IOException {
-        int result = stageInstallWithErrorCode(distro);
-        return result == INSTALL_SUCCESS;
-    }
-
-    /**
-     * Stage an install of the supplied content, to be installed the next time the device boots.
-     *
-     * <p>Errors during unpacking or staging will throw an {@link IOException}.
      * Returns {@link #INSTALL_SUCCESS} on success, or one of the failure codes.
      */
-    public int stageInstallWithErrorCode(TimeZoneDistro distro) throws IOException {
+    public @InstallResultType int stageInstallWithErrorCode(TimeZoneDistro distro)
+            throws IOException {
         if (oldStagedDataDir.exists()) {
             FileUtils.deleteRecursive(oldStagedDataDir);
         }
@@ -250,7 +261,7 @@ public class TimeZoneDistroInstaller {
      *
      * <p>Errors encountered during uninstallation will throw an {@link IOException}.
      */
-    public int stageUninstall() throws IOException {
+    public @UninstallResultType int stageUninstall() throws IOException {
         Slog.i(logTag, "Uninstalling time zone update");
 
         if (oldStagedDataDir.exists()) {

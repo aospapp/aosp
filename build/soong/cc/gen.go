@@ -26,8 +26,8 @@ import (
 
 func init() {
 	pctx.SourcePathVariable("lexCmd", "prebuilts/misc/${config.HostPrebuiltTag}/flex/flex-2.5.39")
-	pctx.SourcePathVariable("yaccCmd", "prebuilts/misc/${config.HostPrebuiltTag}/bison/bison")
-	pctx.SourcePathVariable("yaccDataDir", "external/bison/data")
+	pctx.SourcePathVariable("yaccCmd", "prebuilts/build-tools/${config.HostPrebuiltTag}/bin/bison")
+	pctx.SourcePathVariable("yaccDataDir", "prebuilts/build-tools/common/bison")
 
 	pctx.HostBinToolVariable("aidlCmd", "aidl-cpp")
 }
@@ -54,12 +54,19 @@ var (
 			Deps:        blueprint.DepsGCC,
 		},
 		"aidlFlags", "outDir")
+
+	windmc = pctx.AndroidStaticRule("windmc",
+		blueprint.RuleParams{
+			Command:     "$windmcCmd -r$$(dirname $out) -h$$(dirname $out) $in",
+			CommandDeps: []string{"$windmcCmd"},
+		},
+		"windmcCmd")
 )
 
 func genYacc(ctx android.ModuleContext, yaccFile android.Path, outFile android.ModuleGenPath, yaccFlags string) (headerFile android.ModuleGenPath) {
 	headerFile = android.GenPathWithExt(ctx, "yacc", yaccFile, "h")
 
-	ctx.ModuleBuild(pctx, android.ModuleBuildParams{
+	ctx.Build(pctx, android.BuildParams{
 		Rule:           yacc,
 		Description:    "yacc " + yaccFile.Rel(),
 		Output:         outFile,
@@ -76,7 +83,7 @@ func genYacc(ctx android.ModuleContext, yaccFile android.Path, outFile android.M
 
 func genAidl(ctx android.ModuleContext, aidlFile android.Path, outFile android.ModuleGenPath, aidlFlags string) android.Paths {
 
-	ctx.ModuleBuild(pctx, android.ModuleBuildParams{
+	ctx.Build(pctx, android.BuildParams{
 		Rule:        aidl,
 		Description: "aidl " + aidlFile.Rel(),
 		Output:      outFile,
@@ -92,12 +99,32 @@ func genAidl(ctx android.ModuleContext, aidlFile android.Path, outFile android.M
 }
 
 func genLex(ctx android.ModuleContext, lexFile android.Path, outFile android.ModuleGenPath) {
-	ctx.ModuleBuild(pctx, android.ModuleBuildParams{
+	ctx.Build(pctx, android.BuildParams{
 		Rule:        lex,
 		Description: "lex " + lexFile.Rel(),
 		Output:      outFile,
 		Input:       lexFile,
 	})
+}
+
+func genWinMsg(ctx android.ModuleContext, srcFile android.Path, flags builderFlags) (android.Path, android.Path) {
+	headerFile := android.GenPathWithExt(ctx, "windmc", srcFile, "h")
+	rcFile := android.GenPathWithExt(ctx, "windmc", srcFile, "rc")
+
+	windmcCmd := gccCmd(flags.toolchain, "windmc")
+
+	ctx.Build(pctx, android.BuildParams{
+		Rule:           windmc,
+		Description:    "windmc " + srcFile.Rel(),
+		Output:         rcFile,
+		ImplicitOutput: headerFile,
+		Input:          srcFile,
+		Args: map[string]string{
+			"windmcCmd": windmcCmd,
+		},
+	})
+
+	return rcFile, headerFile
 }
 
 func genSources(ctx android.ModuleContext, srcFiles android.Paths,
@@ -126,8 +153,9 @@ func genSources(ctx android.ModuleContext, srcFiles android.Paths,
 			srcFiles[i] = cppFile
 			genLex(ctx, srcFile, cppFile)
 		case ".proto":
-			cppFile, headerFile := genProto(ctx, srcFile, buildFlags.protoFlags)
-			srcFiles[i] = cppFile
+			ccFile, headerFile := genProto(ctx, srcFile, buildFlags.protoFlags,
+				buildFlags.protoOutParams, buildFlags.protoRoot)
+			srcFiles[i] = ccFile
 			deps = append(deps, headerFile)
 		case ".aidl":
 			cppFile := android.GenPathWithExt(ctx, "aidl", srcFile, "cpp")
@@ -137,6 +165,10 @@ func genSources(ctx android.ModuleContext, srcFiles android.Paths,
 			cppFile := rsGeneratedCppFile(ctx, srcFile)
 			rsFiles = append(rsFiles, srcFiles[i])
 			srcFiles[i] = cppFile
+		case ".mc":
+			rcFile, headerFile := genWinMsg(ctx, srcFile, buildFlags)
+			srcFiles[i] = rcFile
+			deps = append(deps, headerFile)
 		}
 	}
 

@@ -15,11 +15,14 @@
 instrumentation_metric_tests := \
     crashcollector \
     CorePerfTests \
-    DocumentsUIPerfTests \
     DocumentsUIAppPerfTests \
     MtpDocumentsProviderPerfTests \
     perf-setup.sh \
-    SurfaceComposition \
     RsBlasBenchmark \
     ImageProcessingJB \
-    MultiUserPerfTests
+    MultiUserPerfTests \
+    NeuralNetworksApiBenchmark
+
+    # TODO(b/72332760): Uncomment when fixed
+    #DocumentsUIPerfTests
+

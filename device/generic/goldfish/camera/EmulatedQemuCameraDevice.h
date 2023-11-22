@@ -82,10 +82,12 @@ public:
 public:
 
     /* Copy the current frame to |buffer| */
-    status_t getCurrentFrame(void* buffer, uint32_t pixelFormat) override;
+    status_t getCurrentFrame(void* buffer, uint32_t pixelFormat,
+                             int64_t* timestamp) override;
 
     /* Copy the current preview frame to |buffer| */
-    status_t getCurrentPreviewFrame(void* buffer) override;
+    status_t getCurrentPreviewFrame(void* buffer,
+                                    int64_t* timestamp) override;
 
     /* Get a pointer to the current frame, lock it first using FrameLock in
      * EmulatedCameraDevice class */
@@ -99,7 +101,7 @@ public:
 
 protected:
     /* Implementation of the frame production routine. */
-    bool produceFrame(void* buffer) override;
+    bool produceFrame(void* buffer, int64_t* timestamp) override;
 
     void* getPrimaryBuffer() override;
     void* getSecondaryBuffer() override;

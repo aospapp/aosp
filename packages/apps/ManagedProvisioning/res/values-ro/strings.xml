@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"Se configurează dispozitivul..."</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Se procesează datele de configurare..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Se conectează la Wi-Fi..."</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Se conectează la rețeaua mobilă…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Se descarcă aplicația de administrare..."</string>
     <string name="progress_install" msgid="2258045670385866183">"Se instalează aplicația de administrare..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Se elimină aplicațiile de sistem nenecesare…"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Sunteți pe punctul de a crea un profil de serviciu care va fi gestionat și monitorizat de organizația dvs. Trebuie respectate condiții impuse de <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"Va fi creat un profil pentru aplicațiile dvs. de serviciu. Acest profil și restul dispozitivului vor fi gestionate și monitorizate de organizația dvs. Se impun condiții."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"Va fi creat un profil pentru aplicațiile dvs. de serviciu. Acest profil și restul dispozitivului vor fi gestionate și monitorizate de organizația dvs. Trebuie respectate condiții impuse de <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"Acest dispozitiv va fi gestionat și păstrat în siguranță de <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Se impun condiții. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"Acest dispozitiv va fi gestionat și păstrat în siguranță de <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Trebuie respectate condiții impuse de <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"Acest dispozitiv va fi gestionat, monitorizat și păstrat în siguranță de <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Se aplică termeni. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Acest dispozitiv va fi gestionat, monitorizat și păstrat în siguranță de <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Se aplică termenii din <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Acest link nu este sigur și nu poate fi deschis până când nu se încheie configurarea dispozitivului: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"Dacă aveți întrebări, contactați <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"Dacă aveți întrebări, contactați administratorul organizației"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> și <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"Poate dura câteva minute"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"Aplicațiile dvs. de lucru vor fi păstrate în acest profil și vor fi gestionate de organizația dvs."</string>
+    <string name="device_owner_description" msgid="168013145812679664">"Acest dispozitiv va fi păstrat în siguranță și gestionat de organizația dvs."</string>
 </resources>

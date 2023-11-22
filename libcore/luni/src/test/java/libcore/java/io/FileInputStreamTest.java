@@ -26,10 +26,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import android.system.ErrnoException;
+import android.system.Int32Ref;
 import android.system.Os;
 import android.system.OsConstants;
 import android.system.StructStatVfs;
-import android.util.MutableInt;
+import android.system.Int32Ref;
 
 import libcore.io.IoUtils;
 import libcore.io.Libcore;
@@ -222,7 +223,7 @@ public final class FileInputStreamTest extends TestCaseWithRules {
         }
 
         try (FileInputStream input = new FileInputStream(file)) {
-            android.system.Os.ioctlInt(input.getFD(), OsConstants.FIONREAD, new MutableInt(0));
+            android.system.Os.ioctlInt(input.getFD(), OsConstants.FIONREAD, new Int32Ref(0));
             fail();
         } catch (ErrnoException expected) {
             assertEquals("FIONREAD should have returned ENOTTY for the file. If it doesn't return"

@@ -22,9 +22,9 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
-import android.support.annotation.StringRes;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.NonNull;
+import androidx.annotation.StringRes;
+import androidx.annotation.VisibleForTesting;
 import android.text.Spannable;
 import android.util.Log;
 

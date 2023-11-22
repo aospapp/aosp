@@ -16,6 +16,7 @@
 
 package android.telecom.cts;
 
+import android.os.Bundle;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
 import android.telecom.ConnectionService;
@@ -27,6 +28,7 @@ import android.telecom.TelecomManager;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Default implementation of a {@link CtsConnectionService}. This is used for the majority
@@ -34,7 +36,19 @@ import java.util.concurrent.Semaphore;
  * received.
  */
 public class MockConnectionService extends ConnectionService {
+    public static final String EXTRA_TEST = "com.android.telecom.extra.TEST";
+    public static final String TEST_VALUE = "we've got it";
     public static final int CONNECTION_PRESENTATION =  TelecomManager.PRESENTATION_ALLOWED;
+
+    public static final int EVENT_CONNECTION_SERVICE_FOCUS_GAINED = 0;
+    public static final int EVENT_CONNECTION_SERVICE_FOCUS_LOST = 1;
+
+    // Next event id is 2
+    private static final int TOTAL_EVENT = EVENT_CONNECTION_SERVICE_FOCUS_LOST + 1;
+
+    private static final int DEFAULT_EVENT_TIMEOUT_MS = 2000;
+
+    private final Semaphore[] mEventLock = initializeSemaphore(TOTAL_EVENT);
 
     /**
      * Used to control whether the {@link MockVideoProvider} will be created when connections are
@@ -70,7 +84,10 @@ public class MockConnectionService extends ConnectionService {
             connection.setConnectionProperties(connection.getConnectionProperties() |
                     Connection.PROPERTY_IS_RTT);
         }
-
+        // Emit an extra into the connection.  We'll see if it makes it through.
+        Bundle testExtra = new Bundle();
+        testExtra.putString(EXTRA_TEST, TEST_VALUE);
+        connection.putExtras(testExtra);
         outgoingConnections.add(connection);
         lock.release();
         return connection;
@@ -93,6 +110,10 @@ public class MockConnectionService extends ConnectionService {
                     Connection.PROPERTY_IS_RTT);
         }
         connection.setRinging();
+        // Emit an extra into the connection.  We'll see if it makes it through.
+        Bundle testExtra = new Bundle();
+        testExtra.putString(EXTRA_TEST, TEST_VALUE);
+        connection.putExtras(testExtra);
 
         incomingConnections.add(connection);
         lock.release();
@@ -131,7 +152,40 @@ public class MockConnectionService extends ConnectionService {
         remoteConferences.add(conference);
     }
 
+    @Override
+    public void onConnectionServiceFocusGained() {
+        mEventLock[EVENT_CONNECTION_SERVICE_FOCUS_GAINED].release();
+    }
+
+    @Override
+    public void onConnectionServiceFocusLost() {
+        mEventLock[EVENT_CONNECTION_SERVICE_FOCUS_LOST].release();
+        connectionServiceFocusReleased();
+    }
+
     public void setCreateVideoProvider(boolean createVideoProvider) {
         mCreateVideoProvider = createVideoProvider;
+    }
+
+    /** Returns true if the given {@code event} is happened before the default timeout. */
+    public boolean waitForEvent(int event) {
+        if (event < 0 || event >= mEventLock.length) {
+            return false;
+        }
+
+        try {
+            return mEventLock[event].tryAcquire(DEFAULT_EVENT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            // No interaction for the given event within the given timeout.
+            return false;
+        }
+    }
+
+    private static final Semaphore[] initializeSemaphore(int total) {
+        Semaphore[] locks = new Semaphore[total];
+        for (int i = 0; i < total; i++) {
+            locks[i] = new Semaphore(0);
+        }
+        return locks;
     }
 }

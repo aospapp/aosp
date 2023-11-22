@@ -25,6 +25,7 @@ public interface RenderCompletionListener {
      * @param numTriangles Number of triangles in geometric model
      * @param frameInterval interval for each frame in ms. Do not use the first one and the last one.
      */
-    void onRenderCompletion(float averageFps, int numTriangles, int[] frameInterval);
+    void onRenderCompletion(float averageFps, int numTriangles, int[] frameInterval,
+            String rendererName);
 
 }

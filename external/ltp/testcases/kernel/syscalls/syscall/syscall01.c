@@ -28,7 +28,7 @@
 #include <sys/types.h>
 
 #include "tst_test.h"
-#include "linux_syscall_numbers.h"
+#include "lapi/syscalls.h"
 
 static void verify_getpid(void)
 {
@@ -88,7 +88,6 @@ static void verify_syscall(unsigned int n)
 }
 
 static struct tst_test test = {
-	.tid = "syscall01",
 	.test = verify_syscall,
 	.tcnt = ARRAY_SIZE(tcases),
 };

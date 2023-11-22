@@ -56,6 +56,7 @@ public class IncludeExcludeTest {
 
     private List<File> mIncludeFiles;
     private List<File> mExcludeFiles;
+    private List<File> mRequireFakeClientSideEncryptionFiles;
 
     private SharedPreferences mIncludeSharedPref;
     private SharedPreferences mExcludeSharedPref;
@@ -68,10 +69,11 @@ public class IncludeExcludeTest {
 
     private void setupFiles() {
 
-        // We add all the files we expect to be backed up accoring to res/my_backup_rules.xml to
+        // We add all the files we expect to be backed up according to res/my_backup_rules.xml to
         // the mIncludeFiles list, and all files expected not to be to mExcludeFiles.
-        mIncludeFiles = new ArrayList<File>();
-        mExcludeFiles = new ArrayList<File>();
+        mIncludeFiles = new ArrayList<>();
+        mExcludeFiles = new ArrayList<>();
+        mRequireFakeClientSideEncryptionFiles = new ArrayList<>();
 
         // Files in the normal files directory.
         File filesDir = mContext.getFilesDir();
@@ -94,6 +96,7 @@ public class IncludeExcludeTest {
         File rootDir = mContext.getDataDir();
         mIncludeFiles.add(new File(rootDir, "file_to_include"));
         mExcludeFiles.add(new File(rootDir, "file_to_exclude"));
+        mRequireFakeClientSideEncryptionFiles.add(new File(rootDir, "fake_encryption_file"));
 
         // Set up SharedPreferences
         mIncludeSharedPref =
@@ -144,6 +147,16 @@ public class IncludeExcludeTest {
         checkExcludeSharedPrefDoNotExist();
     }
 
+    @Test
+    public void checkRestoredClientSideEncryptionFiles() throws Exception {
+        checkRequireFakeClientSideEncryptionFilesDoExist();
+    }
+
+    @Test
+    public void checkDidNotRestoreClientSideEncryptionFiles() throws Exception {
+        checkRequireFakeClientSideEncryptionFilesDoNotExist();
+    }
+
     private void generateFiles() {
         try {
             // Add data to all the files we created
@@ -151,6 +164,9 @@ public class IncludeExcludeTest {
                 addData(file);
             }
             for (File file : mExcludeFiles) {
+                addData(file);
+            }
+            for (File file : mRequireFakeClientSideEncryptionFiles) {
                 addData(file);
             }
         } catch (IOException e) {
@@ -163,6 +179,9 @@ public class IncludeExcludeTest {
             file.delete();
         }
         for (File file : mExcludeFiles) {
+            file.delete();
+        }
+        for (File file : mRequireFakeClientSideEncryptionFiles) {
             file.delete();
         }
     }
@@ -185,6 +204,9 @@ public class IncludeExcludeTest {
         for (File file: mExcludeFiles) {
             assertTrue("File did unexpectedly not exist: " + file.getAbsolutePath(), file.exists());
         }
+        for (File file : mRequireFakeClientSideEncryptionFiles) {
+            assertTrue("File did unexpectedly not exist: " + file.getAbsolutePath(), file.exists());
+        }
     }
 
     private void checkNoFilesExist() {
@@ -192,6 +214,9 @@ public class IncludeExcludeTest {
             assertFalse("File did unexpectedly exist: " + file.getAbsolutePath(), file.exists());
         }
         for (File file: mExcludeFiles) {
+            assertFalse("File did unexpectedly exist: " + file.getAbsolutePath(), file.exists());
+        }
+        for (File file : mRequireFakeClientSideEncryptionFiles) {
             assertFalse("File did unexpectedly exist: " + file.getAbsolutePath(), file.exists());
         }
     }
@@ -206,6 +231,20 @@ public class IncludeExcludeTest {
     private void checkIncludeFilesDoExist() {
         for (File file: mIncludeFiles) {
             assertTrue("File expected to be restored did not exist: " + file.getAbsolutePath(),
+                    file.exists());
+        }
+    }
+
+    private void checkRequireFakeClientSideEncryptionFilesDoExist() {
+        for (File file: mRequireFakeClientSideEncryptionFiles) {
+            assertTrue("File expected to be restored did not exist: " + file.getAbsolutePath(),
+                    file.exists());
+        }
+    }
+
+    private void checkRequireFakeClientSideEncryptionFilesDoNotExist() {
+        for (File file: mRequireFakeClientSideEncryptionFiles) {
+            assertFalse("File expected not to be restored did exist: " + file.getAbsolutePath(),
                     file.exists());
         }
     }

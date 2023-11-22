@@ -28,14 +28,16 @@ def main():
         # Only run test if the appropriate caps are claimed.
         its.caps.skip_unless(its.caps.sensor_fusion(props))
 
+        sensors = cam.get_sensors()
         cam.start_sensor_events()
         time.sleep(1)
         events = cam.get_sensor_events()
         print "Events over 1s: %d gyro, %d accel, %d mag"%(
                 len(events["gyro"]), len(events["accel"]), len(events["mag"]))
-        assert(len(events["gyro"]) > 0)
-        assert(len(events["accel"]) > 0)
-        assert(len(events["mag"]) > 0)
+        for key, existing in sensors.iteritems():
+            if existing:
+                e_msg = 'Sensor %s has no events!' % key
+                assert len(events[key]) > 0, e_msg
 
 if __name__ == '__main__':
     main()

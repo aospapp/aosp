@@ -44,6 +44,7 @@ import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.ServiceManager;
 import android.os.SystemClock;
+import android.platform.test.annotations.AppModeFull;
 import android.support.test.filters.SmallTest;
 import android.platform.test.annotations.RequiresDevice;
 import android.util.Log;
@@ -71,6 +72,7 @@ import junit.framework.AssertionFailedError;
  */
 @SmallTest
 @RequiresDevice
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaPlayerDrmTest extends MediaPlayerDrmTestBase {
 
     private static final String LOG_TAG = "MediaPlayerDrmTest";
@@ -121,11 +123,11 @@ public class MediaPlayerDrmTest extends MediaPlayerDrmTestBase {
     // Assets
 
     private static final Uri CENC_AUDIO_URL = Uri.parse(
-            "http://storage.googleapis.com/wvmedia/cenc/clearkey/car_cenc-20120827-8c-pssh.mp4");
+            "https://storage.googleapis.com/wvmedia/cenc/clearkey/car_cenc-20120827-8c-pssh.mp4");
     private static final Uri CENC_AUDIO_URL_DOWNLOADED = getUriFromFile("car_cenc-20120827-8c.mp4");
 
     private static final Uri CENC_VIDEO_URL = Uri.parse(
-            "http://storage.googleapis.com/wvmedia/cenc/clearkey/car_cenc-20120827-88-pssh.mp4");
+            "https://storage.googleapis.com/wvmedia/cenc/clearkey/car_cenc-20120827-88-pssh.mp4");
     private static final Uri CENC_VIDEO_URL_DOWNLOADED = getUriFromFile("car_cenc-20120827-88.mp4");
 
 

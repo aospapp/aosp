@@ -78,8 +78,8 @@ public:
                 bool use_peephole, bool use_projection_weights,
                 bool use_projection_bias, float cell_clip, float proj_clip,
                 const std::vector<std::vector<uint32_t>>& input_shapes0)
-        : n_batch_(n_batch), n_input_(n_input),
-          n_cell_(n_cell), n_output_(n_output),
+        : n_input_(n_input),
+          n_output_(n_output),
           use_cifg_(use_cifg), use_peephole_(use_peephole),
           use_projection_weights_(use_projection_weights),
           use_projection_bias_(use_projection_bias),
@@ -249,9 +249,7 @@ public:
 private:
     Model model_;
     // Execution execution_;
-    const uint32_t n_batch_;
     const uint32_t n_input_;
-    const uint32_t n_cell_;
     const uint32_t n_output_;
 
     const bool use_cifg_;

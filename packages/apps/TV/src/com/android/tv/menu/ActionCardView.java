@@ -22,12 +22,9 @@ import android.util.Log;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
-
 import com.android.tv.R;
 
-/**
- * A view to render an item of TV options.
- */
+/** A view to render an item of TV options. */
 public class ActionCardView extends RelativeLayout implements ItemListRowView.CardView<MenuAction> {
     private static final String TAG = MenuView.TAG;
     private static final boolean DEBUG = MenuView.DEBUG;
@@ -97,5 +94,5 @@ public class ActionCardView extends RelativeLayout implements ItemListRowView.Ca
     }
 
     @Override
-    public void onRecycled() { }
+    public void onRecycled() {}
 }

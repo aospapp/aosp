@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 
@@ -29,39 +30,41 @@ struct DetailedFunctionEntry {
 };
 
 static const char OVERVIEW_HTML_FILE_NAME[] = "overview.html";
-static const char OVERVIEW_JD_FILE_NAME[] = "overview.jd";
 static const char INDEX_HTML_FILE_NAME[] = "index.html";
-static const char INDEX_JD_FILE_NAME[] = "index.jd";
 
-static void writeHeader(GeneratedFile* file, bool forVerification, const string& title) {
-    if (forVerification) {
-        *file << "<!DOCTYPE html>\n";
-        *file << "<!-- " << AUTO_GENERATED_WARNING << "-->\n";
-        *file << "<html><head>\n"
-                 "<title>RenderScript Reference</title>\n"
-                 "<meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>\n"
-                 "<link rel='stylesheet' "
-                 "href='http://fonts.googleapis.com/css?family=Roboto+Condensed'>\n"
-                 "<link rel='stylesheet' href='http://fonts.googleapis.com/"
-                 "css?family=Roboto:light,regular,medium,thin,italic,mediumitalic,bold' "
-                 "title='roboto'>\n"
-                 "<link href='default.css' rel='stylesheet' type='text/css'>\n"
-                 "<link href='fullscreen.css' rel='stylesheet' class='fullscreen' "
-                 "type='text/css'>\n"
-                 "<body class='gc-documentation develop reference'>\n\n";
-        *file << "<h1>" << title << "</h1>\n";
-    } else {
-        *file << "page.title=RenderScript " << title << "\n\n";
-        *file << "@jd:body\n\n";
+static void writeHeader(GeneratedFile* file, const string& title,
+                        const SpecFile& specFile) {
+    // Generate DevSite markups
+    *file
+        << "<html devsite>\n"
+           "<!-- " << AUTO_GENERATED_WARNING << "-->\n"
+           "<head>\n"
+           "  <title>RenderScript " << title << "</title>\n"
+           "  <meta name=\"top_category\" value=\"develop\" />\n"
+           "  <meta name=\"subcategory\" value=\"guide\" />\n"
+           "  <meta name=\"book_path\" value=\"/guide/_book.yaml\" />\n"
+           "  <meta name=\"project_path\" value=\"/guide/_project.yaml\" />\n";
+    auto desc = specFile.getFullDescription();
+    if (desc.size()) {
+        *file << "  <meta name=\"description\" content=\"";
+        // Output only the first two lines. Assuming there's no other HTML
+        // markups there
+        // TODO: escape/remove markups
+        for (unsigned int i = 0; i < std::min(desc.size(), 2UL); ++i) {
+            if (i) *file << " ";
+            *file << desc[i];
+        }
+        *file << "…\">\n";
     }
+    *file << "</head>\n\n"
+             "<body>\n\n";
     *file << "<div class='renderscript'>\n";
 }
 
-static void writeFooter(GeneratedFile* file, bool forVerification) {
+static void writeFooter(GeneratedFile* file) {
     *file << "</div>\n";
-    if (forVerification) {
-        *file << "</body></html>\n";
-    }
+    *file << "\n\n</body>\n";
+    *file << "</html>\n";
 }
 
 // If prefix starts input, copy it to stream and remove it from input.
@@ -425,14 +428,17 @@ static bool writeOverviewForFile(GeneratedFile* file, const SpecFile& specFile) 
     return success;
 }
 
-static bool generateOverview(const string& directory, bool forVerification) {
+static bool generateOverview(const string& directory) {
     GeneratedFile file;
-    if (!file.start(directory, forVerification ? OVERVIEW_HTML_FILE_NAME : OVERVIEW_JD_FILE_NAME)) {
+    if (!file.start(directory, OVERVIEW_HTML_FILE_NAME)) {
         return false;
     }
     bool success = true;
 
-    writeHeader(&file, forVerification, "Runtime API Reference");
+    // Take the description from the first spec file (rs_core.spec, based on how
+    // currently this generator is called)
+    writeHeader(&file, "Runtime API Reference",
+                *(systemSpecification.getSpecFiles()[0]));
 
     for (auto specFile : systemSpecification.getSpecFiles()) {
         if (!writeOverviewForFile(&file, *specFile)) {
@@ -440,17 +446,17 @@ static bool generateOverview(const string& directory, bool forVerification) {
         }
     }
 
-    writeFooter(&file, forVerification);
+    writeFooter(&file);
     file.close();
     return success;
 }
 
-static bool generateAlphabeticalIndex(const string& directory, bool forVerification) {
+static bool generateAlphabeticalIndex(const string& directory) {
     GeneratedFile file;
-    if (!file.start(directory, forVerification ? INDEX_HTML_FILE_NAME : INDEX_JD_FILE_NAME)) {
+    if (!file.start(directory, INDEX_HTML_FILE_NAME)) {
         return false;
     }
-    writeHeader(&file, forVerification, "Index");
+    writeHeader(&file, "Index", SpecFile(""));
 
     writeSummaryTables(&file, systemSpecification.getConstants(), systemSpecification.getTypes(),
                        systemSpecification.getFunctions(), NON_DEPRECATED_ONLY, true);
@@ -458,7 +464,7 @@ static bool generateAlphabeticalIndex(const string& directory, bool forVerificat
     writeSummaryTables(&file, systemSpecification.getConstants(), systemSpecification.getTypes(),
                        systemSpecification.getFunctions(), DEPRECATED_ONLY, true);
 
-    writeFooter(&file, forVerification);
+    writeFooter(&file);
     file.close();
     return true;
 }
@@ -608,8 +614,8 @@ static bool writeDetailedFunction(GeneratedFile* file, Function* function) {
     return true;
 }
 
-static bool writeDetailedDocumentationFile(const string& directory, const SpecFile& specFile,
-                                           bool forVerification) {
+static bool writeDetailedDocumentationFile(const string& directory,
+                                           const SpecFile& specFile) {
     if (!specFile.hasSpecifications()) {
         // This is true for rs_core.spec
         return true;
@@ -617,14 +623,14 @@ static bool writeDetailedDocumentationFile(const string& directory, const SpecFi
 
     GeneratedFile file;
     const string fileName = stringReplace(specFile.getSpecFileName(), ".spec",
-                                          forVerification ? ".html" : ".jd");
+                                          ".html");
     if (!file.start(directory, fileName)) {
         return false;
     }
     bool success = true;
 
     string title = specFile.getBriefDescription();
-    writeHeader(&file, forVerification, title);
+    writeHeader(&file, title, specFile);
 
     file << "<h2>Overview</h2>\n";
     if (!generateHtmlParagraphs(&file, specFile.getFullDescription())) {
@@ -666,7 +672,7 @@ static bool writeDetailedDocumentationFile(const string& directory, const SpecFi
         }
     }
 
-    writeFooter(&file, forVerification);
+    writeFooter(&file);
     file.close();
 
     if (!success) {
@@ -718,12 +724,12 @@ static bool generateAndroidTableOfContentSnippet(const string& directory) {
     return true;
 }
 
-bool generateDocumentation(const string& directory, bool forVerification) {
-    bool success = generateOverview(directory, forVerification) &&
-                   generateAlphabeticalIndex(directory, forVerification) &&
+bool generateDocumentation(const string& directory) {
+    bool success = generateOverview(directory) &&
+                   generateAlphabeticalIndex(directory) &&
                    generateAndroidTableOfContentSnippet(directory);
     for (auto specFile : systemSpecification.getSpecFiles()) {
-        if (!writeDetailedDocumentationFile(directory, *specFile, forVerification)) {
+        if (!writeDetailedDocumentationFile(directory, *specFile)) {
             success = false;
         }
     }

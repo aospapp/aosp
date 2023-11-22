@@ -12,19 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import its.image
 import its.caps
 import its.device
+import its.image
 import its.objects
 import its.target
 
-def main():
-    """Test that the android.sensor.sensitivity parameter is applied properly
-    within a burst. Inspects the output metadata only (not the image data).
-    """
+NUM_STEPS = 3
+ERROR_TOLERANCE = 0.97  # Allow ISO to be rounded down by 3%
 
-    NUM_STEPS = 3
-    ERROR_TOLERANCE = 0.97 # Allow ISO to be rounded down by 3%
+
+def main():
+    """Test android.sensor.sensitivity parameter applied properly in burst.
+
+    Inspects the output metadata only (not the image data).
+    """
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
@@ -35,15 +37,17 @@ def main():
         sens_step = (sens_range[1] - sens_range[0]) / NUM_STEPS
         sens_list = range(sens_range[0], sens_range[1], sens_step)
         e = min(props['android.sensor.info.exposureTimeRange'])
-        reqs = [its.objects.manual_capture_request(s,e) for s in sens_list]
-        _,fmt = its.objects.get_fastest_manual_capture_settings(props)
+        reqs = [its.objects.manual_capture_request(s, e) for s in sens_list]
+        _, fmt = its.objects.get_fastest_manual_capture_settings(props)
 
         caps = cam.do_capture(reqs, fmt)
-        for i,cap in enumerate(caps):
+        for i, cap in enumerate(caps):
             s_req = sens_list[i]
-            s_res = cap["metadata"]["android.sensor.sensitivity"]
-            assert(s_req >= s_res)
-            assert(s_res/float(s_req) > ERROR_TOLERANCE)
+            s_res = cap['metadata']['android.sensor.sensitivity']
+            msg = 's_write: %d, s_read: %d, TOL: %.2f' % (s_req, s_res,
+                                                          ERROR_TOLERANCE)
+            assert s_req >= s_res, msg
+            assert s_res/float(s_req) > ERROR_TOLERANCE, msg
 
 if __name__ == '__main__':
     main()

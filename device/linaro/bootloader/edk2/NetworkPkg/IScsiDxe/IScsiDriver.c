@@ -1,7 +1,7 @@
 /** @file
   The entry point of IScsi driver.
 
-Copyright (c) 2004 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -323,7 +323,10 @@ IScsiSupported (
   @retval EFI_INVALID_PARAMETER Any input parameter is invalid.
   @retval EFI_NOT_FOUND         There is no sufficient information to establish
                                 the iScsi session.
-  @retval EFI_DEVICE_ERROR      Failed to get TCP connection device path.                              
+  @retval EFI_OUT_OF_RESOURCES  Failed to allocate memory.
+  @retval EFI_DEVICE_ERROR      Failed to get TCP connection device path.
+  @retval EFI_ACCESS_DENIED     The protocol could not be removed from the Handle
+                                because its interfaces are being used.
 
 **/
 EFI_STATUS
@@ -355,6 +358,7 @@ IScsiStart (
   VOID                            *Interface;
   EFI_GUID                        *ProtocolGuid;
   UINT8                           NetworkBootPolicy;
+  ISCSI_SESSION_CONFIG_NVDATA     *NvData;
 
   //
   // Test to see if iSCSI driver supports the given controller.
@@ -669,7 +673,7 @@ IScsiStart (
     Session->ConfigData = AttemptConfigData;
     Session->AuthType   = AttemptConfigData->AuthenticationType;
 
-    AsciiStrToUnicodeStr (AttemptConfigData->MacString, MacString);
+    AsciiStrToUnicodeStrS (AttemptConfigData->MacString, MacString, ARRAY_SIZE (MacString));
     UnicodeSPrint (
       mPrivate->PortString,
       (UINTN) ISCSI_NAME_IFR_MAX_SIZE,
@@ -696,6 +700,24 @@ IScsiStart (
       Status = IScsiSessionLogin (Session);
     } else if (Status == EFI_NOT_READY) {
       Status = IScsiSessionReLogin (Session);
+    }
+
+    //
+    // Restore the origial user setting which specifies the proxy/virtual iSCSI target to NV region.
+    //
+    NvData = &AttemptConfigData->SessionConfigData;
+    if (NvData->RedirectFlag) {
+      NvData->TargetPort = NvData->OriginalTargetPort;
+      CopyMem (&NvData->TargetIp, &NvData->OriginalTargetIp, sizeof (EFI_IP_ADDRESS));
+      NvData->RedirectFlag = FALSE;
+
+      gRT->SetVariable (
+             mPrivate->PortString,
+             &gEfiIScsiInitiatorNameProtocolGuid,
+             ISCSI_CONFIG_VAR_ATTR,
+             sizeof (ISCSI_ATTEMPT_CONFIG_NVDATA),
+             AttemptConfigData
+             );
     }
 
     if (EFI_ERROR (Status)) {
@@ -863,7 +885,22 @@ IScsiStart (
           IScsiSessionAbort (ExistPrivate->Session);
         }
 
-        IScsiCleanDriverData (ExistPrivate);
+        if (ExistPrivate->DevicePath != NULL) {
+          Status = gBS->UninstallProtocolInterface (
+                          ExistPrivate->ExtScsiPassThruHandle,
+                          &gEfiDevicePathProtocolGuid,
+                          ExistPrivate->DevicePath
+                          );
+          if (EFI_ERROR (Status)) {
+            goto ON_ERROR;
+          }
+
+          FreePool (ExistPrivate->DevicePath);
+        }
+
+        gBS->CloseEvent (ExistPrivate->ExitBootServiceEvent);
+        FreePool (ExistPrivate);
+
       }
     } else {
       //
@@ -963,6 +1000,9 @@ ON_ERROR:
   
   @retval EFI_SUCCESS           The device was stopped.
   @retval EFI_DEVICE_ERROR      The device could not be stopped due to a device error.
+  @retval EFI_INVALID_PARAMETER Child handle is NULL.
+  @retval EFI_ACCESS_DENIED     The protocol could not be removed from the Handle
+                                because its interfaces are being used.
 
 **/
 EFI_STATUS
@@ -1105,7 +1145,11 @@ IScsiStop (
     IScsiSessionAbort (Private->Session);
   }
 
-  IScsiCleanDriverData (Private);
+  Status = IScsiCleanDriverData (Private);
+
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
 
   return EFI_SUCCESS;
 }

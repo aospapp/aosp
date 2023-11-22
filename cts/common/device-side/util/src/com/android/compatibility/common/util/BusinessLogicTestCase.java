@@ -15,6 +15,7 @@
  */
 package com.android.compatibility.common.util;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
@@ -44,17 +45,19 @@ public class BusinessLogicTestCase {
     /* Test name rule that tracks the current test method under execution */
     @Rule public TestName mTestCase = new TestName();
 
-    private static BusinessLogic mBusinessLogic;
-
-    @BeforeClass
-    public static void prepareBusinessLogic() {
-        File businessLogicFile = new File(BusinessLogic.DEVICE_FILE);
-        mBusinessLogic = BusinessLogicFactory.createFromFile(businessLogicFile);
-    }
+    protected BusinessLogic mBusinessLogic;
+    protected boolean mCanReadBusinessLogic = true;
 
     @Before
-    public void executeBusinessLogic() {
+    public void handleBusinessLogic() {
+        loadBusinessLogic();
+        executeBusinessLogic();
+    }
+
+    protected void executeBusinessLogic() {
         String methodName = mTestCase.getMethodName();
+        assertTrue(String.format("Test \"%s\" is unable to execute as it depends on the missing "
+                + "remote configuration.", methodName), mCanReadBusinessLogic);
         if (methodName.contains(PARAM_START)) {
             // Strip parameter suffix (e.g. "[0]") from method name
             methodName = methodName.substring(0, methodName.lastIndexOf(PARAM_START));
@@ -64,6 +67,15 @@ public class BusinessLogicTestCase {
             Log.i("Finding business logic for test case: ", testName);
             BusinessLogicExecutor executor = new BusinessLogicDeviceExecutor(getContext(), this);
             mBusinessLogic.applyLogicFor(testName, executor);
+        }
+    }
+
+    protected void loadBusinessLogic() {
+        File businessLogicFile = new File(BusinessLogic.DEVICE_FILE);
+        if (businessLogicFile.canRead()) {
+            mBusinessLogic = BusinessLogicFactory.createFromFile(businessLogicFile);
+        } else {
+            mCanReadBusinessLogic = false;
         }
     }
 

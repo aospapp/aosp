@@ -8,8 +8,11 @@ cc_library_shared {
         "src/rtnl.c",
     ],
     cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-error=pointer-sign",
         "-Wno-sign-compare",
-	"-Wno-unused-parameter",
-	"-Wno-pointer-arith",
+        "-Wno-unused-parameter",
+        "-Wno-pointer-arith",
     ],
 }

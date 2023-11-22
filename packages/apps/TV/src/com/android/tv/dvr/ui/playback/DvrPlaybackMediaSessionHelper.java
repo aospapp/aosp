@@ -28,17 +28,15 @@ import android.media.tv.TvContract;
 import android.os.AsyncTask;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
-import com.android.tv.common.SoftPreconditions;
-import com.android.tv.data.Channel;
+import com.android.tv.TvSingletons;
 import com.android.tv.data.ChannelDataManager;
+import com.android.tv.data.api.Channel;
 import com.android.tv.dvr.DvrWatchedPositionManager;
 import com.android.tv.dvr.data.RecordedProgram;
-import com.android.tv.util.ImageLoader;
 import com.android.tv.util.TimeShiftUtils;
 import com.android.tv.util.Utils;
+import com.android.tv.util.images.ImageLoader;
 
 class DvrPlaybackMediaSessionHelper {
     private static final String TAG = "DvrPlaybackMediaSessionHelper";
@@ -55,49 +53,52 @@ class DvrPlaybackMediaSessionHelper {
     private final DvrWatchedPositionManager mDvrWatchedPositionManager;
     private final ChannelDataManager mChannelDataManager;
 
-    public DvrPlaybackMediaSessionHelper(Activity activity, String mediaSessionTag,
-            DvrPlayer dvrPlayer, DvrPlaybackOverlayFragment overlayFragment) {
+    public DvrPlaybackMediaSessionHelper(
+            Activity activity,
+            String mediaSessionTag,
+            DvrPlayer dvrPlayer,
+            DvrPlaybackOverlayFragment overlayFragment) {
         mActivity = activity;
         mDvrPlayer = dvrPlayer;
         mDvrWatchedPositionManager =
-                TvApplication.getSingletons(activity).getDvrWatchedPositionManager();
-        mChannelDataManager = TvApplication.getSingletons(activity).getChannelDataManager();
-        mDvrPlayer.setCallback(new DvrPlayer.DvrPlayerCallback() {
-            @Override
-            public void onPlaybackStateChanged(int playbackState, int playbackSpeed) {
-                updateMediaSessionPlaybackState();
-            }
+                TvSingletons.getSingletons(activity).getDvrWatchedPositionManager();
+        mChannelDataManager = TvSingletons.getSingletons(activity).getChannelDataManager();
+        mDvrPlayer.setCallback(
+                new DvrPlayer.DvrPlayerCallback() {
+                    @Override
+                    public void onPlaybackStateChanged(int playbackState, int playbackSpeed) {
+                        updateMediaSessionPlaybackState();
+                    }
 
-            @Override
-            public void onPlaybackPositionChanged(long positionMs) {
-                updateMediaSessionPlaybackState();
-                if (mDvrPlayer.isPlaybackPrepared()) {
-                    mDvrWatchedPositionManager
-                            .setWatchedPosition(mDvrPlayer.getProgram().getId(), positionMs);
-                }
-            }
+                    @Override
+                    public void onPlaybackPositionChanged(long positionMs) {
+                        updateMediaSessionPlaybackState();
+                        if (mDvrPlayer.isPlaybackPrepared()) {
+                            mDvrWatchedPositionManager.setWatchedPosition(
+                                    mDvrPlayer.getProgram().getId(), positionMs);
+                        }
+                    }
 
-            @Override
-            public void onPlaybackEnded() {
-                // TODO: Deal with watched over recordings in DVR library
-                RecordedProgram nextEpisode =
-                        overlayFragment.getNextEpisode(mDvrPlayer.getProgram());
-                if (nextEpisode == null) {
-                    mDvrPlayer.reset();
-                    mActivity.finish();
-                } else {
-                    Intent intent = new Intent(activity, DvrPlaybackActivity.class);
-                    intent.putExtra(Utils.EXTRA_KEY_RECORDED_PROGRAM_ID, nextEpisode.getId());
-                    mActivity.startActivity(intent);
-                }
-            }
-        });
+                    @Override
+                    public void onPlaybackEnded() {
+                        // TODO: Deal with watched over recordings in DVR library
+                        RecordedProgram nextEpisode =
+                                overlayFragment.getNextEpisode(mDvrPlayer.getProgram());
+                        if (nextEpisode == null) {
+                            mDvrPlayer.reset();
+                            mActivity.finish();
+                        } else {
+                            Intent intent = new Intent(activity, DvrPlaybackActivity.class);
+                            intent.putExtra(
+                                    Utils.EXTRA_KEY_RECORDED_PROGRAM_ID, nextEpisode.getId());
+                            mActivity.startActivity(intent);
+                        }
+                    }
+                });
         initializeMediaSession(mediaSessionTag);
     }
 
-    /**
-     * Stops DVR player and release media session.
-     */
+    /** Stops DVR player and release media session. */
     public void release() {
         if (mDvrPlayer != null) {
             mDvrPlayer.reset();
@@ -108,13 +109,15 @@ class DvrPlaybackMediaSessionHelper {
         }
     }
 
-    /**
-     * Updates media session's playback state and speed.
-     */
+    /** Updates media session's playback state and speed. */
     public void updateMediaSessionPlaybackState() {
-        mMediaSession.setPlaybackState(new PlaybackState.Builder()
-                .setState(mDvrPlayer.getPlaybackState(), mDvrPlayer.getPlaybackPosition(),
-                        mSpeedLevel).build());
+        mMediaSession.setPlaybackState(
+                new PlaybackState.Builder()
+                        .setState(
+                                mDvrPlayer.getPlaybackState(),
+                                mDvrPlayer.getPlaybackPosition(),
+                                mSpeedLevel)
+                        .build());
     }
 
     /**
@@ -132,42 +135,35 @@ class DvrPlaybackMediaSessionHelper {
         }
     }
 
-    /**
-     * Returns the recorded program now playing.
-     */
+    /** Returns the recorded program now playing. */
     public RecordedProgram getProgram() {
         return mDvrPlayer.getProgram();
     }
 
-    /**
-     * Checks if the recorded program is the same as now playing one.
-     */
+    /** Checks if the recorded program is the same as now playing one. */
     public boolean isCurrentProgram(RecordedProgram program) {
         return program != null && program.equals(getProgram());
     }
 
-    /**
-     * Returns playback state.
-     */
+    /** Returns playback state. */
     public int getPlaybackState() {
         return mDvrPlayer.getPlaybackState();
     }
 
-    /**
-     * Returns the underlying DVR player.
-     */
+    /** Returns the underlying DVR player. */
     public DvrPlayer getDvrPlayer() {
         return mDvrPlayer;
     }
 
     private void initializeMediaSession(String mediaSessionTag) {
         mMediaSession = new MediaSession(mActivity, mediaSessionTag);
-        mMediaSession.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS
-                | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
-        mNowPlayingCardWidth = mActivity.getResources()
-                .getDimensionPixelSize(R.dimen.notif_card_img_max_width);
-        mNowPlayingCardHeight = mActivity.getResources()
-                .getDimensionPixelSize(R.dimen.notif_card_img_height);
+        mMediaSession.setFlags(
+                MediaSession.FLAG_HANDLES_MEDIA_BUTTONS
+                        | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
+        mNowPlayingCardWidth =
+                mActivity.getResources().getDimensionPixelSize(R.dimen.notif_card_img_max_width);
+        mNowPlayingCardHeight =
+                mActivity.getResources().getDimensionPixelSize(R.dimen.notif_card_img_height);
         mMediaSession.setCallback(new MediaSessionCallback());
         mActivity.setMediaController(
                 new MediaController(mActivity, mMediaSession.getSessionToken()));
@@ -179,11 +175,17 @@ class DvrPlaybackMediaSessionHelper {
         String cardTitleText = program.getTitle();
         if (TextUtils.isEmpty(cardTitleText)) {
             Channel channel = mChannelDataManager.getChannel(program.getChannelId());
-            cardTitleText = (channel != null) ? channel.getDisplayName()
-                    : mActivity.getString(R.string.no_program_information);
+            cardTitleText =
+                    (channel != null)
+                            ? channel.getDisplayName()
+                            : mActivity.getString(R.string.no_program_information);
         }
-        final MediaMetadata currentMetadata = updateMetadataTextInfo(program.getId(), cardTitleText,
-                program.getDescription(), mProgramDurationMs);
+        final MediaMetadata currentMetadata =
+                updateMetadataTextInfo(
+                        program.getId(),
+                        cardTitleText,
+                        program.getDescription(),
+                        mProgramDurationMs);
         String posterArtUri = program.getPosterArtUri();
         if (posterArtUri == null) {
             posterArtUri = TvContract.buildChannelLogoUri(program.getChannelId()).toString();
@@ -192,12 +194,18 @@ class DvrPlaybackMediaSessionHelper {
         mMediaSession.setActive(true);
     }
 
-    private void updatePosterArt(RecordedProgram program, MediaMetadata currentMetadata,
-            @Nullable Bitmap posterArt, @Nullable String posterArtUri) {
+    private void updatePosterArt(
+            RecordedProgram program,
+            MediaMetadata currentMetadata,
+            @Nullable Bitmap posterArt,
+            @Nullable String posterArtUri) {
         if (posterArt != null) {
             updateMetadataImageInfo(program, currentMetadata, posterArt, 0);
         } else if (posterArtUri != null) {
-            ImageLoader.loadBitmap(mActivity, posterArtUri, mNowPlayingCardWidth,
+            ImageLoader.loadBitmap(
+                    mActivity,
+                    posterArtUri,
+                    mNowPlayingCardWidth,
                     mNowPlayingCardHeight,
                     new ProgramPosterArtCallback(mActivity, program, currentMetadata));
         } else {
@@ -205,13 +213,12 @@ class DvrPlaybackMediaSessionHelper {
         }
     }
 
-    private class ProgramPosterArtCallback extends
-            ImageLoader.ImageLoaderCallback<Activity> {
+    private class ProgramPosterArtCallback extends ImageLoader.ImageLoaderCallback<Activity> {
         private final RecordedProgram mRecordedProgram;
         private final MediaMetadata mCurrentMetadata;
 
-        public ProgramPosterArtCallback(Activity activity, RecordedProgram program,
-                MediaMetadata metadata) {
+        public ProgramPosterArtCallback(
+                Activity activity, RecordedProgram program, MediaMetadata metadata) {
             super(activity);
             mRecordedProgram = program;
             mCurrentMetadata = metadata;
@@ -225,8 +232,8 @@ class DvrPlaybackMediaSessionHelper {
         }
     }
 
-    private MediaMetadata updateMetadataTextInfo(final long programId, final String title,
-            final String subtitle, final long duration) {
+    private MediaMetadata updateMetadataTextInfo(
+            final long programId, final String title, final String subtitle, final long duration) {
         MediaMetadata.Builder builder = new MediaMetadata.Builder();
         builder.putString(MediaMetadata.METADATA_KEY_MEDIA_ID, Long.toString(programId))
                 .putString(MediaMetadata.METADATA_KEY_TITLE, title)
@@ -239,8 +246,11 @@ class DvrPlaybackMediaSessionHelper {
         return metadata;
     }
 
-    private void updateMetadataImageInfo(final RecordedProgram program,
-            final MediaMetadata currentMetadata, final Bitmap posterArt, final int imageResId) {
+    private void updateMetadataImageInfo(
+            final RecordedProgram program,
+            final MediaMetadata currentMetadata,
+            final Bitmap posterArt,
+            final int imageResId) {
         if (mMediaSession != null && (posterArt != null || imageResId != 0)) {
             MediaMetadata.Builder builder = new MediaMetadata.Builder(currentMetadata);
             if (posterArt != null) {
@@ -255,7 +265,8 @@ class DvrPlaybackMediaSessionHelper {
 
                     @Override
                     protected void onPostExecute(Bitmap programPosterArt) {
-                        if (mMediaSession != null && programPosterArt != null
+                        if (mMediaSession != null
+                                && programPosterArt != null
                                 && isCurrentProgram(program)) {
                             builder.putBitmap(MediaMetadata.METADATA_KEY_ART, programPosterArt);
                             mMediaSession.setMetadata(builder.build());

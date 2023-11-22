@@ -2,7 +2,7 @@
   The implementation for the 'tftp' Shell command.
 
   Copyright (c) 2015, ARM Ltd. All rights reserved.<BR>
-  Copyright (c) 2015, Intel Corporation. All rights reserved. <BR>
+  Copyright (c) 2015 - 2016, Intel Corporation. All rights reserved. <BR>
   (C) Copyright 2015 Hewlett Packard Enterprise Development LP<BR>
 
   This program and the accompanying materials
@@ -163,6 +163,7 @@ GetFileSize (
   @param[in]   FilePath       Path of the file, Unicode encoded
   @param[in]   AsciiFilePath  Path of the file, ASCII encoded
   @param[in]   FileSize       Size of the file in number of bytes
+  @param[in]   BlockSize      Value of the TFTP blksize option
   @param[out]  Data           Address where to store the address of the buffer
                               where the data of the file were downloaded in
                               case of success.
@@ -180,6 +181,7 @@ DownloadFile (
   IN   CONST CHAR16         *FilePath,
   IN   CONST CHAR8          *AsciiFilePath,
   IN   UINTN                FileSize,
+  IN   UINT16               BlockSize,
   OUT  VOID                 **Data
   );
 
@@ -223,8 +225,20 @@ STATIC CONST SHELL_PARAM_ITEM ParamList[] = {
   {L"-r", TypeValue},
   {L"-c", TypeValue},
   {L"-t", TypeValue},
+  {L"-s", TypeValue},
   {NULL , TypeMax}
   };
+
+///
+/// The default block size (512) of tftp is defined in the RFC1350.
+///
+#define MTFTP_DEFAULT_BLKSIZE      512
+///
+/// The valid range of block size option is defined in the RFC2348.
+///
+#define MTFTP_MIN_BLKSIZE          8
+#define MTFTP_MAX_BLKSIZE          65464
+
 
 /**
   Function for 'tftp' command.
@@ -258,6 +272,7 @@ ShellCommandRunTftp (
   CONST CHAR16            *ValueStr;
   CONST CHAR16            *RemoteFilePath;
   CHAR8                   *AsciiRemoteFilePath;
+  UINTN                   FilePathSize;
   CONST CHAR16            *Walker;
   CONST CHAR16            *LocalFilePath;
   EFI_MTFTP4_CONFIG_DATA  Mtftp4ConfigData;
@@ -271,6 +286,7 @@ ShellCommandRunTftp (
   UINTN                   FileSize;
   VOID                    *Data;
   SHELL_FILE_HANDLE       FileHandle;
+  UINT16                  BlockSize;
 
   ShellStatus         = SHELL_INVALID_PARAMETER;
   ProblemParam        = NULL;
@@ -278,6 +294,7 @@ ShellCommandRunTftp (
   AsciiRemoteFilePath = NULL;
   Handles             = NULL;
   FileSize            = 0;
+  BlockSize           = MTFTP_DEFAULT_BLKSIZE;
 
   //
   // Initialize the Shell library (we must be in non-auto-init...)
@@ -325,7 +342,7 @@ ShellCommandRunTftp (
     goto Error;
   }
 
-  Mtftp4ConfigData = DefaultMtftp4ConfigData;
+  CopyMem (&Mtftp4ConfigData, &DefaultMtftp4ConfigData, sizeof (EFI_MTFTP4_CONFIG_DATA));
 
   //
   // Check the host IPv4 address
@@ -342,14 +359,13 @@ ShellCommandRunTftp (
 
   RemoteFilePath = ShellCommandLineGetRawValue (CheckPackage, 2);
   ASSERT(RemoteFilePath != NULL);
-  AsciiRemoteFilePath = AllocatePool (
-                          (StrLen (RemoteFilePath) + 1) * sizeof (CHAR8)
-                          );
+  FilePathSize = StrLen (RemoteFilePath) + 1;
+  AsciiRemoteFilePath = AllocatePool (FilePathSize);
   if (AsciiRemoteFilePath == NULL) {
     ShellStatus = SHELL_OUT_OF_RESOURCES;
     goto Error;
   }
-  UnicodeStrToAsciiStr (RemoteFilePath, AsciiRemoteFilePath);
+  UnicodeStrToAsciiStrS (RemoteFilePath, AsciiRemoteFilePath, FilePathSize);
 
   if (ParamCount == 4) {
     LocalFilePath = ShellCommandLineGetRawValue (CheckPackage, 3);
@@ -396,6 +412,20 @@ ShellCommandRunTftp (
       goto Error;
     }
     if (Mtftp4ConfigData.TimeoutValue == 0) {
+      ShellPrintHiiEx (
+        -1, -1, NULL, STRING_TOKEN (STR_GEN_PARAM_INV),
+        gShellTftpHiiHandle, L"tftp", ValueStr
+      );
+      goto Error;
+    }
+  }
+
+  ValueStr = ShellCommandLineGetValue (CheckPackage, L"-s");
+  if (ValueStr != NULL) {
+    if (!StringToUint16 (ValueStr, &BlockSize)) {
+      goto Error;
+    }
+    if (BlockSize < MTFTP_MIN_BLKSIZE || BlockSize > MTFTP_MAX_BLKSIZE) {
       ShellPrintHiiEx (
         -1, -1, NULL, STRING_TOKEN (STR_GEN_PARAM_INV),
         gShellTftpHiiHandle, L"tftp", ValueStr
@@ -478,7 +508,7 @@ ShellCommandRunTftp (
       goto NextHandle;
     }
 
-    Status = DownloadFile (Mtftp4, RemoteFilePath, AsciiRemoteFilePath, FileSize, &Data);
+    Status = DownloadFile (Mtftp4, RemoteFilePath, AsciiRemoteFilePath, FileSize, BlockSize, &Data);
     if (EFI_ERROR (Status)) {
       ShellPrintHiiEx (
         -1, -1, NULL, STRING_TOKEN (STR_TFTP_ERR_DOWNLOAD),
@@ -843,6 +873,7 @@ Error :
   @param[in]   FilePath       Path of the file, Unicode encoded
   @param[in]   AsciiFilePath  Path of the file, ASCII encoded
   @param[in]   FileSize       Size of the file in number of bytes
+  @param[in]   BlockSize      Value of the TFTP blksize option
   @param[out]  Data           Address where to store the address of the buffer
                               where the data of the file were downloaded in
                               case of success.
@@ -860,6 +891,7 @@ DownloadFile (
   IN   CONST CHAR16         *FilePath,
   IN   CONST CHAR8          *AsciiFilePath,
   IN   UINTN                FileSize,
+  IN   UINT16               BlockSize,
   OUT  VOID                 **Data
   )
 {
@@ -868,6 +900,8 @@ DownloadFile (
   VOID                  *Buffer;
   DOWNLOAD_CONTEXT      *TftpContext;
   EFI_MTFTP4_TOKEN      Mtftp4Token;
+  EFI_MTFTP4_OPTION     ReqOpt;
+  UINT8                 OptBuf[10];
 
   // Downloaded file can be large. BS.AllocatePages() is more faster
   // than AllocatePool() and avoid fragmentation.
@@ -900,6 +934,14 @@ DownloadFile (
   Mtftp4Token.Buffer      = Buffer;
   Mtftp4Token.CheckPacket = CheckPacket;
   Mtftp4Token.Context     = (VOID*)TftpContext;
+  if (BlockSize != MTFTP_DEFAULT_BLKSIZE) {
+    ReqOpt.OptionStr = (UINT8 *) "blksize";
+    AsciiSPrint ((CHAR8 *)OptBuf, sizeof (OptBuf), "%d", BlockSize);
+    ReqOpt.ValueStr  = OptBuf;
+
+    Mtftp4Token.OptionCount = 1;
+    Mtftp4Token.OptionList  = &ReqOpt;
+  }
 
   ShellPrintHiiEx (
     -1, -1, NULL, STRING_TOKEN (STR_TFTP_DOWNLOADING),

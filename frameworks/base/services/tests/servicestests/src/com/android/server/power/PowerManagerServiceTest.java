@@ -16,30 +16,27 @@
 
 package com.android.server.power;
 
-import android.content.Context;
-import android.hardware.display.DisplayManagerInternal.DisplayPowerRequest;
-import android.os.PowerManager;
-import android.os.PowerSaveState;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
-import android.text.TextUtils;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import org.junit.Rule;
-import org.junit.rules.TemporaryFolder;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-
 import static android.os.PowerManagerInternal.WAKEFULNESS_ASLEEP;
 import static android.os.PowerManagerInternal.WAKEFULNESS_AWAKE;
-import static android.os.PowerManagerInternal.WAKEFULNESS_DOZING;
-import static android.os.PowerManagerInternal.WAKEFULNESS_DREAMING;
+
 import static com.google.common.truth.Truth.assertThat;
+
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.when;
+
+import android.hardware.display.DisplayManagerInternal.DisplayPowerRequest;
+import android.os.PowerManager;
+import android.os.PowerSaveState;
+import android.os.SystemProperties;
+import android.test.AndroidTestCase;
+import android.test.suitebuilder.annotation.SmallTest;
+
+import com.android.server.power.batterysaver.BatterySaverController;
+
+import org.junit.Rule;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 /**
  * Tests for {@link com.android.server.power.PowerManagerService}
@@ -48,17 +45,14 @@ public class PowerManagerServiceTest extends AndroidTestCase {
     private static final float PRECISION = 0.001f;
     private static final float BRIGHTNESS_FACTOR = 0.7f;
     private static final boolean BATTERY_SAVER_ENABLED = true;
-    private static final String LAST_REBOOT_REASON = "last_reboot_reason";
+    private static final String TEST_LAST_REBOOT_PROPERTY = "test.sys.boot.reason";
 
     private @Mock BatterySaverPolicy mBatterySaverPolicy;
     private PowerManagerService mService;
     private PowerSaveState mPowerSaveState;
     private DisplayPowerRequest mDisplayPowerRequest;
-    private File mTempReason;
 
     @Rule
-    public TemporaryFolder temporaryFolder = new TemporaryFolder();
-
     public void setUp() throws Exception {
         super.setUp();
         MockitoAnnotations.initMocks(this);
@@ -68,12 +62,10 @@ public class PowerManagerServiceTest extends AndroidTestCase {
                 .setBrightnessFactor(BRIGHTNESS_FACTOR)
                 .build();
         when(mBatterySaverPolicy.getBatterySaverPolicy(
-                eq(BatterySaverPolicy.ServiceType.SCREEN_BRIGHTNESS), anyBoolean()))
+                eq(PowerManager.ServiceType.SCREEN_BRIGHTNESS), anyBoolean()))
                 .thenReturn(mPowerSaveState);
         mDisplayPowerRequest = new DisplayPowerRequest();
         mService = new PowerManagerService(getContext(), mBatterySaverPolicy);
-        temporaryFolder.create();
-        mTempReason = temporaryFolder.newFile(LAST_REBOOT_REASON);
     }
 
     @SmallTest
@@ -86,14 +78,9 @@ public class PowerManagerServiceTest extends AndroidTestCase {
 
     @SmallTest
     public void testGetLastShutdownReasonInternal() {
-        try {
-            FileWriter writer = new FileWriter(mTempReason);
-            writer.append("thermal-shutdown\n");
-            writer.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        int reason = mService.getLastShutdownReasonInternal(mTempReason);
+        SystemProperties.set(TEST_LAST_REBOOT_PROPERTY, "shutdown,thermal");
+        int reason = mService.getLastShutdownReasonInternal(TEST_LAST_REBOOT_PROPERTY);
+        SystemProperties.set(TEST_LAST_REBOOT_PROPERTY, "");
         assertThat(reason).isEqualTo(PowerManager.SHUTDOWN_REASON_THERMAL_SHUTDOWN);
     }
 

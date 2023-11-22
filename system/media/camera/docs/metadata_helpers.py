@@ -33,10 +33,12 @@ from collections import OrderedDict
 IMAGE_SRC_METADATA="images/camera2/metadata/"
 
 # Prepend this path to each <img src="foo"> in javadocs
-JAVADOC_IMAGE_SRC_METADATA="../../../../" + IMAGE_SRC_METADATA
+JAVADOC_IMAGE_SRC_METADATA="/reference/" + IMAGE_SRC_METADATA
 NDKDOC_IMAGE_SRC_METADATA="../" + IMAGE_SRC_METADATA
 
 _context_buf = None
+_hal_major_version = None
+_hal_minor_version = None
 
 def _is_sec_or_ins(x):
   return isinstance(x, metadata_model.Section) or    \
@@ -174,7 +176,8 @@ def protobuf_type(entry):
     "double"                 : "double",
     "int32"                  : "int32",
     "int64"                  : "int64",
-    "enumList"               : "int32"
+    "enumList"               : "int32",
+    "string"                 : "string"
   }
 
   if typeName not in typename_to_protobuftype:
@@ -786,7 +789,7 @@ def javadoc(metadata, indent = 4):
   javadoc comment section, given a set of metadata
 
   Args:
-    metadata: A Metadata instance, representing the the top-level root
+    metadata: A Metadata instance, representing the top-level root
       of the metadata for cross-referencing
     indent: baseline level of indentation for javadoc block
   Returns:
@@ -815,13 +818,13 @@ def javadoc(metadata, indent = 4):
     "    * @see CaptureRequest#CONTROL_MODE\n"
   """
   def javadoc_formatter(text):
-    comment_prefix = " " * indent + " * ";
+    comment_prefix = " " * indent + " * "
 
     # render with markdown => HTML
     javatext = md(text, JAVADOC_IMAGE_SRC_METADATA)
 
     # Identity transform for javadoc links
-    def javadoc_link_filter(target, shortname):
+    def javadoc_link_filter(target, target_ndk, shortname):
       return '{@link %s %s}' % (target, shortname)
 
     javatext = filter_links(javatext, javadoc_link_filter)
@@ -875,7 +878,7 @@ def ndkdoc(metadata, indent = 4):
   NDK camera API C/C++ comment section, given a set of metadata
 
   Args:
-    metadata: A Metadata instance, representing the the top-level root
+    metadata: A Metadata instance, representing the top-level root
       of the metadata for cross-referencing
     indent: baseline level of indentation for comment block
   Returns:
@@ -906,6 +909,29 @@ def ndkdoc(metadata, indent = 4):
     # render with markdown => HTML
     # Turn off the table plugin since doxygen doesn't recognize generated <thead> <tbody> tags
     ndktext = md(text, NDKDOC_IMAGE_SRC_METADATA, False)
+
+    # Simple transform for ndk doc links
+    def ndkdoc_link_filter(target, target_ndk, shortname):
+      if target_ndk is not None:
+        return '{@link %s %s}' % (target_ndk, shortname)
+
+      # Create HTML link to Javadoc
+      if shortname == '':
+        lastdot = target.rfind('.')
+        if lastdot == -1:
+          shortname = target
+        else:
+          shortname = target[lastdot + 1:]
+
+      target = target.replace('.','/')
+      if target.find('#') != -1:
+        target = target.replace('#','.html#')
+      else:
+        target = target + '.html'
+
+      return '<a href="https://developer.android.com/reference/%s">%s</a>' % (target, shortname)
+
+    ndktext = filter_links(ndktext, ndkdoc_link_filter)
 
     # Convert metadata entry "android.x.y.z" to form
     # NDK tag format of "ACAMERA_X_Y_Z"
@@ -944,6 +970,98 @@ def ndkdoc(metadata, indent = 4):
     return ndktext
 
   return ndkdoc_formatter
+
+def hidldoc(metadata, indent = 4):
+  """
+  Returns a function to format a markdown syntax text block as a
+  HIDL camera HAL module C/C++ comment section, given a set of metadata
+
+  Args:
+    metadata: A Metadata instance, representing the top-level root
+      of the metadata for cross-referencing
+    indent: baseline level of indentation for comment block
+  Returns:
+    A function that transforms a String text block as follows:
+    - Indent and * for insertion into a comment block
+    - Trailing whitespace removed
+    - Entire body rendered via markdown
+    - All tag names converted to appropriate HIDL tag name for each tag
+
+  Example:
+    "This is a comment for NDK\n" +
+    "     with multiple lines, that should be   \n" +
+    "     formatted better\n" +
+    "\n" +
+    "    That covers multiple lines as well\n"
+    "    And references android.control.mode\n"
+
+    transforms to
+    "    * This is a comment for NDK\n" +
+    "    * with multiple lines, that should be\n" +
+    "    * formatted better\n" +
+    "    * That covers multiple lines as well\n" +
+    "    * and references ANDROID_CONTROL_MODE\n" +
+    "    *\n" +
+    "    * @see ANDROID_CONTROL_MODE\n"
+  """
+  def hidldoc_formatter(text):
+    # render with markdown => HTML
+    # Turn off the table plugin since doxygen doesn't recognize generated <thead> <tbody> tags
+    hidltext = md(text, NDKDOC_IMAGE_SRC_METADATA, False)
+
+    # Simple transform for hidl doc links
+    def hidldoc_link_filter(target, target_ndk, shortname):
+      if target_ndk is not None:
+        return '{@link %s %s}' % (target_ndk, shortname)
+
+      # Create HTML link to Javadoc
+      if shortname == '':
+        lastdot = target.rfind('.')
+        if lastdot == -1:
+          shortname = target
+        else:
+          shortname = target[lastdot + 1:]
+
+      target = target.replace('.','/')
+      if target.find('#') != -1:
+        target = target.replace('#','.html#')
+      else:
+        target = target + '.html'
+
+      return '<a href="https://developer.android.com/reference/%s">%s</a>' % (target, shortname)
+
+    hidltext = filter_links(hidltext, hidldoc_link_filter)
+
+    # Convert metadata entry "android.x.y.z" to form
+    # HIDL tag format of "ANDROID_X_Y_Z"
+    def hidldoc_crossref_filter(node):
+      return csym(node.name)
+
+    # For each public tag "android.x.y.z" referenced, add a
+    # "@see ANDROID_X_Y_Z"
+    def hidldoc_crossref_see_filter(node_set):
+      text = '\n'
+      for node in node_set:
+        text = text + '\n@see %s' % (csym(node.name))
+
+      return text if text != '\n' else ''
+
+    hidltext = filter_tags(hidltext, metadata, hidldoc_crossref_filter, hidldoc_crossref_see_filter)
+
+    comment_prefix = " " * indent + " * ";
+
+    def line_filter(line):
+      # Indent each line
+      # Add ' * ' to it for stylistic reasons
+      # Strip right side of trailing whitespace
+      return (comment_prefix + line).rstrip()
+
+    # Process each line with above filter
+    hidltext = "\n".join(line_filter(i) for i in hidltext.split("\n")) + "\n"
+
+    return hidltext
+
+  return hidldoc_formatter
 
 def dedent(text):
   """
@@ -1163,18 +1281,19 @@ def filter_links(text, filter_function, summary_function = None):
     def name_match(name):
       return lambda node: node.name == name
 
-    tag_match = r"\{@link\s+([^\s\}]+)([^\}]*)\}"
+    tag_match = r"\{@link\s+([^\s\}\|]+)(?:\|([^\s\}]+))*([^\}]*)\}"
 
     def filter_sub(match):
       whole_match = match.group(0)
       target = match.group(1)
-      shortname = match.group(2).strip()
+      target_ndk = match.group(2)
+      shortname = match.group(3).strip()
 
-      #print "Found link '%s' as '%s' -> '%s'" % (target, shortname, filter_function(target, shortname))
+      #print "Found link '%s' ndk '%s' as '%s' -> '%s'" % (target, target_ndk, shortname, filter_function(target, target_ndk, shortname))
 
       # Replace match with crossref
       target_set.add(target)
-      return filter_function(target, shortname)
+      return filter_function(target, target_ndk, shortname)
 
     text = re.sub(tag_match, filter_sub, text)
 
@@ -1231,6 +1350,34 @@ def remove_synthetic(entries):
     An iterable of Entry nodes
   """
   return (e for e in entries if not e.synthetic)
+
+def filter_added_in_hal_version(entries, hal_major_version, hal_minor_version):
+  """
+  Filter the given entries to those added in the given HIDL HAL version
+
+  Args:
+    entries: An iterable of Entry nodes
+    hal_major_version: Major HIDL version to filter for
+    hal_minor_version: Minor HIDL version to filter for
+
+  Yields:
+    An iterable of Entry nodes
+  """
+  return (e for e in entries if e.hal_major_version == hal_major_version and e.hal_minor_version == hal_minor_version)
+
+def filter_has_enum_values_added_in_hal_version(entries, hal_major_version, hal_minor_version):
+  """
+  Filter the given entries to those that have a new enum value added in the given HIDL HAL version
+
+  Args:
+    entries: An iterable of Entry nodes
+    hal_major_version: Major HIDL version to filter for
+    hal_minor_version: Minor HIDL version to filter for
+
+  Yields:
+    An iterable of Entry nodes
+  """
+  return (e for e in entries if e.has_new_values_added_in_hal_version(hal_major_version, hal_minor_version))
 
 def filter_ndk_visible(entries):
   """
@@ -1303,3 +1450,53 @@ def wbr(text):
       navigable_string.extract()
 
   return soup.decode()
+
+def hal_major_version():
+  return _hal_major_version
+
+def hal_minor_version():
+  return _hal_minor_version
+
+def first_hal_minor_version(hal_major_version):
+  return 2 if hal_major_version == 3 else 0
+
+def find_all_sections_added_in_hal(root, hal_major_version, hal_minor_version):
+  """
+  Find all descendants that are Section or InnerNamespace instances, which
+  were added in HIDL HAL version major.minor. The section is defined to be
+  added in a HAL version iff the lowest HAL version number of its entries is
+  that HAL version.
+
+  Args:
+    root: a Metadata instance
+    hal_major/minor_version: HAL version numbers
+
+  Returns:
+    A list of Section/InnerNamespace instances
+
+  Remarks:
+    These are known as "sections" in the generated C code.
+  """
+  all_sections = find_all_sections(root)
+  new_sections = []
+  for section in all_sections:
+    min_major_version = None
+    min_minor_version = None
+    for entry in remove_synthetic(find_unique_entries(section)):
+      min_major_version = (min_major_version or entry.hal_major_version)
+      min_minor_version = (min_minor_version or entry.hal_minor_version)
+      if entry.hal_major_version < min_major_version or \
+          (entry.hal_major_version == min_major_version and entry.hal_minor_version < min_minor_version):
+        min_minor_version = entry.hal_minor_version
+        min_major_version = entry.hal_major_version
+    if min_major_version == hal_major_version and min_minor_version == hal_minor_version:
+      new_sections.append(section)
+  return new_sections
+
+def find_first_older_used_hal_version(section, hal_major_version, hal_minor_version):
+  hal_version = (0, 0)
+  for v in section.hal_versions:
+    if (v[0] > hal_version[0] or (v[0] == hal_version[0] and v[1] > hal_version[1])) and \
+        (v[0] < hal_major_version or (v[0] == hal_major_version and v[1] < hal_minor_version)):
+      hal_version = v
+  return hal_version

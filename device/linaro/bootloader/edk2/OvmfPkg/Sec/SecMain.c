@@ -2,6 +2,7 @@
   Main SEC phase code.  Transitions to PEI.
 
   Copyright (c) 2008 - 2015, Intel Corporation. All rights reserved.<BR>
+  (C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -332,11 +333,13 @@ DecompressMemFvs (
   UINT32                            AuthenticationStatus;
   VOID                              *OutputBuffer;
   VOID                              *ScratchBuffer;
-  EFI_FIRMWARE_VOLUME_IMAGE_SECTION *FvSection;
+  EFI_COMMON_SECTION_HEADER         *FvSection;
   EFI_FIRMWARE_VOLUME_HEADER        *PeiMemFv;
   EFI_FIRMWARE_VOLUME_HEADER        *DxeMemFv;
+  UINT32                            FvHeaderSize;
+  UINT32                            FvSectionSize;
 
-  FvSection = (EFI_FIRMWARE_VOLUME_IMAGE_SECTION*) NULL;
+  FvSection = (EFI_COMMON_SECTION_HEADER*) NULL;
 
   Status = FindFfsFileAndSection (
              *Fv,
@@ -386,7 +389,7 @@ DecompressMemFvs (
              OutputBufferSize,
              EFI_SECTION_FIRMWARE_VOLUME_IMAGE,
              0,
-             (EFI_COMMON_SECTION_HEADER**) &FvSection
+             &FvSection
              );
   if (EFI_ERROR (Status)) {
     DEBUG ((EFI_D_ERROR, "Unable to find PEI FV section\n"));
@@ -411,7 +414,7 @@ DecompressMemFvs (
              OutputBufferSize,
              EFI_SECTION_FIRMWARE_VOLUME_IMAGE,
              1,
-             (EFI_COMMON_SECTION_HEADER**) &FvSection
+             &FvSection
              );
   if (EFI_ERROR (Status)) {
     DEBUG ((EFI_D_ERROR, "Unable to find DXE FV section\n"));
@@ -419,11 +422,19 @@ DecompressMemFvs (
   }
 
   ASSERT (FvSection->Type == EFI_SECTION_FIRMWARE_VOLUME_IMAGE);
-  ASSERT (SECTION_SIZE (FvSection) ==
-          (PcdGet32 (PcdOvmfDxeMemFvSize) + sizeof (*FvSection)));
+
+  if (IS_SECTION2 (FvSection)) {
+    FvSectionSize = SECTION2_SIZE (FvSection);
+    FvHeaderSize = sizeof (EFI_COMMON_SECTION_HEADER2);
+  } else {
+    FvSectionSize = SECTION_SIZE (FvSection);
+    FvHeaderSize = sizeof (EFI_COMMON_SECTION_HEADER);
+  }
+
+  ASSERT (FvSectionSize == (PcdGet32 (PcdOvmfDxeMemFvSize) + FvHeaderSize));
 
   DxeMemFv = (EFI_FIRMWARE_VOLUME_HEADER*)(UINTN) PcdGet32 (PcdOvmfDxeMemFvBase);
-  CopyMem (DxeMemFv, (VOID*) (FvSection + 1), PcdGet32 (PcdOvmfDxeMemFvSize));
+  CopyMem (DxeMemFv, (VOID*) ((UINTN)FvSection + FvHeaderSize), PcdGet32 (PcdOvmfDxeMemFvSize));
 
   if (DxeMemFv->Signature != EFI_FVH_SIGNATURE) {
     DEBUG ((EFI_D_ERROR, "Extracted FV at %p does not have FV header signature\n", DxeMemFv));
@@ -658,7 +669,7 @@ FindImageBase (
 /*
   Find and return Pei Core entry point.
 
-  It also find SEC and PEI Core file debug inforamtion. It will report them if
+  It also find SEC and PEI Core file debug information. It will report them if
   remote debug is enabled.
 
 **/

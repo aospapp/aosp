@@ -119,14 +119,17 @@ TEST(IOEventLoop, signal) {
   ASSERT_EQ(100, count);
 }
 
-TEST(IOEventLoop, periodic) {
+void TestPeriodicEvents(int period_in_us, int iterations, bool precise) {
   timeval tv;
-  tv.tv_sec = 0;
-  tv.tv_usec = 1000;
+  tv.tv_sec = period_in_us / 1000000;
+  tv.tv_usec = period_in_us % 1000000;
   int count = 0;
   IOEventLoop loop;
+  if (precise) {
+    ASSERT_TRUE(loop.UsePreciseTimer());
+  }
   ASSERT_TRUE(loop.AddPeriodicEvent(tv, [&]() {
-    if (++count == 100) {
+    if (++count == iterations) {
       loop.ExitLoop();
     }
     return true;
@@ -134,14 +137,21 @@ TEST(IOEventLoop, periodic) {
   auto start_time = std::chrono::steady_clock::now();
   ASSERT_TRUE(loop.RunLoop());
   auto end_time = std::chrono::steady_clock::now();
-  ASSERT_EQ(100, count);
+  ASSERT_EQ(iterations, count);
   double time_used = std::chrono::duration_cast<std::chrono::duration<double>>(
-                         end_time - start_time)
-                         .count();
-  // time_used is 0.1 if running precisely, and we accept small errors by using
-  // a range [0.1, 0.15).
-  ASSERT_GE(time_used, 0.1);
-  ASSERT_LT(time_used, 0.15);
+                         end_time - start_time).count();
+  double min_time_in_sec = period_in_us / 1e6 * iterations;
+  double max_time_in_sec = min_time_in_sec + (precise ? 0.1 : 1);
+  ASSERT_GE(time_used, min_time_in_sec);
+  ASSERT_LT(time_used, max_time_in_sec);
+}
+
+TEST(IOEventLoop, periodic) {
+  TestPeriodicEvents(1000000, 1, false);
+}
+
+TEST(IOEventLoop, periodic_precise) {
+  TestPeriodicEvents(1000, 100, true);
 }
 
 TEST(IOEventLoop, read_and_del_event) {

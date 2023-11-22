@@ -38,22 +38,13 @@ class OffloadScanManager;
 
 class ScannerImpl : public android::net::wifi::BnWifiScannerImpl {
  public:
-  ScannerImpl(uint32_t wiphy_index, uint32_t interface_index,
+  ScannerImpl(uint32_t interface_index,
               const ScanCapabilities& scan_capabilities,
               const WiphyFeatures& wiphy_features,
               ClientInterfaceImpl* client_interface,
-              NetlinkUtils* netlink_utils, ScanUtils* scan_utils,
+              ScanUtils* scan_utils,
               std::weak_ptr<OffloadServiceUtils> offload_service_utils);
   ~ScannerImpl();
-  // Returns a vector of available frequencies for 2.4GHz channels.
-  ::android::binder::Status getAvailable2gChannels(
-      ::std::unique_ptr<::std::vector<int32_t>>* out_frequencies) override;
-  // Returns a vector of available frequencies for 5GHz non-DFS channels.
-  ::android::binder::Status getAvailable5gNonDFSChannels(
-      ::std::unique_ptr<::std::vector<int32_t>>* out_frequencies) override;
-  // Returns a vector of available frequencies for DFS channels.
-  ::android::binder::Status getAvailableDFSChannels(
-      ::std::unique_ptr<::std::vector<int32_t>>* out_frequencies) override;
   // Get the latest single scan results from kernel.
   ::android::binder::Status getScanResults(
       std::vector<com::android::server::wifi::wificond::NativeScanResult>*
@@ -116,7 +107,6 @@ class ScannerImpl : public android::net::wifi::BnWifiScannerImpl {
   bool pno_scan_results_from_offload_;
   ::com::android::server::wifi::wificond::PnoSettings pno_settings_;
 
-  const uint32_t wiphy_index_;
   const uint32_t interface_index_;
 
   // Scanning relevant capability information for this wiphy/interface.
@@ -124,7 +114,6 @@ class ScannerImpl : public android::net::wifi::BnWifiScannerImpl {
   WiphyFeatures wiphy_features_;
 
   ClientInterfaceImpl* client_interface_;
-  NetlinkUtils* const netlink_utils_;
   ScanUtils* const scan_utils_;
   ::android::sp<::android::net::wifi::IPnoScanEvent> pno_scan_event_handler_;
   ::android::sp<::android::net::wifi::IScanEvent> scan_event_handler_;

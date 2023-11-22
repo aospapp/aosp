@@ -140,7 +140,8 @@ public class KeyValueBackupRestoreTest {
         mSharedPrefTestSuccess = false;
         mSharedPrefActivityIntent = new Intent()
                 .setClassName(SHARED_PREFERENCES_RESTORE_PACKAGE_NAME,
-                        SHARED_PREFERENCES_RESTORE_ACTIVITY_NAME);
+                        SHARED_PREFERENCES_RESTORE_ACTIVITY_NAME)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.registerReceiver(mSharedPrefencesReceiver, new IntentFilter(RESULT_ACTION));
     }
 

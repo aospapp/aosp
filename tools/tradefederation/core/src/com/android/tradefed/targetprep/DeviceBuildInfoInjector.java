@@ -23,14 +23,14 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 
 /**
- * A {@link ITargetPreparer} that inserts {@link DeviceBuildDescriptor} metadata into the
- * {@link IBuildInfo}.
- * <p/>
- * Intended to be used for "unbundled" build types that want test reporters to use metadata
- * about what device platform test was run on.
+ * A {@link ITargetPreparer} that inserts {@link DeviceBuildDescriptor} metadata into the {@link
+ * IBuildInfo}.
+ *
+ * <p>Intended to be used for "unbundled" build types that want test reporters to use metadata about
+ * what device platform test was run on.
  */
 @OptionClass(alias = "device-build-injector")
-public class DeviceBuildInfoInjector implements ITargetPreparer {
+public class DeviceBuildInfoInjector extends BaseTargetPreparer {
 
     @Option(name = "override-device-build-id", description =
             "the device buid id to inject.")

@@ -22,6 +22,12 @@ MAGIC_BYTES = b"\x7fELF"
 BITNESS_OFFSET = 4
 BITNESS_32 = 1
 BITNESS_64 = 2
+MACHINE_OFFSET = 0x12
+MACHINE_X86 = 0x03
+MACHINE_MIPS = 0x08
+MACHINE_ARM = 0x28
+MACHINE_X86_64 = 0x3e
+MACHINE_AARCH64 = 0xb7
 # Section type
 SHT_DYNAMIC = 6
 # Section index
@@ -31,8 +37,10 @@ DT_NULL = 0
 DT_NEEDED = 1
 DT_STRTAB = 5
 # Section name
-DYNSYM = ".dynsym"
 DYNSTR = ".dynstr"
+DYNSYM = ".dynsym"
+STRTAB = ".strtab"
+SYMTAB = ".symtab"
 # Type in symbol table
 SYMBOL_NOTYPE = 0
 # Binding in symbol table

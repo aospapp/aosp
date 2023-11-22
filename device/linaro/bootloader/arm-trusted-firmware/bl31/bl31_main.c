@@ -1,43 +1,27 @@
 /*
- * Copyright (c) 2013-2014, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2017, ARM Limited and Contributors. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this
- * list of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * Neither the name of ARM nor the names of its contributors may be used
- * to endorse or promote products derived from this software without specific
- * prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <arch.h>
 #include <arch_helpers.h>
 #include <assert.h>
-#include <bl_common.h>
 #include <bl31.h>
+#include <bl_common.h>
+#include <console.h>
 #include <context_mgmt.h>
 #include <debug.h>
 #include <platform.h>
+#include <pmf.h>
+#include <runtime_instr.h>
 #include <runtime_svc.h>
 #include <string.h>
+
+#if ENABLE_RUNTIME_INSTRUMENTATION
+PMF_REGISTER_SERVICE_SMC(rt_instr_svc, PMF_RT_INSTR_SVC_ID,
+	RT_INSTR_TOTAL_IDS, PMF_STORE_ENABLE)
+#endif
 
 /*******************************************************************************
  * This function pointer is used to initialise the BL32 image. It's initialized
@@ -52,6 +36,21 @@ static int32_t (*bl32_init)(void);
  * (non-secure & default) or BL32 (secure).
  ******************************************************************************/
 static uint32_t next_image_type = NON_SECURE;
+
+/*
+ * Implement the ARM Standard Service function to get arguments for a
+ * particular service.
+ */
+uintptr_t get_arm_std_svc_args(unsigned int svc_mask)
+{
+	/* Setup the arguments for PSCI Library */
+	DEFINE_STATIC_PSCI_LIB_ARGS_V1(psci_args, bl31_warm_entrypoint);
+
+	/* PSCI is the only ARM Standard Service implemented */
+	assert(svc_mask == PSCI_FID_MASK);
+
+	return (uintptr_t)&psci_args;
+}
 
 /*******************************************************************************
  * Simple function to initialise all BL31 helper libraries.
@@ -71,24 +70,18 @@ void bl31_lib_init(void)
  ******************************************************************************/
 void bl31_main(void)
 {
-	NOTICE("BL3-1: %s\n", version_string);
-	NOTICE("BL3-1: %s\n", build_message);
+	NOTICE("BL31: %s\n", version_string);
+	NOTICE("BL31: %s\n", build_message);
 
-	/* Perform remaining generic architectural setup from EL3 */
-	bl31_arch_setup();
-
-	/* Perform platform setup in BL1 */
+	/* Perform platform setup in BL31 */
 	bl31_platform_setup();
 
 	/* Initialise helper libraries */
 	bl31_lib_init();
 
-	/* Initialize the runtime services e.g. psci */
-	INFO("BL3-1: Initializing runtime services\n");
+	/* Initialize the runtime services e.g. psci. */
+	INFO("BL31: Initializing runtime services\n");
 	runtime_svc_init();
-
-	/* Clean caches before re-entering normal world */
-	dcsw_op_all(DCCSW);
 
 	/*
 	 * All the cold boot actions on the primary cpu are done. We now need to
@@ -104,7 +97,7 @@ void bl31_main(void)
 	 * If SPD had registerd an init hook, invoke it.
 	 */
 	if (bl32_init) {
-		INFO("BL3-1: Initializing BL3-2\n");
+		INFO("BL31: Initializing BL32\n");
 		(*bl32_init)();
 	}
 	/*
@@ -112,6 +105,14 @@ void bl31_main(void)
 	 * corresponding to the desired security state after the next ERET.
 	 */
 	bl31_prepare_next_image_entry();
+
+	console_flush();
+
+	/*
+	 * Perform any platform specific runtime setup prior to cold boot exit
+	 * from BL31
+	 */
+	bl31_plat_runtime_setup();
 }
 
 /*******************************************************************************
@@ -142,6 +143,18 @@ void bl31_prepare_next_image_entry(void)
 	entry_point_info_t *next_image_info;
 	uint32_t image_type;
 
+#if CTX_INCLUDE_AARCH32_REGS
+	/*
+	 * Ensure that the build flag to save AArch32 system registers in CPU
+	 * context is not set for AArch64-only platforms.
+	 */
+	if (EL_IMPLEMENTED(1) == EL_IMPL_A64ONLY) {
+		ERROR("EL1 supports AArch64-only. Please set build flag "
+				"CTX_INCLUDE_AARCH32_REGS = 0");
+		panic();
+	}
+#endif
+
 	/* Determine which image to execute next */
 	image_type = bl31_get_next_image_type();
 
@@ -150,12 +163,10 @@ void bl31_prepare_next_image_entry(void)
 	assert(next_image_info);
 	assert(image_type == GET_SECURITY_STATE(next_image_info->h.attr));
 
-	INFO("BL3-1: Preparing for EL3 exit to %s world\n",
+	INFO("BL31: Preparing for EL3 exit to %s world\n",
 		(image_type == SECURE) ? "secure" : "normal");
-	INFO("BL3-1: Next image address = 0x%llx\n",
-		(unsigned long long) next_image_info->pc);
-	INFO("BL3-1: Next image spsr = 0x%x\n", next_image_info->spsr);
-	cm_init_context(read_mpidr_el1(), next_image_info);
+	print_entry_point_info(next_image_info);
+	cm_init_my_context(next_image_info);
 	cm_prepare_el3_exit(image_type);
 }
 

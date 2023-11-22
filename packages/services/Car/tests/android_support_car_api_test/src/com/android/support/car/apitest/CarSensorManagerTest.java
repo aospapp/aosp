@@ -16,6 +16,8 @@
 
 package com.android.support.car.apitest;
 
+import static android.content.pm.PackageManager.FEATURE_AUTOMOTIVE;
+
 import android.os.Looper;
 import android.support.car.Car;
 import android.support.car.CarConnectionCallback;
@@ -79,6 +81,12 @@ public class CarSensorManagerTest extends AndroidTestCase {
     }
 
     public void testDrivingPolicy() throws Exception {
+        // Embedded does not support SENSOR_TYPE_DRIVING_STATUS.  Hence this test is not run in
+        // Android Auto Embedded.
+        if (getContext().getPackageManager().hasSystemFeature(FEATURE_AUTOMOTIVE)) {
+            return;
+        }
+
         int[] supportedSensors = mCarSensorManager.getSupportedSensors();
         assertNotNull(supportedSensors);
         boolean found = false;

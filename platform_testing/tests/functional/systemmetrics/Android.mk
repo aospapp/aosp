@@ -22,11 +22,9 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-test \
     metrics-helper-lib \
     ub-uiautomator \
-    services.core
-
-LOCAL_JAVA_LIBRARIES := legacy-android-test
 
 #LOCAL_SDK_VERSION := current
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_COMPATIBILITY_SUITE := device-tests
 

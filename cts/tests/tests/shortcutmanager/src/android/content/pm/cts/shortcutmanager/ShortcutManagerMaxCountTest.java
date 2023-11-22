@@ -23,13 +23,16 @@ import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils
 
 import android.test.suitebuilder.annotation.SmallTest;
 
+import com.android.compatibility.common.util.CddTest;
+
+@CddTest(requirement="3.8.1/C-4-1")
 @SmallTest
 public class ShortcutManagerMaxCountTest extends ShortcutManagerCtsTestsBase {
     /**
      * Basic tests: single app, single activity, no manifest shortcuts.
      */
     public void testNumDynamicShortcuts() {
-        runWithCaller(mPackageContext1, () -> {
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
             assertTrue(getManager().setDynamicShortcuts(list(makeShortcut("s1"))));
             assertTrue(getManager().setDynamicShortcuts(list(
                     makeShortcut("s1"),
@@ -101,7 +104,7 @@ public class ShortcutManagerMaxCountTest extends ShortcutManagerCtsTestsBase {
      * Manifest shortcuts are included in the count too.
      */
     public void testWithManifest() throws Exception {
-        runWithCaller(mPackageContext1, () -> {
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
             enableManifestActivity("Launcher_manifest_1", true);
             enableManifestActivity("Launcher_manifest_2", true);
 
@@ -110,7 +113,7 @@ public class ShortcutManagerMaxCountTest extends ShortcutManagerCtsTestsBase {
 
         });
 
-        runWithCaller(mPackageContext1, () -> {
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
             assertWith(getManager().getManifestShortcuts())
                     .haveIds("ms1", "ms21", "ms22")
                     .areAllManifest()
@@ -134,7 +137,7 @@ public class ShortcutManagerMaxCountTest extends ShortcutManagerCtsTestsBase {
         testNumDynamicShortcuts();
 
         // Launcher_manifest_1 has one manifest, so can only add 4 dynamic shortcuts.
-        runWithCaller(mPackageContext1, () -> {
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
             setTargetActivityOverride("Launcher_manifest_1");
 
             assertTrue(getManager().setDynamicShortcuts(list(
@@ -163,7 +166,7 @@ public class ShortcutManagerMaxCountTest extends ShortcutManagerCtsTestsBase {
         });
 
         // Launcher_manifest_2 has two manifests, so can only add 3.
-        runWithCaller(mPackageContext1, () -> {
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
             setTargetActivityOverride("Launcher_manifest_2");
 
             assertTrue(getManager().addDynamicShortcuts(list(
@@ -188,7 +191,7 @@ public class ShortcutManagerMaxCountTest extends ShortcutManagerCtsTestsBase {
     }
 
     public void testChangeActivity() {
-        runWithCaller(mPackageContext1, () -> {
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
             setTargetActivityOverride("Launcher");
             assertTrue(getManager().setDynamicShortcuts(list(
                     makeShortcut("s1"),
@@ -262,7 +265,7 @@ public class ShortcutManagerMaxCountTest extends ShortcutManagerCtsTestsBase {
     }
 
     public void testWithPinned() {
-        runWithCaller(mPackageContext1, () -> {
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
             assertTrue(getManager().setDynamicShortcuts(list(
                     makeShortcut("s1"),
                     makeShortcut("s2"),
@@ -274,12 +277,12 @@ public class ShortcutManagerMaxCountTest extends ShortcutManagerCtsTestsBase {
 
         setDefaultLauncher(getInstrumentation(), mLauncherContext1);
 
-        runWithCaller(mLauncherContext1, () -> {
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
             getLauncherApps().pinShortcuts(mPackageContext1.getPackageName(),
                     list("s1", "s2", "s3", "s4", "s5"), getUserHandle());
         });
 
-        runWithCaller(mPackageContext1, () -> {
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
             assertTrue(getManager().setDynamicShortcuts(list(
                     makeShortcut("s6"),
                     makeShortcut("s7"),

@@ -24,7 +24,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_MODULE := cr
 LOCAL_MODULE_TAGS := optional
-LOCAL_SDK_VERSION := 8
+LOCAL_SDK_VERSION := 19
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 

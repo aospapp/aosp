@@ -24,7 +24,7 @@ LOCAL_DEX_PREOPT := false
 
 LOCAL_PROGUARD_ENABLED := disabled
 
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util junit
+LOCAL_STATIC_JAVA_LIBRARIES := junit
 
 # don't include these packages in any target
 LOCAL_MODULE_TAGS := optional

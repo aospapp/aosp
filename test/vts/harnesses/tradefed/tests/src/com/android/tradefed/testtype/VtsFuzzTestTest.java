@@ -16,10 +16,10 @@
 package com.android.tradefed.testtype;
 
 import com.android.ddmlib.IShellOutputReceiver;
-import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.ITestLifeCycleReceiver;
 
 import junit.framework.TestCase;
 
@@ -49,7 +49,8 @@ public class VtsFuzzTestTest extends TestCase {
         EasyMock.expect(mMockITestDevice.getSerialNumber()).andStubReturn("serial");
         mTest = new VtsFuzzTest() {
             @Override
-            IShellOutputReceiver createResultParser(String runName, ITestRunListener listener) {
+            IShellOutputReceiver createResultParser(
+                    String runName, ITestLifeCycleReceiver listener) {
                 return mMockReceiver;
             }
         };

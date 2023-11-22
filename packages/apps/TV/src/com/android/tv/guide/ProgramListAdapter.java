@@ -22,9 +22,8 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-
 import com.android.tv.R;
-import com.android.tv.data.Channel;
+import com.android.tv.data.api.Channel;
 import com.android.tv.guide.ProgramManager.TableEntriesUpdatedListener;
 import com.android.tv.guide.ProgramManager.TableEntry;
 
@@ -111,9 +110,14 @@ class ProgramListAdapter extends RecyclerView.Adapter<ProgramListAdapter.Program
                 Log.d(TAG, "onBind. View = " + itemView + ", Entry = " + entry);
             }
             ProgramManager programManager = programGuide.getProgramManager();
-            ((ProgramItemView) itemView).setValues(programGuide, entry,
-                    programManager.getSelectedGenreId(), programManager.getFromUtcMillis(),
-                    programManager.getToUtcMillis(), gapTitle);
+            ((ProgramItemView) itemView)
+                    .setValues(
+                            programGuide,
+                            entry,
+                            programManager.getSelectedGenreId(),
+                            programManager.getFromUtcMillis(),
+                            programManager.getToUtcMillis(),
+                            gapTitle);
         }
 
         void onUnbind() {

@@ -33,7 +33,7 @@ import com.android.documentsui.base.State;
 import java.util.List;
 
 /**
- * DocumentsAdapter provides glue between a directory Model, and RecylcerView. We've
+ * DocumentsAdapter provides glue between a directory Model, and RecyclerView. We've
  * abstracted this a bit in order to decompose some specialized support
  * for adding dummy layout objects (@see SectionBreakDocumentsAdapter). Handling of the
  * dummy layout objects was error prone when interspersed with the core mode / adapter code.
@@ -41,8 +41,7 @@ import java.util.List;
  * @see ModelBackedDocumentsAdapter
  * @see DirectoryAddonsAdapter
  */
-public abstract class DocumentsAdapter
-        extends RecyclerView.Adapter<DocumentHolder> {
+public abstract class DocumentsAdapter extends RecyclerView.Adapter<DocumentHolder> {
     // Item types used by ModelBackedDocumentsAdapter
     public static final int ITEM_TYPE_DOCUMENT = 1;
     public static final int ITEM_TYPE_DIRECTORY = 2;
@@ -51,28 +50,10 @@ public abstract class DocumentsAdapter
     public static final int ITEM_TYPE_HEADER_MESSAGE = Integer.MAX_VALUE - 1;
     public static final int ITEM_TYPE_INFLATED_MESSAGE = Integer.MAX_VALUE - 2;
 
-    // Payloads for notifyItemChange to distinguish between selection and other events.
-    static final String SELECTION_CHANGED_MARKER = "Selection-Changed";
-
-    /**
-     * Returns a list of model IDs of items currently in the adapter.
-     *
-     * @return A list of Model IDs.
-     */
-    public abstract List<String> getModelIds();
-
     public abstract int getAdapterPosition(String modelId);
-
-    /**
-     * Triggers item-change notifications by stable ID (as opposed to position).
-     * Passing an unrecognized ID will result in a warning in logcat, but no other error.
-     */
-    public abstract void onItemSelectionChanged(String id);
-
-    /**
-     * @return The model ID of the item at the given adapter position.
-     */
-    public abstract String getModelId(int position);
+    public abstract String getStableId(int adapterPosition);
+    public abstract List<String> getStableIds();
+    public abstract int getPosition(String id);
 
     abstract EventListener<Model.Update> getModelUpdateListener();
 
@@ -85,17 +66,13 @@ public abstract class DocumentsAdapter
         throw new UnsupportedOperationException();
     }
 
-    public boolean hasModelIds() {
-        return !getModelIds().isEmpty();
-    }
-
     static boolean isDirectory(Cursor cursor) {
         final String mimeType = getCursorString(cursor, Document.COLUMN_MIME_TYPE);
         return Document.MIME_TYPE_DIR.equals(mimeType);
     }
 
     boolean isDirectory(Model model, int position) {
-        String modelId = getModelIds().get(position);
+        String modelId = getStableIds().get(position);
         Cursor cursor = model.getItem(modelId);
         return isDirectory(cursor);
     }

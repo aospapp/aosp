@@ -19,9 +19,12 @@
 
 #include "output_stream.h"
 
-#include "base/logging.h"
+#include <android-base/logging.h>
+
+#include "base/macros.h"
 
 namespace art {
+namespace linker {
 
 // OutputStream wrapper that delays reporting an error until Flush().
 class ErrorDelayingOutputStream FINAL : public OutputStream {
@@ -96,6 +99,7 @@ class ErrorDelayingOutputStream FINAL : public OutputStream {
   off_t output_offset_;  // Keep track of the current position in the stream.
 };
 
+}  // namespace linker
 }  // namespace art
 
 #endif  // ART_COMPILER_LINKER_ERROR_DELAYING_OUTPUT_STREAM_H_

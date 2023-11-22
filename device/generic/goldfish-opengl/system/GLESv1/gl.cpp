@@ -86,27 +86,31 @@ void glEGLImageTargetTexture2DOES(void * self, GLenum target, GLeglImageOES img)
     }
 }
 
-void glEGLImageTargetRenderbufferStorageOES(void *self, GLenum target, GLeglImageOES image)
+void glEGLImageTargetRenderbufferStorageOES(void *self, GLenum target, GLeglImageOES img)
 {
     (void)self;
     (void)target;
 
-    DBG("glEGLImageTargetRenderbufferStorageOES v1 target=%#x image=%p",
-            target, image);
+    DBG("glEGLImageTargetRenderbufferStorageOES v1 image=%p\n", img);
     //TODO: check error - we don't have a way to set gl error
-    android_native_buffer_t* native_buffer = (android_native_buffer_t*)image;
+    EGLImage_t *image = (EGLImage_t*)img;
 
-    if (native_buffer->common.magic != ANDROID_NATIVE_BUFFER_MAGIC) {
-        return;
+    if (image->target == EGL_NATIVE_BUFFER_ANDROID) {
+        android_native_buffer_t* native_buffer = ((EGLImage_t*)image)->native_buffer;
+
+        if (native_buffer->common.magic != ANDROID_NATIVE_BUFFER_MAGIC) {
+            return;
+        }
+
+        if (native_buffer->common.version != sizeof(android_native_buffer_t)) {
+            return;
+        }
+
+        DEFINE_AND_VALIDATE_HOST_CONNECTION();
+        rcEnc->rcBindRenderbuffer(rcEnc, ((cb_handle_t *)(native_buffer->handle))->hostHandle);
+    } else {
+        //TODO
     }
-
-    if (native_buffer->common.version != sizeof(android_native_buffer_t)) {
-        return;
-    }
-
-    DEFINE_AND_VALIDATE_HOST_CONNECTION();
-    rcEnc->rcBindRenderbuffer(rcEnc,
-            ((cb_handle_t *)(native_buffer->handle))->hostHandle);
 
     return;
 }

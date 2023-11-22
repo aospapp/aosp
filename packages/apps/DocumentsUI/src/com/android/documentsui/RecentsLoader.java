@@ -16,8 +16,8 @@
 
 package com.android.documentsui;
 
-import static com.android.documentsui.base.Shared.DEBUG;
-import static com.android.documentsui.base.Shared.TAG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.TAG;
 
 import android.app.ActivityManager;
 import android.content.AsyncTaskLoader;

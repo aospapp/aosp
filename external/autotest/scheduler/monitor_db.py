@@ -27,6 +27,7 @@ from autotest_lib.client.common_lib import utils
 from autotest_lib.frontend.afe import models
 from autotest_lib.scheduler import agent_task, drone_manager
 from autotest_lib.scheduler import email_manager, gc_stats, host_scheduler
+from autotest_lib.scheduler import luciferlib
 from autotest_lib.scheduler import monitor_db_cleanup, prejob_task
 from autotest_lib.scheduler import postjob_task
 from autotest_lib.scheduler import query_managers
@@ -36,7 +37,6 @@ from autotest_lib.scheduler import scheduler_config
 from autotest_lib.server import autoserv_utils
 from autotest_lib.server import system_utils
 from autotest_lib.server import utils as server_utils
-from autotest_lib.site_utils import metadata_reporter
 from autotest_lib.site_utils import server_manager_utils
 
 try:
@@ -114,6 +114,21 @@ def main_without_exception_handling():
     parser.add_option('--test', help='Indicate that scheduler is under ' +
                       'test and should use dummy autoserv and no parsing',
                       action='store_true')
+    parser.add_option(
+            '--metrics-file',
+            help='If provided, drop metrics to this local file instead of '
+                 'reporting to ts_mon',
+            type=str,
+            default=None,
+    )
+    parser.add_option(
+            '--lifetime-hours',
+            type=float,
+            default=None,
+            help='If provided, number of hours the scheduler should run for. '
+                 'At the expiry of this time, the process will exit '
+                 'gracefully.',
+    )
     parser.add_option('--production',
                       help=('Indicate that scheduler is running in production '
                             'environment and it can use database that is not '
@@ -155,12 +170,12 @@ def main_without_exception_handling():
         global _testing_mode
         _testing_mode = True
 
-    # Start the thread to report metadata.
-    metadata_reporter.start()
-
     with ts_mon_config.SetupTsMonGlobalState('autotest_scheduler',
-                                             indirect=True):
+                                             indirect=True,
+                                             debug_file=options.metrics_file):
       try:
+          metrics.Counter('chromeos/autotest/scheduler/start').increment()
+          process_start_time = time.time()
           initialize()
           dispatcher = Dispatcher()
           dispatcher.initialize(recover_hosts=options.recover_hosts)
@@ -168,6 +183,9 @@ def main_without_exception_handling():
                   scheduler_config.CONFIG_SECTION, 'minimum_tick_sec', type=float)
 
           while not _shutdown:
+              if _lifetime_expired(options.lifetime_hours, process_start_time):
+                  break
+
               start = time.time()
               dispatcher.tick()
               curr_tick_sec = time.time() - start
@@ -184,7 +202,6 @@ def main_without_exception_handling():
           metrics.Counter('chromeos/autotest/scheduler/uncaught_exception'
                           ).increment()
 
-    metadata_reporter.abort()
     email_manager.manager.send_queued_emails()
     _drone_manager.shutdown()
     _db_manager.disconnect()
@@ -194,6 +211,23 @@ def handle_signal(signum, frame):
     global _shutdown
     _shutdown = True
     logging.info("Shutdown request received.")
+
+
+def _lifetime_expired(lifetime_hours, process_start_time):
+    """Returns True if we've expired the process lifetime, False otherwise.
+
+    Also sets the global _shutdown so that any background processes also take
+    the cue to exit.
+    """
+    if lifetime_hours is None:
+        return False
+    if time.time() - process_start_time > lifetime_hours * 3600:
+        logging.info('Process lifetime %0.3f hours exceeded. Shutting down.',
+                     lifetime_hours)
+        global _shutdown
+        _shutdown = True
+        return True
+    return False
 
 
 def initialize():
@@ -356,6 +390,9 @@ class Dispatcher(object):
             with breakdown_timer.Step('sync_refresh'):
                 self._log_tick_msg('Starting _drone_manager.sync_refresh')
                 _drone_manager.sync_refresh()
+            if luciferlib.is_lucifer_enabled():
+                with breakdown_timer.Step('send_to_lucifer'):
+                    self._send_to_lucifer()
             # _run_cleanup must be called between drone_manager.sync_refresh,
             # and drone_manager.execute_actions, as sync_refresh will clear the
             # calls queued in drones. Therefore, any action that calls
@@ -447,6 +484,31 @@ class Dispatcher(object):
 
         @param agent_task: A SpecialTask for the agent to manage.
         """
+        # These are owned by lucifer; don't manage these tasks.
+        if (luciferlib.is_enabled_for('GATHERING')
+            and (isinstance(agent_task, postjob_task.GatherLogsTask)
+                 # TODO(crbug.com/811877): Don't skip split HQE parsing.
+                 or (isinstance(agent_task, postjob_task.FinalReparseTask)
+                     and not luciferlib.is_split_job(
+                             agent_task.queue_entries[0].id)))):
+            return
+        if luciferlib.is_enabled_for('STARTING'):
+            # TODO(crbug.com/810141): Transition code.  After running at
+            # STARTING for a while, these tasks should no longer exist.
+            if (isinstance(agent_task, postjob_task.GatherLogsTask)
+                # TODO(crbug.com/811877): Don't skip split HQE parsing.
+                or (isinstance(agent_task, postjob_task.FinalReparseTask)
+                    and not luciferlib.is_split_job(
+                            agent_task.queue_entries[0].id))):
+                return
+            # If this AgentTask is already started (i.e., recovered from
+            # the scheduler running previously not at STARTING lucifer
+            # level), we want to use the AgentTask to run the test to
+            # completion.
+            if (isinstance(agent_task, postjob_task.AbstractQueueTask)
+                and not agent_task.started):
+                return
+
         agent = Agent(agent_task)
         self._agents.append(agent)
         agent.dispatcher = self
@@ -514,8 +576,9 @@ class Dispatcher(object):
 
         @return: A list of AgentTasks.
         """
-        # host queue entry statuses handled directly by AgentTasks (Verifying is
-        # handled through SpecialTasks, so is not listed here)
+        # host queue entry statuses handled directly by AgentTasks
+        # (Verifying is handled through SpecialTasks, so is not
+        # listed here)
         statuses = (models.HostQueueEntry.Status.STARTING,
                     models.HostQueueEntry.Status.RUNNING,
                     models.HostQueueEntry.Status.GATHERING,
@@ -537,7 +600,11 @@ class Dispatcher(object):
                 if entry in used_queue_entries:
                     # already picked up by a synchronous job
                     continue
-                agent_task = self._get_agent_task_for_queue_entry(entry)
+                try:
+                    agent_task = self._get_agent_task_for_queue_entry(entry)
+                except scheduler_lib.SchedulerError:
+                    # Probably being handled by lucifer crbug.com/809773
+                    continue
                 agent_tasks.append(agent_task)
                 used_queue_entries.update(agent_task.queue_entries)
             except scheduler_lib.MalformedRecordError as e:
@@ -561,8 +628,16 @@ class Dispatcher(object):
     def _get_special_task_agent_tasks(self, is_active=False):
         special_tasks = models.SpecialTask.objects.filter(
                 is_active=is_active, is_complete=False)
-        return [self._get_agent_task_for_special_task(task)
-                for task in special_tasks]
+        agent_tasks = []
+        for task in special_tasks:
+          try:
+              agent_tasks.append(self._get_agent_task_for_special_task(task))
+          except scheduler_lib.MalformedRecordError as e:
+              logging.exception('Skipping agent task for malformed special '
+                                'task.')
+              m = 'chromeos/autotest/scheduler/skipped_malformed_special_task'
+              metrics.Counter(m).increment()
+        return agent_tasks
 
 
     def _get_agent_task_for_queue_entry(self, queue_entry):
@@ -585,7 +660,7 @@ class Dispatcher(object):
         if queue_entry.status == models.HostQueueEntry.Status.PARSING:
             return postjob_task.FinalReparseTask(queue_entries=task_entries)
 
-        raise scheduler_lib.SchedulerError(
+        raise scheduler_lib.MalformedRecordError(
                 '_get_agent_task_for_queue_entry got entry with '
                 'invalid status %s: %s' % (queue_entry.status, queue_entry))
 
@@ -605,7 +680,7 @@ class Dispatcher(object):
         """
         if self.host_has_agent(entry.host):
             agent = tuple(self._host_agents.get(entry.host.id))[0]
-            raise scheduler_lib.SchedulerError(
+            raise scheduler_lib.MalformedRecordError(
                     'While scheduling %s, host %s already has a host agent %s'
                     % (entry, entry.host, agent.task))
 
@@ -638,7 +713,7 @@ class Dispatcher(object):
             if agent_task_class.TASK_TYPE == special_task.task:
                 return agent_task_class(task=special_task)
 
-        raise scheduler_lib.SchedulerError(
+        raise scheduler_lib.MalformedRecordError(
                 'No AgentTask class for task', str(special_task))
 
 
@@ -687,7 +762,13 @@ class Dispatcher(object):
         for entry in self._get_unassigned_entries(
                 models.HostQueueEntry.Status.PENDING):
             logging.info('Recovering Pending entry %s', entry)
-            entry.on_pending()
+            try:
+                entry.on_pending()
+            except scheduler_lib.MalformedRecordError as e:
+                logging.exception(
+                        'Skipping agent task for malformed special task.')
+                m = 'chromeos/autotest/scheduler/skipped_malformed_special_task'
+                metrics.Counter(m).increment()
 
 
     def _check_for_unrecovered_verifying_entries(self):
@@ -733,7 +814,13 @@ class Dispatcher(object):
                 only_tasks_with_leased_hosts=not self._inline_host_acquisition):
             if self.host_has_agent(task.host):
                 continue
-            self.add_agent_task(self._get_agent_task_for_special_task(task))
+            try:
+                self.add_agent_task(self._get_agent_task_for_special_task(task))
+            except scheduler_lib.MalformedRecordError:
+                logging.exception('Skipping schedule for malformed '
+                                  'special task.')
+                m = 'chromeos/autotest/scheduler/skipped_schedule_special_task'
+                metrics.Counter(m).increment()
 
 
     def _reverify_remaining_hosts(self):
@@ -798,7 +885,8 @@ class Dispatcher(object):
 
         @param queue_entry: The queue_entry representing the hostless job.
         """
-        self.add_agent_task(HostlessQueueTask(queue_entry))
+        if not luciferlib.is_enabled_for('STARTING'):
+            self.add_agent_task(HostlessQueueTask(queue_entry))
 
         # Need to set execution_subdir before setting the status:
         # After a restart of the scheduler, agents will be restored for HQEs in
@@ -888,6 +976,107 @@ class Dispatcher(object):
         metrics.Counter(
             'chromeos/autotest/scheduler/scheduled_jobs_with_hosts'
         ).increment_by(new_jobs_with_hosts)
+
+
+    @_calls_log_tick_msg
+    def _send_to_lucifer(self):
+        """
+        Hand off ownership of a job to lucifer component.
+        """
+        if luciferlib.is_enabled_for('starting'):
+            self._send_starting_to_lucifer()
+        # TODO(crbug.com/810141): Older states need to be supported when
+        # STARTING is toggled; some jobs may be in an intermediate state
+        # at that moment.
+        self._send_gathering_to_lucifer()
+        self._send_parsing_to_lucifer()
+
+
+    # TODO(crbug.com/748234): This is temporary to enable toggling
+    # lucifer rollouts with an option.
+    def _send_starting_to_lucifer(self):
+        Status = models.HostQueueEntry.Status
+        queue_entries_qs = (models.HostQueueEntry.objects
+                            .filter(status=Status.STARTING))
+        for queue_entry in queue_entries_qs:
+            if self.get_agents_for_entry(queue_entry):
+                continue
+            job = queue_entry.job
+            if luciferlib.is_lucifer_owned(job):
+                continue
+            drone = luciferlib.spawn_starting_job_handler(
+                    manager=_drone_manager,
+                    job=job)
+            models.JobHandoff.objects.create(job=job, drone=drone.hostname())
+
+
+    # TODO(crbug.com/748234): This is temporary to enable toggling
+    # lucifer rollouts with an option.
+    def _send_gathering_to_lucifer(self):
+        Status = models.HostQueueEntry.Status
+        queue_entries_qs = (models.HostQueueEntry.objects
+                            .filter(status=Status.GATHERING))
+        for queue_entry in queue_entries_qs:
+            # If this HQE already has an agent, let monitor_db continue
+            # owning it.
+            if self.get_agents_for_entry(queue_entry):
+                continue
+
+            job = queue_entry.job
+            if luciferlib.is_lucifer_owned(job):
+                continue
+            task = postjob_task.PostJobTask(
+                    [queue_entry], log_file_name='/dev/null')
+            pidfile_id = task._autoserv_monitor.pidfile_id
+            autoserv_exit = task._autoserv_monitor.exit_code()
+            try:
+                drone = luciferlib.spawn_gathering_job_handler(
+                        manager=_drone_manager,
+                        job=job,
+                        autoserv_exit=autoserv_exit,
+                        pidfile_id=pidfile_id)
+                models.JobHandoff.objects.create(job=job,
+                                                 drone=drone.hostname())
+            except drone_manager.DroneManagerError as e:
+                logging.warning(
+                    'Fail to get drone for job %s, skipping lucifer. Error: %s',
+                    job.id, e)
+
+
+    # TODO(crbug.com/748234): This is temporary to enable toggling
+    # lucifer rollouts with an option.
+    def _send_parsing_to_lucifer(self):
+        Status = models.HostQueueEntry.Status
+        queue_entries_qs = (models.HostQueueEntry.objects
+                            .filter(status=Status.PARSING))
+        for queue_entry in queue_entries_qs:
+            # If this HQE already has an agent, let monitor_db continue
+            # owning it.
+            if self.get_agents_for_entry(queue_entry):
+                continue
+            job = queue_entry.job
+            if luciferlib.is_lucifer_owned(job):
+                continue
+            # TODO(crbug.com/811877): Ignore split HQEs.
+            if luciferlib.is_split_job(queue_entry.id):
+                continue
+            task = postjob_task.PostJobTask(
+                    [queue_entry], log_file_name='/dev/null')
+            pidfile_id = task._autoserv_monitor.pidfile_id
+            autoserv_exit = task._autoserv_monitor.exit_code()
+            try:
+                drone = luciferlib.spawn_parsing_job_handler(
+                        manager=_drone_manager,
+                        job=job,
+                        autoserv_exit=autoserv_exit,
+                        pidfile_id=pidfile_id)
+                models.JobHandoff.objects.create(job=job,
+                                                 drone=drone.hostname())
+            except drone_manager.DroneManagerError as e:
+                logging.warning(
+                    'Fail to get drone for job %s, skipping lucifer. Error: %s',
+                    job.id, e)
+
 
 
     @_calls_log_tick_msg

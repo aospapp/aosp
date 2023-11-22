@@ -19,11 +19,14 @@
 from __future__ import print_function
 
 import argparse
+import errno
 import os
 import sys
 
+
 DEFAULT_PYLINTRC_PATH = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), 'pylintrc')
+
 
 def get_parser():
     """Return a command line parser."""
@@ -45,12 +48,16 @@ def main(argv):
     parser = get_parser()
     opts, unknown = parser.parse_known_args(argv)
 
-    pylintrc = DEFAULT_PYLINTRC_PATH if not opts.no_rcfile else None
-
     cmd = [opts.executable_path]
-    if pylintrc:
-        # If we pass a non-existent rcfile to pylint, it'll happily ignore it.
-        assert os.path.exists(pylintrc), 'Could not find %s' % pylintrc
+    if not opts.no_rcfile:
+        # We assume pylint is running in the top directory of the project,
+        # so load the pylintrc file from there if it's available.
+        pylintrc = os.path.abspath('pylintrc')
+        if not os.path.exists(pylintrc):
+            pylintrc = DEFAULT_PYLINTRC_PATH
+            # If we pass a non-existent rcfile to pylint, it'll happily ignore
+            # it.
+            assert os.path.exists(pylintrc), 'Could not find %s' % pylintrc
         cmd += ['--rcfile', pylintrc]
 
     cmd += unknown + opts.files
@@ -58,7 +65,17 @@ def main(argv):
     if opts.init_hook:
         cmd += ['--init-hook', opts.init_hook]
 
-    os.execvp(cmd[0], cmd)
+    try:
+        os.execvp(cmd[0], cmd)
+    except OSError as e:
+        if e.errno == errno.ENOENT:
+            print('%s: unable to run `%s`: %s' % (__file__, cmd[0], e),
+                  file=sys.stderr)
+            print('%s: Try installing pylint: sudo apt-get install pylint' %
+                  (__file__,), file=sys.stderr)
+            return 1
+        else:
+            raise
 
 
 if __name__ == '__main__':

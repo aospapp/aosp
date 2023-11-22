@@ -84,7 +84,7 @@
             <meta-data android:name="android.content.ContactDirectory" android:value="true" />
         </provider>
 
-        <provider android:name="android.support.v4.content.FileProvider"
+        <provider android:name="androidx.core.content.FileProvider"
             android:authorities="android.provider.cts.fileprovider"
             android:grantUriPermissions="true">
             <meta-data

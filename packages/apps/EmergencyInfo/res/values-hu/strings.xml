@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Törli az összes információt és névjegyet?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Egészségügyi információk és vészhelyzetben hívható névjegyek hozzáadásával segítheti az elsősegélynyújtók munkáját vészhelyzet esetén.\n\nEzeket az információkat bárki elolvashatja a lezárási képernyőn, valamint a nevekre koppintva felhívhatja névjegyeit a telefon feloldása nélkül."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Segélyhívási információk megadása"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Segítsen az elsősegélynyújtóknak a fontos adatok megtalálásában"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Adatok megjelenítése az elsősegélynyújtók számára"</string>
 </resources>

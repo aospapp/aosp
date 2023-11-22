@@ -49,7 +49,7 @@ extern "C" JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM* vm,
     LOG(FATAL) << "Could not get shared jvmtiEnv";
   }
 
-  SetAllCapabilities(jvmti_env);
+  SetStandardCapabilities(jvmti_env);
   return 0;
 }
 
@@ -64,7 +64,7 @@ extern "C" JNIEXPORT jint JNICALL Agent_OnAttach(JavaVM* vm,
     LOG(FATAL) << "Could not get shared jvmtiEnv";
   }
 
-  SetAllCapabilities(jvmti_env);
+  SetStandardCapabilities(jvmti_env);
   InformMainAttach(jvmti_env, env, kMainClass, kMainClassStartup);
   return 0;
 }

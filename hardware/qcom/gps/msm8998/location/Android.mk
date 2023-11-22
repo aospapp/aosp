@@ -22,7 +22,10 @@ LOCAL_SRC_FILES += \
     LocationAPIClientBase.cpp
 
 LOCAL_CFLAGS += \
-     -fno-short-enums
+    -fno-short-enums \
+    -Wall \
+    -Werror \
+    -Wno-unused-variable \
 
 LOCAL_C_INCLUDES:= \
     $(TARGET_OUT_HEADERS)/gps.utils

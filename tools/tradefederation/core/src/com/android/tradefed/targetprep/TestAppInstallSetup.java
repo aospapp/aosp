@@ -37,16 +37,22 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * A {@link ITargetPreparer} that installs one or more apps from a
- * {@link IDeviceBuildInfo#getTestsDir()} folder onto device.
- * <p>
- * This preparer will look in alternate directories if the tests zip does not exist or does not
+ * A {@link ITargetPreparer} that installs one or more apps from a {@link
+ * IDeviceBuildInfo#getTestsDir()} folder onto device.
+ *
+ * <p>This preparer will look in alternate directories if the tests zip does not exist or does not
  * contain the required apk. The search will go in order from the last alternative dir specified to
  * the first.
- * </p>
  */
 @OptionClass(alias = "tests-zip-app")
-public class TestAppInstallSetup implements ITargetCleaner, IAbiReceiver {
+public class TestAppInstallSetup extends BaseTargetPreparer
+        implements ITargetCleaner, IAbiReceiver {
+
+    /** The mode the apk should be install in. */
+    private enum InstallMode {
+        FULL,
+        INSTANT,
+    }
 
     // An error message that occurs when a test APK is already present on the DUT,
     // but cannot be updated. When this occurs, the package is removed from the
@@ -91,7 +97,19 @@ public class TestAppInstallSetup implements ITargetCleaner, IAbiReceiver {
             + "when searching for apks to install")
     private AltDirBehavior mAltDirBehavior = AltDirBehavior.FALLBACK;
 
+    @Option(name = "instant-mode", description = "Whether or not to install apk in instant mode.")
+    private boolean mInstantMode = false;
+
+    @Option(
+        name = "force-install-mode",
+        description =
+                "Force the preparer to ignore instant-mode option, and install in the requested mode."
+    )
+    private InstallMode mInstallMode = null;
+
     private IAbi mAbi = null;
+    private Integer mUserId = null;
+    private Boolean mGrantPermission = null;
 
     private List<String> mPackagesInstalled = null;
 
@@ -107,6 +125,28 @@ public class TestAppInstallSetup implements ITargetCleaner, IAbiReceiver {
     /** Returns a copy of the list of specified test apk names. */
     public List<String> getTestsFileName() {
         return new ArrayList<String>(mTestFileNames);
+    }
+
+    /** Sets whether or not the installed apk should be cleaned on tearDown */
+    public void setCleanApk(boolean shouldClean) {
+        mCleanup = shouldClean;
+    }
+
+    /**
+     * If the apk should be installed for a particular user, sets the id of the user to install for.
+     */
+    public void setUserId(int userId) {
+        mUserId = userId;
+    }
+
+    /** If a userId is provided, grantPermission can be set for the apk installation. */
+    public void setShouldGrantPermission(boolean shouldGrant) {
+        mGrantPermission = shouldGrant;
+    }
+
+    /** Adds one apk installation arg to be used. */
+    public void addInstallArg(String arg) {
+        mInstallArgs.add(arg);
     }
 
     /**
@@ -180,6 +220,17 @@ public class TestAppInstallSetup implements ITargetCleaner, IAbiReceiver {
             if (abiName != null) {
                 mInstallArgs.add(String.format("--abi %s", abiName));
             }
+            // Handle instant mode: if we are forced in one installation mode or not.
+            if (mInstallMode != null) {
+                if (InstallMode.INSTANT.equals(mInstallMode)) {
+                    mInstallArgs.add("--instant");
+                }
+            } else {
+                if (mInstantMode) {
+                    mInstallArgs.add("--instant");
+                }
+            }
+
             String packageName = parsePackageName(testAppFile, device.getDeviceDescriptor());
             CLog.d("Installing apk from %s ...", testAppFile.getAbsolutePath());
             String result = installPackage(device, testAppFile);
@@ -241,7 +292,20 @@ public class TestAppInstallSetup implements ITargetCleaner, IAbiReceiver {
     /** Attempt to install a package on the device. */
     private String installPackage(ITestDevice device, File testAppFile)
             throws DeviceNotAvailableException {
-        return device.installPackage(testAppFile, true, mInstallArgs.toArray(new String[] {}));
+        // Handle the different install use cases (with or without a user)
+        if (mUserId == null) {
+            return device.installPackage(testAppFile, true, mInstallArgs.toArray(new String[] {}));
+        } else if (mGrantPermission != null) {
+            return device.installPackageForUser(
+                    testAppFile,
+                    true,
+                    mGrantPermission,
+                    mUserId,
+                    mInstallArgs.toArray(new String[] {}));
+        } else {
+            return device.installPackageForUser(
+                    testAppFile, true, mUserId, mInstallArgs.toArray(new String[] {}));
+        }
     }
 
     /** Attempt to remove the package from the device. */

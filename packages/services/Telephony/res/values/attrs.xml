@@ -50,6 +50,21 @@
         </attr>
     </declare-styleable>
 
+    <declare-styleable name="CallBarringEditPreference">
+        <!-- AO: All outgoing, CommandsInterface.CB_FACILITY_BAOC. -->
+        <!-- OI: Outgoing international, CommandsInterface.CB_FACILITY_BAOIC. -->
+        <!-- OX: Outgoing international roaming, CommandsInterface.CB_FACILITY_BAOICxH. -->
+        <!-- AI: All incoming, CommandsInterface.CB_FACILITY_BAIC. -->
+        <!-- IR: Incoming international roaming, CommandsInterface.CB_FACILITY_BAICr. -->
+        <!-- BA: Disable all, CommandsInterface.CB_FACILITY_BA_ALL -->
+        <attr name="facility" format="string" />
+
+        <!-- Message when password is not in use, and call barring is enabled -->
+        <attr name="dialogMessageEnabledNoPwd" format="string" />
+        <!-- Message when password is not in use, and call barring is disabled -->
+        <attr name="dialogMessageDisabledNoPwd" format="string" />
+    </declare-styleable>
+
     <attr name="preferenceBackgroundColor" format="color" />
     <attr name="emergencyButtonBackgroundColor" format="color" />
     <attr name="dialpadTheme" format="reference" />

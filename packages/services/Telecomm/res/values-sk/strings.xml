@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Hovor sa nedá uskutočniť, pretože prebieha hovor v inej aplikácii."</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Prichádzajúce hovory"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Zmeškané hovory"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Blokovanie hovorov"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Ak uskutočníte tento hovor, hovor cez <xliff:g id="OTHER_APP">%1$s</xliff:g> bude ukončený."</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Blokovanie hovorov"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Čísla, ktoré nie sú v kontaktoch"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Blokovať čísla, ktoré nemáte v kontaktoch"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"Skryté čísla"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"Blokovať volajúcich, ktorí skrývajú svoje číslo"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"Verejný telefón"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"Blokovať hovory z verejných telefónov"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"Nerozpoznané číslo"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"Blokovať hovory od nerozpoznaných volajúcich"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"Blokovanie hovorov"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Blokovanie hovorov je vypnuté"</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Bolo uskutočnené tiesňové volanie"</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Blokovanie hovorov bolo vypnuté, aby vás mohli kontaktovať pracovníci tiesňových služieb."</string>
 </resources>

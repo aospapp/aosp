@@ -19,4 +19,5 @@ package android.security.cts;
 interface IIsolatedService {
     String[] getCachedSystemServices();
     IBinder getSystemService(String serviceName);
+    boolean getProcessIsIsolated();
 }

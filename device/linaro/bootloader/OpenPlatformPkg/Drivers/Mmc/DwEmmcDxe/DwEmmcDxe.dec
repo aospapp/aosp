@@ -4,7 +4,7 @@
 # This Package provides headers and libraries that conform to EFI/PI Industry standards.
 # Copyright (c) 2007, Intel Corporation. All rights reserved.<BR>
 # Copyright (c) 2012-2014, ARM Ltd. All rights reserved.<BR>
-# Copyright (c) 2015-2016, Linaro. All rights reserved.<BR>
+# Copyright (c) 2015-2017, Linaro. All rights reserved.<BR>
 #
 #    This program and the accompanying materials are licensed and made available under
 #    the terms and conditions of the BSD License which accompanies this distribution.
@@ -17,8 +17,8 @@
 #**/
 
 [Defines]
-  DEC_SPECIFICATION              = 0x00010005
-  PACKAGE_NAME                   = OpenPlatformDriversMmcDwEmmcDxePkg
+  DEC_SPECIFICATION              = 0x00010019
+  PACKAGE_NAME                   = MmcDwEmmcDxePkg
   PACKAGE_GUID                   = 3869905e-c96c-4d20-9bfb-3b9d71bb900c
   PACKAGE_VERSION                = 0.1
 
@@ -34,7 +34,7 @@
 ################################################################################
 
 [Guids.common]
-  gDwEmmcDxeTokenSpaceGuid	= { 0x6fdd76a9, 0xf220, 0x4f1d,  { 0x9c, 0xcf, 0xbc, 0x2d, 0x68, 0x29, 0xab, 0x9c }}
+  gDwEmmcDxeTokenSpaceGuid       = { 0x6fdd76a9, 0xf220, 0x4f1d,  { 0x9c, 0xcf, 0xbc, 0x2d, 0x68, 0x29, 0xab, 0x9c }}
 
 [PcdsFixedAtBuild.common]
   # DwEmmc Driver PCDs

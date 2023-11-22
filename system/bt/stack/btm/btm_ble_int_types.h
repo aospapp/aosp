@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -83,13 +83,6 @@ typedef uint8_t tBTM_BLE_SEC_REQ_ACT;
 #define BLE_RESOLVE_ADDR_MASK 0xc0
 inline bool BTM_BLE_IS_RESOLVE_BDA(const RawAddress& x) {
   return ((x.address)[0] & BLE_RESOLVE_ADDR_MASK) == BLE_RESOLVE_ADDR_MSB;
-}
-
-#define BLE_PUBLIC_ADDR_MSB_MASK 0xC0
-/*  most significant bit, bit7, bit6 is 10 to be public address*/
-#define BLE_PUBLIC_ADDR_MSB 0x80
-inline bool BTM_IS_PUBLIC_BDA(const RawAddress& x) {
-  return ((x.address)[0] & BLE_PUBLIC_ADDR_MSB_MASK) == BLE_PUBLIC_ADDR_MSB;
 }
 
 /* LE scan activity bit mask, continue with LE inquiry bits */

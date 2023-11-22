@@ -11,7 +11,9 @@ package android.icu.dev.test.translit;
 
 import android.icu.text.UTF16;
 import android.icu.text.UnicodeSet;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
 public final class TestUtility {
 
     public static String hex(char ch) {

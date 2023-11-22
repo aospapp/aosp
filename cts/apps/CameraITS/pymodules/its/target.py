@@ -69,9 +69,8 @@ def __do_target_exposure_measurement(its_session):
     # Use the gains+transform returned by the AWB pass.
     req = its.objects.manual_capture_request(sens, exp_time)
     req["android.tonemap.mode"] = 0
-    req["android.tonemap.curveRed"] = tmap
-    req["android.tonemap.curveGreen"] = tmap
-    req["android.tonemap.curveBlue"] = tmap
+    req["android.tonemap.curve"] = {
+        "red": tmap, "green": tmap, "blue": tmap}
     req["android.colorCorrection.transform"] = xform_rat
     req["android.colorCorrection.gains"] = gains
     cap = its_session.do_capture(req)

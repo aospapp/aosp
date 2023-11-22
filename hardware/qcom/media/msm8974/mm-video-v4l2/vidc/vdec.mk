@@ -139,6 +139,8 @@ LOCAL_SRC_FILES         += common/src/vidc_color_converter.cpp
 # omx_vdec_msm8974.cpp:9375:16: address of array 'extra->data' will always evaluate to 'true'
 LOCAL_CLANG_CFLAGS      += -Wno-pointer-bool-conversion
 
+LOCAL_CFLAGS            += -Wno-error
+
 include $(BUILD_SHARED_LIBRARY)
 
 
@@ -171,6 +173,8 @@ LOCAL_SRC_FILES         += vdec/src/hevc_utils.cpp
 
 LOCAL_SRC_FILES         += common/src/extra_data_handler.cpp
 LOCAL_SRC_FILES         += common/src/vidc_color_converter.cpp
+
+LOCAL_CFLAGS            += -Wno-error
 
 #include $(BUILD_SHARED_LIBRARY)
 

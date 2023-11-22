@@ -98,7 +98,8 @@ class BtPanTest(BluetoothBaseTest):
             self.log.error("Could not establish a PAN connection.")
             return False
         self.pan_dut.droid.bluetoothPanSetBluetoothTethering(False)
-        if verify_http_connection(self.log, self.panu_dut):
+        if not verify_http_connection(self.log, self.panu_dut,
+                                      expected_state=False):
             self.log.error("PANU device still has internet access.")
             return False
         self.log.info("PANU device has no internet access as expected.")

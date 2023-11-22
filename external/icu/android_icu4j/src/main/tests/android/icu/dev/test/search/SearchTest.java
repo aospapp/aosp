@@ -24,11 +24,14 @@ import static android.icu.text.SearchIterator.ElementComparisonType.ANY_BASE_WEI
 import static android.icu.text.SearchIterator.ElementComparisonType.PATTERN_BASE_WEIGHT_IS_WILDCARD;
 import static android.icu.text.SearchIterator.ElementComparisonType.STANDARD_ELEMENT_COMPARISON;
 
+import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.util.Locale;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.BreakIterator;
@@ -38,7 +41,10 @@ import android.icu.text.SearchIterator;
 import android.icu.text.SearchIterator.ElementComparisonType;
 import android.icu.text.StringSearch;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class SearchTest extends TestFmwk {
 
     //inner class
@@ -1978,6 +1984,7 @@ public class SearchTest extends TestFmwk {
                 text = buffer.toString();
                 targetText.setIndex(targetText.getBeginIndex());
             }
+            @Override
             protected int handleNext(int start)
             {
                 int match = text.indexOf(pattern, start);
@@ -1989,6 +1996,7 @@ public class SearchTest extends TestFmwk {
                 setMatchLength(pattern.length());
                 return match;
             }
+            @Override
             protected int handlePrevious(int start)
             {
                 int match = text.lastIndexOf(pattern, start - 1);
@@ -2001,6 +2009,7 @@ public class SearchTest extends TestFmwk {
                 return match;
             }
 
+            @Override
             public int getIndex()
             {
                 int result = targetText.getIndex();
@@ -2038,7 +2047,7 @@ public class SearchTest extends TestFmwk {
             errln("Error should have reached the start of the iteration");
         }
     }
-    
+
     //Test for ticket 5024
     @Test
     public void TestDiactricMatch() {
@@ -2111,7 +2120,7 @@ public class SearchTest extends TestFmwk {
             public String getPattern() { return pattern; }
             public int[] getOffsets() { return offsets; }
         }
-        final PatternAndOffsets[] scKoSrchPatternsOffsets = { 
+        final PatternAndOffsets[] scKoSrchPatternsOffsets = {
             new PatternAndOffsets( scKoPat0, scKoSrchOff01 ),
             new PatternAndOffsets( scKoPat1, scKoSrchOff01 ),
             new PatternAndOffsets( scKoPat2, scKoSrchOff23 ),
@@ -2119,7 +2128,7 @@ public class SearchTest extends TestFmwk {
             new PatternAndOffsets( scKoPat4, scKoSrchOff45 ),
             new PatternAndOffsets( scKoPat5, scKoSrchOff45 ),
         };
-        final PatternAndOffsets[] scKoStndPatternsOffsets = { 
+        final PatternAndOffsets[] scKoStndPatternsOffsets = {
             new PatternAndOffsets( scKoPat0, scKoStndOff01 ),
             new PatternAndOffsets( scKoPat1, scKoStndOff01 ),
             new PatternAndOffsets( scKoPat2, scKoStndOff2  ),
@@ -2141,12 +2150,12 @@ public class SearchTest extends TestFmwk {
             public String getText() { return text; }
             public PatternAndOffsets[] getPatternsAndOffsets() { return patternsAndOffsets; }
         }
-        final TUSCItem[] tuscItems = { 
+        final TUSCItem[] tuscItems = {
             new TUSCItem( "root",                  scKoText, scKoStndPatternsOffsets ),
             new TUSCItem( "root@collation=search", scKoText, scKoSrchPatternsOffsets ),
             new TUSCItem( "ko@collation=search",   scKoText, scKoSrchPatternsOffsets ),
         };
-        
+
         String dummyPat = "a";
 
         for (TUSCItem tuscItem: tuscItems) {
@@ -2223,6 +2232,24 @@ public class SearchTest extends TestFmwk {
         }
     }
 
- 
 
+    // Test case for ticket#12555
+    @Test
+    public void TestLongPattern() {
+        StringBuilder pattern = new StringBuilder();
+        for (int i = 0; i < 255; i++) {
+            pattern.append('a');
+        }
+        // appends a character producing multiple ce32 at
+        // index 256.
+        pattern.append('á');
+
+        CharacterIterator target = new StringCharacterIterator("not important");
+        try {
+            StringSearch ss = new StringSearch(pattern.toString(), target, Locale.ENGLISH);
+            assertNotNull("Non-null StringSearch instance", ss);
+        } catch (Exception e) {
+            errln("Error initializing a new StringSearch object");
+        }
+    }
 }

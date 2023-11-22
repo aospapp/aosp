@@ -32,7 +32,8 @@ def main():
         props = cam.get_camera_properties()
         its.caps.skip_unless(its.caps.compute_target_exposure(props) and
                              its.caps.raw16(props) and
-                             its.caps.per_frame_control(props))
+                             its.caps.per_frame_control(props) and
+                             not its.caps.mono_camera(props))
 
         # Calculate the active sensor region for a full (non-cropped) image.
         a = props['android.sensor.info.activeArraySize']

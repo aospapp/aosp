@@ -16,7 +16,7 @@
 
 package android.content.cts;
 
-import static android.support.v4.util.Preconditions.checkArgument;
+import static androidx.core.util.Preconditions.checkArgument;
 import static junit.framework.Assert.assertEquals;
 
 import android.annotation.NonNull;

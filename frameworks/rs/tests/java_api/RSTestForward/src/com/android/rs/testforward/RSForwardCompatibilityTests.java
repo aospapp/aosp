@@ -46,7 +46,7 @@ public class RSForwardCompatibilityTests {
     /**
      * Returns the list of subclasses of UnitTest to run.
      */
-    @Parameters(name = "{0}")
+    @Parameters(name = "ForwardVersion" + RSForwardVersion.VERSION + ":{0}")
     public static Iterable<?> getParams() throws Exception {
         Context ctx = InstrumentationRegistry.getTargetContext();
 

@@ -28,8 +28,15 @@ union Fwmark {
         bool explicitlySelected :  1;
         bool protectedFromVpn   :  1;
         Permission permission   :  2;
+        bool uidBillingDone     :  1;
     };
-    Fwmark() : intValue(0) {}
+    constexpr Fwmark() : intValue(0) {}
+
+    static inline uint32_t getUidBillingMask() {
+        Fwmark m;
+        m.uidBillingDone = true;
+        return m.intValue;
+    }
 };
 
 static const unsigned FWMARK_NET_ID_MASK = 0xffff;

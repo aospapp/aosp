@@ -41,11 +41,17 @@ public class GraphicsStatsValidationTest extends ProtoDumpTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         installPackage(DEVICE_SIDE_TEST_APK, /* grantPermissions= */ true);
+        turnScreenOn();
         // Ensure that we have a starting point for our stats
         runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".SimpleDrawFrameTests",
                 "testDrawTenFrames");
         // Kill to ensure that stats persist/merge across process death
         killTestApp();
+    }
+
+    private void turnScreenOn() throws Exception {
+        getDevice().executeShellCommand("input keyevent KEYCODE_WAKEUP");
+        getDevice().executeShellCommand("wm dismiss-keyguard");
     }
 
     public void testBasicDrawFrame() throws Exception {
@@ -127,6 +133,7 @@ public class GraphicsStatsValidationTest extends ProtoDumpTestCase {
         GraphicsStatsProto statsBefore = fetchStats();
         assertNotNull(statsBefore);
         killTestApp();
+        turnScreenOn();
         runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".SimpleDrawFrameTests",  testName);
         killTestApp();
         GraphicsStatsProto statsAfter = fetchStats();

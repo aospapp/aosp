@@ -15,19 +15,28 @@
  */
 package com.android.tradefed.config;
 
-import com.android.tradefed.build.StubBuildProvider;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import junit.framework.TestCase;
+import com.android.tradefed.build.StubBuildProvider;
+import com.android.tradefed.device.metric.BaseDeviceMetricCollector;
+import com.android.tradefed.device.metric.IMetricCollector;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Unit tests for {@link ConfigurationDef}
- */
-public class ConfigurationDefTest extends TestCase {
+/** Unit tests for {@link ConfigurationDef}. */
+@RunWith(JUnit4.class)
+public class ConfigurationDefTest {
 
     private static final String CONFIG_NAME = "name";
     private static final String CONFIG_DESCRIPTION = "config description";
@@ -53,18 +62,16 @@ public class ConfigurationDefTest extends TestCase {
 
     private ConfigurationDef mConfigDef;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mConfigDef = new ConfigurationDef(CONFIG_NAME);
         mConfigDef.setDescription(CONFIG_DESCRIPTION);
         mConfigDef.addConfigObjectDef(Configuration.BUILD_PROVIDER_TYPE_NAME,
                 OptionTest.class.getName());
     }
 
-    /**
-     * Test {@link ConfigurationDef#createConfiguration()} for a map option.
-     */
+    /** Test {@link ConfigurationDef#createConfiguration()} for a map option. */
+    @Test
     public void testCreateConfiguration_optionMap() throws ConfigurationException {
         mConfigDef.addOptionDef(MAP_OPTION_NAME, OPTION_KEY, OPTION_VALUE, CONFIG_NAME);
         mConfigDef.addOptionDef(MAP_OPTION_NAME, OPTION_KEY2, OPTION_VALUE2, CONFIG_NAME);
@@ -76,9 +83,8 @@ public class ConfigurationDefTest extends TestCase {
         assertEquals(OPTION_VALUE2, test.mMapOption.get(OPTION_KEY2));
     }
 
-    /**
-     * Test {@link ConfigurationDef#createConfiguration()} for a collection option.
-     */
+    /** Test {@link ConfigurationDef#createConfiguration()} for a collection option. */
+    @Test
     public void testCreateConfiguration_optionCollection() throws ConfigurationException {
         mConfigDef.addOptionDef(COLLECTION_OPTION_NAME, null, OPTION_VALUE, CONFIG_NAME);
         mConfigDef.addOptionDef(COLLECTION_OPTION_NAME, null, OPTION_VALUE2, CONFIG_NAME);
@@ -88,9 +94,8 @@ public class ConfigurationDefTest extends TestCase {
         assertTrue(test.mCollectionOption.contains(OPTION_VALUE2));
     }
 
-    /**
-     * Test {@link ConfigurationDef#createConfiguration()} for a String field.
-     */
+    /** Test {@link ConfigurationDef#createConfiguration()} for a String field. */
+    @Test
     public void testCreateConfiguration() throws ConfigurationException {
         mConfigDef.addOptionDef(OPTION_NAME, null, OPTION_VALUE, CONFIG_NAME);
         IConfiguration config = mConfigDef.createConfiguration();
@@ -98,11 +103,11 @@ public class ConfigurationDefTest extends TestCase {
         assertEquals(OPTION_VALUE, test.mOption);
     }
 
-    /**
-     * Test {@link ConfigurationDef#createConfiguration()} for a String field.
-     */
+    /** Test {@link ConfigurationDef#createConfiguration()} for a String field. */
+    @Test
     public void testCreateConfiguration_withDeviceHolder() throws ConfigurationException {
         mConfigDef = new ConfigurationDef(CONFIG_NAME);
+        mConfigDef.addExpectedDevice("device1", false);
         mConfigDef.setMultiDeviceMode(true);
         mConfigDef.setDescription(CONFIG_DESCRIPTION);
         mConfigDef.addConfigObjectDef("device1:" + Configuration.BUILD_PROVIDER_TYPE_NAME,
@@ -112,5 +117,36 @@ public class ConfigurationDefTest extends TestCase {
         OptionTest test = (OptionTest)config.getDeviceConfigByName("device1")
                 .getBuildProvider();
         assertEquals(OPTION_VALUE, test.mOption);
+    }
+
+    /**
+     * Test {@link ConfigurationDef#createConfiguration()} for a {@link IMetricCollector} declared
+     * as a metric collector.
+     */
+    @Test
+    public void testCreateConfiguration_withCollectors() throws ConfigurationException {
+        mConfigDef = new ConfigurationDef(CONFIG_NAME);
+        mConfigDef.addConfigObjectDef(
+                Configuration.DEVICE_METRICS_COLLECTOR_TYPE_NAME,
+                BaseDeviceMetricCollector.class.getName());
+        IConfiguration config = mConfigDef.createConfiguration();
+        assertEquals(1, config.getMetricCollectors().size());
+    }
+
+    /**
+     * Test {@link ConfigurationDef#createConfiguration()} for a {@link IMetricCollector} declared
+     * as a result reporter should be rejected.
+     */
+    @Test
+    public void testCreateConfiguration_withCollectors_asReporter() {
+        mConfigDef = new ConfigurationDef(CONFIG_NAME);
+        mConfigDef.addConfigObjectDef(
+                Configuration.RESULT_REPORTER_TYPE_NAME, BaseDeviceMetricCollector.class.getName());
+        try {
+            mConfigDef.createConfiguration();
+            fail("Should have thrown an exception.");
+        } catch (ConfigurationException expected) {
+            // expected
+        }
     }
 }

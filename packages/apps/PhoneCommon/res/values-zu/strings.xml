@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Ayikho i-SIM noma iphutha le-SIM"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Inethiwekhi yeselula ayitholakali"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Amakholi aphumayo avinjelwe i-FDN."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"Isicelo SOKUDAYELA silungiselwe kusicelo se-USSD."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"Isicelo SOKUDAYELA silungiselwe kusicelo se-SS."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"Isicelo SOKUDAYELA silungiselwe KOKOKUDAYELA ngenombolo ehlukile."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Ikholi ishintshele kusicelo se-USSD"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Ikholi ishintshele kusicelo se-SS"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Ishintshele kunombolo ehlukile"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Ishintshele kukholi yevidiyo"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Ikholi yevidiyo ishintshele kusicelo se-SS"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Ikholi yevidiyo ishintshele kusicelo se-USSD"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Ishintshele kukholi ejwayelekile"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Ishintshele kunombolo ehlukile"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Ayikwazi ukwenza amakholi aphumayo ngenkathi kuvulwe ukuvimbela amakholi."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Amakholi akhawulelwe ukulawula ukufinyelela."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Amakholi wesimo esiphuthumayo akhawulelwe wukulawula kokufinyelela."</string>

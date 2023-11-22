@@ -21,6 +21,6 @@
           android:layout_height="wrap_content"
           android:paddingTop="@dimen/tile_top_bottom_padding"
           android:paddingBottom="@dimen/tile_top_bottom_padding"
-          android:paddingStart="@dimen/stream_card_keyline_1"
-          style="@style/CarBody1.SingleLine"
+          android:paddingStart="@dimen/car_keyline_1"
+          android:textAppearance="@style/TextAppearance.Car.Body1.SingleLine"
 />

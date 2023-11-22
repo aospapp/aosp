@@ -43,6 +43,7 @@
 #include "tcuFloat.hpp"
 #include "tcuTextureUtil.hpp"
 
+#include "gluContextInfo.hpp"
 #include "gluPixelTransfer.hpp"
 #include "gluCallLogWrapper.hpp"
 
@@ -3034,6 +3035,7 @@ static bool containsLineCases (const std::vector<DrawTestSpec>& m_specs)
 DrawTest::DrawTest (tcu::TestContext& testCtx, glu::RenderContext& renderCtx, const DrawTestSpec& spec, const char* name, const char* desc)
 	: TestCase			(testCtx, name, desc)
 	, m_renderCtx		(renderCtx)
+	, m_contextInfo		(DE_NULL)
 	, m_refBuffers		(DE_NULL)
 	, m_refContext		(DE_NULL)
 	, m_glesContext		(DE_NULL)
@@ -3051,6 +3053,7 @@ DrawTest::DrawTest (tcu::TestContext& testCtx, glu::RenderContext& renderCtx, co
 DrawTest::DrawTest (tcu::TestContext& testCtx, glu::RenderContext& renderCtx, const char* name, const char* desc)
 	: TestCase			(testCtx, name, desc)
 	, m_renderCtx		(renderCtx)
+	, m_contextInfo		(DE_NULL)
 	, m_refBuffers		(DE_NULL)
 	, m_refContext		(DE_NULL)
 	, m_glesContext		(DE_NULL)
@@ -3130,6 +3133,7 @@ void DrawTest::init (void)
 	m_maxDiffRed	= deCeilFloatToInt32(256.0f * (6.0f / (float)(1 << m_renderCtx.getRenderTarget().getPixelFormat().redBits)));
 	m_maxDiffGreen	= deCeilFloatToInt32(256.0f * (6.0f / (float)(1 << m_renderCtx.getRenderTarget().getPixelFormat().greenBits)));
 	m_maxDiffBlue	= deCeilFloatToInt32(256.0f * (6.0f / (float)(1 << m_renderCtx.getRenderTarget().getPixelFormat().blueBits)));
+	m_contextInfo	= glu::ContextInfo::create(m_renderCtx);
 }
 
 void DrawTest::deinit (void)
@@ -3139,21 +3143,32 @@ void DrawTest::deinit (void)
 	delete m_refBuffers;
 	delete m_refContext;
 	delete m_glesContext;
+	delete m_contextInfo;
 
 	m_glArrayPack	= DE_NULL;
 	m_rrArrayPack	= DE_NULL;
 	m_refBuffers	= DE_NULL;
 	m_refContext	= DE_NULL;
 	m_glesContext	= DE_NULL;
+	m_contextInfo	= DE_NULL;
 }
 
 DrawTest::IterateResult DrawTest::iterate (void)
 {
 	const int					specNdx			= (m_iteration / 2);
+	const DrawTestSpec&			spec			= m_specs[specNdx];
+
+	if (spec.drawMethod == DrawTestSpec::DRAWMETHOD_DRAWELEMENTS_BASEVERTEX ||
+		spec.drawMethod == DrawTestSpec::DRAWMETHOD_DRAWELEMENTS_INSTANCED_BASEVERTEX ||
+		spec.drawMethod == DrawTestSpec::DRAWMETHOD_DRAWELEMENTS_RANGED_BASEVERTEX)
+	{
+		const bool supportsES32 = contextSupports(m_renderCtx.getType(), glu::ApiType::es(3, 2));
+		TCU_CHECK_AND_THROW(NotSupportedError, supportsES32 || m_contextInfo->isExtensionSupported("GL_EXT_draw_elements_base_vertex"), "GL_EXT_draw_elements_base_vertex is not supported.");
+	}
+
 	const bool					drawStep		= (m_iteration % 2) == 0;
 	const bool					compareStep		= (m_iteration % 2) == 1;
 	const IterateResult			iterateResult	= ((size_t)m_iteration + 1 == m_specs.size()*2) ? (STOP) : (CONTINUE);
-	const DrawTestSpec&			spec			= m_specs[specNdx];
 	const bool					updateProgram	= (m_iteration == 0) || (drawStep && !checkSpecsShaderCompatible(m_specs[specNdx], m_specs[specNdx-1])); // try to use the same shader in all iterations
 	IterationLogSectionEmitter	sectionEmitter	(m_testCtx.getLog(), specNdx, m_specs.size(), m_iteration_descriptions[specNdx], drawStep && m_specs.size()!=1);
 
@@ -3279,6 +3294,7 @@ DrawTest::IterateResult DrawTest::iterate (void)
 			else
 			{
 				m_glArrayPack->render(spec.primitive, spec.drawMethod, spec.first, (int)primitiveElementCount, DrawTestSpec::INDEXTYPE_LAST, DE_NULL, 0, 0, spec.instanceCount, spec.indirectOffset, 0, coordScale, colorScale, DE_NULL);
+				m_testCtx.touchWatchdog();
 				m_rrArrayPack->render(spec.primitive, spec.drawMethod, spec.first, (int)primitiveElementCount, DrawTestSpec::INDEXTYPE_LAST, DE_NULL, 0, 0, spec.instanceCount, spec.indirectOffset, 0, coordScale, colorScale, DE_NULL);
 			}
 		}

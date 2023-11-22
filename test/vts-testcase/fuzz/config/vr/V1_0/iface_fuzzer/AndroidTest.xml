@@ -3,10 +3,10 @@
      Do not edit manually.
 -->
 <configuration description="Config for VtsHalVrV1_0IfaceFuzzer test cases">
+    <option name="config-descriptor:metadata" key="plan" value="vts-fuzz" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="push-group" value="IfaceFuzzerTest.push"/>
     </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer"/>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsHalVrV1_0IfaceFuzzer"/>
         <option name="hal-hidl-package-name" value="android.hardware.vr@1.0"/>

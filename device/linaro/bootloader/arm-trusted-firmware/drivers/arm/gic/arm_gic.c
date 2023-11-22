@@ -1,31 +1,7 @@
 /*
- * Copyright (c) 2014, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2016, ARM Limited and Contributors. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this
- * list of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * Neither the name of ARM nor the names of its contributors may be used
- * to endorse or promote products derived from this software without specific
- * prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <arch.h>
@@ -47,9 +23,9 @@
 	(GIC_HIGHEST_NS_PRIORITY << 16) | \
 	(GIC_HIGHEST_NS_PRIORITY << 24))
 
-static unsigned int g_gicc_base;
-static unsigned int g_gicd_base;
-static unsigned long g_gicr_base;
+static uintptr_t g_gicc_base;
+static uintptr_t g_gicd_base;
+static uintptr_t g_gicr_base;
 static const unsigned int *g_irq_sec_ptr;
 static unsigned int g_num_irqs;
 
@@ -62,7 +38,7 @@ static unsigned int g_num_irqs;
  ******************************************************************************/
 static void gicv3_cpuif_setup(void)
 {
-	unsigned int scr_val, val;
+	unsigned int val;
 	uintptr_t base;
 
 	/*
@@ -93,35 +69,9 @@ static void gicv3_cpuif_setup(void)
 	while (val & WAKER_CA)
 		val = gicr_read_waker(base);
 
-	/*
-	 * We need to set SCR_EL3.NS in order to see GICv3 non-secure state.
-	 * Restore SCR_EL3.NS again before exit.
-	 */
-	scr_val = read_scr();
-	write_scr(scr_val | SCR_NS_BIT);
-	isb();	/* ensure NS=1 takes effect before accessing ICC_SRE_EL2 */
-
-	/*
-	 * By default EL2 and NS-EL1 software should be able to enable GICv3
-	 * System register access without any configuration at EL3. But it turns
-	 * out that GICC PMR as set in GICv2 mode does not affect GICv3 mode. So
-	 * we need to set it here again. In order to do that we need to enable
-	 * register access. We leave it enabled as it should be fine and might
-	 * prevent problems with later software trying to access GIC System
-	 * Registers.
-	 */
 	val = read_icc_sre_el3();
 	write_icc_sre_el3(val | ICC_SRE_EN | ICC_SRE_SRE);
-
-	val = read_icc_sre_el2();
-	write_icc_sre_el2(val | ICC_SRE_EN | ICC_SRE_SRE);
-
-	write_icc_pmr_el1(GIC_PRI_MASK);
-	isb();	/* commit ICC_* changes before setting NS=0 */
-
-	/* Restore SCR_EL3 */
-	write_scr(scr_val);
-	isb();	/* ensure NS=0 takes effect immediately */
+	isb();
 }
 
 /*******************************************************************************
@@ -219,12 +169,9 @@ void arm_gic_cpuif_deactivate(void)
  ******************************************************************************/
 void arm_gic_pcpu_distif_setup(void)
 {
-	unsigned int index, irq_num;
+	unsigned int index, irq_num, sec_ppi_sgi_mask;
 
 	assert(g_gicd_base);
-
-	/* Mark all 32 SGI+PPI interrupts as Group 1 (non-secure) */
-	gicd_write_igroupr(g_gicd_base, 0, ~0);
 
 	/* Setup PPI priorities doing four at a time */
 	for (index = 0; index < 32; index += 4) {
@@ -233,16 +180,29 @@ void arm_gic_pcpu_distif_setup(void)
 	}
 
 	assert(g_irq_sec_ptr);
+	sec_ppi_sgi_mask = 0;
+
+	/* Ensure all SGIs and PPIs are Group0 to begin with */
+	gicd_write_igroupr(g_gicd_base, 0, 0);
+
 	for (index = 0; index < g_num_irqs; index++) {
 		irq_num = g_irq_sec_ptr[index];
 		if (irq_num < MIN_SPI_ID) {
 			/* We have an SGI or a PPI */
-			gicd_clr_igroupr(g_gicd_base, irq_num);
+			sec_ppi_sgi_mask |= 1U << irq_num;
 			gicd_set_ipriorityr(g_gicd_base, irq_num,
 				GIC_HIGHEST_SEC_PRIORITY);
 			gicd_set_isenabler(g_gicd_base, irq_num);
 		}
 	}
+
+	/*
+	 * Invert the bitmask to create a mask for non-secure PPIs and
+	 * SGIs. Program the GICD_IGROUPR0 with this bit mask. This write will
+	 * update the GICR_IGROUPR0 as well in case we are running on a GICv3
+	 * system. This is critical if GICD_CTLR.ARE_NS=1.
+	 */
+	gicd_write_igroupr(g_gicd_base, 0, ~sec_ppi_sgi_mask);
 }
 
 /*******************************************************************************
@@ -317,12 +277,11 @@ static void arm_gic_distif_setup(void)
 /*******************************************************************************
  * Initialize the ARM GIC driver with the provided platform inputs
 ******************************************************************************/
-void arm_gic_init(unsigned int gicc_base,
-		unsigned int gicd_base,
-		unsigned long gicr_base,
-		const unsigned int *irq_sec_ptr,
-		unsigned int num_irqs
-		)
+void arm_gic_init(uintptr_t gicc_base,
+		  uintptr_t gicd_base,
+		  uintptr_t gicr_base,
+		  const unsigned int *irq_sec_ptr,
+		  unsigned int num_irqs)
 {
 	unsigned int val;
 
@@ -395,7 +354,7 @@ uint32_t arm_gic_get_pending_interrupt_type(void)
 	uint32_t id;
 
 	assert(g_gicc_base);
-	id = gicc_read_hppir(g_gicc_base);
+	id = gicc_read_hppir(g_gicc_base) & INT_ID_MASK;
 
 	/* Assume that all secure interrupts are S-EL1 interrupts */
 	if (id < 1022)
@@ -417,7 +376,7 @@ uint32_t arm_gic_get_pending_interrupt_id(void)
 	uint32_t id;
 
 	assert(g_gicc_base);
-	id = gicc_read_hppir(g_gicc_base);
+	id = gicc_read_hppir(g_gicc_base) & INT_ID_MASK;
 
 	if (id < 1022)
 		return id;
@@ -429,7 +388,7 @@ uint32_t arm_gic_get_pending_interrupt_id(void)
 	 * Find out which non-secure interrupt it is under the assumption that
 	 * the GICC_CTLR.AckCtl bit is 0.
 	 */
-	return gicc_read_ahppir(g_gicc_base);
+	return gicc_read_ahppir(g_gicc_base) & INT_ID_MASK;
 }
 
 /*******************************************************************************

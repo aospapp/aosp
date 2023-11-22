@@ -1,15 +1,6 @@
 #include "android/hardware/tests/bar/1.0/Bar.vts.h"
 #include "vts_measurement.h"
-#include <iostream>
-#include <hidl/HidlSupport.h>
-#include <android/hardware/tests/bar/1.0/IBar.h>
-#include <android/hardware/tests/foo/1.0/IFoo.h>
-#include <android/hardware/tests/foo/1.0/IFooCallback.h>
-#include <android/hardware/tests/foo/1.0/IMyTypes.h>
-#include <android/hardware/tests/foo/1.0/ISimple.h>
-#include <android/hardware/tests/foo/1.0/ITheirTypes.h>
-#include <android/hardware/tests/foo/1.0/types.h>
-#include <android/hidl/base/1.0/types.h>
+#include <android-base/logging.h>
 #include <android/hidl/allocator/1.0/IAllocator.h>
 #include <fmq/MessageQueue.h>
 #include <sys/stat.h>
@@ -19,8 +10,8 @@
 using namespace android::hardware::tests::bar::V1_0;
 namespace android {
 namespace vts {
-void MessageTo__android__hardware__tests__bar__V1_0__IBar__SomethingRelated(const VariableSpecificationMessage& var_msg __attribute__((__unused__)), ::android::hardware::tests::bar::V1_0::IBar::SomethingRelated* arg __attribute__((__unused__))) {
-    MessageTo__android__hardware__tests__foo__V1_0__Unrelated(var_msg.struct_value(0), &(arg->myRelated));
+void MessageTo__android__hardware__tests__bar__V1_0__IBar__SomethingRelated(const VariableSpecificationMessage& var_msg __attribute__((__unused__)), ::android::hardware::tests::bar::V1_0::IBar::SomethingRelated* arg __attribute__((__unused__)), const string& callback_socket_name __attribute__((__unused__))) {
+    MessageTo__android__hardware__tests__foo__V1_0__Unrelated(var_msg.struct_value(0), &(arg->myRelated), callback_socket_name);
 }
 bool Verify__android__hardware__tests__bar__V1_0__IBar__SomethingRelated(const VariableSpecificationMessage& expected_result __attribute__((__unused__)), const VariableSpecificationMessage& actual_result __attribute__((__unused__))){
     if (!Verify__android__hardware__tests__foo__V1_0__Unrelated(expected_result.struct_value(0), actual_result.struct_value(0))) { return false; }
@@ -38,25 +29,48 @@ void SetResult__android__hardware__tests__bar__V1_0__IBar__SomethingRelated(Vari
 bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_stub, const char* service_name) {
     static bool initialized = false;
     if (!initialized) {
-        cout << "[agent:hal] HIDL getService" << endl;
+        LOG(INFO) << "HIDL getService";
         if (service_name) {
-          cout << "  - service name: " << service_name << endl;
+          LOG(INFO) << "  - service name: " << service_name;
         }
         hw_binder_proxy_ = ::android::hardware::tests::bar::V1_0::IBar::getService(service_name, get_stub);
         if (hw_binder_proxy_ == nullptr) {
-            cerr << "getService() returned a null pointer." << endl;
+            LOG(ERROR) << "getService() returned a null pointer.";
             return false;
         }
-        cout << "[agent:hal] hw_binder_proxy_ = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "hw_binder_proxy_ = " << hw_binder_proxy_.get();
         initialized = true;
     }
     return true;
 }
 
 
+::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::convertToBoolIfSmall(
+    ::android::hardware::tests::foo::V1_0::IFoo::Discriminator arg0 __attribute__((__unused__)),
+    const ::android::hardware::hidl_vec<::android::hardware::tests::foo::V1_0::IFoo::Union>& arg1 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_vec<::android::hardware::tests::foo::V1_0::IFoo::ContainsUnion>& arg0)> cb) {
+    LOG(INFO) << "convertToBoolIfSmall called";
+    AndroidSystemCallbackRequestMessage callback_message;
+    callback_message.set_id(GetCallbackID("convertToBoolIfSmall"));
+    callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::convertToBoolIfSmall");
+    VariableSpecificationMessage* var_msg0 = callback_message.add_arg();
+    var_msg0->set_type(TYPE_ENUM);
+    SetResult__android__hardware__tests__foo__V1_0__IFoo__Discriminator(var_msg0, arg0);
+    VariableSpecificationMessage* var_msg1 = callback_message.add_arg();
+    var_msg1->set_type(TYPE_VECTOR);
+    var_msg1->set_vector_size(arg1.size());
+    for (int i = 0; i < (int)arg1.size(); i++) {
+        auto *var_msg1_vector_i = var_msg1->add_vector_value();
+        var_msg1_vector_i->set_type(TYPE_UNION);
+        SetResult__android__hardware__tests__foo__V1_0__IFoo__Union(var_msg1_vector_i, arg1[i]);
+    }
+    RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::hidl_vec<::android::hardware::tests::foo::V1_0::IFoo::ContainsUnion>());
+    return ::android::hardware::Void();
+}
+
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::doThis(
     float arg0 __attribute__((__unused__))) {
-    cout << "doThis called" << endl;
+    LOG(INFO) << "doThis called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("doThis"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::doThis");
@@ -70,7 +84,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
 
 ::android::hardware::Return<int32_t> Vts_android_hardware_tests_bar_V1_0_IBar::doThatAndReturnSomething(
     int64_t arg0 __attribute__((__unused__))) {
-    cout << "doThatAndReturnSomething called" << endl;
+    LOG(INFO) << "doThatAndReturnSomething called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("doThatAndReturnSomething"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::doThatAndReturnSomething");
@@ -87,7 +101,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
     int64_t arg1 __attribute__((__unused__)),
     float arg2 __attribute__((__unused__)),
     double arg3 __attribute__((__unused__))) {
-    cout << "doQuiteABit called" << endl;
+    LOG(INFO) << "doQuiteABit called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("doQuiteABit"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::doQuiteABit");
@@ -112,8 +126,8 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::doSomethingElse(
-    const ::android::hardware::hidl_array<int32_t,15>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_array<int32_t,32>& arg0)>) {
-    cout << "doSomethingElse called" << endl;
+    const ::android::hardware::hidl_array<int32_t, 15>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_array<int32_t, 32>& arg0)> cb) {
+    LOG(INFO) << "doSomethingElse called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("doSomethingElse"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::doSomethingElse");
@@ -127,22 +141,24 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
         var_msg0_array_i->mutable_scalar_value()->set_int32_t(arg0[i]);
     }
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::hidl_array<int32_t, 32>());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::doStuffAndReturnAString(
-    std::function<void(const ::android::hardware::hidl_string& arg0)>) {
-    cout << "doStuffAndReturnAString called" << endl;
+    std::function<void(const ::android::hardware::hidl_string& arg0)> cb) {
+    LOG(INFO) << "doStuffAndReturnAString called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("doStuffAndReturnAString"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::doStuffAndReturnAString");
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::hidl_string());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::mapThisVector(
-    const ::android::hardware::hidl_vec<int32_t>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_vec<int32_t>& arg0)>) {
-    cout << "mapThisVector called" << endl;
+    const ::android::hardware::hidl_vec<int32_t>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_vec<int32_t>& arg0)> cb) {
+    LOG(INFO) << "mapThisVector called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("mapThisVector"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::mapThisVector");
@@ -156,12 +172,13 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
         var_msg0_vector_i->mutable_scalar_value()->set_int32_t(arg0[i]);
     }
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::hidl_vec<int32_t>());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::callMe(
     const sp<::android::hardware::tests::foo::V1_0::IFooCallback>& arg0 __attribute__((__unused__))) {
-    cout << "callMe called" << endl;
+    LOG(INFO) << "callMe called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("callMe"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::callMe");
@@ -174,7 +191,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
 
 ::android::hardware::Return<::android::hardware::tests::foo::V1_0::IFoo::SomeEnum> Vts_android_hardware_tests_bar_V1_0_IBar::useAnEnum(
     ::android::hardware::tests::foo::V1_0::IFoo::SomeEnum arg0 __attribute__((__unused__))) {
-    cout << "useAnEnum called" << endl;
+    LOG(INFO) << "useAnEnum called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("useAnEnum"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::useAnEnum");
@@ -182,12 +199,12 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
     var_msg0->set_type(TYPE_ENUM);
     SetResult__android__hardware__tests__foo__V1_0__IFoo__SomeEnum(var_msg0, arg0);
     RpcCallToAgent(callback_message, callback_socket_name_);
-    return static_cast< ::android::hardware::tests::foo::V1_0::IFoo::SomeEnum>(Random__android__hardware__tests__foo__V1_0__IFoo__SomeEnum());
+    return ::android::hardware::tests::foo::V1_0::IFoo::SomeEnum();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::haveAGooberVec(
     const ::android::hardware::hidl_vec<::android::hardware::tests::foo::V1_0::IFoo::Goober>& arg0 __attribute__((__unused__))) {
-    cout << "haveAGooberVec called" << endl;
+    LOG(INFO) << "haveAGooberVec called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("haveAGooberVec"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::haveAGooberVec");
@@ -205,7 +222,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::haveAGoober(
     const ::android::hardware::tests::foo::V1_0::IFoo::Goober& arg0 __attribute__((__unused__))) {
-    cout << "haveAGoober called" << endl;
+    LOG(INFO) << "haveAGoober called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("haveAGoober"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::haveAGoober");
@@ -217,8 +234,8 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::haveAGooberArray(
-    const ::android::hardware::hidl_array<::android::hardware::tests::foo::V1_0::IFoo::Goober,20>& arg0 __attribute__((__unused__))) {
-    cout << "haveAGooberArray called" << endl;
+    const ::android::hardware::hidl_array<::android::hardware::tests::foo::V1_0::IFoo::Goober, 20>& arg0 __attribute__((__unused__))) {
+    LOG(INFO) << "haveAGooberArray called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("haveAGooberArray"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::haveAGooberArray");
@@ -268,7 +285,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::haveATypeFromAnotherFile(
     const ::android::hardware::tests::foo::V1_0::Abc& arg0 __attribute__((__unused__))) {
-    cout << "haveATypeFromAnotherFile called" << endl;
+    LOG(INFO) << "haveATypeFromAnotherFile called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("haveATypeFromAnotherFile"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::haveATypeFromAnotherFile");
@@ -280,8 +297,8 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::haveSomeStrings(
-    const ::android::hardware::hidl_array<::android::hardware::hidl_string,3>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_array<::android::hardware::hidl_string,2>& arg0)>) {
-    cout << "haveSomeStrings called" << endl;
+    const ::android::hardware::hidl_array<::android::hardware::hidl_string, 3>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_array<::android::hardware::hidl_string, 2>& arg0)> cb) {
+    LOG(INFO) << "haveSomeStrings called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("haveSomeStrings"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::haveSomeStrings");
@@ -295,12 +312,13 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
         var_msg0_array_i->mutable_string_value()->set_length(arg0[i].size());
     }
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::hidl_array<::android::hardware::hidl_string, 2>());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::haveAStringVec(
-    const ::android::hardware::hidl_vec<::android::hardware::hidl_string>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_vec<::android::hardware::hidl_string>& arg0)>) {
-    cout << "haveAStringVec called" << endl;
+    const ::android::hardware::hidl_vec<::android::hardware::hidl_string>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_vec<::android::hardware::hidl_string>& arg0)> cb) {
+    LOG(INFO) << "haveAStringVec called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("haveAStringVec"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::haveAStringVec");
@@ -314,12 +332,13 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
         var_msg0_vector_i->mutable_string_value()->set_length(arg0[i].size());
     }
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::hidl_vec<::android::hardware::hidl_string>());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::transposeMe(
-    const ::android::hardware::hidl_array<float, 3,5>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_array<float, 5,3>& arg0)>) {
-    cout << "transposeMe called" << endl;
+    const ::android::hardware::hidl_array<float, 3, 5>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_array<float, 5, 3>& arg0)> cb) {
+    LOG(INFO) << "transposeMe called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("transposeMe"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::transposeMe");
@@ -338,12 +357,13 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
         }
     }
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::hidl_array<float, 5, 3>());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::callingDrWho(
-    const ::android::hardware::tests::foo::V1_0::IFoo::MultiDimensional& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::tests::foo::V1_0::IFoo::MultiDimensional& arg0)>) {
-    cout << "callingDrWho called" << endl;
+    const ::android::hardware::tests::foo::V1_0::IFoo::MultiDimensional& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::tests::foo::V1_0::IFoo::MultiDimensional& arg0)> cb) {
+    LOG(INFO) << "callingDrWho called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("callingDrWho"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::callingDrWho");
@@ -351,12 +371,13 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
     var_msg0->set_type(TYPE_STRUCT);
     SetResult__android__hardware__tests__foo__V1_0__IFoo__MultiDimensional(var_msg0, arg0);
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::tests::foo::V1_0::IFoo::MultiDimensional());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::transpose(
-    const ::android::hardware::tests::foo::V1_0::IFoo::StringMatrix5x3& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::tests::foo::V1_0::IFoo::StringMatrix3x5& arg0)>) {
-    cout << "transpose called" << endl;
+    const ::android::hardware::tests::foo::V1_0::IFoo::StringMatrix5x3& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::tests::foo::V1_0::IFoo::StringMatrix3x5& arg0)> cb) {
+    LOG(INFO) << "transpose called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("transpose"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::transpose");
@@ -364,12 +385,13 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
     var_msg0->set_type(TYPE_STRUCT);
     SetResult__android__hardware__tests__foo__V1_0__IFoo__StringMatrix5x3(var_msg0, arg0);
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::tests::foo::V1_0::IFoo::StringMatrix3x5());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::transpose2(
-    const ::android::hardware::hidl_array<::android::hardware::hidl_string, 5,3>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_array<::android::hardware::hidl_string, 3,5>& arg0)>) {
-    cout << "transpose2 called" << endl;
+    const ::android::hardware::hidl_array<::android::hardware::hidl_string, 5, 3>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_array<::android::hardware::hidl_string, 3, 5>& arg0)> cb) {
+    LOG(INFO) << "transpose2 called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("transpose2"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::transpose2");
@@ -388,12 +410,13 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
         }
     }
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::hidl_array<::android::hardware::hidl_string, 3, 5>());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::sendVec(
-    const ::android::hardware::hidl_vec<uint8_t>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_vec<uint8_t>& arg0)>) {
-    cout << "sendVec called" << endl;
+    const ::android::hardware::hidl_vec<uint8_t>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_vec<uint8_t>& arg0)> cb) {
+    LOG(INFO) << "sendVec called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("sendVec"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::sendVec");
@@ -407,22 +430,24 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
         var_msg0_vector_i->mutable_scalar_value()->set_uint8_t(arg0[i]);
     }
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::hidl_vec<uint8_t>());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::sendVecVec(
-    std::function<void(const ::android::hardware::hidl_vec<::android::hardware::hidl_vec<uint8_t>>& arg0)>) {
-    cout << "sendVecVec called" << endl;
+    std::function<void(const ::android::hardware::hidl_vec<::android::hardware::hidl_vec<uint8_t>>& arg0)> cb) {
+    LOG(INFO) << "sendVecVec called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("sendVecVec"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::sendVecVec");
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::hidl_vec<::android::hardware::hidl_vec<uint8_t>>());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::haveAVectorOfInterfaces(
-    const ::android::hardware::hidl_vec<sp<::android::hardware::tests::foo::V1_0::ISimple>>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_vec<sp<::android::hardware::tests::foo::V1_0::ISimple>>& arg0)>) {
-    cout << "haveAVectorOfInterfaces called" << endl;
+    const ::android::hardware::hidl_vec<sp<::android::hardware::tests::foo::V1_0::ISimple>>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_vec<sp<::android::hardware::tests::foo::V1_0::ISimple>>& arg0)> cb) {
+    LOG(INFO) << "haveAVectorOfInterfaces called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("haveAVectorOfInterfaces"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::haveAVectorOfInterfaces");
@@ -441,12 +466,13 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
         }
     }
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::hidl_vec<sp<::android::hardware::tests::foo::V1_0::ISimple>>());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::haveAVectorOfGenericInterfaces(
-    const ::android::hardware::hidl_vec<sp<::android::hidl::base::V1_0::IBase>>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_vec<sp<::android::hidl::base::V1_0::IBase>>& arg0)>) {
-    cout << "haveAVectorOfGenericInterfaces called" << endl;
+    const ::android::hardware::hidl_vec<sp<::android::hidl::base::V1_0::IBase>>& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_vec<sp<::android::hidl::base::V1_0::IBase>>& arg0)> cb) {
+    LOG(INFO) << "haveAVectorOfGenericInterfaces called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("haveAVectorOfGenericInterfaces"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::haveAVectorOfGenericInterfaces");
@@ -465,12 +491,13 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
         }
     }
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::hidl_vec<sp<::android::hidl::base::V1_0::IBase>>());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::echoNullInterface(
-    const sp<::android::hardware::tests::foo::V1_0::IFooCallback>& arg0 __attribute__((__unused__)), std::function<void(bool arg0,const sp<::android::hardware::tests::foo::V1_0::IFooCallback>& arg1)>) {
-    cout << "echoNullInterface called" << endl;
+    const sp<::android::hardware::tests::foo::V1_0::IFooCallback>& arg0 __attribute__((__unused__)), std::function<void(bool arg0,const sp<::android::hardware::tests::foo::V1_0::IFooCallback>& arg1)> cb) {
+    LOG(INFO) << "echoNullInterface called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("echoNullInterface"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::echoNullInterface");
@@ -478,22 +505,24 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
     var_msg0->set_type(TYPE_HIDL_CALLBACK);
     /* ERROR: TYPE_HIDL_CALLBACK is not supported yet. */
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(static_cast<bool>(0), nullptr);
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::createMyHandle(
-    std::function<void(const ::android::hardware::tests::foo::V1_0::IFoo::MyHandle& arg0)>) {
-    cout << "createMyHandle called" << endl;
+    std::function<void(const ::android::hardware::tests::foo::V1_0::IFoo::MyHandle& arg0)> cb) {
+    LOG(INFO) << "createMyHandle called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("createMyHandle"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::createMyHandle");
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::tests::foo::V1_0::IFoo::MyHandle());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::createHandles(
-    uint32_t arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_vec<::android::hardware::hidl_handle>& arg0)>) {
-    cout << "createHandles called" << endl;
+    uint32_t arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::hidl_vec<::android::hardware::hidl_handle>& arg0)> cb) {
+    LOG(INFO) << "createHandles called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("createHandles"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::createHandles");
@@ -502,12 +531,13 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
     var_msg0->set_scalar_type("uint32_t");
     var_msg0->mutable_scalar_value()->set_uint32_t(arg0);
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::hidl_vec<::android::hardware::hidl_handle>());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::closeHandles(
     ) {
-    cout << "closeHandles called" << endl;
+    LOG(INFO) << "closeHandles called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("closeHandles"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::closeHandles");
@@ -517,7 +547,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::thisIsNew(
     ) {
-    cout << "thisIsNew called" << endl;
+    LOG(INFO) << "thisIsNew called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("thisIsNew"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::thisIsNew");
@@ -527,8 +557,8 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::expectNullHandle(
     const ::android::hardware::hidl_handle& arg0 __attribute__((__unused__)),
-    const ::android::hardware::tests::foo::V1_0::Abc& arg1 __attribute__((__unused__)), std::function<void(bool arg0,bool arg1)>) {
-    cout << "expectNullHandle called" << endl;
+    const ::android::hardware::tests::foo::V1_0::Abc& arg1 __attribute__((__unused__)), std::function<void(bool arg0,bool arg1)> cb) {
+    LOG(INFO) << "expectNullHandle called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("expectNullHandle"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::expectNullHandle");
@@ -539,6 +569,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
     var_msg1->set_type(TYPE_STRUCT);
     SetResult__android__hardware__tests__foo__V1_0__Abc(var_msg1, arg1);
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(static_cast<bool>(0), static_cast<bool>(0));
     return ::android::hardware::Void();
 }
 
@@ -546,8 +577,8 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
     ::android::hardware::tests::foo::V1_0::IFoo::BitField arg0 __attribute__((__unused__)),
     uint8_t arg1 __attribute__((__unused__)),
     const ::android::hardware::tests::foo::V1_0::IFoo::MyMask& arg2 __attribute__((__unused__)),
-    uint8_t arg3 __attribute__((__unused__)), std::function<void(::android::hardware::tests::foo::V1_0::IFoo::BitField arg0,uint8_t arg1,uint8_t arg2,uint8_t arg3)>) {
-    cout << "takeAMask called" << endl;
+    uint8_t arg3 __attribute__((__unused__)), std::function<void(::android::hardware::tests::foo::V1_0::IFoo::BitField arg0,uint8_t arg1,uint8_t arg2,uint8_t arg3)> cb) {
+    LOG(INFO) << "takeAMask called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("takeAMask"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::takeAMask");
@@ -566,12 +597,13 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
     var_msg3->set_scalar_type("uint8_t");
     var_msg3->mutable_scalar_value()->set_uint8_t(arg3);
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::tests::foo::V1_0::IFoo::BitField(), static_cast<uint8_t>(0), static_cast<uint8_t>(0), static_cast<uint8_t>(0));
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<sp<::android::hardware::tests::foo::V1_0::ISimple>> Vts_android_hardware_tests_bar_V1_0_IBar::haveAInterface(
     const sp<::android::hardware::tests::foo::V1_0::ISimple>& arg0 __attribute__((__unused__))) {
-    cout << "haveAInterface called" << endl;
+    LOG(INFO) << "haveAInterface called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("haveAInterface"));
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::haveAInterface");
@@ -602,7 +634,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::Fuzz(
 bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetAttribute(
     FunctionSpecificationMessage* /*func_msg*/,
     void** /*result*/) {
-    cerr << "attribute not found" << endl;
+    LOG(ERROR) << "attribute not found.";
     return false;
 }
 bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
@@ -610,43 +642,54 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
     const string& callback_socket_name __attribute__((__unused__)),
     FunctionSpecificationMessage* result_msg) {
     const char* func_name = func_msg.name().c_str();
-    cout << "Function: " << __func__ << " " << func_name << endl;
-    cout << "Callback socket name: " << callback_socket_name << endl;
     if (hw_binder_proxy_ == nullptr) {
-        cerr << "hw_binder_proxy_ is null. "<< endl;
+        LOG(ERROR) << "hw_binder_proxy_ is null. ";
         return false;
+    }
+    if (!strcmp(func_name, "convertToBoolIfSmall")) {
+        ::android::hardware::tests::foo::V1_0::IFoo::Discriminator arg0;
+        arg0 = EnumValue__android__hardware__tests__foo__V1_0__IFoo__Discriminator(func_msg.arg(0).scalar_value());
+        ::android::hardware::hidl_vec<::android::hardware::tests::foo::V1_0::IFoo::Union> arg1;
+        arg1.resize(func_msg.arg(1).vector_value_size());
+        for (int arg1_index = 0; arg1_index < func_msg.arg(1).vector_value_size(); arg1_index++) {
+            MessageTo__android__hardware__tests__foo__V1_0__IFoo__Union(func_msg.arg(1).vector_value(arg1_index), &(arg1[arg1_index]), callback_socket_name);
+        }
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
+        ::android::hardware::hidl_vec<::android::hardware::tests::foo::V1_0::IFoo::ContainsUnion> result0;
+        hw_binder_proxy_->convertToBoolIfSmall(arg0, arg1, [&](const ::android::hardware::hidl_vec<::android::hardware::tests::foo::V1_0::IFoo::ContainsUnion>& arg0){
+            LOG(INFO) << "callback convertToBoolIfSmall called";
+            result0 = arg0;
+        });
+        result_msg->set_name("convertToBoolIfSmall");
+        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+        result_val_0->set_type(TYPE_VECTOR);
+        result_val_0->set_vector_size(result0.size());
+        for (int i = 0; i < (int)result0.size(); i++) {
+            auto *result_val_0_vector_i = result_val_0->add_vector_value();
+            result_val_0_vector_i->set_type(TYPE_STRUCT);
+            SetResult__android__hardware__tests__foo__V1_0__IFoo__ContainsUnion(result_val_0_vector_i, result0[i]);
+        }
+        return true;
     }
     if (!strcmp(func_name, "doThis")) {
         float arg0 = 0;
         arg0 = func_msg.arg(0).scalar_value().float_t();
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         hw_binder_proxy_->doThis(arg0);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("doThis");
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "doThatAndReturnSomething")) {
         int64_t arg0 = 0;
         arg0 = func_msg.arg(0).scalar_value().int64_t();
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         int32_t result0;
         result0 = hw_binder_proxy_->doThatAndReturnSomething(arg0);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("doThatAndReturnSomething");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_SCALAR);
         result_val_0->set_scalar_type("int32_t");
         result_val_0->mutable_scalar_value()->set_int32_t(result0);
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "doQuiteABit")) {
@@ -658,38 +701,27 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
         arg2 = func_msg.arg(2).scalar_value().float_t();
         double arg3 = 0;
         arg3 = func_msg.arg(3).scalar_value().double_t();
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         double result0;
         result0 = hw_binder_proxy_->doQuiteABit(arg0, arg1, arg2, arg3);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("doQuiteABit");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_SCALAR);
         result_val_0->set_scalar_type("double_t");
         result_val_0->mutable_scalar_value()->set_double_t(result0);
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "doSomethingElse")) {
-         ::android::hardware::hidl_array<int32_t,15> arg0;
-        for (int i = 0; i < func_msg.arg(0).vector_value_size(); i++) {
-            arg0[i] = func_msg.arg(0).vector_value(i).scalar_value().int32_t();
+        ::android::hardware::hidl_array<int32_t, 15> arg0;
+        for (int arg0_index = 0; arg0_index < func_msg.arg(0).vector_value_size(); arg0_index++) {
+            arg0[arg0_index] = func_msg.arg(0).vector_value(arg0_index).scalar_value().int32_t();
         }
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
-        ::android::hardware::hidl_array<int32_t,32> result0;
-        hw_binder_proxy_->doSomethingElse(arg0, [&](const ::android::hardware::hidl_array<int32_t,32>& arg0){
-            cout << "callback doSomethingElse called" << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
+        ::android::hardware::hidl_array<int32_t, 32> result0;
+        hw_binder_proxy_->doSomethingElse(arg0, [&](const ::android::hardware::hidl_array<int32_t, 32>& arg0){
+            LOG(INFO) << "callback doSomethingElse called";
             result0 = arg0;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("doSomethingElse");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_ARRAY);
@@ -700,46 +732,34 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             result_val_0_array_i->set_scalar_type("int32_t");
             result_val_0_array_i->mutable_scalar_value()->set_int32_t(result0[i]);
         }
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "doStuffAndReturnAString")) {
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         ::android::hardware::hidl_string result0;
         hw_binder_proxy_->doStuffAndReturnAString([&](const ::android::hardware::hidl_string& arg0){
-            cout << "callback doStuffAndReturnAString called" << endl;
+            LOG(INFO) << "callback doStuffAndReturnAString called";
             result0 = arg0;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("doStuffAndReturnAString");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_STRING);
         result_val_0->mutable_string_value()->set_message(result0.c_str());
         result_val_0->mutable_string_value()->set_length(result0.size());
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "mapThisVector")) {
-         ::android::hardware::hidl_vec<int32_t> arg0;
+        ::android::hardware::hidl_vec<int32_t> arg0;
         arg0.resize(func_msg.arg(0).vector_value_size());
-        for (int i = 0; i <func_msg.arg(0).vector_value_size(); i++) {
-            arg0[i] = func_msg.arg(0).vector_value(i).scalar_value().int32_t();
+        for (int arg0_index = 0; arg0_index < func_msg.arg(0).vector_value_size(); arg0_index++) {
+            arg0[arg0_index] = func_msg.arg(0).vector_value(arg0_index).scalar_value().int32_t();
         }
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         ::android::hardware::hidl_vec<int32_t> result0;
         hw_binder_proxy_->mapThisVector(arg0, [&](const ::android::hardware::hidl_vec<int32_t>& arg0){
-            cout << "callback mapThisVector called" << endl;
+            LOG(INFO) << "callback mapThisVector called";
             result0 = arg0;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("mapThisVector");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_VECTOR);
@@ -750,126 +770,84 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             result_val_0_vector_i->set_scalar_type("int32_t");
             result_val_0_vector_i->mutable_scalar_value()->set_int32_t(result0[i]);
         }
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "callMe")) {
         sp<::android::hardware::tests::foo::V1_0::IFooCallback> arg0;
         arg0 = VtsFuzzerCreateVts_android_hardware_tests_foo_V1_0_IFooCallback(callback_socket_name);
         static_cast<Vts_android_hardware_tests_foo_V1_0_IFooCallback*>(arg0.get())->Register(func_msg.arg(0));
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         hw_binder_proxy_->callMe(arg0);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("callMe");
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "useAnEnum")) {
         ::android::hardware::tests::foo::V1_0::IFoo::SomeEnum arg0;
         arg0 = EnumValue__android__hardware__tests__foo__V1_0__IFoo__SomeEnum(func_msg.arg(0).scalar_value());
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         ::android::hardware::tests::foo::V1_0::IFoo::SomeEnum result0;
         result0 = hw_binder_proxy_->useAnEnum(arg0);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("useAnEnum");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_ENUM);
         SetResult__android__hardware__tests__foo__V1_0__IFoo__SomeEnum(result_val_0, result0);
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "haveAGooberVec")) {
-         ::android::hardware::hidl_vec<::android::hardware::tests::foo::V1_0::IFoo::Goober> arg0;
+        ::android::hardware::hidl_vec<::android::hardware::tests::foo::V1_0::IFoo::Goober> arg0;
         arg0.resize(func_msg.arg(0).vector_value_size());
-        for (int i = 0; i <func_msg.arg(0).vector_value_size(); i++) {
-            MessageTo__android__hardware__tests__foo__V1_0__IFoo__Goober(func_msg.arg(0).vector_value(i), &(arg0[i]));
+        for (int arg0_index = 0; arg0_index < func_msg.arg(0).vector_value_size(); arg0_index++) {
+            MessageTo__android__hardware__tests__foo__V1_0__IFoo__Goober(func_msg.arg(0).vector_value(arg0_index), &(arg0[arg0_index]), callback_socket_name);
         }
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         hw_binder_proxy_->haveAGooberVec(arg0);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("haveAGooberVec");
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "haveAGoober")) {
         ::android::hardware::tests::foo::V1_0::IFoo::Goober arg0;
-        MessageTo__android__hardware__tests__foo__V1_0__IFoo__Goober(func_msg.arg(0), &(arg0));
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        MessageTo__android__hardware__tests__foo__V1_0__IFoo__Goober(func_msg.arg(0), &(arg0), callback_socket_name);
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         hw_binder_proxy_->haveAGoober(arg0);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("haveAGoober");
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "haveAGooberArray")) {
-         ::android::hardware::hidl_array<::android::hardware::tests::foo::V1_0::IFoo::Goober,20> arg0;
-        for (int i = 0; i < func_msg.arg(0).vector_value_size(); i++) {
-            arg0[i].q = func_msg.arg(0).vector_value(i).struct_value(0).scalar_value().int32_t();
-            arg0[i].name = ::android::hardware::hidl_string(func_msg.arg(0).vector_value(i).struct_value(1).string_value().message());
-            arg0[i].address = ::android::hardware::hidl_string(func_msg.arg(0).vector_value(i).struct_value(2).string_value().message());
-            for (int i = 0; i < func_msg.arg(0).vector_value(i).struct_value(3).vector_value_size(); i++) {
-                arg0[i].numbers[i] = func_msg.arg(0).vector_value(i).struct_value(3).vector_value(i).scalar_value().double_t();
+        ::android::hardware::hidl_array<::android::hardware::tests::foo::V1_0::IFoo::Goober, 20> arg0;
+        for (int arg0_index = 0; arg0_index < func_msg.arg(0).vector_value_size(); arg0_index++) {
+            arg0[arg0_index].q = func_msg.arg(0).vector_value(arg0_index).struct_value(0).scalar_value().int32_t();
+            arg0[arg0_index].name = ::android::hardware::hidl_string(func_msg.arg(0).vector_value(arg0_index).struct_value(1).string_value().message());
+            arg0[arg0_index].address = ::android::hardware::hidl_string(func_msg.arg(0).vector_value(arg0_index).struct_value(2).string_value().message());
+            for (int arg0_arg0_index__numbers_index = 0; arg0_arg0_index__numbers_index < func_msg.arg(0).vector_value(arg0_index).struct_value(3).vector_value_size(); arg0_arg0_index__numbers_index++) {
+                arg0[arg0_index].numbers[arg0_arg0_index__numbers_index] = func_msg.arg(0).vector_value(arg0_index).struct_value(3).vector_value(arg0_arg0_index__numbers_index).scalar_value().double_t();
             }
-            MessageTo__android__hardware__tests__foo__V1_0__IFoo__Fumble(func_msg.arg(0).vector_value(i).struct_value(4), &(arg0[i].fumble));
-            MessageTo__android__hardware__tests__foo__V1_0__IFoo__Fumble(func_msg.arg(0).vector_value(i).struct_value(5), &(arg0[i].gumble));
+            MessageTo__android__hardware__tests__foo__V1_0__IFoo__Fumble(func_msg.arg(0).vector_value(arg0_index).struct_value(4), &(arg0[arg0_index].fumble), callback_socket_name);
+            MessageTo__android__hardware__tests__foo__V1_0__IFoo__Fumble(func_msg.arg(0).vector_value(arg0_index).struct_value(5), &(arg0[arg0_index].gumble), callback_socket_name);
         }
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         hw_binder_proxy_->haveAGooberArray(arg0);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("haveAGooberArray");
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "haveATypeFromAnotherFile")) {
         ::android::hardware::tests::foo::V1_0::Abc arg0;
-        MessageTo__android__hardware__tests__foo__V1_0__Abc(func_msg.arg(0), &(arg0));
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        MessageTo__android__hardware__tests__foo__V1_0__Abc(func_msg.arg(0), &(arg0), callback_socket_name);
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         hw_binder_proxy_->haveATypeFromAnotherFile(arg0);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("haveATypeFromAnotherFile");
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "haveSomeStrings")) {
-         ::android::hardware::hidl_array<::android::hardware::hidl_string,3> arg0;
-        for (int i = 0; i < func_msg.arg(0).vector_value_size(); i++) {
-            arg0[i] = ::android::hardware::hidl_string(func_msg.arg(0).vector_value(i).string_value().message());
+        ::android::hardware::hidl_array<::android::hardware::hidl_string, 3> arg0;
+        for (int arg0_index = 0; arg0_index < func_msg.arg(0).vector_value_size(); arg0_index++) {
+            arg0[arg0_index] = ::android::hardware::hidl_string(func_msg.arg(0).vector_value(arg0_index).string_value().message());
         }
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
-        ::android::hardware::hidl_array<::android::hardware::hidl_string,2> result0;
-        hw_binder_proxy_->haveSomeStrings(arg0, [&](const ::android::hardware::hidl_array<::android::hardware::hidl_string,2>& arg0){
-            cout << "callback haveSomeStrings called" << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
+        ::android::hardware::hidl_array<::android::hardware::hidl_string, 2> result0;
+        hw_binder_proxy_->haveSomeStrings(arg0, [&](const ::android::hardware::hidl_array<::android::hardware::hidl_string, 2>& arg0){
+            LOG(INFO) << "callback haveSomeStrings called";
             result0 = arg0;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("haveSomeStrings");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_ARRAY);
@@ -880,26 +858,20 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             result_val_0_array_i->mutable_string_value()->set_message(result0[i].c_str());
             result_val_0_array_i->mutable_string_value()->set_length(result0[i].size());
         }
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "haveAStringVec")) {
-         ::android::hardware::hidl_vec<::android::hardware::hidl_string> arg0;
+        ::android::hardware::hidl_vec<::android::hardware::hidl_string> arg0;
         arg0.resize(func_msg.arg(0).vector_value_size());
-        for (int i = 0; i <func_msg.arg(0).vector_value_size(); i++) {
-            arg0[i] = ::android::hardware::hidl_string(func_msg.arg(0).vector_value(i).string_value().message());
+        for (int arg0_index = 0; arg0_index < func_msg.arg(0).vector_value_size(); arg0_index++) {
+            arg0[arg0_index] = ::android::hardware::hidl_string(func_msg.arg(0).vector_value(arg0_index).string_value().message());
         }
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         ::android::hardware::hidl_vec<::android::hardware::hidl_string> result0;
         hw_binder_proxy_->haveAStringVec(arg0, [&](const ::android::hardware::hidl_vec<::android::hardware::hidl_string>& arg0){
-            cout << "callback haveAStringVec called" << endl;
+            LOG(INFO) << "callback haveAStringVec called";
             result0 = arg0;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("haveAStringVec");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_VECTOR);
@@ -910,27 +882,21 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             result_val_0_vector_i->mutable_string_value()->set_message(result0[i].c_str());
             result_val_0_vector_i->mutable_string_value()->set_length(result0[i].size());
         }
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "transposeMe")) {
-         ::android::hardware::hidl_array<float, 3,5> arg0;
-        for (int i = 0; i < func_msg.arg(0).vector_value_size(); i++) {
-            for (int i = 0; i < func_msg.arg(0).vector_value(i).vector_value_size(); i++) {
-                arg0[i][i] = func_msg.arg(0).vector_value(i).vector_value(i).scalar_value().float_t();
+        ::android::hardware::hidl_array<float, 3, 5> arg0;
+        for (int arg0_index = 0; arg0_index < func_msg.arg(0).vector_value_size(); arg0_index++) {
+            for (int arg0_arg0_index__index = 0; arg0_arg0_index__index < func_msg.arg(0).vector_value(arg0_index).vector_value_size(); arg0_arg0_index__index++) {
+                arg0[arg0_index][arg0_arg0_index__index] = func_msg.arg(0).vector_value(arg0_index).vector_value(arg0_arg0_index__index).scalar_value().float_t();
             }
         }
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
-        ::android::hardware::hidl_array<float, 5,3> result0;
-        hw_binder_proxy_->transposeMe(arg0, [&](const ::android::hardware::hidl_array<float, 5,3>& arg0){
-            cout << "callback transposeMe called" << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
+        ::android::hardware::hidl_array<float, 5, 3> result0;
+        hw_binder_proxy_->transposeMe(arg0, [&](const ::android::hardware::hidl_array<float, 5, 3>& arg0){
+            LOG(INFO) << "callback transposeMe called";
             result0 = arg0;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("transposeMe");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_ARRAY);
@@ -946,69 +912,51 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
                 result_val_0_array_i_array_i->mutable_scalar_value()->set_float_t(result0[i][i]);
             }
         }
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "callingDrWho")) {
         ::android::hardware::tests::foo::V1_0::IFoo::MultiDimensional arg0;
-        MessageTo__android__hardware__tests__foo__V1_0__IFoo__MultiDimensional(func_msg.arg(0), &(arg0));
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        MessageTo__android__hardware__tests__foo__V1_0__IFoo__MultiDimensional(func_msg.arg(0), &(arg0), callback_socket_name);
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         ::android::hardware::tests::foo::V1_0::IFoo::MultiDimensional result0;
         hw_binder_proxy_->callingDrWho(arg0, [&](const ::android::hardware::tests::foo::V1_0::IFoo::MultiDimensional& arg0){
-            cout << "callback callingDrWho called" << endl;
+            LOG(INFO) << "callback callingDrWho called";
             result0 = arg0;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("callingDrWho");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_STRUCT);
         SetResult__android__hardware__tests__foo__V1_0__IFoo__MultiDimensional(result_val_0, result0);
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "transpose")) {
         ::android::hardware::tests::foo::V1_0::IFoo::StringMatrix5x3 arg0;
-        MessageTo__android__hardware__tests__foo__V1_0__IFoo__StringMatrix5x3(func_msg.arg(0), &(arg0));
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        MessageTo__android__hardware__tests__foo__V1_0__IFoo__StringMatrix5x3(func_msg.arg(0), &(arg0), callback_socket_name);
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         ::android::hardware::tests::foo::V1_0::IFoo::StringMatrix3x5 result0;
         hw_binder_proxy_->transpose(arg0, [&](const ::android::hardware::tests::foo::V1_0::IFoo::StringMatrix3x5& arg0){
-            cout << "callback transpose called" << endl;
+            LOG(INFO) << "callback transpose called";
             result0 = arg0;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("transpose");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_STRUCT);
         SetResult__android__hardware__tests__foo__V1_0__IFoo__StringMatrix3x5(result_val_0, result0);
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "transpose2")) {
-         ::android::hardware::hidl_array<::android::hardware::hidl_string, 5,3> arg0;
-        for (int i = 0; i < func_msg.arg(0).vector_value_size(); i++) {
-            for (int i = 0; i < func_msg.arg(0).vector_value(i).vector_value_size(); i++) {
-                arg0[i][i] = ::android::hardware::hidl_string(func_msg.arg(0).vector_value(i).vector_value(i).string_value().message());
+        ::android::hardware::hidl_array<::android::hardware::hidl_string, 5, 3> arg0;
+        for (int arg0_index = 0; arg0_index < func_msg.arg(0).vector_value_size(); arg0_index++) {
+            for (int arg0_arg0_index__index = 0; arg0_arg0_index__index < func_msg.arg(0).vector_value(arg0_index).vector_value_size(); arg0_arg0_index__index++) {
+                arg0[arg0_index][arg0_arg0_index__index] = ::android::hardware::hidl_string(func_msg.arg(0).vector_value(arg0_index).vector_value(arg0_arg0_index__index).string_value().message());
             }
         }
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
-        ::android::hardware::hidl_array<::android::hardware::hidl_string, 3,5> result0;
-        hw_binder_proxy_->transpose2(arg0, [&](const ::android::hardware::hidl_array<::android::hardware::hidl_string, 3,5>& arg0){
-            cout << "callback transpose2 called" << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
+        ::android::hardware::hidl_array<::android::hardware::hidl_string, 3, 5> result0;
+        hw_binder_proxy_->transpose2(arg0, [&](const ::android::hardware::hidl_array<::android::hardware::hidl_string, 3, 5>& arg0){
+            LOG(INFO) << "callback transpose2 called";
             result0 = arg0;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("transpose2");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_ARRAY);
@@ -1024,26 +972,20 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
                 result_val_0_array_i_array_i->mutable_string_value()->set_length(result0[i][i].size());
             }
         }
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "sendVec")) {
-         ::android::hardware::hidl_vec<uint8_t> arg0;
+        ::android::hardware::hidl_vec<uint8_t> arg0;
         arg0.resize(func_msg.arg(0).vector_value_size());
-        for (int i = 0; i <func_msg.arg(0).vector_value_size(); i++) {
-            arg0[i] = func_msg.arg(0).vector_value(i).scalar_value().uint8_t();
+        for (int arg0_index = 0; arg0_index < func_msg.arg(0).vector_value_size(); arg0_index++) {
+            arg0[arg0_index] = func_msg.arg(0).vector_value(arg0_index).scalar_value().uint8_t();
         }
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         ::android::hardware::hidl_vec<uint8_t> result0;
         hw_binder_proxy_->sendVec(arg0, [&](const ::android::hardware::hidl_vec<uint8_t>& arg0){
-            cout << "callback sendVec called" << endl;
+            LOG(INFO) << "callback sendVec called";
             result0 = arg0;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("sendVec");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_VECTOR);
@@ -1054,21 +996,15 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             result_val_0_vector_i->set_scalar_type("uint8_t");
             result_val_0_vector_i->mutable_scalar_value()->set_uint8_t(result0[i]);
         }
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "sendVecVec")) {
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         ::android::hardware::hidl_vec<::android::hardware::hidl_vec<uint8_t>> result0;
         hw_binder_proxy_->sendVecVec([&](const ::android::hardware::hidl_vec<::android::hardware::hidl_vec<uint8_t>>& arg0){
-            cout << "callback sendVecVec called" << endl;
+            LOG(INFO) << "callback sendVecVec called";
             result0 = arg0;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("sendVecVec");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_VECTOR);
@@ -1084,26 +1020,24 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
                 result_val_0_vector_i_vector_i->mutable_scalar_value()->set_uint8_t(result0[i][i]);
             }
         }
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "haveAVectorOfInterfaces")) {
-         ::android::hardware::hidl_vec<sp<::android::hardware::tests::foo::V1_0::ISimple>> arg0;
+        ::android::hardware::hidl_vec<sp<::android::hardware::tests::foo::V1_0::ISimple>> arg0;
         arg0.resize(func_msg.arg(0).vector_value_size());
-        for (int i = 0; i <func_msg.arg(0).vector_value_size(); i++) {
-            /* ERROR: TYPE_HIDL_INTERFACE is not supported yet. */
+        for (int arg0_index = 0; arg0_index < func_msg.arg(0).vector_value_size(); arg0_index++) {
+            if (func_msg.arg(0).vector_value(arg0_index).has_hidl_interface_pointer()) {
+                arg0[arg0_index] = reinterpret_cast<::android::hardware::tests::foo::V1_0::ISimple*>(func_msg.arg(0).vector_value(arg0_index).hidl_interface_pointer());
+            } else {
+                arg0[arg0_index] = VtsFuzzerCreateVts_android_hardware_tests_foo_V1_0_ISimple(callback_socket_name);
+            }
         }
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         ::android::hardware::hidl_vec<sp<::android::hardware::tests::foo::V1_0::ISimple>> result0;
         hw_binder_proxy_->haveAVectorOfInterfaces(arg0, [&](const ::android::hardware::hidl_vec<sp<::android::hardware::tests::foo::V1_0::ISimple>>& arg0){
-            cout << "callback haveAVectorOfInterfaces called" << endl;
+            LOG(INFO) << "callback haveAVectorOfInterfaces called";
             result0 = arg0;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("haveAVectorOfInterfaces");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_VECTOR);
@@ -1119,26 +1053,24 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
                 result_val_0_vector_i->set_hidl_interface_pointer(0);
             }
         }
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "haveAVectorOfGenericInterfaces")) {
-         ::android::hardware::hidl_vec<sp<::android::hidl::base::V1_0::IBase>> arg0;
+        ::android::hardware::hidl_vec<sp<::android::hidl::base::V1_0::IBase>> arg0;
         arg0.resize(func_msg.arg(0).vector_value_size());
-        for (int i = 0; i <func_msg.arg(0).vector_value_size(); i++) {
-            /* ERROR: TYPE_HIDL_INTERFACE is not supported yet. */
+        for (int arg0_index = 0; arg0_index < func_msg.arg(0).vector_value_size(); arg0_index++) {
+            if (func_msg.arg(0).vector_value(arg0_index).has_hidl_interface_pointer()) {
+                arg0[arg0_index] = reinterpret_cast<::android::hidl::base::V1_0::IBase*>(func_msg.arg(0).vector_value(arg0_index).hidl_interface_pointer());
+            } else {
+                /* ERROR: general interface is not supported yet. */
+            }
         }
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         ::android::hardware::hidl_vec<sp<::android::hidl::base::V1_0::IBase>> result0;
         hw_binder_proxy_->haveAVectorOfGenericInterfaces(arg0, [&](const ::android::hardware::hidl_vec<sp<::android::hidl::base::V1_0::IBase>>& arg0){
-            cout << "callback haveAVectorOfGenericInterfaces called" << endl;
+            LOG(INFO) << "callback haveAVectorOfGenericInterfaces called";
             result0 = arg0;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("haveAVectorOfGenericInterfaces");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_VECTOR);
@@ -1154,26 +1086,20 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
                 result_val_0_vector_i->set_hidl_interface_pointer(0);
             }
         }
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "echoNullInterface")) {
         sp<::android::hardware::tests::foo::V1_0::IFooCallback> arg0;
         arg0 = VtsFuzzerCreateVts_android_hardware_tests_foo_V1_0_IFooCallback(callback_socket_name);
         static_cast<Vts_android_hardware_tests_foo_V1_0_IFooCallback*>(arg0.get())->Register(func_msg.arg(0));
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         bool result0;
         sp<::android::hardware::tests::foo::V1_0::IFooCallback> result1;
         hw_binder_proxy_->echoNullInterface(arg0, [&](bool arg0,const sp<::android::hardware::tests::foo::V1_0::IFooCallback>& arg1){
-            cout << "callback echoNullInterface called" << endl;
+            LOG(INFO) << "callback echoNullInterface called";
             result0 = arg0;
             result1 = arg1;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("echoNullInterface");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_SCALAR);
@@ -1182,42 +1108,30 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
         VariableSpecificationMessage* result_val_1 = result_msg->add_return_type_hidl();
         result_val_1->set_type(TYPE_HIDL_CALLBACK);
         /* ERROR: TYPE_HIDL_CALLBACK is not supported yet. */
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "createMyHandle")) {
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         ::android::hardware::tests::foo::V1_0::IFoo::MyHandle result0;
         hw_binder_proxy_->createMyHandle([&](const ::android::hardware::tests::foo::V1_0::IFoo::MyHandle& arg0){
-            cout << "callback createMyHandle called" << endl;
+            LOG(INFO) << "callback createMyHandle called";
             result0 = arg0;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("createMyHandle");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_STRUCT);
         SetResult__android__hardware__tests__foo__V1_0__IFoo__MyHandle(result_val_0, result0);
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "createHandles")) {
         uint32_t arg0 = 0;
         arg0 = func_msg.arg(0).scalar_value().uint32_t();
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         ::android::hardware::hidl_vec<::android::hardware::hidl_handle> result0;
         hw_binder_proxy_->createHandles(arg0, [&](const ::android::hardware::hidl_vec<::android::hardware::hidl_handle>& arg0){
-            cout << "callback createHandles called" << endl;
+            LOG(INFO) << "callback createHandles called";
             result0 = arg0;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("createHandles");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_VECTOR);
@@ -1227,31 +1141,18 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             result_val_0_vector_i->set_type(TYPE_HANDLE);
             /* ERROR: TYPE_HANDLE is not supported yet. */
         }
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "closeHandles")) {
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         hw_binder_proxy_->closeHandles();
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("closeHandles");
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "thisIsNew")) {
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         hw_binder_proxy_->thisIsNew();
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("thisIsNew");
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "expectNullHandle")) {
@@ -1259,7 +1160,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
         if (func_msg.arg(0).has_handle_value()) {
             native_handle_t* handle = native_handle_create(func_msg.arg(0).handle_value().num_fds(), func_msg.arg(0).handle_value().num_ints());
             if (!handle) {
-                cerr << "Failed to create handle. " << endl;
+                LOG(ERROR) << "Failed to create handle. ";
                 exit(-1);
             }
             for (int fd_index = 0; fd_index < func_msg.arg(0).handle_value().num_fds() + func_msg.arg(0).handle_value().num_ints(); fd_index++) {
@@ -1277,13 +1178,13 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
                                 pre = pos;
                                 if(dir.size() == 0) continue; // ignore leading /
                                 if (stat(dir.c_str(), &st) == -1) {
-                                cout << " Creating dir: " << dir << endl;
+                                LOG(INFO) << " Creating dir: " << dir;
                                     mkdir(dir.c_str(), 0700);
                                 }
                             }
                             int fd = open(file_name.c_str(), fd_val.flags() | O_CREAT, fd_val.mode());
                             if (fd == -1) {
-                                cout << "Failed to open file: " << file_name << " error: " << errno << endl;
+                                LOG(ERROR) << "Failed to open file: " << file_name << " error: " << errno;
                                 exit (-1);
                             }
                             handle->data[fd_index] = fd;
@@ -1309,7 +1210,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
                         case FdType::SOCKET_TYPE:
                         case FdType::LINK_TYPE:
                         {
-                            cout << "Not supported yet. " << endl;
+                            LOG(ERROR) << "Not supported yet. ";
                             break;
                         }
                     }
@@ -1322,20 +1223,15 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             arg0 = nullptr;
         }
         ::android::hardware::tests::foo::V1_0::Abc arg1;
-        MessageTo__android__hardware__tests__foo__V1_0__Abc(func_msg.arg(1), &(arg1));
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        MessageTo__android__hardware__tests__foo__V1_0__Abc(func_msg.arg(1), &(arg1), callback_socket_name);
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         bool result0;
         bool result1;
         hw_binder_proxy_->expectNullHandle(arg0, arg1, [&](bool arg0,bool arg1){
-            cout << "callback expectNullHandle called" << endl;
+            LOG(INFO) << "callback expectNullHandle called";
             result0 = arg0;
             result1 = arg1;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("expectNullHandle");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_SCALAR);
@@ -1345,7 +1241,6 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
         result_val_1->set_type(TYPE_SCALAR);
         result_val_1->set_scalar_type("bool_t");
         result_val_1->mutable_scalar_value()->set_bool_t(result1);
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "takeAMask")) {
@@ -1354,26 +1249,21 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
         uint8_t arg1;
         arg1 = func_msg.arg(1).scalar_value().uint8_t();
         ::android::hardware::tests::foo::V1_0::IFoo::MyMask arg2;
-        MessageTo__android__hardware__tests__foo__V1_0__IFoo__MyMask(func_msg.arg(2), &(arg2));
+        MessageTo__android__hardware__tests__foo__V1_0__IFoo__MyMask(func_msg.arg(2), &(arg2), callback_socket_name);
         uint8_t arg3;
         arg3 = func_msg.arg(3).scalar_value().uint8_t();
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         ::android::hardware::tests::foo::V1_0::IFoo::BitField result0;
         uint8_t result1;
         uint8_t result2;
         uint8_t result3;
         hw_binder_proxy_->takeAMask(arg0, arg1, arg2, arg3, [&](::android::hardware::tests::foo::V1_0::IFoo::BitField arg0,uint8_t arg1,uint8_t arg2,uint8_t arg3){
-            cout << "callback takeAMask called" << endl;
+            LOG(INFO) << "callback takeAMask called";
             result0 = arg0;
             result1 = arg1;
             result2 = arg2;
             result3 = arg3;
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("takeAMask");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_ENUM);
@@ -1390,20 +1280,18 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
         result_val_3->set_type(TYPE_SCALAR);
         result_val_3->set_scalar_type("uint8_t");
         result_val_3->mutable_scalar_value()->set_uint8_t(result3);
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "haveAInterface")) {
         sp<::android::hardware::tests::foo::V1_0::ISimple> arg0;
-        /* ERROR: TYPE_HIDL_INTERFACE is not supported yet. */
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        if (func_msg.arg(0).has_hidl_interface_pointer()) {
+            arg0 = reinterpret_cast<::android::hardware::tests::foo::V1_0::ISimple*>(func_msg.arg(0).hidl_interface_pointer());
+        } else {
+            arg0 = VtsFuzzerCreateVts_android_hardware_tests_foo_V1_0_ISimple(callback_socket_name);
+        }
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         sp<::android::hardware::tests::foo::V1_0::ISimple> result0;
         result0 = hw_binder_proxy_->haveAInterface(arg0);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("haveAInterface");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_HIDL_INTERFACE);
@@ -1414,14 +1302,12 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
         } else {
             result_val_0->set_hidl_interface_pointer(0);
         }
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "notifySyspropsChanged")) {
-        cout << "Call notifySyspropsChanged" << endl;
+        LOG(INFO) << "Call notifySyspropsChanged";
         hw_binder_proxy_->notifySyspropsChanged();
         result_msg->set_name("notifySyspropsChanged");
-        cout << "called" << endl;
         return true;
     }
     return false;
@@ -1429,6 +1315,17 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
 
 bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const FunctionSpecificationMessage& expected_result __attribute__((__unused__)),
     const FunctionSpecificationMessage& actual_result __attribute__((__unused__))) {
+    if (!strcmp(actual_result.name().c_str(), "convertToBoolIfSmall")) {
+        if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
+        if (actual_result.return_type_hidl(0).vector_value_size() != expected_result.return_type_hidl(0).vector_value_size()) {
+            LOG(ERROR) << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
+            return false;
+        }
+        for (int i = 0; i <expected_result.return_type_hidl(0).vector_value_size(); i++) {
+            if (!Verify__android__hardware__tests__foo__V1_0__IFoo__ContainsUnion(expected_result.return_type_hidl(0).vector_value(i), actual_result.return_type_hidl(0).vector_value(i))) { return false; }
+        }
+        return true;
+    }
     if (!strcmp(actual_result.name().c_str(), "doThis")) {
         if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
         return true;
@@ -1446,7 +1343,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const Fu
     if (!strcmp(actual_result.name().c_str(), "doSomethingElse")) {
         if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
         if (actual_result.return_type_hidl(0).vector_value_size() != expected_result.return_type_hidl(0).vector_value_size()) {
-            cerr << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
+            LOG(ERROR) << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
             return false;
         }
         for (int i = 0; i < expected_result.return_type_hidl(0).vector_value_size(); i++) {
@@ -1462,7 +1359,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const Fu
     if (!strcmp(actual_result.name().c_str(), "mapThisVector")) {
         if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
         if (actual_result.return_type_hidl(0).vector_value_size() != expected_result.return_type_hidl(0).vector_value_size()) {
-            cerr << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
+            LOG(ERROR) << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
             return false;
         }
         for (int i = 0; i <expected_result.return_type_hidl(0).vector_value_size(); i++) {
@@ -1498,7 +1395,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const Fu
     if (!strcmp(actual_result.name().c_str(), "haveSomeStrings")) {
         if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
         if (actual_result.return_type_hidl(0).vector_value_size() != expected_result.return_type_hidl(0).vector_value_size()) {
-            cerr << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
+            LOG(ERROR) << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
             return false;
         }
         for (int i = 0; i < expected_result.return_type_hidl(0).vector_value_size(); i++) {
@@ -1509,7 +1406,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const Fu
     if (!strcmp(actual_result.name().c_str(), "haveAStringVec")) {
         if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
         if (actual_result.return_type_hidl(0).vector_value_size() != expected_result.return_type_hidl(0).vector_value_size()) {
-            cerr << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
+            LOG(ERROR) << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
             return false;
         }
         for (int i = 0; i <expected_result.return_type_hidl(0).vector_value_size(); i++) {
@@ -1520,12 +1417,12 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const Fu
     if (!strcmp(actual_result.name().c_str(), "transposeMe")) {
         if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
         if (actual_result.return_type_hidl(0).vector_value_size() != expected_result.return_type_hidl(0).vector_value_size()) {
-            cerr << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
+            LOG(ERROR) << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
             return false;
         }
         for (int i = 0; i < expected_result.return_type_hidl(0).vector_value_size(); i++) {
             if (actual_result.return_type_hidl(0).vector_value(i).vector_value_size() != expected_result.return_type_hidl(0).vector_value(i).vector_value_size()) {
-                cerr << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value(i).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value(i).vector_value_size();
+                LOG(ERROR) << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value(i).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value(i).vector_value_size();
                 return false;
             }
             for (int i = 0; i < expected_result.return_type_hidl(0).vector_value(i).vector_value_size(); i++) {
@@ -1547,12 +1444,12 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const Fu
     if (!strcmp(actual_result.name().c_str(), "transpose2")) {
         if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
         if (actual_result.return_type_hidl(0).vector_value_size() != expected_result.return_type_hidl(0).vector_value_size()) {
-            cerr << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
+            LOG(ERROR) << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
             return false;
         }
         for (int i = 0; i < expected_result.return_type_hidl(0).vector_value_size(); i++) {
             if (actual_result.return_type_hidl(0).vector_value(i).vector_value_size() != expected_result.return_type_hidl(0).vector_value(i).vector_value_size()) {
-                cerr << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value(i).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value(i).vector_value_size();
+                LOG(ERROR) << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value(i).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value(i).vector_value_size();
                 return false;
             }
             for (int i = 0; i < expected_result.return_type_hidl(0).vector_value(i).vector_value_size(); i++) {
@@ -1564,7 +1461,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const Fu
     if (!strcmp(actual_result.name().c_str(), "sendVec")) {
         if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
         if (actual_result.return_type_hidl(0).vector_value_size() != expected_result.return_type_hidl(0).vector_value_size()) {
-            cerr << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
+            LOG(ERROR) << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
             return false;
         }
         for (int i = 0; i <expected_result.return_type_hidl(0).vector_value_size(); i++) {
@@ -1575,12 +1472,12 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const Fu
     if (!strcmp(actual_result.name().c_str(), "sendVecVec")) {
         if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
         if (actual_result.return_type_hidl(0).vector_value_size() != expected_result.return_type_hidl(0).vector_value_size()) {
-            cerr << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
+            LOG(ERROR) << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
             return false;
         }
         for (int i = 0; i <expected_result.return_type_hidl(0).vector_value_size(); i++) {
             if (actual_result.return_type_hidl(0).vector_value(i).vector_value_size() != expected_result.return_type_hidl(0).vector_value(i).vector_value_size()) {
-                cerr << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value(i).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value(i).vector_value_size();
+                LOG(ERROR) << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value(i).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value(i).vector_value_size();
                 return false;
             }
             for (int i = 0; i <expected_result.return_type_hidl(0).vector_value(i).vector_value_size(); i++) {
@@ -1592,7 +1489,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const Fu
     if (!strcmp(actual_result.name().c_str(), "haveAVectorOfInterfaces")) {
         if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
         if (actual_result.return_type_hidl(0).vector_value_size() != expected_result.return_type_hidl(0).vector_value_size()) {
-            cerr << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
+            LOG(ERROR) << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
             return false;
         }
         for (int i = 0; i <expected_result.return_type_hidl(0).vector_value_size(); i++) {
@@ -1603,7 +1500,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const Fu
     if (!strcmp(actual_result.name().c_str(), "haveAVectorOfGenericInterfaces")) {
         if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
         if (actual_result.return_type_hidl(0).vector_value_size() != expected_result.return_type_hidl(0).vector_value_size()) {
-            cerr << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
+            LOG(ERROR) << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
             return false;
         }
         for (int i = 0; i <expected_result.return_type_hidl(0).vector_value_size(); i++) {
@@ -1625,7 +1522,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const Fu
     if (!strcmp(actual_result.name().c_str(), "createHandles")) {
         if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
         if (actual_result.return_type_hidl(0).vector_value_size() != expected_result.return_type_hidl(0).vector_value_size()) {
-            cerr << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
+            LOG(ERROR) << "Verification failed for vector size. expected: " << expected_result.return_type_hidl(0).vector_value_size() << " actual: " << actual_result.return_type_hidl(0).vector_value_size();
             return false;
         }
         for (int i = 0; i <expected_result.return_type_hidl(0).vector_value_size(); i++) {
@@ -1673,7 +1570,7 @@ android::vts::DriverBase* vts_func_4_android_hardware_tests_bar_V1_0_IBar_with_a
     if (hw_binder_proxy) {
         arg = reinterpret_cast<::android::hardware::tests::bar::V1_0::IBar*>(hw_binder_proxy);
     } else {
-        cout << " Creating DriverBase with null proxy." << endl;
+        LOG(INFO) << " Creating DriverBase with null proxy.";
     }
     android::vts::DriverBase* result =
         new android::vts::FuzzerExtended_android_hardware_tests_bar_V1_0_IBar(

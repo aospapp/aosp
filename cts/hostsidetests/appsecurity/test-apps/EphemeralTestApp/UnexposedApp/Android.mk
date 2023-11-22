@@ -26,6 +26,7 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
 LOCAL_PACKAGE_NAME := CtsEphemeralTestsUnexposedApp
+LOCAL_SDK_VERSION := current
 
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false

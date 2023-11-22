@@ -22,15 +22,11 @@ import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
-
 import com.android.tv.R;
 import com.android.tv.ui.sidepanel.SideFragment;
-
 import junit.framework.Assert;
 
-/**
- * Helper for testing {@link SideFragment}s.
- */
+/** Helper for testing {@link SideFragment}s. */
 public class SidePanelHelper extends BaseUiDeviceHelper {
 
     public SidePanelHelper(UiDevice uiDevice, Resources targetResources) {
@@ -54,6 +50,7 @@ public class SidePanelHelper extends BaseUiDeviceHelper {
         String title = mTargetResources.getString(resId);
         return assertNavigateToItem(title, direction);
     }
+
     public UiObject2 assertNavigateToItem(String title) {
         return assertNavigateToItem(title, Direction.DOWN);
     }
@@ -63,7 +60,7 @@ public class SidePanelHelper extends BaseUiDeviceHelper {
         UiObject2 sidePanelList = mUiDevice.findObject(sidePanelSelector);
         Assert.assertNotNull(sidePanelSelector + " not found", sidePanelList);
 
-        return UiDeviceAsserts.assertNavigateTo(mUiDevice, sidePanelList,
-                By.hasDescendant(By.text(title)), direction);
+        return UiDeviceAsserts.assertNavigateTo(
+                mUiDevice, sidePanelList, By.hasDescendant(By.text(title)), direction);
     }
 }

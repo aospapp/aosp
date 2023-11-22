@@ -16,7 +16,7 @@
 
 package com.android.cts.verifier.audio.peripheralprofile;
 
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 public class AudioStringsHelper {
     // These correspond to encoding constants defined in AudioFormats.java

@@ -15,6 +15,7 @@
 cc_defaults {
     name: "libgtest_defaults",
     export_include_dirs: ["include"],
+    cflags: ["-Wall", "-Werror"],
 }
 
 cc_defaults {
@@ -33,23 +34,6 @@ cc_defaults {
 // We need to build one pair of (libgtest, libgtest_main) for each of the three
 // STLs we support in the NDK since the user's app might use any of them.
 
-// stlport
-cc_library_static {
-    name: "libgtest_ndk_stlport",
-    defaults: ["libgtest_defaults"],
-    sdk_version: "9",
-    stl: "stlport_static",
-    srcs: ["src/gtest-all.cc"],
-}
-
-cc_library_static {
-    name: "libgtest_main_ndk_stlport",
-    defaults: ["libgtest_defaults"],
-    sdk_version: "9",
-    stl: "stlport_static",
-    srcs: ["src/gtest_main.cc"],
-}
-
 // libc++
 cc_library_static {
     name: "libgtest_ndk_c++",
@@ -64,23 +48,6 @@ cc_library_static {
     defaults: ["libgtest_defaults"],
     sdk_version: "9",
     stl: "c++_static",
-    srcs: ["src/gtest_main.cc"],
-}
-
-// gnustl
-cc_library_static {
-    name: "libgtest_ndk_gnustl",
-    defaults: ["libgtest_defaults"],
-    sdk_version: "9",
-    stl: "gnustl_static",
-    srcs: ["src/gtest-all.cc"],
-}
-
-cc_library_static {
-    name: "libgtest_main_ndk_gnustl",
-    defaults: ["libgtest_defaults"],
-    sdk_version: "9",
-    stl: "gnustl_static",
     srcs: ["src/gtest_main.cc"],
 }
 
@@ -99,7 +66,6 @@ cc_library_static {
     defaults: ["libgtest_defaults", "libgtest_host_defaults"],
     host_supported: true,
     vendor_available: true,
-    clang: true,
     srcs: ["src/gtest_main.cc"],
 }
 

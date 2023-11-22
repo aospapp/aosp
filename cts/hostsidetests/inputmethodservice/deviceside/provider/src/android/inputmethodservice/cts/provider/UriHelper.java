@@ -19,8 +19,8 @@ package android.inputmethodservice.cts.provider;
 import android.content.UriMatcher;
 import android.net.Uri;
 import android.provider.BaseColumns;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.SparseArray;
 

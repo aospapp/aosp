@@ -18,15 +18,19 @@
 #ifndef ANDROID_VINTF_HAL_MANIFEST_H
 #define ANDROID_VINTF_HAL_MANIFEST_H
 
+#include <utils/Errors.h>
 #include <map>
 #include <string>
-#include <utils/Errors.h>
 #include <vector>
 
 #include "HalGroup.h"
+#include "Level.h"
 #include "ManifestHal.h"
+#include "ManifestInstance.h"
 #include "MapValueIterator.h"
 #include "SchemaType.h"
+#include "SystemSdk.h"
+#include "VendorNdk.h"
 #include "Version.h"
 #include "Vndk.h"
 #include "XmlFileGroup.h"
@@ -37,49 +41,27 @@ namespace vintf {
 struct MatrixHal;
 struct CompatibilityMatrix;
 
+namespace details {
+using InstancesOfVersion =
+    std::map<std::string /* interface */, std::set<std::string /* instance */>>;
+using Instances = std::map<Version, InstancesOfVersion>;
+}  // namespace details
+
 // A HalManifest is reported by the hardware and query-able from
 // framework code. This is the API for the framework.
 struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestXmlFile> {
    public:
-    // manifest.version
-    constexpr static Version kVersion{1, 0};
 
     // Construct a device HAL manifest.
     HalManifest() : mType(SchemaType::DEVICE) {}
+
+    bool add(ManifestHal&& hal) override;
 
     // Given a component name (e.g. "android.hardware.camera"),
     // return getHal(name)->transport if the component exist and v exactly matches
     // one of the versions in that component, else EMPTY
     Transport getTransport(const std::string &name, const Version &v,
             const std::string &interfaceName, const std::string &instanceName) const;
-
-    // Given a component name (e.g. "android.hardware.camera"),
-    // return a list of version numbers that are supported by the hardware.
-    // If the component is not found, empty list is returned.
-    // If multiple matches, return a concatenation of version entries
-    // (dupes removed)
-    std::set<Version> getSupportedVersions(const std::string &name) const;
-
-    // Given a component name (e.g. "android.hardware.camera") and an interface
-    // name, return all instance names for that interface.
-    // * If the component ("android.hardware.camera") does not exist, return empty list
-    // * If the component ("android.hardware.camera") does exist,
-    //    * If the interface (ICamera) does not exist, return empty list
-    //    * Else return the list hal.interface.instance
-    std::set<std::string> getInstances(
-            const std::string &halName, const std::string &interfaceName) const;
-
-    // Convenience method for checking if instanceName is in getInstances(halName, interfaceName)
-    bool hasInstance(const std::string &halName,
-            const std::string &interfaceName, const std::string &instanceName) const;
-
-    // Return a list of component names that does NOT conform to
-    // the given compatibility matrix. It contains components that are optional
-    // for the framework if includeOptional = true.
-    // Note: only HAL entries are checked. To check other entries as well, use
-    // checkCompatibility.
-    std::vector<std::string> checkIncompatibility(const CompatibilityMatrix &mat,
-            bool includeOptional = true) const;
 
     // Check compatibility against a compatibility matrix. Considered compatible if
     // - framework manifest vs. device compat-mat
@@ -101,31 +83,41 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
     // "android.hardware.nfc@1.0"]
     std::set<std::string> getHalNamesAndVersions() const;
 
-    // Given a component name (e.g. "android.hardware.camera"),
-    // return a list of interface names of that component.
-    // If the component is not found, empty list is returned.
-    std::set<std::string> getInterfaceNames(const std::string &name) const;
-
     // Type of the manifest. FRAMEWORK or DEVICE.
     SchemaType type() const;
+    void setType(SchemaType type);
 
-    // Get all hals with the name
-    std::vector<const ManifestHal *> getHals(const std::string &name) const;
-    std::vector<ManifestHal *> getHals(const std::string &name);
+    // FCM version that it implements.
+    Level level() const;
 
     // device.mSepolicyVersion. Assume type == device.
     // Abort if type != device.
     const Version &sepolicyVersion() const;
 
-    // framework.mVndks. Assume type == framework.
+    // framework.mVendorNdks. Assume type == framework.
     // Abort if type != framework.
-    const std::vector<Vndk> &vndks() const;
+    const std::vector<VendorNdk>& vendorNdks() const;
 
     // If the corresponding <xmlfile> with the given version exists,
     // - Return the overridden <path> if it is present,
     // - otherwise the default value: /{system,vendor}/etc/<name>_V<major>_<minor>.xml
     // Otherwise if the <xmlfile> entry does not exist, "" is returned.
     std::string getXmlFilePath(const std::string& xmlFileName, const Version& version) const;
+
+    // Get metaversion of this manifest.
+    Version getMetaVersion() const;
+
+    bool forEachInstanceOfVersion(
+        const std::string& package, const Version& expectVersion,
+        const std::function<bool(const ManifestInstance&)>& func) const override;
+
+    // Alternative to forEachInstance if you just need a set of instance names instead.
+    std::set<std::string> getInstances(const std::string& halName, const Version& version,
+                                       const std::string& interfaceName) const;
+
+    // Return whether instance is in getInstances(...).
+    bool hasInstance(const std::string& halName, const Version& version,
+                     const std::string& interfaceName, const std::string& instance) const;
 
    protected:
     // Check before add()
@@ -135,24 +127,36 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
    private:
     friend struct HalManifestConverter;
     friend class VintfObject;
-    friend class AssembleVintf;
+    friend class AssembleVintfImpl;
     friend struct LibVintfTest;
     friend std::string dump(const HalManifest &vm);
     friend bool operator==(const HalManifest &lft, const HalManifest &rgt);
 
-    // Return an iterable to all ManifestHal objects. Call it as follows:
-    // for (const ManifestHal &e : vm.getHals()) { }
-    ConstMultiMapValueIterable<std::string, ManifestHal> getHals() const;
+    status_t fetchAllInformation(const std::string& path, std::string* error = nullptr);
 
-    status_t fetchAllInformation(const std::string &path);
-
+    details::Instances expandInstances(const std::string& name) const;
     // Check if all instances in matrixHal is supported in this manifest.
-    bool isCompatible(const MatrixHal& matrixHal) const;
+    bool isCompatible(const details::Instances& instances, const MatrixHal& matrixHal) const;
 
-    std::vector<std::string> checkIncompatibleXmlFiles(const CompatibilityMatrix& mat,
-                                                       bool includeOptional = true) const;
+    // Return a list of error messages (for each <hal> name) that does NOT conform to
+    // the given compatibility matrix. It does not contain components that are optional.
+    // That is, return empty list iff
+    // (instance in matrix) => (instance in manifest).
+    std::vector<std::string> checkIncompatibleHals(const CompatibilityMatrix& mat) const;
+
+    void removeHals(const std::string& name, size_t majorVer);
+
+    // Returns a list of instance names that are in this manifest but
+    // are not specified in the given matrix, whether the HAL is specified as an optional or
+    // required HAL.
+    // That is, return empty list iff
+    // (instance in manifest) => (instance in matrix).
+    std::set<std::string> checkUnusedHals(const CompatibilityMatrix& mat) const;
 
     SchemaType mType;
+    Level mLevel = Level::UNSPECIFIED;
+    // version attribute. Default is 1.0 for manifests created programatically.
+    Version mMetaVersion{1, 0};
 
     // entries for device hal manifest only
     struct {
@@ -161,7 +165,13 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
 
     // entries for framework hal manifest only
     struct {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         std::vector<Vndk> mVndks;
+#pragma clang diagnostic pop
+
+        std::vector<VendorNdk> mVendorNdks;
+        SystemSdk mSystemSdk;
     } framework;
 };
 

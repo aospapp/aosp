@@ -42,6 +42,12 @@ import com.android.server.telecom.CallAudioRouteStateMachine;
 import com.android.server.telecom.LogUtils;
 import com.android.server.telecom.nano.TelecomLogClass;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
@@ -53,13 +59,32 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
+@RunWith(JUnit4.class)
 public class AnalyticsTests extends TelecomSystemTest {
+    @Override
+    @Before
+    public void setUp() throws Exception {
+        super.setUp();
+    }
+
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
+    }
+
     @MediumTest
+    @Test
     public void testAnalyticsSingleCall() throws Exception {
         IdPair testCall = startAndMakeActiveIncomingCall(
                 "650-555-1212",
@@ -101,6 +126,7 @@ public class AnalyticsTests extends TelecomSystemTest {
 
     @FlakyTest
     @MediumTest
+    @Test
     public void testAnalyticsDumping() throws Exception {
         Analytics.reset();
         IdPair testCall = startAndMakeActiveIncomingCall(
@@ -144,6 +170,7 @@ public class AnalyticsTests extends TelecomSystemTest {
     }
 
     @MediumTest
+    @Test
     public void testAnalyticsTwoCalls() throws Exception {
         IdPair testCall1 = startAndMakeActiveIncomingCall(
                 "650-555-1212",
@@ -196,6 +223,7 @@ public class AnalyticsTests extends TelecomSystemTest {
     }
 
     @MediumTest
+    @Test
     public void testAnalyticsVideo() throws Exception {
         Analytics.reset();
         IdPair callIds = startAndMakeActiveOutgoingCall(
@@ -245,6 +273,7 @@ public class AnalyticsTests extends TelecomSystemTest {
     }
 
     @SmallTest
+    @Test
     public void testAnalyticsRounding() {
         long[] testVals = {0, -1, -10, -100, -57836, 1, 10, 100, 1000, 458457};
         long[] expected = {0, -1, -10, -100, -60000, 1, 10, 100, 1000, 500000};
@@ -254,6 +283,7 @@ public class AnalyticsTests extends TelecomSystemTest {
     }
 
     @SmallTest
+    @Test
     public void testAnalyticsLogSessionTiming() throws Exception {
         long minTime = 50;
         Log.startSession(LogUtils.Sessions.CSW_ADD_CONFERENCE_CALL);
@@ -268,6 +298,7 @@ public class AnalyticsTests extends TelecomSystemTest {
     }
 
     @MediumTest
+    @Test
     public void testAnalyticsDumpToProto() throws Exception {
         Analytics.reset();
         IdPair testCall = startAndMakeActiveIncomingCall(
@@ -315,6 +346,7 @@ public class AnalyticsTests extends TelecomSystemTest {
     }
 
     @MediumTest
+    @Test
     public void testAnalyticsAudioRoutes() throws Exception {
         Analytics.reset();
         IdPair testCall = startAndMakeActiveIncomingCall(
@@ -327,11 +359,19 @@ public class AnalyticsTests extends TelecomSystemTest {
                 mTelecomSystem.getCallsManager().getCallAudioManager()
                         .getCallAudioRouteStateMachine().getHandler(),
                 TEST_TIMEOUT);
+        waitForHandlerAction(
+                mTelecomSystem.getCallsManager().getCallAudioManager()
+                        .getCallAudioModeStateMachine().getHandler(),
+                TEST_TIMEOUT);
         audioRoutes.add(mInCallServiceFixtureX.mCallAudioState.getRoute());
-        mInCallServiceFixtureX.getInCallAdapter().setAudioRoute(CallAudioState.ROUTE_SPEAKER);
+        mInCallServiceFixtureX.getInCallAdapter().setAudioRoute(CallAudioState.ROUTE_SPEAKER, null);
         waitForHandlerAction(
                 mTelecomSystem.getCallsManager().getCallAudioManager()
                         .getCallAudioRouteStateMachine().getHandler(),
+                TEST_TIMEOUT);
+        waitForHandlerAction(
+                mTelecomSystem.getCallsManager().getCallAudioManager()
+                        .getCallAudioModeStateMachine().getHandler(),
                 TEST_TIMEOUT);
         audioRoutes.add(CallAudioState.ROUTE_SPEAKER);
 
@@ -347,6 +387,7 @@ public class AnalyticsTests extends TelecomSystemTest {
     }
 
     @MediumTest
+    @Test
     public void testAnalyticsConnectionProperties() throws Exception {
         Analytics.reset();
         IdPair testCall = startAndMakeActiveIncomingCall(
@@ -382,6 +423,7 @@ public class AnalyticsTests extends TelecomSystemTest {
     }
 
     @SmallTest
+    @Test
     public void testAnalyticsMaxSize() throws Exception {
         Analytics.reset();
         for (int i = 0; i < Analytics.MAX_NUM_CALLS_TO_STORE * 2; i++) {

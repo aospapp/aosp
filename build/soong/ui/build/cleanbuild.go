@@ -107,6 +107,7 @@ func installClean(ctx Context, config Config, what int) {
 		productOut("system"),
 		productOut("system_other"),
 		productOut("vendor"),
+		productOut("product"),
 		productOut("oem"),
 		productOut("obj/FAKE"),
 		productOut("breakpad"),
@@ -128,6 +129,8 @@ func installCleanIfNecessary(ctx Context, config Config) {
 	prefix := "PREVIOUS_BUILD_CONFIG := "
 	suffix := "\n"
 	currentProduct := prefix + config.TargetProduct() + "-" + config.TargetBuildVariant() + suffix
+
+	ensureDirectoriesExist(ctx, filepath.Dir(configFile))
 
 	writeConfig := func() {
 		err := ioutil.WriteFile(configFile, []byte(currentProduct), 0666)

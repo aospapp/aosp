@@ -27,10 +27,12 @@ elif:subcount(class)
   <?cs if:class.artifact ?>
     <br><?cs call:artifact_tags(class) ?>
   <?cs /if ?>
-  <?cs if:class.deprecatedsince ?>
-    <br>Deprecated since
+  <?cs if:class.deprecatedsince ?><?cs
+    if:class.artifact ?><br>Deprecated since version <?cs var:class.deprecatedsince ?><?cs
+    else ?><br>Deprecated since
     <a href="<?cs var:toroot ?>guide/topics/manifest/uses-sdk-element.html#ApiLevels">API level
-      <?cs var:class.deprecatedsince ?></a>
+      <?cs var:class.deprecatedsince ?></a><?cs
+    /if ?>
   <?cs /if ?>
   <?cs call:federated_refs(class) ?>
 </div>
@@ -106,7 +108,6 @@ Summary:
 <?cs if:inhmethods ?>
   <?cs if:linkcount ?>&#124; <?cs /if ?><a href="#inhmethods">Inherited Methods</a>
 <?cs /if ?>
-&#124; <a href="#" onclick="return toggleAllClassInherited()" id="toggleAllClassInherited">[Expand All]</a>
 <?cs /if ?>
 </div><!-- end sum-details-links -->
 </div><!-- end api-info-block --><?cs

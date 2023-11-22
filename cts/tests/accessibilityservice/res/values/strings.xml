@@ -34,6 +34,8 @@
     <!-- String title of the button -->
     <string name="button_title">Click me</string>
 
+    <string name="button_tooltip">Never press this button</string>
+
     <!-- String value of the first list item -->
     <string name="first_list_item">First list item</string>
 
@@ -122,6 +124,8 @@
     <!-- String second Button text -->
     <string name="secondButton">sB</string>
 
+    <string name="paneTitle">Pane Title</string>
+
     <!-- String title of the accessibility focus and input focus sync test activity -->
     <string name="accessibility_focus_and_input_focus_sync_test_activity">Accessibility focus and input focus sync test</string>
 
@@ -134,6 +138,8 @@
     <string name="android_wiki">Android is a Linux-based operating system for mobile devices such as smartphones and tablet computers. It is developed by the Open Handset Alliance, and here is some text padding</string>
 
     <string name="a_b">A B</string>
+
+    <string name="german_text_with_strong_s">ß</string>
 
     <string name="android_wiki_search">Android is a Linux-based</string>
 

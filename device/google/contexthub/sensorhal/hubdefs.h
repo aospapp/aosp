@@ -86,6 +86,7 @@ enum comms_sensor_t {
     COMMS_SENSOR_HUMIDITY                    = 48,
     COMMS_SENSOR_ACCEL_WRIST_AWARE           = 49,
     COMMS_SENSOR_GYRO_WRIST_AWARE            = 50,
+    COMMS_SENSOR_AMBIENT_TEMPERATURE         = 51,
 
     NUM_COMMS_SENSORS_PLUS_1,
 

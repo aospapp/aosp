@@ -268,10 +268,10 @@ class ResultTest(unittest.TestCase):
     self.result.CopyResultsTo('/tmp/results/')
     self.assertEqual(mockCopyFilesTo.call_count, 2)
     self.assertEqual(len(mockCopyFilesTo.call_args_list), 2)
-    self.assertEqual(mockCopyFilesTo.call_args_list[0][0],
-                     ('/tmp/results/', perf_data_files))
-    self.assertEqual(mockCopyFilesTo.call_args_list[1][0],
-                     ('/tmp/results/', perf_report_files))
+    self.assertEqual(mockCopyFilesTo.call_args_list[0][0], ('/tmp/results/',
+                                                            perf_data_files))
+    self.assertEqual(mockCopyFilesTo.call_args_list[1][0], ('/tmp/results/',
+                                                            perf_report_files))
 
   def test_get_new_keyvals(self):
     kv_dict = {}
@@ -436,8 +436,10 @@ class ResultTest(unittest.TestCase):
     self.assertEqual(mock_runcmd.call_args_list[0][0],
                      ('cp -r /tmp/test_that_resultsNmq/* %s' % TMP_DIR1,))
     self.assertEqual(mock_chrootruncmd.call_count, 1)
-    self.assertEqual(mock_chrootruncmd.call_args_list[0][0], (
-        '/tmp', ('python generate_test_report --no-color --csv %s') % TMP_DIR1))
+    self.assertEqual(
+        mock_chrootruncmd.call_args_list[0][0],
+        ('/tmp',
+         ('python generate_test_report --no-color --csv %s') % TMP_DIR1))
     self.assertEqual(mock_getpath.call_count, 1)
     self.assertEqual(mock_mkdtemp.call_count, 1)
     self.assertEqual(res, {'Total': [10, 'score'], 'first_time': [680, 'ms']})
@@ -899,9 +901,8 @@ class TelemetryResultTest(unittest.TestCase):
     self.mock_label = MockLabel('mock_label', 'chromeos_image', 'autotest_dir',
                                 '/tmp', 'lumpy', 'remote', 'image_args',
                                 'cache_dir', 'average', 'gcc', None)
-    self.mock_machine = machine_manager.MockCrosMachine('falco.cros',
-                                                        '/tmp/chromeos',
-                                                        'average')
+    self.mock_machine = machine_manager.MockCrosMachine(
+        'falco.cros', '/tmp/chromeos', 'average')
 
   def test_populate_from_run(self):
 
@@ -979,12 +980,10 @@ class ResultsCacheTest(unittest.TestCase):
     def FakeGetMachines(label):
       if label:
         pass
-      m1 = machine_manager.MockCrosMachine('lumpy1.cros',
-                                           self.results_cache.chromeos_root,
-                                           'average')
-      m2 = machine_manager.MockCrosMachine('lumpy2.cros',
-                                           self.results_cache.chromeos_root,
-                                           'average')
+      m1 = machine_manager.MockCrosMachine(
+          'lumpy1.cros', self.results_cache.chromeos_root, 'average')
+      m2 = machine_manager.MockCrosMachine(
+          'lumpy2.cros', self.results_cache.chromeos_root, 'average')
       return [m1, m2]
 
     mock_checksum.return_value = 'FakeImageChecksumabc123'
@@ -1026,12 +1025,10 @@ class ResultsCacheTest(unittest.TestCase):
     def FakeGetMachines(label):
       if label:
         pass
-      m1 = machine_manager.MockCrosMachine('lumpy1.cros',
-                                           self.results_cache.chromeos_root,
-                                           'average')
-      m2 = machine_manager.MockCrosMachine('lumpy2.cros',
-                                           self.results_cache.chromeos_root,
-                                           'average')
+      m1 = machine_manager.MockCrosMachine(
+          'lumpy1.cros', self.results_cache.chromeos_root, 'average')
+      m2 = machine_manager.MockCrosMachine(
+          'lumpy2.cros', self.results_cache.chromeos_root, 'average')
       return [m1, m2]
 
     mock_checksum.return_value = 'FakeImageChecksumabc123'

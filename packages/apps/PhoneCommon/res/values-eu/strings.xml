@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Ez dago SIM txartelik edo SIM txartelaren errore bat gertatu da"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Sare mugikorra ez dago erabilgarri"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Irteerako deiak FDN ezarpenaren bidez murrizten dira."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL eskaera USSD eskaerara aldatu da."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL eskaera SS eskaerara aldatu da."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL eskaera beste zenbaki bateko DIAL eskaerara aldatu da."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"USSD eskaerara aldatu da deia"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"SS eskaerara aldatu da deia"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Beste zenbaki batera aldatu da"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Bideo-deira aldatu da"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"SS eskaerara aldatu da bideo-deia"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"USSD eskaerara aldatu da bideo-deia"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Ohiko deira aldatu da"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Beste zenbaki batera aldatu da"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Ezin da deitu deien debekuak aktibatuta dauden bitartean."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Deiak sarbide-kontrolaren bidez daude mugatuta."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Larrialdi-deiak sarbide-kontrolaren bidez daude mugatuta."</string>

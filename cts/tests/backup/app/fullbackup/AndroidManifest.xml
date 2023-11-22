@@ -23,6 +23,8 @@
         android:backupAgent="FullBackupBackupAgent"
         android:label="Android Backup CTS App"
         android:fullBackupOnly="true">
+        <uses-library android:name="android.test.runner" />
+
 
         <activity
             android:name=".MainActivity"

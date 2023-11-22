@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2012 Broadcom Corporation
+ *  Copyright 2003-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -30,6 +30,8 @@
 
 #include <base/logging.h>
 #include <base/threading/thread.h>
+
+#include "bta/include/bta_closure_api.h"
 
 /*****************************************************************************
  *  Constants and data types
@@ -61,7 +63,6 @@ typedef uint16_t tBTA_SYS_HW_MODULE;
 /* SW sub-systems */
 #define BTA_ID_SYS 0 /* system manager */
 /* BLUETOOTH PART - from 0 to BTA_ID_BLUETOOTH_MAX */
-#define BTA_ID_DM 1             /* device manager */
 #define BTA_ID_DM_SEARCH 2      /* device manager search */
 #define BTA_ID_DM_SEC 3         /* device manager security */
 #define BTA_ID_DG 4             /* data gateway */
@@ -139,7 +140,7 @@ typedef uint8_t tBTA_SYS_PREF_ROLES;
 
 /* conn callback for role / low power manager*/
 typedef void(tBTA_SYS_CONN_CBACK)(tBTA_SYS_CONN_STATUS status, uint8_t id,
-                                  uint8_t app_id, const RawAddress* peer_addr);
+                                  uint8_t app_id, const RawAddress& peer_addr);
 
 /* conn callback for role / low power manager*/
 typedef void(tBTA_SYS_SSR_CFG_CBACK)(uint8_t id, uint8_t app_id,
@@ -223,8 +224,6 @@ extern void bta_sys_deregister(uint8_t id);
 extern bool bta_sys_is_register(uint8_t id);
 extern uint16_t bta_sys_get_sys_features(void);
 extern void bta_sys_sendmsg(void* p_msg);
-extern void do_in_bta_thread(const tracked_objects::Location& from_here,
-                             const base::Closure& task);
 extern void bta_sys_start_timer(alarm_t* alarm, period_ms_t interval,
                                 uint16_t event, uint16_t layer_specific);
 extern void bta_sys_disable(tBTA_SYS_HW_MODULE module);
@@ -267,11 +266,11 @@ extern void bta_sys_chg_ssr_config(uint8_t id, uint8_t app_id,
 #endif
 
 extern void bta_sys_role_chg_register(tBTA_SYS_CONN_CBACK* p_cback);
-extern void bta_sys_notify_role_chg(const RawAddress& p_bda, uint8_t new_role,
-                                    uint8_t hci_status);
+extern void bta_sys_notify_role_chg(const RawAddress& peer_addr,
+                                    uint8_t new_role, uint8_t hci_status);
 extern void bta_sys_collision_register(uint8_t bta_id,
                                        tBTA_SYS_CONN_CBACK* p_cback);
-extern void bta_sys_notify_collision(const RawAddress& p_bda);
+extern void bta_sys_notify_collision(const RawAddress& peer_addr);
 
 #if (BTA_EIR_CANNED_UUID_LIST != TRUE)
 extern void bta_sys_eir_register(tBTA_SYS_EIR_CBACK* p_cback);

@@ -134,6 +134,7 @@ public class GnssNavigationMessageTest extends GnssTestCase {
         GnssNavigationMessage newMessage =
                 GnssNavigationMessage.CREATOR.createFromParcel(parcel);
         verifyTestValues(newMessage);
+        parcel.recycle();
     }
 
     public void testReset() {

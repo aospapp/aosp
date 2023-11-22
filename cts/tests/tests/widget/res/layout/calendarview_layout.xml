@@ -42,7 +42,7 @@
             style="@android:style/Widget.Holo.Light.CalendarView"
             android:id="@+id/calendar_view_holoyolo"
             android:layout_width="match_parent"
-            android:layout_height="320dip"
+            android:layout_height="@dimen/calendarview_holo_height"
             android:firstDayOfWeek="3"
             android:shownWeekCount="5"
             android:showWeekNumber="false"

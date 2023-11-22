@@ -16,17 +16,22 @@
 
 package android.os.cts;
 
+import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.AppModeInstant;
+
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.ddmlib.testrunner.TestResult;
-import com.android.ddmlib.testrunner.TestRunResult;
+import com.android.ddmlib.testrunner.TestResult.TestStatus;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.result.CollectingTestListener;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.TestResult;
+import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
 
+import java.io.FileNotFoundException;
 import java.util.Map;
 
 public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildReceiver {
@@ -84,26 +89,35 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
             = "android.os.lib.consumer";
 
     private CompatibilityBuildHelper mBuildHelper;
+    private boolean mInstantMode = false;
 
     @Override
     public void setBuild(IBuildInfo buildInfo) {
         mBuildHelper = new CompatibilityBuildHelper(buildInfo);
     }
 
-    public void testInstallSharedLibrary() throws Exception {
+    @AppModeInstant
+    public void testInstallSharedLibraryInstantMode() throws Exception {
+        mInstantMode = true;
+        doTestInstallSharedLibrary();
+    }
+
+    @AppModeFull
+    public void testInstallSharedLibraryFullMode() throws Exception {
+        doTestInstallSharedLibrary();
+    }
+
+    private void doTestInstallSharedLibrary() throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER2_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
         try {
             // Install library dependency
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER_RECURSIVE_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER_RECURSIVE_APK));
             // Install version 1
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER1_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER1_APK));
             // Install version 2
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER2_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER2_APK));
             // Uninstall version 1
             assertNull(getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG));
             // Uninstall version 2
@@ -117,13 +131,23 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         }
     }
 
-    public void testCannotInstallSharedLibraryWithMissingDependency() throws Exception {
+    @AppModeInstant
+    public void testCannotInstallSharedLibraryWithMissingDependencyInstantMode() throws Exception {
+        mInstantMode = true;
+        doTestCannotInstallSharedLibraryWithMissingDependency();
+    }
+
+    @AppModeFull
+    public void testCannotInstallSharedLibraryWithMissingDependencyFullMode() throws Exception {
+        doTestCannotInstallSharedLibraryWithMissingDependency();
+    }
+
+    private void doTestCannotInstallSharedLibraryWithMissingDependency() throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER2_PKG);
         try {
             // Install version 1 - should fail - no dependency
-            assertNotNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER1_APK), false, false));
+            assertNotNull(install(STATIC_LIB_PROVIDER1_APK));
         } finally {
             getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
             getDevice().uninstallPackage(STATIC_LIB_PROVIDER2_PKG);
@@ -136,14 +160,11 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
         try {
             // Install library dependency
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER_RECURSIVE_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER_RECURSIVE_APK));
             // Install the library
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER1_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER1_APK));
             // Install the client
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_CONSUMER1_APK), false, false));
+            assertNull(install(STATIC_LIB_CONSUMER1_APK));
             // Try to load code and resources
             runDeviceTests(STATIC_LIB_CONSUMER1_PKG,
                     "android.os.lib.consumer1.UseSharedLibraryTest",
@@ -155,16 +176,25 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         }
     }
 
-    public void testCannotUninstallUsedSharedLibrary1() throws Exception {
+    @AppModeInstant
+    public void testCannotUninstallUsedSharedLibrary1InstantMode() throws Exception {
+        mInstantMode = true;
+        doTestCannotUninstallUsedSharedLibrary1();
+    }
+
+    @AppModeFull
+    public void testCannotUninstallUsedSharedLibrary1FullMode() throws Exception {
+        doTestCannotUninstallUsedSharedLibrary1();
+    }
+
+    private void doTestCannotUninstallUsedSharedLibrary1() throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
         try {
             // Install library dependency
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER_RECURSIVE_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER_RECURSIVE_APK));
             // Install the library
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER1_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER1_APK));
             // The library dependency cannot be uninstalled
             assertNotNull(getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG));
             // Now the library dependency can be uninstalled
@@ -177,20 +207,28 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         }
     }
 
-    public void testCannotUninstallUsedSharedLibrary2() throws Exception {
+    @AppModeInstant
+    public void testCannotUninstallUsedSharedLibrary2InstantMode() throws Exception {
+        mInstantMode = true;
+        doTestCannotUninstallUsedSharedLibrary2();
+    }
+
+    @AppModeFull
+    public void testCannotUninstallUsedSharedLibrary2FullMode() throws Exception {
+        doTestCannotUninstallUsedSharedLibrary2();
+    }
+
+    private void doTestCannotUninstallUsedSharedLibrary2() throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_CONSUMER1_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
         try {
             // Install library dependency
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER_RECURSIVE_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER_RECURSIVE_APK));
             // Install the library
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER1_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER1_APK));
             // Install the client
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_CONSUMER1_APK), false, false));
+            assertNull(install(STATIC_LIB_CONSUMER1_APK));
             // The library cannot be uninstalled
             assertNotNull(getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG));
             // Uninstall the client
@@ -206,24 +244,31 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         }
     }
 
-    public void testLibraryVersionsAndVersionCodesSameOrder() throws Exception {
+    @AppModeInstant
+    public void testLibraryVersionsAndVersionCodesSameOrderInstantMode() throws Exception {
+        mInstantMode = true;
+        doTestLibraryVersionsAndVersionCodesSameOrder();
+    }
+
+    @AppModeFull
+    public void testLibraryVersionsAndVersionCodesSameOrderFullMode() throws Exception {
+        doTestLibraryVersionsAndVersionCodesSameOrder();
+    }
+
+    private void doTestLibraryVersionsAndVersionCodesSameOrder() throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER2_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER3_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
         try {
             // Install library dependency
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER_RECURSIVE_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER_RECURSIVE_APK));
             // Install library version 1 with version code 1
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER1_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER1_APK));
             // Install library version 2 with version code 4
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER2_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER2_APK));
             // Shouldn't be able to install library version 3 with version code 3
-            assertNotNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER3_APK), false, false));
+            assertNotNull(install(STATIC_LIB_PROVIDER3_APK));
         } finally {
             getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
             getDevice().uninstallPackage(STATIC_LIB_PROVIDER2_PKG);
@@ -232,30 +277,48 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         }
     }
 
-    public void testCannotInstallAppWithMissingLibrary() throws Exception {
+    @AppModeInstant
+    public void testCannotInstallAppWithMissingLibraryInstantMode() throws Exception {
+        mInstantMode = true;
+        doTestCannotInstallAppWithMissingLibrary();
+    }
+
+    @AppModeFull
+    public void testCannotInstallAppWithMissingLibraryFullMode() throws Exception {
+        doTestCannotInstallAppWithMissingLibrary();
+    }
+
+    private void doTestCannotInstallAppWithMissingLibrary() throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_CONSUMER1_PKG);
         try {
             // Shouldn't be able to install an app if a dependency lib is missing
-            assertNotNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_CONSUMER1_APK), false, false));
+            assertNotNull(install(STATIC_LIB_CONSUMER1_APK));
         } finally {
             getDevice().uninstallPackage(STATIC_LIB_CONSUMER1_PKG);
         }
     }
 
-    public void testCanReplaceLibraryIfVersionAndVersionCodeSame() throws Exception {
+    @AppModeInstant
+    public void testCanReplaceLibraryIfVersionAndVersionCodeSameInstantMode() throws Exception {
+        mInstantMode = true;
+        doTestCanReplaceLibraryIfVersionAndVersionCodeSame();
+    }
+
+    @AppModeFull
+    public void testCanReplaceLibraryIfVersionAndVersionCodeSameFullMode() throws Exception {
+        doTestCanReplaceLibraryIfVersionAndVersionCodeSame();
+    }
+
+    private void doTestCanReplaceLibraryIfVersionAndVersionCodeSame() throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
         try {
             // Install library dependency
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER_RECURSIVE_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER_RECURSIVE_APK));
             // Install a library
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER1_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER1_APK));
             // Cannot install the library (need to reinstall)
-            assertNotNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER1_APK), false, false));
+            assertNotNull(install(STATIC_LIB_PROVIDER1_APK));
             // Can reinstall the library if version and version code same
             assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
                     STATIC_LIB_PROVIDER1_APK), true, false));
@@ -265,19 +328,27 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         }
     }
 
-    public void testUninstallSpecificLibraryVersion() throws Exception {
+    @AppModeInstant
+    public void testUninstallSpecificLibraryVersionInstantMode() throws Exception {
+        mInstantMode = true;
+        doTestUninstallSpecificLibraryVersion();
+    }
+
+    @AppModeFull
+    public void testUninstallSpecificLibraryVersionFullMode() throws Exception {
+        doTestUninstallSpecificLibraryVersion();
+    }
+
+    private void doTestUninstallSpecificLibraryVersion() throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
         try {
             // Install library dependency
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER_RECURSIVE_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER_RECURSIVE_APK));
             // Install library version 1 with version code 1
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER1_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER1_APK));
             // Install library version 2 with version code 4
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER2_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER2_APK));
             // Uninstall the library package with version code 4 (version 2)
             assertTrue(getDevice().executeShellCommand("pm uninstall --versionCode 4 "
                     + STATIC_LIB_PROVIDER1_PKG).startsWith("Success"));
@@ -290,20 +361,28 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         }
     }
 
-    public void testKeyRotation() throws Exception {
+    @AppModeInstant
+    public void testKeyRotationInstantMode() throws Exception {
+        mInstantMode = true;
+        doTestKeyRotation();
+    }
+
+    @AppModeFull
+    public void testKeyRotationFullMode() throws Exception {
+        doTestKeyRotation();
+    }
+
+    private void doTestKeyRotation() throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_CONSUMER2_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER2_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER4_PKG);
         try {
             // Install a library version specifying an upgrade key set
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER2_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER2_APK));
             // Install a newer library signed with the upgrade key set
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER4_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER4_APK));
             // Install a client that depends on the upgraded key set
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_CONSUMER2_APK), false, false));
+            assertNull(install(STATIC_LIB_CONSUMER2_APK));
             // Ensure code and resources can be loaded
             runDeviceTests(STATIC_LIB_CONSUMER2_PKG,
                     "android.os.lib.consumer2.UseSharedLibraryTest",
@@ -315,20 +394,28 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         }
     }
 
-    public void testCannotInstallIncorrectlySignedLibrary() throws Exception {
+    @AppModeInstant
+    public void testCannotInstallIncorrectlySignedLibraryInstantMode() throws Exception {
+        mInstantMode = true;
+        doTestCannotInstallIncorrectlySignedLibrary();
+    }
+
+    @AppModeFull
+    public void testCannotInstallIncorrectlySignedLibraryFullMode() throws Exception {
+        doTestCannotInstallIncorrectlySignedLibrary();
+    }
+
+    private void doTestCannotInstallIncorrectlySignedLibrary() throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER4_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
         try {
             // Install library dependency
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER_RECURSIVE_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER_RECURSIVE_APK));
             // Install a library version not specifying an upgrade key set
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER1_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER1_APK));
             // Shouldn't be able to install a newer version signed differently
-            assertNotNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER4_APK), false, false));
+            assertNotNull(install(STATIC_LIB_PROVIDER4_APK));
         } finally {
             getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
             getDevice().uninstallPackage(STATIC_LIB_PROVIDER4_PKG);
@@ -336,13 +423,23 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         }
     }
 
-    public void testLibraryAndPackageNameCanMatch() throws Exception {
+    @AppModeInstant
+    public void testLibraryAndPackageNameCanMatchInstantMode() throws Exception {
+        mInstantMode = true;
+        doTestLibraryAndPackageNameCanMatch();
+    }
+
+    @AppModeFull
+    public void testLibraryAndPackageNameCanMatchFullMode() throws Exception {
+        doTestLibraryAndPackageNameCanMatch();
+    }
+
+    private void doTestLibraryAndPackageNameCanMatch() throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER5_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER6_PKG);
         try {
             // Install a library with same name as package should work.
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER5_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER5_APK));
             // Install a library with same name as package should work.
             assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
                     STATIC_LIB_PROVIDER6_APK), true, false));
@@ -352,7 +449,18 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         }
     }
 
-    public void testGetSharedLibraries() throws Exception {
+    @AppModeInstant
+    public void testGetSharedLibrariesInstantMode() throws Exception {
+        mInstantMode = true;
+        doTestGetSharedLibraries();
+    }
+
+    @AppModeFull
+    public void testGetSharedLibrariesFullMode() throws Exception {
+        doTestGetSharedLibraries();
+    }
+
+    private void doTestGetSharedLibraries() throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_CONSUMER1_PKG);
         getDevice().uninstallPackage(STATIC_LIB_CONSUMER2_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
@@ -361,23 +469,17 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
         try {
             // Install library dependency
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER_RECURSIVE_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER_RECURSIVE_APK));
             // Install the first library
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER1_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER1_APK));
             // Install the second library
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER2_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER2_APK));
             // Install the third library
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER4_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER4_APK));
             // Install the first client
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_CONSUMER1_APK), false, false));
+            assertNull(install(STATIC_LIB_CONSUMER1_APK));
             // Install the second client
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_CONSUMER2_APK), false, false));
+            assertNull(install(STATIC_LIB_CONSUMER2_APK));
             // Ensure libraries are properly reported
             runDeviceTests(STATIC_LIB_CONSUMER1_PKG,
                     "android.os.lib.consumer1.UseSharedLibraryTest",
@@ -392,24 +494,31 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         }
     }
 
-    public void testAppCanSeeOnlyLibrariesItDependOn() throws Exception {
+    @AppModeInstant
+    public void testAppCanSeeOnlyLibrariesItDependOnInstantMode() throws Exception {
+        mInstantMode = true;
+        doTestAppCanSeeOnlyLibrariesItDependOn();
+    }
+
+    @AppModeFull
+    public void testAppCanSeeOnlyLibrariesItDependOnFullMode() throws Exception {
+        doTestAppCanSeeOnlyLibrariesItDependOn();
+    }
+
+    private void doTestAppCanSeeOnlyLibrariesItDependOn() throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_CONSUMER1_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER2_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
         try {
             // Install library dependency
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER_RECURSIVE_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER_RECURSIVE_APK));
             // Install the first library
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER1_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER1_APK));
             // Install the second library
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER2_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER2_APK));
             // Install the client
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_CONSUMER1_APK), false, false));
+            assertNull(install(STATIC_LIB_CONSUMER1_APK));
             // Ensure the client can see only the lib it depends on
             runDeviceTests(STATIC_LIB_CONSUMER1_PKG,
                     "android.os.lib.consumer1.UseSharedLibraryTest",
@@ -422,16 +531,25 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         }
     }
 
-    public void testLoadCodeFromNativeLib() throws Exception {
+    @AppModeInstant
+    public void testLoadCodeFromNativeLibInstantMode() throws Exception {
+        mInstantMode = true;
+        doTestLoadCodeFromNativeLib();
+    }
+
+    @AppModeFull
+    public void testLoadCodeFromNativeLibFullMode() throws Exception {
+        doTestLoadCodeFromNativeLib();
+    }
+
+    private void doTestLoadCodeFromNativeLib() throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_NATIVE_CONSUMER_PKG);
         getDevice().uninstallPackage(STATIC_LIB_NATIVE_PROVIDER_PKG);
         try {
             // Install library
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_NATIVE_PROVIDER_APK), false, false));
+            assertNull(install(STATIC_LIB_NATIVE_PROVIDER_APK));
             // Install the library client
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_NATIVE_CONSUMER_APK), false, false));
+            assertNull(install(STATIC_LIB_NATIVE_CONSUMER_APK));
             // Ensure the client can load native code from the library
             runDeviceTests(STATIC_LIB_NATIVE_CONSUMER_PKG,
                     "android.os.lib.consumer.UseSharedLibraryTest",
@@ -442,28 +560,47 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         }
     }
 
-    public void testLoadCodeFromNativeLibMultiArchViolation() throws Exception {
+    @AppModeInstant
+    public void testLoadCodeFromNativeLibMultiArchViolationInstantMode() throws Exception {
+        mInstantMode = true;
+        doTestLoadCodeFromNativeLibMultiArchViolation();
+    }
+
+    @AppModeFull
+    public void testLoadCodeFromNativeLibMultiArchViolationFullMode() throws Exception {
+        doTestLoadCodeFromNativeLibMultiArchViolation();
+    }
+
+    private void doTestLoadCodeFromNativeLibMultiArchViolation() throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_NATIVE_PROVIDER_PKG1);
         try {
             // Cannot install the library with native code if not multi-arch
-            assertNotNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_NATIVE_PROVIDER_APK1), false, false));
+            assertNotNull(install(STATIC_LIB_NATIVE_PROVIDER_APK1));
         } finally {
             getDevice().uninstallPackage(STATIC_LIB_NATIVE_PROVIDER_PKG1);
         }
     }
 
-    public void testLoadCodeAndResourcesFromSharedLibrarySignedWithTwoCerts()
+    @AppModeInstant
+    public void testLoadCodeAndResourcesFromSharedLibrarySignedWithTwoCertsInstantMode() throws Exception {
+        mInstantMode = true;
+        doTestLoadCodeAndResourcesFromSharedLibrarySignedWithTwoCerts();
+    }
+
+    @AppModeFull
+    public void testLoadCodeAndResourcesFromSharedLibrarySignedWithTwoCertsFullMode() throws Exception {
+        doTestLoadCodeAndResourcesFromSharedLibrarySignedWithTwoCerts();
+    }
+
+    private void doTestLoadCodeAndResourcesFromSharedLibrarySignedWithTwoCerts()
             throws Exception {
         getDevice().uninstallPackage(STATIC_LIB_CONSUMER3_PKG);
         getDevice().uninstallPackage(STATIC_LIB_PROVIDER7_PKG);
         try {
             // Install the library
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_PROVIDER7_APK), false, false));
+            assertNull(install(STATIC_LIB_PROVIDER7_APK));
             // Install the client
-            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                    STATIC_LIB_CONSUMER3_APK), false, false));
+            assertNull(install(STATIC_LIB_CONSUMER3_APK));
             // Try to load code and resources
             runDeviceTests(STATIC_LIB_CONSUMER3_PKG,
                     "android.os.lib.consumer3.UseSharedLibraryTest",
@@ -494,9 +631,9 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         if (result.hasFailedTests()) {
             // build a meaningful error message
             StringBuilder errorBuilder = new StringBuilder("on-device tests failed:\n");
-            for (Map.Entry<TestIdentifier, TestResult> resultEntry :
+            for (Map.Entry<TestDescription, TestResult> resultEntry :
                     result.getTestResults().entrySet()) {
-                if (!resultEntry.getValue().getStatus().equals(TestResult.TestStatus.PASSED)) {
+                if (!resultEntry.getValue().getStatus().equals(TestStatus.PASSED)) {
                     errorBuilder.append(resultEntry.getKey().toString());
                     errorBuilder.append(":\n");
                     errorBuilder.append(resultEntry.getValue().getStackTrace());
@@ -504,5 +641,10 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
             }
             throw new AssertionError(errorBuilder.toString());
         }
+    }
+
+    private String install(String apk) throws DeviceNotAvailableException, FileNotFoundException {
+        return getDevice().installPackage(mBuildHelper.getTestFile(apk), false, false,
+                apk.contains("consumer") && mInstantMode ? "--instant" : "");
     }
 }

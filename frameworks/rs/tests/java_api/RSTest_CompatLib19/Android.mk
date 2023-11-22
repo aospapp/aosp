@@ -21,6 +21,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := RSTest_Compat19
+LOCAL_SDK_VERSION := current
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
@@ -33,7 +34,8 @@ LOCAL_RENDERSCRIPT_FLAGS := -rs-package-name=android.support.v8.renderscript
 LOCAL_MIN_SDK_VERSION := 8
 
 my_rs_unit_tests_path := ../RSUnitTests/supportlibsrc_gen/com/android/rs/unittest
-LOCAL_SRC_FILES := $(call all-java-files-under,src)\
+LOCAL_SRC_FILES :=\
+    $(call all-java-files-under,src)\
     $(my_rs_unit_tests_path)/UnitTest.java\
     $(my_rs_unit_tests_path)/UT_alloc.java\
     $(my_rs_unit_tests_path)/alloc.rs\
@@ -101,8 +103,6 @@ LOCAL_SRC_FILES := $(call all-java-files-under,src)\
     $(my_rs_unit_tests_path)/static_globals.rs\
     $(my_rs_unit_tests_path)/UT_struct.java\
     $(my_rs_unit_tests_path)/struct.rs\
-    $(my_rs_unit_tests_path)/UT_struct_field_simple.java\
-    $(my_rs_unit_tests_path)/struct_field_simple.rs\
     $(my_rs_unit_tests_path)/UT_unsigned.java\
     $(my_rs_unit_tests_path)/unsigned.rs\
     $(my_rs_unit_tests_path)/UT_vector.java\

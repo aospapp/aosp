@@ -19,15 +19,17 @@ namespace {
 
 const uint32_t kFrequency = 400;
 
+constexpr int kStateHighlight = (1 << 0);
+
 }  // namespace
 
 CFWL_Caret::CFWL_Caret(const CFWL_App* app,
                        std::unique_ptr<CFWL_WidgetProperties> properties,
                        CFWL_Widget* pOuter)
     : CFWL_Widget(app, std::move(properties), pOuter),
-      m_pTimer(new CFWL_Caret::Timer(this)),
+      m_pTimer(pdfium::MakeUnique<CFWL_Caret::Timer>(this)),
       m_pTimerInfo(nullptr) {
-  SetStates(FWL_STATE_CAT_HightLight);
+  SetStates(kStateHighlight);
 }
 
 CFWL_Caret::~CFWL_Caret() {
@@ -43,8 +45,8 @@ FWL_Type CFWL_Caret::GetClassID() const {
 
 void CFWL_Caret::Update() {}
 
-void CFWL_Caret::DrawWidget(CFX_Graphics* pGraphics,
-                            const CFX_Matrix* pMatrix) {
+void CFWL_Caret::DrawWidget(CXFA_Graphics* pGraphics,
+                            const CFX_Matrix& matrix) {
   if (!pGraphics)
     return;
   if (!m_pProperties->m_pThemeProvider)
@@ -52,7 +54,7 @@ void CFWL_Caret::DrawWidget(CFX_Graphics* pGraphics,
   if (!m_pProperties->m_pThemeProvider)
     return;
 
-  DrawCaretBK(pGraphics, m_pProperties->m_pThemeProvider, pMatrix);
+  DrawCaretBK(pGraphics, m_pProperties->m_pThemeProvider, &matrix);
 }
 
 void CFWL_Caret::ShowCaret() {
@@ -70,10 +72,10 @@ void CFWL_Caret::HideCaret() {
   SetStates(FWL_WGTSTATE_Invisible);
 }
 
-void CFWL_Caret::DrawCaretBK(CFX_Graphics* pGraphics,
+void CFWL_Caret::DrawCaretBK(CXFA_Graphics* pGraphics,
                              IFWL_ThemeProvider* pTheme,
                              const CFX_Matrix* pMatrix) {
-  if (!(m_pProperties->m_dwStates & FWL_STATE_CAT_HightLight))
+  if (!(m_pProperties->m_dwStates & kStateHighlight))
     return;
 
   CFWL_ThemeBackground param;
@@ -89,19 +91,19 @@ void CFWL_Caret::DrawCaretBK(CFX_Graphics* pGraphics,
 
 void CFWL_Caret::OnProcessMessage(CFWL_Message* pMessage) {}
 
-void CFWL_Caret::OnDrawWidget(CFX_Graphics* pGraphics,
-                              const CFX_Matrix* pMatrix) {
-  DrawWidget(pGraphics, pMatrix);
+void CFWL_Caret::OnDrawWidget(CXFA_Graphics* pGraphics,
+                              const CFX_Matrix& matrix) {
+  DrawWidget(pGraphics, matrix);
 }
 
 CFWL_Caret::Timer::Timer(CFWL_Caret* pCaret) : CFWL_Timer(pCaret) {}
 
 void CFWL_Caret::Timer::Run(CFWL_TimerInfo* pTimerInfo) {
-  CFWL_Caret* pCaret = static_cast<CFWL_Caret*>(m_pWidget);
-  if (!(pCaret->GetStates() & FWL_STATE_CAT_HightLight))
-    pCaret->SetStates(FWL_STATE_CAT_HightLight);
+  CFWL_Caret* pCaret = static_cast<CFWL_Caret*>(m_pWidget.Get());
+  if (!(pCaret->GetStates() & kStateHighlight))
+    pCaret->SetStates(kStateHighlight);
   else
-    pCaret->RemoveStates(FWL_STATE_CAT_HightLight);
+    pCaret->RemoveStates(kStateHighlight);
 
   CFX_RectF rt = pCaret->GetWidgetRect();
   pCaret->RepaintRect(CFX_RectF(0, 0, rt.width + 1, rt.height));

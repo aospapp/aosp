@@ -17,7 +17,7 @@
 #
 
 """
-A parser for metadata_properties.xml can also render the resulting model
+A parser for metadata_definitions.xml can also render the resulting model
 over a Mako template.
 
 Usage:
@@ -156,6 +156,8 @@ class MetadataParserXml:
           # no type_notes since its the same
         }
         d2 = {}
+        if 'hal_version' in entry.attrs:
+          d2['hal_version'] = entry['hal_version']
 
         insert = self.metadata.insert_clone
 
@@ -200,6 +202,10 @@ class MetadataParserXml:
     d['type_name'] = entry.get('typedef')
 
     #
+    # Initial HIDL HAL version the entry was added in
+    d['hal_version'] = entry.get('hal_version')
+
+    #
     # Enum
     #
     if entry.get('enum', 'false') == 'true':
@@ -210,7 +216,10 @@ class MetadataParserXml:
       enum_hiddens = []
       enum_ndk_hiddens = []
       enum_notes = {}
+      enum_sdk_notes = {}
+      enum_ndk_notes = {}
       enum_ids = {}
+      enum_hal_versions = {}
       for value in entry.enum.find_all('value'):
 
         value_body = self._strings_no_nl(value)
@@ -232,8 +241,19 @@ class MetadataParserXml:
         if notes is not None:
           enum_notes[value_body] = notes.string
 
+        sdk_notes = value.find('sdk_notes')
+        if sdk_notes is not None:
+          enum_sdk_notes[value_body] = sdk_notes.string
+
+        ndk_notes = value.find('ndk_notes')
+        if ndk_notes is not None:
+          enum_ndk_notes[value_body] = ndk_notes.string
+
         if value.attrs.get('id') is not None:
           enum_ids[value_body] = value['id']
+
+        if value.attrs.get('hal_version') is not None:
+          enum_hal_versions[value_body] = value['hal_version']
 
       d['enum_values'] = enum_values
       d['enum_deprecateds'] = enum_deprecateds
@@ -241,7 +261,10 @@ class MetadataParserXml:
       d['enum_hiddens'] = enum_hiddens
       d['enum_ndk_hiddens'] = enum_ndk_hiddens
       d['enum_notes'] = enum_notes
+      d['enum_sdk_notes'] = enum_sdk_notes
+      d['enum_ndk_notes'] = enum_ndk_notes
       d['enum_ids'] = enum_ids
+      d['enum_hal_versions'] = enum_hal_versions
       d['enum'] = True
 
     #
@@ -272,7 +295,8 @@ class MetadataParserXml:
   def _parse_entry_optional(self, entry):
     d = {}
 
-    optional_elements = ['description', 'range', 'units', 'details', 'hal_details']
+    optional_elements = ['description', 'range', 'units', 'details', 'hal_details', 'ndk_details',\
+                         'deprecation_description']
     for i in optional_elements:
       prop = find_child_tag(entry, i)
 
@@ -287,7 +311,7 @@ class MetadataParserXml:
 
     return d
 
-  def render(self, template, output_name=None):
+  def render(self, template, output_name=None, hal_version="3.2"):
     """
     Render the metadata model using a Mako template as the view.
 
@@ -299,9 +323,13 @@ class MetadataParserXml:
     Args:
       template: path to a Mako template file
       output_name: path to the output file, or None to use stdout
+      hal_version: target HAL version, used when generating HIDL HAL outputs.
+                   Must be a string of form "X.Y" where X and Y are integers.
     """
     buf = StringIO.StringIO()
     metadata_helpers._context_buf = buf
+    metadata_helpers._hal_major_version = int(hal_version.partition('.')[0])
+    metadata_helpers._hal_minor_version = int(hal_version.partition('.')[2])
 
     helpers = [(i, getattr(metadata_helpers, i))
                 for i in dir(metadata_helpers) if not i.startswith('_')]
@@ -328,14 +356,16 @@ class MetadataParserXml:
 if __name__ == "__main__":
   if len(sys.argv) <= 2:
     print >> sys.stderr,                                                       \
-           "Usage: %s <filename.xml> <template.mako> [<output_file>]"          \
+           "Usage: %s <filename.xml> <template.mako> [<output_file>] [<hal_version>]"          \
            % (sys.argv[0])
     sys.exit(0)
 
   file_name = sys.argv[1]
   template_name = sys.argv[2]
   output_name = sys.argv[3] if len(sys.argv) > 3 else None
+  hal_version = sys.argv[4] if len(sys.argv) > 4 else "3.2"
+
   parser = MetadataParserXml.create_from_file(file_name)
-  parser.render(template_name, output_name)
+  parser.render(template_name, output_name, hal_version)
 
   sys.exit(0)

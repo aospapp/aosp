@@ -19,13 +19,12 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <com.android.car.view.PagedListView
+    <androidx.car.widget.PagedListView
         android:id="@+id/contact_result_list"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:offsetRows="true"
-        app:showDivider="true"
-        app:dividerStartMargin="@dimen/stream_card_keyline_2"
+        app:showPagedListViewDivider="true"
+        app:dividerStartMargin="@dimen/car_keyline_2"
         app:alignDividerEndTo="@id/contact_result_card"
         app:alignDividerStartTo="@id/contact_result_card" />
 </FrameLayout>

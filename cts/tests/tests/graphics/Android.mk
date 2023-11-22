@@ -20,7 +20,7 @@ LOCAL_MODULE_TAGS := tests
 
 LOCAL_MULTILIB := both
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES += \
     android-support-test \
@@ -28,9 +28,11 @@ LOCAL_STATIC_JAVA_LIBRARIES += \
     compatibility-device-util \
     ctsdeviceutillegacy \
     ctstestrunner \
-    android-support-annotations \
-    junit \
-    legacy-android-test
+    androidx.annotation_annotation \
+    junit
+
+LOCAL_STATIC_ANDROID_LIBRARIES += \
+    androidx.core_core
 
 LOCAL_JNI_SHARED_LIBRARIES := libctsgraphics_jni
 

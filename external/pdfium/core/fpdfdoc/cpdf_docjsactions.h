@@ -9,21 +9,23 @@
 
 #include "core/fpdfdoc/cpdf_action.h"
 #include "core/fxcrt/fx_string.h"
+#include "core/fxcrt/unowned_ptr.h"
 
 class CPDF_Document;
 
 class CPDF_DocJSActions {
  public:
   explicit CPDF_DocJSActions(CPDF_Document* pDoc);
+  ~CPDF_DocJSActions();
 
   int CountJSActions() const;
-  CPDF_Action GetJSAction(int index, CFX_ByteString& csName) const;
-  CPDF_Action GetJSAction(const CFX_ByteString& csName) const;
-  int FindJSAction(const CFX_ByteString& csName) const;
-  CPDF_Document* GetDocument() const { return m_pDocument; }
+  CPDF_Action GetJSActionAndName(int index, WideString* csName) const;
+  CPDF_Action GetJSAction(const WideString& csName) const;
+  int FindJSAction(const WideString& csName) const;
+  CPDF_Document* GetDocument() const { return m_pDocument.Get(); }
 
  private:
-  CPDF_Document* const m_pDocument;
+  UnownedPtr<CPDF_Document> const m_pDocument;
 };
 
 #endif  // CORE_FPDFDOC_CPDF_DOCJSACTIONS_H_

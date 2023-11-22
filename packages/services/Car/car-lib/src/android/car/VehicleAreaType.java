@@ -22,32 +22,31 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * Represents vehicle area such as window, door, seat, zone, etc.
- * See also {@link android.car.VehicleDoor}, {@link android.car.VehicleSeat},
- * {@link android.car.VehicleWindow}, {@link android.car.VehicleZone}
+ * Represents vehicle area such as window, door, seat, etc.
+ * See also {@link VehicleAreaDoor}, {@link VehicleAreaSeat},
+ * {@link VehicleAreaWindow},
  *
  * @hide
  */
 @SystemApi
 public final class VehicleAreaType {
     /** Used for global properties */
-    public static final int VEHICLE_AREA_TYPE_NONE = 0;
-
-    public static final int VEHICLE_AREA_TYPE_ZONE = 1;
+    public static final int VEHICLE_AREA_TYPE_GLOBAL = 0;
     public static final int VEHICLE_AREA_TYPE_WINDOW = 2;
     public static final int VEHICLE_AREA_TYPE_SEAT = 3;
     public static final int VEHICLE_AREA_TYPE_DOOR = 4;
     public static final int VEHICLE_AREA_TYPE_MIRROR = 5;
+    public static final int VEHICLE_AREA_TYPE_WHEEL = 6;
     private VehicleAreaType() {}
 
     /** @hide */
     @IntDef({
-        VEHICLE_AREA_TYPE_NONE,
-        VEHICLE_AREA_TYPE_ZONE,
+        VEHICLE_AREA_TYPE_GLOBAL,
         VEHICLE_AREA_TYPE_WINDOW,
         VEHICLE_AREA_TYPE_SEAT,
         VEHICLE_AREA_TYPE_DOOR,
-        VEHICLE_AREA_TYPE_MIRROR
+        VEHICLE_AREA_TYPE_MIRROR,
+        VEHICLE_AREA_TYPE_WHEEL
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface VehicleAreaTypeValue {}

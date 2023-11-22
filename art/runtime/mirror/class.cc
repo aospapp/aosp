@@ -20,27 +20,35 @@
 
 #include "art_field-inl.h"
 #include "art_method-inl.h"
+#include "base/logging.h"  // For VLOG.
+#include "base/utils.h"
+#include "class-inl.h"
 #include "class_ext.h"
 #include "class_linker-inl.h"
 #include "class_loader.h"
-#include "class-inl.h"
+#include "dex/descriptors_names.h"
+#include "dex/dex_file-inl.h"
+#include "dex/dex_file_annotations.h"
 #include "dex_cache.h"
-#include "dex_file-inl.h"
-#include "dex_file_annotations.h"
 #include "gc/accounting/card_table-inl.h"
 #include "handle_scope-inl.h"
+#include "subtype_check.h"
 #include "method.h"
-#include "object_array-inl.h"
 #include "object-inl.h"
 #include "object-refvisitor-inl.h"
+#include "object_array-inl.h"
 #include "object_lock.h"
 #include "runtime.h"
 #include "thread.h"
 #include "throwable.h"
-#include "utils.h"
 #include "well_known_classes.h"
 
 namespace art {
+
+// TODO: move to own CC file?
+constexpr size_t BitString::kBitSizeAtPosition[BitString::kCapacity];
+constexpr size_t BitString::kCapacity;
+
 namespace mirror {
 
 using android::base::StringPrintf;
@@ -63,6 +71,42 @@ void Class::ResetClass() {
 
 void Class::VisitRoots(RootVisitor* visitor) {
   java_lang_Class_.VisitRootIfNonNull(visitor, RootInfo(kRootStickyClass));
+}
+
+ObjPtr<mirror::Class> Class::GetPrimitiveClass(ObjPtr<mirror::String> name) {
+  const char* expected_name = nullptr;
+  ClassLinker::ClassRoot class_root = ClassLinker::kJavaLangObject;  // Invalid.
+  if (name != nullptr && name->GetLength() >= 2) {
+    // Perfect hash for the expected values: from the second letters of the primitive types,
+    // only 'y' has the bit 0x10 set, so use it to change 'b' to 'B'.
+    char hash = name->CharAt(0) ^ ((name->CharAt(1) & 0x10) << 1);
+    switch (hash) {
+      case 'b': expected_name = "boolean"; class_root = ClassLinker::kPrimitiveBoolean; break;
+      case 'B': expected_name = "byte";    class_root = ClassLinker::kPrimitiveByte;    break;
+      case 'c': expected_name = "char";    class_root = ClassLinker::kPrimitiveChar;    break;
+      case 'd': expected_name = "double";  class_root = ClassLinker::kPrimitiveDouble;  break;
+      case 'f': expected_name = "float";   class_root = ClassLinker::kPrimitiveFloat;   break;
+      case 'i': expected_name = "int";     class_root = ClassLinker::kPrimitiveInt;     break;
+      case 'l': expected_name = "long";    class_root = ClassLinker::kPrimitiveLong;    break;
+      case 's': expected_name = "short";   class_root = ClassLinker::kPrimitiveShort;   break;
+      case 'v': expected_name = "void";    class_root = ClassLinker::kPrimitiveVoid;    break;
+      default: break;
+    }
+  }
+  if (expected_name != nullptr && name->Equals(expected_name)) {
+    ObjPtr<mirror::Class> klass = Runtime::Current()->GetClassLinker()->GetClassRoot(class_root);
+    DCHECK(klass != nullptr);
+    return klass;
+  } else {
+    Thread* self = Thread::Current();
+    if (name == nullptr) {
+      // Note: ThrowNullPointerException() requires a message which we deliberately want to omit.
+      self->ThrowNewException("Ljava/lang/NullPointerException;", /* msg */ nullptr);
+    } else {
+      self->ThrowNewException("Ljava/lang/ClassNotFoundException;", name->ToModifiedUtf8().c_str());
+    }
+    return nullptr;
+  }
 }
 
 ClassExt* Class::EnsureExtDataPresent(Thread* self) {
@@ -107,19 +151,19 @@ ClassExt* Class::EnsureExtDataPresent(Thread* self) {
   }
 }
 
-void Class::SetStatus(Handle<Class> h_this, Status new_status, Thread* self) {
-  Status old_status = h_this->GetStatus();
+void Class::SetStatus(Handle<Class> h_this, ClassStatus new_status, Thread* self) {
+  ClassStatus old_status = h_this->GetStatus();
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
   bool class_linker_initialized = class_linker != nullptr && class_linker->IsInitialized();
   if (LIKELY(class_linker_initialized)) {
     if (UNLIKELY(new_status <= old_status &&
-                 new_status != kStatusErrorUnresolved &&
-                 new_status != kStatusErrorResolved &&
-                 new_status != kStatusRetired)) {
+                 new_status != ClassStatus::kErrorUnresolved &&
+                 new_status != ClassStatus::kErrorResolved &&
+                 new_status != ClassStatus::kRetired)) {
       LOG(FATAL) << "Unexpected change back of class status for " << h_this->PrettyClass()
                  << " " << old_status << " -> " << new_status;
     }
-    if (new_status >= kStatusResolved || old_status >= kStatusResolved) {
+    if (new_status >= ClassStatus::kResolved || old_status >= ClassStatus::kResolved) {
       // When classes are being resolved the resolution code should hold the lock.
       CHECK_EQ(h_this->GetLockOwnerThreadId(), self->GetThreadId())
             << "Attempt to change status of class while not holding its lock: "
@@ -131,7 +175,7 @@ void Class::SetStatus(Handle<Class> h_this, Status new_status, Thread* self) {
         << "Attempt to set as erroneous an already erroneous class "
         << h_this->PrettyClass()
         << " old_status: " << old_status << " new_status: " << new_status;
-    CHECK_EQ(new_status == kStatusErrorResolved, old_status >= kStatusResolved);
+    CHECK_EQ(new_status == ClassStatus::kErrorResolved, old_status >= ClassStatus::kResolved);
     if (VLOG_IS_ON(class_linker)) {
       LOG(ERROR) << "Setting " << h_this->PrettyDescriptor() << " to erroneous.";
       if (self->IsExceptionPending()) {
@@ -149,17 +193,25 @@ void Class::SetStatus(Handle<Class> h_this, Status new_status, Thread* self) {
     self->AssertPendingException();
   }
 
-  static_assert(sizeof(Status) == sizeof(uint32_t), "Size of status not equal to uint32");
-  if (Runtime::Current()->IsActiveTransaction()) {
-    h_this->SetField32Volatile<true>(StatusOffset(), new_status);
+  if (kBitstringSubtypeCheckEnabled) {
+    // FIXME: This looks broken with respect to aborted transactions.
+    ObjPtr<mirror::Class> h_this_ptr = h_this.Get();
+    SubtypeCheck<ObjPtr<mirror::Class>>::WriteStatus(h_this_ptr, new_status);
   } else {
-    h_this->SetField32Volatile<false>(StatusOffset(), new_status);
+    // The ClassStatus is always in the 4 most-significant bits of status_.
+    static_assert(sizeof(status_) == sizeof(uint32_t), "Size of status_ not equal to uint32");
+    uint32_t new_status_value = static_cast<uint32_t>(new_status) << (32 - kClassStatusBitSize);
+    if (Runtime::Current()->IsActiveTransaction()) {
+      h_this->SetField32Volatile<true>(StatusOffset(), new_status_value);
+    } else {
+      h_this->SetField32Volatile<false>(StatusOffset(), new_status_value);
+    }
   }
 
   // Setting the object size alloc fast path needs to be after the status write so that if the
   // alloc path sees a valid object size, we would know that it's initialized as long as it has a
   // load-acquire/fake dependency.
-  if (new_status == kStatusInitialized && !h_this->IsVariableSize()) {
+  if (new_status == ClassStatus::kInitialized && !h_this->IsVariableSize()) {
     DCHECK_EQ(h_this->GetObjectSizeAllocFastPath(), std::numeric_limits<uint32_t>::max());
     // Finalizable objects must always go slow path.
     if (!h_this->IsFinalizable()) {
@@ -177,13 +229,13 @@ void Class::SetStatus(Handle<Class> h_this, Status new_status, Thread* self) {
     if (h_this->IsTemp()) {
       // Class is a temporary one, ensure that waiters for resolution get notified of retirement
       // so that they can grab the new version of the class from the class linker's table.
-      CHECK_LT(new_status, kStatusResolved) << h_this->PrettyDescriptor();
-      if (new_status == kStatusRetired || new_status == kStatusErrorUnresolved) {
+      CHECK_LT(new_status, ClassStatus::kResolved) << h_this->PrettyDescriptor();
+      if (new_status == ClassStatus::kRetired || new_status == ClassStatus::kErrorUnresolved) {
         h_this->NotifyAll(self);
       }
     } else {
-      CHECK_NE(new_status, kStatusRetired);
-      if (old_status >= kStatusResolved || new_status >= kStatusResolved) {
+      CHECK_NE(new_status, ClassStatus::kRetired);
+      if (old_status >= ClassStatus::kResolved || new_status >= ClassStatus::kResolved) {
         h_this->NotifyAll(self);
       }
     }
@@ -1013,7 +1065,7 @@ ObjPtr<Class> Class::GetDirectInterface(Thread* self, ObjPtr<Class> klass, uint3
     return interfaces->Get(idx);
   } else {
     dex::TypeIndex type_idx = klass->GetDirectInterfaceTypeIdx(idx);
-    ObjPtr<Class> interface = ClassLinker::LookupResolvedType(
+    ObjPtr<Class> interface = Runtime::Current()->GetClassLinker()->LookupResolvedType(
         type_idx, klass->GetDexCache(), klass->GetClassLoader());
     return interface;
   }
@@ -1025,9 +1077,7 @@ ObjPtr<Class> Class::ResolveDirectInterface(Thread* self, Handle<Class> klass, u
     DCHECK(!klass->IsArrayClass());
     DCHECK(!klass->IsProxyClass());
     dex::TypeIndex type_idx = klass->GetDirectInterfaceTypeIdx(idx);
-    interface = Runtime::Current()->GetClassLinker()->ResolveType(klass->GetDexFile(),
-                                                                  type_idx,
-                                                                  klass.Get());
+    interface = Runtime::Current()->GetClassLinker()->ResolveType(type_idx, klass.Get());
     CHECK(interface != nullptr || self->IsExceptionPending());
   }
   return interface;
@@ -1109,7 +1159,7 @@ class ReadBarrierOnNativeRootsVisitor {
       // Update the field atomically. This may fail if mutator updates before us, but it's ok.
       auto* atomic_root =
           reinterpret_cast<Atomic<CompressedReference<Object>>*>(root);
-      atomic_root->CompareExchangeStrongSequentiallyConsistent(
+      atomic_root->CompareAndSetStrongSequentiallyConsistent(
           CompressedReference<Object>::FromMirrorPtr(old_ref.Ptr()),
           CompressedReference<Object>::FromMirrorPtr(new_ref.Ptr()));
     }
@@ -1134,7 +1184,7 @@ class CopyClassVisitor {
     StackHandleScope<1> hs(self_);
     Handle<mirror::Class> h_new_class_obj(hs.NewHandle(obj->AsClass()));
     Object::CopyObject(h_new_class_obj.Get(), orig_->Get(), copy_bytes_);
-    Class::SetStatus(h_new_class_obj, Class::kStatusResolving, self_);
+    Class::SetStatus(h_new_class_obj, ClassStatus::kResolving, self_);
     h_new_class_obj->PopulateEmbeddedVTable(pointer_size_);
     h_new_class_obj->SetImt(imt_, pointer_size_);
     h_new_class_obj->SetClassSize(new_length_);
@@ -1223,7 +1273,6 @@ ObjPtr<Method> Class::GetDeclaredMethodInternal(
   // still return a synthetic method to handle situations like
   // escalated visibility. We never return miranda methods that
   // were synthesized by the runtime.
-  constexpr uint32_t kSkipModifiers = kAccMiranda | kAccSynthetic;
   StackHandleScope<3> hs(self);
   auto h_method_name = hs.NewHandle(name);
   if (UNLIKELY(h_method_name == nullptr)) {
@@ -1243,11 +1292,10 @@ ObjPtr<Method> Class::GetDeclaredMethodInternal(
       }
       continue;
     }
-    auto modifiers = m.GetAccessFlags();
-    if ((modifiers & kSkipModifiers) == 0) {
-      return Method::CreateFromArtMethod<kPointerSize, kTransactionActive>(self, &m);
-    }
-    if ((modifiers & kAccMiranda) == 0) {
+    if (!m.IsMiranda()) {
+      if (!m.IsSynthetic()) {
+        return Method::CreateFromArtMethod<kPointerSize, kTransactionActive>(self, &m);
+      }
       result = &m;  // Remember as potential result if it's not a miranda method.
     }
   }
@@ -1270,11 +1318,11 @@ ObjPtr<Method> Class::GetDeclaredMethodInternal(
         }
         continue;
       }
-      if ((modifiers & kSkipModifiers) == 0) {
+      DCHECK(!m.IsMiranda());  // Direct methods cannot be miranda methods.
+      if ((modifiers & kAccSynthetic) == 0) {
         return Method::CreateFromArtMethod<kPointerSize, kTransactionActive>(self, &m);
       }
-      // Direct methods cannot be miranda methods, so this potential result must be synthetic.
-      result = &m;
+      result = &m;  // Remember as potential result.
     }
   }
   return result != nullptr

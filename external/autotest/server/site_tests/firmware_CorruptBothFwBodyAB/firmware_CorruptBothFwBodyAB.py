@@ -36,7 +36,10 @@ class firmware_CorruptBothFwBodyAB(FirmwareTest):
             self.setup_usbkey(usbkey=True, host=False)
 
     def cleanup(self):
-        self.restore_firmware()
+        try:
+            self.restore_firmware()
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_CorruptBothFwBodyAB, self).cleanup()
 
     def run_once(self, dev_mode=False):
@@ -62,9 +65,13 @@ class firmware_CorruptBothFwBodyAB(FirmwareTest):
                         'mainfw_type': 'developer' if dev_mode else 'normal',
                         }))
             self.faft_client.bios.corrupt_body(('a', 'b'))
+
+            # Older devices (without BROKEN screen) didn't wait for removal in
+            # dev mode. Make sure the USB key is not plugged in so they won't
+            # start booting immediately and get interrupted by unplug/replug.
+            self.servo.switch_usbkey('host')
             self.switcher.simple_reboot()
-            if not dev_mode:
-                self.switcher.bypass_rec_mode()
+            self.switcher.bypass_rec_mode()
             self.switcher.wait_for_client()
 
             logging.info("Expected recovery boot and restore firmware.")

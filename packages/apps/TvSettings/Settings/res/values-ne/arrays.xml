@@ -53,8 +53,8 @@
     <item msgid="5333047169042840730">"कुनै पनि होइन"</item>
     <item msgid="7663488423233018922">"रूपरेखा"</item>
     <item msgid="7891048730741670843">"ड्रप छाया"</item>
-    <item msgid="6613725572146700438">"उठायो"</item>
-    <item msgid="1007736533206905292">"निराश"</item>
+    <item msgid="6613725572146700438">"उठेको"</item>
+    <item msgid="1007736533206905292">"दबेको"</item>
   </string-array>
   <string-array name="captioning_opacity_selector_titles">
     <item msgid="7311196539184412021">"२५%"</item>
@@ -62,9 +62,16 @@
     <item msgid="1626485489418859846">"७५%"</item>
     <item msgid="1811192455405034366">"१००%"</item>
   </string-array>
-  <string-array name="surround_sound_entries">
-    <item msgid="5639265918353416799">"स्वतः"</item>
-    <item msgid="5990497479384785807">"सधैँ"</item>
-    <item msgid="6178602073308944697">"कहिले पनि होइन"</item>
+  <string-array name="wifi_peap_phase2_entries">
+    <item msgid="3169715859250399076">"कुनै पनि होइन"</item>
+    <item msgid="4285553044304483453">"MSCHAPV2"</item>
+    <item msgid="6368483947549261730">"GTC"</item>
+  </string-array>
+  <string-array name="wifi_phase2_entries">
+    <item msgid="6045894500164997104">"कुनै पनि होइन"</item>
+    <item msgid="8882779504929278288">"PAP"</item>
+    <item msgid="4077030428002510921">"MSCHAP"</item>
+    <item msgid="2018529827463508339">"MSCHAPV2"</item>
+    <item msgid="7190796629038944307">"GTC"</item>
   </string-array>
 </resources>

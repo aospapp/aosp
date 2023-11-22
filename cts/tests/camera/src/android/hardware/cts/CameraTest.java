@@ -30,6 +30,7 @@ import android.hardware.Camera.Parameters;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.ShutterCallback;
 import android.hardware.Camera.Size;
+import android.hardware.cts.helpers.CameraUtils;
 import android.media.CamcorderProfile;
 import android.media.ExifInterface;
 import android.media.MediaRecorder;
@@ -38,6 +39,7 @@ import android.os.ConditionVariable;
 import android.os.Environment;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.MoreAsserts;
 import android.test.UiThreadTest;
@@ -63,6 +65,7 @@ import junit.framework.AssertionFailedError;
 /**
  * This test case must run with hardware. It can't be tested in emulator
  */
+@AppModeFull
 @LargeTest
 public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivity> {
     private static final String TAG = "CameraTest";
@@ -95,12 +98,16 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
     private static final int AUTOEXPOSURE_LOCK = 0;
     private static final int AUTOWHITEBALANCE_LOCK = 1;
 
+    // For external camera recording
+    private static final int DEFAULT_VIDEO_WIDTH = 176;
+    private static final int DEFAULT_VIDEO_HEIGHT = 144;
+    private static final int VIDEO_BIT_RATE_IN_BPS = 128000;
+
     // Some exif tags that are not defined by ExifInterface but supported.
     private static final String TAG_DATETIME_DIGITIZED = "DateTimeDigitized";
     private static final String TAG_SUBSEC_TIME = "SubSecTime";
     private static final String TAG_SUBSEC_TIME_ORIG = "SubSecTimeOriginal";
     private static final String TAG_SUBSEC_TIME_DIG = "SubSecTimeDigitized";
-
 
     private PreviewCallback mPreviewCallback = new PreviewCallback();
     private TestShutterCallback mShutterCallback = new TestShutterCallback();
@@ -116,6 +123,7 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
     private final ConditionVariable mSnapshotDone = new ConditionVariable();
 
     Camera mCamera;
+    boolean mIsExternalCamera;
 
     public CameraTest() {
         super(PACKAGE, CameraCtsActivity.class);
@@ -153,6 +161,13 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
                 // Save the looper so that we can terminate this thread
                 // after we are done with it.
                 mLooper = Looper.myLooper();
+                try {
+                    mIsExternalCamera = CameraUtils.isExternal(
+                            getInstrumentation().getContext(), cameraId);
+                } catch (Exception e) {
+                    Log.e(TAG, "Unable to query external camera!" + e);
+                }
+
                 try {
                     mCamera = Camera.open(cameraId);
                     mCamera.setErrorCallback(mErrorCallback);
@@ -462,6 +477,30 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
     }
 
     @UiThreadTest
+    public void testStabilizationOneShotPreviewCallback() throws Exception {
+        int nCameras = Camera.getNumberOfCameras();
+        for (int id = 0; id < nCameras; id++) {
+            Log.v(TAG, "Camera id=" + id);
+            testStabilizationOneShotPreviewCallbackByCamera(id);
+        }
+    }
+
+    private void testStabilizationOneShotPreviewCallbackByCamera(int cameraId) throws Exception {
+        initializeMessageLooper(cameraId);
+        Parameters params = mCamera.getParameters();
+        if(!params.isVideoStabilizationSupported()) {
+            return;
+        }
+        //Check whether we can support preview callbacks along with stabilization
+        params.setVideoStabilization(true);
+        mCamera.setParameters(params);
+        mCamera.setOneShotPreviewCallback(mPreviewCallback);
+        checkPreviewCallback();
+        terminateMessageLooper();
+        assertEquals(PREVIEW_CALLBACK_RECEIVED, mPreviewCallbackResult);
+    }
+
+    @UiThreadTest
     public void testSetOneShotPreviewCallback() throws Exception {
         int nCameras = Camera.getNumberOfCameras();
         for (int id = 0; id < nCameras; id++) {
@@ -643,9 +682,21 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
         if (focusModes.contains(Parameters.FOCUS_MODE_AUTO)) {
             assertEquals(Parameters.FOCUS_MODE_AUTO, focusMode);
         }
-        assertTrue(focalLength > 0);
-        assertTrue(horizontalViewAngle > 0 && horizontalViewAngle <= 360);
-        assertTrue(verticalViewAngle > 0 && verticalViewAngle <= 360);
+
+        if (mIsExternalCamera) {
+            // External camera by default reports -1.0, but don't fail if
+            // the HAL implementation somehow chooses to report this information.
+            assertTrue(focalLength == -1.0 || focalLength > 0);
+            assertTrue(horizontalViewAngle == -1.0 ||
+                    (horizontalViewAngle > 0 && horizontalViewAngle <= 360));
+            assertTrue(verticalViewAngle == -1.0 ||
+                    (verticalViewAngle > 0 && verticalViewAngle <= 360));
+        } else {
+            assertTrue(focalLength > 0);
+            assertTrue(horizontalViewAngle > 0 && horizontalViewAngle <= 360);
+            assertTrue(verticalViewAngle > 0 && verticalViewAngle <= 360);
+        }
+
         Size previewSize = previewSizes.get(0);
         Size pictureSize = pictureSizes.get(0);
         assertTrue(jpegQuality >= 1 && jpegQuality <= 100);
@@ -1157,16 +1208,25 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
         surfaceHolder = getActivity().getSurfaceView().getHolder();
         CamcorderProfile profile = CamcorderProfile.get(cameraId,
                 CamcorderProfile.QUALITY_LOW);
+        Camera.Size videoSize = null; // Used for external camera
 
         // Set the preview size.
-        setPreviewSizeByProfile(parameters, profile);
+        if (mIsExternalCamera) {
+            videoSize = setupExternalCameraRecord(parameters);
+        } else {
+            setPreviewSizeByProfile(parameters, profile);
+        }
 
         mCamera.setParameters(parameters);
         mCamera.setPreviewDisplay(surfaceHolder);
         mCamera.startPreview();
         mCamera.lock();  // Locking again from the same process has no effect.
         try {
-            recordVideo(profile, surfaceHolder);
+            if (mIsExternalCamera) {
+                recordVideoBySize(videoSize, surfaceHolder);
+            } else {
+                recordVideo(profile, surfaceHolder);
+            }
             fail("Recording should not succeed because camera is locked.");
         } catch (Exception e) {
             // expected
@@ -1180,12 +1240,33 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
             // expected
         }
 
-        recordVideo(profile, surfaceHolder);  // should not throw exception
+        if (mIsExternalCamera) {
+            recordVideoBySize(videoSize, surfaceHolder);
+        } else {
+            recordVideo(profile, surfaceHolder);  // should not throw exception
+        }
+
         // Media recorder already releases the camera so the test application
         // can lock and use the camera now.
         mCamera.lock();  // should not fail
         mCamera.setParameters(parameters);  // should not fail
         terminateMessageLooper();
+    }
+
+    private Camera.Size setupExternalCameraRecord(Parameters parameters) {
+        assertTrue(parameters.getSupportedVideoSizes() != null);
+        assertTrue(parameters.getSupportedVideoSizes().size() > 0);
+
+        Camera.Size videoSize = null;
+        for (Camera.Size sz : parameters.getSupportedVideoSizes()) {
+            if (sz.width >= DEFAULT_VIDEO_WIDTH && sz.height >= DEFAULT_VIDEO_HEIGHT) {
+                videoSize = sz;
+                break;
+            }
+        }
+        assertNotNull(videoSize);
+        parameters.setPreviewSize(videoSize.width, videoSize.height);
+        return videoSize;
     }
 
     private void setPreviewSizeByProfile(Parameters parameters, CamcorderProfile profile) {
@@ -1202,6 +1283,57 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
                     break;
                 }
             }
+        }
+    }
+
+    private void recordVideoBySize(Camera.Size size,
+            SurfaceHolder holder) throws Exception {
+        MediaRecorder recorder = new MediaRecorder();
+        try {
+            // Pass the camera from the test application to media recorder.
+            recorder.setCamera(mCamera);
+            recorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
+            recorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
+            recorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
+            recorder.setVideoEncodingBitRate(VIDEO_BIT_RATE_IN_BPS);
+            recorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
+            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
+            recorder.setVideoSize(size.width, size.height);
+            recorder.setOutputFile("/dev/null");
+            recorder.setPreviewDisplay(holder.getSurface());
+            recorder.prepare();
+            recorder.start();
+
+            // Apps can use the camera after start since API level 13.
+            Parameters parameters = mCamera.getParameters();
+            if (parameters.isZoomSupported()) {
+               if (parameters.getMaxZoom() > 0) {
+                   parameters.setZoom(1);
+                   mCamera.setParameters(parameters);
+                   parameters.setZoom(0);
+                   mCamera.setParameters(parameters);
+               }
+            }
+            if (parameters.isSmoothZoomSupported()) {
+                if (parameters.getMaxZoom() > 0) {
+                    ZoomListener zoomListener = new ZoomListener();
+                    mCamera.setZoomChangeListener(zoomListener);
+                    mCamera.startSmoothZoom(1);
+                    assertTrue(zoomListener.mZoomDone.block(1000));
+                }
+            }
+
+            try {
+                mCamera.unlock();
+                fail("unlock should not succeed during recording.");
+            } catch(RuntimeException e) {
+                // expected
+            }
+
+            Thread.sleep(2000);
+            recorder.stop();
+        } finally {
+            recorder.release();
         }
     }
 
@@ -2015,6 +2147,9 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
                 // x100 = percent, intervalMargin should be bigger than
                 // fpsMargin considering that fps will be in the order of 10.
                 double intervalMargin = 0.9;
+                if (mIsExternalCamera) {
+                    intervalMargin = 0.8;
+                }
                 long lastArrivalTime = mFrames.get(mFrames.size() - 1);
                 double interval = arrivalTime - lastArrivalTime;
                 if (VERBOSE) Log.v(TAG, "Frame interval=" + interval);
@@ -2029,6 +2164,9 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
                     }
                     // Check if the fps is within range.
                     double fpsMargin = 0.5; // x100 = percent
+                    if (mIsExternalCamera) {
+                        fpsMargin = 0.6;
+                    }
                     double avgInterval = (double)(arrivalTime - mFrames.get(0))
                             / mFrames.size();
                     double fps = 1000.0 / avgInterval;
@@ -2580,15 +2718,25 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
         SurfaceHolder holder = getActivity().getSurfaceView().getHolder();
         CamcorderProfile profile = CamcorderProfile.get(cameraId,
                 CamcorderProfile.QUALITY_LOW);
+        Camera.Size videoSize = null; // for external camera
 
-        setPreviewSizeByProfile(parameters, profile);
+        if (mIsExternalCamera) {
+            videoSize = setupExternalCameraRecord(parameters);
+        } else {
+            setPreviewSizeByProfile(parameters, profile);
+        }
+
 
         // Test recording videos and taking pictures when the hint is off and on.
         for (int i = 0; i < 2; i++) {
             parameters.setRecordingHint(i == 0 ? false : true);
             mCamera.setParameters(parameters);
             mCamera.startPreview();
-            recordVideoSimple(profile, holder);
+            if (mIsExternalCamera) {
+                recordVideoSimpleBySize(videoSize, holder);
+            } else {
+                recordVideoSimple(profile, holder);
+            }
             mCamera.takePicture(mShutterCallback, mRawPictureCallback, mJpegPictureCallback);
             waitForSnapshotDone();
             assertTrue(mJpegPictureCallbackResult);
@@ -2601,6 +2749,31 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
         parameters.setRecordingHint(true);
         mCamera.setParameters(parameters);
         terminateMessageLooper();
+    }
+
+    private void recordVideoSimpleBySize(Camera.Size size,
+            SurfaceHolder holder) throws Exception {
+        mCamera.unlock();
+        MediaRecorder recorder = new MediaRecorder();
+        try {
+            recorder.setCamera(mCamera);
+            recorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
+            recorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
+            recorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
+            recorder.setVideoEncodingBitRate(VIDEO_BIT_RATE_IN_BPS);
+            recorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
+            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
+            recorder.setVideoSize(size.width, size.height);
+            recorder.setOutputFile("/dev/null");
+            recorder.setPreviewDisplay(holder.getSurface());
+            recorder.prepare();
+            recorder.start();
+            Thread.sleep(2000);
+            recorder.stop();
+        } finally {
+            recorder.release();
+            mCamera.lock();
+        }
     }
 
     private void recordVideoSimple(CamcorderProfile profile,
@@ -3188,5 +3361,4 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
             }
         }
     }
-
 }

@@ -20,7 +20,7 @@ include $(call all-subdir-makefiles)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := VtsVndkDependencyTest
+LOCAL_MODULE := VtsVndkDependency
 
 VTS_CONFIG_SRC_DIR := testcases/vndk/dependency
 include test/vts/tools/build/Android.host_config.mk

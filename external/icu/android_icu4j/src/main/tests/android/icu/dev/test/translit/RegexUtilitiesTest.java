@@ -15,6 +15,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.UnicodeRegex;
@@ -24,10 +26,13 @@ import android.icu.lang.UProperty.NameChoice;
 import android.icu.text.Transliterator;
 import android.icu.text.UTF16;
 import android.icu.text.UnicodeSet;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author markdavis
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class RegexUtilitiesTest extends TestFmwk {
     /**
      * Check basic construction.
@@ -50,7 +55,7 @@ public class RegexUtilitiesTest extends TestFmwk {
             String expected = tests[i].length == 1 ? source : tests[i][1];
             String actual = UnicodeRegex.fix(source);
             assertEquals(source, expected, actual);
-        } 
+        }
     }
 
     Transliterator hex = Transliterator.getInstance("hex");

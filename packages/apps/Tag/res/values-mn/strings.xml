@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"NFC шошгоны дата"</string>
     <string name="vcard_title" msgid="7122634780732426007">"^1-н холбоо барих мэдээлэл"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Дуудлага хийхийн тулд энэ аппад Утасны зөвшөөрөл шаардлагатай. Та Тохиргоо хэсэгт Шошгоны зөвшөөрлийг удирдах боломжтой"</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Энэ апп файлд хандахын тулд гадаад сангийн зөвшөөрөлд хандах шаардлагатай. Та Шошгоны зөвшөөрлийг Тохиргоо хэсэгт удирдах боломжтой"</string>
 </resources>

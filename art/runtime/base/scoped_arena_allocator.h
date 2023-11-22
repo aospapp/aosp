@@ -17,11 +17,12 @@
 #ifndef ART_RUNTIME_BASE_SCOPED_ARENA_ALLOCATOR_H_
 #define ART_RUNTIME_BASE_SCOPED_ARENA_ALLOCATOR_H_
 
+#include <android-base/logging.h>
+
 #include "arena_allocator.h"
-#include "debug_stack.h"
-#include "globals.h"
-#include "logging.h"
-#include "macros.h"
+#include "base/debug_stack.h"
+#include "base/globals.h"
+#include "base/macros.h"
 
 namespace art {
 
@@ -54,6 +55,7 @@ class ArenaStack : private DebugStackRefCounter, private ArenaAllocatorMemoryToo
   void Reset();
 
   size_t PeakBytesAllocated() {
+    DebugStackRefCounter::CheckNoRefs();
     return PeakStats()->BytesAllocated();
   }
 
@@ -79,6 +81,10 @@ class ArenaStack : private DebugStackRefCounter, private ArenaAllocatorMemoryToo
 
   ArenaAllocatorStats* PeakStats() {
     return static_cast<TaggedStats<Peak>*>(&stats_and_pool_);
+  }
+
+  const ArenaAllocatorStats* PeakStats() const {
+    return static_cast<const TaggedStats<Peak>*>(&stats_and_pool_);
   }
 
   ArenaAllocatorStats* CurrentStats() {
@@ -132,18 +138,13 @@ class ArenaStack : private DebugStackRefCounter, private ArenaAllocatorMemoryToo
 class ScopedArenaAllocator
     : private DebugStackReference, private DebugStackRefCounter, private ArenaAllocatorStats {
  public:
-  // Create a ScopedArenaAllocator directly on the ArenaStack when the scope of
-  // the allocator is not exactly a C++ block scope. For example, an optimization
-  // pass can create the scoped allocator in Start() and destroy it in End().
-  static ScopedArenaAllocator* Create(ArenaStack* arena_stack) {
-    void* addr = arena_stack->Alloc(sizeof(ScopedArenaAllocator), kArenaAllocMisc);
-    ScopedArenaAllocator* allocator = new(addr) ScopedArenaAllocator(arena_stack);
-    allocator->mark_ptr_ = reinterpret_cast<uint8_t*>(addr);
-    return allocator;
-  }
-
+  ScopedArenaAllocator(ScopedArenaAllocator&& other);
   explicit ScopedArenaAllocator(ArenaStack* arena_stack);
   ~ScopedArenaAllocator();
+
+  ArenaStack* GetArenaStack() const {
+    return arena_stack_;
+  }
 
   void Reset();
 
@@ -169,7 +170,7 @@ class ScopedArenaAllocator
   static void operator delete(void* ptr ATTRIBUTE_UNUSED) {}
 
  private:
-  ArenaStack* const arena_stack_;
+  ArenaStack* arena_stack_;
   Arena* mark_arena_;
   uint8_t* mark_ptr_;
   uint8_t* mark_end_;

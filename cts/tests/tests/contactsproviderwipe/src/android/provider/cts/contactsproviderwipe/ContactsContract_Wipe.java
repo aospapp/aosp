@@ -28,6 +28,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
+import android.platform.test.annotations.AppModeFull;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.Intents;
 import android.provider.ContactsContract.ProviderStatus;
@@ -52,6 +53,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * a stable connection to the contacts provider, which would cause the test process to be killed
  * when the CP2 process gets killed (for "pm clear").
  */
+@AppModeFull // Requires READ/WRITE_CONTACTS.
 public class ContactsContract_Wipe extends AndroidTestCase {
     public static final String TAG = "ContactsContract_PS";
 

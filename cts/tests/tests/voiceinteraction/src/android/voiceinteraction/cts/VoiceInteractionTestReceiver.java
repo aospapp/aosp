@@ -21,15 +21,31 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
+import junit.framework.TestCase;
+
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class VoiceInteractionTestReceiver extends BroadcastReceiver {
 
-    public static CountDownLatch sServiceStartedLatch = new CountDownLatch(1);
+    private static CountDownLatch sServiceStartedLatch = new CountDownLatch(1);
+    private static Intent sReceivedIntent;
+
+    public static void waitSessionStarted(TestCase testCase, long timeout, TimeUnit unit)
+            throws InterruptedException {
+        if (!sServiceStartedLatch.await(5, TimeUnit.SECONDS)) {
+            testCase.fail("Timed out waiting for session to start");
+        }
+        String error = sReceivedIntent.getStringExtra("error");
+        if (error != null) {
+            testCase.fail(error);
+        }
+    }
 
     @Override
     public void onReceive(Context context, Intent intent) {
         Log.i("VoiceInteractionTestReceiver", "Got broadcast that MainInteractionService started");
+        sReceivedIntent = intent;
         sServiceStartedLatch.countDown();
     }
 }

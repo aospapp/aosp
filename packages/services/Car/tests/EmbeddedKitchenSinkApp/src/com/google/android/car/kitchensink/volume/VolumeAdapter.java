@@ -36,13 +36,13 @@ public class VolumeAdapter extends ArrayAdapter<VolumeInfo> {
     private VolumeTestFragment mFragment;
 
 
-    public VolumeAdapter(Context c, int layoutResourceId, VolumeInfo[] locations,
+    public VolumeAdapter(Context c, int layoutResourceId, VolumeInfo[] volumeList,
             VolumeTestFragment fragment) {
-        super(c, layoutResourceId, locations);
+        super(c, layoutResourceId, volumeList);
         mFragment = fragment;
         mContext = c;
         this.mLayoutResourceId = layoutResourceId;
-        this.mVolumeList = locations;
+        this.mVolumeList = volumeList;
     }
 
     @Override
@@ -51,14 +51,12 @@ public class VolumeAdapter extends ArrayAdapter<VolumeInfo> {
         if (convertView == null) {
             LayoutInflater inflater = LayoutInflater.from(mContext);
             convertView = inflater.inflate(mLayoutResourceId, parent, false);
-            vh.id = (TextView) convertView.findViewById(R.id.stream_id);
-            vh.maxVolume = (TextView) convertView.findViewById(R.id.volume_limit);
-            vh.currentVolume = (TextView) convertView.findViewById(R.id.current_volume);
-            vh.logicalVolume = (TextView) convertView.findViewById(R.id.logical_volume);
-            vh.logicalMax = (TextView) convertView.findViewById(R.id.logical_max);
-            vh.upButton = (Button) convertView.findViewById(R.id.volume_up);
-            vh.downButton = (Button) convertView.findViewById(R.id.volume_down);
-            vh.requestButton = (Button) convertView.findViewById(R.id.request);
+            vh.id = convertView.findViewById(R.id.stream_id);
+            vh.maxVolume = convertView.findViewById(R.id.volume_limit);
+            vh.currentVolume = convertView.findViewById(R.id.current_volume);
+            vh.upButton = convertView.findViewById(R.id.volume_up);
+            vh.downButton = convertView.findViewById(R.id.volume_down);
+            vh.requestButton = convertView.findViewById(R.id.request);
             convertView.setTag(vh);
         } else {
             vh = (ViewHolder) convertView.getTag();
@@ -67,8 +65,6 @@ public class VolumeAdapter extends ArrayAdapter<VolumeInfo> {
             vh.id.setText(mVolumeList[position].mId);
             vh.maxVolume.setText(String.valueOf(mVolumeList[position].mMax));
             vh.currentVolume.setText(String.valueOf(mVolumeList[position].mCurrent));
-            vh.logicalVolume.setText(String.valueOf(mVolumeList[position].mLogicalCurrent));
-            vh.logicalMax.setText(String.valueOf(mVolumeList[position].mLogicalMax));
             int color = mVolumeList[position].mHasFocus ? Color.GREEN : Color.GRAY;
             vh.requestButton.setBackgroundColor(color);
             if (position == 0) {
@@ -79,25 +75,15 @@ public class VolumeAdapter extends ArrayAdapter<VolumeInfo> {
                 vh.upButton.setVisibility(View.VISIBLE);
                 vh.downButton.setVisibility(View.VISIBLE);
                 vh.requestButton.setVisibility(View.VISIBLE);
-                vh.upButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        mFragment.adjustVolumeByOne(mVolumeList[position].logicalStream, true);
-                    }
+                vh.upButton.setOnClickListener((view) -> {
+                    mFragment.adjustVolumeByOne(mVolumeList[position].mGroupId, true);
+                });
+                vh.downButton.setOnClickListener((view) -> {
+                    mFragment.adjustVolumeByOne(mVolumeList[position].mGroupId, false);
                 });
 
-                vh.downButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        mFragment.adjustVolumeByOne(mVolumeList[position].logicalStream, false);
-                    }
-                });
-
-                vh.requestButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        mFragment.requestFocus(mVolumeList[position].logicalStream);
-                    }
+                vh.requestButton.setOnClickListener((view) -> {
+                    mFragment.requestFocus(mVolumeList[position].mGroupId);
                 });
             }
         }
@@ -119,8 +105,6 @@ public class VolumeAdapter extends ArrayAdapter<VolumeInfo> {
         TextView id;
         TextView maxVolume;
         TextView currentVolume;
-        TextView logicalMax;
-        TextView logicalVolume;
         Button upButton;
         Button downButton;
         Button requestButton;

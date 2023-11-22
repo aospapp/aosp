@@ -16,6 +16,8 @@ import java.util.Arrays;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.dev.test.TestUtil;
@@ -38,6 +40,7 @@ import android.icu.util.RangeValueIterator;
 import android.icu.util.ULocale;
 import android.icu.util.ValueIterator;
 import android.icu.util.VersionInfo;
+import android.icu.testsharding.MainTestShard;
 
 /**
 * Testing class for UCharacter
@@ -45,6 +48,8 @@ import android.icu.util.VersionInfo;
 * @author Syn Wee Quek
 * @since nov 04 2000
 */
+@MainTestShard
+@RunWith(JUnit4.class)
 public final class UCharacterTest extends TestFmwk
 {
     // private variables =============================================
@@ -52,7 +57,7 @@ public final class UCharacterTest extends TestFmwk
     /**
      * Expected Unicode version.
      */
-    private final VersionInfo VERSION_ = VersionInfo.getInstance(9);
+    private final VersionInfo VERSION_ = VersionInfo.getInstance(10);
 
     // constructor ===================================================
 
@@ -1543,6 +1548,8 @@ public final class UCharacterTest extends TestFmwk
             { 0x0590, UCharacterDirection.LEFT_TO_RIGHT },
             { 0x0600, UCharacterDirection.RIGHT_TO_LEFT },
             { 0x07C0, UCharacterDirection.RIGHT_TO_LEFT_ARABIC },
+            { 0x0860, UCharacterDirection.RIGHT_TO_LEFT },
+            { 0x0870, UCharacterDirection.RIGHT_TO_LEFT_ARABIC },  // Unicode 10 changes U+0860..U+086F from R to AL.
             { 0x08A0, UCharacterDirection.RIGHT_TO_LEFT },
             { 0x0900, UCharacterDirection.RIGHT_TO_LEFT_ARABIC },  /* Unicode 6.1 changes U+08A0..U+08FF from R to AL */
             { 0x20A0, UCharacterDirection.LEFT_TO_RIGHT },
@@ -1620,20 +1627,7 @@ public final class UCharacterTest extends TestFmwk
 
             /*
              * Verify default Bidi classes.
-             * For recent Unicode versions, see UCD.html.
-             *
-             * For older Unicode versions:
-             * See table 3-7 "Bidirectional Character Types" in UAX #9.
-             * http://www.unicode.org/reports/tr9/
-             *
-             * See also DerivedBidiClass.txt for Cn code points!
-             *
-             * Unicode 4.0.1/Public Review Issue #28 (http://www.unicode.org/review/resolved-pri.html)
-             * changed some default values.
-             * In particular, non-characters and unassigned Default Ignorable Code Points
-             * change from L to BN.
-             *
-             * UCD.html version 4.0.1 does not yet reflect these changes.
+             * See DerivedBidiClass.txt, especially for unassigned code points.
              */
             if (result.value == UCharacterCategory.UNASSIGNED
                 || result.value == UCharacterCategory.PRIVATE_USE) {
@@ -1731,6 +1725,8 @@ public final class UCharacterTest extends TestFmwk
     @Test
     public void TestAdditionalProperties()
     {
+        final int FALSE = 0;
+        final int TRUE = 1;
         // test data for hasBinaryProperty()
         int props[][] = { // code point, property
             { 0x0627, UProperty.ALPHABETIC, 1 },
@@ -2146,6 +2142,17 @@ public final class UCharacterTest extends TestFmwk
             { 0x10AEF, UProperty.JOINING_GROUP, UCharacter.JoiningGroup.MANICHAEAN_HUNDRED },
             { 0x10AF0, UProperty.JOINING_GROUP, UCharacter.JoiningGroup.NO_JOINING_GROUP },
 
+            { -1, 0xa00, 0 },  // version break for Unicode 10
+
+            { 0x1F1E5, UProperty.REGIONAL_INDICATOR, FALSE },
+            { 0x1F1E7, UProperty.REGIONAL_INDICATOR, TRUE },
+            { 0x1F1FF, UProperty.REGIONAL_INDICATOR, TRUE },
+            { 0x1F200, UProperty.REGIONAL_INDICATOR, FALSE },
+
+            { 0x0600, UProperty.PREPENDED_CONCATENATION_MARK, TRUE },
+            { 0x0606, UProperty.PREPENDED_CONCATENATION_MARK, FALSE },
+            { 0x110BD, UProperty.PREPENDED_CONCATENATION_MARK, TRUE },
+
             /* undefined UProperty values */
             { 0x61, 0x4a7, 0 },
             { 0x234bc, 0x15ed, 0 }
@@ -2511,6 +2518,8 @@ public final class UCharacterTest extends TestFmwk
                 UCharacter.hasBinaryProperty(0x1F3FF, UProperty.EMOJI_MODIFIER));
         assertTrue("happy person is Emoji_Modifier_Base",
                 UCharacter.hasBinaryProperty(0x1F64B, UProperty.EMOJI_MODIFIER_BASE));
+        assertTrue("asterisk is Emoji_Component",
+                UCharacter.hasBinaryProperty(0x2A, UProperty.EMOJI_COMPONENT));
     }
 
     @Test

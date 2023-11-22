@@ -21,10 +21,11 @@
  *    --callback_socket_name /data/local/tmp/vts_agent_callback
  *    --server_socket_path /data/local/tmp/vts_tcp_server_port
  */
+#include <getopt.h>
 #include <iostream>
 #include <string>
 
-#include <getopt.h>
+#include <android-base/logging.h>
 
 #include "BinderServer.h"
 #include "SocketServer.h"
@@ -39,7 +40,7 @@ static constexpr const char* kInterfaceSpecLibName =
 static const int kDefaultEpochCount = 100;
 
 void ShowUsage() {
-  cout << "Usage: vts_hal_driver [options] <interface spce lib>\n"
+  cout << "Usage: vts_hal_driver [options] <interface spec lib>\n"
           "--spec_dir_path <path>:         Set path that store the vts spec "
           "files\n"
           "--callback_socket_name <name>:  Set the callback (agent) socket "
@@ -51,6 +52,8 @@ void ShowUsage() {
 }
 
 int main(int argc, char** argv) {
+  android::base::InitLogging(argv, android::base::StderrLogger);
+
   const char* const short_opts = "h:d:c:s:n";
   const option long_opts[] = {
       {"help", no_argument, nullptr, 'h'},

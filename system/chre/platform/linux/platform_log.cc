@@ -20,6 +20,8 @@
 #include <cstdio>
 #include <iostream>
 
+#include "chre/platform/fatal_error.h"
+
 namespace chre {
 
 void PlatformLogBase::logLooper() {
@@ -81,8 +83,7 @@ void PlatformLog::log(const char *formatStr, ...) {
     mLogQueue.push(std::move(log));
     mConditionVariable.notify_one();
   } else {
-    std::cerr << "Failed to allocate log message" << std::endl;
-    abort();
+    FATAL_ERROR("Failed to allocate log message");
   }
 }
 

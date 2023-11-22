@@ -14,14 +14,14 @@
      limitations under the License.
 -->
 <configuration description="Config for VTS kernel syscall test cases">
+    <option name="config-descriptor:metadata" key="plan" value="vts-kernel" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="push-group" value="HostDrivenTest.push" />
         <option name="cleanup" value="true" />
         <option name="push" value="DATA/bin/vts_test_binary_syscall_exists->/data/local/tmp/64/vts_test_binary_syscall_exists" />
     </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer">
-    </target_preparer>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
-        <option name="test-case-path" value="vts/testcases/kernel/syscall/SyscallExistenceTest" />
+        <option name="test-module-name" value="VtsKernelSyscallExistence" />
+        <option name="test-case-path" value="vts/testcases/kernel/syscall/VtsKernelSyscallExistenceTest" />
     </test>
 </configuration>

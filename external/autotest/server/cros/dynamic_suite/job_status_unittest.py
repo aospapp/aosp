@@ -53,7 +53,7 @@ class StatusTest(mox.MoxTestBase):
                     job.statuses)
 
 
-    def testWaitForResults(self):
+    def testJobResultWaiter(self):
         """Should gather status and return records for job summaries."""
         jobs = [FakeJob(0, [FakeStatus('GOOD', 'T0', ''),
                             FakeStatus('GOOD', 'T1', '')]),
@@ -91,67 +91,9 @@ class StatusTest(mox.MoxTestBase):
             time.sleep(mox.IgnoreArg())
         self.mox.ReplayAll()
 
-        results = [result for result in job_status.wait_for_results(self.afe,
-                                                                    self.tko,
-                                                                    jobs)]
-        for job in jobs[:6]:  # the 'GOOD' SERVER_JOB shouldn't be there.
-            for status in job.statuses:
-                self.assertTrue(True in map(status.equals_record, results))
-
-
-    def testWaitForChildResults(self):
-        """Should gather status and return records for job summaries."""
-        parent_job_id = 54321
-        jobs = [FakeJob(0, [FakeStatus('GOOD', 'T0', ''),
-                            FakeStatus('GOOD', 'T1', '')],
-                        parent_job_id=parent_job_id),
-                FakeJob(1, [FakeStatus('ERROR', 'T0', 'err', False),
-                            FakeStatus('GOOD', 'T1', '')],
-                        parent_job_id=parent_job_id),
-                FakeJob(2, [FakeStatus('TEST_NA', 'T0', 'no')],
-                        parent_job_id=parent_job_id),
-                FakeJob(3, [FakeStatus('FAIL', 'T0', 'broken')],
-                        parent_job_id=parent_job_id),
-                FakeJob(4, [FakeStatus('ERROR', 'SERVER_JOB', 'server error'),
-                            FakeStatus('GOOD', 'T0', '')],
-                        parent_job_id=parent_job_id),]
-                # TODO: Write a better test for the case where we yield
-                # results for aborts vs cannot yield results because of
-                # a premature abort. Currently almost all client aborts
-                # have been converted to failures and when aborts do happen
-                # they result in server job failures for which we always
-                # want results.
-                #FakeJob(5, [FakeStatus('ERROR', 'T0', 'gah', True)],
-                #        parent_job_id=parent_job_id),
-                # The next job shouldn't be recorded in the results.
-                #FakeJob(6, [FakeStatus('GOOD', 'SERVER_JOB', '')],
-                #        parent_job_id=12345)]
-        for status in jobs[4].statuses:
-            status.entry['job'] = {'name': 'broken_infra_job'}
-
-        # Expect one call to get a list of all child jobs.
-        self.afe.get_jobs(parent_job_id=parent_job_id).AndReturn(jobs[:6])
-
-        job_id_set = set([job.id for job in jobs])
-        yield_values = [
-                [jobs[1]],
-                [jobs[0], jobs[2]],
-                jobs[3:6]
-            ]
-        self.mox.StubOutWithMock(time, 'sleep')
-        for yield_this in yield_values:
-            self.afe.get_jobs(id__in=list(job_id_set),
-                              finished=True).AndReturn(yield_this)
-            for job in yield_this:
-                self.expect_yield_job_entries(job)
-                job_id_set.remove(job.id)
-            time.sleep(mox.IgnoreArg())
-        self.mox.ReplayAll()
-
-        results = [result for result in job_status.wait_for_child_results(
-                                                self.afe,
-                                                self.tko,
-                                                parent_job_id)]
+        waiter = job_status.JobResultWaiter(self.afe, self.tko)
+        waiter.add_jobs(jobs)
+        results = [result for result in waiter.wait_for_results()]
         for job in jobs[:6]:  # the 'GOOD' SERVER_JOB shouldn't be there.
             for status in job.statuses:
                 self.assertTrue(True in map(status.equals_record, results))

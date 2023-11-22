@@ -301,6 +301,7 @@ class Generator(object):
   Attributes:
     test_name  Name of the test inferred from the name of the configuration
                file. It has the following form: `type-op1-op2-op3-isa`.
+    test_isa   Instruction set supported by the test, either 'a32' or 't32'.
     test_type  Type of the test, extracted from test_name.
     mnemonics  List of instruction mnemonics.
     operands   `OperandList` object.
@@ -477,6 +478,8 @@ class Generator(object):
       return ",\n".join(map(AssemblerTestCaseDefinition, self.test_cases))
     elif self.test_type == "macro-assembler":
       return ",\n".join(map(MacroAssemblerTestCaseDefinition, self.test_cases))
+    elif self.test_type == "assembler-negative":
+      return ",\n".join(map(MacroAssemblerTestCaseDefinition, self.test_cases))
     else:
       raise Exception("Unrecognized test type \"{}\".".format(self.test_type))
 
@@ -528,7 +531,7 @@ class Generator(object):
       # `UseScratchRegisterScope` to dynamically allocate them. We need to
       # exclude all register operands from the list of available scratch
       # registers.
-      # MacroAssembler test also need to ensure that they don't try to run tests
+      # MacroAssembler tests also need to ensure that they don't try to run tests
       # with registers that are scratch registers; the MacroAssembler contains
       # assertions to protect against such usage.
       excluded_registers = [
@@ -670,20 +673,23 @@ class Generator(object):
     return self.test_type.replace("-", "_").upper() + "_" + \
         self.test_name.replace("-", "_").upper()
 
+  def TestISA(self):
+    return self.test_isa.upper()
+
   def GetTraceFileName(self, mnemonic):
     """
     Return the name of a trace file for a given mnemonic.
     """
     return self.test_type + "-" + self.test_name + "-" + \
-        mnemonic.lower() + ".h"
+        mnemonic.lower() + "-" + self.test_isa + ".h"
 
   def WriteEmptyTraces(self, output_directory):
     """
     Write out empty trace files so we can compile the new test cases.
     """
     for mnemonic in self.mnemonics:
-      # The MacroAssembler tests have no traces.
-      if self.test_type == "macro-assembler": continue
+      # The MacroAssembler and negative assembler tests have no traces.
+      if self.test_type in ["macro-assembler", "assembler-negative"]: continue
 
       with open(os.path.join(output_directory, self.GetTraceFileName(mnemonic)),
                 "w") as f:
@@ -694,9 +700,9 @@ class Generator(object):
     """
     This guard ensure the ISA of the test is enabled.
     """
-    if 'A32' in self.TestName():
+    if self.test_isa == 'a32':
       return 'VIXL_INCLUDE_TARGET_A32'
     else:
-      assert 'T32' in self.TestName()
+      assert self.test_isa == 't32'
       return 'VIXL_INCLUDE_TARGET_T32'
 

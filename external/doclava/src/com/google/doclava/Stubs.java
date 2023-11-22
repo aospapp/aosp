@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -45,17 +46,22 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class Stubs {
-  public static void writeStubsAndApi(String stubsDir, String apiFile, String keepListFile,
-      String removedApiFile, String exactApiFile, HashSet<String> stubPackages,
-      HashSet<String> stubImportPackages,
-      boolean stubSourceOnly) {
+  public static void writeStubsAndApi(String stubsDir, String apiFile, String dexApiFile,
+      String keepListFile, String removedApiFile, String removedDexApiFile, String exactApiFile,
+      String privateApiFile, String privateDexApiFile, HashSet<String> stubPackages,
+      HashSet<String> stubImportPackages, boolean stubSourceOnly) {
     // figure out which classes we need
     final HashSet<ClassInfo> notStrippable = new HashSet<ClassInfo>();
-    ClassInfo[] all = Converter.allClasses();
+    Collection<ClassInfo> all = Converter.allClasses();
+    Map<PackageInfo, List<ClassInfo>> allClassesByPackage = null;
     PrintStream apiWriter = null;
+    PrintStream dexApiWriter = null;
     PrintStream keepListWriter = null;
     PrintStream removedApiWriter = null;
+    PrintStream removedDexApiWriter = null;
     PrintStream exactApiWriter = null;
+    PrintStream privateApiWriter = null;
+    PrintStream privateDexApiWriter = null;
 
     if (apiFile != null) {
       try {
@@ -64,6 +70,16 @@ public class Stubs {
         apiWriter = new PrintStream(new BufferedOutputStream(new FileOutputStream(xml)));
       } catch (FileNotFoundException e) {
         Errors.error(Errors.IO_ERROR, new SourcePositionInfo(apiFile, 0, 0),
+            "Cannot open file for write.");
+      }
+    }
+    if (dexApiFile != null) {
+      try {
+        File dexApi = new File(dexApiFile);
+        dexApi.getParentFile().mkdirs();
+        dexApiWriter = new PrintStream(new BufferedOutputStream(new FileOutputStream(dexApi)));
+      } catch (FileNotFoundException e) {
+        Errors.error(Errors.IO_ERROR, new SourcePositionInfo(dexApiFile, 0, 0),
             "Cannot open file for write.");
       }
     }
@@ -88,6 +104,17 @@ public class Stubs {
             "Cannot open file for write");
       }
     }
+    if (removedDexApiFile != null) {
+      try {
+        File removedDexApi = new File(removedDexApiFile);
+        removedDexApi.getParentFile().mkdirs();
+        removedDexApiWriter = new PrintStream(
+            new BufferedOutputStream(new FileOutputStream(removedDexApi)));
+      } catch (FileNotFoundException e) {
+        Errors.error(Errors.IO_ERROR, new SourcePositionInfo(removedDexApiFile, 0, 0),
+            "Cannot open file for write");
+      }
+    }
     if (exactApiFile != null) {
       try {
         File exactApi = new File(exactApiFile);
@@ -96,6 +123,28 @@ public class Stubs {
             new BufferedOutputStream(new FileOutputStream(exactApi)));
       } catch (FileNotFoundException e) {
         Errors.error(Errors.IO_ERROR, new SourcePositionInfo(exactApiFile, 0, 0),
+            "Cannot open file for write");
+      }
+    }
+    if (privateApiFile != null) {
+      try {
+        File privateApi = new File(privateApiFile);
+        privateApi.getParentFile().mkdirs();
+        privateApiWriter = new PrintStream(
+            new BufferedOutputStream(new FileOutputStream(privateApi)));
+      } catch (FileNotFoundException e) {
+        Errors.error(Errors.IO_ERROR, new SourcePositionInfo(privateApiFile, 0, 0),
+            "Cannot open file for write");
+      }
+    }
+    if (privateDexApiFile != null) {
+      try {
+        File privateDexApi = new File(privateDexApiFile);
+        privateDexApi.getParentFile().mkdirs();
+        privateDexApiWriter = new PrintStream(
+            new BufferedOutputStream(new FileOutputStream(privateDexApi)));
+      } catch (FileNotFoundException e) {
+        Errors.error(Errors.IO_ERROR, new SourcePositionInfo(privateDexApiFile, 0, 0),
             "Cannot open file for write");
       }
     }
@@ -201,7 +250,7 @@ public class Stubs {
             writeClassFile(stubsDir, notStrippable, cl);
           }
           // build class list for api file or keep list file
-          if (apiWriter != null || keepListWriter != null) {
+          if (apiWriter != null || dexApiWriter != null || keepListWriter != null) {
             if (packages.containsKey(cl.containingPackage())) {
               packages.get(cl.containingPackage()).add(cl);
             } else {
@@ -213,40 +262,74 @@ public class Stubs {
         }
       }
     }
-    // write out the Api
+
+    if (privateApiWriter != null || privateDexApiWriter != null || removedApiWriter != null
+            || removedDexApiWriter != null) {
+      allClassesByPackage = Converter.allClasses().stream()
+          // Make sure that the files only contains information from the required packages.
+          .filter(ci -> stubPackages == null
+              || stubPackages.contains(ci.containingPackage().qualifiedName()))
+          .collect(Collectors.groupingBy(ClassInfo::containingPackage));
+    }
+
+    final boolean ignoreShown = Doclava.showUnannotated;
+
+    Predicate<MemberInfo> memberIsNotCloned = (x -> !x.isCloned());
+
+    FilterPredicate apiFilter = new FilterPredicate(new ApiPredicate().setIgnoreShown(ignoreShown));
+    ApiPredicate apiReference = new ApiPredicate().setIgnoreShown(true);
+    Predicate<MemberInfo> apiEmit = apiFilter.and(new ElidingPredicate(apiReference));
+    Predicate<MemberInfo> dexApiEmit = memberIsNotCloned.and(apiFilter);
+
+    Predicate<MemberInfo> privateEmit = memberIsNotCloned.and(apiFilter.negate());
+    Predicate<MemberInfo> privateReference = (x -> true);
+
+    FilterPredicate removedFilter =
+        new FilterPredicate(new ApiPredicate().setIgnoreShown(ignoreShown).setMatchRemoved(true));
+    ApiPredicate removedReference = new ApiPredicate().setIgnoreShown(true).setIgnoreRemoved(true);
+    Predicate<MemberInfo> removedEmit = removedFilter.and(new ElidingPredicate(removedReference));
+    Predicate<MemberInfo> removedDexEmit = memberIsNotCloned.and(removedFilter);
+
+    // Write out the current API
     if (apiWriter != null) {
-      writeApi(apiWriter, packages, notStrippable);
+      writeApi(apiWriter, packages, apiEmit, apiReference);
       apiWriter.close();
     }
 
-    // write out the keep list
+    // Write out the current DEX API
+    if (dexApiWriter != null) {
+      writeDexApi(dexApiWriter, packages, dexApiEmit);
+      dexApiWriter.close();
+    }
+
+    // Write out the keep list
     if (keepListWriter != null) {
       writeKeepList(keepListWriter, packages, notStrippable);
       keepListWriter.close();
     }
 
-    HashMap<PackageInfo, List<ClassInfo>> allPackageClassMap =
-        new HashMap<PackageInfo, List<ClassInfo>>();
-    for (ClassInfo cl : Converter.allClasses()) {
-      if (allPackageClassMap.containsKey(cl.containingPackage())) {
-        allPackageClassMap.get(cl.containingPackage()).add(cl);
-      } else {
-        ArrayList<ClassInfo> classes = new ArrayList<ClassInfo>();
-        classes.add(cl);
-        allPackageClassMap.put(cl.containingPackage(), classes);
-      }
+    // Write out the private API
+    if (privateApiWriter != null) {
+      writeApi(privateApiWriter, allClassesByPackage, privateEmit, privateReference);
+      privateApiWriter.close();
     }
+
+    // Write out the private API
+    if (privateDexApiWriter != null) {
+      writeDexApi(privateDexApiWriter, allClassesByPackage, privateEmit);
+      privateDexApiWriter.close();
+    }
+
     // Write out the removed API
     if (removedApiWriter != null) {
-      writePredicateApi(removedApiWriter, allPackageClassMap, notStrippable,
-          new RemovedPredicate());
+      writeApi(removedApiWriter, allClassesByPackage, removedEmit, removedReference);
       removedApiWriter.close();
     }
-    // Write out the exact API
-    if (exactApiWriter != null) {
-      writePredicateApi(exactApiWriter, allPackageClassMap, notStrippable,
-          new ExactPredicate());
-      exactApiWriter.close();
+
+    // Write out the removed DEX API
+    if (removedDexApiWriter != null) {
+      writeDexApi(removedDexApiWriter, allClassesByPackage, removedDexEmit);
+      removedDexApiWriter.close();
     }
   }
 
@@ -639,6 +722,7 @@ public class Stubs {
     int N = enumConstants.size();
     int i = 0;
     for (FieldInfo field : enumConstants) {
+      writeAnnotations(stream, field.annotations(), field.isDeprecated());
       if (!field.constantLiteralValue().equals("null")) {
         stream.println(field.name() + "(" + field.constantLiteralValue()
             + (i == N - 1 ? ");" : "),"));
@@ -751,7 +835,6 @@ public class Stubs {
     stream.println("}");
   }
 
-
   static void writeMethod(PrintStream stream, MethodInfo method, boolean isConstructor) {
     String comma;
 
@@ -856,34 +939,6 @@ public class Stubs {
         || !field.type().dimension().equals("") || field.containingClass().isInterface();
   }
 
-  /**
-   * Test if the given method has a concrete implementation in a superclass or
-   * interface that has no differences in its public API representation.
-   *
-   * @return {@code true} if the tested method can be safely elided from the
-   *         public API to conserve space.
-   */
-  static boolean methodIsOverride(MethodInfo mi) {
-    // Abstract/static/final methods are always listed in the API description
-    if (mi.isAbstract() || mi.isStatic() || mi.isFinal()) {
-      return false;
-    }
-
-    final String api = writeMethodApiWithoutDefault(mi);
-    final MethodInfo overridden = mi.findPredicateOverriddenMethod(new Predicate<MethodInfo>() {
-      @Override
-      public boolean test(MethodInfo test) {
-        if (test.isHiddenOrRemoved() || test.containingClass().isHiddenOrRemoved()) {
-          return false;
-        }
-
-        final String testApi = writeMethodApiWithoutDefault(test);
-        return api.equals(testApi);
-      }
-    });
-    return (overridden != null);
-  }
-
   static boolean canCallMethod(ClassInfo from, MethodInfo m) {
     if (m.isPublic() || m.isProtected()) {
       return true;
@@ -919,7 +974,7 @@ public class Stubs {
       if (canCallMethod(cl, m)) {
         if (m.thrownExceptions() != null) {
           for (ClassInfo thrown : m.thrownExceptions()) {
-            if (!exceptionNames.contains(thrown.name())) {
+            if (thrownExceptions != null && !exceptionNames.contains(thrown.name())) {
               badException = true;
             }
           }
@@ -1017,6 +1072,14 @@ public class Stubs {
     stream.println(";");
   }
 
+  public static void writeXml(PrintStream xmlWriter, Collection<PackageInfo> pkgs, boolean strip) {
+    if (strip) {
+      Stubs.writeXml(xmlWriter, pkgs);
+    } else {
+      Stubs.writeXml(xmlWriter, pkgs, c -> true);
+    }
+  }
+
   public static void writeXml(PrintStream xmlWriter, Collection<PackageInfo> pkgs,
       Predicate<ClassInfo> notStrippable) {
 
@@ -1098,9 +1161,7 @@ public class Stubs {
     ArrayList<MethodInfo> methods = cl.allSelfMethods();
     Collections.sort(methods, MethodInfo.comparator);
     for (MethodInfo mi : methods) {
-      if (!methodIsOverride(mi)) {
-        writeMethodXML(xmlWriter, mi);
-      }
+      writeMethodXML(xmlWriter, mi);
     }
 
     ArrayList<FieldInfo> fields = cl.selfFields();
@@ -1224,82 +1285,185 @@ public class Stubs {
     return returnString;
   }
 
-  public static class RemovedPredicate implements Predicate<MemberInfo> {
-    @Override
-    public boolean test(MemberInfo member) {
-      ClassInfo clazz = member.containingClass();
+  /**
+   * Predicate that decides if the given member should be considered part of an
+   * API surface area. To make the most accurate decision, it searches for
+   * signals on the member, all containing classes, and all containing packages.
+   */
+  public static class ApiPredicate implements Predicate<MemberInfo> {
+    public boolean ignoreShown;
+    public boolean ignoreRemoved;
+    public boolean matchRemoved;
 
-      boolean visible = member.isPublic() || member.isProtected();
-      boolean hidden = member.isHidden();
-      boolean removed = member.isRemoved();
-      while (clazz != null) {
-        visible &= clazz.isPublic() || clazz.isProtected();
-        hidden |= clazz.isHidden();
-        removed |= clazz.isRemoved();
-        clazz = clazz.containingClass();
-      }
+    /**
+     * Set if the value of {@link MemberInfo#hasShowAnnotation()} should be
+     * ignored. That is, this predicate will assume that all encountered members
+     * match the "shown" requirement.
+     * <p>
+     * This is typically useful when generating "current.txt", when no
+     * {@link Doclava#showAnnotations} have been defined.
+     */
+    public ApiPredicate setIgnoreShown(boolean ignoreShown) {
+      this.ignoreShown = ignoreShown;
+      return this;
+    }
 
-      if (visible && !hidden && removed) {
-        if (member instanceof MethodInfo) {
-          final MethodInfo method = (MethodInfo) member;
-          return (method.findOverriddenMethod(method.name(), method.signature()) == null);
-        } else {
-          return true;
-        }
+    /**
+     * Set if the value of {@link MemberInfo#isRemoved()} should be ignored.
+     * That is, this predicate will assume that all encountered members match
+     * the "removed" requirement.
+     * <p>
+     * This is typically useful when generating "removed.txt", when it's okay to
+     * reference both current and removed APIs.
+     */
+    public ApiPredicate setIgnoreRemoved(boolean ignoreRemoved) {
+      this.ignoreRemoved = ignoreRemoved;
+      return this;
+    }
+
+    /**
+     * Set what the value of {@link MemberInfo#isRemoved()} must be equal to in
+     * order for a member to match.
+     * <p>
+     * This is typically useful when generating "removed.txt", when you only
+     * want to match members that have actually been removed.
+     */
+    public ApiPredicate setMatchRemoved(boolean matchRemoved) {
+      this.matchRemoved = matchRemoved;
+      return this;
+    }
+
+    private static PackageInfo containingPackage(PackageInfo pkg) {
+      String name = pkg.name();
+      final int lastDot = name.lastIndexOf('.');
+      if (lastDot == -1) {
+        return null;
       } else {
-        return false;
+        name = name.substring(0, lastDot);
+        return Converter.obtainPackage(name);
       }
     }
-  }
 
-  public static class ExactPredicate implements Predicate<MemberInfo> {
     @Override
     public boolean test(MemberInfo member) {
-      ClassInfo clazz = member.containingClass();
-
       boolean visible = member.isPublic() || member.isProtected();
       boolean hasShowAnnotation = member.hasShowAnnotation();
       boolean hidden = member.isHidden();
+      boolean docOnly = member.isDocOnly();
       boolean removed = member.isRemoved();
+
+      ClassInfo clazz = member.containingClass();
+      if (clazz != null) {
+        PackageInfo pkg = clazz.containingPackage();
+        while (pkg != null) {
+          hidden |= pkg.isHidden();
+          docOnly |= pkg.isDocOnly();
+          removed |= pkg.isRemoved();
+          pkg = containingPackage(pkg);
+        }
+      }
       while (clazz != null) {
         visible &= clazz.isPublic() || clazz.isProtected();
         hasShowAnnotation |= clazz.hasShowAnnotation();
         hidden |= clazz.isHidden();
+        docOnly |= clazz.isDocOnly();
         removed |= clazz.isRemoved();
         clazz = clazz.containingClass();
       }
 
-      if (visible && hasShowAnnotation && !hidden && !removed) {
-        if (member instanceof MethodInfo) {
-          final MethodInfo method = (MethodInfo) member;
-          return (method.findOverriddenMethod(method.name(), method.signature()) == null);
-        } else {
-          return true;
+      if (ignoreShown) {
+        hasShowAnnotation = true;
+      }
+      if (ignoreRemoved) {
+        removed = matchRemoved;
+      }
+
+      return visible && hasShowAnnotation && !hidden && !docOnly && (removed == matchRemoved);
+    }
+  }
+
+  /**
+   * Filter that will elide exact duplicate members that are already included
+   * in another superclass/interfaces.
+   */
+  public static class ElidingPredicate implements Predicate<MemberInfo> {
+    private final Predicate<MemberInfo> wrapped;
+
+    public ElidingPredicate(Predicate<MemberInfo> wrapped) {
+      this.wrapped = wrapped;
+    }
+
+    @Override
+    public boolean test(MemberInfo member) {
+      // This member should be included, but if it's an exact duplicate
+      // override then we can elide it.
+      if (member instanceof MethodInfo) {
+        MethodInfo method = (MethodInfo) member;
+        if (method.returnType() != null) {  // not a constructor
+          String methodRaw = writeMethodApiWithoutDefault(method);
+          return (method.findPredicateOverriddenMethod(new Predicate<MemberInfo>() {
+            @Override
+            public boolean test(MemberInfo test) {
+              // We're looking for included and perfect signature
+              return (wrapped.test(test)
+                  && writeMethodApiWithoutDefault((MethodInfo) test).equals(methodRaw));
+            }
+          }) == null);
         }
+      }
+      return true;
+    }
+  }
+
+  public static class FilterPredicate implements Predicate<MemberInfo> {
+    private final Predicate<MemberInfo> wrapped;
+
+    public FilterPredicate(Predicate<MemberInfo> wrapped) {
+      this.wrapped = wrapped;
+    }
+
+    @Override
+    public boolean test(MemberInfo member) {
+      if (wrapped.test(member)) {
+        return true;
+      } else if (member instanceof MethodInfo) {
+        MethodInfo method = (MethodInfo) member;
+        return method.returnType() != null &&  // not a constructor
+               method.findPredicateOverriddenMethod(wrapped) != null;
       } else {
         return false;
       }
     }
   }
 
-  static void writePredicateApi(PrintStream apiWriter,
-      HashMap<PackageInfo, List<ClassInfo>> allPackageClassMap, Set<ClassInfo> notStrippable,
-      Predicate<MemberInfo> predicate) {
-    final PackageInfo[] packages = allPackageClassMap.keySet().toArray(new PackageInfo[0]);
-    Arrays.sort(packages, PackageInfo.comparator);
-    for (PackageInfo pkg : packages) {
-      // beware that pkg.allClasses() has no class in it at the moment
-      final List<ClassInfo> classes = allPackageClassMap.get(pkg);
-      Collections.sort(classes, ClassInfo.comparator);
+  static void writeApi(PrintStream apiWriter, Map<PackageInfo, List<ClassInfo>> classesByPackage,
+      Predicate<MemberInfo> filterEmit, Predicate<MemberInfo> filterReference) {
+    for (PackageInfo pkg : classesByPackage.keySet().stream().sorted(PackageInfo.comparator)
+        .collect(Collectors.toList())) {
+      if (pkg.name().equals(PackageInfo.DEFAULT_PACKAGE)) continue;
+
       boolean hasWrittenPackageHead = false;
-      for (ClassInfo cl : classes) {
-        hasWrittenPackageHead = writeClassPredicateSelfMembers(apiWriter, cl, notStrippable,
-            predicate, hasWrittenPackageHead);
+      for (ClassInfo clazz : classesByPackage.get(pkg).stream().sorted(ClassInfo.comparator)
+          .collect(Collectors.toList())) {
+        hasWrittenPackageHead = writeClassApi(apiWriter, clazz, filterEmit, filterReference,
+            hasWrittenPackageHead);
       }
 
-      // the package contains some classes with some removed members
       if (hasWrittenPackageHead) {
         apiWriter.print("}\n\n");
+      }
+    }
+  }
+
+  static void writeDexApi(PrintStream apiWriter, Map<PackageInfo, List<ClassInfo>> classesByPackage,
+      Predicate<MemberInfo> filterEmit) {
+    for (PackageInfo pkg : classesByPackage.keySet().stream().sorted(PackageInfo.comparator)
+        .collect(Collectors.toList())) {
+      if (pkg.name().equals(PackageInfo.DEFAULT_PACKAGE)) continue;
+
+      for (ClassInfo clazz : classesByPackage.get(pkg).stream().sorted(ClassInfo.comparator)
+          .collect(Collectors.toList())) {
+        writeClassDexApi(apiWriter, clazz, filterEmit);
       }
     }
   }
@@ -1307,27 +1471,36 @@ public class Stubs {
   /**
    * Write the removed members of the class to removed.txt
    */
-  private static boolean writeClassPredicateSelfMembers(PrintStream apiWriter, ClassInfo cl,
-      Set<ClassInfo> notStrippable, Predicate<MemberInfo> predicate,
+  private static boolean writeClassApi(PrintStream apiWriter, ClassInfo cl,
+      Predicate<MemberInfo> filterEmit, Predicate<MemberInfo> filterReference,
       boolean hasWrittenPackageHead) {
 
-    List<MethodInfo> constructors = cl.getExhaustiveConstructors().stream().filter(predicate)
+    List<MethodInfo> constructors = cl.getExhaustiveConstructors().stream().filter(filterEmit)
         .sorted(MethodInfo.comparator).collect(Collectors.toList());
-    List<MethodInfo> methods = cl.getExhaustiveMethods().stream().filter(predicate)
+    List<MethodInfo> methods = cl.getExhaustiveMethods().stream().filter(filterEmit)
         .sorted(MethodInfo.comparator).collect(Collectors.toList());
-    List<FieldInfo> enums = cl.getExhaustiveEnumConstants().stream().filter(predicate)
+    List<FieldInfo> enums = cl.getExhaustiveEnumConstants().stream().filter(filterEmit)
         .sorted(FieldInfo.comparator).collect(Collectors.toList());
-    List<FieldInfo> fields = cl.getExhaustiveFields().stream().filter(predicate)
+    List<FieldInfo> fields = cl.filteredFields(filterEmit).stream()
         .sorted(FieldInfo.comparator).collect(Collectors.toList());
 
-    if (constructors.isEmpty() && methods.isEmpty() && enums.isEmpty() && fields.isEmpty()) {
+    final boolean classEmpty = (constructors.isEmpty() && methods.isEmpty() && enums.isEmpty()
+        && fields.isEmpty());
+    final boolean emit;
+    if (filterEmit.test(cl.asMemberInfo())) {
+      emit = true;
+    } else if (!classEmpty) {
+      emit = filterReference.test(cl.asMemberInfo());
+    } else {
+      emit = false;
+    }
+    if (!emit) {
       return hasWrittenPackageHead;
     }
 
     // Look for Android @SystemApi exposed outside the normal SDK; we require
     // that they're protected with a system permission.
-    if (Doclava.android && Doclava.showAnnotations.contains("android.annotation.SystemApi")
-        && !(predicate instanceof RemovedPredicate)) {
+    if (Doclava.android && Doclava.showAnnotations.contains("android.annotation.SystemApi")) {
       boolean systemService = "android.content.pm.PackageManager".equals(cl.qualifiedName());
       for (AnnotationInstanceInfo a : cl.annotations()) {
         if (a.type().qualifiedNameMatches("android", "annotation.SystemService")) {
@@ -1339,6 +1512,13 @@ public class Stubs {
           checkSystemPermissions(mi);
         }
       }
+    }
+
+    for (MethodInfo method : methods) {
+      checkHiddenTypes(method, filterReference);
+    }
+    for (FieldInfo field : fields) {
+      checkHiddenTypes(field, filterReference);
     }
 
     if (!hasWrittenPackageHead) {
@@ -1366,27 +1546,30 @@ public class Stubs {
     apiWriter.print(cl.isInterface() ? "interface" : "class");
     apiWriter.print(" ");
     apiWriter.print(cl.name());
-
-    if (!cl.isInterface()
-        && !"java.lang.Object".equals(cl.qualifiedName())
-        && cl.realSuperclass() != null
-        && !"java.lang.Object".equals(cl.realSuperclass().qualifiedName())) {
-      apiWriter.print(" extends ");
-      apiWriter.print(cl.realSuperclass().qualifiedName());
+    if (cl.hasTypeParameters()) {
+      apiWriter.print(TypeInfo.typeArgumentsName(cl.asTypeInfo().typeArguments(),
+          new HashSet<String>()));
     }
 
-    ArrayList<ClassInfo> interfaces = cl.realInterfaces();
-    Collections.sort(interfaces, ClassInfo.comparator);
+    if (!cl.isInterface()
+        && !"java.lang.Object".equals(cl.qualifiedName())) {
+      final ClassInfo superclass = cl.filteredSuperclass(filterReference);
+      if (superclass != null && !"java.lang.Object".equals(superclass.qualifiedName())) {
+        apiWriter.print(" extends ");
+        apiWriter.print(superclass.qualifiedName());
+      }
+    }
+
+    List<ClassInfo> interfaces = cl.filteredInterfaces(filterReference).stream()
+        .sorted(ClassInfo.comparator).collect(Collectors.toList());
     boolean first = true;
     for (ClassInfo iface : interfaces) {
-      if (notStrippable.contains(iface)) {
-        if (first) {
-          apiWriter.print(" implements");
-          first = false;
-        }
-        apiWriter.print(" ");
-        apiWriter.print(iface.qualifiedName());
+      if (first) {
+        apiWriter.print(" implements");
+        first = false;
       }
+      apiWriter.print(" ");
+      apiWriter.print(iface.qualifiedName());
     }
 
     apiWriter.print(" {\n");
@@ -1408,17 +1591,46 @@ public class Stubs {
     return hasWrittenPackageHead;
   }
 
+  private static void writeClassDexApi(PrintStream apiWriter, ClassInfo cl,
+      Predicate<MemberInfo> filterEmit) {
+    if (filterEmit.test(cl.asMemberInfo())) {
+      apiWriter.print(toSlashFormat(cl.qualifiedName()));
+      apiWriter.print("\n");
+    }
+
+    List<MethodInfo> constructors = cl.getExhaustiveConstructors().stream().filter(filterEmit)
+        .sorted(MethodInfo.comparator).collect(Collectors.toList());
+    List<MethodInfo> methods = cl.getExhaustiveMethods().stream().filter(filterEmit)
+        .sorted(MethodInfo.comparator).collect(Collectors.toList());
+    List<FieldInfo> enums = cl.getExhaustiveEnumConstants().stream().filter(filterEmit)
+        .sorted(FieldInfo.comparator).collect(Collectors.toList());
+    List<FieldInfo> fields = cl.getExhaustiveFields().stream().filter(filterEmit)
+        .sorted(FieldInfo.comparator).collect(Collectors.toList());
+
+    for (MethodInfo mi : constructors) {
+      writeMethodDexApi(apiWriter, cl, mi);
+    }
+    for (MethodInfo mi : methods) {
+      writeMethodDexApi(apiWriter, cl, mi);
+    }
+    for (FieldInfo fi : enums) {
+      writeFieldDexApi(apiWriter, cl, fi);
+    }
+    for (FieldInfo fi : fields) {
+      writeFieldDexApi(apiWriter, cl, fi);
+    }
+  }
+
   private static void checkSystemPermissions(MethodInfo mi) {
     boolean hasAnnotation = false;
     for (AnnotationInstanceInfo a : mi.annotations()) {
       if (a.type().qualifiedNameMatches("android", "annotation.RequiresPermission")) {
         hasAnnotation = true;
         for (AnnotationValueInfo val : a.elementValues()) {
-          ArrayList<AnnotationValueInfo> values = null;
+          ArrayList<AnnotationValueInfo> values = new ArrayList<>();
           boolean any = false;
           switch (val.element().name()) {
             case "value":
-              values = new ArrayList<AnnotationValueInfo>();
               values.add(val);
               break;
             case "allOf":
@@ -1429,6 +1641,7 @@ public class Stubs {
               values = (ArrayList<AnnotationValueInfo>) val.value();
               break;
           }
+          if (values.isEmpty()) continue;
 
           ArrayList<String> system = new ArrayList<>();
           ArrayList<String> nonSystem = new ArrayList<>();
@@ -1464,131 +1677,38 @@ public class Stubs {
     }
   }
 
-  public static void writeApi(PrintStream apiWriter, Collection<PackageInfo> pkgs) {
-    final PackageInfo[] packages = pkgs.toArray(new PackageInfo[pkgs.size()]);
-    Arrays.sort(packages, PackageInfo.comparator);
-
-    HashSet<ClassInfo> notStrippable = new HashSet();
-    for (PackageInfo pkg: packages) {
-      for (ClassInfo cl: pkg.allClasses().values()) {
-        notStrippable.add(cl);
+  private static void checkHiddenTypes(MethodInfo method, Predicate<MemberInfo> filterReference) {
+    checkHiddenTypes(method.returnType(), method, filterReference);
+    List<ParameterInfo> params = method.parameters();
+    if (params != null) {
+      for (ParameterInfo param : params) {
+        checkHiddenTypes(param.type(), method, filterReference);
       }
     }
-    for (PackageInfo pkg: packages) {
-      writePackageApi(apiWriter, pkg, pkg.allClasses().values(), notStrippable);
-    }
   }
 
-  static void writeApi(PrintStream apiWriter, HashMap<PackageInfo, List<ClassInfo>> allClasses,
-      HashSet<ClassInfo> notStrippable) {
-    // extract the set of packages, sort them by name, and write them out in that order
-    Set<PackageInfo> allClassKeys = allClasses.keySet();
-    PackageInfo[] allPackages = allClassKeys.toArray(new PackageInfo[allClassKeys.size()]);
-    Arrays.sort(allPackages, PackageInfo.comparator);
-
-    for (PackageInfo pack : allPackages) {
-      writePackageApi(apiWriter, pack, allClasses.get(pack), notStrippable);
-    }
+  private static void checkHiddenTypes(FieldInfo field, Predicate<MemberInfo> filterReference) {
+    checkHiddenTypes(field.type(), field, filterReference);
   }
 
-  static void writePackageApi(PrintStream apiWriter, PackageInfo pack,
-      Collection<ClassInfo> classList, HashSet<ClassInfo> notStrippable) {
-    // Work around the bogus "Array" class we invent for
-    // Arrays.copyOf's Class<? extends T[]> newType parameter. (http://b/2715505)
-    if (pack.name().equals(PackageInfo.DEFAULT_PACKAGE)) {
+  private static void checkHiddenTypes(TypeInfo type, MemberInfo member,
+      Predicate<MemberInfo> filterReference) {
+    if (type == null || type.isPrimitive()) {
       return;
     }
 
-    apiWriter.print("package ");
-    apiWriter.print(pack.qualifiedName());
-    apiWriter.print(" {\n\n");
-
-    ClassInfo[] classes = classList.toArray(new ClassInfo[classList.size()]);
-    Arrays.sort(classes, ClassInfo.comparator);
-    for (ClassInfo cl : classes) {
-      writeClassApi(apiWriter, cl, notStrippable);
+    ClassInfo clazz = type.asClassInfo();
+    if (clazz == null || !filterReference.test(clazz.asMemberInfo())) {
+      Errors.error(Errors.HIDDEN_TYPE_PARAMETER, member.position(),
+          "Member " + member + " references hidden type " + type.qualifiedTypeName() + ".");
     }
 
-    apiWriter.print("}\n\n");
-  }
-
-  static void writeClassApi(PrintStream apiWriter, ClassInfo cl, HashSet<ClassInfo> notStrippable) {
-    boolean first;
-
-    apiWriter.print("  ");
-    apiWriter.print(cl.scope());
-    if (cl.isStatic()) {
-      apiWriter.print(" static");
-    }
-    if (cl.isFinal()) {
-      apiWriter.print(" final");
-    }
-    if (cl.isAbstract()) {
-      apiWriter.print(" abstract");
-    }
-    if (cl.isDeprecated()) {
-      apiWriter.print(" deprecated");
-    }
-    apiWriter.print(" ");
-    apiWriter.print(cl.isInterface() ? "interface" : "class");
-    apiWriter.print(" ");
-    apiWriter.print(cl.name());
-    if (cl.hasTypeParameters()) {
-      apiWriter.print(TypeInfo.typeArgumentsName(cl.asTypeInfo().typeArguments(),
-          new HashSet<String>()));
-    }
-
-    if (!cl.isInterface()
-        && !"java.lang.Object".equals(cl.qualifiedName())
-        && cl.realSuperclass() != null
-        && !"java.lang.Object".equals(cl.realSuperclass().qualifiedName())) {
-      apiWriter.print(" extends ");
-      apiWriter.print(cl.realSuperclass().qualifiedName());
-    }
-
-    ArrayList<ClassInfo> interfaces = cl.realInterfaces();
-    Collections.sort(interfaces, ClassInfo.comparator);
-    first = true;
-    for (ClassInfo iface : interfaces) {
-      if (notStrippable.contains(iface)) {
-        if (first) {
-          apiWriter.print(" implements");
-          first = false;
-        }
-        apiWriter.print(" ");
-        apiWriter.print(iface.qualifiedName());
+    List<TypeInfo> args = type.typeArguments();
+    if (args != null) {
+      for (TypeInfo arg : args) {
+        checkHiddenTypes(arg, member, filterReference);
       }
     }
-
-    apiWriter.print(" {\n");
-
-    ArrayList<MethodInfo> constructors = cl.constructors();
-    Collections.sort(constructors, MethodInfo.comparator);
-    for (MethodInfo mi : constructors) {
-      writeConstructorApi(apiWriter, mi);
-    }
-
-    ArrayList<MethodInfo> methods = cl.allSelfMethods();
-    Collections.sort(methods, MethodInfo.comparator);
-    for (MethodInfo mi : methods) {
-      if (!methodIsOverride(mi)) {
-        writeMethodApi(apiWriter, mi);
-      }
-    }
-
-    ArrayList<FieldInfo> enums = cl.enumConstants();
-    Collections.sort(enums, FieldInfo.comparator);
-    for (FieldInfo fi : enums) {
-      writeFieldApi(apiWriter, fi, "enum_constant");
-    }
-
-    ArrayList<FieldInfo> fields = cl.selfFields();
-    Collections.sort(fields, FieldInfo.comparator);
-    for (FieldInfo fi : fields) {
-      writeFieldApi(apiWriter, fi, "field");
-    }
-
-    apiWriter.print("  }\n\n");
   }
 
   static void writeConstructorApi(PrintStream apiWriter, MethodInfo mi) {
@@ -1654,6 +1774,23 @@ public class Stubs {
     apiWriter.print(";\n");
   }
 
+  static void writeMethodDexApi(PrintStream apiWriter, ClassInfo cl, MethodInfo mi) {
+    apiWriter.print(toSlashFormat(cl.qualifiedName()));
+    apiWriter.print("->");
+    if (mi.returnType() == null) {
+      apiWriter.print("<init>");
+    } else {
+      apiWriter.print(mi.name());
+    }
+    writeParametersDexApi(apiWriter, mi, mi.parameters());
+    if (mi.returnType() == null) {  // constructor
+      apiWriter.print("V");
+    } else {
+      apiWriter.print(toSlashFormat(mi.returnType().dexName()));
+    }
+    apiWriter.print("\n");
+  }
+
   static void writeParametersApi(PrintStream apiWriter, MethodInfo method,
       ArrayList<ParameterInfo> params) {
     apiWriter.print("(");
@@ -1670,6 +1807,19 @@ public class Stubs {
       }
     }
 
+    apiWriter.print(")");
+  }
+
+  static void writeParametersDexApi(PrintStream apiWriter, MethodInfo method,
+      ArrayList<ParameterInfo> params) {
+    apiWriter.print("(");
+    for (ParameterInfo pi : params) {
+      String typeName = pi.type().dexName();
+      if (method.isVarArgs() && pi == params.get(params.size() - 1)) {
+        typeName += "[]";
+      }
+      apiWriter.print(toSlashFormat(typeName));
+    }
     apiWriter.print(")");
   }
 
@@ -1716,7 +1866,7 @@ public class Stubs {
     }
 
     apiWriter.print(" ");
-    apiWriter.print(fi.type().fullName());
+    apiWriter.print(fi.type().fullName(fi.typeVariables()));
 
     apiWriter.print(" ");
     apiWriter.print(fi.name());
@@ -1741,6 +1891,15 @@ public class Stubs {
       }
     }
 
+    apiWriter.print("\n");
+  }
+
+  static void writeFieldDexApi(PrintStream apiWriter, ClassInfo cl, FieldInfo fi) {
+    apiWriter.print(toSlashFormat(cl.qualifiedName()));
+    apiWriter.print("->");
+    apiWriter.print(fi.name());
+    apiWriter.print(":");
+    apiWriter.print(toSlashFormat(fi.type().dexName()));
     apiWriter.print("\n");
   }
 
@@ -1903,6 +2062,39 @@ public class Stubs {
       pos = pos + 1;
     }
     return name;
+  }
+
+  static String toSlashFormat(String name) {
+    String dimension = "";
+    while (name.endsWith("[]")) {
+      dimension += "[";
+      name = name.substring(0, name.length() - 2);
+    }
+
+    final String base;
+    if (name.equals("void")) {
+      base = "V";
+    } else if (name.equals("byte")) {
+      base = "B";
+    } else if (name.equals("boolean")) {
+      base = "Z";
+    } else if (name.equals("char")) {
+      base = "C";
+    } else if (name.equals("short")) {
+      base = "S";
+    } else if (name.equals("int")) {
+      base = "I";
+    } else if (name.equals("long")) {
+      base = "J";
+    } else if (name.equals("float")) {
+      base = "F";
+    } else if (name.equals("double")) {
+      base = "D";
+    } else {
+      base = "L" + to$Class(name).replace(".", "/") + ";";
+    }
+
+    return dimension + base;
   }
 
   static String getCleanTypeName(TypeInfo t) {

@@ -10,14 +10,16 @@
 #include <map>
 
 #include "core/fxcrt/fx_system.h"
+#include "core/fxcrt/retain_ptr.h"
+#include "core/fxcrt/unowned_ptr.h"
 
-class CPDF_Stream;
+class CFX_DIBitmap;
+class CPDF_Image;
 class CPDF_ImageCacheEntry;
 class CPDF_Page;
 class CPDF_RenderStatus;
-class CFX_DIBitmap;
-class CFX_DIBSource;
-class IFX_Pause;
+class CPDF_Stream;
+class IFX_PauseIndicator;
 
 class CPDF_PageRenderCache {
  public:
@@ -26,27 +28,25 @@ class CPDF_PageRenderCache {
 
   void CacheOptimization(int32_t dwLimitCacheSize);
   uint32_t GetTimeCount() const { return m_nTimeCount; }
-
-  void ResetBitmap(CPDF_Stream* pStream, const CFX_DIBitmap* pBitmap);
-  CPDF_Page* GetPage() const { return m_pPage; }
+  void ResetBitmap(const RetainPtr<CPDF_Image>& pImage,
+                   const RetainPtr<CFX_DIBitmap>& pBitmap);
+  CPDF_Page* GetPage() const { return m_pPage.Get(); }
   CPDF_ImageCacheEntry* GetCurImageCacheEntry() const {
     return m_pCurImageCacheEntry;
   }
 
-  bool StartGetCachedBitmap(CPDF_Stream* pStream,
+  bool StartGetCachedBitmap(const RetainPtr<CPDF_Image>& pImage,
                             bool bStdCS,
                             uint32_t GroupFamily,
                             bool bLoadMask,
-                            CPDF_RenderStatus* pRenderStatus,
-                            int32_t downsampleWidth,
-                            int32_t downsampleHeight);
+                            CPDF_RenderStatus* pRenderStatus);
 
-  bool Continue(IFX_Pause* pPause);
+  bool Continue(IFX_PauseIndicator* pPause, CPDF_RenderStatus* pRenderStatus);
 
  private:
   void ClearImageCacheEntry(CPDF_Stream* pStream);
 
-  CPDF_Page* const m_pPage;
+  UnownedPtr<CPDF_Page> const m_pPage;
   CPDF_ImageCacheEntry* m_pCurImageCacheEntry;
   std::map<CPDF_Stream*, CPDF_ImageCacheEntry*> m_ImageCache;
   uint32_t m_nTimeCount;

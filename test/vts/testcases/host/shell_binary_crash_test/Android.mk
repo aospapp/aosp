@@ -37,6 +37,26 @@ include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
 
+LOCAL_MODULE := vts_test_binary_seg_fault
+LOCAL_MODULE_TAGS := optional
+
+LOCAL_SRC_FILES := \
+  seg_fault.c \
+
+LOCAL_SHARED_LIBRARIES := \
+  libutils \
+  libcutils \
+  liblog \
+
+LOCAL_C_INCLUDES += \
+  bionic \
+
+LOCAL_CFLAGS := -Werror -Wall
+
+include $(BUILD_EXECUTABLE)
+
+include $(CLEAR_VARS)
+
 LOCAL_MODULE := ShellBinaryCrashTest
 VTS_CONFIG_SRC_DIR := testcases/host/shell_binary_crash_test
 include test/vts/tools/build/Android.host_config.mk

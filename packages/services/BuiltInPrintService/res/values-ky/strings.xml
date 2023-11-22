@@ -29,7 +29,6 @@
     <string name="printer_offline" msgid="9196864753298645066">"Оффлайн"</string>
     <string name="printer_check" msgid="6428369671197132828">"Принтерди текшерүү"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Жөнөтүлгөнү жатат"</string>
-    <string name="wifi_not_connected" msgid="8644760246612043851">"Wi-Fi туташкан жок"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Документ окулбай койду"</string>
     <string name="media_size_l" msgid="164416542021598181">"L"</string>
     <string name="media_size_5x7in" msgid="1275128379533195285">"5x7 дюйм"</string>
@@ -38,12 +37,24 @@
     <string name="media_size_8x10in" msgid="1872576638522812402">"8x10 дюйм"</string>
     <string name="media_size_4x6in" msgid="3093276425529958253">"4x6 дюйм"</string>
     <string name="printer_description" msgid="8580767673213837142">"%1$s – %2$s"</string>
-    <string name="title_activity_add_printer" msgid="3971541707589830268">"Кол менен кошулган принтерлер"</string>
-    <string name="add_manual_printer" msgid="3990455596246121671">"Принтерди кол менен кошуу"</string>
+    <string name="title_activity_add_printer" msgid="9119216095769228566">"Принтерди кошуу"</string>
+    <string name="add_printer_by_ip" msgid="562864787592910327">"IP дареги аркылуу принтерди кошуу"</string>
     <string name="hostname_or_ip" msgid="3460546103553992915">"Түйүндүн аталышы же IP дареги"</string>
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"Кошуу"</string>
+    <string name="add_named" msgid="9074106244018070583">"<xliff:g id="PRINTER">%1$s</xliff:g> принтерин кошуу"</string>
     <string name="no_printer_found" msgid="4777867380924351173">"Бул даректен бир да принтер табылган жок"</string>
     <string name="printer_not_supported" msgid="281955849350938408">"Принтер колдоого алынбайт"</string>
-    <string name="forget_printer" msgid="7287993564179837445">"Принтер унутулсун"</string>
+    <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
+    <string name="find_wifi_direct" msgid="5270504288829123954">"Wi-Fi Direct принтерлерин табуу"</string>
+    <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi Direct принтерлери"</string>
+    <string name="searching" msgid="2114018057619514587">"Издөөдө…"</string>
+    <string name="connect_hint_text" msgid="587112503851044234">"Бул туташууга принтериңиздин алдыңкы панелинен уруксат беришиңиз мүмкүн"</string>
+    <string name="connecting_to" msgid="2665161014972086194">"<xliff:g id="PRINTER">%1$s</xliff:g> принтерине туташууда"</string>
+    <string name="failed_printer_connection" msgid="4196305972749960362">"Принтерге туташпай калды"</string>
+    <string name="failed_connection" msgid="8068661997318286575">"<xliff:g id="PRINTER">%1$s</xliff:g> принтерине туташпай калды"</string>
+    <string name="saved_printers" msgid="4567534965213125526">"Сакталган принтерлер"</string>
+    <string name="forget" msgid="892068061425802502">"Унутулсун"</string>
+    <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct аркылуу туташат"</string>
+    <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g> IP дарегиндеги учурдагы тармак аркылуу туташат"</string>
 </resources>

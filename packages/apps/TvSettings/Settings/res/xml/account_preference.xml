@@ -17,10 +17,11 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
     <Preference android:key="sync_now"
-        android:title="@string/sync_now" />
+                android:title="@string/sync_now"/>
     <Preference android:key="remove_account"
-        android:title="@string/account_header_remove_account" />
+                android:title="@string/account_header_remove_account"/>
     <PreferenceCategory android:key="sync_adapters"
-        android:title="@string/account_sync" />
+                        android:layout="@layout/preference_category_compact_layout"
+                        android:title="@string/account_sync"/>
 
 </PreferenceScreen>

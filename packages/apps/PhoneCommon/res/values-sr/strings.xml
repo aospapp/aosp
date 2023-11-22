@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Нема SIM картице или постоји грешка на њој"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Мобилна мрежа није доступна"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Број за фиксно бирање је ограничио одлазне позиве."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL захтев је промењен у USSD захтев."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL захтев је промењен у SS захтев."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL захтев је промењен у DIAL захтев са другачијим бројем."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Позив је промењен у USSD захтев"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Позив је промењен у SS захтев"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Промењено је у други број"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Промењено је у видео позив"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Видео позив је промењен у SS захтев"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Видео позив је промењен у USSD захтев"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Промењено је у обичан позив"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Промењено је у други број"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Није могуће упућивати одлазне позиве док је укључено ограничавање позива."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Позиви су ограничени контролом приступа."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Хитни позиви су ограничени контролом приступа."</string>

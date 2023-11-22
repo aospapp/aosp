@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import logging
+import sys
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
@@ -109,5 +110,5 @@ class provision_AndroidUpdate(test.test):
                     host, **args)
         except error.InstallError as e:
             logging.error(e)
-            raise error.TestFail(str(e))
+            raise error.TestFail, str(e), sys.exc_info()[2]
         logging.debug('Finished provisioning %s to %s', host, value)

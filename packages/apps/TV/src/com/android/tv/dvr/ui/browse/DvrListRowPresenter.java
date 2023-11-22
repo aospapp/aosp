@@ -19,7 +19,6 @@ package com.android.tv.dvr.ui.browse;
 import android.content.Context;
 import android.support.v17.leanback.widget.ListRowPresenter;
 import android.view.ViewGroup;
-
 import com.android.tv.R;
 
 /** A list row presenter to display expand/fold card views list. */

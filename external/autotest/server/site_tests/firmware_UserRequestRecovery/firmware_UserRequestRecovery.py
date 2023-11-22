@@ -37,7 +37,10 @@ class firmware_UserRequestRecovery(FirmwareTest):
         self.setup_usbkey(usbkey=True, host=True)
 
     def cleanup(self):
-        self.ensure_normal_boot()
+        try:
+            self.ensure_normal_boot()
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_UserRequestRecovery, self).cleanup()
 
     def run_once(self, dev_mode=False):
@@ -49,7 +52,8 @@ class firmware_UserRequestRecovery(FirmwareTest):
         self.faft_client.system.request_recovery_boot()
         # Execute from desktop:
         #   dut-control warm_reset:on sleep:0.5000 warm_reset:off
-        self.switcher.mode_aware_reboot(wait_for_dut_up=False)
+        self.switcher.simple_reboot()
+
         # DUT should be waiting for USB after reboot.
         # Connect servo USB to DUT and DUT should boot from USB.
         # dut-control usb_mux_sel1:dut_sees_usbkey
@@ -64,10 +68,10 @@ class firmware_UserRequestRecovery(FirmwareTest):
                            'mainfw_type': 'recovery',
                            'recovery_reason' : vboot.RECOVERY_REASON['US_TEST'],
                            }))
+
         self.faft_client.system.request_recovery_boot()
-        self.switcher.mode_aware_reboot(wait_for_dut_up=False)
-        if not dev_mode:
-            self.switcher.bypass_rec_mode()
+        self.switcher.simple_reboot()
+        self.switcher.bypass_rec_mode()
         self.switcher.wait_for_client()
 
         logging.info("Expected recovery boot.")

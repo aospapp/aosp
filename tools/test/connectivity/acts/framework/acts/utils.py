@@ -31,9 +31,12 @@ import traceback
 import zipfile
 
 from acts.controllers import adb
+from acts import tracelogger
 
 # File name length is limited to 255 chars on some OS, so we need to make sure
 # the file names we output fits within the limit.
+from acts.libs.proc import job
+
 MAX_FILENAME_LEN = 255
 
 
@@ -704,6 +707,12 @@ def set_location_service(ad, new_state):
             If new_state is False, turn off location service.
             If new_state if True, set location service to "High accuracy".
     """
+    ad.adb.shell("content insert --uri "
+                 " content://com.google.settings/partner --bind "
+                 "name:s:network_location_opt_in --bind value:s:1")
+    ad.adb.shell("content insert --uri "
+                 " content://com.google.settings/partner --bind "
+                 "name:s:use_location_for_services --bind value:s:1")
     if new_state:
         ad.adb.shell("settings put secure location_providers_allowed +gps")
         ad.adb.shell("settings put secure location_providers_allowed +network")
@@ -803,9 +812,9 @@ def parse_ping_ouput(ad, count, out, loss_tolerance=20):
     packet_rcvd = int(stats[1].split()[0])
     min_packet_xmit_rcvd = (100 - loss_tolerance) * 0.01
 
-    if (packet_loss >= loss_tolerance or
-            packet_xmit < count * min_packet_xmit_rcvd or
-            packet_rcvd < count * min_packet_xmit_rcvd):
+    if (packet_loss >= loss_tolerance
+            or packet_xmit < count * min_packet_xmit_rcvd
+            or packet_rcvd < count * min_packet_xmit_rcvd):
         ad.log.error(
             "More than %d %% packet loss seen, Expected Packet_count %d \
             Packet loss %.2f%% Packets_xmitted %d Packets_rcvd %d",
@@ -872,3 +881,36 @@ def _extract_file(zip_file, zip_info, extract_location):
     out_path = zip_file.extract(zip_info.filename, path=extract_location)
     perm = zip_info.external_attr >> 16
     os.chmod(out_path, perm)
+
+
+def get_directory_size(path):
+    """Computes the total size of the files in a directory, including subdirectories.
+
+    Args:
+        path: The path of the directory.
+    Returns:
+        The size of the provided directory.
+    """
+    total = 0
+    for dirpath, dirnames, filenames in os.walk(path):
+        for filename in filenames:
+            total += os.path.getsize(os.path.join(dirpath, filename))
+    return total
+
+
+def get_process_uptime(process):
+    """Returns the runtime in [[dd-]hh:]mm:ss, or '' if not running."""
+    pid = job.run('pidof %s' % process, ignore_status=True).stdout
+    runtime = ''
+    if pid:
+        runtime = job.run('ps -o etime= -p "%s"' % pid).stdout
+    return runtime
+
+
+def get_device_process_uptime(adb, process):
+    """Returns the uptime of a device process."""
+    pid = adb.shell('pidof %s' % process, ignore_status=True)
+    runtime = ''
+    if pid:
+        runtime = adb.shell('ps -o etime= -p "%s"' % pid)
+    return runtime

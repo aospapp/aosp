@@ -21,15 +21,15 @@ import java.util.Arrays;
 import java.util.List;
 
 public enum ModeId {
-    /** ART (works >= L) */
+    /** (Target) dalvikvm */
     DEVICE,
-    /** ART (works >= L) */
+    /** (Host) dalvikvm */
     HOST,
-    /** Local Java */
+    /** (Host) java */
     JVM,
-    /** Device, execution as an Android app with Zygote */
+    /** (Target), execution as an Android app with Zygote */
     ACTIVITY,
-    /** Device using app_process binary */
+    /** (Target) app_process */
     APP_PROCESS;
 
     // $BOOTCLASSPATH defined by system/core/rootdir/init.rc
@@ -38,13 +38,10 @@ public enum ModeId {
     // See PRODUCT_BOOT_JARS in build/make/target/product/core_tiny.mk
     private static final String[] APP_JARS = new String[] {
             "legacy-test",
-            "bouncycastle",
             "framework",
             "telephony-common",
             "voip-common",
             "ims-common",
-            "apache-xml",
-            "nullwebview",
             "org.apache.http.legacy.boot",
             "android.hidl.base-V1.0-java",
             "android.hidl.manager-V1.0-java"
@@ -53,10 +50,10 @@ public enum ModeId {
 
     // $BOOTCLASSPATH for art+libcore only.
     // (Intended for use with dalvikvm only.)
-    // See TARGET_CORE_JARS in art/build/Android.common_path.mk
+    // See TARGET_CORE_JARS in android/build/make/core/envsetup.mk
     private static final String[] DEVICE_JARS = new String[] {
-            "core-libart",
             "core-oj",
+            "core-libart",
             "conscrypt",
             "okhttp",
             "bouncycastle",
@@ -66,10 +63,10 @@ public enum ModeId {
     // $BOOTCLASSPATH for art+libcore only (host version).
     // - Must be same as DEVICE_JARS + "hostdex" suffix.
     // (Intended for use with dalvikvm only.)
-    // See HOST_CORE_JARS in art/build/Android.common_path.mk
+    // See HOST_CORE_JARS in android/build/make/core/envsetup.mk
     private static final String[] HOST_JARS = new String[] {
-            "core-libart-hostdex",
             "core-oj-hostdex",
+            "core-libart-hostdex",
             "conscrypt-hostdex",
             "okhttp-hostdex",
             "bouncycastle-hostdex",
@@ -105,6 +102,11 @@ public enum ModeId {
     public boolean supportsVariant(Variant variant) {
         return (variant == Variant.X32)
                 || ((this == HOST || this == DEVICE) && (variant == Variant.X64));
+    }
+
+    public boolean supportsToolchain(Toolchain toolchain) {
+        return (this == JVM && toolchain == Toolchain.JAVAC)
+                || (this != JVM && toolchain != Toolchain.JAVAC);
     }
 
     /** The default command to use for the mode unless overridden by --vm-command */
@@ -155,5 +157,15 @@ public enum ModeId {
                 throw new IllegalArgumentException("Unsupported mode: " + this);
         }
         return jarNames.toArray(new String[jarNames.size()]);
+    }
+
+    /** Returns the default toolchain to use with the mode if not overriden. */
+    public Toolchain defaultToolchain() {
+        switch (this) {
+            case JVM:
+                return Toolchain.JAVAC;
+            default:
+                return Toolchain.D8;
+        }
     }
 }

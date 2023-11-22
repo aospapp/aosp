@@ -30,9 +30,21 @@ make -j32 -C $ANDROID_BUILD_TOP -f build/core/main.mk \
 
 set -x # print commands
 
+adb wait-for-device
 adb root
 adb wait-for-device
-adb remount
+
+# 'disable-verity' will appear in 'adb remount' output if
+# dm-verity is enabled and needs to be disabled.
+if adb remount | grep 'disable-verity'; then
+  adb disable-verity
+  adb reboot
+  adb wait-for-device
+  adb root
+  adb wait-for-device
+  adb remount
+fi
+
 adb sync
 
 adb shell /data/nativetest/wifilogd_unit_test/wifilogd_unit_test

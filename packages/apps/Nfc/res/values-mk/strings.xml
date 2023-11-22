@@ -43,4 +43,8 @@
     <string name="beam_requires_nfc_enabled" msgid="2800366967218600534">"Android Beam бара да се овозможи NFC. Дали сакате да го овозможите?"</string>
     <string name="android_beam" msgid="1666446406999492763">"Android Beam"</string>
     <string name="beam_requires_external_storage_permission" msgid="8798337545702206901">"Апликацијата нема дозвола за надворешната меморија. Тоа е неопходно за пренесување на датотекава"</string>
+    <string name="title_confirm_url_open" msgid="8069968913244794478">"Да се отвори линкот?"</string>
+    <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"Вашиот таблет доби линк преку NFC:"</string>
+    <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"Вашиот телефон доби линк преку NFC:"</string>
+    <string name="action_confirm_url_open" msgid="3458322738812921189">"Отвори ја врската"</string>
 </resources>

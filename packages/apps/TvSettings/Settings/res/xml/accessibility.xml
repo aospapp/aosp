@@ -29,7 +29,7 @@
 
     <SwitchPreference
             android:key="toggle_high_text_contrast"
-            android:persistent="false"
+            android:persistent="true"
             android:title="@string/accessibility_toggle_high_text_contrast_preference_title"
             android:summary="@string/experimental_preference"/>
 
@@ -45,6 +45,7 @@
 
     <PreferenceCategory
             android:key="system_accessibility_services"
-            android:title="@string/system_services"/>
+            android:title="@string/system_services"
+            android:layout="@layout/preference_category_compact_layout"/>
 
 </PreferenceScreen>

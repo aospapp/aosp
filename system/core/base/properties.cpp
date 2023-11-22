@@ -23,11 +23,10 @@
 
 #include <algorithm>
 #include <chrono>
+#include <limits>
 #include <string>
 
 #include <android-base/parseint.h>
-
-using namespace std::chrono_literals;
 
 namespace android {
 namespace base {
@@ -36,13 +35,18 @@ std::string GetProperty(const std::string& key, const std::string& default_value
   const prop_info* pi = __system_property_find(key.c_str());
   if (pi == nullptr) return default_value;
 
-  char buf[PROP_VALUE_MAX];
-  if (__system_property_read(pi, nullptr, buf) > 0) return buf;
+  std::string property_value;
+  __system_property_read_callback(pi,
+                                  [](void* cookie, const char*, const char* value, unsigned) {
+                                    auto property_value = reinterpret_cast<std::string*>(cookie);
+                                    *property_value = value;
+                                  },
+                                  &property_value);
 
   // If the property exists but is empty, also return the default value.
   // Since we can't remove system properties, "empty" is traditionally
   // the same as "missing" (this was true for cutils' property_get).
-  return default_value;
+  return property_value.empty() ? default_value : property_value;
 }
 
 bool GetBoolProperty(const std::string& key, bool default_value) {
@@ -104,7 +108,7 @@ static void WaitForPropertyCallback(void* data_ptr, const char*, const char* val
 static void DurationToTimeSpec(timespec& ts, const std::chrono::milliseconds d) {
   auto s = std::chrono::duration_cast<std::chrono::seconds>(d);
   auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(d - s);
-  ts.tv_sec = s.count();
+  ts.tv_sec = std::min<std::chrono::seconds::rep>(s.count(), std::numeric_limits<time_t>::max());
   ts.tv_nsec = ns.count();
 }
 

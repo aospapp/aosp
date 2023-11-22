@@ -17,7 +17,8 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="@dimen/test_width"
     android:layout_height="@dimen/test_height">
-    <View android:layout_width="40px"
+    <View android:id="@+id/shadow_view"
+        android:layout_width="40px"
         android:layout_height="40px"
         android:translationX="25px"
         android:translationY="25px"

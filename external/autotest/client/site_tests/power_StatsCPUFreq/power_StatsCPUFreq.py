@@ -4,7 +4,7 @@
 
 import logging, time
 from autotest_lib.client.bin import test
-from autotest_lib.client.cros import power_status
+from autotest_lib.client.cros.power import power_status
 
 
 class power_StatsCPUFreq(test.test):

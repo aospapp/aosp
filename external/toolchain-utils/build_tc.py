@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 # Copyright 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -44,9 +44,9 @@ class ToolchainPart(object):
                                                       self._chromeos_root)
     self.tag = '%s-%s' % (name, self._ctarget)
     self._ce = command_executer.GetCommandExecuter()
-    self._mask_file = os.path.join(self._chromeos_root, 'chroot',
-                                   'etc/portage/package.mask/cross-%s' %
-                                   self._ctarget)
+    self._mask_file = os.path.join(
+        self._chromeos_root, 'chroot',
+        'etc/portage/package.mask/cross-%s' % self._ctarget)
     self._new_mask_file = None
 
     self._chroot_source_path = os.path.join(constants.MOUNTED_TOOLCHAIN_ROOT,
@@ -59,8 +59,8 @@ class ToolchainPart(object):
     cross_symlink = os.path.join(self._chromeos_root, 'chroot',
                                  'usr/local/bin/emerge-%s' % self._board)
     if not os.path.exists(cross_symlink):
-      command = ('%s/setup_board --board=%s' %
-                 (misc.CHROMEOS_SCRIPTS_DIR, self._board))
+      command = ('%s/setup_board --board=%s' % (misc.CHROMEOS_SCRIPTS_DIR,
+                                                self._board))
       self._ce.ChrootRunCommand(self._chromeos_root, command)
 
   def Build(self):
@@ -114,9 +114,9 @@ class ToolchainPart(object):
       mount_statuses = [mp.DoMount() == 0 for mp in mount_points]
 
       if not all(mount_statuses):
-        mounted = [mp
-                   for mp, status in zip(mount_points, mount_statuses)
-                   if status]
+        mounted = [
+            mp for mp, status in zip(mount_points, mount_statuses) if status
+        ]
         unmount_statuses = [mp.UnMount() == 0 for mp in mounted]
         assert all(unmount_statuses), 'Could not unmount all mount points!'
 
@@ -149,8 +149,8 @@ class ToolchainPart(object):
     if self._name == 'gcc' and not self._gcc_enable_ccache:
       env['USE'] += ' -wrapper_ccache'
 
-    env['%s_SOURCE_PATH' % self._name.upper()] = (
-        os.path.join('/', self._chroot_source_path))
+    env['%s_SOURCE_PATH' % self._name.upper()] = (os.path.join(
+        '/', self._chroot_source_path))
     env['ACCEPT_KEYWORDS'] = '~*'
     env_string = ' '.join(["%s=\"%s\"" % var for var in env.items()])
     command = 'emerge =cross-%s/%s-9999' % (self._ctarget, self._name)
@@ -159,8 +159,8 @@ class ToolchainPart(object):
     if rv != 0:
       return rv
     if self._name == 'gcc':
-      command = ('sudo cp -r /usr/lib/gcc/%s %s' %
-                 (self._ctarget, self._gcc_libs_dest))
+      command = ('sudo cp -r /usr/lib/gcc/%s %s' % (self._ctarget,
+                                                    self._gcc_libs_dest))
       rv = self._ce.ChrootRunCommand(self._chromeos_root, command)
     return rv
 
@@ -181,83 +181,99 @@ def Main(argv):
   """The main function."""
   # Common initializations
   parser = argparse.ArgumentParser()
-  parser.add_argument('-c',
-                      '--chromeos_root',
-                      dest='chromeos_root',
-                      default='../../',
-                      help=('ChromeOS root checkout directory'
-                            ' uses ../.. if none given.'))
-  parser.add_argument('-g',
-                      '--gcc_dir',
-                      dest='gcc_dir',
-                      help='The directory where gcc resides.')
-  parser.add_argument('--binutils_dir',
-                      dest='binutils_dir',
-                      help='The directory where binutils resides.')
-  parser.add_argument('-x',
-                      '--gdb_dir',
-                      dest='gdb_dir',
-                      help='The directory where gdb resides.')
-  parser.add_argument('-b',
-                      '--board',
-                      dest='board',
-                      default='x86-alex',
-                      help='The target board.')
-  parser.add_argument('-n',
-                      '--noincremental',
-                      dest='noincremental',
-                      default=False,
-                      action='store_true',
-                      help='Use FEATURES=keepwork to do incremental builds.')
-  parser.add_argument('--cflags',
-                      dest='cflags',
-                      default='',
-                      help='Build a compiler with specified CFLAGS')
-  parser.add_argument('--cxxflags',
-                      dest='cxxflags',
-                      default='',
-                      help='Build a compiler with specified CXXFLAGS')
-  parser.add_argument('--cflags_for_target',
-                      dest='cflags_for_target',
-                      default='',
-                      help='Build the target libraries with specified flags')
-  parser.add_argument('--cxxflags_for_target',
-                      dest='cxxflags_for_target',
-                      default='',
-                      help='Build the target libraries with specified flags')
-  parser.add_argument('--ldflags',
-                      dest='ldflags',
-                      default='',
-                      help='Build a compiler with specified LDFLAGS')
-  parser.add_argument('-d',
-                      '--debug',
-                      dest='debug',
-                      default=False,
-                      action='store_true',
-                      help='Build a compiler with -g3 -O0 appended to both'
-                      ' CFLAGS and CXXFLAGS.')
-  parser.add_argument('-m',
-                      '--mount_only',
-                      dest='mount_only',
-                      default=False,
-                      action='store_true',
-                      help='Just mount the tool directories.')
-  parser.add_argument('-u',
-                      '--unmount_only',
-                      dest='unmount_only',
-                      default=False,
-                      action='store_true',
-                      help='Just unmount the tool directories.')
-  parser.add_argument('--extra_use_flags',
-                      dest='extra_use_flags',
-                      default='',
-                      help='Extra flag for USE, to be passed to the ebuild. '
-                      "('multislot' and 'mounted_<tool>' are always passed.)")
-  parser.add_argument('--gcc_enable_ccache',
-                      dest='gcc_enable_ccache',
-                      default=False,
-                      action='store_true',
-                      help='Enable ccache for the gcc invocations')
+  parser.add_argument(
+      '-c',
+      '--chromeos_root',
+      dest='chromeos_root',
+      default='../../',
+      help=('ChromeOS root checkout directory'
+            ' uses ../.. if none given.'))
+  parser.add_argument(
+      '-g',
+      '--gcc_dir',
+      dest='gcc_dir',
+      help='The directory where gcc resides.')
+  parser.add_argument(
+      '--binutils_dir',
+      dest='binutils_dir',
+      help='The directory where binutils resides.')
+  parser.add_argument(
+      '-x',
+      '--gdb_dir',
+      dest='gdb_dir',
+      help='The directory where gdb resides.')
+  parser.add_argument(
+      '-b',
+      '--board',
+      dest='board',
+      default='x86-alex',
+      help='The target board.')
+  parser.add_argument(
+      '-n',
+      '--noincremental',
+      dest='noincremental',
+      default=False,
+      action='store_true',
+      help='Use FEATURES=keepwork to do incremental builds.')
+  parser.add_argument(
+      '--cflags',
+      dest='cflags',
+      default='',
+      help='Build a compiler with specified CFLAGS')
+  parser.add_argument(
+      '--cxxflags',
+      dest='cxxflags',
+      default='',
+      help='Build a compiler with specified CXXFLAGS')
+  parser.add_argument(
+      '--cflags_for_target',
+      dest='cflags_for_target',
+      default='',
+      help='Build the target libraries with specified flags')
+  parser.add_argument(
+      '--cxxflags_for_target',
+      dest='cxxflags_for_target',
+      default='',
+      help='Build the target libraries with specified flags')
+  parser.add_argument(
+      '--ldflags',
+      dest='ldflags',
+      default='',
+      help='Build a compiler with specified LDFLAGS')
+  parser.add_argument(
+      '-d',
+      '--debug',
+      dest='debug',
+      default=False,
+      action='store_true',
+      help='Build a compiler with -g3 -O0 appended to both'
+      ' CFLAGS and CXXFLAGS.')
+  parser.add_argument(
+      '-m',
+      '--mount_only',
+      dest='mount_only',
+      default=False,
+      action='store_true',
+      help='Just mount the tool directories.')
+  parser.add_argument(
+      '-u',
+      '--unmount_only',
+      dest='unmount_only',
+      default=False,
+      action='store_true',
+      help='Just unmount the tool directories.')
+  parser.add_argument(
+      '--extra_use_flags',
+      dest='extra_use_flags',
+      default='',
+      help='Extra flag for USE, to be passed to the ebuild. '
+      "('multislot' and 'mounted_<tool>' are always passed.)")
+  parser.add_argument(
+      '--gcc_enable_ccache',
+      dest='gcc_enable_ccache',
+      default=False,
+      action='store_true',
+      help='Enable ccache for the gcc invocations')
 
   options = parser.parse_args(argv)
 

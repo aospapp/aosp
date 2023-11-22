@@ -31,7 +31,3 @@ class IntegrationTest(base_test.BaseTestClass):
         self.log.info("This is a bare minimal test to make sure the basic ACTS"
                       "test flow works.")
         asserts.explicit_pass("Hello World")
-
-
-if __name__ == "__main__":
-    test_runner.main()

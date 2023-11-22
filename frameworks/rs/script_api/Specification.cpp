@@ -266,7 +266,8 @@ void Definition::updateFinalVersion(const VersionInfo& info) {
      * - We have a max that's later than what we currently have.
      */
     if (mFinalVersion < 0 || info.maxVersion == 0 ||
-        (mFinalVersion > 0 && info.maxVersion > mFinalVersion)) {
+        (mFinalVersion > 0 &&
+         static_cast<int>(info.maxVersion) > mFinalVersion)) {
         mFinalVersion = info.maxVersion;
     }
 }
@@ -932,9 +933,9 @@ unsigned int SystemSpecification::getMaximumApiLevel() {
     return maxApiLevel;
 }
 
-bool SystemSpecification::generateFiles(bool forVerification, unsigned int maxApiLevel) const {
+bool SystemSpecification::generateFiles(unsigned int maxApiLevel) const {
     bool success = generateHeaderFiles("include") &&
-                   generateDocumentation("docs", forVerification) &&
+                   generateDocumentation("docs") &&
                    generateTestFiles("test", maxApiLevel) &&
                    generateStubsWhiteList("slangtest", maxApiLevel);
     if (success) {

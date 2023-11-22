@@ -27,7 +27,6 @@ cc_library_static {
         "-Werror",
         "-Wall",
     ],
-    clang: true,
     srcs:  [
         "GCDAProfiling.c",
         "InstrProfiling.c",

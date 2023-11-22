@@ -167,8 +167,12 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
      * only works if the user has just authenticated via device credentials.
      * has to be run after successful auth, in order to succeed
      */
-    private boolean tryEncrypt() {
+    protected boolean tryEncrypt() {
         return encryptInternal(true);
+    }
+
+    protected Cipher getCipher() {
+        return mCipher;
     }
 
     private boolean encryptInternal(boolean doEncrypt) {
@@ -217,15 +221,14 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
         }
     }
 
-    private void showAuthenticationScreen() {
+    protected void showAuthenticationScreen() {
         mFingerprintDialog = new FingerprintAuthDialogFragment();
         mFingerprintDialog.setActivity(this);
         mFingerprintDialog.show(getFragmentManager(), "fingerprint_dialog");
     }
 
-    private void showToast(String message) {
-        Toast.makeText(this, message, Toast.LENGTH_LONG)
-            .show();
+    protected void showToast(String message) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }
 
     public static class FingerprintAuthDialogFragment extends DialogFragment {

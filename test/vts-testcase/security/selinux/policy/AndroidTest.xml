@@ -14,9 +14,9 @@
      limitations under the License.
 -->
 <configuration description="Config for VTS  Security SELinux policy host-side test cases">
-    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer"/>
+    <option name="config-descriptor:metadata" key="plan" value="vts-security" />
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
-        <option name="test-module-name" value="VtsHalRadioV1_0TargetProfiling"/>
+        <option name="test-module-name" value="VtsSecuritySelinuxPolicyHost"/>
         <option name="binary-test-source" value="out/host/linux-x86/bin/VtsSecuritySelinuxPolicyHostTest" />
         <option name="binary-test-type" value="host_binary_test"/>
         <option name="test-timeout" value="1m"/>

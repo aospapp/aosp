@@ -19,6 +19,9 @@ package android.os.cts;
 import java.io.ByteArrayOutputStream;
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.Arrays;
 
 import android.content.ComponentName;
 import android.content.Intent;
@@ -335,8 +338,41 @@ public class BinderTest extends ActivityTestsBase {
     }
 
     public void testJoinThreadPool() {
-        //from java doc this function won't be return until the current process is exiting.
-        //so not suitable to test it in unit test
+        final CountDownLatch waitLatch = new CountDownLatch(1);
+        final CountDownLatch alertLatch = new CountDownLatch(1);
+        Thread joinThread = new Thread("JoinThreadPool-Thread") {
+            @Override
+            public void run() {
+                waitLatch.countDown();
+                Binder.joinThreadPool();
+                // Should not reach here. Let the main thread know.
+                alertLatch.countDown();
+            }
+        };
+        joinThread.setDaemon(true);
+        joinThread.start();
+        try {
+            assertTrue(waitLatch.await(10, TimeUnit.SECONDS));
+        } catch (InterruptedException e) {
+            fail("InterruptedException");
+        }
+        try {
+            // This waits a small amount of time, hoping that if joinThreadPool
+            // fails, it fails fast.
+            assertFalse(alertLatch.await(3, TimeUnit.SECONDS));
+        } catch (InterruptedException e) {
+            fail("InterruptedException");
+        }
+        // Confirm that the thread is actually in joinThreadPool.
+        StackTraceElement stack[] = joinThread.getStackTrace();
+        boolean found = false;
+        for (StackTraceElement elem : stack) {
+            if (elem.toString().contains("Binder.joinThreadPool")) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue(Arrays.toString(stack), found);
     }
 
     public void testClearCallingIdentity() {

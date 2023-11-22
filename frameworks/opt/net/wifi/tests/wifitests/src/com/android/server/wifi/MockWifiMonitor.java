@@ -49,7 +49,7 @@ public class MockWifiMonitor extends  WifiMonitor {
     }
 
     @Override
-    public synchronized void startMonitoring(String iface, boolean isStaIface) {
+    public synchronized void startMonitoring(String iface) {
         return;
     }
 

@@ -22,7 +22,6 @@ import android.content.ServiceConnection;
 import android.os.Handler;
 import android.os.IBinder;
 import android.support.car.content.pm.CarPackageManagerEmbedded;
-import android.support.car.hardware.CarSensorManagerEmbedded;
 import android.support.car.media.CarAudioManagerEmbedded;
 import android.support.car.navigation.CarNavigationStatusManagerEmbedded;
 
@@ -92,8 +91,6 @@ public class CarServiceLoaderEmbedded extends CarServiceLoader {
         switch (serviceName) {
             case Car.AUDIO_SERVICE:
                 return new CarAudioManagerEmbedded(manager);
-            case Car.SENSOR_SERVICE:
-                return new CarSensorManagerEmbedded(manager, getContext());
             case Car.INFO_SERVICE:
                 return new CarInfoManagerEmbedded(manager);
             case Car.APP_FOCUS_SERVICE:

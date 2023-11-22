@@ -1,6 +1,7 @@
 // Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 1323b9c
 
 #ifndef BIT_READER_CORE_H_
 #define BIT_READER_CORE_H_

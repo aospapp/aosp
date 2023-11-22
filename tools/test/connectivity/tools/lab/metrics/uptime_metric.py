@@ -18,27 +18,34 @@ from metrics.metric import Metric
 
 
 class UptimeMetric(Metric):
-
-    COMMAND = "cat /proc/uptime"
+    SECONDS_COMMAND = 'cat /proc/uptime | cut -f1 -d\' \''
+    READABLE_COMMAND = 'uptime -p | cut -f2- -d\' \''
     # Fields for response dictionary
     TIME_SECONDS = 'time_seconds'
+    TIME_READABLE = 'time_readable'
+
+    def get_readable(self):
+        # Example stdout:
+        # 2 days, 8 hours, 19 minutes
+        return self._shell.run(self.READABLE_COMMAND).stdout
+
+    def get_seconds(self):
+        # Example stdout:
+        # 358350.70
+        return self._shell.run(self.SECONDS_COMMAND).stdout
 
     def gather_metric(self):
         """Tells how long system has been running
 
         Returns:
             A dict with the following fields:
-              time_seconds: float uptime in total seconds
+              time_seconds: uptime in total seconds
+              time_readable: time in human readable format
 
         """
-        # Run shell command
-        result = self._shell.run(self.COMMAND).stdout
-        # Example stdout:
-        # 358350.70 14241538.06
 
-        # Get only first number (total time)
-        seconds = float(result.split()[0])
         response = {
-            self.TIME_SECONDS: seconds,
+            self.TIME_SECONDS: self.get_seconds(),
+            self.TIME_READABLE: self.get_readable()
         }
         return response

@@ -50,7 +50,10 @@
             android:title="@string/menu_delete" />
     </group>
     <group
-        android:id="@+id/menu_settings_group">
+        android:id="@+id/menu_extras_group">
+        <item
+            android:id="@+id/dir_menu_inspect"
+            android:title="@string/menu_inspect" />
         <item
             android:id="@+id/dir_menu_view_in_owner"
             android:title="@string/menu_view_in_owner" />

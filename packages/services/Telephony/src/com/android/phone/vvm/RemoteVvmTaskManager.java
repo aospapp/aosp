@@ -69,6 +69,8 @@ public class RemoteVvmTaskManager extends Service {
             "com.android.phone.vvm.ACTION_VISUAL_VOICEMAIL_SERVICE_EVENT";
     private static final String EXTRA_WHAT = "what";
 
+    private static final String EXTRA_TARGET_PACKAGE = "target_package";
+
     // TODO(twyen): track task individually to have time outs.
     private int mTaskReferenceCount;
 
@@ -79,7 +81,7 @@ public class RemoteVvmTaskManager extends Service {
      */
     private Messenger mMessenger;
 
-    public static void startCellServiceConnected(Context context,
+    static void startCellServiceConnected(Context context,
             PhoneAccountHandle phoneAccountHandle) {
         Intent intent = new Intent(ACTION_START_CELL_SERVICE_CONNECTED, null, context,
                 RemoteVvmTaskManager.class);
@@ -87,28 +89,46 @@ public class RemoteVvmTaskManager extends Service {
         context.startService(intent);
     }
 
-    public static void startSmsReceived(Context context, VisualVoicemailSms sms) {
+    static void startSmsReceived(Context context, VisualVoicemailSms sms,
+            String targetPackage) {
         Intent intent = new Intent(ACTION_START_SMS_RECEIVED, null, context,
                 RemoteVvmTaskManager.class);
         intent.putExtra(VisualVoicemailService.DATA_PHONE_ACCOUNT_HANDLE,
                 sms.getPhoneAccountHandle());
         intent.putExtra(VisualVoicemailService.DATA_SMS, sms);
+        intent.putExtra(EXTRA_TARGET_PACKAGE, targetPackage);
         context.startService(intent);
     }
 
-    public static void startSimRemoved(Context context, PhoneAccountHandle phoneAccountHandle) {
+    static void startSimRemoved(Context context, PhoneAccountHandle phoneAccountHandle) {
         Intent intent = new Intent(ACTION_START_SIM_REMOVED, null, context,
                 RemoteVvmTaskManager.class);
         intent.putExtra(VisualVoicemailService.DATA_PHONE_ACCOUNT_HANDLE, phoneAccountHandle);
         context.startService(intent);
     }
 
-    public static boolean hasRemoteService(Context context, int subId) {
-        return getRemotePackage(context, subId) != null;
+    static boolean hasRemoteService(Context context, int subId, String targetPackage) {
+        return getRemotePackage(context, subId, targetPackage) != null;
     }
 
+    /**
+     * Return the {@link ComponentName} of the {@link VisualVoicemailService} which is active (the
+     * current default dialer), or {@code null} if no implementation is found.
+     */
     @Nullable
     public static ComponentName getRemotePackage(Context context, int subId) {
+        return getRemotePackage(context, subId, null);
+    }
+
+    /**
+     * Return the {@link ComponentName} of the {@link VisualVoicemailService} which is active (the
+     * current default dialer), or {@code null} if no implementation is found.
+     *
+     * @param targetPackage the package that should be the active VisualVociemailService
+     */
+    @Nullable
+    public static ComponentName getRemotePackage(Context context, int subId,
+            @Nullable String targetPackage) {
         ComponentName broadcastPackage = getBroadcastPackage(context);
         if (broadcastPackage != null) {
             return broadcastPackage;
@@ -119,10 +139,13 @@ public class RemoteVvmTaskManager extends Service {
         TelecomManager telecomManager = context.getSystemService(TelecomManager.class);
         List<String> packages = new ArrayList<>();
         packages.add(telecomManager.getDefaultDialerPackage());
+        // TODO(b/73136824): Check permissions in the calling function and avoid relying on the
+        // binder caller's permissions to access the carrier config.
         PersistableBundle carrierConfig = context
                 .getSystemService(CarrierConfigManager.class).getConfigForSubId(subId);
         packages.add(
-                carrierConfig.getString(CarrierConfigManager.KEY_CARRIER_VVM_PACKAGE_NAME_STRING));
+                carrierConfig
+                        .getString(CarrierConfigManager.KEY_CARRIER_VVM_PACKAGE_NAME_STRING));
         String[] vvmPackages = carrierConfig
                 .getStringArray(CarrierConfigManager.KEY_CARRIER_VVM_PACKAGE_NAME_STRING_ARRAY);
         if (vvmPackages != null && vvmPackages.length > 0) {
@@ -132,6 +155,7 @@ public class RemoteVvmTaskManager extends Service {
         }
         packages.add(context.getResources().getString(R.string.system_visual_voicemail_client));
         packages.add(telecomManager.getSystemDialerPackage());
+
         for (String packageName : packages) {
             if (TextUtils.isEmpty(packageName)) {
                 continue;
@@ -153,7 +177,10 @@ public class RemoteVvmTaskManager extends Service {
                         + " does not enforce BIND_VISUAL_VOICEMAIL_SERVICE, ignoring");
                 continue;
             }
-
+            if (targetPackage != null && !TextUtils.equals(packageName, targetPackage)) {
+                VvmLog.w(TAG, "target package " + targetPackage
+                        + " is no longer the active VisualVoicemailService, ignoring");
+            }
             return info.getComponentInfo().getComponentName();
 
         }
@@ -203,7 +230,8 @@ public class RemoteVvmTaskManager extends Service {
         PhoneAccountHandle phoneAccountHandle = intent.getExtras()
                 .getParcelable(VisualVoicemailService.DATA_PHONE_ACCOUNT_HANDLE);
         int subId = PhoneAccountHandleConverter.toSubId(phoneAccountHandle);
-        ComponentName remotePackage = getRemotePackage(this, subId);
+        ComponentName remotePackage = getRemotePackage(this, subId,
+                intent.getStringExtra(EXTRA_TARGET_PACKAGE));
         if (remotePackage == null) {
             VvmLog.i(TAG, "No service to handle " + intent.getAction() + ", ignoring");
             checkReference();

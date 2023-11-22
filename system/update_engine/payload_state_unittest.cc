@@ -31,6 +31,7 @@
 #include "update_engine/common/test_utils.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/fake_system_state.h"
+#include "update_engine/metrics_reporter_interface.h"
 #include "update_engine/omaha_request_action.h"
 
 using base::Time;
@@ -41,7 +42,7 @@ using testing::AtLeast;
 using testing::Mock;
 using testing::NiceMock;
 using testing::Return;
-using testing::SetArgumentPointee;
+using testing::SetArgPointee;
 using testing::_;
 
 namespace chromeos_update_engine {
@@ -310,11 +311,6 @@ TEST(PayloadStateTest, NewResponseResetsPayloadState) {
   PayloadState payload_state;
 
   EXPECT_TRUE(payload_state.Initialize(&fake_system_state));
-
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(_, _, _, _, _))
-    .Times(AnyNumber());
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(_, _, _))
-    .Times(AnyNumber());
 
   // Set the first response.
   SetupPayloadStateWith2Urls(
@@ -615,7 +611,7 @@ TEST(PayloadStateTest, SetResponseResetsInvalidUrlIndex) {
   EXPECT_CALL(*prefs2, GetInt64(kPrefsFullPayloadAttemptNumber, _))
     .Times(AtLeast(1));
   EXPECT_CALL(*prefs2, GetInt64(kPrefsCurrentUrlIndex, _))
-      .WillRepeatedly(DoAll(SetArgumentPointee<1>(2), Return(true)));
+      .WillRepeatedly(DoAll(SetArgPointee<1>(2), Return(true)));
   EXPECT_CALL(*prefs2, GetInt64(kPrefsCurrentUrlFailureCount, _))
     .Times(AtLeast(1));
   EXPECT_CALL(*prefs2, GetInt64(kPrefsUrlSwitchCount, _))
@@ -873,26 +869,9 @@ TEST(PayloadStateTest, BytesDownloadedMetricsGetAddedToCorrectSources) {
   EXPECT_EQ(p2p_total,
             payload_state.GetTotalBytesDownloaded(kDownloadSourceHttpPeer));
 
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(_, _, _, _, _))
-    .Times(AnyNumber());
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(_, _, _))
-    .Times(AnyNumber());
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(
-      metrics::kMetricSuccessfulUpdateUrlSwitchCount,
-      3, _, _, _));
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(
-      metrics::kMetricSuccessfulUpdateTotalDurationMinutes,
-      _, _, _, _));
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(
-      metrics::kMetricSuccessfulUpdateDownloadOverheadPercentage,
-      314, _, _, _));
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(
-      metrics::kMetricAttemptPayloadType, kPayloadTypeFull, kNumPayloadTypes));
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(
-      metrics::kMetricSuccessfulUpdatePayloadType, kPayloadTypeFull,
-      kNumPayloadTypes));
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(
-      metrics::kMetricSuccessfulUpdateAttemptCount, 1, _, _, _));
+  EXPECT_CALL(*fake_system_state.mock_metrics_reporter(),
+              ReportSuccessfulUpdateMetrics(
+                  1, _, kPayloadTypeFull, _, _, 314, _, _, 3));
 
   payload_state.UpdateSucceeded();
 
@@ -928,12 +907,21 @@ TEST(PayloadStateTest, DownloadSourcesUsedIsCorrect) {
             payload_state.GetTotalBytesDownloaded(kDownloadSourceHttpServer));
 
   // Check that only HTTP is reported as a download source.
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(_, _, _, _, _))
-    .Times(AnyNumber());
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(
-      metrics::kMetricSuccessfulUpdateDownloadSourcesUsed,
-      (1 << kDownloadSourceHttpServer),
-      _, _, _));
+  int64_t total_bytes[kNumDownloadSources] = {};
+  total_bytes[kDownloadSourceHttpServer] = num_bytes;
+
+  EXPECT_CALL(*fake_system_state.mock_metrics_reporter(),
+              ReportSuccessfulUpdateMetrics(
+                  _,
+                  _,
+                  _,
+                  _,
+                  test_utils::DownloadSourceMatcher(total_bytes),
+                  _,
+                  _,
+                  _,
+                  _))
+      .Times(1);
 
   payload_state.UpdateSucceeded();
 }
@@ -1024,7 +1012,7 @@ TEST(PayloadStateTest, RollbackVersion) {
   // Let's verify we can reload it correctly.
   EXPECT_CALL(*mock_powerwash_safe_prefs, GetString(
       kPrefsRollbackVersion, _)).WillOnce(DoAll(
-          SetArgumentPointee<1>(rollback_version), Return(true)));
+          SetArgPointee<1>(rollback_version), Return(true)));
   EXPECT_CALL(*mock_powerwash_safe_prefs, SetString(kPrefsRollbackVersion,
                                                     rollback_version));
   payload_state.LoadRollbackVersion();
@@ -1032,15 +1020,10 @@ TEST(PayloadStateTest, RollbackVersion) {
 
   // Check that we report only UpdateEngine.Rollback.* metrics in
   // UpdateSucceeded().
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(_, _, _, _, _))
-    .Times(0);
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(_, _, _))
-    .Times(0);
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(),
-              SendEnumToUMA(
-                  metrics::kMetricRollbackResult,
-                  static_cast<int>(metrics::RollbackResult::kSuccess),
-                  static_cast<int>(metrics::RollbackResult::kNumConstants)));
+  EXPECT_CALL(*fake_system_state.mock_metrics_reporter(),
+              ReportRollbackMetrics(metrics::RollbackResult::kSuccess))
+      .Times(1);
+
   payload_state.UpdateSucceeded();
 }
 
@@ -1115,8 +1098,8 @@ TEST(PayloadStateTest, RebootAfterSuccessfulUpdateTest) {
   FakePrefs fake_prefs;
 
   // Set the clock to a well-known time (t = 30 seconds).
-  fake_clock.SetWallclockTime(Time::FromInternalValue(
-      30 * Time::kMicrosecondsPerSecond));
+  fake_clock.SetMonotonicTime(
+      Time::FromInternalValue(30 * Time::kMicrosecondsPerSecond));
 
   fake_system_state.set_clock(&fake_clock);
   fake_system_state.set_prefs(&fake_prefs);
@@ -1134,15 +1117,14 @@ TEST(PayloadStateTest, RebootAfterSuccessfulUpdateTest) {
   // (t = 500 seconds). We do this by using a new PayloadState object
   // and checking that it emits the right UMA metric with the right
   // value.
-  fake_clock.SetWallclockTime(Time::FromInternalValue(
-      500 * Time::kMicrosecondsPerSecond));
+  fake_clock.SetMonotonicTime(
+      Time::FromInternalValue(500 * Time::kMicrosecondsPerSecond));
   PayloadState payload_state2;
   EXPECT_TRUE(payload_state2.Initialize(&fake_system_state));
 
   // Expect 500 - 30 seconds = 470 seconds ~= 7 min 50 sec
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(
-      metrics::kMetricTimeToRebootMinutes,
-      7, _, _, _));
+  EXPECT_CALL(*fake_system_state.mock_metrics_reporter(),
+              ReportTimeToReboot(7));
   fake_system_state.set_system_rebooted(true);
 
   payload_state2.UpdateEngineStarted();
@@ -1154,6 +1136,8 @@ TEST(PayloadStateTest, RebootAfterSuccessfulUpdateTest) {
 TEST(PayloadStateTest, RestartAfterCrash) {
   PayloadState payload_state;
   FakeSystemState fake_system_state;
+  testing::StrictMock<MockMetricsReporter> mock_metrics_reporter;
+  fake_system_state.set_metrics_reporter(&mock_metrics_reporter);
   NiceMock<MockPrefs>* prefs = fake_system_state.mock_prefs();
 
   EXPECT_TRUE(payload_state.Initialize(&fake_system_state));
@@ -1168,10 +1152,6 @@ TEST(PayloadStateTest, RestartAfterCrash) {
   EXPECT_CALL(*prefs, GetBoolean(_, _)).Times(0);
   EXPECT_CALL(*prefs, GetBoolean(kPrefsAttemptInProgress, _));
 
-  // No metrics are reported after a crash.
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(),
-              SendToUMA(_, _, _, _, _)).Times(0);
-
   // Simulate an update_engine restart without a reboot.
   fake_system_state.set_system_rebooted(false);
 
@@ -1184,11 +1164,9 @@ TEST(PayloadStateTest, AbnormalTerminationAttemptMetricsNoReporting) {
 
   // If there's no marker at startup, ensure we don't report a metric.
   EXPECT_TRUE(payload_state.Initialize(&fake_system_state));
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(),
-      SendEnumToUMA(
-          metrics::kMetricAttemptResult,
-          static_cast<int>(metrics::AttemptResult::kAbnormalTermination),
-          _)).Times(0);
+  EXPECT_CALL(*fake_system_state.mock_metrics_reporter(),
+              ReportAbnormallyTerminatedUpdateAttemptMetrics())
+      .Times(0);
   payload_state.UpdateEngineStarted();
 }
 
@@ -1204,11 +1182,9 @@ TEST(PayloadStateTest, AbnormalTerminationAttemptMetricsReported) {
 
   EXPECT_TRUE(payload_state.Initialize(&fake_system_state));
 
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(),
-      SendEnumToUMA(
-          metrics::kMetricAttemptResult,
-          static_cast<int>(metrics::AttemptResult::kAbnormalTermination),
-          _)).Times(1);
+  EXPECT_CALL(*fake_system_state.mock_metrics_reporter(),
+              ReportAbnormallyTerminatedUpdateAttemptMetrics())
+      .Times(1);
   payload_state.UpdateEngineStarted();
 
   EXPECT_FALSE(fake_prefs.Exists(kPrefsAttemptInProgress));
@@ -1228,15 +1204,9 @@ TEST(PayloadStateTest, AbnormalTerminationAttemptMetricsClearedOnSucceess) {
   response.packages.resize(1);
   payload_state.SetResponse(response);
 
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(_, _, _, _, _))
-    .Times(AnyNumber());
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(_, _, _))
-    .Times(AnyNumber());
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(),
-      SendEnumToUMA(
-          metrics::kMetricAttemptResult,
-          static_cast<int>(metrics::AttemptResult::kAbnormalTermination),
-          _)).Times(0);
+  EXPECT_CALL(*fake_system_state.mock_metrics_reporter(),
+              ReportAbnormallyTerminatedUpdateAttemptMetrics())
+      .Times(0);
 
   // Attempt not in progress, should be clear.
   EXPECT_FALSE(fake_prefs.Exists(kPrefsAttemptInProgress));
@@ -1275,7 +1245,7 @@ TEST(PayloadStateTest, CandidateUrlsComputedCorrectly) {
 
   // Test with device policy not allowing http updates.
   EXPECT_CALL(disable_http_policy, GetHttpDownloadsEnabled(_))
-      .WillRepeatedly(DoAll(SetArgumentPointee<0>(false), Return(true)));
+      .WillRepeatedly(DoAll(SetArgPointee<0>(false), Return(true)));
 
   // Reset state and set again.
   SetupPayloadStateWith2Urls(
@@ -1304,7 +1274,7 @@ TEST(PayloadStateTest, CandidateUrlsComputedCorrectly) {
   policy::MockDevicePolicy enable_http_policy;
   fake_system_state.set_device_policy(&enable_http_policy);
   EXPECT_CALL(enable_http_policy, GetHttpDownloadsEnabled(_))
-      .WillRepeatedly(DoAll(SetArgumentPointee<0>(true), Return(true)));
+      .WillRepeatedly(DoAll(SetArgPointee<0>(true), Return(true)));
 
   // Now, set the same response using the same hash
   // so that we can test that the state is reset not because of the
@@ -1335,14 +1305,9 @@ TEST(PayloadStateTest, PayloadTypeMetricWhenTypeIsDelta) {
 
   // Simulate a successful download and update.
   payload_state.DownloadComplete();
-
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(_, _, _))
-    .Times(AnyNumber());
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(
-      metrics::kMetricAttemptPayloadType, kPayloadTypeDelta, kNumPayloadTypes));
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(
-      metrics::kMetricSuccessfulUpdatePayloadType, kPayloadTypeDelta,
-      kNumPayloadTypes));
+  EXPECT_CALL(
+      *fake_system_state.mock_metrics_reporter(),
+      ReportSuccessfulUpdateMetrics(_, _, kPayloadTypeDelta, _, _, _, _, _, _));
   payload_state.UpdateSucceeded();
 
   // Mock the request to a request where the delta was disabled but Omaha sends
@@ -1356,12 +1321,9 @@ TEST(PayloadStateTest, PayloadTypeMetricWhenTypeIsDelta) {
 
   payload_state.DownloadComplete();
 
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(
-      metrics::kMetricAttemptPayloadType, kPayloadTypeDelta,
-      kNumPayloadTypes));
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(
-      metrics::kMetricSuccessfulUpdatePayloadType, kPayloadTypeDelta,
-      kNumPayloadTypes));
+  EXPECT_CALL(
+      *fake_system_state.mock_metrics_reporter(),
+      ReportSuccessfulUpdateMetrics(_, _, kPayloadTypeDelta, _, _, _, _, _, _));
   payload_state.UpdateSucceeded();
 }
 
@@ -1382,14 +1344,9 @@ TEST(PayloadStateTest, PayloadTypeMetricWhenTypeIsForcedFull) {
   // Simulate a successful download and update.
   payload_state.DownloadComplete();
 
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(_, _, _))
-    .Times(AnyNumber());
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(
-      metrics::kMetricAttemptPayloadType, kPayloadTypeForcedFull,
-      kNumPayloadTypes));
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(
-      metrics::kMetricSuccessfulUpdatePayloadType, kPayloadTypeForcedFull,
-      kNumPayloadTypes));
+  EXPECT_CALL(*fake_system_state.mock_metrics_reporter(),
+              ReportSuccessfulUpdateMetrics(
+                  _, _, kPayloadTypeForcedFull, _, _, _, _, _, _));
   payload_state.UpdateSucceeded();
 }
 
@@ -1411,14 +1368,9 @@ TEST(PayloadStateTest, PayloadTypeMetricWhenTypeIsFull) {
   // Simulate a successful download and update.
   payload_state.DownloadComplete();
 
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(_, _, _))
-    .Times(AnyNumber());
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(
-      metrics::kMetricAttemptPayloadType, kPayloadTypeFull,
-      kNumPayloadTypes));
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendEnumToUMA(
-      metrics::kMetricSuccessfulUpdatePayloadType, kPayloadTypeFull,
-      kNumPayloadTypes));
+  EXPECT_CALL(
+      *fake_system_state.mock_metrics_reporter(),
+      ReportSuccessfulUpdateMetrics(_, _, kPayloadTypeFull, _, _, _, _, _, _));
   payload_state.UpdateSucceeded();
 }
 
@@ -1439,27 +1391,27 @@ TEST(PayloadStateTest, RebootAfterUpdateFailedMetric) {
   payload_state.ExpectRebootInNewVersion("Version:12345678");
 
   // Reboot into the same environment to get an UMA metric with a value of 1.
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(
-      metrics::kMetricFailedUpdateCount, 1, _, _, _));
+  EXPECT_CALL(*fake_system_state.mock_metrics_reporter(),
+              ReportFailedUpdateCount(1));
   payload_state.ReportFailedBootIfNeeded();
-  Mock::VerifyAndClearExpectations(fake_system_state.mock_metrics_lib());
+  Mock::VerifyAndClearExpectations(fake_system_state.mock_metrics_reporter());
 
   // Simulate a second update and reboot into the same environment, this should
   // send a value of 2.
   payload_state.ExpectRebootInNewVersion("Version:12345678");
 
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(
-      metrics::kMetricFailedUpdateCount, 2, _, _, _));
+  EXPECT_CALL(*fake_system_state.mock_metrics_reporter(),
+              ReportFailedUpdateCount(2));
   payload_state.ReportFailedBootIfNeeded();
-  Mock::VerifyAndClearExpectations(fake_system_state.mock_metrics_lib());
+  Mock::VerifyAndClearExpectations(fake_system_state.mock_metrics_reporter());
 
   // Simulate a third failed reboot to new version, but this time for a
   // different payload. This should send a value of 1 this time.
   payload_state.ExpectRebootInNewVersion("Version:3141592");
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(
-      metrics::kMetricFailedUpdateCount, 1, _, _, _));
+  EXPECT_CALL(*fake_system_state.mock_metrics_reporter(),
+              ReportFailedUpdateCount(1));
   payload_state.ReportFailedBootIfNeeded();
-  Mock::VerifyAndClearExpectations(fake_system_state.mock_metrics_lib());
+  Mock::VerifyAndClearExpectations(fake_system_state.mock_metrics_reporter());
 }
 
 TEST(PayloadStateTest, RebootAfterUpdateSucceed) {
@@ -1484,8 +1436,8 @@ TEST(PayloadStateTest, RebootAfterUpdateSucceed) {
   // Change the BootDevice to a different one, no metric should be sent.
   fake_boot_control->SetCurrentSlot(1);
 
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(
-      metrics::kMetricFailedUpdateCount, _, _, _, _))
+  EXPECT_CALL(*fake_system_state.mock_metrics_reporter(),
+              ReportFailedUpdateCount(_))
       .Times(0);
   payload_state.ReportFailedBootIfNeeded();
 
@@ -1511,8 +1463,8 @@ TEST(PayloadStateTest, RebootAfterCanceledUpdate) {
   payload_state.UpdateSucceeded();
   payload_state.ExpectRebootInNewVersion("Version:12345678");
 
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(
-      metrics::kMetricFailedUpdateCount, _, _, _, _))
+  EXPECT_CALL(*fake_system_state.mock_metrics_reporter(),
+              ReportFailedUpdateCount(_))
       .Times(0);
 
   // Cancel the applied update.
@@ -1530,8 +1482,8 @@ TEST(PayloadStateTest, UpdateSuccessWithWipedPrefs) {
   fake_system_state.set_prefs(&fake_prefs);
   EXPECT_TRUE(payload_state.Initialize(&fake_system_state));
 
-  EXPECT_CALL(*fake_system_state.mock_metrics_lib(), SendToUMA(
-      metrics::kMetricFailedUpdateCount, _, _, _, _))
+  EXPECT_CALL(*fake_system_state.mock_metrics_reporter(),
+              ReportFailedUpdateCount(_))
       .Times(0);
 
   // Simulate a reboot in this environment.

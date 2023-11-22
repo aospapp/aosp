@@ -58,20 +58,32 @@ final class CrossProfileIntentFilter {
      */
     public final @Direction int direction;
 
-    private CrossProfileIntentFilter(IntentFilter filter, int flags, @Direction int direction) {
+    /**
+     * Whether this cross profile intent filter would allow personal data to be shared into
+     * the work profile. If this is {@code true}, this intent filter should be only added to
+     * the profile if the admin does not enable
+     * {@link android.os.UserManager#DISALLOW_SHARE_INTO_MANAGED_PROFILE}.
+     */
+    public final boolean letsPersonalDataIntoProfile;
+
+    private CrossProfileIntentFilter(IntentFilter filter, int flags, @Direction int direction,
+            boolean letsPersonalDataIntoProfile) {
         this.filter = checkNotNull(filter);
         this.flags = flags;
         this.direction = direction;
+        this.letsPersonalDataIntoProfile = letsPersonalDataIntoProfile;
     }
 
     static final class Builder {
         private IntentFilter mFilter = new IntentFilter();
         private int mFlags = 0;
         private @Direction int mDirection;
+        public boolean mLetsPersonalDataIntoProfile;
 
-        public Builder(@Direction int direction, int flags) {
+        public Builder(@Direction int direction, int flags, boolean letsPersonalDataIntoProfile) {
             mDirection = direction;
             mFlags = flags;
+            mLetsPersonalDataIntoProfile = letsPersonalDataIntoProfile;
         }
 
         Builder addAction(String action) {
@@ -99,7 +111,8 @@ final class CrossProfileIntentFilter {
         }
 
         CrossProfileIntentFilter build() {
-            return new CrossProfileIntentFilter(mFilter, mFlags, mDirection);
+            return new CrossProfileIntentFilter(mFilter, mFlags, mDirection,
+                    mLetsPersonalDataIntoProfile);
         }
     }
 }

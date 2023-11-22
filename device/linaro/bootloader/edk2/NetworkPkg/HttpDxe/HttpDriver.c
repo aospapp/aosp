@@ -1,7 +1,8 @@
 /** @file
   The driver binding and service binding protocol for HttpDxe driver.
 
-  Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2015 - 2016, Intel Corporation. All rights reserved.<BR>
+  (C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -910,7 +911,7 @@ HttpDxeIp6DriverBindingStop (
 
   @retval EFI_SUCCES            The protocol was added to ChildHandle.
   @retval EFI_INVALID_PARAMETER This is NULL, or ChildHandle is NULL.
-  @retval EFI_OUT_OF_RESOURCES  There are not enough resources availabe to create
+  @retval EFI_OUT_OF_RESOURCES  There are not enough resources available to create
                                 the child.
   @retval other                 The child handle was not created.
 
@@ -939,6 +940,8 @@ HttpServiceBindingCreateChild (
   
   HttpInstance->Signature = HTTP_PROTOCOL_SIGNATURE;
   HttpInstance->Service   = HttpService;
+  HttpInstance->Method = HttpMethodMax;
+
   CopyMem (&HttpInstance->Http, &mEfiHttpTemplate, sizeof (HttpInstance->Http));
   NetMapInit (&HttpInstance->TxTokens);
   NetMapInit (&HttpInstance->RxTokens);

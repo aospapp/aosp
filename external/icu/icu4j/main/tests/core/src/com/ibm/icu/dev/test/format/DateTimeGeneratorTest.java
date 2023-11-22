@@ -23,6 +23,8 @@ import java.util.Random;
 import java.util.Set;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.impl.PatternTokenizer;
@@ -40,6 +42,7 @@ import com.ibm.icu.util.SimpleTimeZone;
 import com.ibm.icu.util.TimeZone;
 import com.ibm.icu.util.ULocale;
 
+@RunWith(JUnit4.class)
 public class DateTimeGeneratorTest extends TestFmwk {
     public static boolean GENERATE_TEST_DATA;
     static {
@@ -55,18 +58,90 @@ public class DateTimeGeneratorTest extends TestFmwk {
     @Test
     public void TestC() {
         String[][] tests = {
-                {"zh", "Cm", "Bh:mm"},
-                {"de", "Cm", "HH:mm"},
-                {"en", "Cm", "h:mm a"},
-                {"en-BN", "Cm", "h:mm b"},
-                {"gu-IN", "Cm", "h:mm B"},
-                {"und-IN", "Cm", "h:mm a"},
+                // These may change with actual data for Bhmm/bhmm skeletons
+                {"zh",     "Cm",      "Bh:mm"},
+                {"zh",     "CCm",     "Bhh:mm"},
+                {"zh",     "CCCm",    "BBBBh:mm"},
+                {"zh",     "CCCCm",   "BBBBhh:mm"},
+                {"zh",     "CCCCCm",  "BBBBBh:mm"},
+                {"zh",     "CCCCCCm", "BBBBBhh:mm"},
+                {"de",     "Cm",      "HH:mm"},
+                {"de",     "CCm",     "HH:mm"},
+                {"de",     "CCCm",    "HH:mm"},
+                {"de",     "CCCCm",   "HH:mm"},
+                {"en",     "Cm",      "h:mm a"},
+                {"en",     "CCm",     "hh:mm a"},
+                {"en",     "CCCm",    "h:mm aaaa"},
+                {"en",     "CCCCm",   "hh:mm aaaa"},
+                {"en",     "CCCCCm",  "h:mm aaaaa"},
+                {"en",     "CCCCCCm", "hh:mm aaaaa"},
+                {"en-BN",  "Cm",      "h:mm b"},
+                {"gu-IN",  "Cm",      "h:mm B"},
+                {"und-IN", "Cm",      "h:mm a"},
         };
         for (String[] test : tests) {
             DateTimePatternGenerator gen = DateTimePatternGenerator.getInstance(ULocale.forLanguageTag(test[0]));
             String skeleton = test[1];
-            String pattern = gen.getBestPattern(skeleton);
+            int options = DateTimePatternGenerator.MATCH_HOUR_FIELD_LENGTH;
+            String pattern = gen.getBestPattern(skeleton, options);
             assertEquals(test[0] + "/" + skeleton, test[2], pattern);
+        }
+    }
+
+    @Test
+    public void TestSkeletonsWithDayPeriods() {
+        String[][] dataItems = {
+                // sample data in a locale (base is not in locale, just here for test)
+                // skel (base) pattern
+                { "aH", "H",  "H"  }, // should ignore a
+                { "h",  "h",  "h a"},
+                { "Bh", "Bh", "B h"},
+        };
+        String[][] testItems = {
+                // sample requested skeletons and results
+                // skel     pattern
+                { "H",      "H"},
+                { "HH",     "HH"},
+                { "aH",     "H"},
+                { "aHH",    "HH"},
+                { "BH",     "H"},
+                { "BHH",    "HH"},
+                { "BBBBH",  "H"},
+                { "h",      "h a"},
+                { "hh",     "hh a"},
+                { "ah",     "h a"},
+                { "ahh",    "hh a"},
+                { "aaaah",  "h aaaa"},
+                { "aaaahh", "hh aaaa"},
+                { "bh",     "h b"},
+                { "bhh",    "hh b"},
+                { "bbbbh",  "h bbbb"},
+                { "Bh",     "B h"},
+                { "Bhh",    "B hh"},
+                { "BBBBh",  "BBBB h"},
+                { "BBBBhh", "BBBB hh"},
+                { "a",      "a"},
+                { "aaaaa",  "aaaaa"},
+                { "b",      "b"},
+                { "bbbb",   "bbbb"},
+                { "B",      "B"},
+                { "BBBB",  "BBBB"},
+        };
+        DateTimePatternGenerator gen = DateTimePatternGenerator.getEmptyInstance();
+        DateTimePatternGenerator.PatternInfo returnInfo = new DateTimePatternGenerator.PatternInfo();
+        for (String[] dataItem : dataItems) {
+            gen.addPatternWithSkeleton(dataItem[2], dataItem[0], true, returnInfo);
+            String base = gen.getBaseSkeleton(dataItem[0]);
+            if (!base.equals(dataItem[1])) {
+                 errln("getBaseSkeleton for skeleton " + dataItem[0] + ", expected " + dataItem[1] +  ", got " + base);
+            }
+        }
+        for (String[] testItem : testItems) {
+            int options = DateTimePatternGenerator.MATCH_HOUR_FIELD_LENGTH;
+            String pattern = gen.getBestPattern(testItem[0], options);
+            if (!pattern.equals(testItem[1])) {
+                 errln("getBestPattern  for skeleton " + testItem[0] + ", expected " + testItem[1] +  ", got " + pattern);
+            }
         }
     }
 
@@ -453,7 +528,7 @@ public class DateTimeGeneratorTest extends TestFmwk {
         new String[] {"Md", "1/13"},
         new String[] {"MMMd", "1\u670813\u65E5"},
         new String[] {"MMMMd", "1\u670813\u65E5"},
-        new String[] {"yQQQ", "\u6C11\u570B88\u5E741\u5B63"},
+        new String[] {"yQQQ", "\u6C11\u570B88\u5E74\u7B2C1\u5B63"},
         new String[] {"hhmm", "\u4E0B\u534811:58"},
         new String[] {"HHmm", "23:58"},
         new String[] {"jjmm", "\u4E0B\u534811:58"},
@@ -473,7 +548,7 @@ public class DateTimeGeneratorTest extends TestFmwk {
         new String[] {"MMMd", "13 \u044F\u043D\u0432."},
         new String[] {"MMMMd", "13 \u044F\u043D\u0432\u0430\u0440\u044F"},
         new String[] {"yQQQ", "1-\u0439 \u043A\u0432. 1999 \u0433."},
-        new String[] {"hhmm", "11:58 \u041F\u041F"},
+        new String[] {"hhmm", "11:58 PM"},
         new String[] {"HHmm", "23:58"},
         new String[] {"jjmm", "23:58"},
         new String[] {"mmss", "58:59"},
@@ -587,7 +662,7 @@ public class DateTimeGeneratorTest extends TestFmwk {
 
     @Test
     public void TestVariableCharacters() {
-        UnicodeSet valid = new UnicodeSet("[G y Y u U r Q q M L l w W d D F g E e c a h H K k m s S A z Z O v V X x]");
+        UnicodeSet valid = new UnicodeSet("[G y Y u U r Q q M L l w W d D F g E e c a b B h H K k m s S A z Z O v V X x]");
         for (char c = 0; c < 0xFF; ++c) {
             boolean works = false;
             try {
@@ -799,8 +874,8 @@ public class DateTimeGeneratorTest extends TestFmwk {
     @Test
     public void TestGetSkeleton(){
         DateTimePatternGenerator dtpg = DateTimePatternGenerator.getInstance();
-        String[] cases = {"MMDD","MMMDD","MMM-DD","DD/MMM","ddM","MMMMd"};
-        String[] results = {"MMDD","MMMDD","MMMDD","MMMDD","Mdd","MMMMd"};
+        String[] cases = {"MMDD","MMMDD","MMM-DD","DD/MMM","ddM","MMMMd","h","ah","aaaah","Bh"};
+        String[] results = {"MMDD","MMMDD","MMMDD","MMMDD","Mdd","MMMMd","h","ah","aaaah","Bh"};
         for(int i=0; i<cases.length; i++){
             if(!dtpg.getSkeleton(cases[i]).equals(results[i])){
                 errln("DateTimePatternGenerator.getSkeleton(String) did " +
@@ -814,6 +889,7 @@ public class DateTimeGeneratorTest extends TestFmwk {
     /* Tests the method
      *        public String getCanonicalSkeletonAllowingDuplicates(String pattern)
      */
+    @Test
     public void TestGetCanonicalSkeletonAllowingDuplicates(){
         DateTimePatternGenerator dtpg = DateTimePatternGenerator.getInstance();
         String[] cases = {"GyQMwEdaHmsSv","LegH","Legh"};
@@ -1082,15 +1158,13 @@ public class DateTimeGeneratorTest extends TestFmwk {
     /* Tests the constructor
      *    public VariableField(String string)
      */
-    //TODO(junit) why is this "unused"
-    @SuppressWarnings("unused")
     @Test
     public void TestVariableField_String(){
         String[] cases = {"d","mm","aa"};
         String[] invalid = {null,"","dummy"};
         for(int i=0; i<cases.length; i++){
             try{
-                VariableField vf = new VariableField(cases[i]);
+                new VariableField(cases[i]);
             } catch(Exception e){
                 errln("VariableField constructor was not suppose to return " +
                         "an exception when created when passing " + cases[i]);
@@ -1098,7 +1172,7 @@ public class DateTimeGeneratorTest extends TestFmwk {
         }
         for(int i=0; i<invalid.length; i++){
             try{
-                VariableField vf = new VariableField(invalid[i]);
+                new VariableField(invalid[i]);
                 errln("VariableField constructor was suppose to return " +
                         "an exception when created when passing " + invalid[i]);
             } catch(Exception e){}

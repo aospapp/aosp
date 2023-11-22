@@ -19,14 +19,16 @@ package android.support.car;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
-import android.support.annotation.IntDef;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.car.content.pm.CarPackageManager;
 import android.support.car.hardware.CarSensorManager;
 import android.support.car.media.CarAudioManager;
 import android.support.car.navigation.CarNavigationStatusManager;
 import android.util.Log;
+
+import androidx.annotation.IntDef;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Constructor;
@@ -168,10 +170,10 @@ public class Car {
      */
     public static final String PERMISSION_MILEAGE = "android.car.permission.CAR_MILEAGE";
     /**
-     * Permission necessary to access car fuel level.
+     * Permission necessary to access car's energy information.
      * @hide
      */
-    public static final String PERMISSION_FUEL = "android.car.permission.CAR_FUEL";
+    public static final String PERMISSION_ENERGY = "android.car.permission.CAR_ENERGY";
     /**
      * Permission necessary to access car speed.
      * @hide
@@ -237,6 +239,7 @@ public class Car {
                         if (mConnectionState == STATE_DISCONNECTED) {
                             return;
                         }
+                        tearDownCarManagers();
                         mConnectionState = STATE_DISCONNECTED;
                     }
                     mCarConnectionCallback.onDisconnected(Car.this);

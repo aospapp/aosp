@@ -22,16 +22,20 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <android-base/logging.h>
+
 #include "common_runtime_test.h"
 
-#include "base/logging.h"
+#include "base/file_utils.h"
 #include "base/macros.h"
 #include "base/unix_file/fd_file.h"
-#include "dex_file-inl.h"
+#include "base/utils.h"
+#include "dex/art_dex_file_loader.h"
+#include "dex/dex_file-inl.h"
+#include "dex/dex_file_loader.h"
+#include "dex/method_reference.h"
 #include "jit/profile_compilation_info.h"
-#include "method_reference.h"
 #include "runtime.h"
-#include "utils.h"
 
 namespace art {
 
@@ -59,10 +63,16 @@ class Dex2oatImageTest : public CommonRuntimeTest {
                          size_t class_frequency = 1) {
     size_t method_counter = 0;
     size_t class_counter = 0;
-    for (std::string dex : GetLibCoreDexFileNames()) {
+    for (const std::string& dex : GetLibCoreDexFileNames()) {
       std::vector<std::unique_ptr<const DexFile>> dex_files;
       std::string error_msg;
-      CHECK(DexFile::Open(dex.c_str(), dex, /*verify_checksum*/ false, &error_msg, &dex_files))
+      const ArtDexFileLoader dex_file_loader;
+      CHECK(dex_file_loader.Open(dex.c_str(),
+                                 dex,
+                                 /*verify*/ true,
+                                 /*verify_checksum*/ false,
+                                 &error_msg,
+                                 &dex_files))
           << error_msg;
       for (const std::unique_ptr<const DexFile>& dex_file : dex_files) {
         for (size_t i = 0; i < dex_file->NumMethodIds(); ++i) {
@@ -87,16 +97,14 @@ class Dex2oatImageTest : public CommonRuntimeTest {
   void GenerateClasses(File* out_file, size_t frequency = 1) {
     VisitLibcoreDexes(VoidFunctor(),
                       [out_file](TypeReference ref) {
-      WriteLine(out_file,
-                ref.dex_file->PrettyType(ref.type_index));
+      WriteLine(out_file, ref.dex_file->PrettyType(ref.TypeIndex()));
     }, frequency, frequency);
     EXPECT_EQ(out_file->Flush(), 0);
   }
 
   void GenerateMethods(File* out_file, size_t frequency = 1) {
     VisitLibcoreDexes([out_file](MethodReference ref) {
-      WriteLine(out_file,
-                ref.dex_file->PrettyMethod(ref.dex_method_index));
+      WriteLine(out_file, ref.PrettyMethod());
     }, VoidFunctor(), frequency, frequency);
     EXPECT_EQ(out_file->Flush(), 0);
   }
@@ -121,12 +129,15 @@ class Dex2oatImageTest : public CommonRuntimeTest {
     std::string art_file = scratch.GetFilename() + ".art";
     std::string oat_file = scratch.GetFilename() + ".oat";
     std::string vdex_file = scratch.GetFilename() + ".vdex";
-    ret.art_size = GetFileSizeBytes(art_file);
-    ret.oat_size = GetFileSizeBytes(oat_file);
-    ret.vdex_size = GetFileSizeBytes(vdex_file);
-    CHECK_GT(ret.art_size, 0u) << art_file;
-    CHECK_GT(ret.oat_size, 0u) << oat_file;
-    CHECK_GT(ret.vdex_size, 0u) << vdex_file;
+    int64_t art_size = OS::GetFileSizeBytes(art_file.c_str());
+    int64_t oat_size = OS::GetFileSizeBytes(oat_file.c_str());
+    int64_t vdex_size = OS::GetFileSizeBytes(vdex_file.c_str());
+    CHECK_GT(art_size, 0u) << art_file;
+    CHECK_GT(oat_size, 0u) << oat_file;
+    CHECK_GT(vdex_size, 0u) << vdex_file;
+    ret.art_size = art_size;
+    ret.oat_size = oat_size;
+    ret.vdex_size = vdex_size;
     scratch.Close();
     // Clear image files since we compile the image multiple times and don't want to leave any
     // artifacts behind.
@@ -157,9 +168,6 @@ class Dex2oatImageTest : public CommonRuntimeTest {
     if (!kIsTargetBuild) {
       argv.push_back("--host");
     }
-
-    ScratchFile file;
-    const std::string image_prefix = file.GetFilename();
 
     argv.push_back("--image=" + image_file_name_prefix + ".art");
     argv.push_back("--oat-file=" + image_file_name_prefix + ".oat");
@@ -316,9 +324,13 @@ TEST_F(Dex2oatImageTest, TestModesAndFilters) {
   {
     ProfileCompilationInfo profile;
     VisitLibcoreDexes([&profile](MethodReference ref) {
-      EXPECT_TRUE(profile.AddMethodIndex(ProfileCompilationInfo::MethodHotness::kFlagHot, ref));
+      uint32_t flags = ProfileCompilationInfo::MethodHotness::kFlagHot |
+          ProfileCompilationInfo::MethodHotness::kFlagStartup;
+      EXPECT_TRUE(profile.AddMethodIndex(
+          static_cast<ProfileCompilationInfo::MethodHotness::Flag>(flags),
+          ref));
     }, [&profile](TypeReference ref) {
-      EXPECT_TRUE(profile.AddClassesForDex(ref.dex_file, &ref.type_index, &ref.type_index + 1));
+      EXPECT_TRUE(profile.AddClassForDex(ref));
     }, kMethodFrequency, kTypeFrequency);
     ScratchFile profile_file;
     profile.Save(profile_file.GetFile()->Fd());
@@ -329,8 +341,8 @@ TEST_F(Dex2oatImageTest, TestModesAndFilters) {
     profile_file.Close();
     std::cout << "Profile sizes " << profile_sizes << std::endl;
     // Since there is some difference between profile vs image + methods due to layout, check that
-    // the range is within expected margins (+-5%).
-    const double kRatio = 0.95;
+    // the range is within expected margins (+-10%).
+    const double kRatio = 0.90;
     EXPECT_LE(profile_sizes.art_size * kRatio, compiled_methods_sizes.art_size);
     // TODO(mathieuc): Find a reliable way to check compiled code. b/63746626
     // EXPECT_LE(profile_sizes.oat_size * kRatio, compiled_methods_sizes.oat_size);

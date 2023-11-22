@@ -33,6 +33,13 @@ bool equalToErrno(const Status& status, int err) {
     return status.code() == err;
 }
 
+binder::Status asBinderStatus(const netdutils::Status& status) {
+    if (isOk(status)) {
+        return binder::Status::ok();
+    }
+    return binder::Status::fromServiceSpecificError(status.code(), status.msg().c_str());
+}
+
 std::string toString(const Status& status) {
     std::stringstream ss;
     ss << status;

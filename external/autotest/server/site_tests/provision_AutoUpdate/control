@@ -36,6 +36,7 @@ provision_AutoUpdate
 """
 
 
+from autotest_lib.client.bin import sysinfo
 from autotest_lib.client.common_lib import error, utils
 from autotest_lib.client.cros import constants
 
@@ -54,7 +55,8 @@ if not locals().get('value'):
 
 def run(machine):
     # Save preserved log after autoupdate is completed.
-    job.sysinfo.add_logdir(constants.AUTOUPDATE_PRESERVE_LOG)
+    job.sysinfo.add_logdir(
+            sysinfo.logdir(constants.AUTOUPDATE_PRESERVE_LOG))
 
     host = hosts.create_host(machine)
     # Only collect pre-test sysinfo to save time.

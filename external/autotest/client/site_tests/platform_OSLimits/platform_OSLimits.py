@@ -56,6 +56,9 @@ class platform_OSLimits(test.test):
             return int(value)
 
     def run_once(self):
+        """
+        The actual test.
+        """
         errors = set()
 
         # Max procs, max threads, and file max are dependent upon total memory.
@@ -75,7 +78,7 @@ class platform_OSLimits(test.test):
                    'ngroups_max': 65536,
                    'nr_open': 1048576,
                    'pid_max': 32768,
-                   'mmap_min_addr': 65536,
+                   'mmap_min_addr': 32768,
                   }
 
         ref_equal = {'leases': 1,
@@ -112,17 +115,6 @@ class platform_OSLimits(test.test):
                    'sysrq': '/proc/sys/kernel/sysrq',
                    'tcp_syncookies': '/proc/sys/net/ipv4/tcp_syncookies',
                   }
-
-        # Adjust arch-specific values.
-        if utils.get_arch().startswith('arm'):
-            ref_min['mmap_min_addr'] = 32768
-
-        if utils.get_arch().startswith('aarch64'):
-            ref_min['mmap_min_addr'] = 32768
-
-        # ARM-compatible limit on x86 if ARC++ is present (b/30146997)
-        if utils.is_arc_available():
-            ref_min['mmap_min_addr'] = 32768
 
         # Adjust version-specific details.
         kernel_ver = os.uname()[2]

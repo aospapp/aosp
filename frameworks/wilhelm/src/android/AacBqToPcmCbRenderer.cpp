@@ -146,12 +146,12 @@ void AacBqToPcmCbRenderer::onPrepare() {
         mPcmFormatValues[ANDROID_KEY_INDEX_PCMFORMAT_CHANNELMASK] = SL_ANDROID_UNKNOWN_CHANNELMASK;
     }
 
-    sp<MediaExtractor> extractor = new AacAdtsExtractor(mBqSource);
+    sp<AacAdtsExtractor> extractor = new AacAdtsExtractor(mBqSource);
 
     // only decoding a single track of data
     const size_t kTrackToDecode = 0;
 
-    sp<IMediaSource> source = extractor->getTrack(kTrackToDecode);
+    sp<MediaSource> source = extractor->getTrack(kTrackToDecode);
     if (source == 0) {
         SL_LOGE("AacBqToPcmCbRenderer::onPrepare: error getting source from extractor");
         notifyPrepared(ERROR_UNSUPPORTED);

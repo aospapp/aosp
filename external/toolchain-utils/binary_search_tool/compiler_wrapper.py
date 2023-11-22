@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """Prototype compiler wrapper.
 
 Only tested with: gcc, g++, clang, clang++

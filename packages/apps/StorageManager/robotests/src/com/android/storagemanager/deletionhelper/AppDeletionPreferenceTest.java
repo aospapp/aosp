@@ -37,8 +37,8 @@ public class AppDeletionPreferenceTest {
     private static final String TEST_PACKAGE_NAME = "com.package.mcpackageface";
     public static final long KILOBYTE = 1024L;
     public static final long HUNDRED_BYTES = 100L;
-    public static final String KB_STRING = "1.00KB";
-    public static final String HUNDRED_BYTE_STRING = "100B";
+    public static final String KB_STRING = "1.00 KB";
+    public static final String HUNDRED_BYTE_STRING = "100 B";
     private Context mContext;
 
     @Before

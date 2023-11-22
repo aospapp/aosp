@@ -28,7 +28,7 @@ LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 LOCAL_SHARED_LIBRARIES := libnativehelper_compat_libc++ liblog
 LOCAL_CXX_STL := libc++_static
 
-LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -37,6 +37,7 @@ LOCAL_MODULE := libnativemultinetwork_jni
 # Don't include this package in any configuration by default.
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := NativeMultinetworkJni.c
+LOCAL_CFLAGS := -Wall -Werror -Wno-format
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 LOCAL_SHARED_LIBRARIES := libandroid libnativehelper_compat_libc++ liblog
 LOCAL_CXX_STL := libc++_static

@@ -26,16 +26,15 @@ class login_OwnershipApi(test.test):
     def initialize(self):
         super(login_OwnershipApi, self).initialize()
         self._bus_loop = DBusGMainLoop(set_as_default=True)
-        self._cryptohome_proxy = cryptohome.CryptohomeProxy(self._bus_loop)
 
         # Clear existing ownership and inject known keys.
         cros_ui.stop()
         ownership.clear_ownership_files_no_restart()
 
         # Make device already owned by ownership.TESTUSER.
-        self._cryptohome_proxy.mount(ownership.TESTUSER,
-                                     ownership.TESTPASS,
-                                     create=True)
+        cryptohome.mount_vault(ownership.TESTUSER,
+                               ownership.TESTPASS,
+                               create=True)
         ownership.use_known_ownerkeys(ownership.TESTUSER)
 
         self._tempdir = autotemp.tempdir(unique_id=self.__class__.__name__)
@@ -102,6 +101,7 @@ class login_OwnershipApi(test.test):
         if self._tempdir: self._tempdir.clean()
         # Best effort to bounce the UI, which may be up or down.
         cros_ui.stop(allow_fail=True)
-        self._cryptohome_proxy.remove(ownership.TESTUSER)
+        cryptohome.unmount_vault(ownership.TESTUSER)
+        cryptohome.remove_vault(ownership.TESTUSER)
         cros_ui.start(allow_fail=True, wait_for_login_prompt=False)
         super(login_OwnershipApi, self).cleanup()

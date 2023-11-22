@@ -20,10 +20,8 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.media.tv.TvInputManager;
 import android.support.annotation.IntDef;
-
-import com.android.tv.common.SharedPreferencesUtils;
+import com.android.tv.common.util.SharedPreferencesUtils;
 import com.android.tv.dvr.data.RecordedProgram;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
@@ -33,8 +31,8 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
- * A class to manage DVR watched state.
- * It will remember and provides previous watched position of DVR playback.
+ * A class to manage DVR watched state. It will remember and provides previous watched position of
+ * DVR playback.
  */
 public class DvrWatchedPositionManager {
     private SharedPreferences mWatchedPositions;
@@ -49,55 +47,46 @@ public class DvrWatchedPositionManager {
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({DVR_WATCHED_STATUS_NEW, DVR_WATCHED_STATUS_WATCHING, DVR_WATCHED_STATUS_WATCHED})
     public @interface DvrWatchedStatus {}
-    /**
-     * The status indicates the recorded program has not been watched at all.
-     */
+    /** The status indicates the recorded program has not been watched at all. */
     public static final int DVR_WATCHED_STATUS_NEW = 0;
-    /**
-     * The status indicates the recorded program is being watched.
-     */
+    /** The status indicates the recorded program is being watched. */
     public static final int DVR_WATCHED_STATUS_WATCHING = 1;
-    /**
-     * The status indicates the recorded program was completely watched.
-     */
+    /** The status indicates the recorded program was completely watched. */
     public static final int DVR_WATCHED_STATUS_WATCHED = 2;
 
     public DvrWatchedPositionManager(Context context) {
-        mWatchedPositions = context.getSharedPreferences(
-                SharedPreferencesUtils.SHARED_PREF_DVR_WATCHED_POSITION, Context.MODE_PRIVATE);
+        mWatchedPositions =
+                context.getSharedPreferences(
+                        SharedPreferencesUtils.SHARED_PREF_DVR_WATCHED_POSITION,
+                        Context.MODE_PRIVATE);
     }
 
-    /**
-     * Sets the watched position of the give program.
-     */
+    /** Sets the watched position of the give program. */
     public void setWatchedPosition(long recordedProgramId, long positionMs) {
         mWatchedPositions.edit().putLong(Long.toString(recordedProgramId), positionMs).apply();
         notifyWatchedPositionChanged(recordedProgramId, positionMs);
     }
 
-    /**
-     * Gets the watched position of the give program.
-     */
+    /** Gets the watched position of the give program. */
     public long getWatchedPosition(long recordedProgramId) {
-        return mWatchedPositions.getLong(Long.toString(recordedProgramId),
-                TvInputManager.TIME_SHIFT_INVALID_TIME);
+        return mWatchedPositions.getLong(
+                Long.toString(recordedProgramId), TvInputManager.TIME_SHIFT_INVALID_TIME);
     }
 
-    @DvrWatchedStatus public int getWatchedStatus(RecordedProgram recordedProgram) {
+    @DvrWatchedStatus
+    public int getWatchedStatus(RecordedProgram recordedProgram) {
         long watchedPosition = getWatchedPosition(recordedProgram.getId());
         if (watchedPosition == TvInputManager.TIME_SHIFT_INVALID_TIME) {
             return DVR_WATCHED_STATUS_NEW;
-        } else if (watchedPosition > recordedProgram
-                .getDurationMillis() * DVR_WATCHED_THRESHOLD_RATE) {
+        } else if (watchedPosition
+                > recordedProgram.getDurationMillis() * DVR_WATCHED_THRESHOLD_RATE) {
             return DVR_WATCHED_STATUS_WATCHED;
         } else {
             return DVR_WATCHED_STATUS_WATCHING;
         }
     }
 
-    /**
-     * Adds {@link WatchedPositionChangedListener}.
-     */
+    /** Adds {@link WatchedPositionChangedListener}. */
     public void addListener(WatchedPositionChangedListener listener, long recordedProgramId) {
         if (recordedProgramId == RecordedProgram.ID_NOT_SET) {
             return;
@@ -110,18 +99,14 @@ public class DvrWatchedPositionManager {
         listenerSet.add(listener);
     }
 
-    /**
-     * Removes {@link WatchedPositionChangedListener}.
-     */
+    /** Removes {@link WatchedPositionChangedListener}. */
     public void removeListener(WatchedPositionChangedListener listener) {
         for (long recordedProgramId : new ArrayList<>(mListeners.keySet())) {
             removeListener(listener, recordedProgramId);
         }
     }
 
-    /**
-     * Removes {@link WatchedPositionChangedListener}.
-     */
+    /** Removes {@link WatchedPositionChangedListener}. */
     public void removeListener(WatchedPositionChangedListener listener, long recordedProgramId) {
         Set<WatchedPositionChangedListener> listenerSet = mListeners.get(recordedProgramId);
         if (listenerSet == null) {
@@ -144,9 +129,7 @@ public class DvrWatchedPositionManager {
     }
 
     public interface WatchedPositionChangedListener {
-        /**
-         * Called when the watched position of some program is changed.
-         */
+        /** Called when the watched position of some program is changed. */
         void onWatchedPositionChanged(long recordedProgramId, long positionMs);
     }
 }

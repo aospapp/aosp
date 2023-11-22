@@ -44,6 +44,7 @@ def assert_equal(first, second, msg=None, extras=None):
         extras: An optional field for extra information to be included in
                 test result.
     """
+    my_msg = None
     try:
         _pyunit_proxy.assertEqual(first, second)
     except Exception as e:
@@ -55,6 +56,8 @@ def assert_equal(first, second, msg=None, extras=None):
         my_msg = str(e)
         if msg:
             my_msg = "%s %s" % (my_msg, msg)
+    # This is a hack to remove the stacktrace produced by the above exception.
+    if my_msg is not None:
         fail(my_msg, extras=extras)
 
 
@@ -75,6 +78,7 @@ def assert_almost_equal(first,
     :param extras: Extra object passed to test failure handler
     :return:
     """
+    my_msg = None
     try:
         if delta:
             _pyunit_proxy.assertAlmostEqual(
@@ -86,6 +90,8 @@ def assert_almost_equal(first,
         my_msg = str(e)
         if msg:
             my_msg = "%s %s" % (my_msg, msg)
+    # This is a hack to remove the stacktrace produced by the above exception.
+    if my_msg is not None:
         fail(my_msg, extras=extras)
 
 

@@ -20,7 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "chre_api/chre/wifi.h"
+#include <chre/wifi.h>
 
 namespace chre {
 

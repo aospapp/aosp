@@ -11,13 +11,18 @@ import common
 
 from autotest_lib.server import frontend
 
-# I _think_ (but I don't know) that the AFE calls operate on all the
+# For simplicity, we want to do nothing if there are no hosts named
+# on the command line.  That makes it easy to do stuff like this:
+#     dut-status -b $BOARD -p bvt -n | xargs reverify_hosts
+#
+# By doing nothing, we get more useful behavior if all the DUTs selected
+# by `dut-status` are actually working.
+#
+# Note that we have to specifically test for an empty host list: I
+# _think_ (but I don't know) that the AFE calls operate on all the
 # hosts if there are no arguments given.  I do know for certain that
 # with hostnames=[], the call takes longer than I was willing to
 # wait.
-#
-# To protect against pointless exercises in futility, do nothing
-# if there are no arguments.
 
 if len(sys.argv) >= 2:
     frontend.AFE().reverify_hosts(hostnames=sys.argv[1:])

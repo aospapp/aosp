@@ -30,7 +30,7 @@ namespace nn {
 const int kNumberOfDataTypes = 6;
 
 // The number of operation types (OperationCode) defined in NeuralNetworks.h.
-const int kNumberOfOperationTypes = 30;
+const int kNumberOfOperationTypes = 38;
 
 // The number of execution preferences defined in NeuralNetworks.h.
 const int kNumberOfPreferences = 3;
@@ -69,6 +69,12 @@ enum VLogFlags {
 extern int vLogMask;
 void initVLogMask();
 
+#ifdef NN_DEBUGGABLE
+#define SHOW_IF_DEBUG(msg) msg
+#else
+#define SHOW_IF_DEBUG(msg) ""
+#endif
+
 // Assert macro, as Android does not generally support assert.
 #define nnAssert(v)                                                                            \
     do {                                                                                       \
@@ -89,8 +95,11 @@ inline uint32_t sizeOfData(const Operand& operand) {
     return sizeOfData(operand.type, operand.dimensions);
 }
 
-// Returns the name of the operation in ASCII.
+// Returns the name of the operation type in ASCII.
 const char* getOperationName(OperationType opCode);
+
+// Returns the name of the operand type in ASCII.
+const char* getOperandTypeName(OperandType type);
 
 // Memory is unmapped.
 // Memory is reference counted by hidl_memory instances, and is deallocated
@@ -107,21 +116,8 @@ hidl_memory allocateSharedMemory(int64_t size);
 uint32_t alignBytesNeeded(uint32_t index, size_t length);
 
 // Does a detailed LOG(INFO) of the model
-void logModelToInfo(const Model& model);
-
-inline void setFromIntList(hidl_vec<uint32_t>* vec, uint32_t count, const uint32_t* data) {
-    vec->resize(count);
-    for (uint32_t i = 0; i < count; i++) {
-        (*vec)[i] = data[i];
-    }
-}
-
-inline void setFromIntList(std::vector<uint32_t>* vec, uint32_t count, const uint32_t* data) {
-    vec->resize(count);
-    for (uint32_t i = 0; i < count; i++) {
-        (*vec)[i] = data[i];
-    }
-}
+void logModelToInfo(const V1_0::Model& model);
+void logModelToInfo(const V1_1::Model& model);
 
 inline std::string toString(uint32_t obj) {
     return std::to_string(obj);
@@ -143,12 +139,65 @@ inline bool validCode(uint32_t codeCount, uint32_t codeCountOEM, uint32_t code) 
 int validateOperandType(const ANeuralNetworksOperandType& type, const char* tag, bool allowPartial);
 int validateOperandList(uint32_t count, const uint32_t* list, uint32_t operandCount,
                         const char* tag);
-bool validateModel(const Model& model);
-bool validateRequest(const Request& request, const Model& model);
+int validateOperation(ANeuralNetworksOperationType opType,
+                      uint32_t inputCount, const uint32_t* inputIndexes,
+                      uint32_t outputCount, const uint32_t* outputIndexes,
+                      const std::vector<Operand>& operands);
 
 inline size_t getSizeFromInts(int lower, int higher) {
     return (uint32_t)(lower) + ((uint64_t)(uint32_t)(higher) << 32);
 }
+
+// Convert ANEURALNETWORKS_* result code to ErrorStatus.
+// Not guaranteed to be a 1-to-1 mapping.
+ErrorStatus convertResultCodeToErrorStatus(int resultCode);
+
+// Convert ErrorStatus to ANEURALNETWORKS_* result code.
+// Not guaranteed to be a 1-to-1 mapping.
+int convertErrorStatusToResultCode(ErrorStatus status);
+
+// Versioning
+
+bool compliantWithV1_0(V1_0::OperationType type);
+bool compliantWithV1_0(V1_1::OperationType type);
+bool compliantWithV1_1(V1_0::OperationType type);
+bool compliantWithV1_1(V1_1::OperationType type);
+
+bool compliantWithV1_0(const V1_0::Capabilities& capabilities);
+bool compliantWithV1_0(const V1_1::Capabilities& capabilities);
+bool compliantWithV1_1(const V1_0::Capabilities& capabilities);
+bool compliantWithV1_1(const V1_1::Capabilities& capabilities);
+
+bool compliantWithV1_0(const V1_0::Operation& operation);
+bool compliantWithV1_0(const V1_1::Operation& operation);
+bool compliantWithV1_1(const V1_0::Operation& operation);
+bool compliantWithV1_1(const V1_1::Operation& operation);
+
+bool compliantWithV1_0(const V1_0::Model& model);
+bool compliantWithV1_0(const V1_1::Model& model);
+bool compliantWithV1_1(const V1_0::Model& model);
+bool compliantWithV1_1(const V1_1::Model& model);
+
+V1_0::OperationType convertToV1_0(V1_0::OperationType type);
+V1_0::OperationType convertToV1_0(V1_1::OperationType type);
+V1_1::OperationType convertToV1_1(V1_0::OperationType type);
+V1_1::OperationType convertToV1_1(V1_1::OperationType type);
+
+V1_0::Capabilities convertToV1_0(const V1_0::Capabilities& capabilities);
+V1_0::Capabilities convertToV1_0(const V1_1::Capabilities& capabilities);
+V1_1::Capabilities convertToV1_1(const V1_0::Capabilities& capabilities);
+V1_1::Capabilities convertToV1_1(const V1_1::Capabilities& capabilities);
+
+V1_0::Operation convertToV1_0(const V1_0::Operation& operation);
+V1_0::Operation convertToV1_0(const V1_1::Operation& operation);
+V1_1::Operation convertToV1_1(const V1_0::Operation& operation);
+V1_1::Operation convertToV1_1(const V1_1::Operation& operation);
+
+V1_0::Model convertToV1_0(const V1_0::Model& model);
+V1_0::Model convertToV1_0(const V1_1::Model& model);
+V1_1::Model convertToV1_1(const V1_0::Model& model);
+V1_1::Model convertToV1_1(const V1_1::Model& model);
+
 
 #ifdef NN_DEBUGGABLE
 uint32_t getProp(const char* str, uint32_t defaultValue = 0);

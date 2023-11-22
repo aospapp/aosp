@@ -94,12 +94,7 @@
 #define TEMP_FILE	"tmp_file"
 #define FILE_MODE	S_IRWXU | S_IRGRP | S_IWGRP| S_IROTH | S_IWOTH
 #define LTPUSER1	"nobody"
-#ifndef ANDROID
 #define LTPUSER2	"bin"
-#else
-// user "bin" does not exist in Android kernel
-#define LTPUSER2	"everybody"
-#endif
 
 char *TCID = "utime03";
 int TST_TOTAL = 1;

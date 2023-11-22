@@ -18,11 +18,9 @@ package com.android.tv.menu;
 
 import android.content.Context;
 import android.view.View;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.analytics.Tracker;
-
 import java.util.List;
 
 /*
@@ -33,33 +31,33 @@ public abstract class OptionsRowAdapter extends ItemListRowView.ItemListAdapter<
     protected final Tracker mTracker;
     private List<MenuAction> mActionList;
 
-    private final View.OnClickListener mMenuActionOnClickListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View view) {
-            final MenuAction action = (MenuAction) view.getTag();
-            view.post(new Runnable() {
+    private final View.OnClickListener mMenuActionOnClickListener =
+            new View.OnClickListener() {
                 @Override
-                public void run() {
-                    int resId = action.getActionNameResId();
-                    if (resId == 0) {
-                        mTracker.sendMenuClicked(CUSTOM_ACTION_LABEL);
-                    } else {
-                        mTracker.sendMenuClicked(resId);
-                    }
-                    executeAction(action.getType());
+                public void onClick(View view) {
+                    final MenuAction action = (MenuAction) view.getTag();
+                    view.post(
+                            new Runnable() {
+                                @Override
+                                public void run() {
+                                    int resId = action.getActionNameResId();
+                                    if (resId == 0) {
+                                        mTracker.sendMenuClicked(CUSTOM_ACTION_LABEL);
+                                    } else {
+                                        mTracker.sendMenuClicked(resId);
+                                    }
+                                    executeAction(action.getType());
+                                }
+                            });
                 }
-            });
-        }
-    };
+            };
 
     public OptionsRowAdapter(Context context) {
         super(context);
-        mTracker = TvApplication.getSingletons(context).getTracker();
+        mTracker = TvSingletons.getSingletons(context).getTracker();
     }
 
-    /**
-     * Update action list and its content.
-     */
+    /** Update action list and its content. */
     @Override
     public void update() {
         if (mActionList == null) {
@@ -76,13 +74,14 @@ public abstract class OptionsRowAdapter extends ItemListRowView.ItemListAdapter<
     }
 
     protected abstract List<MenuAction> createActions();
+
     protected abstract void updateActions();
+
     protected abstract void executeAction(int type);
 
     /**
-     * Gets the action at the given position.
-     * Note that action at the position may differ from returned by {@link #createActions}.
-     * See {@link CustomizableOptionsRowAdapter}
+     * Gets the action at the given position. Note that action at the position may differ from
+     * returned by {@link #createActions}. See {@link CustomizableOptionsRowAdapter}
      */
     protected MenuAction getAction(int position) {
         return mActionList.get(position);

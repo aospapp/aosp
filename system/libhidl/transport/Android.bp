@@ -12,27 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-subdirs = [
-    "allocator/1.0",
-    "allocator/1.0/default",
-    "base/1.0",
-    "manager/1.0",
-    "manager/1.1",
-    "memory/1.0",
-    "memory/1.0/default",
-    "token/1.0",
-    "token/1.0/utils",
-]
+hidl_package_root {
+    name: "android.hidl",
+    path: "system/libhidl/transport",
+}
 
-cc_library_shared {
+cc_library {
     name: "libhidltransport",
     vendor_available: true,
     vndk: {
         enabled: true,
         support_system_process: true,
     },
-    defaults: ["hidl-module-defaults"],
-    cflags: libhidl_flags,
+    defaults: [
+        "libhidl-defaults",
+        "hidl-module-defaults",
+    ],
     shared_libs: [
         "libbase",
         "liblog",
@@ -43,7 +38,6 @@ cc_library_shared {
         "libvndksupport",
     ],
     export_shared_lib_headers: [
-        "libbase",
         "libutils",
         "libhidlbase",
     ],
@@ -68,6 +62,7 @@ cc_library_shared {
 
     srcs: [
         "HidlBinderSupport.cpp",
+        "HidlPassthroughSupport.cpp",
         "HidlTransportSupport.cpp",
         "HidlTransportUtils.cpp",
         "ServiceManagement.cpp",
@@ -77,6 +72,9 @@ cc_library_shared {
     product_variables: {
         debuggable: {
             cflags: ["-DLIBHIDL_TARGET_DEBUGGABLE"],
+        },
+        enforce_vintf_manifest: {
+            cflags: ["-DENFORCE_VINTF_MANIFEST"]
         },
     },
 }

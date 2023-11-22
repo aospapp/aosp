@@ -34,6 +34,7 @@ import android.hardware.display.DisplayManager;
 import android.media.MediaDescription;
 import android.media.MediaMetadata;
 import android.media.session.PlaybackState;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -68,7 +69,6 @@ import java.util.TimerTask;
 
     private final Context mContext;
     private final NavigationRenderer mNavigationRenderer;
-    private final SparseArray<String> mDistanceUnitNames = new SparseArray<>();
 
     private ClusterView mClusterView;
     private MediaStateMonitor mMediaStateMonitor;
@@ -96,8 +96,6 @@ import java.util.TimerTask;
         if (display == null) {
             return;
         }
-
-        initDistanceUnitNames(mContext);
 
         mClusterView = new ClusterView(mContext);
         Presentation presentation = new InstrumentClusterPresentation(mContext, display);
@@ -210,19 +208,6 @@ import java.util.TimerTask;
         }
 
         return number;
-    }
-
-    private void initDistanceUnitNames(Context context) {
-        mDistanceUnitNames.put(CarNavigationStatusManager.DISTANCE_METERS,
-                context.getString(R.string.nav_distance_units_meters));
-        mDistanceUnitNames.put(CarNavigationStatusManager.DISTANCE_KILOMETERS,
-                context.getString(R.string.nav_distance_units_kilometers));
-        mDistanceUnitNames.put(CarNavigationStatusManager.DISTANCE_FEET,
-                context.getString(R.string.nav_distance_units_ft));
-        mDistanceUnitNames.put(CarNavigationStatusManager.DISTANCE_MILES,
-                context.getString(R.string.nav_distance_units_miles));
-        mDistanceUnitNames.put(CarNavigationStatusManager.DISTANCE_YARDS,
-                context.getString(R.string.nav_distance_units_yards));
     }
 
     private void onCallStateChanged(Call call, int state) {
@@ -556,66 +541,11 @@ import java.util.TimerTask;
         }
 
         @Override
-        public void onStartNavigation() {
+        public void onEvent(int eventType, Bundle bundle) {
             if (DEBUG) {
-                Log.d(TAG, "onStartNavigation");
+                Log.d(TAG, "onEvent");
             }
-            mClusterView = mController.mClusterView;
-            mResources = mController.mContext.getResources();
-            mNavCard = mClusterView.createNavCard();
-        }
-
-        @Override
-        public void onStopNavigation() {
-            if (DEBUG) {
-                Log.d(TAG, "onStopNavigation");
-            }
-
-            if (mNavCard != null) {
-                mNavCard.removeGracefully();
-                mNavCard = null;
-            }
-        }
-
-        @Override
-        public void onNextTurnChanged(int event, CharSequence eventName, int turnAngle,
-                int turnNumber, Bitmap image, int turnSide) {
-            if (DEBUG) {
-                Log.d(TAG, "onNextTurnChanged, eventName: " + eventName + ", image: " + image +
-                        (image == null ? "" : ", size: "
-                                + image.getWidth() + "x" + image.getHeight()));
-            }
-            mNavCard.setManeuverImage(BitmapUtils.generateNavManeuverIcon(
-                    (int) mResources.getDimension(R.dimen.card_icon_size),
-                    mResources.getColor(R.color.maps_background, null),
-                    image));
-            mNavCard.setStreet(eventName);
-            if (!mClusterView.cardExists(mNavCard)) {
-                mClusterView.enqueueCard(mNavCard);
-            }
-        }
-
-        @Override
-        public void onNextTurnDistanceChanged(int meters, int timeSeconds,
-                int displayDistanceMillis, int distanceUnit) {
-            if (DEBUG) {
-                Log.d(TAG, "onNextTurnDistanceChanged, distanceMeters: " + meters
-                        + ", timeSeconds: " + timeSeconds
-                        + ", displayDistanceMillis: " + displayDistanceMillis
-                        + ", DistanceUnit: " + distanceUnit);
-            }
-
-            int remainder = displayDistanceMillis % 1000;
-            String decimalPart = (remainder != 0)
-                    ? String.format("%c%d",
-                                    DecimalFormatSymbols.getInstance().getDecimalSeparator(),
-                                    remainder)
-                    : "";
-
-            String distanceToDisplay = (displayDistanceMillis / 1000) + decimalPart;
-            String unitsToDisplay = mController.mDistanceUnitNames.get(distanceUnit);
-
-            mNavCard.setDistanceToNextManeuver(distanceToDisplay, unitsToDisplay);
+            // Implement this.
         }
     }
 

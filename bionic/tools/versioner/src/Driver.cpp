@@ -98,13 +98,21 @@ static void generateTargetCC1Flags(llvm::IntrusiveRefCntPtr<clang::vfs::FileSyst
                                    CompilationType type,
                                    const std::vector<std::string>& include_dirs) {
   std::vector<std::string> cmd = { "versioner" };
-  cmd.push_back("-std=c11");
-  cmd.push_back("-x");
-  cmd.push_back("c-header");
+  if (type.cpp) {
+    cmd.push_back("-std=gnu++11");
+    cmd.push_back("-x");
+    cmd.push_back("c++");
+  } else {
+    cmd.push_back("-std=gnu11");
+    cmd.push_back("-x");
+    cmd.push_back("c");
+  }
+
   cmd.push_back("-fsyntax-only");
 
   cmd.push_back("-Wall");
   cmd.push_back("-Wextra");
+  cmd.push_back("-Weverything");
   cmd.push_back("-Werror");
   cmd.push_back("-Wundef");
   cmd.push_back("-Wno-unused-macros");
@@ -118,7 +126,14 @@ static void generateTargetCC1Flags(llvm::IntrusiveRefCntPtr<clang::vfs::FileSyst
 
   cmd.push_back("-DANDROID");
   cmd.push_back("-D__ANDROID_API__="s + std::to_string(type.api_level));
+  // FIXME: Re-enable FORTIFY properly once our clang in external/ is new enough
+  // to support diagnose_if without giving us syntax errors.
+#if 0
   cmd.push_back("-D_FORTIFY_SOURCE=2");
+#else
+  cmd.push_back("-D_FORTIFY_SOURCE=0");
+  cmd.push_back("-D__BIONIC_DECLARE_FORTIFY_HELPERS");
+#endif
   cmd.push_back("-D_GNU_SOURCE");
   cmd.push_back("-D_FILE_OFFSET_BITS="s + std::to_string(type.file_offset_bits));
 
@@ -134,7 +149,9 @@ static void generateTargetCC1Flags(llvm::IntrusiveRefCntPtr<clang::vfs::FileSyst
     cmd.push_back(dir);
   }
 
+  cmd.push_back("-include");
   cmd.push_back(filename_placeholder);
+  cmd.push_back("-");
 
   auto diags = constructDiags();
   driver::Driver driver("versioner", llvm::sys::getDefaultTargetTriple(), *diags, vfs);

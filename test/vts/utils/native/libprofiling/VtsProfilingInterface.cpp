@@ -22,6 +22,8 @@
 
 #include <android-base/logging.h>
 #include <google/protobuf/text_format.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "VtsProfilingUtil.h"
 #include "test/vts/proto/VtsDriverControlMessage.pb.h"
@@ -32,36 +34,54 @@ using namespace std;
 namespace android {
 namespace vts {
 
-const int VtsProfilingInterface::kProfilingPointEntry = 1;
-const int VtsProfilingInterface::kProfilingPointCallback = 2;
-const int VtsProfilingInterface::kProfilingPointExit = 3;
-
-VtsProfilingInterface::VtsProfilingInterface(const string& trace_file_path)
-    : trace_file_path_(trace_file_path),
-      trace_output_(nullptr),
-      initialized_(false) {}
+VtsProfilingInterface::VtsProfilingInterface(
+    const string& trace_file_path_prefix)
+    : trace_file_path_prefix_(trace_file_path_prefix) {}
 
 VtsProfilingInterface::~VtsProfilingInterface() {
-  if (trace_output_) {
-    trace_output_->Close();
+  mutex_.lock();
+  for (auto it = trace_map_.begin(); it != trace_map_.end(); ++it) {
+    close(it->second);
   }
+  mutex_.unlock();
 }
 
-static int64_t NanoTime() {
+int64_t VtsProfilingInterface::NanoTime() {
   std::chrono::nanoseconds duration(
       std::chrono::steady_clock::now().time_since_epoch());
   return static_cast<int64_t>(duration.count());
 }
 
 VtsProfilingInterface& VtsProfilingInterface::getInstance(
-    const string& trace_file_path) {
-  static VtsProfilingInterface instance(trace_file_path);
+    const string& trace_file_path_prefix) {
+  static VtsProfilingInterface instance(trace_file_path_prefix);
   return instance;
 }
 
-void VtsProfilingInterface::Init() {
-  if (initialized_) return;
+int VtsProfilingInterface::GetTraceFile(const string& package,
+                                        const string& version) {
+  string fullname = package + "@" + version;
+  int fd = -1;
+  if (trace_map_.find(fullname) != trace_map_.end()) {
+    fd = trace_map_[fullname];
+    struct stat statbuf;
+    fstat(fd, &statbuf);
+    // If file no longer exists or the file descriptor is no longer valid,
+    // create a new trace file.
+    if (statbuf.st_nlink <= 0 || fcntl(fd, F_GETFD) == -1) {
+      fd = CreateTraceFile(package, version);
+      trace_map_[fullname] = fd;
+    }
+  } else {
+    // Create trace file for a new HAL.
+    fd = CreateTraceFile(package, version);
+    trace_map_[fullname] = fd;
+  }
+  return fd;
+}
 
+int VtsProfilingInterface::CreateTraceFile(const string& package,
+                                           const string& version) {
   // Attach device info and timestamp for the trace file.
   char build_number[PROPERTY_VALUE_MAX];
   char device_id[PROPERTY_VALUE_MAX];
@@ -70,31 +90,26 @@ void VtsProfilingInterface::Init() {
   property_get("ro.serialno", device_id, "unknown_device");
   property_get("ro.build.product", product_name, "unknown_product");
 
-  string file_path = trace_file_path_ + "_" + string(product_name) + "_" +
-                     string(device_id) + "_" + string(build_number) + "_" +
-                     to_string(NanoTime()) + ".vts.trace";
+  string file_path = trace_file_path_prefix_ + package + "_" + version + "_" +
+                     string(product_name) + "_" + string(device_id) + "_" +
+                     string(build_number) + "_" + to_string(NanoTime()) +
+                     ".vts.trace";
 
-  LOG(INFO) << "Creating new profiler instance with file path: " << file_path;
+  LOG(INFO) << "Creating new trace file: " << file_path;
   int fd = open(file_path.c_str(), O_RDWR | O_CREAT | O_EXCL,
                 S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
   if (fd < 0) {
     LOG(ERROR) << "Can not open trace file: " << file_path
                << " error: " << std::strerror(errno);
-    return;
+    return -1;
   }
-  trace_output_.reset(new google::protobuf::io::FileOutputStream(fd));
-  initialized_ = true;
+  return fd;
 }
 
-bool VtsProfilingInterface::AddTraceEvent(
+void VtsProfilingInterface::AddTraceEvent(
     android::hardware::details::HidlInstrumentor::InstrumentationEvent event,
     const char* package, const char* version, const char* interface,
     const FunctionSpecificationMessage& message) {
-  if (!initialized_) {
-    LOG(ERROR) << "Profiler not initialized. ";
-    return false;
-  }
-
   // Build the VTSProfilingRecord and print it to string.
   VtsProfilingRecord record;
   record.set_timestamp(NanoTime());
@@ -106,15 +121,19 @@ bool VtsProfilingInterface::AddTraceEvent(
 
   // Write the record string to trace file.
   mutex_.lock();
-  if (!writeOneDelimited(record, trace_output_.get())) {
-    LOG(ERROR) << "Failed to write record";
-  }
-  if (!trace_output_->Flush()) {
-    LOG(ERROR) << "Failed to flush: " << std::strerror(errno);
+  int fd = GetTraceFile(package, version);
+  if (fd == -1) {
+    LOG(ERROR) << "Failed to get trace file.";
+  } else {
+    google::protobuf::io::FileOutputStream trace_output(fd);
+    if (!writeOneDelimited(record, &trace_output)) {
+      LOG(ERROR) << "Failed to write record.";
+    }
+    if (!trace_output.Flush()) {
+      LOG(ERROR) << "Failed to flush: " << std::strerror(errno);
+    }
   }
   mutex_.unlock();
-
-  return true;
 }
 
 }  // namespace vts

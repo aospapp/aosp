@@ -18,7 +18,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.tv.tests.ui" >
 
-    <uses-sdk android:targetSdkVersion="23" android:minSdkVersion="21" />
+    <uses-sdk android:targetSdkVersion="26" android:minSdkVersion="21" />
 
     <instrumentation
         android:name="android.support.test.runner.AndroidJUnitRunner"

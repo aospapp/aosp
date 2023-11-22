@@ -26,19 +26,22 @@ import android.icu.impl.Relation;
 import android.icu.impl.Row;
 import android.icu.impl.Row.R3;
 import android.icu.impl.Utility;
+import android.icu.impl.locale.XLocaleDistance.DistanceOption;
+import android.icu.impl.locale.XLocaleMatcher;
+import android.icu.impl.locale.XLocaleMatcher.Builder;
 
 /**
  * Provides a way to match the languages (locales) supported by a product to the
  * languages (locales) acceptable to a user, and get the best match. For
  * example:
- * 
+ *
  * <pre>
  * LocaleMatcher matcher = new LocaleMatcher("fr, en-GB, en");
- * 
+ *
  * // afterwards:
  * matcher.getBestMatch("en-US").toLanguageTag() =&gt; "en"
  * </pre>
- * 
+ *
  * It takes into account when languages are close to one another, such as fil
  * and tl, and when language regional variants are close, like en-GB and en-AU.
  * It also handles scripts, like zh-Hant vs zh-TW. For examples, see the test
@@ -47,7 +50,7 @@ import android.icu.impl.Utility;
  * product will just need one static instance, built with the languages
  * that it supports. However, it may want multiple instances with different
  * default languages based on additional information, such as the domain.
- * 
+ *
  * @author markdavis@google.com
  * @hide Only a subset of ICU is exposed in Android
  */
@@ -84,7 +87,7 @@ public class LocaleMatcher {
      * threshold, that default language is chosen. Typically the default is English,
      * but it could be different based on additional information, such as the domain
      * of the page.
-     * 
+     *
      * @param languagePriorityList weighted list
      */
     public LocaleMatcher(LocalePriorityList languagePriorityList) {
@@ -94,7 +97,7 @@ public class LocaleMatcher {
     /**
      * Create a new language matcher from a String form. The highest-weighted
      * language is the default.
-     * 
+     *
      * @param languagePriorityListString String form of LanguagePriorityList
      */
     public LocaleMatcher(String languagePriorityListString) {
@@ -123,6 +126,7 @@ public class LocaleMatcher {
     @Deprecated
     public LocaleMatcher(LocalePriorityList languagePriorityList, LanguageMatcherData matcherData, double threshold) {
         this.matcherData = matcherData == null ? defaultWritten : matcherData.freeze();
+        this.languagePriorityList = languagePriorityList;
         for (final ULocale language : languagePriorityList) {
             add(language, languagePriorityList.getWeight(language));
         }
@@ -176,7 +180,7 @@ public class LocaleMatcher {
 
     /**
      * Get the best match for a LanguagePriorityList
-     * 
+     *
      * @param languageList list to match
      * @return best matching language code
      */
@@ -202,7 +206,7 @@ public class LocaleMatcher {
 
     /**
      * Convenience method: Get the best match for a LanguagePriorityList
-     * 
+     *
      * @param languageList String form of language priority list
      * @return best matching language code
      */
@@ -212,7 +216,7 @@ public class LocaleMatcher {
 
     /**
      * Get the best match for an individual language code.
-     * 
+     *
      * @param ulocale locale/language code to match
      * @return best matching language code
      */
@@ -234,14 +238,14 @@ public class LocaleMatcher {
      */
     @Override
     public String toString() {
-        return "{" + defaultLanguage + ", " 
+        return "{" + defaultLanguage + ", "
             + localeToMaxLocaleAndWeight + "}";
     }
     // ================= Privates =====================
 
     /**
      * Get the best match for an individual language code.
-     * 
+     *
      * @param languageCode
      * @return best matching language code and weight (as per
      *         {@link #match(ULocale, ULocale)})
@@ -284,7 +288,7 @@ public class LocaleMatcher {
         }
         return bestTableMatch;
     }
-    
+
     /**
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
@@ -302,7 +306,7 @@ public class LocaleMatcher {
     }
 
     /**
-     * We preprocess the data to get just the possible matches for each desired base language. 
+     * We preprocess the data to get just the possible matches for each desired base language.
      */
     private void processMapping() {
         for (Entry<String, Set<String>> desiredToMatchingLanguages : matcherData.matchingLanguages().keyValuesSet()) {
@@ -336,7 +340,7 @@ public class LocaleMatcher {
     }
 
     Set<Row.R3<ULocale, ULocale, Double>> localeToMaxLocaleAndWeight = new LinkedHashSet<Row.R3<ULocale, ULocale, Double>>();
-    Map<String,Set<Row.R3<ULocale, ULocale, Double>>> desiredLanguageToPossibleLocalesToMaxLocaleToData 
+    Map<String,Set<Row.R3<ULocale, ULocale, Double>>> desiredLanguageToPossibleLocalesToMaxLocaleToData
     = new LinkedHashMap<String,Set<Row.R3<ULocale, ULocale, Double>>>();
 
     // =============== Special Mapping Information ==============
@@ -437,6 +441,7 @@ public class LocaleMatcher {
             return (region == null ? "*" : region);
         }
 
+        @Override
         public String toString() {
             String result = getLanguage();
             if (level != Level.language) {
@@ -480,7 +485,7 @@ public class LocaleMatcher {
 
     enum Level {
         language(0.99),
-        script(0.2), 
+        script(0.2),
         region(0.04);
 
         final double worst;
@@ -520,7 +525,7 @@ public class LocaleMatcher {
             }
         }
 
-        double getScore(ULocale dMax, String desiredRaw, String desiredMax, 
+        double getScore(ULocale dMax, String desiredRaw, String desiredMax,
             ULocale sMax, String supportedRaw, String supportedMax) {
             double distance = 0;
             if (!desiredMax.equals(supportedMax)) {
@@ -536,7 +541,7 @@ public class LocaleMatcher {
                 System.out.println("\t\t\t" + level + " Raw Score:\t" + desiredLocale + ";\t" + supportedLocale);
             }
             for (R3<LocalePatternMatcher,LocalePatternMatcher,Double> datum : scores) { // : result
-                if (datum.get0().matches(desiredLocale) 
+                if (datum.get0().matches(desiredLocale)
                     && datum.get1().matches(supportedLocale)) {
                     if (DEBUG) {
                         System.out.println("\t\t\t\tFOUND\t" + datum);
@@ -550,6 +555,7 @@ public class LocaleMatcher {
             return level.worst;
         }
 
+        @Override
         public String toString() {
             StringBuilder result = new StringBuilder().append(level);
             for (R3<LocalePatternMatcher, LocalePatternMatcher, Double> score : scores) {
@@ -559,6 +565,7 @@ public class LocaleMatcher {
         }
 
 
+        @Override
         @SuppressWarnings("unchecked")
         public ScoreData cloneAsThawed() {
             try {
@@ -574,10 +581,12 @@ public class LocaleMatcher {
 
         private volatile boolean frozen = false;
 
+        @Override
         public ScoreData freeze() {
             return this;
         }
 
+        @Override
         public boolean isFrozen() {
             return frozen;
         }
@@ -631,6 +640,7 @@ public class LocaleMatcher {
          * @deprecated This API is ICU internal only.
          * @hide draft / provisional / internal are hidden on Android
          */
+        @Override
         @Deprecated
         public String toString() {
             return languageScores + "\n\t" + scriptScores + "\n\t" + regionScores;
@@ -739,11 +749,12 @@ public class LocaleMatcher {
             return this;
         }
 
-        /** 
+        /**
          * {@inheritDoc}
          * @deprecated This API is ICU internal only.
          * @hide draft / provisional / internal are hidden on Android
          */
+        @Override
         @Deprecated
         public LanguageMatcherData cloneAsThawed() {
             LanguageMatcherData result;
@@ -759,11 +770,12 @@ public class LocaleMatcher {
             }
         }
 
-        /** 
+        /**
          * {@inheritDoc}
          * @deprecated This API is ICU internal only.
          * @hide draft / provisional / internal are hidden on Android
          */
+        @Override
         @Deprecated
         public LanguageMatcherData freeze() {
             languageScores.freeze();
@@ -774,11 +786,12 @@ public class LocaleMatcher {
             return this;
         }
 
-        /** 
+        /**
          * {@inheritDoc}
          * @deprecated This API is ICU internal only.
          * @hide draft / provisional / internal are hidden on Android
          */
+        @Override
         @Deprecated
         public boolean isFrozen() {
             return frozen;
@@ -786,6 +799,7 @@ public class LocaleMatcher {
     }
 
     LanguageMatcherData matcherData;
+    LocalePriorityList languagePriorityList;
 
     private static final LanguageMatcherData defaultWritten;
 
@@ -837,5 +851,85 @@ public class LocaleMatcher {
     public static double match(ULocale a, ULocale b) {
         final LocaleMatcher matcher = new LocaleMatcher("");
         return matcher.match(a, matcher.addLikelySubtags(a), b, matcher.addLikelySubtags(b));
+    }
+
+    transient XLocaleMatcher xLocaleMatcher = null;
+    transient ULocale xDefaultLanguage = null;
+    transient boolean xFavorScript = false;
+
+    /**
+     * Returns the distance between the two languages, using the new CLDR syntax (see getBestMatch).
+     * The values are not necessarily symmetric.
+     * @param desired A locale desired by the user
+     * @param supported A locale supported by a program.
+     * @return A return of 0 is a complete match, and 100 is a complete mismatch (above the thresholdDistance).
+     * A language is first maximized with add likely subtags, then compared.
+     * @deprecated ICU 59: This API is a technical preview. It may change in an upcoming release.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Deprecated
+    public int distance(ULocale desired, ULocale supported) {
+        return getLocaleMatcher().distance(desired, supported);
+    }
+
+    private synchronized XLocaleMatcher getLocaleMatcher() {
+        if (xLocaleMatcher == null) {
+            Builder builder = XLocaleMatcher.builder();
+            builder.setSupportedLocales(languagePriorityList);
+            if (xDefaultLanguage != null) {
+                builder.setDefaultLanguage(xDefaultLanguage);
+            }
+            if (xFavorScript) {
+                builder.setDistanceOption(DistanceOption.SCRIPT_FIRST);
+            }
+            xLocaleMatcher = builder.build();
+        }
+        return xLocaleMatcher;
+    }
+
+    /**
+     * Get the best match between the desired languages and supported languages
+     * This supports the new CLDR syntax to provide for better matches within
+     * regional clusters (such as maghreb Arabic vs non-maghreb Arabic, or regions that use en-GB vs en-US)
+     * and also matching between regions and macroregions, such as comparing es-419 to es-AR).
+     * @param desiredLanguages Typically the supplied user's languages, in order of preference, with best first.
+     * @param outputBestDesired The one of the desired languages that matched best.
+     * Set to null if the best match was not below the threshold distance.
+     * @return best-match supported language
+     * @deprecated ICU 59: This API is a technical preview. It may change in an upcoming release.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Deprecated
+    public ULocale getBestMatch(LinkedHashSet<ULocale> desiredLanguages, Output<ULocale> outputBestDesired) {
+        return getLocaleMatcher().getBestMatch(desiredLanguages, outputBestDesired);
+    }
+
+    /**
+     * Set the default language, with null = default = first supported language
+     * @param defaultLanguage Language to use in case the threshold for distance is exceeded.
+     * @return this, for chaining
+     * @deprecated ICU 59: This API is a technical preview. It may change in an upcoming release.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Deprecated
+    public synchronized LocaleMatcher setDefaultLanguage(ULocale defaultLanguage) {
+        this.xDefaultLanguage = defaultLanguage;
+        xLocaleMatcher = null;
+        return this;
+    }
+
+    /**
+     * If true, then the language differences are smaller than than script differences.
+     * This is used in situations (such as maps) where it is better to fall back to the same script than a similar language.
+     * @param favorScript Set to true to treat script as most important.
+     * @return this, for chaining.
+     * @deprecated ICU 59: This API is a technical preview. It may change in an upcoming release.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Deprecated
+    public synchronized LocaleMatcher setFavorScript(boolean favorScript) {
+        this.xFavorScript = favorScript;
+        xLocaleMatcher = null;
+        return this;
     }
 }

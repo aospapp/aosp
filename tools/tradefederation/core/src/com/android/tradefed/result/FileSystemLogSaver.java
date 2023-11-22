@@ -116,8 +116,7 @@ public class FileSystemLogSaver implements ILogSaver {
             throws IOException {
         if (!mCompressFiles || dataType.isCompressed()) {
             File log = saveLogDataInternal(dataName, dataType.getFileExt(), dataStream);
-            return new LogFile(log.getAbsolutePath(), getUrl(log), dataType.isCompressed(),
-                    dataType.isText());
+            return new LogFile(log.getAbsolutePath(), getUrl(log), dataType);
         }
         BufferedInputStream bufferedDataStream = null;
         ZipOutputStream outputStream = null;
@@ -138,21 +137,19 @@ public class FileSystemLogSaver implements ILogSaver {
             outputStream.putNextEntry(new ZipEntry(saneDataName + "." + dataType.getFileExt()));
             StreamUtil.copyStreams(bufferedDataStream, outputStream);
             CLog.d("Saved log file %s", log.getAbsolutePath());
-            return new LogFile(log.getAbsolutePath(), getUrl(log), true, dataType.isText());
+            return new LogFile(log.getAbsolutePath(), getUrl(log), true, dataType, log.length());
         } finally {
             StreamUtil.close(bufferedDataStream);
             StreamUtil.close(outputStream);
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public LogFile saveLogDataRaw(String dataName, String ext, InputStream dataStream)
+    public LogFile saveLogDataRaw(String dataName, LogDataType dataType, InputStream dataStream)
             throws IOException {
-        File log = saveLogDataInternal(dataName, ext, dataStream);
-        return new LogFile(log.getAbsolutePath(), getUrl(log), false, false);
+        File log = saveLogDataInternal(dataName, dataType.getFileExt(), dataStream);
+        return new LogFile(log.getAbsolutePath(), getUrl(log), dataType);
     }
 
     private File saveLogDataInternal(String dataName, String ext, InputStream dataStream)
@@ -176,7 +173,7 @@ public class FileSystemLogSaver implements ILogSaver {
      */
     @Override
     public LogFile getLogReportDir() {
-        return new LogFile(mLogReportDir.getAbsolutePath(), getUrl(mLogReportDir), false, false);
+        return new LogFile(mLogReportDir.getAbsolutePath(), getUrl(mLogReportDir), LogDataType.DIR);
     }
 
     /**

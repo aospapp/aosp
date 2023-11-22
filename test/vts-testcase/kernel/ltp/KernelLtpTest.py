@@ -38,6 +38,9 @@ from vts.testcases.kernel.ltp import ltp_enums
 from vts.testcases.kernel.ltp import ltp_configs
 
 RANDOM_SEED = 0
+# TCP connection timeout
+TIMEOUT_TCP_IN_SECS = 180
+
 
 
 class KernelLtpTest(base_test.BaseTestClass):
@@ -92,6 +95,7 @@ class KernelLtpTest(base_test.BaseTestClass):
         self._dut = self.android_devices[0]
         logging.info("product_type: %s", self._dut.product_type)
         self.shell = self._dut.shell
+        self.shell.SetConnTimeout(TIMEOUT_TCP_IN_SECS)
 
         self._requirement = env_checker.EnvironmentRequirementChecker(
             self.shell)
@@ -161,6 +165,7 @@ class KernelLtpTest(base_test.BaseTestClass):
         src = os.path.join(self.data_file_path, 'DATA', test_bit, 'ltp', '.')
         logging.info('Pushing files from %s to %s', src, ltp_configs.LTPDIR)
         self.shell.Execute("mkdir %s -p" % ltp_configs.LTPDIR)
+        self.shell.Execute("restorecon -F -R %s" % ltp_configs.LTPDIR)
         self._dut.adb.push(src, ltp_configs.LTPDIR)
         logging.info('finished pushing files from %s to %s', src,
                      ltp_configs.LTPDIR)
@@ -185,6 +190,9 @@ class KernelLtpTest(base_test.BaseTestClass):
         """
         if not results:
             return (self._FAIL, "No response received. Socket timeout")
+
+        if None in results.values():
+            return (self._FAIL, "Command result is empty.")
 
         # For LTP test cases, we run one shell command for each test case
         # So the result should also contains only one execution output
@@ -370,6 +378,7 @@ class KernelLtpTest(base_test.BaseTestClass):
     def RunLtpWorker(self, testcases, args, name_func, id):
         """Worker thread to run a LTP test case at a time."""
         shell = getattr(self._dut.shell, "shell_thread_{}".format(id))
+        shell.SetConnTimeout(TIMEOUT_TCP_IN_SECS)
         failed_tests = set()
 
         while True:
@@ -401,7 +410,8 @@ class KernelLtpTest(base_test.BaseTestClass):
                 continue
 
             cmd = "export {envp} && cd {cwd} && {commands}".format(
-                envp=self.GetEnvp(), cwd=ltp_configs.LTPBINPATH,
+                envp=self.GetEnvp(),
+                cwd=ltp_configs.LTPBINPATH,
                 commands=test_case.command)
 
             logging.info("Worker {} starts executing command "
@@ -437,7 +447,7 @@ class KernelLtpTest(base_test.BaseTestClass):
             **kwargs: any additional keyword arguments for runner
         """
         self._report_thread_lock.acquire()
-        tr_record = records.TestResultRecord(test_name, self.TAG)
+        tr_record = records.TestResultRecord(test_name, self.test_module_name)
         self.results.requested.append(tr_record)
         try:
             self.execOneTest(test_name, function, args, **kwargs)
@@ -456,7 +466,8 @@ class KernelLtpTest(base_test.BaseTestClass):
         asserts.skipIf(not self._requirement.Check(test_case), test_case.note)
 
         cmd = "export {envp} && cd {cwd} && {commands}".format(
-            envp=self.GetEnvp(), cwd=ltp_configs.LTPBINPATH,
+            envp=self.GetEnvp(),
+            cwd=ltp_configs.LTPBINPATH,
             commands=test_case.command)
         logging.info("Executing %s", cmd)
         self.CheckResult(self.shell.Execute(cmd))

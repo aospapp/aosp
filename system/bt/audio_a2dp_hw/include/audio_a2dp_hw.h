@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -85,13 +85,16 @@ typedef enum {
   A2DP_CTRL_GET_OUTPUT_AUDIO_CONFIG,
   A2DP_CTRL_SET_OUTPUT_AUDIO_CONFIG,
   A2DP_CTRL_CMD_OFFLOAD_START,
+  A2DP_CTRL_GET_PRESENTATION_POSITION,
 } tA2DP_CTRL_CMD;
 
 typedef enum {
   A2DP_CTRL_ACK_SUCCESS,
   A2DP_CTRL_ACK_FAILURE,
   A2DP_CTRL_ACK_INCALL_FAILURE, /* Failure when in Call*/
-  A2DP_CTRL_ACK_UNSUPPORTED
+  A2DP_CTRL_ACK_UNSUPPORTED,
+  A2DP_CTRL_ACK_PENDING,
+  A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS,
 } tA2DP_CTRL_ACK;
 
 typedef uint32_t tA2DP_SAMPLE_RATE;
@@ -140,12 +143,15 @@ typedef uint8_t tA2DP_BITS_PER_SAMPLE;
 //
 // Returns the computed buffer size. If any of the input parameters is
 // invalid, the return value is the default |AUDIO_STREAM_OUTPUT_BUFFER_SZ|.
-extern size_t audio_a2dp_hw_stream_compute_buffer_size(
+size_t audio_a2dp_hw_stream_compute_buffer_size(
     btav_a2dp_codec_sample_rate_t codec_sample_rate,
     btav_a2dp_codec_bits_per_sample_t codec_bits_per_sample,
     btav_a2dp_codec_channel_mode_t codec_channel_mode);
 
+// Returns whether the delay reporting property is set.
+bool delay_reporting_enabled();
+
 // Returns a string representation of |event|.
-extern const char* audio_a2dp_hw_dump_ctrl_event(tA2DP_CTRL_CMD event);
+const char* audio_a2dp_hw_dump_ctrl_event(tA2DP_CTRL_CMD event);
 
 #endif /* A2DP_AUDIO_HW_H */

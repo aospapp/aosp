@@ -101,6 +101,7 @@ def main():
                              (its.caps.yuv_reprocess(props) or
                               its.caps.private_reprocess(props)))
 
+        mono_camera = its.caps.mono_camera(props)
         # If reprocessing is supported, ZSL EE mode must be avaiable.
         assert(its.caps.edge_mode(props, 3))
 
@@ -114,7 +115,7 @@ def main():
         out_surface = {"width":size[0], "height":size[1], "format":"jpg"}
 
         # Get proper sensitivity, exposure time, and focus distance.
-        s,e,_,_,fd = cam.do_3a(get_results=True)
+        s,e,_,_,fd = cam.do_3a(get_results=True, mono_camera=mono_camera)
 
         # Get the sharpness for each edge mode for regular requests
         sharpness_regular = []

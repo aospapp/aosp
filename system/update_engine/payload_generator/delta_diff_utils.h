@@ -21,6 +21,7 @@
 #include <vector>
 
 #include <brillo/secure_blob.h>
+#include <puffin/puffdiff.h>
 
 #include "update_engine/payload_generator/annotated_operation.h"
 #include "update_engine/payload_generator/extent_ranges.h"
@@ -76,12 +77,15 @@ bool DeltaMovedAndZeroBlocks(std::vector<AnnotatedOperation>* aops,
 // stored in |new_part| in the blocks described by |new_extents| and, if it
 // exists, the old version exists in |old_part| in the blocks described by
 // |old_extents|. The operations added to |aops| reference the data blob
-// in the |blob_file|. Returns true on success.
+// in the |blob_file|. |old_deflates| and |new_deflates| are all deflate
+// locations in |old_part| and |new_part|. Returns true on success.
 bool DeltaReadFile(std::vector<AnnotatedOperation>* aops,
                    const std::string& old_part,
                    const std::string& new_part,
                    const std::vector<Extent>& old_extents,
                    const std::vector<Extent>& new_extents,
+                   const std::vector<puffin::BitExtent>& old_deflates,
+                   const std::vector<puffin::BitExtent>& new_deflates,
                    const std::string& name,
                    ssize_t chunk_blocks,
                    const PayloadVersion& version,
@@ -93,22 +97,18 @@ bool DeltaReadFile(std::vector<AnnotatedOperation>* aops,
 // fills in |out_op|. If there's no change in old and new files, it creates a
 // MOVE or SOURCE_COPY operation. If there is a change, the smallest of the
 // operations allowed in the given |version| (REPLACE, REPLACE_BZ, BSDIFF,
-// SOURCE_BSDIFF or IMGDIFF) wins.
-// |new_extents| must not be empty. Returns true on success.
+// SOURCE_BSDIFF, or PUFFDIFF) wins.
+// |new_extents| must not be empty. |old_deflates| and |new_deflates| are all
+// the deflate locations in |old_part| and |new_part|. Returns true on success.
 bool ReadExtentsToDiff(const std::string& old_part,
                        const std::string& new_part,
                        const std::vector<Extent>& old_extents,
                        const std::vector<Extent>& new_extents,
+                       const std::vector<puffin::BitExtent>& old_deflates,
+                       const std::vector<puffin::BitExtent>& new_deflates,
                        const PayloadVersion& version,
                        brillo::Blob* out_data,
                        InstallOperation* out_op);
-
-// Runs the bsdiff or imgdiff tool in |diff_path| on two files and returns the
-// resulting delta in |out|. Returns true on success.
-bool DiffFiles(const std::string& diff_path,
-               const std::string& old_file,
-               const std::string& new_file,
-               brillo::Blob* out);
 
 // Generates the best allowed full operation to produce |new_data|. The allowed
 // operations are based on |payload_version|. The operation blob will be stored
@@ -119,8 +119,11 @@ bool GenerateBestFullOperation(const brillo::Blob& new_data,
                                brillo::Blob* out_blob,
                                InstallOperation_Type* out_type);
 
-// Returns whether op_type is one of the REPLACE full operations.
+// Returns whether |op_type| is one of the REPLACE full operations.
 bool IsAReplaceOperation(InstallOperation_Type op_type);
+
+// Returns true if an operation with type |op_type| has no |src_extents|.
+bool IsNoSourceOperation(InstallOperation_Type op_type);
 
 // Returns true if |op| is a no-op operation that doesn't do any useful work
 // (e.g., a move operation that copies blocks onto themselves).

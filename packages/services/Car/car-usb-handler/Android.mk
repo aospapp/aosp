@@ -24,6 +24,7 @@ LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CarUsbHandler
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 # Each update should be signed by OEMs
 LOCAL_CERTIFICATE := platform

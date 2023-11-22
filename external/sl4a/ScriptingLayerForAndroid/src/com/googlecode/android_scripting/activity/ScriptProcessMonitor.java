@@ -39,6 +39,7 @@ import com.googlecode.android_scripting.Constants;
 import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.R;
 import com.googlecode.android_scripting.interpreter.InterpreterProcess;
+import com.googlecode.android_scripting.service.ScriptingLayerService;
 
 import java.util.List;
 import java.util.Timer;

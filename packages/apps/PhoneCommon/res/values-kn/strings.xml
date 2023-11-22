@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"ಯಾವುದೇ ಸಿಮ್‌ ಇಲ್ಲ ಅಥವಾ ಸಿಮ್‌ ದೋಷ"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"ಸೆಲ್ಯುಲಾರ್ ನೆಟ್‌ವರ್ಕ್‌ ಲಭ್ಯವಿಲ್ಲ"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"ಎಫ್‌ಡಿಎನ್‌ ನಿಂದ ಹೊರಹೋಗುವ ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸಿದೆ."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL ವಿನಂತಿಯನ್ನು USSD ವಿನಂತಿಗೆ ಮಾರ್ಪಡಿಸಲಾಗಿದೆ."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL ವಿನಂತಿಯನ್ನು SS ವಿನಂತಿಗೆ ಮಾರ್ಪಡಿಸಲಾಗಿದೆ."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL ವಿನಂತಿಯನ್ನು ವಿಭಿನ್ನ ಸಂಖ್ಯೆಯೊಂದಿಗೆ DIAL ಗೆ ಮಾರ್ಪಡಿಸಲಾಗಿದೆ."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"USSD ವಿನಂತಿಗೆ ಕರೆಯನ್ನು ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"SS ವಿನಂತಿಗೆ ಕರೆಯನ್ನು ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"ಬೇರೆ ಸಂಖ್ಯೆಗೆ ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"ವೀಡಿಯೊ ಕರೆಗೆ ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"ವೀಡಿಯೊ ಕರೆಯನ್ನು SS ವಿನಂತಿಗೆ ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"ವೀಡಿಯೊ ಕರೆಯನ್ನು USSD ವಿನಂತಿಗೆ ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"ಸಾಮಾನ್ಯ ಕರೆಗೆ ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"ಬೇರೆ ಸಂಖ್ಯೆಗೆ ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"ಕಾಲ್ ಬಾರಿಂಗ್ ಆನ್ ಇರುವಾಗ ಹೊರಹೋಗುವ ಕರೆಗಳನ್ನು ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"ಪ್ರವೇಶ ನಿಯಂತ್ರಣದಿಂದ ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"ಪ್ರವೇಶ ನಿಯಂತ್ರಣದಿಂದ ತುರ್ತು ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ."</string>

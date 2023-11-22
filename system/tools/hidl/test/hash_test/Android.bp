@@ -31,5 +31,6 @@ genrule {
 
 cc_test_host {
     name: "hidl_hash_test",
+    cflags: ["-Wall", "-Werror"],
     generated_sources: ["hidl_hash_test_gen"],
 }

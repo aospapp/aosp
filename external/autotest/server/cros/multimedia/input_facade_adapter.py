@@ -64,3 +64,11 @@ class InputFacadeRemoteAdapter(object):
 
         """
         return json.loads(self._input_proxy.get_input_events())
+
+
+    def press_keys(self, key_list):
+        """ Simulating key press
+
+        @param key_list: A list of key strings, e.g. ['LEFTCTRL', 'F4']
+        """
+        self._input_proxy.press_keys(key_list)

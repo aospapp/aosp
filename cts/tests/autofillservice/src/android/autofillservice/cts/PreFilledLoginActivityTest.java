@@ -20,6 +20,7 @@ import static android.autofillservice.cts.Helper.ID_PASSWORD_LABEL;
 import static android.autofillservice.cts.Helper.ID_USERNAME;
 import static android.autofillservice.cts.Helper.ID_USERNAME_LABEL;
 import static android.autofillservice.cts.Helper.assertTextAndValue;
+import static android.autofillservice.cts.Helper.assertTextFromResouces;
 import static android.autofillservice.cts.Helper.assertTextIsSanitized;
 import static android.autofillservice.cts.Helper.assertTextOnly;
 import static android.autofillservice.cts.Helper.findNodeByResourceId;
@@ -27,8 +28,8 @@ import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PASSWORD;
 
 import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
 import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
+import android.platform.test.annotations.AppModeFull;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -36,6 +37,7 @@ import org.junit.Test;
 /**
  * Covers scenarios where the behavior is different because some fields were pre-filled.
  */
+@AppModeFull // LoginActivityTest is enough to test ephemeral apps support
 public class PreFilledLoginActivityTest extends AutoFillServiceTestCase {
 
     @Rule
@@ -47,11 +49,6 @@ public class PreFilledLoginActivityTest extends AutoFillServiceTestCase {
     @Before
     public void setActivity() {
         mActivity = mActivityRule.getActivity();
-    }
-
-    @After
-    public void finishWelcomeActivity() {
-        WelcomeActivity.finishIt();
     }
 
     @Test
@@ -78,8 +75,8 @@ public class PreFilledLoginActivityTest extends AutoFillServiceTestCase {
         assertTextIsSanitized(fillRequest.structure, ID_USERNAME_LABEL);
 
         // ...password label should be ok because it was set from other resource id
-        assertTextOnly(findNodeByResourceId(fillRequest.structure, ID_PASSWORD_LABEL),
-                "DA PASSWORD");
+        assertTextFromResouces(fillRequest.structure, ID_PASSWORD_LABEL, "DA PASSWORD", false,
+                "new_password_label");
 
         // ...username and password should be ok because they were set in the SML
         assertTextAndValue(findNodeByResourceId(fillRequest.structure, ID_USERNAME),
@@ -92,13 +89,13 @@ public class PreFilledLoginActivityTest extends AutoFillServiceTestCase {
         mActivity.tapLogin();
 
         // Assert the snack bar is shown and tap "Save".
-        sUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
+        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
 
         // Assert sanitization on save: everything should be available!
         assertTextOnly(findNodeByResourceId(saveRequest.structure, ID_USERNAME_LABEL), "DA USER");
-        assertTextOnly(findNodeByResourceId(saveRequest.structure, ID_PASSWORD_LABEL),
-                "DA PASSWORD");
+        assertTextFromResouces(saveRequest.structure, ID_PASSWORD_LABEL, "DA PASSWORD", false,
+                "new_password_label");
         assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_USERNAME), "malkovich");
         assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_PASSWORD), "malkovich");
     }

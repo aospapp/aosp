@@ -1,6 +1,7 @@
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 43ddd7a
 
 #ifndef BIT_READER_H_
 #define BIT_READER_H_
@@ -14,8 +15,7 @@
 
 namespace media {
 
-class BitReader
-    : NON_EXPORTED_BASE(private BitReaderCore::ByteStreamProvider)  {
+class BitReader : private BitReaderCore::ByteStreamProvider {
  public:
   // Initialize the reader to start reading at |data|, |size| being size
   // of |data| in bytes.

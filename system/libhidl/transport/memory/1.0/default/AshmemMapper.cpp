@@ -16,6 +16,9 @@
 
 #include "AshmemMapper.h"
 
+#include <inttypes.h>
+
+#include <log/log.h>
 #include <sys/mman.h>
 
 #include "AshmemMemory.h"
@@ -29,6 +32,16 @@ namespace implementation {
 // Methods from ::android::hidl::memory::V1_0::IMapper follow.
 Return<sp<IMemory>> AshmemMapper::mapMemory(const hidl_memory& mem) {
     if (mem.handle()->numFds == 0) {
+        return nullptr;
+    }
+
+    // If ashmem service runs in 32-bit (size_t is uint32_t) and a 64-bit
+    // client process requests a memory > 2^32 bytes, the size would be
+    // converted to a 32-bit number in mmap. mmap could succeed but the
+    // mapped memory's actual size would be smaller than the reported size.
+    if (mem.size() > SIZE_MAX) {
+        ALOGE("Cannot map %" PRIu64 " bytes of memory because it is too large.", mem.size());
+        android_errorWriteLog(0x534e4554, "79376389");
         return nullptr;
     }
 

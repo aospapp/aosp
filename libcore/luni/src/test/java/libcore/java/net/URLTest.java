@@ -16,16 +16,28 @@
 
 package libcore.java.net;
 
+import junit.framework.TestCase;
+
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
-import java.net.URISyntaxException;
-import java.net.URI;
 import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLStreamHandler;
+import java.net.URLStreamHandlerFactory;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import libcore.libcore.util.SerializationTester;
 
 import dalvik.system.BlockGuard;
-import junit.framework.TestCase;
-import libcore.util.SerializationTester;
+
+import static java.util.Arrays.asList;
 
 public final class URLTest extends TestCase {
 
@@ -108,6 +120,149 @@ public final class URLTest extends TestCase {
                 + "175657279740004686f7374740004687474707400046861736878";
         URL url = new URL("http://user:pass@host/path/file?query#hash");
         new SerializationTester<URL>(url, s).test();
+    }
+
+    /**
+     * For a custom URLStreamHandler, a (de)serialization round trip reconstructs an
+     * inconsistently null authority from host and port.
+     */
+    public void testUrlSerializationRoundTrip_customHandler_nullAuthorityReconstructed()
+            throws Exception {
+        withCustomURLStreamHandlerFactory(() -> {
+            URL url = new URL("android://example.com:80/file");
+            getUrlField("authority").set(url, null);
+            URL reserializedUrl = (URL) SerializationTester.reserialize(url);
+
+            assertFields(url, "android", "example.com", 80, null, "/file");
+            assertFields(reserializedUrl, "android", "example.com", 80, "example.com:80", "/file");
+            return null;
+        });
+    }
+
+    /**
+     * For a custom URLStreamHandler, a (de)serialization round trip does not reconstruct
+     * an inconsistent but nonnull authority from host and port.
+     */
+    public void testUrlSerializationRoundTrip_customHandler_nonnullAuthorityNotReconstructed()
+            throws Exception {
+        withCustomURLStreamHandlerFactory(() -> {
+            URL url = new URL("android://example.com/file");
+            getUrlField("authority").set(url, "evil.com:1234");
+            URL reserializedUrl = (URL) SerializationTester.reserialize(url);
+
+            assertFields(url, "android", "example.com", -1, "evil.com:1234", "/file");
+            assertFields(reserializedUrl, "android", "example.com", -1, "evil.com:1234", "/file");
+            return null;
+        });
+    }
+
+    /**
+     * For a custom URLStreamHandler, a (de)serialization round trip does not
+     * reconstruct host and port from the authority, even if host is null.
+     */
+    public void testUrlSerializationRoundTrip_customHandler_hostAndPortNotReconstructed()
+            throws Exception {
+        checkUrlSerializationRoundTrip_customHandler_hostAndPortNotReconstructed(null /* host */);
+        checkUrlSerializationRoundTrip_customHandler_hostAndPortNotReconstructed("evil.com");
+    }
+
+    private void checkUrlSerializationRoundTrip_customHandler_hostAndPortNotReconstructed(
+            final String hostOrNull) throws Exception {
+        withCustomURLStreamHandlerFactory(() -> {
+            URL url = new URL("android://example.com:80/file");
+            getUrlField("host").set(url, hostOrNull);
+            getUrlField("port").set(url, 12345);
+            URL reserializedUrl = (URL) SerializationTester.reserialize(url);
+
+            assertFields(url, "android", hostOrNull, 12345, "example.com:80", "/file");
+            assertFields(reserializedUrl, "android", hostOrNull, 12345, "example.com:80", "/file");
+            return null;
+        });
+    }
+
+    /**
+     * Temporarily registers a {@link URLStreamHandlerFactory} that accepts any protocol,
+     * and then, while that factory is registered, runs the given {@code callable} on this
+     * thread.
+     * @throw Exception any Exception thrown by the Callable will be thrown on to the caller.
+     */
+    private static void withCustomURLStreamHandlerFactory(Callable<Void> callable)
+            throws Exception {
+        Field factoryField = getUrlField("factory");
+        assertTrue(Modifier.isStatic(factoryField.getModifiers()));
+        URLStreamHandlerFactory oldFactory = (URLStreamHandlerFactory) factoryField.get(null);
+        try {
+            URL.setURLStreamHandlerFactory(
+                    protocol -> new libcore.java.net.customstreamhandler.http.Handler());
+            callable.call();
+        } finally {
+            factoryField.set(null, null);
+            URL.setURLStreamHandlerFactory(oldFactory);
+        }
+    }
+
+    /**
+     * Host and port are reconstructed from the authority during deserialization.
+     */
+    public void testUrlSerializationRoundTrip_builtinHandler_hostAndPortReconstructed()
+            throws Exception {
+        URL url = new URL("http://example.com:42/file");
+        getUrlField("host").set(url, "wronghost.com");
+        getUrlField("port").setInt(url, 1234);
+        URL reserializedUrl = (URL) SerializationTester.reserialize(url);
+        assertFields(url, "http", "wronghost.com", 1234, "example.com:42", "/file");
+        assertFields(reserializedUrl, "http", "example.com", 42, "example.com:42", "/file");
+
+        // Check that the normalization occurs during deserialization rather than during
+        // serialization.
+        assertFalse(Arrays.equals(
+                SerializationTester.serialize(url),
+                SerializationTester.serialize(reserializedUrl)
+        ));
+        assertTrue(Arrays.equals(
+                SerializationTester.serialize(reserializedUrl),
+                SerializationTester.serialize(reserializedUrl)
+        ));
+    }
+
+    /**
+     * The authority is not reconstructed from host and port, but the other way around.
+     */
+    public void testUrlSerializationRoundTrip_builtinHandler_authorityNotReconstructed()
+            throws Exception {
+        URL url = new URL("http://example.com/file");
+        getUrlField("authority").set(url, "newhost.com:80");
+        URL reserializedUrl = (URL) SerializationTester.reserialize(url);
+
+        assertFields(url, "http", "example.com", -1, "newhost.com:80", "/file");
+        assertFields(reserializedUrl, "http", "newhost.com", 80, "newhost.com:80", "/file");
+    }
+
+    /**
+     * The boundary where the authority part ends and the file part starts is
+     * reconstructed during deserialization.
+     */
+    public void testUrlSerializationRoundTrip_builtinHandler_authorityAndFileReconstructed()
+            throws Exception {
+        URL url = new URL("http://temporaryhost.com/temporaryfile");
+        getUrlField("authority").set(url, "exam");
+        getUrlField("file").set(url, "ple.com:80/file");
+        URL reserializedUrl = (URL) SerializationTester.reserialize(url);
+        assertFields(reserializedUrl, "http", "example.com", 80, "example.com:80", "/file");
+    }
+
+    private static Field getUrlField(String fieldName) throws Exception {
+        Field result = URL.class.getDeclaredField(fieldName);
+        result.setAccessible(true);
+        return result;
+    }
+
+    private static void assertFields(URL url,
+            String protocol, String host, int port, String authority, String file) {
+        assertEquals(
+                asList(protocol, host, port, authority, file),
+                asList(url.getProtocol(), url.getHost(), url.getPort(), url.getAuthority(),
+                        url.getFile()));
     }
 
     /**
@@ -293,6 +448,24 @@ public final class URLTest extends TestCase {
         assertEquals("/file?query@at", url.getFile());
         assertEquals("/file", url.getPath());
         assertEquals("query@at", url.getQuery());
+    }
+
+    public void testCommonProtocolsAreHandledByBuiltinHandlers() throws Exception {
+        Method getURLStreamHandler = URL.class.getDeclaredMethod(
+                "getURLStreamHandler", String.class);
+        getURLStreamHandler.setAccessible(true);
+        Set<String> builtinHandlers =
+                (Set<String>) getUrlField("BUILTIN_HANDLER_CLASS_NAMES").get(null);
+        Set<String> commonHandlers = new HashSet<>();
+        for (String protocol : Arrays.asList("file", "ftp", "jar", "http", "https")) {
+            URLStreamHandler handler =
+                    (URLStreamHandler) getURLStreamHandler.invoke(null, protocol);
+            assertNotNull("Handler for protocol " + protocol + " should exist", handler);
+            commonHandlers.add(handler.getClass().getName());
+        }
+        assertTrue("Built-in handlers " + builtinHandlers + " should contain all of the handlers "
+                + commonHandlers + " for common protocols.",
+                builtinHandlers.containsAll(commonHandlers));
     }
 
     public void testColonInQuery() throws Exception {

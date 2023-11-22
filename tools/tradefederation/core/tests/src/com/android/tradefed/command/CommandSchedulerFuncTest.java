@@ -16,10 +16,11 @@
 
 package com.android.tradefed.command;
 
-import com.google.common.util.concurrent.SettableFuture;
+import static org.junit.Assert.*;
 
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.Log;
+import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.DeviceConfigurationHolder;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IConfigurationFactory;
@@ -41,18 +42,22 @@ import com.android.tradefed.util.RunInterruptedException;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.keystore.IKeyStoreClient;
 
-import junit.framework.TestCase;
+import com.google.common.util.concurrent.SettableFuture;
 
 import org.easymock.EasyMock;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Future;
 
-/**
- * Longer running test for {@link CommandScheduler}
- */
-public class CommandSchedulerFuncTest extends TestCase {
+/** Longer running test for {@link CommandScheduler} */
+@RunWith(JUnit4.class)
+public class CommandSchedulerFuncTest {
 
     private static final String LOG_TAG = "CommandSchedulerFuncTest";
     private static final long WAIT_TIMEOUT_MS = 30 * 1000;
@@ -69,9 +74,8 @@ public class CommandSchedulerFuncTest extends TestCase {
     private boolean mInterruptible = false;
     private IDeviceConfiguration mMockConfig;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mDeviceOptions = new DeviceSelectionOptions();
         mMockDeviceConfig = new ArrayList<IDeviceConfiguration>();
         mMockConfig = new DeviceConfigurationHolder("device");
@@ -106,6 +110,10 @@ public class CommandSchedulerFuncTest extends TestCase {
                 .andStubReturn(mMockConfig);
         EasyMock.expect(mFastConfig.getDeviceConfig()).andStubReturn(mMockDeviceConfig);
         EasyMock.expect(mFastConfig.getCommandLine()).andStubReturn("");
+        EasyMock.expect(mSlowConfig.getConfigurationDescription())
+                .andStubReturn(new ConfigurationDescriptor());
+        EasyMock.expect(mFastConfig.getConfigurationDescription())
+                .andStubReturn(new ConfigurationDescriptor());
 
         mCommandScheduler =
                 new CommandScheduler() {
@@ -140,10 +148,8 @@ public class CommandSchedulerFuncTest extends TestCase {
                 };
     }
 
-    /** {@inheritDoc} */
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @After
+    public void tearDown() throws Exception {
         if (mCommandScheduler != null) {
             mCommandScheduler.shutdownOnEmpty();
         }
@@ -159,6 +165,7 @@ public class CommandSchedulerFuncTest extends TestCase {
      * <p>The run is stopped after the slow config is executed 20 times. At the end of the test, it
      * is expected that "fast config" has executed roughly twice as much as the "slow config".
      */
+    @Test
     public void testRun_scheduling() throws Exception {
         String[] fastConfigArgs = new String[] {"fastConfig"};
         String[] slowConfigArgs = new String[] {"slowConfig"};
@@ -246,9 +253,8 @@ public class CommandSchedulerFuncTest extends TestCase {
         }
     }
 
-    /**
-     * Test that the Invocation is not interruptible even when Battery is low.
-     */
+    /** Test that the Invocation is not interruptible even when Battery is low. */
+    @Test
     public void testBatteryLowLevel() throws Throwable {
         ITestDevice mockDevice = EasyMock.createNiceMock(ITestDevice.class);
         EasyMock.expect(mockDevice.getSerialNumber()).andReturn("serial").anyTimes();
@@ -289,9 +295,8 @@ public class CommandSchedulerFuncTest extends TestCase {
         assertFalse(mMockTestInvoker.printedStop);
     }
 
-    /**
-     * Test that the Invocation is interruptible when Battery is low.
-     */
+    /** Test that the Invocation is interruptible when Battery is low. */
+    @Test
     public void testBatteryLowLevel_interruptible() throws Throwable {
         ITestDevice mockDevice = EasyMock.createNiceMock(ITestDevice.class);
         EasyMock.expect(mockDevice.getSerialNumber()).andReturn("serial").anyTimes();
@@ -340,9 +345,9 @@ public class CommandSchedulerFuncTest extends TestCase {
 
     /**
      * Test that the Invocation is interrupted by the shutdownHard and finishes with an
-     * interruption.
-     * {@link CommandScheduler#shutdownHard()}
+     * interruption. {@link CommandScheduler#shutdownHard()}
      */
+    @Test
     public void testShutdown_interruptible() throws Throwable {
         String[] slowConfigArgs = new String[] {"slowConfig"};
         List<String> nullArg = null;
@@ -378,9 +383,9 @@ public class CommandSchedulerFuncTest extends TestCase {
 
     /**
      * Test that the Invocation is not interrupted by shutdownHard. Invocation terminate then
-     * scheduler finishes.
-     * {@link CommandScheduler#shutdownHard()}
+     * scheduler finishes. {@link CommandScheduler#shutdownHard()}
      */
+    @Test
     public void testShutdown_notInterruptible() throws Throwable {
         final LongInvocation li = new LongInvocation(5);
         mCommandOptions.setLoopMode(false);
@@ -495,6 +500,7 @@ public class CommandSchedulerFuncTest extends TestCase {
      * after the shutdown timeout is expired because the invocation was uninterruptible so we only
      * allow for so much time before shutting down.
      */
+    @Test
     public void testShutdown_notInterruptible_timeout() throws Throwable {
         final LongInvocation li = new LongInvocation(15);
         mCommandOptions.setLoopMode(false);
@@ -565,9 +571,8 @@ public class CommandSchedulerFuncTest extends TestCase {
         assertTrue(li.runInterrupted);
     }
 
-    /**
-     * Test that if the invocation run time goes over the timeout, it will be forced stopped.
-     */
+    /** Test that if the invocation run time goes over the timeout, it will be forced stopped. */
+    @Test
     public void testShutdown_invocation_timeout() throws Throwable {
         final LongInvocation li = new LongInvocation(2);
         mCommandOptions.setLoopMode(false);

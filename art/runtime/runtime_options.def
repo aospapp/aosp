@@ -43,7 +43,8 @@ RUNTIME_OPTIONS_KEY (std::string,         ClassPath)
 RUNTIME_OPTIONS_KEY (std::string,         Image)
 RUNTIME_OPTIONS_KEY (Unit,                CheckJni)
 RUNTIME_OPTIONS_KEY (Unit,                JniOptsForceCopy)
-RUNTIME_OPTIONS_KEY (JDWP::JdwpOptions,   JdwpOptions)
+RUNTIME_OPTIONS_KEY (std::string,         JdwpOptions, "")
+RUNTIME_OPTIONS_KEY (JdwpProvider,        JdwpProvider,                   JdwpProvider::kNone)
 RUNTIME_OPTIONS_KEY (MemoryKiB,           MemoryMaximumSize,              gc::Heap::kDefaultMaximumSize)  // -Xmx
 RUNTIME_OPTIONS_KEY (MemoryKiB,           MemoryInitialSize,              gc::Heap::kDefaultInitialSize)  // -Xms
 RUNTIME_OPTIONS_KEY (MemoryKiB,           HeapGrowthLimit)                // Default is 0 for unlimited
@@ -117,14 +118,16 @@ RUNTIME_OPTIONS_KEY (std::vector<std::string>, \
                                           ImageCompilerOptions)  // -Ximage-compiler-option ...
 RUNTIME_OPTIONS_KEY (verifier::VerifyMode, \
                                           Verify,                         verifier::VerifyMode::kEnable)
+RUNTIME_OPTIONS_KEY (int,                 TargetSdkVersion,               Runtime::kUnsetSdkVersion)
+RUNTIME_OPTIONS_KEY (Unit,                HiddenApiChecks)
 RUNTIME_OPTIONS_KEY (std::string,         NativeBridge)
 RUNTIME_OPTIONS_KEY (unsigned int,        ZygoteMaxFailedBoots,           10)
 RUNTIME_OPTIONS_KEY (Unit,                NoDexFileFallback)
 RUNTIME_OPTIONS_KEY (std::string,         CpuAbiList)
 RUNTIME_OPTIONS_KEY (std::string,         Fingerprint)
 RUNTIME_OPTIONS_KEY (ExperimentalFlags,   Experimental,     ExperimentalFlags::kNone) // -Xexperimental:{...}
-RUNTIME_OPTIONS_KEY (std::list<ti::Agent>,         AgentLib)  // -agentlib:<libname>=<options>
-RUNTIME_OPTIONS_KEY (std::list<ti::Agent>,         AgentPath)  // -agentpath:<libname>=<options>
+RUNTIME_OPTIONS_KEY (std::list<ti::AgentSpec>,         AgentLib)  // -agentlib:<libname>=<options>
+RUNTIME_OPTIONS_KEY (std::list<ti::AgentSpec>,         AgentPath)  // -agentpath:<libname>=<options>
 RUNTIME_OPTIONS_KEY (std::vector<Plugin>,            Plugins)  // -Xplugin:<library>
 
 // Not parse-able from command line, but can be provided explicitly.
@@ -145,5 +148,10 @@ RUNTIME_OPTIONS_KEY (void (*)(int32_t status), \
 RUNTIME_OPTIONS_KEY (void (*)(),          HookAbort,                      nullptr)
 
 RUNTIME_OPTIONS_KEY (bool,                SlowDebug,                      false)
+
+RUNTIME_OPTIONS_KEY (unsigned int,        GlobalRefAllocStackTraceLimit,  0)  // 0 = off
+RUNTIME_OPTIONS_KEY (Unit,                UseStderrLogger)
+
+RUNTIME_OPTIONS_KEY (Unit,                OnlyUseSystemOatFiles)
 
 #undef RUNTIME_OPTIONS_KEY

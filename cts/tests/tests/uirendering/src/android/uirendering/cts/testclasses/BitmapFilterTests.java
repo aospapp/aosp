@@ -19,11 +19,14 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PaintFlagsDrawFilter;
+import android.graphics.Rect;
+import android.graphics.Region;
 import android.support.test.filters.MediumTest;
 import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.bitmapverifiers.BitmapVerifier;
 import android.uirendering.cts.bitmapverifiers.ColorVerifier;
 import android.uirendering.cts.bitmapverifiers.PerPixelBitmapVerifier;
+import android.uirendering.cts.bitmapverifiers.RegionVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.CanvasClient;
 
@@ -53,13 +56,14 @@ public class BitmapFilterTests extends ActivityTestBase {
                     || weight > WHITE_WEIGHT - DEFAULT_THRESHOLD; // is approx Color.WHITE
         }
     };
+
     private static final BitmapVerifier GREY_ONLY_VERIFIER
             = new ColorVerifier(Color.argb(255, 127, 127, 127),
             150); // content will be entirely grey, for a fairly wide range of grey
+
     private static final BitmapVerifier GREY_PARTIAL_VERIFIER
             = new ColorVerifier(Color.argb(255, 127, 127, 127),
             300, 0.8f); // content will be mostly grey, for a wide range of grey
-
 
     private static Bitmap createGridBitmap(int width, int height) {
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
@@ -139,5 +143,59 @@ public class BitmapFilterTests extends ActivityTestBase {
         // if scaling up, output pixels may have single source to sample from,
         // will only be *mostly* grey.
         return scaleUp ? GREY_PARTIAL_VERIFIER : GREY_ONLY_VERIFIER;
+    }
+
+    // Create a 3x3 BLACK rect surrounded by WHITE.
+    private static final Bitmap sFilterTestBitmap = Bitmap.createBitmap(new int[] {
+            Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
+            Color.WHITE, Color.BLACK, Color.BLACK, Color.BLACK, Color.WHITE,
+            Color.WHITE, Color.BLACK, Color.BLACK, Color.BLACK, Color.WHITE,
+            Color.WHITE, Color.BLACK, Color.BLACK, Color.BLACK, Color.WHITE,
+            Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE},
+            5, 5, Bitmap.Config.ARGB_8888);
+
+    @Test
+    public void testDrawSnapped() {
+        final Rect blackArea = new Rect(5, 5, 8, 8);
+        final Region whiteArea = new Region(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        whiteArea.op(blackArea, Region.Op.DIFFERENCE);
+
+        createTest()
+                .addCanvasClient(((canvas, width, height) -> {
+                    Paint paint = new Paint();
+                    paint.setFilterBitmap(true);
+                    paint.setAntiAlias(true);
+                    canvas.drawBitmap(sFilterTestBitmap, 4, 4, paint);
+                }))
+                .runWithVerifier(new RegionVerifier()
+                        // This test should be unfiltered, snapped to pixel.
+                        // So be strict on color accuracy
+                        .addVerifier(blackArea, new ColorVerifier(Color.BLACK, 0))
+                        .addVerifier(whiteArea, new ColorVerifier(Color.WHITE, 0)));
+    }
+
+    @Test
+    public void testDrawHalfPixelFiltered() {
+        final Rect blackArea = new Rect(6, 5, 8, 8);
+        final Rect greyArea1 = new Rect(5, 5, 6, 8);
+        final Rect greyArea2 = new Rect(8, 5, 9, 8);
+        final Region whiteArea = new Region(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        whiteArea.op(blackArea, Region.Op.DIFFERENCE);
+        whiteArea.op(greyArea1, Region.Op.DIFFERENCE);
+        whiteArea.op(greyArea2, Region.Op.DIFFERENCE);
+
+        createTest()
+                .addCanvasClient(((canvas, width, height) -> {
+                    Paint paint = new Paint();
+                    paint.setFilterBitmap(true);
+                    paint.setAntiAlias(true);
+                    canvas.drawBitmap(sFilterTestBitmap, 4.5f, 4.0f, paint);
+                }))
+                .runWithVerifier(new RegionVerifier()
+                        // We're filtering, so... BLACK-ish and WHITE-ish it is.
+                        .addVerifier(blackArea, new ColorVerifier(Color.BLACK, 6))
+                        .addVerifier(greyArea1, GREY_ONLY_VERIFIER)
+                        .addVerifier(greyArea2, GREY_ONLY_VERIFIER)
+                        .addVerifier(whiteArea, new ColorVerifier(Color.WHITE, 6)));
     }
 }

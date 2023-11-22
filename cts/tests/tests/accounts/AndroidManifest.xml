@@ -16,7 +16,8 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.accounts.cts">
+        package="android.accounts.cts"
+        android:targetSandboxVersion="2">
     <uses-sdk android:minSdkVersion="1"
           android:targetSdkVersion="26"/>
 

@@ -171,8 +171,11 @@ public class PhoneAccountOperationsTest extends InstrumentationTestCase {
             setIsEnabled = PhoneAccount.Builder.class.getDeclaredMethod(
                     "setIsEnabled", boolean.class);
         } catch (NoSuchMethodException e) {
-            fail("Failed to find setIsEnabled method.");
+            // This is the ideal case; ideally we should NOT be able to even reflect this method
+            // since its hidden.
+            return;
         }
+        // However, if reflection somehow finds the @hide method, we'll try executing it.
         setIsEnabled.invoke(phoneAccountBuilder, true);
         final PhoneAccount phoneAccount  = phoneAccountBuilder.build();
         mTelecomManager.registerPhoneAccount(phoneAccount);

@@ -170,10 +170,13 @@ for t in ${all_targets}; do
     [ -f "${source_path}/${t}.mk" ] && enable_feature ${t}
 done
 
+if ! diff --version >/dev/null; then
+  die "diff missing: Try installing diffutils via your package manager."
+fi
+
 if ! perl --version >/dev/null; then
     die "Perl is required to build"
 fi
-
 
 if [ "`cd \"${source_path}\" && pwd`" != "`pwd`" ]; then
   # test to see if source_path already configured
@@ -241,7 +244,13 @@ ARCH_EXT_LIST_X86="
     sse4_1
     avx
     avx2
+    avx512
 "
+
+ARCH_EXT_LIST_LOONGSON="
+    mmi
+"
+
 ARCH_EXT_LIST="
     neon
     neon_asm
@@ -254,6 +263,8 @@ ARCH_EXT_LIST="
     ${ARCH_EXT_LIST_X86}
 
     vsx
+
+    ${ARCH_EXT_LIST_LOONGSON}
 "
 HAVE_LIST="
     ${ARCH_EXT_LIST}
@@ -319,6 +330,7 @@ CONFIG_LIST="
     better_hw_compatibility
     experimental
     size_limit
+    always_adjust_bpm
     ${EXPERIMENT_LIST}
 "
 CMDLINE_SELECT="
@@ -378,6 +390,7 @@ CMDLINE_SELECT="
     better_hw_compatibility
     vp9_highbitdepth
     experimental
+    always_adjust_bpm
 "
 
 process_cmdline() {
@@ -579,6 +592,7 @@ process_toolchain() {
         check_add_cflags -Wdeclaration-after-statement
         check_add_cflags -Wdisabled-optimization
         check_add_cflags -Wfloat-conversion
+        check_add_cflags -Wparentheses-equality
         check_add_cflags -Wpointer-arith
         check_add_cflags -Wtype-limits
         check_add_cflags -Wcast-qual
@@ -651,7 +665,7 @@ process_toolchain() {
              gen_vcproj_cmd=${source_path}/build/make/gen_msvs_vcxproj.sh
              enabled werror && gen_vcproj_cmd="${gen_vcproj_cmd} --enable-werror"
              all_targets="${all_targets} solution"
-             INLINE="__forceinline"
+             INLINE="__inline"
         ;;
     esac
 

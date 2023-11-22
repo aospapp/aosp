@@ -135,7 +135,8 @@ public class Instrumentation_ActivityMonitorTest extends InstrumentationTestCase
         final Context context = instrumentation.getTargetContext();
 
         // Start ActivityMonitorTestActivity
-        final Intent intent = new Intent(context, ActivityMonitorTestActivity.class);
+        final Intent intent = new Intent(context, ActivityMonitorTestActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         ActivityMonitorTestActivity amTestActivity =
                 (ActivityMonitorTestActivity) instrumentation.startActivitySync(intent);
 
@@ -183,7 +184,8 @@ public class Instrumentation_ActivityMonitorTest extends InstrumentationTestCase
         final Context context = instrumentation.getTargetContext();
 
         // Start ActivityMonitorTestActivity
-        final Intent intent = new Intent(context, ActivityMonitorTestActivity.class);
+        final Intent intent = new Intent(context, ActivityMonitorTestActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         ActivityMonitorTestActivity amTestActivity =
                 (ActivityMonitorTestActivity) instrumentation.startActivitySync(intent);
 
@@ -234,7 +236,8 @@ public class Instrumentation_ActivityMonitorTest extends InstrumentationTestCase
         final Context context = instrumentation.getTargetContext();
 
         // Start ActivityMonitorTestActivity
-        final Intent intent = new Intent(context, ActivityMonitorTestActivity.class);
+        final Intent intent = new Intent(context, ActivityMonitorTestActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         ActivityMonitorTestActivity amTestActivity =
                 (ActivityMonitorTestActivity) instrumentation.startActivitySync(intent);
 

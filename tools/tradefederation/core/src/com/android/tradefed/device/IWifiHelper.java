@@ -267,7 +267,9 @@ interface IWifiHelper {
     List<Long> stopMonitor() throws DeviceNotAvailableException;
 
     /**
-     * Clean up the resources and the wifi helper packaged install.
+     * Clean up the resources and the wifi helper packaged install. This should only be called when
+     * Wifi is not needed anymore for the invocation since the device would lose the wifi connection
+     * when the helper is uninstalled.
      *
      * @throws DeviceNotAvailableException
      */

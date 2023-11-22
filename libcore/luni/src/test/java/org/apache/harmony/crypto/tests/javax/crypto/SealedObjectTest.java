@@ -44,7 +44,7 @@ import javax.crypto.SealedObject;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import libcore.util.SerializationTester;
+import libcore.libcore.util.SerializationTester;
 
 /**
  */

@@ -72,12 +72,16 @@ public class BluetoothMapClientFacade extends RpcReceiver {
         mEventFacade = manager.getReceiver(EventFacade.class);
 
         mNotificationReceiver = new NotificationReceiver();
-        mSendIntent = new Intent(BluetoothMapClient.ACTION_MESSAGE_SENT_SUCCESSFULLY);
-        mDeliveryIntent = new Intent(BluetoothMapClient.ACTION_MESSAGE_DELIVERED_SUCCESSFULLY);
+        mSendIntent = new Intent(
+                BluetoothMapClient.ACTION_MESSAGE_SENT_SUCCESSFULLY);
+        mDeliveryIntent = new Intent(
+                BluetoothMapClient.ACTION_MESSAGE_DELIVERED_SUCCESSFULLY);
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(BluetoothMapClient.ACTION_MESSAGE_RECEIVED);
-        intentFilter.addAction(BluetoothMapClient.ACTION_MESSAGE_SENT_SUCCESSFULLY);
-        intentFilter.addAction(BluetoothMapClient.ACTION_MESSAGE_DELIVERED_SUCCESSFULLY);
+        intentFilter.addAction(
+                BluetoothMapClient.ACTION_MESSAGE_SENT_SUCCESSFULLY);
+        intentFilter.addAction(
+                BluetoothMapClient.ACTION_MESSAGE_DELIVERED_SUCCESSFULLY);
         mService.registerReceiver(mNotificationReceiver, intentFilter);
         Log.d("notification receiver registered");
     }
@@ -107,34 +111,41 @@ public class BluetoothMapClientFacade extends RpcReceiver {
 
     @Rpc(description = "Connect to an MAP MSE device.")
     public Boolean bluetoothMapClientConnect(
-            @RpcParameter(name = "device", description = "Name or MAC address of a bluetooth "
+            @RpcParameter(name = "device",
+                    description = "Name or MAC address of a bluetooth "
                     + "device.")
                     String device)
             throws Exception {
         if (sMapProfile == null) return false;
-        BluetoothDevice mDevice = BluetoothFacade.getDevice(mBluetoothAdapter.getBondedDevices(),
-                device);
+        BluetoothDevice mDevice = BluetoothFacade.getDevice(
+                mBluetoothAdapter.getBondedDevices(), device);
         Log.d("Connecting to device " + mDevice.getAliasName());
         return sMapProfile.connect(mDevice);
     }
 
     @Rpc(description = "Send a (text) message via bluetooth.")
     public Boolean mapSendMessage(
-            @RpcParameter(name = "deviceID", description = "Name or MAC address of a device.")
+            @RpcParameter(name = "deviceID",
+                    description = "Name or MAC address of a device.")
                     String deviceID,
-            @RpcParameter(name = "phoneNumbers", description = "Phone number of contact.")
+            @RpcParameter(name = "phoneNumbers",
+                    description = "Phone number of contact.")
                     String[] phoneNumbers,
-            @RpcParameter(name = "message", description = "Message to send.") String message) {
+            @RpcParameter(name = "message",
+                    description = "Message to send.") String message) {
         try {
             BluetoothDevice device =
-                    BluetoothFacade.getDevice(sMapProfile.getConnectedDevices(), deviceID);
+                    BluetoothFacade.getDevice(
+                            sMapProfile.getConnectedDevices(), deviceID);
             mSentIntent = PendingIntent.getBroadcast(mService, 0, mSendIntent,
                     PendingIntent.FLAG_ONE_SHOT);
-            mDeliveredIntent = PendingIntent.getBroadcast(mService, 0, mDeliveryIntent,
+            mDeliveredIntent = PendingIntent.getBroadcast(
+                    mService, 0, mDeliveryIntent,
                     PendingIntent.FLAG_ONE_SHOT);
             Uri[] contacts = new Uri[phoneNumbers.length];
             for (int i = 0; i < phoneNumbers.length; i++) {
-                Log.d("PhoneNumber count: " + phoneNumbers.length + " = " + phoneNumbers[i]);
+                Log.d("PhoneNumber count: " + phoneNumbers.length + " = "
+                        + phoneNumbers[i]);
                 contacts[i] = Uri.parse(phoneNumbers[i]);
             }
             return sMapProfile.sendMessage(device, contacts, message, mSentIntent,
@@ -159,14 +170,18 @@ public class BluetoothMapClientFacade extends RpcReceiver {
 
     @Rpc(description = "Disconnect an MAP device.")
     public Boolean bluetoothMapClientDisconnect(
-            @RpcParameter(name = "deviceID", description = "Name or MAC address of a device.")
+            @RpcParameter(name = "deviceID",
+                    description = "Name or MAC address of a device.")
                     String deviceID)
             throws Exception {
         if (sMapProfile == null) return false;
-        List<BluetoothDevice> connectedMapDevices = sMapProfile.getConnectedDevices();
+        List<BluetoothDevice> connectedMapDevices =
+                sMapProfile.getConnectedDevices();
         Log.d("Connected map devices: " + connectedMapDevices);
-        BluetoothDevice mDevice = BluetoothFacade.getDevice(connectedMapDevices, deviceID);
-        if (!connectedMapDevices.isEmpty() && connectedMapDevices.get(0).equals(mDevice)) {
+        BluetoothDevice mDevice = BluetoothFacade.getDevice(
+                connectedMapDevices, deviceID);
+        if (!connectedMapDevices.isEmpty()
+                && connectedMapDevices.get(0).equals(mDevice)) {
             if (sMapProfile.getPriority(mDevice) > BluetoothProfile.PRIORITY_ON) {
                 sMapProfile.setPriority(mDevice, BluetoothProfile.PRIORITY_ON);
             }
@@ -198,10 +213,13 @@ public class BluetoothMapClientFacade extends RpcReceiver {
             if (action.equals(BluetoothMapClient.ACTION_MESSAGE_RECEIVED)) {
                 mEventFacade.postEvent(MAP_EVENT,
                         intent.getStringExtra(android.content.Intent.EXTRA_TEXT));
-            } else if (action.equals(BluetoothMapClient.ACTION_MESSAGE_SENT_SUCCESSFULLY)) {
+            } else if (action.equals(
+                    BluetoothMapClient.ACTION_MESSAGE_SENT_SUCCESSFULLY)) {
                 mEventFacade.postEvent(MAP_SMS_SENT_SUCCESS,
-                        intent.getStringExtra(android.content.Intent.EXTRA_TEXT));
-            } else if (action.equals(BluetoothMapClient.ACTION_MESSAGE_DELIVERED_SUCCESSFULLY)) {
+                        intent.getStringExtra(
+                            android.content.Intent.EXTRA_TEXT));
+            } else if (action.equals(
+                    BluetoothMapClient.ACTION_MESSAGE_DELIVERED_SUCCESSFULLY)) {
                 mEventFacade.postEvent(MAP_SMS_DELIVER_SUCCESS,
                         intent.getStringExtra(android.content.Intent.EXTRA_TEXT));
             }

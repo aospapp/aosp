@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"SIM kart yok veya SIM hatası"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Hücresel ağa erişilemiyor"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Giden çağrılar FDN tarafından kısıtlandı."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL isteği USSD isteği olarak değiştirildi."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL isteği yeni SS isteği olarak değiştirildi."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL isteği farklı numaralı DIAL olarak değiştirildi."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Çağrı USSD isteği olarak değişti"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Çağrı SS isteği olarak değişti"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Farklı bir numara olarak değişti"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Görüntülü görüşme olarak değişti"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Görüntülü görüşme SS isteği olarak değişti"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Görüntülü görüşme USSD isteği olarak değişti"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Normal çağrı olarak değişti"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Farklı bir numara olarak değişti"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Çağrı engelleme açıkken giden arama yapılamaz."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Çağrılar erişim kontrolü tarafından kısıtlandı."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Acil durum çağrıları erişim kontrolü tarafından kısıtlandı."</string>

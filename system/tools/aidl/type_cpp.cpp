@@ -83,6 +83,7 @@ class CppArrayType : public Type {
             const string& underlying_aidl_type,
             const string& cpp_header,
             const string& underlying_cpp_type,
+            const string& underlying_cpp_type_nulllable,
             const string& read_method,
             const string& write_method,
             bool is_nullable,
@@ -96,7 +97,8 @@ class CppArrayType : public Type {
                  ? kNoNullableType
                  // All arrays are nullable.
                  : new CppArrayType(kind, package, underlying_aidl_type,
-                                    cpp_header, underlying_cpp_type,
+                                    cpp_header, underlying_cpp_type_nulllable,
+                                    underlying_cpp_type_nulllable,
                                     read_method, write_method, true),
              src_file_name) {}
 
@@ -138,7 +140,7 @@ class PrimitiveType : public Type {
       : Type(ValidatableType::KIND_BUILT_IN, kNoPackage, aidl_type, {header},
              cpp_type, read_method, write_method,
              new CppArrayType(ValidatableType::KIND_BUILT_IN, kNoPackage,
-                              aidl_type, header, cpp_type,
+                              aidl_type, header, cpp_type, cpp_type,
                               read_array_method, write_array_method,
                               false)) {}
 
@@ -158,7 +160,7 @@ class ByteType : public Type {
       : Type(ValidatableType::KIND_BUILT_IN, kNoPackage, "byte",
              {"cstdint"}, "int8_t", "readByte", "writeByte",
              new CppArrayType(ValidatableType::KIND_BUILT_IN, kNoPackage,
-                              "byte", "cstdint", "uint8_t",
+                              "byte", "cstdint", "uint8_t", "uint8_t",
                               "readByteVector", "writeByteVector",
                               false)) {}
 
@@ -250,7 +252,7 @@ class ParcelableType : public Type {
              new CppArrayType(
                  ValidatableType::KIND_PARCELABLE, parcelable.GetPackage(),
                  parcelable.GetName(), parcelable.GetCppHeader(),
-                 GetCppName(parcelable),
+                 GetCppName(parcelable), GetCppName(parcelable),
                  "readParcelableVector", "writeParcelableVector", false,
                  src_file_name),
              new NullableParcelableType(parcelable, src_file_name),
@@ -441,7 +443,8 @@ void TypeNamespace::Init() {
   Type* string_array_type = new CppArrayType(
       ValidatableType::KIND_BUILT_IN, "java.lang", "String",
       "utils/String16.h", "::android::String16",
-      "readString16Vector", "writeString16Vector", false);
+      "::std::unique_ptr<::android::String16>", "readString16Vector",
+      "writeString16Vector", false);
 
   Type* nullable_string_type =
       new Type(ValidatableType::KIND_BUILT_IN, "java.lang", "String",
@@ -462,7 +465,7 @@ void TypeNamespace::Init() {
   Type* cpp_utf8_string_array = new CppArrayType(
       ValidatableType::KIND_BUILT_IN,
       kAidlReservedTypePackage, kUtf8InCppStringClass,
-      "string", "::std::string",
+      "string", "::std::string", "::std::unique_ptr<::std::string>",
       "readUtf8VectorFromUtf16Vector", "writeUtf8VectorAsUtf16Vector",
       false);
   Type* nullable_cpp_utf8_string_type = new Type(
@@ -496,7 +499,7 @@ void TypeNamespace::Init() {
   Type* fd_vector_type = new CppArrayType(
       ValidatableType::KIND_BUILT_IN, kNoPackage, "FileDescriptor",
       "android-base/unique_fd.h",
-      "::android::base::unique_fd",
+      "::android::base::unique_fd", "::android::base::unique_fd",
       "readUniqueFileDescriptorVector", "writeUniqueFileDescriptorVector",
       false);
 

@@ -20,7 +20,7 @@
 #include "arch/x86/instruction_set_features_x86.h"
 #include "base/enums.h"
 #include "code_generator.h"
-#include "dex_file_types.h"
+#include "dex/dex_file_types.h"
 #include "driver/compiler_options.h"
 #include "nodes.h"
 #include "parallel_move_resolver.h"
@@ -83,8 +83,8 @@ class InvokeDexCallingConventionVisitorX86 : public InvokeDexCallingConventionVi
   InvokeDexCallingConventionVisitorX86() {}
   virtual ~InvokeDexCallingConventionVisitorX86() {}
 
-  Location GetNextLocation(Primitive::Type type) OVERRIDE;
-  Location GetReturnLocation(Primitive::Type type) const OVERRIDE;
+  Location GetNextLocation(DataType::Type type) OVERRIDE;
+  Location GetReturnLocation(DataType::Type type) const OVERRIDE;
   Location GetMethodLocation() const OVERRIDE;
 
  private:
@@ -103,13 +103,13 @@ class FieldAccessCallingConventionX86 : public FieldAccessCallingConvention {
   Location GetFieldIndexLocation() const OVERRIDE {
     return Location::RegisterLocation(EAX);
   }
-  Location GetReturnLocation(Primitive::Type type) const OVERRIDE {
-    return Primitive::Is64BitType(type)
+  Location GetReturnLocation(DataType::Type type) const OVERRIDE {
+    return DataType::Is64BitType(type)
         ? Location::RegisterPairLocation(EAX, EDX)
         : Location::RegisterLocation(EAX);
   }
-  Location GetSetValueLocation(Primitive::Type type, bool is_instance) const OVERRIDE {
-    return Primitive::Is64BitType(type)
+  Location GetSetValueLocation(DataType::Type type, bool is_instance) const OVERRIDE {
+    return DataType::Is64BitType(type)
         ? (is_instance
             ? Location::RegisterPairLocation(EDX, EBX)
             : Location::RegisterPairLocation(ECX, EDX))
@@ -117,7 +117,7 @@ class FieldAccessCallingConventionX86 : public FieldAccessCallingConvention {
             ? Location::RegisterLocation(EDX)
             : Location::RegisterLocation(ECX));
   }
-  Location GetFpuLocation(Primitive::Type type ATTRIBUTE_UNUSED) const OVERRIDE {
+  Location GetFpuLocation(DataType::Type type ATTRIBUTE_UNUSED) const OVERRIDE {
     return Location::FpuRegisterLocation(XMM0);
   }
 
@@ -139,10 +139,10 @@ class ParallelMoveResolverX86 : public ParallelMoveResolverWithSwap {
 
  private:
   void Exchange(Register reg, int mem);
-  void Exchange(int mem1, int mem2);
   void Exchange32(XmmRegister reg, int mem);
-  void MoveMemoryToMemory32(int dst, int src);
-  void MoveMemoryToMemory64(int dst, int src);
+  void Exchange128(XmmRegister reg, int mem);
+  void ExchangeMemory(int mem1, int mem2, int number_of_words);
+  void MoveMemoryToMemory(int dst, int src, int number_of_words);
 
   CodeGeneratorX86* const codegen_;
 
@@ -321,7 +321,7 @@ class CodeGeneratorX86 : public CodeGenerator {
   void GenerateFrameExit() OVERRIDE;
   void Bind(HBasicBlock* block) OVERRIDE;
   void MoveConstant(Location destination, int32_t value) OVERRIDE;
-  void MoveLocation(Location dst, Location src, Primitive::Type dst_type) OVERRIDE;
+  void MoveLocation(Location dst, Location src, DataType::Type dst_type) OVERRIDE;
   void AddLocationAsTemp(Location location, LocationSummary* locations) OVERRIDE;
 
   size_t SaveCoreRegister(size_t stack_index, uint32_t reg_id) OVERRIDE;
@@ -414,24 +414,23 @@ class CodeGeneratorX86 : public CodeGenerator {
   void GenerateVirtualCall(
       HInvokeVirtual* invoke, Location temp, SlowPathCode* slow_path = nullptr) OVERRIDE;
 
-  void RecordBootMethodPatch(HInvokeStaticOrDirect* invoke);
-  Label* NewMethodBssEntryPatch(HX86ComputeBaseMethodAddress* method_address,
-                                MethodReference target_method);
-  void RecordBootTypePatch(HLoadClass* load_class);
+  void RecordBootImageMethodPatch(HInvokeStaticOrDirect* invoke);
+  void RecordMethodBssEntryPatch(HInvokeStaticOrDirect* invoke);
+  void RecordBootImageTypePatch(HLoadClass* load_class);
   Label* NewTypeBssEntryPatch(HLoadClass* load_class);
-  void RecordBootStringPatch(HLoadString* load_string);
+  void RecordBootImageStringPatch(HLoadString* load_string);
   Label* NewStringBssEntryPatch(HLoadString* load_string);
   Label* NewJitRootStringPatch(const DexFile& dex_file,
-                               dex::StringIndex dex_index,
+                               dex::StringIndex string_index,
                                Handle<mirror::String> handle);
   Label* NewJitRootClassPatch(const DexFile& dex_file,
-                              dex::TypeIndex dex_index,
+                              dex::TypeIndex type_index,
                               Handle<mirror::Class> handle);
 
-  void MoveFromReturnRegister(Location trg, Primitive::Type type) OVERRIDE;
+  void MoveFromReturnRegister(Location trg, DataType::Type type) OVERRIDE;
 
   // Emit linker patches.
-  void EmitLinkerPatches(ArenaVector<LinkerPatch>* linker_patches) OVERRIDE;
+  void EmitLinkerPatches(ArenaVector<linker::LinkerPatch>* linker_patches) OVERRIDE;
 
   void PatchJitRootUse(uint8_t* code,
                        const uint8_t* roots_data,
@@ -456,8 +455,8 @@ class CodeGeneratorX86 : public CodeGenerator {
     block_labels_ = CommonInitializeLabels<Label>();
   }
 
-  bool NeedsTwoRegisters(Primitive::Type type) const OVERRIDE {
-    return type == Primitive::kPrimLong;
+  bool NeedsTwoRegisters(DataType::Type type) const OVERRIDE {
+    return type == DataType::Type::kInt64;
   }
 
   bool ShouldSplitLongMoves() const OVERRIDE { return true; }
@@ -610,16 +609,16 @@ class CodeGeneratorX86 : public CodeGenerator {
  private:
   struct X86PcRelativePatchInfo : PatchInfo<Label> {
     X86PcRelativePatchInfo(HX86ComputeBaseMethodAddress* address,
-                           const DexFile& target_dex_file,
+                           const DexFile* target_dex_file,
                            uint32_t target_index)
         : PatchInfo(target_dex_file, target_index),
           method_address(address) {}
     HX86ComputeBaseMethodAddress* method_address;
   };
 
-  template <LinkerPatch (*Factory)(size_t, const DexFile*, uint32_t, uint32_t)>
+  template <linker::LinkerPatch (*Factory)(size_t, const DexFile*, uint32_t, uint32_t)>
   void EmitPcRelativeLinkerPatches(const ArenaDeque<X86PcRelativePatchInfo>& infos,
-                                   ArenaVector<LinkerPatch>* linker_patches);
+                                   ArenaVector<linker::LinkerPatch>* linker_patches);
 
   Register GetInvokeStaticOrDirectExtraParameter(HInvokeStaticOrDirect* invoke, Register temp);
 
@@ -640,8 +639,10 @@ class CodeGeneratorX86 : public CodeGenerator {
   ArenaDeque<X86PcRelativePatchInfo> boot_image_type_patches_;
   // Type patch locations for kBssEntry.
   ArenaDeque<X86PcRelativePatchInfo> type_bss_entry_patches_;
-  // String patch locations; type depends on configuration (app .bss or boot image).
-  ArenaDeque<X86PcRelativePatchInfo> string_patches_;
+  // String patch locations; type depends on configuration (intern table or boot image PIC).
+  ArenaDeque<X86PcRelativePatchInfo> boot_image_string_patches_;
+  // String patch locations for kBssEntry.
+  ArenaDeque<X86PcRelativePatchInfo> string_bss_entry_patches_;
 
   // Patches for string root accesses in JIT compiled code.
   ArenaDeque<PatchInfo<Label>> jit_string_patches_;

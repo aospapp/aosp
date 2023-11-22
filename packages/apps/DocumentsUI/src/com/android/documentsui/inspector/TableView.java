@@ -20,28 +20,29 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
+import android.view.View;
 import android.view.ViewGroup;
+import android.view.textclassifier.TextClassifier;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.android.documentsui.R;
+import com.android.documentsui.inspector.InspectorController.TableDisplay;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.annotation.Nullable;
-
-
 /**
  * Organizes and Displays the basic details about a file
  */
-public class TableView extends LinearLayout {
+public class TableView extends LinearLayout implements TableDisplay {
 
     private final LayoutInflater mInflater;
 
-    private final Map<String, KeyValueRow> mRows = new HashMap<>();
+    private final Map<CharSequence, KeyValueRow> mRows = new HashMap<>();
     private final Resources mRes;
-    private @Nullable TextView mTitle;
+    private final Map<CharSequence, TextView> mTitles = new HashMap<>();
+    private final TextClassifier mClassifier;
 
     public TableView(Context context) {
         this(context, null);
@@ -55,40 +56,77 @@ public class TableView extends LinearLayout {
         super(context, attrs, defStyleAttr);
         mInflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         mRes = context.getResources();
+        mClassifier = GpsCoordinatesTextClassifier.create(context);
     }
 
-    protected void setTitle(ViewGroup parent, @StringRes int title) {
-        if (mTitle == null) {
-            mTitle = (TextView) mInflater.inflate(R.layout.inspector_section_title, null);
-            parent.addView(mTitle);
+    void setTitle(@StringRes int title, boolean showDivider) {
+        putTitle(mContext.getResources().getString(title), showDivider);
+    }
+
+    // A naughty title method (that takes strings, not message ids), mostly for DebugView.
+    protected void putTitle(CharSequence title, boolean showDivider) {
+        TextView view = mTitles.get(title);
+        if (view == null) {
+            LinearLayout layout =
+                (LinearLayout) mInflater.inflate(R.layout.inspector_section_title, null);
+            if (!showDivider) {
+                layout.setDividerDrawable(null);
+            }
+            view = (TextView) layout.findViewById(R.id.inspector_header_title);
+            addView(layout);
+            mTitles.put(title, view);
         }
-        mTitle.setText(mContext.getResources().getString(title));
+        view.setText(title);
     }
 
     protected KeyValueRow createKeyValueRow(ViewGroup parent) {
         KeyValueRow row = (KeyValueRow) mInflater.inflate(R.layout.table_key_value_row, null);
         parent.addView(row);
+        row.setTextClassifier(mClassifier);
         return row;
     }
 
     /**
-     * Puts or updates an value in the table view.
+     * Puts or updates a value in the table view.
      */
-    protected void put(@StringRes int keyId, String value) {
+    @Override
+    public void put(@StringRes int keyId, CharSequence value) {
         put(mRes.getString(keyId), value);
     }
 
+
     /**
-     * Puts or updates an value in the table view.
+     * Puts or updates a value in the table view.
      */
-    protected void put(String key, String value) {
-        if(mRows.containsKey(key)) {
-            mRows.get(key).setValue(value);
-        } else {
-            KeyValueRow row = createKeyValueRow(this);
+    protected KeyValueRow put(CharSequence key, CharSequence value) {
+        KeyValueRow row = mRows.get(key);
+
+        if (row == null) {
+            row = createKeyValueRow(this);
             row.setKey(key);
-            row.setValue(value);
             mRows.put(key, row);
+        } else {
+            row.removeOnClickListener();
         }
+
+        row.setValue(value);
+        row.setTextClassifier(mClassifier);
+        return row;
+    }
+
+    @Override
+    public void put(@StringRes int keyId, CharSequence value, OnClickListener callback) {
+        put(keyId, value);
+        mRows.get(mRes.getString(keyId)).setOnClickListener(callback);
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return mRows.isEmpty();
+    }
+
+    @Override
+    public void setVisible(boolean visible) {
+        setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 }

@@ -15,16 +15,14 @@
 -->
 <configuration description="Config for CTS Native Media AAudio test cases">
     <option name="config-descriptor:metadata" key="component" value="media" />
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
-        <option name="cleanup" value="true" />
-        <option name="push" value="CtsNativeMediaAAudioTestCases->/data/local/tmp/CtsNativeMediaAAudioTestCases" />
-        <option name="append-bitness" value="true" />
+    <option name="test-suite-tag" value="cts" />
+    <option name="not-shardable" value="true" />
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="cleanup-apks" value="true" />
+        <option name="test-file-name" value="CtsNativeMediaAAudioTestCases.apk" />
     </target_preparer>
-    <test class="com.android.tradefed.testtype.GTest" >
-        <option name="native-test-device-path" value="/data/local/tmp" />
-        <option name="module-name" value="CtsNativeMediaAAudioTestCases" />
-        <option name="runtime-hint" value="2m" />
-        <!-- test-timeout unit is ms, value = 2 min -->
-        <option name="native-test-timeout" value="120000" />
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
+        <option name="package" value="android.nativemedia.aaudio" />
+        <option name="runtime-hint" value="2m0s" />
     </test>
 </configuration>

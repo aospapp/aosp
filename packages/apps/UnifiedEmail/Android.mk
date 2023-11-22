@@ -14,17 +14,6 @@
 
 LOCAL_PATH:= $(call my-dir)
 
-# Include res dir from chips
-chips_dir := ../../../frameworks/opt/chips/res
-
-#Include res dir from libraries
-appcompat_dir := ../../../$(SUPPORT_LIBRARY_ROOT)/v7/appcompat/res
-photo_dir := ../../../frameworks/opt/photoviewer/res ../../../frameworks/opt/photoviewer/appcompat/res
-gridlayout_dir := ../../../$(SUPPORT_LIBRARY_ROOT)/v7/gridlayout/res
-bitmap_dir := ../../../frameworks/opt/bitmap/res
-datetimepicker_dir := ../../../frameworks/opt/datetimepicker/res
-res_dirs := res $(appcompat_dir) $(chips_dir) $(photo_dir) $(gridlayout_dir) $(bitmap_dir) $(datetimepicker_dir)
-
 ##################################################
 # Build APK
 include $(CLEAR_VARS)
@@ -32,25 +21,34 @@ include $(CLEAR_VARS)
 src_dirs := src unified_src
 LOCAL_PACKAGE_NAME := UnifiedEmail
 
-LOCAL_STATIC_JAVA_LIBRARIES := libchips
-LOCAL_STATIC_JAVA_LIBRARIES += libphotoviewer_appcompat
-LOCAL_STATIC_JAVA_LIBRARIES += guava
-LOCAL_STATIC_JAVA_LIBRARIES += android-common
-LOCAL_STATIC_JAVA_LIBRARIES += android-support-v4
-LOCAL_STATIC_JAVA_LIBRARIES += android-support-v7-appcompat
-LOCAL_STATIC_JAVA_LIBRARIES += android-support-v7-gridlayout
-LOCAL_STATIC_JAVA_LIBRARIES += android-support-v13
-LOCAL_STATIC_JAVA_LIBRARIES += android-opt-bitmap
-LOCAL_STATIC_JAVA_LIBRARIES += android-opt-datetimepicker
-LOCAL_STATIC_JAVA_LIBRARIES += owasp-html-sanitizer
+LOCAL_STATIC_ANDROID_LIBRARIES := \
+    libchips \
+    libphotoviewer_appcompat \
+    android-support-compat \
+    android-support-media-compat \
+    android-support-core-utils \
+    android-support-core-ui \
+    android-support-fragment \
+    android-support-v7-appcompat \
+    android-support-v7-gridlayout \
+    android-support-v13 \
+    android-opt-bitmap \
+    android-opt-datetimepicker
+
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    android-support-annotations \
+    guava \
+    android-common \
+    owasp-html-sanitizer
 
 LOCAL_SDK_VERSION := current
 
 LOCAL_SRC_FILES := $(call all-java-files-under, $(src_dirs)) \
         $(call all-logtags-files-under, $(src_dirs))
-LOCAL_RESOURCE_DIR := $(addprefix $(LOCAL_PATH)/, $(res_dirs))
-LOCAL_AAPT_FLAGS := --auto-add-overlay
-LOCAL_AAPT_FLAGS += --extra-packages com.android.ex.chips:com.android.ex.photo:android.support.v7.appcompat:android.support.v7.gridlayout:com.android.bitmap:com.android.datetimepicker
+
+LOCAL_USE_AAPT2 := true
+
+LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 ifeq (eng,$(TARGET_BUILD_VARIANT))

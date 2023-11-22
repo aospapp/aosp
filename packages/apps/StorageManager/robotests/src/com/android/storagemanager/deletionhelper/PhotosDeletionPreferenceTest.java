@@ -99,7 +99,7 @@ public class PhotosDeletionPreferenceTest {
         mPreference.onBindViewHolder(mHolder);
 
         assertThat(mPreference.getTitle()).isEqualTo("Backed up photos & videos");
-        assertThat(mPreference.getSummary().toString()).isEqualTo("1.00KB");
+        assertThat(mPreference.getSummary().toString()).isEqualTo("1.00 KB");
     }
 
     @Test

@@ -26,9 +26,8 @@ import android.support.v17.leanback.app.GuidedStepFragment;
 import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
 import android.support.v17.leanback.widget.GuidedAction;
 import android.text.format.DateUtils;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.data.Program;
 import com.android.tv.dvr.DvrManager;
@@ -36,21 +35,17 @@ import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.ui.DvrConflictFragment.DvrProgramConflictFragment;
 import com.android.tv.util.Utils;
-
 import java.util.Collections;
 import java.util.List;
 
 /**
  * A fragment which asks the user the type of the recording.
- * <p>
- * The program should be episodic and the series recording should not had been created yet.
+ *
+ * <p>The program should be episodic and the series recording should not had been created yet.
  */
 @TargetApi(Build.VERSION_CODES.N)
 public class DvrScheduleFragment extends DvrGuidedStepFragment {
-    /**
-     * Key for the whether to add the current program to series.
-     * Type: boolean
-     */
+    /** Key for the whether to add the current program to series. Type: boolean */
     public static final String KEY_ADD_CURRENT_PROGRAM_TO_SERIES = "add_current_program_to_series";
 
     private static final String TAG = "DvrScheduleFragment";
@@ -68,13 +63,18 @@ public class DvrScheduleFragment extends DvrGuidedStepFragment {
             mProgram = args.getParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM);
             mAddCurrentProgramToSeries = args.getBoolean(KEY_ADD_CURRENT_PROGRAM_TO_SERIES, false);
         }
-        DvrManager dvrManager = TvApplication.getSingletons(getContext()).getDvrManager();
-        SoftPreconditions.checkArgument(mProgram != null && mProgram.isEpisodic(), TAG,
-                "The program should be episodic: " + mProgram);
+        DvrManager dvrManager = TvSingletons.getSingletons(getContext()).getDvrManager();
+        SoftPreconditions.checkArgument(
+                mProgram != null && mProgram.isEpisodic(),
+                TAG,
+                "The program should be episodic: %s ",
+                mProgram);
         SeriesRecording seriesRecording = dvrManager.getSeriesRecording(mProgram);
-        SoftPreconditions.checkArgument(seriesRecording == null
-                || seriesRecording.isStopped(), TAG,
-                "The series recording should be stopped or null: " + seriesRecording);
+        SoftPreconditions.checkArgument(
+                seriesRecording == null || seriesRecording.isStopped(),
+                TAG,
+                "The series recording should be stopped or null: %s",
+                seriesRecording);
         super.onCreate(savedInstanceState);
     }
 
@@ -96,23 +96,33 @@ public class DvrScheduleFragment extends DvrGuidedStepFragment {
         Context context = getContext();
         String description;
         if (mProgram.getStartTimeUtcMillis() <= System.currentTimeMillis()) {
-            description = getString(R.string.dvr_action_record_episode_from_now_description,
-                    DateUtils.formatDateTime(context, mProgram.getEndTimeUtcMillis(),
-                            DateUtils.FORMAT_SHOW_TIME));
+            description =
+                    getString(
+                            R.string.dvr_action_record_episode_from_now_description,
+                            DateUtils.formatDateTime(
+                                    context,
+                                    mProgram.getEndTimeUtcMillis(),
+                                    DateUtils.FORMAT_SHOW_TIME));
         } else {
-            description = Utils.getDurationString(context, mProgram.getStartTimeUtcMillis(),
-                    mProgram.getEndTimeUtcMillis(), true);
+            description =
+                    Utils.getDurationString(
+                            context,
+                            mProgram.getStartTimeUtcMillis(),
+                            mProgram.getEndTimeUtcMillis(),
+                            true);
         }
-        actions.add(new GuidedAction.Builder(context)
-                .id(ACTION_RECORD_EPISODE)
-                .title(R.string.dvr_action_record_episode)
-                .description(description)
-                .build());
-        actions.add(new GuidedAction.Builder(context)
-                .id(ACTION_RECORD_SERIES)
-                .title(R.string.dvr_action_record_series)
-                .description(mProgram.getTitle())
-                .build());
+        actions.add(
+                new GuidedAction.Builder(context)
+                        .id(ACTION_RECORD_EPISODE)
+                        .title(R.string.dvr_action_record_episode)
+                        .description(description)
+                        .build());
+        actions.add(
+                new GuidedAction.Builder(context)
+                        .id(ACTION_RECORD_SERIES)
+                        .title(R.string.dvr_action_record_series)
+                        .description(mProgram.getTitle())
+                        .build());
     }
 
     @Override
@@ -121,34 +131,50 @@ public class DvrScheduleFragment extends DvrGuidedStepFragment {
             getDvrManager().addSchedule(mProgram);
             List<ScheduledRecording> conflicts = getDvrManager().getConflictingSchedules(mProgram);
             if (conflicts.isEmpty()) {
-                DvrUiHelper.showAddScheduleToast(getContext(), mProgram.getTitle(),
-                        mProgram.getStartTimeUtcMillis(), mProgram.getEndTimeUtcMillis());
+                DvrUiHelper.showAddScheduleToast(
+                        getContext(),
+                        mProgram.getTitle(),
+                        mProgram.getStartTimeUtcMillis(),
+                        mProgram.getEndTimeUtcMillis());
                 dismissDialog();
             } else {
                 GuidedStepFragment fragment = new DvrProgramConflictFragment();
                 Bundle args = new Bundle();
                 args.putParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM, mProgram);
                 fragment.setArguments(args);
-                GuidedStepFragment.add(getFragmentManager(), fragment,
-                        R.id.halfsized_dialog_host);
+                GuidedStepFragment.add(getFragmentManager(), fragment, R.id.halfsized_dialog_host);
             }
         } else if (action.getId() == ACTION_RECORD_SERIES) {
-            SeriesRecording seriesRecording = TvApplication.getSingletons(getContext())
-                    .getDvrDataManager().getSeriesRecording(mProgram.getSeriesId());
+            SeriesRecording seriesRecording =
+                    TvSingletons.getSingletons(getContext())
+                            .getDvrDataManager()
+                            .getSeriesRecording(mProgram.getSeriesId());
             if (seriesRecording == null) {
-                seriesRecording = getDvrManager().addSeriesRecording(mProgram,
-                        Collections.emptyList(), SeriesRecording.STATE_SERIES_STOPPED);
+                seriesRecording =
+                        getDvrManager()
+                                .addSeriesRecording(
+                                        mProgram,
+                                        Collections.emptyList(),
+                                        SeriesRecording.STATE_SERIES_STOPPED);
             } else {
                 // Reset priority to the highest.
-                seriesRecording = SeriesRecording.buildFrom(seriesRecording)
-                        .setPriority(TvApplication.getSingletons(getContext())
-                                .getDvrScheduleManager().suggestNewSeriesPriority())
-                        .build();
+                seriesRecording =
+                        SeriesRecording.buildFrom(seriesRecording)
+                                .setPriority(
+                                        TvSingletons.getSingletons(getContext())
+                                                .getDvrScheduleManager()
+                                                .suggestNewSeriesPriority())
+                                .build();
                 getDvrManager().updateSeriesRecording(seriesRecording);
             }
 
-            DvrUiHelper.startSeriesSettingsActivity(getContext(),
-                    seriesRecording.getId(), null, true, true, true,
+            DvrUiHelper.startSeriesSettingsActivity(
+                    getContext(),
+                    seriesRecording.getId(),
+                    null,
+                    true,
+                    true,
+                    true,
                     mAddCurrentProgramToSeries ? mProgram : null);
             dismissDialog();
         }

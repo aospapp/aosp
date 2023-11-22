@@ -13,10 +13,12 @@
 package android.icu.dev.test.duration.languages;
 
 import android.icu.dev.test.duration.LanguageTestFmwk;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Test cases for en
  */
+@MainTestShard
 public class Test_en extends LanguageTestFmwk {
   public Test_en() {
     super("en", false);

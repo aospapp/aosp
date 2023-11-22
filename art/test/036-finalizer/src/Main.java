@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,8 @@ import java.util.List;
  * immediately or very soon.
  */
 public class Main {
+    private final static boolean isDalvik = System.getProperty("java.vm.name").equals("Dalvik");
+
     private static void snooze(int ms) {
         try {
             Thread.sleep(ms);
@@ -72,6 +75,7 @@ public class Main {
         // Reference ft so we are sure the WeakReference cannot be cleared.
         FinalizerTest keepLive = wimp.get();
         System.out.println("wimp: " + wimpString(wimp));
+        Reference.reachabilityFence(keepLive);
     }
 
     public static void main(String[] args) {
@@ -146,18 +150,22 @@ public class Main {
       allocFinalizableObjects(FinalizeCounter.maxCount);
       Runtime.getRuntime().gc();
       System.runFinalization();
-      System.out.println("Finalized " + FinalizeCounter.getCount() + " / "  + FinalizeCounter.maxCount);
       if (FinalizeCounter.getCount() != FinalizeCounter.maxCount) {
-        // Print out all the finalized elements.
-        FinalizeCounter.printNonFinalized();
+        if (isDalvik) {
+          // runFinalization is "expend effort", only ART makes a strong effort all finalizers ran.
+          System.out.println("Finalized " + FinalizeCounter.getCount() + " / "  + FinalizeCounter.maxCount);
+          // Print out all the finalized elements.
+          FinalizeCounter.printNonFinalized();
+        }
         // Try to sleep for a couple seconds to see if the objects became finalized after.
         try {
           java.lang.Thread.sleep(2000);
         } catch (InterruptedException e) {
+          throw new AssertionError(e);
         }
-        System.out.println("After sleep finalized " + FinalizeCounter.getCount() + " / "  + FinalizeCounter.maxCount);
-        FinalizeCounter.printNonFinalized();
       }
+      System.out.println("After sleep finalized " + FinalizeCounter.getCount() + " / "  + FinalizeCounter.maxCount);
+      FinalizeCounter.printNonFinalized();
     }
 
     public static class FinalizerTest {

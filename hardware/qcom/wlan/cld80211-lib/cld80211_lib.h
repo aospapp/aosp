@@ -55,11 +55,16 @@ struct cld80211_ctx {
  * CLD80211_ATTR_VENDOR_DATA: Embed all other attributes in this nested
  *                            attribute.
  * CLD80211_ATTR_DATA: Embed driver/application data in this attribute
+ * CLD80211_ATTR_META_DATA: Embed meta data for above data. This will  help
+ * wlan driver to peek into request message packet without opening up definition
+ * of complete request message.
+ *
  * Any new message in future can be added as another attribute
  */
 enum cld80211_attr {
 	CLD80211_ATTR_VENDOR_DATA = 1,
 	CLD80211_ATTR_DATA,
+	CLD80211_ATTR_META_DATA,
 
 	__CLD80211_ATTR_AFTER_LAST,
 	CLD80211_ATTR_MAX = __CLD80211_ATTR_AFTER_LAST - 1

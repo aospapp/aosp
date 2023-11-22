@@ -58,7 +58,7 @@ func (tidy *tidyFeature) flags(ctx ModuleContext, flags Flags) Flags {
 	}
 
 	// If not explicitly set, check the global tidy flag
-	if tidy.Properties.Tidy == nil && !ctx.AConfig().ClangTidy() {
+	if tidy.Properties.Tidy == nil && !ctx.Config().ClangTidy() {
 		return flags
 	}
 
@@ -77,12 +77,18 @@ func (tidy *tidyFeature) flags(ctx ModuleContext, flags Flags) Flags {
 		flags.TidyFlags = append(flags.TidyFlags, headerFilter)
 	}
 
+	// If clang-tidy is not enabled globally, add the -quiet flag.
+	if !ctx.Config().ClangTidy() {
+		flags.TidyFlags = append(flags.TidyFlags, "-quiet")
+		flags.TidyFlags = append(flags.TidyFlags, "-extra-arg-before=-fno-caret-diagnostics")
+	}
+
 	// We might be using the static analyzer through clang tidy.
 	// https://bugs.llvm.org/show_bug.cgi?id=32914
 	flags.TidyFlags = append(flags.TidyFlags, "-extra-arg-before=-D__clang_analyzer__")
 
 	tidyChecks := "-checks="
-	if checks := ctx.AConfig().TidyChecks(); len(checks) > 0 {
+	if checks := ctx.Config().TidyChecks(); len(checks) > 0 {
 		tidyChecks += checks
 	} else {
 		tidyChecks += config.TidyChecksForDir(ctx.ModuleDir())

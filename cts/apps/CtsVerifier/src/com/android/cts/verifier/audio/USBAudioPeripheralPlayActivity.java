@@ -50,9 +50,10 @@ public class USBAudioPeripheralPlayActivity extends USBAudioPeripheralPlayerActi
 
     //
     // USBAudioPeripheralActivity
-    //
+    // Headset not publicly available, violates CTS Verifier additional equipment guidelines.
     public void updateConnectStatus() {
-        getPassButton().setEnabled(mOutputDevInfo != null);
+        mPlayBtn.setEnabled(mIsPeripheralAttached && mSelectedProfile != null);
+        getPassButton().setEnabled(mSelectedProfile != null && mOutputDevInfo != null);
     }
 
     public class LocalClickListener implements View.OnClickListener {

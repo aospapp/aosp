@@ -16,13 +16,14 @@
 package com.android.performance.tests;
 
 import com.android.ddmlib.MultiLineReceiver;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.AbiFormatter;
@@ -30,17 +31,18 @@ import com.android.tradefed.util.SimplePerfStatResultParser;
 import com.android.tradefed.util.SimplePerfUtil;
 import com.android.tradefed.util.SimplePerfUtil.SimplePerfType;
 import com.android.tradefed.util.SimpleStats;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.junit.Assert;
 
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -123,6 +125,12 @@ public class MicroBenchTest implements IDeviceTest, IRemoteTest {
 
     @Option(name = "simpleperf-argu", description = "simpleperf arguments")
     private List<String> mSimpleperfArgu = new ArrayList<String>();
+
+    @Option(
+        name = "simpleperf-cmd-timeout",
+        description = "Timeout (in seconds) while running simpleperf shell command."
+    )
+    private int mSimpleperfCmdTimeout = 240;
 
     String mFormattedBinaryName = null;
     ITestDevice mTestDevice = null;
@@ -282,13 +290,12 @@ public class MicroBenchTest implements IDeviceTest, IRemoteTest {
 
             CLog.i("Running %s test", mTestName);
 
-            TestIdentifier testId = new TestIdentifier(getClass().getCanonicalName(),
-                    mTestKey);
+            TestDescription testId = new TestDescription(getClass().getCanonicalName(), mTestKey);
             listener.testStarted(testId);
             final String cmd = String.format(mCommand, mFormattedBinaryName, mIterations);
 
             if (mSimpleperfMode) {
-                mSpUtil.executeCommand(cmd, mReceiver);
+                mSpUtil.executeCommand(cmd, mReceiver, mSimpleperfCmdTimeout, TimeUnit.SECONDS, 1);
             } else {
                 mTestDevice.executeShellCommand(cmd, mReceiver);
             }
@@ -306,8 +313,7 @@ public class MicroBenchTest implements IDeviceTest, IRemoteTest {
                 listener.testFailed(testId,
                         "Iteration count mismatch (see host log).");
             }
-            Map<String, String> emptyMap = Collections.emptyMap();
-            listener.testEnded(testId, emptyMap);
+            listener.testEnded(testId, new HashMap<String, Metric>());
         }
 
         /**
@@ -444,7 +450,9 @@ public class MicroBenchTest implements IDeviceTest, IRemoteTest {
             for (TestCase test : testCases) {
                 test.runTest(listener, metrics);
             }
-            listener.testRunEnded((System.currentTimeMillis() - beginTime), metrics);
+            listener.testRunEnded(
+                    (System.currentTimeMillis() - beginTime),
+                    TfMetricProtoUtil.upgradeConvert(metrics));
         }
 
         if (mStopFramework) {

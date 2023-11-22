@@ -36,10 +36,10 @@ class firmware_TPMKernelVersion(FirmwareTest):
 
     def cleanup(self):
         """Reboot device from SSD."""
-        if self.faft_client.system.is_removable_device_boot():
-          logging.info('Reboot into internal disk...')
-          self.faft_client.system.set_dev_boot_usb(self.original_dev_boot_usb)
-          self.switcher.mode_aware_reboot()
+        try:
+            self.ensure_dev_internal_boot(self.original_dev_boot_usb)
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_TPMKernelVersion, self).cleanup()
 
     def run_once(self):
@@ -58,8 +58,8 @@ class firmware_TPMKernelVersion(FirmwareTest):
         self.switcher.wait_for_client()
 
         # Check that DUT is booted from USB.
-        self.check_state((self.checkers.crossystem_checker,
-                          {'kernkey_vfy': 'hash'}))
+        self.check_state((self.checkers.dev_boot_usb_checker, (True, True),
+                          'Device not booted from USB image properly.'))
 
         out = self.dut_run_cmd('crossystem tpm_kernver tpm_fwver')
         (kernver, fwver) = out[0].split(' ')

@@ -11,7 +11,11 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
 
-ATTRIBUTES = "suite:kernel_per-build_regression, suite:partners"
+# Added to usb_detect suite running on high-touch lab pool
+# to temporarily check the test is healthy
+# TODO (sontis, kalin):
+# Move to bvt-perbuild after verifying test is WAI on usb_detect
+ATTRIBUTES = "suite:usb_detect, suite:partners"
 
 DOC = """
 This test requests a brightness level to be set after resume.  It then triggers

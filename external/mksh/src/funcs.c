@@ -38,7 +38,7 @@
 #endif
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/funcs.c,v 1.340 2017/04/12 17:46:29 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/funcs.c,v 1.353 2018/01/14 01:26:49 tg Exp $");
 
 #if HAVE_KILLPG
 /*
@@ -594,7 +594,7 @@ c_print(const char **wp)
 static int
 s_get(void)
 {
-	return (*s_ptr++);
+	return (ord(*s_ptr++));
 }
 
 static void
@@ -751,11 +751,15 @@ do_whence(const char **wp, int fcflags, bool vflag, bool iscommand)
 bool
 valid_alias_name(const char *cp)
 {
+	if (ord(*cp) == ORD('-'))
+		return (false);
+	if (ord(cp[0]) == ORD('[') && ord(cp[1]) == ORD('[') && !cp[2])
+		return (false);
 	while (*cp)
-		if (!ksh_isalias(*cp))
-			return (false);
-		else
+		if (ctype(*cp, C_ALIAS))
 			++cp;
+		else
+			return (false);
 	return (true);
 }
 
@@ -764,7 +768,7 @@ c_alias(const char **wp)
 {
 	struct table *t = &aliases;
 	int rv = 0, prefix = 0;
-	bool rflag = false, tflag, Uflag = false, pflag = false;
+	bool rflag = false, tflag, Uflag = false, pflag = false, chkalias;
 	uint32_t xflag = 0;
 	int optc;
 
@@ -809,12 +813,13 @@ c_alias(const char **wp)
 	wp += builtin_opt.optind;
 
 	if (!(builtin_opt.info & GI_MINUSMINUS) && *wp &&
-	    (wp[0][0] == '-' || wp[0][0] == '+') && wp[0][1] == '\0') {
+	    ctype(wp[0][0], C_MINUS | C_PLUS) && wp[0][1] == '\0') {
 		prefix = wp[0][0];
 		wp++;
 	}
 
 	tflag = t == &taliases;
+	chkalias = t == &aliases;
 
 	/* "hash -r" means reset all the tracked aliases.. */
 	if (rflag) {
@@ -857,7 +862,7 @@ c_alias(const char **wp)
 			strndupx(xalias, alias, val++ - alias, ATEMP);
 			alias = xalias;
 		}
-		if (!valid_alias_name(alias) || *alias == '-') {
+		if (chkalias && !valid_alias_name(alias)) {
 			bi_errorf(Tinvname, alias, Talias);
 			afree(xalias, ATEMP);
 			return (1);
@@ -1072,8 +1077,7 @@ c_kill(const char **wp)
 	int i, n, rv, sig;
 
 	/* assume old style options if -digits or -UPPERCASE */
-	if ((p = wp[1]) && *p == '-' && (ksh_isdigit(p[1]) ||
-	    ksh_isupper(p[1]))) {
+	if ((p = wp[1]) && *p == '-' && ctype(p[1], C_DIGIT | C_UPPER)) {
 		if (!(t = gettrap(p + 1, false, false))) {
 			bi_errorf(Tbad_sig_s, p + 1);
 			return (1);
@@ -1422,9 +1426,9 @@ c_umask(const char **wp)
 	} else {
 		mode_t new_umask;
 
-		if (ksh_isdigit(*cp)) {
+		if (ctype(*cp, C_DIGIT)) {
 			new_umask = 0;
-			while (*cp >= ord('0') && *cp <= ord('7')) {
+			while (ctype(*cp, C_OCTAL)) {
 				new_umask = new_umask * 8 + ksh_numdig(*cp);
 				++cp;
 			}
@@ -1462,7 +1466,7 @@ c_umask(const char **wp)
 				if (!positions)
 					/* default is a */
 					positions = 0111;
-				if (!vstrchr("=+-", op = *cp))
+				if (!ctype((op = *cp), C_EQUAL | C_MINUS | C_PLUS))
 					break;
 				cp++;
 				new_val = 0;
@@ -1503,7 +1507,7 @@ c_umask(const char **wp)
 				if (*cp == ',') {
 					positions = 0;
 					cp++;
-				} else if (!vstrchr("=+-", *cp))
+				} else if (!ctype(*cp, C_EQUAL | C_MINUS | C_PLUS))
 					break;
 			}
 			if (*cp) {
@@ -1585,7 +1589,7 @@ c_wait(const char **wp)
 	return (rv);
 }
 
-static char REPLY[] = "REPLY";
+static const char REPLY[] = "REPLY";
 int
 c_read(const char **wp)
 {
@@ -2300,8 +2304,9 @@ c_unset(const char **wp)
 			size_t n;
 
 			n = strlen(id);
-			if (n > 3 && id[n-3] == '[' && id[n-2] == '*' &&
-			    id[n-1] == ']') {
+			if (n > 3 && ord(id[n - 3]) == ORD('[') &&
+			    ord(id[n - 2]) == ORD('*') &&
+			    ord(id[n - 1]) == ORD(']')) {
 				strndupx(cp, id, n - 3, ATEMP);
 				id = cp;
 				optc = 3;
@@ -3350,7 +3355,7 @@ set_ulimit(const struct limits *l, const char *v, int how)
 		 * If this causes problems, will have to add parameter to
 		 * evaluate() to control if unset params are 0 or an error.
 		 */
-		if (!rval && !ksh_isdigit(v[0])) {
+		if (!rval && !ctype(v[0], C_DIGIT)) {
 			bi_errorf("invalid %s limit: %s", l->name, v);
 			return (1);
 		}
@@ -3534,7 +3539,7 @@ c_cat(const char **wp)
 					continue;
 				}
 				if (errno == EPIPE) {
-					/* fake receiving signel */
+					/* fake receiving signal */
 					rv = ksh_sigmask(SIGPIPE);
 				} else {
 					/* an error occured during writing */

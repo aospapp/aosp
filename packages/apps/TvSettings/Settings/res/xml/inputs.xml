@@ -19,32 +19,36 @@
     android:title="@string/inputs_inputs">
     <PreferenceCategory
         android:key="connected_inputs"
-        android:orderingFromXml="false" />
+        android:orderingFromXml="false"
+        android:layout="@layout/preference_category_compact_layout"/>
 
     <PreferenceCategory
         android:key="standby_inputs"
-        android:orderingFromXml="false" />
+        android:orderingFromXml="false"
+        android:layout="@layout/preference_category_compact_layout"/>
 
     <PreferenceCategory
         android:key="disconnected_inputs"
-        android:orderingFromXml="false" />
+        android:orderingFromXml="false"
+        android:layout="@layout/preference_category_compact_layout"/>
 
     <PreferenceCategory
         android:key="cec"
-        android:title="@string/inputs_header_cec" >
+        android:title="@string/inputs_header_cec"
+        android:layout="@layout/preference_category_compact_layout" >
         <SwitchPreference
             android:key="hdmi_control"
-            android:persistent="false"
+            android:persistent="true"
             android:title="@string/inputs_hdmi_control"
             android:summary="@string/inputs_hdmi_control_desc" />
         <SwitchPreference
             android:key="device_auto_off"
-            android:persistent="false"
+            android:persistent="true"
             android:title="@string/inputs_device_auto_off"
             android:summary="@string/inputs_device_auto_off_desc" />
         <SwitchPreference
             android:key="tv_auto_on"
-            android:persistent="false"
+            android:persistent="true"
             android:title="@string/inputs_tv_auto_on"
             android:summary="@string/inputs_tv_auto_on_desc" />
     </PreferenceCategory>

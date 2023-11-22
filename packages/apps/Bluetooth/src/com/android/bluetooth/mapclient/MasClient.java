@@ -34,6 +34,7 @@ import java.lang.ref.WeakReference;
 import javax.obex.ClientSession;
 import javax.obex.HeaderSet;
 import javax.obex.ResponseCodes;
+
 /* MasClient is a one time use connection to a server defined by the SDP record passed in at
  * construction.  After use shutdown() must be called to properly clean up.
  */
@@ -45,12 +46,28 @@ public class MasClient {
     private static final boolean DBG = MapClientService.DBG;
     private static final boolean VDBG = MapClientService.VDBG;
     private static final byte[] BLUETOOTH_UUID_OBEX_MAS = new byte[]{
-            (byte) 0xbb, 0x58, 0x2b, 0x40, 0x42, 0x0c, 0x11, (byte) 0xdb, (byte) 0xb0, (byte) 0xde,
-            0x08, 0x00, 0x20, 0x0c, (byte) 0x9a, 0x66
+            (byte) 0xbb,
+            0x58,
+            0x2b,
+            0x40,
+            0x42,
+            0x0c,
+            0x11,
+            (byte) 0xdb,
+            (byte) 0xb0,
+            (byte) 0xde,
+            0x08,
+            0x00,
+            0x20,
+            0x0c,
+            (byte) 0x9a,
+            0x66
     };
     private static final byte OAP_TAGID_MAP_SUPPORTED_FEATURES = 0x29;
     private static final int MAP_FEATURE_NOTIFICATION_REGISTRATION = 0x00000001;
-    private static final int MAP_SUPPORTED_FEATURES = MAP_FEATURE_NOTIFICATION_REGISTRATION;
+    private static final int MAP_FEATURE_NOTIFICATION = 0x00000002;
+    static final int MAP_SUPPORTED_FEATURES =
+            MAP_FEATURE_NOTIFICATION_REGISTRATION | MAP_FEATURE_NOTIFICATION;
 
     private final StateMachine mCallback;
     private Handler mHandler;
@@ -58,23 +75,23 @@ public class MasClient {
     private BluetoothObexTransport mTransport;
     private BluetoothDevice mRemoteDevice;
     private ClientSession mSession;
-    private HandlerThread thread;
+    private HandlerThread mThread;
     private boolean mConnected = false;
     SdpMasRecord mSdpMasRecord;
 
-    public MasClient(BluetoothDevice remoteDevice,
-            StateMachine callback, SdpMasRecord sdpMasRecord) {
+    public MasClient(BluetoothDevice remoteDevice, StateMachine callback,
+            SdpMasRecord sdpMasRecord) {
         if (remoteDevice == null) {
             throw new NullPointerException("Obex transport is null");
         }
         mRemoteDevice = remoteDevice;
         mCallback = callback;
         mSdpMasRecord = sdpMasRecord;
-        thread = new HandlerThread("Client");
-        thread.start();
+        mThread = new HandlerThread("Client");
+        mThread.start();
         /* This will block until the looper have started, hence it will be safe to use it,
            when the constructor completes */
-        Looper looper = thread.getLooper();
+        Looper looper = mThread.getLooper();
         mHandler = new MasClientHandler(looper, this);
 
         mHandler.obtainMessage(CONNECT).sendToTarget();
@@ -96,8 +113,7 @@ public class MasClient {
             headerset.setHeader(HeaderSet.TARGET, BLUETOOTH_UUID_OBEX_MAS);
             ObexAppParameters oap = new ObexAppParameters();
 
-            oap.add(OAP_TAGID_MAP_SUPPORTED_FEATURES,
-                    MAP_SUPPORTED_FEATURES);
+            oap.add(OAP_TAGID_MAP_SUPPORTED_FEATURES, MAP_SUPPORTED_FEATURES);
 
             oap.addToHeaderSet(headerset);
 
@@ -105,10 +121,11 @@ public class MasClient {
             Log.d(TAG, "Connection results" + headerset.getResponseCode());
 
             if (headerset.getResponseCode() == ResponseCodes.OBEX_HTTP_OK) {
-                if (DBG) Log.d(TAG, "Connection Successful");
+                if (DBG) {
+                    Log.d(TAG, "Connection Successful");
+                }
                 mConnected = true;
-                mCallback.obtainMessage(
-                        MceStateMachine.MSG_MAS_CONNECTED).sendToTarget();
+                mCallback.sendMessage(MceStateMachine.MSG_MAS_CONNECTED);
             } else {
                 disconnect();
             }
@@ -135,23 +152,26 @@ public class MasClient {
         }
 
         mConnected = false;
-        mCallback.obtainMessage(MceStateMachine.MSG_MAS_DISCONNECTED).sendToTarget();
+        mCallback.sendMessage(MceStateMachine.MSG_MAS_DISCONNECTED);
     }
 
     private void executeRequest(Request request) {
         try {
             request.execute(mSession);
-            mCallback.obtainMessage(MceStateMachine.MSG_MAS_REQUEST_COMPLETED,
-                    request).sendToTarget();
+            mCallback.sendMessage(MceStateMachine.MSG_MAS_REQUEST_COMPLETED, request);
         } catch (IOException e) {
-            if (DBG) Log.d(TAG, "Request failed: " + request);
+            if (DBG) {
+                Log.d(TAG, "Request failed: " + request);
+            }
             // Disconnect to cleanup.
             disconnect();
         }
     }
 
     public boolean makeRequest(Request request) {
-        if (DBG) Log.d(TAG, "makeRequest called with: " + request);
+        if (DBG) {
+            Log.d(TAG, "makeRequest called with: " + request);
+        }
 
         boolean status = mHandler.sendMessage(mHandler.obtainMessage(REQUEST, request));
         if (!status) {
@@ -163,7 +183,7 @@ public class MasClient {
 
     public void shutdown() {
         mHandler.obtainMessage(DISCONNECT).sendToTarget();
-        thread.quitSafely();
+        mThread.quitSafely();
     }
 
     public enum CharsetType {

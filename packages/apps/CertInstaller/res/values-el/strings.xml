@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN και εφαρμογές"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Σημείωση: Ο εκδότης αυτού του πιστοποιητικού μπορεί να επιθεωρήσει όλη την επισκεψιμότητα από και προς τη συσκευή."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Προφίλ Wi-Fi"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"Λεπτομέρειες για %s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Λεπτομέρειες"</string>

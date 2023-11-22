@@ -35,17 +35,13 @@
  *  KEYS: Fix race between read and revoke
  */
 
-#include "config.h"
 #include <errno.h>
 #include <pthread.h>
 #include <sys/types.h>
-#ifdef HAVE_KEYUTILS_H
-# include <keyutils.h>
-#endif
+
 #include "tst_safe_pthread.h"
 #include "tst_test.h"
-
-#ifdef HAVE_KEYUTILS_H
+#include "lapi/keyctl.h"
 
 #define LOOPS	20000
 #define PATH_KEY_COUNT_QUOTA	"/proc/sys/kernel/keys/root_maxkeys"
@@ -114,13 +110,8 @@ static void cleanup(void)
 }
 
 static struct tst_test test = {
-	.tid = "keyctl02",
 	.needs_root = 1,
 	.setup = setup,
 	.cleanup = cleanup,
 	.test_all = do_test,
 };
-
-#else
-	TST_TEST_TCONF("keyutils.h does not exist");
-#endif /* HAVE_KEYUTILS_H */

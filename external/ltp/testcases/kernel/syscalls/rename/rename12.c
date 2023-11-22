@@ -194,14 +194,9 @@ void setup(void)
 	sprintf(mname, "%s/rnfile_%d", fdir, getpid());
 
 	/* create a directory */
-	if (mkdir(fdir, PERMS) == -1) {
-		tst_brkm(TBROK, cleanup, "Could not create directory %s", fdir);
-	}
+	SAFE_MKDIR(cleanup, fdir, PERMS);
 
-	if (stat(fdir, &buf1) == -1) {
-		tst_brkm(TBROK, cleanup, "failed to stat directory %s", fdir);
-
-	}
+	SAFE_STAT(cleanup, fdir, &buf1);
 
 	/* set the sticky bit */
 	if (chmod(fdir, buf1.st_mode | S_ISVTX) != 0) {

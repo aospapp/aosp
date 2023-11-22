@@ -16,6 +16,7 @@
 package android.car.cluster.sample;
 
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+
 import static java.lang.Integer.parseInt;
 
 import android.app.ActivityOptions;
@@ -24,18 +25,16 @@ import android.car.cluster.ClusterActivityState;
 import android.car.cluster.renderer.InstrumentClusterRenderingService;
 import android.car.cluster.renderer.NavigationRenderer;
 import android.car.navigation.CarNavigationInstrumentCluster;
-import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.graphics.Rect;
-import android.hardware.display.DisplayManager;
+import android.hardware.display.DisplayManager.DisplayListener;
 import android.os.Binder;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.provider.Settings.Global;
 import android.util.Log;
-import android.view.Display;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 
@@ -54,6 +53,8 @@ public class SampleClusterServiceImpl extends InstrumentClusterRenderingService 
     private final Binder mLocalBinder = new LocalBinder();
     static final String LOCAL_BINDING_ACTION = "local";
 
+    private ClusterDisplayProvider mDisplayProvider;
+
     @Override
     public IBinder onBind(Intent intent) {
         Log.i(TAG, "onBind, intent: " + intent);
@@ -66,14 +67,29 @@ public class SampleClusterServiceImpl extends InstrumentClusterRenderingService 
         super.onCreate();
         Log.i(TAG, "onCreate");
 
-        Display clusterDisplay = getInstrumentClusterDisplay(this);
-        if (clusterDisplay == null) {
-            Log.e(TAG, "Unable to find instrument cluster display");
-            return;
-        }
+        mDisplayProvider = new ClusterDisplayProvider(this,
+                new DisplayListener() {
+                    @Override
+                    public void onDisplayAdded(int displayId) {
+                        Log.i(TAG, "Cluster display found, displayId: " + displayId);
+                        doClusterDisplayConnected(displayId);
+                    }
 
+                    @Override
+                    public void onDisplayRemoved(int displayId) {
+                        Log.w(TAG, "Cluster display has been removed");
+                    }
+
+                    @Override
+                    public void onDisplayChanged(int displayId) {
+
+                    }
+                });
+    }
+
+    private void doClusterDisplayConnected(int displayId) {
         ActivityOptions options = ActivityOptions.makeBasic();
-        options.setLaunchDisplayId(clusterDisplay.getDisplayId());
+        options.setLaunchDisplayId(displayId);
         Intent intent = new Intent(this, MainClusterActivity.class);
         intent.setFlags(FLAG_ACTIVITY_NEW_TASK);
         startActivity(intent, options.toBundle());
@@ -85,6 +101,12 @@ public class SampleClusterServiceImpl extends InstrumentClusterRenderingService 
         if (mListener != null) {
             mListener.onKeyEvent(keyEvent);
         }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        Log.w(TAG, "onDestroy");
     }
 
     void registerListener(Listener listener) {
@@ -108,32 +130,15 @@ public class SampleClusterServiceImpl extends InstrumentClusterRenderingService 
             }
 
             @Override
-            public void onStartNavigation() {
-                Log.i(TAG, "onStartNavigation");
-            }
-
-            @Override
-            public void onStopNavigation() {
-                Log.i(TAG, "onStopNavigation");
-            }
-
-            @Override
-            public void onNextTurnChanged(int event, CharSequence eventName, int turnAngle,
-                    int turnNumber, Bitmap image, int turnSide) {
-                Log.i(TAG, "event: " + event + ", eventName: " + eventName +
-                        ", turnAngle: " + turnAngle + ", turnNumber: " + turnNumber +
-                        ", image: " + image + ", turnSide: " + turnSide);
-                mListener.onShowToast("Next turn: " + eventName);
-            }
-
-            @Override
-            public void onNextTurnDistanceChanged(int distanceMeters, int timeSeconds,
-                    int displayDistanceMillis, int displayDistanceUnit) {
-                Log.i(TAG, "onNextTurnDistanceChanged, distanceMeters: " + distanceMeters
-                        + ", timeSeconds: " + timeSeconds
-                        + ", displayDistanceMillis: " + displayDistanceMillis
-                        + ", displayDistanceUnit: " + displayDistanceUnit);
-                mListener.onShowToast("Next turn distance: " + distanceMeters + " meters.");
+            public void onEvent(int eventType, Bundle bundle) {
+                StringBuilder bundleSummary = new StringBuilder();
+                for (String key : bundle.keySet()) {
+                    bundleSummary.append(key);
+                    bundleSummary.append("=");
+                    bundleSummary.append(bundle.get(key));
+                    bundleSummary.append(" ");
+                }
+                Log.i(TAG, "onEvent(" + eventType + ", " + bundleSummary + ")");
             }
         };
 
@@ -150,18 +155,23 @@ public class SampleClusterServiceImpl extends InstrumentClusterRenderingService 
 
     interface Listener {
         void onKeyEvent(KeyEvent event);
-        void onShowToast(String text);
     }
 
     @Override
     protected void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
         if (args != null && args.length > 0) {
             execShellCommand(args);
+        } else {
+
+            if (args == null || args.length == 0) {
+                writer.println("* dump " + getClass().getCanonicalName() + " *");
+                writer.println("DisplayProvider: " + mDisplayProvider);
+            }
         }
     }
 
-    private void doKeyEvent(int keyCode) {
-        Log.i(TAG, "doKeyEvent, keyCode: " + keyCode);
+    private void emulateKeyEvent(int keyCode) {
+        Log.i(TAG, "emulateKeyEvent, keyCode: " + keyCode);
         long downTime = SystemClock.uptimeMillis();
         long eventTime = SystemClock.uptimeMillis();
         KeyEvent event = obtainKeyEvent(keyCode, downTime, eventTime, KeyEvent.ACTION_DOWN);
@@ -201,7 +211,7 @@ public class SampleClusterServiceImpl extends InstrumentClusterRenderingService 
         switch (command) {
             case "injectKey": {
                 if (args.length > 1) {
-                    doKeyEvent(parseInt(args[1]));
+                    emulateKeyEvent(parseInt(args[1]));
                 } else {
                     Log.i(TAG, "Not enough arguments");
                 }
@@ -238,22 +248,6 @@ public class SampleClusterServiceImpl extends InstrumentClusterRenderingService 
                 }
             }
         }
-    }
-
-    private static Display getInstrumentClusterDisplay(Context context) {
-        DisplayManager displayManager = context.getSystemService(DisplayManager.class);
-        Display[] displays = displayManager.getDisplays();
-
-        Log.d(TAG, "There are currently " + displays.length + " displays connected.");
-        for (Display display : displays) {
-            Log.d(TAG, "  " + display);
-        }
-
-        if (displays.length > 1) {
-            // TODO: assuming that secondary display is instrument cluster. Put this into settings?
-            return displays[1];
-        }
-        return null;
     }
 
 }

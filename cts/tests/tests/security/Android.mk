@@ -28,10 +28,13 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     ctstestrunner \
     compatibility-device-util \
     guava \
-    platform-test-annotations \
-    legacy-android-test
+    platform-test-annotations
 
-LOCAL_JAVA_LIBRARIES := android.test.runner org.apache.http.legacy
+LOCAL_JAVA_LIBRARIES := \
+    android.test.runner.stubs \
+    org.apache.http.legacy \
+    android.test.base.stubs \
+
 
 LOCAL_JNI_SHARED_LIBRARIES := libctssecurity_jni libcts_jni libnativehelper_compat_libc++ \
                       libnativehelper \
@@ -49,9 +52,10 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)\
 LOCAL_PACKAGE_NAME := CtsSecurityTestCases
 
 #LOCAL_SDK_VERSION := current
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests sts
 
 include $(BUILD_CTS_PACKAGE)
 

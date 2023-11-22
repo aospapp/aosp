@@ -36,7 +36,11 @@
         android:scrollbars="horizontal|vertical"
         android:fadingEdge="horizontal|vertical"
         android:scrollIndicators="top|bottom"
-        android:fadingEdgeLength="20px"/>
+        android:fadingEdgeLength="20px"
+        android:scrollbarThumbVertical="@null"
+        android:scrollbarTrackVertical="@null"
+        android:scrollbarThumbHorizontal="@null"
+        android:scrollbarTrackHorizontal="@null"/>
 
     <android.view.cts.MockView
         android:id="@+id/scroll_view_2"
@@ -44,7 +48,11 @@
         android:layout_height="200px"
         android:scrollbars="horizontal|vertical"
         android:requiresFadingEdge="horizontal|vertical"
-        android:fadingEdgeLength="20px"/>
+        android:fadingEdgeLength="20px"
+        android:scrollbarThumbVertical="@null"
+        android:scrollbarTrackVertical="@null"
+        android:scrollbarThumbHorizontal="@null"
+        android:scrollbarTrackHorizontal="@null"/>
 
     <android.view.cts.MockView
         android:id="@+id/scroll_view_3"
@@ -52,7 +60,9 @@
         android:layout_height="200px"
         android:scrollbars="horizontal|vertical"
         android:scrollbarThumbVertical="@drawable/scrollbar_no_size"
-        android:scrollbarThumbHorizontal="@drawable/scrollbar_no_size"/>
+        android:scrollbarTrackVertical="@null"
+        android:scrollbarThumbHorizontal="@drawable/scrollbar_no_size"
+        android:scrollbarTrackHorizontal="@null"/>
 
     <android.view.cts.MockView
         android:id="@+id/scroll_view_4"
@@ -60,7 +70,9 @@
         android:layout_height="200px"
         android:scrollbars="horizontal|vertical"
         android:scrollbarThumbVertical="@drawable/scrollbar_thumb"
-        android:scrollbarThumbHorizontal="@drawable/scrollbar_thumb"/>
+        android:scrollbarTrackVertical="@null"
+        android:scrollbarThumbHorizontal="@drawable/scrollbar_thumb"
+        android:scrollbarTrackHorizontal="@null"/>
 
     <android.view.cts.MockView
         android:id="@+id/scroll_view_5"

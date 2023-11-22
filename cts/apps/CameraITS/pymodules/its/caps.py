@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-import its.objects
 import sys
+import unittest
+
+import its.objects
 
 
 def skip_unless(cond):
@@ -97,8 +98,8 @@ def legacy(props):
     return props.has_key("android.info.supportedHardwareLevel") and \
            props["android.info.supportedHardwareLevel"] == 2
 
-def radial_distortion_correction(props):
-    """Returns whether a device supports RADIAL_DISTORTION_CORRECTION
+def distortion_correction(props):
+    """Returns whether a device supports DISTORTION_CORRECTION
     capabilities.
 
     Args:
@@ -107,8 +108,8 @@ def radial_distortion_correction(props):
     Returns:
         Boolean.
     """
-    return props.has_key("android.lens.radialDistortion") and \
-           props["android.lens.radialDistortion"] is not None
+    return props.has_key("android.lens.distortion") and \
+           props["android.lens.distortion"] is not None
 
 def manual_sensor(props):
     """Returns whether a device supports MANUAL_SENSOR capabilities.
@@ -446,6 +447,59 @@ def fixed_focus(props):
     return props.has_key("android.lens.info.minimumFocusDistance") and \
         props["android.lens.info.minimumFocusDistance"] == 0
 
+def logical_multi_camera(props):
+    """Returns whether a device is a logical multi-camera.
+
+    Args:
+        props: Camera properties object.
+
+    Return:
+        Boolean.
+    """
+    return props.has_key("android.request.availableCapabilities") and \
+           11 in props["android.request.availableCapabilities"]
+
+def logical_multi_camera_physical_ids(props):
+    """Returns a logical multi-camera's underlying physical cameras.
+
+    Args:
+        props: Camera properties object.
+
+    Return:
+        list of physical cameras backing the logical multi-camera.
+    """
+    physicalIdsList = []
+    if logical_multi_camera(props):
+        physicalIdsList = props['camera.characteristics.physicalCamIds'];
+    return physicalIdsList
+
+def mono_camera(props):
+    """Returns whether a device is monochromatic.
+
+    Args:
+        props: Camera properties object.
+
+    Return:
+        Boolean.
+    """
+    return props.has_key("android.request.availableCapabilities") and \
+           12 in props["android.request.availableCapabilities"]
+
+
+def face_detect(props):
+    """Returns whether a device has face detection mode.
+
+    props['android.statistics.info.availableFaceDetectModes'] != 0 is face det
+
+    Args:
+        props: Camera properties objects.
+
+    Returns:
+        Boolean.
+    """
+    return props.has_key("android.statistics.info.availableFaceDetectModes") and \
+        props["android.statistics.info.availableFaceDetectModes"] != [0]
+
 
 def debug_mode():
     """Returns True/False for whether test is run in debug mode.
@@ -466,4 +520,3 @@ class __UnitTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"Idatha esuka kumaki we-NFC"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Ulwazi lothintana naye kuka-r ^1"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Lolu hlelo lokusebenza ludinga ukufinyelela kumvume yefoni ukuze lwenze amakholi. Ungaphatha imvume yomaka kuzilungiselelo"</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Lolu hlelo lokusebenza ludinga imvume ukuze lufinyelele kusitoreji sangaphandle ukuze zifinyelele kumafayela. Ungaphatha imvume yomaka kuzilungiselelo."</string>
 </resources>

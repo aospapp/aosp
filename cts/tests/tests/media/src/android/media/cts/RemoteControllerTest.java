@@ -19,6 +19,7 @@ package android.media.cts;
 import android.content.Context;
 import android.media.RemoteController;
 import android.media.RemoteController.OnClientUpdateListener;
+import android.platform.test.annotations.AppModeFull;
 import android.test.InstrumentationTestCase;
 import android.test.UiThreadTest;
 import android.view.KeyEvent;
@@ -36,6 +37,7 @@ import java.util.Set;
 /**
  * Tests for {@link RemoteController}.
  */
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class RemoteControllerTest extends InstrumentationTestCase {
 
     private static final Set<Integer> MEDIA_KEY_EVENT = new HashSet<Integer>();

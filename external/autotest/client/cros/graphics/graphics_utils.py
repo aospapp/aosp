@@ -25,8 +25,9 @@ from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import test as test_utils
-from autotest_lib.client.cros import power_utils
 from autotest_lib.client.cros.graphics import gbm
+from autotest_lib.client.cros.input_playback import input_playback
+from autotest_lib.client.cros.power import power_utils
 from functools import wraps
 
 
@@ -44,28 +45,42 @@ class GraphicsTest(test.test):
         _test_failure_report_enable(bool): Enable/Disable reporting
                                             failures to chrome perf dashboard
                                             automatically. (Default: True)
+        _test_failure_report_subtest(bool): Enable/Disable reporting
+                                            subtests failure to chrome perf
+                                            dashboard automatically.
+                                            (Default: False)
     """
     version = 1
     _GSC = None
 
     _test_failure_description = "Failures"
     _test_failure_report_enable = True
+    _test_failure_report_subtest = False
 
     def __init__(self, *args, **kwargs):
         """Initialize flag setting."""
         super(GraphicsTest, self).__init__(*args, **kwargs)
         self._failures = []
+        self._player = None
 
     def initialize(self, raise_error_on_hang=False, *args, **kwargs):
         """Initial state checker and report initial value to perf dashboard."""
-        self._GSC = GraphicsStateChecker(raise_error_on_hang)
+        self._GSC = GraphicsStateChecker(
+            raise_error_on_hang=raise_error_on_hang,
+            run_on_sw_rasterizer=utils.is_virtual_machine())
 
         self.output_perf_value(
             description='Timeout_Reboot',
             value=1,
             units='count',
-            higher_is_better=False
+            higher_is_better=False,
+            replace_existing_values=True
         )
+
+        # Enable the graphics tests to use keyboard interaction.
+        self._player = input_playback.InputPlayback()
+        self._player.emulate(input_type='keyboard')
+        self._player.find_connected_inputs()
 
         if hasattr(super(GraphicsTest, self), "initialize"):
             test_utils._cherry_pick_call(super(GraphicsTest, self).initialize,
@@ -76,29 +91,15 @@ class GraphicsTest(test.test):
         if self._GSC:
             self._GSC.finalize()
 
-        self.output_perf_value(
-            description='Timeout_Reboot',
-            value=0,
-            units='count',
-            higher_is_better=False,
-            replace_existing_values=True
-        )
-
-        logging.debug('GraphicsTest recorded failures: %s', self.get_failures())
-        if self._test_failure_report_enable:
-            self.output_perf_value(
-                description=self._test_failure_description,
-                value=len(self._failures),
-                units='count',
-                higher_is_better=False
-            )
+        self._output_perf()
+        self._player.close()
 
         if hasattr(super(GraphicsTest, self), "cleanup"):
             test_utils._cherry_pick_call(super(GraphicsTest, self).cleanup,
                                          *args, **kwargs)
 
     @contextlib.contextmanager
-    def failure_report(self, name):
+    def failure_report(self, name, subtest=None):
         """Record the failure of an operation to the self._failures.
 
         Records if the operation taken inside executed normally or not.
@@ -112,12 +113,12 @@ class GraphicsTest(test.test):
                 doSomething()
         """
         # Assume failed at the beginning
-        self.add_failures(name)
+        self.add_failures(name, subtest=subtest)
         yield {}
-        self.remove_failures(name)
+        self.remove_failures(name, subtest=subtest)
 
     @classmethod
-    def failure_report_decorator(cls, name):
+    def failure_report_decorator(cls, name, subtest=None):
         """Record the failure if the function failed to finish.
         This method should only decorate to functions of GraphicsTest.
         In addition, functions with this decorator should be called with no
@@ -155,7 +156,7 @@ class GraphicsTest(test.test):
                 # A member function of GraphicsTest is decorated. The first
                 # argument is the instance itself.
                 instance = args[0]
-                with instance.failure_report(name):
+                with instance.failure_report(name, subtest):
                     # Cherry pick the arguments for the wrapped function.
                     d_args, d_kwargs = test_utils._cherry_pick_args(fn, args,
                                                                     kwargs)
@@ -163,25 +164,120 @@ class GraphicsTest(test.test):
             return wrapper
         return decorator
 
-    def add_failures(self, failure_description):
+    def add_failures(self, name, subtest=None):
         """
         Add a record to failures list which will report back to chrome perf
-        dashboard at the cleanup stage.
+        dashboard at cleanup stage.
+        Args:
+            name: failure name.
+            subtest: subtest which will appears in cros-perf. If None is
+                     specified, use name instead.
         """
-        self._failures.append(failure_description)
+        target = self._get_failure(name, subtest=subtest)
+        if target:
+            target['names'].append(name)
+        else:
+            target = {
+                'description': self._get_failure_description(name, subtest),
+                'unit': 'count',
+                'higher_is_better': False,
+                'graph': self._get_failure_graph_name(),
+                'names': [name],
+            }
+            self._failures.append(target)
+        return target
 
-    def remove_failures(self, failure_description):
+    def remove_failures(self, name, subtest=None):
         """
         Remove a record from failures list which will report back to chrome perf
-        dashboard at the cleanup stage.
+        dashboard at cleanup stage.
+        Args:
+            name: failure name.
+            subtest: subtest which will appears in cros-perf. If None is
+                     specified, use name instead.
         """
-        self._failures.remove(failure_description)
+        target = self._get_failure(name, subtest=subtest)
+        if name in target['names']:
+            target['names'].remove(name)
+
+    def _output_perf(self):
+        """Report recorded failures back to chrome perf."""
+        self.output_perf_value(
+            description='Timeout_Reboot',
+            value=0,
+            units='count',
+            higher_is_better=False,
+            replace_existing_values=True
+        )
+
+        if not self._test_failure_report_enable:
+            return
+
+        total_failures = 0
+        # Report subtests failures
+        for failure in self._failures:
+            logging.debug('GraphicsTest failure: %s' % failure['names'])
+            total_failures += len(failure['names'])
+
+            if not self._test_failure_report_subtest:
+                continue
+
+            self.output_perf_value(
+                description=failure['description'],
+                value=len(failure['names']),
+                units=failure['unit'],
+                higher_is_better=failure['higher_is_better'],
+                graph=failure['graph']
+            )
+
+        # Report the count of all failures
+        self.output_perf_value(
+            description=self._get_failure_graph_name(),
+            value=total_failures,
+            units='count',
+            higher_is_better=False,
+        )
+
+    def _get_failure_graph_name(self):
+        return self._test_failure_description
+
+    def _get_failure_description(self, name, subtest):
+        return subtest or name
+
+    def _get_failure(self, name, subtest):
+        """Get specific failures."""
+        description = self._get_failure_description(name, subtest=subtest)
+        for failure in self._failures:
+            if failure['description'] == description:
+                return failure
+        return None
 
     def get_failures(self):
         """
         Get currently recorded failures list.
         """
-        return list(self._failures)
+        return [name for failure in self._failures
+                for name in failure['names']]
+
+    def open_vt1(self):
+        """Switch to VT1 with keyboard."""
+        self._player.blocking_playback_of_default_file(
+            input_type='keyboard', filename='keyboard_ctrl+alt+f1')
+        time.sleep(5)
+
+    def open_vt2(self):
+        """Switch to VT2 with keyboard."""
+        self._player.blocking_playback_of_default_file(
+            input_type='keyboard', filename='keyboard_ctrl+alt+f2')
+        time.sleep(5)
+
+    def wake_screen_with_keyboard(self):
+        """Use the vt1 keyboard shortcut to bring the devices screen back on.
+
+        This is useful if you want to take screenshots of the UI. If you try
+        to take them while the screen is off, it will fail.
+        """
+        self.open_vt1()
 
 
 def screen_disable_blanking():
@@ -253,7 +349,12 @@ UINPUT_DEVICE_EVENTS_KEYBOARD = [
     uinput.KEY_UP,
     uinput.KEY_DOWN,
     uinput.KEY_LEFT,
-    uinput.KEY_RIGHT
+    uinput.KEY_RIGHT,
+    uinput.KEY_RIGHTSHIFT,
+    uinput.KEY_LEFTALT,
+    uinput.KEY_A,
+    uinput.KEY_M,
+    uinput.KEY_V
 ]
 # TODO(ihf): Find an ABS sequence that actually works.
 UINPUT_DEVICE_EVENTS_TOUCH = [
@@ -860,16 +961,21 @@ class GraphicsKernelMemory(object):
         'gem_objects': ['/sys/kernel/debug/dri/0/i915_gem_objects'],
         'memory': ['/sys/kernel/debug/dri/0/i915_gem_gtt'],
     }
+    cirrus_fields = {}
+    virtio_fields = {}
 
     arch_fields = {
         'amdgpu': amdgpu_fields,
         'arm': arm_fields,
+        'cirrus': cirrus_fields,
         'exynos5': exynos_fields,
         'i915': i915_fields,
         'mediatek': mediatek_fields,
         'rockchip': rockchip_fields,
         'tegra': tegra_fields,
+        'virtio': virtio_fields,
     }
+
 
     num_errors = 0
 
@@ -901,6 +1007,16 @@ class GraphicsKernelMemory(object):
                 soc = 'amdgpu'
             elif "Intel Corporation" in pci_vga_device:
                 soc = 'i915'
+            elif "Cirrus Logic" in pci_vga_device:
+                # Used on qemu with kernels 3.18 and lower. Limited to 800x600
+                # resolution.
+                soc = 'cirrus'
+            else:
+                pci_vga_device = utils.run('lshw -c video').stdout.rstrip()
+                groups = re.search('configuration:.*driver=(\S*)',
+                                   pci_vga_device)
+                if groups and 'virtio' in groups.group(1):
+                    soc = 'virtio'
 
         if not soc in self.arch_fields:
             raise error.TestFail('Error: Architecture "%s" not yet supported.' % soc)
@@ -988,7 +1104,7 @@ class GraphicsStateChecker(object):
     _HANGCHECK_WARNING = ['render ring idle']
     _MESSAGES_FILE = '/var/log/messages'
 
-    def __init__(self, raise_error_on_hang=True):
+    def __init__(self, raise_error_on_hang=True, run_on_sw_rasterizer=False):
         """
         Analyzes the initial state of the GPU and log history.
         """
@@ -998,9 +1114,10 @@ class GraphicsStateChecker(object):
         self._raise_error_on_hang = raise_error_on_hang
         logging.info(utils.get_board_with_frequency_and_memory())
         self.graphics_kernel_memory = GraphicsKernelMemory()
+        self._run_on_sw_rasterizer = run_on_sw_rasterizer
 
         if utils.get_cpu_arch() != 'arm':
-            if is_sw_rasterizer():
+            if not self._run_on_sw_rasterizer and is_sw_rasterizer():
                 raise error.TestFail('Refusing to run on SW rasterizer.')
             logging.info('Initialize: Checking for old GPU hangs...')
             messages = open(self._MESSAGES_FILE, 'r')
@@ -1038,7 +1155,7 @@ class GraphicsStateChecker(object):
                                     new_gpu_hang = True
             messages.close()
 
-            if is_sw_rasterizer():
+            if not self._run_on_sw_rasterizer and is_sw_rasterizer():
                 logging.warning('Finished test on SW rasterizer.')
                 raise error.TestFail('Finished test on SW rasterizer.')
             if self._raise_error_on_hang and new_gpu_hang:

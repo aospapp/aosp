@@ -5,7 +5,10 @@
 """A test which verifies the camera function with HAL3 interface."""
 
 import os, logging
+import xml.etree.ElementTree
 from autotest_lib.client.bin import test, utils
+from autotest_lib.client.cros import service_stopper
+from sets import Set
 
 class camera_HAL3(test.test):
     """
@@ -13,21 +16,43 @@ class camera_HAL3(test.test):
     """
 
     version = 1
-    binary = 'arc_camera3_test'
+    test_binary = 'arc_camera3_test'
     dep = 'camera_hal3'
-    timeout = 60
+    adapter_service = 'camera-halv3-adapter'
+    timeout = 600
+    media_profiles_path = os.path.join('vendor', 'etc', 'media_profiles.xml')
+    tablet_board_list = ['scarlet']
 
     def setup(self):
+        """
+        Run common setup steps.
+        """
         self.dep_dir = os.path.join(self.autodir, 'deps', self.dep)
         self.job.setup_dep([self.dep])
         logging.debug('mydep is at %s' % self.dep_dir)
 
     def run_once(self):
+        """
+        Entry point of this test.
+        """
         self.job.install_pkg(self.dep, 'dep', self.dep_dir)
 
-        if utils.system_output('ldconfig -p').find('camera_hal.so') == -1:
-            logging.debug('Skip test because camera_hal.so is not installed.')
-            return
+        with service_stopper.ServiceStopper([self.adapter_service]):
+            cmd = [ os.path.join(self.dep_dir, 'bin', self.test_binary) ]
+            xml_content = utils.system_output(
+                ' '.join(['android-sh', '-c', '\"cat',
+                          self.media_profiles_path + '\"']))
+            root = xml.etree.ElementTree.fromstring(xml_content)
+            recording_params = Set()
+            for camcorder_profiles in root.findall('CamcorderProfiles'):
+                for encoder_profile in camcorder_profiles.findall('EncoderProfile'):
+                    video = encoder_profile.find('Video')
+                    recording_params.add('%s:%s:%s:%s' % (
+                        camcorder_profiles.get('cameraId'), video.get('width'),
+                        video.get('height'), video.get('frameRate')))
+            if recording_params:
+                cmd.append('--recording_params=' + ','.join(recording_params))
+            if utils.get_current_board() in self.tablet_board_list:
+                cmd.append('--gtest_filter=-*SensorOrientationTest/*')
 
-        binary_path = os.path.join(self.dep_dir, 'bin', self.binary)
-        utils.system(binary_path, timeout=self.timeout)
+            utils.system(' '.join(cmd), timeout=self.timeout)

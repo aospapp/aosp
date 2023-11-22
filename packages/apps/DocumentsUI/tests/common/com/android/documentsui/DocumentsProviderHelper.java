@@ -144,6 +144,15 @@ public class DocumentsProviderHelper {
         waitForWrite();
     }
 
+    public void writeAppendDocument(Uri documentUri, byte[] contents)
+            throws RemoteException, IOException {
+        ParcelFileDescriptor file = mClient.openFile(documentUri, "wa", null);
+        try (AutoCloseOutputStream out = new AutoCloseOutputStream(file)) {
+            out.write(contents);
+        }
+        waitForWrite();
+    }
+
     public void waitForWrite() throws RemoteException {
         mClient.call("waitForWrite", null, null);
     }

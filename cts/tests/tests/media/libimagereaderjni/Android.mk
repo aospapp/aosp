@@ -31,8 +31,7 @@ LOCAL_SHARED_LIBRARIES := \
     libnativewindow \
     liblog
 
-LOCAL_SDK_VERSION := current
-LOCAL_NDK_STL_VARIANT := c++_static
+LOCAL_CXX_STL := libc++
 
 LOCAL_CFLAGS := -Werror -Wall
 

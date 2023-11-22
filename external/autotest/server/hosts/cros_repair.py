@@ -202,6 +202,12 @@ class TPMStatusVerifier(hosts.Verifier):
     """Verify that the host's TPM is in a good state."""
 
     def verify(self, host):
+        if _is_virual_machine(host):
+            # We do not forward host TPM / emulated TPM to qemu VMs, so skip
+            # this verification step.
+            logging.debug('Skipped verification %s on VM', self)
+            return
+
         # This cryptohome command emits status information in JSON format. It
         # looks something like this:
         # {
@@ -296,6 +302,33 @@ class DevModeVerifier(hosts.Verifier):
         return 'The host should not be in dev mode'
 
 
+class HWIDVerifier(hosts.Verifier):
+    """Verify that the host has HWID & serial number."""
+
+    def verify(self, host):
+        try:
+            info = host.host_info_store.get()
+
+            hwid = host.run('crossystem hwid', ignore_status=True).stdout
+            if hwid:
+                info.attributes['HWID'] = hwid
+
+            serial_number = host.run('vpd -g serial_number',
+                                     ignore_status=True).stdout
+            if serial_number:
+                info.attributes['serial_number'] = serial_number
+
+            if info != host.host_info_store.get():
+                host.host_info_store.commit(info)
+        except Exception as e:
+            logging.exception('Failed to get HWID & Serial Number for host ',
+                              '%s: %s', host.hostname, str(e))
+
+    @property
+    def description(self):
+        return 'The host should have valid HWID and Serial Number'
+
+
 class JetstreamServicesVerifier(hosts.Verifier):
     """Verify that Jetstream services are running."""
 
@@ -321,7 +354,38 @@ class JetstreamServicesVerifier(hosts.Verifier):
         return 'Jetstream services must be running'
 
 
-class ServoSysRqRepair(hosts.RepairAction):
+class _ResetRepairAction(hosts.RepairAction):
+    """Common handling for repair actions that reset a DUT."""
+
+    def _collect_logs(self, host):
+        """Collect logs from a successfully repaired DUT."""
+        dirname = 'after_%s' % self.tag
+        local_log_dir = crashcollect.get_crashinfo_dir(host, dirname)
+        host.collect_logs('/var/log', local_log_dir, ignore_errors=True)
+        # Collect crash info.
+        crashcollect.get_crashinfo(host, None)
+
+    def _check_reset_success(self, host):
+        """Check whether reset succeeded, and gather logs if possible."""
+        if host.wait_up(host.BOOT_TIMEOUT):
+            try:
+                # Collect logs once we regain ssh access before
+                # clobbering them.
+                self._collect_logs(host)
+            except Exception:
+                # If the DUT is up, we want to declare success, even if
+                # log gathering fails for some reason.  So, if there's
+                # a failure, just log it and move on.
+                logging.exception('Unexpected failure in log '
+                                  'collection during %s.',
+                                  self.tag)
+            return
+        raise hosts.AutoservRepairError(
+                'Host %s is still offline after %s.' %
+                (host.hostname, self.tag))
+
+
+class ServoSysRqRepair(_ResetRepairAction):
     """
     Repair a Chrome device by sending a system request to the kernel.
 
@@ -345,23 +409,14 @@ class ServoSysRqRepair(hosts.RepairAction):
                       'cannot press sysrq-x: %s.' % str(ex))
             # less than 5 seconds between presses.
             time.sleep(2.0)
-
-        if host.wait_up(host.BOOT_TIMEOUT):
-            # Collect logs once we regain ssh access before clobbering them.
-            local_log_dir = crashcollect.get_crashinfo_dir(host, 'after_sysrq')
-            host.collect_logs('/var/log', local_log_dir, ignore_errors=True)
-            # Collect crash info.
-            crashcollect.get_crashinfo(host, None)
-            return
-        raise hosts.AutoservRepairError(
-                '%s is still offline after sysrq-x.' % host.hostname)
+        self._check_reset_success(host)
 
     @property
     def description(self):
         return 'Reset the DUT via keyboard sysrq-x'
 
 
-class ServoResetRepair(hosts.RepairAction):
+class ServoResetRepair(_ResetRepairAction):
     """Repair a Chrome device by resetting it with servo."""
 
     def repair(self, host):
@@ -369,15 +424,7 @@ class ServoResetRepair(hosts.RepairAction):
             raise hosts.AutoservRepairError(
                     '%s has no servo support.' % host.hostname)
         host.servo.get_power_state_controller().reset()
-        if host.wait_up(host.BOOT_TIMEOUT):
-            # Collect logs once we regain ssh access before clobbering them.
-            local_log_dir = crashcollect.get_crashinfo_dir(host, 'after_reset')
-            host.collect_logs('/var/log', local_log_dir, ignore_errors=True)
-            # Collect crash info.
-            crashcollect.get_crashinfo(host, None)
-            return
-        raise hosts.AutoservRepairError(
-                '%s is still offline after servo reset.' % host.hostname)
+        self._check_reset_success(host)
 
     @property
     def description(self):
@@ -388,9 +435,11 @@ class CrosRebootRepair(repair.RebootRepair):
     """Repair a CrOS target by clearing dev mode and rebooting it."""
 
     def repair(self, host):
-        # N.B. We need to reboot regardless of whether set_gbb_flags
-        # succeeds or fails.
+        # N.B. We need to reboot regardless of whether clearing
+        # dev_mode succeeds or fails.
         host.run('/usr/share/vboot/bin/set_gbb_flags.sh 0',
+                 ignore_status=True)
+        host.run('crossystem disable_dev_request=1',
                  ignore_status=True)
         super(CrosRebootRepair, self).repair(host)
 
@@ -471,6 +520,7 @@ def _cros_verify_dag():
     verify_dag = (
         (repair.SshVerifier,         'ssh',      ()),
         (DevModeVerifier,            'devmode',  ('ssh',)),
+        (HWIDVerifier,               'hwid',     ('ssh',)),
         (ACPowerVerifier,            'power',    ('ssh',)),
         (EXT4fsErrorVerifier,        'ext4',     ('ssh',)),
         (WritableVerifier,           'writable', ('ssh',)),
@@ -622,3 +672,15 @@ def create_jetstream_repair_strategy():
     verify_dag = _jetstream_verify_dag()
     repair_actions = _jetstream_repair_actions()
     return hosts.RepairStrategy(verify_dag, repair_actions)
+
+
+# TODO(pprabhu) Move this to a better place. I have no idea what that place
+# would be.
+def _is_virual_machine(host):
+    """Determine whether the given |host| is a virtual machine.
+
+    @param host: a hosts.Host object.
+    @returns True if the host is a virtual machine, False otherwise.
+    """
+    output = host.run('cat /proc/cpuinfo | grep "model name"')
+    return output.stdout and 'qemu' in output.stdout.lower()

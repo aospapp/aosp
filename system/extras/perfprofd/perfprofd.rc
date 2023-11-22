@@ -1,4 +1,4 @@
-service perfprofd /system/xbin/perfprofd
+service perfprofd /system/bin/perfprofd --binder
     class late_start
     user root
     group root wakelock

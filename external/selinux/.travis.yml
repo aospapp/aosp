@@ -11,23 +11,31 @@ compiler:
 env:
   matrix:
     # Test the last version of Python and Ruby together, with some linkers
-    - PYVER=python3.5 RUBYLIBVER=2.3
-    - PYVER=python3.5 RUBYLIBVER=2.3 LINKER=gold
-    - PYVER=python3.5 RUBYLIBVER=2.3 LINKER=bfd
+    - PYVER=python3.6 RUBYLIBVER=2.4
+    - PYVER=python3.6 RUBYLIBVER=2.4 TEST_FLAGS_OVERRIDE=1
+    - PYVER=python3.6 RUBYLIBVER=2.4 LINKER=gold
+    - PYVER=python3.6 RUBYLIBVER=2.4 LINKER=bfd
 
     # Test several Python versions
-    - PYVER=python2.7 RUBYLIBVER=2.3
-    - PYVER=python3.3 RUBYLIBVER=2.3
-    - PYVER=python3.4 RUBYLIBVER=2.3
-    - PYVER=pypy RUBYLIBVER=2.3
-    #- PYVER=pypy3 RUBYLIBVER=2.3 # PyPy3 5.5.0 provides the Python2 form of some structures, which makes it incompatible with SWIG
+    - PYVER=python2.7 RUBYLIBVER=2.4
+    - PYVER=python3.3 RUBYLIBVER=2.4
+    - PYVER=python3.4 RUBYLIBVER=2.4
+    - PYVER=python3.5 RUBYLIBVER=2.4
+    - PYVER=pypy RUBYLIBVER=2.4
+    - PYVER=pypy3 RUBYLIBVER=2.4
 
     # Test several Ruby versions
-    - PYVER=python3.5 RUBYLIBVER=2.0
-    - PYVER=python3.5 RUBYLIBVER=2.1
-    - PYVER=python3.5 RUBYLIBVER=2.2
+    - PYVER=python3.6 RUBYLIBVER=2.2
+    - PYVER=python3.6 RUBYLIBVER=2.3
 
-# Use Travis-CI Ubuntu 14.04 Trusty infrastructure
+matrix:
+  exclude:
+    - compiler: clang
+      env: PYVER=python3.6 RUBYLIBVER=2.4 LINKER=gold
+    - compiler: clang
+      env: PYVER=python3.6 RUBYLIBVER=2.4 LINKER=bfd
+
+# Use Travis-CI Ubuntu 14.04 Trusty infrastructure, "full image" variant
 sudo: required
 dist: trusty
 
@@ -56,15 +64,23 @@ addons:
 install:
   # Download refpolicy Makefile for sepolgen tests
   - sudo mkdir -p /usr/share/selinux/default
-  - sudo curl -o /usr/share/selinux/default/Makefile 'https://raw.githubusercontent.com/TresysTechnology/refpolicy/RELEASE_2_20170204/support/Makefile.devel'
+  - sudo curl --retry 10 -o /usr/share/selinux/default/Makefile 'https://raw.githubusercontent.com/TresysTechnology/refpolicy/RELEASE_2_20170204/support/Makefile.devel'
   - sudo sed "s,^PREFIX :=.*,PREFIX := $TRAVIS_BUILD_DIR/installdir/usr," -i /usr/share/selinux/default/Makefile
   - sudo mkdir -p /usr/share/selinux/refpolicy/include
-  - sudo curl -o /usr/share/selinux/refpolicy/include/build.conf 'https://raw.githubusercontent.com/TresysTechnology/refpolicy/RELEASE_2_20170204/build.conf'
+  - sudo curl --retry 10 -o /usr/share/selinux/refpolicy/include/build.conf 'https://raw.githubusercontent.com/TresysTechnology/refpolicy/RELEASE_2_20170204/build.conf'
   - sudo mkdir -p /etc/selinux
   - echo 'SELINUXTYPE=refpolicy' | sudo tee /etc/selinux/config
 
   # Make sepolgen tests work without really installing anything in the real root (doing this would conflict with Ubuntu packages)
   - sed -e "s,\"\(/usr/bin/[cs]\),\"$TRAVIS_BUILD_DIR/installdir\1," -i python/sepolgen/src/sepolgen/module.py
+
+  # Download the required python version if it is not installed
+  - VIRTUAL_ENV="$HOME/virtualenv/$PYVER"
+  - if ! [ -d "$VIRTUAL_ENV" ] ; then
+        curl --retry 10 -o python.tar.bz2 "https://s3.amazonaws.com/travis-python-archives/binaries/ubuntu/14.04/x86_64/${PYVER/python/python-}.tar.bz2" &&
+        sudo tar xjf python.tar.bz2 --directory / &&
+        rm python.tar.bz2 ;
+    fi
 
 before_script:
   # clang on Travis-CI 14.04 environment is too old to support -Wdouble-promotion
@@ -95,14 +111,17 @@ before_script:
   - echo "$PYTHON" ; $PYTHON --version
   - echo "$RUBY" ; $RUBY --version
 
+  # If TEST_FLAGS_OVERRIDE is defined, test that overriding CFLAGS, LDFLAGS and other variables works fine
+  - if [ -n "$TEST_FLAGS_OVERRIDE" ]; then EXPLICIT_MAKE_VARS="CFLAGS=-I$DESTDIR/usr/include LDFLAGS=-L$DESTDIR/usr/lib LDLIBS= CPPFLAGS=" ; fi
+
 script:
   # Start by installing everything into $DESTDIR
-  - make install -k
-  - make install-pywrap -k
-  - make install-rubywrap -k
+  - make install $EXPLICIT_MAKE_VARS -k
+  - make install-pywrap $EXPLICIT_MAKE_VARS -k
+  - make install-rubywrap $EXPLICIT_MAKE_VARS -k
 
   # Now that everything is installed, run "make all" to build everything which may have not been built
-  - make all -k
+  - make all $EXPLICIT_MAKE_VARS -k
 
   # Set up environment variables for the tests
   - export LD_LIBRARY_PATH="$DESTDIR/usr/lib:$DESTDIR/lib"
@@ -117,7 +136,7 @@ script:
   - echo "$RUBYLIB"
 
   # Run tests
-  - make test
+  - make test $EXPLICIT_MAKE_VARS
 
   # Test Python and Ruby wrappers
   - $PYTHON -c 'import selinux;import selinux.audit2why;import semanage;print(selinux.is_selinux_enabled())'
@@ -131,7 +150,7 @@ script:
     git status --short | sed -n 's/^??/error: missing .gitignore entry for/p' | (! grep '^')
 
   # Clean up everything and show which file would be added to "make clean"
-  - make clean distclean
+  - make clean distclean $EXPLICIT_MAKE_VARS
   - |-
     git ls-files --ignored --others --exclude-standard | sed 's/^/error: "make clean distclean" did not remove /' | (! grep '^')
 

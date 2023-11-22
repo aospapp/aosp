@@ -18,6 +18,8 @@
 import re
 import os
 import logging
+import sqlite3
+import pandas as pd
 
 from subprocess import Popen, PIPE
 from time import sleep
@@ -32,6 +34,7 @@ _jankbench = {
     'low_hitrate_text'  : 3,
     'high_hitrate_text' : 4,
     'edit_text'         : 5,
+    'overdraw'		: 6,
 }
 
 # Regexps for benchmark synchronization
@@ -42,10 +45,22 @@ JANKBENCH_BENCHMARK_START_RE = re.compile(
 JANKBENCH_ITERATION_COUNT_RE = re.compile(
     r'System.out: iteration: (?P<iteration>[0-9]+)'
 )
+
+# Meaning of different jankbench metrics output in the logs:
+#
+# BAD FRAME STATS:
+# mean: Mean frame duration time of all frames that are > 12ms completion time
+# std_dev: Standard deviation of all frame times > 12ms completion time
+# count_bad: Total number of frames
+#
+# JANK FRAME STATS:
+# JankP: Percent of all total frames that missed their deadline (2*16ms for
+#        tripple buffering, 16ms for double buffering).
+# count_jank: Total frames that missed their deadline (as described above).
 JANKBENCH_ITERATION_METRICS_RE = re.compile(
-    r'System.out: Mean: (?P<mean>[0-9\.]+)\s+JankP: (?P<junk_p>[0-9\.]+)\s+'
+    r'System.out: Mean: (?P<mean>[0-9\.]+)\s+JankP: (?P<jank_p>[0-9\.]+)\s+'
     'StdDev: (?P<std_dev>[0-9\.]+)\s+Count Bad: (?P<count_bad>[0-9]+)\s+'
-    'Count Jank: (?P<count_junk>[0-9]+)'
+    'Count Jank: (?P<count_jank>[0-9]+)'
 )
 JANKBENCH_BENCHMARK_DONE_RE = re.compile(
     r'I BENCH\s+:\s+BenchmarkDone!'
@@ -74,6 +89,15 @@ class Jankbench(Workload):
     # Package required by this workload
     package = 'com.android.benchmark'
 
+    test_list = \
+    ['list_view',
+    'image_list_view',
+    'shadow_grid',
+    'low_hitrate_text',
+    'high_hitrate_text',
+    'edit_text',
+    'overdraw']
+
     def __init__(self, test_env):
         super(Jankbench, self).__init__(test_env)
         self._log = logging.getLogger('Jankbench')
@@ -81,6 +105,9 @@ class Jankbench(Workload):
 
         # Set of output data reported by Jankbench
         self.db_file = None
+
+    def get_test_list(self):
+	return Jankbench.test_list
 
     def run(self, out_dir, test_name, iterations, collect):
         """
@@ -114,6 +141,11 @@ class Jankbench(Workload):
             test_id = _jankbench[test_name]
         except KeyError:
             raise ValueError('Jankbench test [%s] not supported', test_name)
+
+        # Restart ADB in root mode - adb needs to run as root inorder to
+        # grab the db output file
+        self._log.info('Restarting ADB in root mode...')
+        self._target.adb_root(force=True)
 
         # Unlock device screen (assume no password required)
         Screen.unlock(self._target)
@@ -193,10 +225,10 @@ class Jankbench(Workload):
                 if match:
                     self._log.info('   Mean: %7.3f JankP: %7.3f StdDev: %7.3f Count Bad: %4d Count Jank: %4d',
                                    float(match.group('mean')),
-                                   float(match.group('junk_p')),
+                                   float(match.group('jank_p')),
                                    float(match.group('std_dev')),
                                    int(match.group('count_bad')),
-                                   int(match.group('count_junk')))
+                                   int(match.group('count_jank')))
 
         # Wait until the database file is available
         db_adb = JANKBENCH_DB_PATH + JANKBENCH_DB_NAME
@@ -206,6 +238,7 @@ class Jankbench(Workload):
         # Get results
         self.db_file = os.path.join(out_dir, JANKBENCH_DB_NAME)
         self._target.pull(db_adb, self.db_file)
+        self.results = self.get_results(out_dir)
 
         # Stop the benchmark app
         System.force_stop(self._target, self.package, clear=True)
@@ -222,5 +255,21 @@ class Jankbench(Workload):
 
         # Set brightness back to auto
         Screen.set_brightness(self._target, auto=True)
+
+    @staticmethod
+    def get_results(out_dir):
+        """
+        Extract data from results db and return as a pandas dataframe
+
+        :param out_dir: Output directory for a run of the Jankbench workload
+        :type out_dir: str
+        """
+        path = os.path.join(out_dir, JANKBENCH_DB_NAME)
+        columns = ['_id', 'name', 'run_id', 'iteration', 'total_duration', 'jank_frame']
+        data = []
+        conn = sqlite3.connect(path)
+        for row in conn.execute('SELECT {} FROM ui_results'.format(','.join(columns))):
+            data.append(row)
+        return pd.DataFrame(data, columns=columns)
 
 # vim :set tabstop=4 shiftwidth=4 expandtab

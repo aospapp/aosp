@@ -74,7 +74,7 @@ public class IccNetworkDepersonalizationPanel extends IccPanel {
     /**
      * Shows the network depersonalization dialog, but only if it is not already visible.
      */
-    public static void showDialog() {
+    public static void showDialog(Phone phone) {
         if (sShowingDialog) {
             Log.i(TAG, "[IccNetworkDepersonalizationPanel] - showDialog; skipped already shown.");
             return;
@@ -82,7 +82,7 @@ public class IccNetworkDepersonalizationPanel extends IccPanel {
         Log.i(TAG, "[IccNetworkDepersonalizationPanel] - showDialog; showing dialog.");
         sShowingDialog = true;
         IccNetworkDepersonalizationPanel ndpPanel =
-                new IccNetworkDepersonalizationPanel(PhoneGlobals.getInstance());
+                new IccNetworkDepersonalizationPanel(PhoneGlobals.getInstance(), phone);
         ndpPanel.show();
     }
 
@@ -133,6 +133,13 @@ public class IccNetworkDepersonalizationPanel extends IccPanel {
     //constructor
     public IccNetworkDepersonalizationPanel(Context context) {
         super(context);
+        mPhone = PhoneGlobals.getPhone();
+    }
+
+    //constructor
+    public IccNetworkDepersonalizationPanel(Context context, Phone phone) {
+        super(context);
+        mPhone = phone == null ? PhoneGlobals.getPhone() : phone;
     }
 
     @Override
@@ -172,8 +179,6 @@ public class IccNetworkDepersonalizationPanel extends IccPanel {
         //status panel is used since we're having problems with the alert dialog.
         mStatusPanel = (LinearLayout) findViewById(R.id.status_panel);
         mStatusText = (TextView) findViewById(R.id.status_text);
-
-        mPhone = PhoneGlobals.getPhone();
     }
 
     @Override

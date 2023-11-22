@@ -49,7 +49,14 @@ public class UserRestrictions {
         UserManager.DISALLOW_REMOVE_MANAGED_PROFILE,
         UserManager.DISALLOW_REMOVE_USER,
         UserManager.DISALLOW_SHARE_LOCATION,
-        UserManager.DISALLOW_UNINSTALL_APPS
+        UserManager.DISALLOW_UNINSTALL_APPS,
+        UserManager.DISALLOW_UNIFIED_PASSWORD,
+        UserManager.DISALLOW_CONFIG_DATE_TIME,
+        UserManager.DISALLOW_CONFIG_LOCATION,
+        UserManager.DISALLOW_AIRPLANE_MODE,
+        UserManager.DISALLOW_CONFIG_SCREEN_TIMEOUT,
+        UserManager.DISALLOW_CONFIG_BRIGHTNESS,
+        UserManager.DISALLOW_AMBIENT_DISPLAY,
     };
 
     private static final ArrayMap<String, UserRestrictionItem> USER_RESTRICTION_ITEMS;
@@ -73,7 +80,14 @@ public class UserRestrictions {
             R.string.disallow_remove_managed_profile,
             R.string.disallow_remove_user,
             R.string.disallow_share_location,
-            R.string.disallow_uninstall_apps
+            R.string.disallow_uninstall_apps,
+            R.string.disallow_unified_challenge,
+            R.string.disallow_config_date_time,
+            R.string.disallow_config_location,
+            R.string.disallow_airplane_mode,
+            R.string.disallow_config_screen_timeout,
+            R.string.disallow_config_brightness,
+            R.string.disallow_ambient_display
         };
 
         final int[] restrictionActions = new int[] {
@@ -95,14 +109,21 @@ public class UserRestrictions {
             R.string.disallow_remove_managed_profile_action,
             R.string.disallow_remove_user_action,
             R.string.disallow_share_location_action,
-            R.string.disallow_uninstall_apps_action
+            R.string.disallow_uninstall_apps_action,
+            R.string.disallow_unified_challenge_action,
+            R.string.disallow_config_date_time_action,
+            R.string.disallow_config_location_action,
+            R.string.disallow_airplane_mode_action,
+            R.string.disallow_config_screen_timeout_action,
+            R.string.disallow_config_brightness_action,
+            R.string.disallow_ambient_display_action
         };
 
         final String[] settingsIntentActions = new String[] {
             Settings.ACTION_SETTINGS,
             Settings.ACTION_SOUND_SETTINGS,
             Settings.ACTION_APPLICATION_SETTINGS,
-            Settings.ACTION_SOUND_SETTINGS,
+            Settings.ACTION_SETTINGS,
             Settings.ACTION_SECURITY_SETTINGS,
             Settings.ACTION_WIRELESS_SETTINGS,
             Settings.ACTION_WIRELESS_SETTINGS,
@@ -118,6 +139,13 @@ public class UserRestrictions {
             Settings.ACTION_SETTINGS,
             Settings.ACTION_LOCATION_SOURCE_SETTINGS,
             Settings.ACTION_APPLICATION_SETTINGS,
+            Settings.ACTION_SECURITY_SETTINGS,
+            Settings.ACTION_DATE_SETTINGS,
+            Settings.ACTION_LOCATION_SOURCE_SETTINGS,
+            Settings.ACTION_AIRPLANE_MODE_SETTINGS,
+            Settings.ACTION_DISPLAY_SETTINGS,
+            Settings.ACTION_DISPLAY_SETTINGS,
+            Settings.ACTION_DISPLAY_SETTINGS,
         };
 
         if (RESTRICTION_IDS_FOR_POLICY_TRANSPARENCY.length != restrictionLabels.length
@@ -136,14 +164,29 @@ public class UserRestrictions {
         }
     }
 
-    private static final ArrayList<String> ALSO_VALID_FOR_PO_POLICY_TRANSPARENCY =
-            new ArrayList<String>();
-    static {
-        ALSO_VALID_FOR_PO_POLICY_TRANSPARENCY.add(UserManager.DISALLOW_APPS_CONTROL);
-        ALSO_VALID_FOR_PO_POLICY_TRANSPARENCY.add(UserManager.DISALLOW_UNINSTALL_APPS);
-        ALSO_VALID_FOR_PO_POLICY_TRANSPARENCY.add(UserManager.DISALLOW_MODIFY_ACCOUNTS);
-        ALSO_VALID_FOR_PO_POLICY_TRANSPARENCY.add(UserManager.DISALLOW_SHARE_LOCATION);
-    }
+    private static final List<String> ALSO_VALID_FOR_MANAGED_PROFILE_POLICY_TRANSPARENCY =
+            Arrays.asList(
+                    UserManager.DISALLOW_APPS_CONTROL,
+                    UserManager.DISALLOW_UNINSTALL_APPS,
+                    UserManager.DISALLOW_MODIFY_ACCOUNTS, UserManager.DISALLOW_SHARE_LOCATION,
+                    UserManager.DISALLOW_UNIFIED_PASSWORD,
+                    UserManager.DISALLOW_CONFIG_LOCATION);
+    private static final List<String> ALSO_VALID_FOR_MANAGED_USER_POLICY_TRANSPARENCY =
+            Arrays.asList(
+                    UserManager.DISALLOW_ADJUST_VOLUME,
+                    UserManager.DISALLOW_APPS_CONTROL,
+                    UserManager.DISALLOW_CONFIG_WIFI,
+                    UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES,
+                    UserManager.DISALLOW_MODIFY_ACCOUNTS,
+                    UserManager.DISALLOW_OUTGOING_BEAM,
+                    UserManager.DISALLOW_REMOVE_USER,
+                    UserManager.DISALLOW_SHARE_LOCATION,
+                    UserManager.DISALLOW_UNINSTALL_APPS,
+                    UserManager.DISALLOW_CONFIG_DATE_TIME,
+                    UserManager.DISALLOW_CONFIG_LOCATION,
+                    UserManager.DISALLOW_CONFIG_SCREEN_TIMEOUT,
+                    UserManager.DISALLOW_CONFIG_BRIGHTNESS,
+                    UserManager.DISALLOW_AMBIENT_DISPLAY);
 
     public static String getRestrictionLabel(Context context, String restriction) {
         final UserRestrictionItem item = findRestrictionItem(restriction);
@@ -168,15 +211,18 @@ public class UserRestrictions {
             ArrayList<String> result = new ArrayList<String>();
             // They are all valid except for DISALLOW_REMOVE_MANAGED_PROFILE
             for (String st : RESTRICTION_IDS_FOR_POLICY_TRANSPARENCY) {
-                if (!st.equals(UserManager.DISALLOW_REMOVE_MANAGED_PROFILE)) {
+                if (!st.equals(UserManager.DISALLOW_REMOVE_MANAGED_PROFILE)
+                        && !st.equals(UserManager.DISALLOW_UNIFIED_PASSWORD)) {
                     result.add(st);
                 }
             }
             return result;
         } else if (mode == PolicyTransparencyTestListActivity.MODE_COMP) {
             return Arrays.asList(UserManager.DISALLOW_REMOVE_MANAGED_PROFILE);
-        } else if (mode == PolicyTransparencyTestListActivity.MODE_PROFILE_OWNER) {
-            return ALSO_VALID_FOR_PO_POLICY_TRANSPARENCY;
+        } else if (mode == PolicyTransparencyTestListActivity.MODE_MANAGED_PROFILE) {
+            return ALSO_VALID_FOR_MANAGED_PROFILE_POLICY_TRANSPARENCY;
+        } else if (mode == PolicyTransparencyTestListActivity.MODE_MANAGED_USER) {
+            return ALSO_VALID_FOR_MANAGED_USER_POLICY_TRANSPARENCY;
         }
         throw new RuntimeException("Invalid mode " + mode);
     }

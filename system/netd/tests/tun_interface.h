@@ -33,12 +33,14 @@ public:
     void destroy();
 
     const std::string& name() const { return mIfName; }
+    int ifindex() const { return mIfIndex; }
     const in6_addr& srcAddr() const { return mSrcAddr; }
     const in6_addr& dstAddr() const { return mDstAddr; }
 
 private:
     int mFd = -1;
     std::string mIfName;
+    int mIfIndex;
     in6_addr mSrcAddr, mDstAddr;
 };
 

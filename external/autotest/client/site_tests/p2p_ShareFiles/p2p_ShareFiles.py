@@ -102,14 +102,22 @@ class p2p_ShareFiles(test.test):
         with open(os.path.join(p2p_utils.P2P_SHARE_PATH, 'my_file=HASH==.p2p'),
                   'w') as f:
             f.write('0123456789')
+            f.close()
+
+        def _get_and_check_peer_files(peer_name):
+            files = p2pcli.get_peer_files(peer_name)
+            if files != [('my_file=HASH==', 10)]:
+                return []
+            return files
 
         # Run the loop until the file is shared. Normally, the p2p-server takes
         # up to 1 second to detect a change on the shared directory and
         # announces it right away a few times. Wait until the file is announced,
         # what should not take more than a few seconds. If after 30 seconds the
         # files isn't announced, that is an error.
-        self._run_lansim_loop(timeout=30,
-                              until=lambda: p2pcli.get_peer_files(peer_name))
+        self._run_lansim_loop(
+            timeout=30,
+            until=lambda: _get_and_check_peer_files(peer_name))
 
         files = p2pcli.get_peer_files(peer_name)
         if files != [('my_file=HASH==', 10)]:

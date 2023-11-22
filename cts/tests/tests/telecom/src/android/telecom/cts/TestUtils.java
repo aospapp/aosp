@@ -15,9 +15,8 @@
  */
 package android.telecom.cts;
 
-import com.android.compatibility.common.util.ApiLevelUtil;
-
 import android.app.Instrumentation;
+import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -27,9 +26,10 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Parcel;
 import android.os.ParcelFileDescriptor;
-import android.os.Process;
 import android.os.SystemClock;
+import android.support.test.InstrumentationRegistry;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
@@ -53,6 +53,11 @@ public class TestUtils {
     static final long WAIT_FOR_STATE_CHANGE_TIMEOUT_MS = 10000;
     static final long WAIT_FOR_CALL_ADDED_TIMEOUT_S = 15;
     static final long WAIT_FOR_STATE_CHANGE_TIMEOUT_CALLBACK = 50;
+    static final long WAIT_FOR_PHONE_STATE_LISTENER_REGISTERED_TIMEOUT_S = 15;
+    static final long WAIT_FOR_PHONE_STATE_LISTENER_CALLBACK_TIMEOUT_S = 15;
+    static final boolean HAS_BLUETOOTH = hasBluetoothFeature();
+    static final BluetoothDevice BLUETOOTH_DEVICE1 = makeBluetoothDevice("00:00:00:00:00:01");
+    static final BluetoothDevice BLUETOOTH_DEVICE2 = makeBluetoothDevice("00:00:00:00:00:02");
 
     // Non-final to allow modification by tests not in this package (e.g. permission-related
     // tests in the Telecom2 test package.
@@ -64,6 +69,11 @@ public class TestUtils {
     public static final String ACCOUNT_ID = "xtstest_CALL_PROVIDER_ID";
     public static final PhoneAccountHandle TEST_PHONE_ACCOUNT_HANDLE =
             new PhoneAccountHandle(new ComponentName(PACKAGE, COMPONENT), ACCOUNT_ID);
+    public static final PhoneAccountHandle TEST_HANDOVER_SRC_PHONE_ACCOUNT_HANDLE =
+            new PhoneAccountHandle(new ComponentName(PACKAGE, COMPONENT), "handoverFrom");
+    public static final PhoneAccountHandle TEST_HANDOVER_DEST_PHONE_ACCOUNT_HANDLE =
+            new PhoneAccountHandle(new ComponentName(PACKAGE, SELF_MANAGED_COMPONENT),
+                    "handoverTo");
     public static final String REMOTE_ACCOUNT_ID = "xtstest_REMOTE_CALL_PROVIDER_ID";
     public static final String SELF_MANAGED_ACCOUNT_ID_1 = "ctstest_SELF_MANAGED_ID_1";
     public static final PhoneAccountHandle TEST_SELF_MANAGED_HANDLE_1 =
@@ -73,6 +83,10 @@ public class TestUtils {
     public static final PhoneAccountHandle TEST_SELF_MANAGED_HANDLE_2 =
             new PhoneAccountHandle(new ComponentName(PACKAGE, SELF_MANAGED_COMPONENT),
                     SELF_MANAGED_ACCOUNT_ID_2);
+    public static final String SELF_MANAGED_ACCOUNT_ID_3 = "ctstest_SELF_MANAGED_ID_3";
+    public static final PhoneAccountHandle TEST_SELF_MANAGED_HANDLE_3 =
+            new PhoneAccountHandle(new ComponentName(PACKAGE, SELF_MANAGED_COMPONENT),
+                    SELF_MANAGED_ACCOUNT_ID_3);
 
     public static final String ACCOUNT_LABEL = "CTSConnectionService";
     public static final PhoneAccount TEST_PHONE_ACCOUNT = PhoneAccount.builder(
@@ -88,8 +102,48 @@ public class TestUtils {
             .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
             .addSupportedUriScheme(PhoneAccount.SCHEME_VOICEMAIL)
             .build();
+    private static final Bundle SUPPORTS_HANDOVER_FROM_EXTRAS = new Bundle();
+    private static final Bundle SUPPORTS_HANDOVER_TO_EXTRAS = new Bundle();
+    static {
+        SUPPORTS_HANDOVER_FROM_EXTRAS.putBoolean(PhoneAccount.EXTRA_SUPPORTS_HANDOVER_FROM, true);
+        SUPPORTS_HANDOVER_TO_EXTRAS.putBoolean(PhoneAccount.EXTRA_SUPPORTS_HANDOVER_TO, true);
+    }
+    public static final PhoneAccount TEST_PHONE_ACCOUNT_HANDOVER_SRC = PhoneAccount.builder(
+            TEST_HANDOVER_SRC_PHONE_ACCOUNT_HANDLE, ACCOUNT_LABEL)
+            .setAddress(Uri.parse("tel:555-TEST"))
+            .setExtras(SUPPORTS_HANDOVER_FROM_EXTRAS)
+            .setSubscriptionAddress(Uri.parse("tel:555-TEST"))
+            .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER)
+            .setHighlightColor(Color.BLUE)
+            .setShortDescription(ACCOUNT_LABEL)
+            .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
+            .addSupportedUriScheme(PhoneAccount.SCHEME_VOICEMAIL)
+            .build();
+    public static final PhoneAccount TEST_PHONE_ACCOUNT_HANDOVER_DEST = PhoneAccount.builder(
+            TEST_HANDOVER_DEST_PHONE_ACCOUNT_HANDLE, ACCOUNT_LABEL)
+            .setAddress(Uri.parse("tel:555-TEST"))
+            .setExtras(SUPPORTS_HANDOVER_TO_EXTRAS)
+            .setSubscriptionAddress(Uri.parse("tel:555-TEST"))
+            .setCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED)
+            .setHighlightColor(Color.MAGENTA)
+            .setShortDescription(ACCOUNT_LABEL)
+            .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
+            .addSupportedUriScheme(PhoneAccount.SCHEME_VOICEMAIL)
+            .build();
     public static final String REMOTE_ACCOUNT_LABEL = "CTSRemoteConnectionService";
     public static final String SELF_MANAGED_ACCOUNT_LABEL = "android.telecom.cts";
+    public static final String TEST_URI_SCHEME = "foobuzz";
+    public static final PhoneAccount TEST_SELF_MANAGED_PHONE_ACCOUNT_3 = PhoneAccount.builder(
+            TEST_SELF_MANAGED_HANDLE_3, SELF_MANAGED_ACCOUNT_LABEL)
+            .setAddress(Uri.fromParts(TEST_URI_SCHEME, "test@test.com", null))
+            .setSubscriptionAddress(Uri.fromParts(TEST_URI_SCHEME, "test@test.com", null))
+            .setCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED |
+                    PhoneAccount.CAPABILITY_SUPPORTS_VIDEO_CALLING |
+                    PhoneAccount.CAPABILITY_VIDEO_CALLING)
+            .setHighlightColor(Color.BLUE)
+            .setShortDescription(SELF_MANAGED_ACCOUNT_LABEL)
+            .addSupportedUriScheme(TEST_URI_SCHEME)
+            .build();
     public static final PhoneAccount TEST_SELF_MANAGED_PHONE_ACCOUNT_2 = PhoneAccount.builder(
             TEST_SELF_MANAGED_HANDLE_2, SELF_MANAGED_ACCOUNT_LABEL)
             .setAddress(Uri.parse("sip:test@test.com"))
@@ -223,17 +277,36 @@ public class TestUtils {
         }
     }
 
-    public static CountDownLatch waitForLock(CountDownLatch lock) {
-        boolean success;
-        try {
-            if (lock == null) {
-                return null;
-            }
-            success = lock.await(5000, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException ie) {
-            return null;
+    /**
+     * Waits for the {@link CountDownLatch} to count down to 0 and then returns without reseting
+     * the latch.
+     * @param lock the latch that the system will wait on.
+     * @return true if the latch was released successfully, false if the latch timed out before
+     * resetting.
+     */
+    public static boolean waitForLatchCountDown(CountDownLatch lock) {
+        if (lock == null) {
+            return false;
         }
 
+        boolean success;
+        try {
+            success = lock.await(5000, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ie) {
+            return false;
+        }
+
+        return success;
+    }
+
+    /**
+     * Waits for the {@link CountDownLatch} to count down to 0 and then returns a new reset latch.
+     * @param lock The lock that will await a countDown to 0.
+     * @return a new reset {@link CountDownLatch} if the lock successfully counted down to 0 or
+     * null if the operation timed out.
+     */
+    public static CountDownLatch waitForLock(CountDownLatch lock) {
+        boolean success = waitForLatchCountDown(lock);
         if (success) {
             return new CountDownLatch(1);
         } else {
@@ -265,6 +338,19 @@ public class TestUtils {
         } catch (Exception e) {
             TestCase.fail("Failed to wait on handlers");
         }
+    }
+    public static boolean hasBluetoothFeature() {
+        return InstrumentationRegistry.getContext().getPackageManager().
+                hasSystemFeature(PackageManager.FEATURE_BLUETOOTH);
+    }
+    public static BluetoothDevice makeBluetoothDevice(String address) {
+        if (!HAS_BLUETOOTH) return null;
+        Parcel p1 = Parcel.obtain();
+        p1.writeString(address);
+        p1.setDataPosition(0);
+        BluetoothDevice device = BluetoothDevice.CREATOR.createFromParcel(p1);
+        p1.recycle();
+        return device;
     }
 
     /**
@@ -298,6 +384,9 @@ public class TestUtils {
      */
     public static SelfManagedConnection waitForAndGetConnection(Uri address) {
         // Wait for creation of the new connection.
+        if (!CtsSelfManagedConnectionService.waitForBinding()) {
+            TestCase.fail("Could not bind to Self-Managed ConnectionService");
+        }
         CtsSelfManagedConnectionService connectionService =
                 CtsSelfManagedConnectionService.getConnectionService();
         TestCase.assertTrue(connectionService.waitForUpdate(

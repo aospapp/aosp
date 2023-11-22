@@ -457,7 +457,7 @@ static void show_help(android_logcat_context_internal* context) {
                     "  -d              Dump the log and then exit (don't block)\n"
                     "  -e <expr>, --regex=<expr>\n"
                     "                  Only print lines where the log message matches <expr>\n"
-                    "                  where <expr> is a regular expression\n"
+                    "                  where <expr> is a Perl-compatible regular expression\n"
                     // Leave --head undocumented as alias for -m
                     "  -m <count>, --max-count=<count>\n"
                     "                  Quit after printing <count> lines. This is meant to be\n"
@@ -1019,7 +1019,6 @@ static int __logcat(android_logcat_context_internal* context) {
                 break;
 
             case 'm': {
-                char* end = nullptr;
                 if (!getSizeTArg(optctx.optarg, &context->maxCount)) {
                     logcat_panic(context, HELP_FALSE,
                                  "-%c \"%s\" isn't an "
@@ -1127,8 +1126,9 @@ static int __logcat(android_logcat_context_internal* context) {
                     }
                     if (found) continue;
 
-                    bool binary =
-                        !strcmp(name, "events") || !strcmp(name, "security");
+                    bool binary = !strcmp(name, "events") ||
+                                  !strcmp(name, "security") ||
+                                  !strcmp(name, "stats");
                     log_device_t* d = new log_device_t(name, binary);
 
                     if (dev) {
@@ -1182,7 +1182,6 @@ static int __logcat(android_logcat_context_internal* context) {
                 std::unique_ptr<char, void (*)(void*)> formats(
                     strdup(optctx.optarg), free);
                 char* arg = formats.get();
-                unsigned idMask = 0;
                 char* sv = nullptr;  // protect against -ENOMEM above
                 while (!!(arg = strtok_r(arg, delimiters, &sv))) {
                     err = setLogFormat(context, arg);
@@ -1256,7 +1255,7 @@ static int __logcat(android_logcat_context_internal* context) {
                         // example: "qemu_pipe,pipe:logcat"
                         // upon opening of /dev/qemu_pipe, the "pipe:logcat"
                         // string with trailing '\0' should be written to the fd
-                        size_t pos = devname.find(",");
+                        size_t pos = devname.find(',');
                         if (pos != std::string::npos) {
                             pipePurpose = devname.substr(pos + 1);
                             devname = devname.substr(0, pos);
@@ -1733,7 +1732,7 @@ int android_logcat_run_command_thread(android_logcat_context ctx,
     pthread_attr_setschedparam(&attr, &param);
     pthread_attr_setschedpolicy(&attr, SCHED_BATCH);
     if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) {
-        int save_errno = errno;
+        save_errno = errno;
         goto pthread_attr_exit;
     }
 
@@ -1773,7 +1772,7 @@ int android_logcat_run_command_thread(android_logcat_context ctx,
     context->retval = EXIT_SUCCESS;
     if (pthread_create(&context->thr, &attr,
                        (void*(*)(void*))__logcat, context)) {
-        int save_errno = errno;
+        save_errno = errno;
         goto argv_exit;
     }
     pthread_attr_destroy(&attr);
@@ -1833,11 +1832,10 @@ int android_logcat_destroy(android_logcat_context* ctx) {
     }
     android::close_output(context);
     android::close_error(context);
+
     if (context->fds[1] >= 0) {
-        // NB: could be closed by the above fclose(s), ignore error.
-        int save_errno = errno;
+        // NB: this should be closed by close_output, but just in case...
         close(context->fds[1]);
-        errno = save_errno;
         context->fds[1] = -1;
     }
 

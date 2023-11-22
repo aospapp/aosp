@@ -17,7 +17,12 @@
     android:orientation="vertical" android:layout_width="match_parent"
     android:layout_height="match_parent">
     <ImageView
-        android:id="@+id/voice_button"
+        android:id="@+id/voice_button_intent"
+        android:layout_gravity="center"
+        android:src="@drawable/ic_voice_assistant_mic"
+        style="@style/OverviewButton"/>
+    <ImageView
+        android:id="@+id/voice_button_service"
         android:layout_gravity="center"
         android:src="@drawable/ic_voice_assistant_mic"
         style="@style/OverviewButton"/>

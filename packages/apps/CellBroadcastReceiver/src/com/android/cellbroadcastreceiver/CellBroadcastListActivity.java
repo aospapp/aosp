@@ -16,6 +16,7 @@
 
 package com.android.cellbroadcastreceiver;
 
+import android.app.ActionBar;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.FragmentManager;
@@ -30,7 +31,6 @@ import android.content.Intent;
 import android.content.Loader;
 import android.database.Cursor;
 import android.os.Bundle;
-import android.os.UserManager;
 import android.provider.Telephony;
 import android.telephony.CellBroadcastMessage;
 import android.view.ContextMenu;
@@ -57,6 +57,12 @@ public class CellBroadcastListActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        ActionBar actionBar = getActionBar();
+        if (actionBar != null) {
+            // android.R.id.home will be triggered in onOptionsItemSelected()
+            actionBar.setDisplayHomeAsUpEnabled(true);
+        }
+
         setTitle(getString(R.string.cb_list_activity_title));
 
         // Dismiss the notification that brought us here (if any).
@@ -72,6 +78,17 @@ public class CellBroadcastListActivity extends Activity {
         }
     }
 
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            // Respond to the action bar's Up/Home button
+            case android.R.id.home:
+                finish();
+                return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
     /**
      * List fragment queries SQLite database on worker thread.
      */
@@ -80,7 +97,6 @@ public class CellBroadcastListActivity extends Activity {
 
         // IDs of the main menu items.
         private static final int MENU_DELETE_ALL           = 3;
-        private static final int MENU_PREFERENCES          = 4;
 
         // IDs of the context menu items (package local, accessed from inner DeleteThreadListener).
         static final int MENU_DELETE               = 0;
@@ -124,10 +140,6 @@ public class CellBroadcastListActivity extends Activity {
         public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
             menu.add(0, MENU_DELETE_ALL, 0, R.string.menu_delete_all).setIcon(
                     android.R.drawable.ic_menu_delete);
-            if (UserManager.get(getActivity()).isAdminUser()) {
-                menu.add(0, MENU_PREFERENCES, 0, R.string.menu_preferences).setIcon(
-                        android.R.drawable.ic_menu_preferences);
-            }
         }
 
         @Override
@@ -220,11 +232,6 @@ public class CellBroadcastListActivity extends Activity {
             switch(item.getItemId()) {
                 case MENU_DELETE_ALL:
                     confirmDeleteThread(-1);
-                    break;
-
-                case MENU_PREFERENCES:
-                    Intent intent = new Intent(getActivity(), CellBroadcastSettings.class);
-                    startActivity(intent);
                     break;
 
                 default:

@@ -104,7 +104,7 @@ enum {
 void acquire_object(const sp<ProcessState>& proc,
     const flat_binder_object& obj, const void* who, size_t* outAshmemSize)
 {
-    switch (obj.type) {
+    switch (obj.hdr.type) {
         case BINDER_TYPE_BINDER:
             if (obj.binder) {
                 LOG_REFS("Parcel %p acquiring reference on local %p", who, obj.cookie);
@@ -140,7 +140,7 @@ void acquire_object(const sp<ProcessState>& proc,
         }
     }
 
-    ALOGD("Invalid object type 0x%08x", obj.type);
+    ALOGD("Invalid object type 0x%08x", obj.hdr.type);
 }
 
 void acquire_object(const sp<ProcessState>& proc,
@@ -152,7 +152,7 @@ void acquire_object(const sp<ProcessState>& proc,
 static void release_object(const sp<ProcessState>& proc,
     const flat_binder_object& obj, const void* who, size_t* outAshmemSize)
 {
-    switch (obj.type) {
+    switch (obj.hdr.type) {
         case BINDER_TYPE_BINDER:
             if (obj.binder) {
                 LOG_REFS("Parcel %p releasing reference on local %p", who, obj.cookie);
@@ -191,7 +191,7 @@ static void release_object(const sp<ProcessState>& proc,
         }
     }
 
-    ALOGE("Invalid object type 0x%08x", obj.type);
+    ALOGE("Invalid object type 0x%08x", obj.hdr.type);
 }
 
 void release_object(const sp<ProcessState>& proc,
@@ -227,17 +227,17 @@ status_t flatten_binder(const sp<ProcessState>& /*proc*/,
                 ALOGE("null proxy");
             }
             const int32_t handle = proxy ? proxy->handle() : 0;
-            obj.type = BINDER_TYPE_HANDLE;
+            obj.hdr.type = BINDER_TYPE_HANDLE;
             obj.binder = 0; /* Don't pass uninitialized stack data to a remote process */
             obj.handle = handle;
             obj.cookie = 0;
         } else {
-            obj.type = BINDER_TYPE_BINDER;
+            obj.hdr.type = BINDER_TYPE_BINDER;
             obj.binder = reinterpret_cast<uintptr_t>(local->getWeakRefs());
             obj.cookie = reinterpret_cast<uintptr_t>(local);
         }
     } else {
-        obj.type = BINDER_TYPE_BINDER;
+        obj.hdr.type = BINDER_TYPE_BINDER;
         obj.binder = 0;
         obj.cookie = 0;
     }
@@ -261,12 +261,12 @@ status_t flatten_binder(const sp<ProcessState>& /*proc*/,
                     ALOGE("null proxy");
                 }
                 const int32_t handle = proxy ? proxy->handle() : 0;
-                obj.type = BINDER_TYPE_WEAK_HANDLE;
+                obj.hdr.type = BINDER_TYPE_WEAK_HANDLE;
                 obj.binder = 0; /* Don't pass uninitialized stack data to a remote process */
                 obj.handle = handle;
                 obj.cookie = 0;
             } else {
-                obj.type = BINDER_TYPE_WEAK_BINDER;
+                obj.hdr.type = BINDER_TYPE_WEAK_BINDER;
                 obj.binder = reinterpret_cast<uintptr_t>(binder.get_refs());
                 obj.cookie = reinterpret_cast<uintptr_t>(binder.unsafe_get());
             }
@@ -281,13 +281,13 @@ status_t flatten_binder(const sp<ProcessState>& /*proc*/,
         // but we can't do that with the different reference counting
         // implementation we are using.
         ALOGE("Unable to unflatten Binder weak reference!");
-        obj.type = BINDER_TYPE_BINDER;
+        obj.hdr.type = BINDER_TYPE_BINDER;
         obj.binder = 0;
         obj.cookie = 0;
         return finish_flatten_binder(NULL, obj, out);
 
     } else {
-        obj.type = BINDER_TYPE_BINDER;
+        obj.hdr.type = BINDER_TYPE_BINDER;
         obj.binder = 0;
         obj.cookie = 0;
         return finish_flatten_binder(NULL, obj, out);
@@ -307,7 +307,7 @@ status_t unflatten_binder(const sp<ProcessState>& proc,
     const flat_binder_object* flat = in.readObject(false);
 
     if (flat) {
-        switch (flat->type) {
+        switch (flat->hdr.type) {
             case BINDER_TYPE_BINDER:
                 *out = reinterpret_cast<IBinder*>(flat->cookie);
                 return finish_unflatten_binder(NULL, *flat, in);
@@ -326,7 +326,7 @@ status_t unflatten_binder(const sp<ProcessState>& proc,
     const flat_binder_object* flat = in.readObject(false);
 
     if (flat) {
-        switch (flat->type) {
+        switch (flat->hdr.type) {
             case BINDER_TYPE_BINDER:
                 *out = reinterpret_cast<IBinder*>(flat->cookie);
                 return finish_unflatten_binder(NULL, *flat, in);
@@ -433,6 +433,7 @@ void Parcel::setDataPosition(size_t pos) const
 
     mDataPos = pos;
     mNextObjectHint = 0;
+    mObjectsSorted = false;
 }
 
 status_t Parcel::setDataCapacity(size_t size)
@@ -543,7 +544,7 @@ status_t Parcel::appendFrom(const Parcel *parcel, size_t offset, size_t len)
                 = reinterpret_cast<flat_binder_object*>(mData + off);
             acquire_object(proc, *flat, this, &mOpenAshmemSize);
 
-            if (flat->type == BINDER_TYPE_FD) {
+            if (flat->hdr.type == BINDER_TYPE_FD) {
                 // If this is a file descriptor, we need to dup it so the
                 // new Parcel now owns its own fd, and can declare that we
                 // officially know we have fds.
@@ -1152,7 +1153,7 @@ status_t Parcel::writeNativeHandle(const native_handle* handle)
 status_t Parcel::writeFileDescriptor(int fd, bool takeOwnership)
 {
     flat_binder_object obj;
-    obj.type = BINDER_TYPE_FD;
+    obj.hdr.type = BINDER_TYPE_FD;
     obj.flags = 0x7f | FLAT_BINDER_FLAG_ACCEPTS_FDS;
     obj.binder = 0; /* Don't pass uninitialized stack data to a remote process */
     obj.handle = fd;
@@ -1276,7 +1277,7 @@ status_t Parcel::write(const FlattenableHelperInterface& val)
     if (err) return err;
 
     // payload
-    void* const buf = this->writeInplace(pad_size(len));
+    void* const buf = this->writeInplace(len);
     if (buf == NULL)
         return BAD_VALUE;
 
@@ -1310,7 +1311,7 @@ restart_write:
         *reinterpret_cast<flat_binder_object*>(mData+mDataPos) = val;
 
         // remember if it's a file descriptor
-        if (val.type == BINDER_TYPE_FD) {
+        if (val.hdr.type == BINDER_TYPE_FD) {
             if (!mAllowFds) {
                 // fail before modifying our object index
                 return FDS_NOT_ALLOWED;
@@ -1469,6 +1470,59 @@ void Parcel::remove(size_t /*start*/, size_t /*amt*/)
     LOG_ALWAYS_FATAL("Parcel::remove() not yet implemented!");
 }
 
+status_t Parcel::validateReadData(size_t upperBound) const
+{
+    // Don't allow non-object reads on object data
+    if (mObjectsSorted || mObjectsSize <= 1) {
+data_sorted:
+        // Expect to check only against the next object
+        if (mNextObjectHint < mObjectsSize && upperBound > mObjects[mNextObjectHint]) {
+            // For some reason the current read position is greater than the next object
+            // hint. Iterate until we find the right object
+            size_t nextObject = mNextObjectHint;
+            do {
+                if (mDataPos < mObjects[nextObject] + sizeof(flat_binder_object)) {
+                    // Requested info overlaps with an object
+                    ALOGE("Attempt to read from protected data in Parcel %p", this);
+                    return PERMISSION_DENIED;
+                }
+                nextObject++;
+            } while (nextObject < mObjectsSize && upperBound > mObjects[nextObject]);
+            mNextObjectHint = nextObject;
+        }
+        return NO_ERROR;
+    }
+    // Quickly determine if mObjects is sorted.
+    binder_size_t* currObj = mObjects + mObjectsSize - 1;
+    binder_size_t* prevObj = currObj;
+    while (currObj > mObjects) {
+        prevObj--;
+        if(*prevObj > *currObj) {
+            goto data_unsorted;
+        }
+        currObj--;
+    }
+    mObjectsSorted = true;
+    goto data_sorted;
+
+data_unsorted:
+    // Insertion Sort mObjects
+    // Great for mostly sorted lists. If randomly sorted or reverse ordered mObjects become common,
+    // switch to std::sort(mObjects, mObjects + mObjectsSize);
+    for (binder_size_t* iter0 = mObjects + 1; iter0 < mObjects + mObjectsSize; iter0++) {
+        binder_size_t temp = *iter0;
+        binder_size_t* iter1 = iter0 - 1;
+        while (iter1 >= mObjects && *iter1 > temp) {
+            *(iter1 + 1) = *iter1;
+            iter1--;
+        }
+        *(iter1 + 1) = temp;
+    }
+    mNextObjectHint = 0;
+    mObjectsSorted = true;
+    goto data_sorted;
+}
+
 status_t Parcel::read(void* outData, size_t len) const
 {
     if (len > INT32_MAX) {
@@ -1479,6 +1533,15 @@ status_t Parcel::read(void* outData, size_t len) const
 
     if ((mDataPos+pad_size(len)) >= mDataPos && (mDataPos+pad_size(len)) <= mDataSize
             && len <= pad_size(len)) {
+        if (mObjectsSize > 0) {
+            status_t err = validateReadData(mDataPos + pad_size(len));
+            if(err != NO_ERROR) {
+                // Still increment the data position by the expected length
+                mDataPos += pad_size(len);
+                ALOGV("read Setting data pos of %p to %zu", this, mDataPos);
+                return err;
+            }
+        }
         memcpy(outData, mData+mDataPos, len);
         mDataPos += pad_size(len);
         ALOGV("read Setting data pos of %p to %zu", this, mDataPos);
@@ -1497,6 +1560,16 @@ const void* Parcel::readInplace(size_t len) const
 
     if ((mDataPos+pad_size(len)) >= mDataPos && (mDataPos+pad_size(len)) <= mDataSize
             && len <= pad_size(len)) {
+        if (mObjectsSize > 0) {
+            status_t err = validateReadData(mDataPos + pad_size(len));
+            if(err != NO_ERROR) {
+                // Still increment the data position by the expected length
+                mDataPos += pad_size(len);
+                ALOGV("readInplace Setting data pos of %p to %zu", this, mDataPos);
+                return NULL;
+            }
+        }
+
         const void* data = mData+mDataPos;
         mDataPos += pad_size(len);
         ALOGV("readInplace Setting data pos of %p to %zu", this, mDataPos);
@@ -1510,6 +1583,15 @@ status_t Parcel::readAligned(T *pArg) const {
     COMPILE_TIME_ASSERT_FUNCTION_SCOPE(PAD_SIZE_UNSAFE(sizeof(T)) == sizeof(T));
 
     if ((mDataPos+sizeof(T)) <= mDataSize) {
+        if (mObjectsSize > 0) {
+            status_t err = validateReadData(mDataPos + sizeof(T));
+            if(err != NO_ERROR) {
+                // Still increment the data position by the expected length
+                mDataPos += sizeof(T);
+                return err;
+            }
+        }
+
         const void* data = mData+mDataPos;
         mDataPos += sizeof(T);
         *pArg =  *reinterpret_cast<const T*>(data);
@@ -2132,7 +2214,7 @@ int Parcel::readFileDescriptor() const
 {
     const flat_binder_object* flat = readObject(true);
 
-    if (flat && flat->type == BINDER_TYPE_FD) {
+    if (flat && flat->hdr.type == BINDER_TYPE_FD) {
         return flat->handle;
     }
 
@@ -2325,7 +2407,7 @@ void Parcel::closeFileDescriptors()
         i--;
         const flat_binder_object* flat
             = reinterpret_cast<flat_binder_object*>(mData+mObjects[i]);
-        if (flat->type == BINDER_TYPE_FD) {
+        if (flat->hdr.type == BINDER_TYPE_FD) {
             //ALOGI("Closing fd: %ld", flat->handle);
             close(flat->handle);
         }
@@ -2366,6 +2448,7 @@ void Parcel::ipcSetDataReference(const uint8_t* data, size_t dataSize,
     mObjects = const_cast<binder_size_t*>(objects);
     mObjectsSize = mObjectsCapacity = objectsCount;
     mNextObjectHint = 0;
+    mObjectsSorted = false;
     mOwner = relFunc;
     mOwnerCookie = relCookie;
     for (size_t i = 0; i < mObjectsSize; i++) {
@@ -2397,7 +2480,7 @@ void Parcel::print(TextOutput& to, uint32_t /*flags*/) const
             const flat_binder_object* flat
                 = reinterpret_cast<const flat_binder_object*>(DATA+OBJS[i]);
             to << endl << "Object #" << i << " @ " << (void*)OBJS[i] << ": "
-                << TypeCode(flat->type & 0x7f7f7f00)
+                << TypeCode(flat->hdr.type & 0x7f7f7f00)
                 << " = " << flat->binder;
         }
     } else {
@@ -2524,6 +2607,7 @@ status_t Parcel::restartWrite(size_t desired)
     mObjects = NULL;
     mObjectsSize = mObjectsCapacity = 0;
     mNextObjectHint = 0;
+    mObjectsSorted = false;
     mHasFds = false;
     mFdsKnown = true;
     mAllowFds = true;
@@ -2610,6 +2694,7 @@ status_t Parcel::continueWrite(size_t desired)
         mDataCapacity = desired;
         mObjectsSize = mObjectsCapacity = objectsSize;
         mNextObjectHint = 0;
+        mObjectsSorted = false;
 
     } else if (mData) {
         if (objectsSize < mObjectsSize) {
@@ -2618,7 +2703,7 @@ status_t Parcel::continueWrite(size_t desired)
             for (size_t i=objectsSize; i<mObjectsSize; i++) {
                 const flat_binder_object* flat
                     = reinterpret_cast<flat_binder_object*>(mData+mObjects[i]);
-                if (flat->type == BINDER_TYPE_FD) {
+                if (flat->hdr.type == BINDER_TYPE_FD) {
                     // will need to rescan because we may have lopped off the only FDs
                     mFdsKnown = false;
                 }
@@ -2631,6 +2716,7 @@ status_t Parcel::continueWrite(size_t desired)
             }
             mObjectsSize = objectsSize;
             mNextObjectHint = 0;
+            mObjectsSorted = false;
         }
 
         // We own the data, so we can just do a realloc().
@@ -2645,7 +2731,7 @@ status_t Parcel::continueWrite(size_t desired)
                 pthread_mutex_unlock(&gParcelGlobalAllocSizeLock);
                 mData = data;
                 mDataCapacity = desired;
-            } else if (desired > mDataCapacity) {
+            } else {
                 mError = NO_MEMORY;
                 return NO_MEMORY;
             }
@@ -2703,6 +2789,7 @@ void Parcel::initState()
     mObjectsSize = 0;
     mObjectsCapacity = 0;
     mNextObjectHint = 0;
+    mObjectsSorted = false;
     mHasFds = false;
     mFdsKnown = true;
     mAllowFds = true;
@@ -2728,7 +2815,7 @@ void Parcel::scanForFds() const
     for (size_t i=0; i<mObjectsSize; i++) {
         const flat_binder_object* flat
             = reinterpret_cast<const flat_binder_object*>(mData + mObjects[i]);
-        if (flat->type == BINDER_TYPE_FD) {
+        if (flat->hdr.type == BINDER_TYPE_FD) {
             hasFds = true;
             break;
         }

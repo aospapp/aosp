@@ -17,54 +17,58 @@
 package android.os.cts;
 
 import android.content.Context;
+import android.media.AudioAttributes;
+import android.os.VibrationEffect;
 import android.os.Vibrator;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.LargeTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 
-public class VibratorTest extends AndroidTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import static org.junit.Assert.fail;
+
+@RunWith(AndroidJUnit4.class)
+@LargeTest
+public class VibratorTest {
+    private static final AudioAttributes AUDIO_ATTRIBUTES =
+            new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build();
 
     private Vibrator mVibrator;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mVibrator = (Vibrator) getContext().getSystemService(Context.VIBRATOR_SERVICE);
+    @Before
+    public void setUp() {
+        mVibrator = InstrumentationRegistry.getContext().getSystemService(Vibrator.class);
     }
 
+    @Test
     public void testVibratorCancel() {
-        try {
-            mVibrator.vibrate(1000);
-        } catch (Exception e) {
-            fail("testVibratorCancel failed!");
-        }
-        sleep();
-        try {
-            mVibrator.cancel();
-        } catch (Exception e) {
-            fail("testVibratorCancel failed!");
-        }
+        mVibrator.vibrate(1000);
+        sleep(500);
+        mVibrator.cancel();
     }
 
+    @Test
     public void testVibratePattern() {
         long[] pattern = {100, 200, 400, 800, 1600};
-        try {
-            mVibrator.vibrate(pattern, 3);
-        } catch (Exception e) {
-            fail("vibrate failed!");
-        }
+        mVibrator.vibrate(pattern, 3);
         try {
             mVibrator.vibrate(pattern, 10);
             fail("Should throw ArrayIndexOutOfBoundsException");
-        } catch (ArrayIndexOutOfBoundsException e) {
-        }
-        sleep();
+        } catch (ArrayIndexOutOfBoundsException expected) { }
+        mVibrator.cancel();
     }
 
+    @Test
     public void testVibrateMultiThread() {
-        Log.d("*******VibratorTest", "MultiTreadTest");
         new Thread(new Runnable() {
             public void run() {
-                Log.d("*******VibratorTest", "Thread 1");
                 try {
                     mVibrator.vibrate(100);
                 } catch (Exception e) {
@@ -74,7 +78,6 @@ public class VibratorTest extends AndroidTestCase {
         }).start();
         new Thread(new Runnable() {
             public void run() {
-                Log.d("*******VibratorTest", "Thread 2");
                 try {
                     // This test only get two threads to run vibrator at the same time
                     // for a functional test,
@@ -85,13 +88,50 @@ public class VibratorTest extends AndroidTestCase {
                 }
             }
         }).start();
-        sleep();
+        sleep(1500);
     }
 
-    private void sleep() {
+    @Test
+    public void testVibrateOneShot() {
+        VibrationEffect oneShot =
+                VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE);
+        mVibrator.vibrate(oneShot);
+        sleep(100);
+
+        oneShot = VibrationEffect.createOneShot(500, 255 /* Max amplitude */);
+        mVibrator.vibrate(oneShot);
+        sleep(100);
+        mVibrator.cancel();
+
+        oneShot = VibrationEffect.createOneShot(100, 1 /* Min amplitude */);
+        mVibrator.vibrate(oneShot, AUDIO_ATTRIBUTES);
+        sleep(100);
+    }
+
+    @Test
+    public void testVibrateWaveform() {
+        final long[] timings = new long[] {100, 200, 300, 400, 500};
+        final int[] amplitudes = new int[] {64, 128, 255, 128, 64};
+        VibrationEffect waveform = VibrationEffect.createWaveform(timings, amplitudes, -1);
+        mVibrator.vibrate(waveform);
+        sleep(1500);
+
+        waveform = VibrationEffect.createWaveform(timings, amplitudes, 0);
+        mVibrator.vibrate(waveform, AUDIO_ATTRIBUTES);
+        sleep(2000);
+        mVibrator.cancel();
+    }
+
+    @Test
+    public void testVibratorHasAmplitudeControl() {
+        // Just make sure it doesn't crash when this is called; we don't really have a way to test
+        // if the amplitude control works or not.
+        mVibrator.hasAmplitudeControl();
+    }
+
+    private static void sleep(long millis) {
         try {
-            Thread.sleep(10000);
-        } catch (Exception e) {
-        }
+            Thread.sleep(millis);
+        } catch (InterruptedException ignored) { }
     }
 }

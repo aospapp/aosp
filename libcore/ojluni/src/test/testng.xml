@@ -173,7 +173,6 @@
      <class name="tck.java.time.zone.TCKZoneRules" />
      <class name="tck.java.time.zone.TCKZoneRulesProvider" />
      <class name="test.java.time.AbstractTest" />
-     <class name="test.java.time.chrono;" />
      <class name="test.java.time.chrono.TestChronoLocalDate" />
      <class name="test.java.time.chrono.TestChronologyPerf" />
      <class name="test.java.time.chrono.TestIsoChronoImpl" />

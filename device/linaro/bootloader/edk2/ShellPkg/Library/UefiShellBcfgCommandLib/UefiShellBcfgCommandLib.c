@@ -2,7 +2,7 @@
   Main file for BCFG command.
 
   (C) Copyright 2014-2015 Hewlett-Packard Development Company, L.P.<BR>
-  Copyright (c) 2010 - 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -15,13 +15,12 @@
 
 
 #include <Uefi.h>
-#include <ShellBase.h>
 
 #include <Guid/GlobalVariable.h>
 #include <Guid/ShellLibHiiGuid.h>
 
-#include <Protocol/EfiShell.h>
-#include <Protocol/EfiShellParameters.h>
+#include <Protocol/Shell.h>
+#include <Protocol/ShellParameters.h>
 #include <Protocol/DevicePath.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/UnicodeCollation.h>
@@ -89,7 +88,6 @@ typedef struct {
   @retval other             A error occured.
 **/
 EFI_STATUS
-EFIAPI
 UpdateOptionalData(
   UINT16                          Index, 
   UINTN                           DataSize, 
@@ -175,7 +173,6 @@ UpdateOptionalData(
   @retval other                 A error occured.
 **/
 EFI_STATUS
-EFIAPI
 GetBootOptionCrc(
   UINT32      *Crc, 
   UINT16      BootIndex
@@ -232,7 +229,6 @@ GetBootOptionCrc(
   @sa HandleProtocol
 **/
 EFI_STATUS
-EFIAPI
 GetDevicePathForDriverHandle (
   IN EFI_HANDLE                   TheHandle,
   IN OUT EFI_DEVICE_PATH_PROTOCOL **FilePath
@@ -295,7 +291,6 @@ GetDevicePathForDriverHandle (
   @retval SHELL_INVALID_PARAMETER   A parameter was invalid.
 **/
 SHELL_STATUS
-EFIAPI
 BcfgAdd(
   IN       UINTN                  Position,
   IN CONST CHAR16                 *File,
@@ -310,6 +305,7 @@ BcfgAdd(
 {
   EFI_STATUS                Status;
   EFI_DEVICE_PATH_PROTOCOL  *DevicePath;
+  EFI_DEVICE_PATH_PROTOCOL  *DevPath;
   EFI_DEVICE_PATH_PROTOCOL  *FilePath;
   CHAR16                    *Str;
   UINT8                     *TempByteBuffer;
@@ -462,9 +458,9 @@ BcfgAdd(
           ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_BCFG_FILE_DP), gShellBcfgHiiHandle, L"bcfg", Arg->FullName);  
           ShellStatus = SHELL_UNSUPPORTED;
         } else {
-/*
           if (UsePath) {
-            DevPath = DevicePath;
+            DevPath     = DevicePath;
+            ShellStatus = SHELL_INVALID_PARAMETER;
             while (!IsDevicePathEnd(DevPath)) {
               if ((DevicePathType(DevPath) == MEDIA_DEVICE_PATH) &&
                 (DevicePathSubType(DevPath) == MEDIA_HARDDRIVE_DP)) {
@@ -472,24 +468,15 @@ BcfgAdd(
                 //
                 // If we find it use it instead
                 //
-                DevicePath = DevPath;
+                ShellStatus = SHELL_SUCCESS;
+                FilePath    = DuplicateDevicePath (DevPath);
                 break;
               }
               DevPath = NextDevicePathNode(DevPath);
             }
-            //
-            // append the file
-            //
-            for(StringWalker=Arg->FullName; *StringWalker != CHAR_NULL && *StringWalker != ':'; StringWalker++);
-            FileNode = FileDevicePath(NULL, StringWalker+1);
-            FilePath = AppendDevicePath(DevicePath, FileNode);
-            FreePool(FileNode);
           } else {
-*/
             FilePath = DuplicateDevicePath(DevicePath);
-/*
           }
-*/
           FreePool(DevicePath);
         }
       }
@@ -561,33 +548,34 @@ BcfgAdd(
     if (EFI_ERROR(Status)) {
       ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_BCFG_SET_VAR_FAIL), gShellBcfgHiiHandle, L"bcfg", OptionStr);  
     } else {
-      NewOrder = AllocateZeroPool((OrderCount+1)*sizeof(NewOrder[0]));
-      ASSERT(NewOrder != NULL);
-      CopyMem(NewOrder, CurrentOrder, (OrderCount)*sizeof(NewOrder[0]));
+      NewOrder = AllocateZeroPool ((OrderCount + 1) * sizeof (NewOrder[0]));
+      if (NewOrder != NULL) {
+        CopyMem (NewOrder, CurrentOrder, (OrderCount) * sizeof (NewOrder[0]));
 
-      //
-      // Insert target into order list
-      //
-      for (Index=OrderCount; Index > Position; Index--) {
-        NewOrder[Index] = NewOrder[Index-1];
-      }
+        //
+        // Insert target into order list
+        //
+        for (Index = OrderCount; Index > Position; Index--) {
+          NewOrder[Index] = NewOrder[Index - 1];
+        }
 
-      NewOrder[Position] = (UINT16) TargetLocation;
-      Status = gRT->SetVariable (
-        Target == BcfgTargetBootOrder?L"BootOrder":L"DriverOrder",
-        &gEfiGlobalVariableGuid,
-        EFI_VARIABLE_NON_VOLATILE|EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS,
-        (OrderCount+1) * sizeof(UINT16),
-        NewOrder
-       );
+        NewOrder[Position] = (UINT16) TargetLocation;
+        Status = gRT->SetVariable (
+          Target == BcfgTargetBootOrder ? L"BootOrder" : L"DriverOrder",
+          &gEfiGlobalVariableGuid,
+          EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+          (OrderCount + 1) * sizeof (UINT16),
+          NewOrder
+        );
 
-      FreePool(NewOrder);
+        FreePool (NewOrder);
 
-      if (EFI_ERROR(Status)) {
-        ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_BCFG_WRITE_FAIL), gShellBcfgHiiHandle, L"bcfg", Target == BcfgTargetBootOrder?L"BootOrder":L"DriverOrder");  
-        ShellStatus = SHELL_INVALID_PARAMETER;
-      } else {
-        Print (L"bcfg: Add %s as %x\n", OptionStr, Position);
+        if (EFI_ERROR (Status)) {
+          ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_BCFG_WRITE_FAIL), gShellBcfgHiiHandle, L"bcfg", Target == BcfgTargetBootOrder ? L"BootOrder" : L"DriverOrder");
+          ShellStatus = SHELL_INVALID_PARAMETER;
+        } else {
+          Print (L"bcfg: Add %s as %x\n", OptionStr, Position);
+        }
       }
     }
   }
@@ -626,7 +614,6 @@ BcfgAdd(
   @retval SHELL_INVALID_PARAMETER   A parameter was invalid.
 **/
 SHELL_STATUS
-EFIAPI
 BcfgRemove(
   IN CONST BCFG_OPERATION_TARGET  Target,
   IN CONST UINT16                 *CurrentOrder,
@@ -687,7 +674,6 @@ BcfgRemove(
   @retval SHELL_INVALID_PARAMETER   A parameter was invalid.
 **/
 SHELL_STATUS
-EFIAPI
 BcfgMove(
   IN CONST BCFG_OPERATION_TARGET  Target,
   IN CONST UINT16                 *CurrentOrder,
@@ -748,7 +734,6 @@ BcfgMove(
   @retval SHELL_SUCCESS   The operation was succesful.
 **/
 SHELL_STATUS
-EFIAPI
 BcfgAddOpt(
   IN CONST CHAR16                 *OptData,
   IN CONST UINT16                 *CurrentOrder,
@@ -1035,7 +1020,6 @@ BcfgAddOpt(
   @retval SHELL_INVALID_PARAMETER A parameter was invalid.
 **/
 SHELL_STATUS
-EFIAPI
 BcfgDisplayDump(
   IN CONST CHAR16   *Op,
   IN CONST UINTN    OrderCount,
@@ -1043,23 +1027,31 @@ BcfgDisplayDump(
   IN CONST BOOLEAN  VerboseOutput
   )
 {
-  EFI_STATUS  Status;
-  UINT8       *Buffer;
-  UINTN       BufferSize;
-  CHAR16      VariableName[12];
-  UINTN       LoopVar;
-  UINTN       LoopVar2;
-  CHAR16      *DevPathString;
-  VOID        *DevPath;
+  EFI_STATUS      Status;
+  UINT8           *Buffer;
+  UINTN           BufferSize;
+  CHAR16          VariableName[12];
+  UINTN           LoopVar;
+  CHAR16          *DevPathString;
+  VOID            *FilePathList;
+  UINTN           Errors;
+  EFI_LOAD_OPTION *LoadOption;
+  CHAR16          *Description;
+  UINTN           DescriptionSize;
+  UINTN           OptionalDataOffset;
 
   if (OrderCount == 0) {
     ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN(STR_BCFG_NONE), gShellBcfgHiiHandle, L"bcfg");  
     return (SHELL_SUCCESS);
   }
 
+  Errors = 0;
+
   for (LoopVar = 0 ; LoopVar < OrderCount ; LoopVar++) {
-    Buffer      = NULL;
-    BufferSize  = 0;
+    Buffer        = NULL;
+    BufferSize    = 0;
+    DevPathString = NULL;
+
     UnicodeSPrint(VariableName, sizeof(VariableName), L"%s%04x", Op, CurrentOrder[LoopVar]);
 
     Status = gRT->GetVariable(
@@ -1080,21 +1072,40 @@ BcfgDisplayDump(
 
     if (EFI_ERROR(Status) || Buffer == NULL) {
       ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_BCFG_READ_FAIL), gShellBcfgHiiHandle, L"bcfg", VariableName);  
-      return (SHELL_INVALID_PARAMETER);
+      ++Errors;
+      goto Cleanup;
     }
 
-    if ((*(UINT16*)(Buffer+4)) != 0) {
-      DevPath = AllocateZeroPool(*(UINT16*)(Buffer+4));
-      if (DevPath == NULL) {
-        DevPathString = NULL;
-      } else {
-        CopyMem(DevPath, Buffer+6+StrSize((CHAR16*)(Buffer+6)), *(UINT16*)(Buffer+4));
-        DevPathString = ConvertDevicePathToText(DevPath, TRUE, FALSE);
-      }
-    } else {
-      DevPath       = NULL;
-      DevPathString = NULL;
+    //
+    // We expect the Attributes, FilePathListLength, and L'\0'-terminated
+    // Description fields to be present.
+    //
+    if (BufferSize < sizeof *LoadOption + sizeof (CHAR16)) {
+      ShellPrintHiiEx (
+        -1,
+        -1,
+        NULL,
+        STRING_TOKEN (STR_BCFG_VAR_CORRUPT),
+        gShellBcfgHiiHandle,
+        L"bcfg",
+        VariableName
+        );
+      ++Errors;
+      goto Cleanup;
     }
+
+    LoadOption      = (EFI_LOAD_OPTION *)Buffer;
+    Description     = (CHAR16*)(Buffer + sizeof (EFI_LOAD_OPTION));
+    DescriptionSize = StrSize (Description);
+
+    if (LoadOption->FilePathListLength != 0) {
+      FilePathList = (UINT8 *)Description + DescriptionSize;
+      DevPathString = ConvertDevicePathToText(FilePathList, TRUE, FALSE);
+    }
+
+    OptionalDataOffset = sizeof *LoadOption + DescriptionSize +
+                         LoadOption->FilePathListLength;
+
     ShellPrintHiiEx(
       -1,
       -1,
@@ -1103,36 +1114,28 @@ BcfgDisplayDump(
       gShellBcfgHiiHandle,
       LoopVar,
       VariableName,
-      (CHAR16*)(Buffer+6),
+      Description,
       DevPathString,
-      (StrSize((CHAR16*)(Buffer+6)) + *(UINT16*)(Buffer+4) + 6) <= BufferSize?L'N':L'Y');
-    if (VerboseOutput) {
-      for (LoopVar2 = (StrSize((CHAR16*)(Buffer+6)) + *(UINT16*)(Buffer+4) + 6);LoopVar2<BufferSize;LoopVar2++){
-        ShellPrintEx(
-          -1,
-          -1,
-          NULL,
-          L"%02x",
-          Buffer[LoopVar2]);
-      }
-      ShellPrintEx(
-        -1,
-        -1,
-        NULL,
-        L"\r\n");
+      OptionalDataOffset >= BufferSize ? L'N' : L'Y'
+      );
+    if (VerboseOutput && (OptionalDataOffset < BufferSize)) {
+      DumpHex (
+        2,                               // Indent
+        0,                               // Offset (displayed)
+        BufferSize - OptionalDataOffset, // DataSize
+        Buffer + OptionalDataOffset      // UserData
+        );
     }
 
+Cleanup:
     if (Buffer != NULL) {
       FreePool(Buffer);
-    }
-    if (DevPath != NULL) {
-      FreePool(DevPath);
     }
     if (DevPathString != NULL) {
       FreePool(DevPathString);
     }
   }
-  return (SHELL_SUCCESS);
+  return (Errors > 0) ? SHELL_INVALID_PARAMETER : SHELL_SUCCESS;
 }
 
 /**
@@ -1141,7 +1144,6 @@ BcfgDisplayDump(
   @param[in] Struct   The stuct to initialize.
 **/
 VOID
-EFIAPI
 InitBcfgStruct(
   IN BGFG_OPERATION *Struct
   )
@@ -1284,6 +1286,10 @@ ShellCommandRunBcfg (
         CurrentParam = ShellCommandLineGetRawValue(Package, ParamNumber);
         if        (gUnicodeCollation->StriColl(gUnicodeCollation, (CHAR16*)CurrentParam, L"dump") == 0)    {
           CurrentOperation.Type = BcfgTypeDump;
+          if (ShellCommandLineGetCount(Package) > 3) {
+            ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_TOO_MANY), gShellBcfgHiiHandle, L"bcfg");
+            ShellStatus = SHELL_INVALID_PARAMETER;
+          }
         } else if (ShellCommandLineGetFlag(Package, L"-v")) {
           ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_PARAM_INV), gShellBcfgHiiHandle, L"bcfg", L"-v (without dump)");  
           ShellStatus = SHELL_INVALID_PARAMETER;

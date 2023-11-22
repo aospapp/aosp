@@ -8,6 +8,7 @@ LOCAL_SRC_FILES := \
 	$(call all-renderscript-files-under, src)
 
 LOCAL_PACKAGE_NAME := BranchingFunCalls
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_RENDERSCRIPT_FLAGS := -g -O0 -target-api 0
 

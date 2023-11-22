@@ -61,16 +61,24 @@ public final class DateIntervalFormat {
       endCalendar = DateUtilsBridge.createIcuCalendar(icuTimeZone, icuLocale, endMs);
     }
 
-    boolean endsAtMidnight = isMidnight(endCalendar);
-
-    // If we're not showing the time or the start and end times are on the same day, and the
-    // end time is midnight, fudge the end date so we don't count the day that's about to start.
-    // This is not the behavior of icu4j's DateIntervalFormat, but it's the historical behavior
+    // Special handling when the range ends at midnight:
+    // - If we're not showing times, and the range is non-empty, we fudge the end date so we don't
+    //   count the day that's about to start.
+    // - If we are showing times, and the range ends at exactly 00:00 of the day following its start
+    //   (which can be thought of as 24:00 the same day), we fudge the end date so we don't show the
+    //    dates --- unless the start is anything displayed as 00:00, in which case we include both
+    //    dates to disambiguate.
+    // This is not the behavior of icu4j's DateIntervalFormat, but it's the required behavior
     // of Android's DateUtils.formatDateRange.
-    if (startMs != endMs && endsAtMidnight &&
-        ((flags & DateUtilsBridge.FORMAT_SHOW_TIME) == 0
-            || DateUtilsBridge.dayDistance(startCalendar, endCalendar) <= 1)) {
-      endCalendar.add(Calendar.DAY_OF_MONTH, -1);
+    if (isExactlyMidnight(endCalendar)) {
+      boolean showTime =
+          (flags & DateUtilsBridge.FORMAT_SHOW_TIME) == DateUtilsBridge.FORMAT_SHOW_TIME;
+      boolean endsDayAfterStart = DateUtilsBridge.dayDistance(startCalendar, endCalendar) == 1;
+      if ((!showTime && startMs != endMs)
+          || (endsDayAfterStart
+                  && !DateUtilsBridge.isDisplayMidnightUsingSkeleton(startCalendar))) {
+        endCalendar.add(Calendar.DAY_OF_MONTH, -1);
+      }
     }
 
     String skeleton = DateUtilsBridge.toSkeleton(startCalendar, endCalendar, flags);
@@ -95,11 +103,10 @@ public final class DateIntervalFormat {
     return formatter;
   }
 
-  private static boolean isMidnight(Calendar c) {
+  private static boolean isExactlyMidnight(Calendar c) {
     return c.get(Calendar.HOUR_OF_DAY) == 0 &&
         c.get(Calendar.MINUTE) == 0 &&
         c.get(Calendar.SECOND) == 0 &&
         c.get(Calendar.MILLISECOND) == 0;
   }
-
 }

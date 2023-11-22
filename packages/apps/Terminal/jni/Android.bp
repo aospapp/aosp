@@ -16,5 +16,9 @@ cc_library_shared {
 
     static_libs: ["libvterm"],
 
-    cflags: ["-Wno-unused-parameter"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-parameter",
+    ],
 }

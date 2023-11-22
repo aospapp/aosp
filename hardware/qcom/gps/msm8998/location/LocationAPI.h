@@ -283,6 +283,7 @@ typedef enum {
     GNSS_SV_OPTIONS_HAS_EPHEMER_BIT = (1<<0),
     GNSS_SV_OPTIONS_HAS_ALMANAC_BIT = (1<<1),
     GNSS_SV_OPTIONS_USED_IN_FIX_BIT = (1<<2),
+    GNSS_SV_OPTIONS_HAS_CARRIER_FREQUENCY_BIT = (1<<3),
 } GnssSvOptionsBits;
 
 typedef enum {
@@ -502,6 +503,7 @@ typedef struct {
     float elevation;   // elevation of SV (in degrees)
     float azimuth;     // azimuth of SV (in degrees)
     GnssSvOptionsMask gnssSvOptionsMask; // Bitwise OR of GnssSvOptionsBits
+    float carrierFrequencyHz; // carrier frequency of the signal tracked
 } GnssSv;
 
 typedef struct {

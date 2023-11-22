@@ -39,7 +39,6 @@ LIBVPX_TEST_SRCS-$(CONFIG_VP9_DECODER) += byte_alignment_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_DECODER) += decode_svc_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_DECODER) += external_frame_buffer_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_DECODER) += user_priv_test.cc
-LIBVPX_TEST_SRCS-$(CONFIG_VP9_DECODER) += vp9_frame_parallel_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += active_map_refresh_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += active_map_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += borders_test.cc
@@ -124,6 +123,7 @@ LIBVPX_TEST_SRCS-$(CONFIG_VP8_ENCODER) += vp8_fdct4x4_test.cc
 LIBVPX_TEST_SRCS-yes                   += idct_test.cc
 LIBVPX_TEST_SRCS-yes                   += predict_test.cc
 LIBVPX_TEST_SRCS-yes                   += vpx_scale_test.cc
+LIBVPX_TEST_SRCS-yes                   += vpx_scale_test.h
 
 ifeq ($(CONFIG_VP8_ENCODER)$(CONFIG_TEMPORAL_DENOISING),yesyes)
 LIBVPX_TEST_SRCS-$(HAVE_SSE2) += vp8_denoiser_sse2_test.cc
@@ -154,11 +154,15 @@ LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += avg_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += comp_avg_pred_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += dct16x16_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += dct32x32_test.cc
-LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += fdct4x4_test.cc
+LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += dct_partial_test.cc
+LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += dct_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += fdct8x8_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += hadamard_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += minmax_test.cc
+LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += vp9_scale_test.cc
+ifneq ($(CONFIG_REALTIME_ONLY),yes)
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += temporal_filter_test.cc
+endif
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += variance_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += vp9_block_error_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += vp9_quantize_test.cc

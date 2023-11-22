@@ -34,7 +34,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 
-class ApiFile {
+public class ApiFile {
 
   public static ApiInfo parseApi(String filename, InputStream stream) throws ApiParseException {
     final int CHUNK = 1024*1024;
@@ -117,6 +117,7 @@ class ApiFile {
       throws ApiParseException {
     boolean pub = false;
     boolean prot = false;
+    boolean priv = false;
     boolean pkgpriv = false;
     boolean stat = false;
     boolean fin = false;
@@ -133,6 +134,9 @@ class ApiFile {
       token = tokenizer.requireToken();
     } else if ("protected".equals(token)) {
       prot = true;
+      token = tokenizer.requireToken();
+    } else if ("private".equals(token)) {
+      priv = true;
       token = tokenizer.requireToken();
     } else {
       pkgpriv = true;
@@ -170,7 +174,7 @@ class ApiFile {
     final TypeInfo simpleTypeInfo = Converter.obtainTypeFromString(name);
     token = tokenizer.requireToken();
     cl = new ClassInfo(null/*classDoc*/, ""/*rawCommentText*/, tokenizer.pos(), pub, prot,
-        pkgpriv, false/*isPrivate*/, stat, iface, abs, true/*isOrdinaryClass*/,
+        pkgpriv, priv, stat, iface, abs, true/*isOrdinaryClass*/,
         false/*isException*/, false/*isError*/, false/*isEnum*/, false/*isAnnotation*/,
         fin, false/*isIncluded*/, simpleTypeInfo.qualifiedTypeName(), typeInfo.qualifiedTypeName(),
         null/*qualifiedTypeName*/, false/*isPrimitive*/);
@@ -229,6 +233,7 @@ class ApiFile {
       throws ApiParseException {
     boolean pub = false;
     boolean prot = false;
+    boolean priv = false;
     boolean pkgpriv = false;
     boolean dep = false;
     String name;
@@ -239,6 +244,9 @@ class ApiFile {
       token = tokenizer.requireToken();
     } else if ("protected".equals(token)) {
       prot = true;
+      token = tokenizer.requireToken();
+    } else if ("private".equals(token)) {
+      priv = true;
       token = tokenizer.requireToken();
     } else {
       pkgpriv = true;
@@ -256,7 +264,7 @@ class ApiFile {
     //method = new MethodInfo(name, cl.qualifiedName(), false/*static*/, false/*final*/, dep,
     //    pub ? "public" : "protected", tokenizer.pos(), cl);
     method = new MethodInfo(""/*rawCommentText*/, new ArrayList<TypeInfo>()/*typeParameters*/,
-        name, null/*signature*/, cl, cl, pub, prot, pkgpriv, false/*isPrivate*/, false/*isFinal*/,
+        name, null/*signature*/, cl, cl, pub, prot, pkgpriv, priv, false/*isFinal*/,
         false/*isStatic*/, false/*isSynthetic*/, false/*isAbstract*/, false/*isSynthetic*/,
         false/*isNative*/, false/* isDefault */,
         false /*isAnnotationElement*/, "constructor", null/*flatSignature*/,
@@ -280,6 +288,7 @@ class ApiFile {
       throws ApiParseException {
     boolean pub = false;
     boolean prot = false;
+    boolean priv = false;
     boolean pkgpriv = false;
     boolean stat = false;
     boolean fin = false;
@@ -299,6 +308,9 @@ class ApiFile {
       token = tokenizer.requireToken();
     } else if ("protected".equals(token)) {
       prot = true;
+      token = tokenizer.requireToken();
+    } else if ("private".equals(token)) {
+      priv = true;
       token = tokenizer.requireToken();
     } else {
       pkgpriv = true;
@@ -341,7 +353,7 @@ class ApiFile {
     assertIdent(tokenizer, token);
     name = token;
     method = new MethodInfo(""/*rawCommentText*/, typeParameters, name, null/*signature*/, cl, cl,
-        pub, prot, pkgpriv, false/*isPrivate*/, fin, stat, false/*isSynthetic*/, abs/*isAbstract*/,
+        pub, prot, pkgpriv, priv, fin, stat, false/*isSynthetic*/, abs/*isAbstract*/,
         syn, false/*isNative*/, def/*isDefault*/, false /*isAnnotationElement*/, "method",
         null/*flatSignature*/, null/*overriddenMethod*/, returnType,
         new ArrayList<ParameterInfo>(), new ArrayList<ClassInfo>()/*thrownExceptions*/,
@@ -367,6 +379,7 @@ class ApiFile {
       throws ApiParseException {
     boolean pub = false;
     boolean prot = false;
+    boolean priv = false;
     boolean pkgpriv = false;
     boolean stat = false;
     boolean fin = false;
@@ -384,6 +397,9 @@ class ApiFile {
       token = tokenizer.requireToken();
     } else if ("protected".equals(token)) {
       prot = true;
+      token = tokenizer.requireToken();
+    } else if ("private".equals(token)) {
+      priv = true;
       token = tokenizer.requireToken();
     } else {
       pkgpriv = true;
@@ -428,7 +444,7 @@ class ApiFile {
       ex.line = tokenizer.getLine();
       throw ex;
     }
-    field = new FieldInfo(name, cl, cl, pub, prot, pkgpriv, false/*isPrivate*/, fin, stat,
+    field = new FieldInfo(name, cl, cl, pub, prot, pkgpriv, priv, fin, stat,
         trans, vol, false, Converter.obtainTypeFromString(type), "", v, tokenizer.pos(),
         new ArrayList<AnnotationInstanceInfo>());
     field.setDeprecated(dep);

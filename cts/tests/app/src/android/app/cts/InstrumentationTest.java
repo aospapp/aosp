@@ -51,6 +51,7 @@ import java.util.List;
 
 import android.app.stubs.R;
 
+import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.SystemUtil;
 
 public class InstrumentationTest extends InstrumentationTestCase {
@@ -75,6 +76,7 @@ public class InstrumentationTest extends InstrumentationTestCase {
         mIntent = new Intent(mContext, InstrumentationTestActivity.class);
         mIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mActivity = (InstrumentationTestActivity) mInstrumentation.startActivitySync(mIntent);
+        PollingCheck.waitFor(mActivity::hasWindowFocus);
     }
 
     protected void tearDown() throws Exception {

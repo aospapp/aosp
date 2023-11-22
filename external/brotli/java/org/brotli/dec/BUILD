@@ -6,18 +6,22 @@ package(default_visibility = ["//visibility:public"])
 licenses(["notice"])  # MIT
 
 java_library(
-    name = "lib",
-    srcs = glob(["*.java"], exclude = ["*Test*.java"]),
+    name = "dec",
+    srcs = glob(
+        ["*.java"],
+        exclude = ["*Test*.java"],
+    ),
+    proguard_specs = ["proguard.cfg"],
 )
 
 java_library(
     name = "test_lib",
+    testonly = 1,
     srcs = glob(["*Test*.java"]),
     deps = [
-        ":lib",
+        ":dec",
         "@junit_junit//jar",
     ],
-    testonly = 1,
 )
 
 java_test(
@@ -35,12 +39,6 @@ java_test(
 java_test(
     name = "DictionaryTest",
     test_class = "org.brotli.dec.DictionaryTest",
-    runtime_deps = [":test_lib"],
-)
-
-java_test(
-    name = "EnumTest",
-    test_class = "org.brotli.dec.EnumTest",
     runtime_deps = [":test_lib"],
 )
 

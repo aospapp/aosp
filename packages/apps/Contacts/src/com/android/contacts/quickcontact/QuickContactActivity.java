@@ -49,6 +49,7 @@ import android.graphics.drawable.Drawable;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Trace;
 import android.provider.CalendarContract;
@@ -1032,8 +1033,6 @@ public class QuickContactActivity extends ContactsActivity {
             mCachedCp2DataCardModel = null;
         }
         mContactLoader.forceLoad();
-
-        NfcHandler.register(this, mLookupUri);
     }
 
     private void destroyInteractionLoaders() {
@@ -1156,6 +1155,7 @@ public class QuickContactActivity extends ContactsActivity {
             }
         };
         mEntriesAndActionsTask.execute();
+        NfcHandler.register(this, mContactData.getLookupUri());
     }
 
     private void bindDataToCards(Cp2DataCardModel cp2DataCardModel) {
@@ -1169,6 +1169,8 @@ public class QuickContactActivity extends ContactsActivity {
         final List<DataItem> sipCallDataItems = dataItemsMap.get(SipAddress.CONTENT_ITEM_TYPE);
         if (phoneDataItems != null && phoneDataItems.size() == 1) {
             mOnlyOnePhoneNumber = true;
+        } else {
+            mOnlyOnePhoneNumber = false;
         }
         String[] phoneNumbers = null;
         if (phoneDataItems != null) {
@@ -1207,6 +1209,8 @@ public class QuickContactActivity extends ContactsActivity {
         final List<DataItem> emailDataItems = dataItemsMap.get(Email.CONTENT_ITEM_TYPE);
         if (emailDataItems != null && emailDataItems.size() == 1) {
             mOnlyOneEmail = true;
+        } else {
+            mOnlyOneEmail = false;
         }
         String[] emailAddresses = null;
         if (emailDataItems != null) {
@@ -1606,6 +1610,7 @@ public class QuickContactActivity extends ContactsActivity {
     private static Entry dataItemToEntry(DataItem dataItem, DataItem secondDataItem,
             Context context, Contact contactData,
             final MutableString aboutCardName) {
+        if (contactData == null) return null;
         Drawable icon = null;
         String header = null;
         String subHeader = null;
@@ -2822,8 +2827,10 @@ public class QuickContactActivity extends ContactsActivity {
             ringToneMenuItem.setVisible(!mContactData.isUserProfile() && mArePhoneOptionsChangable);
 
             final MenuItem sendToVoiceMailMenuItem = menu.findItem(R.id.menu_send_to_voicemail);
-            sendToVoiceMailMenuItem.setVisible(!mContactData.isUserProfile()
-                    && mArePhoneOptionsChangable);
+            sendToVoiceMailMenuItem.setVisible(
+                    Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+                            && !mContactData.isUserProfile()
+                            && mArePhoneOptionsChangable);
             sendToVoiceMailMenuItem.setTitle(mSendToVoicemailState
                     ? R.string.menu_unredirect_calls_to_vm : R.string.menu_redirect_calls_to_vm);
 

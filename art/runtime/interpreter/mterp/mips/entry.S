@@ -25,13 +25,14 @@
 /*
  * On entry:
  *  a0  Thread* self
- *  a1  code_item
+ *  a1  dex_instructions
  *  a2  ShadowFrame
  *  a3  JValue* result_register
  *
  */
 
 ExecuteMterpImpl:
+    .cfi_startproc
     .set noreorder
     .cpload t9
     .set reorder
@@ -43,8 +44,8 @@ ExecuteMterpImpl:
     /* Remember the return register */
     sw      a3, SHADOWFRAME_RESULT_REGISTER_OFFSET(a2)
 
-    /* Remember the code_item */
-    sw      a1, SHADOWFRAME_CODE_ITEM_OFFSET(a2)
+    /* Remember the dex instruction pointer */
+    sw      a1, SHADOWFRAME_DEX_INSTRUCTIONS_OFFSET(a2)
 
     /* set up "named" registers */
     move    rSELF, a0
@@ -52,8 +53,8 @@ ExecuteMterpImpl:
     addu    rFP, a2, SHADOWFRAME_VREGS_OFFSET     # point to vregs.
     EAS2(rREFS, rFP, a0)                          # point to reference array in shadow frame
     lw      a0, SHADOWFRAME_DEX_PC_OFFSET(a2)     # Get starting dex_pc
-    addu    rPC, a1, CODEITEM_INSNS_OFFSET        # Point to base of insns[]
-    EAS1(rPC, rPC, a0)                            # Create direct pointer to 1st dex opcode
+    EAS1(rPC, a1, a0)                             # Create direct pointer to 1st dex opcode
+    CFI_DEFINE_DEX_PC_WITH_OFFSET(CFI_TMP, CFI_DEX, 0)
 
     EXPORT_PC()
 
@@ -63,7 +64,8 @@ ExecuteMterpImpl:
     /* Set up for backwards branches & osr profiling */
     lw      a0, OFF_FP_METHOD(rFP)
     addu    a1, rFP, OFF_FP_SHADOWFRAME
-    JAL(MterpSetUpHotnessCountdown)        # (method, shadow_frame)
+    move    a2, rSELF
+    JAL(MterpSetUpHotnessCountdown)        # (method, shadow_frame, self)
     move    rPROFILE, v0                   # Starting hotness countdown to rPROFILE
 
     /* start executing the instruction at rPC */

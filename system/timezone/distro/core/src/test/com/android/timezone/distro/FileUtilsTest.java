@@ -31,7 +31,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import libcore.io.IoUtils;
-import libcore.io.Libcore;
 
 /**
  * Tests for {@link FileUtils}.
@@ -333,7 +332,7 @@ public class FileUtilsTest extends TestCase {
         assertTrue(dir.exists() && dir.isDirectory() && dir.canRead() && dir.canExecute());
 
         String path = dir.getCanonicalPath();
-        StructStat sb = Libcore.os.stat(path);
+        StructStat sb = Os.stat(path);
         int mask = OsConstants.S_IXUSR | OsConstants.S_IRUSR;
         if (requireWorldReadable) {
             mask = mask | OsConstants.S_IXGRP | OsConstants.S_IRGRP

@@ -4,27 +4,6 @@
 
 See more details in [5.1.3. Audio Codecs Details](#5_1_3_audio_codecs_details).
 
-Handheld device implementations MUST support the following audio encoding:
-
-*    [H-0-1] AMR-NB
-*    [H-0-2] AMR-WB
-*    [H-0-3] MPEG-4 AAC Profile (AAC LC)
-*    [H-0-4] MPEG-4 HE AAC Profile (AAC+)
-*    [H-0-5] AAC ELD (enhanced low delay AAC)
-
-
-Television device implementations MUST support the following audio encoding:
-
-*    [T-0-1] MPEG-4 AAC Profile (AAC LC)
-*    [T-0-2] MPEG-4 HE AAC Profile (AAC+)
-*    [T-0-3] AAC ELD (enhanced low delay AAC)
-
-Automotive device implementations MUST support the following audio encoding:
-
-*    [A-1-1] MPEG-4 AAC Profile (AAC LC)
-*    [A-1-2] MPEG-4 HE AAC Profile (AAC+)
-*    [A-1-3] AAC ELD (enhanced low delay AAC)
-
 If device implementations declare `android.hardware.microphone`,
 they MUST support the following audio encoding:
 
@@ -35,13 +14,10 @@ they MUST support the following audio encoding:
 
 See more details in [5.1.3. Audio Codecs Details](#5_1_3_audio_codecs_details).
 
-Handheld device implementations MUST support the following decoding.
-
-*    [H-0-1] AMR-NB
-*    [H-0-2] AMR-WB
 
 If device implementations declare support for the
-`android.hardware.audio.output` feature, they:
+`android.hardware.audio.output` feature, they must support the following audio
+decoders:
 
 *    [C-1-1] MPEG-4 AAC Profile (AAC LC)
 *    [C-1-2] MPEG-4 HE AAC Profile (AAC+)

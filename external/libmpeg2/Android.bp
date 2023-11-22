@@ -65,7 +65,7 @@ cc_library_static {
                 "common/arm/ideint_function_selector.c",
             ],
 
-            armv7_a_neon: {
+            neon: {
                 srcs: [
                     "decoder/arm/impeg2d_function_selector_a9q.c",
                     "common/arm/ideint_function_selector_a9.c",

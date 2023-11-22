@@ -17,6 +17,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <malloc.h>
+#include <net/if.h>
 #include <sys/socket.h>
 
 #include <functional>
@@ -42,6 +43,7 @@ using android::base::StringPrintf;
 using android::base::WriteStringToFile;
 using android::net::INetd;
 using android::net::RouteController;
+using android::netdutils::isOk;
 using android::netdutils::Status;
 using android::netdutils::StatusOr;
 using android::netdutils::makeSlice;
@@ -60,8 +62,6 @@ const char ipv6_neigh_conf_dir[] = "/proc/sys/net/ipv6/neigh";
 
 const char proc_net_path[] = "/proc/sys/net";
 const char sys_net_path[] = "/sys/class/net";
-
-const char wl_util_path[] = "/vendor/xbin/wlutil";
 
 constexpr int kRouteInfoMinPrefixLen = 48;
 
@@ -324,29 +324,6 @@ int InterfaceController::setIPv6PrivacyExtensions(const char *interface, const i
     return writeValueToPath(ipv6_proc_path, interface, "use_tempaddr", on ? "2" : "0");
 }
 
-// Enables or disables IPv6 ND offload. This is useful for 464xlat on wifi, IPv6 tethering, and
-// generally implementing IPv6 neighbour discovery and duplicate address detection properly.
-// TODO: This should be implemented in wpa_supplicant via driver commands instead.
-int InterfaceController::setIPv6NdOffload(char* interface, const int on) {
-    // Only supported on Broadcom chipsets via wlutil for now.
-    if (access(wl_util_path, X_OK) == 0) {
-        const char *argv[] = {
-            wl_util_path,
-            "-a",
-            interface,
-            "ndoe",
-            on ? "1" : "0"
-        };
-        int ret = android_fork_execvp(ARRAY_SIZE(argv), const_cast<char**>(argv), NULL,
-                                      false, false);
-        ALOGD("%s ND offload on %s: %d (%s)",
-              (on ? "enabling" : "disabling"), interface, ret, strerror(errno));
-        return ret;
-    } else {
-        return 0;
-    }
-}
-
 void InterfaceController::setAcceptRA(const char *value) {
     setOnAllInterfaces(ipv6_proc_path, "accept_ra", value);
 }
@@ -410,4 +387,34 @@ void InterfaceController::setBaseReachableTimeMs(unsigned int millis) {
 void InterfaceController::setIPv6OptimisticMode(const char *value) {
     setOnAllInterfaces(ipv6_proc_path, "optimistic_dad", value);
     setOnAllInterfaces(ipv6_proc_path, "use_optimistic", value);
+}
+
+StatusOr<std::vector<std::string>> InterfaceController::getIfaceNames() {
+    std::vector<std::string> ifaceNames;
+    DIR* d;
+    struct dirent* de;
+
+    if (!(d = opendir("/sys/class/net"))) {
+        return statusFromErrno(errno, "Cannot open iface directory");
+    }
+    while ((de = readdir(d))) {
+        if (de->d_name[0] == '.') continue;
+        ifaceNames.push_back(std::string(de->d_name));
+    }
+    closedir(d);
+    return ifaceNames;
+}
+
+StatusOr<std::map<std::string, uint32_t>> InterfaceController::getIfaceList() {
+    std::map<std::string, uint32_t> ifacePairs;
+
+    ASSIGN_OR_RETURN(auto ifaceNames, getIfaceNames());
+
+    for (const auto& name : ifaceNames) {
+        uint32_t ifaceIndex = if_nametoindex(name.c_str());
+        if (ifaceIndex) {
+            ifacePairs.insert(std::pair<std::string, uint32_t>(name, ifaceIndex));
+        }
+    }
+    return ifacePairs;
 }

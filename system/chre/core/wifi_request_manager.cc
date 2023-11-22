@@ -15,6 +15,8 @@
  */
 
 #include <cinttypes>
+#include <cstddef>
+#include <cstring>
 
 #include "chre/core/event_loop_manager.h"
 #include "chre/core/wifi_request_manager.h"
@@ -22,6 +24,7 @@
 #include "chre/platform/log.h"
 #include "chre/platform/system_time.h"
 #include "chre/util/system/debug_dump.h"
+#include "chre_api/chre/version.h"
 
 namespace chre {
 
@@ -30,7 +33,7 @@ WifiRequestManager::WifiRequestManager() {
   // the first asynchronous push_back will succeed. Future push_backs will be
   // synchronous and failures will be returned to the client.
   if (!mScanMonitorNanoapps.reserve(1)) {
-    FATAL_ERROR("Failed to allocate scan monitoring nanoapps list at startup");
+    FATAL_ERROR_OOM();
   }
 }
 
@@ -49,7 +52,7 @@ bool WifiRequestManager::configureScanMonitor(Nanoapp *nanoapp, bool enable,
   bool success = false;
   uint32_t instanceId = nanoapp->getInstanceId();
   bool hasScanMonitorRequest = nanoappHasScanMonitorRequest(instanceId);
-  if (!mScanMonitorStateTransitions.empty()) {
+  if (!mPendingScanMonitorRequests.empty()) {
     success = addScanMonitorRequestToQueue(nanoapp, enable, cookie);
   } else if (scanMonitorIsInRequestedState(enable, hasScanMonitorRequest)) {
     // The scan monitor is already in the requested state. A success event can
@@ -62,9 +65,7 @@ bool WifiRequestManager::configureScanMonitor(Nanoapp *nanoapp, bool enable,
     if (success) {
       success = mPlatformWifi.configureScanMonitor(enable);
       if (!success) {
-        // TODO: Add a pop_back method.
-        mScanMonitorStateTransitions.remove(
-            mScanMonitorStateTransitions.size() - 1);
+        mPendingScanMonitorRequests.pop_back();
         LOGE("Failed to enable the scan monitor for nanoapp instance %" PRIu32,
              instanceId);
       }
@@ -76,8 +77,49 @@ bool WifiRequestManager::configureScanMonitor(Nanoapp *nanoapp, bool enable,
   return success;
 }
 
+bool WifiRequestManager::requestRanging(
+    Nanoapp *nanoapp, const struct chreWifiRangingParams *params,
+    const void *cookie) {
+  CHRE_ASSERT(nanoapp);
+
+  bool success = false;
+  if (!mPendingRangingRequests.emplace()) {
+    LOGE("Can't issue new RTT request; pending queue full");
+  } else {
+    PendingRangingRequest& req = mPendingRangingRequests.back();
+    req.nanoappInstanceId = nanoapp->getInstanceId();
+    req.cookie = cookie;
+
+    if (mPendingRangingRequests.size() == 1) {
+      // First in line; dispatch request immediately
+      success = mPlatformWifi.requestRanging(params);
+      if (!success) {
+        LOGE("WiFi RTT request failed");
+        mPendingRangingRequests.pop_back();
+      } else {
+        mRangingResponseTimeout = SystemTime::getMonotonicTime()
+            + Nanoseconds(CHRE_WIFI_RANGING_RESULT_TIMEOUT_NS);
+      }
+    } else {
+      // Dispatch request later, after prior requests finish
+      // TODO(b/65331248): use a timer to ensure the platform is meeting its
+      // contract
+      CHRE_ASSERT_LOG(SystemTime::getMonotonicTime() <= mRangingResponseTimeout,
+                      "WiFi platform didn't give callback in time");
+      success = req.targetList.copy_array(params->targetList,
+                                          params->targetListLen);
+      if (!success) {
+        LOGE("Couldn't make copy of target list");
+        mPendingRangingRequests.pop_back();
+      }
+    }
+  }
+
+  return success;
+}
+
 bool WifiRequestManager::requestScan(Nanoapp *nanoapp,
-                                     const chreWifiScanParams *params,
+                                     const struct chreWifiScanParams *params,
                                      const void *cookie) {
   CHRE_ASSERT(nanoapp);
 
@@ -89,6 +131,15 @@ bool WifiRequestManager::requestScan(Nanoapp *nanoapp,
   if (timedOut) {
     LOGE("Scan request async response timed out");
     mScanRequestingNanoappInstanceId.reset();
+  }
+
+  // Handle compatibility with nanoapps compiled against API v1.1, which doesn't
+  // include the radioChainPref parameter in chreWifiScanParams
+  struct chreWifiScanParams paramsCompat;
+  if (nanoapp->getTargetApiVersion() < CHRE_API_VERSION_1_2) {
+    memcpy(&paramsCompat, params, offsetof(chreWifiScanParams, radioChainPref));
+    paramsCompat.radioChainPref = CHRE_WIFI_RADIO_CHAIN_PREF_DEFAULT;
+    params = &paramsCompat;
   }
 
   bool success = false;
@@ -129,11 +180,8 @@ void WifiRequestManager::handleScanMonitorStateChange(bool enabled,
       memoryFree(state);
     };
 
-    bool callbackDeferred = EventLoopManagerSingleton::get()->deferCallback(
+    EventLoopManagerSingleton::get()->deferCallback(
         SystemCallbackType::WifiScanMonitorStateChange, cbState, callback);
-    if (!callbackDeferred) {
-      memoryFree(cbState);
-    }
   }
 }
 
@@ -163,11 +211,46 @@ void WifiRequestManager::handleScanResponse(bool pending,
   }
 }
 
+void WifiRequestManager::handleRangingEvent(
+    uint8_t errorCode, struct chreWifiRangingEvent *event) {
+  // Use two different callbacks to avoid needing a temporary allocation to
+  // carry the error code into the event loop context
+  if (errorCode != CHRE_ERROR_NONE) {
+    // Enables passing the error code through the event data pointer to avoid
+    // allocating memory
+    union NestedErrorCode {
+      void *eventData;
+      uint8_t errorCode;
+    };
+
+    auto errorCb = [](uint16_t /* eventType */, void *eventData) {
+      NestedErrorCode cbErrorCode;
+      cbErrorCode.eventData = eventData;
+      EventLoopManagerSingleton::get()->getWifiRequestManager()
+          .handleRangingEventSync(cbErrorCode.errorCode, nullptr);
+    };
+
+    NestedErrorCode error = {};
+    error.errorCode = errorCode;
+    EventLoopManagerSingleton::get()->deferCallback(
+        SystemCallbackType::WifiHandleFailedRanging, error.eventData, errorCb);
+  } else {
+    auto successCb = [](uint16_t /* eventType */, void *eventData) {
+      auto *rttEvent = static_cast<struct chreWifiRangingEvent *>(eventData);
+      EventLoopManagerSingleton::get()->getWifiRequestManager()
+          .handleRangingEventSync(CHRE_ERROR_NONE, rttEvent);
+    };
+
+    EventLoopManagerSingleton::get()->deferCallback(
+        SystemCallbackType::WifiHandleRangingEvent, event, successCb);
+  }
+}
+
 void WifiRequestManager::handleScanEvent(chreWifiScanEvent *event) {
   auto callback = [](uint16_t eventType, void *eventData) {
     chreWifiScanEvent *scanEvent = static_cast<chreWifiScanEvent *>(eventData);
     EventLoopManagerSingleton::get()->getWifiRequestManager()
-        .handleScanEventSync(scanEvent);
+        .postScanEventFatal(scanEvent);
   };
 
   EventLoopManagerSingleton::get()->deferCallback(
@@ -195,7 +278,7 @@ bool WifiRequestManager::logStateToBuffer(char *buffer, size_t *bufferPos,
 
   success &= debugDumpPrint(buffer, bufferPos, bufferSize,
                             " Wifi transition queue:\n");
-  for (const auto& transition : mScanMonitorStateTransitions) {
+  for (const auto& transition : mPendingScanMonitorRequests) {
     success &= debugDumpPrint(buffer, bufferPos, bufferSize,
                               "  enable=%s nanoappId=%" PRIu32 "\n",
                               transition.enable ? "true" : "false",
@@ -236,12 +319,12 @@ bool WifiRequestManager::scanMonitorStateTransitionIsRequired(
 bool WifiRequestManager::addScanMonitorRequestToQueue(Nanoapp *nanoapp,
                                                       bool enable,
                                                       const void *cookie) {
-  ScanMonitorStateTransition scanMonitorStateTransition;
+  PendingScanMonitorRequest scanMonitorStateTransition;
   scanMonitorStateTransition.nanoappInstanceId = nanoapp->getInstanceId();
   scanMonitorStateTransition.cookie = cookie;
   scanMonitorStateTransition.enable = enable;
 
-  bool success = mScanMonitorStateTransitions.push(scanMonitorStateTransition);
+  bool success = mPendingScanMonitorRequests.push(scanMonitorStateTransition);
   if (!success) {
     LOGW("Too many scan monitor state transitions");
   }
@@ -255,28 +338,22 @@ bool WifiRequestManager::updateNanoappScanMonitoringList(bool enable,
   Nanoapp *nanoapp = EventLoopManagerSingleton::get()->getEventLoop()
       .findNanoappByInstanceId(instanceId);
   if (nanoapp == nullptr) {
-    CHRE_ASSERT_LOG(false, "Failed to update scan monitoring list for "
-                    "non-existent nanoapp");
+    LOGW("Failed to update scan monitoring list for non-existent nanoapp");
   } else {
     size_t nanoappIndex;
     bool hasExistingRequest = nanoappHasScanMonitorRequest(instanceId,
                                                            &nanoappIndex);
     if (enable) {
       if (!hasExistingRequest) {
-        success = nanoapp->registerForBroadcastEvent(
-            CHRE_EVENT_WIFI_SCAN_RESULT);
+        // The scan monitor was successfully enabled for this nanoapp and
+        // there is no existing request. Add it to the list of scan monitoring
+        // nanoapps.
+        success = mScanMonitorNanoapps.push_back(instanceId);
         if (!success) {
-          LOGE("Failed to register nanoapp for wifi scan events");
+          LOGE("Failed to add nanoapp to the list of scan monitoring "
+               "nanoapps");
         } else {
-          // The scan monitor was successfully enabled for this nanoapp and
-          // there is no existing request. Add it to the list of scan monitoring
-          // nanoapps.
-          success = mScanMonitorNanoapps.push_back(instanceId);
-          if (!success) {
-            nanoapp->unregisterForBroadcastEvent(CHRE_EVENT_WIFI_SCAN_RESULT);
-            LOGE("Failed to add nanoapp to the list of scan monitoring "
-                 "nanoapps");
-          }
+          nanoapp->registerForBroadcastEvent(CHRE_EVENT_WIFI_SCAN_RESULT);
         }
       }
     } else {
@@ -366,12 +443,8 @@ void WifiRequestManager::postScanRequestAsyncResultEventFatal(
 }
 
 void WifiRequestManager::postScanEventFatal(chreWifiScanEvent *event) {
-  bool eventPosted = EventLoopManagerSingleton::get()->getEventLoop()
-      .postEvent(CHRE_EVENT_WIFI_SCAN_RESULT, event, freeWifiScanEventCallback,
-                 kSystemInstanceId, kBroadcastInstanceId);
-  if (!eventPosted) {
-    FATAL_ERROR("Failed to send WiFi scan event");
-  }
+  EventLoopManagerSingleton::get()->getEventLoop()
+      .postEvent(CHRE_EVENT_WIFI_SCAN_RESULT, event, freeWifiScanEventCallback);
 }
 
 void WifiRequestManager::handleScanMonitorStateChangeSync(bool enabled,
@@ -382,23 +455,23 @@ void WifiRequestManager::handleScanMonitorStateChangeSync(bool enabled,
   // TODO(b/62904616): re-enable this assertion
   //CHRE_ASSERT_LOG(!mScanMonitorStateTransitions.empty(),
   //                "handleScanMonitorStateChangeSync called with no transitions");
-  if (mScanMonitorStateTransitions.empty()) {
+  if (mPendingScanMonitorRequests.empty()) {
     LOGE("WiFi PAL error: handleScanMonitorStateChangeSync called with no "
          "transitions (enabled %d errorCode %" PRIu8 ")", enabled, errorCode);
   }
 
   // Always check the front of the queue.
-  if (!mScanMonitorStateTransitions.empty()) {
-    const auto& stateTransition = mScanMonitorStateTransitions.front();
+  if (!mPendingScanMonitorRequests.empty()) {
+    const auto& stateTransition = mPendingScanMonitorRequests.front();
     success &= (stateTransition.enable == enabled);
     postScanMonitorAsyncResultEventFatal(stateTransition.nanoappInstanceId,
                                          success, stateTransition.enable,
                                          errorCode, stateTransition.cookie);
-    mScanMonitorStateTransitions.pop();
+    mPendingScanMonitorRequests.pop();
   }
 
-  while (!mScanMonitorStateTransitions.empty()) {
-    const auto& stateTransition = mScanMonitorStateTransitions.front();
+  while (!mPendingScanMonitorRequests.empty()) {
+    const auto& stateTransition = mPendingScanMonitorRequests.front();
     bool hasScanMonitorRequest = nanoappHasScanMonitorRequest(
         stateTransition.nanoappInstanceId);
     if (scanMonitorIsInRequestedState(
@@ -423,7 +496,7 @@ void WifiRequestManager::handleScanMonitorStateChangeSync(bool enabled,
       break;
     }
 
-    mScanMonitorStateTransitions.pop();
+    mPendingScanMonitorRequests.pop();
   }
 }
 
@@ -459,8 +532,7 @@ void WifiRequestManager::handleScanResponseSync(bool pending,
       Nanoapp *nanoapp = EventLoopManagerSingleton::get()->getEventLoop()
           .findNanoappByInstanceId(*mScanRequestingNanoappInstanceId);
       if (nanoapp == nullptr) {
-        CHRE_ASSERT_LOG(false, "Received WiFi scan response for unknown "
-                        "nanoapp");
+        LOGW("Received WiFi scan response for unknown nanoapp");
       } else {
         nanoapp->registerForBroadcastEvent(CHRE_EVENT_WIFI_SCAN_RESULT);
       }
@@ -473,8 +545,71 @@ void WifiRequestManager::handleScanResponseSync(bool pending,
   }
 }
 
-void WifiRequestManager::handleScanEventSync(chreWifiScanEvent *event) {
-  postScanEventFatal(event);
+bool WifiRequestManager::postRangingAsyncResult(uint8_t errorCode) {
+  bool eventPosted = false;
+
+  if (mPendingRangingRequests.empty()) {
+    LOGE("Unexpected ranging event callback");
+  } else {
+    auto *event = memoryAlloc<struct chreAsyncResult>();
+    if (event == nullptr) {
+      LOGE("Couldn't allocate ranging async result");
+    } else {
+      const PendingRangingRequest& req = mPendingRangingRequests.front();
+
+      event->requestType = CHRE_WIFI_REQUEST_TYPE_RANGING;
+      event->success = (errorCode == CHRE_ERROR_NONE);
+      event->errorCode = errorCode;
+      event->reserved = 0;
+      event->cookie = req.cookie;
+
+      eventPosted = EventLoopManagerSingleton::get()->getEventLoop().postEvent(
+          CHRE_EVENT_WIFI_ASYNC_RESULT, event, freeEventDataCallback,
+          kSystemInstanceId, req.nanoappInstanceId);
+      if (!eventPosted) {
+        memoryFree(event);
+      }
+    }
+  }
+
+  return eventPosted;
+}
+
+bool WifiRequestManager::dispatchQueuedRangingRequest() {
+  const PendingRangingRequest& req = mPendingRangingRequests.front();
+  struct chreWifiRangingParams params = {};
+  params.targetListLen = static_cast<uint8_t>(req.targetList.size());
+  params.targetList = req.targetList.data();
+
+  bool success = mPlatformWifi.requestRanging(&params);
+  if (!success) {
+    LOGE("Failed to issue queued ranging result");
+    postRangingAsyncResult(CHRE_ERROR);
+    mPendingRangingRequests.pop();
+  } else {
+    mRangingResponseTimeout = SystemTime::getMonotonicTime()
+        + Nanoseconds(CHRE_WIFI_RANGING_RESULT_TIMEOUT_NS);
+  }
+
+  return success;
+}
+
+void WifiRequestManager::handleRangingEventSync(
+    uint8_t errorCode, struct chreWifiRangingEvent *event) {
+  if (postRangingAsyncResult(errorCode)) {
+    if (errorCode != CHRE_ERROR_NONE) {
+      LOGW("RTT ranging failed with error %d", errorCode);
+    } else {
+      EventLoopManagerSingleton::get()->getEventLoop().postEvent(
+          CHRE_EVENT_WIFI_RANGING_RESULT, event, freeWifiRangingEventCallback,
+          kSystemInstanceId, mPendingRangingRequests.front().nanoappInstanceId);
+    }
+    mPendingRangingRequests.pop();
+  }
+
+  // If we have any pending requests, try issuing them to the platform until the
+  // first one succeeds
+  while (!mPendingRangingRequests.empty() && !dispatchQueuedRangingRequest());
 }
 
 void WifiRequestManager::handleFreeWifiScanEvent(chreWifiScanEvent *scanEvent) {
@@ -492,8 +627,7 @@ void WifiRequestManager::handleFreeWifiScanEvent(chreWifiScanEvent *scanEvent) {
       Nanoapp *nanoapp = EventLoopManagerSingleton::get()->getEventLoop()
           .findNanoappByInstanceId(*mScanRequestingNanoappInstanceId);
       if (nanoapp == nullptr) {
-        CHRE_ASSERT_LOG(false, "Attempted to unsubscribe unknown nanoapp from "
-                        "WiFi scan events");
+        LOGW("Attempted to unsubscribe unknown nanoapp from WiFi scan events");
       } else if (!nanoappHasScanMonitorRequest(
           *mScanRequestingNanoappInstanceId)) {
         nanoapp->unregisterForBroadcastEvent(CHRE_EVENT_WIFI_SCAN_RESULT);
@@ -511,6 +645,13 @@ void WifiRequestManager::freeWifiScanEventCallback(uint16_t eventType,
   chreWifiScanEvent *scanEvent = static_cast<chreWifiScanEvent *>(eventData);
   EventLoopManagerSingleton::get()->getWifiRequestManager()
       .handleFreeWifiScanEvent(scanEvent);
+}
+
+void WifiRequestManager::freeWifiRangingEventCallback(uint16_t eventType,
+                                                      void *eventData) {
+  auto *event = static_cast<struct chreWifiRangingEvent *>(eventData);
+  EventLoopManagerSingleton::get()->getWifiRequestManager()
+      .mPlatformWifi.releaseRangingEvent(event);
 }
 
 }  // namespace chre

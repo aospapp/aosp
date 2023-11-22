@@ -66,7 +66,7 @@ static inline int safe_dup(const char *file, const int lineno,
 #define SAFE_DUP(oldfd) \
 	safe_dup(__FILE__, __LINE__, (oldfd))
 
-#define	SAFE_GETCWD(buf, size) \
+#define SAFE_GETCWD(buf, size) \
 	safe_getcwd(__FILE__, __LINE__, NULL, (buf), (size))
 
 #define SAFE_GETPWNAM(name) \
@@ -403,6 +403,12 @@ static inline sighandler_t safe_signal(const char *file, const int lineno,
 	         "execlp(%s, %s, ...) failed", file, arg); \
 	} while (0)
 
+#define SAFE_EXECL(file, arg, ...) do {				\
+       execl((file), (arg), ##__VA_ARGS__);			\
+       tst_brk_(__FILE__, __LINE__, TBROK | TERRNO,		\
+                "execl(%s, %s, ...) failed", file, arg); 	\
+       } while (0)
+
 int safe_getpriority(const char *file, const int lineno, int which, id_t who);
 #define SAFE_GETPRIORITY(which, who) \
 	safe_getpriority(__FILE__, __LINE__, (which), (who))
@@ -429,5 +435,30 @@ int safe_removexattr(const char *file, const int lineno, const char *path,
 
 int safe_fsync(const char *file, const int lineno, int fd);
 #define SAFE_FSYNC(fd) safe_fsync(__FILE__, __LINE__, (fd))
+
+int safe_setsid(const char *file, const int lineno);
+#define SAFE_SETSID() safe_setsid(__FILE__, __LINE__)
+
+int safe_mknod(const char *file, const int lineno, const char *pathname,
+	mode_t mode, dev_t dev);
+#define SAFE_MKNOD(pathname, mode, dev) \
+	safe_mknod(__FILE__, __LINE__, (pathname), (mode), (dev))
+
+int safe_fanotify_init(const char *file, const int lineno,
+	unsigned int flags, unsigned int event_f_flags);
+#define SAFE_FANOTIFY_INIT(fan, mode)  \
+	safe_fanotify_init(__FILE__, __LINE__, (fan), (mode))
+
+int safe_personality(const char *filename, unsigned int lineno,
+		    unsigned long persona);
+#define SAFE_PERSONALITY(persona) safe_personality(__FILE__, __LINE__, persona)
+
+#define SAFE_SETENV(name, value, overwrite) do {		\
+	if (setenv(name, value, overwrite)) {			\
+		tst_brk_(__FILE__, __LINE__, TBROK | TERRNO,	\
+			"setenv(%s, %s, %d) failed",		\
+			name, value, overwrite);		\
+	}							\
+	} while (0)
 
 #endif /* SAFE_MACROS_H__ */

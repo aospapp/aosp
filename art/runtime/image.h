@@ -19,6 +19,7 @@
 
 #include <string.h>
 
+#include "base/bit_utils.h"
 #include "base/enums.h"
 #include "globals.h"
 #include "mirror/object.h"
@@ -27,6 +28,10 @@ namespace art {
 
 class ArtField;
 class ArtMethod;
+
+namespace linker {
+class ImageWriter;
+}  // namespace linker
 
 class ObjectVisitor {
  public:
@@ -174,6 +179,10 @@ class PACKED(4) ImageHeader {
     return patch_delta_;
   }
 
+  void SetPatchDelta(off_t patch_delta) {
+    patch_delta_ = patch_delta;
+  }
+
   static std::string GetOatLocationFromImageLocation(const std::string& image) {
     return GetLocationFromImageLocation(image, "oat");
   }
@@ -190,6 +199,8 @@ class PACKED(4) ImageHeader {
     kSaveRefsOnlyMethod,
     kSaveRefsAndArgsMethod,
     kSaveEverythingMethod,
+    kSaveEverythingMethodForClinit,
+    kSaveEverythingMethodForSuspendCheck,
     kImageMethodsCount,  // Number of elements in enum.
   };
 
@@ -221,10 +232,17 @@ class PACKED(4) ImageHeader {
   ArtMethod* GetImageMethod(ImageMethod index) const;
   void SetImageMethod(ImageMethod index, ArtMethod* method);
 
-  const ImageSection& GetImageSection(ImageSections index) const;
+  const ImageSection& GetImageSection(ImageSections index) const {
+    DCHECK_LT(static_cast<size_t>(index), kSectionCount);
+    return sections_[index];
+  }
 
   const ImageSection& GetObjectsSection() const {
     return GetImageSection(kSectionObjects);
+  }
+
+  const ImageSection& GetFieldsSection() const {
+    return GetImageSection(ImageHeader::kSectionArtFields);
   }
 
   const ImageSection& GetMethodsSection() const {
@@ -235,8 +253,28 @@ class PACKED(4) ImageHeader {
     return GetImageSection(kSectionRuntimeMethods);
   }
 
-  const ImageSection& GetFieldsSection() const {
-    return GetImageSection(ImageHeader::kSectionArtFields);
+  const ImageSection& GetImTablesSection() const {
+    return GetImageSection(kSectionImTables);
+  }
+
+  const ImageSection& GetIMTConflictTablesSection() const {
+    return GetImageSection(kSectionIMTConflictTables);
+  }
+
+  const ImageSection& GetDexCacheArraysSection() const {
+    return GetImageSection(kSectionDexCacheArrays);
+  }
+
+  const ImageSection& GetInternedStringsSection() const {
+    return GetImageSection(kSectionInternedStrings);
+  }
+
+  const ImageSection& GetClassTableSection() const {
+    return GetImageSection(kSectionClassTable);
+  }
+
+  const ImageSection& GetImageBitmapSection() const {
+    return GetImageSection(kSectionImageBitmap);
   }
 
   template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
@@ -287,6 +325,22 @@ class PACKED(4) ImageHeader {
     // App images currently require a boot image, if the size is non zero then it is an app image
     // header.
     return boot_image_size_ != 0u;
+  }
+
+  uint32_t GetBootImageConstantTablesOffset() const {
+    // Interned strings table and class table for boot image are mmapped read only.
+    DCHECK(!IsAppImage());
+    const ImageSection& interned_strings = GetInternedStringsSection();
+    DCHECK_ALIGNED(interned_strings.Offset(), kPageSize);
+    return interned_strings.Offset();
+  }
+
+  uint32_t GetBootImageConstantTablesSize() const {
+    uint32_t start_offset = GetBootImageConstantTablesOffset();
+    const ImageSection& class_table = GetClassTableSection();
+    DCHECK_LE(start_offset, class_table.Offset());
+    size_t tables_size = class_table.Offset() + class_table.Size() - start_offset;
+    return RoundUp(tables_size, kPageSize);
   }
 
   // Visit mirror::Objects in the section starting at base.
@@ -396,7 +450,7 @@ class PACKED(4) ImageHeader {
   // is the compressed size in the file.
   uint32_t data_size_;
 
-  friend class ImageWriter;
+  friend class linker::ImageWriter;
 };
 
 std::ostream& operator<<(std::ostream& os, const ImageHeader::ImageMethod& policy);

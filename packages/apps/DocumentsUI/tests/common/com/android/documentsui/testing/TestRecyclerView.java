@@ -17,6 +17,7 @@
 package com.android.documentsui.testing;
 
 import android.content.Context;
+import android.support.test.InstrumentationRegistry;
 import android.support.v7.widget.RecyclerView;
 import android.view.View;
 
@@ -32,6 +33,7 @@ public class TestRecyclerView extends RecyclerView {
 
     private List<RecyclerView.ViewHolder> holders = new ArrayList<>();
     private TestDocumentsAdapter adapter;
+    private RecyclerView.LayoutManager mLayoutManager;
 
     public TestRecyclerView(Context context) {
         super(context);
@@ -55,6 +57,16 @@ public class TestRecyclerView extends RecyclerView {
         return adapter;
     }
 
+    @Override
+    public void setLayoutManager(LayoutManager manager) {
+        mLayoutManager = manager;
+    }
+
+    @Override
+    public RecyclerView.LayoutManager getLayoutManager() {
+        return mLayoutManager;
+    }
+
     public void setItems(List<String> modelIds) {
         holders = new ArrayList<>();
         for (String modelId: modelIds) {
@@ -64,8 +76,8 @@ public class TestRecyclerView extends RecyclerView {
     }
 
     public static TestRecyclerView create(List<String> modelIds) {
-        final TestRecyclerView view = Mockito.mock(TestRecyclerView.class,
-                Mockito.withSettings().defaultAnswer(Mockito.CALLS_REAL_METHODS));
+        final TestRecyclerView view =
+                new TestRecyclerView(InstrumentationRegistry.getTargetContext());
         view.holders = new ArrayList<>();
         for (String modelId: modelIds) {
             view.holders.add(new TestViewHolder(Views.createTestView()));

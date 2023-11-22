@@ -69,6 +69,7 @@
 #include "ihevcd_fmt_conv.h"
 #include "ihevcd_job_queue.h"
 #include "ihevcd_debug.h"
+#include "ihevcd_parse_slice.h"
 #include "ihevcd_process_slice.h"
 #include "ihevcd_ittiam_logo.h"
 #include "ihevcd_profile.h"
@@ -675,8 +676,7 @@ WORD32 ihevcd_decode(iv_obj_t *ps_codec_obj, void *pv_api_ip, void *pv_api_op)
             continue;
         }
 
-        if((IVD_RES_CHANGED == ret) ||
-           (IVD_STREAM_WIDTH_HEIGHT_NOT_SUPPORTED == ret))
+        if(IVD_RES_CHANGED == ret)
         {
             break;
         }
@@ -725,12 +725,20 @@ WORD32 ihevcd_decode(iv_obj_t *ps_codec_obj, void *pv_api_ip, void *pv_api_op)
         BREAK_AFTER_SLICE_NAL();
     }
 
-    if((ps_codec->u4_pic_cnt == 0) && (ret != IHEVCD_SUCCESS))
+    if(1 == ps_codec->i4_pic_present && 0 == ps_codec->s_parse.i4_end_of_frame)
     {
-        ps_codec->i4_error_code = ret;
+        slice_header_t *ps_slice_hdr_next;
+        ps_codec->i4_slice_error = 1;
+        ps_codec->s_parse.i4_cur_slice_idx--;
+        if(ps_codec->s_parse.i4_cur_slice_idx < 0)
+            ps_codec->s_parse.i4_cur_slice_idx = 0;
 
-        ihevcd_fill_outargs(ps_codec, ps_dec_ip, ps_dec_op);
-        return IV_FAIL;
+        ps_slice_hdr_next = ps_codec->s_parse.ps_slice_hdr_base + ((ps_codec->s_parse.i4_cur_slice_idx + 1) & (MAX_SLICE_HDR_CNT - 1));
+        ps_slice_hdr_next->i2_ctb_x = -1;
+        ps_slice_hdr_next->i2_ctb_y = -1;
+
+        ihevcd_parse_slice_data(ps_codec);
+        ASSERT(ps_codec->s_parse.i4_end_of_frame != 0);
     }
 
     if(1 == ps_codec->i4_pic_present)

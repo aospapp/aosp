@@ -16,6 +16,15 @@
 
 package android.print.cts;
 
+import static android.print.test.Utils.eventually;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import android.platform.test.annotations.AppModeFull;
 import android.print.PrintAttributes;
 import android.print.PrintAttributes.Margins;
 import android.print.PrintAttributes.MediaSize;
@@ -26,22 +35,21 @@ import android.print.PrintManager;
 import android.print.PrinterCapabilitiesInfo;
 import android.print.PrinterId;
 import android.print.PrinterInfo;
-import android.print.cts.services.CustomPrintOptionsActivity;
-import android.print.cts.services.FirstPrintService;
-import android.print.cts.services.PrintServiceCallbacks;
-import android.print.cts.services.PrinterDiscoverySessionCallbacks;
-import android.print.cts.services.SecondPrintService;
-import android.print.cts.services.StubbablePrinterDiscoverySession;
+import android.print.test.BasePrintTest;
+import android.print.test.services.CustomPrintOptionsActivity;
+import android.print.test.services.FirstPrintService;
+import android.print.test.services.PrintServiceCallbacks;
+import android.print.test.services.PrinterDiscoverySessionCallbacks;
+import android.print.test.services.SecondPrintService;
+import android.print.test.services.StubbablePrinterDiscoverySession;
 import android.printservice.PrintJob;
 import android.support.test.runner.AndroidJUnit4;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
-
-import static android.print.cts.Utils.eventually;
-import static org.junit.Assert.*;
 
 /**
  * Tests all possible states of print jobs.
@@ -292,6 +300,7 @@ public class PrintJobTest extends BasePrintTest {
         });
     }
 
+    @AppModeFull(reason = "Print UI cannot resolve custom print options activity in a instant app")
     @Test
     public void advancedOption() throws Exception {
         testSuccess[0] = false;

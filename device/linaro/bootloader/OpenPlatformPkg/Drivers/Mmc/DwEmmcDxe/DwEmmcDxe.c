@@ -1,8 +1,7 @@
 /** @file
   This file implement the MMC Host Protocol for the DesignWare eMMC.
 
-  Copyright (c) 2014-2016, Linaro Limited. All rights reserved.
-  Copyright (c) 2014-2016, Hisilicon Limited. All rights reserved.
+  Copyright (c) 2014-2017, Linaro Limited. All rights reserved.
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -24,23 +23,21 @@
 #include <Library/TimerLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
-#include <Protocol/MmcHost.h>
 
-#include <Library/PrintLib.h>
-#include <Library/SerialPortLib.h>
+#include <Protocol/MmcHost.h>
 
 #include "DwEmmc.h"
 
-#define DWEMMC_DESC_PAGE		1
-#define DWEMMC_BLOCK_SIZE		512
-#define DWEMMC_DMA_BUF_SIZE		(512 * 8)
-#define DWEMMC_MAX_DESC_PAGES   	512
+#define DWEMMC_DESC_PAGE                1
+#define DWEMMC_BLOCK_SIZE               512
+#define DWEMMC_DMA_BUF_SIZE             (512 * 8)
+#define DWEMMC_MAX_DESC_PAGES           512
 
 typedef struct {
-  UINT32		Des0;
-  UINT32		Des1;
-  UINT32		Des2;
-  UINT32		Des3;
+  UINT32                        Des0;
+  UINT32                        Des1;
+  UINT32                        Des2;
+  UINT32                        Des3;
 } DWEMMC_IDMAC_DESCRIPTOR;
 
 EFI_MMC_HOST_PROTOCOL     *gpMmcHost;
@@ -70,7 +67,7 @@ DwEmmcInitialize (
   VOID
   )
 {
-    DEBUG ((EFI_D_BLKIO, "DwEmmcInitialize()"));
+    DEBUG ((DEBUG_BLKIO, "DwEmmcInitialize()"));
     return EFI_SUCCESS;
 }
 
@@ -122,15 +119,15 @@ DwEmmcUpdateClock (
 
   /* CMD_UPDATE_CLK */
   Data = BIT_CMD_WAIT_PRVDATA_COMPLETE | BIT_CMD_UPDATE_CLOCK_ONLY |
-	 BIT_CMD_START;
+         BIT_CMD_START;
   MmioWrite32 (DWEMMC_CMD, Data);
   while (1) {
     Data = MmioRead32 (DWEMMC_CMD);
-    if (!(Data & CMD_START_BIT))
+    if (!(Data & CMD_START_BIT)) {
       break;
+    }
     Data = MmioRead32 (DWEMMC_RINTSTS);
-    if (Data & DWEMMC_INT_HLE)
-    {
+    if (Data & DWEMMC_INT_HLE) {
       Print (L"failed to update mmc clock frequency\n");
       return EFI_DEVICE_ERROR;
     }
@@ -154,8 +151,9 @@ DwEmmcSetClock (
       break;
     }
   }
-  if (Found == FALSE)
+  if (Found == FALSE) {
     return EFI_NOT_FOUND;
+  }
 
   // Wait until MMC is idle
   do {
@@ -190,8 +188,7 @@ DwEmmcNotifyState (
 
   switch (State) {
   case MmcInvalidState:
-    ASSERT (0);
-    break;
+    return EFI_INVALID_PARAMETER;
   case MmcHwInitializationState:
     MmioWrite32 (DWEMMC_PWREN, 1);
 
@@ -206,6 +203,7 @@ DwEmmcNotifyState (
     // Setup clock that could not be higher than 400KHz.
     Status = DwEmmcSetClock (400000);
     ASSERT (!EFI_ERROR (Status));
+    // Wait clock stable
     MicroSecondDelay (100);
 
     MmioWrite32 (DWEMMC_RINTSTS, ~0);
@@ -238,7 +236,7 @@ DwEmmcNotifyState (
   case MmcDisconnectState:
     break;
   default:
-    ASSERT (0);
+    return EFI_INVALID_PARAMETER;
   }
   return EFI_SUCCESS;
 }
@@ -252,8 +250,9 @@ IsPendingReadCommand (
   UINTN  Mask;
 
   Mask = BIT_CMD_DATA_EXPECTED | BIT_CMD_READ;
-  if ((MmcCmd & Mask) == Mask)
+  if ((MmcCmd & Mask) == Mask) {
     return TRUE;
+  }
   return FALSE;
 }
 
@@ -265,8 +264,9 @@ IsPendingWriteCommand (
   UINTN  Mask;
 
   Mask = BIT_CMD_DATA_EXPECTED | BIT_CMD_WRITE;
-  if ((MmcCmd & Mask) == Mask)
+  if ((MmcCmd & Mask) == Mask) {
     return TRUE;
+  }
   return FALSE;
 }
 
@@ -294,10 +294,12 @@ SendCommand (
     MicroSecondDelay(500);
     Data = MmioRead32 (DWEMMC_RINTSTS);
 
-    if (Data & ErrMask)
+    if (Data & ErrMask) {
       return EFI_DEVICE_ERROR;
-    if (Data & DWEMMC_INT_DTO)	// Transfer Done
+    }
+    if (Data & DWEMMC_INT_DTO) {     // Transfer Done
       break;
+    }
   } while (!(Data & DWEMMC_INT_CMD_DONE));
   return EFI_SUCCESS;
 }
@@ -428,13 +430,13 @@ PrepareDmaData (
 
   for (Idx = 0; Idx < Cnt; Idx++) {
     (IdmacDesc + Idx)->Des0 = DWEMMC_IDMAC_DES0_OWN | DWEMMC_IDMAC_DES0_CH |
-	    		      DWEMMC_IDMAC_DES0_DIC;
+                              DWEMMC_IDMAC_DES0_DIC;
     (IdmacDesc + Idx)->Des1 = DWEMMC_IDMAC_DES1_BS1(DWEMMC_DMA_BUF_SIZE);
     /* Buffer Address */
     (IdmacDesc + Idx)->Des2 = (UINT32)((UINTN)Buffer + DWEMMC_DMA_BUF_SIZE * Idx);
     /* Next Descriptor Address */
     (IdmacDesc + Idx)->Des3 = (UINT32)((UINTN)IdmacDesc +
-   	                               (sizeof(DWEMMC_IDMAC_DESCRIPTOR) * (Idx + 1)));
+                                       (sizeof(DWEMMC_IDMAC_DESCRIPTOR) * (Idx + 1)));
   }
   /* First Descriptor */
   IdmacDesc->Des0 |= DWEMMC_IDMAC_DES0_FS;
@@ -443,7 +445,7 @@ PrepareDmaData (
   (IdmacDesc + LastIdx)->Des0 |= DWEMMC_IDMAC_DES0_LD;
   (IdmacDesc + LastIdx)->Des0 &= ~(DWEMMC_IDMAC_DES0_DIC | DWEMMC_IDMAC_DES0_CH);
   (IdmacDesc + LastIdx)->Des1 = DWEMMC_IDMAC_DES1_BS1(Length -
-   		                (LastIdx * DWEMMC_DMA_BUF_SIZE));
+                                                      (LastIdx * DWEMMC_DMA_BUF_SIZE));
   /* Set the Next field of Last Descriptor */
   (IdmacDesc + LastIdx)->Des3 = 0;
   MmioWrite32 (DWEMMC_DBADDR, (UINT32)((UINTN)IdmacDesc));
@@ -490,15 +492,16 @@ DwEmmcReadBlockData (
   InvalidateDataCacheRange (Buffer, Length);
 
   Status = PrepareDmaData (gpIdmacDesc, Length, Buffer);
-  if (EFI_ERROR (Status))
+  if (EFI_ERROR (Status)) {
     goto out;
+  }
 
   WriteBackDataCacheRange (gpIdmacDesc, DescPages * EFI_PAGE_SIZE);
   StartDma (Length);
 
   Status = SendCommand (mDwEmmcCommand, mDwEmmcArgument);
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "Failed to read data, mDwEmmcCommand:%x, mDwEmmcArgument:%x, Status:%r\n", mDwEmmcCommand, mDwEmmcArgument, Status));
+    DEBUG ((DEBUG_ERROR, "Failed to read data, mDwEmmcCommand:%x, mDwEmmcArgument:%x, Status:%r\n", mDwEmmcCommand, mDwEmmcArgument, Status));
     goto out;
   }
 out:
@@ -528,15 +531,16 @@ DwEmmcWriteBlockData (
   WriteBackDataCacheRange (Buffer, Length);
 
   Status = PrepareDmaData (gpIdmacDesc, Length, Buffer);
-  if (EFI_ERROR (Status))
+  if (EFI_ERROR (Status)) {
     goto out;
+  }
 
   WriteBackDataCacheRange (gpIdmacDesc, DescPages * EFI_PAGE_SIZE);
   StartDma (Length);
 
   Status = SendCommand (mDwEmmcCommand, mDwEmmcArgument);
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "Failed to write data, mDwEmmcCommand:%x, mDwEmmcArgument:%x, Status:%r\n", mDwEmmcCommand, mDwEmmcArgument, Status));
+    DEBUG ((DEBUG_ERROR, "Failed to write data, mDwEmmcCommand:%x, mDwEmmcArgument:%x, Status:%r\n", mDwEmmcCommand, mDwEmmcArgument, Status));
     goto out;
   }
 out:
@@ -626,10 +630,11 @@ DwEmmcDxeInitialize (
   Handle = NULL;
 
   gpIdmacDesc = (DWEMMC_IDMAC_DESCRIPTOR *)AllocatePages (DWEMMC_MAX_DESC_PAGES);
-  if (gpIdmacDesc == NULL)
+  if (gpIdmacDesc == NULL) {
     return EFI_BUFFER_TOO_SMALL;
+  }
 
-  DEBUG ((EFI_D_BLKIO, "DwEmmcDxeInitialize()\n"));
+  DEBUG ((DEBUG_BLKIO, "DwEmmcDxeInitialize()\n"));
 
   //Publish Component Name, BlockIO protocol interfaces
   Status = gBS->InstallMultipleProtocolInterfaces (

@@ -17,25 +17,34 @@
   <include name="vts-base" />
   <option name="plan" value="vts" />
   <option name="test-tag" value="vts-star" />
-  <option name="vts-plan-result:plan-name" value="vts-serving-staging-fuzz" />
+  <option name="vts-plan-result:plan-name" value="vts-staging-fuzz" />
 
   <option name="compatibility:primary-abi-only" value="true" />
   <option name="compatibility:include-filter" value="VtsHalBiometricsFingerprintV2_1IfaceFuzzer" />
   <option name="compatibility:include-filter" value="VtsHalBluetoothV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalCasNativeV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalCasV1_0IfaceFuzzer" />
   <option name="compatibility:include-filter" value="VtsHalContexthubV1_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalDumpstateV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalContexthubV1_1IfaceFuzzer" />
   <option name="compatibility:include-filter" value="VtsHalGnssV1_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalGraphicsAllocatorV2_0IfaceFuzzer" />
-  <!--option name="compatibility:include-filter" value="VtsHalGraphicsComposerV2_1IfaceFuzzer" /--><!-- makes device unresponsive -->
+  <option name="compatibility:include-filter" value="VtsHalGraphicsComposerV2_1IfaceFuzzer" />
   <option name="compatibility:include-filter" value="VtsHalGraphicsMapperV2_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalGraphicsMapperV2_1IfaceFuzzer" />
   <!--option name="compatibility:include-filter" value="VtsHalKeymasterV3_0IfaceFuzzer" /--><!-- can brick device -->
   <option name="compatibility:include-filter" value="VtsHalMediaOmxV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalNeuralnetworksV1_0IfaceFuzzer" />
   <option name="compatibility:include-filter" value="VtsHalNfcV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalOemlockV1_0IfaceFuzzer" />
   <option name="compatibility:include-filter" value="VtsHalRadioV1_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalRadioDeprecatedV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalRadioV1_1IfaceFuzzer" />
   <option name="compatibility:include-filter" value="VtsHalRenderscriptV1_0IfaceFuzzer" />
   <option name="compatibility:include-filter" value="VtsHalSensorsV1_0IfaceFuzzer" />
   <option name="compatibility:include-filter" value="VtsHalSoundtriggerV2_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalTetheroffloadConfigV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalTetheroffloadControlV1_0IfaceFuzzer" />
   <option name="compatibility:include-filter" value="VtsHalUsbV1_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalWifiV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalUsbV1_1IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalWeaverV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalWifiOffloadV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalWifiSupplicantV1_0IfaceFuzzer" />
 </configuration>

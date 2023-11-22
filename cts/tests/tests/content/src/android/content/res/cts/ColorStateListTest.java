@@ -111,6 +111,8 @@ public class ColorStateListTest extends AndroidTestCase {
         final ColorStateList actual = ColorStateList.CREATOR.createFromParcel(parcel);
         assertEquals(c.isStateful(), actual.isStateful());
         assertEquals(c.getDefaultColor(), actual.getDefaultColor());
+
+        parcel.recycle();
     }
 
     @SmallTest

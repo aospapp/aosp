@@ -94,6 +94,10 @@ void CalculateActivationRangeUint8(int32_t activation,
                                    int32_t* act_min,
                                    int32_t* act_max);
 
+void CalculateActivationRangeFloat(int32_t activation,
+                                   float* activation_min,
+                                   float* activation_max);
+
 int32_t CalculateInputRadius(int input_integer_bits, int input_left_shift);
 
 inline void calculateExplicitPadding(int32_t in_size, int32_t stride,
@@ -134,6 +138,35 @@ inline PaddingScheme getPaddingScheme(int32_t inWidth, int32_t inHeight,
     } else {
         return kPaddingUnknown;
     }
+}
+
+// TODO: add more documentation from upstream.
+// Reverse order of bits in the mask to match the expected order in kernel
+inline int ReverseMaskBits(int mask, int num_dimensions) {
+  int out = 0;
+  for (int dim = 0; dim < num_dimensions; dim++) {
+    out <<= 1;
+    out += (mask & 1);
+    mask >>= 1;
+  }
+  return out;
+}
+
+// TODO: add more documentation from upstream.
+inline int32_t PositiveRemainder(int32_t dividend, int32_t divisor) {
+  return (divisor + (dividend % divisor)) % divisor;
+}
+
+// TODO: add more documentation from upstream.
+inline int32_t ClampedIndex(int32_t index, int dim, bool pos_stride) {
+  return pos_stride
+             ? (index >= dim ? dim
+                             : PositiveRemainder(
+                                   std::min(std::max(index, -dim), dim), dim))
+             : (index < -dim
+                    ? -1
+                    : PositiveRemainder(
+                          std::min(std::max(index, -dim), dim - 1), dim));
 }
 
 // Preparation functions for the corresponding ops
@@ -207,25 +240,45 @@ bool hashtableLookupPrepare(const Shape &lookupShape,
                             Shape *outputShape,
                             Shape *hitShape);
 
-#define ANDROID_NN_MACRO_DISPATCH(macro)                                    \
-    switch (activation) {                                                   \
-        case (int32_t) FusedActivationFunc::NONE:                           \
-            macro(kNone);                                                   \
-            break;                                                          \
-        case (int32_t) FusedActivationFunc::RELU:                           \
-            macro(kRelu);                                                   \
-            break;                                                          \
-        case (int32_t) FusedActivationFunc::RELU1:                          \
-            macro(kRelu1);                                                  \
-            break;                                                          \
-        case (int32_t) FusedActivationFunc::RELU6:                          \
-            macro(kRelu6);                                                  \
-            break;                                                          \
-        default:                                                            \
-            LOG(ERROR) << "Unsupported fused activation function type";     \
-            return false;                                                   \
-    }
+bool padPrepare(const Shape& input,
+                const int32_t* paddingsData,
+                const Shape& paddingsShape,
+                Shape* output);
 
+bool batchToSpacePrepare(const Shape& input,
+                         const int32_t* blockSizeData,
+                         const Shape& blockSizeShape,
+                         Shape* output);
+
+bool spaceToBatchPrepare(const Shape& input,
+                         const int32_t* blockSizeData,
+                         const Shape& blockSizeShape,
+                         const int32_t* paddingsData,
+                         const Shape& paddingsShape,
+                         Shape* output);
+
+bool squeezePrepare(const Shape& input,
+                    const int32_t* squeezeDims,
+                    const Shape& squeezeDimsShape,
+                    Shape* output);
+
+bool transposePrepare(const Shape& input,
+                      const int32_t* permData,
+                      const Shape& permShape,
+                      Shape* output);
+
+bool meanPrepare(const Shape& input,
+                 const int32_t* axisData,
+                 const Shape& axisShape,
+                 bool keepDims,
+                 Shape* output);
+
+bool stridedSlicePrepare(const Shape& input,
+                         const int32_t* beginData, const Shape& beginShape,
+                         const int32_t* endData, const Shape& endShape,
+                         const int32_t* stridesData, const Shape& stridesShape,
+                         int32_t beginMask, int32_t endMask, int32_t shrinkAxisMask,
+                         Shape* output);
 } // namespace nn
 } // namespace android
 

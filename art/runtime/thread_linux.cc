@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
+#include "thread.h"
+
 #include <signal.h>
 
-#include "thread.h"
-#include "utils.h"
+#include "base/logging.h"  // For VLOG.
+#include "base/utils.h"
 
 namespace art {
 

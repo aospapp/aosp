@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for VTS VtsHalTvInputV1_0TargetProfiling test cases">
+    <option name="config-descriptor:metadata" key="plan" value="vts-hal-profiling-tv" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="abort-on-push-failure" value="false"/>
         <option name="push-group" value="HalHidlTargetProfilingTest.push"/>
@@ -21,7 +22,6 @@
         <option name="push" value="DATA/lib/android.hardware.audio.common@2.0-vts.profiler.so->/data/local/tmp/32/android.hardware.audio.common@2.0-vts.profiler.so"/>
         <option name="push" value="DATA/lib/android.hardware.tv.input@1.0-vts.profiler.so->/data/local/tmp/32/android.hardware.tv.input@1.0-vts.profiler.so"/>
     </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer"/>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsHalTvInputV1_0TargetProfiling"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalTvInputV1_0TargetTest/VtsHalTvInputV1_0TargetTest"/>
@@ -29,7 +29,6 @@
         <option name="binary-test-disable-framework" value="true"/>
         <option name="binary-test-stop-native-servers" value="true"/>
         <option name="enable-profiling" value="true"/>
-        <option name="precondition-lshal" value="android.hardware.tv.input@1.0"/>
         <!-- Needs about 50 seconds if no device. Needs about 15 seconds for every additional device -->
         <option name="test-timeout" value="15m"/>
     </test>

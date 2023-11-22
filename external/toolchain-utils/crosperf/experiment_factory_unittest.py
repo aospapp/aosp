@@ -175,9 +175,9 @@ class ExperimentFactoryTest(unittest.TestCase):
     test_flag.SetTestMode(True)
     label_settings.SetField('remote', 'chromeos1.cros chromeos2.cros')
     exp = ef.GetExperiment(mock_experiment_file, '', '')
-    self.assertEqual(
-        exp.remote,
-        ['chromeos1.cros', 'chromeos2.cros', '123.45.67.89', '123.45.76.80'])
+    self.assertEqual(exp.remote, [
+        'chromeos1.cros', 'chromeos2.cros', '123.45.67.89', '123.45.76.80'
+    ])
 
     # Third test: Automatic fixing of bad  logging_level param:
     global_settings.SetField('logging_level', 'really loud!')
@@ -213,9 +213,9 @@ class ExperimentFactoryTest(unittest.TestCase):
     self.assertEqual(len(exp.labels), 2)
     self.assertEqual(exp.labels[1].chromeos_image, 'fake_image_path')
     self.assertEqual(exp.labels[1].autotest_path, 'fake_autotest_path')
-    self.assertEqual(
-        exp.remote,
-        ['fake_chromeos_machine1.cros', 'fake_chromeos_machine2.cros'])
+    self.assertEqual(exp.remote, [
+        'fake_chromeos_machine1.cros', 'fake_chromeos_machine2.cros'
+    ])
 
   def test_get_default_remotes(self):
     board_list = [

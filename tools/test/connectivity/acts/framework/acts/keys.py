@@ -35,8 +35,10 @@ class Config(enum.Enum):
     key_address = "Address"
     key_random = "random"
     key_test_case_iterations = "test_case_iterations"
+    key_test_failure_tracebacks = "test_failure_tracebacks"
     # Config names for controllers packaged in ACTS.
     key_android_device = "AndroidDevice"
+    key_chameleon_device = "ChameleonDevice"
     key_native_android_device = "NativeAndroidDevice"
     key_relay_device = "RelayDevice"
     key_access_point = "AccessPoint"
@@ -45,6 +47,7 @@ class Config(enum.Enum):
     key_packet_sender = "PacketSender"
     key_monsoon = "Monsoon"
     key_sniffer = "Sniffer"
+    key_arduino_wifi_dongle = "ArduinoWifiDongle"
     # Internal keys, used internally, not exposed to user's config files.
     ikey_user_param = "user_params"
     ikey_testbed_name = "testbed_name"
@@ -54,6 +57,7 @@ class Config(enum.Enum):
     # module name of controllers packaged in ACTS.
     m_key_monsoon = "monsoon"
     m_key_android_device = "android_device"
+    m_key_chameleon_device = "chameleon_controller"
     m_key_native_android_device = "native_android_device"
     m_key_relay_device = "relay_device_controller"
     m_key_access_point = "access_point"
@@ -61,6 +65,7 @@ class Config(enum.Enum):
     m_key_iperf_server = "iperf_server"
     m_key_packet_sender = "packet_sender"
     m_key_sniffer = "sniffer"
+    m_key_arduino_wifi_dongle = "arduino_wifi_dongle"
 
     # A list of keys whose values in configs should not be passed to test
     # classes without unpacking first.
@@ -68,10 +73,21 @@ class Config(enum.Enum):
 
     # Controller names packaged with ACTS.
     builtin_controller_names = [
-        key_android_device, key_native_android_device, key_relay_device,
-        key_access_point, key_attenuator, key_iperf_server, key_packet_sender,
-        key_monsoon, key_sniffer
+        key_android_device,
+        key_native_android_device,
+        key_relay_device,
+        key_access_point,
+        key_attenuator,
+        key_iperf_server,
+        key_packet_sender,
+        key_monsoon,
+        key_sniffer,
+        key_chameleon_device,
+        key_arduino_wifi_dongle,
     ]
+
+    # Keys that are file or folder paths.
+    file_path_keys = [key_relay_device]
 
 
 def get_name_by_value(value):

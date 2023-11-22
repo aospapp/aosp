@@ -31,7 +31,7 @@
 
     <!-- Include additional dependencies here.-->
     <!-- dependency>com.google.android.gms:play-services:5.0.+</dependency -->
-    <dependency_wearable>com.android.support:wear:26.0.0</dependency_wearable>
+    <dependency_wearable>com.android.support:wear:27.1.0</dependency_wearable>
 
 
     <strings>
@@ -111,8 +111,8 @@ high-bandwidth network operations if the bandwidth of currently available networ
         sample on DAC. -->
         <intro>
             <![CDATA[
-On Android Wear, a high-bandwidth network is not always available, as the platform manages network
-connectivity with the goal of providing the best overall user experience, balancing network
+On Wear, a high-bandwidth network is not always available, as the platform manages
+network connectivity with the goal of providing the best overall user experience, balancing network
 bandwidth and maximizing device battery life. For use cases that require high-bandwidth network
 access, such as transporting large files or streaming media, we recommend that apps:
 

@@ -103,9 +103,8 @@ public class HoverTest {
     }
 
     private void injectHoverMove(View view, int offsetX, int offsetY) {
-        mActivity.getWindow().injectInputEvent(
+        mInstrumentation.sendPointerSync(
                 obtainMouseEvent(MotionEvent.ACTION_HOVER_MOVE, view, offsetX, offsetY));
-        mInstrumentation.waitForIdleSync();
     }
 
     private void remove(View view) throws Throwable {

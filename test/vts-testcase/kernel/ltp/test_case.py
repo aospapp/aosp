@@ -102,9 +102,9 @@ class TestCase(object):
         executables = (command.strip().split()[0]
                        for command in self._command.split('&&'))
 
-        # In some test definitions there were command starting with
-        # > TDsrc='mktemp ...'. We use regex to remove quotes
-        pattern = re.compile('[\'|\"]')
+        # Adjust for simple command substitutions like
+        # TMPDIR=`mktemp ...` && test $TMPDIR
+        pattern = re.compile('[\`]')
         return (pattern.sub('', executable.split('=')[1])
                 if executable.find('=') > 0 else executable
                 for executable in executables)

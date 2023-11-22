@@ -60,6 +60,10 @@ abstract class DocumentsClientTestCase extends InstrumentationTestCase {
     public void setUp() throws Exception {
         super.setUp();
 
+        // Wake up the device and dismiss the keyguard before the test starts.
+        executeShellCommand("input keyevent KEYCODE_WAKEUP");
+        executeShellCommand("wm dismiss-keyguard");
+
         Configurator.getInstance().setToolType(MotionEvent.TOOL_TYPE_FINGER);
 
         // Disable IME's to avoid virtual keyboards from showing up. Occasionally IME draws some UI
@@ -135,6 +139,14 @@ abstract class DocumentsClientTestCase extends InstrumentationTestCase {
         final PackageManager pm = getInstrumentation().getContext().getPackageManager();
         if (pm.hasSystemFeature("android.hardware.type.television")
                 || pm.hasSystemFeature("android.hardware.type.watch")) {
+            return false;
+        }
+        return true;
+    }
+
+    protected boolean supportedHardwareForScopedDirectoryAccess() {
+        final PackageManager pm = getInstrumentation().getContext().getPackageManager();
+        if (pm.hasSystemFeature("android.hardware.type.watch")) {
             return false;
         }
         return true;

@@ -29,6 +29,7 @@ import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.os.Bundle;
 import android.os.RemoteException;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import java.io.IOException;
@@ -57,28 +58,11 @@ public class AccountManagerUnaffiliatedAuthenticatorTests extends AndroidTestCas
     private ContentProviderClient mProviderClient;
 
     @Override
-    public void setUp() throws Exception {
+    public void setUp() {
         SESSION_BUNDLE.putString(SESSION_DATA_NAME_1, SESSION_DATA_VALUE_1);
 
         // bind to the diagnostic service and set it up.
         mAccountManager = AccountManager.get(getContext());
-        ContentResolver resolver = getContext().getContentResolver();
-        mProviderClient = resolver.acquireContentProviderClient(
-                AuthenticatorContentProvider.AUTHORITY);
-        /*
-         * This will install a bunch of accounts on the device
-         * (see Fixtures.getFixtureAccountNames()).
-         */
-        mProviderClient.call(AuthenticatorContentProvider.METHOD_SETUP, null, null);
-    }
-
-    @Override
-    public void tearDown() throws RemoteException {
-        try {
-            mProviderClient.call(AuthenticatorContentProvider.METHOD_TEARDOWN, null, null);
-        } finally {
-            mProviderClient.release();
-        }
     }
 
     public void testNotifyAccountAuthenticated() {
@@ -288,8 +272,13 @@ public class AccountManagerUnaffiliatedAuthenticatorTests extends AndroidTestCas
      * authenticator.
      * An encrypted session bundle should always be returned without password.
      */
+    // TODO: Either allow instant app to expose content provider, or move the content provider
+    // out of the test app.
+    @AppModeFull
     public void testStartAddAccountSession() throws
             OperationCanceledException, AuthenticatorException, IOException, RemoteException {
+        setupAccounts();
+
         String accountName = Fixtures.PREFIX_NAME_SUCCESS + "@" + Fixtures.SUFFIX_NAME_FIXTURE;
         Bundle options = createOptionsWithAccountName(accountName);
 
@@ -313,6 +302,7 @@ public class AccountManagerUnaffiliatedAuthenticatorTests extends AndroidTestCas
 
         // Validate returned data
         validateSessionBundleAndPasswordAndStatusTokenResult(result);
+        resetAccounts();
     }
 
     /**
@@ -320,8 +310,13 @@ public class AccountManagerUnaffiliatedAuthenticatorTests extends AndroidTestCas
      * the authenticator.
      * An encrypted session bundle should always be returned without password.
      */
+    // TODO: Either allow instant app to expose content provider, or move the content provider
+    // out of the test app.
+    @AppModeFull
     public void testStartUpdateCredentialsSession() throws
             OperationCanceledException, AuthenticatorException, IOException, RemoteException {
+        setupAccounts();
+
         String accountName = Fixtures.PREFIX_NAME_SUCCESS + "@" + Fixtures.SUFFIX_NAME_FIXTURE;
         Bundle options = createOptionsWithAccountName(accountName);
 
@@ -344,6 +339,7 @@ public class AccountManagerUnaffiliatedAuthenticatorTests extends AndroidTestCas
 
         // Validate returned data
         validateSessionBundleAndPasswordAndStatusTokenResult(result);
+        resetAccounts();
     }
 
     /**
@@ -446,6 +442,25 @@ public class AccountManagerUnaffiliatedAuthenticatorTests extends AndroidTestCas
         }
     }
 
+    private void setupAccounts() throws RemoteException {
+        ContentResolver resolver = getContext().getContentResolver();
+        mProviderClient = resolver.acquireContentProviderClient(
+                AuthenticatorContentProvider.AUTHORITY);
+        /*
+         * This will install a bunch of accounts on the device
+         * (see Fixtures.getFixtureAccountNames()).
+         */
+        mProviderClient.call(AuthenticatorContentProvider.METHOD_SETUP, null, null);
+    }
+
+    private void resetAccounts() throws RemoteException {
+        try {
+            mProviderClient.call(AuthenticatorContentProvider.METHOD_TEARDOWN, null, null);
+        } finally {
+            mProviderClient.release();
+        }
+    }
+
     private void validateStartAddAccountSessionParameters(Bundle inOpt)
             throws RemoteException {
         Bundle params = mProviderClient.call(AuthenticatorContentProvider.METHOD_GET, null, null);
@@ -488,4 +503,3 @@ public class AccountManagerUnaffiliatedAuthenticatorTests extends AndroidTestCas
                 result.getString(AccountManager.KEY_ACCOUNT_STATUS_TOKEN));
     }
 }
-

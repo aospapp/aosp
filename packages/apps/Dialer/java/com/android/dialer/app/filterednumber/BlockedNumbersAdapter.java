@@ -18,17 +18,18 @@ package com.android.dialer.app.filterednumber;
 import android.app.FragmentManager;
 import android.content.Context;
 import android.database.Cursor;
-import android.telephony.PhoneNumberUtils;
 import android.view.View;
-import com.android.contacts.common.ContactPhotoManager;
 import com.android.dialer.app.R;
 import com.android.dialer.blocking.BlockNumberDialogFragment;
+import com.android.dialer.contactphoto.ContactPhotoManager;
 import com.android.dialer.database.FilteredNumberContract.FilteredNumberColumns;
 import com.android.dialer.location.GeoUtil;
 import com.android.dialer.logging.InteractionEvent;
 import com.android.dialer.logging.Logger;
 import com.android.dialer.phonenumbercache.ContactInfoHelper;
+import com.android.dialer.phonenumberutil.PhoneNumberHelper;
 
+/** TODO(calderwoodra): documentation */
 public class BlockedNumbersAdapter extends NumbersAdapter {
 
   private BlockedNumbersAdapter(
@@ -65,7 +66,7 @@ public class BlockedNumbersAdapter extends NumbersAdapter {
                 id,
                 number,
                 countryIso,
-                PhoneNumberUtils.formatNumber(number, countryIso),
+                PhoneNumberHelper.formatNumber(getContext(), number, countryIso),
                 R.id.blocked_numbers_activity_container,
                 getFragmentManager(),
                 new BlockNumberDialogFragment.Callback() {

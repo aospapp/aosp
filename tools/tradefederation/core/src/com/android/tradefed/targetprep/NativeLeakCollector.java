@@ -35,19 +35,17 @@ import java.util.concurrent.TimeUnit;
 /**
  * A {@link ITargetCleaner} that runs 'dumpsys meminfo --unreachable -a' to identify the unreachable
  * native memory currently held by each process.
- * <p>
- * Note: this preparer requires N platform or newer.
+ *
+ * <p>Note: this preparer requires N platform or newer.
  */
 @OptionClass(alias = "native-leak-collector")
-public class NativeLeakCollector implements ITestLoggerReceiver, ITargetCleaner {
+public class NativeLeakCollector extends BaseTargetPreparer
+        implements ITestLoggerReceiver, ITargetCleaner {
     private static final String UNREACHABLE_MEMINFO_CMD = "dumpsys -t %d meminfo --unreachable -a";
     private static final String DIRECT_UNREACHABLE_CMD = "dumpsys -t %d %s --unreachable";
     private static final String OUTPUT_HEADER = "\nExecuted command: %s\n";
 
     private ITestLogger mTestLogger;
-
-    @Option(name = "disable", description = "If this preparer should be disabled.")
-    private boolean mDisable = false;
 
     @Option(name = "dump-timeout", description = "Timeout limit for dumping unreachable native "
             + "memory allocation information. Can be in any valid duration format, e.g. 5m, 1h.",
@@ -82,7 +80,7 @@ public class NativeLeakCollector implements ITestLoggerReceiver, ITargetCleaner 
     @Override
     public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
             throws DeviceNotAvailableException {
-        if (mDisable || (e instanceof DeviceNotAvailableException)) {
+        if (isDisabled() || (e instanceof DeviceNotAvailableException)) {
             return;
         }
 

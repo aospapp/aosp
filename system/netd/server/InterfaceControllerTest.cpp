@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <sys/types.h>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -170,6 +174,35 @@ TEST_F(StablePrivacyTest, ExistingPropertyWriteFail) {
     expectGetProperty(kStableSecretProperty, kTestIPv6AddressString);
     expectWriteToFile(kStableSecretFd, kTestIPv6AddressString, EACCES);
     EXPECT_NE(ok, enableStablePrivacyAddresses(kTestIface));
+}
+
+class GetIfaceListTest : public testing::Test {};
+
+TEST_F(GetIfaceListTest, IfaceNames) {
+    StatusOr<std::vector<std::string>> ifaceNames = InterfaceController::getIfaceNames();
+    EXPECT_EQ(ok, ifaceNames.status());
+    struct ifaddrs *ifaddr, *ifa;
+    EXPECT_EQ(0, getifaddrs(&ifaddr));
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        const auto val = std::find(
+                ifaceNames.value().begin(), ifaceNames.value().end(), ifa->ifa_name);
+        EXPECT_NE(ifaceNames.value().end(), val);
+    }
+    freeifaddrs(ifaddr);
+}
+
+TEST_F(GetIfaceListTest, IfaceExist) {
+    StatusOr<std::map<std::string, uint32_t>> ifaceMap = InterfaceController::getIfaceList();
+    EXPECT_EQ(ok, ifaceMap.status());
+    struct ifaddrs *ifaddr, *ifa;
+    EXPECT_EQ(0, getifaddrs(&ifaddr));
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        uint32_t ifaceIndex = if_nametoindex(ifa->ifa_name);
+        const auto ifacePair = ifaceMap.value().find(ifa->ifa_name);
+        EXPECT_NE(ifaceMap.value().end(), ifacePair);
+        EXPECT_EQ(ifaceIndex, ifacePair->second);
+    }
+    freeifaddrs(ifaddr);
 }
 
 }  // namespace net

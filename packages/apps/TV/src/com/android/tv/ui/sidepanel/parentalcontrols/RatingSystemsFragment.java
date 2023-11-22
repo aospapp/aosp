@@ -17,7 +17,6 @@
 package com.android.tv.ui.sidepanel.parentalcontrols;
 
 import android.os.Bundle;
-
 import com.android.tv.MainActivity;
 import com.android.tv.R;
 import com.android.tv.parental.ContentRatingSystem;
@@ -28,7 +27,6 @@ import com.android.tv.ui.sidepanel.CheckBoxItem;
 import com.android.tv.ui.sidepanel.Item;
 import com.android.tv.ui.sidepanel.SideFragment;
 import com.android.tv.util.TvSettings;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -57,7 +55,8 @@ public class RatingSystemsFragment extends SideFragment {
             builder.append(s.getDisplayName());
             builder.append(", ");
         }
-        return builder.length() > 0 ? builder.substring(0, builder.length() - 2)
+        return builder.length() > 0
+                ? builder.substring(0, builder.length() - 2)
                 : tvActivity.getString(R.string.option_no_enabled_rating_system);
     }
 
@@ -85,7 +84,8 @@ public class RatingSystemsFragment extends SideFragment {
 
         // Add default, custom and preselected content rating systems to the "short" list.
         for (ContentRatingSystem s : contentRatingSystems) {
-            if (!s.isCustom() && s.getCountries() != null
+            if (!s.isCustom()
+                    && s.getCountries() != null
                     && s.getCountries().contains(Locale.getDefault().getCountry())) {
                 items.add(new RatingSystemItem(s));
             } else if (s.isCustom() || parentalControlSettings.isContentRatingSystemEnabled(s)) {
@@ -117,12 +117,13 @@ public class RatingSystemsFragment extends SideFragment {
         allItems.addAll(itemsHiddenMultipleCountries);
 
         // Add "See All" to the "short" list.
-        items.add(new ActionItem(getString(R.string.option_see_all_rating_systems)) {
-            @Override
-            protected void onSelected() {
-                setItems(allItems);
-            }
-        });
+        items.add(
+                new ActionItem(getString(R.string.option_see_all_rating_systems)) {
+                    @Override
+                    protected void onSelected() {
+                        setItems(allItems);
+                    }
+                });
         return items;
     }
 
@@ -136,7 +137,8 @@ public class RatingSystemsFragment extends SideFragment {
         ContentRatingsManager manager = tvActivity.getContentRatingsManager();
         ParentalControlSettings settings = tvActivity.getParentalControlSettings();
         for (ContentRatingSystem s : contentRatingSystems) {
-            if (!s.isCustom() && s.getCountries() != null
+            if (!s.isCustom()
+                    && s.getCountries() != null
                     && s.getCountries().contains(Locale.getDefault().getCountry())) {
                 settings.setContentRatingSystemEnabled(manager, s, true);
             }
@@ -158,16 +160,21 @@ public class RatingSystemsFragment extends SideFragment {
         @Override
         protected void onUpdate() {
             super.onUpdate();
-            setChecked(getMainActivity().getParentalControlSettings()
-                    .isContentRatingSystemEnabled(mContentRatingSystem));
+            setChecked(
+                    getMainActivity()
+                            .getParentalControlSettings()
+                            .isContentRatingSystemEnabled(mContentRatingSystem));
         }
 
         @Override
         protected void onSelected() {
             super.onSelected();
-            getMainActivity().getParentalControlSettings().setContentRatingSystemEnabled(
-                    getMainActivity().getContentRatingsManager(), mContentRatingSystem,
-                    isChecked());
+            getMainActivity()
+                    .getParentalControlSettings()
+                    .setContentRatingSystemEnabled(
+                            getMainActivity().getContentRatingsManager(),
+                            mContentRatingSystem,
+                            isChecked());
         }
     }
 }

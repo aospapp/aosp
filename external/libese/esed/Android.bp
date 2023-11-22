@@ -37,7 +37,7 @@ cc_binary {
         "esed.cpp",
         "Weaver.cpp",
     ],
-    init_rc = ["esed.rc"],
+    init_rc: ["esed.rc"],
     defaults: ["esed_defaults"],
     shared_libs: [
         "android.hardware.weaver@1.0",

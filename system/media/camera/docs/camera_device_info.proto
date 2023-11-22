@@ -98,6 +98,7 @@ message CameraDeviceInfo {
     repeated int32 android_hotPixel_availableHotPixelModes = 458752;
     repeated Size android_jpeg_availableThumbnailSizes = 524288;
     optional int32 android_lens_facing = 589824;
+    optional int32 android_lens_poseReference = 589825;
     repeated float android_lens_info_availableApertures = 655360;
     repeated float android_lens_info_availableFilterDensities = 655361;
     repeated float android_lens_info_availableFocalLengths = 655362;
@@ -145,12 +146,16 @@ message CameraDeviceInfo {
     optional int32 android_statistics_info_maxFaceCount = 1245185;
     repeated bool android_statistics_info_availableHotPixelMapModes = 1245186;
     repeated int32 android_statistics_info_availableLensShadingMapModes = 1245187;
+    repeated int32 android_statistics_info_availableOisDataModes = 1245188;
     optional int32 android_tonemap_maxCurvePoints = 1310720;
     repeated int32 android_tonemap_availableToneMapModes = 1310721;
     optional int32 android_info_supportedHardwareLevel = 1441792;
+    optional string android_info_version = 1441793;
     optional int32 android_sync_maxLatency = 1572864;
     optional int32 android_reprocess_maxCaptureStall = 1638400;
     optional bool android_depth_depthIsExclusive = 1703936;
+    optional int32 android_logicalMultiCamera_sensorSyncType = 1769472;
+    repeated int32 android_distortionCorrection_availableModes = 1835008;
     // End of codegen fields
   }
 

@@ -26,6 +26,7 @@
 #include <atomicBitset.h>
 #include <atomic.h>
 #include <platform.h>
+#include <timer.h>
 
 #include <plat/cmsis.h>
 #include <plat/dma.h>
@@ -775,6 +776,49 @@ static inline struct Gpio* stmI2cGpioInit(const struct StmI2cBoardCfg *board, co
     return gpio;
 }
 
+static int i2cMasterReset(uint32_t busId, uint32_t speed)
+{
+    struct Gpio *sda, *scl;
+    int cnt = 0;
+    uint32_t delay;
+
+    if (busId >= ARRAY_SIZE(mStmI2cDevs))
+        return -EINVAL;
+
+    const struct StmI2cBoardCfg *board = boardStmI2cCfg(busId);
+    if (!board)
+        return -EINVAL;
+
+    sda = gpioRequest(board->gpioSda.gpioNum);
+    gpioConfigOutput(sda, board->gpioSpeed, GPIO_PULL_NONE, GPIO_OUT_OPEN_DRAIN, 1);
+    if (gpioGet(sda) == 0) {
+        // 50% duty cycle for the clock
+        delay = 500000000UL/speed;
+
+        scl = gpioRequest(board->gpioScl.gpioNum);
+        gpioConfigOutput(scl, board->gpioSpeed, GPIO_PULL_NONE, GPIO_OUT_OPEN_DRAIN, 1);
+        do {
+            // generate clock pulse
+            gpioSet(scl, 1);
+            timDelay(delay);
+            gpioSet(scl, 0);
+            timDelay(delay);
+            cnt ++;
+        } while (gpioGet(sda) == 0 && cnt < 9);
+
+        // generate STOP condition
+        gpioSet(sda, 0);
+        gpioSet(scl, 1);
+        timDelay(delay);
+        gpioSet(sda, 1);
+        timDelay(delay);
+        gpioRelease(scl);
+    }
+    gpioRelease(sda);
+
+    return cnt;
+}
+
 int i2cMasterRequest(uint32_t busId, uint32_t speed)
 {
     if (busId >= ARRAY_SIZE(mStmI2cDevs))
@@ -796,6 +840,8 @@ int i2cMasterRequest(uint32_t busId, uint32_t speed)
         pdev->next = 2;
         pdev->last = 1;
         atomicBitsetInit(mXfersValid, I2C_MAX_QUEUE_DEPTH);
+
+        i2cMasterReset(busId, speed);
 
         pdev->scl = stmI2cGpioInit(board, &board->gpioScl);
         pdev->sda = stmI2cGpioInit(board, &board->gpioSda);

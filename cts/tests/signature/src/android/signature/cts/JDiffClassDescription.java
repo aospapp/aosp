@@ -42,10 +42,10 @@ public class JDiffClassDescription {
     private int mModifier;
 
     private String mExtendedClass;
-    private List<String> implInterfaces = new ArrayList<>();
-    private List<JDiffField> jDiffFields = new ArrayList<>();
-    private List<JDiffMethod> jDiffMethods = new ArrayList<>();
-    private List<JDiffConstructor> jDiffConstructors = new ArrayList<>();
+    private final List<String> implInterfaces = new ArrayList<>();
+    private final List<JDiffField> jDiffFields = new ArrayList<>();
+    private final List<JDiffMethod> jDiffMethods = new ArrayList<>();
+    private final List<JDiffConstructor> jDiffConstructors = new ArrayList<>();
 
     private JDiffType mClassType;
 
@@ -66,7 +66,7 @@ public class JDiffClassDescription {
         return mPackageName;
     }
 
-    String getShortClassName() {
+    public String getShortClassName() {
         return mShortClassName;
     }
 
@@ -103,7 +103,7 @@ public class JDiffClassDescription {
      *
      * @param iname name of interface
      */
-    void addImplInterface(String iname) {
+    public void addImplInterface(String iname) {
         implInterfaces.add(iname);
     }
 
@@ -134,7 +134,7 @@ public class JDiffClassDescription {
         jDiffConstructors.add(tc);
     }
 
-    static String convertModifiersToAccessLevel(int modifiers) {
+    private static String convertModifiersToAccessLevel(int modifiers) {
         if ((modifiers & Modifier.PUBLIC) != 0) {
             return "public";
         } else if ((modifiers & Modifier.PRIVATE) != 0) {
@@ -147,7 +147,7 @@ public class JDiffClassDescription {
         }
     }
 
-    static String convertModifersToModifierString(int modifiers) {
+    private static String convertModifersToModifierString(int modifiers) {
         StringBuilder sb = new StringBuilder();
         String separator = "";
 
@@ -201,8 +201,8 @@ public class JDiffClassDescription {
      * Represents a  field.
      */
     public static final class JDiffField extends JDiffElement {
-        String mFieldType;
-        private String mFieldValue;
+        final String mFieldType;
+        private final String mFieldValue;
 
         public JDiffField(String name, String fieldType, int modifier, String value) {
             super(name, modifier);
@@ -254,9 +254,9 @@ public class JDiffClassDescription {
      * Represents a method.
      */
     public static class JDiffMethod extends JDiffElement {
-        String mReturnType;
-        ArrayList<String> mParamList;
-        ArrayList<String> mExceptionList;
+        final String mReturnType;
+        final ArrayList<String> mParamList;
+        final ArrayList<String> mExceptionList;
 
         public JDiffMethod(String name, int modifier, String returnType) {
             super(name, modifier);
@@ -369,7 +369,7 @@ public class JDiffClassDescription {
          *
          * @return the return type of this method.
          */
-        protected String getReturnType() {
+        String getReturnType() {
             return mReturnType;
         }
     }

@@ -143,6 +143,19 @@ public class VerifyAccess {
                !lookupClass.isInterface(); // interfaces are types, not classes.
     }
 
+    // Android-removed: Use public API instead of getClassModifiers() to check if public.
+    /*
+    static int getClassModifiers(Class<?> c) {
+        // This would return the mask stored by javac for the source-level modifiers.
+        //   return c.getModifiers();
+        // But what we need for JVM access checks are the actual bits from the class header.
+        // ...But arrays and primitives are synthesized with their own odd flags:
+        if (c.isArray() || c.isPrimitive())
+            return c.getModifiers();
+        return Reflection.getClassAccessFlags(c);
+    }
+    */
+
     /**
      * Evaluate the JVM linkage rules for access to the given class on behalf of caller.
      * <h3>JVM Specification, 5.4.4 "Access Control"</h3>
@@ -157,8 +170,13 @@ public class VerifyAccess {
     public static boolean isClassAccessible(Class<?> refc, Class<?> lookupClass,
                                             int allowedModes) {
         if (allowedModes == 0)  return false;
-        // Android-changed: Use public APIs to figure out whether a class
-        // is public or not.
+        // Android-changed: Use public API instead of getClassModifiers() to check if public.
+        /*
+        assert((allowedModes & PUBLIC) != 0 &&
+               (allowedModes & ~(ALL_ACCESS_MODES|PACKAGE_ALLOWED)) == 0);
+        int mods = getClassModifiers(refc);
+        if (isPublic(mods))
+        */
         if (Modifier.isPublic(refc.getModifiers()))
             return true;
         if ((allowedModes & PACKAGE_ALLOWED) != 0 &&
@@ -215,6 +233,7 @@ public class VerifyAccess {
      */
     public static boolean isSamePackage(Class<?> class1, Class<?> class2) {
         // Android-changed: Throw IAE (instead of asserting) if called with array classes.
+        // assert(!class1.isArray() && !class2.isArray());
         if (class1.isArray() || class2.isArray()) {
             throw new IllegalArgumentException();
         }

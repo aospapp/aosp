@@ -23,7 +23,6 @@ BUG_TEMPLATE = {
 DOC = """
 This test verifies VP8 decode acceleration works for MSE videos.
 """
-
 video = 'http://crosvideo.appspot.com/?codec=vp8&cycle=true&mute=true'
 job.run_test('video_ChromeHWDecodeUsed', codec='vp8', is_mse=1,
              video_file=video, tag='vp8')

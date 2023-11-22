@@ -591,9 +591,6 @@ void receive_query(struct listener *listen, time_t now)
 #endif
 #if defined(HAVE_LINUX_NETWORK)
     char control[CMSG_SPACE(sizeof(struct in_pktinfo))];
-#elif defined(IP_RECVDSTADDR) && defined(HAVE_SOLARIS_NETWORK)
-    char control[CMSG_SPACE(sizeof(struct in_addr)) +
-		 CMSG_SPACE(sizeof(unsigned int))];
 #elif defined(IP_RECVDSTADDR)
     char control[CMSG_SPACE(sizeof(struct in_addr)) +
 		 CMSG_SPACE(sizeof(struct sockaddr_dl))];
@@ -661,11 +658,7 @@ void receive_query(struct listener *listen, time_t now)
 	    if (cmptr->cmsg_level == IPPROTO_IP && cmptr->cmsg_type == IP_RECVDSTADDR)
 	      dst_addr_4 = dst_addr.addr.addr4 = *((struct in_addr *)CMSG_DATA(cmptr));
 	    else if (cmptr->cmsg_level == IPPROTO_IP && cmptr->cmsg_type == IP_RECVIF)
-#ifdef HAVE_SOLARIS_NETWORK
-	      if_index = *((unsigned int *)CMSG_DATA(cmptr));
-#else
 	      if_index = ((struct sockaddr_dl *)CMSG_DATA(cmptr))->sdl_index;
-#endif
 	}
 #endif
       

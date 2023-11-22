@@ -29,7 +29,10 @@ public final class PhoneCallDetailsViews {
   public final View callTypeView;
   public final CallTypeIconsView callTypeIcons;
   public final TextView callLocationAndDate;
+  public final View transcriptionView;
   public final TextView voicemailTranscriptionView;
+  public final TextView voicemailTranscriptionBrandingView;
+  public final View voicemailTranscriptionRatingView;
   public final TextView callAccountLabel;
 
   private PhoneCallDetailsViews(
@@ -37,13 +40,19 @@ public final class PhoneCallDetailsViews {
       View callTypeView,
       CallTypeIconsView callTypeIcons,
       TextView callLocationAndDate,
+      View transcriptionView,
       TextView voicemailTranscriptionView,
+      TextView voicemailTranscriptionBrandingView,
+      View voicemailTranscriptionRatingView,
       TextView callAccountLabel) {
     this.nameView = nameView;
     this.callTypeView = callTypeView;
     this.callTypeIcons = callTypeIcons;
     this.callLocationAndDate = callLocationAndDate;
+    this.transcriptionView = transcriptionView;
     this.voicemailTranscriptionView = voicemailTranscriptionView;
+    this.voicemailTranscriptionBrandingView = voicemailTranscriptionBrandingView;
+    this.voicemailTranscriptionRatingView = voicemailTranscriptionRatingView;
     this.callAccountLabel = callAccountLabel;
   }
 
@@ -60,7 +69,10 @@ public final class PhoneCallDetailsViews {
         view.findViewById(R.id.call_type),
         (CallTypeIconsView) view.findViewById(R.id.call_type_icons),
         (TextView) view.findViewById(R.id.call_location_and_date),
+        view.findViewById(R.id.transcription),
         (TextView) view.findViewById(R.id.voicemail_transcription),
+        (TextView) view.findViewById(R.id.voicemail_transcription_branding),
+        view.findViewById(R.id.voicemail_transcription_rating),
         (TextView) view.findViewById(R.id.call_account_label));
   }
 
@@ -70,7 +82,10 @@ public final class PhoneCallDetailsViews {
         new View(context),
         new CallTypeIconsView(context),
         new TextView(context),
+        new View(context),
         new TextView(context),
+        new TextView(context),
+        new View(context),
         new TextView(context));
   }
 }

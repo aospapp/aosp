@@ -28,7 +28,6 @@
   @retval FALSE   String is invalid.
 **/
 BOOLEAN
-EFIAPI
 InternalIsTimeLikeString (
   IN CONST CHAR16   *String,
   IN CONST CHAR16   Char,
@@ -87,7 +86,6 @@ InternalIsTimeLikeString (
   @retval SHELL_SUCCESS             The operation was successful.
 **/
 SHELL_STATUS
-EFIAPI
 CheckAndSetDate (
   IN CONST CHAR16 *DateString
   )
@@ -301,7 +299,6 @@ STATIC CONST SHELL_PARAM_ITEM TimeParamList3[] = {
   @retval SHELL_SUCCESS             The operation was successful.
 **/
 SHELL_STATUS
-EFIAPI
 CheckAndSetTime (
   IN CONST CHAR16 *TimeString,
   IN CONST INT16  Tz,
@@ -701,7 +698,6 @@ STATIC CONST SHELL_PARAM_ITEM TimeZoneParamList3[] = {
   @retval SHELL_SUCCESS             The operation was successful.
 **/
 SHELL_STATUS
-EFIAPI
 CheckAndSetTimeZone (
   IN CONST CHAR16 *TimeZoneString
   )
@@ -946,7 +942,7 @@ ShellCommandRunTimeZone (
         //
         if (ShellCommandLineGetFlag (Package, L"-f")) {
           for ( LoopVar = 0
-              ; LoopVar < sizeof (TimeZoneList) / sizeof (TimeZoneList[0])
+              ; LoopVar < ARRAY_SIZE (TimeZoneList)
               ; LoopVar++
              ){
             if (TheTime.TimeZone == TimeZoneList[LoopVar].TimeZone) {

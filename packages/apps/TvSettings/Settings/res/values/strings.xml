@@ -29,6 +29,21 @@
 
     <!-- Top level headers -->
     <skip />
+
+    <!-- Header title for suggestions [CHAR LIMIT=50] -->
+    <string name="header_category_suggestions">Suggestions</string>
+    <!-- Header title for quick settings [CHAR LIMIT=50] -->
+    <string name="header_category_quick_settings">Quick Settings</string>
+    <!-- Header title for general settings [CHAR LIMIT=50] -->
+    <string name="header_category_general_settings">General Settings</string>
+    <!-- The talkback message for dismissing suggestion -->
+    <string name="dismiss_suggestion">Dismiss the suggestion</string>
+
+    <!-- Title for main screen preference for hotwording [CHAR LIMIT=50] -->
+    <string name="hotwording_title">\"OK Google\" detection</string>
+    <!-- Summary for main screen preference for hotwording [CHAR LIMIT=50] -->
+    <string name="hotwording_summary">Talk to Google Assistant anytime</string>
+
     <!-- Header title for device [CHAR LIMIT=50] -->
     <string name="header_category_device">Device</string>
     <!-- Header title for preferences [CHAR LIMIT=50] -->
@@ -38,10 +53,42 @@
     <!-- Header title for personal [CHAR LIMIT=50] -->
     <string name="header_category_personal">Personal</string>
 
+    <!-- Main Fragment Quick Settings Preferences -->
+    <skip />
+    <!-- Title for main screen quick settings preference for network [CHAR LIMIT=50] -->
+    <string name="connect_to_network">Connect to network</string>
+    <!-- Title for main screen quick settings preference for add an account -->
+    <string name="add_an_account">Add an account</string>
+
+    <!-- Main Fragment General Settings Preferences -->
+    <skip />
+    <!-- Title for main screen preference for accounts on device [CHAR LIMIT=50] -->
+    <string name="accounts_category_title">Accounts &amp; Sign In</string>
+    <!-- Summary for main screen preference for accounts on device indicates no account is signed in[CHAR LIMIT=50] -->
+    <string name="accounts_category_summary_no_account">No accounts</string>
+    <!-- Summary for main screen preference for accounts on device indicates several accounts are signed in[CHAR LIMIT=50] -->
+    <plurals name="accounts_category_summary">
+        <item quantity="one"><xliff:g id="accounts_number">%1$d</xliff:g> account</item>
+        <item quantity="other"><xliff:g id="accounts_number">%1$d</xliff:g> accounts</item>
+    </plurals>
+    <!-- Title for main screen preference for network and Internet [CHAR LIMIT=50] -->
+    <string name="connectivity_network_category_title">Network &amp; Internet</string>
+    <!-- Title for main screen preference for applications [CHAR LIMIT=50] -->
+    <string name="applications_category_title">Apps</string>
+    <!-- Title for main screen preference for device [CHAR_LIMIT_50] -->
+    <string name="device_pref_category_title">Device Preferences</string>
+    <!-- Title for main screen preference for remote and accessories [CHAR_LIMIT_50] -->
+    <string name="remotes_and_accessories_category_title">Remotes &amp; Accessories</string>
+    <!-- Summary for main screen preference for remote and accessories indicates no bluetooth device is connected [CHAR LIMIT=50] -->
+    <string name="remotes_and_accessories_category_summary_no_bluetooth_device">No connected Bluetooth devices</string>
+    <!-- Summary for main screen preference for remote and accessories indicates more than one devices connected[CHAR LIMIT=50] -->
+    <plurals name="remotes_and_accessories_category_summary">
+        <item quantity="one"><xliff:g id="accessories_number">%1$d</xliff:g> accessory</item>
+        <item quantity="other"><xliff:g id="accessories_number">%1$d</xliff:g> accessories</item>
+    </plurals>
+
     <!-- Account preferences -->
     <skip />
-    <!-- Title for main screen category for accounts on device [CHAR LIMIT=50] -->
-    <string name="accounts_category_title">Accounts</string>
     <!-- Preference which adds an account [CHAR LIMIT=50] -->
     <string name="add_account">Add account</string>
     <!-- Header for remove account [CHAR LIMIT=50] -->
@@ -71,18 +118,45 @@
 
     <!-- Connectivity preferences -->
     <skip />
-    <!-- Top level network card title. [CHAR LIMIT=50] -->
-    <string name="connectivity_network">Network</string>
     <!-- Preference which manages wifi settings. [CHAR LIMIT=50] -->
     <string name="connectivity_wifi">Wi-Fi</string>
     <!-- Preference which manages ethernet settings. [CHAR LIMIT=50] -->
     <string name="connectivity_ethernet">Ethernet</string>
+    <!-- Summary for preference which indicates ethernet is connected. [CHAR LIMIT=50] -->
+    <string name="connectivity_summary_ethernet_connected">Ethernet connected</string>
+    <!-- Summary for preference which indicates no network is connected. [CHAR LIMIT=50] -->
+    <string name="connectivity_summary_no_network_connected">No network connected</string>
+    <!-- Summary for preference which indicates wifi is turned off. [CHAR LIMIT=50] -->
+    <string name="connectivity_summary_wifi_disabled">Wi-Fi is turned off</string>
     <!-- Title for always scan wifi. [CHAR LIMIT=50] -->
     <string name="wifi_setting_always_scan">Scanning always available</string>
     <!-- Context help for always scan wifi. [CHAR LIMIT=200] -->
     <string name="wifi_setting_always_scan_context">Let Google\'s location service and other apps scan for networks, even when Wi-Fi is off</string>
     <!-- Title for enable wifi. [CHAR LIMIT=50] -->
     <string name="wifi_setting_enable_wifi">Wi-Fi</string>
+    <string name="connectivity_hint_message">Connect to network</string>
+
+    <!-- Application preferences -->
+    <skip />
+    <!-- Title for a section that lists recently used apps [CHAR_LIMIT=50]-->
+    <string name="apps_recently_used_category_title">Recently opened apps</string>
+    <!-- An item title on the apps screen. If clicked, the user is taken to a screen listing all apps on the device. [CHAR_LIMIT=50]-->
+    <string name="apps_see_all_apps">See all apps</string>
+    <!-- Title for a section that lets users modify permissions related app settings. [CHAR_LIMIT=50]-->
+    <string name="apps_permissions_category_title">Permissions</string>
+
+    <!-- All application preferences -->
+    <skip />
+    <!-- Title of a settings screen that lists all applications on the device. [CHAR LIMIT= 50] -->
+    <string name="all_apps_title">All apps</string>
+    <!-- A settings item on the all applications screen. If clicked, it will show all other apps, including system apps (they had previously been hidden). [CHAR LIMIT= 50] -->
+    <string name="all_apps_show_system_apps">Show system apps</string>
+    <!-- Browse Header for installed apps under all apps settings screen. [CHAR LIMIT=50] -->
+    <string name="all_apps_installed">Installed apps</string>
+    <!-- Browse Header for system apps under all apps settings screen. [CHAR LIMIT=50] -->
+    <string name="all_apps_other">System apps</string>
+    <!-- Browse Header for disabled apps under all apps settings screen. [CHAR LIMIT=50] -->
+    <string name="all_apps_disabled">Disabled apps</string>
 
     <!-- Device preferences -->
     <skip />
@@ -97,27 +171,48 @@
     <!-- Preference and title which changes system sounds settings. [CHAR LIMIT=50] -->
     <string name="device_sound_effects">System sounds</string>
     <!-- Preference which manages apps. [CHAR LIMIT=50] -->
-    <string name="device_apps">Apps</string>
+    <string name="device_apps">Applications</string>
     <!-- Preference which shows storage status. [CHAR LIMIT=50] -->
-    <string name="device_storage_reset">Storage &amp; reset</string>
+    <string name="device_storage">Storage</string>
+    <!-- Preference which shows reset settings. [CHAR LIMIT=50] -->
+    <string name="device_reset">Reset</string>
     <!-- Preference which manages backup settings. [CHAR LIMIT=50] -->
     <string name="device_backup_restore">Backup &amp; restore</string>
     <!-- Preference which shows reset options [CHAR LIMIT=50] -->
-    <string name="device_reset">Factory data reset</string>
+    <string name="device_factory_reset">Factory data reset</string>
     <!-- Preference which sets the device's display calibration. [CHAR LIMIT=50] -->
     <string name="device_calibration">Calibration</string>
 
-        <!-- Title of dialog asking user to confirm before clearing all caches. [CHAR LIMIT=48] -->
+    <!-- Surround sound screen -->
+    <skip />
+    <!-- Title for preference which when clicked lets the user select surround sound formats. [CHAR LIMIT=50] -->
+    <string name="surround_sound_select_formats">Select formats</string>
+    <!-- A category title for the settings related to surround sound. [CHAR LIMIT=50] -->
+    <string name="surround_sound_category_title">Surround Sound</string>
+    <!-- Name of the AC3 surround sound format that is displayed to the user [CHAR LIMIT=50] -->
+    <string name="surround_sound_format_ac3">AC3 (Dolby Digital)</string>
+    <!-- Name of the E-AC3 surround sound format that is displayed to the user [CHAR LIMIT=50] -->
+    <string name="surround_sound_format_e_ac3">E-AC3 (Dolby Digital Plus/DD+)</string>
+    <!-- Name of the DTS surround sound format that is displayed to the user [CHAR LIMIT=50] -->
+    <string name="surround_sound_format_dts">DTS</string>
+    <!-- Name of the DTS-HD surround sound format that is displayed to the user [CHAR LIMIT=50] -->
+    <string name="surround_sound_format_dts_hd">DTS-HD</string>
+    <!-- Name of the IEC61937 surround sound format that is displayed to the user [CHAR LIMIT=50] -->
+    <string name="surround_sound_format_iec61937">IEC61937</string>
+
+    <!-- An informational message displayed in the surround sound settings, explaining to the user that the auto setting may sometimes cause issues. [CHAR LIMIT=100]-->
+    <string name="surround_sound_auto_info">Note: The Auto option may not work if your device does not report its supported formats correctly.</string>
+    <!-- Text for a radio button that if selected will cause the device to automatically select an appropriate surround sound format. [CHAR LIMIT=50] -->
+    <string name="surround_sound_auto_summary">Auto: Use the formats that your device reports supporting (recommended)</string>
+    <!-- Text for a radio button that if selected will cause the device to never use a surround sound format. [CHAR LIMIT=50] -->
+    <string name="surround_sound_none_summary">None: Never use surround sound</string>
+    <!-- Text for a radio button that if selected will allow the user to manually select surround sound formats. [CHAR LIMIT=50] -->
+    <string name="surround_sound_manual_summary">Manual: Select which formats to use</string>
+
+    <!-- Title of dialog asking user to confirm before clearing all caches. [CHAR LIMIT=48] -->
     <string name="device_storage_clear_cache_title">Clear cached data?</string>
     <!-- Message of dialog asking user to confirm before clearing all caches. [CHAR LIMIT=48] -->
     <string name="device_storage_clear_cache_message">This will clear cached data for all apps.</string>
-
-    <!-- Browse Header for downloaded apps under device settings. [CHAR LIMIT=50] -->
-    <string name="apps_downloaded">Downloaded apps</string>
-    <!-- Browse Header for all apps under device settings. [CHAR LIMIT=50] -->
-    <string name="apps_system">System apps</string>
-    <!-- Browse Header for running apps under device settings. [CHAR LIMIT=50] -->
-    <string name="apps_running">Running apps</string>
 
     <!-- Remote and Accessories -->
     <skip />
@@ -187,8 +282,12 @@
     <string name="system_date_time">Date &amp; time</string>
     <!-- Preference which manages language settings. [CHAR LIMIT=50] -->
     <string name="system_language">Language</string>
-    <!-- Preference which manages input method settings. [CHAR LIMIT=50] -->
+    <!-- Preference which manages input method settings (without autofill), see also system_keyboard_autofill [CHAR LIMIT=50] -->
     <string name="system_keyboard">Keyboard</string>
+    <!-- Preference which manages both input method settings and autofill settings. [CHAR LIMIT=50] -->
+    <string name="system_keyboard_autofill">Keyboard &amp; Autofill</string>
+    <!-- Preference which manages autofill Service. [CHAR LIMIT=50] -->
+    <string name="system_autofill">Autofill</string>
     <!-- Preference which manages home screen settings. [CHAR LIMIT=50] -->
     <string name="system_home">Home screen</string>
     <!-- Preference which manages search and google now settings. [CHAR LIMIT=50] -->
@@ -201,6 +300,10 @@
     <string name="system_speech">Speech</string>
     <!-- Preference which manages TV inputs. [CHAR LIMIT=50] -->
     <string name="system_inputs">Inputs</string>
+    <!-- Preference which manages TV inputs and devices. [CHAR LIMIT=50] -->
+    <string name="system_inputs_devices">Inputs &amp; devices</string>
+    <!-- Preference which manages home theater controls. [CHAR LIMIT=50] -->
+    <string name="system_home_theater_control">Home theater control</string>
     <!-- Preference which manages accessibility settings. [CHAR LIMIT=50] -->
     <string name="system_accessibility">Accessibility</string>
     <!-- Preference which manages developer options. [CHAR LIMIT=50] -->
@@ -303,8 +406,6 @@
     <string name="status_bt_address">Bluetooth address</string>
     <!-- About phone, status item title.  How long the device has been running since its last reboot. -->
     <string name="status_up_time">Up time</string>
-    <!-- About phone, status item title. WI-MAX MAC address -->
-    <string name="status_wimax_mac_address">4G MAC address</string>
 
     <!-- Legal screen -->
     <!-- About phone settings screen, setting option name to go to dialog that shows legal info -->
@@ -321,10 +422,6 @@
     <!-- Note: this may be replaced by a more-specific title of the activity that will get launched --> <skip />
     <!-- About phone settings screen, setting option name to see licensing info for WebView component. [CHAR LIMIT=35] -->
     <string name="webview_license_title">System WebView License</string>
-    <!-- About phone settings screen, setting option name to see wallpapers attributions -->
-    <string name="wallpaper_attributions">Wallpapers</string>
-    <!-- About phone settings screen, setting option name to see wallpapers attributions values -->
-    <string name="wallpaper_attributions_values">Satellite imagery providers:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky</string>
 
     <!-- Wifi -->
     <skip />
@@ -362,15 +459,12 @@
     <string name="wifi_setting_available_networks">Available networks</string>
 
     <!-- Other Options under Wifi Settings headers [CHAR LIMIT=50] -->
-    <string name="wifi_setting_other_options_wps">Connect via WPS</string>
     <string name="wifi_setting_other_options_add_network">Add new network</string>
 
     <!-- Strings for Add Network under Connectivity Setting -->
     <!-- Security type title on add network form page [CHAR LIMIT=30] -->
     <string name="security_type">Type of security</string>
 
-    <!-- Title for connecting to a WPS network in setup mode [CHAR LIMIT=30] -->
-    <string name="wps_network">Connect via WPS</string>
     <!-- Title for adding hidden network in setup mode [CHAR LIMIT=30] -->
     <string name="other_network">Other network&#8230;</string>
 
@@ -441,6 +535,10 @@
     <string name="wifi_forget_network_description">This clears information used to connect to this network, including a saved password</string>
     <!-- Label for action to accept the currently connected wifi network [CHAR LIMIT=50] -->
     <string name="wifi_action_ok">OK</string>
+    <!-- Label for action to continue in network summary screen in setup [CHAR LIMIT=50] -->
+    <string name="wifi_setup_action_dont_change_network">Continue</string>
+    <!-- Label for action to try to connect to a different wifi network in setup [CHAR LIMIT=50] -->
+    <string name="wifi_setup_action_change_network">Change network</string>
     <!-- Label for action to try to connect to a different wifi network [CHAR LIMIT=50] -->
     <string name="wifi_action_change_network">Change</string>
     <!-- Label for action to not try to connect to a different wifi network [CHAR LIMIT=50] -->
@@ -497,7 +595,17 @@
     <string name="proxy_exclusionlist_description">Enter a comma-separated list of excluded domains or leave blank.\nExample: <xliff:g>example.com,mycomp.test.com,localhost</xliff:g></string>
     <!-- HTTP proxy settings. The description field for the hostname. -->
     <string name="proxy_hostname_description">Enter a valid hostname.\nExample: <xliff:g>proxy.example.com</xliff:g></string>
+    <!-- Title to show when asking the user to choose EAP method [CHAR LIMIT=80] -->
+    <string name="title_wifi_eap_method">Choose EAP method for <xliff:g id="ssid">%1$s</xliff:g></string>
+    <!-- Title to show when asking the user to choose Phase2 authentication [CHAR LIMIT=80] -->
+    <string name="title_wifi_phase2_authentication">Choose phase2 authentication for <xliff:g id="ssid">%1$s</xliff:g></string>
+    <!-- Title to show when asking the user to input identity [CHAR LIMIT=80] -->
+    <string name="title_wifi_identity">Enter identity for <xliff:g id="ssid">%1$s</xliff:g></string>
+    <!-- Title to show when asking the user to input anonymous identity [CHAR LIMIT=80] -->
+    <string name="title_wifi_anonymous_identity">Enter anonymous identity for <xliff:g id="ssid">%1$s</xliff:g></string>
 
+    <!-- Title used during setup to indicate the user is connected [CHAR LIMIT=100] -->
+    <string name="wifi_setup_summary_title_connected">You\'re connected to <xliff:g id="ssid">%1$s</xliff:g></string>
     <!-- Title to show indicating the user is connected [CHAR LIMIT=100] -->
     <string name="wifi_summary_title_connected">Network connected</string>
     <!-- Title to show indicating the user is not connected [CHAR LIMIT=100] -->
@@ -688,25 +796,6 @@
 
     <!-- Learn more action title [CHAR_LIMIT=50] -->
     <string name="learn_more_action">Learn more</string>
-
-    <!-- Action to retry WPS scanning [CHAR LIMIT=50] -->
-    <string name="wifi_wps_retry_scan">Retry</string>
-    <!-- Message indicating we are scanning for WPS routers [CHAR LIMIT=150] -->
-    <string name="wifi_wps_title">Searching for WPS router\u2026</string>
-    <!-- Message describing how to turn on WPS on a router [CHAR LIMIT=150] -->
-    <string name="wifi_wps_instructions">Press the Wi-Fi Protected Setup button on your router.\nIt may be called \"WPS\" or contain the symbol to the left.</string>
-    <!-- Title Message in WPS dialog for PIN after start up [CHAR LIMIT=150] -->
-    <string name="wifi_wps_onstart_pin">Enter PIN <xliff:g id="number">%1$s</xliff:g> on your Wi-Fi router</string>
-    <!-- Description Message in WPS dialog for PIN after start up [CHAR LIMIT=150] -->
-    <string name="wifi_wps_onstart_pin_description">After you enter the PIN, setup can take up to 2 minutes to finish</string>
-    <!-- Text displayed when WPS fails to start [CHAR LIMIT=150] -->
-    <string name="wifi_wps_failed_generic">Couldn\'t find Wi-Fi router</string>
-    <!-- Text displayed when WPS fails due to WEP [CHAR LIMIT=150] -->
-    <string name="wifi_wps_failed_wep">Wi-Fi router security setting (WEP) isn\'t supported</string>
-    <!-- Text displayed when WPS fails to TKIP [CHAR LIMIT=150] -->
-    <string name="wifi_wps_failed_tkip">Wi-Fi router security setting (TKIP) isn\'t supported</string>
-    <!-- Text displayed when WPS fails due to another session [CHAR LIMIT=150] -->
-    <string name="wifi_wps_failed_overlap">Another WPS session is in progress. Try again in a few minutes.</string>
 
     <!-- Title for Date in System Settings Date Time [CHAR LIMIT=50] -->
     <string name="system_date">Date</string>
@@ -1137,12 +1226,32 @@
     <string name="tts_rate_very_fast">Very fast</string>
 
     <!-- Keyboard Settings -->
+    <!-- Title for launch settings Intent for IME or Autofill.[CHAR LIMIT=80] -->
+    <string name="title_settings"><xliff:g id="name" example="Gboard">%1$s</xliff:g> Settings</string>
     <!-- Title for Current Keyboard [CHAR LIMIT=80] -->
     <string name="title_current_keyboard">Current keyboard</string>
     <!-- Title for configure current keyboard [CHAR LIMIT=80] -->
     <string name="title_configure">Configure</string>
     <!-- Description for configure current keyboard [CHAR LIMIT=100] -->
     <string name="desc_configure_keyboard">Keyboard options</string>
+
+    <!-- Title for Current Autofill Service [CHAR LIMIT=80] -->
+    <string name="title_current_autofill_service">Current Autofill Service</string>
+    <!-- Dialog title for Select Autofill Service [CHAR LIMIT=80] -->
+    <string name="title_select_autofill_service">Select Autofill Service</string>
+    <!-- Option to select no Autofill Service [CHAR LIMIT=80] -->
+    <string name="autofill_none">None</string>
+
+    <!-- Message of the warning dialog for setting the auto-fill app. [CHAR_LIMIT=NONE] -->
+    <string name="autofill_confirmation_message">
+        <![CDATA[
+        <b>Make sure you trust this app</b>
+        <br/>
+        <br/>
+        <xliff:g id="app_name" example="Password service">%1$s</xliff:g> uses what\'s on
+        your screen to determine what can be autofilled.
+        ]]>
+    </string>
 
     <!-- String shown when computing the total size of an application's cache or data files. [CHAR LIMIT=30] -->
     <string name="computing_size">Computing\u2026</string>
@@ -1400,7 +1509,7 @@
     <!-- Title for screen where user selects a name for their device [CHAR LIMIT=NONE] -->
     <string name="select_device_name_title">Choose a name for your <xliff:g id="devicemodel" example="Nexus Player">%1$s</xliff:g></string>
     <!-- Description for screen where user selects a name for their device [CHAR LIMIT=NONE] -->
-    <string name="select_device_name_description">Give your <xliff:g id="devicemodel" example="Nexus Player">%1$s</xliff:g> a name to help identify it when casting or connecting to it from other devices.</string>
+    <string name="select_device_name_description">Give your device a name to help identify it when casting or connecting to it from other devices.</string>
     <!-- Rooms where a user's device might be placed [CHAR LIMIT=40] -->
     <string-array name="rooms">
         <!-- [CHAR LIMIT=40] -->
@@ -1418,6 +1527,10 @@
     <string name="device_rename_title">Rename this <xliff:g id="devicemodel" example="Nexus Player">%1$s</xliff:g></string>
     <!-- Description on summary/status screen that tells you what the name of your device is [CHAR LIMIT=NONE] -->
     <string name="device_rename_description">This <xliff:g id="devicemodel" example="Nexus Player">%1$s</xliff:g> is currently named \"<xliff:g id="devicename" example="Living Room Player">%2$s</xliff:g>\"</string>
+    <!-- The title of the suggestion to notify the user to name the device [CHART LIMIT = 50] -->
+    <string name="device_name_suggestion_title">Set your device name</string>
+    <!-- The summary of the suggestion to notify the user to name the device [CHAR LIMIT = 100] -->
+    <string name="device_name_suggestion_summary">Use this name when casting photos, videos, and more from your phone</string>
     <!-- The 'yes' or 'edit' equivalent in a yes/no choice circumstance [CHAR LIMIT=30] -->
     <string name="change_setting">Change</string>
     <!-- The 'no' or  'keep the same' equivalent in a yes/no choice circumstance [CHAR LIMIT=30]-->
@@ -1428,7 +1541,7 @@
     <!-- Item title for app permissions [CHAR LIMIT=20] -->
     <string name="device_apps_permissions">App permissions</string>
     <!-- Summary of number of apps currently granted a single permission [CHAR LIMIT=45] -->
-    <string name="app_permissions_group_summary"><xliff:g id="count" example="10">%d</xliff:g> of <xliff:g id="count" example="10">%d</xliff:g> apps allowed</string>
+    <string name="app_permissions_group_summary"><xliff:g id="count" example="10">%1$d</xliff:g> of <xliff:g id="count" example="10">%2$d</xliff:g> apps allowed</string>
 
     <!-- Strings for dialog title when asking to the user whether to allow an app to enable discovery mode -->
     <string name="bluetooth_permission_request">"Bluetooth permission request"</string>
@@ -1469,4 +1582,61 @@
     <!-- Description of the usage access setting [CHAR LIMIT=NONE] -->
     <string name="usage_access_description">Usage access allows an app to track what other apps you\u2019re using and how often, as well as your carrier, language settings, and other details.</string>
 
+    <!-- Title of high power app settings page [CHAR LIMIT=30] -->
+    <string name="high_power_apps">Energy optimization</string>
+    <!-- Description of the high power app settings page [CHAR LIMIT=NONE] -->
+    <string name="high_power_apps_description">Optimize energy use of apps</string>
+    <!-- Empty state when no apps are found for optimizing -->
+    <string name="high_power_apps_empty">No apps need optimizing</string>
+    <!-- Summary of app allowed to use a lot of power [CHAR LIMIT=60] -->
+    <string name="high_power_on">Not optimized</string>
+    <!-- Summary of app not allowed to use a lot of power [CHAR LIMIT=60] -->
+    <string name="high_power_off">Optimizing energy use</string>
+    <!-- Summary of app which doesn't have a battery optimization setting [CHAR LIMIT=60] -->
+    <string name="high_power_system">Energy optimization not available</string>
+
+    <!-- Title for managing notification listeners option. [CHAR LIMIT=30] -->
+    <string name="manage_notification_access_title">Notification access</string>
+    <!-- String to show in the list of notification listeners, when none is installed -->
+    <string name="no_notification_listeners">No installed apps have requested notification access.</string>
+    <!-- Summary for a warning message about security implications of enabling a notification
+          listener, displayed as a dialog message. [CHAR LIMIT=NONE] -->
+    <string name="notification_listener_security_warning_summary">
+        These apps will be able to read all notifications,
+        including personal information such as contact names and the text of messages you receive.
+        They will also be able to dismiss notifications or trigger action buttons they contain.
+    </string>
+
+    <!-- Settings title in main settings screen for SYSTEM_ALERT_WINDOW [CHAR LIMIT=45] -->
+    <string name="system_alert_window_settings">Display over other apps</string>
+    <!-- Label for setting which controls whether app can display over other apps [CHAR LIMIT=45] -->
+    <string name="permit_draw_overlay">Allow display over other apps</string>
+    <!-- Description of allowing overlay setting [CHAR LIMIT=NONE] -->
+    <string name="allow_overlay_description">Allow an app to display on top of other apps you\u2019re using. It may interfere with your use of those apps or change the way they seem to appear or behave.</string>
+
+    <!-- Main settings screen item's title to go into the write system settings screen [CHAR LIMIT=30] -->
+    <string name="write_system_settings">Modify system settings</string>
+    <!-- Title for the apps that are allowed to write system settings [CHAR LIMIT=60] -->
+    <string name="write_settings_title">Can modify system settings</string>
+    <!-- Description of the write system settings [CHAR LIMIT=NONE] -->
+    <string name="write_settings_description">This permission allows an app to modify system settings.</string>
+    <!-- Summary of app allowed to write system settings [CHAR LIMIT=45] -->
+    <string name="write_settings_on">Yes</string>
+    <!-- Summary of app not allowed to write system settings [CHAR LIMIT=45] -->
+    <string name="write_settings_off">No</string>
+
+    <!-- Special access > Title for managing Picture-in-picture settings. [CHAR LIMIT=50] -->
+    <string name="picture_in_picture_title">Picture-in-picture</string>
+    <!-- Apps > App Details > Picture-in-picture > Switch title. [CHAR LIMIT=NONE] -->
+    <string name="picture_in_picture_app_detail_switch">Allow picture-in-picture</string>
+    <!-- Special access > Picture-in-picture > Text to display when the list is empty. [CHAR LIMIT=NONE] -->
+    <string name="picture_in_picture_empty_text">No installed apps support Picture-in-picture</string>
+    <!-- Apps > App Details > Picture-in-picture > Description. [CHAR LIMIT=NONE] -->
+    <string name="picture_in_picture_app_detail_summary">Allow apps to create a picture-in-picture window while the app is open or after you leave it (for example, to continue watching a video).  This window displays on top of other apps you\'re using.</string>
+
+    <!-- [CHAR_LIMIT=60] Label for special access screen -->
+    <string name="special_access">Special app access</string>
+
+    <!-- concat two strings, e.g. "Android Keyboard, My Pass" [CHAR LIMIT=NONE] -->
+    <string name="string_concat"><xliff:g id="part1">%1s</xliff:g>, <xliff:g id="part2">%2s</xliff:g></string>
 </resources>

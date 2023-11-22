@@ -16,23 +16,16 @@
 
 // Determine coverage of font given its raw "cmap" OpenType table
 
-#define LOG_TAG "Minikin"
+#include "minikin/CmapCoverage.h"
 
 #include <algorithm>
 #include <vector>
-using std::vector;
 
-#include <log/log.h>
+#include "minikin/SparseBitSet.h"
 
-#include <minikin/SparseBitSet.h>
-#include <minikin/CmapCoverage.h>
 #include "MinikinInternal.h"
 
-#include <MinikinInternal.h>
-
 namespace minikin {
-
-constexpr uint32_t U32MAX = std::numeric_limits<uint32_t>::max();
 
 // These could perhaps be optimized to use __builtin_bswap16 and friends.
 static uint32_t readU16(const uint8_t* data, size_t offset) {
@@ -41,20 +34,17 @@ static uint32_t readU16(const uint8_t* data, size_t offset) {
 
 static uint32_t readU24(const uint8_t* data, size_t offset) {
     return ((uint32_t)data[offset]) << 16 | ((uint32_t)data[offset + 1]) << 8 |
-        ((uint32_t)data[offset + 2]);
+           ((uint32_t)data[offset + 2]);
 }
 
 static uint32_t readU32(const uint8_t* data, size_t offset) {
     return ((uint32_t)data[offset]) << 24 | ((uint32_t)data[offset + 1]) << 16 |
-        ((uint32_t)data[offset + 2]) << 8 | ((uint32_t)data[offset + 3]);
+           ((uint32_t)data[offset + 2]) << 8 | ((uint32_t)data[offset + 3]);
 }
 
 // The start must be larger than or equal to coverage.back() if coverage is not empty.
 // Returns true if the range is appended. Otherwise returns false as an error.
-static bool addRange(vector<uint32_t> &coverage, uint32_t start, uint32_t end) {
-#ifdef VERBOSE_DEBUG
-    ALOGD("adding range %d-%d\n", start, end);
-#endif
+static bool addRange(std::vector<uint32_t>& coverage, uint32_t start, uint32_t end) {
     if (coverage.empty() || coverage.back() < start) {
         coverage.push_back(start);
         coverage.push_back(end);
@@ -71,39 +61,30 @@ static bool addRange(vector<uint32_t> &coverage, uint32_t start, uint32_t end) {
     }
 }
 
-struct Range {
-    uint32_t start;  // inclusive
-    uint32_t end;  // exclusive
-
-    static Range InvalidRange() {
-        return Range({ U32MAX, U32MAX });
+// Returns true if the range is appended. Otherwise returns false as an error.
+static bool addRangeCmap4(std::vector<uint32_t>& coverage, uint32_t start, uint32_t end) {
+    if (!coverage.empty() && coverage.back() > end) {
+        // Reject unordered end code points.
+        return false;
     }
-
-    inline bool isValid() const {
-        return start != U32MAX && end != U32MAX;
+    if (coverage.empty() || coverage.back() < start) {
+        coverage.push_back(start);
+        coverage.push_back(end);
+        return true;
+    } else {
+        coverage.back() = end;
+        return true;
     }
+}
 
-    // Returns true if left and right intersect.
-    inline static bool intersects(const Range& left, const Range& right) {
-        return left.isValid() && right.isValid() &&
-                left.start < right.end && right.start < left.end;
-    }
-
-    // Returns merged range. This method assumes left and right are not invalid ranges and they have
-    // an intersection.
-    static Range merge(const Range& left, const Range& right) {
-        return Range({ std::min(left.start, right.start), std::max(left.end, right.end) });
-    }
-};
-
-// Returns Range from given ranges vector. Returns InvalidRange if i is out of range.
+// Returns Range from given ranges vector. Returns invalidRange if i is out of range.
 static inline Range getRange(const std::vector<uint32_t>& r, size_t i) {
-    return i + 1 < r.size() ? Range({ r[i], r[i + 1] }) : Range::InvalidRange();
+    return i + 1 < r.size() ? Range({r[i], r[i + 1]}) : Range::invalidRange();
 }
 
 // Merge two sorted lists of ranges into one sorted list.
-static std::vector<uint32_t> mergeRanges(
-        const std::vector<uint32_t>& lRanges, const std::vector<uint32_t>& rRanges) {
+static std::vector<uint32_t> mergeRanges(const std::vector<uint32_t>& lRanges,
+                                         const std::vector<uint32_t>& rRanges) {
     std::vector<uint32_t> out;
 
     const size_t lsize = lRanges.size();
@@ -119,7 +100,7 @@ static std::vector<uint32_t> mergeRanges(
             // No ranges left in rRanges. Just put all remaining ranges in lRanges.
             do {
                 Range r = getRange(lRanges, li);
-                addRange(out, r.start, r.end);  // Input is sorted. Never returns false.
+                addRange(out, r.getStart(), r.getEnd());  // Input is sorted. Never returns false.
                 li += 2;
             } while (li < lsize);
             break;
@@ -127,17 +108,19 @@ static std::vector<uint32_t> mergeRanges(
             // No ranges left in lRanges. Just put all remaining ranges in rRanges.
             do {
                 Range r = getRange(rRanges, ri);
-                addRange(out, r.start, r.end);  // Input is sorted. Never returns false.
+                addRange(out, r.getStart(), r.getEnd());  // Input is sorted. Never returns false.
                 ri += 2;
             } while (ri < rsize);
             break;
         } else if (!Range::intersects(left, right)) {
             // No intersection. Add smaller range.
-            if (left.start < right.start) {
-                addRange(out, left.start, left.end);  // Input is sorted. Never returns false.
+            if (left.getStart() < right.getStart()) {
+                // Input is sorted. Never returns false.
+                addRange(out, left.getStart(), left.getEnd());
                 li += 2;
             } else {
-                addRange(out, right.start, right.end);  // Input is sorted. Never returns false.
+                // Input is sorted. Never returns false.
+                addRange(out, right.getStart(), right.getEnd());
                 ri += 2;
             }
         } else {
@@ -157,7 +140,8 @@ static std::vector<uint32_t> mergeRanges(
                     right = getRange(rRanges, ri);
                 }
             }
-            addRange(out, merged.start, merged.end);  // Input is sorted. Never returns false.
+            // Input is sorted. Never returns false.
+            addRange(out, merged.getStart(), merged.getEnd());
         }
     }
 
@@ -165,7 +149,7 @@ static std::vector<uint32_t> mergeRanges(
 }
 
 // Get the coverage information out of a Format 4 subtable, storing it in the coverage vector
-static bool getCoverageFormat4(vector<uint32_t>& coverage, const uint8_t* data, size_t size) {
+static bool getCoverageFormat4(std::vector<uint32_t>& coverage, const uint8_t* data, size_t size) {
     const size_t kSegCountOffset = 6;
     const size_t kEndCountOffset = 14;
     const size_t kHeaderSize = 16;
@@ -189,13 +173,13 @@ static bool getCoverageFormat4(vector<uint32_t>& coverage, const uint8_t* data, 
         if (rangeOffset == 0) {
             uint32_t delta = readU16(data, kHeaderSize + 2 * (2 * segCount + i));
             if (((end + delta) & 0xffff) > end - start) {
-                if (!addRange(coverage, start, end + 1)) {
+                if (!addRangeCmap4(coverage, start, end + 1)) {
                     return false;
                 }
             } else {
                 for (uint32_t j = start; j < end + 1; j++) {
                     if (((j + delta) & 0xffff) != 0) {
-                        if (!addRange(coverage, j, j + 1)) {
+                        if (!addRangeCmap4(coverage, j, j + 1)) {
                             return false;
                         }
                     }
@@ -203,15 +187,15 @@ static bool getCoverageFormat4(vector<uint32_t>& coverage, const uint8_t* data, 
             }
         } else {
             for (uint32_t j = start; j < end + 1; j++) {
-                uint32_t actualRangeOffset = kHeaderSize + 6 * segCount + rangeOffset +
-                    (i + j - start) * 2;
+                uint32_t actualRangeOffset =
+                        kHeaderSize + 6 * segCount + rangeOffset + (i + j - start) * 2;
                 if (actualRangeOffset + 2 > size) {
                     // invalid rangeOffset is considered a "warning" by OpenType Sanitizer
                     continue;
                 }
                 uint32_t glyphId = readU16(data, actualRangeOffset);
                 if (glyphId != 0) {
-                    if (!addRange(coverage, j, j + 1)) {
+                    if (!addRangeCmap4(coverage, j, j + 1)) {
                         return false;
                     }
                 }
@@ -222,7 +206,7 @@ static bool getCoverageFormat4(vector<uint32_t>& coverage, const uint8_t* data, 
 }
 
 // Get the coverage information out of a Format 12 subtable, storing it in the coverage vector
-static bool getCoverageFormat12(vector<uint32_t>& coverage, const uint8_t* data, size_t size) {
+static bool getCoverageFormat12(std::vector<uint32_t>& coverage, const uint8_t* data, size_t size) {
     const size_t kNGroupsOffset = 12;
     const size_t kFirstGroupOffset = 16;
     const size_t kGroupSize = 12;
@@ -303,8 +287,8 @@ uint8_t getTablePriority(uint16_t platformId, uint16_t encodingId) {
 // function assumes code points in both default UVS Table and non-default UVS table are stored in
 // ascending order. This is required by the standard.
 static bool getVSCoverage(std::vector<uint32_t>* out_ranges, const uint8_t* data, size_t size,
-        uint32_t defaultUVSTableOffset, uint32_t nonDefaultUVSTableOffset,
-        const SparseBitSet& baseCoverage) {
+                          uint32_t defaultUVSTableOffset, uint32_t nonDefaultUVSTableOffset,
+                          const SparseBitSet& baseCoverage) {
     // Need to merge supported ranges from default UVS Table and non-default UVS Table.
     // First, collect all supported code points from non default UVS table.
     std::vector<uint32_t> rangesFromNonDefaultUVSTable;
@@ -319,8 +303,12 @@ static bool getVSCoverage(std::vector<uint32_t>* out_ranges, const uint8_t* data
         if (nonDefaultUVSTableRemaining < kHeaderSize) {
             return false;
         }
-        const uint32_t numRecords = readU32(nonDefaultUVSTable, 0);
-        if (numRecords * kUVSMappingRecordSize + kHeaderSize > nonDefaultUVSTableRemaining) {
+        const uint64_t numRecords = readU32(nonDefaultUVSTable, 0);
+        const uint64_t sizeToRead = numRecords * kUVSMappingRecordSize + kHeaderSize;
+        if (sizeToRead > nonDefaultUVSTableRemaining) {
+            if (sizeToRead > UINT_MAX) {
+                android_errorWriteLog(0x534e4554, "70808908");
+            }
             return false;
         }
         for (uint32_t i = 0; i < numRecords; ++i) {
@@ -347,8 +335,12 @@ static bool getVSCoverage(std::vector<uint32_t>* out_ranges, const uint8_t* data
         if (defaultUVSTableRemaining < kHeaderSize) {
             return false;
         }
-        const uint32_t numRecords = readU32(defaultUVSTable, 0);
-        if (numRecords * kUnicodeRangeRecordSize + kHeaderSize > defaultUVSTableRemaining) {
+        const uint64_t numRecords = readU32(defaultUVSTable, 0);
+        const uint64_t sizeToRead = numRecords * kUnicodeRangeRecordSize + kHeaderSize;
+        if (sizeToRead > defaultUVSTableRemaining) {
+            if (sizeToRead > UINT_MAX) {
+                android_errorWriteLog(0x534e4554, "70808908");
+            }
             return false;
         }
 
@@ -376,7 +368,8 @@ static bool getVSCoverage(std::vector<uint32_t>* out_ranges, const uint8_t* data
 }
 
 static void getCoverageFormat14(std::vector<std::unique_ptr<SparseBitSet>>* out,
-        const uint8_t* data, size_t size, const SparseBitSet& baseCoverage) {
+                                const uint8_t* data, size_t size,
+                                const SparseBitSet& baseCoverage) {
     constexpr size_t kHeaderSize = 10;
     constexpr size_t kRecordSize = 11;
     constexpr size_t kLengthOffset = 2;
@@ -392,8 +385,12 @@ static void getCoverageFormat14(std::vector<std::unique_ptr<SparseBitSet>>* out,
         return;
     }
 
-    uint32_t numRecords = readU32(data, kNumRecordOffset);
-    if (numRecords == 0 || kHeaderSize + kRecordSize * numRecords > length) {
+    const uint64_t numRecords = readU32(data, kNumRecordOffset);
+    const uint64_t sizeToRead = kHeaderSize + kRecordSize * numRecords;
+    if (numRecords == 0 || sizeToRead > length) {
+        if (sizeToRead > UINT_MAX) {
+            android_errorWriteLog(0x534e4554, "70808908");
+        }
         return;
     }
 
@@ -413,7 +410,7 @@ static void getCoverageFormat14(std::vector<std::unique_ptr<SparseBitSet>>* out,
         }
         std::vector<uint32_t> ranges;
         if (!getVSCoverage(&ranges, data, length, defaultUVSOffset, nonDefaultUVSOffset,
-                baseCoverage)) {
+                           baseCoverage)) {
             continue;
         }
         if (out->size() < vsIndex + 1) {
@@ -426,7 +423,7 @@ static void getCoverageFormat14(std::vector<std::unique_ptr<SparseBitSet>>* out,
 }
 
 SparseBitSet CmapCoverage::getCoverage(const uint8_t* cmap_data, size_t cmap_size,
-        std::vector<std::unique_ptr<SparseBitSet>>* out) {
+                                       std::vector<std::unique_ptr<SparseBitSet>>* out) {
     constexpr size_t kHeaderSize = 4;
     constexpr size_t kNumTablesOffset = 2;
     constexpr size_t kTableSize = 8;
@@ -521,7 +518,7 @@ SparseBitSet CmapCoverage::getCoverage(const uint8_t* cmap_data, size_t cmap_siz
         const uint8_t* tableData = cmap_data + bestTableOffset;
         const size_t tableSize = cmap_size - bestTableOffset;
         bool success;
-        vector<uint32_t> coverageVec;
+        std::vector<uint32_t> coverageVec;
         if (bestTableFormat == 4) {
             success = getCoverageFormat4(coverageVec, tableData, tableSize);
         } else {

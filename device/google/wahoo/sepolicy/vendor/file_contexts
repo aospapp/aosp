@@ -116,11 +116,13 @@
 # Block device for ZRAM
 /dev/block/zram0                                u:object_r:swap_block_device:s0
 
+# file in /system
+/system/bin/move_widevine_data\.sh              u:object_r:move-widevine-data-sh_exec:s0
+
 # files in /vendor
-/vendor/firmware(/.*)?          u:object_r:vendor_firmware_file:s0
 /vendor/bin/hw/android\.hardware\.dumpstate@1\.0-service.wahoo      u:object_r:hal_dumpstate_impl_exec:s0
 /vendor/bin/hw/android\.hardware\.vr@1\.0-service.wahoo      u:object_r:hal_vr_default_exec:s0
-/vendor/bin/hw/android\.hardware\.biometrics\.fingerprint@2\.1-service.wahoo u:object_r:hal_fingerprint_default_exec:s0
+/vendor/bin/hw/android\.hardware\.biometrics\.fingerprint@2\.1-service\.fpc u:object_r:hal_fingerprint_default_exec:s0
 /vendor/bin/msm_irqbalance      u:object_r:irqbalance_exec:s0
 /vendor/bin/perfd               u:object_r:perfd_exec:s0
 /vendor/bin/thermal-engine      u:object_r:thermal-engine_exec:s0
@@ -156,6 +158,7 @@
 /vendor/bin/qmuxd               u:object_r:qmuxd_exec:s0
 /vendor/bin/cnd                 u:object_r:cnd_exec:s0
 /vendor/bin/ATFWD-daemon        u:object_r:atfwd_exec:s0
+/vendor/bin/easelmanagerd       u:object_r:easel_exec:s0
 # Remove after b/38447389
 /vendor/bin/esed                u:object_r:esed_exec:s0
 # Rename to android.hardware.[XXX] after b/38447431
@@ -166,21 +169,26 @@
 /vendor/bin/hw/android\.hardware\.oemlock@1\.0-service               u:object_r:hal_oemlock_default_exec:s0
 /vendor/bin/oemlock_provision   u:object_r:hal_bootctl_default_exec:s0
 /vendor/bin/oemlock-bridge      u:object_r:hal_bootctl_default_exec:s0
-/vendor/bin/hw/android\.hardware\.usb@1\.1-service.wahoo             u:object_r:hal_usb_default_exec:s0
-/vendor/bin/hw/android\.hardware\.power@1\.1-service.wahoo           u:object_r:hal_power_default_exec:s0
+/vendor/bin/hw/android\.hardware\.usb@1\.1-service.wahoo             u:object_r:hal_usb_impl_exec:s0
+/vendor/bin/hw/android\.hardware\.power@1\.2-service.wahoo           u:object_r:hal_power_default_exec:s0
+/vendor/bin/hw/android\.hardware\.power@1\.2-service.wahoo-libperfmgr u:object_r:hal_power_default_exec:s0
 /vendor/bin/hw/android\.hardware\.thermal@1\.0-service.wahoo         u:object_r:hal_thermal_default_exec:s0
 /vendor/bin/chre                u:object_r:chre_exec:s0
 /vendor/bin/time_daemon         u:object_r:time_daemon_exec:s0
 /vendor/bin/imsrcsd             u:object_r:hal_rcsservice_exec:s0
 /vendor/bin/init\.qcom\.devstart\.sh                                 u:object_r:init-qcom-devstart-sh_exec:s0
 /vendor/bin/init\.qcom\.ipastart\.sh                                 u:object_r:init-qcom-ipastart-sh_exec:s0
+/vendor/bin/init\.qcom\.wlan\.sh                                     u:object_r:init-qcom-wlan-sh_exec:s0
 /vendor/bin/init\.insmod\.sh                                         u:object_r:init-insmod-sh_exec:s0
 /vendor/etc/init\.insmod\.cfg                                        u:object_r:init-insmod-sh_exec:s0
 /vendor/bin/init\.power\.sh     u:object_r:init_power_exec:s0
 /vendor/bin/init\.radio\.sh     u:object_r:init_radio_exec:s0
 
-/vendor/bin/hw/android\.hardware\.drm@1\.0-service.widevine          u:object_r:hal_drm_widevine_exec:s0
-/vendor/bin/hw/android\.hardware\.vibrator@1\.1-service.wahoo        u:object_r:hal_vibrator_default_exec:s0
+/vendor/bin/hw/android\.hardware\.bluetooth@1\.0-service-qti          u:object_r:hal_bluetooth_default_exec:s0
+/vendor/bin/hw/android\.hardware\.drm@1\.1-service\.widevine          u:object_r:hal_drm_widevine_exec:s0
+/vendor/bin/hw/android\.hardware\.drm@1\.1-service\.clearkey          u:object_r:hal_drm_clearkey_exec:s0
+/vendor/bin/hw/android\.hardware\.vibrator@1\.2-service\.wahoo        u:object_r:hal_vibrator_default_exec:s0
+/vendor/bin/hw/android\.hardware\.health@2\.0-service\.wahoo          u:object_r:hal_health_default_exec:s0
 /vendor/bin/hw/android\.hardware\.keymaster@3\.0-service-qti         u:object_r:hal_keymaster_qti_exec:s0
 /vendor/bin/hw/android\.hardware\.gatekeeper@1\.0-service-qti        u:object_r:hal_gatekeeper_qti_exec:s0
 /vendor/bin/hw/android\.hardware\.gnss@1\.0-service-qti              u:object_r:hal_gnss_qti_exec:s0
@@ -197,9 +205,9 @@
 /vendor/lib(64)?/libgsl\.so                u:object_r:same_process_hal_file:s0
 
 /vendor/lib(64)?/hw/vulkan\.msm8998\.so    u:object_r:same_process_hal_file:s0
-/vendor/lib(64)?/libEGL_adreno\.so         u:object_r:same_process_hal_file:s0
-/vendor/lib(64)?/libGLESv1_CM_adreno\.so   u:object_r:same_process_hal_file:s0
-/vendor/lib(64)?/libGLESv2_adreno\.so      u:object_r:same_process_hal_file:s0
+/vendor/lib(64)?/egl/libEGL_adreno\.so         u:object_r:same_process_hal_file:s0
+/vendor/lib(64)?/egl/libGLESv1_CM_adreno\.so   u:object_r:same_process_hal_file:s0
+/vendor/lib(64)?/egl/libGLESv2_adreno\.so      u:object_r:same_process_hal_file:s0
 
 /vendor/lib(64)?/libdrmutils\.so           u:object_r:same_process_hal_file:s0
 /vendor/lib(64)?/libdrm\.so                u:object_r:same_process_hal_file:s0
@@ -212,7 +220,7 @@
 # To test: run cts -m CtsRenderscriptTestCases
 /vendor/lib(64)?/libRSDriver_adreno\.so     u:object_r:same_process_hal_file:s0
 /vendor/lib(64)?/libCB\.so                  u:object_r:same_process_hal_file:s0
-/vendor/lib(64)?/libllvm-qgl\.so            u:object_r:same_process_hal_file:s0
+/vendor/lib(64)?/libllvm-glnext\.so            u:object_r:same_process_hal_file:s0
 /vendor/lib(64)?/libbccQTI\.so              u:object_r:same_process_hal_file:s0
 /vendor/lib(64)?/libllvm-qcom\.so           u:object_r:same_process_hal_file:s0
 /vendor/lib(64)?/librs_adreno\.so           u:object_r:same_process_hal_file:s0
@@ -222,9 +230,6 @@
 # TODO(b/36895509): remove the following 2 lines once this bug is resolved
 # needed by radio
 /vendor/lib(64)?/libimsmedia_jni\.so        u:object_r:same_process_hal_file:s0
-
-# libGLESv2_adreno depends on this
-/vendor/lib(64)?/libllvm-glnext\.so         u:object_r:same_process_hal_file:s0
 
 # Hexagon DSP host runtime and DSP-side executable needed for Halide operation
 /vendor/lib(64)?/libadsprpc\.so             u:object_r:same_process_hal_file:s0
@@ -241,19 +246,20 @@
 # data files
 /data/vendor/netmgr(/.*)?              u:object_r:netmgr_data_file:s0
 /data/vendor/location(/.*)?            u:object_r:location_data_file:s0
-/data/ramdump(/.*)?                    u:object_r:ramdump_data_file:s0
 /data/nfc(/.*)?                        u:object_r:nfc_data_file:s0
 /data/vendor/camera(/.*)?              u:object_r:camera_vendor_data_file:s0
 /data/vendor/display(/.*)?             u:object_r:display_vendor_data_file:s0
 /data/vendor/nfc(/.*)?                 u:object_r:nfc_vendor_data_file:s0
 /data/vendor/radio(/.*)?               u:object_r:radio_vendor_data_file:s0
-/data/vendor/wifi(/.*)?                u:object_r:cnss_vendor_data_file:s0
+/data/vendor/wifi/cnss_diag(/.*)?      u:object_r:cnss_vendor_data_file:s0
 /data/vendor/ramdump(/.*)?             u:object_r:ramdump_vendor_data_file:s0
 /data/vendor/ssrdump(/.*)?             u:object_r:ramdump_vendor_data_file:s0
 /data/vendor/modem_dump(/.*)?          u:object_r:modem_dump_file:s0
 /data/vendor/ese(/.*)?                 u:object_r:ese_vendor_data_file:s0
 /data/vendor/ipa(/.*)?                 u:object_r:ipa_vendor_data_file:s0
 /data/vendor/sensors(/.*)?             u:object_r:sensors_vendor_data_file:s0
+/data/vendor/audio(/.*)?               u:object_r:audio_vendor_data_file:s0
+/data/vendor/mediadrm(/.*)?            u:object_r:mediadrm_vendor_data_file:s0
 
 # input files
 /vendor/usr/idc(/.*)?                  u:object_r:idc_file:s0
@@ -277,6 +283,7 @@
 /persist/rfs(/.*)?        u:object_r:persist_rfs_file:s0
 /persist/sensors(/.*)?    u:object_r:persist_sensors_file:s0
 /persist/time(/.*)?       u:object_r:persist_time_file:s0
+/persist/battery(/.*)?    u:object_r:persist_battery_file:s0
 
-/metadata                 u:object_r:rootfs:s0
-/metadata/.*              u:object_r:vold_data_file:s0
+# b/70518189 vDSO experiments
+/sys/module/vdso/parameters  u:object_r:sysfs_vdso:s0

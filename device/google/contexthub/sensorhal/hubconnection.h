@@ -36,9 +36,6 @@
 #include "hubdefs.h"
 #include "ring.h"
 
-#ifdef USE_SENSORSERVICE_TO_GET_FIFO
-#include <thread>
-#endif
 #include <unordered_map>
 
 #define WAKELOCK_NAME "sensorHal"
@@ -250,7 +247,8 @@ private:
     uint8_t mMagAccuracy;
     uint8_t mMagAccuracyRestore;
 
-    float mGyroBias[3], mAccelBias[3];
+    float mGyroBias[3], mAccelBias[3], mAccelEnabledBias[3];
+    bool mAccelEnabledBiasStored;
     GyroOtcData mGyroOtcData;
 
     float mScaleAccel, mScaleMag;
@@ -298,11 +296,8 @@ private:
     void restoreSensorState();
     void sendCalibrationOffsets();
 
-#ifdef USE_SENSORSERVICE_TO_GET_FIFO
     // Enable SCHED_FIFO priority for main thread
-    std::thread mEnableSchedFifoThread;
-#endif
-    static void enableSchedFifoMode(sp<HubConnection> hub);
+    void enableSchedFifoMode();
 
 #ifdef LID_STATE_REPORTING_ENABLED
     int mUinputFd;

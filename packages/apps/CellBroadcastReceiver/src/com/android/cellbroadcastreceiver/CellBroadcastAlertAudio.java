@@ -36,6 +36,7 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.Vibrator;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
@@ -78,9 +79,9 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     public static final String ALERT_AUDIO_VIBRATE_EXTRA =
             "com.android.cellbroadcastreceiver.ALERT_AUDIO_VIBRATE";
 
-    /** Extra for alert audio ETWS behavior (always vibrate, even in silent mode). */
-    public static final String ALERT_AUDIO_ETWS_VIBRATE_EXTRA =
-            "com.android.cellbroadcastreceiver.ALERT_AUDIO_ETWS_VIBRATE";
+    /** Extra for alert vibration pattern (unless master volume is silent). */
+    public static final String ALERT_AUDIO_VIBRATION_PATTERN_EXTRA =
+            "com.android.cellbroadcastreceiver.ALERT_VIBRATION_PATTERN";
 
     private static final String TTS_UTTERANCE_ID = "com.android.cellbroadcastreceiver.UTTERANCE_ID";
 
@@ -106,6 +107,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     private boolean mUseFullVolume;
     private boolean mResetAlarmVolumeNeeded;
     private int mUserSetAlarmVolume;
+    private int[] mVibrationPattern;
 
     private Vibrator mVibrator;
     private MediaPlayer mMediaPlayer;
@@ -146,9 +148,10 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                         if (DBG) log("Speaking broadcast text: " + mMessageBody);
 
                         Bundle params = new Bundle();
-                        // Play TTS in notification stream.
+                        // Play TTS in the alarm stream, which we use for playing alert tones as
+                        // well.
                         params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM,
-                                AudioManager.STREAM_NOTIFICATION);
+                                AudioManager.STREAM_ALARM);
                         // Use the non-public parameter 2 --> TextToSpeech.QUEUE_DESTROY for TTS.
                         // The entire playback queue is purged. This is different from QUEUE_FLUSH
                         // in that all entries are purged, not just entries from a given caller.
@@ -306,14 +309,14 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
 
         // retrieve the vibrate settings from cellbroadcast receiver settings.
         mEnableVibrate = intent.getBooleanExtra(ALERT_AUDIO_VIBRATE_EXTRA, true);
+        // retrieve the vibration patterns
+        mVibrationPattern = intent.getIntArrayExtra(ALERT_AUDIO_VIBRATION_PATTERN_EXTRA);
+
         switch (mAudioManager.getRingerMode()) {
             case AudioManager.RINGER_MODE_SILENT:
                 if (DBG) log("Ringer mode: silent");
                 mEnableAudio = false;
-                // If the device is in silent mode, do not vibrate (except ETWS).
-                if (!intent.getBooleanExtra(ALERT_AUDIO_ETWS_VIBRATE_EXTRA, false)) {
-                    mEnableVibrate = false;
-                }
+                mEnableVibrate = false;
                 break;
             case AudioManager.RINGER_MODE_VIBRATE:
                 if (DBG) log("Ringer mode: vibrate");
@@ -339,11 +342,11 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
         }
 
         if (mEnableAudio || mEnableVibrate) {
-            AlertType alertType = AlertType.CMAS_DEFAULT;
+            AlertType alertType = AlertType.DEFAULT;
             if (intent.getSerializableExtra(ALERT_AUDIO_TONE_TYPE) != null) {
                 alertType = (AlertType) intent.getSerializableExtra(ALERT_AUDIO_TONE_TYPE);
             }
-            playAlertTone(alertType);
+            playAlertTone(alertType, mVibrationPattern);
         } else {
             stopSelf();
             return START_NOT_STICKY;
@@ -362,8 +365,9 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     /**
      * Start playing the alert sound.
      * @param alertType the alert type (e.g. default, earthquake, tsunami, etc..)
+     * @param patternArray the alert vibration pattern
      */
-    private void playAlertTone(AlertType alertType) {
+    private void playAlertTone(AlertType alertType, int[] patternArray) {
         // stop() checks to see if we are already playing.
         stop();
 
@@ -376,9 +380,6 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
 
         // Start the vibration first.
         if (mEnableVibrate) {
-
-            int[] patternArray = getApplicationContext().getResources().
-                    getIntArray(R.array.default_vibration_pattern);
             long[] vibrationPattern = new long[patternArray.length];
 
             for (int i = 0; i < patternArray.length; i++) {
@@ -416,15 +417,16 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             }
 
             try {
-                log("Locale=" + getResources().getConfiguration().getLocales());
+                log("Locale=" + getResources().getConfiguration().getLocales()
+                        + ", alertType=" + alertType);
 
                 // Load the tones based on type
                 switch (alertType) {
-                    case EARTHQUAKE:
+                    case ETWS_EARTHQUAKE:
                         setDataSourceFromResource(getResources(), mMediaPlayer,
                                 R.raw.etws_earthquake);
                         break;
-                    case TSUNAMI:
+                    case ETWS_TSUNAMI:
                         setDataSourceFromResource(getResources(), mMediaPlayer,
                                 R.raw.etws_tsunami);
                         break;
@@ -436,15 +438,24 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                         setDataSourceFromResource(getResources(), mMediaPlayer,
                                 R.raw.etws_default);
                         break;
-                    case CMAS_DEFAULT:
+                    case INFO:
+                        // for non-emergency alerts, we are using system default notification sound.
+                        String sound = Settings.System.getString(
+                                getApplicationContext().getContentResolver(),
+                                Settings.System.NOTIFICATION_SOUND);
+                        mMediaPlayer.setDataSource(sound);
+                        break;
+                    case TEST:
+                    case DEFAULT:
                     default:
                         setDataSourceFromResource(getResources(), mMediaPlayer,
-                                R.raw.cmas_default);
+                                R.raw.default_tone);
                 }
 
-                // start playing alert audio (unless master volume is vibrate only or silent).
+                // Request audio focus (though we're going to play even if we don't get it)
                 mAudioManager.requestAudioFocus(null, AudioManager.STREAM_ALARM,
                         AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+                mMediaPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
 
                 setAlertAudioAttributes();
                 setAlertVolume();

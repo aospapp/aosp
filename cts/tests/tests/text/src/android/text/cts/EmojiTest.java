@@ -65,8 +65,8 @@ public class EmojiTest {
      */
     @Test
     public void testEmojiCodePoints() {
-        for (int i = 0; i < EmojiConstants.emojiCodePoints.length; i++) {
-            assertTrue(Character.isDefined(EmojiConstants.emojiCodePoints[i]));
+        for (int i = 0; i < EmojiConstants.ALL_EMOJI.length; i++) {
+            assertTrue(Character.isDefined(EmojiConstants.ALL_EMOJI[i]));
         }
     }
 

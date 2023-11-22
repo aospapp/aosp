@@ -74,7 +74,7 @@
     <string name="allergies" msgid="2789200777539258165">"過敏"</string>
     <string name="unknown_allergies" msgid="4383115953418061237">"不明"</string>
     <string name="allergies_hint" msgid="5488918780522184147">"例如花生"</string>
-    <string name="medications" msgid="644428945685557183">"服用中藥物"</string>
+    <string name="medications" msgid="644428945685557183">"服用中的藥物"</string>
     <string name="unknown_medications" msgid="2764171064510423734">"不明"</string>
     <string name="medications_hint" msgid="3221620025945593723">"例如阿士匹靈"</string>
     <string name="medical_conditions" msgid="3555690011498283592">"醫療注意事項"</string>
@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"要清除所有資料和聯絡人嗎？"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"新増醫療資訊和緊急聯絡人可以協助先遣人員處理緊急情況。\n\n在您的手機未解鎖的情況下，任何人都能在上鎖畫面中查看這些資料，並透過輕按緊急聯絡人姓名來撥打對方的號碼。"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"新增緊急資料"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"協助先遣人員尋找重要資料"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"讓先遣人員查看您的資料"</string>
 </resources>

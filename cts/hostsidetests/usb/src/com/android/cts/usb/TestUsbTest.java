@@ -15,13 +15,18 @@
  */
 package com.android.cts.usb;
 
+import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.AppModeInstant;
+
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestRunResult;
+import com.android.ddmlib.testrunner.TestResult.TestStatus;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.result.CollectingTestListener;
+import com.android.tradefed.result.TestResult;
+import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
@@ -32,6 +37,7 @@ import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.RunUtil;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -42,6 +48,7 @@ public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildR
 
     private static final String CTS_RUNNER = "android.support.test.runner.AndroidJUnitRunner";
     private static final String PACKAGE_NAME = "com.android.cts.usb.serialtest";
+    private static final String TEST_CLASS_NAME = PACKAGE_NAME + ".UsbSerialTest";
     private static final String APK_NAME="CtsUsbSerialTestApp.apk";
     private ITestDevice mDevice;
     private IAbi mAbi;
@@ -62,10 +69,20 @@ public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildR
         super.setUp();
         mDevice = getDevice();
         mDevice.uninstallPackage(PACKAGE_NAME);
+    }
+
+    private void installApp(boolean installAsInstantApp)
+            throws FileNotFoundException, DeviceNotAvailableException {
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuild);
         File app = buildHelper.getTestFile(APK_NAME);
-        String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
-        mDevice.installPackage(app, false, options);
+        String[] options;
+
+        if (installAsInstantApp) {
+            options = new String[]{AbiUtils.createAbiFlag(mAbi.getName()), "--instant"};
+        } else {
+            options = new String[]{AbiUtils.createAbiFlag(mAbi.getName())};
+        }
+        mDevice.installPackage(app, false, true, options);
     }
 
     @Override
@@ -74,11 +91,48 @@ public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildR
         mDevice.uninstallPackage(PACKAGE_NAME);
     }
 
+    private void runTestOnDevice(String testMethod) throws DeviceNotAvailableException {
+        CollectingTestListener listener = new CollectingTestListener();
+        RemoteAndroidTestRunner testRunner = new RemoteAndroidTestRunner(PACKAGE_NAME, CTS_RUNNER,
+                mDevice.getIDevice());
+        testRunner.setMethodName(TEST_CLASS_NAME, testMethod);
+        mDevice.runInstrumentationTests(testRunner, listener);
+
+        while (!listener.getCurrentRunResults().isRunComplete()) {
+            // wait
+        }
+
+        TestRunResult runResult = listener.getCurrentRunResults();
+        if (runResult.isRunFailure()) {
+            fail(runResult.getRunFailureMessage());
+        }
+
+        for (TestResult result : runResult.getTestResults().values()) {
+            if (!result.getStatus().equals(TestStatus.PASSED)) {
+                fail(result.getStackTrace());
+            }
+        }
+    }
+
     /**
      * Check if adb serial number, USB serial number, ro.serialno, and android.os.Build.SERIAL
      * all matches and meets the format requirement [a-zA-Z0-9]{6,20}
      */
-    public void testUsbSerial() throws Exception {
+    @AppModeInstant(reason = "only instant apps fail when reading serial")
+    public void testInstantAppsCannotReadSerial() throws Exception {
+        installApp(true);
+
+        runTestOnDevice("verifySerialCannotBeRead");
+    }
+
+    /**
+     * Check if adb serial number, USB serial number, ro.serialno, and android.os.Build.SERIAL
+     * all matches and meets the format requirement [a-zA-Z0-9]{6,20}
+     */
+    @AppModeFull(reason = "serial can not be read by instant apps")
+    public void testUsbSerialReadOnDeviceMatches() throws Exception {
+        installApp(false);
+
         String adbSerial = mDevice.getSerialNumber().toLowerCase().trim();
         if (adbSerial.startsWith("emulator-")) {
             return;
@@ -109,14 +163,7 @@ public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildR
 
         // now check Build.SERIAL
         clearLogCat();
-        CollectingTestListener listener = new CollectingTestListener();
-        RemoteAndroidTestRunner testRunner = new RemoteAndroidTestRunner(PACKAGE_NAME, CTS_RUNNER,
-                mDevice.getIDevice());
-        mDevice.runInstrumentationTests(testRunner, listener);
-        TestRunResult runResult = listener.getCurrentRunResults();
-        if (runResult.isRunFailure()) {
-            fail(runResult.getRunFailureMessage());
-        }
+        runTestOnDevice("logSerial");
         String logs = mDevice.executeAdbCommand(
                 "logcat", "-v", "brief", "-d", "CtsUsbSerialTest:W", "*:S");
         pattern = Pattern.compile("^.*CtsUsbSerialTest\\(.*\\):\\s+([a-zA-Z0-9]{6,20})",

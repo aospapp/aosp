@@ -16,9 +16,11 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.widget.cts">
+    package="android.widget.cts"
+    android:targetSandboxVersion="2">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
 
     <application android:label="Android TestCase"
             android:icon="@drawable/size_48x48"
@@ -329,6 +331,16 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="android.widget.cts.TextClockCtsActivity"
+                  android:label="TextClockCtsActivity"
+                  android:screenOrientation="nosensor"
+                  android:windowSoftInputMode="stateAlwaysHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
         <activity android:name="android.widget.cts.TextViewCtsActivity"
                   android:label="TextViewCtsActivity"
                   android:screenOrientation="nosensor"
@@ -368,6 +380,15 @@
         <activity android:name="android.widget.cts.VideoViewCtsActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:label="VideoViewCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.widget.cts.VideoView2CtsActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:label="VideoView2CtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -567,6 +588,14 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.widget.cts.MagnifierCtsActivity"
+                  android:label="MagnifierCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
             </intent-filter>
         </activity>
 

@@ -87,7 +87,7 @@
     <!-- no translation found for organ_donor_entries:0 (4680498266537823362) -->
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
-    <string name="emergency_contacts_title" msgid="5462202017417821030">"Төтенше контактілер"</string>
+    <string name="emergency_contacts_title" msgid="5462202017417821030">"Төтенше жағдай контактілері"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Контакт қосу"</string>
     <string name="fail_load_contact_picker" msgid="817205483833876726">"Контакт таңдау құралы табылмады"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"Контакт көрсетілмейді"</string>
@@ -103,7 +103,7 @@
     <string name="clear_all" msgid="8899013032870561633">"Барлығын тазалау"</string>
     <string name="clear" msgid="3648880442502887163">"Тазалау"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Бүкіл ақпаратты және контактілерді тазалау керек пе?"</string>
-    <string name="emergency_info_footer" msgid="8751758742506410146">"Медициналық ақпарат пен төтенше жағдайда хабарласу мәліметтері төтенше жағдайда алдымен қызметкерлерге көмектеседі.\n\nБұл ақпаратты кез келген адам құлыптау экранынан оқи алады және телефонды құлыптамастан аттарды түрте отырып, контактілерді тере алады."</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Медициналық ақпарат пен төтенше жағдай контактілері алғашқы жәрдем берушілерге көмектеседі.\n\nБұл ақпаратты кез келген адам құлыптау экранынан оқи алады және телефон құлпын ашпастан аттарды түрте отырып, контактілерге хабарласа алады."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Төтенше жағдайға арналған ақпаратты енгізу"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Жедел жәрдем қызметкеріне маңызды ақпаратты табуға көмектесу"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Алдымен жауап берушілерге ақпаратты көруге мүмкіндік беріңіз"</string>
 </resources>

@@ -32,7 +32,6 @@ import com.android.documentsui.base.State;
 import com.android.documentsui.dirlist.AnimationView;
 import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.roots.ProvidersAccess;
-import com.android.documentsui.selection.SelectionManager;
 
 import java.util.Collection;
 
@@ -57,7 +56,7 @@ final class RootsMonitor<T extends Activity & CommonAddons> {
         mReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                new HandleRootsChangedTask<T>(
+                new HandleRootsChangedTask<>(
                         activity,
                         actions,
                         providers,

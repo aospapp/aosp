@@ -31,6 +31,8 @@
 #include "vlan_init.h"
 #include "wpa_auth.h"
 #include "wps_hostapd.h"
+#include "dpp_hostapd.h"
+#include "gas_query_ap.h"
 #include "hw_features.h"
 #include "wpa_auth_glue.h"
 #include "ap_drv_ops.h"
@@ -46,6 +48,7 @@
 #include "neighbor_db.h"
 #include "rrm.h"
 #include "fils_hlp.h"
+#include "acs.h"
 
 
 static int hostapd_flush_old_stations(struct hostapd_data *hapd, u16 reason);
@@ -301,6 +304,10 @@ static void hostapd_free_hapd_data(struct hostapd_data *hapd)
 #endif /* CONFIG_NO_RADIUS */
 
 	hostapd_deinit_wps(hapd);
+#ifdef CONFIG_DPP
+	hostapd_dpp_deinit(hapd);
+	gas_query_ap_deinit(hapd->gas);
+#endif /* CONFIG_DPP */
 
 	authsrv_deinit(hapd);
 
@@ -394,8 +401,11 @@ static void hostapd_cleanup_iface_partial(struct hostapd_iface *iface)
 	hostapd_stop_setup_timers(iface);
 #endif /* NEED_AP_MLME */
 #endif /* CONFIG_IEEE80211N */
+	if (iface->current_mode)
+		acs_cleanup(iface);
 	hostapd_free_hw_features(iface->hw_features, iface->num_hw_features);
 	iface->hw_features = NULL;
+	iface->current_mode = NULL;
 	os_free(iface->current_rates);
 	iface->current_rates = NULL;
 	os_free(iface->basic_rates);
@@ -491,9 +501,12 @@ static int hostapd_flush_old_stations(struct hostapd_data *hapd, u16 reason)
 			ret = -1;
 		}
 	}
-	wpa_dbg(hapd->msg_ctx, MSG_DEBUG, "Deauthenticate all stations");
-	os_memset(addr, 0xff, ETH_ALEN);
-	hostapd_drv_sta_deauth(hapd, addr, reason);
+	if (hapd->conf && hapd->conf->broadcast_deauth) {
+		wpa_dbg(hapd->msg_ctx, MSG_DEBUG,
+			"Deauthenticate all stations");
+		os_memset(addr, 0xff, ETH_ALEN);
+		hostapd_drv_sta_deauth(hapd, addr, reason);
+	}
 	hostapd_free_stas(hapd);
 
 	return ret;
@@ -969,7 +982,7 @@ static int hostapd_setup_bss(struct hostapd_data *hapd, int first)
 #endif /* CONFIG_IEEE80211R_AP */
 
 #ifdef CONFIG_MESH
-	if (hapd->iface->mconf == NULL)
+	if ((hapd->conf->mesh & MESH_ENABLED) && hapd->iface->mconf == NULL)
 		flush_old_stations = 0;
 #endif /* CONFIG_MESH */
 
@@ -1070,6 +1083,14 @@ static int hostapd_setup_bss(struct hostapd_data *hapd, int first)
 	if (hostapd_init_wps(hapd, conf))
 		return -1;
 
+#ifdef CONFIG_DPP
+	hapd->gas = gas_query_ap_init(hapd, hapd->msg_ctx);
+	if (!hapd->gas)
+		return -1;
+	if (hostapd_dpp_init(hapd))
+		return -1;
+#endif /* CONFIG_DPP */
+
 	if (authsrv_init(hapd) < 0)
 		return -1;
 
@@ -1157,7 +1178,7 @@ static void hostapd_tx_queue_params(struct hostapd_iface *iface)
 	struct hostapd_tx_queue_params *p;
 
 #ifdef CONFIG_MESH
-	if (iface->mconf == NULL)
+	if ((hapd->conf->mesh & MESH_ENABLED) && iface->mconf == NULL)
 		return;
 #endif /* CONFIG_MESH */
 
@@ -1659,6 +1680,102 @@ static void hostapd_set_own_neighbor_report(struct hostapd_data *hapd)
 }
 
 
+#ifdef CONFIG_OWE
+
+static int hostapd_owe_iface_iter(struct hostapd_iface *iface, void *ctx)
+{
+	struct hostapd_data *hapd = ctx;
+	size_t i;
+
+	for (i = 0; i < iface->num_bss; i++) {
+		struct hostapd_data *bss = iface->bss[i];
+
+		if (os_strcmp(hapd->conf->owe_transition_ifname,
+			      bss->conf->iface) != 0)
+			continue;
+
+		wpa_printf(MSG_DEBUG,
+			   "OWE: ifname=%s found transition mode ifname=%s BSSID "
+			   MACSTR " SSID %s",
+			   hapd->conf->iface, bss->conf->iface,
+			   MAC2STR(bss->own_addr),
+			   wpa_ssid_txt(bss->conf->ssid.ssid,
+					bss->conf->ssid.ssid_len));
+		if (!bss->conf->ssid.ssid_set || !bss->conf->ssid.ssid_len ||
+		    is_zero_ether_addr(bss->own_addr))
+			continue;
+
+		os_memcpy(hapd->conf->owe_transition_bssid, bss->own_addr,
+			  ETH_ALEN);
+		os_memcpy(hapd->conf->owe_transition_ssid,
+			  bss->conf->ssid.ssid, bss->conf->ssid.ssid_len);
+		hapd->conf->owe_transition_ssid_len = bss->conf->ssid.ssid_len;
+		wpa_printf(MSG_DEBUG,
+			   "OWE: Copied transition mode information");
+		return 1;
+	}
+
+	return 0;
+}
+
+
+int hostapd_owe_trans_get_info(struct hostapd_data *hapd)
+{
+	if (hapd->conf->owe_transition_ssid_len > 0 &&
+	    !is_zero_ether_addr(hapd->conf->owe_transition_bssid))
+		return 0;
+
+	/* Find transition mode SSID/BSSID information from a BSS operated by
+	 * this hostapd instance. */
+	if (!hapd->iface->interfaces ||
+	    !hapd->iface->interfaces->for_each_interface)
+		return hostapd_owe_iface_iter(hapd->iface, hapd);
+	else
+		return hapd->iface->interfaces->for_each_interface(
+			hapd->iface->interfaces, hostapd_owe_iface_iter, hapd);
+}
+
+
+static int hostapd_owe_iface_iter2(struct hostapd_iface *iface, void *ctx)
+{
+	size_t i;
+
+	for (i = 0; i < iface->num_bss; i++) {
+		struct hostapd_data *bss = iface->bss[i];
+		int res;
+
+		if (!bss->conf->owe_transition_ifname[0])
+			continue;
+		res = hostapd_owe_trans_get_info(bss);
+		if (res == 0)
+			continue;
+		wpa_printf(MSG_DEBUG,
+			   "OWE: Matching transition mode interface enabled - update beacon data for %s",
+			   bss->conf->iface);
+		ieee802_11_set_beacon(bss);
+	}
+
+	return 0;
+}
+
+#endif /* CONFIG_OWE */
+
+
+static void hostapd_owe_update_trans(struct hostapd_iface *iface)
+{
+#ifdef CONFIG_OWE
+	/* Check whether the enabled BSS can complete OWE transition mode
+	 * configuration for any pending interface. */
+	if (!iface->interfaces ||
+	    !iface->interfaces->for_each_interface)
+		hostapd_owe_iface_iter2(iface, NULL);
+	else
+		iface->interfaces->for_each_interface(
+			iface->interfaces, hostapd_owe_iface_iter2, NULL);
+#endif /* CONFIG_OWE */
+}
+
+
 static int hostapd_setup_interface_complete_sync(struct hostapd_iface *iface,
 						 int err)
 {
@@ -1834,6 +1951,7 @@ dfs_offload:
 #endif /* CONFIG_FST */
 
 	hostapd_set_state(iface, HAPD_IFACE_ENABLED);
+	hostapd_owe_update_trans(iface);
 	wpa_msg(iface->bss[0]->msg_ctx, MSG_INFO, AP_EVENT_ENABLED);
 	if (hapd->setup_complete_cb)
 		hapd->setup_complete_cb(hapd->setup_complete_cb_ctx);
@@ -2010,6 +2128,10 @@ hostapd_alloc_bss_data(struct hostapd_iface *hapd_iface,
 	dl_list_init(&hapd->ctrl_dst);
 	dl_list_init(&hapd->nr_db);
 	hapd->dhcp_sock = -1;
+#ifdef CONFIG_IEEE80211R_AP
+	dl_list_init(&hapd->l2_queue);
+	dl_list_init(&hapd->l2_oui_queue);
+#endif /* CONFIG_IEEE80211R_AP */
 
 	return hapd;
 }
@@ -2621,6 +2743,7 @@ int hostapd_add_iface(struct hapd_interfaces *interfaces, char *buf)
 				return -1;
 			}
 		}
+		hostapd_owe_update_trans(hapd_iface);
 		return 0;
 	}
 
@@ -2838,6 +2961,9 @@ void hostapd_new_assoc_sta(struct hostapd_data *hapd, struct sta_info *sta,
 	ieee802_1x_new_station(hapd, sta);
 	if (reassoc) {
 		if (sta->auth_alg != WLAN_AUTH_FT &&
+		    sta->auth_alg != WLAN_AUTH_FILS_SK &&
+		    sta->auth_alg != WLAN_AUTH_FILS_SK_PFS &&
+		    sta->auth_alg != WLAN_AUTH_FILS_PK &&
 		    !(sta->flags & (WLAN_STA_WPS | WLAN_STA_MAYBE_WPS)))
 			wpa_auth_sm_event(sta->wpa_sm, WPA_REAUTH);
 	} else
@@ -2946,60 +3072,52 @@ static int hostapd_build_beacon_data(struct hostapd_data *hapd,
 		goto free_ap_params;
 
 	ret = -1;
-	beacon->head = os_malloc(params.head_len);
+	beacon->head = os_memdup(params.head, params.head_len);
 	if (!beacon->head)
 		goto free_ap_extra_ies;
 
-	os_memcpy(beacon->head, params.head, params.head_len);
 	beacon->head_len = params.head_len;
 
-	beacon->tail = os_malloc(params.tail_len);
+	beacon->tail = os_memdup(params.tail, params.tail_len);
 	if (!beacon->tail)
 		goto free_beacon;
 
-	os_memcpy(beacon->tail, params.tail, params.tail_len);
 	beacon->tail_len = params.tail_len;
 
 	if (params.proberesp != NULL) {
-		beacon->probe_resp = os_malloc(params.proberesp_len);
+		beacon->probe_resp = os_memdup(params.proberesp,
+					       params.proberesp_len);
 		if (!beacon->probe_resp)
 			goto free_beacon;
 
-		os_memcpy(beacon->probe_resp, params.proberesp,
-			  params.proberesp_len);
 		beacon->probe_resp_len = params.proberesp_len;
 	}
 
 	/* copy the extra ies */
 	if (beacon_extra) {
-		beacon->beacon_ies = os_malloc(wpabuf_len(beacon_extra));
+		beacon->beacon_ies = os_memdup(beacon_extra->buf,
+					       wpabuf_len(beacon_extra));
 		if (!beacon->beacon_ies)
 			goto free_beacon;
 
-		os_memcpy(beacon->beacon_ies,
-			  beacon_extra->buf, wpabuf_len(beacon_extra));
 		beacon->beacon_ies_len = wpabuf_len(beacon_extra);
 	}
 
 	if (proberesp_extra) {
-		beacon->proberesp_ies =
-			os_malloc(wpabuf_len(proberesp_extra));
+		beacon->proberesp_ies = os_memdup(proberesp_extra->buf,
+						  wpabuf_len(proberesp_extra));
 		if (!beacon->proberesp_ies)
 			goto free_beacon;
 
-		os_memcpy(beacon->proberesp_ies, proberesp_extra->buf,
-			  wpabuf_len(proberesp_extra));
 		beacon->proberesp_ies_len = wpabuf_len(proberesp_extra);
 	}
 
 	if (assocresp_extra) {
-		beacon->assocresp_ies =
-			os_malloc(wpabuf_len(assocresp_extra));
+		beacon->assocresp_ies = os_memdup(assocresp_extra->buf,
+						  wpabuf_len(assocresp_extra));
 		if (!beacon->assocresp_ies)
 			goto free_beacon;
 
-		os_memcpy(beacon->assocresp_ies, assocresp_extra->buf,
-			  wpabuf_len(assocresp_extra));
 		beacon->assocresp_ies_len = wpabuf_len(assocresp_extra);
 	}
 

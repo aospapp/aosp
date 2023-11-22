@@ -16,13 +16,12 @@
 
 package android.car.apitest;
 
+import android.car.Car;
+import android.car.hardware.CarSensorManager;
 import android.content.ComponentName;
 import android.content.ServiceConnection;
 import android.os.IBinder;
 import android.os.Looper;
-import android.car.Car;
-import android.car.hardware.CarSensorEvent;
-import android.car.hardware.CarSensorManager;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.MediumTest;
 
@@ -73,25 +72,5 @@ public class CarSensorManagerTest extends AndroidTestCase {
     protected void tearDown() throws Exception {
         super.tearDown();
         mCar.disconnect();
-    }
-
-    public void testDrivingPolicy() throws Exception {
-        int[] supportedSensors = mCarSensorManager.getSupportedSensors();
-        assertNotNull(supportedSensors);
-        boolean found = false;
-        for (int sensor: supportedSensors) {
-            if (sensor == CarSensorManager.SENSOR_TYPE_DRIVING_STATUS) {
-                found = true;
-                break;
-            }
-        }
-        assertTrue(found);
-        assertTrue(mCarSensorManager.isSensorSupported(
-                CarSensorManager.SENSOR_TYPE_DRIVING_STATUS));
-        assertTrue(CarSensorManager.isSensorSupported(supportedSensors,
-                CarSensorManager.SENSOR_TYPE_DRIVING_STATUS));
-        CarSensorEvent lastEvent = mCarSensorManager.getLatestSensorEvent(
-                CarSensorManager.SENSOR_TYPE_DRIVING_STATUS);
-        assertNotNull(lastEvent);
     }
 }

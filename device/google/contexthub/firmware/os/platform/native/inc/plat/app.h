@@ -18,8 +18,7 @@
 #define _PLAT_LNX_APP_H_
 
 struct PlatAppInfo {
-    int dummy;
-    //todo
+    void* data;  // dummy
 };
 
 #endif

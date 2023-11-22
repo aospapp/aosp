@@ -75,12 +75,15 @@ static void auth_logger(void *ctx, const u8 *addr, logger_level level,
 
 
 static const u8 *auth_get_psk(void *ctx, const u8 *addr,
-			      const u8 *p2p_dev_addr, const u8 *prev_psk)
+			      const u8 *p2p_dev_addr, const u8 *prev_psk,
+			      size_t *psk_len)
 {
 	struct mesh_rsn *mesh_rsn = ctx;
 	struct hostapd_data *hapd = mesh_rsn->wpa_s->ifmsh->bss[0];
 	struct sta_info *sta = ap_get_sta(hapd, addr);
 
+	if (psk_len)
+		*psk_len = PMK_LEN;
 	wpa_printf(MSG_DEBUG, "AUTH: %s (addr=" MACSTR " prev_psk=%p)",
 		   __func__, MAC2STR(addr), prev_psk);
 
@@ -314,7 +317,12 @@ static int mesh_rsn_build_sae_commit(struct wpa_supplicant *wpa_s,
 				     struct wpa_ssid *ssid,
 				     struct sta_info *sta)
 {
-	if (ssid->passphrase == NULL) {
+	const char *password;
+
+	password = ssid->sae_password;
+	if (!password)
+		password = ssid->passphrase;
+	if (!password) {
 		wpa_msg(wpa_s, MSG_DEBUG, "SAE: No password available");
 		return -1;
 	}
@@ -325,8 +333,8 @@ static int mesh_rsn_build_sae_commit(struct wpa_supplicant *wpa_s,
 	}
 
 	return sae_prepare_commit(wpa_s->own_addr, sta->addr,
-				  (u8 *) ssid->passphrase,
-				  os_strlen(ssid->passphrase), sta->sae);
+				  (u8 *) password, os_strlen(password),
+				  sta->sae);
 }
 
 

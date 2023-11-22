@@ -192,7 +192,45 @@ bool spaceToDepthGeneric(const uint8_t* inputData, const Shape& inputShape,
                          int32_t blockSize,
                          uint8_t* outputData, const Shape& outputShape);
 
+bool padGeneric(const uint8_t* inputData, const Shape& inputShape,
+                const int32_t* paddings,
+                uint8_t* outputData, const Shape& outputShape);
+
+bool batchToSpaceGeneric(const uint8_t* inputData, const Shape& inputShape,
+                         const int32_t* blockSize,
+                         uint8_t* outputData, const Shape& outputShape);
+
+bool spaceToBatchGeneric(const uint8_t* inputData, const Shape& inputShape,
+                         const int32_t* blockSize,
+                         const int32_t* padding, const Shape& paddingShape,
+                         uint8_t* outputData, const Shape& outputShape);
+
+bool subFloat32(const float* in1, const Shape& shape1,
+                const float* in2, const Shape& shape2,
+                int32_t activation,
+                float* out, const Shape& shapeOut);
+
+bool squeezeGeneric(const void* inputData, const Shape& inputShape,
+                    void* outputData, const Shape& outputShape);
+
+bool divFloat32(const float* in1, const Shape& shape1,
+                const float* in2, const Shape& shape2,
+                int32_t activation,
+                float* out, const Shape& shapeOut);
+
+bool transposeGeneric(const uint8_t* inputData, const Shape& inputShape,
+                      const int32_t* perm, const Shape& permShape,
+                      uint8_t* outputData, const Shape& outputShape);
+
+bool meanGeneric(const uint8_t* inputData, const Shape& inputShape,
+                 const int32_t* axis, const Shape& axisShape, bool keepDims,
+                 uint8_t* outputData, const Shape& outputShape);
+
+bool stridedSliceGeneric(const uint8_t* inputData, const Shape& inputShape,
+                         const int32_t* beginData, const int32_t* endData,
+                         const int32_t* stridesData,
+                         int32_t beginMask, int32_t endMask, int32_t shrinkAxisMask,
+                         uint8_t* outputData, const Shape& outputShape);
 } // namespace nn
 } // namespace android
-
 #endif // ANDROID_ML_NN_COMMON_OPERATIONS_H

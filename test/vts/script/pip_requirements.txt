@@ -18,3 +18,6 @@ scipy
 # Required packages for Kernel tests
 parse
 ply
+
+# Required packages for USB gadget tests
+libusb1

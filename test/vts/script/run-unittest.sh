@@ -17,5 +17,11 @@
 pushd ${ANDROID_BUILD_TOP}/test/vts
 PYTHONPATH=$PYTHONPATH:.. python -m vts.runners.host.tcp_server.callback_server_test
 PYTHONPATH=$PYTHONPATH:.. python -m vts.utils.python.coverage.coverage_report_test
+PYTHONPATH=$PYTHONPATH:.. python -m vts.harnesses.host_controller.build.build_provider_pab_test
+PYTHONPATH=$PYTHONPATH:.. python -m vts.utils.python.controllers.android_device_test
+PYTHONPATH=$PYTHONPATH:.. python -m vts.utils.python.controllers.customflasher_test
+PYTHONPATH=$PYTHONPATH:..:../framework/harnesses/ python -m host_controller.build.build_flasher_test
+PYTHONPATH=$PYTHONPATH:..:../framework/harnesses/ python -m host_controller.build.build_provider_test
+PYTHONPATH=$PYTHONPATH:..:../framework/harnesses/ python -m host_controller.console_test
+PYTHONPATH=$PYTHONPATH:.. python -m vts.utils.python.io.file_util_test
 popd
-

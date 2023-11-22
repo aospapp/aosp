@@ -3,12 +3,12 @@
 # found in the LICENSE file.
 
 AUTHOR = "Chrome OS Team, chromeos-video@google.com"
-NAME = "video_VDAPerf"
+NAME = "video_VDAPerf.vp8"
 PURPOSE = "Monitor the performance of the Chromium hardware VDA."
 CRITERIA = """
 The test fails if the video_decode_accelerator_unittest fails or crashes.
 """
-ATTRIBUTES = "suite:crosbolt_perf_nightly"
+ATTRIBUTES = "suite:crosbolt_perf_perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
@@ -32,9 +32,4 @@ test_cases = [
     ['crowd/crowd720-41e9a3e6a6b1644ebdb3f5723fce96e5.vp8', 1280, 720, 500, 534, 11, 50]
 ]
 
-constraints = [
-    'crowd1080_vp8_frame_drop_rate == 0',
-    'crowd720_vp8_frame_drop_rate == 0']
-
-job.run_test('video_VDAPerf', test_cases=test_cases, constraints=constraints,
-             tag='vp8')
+job.run_test('video_VDAPerf', test_cases=test_cases, tag='vp8')

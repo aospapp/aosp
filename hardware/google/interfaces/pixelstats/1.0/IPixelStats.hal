@@ -1,0 +1,185 @@
+/*
+ * Copyright (C) 2018 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package hardware.google.pixelstats@1.0;
+
+
+/**
+ * IPixelStats is an interface that allows clients to report specific hardware
+ * reliabilty events, which are translated into calls to libmetricslogger.
+ */
+interface IPixelStats {
+
+    /**
+     * Report plugging of a device into the USB-C connector.
+     */
+    reportUsbConnectorConnected();
+
+    /**
+     * Report unplugging of a device from the USB-C connector.
+     * @param durationMillis Time, in milliseconds, that connector was connected.
+     */
+    reportUsbConnectorDisconnected(int32_t durationMillis);
+
+    /**
+     * Reports the connection, along with VID, PID, of any USB device attached
+     * to this system with a USB audio interface.
+     * @param vid USB Vendor ID
+     * @param pid USB Product ID
+     */
+    reportUsbAudioConnected(int32_t vid, int32_t pid);
+
+    /**
+     * Reports the disconnection, along with VID, PID, and connection duration,
+     * of any USB device attached to this system with a USB audio interface.
+     * @param vid USB Vendor ID
+     * @param pid USB Product ID
+     * @param duration_millis Time, in milliseconds, that the device was connected.
+     */
+    reportUsbAudioDisconnected(int32_t vid, int32_t pid, int32_t durationMillis);
+
+    /**
+     * Report the detected speaker impedance value.
+     * @param speakerLocation a vendor-specific value identifying a
+     *                        particular speaker on the device.
+     *                        This value is opaque to the server, it must
+     *                        not try to interpret any meaning to this location.
+     * @param milliOhms       the detected impedance in milliOhms.
+     */
+    reportSpeakerImpedance(int32_t speakerLocation, int32_t milliOhms);
+
+    /** HardwareType for reportHardwareFailed */
+    enum HardwareType : uint32_t {
+        UNKNOWN = 0,
+        MICROPHONE = 1,
+        CODEC = 2,
+        SPEAKER = 3,
+        FINGERPRINT = 4,
+    };
+    /**
+     * ErrorCodes for reportHardwareFailed.
+     * ErrorCode interpretation depends on the hardwareType parameter.
+     * Values prefixed by different hardwareTypes overlap.
+     * COMPLETE refers to a complete failure e.g. non-responsive microphone.
+     * For most components, unless a more specific failure exists, COMPLETE should be used.
+     * UNKNOWN refers to an unexpected or unknown error.
+     */
+    enum HardwareErrorCode : int32_t {
+        UNKNOWN = 0,
+        COMPLETE = 1,
+        SPEAKER_HIGH_Z = 2,
+        SPEAKER_SHORT = 3,
+        FINGERPRINT_SENSOR_BROKEN = 4,
+        FINGERPRINT_TOO_MANY_DEAD_PIXELS = 5,
+    };
+    /**
+     * Report the detected failure of a hardware component.
+     * @param hardwareType the type of hardware component that failed.
+     * @param hardwareLocation a vendor-specific value indentifying a particular
+     *                         instance of the given hardwareType.  Opaque id,
+     *                         not to be interpreted by server code.
+     * @param failureCode a code identifying the failure mode of the hardware
+     *                    component.  Depends on hardwareType.
+     */
+    reportHardwareFailed(HardwareType hardwareType, int32_t hardwareLocation, HardwareErrorCode errorCode);
+
+
+    /**
+     * Report the detection of a physical drop event, as detected by
+     * accelerometers.
+     * @param confidencePctg   percentage confidence that a drop occured.
+     *                         Heuristic.
+     * @param accelPeak        peak detected acceleration, in units of 1/1000ths
+     *                         of a g.
+     * @param freefallDuration Duration of estimated freefall, in ms.
+     */
+    reportPhysicalDropDetected(int32_t confidencePctg, int32_t accelPeak, int32_t freefallDuration);
+
+    /**
+     * Report bucketed battery charge cycles.
+     *
+     * A comma-seperated list of buckets representing the number of times
+     * the battery has charged past equal-sized fractions of full capacity.
+     * For example, given "12, 11, 10, 9, 8, 7, 6, 5", the battery has charged
+     * past 1/8th full 12 times, 2/8ths full 11 times, etc.
+     * @param buckets the comma-separated string of bucket values.
+     *        format: \s*(\d+,\s*)*\d+\s*
+     */
+    reportChargeCycles(string buckets);
+
+    /**
+     * reportBatteryHealthSnapshot records a variety of battery parameters at multiple
+     * points throughout the day.  Every 24hrs, the client is expected to report the snapshot
+     * at the following points throughout the day:
+     */
+    enum BatterySnapshotType : int32_t {
+        MIN_TEMP,            // Snapshot at min batt temp over 24hrs.
+        MAX_TEMP,            // Snapshot at max batt temp over 24hrs.
+        MIN_RESISTANCE,      // Snapshot at min batt resistance over 24hrs.
+        MAX_RESISTANCE,      // Snapshot at max batt resistance over 24hrs.
+        MIN_VOLTAGE,         // Snapshot at min batt voltage over 24hrs.
+        MAX_VOLTAGE,         // Snapshot at max batt voltage over 24hrs.
+        MEDIAN_RESISTANCE,   // Snapshot at median battery resistance over 24hrs.
+    };
+    /** Parameters for reportBatteryHealthSnapshot. */
+    struct BatteryHealthSnapshotArgs {
+        BatterySnapshotType type;
+        int32_t temperatureDeciC;
+        int32_t voltageMicroV;
+        int32_t currentMicroA;
+        int32_t openCircuitVoltageMicroV;
+        int32_t resistanceMicroOhm;
+        int32_t levelPercent;
+    };
+    /**
+     * Report battery health snapshot, aggregated.
+     * Resistance, Voltage, Open Circuit Voltage, Temperature, and Charge Level
+     * are snapshotted periodically over 24hrs.
+     * Once per day, snapshots of the following type are reported:
+     *  Min & Max Temp, Min & Max Resistance, Min & Max Voltage, Median Resistance.
+     * @param SnapshotType The instance of this snapshot.
+     * @param Temperature Temperature, in 1/10ths of degree C.
+     * @param Voltage Battery Voltage, in microVolts.
+     * @param OpenCircuitVoltage Battery Open Circuit Voltage, in microVolts.
+     * @param Current Battery current, in microAmps.
+     * @param Resistance Battery Resistance, in microOhms.
+     * @param Level Battery Level, as % of full.
+     */
+    reportBatteryHealthSnapshot(BatteryHealthSnapshotArgs args);
+
+    /**
+     * Classifications of IO Operations for reportSlowIo.
+     */
+    enum IoOperation : int32_t  {
+        UNKNOWN,
+        READ,
+        WRITE,
+        UNMAP,
+        SYNC,
+    };
+    /**
+     * Report slow I/O operations, aggregated.
+     * @param ioOperation The type of slow IO operation.
+     * @param count The number of slow IO operations of this type over 24hrs.
+     */
+    reportSlowIo(IoOperation operation, int32_t count);
+
+    /**
+     * Report a shutdown event caused by low battery.
+     * @param voltageMicroV last recorded battery voltage prior to shutdown.
+     */
+    reportBatteryCausedShutdown(int32_t voltageMicroV);
+};

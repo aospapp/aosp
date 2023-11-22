@@ -45,6 +45,7 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_USER
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_USER_SETUP;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SUPPORT_URL;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_TIME_ZONE;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_USE_MOBILE_DATA;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_HIDDEN;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PAC_URL;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PASSWORD;
@@ -54,7 +55,10 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PROX
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_SECURITY_TYPE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_SSID;
 import static com.android.internal.util.Preconditions.checkNotNull;
+import static com.android.managedprovisioning.common.Globals.ACTION_PROVISION_MANAGED_DEVICE_SILENTLY;
 import static com.android.managedprovisioning.common.Globals.ACTION_RESUME_PROVISIONING;
+import static com.android.managedprovisioning.model.ProvisioningParams
+        .DEFAULT_EXTRA_PROVISIONING_USE_MOBILE_DATA;
 import static com.android.managedprovisioning.model.ProvisioningParams.inferStaticDeviceAdminPackageName;
 
 import android.app.admin.DevicePolicyManager;
@@ -64,6 +68,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.PersistableBundle;
+import android.os.UserHandle;
 import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
 import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
@@ -79,6 +84,7 @@ import com.android.managedprovisioning.model.WifiInfo;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.IllformedLocaleException;
 import java.util.Set;
 
 /**
@@ -96,7 +102,8 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
                     ACTION_PROVISION_MANAGED_DEVICE,
                     ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE,
                     ACTION_PROVISION_MANAGED_USER,
-                    ACTION_PROVISION_MANAGED_PROFILE));
+                    ACTION_PROVISION_MANAGED_PROFILE,
+                    ACTION_PROVISION_MANAGED_DEVICE_SILENTLY));
 
     private final Utils mUtils;
     private final Context mContext;
@@ -184,7 +191,10 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
                 // For profile owner, the device admin package should be installed. Verify the
                 // device admin package.
                 deviceAdminComponentName = mUtils.findDeviceAdmin(
-                        deviceAdminPackageName, deviceAdminComponentName, context);
+                        deviceAdminPackageName,
+                        deviceAdminComponentName,
+                        context,
+                        UserHandle.myUserId());
                 // Since the device admin package must be installed at this point and its component
                 // name has been obtained, it should be safe to set the deprecated package name
                 // value to null.
@@ -297,6 +307,8 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
                             ProvisioningParams.DEFAULT_LOCAL_TIME))
                     .setLocale(StoreUtils.stringToLocale(
                             intent.getStringExtra(EXTRA_PROVISIONING_LOCALE)))
+                    .setUseMobileData(intent.getBooleanExtra(EXTRA_PROVISIONING_USE_MOBILE_DATA,
+                            DEFAULT_EXTRA_PROVISIONING_USE_MOBILE_DATA))
                     // Parse WiFi configuration.
                     .setWifiInfo(parseWifiInfoFromExtras(intent))
                     // Parse device admin package download info.
@@ -311,7 +323,9 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
                     .build();
         }  catch (IllegalArgumentException e) {
             throw new IllegalProvisioningArgumentException("Invalid parameter found!", e);
-        } catch (NullPointerException e) {
+        }  catch (IllformedLocaleException e) {
+            throw new IllegalProvisioningArgumentException("Invalid locale format!", e);
+        }  catch (NullPointerException e) {
             throw new IllegalProvisioningArgumentException("Compulsory parameter not found!", e);
         }
     }

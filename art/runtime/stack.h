@@ -27,7 +27,7 @@
 namespace art {
 
 namespace mirror {
-  class Object;
+class Object;
 }  // namespace mirror
 
 class ArtMethod;
@@ -140,8 +140,7 @@ class StackVisitor {
   };
 
   template <CountTransitions kCount = CountTransitions::kYes>
-  void WalkStack(bool include_transitions = false)
-      REQUIRES_SHARED(Locks::mutator_lock_);
+  void WalkStack(bool include_transitions = false) REQUIRES_SHARED(Locks::mutator_lock_);
 
   Thread* GetThread() const {
     return thread_;

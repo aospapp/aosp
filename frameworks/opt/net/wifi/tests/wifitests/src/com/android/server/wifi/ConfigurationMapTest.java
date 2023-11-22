@@ -28,7 +28,7 @@ import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 import android.util.SparseArray;
 
 import org.junit.Before;

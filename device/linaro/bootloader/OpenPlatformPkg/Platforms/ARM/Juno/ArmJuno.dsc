@@ -34,6 +34,8 @@
 !include OpenPlatformPkg/Platforms/ARM/VExpress/ArmVExpress.dsc.inc
 
 [LibraryClasses.common]
+  ArmLib|ArmPkg/Library/ArmLib/ArmBaseLib.inf
+  ArmMmuLib|ArmPkg/Library/ArmMmuLib/ArmMmuBaseLib.inf
   ArmPlatformLib|ArmPlatformPkg/ArmJunoPkg/Library/ArmJunoLib/ArmJunoLib.inf
   ArmSmcLib|ArmPkg/Library/ArmSmcLib/ArmSmcLib.inf
 
@@ -43,18 +45,10 @@
 
   TimerLib|ArmPkg/Library/ArmArchTimerLib/ArmArchTimerLib.inf
   CapsuleLib|MdeModulePkg/Library/DxeCapsuleLibNull/DxeCapsuleLibNull.inf
-  GenericBdsLib|IntelFrameworkModulePkg/Library/GenericBdsLib/GenericBdsLib.inf
-  PlatformBdsLib|ArmPlatformPkg/Library/PlatformIntelBdsLib/PlatformIntelBdsLib.inf
   CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf
 
   # USB Requirements
   UefiUsbLib|MdePkg/Library/UefiUsbLib/UefiUsbLib.inf
-
-[LibraryClasses.ARM]
-  ArmLib|ArmPkg/Library/ArmLib/ArmV7/ArmV7Lib.inf
-
-[LibraryClasses.AARCH64]
-  ArmLib|ArmPkg/Library/ArmLib/AArch64/AArch64Lib.inf
 
 [LibraryClasses.common.SEC]
   PrePiLib|EmbeddedPkg/Library/PrePiLib/PrePiLib.inf
@@ -73,7 +67,8 @@
   PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
 
 [BuildOptions]
-  *_*_*_PLATFORM_FLAGS == -I$(WORKSPACE)/ArmPlatformPkg/ArmVExpressPkg/Include -I$(WORKSPACE)/ArmPlatformPkg/ArmJunoPkg/Include
+  *_*_*_PLATFORM_FLAGS = -I$(WORKSPACE)/ArmPlatformPkg/ArmVExpressPkg/Include -I$(WORKSPACE)/ArmPlatformPkg/ArmJunoPkg/Include
+  GCC:*_*_ARM_PLATFORM_FLAGS = -march=armv8-a
 
 ################################################################################
 #
@@ -120,9 +115,14 @@
 
   ## PL011 - Serial Terminal
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x7FF80000
-  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate|115200
-  gArmPlatformTokenSpaceGuid.PL011UartInteger|4
-  gArmPlatformTokenSpaceGuid.PL011UartFractional|0
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultReceiveFifoDepth|0
+  gArmPlatformTokenSpaceGuid.PL011UartClkInHz|7372800
+  gArmPlatformTokenSpaceGuid.PL011UartInterrupt|115
+
+  ## PL011 - Serial Debug UART
+  gArmPlatformTokenSpaceGuid.PcdSerialDbgRegisterBase|0x7FF80000
+  gArmPlatformTokenSpaceGuid.PcdSerialDbgUartClkInHz|7372800
+  gArmPlatformTokenSpaceGuid.PcdSerialDbgUartBaudRate|115200
 
   ## PL031 RealTimeClock
   gArmPlatformTokenSpaceGuid.PcdPL031RtcBase|0x1C170000
@@ -130,6 +130,7 @@
   # LAN9118 Ethernet Driver
   gEmbeddedTokenSpaceGuid.PcdLan9118DxeBaseAddress|0x18000000
   gEmbeddedTokenSpaceGuid.PcdLan9118DefaultMacAddress|0x1215161822242628
+  gEmbeddedTokenSpaceGuid.PcdLan9118DefaultNegotiationTimeout|40000
 
   #
   # ARM General Interrupt Controller
@@ -140,13 +141,13 @@
   #
   # PLDA PCI Root Complex
   #
-  gArmPlatformTokenSpaceGuid.PcdPciBusMax|255
-  gArmPlatformTokenSpaceGuid.PcdPciIoBase|0x5f800000
-  gArmPlatformTokenSpaceGuid.PcdPciIoSize|0x00800000
-  gArmPlatformTokenSpaceGuid.PcdPciMmio32Base|0x50000000
-  gArmPlatformTokenSpaceGuid.PcdPciMmio32Size|0x08000000
-  gArmPlatformTokenSpaceGuid.PcdPciMmio64Base|0x4000000000
-  gArmPlatformTokenSpaceGuid.PcdPciMmio64Size|0x100000000
+  gArmTokenSpaceGuid.PcdPciBusMax|255
+  gArmTokenSpaceGuid.PcdPciIoBase|0x5f800000
+  gArmTokenSpaceGuid.PcdPciIoSize|0x00800000
+  gArmTokenSpaceGuid.PcdPciMmio32Base|0x50000000
+  gArmTokenSpaceGuid.PcdPciMmio32Size|0x08000000
+  gArmTokenSpaceGuid.PcdPciMmio64Base|0x4000000000
+  gArmTokenSpaceGuid.PcdPciMmio64Size|0x100000000
 
   # List of Device Paths that support BootMonFs
   gArmPlatformTokenSpaceGuid.PcdBootMonFsSupportedDevicePaths|L"VenHw(E7223039-5836-41E1-B542-D7EC736C5E59)"
@@ -159,8 +160,8 @@
   gArmPlatformTokenSpaceGuid.PcdDefaultBootArgument|L"console=ttyAMA0,115200 earlycon=pl011,0x7ff80000 root=/dev/sda1 rootwait verbose debug"
 
   # Use the serial console (ConIn & ConOut) and the Graphic driver (ConOut)
-  gArmPlatformTokenSpaceGuid.PcdDefaultConOutPaths|L"VenHw(D3987D4B-971A-435F-8CAF-4967EB627241)/Uart(115200,8,N,1)/VenPcAnsi();VenHw(CE660500-824D-11E0-AC72-0002A5D5C51B)"
-  gArmPlatformTokenSpaceGuid.PcdDefaultConInPaths|L"VenHw(D3987D4B-971A-435F-8CAF-4967EB627241)/Uart(115200,8,N,1)/VenPcAnsi()"
+  gArmPlatformTokenSpaceGuid.PcdDefaultConOutPaths|L"VenHw(D3987D4B-971A-435F-8CAF-4967EB627241)/Uart(115200,8,N,1)/VenMsg(7D916D80-5BB1-458C-A48F-E25FDD51EF94)"
+  gArmPlatformTokenSpaceGuid.PcdDefaultConInPaths|L"VenHw(D3987D4B-971A-435F-8CAF-4967EB627241)/Uart(115200,8,N,1)/VenMsg(7D916D80-5BB1-458C-A48F-E25FDD51EF94)"
 
   #
   # ARM Architectural Timer Frequency
@@ -170,6 +171,16 @@
 
   gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange|FALSE
   gEfiIntelFrameworkModulePkgTokenSpaceGuid.PcdShellFile|{ 0x83, 0xA5, 0x04, 0x7C, 0x3E, 0x9E, 0x1C, 0x4F, 0xAD, 0x65, 0xE0, 0x52, 0x68, 0xD0, 0xB4, 0xD1 }
+
+  #
+  # SMBIOS entry point version
+  #
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosVersion|0x0300
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosDocRev|0x0
+  #
+  # ACPI Table Version
+  #
+  gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiExposedTableVersions|0x20
 
 [PcdsPatchableInModule]
   # Console Resolution (Full HD)
@@ -198,7 +209,7 @@
   #
   # PEI Phase modules
   #
-  ArmPlatformPkg/PrePi/PeiMPCore.inf
+  ArmPlatformPkg/PrePi/PeiUniCore.inf
 
   #
   # DXE
@@ -265,7 +276,10 @@
   # PCI Support
   #
   MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
-  ArmPlatformPkg/ArmJunoPkg/Drivers/PciHostBridgeDxe/PciHostBridgeDxe.inf
+  ArmPlatformPkg/ArmJunoPkg/Drivers/PciHostBridgeDxe/PciHostBridgeDxe.inf {
+    <LibraryClasses>
+      DmaLib|EmbeddedPkg/Library/NullDmaLib/NullDmaLib.inf
+  }
 
   #
   # SATA Controller
@@ -274,14 +288,22 @@
   EmbeddedPkg/Drivers/SataSiI3132Dxe/SataSiI3132Dxe.inf
 
   #
+  # NVMe boot devices
+  #
+  MdeModulePkg/Bus/Pci/NvmExpressDxe/NvmExpressDxe.inf
+
+  #
   # Networking stack
   #
   EmbeddedPkg/Drivers/Lan9118Dxe/Lan9118Dxe.inf
+  OpenPlatformPkg/Drivers/Net/MarvellYukonDxe/MarvellYukonDxe.inf
 
   #
   # Usb Support
   #
+  MdeModulePkg/Bus/Pci/UhciDxe/UhciDxe.inf
   MdeModulePkg/Bus/Pci/EhciDxe/EhciDxe.inf
+  MdeModulePkg/Bus/Pci/XhciDxe/XhciDxe.inf
   MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe.inf
   MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe.inf
   MdeModulePkg/Bus/Usb/UsbMouseDxe/UsbMouseDxe.inf
@@ -290,7 +312,16 @@
   #
   # Juno platform driver
   #
-  ArmPlatformPkg/ArmJunoPkg/Drivers/ArmJunoDxe/ArmJunoDxe.inf
+  ArmPlatformPkg/ArmJunoPkg/Drivers/ArmJunoDxe/ArmJunoDxe.inf {
+    <LibraryClasses>
+      BdsLib|ArmPkg/Library/BdsLib/BdsLib.inf
+  }
+
+  #
+  # SMBIOS/DMI
+  #
+  MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
+  OpenPlatformPkg/Platforms/ARM/Juno/SmbiosPlatformDxe/SmbiosPlatformDxe.inf
 
   #
   # Bds
@@ -298,4 +329,22 @@
   MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
   MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
   MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe.inf
-  IntelFrameworkModulePkg/Universal/BdsDxe/BdsDxe.inf
+  MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
+  MdeModulePkg/Application/UiApp/UiApp.inf {
+    <LibraryClasses>
+      NULL|MdeModulePkg/Library/DeviceManagerUiLib/DeviceManagerUiLib.inf
+      NULL|MdeModulePkg/Library/BootManagerUiLib/BootManagerUiLib.inf
+      NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf
+  }
+
+[Components.AARCH64]
+  #
+  # EBC
+  #
+  MdeModulePkg/Universal/EbcDxe/EbcDxe.inf
+
+  SecurityPkg/RandomNumberGenerator/RngDxe/RngDxe.inf {
+    <LibraryClasses>
+      # DO NOT USE THIS LIBRARY FOR PRODUCTION DEVICES
+      RngLib|OpenPlatformPkg/Platforms/ARM/Binary/Library/PseudoRngLib/PseudoRngLib.inf
+  }

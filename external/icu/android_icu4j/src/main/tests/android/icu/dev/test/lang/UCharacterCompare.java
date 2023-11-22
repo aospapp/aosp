@@ -17,6 +17,7 @@ import java.util.Map;
 
 import android.icu.lang.UCharacter;
 import android.icu.lang.UCharacterCategory;
+import android.icu.testsharding.MainTestShard;
 
 /**
 * A class to compare the difference in methods between java.lang.Character and
@@ -26,6 +27,7 @@ import android.icu.lang.UCharacterCategory;
 * @see android.icu.lang.UCharacter
 */
 
+@MainTestShard
 public final class UCharacterCompare
 { 
     // private variables ================================================

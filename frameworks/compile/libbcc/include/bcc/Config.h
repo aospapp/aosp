@@ -22,54 +22,54 @@
 //---------------------------------------------------------------------------
 
 #if defined(FORCE_ARM_CODEGEN)
-  #define PROVIDE_ARM_CODEGEN
-  #define DEFAULT_ARM_CODEGEN
+  #define PROVIDE_ARM_CODEGEN 1
+  #define DEFAULT_ARM_CODEGEN 1
 
 #elif defined(FORCE_ARM64_CODEGEN)
-  #define PROVIDE_ARM_CODEGEN
-  #define PROVIDE_ARM64_CODEGEN
-  #define DEFAULT_ARM64_CODEGEN
+  #define PROVIDE_ARM_CODEGEN 1
+  #define PROVIDE_ARM64_CODEGEN 1
+  #define DEFAULT_ARM64_CODEGEN 1
 
 #elif defined(FORCE_MIPS_CODEGEN)
-  #define PROVIDE_MIPS_CODEGEN
-  #define DEFAULT_MIPS_CODEGEN
+  #define PROVIDE_MIPS_CODEGEN 1
+  #define DEFAULT_MIPS_CODEGEN 1
 
 #elif defined(FORCE_MIPS64_CODEGEN)
-  #define PROVIDE_MIPS_CODEGEN
-  #define PROVIDE_MIPS64_CODEGEN
-  #define DEFAULT_MIPS64_CODEGEN
+  #define PROVIDE_MIPS_CODEGEN 1
+  #define PROVIDE_MIPS64_CODEGEN 1
+  #define DEFAULT_MIPS64_CODEGEN 1
 
 #elif defined(FORCE_X86_CODEGEN)
-  #define PROVIDE_X86_CODEGEN
-  #define DEFAULT_X86_CODEGEN
+  #define PROVIDE_X86_CODEGEN 1
+  #define DEFAULT_X86_CODEGEN 1
 
 #elif defined(FORCE_X86_64_CODEGEN)
   // There is no separate X86_64 code generation target. It is all part of X86.
-  #define PROVIDE_X86_CODEGEN
-  #define DEFAULT_X86_64_CODEGEN
+  #define PROVIDE_X86_CODEGEN 1
+  #define DEFAULT_X86_64_CODEGEN 1
 
 #else
-  #define PROVIDE_ARM_CODEGEN
-  #define PROVIDE_ARM64_CODEGEN
-  #define PROVIDE_MIPS_CODEGEN
-  #define PROVIDE_MIPS64_CODEGEN
-  #define PROVIDE_X86_CODEGEN
-  #define PROVIDE_X86_64_CODEGEN
+  #define PROVIDE_ARM_CODEGEN 1
+  #define PROVIDE_ARM64_CODEGEN 1
+  #define PROVIDE_MIPS_CODEGEN 1
+  #define PROVIDE_MIPS64_CODEGEN 1
+  #define PROVIDE_X86_CODEGEN 1
+  #define PROVIDE_X86_64_CODEGEN 1
 
   #if defined(__arm__)
-    #define DEFAULT_ARM_CODEGEN
+    #define DEFAULT_ARM_CODEGEN 1
   #elif defined(__aarch64__)
-    #define DEFAULT_ARM64_CODEGEN
+    #define DEFAULT_ARM64_CODEGEN 1
   #elif defined(__mips__)
     #if defined(__LP64__)
-      #define DEFAULT_MIPS64_CODEGEN
+      #define DEFAULT_MIPS64_CODEGEN 1
     #else
-      #define DEFAULT_MIPS_CODEGEN
+      #define DEFAULT_MIPS_CODEGEN 1
     #endif
   #elif defined(__i386__)
-    #define DEFAULT_X86_CODEGEN
+    #define DEFAULT_X86_CODEGEN 1
   #elif defined(__x86_64__)
-    #define DEFAULT_X86_64_CODEGEN
+    #define DEFAULT_X86_64_CODEGEN 1
   #endif
 #endif
 

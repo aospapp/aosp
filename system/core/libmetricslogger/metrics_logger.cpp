@@ -18,30 +18,72 @@
 
 #include <cstdlib>
 
+#include <log/event_tag_map.h>
 #include <log/log_event_list.h>
+
+namespace {
+
+#ifdef __ANDROID__
+EventTagMap* kEventTagMap = android_openEventTagMap(nullptr);
+const int kSysuiMultiActionTag = android_lookupEventTagNum(
+    kEventTagMap, "sysui_multi_action", "(content|4)", ANDROID_LOG_UNKNOWN);
+#else
+// android_openEventTagMap does not work on host builds.
+const int kSysuiMultiActionTag = 0;
+#endif
+
+}  // namespace
 
 namespace android {
 namespace metricslogger {
 
 // Mirror com.android.internal.logging.MetricsLogger#histogram().
 void LogHistogram(const std::string& event, int32_t data) {
-    android_log_event_list log(MULTI_ACTION_LOG_TAG);
+    android_log_event_list log(kSysuiMultiActionTag);
     log << LOGBUILDER_CATEGORY << LOGBUILDER_HISTOGRAM << LOGBUILDER_NAME << event
         << LOGBUILDER_BUCKET << data << LOGBUILDER_VALUE << 1 << LOG_ID_EVENTS;
 }
 
 // Mirror com.android.internal.logging.MetricsLogger#count().
 void LogCounter(const std::string& name, int32_t val) {
-    android_log_event_list log(MULTI_ACTION_LOG_TAG);
+    android_log_event_list log(kSysuiMultiActionTag);
     log << LOGBUILDER_CATEGORY << LOGBUILDER_COUNTER << LOGBUILDER_NAME << name << LOGBUILDER_VALUE
         << val << LOG_ID_EVENTS;
 }
 
 // Mirror com.android.internal.logging.MetricsLogger#action().
 void LogMultiAction(int32_t category, int32_t field, const std::string& value) {
-    android_log_event_list log(MULTI_ACTION_LOG_TAG);
+    android_log_event_list log(kSysuiMultiActionTag);
     log << LOGBUILDER_CATEGORY << category << LOGBUILDER_TYPE << TYPE_ACTION
         << field << value << LOG_ID_EVENTS;
+}
+
+ComplexEventLogger::ComplexEventLogger(int category) : logger(kSysuiMultiActionTag) {
+    logger << LOGBUILDER_CATEGORY << category;
+}
+
+void ComplexEventLogger::SetPackageName(const std::string& package_name) {
+    logger << LOGBUILDER_PACKAGENAME << package_name;
+}
+
+void ComplexEventLogger::AddTaggedData(int tag, int32_t value) {
+    logger << tag << value;
+}
+
+void ComplexEventLogger::AddTaggedData(int tag, const std::string& value) {
+    logger << tag << value;
+}
+
+void ComplexEventLogger::AddTaggedData(int tag, int64_t value) {
+    logger << tag << value;
+}
+
+void ComplexEventLogger::AddTaggedData(int tag, float value) {
+    logger << tag << value;
+}
+
+void ComplexEventLogger::Record() {
+    logger << LOG_ID_EVENTS;
 }
 
 }  // namespace metricslogger

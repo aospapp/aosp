@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    TrueType name ID definitions (specification only).                   */
 /*                                                                         */
-/*  Copyright 1996-2017 by                                                 */
+/*  Copyright 1996-2018 by                                                 */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -437,7 +437,7 @@ FT_BEGIN_HEADER
    *
    *   The canonical source for Microsoft's IDs is
    *
-   *     http://www.microsoft.com/globaldev/reference/lcid-all.mspx ,
+   *     https://www.microsoft.com/globaldev/reference/lcid-all.mspx ,
    *
    *   however, we only provide macros for language identifiers present in
    *   the OpenType specification: Microsoft has abandoned the concept of
@@ -669,7 +669,7 @@ FT_BEGIN_HEADER
 #define TT_MS_LANGID_ENGLISH_GENERAL                   0x0009
 #define TT_MS_LANGID_ENGLISH_INDONESIA                 0x3809
 #define TT_MS_LANGID_ENGLISH_HONG_KONG                 0x3C09
-#define TT_MS_LANGID_SPANISH_INTERNATIONAL_SORT \
+#define TT_MS_LANGID_SPANISH_SPAIN_INTERNATIONAL_SORT \
           TT_MS_LANGID_SPANISH_SPAIN_MODERN_SORT
 #define TT_MS_LANGID_SPANISH_LATIN_AMERICA             0xE40AU
 #define TT_MS_LANGID_FRENCH_WEST_INDIES                0x1C0C
@@ -728,7 +728,7 @@ FT_BEGIN_HEADER
 #define TT_MS_LANGID_PUNJABI_ARABIC_PAKISTAN           0x0846
 #define TT_MS_LANGID_ORIYA_INDIA \
           TT_MS_LANGID_ODIA_INDIA
-#define TT_MS_LANGID_MONGOLIAN_MONGOLIA_MONGOLIA \
+#define TT_MS_LANGID_MONGOLIAN_MONGOLIA_MONGOLIAN \
           TT_MS_LANGID_MONGOLIAN_PRC
 #define TT_MS_LANGID_TIBETAN_CHINA \
           TT_MS_LANGID_TIBETAN_PRC
@@ -1216,7 +1216,7 @@ FT_BEGIN_HEADER
 
   /* */
 
-  /* for backwards compatibility with older FreeType versions */
+  /* for backward compatibility with older FreeType versions */
 #define TT_UCR_ARABIC_PRESENTATION_A         \
           TT_UCR_ARABIC_PRESENTATION_FORMS_A
 #define TT_UCR_ARABIC_PRESENTATION_B         \

@@ -22,6 +22,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under,src)
 
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 LOCAL_PACKAGE_NAME := AppLinkTestApp
+LOCAL_SDK_VERSION := current
 LOCAL_CERTIFICATE := platform
 
 LOCAL_COMPATIBILITY_SUITE := device-tests

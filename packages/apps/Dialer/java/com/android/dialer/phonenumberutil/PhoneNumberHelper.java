@@ -17,21 +17,27 @@
 package com.android.dialer.phonenumberutil;
 
 import android.content.Context;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.Trace;
 import android.provider.CallLog;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.TelephonyManager;
+import android.text.BidiFormatter;
+import android.text.TextDirectionHeuristics;
 import android.text.TextUtils;
+import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
+import com.android.dialer.compat.CompatUtils;
+import com.android.dialer.compat.telephony.TelephonyManagerCompat;
+import com.android.dialer.phonenumbergeoutil.PhoneNumberGeoUtilComponent;
 import com.android.dialer.telecom.TelecomUtil;
-import com.google.i18n.phonenumbers.NumberParseException;
-import com.google.i18n.phonenumbers.PhoneNumberUtil;
-import com.google.i18n.phonenumbers.Phonenumber;
-import com.google.i18n.phonenumbers.geocoding.PhoneNumberOfflineGeocoder;
+import com.google.common.base.Ascii;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Set;
 
 public class PhoneNumberHelper {
@@ -45,6 +51,91 @@ public class PhoneNumberHelper {
     return presentation == CallLog.Calls.PRESENTATION_ALLOWED
         && !TextUtils.isEmpty(number)
         && !isLegacyUnknownNumbers(number);
+  }
+
+  /**
+   * Move the given cursor to a position where the number it points to matches the number in a
+   * contact lookup URI.
+   *
+   * <p>We assume the cursor is one returned by the Contacts Provider when the URI asks for a
+   * specific number. This method's behavior is undefined when the cursor doesn't meet the
+   * assumption.
+   *
+   * <p>When determining whether two phone numbers are identical enough for caller ID purposes, the
+   * Contacts Provider ignores special characters such as '#'. This makes it possible for the cursor
+   * returned by the Contacts Provider to have multiple rows even when the URI asks for a specific
+   * number.
+   *
+   * <p>For example, suppose the user has two contacts whose numbers are "#123" and "123",
+   * respectively. When the URI asks for number "123", both numbers will be returned. Therefore, the
+   * following strategy is employed to find a match.
+   *
+   * <p>In the following description, we use E to denote a number the cursor points to (an existing
+   * contact number), and L to denote the number in the contact lookup URI.
+   *
+   * <p>If neither E nor L contains special characters, return true to indicate a match is found.
+   *
+   * <p>If either E or L contains special characters, return true when the raw numbers of E and L
+   * are the same. Otherwise, move the cursor to its next position and start over.
+   *
+   * <p>Return false in all other circumstances to indicate that no match can be found.
+   *
+   * <p>When no match can be found, the cursor is after the last result when the method returns.
+   *
+   * @param cursor A cursor returned by the Contacts Provider.
+   * @param columnIndexForNumber The index of the column where phone numbers are stored. It is the
+   *     caller's responsibility to pass the correct column index.
+   * @param contactLookupUri A URI used to retrieve a contact via the Contacts Provider. It is the
+   *     caller's responsibility to ensure the URI is one that asks for a specific phone number.
+   * @return true if a match can be found.
+   */
+  public static boolean updateCursorToMatchContactLookupUri(
+      @Nullable Cursor cursor, int columnIndexForNumber, @Nullable Uri contactLookupUri) {
+    if (cursor == null || contactLookupUri == null) {
+      return false;
+    }
+
+    if (!cursor.moveToFirst()) {
+      return false;
+    }
+
+    Assert.checkArgument(
+        0 <= columnIndexForNumber && columnIndexForNumber < cursor.getColumnCount());
+
+    String lookupNumber = contactLookupUri.getLastPathSegment();
+    if (TextUtils.isEmpty(lookupNumber)) {
+      return false;
+    }
+
+    boolean lookupNumberHasSpecialChars = numberHasSpecialChars(lookupNumber);
+
+    do {
+      String existingContactNumber = cursor.getString(columnIndexForNumber);
+      boolean existingContactNumberHasSpecialChars = numberHasSpecialChars(existingContactNumber);
+
+      if ((!lookupNumberHasSpecialChars && !existingContactNumberHasSpecialChars)
+          || sameRawNumbers(existingContactNumber, lookupNumber)) {
+        return true;
+      }
+
+    } while (cursor.moveToNext());
+
+    return false;
+  }
+
+  /** Returns true if the input phone number contains special characters. */
+  public static boolean numberHasSpecialChars(String number) {
+    return !TextUtils.isEmpty(number) && number.contains("#");
+  }
+
+  /** Returns true if the raw numbers of the two input phone numbers are the same. */
+  public static boolean sameRawNumbers(String number1, String number2) {
+    String rawNumber1 =
+        PhoneNumberUtils.stripSeparators(PhoneNumberUtils.convertKeypadLettersToDigits(number1));
+    String rawNumber2 =
+        PhoneNumberUtils.stripSeparators(PhoneNumberUtils.convertKeypadLettersToDigits(number2));
+
+    return rawNumber1.equals(rawNumber2);
   }
 
   /**
@@ -95,81 +186,89 @@ public class PhoneNumberHelper {
   }
 
   /**
+   * @param countryIso Country ISO used if there is no country code in the number, may be null
+   *     otherwise.
    * @return a geographical description string for the specified number.
-   * @see com.android.i18n.phonenumbers.PhoneNumberOfflineGeocoder
    */
-  public static String getGeoDescription(Context context, String number) {
-    LogUtil.v("PhoneNumberHelper.getGeoDescription", "" + LogUtil.sanitizePii(number));
-
-    if (TextUtils.isEmpty(number)) {
-      return null;
-    }
-
-    PhoneNumberUtil util = PhoneNumberUtil.getInstance();
-    PhoneNumberOfflineGeocoder geocoder = PhoneNumberOfflineGeocoder.getInstance();
-
-    Locale locale = context.getResources().getConfiguration().locale;
-    String countryIso = getCurrentCountryIso(context, locale);
-    Phonenumber.PhoneNumber pn = null;
-    try {
-      LogUtil.v(
-          "PhoneNumberHelper.getGeoDescription",
-          "parsing '" + LogUtil.sanitizePii(number) + "' for countryIso '" + countryIso + "'...");
-      pn = util.parse(number, countryIso);
-      LogUtil.v(
-          "PhoneNumberHelper.getGeoDescription", "- parsed number: " + LogUtil.sanitizePii(pn));
-    } catch (NumberParseException e) {
-      LogUtil.e(
-          "PhoneNumberHelper.getGeoDescription",
-          "getGeoDescription: NumberParseException for incoming number '"
-              + LogUtil.sanitizePii(number)
-              + "'");
-    }
-
-    if (pn != null) {
-      String description = geocoder.getDescriptionForNumber(pn, locale);
-      LogUtil.v("PhoneNumberHelper.getGeoDescription", "- got description: '" + description + "'");
-      return description;
-    }
-
-    return null;
+  public static String getGeoDescription(
+      Context context, String number, @Nullable String countryIso) {
+    return PhoneNumberGeoUtilComponent.get(context)
+        .getPhoneNumberGeoUtil()
+        .getGeoDescription(context, number, countryIso);
   }
 
   /**
+   * @param phoneAccountHandle {@code PhonAccountHandle} used to get current network country ISO.
+   *     May be null if no account is in use or selected, in which case default account will be
+   *     used.
    * @return The ISO 3166-1 two letters country code of the country the user is in based on the
    *     network location. If the network location does not exist, fall back to the locale setting.
    */
-  public static String getCurrentCountryIso(Context context, Locale locale) {
+  public static String getCurrentCountryIso(
+      Context context, @Nullable PhoneAccountHandle phoneAccountHandle) {
+    Trace.beginSection("PhoneNumberHelper.getCurrentCountryIso");
     // Without framework function calls, this seems to be the most accurate location service
     // we can rely on.
-    final TelephonyManager telephonyManager =
-        (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
-
-    String countryIso = telephonyManager.getNetworkCountryIso();
+    String countryIso =
+        TelephonyManagerCompat.getNetworkCountryIsoForPhoneAccountHandle(
+            context, phoneAccountHandle);
     if (TextUtils.isEmpty(countryIso)) {
-      countryIso = locale.getCountry();
+      countryIso = CompatUtils.getLocale(context).getCountry();
       LogUtil.i(
           "PhoneNumberHelper.getCurrentCountryIso",
           "No CountryDetector; falling back to countryIso based on locale: " + countryIso);
     }
     countryIso = countryIso.toUpperCase();
+    Trace.endSection();
 
     return countryIso;
   }
 
   /**
-   * @return Formatted phone number. e.g. 1-123-456-7890. Returns the original number if formatting
-   *     failed.
+   * An enhanced version of {@link PhoneNumberUtils#formatNumber(String, String, String)}.
+   *
+   * <p>The {@link Context} parameter allows us to tweak formatting according to device properties.
+   *
+   * <p>Returns the formatted phone number (e.g, 1-123-456-7890) or the original number if
+   * formatting fails or is intentionally ignored.
    */
-  public static String formatNumber(@Nullable String number, Context context) {
+  public static String formatNumber(
+      Context context, @Nullable String number, @Nullable String numberE164, String countryIso) {
     // The number can be null e.g. schema is voicemail and uri content is empty.
     if (number == null) {
       return null;
     }
-    String formattedNumber =
-        PhoneNumberUtils.formatNumber(
-            number, PhoneNumberHelper.getCurrentCountryIso(context, Locale.getDefault()));
+
+    // Argentina phone number formats are complex and PhoneNumberUtils doesn't format all Argentina
+    // numbers correctly.
+    // To ensure consistent user experience, we disable phone number formatting for all numbers
+    // (not just Argentinian ones) for devices with Argentinian SIMs.
+    TelephonyManager telephonyManager =
+        (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+    if (telephonyManager != null
+        && "AR".equals(Ascii.toUpperCase(telephonyManager.getSimCountryIso()))) {
+      return number;
+    }
+
+    String formattedNumber = PhoneNumberUtils.formatNumber(number, numberE164, countryIso);
     return formattedNumber != null ? formattedNumber : number;
+  }
+
+  /** @see #formatNumber(Context, String, String, String). */
+  public static String formatNumber(Context context, @Nullable String number, String countryIso) {
+    return formatNumber(context, number, /* numberE164 = */ null, countryIso);
+  }
+
+  @Nullable
+  public static CharSequence formatNumberForDisplay(
+      Context context, @Nullable String number, @NonNull String countryIso) {
+    if (number == null) {
+      return null;
+    }
+
+    return PhoneNumberUtils.createTtsSpannable(
+        BidiFormatter.getInstance()
+            .unicodeWrap(formatNumber(context, number, countryIso), TextDirectionHeuristics.LTR));
   }
 
   /**
@@ -211,10 +310,9 @@ public class PhoneNumberHelper {
     return number.substring(0, delimiterIndex);
   }
 
-
   private static boolean isVerizon(Context context) {
     // Verizon MCC/MNC codes copied from com/android/voicemailomtp/res/xml/vvm_config.xml.
-    // TODO: Need a better way to do per carrier and per OEM configurations.
+    // TODO(sail): Need a better way to do per carrier and per OEM configurations.
     switch (context.getSystemService(TelephonyManager.class).getSimOperator()) {
       case "310004":
       case "310010":
@@ -266,7 +364,7 @@ public class PhoneNumberHelper {
    * PRESENTATION_RESTRICTED. For Verizon we want this to be displayed as "Restricted". For all
    * other carriers we want this to be be displayed as "Private number".
    */
-  public static CharSequence getDisplayNameForRestrictedNumber(Context context) {
+  public static String getDisplayNameForRestrictedNumber(Context context) {
     if (isVerizon(context)) {
       return context.getString(R.string.private_num_verizon);
     } else {

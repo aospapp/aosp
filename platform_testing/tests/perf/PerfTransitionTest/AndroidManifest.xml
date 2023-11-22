@@ -22,6 +22,7 @@
 
     <uses-permission android:name="android.permission.REAL_GET_TASKS" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.SET_ORIENTATION" />
 
    <uses-sdk
         android:minSdkVersion="22"

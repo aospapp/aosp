@@ -4,6 +4,7 @@
 //
 // This file contains an implementation of an H.264 Decoded Picture Buffer
 // used in H264 decoders.
+// Note: ported from Chromium commit head: 70340ce
 
 #ifndef H264_DPB_H_
 #define H264_DPB_H_
@@ -15,6 +16,7 @@
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "h264_parser.h"
+#include "rect.h"
 
 namespace media {
 
@@ -22,7 +24,7 @@ class V4L2H264Picture;
 
 // A picture (a frame or a field) in the H.264 spec sense.
 // See spec at http://www.itu.int/rec/T-REC-H.264
-class H264Picture : public base::RefCounted<H264Picture> {
+class H264Picture : public base::RefCountedThreadSafe<H264Picture> {
  public:
   using Vector = std::vector<scoped_refptr<H264Picture>>;
 
@@ -82,8 +84,12 @@ class H264Picture : public base::RefCounted<H264Picture> {
   // Position in DPB (i.e. index in DPB).
   int dpb_position;
 
+  // The visible size of picture. This could be either parsed from SPS, or set
+  // to Rect(0, 0) for indicating invalid values or not available.
+  Rect visible_rect;
+
  protected:
-  friend class base::RefCounted<H264Picture>;
+  friend class base::RefCountedThreadSafe<H264Picture>;
   virtual ~H264Picture();
 
  private:

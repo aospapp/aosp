@@ -33,6 +33,7 @@ PRODUCT_PACKAGES += \
     HTMLViewer \
     MediaProvider \
     PackageInstaller \
+    SecureElement \
     SettingsProvider \
     Shell \
     StatementService \
@@ -60,7 +61,6 @@ PRODUCT_PACKAGES += \
     iptables \
     gatekeeperd \
     keystore \
-    keystore.default \
     ld.config.txt \
     ld.mc \
     libaaudio \
@@ -77,7 +77,7 @@ PRODUCT_PACKAGES += \
     libwebviewchromium_plat_support \
     libwilhelm \
     logd \
-    make_ext4fs \
+    mke2fs \
     e2fsck \
     resize2fs \
     tune2fs \
@@ -86,6 +86,7 @@ PRODUCT_PACKAGES += \
     telephony-common \
     uiautomator \
     uncrypt \
+    vndk_snapshot_package \
     voip-common \
     webview \
     webview_zygote \
@@ -110,15 +111,25 @@ endif
 # The order of PRODUCT_BOOT_JARS matters.
 PRODUCT_BOOT_JARS := \
     $(TARGET_CORE_JARS) \
-    legacy-test \
     ext \
     framework \
     telephony-common \
     voip-common \
     ims-common \
-    org.apache.http.legacy.boot \
     android.hidl.base-V1.0-java \
     android.hidl.manager-V1.0-java
+
+ifeq ($(REMOVE_OAHL_FROM_BCP),true)
+PRODUCT_BOOT_JARS += framework-oahl-backward-compatibility
+else
+PRODUCT_BOOT_JARS += org.apache.http.legacy.boot
+endif
+
+ifeq ($(REMOVE_ATB_FROM_BCP),true)
+PRODUCT_BOOT_JARS += framework-atb-backward-compatibility
+else
+PRODUCT_BOOT_JARS += android.test.base
+endif
 
 # The order of PRODUCT_SYSTEM_SERVER_JARS matters.
 PRODUCT_SYSTEM_SERVER_JARS := \
@@ -135,7 +146,7 @@ PRODUCT_SYSTEM_SERVER_APPS += \
 # Adoptable external storage supports both ext4 and f2fs
 PRODUCT_PACKAGES += \
     e2fsck \
-    make_ext4fs \
+    mke2fs \
     fsck.f2fs \
     make_f2fs \
 
@@ -157,9 +168,17 @@ PRODUCT_COPY_FILES += $(call add-to-product-copy-files-if-exists,\
 
 # On userdebug builds, collect more tombstones by default.
 ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
-PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
     tombstoned.max_tombstone_count=50
 endif
 
+PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+    ro.logd.size.stats=64K \
+    log.tag.stats_log=I
+
 $(call inherit-product, $(SRC_TARGET_DIR)/product/runtime_libart.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/base.mk)
+
+# Enable CFI for security-sensitive components
+$(call inherit-product, $(SRC_TARGET_DIR)/product/cfi-common.mk)
+$(call inherit-product-if-exists, vendor/google/products/cfi-vendor.mk)

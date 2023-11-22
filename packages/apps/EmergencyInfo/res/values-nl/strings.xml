@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Alle informatie en contacten wissen?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Als je medische informatie en noodcontacten toevoegt, kan dit eerstehulpverleners helpen tijdens een noodgeval.\n\nIedereen kan deze informatie op je vergrendelingsscherm lezen en je contacten bellen door op hun namen te tikken zonder je telefoon te ontgrendelen."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Noodinformatie toevoegen"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Help eerstehulpverleners belangrijke informatie te vinden"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Laat hulpdiensten je gegevens bekijken"</string>
 </resources>

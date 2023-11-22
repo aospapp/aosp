@@ -25,6 +25,9 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.support.annotation.VisibleForTesting;
 import android.text.format.Formatter;
+
+import com.android.settingslib.Utils;
+
 import com.android.storagemanager.R;
 
 import java.util.concurrent.TimeUnit;
@@ -113,13 +116,12 @@ public class StorageManagerUpsellDialog extends DialogFragment
 
     /**
      * Returns if the dialog should be shown, given the delays between when it is shown.
+     *
      * @param context Context to get shared preferences for determining the next show time.
      * @param time The current time in millis.
      */
     public static boolean shouldShow(Context context, long time) {
-        boolean isEnabled =
-                Settings.Secure.getInt(context.getContentResolver(),
-                        Settings.Secure.AUTOMATIC_STORAGE_MANAGER_ENABLED, 0) != 0;
+        boolean isEnabled = Utils.isStorageManagerEnabled(context);
         if (isEnabled) {
             return false;
         }

@@ -12,20 +12,51 @@
 
 **/
 
-#include "AndroidFastbootApp.h"
-
 #include <Protocol/AndroidFastbootTransport.h>
 #include <Protocol/AndroidFastbootPlatform.h>
 #include <Protocol/SimpleTextOut.h>
 #include <Protocol/SimpleTextIn.h>
 
-#include <Library/ArmLib.h>
-#include <Library/PcdLib.h>
-#include <Library/UefiRuntimeServicesTableLib.h>
+#include <Library/AbootimgLib.h>
 #include <Library/BaseMemoryLib.h>
-#include <Library/UefiBootServicesTableLib.h>
-#include <Library/UefiApplicationEntryPoint.h>
+#include <Library/PcdLib.h>
 #include <Library/PrintLib.h>
+#include <Library/UefiApplicationEntryPoint.h>
+#include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
+
+#define ANDROID_FASTBOOT_VERSION    "0.7"
+
+#define SPARSE_HEADER_MAGIC         0xED26FF3A
+#define CHUNK_TYPE_RAW              0xCAC1
+#define CHUNK_TYPE_FILL             0xCAC2
+#define CHUNK_TYPE_DONT_CARE        0xCAC3
+#define CHUNK_TYPE_CRC32            0xCAC4
+
+#define FILL_BUF_SIZE               1024
+
+#define IS_DEVICE_PATH_NODE(node,type,subtype) (((node)->Type == (type)) && ((node)->SubType == (subtype)))
+
+#define ALIGN(x, a)        (((x) + ((a) - 1)) & ~((a) - 1))
+
+typedef struct _SPARSE_HEADER {
+  UINT32       Magic;
+  UINT16       MajorVersion;
+  UINT16       MinorVersion;
+  UINT16       FileHeaderSize;
+  UINT16       ChunkHeaderSize;
+  UINT32       BlockSize;
+  UINT32       TotalBlocks;
+  UINT32       TotalChunks;
+  UINT32       ImageChecksum;
+} SPARSE_HEADER;
+
+typedef struct _CHUNK_HEADER {
+  UINT16       ChunkType;
+  UINT16       Reserved1;
+  UINT32       ChunkSize;
+  UINT32       TotalSize;
+} CHUNK_HEADER;
 
 /*
  * UEFI Application using the FASTBOOT_TRANSPORT_PROTOCOL and
@@ -46,9 +77,9 @@ typedef enum {
 STATIC ANDROID_FASTBOOT_STATE mState = ExpectCmdState;
 
 // When in ExpectDataState, the number of bytes of data to expect:
-STATIC UINTN mNumDataBytes;
+STATIC UINT64 mNumDataBytes;
 // .. and the number of bytes so far received this data phase
-STATIC UINTN mBytesReceivedSoFar;
+STATIC UINT64 mBytesReceivedSoFar;
 // .. and the buffer to save data into
 STATIC UINT8 *mDataBuffer = NULL;
 
@@ -100,7 +131,7 @@ HandleDownload (
   IN CHAR8 *NumBytesString
   )
 {
-  CHAR8       Response[12] = "DATA";
+  CHAR8       Response[13];
   CHAR16      OutputString[FASTBOOT_STRING_MAX_LENGTH];
 
   // Argument is 8-character ASCII string hex representation of number of bytes
@@ -128,12 +159,86 @@ HandleDownload (
   if (mDataBuffer == NULL) {
     SEND_LITERAL ("FAILNot enough memory");
   } else {
-    AsciiStrnCpy (Response + 4, NumBytesString, 8);
-    mTransport->Send (sizeof(Response), Response, &mFatalSendErrorEvent);
+    ZeroMem (Response, sizeof Response);
+    if (mTransport->RequestReceive) {
+      mTransport->RequestReceive (mNumDataBytes);
+    }
+    AsciiSPrint (Response, sizeof Response, "DATA%x",
+      (UINT32)mNumDataBytes);
+    mTransport->Send (sizeof Response - 1, Response, &mFatalSendErrorEvent);
 
     mState = ExpectDataState;
     mBytesReceivedSoFar = 0;
   }
+}
+
+STATIC
+EFI_STATUS
+FlashSparseImage (
+  IN CHAR8         *PartitionName,
+  IN SPARSE_HEADER *SparseHeader
+  )
+{
+  EFI_STATUS        Status = EFI_SUCCESS;
+  UINTN             Chunk, Offset = 0, Index;
+  VOID             *Image;
+  CHUNK_HEADER     *ChunkHeader;
+  UINT32            FillBuf[FILL_BUF_SIZE];
+  CHAR16            OutputString[FASTBOOT_STRING_MAX_LENGTH];
+
+  Image = (VOID *)SparseHeader;
+  Image += SparseHeader->FileHeaderSize;
+  for (Chunk = 0; Chunk < SparseHeader->TotalChunks; Chunk++) {
+    ChunkHeader = (CHUNK_HEADER *)Image;
+    DEBUG ((DEBUG_INFO, "Chunk #%d - Type: 0x%x Size: %d TotalSize: %d Offset %d\n",
+            (Chunk+1), ChunkHeader->ChunkType, ChunkHeader->ChunkSize,
+            ChunkHeader->TotalSize, Offset));
+    Image += sizeof (CHUNK_HEADER);
+    switch (ChunkHeader->ChunkType) {
+    case CHUNK_TYPE_RAW:
+      Status = mPlatform->FlashPartitionEx (
+                            PartitionName,
+                            Offset,
+                            ChunkHeader->ChunkSize * SparseHeader->BlockSize,
+                            Image
+                            );
+      if (EFI_ERROR (Status)) {
+        return Status;
+      }
+      Image += ChunkHeader->ChunkSize * SparseHeader->BlockSize;
+      Offset += ChunkHeader->ChunkSize * SparseHeader->BlockSize;
+      break;
+    case CHUNK_TYPE_FILL:
+      SetMem32 (FillBuf, FILL_BUF_SIZE * sizeof (UINT32), *(UINT32 *)Image);
+      Image += sizeof (UINT32);
+      for (Index = 0; Index < ChunkHeader->ChunkSize; Index++) {
+        Status = mPlatform->FlashPartitionEx (
+                              PartitionName,
+                              Offset,
+                              SparseHeader->BlockSize,
+                              FillBuf
+                              );
+        if (EFI_ERROR (Status)) {
+          return Status;
+        }
+        Offset += SparseHeader->BlockSize;
+      }
+      break;
+    case CHUNK_TYPE_DONT_CARE:
+      Offset += ChunkHeader->ChunkSize * SparseHeader->BlockSize;
+      break;
+    default:
+      UnicodeSPrint (
+        OutputString,
+        sizeof (OutputString),
+        L"Unsupported Chunk Type:0x%x\n",
+        ChunkHeader->ChunkType
+        );
+      mTextOut->OutputString (mTextOut, OutputString);
+      break;
+    }
+  }
+  return Status;
 }
 
 STATIC
@@ -142,8 +247,9 @@ HandleFlash (
   IN CHAR8 *PartitionName
   )
 {
-  EFI_STATUS  Status;
-  CHAR16      OutputString[FASTBOOT_STRING_MAX_LENGTH];
+  EFI_STATUS        Status;
+  CHAR16            OutputString[FASTBOOT_STRING_MAX_LENGTH];
+  SPARSE_HEADER    *SparseHeader;
 
   // Build output string
   UnicodeSPrint (OutputString, sizeof (OutputString), L"Flashing partition %a\r\n", PartitionName);
@@ -155,21 +261,39 @@ HandleFlash (
     return;
   }
 
-  Status = mPlatform->FlashPartition (
-                        PartitionName,
-                        mNumDataBytes,
-                        mDataBuffer
-                        );
-  if (Status == EFI_NOT_FOUND) {
-    SEND_LITERAL ("FAILNo such partition.");
-    mTextOut->OutputString (mTextOut, L"No such partition.\r\n");
-  } else if (EFI_ERROR (Status)) {
-    SEND_LITERAL ("FAILError flashing partition.");
-    mTextOut->OutputString (mTextOut, L"Error flashing partition.\r\n");
-    DEBUG ((EFI_D_ERROR, "Couldn't flash image:  %r\n", Status));
+  SparseHeader = (SPARSE_HEADER *)mDataBuffer;
+  if (SparseHeader->Magic == SPARSE_HEADER_MAGIC) {
+    DEBUG ((DEBUG_INFO, "Sparse Magic: 0x%x Major: %d Minor: %d fhs: %d chs: %d bs: %d tbs: %d tcs: %d checksum: %d \n",
+                SparseHeader->Magic, SparseHeader->MajorVersion, SparseHeader->MinorVersion,  SparseHeader->FileHeaderSize,
+                SparseHeader->ChunkHeaderSize, SparseHeader->BlockSize, SparseHeader->TotalBlocks,
+                SparseHeader->TotalChunks, SparseHeader->ImageChecksum));
+    if (SparseHeader->MajorVersion != 1) {
+        DEBUG ((DEBUG_ERROR, "Sparse image version %d.%d not supported.\n",
+                    SparseHeader->MajorVersion, SparseHeader->MinorVersion));
+        return;
+    }
+    Status = FlashSparseImage (PartitionName, SparseHeader);
   } else {
+    Status = mPlatform->FlashPartition (
+                          PartitionName,
+                          mNumDataBytes,
+                          mDataBuffer
+                          );
+  }
+  switch (Status) {
+  case EFI_SUCCESS:
     mTextOut->OutputString (mTextOut, L"Done.\r\n");
     SEND_LITERAL ("OKAY");
+    break;
+  case EFI_NOT_FOUND:
+    SEND_LITERAL ("FAILNo such partition.");
+    mTextOut->OutputString (mTextOut, L"No such partition.\r\n");
+    break;
+  default:
+    SEND_LITERAL ("FAILError flashing partition.");
+    mTextOut->OutputString (mTextOut, L"Error flashing partition.\r\n");
+    DEBUG ((EFI_D_ERROR, "Couldn't flash image:\n"));
+    break;
   }
 }
 
@@ -196,72 +320,12 @@ HandleErase (
 }
 
 STATIC
-EFI_STATUS
-HandleKernel (
-  IN CHAR8 *PartitionName
-  )
-{
-  VOID       *BootBuffer;
-  UINTN       BootSize = 0;
-  UINT32      KernelOff;
-  UINT32      RamdiskOff;
-  UINT32      NewRamdiskOff;
-  EFI_STATUS  Status;
-  ANDROID_BOOTIMG_HEADER *Header;
-  CHAR16      OutputString[FASTBOOT_STRING_MAX_LENGTH];
-
-  Header = (ANDROID_BOOTIMG_HEADER *)mDataBuffer;
-  if ((AsciiStrnCmp (Header->BootMagic, BOOT_MAGIC, BOOT_MAGIC_LENGTH) == 0) &&
-      (Header->RamdiskSize != 0)) {
-    mTextOut->OutputString (mTextOut, L"It is boot.img\r\n");
-    return EFI_INVALID_PARAMETER;
-  }
-  mTextOut->OutputString (mTextOut, L"Booting downloaded kernel\r\n");
-  Status = mPlatform->ReadPartition (
-                        PartitionName,
-                        &BootSize,
-                        &BootBuffer);
-  if (EFI_ERROR (Status)) {
-    UnicodeSPrint (OutputString, sizeof (OutputString), L"Fastboot: Fail to read %a partition: %r\r\n", PartitionName, Status);
-    mTextOut->OutputString (mTextOut, OutputString);
-    return Status;
-  }
-
-  Header = (ANDROID_BOOTIMG_HEADER *)BootBuffer;
-  if (AsciiStrnCmp (Header->BootMagic, BOOT_MAGIC, BOOT_MAGIC_LENGTH) != 0) {
-    return EFI_INVALID_PARAMETER;
-  }
-  KernelOff = Header->PageSize;
-  RamdiskOff = KernelOff +
-               Header->PageSize *
-               ((Header->KernelSize + Header->PageSize - 1) / Header->PageSize);
-  if (mNumDataBytes < KernelOff) {
-    return EFI_INVALID_PARAMETER;
-  }
-  Header->KernelSize = mNumDataBytes - KernelOff;
-  NewRamdiskOff = KernelOff +
-               Header->PageSize *
-               ((Header->KernelSize + Header->PageSize - 1) / Header->PageSize);
-  if (NewRamdiskOff + Header->RamdiskSize > BootSize) {
-    return EFI_INVALID_PARAMETER;
-  }
-  CopyMem(BootBuffer + NewRamdiskOff, BootBuffer + RamdiskOff, Header->RamdiskSize);
-  CopyMem(BootBuffer + KernelOff, mDataBuffer + KernelOff, Header->KernelSize);
-  FreePool (mDataBuffer);
-  Status = BootAndroidBootImg (NewRamdiskOff + Header->RamdiskSize, BootBuffer);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "Fastboot: Couldn't boot with new kernel: %r\n", Status));
-  }
-  return Status;
-}
-
-STATIC
 VOID
 HandleBoot (
   VOID
   )
 {
-  EFI_STATUS Status;
+  CHAR16     *BootPathStr;
 
   mTextOut->OutputString (mTextOut, L"Booting downloaded image\r\n");
 
@@ -275,13 +339,8 @@ HandleBoot (
   // boot we lose control of the system.
   SEND_LITERAL ("OKAY");
 
-  Status = HandleKernel ("boot");
-  if (EFI_ERROR (Status)) {
-    Status = BootAndroidBootImg (mNumDataBytes, mDataBuffer);
-    if (EFI_ERROR (Status)) {
-      DEBUG ((EFI_D_ERROR, "Failed to boot downloaded image: %r\n", Status));
-    }
-  }
+  BootPathStr = (CHAR16 *)PcdGetPtr (PcdAndroidBootDevicePath);
+  AbootimgBootRam (mDataBuffer, mNumDataBytes, BootPathStr, NULL);
   // We shouldn't get here
 }
 
@@ -312,6 +371,7 @@ AcceptCmd (
   IN  CONST CHAR8 *Data
   )
 {
+  EFI_STATUS  Status;
   CHAR8       Command[FASTBOOT_COMMAND_MAX_LENGTH + 1];
 
   // Max command size is 64 bytes
@@ -321,8 +381,7 @@ AcceptCmd (
   }
 
   // Commands aren't null-terminated. Let's get a null-terminated version.
-  AsciiStrnCpy (Command, Data, Size);
-  Command[Size] = '\0';
+  AsciiStrnCpyS (Command, sizeof Command, Data, Size);
 
   // Parse command
   if (MATCH_CMD_LITERAL ("getvar", Command)) {
@@ -343,20 +402,14 @@ AcceptCmd (
 
     gBS->SignalEvent (mFinishedEvent);
   } else if (MATCH_CMD_LITERAL ("reboot", Command)) {
-    EFI_RESET_TYPE rtype = EfiResetCold;
     if (MATCH_CMD_LITERAL ("reboot-bootloader", Command)) {
-      // fastboot_protocol.txt:
-      //    "reboot-bootloader    Reboot back into the bootloader."
-#define REBOOT_REASON_ADDR             0x05F01000
-#define REBOOT_REASON_BOOTLOADER       0x77665500
-      UINT32 *addr = (UINT32*)REBOOT_REASON_ADDR;
-      /* Write REBOOT_BOOTLOADER to the reason address */
-      *addr = REBOOT_REASON_BOOTLOADER;
-      rtype = EfiResetWarm;
-      ArmCleanDataCache();
+      Status = mPlatform->DoOemCommand ("reboot-bootloader");
+      if (EFI_ERROR (Status)) {
+        SEND_LITERAL ("INFOreboot-bootloader not supported, rebooting normally.");
+      }
     }
     SEND_LITERAL ("OKAY");
-    gRT->ResetSystem (rtype, EFI_SUCCESS, 0, NULL);
+    gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);
 
     // Shouldn't get here
     DEBUG ((EFI_D_ERROR, "Fastboot: gRT->ResetSystem didn't work\n"));
@@ -444,6 +497,12 @@ DataReady (
   EFI_STATUS  Status;
 
   do {
+    // Indicate lower layer driver that how much bytes are expected.
+    if (mState == ExpectDataState) {
+      Size = mNumDataBytes;
+    } else {
+      Size = 0;
+    }
     Status = mTransport->Receive (&Size, &Data);
     if (!EFI_ERROR (Status)) {
       if (mState == ExpectCmdState) {
@@ -493,6 +552,7 @@ FastbootAppEntryPoint (
   EFI_EVENT                       WaitEventArray[2];
   UINTN                           EventIndex;
   EFI_SIMPLE_TEXT_INPUT_PROTOCOL *TextIn;
+  EFI_INPUT_KEY                   Key;
 
   mDataBuffer = NULL;
 
@@ -575,12 +635,24 @@ FastbootAppEntryPoint (
 
   // Talk to the user
   mTextOut->OutputString (mTextOut,
-      L"Android Fastboot mode - version " ANDROID_FASTBOOT_VERSION ". Press any key to quit.\r\n");
+      L"Android Fastboot mode - version " ANDROID_FASTBOOT_VERSION ".\r\n");
+  mTextOut->OutputString (mTextOut, L"Press RETURN or SPACE key to quit.\r\n");
 
   // Quit when the user presses any key, or mFinishedEvent is signalled
   WaitEventArray[0] = mFinishedEvent;
   WaitEventArray[1] = TextIn->WaitForKey;
-  gBS->WaitForEvent (2, WaitEventArray, &EventIndex);
+  while (1) {
+    gBS->WaitForEvent (2, WaitEventArray, &EventIndex);
+    if (EventIndex == 0) {
+      break;
+    }
+    Status = TextIn->ReadKeyStroke (gST->ConIn, &Key);
+    if (Key.ScanCode == SCAN_NULL) {
+      if ((Key.UnicodeChar == CHAR_CARRIAGE_RETURN) || (Key.UnicodeChar == ' ')) {
+        break;
+      }
+    }
+  }
 
   mTransport->Stop ();
   if (EFI_ERROR (Status)) {

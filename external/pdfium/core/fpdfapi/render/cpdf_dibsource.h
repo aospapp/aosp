@@ -18,8 +18,10 @@
 #include "core/fpdfapi/render/cpdf_imageloader.h"
 #include "core/fpdfapi/render/cpdf_rendercontext.h"
 #include "core/fpdfapi/render/cpdf_renderoptions.h"
-#include "core/fxge/cfx_fxgedevice.h"
-#include "core/fxge/cfx_renderdevice.h"
+#include "core/fxcrt/retain_ptr.h"
+#include "core/fxcrt/unowned_ptr.h"
+#include "core/fxge/cfx_defaultrenderdevice.h"
+#include "core/fxge/dib/cfx_dibsource.h"
 
 class CCodec_Jbig2Context;
 class CCodec_ScanlineDecoder;
@@ -29,8 +31,8 @@ class CPDF_Document;
 class CPDF_Stream;
 
 typedef struct {
-  FX_FLOAT m_DecodeMin;
-  FX_FLOAT m_DecodeStep;
+  float m_DecodeMin;
+  float m_DecodeStep;
   int m_ColorKeyMin;
   int m_ColorKeyMax;
 } DIB_COMP_DATA;
@@ -39,13 +41,15 @@ typedef struct {
 
 class CPDF_DIBSource : public CFX_DIBSource {
  public:
-  CPDF_DIBSource();
+  template <typename T, typename... Args>
+  friend RetainPtr<T> pdfium::MakeRetain(Args&&... args);
+
   ~CPDF_DIBSource() override;
 
   bool Load(CPDF_Document* pDoc, const CPDF_Stream* pStream);
 
   // CFX_DIBSource
-  bool SkipToScanline(int line, IFX_Pause* pPause) const override;
+  bool SkipToScanline(int line, IFX_PauseIndicator* pPause) const override;
   uint8_t* GetBuffer() const override;
   const uint8_t* GetScanline(int line) const override;
   void DownSampleScanline(int line,
@@ -56,6 +60,7 @@ class CPDF_DIBSource : public CFX_DIBSource {
                           int clip_left,
                           int clip_width) const override;
 
+  const CPDF_ColorSpace* GetColorSpace() const { return m_pColorSpace; }
   uint32_t GetMatteColor() const { return m_MatteColor; }
 
   int StartLoadDIBSource(CPDF_Document* pDoc,
@@ -66,20 +71,25 @@ class CPDF_DIBSource : public CFX_DIBSource {
                          bool bStdCS = false,
                          uint32_t GroupFamily = 0,
                          bool bLoadMask = false);
-  int ContinueLoadDIBSource(IFX_Pause* pPause);
-  int StratLoadMask();
+  int ContinueLoadDIBSource(IFX_PauseIndicator* pPause);
+  int StartLoadMask();
   int StartLoadMaskDIB();
-  int ContinueLoadMaskDIB(IFX_Pause* pPause);
-  int ContinueToLoadMask();
-  CPDF_DIBSource* DetachMask();
+  int ContinueLoadMaskDIB(IFX_PauseIndicator* pPause);
+  bool ContinueToLoadMask();
+  RetainPtr<CPDF_DIBSource> DetachMask();
 
  private:
+  CPDF_DIBSource();
+
   bool LoadColorInfo(const CPDF_Dictionary* pFormResources,
                      const CPDF_Dictionary* pPageResources);
-  DIB_COMP_DATA* GetDecodeAndMaskArray(bool& bDefaultDecode, bool& bColorKey);
+  DIB_COMP_DATA* GetDecodeAndMaskArray(bool* bDefaultDecode, bool* bColorKey);
   void LoadJpxBitmap();
   void LoadPalette();
   int CreateDecoder();
+  bool CreateDCTDecoder(const uint8_t* src_data,
+                        uint32_t src_size,
+                        const CPDF_Dictionary* pParams);
   void TranslateScanline24bpp(uint8_t* dest_scan,
                               const uint8_t* src_scan) const;
   void ValidateDictParam();
@@ -112,10 +122,10 @@ class CPDF_DIBSource : public CFX_DIBSource {
                                int clip_width) const;
   bool TransMask() const;
 
-  CPDF_Document* m_pDocument;
-  const CPDF_Stream* m_pStream;
-  std::unique_ptr<CPDF_StreamAcc> m_pStreamAcc;
-  const CPDF_Dictionary* m_pDict;
+  UnownedPtr<CPDF_Document> m_pDocument;
+  UnownedPtr<const CPDF_Stream> m_pStream;
+  UnownedPtr<const CPDF_Dictionary> m_pDict;
+  RetainPtr<CPDF_StreamAcc> m_pStreamAcc;
   CPDF_ColorSpace* m_pColorSpace;
   uint32_t m_Family;
   uint32_t m_bpc;
@@ -133,12 +143,12 @@ class CPDF_DIBSource : public CFX_DIBSource {
   DIB_COMP_DATA* m_pCompData;
   uint8_t* m_pLineBuf;
   uint8_t* m_pMaskedLine;
-  std::unique_ptr<CFX_DIBitmap> m_pCachedBitmap;
+  RetainPtr<CFX_DIBitmap> m_pCachedBitmap;
+  RetainPtr<CPDF_DIBSource> m_pMask;
+  RetainPtr<CPDF_StreamAcc> m_pGlobalStream;
   std::unique_ptr<CCodec_ScanlineDecoder> m_pDecoder;
-  CPDF_DIBSource* m_pMask;
-  std::unique_ptr<CPDF_StreamAcc> m_pGlobalStream;
   std::unique_ptr<CCodec_Jbig2Context> m_pJbig2Context;
-  CPDF_Stream* m_pMaskStream;
+  UnownedPtr<CPDF_Stream> m_pMaskStream;
   int m_Status;
 };
 

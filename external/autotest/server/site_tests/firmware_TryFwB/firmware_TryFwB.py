@@ -20,7 +20,10 @@ class firmware_TryFwB(FirmwareTest):
             self.setup_tried_fwb(tried_fwb=False)
 
     def cleanup(self):
-        self.setup_tried_fwb(tried_fwb=False)
+        try:
+            self.setup_tried_fwb(tried_fwb=False)
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_TryFwB, self).cleanup()
 
     def run_once(self):

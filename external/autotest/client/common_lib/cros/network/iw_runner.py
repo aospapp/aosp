@@ -933,3 +933,18 @@ class IwRunner(object):
                 if frequency in band.frequencies:
                     return True
         return False
+
+
+    def get_fragmentation_threshold(self, phy):
+        """Returns the fragmentation threshold for |phy|.
+
+        @param phy: phy name
+        """
+        ret = self._run('%s phy %s info' % (self._command_iw, phy))
+        frag_regex = r'^\s+Fragmentation threshold:\s+([0-9]+)$'
+        match = re.search(frag_regex, ret.stdout, re.MULTILINE)
+
+        if match:
+            return int(match.group(1))
+
+        return None

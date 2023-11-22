@@ -21,4 +21,5 @@ LOCAL_SRC_FILES := \
      $(call all-java-files-under, src) \
      $(call all-logtags-files-under, src)
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
+LOCAL_USE_AAPT2 := true
 include $(BUILD_STATIC_JAVA_LIBRARY)

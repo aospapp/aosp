@@ -18,5 +18,5 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := VtsTrebleVintfTest
+LOCAL_MODULE := VtsTrebleVintfTestOMr1
 include test/vts/tools/build/Android.host_config.mk

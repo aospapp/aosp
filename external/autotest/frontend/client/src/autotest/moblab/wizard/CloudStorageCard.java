@@ -1,11 +1,16 @@
 package autotest.moblab.wizard;
 
+import com.google.gwt.event.dom.client.ClickEvent;
+import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.event.logical.shared.ValueChangeEvent;
 import com.google.gwt.event.logical.shared.ValueChangeHandler;
 import com.google.gwt.json.client.JSONObject;
 import com.google.gwt.user.client.ui.Anchor;
 import com.google.gwt.user.client.ui.CheckBox;
+import com.google.gwt.user.client.ui.FlowPanel;
+import com.google.gwt.user.client.ui.InlineLabel;
 import com.google.gwt.user.client.ui.Label;
+import com.google.gwt.user.client.ui.PopupPanel;
 import com.google.gwt.user.client.ui.TextBox;
 
 import autotest.common.Utils;
@@ -67,7 +72,25 @@ public class CloudStorageCard extends FlexWizardCard {
 
       // Row for boto key id.
       row++;
-      layoutTable.setWidget(row, 0, new Label("Boto Key ID"));
+
+      // show a tooltip describing what a boto key is
+      FlowPanel botoKeyPanel = new FlowPanel();
+      botoKeyPanel.add(new InlineLabel("Boto Key ID "));
+      Anchor botoKeyHelp = new Anchor("?");
+      botoKeyHelp.addClickHandler(new ClickHandler() {
+        @Override
+        public void onClick(ClickEvent event) {
+          PopupPanel popup = new PopupPanel(true);
+          String helpText = "A boto key is used to access Google storage " +
+              "buckets. Please contact your Google PM for a boto key if you " +
+              "haven't received one already.";
+          popup.setWidget(new Label(helpText));
+          popup.showRelativeTo(layoutTable);
+        }
+      });
+      botoKeyPanel.add(botoKeyHelp);
+
+      layoutTable.setWidget(row, 0, botoKeyPanel);
       layoutTable.setWidget(row, 1, createValueFieldWidget(CloudStorageInfo.JSON_FIELD_BOTO_KEY_ID,
           cloudStorageInfo.getBotoKey()));
 

@@ -57,6 +57,7 @@ public class EventWithExceptionDebuggee extends SyncDebuggee {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
     }
 
+    @SuppressWarnings("DeadException")
     @Override
     public void run() {
         // Cause class loading so that it is visible from the test.

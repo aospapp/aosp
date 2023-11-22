@@ -13,11 +13,13 @@
 package android.icu.dev.test.duration.languages;
 
 import android.icu.dev.test.duration.LanguageTestFmwk;
+import android.icu.testsharding.MainTestShard;
 
 
 /**
  * Test cases for ru
  */
+@MainTestShard
 public class Test_ru extends LanguageTestFmwk {
   public Test_ru() {
     super("ru", false);

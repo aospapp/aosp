@@ -32,8 +32,6 @@
 
 package com.android.bluetooth.opp;
 
-import com.android.bluetooth.R;
-
 import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Context;
@@ -44,10 +42,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
-import android.widget.Button;
-import android.widget.EditText;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.widget.Button;
+import android.widget.EditText;
+
+import com.android.bluetooth.R;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -86,7 +86,7 @@ public class TestActivity extends Activity {
 
     EditText mMediaView;
 
-    TestTcpServer server;
+    TestTcpServer mServer;
 
     /** Called when the activity is first created. */
     @Override
@@ -107,7 +107,7 @@ public class TestActivity extends Activity {
              */
 
             String type = intent.getType();
-            Uri stream = (Uri)intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            Uri stream = (Uri) intent.getParcelableExtra(Intent.EXTRA_STREAM);
 
             if (stream != null && type != null) {
                 /*
@@ -115,8 +115,8 @@ public class TestActivity extends Activity {
                  * Email.ACCEPTABLE_ATTACHMENT_SEND_TYPES)) {
                  * addAttachment(stream);
                  */
-                Log.v(Constants.TAG, " Get share intent with Uri " + stream + " mimetype is "
-                        + type);
+                Log.v(Constants.TAG,
+                        " Get share intent with Uri " + stream + " mimetype is " + type);
                 // Log.v(Constants.TAG, " trying Uri function " +
                 // stream.getAuthority() + " " + Uri.parse(stream));
                 Cursor cursor = c.getContentResolver().query(stream, null, null, null, null);
@@ -141,20 +141,20 @@ public class TestActivity extends Activity {
 
         setContentView(R.layout.testactivity_main);
 
-        Button mInsertRecord = (Button)findViewById(R.id.insert_record);
-        Button mDeleteRecord = (Button)findViewById(R.id.delete_record);
-        Button mUpdateRecord = (Button)findViewById(R.id.update_record);
+        Button mInsertRecord = (Button) findViewById(R.id.insert_record);
+        Button mDeleteRecord = (Button) findViewById(R.id.delete_record);
+        Button mUpdateRecord = (Button) findViewById(R.id.update_record);
 
-        Button mAckRecord = (Button)findViewById(R.id.ack_record);
+        Button mAckRecord = (Button) findViewById(R.id.ack_record);
 
-        Button mDeleteAllRecord = (Button)findViewById(R.id.deleteAll_record);
-        mUpdateView = (EditText)findViewById(R.id.update_text);
-        mAckView = (EditText)findViewById(R.id.ack_text);
-        mDeleteView = (EditText)findViewById(R.id.delete_text);
-        mInsertView = (EditText)findViewById(R.id.insert_text);
+        Button mDeleteAllRecord = (Button) findViewById(R.id.deleteAll_record);
+        mUpdateView = (EditText) findViewById(R.id.update_text);
+        mAckView = (EditText) findViewById(R.id.ack_text);
+        mDeleteView = (EditText) findViewById(R.id.delete_text);
+        mInsertView = (EditText) findViewById(R.id.insert_text);
 
-        mAddressView = (EditText)findViewById(R.id.address_text);
-        mMediaView = (EditText)findViewById(R.id.media_text);
+        mAddressView = (EditText) findViewById(R.id.address_text);
+        mMediaView = (EditText) findViewById(R.id.media_text);
 
         mInsertRecord.setOnClickListener(insertRecordListener);
         mDeleteRecord.setOnClickListener(deleteRecordListener);
@@ -162,10 +162,10 @@ public class TestActivity extends Activity {
         mAckRecord.setOnClickListener(ackRecordListener);
         mDeleteAllRecord.setOnClickListener(deleteAllRecordListener);
 
-        Button mStartTcpServer = (Button)findViewById(R.id.start_server);
+        Button mStartTcpServer = (Button) findViewById(R.id.start_server);
         mStartTcpServer.setOnClickListener(startTcpServerListener);
 
-        Button mNotifyTcpServer = (Button)findViewById(R.id.notify_server);
+        Button mNotifyTcpServer = (Button) findViewById(R.id.notify_server);
         mNotifyTcpServer.setOnClickListener(notifyTcpServerListener);
         /* parse insert result Uri */
         /*
@@ -214,6 +214,7 @@ public class TestActivity extends Activity {
     }
 
     public OnClickListener insertRecordListener = new OnClickListener() {
+        @Override
         public void onClick(View view) {
 
             String address = null;
@@ -275,17 +276,19 @@ public class TestActivity extends Activity {
     };
 
     public OnClickListener deleteRecordListener = new OnClickListener() {
+        @Override
         public void onClick(View view) {
-            Uri contentUri = Uri.parse(BluetoothShare.CONTENT_URI + "/"
-                    + mDeleteView.getText().toString());
+            Uri contentUri =
+                    Uri.parse(BluetoothShare.CONTENT_URI + "/" + mDeleteView.getText().toString());
             getContentResolver().delete(contentUri, null, null);
         }
     };
 
     public OnClickListener updateRecordListener = new OnClickListener() {
+        @Override
         public void onClick(View view) {
-            Uri contentUri = Uri.parse(BluetoothShare.CONTENT_URI + "/"
-                    + mUpdateView.getText().toString());
+            Uri contentUri =
+                    Uri.parse(BluetoothShare.CONTENT_URI + "/" + mUpdateView.getText().toString());
             ContentValues updateValues = new ContentValues();
             // mCurrentByte ++;
             // updateValues.put(BluetoothShare.TOTAL_BYTES, "120000");
@@ -299,9 +302,10 @@ public class TestActivity extends Activity {
     };
 
     public OnClickListener ackRecordListener = new OnClickListener() {
+        @Override
         public void onClick(View view) {
-            Uri contentUri = Uri.parse(BluetoothShare.CONTENT_URI + "/"
-                    + mAckView.getText().toString());
+            Uri contentUri =
+                    Uri.parse(BluetoothShare.CONTENT_URI + "/" + mAckView.getText().toString());
             ContentValues updateValues = new ContentValues();
             // mCurrentByte ++;
             // updateValues.put(BluetoothShare.TOTAL_BYTES, "120000");
@@ -314,28 +318,31 @@ public class TestActivity extends Activity {
     };
 
     public OnClickListener deleteAllRecordListener = new OnClickListener() {
+        @Override
         public void onClick(View view) {
-            Uri contentUri = Uri.parse(BluetoothShare.CONTENT_URI + "");
+            Uri contentUri = Uri.parse(String.valueOf(BluetoothShare.CONTENT_URI));
             getContentResolver().delete(contentUri, null, null);
         }
     };
 
     public OnClickListener startTcpServerListener = new OnClickListener() {
+        @Override
         public void onClick(View view) {
-            server = new TestTcpServer();
-            Thread server_thread = new Thread(server);
-            server_thread.start();
-
+            mServer = new TestTcpServer();
+            Thread serverThread = new Thread(mServer);
+            serverThread.start();
         }
     };
 
     public OnClickListener notifyTcpServerListener = new OnClickListener() {
+        @Override
         public void onClick(View view) {
             final Thread notifyThread = new Thread() {
+                @Override
                 public void run() {
-                    synchronized (server) {
-                        server.a = true;
-                        server.notify();
+                    synchronized (mServer) {
+                        mServer.a = true;
+                        mServer.notify();
                     }
                 }
 
@@ -371,11 +378,11 @@ class TestTcpListener {
 
     private int mBtOppRfcommChannel = -1;
 
-    public TestTcpListener() {
+    TestTcpListener() {
         this(DEFAULT_OPP_CHANNEL);
     }
 
-    public TestTcpListener(int channel) {
+    TestTcpListener(int channel) {
         mBtOppRfcommChannel = channel;
     }
 
@@ -385,12 +392,16 @@ class TestTcpListener {
             mSocketAcceptThread = new Thread(TAG) {
                 ServerSocket mServerSocket;
 
+                @Override
                 public void run() {
-                    if (D) Log.d(TAG, "RfcommSocket listen thread starting");
+                    if (D) {
+                        Log.d(TAG, "RfcommSocket listen thread starting");
+                    }
                     try {
-                        if (V)
-                            Log.v(TAG, "Create server RfcommSocket on channel"
-                                    + mBtOppRfcommChannel);
+                        if (V) {
+                            Log.v(TAG,
+                                    "Create server RfcommSocket on channel" + mBtOppRfcommChannel);
+                        }
                         mServerSocket = new ServerSocket(6500, 1);
                     } catch (IOException e) {
                         Log.e(TAG, "Error listing on channel" + mBtOppRfcommChannel);
@@ -401,11 +412,15 @@ class TestTcpListener {
                             mServerSocket.setSoTimeout(ACCEPT_WAIT_TIMEOUT);
                             Socket clientSocket = mServerSocket.accept();
                             if (clientSocket == null) {
-                                if (V) Log.v(TAG, "incomming connection time out");
+                                if (V) {
+                                    Log.v(TAG, "incomming connection time out");
+                                }
                             } else {
-                                if (D) Log.d(TAG, "RfcommSocket connected!");
-                                Log.d(TAG, "remote addr is "
-                                        + clientSocket.getRemoteSocketAddress());
+                                if (D) {
+                                    Log.d(TAG, "RfcommSocket connected!");
+                                }
+                                Log.d(TAG,
+                                        "remote addr is " + clientSocket.getRemoteSocketAddress());
                                 TestTcpTransport transport = new TestTcpTransport(clientSocket);
                                 Message msg = Message.obtain();
                                 msg.setTarget(mCallback);
@@ -423,7 +438,9 @@ class TestTcpListener {
                             Log.e(TAG, "socketAcceptThread thread was interrupted (2), exiting");
                         }
                     }
-                    if (D) Log.d(TAG, "RfcommSocket listen thread finished");
+                    if (D) {
+                        Log.d(TAG, "RfcommSocket listen thread finished");
+                    }
                 }
             };
             mInterrupted = false;
@@ -436,16 +453,22 @@ class TestTcpListener {
 
     public synchronized void stop() {
         if (mSocketAcceptThread != null) {
-            if (D) Log.d(TAG, "stopping Connect Thread");
+            if (D) {
+                Log.d(TAG, "stopping Connect Thread");
+            }
             mInterrupted = true;
             try {
                 mSocketAcceptThread.interrupt();
-                if (V) Log.v(TAG, "waiting for thread to terminate");
+                if (V) {
+                    Log.v(TAG, "waiting for thread to terminate");
+                }
                 mSocketAcceptThread.join();
                 mSocketAcceptThread = null;
                 mCallback = null;
             } catch (InterruptedException e) {
-                if (V) Log.v(TAG, "Interrupted waiting for Accept Thread to join");
+                if (V) {
+                    Log.v(TAG, "Interrupted waiting for Accept Thread to join");
+                }
             }
         }
     }
@@ -457,15 +480,16 @@ class TestTcpServer extends ServerRequestHandler implements Runnable {
 
     private static final boolean V = Constants.VERBOSE;
 
-    static final int port = 6500;
+    static final int PORT = 6500;
 
     public boolean a = false;
 
     // TextView serverStatus = null;
+    @Override
     public void run() {
         try {
-            updateStatus("[server:] listen on port " + port);
-            TestTcpSessionNotifier rsn = new TestTcpSessionNotifier(port);
+            updateStatus("[server:] listen on port " + PORT);
+            TestTcpSessionNotifier rsn = new TestTcpSessionNotifier(PORT);
 
             updateStatus("[server:] Now waiting for a client to connect");
             rsn.acceptAndOpen(this);
@@ -475,10 +499,11 @@ class TestTcpServer extends ServerRequestHandler implements Runnable {
         }
     }
 
-    public TestTcpServer() {
+    TestTcpServer() {
         updateStatus("enter construtor of TcpServer");
     }
 
+    @Override
     public int onConnect(HeaderSet request, HeaderSet reply) {
 
         updateStatus("[server:] The client has created an OBEX session");
@@ -489,24 +514,27 @@ class TestTcpServer extends ServerRequestHandler implements Runnable {
                     wait(500);
                 }
             } catch (InterruptedException e) {
-                if (V) Log.v(TAG, "Interrupted waiting for markBatchFailed");
+                if (V) {
+                    Log.v(TAG, "Interrupted waiting for markBatchFailed");
+                }
             }
         }
         updateStatus("[server:] we accpet the seesion");
         return ResponseCodes.OBEX_HTTP_OK;
     }
 
+    @Override
     public int onPut(Operation op) {
         FileOutputStream fos = null;
         try {
             java.io.InputStream is = op.openInputStream();
 
-            updateStatus("Got data bytes " + is.available() + " name "
-                    + op.getReceivedHeader().getHeader(HeaderSet.NAME) + " type " + op.getType());
+            updateStatus("Got data bytes " + is.available() + " name " + op.getReceivedHeader()
+                    .getHeader(HeaderSet.NAME) + " type " + op.getType());
 
-            File f = new File((String)op.getReceivedHeader().getHeader(HeaderSet.NAME));
+            File f = new File((String) op.getReceivedHeader().getHeader(HeaderSet.NAME));
             fos = new FileOutputStream(f);
-            byte b[] = new byte[1000];
+            byte[] b = new byte[1000];
             int len;
 
             while (is.available() > 0 && (len = is.read(b)) > 0) {
@@ -529,26 +557,32 @@ class TestTcpServer extends ServerRequestHandler implements Runnable {
         return ResponseCodes.OBEX_HTTP_OK;
     }
 
+    @Override
     public void onDisconnect(HeaderSet req, HeaderSet resp) {
         updateStatus("[server:] The client has disconnected the OBEX session");
     }
 
+    @Override
     public void updateStatus(String message) {
         Log.v(TAG, "\n" + message);
     }
 
+    @Override
     public void onAuthenticationFailure(byte[] userName) {
     }
 
+    @Override
     public int onSetPath(HeaderSet request, HeaderSet reply, boolean backup, boolean create) {
 
         return ResponseCodes.OBEX_HTTP_NOT_IMPLEMENTED;
     }
 
+    @Override
     public int onDelete(HeaderSet request, HeaderSet reply) {
         return ResponseCodes.OBEX_HTTP_NOT_IMPLEMENTED;
     }
 
+    @Override
     public int onGet(Operation op) {
         return ResponseCodes.OBEX_HTTP_NOT_IMPLEMENTED;
     }
@@ -558,28 +592,28 @@ class TestTcpServer extends ServerRequestHandler implements Runnable {
 class TestTcpSessionNotifier {
     /* implements SessionNotifier */
 
-    ServerSocket server = null;
+    ServerSocket mServer = null;
 
-    Socket conn = null;
+    Socket mConn = null;
 
     private static final String TAG = "TestTcpSessionNotifier";
 
-    public TestTcpSessionNotifier(int port) throws IOException {
-        server = new ServerSocket(port);
+    TestTcpSessionNotifier(int port) throws IOException {
+        mServer = new ServerSocket(port);
     }
 
     public ServerSession acceptAndOpen(ServerRequestHandler handler, Authenticator auth)
             throws IOException {
         try {
-            conn = server.accept();
+            mConn = mServer.accept();
 
         } catch (Exception ex) {
             Log.v(TAG, "ex");
         }
 
-        TestTcpTransport tt = new TestTcpTransport(conn);
+        TestTcpTransport tt = new TestTcpTransport(mConn);
 
-        return new ServerSession((ObexTransport)tt, handler, auth);
+        return new ServerSession((ObexTransport) tt, handler, auth);
 
     }
 
@@ -593,55 +627,64 @@ class TestTcpSessionNotifier {
 
 class TestTcpTransport implements ObexTransport {
 
-    Socket s = null;
+    Socket mSocket = null;
 
-    public TestTcpTransport(Socket s) {
+    TestTcpTransport(Socket s) {
         super();
-        this.s = s;
+        this.mSocket = s;
     }
 
+    @Override
     public void close() throws IOException {
-        s.close();
+        mSocket.close();
     }
 
+    @Override
     public DataInputStream openDataInputStream() throws IOException {
         return new DataInputStream(openInputStream());
     }
 
+    @Override
     public DataOutputStream openDataOutputStream() throws IOException {
         return new DataOutputStream(openOutputStream());
     }
 
+    @Override
     public InputStream openInputStream() throws IOException {
-        return s.getInputStream();
+        return mSocket.getInputStream();
     }
 
+    @Override
     public OutputStream openOutputStream() throws IOException {
-        return s.getOutputStream();
+        return mSocket.getOutputStream();
     }
 
+    @Override
     public void connect() throws IOException {
         // TODO Auto-generated method stub
 
     }
 
+    @Override
     public void create() throws IOException {
         // TODO Auto-generated method stub
 
     }
 
+    @Override
     public void disconnect() throws IOException {
         // TODO Auto-generated method stub
 
     }
 
+    @Override
     public void listen() throws IOException {
         // TODO Auto-generated method stub
 
     }
 
     public boolean isConnected() throws IOException {
-        return s.isConnected();
+        return mSocket.isConnected();
     }
 
     @Override

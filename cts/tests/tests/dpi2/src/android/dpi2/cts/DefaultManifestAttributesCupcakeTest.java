@@ -34,6 +34,6 @@ public class DefaultManifestAttributesCupcakeTest extends DefaultManifestAttribu
 
     // This is a sanity test to make sure that we're instrumenting the proper package
     public void testPackageHasExpectedSdkVersion() {
-        assertEquals(3, getAppInfo().targetSdkVersion);
+        assertEquals(3, getAppInfo().minSdkVersion);
     }
 }

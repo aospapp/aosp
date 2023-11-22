@@ -38,10 +38,8 @@ class VtsKernelSelinuxFileApiTest(base_test.BaseTestClass):
     """
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
-        self.dut.shell.InvokeTerminal(
-            "KernelSelinuxFileApiTest")  # creates a remote shell instance.
-        self.shell = self.dut.shell.KernelSelinuxFileApiTest
+        self.dut = self.android_devices[0]
+        self.shell = self.dut.shell
 
     def runSelinuxFileTest(self, test_object):
         """Reads the file and checks that its content and permissions are valid.

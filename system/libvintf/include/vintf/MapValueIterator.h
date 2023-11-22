@@ -98,6 +98,20 @@ struct MapIterTypes {
         map_ref mMap;
     };
 
+    template <bool is_const>
+    struct RangeImpl {
+        using iter_type = typename std::conditional<is_const, typename Map::const_iterator,
+                                                    typename Map::iterator>::type;
+        using range_type = std::pair<iter_type, iter_type>;
+        RangeImpl(range_type r) : mRange(r) {}
+        IteratorImpl<is_const> begin() const { return mRange.first; }
+        IteratorImpl<is_const> end() const { return mRange.second; }
+        bool empty() const { return begin() == end(); }
+
+       private:
+        range_type mRange;
+    };
+
     using ValueIterable = IterableImpl<false>;
     using ConstValueIterable = IterableImpl<true>;
 };
@@ -114,6 +128,12 @@ ConstMapValueIterable<K, V> iterateValues(const std::map<K, V> &map) {
 template<typename K, typename V>
 ConstMultiMapValueIterable<K, V> iterateValues(const std::multimap<K, V> &map) {
     return map;
+}
+
+template <typename K, typename V>
+typename MapIterTypes<std::multimap<K, V>>::template RangeImpl<true> iterateValues(
+    const std::multimap<K, V>& map, const K& key) {
+    return map.equal_range(key);
 }
 
 } // namespace vintf

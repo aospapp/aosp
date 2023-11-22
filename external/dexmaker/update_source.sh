@@ -25,6 +25,10 @@ INCLUDE="
     LICENSE
     dexmaker
     dexmaker-mockito
+    dexmaker-mockito-tests
+    dexmaker-mockito-inline
+    dexmaker-mockito-inline-dispatcher
+    dexmaker-mockito-inline-tests/src
     dexmaker-tests/src
     "
 
@@ -36,7 +40,11 @@ trap "echo \"Removing temporary directory\"; rm -rf $working_dir" EXIT
 
 echo "Fetching Dexmaker source into $working_dir"
 git clone $SOURCE $working_dir/source
-(cd $working_dir/source; git checkout $VERSION)
+ORG_DIR=$(pwd)
+cd $working_dir/source
+git checkout $VERSION
+SHA=$(git rev-parse $VERSION)
+cd $ORG_DIR
 
 for include in ${INCLUDE}; do
   echo "Updating $include"
@@ -52,11 +60,16 @@ done;
 
 # Move the dexmaker-tests AndroidManifest.xml into the correct position.
 mv dexmaker-tests/src/main/AndroidManifest.xml dexmaker-tests/AndroidManifest.xml
+mv dexmaker-mockito-tests/src/main/AndroidManifest.xml dexmaker-mockito-tests/AndroidManifest.xml
+mv dexmaker-mockito-inline-tests/src/main/AndroidManifest.xml dexmaker-mockito-inline-tests/AndroidManifest.xml
+
+# Remove 3rd party code
+rm -r dexmaker-mockito-inline/external
 
 echo "Updating README.version"
 
 # Update the version.
-perl -pi -e "s|^Version: .*$|Version: ${VERSION}|" "README.version"
+perl -pi -e "s|^Version: .*$|Version: ${VERSION} (${SHA})|" "README.version"
 
 # Remove any documentation about local modifications.
 mv README.version README.tmp

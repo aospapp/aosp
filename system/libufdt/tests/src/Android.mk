@@ -14,11 +14,17 @@
 
 LOCAL_PATH:= $(call my-dir)
 
+libufdt_tests_cflags := -Wall -Werror
+ifeq ($(HOST_OS),darwin)
+libufdt_tests_cflags += -Wno-error=format
+endif
+
 ###################################################
 
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := ufdt_gen_test_dts
+LOCAL_CFLAGS := $(libufdt_tests_cflags)
 LOCAL_SRC_FILES := ufdt_gen_test_dts.c
 
 include $(BUILD_HOST_EXECUTABLE)
@@ -28,6 +34,7 @@ include $(BUILD_HOST_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := ufdt_apply_overlay_host
+LOCAL_CFLAGS := $(libufdt_tests_cflags)
 LOCAL_SRC_FILES := ufdt_overlay_test_app.c util.c
 LOCAL_STATIC_LIBRARIES := \
     libufdt \
@@ -45,6 +52,7 @@ $(call dist-for-goals, dist_files, $(ALL_MODULES.ufdt_apply_overlay_host.BUILT):
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := ufdt_apply_overlay
+LOCAL_CFLAGS := $(libufdt_tests_cflags)
 LOCAL_SRC_FILES := ufdt_overlay_test_app.c util.c
 LOCAL_STATIC_LIBRARIES := \
     libufdt \
@@ -55,10 +63,10 @@ LOCAL_REQUIRED_MODULES := dtc
 include $(BUILD_EXECUTABLE)
 
 ###################################################
-
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := fdt_apply_overlay
+LOCAL_CFLAGS := $(libufdt_tests_cflags)
 LOCAL_SRC_FILES := fdt_overlay_test_app.c util.c
 LOCAL_STATIC_LIBRARIES := \
     libfdt \
@@ -72,6 +80,7 @@ include $(BUILD_HOST_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := extract_dtb
+LOCAL_CFLAGS := $(libufdt_tests_cflags)
 LOCAL_SRC_FILES := extract_dtb.c util.c
 LOCAL_STATIC_LIBRARIES := \
     libfdt \
@@ -88,6 +97,7 @@ $(call dist-for-goals, dist_files, $(ALL_MODULES.extract_dtb.BUILT):libufdt/extr
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := fdt_apply_overlay
+LOCAL_CFLAGS := $(libufdt_tests_cflags)
 LOCAL_SRC_FILES := fdt_overlay_test_app.c util.c
 LOCAL_STATIC_LIBRARIES := \
     libfdt \
@@ -95,5 +105,35 @@ LOCAL_STATIC_LIBRARIES := \
 LOCAL_REQUIRED_MODULES := dtc
 
 include $(BUILD_EXECUTABLE)
+
+###################################################
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := ufdt_verify_overlay_host
+LOCAL_CFLAGS := $(libufdt_tests_cflags)
+LOCAL_SRC_FILES := ufdt_verify_overlay_app.cpp
+LOCAL_STATIC_LIBRARIES := \
+    libufdt \
+    libfdt \
+    libufdt_sysdeps \
+    libufdt_verify
+LOCAL_REQUIRED_MODULES := dtc
+
+include $(BUILD_HOST_EXECUTABLE)
+
+###################################################
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := ufdt_verify_overlay
+LOCAL_CFLAGS := $(libufdt_tests_cflags)
+LOCAL_SRC_FILES := ufdt_verify_overlay_app.cpp
+LOCAL_STATIC_LIBRARIES := \
+    libufdt \
+    libfdt \
+    libufdt_sysdeps \
+    libufdt_verify
+LOCAL_REQUIRED_MODULES := dtc
+
+include $(BUILD_NATIVE_TEST)
 
 ###################################################

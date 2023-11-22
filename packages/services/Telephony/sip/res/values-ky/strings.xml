@@ -26,7 +26,7 @@
     <string name="sip_call_options_entry_1" msgid="7217659161237099900">"Дайындар тармагы жеткиликтүү болгон учурдагы бардык чалуулар үчүн"</string>
     <string name="sip_call_options_entry_2" msgid="1815335903940609729">"SIP аркылуу чалуулар үчүн гана"</string>
     <string name="sip_call_options_wifi_only_entry_1" msgid="1358513095551847314">"Бардык чалуулар үчүн"</string>
-    <string name="add_sip_account" msgid="800843669753980091">"Каттоо эсебин кошуу"</string>
+    <string name="add_sip_account" msgid="800843669753980091">"Аккаунт кошуу"</string>
     <string name="remove_sip_account" msgid="1367664438506503690">"Каттоо эсебин алып салуу"</string>
     <string name="sip_account_list" msgid="5610858485304821480">"SIP каттоо эсептери"</string>
     <string name="saving_account" msgid="5336529880235177448">"Каттоо эсеби сакталууда…"</string>

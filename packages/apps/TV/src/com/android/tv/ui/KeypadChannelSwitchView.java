@@ -35,21 +35,19 @@ import android.widget.BaseAdapter;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
-
 import com.android.tv.MainActivity;
 import com.android.tv.R;
-import com.android.tv.TvApplication;
-import com.android.tv.util.DurationTimer;
+import com.android.tv.TvSingletons;
 import com.android.tv.analytics.Tracker;
 import com.android.tv.common.SoftPreconditions;
-import com.android.tv.data.Channel;
+import com.android.tv.common.util.DurationTimer;
 import com.android.tv.data.ChannelNumber;
-
+import com.android.tv.data.api.Channel;
 import java.util.ArrayList;
 import java.util.List;
 
-public class KeypadChannelSwitchView extends LinearLayout implements
-        TvTransitionManager.TransitionLayout {
+public class KeypadChannelSwitchView extends LinearLayout
+        implements TvTransitionManager.TransitionLayout {
     private static final String TAG = "KeypadChannelSwitchView";
 
     private static final int MAX_CHANNEL_NUMBER_DIGIT = 4;
@@ -62,7 +60,7 @@ public class KeypadChannelSwitchView extends LinearLayout implements
     private final Tracker mTracker;
     private final DurationTimer mViewDurationTimer = new DurationTimer();
     private boolean mNavigated = false;
-    @Nullable  //Once mChannels is set to null it should not be used again.
+    @Nullable // Once mChannels is set to null it should not be used again.
     private List<Channel> mChannels;
     private TextView mChannelNumberView;
     private ListView mChannelItemListView;
@@ -72,23 +70,29 @@ public class KeypadChannelSwitchView extends LinearLayout implements
     private final LayoutInflater mLayoutInflater;
     private Channel mSelectedChannel;
 
-    private final Runnable mHideRunnable = new Runnable() {
-        @Override
-        public void run() {
-            mCurrentHeight = 0;
-            if (mSelectedChannel != null) {
-                mMainActivity.tuneToChannel(mSelectedChannel);
-                mTracker.sendChannelNumberItemChosenByTimeout();
-            } else {
-                mMainActivity.getOverlayManager().hideOverlays(
-                        TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_DIALOG
-                        | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_SIDE_PANELS
-                        | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_PROGRAM_GUIDE
-                        | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_MENU
-                        | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_FRAGMENT);
-            }
-        }
-    };
+    private final Runnable mHideRunnable =
+            new Runnable() {
+                @Override
+                public void run() {
+                    mCurrentHeight = 0;
+                    if (mSelectedChannel != null) {
+                        mMainActivity.tuneToChannel(mSelectedChannel);
+                        mTracker.sendChannelNumberItemChosenByTimeout();
+                    } else {
+                        mMainActivity
+                                .getOverlayManager()
+                                .hideOverlays(
+                                        TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_DIALOG
+                                                | TvOverlayManager
+                                                        .FLAG_HIDE_OVERLAYS_KEEP_SIDE_PANELS
+                                                | TvOverlayManager
+                                                        .FLAG_HIDE_OVERLAYS_KEEP_PROGRAM_GUIDE
+                                                | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_MENU
+                                                | TvOverlayManager
+                                                        .FLAG_HIDE_OVERLAYS_KEEP_FRAGMENT);
+                    }
+                }
+            };
     private final long mShowDurationMillis;
     private final long mRippleAnimDurationMillis;
     private final int mBaseViewHeight;
@@ -112,65 +116,71 @@ public class KeypadChannelSwitchView extends LinearLayout implements
         super(context, attrs, defStyleAttr);
 
         mMainActivity = (MainActivity) context;
-        mTracker = TvApplication.getSingletons(context).getTracker();
+        mTracker = TvSingletons.getSingletons(context).getTracker();
         Resources resources = getResources();
         mLayoutInflater = LayoutInflater.from(context);
         mShowDurationMillis = resources.getInteger(R.integer.keypad_channel_switch_show_duration);
-        mRippleAnimDurationMillis = resources.getInteger(
-                R.integer.keypad_channel_switch_ripple_anim_duration);
-        mBaseViewHeight = resources.getDimensionPixelSize(
-                R.dimen.keypad_channel_switch_base_height);
+        mRippleAnimDurationMillis =
+                resources.getInteger(R.integer.keypad_channel_switch_ripple_anim_duration);
+        mBaseViewHeight =
+                resources.getDimensionPixelSize(R.dimen.keypad_channel_switch_base_height);
         mItemHeight = resources.getDimensionPixelSize(R.dimen.keypad_channel_switch_item_height);
         mResizeAnimDuration = resources.getInteger(R.integer.keypad_channel_switch_anim_duration);
-        mResizeInterpolator = AnimationUtils.loadInterpolator(context,
-                android.R.interpolator.linear_out_slow_in);
+        mResizeInterpolator =
+                AnimationUtils.loadInterpolator(context, android.R.interpolator.linear_out_slow_in);
     }
 
     @Override
-    protected void onFinishInflate(){
+    protected void onFinishInflate() {
         super.onFinishInflate();
         mChannelNumberView = (TextView) findViewById(R.id.channel_number);
         mChannelItemListView = (ListView) findViewById(R.id.channel_list);
         mChannelItemListView.setAdapter(mAdapter);
-        mChannelItemListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                if (position >= mAdapter.getCount()) {
-                    // It can happen during closing.
-                    return;
-                }
-                mChannelItemListView.setFocusable(false);
-                final Channel channel = ((Channel) mAdapter.getItem(position));
-                postDelayed(new Runnable() {
+        mChannelItemListView.setOnItemClickListener(
+                new AdapterView.OnItemClickListener() {
                     @Override
-                    public void run() {
-                        mChannelItemListView.setFocusable(true);
-                        mMainActivity.tuneToChannel(channel);
-                        mTracker.sendChannelNumberItemClicked();
+                    public void onItemClick(
+                            AdapterView<?> parent, View view, int position, long id) {
+                        if (position >= mAdapter.getCount()) {
+                            // It can happen during closing.
+                            return;
+                        }
+                        mChannelItemListView.setFocusable(false);
+                        final Channel channel = ((Channel) mAdapter.getItem(position));
+                        postDelayed(
+                                new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        mChannelItemListView.setFocusable(true);
+                                        mMainActivity.tuneToChannel(channel);
+                                        mTracker.sendChannelNumberItemClicked();
+                                    }
+                                },
+                                mRippleAnimDurationMillis);
                     }
-                }, mRippleAnimDurationMillis);
-            }
-        });
-        mChannelItemListView.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (position >= mAdapter.getCount()) {
-                    // It can happen during closing.
-                    mSelectedChannel = null;
-                } else {
-                    mSelectedChannel = (Channel) mAdapter.getItem(position);
-                }
-                if (position != 0 && !mNavigated) {
-                    mNavigated = true;
-                    mTracker.sendChannelInputNavigated();
-                }
-            }
+                });
+        mChannelItemListView.setOnItemSelectedListener(
+                new AdapterView.OnItemSelectedListener() {
+                    @Override
+                    public void onItemSelected(
+                            AdapterView<?> parent, View view, int position, long id) {
+                        if (position >= mAdapter.getCount()) {
+                            // It can happen during closing.
+                            mSelectedChannel = null;
+                        } else {
+                            mSelectedChannel = (Channel) mAdapter.getItem(position);
+                        }
+                        if (position != 0 && !mNavigated) {
+                            mNavigated = true;
+                            mTracker.sendChannelInputNavigated();
+                        }
+                    }
 
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-                mSelectedChannel = null;
-            }
-        });
+                    @Override
+                    public void onNothingSelected(AdapterView<?> parent) {
+                        mSelectedChannel = null;
+                    }
+                });
     }
 
     @Override
@@ -276,8 +286,13 @@ public class KeypadChannelSwitchView extends LinearLayout implements
         for (Channel channel : mChannels) {
             ChannelNumber chNumber = ChannelNumber.parseChannelNumber(channel.getDisplayNumber());
             if (chNumber == null) {
-                Log.i(TAG, "Malformed channel number (name=" + channel.getDisplayName()
-                        + ", number=" + channel.getDisplayNumber() + ")");
+                Log.i(
+                        TAG,
+                        "Malformed channel number (name="
+                                + channel.getDisplayName()
+                                + ", number="
+                                + channel.getDisplayNumber()
+                                + ")");
                 continue;
             }
             if (matchChannelNumber(mTypedChannelNumber, chNumber)) {
@@ -286,7 +301,8 @@ public class KeypadChannelSwitchView extends LinearLayout implements
                 // Even if a user doesn't type '-', we need to match the typed number to not only
                 // the major number but also the minor number. For example, when a user types '111'
                 // without delimiter, it should be matched to '111', '1-11' and '11-1'.
-                if (channel.getDisplayNumber().replaceAll(CHANNEL_DELIMITERS_REGEX, "")
+                if (channel.getDisplayNumber()
+                        .replaceAll(CHANNEL_DELIMITERS_REGEX, "")
                         .startsWith(mTypedChannelNumber.majorNumber)) {
                     secondaryChannelCandidates.add(channel);
                 }
@@ -315,7 +331,7 @@ public class KeypadChannelSwitchView extends LinearLayout implements
             // Do not add the resize animation when the banner has not been shown before.
             mCurrentHeight = targetHeight;
             setViewHeight(this, targetHeight);
-        } else if (mCurrentHeight != targetHeight){
+        } else if (mCurrentHeight != targetHeight) {
             mResizeAnimator = createResizeAnimator(targetHeight);
             mResizeAnimator.start();
         }
@@ -323,21 +339,23 @@ public class KeypadChannelSwitchView extends LinearLayout implements
 
     private Animator createResizeAnimator(int targetHeight) {
         ValueAnimator animator = ValueAnimator.ofInt(mCurrentHeight, targetHeight);
-        animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator animation) {
-                int value = (Integer) animation.getAnimatedValue();
-                setViewHeight(KeypadChannelSwitchView.this, value);
-                mCurrentHeight = value;
-            }
-        });
+        animator.addUpdateListener(
+                new ValueAnimator.AnimatorUpdateListener() {
+                    @Override
+                    public void onAnimationUpdate(ValueAnimator animation) {
+                        int value = (Integer) animation.getAnimatedValue();
+                        setViewHeight(KeypadChannelSwitchView.this, value);
+                        mCurrentHeight = value;
+                    }
+                });
         animator.setDuration(mResizeAnimDuration);
-        animator.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animator) {
-                mResizeAnimator = null;
-            }
-        });
+        animator.addListener(
+                new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animator) {
+                        mResizeAnimator = null;
+                    }
+                });
         animator.setInterpolator(mResizeInterpolator);
         return animator;
     }

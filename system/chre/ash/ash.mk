@@ -6,11 +6,12 @@
 
 # Include paths.
 COMMON_CFLAGS += -Iash/include
+COMMON_CFLAGS += -Iash/include/ash_api
 
-# Hexagon-specific Source Files ################################################
+# SLPI/SMGR-specific Source Files ##############################################
 
-HEXAGON_SRCS += ash/platform/slpi/ash.cc
+SLPI_SMGR_SRCS += ash/platform/slpi/smgr/ash.cc
 
-# x86-specific Source Files ####################################################
+# Simulator-specific Source Files ##############################################
 
-X86_SRCS += ash/platform/linux/ash.cc
+SIM_SRCS += ash/platform/linux/ash.cc

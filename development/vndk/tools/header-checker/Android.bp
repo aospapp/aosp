@@ -24,9 +24,12 @@ cc_defaults {
     cflags: [
         "-Wall",
         "-Werror",
-        "-std=c++11",
         "-DGOOGLE_PROTOBUF_NO_RTTI",
         "-UNDEBUG"
+    ],
+
+    cppflags: [
+        "-std=c++14",
     ],
 
     target: {
@@ -40,8 +43,8 @@ cc_defaults {
     name: "header-checker-lib-defaults",
 
     static_libs: [
-        "libclangTooling",
         "libclangToolingCore",
+        "libclangTooling",
         "libclangFrontendTool",
         "libclangFrontend",
         "libclangDriver",
@@ -115,6 +118,8 @@ cc_library_static {
     },
 
     cflags: [
+        "-Wall",
+        "-Werror",
         "-Wcast-qual",
         "-Wno-long-long",
         "-Wno-unused-parameter",
@@ -134,24 +139,9 @@ cc_binary_host {
     ],
 
     static_libs: [
-        "libheader-checker-proto",
         "libheader-abi-util",
+        "libheader-checker-proto",
     ],
-
-    target: {
-        linux: {
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
-            ],
-        },
-        darwin: {
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
-            ],
-        },
-    },
 }
 
 cc_binary_host {
@@ -169,21 +159,6 @@ cc_binary_host {
     static_libs: [
         "libheader-checker-proto",
     ],
-
-    target: {
-        linux: {
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
-            ],
-        },
-        darwin: {
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
-            ],
-        },
-    },
 }
 
 cc_binary_host {
@@ -201,21 +176,6 @@ cc_binary_host {
     static_libs: [
         "libheader-checker-proto",
     ],
-
-    target: {
-        linux: {
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
-            ],
-        },
-        darwin: {
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
-            ],
-        },
-    },
 }
 
 cc_binary_host {
@@ -233,21 +193,6 @@ cc_binary_host {
     static_libs: [
         "libheader-checker-proto",
     ],
-
-    target: {
-        linux: {
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
-            ],
-        },
-        darwin: {
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
-            ],
-        },
-    },
 }
 
 cc_library_static {
@@ -257,7 +202,6 @@ cc_library_static {
     ],
     host_supported: true,
     export_include_dirs: ["header-abi-util/include"],
-    local_include_dirs: ["header-abi-util/include"],
 
     srcs: [
         "header-abi-util/src/*.cpp"
@@ -269,7 +213,13 @@ cc_library_static {
         "libLLVMMCParser",
         "libLLVMCore",
         "libLLVMSupport",
+        "libheader-checker-proto",
     ],
+
+    shared_libs: [
+        "libprotobuf-cpp-full",
+    ],
+
 
     cflags: [
         "-Wcast-qual",

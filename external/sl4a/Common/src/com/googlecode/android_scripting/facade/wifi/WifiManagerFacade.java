@@ -27,8 +27,6 @@ import android.net.DhcpInfo;
 import android.net.Network;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
-import android.net.wifi.hotspot2.ConfigParser;
-import android.net.wifi.hotspot2.PasspointConfiguration;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiActivityEnergyInfo;
 import android.net.wifi.WifiConfiguration;
@@ -39,18 +37,18 @@ import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
 import android.net.wifi.WpsInfo;
+import android.net.wifi.hotspot2.ConfigParser;
+import android.net.wifi.hotspot2.PasspointConfiguration;
 import android.os.Bundle;
 import android.provider.Settings.Global;
 import android.provider.Settings.SettingNotFoundException;
 import android.util.Base64;
-import java.util.Arrays;
 
 import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.facade.EventFacade;
 import com.googlecode.android_scripting.facade.FacadeManager;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
-import com.googlecode.android_scripting.rpc.RpcDeprecated;
 import com.googlecode.android_scripting.rpc.RpcOptional;
 import com.googlecode.android_scripting.rpc.RpcParameter;
 
@@ -142,6 +140,7 @@ public class WifiManagerFacade extends RpcReceiver {
         mStateChangeFilter = new IntentFilter(WifiManager.NETWORK_STATE_CHANGED_ACTION);
         mStateChangeFilter.addAction(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION);
         mStateChangeFilter.addAction(WifiManager.SUPPLICANT_CONNECTION_CHANGE_ACTION);
+        mStateChangeFilter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
         mStateChangeFilter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY - 1);
 
         mTetherFilter = new IntentFilter(WifiManager.WIFI_AP_STATE_CHANGED_ACTION);
@@ -176,10 +175,15 @@ public class WifiManagerFacade extends RpcReceiver {
         public void onReceive(Context c, Intent intent) {
             String action = intent.getAction();
             if (action.equals(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)) {
-                Bundle mResults = new Bundle();
-                Log.d("Wifi connection scan finished, results available.");
-                mResults.putLong("Timestamp", System.currentTimeMillis() / 1000);
-                mEventFacade.postEvent(mEventType + "ScanResultsAvailable", mResults);
+                if (!intent.getBooleanExtra(WifiManager.EXTRA_RESULTS_UPDATED, false)) {
+                    Log.w("Wifi connection scan failed, ignoring.");
+                    mEventFacade.postEvent(mEventType + "ScanFailure", null);
+                } else {
+                    Bundle mResults = new Bundle();
+                    Log.d("Wifi connection scan finished, results available.");
+                    mResults.putLong("Timestamp", System.currentTimeMillis() / 1000);
+                    mEventFacade.postEvent(mEventType + "ScanResultsAvailable", mResults);
+                }
                 mService.unregisterReceiver(mScanResultsAvailableReceiver);
             }
         }
@@ -218,12 +222,11 @@ public class WifiManagerFacade extends RpcReceiver {
             if (action.equals(WifiManager.NETWORK_STATE_CHANGED_ACTION)) {
                 Log.d("Wifi network state changed.");
                 NetworkInfo nInfo = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
-                WifiInfo wInfo = intent.getParcelableExtra(WifiManager.EXTRA_WIFI_INFO);
                 Log.d("NetworkInfo " + nInfo);
-                Log.d("WifiInfo " + wInfo);
                 // If network info is of type wifi, send wifi events.
                 if (nInfo.getType() == ConnectivityManager.TYPE_WIFI) {
-                    if (wInfo != null && nInfo.getDetailedState().equals(DetailedState.CONNECTED)) {
+                    if (nInfo.getDetailedState().equals(DetailedState.CONNECTED)) {
+                        WifiInfo wInfo = mWifi.getConnectionInfo();
                         String bssid = wInfo.getBSSID();
                         if (bssid != null && !mCachedWifiInfo.equals(wInfo.toString())) {
                             Log.d("WifiNetworkConnected");
@@ -246,6 +249,23 @@ public class WifiManagerFacade extends RpcReceiver {
                 Bundle msg = new Bundle();
                 msg.putBoolean("Connected", mIsConnected);
                 mEventFacade.postEvent("SupplicantConnectionChanged", msg);
+            } else if (action.equals(WifiManager.WIFI_STATE_CHANGED_ACTION)) {
+                int state = intent.getIntExtra(
+                        WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_DISABLED);
+                Log.d("Wifi state changed to " + state);
+                boolean enabled;
+                if (state == WifiManager.WIFI_STATE_DISABLED) {
+                    enabled = false;
+                } else if (state == WifiManager.WIFI_STATE_ENABLED) {
+                    enabled = true;
+                } else {
+                    // we only care about enabled/disabled.
+                    Log.v("Ignoring intermediate wifi state change event...");
+                    return;
+                }
+                Bundle msg = new Bundle();
+                msg.putBoolean("enabled", enabled);
+                mEventFacade.postEvent("WifiStateChanged", msg);
             }
         }
     }
@@ -860,8 +880,14 @@ public class WifiManagerFacade extends RpcReceiver {
         if (ssid != null) {
             config.SSID = ssid.substring(1, ssid.length() - 1);
         }
-        String pwd = config.preSharedKey;                                                                      if (pwd != null) {
+
+        config.allowedKeyManagement.clear();
+        String pwd = config.preSharedKey;
+        if (pwd != null) {
+            config.allowedKeyManagement.set(KeyMgmt.WPA2_PSK);
             config.preSharedKey = pwd.substring(1, pwd.length() - 1);
+        } else {
+            config.allowedKeyManagement.set(KeyMgmt.NONE);
         }
         return config;
     }
@@ -873,24 +899,10 @@ public class WifiManagerFacade extends RpcReceiver {
         return mWifi.setWifiApConfiguration(config);
     }
 
-    @Rpc(description = "Start/stop wifi soft AP.")
-    public Boolean wifiSetApEnabled(
-            @RpcParameter(name = "enable") Boolean enable,
-            @RpcParameter(name = "configJson") JSONObject configJson) throws JSONException {
-        int wifiState = mWifi.getWifiState();
-        if (enable) {
-            WifiConfiguration config = createSoftApWifiConfiguration(configJson);
-            return mWifi.setWifiApEnabled(config, enable);
-        } else {
-            return mWifi.setWifiApEnabled(null, false);
-        }
-    }
-
     @Rpc(description = "Set the country code used by WiFi.")
     public void wifiSetCountryCode(
-            @RpcParameter(name = "country") String country,
-            @RpcParameter(name = "persist") Boolean persist) {
-        mWifi.setCountryCode(country, persist);
+            @RpcParameter(name = "country") String country) {
+        mWifi.setCountryCode(country);
     }
 
     @Rpc(description = "Enable/disable tdls with a mac address.")

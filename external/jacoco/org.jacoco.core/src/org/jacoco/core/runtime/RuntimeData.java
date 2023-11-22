@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -37,10 +37,24 @@ public class RuntimeData {
 	 * Creates a new runtime.
 	 */
 	public RuntimeData() {
-		store = new ExecutionDataStore();
+		// BEGIN android-change
+		this(new ExecutionDataStore());
+		// END android-change
+	}
+
+	// BEGIN android-change
+	/**
+	 * Creates a new runtime, reusing an existing {@link ExecutionDataStore}.
+	 * 
+	 * @param store
+	 *            the store to reuse
+	 */
+	public RuntimeData(ExecutionDataStore store) {
+		this.store = store;
 		sessionId = "<none>";
 		startTimeStamp = System.currentTimeMillis();
 	}
+	// END android-change
 
 	/**
 	 * Sets a session identifier for this runtime. The identifier is used when

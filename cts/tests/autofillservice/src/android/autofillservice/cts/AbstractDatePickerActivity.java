@@ -62,15 +62,15 @@ abstract class AbstractDatePickerActivity extends AbstractAutoFillActivity {
 
         mDatePicker = (DatePicker) findViewById(R.id.date_picker);
 
-        mDatePicker.setOnDateChangedListener((v, y, m, d) -> {
-            updateOutputWithDate(y, m, d);
-        });
+        mDatePicker.setOnDateChangedListener((v, y, m, d) -> updateOutputWithDate(y, m, d));
 
         mOutput = (EditText) findViewById(R.id.output);
         mOk = (Button) findViewById(R.id.ok);
-        mOk.setOnClickListener((v) -> {
-            ok();
-        });
+        mOk.setOnClickListener((v) -> ok());
+    }
+
+    public DatePicker getDatePicker() {
+        return mDatePicker;
     }
 
     private void updateOutputWithDate(int year, int month, int day) {
@@ -116,18 +116,14 @@ abstract class AbstractDatePickerActivity extends AbstractAutoFillActivity {
      * Visits the {@code output} in the UiThread.
      */
     void onOutput(Visitor<EditText> v) {
-        syncRunOnUiThread(() -> {
-            v.visit(mOutput);
-        });
+        syncRunOnUiThread(() -> v.visit(mOutput));
     }
 
     /**
      * Sets the date in the {@link DatePicker}.
      */
     void setDate(int year, int month, int day) {
-        syncRunOnUiThread(() -> {
-            mDatePicker.updateDate(year, month, day);
-        });
+        syncRunOnUiThread(() -> mDatePicker.updateDate(year, month, day));
     }
 
     /**
@@ -135,9 +131,7 @@ abstract class AbstractDatePickerActivity extends AbstractAutoFillActivity {
      */
     void tapOk() throws Exception {
         mOkLatch = new CountDownLatch(1);
-        syncRunOnUiThread(() -> {
-            mOk.performClick();
-        });
+        syncRunOnUiThread(() -> mOk.performClick());
         boolean called = mOkLatch.await(OK_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         assertWithMessage("Timeout (%s ms) waiting for OK action", OK_TIMEOUT_MS)
                 .that(called).isTrue();

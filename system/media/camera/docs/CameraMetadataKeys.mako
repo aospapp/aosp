@@ -52,6 +52,7 @@ ${concatenated_info | javadoc(metadata)}\
   % endif
   % if entry.deprecated:
      * @deprecated
+${entry.deprecation_description | javadoc(metadata)}
   % endif
   % if entry.applied_visibility in ('hidden', 'ndk_public'):
      * @hide

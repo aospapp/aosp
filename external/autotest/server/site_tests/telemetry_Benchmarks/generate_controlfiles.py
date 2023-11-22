@@ -26,15 +26,16 @@ PERF_PER_BUILD_TESTS = (
     'octane',
     'smoothness.top_25_smooth',
     'speedometer',
-    'startup.cold.blank_page',
 )
 
 PERF_DAILY_RUN_TESTS = (
+    'cros_ui_smoothness',
     'dromaeo.domcoreattr',
     'dromaeo.domcoremodify',
     'dromaeo.domcorequery',
     'dromaeo.domcoretraverse',
     'image_decoding.image_decoding_measurement',
+    'memory.desktop',
     'page_cycler_v2.typical_25',
     'robohornet_pro',
     'smoothness.tough_animation_cases',
@@ -47,14 +48,21 @@ PERF_DAILY_RUN_TESTS = (
     'webrtc',
 )
 
+PERF_WEEKLY_RUN_TESTS = (
+    'system_health.memory_desktop',
+)
+
 PERF_NO_SUITE = (
     'page_cycler.typical_25',
 )
 
-ALL_TESTS = PERF_PER_BUILD_TESTS + PERF_DAILY_RUN_TESTS + PERF_NO_SUITE
+ALL_TESTS = (PERF_PER_BUILD_TESTS +
+             PERF_DAILY_RUN_TESTS +
+             PERF_WEEKLY_RUN_TESTS +
+             PERF_NO_SUITE)
 
 CONTROLFILE_TEMPLATE = (
-"""# Copyright 2014 The Chromium OS Authors. All rights reserved.
+"""# Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -93,6 +101,8 @@ def _get_suite(test):
         return 'ATTRIBUTES = \'suite:crosbolt_perf_perbuild\''
     elif test in PERF_DAILY_RUN_TESTS:
         return 'ATTRIBUTES = \'suite:crosbolt_perf_nightly\''
+    elif test in PERF_WEEKLY_RUN_TESTS:
+        return 'ATTRIBUTES = \'suite:crosbolt_perf_weekly\''
     return ''
 
 

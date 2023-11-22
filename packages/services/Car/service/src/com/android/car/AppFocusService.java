@@ -305,11 +305,11 @@ public class AppFocusService extends IAppFocus.Stub implements CarServiceBase,
     }
 
     private void updateFocusOwner(int appType, OwnershipClientInfo owner) {
-        synchronized (this) {
-            mFocusOwners.put(appType, owner);
-        }
-
         CarServiceUtils.runOnMain(() -> {
+            synchronized (this) {
+                mFocusOwners.put(appType, owner);
+            }
+
             for (FocusOwnershipCallback callback : mFocusOwnershipCallbacks) {
                 callback.onFocusAcquired(appType, owner.getUid(), owner.getPid());
             }

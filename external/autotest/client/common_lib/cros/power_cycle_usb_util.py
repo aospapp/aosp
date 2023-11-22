@@ -10,7 +10,6 @@ import logging
 import os
 import time
 
-POWER_CYCLE_WAIT_TIME = 1  # second
 TOKEN_NEW_BUS = '/:  '
 TOKEN_ROOT_DEVICE = '\n    |__ '
 
@@ -39,7 +38,7 @@ PORT_GPIO_DICT = {
 }
 
 
-def power_cycle_usb_gpio(dut, gpio_idx):
+def power_cycle_usb_gpio(dut, gpio_idx, pause=1):
     """
     Power cycle a usb port on dut via its gpio index.
 
@@ -51,12 +50,13 @@ def power_cycle_usb_gpio(dut, gpio_idx):
             autotest.
     @param gpio_idx: The index of the gpio that controls power of the usb port
             we want to reset.
+    @param pause: The waiting time before powering on usb device, unit is second.
 
     """
     if gpio_idx is None:
         return
     export_flag = False
-    if not os.path.exists('/sys/class/gpio/gpio{}'.format(gpio_idx)):
+    if not dut.path_exists('/sys/class/gpio/gpio{}'.format(gpio_idx)):
         export_flag = True
         cmd = 'echo {} > /sys/class/gpio/export'.format(gpio_idx)
         dut.run(cmd)
@@ -64,7 +64,7 @@ def power_cycle_usb_gpio(dut, gpio_idx):
     dut.run(cmd)
     cmd = 'echo 0 > /sys/class/gpio/gpio{}/value'.format(gpio_idx)
     dut.run(cmd)
-    time.sleep(POWER_CYCLE_WAIT_TIME)
+    time.sleep(pause)
     cmd = 'echo 1 > /sys/class/gpio/gpio{}/value'.format(gpio_idx)
     dut.run(cmd)
     if export_flag:
@@ -89,7 +89,6 @@ def power_cycle_usb_vidpid(dut, board, vid, pid):
     @raise KeyError if the target device wasn't found by given VID and PID.
 
     """
-
     bus_idx, port_idx = get_port_number_from_vidpid(dut, vid, pid)
     if port_idx is None:
         raise KeyError('Couldn\'t find target device, {}:{}.'.format(vid, pid))
@@ -129,6 +128,7 @@ def get_port_number_from_vidpid(dut, vid, pid):
     target_port_number = get_port_number(
         lsusb_output, target_bus_idx, target_dev_idx)
     return target_bus_idx, target_port_number
+
 
 def get_bus_dev_id(lsusb_output, vid, pid):
     """
@@ -189,7 +189,6 @@ def get_port_number(lsusb_tree_output, bus, dev):
     """
     lsusb_device_buses = lsusb_tree_output.strip().split(TOKEN_NEW_BUS)
     target_bus_token = 'Bus {:02d}.'.format(bus)
-    logging.info('target bus token {}'.format(target_bus_token))
     for bus_info in lsusb_device_buses:
         if bus_info.find(target_bus_token) != 0:
             continue
@@ -202,3 +201,93 @@ def get_port_number(lsusb_tree_output, bus, dev):
             return target_port_number
     return None
 
+
+def get_all_port_number_from_vidpid(dut, vid, pid):
+    """
+    Get the list of bus number and port number devices are connected to DUT.
+
+    Get the the list of bus number and port number of the usb ports the target
+           perpipharel devices are connected to.
+
+    @param dut: The handle of the device under test.
+    @param vid: Vendor ID of the peripharel device.
+    @param pid: Product ID of the peripharel device.
+
+    @returns the list of target bus number and port number, if device not found,
+            returns empty list.
+
+    """
+    port_number = []
+    cmd = 'lsusb -d {}:{}'.format(vid, pid)
+    lsusb_output = dut.run(cmd, ignore_status=True).stdout
+    (target_bus_idx, target_dev_idx) = get_all_bus_dev_id(lsusb_output, vid, pid)
+    if target_bus_idx is None:
+        return None, None
+    cmd = 'lsusb -t'
+    lsusb_output = dut.run(cmd, ignore_status=True).stdout
+    for bus, dev in zip(target_bus_idx, target_dev_idx):
+        port_number.append(get_port_number(
+            lsusb_output, bus, dev))
+    return (target_bus_idx, port_number)
+
+
+def get_all_bus_dev_id(lsusb_output, vid, pid):
+    """
+    Get the list of bus number and device index devices are connected to DUT.
+
+    Get the bus number and port number of the usb ports the target perpipharel
+            devices are connected to based on the output of command 'lsusb -d VID:PID'.
+
+    @param lsusb_output: output of command 'lsusb -d VID:PID' running on DUT.
+    @param vid: Vendor ID of the peripharel device.
+    @param pid: Product ID of the peripharel device.
+
+    @returns the list of target bus number and device index, if device not found,
+           returns empty list.
+
+    """
+    bus_idx = []
+    device_idx =[]
+    if lsusb_output == '':
+        return None, None
+    lsusb_device_info = lsusb_output.strip().split('\n')
+    for lsusb_device in lsusb_device_info:
+        fields = lsusb_device.split(' ')
+        assert len(fields) >= 6, 'Wrong info format: {}'.format(lsusb_device_info)
+        target_bus_idx = int(fields[1])
+        target_device_idx = int(fields[3][:-1])
+        bus_idx.append(target_bus_idx)
+        device_idx.append( target_device_idx)
+    return (bus_idx, device_idx)
+
+
+def get_target_all_gpio(dut, board, vid, pid):
+    """
+    Get GPIO for all devices with vid, pid connected to on DUT.
+
+    Get gpio of usb port the target perpipharel  devices are
+    connected to based on the output of command 'lsusb -d VID:PID'.
+
+    @param dut: The handle of the device under test.
+    @param board: Board name ('guado', etc.)
+    @param vid: Vendor ID of the peripharel device.
+    @param pid: Product ID of the peripharel device.
+
+    @returns the list of gpio, if no device found return []
+
+    """
+    gpio_list = []
+    (bus_idx, port_idx) = get_all_port_number_from_vidpid(dut, vid, pid)
+    if port_idx is None:
+        raise KeyError('Couldn\'t find target device, {}:{}.'.format(vid, pid))
+
+    for bus, port in zip(bus_idx, port_idx):
+        logging.info('found device bus {} port {}'.format(bus, port))
+        token_bus = 'bus{}'.format(bus)
+        target_gpio_pos = (PORT_NUM_DICT.get(board, {})
+                       .get(token_bus, {}).get(port, ''))
+        target_gpio = (PORT_GPIO_DICT.get(board, {})
+                   .get(token_bus, {}).get(target_gpio_pos, None))
+        logging.info('Target gpio num {}'.format(target_gpio))
+        gpio_list.append(target_gpio)
+    return gpio_list

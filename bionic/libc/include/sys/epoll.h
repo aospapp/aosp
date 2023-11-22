@@ -34,47 +34,11 @@
 #include <signal.h> /* For sigset_t. */
 
 #include <linux/eventpoll.h>
-/* TODO: https://lkml.org/lkml/2017/2/23/416 has a better fix. */
-#undef EPOLLWAKEUP
-#undef EPOLLONESHOT
-#undef EPOLLET
 
 __BEGIN_DECLS
 
-/* TODO: remove once https://lkml.org/lkml/2017/2/23/417 is upstream. */
-#define EPOLLIN          0x00000001
-#define EPOLLPRI         0x00000002
-#define EPOLLOUT         0x00000004
-#define EPOLLERR         0x00000008
-#define EPOLLHUP         0x00000010
-#define EPOLLRDNORM      0x00000040
-#define EPOLLRDBAND      0x00000080
-#define EPOLLWRNORM      0x00000100
-#define EPOLLWRBAND      0x00000200
-#define EPOLLMSG         0x00000400
-#define EPOLLRDHUP       0x00002000
-#define EPOLLWAKEUP      0x20000000
-#define EPOLLONESHOT     0x40000000
-#define EPOLLET          0x80000000
-
-typedef union epoll_data {
-  void* ptr;
-  int fd;
-  uint32_t u32;
-  uint64_t u64;
-} epoll_data_t;
-
-struct epoll_event {
-  uint32_t events;
-  epoll_data_t data;
-}
-#ifdef __x86_64__
-__packed
-#endif
-;
-
-int epoll_create(int);
-int epoll_create1(int) __INTRODUCED_IN(21);
+int epoll_create(int __size);
+int epoll_create1(int __flags) __INTRODUCED_IN(21);
 
 /*
  * Some third-party code uses the existence of EPOLL_CLOEXEC to detect the
@@ -91,10 +55,11 @@ int epoll_create1(int) __INTRODUCED_IN(21);
 #undef EPOLL_CLOEXEC
 #endif
 
-int epoll_ctl(int, int, int, struct epoll_event*);
-int epoll_wait(int, struct epoll_event*, int, int);
-int epoll_pwait(int, struct epoll_event*, int, int, const sigset_t*) __INTRODUCED_IN(21);
+int epoll_ctl(int __epoll_fd, int __op, int __fd, struct epoll_event* __event);
+int epoll_wait(int __epoll_fd, struct epoll_event* __events, int __event_count, int __timeout_ms);
+int epoll_pwait(int __epoll_fd, struct epoll_event* __events, int __event_count, int __timeout_ms, const sigset_t* __mask) __INTRODUCED_IN(21);
+int epoll_pwait64(int __epoll_fd, struct epoll_event* __events, int __event_count, int __timeout_ms, const sigset64_t* __mask) __INTRODUCED_IN(28);
 
 __END_DECLS
 
-#endif  /* _SYS_EPOLL_H_ */
+#endif

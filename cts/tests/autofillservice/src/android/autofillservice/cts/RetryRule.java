@@ -16,7 +16,6 @@
 
 package android.autofillservice.cts;
 
-import android.support.test.uiautomator.StaleObjectException;
 import android.util.Log;
 
 import org.junit.rules.TestRule;
@@ -45,17 +44,32 @@ public class RetryRule implements TestRule {
 
             @Override
             public void evaluate() throws Throwable {
+                final String name = description.getDisplayName();
                 Throwable caught = null;
                 for (int i = 1; i <= mMaxAttempts; i++) {
                     try {
                         base.evaluate();
+                        if (i == 1) {
+                            Log.v(TAG, "Good News, Everyone! " + name + " passed right away");
+                        } else {
+                            Log.d(TAG,
+                                    "Better late than never: " + name + "passed at attempt #" + i);
+                        }
                         return;
-                    } catch (RetryableException | StaleObjectException e) {
+                    } catch (RetryableException e) {
+                        final Timeout timeout = e.getTimeout();
+                        if (timeout != null) {
+                            long before = timeout.ms();
+                            timeout.increase();
+                            Log.d(TAG, "Increased " + timeout.getName() + " from " + before + "ms"
+                                    + " to " + timeout.ms() + "ms");
+                        }
                         caught = e;
-                        Log.w(TAG,
-                                description.getDisplayName() + ": attempt " + i + " failed: " + e);
                     }
+                    Log.w(TAG, "Arrrr! " + name + " failed at attempt " + i + "/" + mMaxAttempts
+                            + ": " + caught);
                 }
+                Log.e(TAG, "D'OH! " + name + ": giving up after " + mMaxAttempts + " attempts");
                 throw caught;
             }
         };

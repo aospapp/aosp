@@ -27,6 +27,12 @@ public class AllTests {
     }
   }
 
+  private static void addOptionalTestSuite(junit.framework.TestSuite suite, String classname) {
+    try {
+      suite.addTestSuite((Class<? extends junit.framework.TestCase>)Class.forName(classname));
+    } catch (ClassNotFoundException e) { }
+  }
+
   public static junit.framework.Test suite() {
     junit.framework.TestSuite suite = new junit.framework.TestSuite();
 
@@ -237,6 +243,9 @@ public class AllTests {
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.VirtualMachine.SuspendTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.VirtualMachine.TopLevelThreadGroupsTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.VirtualMachine.VersionTest.class);
+    addOptionalTestSuite(suite, "org.apache.harmony.jpda.tests.jdwp.DDM.DDMTest");
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.VMDebug.VMDebugTest.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.VMDebug.VMDebugTest002.class);
     return suite;
   }
 }

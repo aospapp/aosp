@@ -29,5 +29,8 @@
         <boolean name="allow_non_emergency_calls_in_ecm_bool" value="false" />
         <string name="carrier_eri_file_name_string">eri_310120.xml</string>
         <boolean name="stk_disable_launch_browser_bool" value="true" />
+        <boolean name="config_telephony_use_own_number_for_voicemail_bool" value="true" />
+        <boolean name="carrier_name_override_bool" value="true" />
+        <string name="carrier_name_string">Sprint</string>
     </carrier_config>
 </carrier_config_list>

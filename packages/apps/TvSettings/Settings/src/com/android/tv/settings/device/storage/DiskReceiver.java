@@ -87,7 +87,6 @@ public class DiskReceiver extends BroadcastReceiver {
             if (!TextUtils.equals(info.getId(), volumeId)) {
                 continue;
             }
-            final String uuid = info.getFsUuid();
             Log.d(TAG, "Scanning volume: " + info);
             if (info.getType() == VolumeInfo.TYPE_PRIVATE
                     && !TextUtils.equals(volumeId, VolumeInfo.ID_PRIVATE_INTERNAL)) {

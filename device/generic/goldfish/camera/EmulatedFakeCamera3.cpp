@@ -37,6 +37,7 @@
 #include <cmath>
 
 #include <vector>
+#include <algorithm>
 
 #if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
 #define ALOGVV ALOGV
@@ -66,8 +67,9 @@ const int32_t EmulatedFakeCamera3::kAvailableFormats[] = {
         HAL_PIXEL_FORMAT_Y16
 };
 
-const uint32_t EmulatedFakeCamera3::kAvailableRawSizes[2] = {
-    640, 480
+const uint32_t EmulatedFakeCamera3::kAvailableRawSizes[4] = {
+    640, 480,
+    1280, 720
     //    mSensorWidth, mSensorHeight
 };
 
@@ -263,10 +265,13 @@ status_t EmulatedFakeCamera3::configureStreams(
             return BAD_VALUE;
         }
 
-        ALOGV("%s: Stream %p (id %zu), type %d, usage 0x%x, format 0x%x",
+        ALOGV("%s: Stream %p (id %zu), type %d, usage 0x%x, format 0x%x "
+              "width %d, height %d",
                 __FUNCTION__, newStream, i, newStream->stream_type,
                 newStream->usage,
-                newStream->format);
+                newStream->format,
+                newStream->width,
+                newStream->height);
 
         if (newStream->stream_type == CAMERA3_STREAM_INPUT ||
             newStream->stream_type == CAMERA3_STREAM_BIDIRECTIONAL) {
@@ -276,6 +281,22 @@ status_t EmulatedFakeCamera3::configureStreams(
                 return BAD_VALUE;
             }
             inputStream = newStream;
+        }
+
+        if (newStream->stream_type != CAMERA3_STREAM_INPUT) {
+            if (newStream->rotation < CAMERA3_STREAM_ROTATION_0 ||
+                newStream->rotation > CAMERA3_STREAM_ROTATION_270) {
+                ALOGE("%s: Unsupported stream rotation 0x%x requested",
+                      __FUNCTION__, newStream->rotation);
+                return BAD_VALUE;
+            }
+        }
+
+        if (newStream->width <= 0 || newStream->width > mSensorWidth ||
+            newStream->height <= 0 || newStream->height > mSensorHeight) {
+            ALOGE("%s: Unsupported stream width 0x%x height 0x%x",
+                  __FUNCTION__, newStream->width, newStream->height);
+            return BAD_VALUE;
         }
 
         bool validFormat = false;
@@ -327,15 +348,29 @@ status_t EmulatedFakeCamera3::configureStreams(
         newStream->max_buffers = kMaxBufferCount;
         switch (newStream->stream_type) {
             case CAMERA3_STREAM_OUTPUT:
-                newStream->usage = GRALLOC_USAGE_HW_CAMERA_WRITE;
+                newStream->usage |= GRALLOC_USAGE_HW_CAMERA_WRITE;
                 break;
             case CAMERA3_STREAM_INPUT:
-                newStream->usage = GRALLOC_USAGE_HW_CAMERA_READ;
+                newStream->usage |= GRALLOC_USAGE_HW_CAMERA_READ;
                 break;
             case CAMERA3_STREAM_BIDIRECTIONAL:
-                newStream->usage = GRALLOC_USAGE_HW_CAMERA_READ |
-                        GRALLOC_USAGE_HW_CAMERA_WRITE;
+                newStream->usage |= (GRALLOC_USAGE_HW_CAMERA_READ |
+                        GRALLOC_USAGE_HW_CAMERA_WRITE);
                 break;
+        }
+        // Set the buffer format, inline with gralloc implementation
+        if (newStream->format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) {
+            if (newStream->usage & GRALLOC_USAGE_HW_CAMERA_WRITE) {
+                if (newStream->usage & GRALLOC_USAGE_HW_TEXTURE) {
+                    newStream->format = HAL_PIXEL_FORMAT_RGBA_8888;
+                }
+                else if (newStream->usage & GRALLOC_USAGE_HW_VIDEO_ENCODER) {
+                    newStream->format = HAL_PIXEL_FORMAT_YCbCr_420_888;
+                }
+                else {
+                    newStream->format = HAL_PIXEL_FORMAT_RGB_888;
+                }
+            }
         }
     }
 
@@ -551,17 +586,17 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
         settings.update(ANDROID_JPEG_QUALITY, &jpegQuality, 1);
 
         static const int32_t thumbnailSize[2] = {
-            640, 480
+            320, 240
         };
         settings.update(ANDROID_JPEG_THUMBNAIL_SIZE, thumbnailSize, 2);
 
         static const uint8_t thumbnailQuality = 80;
         settings.update(ANDROID_JPEG_THUMBNAIL_QUALITY, &thumbnailQuality, 1);
 
-        static const double gpsCoordinates[2] = {
-            0, 0
+        static const double gpsCoordinates[3] = {
+            0, 0, 0
         };
-        settings.update(ANDROID_JPEG_GPS_COORDINATES, gpsCoordinates, 2);
+        settings.update(ANDROID_JPEG_GPS_COORDINATES, gpsCoordinates, 3);
 
         static const uint8_t gpsProcessingMethod[32] = "None";
         settings.update(ANDROID_JPEG_GPS_PROCESSING_METHOD, gpsProcessingMethod, 32);
@@ -622,7 +657,7 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
     settings.update(ANDROID_CONTROL_MODE, &controlMode, 1);
 
     int32_t aeTargetFpsRange[2] = {
-        5, 30
+        15, 30
     };
     if (type == CAMERA3_TEMPLATE_VIDEO_RECORD || type == CAMERA3_TEMPLATE_VIDEO_SNAPSHOT) {
         aeTargetFpsRange[0] = 30;
@@ -715,7 +750,10 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
         static const uint8_t lensShadingMapMode = ANDROID_STATISTICS_LENS_SHADING_MAP_MODE_OFF;
         settings.update(ANDROID_STATISTICS_LENS_SHADING_MAP_MODE, &lensShadingMapMode, 1);
 
-        static const uint8_t aberrationMode = ANDROID_COLOR_CORRECTION_ABERRATION_MODE_FAST;
+        uint8_t aberrationMode = ANDROID_COLOR_CORRECTION_ABERRATION_MODE_FAST;
+        if (type == CAMERA3_TEMPLATE_STILL_CAPTURE) {
+            aberrationMode = ANDROID_COLOR_CORRECTION_ABERRATION_MODE_HIGH_QUALITY;
+        }
         settings.update(ANDROID_COLOR_CORRECTION_ABERRATION_MODE, &aberrationMode, 1);
 
         static const int32_t testPatternMode = ANDROID_SENSOR_TEST_PATTERN_MODE_OFF;
@@ -849,7 +887,6 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
     uint32_t sensitivity;
     bool     needJpeg = false;
     camera_metadata_entry_t entry;
-
     entry = settings.find(ANDROID_SENSOR_EXPOSURE_TIME);
     exposureTime = (entry.count > 0) ? entry.data.i64[0] : Sensor::kExposureTimeRange[0];
     entry = settings.find(ANDROID_SENSOR_FRAME_DURATION);
@@ -876,10 +913,24 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
         destBuf.streamId = kGenericStreamId;
         destBuf.width    = srcBuf.stream->width;
         destBuf.height   = srcBuf.stream->height;
-        // For goldfish, IMPLEMENTATION_DEFINED is always RGBx_8888
-        destBuf.format = (srcBuf.stream->format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) ?
-                HAL_PIXEL_FORMAT_RGBA_8888 :
-                srcBuf.stream->format;
+        // inline with goldfish gralloc
+        if (srcBuf.stream->format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) {
+            if (srcBuf.stream->usage & GRALLOC_USAGE_HW_CAMERA_WRITE) {
+                if (srcBuf.stream->usage & GRALLOC_USAGE_HW_TEXTURE) {
+                    destBuf.format = HAL_PIXEL_FORMAT_RGBA_8888;
+                }
+                else if (srcBuf.stream->usage & GRALLOC_USAGE_HW_VIDEO_ENCODER) {
+                    destBuf.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
+                }
+                else if ((srcBuf.stream->usage & GRALLOC_USAGE_HW_CAMERA_MASK)
+                         == GRALLOC_USAGE_HW_CAMERA_ZSL) {
+                    destBuf.format = HAL_PIXEL_FORMAT_RGB_888;
+                }
+            }
+        }
+        else {
+            destBuf.format = srcBuf.stream->format;
+        }
         destBuf.stride   = srcBuf.stream->width;
         destBuf.dataSpace = srcBuf.stream->data_space;
         destBuf.buffer   = srcBuf.buffer;
@@ -924,6 +975,10 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
             if (res != OK) {
                 ALOGE("%s: Request %d: Buffer %zu: Unable to lock buffer",
                         __FUNCTION__, frameNumber, i);
+            } else {
+                ALOGV("%s, stream format 0x%x width %d height %d buffer 0x%p img 0x%p",
+                  __FUNCTION__, destBuf.format, destBuf.width, destBuf.height,
+                  destBuf.buffer, destBuf.img);
             }
         }
 
@@ -1054,7 +1109,9 @@ status_t EmulatedFakeCamera3::getCameraCapabilities() {
     // Default to FULL_LEVEL plus RAW if nothing is defined
     if (mCapabilities.size() == 0) {
         mCapabilities.add(FULL_LEVEL);
-        mCapabilities.add(RAW);
+        // "RAW" causes several CTS failures: b/68723953, disable it so far.
+        // TODO: add "RAW" back when all failures are resolved.
+        //mCapabilities.add(RAW);
     }
 
     // Add level-based caps
@@ -1139,6 +1196,11 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
                 &Sensor::kSensitivityRange[1], 1);
     }
 
+    static const uint8_t sensorColorFilterArrangement =
+        ANDROID_SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_RGGB;
+    ADD_STATIC_ENTRY(ANDROID_SENSOR_INFO_COLOR_FILTER_ARRANGEMENT,
+            &sensorColorFilterArrangement, 1);
+
     static const float sensorPhysicalSize[2] = {3.20f, 2.40f}; // mm
     ADD_STATIC_ENTRY(ANDROID_SENSOR_INFO_PHYSICAL_SIZE,
             sensorPhysicalSize, 2);
@@ -1156,10 +1218,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     static const uint8_t timestampSource = ANDROID_SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME;
     ADD_STATIC_ENTRY(ANDROID_SENSOR_INFO_TIMESTAMP_SOURCE, &timestampSource, 1);
 
-    if (hasCapability(RAW)) {
-        ADD_STATIC_ENTRY(ANDROID_SENSOR_INFO_COLOR_FILTER_ARRANGEMENT,
-                &Sensor::kColorFilterArrangement, 1);
-
+    if (hasCapability(RAW) || hasCapability(MANUAL_SENSOR)) {
         ADD_STATIC_ENTRY(ANDROID_SENSOR_INFO_WHITE_LEVEL,
                 (int32_t*)&Sensor::kMaxRawValue, 1);
 
@@ -1169,6 +1228,11 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         };
         ADD_STATIC_ENTRY(ANDROID_SENSOR_BLACK_LEVEL_PATTERN,
                 blackLevelPattern, sizeof(blackLevelPattern)/sizeof(int32_t));
+    }
+
+    if (hasCapability(RAW)) {
+        ADD_STATIC_ENTRY(ANDROID_SENSOR_INFO_COLOR_FILTER_ARRANGEMENT,
+                &Sensor::kColorFilterArrangement, 1);
     }
 
     if (hasCapability(BACKWARD_COMPATIBLE)) {
@@ -1181,7 +1245,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     // android.lens
 
-    static const float focalLength = 3.30f; // mm
+    static const float focalLength = 5.0f; // mm
     ADD_STATIC_ENTRY(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS,
             &focalLength, 1);
 
@@ -1272,6 +1336,16 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
     static const uint8_t flashAvailable = 0;
     ADD_STATIC_ENTRY(ANDROID_FLASH_INFO_AVAILABLE, &flashAvailable, 1);
 
+    // android.hotPixel
+
+    if (hasCapability(MANUAL_POST_PROCESSING)) {
+        static const uint8_t availableHotPixelModes[] = {
+            ANDROID_HOT_PIXEL_MODE_FAST, ANDROID_HOT_PIXEL_MODE_HIGH_QUALITY
+        };
+        ADD_STATIC_ENTRY(ANDROID_HOT_PIXEL_AVAILABLE_HOT_PIXEL_MODES,
+                availableHotPixelModes, sizeof(availableHotPixelModes));
+    }
+
     // android.tonemap
 
     if (hasCapability(MANUAL_POST_PROCESSING)) {
@@ -1293,6 +1367,12 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 320, 240, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 320, 240, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
         HAL_PIXEL_FORMAT_BLOB, 320, 240, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 176, 144, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 176, 144, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_BLOB, 176, 144, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_BLOB, 1280, 720, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
     };
 
     // Always need to include 640x480 in basic formats
@@ -1346,6 +1426,12 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 320, 240, Sensor::kFrameDurationRange[0],
         HAL_PIXEL_FORMAT_YCbCr_420_888, 320, 240, Sensor::kFrameDurationRange[0],
         HAL_PIXEL_FORMAT_BLOB, 320, 240, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 176, 144, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 176, 144, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_BLOB, 176, 144, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_BLOB, 1280, 720, Sensor::kFrameDurationRange[0],
     };
 
     // Always need to include 640x480 in basic formats
@@ -1399,6 +1485,12 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 320, 240, 0,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 320, 240, 0,
         HAL_PIXEL_FORMAT_RGBA_8888, 320, 240, 0,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 176, 144, 0,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 176, 144, 0,
+        HAL_PIXEL_FORMAT_RGBA_8888, 176, 144, 0,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720, 0,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, 0,
+        HAL_PIXEL_FORMAT_RGBA_8888, 1280, 720, 0,
     };
 
     // Always need to include 640x480 in basic formats
@@ -1462,6 +1554,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
         static const int32_t jpegThumbnailSizes[] = {
             0, 0,
             160, 120,
+            320, 180,
             320, 240
         };
         ADD_STATIC_ENTRY(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES,
@@ -1546,19 +1639,19 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
                 availableAeModes, sizeof(availableAeModes));
 
         static const camera_metadata_rational exposureCompensationStep = {
-            1, 3
+            0, 3
         };
         ADD_STATIC_ENTRY(ANDROID_CONTROL_AE_COMPENSATION_STEP,
                 &exposureCompensationStep, 1);
 
-        int32_t exposureCompensationRange[] = {-9, 9};
+        int32_t exposureCompensationRange[] = {0, 0};
         ADD_STATIC_ENTRY(ANDROID_CONTROL_AE_COMPENSATION_RANGE,
                 exposureCompensationRange,
                 sizeof(exposureCompensationRange)/sizeof(int32_t));
     }
 
     static const int32_t availableTargetFpsRanges[] = {
-            5, 30, 15, 30, 15, 15, 30, 30
+        15, 30, 30, 30
     };
     ADD_STATIC_ENTRY(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
             availableTargetFpsRanges,
@@ -2276,6 +2369,39 @@ status_t EmulatedFakeCamera3::doFakeAWB(CameraMetadata &settings) {
     return OK;
 }
 
+// Update the 3A Region by calculating the intersection of AE/AF/AWB and CROP
+// regions
+static void update3ARegion(uint32_t tag, CameraMetadata &settings) {
+    if (tag != ANDROID_CONTROL_AE_REGIONS &&
+        tag != ANDROID_CONTROL_AF_REGIONS &&
+        tag != ANDROID_CONTROL_AWB_REGIONS) {
+        return;
+    }
+    camera_metadata_entry_t entry;
+    entry = settings.find(ANDROID_SCALER_CROP_REGION);
+    if (entry.count > 0) {
+        int32_t cropRegion[4];
+        cropRegion[0] =  entry.data.i32[0];
+        cropRegion[1] =  entry.data.i32[1];
+        cropRegion[2] =  entry.data.i32[2] + cropRegion[0];
+        cropRegion[3] =  entry.data.i32[3] + cropRegion[1];
+        entry = settings.find(tag);
+        if (entry.count > 0) {
+            int32_t* ARegion = entry.data.i32;
+            // calculate the intersection of AE/AF/AWB and CROP regions
+            if (ARegion[0] < cropRegion[2] && cropRegion[0] < ARegion[2] &&
+                ARegion[1] < cropRegion[3] && cropRegion[1] < ARegion[3]) {
+                int32_t interSect[5];
+                interSect[0] = std::max(ARegion[0], cropRegion[0]);
+                interSect[1] = std::max(ARegion[1], cropRegion[1]);
+                interSect[2] = std::min(ARegion[2], cropRegion[2]);
+                interSect[3] = std::min(ARegion[3], cropRegion[3]);
+                interSect[4] = ARegion[4];
+                settings.update(tag, &interSect[0], 5);
+            }
+        }
+    }
+}
 
 void EmulatedFakeCamera3::update3A(CameraMetadata &settings) {
     if (mAeMode != ANDROID_CONTROL_AE_MODE_OFF) {
@@ -2308,7 +2434,9 @@ void EmulatedFakeCamera3::update3A(CameraMetadata &settings) {
             break;
     }
     settings.update(ANDROID_LENS_STATE, &lensState, 1);
-
+    update3ARegion(ANDROID_CONTROL_AE_REGIONS, settings);
+    update3ARegion(ANDROID_CONTROL_AF_REGIONS, settings);
+    update3ARegion(ANDROID_CONTROL_AWB_REGIONS, settings);
 }
 
 void EmulatedFakeCamera3::signalReadoutIdle() {
@@ -2453,7 +2581,7 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
             if (goodBuffer) {
                 // Compressor takes ownership of sensorBuffers here
                 res = mParent->mJpegCompressor->start(mCurrentRequest.sensorBuffers,
-                        this);
+                        this, &(mCurrentRequest.settings));
                 goodBuffer = (res == OK);
             }
             if (goodBuffer) {

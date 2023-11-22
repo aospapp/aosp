@@ -16,11 +16,10 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.uidisolation.cts">
+    package="android.uidisolation.cts"
+    android:targetSandboxVersion="2">
 
-    <uses-library android:name="org.apache.http.legacy" android:required="false" />
-
-    <application android:label="UidIsolationTest">
+    <application android:label="UidIsolationTest" android:usesCleartextTraffic="true">
       <activity android:name="android.uidisolation.cts.ServiceRunnerActivity"
                 android:label="UidIsolationTest"/>
       <service android:name="android.uidisolation.cts.PermissionTestService"
@@ -29,6 +28,7 @@
                android:process=":remote"
                android:isolatedProcess="true"/>
       <uses-library android:name="android.test.runner" />
+      <uses-library android:name="org.apache.http.legacy" android:required="false" />
     </application>
 
    <uses-permission android:name="android.permission.INTERNET"/>

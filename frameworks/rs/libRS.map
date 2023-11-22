@@ -105,17 +105,17 @@ libRS {
     rsScriptSetVarVE;
     rsTypeCreate;
     rsTypeCreate2;
-    _Z24rsaFileA3DCreateFromFilePvPKc;
-    _Z25rsaFileA3DCreateFromAssetPvS_;
-    _Z25rsaFileA3DGetEntryByIndexPvjS_;
-    _Z25rsaFileA3DGetIndexEntriesPvP16RsFileIndexEntryjS_;
-    _Z26rsaFileA3DCreateFromMemoryPvPKvj;
-    _Z28rsaFileA3DGetNumIndexEntriesPvPiS_;
-    _Z17rsaMeshGetIndicesPvS_PS_Pjj;
-    _Z18rsaMeshGetVerticesPvS_PS_j;
-    _Z20rsaMeshGetIndexCountPvS_Pi;
-    _Z27rsaMeshGetVertexBufferCountPvS_Pi;
-    _Z17rsContextCreateGLPvjj15RsSurfaceConfigj;
+    rsaFileA3DCreateFromFile;
+    rsaFileA3DCreateFromAsset;
+    rsaFileA3DGetEntryByIndex;
+    rsaFileA3DGetIndexEntries;
+    rsaFileA3DCreateFromMemory;
+    rsaFileA3DGetNumIndexEntries;
+    rsaMeshGetIndices;
+    rsaMeshGetVertices;
+    rsaMeshGetIndexCount;
+    rsaMeshGetVertexBufferCount;
+    rsContextCreateGL;
 
   local:
     *;

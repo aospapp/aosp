@@ -1,7 +1,7 @@
 /** @file
   Pei Core Main Entry Point
   
-Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -208,17 +208,17 @@ PeiCore (
       }
 
       //
-      // Initialize libraries that the PEI Core is linked against
-      //
-      ProcessLibraryConstructorList (NULL, (CONST EFI_PEI_SERVICES **)&OldCoreData->Ps);
-      
-      //
       // Fixup for PeiService's address
       //
       SetPeiServicesTablePointer ((CONST EFI_PEI_SERVICES **)&OldCoreData->Ps);
 
       //
-      // Update HandOffHob for new installed permenent memory
+      // Initialize libraries that the PEI Core is linked against
+      //
+      ProcessLibraryConstructorList (NULL, (CONST EFI_PEI_SERVICES **)&OldCoreData->Ps);
+
+      //
+      // Update HandOffHob for new installed permanent memory
       //
       HandoffInformationTable = OldCoreData->HobList.HandoffInformationTable;
       if (OldCoreData->HeapOffsetPositive) {
@@ -238,7 +238,7 @@ PeiCore (
 
       //
       // After the whole temporary memory is migrated, then we can allocate page in
-      // permenent memory.
+      // permanent memory.
       //
       OldCoreData->PeiMemoryInstalled = TRUE;
 
@@ -275,6 +275,8 @@ PeiCore (
       //
       ASSERT (FALSE);
       CpuDeadLoop();
+
+      UNREACHABLE ();
     }
 
     //
@@ -300,14 +302,14 @@ PeiCore (
   PrivateData.Ps = &PrivateData.ServiceTableShadow;
 
   //
-  // Initialize libraries that the PEI Core is linked against
-  //
-  ProcessLibraryConstructorList (NULL, (CONST EFI_PEI_SERVICES **)&PrivateData.Ps);
-
-  //
   // Save PeiServicePointer so that it can be retrieved anywhere.
   //
   SetPeiServicesTablePointer ((CONST EFI_PEI_SERVICES **)&PrivateData.Ps);
+
+  //
+  // Initialize libraries that the PEI Core is linked against
+  //
+  ProcessLibraryConstructorList (NULL, (CONST EFI_PEI_SERVICES **)&PrivateData.Ps);
 
   //
   // Initialize PEI Core Services
@@ -420,10 +422,12 @@ PeiCore (
   //
   PeiDispatcher (SecCoreData, &PrivateData);
 
-  //
-  // Check if InstallPeiMemory service was called.
-  //
-  ASSERT(PrivateData.PeiMemoryInstalled == TRUE);
+  if (PrivateData.HobList.HandoffInformationTable->BootMode != BOOT_ON_S3_RESUME) {
+    //
+    // Check if InstallPeiMemory service was called on non-S3 resume boot path.
+    //
+    ASSERT(PrivateData.PeiMemoryInstalled == TRUE);
+  }
 
   //
   // Measure PEI Core execution time.
@@ -466,4 +470,6 @@ PeiCore (
   //
   ASSERT_EFI_ERROR (Status);
   CpuDeadLoop();
+
+  UNREACHABLE ();
 }

@@ -54,8 +54,8 @@ __BEGIN_DECLS
  * 2) Both dst_format and src_format are identical and of the list given
  * in (1). This is a straight copy.
  *
- * The destination and source buffers must be completely separate if the destination
- * format size is larger than the source format size. These routines call functions
+ * The destination and source buffers must be completely separate
+ * or point to the same starting buffer address. These routines call functions
  * in primitives.h, so descriptions of detailed behavior can be reviewed there.
  *
  * Logs a fatal error if dst or src format is not allowed by the conversion rules above.

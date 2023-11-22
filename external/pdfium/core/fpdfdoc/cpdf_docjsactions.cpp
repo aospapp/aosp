@@ -10,31 +10,29 @@
 
 CPDF_DocJSActions::CPDF_DocJSActions(CPDF_Document* pDoc) : m_pDocument(pDoc) {}
 
+CPDF_DocJSActions::~CPDF_DocJSActions() {}
+
 int CPDF_DocJSActions::CountJSActions() const {
   ASSERT(m_pDocument);
-  CPDF_NameTree name_tree(m_pDocument, "JavaScript");
+  CPDF_NameTree name_tree(m_pDocument.Get(), "JavaScript");
   return name_tree.GetCount();
 }
 
-CPDF_Action CPDF_DocJSActions::GetJSAction(int index,
-                                           CFX_ByteString& csName) const {
+CPDF_Action CPDF_DocJSActions::GetJSActionAndName(int index,
+                                                  WideString* csName) const {
   ASSERT(m_pDocument);
-  CPDF_NameTree name_tree(m_pDocument, "JavaScript");
-  CPDF_Object* pAction = name_tree.LookupValue(index, csName);
-  return ToDictionary(pAction) ? CPDF_Action(pAction->GetDict())
-                               : CPDF_Action();
+  CPDF_NameTree name_tree(m_pDocument.Get(), "JavaScript");
+  return CPDF_Action(ToDictionary(name_tree.LookupValueAndName(index, csName)));
 }
 
-CPDF_Action CPDF_DocJSActions::GetJSAction(const CFX_ByteString& csName) const {
+CPDF_Action CPDF_DocJSActions::GetJSAction(const WideString& csName) const {
   ASSERT(m_pDocument);
-  CPDF_NameTree name_tree(m_pDocument, "JavaScript");
-  CPDF_Object* pAction = name_tree.LookupValue(csName);
-  return ToDictionary(pAction) ? CPDF_Action(pAction->GetDict())
-                               : CPDF_Action();
+  CPDF_NameTree name_tree(m_pDocument.Get(), "JavaScript");
+  return CPDF_Action(ToDictionary(name_tree.LookupValue(csName)));
 }
 
-int CPDF_DocJSActions::FindJSAction(const CFX_ByteString& csName) const {
+int CPDF_DocJSActions::FindJSAction(const WideString& csName) const {
   ASSERT(m_pDocument);
-  CPDF_NameTree name_tree(m_pDocument, "JavaScript");
+  CPDF_NameTree name_tree(m_pDocument.Get(), "JavaScript");
   return name_tree.GetIndex(csName);
 }

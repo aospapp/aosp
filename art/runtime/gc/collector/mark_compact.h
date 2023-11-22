@@ -20,12 +20,12 @@
 #include <deque>
 #include <memory>  // For unique_ptr.
 
-#include "atomic.h"
+#include "base/atomic.h"
 #include "base/macros.h"
 #include "base/mutex.h"
 #include "garbage_collector.h"
-#include "gc_root.h"
 #include "gc/accounting/heap_bitmap.h"
+#include "gc_root.h"
 #include "immune_spaces.h"
 #include "lock_word.h"
 #include "offsets.h"
@@ -35,8 +35,8 @@ namespace art {
 class Thread;
 
 namespace mirror {
-  class Class;
-  class Object;
+class Class;
+class Object;
 }  // namespace mirror
 
 namespace gc {
@@ -44,14 +44,14 @@ namespace gc {
 class Heap;
 
 namespace accounting {
-  template <typename T> class AtomicStack;
-  typedef AtomicStack<mirror::Object> ObjectStack;
+template <typename T> class AtomicStack;
+typedef AtomicStack<mirror::Object> ObjectStack;
 }  // namespace accounting
 
 namespace space {
-  class BumpPointerSpace;
-  class ContinuousMemMapAllocSpace;
-  class ContinuousSpace;
+class BumpPointerSpace;
+class ContinuousMemMapAllocSpace;
+class ContinuousSpace;
 }  // namespace space
 
 namespace collector {

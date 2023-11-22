@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2016 Broadcom Corporation
+ *  Copyright 2003-2016 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,8 +20,6 @@
 #include "avrc_api.h"
 #include "avrc_int.h"
 #include "bt_common.h"
-
-#if (AVRC_METADATA_INCLUDED == TRUE)
 
 /**************************************************************************
  *
@@ -230,5 +228,3 @@ bool avrc_is_valid_opcode(uint8_t opcode) {
   }
   return is_valid;
 }
-
-#endif /* (AVRC_METADATA_INCLUDED == TRUE) */

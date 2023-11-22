@@ -16,4 +16,7 @@ DATA/lib64/libvts_codecoverage.so->/data/local/tmp/64/libvts_codecoverage.so
 DATA/bin/vts_hal_agent32->/data/local/tmp/32/vts_hal_agent32
 DATA/bin/vts_hal_agent64->/data/local/tmp/64/vts_hal_agent64
 
+DATA/bin/vts_testability_checker32->/data/local/tmp/vts_testability_checker32
+DATA/bin/vts_testability_checker64->/data/local/tmp/vts_testability_checker64
+
 DATA/app/VtsAgentApp/VtsAgentApp.apk->/data/local/tmp/VtsAgentApp.apk

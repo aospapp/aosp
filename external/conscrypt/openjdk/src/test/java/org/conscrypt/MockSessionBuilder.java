@@ -24,7 +24,6 @@ import static org.mockito.Mockito.when;
  */
 final class MockSessionBuilder {
     static final String DEFAULT_CIPHER_SUITE = "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256";
-    static final String DEFAULT_PROTOCOL = TestUtils.PROTOCOL_TLS_V1_2;
     static final int DEFAULT_PORT = 443;
 
     private byte[] id;
@@ -32,16 +31,10 @@ final class MockSessionBuilder {
     private String host;
     private int port = DEFAULT_PORT;
     private String cipherSuite = DEFAULT_CIPHER_SUITE;
-    private String protocol = DEFAULT_PROTOCOL;
     private byte[] encodedBytes = EmptyArray.BYTE;
 
     MockSessionBuilder id(byte[] id) {
         this.id = id;
-        return this;
-    }
-
-    MockSessionBuilder protocol(String protocol) {
-        this.protocol = protocol;
         return this;
     }
 
@@ -70,12 +63,12 @@ final class MockSessionBuilder {
         return this;
     }
 
-    SslSessionWrapper build() {
-        SslSessionWrapper session = mock(SslSessionWrapper.class);
+    NativeSslSession build() {
+        NativeSslSession session = mock(NativeSslSession.class);
         byte[] id = this.id == null ? host.getBytes(UTF_8) : this.id;
         when(session.getId()).thenReturn(id);
         when(session.isValid()).thenReturn(valid);
-        when(session.getProtocol()).thenReturn(protocol);
+        when(session.getProtocol()).thenReturn(TestUtils.getProtocols()[0]);
         when(session.getPeerHost()).thenReturn(host);
         when(session.getPeerPort()).thenReturn(port);
         when(session.getCipherSuite()).thenReturn(cipherSuite);

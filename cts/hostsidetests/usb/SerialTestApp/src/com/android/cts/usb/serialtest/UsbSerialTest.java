@@ -17,17 +17,26 @@
 package com.android.cts.usb.serialtest;
 
 import android.os.Build;
-import android.test.AndroidTestCase;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Device test which reads Build.SERIAL and just print it.
  */
-public class UsbSerialTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class UsbSerialTest {
     private static final String TAG = "CtsUsbSerialTest";
 
-    public void testSerial() throws Exception {
-        Log.e(TAG, Build.SERIAL);
+    @Test
+    public void logSerial() {
+        Log.e(TAG, Build.getSerial());
+    }
+
+    @Test(expected = SecurityException.class)
+    public void verifySerialCannotBeRead() {
+        Build.getSerial();
     }
 }

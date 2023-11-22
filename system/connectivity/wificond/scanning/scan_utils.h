@@ -31,6 +31,7 @@ namespace wifi {
 namespace wificond {
 
 class NativeScanResult;
+class RadioChainInfo;
 
 }  // namespace wificond
 }  // namespace wifi
@@ -71,47 +72,62 @@ class ScanUtils {
       std::vector<::com::android::server::wifi::wificond::NativeScanResult>* out_scan_results);
 
   // Send scan request to kernel for interface with index |interface_index|.
-  // |request_random_mac| is used for asking device/driver to use a random MAC
+  // - |request_random_mac| If true, request device/driver to use a random MAC
+  // address during scan. Requires |supports_random_mac_sched_scan|
   // address during scan.
-  // This flag should only be set if kernel supports this feature as
-  // |supports_random_mac_oneshot_scan| indicates.
-  // |ssids| is a vector of ssids we request to scan, which mostly is used
+  // - |scan_type| Type of scan to perform. One of,
+  // |SCAN_TYPE_LOW_SPAN| (prioritize to reduce latency over other scan
+  // performance attributes),
+  // |SCAN_TYPE_LOW_POWER| (prioritize to reduce power consumption over other
+  // scan performance attributes),
+  // |SCAN_TYPE_HIGH_ACCURACY| (prioritize to increase accuracy over other scan
+  // performance atrributes) OR
+  // |SCAN_TYPE_DEFAULT| (no prioritization).
+  // - |ssids| is a vector of ssids we request to scan, which mostly is used
   // for hidden networks.
   // If |ssids| is an empty vector, it will do a passive scan.
   // If |ssids| contains an empty string, it will a scan for all ssids.
-  // |freqs| is a vector of frequencies we request to scan.
+  // - |freqs| is a vector of frequencies we request to scan.
   // If |freqs| is an empty vector, it will scan all supported frequencies.
-  // |error_code| contains the errno kernel replied when this returns false.
+  // - |error_code| contains the errno kernel replied when this returns false.
   // Returns true on success.
   virtual bool Scan(uint32_t interface_index,
                     bool request_random_mac,
+                    int scan_type,
                     const std::vector<std::vector<uint8_t>>& ssids,
                     const std::vector<uint32_t>& freqs,
                     int* error_code);
 
   // Send scan request to kernel for interface with index |interface_index|.
-  // |inteval_ms| is the expected scan interval in milliseconds.
-  // |rssi_threshold| is the minimum RSSI threshold value as a filter.
-  // |scan_ssids| is a vector of ssids we request to scan, which is mostly
+  // - |inteval_ms| is the expected scan interval in milliseconds.
+  // - |rssi_threshold_2g| is the minimum RSSI threshold value as a filter for
+  // 2GHz band.
+  // - |rssi_threshold_5g| is the minimum RSSI threshold value as a filter for
+  // 5GHz band.
+  // - |scan_ssids| is a vector of ssids we request to scan, which is mostly
   // used for hidden networks.
-  // |request_random_mac| is used for asking device/driver to use a random MAC
-  // address during scan.
-  // This flag should only be set if kernel supports this feature as
-  // |supports_random_mac_sched_scan| indicates.
+  // - |request_random_mac| If true, request device/driver to use a random MAC
+  // address during scan. Requires |supports_random_mac_sched_scan|
+  // - |request_low_power|: If true, prioritize power consumption over
+  // other scan performance attributes.
+  // Requires |supports_low_power_oneshot_scan|.
+  // - |scan_ssids| is the list of ssids to actively scan for.
   // If |scan_ssids| is an empty vector, it will do a passive scan.
   // If |scan_ssids| contains an empty string, it will a scan for all ssids.
-  // |freqs| is a vector of frequencies we request to scan.
-  // |match_ssids| is the list of ssids that we want to add as filters.
+  // - |match_ssids| is the list of ssids that we want to add as filters.
+  // - |freqs| is a vector of frequencies we request to scan.
   // If |freqs| is an empty vector, it will scan all supported frequencies.
+  // - |error_code| contains the errno kernel replied when this returns false.
   // Only BSSs match the |match_ssids| and |rssi_threshold| will be returned as
   // scan results.
-  // |error_code| contains the errno kernel replied when this returns false.
   // Returns true on success.
   virtual bool StartScheduledScan(
       uint32_t interface_index,
       const SchedScanIntervalSetting& interval_setting,
-      int32_t rssi_threshold,
+      int32_t rssi_threshold_2g,
+      int32_t rssi_threshold_5g,
       bool request_random_mac,
+      bool request_low_power,
       const std::vector<std::vector<uint8_t>>& scan_ssids,
       const std::vector<std::vector<uint8_t>>& match_ssids,
       const std::vector<uint32_t>& freqs,
@@ -163,6 +179,10 @@ class ScanUtils {
  private:
   bool GetBssTimestamp(const NL80211NestedAttr& bss,
                        uint64_t* last_seen_since_boot_microseconds);
+  bool ParseRadioChainInfos(
+      const NL80211NestedAttr& bss,
+      std::vector<::com::android::server::wifi::wificond::RadioChainInfo>
+        *radio_chain_infos);
   bool GetSSIDFromInfoElement(const std::vector<uint8_t>& ie,
                               std::vector<uint8_t>* ssid);
   // Converts a NL80211_CMD_NEW_SCAN_RESULTS packet to a ScanResult object.

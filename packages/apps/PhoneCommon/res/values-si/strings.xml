@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"SIM නැත හෝ SIM දෝෂයක්"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"සෙලියුලර් ජාලය නොමැත"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"FDN මඟින් පිටතට යන ඇමතුම් නවත්වා ඇත."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL ඉල්ලීම USSD ඉල්ලීම වෙත විකරණය කරන ලදී."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL ඉල්ලීම SS ඉල්ලීම වෙත විකරණය කරන ලදී."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL ඉල්ලීම වෙනස් අංකයක් සහිත DIAL ඉල්ලීම වෙත විකරණය කරන ලදී."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"ඇමතුම USSD ඉල්ලීමට වෙනස් කරන ලදී"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"ඇමතුම SS ඉල්ලීමට වෙනස් කරන ලදී"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"වෙනස් අංකයට වෙනස් කරන ලදී"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"වීඩියෝ ඇමතුමට වෙනස් කරන ලදී"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"වීඩියෝ ඇමතුම SS ඉල්ලීමට වෙනස් කරන ලදී"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"වීඩියෝ ඇමතුම USSD ඉල්ලීමට වෙනස් කරන ලදී"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"සාමාන්‍ය ඇමතුමට වෙනස් කරන ලදී"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"වෙනස් අංකයට වෙනස් කරන ලදී"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"ඇමතුම් අවහිර කිරීම සක්‍රිය විට පිට යන ඇමතුම් සිදුකළ නොහැක."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"පිවිසීම පාලකයා මගින් ඇමතුම් සීමා කර තිබේ."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"පිවිසීම පාලකයා මගින් හදිස්සි ඇමතුම් සීමා කර තිබේ."</string>

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -34,12 +34,21 @@ public class ExecInfoTest extends CommandTestBase {
 	@Test
 	public void should_print_usage_when_invalid_argument_is_given()
 			throws Exception {
-		execute("execinfo", "-invalid");
+		execute("execinfo", "--invalid");
 
 		assertFailure();
-		assertContains("\"-invalid\" is not a valid option", err);
+		assertContains("\"--invalid\" is not a valid option", err);
 		assertContains("java -jar jacococli.jar execinfo [<execfiles> ...]",
 				err);
+	}
+
+	@Test
+	public void should_print_warning_when_no_exec_files_are_provided()
+			throws Exception {
+		execute("execinfo");
+
+		assertOk();
+		assertContains("[WARN] No execution data files provided.", out);
 	}
 
 	@Test

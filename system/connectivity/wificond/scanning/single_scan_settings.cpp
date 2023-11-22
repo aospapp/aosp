@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
+#include "android/net/wifi/IWifiScannerImpl.h"
 #include "wificond/scanning/single_scan_settings.h"
 
 #include <android-base/logging.h>
 
 #include "wificond/parcelable_utils.h"
 
+using android::net::wifi::IWifiScannerImpl;
 using android::status_t;
 
 namespace com {
@@ -27,8 +29,18 @@ namespace android {
 namespace server {
 namespace wifi {
 namespace wificond {
+bool SingleScanSettings::isValidScanType() const {
+  return (scan_type_ == IWifiScannerImpl::SCAN_TYPE_LOW_SPAN ||
+          scan_type_ == IWifiScannerImpl::SCAN_TYPE_LOW_POWER ||
+          scan_type_ == IWifiScannerImpl::SCAN_TYPE_HIGH_ACCURACY);
+}
 
 status_t SingleScanSettings::writeToParcel(::android::Parcel* parcel) const {
+  if (!isValidScanType()) {
+    LOG(ERROR) << "Unexpected scan type: " << scan_type_;
+    return ::android::BAD_VALUE;
+  }
+  RETURN_IF_FAILED(parcel->writeInt32(scan_type_));
   RETURN_IF_FAILED(parcel->writeInt32(channel_settings_.size()));
   for (const auto& channel : channel_settings_) {
     // For Java readTypedList():
@@ -47,6 +59,11 @@ status_t SingleScanSettings::writeToParcel(::android::Parcel* parcel) const {
 }
 
 status_t SingleScanSettings::readFromParcel(const ::android::Parcel* parcel) {
+  RETURN_IF_FAILED(parcel->readInt32(&scan_type_));
+  if (!isValidScanType()) {
+    LOG(ERROR) << "Unexpected scan type: " << scan_type_;
+    return ::android::BAD_VALUE;
+  }
   int32_t num_channels = 0;
   RETURN_IF_FAILED(parcel->readInt32(&num_channels));
   // Convention used by Java side writeTypedList():

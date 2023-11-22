@@ -31,6 +31,7 @@ import android.telecom.ConnectionService;
 import android.telecom.InCallService;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
+import android.telephony.TelephonyManager;
 
 import java.util.List;
 
@@ -134,6 +135,12 @@ public class ExtendedInCallServiceTest extends BaseTelecomTestWithMockServices {
                 WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
         assertAudioRoute(connection, secondRoute);
         assertAudioRoute(inCallService, secondRoute);
+
+        // Call requestBluetoothAudio on a dummy device. This will be a noop since no devices are
+        // connected.
+        if(TestUtils.HAS_BLUETOOTH) {
+            ((InCallService) inCallService).requestBluetoothAudio(TestUtils.BLUETOOTH_DEVICE1);
+        }
     }
 
     /**
@@ -241,6 +248,55 @@ public class ExtendedInCallServiceTest extends BaseTelecomTestWithMockServices {
 
         assertCallState(call, Call.STATE_ACTIVE);
         assertConnectionState(connection, Connection.STATE_ACTIVE);
+    }
+
+    /**
+     * Verifies that the {@link TelecomManager#endCall()} API is able to end a ringing call.
+     */
+    public void testEndRingingCall() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        addAndVerifyNewIncomingCall(createTestNumber(), null);
+        MockConnection connection = verifyConnectionForIncomingCall(0);
+        final MockInCallService inCallService = mInCallCallbacks.getService();
+        final Call call = inCallService.getLastCall();
+
+        assertCallState(call, Call.STATE_RINGING);
+        assertConnectionState(connection, Connection.STATE_RINGING);
+
+        mTelecomManager.endCall();
+
+        assertCallState(call, Call.STATE_DISCONNECTED);
+        assertConnectionState(connection, Connection.STATE_DISCONNECTED);
+    }
+
+    /**
+     * Verifies that the {@link TelecomManager#endCall()} API is able to end an active call.
+     */
+    public void testEndCall() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        addAndVerifyNewIncomingCall(createTestNumber(), null);
+        MockConnection connection = verifyConnectionForIncomingCall(0);
+        final MockInCallService inCallService = mInCallCallbacks.getService();
+        final Call call = inCallService.getLastCall();
+
+        assertCallState(call, Call.STATE_RINGING);
+        assertConnectionState(connection, Connection.STATE_RINGING);
+
+        mTelecomManager.acceptRingingCall();
+
+        assertCallState(call, Call.STATE_ACTIVE);
+        assertConnectionState(connection, Connection.STATE_ACTIVE);
+
+        mTelecomManager.endCall();
+
+        assertCallState(call, Call.STATE_DISCONNECTED);
+        assertConnectionState(connection, Connection.STATE_DISCONNECTED);
     }
 
 
@@ -572,6 +628,11 @@ public class ExtendedInCallServiceTest extends BaseTelecomTestWithMockServices {
     public void testOnCannedTextResponsesLoaded() {
         if (!mShouldTestTelecom) {
             return;
+        }
+
+        TelephonyManager tm = (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
+        if (tm != null && !tm.isSmsCapable()) {
+            return ;
         }
 
         addAndVerifyNewIncomingCall(createTestNumber(), null);

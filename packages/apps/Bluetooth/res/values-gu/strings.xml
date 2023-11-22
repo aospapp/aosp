@@ -100,13 +100,13 @@
     <string name="status_connection_error" msgid="947681831523219891">"કનેક્શન અસફળ."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"વિનંતી યોગ્ય રીતે હેન્ડલ કરી શકાતી નથી."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"અજાણી ભૂલ."</string>
-    <string name="btopp_live_folder" msgid="7967791481444474554">"બ્લૂટૂથ પ્રાપ્ત"</string>
+    <string name="btopp_live_folder" msgid="7967791481444474554">"બ્લૂટૂથથી મળેલી ફાઇલો"</string>
     <string name="opp_notification_group" msgid="3486303082135789982">"બ્લૂટૂથ શેર"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> પ્રાપ્તિ પૂર્ણ"</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> મોકલવું પૂર્ણ."</string>
     <string name="inbound_history_title" msgid="6940914942271327563">"ઇન્બાઉન્ડ સ્થાનાંતરણો"</string>
     <string name="outbound_history_title" msgid="4279418703178140526">"આઉટબાઉન્ડ સ્થાનાંતરણ"</string>
-    <string name="no_transfers" msgid="3482965619151865672">"સ્થાનાંતરણ ઇતિહાસ ખાલી છે."</string>
+    <string name="no_transfers" msgid="3482965619151865672">"કંઈપણ ટ્રાન્સફર કરવામાં આવ્યું નથી."</string>
     <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"સૂચિમાંથી તમામ આઇટમ્સ સાફ કરવામાં આવશે."</string>
     <string name="outbound_noti_title" msgid="8051906709452260849">"બ્લૂટૂથ શેર: મોકલેલી ફાઇલો"</string>
     <string name="inbound_noti_title" msgid="4143352641953027595">"બ્લૂટૂથ શેર: પ્રાપ્ત ફાઇલો"</string>
@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"બ્લૂટૂથ ઑડિઓ કનેક્ટ થયું"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"બ્લૂટૂથ ઑડિઓ ડિસ્કનેક્ટ થયું"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"બ્લૂટૂથ ઑડિઓ"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4GB કરતા મોટી ફાઇલ ટ્રાન્સફર કરી શકાતી નથી"</string>
 </resources>

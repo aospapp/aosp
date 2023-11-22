@@ -310,21 +310,78 @@ def extract_stats(ad, data, results, key_prefix, log_prefix):
   data_min = min(data)
   data_max = max(data)
   data_mean = statistics.mean(data)
+  data_cdf = extract_cdf(data)
+  data_cdf_decile = extract_cdf_decile(data_cdf)
 
   results['%smin' % key_prefix] = data_min
   results['%smax' % key_prefix] = data_max
   results['%smean' % key_prefix] = data_mean
+  results['%scdf' % key_prefix] = data_cdf
+  results['%scdf_decile' % key_prefix] = data_cdf_decile
   results['%sraw_data' % key_prefix] = data
 
   if num_samples > 1:
     data_stdev = statistics.stdev(data)
     results['%sstdev' % key_prefix] = data_stdev
-    ad.log.info('%s: num_samples=%d, min=%.2f, max=%.2f, mean=%.2f, stdev=%.2f',
-                log_prefix, num_samples, data_min, data_max, data_mean,
-                data_stdev)
+    ad.log.info(
+      '%s: num_samples=%d, min=%.2f, max=%.2f, mean=%.2f, stdev=%.2f, cdf_decile=%s',
+      log_prefix, num_samples, data_min, data_max, data_mean, data_stdev,
+      data_cdf_decile)
   else:
-    ad.log.info('%s: num_samples=%d, min=%.2f, max=%.2f, mean=%.2f', log_prefix,
-                num_samples, data_min, data_max, data_mean)
+    ad.log.info(
+      '%s: num_samples=%d, min=%.2f, max=%.2f, mean=%.2f, cdf_decile=%s',
+      log_prefix, num_samples, data_min, data_max, data_mean, data_cdf_decile)
+
+def extract_cdf_decile(cdf):
+  """Extracts the 10%, 20%, ..., 90% points from the CDF and returns their
+  value (a list of 9 values).
+
+  Since CDF may not (will not) have exact x% value picks the value >= x%.
+
+  Args:
+    cdf: a list of 2 lists, the X and Y of the CDF.
+  """
+  decades = []
+  next_decade = 10
+  for x, y in zip(cdf[0], cdf[1]):
+    while 100*y >= next_decade:
+      decades.append(x)
+      next_decade = next_decade + 10
+    if next_decade == 100:
+      break
+  return decades
+
+def extract_cdf(data):
+  """Calculates the Cumulative Distribution Function (CDF) of the data.
+
+  Args:
+      data: A list containing data (does not have to be sorted).
+
+  Returns: a list of 2 lists: the X and Y axis of the CDF.
+  """
+  x = []
+  cdf = []
+  if not data:
+    return (x, cdf)
+
+  all_values = sorted(data)
+  for val in all_values:
+    if not x:
+      x.append(val)
+      cdf.append(1)
+    else:
+      if x[-1] == val:
+        cdf[-1] += 1
+      else:
+        x.append(val)
+        cdf.append(cdf[-1] + 1)
+
+  scale = 1.0 / len(all_values)
+  for i in range(len(cdf)):
+    cdf[i] = cdf[i] * scale
+
+  return (x, cdf)
+
 
 def get_mac_addr(device, interface):
   """Get the MAC address of the specified interface. Uses ifconfig and parses
@@ -392,74 +449,134 @@ def get_network_specifier(dut, id, dev_type, peer_mac, sec):
   return dut.droid.wifiAwareCreateNetworkSpecifierOob(
       id, dev_type, peer_mac, None, sec)
 
-def configure_dw(device, is_default, is_24_band, value):
-  """Use the command-line API to configure the DW (discovery window) setting
+def configure_power_setting(device, mode, name, value):
+  """Use the command-line API to configure the power setting
 
   Args:
     device: Device on which to perform configuration
-    is_default: True for the default setting, False for the non-interactive
-                setting
-    is_24_band: True for 2.4GHz band, False for 5GHz band
-    value: An integer 0 to 5
+    mode: The power mode being set, should be "default", "inactive", or "idle"
+    name: One of the power settings from 'wifiaware set-power'.
+    value: An integer.
   """
-  variable = 'dw_%s_%sghz' % ('default' if is_default else 'on_inactive', '24'
-                              if is_24_band else '5')
-  device.adb.shell("cmd wifiaware native_api set %s %d" % (variable, value))
+  device.adb.shell(
+    "cmd wifiaware native_api set-power %s %s %d" % (mode, name, value))
 
-def config_dw_high_power(device):
-  """Configure device's discovery window (DW) values to high power mode -
+def configure_mac_random_interval(device, interval_sec):
+  """Use the command-line API to configure the MAC address randomization
+  interval.
+
+  Args:
+    device: Device on which to perform configuration
+    interval_sec: The MAC randomization interval in seconds. A value of 0
+                  disables all randomization.
+  """
+  device.adb.shell(
+    "cmd wifiaware native_api set mac_random_interval_sec %d" % interval_sec)
+
+def configure_ndp_allow_any_override(device, override_api_check):
+  """Use the command-line API to configure whether an NDP Responder may be
+  configured to accept an NDP request from ANY peer.
+
+  By default the target API level of the requesting app determines whether such
+  configuration is permitted. This allows overriding the API check and allowing
+  it.
+
+  Args:
+    device: Device on which to perform configuration.
+    override_api_check: True to allow a Responder to ANY configuration, False to
+                        perform the API level check.
+  """
+  device.adb.shell("cmd wifiaware state_mgr allow_ndp_any %s" % (
+    "true" if override_api_check else "false"))
+
+def config_settings_high_power(device):
+  """Configure device's power settings values to high power mode -
   whether device is in interactive or non-interactive modes"""
-  configure_dw(
-      device, is_default=True, is_24_band=True, value=aconsts.DW_24_INTERACTIVE)
-  configure_dw(
-      device, is_default=True, is_24_band=False, value=aconsts.DW_5_INTERACTIVE)
-  configure_dw(
-      device,
-      is_default=False,
-      is_24_band=True,
-      value=aconsts.DW_24_INTERACTIVE)
-  configure_dw(
-      device,
-      is_default=False,
-      is_24_band=False,
-      value=aconsts.DW_5_INTERACTIVE)
+  configure_power_setting(device, "default", "dw_24ghz",
+                          aconsts.POWER_DW_24_INTERACTIVE)
+  configure_power_setting(device, "default", "dw_5ghz",
+                          aconsts.POWER_DW_5_INTERACTIVE)
+  configure_power_setting(device, "default", "disc_beacon_interval_ms",
+                          aconsts.POWER_DISC_BEACON_INTERVAL_INTERACTIVE)
+  configure_power_setting(device, "default", "num_ss_in_discovery",
+                          aconsts.POWER_NUM_SS_IN_DISC_INTERACTIVE)
+  configure_power_setting(device, "default", "enable_dw_early_term",
+                          aconsts.POWER_ENABLE_DW_EARLY_TERM_INTERACTIVE)
 
-def config_dw_low_power(device):
-  """Configure device's discovery window (DW) values to low power mode - whether
+  configure_power_setting(device, "inactive", "dw_24ghz",
+                          aconsts.POWER_DW_24_INTERACTIVE)
+  configure_power_setting(device, "inactive", "dw_5ghz",
+                          aconsts.POWER_DW_5_INTERACTIVE)
+  configure_power_setting(device, "inactive", "disc_beacon_interval_ms",
+                          aconsts.POWER_DISC_BEACON_INTERVAL_INTERACTIVE)
+  configure_power_setting(device, "inactive", "num_ss_in_discovery",
+                          aconsts.POWER_NUM_SS_IN_DISC_INTERACTIVE)
+  configure_power_setting(device, "inactive", "enable_dw_early_term",
+                          aconsts.POWER_ENABLE_DW_EARLY_TERM_INTERACTIVE)
+
+def config_settings_low_power(device):
+  """Configure device's power settings values to low power mode - whether
   device is in interactive or non-interactive modes"""
-  configure_dw(
-      device,
-      is_default=True,
-      is_24_band=True,
-      value=aconsts.DW_24_NON_INTERACTIVE)
-  configure_dw(
-      device,
-      is_default=True,
-      is_24_band=False,
-      value=aconsts.DW_5_NON_INTERACTIVE)
-  configure_dw(
-      device,
-      is_default=False,
-      is_24_band=True,
-      value=aconsts.DW_24_NON_INTERACTIVE)
-  configure_dw(
-      device,
-      is_default=False,
-      is_24_band=False,
-      value=aconsts.DW_5_NON_INTERACTIVE)
+  configure_power_setting(device, "default", "dw_24ghz",
+                          aconsts.POWER_DW_24_NON_INTERACTIVE)
+  configure_power_setting(device, "default", "dw_5ghz",
+                          aconsts.POWER_DW_5_NON_INTERACTIVE)
+  configure_power_setting(device, "default", "disc_beacon_interval_ms",
+                          aconsts.POWER_DISC_BEACON_INTERVAL_NON_INTERACTIVE)
+  configure_power_setting(device, "default", "num_ss_in_discovery",
+                          aconsts.POWER_NUM_SS_IN_DISC_NON_INTERACTIVE)
+  configure_power_setting(device, "default", "enable_dw_early_term",
+                          aconsts.POWER_ENABLE_DW_EARLY_TERM_NON_INTERACTIVE)
 
-def config_dw_all_modes(device, dw_24ghz, dw_5ghz):
+  configure_power_setting(device, "inactive", "dw_24ghz",
+                          aconsts.POWER_DW_24_NON_INTERACTIVE)
+  configure_power_setting(device, "inactive", "dw_5ghz",
+                          aconsts.POWER_DW_5_NON_INTERACTIVE)
+  configure_power_setting(device, "inactive", "disc_beacon_interval_ms",
+                          aconsts.POWER_DISC_BEACON_INTERVAL_NON_INTERACTIVE)
+  configure_power_setting(device, "inactive", "num_ss_in_discovery",
+                          aconsts.POWER_NUM_SS_IN_DISC_NON_INTERACTIVE)
+  configure_power_setting(device, "inactive", "enable_dw_early_term",
+                          aconsts.POWER_ENABLE_DW_EARLY_TERM_NON_INTERACTIVE)
+
+
+def config_power_settings(device, dw_24ghz, dw_5ghz, disc_beacon_interval=None,
+    num_ss_in_disc=None, enable_dw_early_term=None):
   """Configure device's discovery window (DW) values to the specified values -
   whether the device is in interactive or non-interactive mode.
 
   Args:
     dw_24ghz: DW interval in the 2.4GHz band.
     dw_5ghz: DW interval in the 5GHz band.
+    disc_beacon_interval: The discovery beacon interval (in ms). If None then
+                          not set.
+    num_ss_in_disc: Number of spatial streams to use for discovery. If None then
+                    not set.
+    enable_dw_early_term: If True then enable early termination of the DW. If
+                          None then not set.
   """
-  configure_dw(device, is_default=True, is_24_band=True, value=dw_24ghz)
-  configure_dw(device, is_default=True, is_24_band=False, value=dw_5ghz)
-  configure_dw(device, is_default=False, is_24_band=True, value=dw_24ghz)
-  configure_dw(device, is_default=False, is_24_band=False, value=dw_5ghz)
+  configure_power_setting(device, "default", "dw_24ghz", dw_24ghz)
+  configure_power_setting(device, "default", "dw_5ghz", dw_5ghz)
+  configure_power_setting(device, "inactive", "dw_24ghz", dw_24ghz)
+  configure_power_setting(device, "inactive", "dw_5ghz", dw_5ghz)
+
+  if disc_beacon_interval is not None:
+    configure_power_setting(device, "default", "disc_beacon_interval_ms",
+                            disc_beacon_interval)
+    configure_power_setting(device, "inactive", "disc_beacon_interval_ms",
+                            disc_beacon_interval)
+
+  if num_ss_in_disc is not None:
+    configure_power_setting(device, "default", "num_ss_in_discovery",
+                            num_ss_in_disc)
+    configure_power_setting(device, "inactive", "num_ss_in_discovery",
+                            num_ss_in_disc)
+
+  if enable_dw_early_term is not None:
+    configure_power_setting(device, "default", "enable_dw_early_term",
+                            enable_dw_early_term)
+    configure_power_setting(device, "inactive", "enable_dw_early_term",
+                            enable_dw_early_term)
 
 def create_discovery_config(service_name,
                           d_type,
@@ -494,6 +611,36 @@ def create_discovery_config(service_name,
   config[aconsts.DISCOVERY_KEY_TTL] = ttl
   config[aconsts.DISCOVERY_KEY_TERM_CB_ENABLED] = term_cb_enable
   return config
+
+def add_ranging_to_pub(p_config, enable_ranging):
+  """Add ranging enabled configuration to a publish configuration (only relevant
+  for publish configuration).
+
+  Args:
+    p_config: The Publish discovery configuration.
+    enable_ranging: True to enable ranging, False to disable.
+  Returns:
+    The modified publish configuration.
+  """
+  p_config[aconsts.DISCOVERY_KEY_RANGING_ENABLED] = enable_ranging
+  return p_config
+
+def add_ranging_to_sub(s_config, min_distance_mm, max_distance_mm):
+  """Add ranging distance configuration to a subscribe configuration (only
+  relevant to a subscribe configuration).
+
+  Args:
+    s_config: The Subscribe discovery configuration.
+    min_distance_mm, max_distance_mm: The min and max distance specification.
+                                      Used if not None.
+  Returns:
+    The modified subscribe configuration.
+  """
+  if min_distance_mm is not None:
+    s_config[aconsts.DISCOVERY_KEY_MIN_DISTANCE_MM] = min_distance_mm
+  if max_distance_mm is not None:
+    s_config[aconsts.DISCOVERY_KEY_MAX_DISTANCE_MM] = max_distance_mm
+  return s_config
 
 def attach_with_identity(dut):
   """Start an Aware session (attach) and wait for confirmation and identity

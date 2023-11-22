@@ -16,6 +16,9 @@ BOOT_IMAGE=""
 COMPILE_FLAGS=""
 DALVIKVM="dalvikvm32"
 DEBUGGER="n"
+WITH_AGENT=""
+DEBUGGER_AGENT=""
+WRAP_DEBUGGER_AGENT="n"
 DEV_MODE="n"
 DEX2OAT=""
 EXPERIMENTAL=""
@@ -51,6 +54,7 @@ else
 fi
 USE_GDB="n"
 USE_JVM="n"
+USE_JVMTI="n"
 VERIFY="y" # y=yes,n=no,s=softfail
 ZYGOTE=""
 DEX_VERIFY=""
@@ -60,6 +64,7 @@ ARGS=""
 EXTERNAL_LOG_TAGS="n" # if y respect externally set ANDROID_LOG_TAGS.
 DRY_RUN="n" # if y prepare to run the test but don't run it.
 TEST_VDEX="n"
+TEST_DM="n"
 TEST_IS_NDEBUG="n"
 APP_IMAGE="y"
 JVMTI_STRESS="n"
@@ -70,6 +75,10 @@ JVMTI_REDEFINE_STRESS="n"
 VDEX_FILTER=""
 PROFILE="n"
 RANDOM_PROFILE="n"
+# The normal dex2oat timeout.
+DEX2OAT_TIMEOUT="300" # 5 mins
+# The *hard* timeout where we really start trying to kill the dex2oat.
+DEX2OAT_RT_TIMEOUT="360" # 6 mins
 
 # if "y", set -Xstacktracedir and inform the test of its location. When
 # this is set, stack trace dumps (from signal 3) will be written to a file
@@ -82,12 +91,32 @@ SYNC_BEFORE_RUN="n"
 
 # When running a debug build, we want to run with all checks.
 ANDROID_FLAGS="${ANDROID_FLAGS} -XX:SlowDebug=true"
+# The same for dex2oatd, both prebuild and runtime-driven.
+ANDROID_FLAGS="${ANDROID_FLAGS} -Xcompiler-option --runtime-arg -Xcompiler-option -XX:SlowDebug=true"
+COMPILER_FLAGS="${COMPILER_FLAGS} --runtime-arg -XX:SlowDebug=true"
 
 while true; do
     if [ "x$1" = "x--quiet" ]; then
         QUIET="y"
         shift
+    elif [ "x$1" = "x--dex2oat-rt-timeout" ]; then
+        shift
+        if [ "x$1" = "x" ]; then
+            echo "$0 missing argument to --dex2oat-rt-timeout" 1>&2
+            exit 1
+        fi
+        DEX2OAT_RT_TIMEOUT="$1"
+        shift
+    elif [ "x$1" = "x--dex2oat-timeout" ]; then
+        shift
+        if [ "x$1" = "x" ]; then
+            echo "$0 missing argument to --dex2oat-timeout" 1>&2
+            exit 1
+        fi
+        DEX2OAT_TIMEOUT="$1"
+        shift
     elif [ "x$1" = "x--jvmti" ]; then
+        USE_JVMTI="y"
         IS_JVMTI_TEST="y"
         shift
     elif [ "x$1" = "x-O" ]; then
@@ -144,6 +173,7 @@ while true; do
     elif [ "x$1" = "x--no-dex2oat" ]; then
         DEX2OAT="-Xcompiler:${FALSE_BIN}"
         USE_DEX2OAT_AND_PATCHOAT="n"
+        PREBUILD="n" # Do not use prebuilt odex, either.
         shift
     elif [ "x$1" = "x--no-patchoat" ]; then
         PATCHOAT="-Xpatchoat:${FALSE_BIN}"
@@ -158,21 +188,29 @@ while true; do
     elif [ "x$1" = "x--prebuild" ]; then
         PREBUILD="y"
         shift
+    elif [ "x$1" = "x--compact-dex-level" ]; then
+        shift
+        COMPILE_FLAGS="${COMPILE_FLAGS} --compact-dex-level=$1"
+        shift
     elif [ "x$1" = "x--jvmti-redefine-stress" ]; then
         # APP_IMAGE doesn't really work with jvmti redefine stress
+        USE_JVMTI="y"
         APP_IMAGE="n"
         JVMTI_STRESS="y"
         JVMTI_REDEFINE_STRESS="y"
         shift
     elif [ "x$1" = "x--jvmti-step-stress" ]; then
+        USE_JVMTI="y"
         JVMTI_STRESS="y"
         JVMTI_STEP_STRESS="y"
         shift
     elif [ "x$1" = "x--jvmti-field-stress" ]; then
+        USE_JVMTI="y"
         JVMTI_STRESS="y"
         JVMTI_FIELD_STRESS="y"
         shift
     elif [ "x$1" = "x--jvmti-trace-stress" ]; then
+        USE_JVMTI="y"
         JVMTI_STRESS="y"
         JVMTI_TRACE_STRESS="y"
         shift
@@ -199,6 +237,21 @@ while true; do
         # the dump of the first one).
         FLAGS="${FLAGS} -Xcompiler-option --dump-cfg-append"
         COMPILE_FLAGS="${COMPILE_FLAGS} --dump-cfg-append"
+        shift
+    elif [ "x$1" = "x--with-agent" ]; then
+        shift
+        USE_JVMTI="y"
+        WITH_AGENT="$1"
+        shift
+    elif [ "x$1" = "x--debug-wrap-agent" ]; then
+        WRAP_DEBUGGER_AGENT="y"
+        shift
+    elif [ "x$1" = "x--debug-agent" ]; then
+        shift
+        DEBUGGER="agent"
+        USE_JVMTI="y"
+        DEBUGGER_AGENT="$1"
+        TIME_OUT="n"
         shift
     elif [ "x$1" = "x--debug" ]; then
         DEBUGGER="y"
@@ -294,6 +347,9 @@ while true; do
     elif [ "x$1" = "x--vdex" ]; then
         TEST_VDEX="y"
         shift
+    elif [ "x$1" = "x--dm" ]; then
+        TEST_DM="y"
+        shift
     elif [ "x$1" = "x--vdex-filter" ]; then
         shift
         option="$1"
@@ -384,16 +440,53 @@ if [ "$DEBUGGER" = "y" ]; then
     msg "    adb forward tcp:$PORT tcp:$PORT"
   fi
   msg "    jdb -attach localhost:$PORT"
-  DEBUGGER_OPTS="-agentlib:jdwp=transport=dt_socket,address=$PORT,server=y,suspend=y"
+  if [ "$USE_JVM" = "n" ]; then
+    # TODO We should switch over to using the jvmti agent by default.
+    # Need to tell the runtime to enable the internal jdwp implementation.
+    DEBUGGER_OPTS="-XjdwpOptions:transport=dt_socket,address=$PORT,server=y,suspend=y -XjdwpProvider:internal"
+  else
+    DEBUGGER_OPTS="-agentlib:jdwp=transport=dt_socket,address=$PORT,server=y,suspend=y"
+  fi
+elif [ "$DEBUGGER" = "agent" ]; then
+  PORT=12345
+  # TODO Support ddms connection and support target.
+  if [ "$HOST" = "n" ]; then
+    echo "--debug-agent not supported yet for target!"
+    exit 1
+  fi
+  AGENTPATH=${DEBUGGER_AGENT}
+  if [ "$WRAP_DEBUGGER_AGENT" = "y" ]; then
+    WRAPPROPS="${ANDROID_ROOT}/${LIBRARY_DIRECTORY}/libwrapagentpropertiesd.so"
+    if [ "$TEST_IS_NDEBUG" = "y" ]; then
+      WRAPPROPS="${ANDROID_ROOT}/${LIBRARY_DIRECTORY}/libwrapagentproperties.so"
+    fi
+    AGENTPATH="${WRAPPROPS}=${ANDROID_BUILD_TOP}/art/tools/libjdwp-compat.props,${AGENTPATH}"
+  fi
+  msg "Connect to localhost:$PORT"
+  DEBUGGER_OPTS="-agentpath:${AGENTPATH}=transport=dt_socket,address=$PORT,server=y,suspend=y"
+fi
+
+if [ "x$WITH_AGENT" != "x" ]; then
+  FLAGS="${FLAGS} -agentpath:${WITH_AGENT}"
+fi
+
+if [ "$USE_JVMTI" = "y" ]; then
+  if [ "$USE_JVM" = "n" ]; then
+    plugin=libopenjdkjvmtid.so
+    if  [[ "$TEST_IS_NDEBUG" = "y" ]]; then
+      plugin=libopenjdkjvmti.so
+    fi
+    # We used to add flags here that made the runtime debuggable but that is not
+    # needed anymore since the plugin can do it for us now.
+    FLAGS="${FLAGS} -Xplugin:${plugin}"
+  fi
 fi
 
 if [ "$IS_JVMTI_TEST" = "y" ]; then
-  plugin=libopenjdkjvmtid.so
   agent=libtiagentd.so
   lib=tiagentd
   if  [[ "$TEST_IS_NDEBUG" = "y" ]]; then
     agent=libtiagent.so
-    plugin=libopenjdkjvmti.so
     lib=tiagent
   fi
 
@@ -402,19 +495,13 @@ if [ "$IS_JVMTI_TEST" = "y" ]; then
     FLAGS="${FLAGS} -agentpath:${ANDROID_HOST_OUT}/nativetest64/${agent}=${TEST_NAME},jvm"
   else
     FLAGS="${FLAGS} -agentpath:${agent}=${TEST_NAME},art"
-    FLAGS="${FLAGS} -Xplugin:${plugin}"
-    FLAGS="${FLAGS} -Xcompiler-option --debuggable"
-    # Always make the compilation be debuggable.
-    COMPILE_FLAGS="${COMPILE_FLAGS} --debuggable"
   fi
 fi
 
 if [[ "$JVMTI_STRESS" = "y" ]]; then
-  plugin=libopenjdkjvmtid.so
   agent=libtistressd.so
   if  [[ "$TEST_IS_NDEBUG" = "y" ]]; then
     agent=libtistress.so
-    plugin=libopenjdkjvmti.so
   fi
 
   # Just give it a default start so we can always add ',' to it.
@@ -422,10 +509,7 @@ if [[ "$JVMTI_STRESS" = "y" ]]; then
   if [[ "$JVMTI_REDEFINE_STRESS" = "y" ]]; then
     # We really cannot do this on RI so don't both passing it in that case.
     if [[ "$USE_JVM" = "n" ]]; then
-      file_1=$(mktemp --tmpdir=${DEX_LOCATION})
-      file_2=$(mktemp --tmpdir=${DEX_LOCATION})
-      # TODO Remove need for DEXTER_BINARY!
-      agent_args="${agent_args},redefine,${DEXTER_BINARY},${file_1},${file_2}"
+      agent_args="${agent_args},redefine"
     fi
   fi
   if [[ "$JVMTI_FIELD_STRESS" = "y" ]]; then
@@ -442,17 +526,15 @@ if [[ "$JVMTI_STRESS" = "y" ]]; then
     FLAGS="${FLAGS} -agentpath:${ANDROID_HOST_OUT}/nativetest64/${agent}=${agent_args}"
   else
     FLAGS="${FLAGS} -agentpath:${agent}=${agent_args}"
-    if [ "$IS_JVMTI_TEST" = "n" ]; then
-      FLAGS="${FLAGS} -Xplugin:${plugin}"
-      FLAGS="${FLAGS} -Xcompiler-option --debuggable"
-      # Always make the compilation be debuggable.
-      COMPILE_FLAGS="${COMPILE_FLAGS} --debuggable"
-    fi
   fi
 fi
 
 if [ "$USE_JVM" = "y" ]; then
   export LD_LIBRARY_PATH=${ANDROID_HOST_OUT}/lib64
+  # Some jvmti tests are flaky without -Xint on the RI.
+  if [ "$IS_JVMTI_TEST" = "y" ]; then
+    FLAGS="${FLAGS} -Xint"
+  fi
   # Xmx is necessary since we don't pass down the ART flags to JVM.
   # We pass the classes2 path whether it's used (src-multidex) or not.
   cmdline="${JAVA} ${DEBUGGER_OPTS} ${JVM_VERIFY_ARG} -Xmx256m -classpath classes:classes2 ${FLAGS} $MAIN $@ ${ARGS}"
@@ -479,9 +561,17 @@ if [ "$HAVE_IMAGE" = "n" ]; then
     bpath="${bpath}:${framework}/bouncycastle${bpath_suffix}.jar"
     # Pass down the bootclasspath
     FLAGS="${FLAGS} -Xbootclasspath:${bpath}"
-    # Add 5 minutes to give some time to generate the boot image.
-    TIME_OUT_VALUE=$((${TIME_OUT_VALUE} + 300))
-    DALVIKVM_BOOT_OPT="-Ximage:/system/non-existant/core.art"
+    # Disable image dex2oat - this will forbid the runtime to patch or compile an image.
+    FLAGS="${FLAGS} -Xnoimage-dex2oat"
+
+    # We'll abuse a second flag here to test different behavior. If --relocate, use the
+    # existing image - relocation will fail as patching is disallowed. If --no-relocate,
+    # pass a non-existent image - compilation will fail as dex2oat is disallowed.
+    if [ "${RELOCATE}" = "y" ] ; then
+      DALVIKVM_BOOT_OPT="-Ximage:${BOOT_IMAGE}"
+    else
+      DALVIKVM_BOOT_OPT="-Ximage:/system/non-existent/core.art"
+    fi
 else
     DALVIKVM_BOOT_OPT="-Ximage:${BOOT_IMAGE}"
 fi
@@ -577,7 +667,8 @@ fi
 if [ "$HOST" = "y" ]; then
   max_filename_size=$(getconf NAME_MAX $DEX_LOCATION)
 else
-  # There is no getconf on device, fallback to standard value. See NAME_MAX in kernel <linux/limits.h>
+  # There is no getconf on device, fallback to standard value.
+  # See NAME_MAX in kernel <linux/limits.h>
   max_filename_size=255
 fi
 # Compute VDEX_NAME.
@@ -592,6 +683,7 @@ fi
 profman_cmdline="true"
 dex2oat_cmdline="true"
 vdex_cmdline="true"
+dm_cmdline="true"
 mkdir_locations="${mkdir_locations} ${DEX_LOCATION}/dalvik-cache/$ISA"
 strip_cmdline="true"
 sync_cmdline="true"
@@ -645,15 +737,20 @@ if [ "$PREBUILD" = "y" ]; then
   # Note: as we don't know how decent targets are (e.g., emulator), only do this on the host for
   #       now. We should try to improve this.
   #       The current value is rather arbitrary. run-tests should compile quickly.
+  # Watchdog timeout is in milliseconds so add 3 '0's to the dex2oat timeout.
   if [ "$HOST" != "n" ]; then
     # Use SIGRTMIN+2 to try to dump threads.
     # Use -k 1m to SIGKILL it a minute later if it hasn't ended.
-    dex2oat_cmdline="timeout -k 1m -s SIGRTMIN+2 90s ${dex2oat_cmdline} --watchdog-timeout=60000"
+    dex2oat_cmdline="timeout -k ${DEX2OAT_TIMEOUT}s -s SIGRTMIN+2 ${DEX2OAT_RT_TIMEOUT}s ${dex2oat_cmdline} --watchdog-timeout=${DEX2OAT_TIMEOUT}000"
   fi
   if [ "$PROFILE" = "y" ] || [ "$RANDOM_PROFILE" = "y" ]; then
     vdex_cmdline="${dex2oat_cmdline} ${VDEX_FILTER} --input-vdex=$DEX_LOCATION/oat/$ISA/$TEST_NAME.vdex --output-vdex=$DEX_LOCATION/oat/$ISA/$TEST_NAME.vdex"
   elif [ "$TEST_VDEX" = "y" ]; then
     vdex_cmdline="${dex2oat_cmdline} ${VDEX_FILTER} --input-vdex=$DEX_LOCATION/oat/$ISA/$TEST_NAME.vdex"
+  elif [ "$TEST_DM" = "y" ]; then
+    dex2oat_cmdline="${dex2oat_cmdline} --output-vdex=$DEX_LOCATION/oat/$ISA/primary.vdex"
+    dm_cmdline="zip -qj $DEX_LOCATION/oat/$ISA/$TEST_NAME.dm $DEX_LOCATION/oat/$ISA/primary.vdex"
+    vdex_cmdline="${dex2oat_cmdline} --dump-timings --dm-file=$DEX_LOCATION/oat/$ISA/$TEST_NAME.dm"
   elif [ "$PROFILE" = "y" ] || [ "$RANDOM_PROFILE" = "y" ]; then
     vdex_cmdline="${dex2oat_cmdline} --input-vdex=$DEX_LOCATION/oat/$ISA/$TEST_NAME.vdex --output-vdex=$DEX_LOCATION/oat/$ISA/$TEST_NAME.vdex"
   fi
@@ -695,12 +792,12 @@ dalvikvm_cmdline="$INVOKE_WITH $GDB $ANDROID_ROOT/bin/$DALVIKVM \
                   $DEBUGGER_OPTS \
                   $DALVIKVM_BOOT_OPT \
                   $TMP_DIR_OPTION \
-                  -XX:DumpNativeStackOnSigQuit:false \
                   -cp $DEX_LOCATION/$TEST_NAME.jar$SECONDARY_DEX $MAIN $ARGS"
 
 # Remove whitespace.
 dex2oat_cmdline=$(echo $dex2oat_cmdline)
 dalvikvm_cmdline=$(echo $dalvikvm_cmdline)
+dm_cmdline=$(echo $dm_cmdline)
 vdex_cmdline=$(echo $vdex_cmdline)
 profman_cmdline=$(echo $profman_cmdline)
 
@@ -725,6 +822,10 @@ if [ "$HOST" = "n" ]; then
       if [ "$PROFILE" = "y" ] || [ "$RANDOM_PROFILE" = "y" ]; then
         adb push profile $DEX_LOCATION
       fi
+      # Copy resource folder
+      if [ -d res ]; then
+        adb push res $DEX_LOCATION
+      fi
     else
       adb shell rm -r $DEX_LOCATION >/dev/null 2>&1
       adb shell mkdir -p $DEX_LOCATION >/dev/null 2>&1
@@ -733,7 +834,10 @@ if [ "$HOST" = "n" ]; then
       if [ "$PROFILE" = "y" ] || [ "$RANDOM_PROFILE" = "y" ]; then
         adb push profile $DEX_LOCATION >/dev/null 2>&1
       fi
-
+      # Copy resource folder
+      if [ -d res ]; then
+        adb push res $DEX_LOCATION >/dev/null 2>&1
+      fi
     fi
 
     LD_LIBRARY_PATH=/data/$TEST_DIRECTORY/art/$ISA
@@ -745,7 +849,7 @@ if [ "$HOST" = "n" ]; then
     fi
 
     # System libraries needed by libarttestd.so
-    PUBLIC_LIBS=libart.so:libartd.so:libc++.so:libbacktrace.so:libbase.so:libnativehelper.so
+    PUBLIC_LIBS=libart.so:libartd.so:libc++.so:libbacktrace.so:libdexfile.so:libdexfiled.so:libbase.so:libnativehelper.so
 
     # Create a script with the command. The command can get longer than the longest
     # allowed adb command and there is no way to get the exit status from a adb shell
@@ -763,6 +867,7 @@ if [ "$HOST" = "n" ]; then
              export PATH=$ANDROID_ROOT/bin:$PATH && \
              $profman_cmdline && \
              $dex2oat_cmdline && \
+             $dm_cmdline && \
              $vdex_cmdline && \
              $strip_cmdline && \
              $sync_cmdline && \
@@ -781,11 +886,14 @@ if [ "$HOST" = "n" ]; then
       adb push $cmdfile $DEX_LOCATION/cmdline.sh > /dev/null 2>&1
     fi
 
+    exit_status=0
     if [ "$DRY_RUN" != "y" ]; then
       adb shell sh $DEX_LOCATION/cmdline.sh
+      exit_status=$?
     fi
 
     rm -f $cmdfile
+    exit $exit_status
 else
     # Host run.
     export ANDROID_PRINTF_LOG=brief
@@ -839,7 +947,7 @@ else
     fi
 
     if [ "$DEV_MODE" = "y" ]; then
-      echo "mkdir -p ${mkdir_locations} && $profman_cmdline && $dex2oat_cmdline && $vdex_cmdline && $strip_cmdline && $sync_cmdline && $cmdline"
+      echo "mkdir -p ${mkdir_locations} && $profman_cmdline && $dex2oat_cmdline && $dm_cmdline && $vdex_cmdline && $strip_cmdline && $sync_cmdline && $cmdline"
     fi
 
     cd $ANDROID_BUILD_TOP
@@ -855,6 +963,7 @@ else
     mkdir -p ${mkdir_locations} || exit 1
     $profman_cmdline || { echo "Profman failed." >&2 ; exit 2; }
     $dex2oat_cmdline || { echo "Dex2oat failed." >&2 ; exit 2; }
+    $dm_cmdline || { echo "Dex2oat failed." >&2 ; exit 2; }
     $vdex_cmdline || { echo "Dex2oat failed." >&2 ; exit 2; }
     $strip_cmdline || { echo "Strip failed." >&2 ; exit 3; }
     $sync_cmdline || { echo "Sync failed." >&2 ; exit 4; }
@@ -867,6 +976,10 @@ else
       elif [ "$USE_DEX2OAT_AND_PATCHOAT" = "n" ]; then
           # All tests would log the error of failing dex2oat/patchoat. Be silent here and only
           # log fatal events.
+          export ANDROID_LOG_TAGS='*:s'
+      elif [ "$HAVE_IMAGE" = "n" ]; then
+          # All tests would log the error of missing image. Be silent here and only log fatal
+          # events.
           export ANDROID_LOG_TAGS='*:s'
       else
           # We are interested in LOG(ERROR) output.
@@ -886,10 +999,12 @@ else
         trap 'kill -INT -$pid' INT
         $cmdline "$@" 2>&1 & pid=$!
         wait $pid
+        exit_value=$?
         # Add extra detail if time out is enabled.
-        if [ ${PIPESTATUS[0]} = 124 ] && [ "$TIME_OUT" = "timeout" ]; then
+        if [ $exit_value = 124 ] && [ "$TIME_OUT" = "timeout" ]; then
           echo -e "\e[91mTEST TIMED OUT!\e[0m" >&2
         fi
+        exit $exit_value
       else
         # With a thread dump that uses gdb if a timeout.
         trap 'kill -INT -$pid' INT
@@ -912,6 +1027,7 @@ else
             # The test timed out.
             echo -e "\e[91mTEST TIMED OUT!\e[0m" >&2
           fi
+          exit $test_exit_status
         fi
       fi
     fi

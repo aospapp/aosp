@@ -29,7 +29,7 @@
 
 namespace android {
 
-status_t AST::emitVtsTypeDeclarations(Formatter &out) const {
+void AST::emitVtsTypeDeclarations(Formatter& out) const {
     if (AST::isInterface()) {
         const Interface* iface = mRootScope.getInterface();
         return iface->emitVtsAttributeDeclaration(out);
@@ -42,35 +42,15 @@ status_t AST::emitVtsTypeDeclarations(Formatter &out) const {
         }
         out << "attribute: {\n";
         out.indent();
-        status_t status = type->emitVtsTypeDeclarations(out);
-        if (status != OK) {
-            return status;
-        }
+        type->emitVtsTypeDeclarations(out);
         out.unindent();
         out << "}\n\n";
     }
-
-    return OK;
 }
 
-status_t AST::generateVts(const std::string &outputPath) const {
+void AST::generateVts(Formatter& out) const {
     std::string baseName = AST::getBaseName();
     const Interface *iface = AST::getInterface();
-
-    std::string path = outputPath;
-    path.append(mCoordinator->convertPackageRootToPath(mPackage));
-    path.append(mCoordinator->getPackagePath(mPackage, true /* relative */));
-    path.append(baseName);
-    path.append(".vts");
-
-    CHECK(Coordinator::MakeParentHierarchy(path));
-    FILE *file = fopen(path.c_str(), "w");
-
-    if (file == NULL) {
-        return -errno;
-    }
-
-    Formatter out(file);
 
     out << "component_class: HAL_HIDL\n";
     out << "component_type_version: " << mPackage.version()
@@ -101,28 +81,19 @@ status_t AST::generateVts(const std::string &outputPath) const {
         std::vector<const Interface *> chain = iface->typeChain();
 
         // Generate all the attribute declarations first.
-        status_t status = emitVtsTypeDeclarations(out);
-        if (status != OK) {
-            return status;
-        }
+        emitVtsTypeDeclarations(out);
+
         // Generate all the method declarations.
         for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
             const Interface *superInterface = *it;
-            status_t status = superInterface->emitVtsMethodDeclaration(out);
-            if (status != OK) {
-                return status;
-            }
+            superInterface->emitVtsMethodDeclaration(out);
         }
 
         out.unindent();
         out << "}\n";
     } else {
-        status_t status = emitVtsTypeDeclarations(out);
-        if (status != OK) {
-            return status;
-        }
+        emitVtsTypeDeclarations(out);
     }
-    return OK;
 }
 
 }  // namespace android

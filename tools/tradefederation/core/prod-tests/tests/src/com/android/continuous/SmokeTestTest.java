@@ -17,8 +17,8 @@
 package com.android.continuous;
 
 import com.android.continuous.SmokeTest.TrimListener;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 
 import junit.framework.TestCase;
 
@@ -37,10 +37,12 @@ public class SmokeTestTest extends TestCase {
 
     public void testRewrite() {
         TrimListener trim = new TrimListener(mListener);
-        TestIdentifier in = new TestIdentifier("com.android.smoketest.SmokeTestRunner$3",
-                "com.android.voicedialer.VoiceDialerActivity");
-        TestIdentifier out = new TestIdentifier("SmokeFAST",
-                "com.android.voicedialer.VoiceDialerActivity");
+        TestDescription in =
+                new TestDescription(
+                        "com.android.smoketest.SmokeTestRunner$3",
+                        "com.android.voicedialer.VoiceDialerActivity");
+        TestDescription out =
+                new TestDescription("SmokeFAST", "com.android.voicedialer.VoiceDialerActivity");
         mListener.testStarted(EasyMock.eq(out));
 
         EasyMock.replay(mListener);

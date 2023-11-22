@@ -23,6 +23,7 @@ cc_test {
         "sg_unittests.cpp",
     ],
     host_supported: true,
+    cflags: ["-Wall", "-Werror"],
     shared_libs: [
         "libese",
         "libese-hw-fake",

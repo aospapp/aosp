@@ -38,6 +38,7 @@ cc_library {
     },
 
     srcs: [
+        "ActivityManager.cpp",
         "AppOpsManager.cpp",
         "Binder.cpp",
         "BpBinder.cpp",
@@ -56,11 +57,13 @@ cc_library {
         "IResultReceiver.cpp",
         "IServiceManager.cpp",
         "IShellCallback.cpp",
+        "IUidObserver.cpp",
         "MemoryBase.cpp",
         "MemoryDealer.cpp",
         "MemoryHeapBase.cpp",
         "Parcel.cpp",
         "PermissionCache.cpp",
+        "PermissionController.cpp",
         "PersistableBundle.cpp",
         "ProcessInfoService.cpp",
         "ProcessState.cpp",
@@ -69,8 +72,30 @@ cc_library {
         "TextOutput.cpp",
         "IpPrefix.cpp",
         "Value.cpp",
-        "aidl/android/content/pm/IPackageManagerNative.aidl",
+        ":libbinder_aidl",
     ],
+
+    target: {
+        vendor: {
+            exclude_srcs: [
+                "ActivityManager.cpp",
+                "AppOpsManager.cpp",
+                "IActivityManager.cpp",
+                "IAppOpsCallback.cpp",
+                "IAppOpsService.cpp",
+                "IBatteryStats.cpp",
+                "IMediaResourceMonitor.cpp",
+                "IPermissionController.cpp",
+                "IProcessInfoService.cpp",
+                "IUidObserver.cpp",
+                "PermissionCache.cpp",
+                "PermissionController.cpp",
+                "ProcessInfoService.cpp",
+                "IpPrefix.cpp",
+                ":libbinder_aidl",
+            ],
+        },
+    },
 
     aidl: {
         export_aidl_headers: true,
@@ -92,6 +117,7 @@ cc_library {
         "liblog",
         "libcutils",
         "libutils",
+        "libutilscallstack",
     ],
 
     header_libs: [
@@ -106,6 +132,14 @@ cc_library {
     sanitize: {
         misc_undefined: ["integer"],
     },
+}
+
+// AIDL interface between libbinder and framework.jar
+filegroup {
+    name: "libbinder_aidl",
+    srcs: [
+        "aidl/android/content/pm/IPackageManagerNative.aidl",
+    ],
 }
 
 subdirs = ["tests"]

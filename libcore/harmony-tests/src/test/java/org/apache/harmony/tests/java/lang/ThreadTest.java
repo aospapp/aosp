@@ -172,6 +172,7 @@ public class ThreadTest extends junit.framework.TestCase {
      * java.lang.Thread#Thread(java.lang.ThreadGroup, java.lang.Runnable,
      *java.lang.String)
      */
+    @SuppressWarnings("DeadThread")
     public void test_ConstructorLjava_lang_ThreadGroupLjava_lang_RunnableLjava_lang_String() {
         // Test for method java.lang.Thread(java.lang.ThreadGroup,
         // java.lang.Runnable, java.lang.String)

@@ -111,6 +111,9 @@ class OmahaRequestParams {
     return image_props_.canary_product_id;
   }
   inline std::string system_app_id() const { return image_props_.system_id; }
+  inline void set_system_app_id(const std::string& system_app_id) {
+    image_props_.system_id = system_app_id;
+  }
   inline void set_app_id(const std::string& app_id) {
     image_props_.product_id = app_id;
     image_props_.canary_product_id = app_id;
@@ -126,6 +129,12 @@ class OmahaRequestParams {
   inline std::string app_version() const { return image_props_.version; }
   inline std::string system_version() const {
     return image_props_.system_version;
+  }
+  inline std::string product_components() const {
+    return image_props_.product_components;
+  }
+  inline void set_product_components(const std::string& product_components) {
+    image_props_.product_components = product_components;
   }
 
   inline std::string current_channel() const {
@@ -189,10 +198,6 @@ class OmahaRequestParams {
     return max_update_checks_allowed_;
   }
 
-  // True if we're trying to update to a more stable channel.
-  // i.e. index(target_channel) > index(current_channel).
-  virtual bool to_more_stable_channel() const;
-
   // Returns the app id corresponding to the current value of the
   // download channel.
   virtual std::string GetAppId() const;
@@ -229,9 +234,8 @@ class OmahaRequestParams {
   // or Init is called again.
   virtual void UpdateDownloadChannel();
 
-  virtual bool is_powerwash_allowed() const {
-    return mutable_image_props_.is_powerwash_allowed;
-  }
+  // Returns whether we should powerwash for this update.
+  virtual bool ShouldPowerwash() const;
 
   // Check if the provided update URL is official, meaning either the default
   // autoupdate server or the autoupdate autotest server.
@@ -247,16 +251,29 @@ class OmahaRequestParams {
   }
 
  private:
-  FRIEND_TEST(OmahaRequestParamsTest, IsValidChannelTest);
   FRIEND_TEST(OmahaRequestParamsTest, ChannelIndexTest);
-  FRIEND_TEST(OmahaRequestParamsTest, ToMoreStableChannelFlagTest);
   FRIEND_TEST(OmahaRequestParamsTest, CollectECFWVersionsTest);
+  FRIEND_TEST(OmahaRequestParamsTest, IsValidChannelTest);
+  FRIEND_TEST(OmahaRequestParamsTest, SetIsPowerwashAllowedTest);
+  FRIEND_TEST(OmahaRequestParamsTest, SetTargetChannelInvalidTest);
+  FRIEND_TEST(OmahaRequestParamsTest, SetTargetChannelTest);
+  FRIEND_TEST(OmahaRequestParamsTest, ShouldPowerwashTest);
+  FRIEND_TEST(OmahaRequestParamsTest, ToMoreStableChannelFlagTest);
 
-  // Returns true if |channel| is a valid channel, false otherwise.
-  bool IsValidChannel(const std::string& channel) const;
+  // Returns true if |channel| is a valid channel, otherwise write error to
+  // |error_message| if passed and return false.
+  bool IsValidChannel(const std::string& channel,
+                      std::string* error_message) const;
+  bool IsValidChannel(const std::string& channel) const {
+    return IsValidChannel(channel, nullptr);
+  }
 
   // Returns the index of the given channel.
   int GetChannelIndex(const std::string& channel) const;
+
+  // True if we're trying to update to a more stable channel.
+  // i.e. index(target_channel) > index(current_channel).
+  bool ToMoreStableChannel() const;
 
   // Returns True if we should store the fw/ec versions based on our hwid_.
   // Compares hwid to a set of whitelisted prefixes.

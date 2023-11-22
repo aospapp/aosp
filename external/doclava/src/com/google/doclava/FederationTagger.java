@@ -19,6 +19,8 @@ package com.google.doclava;
 import com.google.doclava.apicheck.ApiParseException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -72,11 +74,11 @@ public final class FederationTagger {
   public void tag(ClassInfo classDoc) {
     initialize();
     for (FederatedSite site : federatedSites) {
-      applyFederation(site, new ClassInfo[] { classDoc });
+      applyFederation(site, Arrays.asList(classDoc));
     }
   }
 
-  public void tagAll(ClassInfo[] classDocs) {
+  public void tagAll(Collection<ClassInfo> classDocs) {
     initialize();
     for (FederatedSite site : federatedSites) {
       applyFederation(site, classDocs);
@@ -124,7 +126,7 @@ public final class FederationTagger {
     initialized = true;
   }
 
-  private void applyFederation(FederatedSite federationSource, ClassInfo[] classDocs) {
+  private void applyFederation(FederatedSite federationSource, Collection<ClassInfo> classDocs) {
     for (ClassInfo classDoc : classDocs) {
       PackageInfo packageSpec
           = federationSource.apiInfo().getPackages().get(classDoc.containingPackage().name());

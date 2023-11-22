@@ -15,12 +15,14 @@
  */
 package android.support.car.navigation;
 
-import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
+import static androidx.annotation.RestrictTo.Scope.GROUP_ID;
 
 import android.os.Bundle;
-import android.support.annotation.IntDef;
-import android.support.annotation.Nullable;
-import android.support.annotation.RestrictTo;
+
+import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
+import androidx.annotation.RestrictTo;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 

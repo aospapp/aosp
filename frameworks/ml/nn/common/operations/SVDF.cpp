@@ -24,19 +24,14 @@ namespace nn {
 
 namespace {
 
-// TODO: Implement this using circular buffer instead.
-// This is here temporarily only to show the logic.
-void svdf_right_shift_state(const float* state_in, int state_len, float shift_value,
-                            float* state_out) {
-  for (int i = 0; i < state_len - 1; i++) {
-    state_out[i] = state_in[i + 1];
-  }
-  state_out[state_len - 1] = shift_value;
+template <typename T>
+inline T *GetBuffer(RunTimeOperandInfo* operand) {
+  return reinterpret_cast<T*>(operand->buffer);
 }
 
-int32_t getInt32ScalarData(RunTimeOperandInfo& info) {
-    int32_t * data = reinterpret_cast<int32_t*>(info.buffer);
-    return data[0];
+template <typename T>
+inline const T *GetBuffer(const RunTimeOperandInfo* operand) {
+  return reinterpret_cast<const T*>(operand->buffer);
 }
 
 }
@@ -49,8 +44,8 @@ SVDF::SVDF(const Operation& operation,
     bias_ = GetInput(operation, operands, kBiasTensor);
     state_in_ = GetInput(operation, operands, kStateInTensor);
 
-    params_.rank_ = getInt32ScalarData(*GetInput(operation, operands, kRankParam));
-    params_.activation_ = static_cast<ActivationFn>(getInt32ScalarData(
+    params_.rank_ = getScalarData<int>(*GetInput(operation, operands, kRankParam));
+    params_.activation_ = static_cast<TfLiteFusedActivation>(getScalarData<int>(
         *GetInput(operation, operands, kActivationParam)));
 
     state_out_ = GetOutput(operation, operands, kStateOutTensor);
@@ -63,6 +58,7 @@ bool SVDF::Prepare(const Operation &operation,
                    Shape *outputShape) {
   // Check we have all the inputs and outputs we need.
   const int num_inputs = NumInputsWithValues(operation, operands);
+
   NN_CHECK(num_inputs == 6 || num_inputs == 7);
   NN_CHECK_EQ(NumOutputs(operation), 2);
 
@@ -75,11 +71,14 @@ bool SVDF::Prepare(const Operation &operation,
 
   // Check all the parameters of tensor match within themselves and match the
   // input configuration.
+  const int rank = getScalarData<int>(*GetInput(operation, operands, kRankParam));
   const uint32_t batch_size = SizeOfDimension(input, 0);
-  const uint32_t num_units = SizeOfDimension(weights_feature, 0);
+  const uint32_t num_filters = SizeOfDimension(weights_feature, 0);
+  NN_CHECK_EQ(num_filters % rank, 0);
+  const uint32_t num_units = num_filters / rank;
   const uint32_t memory_size = SizeOfDimension(weights_time, 1);
   NN_CHECK_EQ(SizeOfDimension(input, 1), SizeOfDimension(weights_feature, 1));
-  NN_CHECK_EQ(SizeOfDimension(weights_time, 0), num_units);
+  NN_CHECK_EQ(SizeOfDimension(weights_time, 0), num_filters);
 
   const RunTimeOperandInfo *bias =
       GetInput(operation, operands, kBiasTensor);
@@ -90,7 +89,7 @@ bool SVDF::Prepare(const Operation &operation,
   // Resize state.
   const Shape &inputShape = input->shape();
   stateShape->type = inputShape.type;
-  stateShape->dimensions = { batch_size, memory_size * num_units };
+  stateShape->dimensions = { batch_size, memory_size * num_filters };
   stateShape->offset = inputShape.offset;
   stateShape->scale = inputShape.scale;
 
@@ -104,62 +103,80 @@ bool SVDF::Prepare(const Operation &operation,
 }
 
 bool SVDF::Eval() {
-    const int batch_size = input_->shape().dimensions[0];
-    const int input_size = input_->shape().dimensions[1];
-    const int num_units = weights_feature_->shape().dimensions[0];
-    const int memory_size = weights_time_->shape().dimensions[1];
-    const int weights_feature_stride = weights_feature_->shape().dimensions[1];
-    const int weights_time_stride = weights_time_->shape().dimensions[1];
+    const int rank = params_.rank_;
+    const int batch_size = SizeOfDimension(input_, 0);
+    const int input_size = SizeOfDimension(input_, 1);
+    const int num_filters = SizeOfDimension(weights_feature_, 0);
+    const int num_units = num_filters / rank;
+    const int memory_size = SizeOfDimension(weights_time_, 1);
 
-    // Initialize weights_feature and weights_time pointers.
-    const float* weights_feature_ptr = reinterpret_cast<float *>(weights_feature_->buffer);
-    const float* weights_time_ptr = reinterpret_cast<float *>(weights_time_->buffer);
-
-    // For each batch
+    memcpy(GetBuffer<float>(state_out_), GetBuffer<float>(state_in_),
+           sizeof(float) * batch_size * memory_size * num_filters);
+    // Compute conv1d(inputs, weights_feature).
     for (int b = 0; b < batch_size; b++) {
-        // Initialize the pointer to input, output and bias.
-        const float* input_ptr_batch = reinterpret_cast<float *>(input_->buffer) + b * input_size;
-        float* output_ptr_batch = reinterpret_cast<float*>(output_->buffer) + b * num_units;
-        const float* state_in_ptr_batch = reinterpret_cast<const float*>(state_in_->buffer) + b * (memory_size - 1) * num_units;
-        float* state_out_ptr_batch = reinterpret_cast<float*>(state_out_->buffer) + b * (memory_size - 1) * num_units;
-
-        // For each unit
-        for (int c = 0; c < num_units; c++) {
-            float activation = 0.0;
-
-            // tf.nn.conv1d(inputs, weights_feature, feature_dim, "VALID")
-            for (int j = 0; j < input_size; j++) {
-                activation += input_ptr_batch[j] * weights_feature_ptr[j];
-            }
-
-            // Initialize state pointer for unit 'c'.
-            const float* state_in_ptr = state_in_ptr_batch + c * (memory_size - 1);
-            float* state_out_ptr = state_out_ptr_batch + c * (memory_size - 1);
-
-            // Apply bias if bias tensor exists.
-            output_ptr_batch[c] = bias_->buffer ? reinterpret_cast<float *>(bias_->buffer)[c] : 0.f;
-
-            // output = tf.matmul(state, weights_time)
-            output_ptr_batch[c] += weights_time_ptr[memory_size - 1] * activation;
-            for (int j = 0; j < memory_size - 1; j++) {
-                output_ptr_batch[c] += weights_time_ptr[j] * state_in_ptr[j];
-            }
-
-            // Apply activation.
-            output_ptr_batch[c] =
-                    (ActivationFunctor(params_.activation_))(output_ptr_batch[c]);
-
-            // Right shift the state and concatenate with activation.
-            svdf_right_shift_state(state_in_ptr, memory_size - 1, activation,
-                                   state_out_ptr);
-
-            // Update weight pointers.
-            weights_feature_ptr += weights_feature_stride;
-            weights_time_ptr += weights_time_stride;
+        float* state_ptr_batch = GetBuffer<float>(state_out_) + b * memory_size * num_filters;
+        for (int c = 0; c < num_filters; c++) {
+            float* state_ptr = state_ptr_batch + c * memory_size;
+            state_ptr[memory_size - 1] = 0.0;
         }
-        // Reset weight pointers for next batch.
-        weights_feature_ptr = reinterpret_cast<float*>(weights_feature_->buffer);
-        weights_time_ptr = reinterpret_cast<float*>(weights_time_->buffer);
+    }
+    // The state left most column is used to save current cycle activation. This
+    // is achieved by starting at state->data.f[memory_size - 1] and having the
+    // stride equal to memory_size.
+    tflite::tensor_utils::MatrixBatchVectorMultiplyAccumulate(
+        GetBuffer<float>(weights_feature_), num_filters, input_size,
+        GetBuffer<float>(input_),  batch_size,
+        &GetBuffer<float>(state_out_)[memory_size - 1], memory_size);
+
+    // Compute matmul(state, weights_time).
+    // The right most column is used to save temporary output (with the size of
+    // num_filters). This is achieved by starting at state->data.f and having the
+    // stride equal to memory_size.
+    float scratch[batch_size * num_filters];
+    for (int b = 0; b < batch_size; b++) {
+        float* state_out_ptr_batch =
+            GetBuffer<float>(state_out_) + b * memory_size * num_filters;
+        float* scratch_ptr_batch = scratch + b * num_filters;
+        tflite::tensor_utils::BatchVectorBatchVectorDotProduct(
+            GetBuffer<float>(weights_time_), state_out_ptr_batch, memory_size, num_filters,
+            scratch_ptr_batch, /*result_stride=*/1);
+    }
+
+    // Initialize output with bias if provided.
+    if (!IsNullInput(bias_)) {
+        tflite::tensor_utils::VectorBatchVectorAssign(
+            GetBuffer<float>(bias_), num_units, batch_size,
+            GetBuffer<float>(output_));
+    } else {
+        tflite::tensor_utils::ZeroVector(
+            GetBuffer<float>(output_), batch_size * num_units);
+    }
+
+    // Reduction sum
+    for (int b = 0; b < batch_size; b++) {
+        float* output_ptr_batch = GetBuffer<float>(output_) + b * num_units;
+        float* scratch_ptr_batch = scratch + b * num_filters;
+        tflite::tensor_utils::ReductionSumVector(
+            scratch_ptr_batch, output_ptr_batch, num_units, rank);
+    }
+
+    // Apply activation.
+    for (int b = 0; b < batch_size; b++) {
+        float* output_ptr_batch = GetBuffer<float>(output_) + b * num_units;
+        tflite::tensor_utils::ApplyActivationToVector(
+            output_ptr_batch, num_units,
+            params_.activation_, output_ptr_batch);
+    }
+
+    // Right shift the state.
+    for (int b = 0; b < batch_size; b++) {
+        float* state_out_ptr_batch =
+            GetBuffer<float>(state_out_) + b * memory_size * num_filters;
+        for (int f = 0; f < num_filters; f++) {
+            tflite::tensor_utils::VectorShiftLeft(state_out_ptr_batch, memory_size,
+                                          /*shift_value=*/0.0);
+            state_out_ptr_batch += memory_size;
+        }
     }
     return true;
 }

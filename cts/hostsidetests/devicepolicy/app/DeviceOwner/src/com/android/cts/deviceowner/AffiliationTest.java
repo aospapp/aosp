@@ -46,7 +46,7 @@ public class AffiliationTest {
         Context context = InstrumentationRegistry.getContext();
         mDevicePolicyManager = (DevicePolicyManager)
                 context.getSystemService(Context.DEVICE_POLICY_SERVICE);
-        mAdminComponent = BaseDeviceOwnerTest.BasicAdminReceiver.getComponentName(context);
+        mAdminComponent = BasicAdminReceiver.getComponentName(context);
     }
 
     @Test

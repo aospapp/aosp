@@ -18,10 +18,13 @@ package android.car.hardware;
 
 import static java.lang.Integer.toHexString;
 
+import android.annotation.IntDef;
 import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.nio.charset.Charset;
 
 /**
@@ -34,20 +37,41 @@ import java.nio.charset.Charset;
  */
 @SystemApi
 public class CarPropertyValue<T> implements Parcelable {
-
     private final static Charset DEFAULT_CHARSET = Charset.forName("UTF-8");
 
     private final int mPropertyId;
     private final int mAreaId;
+    private final int mStatus;
+    private final long mTimestamp;
     private final T mValue;
 
-    public CarPropertyValue(int propertyId, T value) {
-        this(propertyId, 0, value);
-    }
+    /** @hide */
+    @IntDef({
+        STATUS_AVAILABLE,
+        STATUS_UNAVAILABLE,
+        STATUS_ERROR
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface PropertyStatus {}
+
+    /** @hide */
+    public static final int STATUS_AVAILABLE = 0;
+
+    /** @hide */
+    public static final int STATUS_UNAVAILABLE = 1;
+
+    /** @hide */
+    public static final int STATUS_ERROR = 2;
 
     public CarPropertyValue(int propertyId, int areaId, T value) {
+        this(propertyId, areaId, 0, 0, value);
+    }
+
+    public CarPropertyValue(int propertyId, int areaId, int status, long timestamp, T value) {
         mPropertyId = propertyId;
         mAreaId = areaId;
+        mStatus = status;
+        mTimestamp = timestamp;
         mValue = value;
     }
 
@@ -55,6 +79,8 @@ public class CarPropertyValue<T> implements Parcelable {
     public CarPropertyValue(Parcel in) {
         mPropertyId = in.readInt();
         mAreaId = in.readInt();
+        mStatus = in.readInt();
+        mTimestamp = in.readLong();
         String valueClassName = in.readString();
         Class<?> valueClass;
         try {
@@ -94,6 +120,8 @@ public class CarPropertyValue<T> implements Parcelable {
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeInt(mPropertyId);
         dest.writeInt(mAreaId);
+        dest.writeInt(mStatus);
+        dest.writeLong(mTimestamp);
 
         Class<?> valueClass = mValue == null ? null : mValue.getClass();
         dest.writeString(valueClass == null ? null : valueClass.getName());
@@ -116,6 +144,14 @@ public class CarPropertyValue<T> implements Parcelable {
         return mAreaId;
     }
 
+    public @PropertyStatus int getStatus() {
+        return mStatus;
+    }
+
+    public long getTimestamp() {
+        return mTimestamp;
+    }
+
     public T getValue() {
         return mValue;
     }
@@ -125,6 +161,8 @@ public class CarPropertyValue<T> implements Parcelable {
         return "CarPropertyValue{" +
                 "mPropertyId=0x" + toHexString(mPropertyId) +
                 ", mAreaId=0x" + toHexString(mAreaId) +
+                ", mStatus=" + mStatus +
+                ", mTimestamp=" + mTimestamp +
                 ", mValue=" + mValue +
                 '}';
     }

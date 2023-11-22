@@ -9,7 +9,6 @@
 #include "base/files/file_path.h"
 #include "base/macros.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/test/scoped_locale.h"
 #include "build/build_config.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/platform_test.h"
@@ -1307,7 +1306,7 @@ TEST_F(FilePathTest, GetHFSDecomposedFormWithInvalidInput) {
     FPL("\xf0\x28\x8c\xbc"),
     FPL("\xf0\x28\x8c\x28"),
   };
-  for (const auto& invalid_input : cases) {
+  for (auto* invalid_input : cases) {
     FilePath::StringType observed = FilePath::GetHFSDecomposedForm(
         invalid_input);
     EXPECT_TRUE(observed.empty());

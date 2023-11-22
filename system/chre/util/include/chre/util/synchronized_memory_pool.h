@@ -51,6 +51,11 @@ class SynchronizedMemoryPool : public NonCopyable {
    */
   void deallocate(ElementType *element);
 
+  /**
+   * @return the number of unused blocks in this memory pool.
+   */
+  size_t getFreeBlockCount();
+
  private:
   //! The mutex used to guard access to this memory pool.
   Mutex mMutex;

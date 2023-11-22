@@ -26,7 +26,7 @@
 
     <multiDexEnabled>true</multiDexEnabled>
 
-    <dependency_wearable>com.android.support:wear:26.0.0</dependency_wearable>
+    <dependency_wearable>com.android.support:wear:27.1.0</dependency_wearable>
 
     <strings>
         <intro>
@@ -83,8 +83,8 @@ A simple sample that demonstrates Navigation and Action Drawers, part of Materia
             If installed on a phone, it will not be automatically pushed to a paired Wear
             device, see [here][2] for more info).
 
-            This sample uses the planets in our solar system to demonstrate the two Android Wear
-            drawer components and concepts relating to [Android Wear][1] and [Material Design][3]:
+            This sample uses the planets in our solar system to demonstrate the two Wear
+            drawer components and concepts relating to [Wear][1] and [Material Design][3]:
             * Customizes and enables screen/planet changes with the [Navigation Drawer][4]
             * Adds customized actions to each screen using the [Action Drawer][5]
 

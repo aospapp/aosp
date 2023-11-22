@@ -23,9 +23,9 @@ package com.android.bluetooth.gatt;
 /*package*/
 
 class CallbackInfo {
-    String address;
-    int status;
-    int handle;
+    public String address;
+    public int status;
+    public int handle;
 
     CallbackInfo(String address, int status, int handle) {
         this.address = address;

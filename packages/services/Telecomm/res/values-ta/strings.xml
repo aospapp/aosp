@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"மற்றொரு பயன்பாட்டில் அழைப்பு செயலில் உள்ளதால், புதிய அழைப்பைச் செய்ய முடியாது."</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"உள்வரும் அழைப்புகள்"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"தவறிய அழைப்புகள்"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"அழைப்புத் தடுப்பு"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"புதிய அழைப்பைச் செய்தால், செயலில் உள்ள <xliff:g id="OTHER_APP">%1$s</xliff:g> அழைப்பு துண்டிக்கப்படும்."</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"அழைப்புத் தடுப்பு"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"தொடர்புகளில் இல்லாத எண்கள்"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"உங்கள் தொடர்புகளில் பட்டியலிடப்படாத எண்களைத் தடுக்கும்"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"தனிப்பட்ட எண்கள்"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"எண்ணை வெளிப்படுத்தாத அழைப்பாளர்களைத் தடுக்கும்"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"கட்டண ஃபோன்"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"கட்டண ஃபோன்களில் இருந்து வரும் அழைப்புகளைத் தடுக்கும்"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"தெரியாத அழைப்புகள்"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"அடையாளம் தெரியாத அழைப்பாளர்களின் அழைப்புகளைத் தடுக்கும்"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"அழைப்புத் தடுப்பு"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"அழைப்புத் தடுப்பு முடக்கப்பட்டுள்ளது"</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"அவசர அழைப்பு செய்யப்பட்டது"</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"அவசரநிலையில் பதிலளிப்பவர்களை உங்களைத் தொடர்புகொள்வதற்கு அனுமதிக்க, அழைப்புத் தடுப்பு முடக்கப்பட்டுள்ளது."</string>
 </resources>

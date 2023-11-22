@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2017 The Android Open Source Project
+ *  Copyright 2017 The Android Open Source Project
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -49,6 +49,10 @@ class RawAddress final {
   // not represent a Bluetooth address, |to| is not modified and this function
   // returns false. Otherwise, it returns true.
   static bool FromString(const std::string& from, RawAddress& to);
+
+  // Copies |from| raw Bluetooth address octets to the local object.
+  // Returns the number of copied octets - should be always RawAddress::kLength
+  size_t FromOctets(const uint8_t* from);
 
   static bool IsValidAddress(const std::string& address);
 

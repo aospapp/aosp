@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 # Copyright 2013 Google Inc. All Rights Reserved.
 """Script to maintain the Telemetry benchmark default results file.
@@ -6,7 +6,6 @@
 This script allows the user to see and update the set of default
 results to be used in generating reports from running the Telemetry
 benchmarks.
-
 """
 
 from __future__ import print_function
@@ -84,8 +83,8 @@ class TelemetryDefaults(object):
         print("Updated results set for '%s': " % benchmark)
         print('%s : %s' % (benchmark, repr(self._defaults[benchmark])))
       else:
-        print("'%s' is not in '%s's default results list." %
-              (result, benchmark))
+        print("'%s' is not in '%s's default results list." % (result,
+                                                              benchmark))
     else:
       print("Cannot find benchmark named '%s'" % benchmark)
 

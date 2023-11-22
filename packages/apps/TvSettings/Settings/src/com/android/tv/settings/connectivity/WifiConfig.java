@@ -20,7 +20,6 @@ import android.content.Context;
 import android.net.IpConfiguration;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
-import android.os.Parcelable;
 
 /**
  * Wi-Fi configuration that implements NetworkConfiguration.
@@ -61,22 +60,4 @@ class WifiConfig implements NetworkConfiguration {
         return mWifiConfiguration.getPrintableSsid();
     }
 
-    @Override
-    public Parcelable toParcelable() {
-        return mWifiConfiguration;
-    }
-
-    @Override
-    public void fromParcelable(Parcelable parcelable) {
-        if (parcelable instanceof WifiConfiguration) {
-            mWifiConfiguration = (WifiConfiguration) parcelable;
-        } else {
-            throw new IllegalArgumentException("Invalid parcelable");
-        }
-    }
-
-    @Override
-    public int getNetworkType() {
-        return NetworkConfigurationFactory.TYPE_WIFI;
-    }
 }

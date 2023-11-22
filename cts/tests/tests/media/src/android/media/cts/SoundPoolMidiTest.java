@@ -17,7 +17,9 @@
 package android.media.cts;
 
 import android.media.cts.R;
+import android.platform.test.annotations.AppModeFull;
 
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class SoundPoolMidiTest extends SoundPoolTest {
 
     @Override

@@ -34,6 +34,7 @@ public class BreakpointOnCatchDebuggee extends SyncDebuggee {
     }
   }
 
+    @SuppressWarnings("DeadException")
     @Override
     public void run() {
         // Force loading of exception class.

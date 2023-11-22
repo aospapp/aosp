@@ -12,7 +12,6 @@ import android.icu.lang.UCharacter;
  * @author Lina Kemmel
  *
  * @hide Only a subset of ICU is exposed in Android
- * @hide draft / provisional / internal are hidden on Android
  */
 public class BidiTransform
 {
@@ -53,19 +52,14 @@ public class BidiTransform
      * @see Bidi#REORDER_DEFAULT
      * @see Bidi#REORDER_INVERSE_LIKE_DIRECT
      * @see Bidi#REORDER_RUNS_ONLY
-     * @hide draft / provisional / internal are hidden on Android
      */
     public enum Order {
         /**
          * Constant indicating a logical order.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         LOGICAL,
         /**
          * Constant indicating a visual order.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         VISUAL;
     }
@@ -79,14 +73,11 @@ public class BidiTransform
      * @see Bidi#setReorderingOptions
      * @see Bidi#writeReordered
      * @see Bidi#writeReverse
-     * @hide draft / provisional / internal are hidden on Android
      */
     public enum Mirroring {
         /**
          * Constant indicating that character mirroring should not be
          * performed.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         OFF,
         /**
@@ -95,8 +86,6 @@ public class BidiTransform
          * This corresponds to calling <code>{@link Bidi#writeReordered}</code>
          * or <code>{@link Bidi#writeReverse}</code> with the
          * <code>{@link Bidi#DO_MIRRORING}</code> option bit set.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         ON;
     }
@@ -108,8 +97,6 @@ public class BidiTransform
 
     /**
      * <code>{@link BidiTransform}</code> default constructor.
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     public BidiTransform()
     {
@@ -218,7 +205,6 @@ public class BidiTransform
      * @throws IllegalArgumentException if <code>text</code>,
      *        <code>inOrder</code>, <code>outOrder</code>, or
      *        <code>doMirroring</code> parameter is <code>null</code>.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public String transform(CharSequence text,
             byte inParaLevel, Order inOrder,

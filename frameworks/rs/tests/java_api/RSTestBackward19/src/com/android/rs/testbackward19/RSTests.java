@@ -64,7 +64,6 @@ public class RSTests {
             validClasses.add(UT_sampler.class);
             validClasses.add(UT_static_globals.class);
             validClasses.add(UT_struct.class);
-            validClasses.add(UT_struct_field_simple.class);
             validClasses.add(UT_unsigned.class);
             validClasses.add(UT_vector.class);
         }

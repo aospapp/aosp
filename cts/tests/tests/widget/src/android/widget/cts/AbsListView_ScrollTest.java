@@ -97,7 +97,7 @@ public class AbsListView_ScrollTest {
         mActivityRule.runOnUiThread(() -> mListView.setAdapter(mCountriesAdapter));
         mInstrumentation.waitForIdleSync();
 
-        mRowHeightPx = mContext.getResources().getDimensionPixelSize(R.dimen.listrow_height);
+        mRowHeightPx = activity.getResources().getDimensionPixelSize(R.dimen.listrow_height);
     }
 
     /**

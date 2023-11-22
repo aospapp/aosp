@@ -25,7 +25,7 @@ import com.android.tradefed.device.ITestDevice;
 
 /** Placeholder empty implementation of a {@link ITargetPreparer}. */
 @OptionClass(alias = "stub-preparer")
-public class StubTargetPreparer implements ITargetPreparer, IConfigurationReceiver {
+public class StubTargetPreparer extends BaseTargetPreparer implements IConfigurationReceiver {
 
     @Option(name = "test-boolean-option", description = "test option, keep default to true.")
     private boolean mTestBooleanOption = true;

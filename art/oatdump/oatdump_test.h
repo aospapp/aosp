@@ -23,16 +23,15 @@
 
 #include "android-base/strings.h"
 
-#include "common_runtime_test.h"
-
+#include "arch/instruction_set.h"
+#include "base/file_utils.h"
+#include "base/os.h"
 #include "base/unix_file/fd_file.h"
-#include "runtime/arch/instruction_set.h"
-#include "runtime/exec_utils.h"
-#include "runtime/gc/heap.h"
-#include "runtime/gc/space/image_space.h"
-#include "runtime/os.h"
-#include "runtime/utils.h"
-#include "utils.h"
+#include "base/utils.h"
+#include "common_runtime_test.h"
+#include "exec_utils.h"
+#include "gc/heap.h"
+#include "gc/space/image_space.h"
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -45,29 +44,53 @@ class OatDumpTest : public CommonRuntimeTest {
     CommonRuntimeTest::SetUp();
     core_art_location_ = GetCoreArtLocation();
     core_oat_location_ = GetSystemImageFilename(GetCoreOatLocation().c_str(), kRuntimeISA);
+    tmp_dir_ = GetScratchDir();
+  }
+
+  virtual void TearDown() {
+    ClearDirectory(tmp_dir_.c_str(), /*recursive*/ false);
+    ASSERT_EQ(rmdir(tmp_dir_.c_str()), 0);
+    CommonRuntimeTest::TearDown();
+  }
+
+  std::string GetScratchDir() {
+    // ANDROID_DATA needs to be set
+    CHECK_NE(static_cast<char*>(nullptr), getenv("ANDROID_DATA"));
+    std::string dir = getenv("ANDROID_DATA");
+    dir += "/oatdump-tmp-dir-XXXXXX";
+    if (mkdtemp(&dir[0]) == nullptr) {
+      PLOG(FATAL) << "mkdtemp(\"" << &dir[0] << "\") failed";
+    }
+    return dir;
   }
 
   // Linking flavor.
   enum Flavor {
-    kDynamic,  // oatdump(d)
-    kStatic,   // oatdump(d)s
+    kDynamic,  // oatdump(d), dex2oat(d)
+    kStatic,   // oatdump(d)s, dex2oat(d)s
   };
 
-  // Returns path to the oatdump binary.
-  std::string GetOatDumpFilePath(Flavor flavor) {
+  // Returns path to the oatdump/dex2oat/dexdump binary.
+  std::string GetExecutableFilePath(const char* name, bool is_debug, bool is_static) {
     std::string root = GetTestAndroidRoot();
-    root += "/bin/oatdump";
-    if (kIsDebugBuild) {
+    root += "/bin/";
+    root += name;
+    if (is_debug) {
       root += "d";
     }
-    if (flavor == kStatic) {
+    if (is_static) {
       root += "s";
     }
     return root;
   }
 
+  std::string GetExecutableFilePath(Flavor flavor, const char* name) {
+    return GetExecutableFilePath(name, kIsDebugBuild, flavor == kStatic);
+  }
+
   enum Mode {
     kModeOat,
+    kModeOatWithBootImage,
     kModeArt,
     kModeSymbolize,
   };
@@ -78,13 +101,46 @@ class OatDumpTest : public CommonRuntimeTest {
     kListAndCode
   };
 
+  std::string GetAppBaseName() {
+    // Use ProfileTestMultiDex as it contains references to boot image strings
+    // that shall use different code for PIC and non-PIC.
+    return "ProfileTestMultiDex";
+  }
+
+  std::string GetAppOdexName() {
+    return tmp_dir_ + "/" + GetAppBaseName() + ".odex";
+  }
+
+  bool GenerateAppOdexFile(Flavor flavor,
+                           const std::vector<std::string>& args,
+                           /*out*/ std::string* error_msg) {
+    std::string dex2oat_path = GetExecutableFilePath(flavor, "dex2oat");
+    std::vector<std::string> exec_argv = {
+        dex2oat_path,
+        "--runtime-arg",
+        "-Xms64m",
+        "--runtime-arg",
+        "-Xmx512m",
+        "--runtime-arg",
+        "-Xnorelocate",
+        "--boot-image=" + GetCoreArtLocation(),
+        "--instruction-set=" + std::string(GetInstructionSetString(kRuntimeISA)),
+        "--dex-file=" + GetTestDexFileName(GetAppBaseName().c_str()),
+        "--oat-file=" + GetAppOdexName(),
+        "--compiler-filter=speed"
+    };
+    exec_argv.insert(exec_argv.end(), args.begin(), args.end());
+
+    return ForkAndExecAndWait(exec_argv, error_msg);
+  }
+
   // Run the test with custom arguments.
   bool Exec(Flavor flavor,
             Mode mode,
             const std::vector<std::string>& args,
             Display display,
-            std::string* error_msg) {
-    std::string file_path = GetOatDumpFilePath(flavor);
+            /*out*/ std::string* error_msg) {
+    std::string file_path = GetExecutableFilePath(flavor, "oatdump");
 
     EXPECT_TRUE(OS::FileExists(file_path.c_str())) << file_path << " should be a valid file path";
 
@@ -116,6 +172,11 @@ class OatDumpTest : public CommonRuntimeTest {
         expected_prefixes.push_back("IMAGE LOCATION:");
         expected_prefixes.push_back("IMAGE BEGIN:");
         expected_prefixes.push_back("kDexCaches:");
+      } else if (mode == kModeOatWithBootImage) {
+        exec_argv.push_back("--boot-image=" + GetCoreArtLocation());
+        exec_argv.push_back("--instruction-set=" + std::string(
+            GetInstructionSetString(kRuntimeISA)));
+        exec_argv.push_back("--oat-file=" + GetAppOdexName());
       } else {
         CHECK_EQ(static_cast<size_t>(mode), static_cast<size_t>(kModeOat));
         exec_argv.push_back("--oat-file=" + core_oat_location_);
@@ -123,39 +184,10 @@ class OatDumpTest : public CommonRuntimeTest {
     }
     exec_argv.insert(exec_argv.end(), args.begin(), args.end());
 
-    bool result = true;
-    // We must set --android-root.
-    int link[2];
-    if (pipe(link) == -1) {
-      *error_msg = strerror(errno);
-      return false;
-    }
-
-    const pid_t pid = fork();
-    if (pid == -1) {
-      *error_msg = strerror(errno);
-      return false;
-    }
-
-    if (pid == 0) {
-      dup2(link[1], STDOUT_FILENO);
-      close(link[0]);
-      close(link[1]);
-      // change process groups, so we don't get reaped by ProcessManager
-      setpgid(0, 0);
-      // Use execv here rather than art::Exec to avoid blocking on waitpid here.
-      std::vector<char*> argv;
-      for (size_t i = 0; i < exec_argv.size(); ++i) {
-        argv.push_back(const_cast<char*>(exec_argv[i].c_str()));
-      }
-      argv.push_back(nullptr);
-      UNUSED(execv(argv[0], &argv[0]));
-      const std::string command_line(android::base::Join(exec_argv, ' '));
-      PLOG(ERROR) << "Failed to execv(" << command_line << ")";
-      // _exit to avoid atexit handlers in child.
-      _exit(1);
-    } else {
-      close(link[1]);
+    pid_t pid;
+    int pipe_fd;
+    bool result = ForkAndExec(exec_argv, &pid, &pipe_fd, error_msg);
+    if (result) {
       static const size_t kLineMax = 256;
       char line[kLineMax] = {};
       size_t line_len = 0;
@@ -171,7 +203,7 @@ class OatDumpTest : public CommonRuntimeTest {
             memmove(&line[0], &line[spaces], line_len);
           }
           ssize_t bytes_read =
-              TEMP_FAILURE_RETRY(read(link[0], &line[line_len], kLineMax - line_len));
+              TEMP_FAILURE_RETRY(read(pipe_fd, &line[line_len], kLineMax - line_len));
           if (bytes_read <= 0) {
             break;
           }
@@ -202,7 +234,7 @@ class OatDumpTest : public CommonRuntimeTest {
         EXPECT_GT(total, 0u);
       }
       LOG(INFO) << "Processed bytes " << total;
-      close(link[0]);
+      close(pipe_fd);
       int status = 0;
       if (waitpid(pid, &status, 0) != -1) {
         result = (status == 0);
@@ -218,6 +250,66 @@ class OatDumpTest : public CommonRuntimeTest {
 
     return result;
   }
+
+  bool ForkAndExec(const std::vector<std::string>& exec_argv,
+                   /*out*/ pid_t* pid,
+                   /*out*/ int* pipe_fd,
+                   /*out*/ std::string* error_msg) {
+    int link[2];
+    if (pipe(link) == -1) {
+      *error_msg = strerror(errno);
+      return false;
+    }
+
+    *pid = fork();
+    if (*pid == -1) {
+      *error_msg = strerror(errno);
+      close(link[0]);
+      close(link[1]);
+      return false;
+    }
+
+    if (*pid == 0) {
+      dup2(link[1], STDOUT_FILENO);
+      close(link[0]);
+      close(link[1]);
+      // change process groups, so we don't get reaped by ProcessManager
+      setpgid(0, 0);
+      // Use execv here rather than art::Exec to avoid blocking on waitpid here.
+      std::vector<char*> argv;
+      for (size_t i = 0; i < exec_argv.size(); ++i) {
+        argv.push_back(const_cast<char*>(exec_argv[i].c_str()));
+      }
+      argv.push_back(nullptr);
+      UNUSED(execv(argv[0], &argv[0]));
+      const std::string command_line(android::base::Join(exec_argv, ' '));
+      PLOG(ERROR) << "Failed to execv(" << command_line << ")";
+      // _exit to avoid atexit handlers in child.
+      _exit(1);
+      UNREACHABLE();
+    } else {
+      close(link[1]);
+      *pipe_fd = link[0];
+      return true;
+    }
+  }
+
+  bool ForkAndExecAndWait(const std::vector<std::string>& exec_argv,
+                          /*out*/ std::string* error_msg) {
+    pid_t pid;
+    int pipe_fd;
+    bool result = ForkAndExec(exec_argv, &pid, &pipe_fd, error_msg);
+    if (result) {
+      close(pipe_fd);
+      int status = 0;
+      if (waitpid(pid, &status, 0) != -1) {
+        result = (status == 0);
+      }
+    }
+    return result;
+  }
+
+  std::string tmp_dir_;
 
  private:
   std::string core_art_location_;

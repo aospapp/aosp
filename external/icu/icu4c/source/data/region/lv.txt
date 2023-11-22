@@ -106,6 +106,7 @@ lv{
         ES{"Spānija"}
         ET{"Etiopija"}
         EU{"Eiropas Savienība"}
+        EZ{"Eirozona"}
         FI{"Somija"}
         FJ{"Fidži"}
         FK{"Folklenda (Malvinu) salas"}
@@ -146,7 +147,7 @@ lv{
         IO{"Indijas okeāna Britu teritorija"}
         IQ{"Irāka"}
         IR{"Irāna"}
-        IS{"Īslande"}
+        IS{"Islande"}
         IT{"Itālija"}
         JE{"Džērsija"}
         JM{"Jamaika"}
@@ -304,5 +305,5 @@ lv{
         CI{"Ziloņkaula krasts"}
         CZ{"Čehijas Republika"}
     }
-    Version{"2.1.28.79"}
+    Version{"2.1.37.5"}
 }

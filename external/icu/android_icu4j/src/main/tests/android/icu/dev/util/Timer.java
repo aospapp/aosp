@@ -12,7 +12,9 @@ package android.icu.dev.util;
 import android.icu.text.DecimalFormat;
 import android.icu.text.NumberFormat;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
 public final class Timer {
     public static final long SECONDS = 100000000;
 

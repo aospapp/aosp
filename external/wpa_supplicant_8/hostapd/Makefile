@@ -258,11 +258,6 @@ CFLAGS += -DCONFIG_RSN_PREAUTH
 CONFIG_L2_PACKET=y
 endif
 
-ifdef CONFIG_PEERKEY
-CFLAGS += -DCONFIG_PEERKEY
-OBJS += ../src/ap/peerkey_auth.o
-endif
-
 ifdef CONFIG_HS20
 NEED_AES_OMAC1=y
 CONFIG_PROXYARP=y
@@ -295,6 +290,15 @@ OBJS += ../src/ap/wpa_auth_ft.o
 NEED_SHA256=y
 NEED_AES_OMAC1=y
 NEED_AES_UNWRAP=y
+NEED_AES_SIV=y
+NEED_ETH_P_OUI=y
+NEED_SHA256=y
+NEED_HMAC_SHA256_KDF=y
+endif
+
+ifdef NEED_ETH_P_OUI
+CFLAGS += -DCONFIG_ETH_P_OUI
+OBJS += ../src/ap/eth_p_oui.o
 endif
 
 ifdef CONFIG_SAE
@@ -305,15 +309,30 @@ NEED_DH_GROUPS=y
 NEED_AP_MLME=y
 endif
 
+ifdef CONFIG_OWE
+CFLAGS += -DCONFIG_OWE
+NEED_ECC=y
+NEED_HMAC_SHA256_KDF=y
+NEED_HMAC_SHA384_KDF=y
+NEED_HMAC_SHA512_KDF=y
+NEED_SHA256=y
+NEED_SHA384=y
+NEED_SHA512=y
+endif
+
 ifdef CONFIG_FILS
 CFLAGS += -DCONFIG_FILS
 OBJS += ../src/ap/fils_hlp.o
 NEED_SHA384=y
 NEED_AES_SIV=y
+ifdef CONFIG_FILS_SK_PFS
+CFLAGS += -DCONFIG_FILS_SK_PFS
+NEED_ECC=y
+endif
 endif
 
 ifdef CONFIG_WNM
-CFLAGS += -DCONFIG_WNM
+CFLAGS += -DCONFIG_WNM -DCONFIG_WNM_AP
 OBJS += ../src/ap/wnm_ap.o
 endif
 
@@ -547,6 +566,23 @@ endif
 
 endif
 
+ifdef CONFIG_DPP
+CFLAGS += -DCONFIG_DPP
+OBJS += ../src/common/dpp.o
+OBJS += ../src/ap/dpp_hostapd.o
+OBJS += ../src/ap/gas_query_ap.o
+NEED_AES_SIV=y
+NEED_HMAC_SHA256_KDF=y
+NEED_HMAC_SHA384_KDF=y
+NEED_HMAC_SHA512_KDF=y
+NEED_SHA256=y
+NEED_SHA384=y
+NEED_SHA512=y
+NEED_JSON=y
+NEED_GAS=y
+NEED_BASE64=y
+endif
+
 ifdef CONFIG_EAP_IKEV2
 CFLAGS += -DEAP_SERVER_IKEV2
 OBJS += ../src/eap_server/eap_server_ikev2.o ../src/eap_server/ikev2.o
@@ -633,6 +669,10 @@ ifdef CONFIG_TLS_ADD_DL
 LIBS += -ldl
 LIBS_h += -ldl
 endif
+ifndef CONFIG_TLS_DEFAULT_CIPHERS
+CONFIG_TLS_DEFAULT_CIPHERS = "DEFAULT:!EXP:!LOW"
+endif
+CFLAGS += -DTLS_DEFAULT_CIPHERS=\"$(CONFIG_TLS_DEFAULT_CIPHERS)\"
 endif
 
 ifeq ($(CONFIG_TLS), gnutls)
@@ -732,6 +772,47 @@ CONFIG_INTERNAL_RC4=y
 endif
 endif
 
+ifeq ($(CONFIG_TLS), linux)
+OBJS += ../src/crypto/crypto_linux.o
+ifdef TLS_FUNCS
+OBJS += ../src/crypto/crypto_internal-rsa.o
+OBJS += ../src/crypto/tls_internal.o
+OBJS += ../src/tls/tlsv1_common.o
+OBJS += ../src/tls/tlsv1_record.o
+OBJS += ../src/tls/tlsv1_cred.o
+OBJS += ../src/tls/tlsv1_server.o
+OBJS += ../src/tls/tlsv1_server_write.o
+OBJS += ../src/tls/tlsv1_server_read.o
+OBJS += ../src/tls/asn1.o
+OBJS += ../src/tls/rsa.o
+OBJS += ../src/tls/x509v3.o
+OBJS += ../src/tls/pkcs1.o
+OBJS += ../src/tls/pkcs5.o
+OBJS += ../src/tls/pkcs8.o
+NEED_SHA256=y
+NEED_BASE64=y
+NEED_TLS_PRF=y
+ifdef CONFIG_TLSV12
+NEED_TLS_PRF_SHA256=y
+endif
+NEED_MODEXP=y
+NEED_CIPHER=y
+CFLAGS += -DCONFIG_TLS_INTERNAL
+CFLAGS += -DCONFIG_TLS_INTERNAL_SERVER
+endif
+ifdef NEED_MODEXP
+OBJS += ../src/crypto/crypto_internal-modexp.o
+OBJS += ../src/tls/bignum.o
+CFLAGS += -DCONFIG_INTERNAL_LIBTOMMATH
+CFLAGS += -DLTM_FAST
+endif
+CONFIG_INTERNAL_DH_GROUP5=y
+ifdef NEED_FIPS186_2_PRF
+OBJS += ../src/crypto/fips_prf_internal.o
+OBJS += ../src/crypto/sha1-internal.o
+endif
+endif
+
 ifeq ($(CONFIG_TLS), none)
 ifdef TLS_FUNCS
 OBJS += ../src/crypto/tls_none.o
@@ -767,6 +848,12 @@ endif
 ifdef NEED_AES_EAX
 AESOBJS += ../src/crypto/aes-eax.o
 NEED_AES_CTR=y
+NEED_AES_OMAC1=y
+endif
+ifdef NEED_AES_SIV
+AESOBJS += ../src/crypto/aes-siv.o
+NEED_AES_CTR=y
+NEED_AES_OMAC1=y
 endif
 ifdef NEED_AES_CTR
 AESOBJS += ../src/crypto/aes-ctr.o
@@ -775,22 +862,25 @@ ifdef NEED_AES_ENCBLOCK
 AESOBJS += ../src/crypto/aes-encblock.o
 endif
 ifdef NEED_AES_OMAC1
+ifneq ($(CONFIG_TLS), linux)
 AESOBJS += ../src/crypto/aes-omac1.o
+endif
 endif
 ifdef NEED_AES_UNWRAP
 ifneq ($(CONFIG_TLS), openssl)
+ifneq ($(CONFIG_TLS), linux)
 NEED_AES_DEC=y
 AESOBJS += ../src/crypto/aes-unwrap.o
+endif
 endif
 endif
 ifdef NEED_AES_CBC
 NEED_AES_DEC=y
 ifneq ($(CONFIG_TLS), openssl)
+ifneq ($(CONFIG_TLS), linux)
 AESOBJS += ../src/crypto/aes-cbc.o
 endif
 endif
-ifdef NEED_AES_SIV
-AESOBJS += ../src/crypto/aes-siv.o
 endif
 ifdef NEED_AES_DEC
 ifdef CONFIG_INTERNAL_AES
@@ -803,7 +893,9 @@ endif
 
 ifdef NEED_SHA1
 ifneq ($(CONFIG_TLS), openssl)
+ifneq ($(CONFIG_TLS), linux)
 SHA1OBJS += ../src/crypto/sha1.o
+endif
 endif
 SHA1OBJS += ../src/crypto/sha1-prf.o
 ifdef CONFIG_INTERNAL_SHA1
@@ -828,7 +920,9 @@ OBJS += $(SHA1OBJS)
 endif
 
 ifneq ($(CONFIG_TLS), openssl)
+ifneq ($(CONFIG_TLS), linux)
 OBJS += ../src/crypto/md5.o
+endif
 endif
 
 ifdef NEED_MD5
@@ -865,7 +959,9 @@ endif
 ifdef NEED_SHA256
 CFLAGS += -DCONFIG_SHA256
 ifneq ($(CONFIG_TLS), openssl)
+ifneq ($(CONFIG_TLS), linux)
 OBJS += ../src/crypto/sha256.o
+endif
 endif
 OBJS += ../src/crypto/sha256-prf.o
 ifdef CONFIG_INTERNAL_SHA256
@@ -877,13 +973,30 @@ endif
 ifdef NEED_HMAC_SHA256_KDF
 OBJS += ../src/crypto/sha256-kdf.o
 endif
+ifdef NEED_HMAC_SHA384_KDF
+OBJS += ../src/crypto/sha384-kdf.o
+endif
+ifdef NEED_HMAC_SHA512_KDF
+OBJS += ../src/crypto/sha512-kdf.o
+endif
 endif
 ifdef NEED_SHA384
 CFLAGS += -DCONFIG_SHA384
 ifneq ($(CONFIG_TLS), openssl)
+ifneq ($(CONFIG_TLS), linux)
 OBJS += ../src/crypto/sha384.o
 endif
+endif
 OBJS += ../src/crypto/sha384-prf.o
+endif
+ifdef NEED_SHA512
+CFLAGS += -DCONFIG_SHA512
+ifneq ($(CONFIG_TLS), openssl)
+ifneq ($(CONFIG_TLS), linux)
+OBJS += ../src/crypto/sha512.o
+endif
+endif
+OBJS += ../src/crypto/sha512-prf.o
 endif
 
 ifdef CONFIG_INTERNAL_SHA384
@@ -920,7 +1033,9 @@ HOBJS += ../src/crypto/random.o
 HOBJS += ../src/utils/eloop.o
 HOBJS += $(SHA1OBJS)
 ifneq ($(CONFIG_TLS), openssl)
+ifneq ($(CONFIG_TLS), linux)
 HOBJS += ../src/crypto/md5.o
+endif
 endif
 endif
 
@@ -939,6 +1054,11 @@ endif
 
 ifdef NEED_BASE64
 OBJS += ../src/utils/base64.o
+endif
+
+ifdef NEED_JSON
+OBJS += ../src/utils/json.o
+CFLAGS += -DCONFIG_JSON
 endif
 
 ifdef NEED_AP_MLME
@@ -970,6 +1090,10 @@ endif
 
 ifdef CONFIG_INTERWORKING
 CFLAGS += -DCONFIG_INTERWORKING
+NEED_GAS=y
+endif
+
+ifdef NEED_GAS
 OBJS += ../src/common/gas.o
 OBJS += ../src/ap/gas_serv.o
 endif
@@ -1120,6 +1244,9 @@ HOBJS += ../src/crypto/aes-encblock.o
 ifdef CONFIG_INTERNAL_AES
 HOBJS += ../src/crypto/aes-internal.o
 HOBJS += ../src/crypto/aes-internal-enc.o
+endif
+ifeq ($(CONFIG_TLS), linux)
+HOBJS += ../src/crypto/crypto_linux.o
 endif
 
 nt_password_hash: $(NOBJS)

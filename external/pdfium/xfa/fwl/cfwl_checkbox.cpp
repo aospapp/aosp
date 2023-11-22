@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "third_party/base/ptr_util.h"
-#include "xfa/fde/tto/fde_textout.h"
+#include "xfa/fde/cfde_textout.h"
 #include "xfa/fwl/cfwl_app.h"
 #include "xfa/fwl/cfwl_event.h"
 #include "xfa/fwl/cfwl_messagekey.h"
@@ -31,10 +31,10 @@ const int kCaptionMargin = 5;
 
 CFWL_CheckBox::CFWL_CheckBox(const CFWL_App* app)
     : CFWL_Widget(app, pdfium::MakeUnique<CFWL_WidgetProperties>(), nullptr),
-      m_dwTTOStyles(FDE_TTOSTYLE_SingleLine),
-      m_iTTOAlign(FDE_TTOALIGNMENT_Center),
+      m_iTTOAlign(FDE_TextAlignment::kCenter),
       m_bBtnDown(false),
       m_fBoxHeight(16.0f) {
+  m_dwTTOStyles.single_line_ = true;
   m_rtClient.Reset();
   m_rtBox.Reset();
   m_rtCaption.Reset();
@@ -47,7 +47,7 @@ FWL_Type CFWL_CheckBox::GetClassID() const {
   return FWL_Type::CheckBox;
 }
 
-void CFWL_CheckBox::SetBoxSize(FX_FLOAT fHeight) {
+void CFWL_CheckBox::SetBoxSize(float fHeight) {
   m_fBoxHeight = fHeight;
 }
 
@@ -61,8 +61,8 @@ void CFWL_CheckBox::Update() {
   Layout();
 }
 
-void CFWL_CheckBox::DrawWidget(CFX_Graphics* pGraphics,
-                               const CFX_Matrix* pMatrix) {
+void CFWL_CheckBox::DrawWidget(CXFA_Graphics* pGraphics,
+                               const CFX_Matrix& matrix) {
   if (!pGraphics)
     return;
   if (!m_pProperties->m_pThemeProvider)
@@ -71,7 +71,7 @@ void CFWL_CheckBox::DrawWidget(CFX_Graphics* pGraphics,
   IFWL_ThemeProvider* pTheme = m_pProperties->m_pThemeProvider;
   if (HasBorder()) {
     DrawBorder(pGraphics, CFWL_Part::Border, m_pProperties->m_pThemeProvider,
-               pMatrix);
+               matrix);
   }
 
   int32_t dwStates = GetPartStates();
@@ -81,8 +81,7 @@ void CFWL_CheckBox::DrawWidget(CFX_Graphics* pGraphics,
   param.m_iPart = CFWL_Part::Background;
   param.m_dwStates = dwStates;
   param.m_pGraphics = pGraphics;
-  if (pMatrix)
-    param.m_matrix.Concat(*pMatrix);
+  param.m_matrix.Concat(matrix);
   param.m_rtPart = m_rtClient;
   if (m_pProperties->m_dwStates & FWL_WGTSTATE_Focused)
     param.m_pData = &m_rtFocus;
@@ -97,8 +96,7 @@ void CFWL_CheckBox::DrawWidget(CFX_Graphics* pGraphics,
   textParam.m_iPart = CFWL_Part::Caption;
   textParam.m_dwStates = dwStates;
   textParam.m_pGraphics = pGraphics;
-  if (pMatrix)
-    textParam.m_matrix.Concat(*pMatrix);
+  textParam.m_matrix.Concat(matrix);
   textParam.m_rtPart = m_rtCaption;
   textParam.m_wsText = L"Check box";
   textParam.m_dwTTOStyles = m_dwTTOStyles;
@@ -129,7 +127,7 @@ void CFWL_CheckBox::Layout() {
       FXSYS_round(m_pProperties->m_rtWidget.height);
   m_rtClient = GetClientRect();
 
-  FX_FLOAT fTextLeft = m_rtClient.left + m_fBoxHeight;
+  float fTextLeft = m_rtClient.left + m_fBoxHeight;
   m_rtBox = CFX_RectF(m_rtClient.TopLeft(), m_fBoxHeight, m_fBoxHeight);
   m_rtCaption = CFX_RectF(fTextLeft, m_rtClient.top,
                           m_rtClient.right() - fTextLeft, m_rtClient.height);
@@ -170,9 +168,10 @@ uint32_t CFWL_CheckBox::GetPartStates() const {
 }
 
 void CFWL_CheckBox::UpdateTextOutStyles() {
-  m_iTTOAlign = FDE_TTOALIGNMENT_TopLeft;
-  m_dwTTOStyles = 0;
-  m_dwTTOStyles |= FDE_TTOSTYLE_SingleLine;
+  m_iTTOAlign = FDE_TextAlignment::kTopLeft;
+
+  m_dwTTOStyles.Reset();
+  m_dwTTOStyles.single_line_ = true;
 }
 
 void CFWL_CheckBox::NextStates() {
@@ -184,7 +183,7 @@ void CFWL_CheckBox::NextStates() {
       if (!pWidgetMgr->IsFormDisabled()) {
         std::vector<CFWL_Widget*> radioarr =
             pWidgetMgr->GetSameGroupRadioButton(this);
-        for (const auto& pWidget : radioarr) {
+        for (auto* pWidget : radioarr) {
           CFWL_CheckBox* pCheckBox = static_cast<CFWL_CheckBox*>(pWidget);
           if (pCheckBox != this &&
               pCheckBox->GetStates() & FWL_STATE_CKB_Checked) {
@@ -266,9 +265,9 @@ void CFWL_CheckBox::OnProcessMessage(CFWL_Message* pMessage) {
   CFWL_Widget::OnProcessMessage(pMessage);
 }
 
-void CFWL_CheckBox::OnDrawWidget(CFX_Graphics* pGraphics,
-                                 const CFX_Matrix* pMatrix) {
-  DrawWidget(pGraphics, pMatrix);
+void CFWL_CheckBox::OnDrawWidget(CXFA_Graphics* pGraphics,
+                                 const CFX_Matrix& matrix) {
+  DrawWidget(pGraphics, matrix);
 }
 
 void CFWL_CheckBox::OnFocusChanged(bool bSet) {

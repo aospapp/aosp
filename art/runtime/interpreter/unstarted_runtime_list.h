@@ -23,6 +23,7 @@
   V(CharacterToUpperCase, "int java.lang.Character.toUpperCase(int)") \
   V(ClassForName, "java.lang.Class java.lang.Class.forName(java.lang.String)") \
   V(ClassForNameLong, "java.lang.Class java.lang.Class.forName(java.lang.String, boolean, java.lang.ClassLoader)") \
+  V(ClassGetPrimitiveClass, "java.lang.Class java.lang.Class.getPrimitiveClass(java.lang.String)") \
   V(ClassClassForName, "java.lang.Class java.lang.Class.classForName(java.lang.String, boolean, java.lang.ClassLoader)") \
   V(ClassNewInstance, "java.lang.Object java.lang.Class.newInstance()") \
   V(ClassGetDeclaredField, "java.lang.reflect.Field java.lang.Class.getDeclaredField(java.lang.String)") \
@@ -36,7 +37,6 @@
   V(ClassLoaderGetResourceAsStream, "java.io.InputStream java.lang.ClassLoader.getResourceAsStream(java.lang.String)") \
   V(ConstructorNewInstance0, "java.lang.Object java.lang.reflect.Constructor.newInstance0(java.lang.Object[])") \
   V(VmClassLoaderFindLoadedClass, "java.lang.Class java.lang.VMClassLoader.findLoadedClass(java.lang.ClassLoader, java.lang.String)") \
-  V(VoidLookupType, "java.lang.Class java.lang.Void.lookupType()") \
   V(SystemArraycopy, "void java.lang.System.arraycopy(java.lang.Object, int, java.lang.Object, int, int)") \
   V(SystemArraycopyByte, "void java.lang.System.arraycopy(byte[], int, byte[], int, int)") \
   V(SystemArraycopyChar, "void java.lang.System.arraycopy(char[], int, char[], int, int)") \
@@ -80,6 +80,7 @@
 
 // Methods that are native.
 #define UNSTARTED_RUNTIME_JNI_LIST(V)           \
+  V(VMRuntimeIs64Bit, "boolean dalvik.system.VMRuntime.is64Bit()") \
   V(VMRuntimeNewUnpaddedArray, "java.lang.Object dalvik.system.VMRuntime.newUnpaddedArray(java.lang.Class, int)") \
   V(VMStackGetCallingClassLoader, "java.lang.ClassLoader dalvik.system.VMStack.getCallingClassLoader()") \
   V(VMStackGetStackClass2, "java.lang.Class dalvik.system.VMStack.getStackClass2()") \
@@ -94,7 +95,6 @@
   V(ObjectNotifyAll, "void java.lang.Object.notifyAll()") \
   V(StringCompareTo, "int java.lang.String.compareTo(java.lang.String)") \
   V(StringIntern, "java.lang.String java.lang.String.intern()") \
-  V(StringFastIndexOf, "int java.lang.String.fastIndexOf(int, int)") \
   V(ArrayCreateMultiArray, "java.lang.Object java.lang.reflect.Array.createMultiArray(java.lang.Class, int[])") \
   V(ArrayCreateObjectArray, "java.lang.Object java.lang.reflect.Array.createObjectArray(java.lang.Class, int)") \
   V(ThrowableNativeFillInStackTrace, "java.lang.Object java.lang.Throwable.nativeFillInStackTrace()") \

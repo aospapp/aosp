@@ -29,7 +29,20 @@ import common
 from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
+# Values specified in this bug template will override default values when
+# filing bugs on tests that are part of this suite. If left unspecified
+# the bug filer will fallback to it's defaults.
+_BUG_TEMPLATE = {
+    'labels': ['Proj-Bluestreak', 'Bluestreak-Auto-Bug'],
+    'owner': 'chromeos-meetings@google.com',
+    'status': None,
+    'summary': None,
+    'title': None,
+    'cc': ['chromeos-meetings@google.com']
+}
+
 args_dict['add_experimental'] = True
+args_dict['bug_template'] = _BUG_TEMPLATE
 args_dict['max_runtime_mins'] = 60
 args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 args_dict['name'] = NAME

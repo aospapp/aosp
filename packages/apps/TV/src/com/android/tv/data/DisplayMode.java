@@ -17,7 +17,6 @@
 package com.android.tv.data;
 
 import android.content.Context;
-
 import com.android.tv.R;
 
 public class DisplayMode {
@@ -28,12 +27,10 @@ public class DisplayMode {
     public static final int MODE_ZOOM = 2;
     public static final int SIZE_OF_RATIO_TYPES = MODE_ZOOM + 1;
 
-    /**
-     * Constant to indicate that any mode is not set yet.
-     */
+    /** Constant to indicate that any mode is not set yet. */
     public static final int MODE_NOT_DEFINED = -1;
 
-    private DisplayMode() { }
+    private DisplayMode() {}
 
     public static String getLabel(int mode, Context context) {
         return context.getResources().getStringArray(R.array.display_mode_labels)[mode];

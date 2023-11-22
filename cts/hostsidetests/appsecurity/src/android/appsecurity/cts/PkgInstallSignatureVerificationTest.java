@@ -16,14 +16,18 @@
 
 package android.appsecurity.cts;
 
+import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.SecurityTest;
+
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
 
-import android.platform.test.annotations.SecurityTest;
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,9 +37,14 @@ import java.util.Locale;
 /**
  * Tests for APK signature verification during installation.
  */
+@AppModeFull // TODO: Needs porting to instant
 public class PkgInstallSignatureVerificationTest extends DeviceTestCase implements IBuildReceiver {
 
     private static final String TEST_PKG = "android.appsecurity.cts.tinyapp";
+    private static final String COMPANION_TEST_PKG = "android.appsecurity.cts.tinyapp_companion";
+    private static final String DEVICE_TESTS_APK = "CtsV3SigningSchemeRotationTest.apk";
+    private static final String DEVICE_TESTS_PKG = "android.appsecurity.cts.v3rotationtests";
+    private static final String DEVICE_TESTS_CLASS = DEVICE_TESTS_PKG + ".V3RotationTest";
     private static final String TEST_APK_RESOURCE_PREFIX = "/pkgsigverify/";
 
     private static final String[] DSA_KEY_NAMES = {"1024", "2048", "3072"};
@@ -58,12 +67,14 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         Utils.prepareSingleUser(getDevice());
         assertNotNull(mCtsBuild);
         uninstallPackage();
+        uninstallCompanionPackage();
+        installDeviceTestPkg();
     }
 
     @Override
     protected void tearDown() throws Exception {
         try {
-            uninstallPackage();
+            uninstallPackages();
         } catch (DeviceNotAvailableException ignored) {
         } finally {
             super.tearDown();
@@ -232,6 +243,16 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
                 "v2-only-with-rsa-pss-sha512-%s.apk",
                 RSA_KEY_NAMES_2048_AND_LARGER // 1024-bit key is too short for PSS with SHA-512
                 );
+    }
+
+    public void testInstallV1SignatureOnlyDoesNotVerify() throws Exception {
+        // APK signed with v1 scheme only, but not all digests match those recorded in
+        // META-INF/MANIFEST.MF.
+        String error = "META-INF/MANIFEST.MF has invalid digest";
+
+        // Bitflip in classes.dex of otherwise good file.
+        assertInstallFailsWithError(
+                "v1-only-with-tampered-classes-dex.apk", error);
     }
 
     public void testInstallV2SignatureDoesNotVerify() throws Exception {
@@ -469,9 +490,10 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
     }
 
     public void testInstallEphemeralRequiresV2Signature() throws Exception {
-        String expectedNoSigError = "No APK Signature Scheme v2 signature in ephemeral package";
-        assertInstallEphemeralFailsWithError("unsigned-ephemeral.apk", expectedNoSigError);
-        assertInstallEphemeralFailsWithError("v1-only-ephemeral.apk", expectedNoSigError);
+        assertInstallEphemeralFailsWithError("unsigned-ephemeral.apk",
+                "Failed to collect certificates");
+        assertInstallEphemeralFailsWithError("v1-only-ephemeral.apk",
+                "must be signed with APK Signature Scheme v2 or greater");
         assertInstallEphemeralSucceeds("v2-only-ephemeral.apk");
         assertInstallEphemeralSucceeds("v1-v2-ephemeral.apk"); // signed with both schemes
     }
@@ -497,6 +519,243 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         // start of the APK
         assertInstallFailsWithError("v1-only-starts-with-dex-magic.apk", error);
         assertInstallFailsWithError("v2-only-starts-with-dex-magic.apk", error);
+    }
+
+    public void testInstallV3KeyRotation() throws Exception {
+        // tests that a v3 signed APK with RSA key can rotate to a new key
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1.apk");
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-full-caps.apk");
+    }
+
+    public void testInstallV3KeyRotationToAncestor() throws Exception {
+        // tests that a v3 signed APK with RSA key cannot be upgraded by one of its past certs
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-full-caps.apk");
+        assertInstallFails("v3-rsa-pkcs1-sha256-2048-1.apk");
+    }
+
+    public void testInstallV3KeyRotationToAncestorWithRollback() throws Exception {
+        // tests that a v3 signed APK with RSA key can be upgraded by one of its past certs if it
+        // has granted that cert the rollback capability
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-full-and-roll-caps.apk");
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1.apk");
+    }
+
+    public void testInstallV3KeyRotationMultipleHops() throws Exception {
+        // tests that a v3 signed APK with RSA key can rotate to a new key which is the result of
+        // multiple rotations from the original: APK signed with key 1 can be updated by key 3, when
+        // keys were: 1 -> 2 -> 3
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1.apk");
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-3-with-por_1_2_3-full-caps.apk");
+    }
+
+    public void testInstallV3PorSignerMismatch() throws Exception {
+        // tests that an APK with a proof-of-rotation struct that doesn't include the current
+        // signing certificate fails to install
+        assertInstallFails("v3-rsa-pkcs1-sha256-2048-3-with-por_1_2-full-caps.apk");
+    }
+
+    public void testInstallV3KeyRotationWrongPor() throws Exception {
+        // tests that a valid APK with a proof-of-rotation record can't upgrade an APK with a
+        // signing certificate that isn't in the proof-of-rotation record
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1.apk");
+        assertInstallFails("v3-rsa-pkcs1-sha256-2048-3-with-por_2_3-full-caps.apk");
+    }
+
+    public void testInstallV3KeyRotationSharedUid() throws Exception {
+        // tests that a v3 signed sharedUid APK can still be sharedUid with apps with its older
+        // signing certificate, if it so desires
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1-sharedUid.apk");
+        assertInstallSucceeds(
+                "v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-full-caps-sharedUid-companion.apk");
+    }
+
+    public void testInstallV3KeyRotationOlderSharedUid() throws Exception {
+
+        // tests that a sharedUid APK can still install with another app that is signed by a newer
+        // signing certificate, but which allows sharedUid with the older one
+        assertInstallSucceeds(
+                "v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-full-caps-sharedUid-companion.apk");
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1-sharedUid.apk");
+    }
+
+    public void testInstallV3KeyRotationSharedUidNoCap() throws Exception {
+        // tests that a v3 signed sharedUid APK cannot be sharedUid with apps with its older
+        // signing certificate, when it has not granted that certificate the sharedUid capability
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1-sharedUid.apk");
+        assertInstallFails(
+                "v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-no-shUid-cap-sharedUid-companion.apk");
+    }
+
+    public void testInstallV3KeyRotationOlderSharedUidNoCap() throws Exception {
+        // tests that a sharedUid APK signed with an old certificate cannot install with
+        // an app having a proof-of-rotation structure that hasn't granted the older
+        // certificate the sharedUid capability
+        assertInstallSucceeds(
+                "v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-no-shUid-cap-sharedUid-companion.apk");
+        assertInstallFails("v3-rsa-pkcs1-sha256-2048-1-sharedUid.apk");
+    }
+
+    public void testInstallV3NoRotationSharedUid() throws Exception {
+        // tests that a sharedUid APK signed with a new certificate installs with
+        // an app having a proof-of-rotation structure that hasn't granted an older
+        // certificate the sharedUid capability
+        assertInstallSucceeds(
+                "v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-no-shUid-cap-sharedUid-companion.apk");
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-sharedUid.apk");
+    }
+
+    public void testInstallV3KeyRotationSigPerm() throws Exception {
+        // tests that a v3 signed APK can still get a signature permission from an app with its
+        // older signing certificate.
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1-permdef.apk");
+        assertInstallSucceeds(
+                "v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-full-caps-permcli-companion.apk");
+        Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasPerm");
+    }
+
+    public void testInstallV3KeyRotationOlderSigPerm() throws Exception {
+        // tests that an apk with an older signing certificate than the one which defines a
+        // signature permission it wants gets the permission if the defining APK grants the
+        // capability
+        assertInstallSucceeds(
+                "v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-full-caps-permdef.apk");
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1-permcli-companion.apk");
+        Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasPerm");
+    }
+
+    public void testInstallV3KeyRotationSigPermNoCap() throws Exception {
+        // tests that an APK signed by an older signing certificate is unable to get a requested
+        // signature permission when the defining APK has rotated to a newer signing certificiate
+        // and does not grant the permission capability to the older cert
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-no-perm-cap-permdef.apk");
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1-permcli-companion.apk");
+        Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasNoPerm");
+    }
+
+    public void testInstallV3KeyRotationOlderSigPermNoCap() throws Exception {
+        // tests that an APK signed by a newer signing certificate than the APK which defines a
+        // signature permission is able to get that permission, even if the newer APK does not
+        // grant the permission capability to the older signing certificate.
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1-permdef.apk");
+        assertInstallSucceeds(
+                "v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-no-perm-cap-permcli-companion.apk");
+        Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasPerm");
+    }
+
+    public void testInstallV3NoRotationSigPerm() throws Exception {
+        // make sure that an APK, which wants to use a signature permission defined by an APK, which
+        // has not granted that capability to older signing certificates, can still install
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-no-perm-cap-permdef.apk");
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-permcli-companion.apk");
+        Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasPerm");
+    }
+
+    public void testInstallV3SigPermDoubleDefNewerSucceeds() throws Exception {
+        // make sure that if an app defines a signature permission already defined by another app,
+        // it successfully installs if the other app's signing cert is in its past signing certs and
+        // the signature permission capability is granted
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1-permdef.apk");
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-with_por_1_2-permdef-companion.apk");
+    }
+
+    public void testInstallV3SigPermDoubleDefOlderSucceeds() throws Exception {
+        // make sure that if an app defines a signature permission already defined by another app,
+        // it successfully installs if it is in the other app's past signing certs and the signature
+        // permission capability is granted
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-with_por_1_2-permdef-companion.apk");
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1-permdef.apk");
+    }
+
+    public void testInstallV3SigPermDoubleDefNewerNoCapFails() throws Exception {
+        // make sure that if an app defines a signature permission already defined by another app,
+        // it fails to install if the other app's signing cert is in its past signing certs but the
+        // signature permission capability is not granted
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1-permdef.apk");
+        assertInstallFails(
+                "v3-rsa-pkcs1-sha256-2048-2-with_por_1_2-no-perm-cap-permdef-companion.apk");
+    }
+
+    public void testInstallV3SigPermDoubleDefOlderNoCapFails() throws Exception {
+        // make sure that if an app defines a signature permission already defined by another app,
+        // it fails to install if it is in the other app's past signing certs but the signature
+        // permission capability is not granted
+        assertInstallSucceeds(
+                "v3-rsa-pkcs1-sha256-2048-2-with_por_1_2-no-perm-cap-permdef-companion.apk");
+        assertInstallFails("v3-rsa-pkcs1-sha256-2048-1-permdef.apk");
+    }
+
+    public void testInstallV3SigPermDoubleDefSameNoCapSucceeds() throws Exception {
+        // make sure that if an app defines a signature permission already defined by another app,
+        // it installs successfully when signed by the same certificate, even if the original app
+        // does not grant signature capabilities to its past certs
+        assertInstallSucceeds(
+                "v3-rsa-pkcs1-sha256-2048-2-with_por_1_2-no-perm-cap-permdef-companion.apk");
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-permdef.apk");
+    }
+
+    public void testInstallV3KeyRotationGetSignatures() throws Exception {
+        // tests that a PackageInfo w/GET_SIGNATURES flag returns the older cert
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-full-caps.apk");
+        Utils.runDeviceTests(
+                getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testGetSignaturesShowsOld");
+    }
+
+    public void testInstallV3KeyRotationGetSigningCertificates() throws Exception {
+        // tests that a PackageInfo w/GET_SIGNING_CERTIFICATES flag returns the old and new certs
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-full-caps.apk");
+        Utils.runDeviceTests(
+                getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS,
+                "testGetSigningCertificatesShowsAll");
+    }
+
+    public void testInstallV3KeyRotationHasSigningCertificate() throws Exception {
+        // tests that hasSigningCertificate() recognizes past and current signing certs
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-full-caps.apk");
+        Utils.runDeviceTests(
+                getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS,
+                "testHasSigningCertificate");
+    }
+
+    public void testInstallV3KeyRotationHasSigningCertificateSha256() throws Exception {
+        // tests that hasSigningCertificate() recognizes past and current signing certs by sha256
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-full-caps.apk");
+        Utils.runDeviceTests(
+                getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS,
+                "testHasSigningCertificateSha256");
+    }
+
+    public void testInstallV3KeyRotationHasSigningCertificateByUid() throws Exception {
+        // tests that hasSigningCertificate() recognizes past and current signing certs by uid
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-full-caps.apk");
+        Utils.runDeviceTests(
+                getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS,
+                "testHasSigningCertificateByUid");
+    }
+
+    public void testInstallV3KeyRotationHasSigningCertificateByUidSha256() throws Exception {
+        // tests that hasSigningCertificate() recognizes past and current signing certs by uid
+        // and sha256
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-full-caps.apk");
+        Utils.runDeviceTests(
+                getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS,
+                "testHasSigningCertificateByUidSha256");
+    }
+
+    public void testInstallV3KeyRotationHasDuplicateSigningCertificateHistory() throws Exception {
+        // tests that an app's proof-of-rotation signing history cannot contain the same certificate
+        // more than once.
+        assertInstallFails("v3-rsa-pkcs1-sha256-2048-2-with-por_1_2_2-full-caps.apk");
+    }
+
+    public void testInstallV3HasMultipleSigners() throws Exception {
+        // tests that an app can't be signed by multiple signers when using v3 signature scheme
+        assertInstallFails("v3-rsa-pkcs1-sha256-2048-1_and_2.apk");
+    }
+
+    public void testInstallV3HasMultiplePlatformSigners() throws Exception {
+        // tests that an app can be signed by multiple v3 signers if they target different platform
+        // versions
+        assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1_P_and_2_Qplus.apk");
     }
 
     private void assertInstallSucceeds(String apkFilenameInResources) throws Exception {
@@ -575,6 +834,13 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         }
     }
 
+    private void installDeviceTestPkg() throws Exception {
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
+        File apk = buildHelper.getTestFile(DEVICE_TESTS_APK);
+        String result = getDevice().installPackage(apk, true);
+        assertNull("failed to install " + DEVICE_TESTS_APK + ", Reason: " + result, result);
+    }
+
     private String installPackageFromResource(String apkFilenameInResources, boolean ephemeral)
             throws IOException, DeviceNotAvailableException {
         // ITestDevice.installPackage API requires the APK to be install to be a File. We thus
@@ -617,5 +883,19 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
 
     private String uninstallPackage() throws DeviceNotAvailableException {
         return getDevice().uninstallPackage(TEST_PKG);
+    }
+
+    private String uninstallCompanionPackage() throws DeviceNotAvailableException {
+        return getDevice().uninstallPackage(COMPANION_TEST_PKG);
+    }
+
+    private String uninstallDeviceTestPackage() throws DeviceNotAvailableException {
+        return getDevice().uninstallPackage(DEVICE_TESTS_PKG);
+    }
+
+    private void uninstallPackages() throws DeviceNotAvailableException {
+        uninstallPackage();
+        uninstallCompanionPackage();
+        uninstallDeviceTestPackage();
     }
 }

@@ -31,20 +31,34 @@ import javax.obex.ServerRequestHandler;
 
 class MnsObexServer extends ServerRequestHandler {
 
-    private final static String TAG = "MnsObexServer";
-    private boolean VDBG = MapClientService.VDBG;
+    private static final String TAG = "MnsObexServer";
+    private static final boolean VDBG = MapClientService.VDBG;
 
     private static final byte[] MNS_TARGET = new byte[]{
-            (byte) 0xbb, 0x58, 0x2b, 0x41, 0x42, 0x0c, 0x11, (byte) 0xdb, (byte) 0xb0, (byte) 0xde,
-            0x08, 0x00, 0x20, 0x0c, (byte) 0x9a, 0x66
+            (byte) 0xbb,
+            0x58,
+            0x2b,
+            0x41,
+            0x42,
+            0x0c,
+            0x11,
+            (byte) 0xdb,
+            (byte) 0xb0,
+            (byte) 0xde,
+            0x08,
+            0x00,
+            0x20,
+            0x0c,
+            (byte) 0x9a,
+            0x66
     };
 
-    private final static String TYPE = "x-bt/MAP-event-report";
+    private static final String TYPE = "x-bt/MAP-event-report";
 
     private final WeakReference<MceStateMachine> mStateMachineReference;
     private final ObexServerSockets mObexServerSockets;
 
-    public MnsObexServer(MceStateMachine stateMachine, ObexServerSockets socketOriginator) {
+    MnsObexServer(MceStateMachine stateMachine, ObexServerSockets socketOriginator) {
         super();
         mStateMachineReference = new WeakReference<>(stateMachine);
         mObexServerSockets = socketOriginator;
@@ -52,8 +66,9 @@ class MnsObexServer extends ServerRequestHandler {
 
     @Override
     public int onConnect(final HeaderSet request, HeaderSet reply) {
-        if (VDBG) Log.v(TAG, "onConnect");
-        mObexServerSockets.prepareForNewConnect();
+        if (VDBG) {
+            Log.v(TAG, "onConnect");
+        }
 
         try {
             byte[] uuid = (byte[]) request.getHeader(HeaderSet.TARGET);
@@ -72,18 +87,24 @@ class MnsObexServer extends ServerRequestHandler {
 
     @Override
     public void onDisconnect(final HeaderSet request, HeaderSet reply) {
-        if (VDBG) Log.v(TAG, "onDisconnect");
+        if (VDBG) {
+            Log.v(TAG, "onDisconnect");
+        }
     }
 
     @Override
     public int onGet(final Operation op) {
-        if (VDBG) Log.v(TAG, "onGet");
+        if (VDBG) {
+            Log.v(TAG, "onGet");
+        }
         return ResponseCodes.OBEX_HTTP_BAD_REQUEST;
     }
 
     @Override
     public int onPut(final Operation op) {
-        if (VDBG) Log.v(TAG, "onPut");
+        if (VDBG) {
+            Log.v(TAG, "onPut");
+        }
 
         try {
             HeaderSet headerset;
@@ -112,19 +133,25 @@ class MnsObexServer extends ServerRequestHandler {
 
     @Override
     public int onAbort(final HeaderSet request, HeaderSet reply) {
-        if (VDBG) Log.v(TAG, "onAbort");
+        if (VDBG) {
+            Log.v(TAG, "onAbort");
+        }
         return ResponseCodes.OBEX_HTTP_NOT_IMPLEMENTED;
     }
 
     @Override
-    public int onSetPath(final HeaderSet request, HeaderSet reply,
-            final boolean backup, final boolean create) {
-        if (VDBG) Log.v(TAG, "onSetPath");
+    public int onSetPath(final HeaderSet request, HeaderSet reply, final boolean backup,
+            final boolean create) {
+        if (VDBG) {
+            Log.v(TAG, "onSetPath");
+        }
         return ResponseCodes.OBEX_HTTP_BAD_REQUEST;
     }
 
     @Override
     public void onClose() {
-        if (VDBG) Log.v(TAG, "onClose");
+        if (VDBG) {
+            Log.v(TAG, "onClose");
+        }
     }
 }

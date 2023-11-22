@@ -553,7 +553,8 @@ public class RemoteConnectionTest extends BaseRemoteTelecomTest {
         mRemoteConnection.setExtras(extras);
         callbackInvoker.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
         assertEquals(mRemoteConnectionObject, callbackInvoker.getArgs(0)[0]);
-        assertTrue(areBundlesEqual(extras, (Bundle) callbackInvoker.getArgs(0)[1]));
+        Bundle changedExtras = (Bundle) callbackInvoker.getArgs(0)[1];
+        assertTrue(changedExtras.containsKey(TelecomManager.EXTRA_CALL_DISCONNECT_MESSAGE));
         mRemoteConnectionObject.unregisterCallback(callback);
     }
 
@@ -1187,7 +1188,7 @@ public class RemoteConnectionTest extends BaseRemoteTelecomTest {
         assertEquals(connection.getConnectionProperties(),
                 remoteConnection.getConnectionProperties());
         assertEquals(connection.getDisconnectCause(), remoteConnection.getDisconnectCause());
-        assertEquals(connection.getExtras(), remoteConnection.getExtras());
+        assertTrue(areBundlesEqual(connection.getExtras(), remoteConnection.getExtras()));
         assertEquals(connection.getStatusHints(), remoteConnection.getStatusHints());
         assertEquals(VideoProfile.STATE_AUDIO_ONLY, remoteConnection.getVideoState());
         assertNull(remoteConnection.getVideoProvider());

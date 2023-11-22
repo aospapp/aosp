@@ -283,6 +283,24 @@ public class SmsManagerTest extends InstrumentationTestCase {
         }
     }
 
+
+    public void testSmsNotPersisted_failsWithoutCarrierPermissions() throws Exception {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            return;
+        }
+
+        assertFalse("[RERUN] SIM card does not provide phone number. Use a suitable SIM Card.",
+                TextUtils.isEmpty(mDestAddr));
+
+        try {
+            getSmsManager().sendTextMessageWithoutPersisting(mDestAddr, null /*scAddress */,
+                    mDestAddr, mSentIntent, mDeliveredIntent);
+            fail("We should get a SecurityException due to not having carrier privileges");
+        } catch (SecurityException e) {
+            // Success
+        }
+    }
+
     private void init() {
         mSendReceiver.reset();
         mDeliveryReceiver.reset();

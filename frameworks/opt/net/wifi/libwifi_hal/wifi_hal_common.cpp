@@ -23,6 +23,7 @@
 #include <android-base/logging.h>
 #include <cutils/misc.h>
 #include <cutils/properties.h>
+#include <sys/syscall.h>
 
 extern "C" int init_module(void *, unsigned long, const char *);
 extern "C" int delete_module(const char *, unsigned int);
@@ -51,16 +52,21 @@ static const char MODULE_FILE[] = "/proc/modules";
 #endif
 
 static int insmod(const char *filename, const char *args) {
-  void *module;
-  unsigned int size;
   int ret;
+  int fd;
 
-  module = load_file(filename, &size);
-  if (!module) return -1;
+  fd = TEMP_FAILURE_RETRY(open(filename, O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+  if (fd < 0) {
+    PLOG(ERROR) << "Failed to open " << filename;
+    return -1;
+  }
 
-  ret = init_module(module, size, args);
+  ret = syscall(__NR_finit_module, fd, args, 0);
 
-  free(module);
+  close(fd);
+  if (ret < 0) {
+    PLOG(ERROR) << "finit_module return: " << ret;
+  }
 
   return ret;
 }

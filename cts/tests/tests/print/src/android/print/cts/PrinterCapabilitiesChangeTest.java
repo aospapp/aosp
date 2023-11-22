@@ -16,6 +16,8 @@
 
 package android.print.cts;
 
+import static android.print.test.Utils.runOnMainThread;
+
 import android.os.ParcelFileDescriptor;
 import android.print.PageRange;
 import android.print.PrintAttributes;
@@ -29,14 +31,14 @@ import android.print.PrintDocumentInfo;
 import android.print.PrinterCapabilitiesInfo;
 import android.print.PrinterId;
 import android.print.PrinterInfo;
-import android.print.cts.services.FirstPrintService;
-import android.print.cts.services.PrintServiceCallbacks;
-import android.print.cts.services.PrinterDiscoverySessionCallbacks;
-import android.print.cts.services.SecondPrintService;
-import android.print.cts.services.StubbablePrinterDiscoverySession;
-import android.support.test.uiautomator.UiObject;
-import android.support.test.uiautomator.UiSelector;
+import android.print.test.BasePrintTest;
+import android.print.test.services.FirstPrintService;
+import android.print.test.services.PrintServiceCallbacks;
+import android.print.test.services.PrinterDiscoverySessionCallbacks;
+import android.print.test.services.SecondPrintService;
+import android.print.test.services.StubbablePrinterDiscoverySession;
 import android.util.Log;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,8 +48,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
-
-import static android.print.cts.Utils.runOnMainThread;
 
 /**
  * This test verifies changes to the printer capabilities are applied correctly.
@@ -152,23 +152,6 @@ public class PrinterCapabilitiesChangeTest extends BasePrintTest {
                 () -> session.addPrinters(generatePrinters(printerId, mediaSize, isAvailable ?
                         PrinterInfo.STATUS_IDLE :
                         PrinterInfo.STATUS_UNAVAILABLE)));
-    }
-
-    /**
-     * Wait until the message is shown that indicates that a printer is unavilable.
-     *
-     * @throws Exception If anything was unexpected.
-     */
-    private void waitForPrinterUnavailable() throws Exception {
-        final String PRINTER_UNAVAILABLE_MSG =
-                getPrintSpoolerString("print_error_printer_unavailable");
-
-        UiObject message = getUiDevice().findObject(new UiSelector().resourceId(
-                "com.android.printspooler:id/message"));
-        if (!message.getText().equals(PRINTER_UNAVAILABLE_MSG)) {
-            throw new Exception("Wrong message: " + message.getText() + " instead of " +
-                    PRINTER_UNAVAILABLE_MSG);
-        }
     }
 
     @Before

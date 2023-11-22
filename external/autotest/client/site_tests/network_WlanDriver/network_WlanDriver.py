@@ -35,19 +35,27 @@ class network_WlanDriver(test.test):
                     '3.8': 'wireless/iwl7000/iwlwifi/iwlwifi.ko',
                     '3.10': 'wireless-3.8/iwl7000/iwlwifi/iwlwifi.ko',
                     '3.14': 'wireless-3.8/iwl7000/iwlwifi/iwlwifi.ko',
-                    '3.18': 'wireless/iwl7000/iwlwifi/iwlwifi.ko'
+                    '3.18': 'wireless/iwl7000/iwlwifi/iwlwifi.ko',
+                    '4.4': 'wireless/iwl7000/iwlwifi/iwlwifi.ko',
+                    '4.14': 'wireless/iwl7000/iwlwifi/iwlwifi.ko'
+            },
+            'Intel 9000': {
+                    '4.14': 'wireless/iwl7000/iwlwifi/iwlwifi.ko'
+            },
+            'Intel 9260': {
+                    '4.14': 'wireless/iwl7000/iwlwifi/iwlwifi.ko'
             },
             'Atheros AR9462': {
                     '3.4': 'wireless/ath/ath9k_btcoex/ath9k_btcoex.ko',
                     '3.8': 'wireless-3.4/ath/ath9k_btcoex/ath9k_btcoex.ko'
             },
             'Qualcomm Atheros QCA6174': {
-                    '3.18': 'wireless/ar10k/ath/ath10k/ath10k_core.ko',
-                    '3.18': 'wireless/ar10k/ath/ath10k/ath10k_pci.ko'
+                    '3.18': 'wireless/ar10k/ath/ath10k/ath10k_pci.ko',
+                    '4.4': 'wireless/ar10k/ath/ath10k/ath10k_pci.ko',
             },
             'Qualcomm Atheros NFA344A/QCA6174': {
-                    '3.18': 'wireless/ar10k/ath/ath10k/ath10k_core.ko',
-                    '3.18': 'wireless/ar10k/ath/ath10k/ath10k_pci.ko'
+                    '3.18': 'wireless/ar10k/ath/ath10k/ath10k_pci.ko',
+                    '4.4': 'wireless/ar10k/ath/ath10k/ath10k_pci.ko',
             },
             'Marvell 88W8797 SDIO': {
                     '3.4': 'wireless/mwifiex/mwifiex_sdio.ko',
@@ -77,9 +85,25 @@ class network_WlanDriver(test.test):
                      '4.4': 'wireless/marvell/mwifiex/mwifiex_pcie.ko',
             },
     }
+    EXCEPTION_BOARDS = [
+            # Exhibits very similar symptoms to http://crbug.com/693724,
+            # b/65858242, b/36264732.
+            'nyan_kitty',
+    ]
 
 
-    def run_once(self):
+    def NoDeviceFailure(self, forgive_flaky, message):
+        """
+        No WiFi device found. Forgiveable in some suites, for some boards.
+        """
+        board = utils.get_board()
+        if forgive_flaky and board in self.EXCEPTION_BOARDS:
+            return error.TestWarn('Exception (%s): %s' % (board, message))
+        else:
+            return error.TestFail(message)
+
+
+    def run_once(self, forgive_flaky=False):
         """Test main loop"""
         # full_revision looks like "3.4.0".
         full_revision = utils.system_output('uname -r')
@@ -88,16 +112,35 @@ class network_WlanDriver(test.test):
         logging.info('Kernel base is %s', base_revision)
 
         proxy = shill_proxy.ShillProxy()
+
+        uninit = proxy.get_proxy().get_dbus_property(proxy.manager,
+                 shill_proxy.ShillProxy.MANAGER_PROPERTY_UNINITIALIZED_TECHNOLOGIES)
+        logging.info("Uninitialized technologies: %s", uninit)
+        # If Wifi support is not enabled for shill, it will be uninitialized.
+        # Don't fail the test if Wifi was intentionally disabled.
+        if "wifi" in uninit:
+            raise error.TestNAError('Wireless support not enabled')
+
+        wlan_ifs = [nic for nic in interface.get_interfaces()
+                        if nic.is_wifi_device()]
+        if wlan_ifs:
+            net_if = wlan_ifs[0]
+        else:
+            raise self.NoDeviceFailure(forgive_flaky,
+                                       'Found no recognized wireless device')
+
+        # Some systems (e.g., moblab) might blacklist certain devices. We don't
+        # rely on shill for most of this test, but it can be a helpful clue if
+        # we see shill barfing.
         device_obj = proxy.find_object('Device',
                                        {'Type': proxy.TECHNOLOGY_WIFI})
         if device_obj is None:
-            raise error.TestNAError('Found no recognized wireless device')
+            logging.warning("Shill couldn't find wireless device; "
+                            "did someone blacklist it?")
 
-        device = device_obj.GetProperties()['Interface']
-        net_if = interface.Interface(device)
         device_description = net_if.device_description
         if not device_description:
-            raise error.TestFail('Device %s is not supported' % device)
+            raise error.TestFail('Device %s is not supported' % net_if.name)
 
         device_name, module_path = device_description
         logging.info('Device name %s, module path %s', device_name, module_path)

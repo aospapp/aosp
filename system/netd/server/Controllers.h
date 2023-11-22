@@ -26,14 +26,15 @@
 #include "IdletimerController.h"
 #include "InterfaceController.h"
 #include "IptablesRestoreController.h"
-#include "NatController.h"
 #include "NetworkController.h"
 #include "PppController.h"
 #include "ResolverController.h"
 #include "StrictController.h"
 #include "TetherController.h"
+#include "TrafficController.h"
 #include "WakeupController.h"
 #include "XfrmController.h"
+#include "TcpSocketMonitor.h"
 
 namespace android {
 namespace net {
@@ -44,7 +45,6 @@ public:
 
     NetworkController netCtrl;
     TetherController tetherCtrl;
-    NatController natCtrl;
     PppController pppCtrl;
     BandwidthController bandwidthCtrl;
     IdletimerController idletimerCtrl;
@@ -56,6 +56,8 @@ public:
     IptablesRestoreController iptablesRestoreCtrl;
     WakeupController wakeupCtrl;
     XfrmController xfrmCtrl;
+    TrafficController trafficCtrl;
+    TcpSocketMonitor tcpSocketMonitor;
 
     void init();
 

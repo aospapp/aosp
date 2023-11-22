@@ -29,7 +29,7 @@ import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbEndpoint;
 import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;

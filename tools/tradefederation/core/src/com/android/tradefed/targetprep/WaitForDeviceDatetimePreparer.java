@@ -26,12 +26,12 @@ import com.android.tradefed.util.RunUtil;
 
 /**
  * A {@link ITargetPreparer} that waits for datetime to be set on device
- * <p>
- * Optionally this preparer can force a {@link TargetSetupError} if datetime is not set within
+ *
+ * <p>Optionally this preparer can force a {@link TargetSetupError} if datetime is not set within
  * timeout, or force host datetime onto device,
  */
 @OptionClass(alias = "wait-for-datetime")
-public class WaitForDeviceDatetimePreparer implements ITargetPreparer {
+public class WaitForDeviceDatetimePreparer extends BaseTargetPreparer {
 
     // 30s to wait for device datetime
     private static final long DATETIME_WAIT_TIMEOUT = 30 * 1000;
@@ -78,6 +78,13 @@ public class WaitForDeviceDatetimePreparer implements ITargetPreparer {
      */
     public void setForceDatetime(boolean forceDatetime) {
         mForceDatetime = forceDatetime;
+    }
+
+    /**
+     * Sets the boolean for forcing a {@link TargetSetupError} if the datetime is not set correctly.
+     */
+    public void setForceSetupError(boolean forceSetupError) {
+        mForceSetupError = forceSetupError;
     }
 
     /**

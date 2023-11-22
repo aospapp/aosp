@@ -4,16 +4,26 @@ plugins {
 
 apply plugin: 'idea'
 
-description = 'Conscrypt: OpenJDK Benchmarks'
+description = 'Conscrypt: JMH on OpenJDK Benchmarks'
+
+evaluationDependsOn(':conscrypt-openjdk')
 
 ext {
+    preferredNativeConfiguration = project(':conscrypt-openjdk').preferredNativeConfiguration
+    preferredNativeFileDir = project(':conscrypt-openjdk').preferredNativeFileDir
+
     genDir = "${buildDir}/jmh-generated-classes"
     jmhInclude = System.getProperty('jmh.include')
     jmhWarmupIterations = System.getProperty('jmh.wi', '10')
     jmhIterations = System.getProperty('jmh.i', '10')
     jmhFork = System.getProperty('jmh.f', '1')
+    jmhJvm = System.getProperty('jmh.jvm')
     jmhJvmArgs = System.getProperty('jmh.jvmArgs', '-server -Xms2g -Xmx2g')
 }
+
+// We're not distributing this, so it's safe to use newer language features.
+sourceCompatibility = JavaVersion.VERSION_1_8
+targetCompatibility = JavaVersion.VERSION_1_8
 
 jmh {
     jmhVersion = "$jmhVersion"
@@ -24,6 +34,9 @@ jmh {
     iterations = "$jmhIterations".toInteger();
     fork = "$jmhFork".toInteger()
     jvmArgs = jmhJvmArgs.toString()
+    if (jmhJvm != null) {
+        jvm = jmhJvm
+    }
     duplicateClassesStrategy = 'warn'
 }
 
@@ -43,14 +56,22 @@ sourceSets {
                 // This shouldn't be needed but seems to help IntelliJ locate
                 // META_INF/BenchmarkList.
                 srcDirs += genDir
+
+                // This shouldn't be needed but seems to help IntelliJ locate the native artifact.
+                srcDirs += preferredNativeFileDir
             }
         }
     }
 }
 
 dependencies {
-    compile project(':conscrypt-benchmark-base'),
-            libraries.junit
+    compile project(':conscrypt-openjdk'),
+            project(':conscrypt-benchmark-base'),
+            // Add the preferred native openjdk configuration for this platform.
+            project(path: ':conscrypt-openjdk', configuration: "$preferredNativeConfiguration"),
+            libraries.junit,
+            libraries.netty_handler,
+            libraries.netty_tcnative
 
     jmhGeneratorAnnprocess libraries.jmh_generator_annprocess
 
@@ -63,7 +84,7 @@ dependencies {
 // Running benchmarks in IntelliJ seems broken without this.
 // See https://github.com/melix/jmh-gradle-plugin/issues/39
 idea.module {
-    scopes.PROVIDED.plus += [ configurations.compile, configurations.jmh ]//, configurations.jmhGeneratorAnnprocess ]
+    scopes.PROVIDED.plus += [ configurations.compile, configurations.jmh ]
 }
 
 // Don't include this artifact in the distribution.

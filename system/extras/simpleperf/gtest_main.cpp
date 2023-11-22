@@ -26,7 +26,7 @@
 #include <ziparchive/zip_archive.h>
 
 #if defined(__ANDROID__)
-#include <sys/system_properties.h>
+#include <android-base/properties.h>
 #endif
 
 #include "command.h"
@@ -106,26 +106,26 @@ static bool ExtractTestDataFromElfSection() {
 class ScopedEnablingPerf {
  public:
   ScopedEnablingPerf() {
-    memset(prop_value_, '\0', sizeof(prop_value_));
-    __system_property_get("security.perf_harden", prop_value_);
+    prop_value_ = android::base::GetProperty("security.perf_harden", "");
     SetProp("0");
   }
 
   ~ScopedEnablingPerf() {
-    if (strlen(prop_value_) != 0) {
+    if (!prop_value_.empty()) {
       SetProp(prop_value_);
     }
   }
 
  private:
-  void SetProp(const char* value) {
-    __system_property_set("security.perf_harden", value);
+  void SetProp(const std::string& value) {
+    android::base::SetProperty("security.perf_harden", value);
+
     // Sleep one second to wait for security.perf_harden changing
     // /proc/sys/kernel/perf_event_paranoid.
     sleep(1);
   }
 
-  char prop_value_[PROP_VALUE_MAX];
+  std::string prop_value_;
 };
 
 class ScopedWorkloadExecutable {

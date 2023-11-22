@@ -23,7 +23,9 @@ servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 
 def run(machine):
     host = hosts.create_host(machine, servo_args=servo_args)
+    ccd_lockout = args_dict.get("ccd_lockout", "false").lower() == "true"
 
-    job.run_test("firmware_FWMPDisableCCD", host=host, cmdline_args=args)
+    job.run_test("firmware_FWMPDisableCCD", host=host, cmdline_args=args,
+                 ccd_lockout=ccd_lockout)
 
 parallel_simple(run, machines)

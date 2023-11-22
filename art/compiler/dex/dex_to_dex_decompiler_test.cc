@@ -17,14 +17,13 @@
 #include "dex_to_dex_decompiler.h"
 
 #include "class_linker.h"
-#include "compiler/common_compiler_test.h"
-#include "compiler/compiled_method.h"
-#include "compiler/driver/compiler_options.h"
-#include "compiler/driver/compiler_driver.h"
+#include "common_compiler_test.h"
+#include "compiled_method-inl.h"
 #include "compiler_callbacks.h"
-#include "dex_file.h"
+#include "dex/dex_file.h"
+#include "driver/compiler_driver.h"
+#include "driver/compiler_options.h"
 #include "handle_scope-inl.h"
-#include "verifier/method_verifier-inl.h"
 #include "mirror/class_loader.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
@@ -92,7 +91,7 @@ class DexToDexDecompilerTest : public CommonCompilerTest {
       it.SkipAllFields();
 
       // Unquicken each method.
-      while (it.HasNextDirectMethod()) {
+      while (it.HasNextMethod()) {
         uint32_t method_idx = it.GetMemberIndex();
         CompiledMethod* compiled_method =
             compiler_driver_->GetCompiledMethod(MethodReference(updated_dex_file, method_idx));
@@ -100,20 +99,10 @@ class DexToDexDecompilerTest : public CommonCompilerTest {
         if (compiled_method != nullptr) {
           table = compiled_method->GetVmapTable();
         }
-        optimizer::ArtDecompileDEX(
-            *it.GetMethodCodeItem(), table, /* decompile_return_instruction */ true);
-        it.Next();
-      }
-      while (it.HasNextVirtualMethod()) {
-        uint32_t method_idx = it.GetMemberIndex();
-        CompiledMethod* compiled_method =
-            compiler_driver_->GetCompiledMethod(MethodReference(updated_dex_file, method_idx));
-        ArrayRef<const uint8_t> table;
-        if (compiled_method != nullptr) {
-          table = compiled_method->GetVmapTable();
-        }
-        optimizer::ArtDecompileDEX(
-            *it.GetMethodCodeItem(), table, /* decompile_return_instruction */ true);
+        optimizer::ArtDecompileDEX(*updated_dex_file,
+                                   *it.GetMethodCodeItem(),
+                                   table,
+                                   /* decompile_return_instruction */ true);
         it.Next();
       }
       DCHECK(!it.HasNext());

@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"SIM이 없거나 SIM에 오류가 있음"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"사용 가능한 이동통신망이 없습니다."</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"FDN으로 인해 발신전화가 제한됩니다."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL 요청이 USSD 요청으로 수정되었습니다."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL 요청이 SS 요청으로 수정되었습니다."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL 요청이 다른 번호로 된 DIAL 요청으로 수정되었습니다."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"통화가 USSD 요청으로 변경됨"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"통화가 SS 요청으로 변경됨"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"다른 번호로 변경됨"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"화상 통화로 변경됨"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"화상 통화가 SS 요청으로 변경됨"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"화상 통화가 USSD 요청으로 변경됨"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"일반 통화로 변경됨"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"다른 번호로 변경됨"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"착발신 제한이 설정되어 있는 상태에서는 전화를 걸 수 없습니다."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"액세스 제어에 의해 통화가 제한되었습니다."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"액세스 제어에 의해 긴급 전화가 제한되었습니다."</string>

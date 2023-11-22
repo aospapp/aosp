@@ -23,7 +23,7 @@
 
 #include "chre/util/log_common.h"
 
-#include <utils/Log.h>
+#include <log/log.h>
 
 /**
  * Logs a message to both logcat and stdout. Don't use this directly; prefer one

@@ -28,10 +28,10 @@ import android.os.Bundle;
 import android.support.v13.app.FragmentCompat;
 import com.android.contacts.common.list.ContactEntryListAdapter;
 import com.android.dialer.app.R;
-import com.android.dialer.app.dialpad.SmartDialCursorLoader;
 import com.android.dialer.callintent.CallInitiationType;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.database.DialerDatabaseHelper;
+import com.android.dialer.smartdial.SmartDialCursorLoader;
 import com.android.dialer.util.PermissionsUtil;
 import com.android.dialer.widget.EmptyContentView;
 import java.util.Arrays;
@@ -43,7 +43,7 @@ public class SmartDialSearchFragment extends SearchFragment
 
   private static final int CALL_PHONE_PERMISSION_REQUEST_CODE = 1;
 
-  private final BroadcastReceiver mSmartDialUpdatedReceiver =
+  private final BroadcastReceiver smartDialUpdatedReceiver =
       new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -87,16 +87,16 @@ public class SmartDialSearchFragment extends SearchFragment
 
   @Override
   protected void setupEmptyView() {
-    if (mEmptyView != null && getActivity() != null) {
+    if (emptyView != null && getActivity() != null) {
       if (!PermissionsUtil.hasPermission(getActivity(), CALL_PHONE)) {
-        mEmptyView.setImage(R.drawable.empty_contacts);
-        mEmptyView.setActionLabel(R.string.permission_single_turn_on);
-        mEmptyView.setDescription(R.string.permission_place_call);
-        mEmptyView.setActionClickedListener(this);
+        emptyView.setImage(R.drawable.empty_contacts);
+        emptyView.setActionLabel(R.string.permission_single_turn_on);
+        emptyView.setDescription(R.string.permission_place_call);
+        emptyView.setActionClickedListener(this);
       } else {
-        mEmptyView.setImage(EmptyContentView.NO_IMAGE);
-        mEmptyView.setActionLabel(EmptyContentView.NO_LABEL);
-        mEmptyView.setDescription(EmptyContentView.NO_LABEL);
+        emptyView.setImage(EmptyContentView.NO_IMAGE);
+        emptyView.setActionLabel(EmptyContentView.NO_LABEL);
+        emptyView.setDescription(EmptyContentView.NO_LABEL);
       }
     }
   }
@@ -109,7 +109,7 @@ public class SmartDialSearchFragment extends SearchFragment
 
     getActivity()
         .registerReceiver(
-            mSmartDialUpdatedReceiver,
+            smartDialUpdatedReceiver,
             new IntentFilter(DialerDatabaseHelper.ACTION_SMART_DIAL_UPDATED));
   }
 
@@ -119,7 +119,7 @@ public class SmartDialSearchFragment extends SearchFragment
 
     LogUtil.i("SmartDialSearchFragment.onStop", "unregistering smart dial update receiver");
 
-    getActivity().unregisterReceiver(mSmartDialUpdatedReceiver);
+    getActivity().unregisterReceiver(smartDialUpdatedReceiver);
   }
 
   @Override
@@ -155,7 +155,7 @@ public class SmartDialSearchFragment extends SearchFragment
   }
 
   public boolean isShowingPermissionRequest() {
-    return mEmptyView != null && mEmptyView.isShowingContent();
+    return emptyView != null && emptyView.isShowingContent();
   }
 
   @Override

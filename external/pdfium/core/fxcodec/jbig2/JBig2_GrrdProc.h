@@ -7,6 +7,8 @@
 #ifndef CORE_FXCODEC_JBIG2_JBIG2_GRRDPROC_H_
 #define CORE_FXCODEC_JBIG2_JBIG2_GRRDPROC_H_
 
+#include <memory>
+
 #include "core/fxcrt/fx_system.h"
 
 class CJBig2_ArithDecoder;
@@ -15,20 +17,8 @@ struct JBig2ArithCtx;
 
 class CJBig2_GRRDProc {
  public:
-  CJBig2_Image* decode(CJBig2_ArithDecoder* pArithDecoder,
-                       JBig2ArithCtx* grContext);
-
-  CJBig2_Image* decode_Template0_unopt(CJBig2_ArithDecoder* pArithDecoder,
+  std::unique_ptr<CJBig2_Image> decode(CJBig2_ArithDecoder* pArithDecoder,
                                        JBig2ArithCtx* grContext);
-
-  CJBig2_Image* decode_Template0_opt(CJBig2_ArithDecoder* pArithDecoder,
-                                     JBig2ArithCtx* grContext);
-
-  CJBig2_Image* decode_Template1_unopt(CJBig2_ArithDecoder* pArithDecoder,
-                                       JBig2ArithCtx* grContext);
-
-  CJBig2_Image* decode_Template1_opt(CJBig2_ArithDecoder* pArithDecoder,
-                                     JBig2ArithCtx* grContext);
 
   uint32_t GRW;
   uint32_t GRH;
@@ -38,6 +28,32 @@ class CJBig2_GRRDProc {
   int32_t GRREFERENCEDY;
   bool TPGRON;
   int8_t GRAT[4];
+
+ private:
+  std::unique_ptr<CJBig2_Image> decode_Template0_unopt(
+      CJBig2_ArithDecoder* pArithDecoder,
+      JBig2ArithCtx* grContext);
+  uint32_t decode_Template0_unopt_CalculateContext(const CJBig2_Image& GRREG,
+                                                   const uint32_t* lines,
+                                                   uint32_t w,
+                                                   uint32_t h) const;
+  void decode_Template0_unopt_SetPixel(CJBig2_Image* GRREG,
+                                       uint32_t* lines,
+                                       uint32_t w,
+                                       uint32_t h,
+                                       int bVal);
+
+  std::unique_ptr<CJBig2_Image> decode_Template0_opt(
+      CJBig2_ArithDecoder* pArithDecoder,
+      JBig2ArithCtx* grContext);
+
+  std::unique_ptr<CJBig2_Image> decode_Template1_unopt(
+      CJBig2_ArithDecoder* pArithDecoder,
+      JBig2ArithCtx* grContext);
+
+  std::unique_ptr<CJBig2_Image> decode_Template1_opt(
+      CJBig2_ArithDecoder* pArithDecoder,
+      JBig2ArithCtx* grContext);
 };
 
 #endif  // CORE_FXCODEC_JBIG2_JBIG2_GRRDPROC_H_

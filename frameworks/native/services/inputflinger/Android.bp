@@ -26,6 +26,7 @@ cc_library_shared {
     ],
 
     shared_libs: [
+        "libbase",
         "libbinder",
         "libcrypto",
         "libcutils",
@@ -37,6 +38,9 @@ cc_library_shared {
     ],
 
     cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
         "-Wno-unused-parameter",
         // TODO: Move inputflinger to its own process and mark it hidden
         //-fvisibility=hidden

@@ -169,7 +169,6 @@ public class RunActionTask extends Task implements HostMonitor.Handler {
         }
         return vmCommandBuilder
                 .temp(workingDirectory)
-                .debugPort(run.debugPort)
                 .vmArgs(run.additionalVmArgs)
                 .mainClass(TestRunner.class.getName())
                 .args(run.targetArgs)

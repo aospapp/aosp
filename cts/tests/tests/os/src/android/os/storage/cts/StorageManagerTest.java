@@ -69,6 +69,7 @@ public class StorageManagerTest extends AndroidTestCase {
     private static final String TEST1_NEW_CONTENTS = "1\n";
 
     private StorageManager mStorageManager;
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
 
     @Override
     protected void setUp() throws Exception {
@@ -317,7 +318,7 @@ public class StorageManagerTest extends AndroidTestCase {
             if (onReadError != null) {
                 throw onReadError;
             }
-            final int len = (int)(Math.min(size, data.length - offset));
+            final int len = (int)(Math.min(size, bytes.length - offset));
             for (int i = 0; i < len; i++) {
                 data[i] = bytes[(int)(i + offset)];
             }
@@ -354,11 +355,11 @@ public class StorageManagerTest extends AndroidTestCase {
         final TestProxyFileDescriptorCallback cherryCallback =
                 new TestProxyFileDescriptorCallback(1024 * 1024, "Cherry");
         try (final ParcelFileDescriptor appleFd = mStorageManager.openProxyFileDescriptor(
-                     ParcelFileDescriptor.MODE_READ_ONLY, appleCallback);
+                     ParcelFileDescriptor.MODE_READ_ONLY, appleCallback, mHandler);
              final ParcelFileDescriptor orangeFd = mStorageManager.openProxyFileDescriptor(
-                     ParcelFileDescriptor.MODE_WRITE_ONLY, orangeCallback);
+                     ParcelFileDescriptor.MODE_WRITE_ONLY, orangeCallback, mHandler);
              final ParcelFileDescriptor cherryFd = mStorageManager.openProxyFileDescriptor(
-                     ParcelFileDescriptor.MODE_READ_WRITE, cherryCallback)) {
+                     ParcelFileDescriptor.MODE_READ_WRITE, cherryCallback, mHandler)) {
             // Stat
             assertEquals(appleCallback.onGetSize(), appleFd.getStatSize());
             assertEquals(orangeCallback.onGetSize(), orangeFd.getStatSize());
@@ -486,13 +487,13 @@ public class StorageManagerTest extends AndroidTestCase {
         callback.onGetSizeError = new ErrnoException("onGetSize", OsConstants.ENOENT);
         try {
             try (final ParcelFileDescriptor fd = mStorageManager.openProxyFileDescriptor(
-                    ParcelFileDescriptor.MODE_READ_WRITE, callback)) {}
+                    ParcelFileDescriptor.MODE_READ_WRITE, callback, mHandler)) {}
             fail();
         } catch (IOException exp) {}
         callback.onGetSizeError = null;
 
         try (final ParcelFileDescriptor fd = mStorageManager.openProxyFileDescriptor(
-                ParcelFileDescriptor.MODE_READ_WRITE, callback)) {
+                ParcelFileDescriptor.MODE_READ_WRITE, callback, mHandler)) {
             callback.onReadError = new ErrnoException("onRead", OsConstants.EIO);
             try {
                 Os.read(fd.getFileDescriptor(), bytes, 0, bytes.length);
@@ -585,7 +586,7 @@ public class StorageManagerTest extends AndroidTestCase {
 
         try (final ParcelFileDescriptor blockFd =
                     mStorageManager.openProxyFileDescriptor(
-                            ParcelFileDescriptor.MODE_READ_ONLY, blockCallback);
+                            ParcelFileDescriptor.MODE_READ_ONLY, blockCallback, mHandler);
              final ParcelFileDescriptor asyncFd =
                     mStorageManager.openProxyFileDescriptor(
                             ParcelFileDescriptor.MODE_READ_ONLY, asyncCallback, handler)) {
@@ -615,6 +616,73 @@ public class StorageManagerTest extends AndroidTestCase {
         releaseLatch.await();
         handler.getLooper().quit();
         looperThread.join();
+    }
+
+    public void testOpenProxyFileDescriptor_largeFile() throws Exception {
+        final ProxyFileDescriptorCallback callback = new ProxyFileDescriptorCallback() {
+            @Override
+            public int onRead(long offset, int size, byte[] data) throws ErrnoException {
+                for (int i = 0; i < size; i++) {
+                    data[i] = 'L';
+                }
+                return size;
+            }
+
+            @Override
+            public long onGetSize() throws ErrnoException {
+                return 8L * 1024L * 1024L * 1024L;  // 8GB
+            }
+
+            @Override
+            public void onRelease() {}
+        };
+        final byte[] bytes = new byte[128];
+        try (final ParcelFileDescriptor fd = mStorageManager.openProxyFileDescriptor(
+                ParcelFileDescriptor.MODE_READ_ONLY, callback, mHandler)) {
+            assertEquals(8L * 1024L * 1024L * 1024L, fd.getStatSize());
+
+            final int readBytes = Os.pread(
+                    fd.getFileDescriptor(), bytes, 0, bytes.length, fd.getStatSize() - 64L);
+            assertEquals(64, readBytes);
+            for (int i = 0; i < 64; i++) {
+                assertEquals('L', bytes[i]);
+            }
+        }
+    }
+
+    public void testOpenProxyFileDescriptor_largeRead() throws Exception {
+        final int SIZE = 1024 * 1024;
+        final TestProxyFileDescriptorCallback callback =
+                new TestProxyFileDescriptorCallback(SIZE, "abcdefghijklmnopqrstuvwxyz");
+        final byte[] bytes = new byte[SIZE];
+        try (final ParcelFileDescriptor fd = mStorageManager.openProxyFileDescriptor(
+                ParcelFileDescriptor.MODE_READ_ONLY, callback, mHandler)) {
+            final int readBytes = Os.read(
+                    fd.getFileDescriptor(), bytes, 0, bytes.length);
+            assertEquals(bytes.length, readBytes);
+            for (int i = 0; i < bytes.length; i++) {
+                assertEquals(callback.bytes[i], bytes[i]);
+            }
+        }
+    }
+
+    public void testOpenProxyFileDescriptor_largeWrite() throws Exception {
+        final int SIZE = 1024 * 1024;
+        final TestProxyFileDescriptorCallback callback =
+                new TestProxyFileDescriptorCallback(SIZE, "abcdefghijklmnopqrstuvwxyz");
+        final byte[] bytes = new byte[SIZE];
+        for (int i = 0; i < SIZE; i++) {
+            bytes[i] = (byte)(i % 123);
+        }
+        try (final ParcelFileDescriptor fd = mStorageManager.openProxyFileDescriptor(
+                ParcelFileDescriptor.MODE_WRITE_ONLY, callback, mHandler)) {
+            final int writtenBytes = Os.write(
+                    fd.getFileDescriptor(), bytes, 0, bytes.length);
+            assertEquals(bytes.length, writtenBytes);
+            for (int i = 0; i < bytes.length; i++) {
+                assertEquals(bytes[i], callback.bytes[i]);
+            }
+        }
     }
 
     private void assertStorageVolumesEquals(StorageVolume volume, StorageVolume clone)
@@ -696,7 +764,6 @@ public class StorageManagerTest extends AndroidTestCase {
 
     private List<File> getTargetFiles() {
         final List<File> targets = new ArrayList<File>();
-        targets.add(mContext.getFilesDir());
         for (File dir : mContext.getObbDirs()) {
             assertNotNull("Valid media must be inserted during CTS", dir);
             assertEquals("Valid media must be inserted during CTS", Environment.MEDIA_MOUNTED,

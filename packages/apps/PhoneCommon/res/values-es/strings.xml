@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"No hay tarjeta SIM o se ha producido un error de SIM"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Red móvil no disponible"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Las llamadas salientes están limitadas por el número de marcación fija (FDN)."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"Se ha modificado la solicitud DIAL para la solicitud USSD."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"Se ha modificado la solicitud DIAL para la solicitud SS."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"Se ha modificado la solicitud DIAL para la solicitud DIAL con otro número."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Se ha cambiado la llamada a una solicitud USSD"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Se ha cambiado la llamada a una solicitud SS"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Se ha cambiado a otro número"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Se ha cambiado a una videollamada"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Se ha cambiado la videollamada a una solicitud SS"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Se ha cambiado la videollamada a una solicitud USSD"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Se ha cambiado a una llamada normal"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Se ha cambiado a otro número"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"No se pueden realizar llamadas mientras está activada la restricción de llamadas."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Llamadas restringidas por control de acceso."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Llamadas de emergencia restringidas por control de acceso."</string>

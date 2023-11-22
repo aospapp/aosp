@@ -23,11 +23,18 @@ import common
 from autotest_lib.cli import action_common
 from autotest_lib.cli import topic_common
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import global_config
 # The django setup is moved here as test_that uses sqlite setup. If this line
 # is in server_manager, test_that unittest will fail.
 from autotest_lib.frontend import setup_django_environment
 from autotest_lib.site_utils import server_manager
 from autotest_lib.site_utils import server_manager_utils
+
+RESPECT_SKYLAB_SERVERDB = global_config.global_config.get_config_value(
+        'SKYLAB', 'respect_skylab_serverdb', type=bool, default=False)
+ATEST_DISABLE_MSG = ('Updating server_db via atest server command has been '
+                     'disabled. Please use use go/cros-infra-inventory-tool '
+                     'to update it in skylab inventory service.')
 
 
 class server(topic_common.atest):
@@ -230,6 +237,11 @@ class server_create(server):
 
         @return: A Server object if it is created successfully.
         """
+        if RESPECT_SKYLAB_SERVERDB:
+            self.failure(ATEST_DISABLE_MSG,
+                         what_failed='Failed to create server',
+                         item=self.hostname, fatal=True)
+
         try:
             return server_manager.create(hostname=self.hostname, role=self.role,
                                          note=self.note)
@@ -258,6 +270,11 @@ class server_delete(server):
 
         @return: True if server is deleted successfully.
         """
+        if RESPECT_SKYLAB_SERVERDB:
+            self.failure(ATEST_DISABLE_MSG,
+                         what_failed='Failed to delete server',
+                         item=self.hostname, fatal=True)
+
         try:
             server_manager.delete(hostname=self.hostname)
             return True
@@ -360,6 +377,11 @@ class server_modify(server):
 
         @return: The updated server object if it is modified successfully.
         """
+        if RESPECT_SKYLAB_SERVERDB:
+            self.failure(ATEST_DISABLE_MSG,
+                         what_failed='Failed to modify server',
+                         item=self.hostname, fatal=True)
+
         try:
             return server_manager.modify(hostname=self.hostname, role=self.role,
                                          status=self.status, delete=self.delete,

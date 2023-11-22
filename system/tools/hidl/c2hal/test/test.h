@@ -34,7 +34,6 @@ __BEGIN_DECLS
                  get rid of magic numbers */
 
 /* test */
-/** test */
 /* test **/
 /* test / ** ** / test */
 /* test //// ***** test /****/
@@ -91,7 +90,6 @@ static void fun4() { test; }
 
 #undef ONE
 
-/*****************************************************************************/
 typedef void (*no_arg_fun)(void);
 
 typedef int (*other_fun)(int j);
@@ -110,7 +108,7 @@ int (*global_fun_1)(struct framebuffer_device_t* dev, int enable);
 int (*global_fun_2)(struct framebuffer_device_t* dev, int enable);
 
 typedef struct framebuffer_device_t {
-    /**
+    /*
      * Common methods of the framebuffer device.
      */
     struct hw_device_t common;
@@ -324,7 +322,7 @@ typedef union that_t {
     float c;
 } that_t;
 
-/**
+/*
  * return the frame size (number of bytes per sample) of an output stream.
  */
 static inline size_t audio_stream_out_frame_size(const struct audio_stream_out *s)

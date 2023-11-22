@@ -70,9 +70,10 @@ public class AbiFormatter {
 
     /**
      * Helper method to get the default abi name for the given bitness
+     *
      * @param device
      * @param bitness
-     * @return the default abi name for the given abi
+     * @return the default abi name for the given abi. Returns null if something went wrong.
      * @throws DeviceNotAvailableException
      */
     public static String getDefaultAbi(ITestDevice device, String bitness)
@@ -86,8 +87,9 @@ public class AbiFormatter {
 
     /**
      * Helper method to get the list of supported abis for the given bitness
+     *
      * @param device
-     * @param bitness 32 or 64
+     * @param bitness 32 or 64 or empty string
      * @return the supported abi list of that bitness
      * @throws DeviceNotAvailableException
      */

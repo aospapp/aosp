@@ -23,6 +23,8 @@ import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Measurements;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.BugreportCollector;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.testtype.testdefs.XmlDefsTest;
@@ -51,14 +53,6 @@ public class InstalledInstrumentationsTest
     private static final String LINE_SEPARATOR = "\\r?\\n";
 
     private ITestDevice mDevice;
-
-    /**
-     * @deprecated use --shell-timeout or --test-timeout option instead.
-     */
-    @Deprecated
-    @Option(name = "timeout",
-            description="Deprecated - Use \"shell-timeout\" or \"test-timeout\" instead.")
-    private Integer mTimeout = null;
 
     @Option(name = "shell-timeout",
             description="The defined timeout (in milliseconds) is used as a maximum waiting time "
@@ -103,6 +97,12 @@ public class InstalledInstrumentationsTest
             "there is _no feedback mechanism_ between the test runner and the bugreport " +
             "collector, so use the EACH setting with due caution.")
     private BugreportCollector.Freq mBugreportFrequency = null;
+
+    @Option(
+        name = "bugreport-on-run-failure",
+        description = "Take a bugreport if the instrumentation finish with a run failure"
+    )
+    private boolean mBugreportOnRunFailure = false;
 
     @Option(name = "screenshot-on-failure", description = "Take a screenshot on every test failure")
     private boolean mScreenshotOnFailure = false;
@@ -154,6 +154,21 @@ public class InstalledInstrumentationsTest
             "Disable the test by setting this flag to true.")
     private boolean mDisable = false;
 
+    @Option(
+        name = "coverage",
+        description =
+                "Collect code coverage for this test run. Note that the build under test must be a "
+                        + "coverage build or else this will fail."
+    )
+    private boolean mCoverage = false;
+
+    @Option(
+        name = "hidden-api-checks",
+        description =
+                "If set to false, the '--no-hidden-api-checks' flag will be passed to the am "
+                        + "instrument command. Only works for P or later."
+    )
+    private boolean mHiddenApiChecks = true;
 
     private int mTotalShards = 0;
     private int mShardIndex = 0;
@@ -320,8 +335,13 @@ public class InstalledInstrumentationsTest
      */
     private void sendCoverage(String packageName, String coverageTarget,
             ITestInvocationListener listener) {
-        Map<String, String> coverageMetric = new HashMap<String, String>(1);
-        coverageMetric.put(COVERAGE_TARGET_KEY, coverageTarget);
+        HashMap<String, Metric> coverageMetric = new HashMap<String, Metric>();
+        Metric metric =
+                Metric.newBuilder()
+                        .setMeasurements(
+                                Measurements.newBuilder().setSingleString(coverageTarget).build())
+                        .build();
+        coverageMetric.put(COVERAGE_TARGET_KEY, metric);
         listener.testRunStarted(packageName, 0);
         listener.testRunEnded(0, coverageMetric);
     }

@@ -17,6 +17,7 @@
 #ifndef CHRE_UTIL_SINGLETON_IMPL_H_
 #define CHRE_UTIL_SINGLETON_IMPL_H_
 
+#include <new>
 #include <utility>
 
 #include "chre/util/singleton.h"
@@ -54,6 +55,11 @@ bool Singleton<ObjectType>::isInitialized() {
 
 template<typename ObjectType>
 ObjectType *Singleton<ObjectType>::get() {
+  return reinterpret_cast<ObjectType *>(&sObject);
+}
+
+template<typename ObjectType>
+ObjectType *Singleton<ObjectType>::safeGet() {
   if (sIsInitialized) {
     return reinterpret_cast<ObjectType *>(&sObject);
   } else {

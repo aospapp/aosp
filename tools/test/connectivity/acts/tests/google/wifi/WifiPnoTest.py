@@ -144,7 +144,7 @@ class WifiPnoTest(WifiBaseTest):
     """ Tests Begin """
 
     @test_tracker_info(uuid="33d3cae4-5fa7-4e90-b9e2-5d3747bba64c")
-    def test_simple_pno_connection_2g_to_5g(self):
+    def test_simple_pno_connection_to_2g(self):
         """Test PNO triggered autoconnect to a network.
 
         Steps:
@@ -152,16 +152,13 @@ class WifiPnoTest(WifiBaseTest):
         2. Save 2 valid network configurations (a & b) in the device.
         3. Attenuate 5Ghz network and wait for a few seconds to trigger PNO.
         4. Check the device connected to 2Ghz network automatically.
-        5. Attenuate 2Ghz network and wait for a few seconds to trigger PNO.
-        6. Check the device connected to 5Ghz network automatically.
         """
         self.add_network_and_enable(self.pno_network_a)
         self.add_network_and_enable(self.pno_network_b)
         self.trigger_pno_and_assert_connect("a_on_b_off", self.pno_network_a)
-        self.trigger_pno_and_assert_connect("b_on_a_off", self.pno_network_b)
 
     @test_tracker_info(uuid="39b945a1-830f-4f11-9e6a-9e9641066a96")
-    def test_simple_pno_connection_5g_to_2g(self):
+    def test_simple_pno_connection_to_5g(self):
         """Test PNO triggered autoconnect to a network.
 
         Steps:
@@ -169,15 +166,11 @@ class WifiPnoTest(WifiBaseTest):
         2. Save 2 valid network configurations (a & b) in the device.
         3. Attenuate 2Ghz network and wait for a few seconds to trigger PNO.
         4. Check the device connected to 5Ghz network automatically.
-        5. Attenuate 5Ghz network and wait for a few seconds to trigger PNO.
-        6. Check the device connected to 2Ghz network automatically.
 
         """
         self.add_network_and_enable(self.pno_network_a)
         self.add_network_and_enable(self.pno_network_b)
         self.trigger_pno_and_assert_connect("b_on_a_off", self.pno_network_b)
-        self.trigger_pno_and_assert_connect("a_on_b_off", self.pno_network_a)
-
 
     @test_tracker_info(uuid="844b15be-ff45-4b09-a11b-0b2b4bb13b22")
     def test_pno_connection_with_multiple_saved_networks(self):
@@ -195,7 +188,8 @@ class WifiPnoTest(WifiBaseTest):
         self.add_and_enable_dummy_networks(16)
         self.add_network_and_enable(self.pno_network_a)
         self.add_network_and_enable(self.pno_network_b)
+        # Force single scan so that both networks become preferred before PNO.
+        wutils.start_wifi_connection_scan(self.dut)
         self.trigger_pno_and_assert_connect("a_on_b_off", self.pno_network_a)
-        self.trigger_pno_and_assert_connect("b_on_a_off", self.pno_network_b)
 
     """ Tests End """

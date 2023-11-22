@@ -17,7 +17,6 @@
 package com.android.tradefed.testtype;
 
 import com.android.annotations.VisibleForTesting;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.command.CommandFileParser;
 import com.android.tradefed.command.CommandFileParser.CommandLine;
 import com.android.tradefed.config.ConfigurationException;
@@ -26,11 +25,13 @@ import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.QuotationAwareTokenizer;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
-import com.android.tradefed.util.keystore.StubKeyStoreClient;
+import com.android.tradefed.util.keystore.DryRunKeyStore;
 
 import java.io.File;
 import java.io.IOException;
@@ -62,8 +63,8 @@ public class NoisyDryRunTest implements IRemoteTest {
 
     private List<CommandLine> testCommandFile(ITestInvocationListener listener, String filename) {
         listener.testRunStarted(NoisyDryRunTest.class.getCanonicalName() + "_parseFile", 1);
-        TestIdentifier parseFileTest = new TestIdentifier(NoisyDryRunTest.class.getCanonicalName(),
-                "parseFile");
+        TestDescription parseFileTest =
+                new TestDescription(NoisyDryRunTest.class.getCanonicalName(), "parseFile");
         listener.testStarted(parseFileTest);
         CommandFileParser parser = new CommandFileParser();
         try {
@@ -74,8 +75,8 @@ public class NoisyDryRunTest implements IRemoteTest {
             listener.testFailed(parseFileTest, StreamUtil.getStackTrace(e));
             return null;
         } finally {
-            listener.testEnded(parseFileTest, new HashMap<String, String>());
-            listener.testRunEnded(0, new HashMap<String, String>());
+            listener.testEnded(parseFileTest, new HashMap<String, Metric>());
+            listener.testRunEnded(0, new HashMap<String, Metric>());
         }
     }
 
@@ -112,24 +113,29 @@ public class NoisyDryRunTest implements IRemoteTest {
         listener.testRunStarted(NoisyDryRunTest.class.getCanonicalName() + "_parseCommands",
                 commands.size());
         for (int i = 0; i < commands.size(); ++i) {
-            TestIdentifier parseCmdTest = new TestIdentifier(
-                    NoisyDryRunTest.class.getCanonicalName(), "parseCommand" + i);
+            TestDescription parseCmdTest =
+                    new TestDescription(
+                            NoisyDryRunTest.class.getCanonicalName(), "parseCommand" + i);
             listener.testStarted(parseCmdTest);
 
             String[] args = commands.get(i).asArray();
             String cmdLine = QuotationAwareTokenizer.combineTokens(args);
             try {
-                IConfiguration config = ConfigurationFactory.getInstance()
-                        .createConfigurationFromArgs(args, null, new StubKeyStoreClient());
+                // Use dry run keystore to always work for any keystore.
+                // FIXME: the DryRunKeyStore is a temporary fixed until each config can be validated
+                // against its own keystore.
+                IConfiguration config =
+                        ConfigurationFactory.getInstance()
+                                .createConfigurationFromArgs(args, null, new DryRunKeyStore());
                 config.validateOptions();
             } catch (ConfigurationException e) {
-                CLog.e("Failed to parse comand line %s.", cmdLine);
+                CLog.e("Failed to parse comand line: %s.", cmdLine);
                 CLog.e(e);
                 listener.testFailed(parseCmdTest, StreamUtil.getStackTrace(e));
             } finally {
-                listener.testEnded(parseCmdTest, new HashMap<String, String>());
+                listener.testEnded(parseCmdTest, new HashMap<String, Metric>());
             }
         }
-        listener.testRunEnded(0, new HashMap<String, String>());
+        listener.testRunEnded(0, new HashMap<String, Metric>());
     }
 }

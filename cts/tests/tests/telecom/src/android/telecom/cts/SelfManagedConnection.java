@@ -16,6 +16,7 @@
 
 package android.telecom.cts;
 
+import android.os.Bundle;
 import android.telecom.CallAudioState;
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
@@ -31,6 +32,8 @@ public class SelfManagedConnection extends Connection {
     InvokeCounter mCallAudioRouteInvokeCounter = new InvokeCounter("onCallAudioStateChanged");
     InvokeCounter mOnShowIncomingUiInvokeCounter = new InvokeCounter(
             "onShowIncomingUiInvokeCounter");
+    InvokeCounter mCallEventCounter = new InvokeCounter("onCallEvent");
+    InvokeCounter mHandoverCompleteCounter = new InvokeCounter("handoverCompleteCounter");
     CountDownLatch mOnHoldLatch = new CountDownLatch(1);
 
     public static abstract class Listener {
@@ -70,12 +73,30 @@ public class SelfManagedConnection extends Connection {
         mOnHoldLatch.countDown();
     }
 
+    @Override
+    public void onCallEvent(String event, Bundle extras) {
+        mCallEventCounter.invoke(event, extras);
+    }
+
+    @Override
+    public void onHandoverComplete() {
+        mHandoverCompleteCounter.invoke();
+    }
+
     public InvokeCounter getCallAudioStateChangedInvokeCounter() {
         return mCallAudioRouteInvokeCounter;
     }
 
     public InvokeCounter getOnShowIncomingUiInvokeCounter() {
         return mOnShowIncomingUiInvokeCounter;
+    }
+
+    public InvokeCounter getCallEventCounter() {
+        return mCallEventCounter;
+    }
+
+    public InvokeCounter getHandoverCompleteCounter() {
+        return mHandoverCompleteCounter;
     }
 
     public boolean waitOnHold() {

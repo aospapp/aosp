@@ -19,17 +19,17 @@
     <requestFocus />
     <View
         android:id="@+id/focusable1"
-        android:focusable="true"
+        android:focusableInTouchMode="true"
         android:layout_width="10dp"
         android:layout_height="10dp" />
     <View
         android:id="@+id/focusable2"
-        android:focusable="true"
+        android:focusableInTouchMode="true"
         android:layout_width="10dp"
         android:layout_height="10dp" />
     <View
         android:id="@+id/focusable3"
-        android:focusable="true"
+        android:focusableInTouchMode="true"
         android:focusedByDefault="true"
         android:layout_width="10dp"
         android:layout_height="10dp" />

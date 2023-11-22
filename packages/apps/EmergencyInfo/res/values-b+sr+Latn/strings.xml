@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Želite li da obrišete sve informacije i kontakte?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Ako dodate medicinske podatke i kontakte za hitne slučajeve, možete da pomognete ekipama hitnih službi u hitnim slučajevima.\n\nSvako može da pročita te podatke sa zaključanog ekrana bez otključavanja telefona."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Dodajte informacije za hitne slučajeve"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Pomozite ekipama hitnih službi da pronađu važne informacije"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Dozvolite ekipama hitnih službi da vide informacije"</string>
 </resources>

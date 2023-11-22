@@ -19,6 +19,7 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-subdir-java-files)
 LOCAL_PACKAGE_NAME := CtsSplitAppFeature
+LOCAL_SDK_VERSION := current
 LOCAL_PACKAGE_SPLITS := v7
 
 LOCAL_ASSET_DIR := $(LOCAL_PATH)/assets
@@ -29,7 +30,7 @@ LOCAL_AAPT_FLAGS := --version-code 100 --version-name OneHundred --replace-versi
 LOCAL_MODULE_TAGS := tests
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 featureOf := CtsSplitApp
 featureOfApk := $(call intermediates-dir-for,APPS,$(featureOf))/package.apk

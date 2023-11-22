@@ -3,6 +3,7 @@ include ":conscrypt-android"
 include ":conscrypt-android-platform"
 include ":conscrypt-android-stub"
 include ":conscrypt-api-doclet"
+include ":conscrypt-benchmark-android"
 include ":conscrypt-benchmark-base"
 include ":conscrypt-benchmark-graphs"
 include ":conscrypt-benchmark-jmh"
@@ -17,6 +18,7 @@ project(':conscrypt-android').projectDir = "$rootDir/android" as File
 project(':conscrypt-android-platform').projectDir = "$rootDir/platform" as File
 project(':conscrypt-android-stub').projectDir = "$rootDir/android-stub" as File
 project(':conscrypt-api-doclet').projectDir = "$rootDir/api-doclet" as File
+project(':conscrypt-benchmark-android').projectDir = "$rootDir/benchmark-android" as File
 project(':conscrypt-benchmark-base').projectDir = "$rootDir/benchmark-base" as File
 project(':conscrypt-benchmark-graphs').projectDir = "$rootDir/benchmark-graphs" as File
 project(':conscrypt-benchmark-jmh').projectDir = "$rootDir/benchmark-jmh" as File

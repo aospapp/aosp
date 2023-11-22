@@ -25,7 +25,6 @@ import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.UserManager;
 import android.provider.Settings;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.ListPreference;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceCategory;
@@ -34,16 +33,20 @@ import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.location.RecentLocationApps;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.device.apps.AppManagementFragment;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-public class LocationFragment extends LeanbackPreferenceFragment implements
+/**
+ * The location settings screen in TV settings.
+ */
+public class LocationFragment extends SettingsPreferenceFragment implements
         Preference.OnPreferenceChangeListener {
 
     private static final String TAG = "LocationFragment";
@@ -104,6 +107,7 @@ public class LocationFragment extends LeanbackPreferenceFragment implements
         final PreferenceCategory recentRequests = new PreferenceCategory(themedContext);
         screen.addPreference(recentRequests);
         recentRequests.setTitle(R.string.location_category_recent_location_requests);
+        recentRequests.setLayoutResource(R.layout.preference_category_compact_layout);
 
         List<RecentLocationApps.Request> recentLocationRequests =
                 new RecentLocationApps(themedContext).getAppList();
@@ -163,12 +167,7 @@ public class LocationFragment extends LeanbackPreferenceFragment implements
 
     private void addPreferencesSorted(List<Preference> prefs, PreferenceGroup container) {
         // If there's some items to display, sort the items and add them to the container.
-        Collections.sort(prefs, new Comparator<Preference>() {
-            @Override
-            public int compare(Preference lhs, Preference rhs) {
-                return lhs.getTitle().toString().compareTo(rhs.getTitle().toString());
-            }
-        });
+        prefs.sort(Comparator.comparing(lhs -> lhs.getTitle().toString()));
         for (Preference entry : prefs) {
             container.addPreference(entry);
         }
@@ -220,5 +219,10 @@ public class LocationFragment extends LeanbackPreferenceFragment implements
         } else {
             Log.d(TAG, "Unknown location mode: " + mode);
         }
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.LOCATION;
     }
 }

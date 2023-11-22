@@ -22,7 +22,7 @@ import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.Log;
-
+import com.android.tv.common.memory.MemoryManageable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -31,13 +31,11 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-/**
- * TvContentRating cache.
- */
+/** TvContentRating cache. */
 public final class TvContentRatingCache implements MemoryManageable {
-    private final static String TAG = "TvContentRatings";
+    private static final String TAG = "TvContentRatings";
 
-    private final static TvContentRatingCache INSTANCE = new TvContentRatingCache();
+    private static final TvContentRatingCache INSTANCE = new TvContentRatingCache();
 
     public static TvContentRatingCache getInstance() {
         return INSTANCE;
@@ -48,8 +46,8 @@ public final class TvContentRatingCache implements MemoryManageable {
 
     /**
      * Returns an array TvContentRatings from a string of comma separated set of rating strings
-     * creating each from {@link TvContentRating#unflattenFromString(String)} if needed.
-     * Returns {@code null} if the string is empty or contains no valid ratings.
+     * creating each from {@link TvContentRating#unflattenFromString(String)} if needed. Returns
+     * {@code null} if the string is empty or contains no valid ratings.
      */
     @Nullable
     public synchronized TvContentRating[] getRatings(String commaSeparatedRatings) {
@@ -60,8 +58,8 @@ public final class TvContentRatingCache implements MemoryManageable {
         if (mRatingsMultiMap.containsKey(commaSeparatedRatings)) {
             tvContentRatings = mRatingsMultiMap.get(commaSeparatedRatings);
         } else {
-            String normalizedRatings = TextUtils
-                    .join(",", getSortedSetFromCsv(commaSeparatedRatings));
+            String normalizedRatings =
+                    TextUtils.join(",", getSortedSetFromCsv(commaSeparatedRatings));
             if (mRatingsMultiMap.containsKey(normalizedRatings)) {
                 tvContentRatings = mRatingsMultiMap.get(normalizedRatings);
             } else {
@@ -76,9 +74,7 @@ public final class TvContentRatingCache implements MemoryManageable {
         return tvContentRatings;
     }
 
-    /**
-     * Returns a sorted array of TvContentRatings from a comma separated string of ratings.
-     */
+    /** Returns a sorted array of TvContentRatings from a comma separated string of ratings. */
     @VisibleForTesting
     static TvContentRating[] stringToContentRatings(String commaSeparatedRatings) {
         if (TextUtils.isEmpty(commaSeparatedRatings)) {
@@ -93,8 +89,9 @@ public final class TvContentRatingCache implements MemoryManageable {
                 Log.e(TAG, "Can't parse the content rating: '" + rating + "'", e);
             }
         }
-        return contentRatings.size() == 0 ?
-                null : contentRatings.toArray(new TvContentRating[contentRatings.size()]);
+        return contentRatings.size() == 0
+                ? null
+                : contentRatings.toArray(new TvContentRating[contentRatings.size()]);
     }
 
     private static Set<String> getSortedSetFromCsv(String commaSeparatedRatings) {
@@ -118,8 +115,8 @@ public final class TvContentRatingCache implements MemoryManageable {
     }
 
     /**
-     * Returns a string of each flattened content rating, sorted and concatenated together
-     * with a comma.
+     * Returns a string of each flattened content rating, sorted and concatenated together with a
+     * comma.
      */
     public static String contentRatingsToString(TvContentRating[] contentRatings) {
         if (contentRatings == null || contentRatings.length == 0) {
@@ -141,6 +138,5 @@ public final class TvContentRatingCache implements MemoryManageable {
         mRatingsMultiMap.clear();
     }
 
-    private TvContentRatingCache() {
-    }
+    private TvContentRatingCache() {}
 }

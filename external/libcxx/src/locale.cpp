@@ -7,9 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#undef _LIBCPP_EXTERN_TEMPLATE
-#define _LIBCPP_EXTERN_TEMPLATE(...) extern template __VA_ARGS__;
-
 // On Solaris, we need to define something to make the C99 parts of localeconv
 // visible.
 #ifdef __sun__
@@ -39,6 +36,8 @@
 #endif
 #include <stdlib.h>
 #include <stdio.h>
+#include "include/atomic_support.h"
+#include "__undef_macros"
 
 // On Linux, wint_t and wchar_t have different signed-ness, and this causes
 // lots of noise in the build log, but no bugs that I know of. 
@@ -47,6 +46,24 @@
 #endif
 
 _LIBCPP_BEGIN_NAMESPACE_STD
+
+struct __libcpp_unique_locale {
+  __libcpp_unique_locale(const char* nm) : __loc_(newlocale(LC_ALL_MASK, nm, 0)) {}
+
+  ~__libcpp_unique_locale() {
+    if (__loc_)
+      freelocale(__loc_);
+  }
+
+  explicit operator bool() const { return __loc_; }
+
+  locale_t& get() { return __loc_; }
+
+  locale_t __loc_;
+private:
+  __libcpp_unique_locale(__libcpp_unique_locale const&);
+  __libcpp_unique_locale& operator=(__libcpp_unique_locale const&);
+};
 
 #ifdef __cloc_defined
 locale_t __cloc() {
@@ -71,8 +88,8 @@ T&
 make(A0 a0)
 {
     static typename aligned_storage<sizeof(T)>::type buf;
-    ::new (&buf) T(a0);
-    return *reinterpret_cast<T*>(&buf);
+    auto *obj = ::new (&buf) T(a0);
+    return *obj;
 }
 
 template <class T, class A0, class A1>
@@ -91,8 +108,8 @@ T&
 make(A0 a0, A1 a1, A2 a2)
 {
     static typename aligned_storage<sizeof(T)>::type buf;
-    ::new (&buf) T(a0, a1, a2);
-    return *reinterpret_cast<T*>(&buf);
+    auto *obj = ::new (&buf) T(a0, a1, a2);
+    return *obj;
 }
 
 template <typename T, size_t N>
@@ -483,8 +500,8 @@ locale::__imp::make_global()
 {
     // only one thread can get in here and it only gets in once
     static aligned_storage<sizeof(locale)>::type buf;
-    ::new (&buf) locale(locale::classic());
-    return *reinterpret_cast<locale*>(&buf);
+    auto *obj = ::new (&buf) locale(locale::classic());
+    return *obj;
 }
 
 locale&
@@ -651,7 +668,7 @@ locale::id::__get()
 void
 locale::id::__init()
 {
-    __id_ = __sync_add_and_fetch(&__next_id, 1);
+    __id_ = __libcpp_atomic_add(&__next_id, 1);
 }
 
 // template <> class collate_byname<char>
@@ -1112,13 +1129,7 @@ ctype<char>::classic_table()  _NOEXCEPT
 #elif __sun__
     return __ctype_mask;
 #elif defined(_LIBCPP_MSVCRT) || defined(__MINGW32__)
-#if _VC_CRT_MAJOR_VERSION < 14
-    // This is assumed to be safe, which is a nonsense assumption because we're
-    // going to end up dereferencing it later...
-    return _ctype+1; // internal ctype mask table defined in msvcrt.dll
-#else
     return __pctype_func();
-#endif
 #elif defined(__EMSCRIPTEN__)
     return *__ctype_b_loc();
 #elif defined(_NEWLIB_VERSION)
@@ -4194,7 +4205,7 @@ __widen_from_utf8<32>::~__widen_from_utf8()
 
 static bool checked_string_to_wchar_convert(wchar_t& dest,
                                             const char* ptr,
-                                            __locale_struct* loc) {
+                                            locale_t loc) {
   if (*ptr == '\0')
     return false;
   mbstate_t mb = {};
@@ -4209,7 +4220,7 @@ static bool checked_string_to_wchar_convert(wchar_t& dest,
 
 static bool checked_string_to_char_convert(char& dest,
                                            const char* ptr,
-                                           __locale_struct* __loc) {
+                                           locale_t __loc) {
   if (*ptr == '\0')
     return false;
   if (!ptr[1]) {
@@ -4304,8 +4315,8 @@ numpunct_byname<char>::__init(const char* nm)
 {
     if (strcmp(nm, "C") != 0)
     {
-        __locale_unique_ptr loc(newlocale(LC_ALL_MASK, nm, 0), freelocale);
-        if (loc == nullptr)
+        __libcpp_unique_locale loc(nm);
+        if (!loc)
             __throw_runtime_error("numpunct_byname<char>::numpunct_byname"
                                 " failed to construct for " + string(nm));
 
@@ -4342,8 +4353,8 @@ numpunct_byname<wchar_t>::__init(const char* nm)
 {
     if (strcmp(nm, "C") != 0)
     {
-        __locale_unique_ptr loc(newlocale(LC_ALL_MASK, nm, 0), freelocale);
-        if (loc == nullptr)
+        __libcpp_unique_locale loc(nm);
+        if (!loc)
             __throw_runtime_error("numpunct_byname<wchar_t>::numpunct_byname"
                                 " failed to construct for " + string(nm));
 
@@ -4648,7 +4659,7 @@ static
 string*
 init_am_pm()
 {
-    static string am_pm[24];
+    static string am_pm[2];
     am_pm[0]  = "AM";
     am_pm[1]  = "PM";
     return am_pm;
@@ -4658,7 +4669,7 @@ static
 wstring*
 init_wam_pm()
 {
-    static wstring am_pm[24];
+    static wstring am_pm[2];
     am_pm[0]  = L"AM";
     am_pm[1]  = L"PM";
     return am_pm;
@@ -5829,8 +5840,8 @@ void
 moneypunct_byname<char, false>::init(const char* nm)
 {
     typedef moneypunct<char, false> base;
-    __locale_unique_ptr loc(newlocale(LC_ALL_MASK, nm, 0), freelocale);
-    if (loc == nullptr)
+    __libcpp_unique_locale loc(nm);
+    if (!loc)
         __throw_runtime_error("moneypunct_byname"
                             " failed to construct for " + string(nm));
 
@@ -5873,8 +5884,8 @@ void
 moneypunct_byname<char, true>::init(const char* nm)
 {
     typedef moneypunct<char, true> base;
-    __locale_unique_ptr loc(newlocale(LC_ALL_MASK, nm, 0), freelocale);
-    if (loc == nullptr)
+    __libcpp_unique_locale loc(nm);
+    if (!loc)
         __throw_runtime_error("moneypunct_byname"
                             " failed to construct for " + string(nm));
 
@@ -5933,8 +5944,8 @@ void
 moneypunct_byname<wchar_t, false>::init(const char* nm)
 {
     typedef moneypunct<wchar_t, false> base;
-    __locale_unique_ptr loc(newlocale(LC_ALL_MASK, nm, 0), freelocale);
-    if (loc == nullptr)
+    __libcpp_unique_locale loc(nm);
+    if (!loc)
         __throw_runtime_error("moneypunct_byname"
                             " failed to construct for " + string(nm));
     lconv* lc = __libcpp_localeconv_l(loc.get());
@@ -5998,8 +6009,8 @@ void
 moneypunct_byname<wchar_t, true>::init(const char* nm)
 {
     typedef moneypunct<wchar_t, true> base;
-    __locale_unique_ptr loc(newlocale(LC_ALL_MASK, nm, 0), freelocale);
-    if (loc == nullptr)
+    __libcpp_unique_locale loc(nm);
+    if (!loc)
         __throw_runtime_error("moneypunct_byname"
                             " failed to construct for " + string(nm));
 
@@ -6147,7 +6158,5 @@ template class _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS codecvt_byname<char, cha
 template class _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS codecvt_byname<wchar_t, char, mbstate_t>;
 template class _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS codecvt_byname<char16_t, char, mbstate_t>;
 template class _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS codecvt_byname<char32_t, char, mbstate_t>;
-
-template class _LIBCPP_CLASS_TEMPLATE_INSTANTIATION_VIS __vector_base_common<true>;
 
 _LIBCPP_END_NAMESPACE_STD

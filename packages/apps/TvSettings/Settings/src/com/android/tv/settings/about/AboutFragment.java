@@ -21,7 +21,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ResolveInfo;
-import android.net.ConnectivityManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.PersistableBundle;
@@ -29,9 +28,7 @@ import android.os.SELinux;
 import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UserManager;
-import android.provider.Settings;
 import android.support.annotation.Nullable;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v17.preference.LeanbackSettingsFragment;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.preference.Preference;
@@ -39,17 +36,25 @@ import android.support.v7.preference.PreferenceScreen;
 import android.telephony.CarrierConfigManager;
 import android.text.TextUtils;
 import android.util.Log;
+import android.util.Pair;
 import android.widget.Toast;
 
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.telephony.TelephonyProperties;
 import com.android.settingslib.DeviceInfoUtils;
+import com.android.settingslib.Utils;
+import com.android.settingslib.development.DevelopmentSettingsEnabler;
 import com.android.tv.settings.LongClickPreference;
 import com.android.tv.settings.MainFragment;
 import com.android.tv.settings.PreferenceUtils;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.name.DeviceManager;
 
-public class AboutFragment extends LeanbackPreferenceFragment implements
+/**
+ * The "About" screen in TV settings.
+ */
+public class AboutFragment extends SettingsPreferenceFragment implements
         LongClickPreference.OnLongClickListener {
     private static final String TAG = "AboutFragment";
 
@@ -133,7 +138,8 @@ public class AboutFragment extends LeanbackPreferenceFragment implements
         final Preference buildNumberPref = findPreference(KEY_BUILD_NUMBER);
         buildNumberPref.setSummary(Build.DISPLAY);
         buildNumberPref.setEnabled(true);
-        findPreference(KEY_KERNEL_VERSION).setSummary(DeviceInfoUtils.getFormattedKernelVersion());
+        findPreference(KEY_KERNEL_VERSION)
+                .setSummary(DeviceInfoUtils.getFormattedKernelVersion(getContext()));
 
         final Preference selinuxPref = findPreference(KEY_SELINUX_STATUS);
         if (!SELinux.isSELinuxEnabled()) {
@@ -158,7 +164,7 @@ public class AboutFragment extends LeanbackPreferenceFragment implements
         }
 
         // Remove Baseband version if wifi-only device
-        if (isWifiOnly(getActivity())) {
+        if (Utils.isWifiOnly(getActivity())) {
             removePreference(findPreference(KEY_BASEBAND_VERSION));
         }
 
@@ -209,10 +215,8 @@ public class AboutFragment extends LeanbackPreferenceFragment implements
     @Override
     public void onResume() {
         super.onResume();
-        final boolean developerEnabled = Settings.Global.getInt(getActivity().getContentResolver(),
-                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED,
-                android.os.Build.TYPE.equals("eng") ? 1 : 0) == 1;
-        mDevHitCountdown = developerEnabled ? -1 : TAPS_TO_BE_A_DEVELOPER;
+        mDevHitCountdown = DevelopmentSettingsEnabler.isDevelopmentSettingsEnabled(getContext())
+                ? -1 : TAPS_TO_BE_A_DEVELOPER;
         mDevHitToast = null;
         updateTutorials();
     }
@@ -268,17 +272,23 @@ public class AboutFragment extends LeanbackPreferenceFragment implements
                 break;
             case KEY_BUILD_NUMBER:
                 // Don't enable developer options for secondary users.
-                if (!mUm.isAdminUser())
+                if (!mUm.isAdminUser()) {
+                    mMetricsFeatureProvider.action(getContext(),
+                            MetricsEvent.ACTION_SETTINGS_BUILD_NUMBER_PREF);
                     return true;
+                }
 
-                if (mUm.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES))
+                if (mUm.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES)) {
+                    mMetricsFeatureProvider.action(getContext(),
+                            MetricsEvent.ACTION_SETTINGS_BUILD_NUMBER_PREF);
                     return true;
+                }
 
                 if (mDevHitCountdown > 0) {
                     mDevHitCountdown--;
                     if (mDevHitCountdown == 0) {
-                        Settings.Global.putInt(getActivity().getContentResolver(),
-                                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 1);
+                        DevelopmentSettingsEnabler
+                                .setDevelopmentSettingsEnabled(getContext(), true);
                         if (mDevHitToast != null) {
                             mDevHitToast.cancel();
                         }
@@ -289,7 +299,11 @@ public class AboutFragment extends LeanbackPreferenceFragment implements
 //                    Index.getInstance(
 //                            getActivity().getApplicationContext()).updateFromClassNameResource(
 //                            DevelopmentSettings.class.getName(), true, true);
-
+                        mMetricsFeatureProvider.action(
+                                getContext(), MetricsEvent.ACTION_SETTINGS_BUILD_NUMBER_PREF,
+                                Pair.create(MetricsEvent
+                                        .FIELD_SETTINGS_BUILD_NUMBER_DEVELOPER_MODE_ENABLED,
+                                0));
                     } else if (mDevHitCountdown > 0
                             && mDevHitCountdown < (TAPS_TO_BE_A_DEVELOPER - 2)) {
                         if (mDevHitToast != null) {
@@ -302,6 +316,11 @@ public class AboutFragment extends LeanbackPreferenceFragment implements
                                         Toast.LENGTH_SHORT);
                         mDevHitToast.show();
                     }
+                    mMetricsFeatureProvider.action(
+                            getContext(), MetricsEvent.ACTION_SETTINGS_BUILD_NUMBER_PREF,
+                            Pair.create(
+                                    MetricsEvent.FIELD_SETTINGS_BUILD_NUMBER_DEVELOPER_MODE_ENABLED,
+                            0));
                 } else if (mDevHitCountdown < 0) {
                     if (mDevHitToast != null) {
                         mDevHitToast.cancel();
@@ -309,6 +328,11 @@ public class AboutFragment extends LeanbackPreferenceFragment implements
                     mDevHitToast = Toast.makeText(getActivity(), R.string.show_dev_already,
                             Toast.LENGTH_LONG);
                     mDevHitToast.show();
+                    mMetricsFeatureProvider.action(
+                            getContext(), MetricsEvent.ACTION_SETTINGS_BUILD_NUMBER_PREF,
+                            Pair.create(
+                                    MetricsEvent.FIELD_SETTINGS_BUILD_NUMBER_DEVELOPER_MODE_ENABLED,
+                            1));
                 }
                 break;
             case KEY_DEVICE_FEEDBACK:
@@ -354,12 +378,6 @@ public class AboutFragment extends LeanbackPreferenceFragment implements
                 getResources().getString(R.string.device_info_default));
     }
 
-    public static boolean isWifiOnly(Context context) {
-        ConnectivityManager cm = (ConnectivityManager)context.getSystemService(
-                Context.CONNECTIVITY_SERVICE);
-        return (!cm.isNetworkSupported(ConnectivityManager.TYPE_MOBILE));
-    }
-
     private void sendFeedback() {
         String reporterPackage = DeviceInfoUtils.getFeedbackReporterPackage(getActivity());
         if (TextUtils.isEmpty(reporterPackage)) {
@@ -380,5 +398,10 @@ public class AboutFragment extends LeanbackPreferenceFragment implements
                 deviceTutorialsPref.setTitle(info.loadLabel(getContext().getPackageManager()));
             }
         }
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsEvent.DEVICEINFO;
     }
 }

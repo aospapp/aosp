@@ -109,12 +109,6 @@ def get_container_info(container_path, **filters):
     return info_collection
 
 
-# Make sure retries only happen in the non-timeout case.
-@retry.retry((error.CmdError),
-             blacklist=[error.CmdTimeoutError],
-             timeout_min=(constants.DEVSERVER_CALL_TIMEOUT *
-                          constants.DEVSERVER_CALL_RETRY / 60),
-             delay_sec=constants.DEVSERVER_CALL_DELAY)
 def download_extract(url, target, extract_dir):
     """Download the file from given url and save it to the target, then extract.
 
@@ -123,25 +117,40 @@ def download_extract(url, target, extract_dir):
     @param extract_dir: Directory to extract the content of the file to.
     """
     remote_url = dev_server.DevServer.get_server_url(url)
-    # TODO(xixuan): Better to only ssh to devservers in lab, and continue using
-    # wget for ganeti devservers.
-    if remote_url in dev_server.ImageServerBase.servers():
-        # This can be run in multiple threads, pick a unique tmp_file.name.
-        with tempfile.NamedTemporaryFile(prefix=os.path.basename(target) + '_',
-                                         delete=False) as tmp_file:
-            dev_server.ImageServerBase.download_file(
-                    url,
-                    tmp_file.name,
-                    timeout=constants.DEVSERVER_CALL_TIMEOUT)
-            common_utils.run('sudo mv %s %s' % (tmp_file.name, target))
-    else:
-        # We do not want to retry on CmdTimeoutError but still retry on
-        # CmdError. Hence we can't use wget --timeout=...
-        common_utils.run('sudo wget -nv %s -O %s' % (url, target),
-                         stderr_tee=common_utils.TEE_TO_LOGS,
-                         timeout=constants.DEVSERVER_CALL_TIMEOUT)
-
+    # This can be run in multiple threads, pick a unique tmp_file.name.
+    with tempfile.NamedTemporaryFile(prefix=os.path.basename(target) + '_',
+                                     delete=False) as tmp_file:
+        if remote_url in dev_server.ImageServerBase.servers():
+            # TODO(xixuan): Better to only ssh to devservers in lab, and
+            # continue using curl for ganeti devservers.
+            _download_via_devserver(url, tmp_file.name)
+        else:
+            _download_via_curl(url, tmp_file.name)
+        common_utils.run('sudo mv %s %s' % (tmp_file.name, target))
     common_utils.run('sudo tar -xvf %s -C %s' % (target, extract_dir))
+
+
+# Make sure retries only happen in the non-timeout case.
+@retry.retry((error.CmdError),
+             blacklist=[error.CmdTimeoutError],
+             timeout_min=3*2,
+             delay_sec=10)
+def _download_via_curl(url, target_file_path):
+    # We do not want to retry on CmdTimeoutError but still retry on
+    # CmdError. Hence we can't use curl --timeout=...
+    common_utils.run('sudo curl -s %s -o %s' % (url, target_file_path),
+                     stderr_tee=common_utils.TEE_TO_LOGS, timeout=3*60)
+
+
+# Make sure retries only happen in the non-timeout case.
+@retry.retry((error.CmdError),
+             blacklist=[error.CmdTimeoutError],
+             timeout_min=(constants.DEVSERVER_CALL_TIMEOUT *
+                          constants.DEVSERVER_CALL_RETRY / 60),
+             delay_sec=constants.DEVSERVER_CALL_DELAY)
+def _download_via_devserver(url, target_file_path):
+    dev_server.ImageServerBase.download_file(
+            url, target_file_path, timeout=constants.DEVSERVER_CALL_TIMEOUT)
 
 
 def _install_package_precheck(packages):

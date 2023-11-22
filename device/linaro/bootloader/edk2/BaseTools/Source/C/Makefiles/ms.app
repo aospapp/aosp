@@ -11,15 +11,13 @@
 # WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 
-!INCLUDE ..\Makefiles\ms.common
-
 APPLICATION = $(BIN_PATH)\$(APPNAME).exe
 
 all: $(APPLICATION) 
 
 $(APPLICATION) : $(OBJECTS) 
 	-@if not exist $(BIN_PATH) mkdir $(BIN_PATH)
-	$(LD) /nologo /debug /incremental:no /nodefaultlib:libc.lib /out:$@ $(LIBS) $**
+	$(LD) /nologo /debug /OPT:REF /OPT:ICF=10 /incremental:no /nodefaultlib:libc.lib /out:$@ $(LIBS) $**
 
 $(OBJECTS) : ..\Include\Common\BuildVersion.h
 

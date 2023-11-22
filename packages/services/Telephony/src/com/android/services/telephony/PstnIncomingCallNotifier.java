@@ -36,6 +36,7 @@ import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.cdma.CdmaCallWaitingNotification;
 import com.android.internal.telephony.imsphone.ImsExternalCallTracker;
 import com.android.internal.telephony.imsphone.ImsExternalConnection;
+import com.android.internal.telephony.imsphone.ImsPhoneConnection;
 import com.android.phone.PhoneUtils;
 
 import com.google.common.base.Preconditions;
@@ -243,6 +244,11 @@ final class PstnIncomingCallNotifier {
         extras.putLong(TelecomManager.EXTRA_CALL_CREATED_TIME_MILLIS,
                 SystemClock.elapsedRealtime());
 
+        if (connection.getPhoneType() == PhoneConstants.PHONE_TYPE_IMS) {
+            if (((ImsPhoneConnection) connection).isRttEnabledForCall()) {
+                extras.putBoolean(TelecomManager.EXTRA_START_CALL_WITH_RTT, true);
+            }
+        }
         PhoneAccountHandle handle = findCorrectPhoneAccountHandle();
         if (handle == null) {
             try {

@@ -139,12 +139,14 @@ InstructionDuplicator 80
 InstructionSwapper 80
 InvokeChanger 30
 NewArrayLengthChanger 50
+NewInstanceChanger 10
 NewMethodCaller 10
 NonsenseStringPrinter 10
 OppositeBranchChanger 40
 PoolIndexChanger 30
 RandomBranchChanger 30
 RandomInstructionGenerator 30
+RegisterClobber 10
 SwitchBranchShifter 30
 TryBlockShifter 40
 ValuePrinter 40

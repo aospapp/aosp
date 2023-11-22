@@ -19,14 +19,15 @@ package com.android.tv.settings.about;
 import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.Keep;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.PreferenceScreen;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.PreferenceUtils;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 @Keep
-public class LegalFragment extends LeanbackPreferenceFragment {
+public class LegalFragment extends SettingsPreferenceFragment {
 
     private static final String KEY_TERMS = "terms";
     private static final String KEY_LICENSE = "license";
@@ -50,5 +51,10 @@ public class LegalFragment extends LeanbackPreferenceFragment {
                 findPreference(KEY_WEBVIEW_LICENSE), PreferenceUtils.FLAG_SET_TITLE);
         PreferenceUtils.resolveSystemActivityOrRemove(context, screen,
                 findPreference(KEY_ADS), PreferenceUtils.FLAG_SET_TITLE);
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.ABOUT_LEGAL_SETTINGS;
     }
 }

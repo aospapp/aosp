@@ -28,12 +28,11 @@ from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 # the bug filer will fallback to it's defaults.
 _BUG_TEMPLATE = {
     'components': ['OS>Systems>Mobile'],
-    'owner': '',
+    'owner': 'benchan@chromium.org',
     'status': None,
     'summary': None,
     'title': None,
-    'cc': ['benchan@chromium.org', 'pprabhu@chromium.org',
-           'rpius@chromium.org', 'thieule@chromium.org']
+    'cc': ['benchan@chromium.org', 'ejcaruso@chromium.org']
 }
 
 args_dict['suite_dependencies'] = 'modem_repair'

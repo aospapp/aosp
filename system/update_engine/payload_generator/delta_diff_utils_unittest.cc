@@ -131,7 +131,6 @@ class DeltaDiffUtilsTest : public ::testing::Test {
                                   uint32_t minor_version) {
     BlobFileWriter blob_file(blob_fd_, &blob_size_);
     PayloadVersion version(kChromeOSMajorPayloadVersion, minor_version);
-    version.imgdiff_allowed = true;  // Assume no fingerprint mismatch.
     return diff_utils::DeltaMovedAndZeroBlocks(&aops_,
                                                old_part_.path,
                                                new_part_.path,
@@ -180,6 +179,8 @@ TEST_F(DeltaDiffUtilsTest, MoveSmallTest) {
       new_part_.path,
       old_extents,
       new_extents,
+      {},  // old_deflates
+      {},  // new_deflates
       PayloadVersion(kChromeOSMajorPayloadVersion, kInPlaceMinorPayloadVersion),
       &data,
       &op));
@@ -193,9 +194,9 @@ TEST_F(DeltaDiffUtilsTest, MoveSmallTest) {
   EXPECT_EQ(kBlockSize, op.src_length());
   EXPECT_EQ(1, op.dst_extents_size());
   EXPECT_EQ(kBlockSize, op.dst_length());
-  EXPECT_EQ(BlocksInExtents(op.src_extents()),
-            BlocksInExtents(op.dst_extents()));
-  EXPECT_EQ(1U, BlocksInExtents(op.dst_extents()));
+  EXPECT_EQ(utils::BlocksInExtents(op.src_extents()),
+            utils::BlocksInExtents(op.dst_extents()));
+  EXPECT_EQ(1U, utils::BlocksInExtents(op.dst_extents()));
 }
 
 TEST_F(DeltaDiffUtilsTest, MoveWithSameBlock) {
@@ -219,8 +220,8 @@ TEST_F(DeltaDiffUtilsTest, MoveWithSameBlock) {
       ExtentForRange(24, 3),
       ExtentForRange(29, 1) };
 
-  uint64_t num_blocks = BlocksInExtents(old_extents);
-  EXPECT_EQ(num_blocks, BlocksInExtents(new_extents));
+  uint64_t num_blocks = utils::BlocksInExtents(old_extents);
+  EXPECT_EQ(num_blocks, utils::BlocksInExtents(new_extents));
 
   // The size of the data should match the total number of blocks. Each block
   // has a different content.
@@ -239,6 +240,8 @@ TEST_F(DeltaDiffUtilsTest, MoveWithSameBlock) {
       new_part_.path,
       old_extents,
       new_extents,
+      {},  // old_deflates
+      {},  // new_deflates
       PayloadVersion(kChromeOSMajorPayloadVersion, kInPlaceMinorPayloadVersion),
       &data,
       &op));
@@ -259,7 +262,7 @@ TEST_F(DeltaDiffUtilsTest, MoveWithSameBlock) {
       ExtentForRange(18, 1),
       ExtentForRange(20, 1),
       ExtentForRange(26, 1) };
-  num_blocks = BlocksInExtents(old_extents);
+  num_blocks = utils::BlocksInExtents(old_extents);
 
   EXPECT_EQ(num_blocks * kBlockSize, op.src_length());
   EXPECT_EQ(num_blocks * kBlockSize, op.dst_length());
@@ -302,6 +305,8 @@ TEST_F(DeltaDiffUtilsTest, BsdiffSmallTest) {
       new_part_.path,
       old_extents,
       new_extents,
+      {},  // old_deflates
+      {},  // new_deflates
       PayloadVersion(kChromeOSMajorPayloadVersion, kInPlaceMinorPayloadVersion),
       &data,
       &op));
@@ -316,9 +321,9 @@ TEST_F(DeltaDiffUtilsTest, BsdiffSmallTest) {
   EXPECT_EQ(kBlockSize, op.src_length());
   EXPECT_EQ(1, op.dst_extents_size());
   EXPECT_EQ(kBlockSize, op.dst_length());
-  EXPECT_EQ(BlocksInExtents(op.src_extents()),
-            BlocksInExtents(op.dst_extents()));
-  EXPECT_EQ(1U, BlocksInExtents(op.dst_extents()));
+  EXPECT_EQ(utils::BlocksInExtents(op.src_extents()),
+            utils::BlocksInExtents(op.dst_extents()));
+  EXPECT_EQ(1U, utils::BlocksInExtents(op.dst_extents()));
 }
 
 TEST_F(DeltaDiffUtilsTest, ReplaceSmallTest) {
@@ -350,6 +355,8 @@ TEST_F(DeltaDiffUtilsTest, ReplaceSmallTest) {
         new_part_.path,
         old_extents,
         new_extents,
+        {},  // old_deflates
+        {},  // new_deflates
         PayloadVersion(kChromeOSMajorPayloadVersion,
                        kInPlaceMinorPayloadVersion),
         &data,
@@ -365,8 +372,8 @@ TEST_F(DeltaDiffUtilsTest, ReplaceSmallTest) {
     EXPECT_EQ(0, op.src_extents_size());
     EXPECT_FALSE(op.has_src_length());
     EXPECT_EQ(1, op.dst_extents_size());
-    EXPECT_EQ(data_to_test.size(), op.dst_length());
-    EXPECT_EQ(1U, BlocksInExtents(op.dst_extents()));
+    EXPECT_FALSE(op.has_dst_length());
+    EXPECT_EQ(1U, utils::BlocksInExtents(op.dst_extents()));
   }
 }
 
@@ -391,6 +398,8 @@ TEST_F(DeltaDiffUtilsTest, SourceCopyTest) {
       new_part_.path,
       old_extents,
       new_extents,
+      {},  // old_deflates
+      {},  // new_deflates
       PayloadVersion(kChromeOSMajorPayloadVersion, kSourceMinorPayloadVersion),
       &data,
       &op));
@@ -423,6 +432,8 @@ TEST_F(DeltaDiffUtilsTest, SourceBsdiffTest) {
       new_part_.path,
       old_extents,
       new_extents,
+      {},  // old_deflates
+      {},  // new_deflates
       PayloadVersion(kChromeOSMajorPayloadVersion, kSourceMinorPayloadVersion),
       &data,
       &op));
@@ -623,7 +634,8 @@ TEST_F(DeltaDiffUtilsTest, ZeroBlocksUseReplaceBz) {
       // The last range is split since the old image has zeros in part of it.
       ExtentForRange(30, 20),
   };
-  brillo::Blob zeros_data(BlocksInExtents(new_zeros) * block_size_, '\0');
+  brillo::Blob zeros_data(utils::BlocksInExtents(new_zeros) * block_size_,
+                          '\0');
   EXPECT_TRUE(WriteExtents(new_part_.path, new_zeros, block_size_, zeros_data));
 
   vector<Extent> old_zeros = vector<Extent>{ExtentForRange(43, 7)};

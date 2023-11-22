@@ -17,18 +17,32 @@
 #define LOG_TAG "BluetoothServiceJni"
 #include "android_runtime/AndroidRuntime.h"
 #include "android_runtime/Log.h"
+#include "bluetooth_socket_manager.h"
 #include "com_android_bluetooth.h"
-#include "cutils/properties.h"
 #include "hardware/bt_sock.h"
+#include "permission_helpers.h"
 #include "utils/Log.h"
 #include "utils/misc.h"
 
+#include <android_util_Binder.h>
+#include <base/logging.h>
+#include <base/strings/stringprintf.h>
+#include <cutils/properties.h>
+#include <dlfcn.h>
+#include <errno.h>
 #include <pthread.h>
 #include <string.h>
 
 #include <fcntl.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
+
+#include <hardware/bluetooth.h>
+#include <mutex>
+
+using base::StringPrintf;
+using bluetooth::Uuid;
+using android::bluetooth::BluetoothSocketManagerBinderServer;
 
 namespace android {
 // OOB_LE_BD_ADDR_SIZE is 6 bytes addres + 1 byte address type
@@ -63,6 +77,11 @@ static JNIEnv* callbackEnv = NULL;
 static jobject sJniAdapterServiceObj;
 static jobject sJniCallbacksObj;
 static jfieldID sJniCallbacksField;
+
+namespace {
+android::sp<BluetoothSocketManagerBinderServer> sSocketManager = NULL;
+std::mutex sSocketManagerMutex;
+}
 
 const bt_interface_t* getBluetoothInterface() { return sBluetoothInterface; }
 
@@ -581,6 +600,45 @@ static bt_os_callouts_t sBluetoothOsCallouts = {
     acquire_wake_lock_callout, release_wake_lock_callout,
 };
 
+#define PROPERTY_BT_LIBRARY_NAME "ro.bluetooth.library_name"
+#define DEFAULT_BT_LIBRARY_NAME "libbluetooth.so"
+
+int hal_util_load_bt_library(const bt_interface_t** interface) {
+  const char* sym = BLUETOOTH_INTERFACE_STRING;
+  bt_interface_t* itf = nullptr;
+
+  // The library name is not set by default, so the preset library name is used.
+  char path[PROPERTY_VALUE_MAX] = "";
+  property_get(PROPERTY_BT_LIBRARY_NAME, path, DEFAULT_BT_LIBRARY_NAME);
+  void* handle = dlopen(path, RTLD_NOW);
+  if (!handle) {
+    const char* err_str = dlerror();
+    LOG(ERROR) << __func__ << ": failed to load Bluetooth library, error="
+               << (err_str ? err_str : "error unknown");
+    goto error;
+  }
+
+  // Get the address of the bt_interface_t.
+  itf = (bt_interface_t*)dlsym(handle, sym);
+  if (!itf) {
+    LOG(ERROR) << __func__ << ": failed to load symbol from Bluetooth library "
+               << sym;
+    goto error;
+  }
+
+  // Success.
+  LOG(INFO) << __func__ << " loaded HAL: btinterface=" << itf
+            << ", handle=" << handle;
+  *interface = itf;
+  return 0;
+
+error:
+  *interface = NULL;
+  if (handle) dlclose(handle);
+
+  return -EINVAL;
+}
+
 static void classInitNative(JNIEnv* env, jclass clazz) {
   jclass jniUidTrafficClass = env->FindClass("android/bluetooth/UidTraffic");
   android_bluetooth_UidTraffic.constructor =
@@ -622,25 +680,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
   method_energyInfo = env->GetMethodID(
       clazz, "energyInfoCallback", "(IIJJJJ[Landroid/bluetooth/UidTraffic;)V");
 
-  char value[PROPERTY_VALUE_MAX];
-  property_get("bluetooth.mock_stack", value, "");
-
-  const char* id =
-      (strcmp(value, "1") ? BT_STACK_MODULE_ID : BT_STACK_TEST_MODULE_ID);
-
-  hw_module_t* module;
-  int err = hw_get_module(id, (hw_module_t const**)&module);
-
-  if (err == 0) {
-    hw_device_t* abstraction;
-    err = module->methods->open(module, id, &abstraction);
-    if (err == 0) {
-      bluetooth_module_t* btStack = (bluetooth_module_t*)abstraction;
-      sBluetoothInterface = btStack->get_bluetooth_interface();
-    } else {
-      ALOGE("Error while opening Bluetooth library");
-    }
-  } else {
+  if (hal_util_load_bt_library((bt_interface_t const**)&sBluetoothInterface)) {
     ALOGE("No Bluetooth Library found");
   }
 }
@@ -691,10 +731,24 @@ static bool cleanupNative(JNIEnv* env, jobject obj) {
   sBluetoothInterface->cleanup();
   ALOGI("%s: return from cleanup", __func__);
 
-  env->DeleteGlobalRef(sJniCallbacksObj);
-  env->DeleteGlobalRef(sJniAdapterServiceObj);
-  env->DeleteGlobalRef(android_bluetooth_UidTraffic.clazz);
-  android_bluetooth_UidTraffic.clazz = NULL;
+  if (sJniCallbacksObj) {
+    env->DeleteGlobalRef(sJniCallbacksObj);
+    sJniCallbacksObj = NULL;
+  }
+
+  if (sJniAdapterServiceObj) {
+    env->DeleteGlobalRef(sJniAdapterServiceObj);
+    sJniAdapterServiceObj = NULL;
+  }
+
+  if (android_bluetooth_UidTraffic.clazz) {
+    env->DeleteGlobalRef(android_bluetooth_UidTraffic.clazz);
+    android_bluetooth_UidTraffic.clazz = NULL;
+  }
+  {
+    std::lock_guard<std::mutex> lock(sSocketManagerMutex);
+    sSocketManager = nullptr;
+  }
   return JNI_TRUE;
 }
 
@@ -1068,79 +1122,21 @@ static jboolean getRemoteServicesNative(JNIEnv* env, jobject obj,
   return (ret == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
 
-static int connectSocketNative(JNIEnv* env, jobject object, jbyteArray address,
-                               jint type, jbyteArray uuidObj, jint channel,
-                               jint flag, jint callingUid) {
-  if (!sBluetoothSocketInterface) return -1;
-
-  jbyte* addr = env->GetByteArrayElements(address, NULL);
-  if (!addr) {
-    ALOGE("failed to get Bluetooth device address");
-    return -1;
+static jobject getSocketManagerNative(JNIEnv* env) {
+  std::lock_guard<std::mutex> lock(sSocketManagerMutex);
+  if (!sSocketManager.get()) {
+    sSocketManager =
+        new BluetoothSocketManagerBinderServer(sBluetoothSocketInterface);
   }
-
-  jbyte* uuid = NULL;
-  if (uuidObj != NULL) {
-    uuid = env->GetByteArrayElements(uuidObj, NULL);
-    if (!uuid) {
-      ALOGE("failed to get uuid");
-      env->ReleaseByteArrayElements(address, addr, 0);
-      return -1;
-    }
-  }
-
-  int socket_fd = -1;
-  bt_status_t status = sBluetoothSocketInterface->connect(
-      (RawAddress*)addr, (btsock_type_t)type, (const uint8_t*)uuid, channel,
-      &socket_fd, flag, callingUid);
-  if (status != BT_STATUS_SUCCESS) {
-    ALOGE("Socket connection failed: %d", status);
-    socket_fd = -1;
-  } else if (socket_fd < 0) {
-    ALOGE("Fail to create file descriptor on socket fd");
-  }
-
-  env->ReleaseByteArrayElements(address, addr, 0);
-  env->ReleaseByteArrayElements(uuidObj, uuid, 0);
-  return socket_fd;
+  return javaObjectForIBinder(env, IInterface::asBinder(sSocketManager));
 }
 
-static int createSocketChannelNative(JNIEnv* env, jobject object, jint type,
-                                     jstring name_str, jbyteArray uuidObj,
-                                     jint channel, jint flag, jint callingUid) {
-  if (!sBluetoothSocketInterface) return -1;
+static void setSystemUiUidNative(JNIEnv* env, jobject obj, jint uid) {
+  android::bluetooth::systemUiUid = uid;
+}
 
-  ALOGV("%s: SOCK FLAG = %x", __func__, flag);
-
-  const char* service_name = NULL;
-  if (name_str != NULL) {
-    service_name = env->GetStringUTFChars(name_str, NULL);
-  }
-
-  jbyte* uuid = NULL;
-  if (uuidObj != NULL) {
-    uuid = env->GetByteArrayElements(uuidObj, NULL);
-    if (!uuid) {
-      ALOGE("failed to get uuid");
-      if (service_name) env->ReleaseStringUTFChars(name_str, service_name);
-      return -1;
-    }
-  }
-
-  int socket_fd = -1;
-  bt_status_t status = sBluetoothSocketInterface->listen(
-      (btsock_type_t)type, service_name, (const uint8_t*)uuid, channel,
-      &socket_fd, flag, callingUid);
-  if (status != BT_STATUS_SUCCESS) {
-    ALOGE("Socket listen failed: %d", status);
-    socket_fd = -1;
-  } else if (socket_fd < 0) {
-    ALOGE("Fail to creat file descriptor on socket fd");
-  }
-
-  if (service_name) env->ReleaseStringUTFChars(name_str, service_name);
-  if (uuid) env->ReleaseByteArrayElements(uuidObj, uuid, 0);
-  return socket_fd;
+static void setForegroundUserIdNative(JNIEnv* env, jclass clazz, jint id) {
+  android::bluetooth::foregroundUserId = id;
 }
 
 static int readEnergyInfo() {
@@ -1178,6 +1174,19 @@ static void dumpNative(JNIEnv* env, jobject obj, jobject fdObj,
 
   delete[] args;
   delete[] argObjs;
+}
+
+static jbyteArray dumpMetricsNative(JNIEnv* env, jobject obj) {
+  ALOGI("%s", __func__);
+  if (!sBluetoothInterface) return env->NewByteArray(0);
+
+  std::string output;
+  sBluetoothInterface->dumpMetrics(&output);
+  jsize output_size = output.size() * sizeof(char);
+  jbyteArray output_bytes = env->NewByteArray(output_size);
+  env->SetByteArrayRegion(output_bytes, 0, output_size,
+                          (const jbyte*)output.data());
+  return output_bytes;
 }
 
 static jboolean factoryResetNative(JNIEnv* env, jobject obj) {
@@ -1231,13 +1240,15 @@ static JNINativeMethod sMethods[] = {
     {"pinReplyNative", "([BZI[B)Z", (void*)pinReplyNative},
     {"sspReplyNative", "([BIZI)Z", (void*)sspReplyNative},
     {"getRemoteServicesNative", "([B)Z", (void*)getRemoteServicesNative},
-    {"connectSocketNative", "([BI[BIII)I", (void*)connectSocketNative},
-    {"createSocketChannelNative", "(ILjava/lang/String;[BIII)I",
-     (void*)createSocketChannelNative},
+    {"getSocketManagerNative", "()Landroid/os/IBinder;",
+     (void*)getSocketManagerNative},
+    {"setSystemUiUidNative", "(I)V", (void*)setSystemUiUidNative},
+    {"setForegroundUserIdNative", "(I)V", (void*)setForegroundUserIdNative},
     {"alarmFiredNative", "()V", (void*)alarmFiredNative},
     {"readEnergyInfo", "()I", (void*)readEnergyInfo},
     {"dumpNative", "(Ljava/io/FileDescriptor;[Ljava/lang/String;)V",
      (void*)dumpNative},
+    {"dumpMetricsNative", "()[B", (void*)dumpMetricsNative},
     {"factoryResetNative", "()Z", (void*)factoryResetNative},
     {"interopDatabaseClearNative", "()V", (void*)interopDatabaseClearNative},
     {"interopDatabaseAddNative", "(I[BI)V", (void*)interopDatabaseAddNative}};
@@ -1301,19 +1312,24 @@ jint JNI_OnLoad(JavaVM* jvm, void* reserved) {
     return JNI_ERR;
   }
 
+  status = android::register_com_android_bluetooth_avrcp_target(e);
+  if (status < 0) {
+    ALOGE("jni new avrcp target registration failure: %d", status);
+  }
+
   status = android::register_com_android_bluetooth_avrcp_controller(e);
   if (status < 0) {
     ALOGE("jni avrcp controller registration failure: %d", status);
     return JNI_ERR;
   }
 
-  status = android::register_com_android_bluetooth_hid(e);
+  status = android::register_com_android_bluetooth_hid_host(e);
   if (status < 0) {
     ALOGE("jni hid registration failure: %d", status);
     return JNI_ERR;
   }
 
-  status = android::register_com_android_bluetooth_hidd(e);
+  status = android::register_com_android_bluetooth_hid_device(e);
   if (status < 0) {
     ALOGE("jni hidd registration failure: %d", status);
     return JNI_ERR;
@@ -1340,6 +1356,12 @@ jint JNI_OnLoad(JavaVM* jvm, void* reserved) {
   status = android::register_com_android_bluetooth_sdp(e);
   if (status < 0) {
     ALOGE("jni sdp registration failure: %d", status);
+    return JNI_ERR;
+  }
+
+  status = android::register_com_android_bluetooth_hearing_aid(e);
+  if (status < 0) {
+    ALOGE("jni hearing aid registration failure: %d", status);
     return JNI_ERR;
   }
 

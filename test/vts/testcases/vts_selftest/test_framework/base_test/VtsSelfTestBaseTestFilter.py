@@ -37,6 +37,10 @@ class VtsSelfTestBaseTestFilter(base_test.BaseTestClass):
 
     # Override
     def setUpClass(self):
+        # Since we are running the actual test cases, run_as_vts_self_test
+        # must be set to False.
+        self.run_as_vts_self_test = False
+
         self.dut = self.android_devices[0]
         self.shell = self.dut.shell
 

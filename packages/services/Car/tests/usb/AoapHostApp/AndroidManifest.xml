@@ -17,6 +17,8 @@
         xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
         package="com.google.android.car.usb.aoap.host" >
     <application android:label="@string/app_title" >
+      <uses-library android:name="android.test.runner" />
+
       <activity android:name=".UsbAoapHostActivity"
                 android:configChanges="keyboard|keyboardHidden" >
         <intent-filter>

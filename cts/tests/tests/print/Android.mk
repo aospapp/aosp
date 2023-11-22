@@ -16,19 +16,20 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_TAGS := tests
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsPrintTestCases
 
-LOCAL_STATIC_JAVA_LIBRARIES := mockito-target-minus-junit4 ctstestrunner ub-uiautomator compatibility-device-util android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := print-test-util-lib
 
 LOCAL_SDK_VERSION := test_current
 
 include $(BUILD_CTS_PACKAGE)
+include $(call all-makefiles-under,$(LOCAL_PATH))

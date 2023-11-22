@@ -1,5 +1,5 @@
 #
-#  Copyright (C) 2015 Google, Inc.
+#  Copyright 2015 Google, Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,10 +17,12 @@
 static_library("stack") {
   sources = [
     "a2dp/a2dp_aac.cc",
+    "a2dp/a2dp_aac_decoder.cc",
     "a2dp/a2dp_aac_encoder.cc",
     "a2dp/a2dp_api.cc",
     "a2dp/a2dp_codec_config.cc",
     "a2dp/a2dp_sbc.cc",
+    "a2dp/a2dp_sbc_decoder.cc",
     "a2dp/a2dp_sbc_encoder.cc",
     "a2dp/a2dp_sbc_up_sample.cc",
     "a2dp/a2dp_vendor.cc",
@@ -101,7 +103,6 @@ static_library("stack") {
     "l2cap/l2c_fcr.cc",
     "l2cap/l2c_link.cc",
     "l2cap/l2c_main.cc",
-    "l2cap/l2c_ucd.cc",
     "l2cap/l2c_utils.cc",
     "l2cap/l2cap_client.cc",
     "mcap/mca_api.cc",
@@ -166,7 +167,7 @@ static_library("stack") {
     "//vnd/ble",
     "//btif/include",
     "//hci/include",
-    "//include",
+    "//internal_include",
     "//udrv/include",
     "//rpc/include",
     "//hcis",
@@ -200,7 +201,7 @@ executable("stack_unittests") {
     "//btcore/include",
     "//embdrv/sbc/encoder/include",
     "//hci/include",
-    "//include",
+    "//internal_include",
     "//stack/a2dp",
     "//stack/btm",
     "//stack/include",
@@ -227,7 +228,7 @@ executable("stack_unittests") {
     "//embdrv/sbc",
     "//hci",
     "//types",
-    "//main:bluetooth.default",
+    "//main:bluetooth",
     "//third_party/googletest:gmock_main",
     "//third_party/libchrome:base",
   ]
@@ -245,7 +246,7 @@ executable("net_test_stack_multi_adv") {
     "//",
     "//btcore/include",
     "//hci/include",
-    "//include",
+    "//internal_include",
     "//stack/btm",
   ]
 

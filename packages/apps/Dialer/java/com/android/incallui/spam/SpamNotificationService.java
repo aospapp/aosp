@@ -16,7 +16,6 @@
 
 package com.android.incallui.spam;
 
-import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -30,7 +29,8 @@ import com.android.dialer.logging.ContactLookupResult;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
 import com.android.dialer.logging.ReportingLocation;
-import com.android.dialer.spam.Spam;
+import com.android.dialer.notification.DialerNotificationManager;
+import com.android.dialer.spam.SpamComponent;
 import com.android.incallui.call.DialerCall;
 
 /**
@@ -47,19 +47,22 @@ public class SpamNotificationService extends Service {
   private static final String EXTRA_PHONE_NUMBER = "service_phone_number";
   private static final String EXTRA_CALL_ID = "service_call_id";
   private static final String EXTRA_CALL_START_TIME_MILLIS = "service_call_start_time_millis";
+  private static final String EXTRA_NOTIFICATION_TAG = "service_notification_tag";
   private static final String EXTRA_NOTIFICATION_ID = "service_notification_id";
   private static final String EXTRA_CONTACT_LOOKUP_RESULT_TYPE =
       "service_contact_lookup_result_type";
   /** Creates an intent to start this service. */
   public static Intent createServiceIntent(
-      Context context, DialerCall call, String action, int notificationId) {
+      Context context, DialerCall call, String action, String notificationTag, int notificationId) {
     Intent intent = new Intent(context, SpamNotificationService.class);
     intent.setAction(action);
     intent.putExtra(EXTRA_PHONE_NUMBER, call.getNumber());
     intent.putExtra(EXTRA_CALL_ID, call.getUniqueCallId());
     intent.putExtra(EXTRA_CALL_START_TIME_MILLIS, call.getTimeAddedMs());
+    intent.putExtra(EXTRA_NOTIFICATION_TAG, notificationTag);
     intent.putExtra(EXTRA_NOTIFICATION_ID, notificationId);
-    intent.putExtra(EXTRA_CONTACT_LOOKUP_RESULT_TYPE, call.getLogState().contactLookupResult);
+    intent.putExtra(
+        EXTRA_CONTACT_LOOKUP_RESULT_TYPE, call.getLogState().contactLookupResult.getNumber());
     return intent;
   }
 
@@ -80,19 +83,20 @@ public class SpamNotificationService extends Service {
       return START_NOT_STICKY;
     }
     String number = intent.getStringExtra(EXTRA_PHONE_NUMBER);
+    String notificationTag = intent.getStringExtra(EXTRA_NOTIFICATION_TAG);
     int notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, 1);
     String countryIso = GeoUtil.getCurrentCountryIso(this);
     ContactLookupResult.Type contactLookupResultType =
         ContactLookupResult.Type.forNumber(intent.getIntExtra(EXTRA_CONTACT_LOOKUP_RESULT_TYPE, 0));
 
-    ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE))
-        .cancel(number, notificationId);
+    DialerNotificationManager.cancel(this, notificationTag, notificationId);
 
     switch (intent.getAction()) {
       case SpamNotificationActivity.ACTION_MARK_NUMBER_AS_SPAM:
         logCallImpression(
             intent, DialerImpression.Type.SPAM_NOTIFICATION_SERVICE_ACTION_MARK_NUMBER_AS_SPAM);
-        Spam.get(this)
+        SpamComponent.get(this)
+            .spam()
             .reportSpamFromAfterCallNotification(
                 number,
                 countryIso,
@@ -104,7 +108,8 @@ public class SpamNotificationService extends Service {
       case SpamNotificationActivity.ACTION_MARK_NUMBER_AS_NOT_SPAM:
         logCallImpression(
             intent, DialerImpression.Type.SPAM_NOTIFICATION_SERVICE_ACTION_MARK_NUMBER_AS_NOT_SPAM);
-        Spam.get(this)
+        SpamComponent.get(this)
+            .spam()
             .reportNotSpamFromAfterCallNotification(
                 number,
                 countryIso,
@@ -114,7 +119,7 @@ public class SpamNotificationService extends Service {
         break;
       default: // fall out
     }
-    // TODO: call stopSelf() after async tasks complete (b/28441936)
+    // TODO: call stopSelf() after async tasks complete (a bug)
     stopSelf();
     return START_NOT_STICKY;
   }

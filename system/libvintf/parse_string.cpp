@@ -113,6 +113,33 @@ std::ostream &operator<<(std::ostream &os, const KernelConfigTypedValue &kctv) {
     }
 }
 
+bool parse(const std::string& s, Level* l) {
+    if (s.empty()) {
+        *l = Level::UNSPECIFIED;
+        return true;
+    }
+    if (s == "legacy") {
+        *l = Level::LEGACY;
+        return true;
+    }
+    size_t value;
+    if (!ParseUint(s, &value)) {
+        return false;
+    }
+    *l = static_cast<Level>(value);
+    return true;
+}
+
+std::ostream& operator<<(std::ostream& os, Level l) {
+    if (l == Level::UNSPECIFIED) {
+        return os;
+    }
+    if (l == Level::LEGACY) {
+        return os << "legacy";
+    }
+    return os << static_cast<size_t>(l);
+}
+
 // Notice that strtoull is used even though KernelConfigIntValue is signed int64_t,
 // because strtoull can accept negative values as well.
 // Notice that according to man strtoul, strtoull can actually accept
@@ -231,6 +258,8 @@ std::ostream &operator<<(std::ostream &os, const VersionRange &vr) {
     return os << vr.minVer() << "-" << vr.maxMinor;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 bool parse(const std::string &s, VndkVersionRange *vr) {
     std::vector<std::string> v = SplitString(s, '-');
     if (v.size() != 1 && v.size() != 2) {
@@ -260,6 +289,7 @@ std::ostream &operator<<(std::ostream &os, const VndkVersionRange &vr) {
     }
     return os;
 }
+#pragma clang diagnostic pop
 
 bool parse(const std::string &s, KernelVersion *kernelVersion) {
     std::vector<std::string> v = SplitString(s, '.');
@@ -365,6 +395,43 @@ std::ostream &operator<<(std::ostream &os, const MatrixHal &req) {
               << (req.optional ? kOptional : kRequired);
 }
 
+std::string expandInstances(const MatrixHal& req, const VersionRange& vr, bool brace) {
+    std::string s;
+    size_t count = 0;
+    req.forEachInstance(vr, [&](const auto& matrixInstance) {
+        if (count > 0) s += " AND ";
+        s += toFQNameString(vr, matrixInstance.interface(),
+                            matrixInstance.isRegex() ? matrixInstance.regexPattern()
+                                                     : matrixInstance.exactInstance());
+        count++;
+        return true;
+    });
+    if (count == 0) {
+        s += "@" + to_string(vr);
+    }
+    if (count >= 2 && brace) {
+        s = "(" + s + ")";
+    }
+    return s;
+}
+
+std::vector<std::string> expandInstances(const MatrixHal& req) {
+    size_t count = req.instancesCount();
+    if (count == 0) {
+        return {};
+    }
+    if (count == 1) {
+        return {expandInstances(req, req.versionRanges.front(), false /* brace */)};
+    }
+    std::vector<std::string> ss;
+    for (const auto& vr : req.versionRanges) {
+        if (!ss.empty()) {
+            ss.back() += " OR";
+        }
+        ss.push_back(expandInstances(req, vr, true /* brace */));
+    }
+    return ss;
+}
 
 std::ostream &operator<<(std::ostream &os, KernelSepolicyVersion ksv){
     return os << ksv.value;
@@ -387,26 +454,70 @@ std::string dump(const HalManifest &vm) {
     return oss.str();
 }
 
-std::string dump(const RuntimeInfo &ki) {
+std::string dump(const RuntimeInfo& ki, bool verbose) {
     std::ostringstream oss;
 
-    oss << "kernel = "
-        << ki.osName() << "/"
-        << ki.nodeName() << "/"
-        << ki.osRelease() << "/"
-        << ki.osVersion() << "/"
-        << ki.hardwareId() << ";"
-        << ki.mBootAvbVersion << "/"
+    oss << "kernel = " << ki.osName() << "/" << ki.nodeName() << "/" << ki.osRelease() << "/"
+        << ki.osVersion() << "/" << ki.hardwareId() << ";" << ki.mBootAvbVersion << "/"
         << ki.mBootVbmetaAvbVersion << ";"
-        << "kernelSepolicyVersion = " << ki.kernelSepolicyVersion()
-        << ";\n\ncpu info:\n"
-        << ki.cpuInfo()
-        << "\n#CONFIG's loaded = " << ki.mKernelConfigs.size() << ";\n";
-    for (const auto &pair : ki.mKernelConfigs) {
-        oss << pair.first << "=" << pair.second << "\n";
+        << "kernelSepolicyVersion = " << ki.kernelSepolicyVersion() << ";";
+
+    if (verbose) {
+        oss << "\n\ncpu info:\n" << ki.cpuInfo();
+    }
+
+    oss << "\n#CONFIG's loaded = " << ki.mKernelConfigs.size() << ";\n";
+
+    if (verbose) {
+        for (const auto& pair : ki.mKernelConfigs) {
+            oss << pair.first << "=" << pair.second << "\n";
+        }
     }
 
     return oss.str();
+}
+
+std::string toFQNameString(const std::string& package, const std::string& version,
+                           const std::string& interface, const std::string& instance) {
+    std::stringstream ss;
+    ss << package << "@" << version;
+    if (!interface.empty()) {
+        ss << "::" << interface;
+        if (!instance.empty()) {
+            ss << "/" << instance;
+        }
+    }
+    return ss.str();
+}
+
+std::string toFQNameString(const std::string& package, const Version& version,
+                           const std::string& interface, const std::string& instance) {
+    return toFQNameString(package, to_string(version), interface, instance);
+}
+
+std::string toFQNameString(const Version& version, const std::string& interface,
+                           const std::string& instance) {
+    return toFQNameString("", version, interface, instance);
+}
+
+// android.hardware.foo@1.0-1::IFoo/default.
+// Note that the format is extended to support a range of versions.
+std::string toFQNameString(const std::string& package, const VersionRange& range,
+                           const std::string& interface, const std::string& instance) {
+    return toFQNameString(package, to_string(range), interface, instance);
+}
+
+std::string toFQNameString(const VersionRange& range, const std::string& interface,
+                           const std::string& instance) {
+    return toFQNameString("", range, interface, instance);
+}
+
+std::ostream& operator<<(std::ostream& os, const FqInstance& fqInstance) {
+    return os << fqInstance.string();
+}
+
+bool parse(const std::string& s, FqInstance* fqInstance) {
+    return fqInstance->setTo(s);
 }
 
 } // namespace vintf

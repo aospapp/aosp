@@ -28,12 +28,17 @@ import com.android.server.telecom.callfiltering.CallFilteringResult;
 import com.android.server.telecom.callfiltering.IncomingCallFilter;
 import com.android.server.telecom.TelecomSystem;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.atMost;
@@ -41,6 +46,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@RunWith(JUnit4.class)
 public class IncomingCallFilterTest extends TelecomTestCase {
     @Mock private CallFilterResultCallback mResultCallback;
     @Mock private Call mCall;
@@ -82,6 +88,8 @@ public class IncomingCallFilterTest extends TelecomTestCase {
 
     private static final CallFilteringResult DEFAULT_RESULT = RESULT1;
 
+    @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         mContext = mComponentContextFixture.getTestDouble().getApplicationContext();
@@ -90,6 +98,7 @@ public class IncomingCallFilterTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testSingleFilter() {
         IncomingCallFilter testFilter = new IncomingCallFilter(mContext, mResultCallback, mCall,
                 mLock, mTimeoutsAdapter, Collections.singletonList(mFilter1));
@@ -102,6 +111,7 @@ public class IncomingCallFilterTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testMultipleFilters() {
         List<IncomingCallFilter.CallFilter> filters =
                 new ArrayList<IncomingCallFilter.CallFilter>() {{
@@ -130,6 +140,7 @@ public class IncomingCallFilterTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testFilterTimeout() throws Exception {
         setTimeoutLength(SHORT_TIMEOUT);
         IncomingCallFilter testFilter = new IncomingCallFilter(mContext, mResultCallback, mCall,
@@ -145,6 +156,7 @@ public class IncomingCallFilterTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testFilterTimeoutDoesntTrip() throws Exception {
         setTimeoutLength(SHORT_TIMEOUT);
         IncomingCallFilter testFilter = new IncomingCallFilter(mContext, mResultCallback, mCall,
@@ -158,6 +170,7 @@ public class IncomingCallFilterTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testToString() {
         assertEquals("[Allow, logged, notified]", RESULT1.toString());
         assertEquals("[Reject, notified]", RESULT2.toString());

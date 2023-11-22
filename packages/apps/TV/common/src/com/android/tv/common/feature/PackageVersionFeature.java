@@ -49,7 +49,10 @@ public class PackageVersionFeature implements Feature {
 
     @Override
     public String toString() {
-        return "PackageVersionFeature[packageName=" + mPackageName + ",requiredVersion="
-                + mRequiredVersionCode + "]";
+        return "PackageVersionFeature[packageName="
+                + mPackageName
+                + ",requiredVersion="
+                + mRequiredVersionCode
+                + "]";
     }
 }

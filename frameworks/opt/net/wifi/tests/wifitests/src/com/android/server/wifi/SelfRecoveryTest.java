@@ -19,7 +19,7 @@ package com.android.server.wifi;
 import static org.mockito.Mockito.*;
 import static org.mockito.MockitoAnnotations.*;
 
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -47,21 +47,14 @@ public class SelfRecoveryTest {
     @Test
     public void testValidTriggerReasonsSendMessageToWifiController() {
         mSelfRecovery.trigger(SelfRecovery.REASON_LAST_RESORT_WATCHDOG);
-        verify(mWifiController).sendMessage(eq(WifiController.CMD_RESTART_WIFI));
+        verify(mWifiController).sendMessage(eq(WifiController.CMD_RECOVERY_RESTART_WIFI), anyInt());
         reset(mWifiController);
 
         when(mClock.getElapsedSinceBootMillis())
                 .thenReturn(SelfRecovery.MAX_RESTARTS_TIME_WINDOW_MILLIS + 1);
-        mSelfRecovery.trigger(SelfRecovery.REASON_HAL_CRASH);
-        verify(mWifiController).sendMessage(eq(WifiController.CMD_RESTART_WIFI));
+        mSelfRecovery.trigger(SelfRecovery.REASON_WIFINATIVE_FAILURE);
+        verify(mWifiController).sendMessage(eq(WifiController.CMD_RECOVERY_RESTART_WIFI), anyInt());
         reset(mWifiController);
-
-        when(mClock.getElapsedSinceBootMillis())
-                .thenReturn(2 * (SelfRecovery.MAX_RESTARTS_TIME_WINDOW_MILLIS + 1));
-        mSelfRecovery.trigger(SelfRecovery.REASON_WIFICOND_CRASH);
-        verify(mWifiController).sendMessage(eq(WifiController.CMD_RESTART_WIFI));
-        reset(mWifiController);
-
     }
 
     /**
@@ -71,10 +64,19 @@ public class SelfRecoveryTest {
     @Test
     public void testInvalidTriggerReasonsDoesNotSendMessageToWifiController() {
         mSelfRecovery.trigger(-1);
-        verify(mWifiController, never()).sendMessage(anyInt());
+        verify(mWifiController, never()).sendMessage(anyInt(), anyString());
 
         mSelfRecovery.trigger(8);
-        verify(mWifiController, never()).sendMessage(anyInt());
+        verify(mWifiController, never()).sendMessage(anyInt(), anyString());
+    }
+
+    /**
+     * Verifies that a STA interface down event will trigger WifiController to disable wifi.
+     */
+    @Test
+    public void testStaIfaceDownDisablesWifi() {
+        mSelfRecovery.trigger(SelfRecovery.REASON_STA_IFACE_DOWN);
+        verify(mWifiController).sendMessage(eq(WifiController.CMD_RECOVERY_DISABLE_WIFI));
     }
 
     /**
@@ -88,45 +90,58 @@ public class SelfRecoveryTest {
         // Fill up the SelfRecovery's restart time window buffer, ensure all the restart triggers
         // aren't ignored
         for (int i = 0; i < SelfRecovery.MAX_RESTARTS_IN_TIME_WINDOW / 2; i++) {
-            mSelfRecovery.trigger(SelfRecovery.REASON_HAL_CRASH);
-            verify(mWifiController).sendMessage(eq(WifiController.CMD_RESTART_WIFI));
+            mSelfRecovery.trigger(SelfRecovery.REASON_WIFINATIVE_FAILURE);
+            verify(mWifiController).sendMessage(eq(WifiController.CMD_RECOVERY_RESTART_WIFI),
+                                                anyInt());
             reset(mWifiController);
 
-            mSelfRecovery.trigger(SelfRecovery.REASON_WIFICOND_CRASH);
-            verify(mWifiController).sendMessage(eq(WifiController.CMD_RESTART_WIFI));
+            mSelfRecovery.trigger(SelfRecovery.REASON_WIFINATIVE_FAILURE);
+            verify(mWifiController).sendMessage(eq(WifiController.CMD_RECOVERY_RESTART_WIFI),
+                                                anyInt());
             reset(mWifiController);
         }
         if ((SelfRecovery.MAX_RESTARTS_IN_TIME_WINDOW % 2) == 1) {
-            mSelfRecovery.trigger(SelfRecovery.REASON_WIFICOND_CRASH);
-            verify(mWifiController).sendMessage(eq(WifiController.CMD_RESTART_WIFI));
+            mSelfRecovery.trigger(SelfRecovery.REASON_WIFINATIVE_FAILURE);
+            verify(mWifiController).sendMessage(eq(WifiController.CMD_RECOVERY_RESTART_WIFI),
+                                                anyInt());
             reset(mWifiController);
         }
 
-        // Verify that further attempts to trigger restarts for are ignored
-        mSelfRecovery.trigger(SelfRecovery.REASON_HAL_CRASH);
-        verify(mWifiController, never()).sendMessage(eq(WifiController.CMD_RESTART_WIFI));
+        // Verify that further attempts to trigger restarts disable wifi
+        mSelfRecovery.trigger(SelfRecovery.REASON_WIFINATIVE_FAILURE);
+        verify(mWifiController, never()).sendMessage(eq(WifiController.CMD_RECOVERY_RESTART_WIFI),
+                anyString());
+        verify(mWifiController).sendMessage(eq(WifiController.CMD_RECOVERY_DISABLE_WIFI));
         reset(mWifiController);
 
-        mSelfRecovery.trigger(SelfRecovery.REASON_WIFICOND_CRASH);
-        verify(mWifiController, never()).sendMessage(eq(WifiController.CMD_RESTART_WIFI));
+        mSelfRecovery.trigger(SelfRecovery.REASON_WIFINATIVE_FAILURE);
+        verify(mWifiController, never()).sendMessage(eq(WifiController.CMD_RECOVERY_RESTART_WIFI),
+                anyString());
+        verify(mWifiController).sendMessage(eq(WifiController.CMD_RECOVERY_DISABLE_WIFI));
         reset(mWifiController);
 
         // Verify L.R.Watchdog can still restart things (It has its own complex limiter)
         mSelfRecovery.trigger(SelfRecovery.REASON_LAST_RESORT_WATCHDOG);
-        verify(mWifiController).sendMessage(eq(WifiController.CMD_RESTART_WIFI));
+        verify(mWifiController).sendMessage(eq(WifiController.CMD_RECOVERY_RESTART_WIFI),
+                                            anyInt());
+        reset(mWifiController);
+
+        // Verify Sta Interface Down will still disable wifi
+        mSelfRecovery.trigger(SelfRecovery.REASON_STA_IFACE_DOWN);
+        verify(mWifiController).sendMessage(eq(WifiController.CMD_RECOVERY_DISABLE_WIFI));
         reset(mWifiController);
 
         // now TRAVEL FORWARDS IN TIME and ensure that more restarts can occur
         when(mClock.getElapsedSinceBootMillis())
                 .thenReturn(SelfRecovery.MAX_RESTARTS_TIME_WINDOW_MILLIS + 1);
         mSelfRecovery.trigger(SelfRecovery.REASON_LAST_RESORT_WATCHDOG);
-        verify(mWifiController).sendMessage(eq(WifiController.CMD_RESTART_WIFI));
+        verify(mWifiController).sendMessage(eq(WifiController.CMD_RECOVERY_RESTART_WIFI), anyInt());
         reset(mWifiController);
 
         when(mClock.getElapsedSinceBootMillis())
                 .thenReturn(SelfRecovery.MAX_RESTARTS_TIME_WINDOW_MILLIS + 1);
-        mSelfRecovery.trigger(SelfRecovery.REASON_HAL_CRASH);
-        verify(mWifiController).sendMessage(eq(WifiController.CMD_RESTART_WIFI));
+        mSelfRecovery.trigger(SelfRecovery.REASON_WIFINATIVE_FAILURE);
+        verify(mWifiController).sendMessage(eq(WifiController.CMD_RECOVERY_RESTART_WIFI), anyInt());
         reset(mWifiController);
     }
 
@@ -141,7 +156,25 @@ public class SelfRecoveryTest {
         for (int i = 0; i < SelfRecovery.MAX_RESTARTS_IN_TIME_WINDOW * 2; i++) {
             // Verify L.R.Watchdog can still restart things (It has it's own complex limiter)
             mSelfRecovery.trigger(SelfRecovery.REASON_LAST_RESORT_WATCHDOG);
-            verify(mWifiController).sendMessage(eq(WifiController.CMD_RESTART_WIFI));
+            verify(mWifiController).sendMessage(eq(WifiController.CMD_RECOVERY_RESTART_WIFI),
+                                                anyInt());
+            reset(mWifiController);
+        }
+    }
+
+    /**
+     * Verifies that invocations of {@link SelfRecovery#trigger(int)} for
+     * REASON_STA_IFACE_DOWN are NOT limited to
+     * {@link SelfRecovery#MAX_RESTARTS_IN_TIME_WINDOW} in a
+     * {@link SelfRecovery#MAX_RESTARTS_TIME_WINDOW_MILLIS} millisecond time window.
+     */
+    @Test
+    public void testTimeWindowLimiting_staIfaceDown_noEffect() {
+        for (int i = 0; i < SelfRecovery.MAX_RESTARTS_IN_TIME_WINDOW * 2; i++) {
+            mSelfRecovery.trigger(SelfRecovery.REASON_STA_IFACE_DOWN);
+            verify(mWifiController).sendMessage(eq(WifiController.CMD_RECOVERY_DISABLE_WIFI));
+            verify(mWifiController, never())
+                    .sendMessage(eq(WifiController.CMD_RECOVERY_RESTART_WIFI), anyInt());
             reset(mWifiController);
         }
     }

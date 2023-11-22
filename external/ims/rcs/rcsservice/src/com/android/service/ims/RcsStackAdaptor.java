@@ -709,6 +709,18 @@ public class RcsStackAdaptor{
 
     private void clearImsUceService() {
         synchronized (mSyncObj) {
+            try {
+                logger.info("clearImsUceService: removing listener and presence service.");
+                if (mStackPresService != null) {
+                    mStackPresService.removeListener(mStackPresenceServiceHandle,
+                            mListenerHandle);
+                }
+                if (mStackService != null) {
+                    mStackService.destroyPresenceService(mStackPresenceServiceHandle);
+                }
+            } catch (RemoteException e) {
+                logger.warn("clearImsUceService: Couldn't clean up stack service");
+            }
             mImsUceManager = null;
             mStackService = null;
             mStackPresService = null;

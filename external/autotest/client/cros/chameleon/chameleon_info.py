@@ -62,7 +62,6 @@ _CHAMELEON_BOARD_INFO = {
         '94:eb:2c:10:06:a3': ChameleonInfo('00:1F:84:01:03:24'),
         '94:eb:2c:10:06:99': ChameleonInfo('00:1F:84:01:03:93'),
         '94:eb:2c:10:06:9a': ChameleonInfo('00:1F:84:01:03:B1'),
-        '94:eb:2c:00:01:1a': ChameleonInfo('00:1F:84:01:03:70'),
         '94:eb:2c:10:06:90': ChameleonInfo('00:1F:84:01:03:6E'),
         '94:eb:2c:00:01:00': ChameleonInfo('00:1F:84:01:03:54'),
         '94:eb:2c:00:01:01': ChameleonInfo('00:1F:84:01:03:3E'),
@@ -74,7 +73,10 @@ _CHAMELEON_BOARD_INFO = {
         '94:eb:2c:00:01:19': ChameleonInfo('00:1F:84:01:03:91'),
         '94:eb:2c:10:06:8a': ChameleonInfo('00:1F:84:01:03:AB'),
         '94:eb:2c:00:01:1d': ChameleonInfo('00:1F:84:01:03:A6'),
-        '94:eb:2c:10:06:95': ChameleonInfo('00:1F:84:01:03:66')
+        '94:eb:2c:10:06:95': ChameleonInfo('00:1F:84:01:03:66'),
+
+        # Lars device changed as of 10/17/17.
+        '94:eb:2c:00:01:1a': ChameleonInfo('00:1F:84:01:03:20')
 }
 
 class ChameleonInfoError(Exception):

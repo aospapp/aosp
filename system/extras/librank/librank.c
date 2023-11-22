@@ -91,7 +91,7 @@ struct library_info *get_library(const char *name, bool all) {
             return libraries[i];
     }
 
-    if (libraries_count >= libraries_size) {
+    if (libraries_size && libraries_count >= libraries_size) {
         libraries = realloc(libraries, 2 * libraries_size * sizeof(struct library_info *));
         if (!libraries) {
             fprintf(stderr, "Couldn't resize libraries array: %s\n", strerror(errno));
@@ -133,7 +133,7 @@ struct mapping_info *get_mapping(struct library_info *library, struct process_in
             return library->mappings[i];
     }
 
-    if (library->mappings_count >= library->mappings_size) {
+    if (library->mappings_size && library->mappings_count >= library->mappings_size) {
         library->mappings = realloc(library->mappings,
             2 * library->mappings_size * sizeof(struct mapping_info*));
         if (!library->mappings) {
@@ -196,7 +196,6 @@ static int parse_perm(const char *perm)
 }
 
 int main(int argc, char *argv[]) {
-    char cmdline[256];
     char *prefix;
     size_t prefix_len;
     int (*compfn)(const void *a, const void *b);
@@ -211,8 +210,8 @@ int main(int argc, char *argv[]) {
     size_t num_maps;
     pm_memusage_t map_usage;
 
-    struct library_info *li, **lis;
-    struct mapping_info *mi, **mis;
+    struct library_info *li;
+    struct mapping_info *mi;
     struct process_info *pi;
 
     size_t i, j;
@@ -419,7 +418,7 @@ int main(int argc, char *argv[]) {
         fflush(stdout);
     }
 
-    return 0;
+    exit(0);
 }
 
 static void usage(char *myname) {

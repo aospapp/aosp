@@ -66,6 +66,7 @@ public class KeyGenParameterSpecTest extends TestCase {
         MoreAsserts.assertEmpty(Arrays.asList(spec.getSignaturePaddings()));
         assertFalse(spec.isUserAuthenticationRequired());
         assertEquals(-1, spec.getUserAuthenticationValidityDurationSeconds());
+        assertFalse(spec.isUnlockedDeviceRequired());
     }
 
     public void testSettersReflectedInGetters() {
@@ -98,6 +99,7 @@ public class KeyGenParameterSpecTest extends TestCase {
                         KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
                 .setUserAuthenticationRequired(true)
                 .setUserAuthenticationValidityDurationSeconds(12345)
+                .setUnlockedDeviceRequired(true)
                 .build();
 
         assertEquals("arbitrary", spec.getKeystoreAlias());
@@ -124,6 +126,7 @@ public class KeyGenParameterSpecTest extends TestCase {
                 KeyProperties.SIGNATURE_PADDING_RSA_PSS, KeyProperties.SIGNATURE_PADDING_RSA_PKCS1);
         assertTrue(spec.isUserAuthenticationRequired());
         assertEquals(12345, spec.getUserAuthenticationValidityDurationSeconds());
+        assertTrue(spec.isUnlockedDeviceRequired());
     }
 
     public void testNullAliasNotPermitted() {

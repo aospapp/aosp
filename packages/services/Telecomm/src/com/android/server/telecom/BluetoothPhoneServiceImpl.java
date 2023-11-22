@@ -66,6 +66,7 @@ public class BluetoothPhoneServiceImpl {
     private static final int CALL_STATE_INCOMING = 4;
     private static final int CALL_STATE_WAITING = 5;
     private static final int CALL_STATE_IDLE = 6;
+    private static final int CALL_STATE_DISCONNECTED = 7;
 
     // match up with bthf_call_state_t of bt_hf.h
     // Terminate all held or set UDUB("busy") to a waiting call
@@ -84,6 +85,7 @@ public class BluetoothPhoneServiceImpl {
     private String mRingingAddress = null;
     private int mRingingAddressType = 0;
     private Call mOldHeldCall = null;
+    private boolean mIsDisconnectedTonePlaying = false;
 
     /**
      * Binder implementation of IBluetoothHeadsetPhone. Implements the command interface that the
@@ -385,6 +387,12 @@ public class BluetoothPhoneServiceImpl {
                 Log.d(this, "Ignoring onIsConferenceChanged from parent with only one child call");
                 return;
             }
+            updateHeadsetWithCallState(false /* force */);
+        }
+
+        @Override
+        public void onDisconnectedTonePlaying(boolean isTonePlaying) {
+            mIsDisconnectedTonePlaying = isTonePlaying;
             updateHeadsetWithCallState(false /* force */);
         }
     };
@@ -816,6 +824,7 @@ public class BluetoothPhoneServiceImpl {
         CallsManager callsManager = mCallsManager;
         Call ringingCall = mCallsManager.getRingingCall();
         Call dialingCall = mCallsManager.getOutgoingCall();
+        boolean hasOnlyDisconnectedCalls = mCallsManager.hasOnlyDisconnectedCalls();
 
         //
         // !! WARNING !!
@@ -831,6 +840,9 @@ public class BluetoothPhoneServiceImpl {
             bluetoothCallState = CALL_STATE_INCOMING;
         } else if (dialingCall != null) {
             bluetoothCallState = CALL_STATE_ALERTING;
+        } else if (hasOnlyDisconnectedCalls || mIsDisconnectedTonePlaying) {
+            // Keep the DISCONNECTED state until the disconnect tone's playback is done
+            bluetoothCallState = CALL_STATE_DISCONNECTED;
         }
         return bluetoothCallState;
     }

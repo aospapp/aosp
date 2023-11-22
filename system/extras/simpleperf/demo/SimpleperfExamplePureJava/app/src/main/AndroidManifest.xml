@@ -16,6 +16,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".SleepActivity"
+            android:exported="true" />
+        <activity android:name=".MultiProcessActivity"
+            android:exported="true" />
+
+        <service android:name=".MultiProcessService"
+            android:process=":multiprocess_service" />
     </application>
 
 </manifest>

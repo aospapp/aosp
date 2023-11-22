@@ -1,7 +1,8 @@
 // /**
 //
+// Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved.<BR>
 // (C) Copyright 2013-2015 Hewlett-Packard Development Company, L.P.<BR>
-// Copyright (c) 2010 - 2015, Intel Corporation. All rights reserved.<BR>
+// (C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
 // This program and the accompanying materials
 // are licensed and made available under the terms and conditions of the BSD License
 // which accompanies this distribution. The full text of the license may be found at
@@ -115,10 +116,11 @@
                                                   "  MMIO_Port : %,14ld Pages (%,ld Bytes)\r\n"
                                                   "  PalCode   : %,14ld Pages (%,ld Bytes)\r\n"
                                                   "  Available : %,14ld Pages (%,ld Bytes)\r\n"
+                                                  "  Persistent: %,14ld Pages (%,ld Bytes)\r\n"
                                                   "              -------------- \r\n"
                                                   "Total Memory: %,14ld MB (%,ld Bytes)\r\n"
 #string STR_MEMMAP_LIST_ITEM_SFO  #language en-US "MemoryMap,"%s","%LX","%LX","%LX","%LX"\r\n"
-#string STR_MEMMAP_LIST_SUMM_SFO  #language en-US "MemoryMapSummary,"%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld"\r\n"
+#string STR_MEMMAP_LIST_SUMM_SFO  #language en-US "MemoryMapSummary,"%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld","%Ld"\r\n"
 
 #string STR_EFI_COMPRESS_FAIL     #language en-US "Unable to compress: %r.\r\n"
 #string STR_EFI_DECOMPRESS_FAIL   #language en-US "Unable to decompress: %r.\r\n"
@@ -316,7 +318,10 @@
                                                        "    CorrectableErrorStatus         %08x\r\n"
                                                        "    CorrectableErrorMask           %08x\r\n"
                                                        "    AdvancedErrorCapAndControl     %08x\r\n"
-                                                       "    HeaderLog                      %08x\r\n"
+                                                       "    HeaderLog1                     %08x\r\n"
+                                                       "    HeaderLog2                     %08x\r\n"
+                                                       "    HeaderLog3                     %08x\r\n"
+                                                       "    HeaderLog4                     %08x\r\n"
                                                        "    RootErrorCommand               %08x\r\n"
                                                        "    RootErrorStatus                %08x\r\n"
                                                        "    ErrorSourceIdentification      %04x\r\n"
@@ -402,9 +407,14 @@
 #string STR_DMPSTORE_HEADER_LINE       #language en-US "Variable %H%s%N '%H%g%N:%H%s%N' DataSize = 0x%02x\r\n"
 #string STR_DMPSTORE_DELETE_LINE       #language en-US "Delete variable '%H%g%N:%H%s%N': %r\r\n"
 #string STR_DMPSTORE_NO_VAR_FOUND      #language en-US "%H%s%N: No matching variables found.\r\n"
+#string STR_DMPSTORE_NO_VAR_FOUND_SFO  #language en-US "VariableInfo,\"\",\"\",\"\",\"\",\"\"\r\n"
 #string STR_DMPSTORE_NO_VAR_FOUND_GN   #language en-US "%H%s%N: No matching variables found. Guid %g, Name %s\r\n"
+#string STR_DMPSTORE_NO_VAR_FOUND_NG_SFO #language en-US "VariableInfo,\"%s\",\"%g\",\"\",\"\",\"\"\r\n"
 #string STR_DMPSTORE_NO_VAR_FOUND_N    #language en-US "%H%s%N: No matching variables found. Name %s\r\n"
+#string STR_DMPSTORE_NO_VAR_FOUND_N_SFO #language en-US #language en-US "VariableInfo,\"%s\",\"\",\"\",\"\",\"\"\r\n"
 #string STR_DMPSTORE_NO_VAR_FOUND_G    #language en-US "%H%s%N: No matching variables found. Guid %g\r\n"
+#string STR_DMPSTORE_NO_VAR_FOUND_G_SFO #language en-US "VariableInfo,\"\",\"%g\",\"\",\"\",\"\"\r\n"
+#string STR_DMPSTORE_VAR_SFO           #language en-US "VariableInfo,\"%s\",\"%g\",\"0x%x\",\"0x%x\",\"%s\"\r\n"
 
 #string STR_GET_HELP_COMP         #language en-US ""
 ".TH comp 0 "Compare 2 files"\r\n"
@@ -803,9 +813,9 @@
 "  3. If = is not specified, then the current variable contents are displayed.\r\n"
 "  4. If =data is specified, then the variable's value is changed to the value\r\n"
 "     specified by data.\r\n"
-"  5. -bs, -rt and -nv are only useful if the variable already exists.\r\n"
-"  6. If the variable already exists and the attributes cannot be changed,\r\n"
-"     then -1 is returned. \r\n"
+"  5. -bs, -rt and -nv are only useful if the variable does not exist.\r\n"
+"  6. If the variable already exists, the attributes cannot be changed, and the"
+"     flags will be ignored.\r\n"
 ".SH RETURNVALUES\r\n"
 " \r\n"
 "RETURN VALUES:\r\n"
@@ -1010,7 +1020,7 @@
 "Manages all UEFI variables.\r\n"
 ".SH SYNOPSIS\r\n"
 " \r\n"
-"DMPSTORE [-b] [-d] [-all | ([variable] [-guid guid])]\r\n"
+"DMPSTORE [-b] [-d] [-all | ([variable] [-guid guid])] [-sfo]\r\n"
 "DMPSTORE [-all | ([variable] [-guid guid])] [-s file]\r\n"
 "DMPSTORE [-all | ([variable] [-guid guid])] [-l file]\r\n"
 ".SH OPTIONS\r\n"
@@ -1019,6 +1029,7 @@
 "  -guid    - Specifies the GUID of the variables to be displayed in\r\n"
 "             standard text format. If not specified and -all is not\r\n"
 "             specified, the EFI_GLOBAL_VARIABLE GUID is assumed.\r\n"
+"  -sfo     - Displays information as described in Standard-Format Output.\r\n"
 "  -all     - Dumps all variables, including those\r\n"
 "             with a different GUID than EFI_GLOBAL_VARIABLE.\r\n"
 "  -d       - Delete variables.\r\n"

@@ -92,6 +92,7 @@ public class ProtoOutputStreamTagTest extends TestCase {
         // Try it in the provided name
         try {
             ProtoOutputStream.checkFieldId(42 | goodCount | badType, goodCount | fieldType);
+            fail("Should have thrown an exception.");
         } catch (IllegalArgumentException ex) {
             assertEquals("writeRepeated" + string
                         + " called for field 42 which should be used"
@@ -102,6 +103,7 @@ public class ProtoOutputStreamTagTest extends TestCase {
         // Try it in the expected name
         try {
             ProtoOutputStream.checkFieldId(43 | goodCount | fieldType, goodCount | badType);
+            fail("Should have thrown an exception.");
         } catch (IllegalArgumentException ex) {
             assertEquals("writeRepeated" + badTypeString
                         + " called for field 43 which should be used"
@@ -126,6 +128,7 @@ public class ProtoOutputStreamTagTest extends TestCase {
         // Try it in the provided name
         try {
             ProtoOutputStream.checkFieldId(44 | badCount | goodType, fieldCount | goodType);
+            fail("Should have thrown an exception.");
         } catch (IllegalArgumentException ex) {
             assertEquals("write" + string
                     + "Fixed32 called for field 44 which should be used"
@@ -136,6 +139,7 @@ public class ProtoOutputStreamTagTest extends TestCase {
         // Try it in the expected name
         try {
             ProtoOutputStream.checkFieldId(45 | fieldCount | goodType, badCount | goodType);
+            fail("Should have thrown an exception.");
         } catch (IllegalArgumentException ex) {
             String extraString = "";
             if (fieldCount == ProtoOutputStream.FIELD_COUNT_PACKED) {
@@ -151,7 +155,7 @@ public class ProtoOutputStreamTagTest extends TestCase {
     /**
      * Validate one call to checkFieldId that is expected to throw.
      */
-    public void assertCheckFieldIdThrows(long fieldId, long expectedFlags) 
+    public void assertCheckFieldIdThrows(long fieldId, long expectedFlags)
             throws Exception {
         try {
             ProtoOutputStream.checkFieldId(fieldId, expectedFlags);

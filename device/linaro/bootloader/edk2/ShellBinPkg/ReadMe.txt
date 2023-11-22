@@ -1,19 +1,14 @@
 ============================================================================
                                  OVERVIEW
 ============================================================================
-The binaries of ShellBinPkg are generated with ShellPkg project and built with 
-BaseTools Package (r19529). The binaries are built with no debug information 
-by building with "RELEASE" target.
+The binaries of ShellBinPkg are generated with ShellPkg project and built with
+BaseTools Package (git version: d2fc7711136a13ea3ea8e00de6d9651507b8ed50). The
+binaries are built with no debug information by building with "RELEASE" target.
 
-The following steps can help to re-generate these binaries for customization:
-1. Check out EDK II to $(WORKSPACE) 
-(svn https://svn.code.sf.net/p/edk2/code/trunk/edk2).
-
-2. Under $(WORKSPACE) directory (i.e. c:\EdkII),
-   To generate Shell, execute:
-        "build -a IA32 -a X64 -p ShellPkg\ShellPkg.dsc -b RELEASE"
-   To generate Minimal Shell, execute:
-        "build -a IA32 -a X64 -p ShellPkg\ShellPkg.dsc -b RELEASE -D NO_SHELL_PROFILES"
+To generate Full Shell, execute:
+  "build -a IA32 -a X64 -p ShellPkg\ShellPkg.dsc -b RELEASE"
+To generate Minimal Shell, execute:
+  "build -a IA32 -a X64 -p ShellPkg\ShellPkg.dsc -b RELEASE -D NO_SHELL_PROFILES"
 
 ============================================================================
                     HOW TO INCORPORATE THIS SHELL INTO NT32

@@ -18,7 +18,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.tv.testinput">
 
-    <uses-sdk android:targetSdkVersion="23" android:minSdkVersion="23"/>
+    <uses-sdk android:targetSdkVersion="26" android:minSdkVersion="23"/>
 
      <!-- Required to update or read existing channel and program information in TvProvider. -->
     <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA" />

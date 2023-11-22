@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN konexioa eta aplikazioak"</item>
     <item msgid="692322974985472861">"Wi-Fi konexioa"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Oharra: ziurtagiri honen jaulkitzaileak gailura edo gailutik bidalitako trafiko guztia ikuska dezake."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi profila"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%s sarearen xehetasunak"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Xehetasunak"</string>

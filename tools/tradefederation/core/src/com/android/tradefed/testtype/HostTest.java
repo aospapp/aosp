@@ -15,8 +15,8 @@
  */
 package com.android.tradefed.testtype;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
@@ -25,9 +25,18 @@ import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.JUnit4ResultForwarder;
+import com.android.tradefed.result.ResultForwarder;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.testtype.host.PrettyTestEventLogger;
+import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.JUnit4TestFilter;
+import com.android.tradefed.util.StreamUtil;
+import com.android.tradefed.util.SystemUtil.EnvVariable;
 import com.android.tradefed.util.TestFilterHelper;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -45,20 +54,28 @@ import org.junit.runner.Runner;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.Suite.SuiteClasses;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 /**
  * A test runner for JUnit host based tests. If the test to be run implements {@link IDeviceTest}
@@ -75,7 +92,9 @@ public class HostTest
                 IAbiReceiver,
                 IShardableTest,
                 IStrictShardableTest,
-                IRuntimeHintProvider {
+                IRuntimeHintProvider,
+                IMultiDeviceTest,
+                IInvocationContextReceiver {
 
 
     @Option(name = "class", description = "The JUnit test classes to run, in the format "
@@ -87,6 +106,13 @@ public class HostTest
             + "eg. \"testFooBar\"",
             importance = Importance.IF_UNSET)
     private String mMethodName;
+
+    @Option(
+        name = "jar",
+        description = "The jars containing the JUnit test class to run.",
+        importance = Importance.IF_UNSET
+    )
+    private Set<String> mJars = new HashSet<>();
 
     public static final String SET_OPTION_NAME = "set-option";
     public static final String SET_OPTION_DESC =
@@ -129,9 +155,19 @@ public class HostTest
             description = "Shard by class or method")
     private ShardUnit mShardUnit = ShardUnit.CLASS;
 
+    @Option(
+        name = "enable-pretty-logs",
+        description =
+                "whether or not to enable a logging for each test start and end on both host and "
+                        + "device side."
+    )
+    private boolean mEnableHostDeviceLogs = true;
+
     private ITestDevice mDevice;
     private IBuildInfo mBuildInfo;
     private IAbi mAbi;
+    private Map<ITestDevice, IBuildInfo> mDeviceInfos;
+    private IInvocationContext mContext;
     private TestFilterHelper mFilterHelper;
     private boolean mSkipTestClassCheck = false;
 
@@ -140,6 +176,7 @@ public class HostTest
 
     private static final String EXCLUDE_NO_TEST_FAILURE = "org.junit.runner.manipulation.Filter";
     private static final String TEST_FULL_NAME_FORMAT = "%s#%s";
+    private static final String ROOT_DIR = "ROOT_DIR";
 
     public HostTest() {
         mFilterHelper = new TestFilterHelper(new ArrayList<String>(), new ArrayList<String>(),
@@ -195,6 +232,16 @@ public class HostTest
      */
     protected IBuildInfo getBuild() {
         return mBuildInfo;
+    }
+
+    @Override
+    public void setDeviceInfos(Map<ITestDevice, IBuildInfo> deviceInfos) {
+        mDeviceInfos = deviceInfos;
+    }
+
+    @Override
+    public void setInvocationContext(IInvocationContext invocationContext) {
+        mContext = invocationContext;
     }
 
     /**
@@ -360,6 +407,12 @@ public class HostTest
         if (testObj instanceof IAbiReceiver) {
             ((IAbiReceiver)testObj).setAbi(mAbi);
         }
+        if (testObj instanceof IMultiDeviceTest) {
+            ((IMultiDeviceTest) testObj).setDeviceInfos(mDeviceInfos);
+        }
+        if (testObj instanceof IInvocationContextReceiver) {
+            ((IInvocationContextReceiver) testObj).setInvocationContext(mContext);
+        }
         // managed runner should have the same set-option to pass option too.
         if (testObj instanceof ISetOptionReceiver) {
             try {
@@ -391,6 +444,11 @@ public class HostTest
         if (mMethodName != null && classes.size() > 1) {
             throw new IllegalArgumentException("Method name given with multiple test classes");
         }
+        // Add a pretty logger to the events to mark clearly start/end of test cases.
+        if (mEnableHostDeviceLogs) {
+            PrettyTestEventLogger logger = new PrettyTestEventLogger(mContext.getDevices());
+            listener = new ResultForwarder(logger, listener);
+        }
         if (mTestMethods != null) {
             runTestCases(listener);
         } else {
@@ -398,7 +456,8 @@ public class HostTest
         }
     }
 
-    private void runTestClasses(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    private void runTestClasses(ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
         for (Class<?> classObj : getClasses()) {
             if (IRemoteTest.class.isAssignableFrom(classObj)) {
                 IRemoteTest test = (IRemoteTest) loadObject(classObj);
@@ -469,24 +528,22 @@ public class HostTest
         if (mCollectTestsOnly) {
             // Collect only mode, fake the junit test execution.
             listener.testRunStarted(className, junitTest.countTestCases());
-            Map<String, String> empty = Collections.emptyMap();
+            HashMap<String, Metric> empty = new HashMap<>();
             for (int i = 0; i < junitTest.countTestCases(); i++) {
                 Test t = junitTest.testAt(i);
                 // Test does not have a getName method.
                 // using the toString format instead: <testName>(className)
                 String testName = t.toString().split("\\(")[0];
-                TestIdentifier testId =
-                        new TestIdentifier(t.getClass().getName(), testName);
+                TestDescription testId = new TestDescription(t.getClass().getName(), testName);
                 listener.testStarted(testId);
                 listener.testEnded(testId, empty);
             }
-            Map<String, String> emptyMap = Collections.emptyMap();
+            HashMap<String, Metric> emptyMap = new HashMap<>();
             listener.testRunEnded(0, emptyMap);
         } else {
             JUnitRunUtil.runTest(listener, junitTest, className);
         }
     }
-
 
     private void runJUnit4Tests(
             ITestInvocationListener listener, Runner checkRunner, String className) {
@@ -504,22 +561,22 @@ public class HostTest
                 setTestObjectInformation(checkRunner);
                 runnerCore.run(checkRunner);
             }
-            listener.testRunEnded(System.currentTimeMillis() - startTime,
-                    Collections.emptyMap());
+            listener.testRunEnded(
+                    System.currentTimeMillis() - startTime, new HashMap<String, Metric>());
         } else {
             // Special case where filtering leaves no tests to run, we report no failure
             // in this case.
             if (EXCLUDE_NO_TEST_FAILURE.equals(
                     checkRunner.getDescription().getClassName())) {
                 listener.testRunStarted(className, 0);
-                listener.testRunEnded(0, Collections.emptyMap());
+                listener.testRunEnded(0, new HashMap<String, Metric>());
             } else {
                 // Run the Error runner to get the failures from test classes.
                 listener.testRunStarted(className, checkRunner.testCount());
                 RunNotifier failureNotifier = new RunNotifier();
                 failureNotifier.addListener(list);
                 checkRunner.run(failureNotifier);
-                listener.testRunEnded(0, Collections.emptyMap());
+                listener.testRunEnded(0, new HashMap<String, Metric>());
             }
         }
     }
@@ -528,7 +585,7 @@ public class HostTest
      * Helper to fake the execution of JUnit4 Tests, using the {@link Description}
      */
     private void fakeDescriptionExecution(Description desc, JUnit4ResultForwarder listener) {
-        if (desc.getMethodName() == null) {
+        if (desc.getMethodName() == null || !desc.getChildren().isEmpty()) {
             for (Description child : desc.getChildren()) {
                 fakeDescriptionExecution(child, listener);
             }
@@ -660,7 +717,7 @@ public class HostTest
         return mTestMethods;
     }
 
-    protected List<Class<?>> getClasses() throws IllegalArgumentException  {
+    protected final List<Class<?>> getClasses() throws IllegalArgumentException {
         List<Class<?>> classes = new ArrayList<>();
         for (String className : mClasses) {
             try {
@@ -668,6 +725,61 @@ public class HostTest
             } catch (ClassNotFoundException e) {
                 throw new IllegalArgumentException(String.format("Could not load Test class %s",
                         className), e);
+            }
+        }
+        // Inspect for the jar files
+        for (String jarName : mJars) {
+            JarFile jarFile = null;
+            try {
+                File file = getJarFile(jarName, getBuild());
+                jarFile = new JarFile(file);
+                Enumeration<JarEntry> e = jarFile.entries();
+                URL[] urls = {new URL(String.format("jar:file:%s!/", file.getAbsolutePath()))};
+                URLClassLoader cl = URLClassLoader.newInstance(urls);
+
+                while (e.hasMoreElements()) {
+                    JarEntry je = e.nextElement();
+                    if (je.isDirectory()
+                            || !je.getName().endsWith(".class")
+                            || je.getName().contains("$")) {
+                        continue;
+                    }
+                    String className = getClassName(je.getName());
+                    try {
+                        Class<?> cls = cl.loadClass(className);
+                        int modifiers = cls.getModifiers();
+                        if ((IRemoteTest.class.isAssignableFrom(cls)
+                                        || Test.class.isAssignableFrom(cls)
+                                        || hasJUnit4Annotation(cls))
+                                && !Modifier.isStatic(modifiers)
+                                && !Modifier.isPrivate(modifiers)
+                                && !Modifier.isProtected(modifiers)
+                                && !Modifier.isInterface(modifiers)
+                                && !Modifier.isAbstract(modifiers)) {
+                            classes.add(cls);
+                        }
+                    } catch (ClassNotFoundException cnfe) {
+                        throw new IllegalArgumentException(
+                                String.format("Cannot find test class %s", className));
+                    } catch (IllegalAccessError | NoClassDefFoundError err) {
+                        // IllegalAccessError can happen when the class or one of its super
+                        // class/interfaces are package-private. We can't load such class from
+                        // here (= outside of the package). Since our intention is not to load
+                        // all classes in the jar, but to find our the main test classes, this
+                        // can be safely skipped.
+                        // NoClassDefFoundErrror is also okay because certain CTS test cases
+                        // might statically link to a jar library (e.g. tools.jar from JDK)
+                        // where certain internal classes in the library are referencing
+                        // classes that are not available in the jar. Again, since our goal here
+                        // is to find test classes, this can be safely skipped.
+                        continue;
+                    }
+                }
+            } catch (IOException e) {
+                CLog.e(e);
+                throw new IllegalArgumentException(e);
+            } finally {
+                StreamUtil.close(jarFile);
             }
         }
         return classes;
@@ -688,7 +800,7 @@ public class HostTest
      * Load the class object and set the test info if requested.
      *
      * @param classObj the class object to be loaded.
-     * @param setInfo True the the test infos need to be set.
+     * @param setInfo True the test infos need to be set.
      * @return The loaded object from the class.
      */
     private Object loadObject(Class<?> classObj, boolean setInfo) throws IllegalArgumentException {
@@ -857,7 +969,12 @@ public class HostTest
                 test.addTestMethod(testObj);
                 subTests = test.mTestMethods;
             }
-            test.mRuntimeHint = mRuntimeHint * subTests.size() / numTotalTestCases;
+            if (numTotalTestCases == 0) {
+                // In case there is no tests left
+                test.mRuntimeHint = 0L;
+            } else {
+                test.mRuntimeHint = mRuntimeHint * subTests.size() / numTotalTestCases;
+            }
             i = (i + 1) % shardCount;
         }
 
@@ -901,6 +1018,8 @@ public class HostTest
         if (classObj != null) {
             test.setClassName(classObj.getName());
         }
+        // clean the jar option since we are loading directly from classes after.
+        test.mJars = new HashSet<>();
         // Copy the abi if available
         test.setAbi(mAbi);
         return test;
@@ -934,7 +1053,7 @@ public class HostTest
             // update the runtime hint on pro-rate of number of tests.
             if (newCount == 0) {
                 // In case there is not tests left.
-                test.mRuntimeHint = 0l;
+                test.mRuntimeHint = 0L;
             } else {
                 test.mRuntimeHint = (mRuntimeHint * newCount) / numTotalTestCases;
             }
@@ -964,5 +1083,58 @@ public class HostTest
             i++;
         }
         return test;
+    }
+
+    private String getClassName(String name) {
+        // -6 because of .class
+        return name.substring(0, name.length() - 6).replace('/', '.');
+    }
+
+    /**
+     * Inspect several location where the artifact are usually located for different use cases to
+     * find our jar.
+     */
+    @VisibleForTesting
+    protected File getJarFile(String jarName, IBuildInfo buildInfo) throws FileNotFoundException {
+        File jarFile = null;
+        // Check env variable
+        String testcasesPath = System.getenv(EnvVariable.ANDROID_HOST_OUT_TESTCASES.toString());
+        if (testcasesPath != null) {
+            File testCasesFile = new File(testcasesPath);
+            jarFile = searchJarFile(testCasesFile, jarName);
+        }
+        if (jarFile != null) {
+            return jarFile;
+        }
+
+        // Check tests dir
+        if (buildInfo instanceof IDeviceBuildInfo) {
+            IDeviceBuildInfo deviceBuildInfo = (IDeviceBuildInfo) buildInfo;
+            File testDir = deviceBuildInfo.getTestsDir();
+            jarFile = searchJarFile(testDir, jarName);
+        }
+        if (jarFile != null) {
+            return jarFile;
+        }
+
+        // Check ROOT_DIR
+        if (buildInfo.getBuildAttributes().get(ROOT_DIR) != null) {
+            jarFile =
+                    searchJarFile(new File(buildInfo.getBuildAttributes().get(ROOT_DIR)), jarName);
+        }
+        if (jarFile != null) {
+            return jarFile;
+        }
+        throw new FileNotFoundException(String.format("Could not find jar: %s", jarName));
+    }
+
+    private File searchJarFile(File baseSearchFile, String jarName) {
+        if (baseSearchFile != null && baseSearchFile.isDirectory()) {
+            File jarFile = FileUtil.findFile(baseSearchFile, jarName);
+            if (jarFile != null && jarFile.isFile()) {
+                return jarFile;
+            }
+        }
+        return null;
     }
 }

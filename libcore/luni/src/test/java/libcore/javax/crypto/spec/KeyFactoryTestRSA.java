@@ -15,10 +15,16 @@
  */
 package libcore.javax.crypto.spec;
 
+import java.security.KeyFactory;
 import java.security.KeyPair;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPrivateKeySpec;
 import java.security.spec.RSAPublicKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import tests.security.CipherAsymmetricCryptHelper;
+import tests.security.DefaultKeys;
 import tests.security.KeyFactoryTest;
 
 public class KeyFactoryTestRSA extends
@@ -32,5 +38,21 @@ public class KeyFactoryTestRSA extends
     @Override
     protected void check(KeyPair keyPair) throws Exception {
         new CipherAsymmetricCryptHelper("RSA").test(keyPair);
+    }
+
+    public void testExtraBufferSpace_Private() throws Exception {
+        PrivateKey privateKey = DefaultKeys.getPrivateKey("RSA");
+        byte[] encoded = privateKey.getEncoded();
+        byte[] longBuffer = new byte[encoded.length + 147];
+        System.arraycopy(encoded, 0, longBuffer, 0, encoded.length);
+        KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(longBuffer));
+    }
+
+    public void testExtraBufferSpace_Public() throws Exception {
+        PublicKey publicKey = DefaultKeys.getPublicKey("RSA");
+        byte[] encoded = publicKey.getEncoded();
+        byte[] longBuffer = new byte[encoded.length + 147];
+        System.arraycopy(encoded, 0, longBuffer, 0, encoded.length);
+        KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(longBuffer));
     }
 }

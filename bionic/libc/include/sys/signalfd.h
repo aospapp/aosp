@@ -36,8 +36,9 @@
 
 __BEGIN_DECLS
 
-int signalfd(int fd, const sigset_t* _Nonnull mask, int flags) __INTRODUCED_IN(18);
+int signalfd(int __fd, const sigset_t* __mask, int __flags) __INTRODUCED_IN(18);
+int signalfd64(int __fd, const sigset64_t* __mask, int __flags) __INTRODUCED_IN(28);
 
 __END_DECLS
 
-#endif /* _SYS_SIGNALFD_H */
+#endif

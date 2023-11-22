@@ -43,10 +43,10 @@ import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ListView;
 import com.android.common.widget.CompositeCursorAdapter.Partition;
-import com.android.contacts.common.ContactPhotoManager;
 import com.android.contacts.common.preference.ContactsPreferences;
 import com.android.contacts.common.util.ContactListViewUtils;
 import com.android.dialer.common.LogUtil;
+import com.android.dialer.contactphoto.ContactPhotoManager;
 import com.android.dialer.performancereport.PerformanceReport;
 import java.lang.ref.WeakReference;
 import java.util.Locale;
@@ -825,7 +825,7 @@ public abstract class ContactEntryListFragment<T extends ContactEntryListAdapter
   @Override
   public void onResume() {
     super.onResume();
-    // Restore the selection of the list view. See b/19982820.
+    // Restore the selection of the list view. See a bug.
     // This has to be done manually because if the list view has its emptyView set,
     // the scrolling state will be reset when clearPartitions() is called on the adapter.
     mListView.setSelectionFromTop(mListViewTopIndex, mListViewTopOffset);

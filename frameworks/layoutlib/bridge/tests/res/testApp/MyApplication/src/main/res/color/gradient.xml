@@ -16,9 +16,9 @@
 
 
 <gradient xmlns:android="http://schemas.android.com/apk/res/android"
-          android:startX="10"
-          android:startY="10"
-          android:endX="50"
-          android:endY="50"
+          android:startX="-20"
+          android:startY="-20"
+          android:endX="-10"
+          android:endY="-10"
           android:startColor="#ffff0000"
           android:endColor="#ff00ff00" />

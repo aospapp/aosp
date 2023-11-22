@@ -22,7 +22,7 @@
 namespace android {
 namespace hardware {
 namespace neuralnetworks {
-namespace V1_0 {
+namespace V1_1 {
 struct Operation;
 }
 }  // namespace neuralnetworks
@@ -37,10 +37,10 @@ struct Shape;
 
 class RNN {
  public:
-  RNN(const android::hardware::neuralnetworks::V1_0::Operation &operation,
+  RNN(const android::hardware::neuralnetworks::V1_1::Operation &operation,
       std::vector<RunTimeOperandInfo> &operands);
 
-  static bool Prepare(const android::hardware::neuralnetworks::V1_0::Operation &operation,
+  static bool Prepare(const android::hardware::neuralnetworks::V1_1::Operation &operation,
                       std::vector<RunTimeOperandInfo> &operands,
                       Shape *hiddenStateShape,
                       Shape *outputShape);

@@ -56,7 +56,8 @@ void NanoAppInfoEventsTestObserver::handleEvent(uint32_t senderInstanceId,
 
     nanoapp_testing::memcpy(&performerInstanceId, message,
                             sizeof(performerInstanceId));
-    nanoapp_testing::littleEndianToHost(&performerInstanceId);
+    performerInstanceId =
+        nanoapp_testing::littleEndianToHost(performerInstanceId);
 
     processStartStopHistory(performerInstanceId);
   } else {

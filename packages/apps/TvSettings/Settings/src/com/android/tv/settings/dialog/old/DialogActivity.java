@@ -16,7 +16,6 @@
 
 package com.android.tv.settings.dialog.old;
 
-import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentManager;
 import android.app.FragmentManager.OnBackStackChangedListener;
@@ -35,6 +34,7 @@ import android.view.ViewGroup;
 import android.view.animation.Interpolator;
 
 import com.android.tv.settings.R;
+import com.android.tv.settings.core.instrumentation.InstrumentedActivity;
 
 import java.util.ArrayList;
 
@@ -48,7 +48,7 @@ import java.util.ArrayList;
  * This class will use a default layout, but a custom layout can be provided by
  * calling {@link #setLayoutProperties}
  */
-public abstract class DialogActivity extends Activity
+public abstract class DialogActivity extends InstrumentedActivity
         implements ActionAdapter.Listener, OnBackStackChangedListener {
 
     /**

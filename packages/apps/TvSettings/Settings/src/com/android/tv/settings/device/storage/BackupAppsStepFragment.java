@@ -32,7 +32,6 @@ import android.util.ArrayMap;
 
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
-import com.android.tv.settings.device.apps.AppInfo;
 import com.android.tv.settings.device.apps.MoveAppActivity;
 
 import java.util.ArrayList;
@@ -102,14 +101,20 @@ public class BackupAppsStepFragment extends GuidedStepFragment implements
     @Override
     public void onResume() {
         super.onResume();
-        mSession.resume();
+        mSession.onResume();
         updateActions();
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        mSession.pause();
+        mSession.onPause();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mSession.onDestroy();
     }
 
     @Override
@@ -171,10 +176,10 @@ public class BackupAppsStepFragment extends GuidedStepFragment implements
         int index = ACTION_BACKUP_APP_BASE;
         for (final ApplicationsState.AppEntry entry : entries) {
             final ApplicationInfo info = entry.info;
-            final AppInfo appInfo = new AppInfo(getActivity(), entry);
+            entry.ensureLabel(getActivity());
             actions.add(new GuidedAction.Builder(getContext())
-                    .title(appInfo.getName())
-                    .description(appInfo.getSize())
+                    .title(entry.label)
+                    .description(entry.sizeStr)
                     .icon(mIconMap.get(info.packageName))
                     .id(index++)
                     .build());
@@ -222,10 +227,9 @@ public class BackupAppsStepFragment extends GuidedStepFragment implements
                 && actionId < mEntries.size() + ACTION_BACKUP_APP_BASE) {
             final ApplicationsState.AppEntry entry =
                     mEntries.get(actionId - ACTION_BACKUP_APP_BASE);
-            final AppInfo appInfo = new AppInfo(getActivity(), entry);
-
+            entry.ensureLabel(getActivity());
             startActivity(MoveAppActivity.getLaunchIntent(getActivity(), entry.info.packageName,
-                    appInfo.getName()));
+                    entry.label));
         } else {
             throw new IllegalArgumentException("Unknown action " + action);
         }

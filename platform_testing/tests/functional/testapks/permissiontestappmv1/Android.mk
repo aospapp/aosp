@@ -10,6 +10,7 @@ LOCAL_STATIC_JAVA_LIBRARIES = android-support-v4
 LOCAL_RESOURCE_DIR := \
     $(LOCAL_PATH)/res
 LOCAL_PACKAGE_NAME := PermissionTestAppMV1
+LOCAL_SDK_VERSION := current
 LOCAL_CERTIFICATE := platform
 
 LOCAL_COMPATIBILITY_SUITE := device-tests

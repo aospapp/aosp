@@ -266,7 +266,7 @@ class OSInterface(object):
         Return internal kernel disk.
         """
         if self.is_removable_device(device):
-            for p in ('/dev/mmcblk0', '/dev/mmcblk1'):
+            for p in ('/dev/mmcblk0', '/dev/mmcblk1', '/dev/nvme0n1'):
                 if self.path_exists(p):
                     return p
             return '/dev/sda'
@@ -289,7 +289,7 @@ class OSInterface(object):
 
     def join_part(self, dev, part):
         """Return a concatenated string of device and partition number"""
-        if 'mmcblk' in dev:
+        if dev.endswith(tuple(str(i) for i in range(0, 10))):
             return dev + 'p' + part
         else:
             return dev + part

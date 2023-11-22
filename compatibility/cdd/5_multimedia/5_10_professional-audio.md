@@ -17,10 +17,20 @@ peripheral mode.
 *    [C-1-5] MUST meet latencies and USB audio requirements using the
 [OpenSL ES](https://developer.android.com/ndk/guides/audio/opensl-for-android.html)
 PCM buffer queue API.
-*    SHOULD provide a sustainable level of CPU performance while audio is active.
+*    [SR] Are STRONGLY RECOMMENDED to provide a consistent level of CPU
+performance while audio is active and CPU load is varying. This should be tested
+using [SimpleSynth](https://github.com/googlesamples/android-audio-high-performance/tree/master/SimpleSynth)
+commit [1bd6391](https://github.com/googlesamples/android-audio-high-performance/commit/1bd6391f8ba9512f9f8798e979bc55b899f856d1).
+The SimpleSynth app needs to be run with below parameters and achieve zero
+underruns after 10 minutes:
+    * Work cycles: 200,000
+    * Variable load: ON (this will switch between 100% and 10% of the work
+      cycles value every 2 seconds and is designed to test CPU governor
+      behavior)
+    * Stabilized load: OFF
 *    SHOULD minimize audio clock inaccuracy and drift relative to standard time.
-*    SHOULD minimize audio clock drift relative to the CPU `CLOCK_MONOTONIC` when both
-are active.
+*    SHOULD minimize audio clock drift relative to the CPU `CLOCK_MONOTONIC`
+when both are active.
 *    SHOULD minimize audio latency over on-device transducers.
 *    SHOULD minimize audio latency over USB digital audio.
 *    SHOULD document audio latency measurements over all paths.
@@ -74,20 +84,16 @@ https://source.android.com/devices/accessories/headset/plug-headset-spec).
 *   The continuous round-trip audio latency SHOULD be 10 milliseconds
 or less over the audio jack path.
 
-If device implementations omit a 4 conductor 3.5mm audio jack, they:
+If device implementations omit a 4 conductor 3.5mm audio jack and
+include a USB port(s) supporting USB host mode, they:
 
-*   [C-3-1] MUST have a continuous round-trip audio latency of 20
-milliseconds or less.
+*   [C-3-1] MUST implement the USB audio class.
+*   [C-3-2] MUST have a continuous round-trip audio latency of 20
+milliseconds or less over the USB host mode port using USB audio class.
 *   The continuous round-trip audio latency SHOULD be 10 milliseconds
 or less over the USB host mode port using USB audio class.
 
-
-If device implementations include a USB port(s) supporting USB host mode, they:
-
-*   [C-4-1] MUST implement the USB audio class.
-
-
 If device implementations include an HDMI port, they:
 
-*   [C-5-1] MUST support output in stereo and eight channels at 20-bit or
+*   [C-4-1] MUST support output in stereo and eight channels at 20-bit or
 24-bit depth and 192 kHz without bit-depth loss or resampling.

@@ -24,7 +24,7 @@ import android.net.wifi.hotspot2.pps.Credential;
 import android.net.wifi.hotspot2.pps.HomeSp;
 import android.net.wifi.hotspot2.pps.Policy;
 import android.net.wifi.hotspot2.pps.UpdateParameter;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 import android.util.Xml;
 
 import com.android.internal.util.FastXmlSerializer;
@@ -61,6 +61,7 @@ public class PasspointConfigStoreDataTest {
     private static final long TEST_PROVIDER_ID = 1;
     private static final int TEST_CREATOR_UID = 1234;
     private static final boolean TEST_HAS_EVER_CONNECTED = true;
+    private static final boolean TEST_SHARED = false;
 
     @Mock WifiKeyStore mKeyStore;
     @Mock SIMAccessor mSimAccessor;
@@ -239,7 +240,7 @@ public class PasspointConfigStoreDataTest {
         providerList.add(new PasspointProvider(createFullPasspointConfiguration(),
                 mKeyStore, mSimAccessor, TEST_PROVIDER_ID, TEST_CREATOR_UID,
                 TEST_CA_CERTIFICATE_ALIAS, TEST_CLIENT_CERTIFICATE_ALIAS,
-                TEST_CLIENT_PRIVATE_KEY_ALIAS, TEST_HAS_EVER_CONNECTED));
+                TEST_CLIENT_PRIVATE_KEY_ALIAS, TEST_HAS_EVER_CONNECTED, TEST_SHARED));
 
         // Serialize data for user store.
         when(mDataSource.getProviders()).thenReturn(providerList);

@@ -19,6 +19,8 @@ package com.android.tradefed.host;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 
+import java.io.File;
+
 /**
  * Host options holder class.
  * This class is used to store host-wide options.
@@ -28,7 +30,7 @@ public class HostOptions implements IHostOptions {
 
     @Option(name = "concurrent-flasher-limit", description =
             "The maximum number of concurrent flashers (may be useful to avoid memory constraints)")
-    private Integer mConcurrentFlasherLimit = null;
+    private Integer mConcurrentFlasherLimit = 1;
 
     @Option(
         name = "concurrent-download-limit",
@@ -37,6 +39,18 @@ public class HostOptions implements IHostOptions {
                         + "constraints)"
     )
     private Integer mConcurrentDownloadLimit = null;
+
+    @Option(
+        name = "fastboot-tmpdir",
+        description = "The location of temporary directory used by fastboot"
+    )
+    private File mFastbootTmpDir = null;
+
+    @Option(name = "download-cache-dir", description = "the directory for caching downloaded "
+            + "flashing files. Should be on the same filesystem as java.io.tmpdir.  Consider "
+            + "changing the java.io.tmpdir property if you want to move downloads to a different "
+            + "filesystem.")
+    private File mDownloadCacheDir = new File(System.getProperty("java.io.tmpdir"), "lc_cache");
 
     /**
      * {@inheritDoc}
@@ -50,5 +64,16 @@ public class HostOptions implements IHostOptions {
     @Override
     public Integer getConcurrentDownloadLimit() {
         return mConcurrentDownloadLimit;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public File getFastbootTmpDir() {
+        return mFastbootTmpDir;
+    }
+
+    @Override
+    public File getDownloadCacheDir() {
+        return mDownloadCacheDir;
     }
 }

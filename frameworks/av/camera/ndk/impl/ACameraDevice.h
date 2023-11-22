@@ -36,12 +36,13 @@
 #include <camera/camera2/OutputConfiguration.h>
 #include <camera/camera2/CaptureRequest.h>
 
-#include <camera/NdkCameraDevice.h>
+#include <camera/NdkCameraManager.h>
+#include <camera/NdkCameraCaptureSession.h>
 #include "ACameraMetadata.h"
 
 namespace android {
 
-// Wrap ACameraCaptureFailure so it can be ref-counter
+// Wrap ACameraCaptureFailure so it can be ref-counted
 struct CameraCaptureFailure : public RefBase, public ACameraCaptureFailure {};
 
 class CameraDevice final : public RefBase {
@@ -59,6 +60,7 @@ class CameraDevice final : public RefBase {
 
     camera_status_t createCaptureSession(
             const ACaptureSessionOutputContainer*       outputs,
+            const ACaptureRequest* sessionParameters,
             const ACameraCaptureSession_stateCallbacks* callbacks,
             /*out*/ACameraCaptureSession** session);
 
@@ -72,7 +74,8 @@ class CameraDevice final : public RefBase {
         binder::Status onCaptureStarted(const CaptureResultExtras& resultExtras,
                               int64_t timestamp) override;
         binder::Status onResultReceived(const CameraMetadata& metadata,
-                              const CaptureResultExtras& resultExtras) override;
+                              const CaptureResultExtras& resultExtras,
+                              const std::vector<PhysicalCaptureResultInfo>& physicalResultInfos) override;
         binder::Status onPrepared(int streamId) override;
         binder::Status onRequestQueueEmpty() override;
         binder::Status onRepeatingRequestError(int64_t lastFrameNumber,
@@ -96,7 +99,7 @@ class CameraDevice final : public RefBase {
     // device goes into fatal error state after this
     void setCameraDeviceErrorLocked(camera_status_t error);
 
-    void disconnectLocked(); // disconnect from camera service
+    void disconnectLocked(sp<ACameraCaptureSession>& session); // disconnect from camera service
 
     camera_status_t stopRepeatingLocked();
 
@@ -122,7 +125,9 @@ class CameraDevice final : public RefBase {
             /*out*/int* captureSequenceId,
             bool isRepeating);
 
-    static camera_status_t allocateCaptureRequest(
+    camera_status_t updateOutputConfigurationLocked(ACaptureSessionOutput *output);
+
+    camera_status_t allocateCaptureRequest(
             const ACaptureRequest* request, sp<CaptureRequest>& outReq);
 
     static ACaptureRequest* allocateACaptureRequest(sp<CaptureRequest>& req);
@@ -136,7 +141,11 @@ class CameraDevice final : public RefBase {
     // For capture session to notify its end of life
     void notifySessionEndOfLifeLocked(ACameraCaptureSession* session);
 
-    camera_status_t configureStreamsLocked(const ACaptureSessionOutputContainer* outputs);
+    camera_status_t configureStreamsLocked(const ACaptureSessionOutputContainer* outputs,
+           const ACaptureRequest* sessionParameters);
+
+    // Input message will be posted and cleared after this returns
+    void postSessionMsgAndCleanup(sp<AMessage>& msg);
 
     static camera_status_t getIGBPfromAnw(
             ANativeWindow* anw, sp<IGraphicBufferProducer>& out);
@@ -185,7 +194,9 @@ class CameraDevice final : public RefBase {
         kWhatCaptureFail,      // onCaptureFailed
         kWhatCaptureSeqEnd,    // onCaptureSequenceCompleted
         kWhatCaptureSeqAbort,  // onCaptureSequenceAborted
-        kWhatCaptureBufferLost // onCaptureBufferLost
+        kWhatCaptureBufferLost,// onCaptureBufferLost
+        // Internal cleanup
+        kWhatCleanUpSessions   // Cleanup cached sp<ACameraCaptureSession>
     };
     static const char* kContextKey;
     static const char* kDeviceKey;
@@ -199,10 +210,16 @@ class CameraDevice final : public RefBase {
     static const char* kSequenceIdKey;
     static const char* kFrameNumberKey;
     static const char* kAnwKey;
+
     class CallbackHandler : public AHandler {
       public:
-        CallbackHandler() {}
         void onMessageReceived(const sp<AMessage> &msg) override;
+
+      private:
+        // This handler will cache all capture session sp until kWhatCleanUpSessions
+        // is processed. This is used to guarantee the last session reference is always
+        // being removed in callback thread without holding camera device lock
+        Vector<sp<ACameraCaptureSession>> mCachedSessions;
     };
     sp<CallbackHandler> mHandler;
 
@@ -210,7 +227,7 @@ class CameraDevice final : public RefBase {
      * Capture session related members *
      ***********************************/
     // The current active session
-    ACameraCaptureSession* mCurrentSession = nullptr;
+    wp<ACameraCaptureSession> mCurrentSession;
     bool mFlushing = false;
 
     int mNextSessionId = 0;
@@ -295,9 +312,10 @@ struct ACameraDevice {
 
     camera_status_t createCaptureSession(
             const ACaptureSessionOutputContainer*       outputs,
+            const ACaptureRequest* sessionParameters,
             const ACameraCaptureSession_stateCallbacks* callbacks,
             /*out*/ACameraCaptureSession** session) {
-        return mDevice->createCaptureSession(outputs, callbacks, session);
+        return mDevice->createCaptureSession(outputs, sessionParameters, callbacks, session);
     }
 
     /***********************

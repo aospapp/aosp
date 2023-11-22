@@ -468,6 +468,7 @@ public final class CameraDeviceInfo extends DeviceInfo {
         charsKeyNames.add(CameraCharacteristics.HOT_PIXEL_AVAILABLE_HOT_PIXEL_MODES.getName());
         charsKeyNames.add(CameraCharacteristics.JPEG_AVAILABLE_THUMBNAIL_SIZES.getName());
         charsKeyNames.add(CameraCharacteristics.LENS_FACING.getName());
+        charsKeyNames.add(CameraCharacteristics.LENS_POSE_REFERENCE.getName());
         charsKeyNames.add(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES.getName());
         charsKeyNames.add(CameraCharacteristics.LENS_INFO_AVAILABLE_FILTER_DENSITIES.getName());
         charsKeyNames.add(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS.getName());
@@ -515,12 +516,16 @@ public final class CameraDeviceInfo extends DeviceInfo {
         charsKeyNames.add(CameraCharacteristics.STATISTICS_INFO_MAX_FACE_COUNT.getName());
         charsKeyNames.add(CameraCharacteristics.STATISTICS_INFO_AVAILABLE_HOT_PIXEL_MAP_MODES.getName());
         charsKeyNames.add(CameraCharacteristics.STATISTICS_INFO_AVAILABLE_LENS_SHADING_MAP_MODES.getName());
+        charsKeyNames.add(CameraCharacteristics.STATISTICS_INFO_AVAILABLE_OIS_DATA_MODES.getName());
         charsKeyNames.add(CameraCharacteristics.TONEMAP_MAX_CURVE_POINTS.getName());
         charsKeyNames.add(CameraCharacteristics.TONEMAP_AVAILABLE_TONE_MAP_MODES.getName());
         charsKeyNames.add(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL.getName());
+        charsKeyNames.add(CameraCharacteristics.INFO_VERSION.getName());
         charsKeyNames.add(CameraCharacteristics.SYNC_MAX_LATENCY.getName());
         charsKeyNames.add(CameraCharacteristics.REPROCESS_MAX_CAPTURE_STALL.getName());
         charsKeyNames.add(CameraCharacteristics.DEPTH_DEPTH_IS_EXCLUSIVE.getName());
+        charsKeyNames.add(CameraCharacteristics.LOGICAL_MULTI_CAMERA_SENSOR_SYNC_TYPE.getName());
+        charsKeyNames.add(CameraCharacteristics.DISTORTION_CORRECTION_AVAILABLE_MODES.getName());
 
         return charsKeyNames;
     }

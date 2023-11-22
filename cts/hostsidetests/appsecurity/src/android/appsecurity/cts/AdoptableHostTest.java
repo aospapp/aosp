@@ -23,13 +23,18 @@ import static android.appsecurity.cts.SplitTests.APK_xxhdpi;
 import static android.appsecurity.cts.SplitTests.CLASS;
 import static android.appsecurity.cts.SplitTests.PKG;
 
-import com.android.tradefed.build.IBuildInfo;
+import static org.junit.Assert.fail;
+
+import android.platform.test.annotations.AppModeFull;
 import com.android.tradefed.device.CollectingOutputReceiver;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.testtype.IAbi;
-import com.android.tradefed.testtype.IAbiReceiver;
-import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
@@ -37,45 +42,59 @@ import java.util.concurrent.TimeUnit;
 /**
  * Set of tests that verify behavior of adopted storage media, if supported.
  */
-public class AdoptableHostTest extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
-    private IAbi mAbi;
-    private IBuildInfo mCtsBuild;
+@RunWith(DeviceJUnit4ClassRunner.class)
+public class AdoptableHostTest extends BaseHostJUnit4Test {
 
-    @Override
-    public void setAbi(IAbi abi) {
-        mAbi = abi;
-    }
+    public static final String FEATURE_ADOPTABLE_STORAGE = "feature:android.software.adoptable_storage";
 
-    @Override
-    public void setBuild(IBuildInfo buildInfo) {
-        mCtsBuild = buildInfo;
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        Utils.prepareSingleUser(getDevice());
-        assertNotNull(mAbi);
-        assertNotNull(mCtsBuild);
+    @Before
+    public void setUp() throws Exception {
+        // Start all possible users to make sure their storage is unlocked
+        Utils.prepareMultipleUsers(getDevice(), Integer.MAX_VALUE);
 
         getDevice().uninstallPackage(PKG);
+
+        // Enable a virtual disk to give us the best shot at being able to pass
+        // the various tests below. This helps verify devices that may not
+        // currently have an SD card inserted.
+        if (isSupportedDevice()) {
+            getDevice().executeShellCommand("sm set-virtual-disk true");
+        }
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-
+    @After
+    public void tearDown() throws Exception {
         getDevice().uninstallPackage(PKG);
+
+        if (isSupportedDevice()) {
+            getDevice().executeShellCommand("sm set-virtual-disk false");
+        }
     }
 
+    /**
+     * Ensure that we have consistency between the feature flag and what we
+     * sniffed from the underlying fstab.
+     */
+    @Test
+    @AppModeFull // TODO: Needs porting to instant
+    public void testFeatureConsistent() throws Exception {
+        final boolean hasFeature = hasFeature();
+        final boolean hasFstab = hasFstab();
+        if (hasFeature != hasFstab) {
+            fail("Inconsistent adoptable storage status; feature claims " + hasFeature
+                    + " but fstab claims " + hasFstab);
+        }
+    }
+
+    @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testApps() throws Exception {
-        if (!hasAdoptable()) return;
+        if (!isSupportedDevice()) return;
         final String diskId = getAdoptionDisk();
         try {
-            final String abi = mAbi.getName();
+            final String abi = getAbi().getName();
             final String apk = ABI_TO_APK.get(abi);
-            assertNotNull("Failed to find APK for ABI " + abi, apk);
+            Assert.assertNotNull("Failed to find APK for ABI " + abi, apk);
 
             // Install simple app on internal
             new InstallMultiple().useNaturalAbi().addApk(APK).addApk(apk).run();
@@ -119,8 +138,10 @@ public class AdoptableHostTest extends DeviceTestCase implements IAbiReceiver, I
         }
     }
 
+    @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testPrimaryStorage() throws Exception {
-        if (!hasAdoptable()) return;
+        if (!isSupportedDevice()) return;
         final String diskId = getAdoptionDisk();
         try {
             final String originalVol = getDevice()
@@ -218,8 +239,10 @@ public class AdoptableHostTest extends DeviceTestCase implements IAbiReceiver, I
      * Verify that we can install both new and inherited packages directly on
      * adopted volumes.
      */
+    @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testPackageInstaller() throws Exception {
-        if (!hasAdoptable()) return;
+        if (!isSupportedDevice()) return;
         final String diskId = getAdoptionDisk();
         try {
             assertEmpty(getDevice().executeShellCommand("sm partition " + diskId + " private"));
@@ -246,8 +269,10 @@ public class AdoptableHostTest extends DeviceTestCase implements IAbiReceiver, I
      * Verify behavior when changes occur while adopted device is ejected and
      * returned at a later time.
      */
+    @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testEjected() throws Exception {
-        if (!hasAdoptable()) return;
+        if (!isSupportedDevice()) return;
         final String diskId = getAdoptionDisk();
         try {
             assertEmpty(getDevice().executeShellCommand("sm partition " + diskId + " private"));
@@ -291,7 +316,15 @@ public class AdoptableHostTest extends DeviceTestCase implements IAbiReceiver, I
         }
     }
 
-    private boolean hasAdoptable() throws Exception {
+    private boolean isSupportedDevice() throws Exception {
+        return hasFeature() || hasFstab();
+    }
+
+    private boolean hasFeature() throws Exception {
+        return getDevice().hasFeature(FEATURE_ADOPTABLE_STORAGE);
+    }
+
+    private boolean hasFstab() throws Exception {
         return Boolean.parseBoolean(getDevice().executeShellCommand("sm has-adoptable").trim());
     }
 
@@ -335,11 +368,6 @@ public class AdoptableHostTest extends DeviceTestCase implements IAbiReceiver, I
         getDevice().executeShellCommand("sm forget all");
     }
 
-    private void runDeviceTests(String packageName, String testClassName, String testMethodName)
-            throws DeviceNotAvailableException {
-        Utils.runDeviceTests(getDevice(), packageName, testClassName, testMethodName);
-    }
-
     private static void assertSuccess(String str) {
         if (str == null || !str.startsWith("Success")) {
             throw new AssertionError("Expected success string but found " + str);
@@ -367,7 +395,7 @@ public class AdoptableHostTest extends DeviceTestCase implements IAbiReceiver, I
 
     private class InstallMultiple extends BaseInstallMultiple<InstallMultiple> {
         public InstallMultiple() {
-            super(getDevice(), mCtsBuild, mAbi);
+            super(getDevice(), getBuild(), getAbi());
         }
     }
 }

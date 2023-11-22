@@ -20,12 +20,14 @@
 #include <unordered_map>
 
 #include "callchain.h"
-#include "dwarf_unwind.h"
+#include "OfflineUnwinder.h"
 #include "perf_regs.h"
 #include "record.h"
 #include "SampleComparator.h"
 #include "SampleDisplayer.h"
 #include "thread_tree.h"
+
+using namespace simpleperf;
 
 // A SampleTree is a collection of samples. A profiling report is mainly about
 // constructing a SampleTree and display it. There are three steps involved:
@@ -53,15 +55,14 @@
 template <typename EntryT, typename AccumulateInfoT>
 class SampleTreeBuilder {
  public:
-  explicit SampleTreeBuilder(SampleComparator<EntryT> comparator)
+  explicit SampleTreeBuilder(const SampleComparator<EntryT>& comparator)
       : sample_set_(comparator),
         accumulate_callchain_(false),
         sample_comparator_(comparator),
         callchain_sample_set_(comparator),
         use_branch_address_(false),
         build_callchain_(false),
-        use_caller_as_callchain_root_(false),
-        strict_unwind_arch_check_(false) {}
+        use_caller_as_callchain_root_(false) {}
 
   virtual ~SampleTreeBuilder() {}
 
@@ -71,12 +72,13 @@ class SampleTreeBuilder {
 
   void SetCallChainSampleOptions(bool accumulate_callchain,
                                  bool build_callchain,
-                                 bool use_caller_as_callchain_root,
-                                 bool strict_unwind_arch_check) {
+                                 bool use_caller_as_callchain_root) {
     accumulate_callchain_ = accumulate_callchain;
     build_callchain_ = build_callchain;
     use_caller_as_callchain_root_ = use_caller_as_callchain_root;
-    strict_unwind_arch_check_ = strict_unwind_arch_check;
+    if (accumulate_callchain_) {
+      offline_unwinder_.reset(new OfflineUnwinder(false));
+    }
   }
 
   void ProcessSampleRecord(const SampleRecord& r) {
@@ -108,16 +110,13 @@ class SampleTreeBuilder {
           (r.regs_user_data.reg_mask != 0) &&
           (r.sample_type & PERF_SAMPLE_STACK_USER) &&
           (r.GetValidStackSize() > 0)) {
-        RegSet regs = CreateRegSet(r.regs_user_data.abi,
-                                   r.regs_user_data.reg_mask,
-                                   r.regs_user_data.regs);
-        std::vector<uint64_t> unwind_ips =
-            UnwindCallChain(r.regs_user_data.abi, *thread, regs,
-                            r.stack_user_data.data,
-                            r.GetValidStackSize(), strict_unwind_arch_check_);
-        if (!unwind_ips.empty()) {
+        RegSet regs(r.regs_user_data.abi, r.regs_user_data.reg_mask, r.regs_user_data.regs);
+        std::vector<uint64_t> user_ips;
+        std::vector<uint64_t> sps;
+        if (offline_unwinder_->UnwindCallChain(*thread, regs, r.stack_user_data.data,
+                                               r.GetValidStackSize(), &user_ips, &sps)) {
           ips.push_back(PERF_CONTEXT_USER);
-          ips.insert(ips.end(), unwind_ips.begin(), unwind_ips.end());
+          ips.insert(ips.end(), user_ips.begin(), user_ips.end());
         }
       }
 
@@ -303,7 +302,7 @@ class SampleTreeBuilder {
   bool use_branch_address_;
   bool build_callchain_;
   bool use_caller_as_callchain_root_;
-  bool strict_unwind_arch_check_;
+  std::unique_ptr<OfflineUnwinder> offline_unwinder_;
 };
 
 template <typename EntryT>

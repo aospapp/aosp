@@ -19,6 +19,7 @@
 #include <Protocol/EmbeddedGpio.h>
 
 // PL061 GPIO Registers
+#define PL061_GPIO_DATA_REG_OFFSET      ((UINTN) 0x000)
 #define PL061_GPIO_DATA_REG             0x000
 #define PL061_GPIO_DIR_REG              0x400
 #define PL061_GPIO_IS_REG               0x404
@@ -39,7 +40,6 @@
 #define PL061_GPIO_PCELL_ID1            0xFF4
 #define PL061_GPIO_PCELL_ID2            0xFF8
 #define PL061_GPIO_PCELL_ID3            0xFFC
-
 
 #define PL061_GPIO_PINS                 8
 

@@ -23,12 +23,13 @@ import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.icu.text.ListFormatter;
 import android.text.TextUtils;
-import android.util.Log;
+
+import androidx.car.widget.TextListItem;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.AnimationUtil;
-import com.android.car.settings.common.TextLineItem;
-import com.android.settingslib.Utils;
+import com.android.car.settings.common.ListController;
+import com.android.car.settings.common.Logger;
 import com.android.settingslib.applications.PermissionsSummaryHelper;
 import com.android.settingslib.applications.PermissionsSummaryHelper.PermissionsResultCallback;
 
@@ -39,63 +40,45 @@ import java.util.List;
  * Shows details about an application and action associated with that application,
  * like uninstall, forceStop.
  */
-public class ApplicationPermissionLineItem extends TextLineItem {
-    private static final String TAG = "AppPermissionLineItem";
+public class ApplicationPermissionLineItem extends TextListItem {
+    private static final Logger LOG = new Logger(ApplicationPermissionLineItem.class);
 
     private final ResolveInfo mResolveInfo;
     private final Context mContext;
-    private TextLineItem.ViewHolder mViewHolder;
-    private CharSequence mSummary;
+    private final ListController mListController;
+    private String mSummary;
 
-    public ApplicationPermissionLineItem(Context context, ResolveInfo resolveInfo) {
-        super(context.getText(R.string.permissions_label));
+    public ApplicationPermissionLineItem(Context context, ResolveInfo resolveInfo,
+            ListController listController) {
+        super(context);
         mResolveInfo = resolveInfo;
         mContext = context;
+        mListController = listController;
 
         PermissionsSummaryHelper.getPermissionSummary(mContext,
                 mResolveInfo.activityInfo.packageName, mPermissionCallback);
+        setTitle(context.getString(R.string.permissions_label));
+        setSupplementalIcon(R.drawable.ic_chevron_right, /* showDivider= */ false);
+        updateBody();
     }
 
-    @Override
-    public void bindViewHolder(TextLineItem.ViewHolder viewHolder) {
-        mViewHolder = viewHolder;
-        viewHolder.titleView.setText(mTitle);
+    private void updateBody() {
         if (TextUtils.isEmpty(mSummary)) {
-            viewHolder.itemView.setOnClickListener(null);
-            viewHolder.descView.setText(R.string.computing_size);
-            viewHolder.itemView.setEnabled(false);
+            setBody(mContext.getString(R.string.computing_size));
+            setOnClickListener(null);
         } else {
-            viewHolder.itemView.setOnClickListener(mOnClickListener);
-            viewHolder.descView.setText(mSummary);
-            viewHolder.itemView.setEnabled(true);
-        }
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return true;
-    }
-
-    @Override
-    public boolean isExpandable() {
-        return true;
-    }
-
-    @Override
-    public CharSequence getDesc() {
-        return null;
-    }
-
-    @Override
-    public void onClick() {
-        // start new activity to manage app permissions
-        Intent intent = new Intent(Intent.ACTION_MANAGE_APP_PERMISSIONS);
-        intent.putExtra(Intent.EXTRA_PACKAGE_NAME, mResolveInfo.activityInfo.packageName);
-        try {
-            mContext.startActivity(
-                    intent, AnimationUtil.slideInFromRightOption(mContext).toBundle());
-        } catch (ActivityNotFoundException e) {
-            Log.w(TAG, "No app can handle android.intent.action.MANAGE_APP_PERMISSIONS");
+            setBody(mSummary);
+            setOnClickListener(view -> {
+                // start new activity to manage app permissions
+                Intent intent = new Intent(Intent.ACTION_MANAGE_APP_PERMISSIONS);
+                intent.putExtra(Intent.EXTRA_PACKAGE_NAME, mResolveInfo.activityInfo.packageName);
+                try {
+                    mContext.startActivity(
+                            intent, AnimationUtil.slideInFromRightOption(mContext).toBundle());
+                } catch (ActivityNotFoundException e) {
+                    LOG.w("No app can handle android.intent.action.MANAGE_APP_PERMISSIONS");
+                }
+            });
         }
     }
 
@@ -117,16 +100,15 @@ public class ApplicationPermissionLineItem extends TextLineItem {
                             R.plurals.runtime_permissions_additional_count,
                             additionalGrantedPermissionCount, additionalGrantedPermissionCount));
                 }
-                if (list.size() == 0) {
+                if (list.isEmpty()) {
                     mSummary = res.getString(
                             R.string.runtime_permissions_summary_no_permissions_granted);
                 } else {
                     mSummary = ListFormatter.getInstance().format(list);
                 }
             }
-            if (mViewHolder != null) {
-                bindViewHolder(mViewHolder);
-            }
+            updateBody();
+            mListController.refreshList();
         }
     };
 }

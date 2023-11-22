@@ -18,6 +18,7 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <dirent.h>
+#include <limits.h>
 
 #include <asm/types.h>
 #include <linux/rtnetlink.h>
@@ -118,7 +119,7 @@ static void rtnl_tab_initialize(const char *file, char **tab, int size)
 }
 
 static char *rtnl_rtprot_tab[256] = {
-	[RTPROT_UNSPEC]   = "none",
+	[RTPROT_UNSPEC]   = "unspec",
 	[RTPROT_REDIRECT] = "redirect",
 	[RTPROT_KERNEL]	  = "kernel",
 	[RTPROT_BOOT]	  = "boot",
@@ -141,9 +142,36 @@ static int rtnl_rtprot_init;
 
 static void rtnl_rtprot_initialize(void)
 {
+	struct dirent *de;
+	DIR *d;
+
 	rtnl_rtprot_init = 1;
 	rtnl_tab_initialize(CONFDIR "/rt_protos",
 			    rtnl_rtprot_tab, 256);
+
+	d = opendir(CONFDIR "/rt_protos.d");
+	if (!d)
+		return;
+
+	while ((de = readdir(d)) != NULL) {
+		char path[PATH_MAX];
+		size_t len;
+
+		if (*de->d_name == '.')
+			continue;
+
+		/* only consider filenames ending in '.conf' */
+		len = strlen(de->d_name);
+		if (len <= 5)
+			continue;
+		if (strcmp(de->d_name + len - 5, ".conf"))
+			continue;
+
+		snprintf(path, sizeof(path), CONFDIR "/rt_protos.d/%s",
+			 de->d_name);
+		rtnl_tab_initialize(path, rtnl_rtprot_tab, 256);
+	}
+	closedir(d);
 }
 
 const char *rtnl_rtprot_n2a(int id, char *buf, int len)
@@ -382,10 +410,6 @@ const char *rtnl_rttable_n2a(__u32 id, char *buf, int len)
 {
 	struct rtnl_hash_entry *entry;
 
-	if (id > RT_TABLE_MAX) {
-		snprintf(buf, len, "%u", id);
-		return buf;
-	}
 	if (!rtnl_rttable_init)
 		rtnl_rttable_initialize();
 	entry = rtnl_rttable_hash[id & 255];
@@ -403,7 +427,7 @@ int rtnl_rttable_a2n(__u32 *id, const char *arg)
 	static unsigned long res;
 	struct rtnl_hash_entry *entry;
 	char *end;
-	__u32 i;
+	unsigned long i;
 
 	if (cache && strcmp(cache, arg) == 0) {
 		*id = res;
@@ -558,8 +582,12 @@ const char *rtnl_group_n2a(int id, char *buf, int len)
 
 	for (i = 0; i < 256; i++) {
 		entry = rtnl_group_hash[i];
-		if (entry && entry->id == id)
-			return entry->name;
+
+		while (entry) {
+			if (entry->id == id)
+				return entry->name;
+			entry = entry->next;
+		}
 	}
 
 	snprintf(buf, len, "%d", id);

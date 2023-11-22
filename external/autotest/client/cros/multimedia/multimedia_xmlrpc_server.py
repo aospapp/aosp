@@ -53,7 +53,10 @@ class MultimediaXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
             'usb': usb_facade_native.USBFacadeNative(),
             'browser': browser_facade_native.BrowserFacadeNative(resource),
             'input': input_facade_native.InputFacadeNative(),
-            'cfm': cfm_facade_native.CFMFacadeNative(resource),
+            'cfm_main_screen': cfm_facade_native.CFMFacadeNative(
+                              resource, 'hotrod'),
+            'cfm_mimo_screen': cfm_facade_native.CFMFacadeNative(
+                              resource, 'control'),
             'kiosk': kiosk_facade_native.KioskFacadeNative(resource)
         }
 

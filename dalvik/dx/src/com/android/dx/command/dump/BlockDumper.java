@@ -28,7 +28,6 @@ import com.android.dx.cf.direct.DirectClassFile;
 import com.android.dx.cf.direct.StdAttributeFactory;
 import com.android.dx.cf.iface.Member;
 import com.android.dx.cf.iface.Method;
-import com.android.dx.dex.DexOptions;
 import com.android.dx.rop.code.AccessFlags;
 import com.android.dx.rop.code.BasicBlock;
 import com.android.dx.rop.code.BasicBlockList;
@@ -50,7 +49,7 @@ import java.io.PrintStream;
 public class BlockDumper
         extends BaseDumper {
     /** whether or not to registerize (make rop blocks) */
-    private boolean rop;
+    private final boolean rop;
 
     /**
      * {@code null-ok;} the class file object being constructed;
@@ -65,7 +64,7 @@ public class BlockDumper
     private boolean first;
 
     /** whether or not to run the ssa optimziations */
-    private boolean optimize;
+    private final boolean optimize;
 
     /**
      * Dumps the given array, interpreting it as a class file and dumping
@@ -160,9 +159,6 @@ public class BlockDumper
             return;
         }
 
-        // Reset the dump cursor to the start of the method.
-        setAt(bytes, offset);
-
         suppressDump = false;
 
         if (first) {
@@ -213,9 +209,6 @@ public class BlockDumper
         ByteBlockList list = BasicBlocker.identifyBlocks(meth);
         int sz = list.size();
         CodeObserver codeObserver = new CodeObserver(bytes, BlockDumper.this);
-
-        // Reset the dump cursor to the start of the bytecode.
-        setAt(bytes, 0);
 
         suppressDump = false;
 
@@ -287,7 +280,7 @@ public class BlockDumper
         BytecodeArray code = meth.getCode();
         ByteArray bytes = code.getBytes();
         RopMethod rmeth = Ropper.convert(meth, advice, classFile.getMethods(), dexOptions);
-        StringBuffer sb = new StringBuffer(2000);
+        StringBuilder sb = new StringBuilder(2000);
 
         if (optimize) {
             boolean isStatic = AccessFlags.isStatic(meth.getAccessFlags());
@@ -345,7 +338,6 @@ public class BlockDumper
         }
 
         suppressDump = false;
-        setAt(bytes, 0);
         parsed(bytes, 0, bytes.size(), sb.toString());
         suppressDump = true;
     }

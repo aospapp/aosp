@@ -16,23 +16,24 @@
 
 package android.system.helpers;
 
-import android.app.Instrumentation;
 import android.app.KeyguardManager;
 import android.content.Context;
+import android.graphics.Point;
 import android.provider.Settings;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
 import android.system.helpers.ActivityHelper;
 import android.system.helpers.DeviceHelper;
-import android.graphics.Point;
-import android.graphics.Rect;
 
 import junit.framework.Assert;
 
 import java.io.IOException;
+import java.util.regex.Pattern;
+
 /**
  * Implement common helper methods for Lockscreen.
  */
@@ -56,6 +57,8 @@ public class LockscreenHelper {
     private static final String SET_PATTERN_COMMAND = "locksettings set-pattern %s";
     private static final String CLEAR_COMMAND = "locksettings clear --old %s";
     private static final String HOTSEAT = "hotseat";
+    private static final BySelector DONE_BUTTON =
+            By.res("com.android.settings", "redaction_done_button");
 
     private static LockscreenHelper sInstance = null;
     private Context mContext = null;
@@ -90,6 +93,8 @@ public class LockscreenHelper {
      * @return true/false
      */
     public boolean launchCameraOnLockScreen() {
+        // Hit the back button to dismiss any keyguard
+        mDevice.pressBack();
         String CameraPackage = mIsRyuDevice ? CAMERA2_PACKAGE : CAMERA_PACKAGE;
         int w = mDevice.getDisplayWidth();
         int h = mDevice.getDisplayHeight();
@@ -109,6 +114,10 @@ public class LockscreenHelper {
      */
     public void setScreenLock(String pwd, String mode, boolean mIsNexusDevice)
             throws InterruptedException {
+        if (mode.equalsIgnoreCase("None")) {
+            mDevice.wait(Until.findObject(By.text("None")), LONG_TIMEOUT * 2).click();
+            return;
+        }
         enterScreenLockOnce(pwd, mode, mIsNexusDevice);
         Thread.sleep(LONG_TIMEOUT);
         // Re-enter password on confirmation screen
@@ -116,7 +125,9 @@ public class LockscreenHelper {
                 LONG_TIMEOUT);
         pinField.setText(pwd);
         Thread.sleep(LONG_TIMEOUT);
-        mDevice.wait(Until.findObject(By.text("OK")), LONG_TIMEOUT).click();
+        mDevice.pressEnter();
+        // Click DONE on lock screen notification setting screen
+        mDevice.wait(Until.findObject(DONE_BUTTON), LONG_TIMEOUT).click();
     }
 
     /**
@@ -134,7 +145,7 @@ public class LockscreenHelper {
         UiObject2 pinField = mDevice.wait(Until.findObject(By.clazz(EDIT_TEXT_CLASS_NAME)),
                 LONG_TIMEOUT);
         pinField.setText(pwd);
-        // enter and verify password
+        // enter
         mDevice.pressEnter();
     }
 
@@ -174,7 +185,7 @@ public class LockscreenHelper {
     }
 
     /**
-     * remove Screen Lock
+     * remove Screen Lock, reset to Swipe.
      * @throws InterruptedException
      */
     public void removeScreenLock(String pwd)
@@ -186,7 +197,8 @@ public class LockscreenHelper {
         mDevice.pressEnter();
         mDevice.wait(Until.findObject(By.text("Swipe")), LONG_TIMEOUT).click();
         mDevice.waitForIdle();
-        mDevice.wait(Until.findObject(By.text("YES, REMOVE")), LONG_TIMEOUT).click();
+        mDevice.wait(Until.findObject(By.text(
+                Pattern.compile("YES, REMOVE", Pattern.CASE_INSENSITIVE))), LONG_TIMEOUT).click();
     }
 
     /**

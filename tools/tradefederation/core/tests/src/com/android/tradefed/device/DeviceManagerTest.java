@@ -17,17 +17,19 @@
 package com.android.tradefed.device;
 
 import com.android.ddmlib.AndroidDebugBridge.IDeviceChangeListener;
+
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.IDevice.DeviceState;
 import com.android.tradefed.command.remote.DeviceDescriptor;
 import com.android.tradefed.config.IGlobalConfiguration;
 import com.android.tradefed.device.IManagedTestDevice.DeviceEventResponse;
+import com.android.tradefed.host.IHostOptions;
 import com.android.tradefed.log.ILogRegistry.EventType;
 import com.android.tradefed.util.ArrayUtil;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
-
+import com.android.tradefed.util.RunUtil;
 import com.google.common.util.concurrent.SettableFuture;
 
 import junit.framework.TestCase;
@@ -35,13 +37,13 @@ import junit.framework.TestCase;
 import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.easymock.IAnswer;
-
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Semaphore;
 
 /**
  * Unit tests for {@link DeviceManager}.
@@ -57,6 +59,7 @@ public class DeviceManagerTest extends TestCase {
     private IDevice mMockIDevice;
     private IDeviceStateMonitor mMockStateMonitor;
     private IRunUtil mMockRunUtil;
+    private IHostOptions mMockHostOptions;
     private IManagedTestDevice mMockTestDevice;
     private IManagedTestDeviceFactory mMockDeviceFactory;
     private IGlobalConfiguration mMockGlobalConfig;
@@ -126,31 +129,42 @@ public class DeviceManagerTest extends TestCase {
         super.setUp();
         mMockAdbBridge = EasyMock.createNiceMock(IAndroidDebugBridge.class);
         mMockAdbBridge.addDeviceChangeListener((IDeviceChangeListener) EasyMock.anyObject());
-        EasyMock.expectLastCall().andDelegateTo(new IAndroidDebugBridge() {
-            @Override
-            public void addDeviceChangeListener(final IDeviceChangeListener listener) {
-                mDeviceListener = listener;
-            }
-            @Override
-            public IDevice[] getDevices() {
-                return null;
-            }
-            @Override
-            public void removeDeviceChangeListener(IDeviceChangeListener listener) {
-            }
-            @Override
-            public void init(boolean clientSupport, String adbOsLocation) {
-            }
-            @Override
-            public void terminate() {
-            }
-            @Override
-            public void disconnectBridge() {
-            }
-        });
+        EasyMock.expectLastCall()
+                .andDelegateTo(
+                        new IAndroidDebugBridge() {
+                            @Override
+                            public void addDeviceChangeListener(
+                                    final IDeviceChangeListener listener) {
+                                mDeviceListener = listener;
+                            }
+
+                            @Override
+                            public IDevice[] getDevices() {
+                                return null;
+                            }
+
+                            @Override
+                            public void removeDeviceChangeListener(
+                                    IDeviceChangeListener listener) {}
+
+                            @Override
+                            public void init(boolean clientSupport, String adbOsLocation) {}
+
+                            @Override
+                            public void terminate() {}
+
+                            @Override
+                            public void disconnectBridge() {}
+
+                            @Override
+                            public String getAdbVersion(String adbOsLocation) {
+                                return null;
+                            }
+                        });
         mMockIDevice = EasyMock.createMock(IDevice.class);
         mMockStateMonitor = EasyMock.createMock(IDeviceStateMonitor.class);
         mMockRunUtil = EasyMock.createMock(IRunUtil.class);
+        mMockHostOptions = EasyMock.createMock(IHostOptions.class);
 
         mMockTestDevice = EasyMock.createMock(IManagedTestDevice.class);
         mMockDeviceFactory = new ManagedTestDeviceFactory(false, null, null) {
@@ -249,6 +263,11 @@ public class DeviceManagerTest extends TestCase {
                     @Override
                     IRunUtil getRunUtil() {
                         return mMockRunUtil;
+                    }
+
+                    @Override
+                    IHostOptions getHostOptions() {
+                        return mMockHostOptions;
                     }
                 };
         mgr.setSynchronousMode(true);
@@ -1090,9 +1109,9 @@ public class DeviceManagerTest extends TestCase {
         EasyMock.expect(mMockIDevice.getState()).andReturn(DeviceState.ONLINE);
         EasyMock.expect(mMockTestDevice.getAllocationState())
                 .andReturn(DeviceAllocationState.Available);
-        EasyMock.expect(mMockIDevice.getProperty("ro.hardware")).andReturn("hardware_test");
-        EasyMock.expect(mMockIDevice.getProperty("ro.product.device")).andReturn("product_test");
-        EasyMock.expect(mMockIDevice.getProperty("ro.build.version.sdk")).andReturn("sdk");
+        EasyMock.expect(mMockIDevice.getProperty(DeviceProperties.BOARD)).andReturn("hardware_test");
+        EasyMock.expect(mMockIDevice.getProperty(DeviceProperties.VARIANT)).andReturn("product_test");
+        EasyMock.expect(mMockIDevice.getProperty(DeviceProperties.SDK_VERSION)).andReturn("sdk");
         EasyMock.expect(mMockIDevice.getProperty("ro.build.id")).andReturn("bid_test");
         SettableFuture<Integer> future = SettableFuture.create();
         future.set(50);
@@ -1158,7 +1177,7 @@ public class DeviceManagerTest extends TestCase {
      * Test that when a {@link IDeviceMonitor} is available in {@link DeviceManager} it properly
      * goes through its life cycle.
      */
-    public void testDeviceMonitorLifeCyle() throws Exception {
+    public void testDeviceMonitorLifeCycle() throws Exception {
         IDeviceMonitor mockMonitor = EasyMock.createMock(IDeviceMonitor.class);
         List<IDeviceMonitor> monitors = new ArrayList<>();
         monitors.add(mockMonitor);
@@ -1172,5 +1191,138 @@ public class DeviceManagerTest extends TestCase {
         DeviceManager manager = createDeviceManager(monitors, mMockIDevice);
         manager.terminateDeviceMonitor();
         verifyMocks(mockMonitor);
+    }
+
+    /** Ensure that restarting adb bridge doesn't restart {@link IDeviceMonitor}. */
+    public void testDeviceMonitorLifeCycleWhenAdbRestarts() throws Exception {
+        IDeviceMonitor mockMonitor = EasyMock.createMock(IDeviceMonitor.class);
+        List<IDeviceMonitor> monitors = new ArrayList<>();
+        monitors.add(mockMonitor);
+        setCheckAvailableDeviceExpectations();
+
+        mockMonitor.setDeviceLister(EasyMock.anyObject());
+        mockMonitor.run();
+        mockMonitor.stop();
+
+        replayMocks(mockMonitor);
+        DeviceManager manager = createDeviceManager(monitors, mMockIDevice);
+        manager.stopAdbBridge();
+        manager.restartAdbBridge();
+        manager.terminateDeviceMonitor();
+        verifyMocks(mockMonitor);
+    }
+
+    /** Ensure that the flasher instance limiting machinery is working as expected. */
+    public void testFlashLimit() throws Exception {
+        setCheckAvailableDeviceExpectations();
+        replayMocks();
+        final DeviceManager manager = createDeviceManager(null, mMockIDevice);
+        try {
+            Thread waiter = new Thread() {
+                @Override
+                public void run() {
+                    manager.takeFlashingPermit();
+                    manager.returnFlashingPermit();
+                }
+            };
+            EasyMock.expect(mMockHostOptions.getConcurrentFlasherLimit())
+                .andReturn(null).anyTimes();
+            EasyMock.replay(mMockHostOptions);
+            manager.setConcurrentFlashSettings(new Semaphore(1), true);
+            // take the permit; the next attempt to take the permit should block
+            manager.takeFlashingPermit();
+            assertFalse(manager.getConcurrentFlashLock().hasQueuedThreads());
+
+            waiter.start();
+            RunUtil.getDefault().sleep(100);  // Thread start should take <100ms
+            assertTrue("Invalid state: waiter thread is not alive", waiter.isAlive());
+            assertTrue("No queued threads", manager.getConcurrentFlashLock().hasQueuedThreads());
+
+            manager.returnFlashingPermit();
+            RunUtil.getDefault().sleep(100);  // Thread start should take <100ms
+            assertFalse("Unexpected queued threads",
+                    manager.getConcurrentFlashLock().hasQueuedThreads());
+
+            waiter.join(1000);
+            assertFalse("waiter thread has not returned", waiter.isAlive());
+        } finally {
+            // Attempt to reset concurrent flash settings to defaults
+            manager.setConcurrentFlashSettings(null, true);
+        }
+    }
+
+    /** Ensure that the flasher limiting respects {@link IHostOptions}. */
+    public void testFlashLimit_withHostOptions() throws Exception {
+        setCheckAvailableDeviceExpectations();
+        replayMocks();
+        final DeviceManager manager = createDeviceManager(null, mMockIDevice);
+        try {
+            Thread waiter = new Thread() {
+                @Override
+                public void run() {
+                    manager.takeFlashingPermit();
+                    manager.returnFlashingPermit();
+                }
+            };
+            EasyMock.expect(mMockHostOptions.getConcurrentFlasherLimit()).andReturn(1).anyTimes();
+            EasyMock.replay(mMockHostOptions);
+            // take the permit; the next attempt to take the permit should block
+            manager.takeFlashingPermit();
+            assertFalse(manager.getConcurrentFlashLock().hasQueuedThreads());
+
+            waiter.start();
+            RunUtil.getDefault().sleep(100);  // Thread start should take <100ms
+            assertTrue("Invalid state: waiter thread is not alive", waiter.isAlive());
+            assertTrue("No queued threads", manager.getConcurrentFlashLock().hasQueuedThreads());
+
+            manager.returnFlashingPermit();
+            RunUtil.getDefault().sleep(100);  // Thread start should take <100ms
+            assertFalse("Unexpected queued threads",
+                    manager.getConcurrentFlashLock().hasQueuedThreads());
+
+            waiter.join(1000);
+            assertFalse("waiter thread has not returned", waiter.isAlive());
+            EasyMock.verify(mMockHostOptions);
+        } finally {
+            // Attempt to reset concurrent flash settings to defaults
+            manager.setConcurrentFlashSettings(null, true);
+        }
+    }
+
+    /** Ensure that the flasher instance limiting machinery is working as expected. */
+    public void testUnlimitedFlashLimit() throws Exception {
+        setCheckAvailableDeviceExpectations();
+        replayMocks();
+        final DeviceManager manager = createDeviceManager(null, mMockIDevice);
+        try {
+            Thread waiter = new Thread() {
+                @Override
+                public void run() {
+                    manager.takeFlashingPermit();
+                    manager.returnFlashingPermit();
+                }
+            };
+            manager.setConcurrentFlashSettings(null, true);
+            // take a permit; the next attempt to take the permit should proceed without blocking
+            manager.takeFlashingPermit();
+            assertNull("Flash lock is non-null", manager.getConcurrentFlashLock());
+
+            waiter.start();
+            RunUtil.getDefault().sleep(100);  // Thread start should take <100ms
+            Thread.State waiterState = waiter.getState();
+            assertTrue("Invalid state: waiter thread hasn't started",
+                    waiter.isAlive() || Thread.State.TERMINATED.equals(waiterState));
+            assertNull("Flash lock is non-null", manager.getConcurrentFlashLock());
+
+            manager.returnFlashingPermit();
+            RunUtil.getDefault().sleep(100);  // Thread start should take <100ms
+            assertNull("Flash lock is non-null", manager.getConcurrentFlashLock());
+
+            waiter.join(1000);
+            assertFalse("waiter thread has not returned", waiter.isAlive());
+        } finally {
+            // Attempt to reset concurrent flash settings to defaults
+            manager.setConcurrentFlashSettings(null, true);
+        }
     }
 }

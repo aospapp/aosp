@@ -13,17 +13,8 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+<resources>
 
-    <!-- AM, PM for time picker [CHAR LIMIT=20] -->
-    <string-array name="ampm">
-        <item>AM</item>
-        <item>PM</item>
-    </string-array>
-    <!-- Separator for date picker [CHAR LIMIT=2] -->
-    <string name="date_separator">/</string>
-    <!-- Separator for time picker [CHAR LIMIT=2] -->
-    <string name="time_separator">:</string>
     <!-- Caption for hide password check box in wifi_text_input [CHAR LIMIT=50] -->
     <string name="text_obfuscation_toggle_caption">Hide password</string>
 

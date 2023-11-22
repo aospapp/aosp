@@ -73,12 +73,18 @@ public class Camera2SurfaceViewCtsActivity extends Activity implements SurfaceHo
             changeSucceeded = surfaceChangedDone.block(waitTimeMs);
             if (!changeSucceeded) {
                 Log.e(TAG, "Wait for surface change timed out after " + timeOutMs + " ms");
-                return changeSucceeded;
+                return false;
             } else {
                 // Get a surface change callback, need to check if the size is expected.
                 surfaceChangedDone.close();
-                if (currentWidth == expectWidth && currentHeight == expectHeight) {
-                    return changeSucceeded;
+                synchronized(surfaceLock) {
+                    if (expectWidth == currentWidth && expectHeight == currentHeight) {
+                        return true;
+                    } else {
+                        Log.i(TAG, "Wait for surface changed to " + expectWidth + "x" +
+                                "expectHeight. Got " + currentWidth + "x" + currentHeight +
+                                ". Keep waiting");
+                    }
                 }
                 // Do a further iteration surface change check as surfaceChanged could be called
                 // again.
@@ -88,6 +94,7 @@ public class Camera2SurfaceViewCtsActivity extends Activity implements SurfaceHo
         }
 
         // Couldn't get expected surface size change.
+        Log.e(TAG, "Wait for surface change timed out after " + timeOutMs + " ms");
         return false;
     }
 

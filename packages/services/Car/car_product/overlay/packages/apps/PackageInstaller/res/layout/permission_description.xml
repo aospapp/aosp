@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2016 The Android Open Source Project
+<!-- Copyright (C) 2017 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
     android:id="@+id/perm_desc_root"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:orientation="horizontal">
+    android:gravity="left|center_vertical">
 
     <!-- No icon for Android Auto Embedded, so this visibility is GONE. The view remains so that
          no code change needs to occur in the GrantPermissionsViewHandlerImpl. -->
@@ -35,10 +35,7 @@
         android:id="@+id/permission_message"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
-        android:paddingStart="@dimen/auto_permission_text_keyline"
-        android:paddingEnd="8dp"
-        android:textSize="@dimen/auto_permission_text_size" >
-    </TextView>
+        android:textSize="@dimen/car_body2_size"
+        android:textColor="@color/car_body2"/>
 
 </LinearLayout>

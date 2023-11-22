@@ -31,7 +31,7 @@ LOCAL_FULL_LIBS_MANIFEST_FILES := \
 LOCAL_SDK_VERSION := current
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 LOCAL_AAPT_FLAGS += --rename-manifest-package android.appwidget.cts.packages.launcher1
 
@@ -54,7 +54,7 @@ LOCAL_FULL_LIBS_MANIFEST_FILES := \
 LOCAL_SDK_VERSION := current
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 LOCAL_AAPT_FLAGS += --rename-manifest-package android.appwidget.cts.packages.launcher2
 
@@ -75,7 +75,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, ../src) \
 LOCAL_SDK_VERSION := current
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 LOCAL_AAPT_FLAGS += --rename-manifest-package android.appwidget.cts.packages.launcher3
 

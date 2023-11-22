@@ -189,53 +189,6 @@ void wifi_unregister_vendor_handler(wifi_handle handle, uint32_t id, int subcmd)
 }
 
 
-wifi_error wifi_register_cmd(wifi_handle handle, int id, WifiCommand *cmd)
-{
-    hal_info *info = (hal_info *)handle;
-
-    if (info->num_cmd < info->alloc_cmd) {
-        info->cmd[info->num_cmd].id   = id;
-        info->cmd[info->num_cmd].cmd  = cmd;
-        info->num_cmd++;
-        ALOGV("Successfully added command %d: %p", id, cmd);
-        return WIFI_SUCCESS;
-    } else {
-        return WIFI_ERROR_OUT_OF_MEMORY;
-    }
-}
-
-WifiCommand *wifi_unregister_cmd(wifi_handle handle, int id)
-{
-    hal_info *info = (hal_info *)handle;
-
-    for (int i = 0; i < info->num_cmd; i++) {
-        if (info->cmd[i].id == id) {
-            WifiCommand *cmd = info->cmd[i].cmd;
-            memmove(&info->cmd[i], &info->cmd[i+1], (info->num_cmd - i) * sizeof(cmd_info));
-            info->num_cmd--;
-            ALOGV("Successfully removed command %d: %p", id, cmd);
-            return cmd;
-        }
-    }
-
-    return NULL;
-}
-
-void wifi_unregister_cmd(wifi_handle handle, WifiCommand *cmd)
-{
-    hal_info *info = (hal_info *)handle;
-
-    for (int i = 0; i < info->num_cmd; i++) {
-        if (info->cmd[i].cmd == cmd) {
-            int id = info->cmd[i].id;
-            memmove(&info->cmd[i], &info->cmd[i+1], (info->num_cmd - i) * sizeof(cmd_info));
-            info->num_cmd--;
-            ALOGV("Successfully removed command %d: %p", id, cmd);
-            return;
-        }
-    }
-}
-
 #ifdef __cplusplus
 extern "C"
 {
@@ -449,12 +402,12 @@ cleanup:
     return LowiWifiHalApi;
 }
 
-wifi_error mapErrorKernelToWifiHAL(int error)
+wifi_error mapKernelErrortoWifiHalError(int kern_err)
 {
-    if (error >= 0)
-        return WIFI_ERROR_NONE;
+    if (kern_err >= 0)
+        return WIFI_SUCCESS;
 
-    switch (error) {
+    switch (kern_err) {
         case -EOPNOTSUPP:
             return WIFI_ERROR_NOT_SUPPORTED;
         case -EAGAIN:
@@ -467,8 +420,6 @@ wifi_error mapErrorKernelToWifiHAL(int error)
             return WIFI_ERROR_OUT_OF_MEMORY;
         case -EBUSY:
             return WIFI_ERROR_BUSY;
-        default:
-            return WIFI_ERROR_UNKNOWN;
     }
     return WIFI_ERROR_UNKNOWN;
 }

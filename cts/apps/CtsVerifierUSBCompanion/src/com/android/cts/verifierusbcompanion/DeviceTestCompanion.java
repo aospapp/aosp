@@ -23,7 +23,7 @@ import android.content.Context;
 import android.hardware.usb.UsbAccessory;
 import android.hardware.usb.UsbManager;
 import android.os.ParcelFileDescriptor;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,8 +35,7 @@ import java.nio.charset.Charset;
  * Companion code for com.android.cts.verifier.usb.device.UsbDeviceTestActivity
  */
 class DeviceTestCompanion extends TestCompanion {
-    private static final int MAX_BUFFER_SIZE = 16384;
-    private static final int OVERSIZED_BUFFER_SIZE = MAX_BUFFER_SIZE + 100;
+    private static final int LARGE_BUFFER_SIZE = 124619;
 
     DeviceTestCompanion(@NonNull Context context, @NonNull TestObserver observer) {
         super(context, observer);
@@ -94,10 +93,14 @@ class DeviceTestCompanion extends TestCompanion {
     private boolean echoBytes(@NonNull InputStream is, @NonNull OutputStream os, int size)
             throws IOException {
         byte[] buffer = new byte[size];
+        int read = 0;
 
-        int numRead = is.read(buffer);
-        if (numRead != size) {
-            return false;
+        while (read != size) {
+            int ret = is.read(buffer, read, size - read);
+            if (ret < 0) {
+                return false;
+            }
+            read += ret;
         }
 
         os.write(buffer);
@@ -198,25 +201,12 @@ class DeviceTestCompanion extends TestCompanion {
                         case "Echo 42 bytes":
                             isSuccess = echoBytes(is, os, 42);
                             break;
-                        case "Echo max bytes":
-                            isSuccess = echoBytes(is, os, MAX_BUFFER_SIZE);
+                        case "Echo 16384 bytes":
+                            isSuccess = echoBytes(is, os, 16384);
                             break;
-                        case "Echo oversized buffer":
-                            // The bytes beyond MAX_BUFFER_SIZE got ignored when sending
-                            isSuccess = echoBytes(is, os, MAX_BUFFER_SIZE);
+                        case "Echo large buffer":
+                            isSuccess = echoBytes(is, os, LARGE_BUFFER_SIZE);
                             break;
-                        case "Receive oversized buffer": {
-                            byte[] buffer = new byte[OVERSIZED_BUFFER_SIZE];
-                            buffer[0] = 1;
-                            buffer[MAX_BUFFER_SIZE - 1] = 2;
-                            buffer[MAX_BUFFER_SIZE] = 3;
-                            buffer[OVERSIZED_BUFFER_SIZE - 1] = 4;
-
-                            os.write(buffer);
-
-                            isSuccess = true;
-                        }
-                        break;
                         case "Receive byte after some time":
                             Thread.sleep(200);
                             os.write(new byte[1]);

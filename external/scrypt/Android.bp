@@ -28,6 +28,7 @@ cc_library_static {
 cc_test {
     name: "scrypt_test",
     srcs: ["tests/scrypt_test.cpp"],
+    cflags: ["-Wall", "-Werror"],
     shared_libs: ["libcrypto"],
     static_libs: ["libscrypt_static"],
 }

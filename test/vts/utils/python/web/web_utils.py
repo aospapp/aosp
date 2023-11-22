@@ -47,7 +47,7 @@ class WebFeature(feature_utils.Feature):
         keys.ConfigKeys.IKEY_ANDROID_DEVICE, keys.ConfigKeys.IKEY_ABI_NAME,
         keys.ConfigKeys.IKEY_ABI_BITNESS
     ]
-    _OPTIONAL_PARAMS = []
+    _OPTIONAL_PARAMS = [keys.ConfigKeys.RUN_AS_VTS_SELFTEST]
 
     def __init__(self, user_params):
         """Initializes the web feature.
@@ -386,7 +386,8 @@ class WebFeature(feature_utils.Feature):
             return None
 
         # Handle case when runner fails, tests aren't executed
-        if (executed and executed[-1].test_name == "setup_class"):
+        if (not getattr(self, keys.ConfigKeys.RUN_AS_VTS_SELFTEST, False)
+            and executed and executed[-1].test_name == "setup_class"):
             # Test failed during setup, all tests were not executed
             start_index = 0
         else:

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -53,9 +53,10 @@ class ActsBaseClassTest(unittest.TestCase):
     def test_current_test_case_name(self):
         class MockBaseTest(base_test.BaseTestClass):
             def test_func(self):
-                asserts.assert_true(self.current_test_name == "test_func", (
-                    "Got "
-                    "unexpected test name %s.") % self.current_test_name)
+                asserts.assert_true(
+                    self.current_test_name == "test_func",
+                    ("Got "
+                     "unexpected test name %s.") % self.current_test_name)
 
         bt_cls = MockBaseTest(self.mock_test_cls_configs)
         bt_cls.run(test_names=["test_func"])
@@ -281,7 +282,7 @@ class ActsBaseClassTest(unittest.TestCase):
         self.assertIsNone(actual_record.details)
         self.assertIsNone(actual_record.extras)
         expected_extra_error = {"teardown_test": MSG_EXPECTED_EXCEPTION}
-        self.assertEqual(actual_record.extra_errors, expected_extra_error)
+        self.assertEqual(actual_record.additional_errors, expected_extra_error)
         expected_summary = (
             "Blocked 0, ControllerInfo {}, Executed 1, Failed 0, Passed 0, "
             "Requested 1, Skipped 0, Unknown 1")
@@ -465,7 +466,7 @@ class ActsBaseClassTest(unittest.TestCase):
         bt_cls = MockBaseTest(self.mock_test_cls_configs)
         bt_cls.run()
         actual_record = bt_cls.results.unknown[0]
-        self.assertIn('_on_fail', actual_record.extra_errors)
+        self.assertIn('_on_fail', actual_record.additional_errors)
         self.assertEqual(actual_record.test_name, self.mock_test_name)
         self.assertEqual(actual_record.details, MSG_EXPECTED_EXCEPTION)
         self.assertIsNone(actual_record.extras)
@@ -488,7 +489,7 @@ class ActsBaseClassTest(unittest.TestCase):
         bt_cls.run()
         actual_record = bt_cls.results.unknown[0]
         expected_extra_error = {'_on_pass': expected_msg}
-        self.assertEqual(actual_record.extra_errors, expected_extra_error)
+        self.assertEqual(actual_record.additional_errors, expected_extra_error)
         self.assertEqual(actual_record.test_name, self.mock_test_name)
         self.assertEqual(actual_record.details, MSG_EXPECTED_EXCEPTION)
         self.assertIsNone(actual_record.extras)
@@ -511,7 +512,7 @@ class ActsBaseClassTest(unittest.TestCase):
         self.assertEqual(actual_record.test_name, self.mock_test_name)
         self.assertEqual(actual_record.details, "Test Body Exception.")
         self.assertIsNone(actual_record.extras)
-        self.assertEqual(actual_record.extra_errors["teardown_test"],
+        self.assertEqual(actual_record.additional_errors["teardown_test"],
                          "Details=This is an expected exception., Extras=None")
         expected_summary = (
             "Blocked 0, ControllerInfo {}, Executed 1, Failed 0, Passed 0, "
@@ -535,7 +536,7 @@ class ActsBaseClassTest(unittest.TestCase):
         self.assertEqual(actual_record.test_name, self.mock_test_name)
         self.assertEqual(actual_record.details, "Test Passed!")
         self.assertIsNone(actual_record.extras)
-        self.assertEqual(actual_record.extra_errors["teardown_test"],
+        self.assertEqual(actual_record.additional_errors["teardown_test"],
                          "Details=This is an expected exception., Extras=None")
         expected_summary = (
             "Blocked 0, ControllerInfo {}, Executed 1, Failed 0, Passed 0, "
@@ -557,8 +558,9 @@ class ActsBaseClassTest(unittest.TestCase):
         self.assertEqual(actual_record.test_name, self.mock_test_name)
         self.assertEqual(actual_record.details, MSG_EXPECTED_EXCEPTION)
         self.assertEqual(actual_record.extras, MOCK_EXTRA)
-        self.assertEqual(actual_record.extra_errors,
-                         {'_on_pass': MSG_EXPECTED_EXCEPTION})
+        self.assertEqual(actual_record.additional_errors, {
+            '_on_pass': MSG_EXPECTED_EXCEPTION
+        })
         expected_summary = (
             "Blocked 0, ControllerInfo {}, Executed 1, Failed 0, Passed 0, "
             "Requested 1, Skipped 0, Unknown 1")
@@ -579,8 +581,9 @@ class ActsBaseClassTest(unittest.TestCase):
         self.assertEqual(actual_record.test_name, self.mock_test_name)
         self.assertEqual(actual_record.details, MSG_EXPECTED_EXCEPTION)
         self.assertEqual(actual_record.extras, MOCK_EXTRA)
-        self.assertEqual(actual_record.extra_errors,
-                         {'_on_fail': MSG_EXPECTED_EXCEPTION})
+        self.assertEqual(actual_record.additional_errors, {
+            '_on_fail': MSG_EXPECTED_EXCEPTION
+        })
         expected_summary = (
             "Blocked 0, ControllerInfo {}, Executed 1, Failed 0, Passed 0, "
             "Requested 1, Skipped 0, Unknown 1")
@@ -603,9 +606,10 @@ class ActsBaseClassTest(unittest.TestCase):
         self.assertEqual(bt_cls.results.passed[0].test_name, "test_1")
         self.assertEqual(bt_cls.results.failed[0].details,
                          MSG_EXPECTED_EXCEPTION)
-        self.assertEqual(bt_cls.results.summary_str(), (
-            "Blocked 0, ControllerInfo {}, Executed 2, Failed 1, Passed 1, "
-            "Requested 3, Skipped 0, Unknown 0"))
+        self.assertEqual(
+            bt_cls.results.summary_str(),
+            ("Blocked 0, ControllerInfo {}, Executed 2, Failed 1, Passed 1, "
+             "Requested 3, Skipped 0, Unknown 0"))
 
     def test_uncaught_exception(self):
         class MockBaseTest(base_test.BaseTestClass):

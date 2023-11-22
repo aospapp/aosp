@@ -38,23 +38,6 @@ protected:
 // ----------------------------------------------------------------------
 
 template<typename INTERFACE>
-class BnInterface : public INTERFACE, public IInterface, public BHwBinder
-{
-public:
-                                BnInterface(const sp<INTERFACE>& impl);
-protected:
-    const sp<INTERFACE>         mImpl;
-    virtual IBinder*            onAsBinder();
-};
-
-template<typename INTERFACE>
-inline BnInterface<INTERFACE>::BnInterface(
-        const sp<INTERFACE>& impl) : mImpl(impl)
-{
-}
-// ----------------------------------------------------------------------
-
-template<typename INTERFACE>
 class BpInterface : public INTERFACE, public IInterface, public BpHwRefBase
 {
 public:
@@ -67,11 +50,6 @@ public:
 // ----------------------------------------------------------------------
 // No user-serviceable parts after this...
 
-template<typename INTERFACE>
-IBinder* BnInterface<INTERFACE>::onAsBinder()
-{
-    return this;
-}
 
 template<typename INTERFACE>
 inline BpInterface<INTERFACE>::BpInterface(const sp<IBinder>& remote)

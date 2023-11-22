@@ -88,6 +88,7 @@ LOCAL_WHOLE_STATIC_LIBRARIES := \
     libnanohub_os \
 
 LOCAL_STATIC_LIBRARIES := \
+    libnanohub_common_os \
     libnanomath_os \
     libnanolibc_os \
 

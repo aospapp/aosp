@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2008-2012 Broadcom Corporation
+ *  Copyright 2008-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -26,12 +26,12 @@
 #include "bt_target.h"
 #include "bt_utils.h"
 
-#include "btcore/include/uuid.h"
 #include "gatt_api.h"
 #include "gatt_int.h"
 #include "osi/include/osi.h"
 
 using base::StringPrintf;
+using bluetooth::Uuid;
 
 #define GATTP_MAX_NUM_INC_SVR 0
 #define GATTP_MAX_CHAR_NUM 2
@@ -84,6 +84,9 @@ uint16_t gatt_profile_find_conn_id_by_bd_addr(const RawAddress& remote_bda) {
   uint16_t conn_id = GATT_INVALID_CONN_ID;
   GATT_GetConnIdIfConnected(gatt_cb.gatt_if, remote_bda, &conn_id,
                             BT_TRANSPORT_LE);
+  if (conn_id == GATT_INVALID_CONN_ID)
+    GATT_GetConnIdIfConnected(gatt_cb.gatt_if, remote_bda, &conn_id,
+                              BT_TRANSPORT_BR_EDR);
   return conn_id;
 }
 
@@ -210,17 +213,16 @@ static void gatt_request_cback(uint16_t conn_id, uint32_t trans_id,
     case GATTS_REQ_TYPE_WRITE_EXEC:
     case GATT_CMD_WRITE:
       ignore = true;
-      VLOG(1) << StringPrintf("Ignore GATT_REQ_EXEC_WRITE/WRITE_CMD");
+      VLOG(1) << "Ignore GATT_REQ_EXEC_WRITE/WRITE_CMD";
       break;
 
     case GATTS_REQ_TYPE_MTU:
-      VLOG(1) << StringPrintf("Get MTU exchange new mtu size: %d", p_data->mtu);
+      VLOG(1) << "Get MTU exchange new mtu size: " << +p_data->mtu;
       ignore = true;
       break;
 
     default:
-      VLOG(1) << StringPrintf("Unknown/unexpected LE GAP ATT request: 0x%02x",
-                              type);
+      VLOG(1) << "Unknown/unexpected LE GAP ATT request: " << loghex(type);
       break;
   }
 
@@ -240,9 +242,8 @@ static void gatt_connect_cback(UNUSED_ATTR tGATT_IF gatt_if,
                                const RawAddress& bda, uint16_t conn_id,
                                bool connected, tGATT_DISCONN_REASON reason,
                                tBT_TRANSPORT transport) {
-  VLOG(1) << __func__ << ": from " << bda
-          << StringPrintf(" connected:%d conn_id=%d reason = 0x%04x", connected,
-                          conn_id, reason);
+  VLOG(1) << __func__ << ": from " << bda << " connected: " << connected
+          << ", conn_id: " << loghex(conn_id) << "reason: " << loghex(reason);
 
   tGATT_PROFILE_CLCB* p_clcb =
       gatt_profile_find_clcb_by_bd_addr(bda, transport);
@@ -269,21 +270,19 @@ static void gatt_connect_cback(UNUSED_ATTR tGATT_IF gatt_if,
  *
  ******************************************************************************/
 void gatt_profile_db_init(void) {
-  tBT_UUID app_uuid = {LEN_UUID_128, {0}};
   uint16_t service_handle = 0;
 
   /* Fill our internal UUID with a fixed pattern 0x81 */
-  memset(&app_uuid.uu.uuid128, 0x81, LEN_UUID_128);
+  std::array<uint8_t, Uuid::kNumBytes128> tmp;
+  tmp.fill(0x81);
 
   /* Create a GATT profile service */
-  gatt_cb.gatt_if = GATT_Register(&app_uuid, &gatt_profile_cback);
+  gatt_cb.gatt_if = GATT_Register(Uuid::From128BitBE(tmp), &gatt_profile_cback);
   GATT_StartIf(gatt_cb.gatt_if);
 
-  bt_uuid_t service_uuid;
-  uuid_128_from_16(&service_uuid, UUID_SERVCLASS_GATT_SERVER);
+  Uuid service_uuid = Uuid::From16Bit(UUID_SERVCLASS_GATT_SERVER);
 
-  bt_uuid_t char_uuid;
-  uuid_128_from_16(&char_uuid, GATT_UUID_GATT_SRV_CHGD);
+  Uuid char_uuid = Uuid::From16Bit(GATT_UUID_GATT_SRV_CHGD);
 
   btgatt_db_element_t service[] = {
       {.type = BTGATT_DB_PRIMARY_SERVICE, .uuid = service_uuid},
@@ -298,8 +297,7 @@ void gatt_profile_db_init(void) {
   service_handle = service[0].attribute_handle;
   gatt_cb.handle_of_h_r = service[1].attribute_handle;
 
-  LOG(ERROR) << StringPrintf("gatt_profile_db_init:  gatt_if=%d",
-                             gatt_cb.gatt_if);
+  VLOG(1) << __func__ << ": gatt_if=" << +gatt_cb.gatt_if;
 }
 
 /*******************************************************************************
@@ -329,7 +327,7 @@ static void gatt_disc_res_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
       break;
 
     case GATT_DISC_CHAR_DSCPT: /* stage 3 */
-      if (p_data->type.uu.uuid16 == GATT_UUID_CHAR_CLIENT_CONFIG) {
+      if (p_data->type == Uuid::From16Bit(GATT_UUID_CHAR_CLIENT_CONFIG)) {
         p_clcb->s_handle = p_data->handle;
         p_clcb->ccc_result++;
       }
@@ -352,14 +350,15 @@ static void gatt_disc_cmpl_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
 
   if (p_clcb == NULL) return;
 
-  if (status == GATT_SUCCESS && p_clcb->ccc_result > 0) {
-    p_clcb->ccc_result = 0;
-    p_clcb->ccc_stage++;
-    gatt_cl_start_config_ccc(p_clcb);
-  } else {
-    LOG(ERROR) << StringPrintf(
-        "%s() - Unable to register for service changed indication", __func__);
+  if (status != GATT_SUCCESS || p_clcb->ccc_result == 0) {
+    LOG(WARNING) << __func__
+                 << ": Unable to register for service changed indication";
+    return;
   }
+
+  p_clcb->ccc_result = 0;
+  p_clcb->ccc_stage++;
+  gatt_cl_start_config_ccc(p_clcb);
 }
 
 /*******************************************************************************
@@ -389,7 +388,7 @@ static void gatt_cl_start_config_ccc(tGATT_PROFILE_CLCB* p_clcb) {
   tGATT_DISC_PARAM srvc_disc_param;
   tGATT_VALUE ccc_value;
 
-  VLOG(1) << StringPrintf("%s() - stage: %d", __func__, p_clcb->ccc_stage);
+  VLOG(1) << __func__ << ": stage: " << +p_clcb->ccc_stage;
 
   memset(&srvc_disc_param, 0, sizeof(tGATT_DISC_PARAM));
   memset(&ccc_value, 0, sizeof(tGATT_VALUE));
@@ -398,16 +397,14 @@ static void gatt_cl_start_config_ccc(tGATT_PROFILE_CLCB* p_clcb) {
     case GATT_SVC_CHANGED_SERVICE: /* discover GATT service */
       srvc_disc_param.s_handle = 1;
       srvc_disc_param.e_handle = 0xffff;
-      srvc_disc_param.service.len = 2;
-      srvc_disc_param.service.uu.uuid16 = UUID_SERVCLASS_GATT_SERVER;
+      srvc_disc_param.service = Uuid::From16Bit(UUID_SERVCLASS_GATT_SERVER);
       GATTC_Discover(p_clcb->conn_id, GATT_DISC_SRVC_BY_UUID, &srvc_disc_param);
       break;
 
     case GATT_SVC_CHANGED_CHARACTERISTIC: /* discover service change char */
       srvc_disc_param.s_handle = 1;
       srvc_disc_param.e_handle = p_clcb->e_handle;
-      srvc_disc_param.service.len = 2;
-      srvc_disc_param.service.uu.uuid16 = GATT_UUID_GATT_SRV_CHGD;
+      srvc_disc_param.service = Uuid::From16Bit(GATT_UUID_GATT_SRV_CHGD);
       GATTC_Discover(p_clcb->conn_id, GATT_DISC_CHAR, &srvc_disc_param);
       break;
 

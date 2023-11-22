@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPNとアプリ"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"注: この証明書の発行者が端末のすべてのトラフィックを検証する場合があります。"</string>
     <string name="wifi_title" msgid="8475811746333426489">"Wi-Fiプロファイル"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%sの詳細"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"詳細"</string>

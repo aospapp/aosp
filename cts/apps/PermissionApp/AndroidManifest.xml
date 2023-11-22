@@ -21,6 +21,7 @@
     <uses-sdk android:minSdkVersion="23"/>
 
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
 
     <application android:label="CtsPermissionApp"
             android:icon="@drawable/ic_permissionapp">

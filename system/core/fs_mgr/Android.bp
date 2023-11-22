@@ -20,7 +20,14 @@ cc_defaults {
         misc_undefined: ["integer"],
     },
     local_include_dirs: ["include/"],
-    cppflags: ["-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-variable",
+    ],
+    cppflags: [
+        "-std=gnu++1z",
+    ],
 }
 
 cc_library_static {
@@ -55,12 +62,15 @@ cc_library_static {
         "liblogwrap",
         "libfstab",
     ],
+    cppflags: [
+        "-DALLOW_ADBD_DISABLE_VERITY=0",
+    ],
     product_variables: {
         debuggable: {
-            cppflags: ["-DALLOW_ADBD_DISABLE_VERITY=1"],
-        },
-        eng: {
-            cppflags: ["-DALLOW_SKIP_SECURE_CHECK=1"],
+            cppflags: [
+                "-UALLOW_ADBD_DISABLE_VERITY",
+                "-DALLOW_ADBD_DISABLE_VERITY=1",
+            ],
         },
     },
 }

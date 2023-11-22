@@ -46,45 +46,35 @@ public class CallAudioRoutePeripheralAdapter implements WiredHeadsetManager.List
     }
 
     @Override
-    public void onBluetoothStateChange(int oldState, int newState) {
-        switch (oldState) {
-            case BluetoothRouteManager.BLUETOOTH_DISCONNECTED:
-            case BluetoothRouteManager.BLUETOOTH_UNINITIALIZED:
-                switch (newState) {
-                    case BluetoothRouteManager.BLUETOOTH_DEVICE_CONNECTED:
-                    case BluetoothRouteManager.BLUETOOTH_AUDIO_CONNECTED:
-                        mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
-                                CallAudioRouteStateMachine.CONNECT_BLUETOOTH);
-                        break;
-                }
-                break;
-            case BluetoothRouteManager.BLUETOOTH_DEVICE_CONNECTED:
-                switch (newState) {
-                    case BluetoothRouteManager.BLUETOOTH_DISCONNECTED:
-                        mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
-                                CallAudioRouteStateMachine.DISCONNECT_BLUETOOTH);
-                        break;
-                    case BluetoothRouteManager.BLUETOOTH_AUDIO_CONNECTED:
-                        mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
-                                CallAudioRouteStateMachine.SWITCH_BLUETOOTH);
-                        break;
-                }
-                break;
-            case BluetoothRouteManager.BLUETOOTH_AUDIO_CONNECTED:
-            case BluetoothRouteManager.BLUETOOTH_AUDIO_PENDING:
-                switch (newState) {
-                    case BluetoothRouteManager.BLUETOOTH_DISCONNECTED:
-                        mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
-                                CallAudioRouteStateMachine.DISCONNECT_BLUETOOTH);
-                        break;
-                    case BluetoothRouteManager.BLUETOOTH_DEVICE_CONNECTED:
-                        mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
-                                CallAudioRouteStateMachine.BT_AUDIO_DISCONNECT);
-                        break;
-                }
-                break;
-        }
+    public void onBluetoothDeviceListChanged() {
+        mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
+                CallAudioRouteStateMachine.BLUETOOTH_DEVICE_LIST_CHANGED);
     }
+
+    @Override
+    public void onBluetoothActiveDevicePresent() {
+        mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
+                CallAudioRouteStateMachine.BT_ACTIVE_DEVICE_PRESENT);
+    }
+
+    @Override
+    public void onBluetoothActiveDeviceGone() {
+        mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
+                CallAudioRouteStateMachine.BT_ACTIVE_DEVICE_GONE);
+    }
+
+    @Override
+    public void onBluetoothAudioConnected() {
+        mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
+                CallAudioRouteStateMachine.BT_AUDIO_CONNECTED);
+    }
+
+    @Override
+    public void onBluetoothAudioDisconnected() {
+        mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
+                CallAudioRouteStateMachine.BT_AUDIO_DISCONNECTED);
+    }
+
     /**
       * Updates the audio route when the headset plugged in state changes. For example, if audio is
       * being routed over speakerphone and a headset is plugged in then switch to wired headset.

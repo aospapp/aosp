@@ -24,8 +24,9 @@ SERVER_SEQUENCES = [
             { 'tag': 'before', 'client_tag': 'before'}),
     sequence.SequenceJob(
             'hardware_StorageStress',
-            {'tag': 'soak', 'power_command': 'nothing',
-             'storage_test_command': 'full_write'},
+            {'tag': 'soak', 'power_command': 'wait',
+             'storage_test_command': 'full_write',
+             'suspend_duration': 5 * sequence.MINUTE_IN_SECS},
             iteration=2, duration=sequence.HOUR_IN_SECS / 2),
     sequence.SequenceJob(
             'hardware_StorageStress',

@@ -16,5 +16,5 @@
 <inset
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:inset="32dp" >
-    <ripple android:color="@color/car_card_ripple_light_color_background" />
+    <ripple android:color="@color/car_card_ripple_background_dark" />
 </inset>

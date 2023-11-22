@@ -7,8 +7,8 @@ This is a utility to build an html page based on the directory summaries
 collected during the test.
 """
 
-import math
 import os
+import re
 
 import common
 from autotest_lib.client.bin.result_tools import utils_lib
@@ -24,6 +24,8 @@ GS_FILE_BASE_URL = CONFIG.get_config_value('CROS', 'gs_file_base_url')
 DEFAULT_SIZE_TRIMMED_WIDTH = 50
 
 DEFAULT_RESULT_SUMMARY_NAME = 'result_summary.html'
+
+DIR_SUMMARY_PATTERN = 'dir_summary_\d+.json'
 
 # ==================================================
 # Following are key names used in the html templates:
@@ -80,7 +82,8 @@ PAGE_TEMPLATE = """
         <span class="size_trimmed" style="width:auto">
           [size after throttling (empty if not throttled)]
         </span>
-        [file name]
+        [file name (<strike>strikethrough</strike> if file was deleted due to
+            throttling)]
       </p>
 
       <button onclick="expandAll();">Expand All</button>
@@ -284,6 +287,14 @@ FILE_ENTRY_TEMPLATE = """
 %(indentation)s\t</div>
 %(indentation)s</li>"""
 
+DELETED_FILE_ENTRY_TEMPLATE = """
+%(indentation)s<li>
+%(indentation)s\t<div>
+%(size_info)s
+%(indentation)s\t\t<strike>%(name)s</strike>
+%(indentation)s\t</div>
+%(indentation)s</li>"""
+
 DIR_ENTRY_TEMPLATE = """
 %(indentation)s<li><a>%(size_info)s %(name)s</a>
 %(subdirs)s
@@ -310,28 +321,10 @@ def _get_size_percent(size_original, total_bytes):
     return '%.1f%%' % (100*float(size_original)/total_bytes)
 
 
-def _get_size_string(size_bytes):
-    """Get a string of the given bytes.
-
-    Convert the number of bytes to the closest integer of file size measure,
-    i.e., KB, MB etc.
-
-    @param size_bytes: Number of bytes.
-    @return: A string representing `size_bytes` in KB, MB etc.
-    """
-    if size_bytes == 0:
-        return '0 B'
-    size_name = ('B', 'KB', 'MB', 'GB', 'TB', 'PB')
-    i = int(math.floor(math.log(size_bytes, 1024)))
-    p = math.pow(1024, i)
-    s = int(size_bytes / p)
-    return '%s %s' % (s, size_name[i])
-
-
 def _get_dirs_html(dirs, parent_path, total_bytes, indentation):
     """Get the html string for the given directory.
 
-    @param dirs: A dictionary of directory summary.
+    @param dirs: A list of ResultInfo.
     @param parent_path: Path to the parent directory.
     @param total_bytes: Total of the original size of files in the given
             directories in bytes.
@@ -340,44 +333,52 @@ def _get_dirs_html(dirs, parent_path, total_bytes, indentation):
     if not dirs:
         return ''
     summary_html = ''
-    top_size_limit = max([
-            dirs[entry][utils_lib.ORIGINAL_SIZE_BYTES] for entry in dirs])
-    for entry in sorted(dirs.keys()):
-        subdirs = dirs[entry].get(utils_lib.DIRS, {})
+    top_size_limit = max([entry.original_size for entry in dirs])
+    # A map between file name to ResultInfo that contains the summary of the
+    # file.
+    entries = dict((entry.keys()[0], entry) for entry in dirs)
+    for name in sorted(entries.keys()):
+        entry = entries[name]
+        if not entry.is_dir and re.match(DIR_SUMMARY_PATTERN, name):
+            # Do not include directory summary json files in the html, as they
+            # will be deleted.
+            continue
 
-        size_original = dirs[entry][utils_lib.ORIGINAL_SIZE_BYTES]
-        size_trimmed = dirs[entry].get(
-                utils_lib.TRIMMED_SIZE_BYTES, size_original)
-        size_data = {SIZE_PERCENT: _get_size_percent(size_original,
+        size_data = {SIZE_PERCENT: _get_size_percent(entry.original_size,
                                                      total_bytes),
-                     SIZE_ORIGINAL: _get_size_string(size_original),
-                     SIZE_TRIMMED: _get_size_string(size_trimmed),
+                     SIZE_ORIGINAL:
+                        utils_lib.get_size_string(entry.original_size),
+                     SIZE_TRIMMED:
+                        utils_lib.get_size_string(entry.trimmed_size),
                      INDENTATION_KEY: indentation + 2*INDENTATION}
-        if size_original < top_size_limit:
+        if entry.original_size < top_size_limit:
             size_data[SIZE_PERCENT_CLASS] = SIZE_PERCENT_CLASS_REGULAR
         else:
             size_data[SIZE_PERCENT_CLASS] = SIZE_PERCENT_CLASS_TOP
-        if size_trimmed == size_original:
+        if entry.trimmed_size == entry.original_size:
             size_data[SIZE_TRIMMED] = ''
 
-        entry_path = '%s/%s' % (parent_path, entry)
-        if not subdirs:
+        entry_path = '%s/%s' % (parent_path, name)
+        if not entry.is_dir:
             # This is a file
-            data = {NAME: entry,
+            data = {NAME: name,
                     PATH: entry_path,
                     SIZE_INFO: SIZE_INFO_TEMPLATE % size_data,
                     INDENTATION_KEY: indentation}
-            summary_html += FILE_ENTRY_TEMPLATE % data
+            if entry.original_size > 0 and entry.trimmed_size == 0:
+                summary_html += DELETED_FILE_ENTRY_TEMPLATE % data
+            else:
+                summary_html += FILE_ENTRY_TEMPLATE % data
         else:
-            subdir_total_size = dirs[entry][utils_lib.ORIGINAL_SIZE_BYTES]
+            subdir_total_size = entry.original_size
             sub_indentation = indentation + INDENTATION
             subdirs_html = (
                     SUBDIRS_WRAPPER_TEMPLATE %
                     {DIRS: _get_dirs_html(
-                            subdirs, entry_path, subdir_total_size,
+                            entry.files, entry_path, subdir_total_size,
                             sub_indentation),
                      INDENTATION_KEY: indentation})
-            data = {NAME: entry,
+            data = {NAME: entry.name,
                     SIZE_INFO: SIZE_INFO_TEMPLATE % size_data,
                     SUBDIRS: subdirs_html,
                     INDENTATION_KEY: indentation}
@@ -391,20 +392,17 @@ def build(client_collected_bytes, summary, html_file):
     @param client_collected_bytes: The total size of results collected from
             the DUT. The number can be larger than the total file size of the
             given path, as files can be overwritten or removed.
-    @param summary: A dictionary of result summary.
+    @param summary: A ResultInfo instance containing the directory summary.
     @param html_file: Path to save the html file to.
     """
-    dirs = summary[utils_lib.ROOT_DIR].get(utils_lib.DIRS, {})
-    size_original = summary[utils_lib.ROOT_DIR][
-            utils_lib.ORIGINAL_SIZE_BYTES]
-    size_trimmed = summary[utils_lib.ROOT_DIR].get(
-            utils_lib.TRIMMED_SIZE_BYTES, size_original)
+    size_original = summary.original_size
+    size_trimmed = summary.trimmed_size
     size_summary_data = {SIZE_CLIENT_COLLECTED:
-                             _get_size_string(client_collected_bytes),
+                             utils_lib.get_size_string(client_collected_bytes),
                          SIZE_ORIGINAL:
-                             _get_size_string(size_original),
+                             utils_lib.get_size_string(size_original),
                          SIZE_TRIMMED:
-                             _get_size_string(size_trimmed)}
+                             utils_lib.get_size_string(size_trimmed)}
     size_trimmed_width = DEFAULT_SIZE_TRIMMED_WIDTH
     if size_original == size_trimmed:
         size_summary_data[SIZE_TRIMMED] = NOT_THROTTLED
@@ -414,7 +412,7 @@ def build(client_collected_bytes, summary, html_file):
 
     indentation = INDENTATION
     dirs_html = _get_dirs_html(
-            dirs, '..', size_original, indentation + INDENTATION)
+            summary.files, '..', size_original, indentation + INDENTATION)
     summary_tree = SUBDIRS_WRAPPER_TEMPLATE % {DIRS: dirs_html,
                                                INDENTATION_KEY: indentation}
 

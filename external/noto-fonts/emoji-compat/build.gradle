@@ -20,12 +20,15 @@ apply plugin: 'maven'
 
 ext {
     flatbuffersDir = '../../flatbuffers'
-    noDocs = true
 }
 
 buildscript {
+    boolean unbundleBuild = (new File("unbundled-build")).exists()
     repositories {
         maven { url '../../../prebuilts/tools/common/m2/repository' }
+        if (unbundleBuild) {
+            jcenter()
+        }
     }
 
     dependencies {
@@ -48,7 +51,7 @@ jarjar.repackage('rename') {
     destinationName "noto-emoji-compat-java.jar"
     from files(sourceSets.main.output.classesDirs)
     dependsOn sourceSets.main.output
-    classRename 'com.google.flatbuffers.**', 'android.support.text.emoji.flatbuffer.@1'
+    classRename 'com.google.flatbuffers.**', 'androidx.text.emoji.flatbuffer.@1'
 }
 
 configurations {

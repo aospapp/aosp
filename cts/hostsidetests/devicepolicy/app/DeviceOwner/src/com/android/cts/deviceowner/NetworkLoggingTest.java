@@ -22,15 +22,22 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.support.v4.content.LocalBroadcastManager;
+import android.support.test.InstrumentationRegistry;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import android.util.Log;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.net.HttpURLConnection;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -38,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 public class NetworkLoggingTest extends BaseDeviceOwnerTest {
 
     private static final String TAG = "NetworkLoggingTest";
+    private static final String ARG_BATCH_COUNT = "batchCount";
     private static final int FAKE_BATCH_TOKEN = -666; // real batch tokens are always non-negative
     private static final int FULL_LOG_BATCH_SIZE = 1200;
     private static final String CTS_APP_PACKAGE_NAME = "com.android.cts.deviceowner";
@@ -48,8 +56,6 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
             "google.pl"
     };
 
-    private static final int MAX_VISITING_WEBPAGES_ITERATIONS = 100; // >1500 events
-    // note: make sure URL_LIST has at least 10 urls in it to generate enough network traffic
     private static final String[] LOGGED_URLS_LIST = {
             "example.com",
             "example.net",
@@ -68,20 +74,28 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (BaseDeviceOwnerTest.ACTION_NETWORK_LOGS_AVAILABLE.equals(intent.getAction())) {
-                mGenerateNetworkTraffic = false;
-                mCurrentBatchToken = intent.getLongExtra(
-                        BaseDeviceOwnerTest.EXTRA_NETWORK_LOGS_BATCH_TOKEN, FAKE_BATCH_TOKEN);
-                if (mCountDownLatch != null) {
-                    mCountDownLatch.countDown();
+            if (BasicAdminReceiver.ACTION_NETWORK_LOGS_AVAILABLE.equals(intent.getAction())) {
+                final long token =
+                        intent.getLongExtra(BasicAdminReceiver.EXTRA_NETWORK_LOGS_BATCH_TOKEN,
+                                FAKE_BATCH_TOKEN);
+                // Retrieve network logs.
+                final List<NetworkEvent> events = mDevicePolicyManager.retrieveNetworkLogs(getWho(),
+                        token);
+                if (events == null) {
+                    fail("Failed to retrieve batch of network logs with batch token " + token);
+                    return;
                 }
+                if (mBatchCountDown.getCount() > 0) {
+                    mNetworkEvents.addAll(events);
+                }
+                mBatchCountDown.countDown();
             }
         }
     };
 
-    private CountDownLatch mCountDownLatch;
-    private long mCurrentBatchToken;
-    private volatile boolean mGenerateNetworkTraffic;
+    private CountDownLatch mBatchCountDown;
+    private final ArrayList<NetworkEvent> mNetworkEvents = new ArrayList<>();
+    private int mBatchesRequested = 1;
 
     @Override
     protected void tearDown() throws Exception {
@@ -121,12 +135,13 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
      * traffic, so that the batch of logs is created
      */
     public void testNetworkLoggingAndRetrieval() throws Exception {
-        mCountDownLatch = new CountDownLatch(1);
-        mCurrentBatchToken = FAKE_BATCH_TOKEN;
-        mGenerateNetworkTraffic = true;
+        mBatchesRequested =
+                Integer.parseInt(
+                        InstrumentationRegistry.getArguments().getString(ARG_BATCH_COUNT, "1"));
+        mBatchCountDown = new CountDownLatch(mBatchesRequested);
         // register a receiver that listens for DeviceAdminReceiver#onNetworkLogsAvailable()
         final IntentFilter filterNetworkLogsAvailable = new IntentFilter(
-                BaseDeviceOwnerTest.ACTION_NETWORK_LOGS_AVAILABLE);
+                BasicAdminReceiver.ACTION_NETWORK_LOGS_AVAILABLE);
         LocalBroadcastManager.getInstance(mContext).registerReceiver(mNetworkLogsReceiver,
                 filterNetworkLogsAvailable);
 
@@ -141,46 +156,60 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
 
         // TODO: here test that facts about logging are shown in the UI
 
-        // visit websites in a loop to generate enough network traffic
-        int iterationsDone = 0;
-        while (mGenerateNetworkTraffic && iterationsDone < MAX_VISITING_WEBPAGES_ITERATIONS) {
-            for (final String url : LOGGED_URLS_LIST) {
-                connectToWebsite(url);
-            }
-            iterationsDone++;
+        // Fetch and verify the batches of events.
+        generateBatches();
+    }
+
+    private void generateBatches() throws Exception {
+        // visit websites to verify their dns lookups are logged
+        for (final String url : LOGGED_URLS_LIST) {
+            connectToWebsite(url);
+        }
+
+        // generate enough traffic to fill the batches.
+        int dummyReqNo = 0;
+        for (int i = 0; i < mBatchesRequested; i++) {
+            dummyReqNo += generateDummyTraffic();
         }
 
         // if DeviceAdminReceiver#onNetworkLogsAvailable() hasn't been triggered yet, wait for up to
-        // 3 minutes just in case
-        mCountDownLatch.await(3, TimeUnit.MINUTES);
+        // 3 minutes per batch just in case
+        final int timeoutMins = 3 * mBatchesRequested;
+        mBatchCountDown.await(timeoutMins, TimeUnit.MINUTES);
         LocalBroadcastManager.getInstance(mContext).unregisterReceiver(mNetworkLogsReceiver);
-        if (mGenerateNetworkTraffic) {
-            fail("Carried out 100 iterations and waited for 3 minutes, but still didn't get"
+        if (mBatchCountDown.getCount() > 0) {
+            fail("Generated events for " + mBatchesRequested + " batches and waited for "
+                    + timeoutMins + " minutes, but still didn't get"
                     + " DeviceAdminReceiver#onNetworkLogsAvailable() callback");
         }
 
-        // retrieve and verify network logs
-        final List<NetworkEvent> networkEvents = mDevicePolicyManager.retrieveNetworkLogs(getWho(),
-                mCurrentBatchToken);
-        if (networkEvents == null) {
-            fail("Failed to retrieve batch of network logs with batch token " + mCurrentBatchToken);
-            return;
-        }
-        verifyNetworkLogs(networkEvents, iterationsDone);
+        // Verify network logs.
+        assertEquals("First event has the wrong id.", 0L, mNetworkEvents.get(0).getId());
+        // For each of the real URLs we have two events: one DNS and one connect. Dummy requests
+        // don't require DNS queries.
+        final int eventsExpected =
+                Math.min(FULL_LOG_BATCH_SIZE * mBatchesRequested,
+                        2 * LOGGED_URLS_LIST.length + dummyReqNo);
+        verifyNetworkLogs(mNetworkEvents, eventsExpected);
     }
 
-    private void verifyNetworkLogs(List<NetworkEvent> networkEvents, int iterationsDone) {
-        assertTrue(networkEvents.size() == FULL_LOG_BATCH_SIZE);
+    private void verifyNetworkLogs(List<NetworkEvent> networkEvents, int eventsExpected) {
+        // allow a batch to be slightly smaller or larger.
+        assertTrue(Math.abs(eventsExpected - networkEvents.size()) <= 50);
         int ctsPackageNameCounter = 0;
-        // allow a small down margin for verification, to avoid flakyness
-        final int iterationsDoneWithMargin = iterationsDone - 5;
-        final int[] visitedFrequencies = new int[LOGGED_URLS_LIST.length];
+        // allow a small down margin for verification, to avoid flakiness
+        final int eventsExpectedWithMargin = eventsExpected - 50;
+        final boolean[] visited = new boolean[LOGGED_URLS_LIST.length];
 
         for (int i = 0; i < networkEvents.size(); i++) {
             final NetworkEvent currentEvent = networkEvents.get(i);
             // verify that the events are in chronological order
             if (i > 0) {
                 assertTrue(currentEvent.getTimestamp() >= networkEvents.get(i - 1).getTimestamp());
+            }
+            // verify that the event IDs are monotonically increasing
+            if (i > 0) {
+                assertTrue(currentEvent.getId() == (networkEvents.get(i - 1).getId() + 1));
             }
             // count how many events come from the CTS app
             if (CTS_APP_PACKAGE_NAME.equals(currentEvent.getPackageName())) {
@@ -196,7 +225,7 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
                     // count the frequencies of LOGGED_URLS_LIST's hostnames that were looked up
                     for (int j = 0; j < LOGGED_URLS_LIST.length; j++) {
                         if (dnsEvent.getHostname().contains(LOGGED_URLS_LIST[j])) {
-                            visitedFrequencies[j]++;
+                            visited[j] = true;
                             break;
                         }
                     }
@@ -223,30 +252,91 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
             }
         }
 
-        // verify that each hostname from LOGGED_URLS_LIST was looked-up enough times
+        // verify that each hostname from LOGGED_URLS_LIST was looked-up
         for (int i = 0; i < 10; i++) {
-            // to avoid flakyness account for DNS caching and connection errors
-            assertTrue(visitedFrequencies[i] >= (iterationsDoneWithMargin / 2));
+            assertTrue(LOGGED_URLS_LIST[i] + " wasn't visited", visited[i]);
         }
         // verify that sufficient iterations done by the CTS app were logged
-        assertTrue(ctsPackageNameCounter >= LOGGED_URLS_LIST.length * iterationsDoneWithMargin);
+        assertTrue(ctsPackageNameCounter >= eventsExpectedWithMargin);
     }
 
-    private void connectToWebsite(String urlString) {
+    private void connectToWebsite(String server) {
         HttpURLConnection urlConnection = null;
         try {
-            final URL url = new URL("http://" + urlString);
+            final URL url = new URL("http://" + server);
             urlConnection = (HttpURLConnection) url.openConnection();
             urlConnection.setConnectTimeout(2000);
             urlConnection.setReadTimeout(2000);
             urlConnection.getResponseCode();
         } catch (IOException e) {
-            Log.w(TAG, "Failed to connect to " + urlString, e);
+            Log.w(TAG, "Failed to connect to " + server, e);
         } finally {
             if (urlConnection != null) {
                 urlConnection.disconnect();
             }
         }
+    }
+
+    /** Quickly generate loads of events by repeatedly connecting to a local server. */
+    private int generateDummyTraffic() throws IOException, InterruptedException {
+        final ServerSocket serverSocket = new ServerSocket(0);
+        final Thread serverThread = startDummyServer(serverSocket);
+
+        final int reqNo = makeDummyRequests(serverSocket.getLocalPort());
+
+        serverSocket.close();
+        serverThread.join();
+
+        return reqNo;
+    }
+
+    private int makeDummyRequests(int port) {
+        int reqNo;
+        final String DUMMY_SERVER = "127.0.0.1:" + port;
+        for (reqNo = 0; reqNo < FULL_LOG_BATCH_SIZE && mBatchCountDown.getCount() > 0; reqNo++) {
+            connectToWebsite(DUMMY_SERVER);
+            try {
+                // Just to prevent choking the server.
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        return reqNo;
+    }
+
+    private Thread startDummyServer(ServerSocket serverSocket) throws InterruptedException {
+        final Thread serverThread = new Thread(() -> {
+            while (!serverSocket.isClosed()) {
+                try {
+                    final Socket socket = serverSocket.accept();
+                    // Consume input.
+                    final BufferedReader input =
+                            new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                    String line;
+                    do {
+                        line = input.readLine();
+                    } while (line != null && !line.equals(""));
+                    // Return minimum valid response.
+                    final PrintStream output = new PrintStream(socket.getOutputStream());
+                    output.println("HTTP/1.0 200 OK");
+                    output.println("Content-Length: 0");
+                    output.println();
+                    output.flush();
+                    output.close();
+                } catch (IOException e) {
+                    if (!serverSocket.isClosed()) {
+                        Log.w(TAG, "Failed to serve connection", e);
+                    }
+                }
+            }
+        });
+        serverThread.start();
+
+        // Allow the server to start accepting.
+        Thread.sleep(1_000);
+
+        return serverThread;
     }
 
     private boolean isIpv4OrIpv6Address(InetAddress addr) {

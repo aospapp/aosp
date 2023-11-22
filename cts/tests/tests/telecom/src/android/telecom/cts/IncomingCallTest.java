@@ -16,16 +16,18 @@
 
 package android.telecom.cts;
 
+import static android.telecom.cts.TestUtils.COMPONENT;
+import static android.telecom.cts.TestUtils.PACKAGE;
+
 import android.content.ComponentName;
+import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.Connection;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+import android.telephony.TelephonyManager;
 
 import java.util.Collection;
-
-import static android.telecom.cts.TestUtils.COMPONENT;
-import static android.telecom.cts.TestUtils.PACKAGE;
 
 /**
  * Tests valid/invalid incoming calls that are received from the ConnectionService
@@ -35,12 +37,6 @@ public class IncomingCallTest extends BaseTelecomTestWithMockServices {
 
     private static final PhoneAccountHandle TEST_INVALID_HANDLE = new PhoneAccountHandle(
             new ComponentName(PACKAGE, COMPONENT), "WRONG_ID");
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getContext();
-    }
 
     public void testAddNewIncomingCall_CorrectPhoneAccountHandle() throws Exception {
         if (!mShouldTestTelecom) {
@@ -52,6 +48,18 @@ public class IncomingCallTest extends BaseTelecomTestWithMockServices {
         Collection<Connection> connections = CtsConnectionService.getAllConnectionsFromTelecom();
         assertEquals(1, connections.size());
         assertTrue(connections.contains(connection3));
+    }
+
+    public void testPhoneStateListenerInvokedOnIncomingCall() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
+        Uri testNumber = createTestNumber();
+        addAndVerifyNewIncomingCall(testNumber, null);
+        verifyConnectionForIncomingCall();
+        verifyPhoneStateListenerCallbacksForCall(TelephonyManager.CALL_STATE_RINGING,
+                testNumber.getSchemeSpecificPart());
     }
 
     /**

@@ -1,8 +1,7 @@
 #/** @file
 #  INF file for the eMMC Host Protocol implementation for the DesignWare MMC.
 #
-#  Copyright (c) 2014-2016, Linaro Limited. All rights reserved.
-#  Copyright (c) 2014-2016, Hisilicon Limited. All rights reserved.
+#  Copyright (c) 2014-2017, Linaro Limited. All rights reserved.
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -15,7 +14,7 @@
 #**/
 
 [Defines]
-  INF_VERSION                    = 0x00010005
+  INF_VERSION                    = 0x00010019
   BASE_NAME                      = DwEmmcDxe
   FILE_GUID                      = b549f005-4bd4-4020-a0cb-06f42bda68c3
   MODULE_TYPE                    = DXE_DRIVER

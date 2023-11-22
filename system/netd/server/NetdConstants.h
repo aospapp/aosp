@@ -57,6 +57,7 @@ void setCloseOnExec(const char *sock);
 #define INT32_STRLEN _INT_STRLEN(INT32_MIN)
 #define UINT32_STRLEN _INT_STRLEN(UINT32_MAX)
 #define UINT32_HEX_STRLEN sizeof("0x12345678")
+#define IPSEC_IFACE_PREFIX "ipsec"
 
 #define WARN_UNUSED_RESULT __attribute__((__warn_unused_result__))
 

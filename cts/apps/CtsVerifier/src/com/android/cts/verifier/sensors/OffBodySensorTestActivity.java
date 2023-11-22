@@ -29,7 +29,7 @@ import android.hardware.cts.helpers.SensorNotSupportedException;
 import android.hardware.cts.helpers.SuspendStateMonitor;
 import android.os.PowerManager;
 import android.os.SystemClock;
-import android.support.v4.content.LocalBroadcastManager;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import android.util.Log;
 
 import com.android.cts.verifier.R;

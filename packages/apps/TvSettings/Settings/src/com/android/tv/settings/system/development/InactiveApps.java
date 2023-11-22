@@ -23,16 +23,17 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
 import android.support.annotation.Keep;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceScreen;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.List;
 
 @Keep
-public class InactiveApps extends LeanbackPreferenceFragment implements
+public class InactiveApps extends SettingsPreferenceFragment implements
         Preference.OnPreferenceClickListener {
 
     private UsageStatsManager mUsageStats;
@@ -96,4 +97,8 @@ public class InactiveApps extends LeanbackPreferenceFragment implements
         return false;
     }
 
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.FUELGAUGE_INACTIVE_APPS;
+    }
 }

@@ -16,7 +16,6 @@
 #include <Library/DebugLib.h>
 #include <Library/IoLib.h>
 #include <Library/PciLib.h>
-#include <Library/PcdLib.h>
 #include <OvmfPlatforms.h>
 
 /**
@@ -36,6 +35,8 @@ AcpiTimerLibConstructor (
 {
   UINT16 HostBridgeDevId;
   UINTN Pmba;
+  UINT32 PmbaAndVal;
+  UINT32 PmbaOrVal;
   UINTN AcpiCtlReg;
   UINT8 AcpiEnBit;
 
@@ -46,11 +47,15 @@ AcpiTimerLibConstructor (
   switch (HostBridgeDevId) {
     case INTEL_82441_DEVICE_ID:
       Pmba       = POWER_MGMT_REGISTER_PIIX4 (PIIX4_PMBA);
+      PmbaAndVal = ~(UINT32)PIIX4_PMBA_MASK;
+      PmbaOrVal  = PIIX4_PMBA_VALUE;
       AcpiCtlReg = POWER_MGMT_REGISTER_PIIX4 (PIIX4_PMREGMISC);
       AcpiEnBit  = PIIX4_PMREGMISC_PMIOSE;
       break;
     case INTEL_Q35_MCH_DEVICE_ID:
       Pmba       = POWER_MGMT_REGISTER_Q35 (ICH9_PMBASE);
+      PmbaAndVal = ~(UINT32)ICH9_PMBASE_MASK;
+      PmbaOrVal  = ICH9_PMBASE_VALUE;
       AcpiCtlReg = POWER_MGMT_REGISTER_Q35 (ICH9_ACPI_CNTL);
       AcpiEnBit  = ICH9_ACPI_CNTL_ACPI_EN;
       break;
@@ -67,9 +72,9 @@ AcpiTimerLibConstructor (
   if ((PciRead8 (AcpiCtlReg) & AcpiEnBit) == 0) {
     //
     // If the Power Management Base Address is not programmed,
-    // then program the Power Management Base Address from a PCD.
+    // then program it now.
     //
-    PciAndThenOr32 (Pmba, (UINT32) ~0xFFC0, PcdGet16 (PcdAcpiPmBaseAddress));
+    PciAndThenOr32 (Pmba, PmbaAndVal, PmbaOrVal);
 
     //
     // Enable PMBA I/O port decodes

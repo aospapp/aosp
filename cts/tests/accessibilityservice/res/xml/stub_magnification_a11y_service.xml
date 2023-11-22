@@ -15,10 +15,11 @@
 -->
 
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeAllMask"
-    android:accessibilityFeedbackType="feedbackGeneric"
-    android:canRetrieveWindowContent="true"
-    android:canRequestTouchExplorationMode="true"
-    android:canRequestEnhancedWebAccessibility="true"
-    android:canRequestFilterKeyEvents="true"
-    android:canControlMagnification="true" />
+        android:accessibilityEventTypes="typeAllMask"
+        android:accessibilityFeedbackType="feedbackGeneric"
+        android:canRetrieveWindowContent="true"
+        android:canRequestTouchExplorationMode="true"
+        android:canRequestEnhancedWebAccessibility="true"
+        android:canRequestFilterKeyEvents="true"
+        android:canControlMagnification="true"
+        android:canPerformGestures="true"/>

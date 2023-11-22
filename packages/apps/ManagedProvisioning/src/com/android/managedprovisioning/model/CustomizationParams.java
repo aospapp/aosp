@@ -20,26 +20,20 @@ import android.content.Context;
 import android.webkit.URLUtil;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.Utils;
 
 /**
  * Captures parameters related to brand customization (e.g. tint color).
  */
 public class CustomizationParams {
-    @VisibleForTesting public static final int DEFAULT_COLOR_ID_MP = R.color.gray_status_bar;
-    @VisibleForTesting public static final int DEFAULT_COLOR_ID_DO = R.color.blue;
-    @VisibleForTesting public static final int DEFAULT_COLOR_ID_BUTTON = R.color.blue;
-    @VisibleForTesting public static final int DEFAULT_COLOR_ID_SWIPER = R.color.teal2;
+    @VisibleForTesting
+    public static final int DEFAULT_STATUS_BAR_COLOR_ID = android.R.color.white;
 
     /** Status bar color */
     public final int statusBarColor;
 
-    /** Animation swiper color */
-    public final int swiperColor;
-
-    /** 'Accept & Continue' button color */
-    public final int buttonColor;
+    /** Color used in everywhere else */
+    public final int mainColor;
 
     /** Name of the organization where the device is being provisioned. */
     public final @Nullable String orgName;
@@ -51,33 +45,27 @@ public class CustomizationParams {
      * Computes an instance from {@link ProvisioningParams} and required helper classes.
      * @param params {@link ProvisioningParams} instance to compute the values from
      * @param context {@link Context} instance to resolve color ids
-     * @param utils {@link Utils} instance to determine the provisioning mode
      */
-    public static CustomizationParams createInstance(ProvisioningParams params, Context context,
-            Utils utils) {
-        boolean isProfileOwner = utils.isProfileOwnerAction(params.provisioningAction);
-
-        int statusBarColor, swiperColor, buttonColor;
+    public static CustomizationParams createInstance(
+            ProvisioningParams params, Context context, Utils utils) {
+        int statusBarColor, mainColor;
         if (params.mainColor != null) {
-            statusBarColor = swiperColor = buttonColor = params.mainColor;
+            statusBarColor = mainColor = params.mainColor;
         } else {
-            statusBarColor = context.getColor(
-                    isProfileOwner ? DEFAULT_COLOR_ID_MP : DEFAULT_COLOR_ID_DO);
-            swiperColor = context.getColor(DEFAULT_COLOR_ID_SWIPER);
-            buttonColor = context.getColor(DEFAULT_COLOR_ID_BUTTON);
+            statusBarColor = context.getColor(DEFAULT_STATUS_BAR_COLOR_ID);
+            mainColor = utils.getAccentColor(context);
         }
 
         String supportUrl = URLUtil.isNetworkUrl(params.supportUrl) ? params.supportUrl : null;
 
-        return new CustomizationParams(statusBarColor, swiperColor, buttonColor,
-                params.organizationName, supportUrl);
+        return new CustomizationParams(mainColor, statusBarColor, params.organizationName,
+                supportUrl);
     }
 
-    private CustomizationParams(int statusBarColor, int swiperColor, int buttonColor,
+    private CustomizationParams(int mainColor, int statusBarColor,
             String orgName, String supportUrl) {
+        this.mainColor = mainColor;
         this.statusBarColor = statusBarColor;
-        this.swiperColor = swiperColor;
-        this.buttonColor = buttonColor;
         this.orgName = orgName;
         this.supportUrl = supportUrl;
     }

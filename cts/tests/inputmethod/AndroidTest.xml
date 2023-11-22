@@ -16,10 +16,21 @@
 -->
 
 <configuration description="Config for CTS InputMethod test cases">
-    <option name="config-descriptor:metadata" key="component" value="framework" />
+    <option name="test-suite-tag" value="cts" />
+    <option name="config-descriptor:metadata" key="component" value="inputmethod" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
+        <!--
+            TODO(yukawa): come up with a proper way to take care of devices that do not support
+            installable IMEs.  Ideally target_preparer should have an option to annotate required
+            features, e.g. android.software.input_methods so that we can conditionally install APKs
+            based on the feature supported in the target device.
+        -->
         <option name="test-file-name" value="CtsInputMethodTestCases.apk" />
+    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="cmd input_method set-bind-instant-service-allowed true" />
+        <option name="teardown-command" value="cmd input_method set-bind-instant-service-allowed false" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.view.inputmethod.cts" />

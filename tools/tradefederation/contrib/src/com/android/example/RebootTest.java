@@ -16,17 +16,17 @@
 
 package com.android.example;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.IManagedTestDevice;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 
-import java.util.Collections;
-import java.util.Map;
+import java.util.HashMap;
 
 /**
  * Reboots the device and verifies it comes back online.
@@ -44,21 +44,22 @@ public class RebootTest implements IRemoteTest, IDeviceTest {
     @Override
     public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
         long start;
-        Map<String, String> emptyMap = Collections.emptyMap();
-        TestIdentifier testId;
+        HashMap<String, Metric> emptyMap = new HashMap<>();
+        TestDescription testId;
         start = System.currentTimeMillis();
         listener.testRunStarted(String.format("#%d device reboots", mNumDeviceReboots),
                                 mNumDeviceReboots);
         try {
             for (int testCount = 0; testCount < mNumDeviceReboots; testCount++) {
-                testId = new TestIdentifier("RebootTest",
+                testId = new TestDescription("RebootTest",
                                             String.format("RebootLoop #%d", testCount));
                 listener.testStarted(testId);
                 try {
                     getDevice().nonBlockingReboot();
-                    if (((IManagedTestDevice)getDevice()).getMonitor().waitForDeviceOnline() == null) {
+                    if (((IManagedTestDevice) getDevice()).getMonitor().waitForDeviceOnline()
+                            == null) {
                         listener.testFailed(testId, "Reboot failed");
-                        ((IManagedTestDevice)getDevice()).recoverDevice();
+                        ((IManagedTestDevice) getDevice()).recoverDevice();
                     }
                 }
                 finally {

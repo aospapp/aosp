@@ -41,7 +41,7 @@
     <string name="menu_compress" msgid="37539111904724188">"I-compress"</string>
     <string name="menu_extract" msgid="8171946945982532262">"I-extract sa…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"Palitan ang pangalan"</string>
-    <string name="menu_inspector" msgid="8217713416277319588">"Kumuha ng impormasyon"</string>
+    <string name="menu_inspect" msgid="7279855349299446224">"Kumuha ng impormasyon"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"Tingnan sa <xliff:g id="SOURCE">%1$s</xliff:g>"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"Bagong window"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"I-cut"</string>
@@ -57,6 +57,8 @@
     <string name="button_move" msgid="8596460499325291272">"Ilipat"</string>
     <string name="button_dismiss" msgid="7235249361023803349">"I-dismiss"</string>
     <string name="button_retry" msgid="4011461781916631389">"Subukang Muli"</string>
+    <string name="button_clear" msgid="5412304437764369441">"I-clear"</string>
+    <string name="button_show_provider" msgid="6905880493806292753">"Ipakita sa provider"</string>
     <string name="not_sorted" msgid="7813496644889115530">"Hindi napagbukud-bukod"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"Pangalan"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"Buod"</string>
@@ -64,14 +66,6 @@
     <string name="sort_dimension_size" msgid="2190547351159472884">"Laki"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"Binago"</string>
     <string name="directory_items" msgid="6645621978998614003">"Bilang ng mga item"</string>
-    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"Nabubuksan ang ganitong uri ng file sa"</string>
-    <string name="handler_app_belongs_to" msgid="5956928604521893459">"Nabibilang ang file na ito sa"</string>
-    <string name="handler_app_button_info_1" msgid="4271199640671067569">"Mabubuksan ng iba pang app ang uring ito ng file. I-clear ang"</string>
-    <string name="handler_app_button_info_2" msgid="4299969771512815898">"bilang ang default."</string>
-    <string name="handler_app_clear" msgid="206579047716445033">"I-clear"</string>
-    <string name="handler_app_show_in" msgid="7923573101129079048">"Ipakita sa provider"</string>
-    <string name="handler_app_not_selected" msgid="8178393676227130360">"Hindi napili"</string>
-    <string name="handler_app_unknown" msgid="56574249066388341">"Hindi Alam"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"Pataas"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"Pababa"</string>
     <string name="drawer_open" msgid="8071673398187261741">"Ipakita ang mga root"</string>
@@ -85,12 +79,11 @@
     <string name="root_type_shortcut" msgid="6059343175525442279">"Mga Shortcut"</string>
     <string name="root_type_device" msgid="1713604128005476585">"Mga Device"</string>
     <string name="root_type_apps" msgid="8646073235029886342">"Higit pang mga app"</string>
-    <string name="empty" msgid="5300254272613103004">"Walang mga item"</string>
+    <string name="empty" msgid="5300254272613103004">"Walang item"</string>
     <string name="no_results" msgid="2371026325236359209">"Walang mga katugma sa %1$s"</string>
     <string name="toast_no_application" msgid="7555319548595113121">"Hindi mabuksan ang file"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"Hindi mabuksan ang mga file sa mga archive"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"Hindi ma-delete ang ilang dokumento"</string>
-    <string name="file_inspector_load_error" msgid="1226344446677541109">"Hindi ma-load ang mga property"</string>
     <string name="share_via" msgid="8725082736005677161">"Ibahagi gamit ang"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"Kinokopya ang mga file"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"Kino-compress ang files"</string>
@@ -119,11 +112,11 @@
       <item quantity="other">Dine-delete ang <xliff:g id="COUNT_1">%1$d</xliff:g> na item.</item>
     </plurals>
     <string name="undo" msgid="2902438994196400565">"I-undo"</string>
-    <string name="copy_preparing" msgid="5326063807006898223">"Naghahanda para sa pagkopya…"</string>
-    <string name="compress_preparing" msgid="6650018601382062672">"Inihahandang i-compress…"</string>
-    <string name="extract_preparing" msgid="58266275455027829">"Inihahanda para sa pag-extract…"</string>
-    <string name="move_preparing" msgid="8742573245485449429">"Naghahanda para sa paglilipat…"</string>
-    <string name="delete_preparing" msgid="6513863752916028147">"Naghahanda para sa pag-delete…"</string>
+    <string name="copy_preparing" msgid="4759516490222449324">"Inihahanda..."</string>
+    <string name="compress_preparing" msgid="7401605598969019696">"Inihahanda..."</string>
+    <string name="extract_preparing" msgid="4796626960061745796">"Inihahanda..."</string>
+    <string name="move_preparing" msgid="6504239656430530761">"Inihahanda..."</string>
+    <string name="delete_preparing" msgid="7339349837842802508">"Inihahanda..."</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g> / <xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
       <item quantity="one">Hindi makopya ang <xliff:g id="COUNT_1">%1$d</xliff:g> item</item>
@@ -213,5 +206,4 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"archive<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"I-overwrite ang <xliff:g id="NAME">%1$s</xliff:g>?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Magpatuloy sa background"</string>
-    <string name="inspector_debug_section" msgid="3447621501565766900">"Impormasyon ng debug (dev lang)"</string>
 </resources>

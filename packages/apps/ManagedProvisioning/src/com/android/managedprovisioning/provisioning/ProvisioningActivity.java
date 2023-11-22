@@ -18,8 +18,8 @@ package com.android.managedprovisioning.provisioning;
 
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_PROVISIONING_ACTIVITY_TIME_MS;
 
-import android.Manifest;
 import android.Manifest.permission;
+import android.annotation.ColorRes;
 import android.app.Activity;
 import android.app.DialogFragment;
 import android.app.admin.DevicePolicyManager;
@@ -27,9 +27,16 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.res.ColorStateList;
+import android.graphics.drawable.Animatable2;
+import android.graphics.drawable.AnimatedVectorDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.VisibleForTesting;
-import android.view.accessibility.AccessibilityEvent;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.android.managedprovisioning.R;
@@ -40,6 +47,8 @@ import com.android.managedprovisioning.common.SimpleDialog;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.ProvisioningParams;
+import com.android.setupwizardlib.GlifLayout;
+
 import java.util.List;
 
 /**
@@ -61,6 +70,19 @@ public class ProvisioningActivity extends SetupGlifLayoutActivity
 
     private ProvisioningParams mParams;
     private ProvisioningManager mProvisioningManager;
+    private AnimatedVectorDrawable mAnimatedVectorDrawable;
+
+    private Handler mUiThreadHandler = new Handler();
+
+    /** Repeats the animation once it is done **/
+    private final Animatable2.AnimationCallback mAnimationCallback =
+            new Animatable2.AnimationCallback() {
+                @Override
+                public void onAnimationEnd(Drawable drawable) {
+                    super.onAnimationEnd(drawable);
+                    mUiThreadHandler.post(mAnimatedVectorDrawable::start);
+                }
+            };
 
     public ProvisioningActivity() {
         this(null, new Utils());
@@ -105,6 +127,11 @@ public class ProvisioningActivity extends SetupGlifLayoutActivity
         if (!isAnyDialogAdded()) {
             getProvisioningManager().registerListener(this);
         }
+        if (mAnimatedVectorDrawable != null) {
+            mAnimatedVectorDrawable.registerAnimationCallback(mAnimationCallback);
+            mAnimatedVectorDrawable.reset();
+            mAnimatedVectorDrawable.start();
+        }
     }
 
     private boolean isAnyDialogAdded() {
@@ -117,6 +144,10 @@ public class ProvisioningActivity extends SetupGlifLayoutActivity
     @Override
     public void onPause() {
         getProvisioningManager().unregisterListener(this);
+        if (mAnimatedVectorDrawable != null) {
+            mAnimatedVectorDrawable.stop();
+            mAnimatedVectorDrawable.unregisterAnimationCallback(mAnimationCallback);
+        }
         super.onPause();
     }
 
@@ -277,8 +308,22 @@ public class ProvisioningActivity extends SetupGlifLayoutActivity
         final int titleResId = isDoProvisioning ? R.string.setup_device_progress
                 : R.string.setup_profile_progress;
 
-        initializeLayoutParams(R.layout.progress, headerResId, true,
-                CustomizationParams.createInstance(mParams, this, mUtils).statusBarColor);
+        CustomizationParams customizationParams =
+                CustomizationParams.createInstance(mParams, this, mUtils);
+        initializeLayoutParams(R.layout.progress, headerResId, customizationParams.mainColor,
+                customizationParams.statusBarColor);
         setTitle(titleResId);
+        GlifLayout layout = findViewById(R.id.setup_wizard_layout);
+
+        TextView textView = layout.findViewById(R.id.description);
+        ImageView imageView = layout.findViewById(R.id.animation);
+        if (isDoProvisioning) {
+            textView.setText(R.string.device_owner_description);
+            imageView.setImageResource(R.drawable.enterprise_do_animation);
+        } else {
+            textView.setText(R.string.work_profile_description);
+            imageView.setImageResource(R.drawable.enterprise_wp_animation);
+        }
+        mAnimatedVectorDrawable = (AnimatedVectorDrawable) imageView.getDrawable();
     }
 }

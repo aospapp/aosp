@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"Munkához használt eszköz beállítása…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Beállítási adatok feldolgozása…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Kapcsolódás Wi-Fi-hez…"</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Csatlakozás mobilhálózathoz…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Rendszergazda-alkalmazás letöltése…"</string>
     <string name="progress_install" msgid="2258045670385866183">"Rendszergazda-alkalmazás telepítése…"</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Nem szükséges rendszeralkalmazások törlése…"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Munkaprofilt készül létrehozni, amelyet szervezete kezel és figyel majd. A(z) <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> feltételei érvényesek."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"A létrejövő profilban a munkahelyi alkalmazásai lesznek megtalálhatók. A profilt és az eszköz többi részét szervezete kezeli és figyeli. Feltételek vannak érvényben."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"A létrejövő profilban a munkahelyi alkalmazásai lesznek megtalálhatók. A profilt és az eszköz többi részét szervezete kezeli és figyeli. A(z) <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> feltételei érvényesek."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"Ezt az eszközt a továbbiakban a(z) <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> kezeli és tartja biztonságban. Feltételek vannak érvényben. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"Ezt az eszközt a továbbiakban a(z) <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> kezeli és tartja biztonságban. A(z) <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> feltételei érvényesek. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"Ezt az eszközt a továbbiakban a(z) <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> kezeli, felügyeli és tartja biztonságban. Feltételek vannak érvényben. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Ezt az eszközt a továbbiakban a(z) <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> kezeli, felügyeli és tartja biztonságban. A(z) <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> feltételei érvényesek. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"A következő link nem biztonságos, és a beállítás befejezéséig nem lehet megnyitni: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"Ha kérdései vannak, forduljon a következő a személyhez: <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"Kérdéseivel forduljon a szervezet rendszergazdájához"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> és <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"Ez eltarthat néhány percig"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"A munkahelyi alkalmazásokat ezen a profilon tároljuk, és a szervezet kezeli őket"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"Az eszközt az Ön szervezete kezeli és tartja biztonságban."</string>
 </resources>

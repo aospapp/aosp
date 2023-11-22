@@ -20,13 +20,17 @@ import static com.android.cts.verifier.notifications.MockListener.JSON_AMBIENT;
 import static com.android.cts.verifier.notifications.MockListener.JSON_MATCHES_ZEN_FILTER;
 import static com.android.cts.verifier.notifications.MockListener.JSON_TAG;
 
+import android.app.ActivityManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.ContentProviderOperation;
+import android.content.Context;
 import android.content.OperationApplicationException;
 import android.database.Cursor;
+import android.media.AudioAttributes;
 import android.net.Uri;
+import android.os.Build;
 import android.os.RemoteException;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Email;
@@ -35,7 +39,9 @@ import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+
 import com.android.cts.verifier.R;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -50,6 +56,8 @@ public class AttentionManagementVerifierActivity
 
     private static final String NOTIFICATION_CHANNEL_ID = TAG;
     private static final String NOTIFICATION_CHANNEL_ID_NOISY = TAG + "/noisy";
+    private static final String NOTIFICATION_CHANNEL_ID_MEDIA = TAG + "/media";
+    private static final String NOTIFICATION_CHANNEL_ID_GAME = TAG + "/game";
     private static final String ALICE = "Alice";
     private static final String ALICE_PHONE = "+16175551212";
     private static final String ALICE_EMAIL = "alice@_foo._bar";
@@ -68,18 +76,17 @@ public class AttentionManagementVerifierActivity
     private static final int SEND_C = 0x4;
     private static final int SEND_ALL = SEND_A | SEND_B | SEND_C;
 
-
     private Uri mAliceUri;
     private Uri mBobUri;
     private Uri mCharlieUri;
 
     @Override
-    int getTitleResource() {
+    protected int getTitleResource() {
         return R.string.attention_test;
     }
 
     @Override
-    int getInstructionsResource() {
+    protected int getInstructionsResource() {
         return R.string.attention_info;
     }
 
@@ -87,21 +94,37 @@ public class AttentionManagementVerifierActivity
 
     @Override
     protected List<InteractiveTestCase> createTestItems() {
+
         List<InteractiveTestCase> tests = new ArrayList<>(17);
-        tests.add(new IsEnabledTest());
-        tests.add(new ServiceStartedTest());
-        tests.add(new InsertContactsTest());
-        tests.add(new NoneInterceptsAllTest());
-        tests.add(new PriorityInterceptsSomeTest());
-        tests.add(new AllInterceptsNothingTest());
-        tests.add(new DefaultOrderTest());
-        tests.add(new PriorityOrderTest());
-        tests.add(new InterruptionOrderTest());
-        tests.add(new AmbientBitsTest());
-        tests.add(new LookupUriOrderTest());
-        tests.add(new EmailOrderTest());
-        tests.add(new PhoneOrderTest());
-        tests.add(new DeleteContactsTest());
+        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        if (am.isLowRamDevice()) {
+            tests.add(new CannotBeEnabledTest());
+            tests.add(new ServiceStoppedTest());
+        } else {
+            tests.add(new IsEnabledTest());
+            tests.add(new ServiceStartedTest());
+            tests.add(new InsertContactsTest());
+            tests.add(new NoneInterceptsAllMessagesTest());
+            tests.add(new NoneInterceptsAlarmEventReminderCategoriesTest());
+            tests.add(new PriorityInterceptsSomeMessagesTest());
+
+            if (getApplicationInfo().targetSdkVersion > Build.VERSION_CODES.O_MR1) {
+                // Tests targeting P and above:
+                tests.add(new PriorityInterceptsAlarmsTest());
+                tests.add(new PriorityInterceptsMediaSystemOtherTest());
+            }
+
+            tests.add(new AllInterceptsNothingMessagesTest());
+            tests.add(new AllInterceptsNothingDiffCategoriesTest());
+            tests.add(new DefaultOrderTest());
+            tests.add(new PriorityOrderTest());
+            tests.add(new InterruptionOrderTest());
+            tests.add(new AmbientBitsTest());
+            tests.add(new LookupUriOrderTest());
+            tests.add(new EmailOrderTest());
+            tests.add(new PhoneOrderTest());
+            tests.add(new DeleteContactsTest());
+        }
         return tests;
     }
 
@@ -113,23 +136,60 @@ public class AttentionManagementVerifierActivity
                 NOTIFICATION_CHANNEL_ID_NOISY, NotificationManager.IMPORTANCE_HIGH);
         noisyChannel.enableVibration(true);
         mNm.createNotificationChannel(noisyChannel);
+        NotificationChannel mediaChannel = new NotificationChannel(NOTIFICATION_CHANNEL_ID_MEDIA,
+                NOTIFICATION_CHANNEL_ID_MEDIA, NotificationManager.IMPORTANCE_HIGH);
+        AudioAttributes.Builder aa = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA);
+        mediaChannel.setSound(null, aa.build());
+        mNm.createNotificationChannel(mediaChannel);
+        NotificationChannel gameChannel = new NotificationChannel(NOTIFICATION_CHANNEL_ID_GAME,
+                NOTIFICATION_CHANNEL_ID_GAME, NotificationManager.IMPORTANCE_HIGH);
+        AudioAttributes.Builder aa2 = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_GAME);
+        gameChannel.setSound(null, aa2.build());
+        mNm.createNotificationChannel(gameChannel);
     }
 
     private void deleteChannels() {
         mNm.deleteNotificationChannel(NOTIFICATION_CHANNEL_ID);
         mNm.deleteNotificationChannel(NOTIFICATION_CHANNEL_ID_NOISY);
+        mNm.deleteNotificationChannel(NOTIFICATION_CHANNEL_ID_MEDIA);
+        mNm.deleteNotificationChannel(NOTIFICATION_CHANNEL_ID_GAME);
     }
 
     // Tests
 
+    private class ServiceStoppedTest extends InteractiveTestCase {
+        int mRetries = 3;
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createAutoItem(parent, R.string.nls_service_stopped);
+        }
+
+        @Override
+        protected void test() {
+            if (MockListener.getInstance() == null
+                    || !MockListener.getInstance().isConnected) {
+                status = PASS;
+            } else {
+                if (--mRetries > 0) {
+                    sleep(100);
+                    status = RETEST;
+                } else {
+                    status = FAIL;
+                }
+            }
+        }
+    }
+
     protected class InsertContactsTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.attention_create_contacts);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             insertSingleContact(ALICE, ALICE_PHONE, ALICE_EMAIL, true);
             insertSingleContact(BOB, BOB_PHONE, BOB_EMAIL, false);
             // charlie is not in contacts
@@ -137,7 +197,7 @@ public class AttentionManagementVerifierActivity
         }
 
         @Override
-        void test() {
+        protected void test() {
             mAliceUri = lookupContact(ALICE_PHONE);
             mBobUri = lookupContact(BOB_PHONE);
             mCharlieUri = lookupContact(CHARLIE_PHONE);
@@ -161,12 +221,12 @@ public class AttentionManagementVerifierActivity
 
     protected class DeleteContactsTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.attention_delete_contacts);
         }
 
         @Override
-        void test() {
+        protected void test() {
             final ArrayList<ContentProviderOperation> operationList = new ArrayList<>();
             operationList.add(ContentProviderOperation.newDelete(mAliceUri).build());
             operationList.add(ContentProviderOperation.newDelete(mBobUri).build());
@@ -185,14 +245,14 @@ public class AttentionManagementVerifierActivity
         }
     }
 
-    protected class NoneInterceptsAllTest extends InteractiveTestCase {
+    protected class NoneInterceptsAllMessagesTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.attention_all_are_filtered);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE);
             createChannels();
             sendNotifications(MODE_URI, false, false);
@@ -200,7 +260,7 @@ public class AttentionManagementVerifierActivity
         }
 
         @Override
-        void test() {
+        protected void test() {
             List<JSONObject> result = new ArrayList<>(MockListener.getInstance().getPosted());
 
             Set<String> found = new HashSet<String>();
@@ -213,7 +273,7 @@ public class AttentionManagementVerifierActivity
                 try {
                     String tag = payload.getString(JSON_TAG);
                     boolean zen = payload.getBoolean(JSON_MATCHES_ZEN_FILTER);
-                    Log.e(TAG, tag + (zen ? "" : " not") + " intercepted");
+                    Log.e(TAG, tag + (!zen ? "" : " not") + " intercepted");
                     if (found.contains(tag)) {
                         // multiple entries for same notification!
                         pass = false;
@@ -237,30 +297,30 @@ public class AttentionManagementVerifierActivity
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
             mNm.cancelAll();
             deleteChannels();
             MockListener.getInstance().resetData();
         }
-
     }
 
-    protected class AllInterceptsNothingTest extends InteractiveTestCase {
+    protected class NoneInterceptsAlarmEventReminderCategoriesTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
-            return createAutoItem(parent, R.string.attention_none_are_filtered);
+        protected View inflate(ViewGroup parent) {
+            return createAutoItem(parent, R.string.attention_all_are_filtered);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
+            mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE);
             createChannels();
-            sendNotifications(MODE_URI, false, false);
+            sendEventAlarmReminderNotifications(SEND_ALL);
             status = READY;
         }
 
         @Override
-        void test() {
+        protected void test() {
             List<JSONObject> result = new ArrayList<>(MockListener.getInstance().getPosted());
 
             Set<String> found = new HashSet<String>();
@@ -273,7 +333,66 @@ public class AttentionManagementVerifierActivity
                 try {
                     String tag = payload.getString(JSON_TAG);
                     boolean zen = payload.getBoolean(JSON_MATCHES_ZEN_FILTER);
-                    Log.e(TAG, tag + (zen ? "" : " not") + " intercepted");
+                    Log.e(TAG, tag + (!zen ? "" : " not") + " intercepted");
+                    if (found.contains(tag)) {
+                        // multiple entries for same notification!
+                        pass = false;
+                    } else if (ALICE.equals(tag)) {
+                        found.add(ALICE);
+                        pass &= !zen;
+                    } else if (BOB.equals(tag)) {
+                        found.add(BOB);
+                        pass &= !zen;
+                    } else if (CHARLIE.equals(tag)) {
+                        found.add(CHARLIE);
+                        pass &= !zen;
+                    }
+                } catch (JSONException e) {
+                    pass = false;
+                    Log.e(TAG, "failed to unpack data from mocklistener", e);
+                }
+            }
+            pass &= found.size() == 3;
+            status = pass ? PASS : FAIL;
+        }
+
+        @Override
+        protected void tearDown() {
+            mNm.cancelAll();
+            deleteChannels();
+            MockListener.getInstance().resetData();
+        }
+    }
+
+    protected class AllInterceptsNothingMessagesTest extends InteractiveTestCase {
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createAutoItem(parent, R.string.attention_none_are_filtered_messages);
+        }
+
+        @Override
+        protected void setUp() {
+            mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
+            createChannels();
+            sendNotifications(MODE_URI, false, false); // different messages
+            status = READY;
+        }
+
+        @Override
+        protected void test() {
+            List<JSONObject> result = new ArrayList<>(MockListener.getInstance().getPosted());
+
+            Set<String> found = new HashSet<String>();
+            if (result.size() == 0) {
+                status = FAIL;
+                return;
+            }
+            boolean pass = true;
+            for (JSONObject payload : result) {
+                try {
+                    String tag = payload.getString(JSON_TAG);
+                    boolean zen = payload.getBoolean(JSON_MATCHES_ZEN_FILTER);
+                    Log.e(TAG, tag + (!zen ? "" : " not") + " intercepted");
                     if (found.contains(tag)) {
                         // multiple entries for same notification!
                         pass = false;
@@ -297,25 +416,84 @@ public class AttentionManagementVerifierActivity
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannels();
             MockListener.getInstance().resetData();
         }
     }
 
-    protected class PriorityInterceptsSomeTest extends InteractiveTestCase {
+    protected class AllInterceptsNothingDiffCategoriesTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
-            return createAutoItem(parent, R.string.attention_some_are_filtered);
+        protected View inflate(ViewGroup parent) {
+            return createAutoItem(parent, R.string.attention_none_are_filtered_diff_categories);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
+            mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
+            createChannels();
+            sendEventAlarmReminderNotifications(SEND_ALL);
+            status = READY;
+        }
+
+        @Override
+        protected void test() {
+            List<JSONObject> result = new ArrayList<>(MockListener.getInstance().getPosted());
+
+            Set<String> found = new HashSet<String>();
+            if (result.size() == 0) {
+                status = FAIL;
+                return;
+            }
+            boolean pass = true;
+            for (JSONObject payload : result) {
+                try {
+                    String tag = payload.getString(JSON_TAG);
+                    boolean zen = payload.getBoolean(JSON_MATCHES_ZEN_FILTER);
+                    Log.e(TAG, tag + (!zen ? "" : " not") + " intercepted");
+                    if (found.contains(tag)) {
+                        // multiple entries for same notification!
+                        pass = false;
+                    } else if (ALICE.equals(tag)) {
+                        found.add(ALICE);
+                        pass &= zen;
+                    } else if (BOB.equals(tag)) {
+                        found.add(BOB);
+                        pass &= zen;
+                    } else if (CHARLIE.equals(tag)) {
+                        found.add(CHARLIE);
+                        pass &= zen;
+                    }
+                } catch (JSONException e) {
+                    pass = false;
+                    Log.e(TAG, "failed to unpack data from mocklistener", e);
+                }
+            }
+            pass &= found.size() == 3;
+            status = pass ? PASS : FAIL;
+        }
+
+        @Override
+        protected void tearDown() {
+            mNm.cancelAll();
+            deleteChannels();
+            MockListener.getInstance().resetData();
+        }
+    }
+
+    protected class PriorityInterceptsSomeMessagesTest extends InteractiveTestCase {
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createAutoItem(parent, R.string.attention_some_are_filtered_messages);
+        }
+
+        @Override
+        protected void setUp() {
             mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
             NotificationManager.Policy policy = mNm.getNotificationPolicy();
-            policy = new NotificationManager.Policy(policy.priorityCategories
-                    | NotificationManager.Policy.PRIORITY_CATEGORY_MESSAGES,
+            policy = new NotificationManager.Policy(
+                    NotificationManager.Policy.PRIORITY_CATEGORY_MESSAGES,
                     policy.priorityCallSenders,
                     NotificationManager.Policy.PRIORITY_SENDERS_STARRED);
             mNm.setNotificationPolicy(policy);
@@ -325,7 +503,7 @@ public class AttentionManagementVerifierActivity
         }
 
         @Override
-        void test() {
+        protected void test() {
             List<JSONObject> result = new ArrayList<>(MockListener.getInstance().getPosted());
 
             Set<String> found = new HashSet<String>();
@@ -338,7 +516,7 @@ public class AttentionManagementVerifierActivity
                 try {
                     String tag = payload.getString(JSON_TAG);
                     boolean zen = payload.getBoolean(JSON_MATCHES_ZEN_FILTER);
-                    Log.e(TAG, tag + (zen ? "" : " not") + " intercepted");
+                    Log.e(TAG, tag + (!zen ? "" : " not") + " intercepted");
                     if (found.contains(tag)) {
                         // multiple entries for same notification!
                         pass = false;
@@ -357,12 +535,144 @@ public class AttentionManagementVerifierActivity
                     Log.e(TAG, "failed to unpack data from mocklistener", e);
                 }
             }
-            pass &= found.size() == 3;
+            pass &= found.size() >= 3;
             status = pass ? PASS : FAIL;
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
+            mNm.cancelAll();
+            deleteChannels();
+            MockListener.getInstance().resetData();
+        }
+    }
+
+    protected class PriorityInterceptsAlarmsTest extends InteractiveTestCase {
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createAutoItem(parent, R.string.attention_some_are_filtered_alarms);
+        }
+
+        @Override
+        protected void setUp() {
+            mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
+            NotificationManager.Policy policy = mNm.getNotificationPolicy();
+            policy = new NotificationManager.Policy(
+                    NotificationManager.Policy.PRIORITY_CATEGORY_ALARMS,
+                    policy.priorityCallSenders,
+                    policy.priorityMessageSenders);
+            mNm.setNotificationPolicy(policy);
+            createChannels();
+            // Event to Alice, Alarm to Bob, Reminder to Charlie:
+            sendEventAlarmReminderNotifications(SEND_ALL);
+            status = READY;
+        }
+
+        @Override
+        protected void test() {
+            List<JSONObject> result = new ArrayList<>(MockListener.getInstance().getPosted());
+
+            Set<String> found = new HashSet<String>();
+            if (result.size() == 0) {
+                status = FAIL;
+                return;
+            }
+            boolean pass = true;
+            for (JSONObject payload : result) {
+                try {
+                    String tag = payload.getString(JSON_TAG);
+                    boolean zenIntercepted = !payload.getBoolean(JSON_MATCHES_ZEN_FILTER);
+                    Log.e(TAG, tag + (zenIntercepted ? "" : " not") + " intercepted");
+                    if (found.contains(tag)) {
+                        // multiple entries for same notification!
+                        pass = false;
+                    } else if (ALICE.equals(tag)) {
+                        found.add(ALICE);
+                        pass &= zenIntercepted; // Alice's event notif should be intercepted
+                    } else if (BOB.equals(tag)) {
+                        found.add(BOB);
+                        pass &= !zenIntercepted;   // Bob's alarm notif should not be intercepted
+                    } else if (CHARLIE.equals(tag)) {
+                        found.add(CHARLIE);
+                        pass &= zenIntercepted; // Charlie's reminder notif should be intercepted
+                    }
+                } catch (JSONException e) {
+                    pass = false;
+                    Log.e(TAG, "failed to unpack data from mocklistener", e);
+                }
+            }
+            pass &= found.size() >= 3;
+            status = pass ? PASS : FAIL;
+        }
+
+        @Override
+        protected void tearDown() {
+            mNm.cancelAll();
+            deleteChannels();
+            MockListener.getInstance().resetData();
+        }
+    }
+
+    protected class PriorityInterceptsMediaSystemOtherTest extends InteractiveTestCase {
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createAutoItem(parent, R.string.attention_some_are_filtered_media_system_other);
+        }
+
+        @Override
+        protected void setUp() {
+            mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
+            NotificationManager.Policy policy = mNm.getNotificationPolicy();
+            policy = new NotificationManager.Policy(
+                    NotificationManager.Policy.PRIORITY_CATEGORY_MEDIA,
+                    policy.priorityCallSenders,
+                    policy.priorityMessageSenders);
+            mNm.setNotificationPolicy(policy);
+            createChannels();
+            // Alarm to Alice, Other (Game) to Bob, Media to Charlie:
+            sendAlarmOtherMediaNotifications(SEND_ALL);
+            status = READY;
+        }
+
+        @Override
+        protected void test() {
+            List<JSONObject> result = new ArrayList<>(MockListener.getInstance().getPosted());
+
+            Set<String> found = new HashSet<String>();
+            if (result.size() == 0) {
+                status = FAIL;
+                return;
+            }
+            boolean pass = true;
+            for (JSONObject payload : result) {
+                try {
+                    String tag = payload.getString(JSON_TAG);
+                    boolean zenIntercepted = !payload.getBoolean(JSON_MATCHES_ZEN_FILTER);
+                    Log.e(TAG, tag + (zenIntercepted ? "" : " not") + " intercepted");
+                    if (found.contains(tag)) {
+                        // multiple entries for same notification!
+                        pass = false;
+                    } else if (ALICE.equals(tag)) {
+                        found.add(ALICE);
+                        pass &= zenIntercepted;
+                    } else if (BOB.equals(tag)) {
+                        found.add(BOB);
+                        pass &= !zenIntercepted;
+                    } else if (CHARLIE.equals(tag)) {
+                        found.add(CHARLIE);
+                        pass &= !zenIntercepted;
+                    }
+                } catch (JSONException e) {
+                    pass = false;
+                    Log.e(TAG, "failed to unpack data from mocklistener", e);
+                }
+            }
+            pass &= found.size() >= 3;
+            status = pass ? PASS : FAIL;
+        }
+
+        @Override
+        protected void tearDown() {
             mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
             mNm.cancelAll();
             deleteChannels();
@@ -373,19 +683,20 @@ public class AttentionManagementVerifierActivity
     // ordered by time: C, B, A
     protected class DefaultOrderTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.attention_default_order);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
+            mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
             createChannels();
             sendNotifications(MODE_NONE, false, false);
             status = READY;
         }
 
         @Override
-        void test() {
+        protected void test() {
             List<String> orderedKeys = new ArrayList<>(MockListener.getInstance().mOrder);
             int rankA = findTagInKeys(ALICE, orderedKeys);
             int rankB = findTagInKeys(BOB, orderedKeys);
@@ -399,7 +710,7 @@ public class AttentionManagementVerifierActivity
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannels();
             MockListener.getInstance().resetData();
@@ -409,19 +720,20 @@ public class AttentionManagementVerifierActivity
     // ordered by priority: B, C, A
     protected class PriorityOrderTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.attention_priority_order);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
+            mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
             createChannels();
             sendNotifications(MODE_NONE, true, false);
             status = READY;
         }
 
         @Override
-        void test() {
+        protected void test() {
             List<String> orderedKeys = new ArrayList<>(MockListener.getInstance().mOrder);
             int rankA = findTagInKeys(ALICE, orderedKeys);
             int rankB = findTagInKeys(BOB, orderedKeys);
@@ -435,7 +747,7 @@ public class AttentionManagementVerifierActivity
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannels();
             MockListener.getInstance().resetData();
@@ -447,12 +759,13 @@ public class AttentionManagementVerifierActivity
         boolean mSawElevation = false;
 
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.attention_interruption_order);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
+            mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
             delayTime = 15000;
             createChannels();
             // send B & C noisy with contact affinity
@@ -463,7 +776,7 @@ public class AttentionManagementVerifierActivity
         }
 
         @Override
-        void test() {
+        protected void test() {
             if (status == READY_AFTER_LONG_DELAY) {
                 // send A noisy but no contact affinity
                 sendNotifications(SEND_A, MODE_NONE, false, true);
@@ -493,7 +806,7 @@ public class AttentionManagementVerifierActivity
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannels();
             MockListener.getInstance().resetData();
@@ -503,12 +816,12 @@ public class AttentionManagementVerifierActivity
     // B & C above the fold, A below
     protected class AmbientBitsTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.attention_ambient_bit);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             createChannels();
             sendNotifications(SEND_B | SEND_C, MODE_NONE, true, true);
             sendNotifications(SEND_A, MODE_NONE, true, false);
@@ -516,7 +829,7 @@ public class AttentionManagementVerifierActivity
         }
 
         @Override
-        void test() {
+        protected void test() {
             List<JSONObject> result = new ArrayList<>(MockListener.getInstance().getPosted());
 
             Set<String> found = new HashSet<String>();
@@ -553,7 +866,7 @@ public class AttentionManagementVerifierActivity
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannels();
             MockListener.getInstance().resetData();
@@ -563,19 +876,19 @@ public class AttentionManagementVerifierActivity
     // ordered by contact affinity: A, B, C
     protected class LookupUriOrderTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.attention_lookup_order);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             createChannels();
             sendNotifications(MODE_URI, false, false);
             status = READY;
         }
 
         @Override
-        void test() {
+        protected void test() {
             List<String> orderedKeys = new ArrayList<>(MockListener.getInstance().mOrder);
             int rankA = findTagInKeys(ALICE, orderedKeys);
             int rankB = findTagInKeys(BOB, orderedKeys);
@@ -589,7 +902,7 @@ public class AttentionManagementVerifierActivity
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannels();
             MockListener.getInstance().resetData();
@@ -599,19 +912,19 @@ public class AttentionManagementVerifierActivity
     // ordered by contact affinity: A, B, C
     protected class EmailOrderTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.attention_email_order);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             createChannels();
             sendNotifications(MODE_EMAIL, false, false);
             status = READY;
         }
 
         @Override
-        void test() {
+        protected void test() {
             List<String> orderedKeys = new ArrayList<>(MockListener.getInstance().mOrder);
             int rankA = findTagInKeys(ALICE, orderedKeys);
             int rankB = findTagInKeys(BOB, orderedKeys);
@@ -625,7 +938,7 @@ public class AttentionManagementVerifierActivity
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannels();
             MockListener.getInstance().resetData();
@@ -635,19 +948,19 @@ public class AttentionManagementVerifierActivity
     // ordered by contact affinity: A, B, C
     protected class PhoneOrderTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.attention_phone_order);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             createChannels();
             sendNotifications(MODE_PHONE, false, false);
             status = READY;
         }
 
         @Override
-        void test() {
+        protected void test() {
             List<String> orderedKeys = new ArrayList<>(MockListener.getInstance().mOrder);
             int rankA = findTagInKeys(ALICE, orderedKeys);
             int rankB = findTagInKeys(BOB, orderedKeys);
@@ -661,7 +974,7 @@ public class AttentionManagementVerifierActivity
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannels();
             MockListener.getInstance().resetData();
@@ -724,6 +1037,83 @@ public class AttentionManagementVerifierActivity
                     .setWhen(whenA);
             addPerson(uriMode, alice, mAliceUri, ALICE_PHONE, ALICE_EMAIL);
             mNm.notify(ALICE, NOTIFICATION_ID + 1, alice.build());
+        }
+    }
+
+    private void sendEventAlarmReminderNotifications(int which) {
+        long when = System.currentTimeMillis() - 4000000L;
+        final String channelId = NOTIFICATION_CHANNEL_ID;
+
+        // Event notification to Alice
+        if ((which & SEND_A) != 0) {
+            Notification.Builder alice = new Notification.Builder(mContext, channelId)
+                    .setContentTitle(ALICE)
+                    .setContentText(ALICE)
+                    .setSmallIcon(R.drawable.ic_stat_alice)
+                    .setCategory(Notification.CATEGORY_EVENT)
+                    .setWhen(when);
+            mNm.notify(ALICE, NOTIFICATION_ID + 1, alice.build());
+        }
+
+        // Alarm notification to Bob
+        if ((which & SEND_B) != 0) {
+            Notification.Builder bob = new Notification.Builder(mContext, channelId)
+                    .setContentTitle(BOB)
+                    .setContentText(BOB)
+                    .setSmallIcon(R.drawable.ic_stat_bob)
+                    .setCategory(Notification.CATEGORY_ALARM)
+                    .setWhen(when);
+            mNm.notify(BOB, NOTIFICATION_ID + 2, bob.build());
+        }
+
+        // Reminder notification to Charlie
+        if ((which & SEND_C) != 0) {
+            Notification.Builder charlie =
+                    new Notification.Builder(mContext, channelId)
+                            .setContentTitle(CHARLIE)
+                            .setContentText(CHARLIE)
+                            .setSmallIcon(R.drawable.ic_stat_charlie)
+                            .setCategory(Notification.CATEGORY_REMINDER)
+                            .setWhen(when);
+            mNm.notify(CHARLIE, NOTIFICATION_ID + 3, charlie.build());
+        }
+    }
+
+    private void sendAlarmOtherMediaNotifications(int which) {
+        long when = System.currentTimeMillis() - 4000000L;
+        final String channelId = NOTIFICATION_CHANNEL_ID;
+
+        // Alarm notification to Alice
+        if ((which & SEND_A) != 0) {
+            Notification.Builder alice = new Notification.Builder(mContext, channelId)
+                    .setContentTitle(ALICE)
+                    .setContentText(ALICE)
+                    .setSmallIcon(R.drawable.ic_stat_alice)
+                    .setCategory(Notification.CATEGORY_ALARM)
+                    .setWhen(when);
+            mNm.notify(ALICE, NOTIFICATION_ID + 1, alice.build());
+        }
+
+        // "Other" notification to Bob
+        if ((which & SEND_B) != 0) {
+            Notification.Builder bob = new Notification.Builder(mContext,
+                    NOTIFICATION_CHANNEL_ID_GAME)
+                    .setContentTitle(BOB)
+                    .setContentText(BOB)
+                    .setSmallIcon(R.drawable.ic_stat_bob)
+                    .setWhen(when);
+            mNm.notify(BOB, NOTIFICATION_ID + 2, bob.build());
+        }
+
+        // Media notification to Charlie
+        if ((which & SEND_C) != 0) {
+            Notification.Builder charlie =
+                    new Notification.Builder(mContext, NOTIFICATION_CHANNEL_ID_MEDIA)
+                            .setContentTitle(CHARLIE)
+                            .setContentText(CHARLIE)
+                            .setSmallIcon(R.drawable.ic_stat_charlie)
+                            .setWhen(when);
+            mNm.notify(CHARLIE, NOTIFICATION_ID + 3, charlie.build());
         }
     }
 

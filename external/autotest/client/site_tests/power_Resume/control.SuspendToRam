@@ -20,4 +20,5 @@ how many seconds it took to resume. As a precaution it will ensure your
 network interface is UP after it has resumed.
 """
 
-job.run_test('power_Resume', ignore_kernel_warns=True, suspend_state='mem')
+job.run_test('power_Resume', ignore_kernel_warns=True, suspend_state='mem',
+             tag=NAME.split('.')[1])

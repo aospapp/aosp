@@ -189,20 +189,19 @@ static inline int wpa_drv_deauthenticate(struct wpa_supplicant *wpa_s,
 }
 
 static inline int wpa_drv_add_pmkid(struct wpa_supplicant *wpa_s,
-				    const u8 *bssid, const u8 *pmkid)
+				    struct wpa_pmkid_params *params)
 {
 	if (wpa_s->driver->add_pmkid) {
-		return wpa_s->driver->add_pmkid(wpa_s->drv_priv, bssid, pmkid);
+		return wpa_s->driver->add_pmkid(wpa_s->drv_priv, params);
 	}
 	return -1;
 }
 
 static inline int wpa_drv_remove_pmkid(struct wpa_supplicant *wpa_s,
-				       const u8 *bssid, const u8 *pmkid)
+				       struct wpa_pmkid_params *params)
 {
 	if (wpa_s->driver->remove_pmkid) {
-		return wpa_s->driver->remove_pmkid(wpa_s->drv_priv, bssid,
-						   pmkid);
+		return wpa_s->driver->remove_pmkid(wpa_s->drv_priv, params);
 	}
 	return -1;
 }
@@ -276,11 +275,12 @@ static inline int wpa_drv_mlme_setprotection(struct wpa_supplicant *wpa_s,
 
 static inline struct hostapd_hw_modes *
 wpa_drv_get_hw_feature_data(struct wpa_supplicant *wpa_s, u16 *num_modes,
-			    u16 *flags)
+			    u16 *flags, u8 *dfs_domain)
 {
 	if (wpa_s->driver->get_hw_feature_data)
 		return wpa_s->driver->get_hw_feature_data(wpa_s->drv_priv,
-							  num_modes, flags);
+							  num_modes, flags,
+							  dfs_domain);
 	return NULL;
 }
 
@@ -987,6 +987,45 @@ static inline int wpa_drv_set_tdls_mode(struct wpa_supplicant *wpa_s,
 		return -1;
 	return wpa_s->driver->set_tdls_mode(wpa_s->drv_priv,
 					    tdls_external_control);
+}
+
+static inline struct wpa_bss_candidate_info *
+wpa_drv_get_bss_trans_status(struct wpa_supplicant *wpa_s,
+			     struct wpa_bss_trans_info *params)
+{
+	if (!wpa_s->driver->get_bss_transition_status)
+		return NULL;
+	return wpa_s->driver->get_bss_transition_status(wpa_s->drv_priv,
+							params);
+}
+
+static inline int wpa_drv_ignore_assoc_disallow(struct wpa_supplicant *wpa_s,
+						int val)
+{
+	if (!wpa_s->driver->ignore_assoc_disallow)
+		return -1;
+	return wpa_s->driver->ignore_assoc_disallow(wpa_s->drv_priv, val);
+}
+
+static inline int wpa_drv_set_bssid_blacklist(struct wpa_supplicant *wpa_s,
+					      unsigned int num_bssid,
+					      const u8 *bssids)
+{
+	if (!wpa_s->driver->set_bssid_blacklist)
+		return -1;
+	return wpa_s->driver->set_bssid_blacklist(wpa_s->drv_priv, num_bssid,
+						  bssids);
+}
+
+static inline int wpa_drv_update_connect_params(
+	struct wpa_supplicant *wpa_s,
+	struct wpa_driver_associate_params *params,
+	enum wpa_drv_update_connect_params_mask mask)
+{
+	if (!wpa_s->driver->update_connect_params)
+		return -1;
+	return wpa_s->driver->update_connect_params(wpa_s->drv_priv, params,
+						    mask);
 }
 
 #endif /* DRIVER_I_H */

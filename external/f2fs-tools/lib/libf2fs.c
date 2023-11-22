@@ -8,32 +8,50 @@
  */
 #define _LARGEFILE64_SOURCE
 
+#include <f2fs_fs.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#ifdef HAVE_MNTENT_H
 #include <mntent.h>
+#endif
 #include <time.h>
 #include <sys/stat.h>
+#ifndef ANDROID_WINDOWS_HOST
 #include <sys/mount.h>
 #include <sys/ioctl.h>
+#endif
+#ifdef HAVE_SYS_SYSMACROS_H
+#include <sys/sysmacros.h>
+#endif
+#ifdef HAVE_SYS_UTSNAME_H
+#include <sys/utsname.h>
+#endif
 #ifndef WITH_ANDROID
+#ifdef HAVE_SCSI_SG_H
 #include <scsi/sg.h>
 #endif
+#endif
+#ifdef HAVE_LINUX_HDREG_H
 #include <linux/hdreg.h>
+#endif
+#ifdef HAVE_LINUX_LIMITS_H
 #include <linux/limits.h>
-
-#include <f2fs_fs.h>
+#endif
 
 #ifndef WITH_ANDROID
 /* SCSI command for standard inquiry*/
 #define MODELINQUIRY	0x12,0x00,0x00,0x00,0x4A,0x00
 #endif
 
-#ifndef _WIN32 /* O_BINARY is windows-specific flag */
+#ifndef ANDROID_WINDOWS_HOST /* O_BINARY is windows-specific flag */
 #define O_BINARY 0
+#else
+/* On Windows, wchar_t is 8 bit sized and it causes compilation errors. */
+#define wchar_t	int
 #endif
 
 /*
@@ -456,9 +474,7 @@ f2fs_hash_t f2fs_dentry_hash(const unsigned char *name, int len)
 
 unsigned int addrs_per_inode(struct f2fs_inode *i)
 {
-	if (i->i_inline & F2FS_INLINE_XATTR)
-		return DEF_ADDRS_PER_INODE - F2FS_INLINE_XATTR_ADDRS;
-	return DEF_ADDRS_PER_INODE;
+	return CUR_ADDRS_PER_INODE(i) - get_inline_xattr_addrs(i);
 }
 
 /*
@@ -493,11 +509,36 @@ int f2fs_crc_valid(u_int32_t blk_crc, void *buf, int len)
 	return 0;
 }
 
+__u32 f2fs_inode_chksum(struct f2fs_node *node)
+{
+	struct f2fs_inode *ri = &node->i;
+	__le32 ino = node->footer.ino;
+	__le32 gen = ri->i_generation;
+	__u32 chksum, chksum_seed;
+	__u32 dummy_cs = 0;
+	unsigned int offset = offsetof(struct f2fs_inode, i_inode_checksum);
+	unsigned int cs_size = sizeof(dummy_cs);
+
+	chksum = f2fs_cal_crc32(c.chksum_seed, (__u8 *)&ino,
+							sizeof(ino));
+	chksum_seed = f2fs_cal_crc32(chksum, (__u8 *)&gen, sizeof(gen));
+
+	chksum = f2fs_cal_crc32(chksum_seed, (__u8 *)ri, offset);
+	chksum = f2fs_cal_crc32(chksum, (__u8 *)&dummy_cs, cs_size);
+	offset += cs_size;
+	chksum = f2fs_cal_crc32(chksum, (__u8 *)ri + offset,
+						F2FS_BLKSIZE - offset);
+	return chksum;
+}
+
 /*
  * try to identify the root device
  */
 const char *get_rootdev()
 {
+#if defined(ANDROID_WINDOWS_HOST) || defined(WITH_ANDROID)
+	return NULL;
+#else
 	struct stat sb;
 	int fd, ret;
 	char buf[32];
@@ -538,6 +579,7 @@ const char *get_rootdev()
 	snprintf(rootdev, PATH_MAX + 1, "/dev/%s", buf);
 
 	return rootdev;
+#endif
 }
 
 /*
@@ -554,9 +596,15 @@ void f2fs_init_configuration(void)
 	c.blks_per_seg = DEFAULT_BLOCKS_PER_SEGMENT;
 	c.rootdev_name = get_rootdev();
 	c.wanted_total_sectors = -1;
+	c.wanted_sector_size = -1;
 	c.zoned_mode = 0;
 	c.zoned_model = 0;
 	c.zone_blocks = 0;
+#ifdef WITH_ANDROID
+	c.preserve_limits = 0;
+#else
+	c.preserve_limits = 1;
+#endif
 
 	for (i = 0; i < MAX_DEVICES; i++) {
 		memset(&c.devices[i], 0, sizeof(struct device_info));
@@ -578,8 +626,11 @@ void f2fs_init_configuration(void)
 	c.trimmed = 0;
 	c.ro = 0;
 	c.kd = -1;
+	c.dry_run = 0;
+	c.fixed_time = -1;
 }
 
+#ifdef HAVE_SETMNTENT
 static int is_mounted(const char *mpt, const char *device)
 {
 	FILE *file = NULL;
@@ -601,10 +652,14 @@ static int is_mounted(const char *mpt, const char *device)
 	endmntent(file);
 	return mnt ? 1 : 0;
 }
+#endif
 
 int f2fs_dev_is_umounted(char *path)
 {
-	struct stat st_buf;
+#ifdef ANDROID_WINDOWS_HOST
+	return 0;
+#else
+	struct stat *st_buf;
 	int is_rootdev = 0;
 	int ret = 0;
 
@@ -615,46 +670,57 @@ int f2fs_dev_is_umounted(char *path)
 	 * try with /proc/mounts fist to detect RDONLY.
 	 * f2fs_stop_checkpoint makes RO in /proc/mounts while RW in /etc/mtab.
 	 */
+#ifdef __linux__
 	ret = is_mounted("/proc/mounts", path);
 	if (ret) {
 		MSG(0, "Info: Mounted device!\n");
 		return -1;
 	}
-
+#endif
+#if defined(MOUNTED) || defined(_PATH_MOUNTED)
+#ifndef MOUNTED
+#define MOUNTED _PATH_MOUNTED
+#endif
 	ret = is_mounted(MOUNTED, path);
 	if (ret) {
 		MSG(0, "Info: Mounted device!\n");
 		return -1;
 	}
-
+#endif
 	/*
 	 * If we are supposed to operate on the root device, then
 	 * also check the mounts for '/dev/root', which sometimes
 	 * functions as an alias for the root device.
 	 */
 	if (is_rootdev) {
+#ifdef __linux__
 		ret = is_mounted("/proc/mounts", "/dev/root");
 		if (ret) {
 			MSG(0, "Info: Mounted device!\n");
 			return -1;
 		}
+#endif
 	}
 
 	/*
 	 * If f2fs is umounted with -l, the process can still use
 	 * the file system. In this case, we should not format.
 	 */
-	if (stat(path, &st_buf) == 0 && S_ISBLK(st_buf.st_mode)) {
+	st_buf = malloc(sizeof(struct stat));
+	if (stat(path, st_buf) == 0 && S_ISBLK(st_buf->st_mode)) {
 		int fd = open(path, O_RDONLY | O_EXCL);
 
 		if (fd >= 0) {
 			close(fd);
 		} else if (errno == EBUSY) {
 			MSG(0, "\tError: In use by the system!\n");
+			free(st_buf);
 			return -1;
 		}
 	}
-	return 0;
+	free(st_buf);
+	return ret;
+#endif
 }
 
 int f2fs_devs_are_umounted(void)
@@ -677,6 +743,41 @@ void get_kernel_version(__u8 *version)
 	memset(version + i, 0, VERSION_LEN + 1 - i);
 }
 
+void get_kernel_uname_version(__u8 *version)
+{
+#ifdef HAVE_SYS_UTSNAME_H
+	struct utsname buf;
+
+	memset(version, 0, VERSION_LEN);
+	if (uname(&buf))
+		return;
+
+	snprintf((char *)version,
+		VERSION_LEN, "%s %s", buf.release, buf.version);
+#else
+	memset(version, 0, VERSION_LEN);
+#endif
+}
+
+#if defined(__linux__) && defined(_IO) && !defined(BLKGETSIZE)
+#define BLKGETSIZE	_IO(0x12,96)
+#endif
+
+#if defined(__linux__) && defined(_IOR) && !defined(BLKGETSIZE64)
+#define BLKGETSIZE64	_IOR(0x12,114, size_t)
+#endif
+
+#if defined(__linux__) && defined(_IO) && !defined(BLKSSZGET)
+#define BLKSSZGET	_IO(0x12,104)
+#endif
+
+#if defined(__APPLE__)
+#include <sys/disk.h>
+#define BLKGETSIZE	DKIOCGETBLOCKCOUNT
+#define BLKSSZGET	DKIOCGETBLOCKCOUNT
+#endif /* APPLE_DARWIN */
+
+#ifndef ANDROID_WINDOWS_HOST
 int get_device_info(int i)
 {
 	int32_t fd = 0;
@@ -684,9 +785,11 @@ int get_device_info(int i)
 #ifndef BLKGETSIZE64
 	uint32_t total_sectors;
 #endif
-	struct stat stat_buf;
+	struct stat *stat_buf;
+#ifdef HDIO_GETGIO
 	struct hd_geometry geom;
-#ifndef WITH_ANDROID
+#endif
+#if !defined(WITH_ANDROID) && defined(__linux__)
 	sg_io_hdr_t io_hdr;
 	unsigned char reply_buffer[96] = {0};
 	unsigned char model_inq[6] = {MODELINQUIRY};
@@ -694,7 +797,7 @@ int get_device_info(int i)
 	struct device_info *dev = c.devices + i;
 
 	if (c.sparse_mode) {
-		fd = open((char *)dev->path, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0644);
+		fd = open((char *)dev->path, O_RDWR | O_CREAT | O_BINARY, 0644);
 	} else {
 		fd = open((char *)dev->path, O_RDWR);
 	}
@@ -705,36 +808,49 @@ int get_device_info(int i)
 
 	dev->fd = fd;
 
+	if (c.sparse_mode) {
+		if (f2fs_init_sparse_file())
+			return -1;
+	}
+
 	if (c.kd == -1) {
+#if !defined(WITH_ANDROID) && defined(__linux__)
 		c.kd = open("/proc/version", O_RDONLY);
+#endif
 		if (c.kd < 0) {
 			MSG(0, "\tInfo: No support kernel version!\n");
 			c.kd = -2;
 		}
 	}
 
-	if (fstat(fd, &stat_buf) < 0 ) {
+	stat_buf = malloc(sizeof(struct stat));
+	if (fstat(fd, stat_buf) < 0 ) {
 		MSG(0, "\tError: Failed to get the device stat!\n");
+		free(stat_buf);
 		return -1;
 	}
 
 	if (c.sparse_mode) {
 		dev->total_sectors = c.device_size / dev->sector_size;
-	} else if (S_ISREG(stat_buf.st_mode)) {
-		dev->total_sectors = stat_buf.st_size / dev->sector_size;
-	} else if (S_ISBLK(stat_buf.st_mode)) {
+	} else if (S_ISREG(stat_buf->st_mode)) {
+		dev->total_sectors = stat_buf->st_size / dev->sector_size;
+	} else if (S_ISBLK(stat_buf->st_mode)) {
+#ifdef BLKSSZGET
 		if (ioctl(fd, BLKSSZGET, &sector_size) < 0)
 			MSG(0, "\tError: Using the default sector size\n");
 		else if (dev->sector_size < sector_size)
 			dev->sector_size = sector_size;
+#endif
 #ifdef BLKGETSIZE64
 		if (ioctl(fd, BLKGETSIZE64, &dev->total_sectors) < 0) {
 			MSG(0, "\tError: Cannot get the device size\n");
+			free(stat_buf);
 			return -1;
 		}
 #else
 		if (ioctl(fd, BLKGETSIZE, &total_sectors) < 0) {
 			MSG(0, "\tError: Cannot get the device size\n");
+			free(stat_buf);
 			return -1;
 		}
 		dev->total_sectors = total_sectors;
@@ -742,13 +858,17 @@ int get_device_info(int i)
 		dev->total_sectors /= dev->sector_size;
 
 		if (i == 0) {
+#ifdef HDIO_GETGIO
 			if (ioctl(fd, HDIO_GETGEO, &geom) < 0)
 				c.start_sector = 0;
 			else
 				c.start_sector = geom.start;
+#else
+			c.start_sector = 0;
+#endif
 		}
 
-#ifndef WITH_ANDROID
+#if !defined(WITH_ANDROID) && defined(__linux__)
 		/* Send INQUIRY command */
 		memset(&io_hdr, 0, sizeof(sg_io_hdr_t));
 		io_hdr.interface_id = 'S';
@@ -771,6 +891,7 @@ int get_device_info(int i)
 #endif
 	} else {
 		MSG(0, "\tError: Volume type is not supported!!!\n");
+		free(stat_buf);
 		return -1;
 	}
 
@@ -779,11 +900,12 @@ int get_device_info(int i)
 		c.sectors_per_blk = F2FS_BLKSIZE / c.sector_size;
 	} else if (c.sector_size != c.devices[i].sector_size) {
 		MSG(0, "\tError: Different sector sizes!!!\n");
+		free(stat_buf);
 		return -1;
 	}
 
-#ifndef WITH_ANDROID
-	if (S_ISBLK(stat_buf.st_mode))
+#if !defined(WITH_ANDROID) && defined(__linux__)
+	if (S_ISBLK(stat_buf->st_mode))
 		f2fs_get_zoned_model(i);
 
 	if (dev->zoned_model != F2FS_ZONED_NONE) {
@@ -792,11 +914,13 @@ int get_device_info(int i)
 
 		if (f2fs_get_zone_blocks(i)) {
 			MSG(0, "\tError: Failed to get number of blocks per zone\n");
+			free(stat_buf);
 			return -1;
 		}
 
 		if (f2fs_check_zones(i)) {
 			MSG(0, "\tError: Failed to check zone configuration\n");
+			free(stat_buf);
 			return -1;
 		}
 		MSG(0, "Info: Host-%s zoned block device:\n",
@@ -808,9 +932,118 @@ int get_device_info(int i)
 				dev->zone_blocks);
 	}
 #endif
+	/* adjust wanted_total_sectors */
+	if (c.wanted_total_sectors != -1) {
+		MSG(0, "Info: wanted sectors = %"PRIu64" (in %"PRIu64" bytes)\n",
+				c.wanted_total_sectors, c.wanted_sector_size);
+		if (c.wanted_sector_size == -1) {
+			c.wanted_sector_size = dev->sector_size;
+		} else if (dev->sector_size != c.wanted_sector_size) {
+			c.wanted_total_sectors *= c.wanted_sector_size;
+			c.wanted_total_sectors /= dev->sector_size;
+		}
+	}
+
 	c.total_sectors += dev->total_sectors;
+	free(stat_buf);
 	return 0;
 }
+
+#else
+
+#include "windows.h"
+#include "winioctl.h"
+
+#if (_WIN32_WINNT >= 0x0500)
+#define HAVE_GET_FILE_SIZE_EX 1
+#endif
+
+static int win_get_device_size(const char *file, uint64_t *device_size)
+{
+	HANDLE dev;
+	PARTITION_INFORMATION pi;
+	DISK_GEOMETRY gi;
+	DWORD retbytes;
+#ifdef HAVE_GET_FILE_SIZE_EX
+	LARGE_INTEGER filesize;
+#else
+	DWORD filesize;
+#endif /* HAVE_GET_FILE_SIZE_EX */
+
+	dev = CreateFile(file, GENERIC_READ,
+			FILE_SHARE_READ | FILE_SHARE_WRITE ,
+			NULL,  OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,  NULL);
+
+	if (dev == INVALID_HANDLE_VALUE)
+		return EBADF;
+	if (DeviceIoControl(dev, IOCTL_DISK_GET_PARTITION_INFO,
+				&pi, sizeof(PARTITION_INFORMATION),
+				&pi, sizeof(PARTITION_INFORMATION),
+				&retbytes, NULL)) {
+
+		*device_size = 	pi.PartitionLength.QuadPart;
+
+	} else if (DeviceIoControl(dev, IOCTL_DISK_GET_DRIVE_GEOMETRY,
+				&gi, sizeof(DISK_GEOMETRY),
+				&gi, sizeof(DISK_GEOMETRY),
+				&retbytes, NULL)) {
+
+		*device_size = gi.BytesPerSector *
+			gi.SectorsPerTrack *
+			gi.TracksPerCylinder *
+			gi.Cylinders.QuadPart;
+
+#ifdef HAVE_GET_FILE_SIZE_EX
+	} else if (GetFileSizeEx(dev, &filesize)) {
+		*device_size = filesize.QuadPart;
+	}
+#else
+	} else {
+		filesize = GetFileSize(dev, NULL);
+		if (INVALID_FILE_SIZE != filesize)
+			return -1;
+		*device_size = filesize;
+	}
+#endif /* HAVE_GET_FILE_SIZE_EX */
+
+	CloseHandle(dev);
+	return 0;
+}
+
+int get_device_info(int i)
+{
+	struct device_info *dev = c.devices + i;
+	uint64_t device_size = 0;
+	int32_t fd = 0;
+
+	/* Block device target is not supported on Windows. */
+	if (!c.sparse_mode) {
+		if (win_get_device_size(dev->path, &device_size)) {
+			MSG(0, "\tError: Failed to get device size!\n");
+			return -1;
+		}
+	} else {
+		device_size = c.device_size;
+	}
+	if (c.sparse_mode) {
+		fd = open((char *)dev->path, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0644);
+	} else {
+		fd = open((char *)dev->path, O_RDWR | O_BINARY);
+	}
+	if (fd < 0) {
+		MSG(0, "\tError: Failed to open the device!\n");
+		return -1;
+	}
+	dev->fd = fd;
+	dev->total_sectors = device_size / dev->sector_size;
+	c.start_sector = 0;
+	c.sector_size = dev->sector_size;
+	c.sectors_per_blk = F2FS_BLKSIZE / c.sector_size;
+	c.total_sectors += dev->total_sectors;
+
+	return 0;
+}
+#endif
 
 int f2fs_get_device_info(void)
 {

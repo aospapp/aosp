@@ -59,6 +59,12 @@ public class LensPickerTrampolineActivity extends Activity {
             finish();
             return;
         }
+        // if the lens picker is treated as a home app this will handle initial starts
+        if (intent.getCategories().contains(Intent.CATEGORY_HOME)) {
+            launchLastRunOrDefaultApplication();
+            finish();
+            return;
+        }
 
         // Hide the shade if switching to a different facet.
         hideNotificationsShade();

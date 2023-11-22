@@ -35,4 +35,10 @@
             android:id="@+id/dir_menu_select_all"
             android:title="@string/menu_select_all" />
     </group>
+    <group
+        android:id="@+id/menu_extras_group">
+        <item
+            android:id="@+id/dir_menu_inspect"
+            android:title="@string/menu_inspect" />
+    </group>
 </menu>

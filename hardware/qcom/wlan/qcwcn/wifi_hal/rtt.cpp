@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2018 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,7 +43,7 @@
 wifi_error wifi_get_rtt_capabilities(wifi_interface_handle iface,
                                      wifi_rtt_capabilities *capabilities)
 {
-    int ret = WIFI_SUCCESS;
+    wifi_error ret;
     lowi_cb_table_t *lowiWifiHalApi = NULL;
 
     if (iface == NULL) {
@@ -68,19 +68,15 @@ wifi_error wifi_get_rtt_capabilities(wifi_interface_handle iface,
         lowiWifiHalApi->get_rtt_capabilities == NULL) {
         ALOGE("wifi_get_rtt_capabilities: getLowiCallbackTable returned NULL or "
             "the function pointer is NULL. Exit.");
-        ret = WIFI_ERROR_NOT_SUPPORTED;
-        goto cleanup;
+        return WIFI_ERROR_NOT_SUPPORTED;
     }
 
-    ret = lowiWifiHalApi->get_rtt_capabilities(iface, capabilities);
-    if (ret != WIFI_SUCCESS) {
+    ret = (wifi_error)lowiWifiHalApi->get_rtt_capabilities(iface, capabilities);
+    if (ret != WIFI_SUCCESS)
         ALOGE("wifi_get_rtt_capabilities: lowi_wifihal_get_rtt_capabilities "
             "returned error:%d. Exit.", ret);
-        goto cleanup;
-    }
 
-cleanup:
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 /* API to request RTT measurement */
@@ -90,7 +86,7 @@ wifi_error wifi_rtt_range_request(wifi_request_id id,
                                     wifi_rtt_config rtt_config[],
                                     wifi_rtt_event_handler handler)
 {
-    int ret = WIFI_SUCCESS;
+    wifi_error ret;
     lowi_cb_table_t *lowiWifiHalApi = NULL;
 
     if (iface == NULL) {
@@ -127,23 +123,17 @@ wifi_error wifi_rtt_range_request(wifi_request_id id,
         lowiWifiHalApi->rtt_range_request == NULL) {
         ALOGE("wifi_rtt_range_request: getLowiCallbackTable returned NULL or "
             "the function pointer is NULL. Exit.");
-        ret = WIFI_ERROR_NOT_SUPPORTED;
-        goto cleanup;
+        return WIFI_ERROR_NOT_SUPPORTED;
     }
 
-    ret = lowiWifiHalApi->rtt_range_request(id,
-                                            iface,
-                                            num_rtt_config,
-                                            rtt_config,
-                                            handler);
-    if (ret != WIFI_SUCCESS) {
+    ret = (wifi_error)lowiWifiHalApi->rtt_range_request(id, iface,
+                                                        num_rtt_config,
+                                                        rtt_config, handler);
+    if (ret != WIFI_SUCCESS)
         ALOGE("wifi_rtt_range_request: lowi_wifihal_rtt_range_request "
             "returned error:%d. Exit.", ret);
-        goto cleanup;
-    }
 
-cleanup:
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 /* API to cancel RTT measurements */
@@ -152,7 +142,7 @@ wifi_error wifi_rtt_range_cancel(wifi_request_id id,
                                    unsigned num_devices,
                                    mac_addr addr[])
 {
-    int ret = WIFI_SUCCESS;
+    wifi_error ret;
     lowi_cb_table_t *lowiWifiHalApi = NULL;
 
     if (iface == NULL) {
@@ -183,26 +173,22 @@ wifi_error wifi_rtt_range_cancel(wifi_request_id id,
         lowiWifiHalApi->rtt_range_cancel == NULL) {
         ALOGE("wifi_rtt_range_cancel: getLowiCallbackTable returned NULL or "
             "the function pointer is NULL. Exit.");
-        ret = WIFI_ERROR_NOT_SUPPORTED;
-        goto cleanup;
+        return WIFI_ERROR_NOT_SUPPORTED;
     }
 
-    ret = lowiWifiHalApi->rtt_range_cancel(id, num_devices, addr);
-    if (ret != WIFI_SUCCESS) {
+    ret = (wifi_error)lowiWifiHalApi->rtt_range_cancel(id, num_devices, addr);
+    if (ret != WIFI_SUCCESS)
         ALOGE("wifi_rtt_range_cancel: lowi_wifihal_rtt_range_cancel "
             "returned error:%d. Exit.", ret);
-        goto cleanup;
-    }
 
-cleanup:
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 // API to configure the LCI. Used in RTT Responder mode only
 wifi_error wifi_set_lci(wifi_request_id id, wifi_interface_handle iface,
                         wifi_lci_information *lci)
 {
-    int ret = WIFI_SUCCESS;
+    wifi_error ret;
     lowi_cb_table_t *lowiWifiHalApi = NULL;
 
     if (iface == NULL) {
@@ -227,26 +213,21 @@ wifi_error wifi_set_lci(wifi_request_id id, wifi_interface_handle iface,
         lowiWifiHalApi->rtt_set_lci == NULL) {
         ALOGE("%s: getLowiCallbackTable returned NULL or "
             "the function pointer is NULL. Exit.", __FUNCTION__);
-        ret = WIFI_ERROR_NOT_SUPPORTED;
-        goto cleanup;
+        return WIFI_ERROR_NOT_SUPPORTED;
     }
 
     ret = lowiWifiHalApi->rtt_set_lci(id, iface, lci);
-    if (ret != WIFI_SUCCESS) {
-        ALOGE("%s: returned error:%d. Exit.",
-              __FUNCTION__, ret);
-        goto cleanup;
-    }
+    if (ret != WIFI_SUCCESS)
+        ALOGE("%s: returned error:%d. Exit.", __FUNCTION__, ret);
 
-cleanup:
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 // API to configure the LCR. Used in RTT Responder mode only.
 wifi_error wifi_set_lcr(wifi_request_id id, wifi_interface_handle iface,
                         wifi_lcr_information *lcr)
 {
-    int ret = WIFI_SUCCESS;
+    wifi_error ret;
     lowi_cb_table_t *lowiWifiHalApi = NULL;
 
     if (iface == NULL) {
@@ -271,19 +252,14 @@ wifi_error wifi_set_lcr(wifi_request_id id, wifi_interface_handle iface,
         lowiWifiHalApi->rtt_set_lcr == NULL) {
         ALOGE("%s: getLowiCallbackTable returned NULL or "
             "the function pointer is NULL. Exit.", __FUNCTION__);
-        ret = WIFI_ERROR_NOT_SUPPORTED;
-        goto cleanup;
+        return WIFI_ERROR_NOT_SUPPORTED;
     }
 
     ret = lowiWifiHalApi->rtt_set_lcr(id, iface, lcr);
-    if (ret != WIFI_SUCCESS) {
-        ALOGE("%s: returned error:%d. Exit.",
-              __FUNCTION__, ret);
-        goto cleanup;
-    }
+    if (ret != WIFI_SUCCESS)
+        ALOGE("%s: returned error:%d. Exit.", __FUNCTION__, ret);
 
-cleanup:
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 /*
@@ -292,7 +268,7 @@ cleanup:
 wifi_error wifi_rtt_get_responder_info(wifi_interface_handle iface,
                                       wifi_rtt_responder *responder_info)
 {
-    int ret = WIFI_SUCCESS;
+    wifi_error ret;
     lowi_cb_table_t *lowiWifiHalApi = NULL;
 
     if (iface == NULL || responder_info == NULL) {
@@ -308,19 +284,14 @@ wifi_error wifi_rtt_get_responder_info(wifi_interface_handle iface,
         lowiWifiHalApi->rtt_get_responder_info == NULL) {
         ALOGE("%s: getLowiCallbackTable returned NULL or "
             "the function pointer is NULL. Exit.", __FUNCTION__);
-        ret = WIFI_ERROR_NOT_SUPPORTED;
-        goto cleanup;
+        return WIFI_ERROR_NOT_SUPPORTED;
     }
 
     ret = lowiWifiHalApi->rtt_get_responder_info(iface, responder_info);
-    if (ret != WIFI_SUCCESS) {
-        ALOGE("%s: returned error:%d. Exit.",
-              __FUNCTION__, ret);
-        goto cleanup;
-    }
+    if (ret != WIFI_SUCCESS)
+        ALOGE("%s: returned error:%d. Exit.", __FUNCTION__, ret);
 
-cleanup:
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 /**
@@ -337,7 +308,7 @@ wifi_error wifi_enable_responder(wifi_request_id id,
                                  unsigned max_duration_seconds,
                                  wifi_rtt_responder *responder_info)
 {
-    int ret = WIFI_SUCCESS;
+    wifi_error ret;
     lowi_cb_table_t *lowiWifiHalApi = NULL;
 
     if (iface == NULL || responder_info == NULL) {
@@ -352,21 +323,16 @@ wifi_error wifi_enable_responder(wifi_request_id id,
         lowiWifiHalApi->enable_responder == NULL) {
         ALOGE("%s: getLowiCallbackTable returned NULL or "
             "the function pointer is NULL. Exit.", __FUNCTION__);
-        ret = WIFI_ERROR_NOT_SUPPORTED;
-        goto cleanup;
+        return WIFI_ERROR_NOT_SUPPORTED;
     }
 
     ret = lowiWifiHalApi->enable_responder(id, iface, channel_hint,
                                            max_duration_seconds,
                                            responder_info);
-    if (ret != WIFI_SUCCESS) {
-        ALOGE("%s: returned error:%d. Exit.",
-              __FUNCTION__, ret);
-        goto cleanup;
-    }
+    if (ret != WIFI_SUCCESS)
+        ALOGE("%s: returned error:%d. Exit.", __FUNCTION__, ret);
 
-cleanup:
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 
@@ -377,7 +343,7 @@ wifi_error wifi_disable_responder(wifi_request_id id,
                                   wifi_interface_handle iface)
 
 {
-    int ret = WIFI_SUCCESS;
+    wifi_error ret;
     lowi_cb_table_t *lowiWifiHalApi = NULL;
 
     if (iface == NULL) {
@@ -392,17 +358,12 @@ wifi_error wifi_disable_responder(wifi_request_id id,
         lowiWifiHalApi->disable_responder == NULL) {
         ALOGE("%s: getLowiCallbackTable returned NULL or "
             "the function pointer is NULL. Exit.", __FUNCTION__);
-        ret = WIFI_ERROR_NOT_SUPPORTED;
-        goto cleanup;
+        return WIFI_ERROR_NOT_SUPPORTED;
     }
 
     ret = lowiWifiHalApi->disable_responder(id, iface);
-    if (ret != WIFI_SUCCESS) {
-        ALOGE("%s: returned error:%d. Exit.",
-              __FUNCTION__, ret);
-        goto cleanup;
-    }
+    if (ret != WIFI_SUCCESS)
+        ALOGE("%s: returned error:%d. Exit.", __FUNCTION__, ret);
 
-cleanup:
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }

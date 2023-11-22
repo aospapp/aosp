@@ -105,11 +105,6 @@ public final class VmCommandBuilder {
         return this;
     }
 
-    public VmCommandBuilder debugPort(Integer debugPort) {
-        this.debugPort = debugPort;
-        return this;
-    }
-
     public VmCommandBuilder mainClass(String mainClass) {
         this.mainClass = mainClass;
         return this;
@@ -172,11 +167,6 @@ public final class VmCommandBuilder {
 
         if (temp != null) {
             builder.tokens("-Djava.io.tmpdir=" + temp);
-        }
-
-        if (debugPort != null) {
-            builder.tokens("-Xrunjdwp:transport=dt_socket,address="
-                    + debugPort + ",server=y,suspend=y");
         }
 
         builder.tokens(vmArgs);

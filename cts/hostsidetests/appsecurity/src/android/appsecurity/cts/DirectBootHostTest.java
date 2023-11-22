@@ -16,15 +16,21 @@
 
 package android.appsecurity.cts;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
+import android.platform.test.annotations.AppModeFull;
 import com.android.ddmlib.AdbCommandRejectedException;
 import com.android.ddmlib.CollectingOutputReceiver;
 import com.android.ddmlib.Log;
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.testtype.IAbi;
-import com.android.tradefed.testtype.IAbiReceiver;
-import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Set of tests that verify behavior of direct boot, if supported.
@@ -32,58 +38,40 @@ import com.android.tradefed.testtype.IBuildReceiver;
  * Note that these tests drive PIN setup manually instead of relying on device
  * administrators, which are not supported by all devices.
  */
-public class DirectBootHostTest extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
+@RunWith(DeviceJUnit4ClassRunner.class)
+public class DirectBootHostTest extends BaseHostJUnit4Test {
     private static final String TAG = "DirectBootHostTest";
 
     private static final String PKG = "com.android.cts.encryptionapp";
-    private static final String CLASS = ".EncryptionAppTest";
+    private static final String CLASS = PKG + ".EncryptionAppTest";
     private static final String APK = "CtsEncryptionApp.apk";
 
     private static final String OTHER_APK = "CtsSplitApp.apk";
     private static final String OTHER_PKG = "com.android.cts.splitapp";
-    private static final String OTHER_CLASS = ".SplitAppTest";
 
     private static final String MODE_NATIVE = "native";
     private static final String MODE_EMULATED = "emulated";
     private static final String MODE_NONE = "none";
 
-    private static final String FEATURE_DEVICE_ADMIN = "feature:android.software.device_admin\n";
-    private static final String FEATURE_AUTOMOTIVE = "feature:android.hardware.type.automotive\n";
+    private static final String FEATURE_DEVICE_ADMIN = "feature:android.software.device_admin";
+    private static final String FEATURE_AUTOMOTIVE = "feature:android.hardware.type.automotive";
 
     private static final long SHUTDOWN_TIME_MS = 30 * 1000;
 
-    private String mFeatureList = null;
-
     private int[] mUsers;
-    private IAbi mAbi;
-    private IBuildInfo mCtsBuild;
 
-    @Override
-    public void setAbi(IAbi abi) {
-        mAbi = abi;
-    }
-
-    @Override
-    public void setBuild(IBuildInfo buildInfo) {
-        mCtsBuild = buildInfo;
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
+    @Before
+    public void setUp() throws Exception {
         mUsers = Utils.prepareSingleUser(getDevice());
-        assertNotNull(mAbi);
-        assertNotNull(mCtsBuild);
+        assertNotNull(getAbi());
+        assertNotNull(getBuild());
 
         getDevice().uninstallPackage(PKG);
         getDevice().uninstallPackage(OTHER_PKG);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-
+    @After
+    public void tearDown() throws Exception {
         getDevice().uninstallPackage(PKG);
         getDevice().uninstallPackage(OTHER_PKG);
     }
@@ -91,6 +79,8 @@ public class DirectBootHostTest extends DeviceTestCase implements IAbiReceiver, 
     /**
      * Automotive devices MUST support native FBE.
      */
+    @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testAutomotiveNativeFbe() throws Exception {
         if (!isSupportedDevice()) {
             Log.v(TAG, "Device not supported; skipping test");
@@ -107,6 +97,8 @@ public class DirectBootHostTest extends DeviceTestCase implements IAbiReceiver, 
     /**
      * If device has native FBE, verify lifecycle.
      */
+    @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testDirectBootNative() throws Exception {
         if (!isSupportedDevice()) {
             Log.v(TAG, "Device not supported; skipping test");
@@ -122,6 +114,8 @@ public class DirectBootHostTest extends DeviceTestCase implements IAbiReceiver, 
     /**
      * If device doesn't have native FBE, enable emulation and verify lifecycle.
      */
+    @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testDirectBootEmulated() throws Exception {
         if (!isSupportedDevice()) {
             Log.v(TAG, "Device not supported; skipping test");
@@ -137,6 +131,8 @@ public class DirectBootHostTest extends DeviceTestCase implements IAbiReceiver, 
     /**
      * If device doesn't have native FBE, verify normal lifecycle.
      */
+    @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testDirectBootNone() throws Exception {
         if (!isSupportedDevice()) {
             Log.v(TAG, "Device not supported; skipping test");
@@ -213,7 +209,7 @@ public class DirectBootHostTest extends DeviceTestCase implements IAbiReceiver, 
             int... users) throws DeviceNotAvailableException {
         for (int user : users) {
             Log.d(TAG, "runDeviceTests " + testMethodName + " u" + user);
-            Utils.runDeviceTests(getDevice(), packageName, testClassName, testMethodName, user);
+            runDeviceTests(getDevice(), packageName, testClassName, testMethodName, user, null);
         }
     }
 
@@ -236,20 +232,12 @@ public class DirectBootHostTest extends DeviceTestCase implements IAbiReceiver, 
         return "1".equals(output);
     }
 
-    private boolean hasSystemFeature(final String feature) throws Exception {
-        if (mFeatureList == null) {
-            mFeatureList = getDevice().executeShellCommand("pm list features");
-        }
-
-        return mFeatureList.contains(feature);
-    }
-
     private boolean isSupportedDevice() throws Exception {
-        return hasSystemFeature(FEATURE_DEVICE_ADMIN);
+        return getDevice().hasFeature(FEATURE_DEVICE_ADMIN);
     }
 
     private boolean isAutomotiveDevice() throws Exception {
-        return hasSystemFeature(FEATURE_AUTOMOTIVE);
+        return getDevice().hasFeature(FEATURE_AUTOMOTIVE);
     }
 
     private void waitForBootCompleted() throws Exception {
@@ -269,7 +257,7 @@ public class DirectBootHostTest extends DeviceTestCase implements IAbiReceiver, 
 
     private class InstallMultiple extends BaseInstallMultiple<InstallMultiple> {
         public InstallMultiple() {
-            super(getDevice(), mCtsBuild, mAbi);
+            super(getDevice(), getBuild(), getAbi());
         }
     }
 }

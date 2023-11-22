@@ -151,6 +151,7 @@ static bool reboot_service_impl(int fd, const char* arg) {
 
     sync();
 
+    if (!reboot_arg || !reboot_arg[0]) reboot_arg = "adb";
     std::string reboot_string = android::base::StringPrintf("reboot,%s", reboot_arg);
     if (!android::base::SetProperty(ANDROID_RB_PROPERTY, reboot_string)) {
         WriteFdFmt(fd, "reboot (%s) failed\n", reboot_string.c_str());
@@ -180,14 +181,14 @@ static void reconnect_service(int fd, void* arg) {
     kick_transport(t);
 }
 
-int reverse_service(const char* command) {
+int reverse_service(const char* command, atransport* transport) {
     int s[2];
     if (adb_socketpair(s)) {
         PLOG(ERROR) << "cannot create service socket pair.";
         return -1;
     }
     VLOG(SERVICES) << "service socketpair: " << s[0] << ", " << s[1];
-    if (handle_forward_request(command, kTransportAny, nullptr, 0, s[1]) < 0) {
+    if (handle_forward_request(command, transport, s[1]) < 0) {
         SendFail(s[1], "not a reverse forwarding command");
     }
     adb_close(s[1]);
@@ -267,7 +268,7 @@ static int create_service_thread(const char* service_name, void (*func)(int, voi
     return s[0];
 }
 
-int service_to_fd(const char* name, const atransport* transport) {
+int service_to_fd(const char* name, atransport* transport) {
     int ret = -1;
 
     if (is_socket_spec(name)) {
@@ -295,6 +296,7 @@ int service_to_fd(const char* name, const atransport* transport) {
         void* arg = strdup(name + 7);
         if (arg == NULL) return -1;
         ret = create_service_thread("reboot", reboot_service, arg);
+        if (ret < 0) free(arg);
     } else if(!strncmp(name, "root:", 5)) {
         ret = create_service_thread("root", restart_root_service, nullptr);
     } else if(!strncmp(name, "unroot:", 7)) {
@@ -315,7 +317,7 @@ int service_to_fd(const char* name, const atransport* transport) {
     } else if(!strncmp(name, "usb:", 4)) {
         ret = create_service_thread("usb", restart_usb_service, nullptr);
     } else if (!strncmp(name, "reverse:", 8)) {
-        ret = reverse_service(name + 8);
+        ret = reverse_service(name + 8, transport);
     } else if(!strncmp(name, "disable-verity:", 15)) {
         ret = create_service_thread("verity-on", set_verity_enabled_state_service,
                                     reinterpret_cast<void*>(0));
@@ -323,8 +325,7 @@ int service_to_fd(const char* name, const atransport* transport) {
         ret = create_service_thread("verity-off", set_verity_enabled_state_service,
                                     reinterpret_cast<void*>(1));
     } else if (!strcmp(name, "reconnect")) {
-        ret = create_service_thread("reconnect", reconnect_service,
-                                    const_cast<atransport*>(transport));
+        ret = create_service_thread("reconnect", reconnect_service, transport);
 #endif
     }
     if (ret >= 0) {
@@ -406,14 +407,6 @@ void connect_emulator(const std::string& port_spec, std::string* response) {
         return;
     }
 
-    // Check if more emulators can be registered. Similar unproblematic
-    // race condition as above.
-    int candidate_slot = get_available_local_transport_index();
-    if (candidate_slot < 0) {
-        *response = "Cannot accept more emulators";
-        return;
-    }
-
     // Preconditions met, try to connect to the emulator.
     std::string error;
     if (!local_connect_arbitrary_ports(console_port, adb_port, &error)) {
@@ -444,7 +437,9 @@ static void connect_service(int fd, void* data) {
 #if ADB_HOST
 asocket* host_service_to_socket(const char* name, const char* serial, TransportId transport_id) {
     if (!strcmp(name,"track-devices")) {
-        return create_device_tracker();
+        return create_device_tracker(false);
+    } else if (!strcmp(name, "track-devices-l")) {
+        return create_device_tracker(true);
     } else if (android::base::StartsWith(name, "wait-for-")) {
         name += strlen("wait-for-");
 

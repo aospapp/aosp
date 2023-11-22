@@ -15,11 +15,6 @@
 
 package com.android.bluetooth;
 
-import java.io.IOException;
-
-import javax.obex.HeaderSet;
-import javax.obex.ServerRequestHandler;
-
 import android.bluetooth.BluetoothSocket;
 import android.os.Handler;
 import android.os.Handler.Callback;
@@ -27,6 +22,11 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
+
+import java.io.IOException;
+
+import javax.obex.HeaderSet;
+import javax.obex.ServerRequestHandler;
 
 /**
  * A simple ObexServer used to handle connection rejection in two cases:
@@ -42,8 +42,8 @@ public class ObexRejectServer extends ServerRequestHandler implements Callback {
     private final int mResult;
     private final HandlerThread mHandlerThread;
     private final Handler mMessageHandler;
-    private final static int MSG_ID_TIMEOUT = 0x01;
-    private final static int TIMEOUT_VALUE = 5*1000; // ms
+    private static final int MSG_ID_TIMEOUT = 0x01;
+    private static final int TIMEOUT_VALUE = 5 * 1000; // ms
     private final BluetoothSocket mSocket;
 
     /**
@@ -65,31 +65,35 @@ public class ObexRejectServer extends ServerRequestHandler implements Callback {
     // OBEX operation handlers
     @Override
     public int onConnect(HeaderSet request, HeaderSet reply) {
-        if(V) Log.i(TAG,"onConnect() returning error");
+        if (V) {
+            Log.i(TAG, "onConnect() returning error");
+        }
         return mResult;
     }
 
     public void shutdown() {
-      mMessageHandler.removeCallbacksAndMessages(null);
-      mHandlerThread.quit();
-      try {
-          // This will cause an exception in the ServerSession, causing it to shut down
-          mSocket.close();
-      } catch (IOException e) {
-          Log.w(TAG, "Unable to close socket - ignoring", e);
-      }
+        mMessageHandler.removeCallbacksAndMessages(null);
+        mHandlerThread.quit();
+        try {
+            // This will cause an exception in the ServerSession, causing it to shut down
+            mSocket.close();
+        } catch (IOException e) {
+            Log.w(TAG, "Unable to close socket - ignoring", e);
+        }
     }
 
     @Override
     public boolean handleMessage(Message msg) {
-        if(V) Log.i(TAG,"Handling message ID: " + msg.what);
-        switch(msg.what) {
-        case MSG_ID_TIMEOUT:
-            shutdown();
-            break;
-        default:
-            // Message not handled
-            return false;
+        if (V) {
+            Log.i(TAG, "Handling message ID: " + msg.what);
+        }
+        switch (msg.what) {
+            case MSG_ID_TIMEOUT:
+                shutdown();
+                break;
+            default:
+                // Message not handled
+                return false;
         }
         return true; // Message handled
     }

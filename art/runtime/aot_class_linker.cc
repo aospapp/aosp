@@ -16,8 +16,9 @@
 
 #include "aot_class_linker.h"
 
-#include "class_reference.h"
+#include "class_status.h"
 #include "compiler_callbacks.h"
+#include "dex/class_reference.h"
 #include "handle_scope-inl.h"
 #include "mirror/class-inl.h"
 #include "runtime.h"
@@ -29,16 +30,65 @@ AotClassLinker::AotClassLinker(InternTable *intern_table) : ClassLinker(intern_t
 
 AotClassLinker::~AotClassLinker() {}
 
+// Wrap the original InitializeClass with creation of transaction when in strict mode.
+bool AotClassLinker::InitializeClass(Thread* self, Handle<mirror::Class> klass,
+                                  bool can_init_statics, bool can_init_parents) {
+  Runtime* const runtime = Runtime::Current();
+  bool strict_mode_ = runtime->IsActiveStrictTransactionMode();
+
+  DCHECK(klass != nullptr);
+  if (klass->IsInitialized() || klass->IsInitializing()) {
+    return ClassLinker::InitializeClass(self, klass, can_init_statics, can_init_parents);
+  }
+
+  // Don't initialize klass if it's superclass is not initialized, because superclass might abort
+  // the transaction and rolled back after klass's change is commited.
+  if (strict_mode_ && !klass->IsInterface() && klass->HasSuperClass()) {
+    if (klass->GetSuperClass()->GetStatus() == ClassStatus::kInitializing) {
+      runtime->AbortTransactionAndThrowAbortError(self, "Can't resolve "
+          + klass->PrettyTypeOf() + " because it's superclass is not initialized.");
+      return false;
+    }
+  }
+
+  if (strict_mode_) {
+    runtime->EnterTransactionMode(true, klass.Get()->AsClass());
+  }
+  bool success = ClassLinker::InitializeClass(self, klass, can_init_statics, can_init_parents);
+
+  if (strict_mode_) {
+    if (success) {
+      // Exit Transaction if success.
+      runtime->ExitTransactionMode();
+    } else {
+      // If not successfully initialized, the last transaction must abort. Don't rollback
+      // immediately, leave the cleanup to compiler driver which needs abort message and exception.
+      DCHECK(runtime->IsTransactionAborted());
+      DCHECK(self->IsExceptionPending());
+    }
+  }
+  return success;
+}
+
 verifier::FailureKind AotClassLinker::PerformClassVerification(Thread* self,
                                                                Handle<mirror::Class> klass,
                                                                verifier::HardFailLogMode log_level,
                                                                std::string* error_msg) {
   Runtime* const runtime = Runtime::Current();
   CompilerCallbacks* callbacks = runtime->GetCompilerCallbacks();
-  if (callbacks->CanAssumeVerified(ClassReference(&klass->GetDexFile(),
-                                                  klass->GetDexClassDefIndex()))) {
+  ClassStatus old_status = callbacks->GetPreviousClassState(
+      ClassReference(&klass->GetDexFile(), klass->GetDexClassDefIndex()));
+  // Was it verified? Report no failure.
+  if (old_status >= ClassStatus::kVerified) {
     return verifier::FailureKind::kNoFailure;
   }
+  // Does it need to be verified at runtime? Report soft failure.
+  if (old_status >= ClassStatus::kRetryVerificationAtRuntime) {
+    // Error messages from here are only reported through -verbose:class. It is not worth it to
+    // create a message.
+    return verifier::FailureKind::kSoftFailure;
+  }
+  // Do the actual work.
   return ClassLinker::PerformClassVerification(self, klass, log_level, error_msg);
 }
 

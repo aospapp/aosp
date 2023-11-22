@@ -19,12 +19,11 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 LOCAL_CERTIFICATE := platform
 
-LOCAL_JAVA_LIBRARIES := android.test.runner telephony-common
+LOCAL_JAVA_LIBRARIES := android.test.runner telephony-common android.test.base
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
         android-support-test \
         espresso-core \
-        legacy-android-test \
         mockito-target-minus-junit4 \
         truth-prebuilt \
         ub-uiautomator
@@ -34,6 +33,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CellBroadcastReceiverUnitTests
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_INSTRUMENTATION_FOR := CellBroadcastReceiver
 

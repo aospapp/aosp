@@ -19,43 +19,44 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <CheckBoxPreference
         android:key="show_input"
-        android:persistent="false"
+        android:persistent="true"
         android:title="@string/inputs_show" />
     <PreferenceCategory
         android:key="names"
-        android:title="@string/input_header_names" >
+        android:title="@string/input_header_names"
+        android:layout="@layout/preference_category_compact_layout">
         <com.android.tv.settings.RadioPreference
             android:key="name_default"
-            android:persistent="false"
+            android:persistent="true"
             app:radioGroup="name"/>
         <com.android.tv.settings.RadioPreference
             android:key="name_blu_ray"
-            android:persistent="false"
+            android:persistent="true"
             app:radioGroup="name"
             android:title="@string/inputs_blu_ray" />
         <com.android.tv.settings.RadioPreference
             android:key="name_cable"
-            android:persistent="false"
+            android:persistent="true"
             app:radioGroup="name"
             android:title="@string/inputs_cable" />
         <com.android.tv.settings.RadioPreference
             android:key="name_dvd"
-            android:persistent="false"
+            android:persistent="true"
             app:radioGroup="name"
             android:title="@string/inputs_dvd" />
         <com.android.tv.settings.RadioPreference
             android:key="name_game"
-            android:persistent="false"
+            android:persistent="true"
             app:radioGroup="name"
             android:title="@string/inputs_game" />
         <com.android.tv.settings.RadioPreference
             android:key="name_aux"
-            android:persistent="false"
+            android:persistent="true"
             app:radioGroup="name"
             android:title="@string/inputs_aux" />
         <com.android.tv.settings.RadioPreference
             android:key="name_custom"
-            android:persistent="false"
+            android:persistent="true"
             app:radioGroup="name"
             android:title="@string/inputs_custom_name"
             android:fragment="com.android.tv.settings.system.InputCustomNameFragment" />

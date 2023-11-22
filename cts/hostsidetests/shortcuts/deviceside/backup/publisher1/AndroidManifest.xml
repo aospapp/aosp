@@ -18,6 +18,8 @@
     package="android.content.pm.cts.shortcut.backup.publisher1">
 
     <application>
+        <uses-library android:name="android.test.runner" />
+
         <activity android:name="MainActivity" android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

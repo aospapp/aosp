@@ -17,15 +17,11 @@
 package com.android.tv.data;
 
 import android.media.tv.TvInputInfo;
-
 import com.android.tv.util.SetupUtils;
 import com.android.tv.util.TvInputManagerHelper;
-
 import java.util.Comparator;
 
-/**
- * Compares TV input such that the new input comes first.
- */
+/** Compares TV input such that the new input comes first. */
 public class TvInputNewComparator implements Comparator<TvInputInfo> {
     private final SetupUtils mSetupUtils;
     private final TvInputManagerHelper mInputManager;

@@ -48,9 +48,9 @@ UniquePtr<char> EventLoopManager::debugDump() {
     } else if (!mSensorRequestManager.logStateToBuffer(debugStr, &debugStrPos,
                                                        kDebugStringSize)) {
       LOGE("Sensor request manager debug dump failed.");
-    } else if (!mGnssRequestManager.logStateToBuffer(debugStr, &debugStrPos,
-                                                     kDebugStringSize)) {
-      LOGE("GNSS request manager debug dump failed.");
+    } else if (!mGnssManager.logStateToBuffer(debugStr, &debugStrPos,
+                                              kDebugStringSize)) {
+      LOGE("GNSS manager debug dump failed.");
     } else if (!mWifiRequestManager.logStateToBuffer(debugStr, &debugStrPos,
                                                      kDebugStringSize)) {
       LOGE("Wifi request manager debug dump failed.");
@@ -62,12 +62,6 @@ UniquePtr<char> EventLoopManager::debugDump() {
   }
 
   return UniquePtr<char>(debugStr);
-}
-
-bool EventLoopManager::deferCallback(SystemCallbackType type, void *data,
-                                     SystemCallbackFunction *callback) {
-  return mEventLoop.postEvent(static_cast<uint16_t>(type), data, callback,
-                              kSystemInstanceId, kSystemInstanceId);
 }
 
 uint32_t EventLoopManager::getNextInstanceId() {
@@ -86,9 +80,13 @@ uint32_t EventLoopManager::getNextInstanceId() {
 }
 
 void EventLoopManager::lateInit() {
-  mGnssRequestManager.init();
+  mGnssManager.init();
   mWifiRequestManager.init();
   mWwanRequestManager.init();
+
+#ifdef CHRE_AUDIO_SUPPORT_ENABLED
+  mAudioRequestManager.init();
+#endif  // CHRE_AUDIO_SUPPORT_ENABLED
 }
 
 // Explicitly instantiate the EventLoopManagerSingleton to reduce codesize.

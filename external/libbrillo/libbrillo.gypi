@@ -239,6 +239,8 @@
       'sources': [
         'policy/device_policy.cc',
         'policy/device_policy_impl.cc',
+        'policy/policy_util.cc',
+        'policy/resilient_policy_util.cc',
         'policy/libpolicy.cc',
       ],
     },
@@ -374,6 +376,8 @@
           'includes': ['../common-mk/common_test.gypi'],
           'sources': [
             'policy/tests/libpolicy_unittest.cc',
+            'policy/tests/policy_util_unittest.cc',
+            'policy/tests/resilient_policy_util_unittest.cc',
           ]
         },
       ],

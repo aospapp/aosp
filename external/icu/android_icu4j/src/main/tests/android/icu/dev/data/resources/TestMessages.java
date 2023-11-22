@@ -10,7 +10,9 @@
 package android.icu.dev.data.resources;
 
 import java.util.ListResourceBundle;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
 public class TestMessages extends ListResourceBundle {
 
     @Override

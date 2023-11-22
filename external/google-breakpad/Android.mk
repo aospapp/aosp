@@ -47,6 +47,7 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/src \
 
 LOCAL_CFLAGS := \
+    -Wall -Werror \
     -Wno-unused-parameter \
     -Wno-tautological-compare
 
@@ -73,6 +74,8 @@ LOCAL_STATIC_LIBRARIES := breakpad_client
 # Work around b/25435766 core2md segfault.
 LOCAL_CLANG_CFLAGS_x86 += -mno-stackrealign
 LOCAL_CLANG := true
+
+LOCAL_CFLAGS := -Wall -Werror
 
 include $(BUILD_EXECUTABLE)
 
@@ -106,6 +109,12 @@ LOCAL_SRC_FILES_linux := \
     src/common/linux/linux_libc_support.cc \
     src/common/linux/memory_mapped_file.cc \
     src/tools/linux/dump_syms/dump_syms.cc
+LOCAL_CFLAGS := \
+    -Wall -Werror \
+    -Wno-unused-local-typedef \
+    -Wno-unused-private-field \
+    -Wno-unused-result \
+
 include $(BUILD_HOST_EXECUTABLE)
 
 # sym_upload host tool.
@@ -121,4 +130,5 @@ LOCAL_C_INCLUDES := \
 LOCAL_SRC_FILES_linux := \
     src/common/linux/http_upload.cc \
     src/tools/linux/symupload/sym_upload.cc
+LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter
 include $(BUILD_HOST_EXECUTABLE)

@@ -18,7 +18,6 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-LOCAL_CLANG := true
 LOCAL_MODULE := librscpptest_jni
 LOCAL_MODULE_TAGS := optional
 
@@ -46,14 +45,14 @@ LOCAL_C_INCLUDES += frameworks/rs/cpp
 LOCAL_C_INCLUDES += frameworks/rs
 
 LOCAL_CPPFLAGS := -std=c++11
-LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter
 
 LOCAL_SHARED_LIBRARIES := libdl liblog
 LOCAL_STATIC_LIBRARIES := libRScpp_static
 
 LOCAL_SDK_VERSION := 21
 
-LOCAL_NDK_STL_VARIANT := stlport_static
+LOCAL_NDK_STL_VARIANT := c++_static
 
 include $(BUILD_SHARED_LIBRARY)
 

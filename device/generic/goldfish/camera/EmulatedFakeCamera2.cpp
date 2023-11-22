@@ -1396,7 +1396,7 @@ bool EmulatedFakeCamera2::ReadoutThread::threadLoop() {
                 (*mBuffers)[compressedBufferIndex].streamId);
         mJpegTimestamp = captureTime;
         // Takes ownership of mBuffers
-        mParent->mJpegCompressor->start(mBuffers, this);
+        mParent->mJpegCompressor->start(mBuffers, this, nullptr);
     }
     mBuffers = NULL;
 

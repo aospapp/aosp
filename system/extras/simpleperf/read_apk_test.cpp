@@ -41,6 +41,16 @@ TEST(read_apk, FindElfInApkByOffset) {
   ASSERT_EQ(NATIVELIB_SIZE_IN_APK, ee->entry_size());
 }
 
+TEST(read_apk, FindOffsetInApkByName) {
+  uint64_t offset;
+  uint32_t length;
+  ASSERT_FALSE(ApkInspector::FindOffsetInApkByName("/dev/null", "", &offset, &length));
+  ASSERT_FALSE(ApkInspector::FindOffsetInApkByName(GetTestData(APK_FILE), "", &offset, &length));
+  ASSERT_TRUE(ApkInspector::FindOffsetInApkByName(GetTestData(APK_FILE), NATIVELIB_IN_APK, &offset, &length));
+  ASSERT_EQ(NATIVELIB_OFFSET_IN_APK, static_cast<size_t>(offset));
+  ASSERT_EQ(NATIVELIB_SIZE_IN_APK, length);
+}
+
 TEST(read_apk, FindElfInApkByName) {
   ASSERT_TRUE(ApkInspector::FindElfInApkByName("/dev/null", "") == nullptr);
   ASSERT_TRUE(ApkInspector::FindElfInApkByName(GetTestData(APK_FILE), "") == nullptr);

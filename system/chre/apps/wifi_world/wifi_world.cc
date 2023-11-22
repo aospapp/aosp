@@ -17,9 +17,14 @@
 #include <chre.h>
 #include <cinttypes>
 
+#include "chre/util/macros.h"
 #include "chre/util/nanoapp/log.h"
 #include "chre/util/time.h"
 #include "chre/util/nanoapp/wifi.h"
+
+using chre::kOneMillisecondInNanoseconds;
+using chre::Nanoseconds;
+using chre::Seconds;
 
 #define LOG_TAG "[WifiWorld]"
 
@@ -30,14 +35,16 @@ namespace chre {
 namespace {
 #endif  // CHRE_NANOAPP_INTERNAL
 
+namespace {
+
 //! A dummy cookie to pass into the configure scan monitoring async request.
-const uint32_t kScanMonitoringCookie = 0x1337;
+constexpr uint32_t kScanMonitoringCookie = 0x1337;
 
 //! A dummy cookie to pass into request scan async.
-const uint32_t kOnDemandScanCookie = 0xcafe;
+constexpr uint32_t kOnDemandScanCookie = 0xcafe;
 
 //! The interval for on-demand wifi scans.
-const Nanoseconds kWifiScanInterval = Nanoseconds(Seconds(10));
+constexpr Nanoseconds kWifiScanInterval = Nanoseconds(Seconds(10));
 
 //! A handle for the cyclic timer to request periodic on-demand wifi-scans.
 uint32_t gWifiScanTimerHandle;
@@ -46,7 +53,27 @@ uint32_t gWifiScanTimerHandle;
 //! functionality. This is populated at startup.
 uint32_t gWifiCapabilities;
 
-namespace {
+//! The last time in nanoseconds a wifi scan request was sucessfully made.
+uint64_t gLastRequestTimeNs = 0;
+
+//! True if CHRE_WIFI_REQUEST_TYPE_REQUEST_SCAN mode is requested.
+bool gPendingOnDemandScan = false;
+
+//! Accumulating count of the scan request results so far.
+uint32_t gScanResultAcc = 0;
+
+//! The currently requested on-demand wifi scan parameters.
+chreWifiScanParams gWifiScanParams = {};
+
+//! The sequence of on-demand wifi scan types to request for.
+constexpr chreWifiScanType gWifiScanTypes[] = {
+  CHRE_WIFI_SCAN_TYPE_ACTIVE,
+  CHRE_WIFI_SCAN_TYPE_ACTIVE_PLUS_PASSIVE_DFS,
+  CHRE_WIFI_SCAN_TYPE_PASSIVE
+};
+
+//! The index of the next wifi scan type to request for.
+uint8_t gScanTypeIndex = 0;
 
 /**
  * Logs a CHRE wifi scan result.
@@ -55,28 +82,29 @@ namespace {
  */
 void logChreWifiResult(const chreWifiScanResult& result) {
   const char *ssidStr = "<non-printable>";
-  char ssidBuffer[kMaxSsidStrLen];
+  char ssidBuffer[chre::kMaxSsidStrLen];
   if (result.ssidLen == 0) {
     ssidStr = "<empty>";
-  } else if (parseSsidToStr(ssidBuffer, kMaxSsidStrLen,
-                            result.ssid, result.ssidLen)) {
+  } else if (chre::parseSsidToStr(ssidBuffer, sizeof(ssidBuffer),
+                                  result.ssid, result.ssidLen)) {
     ssidStr = ssidBuffer;
-  }
-
-  const char *bssidStr = "<non-printable>";
-  char bssidBuffer[kBssidStrLen];
-  if (parseBssidToStr(result.bssid, bssidBuffer, kBssidStrLen)) {
-    bssidStr = bssidBuffer;
   }
 
   LOGI("Found network with SSID: %s", ssidStr);
 #ifdef WIFI_WORLD_VERBOSE_WIFI_RESULT_LOGS
+  const char *bssidStr = "<non-printable>";
+  char bssidBuffer[chre::kBssidStrLen];
+  if (chre::parseBssidToStr(result.bssid, bssidBuffer, sizeof(bssidBuffer))) {
+    bssidStr = bssidBuffer;
+  }
+
   LOGI("  age (ms): %" PRIu32, result.ageMs);
   LOGI("  capability info: %" PRIx16, result.capabilityInfo);
   LOGI("  bssid: %s", bssidStr);
   LOGI("  flags: %" PRIx8, result.flags);
   LOGI("  rssi: %" PRId8 "dBm", result.rssi);
-  LOGI("  band: %s (%" PRIu8 ")", parseChreWifiBand(result.band), result.band);
+  LOGI("  band: %s (%" PRIu8 ")",
+       chre::parseChreWifiBand(result.band), result.band);
   LOGI("  primary channel: %" PRIu32, result.primaryChannel);
   LOGI("  center frequency primary: %" PRIu32, result.centerFreqPrimary);
   LOGI("  center frequency secondary: %" PRIu32, result.centerFreqSecondary);
@@ -122,8 +150,11 @@ void handleWifiAsyncResult(const chreAsyncResult *result) {
       LOGE("Scan monitoring request cookie mismatch");
     }
   } else if (result->requestType == CHRE_WIFI_REQUEST_TYPE_REQUEST_SCAN) {
+    uint64_t timeSinceRequest = chreGetTime() - gLastRequestTimeNs;
     if (result->success) {
-      LOGI("Successfully requested an on-demand wifi scan");
+      LOGI("Successfully requested an on-demand wifi scan (response time %"
+           PRIu64 " ms)", timeSinceRequest / kOneMillisecondInNanoseconds);
+      gPendingOnDemandScan = true;
     } else {
       LOGE("Error requesting an on-demand wifi scan with %" PRIu8,
            result->errorCode);
@@ -145,8 +176,26 @@ void handleWifiAsyncResult(const chreAsyncResult *result) {
  * @param event a pointer to the details of the wifi scan event.
  */
 void handleWifiScanEvent(const chreWifiScanEvent *event) {
-  LOGI("Received Wifi scan event with %" PRIu8 " results at %" PRIu64 "ns",
-       event->resultCount, event->referenceTime);
+  LOGI("Received Wifi scan event of type %" PRIu8 " with %" PRIu8
+       " results at %" PRIu64 "ns", event->scanType, event->resultCount,
+       event->referenceTime);
+
+  if (gPendingOnDemandScan) {
+    uint64_t timeSinceRequest = chreGetTime() - gLastRequestTimeNs;
+    LOGI("Time since scan request = %" PRIu64 " ms",
+         timeSinceRequest / kOneMillisecondInNanoseconds);
+
+    if (event->scanType != gWifiScanParams.scanType) {
+      LOGE("Invalid scan event type (expected %" PRIu8 ", received %" PRIu8 ")",
+           gWifiScanParams.scanType, event->scanType);
+    }
+
+    gScanResultAcc += event->resultCount;
+    if (gScanResultAcc >= event->resultTotal) {
+      gPendingOnDemandScan = false;
+      gScanResultAcc = 0;
+    }
+  }
 
   for (uint8_t i = 0; i < event->resultCount; i++) {
     const chreWifiScanResult& result = event->results[i];
@@ -162,14 +211,15 @@ void handleWifiScanEvent(const chreWifiScanEvent *event) {
 void handleTimerEvent(const void *eventData) {
   const uint32_t *timerHandle = static_cast<const uint32_t *>(eventData);
   if (*timerHandle == gWifiScanTimerHandle) {
-    struct chreWifiScanParams params = {};
-    params.scanType         = CHRE_WIFI_SCAN_TYPE_ACTIVE;
-    params.maxScanAgeMs     = 5000;  // 5 seconds
-    params.frequencyListLen = 0;
-    params.ssidListLen      = 0;
+    gWifiScanParams.scanType         = gWifiScanTypes[gScanTypeIndex];
+    gWifiScanParams.maxScanAgeMs     = 5000;  // 5 seconds
+    gWifiScanParams.frequencyListLen = 0;
+    gWifiScanParams.ssidListLen      = 0;
+    gScanTypeIndex = (gScanTypeIndex + 1) % ARRAY_SIZE(gWifiScanTypes);
 
-    if (chreWifiRequestScanAsync(&params, &kOnDemandScanCookie)) {
+    if (chreWifiRequestScanAsync(&gWifiScanParams, &kOnDemandScanCookie)) {
       LOGI("Requested a wifi scan successfully");
+      gLastRequestTimeNs = chreGetTime();
     } else {
       LOGE("Failed to request a wifi scan");
     }

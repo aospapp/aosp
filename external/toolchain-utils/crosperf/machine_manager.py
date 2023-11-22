@@ -78,9 +78,8 @@ class CrosMachine(object):
 
   def IsReachable(self):
     command = 'ls'
-    ret = self.ce.CrosRunCommand(command,
-                                 machine=self.name,
-                                 chromeos_root=self.chromeos_root)
+    ret = self.ce.CrosRunCommand(
+        command, machine=self.name, chromeos_root=self.chromeos_root)
     if ret:
       return False
     return True
@@ -121,9 +120,7 @@ class CrosMachine(object):
     #meminfo, the assert does not catch it either
     command = 'cat /proc/meminfo'
     ret, self.meminfo, _ = self.ce.CrosRunCommandWOutput(
-        command,
-        machine=self.name,
-        chromeos_root=self.chromeos_root)
+        command, machine=self.name, chromeos_root=self.chromeos_root)
     assert ret == 0, 'Could not get meminfo from machine: %s' % self.name
     if ret == 0:
       self._ParseMemoryInfo()
@@ -131,9 +128,7 @@ class CrosMachine(object):
   def _GetCPUInfo(self):
     command = 'cat /proc/cpuinfo'
     ret, self.cpuinfo, _ = self.ce.CrosRunCommandWOutput(
-        command,
-        machine=self.name,
-        chromeos_root=self.chromeos_root)
+        command, machine=self.name, chromeos_root=self.chromeos_root)
     assert ret == 0, 'Could not get cpuinfo from machine: %s' % self.name
 
   def _ComputeMachineChecksumString(self):
@@ -153,9 +148,7 @@ class CrosMachine(object):
   def _GetMachineID(self):
     command = 'dump_vpd_log --full --stdout'
     _, if_out, _ = self.ce.CrosRunCommandWOutput(
-        command,
-        machine=self.name,
-        chromeos_root=self.chromeos_root)
+        command, machine=self.name, chromeos_root=self.chromeos_root)
     b = if_out.splitlines()
     a = [l for l in b if 'Product' in l]
     if len(a):
@@ -163,9 +156,7 @@ class CrosMachine(object):
       return
     command = 'ifconfig'
     _, if_out, _ = self.ce.CrosRunCommandWOutput(
-        command,
-        machine=self.name,
-        chromeos_root=self.chromeos_root)
+        command, machine=self.name, chromeos_root=self.chromeos_root)
     b = if_out.splitlines()
     a = [l for l in b if 'HWaddr' in l]
     if len(a):
@@ -222,8 +213,8 @@ class MachineManager(object):
     self.logger = lgr or logger.GetLogger()
 
     if self.locks_dir and not os.path.isdir(self.locks_dir):
-      raise MissingLocksDirectory('Cannot access locks directory: %s' %
-                                  self.locks_dir)
+      raise MissingLocksDirectory(
+          'Cannot access locks directory: %s' % self.locks_dir)
 
     self._initialized_machines = []
     self.chromeos_root = chromeos_root
@@ -242,12 +233,10 @@ class MachineManager(object):
 
     cmd = '/opt/google/chrome/chrome --version'
     ret, version, _ = self.ce.CrosRunCommandWOutput(
-        cmd,
-        machine=machine.name,
-        chromeos_root=self.chromeos_root)
+        cmd, machine=machine.name, chromeos_root=self.chromeos_root)
     if ret != 0:
-      raise CrosCommandError("Couldn't get Chrome version from %s." %
-                             machine.name)
+      raise CrosCommandError(
+          "Couldn't get Chrome version from %s." % machine.name)
 
     if ret != 0:
       version = ''
@@ -261,11 +250,13 @@ class MachineManager(object):
     chromeos_root = label.chromeos_root
     if not chromeos_root:
       chromeos_root = self.chromeos_root
-    image_chromeos_args = [image_chromeos.__file__, '--no_lock',
-                           '--chromeos_root=%s' % chromeos_root,
-                           '--image=%s' % label.chromeos_image,
-                           '--image_args=%s' % label.image_args, '--remote=%s' %
-                           machine.name, '--logging_level=%s' % self.log_level]
+    image_chromeos_args = [
+        image_chromeos.__file__, '--no_lock',
+        '--chromeos_root=%s' % chromeos_root,
+        '--image=%s' % label.chromeos_image,
+        '--image_args=%s' % label.image_args, '--remote=%s' % machine.name,
+        '--logging_level=%s' % self.log_level
+    ]
     if label.board:
       image_chromeos_args.append('--board=%s' % label.board)
 
@@ -287,9 +278,8 @@ class MachineManager(object):
         cmd = 'reboot && exit'
         if self.log_level != 'verbose':
           self.logger.LogOutput('reboot & exit.')
-        self.ce.CrosRunCommand(cmd,
-                               machine=machine.name,
-                               chromeos_root=self.chromeos_root)
+        self.ce.CrosRunCommand(
+            cmd, machine=machine.name, chromeos_root=self.chromeos_root)
         time.sleep(60)
         if self.log_level != 'verbose':
           self.logger.LogOutput('Pushing image onto machine.')
@@ -349,8 +339,8 @@ class MachineManager(object):
       locked = True
       if self.locks_dir:
         locked = file_lock_machine.Machine(cros_machine.name,
-                                           self.locks_dir).Lock(True,
-                                                                sys.argv[0])
+                                           self.locks_dir).Lock(
+                                               True, sys.argv[0])
       if locked:
         self._machines.append(cros_machine)
         command = 'cat %s' % CHECKSUM_FILE
@@ -371,8 +361,8 @@ class MachineManager(object):
 
       if self.log_level != 'verbose':
         self.logger.LogOutput('Setting up remote access to %s' % machine_name)
-        self.logger.LogOutput('Checking machine characteristics for %s' %
-                              machine_name)
+        self.logger.LogOutput(
+            'Checking machine characteristics for %s' % machine_name)
       cm = CrosMachine(machine_name, self.chromeos_root, self.log_level)
       if cm.machine_checksum:
         self._all_machines.append(cm)
@@ -411,17 +401,19 @@ class MachineManager(object):
         self.acquire_timeout -= sleep_time
 
       if self.acquire_timeout < 0:
-        self.logger.LogFatal('Could not acquire any of the '
-                             "following machines: '%s'" %
-                             ', '.join(machine.name for machine in machines))
+        self.logger.LogFatal(
+            'Could not acquire any of the '
+            "following machines: '%s'" % ', '.join(machine.name
+                                                   for machine in machines))
 
 ###      for m in self._machines:
 ###        if (m.locked and time.time() - m.released_time < 10 and
 ###            m.checksum == image_checksum):
 ###          return None
-      unlocked_machines = [machine
-                           for machine in self.GetAvailableMachines(label)
-                           if not machine.locked]
+      unlocked_machines = [
+          machine for machine in self.GetAvailableMachines(label)
+          if not machine.locked
+      ]
       for m in unlocked_machines:
         if image_checksum and m.checksum == image_checksum:
           m.locked = True
@@ -651,8 +643,8 @@ class MockMachineManager(MachineManager):
   """Mock machine manager class."""
 
   def __init__(self, chromeos_root, acquire_timeout, log_level, locks_dir):
-    super(MockMachineManager, self).__init__(
-        chromeos_root, acquire_timeout, log_level, locks_dir)
+    super(MockMachineManager, self).__init__(chromeos_root, acquire_timeout,
+                                             log_level, locks_dir)
 
   def _TryToLockMachine(self, cros_machine):
     self._machines.append(cros_machine)
@@ -663,8 +655,8 @@ class MockMachineManager(MachineManager):
       for m in self._all_machines:
         assert m.name != machine_name, 'Tried to double-add %s' % machine_name
       cm = MockCrosMachine(machine_name, self.chromeos_root, self.log_level)
-      assert cm.machine_checksum, ('Could not find checksum for machine %s' %
-                                   machine_name)
+      assert cm.machine_checksum, (
+          'Could not find checksum for machine %s' % machine_name)
       # In Original MachineManager, the test is 'if cm.machine_checksum:' - if a
       # machine is unreachable, then its machine_checksum is None. Here we
       # cannot do this, because machine_checksum is always faked, so we directly

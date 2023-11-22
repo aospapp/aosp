@@ -16,7 +16,8 @@
 
 package android.print.cts;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -35,15 +36,16 @@ import android.print.PrintJobInfo;
 import android.print.PrinterCapabilitiesInfo;
 import android.print.PrinterId;
 import android.print.PrinterInfo;
-import android.print.cts.services.FirstPrintService;
-import android.print.cts.services.PrintServiceCallbacks;
-import android.print.cts.services.PrinterDiscoverySessionCallbacks;
-import android.print.cts.services.SecondPrintService;
-import android.print.cts.services.StubbablePrinterDiscoverySession;
+import android.print.test.BasePrintTest;
+import android.print.test.services.FirstPrintService;
+import android.print.test.services.PrintServiceCallbacks;
+import android.print.test.services.PrinterDiscoverySessionCallbacks;
+import android.print.test.services.SecondPrintService;
+import android.print.test.services.StubbablePrinterDiscoverySession;
 import android.printservice.PrintJob;
 import android.printservice.PrintService;
-
 import android.support.test.runner.AndroidJUnit4;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;

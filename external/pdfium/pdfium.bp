@@ -1,41 +1,31 @@
 cc_library_shared {
     name: "libpdfium",
-    defaults: ["pdfium-defaults"],
-
-    cflags: [
-        "-DV8_DEPRECATION_WARNINGS",
-        "-D_CRT_SECURE_NO_WARNINGS",
-
-        // Mask some warnings. These are benign, but we probably want to fix them
-        // upstream at some point.
-        "-Wno-sign-compare",
-        "-Wno-unused-parameter",
-    ],
+    defaults: ["pdfium-core"],
 
     static_libs: [
-        "libpdfiumformfiller",
-        "libpdfiumpdfwindow",
-        "libpdfiumjavascript",
-        "libpdfiumfpdfapi",
-        "libpdfiumfxge",
-        "libpdfiumfxedit",
-        "libpdfiumfpdftext",
-        "libpdfiumfxcrt",
-        "libpdfiumfxcodec",
-        "libpdfiumfpdfdoc",
         "libpdfiumfdrm",
-        "libpdfiumagg23",
+        "libpdfiumformfiller",
+        "libpdfiumfpdfapi",
+        "libpdfiumfpdfdoc",
+        "libpdfiumfpdftext",
+        "libpdfiumfxcodec",
+        "libpdfiumfxcrt",
+        "libpdfiumfxge",
+        "libpdfiumfxjs",
+        "libpdfiumpwl",
+        "libpdfiumfx_agg",
         "libpdfiumbigint",
-        "libpdfiumlcms",
-        "libpdfiumjpeg",
-        "libpdfiumopenjpeg",
-        "libpdfiumzlib",
+        "libpdfiumpdfiumbase",
+        "libpdfiumlcms2",
+        "libpdfiumfx_libopenjpeg",
     ],
 
     // TODO: figure out why turning on exceptions requires manually linking libdl
     shared_libs: [
         "libdl",
         "libft2",
+        "libz",
+        "libjpeg",
     ],
 
     srcs: [
@@ -60,6 +50,9 @@ cc_library_shared {
         "fpdfsdk/fpdf_structtree.cpp",
         "fpdfsdk/fpdf_sysfontinfo.cpp",
         "fpdfsdk/fpdf_transformpage.cpp",
+        "fpdfsdk/fpdfannot.cpp",
+        "fpdfsdk/fpdfattachment.cpp",
+        "fpdfsdk/fpdfcatalog.cpp",
         "fpdfsdk/fpdfdoc.cpp",
         "fpdfsdk/fpdfeditimg.cpp",
         "fpdfsdk/fpdfeditpage.cpp",
@@ -71,9 +64,15 @@ cc_library_shared {
         "fpdfsdk/fpdftext.cpp",
         "fpdfsdk/fpdfview.cpp",
         "fpdfsdk/fsdk_actionhandler.cpp",
+        "fpdfsdk/fsdk_filewriteadapter.cpp",
         "fpdfsdk/fsdk_pauseadapter.cpp",
         "fpdfsdk/pdfsdk_fieldaction.cpp",
     ],
 
     export_include_dirs: ["public"],
+
+    include_dirs: [
+        "external/freetype/include",
+        "external/freetype/include/freetype",
+    ],
 }

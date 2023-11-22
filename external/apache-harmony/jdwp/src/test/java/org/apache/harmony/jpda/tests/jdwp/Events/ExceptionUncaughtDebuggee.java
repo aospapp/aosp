@@ -38,6 +38,7 @@ public class ExceptionUncaughtDebuggee extends SyncDebuggee {
         runDebuggee(ExceptionUncaughtDebuggee.class);
     }
 
+    @SuppressWarnings("DeadException")
     @Override
     public void run() {
         logWriter.println("-- ExceptionUncaughtDebuggee: STARTED");

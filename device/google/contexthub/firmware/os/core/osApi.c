@@ -28,6 +28,7 @@
 #include <heap.h>
 #include <i2c.h>
 #include <nanohubCommand.h>
+#include <seos_priv.h>
 
 static struct SlabAllocator *mSlabAllocator;
 

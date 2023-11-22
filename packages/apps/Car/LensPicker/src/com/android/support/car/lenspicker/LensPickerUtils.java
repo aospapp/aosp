@@ -21,9 +21,8 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.service.media.MediaBrowserService;
-import android.support.annotation.Nullable;
 
-import java.net.URISyntaxException;
+import androidx.annotation.Nullable;
 
 /**
  * Utility methods for the lenspicker

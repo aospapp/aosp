@@ -31,10 +31,8 @@ import com.android.tradefed.util.RunUtil;
 import java.io.File;
 import java.io.IOException;
 
-/**
- * A {@link ITargetPreparer} that flashes a kernel on the device.
- */
-public class KernelFlashPreparer implements ITargetPreparer {
+/** A {@link ITargetPreparer} that flashes a kernel on the device. */
+public class KernelFlashPreparer extends BaseTargetPreparer {
 
     /**
      * {@inheritDoc}

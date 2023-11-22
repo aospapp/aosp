@@ -73,12 +73,13 @@ class DownloadAction : public InstallPlanAction,
   // Takes ownership of the passed in HttpFetcher. Useful for testing.
   // A good calling pattern is:
   // DownloadAction(prefs, boot_contol, hardware, system_state,
-  //                new WhateverHttpFetcher);
+  //                new WhateverHttpFetcher, false);
   DownloadAction(PrefsInterface* prefs,
                  BootControlInterface* boot_control,
                  HardwareInterface* hardware,
                  SystemState* system_state,
-                 HttpFetcher* http_fetcher);
+                 HttpFetcher* http_fetcher,
+                 bool is_interactive);
   ~DownloadAction() override;
 
   // InstallPlanAction overrides.
@@ -154,6 +155,11 @@ class DownloadAction : public InstallPlanAction,
   // Pointer to the MultiRangeHttpFetcher that does the http work.
   std::unique_ptr<MultiRangeHttpFetcher> http_fetcher_;
 
+  // If |true|, the update is user initiated (vs. periodic update checks). Hence
+  // the |delta_performer_| can decide not to use O_DSYNC flag for faster
+  // update.
+  bool is_interactive_;
+
   // The FileWriter that downloaded data should be written to. It will
   // either point to *decompressing_file_writer_ or *delta_performer_.
   FileWriter* writer_;
@@ -166,7 +172,8 @@ class DownloadAction : public InstallPlanAction,
 
   // For reporting status to outsiders
   DownloadActionDelegate* delegate_;
-  uint64_t bytes_received_{0};
+  uint64_t bytes_received_{0};  // per file/range
+  uint64_t bytes_received_previous_payloads_{0};
   uint64_t bytes_total_{0};
   bool download_active_{false};
 

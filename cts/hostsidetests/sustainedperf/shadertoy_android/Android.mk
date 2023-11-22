@@ -24,7 +24,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 # Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
 
-LOCAL_JNI_SHARED_LIBRARIES := libgltest libc++
+LOCAL_JNI_SHARED_LIBRARIES := libgltest
 #LOCAL_SHARED_LIBRARIES := libc++
 #LOCAL_STATIC_LIBRARIES := libc++_static
 LOCAL_SRC_FILES := $(call all-java-files-under, src)

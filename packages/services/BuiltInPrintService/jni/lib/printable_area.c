@@ -44,12 +44,17 @@ void printable_area_get(wprint_job_params_t *job_params, float top_margin, float
     // don't adjust for margins if job is borderless and PCLm.  dimensions of image will not
     // match (will be bigger than) the dimensions of the page size and a corrupt image will render
     // in genPCLm
-    job_params->printable_area_width = floorf(
-            ((job_params->page_width - (left_margin + right_margin)) *
-                    (float) job_params->pixel_units));
-    job_params->printable_area_height = floorf(
-            ((job_params->page_height - (top_margin + bottom_margin)) *
-                    (float) job_params->pixel_units));
+    if (job_params->borderless && job_params->pcl_type == PCLm) {
+        job_params->printable_area_width = (unsigned int) _MI_TO_PIXELS(
+                job_params->page_width * 1000, job_params->pixel_units);
+        job_params->printable_area_height = (unsigned int) _MI_TO_PIXELS(
+                job_params->page_height * 1000, job_params->pixel_units);
+    } else {
+        job_params->printable_area_width = (unsigned int) floorf(((job_params->page_width -
+                (left_margin + right_margin)) * (float)job_params->pixel_units));
+        job_params->printable_area_height =  (unsigned int) floorf(((job_params->page_height -
+                (top_margin + bottom_margin)) * (float)job_params->pixel_units));
+    }
 
     job_params->page_top_margin = top_margin;
     job_params->page_left_margin = left_margin;

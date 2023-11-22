@@ -18,7 +18,10 @@ import java.util.List;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
+import android.icu.dev.test.TestFmwk;
 import android.icu.text.MessagePattern;
 import android.icu.text.MessagePatternUtil;
 import android.icu.text.MessagePatternUtil.ArgNode;
@@ -27,12 +30,15 @@ import android.icu.text.MessagePatternUtil.MessageContentsNode;
 import android.icu.text.MessagePatternUtil.MessageNode;
 import android.icu.text.MessagePatternUtil.TextNode;
 import android.icu.text.MessagePatternUtil.VariantNode;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Test MessagePatternUtil (MessagePattern-as-tree-of-nodes API)
  * by building parallel trees of nodes and verifying that they match.
  */
-public final class MessagePatternUtilTest extends android.icu.dev.test.TestFmwk {
+@MainTestShard
+@RunWith(JUnit4.class)
+public final class MessagePatternUtilTest extends TestFmwk {
     // The following nested "Expect..." classes are used to build
     // a tree structure parallel to what the MessagePatternUtil class builds.
     // These nested test classes are not static so that they have access to TestFmwk methods.

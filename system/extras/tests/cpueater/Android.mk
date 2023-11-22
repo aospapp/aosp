@@ -20,7 +20,7 @@ LOCAL_MODULE := cpueater
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 LOCAL_MODULE_TAGS := eng
 LOCAL_SRC_FILES := cpueater.c
-LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
@@ -28,6 +28,7 @@ LOCAL_MODULE := daemonize
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 LOCAL_MODULE_TAGS := eng
 LOCAL_SRC_FILES := daemonize.c
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_SHARED_LIBRARIES := libhardware_legacy
 include $(BUILD_EXECUTABLE)
 

@@ -165,7 +165,7 @@ class MemHealthRecord {
         }
 
         out.println("Background");
-        for (Map.Entry<String, List<MemHealthRecord>> entry : fgRecords.entrySet()) {
+        for (Map.Entry<String, List<MemHealthRecord>> entry : bgRecords.entrySet()) {
             String procName = entry.getKey();
             List<MemHealthRecord> records = entry.getValue();
 

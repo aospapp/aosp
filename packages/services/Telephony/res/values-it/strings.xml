@@ -90,7 +90,7 @@
     <string name="sum_loading_settings" msgid="1826692909391168620">"Caricamento impostazioni…"</string>
     <string name="sum_hide_caller_id" msgid="1071407020290873782">"Numero nascosto per chiamate in uscita"</string>
     <string name="sum_show_caller_id" msgid="6768534125447290401">"Numero visualizzato in chiamate in uscita"</string>
-    <string name="sum_default_caller_id" msgid="1954518825510901365">"Usa impostazioni operatore per visualizzare il mio numero in chiamate in uscita"</string>
+    <string name="sum_default_caller_id" msgid="1954518825510901365">"Usa impostazioni dell\'operatore per mostrare il mio numero nelle chiamate in uscita"</string>
     <string name="labelCW" msgid="6120513814915920200">"Avviso di chiamata"</string>
     <string name="sum_cw_enabled" msgid="8083061901633671397">"Notifica chiamate in entrata durante telefonata"</string>
     <string name="sum_cw_disabled" msgid="3648693907300104575">"Notifica chiamate in entrata durante telefonata"</string>
@@ -103,17 +103,17 @@
     <string name="sum_cfu_enabled" msgid="2450052502198827927">"Deviazione di tutte le chiamate al numero <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfu_enabled_no_number" msgid="6591985777096823616">"Numero non disponibile"</string>
     <string name="sum_cfu_disabled" msgid="8384177689501334080">"Non attiva"</string>
-    <string name="labelCFB" msgid="6139853033106283172">"Quando occupato"</string>
+    <string name="labelCFB" msgid="6139853033106283172">"Se occupato"</string>
     <string name="messageCFB" msgid="3711089705936187129">"Numero se occupato"</string>
     <string name="sum_cfb_enabled" msgid="5984198104833116690">"Deviazione al numero <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfb_disabled" msgid="4913145177320506827">"Non attiva"</string>
     <string name="disable_cfb_forbidden" msgid="3506984333877998061">"Il tuo operatore non supporta la disattivazione dell\'inoltro chiamate quando il telefono è occupato."</string>
-    <string name="labelCFNRy" msgid="1736067178393744351">"Quando senza risposta"</string>
+    <string name="labelCFNRy" msgid="1736067178393744351">"Se non si risponde"</string>
     <string name="messageCFNRy" msgid="672317899884380374">"Numero se non si risponde"</string>
     <string name="sum_cfnry_enabled" msgid="6955775691317662910">"Deviazione al numero <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnry_disabled" msgid="3884684060443538097">"Non attiva"</string>
     <string name="disable_cfnry_forbidden" msgid="4308233959150658058">"Il tuo operatore non supporta la disattivazione dell\'inoltro chiamate quando il telefono non risponde."</string>
-    <string name="labelCFNRc" msgid="2614827454402079766">"Quando non raggiungibile"</string>
+    <string name="labelCFNRc" msgid="2614827454402079766">"Se non raggiungibile"</string>
     <string name="messageCFNRc" msgid="6380695421020295119">"Numero se non raggiungibile"</string>
     <string name="sum_cfnrc_enabled" msgid="7010898346095497421">"Deviazione al numero <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="2684474391807469832">"Non attiva"</string>
@@ -127,9 +127,10 @@
     <string name="reverting_settings" msgid="4752151682666912828">"Annullamento impostazioni..."</string>
     <string name="response_error" msgid="6674110501330139405">"Risposta imprevista dalla rete."</string>
     <string name="exception_error" msgid="7027667130619518211">"Errore di rete o della SIM."</string>
-    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"Richiesta SS modificata in richiesta DIAL."</string>
-    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"Richiesta SS modificata in richiesta USSD."</string>
-    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"Richiesta SS modificata in nuova richiesta SS."</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="4440038807310535377">"Richiesta SS modificata in chiamata normale"</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="6095812685884176176">"Richiesta SS modificata in richiesta USSD"</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="7920654012697945858">"Modificata in nuova richiesta SS"</string>
+    <string name="stk_cc_ss_to_dial_video_error" msgid="3873905132181743781">"Richiesta SS modificata in videochiamata"</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"L\'impostazione relativa ai numeri di selezione fissa dell\'applicazione sul tuo telefono è attiva. Di conseguenza, alcune funzioni legate alle chiamate non funzionano."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"Attiva il segnale cellulare per visualizzare queste impostazioni."</string>
     <string name="close_dialog" msgid="2365884406356986917">"OK"</string>
@@ -158,23 +159,53 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"Il nuovo PIN contiene caratteri non validi."</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"Impossibile cambiare il PIN"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"Tipo di messaggio non supportato, chiama <xliff:g id="NUMBER">%s</xliff:g> per ascoltare."</string>
-    <string name="mobile_networks" msgid="5540397602919106177">"Impostazioni reti mobili"</string>
     <string name="network_settings_title" msgid="514120489499925574">"Rete mobile"</string>
     <string name="label_available" msgid="1181658289009300430">"Reti disponibili"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Ricerca..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Nessuna rete trovata."</string>
-    <string name="network_query_error" msgid="6828516148953325006">"Errore durante la ricerca di reti."</string>
+    <string name="network_query_error" msgid="8466081377231178298">"Impossibile trovare reti. Riprova."</string>
     <string name="register_on_network" msgid="9055203954040805084">"Registrazione su <xliff:g id="NETWORK">%s</xliff:g>..."</string>
     <string name="not_allowed" msgid="5613353860205691579">"La scheda SIM non consente la connessione a questa rete."</string>
     <string name="connect_later" msgid="2308119155752343975">"Impossibile connettersi a questa rete in questo momento. Riprova più tardi."</string>
     <string name="registration_done" msgid="495135664535876612">"Registrato sulla rete."</string>
-    <string name="select_automatically" msgid="1046727200631770962">"Seleziona automaticamente la rete"</string>
+    <string name="already_auto" msgid="6067116884321285507">"Già in selezione automatica."</string>
+    <string name="select_automatically" msgid="1046727200631770962">"Seleziona rete automaticamente"</string>
     <string name="network_select_title" msgid="7733107364757544558">"Rete"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Registrazione automatica..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"Tipo di rete preferito"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"Cambia la modalità di funzionamento della rete"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Tipo di rete preferito"</string>
     <string name="forbidden_network" msgid="4384929668343563440">"(vietato)"</string>
+    <string name="choose_network_title" msgid="4023911977543009350">"Scegli rete"</string>
+    <string name="network_disconnected" msgid="2227251609006103194">"Disconnesso"</string>
+    <string name="network_connected" msgid="1288589103624338857">"Connesso"</string>
+    <string name="network_connecting" msgid="4927203097283533783">"Connessione…"</string>
+    <string name="network_could_not_connect" msgid="8254009365807767243">"Impossibile connettersi."</string>
+  <string-array name="preferred_network_mode_choices">
+    <item msgid="3628460389382468528">"GSM/WCDMA preferito"</item>
+    <item msgid="8442633436636425221">"Solo GSM"</item>
+    <item msgid="2032314385791760810">"Solo WCDMA"</item>
+    <item msgid="6334554401059422303">"GSM/WCDMA automatico"</item>
+    <item msgid="1462198368200398663">"CDMA/EvDo automatico"</item>
+    <item msgid="3611460019185359968">"CDMA senza EvDo"</item>
+    <item msgid="545430093607698090">"Solo EvDo"</item>
+    <item msgid="4286774020869405140">"CDMA/EvDo/GSM/WCDMA"</item>
+    <item msgid="4006002265696868538">"CDMA + LTE/EvDo"</item>
+    <item msgid="8973936140318359205">"GSM/WCDMA/LTE"</item>
+    <item msgid="3471059554252610472">"Globale"</item>
+    <item msgid="2882615514545171802">"LTE"</item>
+    <item msgid="8076204422288290116">"LTE/WCDMA"</item>
+    <item msgid="3982984144824159726">"Solo TDSCDMA"</item>
+    <item msgid="3686191974505922271">"TDSCDMA/WCDMA"</item>
+    <item msgid="7135671700201836475">"LTE/TDSCDMA"</item>
+    <item msgid="3736619459066330755">"TDSCDMA/GSM"</item>
+    <item msgid="4778666570887216861">"LTE/TDSCDMA/GSM"</item>
+    <item msgid="2952322596201849456">"TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="115984258536697617">"LTE/TDSCDMA/WCDMA"</item>
+    <item msgid="7957991936217192636">"LTE/TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="2828588917858484655">"TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+    <item msgid="4989979948139945854">"LTE/TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+  </string-array>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Modalità di rete preferita: WCDMA (preferita)"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Modalità di rete preferita: solo GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Modalità di rete preferita: solo WCDMA"</string>
@@ -192,21 +223,15 @@
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"Modalità di rete preferita: LTE/GSM/UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"Modalità di rete preferita: LTE/CDMA"</string>
     <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"Modalità di rete preferita: TD-SCDMA"</string>
-  <string-array name="preferred_network_mode_choices">
-    <item msgid="7886739962255042385">"LTE/WCDMA"</item>
-    <item msgid="577652050447385699">"LTE"</item>
-    <item msgid="6813597571293773656">"Globale"</item>
-    <item msgid="127064712132619032">"GSM/WCDMA/LTE"</item>
-    <item msgid="1126767511633425977">"CDMA + LTE/EvDo"</item>
-    <item msgid="6389676313771670660">"CDMA/EvDo/GSM/WCDMA"</item>
-    <item msgid="545430093607698090">"Solo EvDo"</item>
-    <item msgid="1508557726283094448">"CDMA senza EvDo"</item>
-    <item msgid="4341433122263841224">"CDMA/EvDo automatico"</item>
-    <item msgid="5958053792390386668">"GSM/WCDMA automatico"</item>
-    <item msgid="7913148405605373434">"Solo WCDMA"</item>
-    <item msgid="1524224863879435516">"Solo GSM"</item>
-    <item msgid="3817924849415716259">"GSM/WCDMA preferito"</item>
-  </string-array>
+    <string name="preferred_network_mode_tdscdma_wcdma_summary" msgid="2405154895437348623">"Modalità di rete preferita: TDSCDMA/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_summary" msgid="2104702896644235637">"Modalità di rete preferita: LTE/TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_summary" msgid="4893784445338396204">"Modalità di rete preferita: TDSCDMA/GSM"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_summary" msgid="1815169717046729757">"Modalità di rete preferita: LTE/GSM/TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_wcdma_summary" msgid="2195358773359424099">"Modalità di rete preferita: TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_wcdma_summary" msgid="1181424059695667803">"Modalità di rete preferita: LTE/TDSCDMA/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_wcdma_summary" msgid="2526539326505354382">"Modalità di rete preferita: LTE/TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="8195248059196614939">"Modalità di rete preferita: TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="5596733053095592791">"Modalità di rete preferita: LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
     <string name="call_category" msgid="5863978196309462052">"Chiamata in corso"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"Rete"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Modalità 4G LTE avanzata"</string>
@@ -218,14 +243,16 @@
     <string name="roaming" msgid="7894878421600247140">"Roaming"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Connessione a servizi di dati in caso di roaming"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Connessione a servizi di dati in roaming"</string>
-    <string name="roaming_reenable_message" msgid="8913735676127858115">"Connettività dati persa: hai lasciato la rete del tuo operatore con il roaming dati disattivato."</string>
+    <string name="roaming_reenable_message" msgid="6843814381576397939">"Disattivazione del roaming dati in corso. Tocca per attivarlo."</string>
+    <string name="roaming_notification_title" msgid="4749053220884743110">"Connessione dati mobile interrotta"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"I costi potrebbero essere elevati."</string>
+    <string name="roaming_check_price_warning" msgid="7497570906830902550">"Verifica i costi con il tuo fornitore di rete."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Consentire il roaming dei dati?"</string>
-    <string name="data_usage_title" msgid="8759619109516889802">"Utilizzo dati"</string>
-    <string name="data_usage_template" msgid="8526428824844656364">"Utilizzo dati mobili: <xliff:g id="ID_1">%1$s</xliff:g> nel periodo <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="data_usage_title" msgid="4042209259808900283">"Utilizzo dei dati delle app"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"Dati mobili usati: <xliff:g id="ID_1">%1$s</xliff:g> nel periodo <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="8074895510265488035">"Avanzate"</string>
     <string name="carrier_settings_euicc" msgid="6714062862127226405">"Operatore"</string>
-    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"operatore, esim, sim, euicc"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="6861505396475991277">"operatore, esim, sim, euicc, cambia operatore, aggiungi operatore"</string>
     <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> - <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="mobile_data_settings_title" msgid="4661165467914727157">"Dati mobili"</string>
     <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Accedi ai dati tramite la rete mobile"</string>
@@ -403,7 +430,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"Eliminazione numero selezione fissa..."</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"Numero di selezione fissa eliminato."</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"FDN non aggiornato perché il PIN inserito non è corretto."</string>
-    <string name="fdn_invalid_number" msgid="8602417141715473998">"FDN non è stato aggiornato perché il numero è vuoto o contiene più di 20 cifre."</string>
+    <string name="fdn_invalid_number" msgid="2062898833049589309">"FDN non è stato aggiornato perché il numero supera le 20 cifre."</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN non aggiornato. Il codice PIN2 non era corretto o il numero di telefono è stato rifiutato."</string>
     <string name="fdn_failed" msgid="540018079008319747">"Operazione FDN non riuscita."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"Lettura da SIM..."</string>
@@ -486,6 +513,7 @@
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Impossibile attivare la modalità aereo durante una chiamata di emergenza."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"Impossibile chiamare. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> non è un numero di emergenza."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Impossibile chiamare. Componi un numero di emergenza."</string>
+    <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"Chiamate di emergenza non disponibili"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Usa tastiera"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"In attesa"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"Chiudi"</string>
@@ -506,6 +534,9 @@
     <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"Importazione contatto non riuscita"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"Apparecchi acustici"</string>
     <string name="hac_mode_summary" msgid="6833851160514929341">"Attiva la compatibilità con apparecchi acustici"</string>
+    <string name="rtt_mode_title" msgid="6954652435543570121">"Chiamate con Real-time text (RTT)"</string>
+    <string name="rtt_mode_summary" msgid="5146344277246544580">"Consenti l\'utilizzo di messaggi durante le chiamate vocali"</string>
+    <string name="rtt_mode_more_information" msgid="6080420780730383030">"RTT aiuta i chiamanti con disabilità uditive o del linguaggio e le persone che hanno bisogno di un supporto scritto oltre alla voce.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Ulteriori informazioni&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - Le chiamate RTT vengono salvare come una trascrizione in messaggi\n       &lt;br&gt; - RTT non è disponibile per le videochiamate"</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"TTY disattivato"</item>
     <item msgid="3971695875449640648">"TTY completo"</item>
@@ -617,4 +648,107 @@
     <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Potresti dover aggiungere la rete dati mediante <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"AGGIUNGI RETE DATI"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ANNULLA"</string>
+    <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"Chiamata terminata"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"Segnale radio off"</string>
+    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"Nessuna scheda SIM o errore scheda SIM"</string>
+    <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"Rete mobile non disponibile"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"Numero non assegnato (non allocato)"</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"Nessun percorso verso la destinazione"</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"Canale non accettabile"</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"Esclusione determinata dall\'operatore"</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"Disconnessione chiamata normale"</string>
+    <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"Utente occupato"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"Nessuna risposta utente"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"Avviso utente, nessuna risposta"</string>
+    <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"Chiamata respinta"</string>
+    <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"Numero modificato"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"Priorità"</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"Disconnessione utente non selezionato"</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"Destinazione fuori servizio"</string>
+    <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"Formato del numero non valido (numero incompleto)"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"Servizio respinto"</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"Risposta a RICHIESTA STATO"</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"Normale, non specificato"</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"Nessun circuito/canale disponibile"</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"Rete fuori servizio"</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"Guasto temporaneo"</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"Congestione per cambio apparecchiatura"</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"Informazioni di accesso ignorate"</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"Circuito/canale richiesto non disponibile"</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"Risorse non disponibili, non specificato"</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"Qualità del servizio non disponibile"</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"Servizio richiesto non sottoscritto"</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"Chiamate in arrivo escluse nel gruppo chiuso di utenti"</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"Capacità connessione non autorizzata"</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"Capacità connessione non attualmente disponibile"</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"Servizio o opzione non disponibile, non specificato"</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"Servizio di connessione non implementato"</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM maggiore o uguale a ACMmax"</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"Servizio richiesto non implementato"</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"Disponibile solo capacità di connessione limitata delle informazioni digitali"</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"Servizio o opzione non implementato, non specificato"</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"Valore identificatore della transazione non valido"</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"Utente non appartenente al gruppo chiuso"</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"Destinazione non compatibile"</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"Selezione rete di transito non valida"</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"Messaggio semanticamente errato"</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"Informazioni obbligatorie non valide"</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"Tipo di messaggio non esistente o non implementato"</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"Tipo di messaggio non compatibile con lo stato del protocollo"</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"Elemento di informazioni non esistente o non implementato"</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"Errore elemento di informazioni condizionale"</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"Messaggio non compatibile con lo stato del protocollo"</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"Scadenza ripristino timer"</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"Errore protocollo, non specificato"</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"Interfunzionamento, non specificato"</string>
+    <string name="labelCallBarring" msgid="3452870940716226978">"Blocco chiamate"</string>
+    <string name="sum_call_barring_enabled" msgid="6804489690436703488">"Attivo"</string>
+    <string name="sum_call_barring_disabled" msgid="5900772179198857783">"Non attivo"</string>
+    <string name="call_barring_baoc" msgid="1199843944333106035">"Tutte le chiamate in uscita"</string>
+    <string name="call_barring_baoc_enabled" msgid="8112118391869380361">"Disattivare il blocco di tutte le chiamate in uscita?"</string>
+    <string name="call_barring_baoc_disabled" msgid="7806697133004697974">"Bloccare tutte le chiamate in uscita?"</string>
+    <string name="call_barring_baoic" msgid="3162154267825211826">"Chiamate internazionali in uscita"</string>
+    <string name="call_barring_baoic_enabled" msgid="2634377543147258105">"Disattivare il blocco chiamate internazionali in uscita?"</string>
+    <string name="call_barring_baoic_disabled" msgid="5817895648306183464">"Bloccare le chiamate internazionali in uscita?"</string>
+    <string name="call_barring_baoicr" msgid="8951699885885742076">"Roaming internazionale in uscita"</string>
+    <string name="call_barring_baoicr_enabled" msgid="2519630715322138317">"Disabilitare il blocco del roaming internazionale in uscita?"</string>
+    <string name="call_barring_baoicr_disabled" msgid="5831267468931377699">"Bloccare il roaming internazionale in uscita?"</string>
+    <string name="call_barring_baic" msgid="5272726081458339912">"Tutte le chiamate in arrivo"</string>
+    <string name="call_barring_baic_enabled" msgid="2457134916223203380">"Disattivare il blocco di tutte le chiamate in arrivo?"</string>
+    <string name="call_barring_baic_disabled" msgid="6945604947500275636">"Bloccare tutte le chiamate in arrivo?"</string>
+    <string name="call_barring_baicr" msgid="5728784220691481693">"Roaming internazionale in arrivo"</string>
+    <string name="call_barring_baicr_enabled" msgid="6533336994391716127">"Disattivare il blocco di tutto il roaming internazionale in arrivo?"</string>
+    <string name="call_barring_baicr_disabled" msgid="6746329853943256566">"Bloccare il roaming internazionale in arrivo?"</string>
+    <string name="call_barring_deactivate_all" msgid="5269788384941003415">"Disattiva tutto"</string>
+    <string name="call_barring_deactivate_all_description" msgid="4972365443287257704">"Disattiva tutte le impostazioni di blocco chiamate"</string>
+    <string name="call_barring_deactivate_success" msgid="8014685598632000936">"Bocco chiamate disattivato"</string>
+    <string name="call_barring_change_pwd" msgid="6887420609726284232">"Modifica password"</string>
+    <string name="call_barring_change_pwd_description" msgid="5505087790260233953">"Modifica la password di blocco chiamate"</string>
+    <string name="call_barring_change_pwd_description_disabled" msgid="7630770327645349957">"Impossibile modificare la password di blocco chiamate."</string>
+    <string name="call_barring_pwd_not_match" msgid="6716711689350314525">"Le password non corrispondono"</string>
+    <string name="call_barring_right_pwd_number" msgid="2902966502520410446">"Inserisci una password con 4 numeri"</string>
+    <string name="call_barring_change_pwd_success" msgid="3278310763742760321">"Password modificata"</string>
+    <string name="call_barring_old_pwd" msgid="6080515987320238522">"Vecchia password"</string>
+    <string name="call_barring_new_pwd" msgid="7048532299150269547">"Nuova password"</string>
+    <string name="call_barring_confirm_pwd" msgid="1947167278466285411">"Conferma password"</string>
+    <string name="messageCallBarring" msgid="2412123220272136055">"Inserisci password"</string>
+    <string name="call_barring_settings" msgid="80766145008623645">"Impostazioni di blocco chiamate"</string>
+    <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"Disattivare tutte le impostazioni di blocco chiamate?"</string>
+    <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"Chiamata deviata."</string>
+    <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"Trasferimento di chiamata."</string>
+    <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"Chiamata in attesa."</string>
+    <string name="supp_service_clir_suppression_rejected" msgid="1581851661582189045">"Blocco del numero rifiutato."</string>
+    <string name="supp_service_closed_user_group_call" msgid="5761735840904590950">"Chiamata al gruppo di utenti chiusa."</string>
+    <string name="supp_service_incoming_calls_barred" msgid="3248813207307882723">"Chiamate in arrivo bloccate."</string>
+    <string name="supp_service_outgoing_calls_barred" msgid="1962644621292054081">"Chiamate in uscita bloccate."</string>
+    <string name="supp_service_call_forwarding_active" msgid="1253134771682248735">"Deviazione chiamate attiva."</string>
+    <string name="supp_service_additional_call_forwarded" msgid="5228624725214727315">"Chiamata aggiuntiva deviata."</string>
+    <string name="supp_service_additional_ect_connected" msgid="6396964292513707102">"Trasferimento esplicito della chiamata completato."</string>
+    <string name="supp_service_additional_ect_connecting" msgid="5443373059716058480">"Trasferimento esplicito della chiamata in corso."</string>
+    <string name="supp_service_call_on_hold" msgid="1478976782361795422">"Chiamata in attesa."</string>
+    <string name="supp_service_call_resumed" msgid="1656475289958070674">"Chiamata ripristinata."</string>
+    <string name="supp_service_deflected_call" msgid="138970419873492166">"La chiamata è stata deviata."</string>
+    <string name="supp_service_forwarded_call" msgid="4509980341645679803">"Trasferimento di chiamata."</string>
+    <string name="supp_service_conference_call" msgid="4448616364004466832">"Accesso all\'audioconferenza."</string>
+    <string name="supp_service_held_call_released" msgid="2030677825038709779">"La chiamata in attesa è stata chiusa."</string>
 </resources>

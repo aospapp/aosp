@@ -78,6 +78,7 @@ struct ieee802_11_elems {
 	const u8 *fils_wrapped_data;
 	const u8 *fils_pk;
 	const u8 *fils_nonce;
+	const u8 *owe_dh;
 
 	u8 ssid_len;
 	u8 supp_rates_len;
@@ -120,6 +121,7 @@ struct ieee802_11_elems {
 	u8 key_delivery_len;
 	u8 fils_wrapped_data_len;
 	u8 fils_pk_len;
+	u8 owe_dh_len;
 
 	struct mb_ies_info mb_ies;
 };
@@ -174,6 +176,7 @@ extern const struct oper_class_map global_op_class[];
 extern size_t global_op_class_size;
 
 const u8 * get_ie(const u8 *ies, size_t len, u8 eid);
+const u8 * get_ie_ext(const u8 *ies, size_t len, u8 ext);
 
 size_t mbo_add_ie(u8 *buf, size_t len, const u8 *attr, size_t attr_len);
 
@@ -185,5 +188,8 @@ struct country_op_class {
 u8 country_to_global_op_class(const char *country, u8 op_class);
 
 const struct oper_class_map * get_oper_class(const char *country, u8 op_class);
+
+int ieee802_11_parse_candidate_list(const char *pos, u8 *nei_rep,
+				    size_t nei_rep_len);
 
 #endif /* IEEE802_11_COMMON_H */

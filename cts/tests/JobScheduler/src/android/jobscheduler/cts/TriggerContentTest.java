@@ -16,6 +16,10 @@
 
 package android.jobscheduler.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.annotation.TargetApi;
 import android.app.job.JobInfo;
 import android.app.job.JobParameters;

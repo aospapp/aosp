@@ -104,51 +104,45 @@ public class LeanbackPickerDialogFragment extends LeanbackPreferenceDialogFragme
         final String pickerType = getArguments().getString(EXTRA_PICKER_TYPE);
 
         final View view = inflater.inflate(R.layout.picker_dialog_fragment, container, false);
-        ViewGroup pickerContainer = (ViewGroup) view.findViewById(R.id.picker_container);
+        ViewGroup pickerContainer = view.findViewById(R.id.picker_container);
         if (pickerType.equals(TYPE_DATE)) {
             inflater.inflate(R.layout.date_picker_widget, pickerContainer, true);
-            DatePicker datePicker = (DatePicker) pickerContainer.findViewById(R.id.date_picker);
+            DatePicker datePicker = pickerContainer.findViewById(R.id.date_picker);
             datePicker.setActivated(true);
-            datePicker.setOnClickListener(new View.OnClickListener(){
-                @Override
-                public void onClick(View v) {
-                    // Setting the new system date
-                    ((AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE)).setTime(
-                            datePicker.getDate()
-                    );
-                    // Finish the fragment/activity when clicked.
-                    if (!getFragmentManager().popBackStackImmediate()) {
-                        getActivity().finish();
-                    }
+            datePicker.setOnClickListener(v -> {
+                // Setting the new system date
+                ((AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE)).setTime(
+                        datePicker.getDate()
+                );
+                // Finish the fragment/activity when clicked.
+                if (!getFragmentManager().popBackStackImmediate()) {
+                    getActivity().finish();
                 }
             });
 
         } else {
             inflater.inflate(R.layout.time_picker_widget, pickerContainer, true);
-            TimePicker timePicker = (TimePicker) pickerContainer.findViewById(R.id.time_picker);
+            TimePicker timePicker = pickerContainer.findViewById(R.id.time_picker);
             timePicker.setActivated(true);
-            timePicker.setOnClickListener(new View.OnClickListener(){
-                @Override
-                public void onClick(View v) {
-                    // Setting the new system time
-                    mCalendar.set(Calendar.HOUR_OF_DAY, timePicker.getHour());
-                    mCalendar.set(Calendar.MINUTE, timePicker.getMinute());
-                    mCalendar.set(Calendar.SECOND, 0);
-                    mCalendar.set(Calendar.MILLISECOND, 0);
-                    ((AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE)).setTime(
-                            mCalendar.getTimeInMillis()
-                    );
-                    // Finish the fragment/activity when clicked.
-                    if (!getFragmentManager().popBackStackImmediate()) {
-                        getActivity().finish();
-                    }
+            timePicker.setOnClickListener(v -> {
+                // Setting the new system time
+                mCalendar.set(Calendar.HOUR_OF_DAY, timePicker.getHour());
+                mCalendar.set(Calendar.MINUTE, timePicker.getMinute());
+                mCalendar.set(Calendar.SECOND, 0);
+                mCalendar.set(Calendar.MILLISECOND, 0);
+                ((AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE)).setTime(
+                        mCalendar.getTimeInMillis()
+                );
+                // Finish the fragment/activity when clicked.
+                if (!getFragmentManager().popBackStackImmediate()) {
+                    getActivity().finish();
                 }
             });
         }
 
         final CharSequence title = mDialogTitle;
         if (!TextUtils.isEmpty(title)) {
-            final TextView titleView = (TextView) view.findViewById(R.id.decor_title);
+            final TextView titleView = view.findViewById(R.id.decor_title);
             titleView.setText(title);
         }
         return view;

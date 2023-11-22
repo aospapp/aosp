@@ -8,9 +8,9 @@ from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.cros import chrome_binary_test
-from autotest_lib.client.cros import power_status, power_utils
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.audio import cmd_utils
+from autotest_lib.client.cros.power import power_status, power_utils
 from autotest_lib.client.cros.video import helper_logger
 
 # The download base for test assets.
@@ -29,7 +29,6 @@ INPUT_FPS = 30
 # The rendering fps in the vda_unittest.
 RENDERING_FPS = 30
 
-# The unit(s) should match chromium/src/tools/perf/unit-info.json.
 UNIT_PERCENT = '%'
 UNIT_WATT = 'W'
 

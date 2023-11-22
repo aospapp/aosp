@@ -33,4 +33,3 @@ public interface FragmentWithFade {
      */
     void fadeInContent();
 }
-

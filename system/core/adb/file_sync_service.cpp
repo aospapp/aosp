@@ -48,10 +48,8 @@
 using android::base::StringPrintf;
 
 static bool should_use_fs_config(const std::string& path) {
-    // TODO: use fs_config to configure permissions on /data.
-    return android::base::StartsWith(path, "/system/") ||
-           android::base::StartsWith(path, "/vendor/") ||
-           android::base::StartsWith(path, "/oem/");
+    // TODO: use fs_config to configure permissions on /data too.
+    return !android::base::StartsWith(path, "/data/");
 }
 
 static bool update_capabilities(const char* path, uint64_t capabilities) {
@@ -62,7 +60,7 @@ static bool update_capabilities(const char* path, uint64_t capabilities) {
     }
 
     vfs_cap_data cap_data = {};
-    cap_data.magic_etc = VFS_CAP_REVISION | VFS_CAP_FLAGS_EFFECTIVE;
+    cap_data.magic_etc = VFS_CAP_REVISION_2 | VFS_CAP_FLAGS_EFFECTIVE;
     cap_data.data[0].permitted = (capabilities & 0xffffffff);
     cap_data.data[0].inheritable = 0;
     cap_data.data[1].permitted = (capabilities >> 32);
@@ -206,6 +204,12 @@ static bool handle_send_file(int s, const char* path, uid_t uid, gid_t gid, uint
     __android_log_security_bswrite(SEC_TAG_ADB_SEND_FILE, path);
 
     int fd = adb_open_mode(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, mode);
+
+    if (posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL | POSIX_FADV_NOREUSE | POSIX_FADV_WILLNEED) <
+        0) {
+        D("[ Failed to fadvise: %d ]", errno);
+    }
+
     if (fd < 0 && errno == ENOENT) {
         if (!secure_mkdirs(android::base::Dirname(path))) {
             SendSyncFailErrno(s, "secure_mkdirs failed");
@@ -413,10 +417,14 @@ static bool do_recv(int s, const char* path, std::vector<char>& buffer) {
         return false;
     }
 
+    if (posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL | POSIX_FADV_NOREUSE) < 0) {
+        D("[ Failed to fadvise: %d ]", errno);
+    }
+
     syncmsg msg;
     msg.data.id = ID_DATA;
     while (true) {
-        int r = adb_read(fd, &buffer[0], buffer.size());
+        int r = adb_read(fd, &buffer[0], buffer.size() - sizeof(msg.data));
         if (r <= 0) {
             if (r == 0) break;
             SendSyncFailErrno(s, "read failed");

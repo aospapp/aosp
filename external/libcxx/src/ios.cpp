@@ -9,9 +9,6 @@
 
 #include "__config"
 
-#undef _LIBCPP_EXTERN_TEMPLATE
-#define _LIBCPP_EXTERN_TEMPLATE(...) extern template __VA_ARGS__;
-
 #include "ios"
 
 #include <stdlib.h>
@@ -25,6 +22,7 @@
 #include "new"
 #include "streambuf"
 #include "string"
+#include "__undef_macros"
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 

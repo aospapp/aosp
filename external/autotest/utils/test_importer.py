@@ -18,8 +18,6 @@ however.  An easy way to check for compliance is to run in dry mode:
 
 ./test_importer.py --dry-run -t /usr/local/autotest/server/tests/mytest
 
-Or to check a single control file, you can use check_control_file_vars.py.
-
 Running with no options is equivalent to --add-all --db-clear-tests.
 
 Most options should be fairly self explanatory, use --help to display them.

@@ -16,26 +16,6 @@
 
 package com.googlecode.android_scripting.facade.wifi;
 
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import com.googlecode.android_scripting.Log;
-import com.googlecode.android_scripting.MainThread;
-import com.googlecode.android_scripting.facade.EventFacade;
-import com.googlecode.android_scripting.facade.FacadeManager;
-import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
-import com.googlecode.android_scripting.rpc.Rpc;
-import com.googlecode.android_scripting.rpc.RpcOptional;
-import com.googlecode.android_scripting.rpc.RpcParameter;
-
 import android.app.Service;
 import android.content.Context;
 import android.net.wifi.ScanResult;
@@ -48,6 +28,26 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.provider.Settings.Global;
 import android.provider.Settings.SettingNotFoundException;
+
+import com.googlecode.android_scripting.Log;
+import com.googlecode.android_scripting.MainThread;
+import com.googlecode.android_scripting.facade.EventFacade;
+import com.googlecode.android_scripting.facade.FacadeManager;
+import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
+import com.googlecode.android_scripting.rpc.Rpc;
+import com.googlecode.android_scripting.rpc.RpcOptional;
+import com.googlecode.android_scripting.rpc.RpcParameter;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * WifiScanner functions.
@@ -362,6 +362,9 @@ public class WifiScannerFacade extends RpcReceiver {
         result.reportEvents = j.getInt("reportEvents");
         if (j.has("numBssidsPerScan")) {
             result.numBssidsPerScan = j.getInt("numBssidsPerScan");
+        }
+        if (j.has("type")) {
+            result.type = j.getInt("type");
         }
         return result;
     }

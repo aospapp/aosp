@@ -19,6 +19,7 @@ common_cflags = [
     "-O3",
     "-funroll-loops",
     "-fvisibility=hidden",
+    "-Werror",
     "-Wno-unused-parameter",
     "-Wno-type-limits",
 ]

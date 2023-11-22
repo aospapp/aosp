@@ -45,6 +45,7 @@ class provision_CheetsUpdate(test.test):
         @param android_build: android build to test.
         """
         build_filename = self.generate_android_build_filename(android_build)
+        logging.info('Generated build name: %s', build_filename)
         logging.info('Setting up devserver.')
         ds = dev_server.AndroidBuildServer.resolve(android_build)
         branch, target, build_id = (
@@ -59,7 +60,9 @@ class provision_CheetsUpdate(test.test):
         self.__build_temp_dir = tempfile.mkdtemp()
         test_filepath = os.path.join(self.__build_temp_dir, build_filename)
         logging.info('Android test file download path: %s', test_filepath)
-        ds.download_file(zip_image, test_filepath)
+        logging.info('Zip image: %s', zip_image)
+        # Timeout if Android build downloading takes more than 10 minutes.
+        ds.download_file(zip_image, test_filepath, timeout=10)
         if not os.path.exists(test_filepath):
             raise error.TestFail(
                     'Android test build %s download failed' % test_filepath)
@@ -94,7 +97,7 @@ class provision_CheetsUpdate(test.test):
 
         @return Android test file name to download and update on the DUT.
         """
-        m = re.findall(r'cheets_\w+|P?\d+', android_build)
+        m = re.findall(r'cheets_\w+|P?\d+$', android_build)
         if m:
             return m[0] + '-img-' + m[1] + '.zip'
         else:
@@ -115,7 +118,13 @@ class provision_CheetsUpdate(test.test):
                self.android_build_path,
                '--simg2img',
                SIMG2IMG_PATH,
-               host.hostname]
+               '--mksquashfs-path',
+               os.path.join(self.bindir, 'mksquashfs'),
+               '--shift-uid-py-path',
+               os.path.join(self.bindir, 'shift_uid.py'),
+               host.hostname,
+               '--loglevel',
+               'DEBUG']
         try:
             logging.info('Running push to device:')
             logging.info(
@@ -137,22 +146,58 @@ class provision_CheetsUpdate(test.test):
 
     def run_once(self, host, value=None):
         """
-        Installs test Android version `value` on `host`.
+        Installs test ChromeOS version and Android version `value` on `host`.
 
         This method is invoked by the test control file to start the
         provisioning test.
 
         @param host: DUT on which the test to be run.
         @param value: contains Android build info to test.
+                      git_nyc-arc/cheets_x86-user/3512523
         """
-        logging.debug('Start provisioning %s to %s', host, value)
+        logging.debug('Start provisioning %s to %s.', host, value)
 
         if not value:
             raise error.TestFail('No build provided.')
 
-        self.download_android_build(value)
-        self.remove_rootfs(host)
-        self.run_push_to_device(host)
+        cheets_prefix = host.host_version_prefix(value)
+        info = host.host_info_store.get()
+        try:
+            host_android_build = info.get_label_value(cheets_prefix)
+            logging.info('Cheets build from cheets-version: %s.',
+                         host_android_build)
+        except:
+            # In case the DUT has never run cheets tests before, there might not
+            # be cheets build label set.
+            host_android_build = None
+        # provision_AutoUpdate can update the cheets version and the
+        # cheets-version label might not have been updated so checking the
+        # cheets version installed on the DUT.
+        dut_arc_version = host.get_arc_version()
+        logging.info('Cheets build installed on the DUT from lsb-release: %s.',
+                     dut_arc_version)
+        if dut_arc_version and dut_arc_version in value:
+            # Update the cheets version label in case the DUT label and
+            # installed cheets version aren't matching.
+            if host_android_build != value:
+                info.set_version_label(cheets_prefix, value)
+                host.host_info_store.commit(info)
+            # If the installed cheets version is same as the test version, emitting
+            # an INFO line.
+            self.job.record('INFO', None, None, 'Host already running %s.' % value)
+            return
+        else:
+            logging.info('Updating ARC++ build from %s to %s.',
+                         host_android_build,
+                         value)
+            self.remove_rootfs(host)
+            self.download_android_build(value)
+            self.run_push_to_device(host)
+            info = host.host_info_store.get()
+            logging.info('Updating DUT version label: %s:%s', cheets_prefix, value)
+            info.clear_version_labels(cheets_prefix)
+            info.set_version_label(cheets_prefix, value)
+            host.host_info_store.commit(info)
 
 
     def cleanup(self):

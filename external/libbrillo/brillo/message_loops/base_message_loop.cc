@@ -315,7 +315,8 @@ BaseMessageLoop::IOTask::IOTask(const tracked_objects::Location& location,
                                 bool persistent,
                                 const Closure& task)
     : location_(location), loop_(loop), task_id_(task_id),
-      fd_(fd), base_mode_(base_mode), persistent_(persistent), closure_(task) {}
+      fd_(fd), base_mode_(base_mode), persistent_(persistent), closure_(task),
+      fd_watcher_(FROM_HERE) {}
 
 bool BaseMessageLoop::IOTask::StartWatching() {
   return loop_->base_loop_->WatchFileDescriptor(

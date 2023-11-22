@@ -88,7 +88,7 @@ INTERNAL_VALID_VARIANTS := user userdebug eng
 # Provide "PRODUCT-<prodname>-<goal>" targets, which lets you build
 # a particular configuration without needing to set up the environment.
 #
-ifndef KATI
+ifeq ($(CALLED_FROM_SETUP),true)
 product_goals := $(strip $(filter PRODUCT-%,$(MAKECMDGOALS)))
 ifdef product_goals
   # Scrape the product and build names out of the goal,
@@ -129,14 +129,14 @@ ifdef product_goals
   # position, in case it matters.
   override MAKECMDGOALS := $(patsubst $(goal_name),$(default_goal_substitution),$(MAKECMDGOALS))
 endif
-endif # !KATI
+endif # CALLED_FROM_SETUP
 # else: Use the value set in the environment or buildspec.mk.
 
 # ---------------------------------------------------------------
 # Provide "APP-<appname>" targets, which lets you build
 # an unbundled app.
 #
-ifndef KATI
+ifeq ($(CALLED_FROM_SETUP),true)
 unbundled_goals := $(strip $(filter APP-%,$(MAKECMDGOALS)))
 ifdef unbundled_goals
   ifneq ($(words $(unbundled_goals)),1)
@@ -150,6 +150,13 @@ ifdef unbundled_goals
   endif
 endif # unbundled_goals
 endif
+
+# Now that we've parsed APP-* and PRODUCT-*, mark these as readonly
+TARGET_BUILD_APPS ?=
+.KATI_READONLY := \
+  TARGET_PRODUCT \
+  TARGET_BUILD_VARIANT \
+  TARGET_BUILD_APPS
 
 # Default to building dalvikvm on hosts that support it...
 ifeq ($(HOST_OS),linux)
@@ -259,6 +266,7 @@ PRODUCT_BOOT_JARS := $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_BOOT_JARS))
 PRODUCT_SYSTEM_SERVER_JARS := $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_SYSTEM_SERVER_JARS))
 PRODUCT_SYSTEM_SERVER_APPS := $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_SYSTEM_SERVER_APPS))
 PRODUCT_DEXPREOPT_SPEED_APPS := $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_DEXPREOPT_SPEED_APPS))
+PRODUCT_LOADED_BY_PRIVILEGED_MODULES := $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_LOADED_BY_PRIVILEGED_MODULES))
 
 # All of the apps that we force preopt, this overrides WITH_DEXPREOPT.
 PRODUCT_ALWAYS_PREOPT_EXTRACTED_APK := $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_ALWAYS_PREOPT_EXTRACTED_APK))
@@ -295,15 +303,6 @@ PRODUCT_AAPT_CONFIG_SP := $(PRODUCT_AAPT_CONFIG)
 PRODUCT_AAPT_CONFIG := \
     $(subst $(space),$(comma),$(strip $(PRODUCT_AAPT_CONFIG)))
 
-# product-scoped aapt flags
-PRODUCT_AAPT_FLAGS :=
-PRODUCT_AAPT2_CFLAGS :=
-ifneq ($(filter en_XA ar_XB,$(PRODUCT_LOCALES)),)
-  # Force generating resources for pseudo-locales.
-  PRODUCT_AAPT2_CFLAGS += --pseudo-localize
-  PRODUCT_AAPT_FLAGS += --pseudo-localize
-endif
-
 PRODUCT_BRAND := $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_BRAND))
 
 PRODUCT_MODEL := $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_MODEL))
@@ -339,7 +338,7 @@ endif
 # The file at the source path should be copied to the destination path
 # when building  this product.  <destination path> is relative to
 # $(PRODUCT_OUT), so it should look like, e.g., "system/etc/file.xml".
-# The rules for these copy steps are defined in build/core/Makefile.
+# The rules for these copy steps are defined in build/make/core/Makefile.
 # The optional :<owner> is used to indicate the owner of a vendor file.
 PRODUCT_COPY_FILES := \
     $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_COPY_FILES))
@@ -358,6 +357,20 @@ PRODUCT_SHIPPING_API_LEVEL := $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_SHI
 PRODUCT_DEFAULT_PROPERTY_OVERRIDES := \
     $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_DEFAULT_PROPERTY_OVERRIDES))
 .KATI_READONLY := PRODUCT_DEFAULT_PROPERTY_OVERRIDES
+
+# A list of property assignments, like "key = value", with zero or more
+# whitespace characters on either side of the '='.
+# used for adding properties to default.prop of system partition
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES := \
+    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_SYSTEM_DEFAULT_PROPERTIES))
+.KATI_READONLY := PRODUCT_SYSTEM_DEFAULT_PROPERTIES
+
+# A list of property assignments, like "key = value", with zero or more
+# whitespace characters on either side of the '='.
+# used for adding properties to build.prop of product partition
+PRODUCT_PRODUCT_PROPERTIES := \
+    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_PRODUCT_PROPERTIES))
+.KATI_READONLY := PRODUCT_PRODUCT_PROPERTIES
 
 # Should we use the default resources or add any product specific overlays
 PRODUCT_PACKAGE_OVERLAYS := \
@@ -379,8 +392,12 @@ PRODUCT_OTA_PUBLIC_KEYS := $(sort \
 PRODUCT_EXTRA_RECOVERY_KEYS := $(sort \
     $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_EXTRA_RECOVERY_KEYS))
 
+PRODUCT_DEX_PREOPT_DEFAULT_COMPILER_FILTER := \
+    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_DEX_PREOPT_DEFAULT_COMPILER_FILTER))
 PRODUCT_DEX_PREOPT_DEFAULT_FLAGS := \
     $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_DEX_PREOPT_DEFAULT_FLAGS))
+PRODUCT_DEX_PREOPT_GENERATE_DM_FILES := \
+    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_DEX_PREOPT_GENERATE_DM_FILES))
 PRODUCT_DEX_PREOPT_BOOT_FLAGS := \
     $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_DEX_PREOPT_BOOT_FLAGS))
 PRODUCT_DEX_PREOPT_PROFILE_DIR := \
@@ -396,6 +413,8 @@ PRODUCT_SYSTEM_SERVER_COMPILER_FILTER := \
     $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_SYSTEM_SERVER_COMPILER_FILTER))
 PRODUCT_SYSTEM_SERVER_DEBUG_INFO := \
     $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_SYSTEM_SERVER_DEBUG_INFO))
+PRODUCT_OTHER_JAVA_DEBUG_INFO := \
+    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_OTHER_JAVA_DEBUG_INFO))
 
 # Resolve and setup per-module dex-preopt configs.
 PRODUCT_DEX_PREOPT_MODULE_CONFIGS := \
@@ -456,3 +475,33 @@ PRODUCT_MINIMIZE_JAVA_DEBUG_INFO := \
 # Whether any paths are excluded from sanitization when SANITIZE_TARGET=integer_overflow
 PRODUCT_INTEGER_OVERFLOW_EXCLUDE_PATHS := \
     $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_INTEGER_OVERFLOW_EXCLUDE_PATHS))
+
+# ADB keys for debuggable builds
+PRODUCT_ADB_KEYS :=
+ifneq ($(filter eng userdebug,$(TARGET_BUILD_VARIANT)),)
+  PRODUCT_ADB_KEYS := $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_ADB_KEYS))
+endif
+ifneq ($(filter-out 0 1,$(words $(PRODUCT_ADB_KEYS))),)
+  $(error Only one file may be in PRODUCT_ADB_KEYS: $(PRODUCT_ADB_KEYS))
+endif
+.KATI_READONLY := PRODUCT_ADB_KEYS
+
+# Whether any paths are excluded from sanitization when SANITIZE_TARGET=cfi
+PRODUCT_CFI_EXCLUDE_PATHS := \
+    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_CFI_EXCLUDE_PATHS))
+
+# Whether any paths should have CFI enabled for components
+PRODUCT_CFI_INCLUDE_PATHS := \
+    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_CFI_INCLUDE_PATHS))
+
+# which Soong namespaces to export to Make
+PRODUCT_SOONG_NAMESPACES := \
+    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_SOONG_NAMESPACES))
+
+# A flag to override PRODUCT_COMPATIBLE_PROPERTY
+PRODUCT_COMPATIBLE_PROPERTY_OVERRIDE := \
+    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_COMPATIBLE_PROPERTY_OVERRIDE))
+
+# Whether the whitelist of actionable compatible properties should be disabled or not
+PRODUCT_ACTIONABLE_COMPATIBLE_PROPERTY_DISABLE := \
+    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_ACTIONABLE_COMPATIBLE_PROPERTY_DISABLE))

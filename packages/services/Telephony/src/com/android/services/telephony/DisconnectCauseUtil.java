@@ -20,6 +20,7 @@ import android.content.Context;
 import android.media.ToneGenerator;
 import android.telecom.DisconnectCause;
 
+import com.android.internal.telephony.CallFailCause;
 import com.android.phone.ImsUtil;
 import com.android.phone.PhoneGlobals;
 import com.android.phone.common.R;
@@ -34,7 +35,8 @@ public class DisconnectCauseUtil {
     * @param telephonyDisconnectCause The code for the reason for the disconnect.
     */
     public static DisconnectCause toTelecomDisconnectCause(int telephonyDisconnectCause) {
-        return toTelecomDisconnectCause(telephonyDisconnectCause, null /* reason */);
+        return toTelecomDisconnectCause(telephonyDisconnectCause,
+                CallFailCause.NOT_VALID, null /* reason */);
     }
 
    /**
@@ -47,10 +49,25 @@ public class DisconnectCauseUtil {
     */
     public static DisconnectCause toTelecomDisconnectCause(
             int telephonyDisconnectCause, String reason) {
+        return toTelecomDisconnectCause(telephonyDisconnectCause, CallFailCause.NOT_VALID, reason);
+    }
+
+   /**
+    * Converts from a disconnect code in {@link android.telephony.DisconnectCause} into a more
+    * generic {@link android.telecom.DisconnectCause}.object, possibly populated with a localized
+    * message and tone.
+    *
+    * @param telephonyDisconnectCause The code for the reason for the disconnect.
+    * @param telephonyPerciseDisconnectCause The code for the percise reason for the disconnect.
+    * @param reason Description of the reason for the disconnect, not intended for the user to see..
+    */
+    public static DisconnectCause toTelecomDisconnectCause(
+            int telephonyDisconnectCause, int telephonyPerciseDisconnectCause, String reason) {
         Context context = PhoneGlobals.getInstance();
         return new DisconnectCause(
                 toTelecomDisconnectCauseCode(telephonyDisconnectCause),
-                toTelecomDisconnectCauseLabel(context, telephonyDisconnectCause),
+                toTelecomDisconnectCauseLabel(context, telephonyDisconnectCause,
+                        telephonyPerciseDisconnectCause),
                 toTelecomDisconnectCauseDescription(context, telephonyDisconnectCause),
                 toTelecomDisconnectReason(context,telephonyDisconnectCause, reason),
                 toTelecomDisconnectCauseTone(telephonyDisconnectCause));
@@ -67,6 +84,7 @@ public class DisconnectCauseUtil {
                 return DisconnectCause.LOCAL;
 
             case android.telephony.DisconnectCause.NORMAL:
+            case android.telephony.DisconnectCause.NORMAL_UNSPECIFIED:
                 return DisconnectCause.REMOTE;
 
             case android.telephony.DisconnectCause.OUTGOING_CANCELED:
@@ -124,15 +142,20 @@ public class DisconnectCauseUtil {
             case android.telephony.DisconnectCause.DIAL_MODIFIED_TO_USSD:
             case android.telephony.DisconnectCause.DIAL_MODIFIED_TO_SS:
             case android.telephony.DisconnectCause.DIAL_MODIFIED_TO_DIAL:
+            case android.telephony.DisconnectCause.DIAL_MODIFIED_TO_DIAL_VIDEO:
+            case android.telephony.DisconnectCause.DIAL_VIDEO_MODIFIED_TO_SS:
+            case android.telephony.DisconnectCause.DIAL_VIDEO_MODIFIED_TO_USSD:
+            case android.telephony.DisconnectCause.DIAL_VIDEO_MODIFIED_TO_DIAL:
+            case android.telephony.DisconnectCause.DIAL_VIDEO_MODIFIED_TO_DIAL_VIDEO:
             case android.telephony.DisconnectCause.ERROR_UNSPECIFIED:
             case android.telephony.DisconnectCause.MAXIMUM_NUMBER_OF_CALLS_REACHED:
             case android.telephony.DisconnectCause.DATA_DISABLED:
             case android.telephony.DisconnectCause.DATA_LIMIT_REACHED:
-            case android.telephony.DisconnectCause.DIALED_ON_WRONG_SLOT:
             case android.telephony.DisconnectCause.DIALED_CALL_FORWARDING_WHILE_ROAMING:
             case android.telephony.DisconnectCause.IMEI_NOT_ACCEPTED:
             case android.telephony.DisconnectCause.WIFI_LOST:
             case android.telephony.DisconnectCause.IMS_ACCESS_BLOCKED:
+            case android.telephony.DisconnectCause.IMS_SIP_ALTERNATE_EMERGENCY_CALL:
                 return DisconnectCause.ERROR;
 
             case android.telephony.DisconnectCause.DIALED_MMI:
@@ -163,8 +186,23 @@ public class DisconnectCauseUtil {
      * Returns a label for to the disconnect cause to be shown to the user.
      */
     private static CharSequence toTelecomDisconnectCauseLabel(
+            Context context, int telephonyDisconnectCause, int telephonyPerciseDisconnectCause) {
+        CharSequence label;
+        if (telephonyPerciseDisconnectCause != CallFailCause.NOT_VALID) {
+            label = getLabelFromPreciseDisconnectCause(context, telephonyPerciseDisconnectCause,
+                    telephonyDisconnectCause);
+        } else {
+            label = getLabelFromDisconnectCause(context, telephonyDisconnectCause);
+        }
+        return label;
+    }
+
+    /**
+     * Returns a label for to the generic disconnect cause to be shown to the user.
+     */
+    private static CharSequence getLabelFromDisconnectCause(
             Context context, int telephonyDisconnectCause) {
-        if (context == null ) {
+        if (context == null) {
             return "";
         }
 
@@ -252,10 +290,198 @@ public class DisconnectCauseUtil {
                 resourceId = R.string.callFailed_data_limit_reached;
                 break;
 
+            case android.telephony.DisconnectCause.IMS_SIP_ALTERNATE_EMERGENCY_CALL:
+                resourceId = R.string.incall_error_power_off;
+                break;
+
             default:
                 break;
         }
         return resourceId == null ? "" : context.getResources().getString(resourceId);
+    }
+
+    /**
+     * Returns a label for to the precise disconnect cause to be shown to the user.
+     */
+    private static CharSequence getLabelFromPreciseDisconnectCause(
+            Context context, int telephonyPreciseDisconnectCause, int telephonyDisconnectCause) {
+        if (context == null) {
+            return "";
+        }
+
+        Integer resourceId = null;
+        switch (telephonyPreciseDisconnectCause) {
+            case CallFailCause.UNOBTAINABLE_NUMBER:
+                resourceId = R.string.clh_callFailed_unassigned_number_txt;
+                break;
+            case CallFailCause.NO_ROUTE_TO_DEST:
+                resourceId = R.string.clh_callFailed_no_route_to_destination_txt;
+                break;
+            case CallFailCause.CHANNEL_UNACCEPTABLE:
+                resourceId = R.string.clh_callFailed_channel_unacceptable_txt;
+                break;
+            case CallFailCause.OPERATOR_DETERMINED_BARRING:
+                resourceId = R.string.clh_callFailed_operator_determined_barring_txt;
+                break;
+            case CallFailCause.NORMAL_CLEARING:
+                resourceId = R.string.clh_callFailed_normal_call_clearing_txt;
+                break;
+            case CallFailCause.USER_BUSY:
+                resourceId = R.string.clh_callFailed_user_busy_txt;
+                break;
+            case CallFailCause.NO_USER_RESPONDING:
+                resourceId = R.string.clh_callFailed_no_user_responding_txt;
+                break;
+            case CallFailCause.USER_ALERTING_NO_ANSWER:
+                resourceId = R.string.clh_callFailed_user_alerting_txt;
+                break;
+            case CallFailCause.CALL_REJECTED:
+                resourceId = R.string.clh_callFailed_call_rejected_txt;
+                break;
+            case CallFailCause.NUMBER_CHANGED:
+                resourceId = R.string.clh_callFailed_number_changed_txt;
+                break;
+            case CallFailCause.PRE_EMPTION:
+                resourceId = R.string.clh_callFailed_pre_emption_txt;
+                break;
+            case CallFailCause.NON_SELECTED_USER_CLEARING:
+                resourceId = R.string.clh_callFailed_non_selected_user_clearing_txt;
+                break;
+            case CallFailCause.DESTINATION_OUT_OF_ORDER:
+                resourceId = R.string.clh_callFailed_destination_out_of_order_txt;
+                break;
+            case CallFailCause.INVALID_NUMBER_FORMAT:
+                resourceId = R.string.clh_callFailed_invalid_number_format_txt;
+                break;
+            case CallFailCause.FACILITY_REJECTED:
+                resourceId = R.string.clh_callFailed_facility_rejected_txt;
+                break;
+            case CallFailCause.STATUS_ENQUIRY:
+                resourceId = R.string.clh_callFailed_response_to_STATUS_ENQUIRY_txt;
+                break;
+            case CallFailCause.NORMAL_UNSPECIFIED:
+                resourceId = R.string.clh_callFailed_normal_unspecified_txt;
+                break;
+            case CallFailCause.NO_CIRCUIT_AVAIL:
+                resourceId = R.string.clh_callFailed_no_circuit_available_txt;
+                break;
+            case CallFailCause.NETWORK_OUT_OF_ORDER:
+                resourceId = R.string.clh_callFailed_network_out_of_order_txt;
+                break;
+            case CallFailCause.TEMPORARY_FAILURE:
+                resourceId = R.string.clh_callFailed_temporary_failure_txt;
+                break;
+            case CallFailCause.SWITCHING_CONGESTION:
+                resourceId = R.string.clh_callFailed_switching_equipment_congestion_txt;
+                break;
+            case CallFailCause.ACCESS_INFORMATION_DISCARDED:
+                resourceId = R.string.clh_callFailed_access_information_discarded_txt;
+                break;
+            case CallFailCause.CHANNEL_NOT_AVAIL:
+                resourceId = R.string.clh_callFailed_requested_circuit_txt;
+                break;
+            case CallFailCause.RESOURCES_UNAVAILABLE_UNSPECIFIED:
+                resourceId = R.string.clh_callFailed_resources_unavailable_unspecified_txt;
+                break;
+            case CallFailCause.QOS_NOT_AVAIL:
+                resourceId = R.string.clh_callFailed_quality_of_service_unavailable_txt;
+                break;
+            case CallFailCause.REQUESTED_FACILITY_NOT_SUBSCRIBED:
+                resourceId = R.string.clh_callFailed_requested_facility_not_subscribed_txt;
+                break;
+            case CallFailCause.INCOMING_CALL_BARRED_WITHIN_CUG:
+                resourceId = R.string.clh_callFailed_incoming_calls_barred_within_the_CUG_txt;
+                break;
+            case CallFailCause.BEARER_CAPABILITY_NOT_AUTHORISED:
+                resourceId = R.string.clh_callFailed_bearer_capability_not_authorized_txt;
+                break;
+            case CallFailCause.BEARER_NOT_AVAIL:
+                resourceId = R.string.clh_callFailed_bearer_capability_not_presently_available_txt;
+                break;
+            case CallFailCause.SERVICE_OR_OPTION_NOT_AVAILABLE:
+                resourceId =
+                        R.string.clh_callFailed_service_or_option_not_available_unspecified_txt;
+                break;
+            case CallFailCause.BEARER_SERVICE_NOT_IMPLEMENTED:
+                resourceId = R.string.clh_callFailed_bearer_service_not_implemented_txt;
+                break;
+            case CallFailCause.ACM_LIMIT_EXCEEDED:
+                resourceId = R.string.clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt;
+                break;
+            case CallFailCause.REQUESTED_FACILITY_NOT_IMPLEMENTED:
+                resourceId = R.string.clh_callFailed_requested_facility_not_implemented_txt;
+                break;
+            case CallFailCause.ONLY_RESTRICTED_DIGITAL_INFO_BC_AVAILABLE:
+                resourceId = R.string
+                        .clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt;
+                break;
+            case CallFailCause.SERVICE_OR_OPTION_NOT_IMPLEMENTED:
+                resourceId =
+                        R.string.clh_callFailed_service_or_option_not_implemented_unspecified_txt;
+                break;
+            case CallFailCause.INVALID_TRANSACTION_ID_VALUE:
+                resourceId = R.string.clh_callFailed_invalid_transaction_identifier_value_txt;
+                break;
+            case CallFailCause.USER_NOT_MEMBER_OF_CUG:
+                resourceId = R.string.clh_callFailed_user_not_member_of_CUG_txt;
+                break;
+            case CallFailCause.INCOMPATIBLE_DESTINATION:
+                resourceId = R.string.clh_callFailed_incompatible_destination_txt;
+                break;
+            case CallFailCause.INVALID_TRANSIT_NETWORK_SELECTION:
+                resourceId = R.string.clh_callFailed_invalid_transit_network_selection_txt;
+                break;
+            case CallFailCause.SEMANTICALLY_INCORRECT_MESSAGE:
+                resourceId = R.string.clh_callFailed_semantically_incorrect_message_txt;
+                break;
+            case CallFailCause.INVALID_MANDATORY_INFORMATION:
+                resourceId = R.string.clh_callFailed_invalid_mandatory_information_txt;
+                break;
+            case CallFailCause.MESSAGE_TYPE_NON_EXISTENT:
+                resourceId =
+                        R.string.clh_callFailed_message_type_non_existent_or_not_implemented_txt;
+                break;
+            case CallFailCause.MESSAGE_TYPE_NOT_COMPATIBLE_WITH_PROT_STATE:
+                resourceId = R.string
+                        .clh_callFailed_message_type_not_compatible_with_protocol_state_txt;
+                break;
+            case CallFailCause.IE_NON_EXISTENT_OR_NOT_IMPLEMENTED:
+                resourceId = R.string
+                        .clh_callFailed_information_element_non_existent_or_not_implemented_txt;
+                break;
+            case CallFailCause.CONDITIONAL_IE_ERROR:
+                resourceId = R.string.clh_callFailed_conditional_IE_error_txt;
+                break;
+            case CallFailCause.MESSAGE_NOT_COMPATIBLE_WITH_PROTOCOL_STATE:
+                resourceId = R.string.clh_callFailed_message_not_compatible_with_protocol_state_txt;
+                break;
+            case CallFailCause.RECOVERY_ON_TIMER_EXPIRY:
+                resourceId = R.string.clh_callFailed_recovery_on_timer_expiry_txt;
+                break;
+            case CallFailCause.PROTOCOL_ERROR_UNSPECIFIED:
+                resourceId = R.string.clh_callFailed_protocol_Error_unspecified_txt;
+                break;
+            case CallFailCause.INTERWORKING_UNSPECIFIED:
+                resourceId = R.string.clh_callFailed_interworking_unspecified_txt;
+                break;
+            default:
+                switch (telephonyDisconnectCause) {
+                    case android.telephony.DisconnectCause.POWER_OFF:
+                        resourceId = R.string.clh_callFailed_powerOff_txt;
+                        break;
+                    case android.telephony.DisconnectCause.ICC_ERROR:
+                        resourceId = R.string.clh_callFailed_simError_txt;
+                        break;
+                    case android.telephony.DisconnectCause.OUT_OF_SERVICE:
+                        resourceId = R.string.clh_incall_error_out_of_service_txt;
+                        break;
+                    default:
+                        resourceId = R.string.clh_card_title_call_ended_txt;
+                        break;
+                }
+                break;
+        }
+        return context.getResources().getString(resourceId);
     }
 
     /**
@@ -303,6 +529,26 @@ public class DisconnectCauseUtil {
 
             case android.telephony.DisconnectCause.DIAL_MODIFIED_TO_DIAL:
                 resourceId = R.string.callFailed_dialToDial;
+                break;
+
+            case android.telephony.DisconnectCause.DIAL_MODIFIED_TO_DIAL_VIDEO:
+                resourceId = R.string.callFailed_dialToDialVideo;
+                break;
+
+            case android.telephony.DisconnectCause.DIAL_VIDEO_MODIFIED_TO_SS:
+                resourceId = R.string.callFailed_dialVideoToSs;
+                break;
+
+            case android.telephony.DisconnectCause.DIAL_VIDEO_MODIFIED_TO_USSD:
+                resourceId = R.string.callFailed_dialVideoToUssd;
+                break;
+
+            case android.telephony.DisconnectCause.DIAL_VIDEO_MODIFIED_TO_DIAL:
+                resourceId = R.string.callFailed_dialVideoToDial;
+                break;
+
+            case android.telephony.DisconnectCause.DIAL_VIDEO_MODIFIED_TO_DIAL_VIDEO:
+                resourceId = R.string.callFailed_dialVideoToDialVideo;
                 break;
 
             case android.telephony.DisconnectCause.OUTGOING_FAILURE:
@@ -412,6 +658,10 @@ public class DisconnectCauseUtil {
                 resourceId = R.string.callFailed_wifi_lost;
                 break;
 
+            case android.telephony.DisconnectCause.IMS_SIP_ALTERNATE_EMERGENCY_CALL:
+                resourceId = R.string.incall_error_power_off;
+                break;
+
             default:
                 break;
         }
@@ -485,6 +735,7 @@ public class DisconnectCauseUtil {
             case android.telephony.DisconnectCause.ERROR_UNSPECIFIED:
             case android.telephony.DisconnectCause.LOCAL:
             case android.telephony.DisconnectCause.NORMAL:
+            case android.telephony.DisconnectCause.NORMAL_UNSPECIFIED:
             case android.telephony.DisconnectCause.VIDEO_CALL_NOT_ALLOWED_WHILE_TTY_ENABLED:
                 return ToneGenerator.TONE_PROP_PROMPT;
 

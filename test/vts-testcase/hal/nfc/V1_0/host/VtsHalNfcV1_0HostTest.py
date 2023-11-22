@@ -19,38 +19,29 @@ import logging
 import time
 
 from vts.runners.host import asserts
-from vts.runners.host import base_test
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
-from vts.utils.python.precondition import precondition_utils
+from vts.testcases.template.hal_hidl_host_test import hal_hidl_host_test
 
 PASSTHROUGH_MODE_KEY = "passthrough_mode"
 
 
-class NfcHidlBasicTest(base_test.BaseTestClass):
+class NfcHidlBasicTest(hal_hidl_host_test.HalHidlHostTest):
     """A simple testcase for the NFC HIDL HAL."""
 
+    TEST_HAL_SERVICES = {"android.hardware.nfc@1.0::INfc"}
     def setUpClass(self):
-        """Creates a mirror and turns on the framework-layer NFC service."""
-        self.dut = self.registerController(android_device)[0]
+        """Creates a mirror and turns on the framework-layer VIBRATOR service."""
+        super(NfcHidlBasicTest, self).setUpClass()
 
-        self.getUserParams(opt_param_names=[PASSTHROUGH_MODE_KEY])
-
-        self.dut.shell.InvokeTerminal("one")
-        self.dut.shell.one.Execute("setenforce 0")  # SELinux permissive mode
-        if not precondition_utils.CanRunHidlHalTest(
-            self, self.dut, self.dut.shell.one):
-            self._skip_all_testcases = True
-            return
-
-        self.dut.shell.one.Execute("svc nfc disable")  # Turn off
+        self.shell.Execute("svc nfc disable")  # Turn off
         time.sleep(5)
 
+        self.getUserParams(opt_param_names=[PASSTHROUGH_MODE_KEY])
         if getattr(self, PASSTHROUGH_MODE_KEY, True):
-            self.dut.shell.one.Execute(
+            self.shell.Execute(
                 "setprop vts.hal.vts.hidl.get_stub true")
         else:
-            self.dut.shell.one.Execute(
+            self.shell.Execute(
                 "setprop vts.hal.vts.hidl.get_stub false")
 
         self.dut.hal.InitHidlHal(
@@ -61,16 +52,13 @@ class NfcHidlBasicTest(base_test.BaseTestClass):
             target_component_name="INfc",
             bits=int(self.abi_bitness))
 
-        if self.coverage.enabled:
-            self.coverage.LoadArtifacts()
-            self.coverage.InitializeDeviceCoverage(self.dut)
-
     def tearDownClass(self):
         """Turns off the framework-layer NFC service."""
         # Ideally, we would want to store the nfc service's state before
         # turning that off in setUpClass and restore the original state.
-        if not self._skip_all_testcases:
-            self.dut.shell.one.Execute("svc nfc disable")  # make sure it's off
+        if not self.isSkipAllTests():
+            self.shell.Execute("svc nfc disable")  # make sure it's off
+        super(NfcHidlBasicTest, self).tearDownClass()
 
     def testBase(self):
         """A simple test case which just calls each registered function."""

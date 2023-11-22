@@ -355,7 +355,8 @@ wpas_rrm_build_lci_report(struct wpa_supplicant *wpa_s,
 	return 0;
 
 reject:
-	if (wpas_rrm_report_elem(buf, req->token,
+	if (!is_multicast_ether_addr(wpa_s->rrm.dst_addr) &&
+	    wpas_rrm_report_elem(buf, req->token,
 				 MEASUREMENT_REPORT_MODE_REJECT_INCAPABLE,
 				 req->type, NULL, 0) < 0) {
 		wpa_printf(MSG_DEBUG, "RRM: Failed to add report element");
@@ -409,7 +410,8 @@ static void wpas_rrm_send_msr_report(struct wpa_supplicant *wpa_s,
 			pos = next;
 		}
 
-		next += next[1] + 2;
+		if (len)
+			next += next[1] + 2;
 	}
 #undef MPDU_REPORT_LEN
 }
@@ -627,6 +629,7 @@ static int * wpas_beacon_request_freqs(struct wpa_supplicant *wpa_s,
 	if (ext_freqs) {
 		int_array_concat(&freqs, ext_freqs);
 		os_free(ext_freqs);
+		int_array_sort_unique(freqs);
 	}
 
 	return freqs;
@@ -793,7 +796,7 @@ static int wpas_add_beacon_rep(struct wpa_supplicant *wpa_s,
 	u8 *ie = (u8 *) (bss + 1);
 	size_t ie_len = bss->ie_len + bss->beacon_ie_len;
 	int ret;
-	u8 buf[2000];
+	u8 *buf;
 	struct rrm_measurement_beacon_report *rep;
 
 	if (os_memcmp(data->bssid, broadcast_ether_addr, ETH_ALEN) != 0 &&
@@ -805,10 +808,18 @@ static int wpas_add_beacon_rep(struct wpa_supplicant *wpa_s,
 	     os_memcmp(data->ssid, bss->ssid, bss->ssid_len) != 0))
 		return 0;
 
+	/* Maximum element length: beacon report element + reported frame body
+	 * subelement + all IEs of the reported beacon */
+	buf = os_malloc(sizeof(*rep) + 14 + ie_len);
+	if (!buf)
+		return -1;
+
 	rep = (struct rrm_measurement_beacon_report *) buf;
 	if (wpas_get_op_chan_phy(bss->freq, ie, ie_len, &rep->op_class,
-				 &rep->channel, &rep->report_info) < 0)
-		return 0;
+				 &rep->channel, &rep->report_info) < 0) {
+		ret = 0;
+		goto out;
+	}
 
 	rep->start_time = host_to_le64(start);
 	rep->duration = host_to_le16(data->scan_params.duration);
@@ -819,15 +830,17 @@ static int wpas_add_beacon_rep(struct wpa_supplicant *wpa_s,
 	rep->parent_tsf = host_to_le32(parent_tsf);
 
 	ret = wpas_beacon_rep_add_frame_body(data->eids, data->report_detail,
-					     bss, rep->variable,
-					     sizeof(buf) - sizeof(*rep));
+					     bss, rep->variable, 14 + ie_len);
 	if (ret < 0)
-		return -1;
+		goto out;
 
-	return wpas_rrm_report_elem(wpa_buf, wpa_s->beacon_rep_data.token,
-				    MEASUREMENT_REPORT_MODE_ACCEPT,
-				    MEASURE_TYPE_BEACON, buf,
-				    ret + sizeof(*rep));
+	ret = wpas_rrm_report_elem(wpa_buf, wpa_s->beacon_rep_data.token,
+				   MEASUREMENT_REPORT_MODE_ACCEPT,
+				   MEASURE_TYPE_BEACON, buf,
+				   ret + sizeof(*rep));
+out:
+	os_free(buf);
+	return ret;
 }
 
 
@@ -858,21 +871,24 @@ static void wpas_beacon_rep_table(struct wpa_supplicant *wpa_s,
 }
 
 
-static void wpas_rrm_refuse_request(struct wpa_supplicant *wpa_s)
+void wpas_rrm_refuse_request(struct wpa_supplicant *wpa_s)
 {
-	struct wpabuf *buf = NULL;
+	if (!is_multicast_ether_addr(wpa_s->rrm.dst_addr)) {
+		struct wpabuf *buf = NULL;
 
-	if (wpas_rrm_report_elem(&buf, wpa_s->beacon_rep_data.token,
-				 MEASUREMENT_REPORT_MODE_REJECT_REFUSED,
-				 MEASURE_TYPE_BEACON, NULL, 0)) {
-		wpa_printf(MSG_ERROR, "RRM: Memory allocation failed");
+		if (wpas_rrm_report_elem(&buf, wpa_s->beacon_rep_data.token,
+					 MEASUREMENT_REPORT_MODE_REJECT_REFUSED,
+					 MEASURE_TYPE_BEACON, NULL, 0)) {
+			wpa_printf(MSG_ERROR, "RRM: Memory allocation failed");
+			wpabuf_free(buf);
+			return;
+		}
+
+		wpas_rrm_send_msr_report(wpa_s, buf);
 		wpabuf_free(buf);
-		return;
 	}
 
-	wpas_rrm_send_msr_report(wpa_s, buf);
 	wpas_clear_beacon_rep_data(wpa_s);
-	wpabuf_free(buf);
 }
 
 
@@ -952,7 +968,7 @@ static int wpas_rm_handle_beacon_req_subelem(struct wpa_supplicant *wpa_s,
 		    BEACON_REPORT_DETAIL_ALL_FIELDS_AND_ELEMENTS) {
 			wpa_printf(MSG_DEBUG, "Invalid reporting detail: %u",
 				   subelem[0]);
-			return 0;
+			return -1;
 		}
 
 		break;
@@ -1019,6 +1035,7 @@ wpas_rm_handle_beacon_req(struct wpa_supplicant *wpa_s,
 	u32 interval_usec;
 	u32 _rand;
 	int ret = 0, res;
+	u8 reject_mode;
 
 	if (len < sizeof(*req))
 		return -1;
@@ -1052,9 +1069,12 @@ wpas_rm_handle_beacon_req(struct wpa_supplicant *wpa_s,
 
 		res = wpas_rm_handle_beacon_req_subelem(
 			wpa_s, data, subelems[0], subelems[1], &subelems[2]);
-		if (res != 1) {
+		if (res < 0) {
 			ret = res;
 			goto out;
+		} else if (!res) {
+			reject_mode = MEASUREMENT_REPORT_MODE_REJECT_INCAPABLE;
+			goto out_reject;
 		}
 
 		elems_len -= 2 + subelems[1];
@@ -1072,7 +1092,8 @@ wpas_rm_handle_beacon_req(struct wpa_supplicant *wpa_s,
 		req->variable, len - sizeof(*req));
 	if (!params->freqs) {
 		wpa_printf(MSG_DEBUG, "Beacon request: No valid channels");
-		goto out;
+		reject_mode = MEASUREMENT_REPORT_MODE_REJECT_REFUSED;
+		goto out_reject;
 	}
 
 	params->duration = le_to_host16(req->duration);
@@ -1096,6 +1117,13 @@ wpas_rm_handle_beacon_req(struct wpa_supplicant *wpa_s,
 	eloop_register_timeout(0, interval_usec, wpas_rrm_scan_timeout, wpa_s,
 			       NULL);
 	return 1;
+out_reject:
+	if (!is_multicast_ether_addr(wpa_s->rrm.dst_addr) &&
+	    wpas_rrm_report_elem(buf, elem_token, reject_mode,
+				 MEASURE_TYPE_BEACON, NULL, 0) < 0) {
+		wpa_printf(MSG_DEBUG, "RRM: Failed to add report element");
+		ret = -1;
+	}
 out:
 	wpas_clear_beacon_rep_data(wpa_s);
 	return ret;
@@ -1153,7 +1181,8 @@ wpas_rrm_handle_msr_req_element(
 	}
 
 reject:
-	if (wpas_rrm_report_elem(buf, req->token,
+	if (!is_multicast_ether_addr(wpa_s->rrm.dst_addr) &&
+	    wpas_rrm_report_elem(buf, req->token,
 				 MEASUREMENT_REPORT_MODE_REJECT_INCAPABLE,
 				 req->type, NULL, 0) < 0) {
 		wpa_printf(MSG_DEBUG, "RRM: Failed to add report element");
@@ -1214,7 +1243,7 @@ out:
 
 
 void wpas_rrm_handle_radio_measurement_request(struct wpa_supplicant *wpa_s,
-					       const u8 *src,
+					       const u8 *src, const u8 *dst,
 					       const u8 *frame, size_t len)
 {
 	struct wpabuf *report;
@@ -1238,6 +1267,7 @@ void wpas_rrm_handle_radio_measurement_request(struct wpa_supplicant *wpa_s,
 	}
 
 	wpa_s->rrm.token = *frame;
+	os_memcpy(wpa_s->rrm.dst_addr, dst, ETH_ALEN);
 
 	/* Number of repetitions is not supported */
 
@@ -1365,6 +1395,10 @@ int wpas_beacon_rep_scan_process(struct wpa_supplicant *wpa_s,
 			continue;
 		}
 
+		/*
+		 * Don't report results that were not received during the
+		 * current measurement.
+		 */
 		if (!(wpa_s->drv_rrm_flags &
 		      WPA_DRIVER_FLAGS_SUPPORT_BEACON_REPORT)) {
 			struct os_reltime update_time, diff;
@@ -1391,14 +1425,10 @@ int wpas_beacon_rep_scan_process(struct wpa_supplicant *wpa_s,
 					   (unsigned int) diff.usec);
 				continue;
 			}
-		}
-
-		/*
-		 * Don't report results that were not received during the
-		 * current measurement.
-		 */
-		if (info->scan_start_tsf > scan_res->res[i]->parent_tsf)
+		} else if (info->scan_start_tsf >
+			   scan_res->res[i]->parent_tsf) {
 			continue;
+		}
 
 		if (wpas_add_beacon_rep(wpa_s, &buf, bss, info->scan_start_tsf,
 					scan_res->res[i]->parent_tsf) < 0)

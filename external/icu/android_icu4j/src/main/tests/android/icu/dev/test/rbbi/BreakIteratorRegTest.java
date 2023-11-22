@@ -14,10 +14,15 @@ import java.util.Arrays;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.BreakIterator;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class BreakIteratorRegTest extends TestFmwk
 {
     @Test
@@ -40,7 +45,7 @@ public class BreakIteratorRegTest extends TestFmwk
     Object key0 = BreakIterator.registerInstance((BreakIterator)twbi.clone(), foo_locale, BreakIterator.KIND_WORD);
     Object key1 = BreakIterator.registerInstance(sbi, Locale.US, BreakIterator.KIND_WORD);
     Object key2 = BreakIterator.registerInstance((BreakIterator)twbi.clone(), Locale.US, BreakIterator.KIND_WORD);
-    
+
     {
         BreakIterator test0 = BreakIterator.getWordInstance(Locale.JAPAN);
         BreakIterator test1 = BreakIterator.getWordInstance(Locale.US);
@@ -56,7 +61,7 @@ public class BreakIteratorRegTest extends TestFmwk
     }
 
     //Locale[] locales = BreakIterator.getAvailableLocales();
-    
+
     assertTrue(BreakIterator.unregister(key2), "unregister us word (thai word)");
     assertTrue(!BreakIterator.unregister(key2), "unregister second time");
     boolean error = false;
@@ -79,7 +84,7 @@ public class BreakIteratorRegTest extends TestFmwk
     assertTrue(BreakIterator.unregister(key0), "unregister foo word (thai word)");
     assertTrue(!Arrays.asList(BreakIterator.getAvailableLocales()).contains(foo_locale), "no foo_locale");
     assertEqual(BreakIterator.getWordInstance(Locale.US), usbi, "us word == us sentence");
-    
+
     assertTrue(BreakIterator.unregister(key1), "unregister us word (us sentence)");
     {
         BreakIterator test0 = BreakIterator.getWordInstance(Locale.JAPAN);

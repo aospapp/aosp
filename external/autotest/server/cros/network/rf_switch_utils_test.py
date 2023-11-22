@@ -1,5 +1,6 @@
 """Tests for rf_switch_utils."""
 
+import common
 import unittest
 
 import mock
@@ -67,7 +68,7 @@ class RfSwitchUtilsTest(unittest.TestCase):
         afe_instance = self.mock_afe()
         mock_host_instance = self.mock_host()
         mock_host_instance.locked = False
-        afe_instance.get_hosts.return_value = mock_host_instance
+        afe_instance.get_hosts.return_value = [mock_host_instance]
         self.assertEquals(
                 rf_switch_utils.deallocate_rf_switch(mock_host_instance), True)
 
@@ -77,7 +78,7 @@ class RfSwitchUtilsTest(unittest.TestCase):
         afe_instance = self.mock_afe()
         mock_host_instance = self.mock_host()
         mock_host_instance.locked = True
-        afe_instance.get_hosts.return_value = mock_host_instance
+        afe_instance.get_hosts.return_value = [mock_host_instance]
         self.assertEquals(
                 rf_switch_utils.deallocate_rf_switch(mock_host_instance), False)
 

@@ -192,6 +192,32 @@ public class ANativeWindowTest {
         }
     }
 
+    @Test
+    public void testSetBuffersDataSpace() {
+        final int DATASPACE_SRGB = 142671872;
+        final int DATASPACE_UNKNOWN = 123;
+
+        int[] texId = new int[1];
+        GLES20.glGenTextures(1, texId, 0);
+
+        SurfaceTexture consumer = new SurfaceTexture(texId[0]);
+        consumer.setDefaultBufferSize(16, 16);
+        Surface surface = new Surface(consumer);
+
+        assertEquals(nGetBuffersDataSpace(surface), 0);
+        assertEquals(nSetBuffersDataSpace(surface, DATASPACE_SRGB), 0);
+        assertEquals(nGetBuffersDataSpace(surface), DATASPACE_SRGB);
+
+        assertEquals(nSetBuffersDataSpace(null, DATASPACE_SRGB), -22);
+        assertEquals(nGetBuffersDataSpace(null), -22);
+        assertEquals(nGetBuffersDataSpace(surface), DATASPACE_SRGB);
+
+        // set an unsupported data space should return a error code,
+        // the original data space shouldn't change.
+        assertEquals(nSetBuffersDataSpace(surface, DATASPACE_UNKNOWN), -22);
+        assertEquals(nGetBuffersDataSpace(surface), DATASPACE_SRGB);
+    }
+
     // Multiply 4x4 matrices result = a*b. result can be the same as either a or b,
     // allowing for result *= b. Another 4x4 matrix tmp must be provided as scratch space.
     private void matrixMultiply(float[] result, float[] a, float[] b, float[] tmp) {
@@ -219,5 +245,6 @@ public class ANativeWindowTest {
     }
 
     private static native void nPushBufferWithTransform(Surface surface, int transform);
-
+    private static native int nSetBuffersDataSpace(Surface surface, int dataSpace);
+    private static native int nGetBuffersDataSpace(Surface surface);
 }

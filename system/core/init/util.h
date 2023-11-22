@@ -28,6 +28,8 @@
 #include <android-base/chrono_utils.h>
 #include <selinux/label.h>
 
+#include "result.h"
+
 #define COLDBOOT_DONE "/dev/.coldboot_done"
 
 using android::base::boot_clock;
@@ -37,23 +39,21 @@ namespace android {
 namespace init {
 
 int CreateSocket(const char* name, int type, bool passcred, mode_t perm, uid_t uid, gid_t gid,
-                 const char* socketcon, selabel_handle* sehandle);
+                 const char* socketcon);
 
-bool ReadFile(const std::string& path, std::string* content, std::string* err);
-bool WriteFile(const std::string& path, const std::string& content, std::string* err);
+Result<std::string> ReadFile(const std::string& path);
+Result<Success> WriteFile(const std::string& path, const std::string& content);
 
-bool DecodeUid(const std::string& name, uid_t* uid, std::string* err);
+Result<uid_t> DecodeUid(const std::string& name);
 
-int mkdir_recursive(const std::string& pathname, mode_t mode, selabel_handle* sehandle);
+bool mkdir_recursive(const std::string& pathname, mode_t mode);
 int wait_for_file(const char *filename, std::chrono::nanoseconds timeout);
 void import_kernel_cmdline(bool in_qemu,
                            const std::function<void(const std::string&, const std::string&, bool)>&);
-int make_dir(const char* path, mode_t mode, selabel_handle* sehandle);
+bool make_dir(const std::string& path, mode_t mode);
 std::string bytes_to_hex(const uint8_t *bytes, size_t bytes_len);
 bool is_dir(const char* pathname);
 bool expand_props(const std::string& src, std::string* dst);
-
-void panic() __attribute__((__noreturn__));
 
 // Returns the platform's Android DT directory as specified in the kernel cmdline.
 // If the platform does not configure a custom DT path, returns the standard one (based in procfs).
@@ -61,6 +61,8 @@ const std::string& get_android_dt_dir();
 // Reads or compares the content of device tree file under the platform's Android DT directory.
 bool read_android_dt_file(const std::string& sub_path, std::string* dt_content);
 bool is_android_dt_value_expected(const std::string& sub_path, const std::string& expected_content);
+
+bool IsLegalPropertyName(const std::string& name);
 
 }  // namespace init
 }  // namespace android

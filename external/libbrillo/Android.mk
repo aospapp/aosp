@@ -12,29 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Default values for the USE flags. Override these USE flags from your product
-# by setting BRILLO_USE_* values. Note that we define local variables like
-# local_use_* to prevent leaking our default setting for other packages.
-
-LOCAL_PATH := $(call my-dir)
-
-libbrillo_CFLAGS := \
-    -Wall \
-    -Werror
-
-# Shared minijail library for target
-# ========================================================
-include $(CLEAR_VARS)
-LOCAL_CPP_EXTENSION := .cc
-LOCAL_MODULE := libbrillo-minijail
-LOCAL_SRC_FILES := brillo/minijail/minijail.cc
-LOCAL_SHARED_LIBRARIES := libchrome libbrillo libminijail
-LOCAL_STATIC_LIBRARIES := libgtest_prod
-LOCAL_CFLAGS := $(libbrillo_CFLAGS)
-LOCAL_CLANG := true
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
-include $(BUILD_SHARED_LIBRARY)
-
 # Run unit tests on target
 # ========================================================
 # We su shell because process tests try setting "illegal"

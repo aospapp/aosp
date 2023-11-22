@@ -22,17 +22,11 @@ import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.Rect;
-import android.net.Uri;
+import android.nfc.NdefMessage;
+import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
 import android.os.Bundle;
 import android.os.UserManager;
-import android.support.v4.content.FileProvider;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -40,9 +34,7 @@ import android.widget.Toast;
 
 import com.android.cts.verifier.R;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
+import java.nio.charset.Charset;
 
 public class NfcTestActivity extends Activity {
     private static final String TAG = "NfcTestActivity";
@@ -51,17 +43,14 @@ public class NfcTestActivity extends Activity {
 
     private static final String NFC_BEAM_PACKAGE = "com.android.nfc";
     private static final String NFC_BEAM_ACTIVITY = "com.android.nfc.BeamShareActivity";
-    private static final String SAMPLE_IMAGE_FILENAME = "image_to_share.jpg";
-    private static final String SAMPLE_IMAGE_CONTENT = "sample image";
     private static final String SAMPLE_TEXT = "sample text";
-    private static final int MARGIN = 80;
-    private static final int TEXT_SIZE = 200;
 
     private ComponentName mAdminReceiverComponent;
     private DevicePolicyManager mDevicePolicyManager;
     private UserManager mUserMangaer;
     private NfcAdapter mNfcAdapter;
     private boolean mDisallowByPolicy;
+    private boolean mAddUserRestrictionOnFinish;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,34 +61,22 @@ public class NfcTestActivity extends Activity {
         mDevicePolicyManager = (DevicePolicyManager) getSystemService(
                 Context.DEVICE_POLICY_SERVICE);
         mUserMangaer = (UserManager) getSystemService(Context.USER_SERVICE);
+        mAddUserRestrictionOnFinish = mUserMangaer.hasUserRestriction(
+                UserManager.DISALLOW_OUTGOING_BEAM);
         mDisallowByPolicy = getIntent().getBooleanExtra(EXTRA_DISALLOW_BY_POLICY, false);
         if (mDisallowByPolicy) {
             mDevicePolicyManager.addUserRestriction(mAdminReceiverComponent,
                     UserManager.DISALLOW_OUTGOING_BEAM);
+        } else {
+            mDevicePolicyManager.clearUserRestriction(mAdminReceiverComponent,
+                    UserManager.DISALLOW_OUTGOING_BEAM);
         }
 
         mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
+        mNfcAdapter.setNdefPushMessage(getTestMessage(), this);
 
         final Intent shareIntent = new Intent(Intent.ACTION_SEND);
-
-        // Sending a large amount of data requires hand-over to bluetooth, so determine here
-        // if supported by the device. If bluetooth is not supported, a simple text message
-        // will be transferred instead.
-        final boolean hasBluetooth =
-                getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH);
-
-        if (hasBluetooth) {
-            final Uri uri = createUriForImage(SAMPLE_IMAGE_FILENAME, SAMPLE_IMAGE_CONTENT);
-            Uri[] uris = new Uri[]{uri};
-
-            mNfcAdapter.setBeamPushUris(uris, this);
-
-            shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
-            shareIntent.setType("image/jpg");
-            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        } else {
-            shareIntent.putExtra(Intent.EXTRA_TEXT, SAMPLE_TEXT);
-        }
+        shareIntent.putExtra(Intent.EXTRA_TEXT, SAMPLE_TEXT);
 
         findViewById(R.id.manual_beam_button).setOnClickListener(new OnClickListener() {
             @Override
@@ -127,47 +104,23 @@ public class NfcTestActivity extends Activity {
 
     @Override
     public void finish() {
-        if (mUserMangaer.hasUserRestriction(UserManager.DISALLOW_OUTGOING_BEAM)) {
+        if (mAddUserRestrictionOnFinish) {
+            mDevicePolicyManager.addUserRestriction(mAdminReceiverComponent,
+                    UserManager.DISALLOW_OUTGOING_BEAM);
+        } else {
             mDevicePolicyManager.clearUserRestriction(mAdminReceiverComponent,
                     UserManager.DISALLOW_OUTGOING_BEAM);
         }
         super.finish();
     }
 
-    /**
-     * Creates a Bitmap image that contains red on white text with a specified margin.
-     * @param text Text to be displayed in the image.
-     * @return A Bitmap image with the above specification.
-     */
-    private Bitmap createSampleImage(String text) {
-        Paint paint = new Paint();
-        paint.setStyle(Paint.Style.FILL);
-        paint.setTextSize(TEXT_SIZE);
-        Rect rect = new Rect();
-        paint.getTextBounds(text, 0, text.length(), rect);
-        int w = 2 * MARGIN + rect.right - rect.left;
-        int h = 2 * MARGIN + rect.bottom - rect.top;
-        Bitmap dest = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas();
-        canvas.setBitmap(dest);
-        paint.setColor(Color.WHITE);
-        canvas.drawPaint(paint);
-        paint.setColor(Color.RED);
-        canvas.drawText(text, MARGIN - rect.left, MARGIN - rect.top, paint);
-        return dest;
-    }
-
-    private Uri createUriForImage(String name, String text) {
-        final File file = new File(getFilesDir() + File.separator + "images"
-                + File.separator + name);
-        file.getParentFile().mkdirs(); //if the folder doesn't exists it is created
-        try {
-            createSampleImage(text).compress(Bitmap.CompressFormat.JPEG, 100,
-                    new FileOutputStream(file));
-        } catch (FileNotFoundException e) {
-            return null;
-        }
-        return FileProvider.getUriForFile(this,
-                "com.android.cts.verifier.managedprovisioning.fileprovider", file);
+    private NdefMessage getTestMessage() {
+        byte[] mimeBytes = "application/com.android.cts.verifier.managedprovisioning"
+                .getBytes(Charset.forName("US-ASCII"));
+        byte[] id = new byte[] {1, 3, 3, 7};
+        byte[] payload = SAMPLE_TEXT.getBytes(Charset.forName("US-ASCII"));
+        return new NdefMessage(new NdefRecord[] {
+                new NdefRecord(NdefRecord.TNF_MIME_MEDIA, mimeBytes, id, payload)
+        });
     }
 }

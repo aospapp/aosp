@@ -1,7 +1,7 @@
 /** @file
   Functions implementation related with DHCPv6 for HTTP boot driver.
 
-Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2015 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials are licensed and made available under 
 the terms and conditions of the BSD License that accompanies this distribution.  
 The full text of the license may be found at
@@ -41,20 +41,20 @@ HttpBootBuildDhcp6Options (
   //
   // Append client option request option
   //
-  OptList[Index]->OpCode     = HTONS (HTTP_BOOT_DHCP6_OPT_ORO);
+  OptList[Index]->OpCode     = HTONS (DHCP6_OPT_ORO);
   OptList[Index]->OpLen      = HTONS (8);
   OptEnt.Oro                 = (HTTP_BOOT_DHCP6_OPTION_ORO *) OptList[Index]->Data;
-  OptEnt.Oro->OpCode[0]      = HTONS(HTTP_BOOT_DHCP6_OPT_BOOT_FILE_URL);
-  OptEnt.Oro->OpCode[1]      = HTONS(HTTP_BOOT_DHCP6_OPT_BOOT_FILE_PARAM);
-  OptEnt.Oro->OpCode[2]      = HTONS(HTTP_BOOT_DHCP6_OPT_DNS_SERVERS);
-  OptEnt.Oro->OpCode[3]      = HTONS(HTTP_BOOT_DHCP6_OPT_VENDOR_CLASS);
+  OptEnt.Oro->OpCode[0]      = HTONS(DHCP6_OPT_BOOT_FILE_URL);
+  OptEnt.Oro->OpCode[1]      = HTONS(DHCP6_OPT_BOOT_FILE_PARAM);
+  OptEnt.Oro->OpCode[2]      = HTONS(DHCP6_OPT_DNS_SERVERS);
+  OptEnt.Oro->OpCode[3]      = HTONS(DHCP6_OPT_VENDOR_CLASS);
   Index++;
   OptList[Index]             = GET_NEXT_DHCP6_OPTION (OptList[Index - 1]);
 
   //
   // Append client network device interface option
   //
-  OptList[Index]->OpCode     = HTONS (HTTP_BOOT_DHCP6_OPT_UNDI);
+  OptList[Index]->OpCode     = HTONS (DHCP6_OPT_UNDI);
   OptList[Index]->OpLen      = HTONS ((UINT16)3);
   OptEnt.Undi                = (HTTP_BOOT_DHCP6_OPTION_UNDI *) OptList[Index]->Data;
 
@@ -74,7 +74,7 @@ HttpBootBuildDhcp6Options (
   //
   // Append client system architecture option
   //
-  OptList[Index]->OpCode     = HTONS (HTTP_BOOT_DHCP6_OPT_ARCH);
+  OptList[Index]->OpCode     = HTONS (DHCP6_OPT_ARCH);
   OptList[Index]->OpLen      = HTONS ((UINT16) sizeof (HTTP_BOOT_DHCP6_OPTION_ARCH));
   OptEnt.Arch                = (HTTP_BOOT_DHCP6_OPTION_ARCH *) OptList[Index]->Data;
   Value                      = HTONS (EFI_HTTP_BOOT_CLIENT_SYSTEM_ARCHITECTURE);
@@ -85,7 +85,7 @@ HttpBootBuildDhcp6Options (
   //
   // Append vendor class identify option.
   //
-  OptList[Index]->OpCode       = HTONS (HTTP_BOOT_DHCP6_OPT_VENDOR_CLASS);
+  OptList[Index]->OpCode       = HTONS (DHCP6_OPT_VENDOR_CLASS);
   OptList[Index]->OpLen        = HTONS ((UINT16) sizeof (HTTP_BOOT_DHCP6_OPTION_VENDOR_CLASS));
   OptEnt.VendorClass           = (HTTP_BOOT_DHCP6_OPTION_VENDOR_CLASS *) OptList[Index]->Data;
   OptEnt.VendorClass->Vendor   = HTONL (HTTP_BOOT_DHCP6_ENTERPRISE_NUM);
@@ -211,18 +211,18 @@ HttpBootParseDhcp6Packet (
   //
   while (Offset < Length) {
 
-    if (NTOHS (Option->OpCode) == HTTP_BOOT_DHCP6_OPT_IA_NA) {
+    if (NTOHS (Option->OpCode) == DHCP6_OPT_IA_NA) {
       Options[HTTP_BOOT_DHCP6_IDX_IA_NA] = Option;
-    } else if (NTOHS (Option->OpCode) == HTTP_BOOT_DHCP6_OPT_BOOT_FILE_URL) {
+    } else if (NTOHS (Option->OpCode) == DHCP6_OPT_BOOT_FILE_URL) {
       //
       // The server sends this option to inform the client about an URL to a boot file.
       //
       Options[HTTP_BOOT_DHCP6_IDX_BOOT_FILE_URL] = Option;
-    } else if (NTOHS (Option->OpCode) == HTTP_BOOT_DHCP6_OPT_BOOT_FILE_PARAM) {
+    } else if (NTOHS (Option->OpCode) == DHCP6_OPT_BOOT_FILE_PARAM) {
       Options[HTTP_BOOT_DHCP6_IDX_BOOT_FILE_PARAM] = Option;
-    } else if (NTOHS (Option->OpCode) == HTTP_BOOT_DHCP6_OPT_VENDOR_CLASS) {
+    } else if (NTOHS (Option->OpCode) == DHCP6_OPT_VENDOR_CLASS) {
       Options[HTTP_BOOT_DHCP6_IDX_VENDOR_CLASS] = Option;
-    } else if (NTOHS (Option->OpCode) == HTTP_BOOT_DHCP6_OPT_DNS_SERVERS) {
+    } else if (NTOHS (Option->OpCode) == DHCP6_OPT_DNS_SERVERS) {
       Options[HTTP_BOOT_DHCP6_IDX_DNS_SERVER] = Option;
     }
 
@@ -238,7 +238,7 @@ HttpBootParseDhcp6Packet (
     Option = HttpBootParseDhcp6Options (
                Option->Data + 12,
                NTOHS (Option->OpLen),
-               HTTP_BOOT_DHCP6_OPT_STATUS_CODE
+               DHCP6_OPT_STATUS_CODE
                );
     if ((Option != NULL && Option->Data[0] == 0) || (Option == NULL)) {
       IsProxyOffer = FALSE;
@@ -251,8 +251,8 @@ HttpBootParseDhcp6Packet (
   Option = Options[HTTP_BOOT_DHCP6_IDX_VENDOR_CLASS];
 
   if (Option != NULL &&
-      NTOHS(Option->OpLen) >= 10 &&
-      CompareMem (Option->Data, DEFAULT_CLASS_ID_DATA, 10) == 0) {
+      NTOHS(Option->OpLen) >= 16 &&
+      CompareMem ((Option->Data + 6), DEFAULT_CLASS_ID_DATA, 10) == 0) {
       IsHttpOffer = TRUE;
   }
 
@@ -298,7 +298,11 @@ HttpBootParseDhcp6Packet (
   //
   if (IsHttpOffer) {
     if (IpExpressedUri) {
-      OfferType = IsProxyOffer ? HttpOfferTypeProxyIpUri : HttpOfferTypeDhcpIpUri;
+      if (IsProxyOffer) {
+        OfferType = HttpOfferTypeProxyIpUri;
+      } else {
+        OfferType = IsDnsOffer ? HttpOfferTypeDhcpIpUriDns : HttpOfferTypeDhcpIpUri;
+      }
     } else {
       if (!IsProxyOffer) {
         OfferType = IsDnsOffer ? HttpOfferTypeDhcpNameUriDns : HttpOfferTypeDhcpNameUri;
@@ -325,17 +329,24 @@ HttpBootParseDhcp6Packet (
   @param[in]  Dst          The pointer to the cache buffer for DHCPv6 packet.
   @param[in]  Src          The pointer to the DHCPv6 packet to be cached.
 
+  @retval     EFI_SUCCESS                Packet is copied.
+  @retval     EFI_BUFFER_TOO_SMALL       Cache buffer is not big enough to hold the packet.
+
 **/
-VOID
+EFI_STATUS
 HttpBootCacheDhcp6Packet (
   IN EFI_DHCP6_PACKET          *Dst,
   IN EFI_DHCP6_PACKET          *Src
   )
 {
-  ASSERT (Dst->Size >= Src->Length);
+  if (Dst->Size < Src->Length) {
+    return EFI_BUFFER_TOO_SMALL;
+  }
 
   CopyMem (&Dst->Dhcp6, &Src->Dhcp6, Src->Length);
   Dst->Length = Src->Length;
+  
+  return EFI_SUCCESS;
 }
 
 /**
@@ -344,8 +355,11 @@ HttpBootCacheDhcp6Packet (
   @param[in]  Private               The pointer to HTTP_BOOT_PRIVATE_DATA.
   @param[in]  RcvdOffer             The pointer to the received offer packet.
 
+  @retval     EFI_SUCCESS      Cache and parse the packet successfully.
+  @retval     Others           Operation failed.
+
 **/
-VOID
+EFI_STATUS
 HttpBootCacheDhcp6Offer (
   IN HTTP_BOOT_PRIVATE_DATA  *Private,
   IN EFI_DHCP6_PACKET        *RcvdOffer
@@ -354,6 +368,7 @@ HttpBootCacheDhcp6Offer (
   HTTP_BOOT_DHCP6_PACKET_CACHE   *Cache6;
   EFI_DHCP6_PACKET               *Offer;
   HTTP_BOOT_OFFER_TYPE           OfferType;
+  EFI_STATUS                     Status;
 
   Cache6 = &Private->OfferBuffer[Private->OfferNum].Dhcp6;
   Offer  = &Cache6->Packet.Offer;
@@ -361,13 +376,16 @@ HttpBootCacheDhcp6Offer (
   //
   // Cache the content of DHCPv6 packet firstly.
   //
-  HttpBootCacheDhcp6Packet(Offer, RcvdOffer);
+  Status = HttpBootCacheDhcp6Packet(Offer, RcvdOffer);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
 
   //
   // Validate the DHCPv6 packet, and parse the options and offer type.
   //
   if (EFI_ERROR (HttpBootParseDhcp6Packet (Cache6))) {
-    return ;
+    return EFI_ABORTED;
   }
 
   //
@@ -378,7 +396,9 @@ HttpBootCacheDhcp6Offer (
   ASSERT (Private->OfferCount[OfferType] < HTTP_BOOT_OFFER_MAX_NUM);
   Private->OfferIndex[OfferType][Private->OfferCount[OfferType]] = Private->OfferNum;
   Private->OfferCount[OfferType]++;
-  Private->OfferNum++;  
+  Private->OfferNum++;
+  
+  return EFI_SUCCESS;
 }
 
 /**
@@ -397,6 +417,7 @@ HttpBootCacheDhcp6Offer (
   @retval EFI_NOT_READY         Only used in the Dhcp6Selecting state. The EFI DHCPv6 Protocol
                                 driver will continue to wait for more packets.
   @retval EFI_ABORTED           Told the EFI DHCPv6 Protocol driver to abort the current process.
+  @retval EFI_OUT_OF_RESOURCES  There are not enough resources.
 
 **/
 EFI_STATUS
@@ -413,9 +434,6 @@ HttpBootDhcp6CallBack (
    HTTP_BOOT_PRIVATE_DATA          *Private;
    EFI_DHCP6_PACKET                *SelectAd;
    EFI_STATUS                      Status;
-   if ((Dhcp6Event != Dhcp6RcvdAdvertise) && (Dhcp6Event != Dhcp6SelectAdvertise)) {
-     return EFI_SUCCESS;
-   }
 
    ASSERT (Packet != NULL);
    
@@ -425,10 +443,17 @@ HttpBootDhcp6CallBack (
     
    case Dhcp6RcvdAdvertise:
      Status = EFI_NOT_READY;
+    if (Packet->Length > HTTP_BOOT_DHCP6_PACKET_MAX_SIZE) {
+      //
+      // Ignore the incoming packets which exceed the maximum length.
+      //
+      break;
+    }
      if (Private->OfferNum < HTTP_BOOT_OFFER_MAX_NUM) {
        //
        // Cache the dhcp offers to OfferBuffer[] for select later, and record
        // the OfferIndex and OfferCount.
+       // If error happens, just ignore this packet and continue to wait more offer.
        //
        HttpBootCacheDhcp6Offer (Private, Packet);
      }
@@ -447,7 +472,9 @@ HttpBootDhcp6CallBack (
        ASSERT (NewPacket != NULL);
        SelectAd   = &Private->OfferBuffer[Private->SelectIndex - 1].Dhcp6.Packet.Offer;
        *NewPacket = AllocateZeroPool (SelectAd->Size);
-       ASSERT (*NewPacket != NULL);
+       if (*NewPacket == NULL) {
+         return EFI_OUT_OF_RESOURCES;
+       }
        CopyMem (*NewPacket, SelectAd, SelectAd->Size);
      }
      break;
@@ -974,8 +1001,13 @@ ON_EXIT:
     Dhcp6->Configure (Dhcp6, NULL);
   } else {
     ZeroMem (&Config, sizeof (EFI_DHCP6_CONFIG_DATA));
-    ZeroMem (&Mode, sizeof (EFI_DHCP6_MODE_DATA));
     Dhcp6->Configure (Dhcp6, &Config);
+    if (Mode.ClientId != NULL) {
+      FreePool (Mode.ClientId);
+    }
+    if (Mode.Ia != NULL) {
+      FreePool (Mode.Ia);
+    }
   }
 
   return Status; 

@@ -32,6 +32,8 @@ LOCAL_MODULE := layoutlib
 
 include $(BUILD_HOST_JAVA_LIBRARY)
 
+$(call dist-for-goals, layoutlib, $(LOCAL_INSTALLED_MODULE))
+
 # Build all sub-directories
 include $(call all-makefiles-under,$(LOCAL_PATH))
 

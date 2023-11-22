@@ -22,505 +22,22 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.BreakIterator;
 import android.icu.text.RuleBasedBreakIterator;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class RBBITest extends TestFmwk {
     public RBBITest() {
     }
 
-    private static final String halfNA = "\u0928\u094d\u200d"; /*
-                                                                * halfform NA = devanigiri NA + virama(supresses
-                                                                * inherent vowel)+ zero width joiner
-                                                                */
 
-    // tests default rules based character iteration.
-    // Builds a new iterator from the source rules in the default (prebuilt) iterator.
-    //
-    @Test
-    public void TestDefaultRuleBasedCharacterIteration() {
-        RuleBasedBreakIterator rbbi = (RuleBasedBreakIterator) BreakIterator.getCharacterInstance();
-        logln("Testing the RBBI for character iteration by using default rules");
-
-        // fetch the rules used to create the above RuleBasedBreakIterator
-        String defaultRules = rbbi.toString();
-
-        RuleBasedBreakIterator charIterDefault = null;
-        try {
-            charIterDefault = new RuleBasedBreakIterator(defaultRules);
-        } catch (IllegalArgumentException iae) {
-            errln("ERROR: failed construction in TestDefaultRuleBasedCharacterIteration()" + iae.toString());
-        }
-
-        List<String> chardata = new ArrayList<String>();
-        chardata.add("H");
-        chardata.add("e");
-        chardata.add("l");
-        chardata.add("l");
-        chardata.add("o");
-        chardata.add("e\u0301"); // acuteE
-        chardata.add("&");
-        chardata.add("e\u0303"); // tildaE
-        // devanagiri characters for Hindi support
-        chardata.add("\u0906"); // devanagiri AA
-        // chardata.add("\u093e\u0901"); //devanagiri vowelsign AA+ chandrabindhu
-        chardata.add("\u0916\u0947"); // devanagiri KHA+vowelsign E
-        chardata.add("\u0938\u0941\u0902"); // devanagiri SA+vowelsign U + anusvara(bindu)
-        chardata.add("\u0926"); // devanagiri consonant DA
-        chardata.add("\u0930"); // devanagiri consonant RA
-        // chardata.add("\u0939\u094c"); //devanagiri HA+vowel sign AI
-        chardata.add("\u0964"); // devanagiri danda
-        // end hindi characters
-        chardata.add("A\u0302"); // circumflexA
-        chardata.add("i\u0301"); // acuteBelowI
-        // conjoining jamo...
-        chardata.add("\u1109\u1161\u11bc");
-        chardata.add("\u1112\u1161\u11bc");
-        chardata.add("\n");
-        chardata.add("\r\n"); // keep CRLF sequences together
-        chardata.add("S\u0300"); // graveS
-        chardata.add("i\u0301"); // acuteBelowI
-        chardata.add("!");
-
-        // What follows is a string of Korean characters (I found it in the Yellow Pages
-        // ad for the Korean Presbyterian Church of San Francisco, and I hope I transcribed
-        // it correctly), first as precomposed syllables, and then as conjoining jamo.
-        // Both sequences should be semantically identical and break the same way.
-        // precomposed syllables...
-        chardata.add("\uc0c1");
-        chardata.add("\ud56d");
-        chardata.add(" ");
-        chardata.add("\ud55c");
-        chardata.add("\uc778");
-        chardata.add(" ");
-        chardata.add("\uc5f0");
-        chardata.add("\ud569");
-        chardata.add(" ");
-        chardata.add("\uc7a5");
-        chardata.add("\ub85c");
-        chardata.add("\uad50");
-        chardata.add("\ud68c");
-        chardata.add(" ");
-        // conjoining jamo...
-        chardata.add("\u1109\u1161\u11bc");
-        chardata.add("\u1112\u1161\u11bc");
-        chardata.add(" ");
-        chardata.add("\u1112\u1161\u11ab");
-        chardata.add("\u110b\u1175\u11ab");
-        chardata.add(" ");
-        chardata.add("\u110b\u1167\u11ab");
-        chardata.add("\u1112\u1161\u11b8");
-        chardata.add(" ");
-        chardata.add("\u110c\u1161\u11bc");
-        chardata.add("\u1105\u1169");
-        chardata.add("\u1100\u116d");
-        chardata.add("\u1112\u116c");
-
-        generalIteratorTest(charIterDefault, chardata);
-
-    }
-
-    @Test
-    public void TestDefaultRuleBasedWordIteration() {
-        logln("Testing the RBBI for word iteration using default rules");
-        RuleBasedBreakIterator rbbi = (RuleBasedBreakIterator) BreakIterator.getWordInstance();
-        // fetch the rules used to create the above RuleBasedBreakIterator
-        String defaultRules = rbbi.toString();
-
-        RuleBasedBreakIterator wordIterDefault = null;
-        try {
-            wordIterDefault = new RuleBasedBreakIterator(defaultRules);
-        } catch (IllegalArgumentException iae) {
-            errln("ERROR: failed construction in TestDefaultRuleBasedWordIteration() -- custom rules" + iae.toString());
-        }
-
-        List<String> worddata = new ArrayList<String>();
-        worddata.add("Write");
-        worddata.add(" ");
-        worddata.add("wordrules");
-        worddata.add(".");
-        worddata.add(" ");
-        // worddata.add("alpha-beta-gamma");
-        worddata.add(" ");
-        worddata.add("\u092f\u0939");
-        worddata.add(" ");
-        worddata.add("\u0939\u093f" + halfNA + "\u0926\u0940");
-        worddata.add(" ");
-        worddata.add("\u0939\u0948");
-        // worddata.add("\u0964"); //danda followed by a space
-        worddata.add(" ");
-        worddata.add("\u0905\u093e\u092a");
-        worddata.add(" ");
-        worddata.add("\u0938\u093f\u0916\u094b\u0917\u0947");
-        worddata.add("?");
-        worddata.add(" ");
-        worddata.add("\r");
-        worddata.add("It's");
-        worddata.add(" ");
-        // worddata.add("$30.10");
-        worddata.add(" ");
-        worddata.add(" ");
-        worddata.add("Badges");
-        worddata.add("?");
-        worddata.add(" ");
-        worddata.add("BADGES");
-        worddata.add("!");
-        worddata.add("1000,233,456.000");
-        worddata.add(" ");
-
-        generalIteratorTest(wordIterDefault, worddata);
-    }
-
-//    private static final String kParagraphSeparator = "\u2029";
-    private static final String kLineSeparator      = "\u2028";
-
-    @Test
-    public void TestDefaultRuleBasedSentenceIteration() {
-        logln("Testing the RBBI for sentence iteration using default rules");
-        RuleBasedBreakIterator rbbi = (RuleBasedBreakIterator) BreakIterator.getSentenceInstance();
-
-        // fetch the rules used to create the above RuleBasedBreakIterator
-        String defaultRules = rbbi.toString();
-        RuleBasedBreakIterator sentIterDefault = null;
-        try {
-            sentIterDefault = new RuleBasedBreakIterator(defaultRules);
-        } catch (IllegalArgumentException iae) {
-            errln("ERROR: failed construction in TestDefaultRuleBasedSentenceIteration()" + iae.toString());
-        }
-
-        List<String> sentdata = new ArrayList<String>();
-        sentdata.add("(This is it.) ");
-        sentdata.add("Testing the sentence iterator. ");
-        sentdata.add("\"This isn\'t it.\" ");
-        sentdata.add("Hi! ");
-        sentdata.add("This is a simple sample sentence. ");
-        sentdata.add("(This is it.) ");
-        sentdata.add("This is a simple sample sentence. ");
-        sentdata.add("\"This isn\'t it.\" ");
-        sentdata.add("Hi! ");
-        sentdata.add("This is a simple sample sentence. ");
-        sentdata.add("It does not have to make any sense as you can see. ");
-        sentdata.add("Nel mezzo del cammin di nostra vita, mi ritrovai in una selva oscura. ");
-        sentdata.add("Che la dritta via aveo smarrita. ");
-
-        generalIteratorTest(sentIterDefault, sentdata);
-    }
-
-    @Test
-    public void TestDefaultRuleBasedLineIteration() {
-        logln("Testing the RBBI for line iteration using default rules");
-        RuleBasedBreakIterator rbbi = (RuleBasedBreakIterator) RuleBasedBreakIterator.getLineInstance();
-        // fetch the rules used to create the above RuleBasedBreakIterator
-        String defaultRules = rbbi.toString();
-        RuleBasedBreakIterator lineIterDefault = null;
-        try {
-            lineIterDefault = new RuleBasedBreakIterator(defaultRules);
-        } catch (IllegalArgumentException iae) {
-            errln("ERROR: failed construction in TestDefaultRuleBasedLineIteration()" + iae.toString());
-        }
-
-        List<String> linedata = new ArrayList<String>();
-        linedata.add("Multi-");
-        linedata.add("Level ");
-        linedata.add("example ");
-        linedata.add("of ");
-        linedata.add("a ");
-        linedata.add("semi-");
-        linedata.add("idiotic ");
-        linedata.add("non-");
-        linedata.add("sensical ");
-        linedata.add("(non-");
-        linedata.add("important) ");
-        linedata.add("sentence. ");
-
-        linedata.add("Hi  ");
-        linedata.add("Hello ");
-        linedata.add("How\n");
-        linedata.add("are\r");
-        linedata.add("you" + kLineSeparator);
-        linedata.add("fine.\t");
-        linedata.add("good.  ");
-
-        linedata.add("Now\r");
-        linedata.add("is\n");
-        linedata.add("the\r\n");
-        linedata.add("time\n");
-        linedata.add("\r");
-        linedata.add("for\r");
-        linedata.add("\r");
-        linedata.add("all");
-
-        generalIteratorTest(lineIterDefault, linedata);
-
-    }
-
-    // =========================================================================
-    // general test subroutines
-    // =========================================================================
-
-    private void generalIteratorTest(RuleBasedBreakIterator rbbi, List<String> expectedResult) {
-        StringBuffer buffer = new StringBuffer();
-        String text;
-        for (int i = 0; i < expectedResult.size(); i++) {
-            text = expectedResult.get(i);
-            buffer.append(text);
-        }
-        text = buffer.toString();
-        if (rbbi == null) {
-            errln("null iterator, test skipped.");
-            return;
-        }
-
-        rbbi.setText(text);
-
-        List<String> nextResults = _testFirstAndNext(rbbi, text);
-        List<String> previousResults = _testLastAndPrevious(rbbi, text);
-
-        logln("comparing forward and backward...");
-        //TODO(junit) - needs to be rewritten
-        //int errs = getErrorCount();
-        compareFragmentLists("forward iteration", "backward iteration", nextResults, previousResults);
-        //if (getErrorCount() == errs) {
-        logln("comparing expected and actual...");
-        compareFragmentLists("expected result", "actual result", expectedResult, nextResults);
-            logln("comparing expected and actual...");
-            compareFragmentLists("expected result", "actual result", expectedResult, nextResults);
-        //}
-
-        int[] boundaries = new int[expectedResult.size() + 3];
-        boundaries[0] = RuleBasedBreakIterator.DONE;
-        boundaries[1] = 0;
-        for (int i = 0; i < expectedResult.size(); i++) {
-            boundaries[i + 2] = boundaries[i + 1] + (expectedResult.get(i).length());
-        }
-
-        boundaries[boundaries.length - 1] = RuleBasedBreakIterator.DONE;
-
-        _testFollowing(rbbi, text, boundaries);
-        _testPreceding(rbbi, text, boundaries);
-        _testIsBoundary(rbbi, text, boundaries);
-
-        doMultipleSelectionTest(rbbi, text);
-    }
-
-     private List<String> _testFirstAndNext(RuleBasedBreakIterator rbbi, String text) {
-         int p = rbbi.first();
-         int lastP = p;
-         List<String> result = new ArrayList<String>();
-
-         if (p != 0) {
-             errln("first() returned " + p + " instead of 0");
-         }
-
-         while (p != RuleBasedBreakIterator.DONE) {
-             p = rbbi.next();
-             if (p != RuleBasedBreakIterator.DONE) {
-                 if (p <= lastP) {
-                     errln("next() failed to move forward: next() on position "
-                                     + lastP + " yielded " + p);
-                 }
-                 result.add(text.substring(lastP, p));
-             }
-             else {
-                 if (lastP != text.length()) {
-                     errln("next() returned DONE prematurely: offset was "
-                                     + lastP + " instead of " + text.length());
-                 }
-             }
-             lastP = p;
-         }
-         return result;
-     }
-
-     private List<String> _testLastAndPrevious(RuleBasedBreakIterator rbbi, String text) {
-         int p = rbbi.last();
-         int lastP = p;
-         List<String> result = new ArrayList<String>();
-
-         if (p != text.length()) {
-             errln("last() returned " + p + " instead of " + text.length());
-         }
-
-         while (p != RuleBasedBreakIterator.DONE) {
-             p = rbbi.previous();
-             if (p != RuleBasedBreakIterator.DONE) {
-                 if (p >= lastP) {
-                     errln("previous() failed to move backward: previous() on position "
-                                     + lastP + " yielded " + p);
-                 }
-
-                 result.add(0, text.substring(p, lastP));
-             }
-             else {
-                 if (lastP != 0) {
-                     errln("previous() returned DONE prematurely: offset was "
-                                     + lastP + " instead of 0");
-                 }
-             }
-             lastP = p;
-         }
-         return result;
-     }
-
-     private void compareFragmentLists(String f1Name, String f2Name, List<String> f1, List<String> f2) {
-         int p1 = 0;
-         int p2 = 0;
-         String s1;
-         String s2;
-         int t1 = 0;
-         int t2 = 0;
-
-         while (p1 < f1.size() && p2 < f2.size()) {
-             s1 = f1.get(p1);
-             s2 = f2.get(p2);
-             t1 += s1.length();
-             t2 += s2.length();
-
-             if (s1.equals(s2)) {
-                 debugLogln("   >" + s1 + "<");
-                 ++p1;
-                 ++p2;
-             }
-             else {
-                 int tempT1 = t1;
-                 int tempT2 = t2;
-                 int tempP1 = p1;
-                 int tempP2 = p2;
-
-                 while (tempT1 != tempT2 && tempP1 < f1.size() && tempP2 < f2.size()) {
-                     while (tempT1 < tempT2 && tempP1 < f1.size()) {
-                         tempT1 += (f1.get(tempP1)).length();
-                         ++tempP1;
-                     }
-                     while (tempT2 < tempT1 && tempP2 < f2.size()) {
-                         tempT2 += (f2.get(tempP2)).length();
-                         ++tempP2;
-                     }
-                 }
-                 logln("*** " + f1Name + " has:");
-                 while (p1 <= tempP1 && p1 < f1.size()) {
-                     s1 = f1.get(p1);
-                     t1 += s1.length();
-                     debugLogln(" *** >" + s1 + "<");
-                     ++p1;
-                 }
-                 logln("***** " + f2Name + " has:");
-                 while (p2 <= tempP2 && p2 < f2.size()) {
-                     s2 = f2.get(p2);
-                     t2 += s2.length();
-                     debugLogln(" ***** >" + s2 + "<");
-                     ++p2;
-                 }
-                 errln("Discrepancy between " + f1Name + " and " + f2Name);
-             }
-         }
-     }
-
-    private void _testFollowing(RuleBasedBreakIterator rbbi, String text, int[] boundaries) {
-       logln("testFollowing():");
-       int p = 2;
-       for(int i = 0; i <= text.length(); i++) {
-           if (i == boundaries[p])
-               ++p;
-           int b = rbbi.following(i);
-           logln("rbbi.following(" + i + ") -> " + b);
-           if (b != boundaries[p])
-               errln("Wrong result from following() for " + i + ": expected " + boundaries[p]
-                               + ", got " + b);
-       }
-   }
-
-   private void _testPreceding(RuleBasedBreakIterator rbbi, String text, int[] boundaries) {
-       logln("testPreceding():");
-       int p = 0;
-       for(int i = 0; i <= text.length(); i++) {
-           int b = rbbi.preceding(i);
-           logln("rbbi.preceding(" + i + ") -> " + b);
-           if (b != boundaries[p])
-               errln("Wrong result from preceding() for " + i + ": expected " + boundaries[p]
-                              + ", got " + b);
-           if (i == boundaries[p + 1])
-               ++p;
-       }
-   }
-
-   private void _testIsBoundary(RuleBasedBreakIterator rbbi, String text, int[] boundaries) {
-       logln("testIsBoundary():");
-       int p = 1;
-       boolean isB;
-       for(int i = 0; i <= text.length(); i++) {
-           isB = rbbi.isBoundary(i);
-           logln("rbbi.isBoundary(" + i + ") -> " + isB);
-           if(i == boundaries[p]) {
-               if (!isB)
-                   errln("Wrong result from isBoundary() for " + i + ": expected true, got false");
-               ++p;
-           }
-           else {
-               if(isB)
-                   errln("Wrong result from isBoundary() for " + i + ": expected false, got true");
-           }
-       }
-   }
-   private void doMultipleSelectionTest(RuleBasedBreakIterator iterator, String testText)
-   {
-       logln("Multiple selection test...");
-       RuleBasedBreakIterator testIterator = (RuleBasedBreakIterator)iterator.clone();
-       int offset = iterator.first();
-       int testOffset;
-       int count = 0;
-
-       do {
-           testOffset = testIterator.first();
-           testOffset = testIterator.next(count);
-           logln("next(" + count + ") -> " + testOffset);
-           if (offset != testOffset)
-               errln("next(n) and next() not returning consistent results: for step " + count + ", next(n) returned " + testOffset + " and next() had " + offset);
-
-           if (offset != RuleBasedBreakIterator.DONE) {
-               count++;
-               offset = iterator.next();
-           }
-       } while (offset != RuleBasedBreakIterator.DONE);
-
-       // now do it backwards...
-       offset = iterator.last();
-       count = 0;
-
-       do {
-           testOffset = testIterator.last();
-           testOffset = testIterator.next(count);
-           logln("next(" + count + ") -> " + testOffset);
-           if (offset != testOffset)
-               errln("next(n) and next() not returning consistent results: for step " + count + ", next(n) returned " + testOffset + " and next() had " + offset);
-
-           if (offset != RuleBasedBreakIterator.DONE) {
-               count--;
-               offset = iterator.previous();
-           }
-       } while (offset != RuleBasedBreakIterator.DONE);
-   }
-
-   private void debugLogln(String s) {
-        final String zeros = "0000";
-        String temp;
-        StringBuffer out = new StringBuffer();
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c >= ' ' && c < '\u007f')
-                out.append(c);
-            else {
-                out.append("\\u");
-                temp = Integer.toHexString(c);
-                out.append(zeros.substring(0, 4 - temp.length()));
-                out.append(temp);
-            }
-        }
-         logln(out.toString());
-    }
 
     @Test
    public void TestThaiDictionaryBreakIterator() {
@@ -630,7 +147,7 @@ public class RBBITest extends TestFmwk {
                 }
                 return buildString.toString();
             }
-    @Test
+
             public void doTest() {
                 BreakIterator brkIter;
                 switch( type ) {
@@ -852,6 +369,186 @@ public class RBBITest extends TestFmwk {
         bi.setText("abc");
         bi.first();
         assertEquals("Rule chaining test", 3,  bi.next());
-         }
     }
 
+
+    @Test
+    public void TestBug12873() {
+        // Bug with RuleBasedBreakIterator's internal structure for recording potential look-ahead
+        // matches not being cloned when a break iterator is cloned. This resulted in usage
+        // collisions if the original break iterator and its clone were used concurrently.
+
+        // The Line Break rules for Regional Indicators make use of look-ahead rules, and
+        // show the bug. 1F1E6 = \uD83C\uDDE6 = REGIONAL INDICATOR SYMBOL LETTER A
+        // Regional indicators group into pairs, expect breaks after two code points, which
+        // is after four 16 bit code units.
+
+        final String dataToBreak = "\uD83C\uDDE6\uD83C\uDDE6\uD83C\uDDE6\uD83C\uDDE6\uD83C\uDDE6\uD83C\uDDE6";
+        final RuleBasedBreakIterator bi = (RuleBasedBreakIterator)BreakIterator.getLineInstance();
+        final AssertionError[] assertErr = new AssertionError[1];  // saves an error found from within a thread
+
+        class WorkerThread implements Runnable {
+            @Override
+            public void run() {
+                try {
+                    RuleBasedBreakIterator localBI = (RuleBasedBreakIterator)bi.clone();
+                    localBI.setText(dataToBreak);
+                    for (int loop=0; loop<100; loop++) {
+                        int nextExpectedBreak = 0;
+                        for (int actualBreak = localBI.first(); actualBreak != BreakIterator.DONE;
+                                actualBreak = localBI.next(), nextExpectedBreak+= 4) {
+                            assertEquals("", nextExpectedBreak, actualBreak);
+                        }
+                        assertEquals("", dataToBreak.length()+4, nextExpectedBreak);
+                    }
+                } catch (AssertionError e) {
+                    assertErr[0] = e;
+                }
+            }
+        }
+
+        List<Thread> threads = new ArrayList<Thread>();
+        for (int n = 0; n<4; ++n) {
+            threads.add(new Thread(new WorkerThread()));
+        }
+        for (Thread thread: threads) {
+            thread.start();
+        }
+        for (Thread thread: threads) {
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                fail(e.toString());
+            }
+        }
+
+        // JUnit wont see failures from within the worker threads, so
+        // check again if one occurred.
+        if (assertErr[0] != null) {
+            throw assertErr[0];
+        }
+    }
+
+    @Test
+    public void TestBreakAllChars() {
+        // Make a "word" from each code point, separated by spaces.
+        // For dictionary based breaking, runs the start-of-range
+        // logic with all possible dictionary characters.
+        StringBuilder sb = new StringBuilder();
+        for (int c=0; c<0x110000; ++c) {
+            sb.appendCodePoint(c);
+            sb.appendCodePoint(c);
+            sb.appendCodePoint(c);
+            sb.appendCodePoint(c);
+            sb.append(' ');
+        }
+        String s = sb.toString();
+
+        for (int breakKind=BreakIterator.KIND_CHARACTER; breakKind<=BreakIterator.KIND_TITLE; ++breakKind) {
+            RuleBasedBreakIterator bi =
+                    (RuleBasedBreakIterator)BreakIterator.getBreakInstance(ULocale.ENGLISH, breakKind);
+            bi.setText(s);
+            int lastb = -1;
+            for (int b = bi.first(); b != BreakIterator.DONE; b = bi.next()) {
+                assertTrue("(lastb < b) : (" + lastb + " < " + b + ")", lastb < b);
+            }
+        }
+    }
+
+    @Test
+    public void TestBug12918() {
+        // This test triggered an assertion failure in ICU4C, in dictbe.cpp
+        // The equivalent code in ICU4J is structured slightly differently,
+        // and does not appear vulnerable to the same issue.
+        //
+        // \u3325 decomposes with normalization, then the CJK dictionary
+        // finds a break within the decomposition.
+
+        String crasherString = "\u3325\u4a16";
+        BreakIterator iter = BreakIterator.getWordInstance(ULocale.ENGLISH);
+        iter.setText(crasherString);
+        iter.first();
+        int pos = 0;
+        int lastPos = -1;
+        while((pos = iter.next()) != BreakIterator.DONE) {
+            assertTrue("", pos > lastPos);
+        }
+    }
+
+    @Test
+    public void TestBug12519() {
+        RuleBasedBreakIterator biEn = (RuleBasedBreakIterator)BreakIterator.getWordInstance(ULocale.ENGLISH);
+        RuleBasedBreakIterator biFr = (RuleBasedBreakIterator)BreakIterator.getWordInstance(ULocale.FRANCE);
+        assertEquals("", ULocale.ENGLISH, biEn.getLocale(ULocale.VALID_LOCALE));
+        assertEquals("", ULocale.FRENCH, biFr.getLocale(ULocale.VALID_LOCALE));
+        assertEquals("Locales do not participate in BreakIterator equality.", biEn, biFr);
+
+        RuleBasedBreakIterator cloneEn = (RuleBasedBreakIterator)biEn.clone();
+        assertEquals("", biEn, cloneEn);
+        assertEquals("", ULocale.ENGLISH, cloneEn.getLocale(ULocale.VALID_LOCALE));
+
+        RuleBasedBreakIterator cloneFr = (RuleBasedBreakIterator)biFr.clone();
+        assertEquals("", biFr, cloneFr);
+        assertEquals("", ULocale.FRENCH, cloneFr.getLocale(ULocale.VALID_LOCALE));
+    }
+
+    static class T13512Thread extends Thread {
+        private String fText;
+        public List fBoundaries;
+        public List fExpectedBoundaries;
+
+        T13512Thread(String text) {
+            fText = text;
+            fExpectedBoundaries = getBoundary(fText);
+        }
+        @Override
+        public void run() {
+            for (int i= 0; i<10000; ++i) {
+                fBoundaries = getBoundary(fText);
+                if (!fBoundaries.equals(fExpectedBoundaries)) {
+                    break;
+                }
+            }
+        }
+        private static final BreakIterator BREAK_ITERATOR_CACHE = BreakIterator.getWordInstance(ULocale.ROOT);
+        public static List<Integer> getBoundary(String toParse) {
+            List<Integer> retVal = new ArrayList<Integer>();
+            BreakIterator bi = (BreakIterator) BREAK_ITERATOR_CACHE.clone();
+            bi.setText(toParse);
+            for (int boundary=bi.first(); boundary != BreakIterator.DONE; boundary = bi.next()) {
+                retVal.add(boundary);
+            }
+            return retVal;
+        }
+    }
+
+    @Test
+    public void TestBug13512() {
+        String japanese = "コンピューターは、本質的には数字しか扱うことができません。コンピューターは、文字や記号などのそれぞれに番号を割り振る"
+                + "ことによって扱えるようにします。ユニコードが出来るまでは、これらの番号を割り振る仕組みが何百種類も存在しました。どの一つをとっても、十分な"
+                + "文字を含んではいませんでした。例えば、欧州連合一つを見ても、そのすべての言語をカバーするためには、いくつかの異なる符号化の仕"
+                + "組みが必要でした。英語のような一つの言語に限っても、一つだけの符号化の仕組みでは、一般的に使われるすべての文字、句読点、技術"
+                + "的な記号などを扱うには不十分でした。";
+
+        String thai = "โดยพื้นฐานแล้ว, คอมพิวเตอร์จะเกี่ยวข้องกับเรื่องของตัวเลข. คอมพิวเตอร์จัดเก็บตัวอักษรและอักขระอื่นๆ"
+                + " โดยการกำหนดหมายเลขให้สำหรับแต่ละตัว. ก่อนหน้าที่๊ Unicode จะถูกสร้างขึ้น, ได้มีระบบ encoding "
+                + "อยู่หลายร้อยระบบสำหรับการกำหนดหมายเลขเหล่านี้. ไม่มี encoding ใดที่มีจำนวนตัวอักขระมากเพียงพอ: ยกตัวอย่างเช่น, "
+                + "เฉพาะในกลุ่มสหภาพยุโรปเพียงแห่งเดียว ก็ต้องการหลาย encoding ในการครอบคลุมทุกภาษาในกลุ่ม. "
+                + "หรือแม้แต่ในภาษาเดี่ยว เช่น ภาษาอังกฤษ ก็ไม่มี encoding ใดที่เพียงพอสำหรับทุกตัวอักษร, "
+                + "เครื่องหมายวรรคตอน และสัญลักษณ์ทางเทคนิคที่ใช้กันอยู่ทั่วไป.\n" +
+                "ระบบ encoding เหล่านี้ยังขัดแย้งซึ่งกันและกัน. นั่นก็คือ, ในสอง encoding สามารถใช้หมายเลขเดียวกันสำหรับตัวอักขระสองตัวที่แตกต่างกัน,"
+                + "หรือใช้หมายเลขต่างกันสำหรับอักขระตัวเดียวกัน. ในระบบคอมพิวเตอร์ (โดยเฉพาะเซิร์ฟเวอร์) ต้องมีการสนับสนุนหลาย"
+                + " encoding; และเมื่อข้อมูลที่ผ่านไปมาระหว่างการเข้ารหัสหรือแพล็ตฟอร์มที่ต่างกัน, ข้อมูลนั้นจะเสี่ยงต่อการผิดพลาดเสียหาย.";
+
+        T13512Thread t1 = new T13512Thread(thai);
+        T13512Thread t2 = new T13512Thread(japanese);
+        try {
+            t1.start(); t2.start();
+            t1.join(); t2.join();
+        } catch (Exception e) {
+            fail(e.toString());
+        }
+        assertEquals("", t1.fExpectedBoundaries, t1.fBoundaries);
+        assertEquals("", t2.fExpectedBoundaries, t2.fBoundaries);
+    }
+}

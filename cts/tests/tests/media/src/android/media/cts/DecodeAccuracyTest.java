@@ -25,6 +25,7 @@ import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.media.MediaFormat;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.view.View;
 
@@ -48,6 +49,7 @@ import org.junit.Test;
 
 @TargetApi(24)
 @RunWith(Parameterized.class)
+@AppModeFull(reason = "There should be no instant apps specific behavior related to accuracy")
 public class DecodeAccuracyTest extends DecodeAccuracyTestBase {
 
     private static final String TAG = DecodeAccuracyTest.class.getSimpleName();
@@ -129,17 +131,21 @@ public class DecodeAccuracyTest extends DecodeAccuracyTestBase {
         "video_decode_accuracy_and_capability-vp9_2880x2160_30fps.webm",
         "video_decode_accuracy_and_capability-vp9_1216x2160_30fps.webm",
         // cropped
-        "video_decode_with_cropping-h264_520x360_60fps.mp4",
-        "video_decode_with_cropping-vp9_520x360_60fps.webm"
+        "video_decode_with_cropping-h264_520x360_30fps.mp4",
+        "video_decode_with_cropping-vp9_520x360_30fps.webm"
     };
 
     private View videoView;
     private VideoViewFactory videoViewFactory;
     private String fileName;
+    private SimplePlayer player;
 
     @After
     @Override
     public void tearDown() throws Exception {
+        if (player != null) {
+            player.release();
+        }
         if (videoView != null) {
             getHelper().cleanUpView(videoView);
         }
@@ -149,7 +155,7 @@ public class DecodeAccuracyTest extends DecodeAccuracyTestBase {
         super.tearDown();
     }
 
-    @Parameters(name = "{0}")
+    @Parameters
     public static Collection<Object[]> data() {
         final List<Object[]> testParams = new ArrayList<>();
         for (int i = 0; i < VIDEO_FILES.length; i++) {
@@ -169,37 +175,38 @@ public class DecodeAccuracyTest extends DecodeAccuracyTestBase {
         this.fileName = fileName;
     }
 
-    @Test(timeout=PER_TEST_TIMEOUT_MS)
+    @Test(timeout = PER_TEST_TIMEOUT_MS)
     public void testGLViewDecodeAccuracy() throws Exception {
         runTest(new GLSurfaceViewFactory(), new VideoFormat(fileName));
     }
 
-    @Test(timeout=PER_TEST_TIMEOUT_MS)
+    @Test(timeout = PER_TEST_TIMEOUT_MS)
     public void testGLViewLargerHeightDecodeAccuracy() throws Exception {
         runTest(new GLSurfaceViewFactory(), getLargerHeightVideoFormat(new VideoFormat(fileName)));
     }
 
-    @Test(timeout=PER_TEST_TIMEOUT_MS)
+    @Test(timeout = PER_TEST_TIMEOUT_MS)
     public void testGLViewLargerWidthDecodeAccuracy() throws Exception {
         runTest(new GLSurfaceViewFactory(), getLargerWidthVideoFormat(new VideoFormat(fileName)));
     }
 
-    @Test(timeout=PER_TEST_TIMEOUT_MS)
+    @Test(timeout = PER_TEST_TIMEOUT_MS)
     public void testSurfaceViewVideoDecodeAccuracy() throws Exception {
         runTest(new SurfaceViewFactory(), new VideoFormat(fileName));
     }
 
-    @Test(timeout=PER_TEST_TIMEOUT_MS)
+    @Test(timeout = PER_TEST_TIMEOUT_MS)
     public void testSurfaceViewLargerHeightDecodeAccuracy() throws Exception {
         runTest(new SurfaceViewFactory(), getLargerHeightVideoFormat(new VideoFormat(fileName)));
     }
 
-    @Test(timeout=PER_TEST_TIMEOUT_MS)
+    @Test(timeout = PER_TEST_TIMEOUT_MS)
     public void testSurfaceViewLargerWidthDecodeAccuracy() throws Exception {
         runTest(new SurfaceViewFactory(), getLargerWidthVideoFormat(new VideoFormat(fileName)));
     }
 
     private void runTest(VideoViewFactory videoViewFactory, VideoFormat vf) {
+        Log.i(TAG, "Running test for " + vf.toPrettyString());
         if (!MediaUtils.canDecodeVideo(vf.getMimeType(), vf.getWidth(), vf.getHeight(), 30)) {
             MediaUtils.skipTest(TAG, "No supported codec is found.");
             return;
@@ -227,13 +234,12 @@ public class DecodeAccuracyTest extends DecodeAccuracyTestBase {
         }
         final int golden = getGoldenId(vf.getDescription(), vf.getOriginalSize());
         assertTrue("No golden found.", golden != 0);
-        final VideoViewSnapshot videoViewSnapshot = videoViewFactory.getVideoViewSnapshot();
         decodeVideo(vf, videoViewFactory);
-        validateResult(vf, videoViewSnapshot, golden);
+        validateResult(vf, videoViewFactory.getVideoViewSnapshot(), golden);
     }
 
     private void decodeVideo(VideoFormat videoFormat, VideoViewFactory videoViewFactory) {
-        final SimplePlayer player = new SimplePlayer(getHelper().getContext());
+        this.player = new SimplePlayer(getHelper().getContext());
         final SimplePlayer.PlayerResult playerResult = player.decodeVideoFrames(
                 videoViewFactory.getSurface(), videoFormat, 10);
         assertTrue(playerResult.getFailureMessage(), playerResult.isSuccess());

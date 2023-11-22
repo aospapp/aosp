@@ -6,6 +6,8 @@ cc_library_static {
         "src/framing.c",
     ],
 
+    cflags: ["-Wall", "-Werror"],
+
     export_include_dirs: ["include"],
 
     sdk_version: "14",

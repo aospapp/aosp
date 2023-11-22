@@ -35,13 +35,16 @@
  *       - Temperature   [Celsius]
  *
  * #define GYRO_CAL_DBG_ENABLED to enable debug printout statements.
- * data to assist in tuning the GyroCal parameters.
  */
 
 #ifndef LOCATION_LBS_CONTEXTHUB_NANOAPPS_CALIBRATION_GYROSCOPE_GYRO_CAL_H_
 #define LOCATION_LBS_CONTEXTHUB_NANOAPPS_CALIBRATION_GYROSCOPE_GYRO_CAL_H_
 
 #include "calibration/gyroscope/gyro_stillness_detect.h"
+
+#ifdef GYRO_CAL_DBG_ENABLED
+#include "calibration/sample_rate_estimator/sample_rate_estimator.h"
+#endif  // GYRO_CAL_DBG_ENABLED
 
 #ifdef __cplusplus
 extern "C" {
@@ -63,10 +66,10 @@ enum GyroCalDebugState {
 
 // Gyro Cal debug information/data tracking structure.
 struct DebugGyroCal {
+  struct SampleRateEstimator sample_rate_estimator;
   uint64_t start_still_time_nanos;
   uint64_t end_still_time_nanos;
   uint64_t stillness_duration_nanos;
-  float mean_sampling_rate_hz;
   float accel_stillness_conf;
   float gyro_stillness_conf;
   float mag_stillness_conf;
@@ -84,14 +87,28 @@ struct DebugGyroCal {
   float temperature_mean_celsius;
   bool using_mag_sensor;
 };
-
-// Data structure for sample rate estimation.
-struct SampleRateData {
-  uint64_t last_timestamp_nanos;
-  uint64_t time_delta_accumulator;
-  size_t num_samples;
-};
 #endif  // GYRO_CAL_DBG_ENABLED
+
+// GyroCal algorithm parameters (see GyroCal and GyroStillDet for details).
+struct GyroCalParameters {
+  uint64_t min_still_duration_nanos;
+  uint64_t max_still_duration_nanos;
+  uint64_t calibration_time_nanos;
+  uint64_t window_time_duration_nanos;
+  float bias_x;  // units: radians per second
+  float bias_y;
+  float bias_z;
+  float stillness_threshold;         // units: (radians per second)^2
+  float stillness_mean_delta_limit;  // units: radians per second
+  float gyro_var_threshold;          // units: (radians per second)^2
+  float gyro_confidence_delta;       // units: (radians per second)^2
+  float accel_var_threshold;         // units: (meters per second)^2
+  float accel_confidence_delta;      // units: (meters per second)^2
+  float mag_var_threshold;           // units: micro-tesla^2
+  float mag_confidence_delta;        // units: micro-tesla^2
+  float temperature_delta_limit_celsius;
+  bool gyro_calibration_enable;
+};
 
 // Data structure for tracking min/max window mean during device stillness.
 struct MinMaxWindowMeanData {
@@ -149,7 +166,6 @@ struct GyroCal {
   // Watchdog timer to reset to a known good state when data capture stalls.
   uint64_t gyro_watchdog_start_nanos;
   uint64_t gyro_watchdog_timeout_duration_nanos;
-  bool gyro_watchdog_timeout;
 
   // Flag is "true" when the magnetometer is used.
   bool using_mag_sensor;
@@ -177,7 +193,7 @@ struct GyroCal {
   float temperature_mean_celsius;
   float temperature_delta_limit_celsius;
 
-//----------------------------------------------------------------
+  //----------------------------------------------------------------
 
 #ifdef GYRO_CAL_DBG_ENABLED
   // Debug info.
@@ -185,9 +201,6 @@ struct GyroCal {
   enum GyroCalDebugState debug_state;  // Debug printout state machine.
   enum GyroCalDebugState next_state;   // Debug state machine next state.
   uint64_t wait_timer_nanos;           // Debug message throttle timer.
-
-  struct SampleRateData sample_rate_estimator;  // Debug sample rate estimator.
-
   size_t debug_calibration_count;      // Total number of cals performed.
   size_t debug_watchdog_count;         // Total number of watchdog timeouts.
   bool debug_print_trigger;            // Flag used to trigger data printout.
@@ -197,27 +210,21 @@ struct GyroCal {
 /////// FUNCTION PROTOTYPES //////////////////////////////////////////
 
 // Initialize the gyro calibration data structure.
-void gyroCalInit(struct GyroCal* gyro_cal, uint64_t min_still_duration,
-                 uint64_t max_still_duration_nanos, float bias_x, float bias_y,
-                 float bias_z, uint64_t calibration_time_nanos,
-                 uint64_t window_time_duration_nanos, float gyro_var_threshold,
-                 float gyro_confidence_delta, float accel_var_threshold,
-                 float accel_confidence_delta, float mag_var_threshold,
-                 float mag_confidence_delta, float stillness_threshold,
-                 float stillness_mean_delta_limit,
-                 float temperature_delta_limit_celsius,
-                 bool gyro_calibration_enable);
+void gyroCalInit(struct GyroCal* gyro_cal,
+                 const struct GyroCalParameters* parameters);
 
 // Void all pointers in the gyro calibration data structure.
 void gyroCalDestroy(struct GyroCal* gyro_cal);
 
 // Get the most recent bias calibration value.
 void gyroCalGetBias(struct GyroCal* gyro_cal, float* bias_x, float* bias_y,
-                    float* bias_z, float* temperature_celsius);
+                    float* bias_z, float* temperature_celsius,
+                    uint64_t* calibration_time_nanos);
 
 // Set an initial bias calibration value.
 void gyroCalSetBias(struct GyroCal* gyro_cal, float bias_x, float bias_y,
-                    float bias_z, uint64_t calibration_time_nanos);
+                    float bias_z, float temperature_celsius,
+                    uint64_t calibration_time_nanos);
 
 // Remove gyro bias from the calibration [rad/sec].
 void gyroCalRemoveBias(struct GyroCal* gyro_cal, float xi, float yi, float zi,

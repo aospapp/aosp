@@ -47,12 +47,18 @@ public class InvocationContext implements IInvocationContext {
     private Map<String, IBuildInfo> mNameAndBuildinfoMap;
     private final UniqueMultiMap<String, String> mInvocationAttributes =
             new UniqueMultiMap<String, String>();
+    private Map<IInvocationContext.TimingEvent, Long> mInvocationTimingMetrics;
     /** Invocation test-tag **/
     private String mTestTag;
     /** configuration descriptor */
     private ConfigurationDescriptor mConfigurationDescriptor;
     /** module invocation context (when running as part of a {@link ITestSuite} */
     private IInvocationContext mModuleContext;
+    /**
+     * List of map the device serials involved in the sharded invocation, empty if not a sharded
+     * invocation.
+     */
+    private Map<Integer, List<String>> mShardSerials;
 
     private boolean mLocked;
 
@@ -60,10 +66,12 @@ public class InvocationContext implements IInvocationContext {
      * Creates a {@link BuildInfo} using default attribute values.
      */
     public InvocationContext() {
+        mInvocationTimingMetrics = new LinkedHashMap<>();
         mAllocatedDeviceAndBuildMap = new LinkedHashMap<ITestDevice, IBuildInfo>();
         // Use LinkedHashMap to ensure key ordering by insertion order
         mNameAndDeviceMap = new LinkedHashMap<String, ITestDevice>();
         mNameAndBuildinfoMap = new LinkedHashMap<String, IBuildInfo>();
+        mShardSerials = new LinkedHashMap<Integer, List<String>>();
     }
 
     /**
@@ -211,6 +219,22 @@ public class InvocationContext implements IInvocationContext {
         return copy;
     }
 
+
+    /** {@inheritDoc} */
+    @Override
+    public Map<IInvocationContext.TimingEvent, Long> getInvocationTimingMetrics() {
+        return mInvocationTimingMetrics;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void addInvocationTimingMetric(IInvocationContext.TimingEvent timingEvent,
+            Long durationMillis) {
+        mInvocationTimingMetrics.put(timingEvent, durationMillis);
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -292,6 +316,22 @@ public class InvocationContext implements IInvocationContext {
         mLocked = true;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void addSerialsFromShard(Integer index, List<String> serials) {
+        if (mLocked) {
+            throw new IllegalStateException(
+                    "Attempting to add serial from shard attribute during a test.");
+        }
+        mShardSerials.put(index, serials);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Map<Integer, List<String>> getShardsSerials() {
+        return new LinkedHashMap<>(mShardSerials);
+    }
+
     /** Special java method that allows for custom deserialization. */
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         // our "pseudo-constructor"
@@ -299,5 +339,9 @@ public class InvocationContext implements IInvocationContext {
         // now we are a "live" object again, so let's init the transient field
         mAllocatedDeviceAndBuildMap = new LinkedHashMap<ITestDevice, IBuildInfo>();
         mNameAndDeviceMap = new LinkedHashMap<String, ITestDevice>();
+        // For compatibility, when parent TF does not have the invocation timing yet.
+        if (mInvocationTimingMetrics == null) {
+            mInvocationTimingMetrics = new LinkedHashMap<>();
+        }
     }
 }

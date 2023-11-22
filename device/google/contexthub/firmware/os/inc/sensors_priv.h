@@ -18,6 +18,7 @@
 #define __SENSORS_PRIV_H__
 
 #include <inttypes.h>
+#include <sensors.h>
 #include <seos.h>
 
 struct Sensor {

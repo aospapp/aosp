@@ -1,7 +1,7 @@
 /** @file
   Root include file to support building OpenSSL Crypto Library.
 
-Copyright (c) 2010 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -69,7 +69,7 @@ typedef VOID  *FILE;
 #endif
 
 //
-// #defines from EFI Application Toolkit required to buiild Open SSL
+// #defines from EFI Application Toolkit required to build Open SSL
 //
 #define ENOMEM       12               /* Cannot allocate memory */
 #define EINVAL       22               /* Invalid argument */
@@ -92,7 +92,7 @@ typedef VOID  *FILE;
 #define LOG_CONS     0x02             /* log on the console if errors in sending */
 
 //
-// Macros from EFI Application Toolkit required to buiild Open SSL
+// Macros from EFI Application Toolkit required to build Open SSL
 //
 /* The offsetof() macro calculates the offset of a structure member
    in its structure.  Unfortunately this cannot be written down
@@ -102,7 +102,7 @@ typedef VOID  *FILE;
 #define offsetof(type, member) OFFSET_OF (type, member)
 
 //
-// Basic types from EFI Application Toolkit required to buiild Open SSL
+// Basic types from EFI Application Toolkit required to build Open SSL
 //
 typedef UINTN          size_t;
 typedef INTN           ssize_t;
@@ -118,9 +118,11 @@ typedef UINT16         nlink_t;
 typedef int            pid_t;
 typedef void           *DIR;
 typedef void           __sighandler_t (int);
+typedef UINT8          __uint8_t;
+typedef UINT8          sa_family_t;
 
 //
-// Structures from EFI Application Toolkit required to buiild Open SSL
+// Structures from EFI Application Toolkit required to build Open SSL
 //
 struct tm {
   int   tm_sec;     /* seconds after the minute [0-60] */
@@ -172,13 +174,19 @@ struct stat {
   INT64    st_qspare[2];
 };
 
+struct sockaddr {
+  __uint8_t sa_len;         /* total length */
+  sa_family_t sa_family;    /* address family */
+  char    sa_data[14];      /* actually longer; address value */
+};
+
 //
-// Externs from EFI Application Toolkit required to buiild Open SSL
+// Externs from EFI Application Toolkit required to build Open SSL
 //
 extern int errno;
 
 //
-// Function prototypes from EFI Application Toolkit required to buiild Open SSL
+// Function prototypes from EFI Application Toolkit required to build Open SSL
 //
 void           *malloc     (size_t);
 void           *realloc    (void *, size_t);
@@ -247,7 +255,7 @@ void           abort       (void);
 __sighandler_t *signal     (int, __sighandler_t *);
 
 //
-// Global variables from EFI Application Toolkit required to buiild Open SSL
+// Global variables from EFI Application Toolkit required to build Open SSL
 //
 extern FILE  *stderr;
 extern FILE  *stdin;
@@ -273,5 +281,6 @@ extern FILE  *stdout;
 #define localtime(timer)                  NULL
 #define gmtime_r(timer,result)            (result = NULL)
 #define atoi(nptr)                        AsciiStrDecimalToUintn(nptr)
+#define gettimeofday(tvp,tz)              do { (tvp)->tv_sec = time(NULL); (tvp)->tv_usec = 0; } while (0)
 
 #endif

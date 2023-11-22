@@ -943,7 +943,7 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
 
 
     def send_file(self, source, dest, delete_dest=False,
-                  preserve_symlinks=False):
+                  preserve_symlinks=False, excludes=None):
         """Copy files from the drone to the device.
 
         Just a note, there is the possibility the test station is localhost
@@ -960,6 +960,10 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
                                   copied as such on the destination or
                                   transformed into the referenced
                                   file/directory.
+        @param excludes: A list of file pattern that matches files not to be
+                         sent. `send_file` will fail if exclude is set, since
+                         local copy does not support --exclude, e.g., when
+                         using scp to copy file.
         """
         # If we need to preserve symlinks, let's check if the source is a
         # symlink itself and if so, just create it on the device.
@@ -981,8 +985,9 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         src_path = os.path.join(tmp_dir, os.path.basename(dest))
         # Now copy the file over to the test station so you can reference the
         # file in the push command.
-        self.teststation.send_file(source, src_path,
-                                   preserve_symlinks=preserve_symlinks)
+        self.teststation.send_file(
+                source, src_path, preserve_symlinks=preserve_symlinks,
+                excludes=excludes)
 
         if delete_dest:
             self.run('rm -rf %s' % dest)

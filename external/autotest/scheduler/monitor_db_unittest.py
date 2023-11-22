@@ -818,8 +818,8 @@ class JobSchedulingTest(BaseSchedulerTest):
                 dummy_test_agent)
 
         # Attempted to schedule on a host that already has an agent.
-        self.assertRaises(scheduler_lib.SchedulerError,
-                          self._dispatcher._schedule_running_host_queue_entries)
+        # Verify that it doesn't raise any error.
+        self._dispatcher._schedule_running_host_queue_entries()
 
 
     def test_schedule_hostless_job(self):

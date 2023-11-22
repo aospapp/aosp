@@ -77,6 +77,16 @@ class BinderDriverInterfaceTest : public ::testing::Test {
         virtual void TearDown() {
         }
     protected:
+        /* The ioctl must either return 0, or if it doesn't errno should be accepted_errno */
+        void binderTestIoctlSuccessOrError(int cmd, void *arg, int accepted_errno) {
+            int ret;
+
+            ret = ioctl(m_binderFd, cmd, arg);
+            if (ret != 0) {
+                EXPECT_EQ(errno, accepted_errno);
+            }
+        }
+
         void binderTestIoctlRetErr2(int cmd, void *arg, int expect_ret, int expect_errno, int accept_errno) {
             int ret;
 
@@ -137,6 +147,12 @@ TEST_F(BinderDriverInterfaceTest, Version) {
     struct binder_version version;
     binderTestIoctl(BINDER_VERSION, &version);
     ASSERT_EQ(BINDER_CURRENT_PROTOCOL_VERSION, version.protocol_version);
+}
+
+TEST_F(BinderDriverInterfaceTest, OpenNoMmap) {
+    int binderFd = open(BINDER_DEV_NAME, O_RDWR | O_NONBLOCK | O_CLOEXEC);
+    ASSERT_GE(binderFd, 0);
+    close(binderFd);
 }
 
 TEST_F(BinderDriverInterfaceTest, WriteReadNull) {
@@ -250,7 +266,7 @@ TEST_F(BinderDriverInterfaceTest, Transaction) {
 
     {
         SCOPED_TRACE("1st WriteRead");
-        binderTestIoctl(BINDER_WRITE_READ, &bwr);
+        binderTestIoctlSuccessOrError(BINDER_WRITE_READ, &bwr, EAGAIN);
     }
     EXPECT_EQ(sizeof(bc1), bwr.write_consumed);
     if (bwr.read_consumed < offsetof(typeof(br), pad)) {

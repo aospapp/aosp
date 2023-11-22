@@ -85,6 +85,7 @@ unspecified registers or condition codes.
  * to expand the macros into assembler assignment statements.
  */
 #include "asm_support.h"
+#include "interpreter/cfi_asm_support.h"
 
 #define MTERP_PROFILE_BRANCHES 1
 #define MTERP_LOGGING 0
@@ -92,6 +93,8 @@ unspecified registers or condition codes.
 /* During bringup, we'll use the shadow frame model instead of rFP */
 /* single-purpose registers, given names for clarity */
 #define rPC      r4
+#define CFI_DEX  4  // DWARF register number of the register holding dex-pc (xPC).
+#define CFI_TMP  0  // DWARF register number of the first argument register (r0).
 #define rFP      r5
 #define rSELF    r6
 #define rINST    r7
@@ -110,7 +113,7 @@ unspecified registers or condition codes.
 #define OFF_FP_METHOD OFF_FP(SHADOWFRAME_METHOD_OFFSET)
 #define OFF_FP_RESULT_REGISTER OFF_FP(SHADOWFRAME_RESULT_REGISTER_OFFSET)
 #define OFF_FP_DEX_PC_PTR OFF_FP(SHADOWFRAME_DEX_PC_PTR_OFFSET)
-#define OFF_FP_CODE_ITEM OFF_FP(SHADOWFRAME_CODE_ITEM_OFFSET)
+#define OFF_FP_DEX_INSTRUCTIONS OFF_FP(SHADOWFRAME_DEX_INSTRUCTIONS_OFFSET)
 #define OFF_FP_SHADOWFRAME OFF_FP(0)
 
 /*
@@ -130,9 +133,8 @@ unspecified registers or condition codes.
 .endm
 
 .macro EXPORT_DEX_PC tmp
-    ldr  \tmp, [rFP, #OFF_FP_CODE_ITEM]
+    ldr  \tmp, [rFP, #OFF_FP_DEX_INSTRUCTIONS]
     str  rPC, [rFP, #OFF_FP_DEX_PC_PTR]
-    add  \tmp, #CODEITEM_INSNS_OFFSET
     sub  \tmp, rPC, \tmp
     asr  \tmp, #1
     str  \tmp, [rFP, #OFF_FP_DEX_PC]

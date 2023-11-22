@@ -77,7 +77,7 @@ public final class BmsgTokenizer {
         return mPos + mOffset;
     }
 
-    static public class Property {
+    public static class Property {
         public final String name;
         public final String value;
 
@@ -100,8 +100,7 @@ public final class BmsgTokenizer {
         @Override
         public boolean equals(Object o) {
             return ((o instanceof Property) && ((Property) o).name.equals(name)
-                    && ((Property) o).value
-                    .equals(value));
+                    && ((Property) o).value.equals(value));
         }
     }
 }

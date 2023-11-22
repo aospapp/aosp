@@ -62,12 +62,16 @@ $(foreach f,$(CUSTOM_IMAGE_COPY_FILES),\
   $(eval my_image_copy_files += $(src))\
   $(eval my_copy_pairs += $(src):$(my_staging_dir)/$(word 2,$(pair))))
 
-ifndef CUSTOM_IMAGE_AVB_KEY_PATH
-# If key path isn't specified, use the default signing args.
-my_avb_signing_args := $(INTERNAL_AVB_SIGNING_ARGS)
-else
-my_avb_signing_args := \
-  --algorithm $(CUSTOM_IMAGE_AVB_ALGORITHM) --key $(CUSTOM_IMAGE_AVB_KEY_PATH)
+ifdef CUSTOM_IMAGE_AVB_KEY_PATH
+ifndef CUSTOM_IMAGE_AVB_ALGORITHM
+  $(error CUSTOM_IMAGE_AVB_ALGORITHM is not defined)
+endif
+ifndef CUSTOM_IMAGE_AVB_ROLLBACK_INDEX
+  $(error CUSTOM_IMAGE_AVB_ROLLBACK_INDEX is not defined)
+endif
+# set rollback_index via footer args
+CUSTOM_IMAGE_AVB_ADD_HASH_FOOTER_ARGS += --rollback_index $(CUSTOM_IMAGE_AVB_ROLLBACK_INDEX)
+CUSTOM_IMAGE_AVB_ADD_HASHTREE_FOOTER_ARGS += --rollback_index $(CUSTOM_IMAGE_AVB_ROLLBACK_INDEX)
 endif
 
 $(my_built_custom_image): PRIVATE_INTERMEDIATES := $(intermediates)
@@ -84,7 +88,8 @@ $(my_built_custom_image): PRIVATE_VERITY_KEY := $(PRODUCTS.$(INTERNAL_PRODUCT).P
 $(my_built_custom_image): PRIVATE_VERITY_BLOCK_DEVICE := $(CUSTOM_IMAGE_VERITY_BLOCK_DEVICE)
 $(my_built_custom_image): PRIVATE_DICT_FILE := $(CUSTOM_IMAGE_DICT_FILE)
 $(my_built_custom_image): PRIVATE_AVB_AVBTOOL := $(AVBTOOL)
-$(my_built_custom_image): PRIVATE_AVB_SIGNING_ARGS := $(my_avb_signing_args)
+$(my_built_custom_image): PRIVATE_AVB_KEY_PATH := $(CUSTOM_IMAGE_AVB_KEY_PATH)
+$(my_built_custom_image): PRIVATE_AVB_ALGORITHM:= $(CUSTOM_IMAGE_AVB_ALGORITHM)
 $(my_built_custom_image): PRIVATE_AVB_HASH_ENABLE := $(CUSTOM_IMAGE_AVB_HASH_ENABLE)
 $(my_built_custom_image): PRIVATE_AVB_ADD_HASH_FOOTER_ARGS := $(CUSTOM_IMAGE_AVB_ADD_HASH_FOOTER_ARGS)
 $(my_built_custom_image): PRIVATE_AVB_HASHTREE_ENABLE := $(CUSTOM_IMAGE_AVB_HASHTREE_ENABLE)
@@ -130,8 +135,11 @@ $(my_built_custom_image): $(INTERNAL_USERIMAGES_DEPS) $(my_built_modules) $(my_i
 	    echo "verity_block_device=$(PRIVATE_VERITY_BLOCK_DEVICE)" >> $(PRIVATE_INTERMEDIATES)/image_info.txt)
 	$(if $(PRIVATE_SUPPORT_VERITY_FEC),\
 	  $(hide) echo "verity_fec=$(PRIVATE_SUPPORT_VERITY_FEC)" >> $(PRIVATE_INTERMEDIATES)/image_info.txt)
+	$(if $(filter eng, $(TARGET_BUILD_VARIANT)),$(hide) echo "verity_disable=true" >> $(PRIVATE_INTERMEDIATES)/image_info.txt)
 	$(hide) echo "avb_avbtool=$(PRIVATE_AVB_AVBTOOL)" >> $(PRIVATE_INTERMEDIATES)/image_info.txt
-	$(hide) echo "avb_signing_args=$(PRIVATE_AVB_SIGNING_ARGS)" >> $(PRIVATE_INTERMEDIATES)/image_info.txt
+	$(if $(PRIVATE_AVB_KEY_PATH),\
+	  $(hide) echo "avb_key_path=$(PRIVATE_AVB_KEY_PATH)" >> $(PRIVATE_INTERMEDIATES)/image_info.txt;\
+	    echo "avb_algorithm=$(PRIVATE_AVB_ALGORITHM)" >> $(PRIVATE_INTERMEDIATES)/image_info.txt)
 	$(if $(PRIVATE_AVB_HASH_ENABLE),\
 	  $(hide) echo "avb_hash_enable=$(PRIVATE_AVB_HASH_ENABLE)" >> $(PRIVATE_INTERMEDIATES)/image_info.txt;\
 	    echo "avb_add_hash_footer_args=$(PRIVATE_AVB_ADD_HASH_FOOTER_ARGS)" >> $(PRIVATE_INTERMEDIATES)/image_info.txt)
@@ -143,9 +151,9 @@ $(my_built_custom_image): $(INTERNAL_USERIMAGES_DEPS) $(my_built_modules) $(my_i
 	    cat $(PRIVATE_DICT_FILE) >> $(PRIVATE_INTERMEDIATES)/image_info.txt)
 	# Generate the image.
 	$(if $(filter oem,$(PRIVATE_MOUNT_POINT)), \
-	  $(hide) echo "oem.buildnumber=$(BUILD_NUMBER)" >> $(PRIVATE_STAGING_DIR)/oem.prop)
+	  $(hide) echo "oem.buildnumber=$(BUILD_NUMBER_FROM_FILE)" >> $(PRIVATE_STAGING_DIR)/oem.prop)
 	$(hide) PATH=$(foreach p,$(INTERNAL_USERIMAGES_BINARY_PATHS),$(p):)$$PATH \
-	  ./build/tools/releasetools/build_image.py \
+	  build/make/tools/releasetools/build_image.py \
 	  $(PRIVATE_STAGING_DIR) $(PRIVATE_INTERMEDIATES)/image_info.txt $@ $(TARGET_OUT)
 
 my_installed_custom_image := $(PRODUCT_OUT)/$(notdir $(my_built_custom_image))

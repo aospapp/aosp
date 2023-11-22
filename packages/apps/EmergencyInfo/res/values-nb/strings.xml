@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Informasjon for nødstilfeller"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Medisinsk informasjon"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"Rediger informasjon"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Endre informasjon"</string>
     <string name="edit_info" msgid="5973929805855224805">"Endre informasjonen for nødstilfeller"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Informasjon"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Kontakter"</string>
@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Vil du fjerne alle opplysningene og kontaktene?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Hvis du legger til medisinsk informasjon og nødkontakter, kan dette brukes ved førstehjelp i nødstilfeller.\n\nHvem som helst kan lese denne informasjonen fra låseskjermen og ringe kontaktene dine ved å trykke på kontaktnavnene – uten å låse opp telefonen din."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Legg til opplysninger for nødstilfeller"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Hjelp utrykningspersonell med å finne viktig informasjon"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Vis informasjonen din til utrykningspersonell"</string>
 </resources>

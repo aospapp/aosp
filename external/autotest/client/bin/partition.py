@@ -813,9 +813,9 @@ class virtual_partition:
     It's important to note that this API can be used only if
     we have the following programs present on the client machine:
 
-     * sfdisk
+     * dd
      * losetup
-     * kpartx
+     * truncate
     """
     def __init__(self, file_img, file_size):
         """
@@ -829,16 +829,16 @@ class virtual_partition:
         logging.debug('Sanity check before attempting to create virtual '
                       'partition')
         try:
-            os_dep.commands('sfdisk', 'losetup', 'kpartx')
+            os_dep.commands('dd', 'losetup', 'truncate')
         except ValueError, e:
             e_msg = 'Unable to create virtual partition: %s' % e
             raise error.AutotestError(e_msg)
 
         logging.debug('Creating virtual partition')
-        self.img = self._create_disk_img(file_img, file_size)
-        self.loop = self._attach_img_loop(self.img)
-        self._create_single_partition(self.loop)
-        self.device = self._create_entries_partition(self.loop)
+        self.size = file_size
+        self.img = self._create_disk_img(file_img)
+        self.loop = self._attach_img_loop()
+        self.device = self.loop
         logging.debug('Virtual partition successfuly created')
         logging.debug('Image disk: %s', self.img)
         logging.debug('Loopback device: %s', self.loop)
@@ -851,22 +851,22 @@ class virtual_partition:
         from the loopback device and removes the image file.
         """
         logging.debug('Removing virtual partition - device %s', self.device)
-        self._remove_entries_partition()
         self._detach_img_loop()
         self._remove_disk_img()
 
 
-    def _create_disk_img(self, img_path, size):
+    def _create_disk_img(self, img_path):
         """
         Creates a disk image using dd.
 
         @param img_path: Path to the desired image file.
-        @param size: Size of the desired image in Bytes.
+        @param size: Size of the desired image in MB.
         @returns: Path of the image created.
         """
-        logging.debug('Creating disk image %s, size = %d Bytes', img_path, size)
+        logging.debug('Creating disk image %s, size = %d MB',
+                      img_path, self.size)
         try:
-            cmd = 'dd if=/dev/zero of=%s bs=1024 count=%d' % (img_path, size)
+            cmd = 'truncate %s --size %dM' % (img_path, self.size)
             utils.run(cmd)
         except error.CmdError, e:
             e_msg = 'Error creating disk image %s: %s' % (img_path, e)
@@ -874,81 +874,22 @@ class virtual_partition:
         return img_path
 
 
-    def _attach_img_loop(self, img_path):
+    def _attach_img_loop(self):
         """
         Attaches a file image to a loopback device using losetup.
-
-        @param img_path: Path of the image file that will be attached to a
-                loopback device
         @returns: Path of the loopback device associated.
         """
-        logging.debug('Attaching image %s to a loop device', img_path)
+        logging.debug('Attaching image %s to a loop device', self.img)
         try:
             cmd = 'losetup -f'
             loop_path = utils.system_output(cmd)
-            cmd = 'losetup -f %s' % img_path
+            cmd = 'losetup -f %s' % self.img
             utils.run(cmd)
         except error.CmdError, e:
             e_msg = ('Error attaching image %s to a loop device: %s' %
-                     (img_path, e))
+                     (self.img, e))
             raise error.AutotestError(e_msg)
         return loop_path
-
-
-    def _create_single_partition(self, loop_path):
-        """
-        Creates a single partition encompassing the whole 'disk' using cfdisk.
-
-        @param loop_path: Path to the loopback device.
-        """
-        logging.debug('Creating single partition on %s', loop_path)
-        try:
-            single_part_cmd = '0,,c\n'
-            sfdisk_file_path = '/tmp/create_partition.sfdisk'
-            sfdisk_cmd_file = open(sfdisk_file_path, 'w')
-            sfdisk_cmd_file.write(single_part_cmd)
-            sfdisk_cmd_file.close()
-            utils.run('sfdisk %s < %s' % (loop_path, sfdisk_file_path))
-        except error.CmdError, e:
-            e_msg = 'Error partitioning device %s: %s' % (loop_path, e)
-            raise error.AutotestError(e_msg)
-
-
-    def _create_entries_partition(self, loop_path):
-        """
-        Takes the newly created partition table on the loopback device and
-        makes all its devices available under /dev/mapper. As we previously
-        have partitioned it using a single partition, only one partition
-        will be returned.
-
-        @param loop_path: Path to the loopback device.
-        """
-        logging.debug('Creating entries under /dev/mapper for %s loop dev',
-                      loop_path)
-        try:
-            cmd = 'kpartx -a %s' % loop_path
-            utils.run(cmd)
-            l_cmd = 'kpartx -l %s | cut -f1 -d " "' % loop_path
-            device = utils.system_output(l_cmd)
-        except error.CmdError, e:
-            e_msg = 'Error creating entries for %s: %s' % (loop_path, e)
-            raise error.AutotestError(e_msg)
-        return os.path.join('/dev/mapper', device)
-
-
-    def _remove_entries_partition(self):
-        """
-        Removes the entries under /dev/mapper for the partition associated
-        to the loopback device.
-        """
-        logging.debug('Removing the entry on /dev/mapper for %s loop dev',
-                      self.loop)
-        try:
-            cmd = 'kpartx -d %s' % self.loop
-            utils.run(cmd)
-        except error.CmdError, e:
-            e_msg = 'Error removing entries for loop %s: %s' % (self.loop, e)
-            raise error.AutotestError(e_msg)
 
 
     def _detach_img_loop(self):

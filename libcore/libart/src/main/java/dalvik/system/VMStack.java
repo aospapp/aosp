@@ -70,6 +70,18 @@ public final class VMStack {
     native public static StackTraceElement[] getThreadStackTrace(Thread t);
 
     /**
+     * Retrieves an annotated stack trace from the specified thread.
+     *
+     * @param t
+     *      thread of interest
+     * @return an array of annotated stack frames, or null if the thread
+     *      doesn't have a stack trace (e.g. because it exited)
+     */
+    @FastNative
+    native public static AnnotatedStackTraceElement[]
+            getAnnotatedThreadStackTrace(Thread t);
+
+    /**
      * Retrieves a partial stack trace from the specified thread into
      * the provided array.
      *

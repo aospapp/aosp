@@ -347,6 +347,33 @@ const char* Demangler::ParseS(const char* name) {
   return name + 1;
 }
 
+const char* Demangler::ParseT(const char* name) {
+  if (template_saves_.empty()) {
+    return nullptr;
+  }
+
+  if (*name == '_') {
+    last_save_name_ = false;
+    AppendCurrent(template_saves_[0]);
+    return name + 1;
+  }
+
+  // Need to get the total number.
+  char* end;
+  unsigned long int index = strtoul(name, &end, 10) + 1;
+  if (name == end || *end != '_') {
+    return nullptr;
+  }
+
+  if (index >= template_saves_.size()) {
+    return nullptr;
+  }
+
+  last_save_name_ = false;
+  AppendCurrent(template_saves_[index]);
+  return end + 1;
+}
+
 const char* Demangler::ParseFunctionName(const char* name) {
   if (*name == 'E') {
     if (parse_funcs_.empty()) {
@@ -361,7 +388,7 @@ const char* Demangler::ParseFunctionName(const char* name) {
       saves_.pop_back();
     }
 
-    function_name_ = cur_state_.str;
+    function_name_ += cur_state_.str;
     while (!cur_state_.suffixes.empty()) {
       function_suffix_ += cur_state_.suffixes.back();
       cur_state_.suffixes.pop_back();
@@ -371,7 +398,26 @@ const char* Demangler::ParseFunctionName(const char* name) {
     return name + 1;
   }
 
+  if (*name == 'I') {
+    state_stack_.push(cur_state_);
+    cur_state_.Clear();
+
+    parse_funcs_.push_back(parse_func_);
+    parse_func_ = &Demangler::ParseFunctionNameTemplate;
+    return name + 1;
+  }
+
   return ParseComplexString(name);
+}
+
+const char* Demangler::ParseFunctionNameTemplate(const char* name) {
+  if (*name == 'E' && name[1] == 'E') {
+    // Only consider this a template with saves if it is right before
+    // the end of the name.
+    template_found_ = true;
+    template_saves_ = cur_state_.args;
+  }
+  return ParseTemplateArgumentsComplex(name);
 }
 
 const char* Demangler::ParseComplexArgument(const char* name) {
@@ -534,6 +580,10 @@ const char* Demangler::ParseArguments(const char* name) {
     }
     return name + 1;
 
+  case 'O':
+    cur_state_.suffixes.push_back("&&");
+    return name + 1;
+
   case 'K':
   case 'V': {
     const char* suffix;
@@ -655,7 +705,33 @@ const char* Demangler::ParseArguments(const char* name) {
         cur_state_.str.clear();
       }
       return name;
+    } else if (strcmp(name, ".cfi") == 0) {
+      function_suffix_ += " [clone .cfi]";
+      return name + 4;
     }
+  }
+  return nullptr;
+}
+
+const char* Demangler::ParseTemplateLiteral(const char* name) {
+  if (*name == 'E') {
+    parse_func_ = parse_funcs_.back();
+    parse_funcs_.pop_back();
+    return name + 1;
+  }
+  // Only understand boolean values with 0 or 1.
+  if (*name == 'b') {
+    name++;
+    if (*name == '0') {
+      AppendArgument("false");
+      cur_state_.str.clear();
+    } else if (*name == '1') {
+      AppendArgument("true");
+      cur_state_.str.clear();
+    } else {
+      return nullptr;
+    }
+    return name + 1;
   }
   return nullptr;
 }
@@ -667,10 +743,17 @@ const char* Demangler::ParseTemplateArgumentsComplex(const char* name) {
     }
     parse_func_ = parse_funcs_.back();
     parse_funcs_.pop_back();
+
     FinalizeTemplate();
     Save(cur_state_.str, false);
     return name + 1;
+  } else if (*name == 'L') {
+    // Literal value for a template.
+    parse_funcs_.push_back(parse_func_);
+    parse_func_ = &Demangler::ParseTemplateLiteral;
+    return name + 1;
   }
+
   return ParseArguments(name);
 }
 
@@ -685,15 +768,69 @@ const char* Demangler::ParseTemplateArguments(const char* name) {
     AppendArgument(cur_state_.str);
     cur_state_.str.clear();
     return name + 1;
+  } else if (*name == 'L') {
+    // Literal value for a template.
+    parse_funcs_.push_back(parse_func_);
+    parse_func_ = &Demangler::ParseTemplateLiteral;
+    return name + 1;
   }
+
   return ParseArguments(name);
 }
 
+const char* Demangler::ParseFunctionTemplateArguments(const char* name) {
+  if (*name == 'E') {
+    parse_func_ = parse_funcs_.back();
+    parse_funcs_.pop_back();
+
+    function_name_ += '<' + GetArgumentsString() + '>';
+    template_found_ = true;
+    template_saves_ = cur_state_.args;
+    cur_state_.Clear();
+    return name + 1;
+  }
+  return ParseTemplateArgumentsComplex(name);
+}
+
 const char* Demangler::FindFunctionName(const char* name) {
+  if (*name == 'T') {
+    // non-virtual thunk, verify that it matches one of these patterns:
+    //   Thn[0-9]+_
+    //   Th[0-9]+_
+    //   Thn_
+    //   Th_
+    name++;
+    if (*name != 'h') {
+      return nullptr;
+    }
+    name++;
+    if (*name == 'n') {
+      name++;
+    }
+    while (std::isdigit(*name)) {
+      name++;
+    }
+    if (*name != '_') {
+      return nullptr;
+    }
+    function_name_ = "non-virtual thunk to ";
+    return name + 1;
+  }
+
   if (*name == 'N') {
-    parse_funcs_.push_back(&Demangler::ParseArguments);
+    parse_funcs_.push_back(&Demangler::ParseArgumentsAtTopLevel);
     parse_func_ = &Demangler::ParseFunctionName;
     return name + 1;
+  }
+
+  if (*name == 'S') {
+    name++;
+    if (*name == 't') {
+      function_name_ = "std::";
+      name++;
+    } else {
+      return nullptr;
+    }
   }
 
   if (std::isdigit(*name)) {
@@ -704,9 +841,33 @@ const char* Demangler::FindFunctionName(const char* name) {
     name = AppendOperatorString(name);
     function_name_ = cur_state_.str;
   }
-  parse_func_ = &Demangler::ParseArguments;
   cur_state_.Clear();
+
+  // Check for a template argument, which will still be part of the function
+  // name.
+  if (name != nullptr && *name == 'I') {
+    parse_funcs_.push_back(&Demangler::ParseArgumentsAtTopLevel);
+    parse_func_ = &Demangler::ParseFunctionTemplateArguments;
+    return name + 1;
+  }
+  parse_func_ = &Demangler::ParseArgumentsAtTopLevel;
   return name;
+}
+
+const char* Demangler::ParseArgumentsAtTopLevel(const char* name) {
+  // At the top level is the only place where T is allowed.
+  if (*name == 'T') {
+    name++;
+    name = ParseT(name);
+    if (name == nullptr) {
+      return nullptr;
+    }
+    AppendArgument(cur_state_.str);
+    cur_state_.str.clear();
+    return name;
+  }
+
+  return Demangler::ParseArguments(name);
 }
 
 std::string Demangler::Parse(const char* name, size_t max_length) {
@@ -729,6 +890,21 @@ std::string Demangler::Parse(const char* name, size_t max_length) {
     return name;
   }
 
+  std::string return_type;
+  if (template_found_) {
+    // Only a single argument with a template is not allowed.
+    if (cur_state_.args.size() == 1) {
+      return name;
+    }
+
+    // If there are at least two arguments, this template has a return type.
+    if (cur_state_.args.size() > 1) {
+      // The first argument will be the return value.
+      return_type = cur_state_.args[0] + ' ';
+      cur_state_.args.erase(cur_state_.args.begin());
+    }
+  }
+
   std::string arg_str;
   if (cur_state_.args.size() == 1 && cur_state_.args[0] == "void") {
     // If the only argument is void, then don't print any args.
@@ -739,7 +915,7 @@ std::string Demangler::Parse(const char* name, size_t max_length) {
       arg_str = '(' + arg_str + ')';
     }
   }
-  return function_name_ + arg_str + function_suffix_;
+  return return_type + function_name_ + arg_str + function_suffix_;
 }
 
 std::string demangle(const char* name) {

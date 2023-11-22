@@ -33,6 +33,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 
+import com.android.compatibility.common.util.CddTest;
+
+@CddTest(requirement="3.8.1/C-4-1")
 @SmallTest
 public class ShortcutManagerNegativeTest extends ShortcutManagerCtsTestsBase {
     private static final String TAG = "ShortcutNegativeCTS";
@@ -57,7 +60,7 @@ public class ShortcutManagerNegativeTest extends ShortcutManagerCtsTestsBase {
 
     private static void callMethodExpectingSecurityException(Object instance, String name,
             String expectedMessage, Object... args)
-            throws NoSuchMethodException, IllegalAccessException {
+            throws IllegalAccessException {
 
         Method m = null;
         for (Method method : instance.getClass().getDeclaredMethods()) {
@@ -90,7 +93,7 @@ public class ShortcutManagerNegativeTest extends ShortcutManagerCtsTestsBase {
         try {
             callMethodExpectingSecurityException(readField(manager, "mService"), method,
                     expectedMessage, args);
-        } catch (NoSuchFieldException|NoSuchMethodException e) {
+        } catch (NoSuchFieldException | LinkageError e) {
             if (DISALLOW_REFLECTION_ERROR) {
                 throw new RuntimeException(e);
             } else {

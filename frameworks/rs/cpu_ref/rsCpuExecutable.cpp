@@ -137,16 +137,20 @@ bool SharedLibraryUtils::createSharedLibrary(const char *driverName,
     linkDriverName.erase(linkDriverName.length() - 3);
     linkDriverName.replace(0, 3, "-l");
 
+    static const std::string vndkLibCompilerRt =
+        getVndkSysLibPath() + "/libcompiler_rt.so";
     const char *compiler_rt = isRunningInVndkNamespace() ?
-        SYSLIBPATH_VNDK "/libcompiler_rt.so" : SYSLIBPATH "/libcompiler_rt.so";
+        vndkLibCompilerRt.c_str() : SYSLIBPATH "/libcompiler_rt.so";
     const char *mTriple = "-mtriple=" DEFAULT_TARGET_TRIPLE_STRING;
     const char *libPath = "--library-path=" SYSLIBPATH;
     // vndk path is only added when RS framework is running in vndk namespace.
     // If we unconditionally add the vndk path to the library path, then RS
     // driver in the vndk-sp directory will always be used even for CPU fallback
     // case, where RS framework is loaded from the default namespace.
+    static const std::string vndkLibPathString =
+        "--library-path=" + getVndkSysLibPath();
     const char *vndkLibPath = isRunningInVndkNamespace() ?
-        "--library-path=" SYSLIBPATH_VNDK : "";
+        vndkLibPathString.c_str() : "";
     const char *vendorLibPath = "--library-path=" SYSLIBPATH_VENDOR;
 
     // The search path order should be vendor -> vndk -> system
@@ -743,7 +747,8 @@ ScriptExecutable* ScriptExecutable::createFromSharedObject(
           goto error;
         } else {
           // skip the versionInfo packet as libRs doesn't use it
-          while (nLines--) {
+          while (nLines) {
+            --nLines;
             if (strgets(line, MAXLINE, &rsInfo) == nullptr)
               goto error;
           }

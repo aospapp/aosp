@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2004-2012 Broadcom Corporation
+ *  Copyright 2004-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -54,16 +54,18 @@ typedef struct {
 } tBTA_AG_AT_CMD;
 
 /* callback function executed when command is parsed */
-typedef void(tBTA_AG_AT_CMD_CBACK)(void* p_user, uint16_t command_id,
+struct tBTA_AG_SCB;
+typedef void(tBTA_AG_AT_CMD_CBACK)(tBTA_AG_SCB* p_user, uint16_t command_id,
                                    uint8_t arg_type, char* p_arg,
                                    int16_t int_arg);
 
 /* callback function executed to send "ERROR" result code */
-typedef void(tBTA_AG_AT_ERR_CBACK)(void* p_user, bool unknown, char* p_arg);
+typedef void(tBTA_AG_AT_ERR_CBACK)(tBTA_AG_SCB* p_user, bool unknown,
+                                   const char* p_arg);
 
 /* AT command parsing control block */
 typedef struct {
-  tBTA_AG_AT_CMD* p_at_tbl;          /* AT command table */
+  const tBTA_AG_AT_CMD* p_at_tbl;    /* AT command table */
   tBTA_AG_AT_CMD_CBACK* p_cmd_cback; /* command callback */
   tBTA_AG_AT_ERR_CBACK* p_err_cback; /* error callback */
   void* p_user;                      /* user-defined data */

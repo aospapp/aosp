@@ -18,6 +18,7 @@ cc_library {
     name: "libese-app-boot",
     defaults: ["libese-app-defaults"],
     srcs: ["boot.c"],
+    cflags: ["-Wall", "-Werror"],
     host_supported: true,
     shared_libs: ["liblog", "libese", "libese-sysdeps"],
 }
@@ -27,7 +28,11 @@ cc_library {
     defaults: ["libese-app-defaults"],
     srcs: ["boot.c"],
     host_supported: true,
-    cflags: ["-fvisibility=default"],
+    cflags: [
+        "-fvisibility=default",
+        "-Wall",
+        "-Werror",
+    ],
     shared_libs: ["liblog", "libese", "libese-sysdeps"],
 }
 
@@ -46,6 +51,7 @@ cc_binary {
         "libese-hw-nxp-pn80t-nq-nci",
     ],
     host_supported: false,
+    cflags: ["-Wall", "-Werror"],
     target: {
         darwin: {
             enabled: false,

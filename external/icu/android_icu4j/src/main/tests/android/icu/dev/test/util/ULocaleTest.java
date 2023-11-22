@@ -26,6 +26,8 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.dev.test.TestUtil;
@@ -48,7 +50,10 @@ import android.icu.util.ULocale.Category;
 import android.icu.util.ULocale.Minimize;
 import android.icu.util.UResourceBundle;
 import android.icu.util.VersionInfo;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class ULocaleTest extends TestFmwk {
 
     // Ticket #8078 and #11674
@@ -1180,6 +1185,7 @@ public class ULocaleTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestDisplayLanguageWithDialectCoverage() {
         // Coverage test. Implementation is in class LocaleDisplayNames.
         assertFalse("en in system default locale: anything but empty",
@@ -1192,6 +1198,7 @@ public class ULocaleTest extends TestFmwk {
                 ULocale.getDisplayLanguageWithDialect("en", "de"));
     }
 
+    @Test
     public void TestDisplayNameWithDialectCoverage() {
         // Coverage test. Implementation is in class LocaleDisplayNames.
         assertFalse("en-GB in system default locale: anything but empty",
@@ -1204,6 +1211,7 @@ public class ULocaleTest extends TestFmwk {
                 ULocale.getDisplayNameWithDialect("en-GB", "de"));
     }
 
+    @Test
     public void TestDisplayScriptCoverage() {
         // Coverage test. Implementation is in class LocaleDisplayNames.
         assertFalse("zh-Hans in system default locale: anything but empty",
@@ -3486,8 +3494,8 @@ public class ULocaleTest extends TestFmwk {
                     "zh_TW"
                 }, {
                     "und_Hant_CN",
-                    "yue_Hant_CN",
-                    "yue_Hant_CN"
+                    "zh_Hant_CN",
+                    "zh_Hant_CN"
                 }, {
                     "und_Hant_TW",
                     "zh_Hant_TW",

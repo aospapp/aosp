@@ -27,7 +27,6 @@ import android.uirendering.cts.differencevisualizers.PassFailVisualizer;
 
 public class BitmapAsserter {
     private DifferenceVisualizer mDifferenceVisualizer;
-    private Context mContext;
     private String mClassName;
 
     public BitmapAsserter(String className, String name) {
@@ -41,11 +40,6 @@ public class BitmapAsserter {
         if (name != null) {
             BitmapDumper.deleteFileInClassFolder(mClassName, name);
         }
-    }
-
-    public void setUp(Context context) {
-        mDifferenceVisualizer = new PassFailVisualizer();
-        mContext = context;
     }
 
     /**

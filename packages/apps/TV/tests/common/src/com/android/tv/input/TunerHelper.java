@@ -19,14 +19,11 @@ package com.android.tv.input;
 import android.net.Uri;
 import android.support.annotation.Nullable;
 import android.util.Log;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-/**
- * A class to manage fake tuners for the tune and the recording.
- */
+/** A class to manage fake tuners for the tune and the recording. */
 public class TunerHelper {
     private static final String TAG = "TunerHelper";
     private static final boolean DEBUG = false;
@@ -38,9 +35,7 @@ public class TunerHelper {
         mTunerCount = tunerCount;
     }
 
-    /**
-     * Checks whether there are available tuners for the recording.
-     */
+    /** Checks whether there are available tuners for the recording. */
     public boolean tunerAvailableForRecording() {
         if (mTuners.size() < mTunerCount) {
             return true;
@@ -54,8 +49,8 @@ public class TunerHelper {
     }
 
     /**
-     * Checks whether there is available tuner.
-     * If there's available tuner, it is assigned to the channel.
+     * Checks whether there is available tuner. If there's available tuner, it is assigned to the
+     * channel.
      */
     public boolean tune(@Nullable Uri channelUri, boolean forRecording) {
         if (channelUri == null) {
@@ -82,9 +77,7 @@ public class TunerHelper {
         return false;
     }
 
-    /**
-     * Releases the tuner which was being used for the tune.
-     */
+    /** Releases the tuner which was being used for the tune. */
     public void stopTune(@Nullable Uri channelUri) {
         if (channelUri == null) {
             return;
@@ -110,9 +103,7 @@ public class TunerHelper {
         }
     }
 
-    /**
-     * Releases the tuner which was being used for the recording.
-     */
+    /** Releases the tuner which was being used for the recording. */
     public void stopRecording(@Nullable Uri channelUri) {
         if (channelUri == null) {
             return;
@@ -146,7 +137,7 @@ public class TunerHelper {
         public boolean tuning;
         public boolean recording;
 
-        public Tuner (Uri channelUri, boolean forRecording) {
+        public Tuner(Uri channelUri, boolean forRecording) {
             this.channelUri = channelUri;
             this.tuning = !forRecording;
             this.recording = forRecording;

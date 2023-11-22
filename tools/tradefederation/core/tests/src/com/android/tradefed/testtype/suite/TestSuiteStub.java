@@ -15,11 +15,14 @@
  */
 package com.android.tradefed.testtype.suite;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IRemoteTest;
@@ -30,7 +33,7 @@ import com.android.tradefed.testtype.ITestFilterReceiver;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 
@@ -67,34 +70,62 @@ public class TestSuiteStub
     @Option(name = "throw-device-not-available")
     protected boolean mThrow = false;
 
-    protected List<TestIdentifier> mShardedTestToRun;
+    @Option(name = "log-fake-files")
+    protected boolean mLogFiles = false;
+
+    protected List<TestDescription> mShardedTestToRun;
     protected Integer mShardIndex = null;
 
     /** Tests attempt. */
     private void testAttempt(ITestInvocationListener listener) throws DeviceNotAvailableException {
         listener.testRunStarted(mModule, 3);
-        TestIdentifier tid = new TestIdentifier("TestStub", "test1");
+        TestDescription tid = new TestDescription("TestStub", "test1");
         listener.testStarted(tid);
-        listener.testEnded(tid, Collections.emptyMap());
+        if (mLogFiles) {
+            listener.testLog(
+                    tid.toString() + "-file",
+                    LogDataType.LOGCAT,
+                    new ByteArrayInputStreamSource("test".getBytes()));
+        }
+        listener.testEnded(tid, new HashMap<String, Metric>());
 
         if (mIsComplete) {
             // possibly skip this one to create some not_executed case.
-            TestIdentifier tid2 = new TestIdentifier("TestStub", "test2");
+            TestDescription tid2 = new TestDescription("TestStub", "test2");
             listener.testStarted(tid2);
             if (mThrow) {
                 throw new DeviceNotAvailableException();
             }
-            listener.testEnded(tid2, Collections.emptyMap());
+            if (mLogFiles) {
+                listener.testLog(
+                        tid2.toString() + "-file",
+                        LogDataType.BUGREPORT,
+                        new ByteArrayInputStreamSource("test".getBytes()));
+            }
+            listener.testEnded(tid2, new HashMap<String, Metric>());
         }
 
-        TestIdentifier tid3 = new TestIdentifier("TestStub", "test3");
+        TestDescription tid3 = new TestDescription("TestStub", "test3");
         listener.testStarted(tid3);
         if (mDoesOneTestFail) {
             listener.testFailed(tid3, "ouch this is bad.");
         }
-        listener.testEnded(tid3, Collections.emptyMap());
+        if (mLogFiles) {
+            listener.testLog(
+                    tid3.toString() + "-file",
+                    LogDataType.BUGREPORT,
+                    new ByteArrayInputStreamSource("test".getBytes()));
+        }
+        listener.testEnded(tid3, new HashMap<String, Metric>());
 
-        listener.testRunEnded(0, Collections.emptyMap());
+        if (mLogFiles) {
+            // One file logged at run level
+            listener.testLog(
+                    mModule + "-file",
+                    LogDataType.EAR,
+                    new ByteArrayInputStreamSource("test".getBytes()));
+        }
+        listener.testRunEnded(0, new HashMap<String, Metric>());
     }
 
     /** {@inheritDoc} */
@@ -107,7 +138,7 @@ public class TestSuiteStub
                 } else {
                     // We fake an internal retry by calling testRunStart/Ended again.
                     listener.testRunStarted(mModule, 3);
-                    listener.testRunEnded(0, Collections.emptyMap());
+                    listener.testRunEnded(0, new HashMap<String, Metric>());
                     testAttempt(listener);
                 }
             } else {
@@ -119,23 +150,23 @@ public class TestSuiteStub
                 }
 
                 if (mIsComplete) {
-                    for (TestIdentifier tid : mShardedTestToRun) {
+                    for (TestDescription tid : mShardedTestToRun) {
                         listener.testStarted(tid);
-                        listener.testEnded(tid, Collections.emptyMap());
+                        listener.testEnded(tid, new HashMap<String, Metric>());
                     }
                 } else {
-                    TestIdentifier tid = mShardedTestToRun.get(0);
+                    TestDescription tid = mShardedTestToRun.get(0);
                     listener.testStarted(tid);
-                    listener.testEnded(tid, Collections.emptyMap());
+                    listener.testEnded(tid, new HashMap<String, Metric>());
                 }
 
                 if (mDoesOneTestFail) {
-                    TestIdentifier tid = new TestIdentifier("TestStub", "failed" + mShardIndex);
+                    TestDescription tid = new TestDescription("TestStub", "failed" + mShardIndex);
                     listener.testStarted(tid);
                     listener.testFailed(tid, "shard failed this one.");
-                    listener.testEnded(tid, Collections.emptyMap());
+                    listener.testEnded(tid, new HashMap<String, Metric>());
                 }
-                listener.testRunEnded(0, Collections.emptyMap());
+                listener.testRunEnded(0, new HashMap<String, Metric>());
             }
         }
     }
@@ -146,7 +177,7 @@ public class TestSuiteStub
             return null;
         }
         Collection<IRemoteTest> listTest = new ArrayList<>();
-        for (TestIdentifier id : mShardedTestToRun) {
+        for (TestDescription id : mShardedTestToRun) {
             TestSuiteStub stub = new TestSuiteStub();
             OptionCopier.copyOptionsNoThrow(this, stub);
             stub.mShardedTestToRun = new ArrayList<>();

@@ -34,11 +34,11 @@ import java.util.zip.ZipOutputStream;
 public final class TimeZoneDistroBuilder {
 
     /**
-     * An arbitrary timestamp (actually 1/1/2017 00:00:00 UTC) used as the modification time for all
+     * An arbitrary timestamp (actually 1/1/1970 00:00:00 UTC) used as the modification time for all
      * files within a distro to reduce unnecessary differences when a distro is regenerated from the
-     * same input data.
+     * same input data. To use UTC time in zip file, a year before 1980 is chosen.
      */
-    private static long ENTRY_TIMESTAMP = 1483228800000L;
+    private static final long ENTRY_TIMESTAMP = 0L;
 
     private DistroVersion distroVersion;
     private byte[] tzData;

@@ -1,6 +1,22 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
-my $some_dir=".";
+=begin comment
+
+This script generates the manpage.
+
+Example: gen.pl mainpage > curl.1
+
+Dev notes:
+
+We open *input* files in :crlf translation (a no-op on many platforms) in
+case we have CRLF line endings in Windows but a perl that defaults to LF.
+Unfortunately it seems some perls like msysgit can't handle a global input-only
+:crlf so it has to be specified on each file open for text input.
+
+=end comment
+=cut
+
+my $some_dir=$ARGV[1] || ".";
 
 opendir(my $dh, $some_dir) || die "Can't opendir $some_dir: $!";
 my @s = grep { /\.d$/ && -f "$some_dir/$_" } readdir($dh);
@@ -79,13 +95,13 @@ sub added {
         return ".SH \"ADDED\"\nAdded in curl version $data\n";
     }
     else {
-        return "Added in $added. ";
+        return "Added in $data. ";
     }
 }
 
 sub single {
     my ($f, $standalone)=@_;
-    open(F, "<$f") ||
+    open(F, "<:crlf", "$some_dir/$f") ||
         return 1;
     my $short;
     my $long;
@@ -95,7 +111,6 @@ sub single {
     my $arg;
     my $mutexed;
     my $requires;
-    my $redirect;
     my $seealso;
     my $magic; # cmdline special option
     while(<F>) {
@@ -128,9 +143,6 @@ sub single {
         }
         elsif(/^Requires: *(.*)/i) {
             $requires=$1;
-        }
-        elsif(/^Redirect: *(.*)/i) {
-            $redirect=$1;
         }
         elsif(/^Help: *(.*)/i) {
             ;
@@ -174,14 +186,8 @@ sub single {
     else {
         print ".IP \"$opt\"\n";
     }
-    if($redirect) {
-        my $l = manpageify($redirect);
-        print "Use $l instead!\n";
-    }
-    else {
-        if($protocols) {
-            print protocols($standalone, $protocols);
-        }
+    if($protocols) {
+        print protocols($standalone, $protocols);
     }
 
     if($standalone) {
@@ -220,15 +226,16 @@ sub single {
     }
     if($foot[0]) {
         print "\n";
-        print @foot;
-        print "\n";
+        my $f = join("", @foot);
+        $f =~ s/ +\z//; # remove trailing space
+        print "$f\n";
     }
     return 0;
 }
 
 sub getshortlong {
     my ($f)=@_;
-    open(F, "<$f");
+    open(F, "<:crlf", "$some_dir/$f");
     my $short;
     my $long;
     my $help;
@@ -274,7 +281,7 @@ sub indexoptions {
 
 sub header {
     my ($f)=@_;
-    open(F, "<$f");
+    open(F, "<:crlf", "$some_dir/$f");
     my @d;
     while(<F>) {
         push @d, $_;
@@ -300,10 +307,12 @@ sub listhelp {
         if($arg) {
             $opt .= " $arg";
         }
+        my $desc = $helplong{$f};
+        $desc =~ s/\"/\\\"/g; # escape double quotes
 
-        my $line = sprintf " %-19s %s\n", $opt, $helplong{$f};
+        my $line = sprintf "  {\"%s\",\n   \"%s\"},\n", $opt, $desc;
 
-        if(length($line) > 79) {
+        if(length($opt) + length($desc) > 78) {
             print STDERR "WARN: the --$long line is too long\n";
         }
         print $line;
@@ -318,6 +327,8 @@ sub mainpage {
     foreach my $f (sort @s) {
         single($f, 0);
     }
+
+    header("page-footer");
 }
 
 sub showonly {
@@ -362,7 +373,7 @@ sub getargs {
         }
     } while($f);
 
-    print "Usage: gen.pl <mainpage/listhelp/single FILE/protos>\n";
+    print "Usage: gen.pl <mainpage/listhelp/single FILE/protos> [srcdir]\n";
 }
 
 #------------------------------------------------------------------------

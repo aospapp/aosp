@@ -55,8 +55,6 @@
  * SUCH DAMAGE.
  */
 
-#undef _FORTIFY_SOURCE
-
 #include <poll.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -80,21 +78,19 @@
 //   http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html
 //
 
-struct __bionic_zero_size_is_okay_t __bionic_zero_size_is_okay;
-
-int __FD_ISSET_chk(int fd, fd_set* set, size_t set_size) {
+int __FD_ISSET_chk(int fd, const fd_set* set, size_t set_size) {
   __check_fd_set("FD_ISSET", fd, set_size);
-  return FD_ISSET(fd, set);
+  return __FD_ISSET(fd, set);
 }
 
 void __FD_CLR_chk(int fd, fd_set* set, size_t set_size) {
   __check_fd_set("FD_CLR", fd, set_size);
-  FD_CLR(fd, set);
+  __FD_CLR(fd, set);
 }
 
 void __FD_SET_chk(int fd, fd_set* set, size_t set_size) {
   __check_fd_set("FD_SET", fd, set_size);
-  FD_SET(fd, set);
+  __FD_SET(fd, set);
 }
 
 char* __fgets_chk(char* dst, int supplied_size, FILE* stream, size_t dst_len_from_compiler) {
@@ -105,8 +101,7 @@ char* __fgets_chk(char* dst, int supplied_size, FILE* stream, size_t dst_len_fro
   return fgets(dst, supplied_size, stream);
 }
 
-size_t __fread_chk(void* __restrict buf, size_t size, size_t count,
-                   FILE* __restrict stream, size_t buf_size) {
+size_t __fread_chk(void* buf, size_t size, size_t count, FILE* stream, size_t buf_size) {
   size_t total;
   if (__predict_false(__size_mul_overflow(size, count, &total))) {
     // overflow: trigger the error path in fread
@@ -116,8 +111,7 @@ size_t __fread_chk(void* __restrict buf, size_t size, size_t count,
   return fread(buf, size, count, stream);
 }
 
-size_t __fwrite_chk(const void* __restrict buf, size_t size, size_t count,
-                    FILE* __restrict stream, size_t buf_size) {
+size_t __fwrite_chk(const void* buf, size_t size, size_t count, FILE* stream, size_t buf_size) {
   size_t total;
   if (__predict_false(__size_mul_overflow(size, count, &total))) {
     // overflow: trigger the error path in fwrite
@@ -153,7 +147,7 @@ extern "C" void* __memcpy_chk_fail(void* /*dst*/, const void* /*src*/, size_t co
 
 void* __memrchr_chk(const void* s, int c, size_t n, size_t actual_size) {
   __check_buffer_access("memrchr", "read from", n, actual_size);
-  return memrchr(s, c, n);
+  return memrchr(const_cast<void *>(s), c, n);
 }
 
 // memset is performance-critical enough that we have assembler __memset_chk implementations.
@@ -241,8 +235,7 @@ extern "C" char* __stpcpy_chk(char* dst, const char* src, size_t dst_len) {
 }
 
 // Runtime implementation of __builtin____stpncpy_chk (used directly by compiler, not in headers).
-extern "C" char* __stpncpy_chk(char* __restrict dst, const char* __restrict src,
-                               size_t len, size_t dst_len) {
+extern "C" char* __stpncpy_chk(char* dst, const char* src, size_t len, size_t dst_len) {
   __check_buffer_access("stpncpy", "write into", len, dst_len);
   return stpncpy(dst, src, len);
 }
@@ -251,8 +244,7 @@ extern "C" char* __stpncpy_chk(char* __restrict dst, const char* __restrict src,
 // sure we don't read beyond the end of "src". The code for this is
 // based on the original version of stpncpy, but modified to check
 // how much we read from "src" at the end of the copy operation.
-char* __stpncpy_chk2(char* __restrict dst, const char* __restrict src,
-                     size_t n, size_t dst_len, size_t src_len) {
+char* __stpncpy_chk2(char* dst, const char* src, size_t n, size_t dst_len, size_t src_len) {
   __check_buffer_access("stpncpy", "write into", n, dst_len);
   if (n != 0) {
     char* d = dst;
@@ -327,8 +319,7 @@ size_t __strlen_chk(const char* s, size_t s_len) {
 }
 
 // Runtime implementation of __builtin____strncat_chk (used directly by compiler, not in headers).
-extern "C" char* __strncat_chk(char* __restrict dst, const char* __restrict src,
-                               size_t len, size_t dst_buf_size) {
+extern "C" char* __strncat_chk(char* dst, const char* src, size_t len, size_t dst_buf_size) {
   if (len == 0) {
     return dst;
   }
@@ -355,8 +346,7 @@ extern "C" char* __strncat_chk(char* __restrict dst, const char* __restrict src,
 }
 
 // Runtime implementation of __builtin____strncpy_chk (used directly by compiler, not in headers).
-extern "C" char* __strncpy_chk(char* __restrict dst, const char* __restrict src,
-                               size_t len, size_t dst_len) {
+extern "C" char* __strncpy_chk(char* dst, const char* src, size_t len, size_t dst_len) {
   __check_buffer_access("strncpy", "write into", len, dst_len);
   return strncpy(dst, src, len);
 }
@@ -365,8 +355,7 @@ extern "C" char* __strncpy_chk(char* __restrict dst, const char* __restrict src,
 // sure we don't read beyond the end of "src". The code for this is
 // based on the original version of strncpy, but modified to check
 // how much we read from "src" at the end of the copy operation.
-char* __strncpy_chk2(char* __restrict dst, const char* __restrict src,
-                                size_t n, size_t dst_len, size_t src_len) {
+char* __strncpy_chk2(char* dst, const char* src, size_t n, size_t dst_len, size_t src_len) {
   __check_buffer_access("strncpy", "write into", n, dst_len);
   if (n != 0) {
     char* d = dst;
@@ -458,3 +447,42 @@ ssize_t __write_chk(int fd, const void* buf, size_t count, size_t buf_size) {
   __check_buffer_access("write", "read from", count, buf_size);
   return write(fd, buf, count);
 }
+
+#if !defined(NO___STRCAT_CHK)
+// Runtime implementation of __builtin____strcat_chk (used directly by compiler, not in headers).
+extern "C" char* __strcat_chk(char* dst, const char* src, size_t dst_buf_size) {
+  char* save = dst;
+  size_t dst_len = __strlen_chk(dst, dst_buf_size);
+
+  dst += dst_len;
+  dst_buf_size -= dst_len;
+
+  while ((*dst++ = *src++) != '\0') {
+    dst_buf_size--;
+    if (__predict_false(dst_buf_size == 0)) {
+      __fortify_fatal("strcat: prevented write past end of %zu-byte buffer", dst_buf_size);
+    }
+  }
+
+  return save;
+}
+#endif // NO___STRCAT_CHK
+
+#if !defined(NO___STRCPY_CHK)
+// Runtime implementation of __builtin____strcpy_chk (used directly by compiler, not in headers).
+extern "C" char* __strcpy_chk(char* dst, const char* src, size_t dst_len) {
+  // TODO: optimize so we don't scan src twice.
+  size_t src_len = strlen(src) + 1;
+  __check_buffer_access("strcpy", "write into", src_len, dst_len);
+  return strcpy(dst, src);
+}
+#endif // NO___STRCPY_CHK
+
+#if !defined(NO___MEMCPY_CHK)
+// Runtime implementation of __memcpy_chk (used directly by compiler, not in headers).
+extern "C" void* __memcpy_chk(void* dst, const void* src, size_t count, size_t dst_len) {
+  __check_count("memcpy", "count", count);
+  __check_buffer_access("memcpy", "write into", count, dst_len);
+  return memcpy(dst, src, count);
+}
+#endif // NO___MEMCPY_CHK

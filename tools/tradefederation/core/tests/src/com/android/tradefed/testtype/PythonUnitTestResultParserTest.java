@@ -22,23 +22,26 @@ import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.replay;
 import static org.easymock.EasyMock.verify;
 
-import com.android.ddmlib.testrunner.ITestRunListener;
-import com.android.ddmlib.testrunner.TestIdentifier;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.ArrayUtil;
 
 import junit.framework.AssertionFailedError;
 import junit.framework.TestCase;
 
-import java.util.Collections;
+import java.util.Arrays;
+import java.util.HashMap;
 
+/** Unit tests for {@link PythonUnitTestResultParser}. */
 public class PythonUnitTestResultParserTest extends TestCase {
 
     private PythonUnitTestResultParser mParser;
-    private ITestRunListener mMockListener;
+    private ITestInvocationListener mMockListener;
 
     @Override
     public void setUp() throws Exception {
-        mMockListener = createMock(ITestRunListener.class);
+        mMockListener = createMock(ITestInvocationListener.class);
         mParser = new PythonUnitTestResultParser(ArrayUtil.list(mMockListener), "test");
     }
 
@@ -92,40 +95,10 @@ public class PythonUnitTestResultParserTest extends TestCase {
         assertTrue(PythonUnitTestResultParser.PATTERN_RUN_RESULT.matcher(s).matches());
     }
 
-    public void testAdvance() throws Exception {
-        String[] lines = {"hello", "goodbye"};
-        mParser.init(lines);
-        boolean result = mParser.advance();
-        assertTrue(result);
-        assertEquals("goodbye", mParser.mCurrentLine);
-        assertEquals(PythonUnitTestResultParser.ParserState.TEST_CASE, mParser.mCurrentParseState);
-        assertEquals(1, mParser.mLineNum);
-    }
-
-    public void testAdvanceWithBlankLine() throws Exception {
-        String[] lines = {"hello", "", "goodbye"};
-        mParser.init(lines);
-        boolean result = mParser.advance();
-        assertTrue(result);
-        assertEquals("goodbye", mParser.mCurrentLine);
-        assertEquals(PythonUnitTestResultParser.ParserState.TEST_CASE, mParser.mCurrentParseState);
-        assertEquals(2, mParser.mLineNum);
-    }
-
-    public void testAdvanceAtEnd() throws Exception {
-        String[] lines = {"hello"};
-        mParser.init(lines);
-        boolean result = mParser.advance();
-        assertTrue(!result);
-        assertEquals("hello", mParser.mCurrentLine);
-        assertEquals(PythonUnitTestResultParser.ParserState.TEST_CASE, mParser.mCurrentParseState);
-        assertEquals(0, mParser.mLineNum);
-    }
-
     public void testParseNoTests() throws Exception {
         String[] output = {
                 "",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Ran 0 tests in 0.000s",
                 "",
                 "OK"
@@ -141,12 +114,12 @@ public class PythonUnitTestResultParserTest extends TestCase {
         String[] output = {
                 "b (a) ... ok",
                 "",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Ran 1 test in 1s",
                 "",
                 "OK"
         };
-        TestIdentifier[] ids = {new TestIdentifier("a", "b")};
+        TestDescription[] ids = {new TestDescription("a", "b")};
         boolean[] didPass = {true};
         setTestIdChecks(ids, didPass);
         setRunListenerChecks(1, 1000, true);
@@ -160,12 +133,12 @@ public class PythonUnitTestResultParserTest extends TestCase {
         String[] output = {
                 "b (a) ... expected failure",
                 "",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Ran 1 test in 1s",
                 "",
                 "OK (expected failures=1)"
         };
-        TestIdentifier[] ids = {new TestIdentifier("a", "b")};
+        TestDescription[] ids = {new TestDescription("a", "b")};
         boolean[] didPass = {true};
         setTestIdChecks(ids, didPass);
         setRunListenerChecks(1, 1000, true);
@@ -180,12 +153,12 @@ public class PythonUnitTestResultParserTest extends TestCase {
                 "b (a) ... ok",
                 "d (c) ... ok",
                 "",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Ran 2 tests in 1s",
                 "",
                 "OK"
         };
-        TestIdentifier[] ids = {new TestIdentifier("a", "b"), new TestIdentifier("c", "d")};
+        TestDescription[] ids = {new TestDescription("a", "b"), new TestDescription("c", "d")};
         boolean didPass[] = {true, true};
         setTestIdChecks(ids, didPass);
         setRunListenerChecks(2, 1000, true);
@@ -200,12 +173,12 @@ public class PythonUnitTestResultParserTest extends TestCase {
                 "b (a) ... expected failure",
                 "d (c) ... ok",
                 "",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Ran 2 tests in 1s",
                 "",
                 "OK (expected failures=1)"
         };
-        TestIdentifier[] ids = {new TestIdentifier("a", "b"), new TestIdentifier("c", "d")};
+        TestDescription[] ids = {new TestDescription("a", "b"), new TestDescription("c", "d")};
         boolean[] didPass = {true, true};
         setTestIdChecks(ids, didPass);
         setRunListenerChecks(2, 1000, true);
@@ -220,12 +193,12 @@ public class PythonUnitTestResultParserTest extends TestCase {
                 "b (a) ... expected failure",
                 "d (c) ... expected failure",
                 "",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Ran 2 tests in 1s",
                 "",
                 "OK (expected failures=2)"
         };
-        TestIdentifier[] ids = {new TestIdentifier("a", "b"), new TestIdentifier("c", "d")};
+        TestDescription[] ids = {new TestDescription("a", "b"), new TestDescription("c", "d")};
         boolean[] didPass = {true, true};
         setTestIdChecks(ids, didPass);
         setRunListenerChecks(2, 1000, true);
@@ -239,20 +212,20 @@ public class PythonUnitTestResultParserTest extends TestCase {
         String[] output = {
                 "b (a) ... ERROR",
                 "",
-                PythonUnitTestResultParser.EQLINE,
+                PythonUnitTestResultParser.EQUAL_LINE,
                 "ERROR: b (a)",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Traceback (most recent call last):",
                 "  File \"test_rangelib.py\", line 129, in test_reallyfail",
                 "    raise ValueError()",
                 "ValueError",
                 "",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Ran 1 test in 1s",
                 "",
                 "FAILED (errors=1)"
         };
-        TestIdentifier[] ids = {new TestIdentifier("a", "b")};
+        TestDescription[] ids = {new TestDescription("a", "b")};
         boolean[] didPass = {false};
         setRunListenerChecks(1, 1000, false);
         setTestIdChecks(ids, didPass);
@@ -267,20 +240,20 @@ public class PythonUnitTestResultParserTest extends TestCase {
                 "b (a) ... expected failure",
                 "d (c) ... ERROR",
                 "",
-                PythonUnitTestResultParser.EQLINE,
+                PythonUnitTestResultParser.EQUAL_LINE,
                 "ERROR: d (c)",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Traceback (most recent call last):",
                 "  File \"test_rangelib.py\", line 129, in test_reallyfail",
                 "    raise ValueError()",
                 "ValueError",
                 "",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Ran 1 test in 1s",
                 "",
                 "FAILED (errors=1)"
         };
-        TestIdentifier[] ids = {new TestIdentifier("a", "b"), new TestIdentifier("c", "d")};
+        TestDescription[] ids = {new TestDescription("a", "b"), new TestDescription("c", "d")};
         boolean[] didPass = {true, false};
         setRunListenerChecks(1, 1000, false);
         setTestIdChecks(ids, didPass);
@@ -294,12 +267,12 @@ public class PythonUnitTestResultParserTest extends TestCase {
         String[] output = {
                 "b (a) ... unexpected success",
                 "",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Ran 1 test in 1s",
                 "",
                 "OK (unexpected success=1)",
         };
-        TestIdentifier[] ids = {new TestIdentifier("a", "b")};
+        TestDescription[] ids = {new TestDescription("a", "b")};
         boolean[] didPass = {false};
         setTestIdChecks(ids, didPass);
         setRunListenerChecks(1, 1000, false);
@@ -313,12 +286,12 @@ public class PythonUnitTestResultParserTest extends TestCase {
         String[] output = {
                 "b (a) ... skipped 'reason foo'",
                 "",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Ran 1 test in 1s",
                 "",
                 "OK (skipped=1)",
         };
-        TestIdentifier[] ids = {new TestIdentifier("a", "b")};
+        TestDescription[] ids = {new TestDescription("a", "b")};
         boolean[] didPass = {false};
         boolean[] didSkip = {true};
         setTestIdChecks(ids, didPass, didSkip);
@@ -334,12 +307,12 @@ public class PythonUnitTestResultParserTest extends TestCase {
                 "b (a)",
                 "doc string foo bar ... ok",
                 "",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Ran 1 test in 1s",
                 "",
                 "OK",
         };
-        TestIdentifier[] ids = {new TestIdentifier("a", "b")};
+        TestDescription[] ids = {new TestDescription("a", "b")};
         boolean[] didPass = {true};
         setTestIdChecks(ids, didPass);
         setRunListenerChecks(1, 1000, true);
@@ -354,21 +327,21 @@ public class PythonUnitTestResultParserTest extends TestCase {
                 "b (a)",
                 "doc string foo bar ... ERROR",
                 "",
-                PythonUnitTestResultParser.EQLINE,
+                PythonUnitTestResultParser.EQUAL_LINE,
                 "ERROR: b (a)",
                 "doc string foo bar",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Traceback (most recent call last):",
                 "  File \"test_rangelib.py\", line 129, in test_reallyfail",
                 "    raise ValueError()",
                 "ValueError",
                 "",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Ran 1 test in 1s",
                 "",
                 "FAILED (errors=1)"
         };
-        TestIdentifier[] ids = {new TestIdentifier("a", "b")};
+        TestDescription[] ids = {new TestDescription("a", "b")};
         boolean[] didPass = {false};
         setTestIdChecks(ids, didPass);
         setRunListenerChecks(1, 1000, false);
@@ -391,50 +364,83 @@ public class PythonUnitTestResultParserTest extends TestCase {
                 "testSkipped (foo.testFoo) ... skipped 'reason foo'",
                 "testUnexpectedSuccess (foo.testFoo) ... unexpected success",
                 "",
-                PythonUnitTestResultParser.EQLINE,
+                PythonUnitTestResultParser.EQUAL_LINE,
                 "ERROR: testError (foo.testFoo)",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Traceback (most recent call last):",
                 "File \"foo.py\", line 11, in testError",
                 "self.assertEqual(2+2, 5/0)",
                 "ZeroDivisionError: integer division or modulo by zero",
                 "",
-                PythonUnitTestResultParser.EQLINE,
+                PythonUnitTestResultParser.EQUAL_LINE,
                 "FAIL: testFail (foo.testFoo)",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Traceback (most recent call last):",
                 "File \"foo.py\", line 8, in testFail",
                 "self.assertEqual(2+2, 5)",
                 "AssertionError: 4 != 5",
                 "",
-                PythonUnitTestResultParser.EQLINE,
+                PythonUnitTestResultParser.EQUAL_LINE,
                 "FAIL: testFailWithDocString (foo.testFoo)",
                 "foo bar",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Traceback (most recent call last):",
                 "File \"foo.py\", line 8, in testFail",
                 "self.assertEqual(2+2, 5)",
                 "AssertionError: 4 != 5",
                 "",
-                PythonUnitTestResultParser.LINE,
+                PythonUnitTestResultParser.DASH_LINE,
                 "Ran 8 tests in 1s",
                 "",
                 "FAILED (failures=2, errors=1, skipped=1, expected failures=1, unexpected successes=1)",
         };
-        TestIdentifier[] ids = {
-                new TestIdentifier("foo.testFoo", "testError"),
-                new TestIdentifier("foo.testFoo", "testExpectedFailure"),
-                new TestIdentifier("foo.testFoo", "testFail"),
-                new TestIdentifier("foo.testFoo", "testFailWithDocString"),
-                new TestIdentifier("foo.testFoo", "testOk"),
-                new TestIdentifier("foo.testFoo", "testOkWithDocString"),
-                new TestIdentifier("foo.testFoo", "testSkipped"),
-                new TestIdentifier("foo.testFoo", "testUnexpectedSuccess")
+        TestDescription[] ids = {
+            new TestDescription("foo.testFoo", "testError"),
+            new TestDescription("foo.testFoo", "testExpectedFailure"),
+            new TestDescription("foo.testFoo", "testFail"),
+            new TestDescription("foo.testFoo", "testFailWithDocString"),
+            new TestDescription("foo.testFoo", "testOk"),
+            new TestDescription("foo.testFoo", "testOkWithDocString"),
+            new TestDescription("foo.testFoo", "testSkipped"),
+            new TestDescription("foo.testFoo", "testUnexpectedSuccess")
         };
         boolean[] didPass = {false, true, false, false, true, true, false, false};
         boolean[] didSkip = {false, false, false, false, false, false, true, false};
         setTestIdChecks(ids, didPass, didSkip);
         setRunListenerChecks(8, 1000, false);
+
+        replay(mMockListener);
+        mParser.processNewLines(output);
+        verify(mMockListener);
+    }
+
+    public void testCaptureMultilineTraceback() {
+        String[] output = {
+                "b (a) ... ERROR",
+                "",
+                PythonUnitTestResultParser.EQUAL_LINE,
+                "ERROR: b (a)",
+                PythonUnitTestResultParser.DASH_LINE,
+                "Traceback (most recent call last):",
+                "  File \"test_rangelib.py\", line 129, in test_reallyfail",
+                "    raise ValueError()",
+                "ValueError",
+                "",
+                PythonUnitTestResultParser.DASH_LINE,
+                "Ran 1 test in 1s",
+                "",
+                "FAILED (errors=1)"
+        };
+        String[] tracebackLines = Arrays.copyOfRange(output, 5, 10);
+        String expectedTrackback = String.join(System.lineSeparator(), tracebackLines);
+
+        mMockListener.testStarted(anyObject());
+        expectLastCall().times(1);
+        mMockListener.testFailed(anyObject(), eq(expectedTrackback));
+        expectLastCall().times(1);
+        mMockListener.testEnded(anyObject(), (HashMap<String, Metric>) anyObject());
+        expectLastCall().times(1);
+        setRunListenerChecks(1, 1000, false);
 
         replay(mMockListener);
         mParser.processNewLines(output);
@@ -450,46 +456,46 @@ public class PythonUnitTestResultParserTest extends TestCase {
         } else {
             expectLastCall().andThrow(new AssertionFailedError()).anyTimes();
         }
-        mMockListener.testRunEnded(time, Collections.<String, String>emptyMap());
+        mMockListener.testRunEnded(time, new HashMap<String, Metric>());
         expectLastCall().times(1);
     }
 
-    private void setTestIdChecks(TestIdentifier[] ids, boolean[] didPass) {
+    private void setTestIdChecks(TestDescription[] ids, boolean[] didPass) {
         for (int i = 0; i < ids.length; i++) {
             mMockListener.testStarted(ids[i]);
             expectLastCall().times(1);
             if (didPass[i]) {
-                mMockListener.testEnded(ids[i], Collections.<String, String>emptyMap());
+                mMockListener.testEnded(ids[i], new HashMap<String, Metric>());
                 expectLastCall().times(1);
                 mMockListener.testFailed(eq(ids[i]), (String)anyObject());
                 expectLastCall().andThrow(new AssertionFailedError()).anyTimes();
             } else {
                 mMockListener.testFailed(eq(ids[i]), (String)anyObject());
                 expectLastCall().times(1);
-                mMockListener.testEnded(ids[i], Collections.<String, String>emptyMap());
+                mMockListener.testEnded(ids[i], new HashMap<String, Metric>());
                 expectLastCall().times(1);
             }
         }
     }
 
-    private void setTestIdChecks(TestIdentifier[] ids, boolean[] didPass, boolean[] didSkip) {
+    private void setTestIdChecks(TestDescription[] ids, boolean[] didPass, boolean[] didSkip) {
         for (int i = 0; i < ids.length; i++) {
             mMockListener.testStarted(ids[i]);
             expectLastCall().times(1);
             if (didPass[i]) {
-                mMockListener.testEnded(ids[i], Collections.<String, String>emptyMap());
+                mMockListener.testEnded(ids[i], new HashMap<String, Metric>());
                 expectLastCall().times(1);
                 mMockListener.testFailed(eq(ids[i]), (String) anyObject());
                 expectLastCall().andThrow(new AssertionFailedError()).anyTimes();
             } else if (didSkip[i]) {
                 mMockListener.testIgnored(ids[i]);
                 expectLastCall().times(1);
-                mMockListener.testEnded(ids[i], Collections.<String, String>emptyMap());
+                mMockListener.testEnded(ids[i], new HashMap<String, Metric>());
                 expectLastCall().times(1);
             } else {
                 mMockListener.testFailed(eq(ids[i]), (String)anyObject());
                 expectLastCall().times(1);
-                mMockListener.testEnded(ids[i], Collections.<String, String>emptyMap());
+                mMockListener.testEnded(ids[i], new HashMap<String, Metric>());
                 expectLastCall().times(1);
             }
         }

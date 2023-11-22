@@ -1,6 +1,7 @@
 // Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 2de6929
 
 #include "base/logging.h"
 #include "h264_bit_reader.h"
@@ -15,7 +16,7 @@ H264BitReader::H264BitReader()
       prev_two_bytes_(0),
       emulation_prevention_bytes_(0) {}
 
-H264BitReader::~H264BitReader() {}
+H264BitReader::~H264BitReader() = default;
 
 bool H264BitReader::Initialize(const uint8_t* data, off_t size) {
   DCHECK(data);

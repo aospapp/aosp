@@ -17,9 +17,9 @@
 #include "ProtoFuzzerMutator.h"
 #include <iostream>
 
-using std::endl;
 using std::cerr;
 using std::cout;
+using std::endl;
 using std::make_unique;
 using std::unordered_map;
 using namespace std::placeholders;
@@ -60,6 +60,9 @@ ProtoFuzzerMutator::ProtoFuzzerMutator(
 
   random_gen_fns_[TYPE_HIDL_INTERFACE] = default_transform;
   mutate_fns_[TYPE_HIDL_INTERFACE] = default_transform;
+
+  random_gen_fns_[TYPE_HIDL_MEMORY] = default_transform;
+  mutate_fns_[TYPE_HIDL_MEMORY] = default_transform;
 
   // Interpret masks as enums.
   random_gen_fns_[TYPE_MASK] =
@@ -106,6 +109,7 @@ const CompSpec *ProtoFuzzerMutator::RandomSelectIface(const IfaceDescTbl &tbl) {
 
 ExecSpec ProtoFuzzerMutator::RandomGen(const IfaceDescTbl &tbl,
                                        size_t num_calls) {
+  cerr << "Generating a random execution." << endl;
   ExecSpec result{};
   for (size_t i = 0; i < num_calls; ++i) {
     const CompSpec *comp_spec = RandomSelectIface(tbl);
@@ -182,7 +186,7 @@ static VariableSpecificationMessage Transform(
   auto transform_fn = transform_fns.find(type);
   if (transform_fn == transform_fns.end()) {
     cerr << "Transformation function not found for type: " << type << endl;
-    exit(1);
+    std::abort();
   }
   return transform_fn->second(var_spec);
 }
@@ -199,7 +203,7 @@ const TypeSpec &ProtoFuzzerMutator::FindPredefinedType(string name) {
   auto type_spec = predefined_types_.find(name);
   if (type_spec == predefined_types_.end()) {
     cerr << "Predefined type not found: " << name << endl;
-    exit(1);
+    std::abort();
   }
   return type_spec->second;
 }

@@ -52,6 +52,8 @@ public class MockJobService extends JobService {
 
     ArrayList<JobWorkItem> mReceivedWork = new ArrayList<>();
 
+    ArrayList<JobWorkItem> mPendingCompletions = new ArrayList<>();
+
     private boolean mWaitingForStop;
 
     @Override
@@ -103,6 +105,8 @@ public class MockJobService extends JobService {
             while ((work = params.dequeueWork()) != null) {
                 Log.i(TAG, "Received work #" + index + ": " + work.getIntent());
                 mReceivedWork.add(work);
+
+                int flags = 0;
 
                 if (index < expectedWork.length) {
                     TestWorkItem expected = expectedWork[index];
@@ -170,15 +174,33 @@ public class MockJobService extends JobService {
                         }
                     }
 
-                    if ((expected.flags & TestWorkItem.FLAG_WAIT_FOR_STOP) != 0) {
+                    flags = expected.flags;
+
+                    if ((flags & TestWorkItem.FLAG_WAIT_FOR_STOP) != 0) {
                         Log.i(TAG, "Now waiting to stop");
                         mWaitingForStop = true;
                         TestEnvironment.getTestEnvironment().notifyWaitingForStop();
                         return true;
                     }
+
+                    if ((flags & TestWorkItem.FLAG_COMPLETE_NEXT) != 0) {
+                        if (!processNextPendingCompletion()) {
+                            TestEnvironment.getTestEnvironment().notifyExecution(params,
+                                    0, 0, null,
+                                    "Expected to complete next pending work but there was none: "
+                                            + " @ #" + index);
+                            return false;
+                        }
+                    }
                 }
 
-                mParams.completeWork(work);
+                if ((flags & TestWorkItem.FLAG_DELAY_COMPLETE_PUSH_BACK) != 0) {
+                    mPendingCompletions.add(work);
+                } else if ((flags & TestWorkItem.FLAG_DELAY_COMPLETE_PUSH_TOP) != 0) {
+                    mPendingCompletions.add(0, work);
+                } else {
+                    mParams.completeWork(work);
+                }
 
                 if (index < expectedWork.length) {
                     TestWorkItem expected = expectedWork[index];
@@ -195,6 +217,20 @@ public class MockJobService extends JobService {
 
                 index++;
             }
+
+            if (processNextPendingCompletion()) {
+                // We had some pending completions, clean them all out...
+                while (processNextPendingCompletion()) {
+                }
+                // ...and we need to do a final dequeue to complete the job, which should not
+                // return any remaining work.
+                if ((work = params.dequeueWork()) != null) {
+                    TestEnvironment.getTestEnvironment().notifyExecution(params,
+                            0, 0, null,
+                            "Expected no remaining work after dequeue pending, but got: " + work);
+                }
+            }
+
             Log.i(TAG, "Done with all work at #" + index);
             // We don't notifyExecution here because we want to make sure the job properly
             // stops itself.
@@ -219,6 +255,16 @@ public class MockJobService extends JobService {
         }
     }
 
+    boolean processNextPendingCompletion() {
+        if (mPendingCompletions.size() <= 0) {
+            return false;
+        }
+
+        JobWorkItem next = mPendingCompletions.remove(0);
+        mParams.completeWork(next);
+        return true;
+    }
+
     @Override
     public boolean onStopJob(JobParameters params) {
         Log.i(TAG, "Received stop callback");
@@ -227,7 +273,24 @@ public class MockJobService extends JobService {
     }
 
     public static final class TestWorkItem {
+        /**
+         * Stop processing work for now, waiting for the service to be stopped.
+         */
         public static final int FLAG_WAIT_FOR_STOP = 1<<0;
+        /**
+         * Don't complete this work now, instead push it on the back of the stack of
+         * pending completions.
+         */
+        public static final int FLAG_DELAY_COMPLETE_PUSH_BACK = 1<<1;
+        /**
+         * Don't complete this work now, instead insert to the top of the stack of
+         * pending completions.
+         */
+        public static final int FLAG_DELAY_COMPLETE_PUSH_TOP = 1<<2;
+        /**
+         * Complete next pending completion on the stack before completing this one.
+         */
+        public static final int FLAG_COMPLETE_NEXT = 1<<3;
 
         public final Intent intent;
         public final JobInfo jobInfo;
@@ -241,6 +304,16 @@ public class MockJobService extends JobService {
             intent = _intent;
             jobInfo = null;
             flags = 0;
+            deliveryCount = 1;
+            subitems = null;
+            requireUrisGranted = null;
+            requireUrisNotGranted = null;
+        }
+
+        public TestWorkItem(Intent _intent, int _flags) {
+            intent = _intent;
+            jobInfo = null;
+            flags = _flags;
             deliveryCount = 1;
             subitems = null;
             requireUrisGranted = null;

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -42,10 +42,10 @@ public final class ProbeArrayStrategyFactory {
 
 		final String className = reader.getClassName();
 		final int version = getVersion(reader);
-		final long classId = CRC64.checksum(reader.b);
+		final long classId = CRC64.classId(reader.b);
 		final boolean withFrames = version >= Opcodes.V1_6;
 
-		if (isInterface(reader)) {
+		if (isInterfaceOrModule(reader)) {
 			final ProbeCounter counter = getProbeCounter(reader);
 			if (counter.getCount() == 0) {
 				return new NoneProbeArrayStrategy();
@@ -63,8 +63,9 @@ public final class ProbeArrayStrategyFactory {
 		}
 	}
 
-	private static boolean isInterface(final ClassReader reader) {
-		return (reader.getAccess() & Opcodes.ACC_INTERFACE) != 0;
+	private static boolean isInterfaceOrModule(final ClassReader reader) {
+		return (reader.getAccess()
+				& (Opcodes.ACC_INTERFACE | Opcodes.ACC_MODULE)) != 0;
 	}
 
 	private static int getVersion(final ClassReader reader) {

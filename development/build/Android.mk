@@ -87,21 +87,46 @@ $(android_jar_src_target): $(full_src_target)
 ALL_SDK_FILES += $(android_jar_full_target)
 ALL_SDK_FILES += $(android_jar_src_target)
 
+# ============ Metalava SDK jar file of stubs ============
+sdk_stub_name := metalava_android_stubs_current
+stub_timestamp := $(OUT_DOCS)/metalava-api-stubs-timestamp
+include $(LOCAL_PATH)/build_android_stubs.mk
+
+.PHONY: metalava_android_stubs
+metalava_android_stubs: $(full_target) $(full_src_target)
+
+# android.jar is what we put in the SDK package.
+android_jar_intermediates := $(TARGET_OUT_COMMON_INTERMEDIATES)/PACKAGING/metalava_android_jar_intermediates
+android_jar_full_target := $(android_jar_intermediates)/metalava-android.jar
+android_jar_src_target := $(android_jar_intermediates)/metalava-android-stubs-src.jar
+
+$(android_jar_full_target): $(full_target)
+	@echo Package SDK Stubs: $@
+	$(copy-file-to-target)
+
+$(android_jar_src_target): $(full_src_target)
+	@echo Package SDK Stubs Source: $@
+	$(hide)mkdir -p $(dir $@)
+	$(hide)$(ACP) $< $@
+
+ALL_SDK_FILES += $(android_jar_full_target)
+ALL_SDK_FILES += $(android_jar_src_target)
+
 # ====================================================
-
-# The Jack & Jill compiler jars
-ALL_SDK_FILES += prebuilts/sdk/tools/jacks/jack-$(JACK_SDKTOOL_VERSION).jar
-ALL_SDK_FILES += prebuilts/sdk/tools/jills/jill-$(JACK_SDKTOOL_VERSION).jar
-
-# The Jack reporter tool for code coverage
-ALL_SDK_FILES += prebuilts/sdk/tools/jack-jacoco-reporter.jar
-ALL_SDK_FILES += prebuilts/sdk/tools/jack-coverage-plugin.jar
 
 # The uiautomator stubs
 ALL_SDK_FILES += $(TARGET_OUT_COMMON_INTERMEDIATES)/JAVA_LIBRARIES/android_uiautomator_intermediates/javalib.jar
 
 # org.apache.http.legacy.jar stubs
 ALL_SDK_FILES += $(TARGET_OUT_COMMON_INTERMEDIATES)/JAVA_LIBRARIES/org.apache.http.legacy_intermediates/javalib.jar
+
+# test stubs
+ALL_SDK_FILES += $(TARGET_OUT_COMMON_INTERMEDIATES)/JAVA_LIBRARIES/android.test.mock.stubs_intermediates/javalib.jar
+ALL_SDK_FILES += $(TARGET_OUT_COMMON_INTERMEDIATES)/JAVA_LIBRARIES/android.test.base.stubs_intermediates/javalib.jar
+ALL_SDK_FILES += $(TARGET_OUT_COMMON_INTERMEDIATES)/JAVA_LIBRARIES/android.test.runner.stubs_intermediates/javalib.jar
+
+# core-lambda-stubs
+ALL_SDK_FILES += $(TARGET_OUT_COMMON_INTERMEDIATES)/JAVA_LIBRARIES/core-lambda-stubs_intermediates/classes.jar
 
 # shrinkedAndroid.jar for multidex support
 ALL_SDK_FILES += $(HOST_OUT_COMMON_INTERMEDIATES)/JAVA_LIBRARIES/shrinkedAndroid_intermediates/shrinkedAndroid.jar
@@ -166,3 +191,26 @@ android_test_stubs: $(full_target)
 
 # Build and store the android_test.jar.
 $(call dist-for-goals,sdk win_sdk,$(full_target):android_test.jar)
+
+# ============ Metalava System SDK ============
+sdk_stub_name := metalava_android_system_stubs_current
+stub_timestamp := $(OUT_DOCS)/metalava-system-api-stubs-timestamp
+include $(LOCAL_PATH)/build_android_stubs.mk
+
+.PHONY: metalava_android_system_stubs
+metalava_android_system_stubs: $(full_target)
+
+# Build and store the android_system.jar.
+$(call dist-for-goals,sdk win_sdk,$(full_target):metalava_android_system.jar)
+
+# ============ Metalava Test SDK ============
+sdk_stub_name := metalava_android_test_stubs_current
+stub_timestamp := $(OUT_DOCS)/metalava-test-api-stubs-timestamp
+include $(LOCAL_PATH)/build_android_stubs.mk
+
+.PHONY: metalava_android_test_stubs
+metalava_android_test_stubs: $(full_target)
+
+# Build and store the android_test.jar.
+$(call dist-for-goals,sdk win_sdk,$(full_target):metalava_android_test.jar)
+

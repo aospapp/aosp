@@ -21,11 +21,13 @@
 #include <gtest/gtest.h>
 
 #include "common_runtime_test.h"
+#include "dexopt_test.h"
 #include "scoped_thread_state_change-inl.h"
+#include "vdex_file.h"
 
 namespace art {
 
-class OatFileTest : public CommonRuntimeTest {
+class OatFileTest : public DexoptTest {
 };
 
 TEST_F(OatFileTest, ResolveRelativeEncodedDexLocation) {
@@ -60,6 +62,75 @@ TEST_F(OatFileTest, ResolveRelativeEncodedDexLocation) {
   EXPECT_EQ(std::string("o/base.apk"),
       OatFile::ResolveRelativeEncodedDexLocation(
         "/data/app/foo/base.apk", "o/base.apk"));
+}
+
+TEST_F(OatFileTest, LoadOat) {
+  std::string dex_location = GetScratchDir() + "/LoadOat.jar";
+
+  Copy(GetDexSrc1(), dex_location);
+  GenerateOatForTest(dex_location.c_str(), CompilerFilter::kSpeed);
+
+  std::string oat_location;
+  std::string error_msg;
+  ASSERT_TRUE(OatFileAssistant::DexLocationToOatFilename(
+        dex_location, kRuntimeISA, &oat_location, &error_msg)) << error_msg;
+  std::unique_ptr<OatFile> odex_file(OatFile::Open(/* zip_fd */ -1,
+                                                   oat_location.c_str(),
+                                                   oat_location.c_str(),
+                                                   nullptr,
+                                                   nullptr,
+                                                   false,
+                                                   /*low_4gb*/false,
+                                                   dex_location.c_str(),
+                                                   &error_msg));
+  ASSERT_TRUE(odex_file.get() != nullptr);
+
+  // Check that the vdex file was loaded in the reserved space of odex file.
+  EXPECT_EQ(odex_file->GetVdexFile()->Begin(), odex_file->VdexBegin());
+}
+
+TEST_F(OatFileTest, ChangingMultiDexUncompressed) {
+  std::string dex_location = GetScratchDir() + "/MultiDexUncompressed.jar";
+
+  Copy(GetTestDexFileName("MultiDexUncompressed"), dex_location);
+  GenerateOatForTest(dex_location.c_str(), CompilerFilter::kQuicken);
+
+  std::string oat_location;
+  std::string error_msg;
+  ASSERT_TRUE(OatFileAssistant::DexLocationToOatFilename(
+        dex_location, kRuntimeISA, &oat_location, &error_msg)) << error_msg;
+
+  // Ensure we can load that file. Just a precondition.
+  {
+    std::unique_ptr<OatFile> odex_file(OatFile::Open(/* zip_fd */ -1,
+                                                     oat_location.c_str(),
+                                                     oat_location.c_str(),
+                                                     nullptr,
+                                                     nullptr,
+                                                     false,
+                                                     /*low_4gb*/false,
+                                                     dex_location.c_str(),
+                                                     &error_msg));
+    ASSERT_TRUE(odex_file != nullptr);
+    ASSERT_EQ(2u, odex_file->GetOatDexFiles().size());
+  }
+
+  // Now replace the source.
+  Copy(GetTestDexFileName("MainUncompressed"), dex_location);
+
+  // And try to load again.
+  std::unique_ptr<OatFile> odex_file(OatFile::Open(/* zip_fd */ -1,
+                                                   oat_location.c_str(),
+                                                   oat_location.c_str(),
+                                                   nullptr,
+                                                   nullptr,
+                                                   false,
+                                                   /*low_4gb*/false,
+                                                   dex_location.c_str(),
+                                                   &error_msg));
+  EXPECT_TRUE(odex_file == nullptr);
+  EXPECT_NE(std::string::npos, error_msg.find("expected 2 uncompressed dex files, but found 1"))
+      << error_msg;
 }
 
 }  // namespace art

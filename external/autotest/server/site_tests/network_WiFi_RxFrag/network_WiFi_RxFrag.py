@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros.network import ping_runner
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 from autotest_lib.server.cros.network import hostap_config
@@ -22,6 +23,13 @@ class network_WiFi_RxFrag(wifi_cell_test_base.WiFiCellTestBase):
         them.
 
         """
+
+        # Whirlwind routers don't support fragmentation, and older builds
+        # (up to 7849.0.2016_01_20_2103) don't know that they don't, so check
+        # here using board name.
+        if self.context.router.board == "whirlwind":
+            raise error.TestNAError('Whirlwind AP does not support frag threshold')
+
         configuration = hostap_config.HostapConfig(
                 frequency=2437,
                 mode=hostap_config.HostapConfig.MODE_11G,

@@ -5,6 +5,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothSap;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -49,9 +50,8 @@ public class SapServer extends Thread implements Callback {
     public static final boolean DEBUG = SapService.DEBUG;
     public static final boolean VERBOSE = SapService.VERBOSE;
 
-    private enum SAP_STATE    {
-        DISCONNECTED, CONNECTING, CONNECTING_CALL_ONGOING, CONNECTED,
-        CONNECTED_BUSY, DISCONNECTING;
+    private enum SAP_STATE {
+        DISCONNECTED, CONNECTING, CONNECTING_CALL_ONGOING, CONNECTED, CONNECTED_BUSY, DISCONNECTING;
     }
 
     private SAP_STATE mState = SAP_STATE.DISCONNECTED;
@@ -73,10 +73,10 @@ public class SapServer extends Thread implements Callback {
     private CountDownLatch mDeinitSignal = new CountDownLatch(1);
 
     /* Message ID's handled by the message handler */
-    public static final int SAP_MSG_RFC_REPLY =   0x00;
+    public static final int SAP_MSG_RFC_REPLY = 0x00;
     public static final int SAP_MSG_RIL_CONNECT = 0x01;
-    public static final int SAP_MSG_RIL_REQ =     0x02;
-    public static final int SAP_MSG_RIL_IND =     0x03;
+    public static final int SAP_MSG_RIL_REQ = 0x02;
+    public static final int SAP_MSG_RIL_IND = 0x03;
     public static final int SAP_RIL_SOCK_CLOSED = 0x04;
     public static final int SAP_PROXY_DEAD = 0x05;
 
@@ -89,7 +89,8 @@ public class SapServer extends Thread implements Callback {
     public static final int ISAP_GET_SERVICE_DELAY_MILLIS = 3 * 1000;
     private static final int DISCONNECT_TIMEOUT_IMMEDIATE = 5000; /* ms */
     private static final int DISCONNECT_TIMEOUT_RFCOMM = 2000; /* ms */
-    private PendingIntent pDiscIntent = null; // Holds a reference to disconnect timeout intents
+    private PendingIntent mPendingDiscIntent = null;
+    // Holds a reference to disconnect timeout intents
 
     /* We store the mMaxMessageSize, as we need a copy of it when the init. sequence completes */
     private int mMaxMsgSize = 0;
@@ -123,19 +124,24 @@ public class SapServer extends Thread implements Callback {
      * This handles the response from RIL.
      */
     private BroadcastReceiver mIntentReceiver;
+
     private class SapServerBroadcastReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if(intent.getAction().equals(TelephonyManager.ACTION_PHONE_STATE_CHANGED)) {
-                if(VERBOSE) Log.i(TAG, "ACTION_PHONE_STATE_CHANGED intent received in state "
-                                        + mState.name()
-                                        + "PhoneState: "
-                                        + intent.getStringExtra(TelephonyManager.EXTRA_STATE));
-                if(mState == SAP_STATE.CONNECTING_CALL_ONGOING) {
+            if (intent.getAction().equals(TelephonyManager.ACTION_PHONE_STATE_CHANGED)) {
+                if (VERBOSE) {
+                    Log.i(TAG,
+                            "ACTION_PHONE_STATE_CHANGED intent received in state " + mState.name()
+                                    + "PhoneState: " + intent.getStringExtra(
+                                    TelephonyManager.EXTRA_STATE));
+                }
+                if (mState == SAP_STATE.CONNECTING_CALL_ONGOING) {
                     String state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
-                    if(state != null) {
-                        if(state.equals(TelephonyManager.EXTRA_STATE_IDLE)) {
-                            if(DEBUG) Log.i(TAG, "sending RIL.ACTION_RIL_RECONNECT_OFF_REQ intent");
+                    if (state != null) {
+                        if (state.equals(TelephonyManager.EXTRA_STATE_IDLE)) {
+                            if (DEBUG) {
+                                Log.i(TAG, "sending RIL.ACTION_RIL_RECONNECT_OFF_REQ intent");
+                            }
                             SapMessage fakeConReq = new SapMessage(SapMessage.ID_CONNECT_REQ);
                             fakeConReq.setMaxMsgSize(mMaxMsgSize);
                             onConnectRequest(fakeConReq);
@@ -147,7 +153,7 @@ public class SapServer extends Thread implements Callback {
                         SapMessage.DISC_GRACEFULL);
                 Log.v(TAG, " - Received SAP_DISCONNECT_ACTION type: " + disconnectType);
 
-                if(disconnectType == SapMessage.DISC_RFCOMM) {
+                if (disconnectType == SapMessage.DISC_RFCOMM) {
                     // At timeout we need to close the RFCOMM socket to complete shutdown
                     shutdown();
                 } else if (mState != SAP_STATE.DISCONNECTED && mState != SAP_STATE.DISCONNECTING) {
@@ -167,28 +173,31 @@ public class SapServer extends Thread implements Callback {
      * @param testMode Use SapMessage.TEST_MODE_XXX
      */
     public void setTestMode(int testMode) {
-        if(SapMessage.TEST) {
+        if (SapMessage.TEST) {
             mTestMode = testMode;
         }
     }
 
     private void sendDisconnectInd(int discType) {
-        if(VERBOSE) Log.v(TAG, "in sendDisconnectInd()");
+        if (VERBOSE) {
+            Log.v(TAG, "in sendDisconnectInd()");
+        }
 
-        if(discType != SapMessage.DISC_FORCED){
-            if(VERBOSE) Log.d(TAG, "Sending  disconnect ("+discType+") indication to client");
+        if (discType != SapMessage.DISC_FORCED) {
+            if (VERBOSE) {
+                Log.d(TAG, "Sending  disconnect (" + discType + ") indication to client");
+            }
             /* Send disconnect to client */
             SapMessage discInd = new SapMessage(SapMessage.ID_DISCONNECT_IND);
             discInd.setDisconnectionType(discType);
             sendClientMessage(discInd);
 
             /* Handle local disconnect procedures */
-            if (discType == SapMessage.DISC_GRACEFULL)
-            {
+            if (discType == SapMessage.DISC_GRACEFULL) {
                 /* Update the notification to allow the user to initiate a force disconnect */
                 setNotification(SapMessage.DISC_IMMEDIATE, PendingIntent.FLAG_CANCEL_CURRENT);
 
-            } else if (discType == SapMessage.DISC_IMMEDIATE){
+            } else if (discType == SapMessage.DISC_IMMEDIATE) {
                 /* Request an immediate disconnect, but start a timer to force disconnect if the
                  * client do not obey our request. */
                 startDisconnectTimer(SapMessage.DISC_FORCED, DISCONNECT_TIMEOUT_IMMEDIATE);
@@ -207,8 +216,7 @@ public class SapServer extends Thread implements Callback {
         }
     }
 
-    void setNotification(int type, int flags)
-    {
+    void setNotification(int type, int flags) {
         String title, text, button, ticker;
         Notification notification;
         NotificationManager notificationManager =
@@ -217,13 +225,15 @@ public class SapServer extends Thread implements Callback {
                 mContext.getString(R.string.bluetooth_sap_notif_title),
                 NotificationManager.IMPORTANCE_HIGH);
         notificationManager.createNotificationChannel(notificationChannel);
-        if(VERBOSE) Log.i(TAG, "setNotification type: " + type);
+        if (VERBOSE) {
+            Log.i(TAG, "setNotification type: " + type);
+        }
         /* For PTS TC_SERVER_DCN_BV_03_I we need to expose the option to send immediate disconnect
          * without first sending a graceful disconnect.
          * To enable this option set
          * bt.sap.pts="true" */
-        String pts_enabled = SystemProperties.get("bt.sap.pts");
-        Boolean pts_test = Boolean.parseBoolean(pts_enabled);
+        String ptsEnabled = SystemProperties.get("bt.sap.pts");
+        Boolean ptsTest = Boolean.parseBoolean(ptsEnabled);
 
         /* put notification up for the user to be able to disconnect from the client*/
         Intent sapDisconnectIntent = new Intent(SapServer.SAP_DISCONNECT_ACTION);
@@ -238,35 +248,37 @@ public class SapServer extends Thread implements Callback {
             text = mContext.getString(R.string.bluetooth_sap_notif_disconnecting);
             ticker = mContext.getString(R.string.bluetooth_sap_notif_ticker);
         }
-        if (!pts_test) {
+        if (!ptsTest) {
             sapDisconnectIntent.putExtra(SapServer.SAP_DISCONNECT_TYPE_EXTRA, type);
-            PendingIntent pIntentDisconnect = PendingIntent.getBroadcast(mContext, type,
-                    sapDisconnectIntent,flags);
-            notification = new Notification.Builder(mContext, SAP_NOTIFICATION_CHANNEL)
-                                   .setOngoing(true)
-                                   .addAction(android.R.drawable.stat_sys_data_bluetooth, button,
-                                           pIntentDisconnect)
-                                   .setContentTitle(title)
-                                   .setTicker(ticker)
-                                   .setContentText(text)
-                                   .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
-                                   .setAutoCancel(false)
-                                   .setPriority(Notification.PRIORITY_MAX)
-                                   .setOnlyAlertOnce(true)
-                                   .build();
+            PendingIntent pIntentDisconnect =
+                    PendingIntent.getBroadcast(mContext, type, sapDisconnectIntent, flags);
+            notification =
+                    new Notification.Builder(mContext, SAP_NOTIFICATION_CHANNEL).setOngoing(true)
+                            .addAction(android.R.drawable.stat_sys_data_bluetooth, button,
+                                    pIntentDisconnect)
+                            .setContentTitle(title)
+                            .setTicker(ticker)
+                            .setContentText(text)
+                            .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
+                            .setAutoCancel(false)
+                            .setPriority(Notification.PRIORITY_MAX)
+                            .setOnlyAlertOnce(true)
+                            .setLocalOnly(true)
+                            .build();
         } else {
             sapDisconnectIntent.putExtra(SapServer.SAP_DISCONNECT_TYPE_EXTRA,
                     SapMessage.DISC_GRACEFULL);
             Intent sapForceDisconnectIntent = new Intent(SapServer.SAP_DISCONNECT_ACTION);
             sapForceDisconnectIntent.putExtra(SapServer.SAP_DISCONNECT_TYPE_EXTRA,
                     SapMessage.DISC_IMMEDIATE);
-            PendingIntent pIntentDisconnect = PendingIntent.getBroadcast(mContext,
-                    SapMessage.DISC_GRACEFULL, sapDisconnectIntent,flags);
-            PendingIntent pIntentForceDisconnect = PendingIntent.getBroadcast(mContext,
-                    SapMessage.DISC_IMMEDIATE, sapForceDisconnectIntent,flags);
+            PendingIntent pIntentDisconnect =
+                    PendingIntent.getBroadcast(mContext, SapMessage.DISC_GRACEFULL,
+                            sapDisconnectIntent, flags);
+            PendingIntent pIntentForceDisconnect =
+                    PendingIntent.getBroadcast(mContext, SapMessage.DISC_IMMEDIATE,
+                            sapForceDisconnectIntent, flags);
             notification =
-                    new Notification.Builder(mContext, SAP_NOTIFICATION_CHANNEL)
-                            .setOngoing(true)
+                    new Notification.Builder(mContext, SAP_NOTIFICATION_CHANNEL).setOngoing(true)
                             .addAction(android.R.drawable.stat_sys_data_bluetooth,
                                     mContext.getString(
                                             R.string.bluetooth_sap_notif_disconnect_button),
@@ -282,11 +294,12 @@ public class SapServer extends Thread implements Callback {
                             .setAutoCancel(false)
                             .setPriority(Notification.PRIORITY_MAX)
                             .setOnlyAlertOnce(true)
+                            .setLocalOnly(true)
                             .build();
         }
 
         // cannot be set with the builder
-        notification.flags |= Notification.FLAG_NO_CLEAR |Notification.FLAG_ONLY_ALERT_ONCE;
+        notification.flags |= Notification.FLAG_NO_CLEAR | Notification.FLAG_ONLY_ALERT_ONCE;
 
         notificationManager.notify(NOTIFICATION_ID, notification);
     }
@@ -320,27 +333,35 @@ public class SapServer extends Thread implements Callback {
             mRilBtReceiver = new SapRilReceiver(mSapHandler, mSapServiceHandler);
             boolean done = false;
             while (!done) {
-                if(VERBOSE) Log.i(TAG, "Waiting for incomming RFCOMM message...");
+                if (VERBOSE) {
+                    Log.i(TAG, "Waiting for incomming RFCOMM message...");
+                }
                 int requestType = mRfcommIn.read();
-                if (VERBOSE) Log.i(TAG, "RFCOMM message read...");
-                if(requestType == -1) {
-                    if (VERBOSE) Log.i(TAG, "requestType == -1");
+                if (VERBOSE) {
+                    Log.i(TAG, "RFCOMM message read...");
+                }
+                if (requestType == -1) {
+                    if (VERBOSE) {
+                        Log.i(TAG, "requestType == -1");
+                    }
                     done = true; // EOF reached
                 } else {
-                    if (VERBOSE) Log.i(TAG, "requestType != -1");
+                    if (VERBOSE) {
+                        Log.i(TAG, "requestType != -1");
+                    }
                     SapMessage msg = SapMessage.readMessage(requestType, mRfcommIn);
                     /* notify about an incoming message from the BT Client */
                     SapService.notifyUpdateWakeLock(mSapServiceHandler);
-                    if(msg != null && mState != SAP_STATE.DISCONNECTING)
-                    {
+                    if (msg != null && mState != SAP_STATE.DISCONNECTING) {
                         switch (requestType) {
-                        case SapMessage.ID_CONNECT_REQ:
-                            if(VERBOSE) Log.d(TAG, "CONNECT_REQ - MaxMsgSize: "
-                                    + msg.getMaxMsgSize());
-                            onConnectRequest(msg);
-                            msg = null; /* don't send ril connect yet */
-                            break;
-                        case SapMessage.ID_DISCONNECT_REQ: /* No params */
+                            case SapMessage.ID_CONNECT_REQ:
+                                if (VERBOSE) {
+                                    Log.d(TAG, "CONNECT_REQ - MaxMsgSize: " + msg.getMaxMsgSize());
+                                }
+                                onConnectRequest(msg);
+                                msg = null; /* don't send ril connect yet */
+                                break;
+                            case SapMessage.ID_DISCONNECT_REQ: /* No params */
                             /*
                              * 1) send RIL_REQUEST_SIM_SAP_DISCONNECT
                              *      (block for all incoming requests, as they are not
@@ -354,57 +375,63 @@ public class SapServer extends Thread implements Callback {
                              *       cancel timer and initiate cleanup
                              * 6.b) on rfcomm disc. timeout:
                              *       close socket-streams and initiate cleanup */
-                            if(VERBOSE) Log.d(TAG, "DISCONNECT_REQ");
+                                if (VERBOSE) {
+                                    Log.d(TAG, "DISCONNECT_REQ");
+                                }
 
-                            if (mState ==  SAP_STATE.CONNECTING_CALL_ONGOING) {
-                                Log.d(TAG, "disconnect received when call was ongoing, " +
-                                     "send disconnect response");
-                                changeState(SAP_STATE.DISCONNECTING);
-                                SapMessage reply = new SapMessage(SapMessage.ID_DISCONNECT_RESP);
-                                sendClientMessage(reply);
-                            } else {
-                                clearPendingRilResponses(msg);
-                                changeState(SAP_STATE.DISCONNECTING);
-                                sendRilThreadMessage(msg);
+                                if (mState == SAP_STATE.CONNECTING_CALL_ONGOING) {
+                                    Log.d(TAG, "disconnect received when call was ongoing, "
+                                            + "send disconnect response");
+                                    changeState(SAP_STATE.DISCONNECTING);
+                                    SapMessage reply =
+                                            new SapMessage(SapMessage.ID_DISCONNECT_RESP);
+                                    sendClientMessage(reply);
+                                } else {
+                                    clearPendingRilResponses(msg);
+                                    changeState(SAP_STATE.DISCONNECTING);
+                                    sendRilThreadMessage(msg);
                                 /*cancel the timer for the hard-disconnect intent*/
-                                stopDisconnectTimer();
-                            }
-                            msg = null; // No message needs to be sent to RIL
-                            break;
-                        case SapMessage.ID_POWER_SIM_OFF_REQ: // Fall through
-                        case SapMessage.ID_RESET_SIM_REQ:
+                                    stopDisconnectTimer();
+                                }
+                                msg = null; // No message needs to be sent to RIL
+                                break;
+                            case SapMessage.ID_POWER_SIM_OFF_REQ: // Fall through
+                            case SapMessage.ID_RESET_SIM_REQ:
                             /* Forward these to the RIL regardless of the state, and clear any
                              * pending resp */
-                            clearPendingRilResponses(msg);
-                            break;
-                        case SapMessage.ID_SET_TRANSPORT_PROTOCOL_REQ:
+                                clearPendingRilResponses(msg);
+                                break;
+                            case SapMessage.ID_SET_TRANSPORT_PROTOCOL_REQ:
                             /* The RIL might support more protocols that specified in the SAP,
                              * allow only the valid values. */
-                            if(mState == SAP_STATE.CONNECTED
-                                    && msg.getTransportProtocol() != 0
-                                    && msg.getTransportProtocol() != 1) {
-                                Log.w(TAG, "Invalid TransportProtocol received:"
-                                        + msg.getTransportProtocol());
-                                // We shall only handle one request at the time, hence return error
-                                SapMessage errorReply = new SapMessage(SapMessage.ID_ERROR_RESP);
-                                sendClientMessage(errorReply);
-                                msg = null;
-                            }
-                            // Fall through
-                        default:
+                                if (mState == SAP_STATE.CONNECTED && msg.getTransportProtocol() != 0
+                                        && msg.getTransportProtocol() != 1) {
+                                    Log.w(TAG, "Invalid TransportProtocol received:"
+                                            + msg.getTransportProtocol());
+                                    // We shall only handle one request at the time, hence return
+                                    // error
+                                    SapMessage errorReply =
+                                            new SapMessage(SapMessage.ID_ERROR_RESP);
+                                    sendClientMessage(errorReply);
+                                    msg = null;
+                                }
+                                // Fall through
+                            default:
                             /* Remaining cases just needs to be forwarded to the RIL unless we are
                              * in busy state. */
-                            if(mState != SAP_STATE.CONNECTED) {
-                                Log.w(TAG, "Message received in STATE != CONNECTED - state = "
-                                        + mState.name());
-                                // We shall only handle one request at the time, hence return error
-                                SapMessage errorReply = new SapMessage(SapMessage.ID_ERROR_RESP);
-                                sendClientMessage(errorReply);
-                                msg = null;
-                            }
+                                if (mState != SAP_STATE.CONNECTED) {
+                                    Log.w(TAG, "Message received in STATE != CONNECTED - state = "
+                                            + mState.name());
+                                    // We shall only handle one request at the time, hence return
+                                    // error
+                                    SapMessage errorReply =
+                                            new SapMessage(SapMessage.ID_ERROR_RESP);
+                                    sendClientMessage(errorReply);
+                                    msg = null;
+                                }
                         }
 
-                        if(msg != null && msg.getSendToRil() == true) {
+                        if (msg != null && msg.getSendToRil()) {
                             changeState(SAP_STATE.CONNECTED_BUSY);
                             sendRilThreadMessage(msg);
                         }
@@ -426,6 +453,12 @@ public class SapServer extends Thread implements Callback {
             /* TODO: Change to the needed Exception types when done testing */
             Log.w(TAG, e);
         } finally {
+            BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+            int state = (adapter != null) ? adapter.getState() : -1;
+            if (state != BluetoothAdapter.STATE_ON) {
+                if (DEBUG) Log.d(TAG, "BT State :" + state);
+                mDeinitSignal.countDown();
+            }
             // Do cleanup even if an exception occurs
             stopDisconnectTimer();
             /* In case of e.g. a RFCOMM close while connected:
@@ -436,11 +469,12 @@ public class SapServer extends Thread implements Callback {
                 /* Most likely remote device closed rfcomm, update state */
                 changeState(SAP_STATE.DISCONNECTED);
             } else if (mState != SAP_STATE.DISCONNECTED) {
-                if(mState != SAP_STATE.DISCONNECTING &&
-                        mIsLocalInitDisconnect != true) {
+                if (mState != SAP_STATE.DISCONNECTING && !mIsLocalInitDisconnect) {
                     sendDisconnectInd(SapMessage.DISC_FORCED);
                 }
-                if(DEBUG) Log.i(TAG, "Waiting for deinit to complete");
+                if (DEBUG) {
+                    Log.i(TAG, "Waiting for deinit to complete");
+                }
                 try {
                     mDeinitSignal.await();
                 } catch (InterruptedException e) {
@@ -448,40 +482,55 @@ public class SapServer extends Thread implements Callback {
                 }
             }
 
-            if(mIntentReceiver != null) {
+            if (mIntentReceiver != null) {
                 mContext.unregisterReceiver(mIntentReceiver);
                 mIntentReceiver = null;
             }
             stopDisconnectTimer();
             clearNotification();
 
-            if(mHandlerThread != null) try {
-                mHandlerThread.quit();
-                mHandlerThread.join();
-                mHandlerThread = null;
-            } catch (InterruptedException e) {}
+            if (mHandlerThread != null) {
+                try {
+                    mHandlerThread.quit();
+                    mHandlerThread.join();
+                    mHandlerThread = null;
+                } catch (InterruptedException e) {
+                }
+            }
             if (mRilBtReceiver != null) {
                 mRilBtReceiver.resetSapProxy();
                 mRilBtReceiver = null;
             }
 
-            if(mRfcommIn != null) try {
-                if(VERBOSE) Log.i(TAG, "Closing mRfcommIn...");
-                mRfcommIn.close();
-                mRfcommIn = null;
-            } catch (IOException e) {}
+            if (mRfcommIn != null) {
+                try {
+                    if (VERBOSE) {
+                        Log.i(TAG, "Closing mRfcommIn...");
+                    }
+                    mRfcommIn.close();
+                    mRfcommIn = null;
+                } catch (IOException e) {
+                }
+            }
 
-            if(mRfcommOut != null) try {
-                if(VERBOSE) Log.i(TAG, "Closing mRfcommOut...");
-                mRfcommOut.close();
-                mRfcommOut = null;
-            } catch (IOException e) {}
+            if (mRfcommOut != null) {
+                try {
+                    if (VERBOSE) {
+                        Log.i(TAG, "Closing mRfcommOut...");
+                    }
+                    mRfcommOut.close();
+                    mRfcommOut = null;
+                } catch (IOException e) {
+                }
+            }
 
             if (mSapServiceHandler != null) {
                 Message msg = Message.obtain(mSapServiceHandler);
                 msg.what = SapService.MSG_SERVERSESSION_CLOSE;
                 msg.sendToTarget();
-                if (DEBUG) Log.d(TAG, "MSG_SERVERSESSION_CLOSE sent out.");
+                if (DEBUG) {
+                    Log.d(TAG, "MSG_SERVERSESSION_CLOSE sent out.");
+                }
             }
             Log.i(TAG, "All done exiting thread...");
         }
@@ -501,7 +550,7 @@ public class SapServer extends Thread implements Callback {
     private void onConnectRequest(SapMessage msg) {
         SapMessage reply = new SapMessage(SapMessage.ID_CONNECT_RESP);
 
-        if(mState == SAP_STATE.CONNECTING) {
+        if (mState == SAP_STATE.CONNECTING) {
             /* A connect request might have been rejected because of maxMessageSize negotiation, and
              * this is a new connect request. Simply forward to RIL, and stay in connecting state.
              * */
@@ -509,13 +558,14 @@ public class SapServer extends Thread implements Callback {
             sendRilMessage(msg);
             stopDisconnectTimer();
 
-        } else if(mState != SAP_STATE.DISCONNECTED && mState != SAP_STATE.CONNECTING_CALL_ONGOING) {
+        } else if (mState != SAP_STATE.DISCONNECTED
+                && mState != SAP_STATE.CONNECTING_CALL_ONGOING) {
             reply.setConnectionStatus(SapMessage.CON_STATUS_ERROR_CONNECTION);
         } else {
             // Store the MaxMsgSize for future use
             mMaxMsgSize = msg.getMaxMsgSize();
             // All parameters OK, examine if a call is ongoing and start the RIL-BT listener thread
-            if (isCallOngoing() == true) {
+            if (isCallOngoing()) {
                 /* If a call is ongoing we set the state, inform the SAP client and wait for a state
                  * change intent from the TelephonyManager with state IDLE. */
                 reply.setConnectionStatus(SapMessage.CON_STATUS_OK_ONGOING_CALL);
@@ -537,15 +587,17 @@ public class SapServer extends Thread implements Callback {
                 }
             }
         }
-        if(reply != null)
+        if (reply != null) {
             sendClientMessage(reply);
+        }
     }
 
     private void clearPendingRilResponses(SapMessage msg) {
-        if(mState == SAP_STATE.CONNECTED_BUSY) {
+        if (mState == SAP_STATE.CONNECTED_BUSY) {
             msg.setClearRilQueue(true);
         }
     }
+
     /**
      * Send RFCOMM message to the Sap Server Handler Thread
      * @param sapMsg The message to send
@@ -570,8 +622,8 @@ public class SapServer extends Thread implements Callback {
      */
     private boolean isCallOngoing() {
         TelephonyManager tManager =
-                (TelephonyManager)mContext.getSystemService(Context.TELEPHONY_SERVICE);
-        if(tManager.getCallState() == TelephonyManager.CALL_STATE_IDLE) {
+                (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
+        if (tManager.getCallState() == TelephonyManager.CALL_STATE_IDLE) {
             return false;
         }
         return true;
@@ -583,8 +635,9 @@ public class SapServer extends Thread implements Callback {
      * @param newState
      */
     private void changeState(SAP_STATE newState) {
-        if(DEBUG) Log.i(TAG_HANDLER,"Changing state from " + mState.name() +
-                                        " to " + newState.name());
+        if (DEBUG) {
+            Log.i(TAG_HANDLER, "Changing state from " + mState.name() + " to " + newState.name());
+        }
         synchronized (this) {
             mState = newState;
         }
@@ -603,56 +656,60 @@ public class SapServer extends Thread implements Callback {
      */
     @Override
     public boolean handleMessage(Message msg) {
-        if(VERBOSE) Log.i(TAG_HANDLER,"Handling message (ID: " + msg.what + "): "
-                + getMessageName(msg.what));
+        if (VERBOSE) {
+            Log.i(TAG_HANDLER,
+                    "Handling message (ID: " + msg.what + "): " + getMessageName(msg.what));
+        }
 
         SapMessage sapMsg = null;
 
-        switch(msg.what) {
-        case SAP_MSG_RFC_REPLY:
-            sapMsg = (SapMessage) msg.obj;
-            handleRfcommReply(sapMsg);
-            break;
-        case SAP_MSG_RIL_CONNECT:
+        switch (msg.what) {
+            case SAP_MSG_RFC_REPLY:
+                sapMsg = (SapMessage) msg.obj;
+                handleRfcommReply(sapMsg);
+                break;
+            case SAP_MSG_RIL_CONNECT:
             /* The connection to rild-bt have been established. Store the outStream handle
              * and send the connect request. */
-            if(mTestMode != SapMessage.INVALID_VALUE) {
-                SapMessage rilTestModeReq = new SapMessage(SapMessage.ID_RIL_SIM_ACCESS_TEST_REQ);
-                rilTestModeReq.setTestMode(mTestMode);
-                sendRilMessage(rilTestModeReq);
-                mTestMode = SapMessage.INVALID_VALUE;
-            }
-            SapMessage rilSapConnect = new SapMessage(SapMessage.ID_CONNECT_REQ);
-            rilSapConnect.setMaxMsgSize(mMaxMsgSize);
-            sendRilMessage(rilSapConnect);
-            break;
-        case SAP_MSG_RIL_REQ:
-            sapMsg = (SapMessage) msg.obj;
-            if(sapMsg != null) {
-                sendRilMessage(sapMsg);
-            }
-            break;
-        case SAP_MSG_RIL_IND:
-            sapMsg = (SapMessage) msg.obj;
-            handleRilInd(sapMsg);
-            break;
-        case SAP_RIL_SOCK_CLOSED:
+                if (mTestMode != SapMessage.INVALID_VALUE) {
+                    SapMessage rilTestModeReq =
+                            new SapMessage(SapMessage.ID_RIL_SIM_ACCESS_TEST_REQ);
+                    rilTestModeReq.setTestMode(mTestMode);
+                    sendRilMessage(rilTestModeReq);
+                    mTestMode = SapMessage.INVALID_VALUE;
+                }
+                SapMessage rilSapConnect = new SapMessage(SapMessage.ID_CONNECT_REQ);
+                rilSapConnect.setMaxMsgSize(mMaxMsgSize);
+                sendRilMessage(rilSapConnect);
+                break;
+            case SAP_MSG_RIL_REQ:
+                sapMsg = (SapMessage) msg.obj;
+                if (sapMsg != null) {
+                    sendRilMessage(sapMsg);
+                }
+                break;
+            case SAP_MSG_RIL_IND:
+                sapMsg = (SapMessage) msg.obj;
+                handleRilInd(sapMsg);
+                break;
+            case SAP_RIL_SOCK_CLOSED:
             /* The RIL socket was closed unexpectedly, send immediate disconnect indication
                - close RFCOMM after timeout if no response. */
-            sendDisconnectInd(SapMessage.DISC_IMMEDIATE);
-            startDisconnectTimer(SapMessage.DISC_RFCOMM, DISCONNECT_TIMEOUT_RFCOMM);
-            break;
-        case SAP_PROXY_DEAD:
-            if ((long) msg.obj == mRilBtReceiver.mSapProxyCookie.get()) {
-                mRilBtReceiver.notifyShutdown(); /* Only needed in case of a connection error */
-                mRilBtReceiver.resetSapProxy();
+                startDisconnectTimer(SapMessage.DISC_RFCOMM, DISCONNECT_TIMEOUT_RFCOMM);
+                break;
+            case SAP_PROXY_DEAD:
+                if ((long) msg.obj == mRilBtReceiver.mSapProxyCookie.get()) {
+                    mRilBtReceiver.notifyShutdown(); /* Only needed in case of a connection error */
+                    mRilBtReceiver.resetSapProxy();
 
-                // todo: rild should be back up since message was sent with a delay. this is a hack.
-                mRilBtReceiver.getSapProxy();
-            }
-        default:
+                    // todo: rild should be back up since message was sent with a delay. this is
+                    // a hack.
+                    mRilBtReceiver.getSapProxy();
+                }
+                break;
+            default:
             /* Message not handled */
-            return false;
+                return false;
         }
         return true; // Message handles
     }
@@ -663,15 +720,21 @@ public class SapServer extends Thread implements Callback {
      */
     private void shutdown() {
 
-        if(DEBUG) Log.i(TAG_HANDLER, "in Shutdown()");
+        if (DEBUG) {
+            Log.i(TAG_HANDLER, "in Shutdown()");
+        }
         try {
-            if (mRfcommOut != null)
+            if (mRfcommOut != null) {
                 mRfcommOut.close();
-        } catch (IOException e) {}
+            }
+        } catch (IOException e) {
+        }
         try {
-            if (mRfcommIn != null)
+            if (mRfcommIn != null) {
                 mRfcommIn.close();
-        } catch (IOException e) {}
+            }
+        } catch (IOException e) {
+        }
         mRfcommIn = null;
         mRfcommOut = null;
         stopDisconnectTimer();
@@ -686,30 +749,30 @@ public class SapServer extends Thread implements Callback {
             sapDisconnectIntent.putExtra(SAP_DISCONNECT_TYPE_EXTRA, discType);
             AlarmManager alarmManager =
                     (AlarmManager) mContext.getSystemService(Context.ALARM_SERVICE);
-            pDiscIntent = PendingIntent.getBroadcast(mContext,
-                                                    discType,
-                                                    sapDisconnectIntent,
-                                                    PendingIntent.FLAG_CANCEL_CURRENT);
+            mPendingDiscIntent = PendingIntent.getBroadcast(mContext, discType, sapDisconnectIntent,
+                    PendingIntent.FLAG_CANCEL_CURRENT);
             alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                    SystemClock.elapsedRealtime() + timeMs, pDiscIntent);
+                    SystemClock.elapsedRealtime() + timeMs, mPendingDiscIntent);
 
-            if(VERBOSE) Log.d(TAG_HANDLER, "Setting alarm for " + timeMs +
-                    " ms to activate disconnect type " + discType);
+            if (VERBOSE) {
+                Log.d(TAG_HANDLER,
+                        "Setting alarm for " + timeMs + " ms to activate disconnect type "
+                                + discType);
+            }
         }
     }
 
     private void stopDisconnectTimer() {
         synchronized (this) {
-            if(pDiscIntent != null)
-            {
+            if (mPendingDiscIntent != null) {
                 AlarmManager alarmManager =
                         (AlarmManager) mContext.getSystemService(Context.ALARM_SERVICE);
-                alarmManager.cancel(pDiscIntent);
-                pDiscIntent.cancel();
-                if(VERBOSE) {
+                alarmManager.cancel(mPendingDiscIntent);
+                mPendingDiscIntent.cancel();
+                if (VERBOSE) {
                     Log.d(TAG_HANDLER, "Canceling disconnect alarm");
                 }
-                pDiscIntent = null;
+                mPendingDiscIntent = null;
             }
         }
     }
@@ -721,15 +784,17 @@ public class SapServer extends Thread implements Callback {
      * @param sapMsg the message to send to the SAP client
      */
     private void handleRfcommReply(SapMessage sapMsg) {
-        if(sapMsg != null) {
+        if (sapMsg != null) {
 
-            if(DEBUG) Log.i(TAG_HANDLER, "handleRfcommReply() handling "
-                    + SapMessage.getMsgTypeName(sapMsg.getMsgType()));
+            if (DEBUG) {
+                Log.i(TAG_HANDLER, "handleRfcommReply() handling " + SapMessage.getMsgTypeName(
+                        sapMsg.getMsgType()));
+            }
 
-            switch(sapMsg.getMsgType()) {
+            switch (sapMsg.getMsgType()) {
 
                 case SapMessage.ID_CONNECT_RESP:
-                    if(mState == SAP_STATE.CONNECTING_CALL_ONGOING) {
+                    if (mState == SAP_STATE.CONNECTING_CALL_ONGOING) {
                         /* Hold back the connect resp if a call was ongoing when the connect req
                          * was received.
                          * A response with status call-ongoing was sent, and the connect response
@@ -739,16 +804,18 @@ public class SapServer extends Thread implements Callback {
                             // This is successful connect response from RIL/modem.
                             changeState(SAP_STATE.CONNECTED);
                         }
-                        if(VERBOSE) Log.i(TAG, "Hold back the connect resp, as a call was ongoing" +
-                                " when the initial response were sent.");
+                        if (VERBOSE) {
+                            Log.i(TAG, "Hold back the connect resp, as a call was ongoing"
+                                    + " when the initial response were sent.");
+                        }
                         sapMsg = null;
                     } else if (sapMsg.getConnectionStatus() == SapMessage.CON_STATUS_OK) {
                         // This is successful connect response from RIL/modem.
                         changeState(SAP_STATE.CONNECTED);
-                    } else if(sapMsg.getConnectionStatus() ==
-                            SapMessage.CON_STATUS_OK_ONGOING_CALL) {
+                    } else if (sapMsg.getConnectionStatus()
+                            == SapMessage.CON_STATUS_OK_ONGOING_CALL) {
                         changeState(SAP_STATE.CONNECTING_CALL_ONGOING);
-                    } else if(sapMsg.getConnectionStatus() != SapMessage.CON_STATUS_OK) {
+                    } else if (sapMsg.getConnectionStatus() != SapMessage.CON_STATUS_OK) {
                         /* Most likely the peer will try to connect again, hence we keep the
                          * connection to RIL open and stay in connecting state.
                          *
@@ -758,11 +825,13 @@ public class SapServer extends Thread implements Callback {
                     }
                     break;
                 case SapMessage.ID_DISCONNECT_RESP:
-                    if(mState == SAP_STATE.DISCONNECTING) {
+                    if (mState == SAP_STATE.DISCONNECTING) {
                         /* Close the RIL-BT output Stream and signal to SapRilReceiver to close
                          * down the input stream. */
-                        if(DEBUG) Log.i(TAG, "ID_DISCONNECT_RESP received in SAP_STATE." +
-                                "DISCONNECTING.");
+                        if (DEBUG) {
+                            Log.i(TAG,
+                                    "ID_DISCONNECT_RESP received in SAP_STATE." + "DISCONNECTING.");
+                        }
 
                         /* Send the disconnect resp, and wait for the client to close the Rfcomm,
                          * but start a timeout timer, just to be sure. Use alarm, to ensure we wake
@@ -774,8 +843,10 @@ public class SapServer extends Thread implements Callback {
                         mDeinitSignal.countDown(); /* Signal deinit complete */
                     } else { /* DISCONNECTED */
                         mDeinitSignal.countDown(); /* Signal deinit complete */
-                        if(mIsLocalInitDisconnect == true) {
-                            if(VERBOSE) Log.i(TAG_HANDLER, "This is a FORCED disconnect.");
+                        if (mIsLocalInitDisconnect) {
+                            if (VERBOSE) {
+                                Log.i(TAG_HANDLER, "This is a FORCED disconnect.");
+                            }
                             /* We needed to force the disconnect, hence no hope for the client to
                              * close the RFCOMM connection, hence we do it here. */
                             shutdown();
@@ -785,7 +856,9 @@ public class SapServer extends Thread implements Callback {
                              * need to do it.
                              * We start an alarm, and if it triggers, we must send the
                              * MSG_SERVERSESSION_CLOSE */
-                            if(VERBOSE) Log.i(TAG_HANDLER, "This is a NORMAL disconnect.");
+                            if (VERBOSE) {
+                                Log.i(TAG_HANDLER, "This is a NORMAL disconnect.");
+                            }
                             startDisconnectTimer(SapMessage.DISC_RFCOMM, DISCONNECT_TIMEOUT_RFCOMM);
                         }
                     }
@@ -793,9 +866,8 @@ public class SapServer extends Thread implements Callback {
                 case SapMessage.ID_STATUS_IND:
                     /* Some car-kits only "likes" status indication when connected, hence discard
                      * any arriving outside this state */
-                    if(mState == SAP_STATE.DISCONNECTED ||
-                            mState == SAP_STATE.CONNECTING ||
-                            mState == SAP_STATE.DISCONNECTING) {
+                    if (mState == SAP_STATE.DISCONNECTED || mState == SAP_STATE.CONNECTING
+                            || mState == SAP_STATE.DISCONNECTING) {
                         sapMsg = null;
                     }
                     if (mSapServiceHandler != null && mState == SAP_STATE.CONNECTED) {
@@ -804,11 +876,13 @@ public class SapServer extends Thread implements Callback {
                         msg.arg1 = BluetoothSap.STATE_CONNECTED;
                         msg.sendToTarget();
                         setNotification(SapMessage.DISC_GRACEFULL, 0);
-                        if (DEBUG) Log.d(TAG, "MSG_CHANGE_STATE sent out.");
+                        if (DEBUG) {
+                            Log.d(TAG, "MSG_CHANGE_STATE sent out.");
+                        }
                     }
                     break;
                 default:
-                // Nothing special, just send the message
+                    // Nothing special, just send the message
             }
         }
 
@@ -816,39 +890,42 @@ public class SapServer extends Thread implements Callback {
          * handle one request at the time, except from disconnect, sim off and sim reset.
          * Hence if one of these are received while in busy state, we might have a crossing
          * response, hence we must stay in BUSY state if we have an ongoing RIL request. */
-        if(mState == SAP_STATE.CONNECTED_BUSY) {
-            if(SapMessage.getNumPendingRilMessages() == 0) {
+        if (mState == SAP_STATE.CONNECTED_BUSY) {
+            if (SapMessage.getNumPendingRilMessages() == 0) {
                 changeState(SAP_STATE.CONNECTED);
             }
         }
 
         // This is the default case - just send the message to the SAP client.
-        if(sapMsg != null)
+        if (sapMsg != null) {
             sendReply(sapMsg);
+        }
     }
 
     private void handleRilInd(SapMessage sapMsg) {
-        if(sapMsg == null)
+        if (sapMsg == null) {
             return;
-
-        switch(sapMsg.getMsgType()) {
-        case SapMessage.ID_DISCONNECT_IND:
-        {
-            if(mState != SAP_STATE.DISCONNECTED && mState != SAP_STATE.DISCONNECTING){
-                /* we only send disconnect indication to the client if we are actually connected*/
-                SapMessage reply = new SapMessage(SapMessage.ID_DISCONNECT_IND);
-                reply.setDisconnectionType(sapMsg.getDisconnectionType()) ;
-                sendClientMessage(reply);
-            } else {
-                /* TODO: This was introduced to handle disconnect indication from RIL */
-                sendDisconnectInd(sapMsg.getDisconnectionType());
-            }
-            break;
         }
 
-        default:
-            if(DEBUG) Log.w(TAG_HANDLER,"Unhandled message - type: "
-                    + SapMessage.getMsgTypeName(sapMsg.getMsgType()));
+        switch (sapMsg.getMsgType()) {
+            case SapMessage.ID_RIL_UNSOL_DISCONNECT_IND: {
+                if (mState != SAP_STATE.DISCONNECTED && mState != SAP_STATE.DISCONNECTING) {
+                /* we only send disconnect indication to the client if we are actually connected*/
+                    SapMessage reply = new SapMessage(SapMessage.ID_DISCONNECT_IND);
+                    reply.setDisconnectionType(sapMsg.getDisconnectionType());
+                    sendClientMessage(reply);
+                } else {
+                /* TODO: This was introduced to handle disconnect indication from RIL */
+                    sendDisconnectInd(sapMsg.getDisconnectionType());
+                }
+                break;
+            }
+
+            default:
+                if (DEBUG) {
+                    Log.w(TAG_HANDLER, "Unhandled message - type: " + SapMessage.getMsgTypeName(
+                            sapMsg.getMsgType()));
+                }
         }
     }
 
@@ -857,8 +934,10 @@ public class SapServer extends Thread implements Callback {
      * @param sapMsg
      */
     private void sendRilMessage(SapMessage sapMsg) {
-        if(VERBOSE) Log.i(TAG_HANDLER, "sendRilMessage() - "
-                + SapMessage.getMsgTypeName(sapMsg.getMsgType()));
+        if (VERBOSE) {
+            Log.i(TAG_HANDLER,
+                    "sendRilMessage() - " + SapMessage.getMsgTypeName(sapMsg.getMsgType()));
+        }
 
         Log.d(TAG_HANDLER, "sendRilMessage: calling getSapProxy");
         synchronized (mRilBtReceiver.getSapProxyLock()) {
@@ -891,9 +970,11 @@ public class SapServer extends Thread implements Callback {
      * Only call this from the sapHandler thread.
      */
     private void sendReply(SapMessage msg) {
-        if(VERBOSE) Log.i(TAG_HANDLER, "sendReply() RFCOMM - "
-                + SapMessage.getMsgTypeName(msg.getMsgType()));
-        if(mRfcommOut != null) { // Needed to handle brutal shutdown from car-kit and out of range
+        if (VERBOSE) {
+            Log.i(TAG_HANDLER,
+                    "sendReply() RFCOMM - " + SapMessage.getMsgTypeName(msg.getMsgType()));
+        }
+        if (mRfcommOut != null) { // Needed to handle brutal shutdown from car-kit and out of range
             try {
                 msg.write(mRfcommOut);
                 mRfcommOut.flush();
@@ -907,16 +988,16 @@ public class SapServer extends Thread implements Callback {
 
     private static String getMessageName(int messageId) {
         switch (messageId) {
-        case SAP_MSG_RFC_REPLY:
-            return "SAP_MSG_REPLY";
-        case SAP_MSG_RIL_CONNECT:
-            return "SAP_MSG_RIL_CONNECT";
-        case SAP_MSG_RIL_REQ:
-            return "SAP_MSG_RIL_REQ";
-        case SAP_MSG_RIL_IND:
-            return "SAP_MSG_RIL_IND";
-        default:
-            return "Unknown message ID";
+            case SAP_MSG_RFC_REPLY:
+                return "SAP_MSG_REPLY";
+            case SAP_MSG_RIL_CONNECT:
+                return "SAP_MSG_RIL_CONNECT";
+            case SAP_MSG_RIL_REQ:
+                return "SAP_MSG_RIL_REQ";
+            case SAP_MSG_RIL_IND:
+                return "SAP_MSG_RIL_IND";
+            default:
+                return "Unknown message ID";
         }
     }
 

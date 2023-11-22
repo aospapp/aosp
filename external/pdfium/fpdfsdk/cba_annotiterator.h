@@ -12,6 +12,7 @@
 #include "core/fpdfdoc/cpdf_annot.h"
 #include "core/fxcrt/fx_coordinates.h"
 #include "core/fxcrt/fx_string.h"
+#include "core/fxcrt/unowned_ptr.h"
 
 class CPDFSDK_Annot;
 class CPDFSDK_PageView;
@@ -37,7 +38,7 @@ class CBA_AnnotIterator {
                            std::vector<size_t>* aSelect);
 
   TabOrder m_eTabOrder;
-  CPDFSDK_PageView* m_pPageView;
+  UnownedPtr<CPDFSDK_PageView> m_pPageView;
   CPDF_Annot::Subtype m_nAnnotSubtype;
   std::vector<CPDFSDK_Annot*> m_Annots;
 };

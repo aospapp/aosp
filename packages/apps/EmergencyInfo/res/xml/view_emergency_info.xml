@@ -12,11 +12,14 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+<PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res/com.android.emergency">
+
     <com.android.emergency.preferences.EmergencyEditTextPreference
         android:enabled="false"
         android:focusable="true"
-        android:icon="@drawable/ic_address_black_24dp"
+        android:icon="@drawable/ic_home_24dp"
         android:key="address"
         android:selectable="false"
         android:shouldDisableView="false"
@@ -24,10 +27,9 @@
         android:title="@string/address" />
 
     <com.android.emergency.preferences.EmergencyListPreference
-        xmlns:app="http://schemas.android.com/apk/res/com.android.emergency"
         android:enabled="false"
         android:focusable="true"
-        android:icon="@drawable/ic_bloodtype_black_24dp"
+        android:icon="@drawable/ic_bloodtype_24dp"
         android:entries="@array/blood_type_entries"
         android:entryValues="@array/blood_type_values"
         android:key="blood_type"
@@ -60,7 +62,7 @@
     <com.android.emergency.preferences.EmergencyListPreference
         android:enabled="false"
         android:focusable="true"
-        android:icon="@drawable/ic_heart_black_24dp"
+        android:icon="@drawable/ic_favorite_border_24dp"
         android:entries="@array/organ_donor_entries"
         android:entryValues="@array/organ_donor_values"
         android:key="organ_donor"
@@ -72,7 +74,7 @@
     <com.android.emergency.preferences.EmergencyEditTextPreference
         android:enabled="false"
         android:focusable="true"
-        android:icon="@drawable/ic_notes_black_24dp"
+        android:icon="@drawable/ic_note_alt_24dp"
         android:key="medical_conditions"
         android:selectable="false"
         android:shouldDisableView="false"

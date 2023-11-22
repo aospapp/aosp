@@ -23,6 +23,8 @@ DEB_BUILD_GNU_TYPE := $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
 DEB_HOST_GNU_TYPE := $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
 DEB_HOST_ARCH := $(shell dpkg-architecture -qDEB_HOST_ARCH)
 
+extra_build_targets += build-udeb-stamp
+
 arch64_map = i386=x86_64 powerpc=powerpc64 sparc=sparc64 s390=s390x
 ifneq (,$(filter $(DEB_HOST_ARCH)=%, $(arch64_map)))
   HOST64 = $(strip $(patsubst $(DEB_HOST_ARCH)=%, %, \
@@ -47,22 +49,28 @@ build-indep: build-stamp $(extra_build_targets)
 %-stamp: %/Makefile
 	$(MAKE) -C $*
 ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
+	$*/strace -V
 	$(MAKE) -C $* check VERBOSE=1
 endif
 	touch $@
 
 build/Makefile:
 	mkdir -p $(@D)
-	cd $(@D); sh ../configure --prefix=/usr $(CONFIG_OPTS)
+	cd $(@D); sh ../configure --enable-mpers=check --prefix=/usr $(CONFIG_OPTS)
+
+build-udeb/Makefile:
+	mkdir -p $(@D)
+	cd $(@D); sh ../configure --enable-mpers=check --prefix=/usr \
+		--without-libunwind --without-libiberty $(CONFIG_OPTS)
 
 build64/Makefile:
 	mkdir -p $(@D)
-	cd $(@D); CC="$(CC64)" sh ../configure --prefix=/usr --build=$(DEB_BUILD_GNU_TYPE) --host=$(HOST64)
+	cd $(@D); CC="$(CC64)" sh ../configure --enable-mpers=check --prefix=/usr --build=$(DEB_BUILD_GNU_TYPE) --host=$(HOST64)
 
 clean:
 	dh_testdir
 	dh_testroot
-	rm -rf build build64 strace64.1 debian/strace64.substvars
+	rm -rf build build-udeb build64 strace64.1 debian/strace64.substvars
 	dh_clean
 
 binary: binary-indep binary-arch
@@ -76,20 +84,20 @@ binary-arch: build
 	test -f build64-stamp && ( mv build64/strace build64/strace64 ; \
 		cp strace.1 strace64.1 ) || true
 
-	dh_testdir -s
-	dh_testroot -s
-	dh_installdirs -s
-	dh_installdocs -s
-	dh_installman -s
-	dh_installexamples -s
-	dh_installchangelogs -s
-	dh_install -s
-	dh_link -s
-	dh_strip -s
-	dh_compress -s
-	dh_fixperms -s
-	dh_installdeb -s
-	dh_shlibdeps -s
-	dh_gencontrol -s
-	dh_md5sums -s
-	dh_builddeb -s
+	dh_testdir -a
+	dh_testroot -a
+	dh_installdirs -a
+	dh_installdocs -a
+	dh_installman -a
+	dh_installexamples -a
+	dh_installchangelogs -a
+	dh_install -a
+	dh_link -a
+	dh_strip -a
+	dh_compress -a
+	dh_fixperms -a
+	dh_installdeb -a
+	dh_shlibdeps -a
+	dh_gencontrol -a
+	dh_md5sums -a
+	dh_builddeb -a

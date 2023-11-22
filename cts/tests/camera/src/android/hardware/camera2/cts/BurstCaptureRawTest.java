@@ -30,6 +30,7 @@ import android.hardware.camera2.cts.CameraTestUtils.SimpleImageReaderListener;
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Range;
 import android.util.Size;
@@ -39,6 +40,7 @@ import java.util.ArrayList;
 /**
  * Basic tests for burst capture in RAW formats.
  */
+@AppModeFull
 public class BurstCaptureRawTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "BurstCaptureRawTest";
     private static final int RAW_FORMATS[] = {

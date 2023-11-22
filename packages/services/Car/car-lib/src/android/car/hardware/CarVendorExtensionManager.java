@@ -20,15 +20,16 @@ import android.annotation.SystemApi;
 import android.car.Car;
 import android.car.CarManagerBase;
 import android.car.CarNotConnectedException;
-import android.car.hardware.property.CarPropertyManagerBase;
-import android.car.hardware.property.CarPropertyManagerBase.CarPropertyEventCallback;
+import android.car.hardware.property.CarPropertyManager;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
 import android.util.ArraySet;
 
 import com.android.internal.annotations.GuardedBy;
 
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -43,11 +44,35 @@ public final class CarVendorExtensionManager implements CarManagerBase {
 
     private final static boolean DBG = false;
     private final static String TAG = CarVendorExtensionManager.class.getSimpleName();
-    private final CarPropertyManagerBase mPropertyManager;
+    private final CarPropertyManager mPropertyManager;
 
     @GuardedBy("mLock")
-    private ArraySet<CarVendorExtensionCallback> mCallbacks;
+    private final ArraySet<CarVendorExtensionCallback> mCallbacks = new ArraySet<>();
     private final Object mLock = new Object();
+
+    @GuardedBy("mLock")
+    private CarPropertyEventListenerToBase mListenerToBase = null;
+
+    private void handleOnChangeEvent(CarPropertyValue value) {
+        Collection<CarVendorExtensionCallback> callbacks;
+        synchronized (mLock) {
+            callbacks = new ArrayList<>(mCallbacks);
+        }
+        for (CarVendorExtensionCallback l: callbacks) {
+            l.onChangeEvent(value);
+        }
+    }
+
+    private void handleOnErrorEvent(int propertyId, int zone) {
+        Collection<CarVendorExtensionCallback> listeners;
+        synchronized (mLock) {
+            listeners = new ArrayList<>(mCallbacks);
+        }
+        for (CarVendorExtensionCallback l: listeners) {
+            l.onErrorEvent(propertyId, zone);
+        }
+
+    }
 
     /**
      * Creates an instance of the {@link CarVendorExtensionManager}.
@@ -56,7 +81,7 @@ public final class CarVendorExtensionManager implements CarManagerBase {
      * @hide
      */
     public CarVendorExtensionManager(IBinder service, Handler handler) {
-        mPropertyManager = new CarPropertyManagerBase(service, handler, DBG, TAG);
+        mPropertyManager = new CarPropertyManager(service, handler, DBG, TAG);
     }
 
     /**
@@ -78,48 +103,47 @@ public final class CarVendorExtensionManager implements CarManagerBase {
     public void registerCallback(CarVendorExtensionCallback callback)
             throws CarNotConnectedException {
         synchronized (mLock) {
-            if (mCallbacks == null) {
-                mPropertyManager.registerCallback(new CarPropertyEventCallback() {
-                    @Override
-                    public void onChangeEvent(CarPropertyValue value) {
-                        for (CarVendorExtensionCallback listener: getCallbacks()) {
-                            listener.onChangeEvent(value);
-                        }
-                    }
+            if (mCallbacks.isEmpty()) {
+                mListenerToBase = new CarPropertyEventListenerToBase(this);
+            }
 
-                    @Override
-                    public void onErrorEvent(int propertyId, int zone) {
-                        for (CarVendorExtensionCallback listener: getCallbacks()) {
-                            listener.onErrorEvent(propertyId, zone);
-                        }
-                    }
-                });
-                mCallbacks = new ArraySet<>(1 /* We expect at least one element */);
+            List<CarPropertyConfig> configs = mPropertyManager.getPropertyList();
+            for (CarPropertyConfig c : configs) {
+                // Register each individual propertyId
+                mPropertyManager.registerListener(mListenerToBase, c.getPropertyId(), 0);
             }
             mCallbacks.add(callback);
         }
     }
 
     /** Unregisters listener that was previously registered. */
-    public void unregisterCallback(CarVendorExtensionCallback callback) {
+    public void unregisterCallback(CarVendorExtensionCallback callback)
+            throws CarNotConnectedException {
         synchronized (mLock) {
             mCallbacks.remove(callback);
+            List<CarPropertyConfig> configs = mPropertyManager.getPropertyList();
+            for (CarPropertyConfig c : configs) {
+                // Register each individual propertyId
+                mPropertyManager.unregisterListener(mListenerToBase, c.getPropertyId());
+            }
             if (mCallbacks.isEmpty()) {
-                mPropertyManager.unregisterCallback();
-                mCallbacks = null;
+                mListenerToBase = null;
             }
         }
     }
 
-    /** Returns copy of listeners. Thread safe. */
-    private CarVendorExtensionCallback[] getCallbacks() {
-        synchronized (mLock) {
-            return mCallbacks.toArray(new CarVendorExtensionCallback[mCallbacks.size()]);
-        }
-    }
-
+    /** Get list of properties represented by CarVendorExtensionManager for this car. */
     public List<CarPropertyConfig> getProperties() throws CarNotConnectedException {
         return mPropertyManager.getPropertyList();
+    }
+
+    /**
+     * Check whether a given property is available or disabled based on the cars current state.
+     * @return true if the property is AVAILABLE, false otherwise
+     */
+    public boolean isPropertyAvailable(int propertyId, int area)
+            throws CarNotConnectedException {
+        return mPropertyManager.isPropertyAvailable(propertyId, area);
     }
 
     /**
@@ -144,7 +168,7 @@ public final class CarVendorExtensionManager implements CarManagerBase {
      *        defined as {@code VEHICLE_VALUE_TYPE_INT32} in vehicle HAL could be accessed using
      *        {@code Integer.class}.
      * @param propId - property id which is matched with the one defined in vehicle HAL
-     * @param area - vehicle area (e.g. {@code VehicleAreaZone.ROW_1_LEFT}
+     * @param area - vehicle area (e.g. {@code VehicleAreaSeat.ROW_1_LEFT}
      *        or {@code VEHICLE_MIRROR_DRIVER_LEFT}
      *
      * @throws CarNotConnectedException if the connection to the car service has been lost.
@@ -178,7 +202,7 @@ public final class CarVendorExtensionManager implements CarManagerBase {
      *        defined as {@code VEHICLE_VALUE_TYPE_INT32} in vehicle HAL could be accessed using
      *        {@code Integer.class}.
      * @param propId - property id which is matched with the one defined in vehicle HAL
-     * @param area - vehicle area (e.g. {@code VehicleAreaZone.ROW_1_LEFT}
+     * @param area - vehicle area (e.g. {@code VehicleAreaSeat.ROW_1_LEFT}
      *        or {@code VEHICLE_MIRROR_DRIVER_LEFT}
      * @param value - new value, this object should match a class provided in {@code propertyClass}
      *        argument.
@@ -194,5 +218,29 @@ public final class CarVendorExtensionManager implements CarManagerBase {
     @Override
     public void onCarDisconnected() {
         mPropertyManager.onCarDisconnected();
+    }
+    private static class CarPropertyEventListenerToBase implements
+            CarPropertyManager.CarPropertyEventListener {
+        private final WeakReference<CarVendorExtensionManager> mManager;
+
+        CarPropertyEventListenerToBase(CarVendorExtensionManager manager) {
+            mManager = new WeakReference<>(manager);
+        }
+
+        @Override
+        public void onChangeEvent(CarPropertyValue value) {
+            CarVendorExtensionManager manager = mManager.get();
+            if (manager != null) {
+                manager.handleOnChangeEvent(value);
+            }
+        }
+
+        @Override
+        public void onErrorEvent(int propertyId, int zone) {
+            CarVendorExtensionManager manager = mManager.get();
+            if (manager != null) {
+                manager.handleOnErrorEvent(propertyId, zone);
+            }
+        }
     }
 }

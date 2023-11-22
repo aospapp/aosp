@@ -16,9 +16,7 @@
 
 package com.android.tv.analytics;
 
-/**
- * Data useful for tracking that doesn't change often.
- */
+/** Data useful for tracking that doesn't change often. */
 public class ConfigurationInfo {
     public final int systemInputCount;
     public final int nonSystemInputCount;

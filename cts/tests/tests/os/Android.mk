@@ -28,9 +28,9 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-test \
     compatibility-device-util \
     ctstestrunner \
+    truth-prebuilt \
     guava \
-    junit \
-    legacy-android-test
+    junit
 
 LOCAL_JNI_SHARED_LIBRARIES := libcts_jni libctsos_jni libnativehelper_compat_libc++
 
@@ -49,7 +49,9 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 # uncomment when b/13282254 is fixed
 #LOCAL_SDK_VERSION := current
-LOCAL_JAVA_LIBRARIES += android.test.runner
+LOCAL_PRIVATE_PLATFORM_APIS := true
+LOCAL_JAVA_LIBRARIES += android.test.runner.stubs
+LOCAL_JAVA_LIBRARIES += android.test.base.stubs
 
 # Do not compress minijail policy files.
 LOCAL_AAPT_FLAGS := -0 .policy

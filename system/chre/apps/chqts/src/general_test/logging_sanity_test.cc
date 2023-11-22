@@ -23,6 +23,8 @@
 
 #include <chre.h>
 
+#include "chre/util/toolchain.h"
+
 using nanoapp_testing::sendFatalFailureToHost;
 using nanoapp_testing::sendSuccessToHost;
 
@@ -89,10 +91,12 @@ void LoggingSanityTest::setUp(uint32_t messageSize,
   INT_TYPES("z", size_t);
   INT_TYPES("t", ptrdiff_t);
 
+  // Disables logging-related double promotion warnings
+  CHRE_LOG_PREAMBLE
+
   float f = 12.34f;
   // Other required formats, including escaping the '%'.
   chreLog(kInfo, "%% %f %c %s %p", f, '?', "str", &f);
-
 
   // OPTIONAL specifiers.  See chreLog() API documentation for extensive
   // discussion of what OPTIONAL means.
@@ -108,6 +112,9 @@ void LoggingSanityTest::setUp(uint32_t messageSize,
   chreLog(kInfo, "%08d 0x%04x", 123, 0xF);
   // '.'<precision>
   chreLog(kInfo, "%.3d %.3d %.3f %.3f %.3s", 12, 1234, 1.5, 1.0625, "abcdef");
+
+  // Re-enable logging-related double warnings
+  CHRE_LOG_EPILOGUE
 
   // TODO: In some future Android release, when chreLog() is required to
   //     output to logcat, we'll just send a Continue to the Host and have

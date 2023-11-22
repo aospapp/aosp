@@ -127,9 +127,10 @@
     <string name="reverting_settings" msgid="4752151682666912828">"Beállítások visszaállítása..."</string>
     <string name="response_error" msgid="6674110501330139405">"Nem várt válasz a hálózattól."</string>
     <string name="exception_error" msgid="7027667130619518211">"Hiba a hálózatban vagy a SIM-kártyánál."</string>
-    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"Az SS-kérés módosítva DIAL-kérésre."</string>
-    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"Az SS-kérés módosítva USSD-kérésre."</string>
-    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"Az USSD-kérés módosítva új SS-kérésre."</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="4440038807310535377">"Az SS-kérés módosítva hagyományos hívásra"</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="6095812685884176176">"Az SS-kérés módosítva USSD-kérésre"</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="7920654012697945858">"Új SS-kérésre módosítva"</string>
+    <string name="stk_cc_ss_to_dial_video_error" msgid="3873905132181743781">"Az SS-kérés módosítva videohívásra"</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"Telefonja alkalmazásának Fix hívószámok beállítása be van kapcsolva. Ennek eredményeként bizonyos hívásfunkciók nem működnek."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"Kapcsolja be a rádiót a beállítások megtekintése előtt."</string>
     <string name="close_dialog" msgid="2365884406356986917">"OK"</string>
@@ -158,16 +159,16 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"Az új PIN-kód érvénytelen karaktereket tartalmaz."</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"Nem sikerült módosítani a PIN-kódot"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"Nem támogatott üzenettípus. Hívja a következő telefonszámot az üzenet meghallgatásához: <xliff:g id="NUMBER">%s</xliff:g>."</string>
-    <string name="mobile_networks" msgid="5540397602919106177">"Mobilhálózati beállítások"</string>
     <string name="network_settings_title" msgid="514120489499925574">"Mobilhálózat"</string>
     <string name="label_available" msgid="1181658289009300430">"Elérhető hálózatok"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Keresés…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Nem található hálózat."</string>
-    <string name="network_query_error" msgid="6828516148953325006">"Hiba történt a hálózatok keresése közben."</string>
+    <string name="network_query_error" msgid="8466081377231178298">"Nincs hálózat. Próbálkozzon újra."</string>
     <string name="register_on_network" msgid="9055203954040805084">"Regisztrálás a(z) <xliff:g id="NETWORK">%s</xliff:g> hálózaton..."</string>
     <string name="not_allowed" msgid="5613353860205691579">"SIM kártyája nem teszi lehetővé a kapcsolódást ehhez a hálózathoz."</string>
     <string name="connect_later" msgid="2308119155752343975">"Most nem lehet csatlakozni a hálózathoz. Próbálja meg később."</string>
     <string name="registration_done" msgid="495135664535876612">"Regisztrálva a hálózaton."</string>
+    <string name="already_auto" msgid="6067116884321285507">"Már automatikus kiválasztás van beállítva."</string>
     <string name="select_automatically" msgid="1046727200631770962">"Hálózat automatikus kiválasztása"</string>
     <string name="network_select_title" msgid="7733107364757544558">"Hálózat"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Automatikus regisztráció..."</string>
@@ -175,6 +176,36 @@
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"A hálózati üzemmód megváltoztatása"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Preferált hálózattípus"</string>
     <string name="forbidden_network" msgid="4384929668343563440">"(tiltott)"</string>
+    <string name="choose_network_title" msgid="4023911977543009350">"Hálózat kiválasztása"</string>
+    <string name="network_disconnected" msgid="2227251609006103194">"Nincs kapcsolat"</string>
+    <string name="network_connected" msgid="1288589103624338857">"Csatlakoztatva"</string>
+    <string name="network_connecting" msgid="4927203097283533783">"Csatlakozás…"</string>
+    <string name="network_could_not_connect" msgid="8254009365807767243">"Nem sikerült csatlakozni"</string>
+  <string-array name="preferred_network_mode_choices">
+    <item msgid="3628460389382468528">"GSM/WCDMA a preferált"</item>
+    <item msgid="8442633436636425221">"Csak GSM"</item>
+    <item msgid="2032314385791760810">"Csak WCDMA"</item>
+    <item msgid="6334554401059422303">"GSM/WCDMA – automatikus"</item>
+    <item msgid="1462198368200398663">"CDMA/EvDo – automatikus"</item>
+    <item msgid="3611460019185359968">"CDMA EvDo nélkül"</item>
+    <item msgid="545430093607698090">"Csak EvDo"</item>
+    <item msgid="4286774020869405140">"CDMA/EvDo/GSM/WCDMA"</item>
+    <item msgid="4006002265696868538">"CDMA + LTE/EvDo"</item>
+    <item msgid="8973936140318359205">"GSM/WCDMA/LTE"</item>
+    <item msgid="3471059554252610472">"Globális"</item>
+    <item msgid="2882615514545171802">"LTE"</item>
+    <item msgid="8076204422288290116">"LTE/WCDMA"</item>
+    <item msgid="3982984144824159726">"Csak TDSCDMA"</item>
+    <item msgid="3686191974505922271">"TDSCDMA/WCDMA"</item>
+    <item msgid="7135671700201836475">"LTE/TDSCDMA"</item>
+    <item msgid="3736619459066330755">"TDSCDMA/GSM"</item>
+    <item msgid="4778666570887216861">"LTE/TDSCDMA/GSM"</item>
+    <item msgid="2952322596201849456">"TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="115984258536697617">"LTE/TDSCDMA/WCDMA"</item>
+    <item msgid="7957991936217192636">"LTE/TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="2828588917858484655">"TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+    <item msgid="4989979948139945854">"LTE/TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+  </string-array>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Preferált hálózati mód: preferált WCDMA"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Preferált hálózati mód: csak GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Preferált hálózati mód: csak WCDMA"</string>
@@ -192,21 +223,15 @@
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"Előnyben részesített hálózati mód: LTE / GSM / UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"Preferált hálózati mód: LTE/CDMA"</string>
     <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"Preferált hálózati mód: TDSCDMA"</string>
-  <string-array name="preferred_network_mode_choices">
-    <item msgid="7886739962255042385">"LTE/WCDMA"</item>
-    <item msgid="577652050447385699">"LTE"</item>
-    <item msgid="6813597571293773656">"Globális"</item>
-    <item msgid="127064712132619032">"GSM/WCDMA/LTE"</item>
-    <item msgid="1126767511633425977">"CDMA + LTE/EvDo"</item>
-    <item msgid="6389676313771670660">"CDMA/EvDo/GSM/WCDMA"</item>
-    <item msgid="545430093607698090">"Csak EvDo"</item>
-    <item msgid="1508557726283094448">"CDMA EvDo nélkül"</item>
-    <item msgid="4341433122263841224">"CDMA/EvDo automatikus"</item>
-    <item msgid="5958053792390386668">"GSM/WCDMA automatikus"</item>
-    <item msgid="7913148405605373434">"Csak WCDMA"</item>
-    <item msgid="1524224863879435516">"Csak GSM"</item>
-    <item msgid="3817924849415716259">"GSM/WCDMA a preferált"</item>
-  </string-array>
+    <string name="preferred_network_mode_tdscdma_wcdma_summary" msgid="2405154895437348623">"Preferált hálózati mód: TDSCDMA / WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_summary" msgid="2104702896644235637">"Preferált hálózati mód: LTE / TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_summary" msgid="4893784445338396204">"Preferált hálózati mód: TDSCDMA / GSM"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_summary" msgid="1815169717046729757">"Preferált hálózati mód: LTE/GSM/TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_wcdma_summary" msgid="2195358773359424099">"Preferált hálózati mód: TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_wcdma_summary" msgid="1181424059695667803">"Preferált hálózati mód: LTE/TDSCDMA/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_wcdma_summary" msgid="2526539326505354382">"Preferált hálózati mód: LTE/TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="8195248059196614939">"Preferált hálózati mód: TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="5596733053095592791">"Preferált hálózati mód: LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
     <string name="call_category" msgid="5863978196309462052">"Hívás"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"Hálózat"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Javított 4G LTE mód"</string>
@@ -218,14 +243,16 @@
     <string name="roaming" msgid="7894878421600247140">"Barangolás"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Csatlakozás adatszolgáltatásokhoz barangolás során"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Csatlakozás adatszolgáltatásokhoz barangolás során"</string>
-    <string name="roaming_reenable_message" msgid="8913735676127858115">"Megszakadt az adatkapcsolat, mert elhagyta az otthoni hálózatot, és az adatbarangolás nincs bekapcsolva."</string>
+    <string name="roaming_reenable_message" msgid="6843814381576397939">"Az adatbarangolás ki van kapcsolva. Koppintson a bekapcsolásához."</string>
+    <string name="roaming_notification_title" msgid="4749053220884743110">"Nincs mobiladat-kapcsolat"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"Lehet, hogy jelentős összeget számítanak fel érte."</string>
+    <string name="roaming_check_price_warning" msgid="7497570906830902550">"Az árakat a szolgáltatótól tudhatja meg."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Engedélyezi az adatbarangolást?"</string>
-    <string name="data_usage_title" msgid="8759619109516889802">"Adathasználat"</string>
+    <string name="data_usage_title" msgid="4042209259808900283">"Alkalmazás adathasználata"</string>
     <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_1">%1$s</xliff:g> mobiladat felhasználva a következő dátumok között: <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="8074895510265488035">"Speciális"</string>
     <string name="carrier_settings_euicc" msgid="6714062862127226405">"Szolgáltató"</string>
-    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"szolgáltató, esim, sim, euicc"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="6861505396475991277">"szolgáltató, esim, sim, euicc, szolgáltatóváltás, szolgáltató hozzáadása"</string>
     <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> – <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="mobile_data_settings_title" msgid="4661165467914727157">"Mobiladatok"</string>
     <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Adathozzáférés a mobilhálózaton keresztül"</string>
@@ -399,7 +426,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"Fix hívószám törlése..."</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"A fix hívószám törölve."</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"A fix hívószám nincs frissítve, mert hibás PIN kódot írt be."</string>
-    <string name="fdn_invalid_number" msgid="8602417141715473998">"Az FDN nem lett frissítve, mert az érték üres vagy több mint 20 számjegyből áll."</string>
+    <string name="fdn_invalid_number" msgid="2062898833049589309">"Az FDN nem lett frissítve, mert az érték több mint 20 számjegyből áll."</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"A fix hívószám nem lett frissítve. Hibás a PIN2 kód, vagy a telefonszámot elutasították."</string>
     <string name="fdn_failed" msgid="540018079008319747">"Sikertelen a fix hívószámmal végzett művelet."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"Beolvasás a SIM kártyáról..."</string>
@@ -482,6 +509,7 @@
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Segélyhívás során nem engedélyezheti a Repülős üzemmódot."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"A hívás sikertelen. A(z) <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> szám nem segélyhívószám."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"A hívás sikertelen. Tárcsázzon segélyhívószámot."</string>
+    <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"A segélyhívási funkció nem áll rendelkezésre"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"A tárcsázáshoz használja a billentyűzetet"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"Tartás"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"Befejezés"</string>
@@ -502,6 +530,9 @@
     <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"Névjegy importálása sikertelen"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"Hallókészülékek"</string>
     <string name="hac_mode_summary" msgid="6833851160514929341">"Hallókészülék-kompatibilitás bekapcsolása"</string>
+    <string name="rtt_mode_title" msgid="6954652435543570121">"Valós idejű szöveg (RTT) típusú hívás"</string>
+    <string name="rtt_mode_summary" msgid="5146344277246544580">"Üzenetküldés engedélyezése a hangalapú hívásokban"</string>
+    <string name="rtt_mode_more_information" msgid="6080420780730383030">"Az RTT funkció a siket, hallássérült, beszédzavaros vagy a hangalapú kommunikáción kívül más kommunikációt is igénylő hívóknak lehet segítségére.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;További információ.&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - Az RTT-hívásokat a rendszer üzenetátiratként menti.\n       &lt;br&gt; - Az RTT funkció nem áll rendelkezésre videohívásokban."</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"TTY kikapcsolva"</item>
     <item msgid="3971695875449640648">"Teljes TTY"</item>
@@ -613,4 +644,107 @@
     <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Lehet, hogy adatcsomagot kell vásárolnia a következőtől: <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"ADATCSOMAG HOZZÁADÁSA"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"MÉGSE"</string>
+    <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"A hívás befejeződött"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"Rádió kikapcsolva"</string>
+    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"Nincs SIM-kártya, vagy SIM-kártyahiba"</string>
+    <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"A mobilhálózat nem érhető el"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"Nem hozzárendelt (nem kiosztott) szám"</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"Nincs a célhoz vezető útvonal"</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"Nem elfogadható csatorna"</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"Szolgáltató által meghatározott kizárás"</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"Normál hívástörlés"</string>
+    <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"Elfoglalt felhasználó"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"A felhasználó nem válaszol"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"Felhasználó értesítése, nincs válasz"</string>
+    <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"Hívás elutasítva"</string>
+    <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"Szám módosítva"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"Ideiglenes megszakítás"</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"Nem kiválasztott felhasználó törlése"</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"Nem működő cél"</string>
+    <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"Érvénytelen számformátum (hiányos szám)"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"Szolgáltatás elutasítva"</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"Válasz az ÁLLAPOTLEKÉRÉSRE"</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"Normál, nincs megadva"</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"Nincs elérhető kör/csatorna"</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"Nem működő hálózat"</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"Ideiglenes hiba"</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"Készüléktorlódás átkapcsolása"</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"Hozzáférési információ elvetve"</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"A kért kör/csatorna ne érhető el"</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"Nem elérhető erőforrások, nincs megadva"</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"A szolgáltatásminőség nem érhető el"</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"A kért szolgáltatás nincs előfizetve"</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"Bejövő hívások kizárva a zárt felhasználói csoporton belül"</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"Nincs engedélyezve hordozószolgáltató"</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"Jelenleg nincs elérhető hordozószolgáltató"</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"Nem elérhető szolgáltatás vagy opció, nincs megadva"</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"Nincs megvalósítva hordozószolgáltató"</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"Az ACM értéke egyenlő az ACMmax értékével, vagy nagyobb annál"</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"A kért szolgáltatás nincs megvalósítva"</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"Csak korlátozott digitális információhordozó-képesség érhető el"</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"Nem megvalósított szolgáltatás vagy opció, nincs megadva"</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"Érvénytelen tranzakcióazonosító-érték"</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"A felhasználó nem tagja a zárt felhasználói csoportnak"</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"Nem kompatibilis cél"</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"Érvénytelen átmenő hálózat lett kiválasztva"</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"Szemantikailag hibás üzenet"</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"Érvénytelen kötelező információ"</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"Nem létező vagy nem megvalósított üzenettípus"</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"Az üzenettípus nem kompatibilis a protokollállapottal"</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"Nem létező vagy nem megvalósított információelem"</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"Feltételes IE-hiba"</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"Az üzenet nem kompatibilis a protokoll állapotával"</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"Időzített visszaállítás lejárata"</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"Protokollhiba, nincs megadva"</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"Köztes működés, nincs megadva"</string>
+    <string name="labelCallBarring" msgid="3452870940716226978">"Híváskorlátozás"</string>
+    <string name="sum_call_barring_enabled" msgid="6804489690436703488">"Be"</string>
+    <string name="sum_call_barring_disabled" msgid="5900772179198857783">"Ki"</string>
+    <string name="call_barring_baoc" msgid="1199843944333106035">"Minden kimenő hívás"</string>
+    <string name="call_barring_baoc_enabled" msgid="8112118391869380361">"Megszünteti az összes bejövő hívás letiltását?"</string>
+    <string name="call_barring_baoc_disabled" msgid="7806697133004697974">"Letiltja az összes kimenő hívást?"</string>
+    <string name="call_barring_baoic" msgid="3162154267825211826">"Kimenő nemzetközi hívások"</string>
+    <string name="call_barring_baoic_enabled" msgid="2634377543147258105">"Megszünteti a kimenő nemzetközi hívások letiltását?"</string>
+    <string name="call_barring_baoic_disabled" msgid="5817895648306183464">"Letiltja a kimenő nemzetközi hívásokat?"</string>
+    <string name="call_barring_baoicr" msgid="8951699885885742076">"Kimenő hívások nemzetközi barangoláskor"</string>
+    <string name="call_barring_baoicr_enabled" msgid="2519630715322138317">"Megszünteti a nemzetközi barangolás során kimenő hívások letiltását?"</string>
+    <string name="call_barring_baoicr_disabled" msgid="5831267468931377699">"Letiltja a kimenő hívásokat nemzetközi barangoláskor?"</string>
+    <string name="call_barring_baic" msgid="5272726081458339912">"Minden bejövő hívás"</string>
+    <string name="call_barring_baic_enabled" msgid="2457134916223203380">"Megszünteti az összes bejövő hívás letiltását?"</string>
+    <string name="call_barring_baic_disabled" msgid="6945604947500275636">"Letiltja az összes bejövő hívást?"</string>
+    <string name="call_barring_baicr" msgid="5728784220691481693">"Bejövő hívások nemzetközi barangoláskor"</string>
+    <string name="call_barring_baicr_enabled" msgid="6533336994391716127">"Megszünteti a nemzetközi barangolás során bejövő összes hívás letiltását?"</string>
+    <string name="call_barring_baicr_disabled" msgid="6746329853943256566">"Letiltja a bejövő hívásokat nemzetközi barangoláskor?"</string>
+    <string name="call_barring_deactivate_all" msgid="5269788384941003415">"Az összes deaktiválása"</string>
+    <string name="call_barring_deactivate_all_description" msgid="4972365443287257704">"Az összes híváskorlátozási beállítás deaktiválása"</string>
+    <string name="call_barring_deactivate_success" msgid="8014685598632000936">"Híváskorlátozás deaktiválva"</string>
+    <string name="call_barring_change_pwd" msgid="6887420609726284232">"Jelszó módosítása"</string>
+    <string name="call_barring_change_pwd_description" msgid="5505087790260233953">"Híváskorlátozási jelszó módosítása"</string>
+    <string name="call_barring_change_pwd_description_disabled" msgid="7630770327645349957">"Nem sikerült módosítani a híváskorlátozási jelszót."</string>
+    <string name="call_barring_pwd_not_match" msgid="6716711689350314525">"A jelszavak nem egyeznek"</string>
+    <string name="call_barring_right_pwd_number" msgid="2902966502520410446">"Adjon meg egy 4 számból álló jelszót"</string>
+    <string name="call_barring_change_pwd_success" msgid="3278310763742760321">"Jelszó módosítva"</string>
+    <string name="call_barring_old_pwd" msgid="6080515987320238522">"Régi jelszó"</string>
+    <string name="call_barring_new_pwd" msgid="7048532299150269547">"Új jelszó"</string>
+    <string name="call_barring_confirm_pwd" msgid="1947167278466285411">"Jelszó megerősítése"</string>
+    <string name="messageCallBarring" msgid="2412123220272136055">"Adja meg a jelszót"</string>
+    <string name="call_barring_settings" msgid="80766145008623645">"Híváskorlátozási beállítások"</string>
+    <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"Deaktiválja az összes híváskorlátozási beállítást?"</string>
+    <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"Hívás átirányítva egy másik számra."</string>
+    <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"Hívás átirányítva."</string>
+    <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"A hívás várakozik."</string>
+    <string name="supp_service_clir_suppression_rejected" msgid="1581851661582189045">"A számletiltás elutasítva."</string>
+    <string name="supp_service_closed_user_group_call" msgid="5761735840904590950">"Zárt felhasználói csoportra vonatkozó hívás."</string>
+    <string name="supp_service_incoming_calls_barred" msgid="3248813207307882723">"Bejövő hívások letiltva."</string>
+    <string name="supp_service_outgoing_calls_barred" msgid="1962644621292054081">"A kimenő hívások le vannak tiltva."</string>
+    <string name="supp_service_call_forwarding_active" msgid="1253134771682248735">"A hívásátirányítás aktív."</string>
+    <string name="supp_service_additional_call_forwarded" msgid="5228624725214727315">"Másik hívás átirányítva."</string>
+    <string name="supp_service_additional_ect_connected" msgid="6396964292513707102">"Explicit hívásátirányítás befejezve."</string>
+    <string name="supp_service_additional_ect_connecting" msgid="5443373059716058480">"Explicit hívásátirányítás folyamatban."</string>
+    <string name="supp_service_call_on_hold" msgid="1478976782361795422">"Hívás várakoztatva."</string>
+    <string name="supp_service_call_resumed" msgid="1656475289958070674">"Hívás folytatva."</string>
+    <string name="supp_service_deflected_call" msgid="138970419873492166">"A hívás átirányítva érkezett."</string>
+    <string name="supp_service_forwarded_call" msgid="4509980341645679803">"Átirányított hívás."</string>
+    <string name="supp_service_conference_call" msgid="4448616364004466832">"Csatlakozás konferenciahíváshoz."</string>
+    <string name="supp_service_held_call_released" msgid="2030677825038709779">"Várakoztatott hívás feloldva."</string>
 </resources>

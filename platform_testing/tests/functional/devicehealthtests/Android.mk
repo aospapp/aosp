@@ -21,6 +21,7 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := DeviceHealthTests
+LOCAL_SDK_VERSION := current
 LOCAL_CERTIFICATE := platform
 LOCAL_STATIC_JAVA_LIBRARIES := android-support-test platform-test-annotations
 

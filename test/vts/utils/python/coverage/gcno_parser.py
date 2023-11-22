@@ -237,6 +237,6 @@ def ParseGcnoFile(file_name):
 
 if __name__ == '__main__':
     if len(sys.argv) < 3 or sys.argv[1] != '-f':
-        print('usage: GCNOparser.py -f [file name]')
+        print('usage: gcno_parser.py -f [file name]')
     else:
-        print(str(parse(sys.argv[2])))
+        print(str(ParseGcnoFile(sys.argv[2])))

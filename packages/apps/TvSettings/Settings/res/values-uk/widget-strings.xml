@@ -16,11 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-  <string-array name="ampm">
-    <item msgid="4375405926289364989">"дп"</item>
-    <item msgid="4802437431289555052">"пп"</item>
-  </string-array>
-    <string name="date_separator" msgid="7882269975674640060">"."</string>
-    <string name="time_separator" msgid="7760859333083008983">":"</string>
     <string name="text_obfuscation_toggle_caption" msgid="3785289190730642093">"Сховати пароль"</string>
 </resources>

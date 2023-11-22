@@ -32,9 +32,8 @@ limitations under the License.
 
     <!-- The color of the radio control buttons. -->
     <color name="car_radio_control_button">@android:color/black</color>
-
-    <!-- The ripple color for various radio buttons and cards. -->
-    <color name="radio_ripple_background">@color/car_card_ripple_light_color_background_dark</color>
+    <!-- The color of the radio control buttons. -->
+    <color name="car_radio_equalizer">@android:color/white</color>
 
     <!-- The color of the radio control buttons when they are disabled. -->
     <color name="car_radio_control_button_disabled">@color/car_grey_400</color>

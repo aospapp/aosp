@@ -9,7 +9,6 @@ C. I2C protocol
 This driver does not support the DRDy interrupt.
 Instead, a timer callback is used to read the data.
 
-
 - Platform/variant porting:
 
 The driver requires that following macros are defined in the variant.h
@@ -25,13 +24,10 @@ Example:
   /*
    * Define platform/variant dependent LPS22HB device macros
    */
-  #define LPS22HB_USE_I2C     1
 
-  /* I2C defs to be used when device is plugged on U4 slot */
   #define LPS22HB_I2C_BUS_ID      0
   #define LPS22HB_I2C_SPEED       400000
   #define LPS22HB_I2C_ADDR        0x5C
 
 If these macros are not defined in the current variant the driver forces a compilation
 error.
-

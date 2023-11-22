@@ -15,10 +15,10 @@
  */
 package com.android.tradefed.testtype;
 
-/**
- * Interface representing the ABI under test.
- */
-public interface IAbi {
+import java.io.Serializable;
+
+/** Interface representing the ABI under test. */
+public interface IAbi extends Serializable {
 
     /**
      * @return The name of the ABI.

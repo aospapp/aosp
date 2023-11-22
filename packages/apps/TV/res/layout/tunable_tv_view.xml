@@ -17,6 +17,27 @@
 
 <merge xmlns:android="http://schemas.android.com/apk/res/android" >
 
+    <View android:id="@+id/channel_up"
+        android:layout_width="wrap_content"
+        android:focusable="false"
+        android:focusableInTouchMode="true"
+        android:layout_height="1dp"
+        android:layout_gravity="top" />
+    <View android:id="@+id/placeholder"
+        android:layout_width="1dp"
+        android:layout_height="1dp"
+        android:focusable="false"
+        android:focusableInTouchMode="true"
+        android:focusedByDefault="true"
+        android:layout_gravity="center" />
+
+    <View android:id="@+id/channel_down"
+        android:layout_width="wrap_content"
+        android:focusable="false"
+        android:focusableInTouchMode="true"
+        android:layout_height="1dp"
+        android:layout_gravity="bottom" />
+
     <com.android.tv.ui.AppLayerTvView android:id="@+id/tv_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

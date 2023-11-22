@@ -16,6 +16,7 @@
 #include "ast_processing.h"
 #include "frontend_action.h"
 #include <header_abi_util.h>
+#include <ir_representation.h>
 
 #include <clang/AST/ASTConsumer.h>
 #include <clang/Frontend/CompilerInstance.h>
@@ -25,16 +26,15 @@
 #include <llvm/Support/Path.h>
 
 HeaderCheckerFrontendAction::HeaderCheckerFrontendAction(
-    const std::string &dump_name, const std::vector<std::string> &exports)
-  : dump_name_(dump_name), exported_header_dirs_(exports) { }
+    const std::string &dump_name, std::set<std::string> &exported_headers,
+    abi_util::TextFormatIR text_format)
+  : dump_name_(dump_name), exported_headers_(exported_headers),
+    text_format_(text_format) { }
 
 std::unique_ptr<clang::ASTConsumer>
 HeaderCheckerFrontendAction::CreateASTConsumer(clang::CompilerInstance &ci,
                                                llvm::StringRef header_file) {
-  std::set<std::string> exported_headers;
-  exported_headers = abi_util::CollectAllExportedHeaders(exported_header_dirs_);
   // Create AST consumers.
-  return llvm::make_unique<HeaderASTConsumer>(header_file,
-                                              &ci, dump_name_,
-                                              exported_headers);
+  return llvm::make_unique<HeaderASTConsumer>(&ci, dump_name_,
+                                              exported_headers_, text_format_);
 }

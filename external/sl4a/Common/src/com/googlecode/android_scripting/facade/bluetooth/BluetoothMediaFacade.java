@@ -17,27 +17,25 @@
 package com.googlecode.android_scripting.facade.bluetooth;
 
 import android.app.Service;
-import android.content.Intent;
 import android.content.ComponentName;
 import android.content.Context;
-
+import android.content.Intent;
 import android.media.MediaMetadata;
-import android.media.session.MediaSessionManager;
-import android.media.session.PlaybackState;
 import android.media.browse.MediaBrowser;
 import android.media.session.MediaController;
-
+import android.media.session.MediaSessionManager;
+import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 
+import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.facade.EventFacade;
 import com.googlecode.android_scripting.facade.FacadeManager;
 import com.googlecode.android_scripting.facade.bluetooth.media.BluetoothSL4AAudioSrcMBS;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
 import com.googlecode.android_scripting.rpc.RpcParameter;
-import com.googlecode.android_scripting.Log;
 
 import java.util.ArrayList;
 import java.util.HashMap;

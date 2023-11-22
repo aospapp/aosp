@@ -20,15 +20,25 @@
 
     <SwitchPreference
         android:key="sound_effects"
-        android:persistent="false"
+        android:persistent="true"
         android:title="@string/device_sound_effects"/>
 
-    <ListPreference
-        android:key="surround_passthrough"
-        android:persistent="false"
-        android:entries="@array/surround_sound_entries"
-        android:entryValues="@array/surround_sound_entry_values"
-        android:title="@string/device_surround_sound"
-        android:summary="%s" />
+    <PreferenceCategory
+        android:key="surround_sound_category"
+        android:title="@string/surround_sound_category_title"
+        android:layout="@layout/preference_category_compact_layout" >
+
+        <ListPreference
+            android:key="surround_passthrough"
+            android:persistent="true"
+            android:entries="@array/surround_sound_entries"
+            android:entryValues="@array/surround_sound_entry_values"
+            android:title="@string/surround_sound_select_formats"
+            android:summary="%s"
+            android:dialogMessage="@string/surround_sound_auto_info"/>
+
+        <!-- Switches for each surround sound format programmatically added here. -->
+
+    </PreferenceCategory>
 
 </PreferenceScreen>

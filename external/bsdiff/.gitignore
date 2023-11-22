@@ -4,11 +4,15 @@
 # any tracked files which get ignored after the change.
 #
 
-# Standard ignores
+# Ignore object files and backup files
 *.o
+*.so
 *~
 
 # Executables
-bsdiff
-bspatch
-unittests
+/bsdiff
+/bspatch
+/bsdiff_unittest
+
+# Generated dependencies
+/.deps

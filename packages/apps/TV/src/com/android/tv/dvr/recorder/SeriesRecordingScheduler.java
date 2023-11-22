@@ -27,27 +27,23 @@ import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.Log;
 import android.util.LongSparseArray;
-
-import com.android.tv.ApplicationSingletons;
-import com.android.tv.TvApplication;
-import com.android.tv.common.CollectionUtils;
-import com.android.tv.common.SharedPreferencesUtils;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
+import com.android.tv.common.experiments.Experiments;
+import com.android.tv.common.util.CollectionUtils;
+import com.android.tv.common.util.SharedPreferencesUtils;
 import com.android.tv.data.Program;
-import com.android.tv.data.epg.EpgFetcher;
+import com.android.tv.data.epg.EpgReader;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrDataManager.ScheduledRecordingListener;
 import com.android.tv.dvr.DvrDataManager.SeriesRecordingListener;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.WritableDvrDataManager;
-import com.android.tv.dvr.data.SeasonEpisodeNumber;
 import com.android.tv.dvr.data.ScheduledRecording;
+import com.android.tv.dvr.data.SeasonEpisodeNumber;
 import com.android.tv.dvr.data.SeriesInfo;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.provider.EpisodicProgramLoadTask;
-import com.android.tv.experiments.Experiments;
-
-import com.android.tv.util.LocationUtils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -60,12 +56,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import javax.inject.Provider;
 
 /**
- * Creates the {@link com.android.tv.dvr.data.ScheduledRecording}s for
- * the {@link com.android.tv.dvr.data.SeriesRecording}.
- * <p>
- * The current implementation assumes that the series recordings are scheduled only for one channel.
+ * Creates the {@link com.android.tv.dvr.data.ScheduledRecording}s for the {@link
+ * com.android.tv.dvr.data.SeriesRecording}.
+ *
+ * <p>The current implementation assumes that the series recordings are scheduled only for one
+ * channel.
  */
 @TargetApi(Build.VERSION_CODES.N)
 public class SeriesRecordingScheduler {
@@ -78,9 +76,7 @@ public class SeriesRecordingScheduler {
     @SuppressLint("StaticFieldLeak")
     private static SeriesRecordingScheduler sInstance;
 
-    /**
-     * Creates and returns the {@link SeriesRecordingScheduler}.
-     */
+    /** Creates and returns the {@link SeriesRecordingScheduler}. */
     public static synchronized SeriesRecordingScheduler getInstance(Context context) {
         if (sInstance == null) {
             sInstance = new SeriesRecordingScheduler(context);
@@ -100,54 +96,59 @@ public class SeriesRecordingScheduler {
     private boolean mPaused;
     private final Set<Long> mPendingSeriesRecordings = new ArraySet<>();
 
-    private final SeriesRecordingListener mSeriesRecordingListener = new SeriesRecordingListener() {
-        @Override
-        public void onSeriesRecordingAdded(SeriesRecording... seriesRecordings) {
-            for (SeriesRecording seriesRecording : seriesRecordings) {
-                executeFetchSeriesInfoTask(seriesRecording);
-            }
-        }
+    private final SeriesRecordingListener mSeriesRecordingListener =
+            new SeriesRecordingListener() {
+                @Override
+                public void onSeriesRecordingAdded(SeriesRecording... seriesRecordings) {
+                    for (SeriesRecording seriesRecording : seriesRecordings) {
+                        executeFetchSeriesInfoTask(seriesRecording);
+                    }
+                }
 
-        @Override
-        public void onSeriesRecordingRemoved(SeriesRecording... seriesRecordings) {
-            // Cancel the update.
-            for (Iterator<SeriesRecordingUpdateTask> iter = mScheduleTasks.iterator();
-                    iter.hasNext(); ) {
-                SeriesRecordingUpdateTask task = iter.next();
-                if (CollectionUtils.subtract(task.getSeriesRecordings(), seriesRecordings,
-                        SeriesRecording.ID_COMPARATOR).isEmpty()) {
-                    task.cancel(true);
-                    iter.remove();
+                @Override
+                public void onSeriesRecordingRemoved(SeriesRecording... seriesRecordings) {
+                    // Cancel the update.
+                    for (Iterator<SeriesRecordingUpdateTask> iter = mScheduleTasks.iterator();
+                            iter.hasNext(); ) {
+                        SeriesRecordingUpdateTask task = iter.next();
+                        if (CollectionUtils.subtract(
+                                        task.getSeriesRecordings(),
+                                        seriesRecordings,
+                                        SeriesRecording.ID_COMPARATOR)
+                                .isEmpty()) {
+                            task.cancel(true);
+                            iter.remove();
+                        }
+                    }
+                    for (SeriesRecording seriesRecording : seriesRecordings) {
+                        FetchSeriesInfoTask task =
+                                mFetchSeriesInfoTasks.get(seriesRecording.getId());
+                        if (task != null) {
+                            task.cancel(true);
+                            mFetchSeriesInfoTasks.remove(seriesRecording.getId());
+                        }
+                    }
                 }
-            }
-            for (SeriesRecording seriesRecording : seriesRecordings) {
-                FetchSeriesInfoTask task = mFetchSeriesInfoTasks.get(seriesRecording.getId());
-                if (task != null) {
-                    task.cancel(true);
-                    mFetchSeriesInfoTasks.remove(seriesRecording.getId());
-                }
-            }
-        }
 
-        @Override
-        public void onSeriesRecordingChanged(SeriesRecording... seriesRecordings) {
-            List<SeriesRecording> stopped = new ArrayList<>();
-            List<SeriesRecording> normal = new ArrayList<>();
-            for (SeriesRecording r : seriesRecordings) {
-                if (r.isStopped()) {
-                    stopped.add(r);
-                } else {
-                    normal.add(r);
+                @Override
+                public void onSeriesRecordingChanged(SeriesRecording... seriesRecordings) {
+                    List<SeriesRecording> stopped = new ArrayList<>();
+                    List<SeriesRecording> normal = new ArrayList<>();
+                    for (SeriesRecording r : seriesRecordings) {
+                        if (r.isStopped()) {
+                            stopped.add(r);
+                        } else {
+                            normal.add(r);
+                        }
+                    }
+                    if (!stopped.isEmpty()) {
+                        onSeriesRecordingRemoved(SeriesRecording.toArray(stopped));
+                    }
+                    if (!normal.isEmpty()) {
+                        updateSchedules(normal);
+                    }
                 }
-            }
-            if (!stopped.isEmpty()) {
-                onSeriesRecordingRemoved(SeriesRecording.toArray(stopped));
-            }
-            if (!normal.isEmpty()) {
-                updateSchedules(normal);
-            }
-        }
-    };
+            };
 
     private final ScheduledRecordingListener mScheduledRecordingListener =
             new ScheduledRecordingListener() {
@@ -166,7 +167,8 @@ public class SeriesRecordingScheduler {
                     List<ScheduledRecording> schedulesForUpdate = new ArrayList<>();
                     for (ScheduledRecording r : schedules) {
                         if ((r.getState() == ScheduledRecording.STATE_RECORDING_FAILED
-                                || r.getState() == ScheduledRecording.STATE_RECORDING_CLIPPED)
+                                        || r.getState()
+                                                == ScheduledRecording.STATE_RECORDING_CLIPPED)
                                 && r.getSeriesRecordingId() != SeriesRecording.ID_NOT_SET
                                 && !TextUtils.isEmpty(r.getSeasonNumber())
                                 && !TextUtils.isEmpty(r.getEpisodeNumber())) {
@@ -205,18 +207,17 @@ public class SeriesRecordingScheduler {
 
     private SeriesRecordingScheduler(Context context) {
         mContext = context.getApplicationContext();
-        ApplicationSingletons appSingletons = TvApplication.getSingletons(context);
-        mDvrManager = appSingletons.getDvrManager();
-        mDataManager = (WritableDvrDataManager) appSingletons.getDvrDataManager();
-        mSharedPreferences = context.getSharedPreferences(
-                SharedPreferencesUtils.SHARED_PREF_SERIES_RECORDINGS, Context.MODE_PRIVATE);
-        mFetchedSeriesIds.addAll(mSharedPreferences.getStringSet(KEY_FETCHED_SERIES_IDS,
-                Collections.emptySet()));
+        TvSingletons tvSingletons = TvSingletons.getSingletons(context);
+        mDvrManager = tvSingletons.getDvrManager();
+        mDataManager = (WritableDvrDataManager) tvSingletons.getDvrDataManager();
+        mSharedPreferences =
+                context.getSharedPreferences(
+                        SharedPreferencesUtils.SHARED_PREF_SERIES_RECORDINGS, Context.MODE_PRIVATE);
+        mFetchedSeriesIds.addAll(
+                mSharedPreferences.getStringSet(KEY_FETCHED_SERIES_IDS, Collections.emptySet()));
     }
 
-    /**
-     * Starts the scheduler.
-     */
+    /** Starts the scheduler. */
     @MainThread
     public void start() {
         SoftPreconditions.checkState(mDataManager.isInitialized());
@@ -261,15 +262,16 @@ public class SeriesRecordingScheduler {
 
     private void executeFetchSeriesInfoTask(SeriesRecording seriesRecording) {
         if (Experiments.CLOUD_EPG.get()) {
-            FetchSeriesInfoTask task = new FetchSeriesInfoTask(seriesRecording);
+            FetchSeriesInfoTask task =
+                    new FetchSeriesInfoTask(
+                            seriesRecording,
+                            TvSingletons.getSingletons(mContext).providesEpgReader());
             task.execute();
             mFetchSeriesInfoTasks.put(seriesRecording.getId(), task);
         }
     }
 
-    /**
-     * Pauses the updates of the series recordings.
-     */
+    /** Pauses the updates of the series recordings. */
     public void pauseUpdate() {
         if (DEBUG) Log.d(TAG, "Schedule paused");
         if (mPaused) {
@@ -287,9 +289,7 @@ public class SeriesRecordingScheduler {
         }
     }
 
-    /**
-     * Resumes the updates of the series recordings.
-     */
+    /** Resumes the updates of the series recordings. */
     public void resumeUpdate() {
         if (DEBUG) Log.d(TAG, "Schedule resumed");
         if (!mPaused) {
@@ -329,25 +329,28 @@ public class SeriesRecordingScheduler {
                 mPendingSeriesRecordings.add(r.getId());
             }
             if (DEBUG) {
-                Log.d(TAG, "The scheduler has been paused. Adding to the pending list. size="
-                        + mPendingSeriesRecordings.size());
+                Log.d(
+                        TAG,
+                        "The scheduler has been paused. Adding to the pending list. size="
+                                + mPendingSeriesRecordings.size());
             }
             return;
         }
         Set<SeriesRecording> previousSeriesRecordings = new HashSet<>();
         for (Iterator<SeriesRecordingUpdateTask> iter = mScheduleTasks.iterator();
-             iter.hasNext(); ) {
+                iter.hasNext(); ) {
             SeriesRecordingUpdateTask task = iter.next();
-            if (CollectionUtils.containsAny(task.getSeriesRecordings(), seriesRecordings,
-                    SeriesRecording.ID_COMPARATOR)) {
+            if (CollectionUtils.containsAny(
+                    task.getSeriesRecordings(), seriesRecordings, SeriesRecording.ID_COMPARATOR)) {
                 // The task is affected by the seriesRecordings
                 task.cancel(true);
                 previousSeriesRecordings.addAll(task.getSeriesRecordings());
                 iter.remove();
             }
         }
-        List<SeriesRecording> seriesRecordingsToUpdate = CollectionUtils.union(seriesRecordings,
-                previousSeriesRecordings, SeriesRecording.ID_COMPARATOR);
+        List<SeriesRecording> seriesRecordingsToUpdate =
+                CollectionUtils.union(
+                        seriesRecordings, previousSeriesRecordings, SeriesRecording.ID_COMPARATOR);
         for (Iterator<SeriesRecording> iter = seriesRecordingsToUpdate.iterator();
                 iter.hasNext(); ) {
             SeriesRecording seriesRecording = mDataManager.getSeriesRecording(iter.next().getId());
@@ -367,8 +370,8 @@ public class SeriesRecordingScheduler {
             task.execute();
         } else {
             for (SeriesRecording seriesRecording : seriesRecordingsToUpdate) {
-                SeriesRecordingUpdateTask task = new SeriesRecordingUpdateTask(
-                        Collections.singletonList(seriesRecording));
+                SeriesRecordingUpdateTask task =
+                        new SeriesRecordingUpdateTask(Collections.singletonList(seriesRecording));
                 mScheduleTasks.add(task);
                 if (DEBUG) Log.d(TAG, "Added schedule task: " + task);
                 task.execute();
@@ -389,8 +392,9 @@ public class SeriesRecordingScheduler {
      * Pick one program per an episode.
      *
      * <p>Note that the programs which has been already scheduled have the highest priority, and all
-     * of them are added even though they are the same episodes. That's because the schedules
-     * should be added to the series recording.
+     * of them are added even though they are the same episodes. That's because the schedules should
+     * be added to the series recording.
+     *
      * <p>If there are no existing schedules for an episode, one program which starts earlier is
      * picked.
      */
@@ -399,11 +403,10 @@ public class SeriesRecordingScheduler {
         return pickOneProgramPerEpisode(mDataManager, seriesRecordings, programs);
     }
 
-    /**
-     * @see #pickOneProgramPerEpisode(List, List)
-     */
+    /** @see #pickOneProgramPerEpisode(List, List) */
     public static LongSparseArray<List<Program>> pickOneProgramPerEpisode(
-            DvrDataManager dataManager, List<SeriesRecording> seriesRecordings,
+            DvrDataManager dataManager,
+            List<SeriesRecording> seriesRecordings,
             List<Program> programs) {
         // Initialize.
         LongSparseArray<List<Program>> result = new LongSparseArray<>();
@@ -422,8 +425,11 @@ public class SeriesRecordingScheduler {
                 result.get(seriesRecordingId).add(program);
                 continue;
             }
-            SeasonEpisodeNumber seasonEpisodeNumber = new SeasonEpisodeNumber(seriesRecordingId,
-                    program.getSeasonNumber(), program.getEpisodeNumber());
+            SeasonEpisodeNumber seasonEpisodeNumber =
+                    new SeasonEpisodeNumber(
+                            seriesRecordingId,
+                            program.getSeasonNumber(),
+                            program.getEpisodeNumber());
             List<Program> programsForEpisode = programsForEpisodeMap.get(seasonEpisodeNumber);
             if (programsForEpisode == null) {
                 programsForEpisode = new ArrayList<>();
@@ -434,22 +440,24 @@ public class SeriesRecordingScheduler {
         // Pick one program.
         for (Entry<SeasonEpisodeNumber, List<Program>> entry : programsForEpisodeMap.entrySet()) {
             List<Program> programsForEpisode = entry.getValue();
-            Collections.sort(programsForEpisode, new Comparator<Program>() {
-                @Override
-                public int compare(Program lhs, Program rhs) {
-                    // Place the existing schedule first.
-                    boolean lhsScheduled = isProgramScheduled(dataManager, lhs);
-                    boolean rhsScheduled = isProgramScheduled(dataManager, rhs);
-                    if (lhsScheduled && !rhsScheduled) {
-                        return -1;
-                    }
-                    if (!lhsScheduled && rhsScheduled) {
-                        return 1;
-                    }
-                    // Sort by the start time in ascending order.
-                    return lhs.compareTo(rhs);
-                }
-            });
+            Collections.sort(
+                    programsForEpisode,
+                    new Comparator<Program>() {
+                        @Override
+                        public int compare(Program lhs, Program rhs) {
+                            // Place the existing schedule first.
+                            boolean lhsScheduled = isProgramScheduled(dataManager, lhs);
+                            boolean rhsScheduled = isProgramScheduled(dataManager, rhs);
+                            if (lhsScheduled && !rhsScheduled) {
+                                return -1;
+                            }
+                            if (!lhsScheduled && rhsScheduled) {
+                                return 1;
+                            }
+                            // Sort by the start time in ascending order.
+                            return lhs.compareTo(rhs);
+                        }
+                    });
             boolean added = false;
             // Add all the scheduled programs
             List<Program> programsForSeries = result.get(entry.getKey().seriesRecordingId);
@@ -469,8 +477,8 @@ public class SeriesRecordingScheduler {
     private static boolean isProgramScheduled(DvrDataManager dataManager, Program program) {
         ScheduledRecording schedule =
                 dataManager.getScheduledRecordingForProgramId(program.getId());
-        return schedule != null && schedule.getState()
-                == ScheduledRecording.STATE_RECORDING_NOT_STARTED;
+        return schedule != null
+                && schedule.getState() == ScheduledRecording.STATE_RECORDING_NOT_STARTED;
     }
 
     private void updateFetchedSeries() {
@@ -478,8 +486,8 @@ public class SeriesRecordingScheduler {
     }
 
     /**
-     * This works only for the existing series recordings. Do not use this task for the
-     * "adding series recording" UI.
+     * This works only for the existing series recordings. Do not use this task for the "adding
+     * series recording" UI.
      */
     private class SeriesRecordingUpdateTask extends EpisodicProgramLoadTask {
         SeriesRecordingUpdateTask(List<SeriesRecording> seriesRecordings) {
@@ -491,16 +499,17 @@ public class SeriesRecordingScheduler {
             if (DEBUG) Log.d(TAG, "onPostExecute: updating schedules with programs:" + programs);
             mScheduleTasks.remove(this);
             if (programs == null) {
-                Log.e(TAG, "Creating schedules for series recording failed: "
-                        + getSeriesRecordings());
+                Log.e(
+                        TAG,
+                        "Creating schedules for series recording failed: " + getSeriesRecordings());
                 return;
             }
-            LongSparseArray<List<Program>> seriesProgramMap = pickOneProgramPerEpisode(
-                    getSeriesRecordings(), programs);
+            LongSparseArray<List<Program>> seriesProgramMap =
+                    pickOneProgramPerEpisode(getSeriesRecordings(), programs);
             for (SeriesRecording seriesRecording : getSeriesRecordings()) {
                 // Check the series recording is still valid.
-                SeriesRecording actualSeriesRecording = mDataManager.getSeriesRecording(
-                        seriesRecording.getId());
+                SeriesRecording actualSeriesRecording =
+                        mDataManager.getSeriesRecording(seriesRecording.getId());
                 if (actualSeriesRecording == null || actualSeriesRecording.isStopped()) {
                     continue;
                 }
@@ -520,35 +529,39 @@ public class SeriesRecordingScheduler {
         @Override
         public String toString() {
             return "SeriesRecordingUpdateTask:{"
-                    + "series_recordings=" + getSeriesRecordings()
+                    + "series_recordings="
+                    + getSeriesRecordings()
                     + "}";
         }
     }
 
     private class FetchSeriesInfoTask extends AsyncTask<Void, Void, SeriesInfo> {
-        private SeriesRecording mSeriesRecording;
+        private final SeriesRecording mSeriesRecording;
+        private final Provider<EpgReader> mEpgReaderProvider;
 
-        FetchSeriesInfoTask(SeriesRecording seriesRecording) {
+        FetchSeriesInfoTask(
+                SeriesRecording seriesRecording, Provider<EpgReader> epgReaderProvider) {
             mSeriesRecording = seriesRecording;
+            mEpgReaderProvider = epgReaderProvider;
         }
 
         @Override
         protected SeriesInfo doInBackground(Void... voids) {
-            return EpgFetcher.createEpgReader(mContext, LocationUtils.getCurrentCountry(mContext))
-                    .getSeriesInfo(mSeriesRecording.getSeriesId());
+            return mEpgReaderProvider.get().getSeriesInfo(mSeriesRecording.getSeriesId());
         }
 
         @Override
         protected void onPostExecute(SeriesInfo seriesInfo) {
             if (seriesInfo != null) {
-                mDataManager.updateSeriesRecording(SeriesRecording.buildFrom(mSeriesRecording)
-                        .setTitle(seriesInfo.getTitle())
-                        .setDescription(seriesInfo.getDescription())
-                        .setLongDescription(seriesInfo.getLongDescription())
-                        .setCanonicalGenreIds(seriesInfo.getCanonicalGenreIds())
-                        .setPosterUri(seriesInfo.getPosterUri())
-                        .setPhotoUri(seriesInfo.getPhotoUri())
-                        .build());
+                mDataManager.updateSeriesRecording(
+                        SeriesRecording.buildFrom(mSeriesRecording)
+                                .setTitle(seriesInfo.getTitle())
+                                .setDescription(seriesInfo.getDescription())
+                                .setLongDescription(seriesInfo.getLongDescription())
+                                .setCanonicalGenreIds(seriesInfo.getCanonicalGenreIds())
+                                .setPosterUri(seriesInfo.getPosterUri())
+                                .setPhotoUri(seriesInfo.getPhotoUri())
+                                .build());
                 mFetchedSeriesIds.add(seriesInfo.getId());
                 updateFetchedSeries();
             }

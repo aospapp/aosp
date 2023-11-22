@@ -38,20 +38,31 @@ static void EnableEvent(jvmtiEnv* env, jvmtiEvent evt) {
   }
 }
 
-static void JNICALL VMStartCallback(jvmtiEnv *jenv ATTRIBUTE_UNUSED,
-                                     JNIEnv* jni_env ATTRIBUTE_UNUSED) {
-  printf("VMStart\n");
+static jvmtiPhase getPhase(jvmtiEnv* jenv) {
+  jvmtiPhase out = static_cast<jvmtiPhase>(-1);
+  jenv->GetPhase(&out);
+  return out;
 }
 
-static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env ATTRIBUTE_UNUSED,
+static void JNICALL VMStartCallback(jvmtiEnv *jenv, JNIEnv* jni_env ATTRIBUTE_UNUSED) {
+  printf("VMStart (phase %d)\n", getPhase(jenv));
+  fsync(1);
+}
+
+static void JNICALL VMInitCallback(jvmtiEnv *jvmti_env,
                                    JNIEnv* jni_env ATTRIBUTE_UNUSED,
                                    jthread thread ATTRIBUTE_UNUSED) {
-  printf("VMInit\n");
+  printf("VMInit (phase %d)\n", getPhase(jvmti_env));
+  fsync(1);
 }
 
-static void JNICALL VMDeatchCallback(jvmtiEnv *jenv ATTRIBUTE_UNUSED,
-                                     JNIEnv* jni_env ATTRIBUTE_UNUSED) {
-  printf("VMDeath\n");
+static void JNICALL VMDeathCallback(jvmtiEnv *jenv, JNIEnv* jni_env) {
+  printf("VMDeath (phase %d)\n", getPhase(jenv));
+  fsync(1);
+  jthread cur_thr;
+  CHECK_EQ(jenv->GetCurrentThread(&cur_thr), JVMTI_ERROR_NONE);
+  CHECK(cur_thr != nullptr);
+  jni_env->DeleteLocalRef(cur_thr);
 }
 
 
@@ -60,7 +71,7 @@ static void InstallVMEvents(jvmtiEnv* env) {
   memset(&callbacks, 0, sizeof(jvmtiEventCallbacks));
   callbacks.VMStart = VMStartCallback;
   callbacks.VMInit = VMInitCallback;
-  callbacks.VMDeath = VMDeatchCallback;
+  callbacks.VMDeath = VMDeathCallback;
   jvmtiError ret = env->SetEventCallbacks(&callbacks, sizeof(callbacks));
   if (ret != JVMTI_ERROR_NONE) {
     printf("Failed to install callbacks");
@@ -127,7 +138,7 @@ jint OnLoad(JavaVM* vm,
     printf("Unable to get jvmti env!\n");
     return 1;
   }
-  SetAllCapabilities(jvmti_env);
+  SetStandardCapabilities(jvmti_env);
 
   jvmtiPhase current_phase;
   jvmtiError phase_result = jvmti_env->GetPhase(&current_phase);

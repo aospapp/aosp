@@ -23,71 +23,150 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.net.InetAddress;
 import java.net.ServerSocket;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.NoSuchAlgorithmException;
 import java.security.Provider;
 import java.security.Security;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
 import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 import libcore.io.Streams;
-import libcore.java.security.TestKeyStore;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.conscrypt.java.security.TestKeyStore;
+import org.junit.Assume;
 
 /**
  * Utility methods to support testing.
  */
 public final class TestUtils {
-    static final Charset UTF_8 = Charset.forName("UTF-8");
-
+    public static final Charset UTF_8 = Charset.forName("UTF-8");
+    private static final String PROTOCOL_TLS_V1_2 = "TLSv1.2";
+    private static final String PROTOCOL_TLS_V1_1 = "TLSv1.1";
+    private static final String PROTOCOL_TLS_V1 = "TLSv1";
+    private static final String[] DESIRED_PROTOCOLS =
+        new String[] {PROTOCOL_TLS_V1_2, PROTOCOL_TLS_V1_1, /* For Java 6 */ PROTOCOL_TLS_V1};
     private static final Provider JDK_PROVIDER = getDefaultTlsProvider();
     private static final byte[] CHARS =
             "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".getBytes(UTF_8);
     private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocateDirect(0);
-
-    public static final String PROTOCOL_TLS_V1_2 = "TLSv1.2";
-    public static final String PROVIDER_PROPERTY = "SSLContext.TLSv1.2";
-    public static final String LOCALHOST = "localhost";
+    private static final String[] PROTOCOLS = getProtocolsInternal();
 
     static final String TEST_CIPHER = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256";
 
     private TestUtils() {}
 
     private static Provider getDefaultTlsProvider() {
-        for (Provider p : Security.getProviders()) {
-            if (p.get(PROVIDER_PROPERTY) != null) {
-                return p;
+        for (String protocol : DESIRED_PROTOCOLS) {
+            for (Provider p : Security.getProviders()) {
+                if (hasProtocol(p, protocol)) {
+                    return p;
+                }
             }
         }
-        throw new RuntimeException("Unable to find a default provider for " + PROVIDER_PROPERTY);
+        // For Java 1.6 testing
+        return new BouncyCastleProvider();
+    }
+
+    private static boolean hasProtocol(Provider p, String protocol) {
+        return p.get("SSLContext." + protocol) != null;
     }
 
     static Provider getJdkProvider() {
         return JDK_PROVIDER;
     }
 
+    private static void assumeClassAvailable(String classname) {
+        boolean available = false;
+        try {
+            Class.forName(classname);
+            available = true;
+        } catch (ClassNotFoundException ignore) {
+            // Ignored
+        }
+        Assume.assumeTrue("Skipping test: " + classname + " unavailable", available);
+    }
+
+    public static void assumeSNIHostnameAvailable() {
+        assumeClassAvailable("javax.net.ssl.SNIHostName");
+    }
+
+    public static void assumeSetEndpointIdentificationAlgorithmAvailable() {
+        boolean supported = false;
+        try {
+            SSLParameters.class.getMethod("setEndpointIdentificationAlgorithm", String.class);
+            supported = true;
+        } catch (NoSuchMethodException ignore) {
+            // Ignored
+        }
+        Assume.assumeTrue("Skipping test: "
+                + "SSLParameters.setEndpointIdentificationAlgorithm unavailable", supported);
+    }
+
+    public static void assumeAEADAvailable() {
+        assumeClassAvailable("javax.crypto.AEADBadTagException");
+    }
+
+    private static boolean isAndroid() {
+        try {
+            Class.forName("android.app.Application", false, ClassLoader.getSystemClassLoader());
+            return true;
+        } catch (Throwable ignored) {
+            // Failed to load the class uniquely available in Android.
+            return false;
+        }
+    }
+
+    public static void assumeAndroid() {
+        Assume.assumeTrue(isAndroid());
+    }
+
+    public static void assumeAllowsUnsignedCrypto() {
+        // The Oracle JRE disallows loading crypto providers from unsigned jars
+        Assume.assumeTrue(isAndroid()
+                || !System.getProperty("java.vm.name").contains("HotSpot"));
+    }
+
+    public static InetAddress getLoopbackAddress() {
+        try {
+            Method method = InetAddress.class.getMethod("getLoopbackAddress");
+            return (InetAddress) method.invoke(null);
+        } catch (Exception ignore) {
+            // Ignored.
+        }
+        try {
+            return InetAddress.getLocalHost();
+        } catch (UnknownHostException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public static Provider getConscryptProvider() {
         try {
-            return (Provider) conscryptClass("OpenSSLProvider")
-                .getConstructor()
-                .newInstance();
+            return (Provider) conscryptClass("OpenSSLProvider").getConstructor().newInstance();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static void installConscryptAsDefaultProvider() {
+    public static synchronized void installConscryptAsDefaultProvider() {
         final Provider conscryptProvider = getConscryptProvider();
-        synchronized (getConscryptProvider()) {
-            Provider[] providers = Security.getProviders();
-            if (providers.length == 0 || !providers[0].equals(conscryptProvider)) {
-                Security.insertProviderAt(conscryptProvider, 1);
-                return;
-            }
+        Provider[] providers = Security.getProviders();
+        if (providers.length == 0 || !providers[0].equals(conscryptProvider)) {
+            Security.insertProviderAt(conscryptProvider, 1);
         }
     }
 
@@ -108,7 +187,7 @@ public final class TestUtils {
      */
     public static Class<?> conscryptClass(String simpleName) throws ClassNotFoundException {
         ClassNotFoundException ex = null;
-        for (String packageName : new String[]{"com.android.org.conscrypt", "org.conscrypt"}) {
+        for (String packageName : new String[] {"org.conscrypt", "com.android.org.conscrypt"}) {
             String name = packageName + "." + simpleName;
             try {
                 return Class.forName(name);
@@ -123,7 +202,17 @@ public final class TestUtils {
      * Returns an array containing only {@link #PROTOCOL_TLS_V1_2}.
      */
     public static String[] getProtocols() {
-        return new String[] {PROTOCOL_TLS_V1_2};
+        return PROTOCOLS;
+    }
+
+    private static String[] getProtocolsInternal() {
+        List<String> protocols = new ArrayList<String>();
+        for (String protocol : DESIRED_PROTOCOLS) {
+            if (hasProtocol(getJdkProvider(), protocol)) {
+                protocols.add(protocol);
+            }
+        }
+        return protocols.toArray(new String[protocols.size()]);
     }
 
     public static SSLSocketFactory getJdkSocketFactory() {
@@ -134,10 +223,12 @@ public final class TestUtils {
         return getServerSocketFactory(JDK_PROVIDER);
     }
 
-    static SSLSocketFactory setUseEngineSocket(SSLSocketFactory conscryptFactory, boolean useEngineSocket) {
+    static SSLSocketFactory setUseEngineSocket(
+            SSLSocketFactory conscryptFactory, boolean useEngineSocket) {
         try {
-            Class<?> clazz = conscryptClass("Conscrypt$SocketFactories");
-            Method method = clazz.getMethod("setUseEngineSocket", SSLSocketFactory.class, boolean.class);
+            Class<?> clazz = conscryptClass("Conscrypt");
+            Method method =
+                    clazz.getMethod("setUseEngineSocket", SSLSocketFactory.class, boolean.class);
             method.invoke(null, conscryptFactory, useEngineSocket);
             return conscryptFactory;
         } catch (Exception e) {
@@ -145,10 +236,12 @@ public final class TestUtils {
         }
     }
 
-    static SSLServerSocketFactory setUseEngineSocket(SSLServerSocketFactory conscryptFactory, boolean useEngineSocket) {
+    static SSLServerSocketFactory setUseEngineSocket(
+            SSLServerSocketFactory conscryptFactory, boolean useEngineSocket) {
         try {
-            Class<?> clazz = conscryptClass("Conscrypt$ServerSocketFactories");
-            Method method = clazz.getMethod("setUseEngineSocket", SSLServerSocketFactory.class, boolean.class);
+            Class<?> clazz = conscryptClass("Conscrypt");
+            Method method = clazz.getMethod(
+                    "setUseEngineSocket", SSLServerSocketFactory.class, boolean.class);
             method.invoke(null, conscryptFactory, useEngineSocket);
             return conscryptFactory;
         } catch (Exception e) {
@@ -174,11 +267,40 @@ public final class TestUtils {
         return serverContext.getServerSocketFactory();
     }
 
-    private static SSLContext newContext(Provider provider) {
+    static SSLContext newContext(Provider provider) {
         try {
             return SSLContext.getInstance("TLS", provider);
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    static String[] getCommonCipherSuites() {
+        SSLContext jdkContext =
+                TestUtils.initSslContext(newContext(getJdkProvider()), TestKeyStore.getClient());
+        SSLContext conscryptContext = TestUtils.initSslContext(
+                newContext(getConscryptProvider()), TestKeyStore.getClient());
+        Set<String> supported = new LinkedHashSet<String>();
+        supported.addAll(supportedCiphers(jdkContext));
+        supported.retainAll(supportedCiphers(conscryptContext));
+        filterCiphers(supported);
+
+        return supported.toArray(new String[supported.size()]);
+    }
+
+    private static List<String> supportedCiphers(SSLContext ctx) {
+        return Arrays.asList(ctx.getDefaultSSLParameters().getCipherSuites());
+    }
+
+    private static void filterCiphers(Iterable<String> ciphers) {
+        // Filter all non-TLS ciphers.
+        Iterator<String> iter = ciphers.iterator();
+        while (iter.hasNext()) {
+            String cipher = iter.next();
+            if (cipher.startsWith("SSL_") || cipher.startsWith("TLS_EMPTY")
+                    || cipher.contains("_RC4_")) {
+                iter.remove();
+            }
         }
     }
 
@@ -211,16 +333,6 @@ public final class TestUtils {
             msgIndex += numChars;
         }
         return msg;
-    }
-
-    /**
-     * Initializes the given engine with the cipher and client mode.
-     */
-    static SSLEngine initEngine(SSLEngine engine, String cipher, boolean client) {
-        engine.setEnabledProtocols(getProtocols());
-        engine.setEnabledCipherSuites(new String[] {cipher});
-        engine.setUseClientMode(client);
-        return engine;
     }
 
     static SSLContext newClientSslContext(Provider provider) {
@@ -263,10 +375,12 @@ public final class TestUtils {
      * Performs the intial TLS handshake between the two {@link SSLEngine} instances.
      */
     public static void doEngineHandshake(SSLEngine clientEngine, SSLEngine serverEngine,
-            ByteBuffer clientAppBuffer, ByteBuffer clientPacketBuffer, ByteBuffer serverAppBuffer,
-            ByteBuffer serverPacketBuffer) throws SSLException {
-        clientEngine.beginHandshake();
-        serverEngine.beginHandshake();
+        ByteBuffer clientAppBuffer, ByteBuffer clientPacketBuffer, ByteBuffer serverAppBuffer,
+        ByteBuffer serverPacketBuffer, boolean beginHandshake) throws SSLException {
+        if (beginHandshake) {
+            clientEngine.beginHandshake();
+            serverEngine.beginHandshake();
+        }
 
         SSLEngineResult clientResult;
         SSLEngineResult serverResult;
@@ -317,9 +431,9 @@ public final class TestUtils {
             assertEquals(serverPacketBuffer.position() - sTOcPos, clientResult.bytesConsumed());
             assertEquals(clientPacketBuffer.position() - cTOsPos, serverResult.bytesConsumed());
             assertEquals(clientAppBuffer.position() - clientAppReadBufferPos,
-                    clientResult.bytesProduced());
+                clientResult.bytesProduced());
             assertEquals(serverAppBuffer.position() - serverAppReadBufferPos,
-                    serverResult.bytesProduced());
+                serverResult.bytesProduced());
 
             clientPacketBuffer.compact();
             serverPacketBuffer.compact();
@@ -350,5 +464,86 @@ public final class TestUtils {
                 task.run();
             }
         }
+    }
+
+    /**
+     * Decodes the provided hexadecimal string into a byte array.  Odd-length inputs
+     * are not allowed.
+     *
+     * Throws an {@code IllegalArgumentException} if the input is malformed.
+     */
+    public static byte[] decodeHex(String encoded) throws IllegalArgumentException {
+        return decodeHex(encoded.toCharArray());
+    }
+
+    /**
+     * Decodes the provided hexadecimal string into a byte array. If {@code allowSingleChar}
+     * is {@code true} odd-length inputs are allowed and the first character is interpreted
+     * as the lower bits of the first result byte.
+     *
+     * Throws an {@code IllegalArgumentException} if the input is malformed.
+     */
+    public static byte[] decodeHex(String encoded, boolean allowSingleChar) throws IllegalArgumentException {
+        return decodeHex(encoded.toCharArray(), allowSingleChar);
+    }
+
+    /**
+     * Decodes the provided hexadecimal string into a byte array.  Odd-length inputs
+     * are not allowed.
+     *
+     * Throws an {@code IllegalArgumentException} if the input is malformed.
+     */
+    public static byte[] decodeHex(char[] encoded) throws IllegalArgumentException {
+        return decodeHex(encoded, false);
+    }
+
+    /**
+     * Decodes the provided hexadecimal string into a byte array. If {@code allowSingleChar}
+     * is {@code true} odd-length inputs are allowed and the first character is interpreted
+     * as the lower bits of the first result byte.
+     *
+     * Throws an {@code IllegalArgumentException} if the input is malformed.
+     */
+    public static byte[] decodeHex(char[] encoded, boolean allowSingleChar) throws IllegalArgumentException {
+        int resultLengthBytes = (encoded.length + 1) / 2;
+        byte[] result = new byte[resultLengthBytes];
+
+        int resultOffset = 0;
+        int i = 0;
+        if (allowSingleChar) {
+            if ((encoded.length % 2) != 0) {
+                // Odd number of digits -- the first digit is the lower 4 bits of the first result byte.
+                result[resultOffset++] = (byte) toDigit(encoded, i);
+                i++;
+            }
+        } else {
+            if ((encoded.length % 2) != 0) {
+                throw new IllegalArgumentException("Invalid input length: " + encoded.length);
+            }
+        }
+
+        for (int len = encoded.length; i < len; i += 2) {
+            result[resultOffset++] = (byte) ((toDigit(encoded, i) << 4) | toDigit(encoded, i + 1));
+        }
+
+        return result;
+    }
+
+
+    private static int toDigit(char[] str, int offset) throws IllegalArgumentException {
+        // NOTE: that this isn't really a code point in the traditional sense, since we're
+        // just rejecting surrogate pairs outright.
+        int pseudoCodePoint = str[offset];
+
+        if ('0' <= pseudoCodePoint && pseudoCodePoint <= '9') {
+            return pseudoCodePoint - '0';
+        } else if ('a' <= pseudoCodePoint && pseudoCodePoint <= 'f') {
+            return 10 + (pseudoCodePoint - 'a');
+        } else if ('A' <= pseudoCodePoint && pseudoCodePoint <= 'F') {
+            return 10 + (pseudoCodePoint - 'A');
+        }
+
+        throw new IllegalArgumentException("Illegal char: " + str[offset] +
+                " at offset " + offset);
     }
 }

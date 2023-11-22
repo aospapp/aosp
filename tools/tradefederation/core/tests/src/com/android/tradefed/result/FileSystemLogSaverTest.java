@@ -15,6 +15,8 @@
  */
 package com.android.tradefed.result;
 
+import static org.junit.Assert.*;
+
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.invoker.IInvocationContext;
@@ -23,9 +25,12 @@ import com.android.tradefed.invoker.ShardMasterResultForwarder;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.StreamUtil;
 
-import junit.framework.TestCase;
-
 import org.easymock.EasyMock;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -43,11 +48,11 @@ import java.util.zip.ZipFile;
 
 /**
  * Unit tests for {@link FileSystemLogSaver}.
- * <p>
- * Depends on filesyste I/O.
- * </p>
+ *
+ * <p>Depends on filesyste I/O.
  */
-public class FileSystemLogSaverTest extends TestCase {
+@RunWith(JUnit4.class)
+public class FileSystemLogSaverTest {
     private static final String BUILD_ID = "88888";
     private static final String BRANCH = "somebranch";
     private static final String TEST_TAG = "sometest";
@@ -56,9 +61,8 @@ public class FileSystemLogSaverTest extends TestCase {
     private IBuildInfo mMockBuild;
     private IInvocationContext mContext;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mReportDir = FileUtil.createTempDir("tmpdir");
 
         mMockBuild = EasyMock.createMock(IBuildInfo.class);
@@ -71,15 +75,13 @@ public class FileSystemLogSaverTest extends TestCase {
         mContext.setTestTag(TEST_TAG);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         FileUtil.recursiveDelete(mReportDir);
-        super.tearDown();
     }
 
-    /**
-     * Test that a unique directory is created
-     */
+    /** Test that a unique directory is created */
+    @Test
     public void testGetFileDir() {
         FileSystemLogSaver saver = new FileSystemLogSaver();
         saver.setReportDir(mReportDir);
@@ -111,9 +113,8 @@ public class FileSystemLogSaverTest extends TestCase {
         assertEquals(0, tagDir.compareTo(newTagDir));
     }
 
-    /**
-     * Test that a unique directory is created when no branch is specified
-     */
+    /** Test that a unique directory is created when no branch is specified */
+    @Test
     public void testGetFileDir_nobranch() {
         IBuildInfo mockBuild = EasyMock.createMock(IBuildInfo.class);
         EasyMock.expect(mockBuild.getBuildBranch()).andReturn(null).anyTimes();
@@ -137,9 +138,8 @@ public class FileSystemLogSaverTest extends TestCase {
         assertEquals(0, mReportDir.compareTo(buildDir.getParentFile()));
     }
 
-    /**
-     * Test that retention file creation
-     */
+    /** Test that retention file creation */
+    @Test
     @SuppressWarnings("deprecation")
     public void testGetFileDir_retention() throws IOException, ParseException {
         FileSystemLogSaver saver = new FileSystemLogSaver();
@@ -159,9 +159,10 @@ public class FileSystemLogSaverTest extends TestCase {
     }
 
     /**
-     * Test saving uncompressed data for
-     * {@link FileSystemLogSaver#saveLogData(String, LogDataType, InputStream)}.
+     * Test saving uncompressed data for {@link FileSystemLogSaver#saveLogData(String, LogDataType,
+     * InputStream)}.
      */
+    @Test
     public void testSaveLogData_uncompressed() throws IOException {
         LogFile logFile = null;
         ZipFile zipFile = null;
@@ -193,9 +194,10 @@ public class FileSystemLogSaverTest extends TestCase {
     }
 
     /**
-     * Test saving compressed data for
-     * {@link FileSystemLogSaver#saveLogDataRaw(String, String, InputStream)}.
+     * Test saving compressed data for {@link FileSystemLogSaver#saveLogDataRaw(String, LogDataType,
+     * InputStream)}.
      */
+    @Test
     public void testSaveLogData_compressed() throws IOException {
         LogFile logFile = null;
         BufferedReader logFileReader = null;
@@ -220,9 +222,10 @@ public class FileSystemLogSaverTest extends TestCase {
     }
 
     /**
-     * Simple normal case test for
-     * {@link FileSystemLogSaver#saveLogDataRaw(String, String, InputStream)}.
+     * Simple normal case test for {@link FileSystemLogSaver#saveLogDataRaw(String, LogDataType,
+     * InputStream)}.
      */
+    @Test
     public void testSaveLogDataRaw() throws IOException {
         LogFile logFile = null;
         BufferedReader logFileReader = null;
@@ -234,8 +237,7 @@ public class FileSystemLogSaverTest extends TestCase {
 
             final String testData = "Here's some test data, blah";
             ByteArrayInputStream mockInput = new ByteArrayInputStream(testData.getBytes());
-            logFile = saver.saveLogDataRaw("testSaveLogData", LogDataType.TEXT.getFileExt(),
-                    mockInput);
+            logFile = saver.saveLogDataRaw("testSaveLogData", LogDataType.TEXT, mockInput);
 
             // Verify test data was written to file
             logFileReader = new BufferedReader(new FileReader(new File(logFile.getPath())));
@@ -251,6 +253,7 @@ public class FileSystemLogSaverTest extends TestCase {
      * Test running the log saver in sharded environment, only one reporting folder should be
      * created.
      */
+    @Test
     public void testCreateReportDirectory_sharded() throws Exception {
         final int shardCount = 5;
         FileSystemLogSaver saver = new FileSystemLogSaver();
@@ -259,7 +262,7 @@ public class FileSystemLogSaverTest extends TestCase {
         saver.invocationStarted(mContext);
         ShardMasterResultForwarder master =
                 new ShardMasterResultForwarder(
-                        saver, new ArrayList<ITestInvocationListener>(), shardCount);
+                        new ArrayList<ITestInvocationListener>(), shardCount);
         for (int i = 0; i < shardCount; i++) {
             master.invocationStarted(mContext);
         }

@@ -17,19 +17,38 @@
 #define LOG_TAG "Minikin"
 
 #include <libxml/tree.h>
+#include <log/log.h>
 #include <unistd.h>
 
-#include <log/log.h>
+#include "minikin/FontCollection.h"
+#include "minikin/FontFamily.h"
+#include "minikin/LocaleList.h"
 
-#include "FontLanguage.h"
-#include "MinikinFontForTest.h"
-#include <minikin/FontCollection.h>
-#include <minikin/FontFamily.h>
+#include "FontTestUtils.h"
+#include "FreeTypeMinikinFontForTest.h"
+#include "LocaleListCache.h"
+#include "MinikinInternal.h"
 
 namespace minikin {
 
-std::vector<std::shared_ptr<FontFamily>> getFontFamilies(const char* fontDir, const char* fontXml) {
-    xmlDoc* doc = xmlReadFile(fontXml, NULL, 0);
+namespace {
+std::string xmlTrim(const std::string& in) {
+    if (in.empty()) {
+        return in;
+    }
+    const char XML_SPACES[] = "\u0020\u000D\u000A\u0009";
+    const size_t start = in.find_first_not_of(XML_SPACES);  // inclusive
+    const size_t end = in.find_last_not_of(XML_SPACES);     // inclusive
+    MINIKIN_ASSERT(start != std::string::npos, "Not a valid file name \"%s\"", in.c_str());
+    MINIKIN_ASSERT(end != std::string::npos, "Not a valid file name \"%s\"", in.c_str());
+    return in.substr(start, end - start + 1 /* +1 since end is inclusive */);
+}
+
+}  // namespace
+
+std::vector<std::shared_ptr<FontFamily>> getFontFamilies(const std::string& fontDir,
+                                                         const std::string& xmlPath) {
+    xmlDoc* doc = xmlReadFile(xmlPath.c_str(), NULL, 0);
     xmlNode* familySet = xmlDocGetRootElement(doc);
 
     std::vector<std::shared_ptr<FontFamily>> families;
@@ -39,12 +58,12 @@ std::vector<std::shared_ptr<FontFamily>> getFontFamilies(const char* fontDir, co
         }
 
         xmlChar* variantXmlch = xmlGetProp(familyNode, (const xmlChar*)"variant");
-        int variant = VARIANT_DEFAULT;
+        FontFamily::Variant variant = FontFamily::Variant::DEFAULT;
         if (variantXmlch) {
             if (xmlStrcmp(variantXmlch, (const xmlChar*)"elegant") == 0) {
-                variant = VARIANT_ELEGANT;
+                variant = FontFamily::Variant::ELEGANT;
             } else if (xmlStrcmp(variantXmlch, (const xmlChar*)"compact") == 0) {
-                variant = VARIANT_COMPACT;
+                variant = FontFamily::Variant::COMPACT;
             }
         }
 
@@ -54,28 +73,33 @@ std::vector<std::shared_ptr<FontFamily>> getFontFamilies(const char* fontDir, co
                 continue;
             }
 
-            int weight = atoi((const char*)(xmlGetProp(fontNode, (const xmlChar*)"weight"))) / 100;
-            bool italic = xmlStrcmp(
-                    xmlGetProp(fontNode, (const xmlChar*)"style"), (const xmlChar*)"italic") == 0;
+            uint16_t weight = atoi((const char*)(xmlGetProp(fontNode, (const xmlChar*)"weight")));
+            FontStyle::Slant italic = static_cast<FontStyle::Slant>(
+                    xmlStrcmp(xmlGetProp(fontNode, (const xmlChar*)"style"),
+                              (const xmlChar*)"italic") == 0);
             xmlChar* index = xmlGetProp(familyNode, (const xmlChar*)"index");
 
             xmlChar* fontFileName = xmlNodeListGetString(doc, fontNode->xmlChildrenNode, 1);
-            std::string fontPath = fontDir + std::string((const char*)fontFileName);
+            const std::string fontPath = xmlTrim(fontDir + std::string((const char*)fontFileName));
             xmlFree(fontFileName);
+
+            // TODO: Support font variation axis.
 
             if (access(fontPath.c_str(), R_OK) != 0) {
                 ALOGW("%s is not found.", fontPath.c_str());
                 continue;
             }
 
+            FontStyle style(weight, italic);
             if (index == nullptr) {
                 std::shared_ptr<MinikinFont> minikinFont =
-                        std::make_shared<MinikinFontForTest>(fontPath);
-                fonts.push_back(Font(minikinFont, FontStyle(weight, italic)));
+                        std::make_shared<FreeTypeMinikinFontForTest>(fontPath);
+                fonts.push_back(Font::Builder(minikinFont).setStyle(style).build());
             } else {
                 std::shared_ptr<MinikinFont> minikinFont =
-                        std::make_shared<MinikinFontForTest>(fontPath, atoi((const char*)index));
-                fonts.push_back(Font(minikinFont, FontStyle(weight, italic)));
+                        std::make_shared<FreeTypeMinikinFontForTest>(fontPath,
+                                                                     atoi((const char*)index));
+                fonts.push_back(Font::Builder(minikinFont).setStyle(style).build());
             }
         }
 
@@ -84,8 +108,7 @@ std::vector<std::shared_ptr<FontFamily>> getFontFamilies(const char* fontDir, co
         if (lang == nullptr) {
             family = std::make_shared<FontFamily>(variant, std::move(fonts));
         } else {
-            uint32_t langId = FontStyle::registerLanguageList(
-                    std::string((const char*)lang, xmlStrlen(lang)));
+            uint32_t langId = registerLocaleList(std::string((const char*)lang, xmlStrlen(lang)));
             family = std::make_shared<FontFamily>(langId, variant, std::move(fonts));
         }
         families.push_back(family);
@@ -93,8 +116,24 @@ std::vector<std::shared_ptr<FontFamily>> getFontFamilies(const char* fontDir, co
     xmlFreeDoc(doc);
     return families;
 }
-std::shared_ptr<FontCollection> getFontCollection(const char* fontDir, const char* fontXml) {
-    return std::make_shared<FontCollection>(getFontFamilies(fontDir, fontXml));
+
+std::shared_ptr<FontCollection> buildFontCollection(const std::string& filePath) {
+    return std::make_shared<FontCollection>(buildFontFamily(filePath));
+}
+
+std::shared_ptr<FontFamily> buildFontFamily(const std::string& filePath) {
+    auto font = std::make_shared<FreeTypeMinikinFontForTest>(getTestFontPath(filePath));
+    std::vector<Font> fonts;
+    fonts.push_back(Font::Builder(font).build());
+    return std::make_shared<FontFamily>(std::move(fonts));
+}
+
+std::shared_ptr<FontFamily> buildFontFamily(const std::string& filePath, const std::string& lang) {
+    auto font = std::make_shared<FreeTypeMinikinFontForTest>(getTestFontPath(filePath));
+    std::vector<Font> fonts;
+    fonts.push_back(Font::Builder(font).build());
+    return std::make_shared<FontFamily>(LocaleListCache::getId(lang), FontFamily::Variant::DEFAULT,
+                                        std::move(fonts));
 }
 
 }  // namespace minikin

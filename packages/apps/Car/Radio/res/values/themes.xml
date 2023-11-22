@@ -15,7 +15,10 @@ limitations under the License.
 -->
 <resources>
     <!-- The theme of the main radio display. -->
-    <style name="CarRadioAppTheme" parent="CarDrawerActivityTheme">
+    <style name="CarRadioAppTheme" parent="Theme.Car.Light.NoActionBar.Drawer">
+        <item name="android:colorAccent">@color/car_radio_accent_color</item>
+        <item name="android:colorPrimary">@android:color/transparent</item>
+        <item name="android:colorPrimaryDark">@color/car_radio_bg_color</item>
         <item name="android:statusBarColor">@color/car_radio_bg_color</item>
         <item name="colorAccent">@color/car_radio_accent_color</item>
     </style>

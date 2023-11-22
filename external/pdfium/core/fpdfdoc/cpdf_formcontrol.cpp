@@ -20,7 +20,7 @@
 
 namespace {
 
-const FX_CHAR* const g_sHighlightingMode[] = {
+const char* const g_sHighlightingMode[] = {
     // Must match order of HighlightingMode enum.
     "N", "I", "O", "P", "T"};
 
@@ -30,12 +30,14 @@ CPDF_FormControl::CPDF_FormControl(CPDF_FormField* pField,
                                    CPDF_Dictionary* pWidgetDict)
     : m_pField(pField),
       m_pWidgetDict(pWidgetDict),
-      m_pForm(m_pField->m_pForm) {}
+      m_pForm(m_pField->GetForm()) {}
 
-CFX_ByteString CPDF_FormControl::GetOnStateName() const {
+CPDF_FormControl::~CPDF_FormControl() {}
+
+ByteString CPDF_FormControl::GetOnStateName() const {
   ASSERT(GetType() == CPDF_FormField::CheckBox ||
          GetType() == CPDF_FormField::RadioButton);
-  CFX_ByteString csOn;
+  ByteString csOn;
   CPDF_Dictionary* pAP = m_pWidgetDict->GetDictFor("AP");
   if (!pAP)
     return csOn;
@@ -48,19 +50,19 @@ CFX_ByteString CPDF_FormControl::GetOnStateName() const {
     if (it.first != "Off")
       return it.first;
   }
-  return CFX_ByteString();
+  return ByteString();
 }
 
-void CPDF_FormControl::SetOnStateName(const CFX_ByteString& csOn) {
+void CPDF_FormControl::SetOnStateName(const ByteString& csOn) {
   ASSERT(GetType() == CPDF_FormField::CheckBox ||
          GetType() == CPDF_FormField::RadioButton);
-  CFX_ByteString csValue = csOn;
+  ByteString csValue = csOn;
   if (csValue.IsEmpty())
     csValue = "Yes";
   else if (csValue == "Off")
     csValue = "Yes";
 
-  CFX_ByteString csAS = m_pWidgetDict->GetStringFor("AS", "Off");
+  ByteString csAS = m_pWidgetDict->GetStringFor("AS", "Off");
   if (csAS != "Off")
     m_pWidgetDict->SetNewFor<CPDF_Name>("AS", csValue);
 
@@ -80,7 +82,7 @@ void CPDF_FormControl::SetOnStateName(const CFX_ByteString& csOn) {
 
     auto subdict_it = pSubDict->begin();
     while (subdict_it != pSubDict->end()) {
-      const CFX_ByteString& csKey2 = subdict_it->first;
+      const ByteString& csKey2 = subdict_it->first;
       CPDF_Object* pObj2 = subdict_it->second.get();
       ++subdict_it;
       if (!pObj2)
@@ -93,30 +95,28 @@ void CPDF_FormControl::SetOnStateName(const CFX_ByteString& csOn) {
   }
 }
 
-CFX_ByteString CPDF_FormControl::GetCheckedAPState() {
+ByteString CPDF_FormControl::GetCheckedAPState() {
   ASSERT(GetType() == CPDF_FormField::CheckBox ||
          GetType() == CPDF_FormField::RadioButton);
-  CFX_ByteString csOn = GetOnStateName();
+  ByteString csOn = GetOnStateName();
   if (GetType() == CPDF_FormField::RadioButton ||
       GetType() == CPDF_FormField::CheckBox) {
-    if (ToArray(FPDF_GetFieldAttr(m_pField->m_pDict, "Opt"))) {
-      int iIndex = m_pField->GetControlIndex(this);
-      csOn.Format("%d", iIndex);
-    }
+    if (ToArray(FPDF_GetFieldAttr(m_pField->GetDict(), "Opt")))
+      csOn = ByteString::Format("%d", m_pField->GetControlIndex(this));
   }
   if (csOn.IsEmpty())
     csOn = "Yes";
   return csOn;
 }
 
-CFX_WideString CPDF_FormControl::GetExportValue() const {
+WideString CPDF_FormControl::GetExportValue() const {
   ASSERT(GetType() == CPDF_FormField::CheckBox ||
          GetType() == CPDF_FormField::RadioButton);
-  CFX_ByteString csOn = GetOnStateName();
+  ByteString csOn = GetOnStateName();
   if (GetType() == CPDF_FormField::RadioButton ||
       GetType() == CPDF_FormField::CheckBox) {
     if (CPDF_Array* pArray =
-            ToArray(FPDF_GetFieldAttr(m_pField->m_pDict, "Opt"))) {
+            ToArray(FPDF_GetFieldAttr(m_pField->GetDict(), "Opt"))) {
       int iIndex = m_pField->GetControlIndex(this);
       csOn = pArray->GetStringAt(iIndex);
     }
@@ -129,29 +129,29 @@ CFX_WideString CPDF_FormControl::GetExportValue() const {
 bool CPDF_FormControl::IsChecked() const {
   ASSERT(GetType() == CPDF_FormField::CheckBox ||
          GetType() == CPDF_FormField::RadioButton);
-  CFX_ByteString csOn = GetOnStateName();
-  CFX_ByteString csAS = m_pWidgetDict->GetStringFor("AS");
+  ByteString csOn = GetOnStateName();
+  ByteString csAS = m_pWidgetDict->GetStringFor("AS");
   return csAS == csOn;
 }
 
 bool CPDF_FormControl::IsDefaultChecked() const {
   ASSERT(GetType() == CPDF_FormField::CheckBox ||
          GetType() == CPDF_FormField::RadioButton);
-  CPDF_Object* pDV = FPDF_GetFieldAttr(m_pField->m_pDict, "DV");
+  CPDF_Object* pDV = FPDF_GetFieldAttr(m_pField->GetDict(), "DV");
   if (!pDV)
     return false;
 
-  CFX_ByteString csDV = pDV->GetString();
-  CFX_ByteString csOn = GetOnStateName();
+  ByteString csDV = pDV->GetString();
+  ByteString csOn = GetOnStateName();
   return (csDV == csOn);
 }
 
 void CPDF_FormControl::CheckControl(bool bChecked) {
   ASSERT(GetType() == CPDF_FormField::CheckBox ||
          GetType() == CPDF_FormField::RadioButton);
-  CFX_ByteString csOn = GetOnStateName();
-  CFX_ByteString csOldAS = m_pWidgetDict->GetStringFor("AS", "Off");
-  CFX_ByteString csAS = "Off";
+  ByteString csOn = GetOnStateName();
+  ByteString csOldAS = m_pWidgetDict->GetStringFor("AS", "Off");
+  ByteString csAS = "Off";
   if (bChecked)
     csAS = csOn;
   if (csOldAS == csAS)
@@ -167,20 +167,20 @@ void CPDF_FormControl::DrawControl(CFX_RenderDevice* pDevice,
   if (m_pWidgetDict->GetIntegerFor("F") & ANNOTFLAG_HIDDEN)
     return;
 
-  CPDF_Stream* pStream = FPDFDOC_GetAnnotAP(m_pWidgetDict, mode);
+  CPDF_Stream* pStream = FPDFDOC_GetAnnotAP(m_pWidgetDict.Get(), mode);
   if (!pStream)
     return;
 
-  CFX_FloatRect form_bbox = pStream->GetDict()->GetRectFor("BBox");
   CFX_Matrix form_matrix = pStream->GetDict()->GetMatrixFor("Matrix");
-  form_matrix.TransformRect(form_bbox);
+  CFX_FloatRect form_bbox =
+      form_matrix.TransformRect(pStream->GetDict()->GetRectFor("BBox"));
   CFX_FloatRect arect = m_pWidgetDict->GetRectFor("Rect");
   CFX_Matrix matrix;
   matrix.MatchRect(arect, form_bbox);
   matrix.Concat(*pMatrix);
-  CPDF_Form form(m_pField->m_pForm->m_pDocument,
-                 m_pField->m_pForm->m_pFormDict->GetDictFor("DR"), pStream);
-  form.ParseContent(nullptr, nullptr, nullptr);
+  CPDF_Form form(m_pField->GetForm()->GetDocument(),
+                 m_pField->GetForm()->GetFormDict()->GetDictFor("DR"), pStream);
+  form.ParseContent();
   CPDF_RenderContext context(pPage);
   context.AppendLayer(&form, &matrix);
   context.Render(pDevice, pOptions, nullptr);
@@ -190,7 +190,7 @@ CPDF_FormControl::HighlightingMode CPDF_FormControl::GetHighlightingMode() {
   if (!m_pWidgetDict)
     return Invert;
 
-  CFX_ByteString csH = m_pWidgetDict->GetStringFor("H", "I");
+  ByteString csH = m_pWidgetDict->GetStringFor("H", "I");
   for (size_t i = 0; i < FX_ArraySize(g_sHighlightingMode); ++i) {
     if (csH == g_sHighlightingMode[i])
       return static_cast<HighlightingMode>(i);
@@ -203,7 +203,7 @@ CPDF_ApSettings CPDF_FormControl::GetMK() const {
                                        : nullptr);
 }
 
-bool CPDF_FormControl::HasMKEntry(const CFX_ByteString& csEntry) const {
+bool CPDF_FormControl::HasMKEntry(const ByteString& csEntry) const {
   return GetMK().HasMKEntry(csEntry);
 }
 
@@ -211,27 +211,25 @@ int CPDF_FormControl::GetRotation() {
   return GetMK().GetRotation();
 }
 
-FX_ARGB CPDF_FormControl::GetColor(int& iColorType,
-                                   const CFX_ByteString& csEntry) {
+FX_ARGB CPDF_FormControl::GetColor(int& iColorType, const ByteString& csEntry) {
   return GetMK().GetColor(iColorType, csEntry);
 }
 
-FX_FLOAT CPDF_FormControl::GetOriginalColor(int index,
-                                            const CFX_ByteString& csEntry) {
+float CPDF_FormControl::GetOriginalColor(int index, const ByteString& csEntry) {
   return GetMK().GetOriginalColor(index, csEntry);
 }
 
 void CPDF_FormControl::GetOriginalColor(int& iColorType,
-                                        FX_FLOAT fc[4],
-                                        const CFX_ByteString& csEntry) {
+                                        float fc[4],
+                                        const ByteString& csEntry) {
   GetMK().GetOriginalColor(iColorType, fc, csEntry);
 }
 
-CFX_WideString CPDF_FormControl::GetCaption(const CFX_ByteString& csEntry) {
+WideString CPDF_FormControl::GetCaption(const ByteString& csEntry) {
   return GetMK().GetCaption(csEntry);
 }
 
-CPDF_Stream* CPDF_FormControl::GetIcon(const CFX_ByteString& csEntry) {
+CPDF_Stream* CPDF_FormControl::GetIcon(const ByteString& csEntry) {
   return GetMK().GetIcon(csEntry);
 }
 
@@ -245,21 +243,18 @@ int CPDF_FormControl::GetTextPosition() {
 
 CPDF_Action CPDF_FormControl::GetAction() {
   if (!m_pWidgetDict)
-    return CPDF_Action();
+    return CPDF_Action(nullptr);
 
   if (m_pWidgetDict->KeyExist("A"))
     return CPDF_Action(m_pWidgetDict->GetDictFor("A"));
 
-  CPDF_Object* pObj = FPDF_GetFieldAttr(m_pField->m_pDict, "A");
-  if (!pObj)
-    return CPDF_Action();
-
-  return CPDF_Action(pObj->GetDict());
+  CPDF_Object* pObj = FPDF_GetFieldAttr(m_pField->GetDict(), "A");
+  return CPDF_Action(pObj ? pObj->GetDict() : nullptr);
 }
 
 CPDF_AAction CPDF_FormControl::GetAdditionalAction() {
   if (!m_pWidgetDict)
-    return CPDF_AAction();
+    return CPDF_AAction(nullptr);
 
   if (m_pWidgetDict->KeyExist("AA"))
     return CPDF_AAction(m_pWidgetDict->GetDictFor("AA"));
@@ -273,33 +268,33 @@ CPDF_DefaultAppearance CPDF_FormControl::GetDefaultAppearance() {
   if (m_pWidgetDict->KeyExist("DA"))
     return CPDF_DefaultAppearance(m_pWidgetDict->GetStringFor("DA"));
 
-  CPDF_Object* pObj = FPDF_GetFieldAttr(m_pField->m_pDict, "DA");
+  CPDF_Object* pObj = FPDF_GetFieldAttr(m_pField->GetDict(), "DA");
   if (pObj)
     return CPDF_DefaultAppearance(pObj->GetString());
-  return m_pField->m_pForm->GetDefaultAppearance();
+  return m_pField->GetForm()->GetDefaultAppearance();
 }
 
 CPDF_Font* CPDF_FormControl::GetDefaultControlFont() {
+  float fFontSize;
   CPDF_DefaultAppearance cDA = GetDefaultAppearance();
-  CFX_ByteString csFontNameTag;
-  FX_FLOAT fFontSize;
-  cDA.GetFont(csFontNameTag, fFontSize);
+  ByteString csFontNameTag = cDA.GetFont(&fFontSize);
   if (csFontNameTag.IsEmpty())
     return nullptr;
 
-  CPDF_Object* pObj = FPDF_GetFieldAttr(m_pWidgetDict, "DR");
+  CPDF_Object* pObj = FPDF_GetFieldAttr(m_pWidgetDict.Get(), "DR");
   if (CPDF_Dictionary* pDict = ToDictionary(pObj)) {
     CPDF_Dictionary* pFonts = pDict->GetDictFor("Font");
     if (pFonts) {
       CPDF_Dictionary* pElement = pFonts->GetDictFor(csFontNameTag);
       if (pElement) {
-        CPDF_Font* pFont = m_pField->m_pForm->m_pDocument->LoadFont(pElement);
+        CPDF_Font* pFont =
+            m_pField->GetForm()->GetDocument()->LoadFont(pElement);
         if (pFont)
           return pFont;
       }
     }
   }
-  if (CPDF_Font* pFormFont = m_pField->m_pForm->GetFormFont(csFontNameTag))
+  if (CPDF_Font* pFormFont = m_pField->GetForm()->GetFormFont(csFontNameTag))
     return pFormFont;
 
   CPDF_Dictionary* pPageDict = m_pWidgetDict->GetDictFor("P");
@@ -309,7 +304,8 @@ CPDF_Font* CPDF_FormControl::GetDefaultControlFont() {
     if (pFonts) {
       CPDF_Dictionary* pElement = pFonts->GetDictFor(csFontNameTag);
       if (pElement) {
-        CPDF_Font* pFont = m_pField->m_pForm->m_pDocument->LoadFont(pElement);
+        CPDF_Font* pFont =
+            m_pField->GetForm()->GetDocument()->LoadFont(pElement);
         if (pFont)
           return pFont;
       }
@@ -324,8 +320,8 @@ int CPDF_FormControl::GetControlAlignment() {
   if (m_pWidgetDict->KeyExist("Q"))
     return m_pWidgetDict->GetIntegerFor("Q", 0);
 
-  CPDF_Object* pObj = FPDF_GetFieldAttr(m_pField->m_pDict, "Q");
+  CPDF_Object* pObj = FPDF_GetFieldAttr(m_pField->GetDict(), "Q");
   if (pObj)
     return pObj->GetInteger();
-  return m_pField->m_pForm->GetFormAlignment();
+  return m_pField->GetForm()->GetFormAlignment();
 }

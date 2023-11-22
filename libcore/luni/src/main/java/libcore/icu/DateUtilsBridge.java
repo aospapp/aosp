@@ -151,6 +151,16 @@ public final class DateUtilsBridge {
     return c2.get(Calendar.JULIAN_DAY) - c1.get(Calendar.JULIAN_DAY);
   }
 
+  /**
+   * Returns whether the argument will be displayed as if it were midnight, using any of the
+   * skeletons provided by {@link #toSkeleton}.
+   */
+  public static boolean isDisplayMidnightUsingSkeleton(Calendar c) {
+    // All the skeletons returned by toSkeleton have minute precision (they may abbreviate 4:00 PM
+    // to 4 PM but will still show the following minute as 4:01 PM).
+    return c.get(Calendar.HOUR_OF_DAY) == 0 && c.get(Calendar.MINUTE) == 0;
+  }
+
   private static boolean onTheHour(Calendar c) {
     return c.get(Calendar.MINUTE) == 0 && c.get(Calendar.SECOND) == 0;
   }

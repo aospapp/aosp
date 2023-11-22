@@ -16,5 +16,7 @@
 -->
 
 <resources>
-    <color name="iconColor">#009688</color>
+    <!-- Ensure this color matches material_deep_teal_500 and accent_device_default_light
+         in frameworks/base/core/res/res/values -->
+    <color name="iconColor">#008577</color>
 </resources>

@@ -15,12 +15,17 @@ import static android.icu.impl.LocaleDisplayNamesImpl.DataTableType.REGION;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.impl.LocaleDisplayNamesImpl;
 import android.icu.text.LocaleDisplayNames;
 import android.icu.text.LocaleDisplayNames.DialectHandling;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class TestLocaleNamePackaging extends TestFmwk {
     public TestLocaleNamePackaging() {
     }
@@ -78,7 +83,7 @@ public class TestLocaleNamePackaging extends TestFmwk {
             "DE",
             "TH",
         };
-        String[] expected = LocaleDisplayNamesImpl.haveData(REGION) ? 
+        String[] expected = LocaleDisplayNamesImpl.haveData(REGION) ?
             expectedWithRegionData : expectedWithoutRegionData;
 
         int n = 0;
@@ -225,15 +230,15 @@ public class TestLocaleNamePackaging extends TestFmwk {
                : "en (GB)");
         assertEquals("dialect 2", target, dn.localeDisplayName("en_GB"));
     }
-    
+
     @Test
     public void testLocaleKeywords() {
         LocaleDisplayNames dn = LocaleDisplayNames.getInstance(ULocale.US,
                 DialectHandling.DIALECT_NAMES);
         String name = dn.localeDisplayName("de@collation=phonebook");
-        String target = LocaleDisplayNamesImpl.haveData(LANG) ? 
+        String target = LocaleDisplayNamesImpl.haveData(LANG) ?
                 "German (Phonebook Sort Order)" : "de (collation=phonebook)";
         assertEquals("collation", target, name);
-        
+
     }
 }

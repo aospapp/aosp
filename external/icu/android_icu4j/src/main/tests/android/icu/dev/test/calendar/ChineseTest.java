@@ -11,6 +11,8 @@ import java.util.Date;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.text.ChineseDateFormat;
 import android.icu.text.DateFormat;
@@ -21,6 +23,7 @@ import android.icu.util.ChineseCalendar;
 import android.icu.util.GregorianCalendar;
 import android.icu.util.TimeZone;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Test of ChineseCalendar.
@@ -64,6 +67,8 @@ import android.icu.util.ULocale;
  * Tue May 22 2096 = 4733-04*-01, Year 53, Cycle 79
  * Sun Mar 22 2099 = 4736-02*-01, Year 56, Cycle 79
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class ChineseTest extends CalendarTestFmwk {
     /**
      * Test basic mapping to and from Gregorian.
@@ -80,7 +85,7 @@ public class ChineseTest extends CalendarTestFmwk {
             1964,  9,  7,   4601,  8,0,  2,
             1961, 12, 25,   4598, 11,0, 18,
             1999,  6,  4,   4636,  4,0, 21,
-            
+
             1990,  5, 23,   4627,  4,0, 29,
             1990,  5, 24,   4627,  5,0,  1,
             1990,  6, 22,   4627,  5,0, 30,
@@ -206,7 +211,7 @@ public class ChineseTest extends CalendarTestFmwk {
             // ** Millis->fields gives 0-based month -1
             // These failures were fixed by changing the start search date
             // for the winter solstice from Dec 15 to Dec 1.
-            // 
+            //
             //                  Julian Day   Era  Year Month  Leap   DOM WkDay
             new ChineseTestCase(1507231.5,   35,   11,    6, false,   12,  SUN),
             new ChineseTestCase(1660037.5,   42,    9,   10, false,   27,  WED),
@@ -223,7 +228,7 @@ public class ChineseTest extends CalendarTestFmwk {
             new ChineseTestCase(2195261.5,   66,   35,    3, false,    9,  SUN), //*
             new ChineseTestCase(2229274.5,   68,    8,    5, false,    2,  SUN), //*
             new ChineseTestCase(2245580.5,   68,   53,    1, false,    8,  WED), //**
-            new ChineseTestCase(2266100.5,   69,   49,    3, false,    4,  SAT), 
+            new ChineseTestCase(2266100.5,   69,   49,    3, false,    4,  SAT),
             new ChineseTestCase(2288542.5,   70,   50,    8, false,    2,  SAT), //*
             new ChineseTestCase(2290901.5,   70,   57,    1, false,   29,  SAT), //*
             new ChineseTestCase(2323140.5,   72,   25,    4,  true,   20,  WED), //*
@@ -269,14 +274,14 @@ public class ChineseTest extends CalendarTestFmwk {
 
         java.util.Calendar tempcal = java.util.Calendar.getInstance();
         tempcal.clear();
-        
+
         Date[] DATA = new Date[2];
         tempcal.set(2001, Calendar.MAY, 22);
         DATA[0] = tempcal.getTime();
         tempcal.set(2001, Calendar.MAY, 23);
         DATA[1] = tempcal.getTime();
         // Wed May 23 2001 = Month 4(leap), Day 1, Year 18, Cycle 78
-        
+
         for (int i=0; i<DATA.length; ++i) {
             String s = fmt.format(DATA[i]);
             try {
@@ -316,14 +321,14 @@ public class ChineseTest extends CalendarTestFmwk {
             Calendar.DAY_OF_YEAR, 1,
             END,
             1,0,1, // Expect 1-1
-            
+
             // If we set MONTH only, that should be used
             Calendar.IS_LEAP_MONTH, 1,
             Calendar.DAY_OF_MONTH, 1,
             Calendar.MONTH, 3,
             END,
             4,1,1, // Expect 4*-1
-            
+
             // If we set the DOY last, that should take precedence
             Calendar.MONTH, 1, // Should ignore
             Calendar.IS_LEAP_MONTH, 1, // Should ignore
@@ -331,7 +336,7 @@ public class ChineseTest extends CalendarTestFmwk {
             Calendar.DAY_OF_YEAR, 121,
             END,
             4,1,2, // Expect 4*-2
-            
+
             // I've disabled this test because it doesn't work this way,
             // not even with a GregorianCalendar!  MONTH alone isn't enough
             // to supersede DAY_OF_YEAR.  Some other month-related field is
@@ -343,7 +348,7 @@ public class ChineseTest extends CalendarTestFmwk {
             //! Calendar.MONTH, 3,
             //! END,
             //! 4,1,1, // Expect 4*-1
-            
+
             // If we set IS_LEAP_MONTH last, that should take precedence
             Calendar.MONTH, 3,
             Calendar.DAY_OF_MONTH, 1,
@@ -449,7 +454,7 @@ public class ChineseTest extends CalendarTestFmwk {
             {  4638,   4,0,  30,   MONTH,   2,   4638,   5,0,  30 }, // no dom pin
             {  4638,   4,0,  30,   MONTH,   3,   4638,   6,0,  29 }, // dom should pin
         };
-       
+
         ChineseCalendar cal = new ChineseCalendar();
         doRollAdd(ADD, cal, tests);
     }
@@ -481,14 +486,14 @@ public class ChineseTest extends CalendarTestFmwk {
             {  4638,   4,0,  30,   MONTH,  15,   4638,   5,0,  30 }, // no dom pin
             {  4638,   4,0,  30,   MONTH, -10,   4638,   6,0,  29 }, // dom should pin
         };
-       
+
         ChineseCalendar cal = new ChineseCalendar();
         doRollAdd(ROLL, cal, tests);
     }
-    
+
     void doRollAdd(boolean roll, ChineseCalendar cal, int[][] tests) {
         String name = roll ? "rolling" : "adding";
-        
+
         for (int i = 0; i < tests.length; i++) {
             int[] test = tests[i];
 
@@ -602,11 +607,11 @@ public class ChineseTest extends CalendarTestFmwk {
                 errln("could not create ChineseCalendar with ULocale");
             }
         }
-        
+
 
         {
             // new ChineseCalendar(TimeZone)
-            ChineseCalendar cal = new ChineseCalendar(TimeZone.getDefault()); 
+            ChineseCalendar cal = new ChineseCalendar(TimeZone.getDefault());
             if(cal == null){
                 errln("could not create ChineseCalendar with TimeZone");
             }
@@ -690,7 +695,7 @@ public class ChineseTest extends CalendarTestFmwk {
         // if the chinese calendar current millis isn't called, the default year is wrong.
         // this test is assuming the 'year' is the current cycle
         // so when we cross a cycle boundary, the target will need to change
-        // that shouldn't be for awhile yet... 
+        // that shouldn't be for awhile yet...
 
         ChineseCalendar cc = new ChineseCalendar();
         cc.set(Calendar.YEAR, 22);
@@ -705,7 +710,7 @@ public class ChineseTest extends CalendarTestFmwk {
         cc.set(Calendar.MILLISECOND, 0);
 
         cc.add(Calendar.DATE, 1);
- 
+
         Calendar cal = new GregorianCalendar(2005, Calendar.FEBRUARY, 28);
         Date target = cal.getTime();
         Date result = cc.getTime();
@@ -714,38 +719,38 @@ public class ChineseTest extends CalendarTestFmwk {
     }
 
     @Test
-    public void Test6510() 
-    { 
-        Calendar gregorianCalendar; 
-        ChineseCalendar chineseCalendar, chineseCalendar2; 
-        ChineseDateFormat dateFormat; 
-        SimpleDateFormat simpleDateFormat; 
- 
-        simpleDateFormat = new android.icu.text.SimpleDateFormat("MM/dd/yyyy G 'at' HH:mm:ss vvvv", Locale.US); 
-        dateFormat = new android.icu.text.ChineseDateFormat("MM/dd/yyyy(G) HH:mm:ss", Locale.CHINA); 
- 
-        // lunar to gregorian 
-        chineseCalendar = new ChineseCalendar(77, 26, Calendar.JANUARY, 0, 6, 0, 0, 0); 
+    public void Test6510()
+    {
+        Calendar gregorianCalendar;
+        ChineseCalendar chineseCalendar, chineseCalendar2;
+        ChineseDateFormat dateFormat;
+        SimpleDateFormat simpleDateFormat;
+
+        simpleDateFormat = new android.icu.text.SimpleDateFormat("MM/dd/yyyy G 'at' HH:mm:ss vvvv", Locale.US);
+        dateFormat = new android.icu.text.ChineseDateFormat("MM/dd/yyyy(G) HH:mm:ss", Locale.CHINA);
+
+        // lunar to gregorian
+        chineseCalendar = new ChineseCalendar(77, 26, Calendar.JANUARY, 0, 6, 0, 0, 0);
         // coverage
         assertEquals("equivalent ChineseCalendar() constructors", chineseCalendar,
                 new ChineseCalendar(77, 26, Calendar.JANUARY, 0, 6));
 
-        gregorianCalendar = Calendar.getInstance(Locale.US); 
-        gregorianCalendar.setTime(chineseCalendar.getTime()); 
- 
-        // gregorian to lunar 
-        chineseCalendar2 = new ChineseCalendar(); 
-        chineseCalendar2.setTimeInMillis(gregorianCalendar.getTimeInMillis()); 
+        gregorianCalendar = Calendar.getInstance(Locale.US);
+        gregorianCalendar.setTime(chineseCalendar.getTime());
 
-        // validate roundtrip 
-        if (chineseCalendar.getTimeInMillis() != chineseCalendar2.getTimeInMillis()) 
-        { 
-            errln("time1: " + chineseCalendar.getTimeInMillis()); 
-            errln("time2: " + chineseCalendar2.getTimeInMillis()); 
-            errln("Lunar [MM/dd/y(G) HH:mm:ss] " + dateFormat.format(chineseCalendar)); 
-            errln("**PROBLEM Grego [MM/dd/y(G) HH:mm:ss] " + simpleDateFormat.format(gregorianCalendar)); 
-            errln("Grego [MM/dd/y(G) HH:mm:ss] " + simpleDateFormat.format(gregorianCalendar)); 
-            errln("Lunar [MM/dd/y(G) HH:mm:ss] " + dateFormat.format(chineseCalendar2)); 
-        } 
-    }         
+        // gregorian to lunar
+        chineseCalendar2 = new ChineseCalendar();
+        chineseCalendar2.setTimeInMillis(gregorianCalendar.getTimeInMillis());
+
+        // validate roundtrip
+        if (chineseCalendar.getTimeInMillis() != chineseCalendar2.getTimeInMillis())
+        {
+            errln("time1: " + chineseCalendar.getTimeInMillis());
+            errln("time2: " + chineseCalendar2.getTimeInMillis());
+            errln("Lunar [MM/dd/y(G) HH:mm:ss] " + dateFormat.format(chineseCalendar));
+            errln("**PROBLEM Grego [MM/dd/y(G) HH:mm:ss] " + simpleDateFormat.format(gregorianCalendar));
+            errln("Grego [MM/dd/y(G) HH:mm:ss] " + simpleDateFormat.format(gregorianCalendar));
+            errln("Lunar [MM/dd/y(G) HH:mm:ss] " + dateFormat.format(chineseCalendar2));
+        }
+    }
 }

@@ -17,7 +17,7 @@
 #ifndef FRAMEWORKS_ML_NN_SVDF_H
 #define FRAMEWORKS_ML_NN_SVDF_H
 
-#include "ActivationFunctor.h"
+#include "tensorflow/contrib/lite/kernels/internal/tensor_utils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -25,7 +25,7 @@
 namespace android {
 namespace hardware {
 namespace neuralnetworks {
-namespace V1_0 {
+namespace V1_1 {
 struct Operation;
 }
 }  // namespace neuralnetworks
@@ -37,7 +37,7 @@ namespace nn {
 
 struct SVDFParams {
     int rank_;
-    ActivationFn activation_;
+    TfLiteFusedActivation activation_;
 };
 
 struct RunTimeOperandInfo;
@@ -45,11 +45,11 @@ struct Shape;
 
 class SVDF {
 public:
-    SVDF(const android::hardware::neuralnetworks::V1_0::Operation &operation,
+    SVDF(const android::hardware::neuralnetworks::V1_1::Operation &operation,
          std::vector<RunTimeOperandInfo>& operands);
 
     static bool Prepare(
-        const hardware::neuralnetworks::V1_0::Operation &operation,
+        const hardware::neuralnetworks::V1_1::Operation &operation,
         std::vector<RunTimeOperandInfo> &operands, Shape *stateShape,
         Shape *outputShape);
     bool Eval();

@@ -112,7 +112,7 @@ ${entry.description | ndkdoc(metadata)}\
      * </ul></p>
      *
               % if entry.details:
-${entry.details | ndkdoc(metadata)}\
+${entry.applied_ndk_details | ndkdoc(metadata)}\
               % endif
      */
             % endif
@@ -167,6 +167,9 @@ typedef enum acamera_metadata_enum_${csym(ndk(entry.name)).lower()} {
     /**
           % if val.notes:
 ${val.notes | ndkdoc(metadata)}\
+          % endif
+          % if val.ndk_notes:
+${val.ndk_notes | ndkdoc(metadata)}\
           % endif
           % if val.deprecated:
      *

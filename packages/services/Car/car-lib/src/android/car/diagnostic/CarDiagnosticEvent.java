@@ -298,7 +298,7 @@ public class CarDiagnosticEvent implements Parcelable {
 
     /** @hide */
     public boolean isEarlierThan(CarDiagnosticEvent otherEvent) {
-        otherEvent = Objects.requireNonNull(otherEvent);
+        Objects.requireNonNull(otherEvent);
         return (timestamp < otherEvent.timestamp);
     }
 

@@ -39,7 +39,7 @@ class firmware_FwScreenPressPower(FirmwareTest):
     def wait_second_screen_and_press_power(self):
         """Wait and trigger a second screen and press power button."""
         self.switcher.trigger_dev_to_rec()
-        self.wait_longer_fw_screen_and_press_power()
+        self.wait_fw_screen_and_press_power()
 
     def wait_yuck_screen_and_press_power(self):
         """Insert corrupted USB for yuck screen and press power button."""
@@ -59,14 +59,18 @@ class firmware_FwScreenPressPower(FirmwareTest):
         self.corrupt_usb_kernel(usb_dev)
 
     def cleanup(self):
-        self.servo.switch_usbkey('host')
-        usb_dev = self.servo.probe_host_usb_dev()
-        # Restore the kernel of USB stick which is corrupted on setup phase.
-        self.restore_usb_kernel(usb_dev)
+        try:
+            self.servo.switch_usbkey('host')
+            usb_dev = self.servo.probe_host_usb_dev()
+            # Restore the kernel of USB stick which is corrupted on setup phase.
+            self.restore_usb_kernel(usb_dev)
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_FwScreenPressPower, self).cleanup()
 
     def run_once(self):
-        if self.faft_config.fw_bypasser_type != 'ctrl_d_bypasser':
+        if (self.faft_config.fw_bypasser_type != 'ctrl_d_bypasser'
+          and self.faft_config.fw_bypasser_type != 'tablet_detachable_bypasser'):
             raise error.TestNAError("This test is only valid on devices with "
                                     "screens.")
         if not self.faft_config.has_powerbutton:

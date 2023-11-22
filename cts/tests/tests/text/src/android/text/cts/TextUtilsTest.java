@@ -1563,7 +1563,7 @@ public class TextUtilsTest  {
         assertFalse(TextUtils.isGraphic('\u0085'));
 
         // UNASSIGNED
-        assertFalse(TextUtils.isGraphic('\u0D00'));
+        assertFalse(TextUtils.isGraphic('\uFFFF'));
 
         // SURROGATE
         assertFalse(TextUtils.isGraphic('\uD800'));
@@ -1581,9 +1581,9 @@ public class TextUtilsTest  {
     public void testIsGraphicCharSequence() {
         assertTrue(TextUtils.isGraphic("printable characters"));
 
-        assertFalse(TextUtils.isGraphic("\u2028\u2029\u0085\u0D00\uD800\u0020"));
+        assertFalse(TextUtils.isGraphic("\u2028\u2029\u0085\uFFFF\uD800\u0020"));
 
-        assertTrue(TextUtils.isGraphic("a\u2028\u2029\u0085\u0D00\uD800\u0020"));
+        assertTrue(TextUtils.isGraphic("a\u2028\u2029\u0085\uFFFF\uD800\u0020"));
 
         assertTrue(TextUtils.isGraphic("\uD83D\uDC0C")); // U+1F40C SNAIL
         assertFalse(TextUtils.isGraphic("\uDB40\uDC01")); // U+E0000 (unassigned)
@@ -1614,6 +1614,8 @@ public class TextUtilsTest  {
         spannableStringTokens.add(new SpannableString("span 2"));
         spannableStringTokens.add(new SpannableString("span 3"));
         assertEquals("span 1;span 2;span 3", TextUtils.join(";", spannableStringTokens));
+
+        assertEquals("", TextUtils.join("|", new ArrayList<CharSequence>()));
     }
 
     @Test(expected=NullPointerException.class)
@@ -1636,6 +1638,8 @@ public class TextUtilsTest  {
                 new SpannableString("span 2"),
                 new SpannableString("span 3") };
         assertEquals("span 1;span 2;span 3", TextUtils.join(";", spannableStringTokens));
+
+        assertEquals("", TextUtils.join("|", new String[0]));
     }
 
     @Test(expected=NullPointerException.class)

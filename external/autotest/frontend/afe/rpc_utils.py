@@ -10,6 +10,7 @@ import collections
 import datetime
 from functools import wraps
 import inspect
+import logging
 import os
 import sys
 import django.db.utils
@@ -28,6 +29,8 @@ from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 NULL_DATETIME = datetime.datetime.max
 NULL_DATE = datetime.date.max
 DUPLICATE_KEY_MSG = 'Duplicate entry'
+RESPECT_STATIC_LABELS = global_config.global_config.get_config_value(
+        'SKYLAB', 'respect_static_labels', type=bool, default=False)
 
 def prepare_for_serialization(objects):
     """
@@ -179,44 +182,23 @@ def extra_job_type_filters(extra_args, suite=False,
     return extra_args
 
 
-
-def extra_host_filters(multiple_labels=()):
-    """\
-    Generate SQL WHERE clauses for matching hosts in an intersection of
-    labels.
-    """
-    extra_args = {}
-    where_str = ('afe_hosts.id in (select host_id from afe_hosts_labels '
-                 'where label_id=%s)')
-    extra_args['where'] = [where_str] * len(multiple_labels)
-    extra_args['params'] = [models.Label.smart_get(label).id
-                            for label in multiple_labels]
-    return extra_args
-
-
 def get_host_query(multiple_labels, exclude_only_if_needed_labels,
                    valid_only, filter_data):
+    """
+    @param exclude_only_if_needed_labels: Deprecated. By default it's false.
+    """
     if valid_only:
-        query = models.Host.valid_objects.all()
+        initial_query = models.Host.valid_objects.all()
     else:
-        query = models.Host.objects.all()
+        initial_query = models.Host.objects.all()
 
-    if exclude_only_if_needed_labels:
-        only_if_needed_labels = models.Label.valid_objects.filter(
-            only_if_needed=True)
-        if only_if_needed_labels.count() > 0:
-            only_if_needed_ids = ','.join(
-                    str(label['id'])
-                    for label in only_if_needed_labels.values('id'))
-            query = models.Host.objects.add_join(
-                query, 'afe_hosts_labels', join_key='host_id',
-                join_condition=('afe_hosts_labels_exclude_OIN.label_id IN (%s)'
-                                % only_if_needed_ids),
-                suffix='_exclude_OIN', exclude=True)
     try:
-        assert 'extra_args' not in filter_data
-        filter_data['extra_args'] = extra_host_filters(multiple_labels)
-        return models.Host.query_objects(filter_data, initial_query=query)
+        hosts = models.Host.get_hosts_with_labels(
+                multiple_labels, initial_query)
+        if not hosts:
+            return hosts
+
+        return models.Host.query_objects(filter_data, initial_query=hosts)
     except models.Label.DoesNotExist:
         return models.Host.objects.none()
 
@@ -317,7 +299,18 @@ def check_job_dependencies(host_objects, job_dependencies):
     ok_hosts = hosts_in_job
     for index, dependency in enumerate(job_dependencies):
         if not provision.is_for_special_action(dependency):
-            ok_hosts = ok_hosts.filter(labels__name=dependency)
+            try:
+              label = models.Label.smart_get(dependency)
+            except models.Label.DoesNotExist:
+              logging.info('Label %r does not exist, so it cannot '
+                           'be replaced by static label.', dependency)
+              label = None
+
+            if label is not None and label.is_replaced_by_static():
+                ok_hosts = ok_hosts.filter(static_labels__name=dependency)
+            else:
+                ok_hosts = ok_hosts.filter(labels__name=dependency)
+
     failing_hosts = (set(host.hostname for host in host_objects) -
                      set(host.hostname for host in ok_hosts))
     if failing_hosts:
@@ -337,10 +330,26 @@ def check_job_metahost_dependencies(metahost_objects, job_dependencies):
     @raises NoEligibleHostException If a metahost cannot run the job.
     """
     for metahost in metahost_objects:
-        hosts = models.Host.objects.filter(labels=metahost)
+        if metahost.is_replaced_by_static():
+            static_metahost = models.StaticLabel.smart_get(metahost.name)
+            hosts = models.Host.objects.filter(static_labels=static_metahost)
+        else:
+            hosts = models.Host.objects.filter(labels=metahost)
+
         for label_name in job_dependencies:
             if not provision.is_for_special_action(label_name):
-                hosts = hosts.filter(labels__name=label_name)
+                try:
+                    label = models.Label.smart_get(label_name)
+                except models.Label.DoesNotExist:
+                    logging.info('Label %r does not exist, so it cannot '
+                                 'be replaced by static label.', label_name)
+                    label = None
+
+                if label is not None and label.is_replaced_by_static():
+                    hosts = hosts.filter(static_labels__name=label_name)
+                else:
+                    hosts = hosts.filter(labels__name=label_name)
+
         if not any(hosts):
             raise error.NoEligibleHostException("No hosts within %s satisfy %s."
                     % (metahost.name, ', '.join(job_dependencies)))
@@ -548,21 +557,26 @@ def _ensure_label_exists(name):
     return False
 
 
-def find_platform(host):
+def find_platform(hostname, label_list):
     """
     Figure out the platform name for the given host
     object.  If none, the return value for either will be None.
 
+    @param hostname: The hostname to find platform.
+    @param label_list: The label list to find platform.
+
     @returns platform name for the given host.
     """
-    platforms = [label.name for label in host.label_list if label.platform]
+    platforms = [label.name for label in label_list if label.platform]
     if not platforms:
         platform = None
     else:
         platform = platforms[0]
+
     if len(platforms) > 1:
         raise ValueError('Host %s has more than one platform: %s' %
-                         (host.hostname, ', '.join(platforms)))
+                         (hostname, ', '.join(platforms)))
+
     return platform
 
 
@@ -712,22 +726,17 @@ def interleave_entries(queue_entries, special_tasks):
     return interleaved_entries
 
 
-def bucket_hosts_by_shard(host_objs, rpc_hostnames=False):
+def bucket_hosts_by_shard(host_objs):
     """Figure out which hosts are on which shards.
 
     @param host_objs: A list of host objects.
-    @param rpc_hostnames: If True, the rpc_hostnames of a shard are returned
-        instead of the 'real' shard hostnames. This only matters for testing
-        environments.
 
     @return: A map of shard hostname: list of hosts on the shard.
     """
     shard_host_map = collections.defaultdict(list)
     for host in host_objs:
         if host.shard:
-            shard_name = (host.shard.rpc_hostname() if rpc_hostnames
-                          else host.shard.hostname)
-            shard_host_map[shard_name].append(host.hostname)
+            shard_host_map[host.shard.hostname].append(host.hostname)
     return shard_host_map
 
 
@@ -874,6 +883,16 @@ def get_wmatrix_url():
     """
     return global_config.global_config.get_config_value('AUTOTEST_WEB',
                                                         'wmatrix_url',
+                                                        default='')
+
+
+def get_stainless_url():
+    """Get stainless url from config file.
+
+    @returns the stainless url or an empty string.
+    """
+    return global_config.global_config.get_config_value('AUTOTEST_WEB',
+                                                        'stainless_url',
                                                         default='')
 
 
@@ -1036,7 +1055,7 @@ def forward_single_host_rpc_to_shard(func):
         shard_hostname = None
         host = models.Host.smart_get(kwargs['id'])
         if host and host.shard:
-            shard_hostname = host.shard.rpc_hostname()
+            shard_hostname = host.shard.hostname
         ret = func(**kwargs)
         if shard_hostname and not server_utils.is_shard():
             run_rpc_on_multiple_hostnames(func.func_name,
@@ -1059,8 +1078,7 @@ def fanout_rpc(host_objs, rpc_name, include_hostnames=True, **kwargs):
     @param kwargs: The kwargs for the rpc.
     """
     # Figure out which hosts are on which shards.
-    shard_host_map = bucket_hosts_by_shard(
-            host_objs, rpc_hostnames=True)
+    shard_host_map = bucket_hosts_by_shard(host_objs)
 
     # Execute the rpc against the appropriate shards.
     for shard, hostnames in shard_host_map.iteritems():
@@ -1197,6 +1215,7 @@ def get_sample_dut(board, pool):
     """
     if not (dev_server.PREFER_LOCAL_DEVSERVER and pool and board):
         return None
+
     hosts = list(get_host_query(
         multiple_labels=('pool:%s' % pool, 'board:%s' % board),
         exclude_only_if_needed_labels=False,

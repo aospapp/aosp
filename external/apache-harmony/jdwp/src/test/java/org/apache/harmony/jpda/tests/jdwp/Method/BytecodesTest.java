@@ -29,6 +29,7 @@ import java.util.Arrays;
 
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
+import org.apache.harmony.jpda.tests.framework.jdwp.Method;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
@@ -50,7 +51,7 @@ public class BytecodesTest extends JDWPMethodTestCase {
 
         long classID = getClassIDBySignature("L"+getDebuggeeClassName().replace('.', '/')+";");
 
-        MethodInfo[] methodsInfo = jdwpGetMethodsInfo(classID);
+        Method[] methodsInfo = debuggeeWrapper.vmMirror.getMethods(classID);
         assertFalse("Invalid number of methods", methodsInfo.length == 0);
 
         for (int i = 0; i < methodsInfo.length; i++) {

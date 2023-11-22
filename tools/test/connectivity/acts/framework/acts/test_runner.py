@@ -15,12 +15,13 @@
 #   limitations under the License.
 
 from future import standard_library
+
 standard_library.install_aliases()
 
-import argparse
 import copy
 import importlib
 import inspect
+import fnmatch
 import logging
 import os
 import pkgutil
@@ -35,78 +36,10 @@ from acts import signals
 from acts import utils
 
 
-def main():
-    """Execute the test class in a test module.
-
-    This is the default entry point for running a test script file directly.
-    In this case, only one test class in a test script is allowed.
-
-    To make your test script executable, add the following to your file:
-
-        from acts import test_runner
-        ...
-        if __name__ == "__main__":
-            test_runner.main()
-
-    If you want to implement your own cli entry point, you could use function
-    execute_one_test_class(test_class, test_config, test_identifier)
-    """
-    # Parse cli args.
-    parser = argparse.ArgumentParser(description="ACTS Test Executable.")
-    parser.add_argument(
-        '-c',
-        '--config',
-        nargs=1,
-        type=str,
-        required=True,
-        metavar="<PATH>",
-        help="Path to the test configuration file.")
-    parser.add_argument(
-        '--test_case',
-        nargs='+',
-        type=str,
-        metavar="[test_a test_b...]",
-        help="A list of test case names in the test script.")
-    parser.add_argument(
-        '-tb',
-        '--test_bed',
-        nargs='+',
-        type=str,
-        metavar="[<TEST BED NAME1> <TEST BED NAME2> ...]",
-        help="Specify which test beds to run tests on.")
-    args = parser.parse_args(sys.argv[1:])
-    # Load test config file.
-    test_configs = config_parser.load_test_config_file(args.config[0],
-                                                       args.test_bed)
-    # Find the test class in the test script.
-    test_class = _find_test_class()
-    test_class_name = test_class.__name__
-    # Parse test case specifiers if exist.
-    test_case_names = None
-    if args.test_case:
-        test_case_names = args.test_case
-    test_identifier = [(test_class_name, test_case_names)]
-    # Execute the test class with configs.
-    ok = True
-    for config in test_configs:
-        try:
-            result = execute_one_test_class(test_class, config,
-                                            test_identifier)
-            ok = result and ok
-        except signals.TestAbortAll:
-            pass
-        except:
-            logging.exception("Error occurred when executing test bed %s",
-                              config[keys.Config.key_testbed.value])
-            ok = False
-    if not ok:
-        sys.exit(1)
-
-
 def _find_test_class():
     """Finds the test class in a test script.
 
-    Walk through module memebers and find the subclass of BaseTestClass. Only
+    Walk through module members and find the subclass of BaseTestClass. Only
     one subclass is allowed in a test script.
 
     Returns:
@@ -129,7 +62,7 @@ def execute_one_test_class(test_class, test_config, test_identifier):
     """Executes one specific test class.
 
     You could call this function in your own cli test entry point if you choose
-    not to use act.py or test_runner.main.
+    not to use act.py.
 
     Args:
         test_class: A subclass of acts.base_test.BaseTestClass that has the test
@@ -173,10 +106,9 @@ class TestRunner(object):
         self.log: The logger object used throughout this test run.
         self.controller_registry: A dictionary that holds the controller
                                   objects used in a test run.
-        self.controller_destructors: A dictionary that holds the controller
-                                     distructors. Keys are controllers' names.
         self.test_classes: A dictionary where we can look up the test classes
-                           by name to instantiate.
+                           by name to instantiate. Supports unix shell style
+                           wildcards.
         self.run_list: A list of tuples specifying what tests to run.
         self.results: The test result object used to record the results of
                       this test run.
@@ -200,7 +132,6 @@ class TestRunner(object):
         logger.setup_test_logger(self.log_path, self.testbed_name)
         self.log = logging.getLogger()
         self.controller_registry = {}
-        self.controller_destructors = {}
         if self.test_configs.get(keys.Config.key_random.value):
             test_case_iterations = self.test_configs.get(
                 keys.Config.key_test_case_iterations.value, 10)
@@ -274,9 +205,6 @@ class TestRunner(object):
         and import the corresponding controller module from acts.controllers
         package.
 
-        TODO(angli): Remove this when all scripts change to explicitly declare
-                     controller dependency.
-
         Returns:
             A list of controller modules.
         """
@@ -315,7 +243,28 @@ class TestRunner(object):
                     "Controller interface %s in %s cannot be null." %
                     (attr, module.__name__))
 
-    def register_controller(self, module, required=True):
+    @staticmethod
+    def get_module_reference_name(a_module):
+        """Returns the module's reference name.
+
+        This is largely for backwards compatibility with log parsing. If the
+        module defines ACTS_CONTROLLER_REFERENCE_NAME, it will return that
+        value, or the module's submodule name.
+
+        Args:
+            a_module: Any module. Ideally, a controller module.
+        Returns:
+            A string corresponding to the module's name.
+        """
+        if hasattr(a_module, 'ACTS_CONTROLLER_REFERENCE_NAME'):
+            return a_module.ACTS_CONTROLLER_REFERENCE_NAME
+        else:
+            return a_module.__name__.split('.')[-1]
+
+    def register_controller(self,
+                            controller_module,
+                            required=True,
+                            builtin=False):
         """Registers an ACTS controller module for a test run.
 
         An ACTS controller module is a Python lib that can be used to control
@@ -352,18 +301,27 @@ class TestRunner(object):
                     A list of json serializable objects, each represents the
                     info of a controller object. The order of the info object
                     should follow that of the input objects.
-
+            def get_post_job_info(controller_list):
+                [Optional] Returns information about the controller after the
+                test has run. This info is sent to test_run_summary.json's
+                "Extras" key.
+                Args:
+                    The list of controller objects created by the module
+                Returns:
+                    A (name, data) tuple.
         Registering a controller module declares a test class's dependency the
         controller. If the module config exists and the module matches the
         controller interface, controller objects will be instantiated with
         corresponding configs. The module should be imported first.
 
         Args:
-            module: A module that follows the controller module interface.
+            controller_module: A module that follows the controller module
+                interface.
             required: A bool. If True, failing to register the specified
-                      controller module raises exceptions. If False, returns
-                      None upon failures.
-
+                controller module raises exceptions. If False, returns None upon
+                failures.
+            builtin: Specifies that the module is a builtin controller module in
+                ACTS. If true, adds itself to test_run_info.
         Returns:
             A list of controller objects instantiated from controller_module, or
             None.
@@ -375,51 +333,45 @@ class TestRunner(object):
             the controller module has already been registered or any other error
             occurred in the registration process.
         """
-        TestRunner.verify_controller_module(module)
-        try:
-            # If this is a builtin controller module, use the default ref name.
-            module_ref_name = module.ACTS_CONTROLLER_REFERENCE_NAME
-            builtin = True
-        except AttributeError:
-            # Or use the module's name
-            builtin = False
-            module_ref_name = module.__name__.split('.')[-1]
-        if module_ref_name in self.controller_registry:
+        TestRunner.verify_controller_module(controller_module)
+        module_ref_name = self.get_module_reference_name(controller_module)
+
+        if controller_module in self.controller_registry:
             raise signals.ControllerError(
-                ("Controller module %s has already been registered. It can not"
-                 " be registered again.") % module_ref_name)
+                "Controller module %s has already been registered. It can not "
+                "be registered again." % module_ref_name)
         # Create controller objects.
-        create = module.create
-        module_config_name = module.ACTS_CONTROLLER_CONFIG_NAME
+        module_config_name = controller_module.ACTS_CONTROLLER_CONFIG_NAME
         if module_config_name not in self.testbed_configs:
             if required:
                 raise signals.ControllerError(
                     "No corresponding config found for %s" %
                     module_config_name)
-            self.log.warning(
-                "No corresponding config found for optional controller %s",
-                module_config_name)
+            else:
+                self.log.warning(
+                    "No corresponding config found for optional controller %s",
+                    module_config_name)
             return None
         try:
             # Make a deep copy of the config to pass to the controller module,
             # in case the controller module modifies the config internally.
             original_config = self.testbed_configs[module_config_name]
             controller_config = copy.deepcopy(original_config)
-            objects = create(controller_config)
+            controllers = controller_module.create(controller_config)
         except:
             self.log.exception(
                 "Failed to initialize objects for controller %s, abort!",
                 module_config_name)
             raise
-        if not isinstance(objects, list):
+        if not isinstance(controllers, list):
             raise signals.ControllerError(
                 "Controller module %s did not return a list of objects, abort."
                 % module_ref_name)
-        self.controller_registry[module_ref_name] = objects
+        self.controller_registry[controller_module] = controllers
         # Collect controller information and write to test result.
         # Implementation of "get_info" is optional for a controller module.
-        if hasattr(module, "get_info"):
-            controller_info = module.get_info(objects)
+        if hasattr(controller_module, "get_info"):
+            controller_info = controller_module.get_info(controllers)
             self.log.info("Controller %s: %s", module_config_name,
                           controller_info)
             self.results.add_controller_info(module_config_name,
@@ -427,29 +379,32 @@ class TestRunner(object):
         else:
             self.log.warning("No controller info obtained for %s",
                              module_config_name)
+
         # TODO(angli): After all tests move to register_controller, stop
         # tracking controller objs in test_run_info.
         if builtin:
-            self.test_run_info[module_ref_name] = objects
-        self.log.debug("Found %d objects for controller %s",
-                       len(objects), module_config_name)
-        destroy_func = module.destroy
-        self.controller_destructors[module_ref_name] = destroy_func
-        return objects
+            self.test_run_info[module_ref_name] = controllers
+        self.log.debug("Found %d objects for controller %s", len(controllers),
+                       module_config_name)
+        return controllers
 
     def unregister_controllers(self):
         """Destroy controller objects and clear internal registry.
 
         This will be called at the end of each TestRunner.run call.
         """
-        for name, destroy in self.controller_destructors.items():
+        for controller_module, controllers in self.controller_registry.items():
+            name = self.get_module_reference_name(controller_module)
+            if hasattr(controller_module, 'get_post_job_info'):
+                self.log.debug('Getting post job info for %s', name)
+                name, value = controller_module.get_post_job_info(controllers)
+                self.results.set_extra_data(name, value)
             try:
-                self.log.debug("Destroying %s.", name)
-                destroy(self.controller_registry[name])
+                self.log.debug('Destroying %s.', name)
+                controller_module.destroy(controllers)
             except:
                 self.log.exception("Exception occurred destroying %s.", name)
         self.controller_registry = {}
-        self.controller_destructors = {}
 
     def parse_config(self, test_configs):
         """Parses the test configuration and unpacks objects and parameters
@@ -512,37 +467,44 @@ class TestRunner(object):
             ValueError is raised if the requested test class could not be found
             in the test_paths directories.
         """
-        try:
-            test_cls = self.test_classes[test_cls_name]
-        except KeyError:
+        matches = fnmatch.filter(self.test_classes.keys(), test_cls_name)
+        if not matches:
             self.log.info(
-                "Cannot find test class %s skipping for now." % test_cls_name)
+                "Cannot find test class %s or classes matching pattern, "
+                "skipping for now." % test_cls_name)
             record = records.TestResultRecord("*all*", test_cls_name)
             record.test_skip(signals.TestSkip("Test class does not exist."))
             self.results.add_record(record)
             return
-        if self.test_configs.get(keys.Config.key_random.value) or (
-                "Preflight" in test_cls_name) or "Postflight" in test_cls_name:
-            test_case_iterations = 1
-        else:
-            test_case_iterations = self.test_configs.get(
-                keys.Config.key_test_case_iterations.value, 1)
+        if matches != [test_cls_name]:
+            self.log.info("Found classes matching pattern %s: %s",
+                          test_cls_name, matches)
 
-        with test_cls(self.test_run_info) as test_cls_instance:
-            try:
-                cls_result = test_cls_instance.run(test_cases,
-                                                   test_case_iterations)
-                self.results += cls_result
-                self._write_results_json_str()
-            except signals.TestAbortAll as e:
-                self.results += e.results
-                raise e
+        for test_cls_name_match in matches:
+            test_cls = self.test_classes[test_cls_name_match]
+            if self.test_configs.get(keys.Config.key_random.value) or (
+                    "Preflight" in test_cls_name_match) or (
+                        "Postflight" in test_cls_name_match):
+                test_case_iterations = 1
+            else:
+                test_case_iterations = self.test_configs.get(
+                    keys.Config.key_test_case_iterations.value, 1)
+
+            with test_cls(self.test_run_info) as test_cls_instance:
+                try:
+                    cls_result = test_cls_instance.run(test_cases,
+                                                       test_case_iterations)
+                    self.results += cls_result
+                    self._write_results_json_str()
+                except signals.TestAbortAll as e:
+                    self.results += e.results
+                    raise e
 
     def run(self, test_class=None):
         """Executes test cases.
 
         This will instantiate controller and test classes, and execute test
-        classes. This can be called multiple times to repeatly execute the
+        classes. This can be called multiple times to repeatedly execute the
         requested test cases.
 
         A call to TestRunner.stop should eventually happen to conclude the life
@@ -567,6 +529,7 @@ class TestRunner(object):
         for test_cls_name, test_case_names in self.run_list:
             if not self.running:
                 break
+
             if test_case_names:
                 self.log.debug("Executing test cases %s in test class %s.",
                                test_case_names, test_cls_name)
@@ -576,7 +539,7 @@ class TestRunner(object):
                 # Import and register the built-in controller modules specified
                 # in testbed config.
                 for module in self._import_builtin_controllers():
-                    self.register_controller(module)
+                    self.register_controller(module, builtin=True)
                 self.run_test_class(test_cls_name, test_case_names)
             except signals.TestAbortAll as e:
                 self.log.warning(

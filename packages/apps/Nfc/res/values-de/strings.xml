@@ -25,7 +25,7 @@
     <string name="pairing_peripheral_failed" msgid="6087643307743264679">"Koppeln mit <xliff:g id="DEVICE_NAME">%1$s</xliff:g> nicht möglich"</string>
     <string name="failed_to_enable_bt" msgid="7229153323594758077">"Bluetooth konnte nicht aktiviert werden."</string>
     <string name="confirm_pairing" msgid="4112568077038265363">"Möchtest du das Bluetooth-Gerät <xliff:g id="DEVICE_NAME">%1$s</xliff:g> wirklich koppeln?"</string>
-    <string name="pair_yes" msgid="3525614878559994448">"Ja"</string>
+    <string name="pair_yes" msgid="3525614878559994448">"\"Ja\""</string>
     <string name="pair_no" msgid="5022308368904055020">"Nein"</string>
     <string name="tap_again_to_pay" msgid="5754988005412859897">"Halte dein Gerät erneut ans Terminal, um mit <xliff:g id="APP">%1$s</xliff:g> zu bezahlen."</string>
     <string name="tap_again_to_complete" msgid="5423640945118279123">"Halte dein Gerät erneut ans Terminal, um den Vorgang mit <xliff:g id="APP">%1$s</xliff:g> durchzuführen."</string>
@@ -43,4 +43,8 @@
     <string name="beam_requires_nfc_enabled" msgid="2800366967218600534">"Android Beam erfordert zur Aktivierung die Nahfeldkommunikation (NFC). Möchtest du sie aktivieren?"</string>
     <string name="android_beam" msgid="1666446406999492763">"Android Beam"</string>
     <string name="beam_requires_external_storage_permission" msgid="8798337545702206901">"Die App ist nicht berechtigt, auf externe Speicher zuzugreifen. Dies ist jedoch zum Beamen der Datei erforderlich."</string>
+    <string name="title_confirm_url_open" msgid="8069968913244794478">"Link öffnen?"</string>
+    <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"Du hast auf dem Tablet via NFC einen Link erhalten:"</string>
+    <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"Du hast auf dem Smartphone via NFC einen Link erhalten:"</string>
+    <string name="action_confirm_url_open" msgid="3458322738812921189">"Link öffnen"</string>
 </resources>

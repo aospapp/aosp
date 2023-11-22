@@ -31,9 +31,9 @@ import android.text.format.DateUtils;
 import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.Log;
-import com.android.settingslib.applications.PackageManagerWrapper;
 import com.android.settingslib.applications.StorageStatsSource;
 import com.android.settingslib.applications.StorageStatsSource.AppStorageStats;
+import com.android.settingslib.wrapper.PackageManagerWrapper;
 import com.android.storagemanager.deletionhelper.AppsAsyncLoader.PackageInfo;
 import com.android.storagemanager.utils.AsyncLoader;
 

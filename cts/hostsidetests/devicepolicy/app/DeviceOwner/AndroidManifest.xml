@@ -31,11 +31,12 @@
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
 
     <application
-        android:testOnly="true">
+        android:testOnly="true"
+        android:usesCleartextTraffic="true">>
 
         <uses-library android:name="android.test.runner" />
         <receiver
-            android:name="com.android.cts.deviceowner.BaseDeviceOwnerTest$BasicAdminReceiver"
+            android:name="com.android.cts.deviceowner.BasicAdminReceiver"
             android:permission="android.permission.BIND_DEVICE_ADMIN">
             <meta-data android:name="android.app.device_admin"
                        android:resource="@xml/device_admin" />
@@ -52,10 +53,20 @@
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
             </intent-filter>
         </receiver>
+        <receiver
+                android:name="com.android.cts.deviceowner.CreateAndManageUserTest$SecondaryUserAdminReceiver"
+                android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data android:name="android.app.device_admin"
+                       android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
 
-        <activity
-            android:name="com.android.cts.deviceowner.KeyManagementActivity"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <service android:name="com.android.cts.deviceowner.CreateAndManageUserTest$PrimaryUserService"
+                 android:exported="true"
+                 android:permission="android.permission.BIND_DEVICE_ADMIN">
+        </service>
 
         <activity
             android:name="com.android.cts.deviceowner.LockTaskUtilityActivity" />
@@ -69,14 +80,6 @@
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
-
-        <!-- we need to give a different taskAffinity so that when we use
-             FLAG_ACTIVITY_NEW_TASK, the system tries to start it in a different task
-        -->
-        <activity
-            android:name="com.android.cts.deviceowner.LockTaskTest$IntentReceivingActivity"
-            android:taskAffinity="com.android.cts.deviceowner.LockTaskTest.IntentReceivingActivity"
-            />
 
         <activity
             android:name=".SetPolicyActivity"

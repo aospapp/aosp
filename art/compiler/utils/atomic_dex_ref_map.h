@@ -17,19 +17,20 @@
 #ifndef ART_COMPILER_UTILS_ATOMIC_DEX_REF_MAP_H_
 #define ART_COMPILER_UTILS_ATOMIC_DEX_REF_MAP_H_
 
+#include "base/atomic.h"
 #include "base/dchecked_vector.h"
-#include "dex_file.h"
-#include "safe_map.h"
+#include "base/safe_map.h"
+#include "dex/dex_file_reference.h"
 
 namespace art {
 
 class DexFile;
 
 // Used by CompilerCallbacks to track verification information from the Runtime.
-template <typename T>
+template <typename DexFileReferenceType, typename Value>
 class AtomicDexRefMap {
  public:
-  explicit AtomicDexRefMap() {}
+  AtomicDexRefMap() {}
   ~AtomicDexRefMap() {}
 
   // Atomically swap the element in if the existing value matches expected.
@@ -38,14 +39,20 @@ class AtomicDexRefMap {
     kInsertResultCASFailure,
     kInsertResultSuccess,
   };
-  InsertResult Insert(DexFileReference ref, const T& expected, const T& desired);
+  InsertResult Insert(const DexFileReferenceType& ref,
+                      const Value& expected,
+                      const Value& desired);
 
   // Retreive an item, returns false if the dex file is not added.
-  bool Get(DexFileReference ref, T* out) const;
+  bool Get(const DexFileReferenceType& ref, Value* out) const;
+
+  // Remove an item and return the existing value. Returns false if the dex file is not added.
+  bool Remove(const DexFileReferenceType& ref, Value* out);
 
   // Dex files must be added before method references belonging to them can be used as keys. Not
   // thread safe.
-  void AddDexFile(const DexFile* dex_file, size_t max_index);
+  void AddDexFile(const DexFile* dex_file);
+  void AddDexFiles(const std::vector<const DexFile*>& dex_files);
 
   bool HaveDexFile(const DexFile* dex_file) const {
     return arrays_.find(dex_file) != arrays_.end();
@@ -59,11 +66,13 @@ class AtomicDexRefMap {
 
  private:
   // Verified methods. The method array is fixed to avoid needing a lock to extend it.
-  using ElementArray = dchecked_vector<Atomic<T>>;
+  using ElementArray = dchecked_vector<Atomic<Value>>;
   using DexFileArrays = SafeMap<const DexFile*, ElementArray>;
 
   const ElementArray* GetArray(const DexFile* dex_file) const;
   ElementArray* GetArray(const DexFile* dex_file);
+
+  static size_t NumberOfDexIndices(const DexFile* dex_file);
 
   DexFileArrays arrays_;
 };

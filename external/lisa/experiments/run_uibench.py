@@ -1,4 +1,20 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright (C) 2017, ARM Limited, Google, and contributors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 import logging
 
@@ -25,32 +41,65 @@ parser.add_argument('--collect', dest='collect', action='store', default='systra
                     help='what to collect (default systrace)')
 
 parser.add_argument('--test', dest='test_name', action='store',
-                    default='UiBenchJankTests#testGLTextureView',
+                    default='UiBenchJankTests#testResizeHWLayer',
                     help='which test to run')
 
-parser.add_argument('--duration', dest='duration_s', action='store',
-                    default=30, type=int,
-                    help='Duration of test (default 30s)')
+parser.add_argument('--iterations', dest='iterations', action='store',
+                    default=10, type=int,
+                    help='Number of times to repeat the tests per run (default 10)')
 
 parser.add_argument('--serial', dest='serial', action='store',
                     help='Serial number of device to test')
 
+parser.add_argument('--all', dest='run_all', action='store_true',
+                    help='Run all tests')
+
+parser.add_argument('--reinstall', dest='reinstall', action='store_true',
+                    help='Rebuild and reinstall test apks')
+
+parser.add_argument('--reimage', dest='reimage', action='store',
+                    default='',
+                    help='Flag to reimage target device (kernel-update kernel image | all-update complete android image)')
+
+parser.add_argument('--kernel_path', dest='kernel_path', action='store',
+                    default='',
+                    help='Path to kernel source directory. Required if reimage option is used')
+
 args = parser.parse_args()
 
-def experiment():
-    # Get workload
-    wload = Workload.getInstance(te, 'UiBench')
-
-    outdir=te.res_dir + '_' + args.out_prefix
+def make_dir(outdir):
     try:
         shutil.rmtree(outdir)
     except:
-        print "coulnd't remove " + outdir
+        print "couldn't remove " + outdir
         pass
     os.makedirs(outdir)
 
+def experiment():
+    def run_test(outdir, test_name):
+        te._log.info("Running test {}".format(test_name))
+        wload.run(outdir, test_name=test_name, iterations=args.iterations, collect=args.collect)
+
+    if args.reimage:
+        System.reimage(te, args.kernel_path, args.reimage)
+
+    # Get workload
+    wload = Workload.getInstance(te, 'UiBench', args.reinstall)
+
+    outdir=te.res_dir + '_' + args.out_prefix
+    make_dir(outdir)
+
     # Run UiBench
-    wload.run(outdir, test_name=args.test_name, duration_s=args.duration_s, collect=args.collect)
+    if args.run_all:
+        te._log.info("Running all tests: {}".format(wload.test_list))
+        for test in wload.get_test_list():
+            test_outdir = os.path.join(outdir, test)
+            make_dir(test_outdir)
+            run_test(test_outdir, test)
+    else:
+        test_outdir = os.path.join(outdir, args.test_name)
+        make_dir(test_outdir)
+        run_test(test_outdir, args.test_name)
 
     # Dump platform descriptor
     te.platform_dump(te.res_dir)
@@ -90,6 +139,8 @@ my_conf = {
 
     # Tools required by the experiments
     "tools"   : [ 'taskset'],
+
+    "skip_nrg_model" : True,
 }
 
 if args.serial:

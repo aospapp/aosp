@@ -2,6 +2,7 @@
 # Omap35xx SoC package.
 #
 # Copyright (c) 2009 - 2010, Apple Inc. All rights reserved.<BR>
+# Copyright (c) 2016, Linaro Ltd. All rights reserved.<BR>
 #
 #    This program and the accompanying materials
 #    are licensed and made available under the terms and conditions of the BSD License
@@ -33,7 +34,7 @@
 [LibraryClasses.common]
   DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
 
-  ArmLib|ArmPkg/Library/ArmLib/ArmV7/ArmV7Lib.inf
+  ArmLib|ArmPkg/Library/ArmLib/ArmBaseLib.inf
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
 
   BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
@@ -43,7 +44,6 @@
 
   CacheMaintenanceLib|ArmPkg/Library/ArmCacheMaintenanceLib/ArmCacheMaintenanceLib.inf
   DefaultExceptioHandlerLib|ArmPkg/Library/DefaultExceptionHandlerLib/DefaultExceptionHandlerLib.inf
-  CpuExceptionHandlerLib|MdeModulePkg/Library/CpuExceptionHandlerLibNull/CpuExceptionHandlerLibNull.inf
   PrePiLib|EmbeddedPkg/Library/PrePiLib/PrePiLib.inf
 
   RealTimeClockLib|EmbeddedPkg/Library/TemplateRealTimeClockLib/TemplateRealTimeClockLib.inf
@@ -63,6 +63,8 @@
   UefiApplicationEntryPoint|MdePkg/Library/UefiApplicationEntryPoint/UefiApplicationEntryPoint.inf
   DmaLib|ArmPkg/Library/ArmDmaLib/ArmDmaLib.inf
 
+  TimerLib|Omap35xxPkg/Library/Omap35xxTimerLib/Omap35xxTimerLib.inf
+
 #
 # Assume everything is fixed at build
 #
@@ -78,15 +80,11 @@
 
 [LibraryClasses.common.DXE_DRIVER]
   DxeServicesLib|MdePkg/Library/DxeServicesLib/DxeServicesLib.inf
-
+  NonDiscoverableDeviceRegistrationLib|MdeModulePkg/Library/NonDiscoverableDeviceRegistrationLib/NonDiscoverableDeviceRegistrationLib.inf
 
 [LibraryClasses.ARM]
-  #
-  # Note: This NULL library feature is not yet in the edk2/BaseTools, but it is checked in to
-  # the BaseTools project. So you need to build with the BaseTools project util this feature gets synced.
-  #
   NULL|ArmPkg/Library/CompilerIntrinsicsLib/CompilerIntrinsicsLib.inf
-
+  NULL|MdePkg/Library/BaseStackCheckLib/BaseStackCheckLib.inf
 
 [BuildOptions]
   XCODE:*_*_ARM_ARCHCC_FLAGS     == -arch armv7 -march=armv7
@@ -99,6 +97,7 @@
   RVCT:*_*_ARM_ARCHCC_FLAGS     == --cpu 7-A
   RVCT:*_*_ARM_ARCHASM_FLAGS    == --cpu 7-A
 
+  *_*_*_CC_FLAGS = -DDISABLE_NEW_DEPRECATED_INTERFACES
 
 ################################################################################
 #
@@ -121,28 +120,28 @@
 #  DEBUG_WARN      0x00000002  // Warnings
 #  DEBUG_LOAD      0x00000004  // Load events
 #  DEBUG_FS        0x00000008  // EFI File system
-#  DEBUG_POOL      0x00000010  // Alloc & Free's
-#  DEBUG_PAGE      0x00000020  // Alloc & Free's
-#  DEBUG_INFO      0x00000040  // Verbose
-#  DEBUG_DISPATCH  0x00000080  // PEI/DXE Dispatchers
+#  DEBUG_POOL      0x00000010  // Alloc & Free (pool)
+#  DEBUG_PAGE      0x00000020  // Alloc & Free (page)
+#  DEBUG_INFO      0x00000040  // Informational debug messages
+#  DEBUG_DISPATCH  0x00000080  // PEI/DXE/SMM Dispatchers
 #  DEBUG_VARIABLE  0x00000100  // Variable
 #  DEBUG_BM        0x00000400  // Boot Manager
 #  DEBUG_BLKIO     0x00001000  // BlkIo Driver
-#  DEBUG_NET       0x00004000  // SNI Driver
+#  DEBUG_NET       0x00004000  // SNP Driver
 #  DEBUG_UNDI      0x00010000  // UNDI Driver
-#  DEBUG_LOADFILE  0x00020000  // UNDI Driver
+#  DEBUG_LOADFILE  0x00020000  // LoadFile
 #  DEBUG_EVENT     0x00080000  // Event messages
+#  DEBUG_GCD       0x00100000  // Global Coherency Database changes
+#  DEBUG_CACHE     0x00200000  // Memory range cachability changes
+#  DEBUG_VERBOSE   0x00400000  // Detailed debug messages that may
+#                              // significantly impact boot performance
 #  DEBUG_ERROR     0x80000000  // Error
   gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x80000004
 
   gEfiMdePkgTokenSpaceGuid.PcdReportStatusCodePropertyMask|0x07
 
-  gEmbeddedTokenSpaceGuid.PcdPrePiTempMemorySize|0
-  gEmbeddedTokenSpaceGuid.PcdPrePiBfvBaseAddress|0
-  gEmbeddedTokenSpaceGuid.PcdPrePiBfvSize|0
   gEmbeddedTokenSpaceGuid.PcdFlashFvMainBase|0
   gEmbeddedTokenSpaceGuid.PcdFlashFvMainSize|0
-  gEmbeddedTokenSpaceGuid.PcdPrePiHobBase|0x80001000
   gEmbeddedTokenSpaceGuid.PcdPrePiStackBase|0x87FE0000 # stack at top of memory
   gEmbeddedTokenSpaceGuid.PcdPrePiStackSize|0x20000  # 128K stack
   gArmTokenSpaceGuid.PcdCpuVectorBaseAddress|0x80000000
@@ -160,6 +159,9 @@
   gEmbeddedTokenSpaceGuid.PcdTimerPeriod|100000
   gEmbeddedTokenSpaceGuid.PcdEmbeddedPerformanceCounterPeriodInNanoseconds|77
   gEmbeddedTokenSpaceGuid.PcdEmbeddedPerformanceCounterFrequencyInHz|13000000
+
+  # OMAP Interrupt Controller
+  gEmbeddedTokenSpaceGuid.PcdInterruptBaseAddress|0x48200000
 
   #
   # ARM Pcds
@@ -184,5 +186,13 @@
   Omap35xxPkg/TimerDxe/TimerDxe.inf
   Omap35xxPkg/TPS65950Dxe/TPS65950.inf
 
+  Omap35xxPkg/LcdGraphicsOutputDxe/LcdGraphicsOutputDxe.inf
+  Omap35xxPkg/Library/DebugAgentTimerLib/DebugAgentTimerLib.inf
+  Omap35xxPkg/Library/EblCmdLib/EblCmdLib.inf
+  Omap35xxPkg/Library/GdbSerialLib/GdbSerialLib.inf
+  Omap35xxPkg/Library/RealTimeClockLib/RealTimeClockLib.inf
+  Omap35xxPkg/Library/SerialPortLib/SerialPortLib.inf
+  Omap35xxPkg/MmcHostDxe/MmcHostDxe.inf
+  Omap35xxPkg/PciEmulation/PciEmulation.inf
 
 

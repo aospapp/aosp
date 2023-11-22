@@ -211,8 +211,8 @@ public class TestFormatter {
 
     private String toZoneOffsetStr(String expected) {
         // Android-changed: Android Matcher doesn't support named groups. Also GMT/Z is formatted as
-        // "GMT+00:00".
-        return expected.replaceAll("GMT(?:\\+00:00)|UTC|UT", "Z")
+        // "GMT+00:00" or "GMT".
+        return expected.replaceAll("GMT(?:\\+00:00)?(?=])|UTC|UT", "Z")
                 .replaceAll("(?:GMT|UTC)([+\\-]?[0-9]{2}:[0-9]{2})", "$1");
     }
 

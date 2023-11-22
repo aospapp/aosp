@@ -4,6 +4,7 @@ bootstrap_go_package {
     deps: [
         "blueprint",
         "blueprint-pathtools",
+        "blueprint-proptools",
         "soong",
         "soong-android",
         "soong-cc",
@@ -20,7 +21,6 @@ art_global_defaults {
     // Additional flags are computed by art.go
 
     name: "art_defaults",
-    clang: true,
     cflags: [
         // Base set of cflags used by all things ART.
         "-fno-rtti",
@@ -68,10 +68,6 @@ art_global_defaults {
             cflags: [
                 "-DART_TARGET",
 
-                // Enable missing-noreturn only on non-Mac. As lots of things are not implemented
-                // for Apple, it's a pain.
-                "-Wmissing-noreturn",
-
                 // To use oprofile_android --callgraph, uncomment this and recompile with
                 //    mmma -j art
                 // "-fno-omit-frame-pointer",
@@ -90,19 +86,21 @@ art_global_defaults {
                 // Apple, it's a pain.
                 "-Wmissing-noreturn",
             ],
-            host_ldlibs: [
-                "-lrt",
-            ],
         },
         host: {
             cflags: [
                 // Bug: 15446488. We don't omit the frame pointer to work around
                 // clang/libunwind bugs that cause SEGVs in run-test-004-ThreadStress.
                 "-fno-omit-frame-pointer",
-            ],
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
+                // The build assumes that all our x86/x86_64 hosts (such as buildbots and developer
+                // desktops) support at least sse4.2/popcount. This firstly implies that the ART
+                // runtime binary itself may exploit these features. Secondly, this implies that
+                // the ART runtime passes these feature flags to dex2oat and JIT by calling the
+                // method InstructionSetFeatures::FromCppDefines(). Since invoking dex2oat directly
+                // does not pick up these flags, cross-compiling from a x86/x86_64 host to a
+                // x86/x86_64 target should not be affected.
+                "-msse4.2",
+                "-mpopcnt",
             ],
         },
     },
@@ -129,13 +127,9 @@ art_global_defaults {
     },
 
     include_dirs: [
-        "external/icu/icu4c/source/common",
-        "external/lz4/lib",
         "external/valgrind/include",
         "external/valgrind",
         "external/vixl/src",
-        "external/zlib",
-        "libnativehelper/platform_include"
     ],
 
     tidy_checks: [

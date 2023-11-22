@@ -24,7 +24,7 @@ import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.support.v4.content.FileProvider;
+import androidx.core.content.FileProvider;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 

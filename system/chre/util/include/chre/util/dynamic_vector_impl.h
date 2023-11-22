@@ -17,6 +17,8 @@
 #ifndef CHRE_UTIL_DYNAMIC_VECTOR_IMPL_H_
 #define CHRE_UTIL_DYNAMIC_VECTOR_IMPL_H_
 
+#include "chre/util/dynamic_vector.h"
+
 #include <memory>
 #include <new>
 #include <utility>
@@ -47,6 +49,26 @@ DynamicVector<ElementType>::~DynamicVector() {
     clear();
     memoryFree(mData);
   }
+}
+
+template<typename ElementType>
+DynamicVector<ElementType>& DynamicVector<ElementType>::operator=(
+    DynamicVector<ElementType>&& other) {
+  if (this == &other) {
+    return *this;
+  }
+  this->~DynamicVector();
+
+  mData = other.mData;
+  mSize = other.mSize;
+  mCapacity = other.mCapacity;
+  mDataIsWrapped = other.mDataIsWrapped;
+
+  other.mData = nullptr;
+  other.mSize = 0;
+  other.mCapacity = 0;
+  other.mDataIsWrapped = false;
+  return *this;
 }
 
 template <typename ElementType>
@@ -85,9 +107,7 @@ bool DynamicVector<ElementType>::empty() const {
 template<typename ElementType>
 void DynamicVector<ElementType>::pop_back() {
   CHRE_ASSERT(!empty());
-  if (!empty()) {
-    erase(mSize - 1);
-  }
+  erase(mSize - 1);
 }
 
 template<typename ElementType>
@@ -124,10 +144,6 @@ bool DynamicVector<ElementType>::emplace_back(Args&&... args) {
 template<typename ElementType>
 ElementType& DynamicVector<ElementType>::operator[](size_type index) {
   CHRE_ASSERT(index < mSize);
-  if (index >= mSize) {
-    index = mSize - 1;
-  }
-
   return data()[index];
 }
 
@@ -135,10 +151,6 @@ template<typename ElementType>
 const ElementType& DynamicVector<ElementType>::operator[](size_type index)
     const {
   CHRE_ASSERT(index < mSize);
-  if (index >= mSize) {
-    index = mSize - 1;
-  }
-
   return data()[index];
 }
 
@@ -162,7 +174,7 @@ template<typename ElementType>
 bool DynamicVector<ElementType>::reserve(size_type newCapacity) {
   bool success = false;
 
-  CHRE_ASSERT_LOG(owns_data(), "Wrapped buffers can't be resized");
+  CHRE_ASSERT(owns_data());
   if (newCapacity <= mCapacity) {
     success = true;
   } else if (owns_data()) {
@@ -176,6 +188,21 @@ bool DynamicVector<ElementType>::reserve(size_type newCapacity) {
       mCapacity = newCapacity;
       success = true;
     }
+  }
+
+  return success;
+}
+
+template<typename ElementType>
+bool DynamicVector<ElementType>::resize(size_type newSize) {
+  // Remove elements from the back to minimize move operations.
+  while (mSize > newSize) {
+    pop_back();
+  }
+
+  bool success = true;
+  while (success && mSize < newSize) {
+    success = emplace_back();
   }
 
   return success;
@@ -247,14 +274,12 @@ bool DynamicVector<ElementType>::copy_array(const ElementType *array,
 template<typename ElementType>
 void DynamicVector<ElementType>::erase(size_type index) {
   CHRE_ASSERT(index < mSize);
-  if (index < mSize) {
-    mSize--;
-    for (size_type i = index; i < mSize; i++) {
-      moveOrCopyAssign(mData[i], mData[i + 1]);
-    }
-
-    mData[mSize].~ElementType();
+  mSize--;
+  for (size_type i = index; i < mSize; i++) {
+    moveOrCopyAssign(mData[i], mData[i + 1]);
   }
+
+  mData[mSize].~ElementType();
 }
 
 template<typename ElementType>
@@ -274,7 +299,7 @@ typename DynamicVector<ElementType>::size_type
 template<typename ElementType>
 void DynamicVector<ElementType>::swap(size_type index0, size_type index1) {
   CHRE_ASSERT(index0 < mSize && index1 < mSize);
-  if (index0 < mSize && index1 < mSize && index0 != index1) {
+  if (index0 != index1) {
     typename std::aligned_storage<sizeof(ElementType),
         alignof(ElementType)>::type tempStorage;
     ElementType& temp = *reinterpret_cast<ElementType *>(&tempStorage);

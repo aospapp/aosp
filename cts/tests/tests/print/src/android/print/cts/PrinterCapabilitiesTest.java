@@ -16,6 +16,11 @@
 
 package android.print.cts;
 
+import static android.print.test.Utils.assertException;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import android.os.ParcelFileDescriptor;
 import android.print.PageRange;
 import android.print.PrintAttributes;
@@ -29,21 +34,20 @@ import android.print.PrintDocumentInfo;
 import android.print.PrinterCapabilitiesInfo;
 import android.print.PrinterId;
 import android.print.PrinterInfo;
-import android.print.cts.services.FirstPrintService;
-import android.print.cts.services.PrintServiceCallbacks;
-import android.print.cts.services.PrinterDiscoverySessionCallbacks;
-import android.print.cts.services.SecondPrintService;
-import android.print.cts.services.StubbablePrinterDiscoverySession;
+import android.print.test.BasePrintTest;
+import android.print.test.services.FirstPrintService;
+import android.print.test.services.PrintServiceCallbacks;
+import android.print.test.services.PrinterDiscoverySessionCallbacks;
+import android.print.test.services.SecondPrintService;
+import android.print.test.services.StubbablePrinterDiscoverySession;
 import android.support.test.runner.AndroidJUnit4;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.function.Consumer;
 import java.util.function.Function;
-
-import static android.print.cts.Utils.assertException;
-import static org.junit.Assert.*;
 
 /**
  * This test verifies changes to the printer capabilities are applied correctly.

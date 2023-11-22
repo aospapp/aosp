@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import collections
 import logging
 import os
 import re
@@ -15,13 +16,16 @@ from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.graphics import graphics_utils
 from autotest_lib.client.cros.video import helper_logger
 
+from telemetry.timeline import chrome_trace_config
+from telemetry.timeline import tracing_config
+from telemetry.timeline.model import TimelineModel
+
 TEST_PAGE = 'content.html'
 
 # The keys to access the content of memry stats.
 KEY_RENDERER = 'Renderer'
 KEY_BROWSER = 'Browser'
-KEY_GPU = 'Gpu'
-KEY_RSS = 'WorkingSetSize'
+KEY_GPU = 'GPU Process'
 
 # The number of iterations to be run before measuring the memory usage.
 # Just ensure we have fill up the caches/buffers so that we can get
@@ -91,7 +95,8 @@ def _get_graphics_memory_usage():
         logging.warning('graphics memory info is not available')
         return 0
 
-    return usage
+    # The original value is in bytes
+    return usage / 1024
 
 def _get_linear_regression_slope(x, y):
     """
@@ -157,8 +162,8 @@ class MemoryTest(object):
         All are expected in the unit of KB.
 
         browser_usage: the RSS of the browser process
-        rednerers_usage: the total RSS of all renderer processes
-        rednerers_usage: the total RSS of all gpu processes
+        renderer_usage: the total RSS of all renderer processes
+        gpu_usage: the total RSS of all gpu processes
         kernel_usage: the memory used in kernel
         total_usage: the sum of the above memory usages. The graphics_usage is
                      not included because the composition of the graphics
@@ -167,17 +172,34 @@ class MemoryTest(object):
                      sense to sum it up with others.
         graphics_usage: the memory usage reported by the graphics driver
         """
+
+        config = tracing_config.TracingConfig()
+        config.chrome_trace_config.category_filter.AddExcludedCategory("*")
+        config.chrome_trace_config.category_filter.AddDisabledByDefault(
+                "disabled-by-default-memory-infra")
+        config.chrome_trace_config.SetMemoryDumpConfig(
+                chrome_trace_config.MemoryDumpConfig())
+        config.enable_chrome_trace = True
+        self.browser.platform.tracing_controller.StartTracing(config)
+
         # Force to collect garbage before measuring memory
-        for i in xrange(len(self.browser.tabs)):
-            # TODO(owenlin): Change to "for t in tabs" once
-            #                http://crbug.com/239735 is resolved
-            self.browser.tabs[i].CollectGarbage()
+        for t in self.browser.tabs:
+            t.CollectGarbage()
 
-        m = self.browser.memory_stats
+        self.browser.DumpMemory()
 
-        result = (m[KEY_BROWSER][KEY_RSS] / 1024,
-                  m[KEY_RENDERER][KEY_RSS] / 1024,
-                  m[KEY_GPU][KEY_RSS] / 1024,
+        trace_data = self.browser.platform.tracing_controller.StopTracing()[0]
+        model = TimelineModel(trace_data)
+        memory_dump = model.IterGlobalMemoryDumps().next()
+        process_memory = collections.defaultdict(int)
+        for process_memory_dump in memory_dump.IterProcessMemoryDumps():
+            process_name = process_memory_dump.process_name
+            process_memory[process_name] += sum(
+                    process_memory_dump.GetMemoryUsage().values())
+
+        result = (process_memory[KEY_BROWSER] / 1024,
+                  process_memory[KEY_RENDERER] / 1024,
+                  process_memory[KEY_GPU] / 1024,
                   _get_kernel_memory_usage())
 
         # total = browser + renderer + gpu + kernal

@@ -22,5 +22,7 @@ LOCAL_MULTILIB := 32
 
 LOCAL_SANITIZE := never
 
+LOCAL_ARM_MODE := thumb
+
 include $(BUILD_EXECUTABLE)
 endif

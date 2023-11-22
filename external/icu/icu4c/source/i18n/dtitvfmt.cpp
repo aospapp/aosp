@@ -1,4 +1,4 @@
-// Copyright (C) 2016 and later: Unicode, Inc. and others.
+// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 /*******************************************************************************
 * Copyright (C) 2008-2016, International Business Machines Corporation and
@@ -22,6 +22,9 @@
 #include "unicode/calendar.h"
 #include "unicode/dtptngen.h"
 #include "unicode/dtitvinf.h"
+// Android patch (CLDR ticket #10321) begin.
+#include "unicode/msgfmt.h"
+// Android patch (CLDR ticket #10321) begin.
 #include "unicode/simpleformatter.h"
 #include "cmemory.h"
 #include "cstring.h"
@@ -1370,12 +1373,24 @@ DateIntervalFormat::fallbackFormat(Calendar& fromCalendar,
         otherPos.setEndIndex(0);
         fDateFormat->format(fromCalendar, datePortion, otherPos);
         adjustPosition(*fDateTimeFormat, fallbackRange, pos, datePortion, otherPos, pos);
-        const UnicodeString *values[2] = {
-            &fallbackRange,  // {0} is time range
-            &datePortion,  // {1} is single date portion
+
+        // Android patch (CLDR ticket #10321) begin.
+        UParseError parseError;
+        const UnicodeString emptyPattern;
+        const Formattable values[] = {
+                fallbackRange,  // {0} is time range
+                datePortion,  // {1} is single date portion
         };
-        SimpleFormatter(*fDateTimeFormat, 2, 2, status).
-                formatAndReplace(values, 2, fallbackRange, NULL, 0, status);
+        UnicodeString formattedMessage;
+        FieldPosition outputPos = 0;
+        MessageFormat msgFmt(emptyPattern, status);
+        msgFmt.applyPattern(*fDateTimeFormat, UMSGPAT_APOS_DOUBLE_REQUIRED,
+                            &parseError, status);
+        msgFmt.format(values, 2, formattedMessage, outputPos, status);
+        if (U_SUCCESS(status)) {
+            fallbackRange = formattedMessage;
+        }
+        // Android patch (CLDR ticket #10321) end.
     }
     if ( U_SUCCESS(status) ) {
         appendTo.append(fallbackRange);

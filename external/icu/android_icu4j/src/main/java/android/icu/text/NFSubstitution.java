@@ -11,6 +11,8 @@ package android.icu.text;
 
 import java.text.ParsePosition;
 
+import android.icu.impl.number.DecimalQuantity_DualStorageBCD;
+
 //===================================================================
 // NFSubstitution (abstract base class)
 //===================================================================
@@ -233,7 +235,8 @@ abstract class NFSubstitution {
      * @param that The substitution to compare this one to
      * @return true if the two substitutions are functionally equivalent
      */
-    public boolean equals(Object that) {
+    @Override
+  public boolean equals(Object that) {
         // compare class and all of the fields all substitutions have
         // in common
         if (that == null) {
@@ -251,8 +254,9 @@ abstract class NFSubstitution {
         }
         return false;
     }
-    
-    public int hashCode() {
+
+    @Override
+  public int hashCode() {
         assert false : "hashCode not designed";
         return 42;
     }
@@ -263,7 +267,8 @@ abstract class NFSubstitution {
      * not be identical to the description it was created from, but
      * it'll produce the same result.
      */
-    public String toString() {
+    @Override
+  public String toString() {
         // use tokenChar() to get the character at the beginning and
         // end of the substitution token.  In between them will go
         // either the name of the rule set it uses, or the pattern of
@@ -279,6 +284,8 @@ abstract class NFSubstitution {
     // formatting
     //-----------------------------------------------------------------------
 
+    private static final long MAX_INT64_IN_DOUBLE = 0x1FFFFFFFFFFFFFL;
+
     /**
      * Performs a mathematical operation on the number, formats it using
      * either ruleSet or decimalFormat, and inserts the result into
@@ -290,15 +297,37 @@ abstract class NFSubstitution {
      * position to determine exactly where to insert the new text)
      */
     public void doSubstitution(long number, StringBuilder toInsertInto, int position, int recursionCount) {
-        // perform a transformation on the number that is dependent
-        // on the type of substitution this is, then just call its
-        // rule set's format() method to format the result
-        long numberToFormat = transformNumber(number);
-
         if (ruleSet != null) {
+            // Perform a transformation on the number that is dependent
+            // on the type of substitution this is, then just call its
+            // rule set's format() method to format the result
+            long numberToFormat = transformNumber(number);
+
             ruleSet.format(numberToFormat, toInsertInto, position + pos, recursionCount);
         } else {
-            toInsertInto.insert(position + pos, numberFormat.format(numberToFormat));
+            if (number <= MAX_INT64_IN_DOUBLE) {
+                // or perform the transformation on the number (preserving
+                // the result's fractional part if the formatter it set
+                // to show it), then use that formatter's format() method
+                // to format the result
+                double numberToFormat = transformNumber((double) number);
+                if (numberFormat.getMaximumFractionDigits() == 0) {
+                    numberToFormat = Math.floor(numberToFormat);
+                }
+
+                toInsertInto.insert(position + pos, numberFormat.format(numberToFormat));
+            }
+            else {
+                // We have gone beyond double precision. Something has to give.
+                // We're favoring accuracy of the large number over potential rules
+                // that round like a CompactDecimalFormat, which is not a common use case.
+                //
+                // Perform a transformation on the number that is dependent
+                // on the type of substitution this is, then just call its
+                // rule set's format() method to format the result
+                long numberToFormat = transformNumber(number);
+                toInsertInto.insert(position + pos, numberFormat.format(numberToFormat));
+            }
         }
     }
 
@@ -563,7 +592,8 @@ class SameValueSubstitution extends NFSubstitution {
      * Returns "number" unchanged.
      * @return "number"
      */
-    public long transformNumber(long number) {
+    @Override
+  public long transformNumber(long number) {
         return number;
     }
 
@@ -571,7 +601,8 @@ class SameValueSubstitution extends NFSubstitution {
      * Returns "number" unchanged.
      * @return "number"
      */
-    public double transformNumber(double number) {
+    @Override
+  public double transformNumber(double number) {
         return number;
     }
 
@@ -588,7 +619,8 @@ class SameValueSubstitution extends NFSubstitution {
      * substitution.
      * @return newRuleValue
      */
-    public double composeRuleValue(double newRuleValue, double oldRuleValue) {
+    @Override
+  public double composeRuleValue(double newRuleValue, double oldRuleValue) {
         return newRuleValue;
     }
 
@@ -597,7 +629,8 @@ class SameValueSubstitution extends NFSubstitution {
      * @param oldUpperBound The current upper bound.
      * @return oldUpperBound
      */
-    public double calcUpperBound(double oldUpperBound) {
+    @Override
+  public double calcUpperBound(double oldUpperBound) {
         return oldUpperBound;
     }
 
@@ -609,7 +642,8 @@ class SameValueSubstitution extends NFSubstitution {
      * The token character for a SameValueSubstitution is =.
      * @return '='
      */
-    char tokenChar() {
+    @Override
+  char tokenChar() {
         return '=';
     }
 }
@@ -668,7 +702,8 @@ class MultiplierSubstitution extends NFSubstitution {
      * @param radix The radix of the divisor.
      * @param exponent The exponent of the divisor.
      */
-    public void setDivisor(int radix, short exponent) {
+    @Override
+  public void setDivisor(int radix, short exponent) {
         divisor = NFRule.power(radix, exponent);
 
         if (divisor == 0) {
@@ -685,10 +720,11 @@ class MultiplierSubstitution extends NFSubstitution {
      * @param that The other substitution
      * @return true if the two substitutions are functionally equal
      */
-    public boolean equals(Object that) {
+    @Override
+  public boolean equals(Object that) {
         return super.equals(that) && divisor == ((MultiplierSubstitution) that).divisor;
     }
-    
+
     //-----------------------------------------------------------------------
     // formatting
     //-----------------------------------------------------------------------
@@ -698,7 +734,8 @@ class MultiplierSubstitution extends NFSubstitution {
      * @param number The number being formatted.
      * @return "number" divided by the rule's divisor
      */
-    public long transformNumber(long number) {
+    @Override
+  public long transformNumber(long number) {
         return (long)Math.floor(number / divisor);
     }
 
@@ -711,7 +748,8 @@ class MultiplierSubstitution extends NFSubstitution {
      * @param number The number being formatted
      * @return "number" divided by the rule's divisor
      */
-    public double transformNumber(double number) {
+    @Override
+  public double transformNumber(double number) {
         if (ruleSet == null) {
             return number / divisor;
         } else {
@@ -732,7 +770,8 @@ class MultiplierSubstitution extends NFSubstitution {
      * substitution
      * @return newRuleValue * divisor
      */
-    public double composeRuleValue(double newRuleValue, double oldRuleValue) {
+    @Override
+  public double composeRuleValue(double newRuleValue, double oldRuleValue) {
         return newRuleValue * divisor;
     }
 
@@ -741,7 +780,8 @@ class MultiplierSubstitution extends NFSubstitution {
      * @param oldUpperBound Ignored.
      * @return The rule's divisor.
      */
-    public double calcUpperBound(double oldUpperBound) {
+    @Override
+  public double calcUpperBound(double oldUpperBound) {
         return divisor;
     }
 
@@ -753,7 +793,8 @@ class MultiplierSubstitution extends NFSubstitution {
      * The token character for a multiplier substitution is &lt;.
      * @return '&lt;'
      */
-    char tokenChar() {
+    @Override
+  char tokenChar() {
         return '<';
     }
 }
@@ -835,7 +876,8 @@ class ModulusSubstitution extends NFSubstitution {
      * @param radix The radix of the divisor.
      * @param exponent The exponent of the divisor.
      */
-    public void setDivisor(int radix, short exponent) {
+    @Override
+  public void setDivisor(int radix, short exponent) {
         divisor = NFRule.power(radix, exponent);
 
         if (divisor == 0) { // this will cause recursion
@@ -853,7 +895,8 @@ class ModulusSubstitution extends NFSubstitution {
      * @param that The other substitution
      * @return true if the two substitutions are functionally equivalent
      */
-    public boolean equals(Object that) {
+    @Override
+  public boolean equals(Object that) {
         if (super.equals(that)) {
             ModulusSubstitution that2 = (ModulusSubstitution)that;
 
@@ -862,7 +905,7 @@ class ModulusSubstitution extends NFSubstitution {
             return false;
         }
     }
-    
+
     //-----------------------------------------------------------------------
     // formatting
     //-----------------------------------------------------------------------
@@ -875,7 +918,8 @@ class ModulusSubstitution extends NFSubstitution {
      * into
      * @param position The position of the rule text in toInsertInto
      */
-    public void doSubstitution(long number, StringBuilder toInsertInto, int position, int recursionCount) {
+    @Override
+  public void doSubstitution(long number, StringBuilder toInsertInto, int position, int recursionCount) {
         // if this isn't a >>> substitution, just use the inherited version
         // of this function (which uses either a rule set or a DecimalFormat
         // to format its substitution value)
@@ -898,7 +942,8 @@ class ModulusSubstitution extends NFSubstitution {
      * into
      * @param position The position of the rule text in toInsertInto
      */
-    public void doSubstitution(double number, StringBuilder toInsertInto, int position, int recursionCount) {
+    @Override
+  public void doSubstitution(double number, StringBuilder toInsertInto, int position, int recursionCount) {
         // if this isn't a >>> substitution, just use the inherited version
         // of this function (which uses either a rule set or a DecimalFormat
         // to format its substitution value)
@@ -920,7 +965,8 @@ class ModulusSubstitution extends NFSubstitution {
      * @param number The number being formatted
      * @return "number" mod divisor
      */
-    public long transformNumber(long number) {
+    @Override
+  public long transformNumber(long number) {
         return number % divisor;
     }
 
@@ -930,7 +976,8 @@ class ModulusSubstitution extends NFSubstitution {
      * @param number The number being formatted
      * @return "number" mod divisor
      */
-    public double transformNumber(double number) {
+    @Override
+  public double transformNumber(double number) {
         return Math.floor(number % divisor);
     }
 
@@ -947,7 +994,8 @@ class ModulusSubstitution extends NFSubstitution {
      * @param baseValue The partial parse result prior to calling this
      * routine.
      */
-    public Number doParse(String text, ParsePosition parsePosition, double baseValue,
+    @Override
+  public Number doParse(String text, ParsePosition parsePosition, double baseValue,
                         double upperBound, boolean lenientParse) {
         // if this isn't a >>> substitution, we can just use the
         // inherited parse() routine to do the parsing
@@ -987,7 +1035,8 @@ class ModulusSubstitution extends NFSubstitution {
      * @param oldRuleValue The base value of the rule containing the
      * substitution
      */
-    public double composeRuleValue(double newRuleValue, double oldRuleValue) {
+    @Override
+  public double composeRuleValue(double newRuleValue, double oldRuleValue) {
         return (oldRuleValue - (oldRuleValue % divisor)) + newRuleValue;
     }
 
@@ -996,7 +1045,8 @@ class ModulusSubstitution extends NFSubstitution {
      * @param oldUpperBound Ignored
      * @return The owning rule's divisor
      */
-    public double calcUpperBound(double oldUpperBound) {
+    @Override
+  public double calcUpperBound(double oldUpperBound) {
         return divisor;
     }
 
@@ -1008,7 +1058,8 @@ class ModulusSubstitution extends NFSubstitution {
      * Returns true.  This _is_ a ModulusSubstitution.
      * @return true
      */
-    public boolean isModulusSubstitution() {
+    @Override
+  public boolean isModulusSubstitution() {
         return true;
     }
 
@@ -1016,7 +1067,8 @@ class ModulusSubstitution extends NFSubstitution {
      * The token character of a ModulusSubstitution is &gt;.
      * @return '&gt;'
      */
-    char tokenChar() {
+    @Override
+  char tokenChar() {
         return '>';
     }
 }
@@ -1054,7 +1106,8 @@ class IntegralPartSubstitution extends NFSubstitution {
      * @param number The number being formatted
      * @return "number" unchanged
      */
-    public long transformNumber(long number) {
+    @Override
+  public long transformNumber(long number) {
         return number;
     }
 
@@ -1063,7 +1116,8 @@ class IntegralPartSubstitution extends NFSubstitution {
      * @param number The integral part of the number being formatted
      * @return floor(number)
      */
-    public double transformNumber(double number) {
+    @Override
+  public double transformNumber(double number) {
         return Math.floor(number);
     }
 
@@ -1081,7 +1135,8 @@ class IntegralPartSubstitution extends NFSubstitution {
      * calling this function
      * @return oldRuleValue + newRuleValue
      */
-    public double composeRuleValue(double newRuleValue, double oldRuleValue) {
+    @Override
+  public double composeRuleValue(double newRuleValue, double oldRuleValue) {
         return newRuleValue + oldRuleValue;
     }
 
@@ -1091,7 +1146,8 @@ class IntegralPartSubstitution extends NFSubstitution {
      * @param oldUpperBound Ignored
      * @return Double.MAX_VALUE
      */
-    public double calcUpperBound(double oldUpperBound) {
+    @Override
+  public double calcUpperBound(double oldUpperBound) {
         return Double.MAX_VALUE;
     }
 
@@ -1103,7 +1159,8 @@ class IntegralPartSubstitution extends NFSubstitution {
      * An IntegralPartSubstitution's token character is &lt;
      * @return '&lt;'
      */
-    char tokenChar() {
+    @Override
+  char tokenChar() {
         return '<';
     }
 }
@@ -1170,7 +1227,8 @@ class FractionalPartSubstitution extends NFSubstitution {
      * @param position The position of the owning rule's rule text in
      * toInsertInto
      */
-    public void doSubstitution(double number, StringBuilder toInsertInto, int position, int recursionCount) {
+    @Override
+  public void doSubstitution(double number, StringBuilder toInsertInto, int position, int recursionCount) {
         if (!byDigits) {
             // if we're not in "byDigits" mode, just use the inherited
             // doSubstitution() routine
@@ -1184,27 +1242,18 @@ class FractionalPartSubstitution extends NFSubstitution {
             // (this is slower, but more accurate, than doing it from the
             // other end)
 
-            // just print to string and then use that
-            DigitList dl = new DigitList();
-            dl.set(number, 20, true);
+            DecimalQuantity_DualStorageBCD fq = new DecimalQuantity_DualStorageBCD(number);
+            fq.roundToInfinity(); // ensure doubles are resolved using slow path
 
             boolean pad = false;
-            while (dl.count > Math.max(0, dl.decimalAt)) {
+            int mag = fq.getLowerDisplayMagnitude();
+            while (mag < 0) {
                 if (pad && useSpaces) {
                     toInsertInto.insert(position + pos, ' ');
                 } else {
                     pad = true;
                 }
-                ruleSet.format(dl.digits[--dl.count] - '0', toInsertInto, position + pos, recursionCount);
-            }
-            while (dl.decimalAt < 0) {
-                if (pad && useSpaces) {
-                    toInsertInto.insert(position + pos, ' ');
-                } else {
-                    pad = true;
-                }
-                ruleSet.format(0, toInsertInto, position + pos, recursionCount);
-                ++dl.decimalAt;
+                ruleSet.format(fq.getDigit(mag++), toInsertInto, position + pos, recursionCount);
             }
         }
     }
@@ -1215,7 +1264,8 @@ class FractionalPartSubstitution extends NFSubstitution {
      * @param number The number being formatted
      * @return 0
      */
-    public long transformNumber(long number) {
+    @Override
+  public long transformNumber(long number) {
         return 0;
     }
 
@@ -1224,7 +1274,8 @@ class FractionalPartSubstitution extends NFSubstitution {
      * @param number The number being formatted.
      * @return number - floor(number)
      */
-    public double transformNumber(double number) {
+    @Override
+  public double transformNumber(double number) {
         return number - Math.floor(number);
     }
 
@@ -1248,7 +1299,8 @@ class FractionalPartSubstitution extends NFSubstitution {
      * result; otherwise new Long(0).  The result is either a Long or
      * a Double.
      */
-    public Number doParse(String text, ParsePosition parsePosition, double baseValue,
+    @Override
+  public Number doParse(String text, ParsePosition parsePosition, double baseValue,
                         double upperBound, boolean lenientParse) {
         // if we're not in byDigits mode, we can just use the inherited
         // doParse()
@@ -1265,7 +1317,8 @@ class FractionalPartSubstitution extends NFSubstitution {
             double result;
             int digit;
 
-            DigitList dl = new DigitList();
+            DecimalQuantity_DualStorageBCD fq = new DecimalQuantity_DualStorageBCD();
+            int leadingZeros = 0;
             while (workText.length() > 0 && workPos.getIndex() != 0) {
                 workPos.setIndex(0);
                 digit = ruleSet.parse(workText, workPos, 10).intValue();
@@ -1277,7 +1330,12 @@ class FractionalPartSubstitution extends NFSubstitution {
                 }
 
                 if (workPos.getIndex() != 0) {
-                    dl.append('0'+digit);
+                    if (digit == 0) {
+                        leadingZeros++;
+                    } else {
+                        fq.appendDigit((byte) digit, leadingZeros, false);
+                        leadingZeros = 0;
+                    }
 
                     parsePosition.setIndex(parsePosition.getIndex() + workPos.getIndex());
                     workText = workText.substring(workPos.getIndex());
@@ -1287,7 +1345,7 @@ class FractionalPartSubstitution extends NFSubstitution {
                     }
                 }
             }
-            result = dl.count == 0 ? 0 : dl.getDouble();
+            result = fq.toDouble();
 
             result = composeRuleValue(result, baseValue);
             return new Double(result);
@@ -1301,14 +1359,16 @@ class FractionalPartSubstitution extends NFSubstitution {
      * this function
      * @return newRuleValue + oldRuleValue
      */
-    public double composeRuleValue(double newRuleValue, double oldRuleValue) {
+    @Override
+  public double composeRuleValue(double newRuleValue, double oldRuleValue) {
         return newRuleValue + oldRuleValue;
     }
 
     /**
      * Not used.
      */
-    public double calcUpperBound(double oldUpperBound) {
+    @Override
+  public double calcUpperBound(double oldUpperBound) {
         return 0;   // this value is ignored
     }
 
@@ -1320,7 +1380,8 @@ class FractionalPartSubstitution extends NFSubstitution {
      * The token character for a FractionalPartSubstitution is &gt;.
      * @return '&gt;'
      */
-    char tokenChar() {
+    @Override
+  char tokenChar() {
         return '>';
     }
 }
@@ -1357,7 +1418,8 @@ class AbsoluteValueSubstitution extends NFSubstitution {
      * @param number The number being formatted.
      * @return abs(number)
      */
-    public long transformNumber(long number) {
+    @Override
+  public long transformNumber(long number) {
         return Math.abs(number);
     }
 
@@ -1366,7 +1428,8 @@ class AbsoluteValueSubstitution extends NFSubstitution {
      * @param number The number being formatted.
      * @return abs(number)
      */
-    public double transformNumber(double number) {
+    @Override
+  public double transformNumber(double number) {
         return Math.abs(number);
     }
 
@@ -1382,7 +1445,8 @@ class AbsoluteValueSubstitution extends NFSubstitution {
      * this function
      * @return -newRuleValue
      */
-    public double composeRuleValue(double newRuleValue, double oldRuleValue) {
+    @Override
+  public double composeRuleValue(double newRuleValue, double oldRuleValue) {
         return -newRuleValue;
     }
 
@@ -1391,7 +1455,8 @@ class AbsoluteValueSubstitution extends NFSubstitution {
      * @param oldUpperBound Ignored.
      * @return Double.MAX_VALUE
      */
-    public double calcUpperBound(double oldUpperBound) {
+    @Override
+  public double calcUpperBound(double oldUpperBound) {
         return Double.MAX_VALUE;
     }
 
@@ -1403,7 +1468,8 @@ class AbsoluteValueSubstitution extends NFSubstitution {
      * The token character for an AbsoluteValueSubstitution is &gt;
      * @return '&gt;'
      */
-    char tokenChar() {
+    @Override
+  char tokenChar() {
         return '>';
     }
 }
@@ -1453,13 +1519,13 @@ class NumeratorSubstitution extends NFSubstitution {
         // Rather than keeping a backpointer to the rule, we copy its
         // base value here
         this.denominator = denominator;
-        
+
         this.withZeros = description.endsWith("<<");
     }
 
     static String fixdesc(String description) {
-        return description.endsWith("<<") 
-            ? description.substring(0,description.length()-1) 
+        return description.endsWith("<<")
+            ? description.substring(0,description.length()-1)
             : description;
     }
 
@@ -1472,7 +1538,8 @@ class NumeratorSubstitution extends NFSubstitution {
      * @param that The other NumeratorSubstitution
      * @return true if the two objects are functionally equivalent
      */
-    public boolean equals(Object that) {
+    @Override
+  public boolean equals(Object that) {
         if (super.equals(that)) {
             NumeratorSubstitution that2 = (NumeratorSubstitution)that;
             return denominator == that2.denominator && withZeros == that2.withZeros;
@@ -1480,7 +1547,7 @@ class NumeratorSubstitution extends NFSubstitution {
             return false;
         }
     }
-    
+
     //-----------------------------------------------------------------------
     // formatting
     //-----------------------------------------------------------------------
@@ -1495,7 +1562,8 @@ class NumeratorSubstitution extends NFSubstitution {
      * rule text begins (this value is added to this substitution's
      * position to determine exactly where to insert the new text)
      */
-    public void doSubstitution(double number, StringBuilder toInsertInto, int position, int recursionCount) {
+    @Override
+  public void doSubstitution(double number, StringBuilder toInsertInto, int position, int recursionCount) {
         // perform a transformation on the number being formatted that
         // is dependent on the type of substitution this is
         //String s = toInsertInto.toString();
@@ -1534,7 +1602,8 @@ class NumeratorSubstitution extends NFSubstitution {
      * @param number The number being formatted
      * @return number * denominator
      */
-    public long transformNumber(long number) {
+    @Override
+  public long transformNumber(long number) {
         return Math.round(number * denominator);
     }
 
@@ -1543,7 +1612,8 @@ class NumeratorSubstitution extends NFSubstitution {
      * @param number The number being formatted
      * @return number * denominator
      */
-    public double transformNumber(double number) {
+    @Override
+  public double transformNumber(double number) {
         return Math.round(number * denominator);
     }
 
@@ -1555,7 +1625,8 @@ class NumeratorSubstitution extends NFSubstitution {
      * Dispatches to the inherited version of this function, but makes
      * sure that lenientParse is off.
      */
-    public Number doParse(String text, ParsePosition parsePosition, double baseValue,
+    @Override
+  public Number doParse(String text, ParsePosition parsePosition, double baseValue,
                         double upperBound, boolean lenientParse) {
         // we don't have to do anything special to do the parsing here,
         // but we have to turn lenient parsing off-- if we leave it on,
@@ -1597,7 +1668,7 @@ class NumeratorSubstitution extends NFSubstitution {
         if (withZeros) {
             // any base value will do in this case.  is there a way to
             // force this to not bother trying all the base values?
-            
+
             // compute the 'effective' base and prescale the value down
             long n = result.longValue();
             long d = 1;
@@ -1623,7 +1694,8 @@ class NumeratorSubstitution extends NFSubstitution {
      * @param oldRuleValue The owning rule's base value
      * @return newRuleValue / oldRuleValue
      */
-    public double composeRuleValue(double newRuleValue, double oldRuleValue) {
+    @Override
+  public double composeRuleValue(double newRuleValue, double oldRuleValue) {
         return newRuleValue / oldRuleValue;
     }
 
@@ -1632,7 +1704,8 @@ class NumeratorSubstitution extends NFSubstitution {
      * @param oldUpperBound Ignored
      * @return The base value of the rule owning this substitution
      */
-    public double calcUpperBound(double oldUpperBound) {
+    @Override
+  public double calcUpperBound(double oldUpperBound) {
         return denominator;
     }
 
@@ -1644,7 +1717,8 @@ class NumeratorSubstitution extends NFSubstitution {
      * The token character for a NumeratorSubstitution is &lt;
      * @return '&lt;'
      */
-    char tokenChar() {
+    @Override
+  char tokenChar() {
         return '<';
     }
 }

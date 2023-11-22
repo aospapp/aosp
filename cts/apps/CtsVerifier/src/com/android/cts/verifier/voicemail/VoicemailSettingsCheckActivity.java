@@ -21,6 +21,8 @@ import android.os.Bundle;
 import android.telephony.TelephonyManager;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.widget.Button;
+import android.widget.ImageView;
 
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
@@ -29,6 +31,13 @@ import com.android.cts.verifier.R;
  * Tests {@link TelephonyManager.EXTRA_HIDE_PUBLIC_SETTINGS}
  */
 public class VoicemailSettingsCheckActivity extends PassFailButtons.Activity {
+
+    private Button mNotApplicableButton;
+    private Button mOpenVoiceMailSettingsButton;
+    private Button mRingtoneSettingsDoesNotExistButton;
+    private Button mRingtoneSettingsExistsButton;
+
+    private ImageView mRestoreDefaultDialerImage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,7 +49,30 @@ public class VoicemailSettingsCheckActivity extends PassFailButtons.Activity {
         setPassFailButtonClickListeners();
         getPassButton().setEnabled(false);
 
-        findViewById(R.id.open_voicemail_settings).setOnClickListener(
+
+        mNotApplicableButton = findViewById(R.id.voicemail_hide_ringtone_settings_not_applicable);
+        mOpenVoiceMailSettingsButton = findViewById(R.id.open_voicemail_settings);
+        mRingtoneSettingsDoesNotExistButton = findViewById(R.id.settings_hidden);
+        mRingtoneSettingsExistsButton = findViewById(R.id.settings_not_hidden);
+
+        mRestoreDefaultDialerImage = findViewById(R.id.restore_default_dialer_image);
+
+        mNotApplicableButton.setOnClickListener(
+                new OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        getPassButton().setEnabled(true);
+
+                        mOpenVoiceMailSettingsButton.setEnabled(false);
+                        mRingtoneSettingsDoesNotExistButton.setEnabled(false);
+                        mRingtoneSettingsExistsButton.setEnabled(false);
+
+                        mRestoreDefaultDialerImage.setImageDrawable(getDrawable(R.drawable.fs_warning));
+                    }
+                }
+        );
+
+        mOpenVoiceMailSettingsButton.setOnClickListener(
                 new OnClickListener() {
                     @Override
                     public void onClick(View v) {
@@ -50,7 +82,7 @@ public class VoicemailSettingsCheckActivity extends PassFailButtons.Activity {
                 }
         );
 
-        findViewById(R.id.settings_hidden).setOnClickListener(
+        mRingtoneSettingsDoesNotExistButton.setOnClickListener(
                 new OnClickListener() {
                     @Override
                     public void onClick(View v) {
@@ -60,7 +92,7 @@ public class VoicemailSettingsCheckActivity extends PassFailButtons.Activity {
                 }
         );
 
-        findViewById(R.id.settings_not_hidden).setOnClickListener(
+        mRingtoneSettingsExistsButton.setOnClickListener(
                 new OnClickListener() {
                     @Override
                     public void onClick(View v) {
@@ -68,6 +100,5 @@ public class VoicemailSettingsCheckActivity extends PassFailButtons.Activity {
                     }
                 }
         );
-
     }
 }

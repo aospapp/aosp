@@ -14,6 +14,7 @@ LOCAL_SRC_FILES:=          \
    wsbm_userpool.c
 
 LOCAL_CFLAGS += -DHAVE_CONFIG_H
+LOCAL_CFLAGS += -Wall -Werror
 LOCAL_C_INCLUDES :=            \
    $(LOCAL_PATH)/../       \
    $(TARGET_OUT_HEADERS)/drm \

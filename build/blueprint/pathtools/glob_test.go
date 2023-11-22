@@ -18,22 +18,25 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"testing"
 )
 
 var pwd, _ = os.Getwd()
 
-var globTestCases = []struct {
+type globTestCase struct {
 	pattern  string
 	matches  []string
 	excludes []string
 	deps     []string
 	err      error
-}{
+}
+
+var globTestCases = []globTestCase{
 	// Current directory tests
 	{
 		pattern: "*",
-		matches: []string{"a", "b", "c", "d.ext", "e.ext"},
+		matches: []string{"a/", "b/", "c/", "d.ext", "e.ext"},
 		deps:    []string{"."},
 	},
 	{
@@ -43,7 +46,7 @@ var globTestCases = []struct {
 	},
 	{
 		pattern: "*/a",
-		matches: []string{"a/a", "b/a"},
+		matches: []string{"a/a/", "b/a"},
 		deps:    []string{".", "a", "b", "c"},
 	},
 	{
@@ -60,7 +63,7 @@ var globTestCases = []struct {
 	// ./ directory tests
 	{
 		pattern: "./*",
-		matches: []string{"a", "b", "c", "d.ext", "e.ext"},
+		matches: []string{"a/", "b/", "c/", "d.ext", "e.ext"},
 		deps:    []string{"."},
 	},
 	{
@@ -70,12 +73,12 @@ var globTestCases = []struct {
 	},
 	{
 		pattern: "./*/a",
-		matches: []string{"a/a", "b/a"},
+		matches: []string{"a/a/", "b/a"},
 		deps:    []string{".", "a", "b", "c"},
 	},
 	{
 		pattern: "./[ac]/a",
-		matches: []string{"a/a"},
+		matches: []string{"a/a/"},
 		deps:    []string{".", "a", "c"},
 	},
 
@@ -109,12 +112,12 @@ var globTestCases = []struct {
 	// no-wild tests
 	{
 		pattern: "a",
-		matches: []string{"a"},
+		matches: []string{"a/"},
 		deps:    []string{"a"},
 	},
 	{
 		pattern: "a/a",
-		matches: []string{"a/a"},
+		matches: []string{"a/a/"},
 		deps:    []string{"a/a"},
 	},
 
@@ -133,17 +136,17 @@ var globTestCases = []struct {
 	// recursive tests
 	{
 		pattern: "**/a",
-		matches: []string{"a", "a/a", "a/a/a", "b/a"},
+		matches: []string{"a/", "a/a/", "a/a/a", "b/a"},
 		deps:    []string{".", "a", "a/a", "a/b", "b", "c", "c/f", "c/g", "c/h"},
 	},
 	{
 		pattern: "a/**/a",
-		matches: []string{"a/a", "a/a/a"},
+		matches: []string{"a/a/", "a/a/a"},
 		deps:    []string{"a", "a/a", "a/b"},
 	},
 	{
 		pattern: "a/**/*",
-		matches: []string{"a/a", "a/b", "a/a/a", "a/b/b"},
+		matches: []string{"a/a/", "a/b/", "a/a/a", "a/b/b"},
 		deps:    []string{"a", "a/a", "a/b"},
 	},
 
@@ -205,19 +208,19 @@ var globTestCases = []struct {
 	{
 		pattern:  "*/*",
 		excludes: []string{"a/b"},
-		matches:  []string{"a/a", "b/a", "c/c", "c/f", "c/g", "c/h"},
+		matches:  []string{"a/a/", "b/a", "c/c", "c/f/", "c/g/", "c/h/"},
 		deps:     []string{".", "a", "b", "c"},
 	},
 	{
 		pattern:  "*/*",
 		excludes: []string{"a/b", "c/c"},
-		matches:  []string{"a/a", "b/a", "c/f", "c/g", "c/h"},
+		matches:  []string{"a/a/", "b/a", "c/f/", "c/g/", "c/h/"},
 		deps:     []string{".", "a", "b", "c"},
 	},
 	{
 		pattern:  "*/*",
 		excludes: []string{"c/*", "*/a"},
-		matches:  []string{"a/b"},
+		matches:  []string{"a/b/"},
 		deps:     []string{".", "a", "b", "c"},
 	},
 	{
@@ -265,13 +268,13 @@ var globTestCases = []struct {
 	{
 		pattern:  "*/*",
 		excludes: []string{"**/b"},
-		matches:  []string{"a/a", "b/a", "c/c", "c/f", "c/g", "c/h"},
+		matches:  []string{"a/a/", "b/a", "c/c", "c/f/", "c/g/", "c/h/"},
 		deps:     []string{".", "a", "b", "c"},
 	},
 	{
 		pattern:  "*/*",
 		excludes: []string{"a/**/*"},
-		matches:  []string{"b/a", "c/c", "c/f", "c/g", "c/h"},
+		matches:  []string{"b/a", "c/c", "c/f/", "c/g/", "c/h/"},
 		deps:     []string{".", "a", "b", "c"},
 	},
 	{
@@ -436,42 +439,80 @@ var globTestCases = []struct {
 	},
 	{
 		pattern: ".t*",
-		matches: []string{".test", ".testing"},
+		matches: []string{".test/", ".testing"},
 		deps:    []string{"."},
 	},
+}
+
+func TestMockGlob(t *testing.T) {
+	files := []string{
+		"a/a/a",
+		"a/b/b",
+		"b/a",
+		"c/c",
+		"c/f/f.ext",
+		"c/g/g.ext",
+		"c/h/h",
+		"d.ext",
+		"e.ext",
+		".test/a",
+		".testing",
+		".test/.ing",
+	}
+
+	mockFiles := make(map[string][]byte)
+
+	for _, f := range files {
+		mockFiles[f] = nil
+		mockFiles[filepath.Join(pwd, "testdata", f)] = nil
+	}
+
+	mock := MockFs(mockFiles)
+
+	for i, testCase := range globTestCases {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			testGlob(t, mock, testCase)
+		})
+	}
 }
 
 func TestGlob(t *testing.T) {
 	os.Chdir("testdata")
 	defer os.Chdir("..")
-	for _, testCase := range globTestCases {
-		matches, deps, err := Glob(testCase.pattern, testCase.excludes)
-		if err != testCase.err {
-			t.Errorf(" pattern: %q", testCase.pattern)
-			if testCase.excludes != nil {
-				t.Errorf("excludes: %q", testCase.excludes)
-			}
-			t.Errorf("   error: %s", err)
-			continue
-		}
+	for i, testCase := range globTestCases {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			testGlob(t, OsFs, testCase)
+		})
+	}
+}
 
-		if !reflect.DeepEqual(matches, testCase.matches) {
-			t.Errorf("incorrect matches list:")
-			t.Errorf(" pattern: %q", testCase.pattern)
-			if testCase.excludes != nil {
-				t.Errorf("excludes: %q", testCase.excludes)
-			}
-			t.Errorf("     got: %#v", matches)
-			t.Errorf("expected: %#v", testCase.matches)
+func testGlob(t *testing.T, fs FileSystem, testCase globTestCase) {
+	matches, deps, err := fs.Glob(testCase.pattern, testCase.excludes)
+	if err != testCase.err {
+		t.Errorf(" pattern: %q", testCase.pattern)
+		if testCase.excludes != nil {
+			t.Errorf("excludes: %q", testCase.excludes)
 		}
-		if !reflect.DeepEqual(deps, testCase.deps) {
-			t.Errorf("incorrect deps list:")
-			t.Errorf(" pattern: %q", testCase.pattern)
-			if testCase.excludes != nil {
-				t.Errorf("excludes: %q", testCase.excludes)
-			}
-			t.Errorf("     got: %#v", deps)
-			t.Errorf("expected: %#v", testCase.deps)
+		t.Errorf("   error: %s", err)
+		return
+	}
+
+	if !reflect.DeepEqual(matches, testCase.matches) {
+		t.Errorf("incorrect matches list:")
+		t.Errorf(" pattern: %q", testCase.pattern)
+		if testCase.excludes != nil {
+			t.Errorf("excludes: %q", testCase.excludes)
 		}
+		t.Errorf("     got: %#v", matches)
+		t.Errorf("expected: %#v", testCase.matches)
+	}
+	if !reflect.DeepEqual(deps, testCase.deps) {
+		t.Errorf("incorrect deps list:")
+		t.Errorf(" pattern: %q", testCase.pattern)
+		if testCase.excludes != nil {
+			t.Errorf("excludes: %q", testCase.excludes)
+		}
+		t.Errorf("     got: %#v", deps)
+		t.Errorf("expected: %#v", testCase.deps)
 	}
 }

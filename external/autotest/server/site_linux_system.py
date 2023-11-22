@@ -665,25 +665,21 @@ class LinuxSystem(object):
         self._virtual_ethernet_pair = None
 
 
-    def require_capabilities(self, requirements, fatal_failure=False):
+    def require_capabilities(self, requirements):
         """Require capabilities of this LinuxSystem.
 
         Check that capabilities in |requirements| exist on this system.
-        Raise and exception to skip but not fail the test if said
-        capabilities are not found.  Pass |fatal_failure| to cause this
-        error to become a test failure.
+        Raise an exception to skip but not fail the test if said
+        capabilities are not found.
 
         @param requirements list of CAPABILITY_* defined above.
-        @param fatal_failure bool True iff failures should be fatal.
 
         """
-        to_be_raised = error.TestNAError
-        if fatal_failure:
-            to_be_raised = error.TestFail
         missing = [cap for cap in requirements if not cap in self.capabilities]
         if missing:
-            raise to_be_raised('AP on %s is missing required capabilites: %r' %
-                               (self.role, missing))
+            raise error.TestNAError(
+                    'AP on %s is missing required capabilites: %r' %
+                    (self.role, missing))
 
 
     def disable_antennas_except(self, permitted_antennas):

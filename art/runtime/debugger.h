@@ -27,13 +27,15 @@
 #include <string>
 #include <vector>
 
-#include "gc_root.h"
+#include "base/array_ref.h"
 #include "class_linker.h"
+#include "gc_root.h"
 #include "handle.h"
 #include "jdwp/jdwp.h"
 #include "jni.h"
 #include "jvalue.h"
 #include "obj_ptr.h"
+#include "runtime_callbacks.h"
 #include "thread.h"
 #include "thread_state.h"
 
@@ -50,6 +52,23 @@ class ScopedObjectAccess;
 class ScopedObjectAccessUnchecked;
 class StackVisitor;
 class Thread;
+
+struct DebuggerActiveMethodInspectionCallback : public MethodInspectionCallback {
+  bool IsMethodBeingInspected(ArtMethod* method) OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsMethodSafeToJit(ArtMethod* method) OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  bool MethodNeedsDebugVersion(ArtMethod* method) OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+};
+
+struct DebuggerDdmCallback : public DdmCallback {
+  void DdmPublishChunk(uint32_t type, const ArrayRef<const uint8_t>& data)
+      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+};
+
+struct InternalDebuggerControlCallback : public DebuggerControlCallback {
+  void StartDebugger() OVERRIDE;
+  void StopDebugger() OVERRIDE;
+  bool IsDebuggerConfigured() OVERRIDE;
+};
 
 /*
  * Invoke-during-breakpoint support.
@@ -237,7 +256,8 @@ class Dbg {
   }
 
   // Configures JDWP with parsed command-line options.
-  static void ConfigureJdwp(const JDWP::JdwpOptions& jdwp_options);
+  static void ConfigureJdwp(const JDWP::JdwpOptions& jdwp_options)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns true if we had -Xrunjdwp or -agentlib:jdwp= on the command line.
   static bool IsJdwpConfigured();
@@ -639,15 +659,15 @@ class Dbg {
       REQUIRES_SHARED(Locks::mutator_lock_);
   static void DdmSetThreadNotification(bool enable)
       REQUIRES(!Locks::thread_list_lock_);
+  static bool DdmHandleChunk(
+      JNIEnv* env,
+      uint32_t type,
+      const ArrayRef<const jbyte>& data,
+      /*out*/uint32_t* out_type,
+      /*out*/std::vector<uint8_t>* out_data);
   static bool DdmHandlePacket(JDWP::Request* request, uint8_t** pReplyBuf, int* pReplyLen);
   static void DdmConnected() REQUIRES_SHARED(Locks::mutator_lock_);
   static void DdmDisconnected() REQUIRES_SHARED(Locks::mutator_lock_);
-  static void DdmSendChunk(uint32_t type, const std::vector<uint8_t>& bytes)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-  static void DdmSendChunk(uint32_t type, size_t len, const uint8_t* buf)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-  static void DdmSendChunkV(uint32_t type, const iovec* iov, int iov_count)
-      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Visit breakpoint roots, used to prevent unloading of methods with breakpoints.
   static void VisitRoots(RootVisitor* visitor)
@@ -772,6 +792,10 @@ class Dbg {
 
   // Indicates whether the debugger is making requests.
   static bool gDebuggerActive;
+
+  static DebuggerActiveMethodInspectionCallback gDebugActiveCallback;
+  static DebuggerDdmCallback gDebugDdmCallback;
+  static InternalDebuggerControlCallback gDebuggerControlCallback;
 
   // Indicates whether we should drop the JDWP connection because the runtime stops or the
   // debugger called VirtualMachine.Dispose.

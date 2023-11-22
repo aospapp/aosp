@@ -26,19 +26,15 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-
 import com.android.tv.MainActivity;
 import com.android.tv.R;
-import com.android.tv.data.Channel;
 import com.android.tv.data.Program;
+import com.android.tv.data.api.Channel;
 import com.android.tv.parental.ParentalControlSettings;
-import com.android.tv.util.ImageLoader;
-
+import com.android.tv.util.images.ImageLoader;
 import java.util.Objects;
 
-/**
- * A view to render channel card.
- */
+/** A view to render channel card. */
 public class ChannelCardView extends BaseCardView<ChannelsRowItem> {
     private static final String TAG = MenuView.TAG;
     private static final boolean DEBUG = MenuView.DEBUG;
@@ -81,8 +77,13 @@ public class ChannelCardView extends BaseCardView<ChannelsRowItem> {
     @Override
     public void onBind(ChannelsRowItem item, boolean selected) {
         if (DEBUG) {
-            Log.d(TAG, "onBind(channelName=" + item.getChannel().getDisplayName() + ", selected="
-                    + selected + ")");
+            Log.d(
+                    TAG,
+                    "onBind(channelName="
+                            + item.getChannel().getDisplayName()
+                            + ", selected="
+                            + selected
+                            + ")");
         }
         updateChannel(item);
         updateProgram();
@@ -146,7 +147,8 @@ public class ChannelCardView extends BaseCardView<ChannelsRowItem> {
         return new ImageLoader.ImageLoaderCallback<ChannelCardView>(cardView) {
             @Override
             public void onBitmapLoaded(ChannelCardView cardView, @Nullable Bitmap posterArt) {
-                if (posterArt == null || cardView.mProgram == null
+                if (posterArt == null
+                        || cardView.mProgram == null
                         || program.getChannelId() != cardView.mProgram.getChannelId()
                         || program.getChannelId() != cardView.mChannel.getId()) {
                     return;
@@ -160,7 +162,10 @@ public class ChannelCardView extends BaseCardView<ChannelsRowItem> {
         if (!TextUtils.equals(mPosterArtUri, posterArtUri)) {
             mPosterArtUri = posterArtUri;
             if (posterArtUri == null
-                    || !mProgram.loadPosterArt(getContext(), mCardImageWidth, mCardImageHeight,
+                    || !mProgram.loadPosterArt(
+                            getContext(),
+                            mCardImageWidth,
+                            mCardImageHeight,
                             createProgramPosterArtCallback(this, mProgram))) {
                 mImageView.setImageResource(R.drawable.ic_recent_thumbnail_default);
                 mImageView.setForeground(null);

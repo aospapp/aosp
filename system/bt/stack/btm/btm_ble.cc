@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -47,6 +47,10 @@
 extern bool aes_cipher_msg_auth_code(BT_OCTET16 key, uint8_t* input,
                                      uint16_t length, uint16_t tlen,
                                      uint8_t* p_signature);
+extern void gatt_notify_phy_updated(uint8_t status, uint16_t handle,
+                                    uint8_t tx_phy, uint8_t rx_phy);
+extern void btm_ble_advertiser_notify_terminated_legacy(
+    uint8_t status, uint16_t connection_handle);
 
 /******************************************************************************/
 /* External Function to be called by other modules                            */
@@ -85,8 +89,9 @@ bool BTM_SecAddBleDevice(const RawAddress& bd_addr, BD_NAME bd_name,
     p_dev_rec->conn_params.supervision_tout = BTM_BLE_CONN_PARAM_UNDEF;
     p_dev_rec->conn_params.slave_latency = BTM_BLE_CONN_PARAM_UNDEF;
 
-    BTM_TRACE_DEBUG("%s: Device added, handle=0x%x ", __func__,
-                    p_dev_rec->ble_hci_handle);
+    BTM_TRACE_DEBUG("%s: Device added, handle=0x%x, p_dev_rec=%p, bd_addr=%s",
+                    __func__, p_dev_rec->ble_hci_handle, p_dev_rec,
+                    bd_addr.ToString().c_str());
   }
 
   memset(p_dev_rec->sec_bd_name, 0, sizeof(tBTM_BD_NAME));
@@ -871,7 +876,7 @@ void BTM_BleReadPhy(
       !controller_get_interface()->supports_ble_coded_phy()) {
     BTM_TRACE_ERROR("%s failed, request not supported in local controller!",
                     __func__);
-    cb.Run(0, 0, HCI_ERR_ILLEGAL_COMMAND);
+    cb.Run(0, 0, GATT_REQ_NOT_SUPPORTED);
     return;
   }
 
@@ -958,21 +963,23 @@ void BTM_BleSetPhy(const RawAddress& bd_addr, uint8_t tx_phys, uint8_t rx_phys,
       "= 0x%04x",
       __func__, all_phys, tx_phys, rx_phys, phy_options);
 
+  uint16_t handle = p_acl->hci_handle;
+
   // checking if local controller supports it!
   if (!controller_get_interface()->supports_ble_2m_phy() &&
       !controller_get_interface()->supports_ble_coded_phy()) {
     BTM_TRACE_ERROR("%s failed, request not supported in local controller!",
                     __func__);
+    gatt_notify_phy_updated(GATT_REQ_NOT_SUPPORTED, handle, tx_phys, rx_phys);
     return;
   }
 
   if (!HCI_LE_2M_PHY_SUPPORTED(p_acl->peer_le_features) &&
       !HCI_LE_CODED_PHY_SUPPORTED(p_acl->peer_le_features)) {
     BTM_TRACE_ERROR("%s failed, peer does not support request", __func__);
+    gatt_notify_phy_updated(GATT_REQ_NOT_SUPPORTED, handle, tx_phys, rx_phys);
     return;
   }
-
-  uint16_t handle = p_acl->hci_handle;
 
   const uint8_t len = HCIC_PARAM_SIZE_BLE_SET_PHY;
   uint8_t data[len];
@@ -1311,8 +1318,11 @@ void btm_sec_save_le_key(const RawAddress& bd_addr, tBTM_LE_KEY_TYPE key_type,
         p_rec->ble.static_addr = p_keys->pid_key.static_addr;
         p_rec->ble.static_addr_type = p_keys->pid_key.addr_type;
         p_rec->ble.key_type |= BTM_LE_KEY_PID;
-        BTM_TRACE_DEBUG("BTM_LE_KEY_PID key_type=0x%x save peer IRK",
-                        p_rec->ble.key_type);
+        BTM_TRACE_DEBUG(
+            "%s: BTM_LE_KEY_PID key_type=0x%x save peer IRK, change bd_addr=%s "
+            "to static_addr=%s",
+            __func__, p_rec->ble.key_type, p_rec->bd_addr.ToString().c_str(),
+            p_keys->pid_key.static_addr.ToString().c_str());
         /* update device record address as static address */
         p_rec->bd_addr = p_keys->pid_key.static_addr;
         /* combine DUMO device security record if needed */
@@ -1374,7 +1384,7 @@ void btm_sec_save_le_key(const RawAddress& bd_addr, tBTM_LE_KEY_TYPE key_type,
         return;
     }
 
-    VLOG(1) << "BLE key type 0x" << std::hex << key_type
+    VLOG(1) << "BLE key type 0x" << loghex(key_type)
             << " updated for BDA: " << bd_addr << " (btm_sec_save_le_key)";
 
     /* Notify the application that one of the BLE keys has been updated
@@ -1388,7 +1398,7 @@ void btm_sec_save_le_key(const RawAddress& bd_addr, tBTM_LE_KEY_TYPE key_type,
     return;
   }
 
-  LOG(WARNING) << "BLE key type 0x" << std::hex << key_type
+  LOG(WARNING) << "BLE key type 0x" << loghex(key_type)
                << " called for Unknown BDA or type: " << bd_addr
                << "(btm_sec_save_le_key)";
 
@@ -1548,8 +1558,8 @@ tBTM_STATUS btm_ble_set_encryption(const RawAddress& bd_addr,
     case BTM_BLE_SEC_ENCRYPT_NO_MITM:
     case BTM_BLE_SEC_ENCRYPT_MITM:
       auth_req = (sec_act == BTM_BLE_SEC_ENCRYPT_NO_MITM)
-                     ? SMP_AUTH_GEN_BOND
-                     : (SMP_AUTH_GEN_BOND | SMP_AUTH_YN_BIT);
+                     ? SMP_AUTH_BOND
+                     : (SMP_AUTH_BOND | SMP_AUTH_YN_BIT);
       btm_ble_link_sec_check(bd_addr, auth_req, &sec_req_act);
       if (sec_req_act == BTM_BLE_SEC_REQ_ACT_NONE ||
           sec_req_act == BTM_BLE_SEC_REQ_ACT_DISCARD) {
@@ -1860,13 +1870,15 @@ void btm_ble_connected(const RawAddress& bda, uint16_t handle, uint8_t enc_mode,
   */
   if (p_dev_rec) {
     VLOG(1) << __func__ << " Security Manager: handle:" << handle
-            << " enc_mode:" << enc_mode << "  bda: " << bda
-            << " RName: " << p_dev_rec->sec_bd_name;
+            << " enc_mode:" << loghex(enc_mode) << "  bda: " << bda
+            << " RName: " << p_dev_rec->sec_bd_name
+            << " p_dev_rec:" << p_dev_rec;
 
     BTM_TRACE_DEBUG("btm_ble_connected sec_flags=0x%x", p_dev_rec->sec_flags);
   } else {
     VLOG(1) << __func__ << " Security Manager: handle:" << handle
-            << " enc_mode:" << enc_mode << "  bda: " << bda;
+            << " enc_mode:" << loghex(enc_mode) << "  bda: " << bda
+            << " p_dev_rec:" << p_dev_rec;
   }
 
   if (!p_dev_rec) {
@@ -1978,7 +1990,7 @@ void btm_ble_conn_complete(uint8_t* p, UNUSED_ATTR uint16_t evt_len,
 #endif
   } else {
     role = HCI_ROLE_UNKNOWN;
-    if (status != HCI_ERR_DIRECTED_ADVERTISING_TIMEOUT) {
+    if (status != HCI_ERR_ADVERTISING_TIMEOUT) {
       btm_ble_set_conn_st(BLE_CONN_IDLE);
 #if (BLE_PRIVACY_SPT == TRUE)
       btm_ble_disable_resolving_list(BTM_BLE_RL_INIT, true);
@@ -1992,6 +2004,9 @@ void btm_ble_conn_complete(uint8_t* p, UNUSED_ATTR uint16_t evt_len,
   }
 
   btm_ble_update_mode_operation(role, &bda, status);
+
+  if (role == HCI_ROLE_SLAVE)
+    btm_ble_advertiser_notify_terminated_legacy(status, handle);
 }
 
 /*****************************************************************************
@@ -2001,9 +2016,20 @@ void btm_ble_conn_complete(uint8_t* p, UNUSED_ATTR uint16_t evt_len,
  *
  *****************************************************************************/
 void btm_ble_create_ll_conn_complete(uint8_t status) {
-  if (status != HCI_SUCCESS) {
-    btm_ble_set_conn_st(BLE_CONN_IDLE);
-    btm_ble_update_mode_operation(HCI_ROLE_UNKNOWN, NULL, status);
+  if (status == HCI_SUCCESS) return;
+
+  btm_ble_set_conn_st(BLE_CONN_IDLE);
+  btm_ble_update_mode_operation(HCI_ROLE_UNKNOWN, NULL, status);
+
+  LOG(WARNING) << "LE Create Connection attempt failed, status="
+               << loghex(status);
+
+  if (status == HCI_ERR_COMMAND_DISALLOWED) {
+    /* There is already either direct connect, or whitelist connection
+     * pending, but we don't know which one, or to which state should we
+     * transition now. This can be triggered only in case of rare race
+     * condition. Crash to recover. */
+    LOG(FATAL) << "LE Create Connection - command disallowed";
   }
 }
 /*****************************************************************************
@@ -2174,7 +2200,7 @@ bool BTM_BleDataSignature(const RawAddress& bd_addr, uint8_t* p_text,
     ret = aes_cipher_msg_auth_code(p_rec->ble.keys.lcsrk, p_buf,
                                    (uint16_t)(len + 4), BTM_CMAC_TLEN_SIZE,
                                    p_mac);
-    if (ret == true) {
+    if (ret) {
       btm_ble_increment_sign_ctr(bd_addr, true);
     }
 
@@ -2329,7 +2355,7 @@ bool BTM_BleSecurityProcedureIsRunning(const RawAddress& bd_addr) {
 extern uint8_t BTM_BleGetSupportedKeySize(const RawAddress& bd_addr) {
 #if (L2CAP_LE_COC_INCLUDED == TRUE)
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(bd_addr);
-  tBTM_LE_IO_REQ dev_io_cfg;
+  tBTM_LE_EVT_DATA btm_le_evt_data;
   uint8_t callback_rc;
 
   if (!p_dev_rec) {
@@ -2344,7 +2370,7 @@ extern uint8_t BTM_BleGetSupportedKeySize(const RawAddress& bd_addr) {
   }
 
   callback_rc = (*btm_cb.api.p_le_callback)(
-      BTM_LE_IO_REQ_EVT, p_dev_rec->bd_addr, (tBTM_LE_EVT_DATA*)&dev_io_cfg);
+      BTM_LE_IO_REQ_EVT, p_dev_rec->bd_addr, &btm_le_evt_data);
 
   if (callback_rc != BTM_SUCCESS) {
     BTM_TRACE_ERROR("%s can't access supported key size", __func__);
@@ -2352,8 +2378,8 @@ extern uint8_t BTM_BleGetSupportedKeySize(const RawAddress& bd_addr) {
   }
 
   BTM_TRACE_DEBUG("%s device supports key size = %d", __func__,
-                  dev_io_cfg.max_key_size);
-  return (dev_io_cfg.max_key_size);
+                  btm_le_evt_data.io_req.max_key_size);
+  return (btm_le_evt_data.io_req.max_key_size);
 #else
   return 0;
 #endif
@@ -2373,7 +2399,7 @@ extern uint8_t BTM_BleGetSupportedKeySize(const RawAddress& bd_addr) {
  *
  ******************************************************************************/
 static void btm_notify_new_key(uint8_t key_type) {
-  tBTM_BLE_LOCAL_KEYS* p_locak_keys = NULL;
+  tBTM_BLE_LOCAL_KEYS* p_local_keys = NULL;
 
   BTM_TRACE_DEBUG("btm_notify_new_key key_type=%d", key_type);
 
@@ -2381,12 +2407,12 @@ static void btm_notify_new_key(uint8_t key_type) {
     switch (key_type) {
       case BTM_BLE_KEY_TYPE_ID:
         BTM_TRACE_DEBUG("BTM_BLE_KEY_TYPE_ID");
-        p_locak_keys = (tBTM_BLE_LOCAL_KEYS*)&btm_cb.devcb.id_keys;
+        p_local_keys = (tBTM_BLE_LOCAL_KEYS*)&btm_cb.devcb.id_keys;
         break;
 
       case BTM_BLE_KEY_TYPE_ER:
         BTM_TRACE_DEBUG("BTM_BLE_KEY_TYPE_ER");
-        p_locak_keys =
+        p_local_keys =
             (tBTM_BLE_LOCAL_KEYS*)&btm_cb.devcb.ble_encryption_key_value;
         break;
 
@@ -2394,8 +2420,8 @@ static void btm_notify_new_key(uint8_t key_type) {
         BTM_TRACE_ERROR("unknown key type: %d", key_type);
         break;
     }
-    if (p_locak_keys != NULL)
-      (*btm_cb.api.p_le_key_callback)(key_type, p_locak_keys);
+    if (p_local_keys != NULL)
+      (*btm_cb.api.p_le_key_callback)(key_type, p_local_keys);
   }
 }
 

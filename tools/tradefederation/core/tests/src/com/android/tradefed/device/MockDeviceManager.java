@@ -411,4 +411,24 @@ public class MockDeviceManager implements IDeviceManager {
     public int getRestartAdbBridgeCallCount() {
         return mRestartAdbBridgeCallCount;
     }
+
+    @Override
+    public int getAvailableFlashingPermits() {
+        return 0;
+    }
+
+    @Override
+    public void takeFlashingPermit() {
+        // ignore
+    }
+
+    @Override
+    public void returnFlashingPermit() {
+        // ignore
+    }
+
+    @Override
+    public String getAdbVersion() {
+        return null;
+    }
 }

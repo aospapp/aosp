@@ -27,10 +27,12 @@ public class AdapterApp extends Application {
     private static final String TAG = "BluetoothAdapterApp";
     private static final boolean DBG = false;
     //For Debugging only
-    private static int sRefCount=0;
+    private static int sRefCount = 0;
 
     static {
-        if (DBG) Log.d(TAG,"Loading JNI Library");
+        if (DBG) {
+            Log.d(TAG, "Loading JNI Library");
+        }
         System.loadLibrary("bluetooth_jni");
     }
 
@@ -39,7 +41,7 @@ public class AdapterApp extends Application {
         if (DBG) {
             synchronized (AdapterApp.class) {
                 sRefCount++;
-                Log.d(TAG, "REFCOUNT: Constructed "+ this + " Instance Count = " + sRefCount);
+                Log.d(TAG, "REFCOUNT: Constructed " + this + " Instance Count = " + sRefCount);
             }
         }
     }
@@ -47,7 +49,9 @@ public class AdapterApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-        if (DBG) Log.d(TAG, "onCreate");
+        if (DBG) {
+            Log.d(TAG, "onCreate");
+        }
         Config.init(this);
     }
 
@@ -56,7 +60,7 @@ public class AdapterApp extends Application {
         if (DBG) {
             synchronized (AdapterApp.class) {
                 sRefCount--;
-                Log.d(TAG, "REFCOUNT: Finalized: " + this +", Instance Count = " + sRefCount);
+                Log.d(TAG, "REFCOUNT: Finalized: " + this + ", Instance Count = " + sRefCount);
             }
         }
     }

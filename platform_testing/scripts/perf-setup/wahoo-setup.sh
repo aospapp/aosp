@@ -1,8 +1,9 @@
 #Setup for 2017 devices
 
 stop thermal-engine
-stop mpdecision
 stop perfd
+stop vendor.thermal-engine
+stop vendor.perfd
 
 cpubase=/sys/devices/system/cpu
 gov=cpufreq/scaling_governor
@@ -35,23 +36,23 @@ while [ $((cpu < $top)) -eq 1 ]; do
   cpu=$(($cpu + 1))
 done
 
-echo "setting GPU bus split";
-echo 0 > /sys/class/kgsl/kgsl-3d0/bus_split;
-echo "setting GPU force clocks";
-echo 1 > /sys/class/kgsl/kgsl-3d0/force_clk_on;
-echo "setting GPU idle timer";
-echo 10000 > /sys/class/kgsl/kgsl-3d0/idle_timer;
+echo "setting GPU bus split"
+echo 0 > /sys/class/kgsl/kgsl-3d0/bus_split
+echo "setting GPU force clocks"
+echo 1 > /sys/class/kgsl/kgsl-3d0/force_clk_on
+echo "setting GPU idle timer"
+echo 10000 > /sys/class/kgsl/kgsl-3d0/idle_timer
 
 #0 762 1144 1525 2288 3509 4173 5271 5928 7904 9887 11863 13763
-echo "setting GPU bus frequency";
-echo 13763 > /sys/class/devfreq/soc:qcom,gpubw/min_freq;
-cat /sys/class/devfreq/soc:qcom,gpubw/cur_freq;
+echo "setting GPU bus frequency"
+echo 13763 > /sys/class/devfreq/soc:qcom,gpubw/min_freq
+cat /sys/class/devfreq/soc:qcom,gpubw/cur_freq
 
 # 710000000 600000000 510000000 450000000 390000000 305000000 180000000
-echo "GPU performance mode";
+echo "GPU performance mode"
 G=710000000
-echo performance > /sys/class/kgsl/kgsl-3d0/devfreq/governor;
-echo $G > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq;
-echo $G > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq;
+echo performance > /sys/class/kgsl/kgsl-3d0/devfreq/governor
+echo $G > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
+echo $G > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
 
-cat /sys/class/kgsl/kgsl-3d0/devfreq/cur_freq;
+cat /sys/class/kgsl/kgsl-3d0/devfreq/cur_freq

@@ -98,6 +98,10 @@ LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/libttm \
     frameworks/native/include/media/openmax
 
+# Use the frozen version of ion.h.
+LOCAL_C_INCLUDES += \
+    $(TOP)/system/core/libion/kernel-headers \
+
 ifeq ($(TARGET_SUPPORT_HDMI_PRIMARY),true)
    LOCAL_CFLAGS += -DINTEL_SUPPORT_HDMI_PRIMARY
 endif

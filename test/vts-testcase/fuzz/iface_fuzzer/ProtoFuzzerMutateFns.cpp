@@ -30,7 +30,7 @@ static VarInstance VarInstanceStubFromSpec(const VarSpec &var_spec) {
     result.set_type(var_spec.type());
   } else {
     cerr << "VarInstance with no type field: " << var_spec.DebugString();
-    exit(1);
+    std::abort();
   }
   if (var_spec.has_name()) {
     result.set_name(var_spec.name());

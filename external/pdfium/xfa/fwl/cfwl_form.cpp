@@ -9,7 +9,7 @@
 #include <utility>
 
 #include "third_party/base/ptr_util.h"
-#include "xfa/fde/tto/fde_textout.h"
+#include "xfa/fde/cfde_textout.h"
 #include "xfa/fwl/cfwl_app.h"
 #include "xfa/fwl/cfwl_event.h"
 #include "xfa/fwl/cfwl_formproxy.h"
@@ -21,7 +21,6 @@
 #include "xfa/fwl/cfwl_themetext.h"
 #include "xfa/fwl/cfwl_widgetmgr.h"
 #include "xfa/fwl/ifwl_themeprovider.h"
-#include "xfa/fwl/theme/cfwl_widgettp.h"
 
 CFWL_Form::CFWL_Form(const CFWL_App* app,
                      std::unique_ptr<CFWL_WidgetProperties> properties,
@@ -46,8 +45,8 @@ FWL_Type CFWL_Form::GetClassID() const {
   return FWL_Type::Form;
 }
 
-bool CFWL_Form::IsInstance(const CFX_WideStringC& wsClass) const {
-  if (wsClass == CFX_WideStringC(FWL_CLASS_Form))
+bool CFWL_Form::IsInstance(const WideStringView& wsClass) const {
+  if (wsClass == WideStringView(FWL_CLASS_Form))
     return true;
   return CFWL_Widget::IsInstance(wsClass);
 }
@@ -75,7 +74,7 @@ FWL_WidgetHit CFWL_Form::HitTest(const CFX_PointF& point) {
                                : FWL_WidgetHit::Client;
 }
 
-void CFWL_Form::DrawWidget(CFX_Graphics* pGraphics, const CFX_Matrix* pMatrix) {
+void CFWL_Form::DrawWidget(CXFA_Graphics* pGraphics, const CFX_Matrix& matrix) {
   if (!pGraphics)
     return;
   if (!m_pProperties->m_pThemeProvider)
@@ -84,7 +83,7 @@ void CFWL_Form::DrawWidget(CFX_Graphics* pGraphics, const CFX_Matrix* pMatrix) {
   IFWL_ThemeProvider* pTheme = m_pProperties->m_pThemeProvider;
   DrawBackground(pGraphics, pTheme);
 
-#ifdef FWL_UseMacSystemBorder
+#if _FX_OS_ == _FX_OS_MACOSX_
   return;
 #endif
   CFWL_ThemeBackground param;
@@ -92,8 +91,7 @@ void CFWL_Form::DrawWidget(CFX_Graphics* pGraphics, const CFX_Matrix* pMatrix) {
   param.m_dwStates = CFWL_PartState_Normal;
   param.m_pGraphics = pGraphics;
   param.m_rtPart = m_rtRelative;
-  if (pMatrix)
-    param.m_matrix.Concat(*pMatrix);
+  param.m_matrix.Concat(matrix);
   if (m_pProperties->m_dwStyles & FWL_WGTSTYLE_Border) {
     param.m_iPart = CFWL_Part::Border;
     pTheme->DrawBackground(&param);
@@ -116,7 +114,7 @@ CFWL_Widget* CFWL_Form::DoModal() {
   RemoveStates(FWL_WGTSTATE_Invisible);
   pDriver->Run();
 
-#if _FX_OS_ != _FX_MACOSX_
+#if _FX_OS_ != _FX_OS_MACOSX_
   pDriver->PopNoteLoop();
 #endif
 
@@ -128,7 +126,7 @@ void CFWL_Form::EndDoModal() {
   if (!m_pNoteLoop)
     return;
 
-#if (_FX_OS_ == _FX_MACOSX_)
+#if (_FX_OS_ == _FX_OS_MACOSX_)
   m_pNoteLoop->EndModalLoop();
   const CFWL_App* pApp = GetOwnerApp();
   if (!pApp)
@@ -147,7 +145,7 @@ void CFWL_Form::EndDoModal() {
 #endif
 }
 
-void CFWL_Form::DrawBackground(CFX_Graphics* pGraphics,
+void CFWL_Form::DrawBackground(CXFA_Graphics* pGraphics,
                                IFWL_ThemeProvider* pTheme) {
   CFWL_ThemeBackground param;
   param.m_pWidget = this;
@@ -161,8 +159,8 @@ void CFWL_Form::DrawBackground(CFX_Graphics* pGraphics,
 CFX_RectF CFWL_Form::GetEdgeRect() {
   CFX_RectF rtEdge = m_rtRelative;
   if (m_pProperties->m_dwStyles & FWL_WGTSTYLE_Border) {
-    FX_FLOAT fCX = GetBorderSize(true);
-    FX_FLOAT fCY = GetBorderSize(false);
+    float fCX = GetBorderSize(true);
+    float fCY = GetBorderSize(false);
     rtEdge.Deflate(fCX, fCY, fCX, fCY);
   }
   return rtEdge;
@@ -179,7 +177,7 @@ void CFWL_Form::SetWorkAreaRect() {
 void CFWL_Form::Layout() {
   m_rtRelative = GetRelativeRect();
 
-#ifndef FWL_UseMacSystemBorder
+#if _FX_OS_ == _FX_OS_MACOSX_
   IFWL_ThemeProvider* theme = GetAvailableTheme();
   m_fCXBorder = theme ? theme->GetCXBorderSize() : 0.0f;
   m_fCYBorder = theme ? theme->GetCYBorderSize() : 0.0f;
@@ -213,7 +211,7 @@ void CFWL_Form::UnRegisterForm() {
 }
 
 void CFWL_Form::OnProcessMessage(CFWL_Message* pMessage) {
-#ifndef FWL_UseMacSystemBorder
+#if _FX_OS_ == _FX_OS_MACOSX_
   if (!pMessage)
     return;
 
@@ -235,12 +233,12 @@ void CFWL_Form::OnProcessMessage(CFWL_Message* pMessage) {
     default:
       break;
   }
-#endif  // FWL_UseMacSystemBorder
+#endif  // _FX_OS_ == _FX_OS_MACOSX_
 }
 
-void CFWL_Form::OnDrawWidget(CFX_Graphics* pGraphics,
-                             const CFX_Matrix* pMatrix) {
-  DrawWidget(pGraphics, pMatrix);
+void CFWL_Form::OnDrawWidget(CXFA_Graphics* pGraphics,
+                             const CFX_Matrix& matrix) {
+  DrawWidget(pGraphics, matrix);
 }
 
 void CFWL_Form::OnLButtonDown(CFWL_MessageMouse* pMsg) {

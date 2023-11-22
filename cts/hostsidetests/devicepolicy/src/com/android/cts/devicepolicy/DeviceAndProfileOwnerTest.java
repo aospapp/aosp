@@ -107,6 +107,13 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     protected static final String ASSIST_APP_PKG = "com.android.cts.devicepolicy.assistapp";
     protected static final String ASSIST_APP_APK = "CtsDevicePolicyAssistApp.apk";
 
+    private static final String PRINTING_APP_PKG = "com.android.cts.devicepolicy.printingapp";
+    private static final String PRINTING_APP_APK = "CtsDevicePolicyPrintingApp.apk";
+
+    private static final String METERED_DATA_APP_PKG
+            = "com.android.cts.devicepolicy.meteredtestapp";
+    private static final String METERED_DATA_APP_APK = "CtsMeteredDataTestApp.apk";
+
     private static final String ENABLED_NOTIFICATION_POLICY_ACCESS_PACKAGES
             = "enabled_notification_policy_access_packages";
 
@@ -114,6 +121,14 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
             ASSIST_APP_PKG + "/.MyInteractionService";
 
     private static final String ARG_ALLOW_FAILURE = "allowFailure";
+
+    private static final String RESTRICT_BACKGROUND_GET_CMD =
+        "cmd netpolicy get restrict-background";
+    private static final String RESTRICT_BACKGROUND_ON_CMD =
+        "cmd netpolicy set restrict-background true";
+    private static final String RESTRICT_BACKGROUND_OFF_CMD =
+        "cmd netpolicy set restrict-background false";
+
     // ID of the user all tests are run as. For device owner this will be the primary user, for
     // profile owner it is the user id of the created profile.
     protected int mUserId;
@@ -135,7 +150,9 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
             getDevice().uninstallPackage(INTENT_RECEIVER_PKG);
             getDevice().uninstallPackage(INTENT_SENDER_PKG);
             getDevice().uninstallPackage(CUSTOMIZATION_APP_PKG);
-            getDevice().uninstallPackage(AUTOFILL_APP_APK);
+            getDevice().uninstallPackage(AUTOFILL_APP_PKG);
+            getDevice().uninstallPackage(PRINTING_APP_PKG);
+            getDevice().uninstallPackage(METERED_DATA_APP_PKG);
             getDevice().uninstallPackage(TEST_APP_PKG);
 
             // Press the HOME key to close any alart dialog that may be shown.
@@ -253,6 +270,15 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         executeDeviceTestMethod(".PermissionsTest", "testPermissionGrantState");
     }
 
+    public void testPermissionGrant_developmentPermission() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        installAppPermissionAppAsUser();
+        executeDeviceTestMethod(
+                ".PermissionsTest", "testPermissionGrantState_developmentPermission");
+    }
+
     /**
      * Require a device for tests that use the network stack. Headless Androids running in
      * data centres might need their network rules un-tampered-with in order to keep the ADB / VNC
@@ -267,7 +293,7 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
             return;
         }
         installAppAsUser(VPN_APP_APK, mUserId);
-        executeDeviceTestClass(".AlwaysOnVpnTest");
+        executeDeviceTestClassNoRestrictBackground(".AlwaysOnVpnTest");
     }
 
     @RequiresDevice
@@ -493,7 +519,7 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         }
 
         installAppAsUser(ACCOUNT_MANAGEMENT_APK, mUserId);
-        executeDeviceTestClass(".DpcAllowedAccountManagementTest");
+        executeDeviceTestClass(".AllowedAccountManagementTest");
     }
 
     public void testAccountManagement_userRestrictionAddAccount() throws Exception {
@@ -632,6 +658,15 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
 
         executeDeviceTestMethod(".AutofillRestrictionsTest",
                 "testDisallowAutofill_allowed");
+    }
+
+    public void testSetMeteredDataDisabledPackages() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        installAppAsUser(METERED_DATA_APP_APK, mUserId);
+
+        executeDeviceTestClass(".MeteredDataRestrictionTest");
     }
 
     public void testPackageInstallUserRestrictions() throws Exception {
@@ -809,13 +844,91 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         executeDeviceTestClass(".PasswordSufficientInitiallyTest");
     }
 
+    public void testSetSystemSetting() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        executeDeviceTestClass(".SetSystemSettingTest");
+    }
+
     protected void executeResetPasswordWithTokenTests(Boolean allowFailures) throws Exception {
         runDeviceTestsAsUser(DEVICE_ADMIN_PKG, ".ResetPasswordWithTokenTest", null, mUserId,
                 Collections.singletonMap(ARG_ALLOW_FAILURE, Boolean.toString(allowFailures)));
     }
 
+    public void testClearApplicationData_testPkg() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        installAppAsUser(INTENT_RECEIVER_APK, mUserId);
+        runDeviceTestsAsUser(INTENT_RECEIVER_PKG, INTENT_RECEIVER_PKG + ".ClearApplicationDataTest",
+                "testWriteToSharedPreference", mUserId);
+        executeDeviceTestMethod(".ClearApplicationDataTest", "testClearApplicationData_testPkg");
+        runDeviceTestsAsUser(INTENT_RECEIVER_PKG, INTENT_RECEIVER_PKG + ".ClearApplicationDataTest",
+                "testSharedPreferenceCleared", mUserId);
+    }
+
+    public void testClearApplicationData_deviceProvisioning() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        // Clearing data of device configuration app should fail
+        executeDeviceTestMethod(".ClearApplicationDataTest",
+                "testClearApplicationData_deviceProvisioning");
+    }
+
+    public void testClearApplicationData_activeAdmin() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        // Clearing data of active admin should fail
+        executeDeviceTestMethod(".ClearApplicationDataTest",
+                "testClearApplicationData_activeAdmin");
+    }
+
+    public void testPrintingPolicy() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        installAppAsUser(PRINTING_APP_APK, mUserId);
+        executeDeviceTestClass(".PrintingPolicyTest");
+    }
+
     protected void executeDeviceTestClass(String className) throws Exception {
         runDeviceTestsAsUser(DEVICE_ADMIN_PKG, className, mUserId);
+    }
+
+    public void testKeyManagement() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        try {
+            // Set a non-empty device lockscreen password, which is a precondition for installing
+            // CA certificates.
+            changeUserCredential("1234", null, mUserId);
+            // Verify the credential immediately to unlock the work profile challenge
+            verifyUserCredential("1234", mUserId);
+            executeDeviceTestClass(".KeyManagementTest");
+        } finally {
+            changeUserCredential(null, "1234", mUserId);
+        }
+    }
+
+    /**
+     * Executes a test class on device. Prior to running, turn off background data usage
+     * restrictions, and restore the original restrictions after the test.
+     */
+    protected void executeDeviceTestClassNoRestrictBackground(String className) throws Exception {
+        boolean originalRestriction = ensureRestrictBackgroundPolicyOff();
+        try {
+            executeDeviceTestClass(className);
+        } catch (Exception e) {
+            throw e;
+        } finally {
+            // if the test throws exception, still restore the policy
+            restoreRestrictBackgroundPolicyTo(originalRestriction);
+        }
     }
 
     protected void executeDeviceTestMethod(String className, String testName) throws Exception {
@@ -904,10 +1017,7 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
      */
     protected void startSimpleActivityAsUser(int userId) throws Exception {
         installAppAsUser(TEST_APP_APK, userId);
-        wakeupAndDismissKeyguard();
-        String command = "am start -W --user " + userId + " " + TEST_APP_PKG + "/"
-                + TEST_APP_PKG + ".SimpleActivity";
-        getDevice().executeShellCommand(command);
+        startActivityAsUser(userId, TEST_APP_PKG, TEST_APP_PKG + ".SimpleActivity");
     }
 
     protected void setScreenCaptureDisabled(int userId, boolean disabled) throws Exception {
@@ -915,10 +1025,17 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
                 ? "testSetScreenCaptureDisabled_true"
                 : "testSetScreenCaptureDisabled_false";
         executeDeviceTestMethod(".ScreenCaptureDisabledTest", testMethodName);
-        startSimpleActivityAsUser(userId);
+
         testMethodName = disabled
                 ? "testScreenCaptureImpossible"
                 : "testScreenCapturePossible";
+
+        if (userId == mPrimaryUserId) {
+            // If testing for user-0, also make sure the existing screen can't be captured.
+            executeDeviceTestMethod(".ScreenCaptureDisabledTest", testMethodName);
+        }
+
+        startSimpleActivityAsUser(userId);
         executeDeviceTestMethod(".ScreenCaptureDisabledTest", testMethodName);
     }
 
@@ -928,13 +1045,25 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
                 ? "testSetScreenCaptureDisabled_true"
                 : "testSetScreenCaptureDisabled_false";
         executeDeviceTestMethod(".ScreenCaptureDisabledTest", testMethodName);
-        // Make sure the foreground activity is from the target user.
-        startSimpleActivityAsUser(userId);
-        // Check whether the VoiceInteractionService can retrieve the screenshot.
         testMethodName = disabled
                 ? "testScreenCaptureImpossible_assist"
                 : "testScreenCapturePossible_assist";
+
+        // Check whether the VoiceInteractionService can retrieve the screenshot.
         installAppAsUser(DEVICE_ADMIN_APK, mPrimaryUserId);
+
+        if (userId == mPrimaryUserId) {
+            // If testing for user-0, also make sure the existing screen can't be captured.
+            runDeviceTestsAsUser(
+                    DEVICE_ADMIN_PKG,
+                    ".AssistScreenCaptureDisabledTest",
+                    testMethodName,
+                    mPrimaryUserId);
+        }
+
+        // Make sure the foreground activity is from the target user.
+        startSimpleActivityAsUser(userId);
+
         runDeviceTestsAsUser(
                 DEVICE_ADMIN_PKG,
                 ".AssistScreenCaptureDisabledTest",
@@ -994,5 +1123,23 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
 
     protected void clearVoiceInteractionService() throws DeviceNotAvailableException {
         getDevice().executeShellCommand("settings delete secure voice_interaction_service");
+    }
+
+    /**
+     * Ensure that restrict background policy is off.
+     * Returns the original status of restrict background policy.
+     */
+    private boolean ensureRestrictBackgroundPolicyOff() throws Exception {
+        String restriction = getDevice().executeShellCommand(RESTRICT_BACKGROUND_GET_CMD);
+        if (restriction.contains("enabled")) {
+            getDevice().executeShellCommand(RESTRICT_BACKGROUND_OFF_CMD);
+            return true;
+        }
+        return false;
+    }
+
+    private void restoreRestrictBackgroundPolicyTo(boolean restricted) throws Exception {
+        getDevice().executeShellCommand(
+                restricted ? RESTRICT_BACKGROUND_ON_CMD : RESTRICT_BACKGROUND_OFF_CMD);
     }
 }

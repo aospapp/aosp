@@ -200,15 +200,17 @@ public class AnimatedStateListDrawableTest {
             Arrays.fill(origWidth, max);
         }
 
+        // NOTE: instrinsic W/H may already be a scaled and truncated value computed from the
+        // underlying asset (e.g. bitmap) so account for this previously applied scaling/truncation
+        // by applying a small delta to the asserts.
+
         // Set density to half of original.
         DrawableTestUtils.setResourcesDensity(res, densityDpi / 2);
         final StateListDrawable halfDrawable =
                 (StateListDrawable) cs.newDrawable(res);
-        // NOTE: densityDpi may not be an even number, so account for *actual* scaling in asserts
-        final float approxHalf = (float)(densityDpi / 2) / densityDpi;
         for (int i = 0; i < count; i++) {
             halfDrawable.selectDrawable(i);
-            assertEquals(Math.round(origWidth[i] * approxHalf), halfDrawable.getIntrinsicWidth());
+            assertEquals(Math.round(origWidth[i] * 0.5f), halfDrawable.getIntrinsicWidth(), 1);
         }
 
         // Set density to double original.
@@ -217,7 +219,7 @@ public class AnimatedStateListDrawableTest {
                 (StateListDrawable) cs.newDrawable(res);
         for (int i = 0; i < count; i++) {
             doubleDrawable.selectDrawable(i);
-            assertEquals(origWidth[i] * 2, doubleDrawable.getIntrinsicWidth());
+            assertEquals(origWidth[i] * 2, doubleDrawable.getIntrinsicWidth(), 1);
         }
 
         // Restore original configuration and metrics.

@@ -16,13 +16,16 @@
 
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.Helper.runShellCommand;
+import static android.autofillservice.cts.common.ShellHelper.runShellCommand;
 
+import androidx.annotation.NonNull;
 import android.util.Log;
 
+import org.junit.AssumptionViolatedException;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
+
 /**
  * Custom JUnit4 rule that improves autofill-related logging by:
  *
@@ -31,9 +34,12 @@ import org.junit.runners.model.Statement;
  *   <li>Call {@code dumpsys autofill} in case of failure.
  * </ol>
  */
-public class AutofillLoggingTestRule implements TestRule {
+public class AutofillLoggingTestRule implements TestRule, SafeCleanerRule.Dumper {
+
+    private static final String TAG = "AutofillLoggingTestRule";
 
     private final String mTag;
+    private boolean mDumped;
 
     public AutofillLoggingTestRule(String tag) {
         mTag = tag;
@@ -45,6 +51,8 @@ public class AutofillLoggingTestRule implements TestRule {
 
             @Override
             public void evaluate() throws Throwable {
+                final String testName = description.getDisplayName();
+                Log.v(TAG, "@Before " + testName);
                 final String levelBefore = runShellCommand("cmd autofill get log_level");
                 if (!levelBefore.equals("verbose")) {
                     runShellCommand("cmd autofill set log_level verbose");
@@ -52,16 +60,38 @@ public class AutofillLoggingTestRule implements TestRule {
                 try {
                     base.evaluate();
                 } catch (Throwable t) {
-                    final String dump = runShellCommand("dumpsys autofill");
-                    Log.e(mTag, "dump for " + description.getDisplayName() + ": \n" + dump, t);
+                    dump(testName, t);
                     throw t;
                 } finally {
-                    if (!levelBefore.equals("verbose")) {
-                        runShellCommand("cmd autofill set log_level %s", levelBefore);
+                    try {
+                        if (!levelBefore.equals("verbose")) {
+                            runShellCommand("cmd autofill set log_level %s", levelBefore);
+                        }
+                    } finally {
+                        Log.v(TAG, "@After " + testName);
                     }
                 }
             }
         };
     }
 
+    @Override
+    public void dump(@NonNull String testName, @NonNull Throwable t) {
+        if (mDumped) {
+            Log.e(mTag, "dump(" + testName + "): already dumped");
+            return;
+        }
+        if ((t instanceof AssumptionViolatedException)) {
+            // This exception is used to indicate a test should be skipped and is
+            // ignored by JUnit runners - we don't need to dump it...
+            Log.w(TAG, "ignoring exception: " + t);
+            return;
+        }
+        Log.e(mTag, "Dumping after exception on " + testName, t);
+        final String autofillDump = runShellCommand("dumpsys autofill");
+        Log.e(mTag, "autofill dump: \n" + autofillDump);
+        final String activityDump = runShellCommand("dumpsys activity top");
+        Log.e(mTag, "top activity dump: \n" + activityDump);
+        mDumped = true;
+    }
 }

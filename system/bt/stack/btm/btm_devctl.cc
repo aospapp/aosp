@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -117,7 +117,6 @@ void btm_dev_init(void) {
  ******************************************************************************/
 static void btm_db_reset(void) {
   tBTM_CMPL_CB* p_cb;
-  tBTM_STATUS status = BTM_DEV_RESET;
 
   btm_inq_db_reset();
 
@@ -132,21 +131,33 @@ static void btm_db_reset(void) {
     p_cb = btm_cb.devcb.p_rssi_cmpl_cb;
     btm_cb.devcb.p_rssi_cmpl_cb = NULL;
 
-    if (p_cb) (*p_cb)((tBTM_RSSI_RESULT*)&status);
+    if (p_cb) {
+      tBTM_RSSI_RESULT btm_rssi_result;
+      btm_rssi_result.status = BTM_DEV_RESET;
+      (*p_cb)(&btm_rssi_result);
+    }
   }
 
   if (btm_cb.devcb.p_failed_contact_counter_cmpl_cb) {
     p_cb = btm_cb.devcb.p_failed_contact_counter_cmpl_cb;
     btm_cb.devcb.p_failed_contact_counter_cmpl_cb = NULL;
 
-    if (p_cb) (*p_cb)((tBTM_FAILED_CONTACT_COUNTER_RESULT*)&status);
+    if (p_cb) {
+      tBTM_FAILED_CONTACT_COUNTER_RESULT btm_failed_contact_counter_result;
+      btm_failed_contact_counter_result.status = BTM_DEV_RESET;
+      (*p_cb)(&btm_failed_contact_counter_result);
+    }
   }
 
   if (btm_cb.devcb.p_automatic_flush_timeout_cmpl_cb) {
     p_cb = btm_cb.devcb.p_automatic_flush_timeout_cmpl_cb;
     btm_cb.devcb.p_automatic_flush_timeout_cmpl_cb = NULL;
 
-    if (p_cb) (*p_cb)((tBTM_AUTOMATIC_FLUSH_TIMEOUT_RESULT*)&status);
+    if (p_cb) {
+      tBTM_AUTOMATIC_FLUSH_TIMEOUT_RESULT btm_automatic_flush_timeout_result;
+      btm_automatic_flush_timeout_result.status = BTM_DEV_RESET;
+      (*p_cb)(&btm_automatic_flush_timeout_result);
+    }
   }
 }
 
@@ -607,7 +618,7 @@ void BTM_VendorSpecificCommand(uint16_t opcode, uint8_t param_len,
  *
  ******************************************************************************/
 void btm_vsc_complete(uint8_t* p, uint16_t opcode, uint16_t evt_len,
-                      tBTM_CMPL_CB* p_vsc_cplt_cback) {
+                      tBTM_VSC_CMPL_CB* p_vsc_cplt_cback) {
   tBTM_VSC_CMPL vcs_cplt_params;
 
   /* If there was a callback address for vcs complete, call it */
@@ -647,7 +658,7 @@ tBTM_STATUS BTM_RegisterForVSEvents(tBTM_VS_EVT_CB* p_cb, bool is_register) {
       free_idx = i;
     } else if (btm_cb.devcb.p_vend_spec_cb[i] == p_cb) {
       /* Found callback in lookup table. If deregistering, clear the entry. */
-      if (is_register == false) {
+      if (!is_register) {
         btm_cb.devcb.p_vend_spec_cb[i] = NULL;
         BTM_TRACE_EVENT("BTM Deregister For VSEvents is successfully");
       }

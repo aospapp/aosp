@@ -22,13 +22,15 @@ import android.icu.util.Calendar;
 import android.icu.util.ChineseCalendar;
 import android.icu.util.GregorianCalendar;
 import android.icu.util.SimpleTimeZone;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * A base class for classes that test individual Calendar subclasses.
  * Defines various useful utility methods and constants
  */
+@MainTestShard
 public class CalendarTestFmwk extends TestFmwk {
-    
+
     // Constants for use by subclasses, solely to save typing
     public final static int SUN = Calendar.SUNDAY;
     public final static int MON = Calendar.MONDAY;
@@ -50,7 +52,7 @@ public class CalendarTestFmwk extends TestFmwk {
     public final static int WOM     = Calendar.WEEK_OF_MONTH;
     public final static int DOW     = Calendar.DAY_OF_WEEK;
     public final static int DOWM    = Calendar.DAY_OF_WEEK_IN_MONTH;
-    
+
     public final static SimpleTimeZone UTC = new SimpleTimeZone(0, "GMT");
 
     private static final String[] FIELD_NAME = {
@@ -76,14 +78,14 @@ public class CalendarTestFmwk extends TestFmwk {
     protected void doTestCases(TestCase[] cases, Calendar cal)
     {
         cal.setTimeZone(UTC);
-        
+
         // Get a format to use for printing dates in the calendar system we're testing
         DateFormat format = DateFormat.getDateTimeInstance(cal, DateFormat.SHORT, -1, Locale.getDefault());
 
         final String pattern = (cal instanceof ChineseCalendar) ?
             "E MMl/dd/y G HH:mm:ss.S z" :
             "E, MM/dd/yyyy G HH:mm:ss.S z";
-    
+
         ((SimpleDateFormat)format).applyPattern(pattern);
 
         // This format is used for printing Gregorian dates.
@@ -94,13 +96,13 @@ public class CalendarTestFmwk extends TestFmwk {
         pureGreg.setGregorianChange(new Date(Long.MIN_VALUE));
         DateFormat pureGregFmt = new SimpleDateFormat("E M/d/yyyy G");
         pureGregFmt.setCalendar(pureGreg);
-        
+
         // Now iterate through the test cases and see what happens
         for (int i = 0; i < cases.length; i++)
         {
             logln("\ntest case: " + i);
             TestCase test = cases[i];
-            
+
             //
             // First we want to make sure that the millis -> fields calculation works
             // test.applyTime will call setTime() on the calendar object, and
@@ -117,7 +119,7 @@ public class CalendarTestFmwk extends TestFmwk {
 
             //
             // If that was OK, check the fields -> millis calculation
-            // test.applyFields will set all of the calendar's fields to 
+            // test.applyFields will set all of the calendar's fields to
             // match those in the test case.
             //
             cal.clear();
@@ -129,10 +131,10 @@ public class CalendarTestFmwk extends TestFmwk {
             }
         }
     }
-    
+
     static public final boolean ROLL = true;
     static public final boolean ADD = false;
-    
+
     /**
      * Process test cases for <code>add</code> and <code>roll</code> methods.
      * Each test case is an array of integers, as follows:
@@ -159,7 +161,7 @@ public class CalendarTestFmwk extends TestFmwk {
     protected void doRollAdd(boolean roll, Calendar cal, int[][] tests)
     {
         String name = roll ? "rolling" : "adding";
-        
+
         for (int i = 0; i < tests.length; i++) {
             int[] test = tests[i];
 
@@ -347,7 +349,7 @@ public class CalendarTestFmwk extends TestFmwk {
         int testTime = TestFmwk.getExhaustiveness() <= 5 ? -3 : -120; // in seconds
         doLimitsTest(cal, fieldsToTest, startDate, testTime);
     }
-    
+
     /**
      * Test the functions getMaximum/getGeratestMinimum logically correct.
      * This method assumes day of week cycle is consistent.
@@ -413,7 +415,7 @@ public class CalendarTestFmwk extends TestFmwk {
             errln("FAIL: Least maximum value of WEEK_OF_MONTH is incorrect: " + lmaxWOM + "/expected: " + expected);
         }
     }
-    
+
     /**
      * Convert year,month,day values to the form "year/month/day".
      * On input the month value is zero-based, but in the result string it is one-based.

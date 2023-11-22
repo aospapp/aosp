@@ -24,6 +24,9 @@ import android.os.Parcelable;
 import android.util.SparseArray;
 
 import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Represents general information about car property such as data type and min/max ranges for car
@@ -38,26 +41,64 @@ import java.lang.reflect.Array;
  */
 @SystemApi
 public class CarPropertyConfig<T> implements Parcelable {
-    private final int mPropertyId;
-    private final Class<T> mType;
+    private final int mAccess;
     private final int mAreaType;
+    private final int mChangeMode;
+    private final ArrayList<Integer> mConfigArray;
+    private final String mConfigString;
+    private final float mMaxSampleRate;
+    private final float mMinSampleRate;
+    private final int mPropertyId;
     private final SparseArray<AreaConfig<T>> mSupportedAreas;
+    private final Class<T> mType;
 
-    private CarPropertyConfig(Class<T> type, int propertyId, int areaType,
-            SparseArray<AreaConfig<T>> supportedAreas) {
-        mPropertyId = propertyId;
-        mType = type;
+    private CarPropertyConfig(int access, int areaType, int changeMode,
+            ArrayList<Integer> configArray, String configString,
+            float maxSampleRate, float minSampleRate, int propertyId,
+            SparseArray<AreaConfig<T>> supportedAreas, Class<T> type) {
+        mAccess = access;
         mAreaType = areaType;
+        mChangeMode = changeMode;
+        mConfigArray = configArray;
+        mConfigString = configString;
+        mMaxSampleRate = maxSampleRate;
+        mMinSampleRate = minSampleRate;
+        mPropertyId = propertyId;
         mSupportedAreas = supportedAreas;
+        mType = type;
     }
 
-    public int getPropertyId() { return mPropertyId; }
-    public Class<T> getPropertyType() { return mType; }
-    public @VehicleAreaType.VehicleAreaTypeValue int getAreaType() { return mAreaType; }
+    public int getAccess() {
+        return mAccess;
+    }
+    public @VehicleAreaType.VehicleAreaTypeValue int getAreaType() {
+        return mAreaType;
+    }
+    public int getChangeMode() {
+        return mChangeMode;
+    }
+    public List<Integer> getConfigArray() {
+        return Collections.unmodifiableList(mConfigArray);
+    }
+    public String getConfigString() {
+        return mConfigString;
+    }
+    public float getMaxSampleRate() {
+        return mMaxSampleRate;
+    }
+    public float getMinSampleRate() {
+        return mMinSampleRate;
+    }
+    public int getPropertyId() {
+        return mPropertyId;
+    }
+    public Class<T> getPropertyType() {
+        return mType;
+    }
 
     /** Returns true if this property doesn't hold car area-specific configuration */
     public boolean isGlobalProperty() {
-        return mAreaType == VehicleAreaType.VEHICLE_AREA_TYPE_NONE;
+        return mAreaType == VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL;
     }
 
     public int getAreaCount() {
@@ -119,32 +160,51 @@ public class CarPropertyConfig<T> implements Parcelable {
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-        dest.writeInt(mPropertyId);
-        dest.writeString(mType.getName());
+        dest.writeInt(mAccess);
         dest.writeInt(mAreaType);
+        dest.writeInt(mChangeMode);
+        dest.writeInt(mConfigArray.size());
+        for (int i = 0; i < mConfigArray.size(); i++) {
+            dest.writeInt(mConfigArray.get(i));
+        }
+        dest.writeString(mConfigString);
+        dest.writeFloat(mMaxSampleRate);
+        dest.writeFloat(mMinSampleRate);
+        dest.writeInt(mPropertyId);
         dest.writeInt(mSupportedAreas.size());
         for (int i = 0; i < mSupportedAreas.size(); i++) {
             dest.writeInt(mSupportedAreas.keyAt(i));
             dest.writeParcelable(mSupportedAreas.valueAt(i), flags);
         }
+        dest.writeString(mType.getName());
     }
 
     @SuppressWarnings("unchecked")
     private CarPropertyConfig(Parcel in) {
-        mPropertyId = in.readInt();
-        String className = in.readString();
-        try {
-            mType = (Class<T>) Class.forName(className);
-        } catch (ClassNotFoundException e) {
-            throw new IllegalArgumentException("Class not found: " + className);
-        }
+        mAccess = in.readInt();
         mAreaType = in.readInt();
+        mChangeMode = in.readInt();
+        int configArraySize = in.readInt();
+        mConfigArray = new ArrayList<Integer>(configArraySize);
+        for (int i = 0; i < configArraySize; i++) {
+            mConfigArray.add(in.readInt());
+        }
+        mConfigString = in.readString();
+        mMaxSampleRate = in.readFloat();
+        mMinSampleRate = in.readFloat();
+        mPropertyId = in.readInt();
         int areaSize = in.readInt();
         mSupportedAreas = new SparseArray<>(areaSize);
         for (int i = 0; i < areaSize; i++) {
             int areaId = in.readInt();
             AreaConfig<T> area = in.readParcelable(getClass().getClassLoader());
             mSupportedAreas.put(areaId, area);
+        }
+        String className = in.readString();
+        try {
+            mType = (Class<T>) Class.forName(className);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException("Class not found: " + className);
         }
     }
 
@@ -162,12 +222,18 @@ public class CarPropertyConfig<T> implements Parcelable {
 
     @Override
     public String toString() {
-        return "CarPropertyConfig{" +
-                "mPropertyId=" + mPropertyId +
-                ", mType=" + mType +
-                ", mAreaType=" + mAreaType +
-                ", mSupportedAreas=" + mSupportedAreas +
-                '}';
+        return "CarPropertyConfig{"
+                + "mPropertyId=" + mPropertyId
+                + ", mAccess=" + mAccess
+                + ", mAreaType=" + mAreaType
+                + ", mChangeMode=" + mChangeMode
+                + ", mConfigArray=" + mConfigArray
+                + ", mConfigString=" + mConfigString
+                + ", mMaxSampleRate=" + mMaxSampleRate
+                + ", mMinSampleRate=" + mMinSampleRate
+                + ", mSupportedAreas=" + mSupportedAreas
+                + ", mType=" + mType
+                + '}';
     }
 
     public static class AreaConfig<T> implements Parcelable {
@@ -225,55 +291,150 @@ public class CarPropertyConfig<T> implements Parcelable {
         }
     }
 
-    public static <T> Builder<T> newBuilder(Class<T> clazz, int propertyId, int areaType,
-            int areaCapacity) {
-        return new Builder<>(clazz, propertyId, areaType, areaCapacity);
+    /**
+     * Prepare an instance of CarPropertyConfig
+     *
+     * @return Builder<T>
+     */
+    public static <T> Builder<T> newBuilder(Class<T> type, int propertyId, int areaType,
+                                            int areaCapacity) {
+        return new Builder<>(areaCapacity, areaType, propertyId, type);
     }
 
 
-    public static <T> Builder<T> newBuilder(Class<T> clazz, int propertyId, int areaType) {
-        return newBuilder(clazz, propertyId, areaType, 0);
+    /**
+     * Prepare an instance of CarPropertyConfig
+     *
+     * @return Builder<T>
+     */
+    public static <T> Builder<T> newBuilder(Class<T> type, int propertyId, int areaType) {
+        return new Builder<>(0, areaType, propertyId, type);
     }
 
     public static class Builder<T> {
-        private final Class<T> mType;
-        private final int mPropertyId;
+        private int mAccess;
         private final int mAreaType;
-        private final SparseArray<AreaConfig<T>> mAreas;
+        private int mChangeMode;
+        private final ArrayList<Integer> mConfigArray;
+        private String mConfigString;
+        private float mMaxSampleRate;
+        private float mMinSampleRate;
+        private final int mPropertyId;
+        private final SparseArray<AreaConfig<T>> mSupportedAreas;
+        private final Class<T> mType;
 
-        private Builder(Class<T> type, int propertyId, int areaType, int areaCapacity) {
-            mType = type;
-            mPropertyId = propertyId;
+        private Builder(int areaCapacity, int areaType, int propertyId, Class<T> type) {
             mAreaType = areaType;
+            mConfigArray = new ArrayList<>();
+            mPropertyId = propertyId;
             if (areaCapacity != 0) {
-                mAreas = new SparseArray<>(areaCapacity);
+                mSupportedAreas = new SparseArray<>(areaCapacity);
             } else {
-                mAreas = new SparseArray<>();
+                mSupportedAreas = new SparseArray<>();
             }
+            mType = type;
         }
 
+        /**
+         * Add supported areas parameter to CarPropertyConfig
+         *
+         * @return Builder<T>
+         */
         public Builder<T> addAreas(int[] areaIds) {
             for (int id : areaIds) {
-                mAreas.put(id, null);
+                mSupportedAreas.put(id, null);
             }
             return this;
         }
 
+        /**
+         * Add area to CarPropertyConfig
+         *
+         * @return Builder<T>
+         */
         public Builder<T> addArea(int areaId) {
             return addAreaConfig(areaId, null, null);
         }
 
+        /**
+         * Add areaConfig to CarPropertyConfig
+         *
+         * @return Builder<T>
+         */
         public Builder<T> addAreaConfig(int areaId, T min, T max) {
             if (min == null && max == null) {
-                mAreas.put(areaId, null);
+                mSupportedAreas.put(areaId, null);
             } else {
-                mAreas.put(areaId, new AreaConfig<>(min, max));
+                mSupportedAreas.put(areaId, new AreaConfig<>(min, max));
             }
             return this;
         }
 
+        /**
+         * Set access parameter to CarPropertyConfig
+         *
+         * @return Builder<T>
+         */
+        public Builder<T> setAccess(int access) {
+            mAccess = access;
+            return this;
+        }
+
+        /**
+         * Set changeMode parameter to CarPropertyConfig
+         *
+         * @return Builder<T>
+         */
+        public Builder<T> setChangeMode(int changeMode) {
+            mChangeMode = changeMode;
+            return this;
+        }
+
+        /**
+         * Set configArray parameter to CarPropertyConfig
+         *
+         * @return Builder<T>
+         */
+        public Builder<T> setConfigArray(ArrayList<Integer> configArray) {
+            mConfigArray.clear();
+            mConfigArray.addAll(configArray);
+            return this;
+        }
+
+        /**
+         * Set configString parameter to CarPropertyConfig
+         *
+         * @return Builder<T>
+         */
+        public Builder<T> setConfigString(String configString) {
+            mConfigString = configString;
+            return this;
+        }
+
+        /**
+         * Set maxSampleRate parameter to CarPropertyConfig
+         *
+         * @return Builder<T>
+         */
+        public Builder<T> setMaxSampleRate(float maxSampleRate) {
+            mMaxSampleRate = maxSampleRate;
+            return this;
+        }
+
+        /**
+         * Set minSampleRate parameter to CarPropertyConfig
+         *
+         * @return Builder<T>
+         */
+        public Builder<T> setMinSampleRate(float minSampleRate) {
+            mMinSampleRate = minSampleRate;
+            return this;
+        }
+
         public CarPropertyConfig<T> build() {
-            return new CarPropertyConfig<>(mType, mPropertyId, mAreaType, mAreas);
+            return new CarPropertyConfig<>(mAccess, mAreaType, mChangeMode, mConfigArray,
+                                           mConfigString, mMaxSampleRate, mMinSampleRate,
+                                           mPropertyId, mSupportedAreas, mType);
         }
     }
 }

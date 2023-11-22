@@ -48,6 +48,7 @@
 #include <sys/wait.h>
 
 #include "test.h"
+#include "safe_macros.h"
 #include "usctest.h"
 #include "ltp_priv.h"
 #include "tst_ansi_color.h"
@@ -80,8 +81,14 @@ int TEST_ERRNO;
 	assert(strlen(buf) > 0);		\
 } while (0)
 
-#if defined(__ANDROID__) && !defined(PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP)
-#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
+#ifndef PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
+# ifdef __ANDROID__
+#  define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP \
+	PTHREAD_RECURSIVE_MUTEX_INITIALIZER
+# else
+/* MUSL: http://www.openwall.com/lists/musl/2017/02/20/5 */
+#  define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP  { {PTHREAD_MUTEX_RECURSIVE} }
+# endif
 #endif
 
 static pthread_mutex_t tmutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
@@ -91,6 +98,7 @@ static void tst_condense(int tnum, int ttype, const char *tmesg);
 static void tst_print(const char *tcid, int tnum, int ttype, const char *tmesg);
 
 static int T_exitval = 0;	/* exit value used by tst_exit() */
+static int passed_cnt;
 static int T_mode = VERBOSE;	/* flag indicating print mode: VERBOSE, */
 				/* NOPASS, DISCARD */
 
@@ -165,6 +173,9 @@ static void tst_res__(const char *file, const int lineno, int ttype,
 	 * value (used by tst_exit()).
 	 */
 	T_exitval |= ttype_result;
+
+	if (ttype_result == TPASS)
+		passed_cnt++;
 
 	check_env();
 
@@ -390,7 +401,12 @@ void tst_exit(void)
 
 	tst_flush();
 
-	exit(T_exitval & ~TINFO);
+	T_exitval &= ~TINFO;
+
+	if (T_exitval == TCONF && passed_cnt)
+		T_exitval &= ~TCONF;
+
+	exit(T_exitval);
 }
 
 pid_t tst_fork(void)
@@ -414,8 +430,7 @@ void tst_record_childstatus(void (*cleanup)(void), pid_t child)
 
 	NO_NEWLIB_ASSERT("Unknown", 0);
 
-	if (waitpid(child, &status, 0) < 0)
-		tst_brkm(TBROK | TERRNO, cleanup, "waitpid(%d) failed", child);
+	SAFE_WAITPID(cleanup, child, &status, 0);
 
 	if (WIFEXITED(status)) {
 		ttype_result = WEXITSTATUS(status);

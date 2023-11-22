@@ -19,7 +19,6 @@
 
 #include "chre_api/chre/re.h"
 
-#include "chre/platform/mutex.h"
 #include "chre/platform/system_timer.h"
 #include "chre/util/non_copyable.h"
 #include "chre/util/priority_queue.h"
@@ -34,10 +33,6 @@ namespace chre {
  */
 typedef uint32_t TimerHandle;
 
-//! Forward declare the EventLoop class to avoid a circular dependency between
-//! TimerPool and EventLoop.
-class EventLoop;
-
 /**
  * Tracks requests from CHRE apps for timed events.
  */
@@ -45,10 +40,8 @@ class TimerPool : public NonCopyable {
  public:
   /**
    * Sets up the timer instance initial conditions.
-   *
-   * @param The event loop that owns this timer.
    */
-  TimerPool(EventLoop& eventLoop);
+  TimerPool();
 
   /**
    * Requests a timer for a nanoapp given a cookie to pass to the nanoapp when
@@ -112,19 +105,6 @@ class TimerPool : public NonCopyable {
     bool operator>(const TimerRequest& request) const;
   };
 
-  //! The mutex used to lock the shared data structures below. The
-  //! handleSystemTimerCallback may be called from any context so we use a lock
-  //! to ensure exclusive access.
-  //
-  // Consider changing the design here to avoid the use of a mutex. There is
-  // another option to post an event to the system task to re-schedule the next
-  // timer. It would simplify the design and make it easier to make future
-  // extensions to this module.
-  Mutex mMutex;
-
-  //! The event loop that owns this timer pool.
-  EventLoop& mEventLoop;
-
   //! The queue of outstanding timer requests.
   PriorityQueue<TimerRequest, std::greater<TimerRequest>> mTimerRequests;
 
@@ -179,30 +159,23 @@ class TimerPool : public NonCopyable {
    * @param timerRequest The timer request being inserted into the list.
    * @return true if insertion of timer succeeds.
    */
-   bool insertTimerRequest(const TimerRequest& timerRequest);
+  bool insertTimerRequest(const TimerRequest& timerRequest);
 
-   /**
-    * Handles a completion callback for a timer by scheduling the next timer if
-    * available. If any timers have expired already an event is posted for them
-    * as well.
-    */
-   void onSystemTimerCallback();
+  /**
+   * Sets the underlying system timer to the next timer in the timer list if
+   * available. The lock must be acquired prior to entering this function.
+   *
+   * @return true if any timer events were posted
+   */
+  bool handleExpiredTimersAndScheduleNext();
 
-   /**
-    * Sets the underlying system timer to the next timer in the timer list if
-    * available. The lock must be acquired prior to entering this function.
-    *
-    * @return true if any timer events were posted
-    */
-   bool handleExpiredTimersAndScheduleNext();
-
-   /**
-    * This static method handles the callback from the system timer. The data
-    * pointer here is the TimerPool instance.
-    *
-    * @param data A pointer to the timer pool.
-    */
-   static void handleSystemTimerCallback(void *timerPoolPtr);
+  /**
+   * This static method handles the callback from the system timer. The data
+   * pointer here is the TimerPool instance.
+   *
+   * @param data A pointer to the timer pool.
+   */
+  static void handleSystemTimerCallback(void *timerPoolPtr);
 };
 
 }  // namespace chre

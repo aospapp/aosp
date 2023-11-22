@@ -60,7 +60,7 @@ def build(out_dir):
     products = (
         'aosp_arm',
         'aosp_arm64',
-        'aosp_mips',
+        # 'aosp_mips',
         # 'aosp_mips64',
         'aosp_x86',
         'aosp_x86_64',
@@ -159,15 +159,15 @@ def install_built_host_files(build_dir, install_dir, host):
         built_files.extend([
             'lib/libbcc' + lib_ext,
             'lib/libbcinfo' + lib_ext,
-            'lib/libclang' + lib_ext,
-            'lib/libLLVM' + lib_ext,
+            'lib/libclang_android' + lib_ext,
+            'lib/libLLVM_android' + lib_ext,
         ])
     else:
         built_files.extend([
             'lib64/libbcc' + lib_ext,
             'lib64/libbcinfo' + lib_ext,
-            'lib64/libclang' + lib_ext,
-            'lib64/libLLVM' + lib_ext,
+            'lib64/libclang_android' + lib_ext,
+            'lib64/libLLVM_android' + lib_ext,
             'lib64/libc++' + lib_ext,
         ])
 
@@ -217,7 +217,7 @@ def install_built_device_files(build_dir, install_dir, host):
     product_to_arch = {
         'generic': 'arm',
         'generic_arm64': 'arm64',
-        'generic_mips': 'mips',
+        # 'generic_mips': 'mips',
         # 'generic_mips64': 'mips64el',
         'generic_x86': 'x86',
         'generic_x86_64': 'x86_64',

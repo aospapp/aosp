@@ -286,7 +286,7 @@ CRAS_OUTPUT_NODE_TYPES = ['HEADPHONE', 'INTERNAL_SPEAKER', 'HDMI', 'USB',
                           'BLUETOOTH', 'LINEOUT', 'UNKNOWN']
 CRAS_INPUT_NODE_TYPES = ['MIC', 'INTERNAL_MIC', 'USB', 'BLUETOOTH',
                          'POST_DSP_LOOPBACK', 'POST_MIX_LOOPBACK', 'UNKNOWN',
-                         'KEYBOARD_MIC', 'HOTWORD']
+                         'KEYBOARD_MIC', 'HOTWORD', 'FRONT_MIC', 'REAR_MIC']
 CRAS_NODE_TYPES = CRAS_OUTPUT_NODE_TYPES + CRAS_INPUT_NODE_TYPES
 
 
@@ -335,6 +335,30 @@ def get_selected_node_types():
         return node['Active']
 
     return get_filtered_node_types(is_selected)
+
+
+def get_selected_input_device_name():
+    """Returns the device name of the active input node.
+
+    @returns: device name string. E.g. kbl_r5514_5663_max: :0,1
+    """
+    nodes = get_cras_nodes()
+    for node in nodes:
+        if node['Active'] and node['IsInput']:
+            return node['DeviceName']
+    return None
+
+
+def get_selected_output_device_name():
+    """Returns the device name of the active output node.
+
+    @returns: device name string. E.g. mtk-rt5650: :0,0
+    """
+    nodes = get_cras_nodes()
+    for node in nodes:
+        if node['Active'] and not node['IsInput']:
+            return node['DeviceName']
+    return None
 
 
 def get_plugged_node_types():

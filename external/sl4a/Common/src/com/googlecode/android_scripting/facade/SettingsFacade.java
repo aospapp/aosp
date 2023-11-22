@@ -17,6 +17,7 @@
 package com.googlecode.android_scripting.facade;
 
 import android.app.AlarmManager;
+import android.app.NotificationManager;
 import android.app.Service;
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
@@ -25,7 +26,10 @@ import android.media.AudioManager;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.os.UserHandle;
+import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
+import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 import android.view.WindowManager;
 
 import com.android.internal.widget.LockPatternUtils;
@@ -36,6 +40,7 @@ import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.future.FutureActivityTask;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
+import com.googlecode.android_scripting.rpc.RpcDefault;
 import com.googlecode.android_scripting.rpc.RpcOptional;
 import com.googlecode.android_scripting.rpc.RpcParameter;
 
@@ -51,11 +56,14 @@ public class SettingsFacade extends RpcReceiver {
     private final PowerManager mPower;
     private final AlarmManager mAlarm;
     private final LockPatternUtils mLockPatternUtils;
+    private final NotificationManager mNotificationManager;
+    private final DataUsageController mDataController;
+    private final TelephonyManager mTelephonyManager;
 
     /**
      * Creates a new SettingsFacade.
      *
-     * @param service is the {@link Context} the APIs will run under
+     * @param manager is the {@link Context} the APIs will run under
      */
     public SettingsFacade(FacadeManager manager) {
         super(manager);
@@ -65,6 +73,16 @@ public class SettingsFacade extends RpcReceiver {
         mPower = (PowerManager) mService.getSystemService(Context.POWER_SERVICE);
         mAlarm = (AlarmManager) mService.getSystemService(Context.ALARM_SERVICE);
         mLockPatternUtils = new LockPatternUtils(mService);
+        mNotificationManager =
+            (NotificationManager) mService.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (!mNotificationManager.isNotificationPolicyAccessGranted()) {
+            Intent intent = new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            mService.startActivity(intent);
+        }
+        mDataController = new DataUsageController(mService);
+        mTelephonyManager =
+                (TelephonyManager) mService.getSystemService(Context.TELEPHONY_SERVICE);
     }
 
     @Rpc(description = "Sets the screen timeout to this number of seconds.",
@@ -244,22 +262,28 @@ public class SettingsFacade extends RpcReceiver {
     }
 
     @Rpc(description = "Set a string password to the device.")
-    public void setDevicePassword(@RpcParameter(name = "password") String password) {
+    public void setDevicePassword(@RpcParameter(name = "password") String password,
+                                  @RpcParameter(name = "previousPassword")
+                                  @RpcDefault("")
+                                  @RpcOptional
+                                  String previousPassword) {
         // mLockPatternUtils.setLockPatternEnabled(true, UserHandle.myUserId());
         mLockPatternUtils.setLockScreenDisabled(false, UserHandle.myUserId());
         mLockPatternUtils.setCredentialRequiredToDecrypt(true);
-        mLockPatternUtils.saveLockPassword(password, null,
+        mLockPatternUtils.saveLockPassword(password, previousPassword,
                 DevicePolicyManager.PASSWORD_QUALITY_NUMERIC, UserHandle.myUserId());
     }
 
-    @Rpc(description = "Disable screen lock password on the device.")
-    public void disableDevicePassword() {
-        mLockPatternUtils.clearEncryptionPassword();
-        // mLockPatternUtils.setLockPatternEnabled(false, UserHandle.myUserId());
-        mLockPatternUtils.setLockScreenDisabled(true, UserHandle.myUserId());
-        mLockPatternUtils.setCredentialRequiredToDecrypt(false);
-        mLockPatternUtils.clearEncryptionPassword();
-        mLockPatternUtils.clearLock(null, UserHandle.myUserId());
+    @Rpc(description = "Disable screen lock password on the device. Note that disabling the " +
+            "screen lock while the screen is locked will still require the screen to be " +
+            "unlocked via pressing the back button and swiping up. To get around this, make sure " +
+            "the screen is on/unlocked when calling this method.")
+    public void disableDevicePassword(
+            @RpcParameter(name = "currentPassword",
+                          description = "The current password used to lock the device")
+            @RpcDefault("1111")
+            @RpcOptional String currentPassword) {
+        mLockPatternUtils.clearLock(currentPassword, UserHandle.myUserId());
         mLockPatternUtils.setLockScreenDisabled(true, UserHandle.myUserId());
     }
 
@@ -285,6 +309,80 @@ public class SettingsFacade extends RpcReceiver {
         } catch (Exception e){
             Log.d("showHomeScreen exception" + e);
         }
+    }
+
+    @Rpc(description = "Set private DNS mode")
+    public void setPrivateDnsMode(@RpcParameter(name = "useTls") Boolean useTls,
+            @RpcParameter(name = "hostname") @RpcOptional String hostname) {
+        String dnsMode = ConnectivityConstants.PrivateDnsModeOpportunistic;
+        if(useTls == false) dnsMode = ConnectivityConstants.PrivateDnsModeOff;
+        if(hostname != null) dnsMode = ConnectivityConstants.PrivateDnsModeStrict;
+        android.provider.Settings.Global.putString(mService.getContentResolver(),
+                android.provider.Settings.Global.PRIVATE_DNS_MODE, dnsMode);
+        if(hostname != null)
+            android.provider.Settings.Global.putString(mService.getContentResolver(),
+                    android.provider.Settings.Global.PRIVATE_DNS_SPECIFIER, hostname);
+    }
+
+    @Rpc(description = "Get private DNS mode", returns = "Private DNS mode setting")
+    public String getPrivateDnsMode() {
+        return android.provider.Settings.Global.getString(mService.getContentResolver(),
+                android.provider.Settings.Global.PRIVATE_DNS_MODE);
+    }
+
+    @Rpc(description = "Get private DNS specifier", returns = "DNS hostname set in strict mode")
+    public String getPrivateDnsSpecifier() {
+        if(!getPrivateDnsMode().equals(ConnectivityConstants.PrivateDnsModeStrict)) return null;
+        return android.provider.Settings.Global.getString(mService.getContentResolver(),
+                android.provider.Settings.Global.PRIVATE_DNS_SPECIFIER);
+    }
+
+    /**
+     * Enable or disable mobile data.
+     * @param enabled Enable data: True: Disable data: False.
+     */
+    @Rpc(description = "Set Mobile Data Enabled.")
+    public void setMobileDataEnabled(@RpcParameter(name = "enabled")
+            @RpcOptional @RpcDefault(value = "true") Boolean enabled) {
+        mDataController.setMobileDataEnabled(enabled);
+    }
+
+    /**
+     * Get mobile data usage info for subscription.
+     * @return DataUsageInfo: The Mobile data usage information.
+     */
+    @Rpc(description = "Get mobile data usage info", returns = "Mobile Data DataUsageInfo")
+    public DataUsageController.DataUsageInfo getMobileDataUsageInfo(
+            @RpcOptional @RpcParameter(name = "subId") Integer subId) {
+        if (subId == null) {
+            subId = SubscriptionManager.getDefaultDataSubscriptionId();
+        }
+        String subscriberId = mTelephonyManager.getSubscriberId(subId);
+        return mDataController.getMobileDataUsageInfoForSubscriber(subscriberId);
+    }
+
+    /**
+     * Get mobile data usage info for for uid.
+     * @return DataUsageInfo: The Mobile data usage information.
+     */
+    @Rpc(description = "Get mobile data usage info", returns = "Mobile Data DataUsageInfo")
+    public DataUsageController.DataUsageInfo getMobileDataUsageInfoForUid(
+            @RpcParameter(name = "uId") Integer uId,
+            @RpcOptional @RpcParameter(name = "subId") Integer subId) {
+        if (subId == null) {
+            subId = SubscriptionManager.getDefaultDataSubscriptionId();
+        }
+        String subscriberId = mTelephonyManager.getSubscriberId(subId);
+        return mDataController.getMobileDataUsageInfoForUid(uId, subscriberId);
+    }
+
+    /**
+     * Get Wifi data usage info.
+     * @return DataUsageInfo: The Wifi data usage information.
+     */
+    @Rpc(description = "Get wifi data usage info", returns = "Wifi Data DataUsageInfo")
+    public DataUsageController.DataUsageInfo getWifiDataUsageInfo() {
+        return mDataController.getWifiDataUsageInfo();
     }
 
     @Override

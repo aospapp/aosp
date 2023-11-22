@@ -58,10 +58,16 @@ class HostProtocolCommon {
       uint32_t messageType, uint16_t hostEndpoint, const void *messageData,
       size_t messageDataLen);
 
- protected:
-   static flatbuffers::Offset<flatbuffers::Vector<int8_t>>
-       addStringAsByteVector(flatbuffers::FlatBufferBuilder& builder,
-                             const char *str);
+  /**
+   * Adds a string to the provided builder as a byte vector.
+   *
+   * @param builder The builder to add the string to.
+   * @param str The string to add.
+   * @return The offset in the builder that the string is stored at.
+   */
+  static flatbuffers::Offset<flatbuffers::Vector<int8_t>>
+      addStringAsByteVector(flatbuffers::FlatBufferBuilder& builder,
+                            const char *str);
 
    /**
     * Constructs the message container and finalizes the FlatBufferBuilder
@@ -81,6 +87,14 @@ class HostProtocolCommon {
        flatbuffers::Offset<void> message,
        uint16_t hostClientId = kHostClientIdUnspecified);
 
+   /**
+    * Verifies that the provided message contains a valid flatbuffers CHRE
+    * protocol message,
+    *
+    * @param message The message to validate.
+    * @param length The size of the message to validate.
+    * @return true if the message is valid, false otherwise.
+    */
    static bool verifyMessage(const void *message, size_t messageLen);
 };
 

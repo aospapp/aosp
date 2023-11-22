@@ -36,6 +36,12 @@
 @*
 @*******************************************************************************/
 
+.equ    qp_q_offset,                108
+.equ    beta_offset_div2_offset,    112
+.equ    tc_offset_div2_offset,      116
+.equ    filter_p_offset,            120
+.equ    filter_q_offset,            124
+
 .text
 .align 4
 
@@ -57,12 +63,14 @@ gai4_ihevc_beta_table_addr:
 
 ihevc_deblk_luma_horz_a9q:
     stmfd       sp!, {r3-r12,lr}
-    ldr         r4,[sp,#0x2c]
-    ldr         r5,[sp,#0x30]
+    vpush       {d8  -  d15}
+
+    ldr         r4,[sp,#qp_q_offset]
+    ldr         r5,[sp,#beta_offset_div2_offset]
 
     add         r3,r3,r4
     add         r3,r3,#1
-    ldr         r6, [sp,#0x34]
+    ldr         r6, [sp,#tc_offset_div2_offset]
     asr         r3,r3,#1
     add         r7,r3,r5,lsl #1
     add         r3,r3,r6,lsl #1
@@ -291,9 +299,9 @@ ulbl1:
     vmin.u8     d18,d20,d30
     mov         r2,#2
     vqadd.u8    d30,d23,d1
-    ldr         r4,[sp,#0x38]               @ loading the filter_flag_p
+    ldr         r4,[sp,#filter_p_offset]         @ loading the filter_flag_p
     vmax.u8     d2,d18,d31
-    ldr         r5,[sp,#0x3c]               @ loading the filter_flag_q
+    ldr         r5,[sp,#filter_q_offset]         @ loading the filter_flag_q
     vrshrn.i16  d21,q7,#2
     b           end_dep_deq_decision_horz
     @ r2 has the value of de
@@ -308,8 +316,8 @@ l1.1840:
     mov         r2,#1
 
     mov         r11,r5
-    ldr         r4,[sp,#0x38]               @ loading the filter_flag_p
-    ldr         r5,[sp,#0x3c]               @ loading the filter_flag_q
+    ldr         r4,[sp,#filter_p_offset]         @ loading the filter_flag_p
+    ldr         r5,[sp,#filter_q_offset]         @ loading the filter_flag_q
 
     cmp         r6,#1
     moveq       r9,#0
@@ -397,6 +405,7 @@ strong_filtering_p:
     vst1.32     d3[0],[r12]
 
 l1.2404:
+    vpop        {d8  -  d15}
     ldmfd       sp!, {r3-r12,pc}
 
     @ r4=flag p
@@ -537,6 +546,8 @@ l1.2852:
     vbsl        d19,d26,d13
     vst1.32     {d19[0]},[r12],r1
     vst1.32     {d18[0]},[r12]
+
+    vpop        {d8  -  d15}
     ldmfd       sp!, {r3-r12,r15}
 
 

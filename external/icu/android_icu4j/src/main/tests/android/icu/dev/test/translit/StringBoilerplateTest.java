@@ -14,10 +14,12 @@ import java.util.List;
 import org.junit.Test;
 
 import android.icu.dev.test.TestBoilerplate;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Moved from UnicodeMapTest
  */
+@MainTestShard
 public class StringBoilerplateTest extends TestBoilerplate<String> {
     public void TestStringBoilerplate() throws Exception {
     }

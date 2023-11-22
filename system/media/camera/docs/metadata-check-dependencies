@@ -109,6 +109,7 @@ binary_check tidy tidy tidy
 binary_check python python27 python2.7
 python_check bs4 py27-beautifulsoup4 python-bs4
 python_check mako py27-mako python-mako
+python_check markdown py27-markdown python-markdown
 
 exit $retcode
 

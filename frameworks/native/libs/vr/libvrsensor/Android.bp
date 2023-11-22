@@ -14,7 +14,6 @@
 
 sourceFiles = [
     "pose_client.cpp",
-    "sensor_client.cpp",
     "latency_model.cpp",
 ]
 
@@ -24,24 +23,29 @@ includeFiles = [
 
 staticLibraries = [
     "libdisplay",
-    "libbufferhub",
-    "libbufferhubqueue",
     "libdvrcommon",
     "libbroadcastring",
-    "libpdx_default_transport",
 ]
 
 sharedLibraries = [
     "libbase",
+    "libbinder",
+    "libbufferhubqueue",
     "libcutils",
     "libhardware",
     "liblog",
     "libutils",
     "libui",
+    "libpdx_default_transport",
 ]
 
 cc_library {
     srcs: sourceFiles,
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-macro-redefined",
+    ],
     export_include_dirs: includeFiles,
     static_libs: staticLibraries,
     shared_libs: sharedLibraries,

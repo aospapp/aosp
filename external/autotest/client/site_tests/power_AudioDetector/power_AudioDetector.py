@@ -12,8 +12,9 @@ import time
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
-from autotest_lib.client.cros import power_utils, rtc
+from autotest_lib.client.cros import rtc
 from autotest_lib.client.cros.audio import audio_helper
+from autotest_lib.client.cros.power import power_utils
 
 class power_AudioDetector(test.test):
     """Verifies that audio playback prevents powerd from suspending."""

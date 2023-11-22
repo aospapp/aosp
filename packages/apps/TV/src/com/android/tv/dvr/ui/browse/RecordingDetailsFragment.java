@@ -18,33 +18,34 @@ package com.android.tv.dvr.ui.browse;
 
 import android.os.Bundle;
 import android.support.v17.leanback.app.DetailsFragment;
-
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.dvr.data.ScheduledRecording;
 
-/**
- * {@link DetailsFragment} for recordings in DVR.
- */
+/** {@link DetailsFragment} for recordings in DVR. */
 abstract class RecordingDetailsFragment extends DvrDetailsFragment {
     private ScheduledRecording mRecording;
 
     @Override
     protected void onCreateInternal() {
-        setDetailsOverviewRow(DetailsContent
-                .createFromScheduledRecording(getContext(), mRecording));
+        setDetailsOverviewRow(
+                DetailsContent.createFromScheduledRecording(getContext(), mRecording));
     }
 
     @Override
     protected boolean onLoadRecordingDetails(Bundle args) {
         long scheduledRecordingId = args.getLong(DvrDetailsActivity.RECORDING_ID);
-        mRecording = TvApplication.getSingletons(getContext()).getDvrDataManager()
-                .getScheduledRecording(scheduledRecordingId);
+        mRecording =
+                TvSingletons.getSingletons(getContext())
+                        .getDvrDataManager()
+                        .getScheduledRecording(scheduledRecordingId);
         return mRecording != null;
     }
 
-    /**
-     * Returns {@link ScheduledRecording} for the current fragment.
-     */
+    protected ScheduledRecording getScheduledRecording() {
+        return mRecording;
+    }
+
+    /** Returns {@link ScheduledRecording} for the current fragment. */
     public ScheduledRecording getRecording() {
         return mRecording;
     }

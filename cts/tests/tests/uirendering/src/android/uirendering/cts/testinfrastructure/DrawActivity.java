@@ -15,6 +15,7 @@
  */
 package android.uirendering.cts.testinfrastructure;
 
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
 import android.app.Activity;
@@ -23,11 +24,11 @@ import android.content.res.Configuration;
 import android.graphics.Point;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.Message;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.uirendering.cts.R;
 import android.util.Log;
+import android.util.Pair;
 import android.view.FrameMetrics;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,6 +36,8 @@ import android.view.ViewStub;
 import android.view.ViewTreeObserver;
 import android.view.Window;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -45,12 +48,14 @@ public class DrawActivity extends Activity {
     static final String EXTRA_WIDE_COLOR_GAMUT = "DrawActivity.WIDE_COLOR_GAMUT";
 
     private final static long TIME_OUT_MS = 10000;
-    private final Point mLock = new Point();
+    private final Object mLock = new Object();
+    private ActivityTestBase.TestPositionInfo mPositionInfo;
 
     private Handler mHandler;
     private View mView;
     private View mViewWrapper;
     private boolean mOnTv;
+    private DrawMonitor mDrawMonitor;
 
     public void onCreate(Bundle bundle){
         super.onCreate(bundle);
@@ -62,44 +67,18 @@ public class DrawActivity extends Activity {
         mHandler = new RenderSpecHandler();
         int uiMode = getResources().getConfiguration().uiMode;
         mOnTv = (uiMode & Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_TELEVISION;
-
-        // log frame metrics
-        HandlerThread handlerThread = new HandlerThread("FrameMetrics");
-        handlerThread.start();
-        getWindow().addOnFrameMetricsAvailableListener(
-                new Window.OnFrameMetricsAvailableListener() {
-                    int mRtFrameCount = 0;
-                    @Override
-                    public void onFrameMetricsAvailable(Window window, FrameMetrics frameMetrics,
-                            int dropCountSinceLastInvocation) {
-                        Log.d("UiRendering", "Window frame count " + mRtFrameCount
-                                + ", frame drops " + dropCountSinceLastInvocation);
-                        mRtFrameCount++;
-                    }
-                }, new Handler(handlerThread.getLooper()));
-
-        // log draw metrics
-        View view = new View(this);
-        setContentView(view);
-        view.getViewTreeObserver().addOnDrawListener(new ViewTreeObserver.OnDrawListener() {
-            int mFrameCount;
-            @Override
-            public void onDraw() {
-                Log.d("UiRendering", "View tree frame count " + mFrameCount);
-                mFrameCount++;
-            }
-        });
+        mDrawMonitor = new DrawMonitor(getWindow());
     }
 
     public boolean getOnTv() {
         return mOnTv;
     }
 
-    public Point enqueueRenderSpecAndWait(int layoutId, CanvasClient canvasClient,
-            @Nullable ViewInitializer viewInitializer, boolean useHardware, boolean usePicture) {
+    public ActivityTestBase.TestPositionInfo enqueueRenderSpecAndWait(int layoutId,
+            CanvasClient canvasClient, @Nullable ViewInitializer viewInitializer,
+            boolean useHardware, boolean usePicture) {
         ((RenderSpecHandler) mHandler).setViewInitializer(viewInitializer);
         int arg2 = (useHardware ? View.LAYER_TYPE_NONE : View.LAYER_TYPE_SOFTWARE);
-        Point point = new Point();
         synchronized (mLock) {
             if (canvasClient != null) {
                 mHandler.obtainMessage(RenderSpecHandler.CANVAS_MSG, usePicture ? 1 : 0,
@@ -110,12 +89,12 @@ public class DrawActivity extends Activity {
 
             try {
                 mLock.wait(TIME_OUT_MS);
-                point.set(mLock.x, mLock.y);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
-        return point;
+        assertNotNull("Timeout waiting for draw", mPositionInfo);
+        return mPositionInfo;
     }
 
     public void reset() {
@@ -210,7 +189,6 @@ public class DrawActivity extends Activity {
     }
 
     private class DrawCounterListener implements ViewTreeObserver.OnDrawListener {
-        private final int[] mLocationInWindow = new int[2];
         private static final int DEBUG_REQUIRE_EXTRA_FRAMES = 1;
         private int mDrawCount = 0;
 
@@ -220,15 +198,81 @@ public class DrawActivity extends Activity {
                 mView.postInvalidate();
                 return;
             }
-            mView.post(() -> {
-                Log.d("UiRendering", "notifying capture");
-                mView.getViewTreeObserver().removeOnDrawListener(this);
+
+            long vsyncMillis = mView.getDrawingTime();
+
+            mView.post(() -> mView.getViewTreeObserver().removeOnDrawListener(this));
+
+            mDrawMonitor.notifyWhenDrawn(vsyncMillis, () -> {
+                final int[] location = new int[2];
+                mViewWrapper.getLocationInWindow(location);
+                Point surfaceOffset = new Point(location[0], location[1]);
+                mViewWrapper.getLocationOnScreen(location);
+                Point screenOffset = new Point(location[0], location[1]);
                 synchronized (mLock) {
-                    mViewWrapper.getLocationInWindow(mLocationInWindow);
-                    mLock.set(mLocationInWindow[0], mLocationInWindow[1]);
+                    mPositionInfo = new ActivityTestBase.TestPositionInfo(
+                            surfaceOffset, screenOffset);
                     mLock.notify();
                 }
             });
+        }
+    }
+
+    private static class DrawMonitor {
+
+        private ArrayList<Pair<Long, Runnable>> mListeners = new ArrayList<>();
+
+        private DrawMonitor(Window window) {
+            window.addOnFrameMetricsAvailableListener(this::onFrameMetricsAvailable,
+                    new Handler());
+        }
+
+        private void onFrameMetricsAvailable(Window window, FrameMetrics frameMetrics,
+                /* This isn't actually unused as it's necessary for the method handle */
+                @SuppressWarnings("unused") int dropCountSinceLastInvocation) {
+            ArrayList<Runnable> toInvoke = null;
+            synchronized (mListeners) {
+                if (mListeners.size() == 0) {
+                    return;
+                }
+
+                long vsyncAtMillis = TimeUnit.NANOSECONDS.convert(frameMetrics
+                        .getMetric(FrameMetrics.VSYNC_TIMESTAMP), TimeUnit.MILLISECONDS);
+                boolean isUiThreadDraw = frameMetrics.getMetric(FrameMetrics.DRAW_DURATION) > 0;
+
+                Iterator<Pair<Long, Runnable>> iter = mListeners.iterator();
+                while (iter.hasNext()) {
+                    Pair<Long, Runnable> listener = iter.next();
+                    if ((listener.first == vsyncAtMillis && isUiThreadDraw)
+                            || (listener.first < vsyncAtMillis)) {
+                        if (toInvoke == null) {
+                            toInvoke = new ArrayList<>();
+                        }
+                        Log.d("UiRendering", "adding listener for vsync " + listener.first
+                                + "; got vsync timestamp: " + vsyncAtMillis
+                                + " with isUiThreadDraw " + isUiThreadDraw);
+                        toInvoke.add(listener.second);
+                        iter.remove();
+                    } else if (listener.first == vsyncAtMillis && !isUiThreadDraw) {
+                        Log.d("UiRendering",
+                                "Ignoring draw that's not from the UI thread at vsync: "
+                                        + vsyncAtMillis);
+                    }
+                }
+            }
+
+            if (toInvoke != null && toInvoke.size() > 0) {
+                for (Runnable run : toInvoke) {
+                    run.run();
+                }
+            }
+
+        }
+
+        public void notifyWhenDrawn(long contentVsyncMillis, Runnable runWhenDrawn) {
+            synchronized (mListeners) {
+                mListeners.add(new Pair<>(contentVsyncMillis, runWhenDrawn));
+            }
         }
     }
 }

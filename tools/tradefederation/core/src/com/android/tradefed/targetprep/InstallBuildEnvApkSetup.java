@@ -31,11 +31,11 @@ import java.util.Collection;
 
 /**
  * A {@link ITargetPreparer} that installs one or more test apks from an Android platform build env.
- * <p/>
- * Uses the <code>ANDROID_PRODUCT_OUT</code> env variable to determine location for build apks.
+ *
+ * <p>Uses the <code>ANDROID_PRODUCT_OUT</code> env variable to determine location for build apks.
  */
 @OptionClass(alias = "install-apk-from-env")
-public class InstallBuildEnvApkSetup implements ITargetPreparer {
+public class InstallBuildEnvApkSetup extends BaseTargetPreparer {
 
     private static final String APK_SUFFIX = ".apk";
 

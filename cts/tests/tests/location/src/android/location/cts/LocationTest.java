@@ -469,6 +469,8 @@ public class LocationTest extends AndroidTestCase {
         parcel.setDataPosition(0);
         Location newLocation = Location.CREATOR.createFromParcel(parcel);
         assertTestLocation(newLocation);
+
+        parcel.recycle();
     }
 
     public void testSettingInjectorService() {

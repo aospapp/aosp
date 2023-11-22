@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"பணிச் சாதனத்தை அமைக்கிறது…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"அமைவு தரவைச் செயல்படுத்துகிறது…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"வைஃபையுடன் இணைக்கிறது…"</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"மொபைல் நெட்வொர்க்குடன் இணைக்கிறது…"</string>
     <string name="progress_download" msgid="3522436271691064624">"நிர்வாகி பயன்பாட்டை இறக்குகிறது…"</string>
     <string name="progress_install" msgid="2258045670385866183">"நிர்வாகி பயன்பாட்டை நிறுவுகிறது…"</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"தேவையற்ற சாதனப் பயன்பாடுகளை அகற்றுகிறது…"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"பணி விவரத்தை உருவாக்க உள்ளீர்கள், அதை உங்கள் நிறுவனம் நிர்வகித்து, கண்காணிக்கும். <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> இன் விதிமுறைகள் பொருந்தும்."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"பணி தொடர்பான பயன்பாடுகளுக்கு, சுயவிவரம் உருவாக்கப்படும். இந்தச் சுயவிவரத்தையும் சாதனத்திலுள்ள பிற விஷயங்களையும் உங்கள் நிறுவனம் நிர்வகித்து, கண்காணிக்கும். விதிமுறைகள் பொருந்தும்."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"பணி தொடர்பான பயன்பாடுகளுக்கு, சுயவிவரம் உருவாக்கப்படும். இந்தச் சுயவிவரத்தையும் சாதனத்திலுள்ள பிற விஷயங்களையும் உங்கள் நிறுவனம் நிர்வகித்து, கண்காணிக்கும். <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> இன் விதிமுறைகள் பொருந்தும்."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"இந்தச் சாதனத்தை <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> நிர்வகித்து, பாதுகாக்கும். விதிமுறைகள் பொருந்தும். <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"இந்தச் சாதனத்தை <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> நிர்வகித்து, பாதுகாக்கும். <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> இன் விதிமுறைகள் பொருந்தும். <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> நிறுவனம், இந்தச் சாதனத்தை நிர்வகித்து, கண்காணித்து, பாதுகாப்பாக வைத்திருக்கும். விதிமுறைகள் பொருந்தும். <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> நிறுவனம், இந்தச் சாதனத்தை நிர்வகித்து, கண்காணித்து, பாதுகாப்பாக வைத்திருக்கும். <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> இன் விதிமுறைகள் பொருந்தும். <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"இந்த இணைப்பு பாதுகாப்பானதாக இல்லாததால், சாதன அமைவு முடியும் வரை அதைத் திறக்க முடியாது: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"ஏதேனும் கேள்விகள் இருப்பின், உங்கள் <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>ஐத் தொடர்புகொள்ளவும்."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"ஏதேனும் கேள்விகள் இருப்பின், உங்கள் நிறுவனத்தின் நிர்வாகியைத் தொடர்புகொள்ளவும்"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> மற்றும் <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"இதற்குச் சில நிமிடங்கள் ஆகலாம்"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"இந்தச் சுயவிவரத்தில் பணி தொடர்பான ஆப்ஸ் சேர்க்கப்பட்டு, உங்கள் நிறுவனத்தால் நிர்வகிக்கப்படும்"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"இந்தச் சாதனம் பாதுகாப்பாக வைக்கப்பட்டு, உங்கள் நிறுவனத்தால் நிர்வகிக்கப்படும்"</string>
 </resources>

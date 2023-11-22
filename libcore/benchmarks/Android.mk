@@ -28,7 +28,7 @@ LOCAL_JAVA_LIBRARIES := \
   core-oj \
   core-libart \
   conscrypt \
-  legacy-test \
+  android.test.base \
   bouncycastle \
   framework
 LOCAL_MODULE_TAGS := tests

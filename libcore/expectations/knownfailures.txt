@@ -1406,17 +1406,6 @@
   name: "com.android.org.apache.harmony.logging.tests.java.util.logging.LevelTest#testSerializationCompatibility"
 },
 {
-  description: "java.util.beans: the harmony tests were broken by Android commit 19a270e90b1e992c1f6639f355ae13564c2f3a6a",
-  bug: 17394106,
-  names: [
-    "com.android.org.apache.harmony.beans.tests.java.beans.PropertyChangeSupportTest#testSerialization",
-    "com.android.org.apache.harmony.beans.tests.java.beans.PropertyChangeSupportTest#testGetPropertyChangeListener_String_Normal",
-    "com.android.org.apache.harmony.beans.tests.java.beans.PropertyChangeSupportTest#testAddPropertyChangeListener_PropertyChangeListener_String_Duplicate",
-    "com.android.org.apache.harmony.beans.tests.java.beans.PropertyChangeSupportTest#testAddPropertyChangeListener_PropertyChangeListener_String_Normal",
-    "com.android.org.apache.harmony.beans.tests.java.beans.PropertyChangeSupportTest#testAddPropertyChangeListener_PropertyChangeListener_Normal"
-  ]
-},
-{
   description: "java.util.beans: the serialized form references org.apache not com.android.org.apache",
   bug: 17394106,
   names: [
@@ -1482,7 +1471,7 @@
   bug: 19764047,
   result: EXEC_FAILED,
   names: [
-    "libcore.io.OsTest#test_PacketSocketAddress"
+    "libcore.libcore.io.OsTest#test_PacketSocketAddress"
   ]
 },
 {
@@ -1537,12 +1526,12 @@
     "com.google.security.wycheproof.RsaEncryptionTest#testGetExceptionsOAEP"
   ]
 },
+/* TODO(flooey): Remove when referenced BoringSSL change is merged */
 {
-  description: "Conscrypt fails these tests in 32-bit mode",
+  description: "Test crashes due to BoringSSL bug fixed in 61dedd68",
   bug: 36636626,
   result: EXEC_FAILED,
   names: [
-    "com.google.security.wycheproof.EcdhTest#testModifiedPublic",
     "com.google.security.wycheproof.EcdhTest#testModifiedPublicSpec"
   ]
 },
@@ -1684,7 +1673,7 @@
 {
   description: "a low-impact bug, also present in Crockford's implementation of org.json",
   result: EXEC_FAILED,
-  name: "org.json.ParsingTest#test64BitHexValues",
+  name: "libcore.org.json.ParsingTest#test64BitHexValues",
   substring: "Large hex longs shouldn't be yield ints or strings expected:<-1> but was:<0xFFFFFFFFFFFFFFFF>"
 },
 {
@@ -1837,5 +1826,11 @@
   names: [
       "com.android.org.apache.harmony.luni.tests.internal.process.SystemProcessTest#test_interrupt"
   ]
+},
+{
+  description: "Awaiting fix to reflection code",
+  result: EXEC_FAILED,
+  bug: 62408076,
+  name: "libcore.java.lang.reflect.annotations.AnnotatedElementParameterTest#testImplicitConstructorParameters_singleAnnotation"
 }
 ]

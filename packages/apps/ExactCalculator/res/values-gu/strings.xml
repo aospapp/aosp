@@ -75,7 +75,7 @@
     <string name="approximate" msgid="7117143366610670836">"(છેલ્લા અંકમાં ±1)"</string>
     <string name="menu_leading" msgid="2338520833272667740">"આગળ વાળા અંકો સાથે જવાબ"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"અપૂર્ણાંક તરીકે જવાબ"</string>
-    <string name="menu_licenses" msgid="1890541368064108592">"ખુલ્લા સ્ત્રોત લાઇસન્સીસ"</string>
+    <string name="menu_licenses" msgid="1890541368064108592">"ઓપન સૉર્સ લાઇસન્સ"</string>
     <string name="menu_history" msgid="9006222701220105452">"ઇતિહાસ"</string>
     <string name="menu_clear_history" msgid="2336526604226069572">"સાફ કરો"</string>
     <string name="title_history" msgid="7820912156315181539">"ઇતિહાસ"</string>

@@ -29,9 +29,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedList;
 
 public class ShellCommandBuilder {
-    private final LinkedList<String> mCommands = new LinkedList<>();
+    private final LinkedList<Runnable> mCommands = new LinkedList<>();
 
     private final Instrumentation mInstrumentation;
+    private final UiAutomation mUiAutomation;
 
     public static ShellCommandBuilder create(Instrumentation instrumentation) {
         return new ShellCommandBuilder(instrumentation);
@@ -39,37 +40,41 @@ public class ShellCommandBuilder {
 
     private ShellCommandBuilder(Instrumentation instrumentation) {
         mInstrumentation = instrumentation;
+        mUiAutomation = mInstrumentation.getUiAutomation(
+                UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
     }
 
     public void run() {
-        final UiAutomation automation = mInstrumentation.getUiAutomation(
-                UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
-        for (String command : mCommands) {
-            execShellCommand(automation, command);
+        for (Runnable command : mCommands) {
+            command.run();
         }
     }
 
     public ShellCommandBuilder deleteSecureSetting(String name) {
-        mCommands.add("settings delete secure " + name);
+        addCommand("settings delete secure " + name);
         return this;
     }
 
     public ShellCommandBuilder putSecureSetting(String name, String value) {
-        mCommands.add("settings put secure " + name + " " + value);
+        addCommand("settings put secure " + name + " " + value);
         return this;
     }
 
     public ShellCommandBuilder grantPermission(String packageName, String permission) {
-        mCommands.add("pm grant " + packageName + " " + permission);
+        mCommands.add(() -> {
+            mUiAutomation.grantRuntimePermission(packageName, permission);
+        });
         return this;
     }
 
     public ShellCommandBuilder addCommand(String command) {
-        mCommands.add(command);
+        mCommands.add(() -> {
+            execShellCommand(mUiAutomation, command);
+        });
         return this;
     }
 
-    private static void execShellCommand(UiAutomation automation, String command) {
+    public static void execShellCommand(UiAutomation automation, String command) {
         try (ParcelFileDescriptor fd = automation.executeShellCommand(command)) {
             try (InputStream inputStream = new FileInputStream(fd.getFileDescriptor())) {
                 try (BufferedReader reader = new BufferedReader(

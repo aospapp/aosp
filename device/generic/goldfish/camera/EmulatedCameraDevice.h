@@ -196,10 +196,13 @@ public:
      *  pixelFormat - The pixel format to convert to, use
      *                getOriginalPixelFormat() to get the configured pixel
      *                format (if using this no conversion will be needed)
+     *  timestamp - Receives the timestamp at which the preview frame was
+     *              generated.
      * Return:
      *  NO_ERROR on success, or an appropriate error status.
      */
-    virtual status_t getCurrentFrame(void* buffer, uint32_t pixelFormat);
+    virtual status_t getCurrentFrame(void* buffer, uint32_t pixelFormat,
+                                     int64_t* timestamp);
 
     /* Gets current framebuffer, converted into preview frame format.
      * This method must be called on a connected instance of this class with a
@@ -212,10 +215,12 @@ public:
      * current frame be locked using a FrameLock object.
      * Param:
      *  buffer - Buffer, large enough to contain the entire preview frame.
+     *  timestamp - Receives the timestamp at which the preview frame was
+     *              generated.
      * Return:
      *  NO_ERROR on success, or an appropriate error status.
      */
-    virtual status_t getCurrentPreviewFrame(void* buffer);
+    virtual status_t getCurrentPreviewFrame(void* buffer, int64_t* timestamp);
 
     /* Gets a pointer to the current frame buffer in its raw format.
      * This method must be called on a connected instance of this class with a
@@ -450,7 +455,7 @@ protected:
      * a pointer to this method. The method is expected to know what size frames
      * it provided to the producer thread. Returning false indicates an
      * unrecoverable error that will stop the frame production thread. */
-    virtual bool produceFrame(void* buffer) = 0;
+    virtual bool produceFrame(void* buffer, int64_t* timestamp) = 0;
 
     /* Get the primary buffer to use when constructing the FrameProducer. */
     virtual void* getPrimaryBuffer() {
@@ -468,7 +473,9 @@ protected:
      * frame production and delivery but can't be blocking the camera HAL. */
     class CameraThread : public WorkerThread {
     public:
-        typedef bool (*ProduceFrameFunc)(void* opaque, void* destinationBuffer);
+        typedef bool (*ProduceFrameFunc)(void* opaque,
+                                         void* destinationBuffer,
+                                         int64_t* destinationTimestamp);
         CameraThread(EmulatedCameraDevice* cameraDevice,
                      ProduceFrameFunc producer,
                      void* producerOpaque);
@@ -479,6 +486,7 @@ protected:
          * without first having created a Lock can lead to contents changing
          * without notice. */
         const void* getPrimaryBuffer() const;
+        int64_t getPrimaryTimestamp() const;
 
         /* Lock and unlock the primary buffer */
         void lockPrimaryBuffer();
@@ -512,6 +520,7 @@ protected:
             bool hasFrame() const;
 
             const void* getPrimaryBuffer() const;
+            int64_t getPrimaryTimestamp() const;
 
             void lockPrimaryBuffer();
             void unlockPrimaryBuffer();
@@ -523,6 +532,8 @@ protected:
             void* mOpaque;
             void* mPrimaryBuffer;
             void* mSecondaryBuffer;
+            int64_t mPrimaryTimestamp;
+            int64_t mSecondaryTimestamp;
             nsecs_t mLastFrame;
             mutable Mutex mBufferMutex;
             std::atomic<bool> mHasFrame;
@@ -635,9 +646,10 @@ private:
      */
     void unlockCurrentFrame();
 
-    static bool staticProduceFrame(void* opaque, void* buffer) {
+    static bool staticProduceFrame(void* opaque, void* buffer,
+                                   int64_t* timestamp) {
         auto cameraDevice = reinterpret_cast<EmulatedCameraDevice*>(opaque);
-        return cameraDevice->produceFrame(buffer);
+        return cameraDevice->produceFrame(buffer, timestamp);
     }
 
     /* A flag indicating if an auto-focus completion event should be sent the

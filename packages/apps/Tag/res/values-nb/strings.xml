@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"Data fra NFC-etikett"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Kontaktinfo for ^1"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Denne appen må ha tilgang til telefontillatelser for å kunne foreta anrop. Du kan administrere merkingstillatelser i Innstillinger."</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Denne appen må ha tilgang til ekstern lagring for å få tilgang til filer. Du kan administrere Tag-tillatelser i innstillingene."</string>
 </resources>

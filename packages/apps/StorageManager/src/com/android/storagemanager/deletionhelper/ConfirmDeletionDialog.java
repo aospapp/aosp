@@ -61,8 +61,11 @@ public class ConfirmDeletionDialog extends DialogFragment implements
 
         final Context context = getContext();
         return new AlertDialog.Builder(context)
-                .setMessage(context.getString(getClearWarningText(),
-                        Formatter.formatFileSize(context, mFreeableBytes)))
+                .setTitle(R.string.deletion_helper_clear_dialog_title)
+                .setMessage(
+                        context.getString(
+                                getClearWarningText(),
+                                Formatter.formatFileSize(context, mFreeableBytes)))
                 .setPositiveButton(R.string.deletion_helper_clear_dialog_remove, this)
                 .setNegativeButton(android.R.string.cancel, this)
                 .create();

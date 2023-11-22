@@ -25,7 +25,7 @@ def rat_generation_from_rat(rat_type):
     return _TelTables.technology_tbl[rat_type]['generation']
 
 
-def network_preference_for_generaton(generation, operator, phone_type=None):
+def network_preference_for_generation(generation, operator, phone_type=None):
     if not phone_type:
         return _TelTables.operator_network_tbl[operator][generation][
             'network_preference']
@@ -222,6 +222,9 @@ class _TelTables():
         '23431': tel_defines.CARRIER_EEUK,  #Virgin Mobile (MVNO)
         '23432': tel_defines.CARRIER_EEUK,  #Virgin Mobile (MVNO)
         '23415': tel_defines.CARRIER_VFUK,
+
+        #USCC
+        '311580': tel_defines.CARRIER_USCC,
 
         #Vodafone (Germany)
         '26202': tel_defines.CARRIER_GMBH,
@@ -651,6 +654,11 @@ device_capabilities = {
         tel_defines.CAPABILITY_PHONE, tel_defines.CAPABILITY_OMADM,
         tel_defines.CAPABILITY_VOLTE, tel_defines.CAPABILITY_WFC,
         tel_defines.CAPABILITY_VT
+    ],
+    "default": [
+        tel_defines.CAPABILITY_PHONE, tel_defines.CAPABILITY_OMADM,
+        tel_defines.CAPABILITY_VOLTE, tel_defines.CAPABILITY_WFC,
+        tel_defines.CAPABILITY_VT
     ]
 }
 
@@ -670,5 +678,6 @@ operator_capabilities = {
         tel_defines.CAPABILITY_PHONE, tel_defines.CAPABILITY_VOLTE,
         tel_defines.CAPABILITY_WFC
     ],
-    tel_defines.CARRIER_VFUK: [tel_defines.CAPABILITY_PHONE]
+    tel_defines.CARRIER_VFUK: [tel_defines.CAPABILITY_PHONE],
+    "default": [tel_defines.CAPABILITY_PHONE]
 }

@@ -61,7 +61,7 @@ class UnixDirectoryStream
     // directory iterator
     private Iterator<Path> iterator;
 
-    // Android-changed: Add CloseGuard support.
+    // Android-added: CloseGuard support.
     private final CloseGuard guard = CloseGuard.get();
 
     /**
@@ -72,7 +72,7 @@ class UnixDirectoryStream
         this.dp = dp;
         this.filter = filter;
 
-        // Android-changed: Add CloseGuard support.
+        // Android-added: CloseGuard support.
         guard.open("close");
     }
 
@@ -101,7 +101,7 @@ class UnixDirectoryStream
                 throw new IOException(x.errorString());
             }
 
-            // Android-changed: Add CloseGuard support.
+            // Android-added: CloseGuard support.
             guard.close();
             return true;
         } else {
@@ -234,10 +234,7 @@ class UnixDirectoryStream
         }
     }
 
-    /**
-     * Cleans up if the user forgets to close it.
-     */
-    // Android-changed: Add CloseGuard support.
+    // Android-added: CloseGuard support.
     protected void finalize() throws IOException {
         if (guard != null) {
             guard.warnIfOpen();

@@ -60,13 +60,7 @@ public abstract class AbstractXmlParser {
 
             DefaultHandler handler = createXmlHandler();
             parser.parse(new InputSource(xmlInput), handler);
-        } catch (ParserConfigurationException e) {
-            Log.e(LOG_TAG, e);
-            throw new ParseException(e);
-        } catch (SAXException e) {
-            Log.e(LOG_TAG, e);
-            throw new ParseException(e);
-        } catch (IOException e) {
+        } catch (ParserConfigurationException | SAXException | IOException e) {
             Log.e(LOG_TAG, e);
             throw new ParseException(e);
         }

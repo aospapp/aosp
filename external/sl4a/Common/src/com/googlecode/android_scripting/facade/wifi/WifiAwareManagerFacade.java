@@ -263,6 +263,10 @@ public class WifiAwareManagerFacade extends RpcReceiver {
         if (j.has("TerminateNotificationEnabled")) {
             builder.setTerminateNotificationEnabled(j.getBoolean("TerminateNotificationEnabled"));
         }
+        if (j.has("RangingEnabled")) {
+            builder.setRangingEnabled(j.getBoolean("RangingEnabled"));
+        }
+
 
         return builder.build();
     }
@@ -304,6 +308,12 @@ public class WifiAwareManagerFacade extends RpcReceiver {
         }
         if (j.has("TerminateNotificationEnabled")) {
             builder.setTerminateNotificationEnabled(j.getBoolean("TerminateNotificationEnabled"));
+        }
+        if (j.has("MinDistanceMm")) {
+            builder.setMinDistanceMm(j.getInt("MinDistanceMm"));
+        }
+        if (j.has("MaxDistanceMm")) {
+            builder.setMaxDistanceMm(j.getInt("MaxDistanceMm"));
         }
 
         return builder.build();
@@ -546,27 +556,6 @@ public class WifiAwareManagerFacade extends RpcReceiver {
         session.sendMessage(new PeerHandle(peerId), messageId, bytes, retryCount);
     }
 
-    @Rpc(description = "Start peer-to-peer Aware ranging")
-    public void wifiAwareStartRanging(
-            @RpcParameter(name = "callbackId") Integer callbackId,
-            @RpcParameter(name = "sessionId", description = "The session ID returned when session was created using publish or subscribe") Integer sessionId,
-            @RpcParameter(name = "rttParams", description = "RTT session parameters.") JSONArray rttParams) throws RemoteException, JSONException {
-        DiscoverySession session;
-        synchronized (mLock) {
-            session = mDiscoverySessions.get(sessionId);
-        }
-        if (session == null) {
-            throw new IllegalStateException(
-                    "Calling WifiAwareStartRanging before session (session ID "
-                            + sessionId + " is ready");
-        }
-        RttManager.RttParams[] rParams = new RttManager.RttParams[rttParams.length()];
-        for (int i = 0; i < rttParams.length(); i++) {
-            rParams[i] = WifiRttManagerFacade.parseRttParam(rttParams.getJSONObject(i));
-        }
-        session.startRanging(rParams, new WifiAwareRangingListener(callbackId, sessionId));
-    }
-
     @Rpc(description = "Create a network specifier to be used when specifying a Aware network request")
     public String wifiAwareCreateNetworkSpecifier(
             @RpcParameter(name = "sessionId", description = "The session ID returned when session was created using publish or subscribe")
@@ -589,21 +578,30 @@ public class WifiAwareManagerFacade extends RpcReceiver {
                     "Calling wifiAwareCreateNetworkSpecifier before session (session ID "
                             + sessionId + " is ready");
         }
-        NetworkSpecifier ns = null;
         PeerHandle peerHandle = null;
         if (peerId != null) {
             peerHandle = new PeerHandle(peerId);
         }
-        if (TextUtils.isEmpty(passphrase) && TextUtils.isEmpty(pmk)) {
-            ns = session.createNetworkSpecifierOpen(peerHandle);
-        } else if (TextUtils.isEmpty(pmk)){
-            ns = session.createNetworkSpecifierPassphrase(peerHandle, passphrase);
-        } else {
-            byte[] pmkDecoded = Base64.decode(pmk, Base64.DEFAULT);
-            ns = session.createNetworkSpecifierPmk(peerHandle, pmkDecoded);
+        byte[] pmkDecoded = null;
+        if (!TextUtils.isEmpty(pmk)) {
+            pmkDecoded = Base64.decode(pmk, Base64.DEFAULT);
         }
 
-        return getJsonString((WifiAwareNetworkSpecifier) ns);
+        WifiAwareNetworkSpecifier ns = new WifiAwareNetworkSpecifier(
+                (peerHandle == null) ? WifiAwareNetworkSpecifier.NETWORK_SPECIFIER_TYPE_IB_ANY_PEER
+                        : WifiAwareNetworkSpecifier.NETWORK_SPECIFIER_TYPE_IB,
+                session instanceof SubscribeDiscoverySession
+                        ? WifiAwareManager.WIFI_AWARE_DATA_PATH_ROLE_INITIATOR
+                        : WifiAwareManager.WIFI_AWARE_DATA_PATH_ROLE_RESPONDER,
+                session.getClientId(),
+                session.getSessionId(),
+                peerHandle != null ? peerHandle.peerId : 0, // 0 is an invalid peer ID
+                null, // peerMac (not used in this method)
+                pmkDecoded,
+                passphrase,
+                Process.myUid());
+
+        return getJsonString(ns);
     }
 
     @Rpc(description = "Create a network specifier to be used when specifying an OOB Aware network request")
@@ -631,21 +629,29 @@ public class WifiAwareManagerFacade extends RpcReceiver {
                     "Calling wifiAwareCreateNetworkSpecifierOob before session (client ID "
                             + clientId + " is ready");
         }
-        NetworkSpecifier ns = null;
         byte[] peerMacBytes = null;
         if (peerMac != null) {
             peerMacBytes = HexEncoding.decode(peerMac.toCharArray(), false);
         }
-        if (TextUtils.isEmpty(passphrase) && TextUtils.isEmpty(pmk)) {
-            ns = session.createNetworkSpecifierOpen(role, peerMacBytes);
-        } else if (TextUtils.isEmpty(pmk)){
-            ns = session.createNetworkSpecifierPassphrase(role, peerMacBytes, passphrase);
-        } else {
-            byte[] pmkDecoded = Base64.decode(pmk, Base64.DEFAULT);
-            ns = session.createNetworkSpecifierPmk(role, peerMacBytes, pmkDecoded);
+        byte[] pmkDecoded = null;
+        if (!TextUtils.isEmpty(pmk)) {
+            pmkDecoded = Base64.decode(pmk, Base64.DEFAULT);
         }
 
-        return getJsonString((WifiAwareNetworkSpecifier) ns);
+        WifiAwareNetworkSpecifier ns = new WifiAwareNetworkSpecifier(
+                (peerMacBytes == null) ?
+                        WifiAwareNetworkSpecifier.NETWORK_SPECIFIER_TYPE_OOB_ANY_PEER
+                        : WifiAwareNetworkSpecifier.NETWORK_SPECIFIER_TYPE_OOB,
+                role,
+                session.getClientId(),
+                0, // 0 is an invalid session ID
+                0, // 0 is an invalid peer ID
+                peerMacBytes,
+                pmkDecoded,
+                passphrase,
+                Process.myUid());
+
+        return getJsonString(ns);
     }
 
     private class AwareAttachCallbackPostsEvents extends AttachCallback {
@@ -782,8 +788,7 @@ public class WifiAwareManagerFacade extends RpcReceiver {
             postEvent("WifiAwareSessionOnSessionTerminated", mResults);
         }
 
-        @Override
-        public void onServiceDiscovered(PeerHandle peerHandle,
+        private Bundle createServiceDiscoveredBaseBundle(PeerHandle peerHandle,
                 byte[] serviceSpecificInfo, List<byte[]> matchFilter) {
             Bundle mResults = new Bundle();
             mResults.putInt("discoverySessionId", mDiscoverySessionId);
@@ -797,6 +802,24 @@ public class WifiAwareManagerFacade extends RpcReceiver {
             }
             mResults.putStringArrayList("matchFilterList", matchFilterStrings);
             mResults.putLong("timestampMs", System.currentTimeMillis());
+            return mResults;
+        }
+
+        @Override
+        public void onServiceDiscovered(PeerHandle peerHandle,
+                byte[] serviceSpecificInfo, List<byte[]> matchFilter) {
+            Bundle mResults = createServiceDiscoveredBaseBundle(peerHandle, serviceSpecificInfo,
+                    matchFilter);
+            postEvent("WifiAwareSessionOnServiceDiscovered", mResults);
+        }
+
+        @Override
+        public void onServiceDiscoveredWithinRange(PeerHandle peerHandle,
+                byte[] serviceSpecificInfo,
+                List<byte[]> matchFilter, int distanceMm) {
+            Bundle mResults = createServiceDiscoveredBaseBundle(peerHandle, serviceSpecificInfo,
+                    matchFilter);
+            mResults.putInt("distanceMm", distanceMm);
             postEvent("WifiAwareSessionOnServiceDiscovered", mResults);
         }
 

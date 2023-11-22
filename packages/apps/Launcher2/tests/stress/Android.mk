@@ -18,12 +18,13 @@ include $(CLEAR_VARS)
 # We only want this apk build for tests.
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
-LOCAL_STATIC_JAVA_LIBRARIES := junit legacy-android-test
+LOCAL_JAVA_LIBRARIES := android.test.runner android.test.base
+LOCAL_STATIC_JAVA_LIBRARIES := junit
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := LauncherRotationStressTest
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_CERTIFICATE := shared
 

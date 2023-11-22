@@ -10,7 +10,6 @@
 #include "__cxxabi_config.h"
 
 #include "abort_message.h"
-#include "config.h"
 #include <__threading_support>
 
 #include <stdint.h>
@@ -113,9 +112,10 @@ set_lock(uint64_t& x, lock_type y)
 
 typedef bool lock_type;
 
-inline
-lock_type
-get_lock(uint64_t x)
+#if !defined(__arm__)
+static_assert(std::is_same<guard_type, uint64_t>::value, "");
+
+inline lock_type get_lock(uint64_t x)
 {
     union
     {
@@ -125,9 +125,7 @@ get_lock(uint64_t x)
     return f.lock[1] != 0;
 }
 
-inline
-void
-set_lock(uint64_t& x, lock_type y)
+inline void set_lock(uint64_t& x, lock_type y)
 {
     union
     {
@@ -137,10 +135,10 @@ set_lock(uint64_t& x, lock_type y)
     f.lock[1] = y;
     x = f.guard;
 }
+#else // defined(__arm__)
+static_assert(std::is_same<guard_type, uint32_t>::value, "");
 
-inline
-lock_type
-get_lock(uint32_t x)
+inline lock_type get_lock(uint32_t x)
 {
     union
     {
@@ -150,9 +148,7 @@ get_lock(uint32_t x)
     return f.lock[1] != 0;
 }
 
-inline
-void
-set_lock(uint32_t& x, lock_type y)
+inline void set_lock(uint32_t& x, lock_type y)
 {
     union
     {
@@ -163,7 +159,9 @@ set_lock(uint32_t& x, lock_type y)
     x = f.guard;
 }
 
-#endif  // __APPLE__
+#endif // !defined(__arm__)
+
+#endif  // __APPLE__ && !__arm__
 
 }  // unnamed namespace
 

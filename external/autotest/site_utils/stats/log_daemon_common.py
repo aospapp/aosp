@@ -23,8 +23,6 @@ def RunMatchers(stream, matchers):
             for matcher, emitter in matchers:
                 m = matcher.match(line)
                 if m:
-                    logging.debug('Emitting %s for input "%s"',
-                                  emitter.__name__, line.strip())
                     emitter(m)
     finally:
         ts_mon.close()

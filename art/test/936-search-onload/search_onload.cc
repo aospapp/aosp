@@ -18,8 +18,9 @@
 
 #include <inttypes.h>
 
-#include "android-base/stringprintf.h"
-#include "base/logging.h"
+#include <android-base/macros.h>
+#include <android-base/stringprintf.h>
+
 #include "base/macros.h"
 #include "jni.h"
 #include "jvmti.h"
@@ -39,7 +40,7 @@ jint OnLoad(JavaVM* vm,
     printf("Unable to get jvmti env!\n");
     return 1;
   }
-  SetAllCapabilities(jvmti_env);
+  SetStandardCapabilities(jvmti_env);
 
   char* dex_loc = getenv("DEX_LOCATION");
   std::string dex1 = android::base::StringPrintf("%s/936-search-onload.jar", dex_loc);

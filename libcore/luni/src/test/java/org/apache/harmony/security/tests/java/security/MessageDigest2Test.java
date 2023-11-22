@@ -32,6 +32,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import dalvik.system.VMRuntime;
+import sun.security.jca.Providers;
+
 public class MessageDigest2Test extends junit.framework.TestCase {
 
     private static final String MESSAGEDIGEST_ID = "MessageDigest.";
@@ -425,11 +428,24 @@ public class MessageDigest2Test extends junit.framework.TestCase {
         assertNotNull("toString is null", str);
     }
 
-    protected void setUp() {
+    protected void setUp() throws Exception {
+        super.setUp();
         Provider[] providers = Security.getProviders("MessageDigest.SHA");
         for (Provider provider : providers) {
             digestAlgs.put(provider, getDigestAlgorithms(provider));
         }
+
+        // Allow access to deprecated BC algorithms in this test, so we can ensure they
+        // continue to work
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                VMRuntime.getRuntime().getTargetSdkVersion());
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
+        super.tearDown();
     }
 
     /*

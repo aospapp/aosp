@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -33,7 +34,7 @@
 #if defined(__ANDROID__)
 const char *log_syscalls[] = {"socket", "connect", "fcntl", "writev"};
 #else
-const char *log_syscalls[] = {"connect", "sendto"};
+const char *log_syscalls[] = {"socket", "connect", "sendto"};
 #endif
 #elif defined(__i386__)
 #if defined(__ANDROID__)
@@ -47,22 +48,57 @@ const char *log_syscalls[] = {"socketcall", "time"};
 const char *log_syscalls[] = {"clock_gettime", "connect", "fcntl64", "socket",
 			      "writev"};
 #else
-const char *log_syscalls[] = {"connect", "gettimeofday", "send"};
+const char *log_syscalls[] = {"socket", "connect", "gettimeofday", "send"};
 #endif
 #elif defined(__aarch64__)
 #if defined(__ANDROID__)
 const char *log_syscalls[] = {"connect", "fcntl", "sendto", "socket", "writev"};
 #else
-const char *log_syscalls[] = {"connect", "send"};
+const char *log_syscalls[] = {"socket", "connect", "send"};
 #endif
 #elif defined(__powerpc__) || defined(__ia64__) || defined(__hppa__) ||        \
       defined(__sparc__) || defined(__mips__)
-const char *log_syscalls[] = {"connect", "send"};
+const char *log_syscalls[] = {"socket", "connect", "send"};
 #else
 #error "Unsupported platform"
 #endif
 
 const size_t log_syscalls_len = ARRAY_SIZE(log_syscalls);
+
+/* clang-format off */
+static struct logging_config_t {
+	/* The logging system to use. The default is syslog. */
+	enum logging_system_t logger;
+
+	/* File descriptor to log to. Only used when logger is LOG_TO_FD. */
+	int fd;
+
+	/* Minimum priority to log. Only used when logger is LOG_TO_FD. */
+	int min_priority;
+} logging_config = {
+	.logger = LOG_TO_SYSLOG,
+};
+/* clang-format on */
+
+void do_log(int priority, const char *format, ...)
+{
+	if (logging_config.logger == LOG_TO_SYSLOG) {
+		va_list args;
+		va_start(args, format);
+		vsyslog(priority, format, args);
+		va_end(args);
+		return;
+	}
+
+	if (logging_config.min_priority < priority)
+		return;
+
+	va_list args;
+	va_start(args, format);
+	vdprintf(logging_config.fd, format, args);
+	va_end(args);
+	dprintf(logging_config.fd, "\n");
+}
 
 int lookup_syscall(const char *name)
 {
@@ -221,8 +257,8 @@ char *tokenize(char **stringp, const char *delim)
 {
 	char *ret = NULL;
 
-	/* If the string is NULL or empty, there are no tokens to be found. */
-	if (stringp == NULL || *stringp == NULL || **stringp == '\0')
+	/* If the string is NULL, there are no tokens to be found. */
+	if (stringp == NULL || *stringp == NULL)
 		return NULL;
 
 	/*
@@ -235,33 +271,19 @@ char *tokenize(char **stringp, const char *delim)
 		return ret;
 	}
 
-	char *found;
-	while (**stringp != '\0') {
-		found = strstr(*stringp, delim);
-
-		if (!found) {
-			/*
-			 * The delimiter was not found, so the full string
-			 * makes up the only token, and we're done.
-			 */
-			ret = *stringp;
-			*stringp = NULL;
-			break;
-		}
-
-		if (found != *stringp) {
-			/* There's a non-empty token before the delimiter. */
-			*found = '\0';
-			ret = *stringp;
-			*stringp = found + strlen(delim);
-			break;
-		}
-
+	char *found = strstr(*stringp, delim);
+	if (!found) {
 		/*
-		 * The delimiter was found at the start of the string,
-		 * skip it and keep looking for a non-empty token.
+		 * The delimiter was not found, so the full string
+		 * makes up the only token, and we're done.
 		 */
-		*stringp += strlen(delim);
+		ret = *stringp;
+		*stringp = NULL;
+	} else {
+		/* There's a token here, possibly empty.  That's OK. */
+		*found = '\0';
+		ret = *stringp;
+		*stringp = found + strlen(delim);
 	}
 
 	return ret;
@@ -297,4 +319,11 @@ char *consumestr(char **buf, size_t *buflength)
 		/* There's no null-terminator. */
 		return NULL;
 	return consumebytes(len + 1, buf, buflength);
+}
+
+void init_logging(enum logging_system_t logger, int fd, int min_priority)
+{
+	logging_config.logger = logger;
+	logging_config.fd = fd;
+	logging_config.min_priority = min_priority;
 }

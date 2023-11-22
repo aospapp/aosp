@@ -14,11 +14,11 @@ class TestInnerNamespace(TestCase):
     ins1 = InnerNamespace("ins1", parent=ins_outer)
     ins1a = InnerNamespace("ins1", parent=ins_outer)  # same name deliberately
     entry1 = Entry(name="entry1", type="int32", kind="static",
-                   parent=ins1)
+                   parent=ins1, hal_version="3.2")
     entry2 = Entry(name="entry2", type="int32", kind="static",
-                   parent=ins1a)
+                   parent=ins1a, hal_version="3.2")
     entry3 = Entry(name="entry3", type="int32", kind="static",
-                   parent=ins_outer)
+                   parent=ins_outer, hal_version="3.2")
 
     ins_outer._namespaces = [ins1, ins1a]
     ins_outer._entries = [entry3]
@@ -60,9 +60,9 @@ class TestKind(TestCase):
     ins1 = InnerNamespace("ins1", parent=kind_static)
     ins2 = InnerNamespace("ins2", parent=kind_dynamic)
     entry1 = Entry(name="entry1", type="int32", kind="static",
-                   parent=kind_static)
+                   parent=kind_static, hal_version="3.2")
     entry2 = Entry(name="entry2", type="int32", kind="static",
-                   parent=kind_dynamic)
+                   parent=kind_dynamic, hal_version="3.2")
 
     kind_static._namespaces = [ins1]
     kind_static._entries = [entry1]
@@ -94,11 +94,11 @@ class TestKind(TestCase):
     ins1 = InnerNamespace("ins1", parent=kind_static)
     ins1a = InnerNamespace("ins1", parent=kind_static)  # same name deliberately
     entry1 = Entry(name="entry1", type="int32", kind="static",
-                   parent=ins1)
+                   parent=ins1, hal_version="3.2")
     entry2 = Entry(name="entry2", type="int32", kind="static",
-                   parent=ins1a)
+                   parent=ins1a, hal_version="3.2")
     entry3 = Entry(name="entry3", type="int32", kind="static",
-                   parent=kind_static)
+                   parent=kind_static, hal_version="3.2")
 
     kind_static._namespaces = [ins1, ins1a]
     kind_static._entries = [entry3]

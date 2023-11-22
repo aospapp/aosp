@@ -15,6 +15,7 @@ public class SplitTest extends TestCase {
         assertArraysEqual(expected, results);
     }
 
+    @SuppressWarnings("InvalidPatternSyntax")
     public void testEmptySplits() {
         // Trailing empty matches are removed.
         assertArraysEqual(new String[0], "hello".split("."));

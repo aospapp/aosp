@@ -26,8 +26,8 @@ import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.graphics.pdf.PdfRenderer;
 import android.graphics.pdf.PdfRenderer.Page;
-import android.support.annotation.Nullable;
-import android.support.annotation.RawRes;
+import androidx.annotation.Nullable;
+import androidx.annotation.RawRes;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SmallTest;
 

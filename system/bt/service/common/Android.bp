@@ -7,6 +7,7 @@ cc_library_static {
         "-fvisibility=default",
     ],
     host_supported: true,
+    header_libs: [ "libbluetooth_headers" ],
     srcs: [
         "bluetooth/adapter_state.cc",
         "bluetooth/advertise_data.cc",
@@ -18,7 +19,6 @@ cc_library_static {
         "bluetooth/scan_settings.cc",
         "bluetooth/service.cc",
         "bluetooth/util/atomic_string.cc",
-        "bluetooth/uuid.cc",
     ],
     export_include_dirs: ["./"],
     include_dirs: ["system/bt"],
@@ -35,6 +35,7 @@ cc_library_static {
         /* we export all classes, so change default visibility, instead of having EXPORT_SYMBOL on each class*/
         "-fvisibility=default",
     ],
+    header_libs: [ "libbluetooth_headers" ],
     srcs: [
         "android/bluetooth/IBluetooth.aidl",
         "android/bluetooth/IBluetoothCallback.aidl",
@@ -72,4 +73,7 @@ cc_library_static {
         "libbase",
         "libbinder",
     ],
+    static_libs: [
+        "libbluetooth-types",
+    ]
 }

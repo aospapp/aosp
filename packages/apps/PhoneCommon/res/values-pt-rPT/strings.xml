@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Sem cartão SIM ou erro do cartão"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Rede móvel não disponível."</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"As chamadas efetuadas são restringidas por FDN."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"Pedido DIAL modificado para um pedido USSD."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"Pedido DIAL modificado para um pedido SS."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"Pedido DIAL modificado para um pedido DIAL com um número diferente."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"A chamada foi alterada para um pedido USSD"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"A chamada foi alterada para um pedido SS"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Foi alterada para um número diferente"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Foi alterada para uma videochamada"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"A videochamada foi alterada para um pedido SS"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"A videochamada foi alterada para um pedido USSD"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Foi alterada para uma chamada normal"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Foi alterada para um número diferente"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Não é possível efetuar chamadas enquanto o barramento de chamadas estiver ativado."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Chamadas restringidas pelo controlo de acesso."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Chamadas de emergência restringidas pelo controlo de acesso."</string>

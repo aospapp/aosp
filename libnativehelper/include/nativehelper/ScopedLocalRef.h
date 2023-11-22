@@ -17,46 +17,7 @@
 #ifndef SCOPED_LOCAL_REF_H_included
 #define SCOPED_LOCAL_REF_H_included
 
-#include "jni.h"
-
-#include <stddef.h>
-#include "JNIHelp.h"  // for DISALLOW_COPY_AND_ASSIGN.
-
-// A smart pointer that deletes a JNI local reference when it goes out of scope.
-template<typename T>
-class ScopedLocalRef {
-public:
-    ScopedLocalRef(JNIEnv* env, T localRef) : mEnv(env), mLocalRef(localRef) {
-    }
-
-    ~ScopedLocalRef() {
-        reset();
-    }
-
-    void reset(T ptr = NULL) {
-        if (ptr != mLocalRef) {
-            if (mLocalRef != NULL) {
-                mEnv->DeleteLocalRef(mLocalRef);
-            }
-            mLocalRef = ptr;
-        }
-    }
-
-    T release() __attribute__((warn_unused_result)) {
-        T localRef = mLocalRef;
-        mLocalRef = NULL;
-        return localRef;
-    }
-
-    T get() const {
-        return mLocalRef;
-    }
-
-private:
-    JNIEnv* const mEnv;
-    T mLocalRef;
-
-    DISALLOW_COPY_AND_ASSIGN(ScopedLocalRef);
-};
+#include "JNIHelp.h"
+#include <nativehelper/scoped_local_ref.h>
 
 #endif  // SCOPED_LOCAL_REF_H_included

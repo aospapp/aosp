@@ -18,15 +18,18 @@
 cc_defaults {
     name: "san_test_defaults",
 
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     cppflags: [
         "-fvisibility=hidden",
         "-fno-exceptions",
         "-fno-rtti",
         "-std=c++11",
-        "-Wall",
-        "-Werror",
         "-Wno-unused-parameter",
         "-Wno-non-virtual-dtor",
+        "-Wno-format",
     ],
 
     include_dirs: ["external/compiler-rt/lib"],
@@ -64,10 +67,6 @@ cc_test_host {
         "sanitizer_thread_registry_test.cc",
     ],
     static_libs: ["libsan"],
-    host_ldlibs: [
-        "-ldl",
-        "-lrt",
-    ],
     sanitize: {
         never: true,
     },
@@ -90,10 +89,6 @@ cc_binary_host {
     ldflags: [
         "-nostdlib",
         "-Qunused-arguments",
-    ],
-    host_ldlibs: [
-        "-ldl",
-        "-lrt",
     ],
     sanitize: {
         never: true,

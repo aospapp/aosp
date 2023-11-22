@@ -35,11 +35,13 @@ class PlatformWifiBase : public PlatformPal {
   //! The instance of callbacks that are provided to the CHRE PAL.
   chrePalWifiCallbacks mWifiCallbacks;
 
-  //! Event handlers for the CHRE WiFi PAL. Refer to chre/pal/wifi.h for futher
-  //! information.
+  // Event handlers for the CHRE WiFi PAL. Refer to chre/pal/wifi.h for futher
+  // information.
   static void scanMonitorStatusChangeCallback(bool enabled, uint8_t errorCode);
   static void scanResponseCallback(bool pending, uint8_t errorCode);
   static void scanEventCallback(struct chreWifiScanEvent *event);
+  static void rangingEventCallback(uint8_t errorCode,
+                                   struct chreWifiRangingEvent *event);
 };
 
 }  // namespace chre

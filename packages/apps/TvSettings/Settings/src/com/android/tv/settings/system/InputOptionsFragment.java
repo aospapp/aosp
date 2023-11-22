@@ -21,19 +21,23 @@ import android.media.tv.TvInputInfo;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.support.annotation.NonNull;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceGroup;
 import android.support.v7.preference.TwoStatePreference;
 import android.text.TextUtils;
 
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RadioPreference;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.Map;
 import java.util.Set;
 
-public class InputOptionsFragment extends LeanbackPreferenceFragment implements
+/**
+ * The screen in TV Settings that shows the options for an input.
+ */
+public class InputOptionsFragment extends SettingsPreferenceFragment implements
         InputCustomNameFragment.Callback {
 
     private static final String KEY_SHOW_INPUT = "show_input";
@@ -187,5 +191,10 @@ public class InputOptionsFragment extends LeanbackPreferenceFragment implements
     @Override
     public void onSetCustomName(CharSequence name) {
         setInputName(name);
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsEvent.SETTINGS_TV_INPUT_OPTIONS_CATEGORY;
     }
 }

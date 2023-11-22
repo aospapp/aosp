@@ -270,8 +270,8 @@ public class CellBroadcastAlertDialog extends Activity {
 
         // For emergency alerts, keep screen on so the user can read it
         CellBroadcastMessage message = getLatestMessage();
-        if (message != null && CellBroadcastAlertService.
-                isEmergencyMessage(this, message)) {
+        if (message != null && CellBroadcastChannelManager.isEmergencyMessage(
+                this, message)) {
             Log.d(TAG, "onCreate setting screen on timer for emergency alert");
             mScreenOffHandler.startScreenOnTimer();
         }
@@ -286,8 +286,7 @@ public class CellBroadcastAlertDialog extends Activity {
     protected void onResume() {
         super.onResume();
         CellBroadcastMessage message = getLatestMessage();
-        if (message != null && CellBroadcastAlertService.
-                isEmergencyMessage(this, message)) {
+        if (message != null && CellBroadcastChannelManager.isEmergencyMessage(this, message)) {
             mAnimationHandler.startIconAnimation();
         }
     }
@@ -455,7 +454,7 @@ public class CellBroadcastAlertDialog extends Activity {
         CellBroadcastMessage nextMessage = getLatestMessage();
         if (nextMessage != null) {
             updateAlertText(nextMessage);
-            if (CellBroadcastAlertService.isEmergencyMessage(
+            if (CellBroadcastChannelManager.isEmergencyMessage(
                     this, nextMessage)) {
                 mAnimationHandler.startIconAnimation();
             } else {

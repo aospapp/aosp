@@ -14,11 +14,6 @@
  * limitations under the License.
  */
 
-subdirs = [
-    "BlobCache",
-    "nnCache",
-]
-
 // cc_defaults adapted in part from frameworks/native/opengl/libs/Android.bp
 
 cc_defaults {

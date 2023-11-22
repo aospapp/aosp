@@ -36,6 +36,9 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Checkable;
 
+import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+
 import java.util.List;
 
 /**
@@ -156,6 +159,10 @@ public class MobileDataPreference extends DialogPreference {
 
     private void setMobileDataEnabled(boolean enabled) {
         if (DBG) Log.d(TAG, "setMobileDataEnabled(" + enabled + "," + mSubId + ")");
+
+        MetricsLogger.action(getContext(), MetricsEvent.ACTION_MOBILE_NETWORK_MOBILE_DATA_TOGGLE,
+                enabled);
+
         mTelephonyManager.setDataEnabled(mSubId, enabled);
         setChecked(enabled);
     }

@@ -1,0 +1,45 @@
+#/** @file
+#
+#    Copyright (c) 2016, Hisilicon Limited. All rights reserved.
+#    Copyright (c) 2016, Linaro Limited. All rights reserved.
+#
+#    This program and the accompanying materials
+#    are licensed and made available under the terms and conditions of the BSD License
+#    which accompanies this distribution. The full text of the license may be found at
+#    http://opensource.org/licenses/bsd-license.php
+#
+#    THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#
+#**/
+
+[Defines]
+  DEC_SPECIFICATION              = 0x00010005
+  PACKAGE_NAME                   = OpenPlatformPkg
+  PACKAGE_GUID                   = a8f10bf6-2f6f-11e6-b84e-bfcd6876df82
+  PACKAGE_VERSION                = 0.1
+
+[Includes]
+  Include
+
+[Ppis]
+
+[Protocols]
+
+[Guids]
+  gOpenPlatformTokenSpaceGuid = {0xCD7CC258, 0x31DB, 0x11E6, {0x9F, 0xD3, 0x63, 0xB0, 0xB8, 0xEF, 0xD7, 0xB6}}
+  ## Vendor GUID for RAM disk device path
+  gRamDiskGuid = {0x6ED4DD0, 0xFF78, 0x11D3, {0xBD, 0xC4, 0x00, 0xA0, 0xC9, 0x40, 0x53, 0xD1}}
+
+  ## GUID for RenesasFirmwarePD720202 firmware image
+  gRenesasFirmwarePD720202ImageId = {0xA059EBC4, 0xD73D, 0x4279, {0x81,0xBF,0xE4,0xA8,0x93,0x08,0xB9,0x23}}
+
+[LibraryClasses]
+
+[PcdsFixedAtBuild]
+  ## Indicates the size in MB for RAM disk.
+  gOpenPlatformTokenSpaceGuid.PcdRamDiskMaxSize|0|UINT32|0x00000001
+  gOpenPlatformTokenSpaceGuid.PcdAndroidFastbootFile|{ 0x2a, 0x50, 0x88, 0x95, 0x70, 0x53, 0xe3, 0x11, 0x86, 0x31, 0xd7, 0xc5, 0x95, 0x13, 0x64, 0xc8 }|VOID*|0x00000002
+  gOpenPlatformTokenSpaceGuid.PcdAndroidBootFile|{ 0x36, 0x8b, 0x73, 0x3a, 0xc5, 0xb9, 0x63, 0x47, 0xab, 0xbd, 0x6c, 0xbd, 0x4b, 0x25, 0xf9, 0xff }|VOID*|0x00000003
+
+[PcdsFeatureFlag]

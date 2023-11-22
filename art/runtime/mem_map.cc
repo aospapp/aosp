@@ -34,10 +34,11 @@
 
 #include "base/allocator.h"
 #include "base/bit_utils.h"
+#include "base/file_utils.h"
+#include "base/globals.h"
+#include "base/logging.h"  // For VLOG_IS_ON.
 #include "base/memory_tool.h"
-#include "globals.h"
-#include "utils.h"
-
+#include "base/utils.h"
 
 #ifndef MAP_ANONYMOUS
 #define MAP_ANONYMOUS MAP_ANON
@@ -59,14 +60,15 @@ static Maps* gMaps GUARDED_BY(MemMap::GetMemMapsLock()) = nullptr;
 
 static std::ostream& operator<<(
     std::ostream& os,
-    std::pair<BacktraceMap::const_iterator, BacktraceMap::const_iterator> iters) {
-  for (BacktraceMap::const_iterator it = iters.first; it != iters.second; ++it) {
+    std::pair<BacktraceMap::iterator, BacktraceMap::iterator> iters) {
+  for (BacktraceMap::iterator it = iters.first; it != iters.second; ++it) {
+    const backtrace_map_t* entry = *it;
     os << StringPrintf("0x%08x-0x%08x %c%c%c %s\n",
-                       static_cast<uint32_t>(it->start),
-                       static_cast<uint32_t>(it->end),
-                       (it->flags & PROT_READ) ? 'r' : '-',
-                       (it->flags & PROT_WRITE) ? 'w' : '-',
-                       (it->flags & PROT_EXEC) ? 'x' : '-', it->name.c_str());
+                       static_cast<uint32_t>(entry->start),
+                       static_cast<uint32_t>(entry->end),
+                       (entry->flags & PROT_READ) ? 'r' : '-',
+                       (entry->flags & PROT_WRITE) ? 'w' : '-',
+                       (entry->flags & PROT_EXEC) ? 'x' : '-', entry->name.c_str());
   }
   return os;
 }
@@ -170,9 +172,10 @@ bool MemMap::ContainedWithinExistingMap(uint8_t* ptr, size_t size, std::string* 
   }
 
   ScopedBacktraceMapIteratorLock lock(map.get());
-  for (BacktraceMap::const_iterator it = map->begin(); it != map->end(); ++it) {
-    if ((begin >= it->start && begin < it->end)  // start of new within old
-        && (end > it->start && end <= it->end)) {  // end of new within old
+  for (BacktraceMap::iterator it = map->begin(); it != map->end(); ++it) {
+    const backtrace_map_t* entry = *it;
+    if ((begin >= entry->start && begin < entry->end)     // start of new within old
+        && (end > entry->start && end <= entry->end)) {   // end of new within old
       return true;
     }
   }
@@ -194,17 +197,18 @@ static bool CheckNonOverlapping(uintptr_t begin,
     return false;
   }
   ScopedBacktraceMapIteratorLock lock(map.get());
-  for (BacktraceMap::const_iterator it = map->begin(); it != map->end(); ++it) {
-    if ((begin >= it->start && begin < it->end)      // start of new within old
-        || (end > it->start && end < it->end)        // end of new within old
-        || (begin <= it->start && end > it->end)) {  // start/end of new includes all of old
+  for (BacktraceMap::iterator it = map->begin(); it != map->end(); ++it) {
+    const backtrace_map_t* entry = *it;
+    if ((begin >= entry->start && begin < entry->end)      // start of new within old
+        || (end > entry->start && end < entry->end)        // end of new within old
+        || (begin <= entry->start && end > entry->end)) {  // start/end of new includes all of old
       std::ostringstream map_info;
       map_info << std::make_pair(it, map->end());
       *error_msg = StringPrintf("Requested region 0x%08" PRIxPTR "-0x%08" PRIxPTR " overlaps with "
                                 "existing map 0x%08" PRIxPTR "-0x%08" PRIxPTR " (%s)\n%s",
                                 begin, end,
-                                static_cast<uintptr_t>(it->start), static_cast<uintptr_t>(it->end),
-                                it->name.c_str(),
+                                static_cast<uintptr_t>(entry->start), static_cast<uintptr_t>(entry->end),
+                                entry->name.c_str(),
                                 map_info.str().c_str());
       return false;
     }
@@ -392,6 +396,91 @@ MemMap* MemMap::MapDummy(const char* name, uint8_t* addr, size_t byte_count) {
   return new MemMap(name, addr, byte_count, addr, page_aligned_byte_count, 0, true /* reuse */);
 }
 
+template<typename A, typename B>
+static ptrdiff_t PointerDiff(A* a, B* b) {
+  return static_cast<ptrdiff_t>(reinterpret_cast<intptr_t>(a) - reinterpret_cast<intptr_t>(b));
+}
+
+bool MemMap::ReplaceWith(MemMap** source_ptr, /*out*/std::string* error) {
+#if !HAVE_MREMAP_SYSCALL
+  UNUSED(source_ptr);
+  *error = "Cannot perform atomic replace because we are missing the required mremap syscall";
+  return false;
+#else  // !HAVE_MREMAP_SYSCALL
+  CHECK(source_ptr != nullptr);
+  CHECK(*source_ptr != nullptr);
+  if (!MemMap::kCanReplaceMapping) {
+    *error = "Unable to perform atomic replace due to runtime environment!";
+    return false;
+  }
+  MemMap* source = *source_ptr;
+  // neither can be reuse.
+  if (source->reuse_ || reuse_) {
+    *error = "One or both mappings is not a real mmap!";
+    return false;
+  }
+  // TODO Support redzones.
+  if (source->redzone_size_ != 0 || redzone_size_ != 0) {
+    *error = "source and dest have different redzone sizes";
+    return false;
+  }
+  // Make sure they have the same offset from the actual mmap'd address
+  if (PointerDiff(BaseBegin(), Begin()) != PointerDiff(source->BaseBegin(), source->Begin())) {
+    *error =
+        "source starts at a different offset from the mmap. Cannot atomically replace mappings";
+    return false;
+  }
+  // mremap doesn't allow the final [start, end] to overlap with the initial [start, end] (it's like
+  // memcpy but the check is explicit and actually done).
+  if (source->BaseBegin() > BaseBegin() &&
+      reinterpret_cast<uint8_t*>(BaseBegin()) + source->BaseSize() >
+      reinterpret_cast<uint8_t*>(source->BaseBegin())) {
+    *error = "destination memory pages overlap with source memory pages";
+    return false;
+  }
+  // Change the protection to match the new location.
+  int old_prot = source->GetProtect();
+  if (!source->Protect(GetProtect())) {
+    *error = "Could not change protections for source to those required for dest.";
+    return false;
+  }
+
+  // Do the mremap.
+  void* res = mremap(/*old_address*/source->BaseBegin(),
+                     /*old_size*/source->BaseSize(),
+                     /*new_size*/source->BaseSize(),
+                     /*flags*/MREMAP_MAYMOVE | MREMAP_FIXED,
+                     /*new_address*/BaseBegin());
+  if (res == MAP_FAILED) {
+    int saved_errno = errno;
+    // Wasn't able to move mapping. Change the protection of source back to the original one and
+    // return.
+    source->Protect(old_prot);
+    *error = std::string("Failed to mremap source to dest. Error was ") + strerror(saved_errno);
+    return false;
+  }
+  CHECK(res == BaseBegin());
+
+  // The new base_size is all the pages of the 'source' plus any remaining dest pages. We will unmap
+  // them later.
+  size_t new_base_size = std::max(source->base_size_, base_size_);
+
+  // Delete the old source, don't unmap it though (set reuse) since it is already gone.
+  *source_ptr = nullptr;
+  size_t source_size = source->size_;
+  source->already_unmapped_ = true;
+  delete source;
+  source = nullptr;
+
+  size_ = source_size;
+  base_size_ = new_base_size;
+  // Reduce base_size if needed (this will unmap the extra pages).
+  SetSize(source_size);
+
+  return true;
+#endif  // !HAVE_MREMAP_SYSCALL
+}
+
 MemMap* MemMap::MapFileAtAddress(uint8_t* expected_ptr,
                                  size_t byte_count,
                                  int prot,
@@ -495,9 +584,11 @@ MemMap::~MemMap() {
 
   if (!reuse_) {
     MEMORY_TOOL_MAKE_UNDEFINED(base_begin_, base_size_);
-    int result = munmap(base_begin_, base_size_);
-    if (result == -1) {
-      PLOG(FATAL) << "munmap failed";
+    if (!already_unmapped_) {
+      int result = munmap(base_begin_, base_size_);
+      if (result == -1) {
+        PLOG(FATAL) << "munmap failed";
+      }
     }
   }
 
@@ -519,7 +610,7 @@ MemMap::~MemMap() {
 MemMap::MemMap(const std::string& name, uint8_t* begin, size_t size, void* base_begin,
                size_t base_size, int prot, bool reuse, size_t redzone_size)
     : name_(name), begin_(begin), size_(size), base_begin_(base_begin), base_size_(base_size),
-      prot_(prot), reuse_(reuse), redzone_size_(redzone_size) {
+      prot_(prot), reuse_(reuse), already_unmapped_(false), redzone_size_(redzone_size) {
   if (size_ == 0) {
     CHECK(begin_ == nullptr);
     CHECK(base_begin_ == nullptr);
@@ -790,19 +881,21 @@ void MemMap::Shutdown() {
 }
 
 void MemMap::SetSize(size_t new_size) {
-  if (new_size == base_size_) {
+  CHECK_LE(new_size, size_);
+  size_t new_base_size = RoundUp(new_size + static_cast<size_t>(PointerDiff(Begin(), BaseBegin())),
+                                 kPageSize);
+  if (new_base_size == base_size_) {
+    size_ = new_size;
     return;
   }
-  CHECK_ALIGNED(new_size, kPageSize);
-  CHECK_EQ(base_size_, size_) << "Unsupported";
-  CHECK_LE(new_size, base_size_);
+  CHECK_LT(new_base_size, base_size_);
   MEMORY_TOOL_MAKE_UNDEFINED(
       reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(BaseBegin()) +
-                              new_size),
-      base_size_ - new_size);
-  CHECK_EQ(munmap(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(BaseBegin()) + new_size),
-                  base_size_ - new_size), 0) << new_size << " " << base_size_;
-  base_size_ = new_size;
+                              new_base_size),
+      base_size_ - new_base_size);
+  CHECK_EQ(munmap(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(BaseBegin()) + new_base_size),
+                  base_size_ - new_base_size), 0) << new_base_size << " " << base_size_;
+  base_size_ = new_base_size;
   size_ = new_size;
 }
 
@@ -923,9 +1016,6 @@ void* MemMap::MapInternal(void* addr,
   UNUSED(low_4gb);
 #endif
   DCHECK_ALIGNED(length, kPageSize);
-  if (low_4gb) {
-    DCHECK_EQ(flags & MAP_FIXED, 0);
-  }
   // TODO:
   // A page allocator would be a useful abstraction here, as
   // 1) It is doubtful that MAP_32BIT on x86_64 is doing the right job for us

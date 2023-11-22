@@ -30,6 +30,7 @@ import com.android.tradefed.testtype.IShardableTest;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.RunUtil;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.junit.Assert;
 
@@ -211,7 +212,7 @@ public class RebootStressTest implements IRemoteTest, IDeviceTest, IShardableTes
             long durationMs = System.currentTimeMillis() - startTime;
             metrics.put("iterations", Integer.toString(actualIterations));
             metrics.put("shards", "1");
-            listener.testRunEnded(durationMs, metrics);
+            listener.testRunEnded(durationMs, TfMetricProtoUtil.upgradeConvert(metrics));
             if (mLastKmsg != null) {
                 listener.testLog(String.format("last_kmsg_%s", getDevice().getSerialNumber()),
                         LogDataType.KERNEL_LOG,

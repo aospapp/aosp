@@ -115,7 +115,7 @@ def _status_for_test(status):
                 status.test_name.startswith('CLIENT_JOB'))
 
 
-class _JobResultWaiter(object):
+class JobResultWaiter(object):
     """Class for waiting on job results."""
 
     def __init__(self, afe, tko):
@@ -223,52 +223,6 @@ def _yield_job_results(afe, tko, job):
                              s.test_finished_time, job.id,
                              job.owner, s.hostname, job.name,
                              subdir=s.job_tag)
-
-
-def wait_for_child_results(afe, tko, parent_job_id):
-    """
-    Wait for results of all tests in jobs with given parent id.
-
-    New jobs could be added by calling send(new_jobs) on the generator.
-    Currently polls for results every 5s.  Yields one Status object per test
-    as results become available.
-
-    @param afe: an instance of AFE as defined in server/frontend.py.
-    @param tko: an instance of TKO as defined in server/frontend.py.
-    @param parent_job_id: Parent job id for the jobs to wait on.
-    @yields an iterator of Statuses, one per test.
-    """
-    waiter = _JobResultWaiter(afe, tko)
-    waiter.add_jobs(afe.get_jobs(parent_job_id=parent_job_id))
-    for result in waiter.wait_for_results():
-        new_jobs = (yield result)
-        if new_jobs:
-            waiter.add_jobs(new_jobs)
-            # Return nothing if 'send' is called
-            yield None
-
-
-def wait_for_results(afe, tko, jobs):
-    """
-    Wait for results of all tests in all jobs in |jobs|.
-
-    New jobs could be added by calling send(new_jobs) on the generator.
-    Currently polls for results every 5s.  Yields one Status object per test
-    as results become available.
-
-    @param afe: an instance of AFE as defined in server/frontend.py.
-    @param tko: an instance of TKO as defined in server/frontend.py.
-    @param jobs: a list of Job objects, as defined in server/frontend.py.
-    @yields an iterator of Statuses, one per test.
-    """
-    waiter = _JobResultWaiter(afe, tko)
-    waiter.add_jobs(jobs)
-    for result in waiter.wait_for_results():
-        new_jobs = (yield result)
-        if new_jobs:
-            waiter.add_jobs(new_jobs)
-            # Return nothing if 'send' is called
-            yield None
 
 
 class Status(object):

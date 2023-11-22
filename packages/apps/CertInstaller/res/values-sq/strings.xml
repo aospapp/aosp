@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN-ja dhe aplikacionet"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Shënim: Lëshuesi i kësaj certifikate mund të inspektojë të gjithë trafikun hyrës dhe dalës të pajisjes."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Profili Wi-Fi"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"Detajet për %s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Detajet"</string>

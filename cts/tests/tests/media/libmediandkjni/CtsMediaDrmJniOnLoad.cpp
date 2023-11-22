@@ -17,7 +17,7 @@
 #include <jni.h>
 #include <stdio.h>
 
-extern int register_android_media_cts_NativeClearKeySystemTest(JNIEnv*);
+extern int register_android_media_cts_NativeMediaDrmClearkeyTest(JNIEnv*);
 
 jint JNI_OnLoad(JavaVM *vm, void */*reserved*/) {
     JNIEnv *env = NULL;
@@ -26,7 +26,7 @@ jint JNI_OnLoad(JavaVM *vm, void */*reserved*/) {
         return JNI_ERR;
     }
 
-    if (register_android_media_cts_NativeClearKeySystemTest(env)) {
+    if (register_android_media_cts_NativeMediaDrmClearkeyTest(env)) {
         return JNI_ERR;
     }
 

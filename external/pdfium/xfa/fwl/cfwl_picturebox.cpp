@@ -32,8 +32,8 @@ void CFWL_PictureBox::Update() {
   m_rtClient = GetClientRect();
 }
 
-void CFWL_PictureBox::DrawWidget(CFX_Graphics* pGraphics,
-                                 const CFX_Matrix* pMatrix) {
+void CFWL_PictureBox::DrawWidget(CXFA_Graphics* pGraphics,
+                                 const CFX_Matrix& matrix) {
   if (!pGraphics)
     return;
   if (!m_pProperties->m_pThemeProvider)
@@ -41,10 +41,10 @@ void CFWL_PictureBox::DrawWidget(CFX_Graphics* pGraphics,
 
   IFWL_ThemeProvider* pTheme = GetAvailableTheme();
   if (HasBorder())
-    DrawBorder(pGraphics, CFWL_Part::Border, pTheme, pMatrix);
+    DrawBorder(pGraphics, CFWL_Part::Border, pTheme, matrix);
 }
 
-void CFWL_PictureBox::OnDrawWidget(CFX_Graphics* pGraphics,
-                                   const CFX_Matrix* pMatrix) {
-  DrawWidget(pGraphics, pMatrix);
+void CFWL_PictureBox::OnDrawWidget(CXFA_Graphics* pGraphics,
+                                   const CFX_Matrix& matrix) {
+  DrawWidget(pGraphics, matrix);
 }

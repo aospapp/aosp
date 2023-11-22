@@ -20,35 +20,35 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
-#include <string>
-#include <vector>
-#include <set>
 #include <map>
+#include <set>
+#include <string>
 #include <unordered_set>
+#include <vector>
 
 #include "android-base/stringprintf.h"
 
 #include "art_field-inl.h"
 #include "art_method-inl.h"
+#include "base/os.h"
 #include "base/unix_file/fd_file.h"
 #include "class_linker.h"
-#include "gc/space/image_space.h"
 #include "gc/heap.h"
+#include "gc/space/image_space.h"
+#include "image.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
-#include "image.h"
 #include "oat.h"
 #include "oat_file.h"
 #include "oat_file_manager.h"
-#include "os.h"
 #include "scoped_thread_state_change-inl.h"
 
-#include "cmdline.h"
 #include "backtrace/BacktraceMap.h"
+#include "cmdline.h"
 
+#include <signal.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <signal.h>
 
 namespace art {
 
@@ -1150,10 +1150,10 @@ class ImgDiagDumper {
 
     bool found_boot_map = false;
     // Find the memory map only for boot.art
-    for (const backtrace_map_t& map : *tmp_proc_maps) {
-      if (EndsWith(map.name, GetImageLocationBaseName())) {
-        if ((map.flags & PROT_WRITE) != 0) {
-          boot_map_ = map;
+    for (const backtrace_map_t* map : *tmp_proc_maps) {
+      if (EndsWith(map->name, GetImageLocationBaseName())) {
+        if ((map->flags & PROT_WRITE) != 0) {
+          boot_map_ = *map;
           found_boot_map = true;
           break;
         }
@@ -1610,7 +1610,7 @@ class ImgDiagDumper {
   // BacktraceMap used for finding the memory mapping of the image file.
   std::unique_ptr<BacktraceMap> proc_maps_;
   // Boot image mapping.
-  backtrace_map_t boot_map_{};  // NOLINT
+  backtrace_map_t boot_map_{};
   // The size of the boot image mapping.
   size_t boot_map_size_;
   // The contents of /proc/<image_diff_pid_>/maps.
@@ -1715,7 +1715,7 @@ struct ImgDiagArgs : public CmdlineArgs {
         *error_msg = StringPrintf("Failed to check process status: %s", strerror(errno));
       }
       return kParseError;
-    } else if (instruction_set_ != kRuntimeISA) {
+    } else if (instruction_set_ != InstructionSet::kNone && instruction_set_ != kRuntimeISA) {
       // Don't allow different ISAs since the images are ISA-specific.
       // Right now the code assumes both the runtime ISA and the remote ISA are identical.
       *error_msg = "Must use the default runtime ISA; changing ISA is not supported.";

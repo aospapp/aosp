@@ -1924,6 +1924,15 @@ public class ComposeActivity extends AppCompatActivity
     }
 
     /**
+     * @return the authority of EmailAttachmentProvider for this app. should be overridden in
+     * concrete app implementations. can't be known here because this project doesn't know about
+     * that sort of thing.
+     */
+    protected String getEmailAttachmentProviderAuthority() {
+        throw new UnsupportedOperationException("unimplemented, EmailAttachmentProvider unknown");
+    }
+
+    /**
      * Helper function to handle a list of uris to attach.
      * @return true if anything has been attached.
      */
@@ -1944,7 +1953,9 @@ public class ComposeActivity extends AppCompatActivity
                         }
                     } else if (ContentResolver.SCHEME_CONTENT.equals(uri.getScheme())) {
                         // disallow attachments from our own EmailProvider (b/27308057)
-                        if (getEmailProviderAuthority().equals(uri.getAuthority())) {
+                        if (getEmailProviderAuthority().equals(uri.getAuthority())
+                                || getEmailAttachmentProviderAuthority().equals(
+                                        uri.getAuthority())) {
                             showErrorToast(getString(R.string.attachment_permission_denied));
                             Analytics.getInstance().sendEvent(ANALYTICS_CATEGORY_ERRORS,
                                     "send_intent_attachment", "email_provider", 0);

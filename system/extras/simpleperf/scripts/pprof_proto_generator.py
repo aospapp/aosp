@@ -28,7 +28,6 @@ from __future__ import print_function
 import argparse
 import os
 import os.path
-import profile_pb2
 import re
 import shutil
 import sys
@@ -38,6 +37,12 @@ from annotate import Addr2Line
 from simpleperf_report_lib import *
 from utils import *
 
+try:
+    import google.protobuf
+except:
+    log_exit('google.protobuf module is missing. Please install it first.')
+
+import profile_pb2
 
 def load_pprof_profile(filename):
     profile = profile_pb2.Profile()

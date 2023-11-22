@@ -45,10 +45,12 @@ tko/parsers/test/site_scenarios
 ExternalSource
 /frontend/client/www/
 /shadow_config.ini
+/shadow_config.param.ini
 /site-packages/
 monitor_db.pid
 server/cros/chaos_shadow_ap_list.conf
 server/site_tests/network_WiFiChaosPSK/control.local
+manifest-versions
 
 # These exist on the production servers.
 bug_filing_oauth_credentials.dat
@@ -58,11 +60,6 @@ site_utils/autotest_private/
 site_utils/autotest_tools/
 site_utils/devserver/
 site_utils/buildbot_src/
-
-# Pupplylab files
-puppylab/Vagrantfile
-puppylab/chromeos_lab_core_cluster.box
-puppylab/.vagrant
 
 # Container directory
 containers/
@@ -75,6 +72,3 @@ tko/perf_upload/perf_dashboard_shadow_config.json
 
 # HWID key file used by site_utils/hwid_lib.py
 hwid_key
-
-# suite_scheduler.ini is deployed by puppet
-suite_scheduler.ini

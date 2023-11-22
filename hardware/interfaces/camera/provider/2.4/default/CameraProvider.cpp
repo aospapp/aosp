@@ -19,8 +19,10 @@
 #include <android/log.h>
 
 #include "CameraProvider.h"
+#include "ExternalCameraProvider.h"
 #include "CameraDevice_1_0.h"
 #include "CameraDevice_3_3.h"
+#include "CameraDevice_3_4.h"
 #include <cutils/properties.h>
 #include <string.h>
 #include <utils/Trace.h>
@@ -35,10 +37,12 @@ namespace implementation {
 
 namespace {
 const char *kLegacyProviderName = "legacy/0";
+const char *kExternalProviderName = "external/0";
 // "device@<version>/legacy/<id>"
 const std::regex kDeviceNameRE("device@([0-9]+\\.[0-9]+)/legacy/(.+)");
 const char *kHAL3_2 = "3.2";
 const char *kHAL3_3 = "3.3";
+const char *kHAL3_4 = "3.4";
 const char *kHAL1_0 = "1.0";
 const int kMaxCameraDeviceNameLen = 128;
 const int kMaxCameraIdLen = 16;
@@ -64,6 +68,70 @@ bool matchDeviceName(const hidl_string& deviceName, std::string* deviceVersion,
 using ::android::hardware::camera::common::V1_0::CameraMetadataType;
 using ::android::hardware::camera::common::V1_0::Status;
 
+void CameraProvider::addDeviceNames(int camera_id, CameraDeviceStatus status, bool cam_new)
+{
+    char cameraId[kMaxCameraIdLen];
+    snprintf(cameraId, sizeof(cameraId), "%d", camera_id);
+    std::string cameraIdStr(cameraId);
+
+    mCameraIds.add(cameraIdStr);
+
+    // initialize mCameraDeviceNames and mOpenLegacySupported
+    mOpenLegacySupported[cameraIdStr] = false;
+    int deviceVersion = mModule->getDeviceVersion(camera_id);
+    auto deviceNamePair = std::make_pair(cameraIdStr,
+                                         getHidlDeviceName(cameraIdStr, deviceVersion));
+    mCameraDeviceNames.add(deviceNamePair);
+    if (cam_new) {
+        mCallbacks->cameraDeviceStatusChange(deviceNamePair.second, status);
+    }
+    if (deviceVersion >= CAMERA_DEVICE_API_VERSION_3_2 &&
+            mModule->isOpenLegacyDefined()) {
+        // try open_legacy to see if it actually works
+        struct hw_device_t* halDev = nullptr;
+        int ret = mModule->openLegacy(cameraId, CAMERA_DEVICE_API_VERSION_1_0, &halDev);
+        if (ret == 0) {
+            mOpenLegacySupported[cameraIdStr] = true;
+            halDev->close(halDev);
+            deviceNamePair = std::make_pair(cameraIdStr,
+                            getHidlDeviceName(cameraIdStr, CAMERA_DEVICE_API_VERSION_1_0));
+            mCameraDeviceNames.add(deviceNamePair);
+            if (cam_new) {
+                mCallbacks->cameraDeviceStatusChange(deviceNamePair.second, status);
+            }
+        } else if (ret == -EBUSY || ret == -EUSERS) {
+            // Looks like this provider instance is not initialized during
+            // system startup and there are other camera users already.
+            // Not a good sign but not fatal.
+            ALOGW("%s: open_legacy try failed!", __FUNCTION__);
+        }
+    }
+}
+
+void CameraProvider::removeDeviceNames(int camera_id)
+{
+    std::string cameraIdStr = std::to_string(camera_id);
+
+    mCameraIds.remove(cameraIdStr);
+
+    int deviceVersion = mModule->getDeviceVersion(camera_id);
+    auto deviceNamePair = std::make_pair(cameraIdStr,
+                                         getHidlDeviceName(cameraIdStr, deviceVersion));
+    mCameraDeviceNames.remove(deviceNamePair);
+    mCallbacks->cameraDeviceStatusChange(deviceNamePair.second, CameraDeviceStatus::NOT_PRESENT);
+    if (deviceVersion >= CAMERA_DEVICE_API_VERSION_3_2 &&
+        mModule->isOpenLegacyDefined() && mOpenLegacySupported[cameraIdStr]) {
+
+        deviceNamePair = std::make_pair(cameraIdStr,
+                            getHidlDeviceName(cameraIdStr, CAMERA_DEVICE_API_VERSION_1_0));
+        mCameraDeviceNames.remove(deviceNamePair);
+        mCallbacks->cameraDeviceStatusChange(deviceNamePair.second,
+                                             CameraDeviceStatus::NOT_PRESENT);
+    }
+
+    mModule->removeCamera(camera_id);
+}
+
 /**
  * static callback forwarding methods from HAL to instance
  */
@@ -73,6 +141,7 @@ void CameraProvider::sCameraDeviceStatusChange(
         int new_status) {
     CameraProvider* cp = const_cast<CameraProvider*>(
             static_cast<const CameraProvider*>(callbacks));
+    bool found = false;
 
     if (cp == nullptr) {
         ALOGE("%s: callback ops is null", __FUNCTION__);
@@ -90,6 +159,20 @@ void CameraProvider::sCameraDeviceStatusChange(
             if (cameraIdStr.compare(deviceNamePair.first) == 0) {
                 cp->mCallbacks->cameraDeviceStatusChange(
                         deviceNamePair.second, status);
+                found = true;
+            }
+        }
+
+        switch (status) {
+        case CameraDeviceStatus::PRESENT:
+        case CameraDeviceStatus::ENUMERATING:
+            if (!found) {
+                cp->addDeviceNames(camera_id, status, true);
+            }
+            break;
+        case CameraDeviceStatus::NOT_PRESENT:
+            if (found) {
+                cp->removeDeviceNames(camera_id);
             }
         }
     }
@@ -159,12 +242,16 @@ std::string CameraProvider::getHidlDeviceName(
     if (deviceVersion != CAMERA_DEVICE_API_VERSION_1_0 &&
             deviceVersion != CAMERA_DEVICE_API_VERSION_3_2 &&
             deviceVersion != CAMERA_DEVICE_API_VERSION_3_3 &&
-            deviceVersion != CAMERA_DEVICE_API_VERSION_3_4 ) {
+            deviceVersion != CAMERA_DEVICE_API_VERSION_3_4 &&
+            deviceVersion != CAMERA_DEVICE_API_VERSION_3_5) {
         return hidl_string("");
     }
     bool isV1 = deviceVersion == CAMERA_DEVICE_API_VERSION_1_0;
     int versionMajor = isV1 ? 1 : 3;
     int versionMinor = isV1 ? 0 : mPreferredHal3MinorVersion;
+    if (deviceVersion == CAMERA_DEVICE_API_VERSION_3_5) {
+        versionMinor = 4;
+    }
     char deviceName[kMaxCameraDeviceNameLen];
     snprintf(deviceName, sizeof(deviceName), "device@%d.%d/legacy/%s",
             versionMajor, versionMinor, cameraId.c_str());
@@ -211,7 +298,8 @@ bool CameraProvider::initialize() {
         return true;
     }
 
-    mPreferredHal3MinorVersion = property_get_int32("ro.camera.wrapper.hal3TrebleMinorVersion", 3);
+    mPreferredHal3MinorVersion =
+        property_get_int32("ro.vendor.camera.wrapper.hal3TrebleMinorVersion", 3);
     ALOGV("Preferred HAL 3 minor version is %d", mPreferredHal3MinorVersion);
     switch(mPreferredHal3MinorVersion) {
         case 2:
@@ -220,7 +308,8 @@ bool CameraProvider::initialize() {
             break;
         default:
             ALOGW("Unknown minor camera device HAL version %d in property "
-                    "'camera.wrapper.hal3TrebleMinorVersion', defaulting to 3", mPreferredHal3MinorVersion);
+                    "'camera.wrapper.hal3TrebleMinorVersion', defaulting to 3",
+                    mPreferredHal3MinorVersion);
             mPreferredHal3MinorVersion = 3;
     }
 
@@ -244,32 +333,8 @@ bool CameraProvider::initialize() {
         snprintf(cameraId, sizeof(cameraId), "%d", i);
         std::string cameraIdStr(cameraId);
         mCameraStatusMap[cameraIdStr] = CAMERA_DEVICE_STATUS_PRESENT;
-        mCameraIds.add(cameraIdStr);
 
-        // initialize mCameraDeviceNames and mOpenLegacySupported
-        mOpenLegacySupported[cameraIdStr] = false;
-        int deviceVersion = mModule->getDeviceVersion(i);
-        mCameraDeviceNames.add(
-                std::make_pair(cameraIdStr,
-                               getHidlDeviceName(cameraIdStr, deviceVersion)));
-        if (deviceVersion >= CAMERA_DEVICE_API_VERSION_3_2 &&
-                mModule->isOpenLegacyDefined()) {
-            // try open_legacy to see if it actually works
-            struct hw_device_t* halDev = nullptr;
-            int ret = mModule->openLegacy(cameraId, CAMERA_DEVICE_API_VERSION_1_0, &halDev);
-            if (ret == 0) {
-                mOpenLegacySupported[cameraIdStr] = true;
-                halDev->close(halDev);
-                mCameraDeviceNames.add(
-                        std::make_pair(cameraIdStr,
-                                getHidlDeviceName(cameraIdStr, CAMERA_DEVICE_API_VERSION_1_0)));
-            } else if (ret == -EBUSY || ret == -EUSERS) {
-                // Looks like this provider instance is not initialized during
-                // system startup and there are other camera users already.
-                // Not a good sign but not fatal.
-                ALOGW("%s: open_legacy try failed!", __FUNCTION__);
-            }
-        }
+        addDeviceNames(i);
     }
 
     return false; // mInitFailed
@@ -292,6 +357,7 @@ int CameraProvider::checkCameraVersion(int id, camera_info info) {
             case CAMERA_DEVICE_API_VERSION_3_2:
             case CAMERA_DEVICE_API_VERSION_3_3:
             case CAMERA_DEVICE_API_VERSION_3_4:
+            case CAMERA_DEVICE_API_VERSION_3_5:
                 // in support
                 break;
             case CAMERA_DEVICE_API_VERSION_2_0:
@@ -480,10 +546,27 @@ Return<void> CameraProvider::getCameraDeviceInterface_V3_x(
         return Void();
     }
 
+    sp<android::hardware::camera::device::V3_2::ICameraDevice> device;
+    if (deviceVersion == kHAL3_4) {
+        ALOGV("Constructing v3.4 camera device");
+        sp<android::hardware::camera::device::V3_2::implementation::CameraDevice> deviceImpl =
+            new android::hardware::camera::device::V3_4::implementation::CameraDevice(
+                    mModule, cameraId, mCameraDeviceNames);
+        if (deviceImpl == nullptr || deviceImpl->isInitFailed()) {
+            ALOGE("%s: camera device %s init failed!", __FUNCTION__, cameraId.c_str());
+            device = nullptr;
+            _hidl_cb(Status::INTERNAL_ERROR, nullptr);
+            return Void();
+        }
+
+        device = deviceImpl;
+        _hidl_cb (Status::OK, device);
+        return Void();
+    }
+
     // Since some Treble HAL revisions can map to the same legacy HAL version(s), we default
     // to the newest possible Treble HAL revision, but allow for override if needed via
     // system property.
-    sp<android::hardware::camera::device::V3_2::ICameraDevice> device;
     switch (mPreferredHal3MinorVersion) {
         case 2: { // Map legacy camera device v3 HAL to Treble camera device HAL v3.2
             ALOGV("Constructing v3.2 camera device");
@@ -524,20 +607,24 @@ Return<void> CameraProvider::getCameraDeviceInterface_V3_x(
 }
 
 ICameraProvider* HIDL_FETCH_ICameraProvider(const char* name) {
-    if (strcmp(name, kLegacyProviderName) != 0) {
-        return nullptr;
+    if (strcmp(name, kLegacyProviderName) == 0) {
+        CameraProvider* provider = new CameraProvider();
+        if (provider == nullptr) {
+            ALOGE("%s: cannot allocate camera provider!", __FUNCTION__);
+            return nullptr;
+        }
+        if (provider->isInitFailed()) {
+            ALOGE("%s: camera provider init failed!", __FUNCTION__);
+            delete provider;
+            return nullptr;
+        }
+        return provider;
+    } else if (strcmp(name, kExternalProviderName) == 0) {
+        ExternalCameraProvider* provider = new ExternalCameraProvider();
+        return provider;
     }
-    CameraProvider* provider = new CameraProvider();
-    if (provider == nullptr) {
-        ALOGE("%s: cannot allocate camera provider!", __FUNCTION__);
-        return nullptr;
-    }
-    if (provider->isInitFailed()) {
-        ALOGE("%s: camera provider init failed!", __FUNCTION__);
-        delete provider;
-        return nullptr;
-    }
-    return provider;
+    ALOGE("%s: unknown instance name: %s", __FUNCTION__, name);
+    return nullptr;
 }
 
 } // namespace implementation

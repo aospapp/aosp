@@ -18,6 +18,7 @@ package com.android.phone;
 
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Message;
@@ -30,6 +31,8 @@ import android.telephony.TelephonyManager;
 import android.util.AttributeSet;
 import android.util.Log;
 
+import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.telephony.CommandException;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
@@ -49,16 +52,24 @@ public class NetworkOperators extends PreferenceCategory
     //String keys for preference lookup
     public static final String BUTTON_NETWORK_SELECT_KEY = "button_network_select_key";
     public static final String BUTTON_AUTO_SELECT_KEY = "button_auto_select_key";
+    public static final String BUTTON_CHOOSE_NETWORK_KEY = "button_choose_network_key";
     public static final String CATEGORY_NETWORK_OPERATORS_KEY = "network_operators_category_key";
 
     int mPhoneId = SubscriptionManager.INVALID_PHONE_INDEX;
+    private static final int ALREADY_IN_AUTO_SELECTION = 1;
 
     //preference objects
     private NetworkSelectListPreference mNetworkSelect;
     private TwoStatePreference mAutoSelect;
+    private Preference mChooseNetwork;
 
     private int mSubId;
     private ProgressDialog mProgressDialog;
+
+    // There's two sets of Auto-Select UI in this class.
+    // If {@code com.android.internal.R.bool.config_enableNewAutoSelectNetworkUI} set as true
+    // {@link mChooseNetwork} will be used, otherwise {@link mNetworkSelect} will be used.
+    boolean mEnableNewManualSelectNetworkUI;
 
     public NetworkOperators(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -72,10 +83,16 @@ public class NetworkOperators extends PreferenceCategory
      * Initialize NetworkOperators instance.
      */
     public void initialize() {
-        mNetworkSelect =
-                (NetworkSelectListPreference) findPreference(BUTTON_NETWORK_SELECT_KEY);
-        mAutoSelect =
-                (TwoStatePreference) findPreference(BUTTON_AUTO_SELECT_KEY);
+        mEnableNewManualSelectNetworkUI = getContext().getResources().getBoolean(
+                com.android.internal.R.bool.config_enableNewAutoSelectNetworkUI);
+        mAutoSelect = (TwoStatePreference) findPreference(BUTTON_AUTO_SELECT_KEY);
+        mChooseNetwork = findPreference(BUTTON_CHOOSE_NETWORK_KEY);
+        mNetworkSelect = (NetworkSelectListPreference) findPreference(BUTTON_NETWORK_SELECT_KEY);
+        if (mEnableNewManualSelectNetworkUI) {
+            removePreference(mNetworkSelect);
+        } else {
+            removePreference(mChooseNetwork);
+        }
         mProgressDialog = new ProgressDialog(getContext());
     }
 
@@ -93,10 +110,22 @@ public class NetworkOperators extends PreferenceCategory
             mAutoSelect.setOnPreferenceChangeListener(this);
         }
 
-        if (mNetworkSelect != null) {
-            mNetworkSelect.initialize(mSubId, queryService, this, mProgressDialog);
+        if (mEnableNewManualSelectNetworkUI) {
+            if (mChooseNetwork != null) {
+                TelephonyManager telephonyManager = (TelephonyManager)
+                        getContext().getSystemService(Context.TELEPHONY_SERVICE);
+                if (DBG) logd("data connection status " + telephonyManager.getDataState());
+                if (telephonyManager.getDataState() == telephonyManager.DATA_CONNECTED) {
+                    mChooseNetwork.setSummary(telephonyManager.getNetworkOperatorName());
+                } else {
+                    mChooseNetwork.setSummary(R.string.network_disconnected);
+                }
+            }
+        } else {
+            if (mNetworkSelect != null) {
+                mNetworkSelect.initialize(mSubId, queryService, this, mProgressDialog);
+            }
         }
-
         getNetworkSelectionMode();
     }
 
@@ -111,7 +140,10 @@ public class NetworkOperators extends PreferenceCategory
     public boolean onPreferenceChange(Preference preference, Object newValue) {
         if (preference == mAutoSelect) {
             boolean autoSelect = (Boolean) newValue;
+            if (DBG) logd("onPreferenceChange autoSelect: " + String.valueOf(autoSelect));
             selectNetworkAutomatic(autoSelect);
+            MetricsLogger.action(getContext(),
+                    MetricsEvent.ACTION_MOBILE_NETWORK_AUTO_SELECT_NETWORK_TOGGLE, autoSelect);
             return true;
         }
         return false;
@@ -132,7 +164,7 @@ public class NetworkOperators extends PreferenceCategory
                         displayNetworkSelectionFailed(ar.exception);
                     } else {
                         if (DBG) logd("automatic network selection: succeeded!");
-                        displayNetworkSelectionSucceeded();
+                        displayNetworkSelectionSucceeded(msg.arg1);
                     }
 
                     break;
@@ -151,15 +183,20 @@ public class NetworkOperators extends PreferenceCategory
                             if (mAutoSelect != null) {
                                 mAutoSelect.setChecked(autoSelect);
                             }
-                            if (mNetworkSelect != null) {
-                                mNetworkSelect.setEnabled(!autoSelect);
+                            if (mEnableNewManualSelectNetworkUI) {
+                                if (mChooseNetwork != null) {
+                                    mChooseNetwork.setEnabled(!autoSelect);
+                                }
+                            } else {
+                                if (mNetworkSelect != null) {
+                                    mNetworkSelect.setEnabled(!autoSelect);
+                                }
                             }
                         } catch (Exception e) {
                             if (DBG) loge("get network selection mode: unable to parse result.");
                         }
                     }
             }
-
             return;
         }
     };
@@ -167,10 +204,9 @@ public class NetworkOperators extends PreferenceCategory
     // Used by both mAutoSelect and mNetworkSelect buttons.
     protected void displayNetworkSelectionFailed(Throwable ex) {
         String status;
-
         if ((ex != null && ex instanceof CommandException)
                 && ((CommandException) ex).getCommandError()
-                        == CommandException.Error.ILLEGAL_SIM_OR_ME) {
+                == CommandException.Error.ILLEGAL_SIM_OR_ME) {
             status = getContext().getResources().getString(R.string.not_allowed);
         } else {
             status = getContext().getResources().getString(R.string.connect_later);
@@ -191,8 +227,13 @@ public class NetworkOperators extends PreferenceCategory
     }
 
     // Used by both mAutoSelect and mNetworkSelect buttons.
-    protected void displayNetworkSelectionSucceeded() {
-        String status = getContext().getResources().getString(R.string.registration_done);
+    protected void displayNetworkSelectionSucceeded(int msgArg1) {
+        String status = null;
+        if (msgArg1 == ALREADY_IN_AUTO_SELECTION) {
+            status = getContext().getResources().getString(R.string.already_auto);
+        } else {
+            status = getContext().getResources().getString(R.string.registration_done);
+        }
 
         final PhoneGlobals app = PhoneGlobals.getInstance();
         app.notificationMgr.postTransientNotification(
@@ -200,10 +241,18 @@ public class NetworkOperators extends PreferenceCategory
     }
 
     private void selectNetworkAutomatic(boolean autoSelect) {
-        if (mNetworkSelect != null) {
-            mNetworkSelect.setEnabled(!autoSelect);
-        }
+        if (DBG) logd("selectNetworkAutomatic: " + String.valueOf(autoSelect));
+
         if (autoSelect) {
+            if (mEnableNewManualSelectNetworkUI) {
+                if (mChooseNetwork != null) {
+                    mChooseNetwork.setEnabled(!autoSelect);
+                }
+            } else {
+                if (mNetworkSelect != null) {
+                    mNetworkSelect.setEnabled(!autoSelect);
+                }
+            }
             if (DBG) logd("select network automatically...");
             showAutoSelectProgressBar();
             mAutoSelect.setEnabled(false);
@@ -212,8 +261,17 @@ public class NetworkOperators extends PreferenceCategory
             if (phone != null) {
                 phone.setNetworkSelectionModeAutomatic(msg);
             }
-        } else if (mNetworkSelect != null) {
-            mNetworkSelect.onClick();
+        } else {
+            if (mEnableNewManualSelectNetworkUI) {
+                if (mChooseNetwork != null) {
+                    // Open the choose Network page automatically when user turn off the auto-select
+                    openChooseNetworkPage();
+                }
+            } else {
+                if (mNetworkSelect != null) {
+                    mNetworkSelect.onClick();
+                }
+            }
         }
     }
 
@@ -241,8 +299,24 @@ public class NetworkOperators extends PreferenceCategory
         mProgressDialog.show();
     }
 
+    /**
+     * Open the Choose netwotk page via {@alink NetworkSelectSettingActivity}
+     */
+    public void openChooseNetworkPage() {
+        Intent intent = NetworkSelectSettingActivity.getIntent(getContext(), mPhoneId);
+        getContext().startActivity(intent);
+    }
+
     protected boolean preferenceTreeClick(Preference preference) {
-        return (preference == mAutoSelect || preference == mNetworkSelect);
+        if (mEnableNewManualSelectNetworkUI) {
+            if (DBG) logd("enable New AutoSelectNetwork UI");
+            if (preference == mChooseNetwork) {
+                openChooseNetworkPage();
+            }
+            return (preference == mAutoSelect || preference == mChooseNetwork);
+        } else {
+            return (preference == mAutoSelect || preference == mNetworkSelect);
+        }
     }
 
     private void logd(String msg) {

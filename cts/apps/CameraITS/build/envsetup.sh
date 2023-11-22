@@ -31,10 +31,17 @@ command -v python >/dev/null 2>&1 || \
 python -V 2>&1 | grep -q "Python 2.7" || \
     echo ">> Require python 2.7" >&2
 
-for M in numpy PIL Image matplotlib pylab scipy.stats scipy.spatial
+for M in numpy PIL matplotlib scipy.stats scipy.spatial
 do
     python -c "import $M" >/dev/null 2>&1 || \
         echo ">> Require Python $M module" >&2
+done
+
+for N in 'PIL Image' 'matplotlib pylab'
+do
+    IFS=' ' read module submodule <<< "$N"
+    python -c "from $module import $submodule" >/dev/null 2>&1 || \
+        echo ">> Require Python $module module $submodule submodule" >&2
 done
 
 CV2_VER=$(python -c "\
@@ -45,8 +52,8 @@ except:
     print \"N/A\"
 ")
 
-echo $CV2_VER | grep -q "^2.4" || \
-    echo ">> Require python opencv 2.4. Got $CV2_VER" >&2
+echo $CV2_VER | grep -q -e "^2.4" -e "^3.2" || \
+    echo ">> Require python opencv 2.4. or 3.2. Got $CV2_VER" >&2
 
 export PYTHONPATH="$PWD/pymodules:$PYTHONPATH"
 

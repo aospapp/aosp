@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #ifndef BTIF_STORAGE_H
 #define BTIF_STORAGE_H
 
+#include <bluetooth/uuid.h>
 #include <hardware/bluetooth.h>
 
 #include "bt_target.h"
@@ -194,6 +195,15 @@ bt_status_t btif_storage_load_bonded_hid_info(void);
  ******************************************************************************/
 bt_status_t btif_storage_remove_hid_info(RawAddress* remote_bd_addr);
 
+/** Loads information about bonded hearing aid devices */
+void btif_storage_load_bonded_hearing_aids();
+
+/** Deletes the bonded hearing aid device info from NVRAM */
+void btif_storage_remove_hearing_aid(const RawAddress& address);
+
+/** Remove the hearing aid device from white list */
+void btif_storage_remove_hearing_aid_white_list(const RawAddress& address);
+
 /*******************************************************************************
  *
  * Function         btif_storage_is_retricted_device
@@ -208,10 +218,12 @@ bt_status_t btif_storage_remove_hid_info(RawAddress* remote_bd_addr);
 bool btif_storage_is_restricted_device(const RawAddress* remote_bd_addr);
 
 bt_status_t btif_storage_add_ble_bonding_key(RawAddress* remote_bd_addr,
-                                             char* key, uint8_t key_type,
+                                             const uint8_t* key,
+                                             uint8_t key_type,
                                              uint8_t key_length);
 bt_status_t btif_storage_get_ble_bonding_key(RawAddress* remote_bd_addr,
-                                             uint8_t key_type, char* key_value,
+                                             uint8_t key_type,
+                                             uint8_t* key_value,
                                              int key_length);
 
 bt_status_t btif_storage_add_ble_local_key(char* key, uint8_t key_type,
@@ -272,7 +284,7 @@ bool btif_storage_get_stored_remote_name(const RawAddress& bd_addr, char* name);
 /******************************************************************************
  * Exported for unit tests
  *****************************************************************************/
-size_t btif_split_uuids_string(const char* str, bt_uuid_t* p_uuid,
+size_t btif_split_uuids_string(const char* str, bluetooth::Uuid* p_uuid,
                                size_t max_uuids);
 
 #endif /* BTIF_STORAGE_H */

@@ -54,6 +54,22 @@ still be respected.
 *   SHOULD migrate the blocked numbers into the provider when a device updates
 to Android 7.0.
 
+#### 7.4.1.2\. Telecom API
+
+If device implementations report `android.hardware.telephony`, they:
+
+*   [C-SR] Are STRONGLY RECOMMENDED to handle the the audio headset's
+    `KEYCODE_MEDIA_PLAY_PAUSE` and `KEYCODE_HEADSETHOOK` events for the
+    [`android.telecom`](https://developer.android.com/reference/android/telecom/package-summary.html)
+    APIs as below:
+    *   Call [`Connection.onDisconnect()`](https://developer.android.com/reference/android/telecom/Connection.html#onDisconnect%28%29)
+        when a short press of the key event is detected during an ongoing call.
+    *   Call [`Connection.onAnswer()`](https://developer.android.com/reference/android/telecom/Connection.html#onAnswer%28%29)
+        when a short press of the key event is detected during an incoming call.
+    *   Call [`Connection.onReject()`](https://developer.android.com/reference/android/telecom/Connection.html#onReject%28%29)
+        when a long press of the key event is detected during an incoming call.
+    *   Toggle the mute status of the [`CallAudioState`](https://developer.android.com/reference/android/telecom/CallAudioState.html)
+
 ### 7.4.2\. IEEE 802.11 (Wi-Fi)
 
 Device implementations:
@@ -61,9 +77,9 @@ Device implementations:
 *   SHOULD include support for one or more forms of 802.11\.
 
 If device implementations include support for 802.11 and expose the
-functionality to a third-party application, they
+functionality to a third-party application, they:
 
-*   [C-1-1] MUST implement the corresponding Android API.
+*   [C-1-1] MUST implement the corresponding Andr:oid API.
 *   [C-1-2] MUST report the hardware feature flag `android.hardware.wifi`.
 *   [C-1-3] MUST implement the [multicast API](
 http://developer.android.com/reference/android/net/wifi/WifiManager.MulticastLock.html)
@@ -162,10 +178,6 @@ APIs MUST throw an `UnsupportedOperationException`.
 
 ### 7.4.3\. Bluetooth
 
-*    [W-0-1] Watch device implementations MUST support Bluetooth.
-*    [T-0-1] Television device implementations MUST support Bluetooth and
-Bluetooth LE.
-
 If device implementations support Bluetooth Audio profile, they:
 
 *    SHOULD support Advanced Audio Codecs and Bluetooth Audio Codecs
@@ -188,17 +200,6 @@ respectively) and implement the platform APIs.
 *    SHOULD implement relevant Bluetooth profiles such as
      A2DP, AVCP, OBEX, etc. as appropriate for the device.
 
-Automotive device implementations:
-*    [A-0-1] Automotive device implementations MUST support Bluetooth and
-SHOULD support Bluetooth LE.
-*    [A-0-2] Android Automotive implementations MUST support the following
-Bluetooth profiles:
-
-     * Phone calling over Hands-Free Profile (HFP).
-     * Media playback over Audio Distribution Profile (A2DP).
-     * Media playback control over Remote Control Profile (AVRCP).
-     * Contact sharing using the Phone Book Access Profile (PBAP).
-*    SHOULD support Message Access Profile (MAP).
 
 If device implementations include support for Bluetooth Low Energy, they:
 
@@ -249,11 +250,11 @@ standards as below:
 *   [C-1-2] MUST be capable of acting as an NFC Forum reader/writer
 (as defined by the NFC Forum technical specification
 NFCForum-TS-DigitalProtocol-1.0) via the following NFC standards:
-   *   NfcA (ISO14443-3A)
-   *   NfcB (ISO14443-3B)
-   *   NfcF (JIS X 6319-4)
-   *   IsoDep (ISO 14443-4)
-   *   NFC Forum Tag Types 1, 2, 3, 4, 5 (defined by the NFC Forum)
+     *   NfcA (ISO14443-3A)
+     *   NfcB (ISO14443-3B)
+     *   NfcF (JIS X 6319-4)
+     *   IsoDep (ISO 14443-4)
+     *   NFC Forum Tag Types 1, 2, 3, 4, 5 (defined by the NFC Forum)
 *   [SR] STRONGLY RECOMMENDED to be capable of reading and writing NDEF
     messages as well as raw data via the following NFC standards. Note that
     while the NFC standards are stated as STRONGLY RECOMMENDED, the
@@ -265,12 +266,12 @@ NFCForum-TS-DigitalProtocol-1.0) via the following NFC standards:
 
 *   [C-1-3] MUST be capable of transmitting and receiving data via the
     following peer-to-peer standards and protocols:
-   *   ISO 18092
-   *   LLCP 1.2 (defined by the NFC Forum)
-   *   SDP 1.0 (defined by the NFC Forum)
-   *   [NDEF Push Protocol](
-        http://static.googleusercontent.com/media/source.android.com/en/us/compatibility/ndef-push-protocol.pdf)
-   *   SNEP 1.0 (defined by the NFC Forum)
+     *   ISO 18092
+     *   LLCP 1.2 (defined by the NFC Forum)
+     *   SDP 1.0 (defined by the NFC Forum)
+     *   [NDEF Push Protocol](
+          http://static.googleusercontent.com/media/source.android.com/en/us/compatibility/ndef-push-protocol.pdf)
+     *   SNEP 1.0 (defined by the NFC Forum)
 *   [C-1-4] MUST include support for [Android Beam](
     http://developer.android.com/guide/topics/connectivity/nfc/nfc.html) and
     SHOULD enable Android Beam by default.
@@ -337,8 +338,8 @@ If device implementations include an NFC controller chipset capable of HCE
 for NfcF, and implement the feature for third-party applications, they:
 
 *   [C-3-1] MUST report the `android.hardware.nfc.hcef` feature constant.
-*   [C-3-2] MUST implement the [NfcF Card Emulation APIs]
-(https://developer.android.com/reference/android/nfc/cardemulation/NfcFCardEmulation.html)
+*   [C-3-2] MUST implement the [NfcF Card Emulation APIs](
+https://developer.android.com/reference/android/nfc/cardemulation/NfcFCardEmulation.html)
 as defined in the Android SDK.
 
 
@@ -363,39 +364,54 @@ data networking. Specifically, device implementations MUST include support for
 at least one data standard capable of 200Kbit/sec or greater. Examples of
     technologies that satisfy this requirement include EDGE, HSPA, EV-DO,
     802.11g, Ethernet, Bluetooth PAN, etc.
+*   SHOULD also include support for at least one common wireless data
+standard, such as 802.11 (Wi-Fi) when a physical networking standard (such as
+Ethernet) is the primary data connection
+*   MAY implement more than one form of data connectivity.
 *   [C-0-2] MUST include an IPv6 networking stack and support IPv6
 communication using the managed APIs, such as `java.net.Socket` and
 `java.net.URLConnection`, as well as the native APIs, such as `AF_INET6`
 sockets.
 *   [C-0-3] MUST enable IPv6 by default.
    *   MUST ensure that IPv6 communication is as reliable as IPv4, for example.
-   *   [C-0-4] MUST maintain IPv6 connectivity in doze mode.
-   *   [C-0-5] Rate-limiting MUST NOT cause the device to lose IPv6
-   connectivity on any IPv6-compliant network that uses RA lifetimes of
-   at least 180 seconds.
-*   SHOULD also include support for at least one common wireless data
-standard, such as 802.11 (Wi-Fi) when a physical networking standard (such as
-Ethernet) is the primary data connection
-*   MAY implement more than one form of data connectivity.
+      *   [C-0-4] MUST maintain IPv6 connectivity in doze mode.
+      *   [C-0-5] Rate-limiting MUST NOT cause the device to lose IPv6
+      connectivity on any IPv6-compliant network that uses RA lifetimes of
+      at least 180 seconds.
+
+When connected to an IPv6-capable network:
+
+*   [C-1-1] devices MUST provide applications with direct IPv6 connectivity to
+the network, without any form
+of address or port translation happening locally on the device. Both managed
+APIs such as
+[`Socket#getLocalAddress`](https://developer.android.com/reference/java/net/Socket.html#getLocalAddress%28%29)
+or
+[`Socket#getLocalPort`](https://developer.android.com/reference/java/net/Socket.html#getLocalPort%28%29))
+and NDK APIs such as `getsockname()` or `IPV6_PKTINFO` MUST return the IP
+address and port that is actually used to send and receive packets on the
+network.
 
 
 The required level of IPv6 support depends on the network type, as follows:
 
 If devices implementations support Wi-Fi networks, they:
 
-*   [C-1-1] MUST support dual-stack and IPv6-only operation on Wi-Fi.
+*   [C-2-1] MUST support dual-stack and IPv6-only operation on Wi-Fi.
 
-If device impelementations support Ethernet networks, they:
+If device implementations support Ethernet networks, they:
 
-*   [C-2-1] MUST support dual-stack operation on Ethernet.
+*   [C-3-1] MUST support dual-stack operation on Ethernet.
 
 If device implementations support cellular data, they:
 
-*   [C-3-1] MUST simultaneously meet these requirements on each network to which
-it is connected when a device is simultaneously connected to more than one
-network (e.g., Wi-Fi and cellular data), .
-*   SHOULD support IPv6 operation (IPv6-only and possibly dual-stack) on
+*   [C-4-1] SHOULD support IPv6 operation (IPv6-only and possibly dual-stack) on
 cellular data.
+
+When devices are simultaneously connected to more than one network, (e.g., Wi-Fi
+and cellular data), they:
+*   [C-5-1] MUST simultaneously meet these requirements on each network to which
+they are connected.
 
 
 ### 7.4.6\. Sync Settings
@@ -412,10 +428,6 @@ the method [`getMasterSyncAutomatically()`](
 If device implementations include a metered connection, they are:
 
 *   [SR] STRONGLY RECOMMENDED to provide the data saver mode.
-
-If Handheld device implementations include a metered connection, they:
-
-*   [H-1-1] MUST provide the data saver mode.
 
 If device implementations provide the data saver mode, they:
 

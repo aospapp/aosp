@@ -55,8 +55,7 @@ public class TypedArrayTest extends AndroidTestCase {
     private static final String EXPECTED_NON_RESOURCE_STRING = "testNonResourcesString";
     private static final String XML_BEGIN = "resources";
     private static final int EXPECTED_INT_ATT = 86400;
-    private static final int EXPECTED_CHANGING_CONFIG =
-            ActivityInfo.CONFIG_ORIENTATION | ActivityInfo.CONFIG_LOCALE;
+    private static final int EXPECTED_CHANGING_CONFIG = ActivityInfo.CONFIG_ORIENTATION;
 
     private TypedArray mTypedArray;
 

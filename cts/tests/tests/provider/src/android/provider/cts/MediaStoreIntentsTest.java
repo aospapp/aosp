@@ -33,7 +33,7 @@ public class MediaStoreIntentsTest extends AndroidTestCase {
         List<ResolveInfo> resolveInfoList = getContext()
                 .getPackageManager().queryIntentActivities(intent, 0);
         assertNotNull("Missing ResolveInfo", resolveInfoList);
-        assertTrue("No ResolveInfo found for " + intent.toInsecureString(),
+        assertTrue("No ResolveInfo found for " + intent.toString(),
                 resolveInfoList.size() > 0);
     }
 

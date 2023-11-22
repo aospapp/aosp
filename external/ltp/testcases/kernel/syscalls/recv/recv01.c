@@ -53,6 +53,7 @@
 #include <netinet/in.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 char *TCID = "recv01";
 int testno;
@@ -192,9 +193,8 @@ void setup1(void)
 	struct timeval timeout;
 	int n;
 
-	s = socket(tdat[testno].domain, tdat[testno].type, tdat[testno].proto);
-	if (s < 0)
-		tst_brkm(TBROK | TERRNO, cleanup, "socket setup failed");
+	s = SAFE_SOCKET(cleanup, tdat[testno].domain, tdat[testno].type,
+		        tdat[testno].proto);
 	if (tdat[testno].type == SOCK_STREAM &&
 	    connect(s, (struct sockaddr *)&sin1, sizeof(sin1)) < 0) {
 		tst_brkm(TBROK | TERRNO, cleanup, "connect failed");
@@ -238,8 +238,7 @@ pid_t start_server(struct sockaddr_in *sin0)
 		tst_brkm(TBROK | TERRNO, cleanup, "server listen failed");
 		return -1;
 	}
-	if (getsockname(sfd, (struct sockaddr *)sin0, &slen) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "getsockname failed");
+	SAFE_GETSOCKNAME(cleanup, sfd, (struct sockaddr *)sin0, &slen);
 
 	switch ((pid = FORK_OR_VFORK())) {
 	case 0:		/* child */

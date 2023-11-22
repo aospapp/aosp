@@ -455,6 +455,14 @@ class NoEligibleHostException(RPCException):
     """Raised when no host could satisfy the requirements of a job."""
 
 
+class UnmodifiableLabelException(RPCException):
+    """Raised when an RPC tries to modify static labels."""
+
+
+class UnmodifiableAttributeException(RPCException):
+    """Raised when an RPC tries to modify static attributes."""
+
+
 class InvalidBgJobCall(Exception):
     """Raised when an invalid call is made to a BgJob object."""
 
@@ -487,6 +495,14 @@ class ContainerError(Exception):
 
 class IllegalUser(Exception):
     """Exception raise when a program runs as an illegal user."""
+
+
+class AutoservDirectoryNotFoundError(AutoservHostError):
+    """Exception raised when an expected directory is not found."""
+
+
+class AutoservDiskSizeUnknownError(AutoservHostError):
+    """Exception raised when the disk space could not be determined."""
 
 
 # This MUST remain at the end of the file.

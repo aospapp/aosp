@@ -14,6 +14,7 @@ package android.icu.dev.test.normalizer;
 import java.util.BitSet;
 
 import android.icu.dev.test.UTF16Util;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Accesses the Normalization Data used for Forms C and D.<br>
@@ -21,6 +22,7 @@ import android.icu.dev.test.UTF16Util;
  * Updates for supplementary code points:
  * Vladimir Weinstein & Markus Scherer
  */
+@MainTestShard
 public class NormalizerData {
 //    static final String copyright = "Copyright (C) 1998-2003 International Business Machines Corporation and Unicode, Inc.";
 

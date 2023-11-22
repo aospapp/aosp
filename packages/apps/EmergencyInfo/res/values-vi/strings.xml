@@ -80,7 +80,7 @@
     <string name="medical_conditions" msgid="3555690011498283592">"Ghi chú y tế"</string>
     <string name="unknown_medical_conditions" msgid="8051364895172053770">"Không xác định"</string>
     <string name="medical_conditions_hint" msgid="6959152183029062882">"Ví dụ: bệnh hen"</string>
-    <string name="organ_donor" msgid="5953509460007124827">"Người hiến tạng"</string>
+    <string name="organ_donor" msgid="5953509460007124827">"Hiến tạng"</string>
     <string name="unknown_organ_donor" msgid="2780515342875494225">"Không xác định"</string>
     <string name="yes" msgid="5829765567799916128">"Có"</string>
     <string name="no" msgid="1681689233660683509">"Không"</string>
@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Xóa tất cả thông tin và liên hệ?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Thêm thông tin y tế và liên hệ khẩn cấp có thể giúp ích cho những người ứng cứu đầu tiên trong trường hợp khẩn cấp.\n\nBất cứ ai cũng có thể đọc được thông tin này từ màn hình khóa và quay số gọi cho các liên hệ của bạn bằng cách nhấn vào tên của họ mà không cần mở khóa điện thoại của bạn."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Thêm thông tin khẩn cấp"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Giúp những người ứng cứu đầu tiên tìm thấy thông tin quan trọng"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Cho phép những người phản hồi đầu tiên xem thông tin"</string>
 </resources>

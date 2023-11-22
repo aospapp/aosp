@@ -136,7 +136,9 @@ public class USBAudioPeripheralRecordActivity extends USBAudioPeripheralPlayerAc
     // USBAudioPeripheralActivity
     //
     public void updateConnectStatus() {
-        getPassButton().setEnabled(mOutputDevInfo != null);
+        mRecordBtn.setEnabled(mIsPeripheralAttached && mSelectedProfile != null);
+        mRecordLoopbackBtn.setEnabled(mIsPeripheralAttached && mSelectedProfile != null);
+        getPassButton().setEnabled(mSelectedProfile != null && mOutputDevInfo != null);
     }
 
     public class LocalClickListener implements View.OnClickListener {

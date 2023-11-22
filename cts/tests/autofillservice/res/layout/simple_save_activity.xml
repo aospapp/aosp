@@ -36,12 +36,14 @@
         <EditText
             android:id="@+id/input"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:imeOptions="flagNoFullscreen" />
         <EditText
             android:id="@+id/password"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:inputType="textPassword"/>
+            android:inputType="textPassword"
+            android:imeOptions="flagNoFullscreen" />
     </LinearLayout>
 
     <LinearLayout

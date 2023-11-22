@@ -43,8 +43,46 @@ class BtFunhausBaseTest(BtMetricsBaseTest):
     def __init__(self, controllers):
         BtMetricsBaseTest.__init__(self, controllers)
         self.ad = self.android_devices[0]
+        self.dongle = self.relay_devices[0]
+
+    def _pair_devices(self):
+        self.ad.droid.bluetoothStartPairingHelper(False)
+        self.dongle.enter_pairing_mode()
+
+        self.ad.droid.bluetoothBond(self.dongle.mac_address)
+
+        end_time = time.time() + 20
+        self.ad.log.info("Verifying devices are bonded")
+        while time.time() < end_time:
+            bonded_devices = self.ad.droid.bluetoothGetBondedDevices()
+
+            for d in bonded_devices:
+                if d['address'] == self.dongle.mac_address:
+                    self.ad.log.info("Successfully bonded to device.")
+                    self.log.info("Bonded devices:\n{}".format(bonded_devices))
+                return True
+        self.ad.log.info("Failed to bond devices.")
+        return False
+
+    def setup_test(self):
+        super(BtFunhausBaseTest, self).setup_test()
+        self.dongle.setup()
+        tries = 5
+        # Since we are not concerned with pairing in this test, try 5 times.
+        while tries > 0:
+            if self._pair_devices():
+                return True
+            else:
+                tries -= 1
+        return False
+
+    def teardown_test(self):
+        super(BtFunhausBaseTest, self).teardown_test()
+        self.dongle.clean_up()
+        return True
 
     def on_fail(self, test_name, begin_time):
+        self.dongle.clean_up()
         self._collect_bluetooth_manager_dumpsys_logs(self.android_devices)
         super(BtFunhausBaseTest, self).on_fail(test_name, begin_time)
 
@@ -80,8 +118,8 @@ class BtFunhausBaseTest(BtMetricsBaseTest):
             music_path = os.path.join(self.user_params[Config.key_config_path],
                                       music_path)
             if not os.path.isdir(music_path):
-                self.log.error("Unable to find music directory {}.".format(
-                    music_path))
+                self.log.error(
+                    "Unable to find music directory {}.".format(music_path))
                 return False
         if type(music_path) is list:
             for item in music_path:
@@ -119,7 +157,7 @@ class BtFunhausBaseTest(BtMetricsBaseTest):
         :return: None
         """
         self.ad.droid.mediaPlayOpen("file:///sdcard/Music/{}".format(
-            self.music_file_to_play))
+            self.music_file_to_play.split("/")[-1]))
         self.ad.droid.mediaPlaySetLooping(True)
         self.ad.log.info("Music is now playing.")
 
@@ -144,7 +182,7 @@ class BtFunhausBaseTest(BtMetricsBaseTest):
         while time.time() < end_time:
             if not self.ad.droid.bluetoothCheckState():
                 self.ad.log.error("Device {}'s Bluetooth state is off.".format(
-                    serial))
+                    self.ad.serial))
                 return False
             if self.ad.droid.bluetoothGetConnectedDevices() == 0:
                 self.ad.log.error(

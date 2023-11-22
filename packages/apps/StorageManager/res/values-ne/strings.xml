@@ -19,7 +19,7 @@
     <string name="app_name" msgid="963247385700831716">"भण्डारण प्रबन्धक"</string>
     <string name="cancel" msgid="7021218262867558825">"रद्द गर्नुहोस्"</string>
     <string name="storage_menu_free" msgid="1878247401436882778">"ठाउँ खाली गर्नुहोस्"</string>
-    <string name="deletion_helper_title" msgid="7928959984891140427">"हटाइने वस्तुहरू चयन गर्नु"</string>
+    <string name="deletion_helper_title" msgid="3526170325226275927">"हटाइएका बस्तुहरू"</string>
     <string name="deletion_helper_app_summary" msgid="4904590040180275237">"<xliff:g id="DAYS">%1$d</xliff:g> दिन पहिले"</string>
     <!-- no translation found for deletion_helper_app_summary_item_size (3770886184921427886) -->
     <skip />
@@ -35,8 +35,9 @@
     <skip />
     <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
     <skip />
-    <string name="deletion_helper_clear_dialog_message" msgid="4896104662649947320">"तपाईँको यन्त्रबाट <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> हटाइने छ"</string>
-    <string name="deletion_helper_clear_dialog_remove" msgid="3386502418767917932">"हटाउनुहोस्"</string>
+    <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"ठाउँ खाली गर्नुहोस्"</string>
+    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"सामग्रीको <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> लाई तपाईंको यन्त्रबाट हटाइनेछ"</string>
+    <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"ठाउँ खाली गर्नुहोस्"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"भण्डारणको स्वतः व्यवस्थापन गर्ने हो?"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"अहिले <xliff:g id="USED">%1$s</xliff:g> खाली छ। भण्डारण प्रबन्धकलाई तपाईँको यन्त्रबाट ब्याक अप गरिएको सामग्री हटाएर स्वतः ठाउँ खाली गर्न दिने हो?"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"पर्दैन, धन्यवाद"</string>
@@ -57,10 +58,10 @@
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"वस्तुहरू भेट्टाउँदै…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"सबै वस्तुहरू देखाउनुहोस्"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"हालैका वस्तुहरू लुकाउनुहोस्"</string>
-    <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"तपाईँको यन्त्रबाट <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> हटाइने छ"</string>
+    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"सामग्रीको <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> लाई तपाईंको यन्त्रबाट हटाइनेछ"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"तपाईंको भण्डारण अहिले भण्डारण प्रबन्धकद्वारा व्यवस्थापन भइरहेको छ"</string>
-    <string name="empty_state_title" msgid="4033285438176545309">"हटाउनुपर्ने कुनै कुरा छैन"</string>
+    <string name="empty_state_title" msgid="4033285438176545309">"हटाउनु पर्ने कुनै कुरा छैन"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"हालैका वस्तुहरूको समीक्षा गर्नुहोस्"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"हटाउनुपर्ने कुनै पुराना फाइलहरू छैनन्। ठाउँ खाली गर्नका लागि हालैका तस्बिर, भिडियो तथा अनुप्रयोगहरू हटाउनुहोस्।"</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"हटाउनु पर्ने कुनै पुराना फाइलहरू छैनन्। ठाउँ खाली गर्नाका लागि हालैका तस्बिर, भिडियो तथा अनुप्रयोगहरू हटाउनुहोस्।"</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> लाई <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> खाली ठाउँ आवश्यक हुन्छ"</string>
 </resources>

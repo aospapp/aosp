@@ -2,7 +2,7 @@
   This library will parse the coreboot table in memory and extract those required
   information.
 
-  Copyright (c) 2014 - 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2014 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -33,7 +33,7 @@
   @return          the UNIT64 value after convertion.
 
 **/
-UINT64 
+UINT64
 cb_unpack64 (
   IN struct cbuint64 val
   )
@@ -94,6 +94,7 @@ CbCheckSum16 (
 
 **/
 VOID *
+EFIAPI
 FindCbTag (
   IN  VOID     *Start,
   IN  UINT32   Tag
@@ -175,6 +176,7 @@ FindCbTag (
 
 **/
 RETURN_STATUS
+EFIAPI
 FindCbMemTable (
   IN  struct cbmem_root  *Root,
   IN  UINT32             TableId,
@@ -216,7 +218,8 @@ FindCbMemTable (
         *pMemTableSize = Entries[Idx].size;
       }
 
-      DEBUG ((EFI_D_INFO, "Find CbMemTable Id 0x%x, base %p, size 0x%x\n", TableId, *pMemTable, *pMemTableSize));
+      DEBUG ((EFI_D_INFO, "Find CbMemTable Id 0x%x, base %p, size 0x%x\n",
+        TableId, *pMemTable, Entries[Idx].size));
       return RETURN_SUCCESS;
     }
   }
@@ -228,18 +231,18 @@ FindCbMemTable (
 /**
   Acquire the memory information from the coreboot table in memory.
 
-  @param  pLowMemorySize     Pointer to the variable of low memory size
-  @param  pHighMemorySize    Pointer to the variable of high memory size
+  @param  MemInfoCallback     The callback routine
+  @param  pParam              Pointer to the callback routine parameter
 
   @retval RETURN_SUCCESS     Successfully find out the memory information.
-  @retval RETURN_INVALID_PARAMETER    Invalid input parameters.
   @retval RETURN_NOT_FOUND   Failed to find the memory information.
 
 **/
 RETURN_STATUS
+EFIAPI
 CbParseMemoryInfo (
-  OUT UINT64     *pLowMemorySize,
-  OUT UINT64     *pHighMemorySize
+  IN  CB_MEM_INFO_CALLBACK  MemInfoCallback,
+  IN  VOID                  *pParam
   )
 {
   struct cb_memory         *rec;
@@ -247,10 +250,6 @@ CbParseMemoryInfo (
   UINT64                   Start;
   UINT64                   Size;
   UINTN                    Index;
-
-  if ((pLowMemorySize == NULL) || (pHighMemorySize == NULL)) {
-    return RETURN_INVALID_PARAMETER;
-  }
 
   //
   // Get the coreboot memory table
@@ -264,9 +263,6 @@ CbParseMemoryInfo (
     return RETURN_NOT_FOUND;
   }
 
-  *pLowMemorySize = 0;
-  *pHighMemorySize = 0;
-
   for (Index = 0; Index < MEM_RANGE_COUNT(rec); Index++) {
     Range = MEM_RANGE_PTR(rec, Index);
     Start = cb_unpack64(Range->start);
@@ -274,18 +270,8 @@ CbParseMemoryInfo (
     DEBUG ((EFI_D_INFO, "%d. %016lx - %016lx [%02x]\n",
             Index, Start, Start + Size - 1, Range->type));
 
-    if (Range->type != CB_MEM_RAM) {
-      continue;
-    }
-
-    if (Start + Size < 0x100000000ULL) {
-      *pLowMemorySize = Start + Size;
-    } else {
-      *pHighMemorySize = Start + Size - 0x100000000ULL;
-    }
+    MemInfoCallback (Start, Size, Range->type, pParam);
   }
-
-  DEBUG ((EFI_D_INFO, "Low memory 0x%lx, High Memory 0x%lx\n", *pLowMemorySize, *pHighMemorySize));
 
   return RETURN_SUCCESS;
 }
@@ -304,6 +290,7 @@ CbParseMemoryInfo (
 
 **/
 RETURN_STATUS
+EFIAPI
 CbParseCbMemTable (
   IN  UINT32     TableId,
   OUT VOID       **pMemTable,
@@ -360,6 +347,7 @@ CbParseCbMemTable (
 
 **/
 RETURN_STATUS
+EFIAPI
 CbParseAcpiTable (
   OUT VOID       **pMemTable,
   OUT UINT32     *pMemTableSize
@@ -380,6 +368,7 @@ CbParseAcpiTable (
 
 **/
 RETURN_STATUS
+EFIAPI
 CbParseSmbiosTable (
   OUT VOID       **pMemTable,
   OUT UINT32     *pMemTableSize
@@ -403,6 +392,7 @@ CbParseSmbiosTable (
 
 **/
 RETURN_STATUS
+EFIAPI
 CbParseFadtInfo (
   OUT UINTN      *pPmCtrlReg,
   OUT UINTN      *pPmTimerReg,
@@ -468,15 +458,24 @@ CbParseFadtInfo (
         }
         DEBUG ((EFI_D_INFO, "Reset Value 0x%x\n", Fadt->ResetValue));
 
-        if (pPmEvtReg != NULL) {   
+        if (pPmEvtReg != NULL) {
           *pPmEvtReg = Fadt->Pm1aEvtBlk;
           DEBUG ((EFI_D_INFO, "PmEvt Reg 0x%x\n", Fadt->Pm1aEvtBlk));
         }
 
-        if (pPmGpeEnReg != NULL) {   
+        if (pPmGpeEnReg != NULL) {
           *pPmGpeEnReg = Fadt->Gpe0Blk + Fadt->Gpe0BlkLen / 2;
           DEBUG ((EFI_D_INFO, "PmGpeEn Reg 0x%x\n", *pPmGpeEnReg));
         }
+
+        //
+        // Verify values for proper operation
+        //
+        ASSERT(Fadt->Pm1aCntBlk != 0);
+        ASSERT(Fadt->PmTmrBlk != 0);
+        ASSERT(Fadt->ResetReg.Address != 0);
+        ASSERT(Fadt->Pm1aEvtBlk != 0);
+        ASSERT(Fadt->Gpe0Blk != 0);
 
         return RETURN_SUCCESS;
       }
@@ -509,15 +508,15 @@ CbParseFadtInfo (
           *pResetValue = Fadt->ResetValue;
         DEBUG ((EFI_D_ERROR, "Reset Value 0x%x\n", Fadt->ResetValue));
 
-        if (pPmEvtReg != NULL) {   
+        if (pPmEvtReg != NULL) {
           *pPmEvtReg = Fadt->Pm1aEvtBlk;
            DEBUG ((EFI_D_INFO, "PmEvt Reg 0x%x\n", Fadt->Pm1aEvtBlk));
         }
 
-        if (pPmGpeEnReg != NULL) {   
+        if (pPmGpeEnReg != NULL) {
           *pPmGpeEnReg = Fadt->Gpe0Blk + Fadt->Gpe0BlkLen / 2;
           DEBUG ((EFI_D_INFO, "PmGpeEn Reg 0x%x\n", *pPmGpeEnReg));
-        }        
+        }
         return RETURN_SUCCESS;
       }
     }
@@ -531,17 +530,24 @@ CbParseFadtInfo (
 
   @param  pRegBase           Pointer to the base address of serial port registers
   @param  pRegAccessType     Pointer to the access type of serial port registers
+  @param  pRegWidth          Pointer to the register width in bytes
   @param  pBaudrate          Pointer to the serial port baudrate
+  @param  pInputHertz        Pointer to the input clock frequency
+  @param  pUartPciAddr       Pointer to the UART PCI bus, dev and func address
 
   @retval RETURN_SUCCESS     Successfully find the serial port information.
   @retval RETURN_NOT_FOUND   Failed to find the serial port information .
 
 **/
 RETURN_STATUS
+EFIAPI
 CbParseSerialInfo (
   OUT UINT32      *pRegBase,
   OUT UINT32      *pRegAccessType,
-  OUT UINT32      *pBaudrate
+  OUT UINT32      *pRegWidth,
+  OUT UINT32      *pBaudrate,
+  OUT UINT32      *pInputHertz,
+  OUT UINT32      *pUartPciAddr
   )
 {
   struct cb_serial    *CbSerial;
@@ -559,12 +565,24 @@ CbParseSerialInfo (
     *pRegBase = CbSerial->baseaddr;
   }
 
+  if (pRegWidth != NULL) {
+    *pRegWidth = CbSerial->regwidth;
+  }
+
   if (pRegAccessType != NULL) {
     *pRegAccessType = CbSerial->type;
   }
 
   if (pBaudrate != NULL) {
     *pBaudrate = CbSerial->baud;
+  }
+
+  if (pInputHertz != NULL) {
+    *pInputHertz = CbSerial->input_hertz;
+  }
+
+  if (pUartPciAddr != NULL) {
+    *pUartPciAddr = CbSerial->uart_pci_addr;
   }
 
   return RETURN_SUCCESS;
@@ -581,6 +599,7 @@ CbParseSerialInfo (
 
 **/
 RETURN_STATUS
+EFIAPI
 CbParseGetCbHeader (
   IN  UINTN  Level,
   OUT VOID   **HeaderPtr
@@ -619,6 +638,7 @@ CbParseGetCbHeader (
 
 **/
 RETURN_STATUS
+EFIAPI
 CbParseFbInfo (
   OUT FRAME_BUFFER_INFO       *pFbInfo
   )

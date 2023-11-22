@@ -217,7 +217,8 @@ status_t EmulatedQemuCameraDevice::stopDevice()
  ***************************************************************************/
 
 status_t EmulatedQemuCameraDevice::getCurrentFrame(void* buffer,
-                                                   uint32_t pixelFormat) {
+                                                   uint32_t pixelFormat,
+                                                   int64_t* timestamp) {
     if (!isStarted()) {
         ALOGE("%s: Device is not started", __FUNCTION__);
         return EINVAL;
@@ -236,12 +237,18 @@ status_t EmulatedQemuCameraDevice::getCurrentFrame(void* buffer,
         ALOGE("%s: No frame", __FUNCTION__);
         return EINVAL;
     }
+
+    if (timestamp != nullptr) {
+        *timestamp = mCameraThread->getPrimaryTimestamp();
+    }
+
     return getCurrentFrameImpl(reinterpret_cast<const uint8_t*>(frame),
                                reinterpret_cast<uint8_t*>(buffer),
                                pixelFormat);
 }
 
-status_t EmulatedQemuCameraDevice::getCurrentPreviewFrame(void* buffer) {
+status_t EmulatedQemuCameraDevice::getCurrentPreviewFrame(void* buffer,
+                                                          int64_t* timestamp) {
     if (!isStarted()) {
         ALOGE("%s: Device is not started", __FUNCTION__);
         return EINVAL;
@@ -259,6 +266,9 @@ status_t EmulatedQemuCameraDevice::getCurrentPreviewFrame(void* buffer) {
     if (previewFrame == nullptr) {
         ALOGE("%s: No frame", __FUNCTION__);
         return EINVAL;
+    }
+    if (timestamp != nullptr) {
+      *timestamp = mCameraThread->getPrimaryTimestamp();
     }
     memcpy(buffer, previewFrame, mTotalPixels * 4);
     return NO_ERROR;
@@ -280,7 +290,7 @@ const void* EmulatedQemuCameraDevice::getCurrentFrame() {
  * Worker thread management overrides.
  ***************************************************************************/
 
-bool EmulatedQemuCameraDevice::produceFrame(void* buffer)
+bool EmulatedQemuCameraDevice::produceFrame(void* buffer, int64_t* timestamp)
 {
     auto frameBufferPair = reinterpret_cast<FrameBufferPair*>(buffer);
     uint8_t* rawFrame = frameBufferPair->first;
@@ -292,7 +302,8 @@ bool EmulatedQemuCameraDevice::produceFrame(void* buffer)
                                                  mWhiteBalanceScale[0],
                                                  mWhiteBalanceScale[1],
                                                  mWhiteBalanceScale[2],
-                                                 mExposureCompensation);
+                                                 mExposureCompensation,
+                                                 timestamp);
     if (query_res != NO_ERROR) {
         ALOGE("%s: Unable to get current video frame: %s",
              __FUNCTION__, strerror(query_res));

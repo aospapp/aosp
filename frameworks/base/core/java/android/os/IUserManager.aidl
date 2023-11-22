@@ -35,12 +35,17 @@ interface IUserManager {
      * DO NOT MOVE - UserManager.h depends on the ordering of this function.
      */
     int getCredentialOwnerProfile(int userHandle);
+    int getProfileParentId(int userHandle);
+    /*
+     * END OF DO NOT MOVE
+     */
 
     UserInfo createUser(in String name, int flags);
     UserInfo createProfileForUser(in String name, int flags, int userHandle,
             in String[] disallowedPackages);
     UserInfo createRestrictedProfile(String name, int parentUserHandle);
     void setUserEnabled(int userHandle);
+    void setUserAdmin(int userId);
     void evictCredentialEncryptionKey(int userHandle);
     boolean removeUser(int userHandle);
     boolean removeUserEvenWhenDisallowed(int userHandle);
@@ -67,6 +72,7 @@ interface IUserManager {
     Bundle getUserRestrictions(int userHandle);
     boolean hasBaseUserRestriction(String restrictionKey, int userHandle);
     boolean hasUserRestriction(in String restrictionKey, int userHandle);
+    boolean hasUserRestrictionOnAnyUser(in String restrictionKey);
     void setUserRestriction(String key, boolean value, int userHandle);
     void setApplicationRestrictions(in String packageName, in Bundle restrictions,
             int userHandle);
@@ -75,9 +81,7 @@ interface IUserManager {
     void setDefaultGuestRestrictions(in Bundle restrictions);
     Bundle getDefaultGuestRestrictions();
     boolean markGuestForDeletion(int userHandle);
-    void setQuietModeEnabled(int userHandle, boolean enableQuietMode);
     boolean isQuietModeEnabled(int userHandle);
-    boolean trySetQuietModeDisabled(int userHandle, in IntentSender target);
     void setSeedAccountData(int userHandle, in String accountName,
             in String accountType, in PersistableBundle accountOptions, boolean persist);
     String getSeedAccountName();
@@ -94,4 +98,8 @@ interface IUserManager {
     boolean isUserUnlocked(int userId);
     boolean isUserRunning(int userId);
     boolean isUserNameSet(int userHandle);
+    boolean hasRestrictedProfiles();
+    boolean requestQuietModeEnabled(String callingPackage, boolean enableQuietMode, int userHandle, in IntentSender target);
+    long getUserStartRealtime();
+    long getUserUnlockRealtime();
 }

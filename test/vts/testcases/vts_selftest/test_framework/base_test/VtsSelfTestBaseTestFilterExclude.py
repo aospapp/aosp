@@ -39,6 +39,9 @@ class VtsSelfTestBaseTestFilterExclude(
         'suite2.test1_32bit',
         'suite2.test1_64bit',
         'suite3.test2_64bit',
+        # Since include_filter is empty, any pattern not matching the ones in
+        # exclude filter should pass
+        'other.test_names',
     ]
 
     SHOULD_NOT_PASS_FILTER = [
@@ -50,8 +53,19 @@ class VtsSelfTestBaseTestFilterExclude(
         'suite3.test1_32bit',
         'suite3.test1_64bit',
         'suite3.test2_32bit',
+        # The following test is added to exclude filter through
+        # filter's add_to_exclude_filter method when expand_bitness is True
+        'added.test1_32bit',
+        # The following test is added to include filter with negative pattern by
+        # filter's add_to_exclude_filter method when expand_bitness is True
+        'added.test2_64bit',
     ]
 
+    # Override
+    def setUpClass(self):
+        super(VtsSelfTestBaseTestFilterExclude, self).setUpClass()
+        self.test_filter.add_to_exclude_filter('added.test1')
+        self.test_filter.add_to_include_filter('-added.test2')
 
 if __name__ == "__main__":
     test_runner.main()

@@ -83,8 +83,10 @@ public class PathMeasureTest {
     public void testNextContour() {
         assertFalse(mPathMeasure.nextContour());
         mPath.addRect(1, 2, 3, 4, Path.Direction.CW);
+        mPath.addRect(1, 2, 3, 4, Path.Direction.CW);
         mPathMeasure.setPath(mPath, true);
         assertTrue(mPathMeasure.nextContour());
+        assertFalse(mPathMeasure.nextContour());
     }
 
     @Test

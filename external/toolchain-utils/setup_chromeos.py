@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 # Copyright 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -99,13 +99,15 @@ def TimeToCommonVersion(timestamp):
 def Main(argv):
   """Checkout the ChromeOS source."""
   parser = argparse.ArgumentParser()
-  parser.add_argument('--dir',
-                      dest='directory',
-                      help='Target directory for ChromeOS installation.')
-  parser.add_argument('--version',
-                      dest='version',
-                      default='latest_lkgm',
-                      help="""ChromeOS version. Can be:
+  parser.add_argument(
+      '--dir',
+      dest='directory',
+      help='Target directory for ChromeOS installation.')
+  parser.add_argument(
+      '--version',
+      dest='version',
+      default='latest_lkgm',
+      help="""ChromeOS version. Can be:
 (1) A release version in the format: 'X.X.X.X'
 (2) 'top' for top of trunk
 (3) 'latest_lkgm' for the latest lkgm version
@@ -113,31 +115,32 @@ def Main(argv):
 (5) 'latest_common' for the latest team common stable version
 (6) 'common' for the team common stable version before timestamp
 Default is 'latest_lkgm'.""")
-  parser.add_argument('--timestamp',
-                      dest='timestamp',
-                      default=None,
-                      help='Timestamps in epoch format. It will check out the'
-                      'latest LKGM or the latest COMMON version of ChromeOS'
-                      ' before the timestamp. Use in combination with'
-                      ' --version=latest or --version=common. Use '
-                      '"date -d <date string> +%s" to find epoch time')
-  parser.add_argument('--minilayout',
-                      dest='minilayout',
-                      default=False,
-                      action='store_true',
-                      help='Whether to checkout the minilayout (smaller '
-                      'checkout).')
-  parser.add_argument('--jobs',
-                      '-j',
-                      dest='jobs',
-                      help='Number of repo sync threads to use.')
-  parser.add_argument('--public',
-                      '-p',
-                      dest='public',
-                      default=False,
-                      action='store_true',
-                      help='Use the public checkout instead of the private '
-                      'one.')
+  parser.add_argument(
+      '--timestamp',
+      dest='timestamp',
+      default=None,
+      help='Timestamps in epoch format. It will check out the'
+      'latest LKGM or the latest COMMON version of ChromeOS'
+      ' before the timestamp. Use in combination with'
+      ' --version=latest or --version=common. Use '
+      '"date -d <date string> +%s" to find epoch time')
+  parser.add_argument(
+      '--minilayout',
+      dest='minilayout',
+      default=False,
+      action='store_true',
+      help='Whether to checkout the minilayout (smaller '
+      'checkout).')
+  parser.add_argument(
+      '--jobs', '-j', dest='jobs', help='Number of repo sync threads to use.')
+  parser.add_argument(
+      '--public',
+      '-p',
+      dest='public',
+      default=False,
+      action='store_true',
+      help='Use the public checkout instead of the private '
+      'one.')
 
   options = parser.parse_args(argv)
 
@@ -167,20 +170,16 @@ Default is 'latest_lkgm'.""")
     versions_repo = ('https://chromium.googlesource.com/'
                      'chromiumos/manifest-versions.git')
   else:
-    manifest_repo = (
-        'https://chrome-internal.googlesource.com/chromeos/'
-        'manifest-internal.git'
-    )
-    versions_repo = (
-        'https://chrome-internal.googlesource.com/chromeos/'
-        'manifest-versions.git'
-    )
+    manifest_repo = ('https://chrome-internal.googlesource.com/chromeos/'
+                     'manifest-internal.git')
+    versions_repo = ('https://chrome-internal.googlesource.com/chromeos/'
+                     'manifest-versions.git')
 
   if version == 'top':
     init = 'repo init -u %s' % manifest_repo
   elif version == 'latest_lkgm':
     manifests = manifest_versions.ManifestVersions()
-    version = manifests.TimeToVersion(time.mktime(time.gmtime()))
+    version = manifests.TimeToVersionChromeOS(time.mktime(time.gmtime()))
     version, manifest = version.split('.', 1)
     logger.GetLogger().LogOutput('found version %s.%s for latest LKGM' %
                                  (version, manifest))
@@ -194,8 +193,9 @@ Default is 'latest_lkgm'.""")
     manifests = manifest_versions.ManifestVersions()
     version = manifests.TimeToVersion(timestamp)
     version, manifest = version.split('.', 1)
-    logger.GetLogger().LogOutput('found version %s.%s for LKGM at timestamp %s'
-                                 % (version, manifest, timestamp))
+    logger.GetLogger().LogOutput(
+        'found version %s.%s for LKGM at timestamp %s' % (version, manifest,
+                                                          timestamp))
     init = ('repo init -u %s -m paladin/buildspecs/%s/%s.xml' %
             (versions_repo, version, manifest))
     del manifests

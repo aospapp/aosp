@@ -35,9 +35,9 @@ namespace android {
 
 // ---------------------------------------------------------------------------
 
-class SharedBuffer;
 class String8;
-class TextOutput;
+
+// DO NOT USE: please use std::u16string
 
 //! This is a string holding UTF-16 characters.
 class String16
@@ -67,7 +67,6 @@ public:
 
     inline  const char16_t*     string() const;
 
-//TODO(b/35363681): remove
 private:
     static inline std::string   std_string(const String16& str);
 public:

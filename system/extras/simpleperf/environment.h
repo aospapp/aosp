@@ -30,6 +30,8 @@
 #include <string>
 #include <vector>
 
+#include <android-base/test_utils.h>
+
 #include "build_id.h"
 #include "perf_regs.h"
 
@@ -70,7 +72,6 @@ bool GetValidThreadsFromThreadString(const std::string& tid_str, std::set<pid_t>
 
 bool CheckPerfEventLimit();
 bool GetMaxSampleFrequency(uint64_t* max_sample_freq);
-bool CheckSampleFrequency(uint64_t sample_freq);
 bool CheckKernelSymbolAddresses();
 bool CanRecordRawData();
 
@@ -92,7 +93,7 @@ static inline int gettid() {
 ArchType GetMachineArch();
 void PrepareVdsoFile();
 
-int WaitForAppProcess(const std::string& package_name);
+std::set<pid_t> WaitForAppProcesses(const std::string& package_name);
 bool RunInAppContext(const std::string& app_package_name, const std::string& cmd,
                      const std::vector<std::string>& args, size_t workload_args_size,
                      const std::string& output_filepath, bool need_tracepoint_events);
@@ -100,5 +101,21 @@ bool RunInAppContext(const std::string& app_package_name, const std::string& cmd
 // Below two functions are only used in cts tests, to force stat/record cmd to run in app's context.
 void SetDefaultAppPackageName(const std::string& package_name);
 const std::string& GetDefaultAppPackageName();
+void AllowMoreOpenedFiles();
+
+class ScopedTempFiles {
+ public:
+  ScopedTempFiles(const std::string& tmp_dir);
+  ~ScopedTempFiles();
+  // If delete_in_destructor = true, the temp file will be deleted in the destructor of
+  // ScopedTempFile. Otherwise, it should be deleted by the caller.
+  static std::unique_ptr<TemporaryFile> CreateTempFile(bool delete_in_destructor = true);
+
+ private:
+  static std::string tmp_dir_;
+  static std::vector<std::string> files_to_delete_;
+};
+
+bool SignalIsIgnored(int signo);
 
 #endif  // SIMPLE_PERF_ENVIRONMENT_H_

@@ -17,10 +17,7 @@
 #include "node.h"
 #include "xattr.h"
 
-#define XATTR_CREATE 0x1
-#define XATTR_REPLACE 0x2
-
-static void *read_all_xattrs(struct f2fs_sb_info *sbi, struct f2fs_node *inode)
+void *read_all_xattrs(struct f2fs_sb_info *sbi, struct f2fs_node *inode)
 {
 	struct f2fs_xattr_header *header;
 	void *txattr_addr;
@@ -80,7 +77,6 @@ static void write_all_xattrs(struct f2fs_sb_info *sbi,
 	u64 inline_size = inline_xattr_size(&inode->i);
 	int ret;
 
-	ASSERT(inode->i.i_inline & F2FS_INLINE_XATTR);
 	memcpy(inline_xattr_addr(&inode->i), txattr_addr, inline_size);
 
 	if (hsize <= inline_size)

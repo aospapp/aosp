@@ -19,7 +19,7 @@ package com.android.server.wifi.hotspot2.anqp;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 import android.util.Pair;
 
 import org.junit.Test;

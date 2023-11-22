@@ -605,4 +605,16 @@ class UnixCopyFile {
     static native void transfer(int dst, int src, long addressToPollForCancel)
         throws UnixException;
 
+    // Android-removed: Code to load native libraries, doesn't make sense on Android.
+    /*
+    static {
+        AccessController.doPrivileged(new PrivilegedAction<Void>() {
+            @Override
+            public Void run() {
+                System.loadLibrary("nio");
+                return null;
+            }});
+    }
+    */
+
 }

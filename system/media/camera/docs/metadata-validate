@@ -25,7 +25,7 @@ then
     exit
 fi
 
-schema=$thisdir/metadata_properties.xsd
+schema=$thisdir/metadata_definitions.xsd
 doc=$1
 
 xmllint --noout --schema $schema $doc || exit 1

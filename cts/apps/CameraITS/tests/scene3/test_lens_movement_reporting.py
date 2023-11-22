@@ -37,34 +37,26 @@ CHART_SCALE_STOP = 1.35
 CHART_SCALE_STEP = 0.025
 
 
-def test_lens_movement_reporting(cam, props, fmt, sensitivity, exp, af_fd):
+def test_lens_movement_reporting(cam, props, fmt, gain, exp, af_fd, chart):
     """Return fd, sharpness, lens state of the output images.
 
     Args:
         cam: An open device session.
         props: Properties of cam
         fmt: dict; capture format
-        sensitivity: Sensitivity for the 3A request as defined in
+        gain: Sensitivity for the 3A request as defined in
             android.sensor.sensitivity
         exp: Exposure time for the 3A request as defined in
             android.sensor.exposureTime
         af_fd: Focus distance for the 3A request as defined in
             android.lens.focusDistance
+        chart: Object that contains chart information
 
     Returns:
         Object containing reported sharpness of the output image, keyed by
         the following string:
             'sharpness'
     """
-
-    # initialize chart class
-    chart = its.cv2image.Chart(CHART_FILE, CHART_HEIGHT, CHART_DISTANCE,
-                               CHART_SCALE_START, CHART_SCALE_STOP,
-                               CHART_SCALE_STEP)
-
-    # find chart location
-    xnorm, ynorm, wnorm, hnorm = chart.locate(cam, props, fmt, sensitivity,
-                                              exp, af_fd)
 
     # initialize variables and take data sets
     data_set = {}
@@ -74,7 +66,7 @@ def test_lens_movement_reporting(cam, props, fmt, sensitivity, exp, af_fd):
     fds = sorted(fds * NUM_IMGS)
     reqs = []
     for i, fd in enumerate(fds):
-        reqs.append(its.objects.manual_capture_request(sensitivity, exp))
+        reqs.append(its.objects.manual_capture_request(gain, exp))
         reqs[i]['android.lens.focusDistance'] = fd
     caps = cam.do_capture(reqs, fmt)
     for i, cap in enumerate(caps):
@@ -92,12 +84,12 @@ def test_lens_movement_reporting(cam, props, fmt, sensitivity, exp, af_fd):
         print ' current lens location (diopters): %.3f' % data['loc']
         print ' lens moving %r' % data['lens_moving']
         y, _, _ = its.image.convert_capture_to_planes(cap, props)
-        y = its.image.flip_mirror_img_per_argv(y)
-        chart = its.image.normalize_img(its.image.get_image_patch(y,
-                                                                  xnorm, ynorm,
-                                                                  wnorm, hnorm))
-        its.image.write_image(chart, '%s_i=%d_chart.jpg' % (NAME, i))
-        data['sharpness'] = white_level*its.image.compute_image_sharpness(chart)
+        y = its.image.rotate_img_per_argv(y)
+        chart.img = its.image.normalize_img(its.image.get_image_patch(
+                y, chart.xnorm, chart.ynorm, chart.wnorm, chart.hnorm))
+        its.image.write_image(chart.img, '%s_i=%d_chart.jpg' % (NAME, i))
+        data['sharpness'] = white_level*its.image.compute_image_sharpness(
+                chart.img)
         print 'Chart sharpness: %.1f\n' % data['sharpness']
         data_set[i] = data
     return data_set
@@ -110,18 +102,27 @@ def main():
     """
 
     print '\nStarting test_lens_movement_reporting.py'
+    # check skip conditions
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
         its.caps.skip_unless(not its.caps.fixed_focus(props))
-        its.caps.skip_unless(its.caps.lens_approx_calibrated(props))
+        its.caps.skip_unless(its.caps.read_3a(props) and
+                             its.caps.lens_approx_calibrated(props))
+    # initialize chart class
+    chart = its.cv2image.Chart(CHART_FILE, CHART_HEIGHT, CHART_DISTANCE,
+                               CHART_SCALE_START, CHART_SCALE_STOP,
+                               CHART_SCALE_STEP)
+
+    with its.device.ItsSession() as cam:
+        mono_camera = its.caps.mono_camera(props)
         min_fd = props['android.lens.info.minimumFocusDistance']
         fmt = {'format': 'yuv', 'width': VGA_WIDTH, 'height': VGA_HEIGHT}
 
         # Get proper sensitivity, exposure time, and focus distance with 3A.
-        s, e, _, _, fd = cam.do_3a(get_results=True)
+        s, e, _, _, fd = cam.do_3a(get_results=True, mono_camera=mono_camera)
 
         # Get sharpness for each focal distance
-        d = test_lens_movement_reporting(cam, props, fmt, s, e, fd)
+        d = test_lens_movement_reporting(cam, props, fmt, s, e, fd, chart)
         for k in sorted(d):
             print ('i: %d\tfd: %.3f\tlens location (diopters): %.3f \t'
                    'sharpness: %.1f  \tlens_moving: %r \t'

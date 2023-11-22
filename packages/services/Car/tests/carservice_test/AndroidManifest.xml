@@ -15,33 +15,48 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.car.test"
-        android:sharedUserId="android.uid.system" >
+        package="com.android.car.test" android:sharedUserId="android.uid.system">
 
     <uses-permission android:name="android.Manifest.permission.MODIFY_AUDIO_ROUTING" />
-    <uses-permission android:name="android.car.permission.CAR_HVAC" />
-    <uses-permission android:name="android.car.permission.CAR_RADIO" />
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_CLIMATE" />
+    <uses-permission android:name="android.car.permission.ADJUST_CAR_CABIN" />
+    <uses-permission android:name="android.car.permission.CAR_ENERGY" />
     <uses-permission android:name="android.car.permission.CONTROL_APP_BLOCKING" />
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME" />
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_SETTINGS" />
-    <instrumentation android:name="android.test.InstrumentationTestRunner"
+    <uses-permission android:name="android.car.permission.STORAGE_MONITORING" />
+
+    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
             android:targetPackage="com.android.car.test"
             android:label="Tests for Car APIs"/>
 
-    <application android:label="CarServiceTest">
+        <application android:label="CarServiceTest" android:name=".CarServiceTestApp"
+            android:debuggable="true">
         <uses-library android:name="android.test.runner" />
-        <service android:name="com.android.car.test.TestAppBlockingPolicyService"
+        <service android:name="com.android.car.TestAppBlockingPolicyService"
             android:permission="android.car.permission.CONTROL_APP_BLOCKING">
             <intent-filter>
                 <action android:name="android.car.content.pm.CarAppBlockingPolicyService"/>
             </intent-filter>
         </service>
-        <activity android:name="com.android.car.test.SystemActivityMonitoringServiceTest$ActivityA" />
-        <activity android:name="com.android.car.test.SystemActivityMonitoringServiceTest$ActivityB"
-            android:taskAffinity="com.android.car.carservicetest.activity"/>
-        <activity android:name="com.android.car.test.SystemActivityMonitoringServiceTest$ActivityC"
-            android:process="com.android.car.carservicetest.activityC"/>
-        <activity android:name="com.android.car.test.SystemActivityMonitoringServiceTest$BlockingActivity"
-            android:taskAffinity="com.android.car.carservicetest.block"/>
+        <service android:name="com.android.car.SimpleVmsPublisherClientService"
+                 android:exported="true" />
+        <service android:name="com.android.car.VmsPublisherClientMockService"
+                 android:exported="true" />
+
+        <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityA"/>
+        <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityB"/>
+        <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityC"/>
+        <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$BlockingActivity"
+                  android:taskAffinity="com.android.car.carservicetest.block"/>
+
+        <receiver android:name="com.android.car.CarStorageMonitoringBroadcastReceiver"
+            android:exported="true"
+            android:permission="android.car.permission.STORAGE_MONITORING">
+            <intent-filter>
+                <action android:name="android.car.storagemonitoring.EXCESSIVE_IO"/>
+            </intent-filter>
+        </receiver>
+
     </application>
 </manifest>

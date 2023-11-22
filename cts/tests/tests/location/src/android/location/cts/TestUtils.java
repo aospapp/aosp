@@ -16,6 +16,10 @@
 
 package android.location.cts;
 
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.util.Log;
+
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -47,6 +51,7 @@ public class TestUtils {
         }
         return false;
     }
+
     public static boolean waitForWithCondition(int timeInSec, Callable<Boolean> callback)
         throws Exception {
         long waitTimeRounds = (TimeUnit.SECONDS.toMillis(timeInSec)) / STANDARD_SLEEP_TIME_MS;
@@ -57,4 +62,12 @@ public class TestUtils {
         return false;
     }
 
+    public static boolean deviceHasGpsFeature(Context context) {
+        // If device does not have a GPS, skip the test.
+        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS)) {
+            return true;
+        }
+        Log.w("LocationTestUtils", "GPS feature not present on device, skipping GPS test.");
+        return false;
+    }
 }

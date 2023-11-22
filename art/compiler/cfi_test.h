@@ -17,16 +17,16 @@
 #ifndef ART_COMPILER_CFI_TEST_H_
 #define ART_COMPILER_CFI_TEST_H_
 
-#include <vector>
 #include <memory>
 #include <sstream>
+#include <vector>
 
 #include "arch/instruction_set.h"
 #include "base/enums.h"
 #include "debug/dwarf/dwarf_constants.h"
 #include "debug/dwarf/dwarf_test.h"
 #include "debug/dwarf/headers.h"
-#include "disassembler/disassembler.h"
+#include "disassembler.h"
 #include "gtest/gtest.h"
 #include "thread.h"
 
@@ -68,7 +68,7 @@ class CFITest : public dwarf::DwarfTest {
                                              : &Thread::DumpThreadOffset<PointerSize::k32>);
     std::unique_ptr<Disassembler> disasm(Disassembler::Create(isa, opts));
     std::stringstream stream;
-    const uint8_t* base = actual_asm.data() + (isa == kThumb2 ? 1 : 0);
+    const uint8_t* base = actual_asm.data() + (isa == InstructionSet::kThumb2 ? 1 : 0);
     disasm->Dump(stream, base, base + actual_asm.size());
     ReformatAsm(&stream, &lines);
     // Print CFI and assembly interleaved.

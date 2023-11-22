@@ -53,10 +53,10 @@ func (p *relocationPacker) packingInit(ctx BaseModuleContext) {
 	if ctx.Target().Os != android.Android {
 		enabled = false
 	}
-	if ctx.AConfig().Getenv("DISABLE_RELOCATION_PACKER") == "true" {
+	if ctx.Config().Getenv("DISABLE_RELOCATION_PACKER") == "true" {
 		enabled = false
 	}
-	if ctx.sdk() {
+	if ctx.useSdk() {
 		enabled = false
 	}
 	if p.Properties.Pack_relocations != nil &&
@@ -68,14 +68,14 @@ func (p *relocationPacker) packingInit(ctx BaseModuleContext) {
 }
 
 func (p *relocationPacker) needsPacking(ctx ModuleContext) bool {
-	if ctx.AConfig().EmbeddedInMake() {
+	if ctx.Config().EmbeddedInMake() {
 		return false
 	}
 	return p.Properties.PackingRelocations
 }
 
 func (p *relocationPacker) pack(ctx ModuleContext, in, out android.ModuleOutPath, flags builderFlags) {
-	ctx.ModuleBuild(pctx, android.ModuleBuildParams{
+	ctx.Build(pctx, android.BuildParams{
 		Rule:        relocationPackerRule,
 		Description: "pack relocations",
 		Output:      out,

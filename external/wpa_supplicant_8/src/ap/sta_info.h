@@ -1,6 +1,6 @@
 /*
  * hostapd / Station table
- * Copyright (c) 2002-2011, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2002-2017, Jouni Malinen <j@w1.fi>
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -12,11 +12,11 @@
 #ifdef CONFIG_MESH
 /* needed for mesh_plink_state enum */
 #include "common/defs.h"
-#include "common/wpa_common.h"
 #endif /* CONFIG_MESH */
 
 #include "list.h"
 #include "vlan.h"
+#include "common/wpa_common.h"
 #include "common/ieee802_11_defs.h"
 
 /* STA flags */
@@ -48,6 +48,7 @@
  * Supported Rates IEs). */
 #define WLAN_SUPP_RATES_MAX 32
 
+struct hostapd_data;
 
 struct mbo_non_pref_chan_info {
 	struct mbo_non_pref_chan_info *next;
@@ -173,11 +174,11 @@ struct sta_info {
 	struct os_reltime sa_query_start;
 #endif /* CONFIG_IEEE80211W */
 
-#ifdef CONFIG_INTERWORKING
+#if defined(CONFIG_INTERWORKING) || defined(CONFIG_DPP)
 #define GAS_DIALOG_MAX 8 /* Max concurrent dialog number */
 	struct gas_dialog_info *gas_dialog;
 	u8 gas_dialog_next;
-#endif /* CONFIG_INTERWORKING */
+#endif /* CONFIG_INTERWORKING || CONFIG_DPP */
 
 	struct wpabuf *wps_ie; /* WPS IE from (Re)Association Request */
 	struct wpabuf *p2p_ie; /* P2P IE from (Re)Association Request */
@@ -225,13 +226,37 @@ struct sta_info {
 #ifdef CONFIG_FILS
 	u8 fils_snonce[FILS_NONCE_LEN];
 	u8 fils_session[FILS_SESSION_LEN];
+	u8 fils_erp_pmkid[PMKID_LEN];
 	u8 *fils_pending_assoc_req;
 	size_t fils_pending_assoc_req_len;
 	unsigned int fils_pending_assoc_is_reassoc:1;
 	unsigned int fils_dhcp_rapid_commit_proxy:1;
+	unsigned int fils_erp_pmkid_set:1;
+	unsigned int fils_drv_assoc_finish:1;
 	struct wpabuf *fils_hlp_resp;
 	struct wpabuf *hlp_dhcp_discover;
+	void (*fils_pending_cb)(struct hostapd_data *hapd, struct sta_info *sta,
+				u16 resp, struct wpabuf *data, int pub);
+#ifdef CONFIG_FILS_SK_PFS
+	struct crypto_ecdh *fils_ecdh;
+#endif /* CONFIG_FILS_SK_PFS */
+	struct wpabuf *fils_dh_ss;
+	struct wpabuf *fils_g_sta;
 #endif /* CONFIG_FILS */
+
+#ifdef CONFIG_OWE
+	u8 *owe_pmk;
+	size_t owe_pmk_len;
+	struct crypto_ecdh *owe_ecdh;
+	u16 owe_group;
+#endif /* CONFIG_OWE */
+
+#ifdef CONFIG_TESTING_OPTIONS
+	enum wpa_alg last_tk_alg;
+	int last_tk_key_idx;
+	u8 last_tk[WPA_TK_MAX_LEN];
+	size_t last_tk_len;
+#endif /* CONFIG_TESTING_OPTIONS */
 };
 
 
@@ -250,8 +275,6 @@ struct sta_info {
 /* Number of seconds to keep STA entry after it has been deauthenticated. */
 #define AP_MAX_INACTIVITY_AFTER_DEAUTH (1 * 5)
 
-
-struct hostapd_data;
 
 int ap_for_each_sta(struct hostapd_data *hapd,
 		    int (*cb)(struct hostapd_data *hapd, struct sta_info *sta,

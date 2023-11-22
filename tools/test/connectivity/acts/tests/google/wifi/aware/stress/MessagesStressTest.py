@@ -17,6 +17,7 @@
 import queue
 
 from acts import asserts
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.wifi.aware import aware_const as aconsts
 from acts.test_utils.wifi.aware import aware_test_utils as autils
 from acts.test_utils.wifi.aware.AwareBaseTest import AwareBaseTest
@@ -29,7 +30,19 @@ KEY_RX_COUNT = "rx_count"
 
 class MessagesStressTest(AwareBaseTest):
   """Set of stress tests for Wi-Fi Aware L2 (layer 2) message exchanges."""
+
+  # Number of iterations in the stress test (number of messages)
   NUM_ITERATIONS = 100
+
+  # Maximum permitted percentage of messages which fail to be transmitted
+  # correctly
+  MAX_TX_FAILURE_PERCENTAGE = 2
+
+  # Maximum permitted percentage of messages which are received more than once
+  # (indicating, most likely, that the ACK wasn't received and the message was
+  # retransmitted)
+  MAX_DUPLICATE_RX_PERCENTAGE = 2
+
   SERVICE_NAME = "GoogleTestServiceXY"
 
   def __init__(self, controllers):
@@ -184,6 +197,7 @@ class MessagesStressTest(AwareBaseTest):
 
   #######################################################################
 
+  @test_tracker_info(uuid="e88c060f-4ca7-41c1-935a-d3d62878ec0b")
   def test_stress_message(self):
     """Stress test for bi-directional message transmission and reception."""
     p_dut = self.android_devices[0]
@@ -250,6 +264,9 @@ class MessagesStressTest(AwareBaseTest):
     # clear errors
     asserts.assert_equal(results["tx_unknown_ids"], 0, "Message ID corruption",
                          results)
+    asserts.assert_equal(results["tx_count_neither"], 0,
+                         "Tx message with no success or fail indication",
+                         results)
     asserts.assert_equal(results["tx_count_duplicate_fail"], 0,
                          "Duplicate Tx fail messages", results)
     asserts.assert_equal(results["tx_count_duplicate_success"], 0,
@@ -265,5 +282,15 @@ class MessagesStressTest(AwareBaseTest):
                          "Message received but Tx didn't get ACK", results)
     asserts.assert_equal(results["rx_count_fail_tx_indication"], 0,
                          "Message received but Tx didn't get ACK", results)
+
+    # permissible failures based on thresholds
+    asserts.assert_true(results["tx_count_fail"] <= (
+          self.MAX_TX_FAILURE_PERCENTAGE * self.NUM_ITERATIONS / 100),
+                        "Number of Tx failures exceeds threshold",
+                        extras=results)
+    asserts.assert_true(results["rx_count_duplicate"] <= (
+        self.MAX_DUPLICATE_RX_PERCENTAGE * self.NUM_ITERATIONS / 100),
+                        "Number of duplicate Rx exceeds threshold",
+                        extras=results)
 
     asserts.explicit_pass("test_stress_message done", extras=results)

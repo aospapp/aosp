@@ -27,6 +27,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Picture;
 import android.graphics.Rect;
+import android.graphics.pdf.PdfRenderer;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.CancellationSignal;
@@ -38,6 +39,7 @@ import android.os.ParcelFileDescriptor;
 import android.os.StrictMode;
 import android.os.StrictMode.ThreadPolicy;
 import android.os.SystemClock;
+import android.platform.test.annotations.Presubmit;
 import android.print.PageRange;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
@@ -272,7 +274,7 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         assertNotNull(CookieSyncManager.getInstance());
     }
 
-    @UiThreadTest
+    // Static methods should be safe to call on non-UI threads
     public void testFindAddress() {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
@@ -489,6 +491,7 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         assertFalse(mWebView.overlayVerticalScrollbar());
     }
 
+    @Presubmit
     @UiThreadTest
     public void testLoadUrl() throws Exception {
         if (!NullWebViewUtils.isWebViewAvailable()) {
@@ -1012,7 +1015,7 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         mOnUiThread.evaluateJavascript("'custom_property' in dummy", jsResult);
         jsResult.run();
 
-        mOnUiThread.reload();
+        mOnUiThread.reloadAndWaitForCompletion();
 
         jsResult = new EvaluateJsResultPollingCheck("false");
         mOnUiThread.evaluateJavascript("'custom_property' in dummy", jsResult);
@@ -2097,7 +2100,7 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         }
         final String p = "<p style=\"height:1000px;width:1000px\">Test setInitialScale.</p>";
         final float defaultScale =
-            getInstrumentation().getTargetContext().getResources().getDisplayMetrics().density;
+            getActivity().getResources().getDisplayMetrics().density;
 
         mOnUiThread.loadDataAndWaitForCompletion("<html><body>" + p
                 + "</body></html>", "text/html", null);
@@ -2562,7 +2565,8 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
                     // Called on UI thread
                     @Override
                     public void onLayoutFinished(PrintDocumentInfo info, boolean changed) {
-                        savePrintedPage(adapter, descriptor, result);
+                        PageRange[] pageRanges = new PageRange[] {PageRange.ALL_PAGES};
+                        savePrintedPage(adapter, descriptor, pageRanges, result);
                     }
                 });
         try {
@@ -2575,6 +2579,57 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
             assertEquals(PDF_PREAMBLE, preamble);
         } finally {
             // close the descriptor, if not closed already.
+            descriptor.close();
+            file.delete();
+        }
+    }
+
+    // Verify Print feature can create a PDF file with correct number of pages.
+    public void testPrintingPagesCount() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+        String content = "<html><head></head><body>";
+        for (int i = 0; i < 500; ++i) {
+            content += "<br />abcdefghijk<br />";
+        }
+        content += "</body></html>";
+        mOnUiThread.loadDataAndWaitForCompletion(content, "text/html", null);
+        final PrintDocumentAdapter adapter =  mOnUiThread.createPrintDocumentAdapter();
+        printDocumentStart(adapter);
+        PrintAttributes attributes = new PrintAttributes.Builder()
+                .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                .setResolution(new PrintAttributes.Resolution("foo", "bar", 300, 300))
+                .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+                .build();
+        final WebViewCtsActivity activity = getActivity();
+        final File file = activity.getFileStreamPath(PRINTER_TEST_FILE);
+        final ParcelFileDescriptor descriptor = ParcelFileDescriptor.open(file,
+                ParcelFileDescriptor.parseMode("w"));
+        final FutureTask<Boolean> result =
+                new FutureTask<Boolean>(new Callable<Boolean>() {
+                            public Boolean call() {
+                                return true;
+                            }
+                        });
+        printDocumentLayout(adapter, null, attributes,
+                new LayoutResultCallback() {
+                    // Called on UI thread
+                    @Override
+                    public void onLayoutFinished(PrintDocumentInfo info, boolean changed) {
+                        PageRange[] pageRanges = new PageRange[] {
+                            new PageRange(1, 1), new PageRange(4, 7)
+                        };
+                        savePrintedPage(adapter, descriptor, pageRanges, result);
+                    }
+                });
+        try {
+            result.get(TEST_TIMEOUT, TimeUnit.MILLISECONDS);
+            assertTrue(file.length() > 0);
+            PdfRenderer renderer = new PdfRenderer(
+                ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY));
+            assertEquals(5, renderer.getPageCount());
+        } finally {
             descriptor.close();
             file.delete();
         }
@@ -2622,6 +2677,10 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
     }
 
     public void testSetSafeBrowsingWhitelistWithMalformedList() throws Exception {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+
         List whitelist = new ArrayList<String>();
         // Protocols are not supported in the whitelist
         whitelist.add("http://google.com");
@@ -2637,6 +2696,10 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
     }
 
     public void testSetSafeBrowsingWhitelistWithValidList() throws Exception {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+
         List whitelist = new ArrayList<String>();
         whitelist.add("safe-browsing");
         final CountDownLatch resultLatch = new CountDownLatch(1);
@@ -2756,6 +2819,10 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
     }
 
     public void testStartSafeBrowsingUseApplicationContext() throws Exception {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+
         final MockContext ctx = new MockContext(getActivity());
         final CountDownLatch resultLatch = new CountDownLatch(1);
         WebView.startSafeBrowsing(ctx, new ValueCallback<Boolean>() {
@@ -2796,8 +2863,9 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
     }
 
     private void savePrintedPage(final PrintDocumentAdapter adapter,
-            final ParcelFileDescriptor descriptor, final FutureTask<Boolean> result) {
-        adapter.onWrite(new PageRange[] {PageRange.ALL_PAGES}, descriptor,
+            final ParcelFileDescriptor descriptor, final PageRange[] pageRanges,
+            final FutureTask<Boolean> result) {
+        adapter.onWrite(pageRanges, descriptor,
                 new CancellationSignal(),
                 new WriteResultCallback() {
                     @Override
@@ -3003,5 +3071,13 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         } catch (MalformedURLException e) {
             Assert.fail("The privacy policy URL should be a well-formed URL");
         }
+    }
+
+    public void testWebViewClassLoaderReturnsNonNull() {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+
+        assertNotNull(WebView.getWebViewClassLoader());
     }
 }

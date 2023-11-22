@@ -36,7 +36,7 @@ class ThroughputTest(AwareBaseTest):
   PASSPHRASE2 = "This is some random passphrase - very very secure - but diff!!"
 
   def __init__(self, controllers):
-    AwareBaseTest.__init__(self, controllers)
+    super(ThroughputTest, self).__init__(controllers)
 
   def request_network(self, dut, ns):
     """Request a Wi-Fi Aware network.
@@ -302,12 +302,12 @@ class ThroughputTest(AwareBaseTest):
 
       # Wait for network
       init_net_event = autils.wait_for_event_with_keys(
-          init_dut, cconsts.EVENT_NETWORK_CALLBACK, autils.EVENT_TIMEOUT,
+          init_dut, cconsts.EVENT_NETWORK_CALLBACK, autils.EVENT_NDP_TIMEOUT,
           (cconsts.NETWORK_CB_KEY_EVENT,
            cconsts.NETWORK_CB_LINK_PROPERTIES_CHANGED),
           (cconsts.NETWORK_CB_KEY_ID, init_req_key))
       resp_net_event = autils.wait_for_event_with_keys(
-          resp_dut, cconsts.EVENT_NETWORK_CALLBACK, autils.EVENT_TIMEOUT,
+          resp_dut, cconsts.EVENT_NETWORK_CALLBACK, autils.EVENT_NDP_TIMEOUT,
           (cconsts.NETWORK_CB_KEY_EVENT,
            cconsts.NETWORK_CB_LINK_PROPERTIES_CHANGED),
           (cconsts.NETWORK_CB_KEY_ID, resp_req_key))

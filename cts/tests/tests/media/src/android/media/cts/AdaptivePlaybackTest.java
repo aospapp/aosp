@@ -28,8 +28,11 @@ import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.view.Surface;
+
+import com.android.compatibility.common.util.MediaUtils;
 
 import android.opengl.GLES20;
 import javax.microedition.khronos.opengles.GL10;
@@ -39,12 +42,12 @@ import java.lang.System;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Vector;
 import java.util.zip.CRC32;
 
+@AppModeFull
 public class AdaptivePlaybackTest extends MediaPlayerTestBase {
     private static final String TAG = "AdaptivePlaybackTest";
     private boolean sanity = false;
@@ -54,7 +57,6 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
         return factory.createCodecList(
                 mContext,
                 MediaFormat.MIMETYPE_VIDEO_AVC,
-                "OMX.google.h264.decoder",
                 R.raw.video_480x360_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz,
                 R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz,
                 R.raw.bbb_s1_720x480_mp4_h264_mp3_2mbps_30fps_aac_lc_5ch_320kbps_48000hz);
@@ -64,7 +66,6 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
         return factory.createCodecList(
                 mContext,
                 MediaFormat.MIMETYPE_VIDEO_HEVC,
-                "OMX.google.hevc.decoder",
                 R.raw.bbb_s1_720x480_mp4_hevc_mp3_1600kbps_30fps_aac_he_6ch_240kbps_48000hz,
                 R.raw.bbb_s4_1280x720_mp4_hevc_mp31_4mbps_30fps_aac_he_stereo_80kbps_32000hz,
                 R.raw.bbb_s1_352x288_mp4_hevc_mp2_600kbps_30fps_aac_he_stereo_96kbps_48000hz);
@@ -74,7 +75,6 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
         return factory.createCodecList(
                 mContext,
                 MediaFormat.MIMETYPE_VIDEO_H263,
-                "OMX.google.h263.decoder",
                 R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_stereo_128kbps_22050hz,
                 R.raw.video_352x288_3gp_h263_300kbps_12fps_aac_stereo_128kbps_22050hz);
     }
@@ -83,8 +83,6 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
         return factory.createCodecList(
                 mContext,
                 MediaFormat.MIMETYPE_VIDEO_MPEG4,
-                "OMX.google.mpeg4.decoder",
-
                 R.raw.video_1280x720_mp4_mpeg4_1000kbps_25fps_aac_stereo_128kbps_44100hz,
                 R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz,
                 R.raw.video_176x144_mp4_mpeg4_300kbps_25fps_aac_stereo_128kbps_44100hz);
@@ -94,7 +92,6 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
         return factory.createCodecList(
                 mContext,
                 MediaFormat.MIMETYPE_VIDEO_VP8,
-                "OMX.google.vp8.decoder",
                 R.raw.video_480x360_webm_vp8_333kbps_25fps_vorbis_stereo_128kbps_48000hz,
                 R.raw.bbb_s3_1280x720_webm_vp8_8mbps_60fps_opus_6ch_384kbps_48000hz,
                 R.raw.bbb_s1_320x180_webm_vp8_800kbps_30fps_opus_5ch_320kbps_48000hz);
@@ -104,7 +101,6 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
         return factory.createCodecList(
                 mContext,
                 MediaFormat.MIMETYPE_VIDEO_VP9,
-                "OMX.google.vp9.decoder",
                 R.raw.video_480x360_webm_vp9_333kbps_25fps_vorbis_stereo_128kbps_48000hz,
                 R.raw.bbb_s4_1280x720_webm_vp9_0p31_4mbps_30fps_opus_stereo_128kbps_48000hz,
                 R.raw.bbb_s1_320x180_webm_vp9_0p11_600kbps_30fps_vorbis_mono_64kbps_48000hz);
@@ -787,19 +783,6 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
     /* ====================================================================== */
     /*                              UTILITY FUNCTIONS                         */
     /* ====================================================================== */
-    public static String collectionString(Collection<?> c) {
-        StringBuilder res = new StringBuilder("[");
-        boolean subsequent = false;
-        for (Object o: c) {
-            if (subsequent) {
-                res.append(", ");
-            }
-            res.append(o);
-            subsequent = true;
-        }
-        return res.append("]").toString();
-    }
-
     static String byteBufferToString(ByteBuffer buf, int start, int len) {
         int oldPosition = buf.position();
         buf.position(start);
@@ -882,7 +865,7 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
             final long NSECS_IN_1SEC = 1000000000;
             if (!mRenderedTimeStamps.remove(presentationTimeUs)) {
                 warn("invalid timestamp " + presentationTimeUs + ", queued " +
-                        collectionString(mRenderedTimeStamps));
+                        mRenderedTimeStamps);
             }
             assert nanoTime > mLastRenderNanoTime;
             mLastRenderNanoTime = nanoTime;
@@ -1002,7 +985,7 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                 mRenderedTimeStamps.add(info.presentationTimeUs);
                 if (!mTimeStamps.remove(info.presentationTimeUs)) {
                     warn("invalid timestamp " + info.presentationTimeUs + ", queued " +
-                            collectionString(mTimeStamps));
+                            mTimeStamps);
                 }
             }
 
@@ -1402,7 +1385,7 @@ class CodecFamily extends CodecList {
     private final static String TAG = "AdaptiveCodecFamily";
     private static final int NUM_FRAMES = AdaptivePlaybackTest.NUM_FRAMES;
 
-    public CodecFamily(Context context, String mime, String explicitCodecName, int ... resources) {
+    public CodecFamily(Context context, String mime, int ... resources) {
         try {
             /* read all media */
             Media[] mediaList = new Media[resources.length];
@@ -1432,25 +1415,12 @@ class CodecFamily extends CodecList {
                 }
                 for (String type : codecInfo.getSupportedTypes()) {
                     if (type.equals(mime)) {
-                        /* mark the explicitly named codec as included */
-                        if (codecInfo.getName().equals(explicitCodecName)) {
-                            explicitCodecName = null;
-                        }
                         add(new Codec(
                                 codecInfo.getName(),
                                 codecInfo.getCapabilitiesForType(mime),
                                 mediaList));
                         break;
                     }
-                }
-            }
-
-            /* test if the explicitly named codec is present on the system */
-            if (explicitCodecName != null) {
-                MediaCodec codec = MediaCodec.createByCodecName(explicitCodecName);
-                if (codec != null) {
-                    codec.release();
-                    add(new Codec(explicitCodecName, null, mediaList));
                 }
             }
         } catch (Throwable t) {
@@ -1460,23 +1430,12 @@ class CodecFamily extends CodecList {
     }
 }
 
-/* named codec if exists */
-class CodecByName extends CodecList {
-    public CodecByName(Context context, String mime, String codecName, int ... resources) {
-        for (Codec c: new CodecFamily(context, mime, codecName, resources)) {
-            if (c.name.equals(codecName)) {
-                add(c);
-            }
-        }
-    }
-}
-
 /* all codecs of mime, except named codec if exists */
-class CodecFamilyExcept extends CodecList {
-    public CodecFamilyExcept(
-            Context context, String mime, String exceptCodecName, int ... resources) {
-        for (Codec c: new CodecFamily(context, mime, null, resources)) {
-            if (!c.name.equals(exceptCodecName)) {
+class CodecFamilySpecific extends CodecList {
+    public CodecFamilySpecific(
+            Context context, String mime, boolean isGoogle, int ... resources) {
+        for (Codec c: new CodecFamily(context, mime, resources)) {
+            if (MediaUtils.isGoogle(c.name) == isGoogle) {
                 add(c);
             }
         }
@@ -1484,42 +1443,23 @@ class CodecFamilyExcept extends CodecList {
 }
 
 class CodecFactory {
-    protected boolean hasCodec(String codecName) {
-        MediaCodecList list = new MediaCodecList(MediaCodecList.ALL_CODECS);
-        for (MediaCodecInfo info : list.getCodecInfos()) {
-            if (codecName.equals(info.getName())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public CodecList createCodecList(
-            Context context, String mime, String googleCodecName, int ...resources) {
-        if (!hasCodec(googleCodecName)) {
-            return null;
-        }
-        return new CodecFamily(context, mime, googleCodecName, resources);
+            Context context, String mime, int ...resources) {
+        return new CodecFamily(context, mime, resources);
     }
 }
 
 class SWCodecFactory extends CodecFactory {
     public CodecList createCodecList(
-            Context context, String mime, String googleCodecName, int ...resources) {
-        if (!hasCodec(googleCodecName)) {
-            return null;
-        }
-        return new CodecByName(context, mime, googleCodecName, resources);
+            Context context, String mime, int ...resources) {
+        return new CodecFamilySpecific(context, mime, true, resources);
     }
 }
 
 class HWCodecFactory extends CodecFactory {
     public CodecList createCodecList(
-            Context context, String mime, String googleCodecName, int ...resources) {
-        if (!hasCodec(googleCodecName)) {
-            return null;
-        }
-        return new CodecFamilyExcept(context, mime, googleCodecName, resources);
+            Context context, String mime, int ...resources) {
+        return new CodecFamilySpecific(context, mime, false, resources);
     }
 }
 
@@ -1798,4 +1738,3 @@ class ActivitySurface implements TestSurface {
         return false;
     }
 }
-

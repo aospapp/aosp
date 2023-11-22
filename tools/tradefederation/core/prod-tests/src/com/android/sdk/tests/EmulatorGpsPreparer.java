@@ -20,16 +20,14 @@ import com.android.ddmlib.EmulatorConsole;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.targetprep.BaseTargetPreparer;
 import com.android.tradefed.targetprep.BuildError;
-import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
 
 import org.junit.Assert;
 
-/**
- * Injects specific gps location into emulator.
- */
-public class EmulatorGpsPreparer implements ITargetPreparer {
+/** Injects specific gps location into emulator. */
+public class EmulatorGpsPreparer extends BaseTargetPreparer {
 
     // default gps location for the gps test
     // TODO: make these options rather than hardcoding

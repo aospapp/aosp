@@ -16,8 +16,6 @@
 
 package com.android.compatibility.dalvik;
 
-import com.android.compatibility.common.util.TestSuiteFilter;
-
 import dalvik.system.DexFile;
 import dalvik.system.PathClassLoader;
 
@@ -55,46 +53,67 @@ public class DalvikTestRunner {
     private static final String COLLECT_TESTS_ONLY = "--collect-tests-only";
     private static final String JUNIT_IGNORE = "org.junit.Ignore";
 
+    private static final String RUNNER_JAR = "cts-dalvik-device-test-runner.jar";
+
     public static void main(String[] args) {
+        Config config;
+        try {
+            config = createConfig(args);
+        } catch (Throwable t) {
+            // Simulate one failed test.
+            System.out.println("start-run:1");
+            System.out.println("start-test:FailedConfigCreation");
+            System.out.println("failure:" + DalvikTestListener.stringify(t));
+            System.out.println("end-run:1");
+            throw new RuntimeException(t);
+        }
+        run(config);
+    }
+
+    private static Config createConfig(String[] args) {
         String abiName = null;
-        Set<String> includes = new HashSet<>();
-        Set<String> excludes = new HashSet<>();
-        boolean collectTestsOnly = false;
+        Config config = new Config();
 
         for (String arg : args) {
             if (arg.startsWith(ABI)) {
                 abiName = arg.substring(ABI.length());
             } else if (arg.startsWith(INCLUDE)) {
                 for (String include : arg.substring(INCLUDE.length()).split(",")) {
-                    includes.add(include);
+                    config.includes.add(include);
                 }
             } else if (arg.startsWith(EXCLUDE)) {
                 for (String exclude : arg.substring(EXCLUDE.length()).split(",")) {
-                    excludes.add(exclude);
+                    config.excludes.add(exclude);
                 }
             } else if (arg.startsWith(INCLUDE_FILE)) {
-                loadFilters(arg.substring(INCLUDE_FILE.length()), includes);
+                loadFilters(arg.substring(INCLUDE_FILE.length()), config.includes);
             } else if (arg.startsWith(EXCLUDE_FILE)) {
-                loadFilters(arg.substring(EXCLUDE_FILE.length()), excludes);
+                loadFilters(arg.substring(EXCLUDE_FILE.length()), config.excludes);
             } else if (COLLECT_TESTS_ONLY.equals(arg)) {
-                collectTestsOnly = true;
+                config.collectTestsOnly = true;
             }
         }
 
-        TestListener listener = new DalvikTestListener();
         String[] classPathItems = System.getProperty("java.class.path").split(File.pathSeparator);
         List<Class<?>> classes = getClasses(classPathItems, abiName);
-        TestSuite suite = TestSuiteFilter.createSuite(classes, includes, excludes);
-        int count = suite.countTestCases();
+        config.suite = new FilterableTestSuite(classes, config.includes, config.excludes);
+
+        return config;
+    }
+
+    private static void run(Config config) {
+        TestListener listener = new DalvikTestListener();
+
+        int count = config.suite.countTestCases();
         System.out.println(String.format("start-run:%d", count));
         long start = System.currentTimeMillis();
 
-        if (collectTestsOnly) { // only simulate running/passing the tests with the listener
-            collectTests(suite, listener, includes, excludes);
+        if (config.collectTestsOnly) { // only simulate running/passing the tests with the listener
+            collectTests(config.suite, listener, config.includes, config.excludes);
         } else { // run the tests
             TestResult result = new TestResult();
             result.addListener(listener);
-            suite.run(result);
+            config.suite.run(result);
         }
 
         long end = System.currentTimeMillis();
@@ -160,19 +179,31 @@ public class DalvikTestRunner {
     private static List<Class<?>> getClasses(String[] jars, String abiName) {
         List<Class<?>> classes = new ArrayList<>();
         for (String jar : jars) {
+            if (jar.contains(RUNNER_JAR)) {
+                // The runner jar must be added to the class path to invoke DalvikTestRunner,
+                // but should not be searched for test classes
+                continue;
+            }
             try {
                 ClassLoader loader = createClassLoader(jar, abiName);
                 DexFile file = new DexFile(jar);
                 Enumeration<String> entries = file.entries();
                 while (entries.hasMoreElements()) {
                     String e = entries.nextElement();
-                    Class<?> cls = loader.loadClass(e);
-                    if (isTestClass(cls)) {
-                        classes.add(cls);
+                    try {
+                        Class<?> cls = loader.loadClass(e);
+                        if (isTestClass(cls)) {
+                            classes.add(cls);
+                        }
+                    } catch (ClassNotFoundException ex) {
+                        System.out.println(String.format(
+                                "Skipping dex entry %s in %s", e, jar));
                     }
                 }
-            } catch (IllegalAccessError | IOException | ClassNotFoundException e) {
+            } catch (IllegalAccessError | IOException e) {
                 e.printStackTrace();
+            } catch (Exception e) {
+                throw new RuntimeException(jar, e);
             }
         }
         return classes;
@@ -200,8 +231,12 @@ public class DalvikTestRunner {
             }
         }
 
-        if (!hasPublicTestMethods(cls)) {
-            return false;
+        try {
+            if (!hasPublicTestMethods(cls)) {
+                return false;
+            }
+        } catch (Throwable exc) {
+            throw new RuntimeException(cls.toString(), exc);
         }
 
         // TODO: Add junit4 support here
@@ -272,8 +307,107 @@ public class DalvikTestRunner {
             return className;
         }
 
-        private String stringify(Throwable error) {
+        public static String stringify(Throwable error) {
             return Arrays.toString(error.getStackTrace()).replaceAll("\n", " ");
+        }
+    }
+
+    private static class Config {
+        Set<String> includes = new HashSet<>();
+        Set<String> excludes = new HashSet<>();
+        boolean collectTestsOnly = false;
+        TestSuite suite;
+    }
+
+    /**
+     * A {@link TestSuite} that can filter which tests run, given the include and exclude filters.
+     *
+     * This had to be private inner class because the test runner would find it and think it was a
+     * suite of tests, but it has no tests in it, causing a crash.
+     */
+    private static class FilterableTestSuite extends TestSuite {
+
+        private Set<String> mIncludes;
+        private Set<String> mExcludes;
+
+        public FilterableTestSuite(List<Class<?>> classes, Set<String> includes,
+                Set<String> excludes) {
+            super(classes.toArray(new Class<?>[classes.size()]));
+            mIncludes = includes;
+            mExcludes = excludes;
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public int countTestCases() {
+            return countTests(this);
+        }
+
+        private int countTests(Test test) {
+            if (test instanceof TestSuite) {
+                // If the test is a suite it could contain multiple tests, these need to be split
+                // out into separate tests so they can be filtered
+                TestSuite suite = (TestSuite) test;
+                Enumeration<Test> enumerator = suite.tests();
+                int count = 0;
+                while (enumerator.hasMoreElements()) {
+                    count += countTests(enumerator.nextElement());
+                }
+                return count;
+            } else if (shouldRun(test)) {
+                return 1;
+            }
+            return 0;
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void runTest(Test test, TestResult result) {
+            runTests(test, result);
+        }
+
+        private void runTests(Test test, TestResult result) {
+            if (test instanceof TestSuite) {
+                // If the test is a suite it could contain multiple tests, these need to be split
+                // out into separate tests so they can be filtered
+                TestSuite suite = (TestSuite) test;
+                Enumeration<Test> enumerator = suite.tests();
+                while (enumerator.hasMoreElements()) {
+                    runTests(enumerator.nextElement(), result);
+                }
+            } else if (shouldRun(test)) {
+                test.run(result);
+            }
+        }
+
+        private boolean shouldRun(Test test) {
+            String fullName = test.toString();
+            String[] parts = fullName.split("[\\(\\)]");
+            String className = parts[1];
+            String methodName = String.format("%s#%s", className, parts[0]);
+            int index = className.lastIndexOf('.');
+            String packageName = index < 0 ? "" : className.substring(0, index);
+
+            if (mExcludes.contains(packageName)) {
+                // Skip package because it was excluded
+                return false;
+            }
+            if (mExcludes.contains(className)) {
+                // Skip class because it was excluded
+                return false;
+            }
+            if (mExcludes.contains(methodName)) {
+                // Skip method because it was excluded
+                return false;
+            }
+            return mIncludes.isEmpty()
+                    || mIncludes.contains(methodName)
+                    || mIncludes.contains(className)
+                    || mIncludes.contains(packageName);
         }
     }
 }

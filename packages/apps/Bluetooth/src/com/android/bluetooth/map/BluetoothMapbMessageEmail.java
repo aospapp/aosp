@@ -14,10 +14,10 @@
 */
 package com.android.bluetooth.map;
 
+import android.util.Log;
+
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
-
-import android.util.Log;
 
 
 public class BluetoothMapbMessageEmail extends BluetoothMapbMessage {
@@ -34,29 +34,34 @@ public class BluetoothMapbMessageEmail extends BluetoothMapbMessage {
         return mEmailBody;
     }
 
+    @Override
     public void parseMsgPart(String msgPart) {
-        if (mEmailBody == null)
+        if (mEmailBody == null) {
             mEmailBody = msgPart;
-        else
+        } else {
             mEmailBody += msgPart;
+        }
     }
 
     /**
      * Set initial values before parsing - will be called is a message body is found
      * during parsing.
      */
+    @Override
     public void parseMsgInit() {
         // Not used for e-mail
     }
 
-    public byte[] encode() throws UnsupportedEncodingException
-    {
+    @Override
+    public byte[] encode() throws UnsupportedEncodingException {
         ArrayList<byte[]> bodyFragments = new ArrayList<byte[]>();
 
-        /* Store the messages in an ArrayList to be able to handle the different message types in a generic way.
+        /* Store the messages in an ArrayList to be able to handle the different message types in
+         a generic way.
          * We use byte[] since we need to extract the length in bytes. */
-        if(mEmailBody != null) {
-            String tmpBody = mEmailBody.replaceAll("END:MSG", "/END\\:MSG"); // Replace any occurrences of END:MSG with \END:MSG
+        if (mEmailBody != null) {
+            String tmpBody = mEmailBody.replaceAll("END:MSG",
+                    "/END\\:MSG"); // Replace any occurrences of END:MSG with \END:MSG
             bodyFragments.add(tmpBody.getBytes("UTF-8"));
         } else {
             Log.e(TAG, "Email has no body - this should not be possible");

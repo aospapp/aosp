@@ -15,11 +15,13 @@
  */
 package com.android.tradefed.testtype;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.android.ddmlib.FileListingService;
 import com.android.ddmlib.IShellOutputReceiver;
-import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -56,21 +58,25 @@ public class GTestTest {
         mMockReceiver.flush();
         EasyMock.expectLastCall().anyTimes();
         EasyMock.expect(mMockITestDevice.getSerialNumber()).andStubReturn("serial");
-        mGTest = new GTest() {
-            @Override
-            IShellOutputReceiver createResultParser(String runName, ITestRunListener listener) {
-                return mMockReceiver;
-            }
-            @Override
-            GTestXmlResultParser createXmlParser(String testRunName, ITestRunListener listener) {
-                return new GTestXmlResultParser(testRunName, listener) {
+        mGTest =
+                new GTest() {
                     @Override
-                    public void parseResult(File f, CollectingOutputReceiver output) {
-                        return;
+                    IShellOutputReceiver createResultParser(
+                            String runName, ITestInvocationListener listener) {
+                        return mMockReceiver;
+                    }
+
+                    @Override
+                    GTestXmlResultParser createXmlParser(
+                            String testRunName, ITestInvocationListener listener) {
+                        return new GTestXmlResultParser(testRunName, listener) {
+                            @Override
+                            public void parseResult(File f, CollectingOutputReceiver output) {
+                                return;
+                            }
+                        };
                     }
                 };
-            }
-        };
         mGTest.setDevice(mMockITestDevice);
         mSetter = new OptionSetter(mGTest);
     }
@@ -482,18 +488,14 @@ public class GTestTest {
         doTestFilter("");
     }
 
-    /**
-     * Test {@link GTest#getGTestCmdLine(String, String) with default options.
-     */
+    /** Test {@link GTest#getGTestCmdLine(String, String)} with default options. */
     @Test
     public void testGetGTestCmdLine_defaults() {
         String cmd_line = mGTest.getGTestCmdLine("test_path", "flags");
         assertEquals("test_path flags", cmd_line);
     }
 
-    /**
-     * Test {@link GTest#getGTestCmdLine(String, String) with non-default user.
-     */
+    /** Test {@link GTest#getGTestCmdLine(String, String)} with non-default user. */
     @Test
     public void testGetGTestCmdLine_runAs() throws Exception {
         mSetter.setOptionValue("run-test-as", "shell");

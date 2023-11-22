@@ -16,9 +16,7 @@
 
 package com.android.tv.ui.sidepanel;
 
-/**
- * A simple item which shows title and description.
- */
+/** A simple item which shows title and description. */
 public class SimpleActionItem extends ActionItem {
     public SimpleActionItem(String title) {
         super(title);
@@ -29,6 +27,5 @@ public class SimpleActionItem extends ActionItem {
     }
 
     @Override
-    protected void onSelected() {
-    }
+    protected void onSelected() {}
 }

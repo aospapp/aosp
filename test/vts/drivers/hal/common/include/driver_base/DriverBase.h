@@ -18,7 +18,6 @@
 #define __VTS_SYSFUZZER_COMMON_FUZZER_BASE_H__
 
 #include "component_loader/DllLoader.h"
-
 #include "test/vts/proto/ComponentSpecificationMessage.pb.h"
 
 using namespace std;
@@ -35,15 +34,11 @@ class DriverBase {
   // Returns true iff successful.
   bool LoadTargetComponent(const char* target_dll_path);
 
-  // sets the target object (used for HAL_CONVENTIONAL_SUBMODULE).
-  bool SetTargetObject(void* object_pointer);
-
   // Gets the HIDL service.
   // Returns true iff successful.
-  virtual bool GetService(bool get_stub, const char* service_name);
-
-  // Open Conventional Hal
-  int OpenConventionalHal(const char* module_name = NULL);
+  virtual bool GetService(bool /*get_stub*/, const char* /*service_name*/) {
+    return false;
+  };
 
   // Fuzz tests the loaded component using the provided interface specification.
   // Returns true iff the testing is conducted completely.

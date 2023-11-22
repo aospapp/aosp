@@ -35,9 +35,7 @@
 
 #include "VtsCompilerUtils.h"
 #include "code_gen/driver/HalCodeGen.h"
-#include "code_gen/driver/HalSubmoduleCodeGen.h"
 #include "code_gen/driver/HalHidlCodeGen.h"
-#include "code_gen/driver/LegacyHalCodeGen.h"
 #include "code_gen/driver/LibSharedCodeGen.h"
 #include "code_gen/fuzzer/FuzzerCodeGenBase.h"
 #include "code_gen/fuzzer/HalHidlFuzzerCodeGen.h"
@@ -96,15 +94,6 @@ void TranslateToFile(VtsCompileMode mode,
   if (mode == kDriver) {
     unique_ptr<CodeGenBase> code_generator;
     switch (message.component_class()) {
-      case HAL_CONVENTIONAL:
-        code_generator.reset(new HalCodeGen(input_vts_file_path));
-        break;
-      case HAL_CONVENTIONAL_SUBMODULE:
-        code_generator.reset(new HalSubmoduleCodeGen(input_vts_file_path));
-        break;
-      case HAL_LEGACY:
-        code_generator.reset(new LegacyHalCodeGen(input_vts_file_path));
-        break;
       case LIB_SHARED:
         code_generator.reset(new LibSharedCodeGen(input_vts_file_path));
         break;

@@ -186,12 +186,12 @@ bool CommandProcessor::CopyCommandToLog(const void* command_buffer,
   }
   CHECK(current_log_buffer_.CanFitNow(total_size));
 
-  const auto& tstamp_header =
+  const auto tstamp_header =
       TimestampHeader()
           .set_since_boot_awake_only(os_->GetTimestamp(CLOCK_MONOTONIC))
           .set_since_boot_with_sleep(os_->GetTimestamp(CLOCK_BOOTTIME))
           .set_since_epoch(os_->GetTimestamp(CLOCK_REALTIME));
-  const auto& message_buf =
+  const auto message_buf =
       ByteBuffer<sizeof(TimestampHeader) + protocol::kMaxMessageSize>()
           .AppendOrDie(&tstamp_header, sizeof(tstamp_header))
           .AppendOrDie(command_buffer, command_len);

@@ -238,7 +238,7 @@ Usb::Usb()
 
 
 Return<void> Usb::switchRole(const hidl_string &portName,
-                             const PortRole &newRole) {
+                             const V1_0::PortRole &newRole) {
   std::string filename =
       appendRoleNodeHelper(std::string(portName.c_str()), newRole.type);
   std::string written;
@@ -380,8 +380,6 @@ Status getTypeCPortNamesHelper(std::unordered_map<std::string, bool> *names) {
 
   dp = opendir("/sys/class/typec");
   if (dp != NULL) {
-    int32_t ports = 0;
-    int32_t current = 0;
     struct dirent *ep;
 
     while ((ep = readdir(dp))) {

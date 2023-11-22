@@ -59,13 +59,20 @@ LOCAL_JAVA_LIBRARIES := \
 	android.hidl.manager-V1.0-java \
 	bouncycastle \
 	conscrypt \
+	error_prone_annotations \
 	jsr305 \
 	services
 LOCAL_STATIC_JAVA_LIBRARIES := \
 	android.hardware.wifi-V1.0-java \
 	android.hardware.wifi-V1.1-java \
-	android.hardware.wifi.supplicant-V1.0-java
-LOCAL_REQUIRED_MODULES := services
+	android.hardware.wifi-V1.2-java \
+	android.hardware.wifi.hostapd-V1.0-java \
+	android.hardware.wifi.supplicant-V1.0-java \
+	android.hardware.wifi.supplicant-V1.1-java
+LOCAL_REQUIRED_MODULES := \
+	services \
+	libwifi-service \
+	cacerts_wfa
 LOCAL_MODULE_TAGS :=
 LOCAL_MODULE := wifi-service
 LOCAL_INIT_RC := wifi-events.rc
@@ -73,12 +80,7 @@ LOCAL_INIT_RC := wifi-events.rc
 LOCAL_DEX_PREOPT_APP_IMAGE := false
 LOCAL_DEX_PREOPT_GENERATE_PROFILE := true
 LOCAL_DEX_PREOPT_PROFILE_CLASS_LISTING := frameworks/base/services/art-profile
-
-ifeq ($(EMMA_INSTRUMENT_FRAMEWORK),true)
-LOCAL_EMMA_INSTRUMENT := true
-endif
-
-LOCAL_JACK_COVERAGE_INCLUDE_FILTER := com.android.server.wifi.*
+LOCAL_ERROR_PRONE_FLAGS := -Xep:CheckReturnValue:ERROR
 
 include $(BUILD_JAVA_LIBRARY)
 

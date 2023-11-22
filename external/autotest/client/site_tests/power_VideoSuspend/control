@@ -4,7 +4,7 @@
 
 AUTHOR = "Chrome OS Team"
 NAME = "power_VideoSuspend"
-ATTRIBUTES = "suite:kernel_per-build_regression, suite:video"
+ATTRIBUTES = "suite:kernel_daily_regression, suite:video"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"

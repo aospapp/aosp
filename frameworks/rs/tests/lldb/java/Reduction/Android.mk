@@ -24,5 +24,6 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-renderscript-fil
 LOCAL_RENDERSCRIPT_FLAGS := -target-api 0 -O0 -g
 
 LOCAL_PACKAGE_NAME := Reduction
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 include $(BUILD_PACKAGE)

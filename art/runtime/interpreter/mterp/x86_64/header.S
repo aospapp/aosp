@@ -84,6 +84,7 @@ unspecified registers or condition codes.
  * to expand the macros into assembler assignment statements.
  */
 #include "asm_support.h"
+#include "interpreter/cfi_asm_support.h"
 
 /*
  * Handle mac compiler specific
@@ -124,7 +125,7 @@ unspecified registers or condition codes.
 #define OFF_FP_METHOD OFF_FP(SHADOWFRAME_METHOD_OFFSET)
 #define OFF_FP_RESULT_REGISTER OFF_FP(SHADOWFRAME_RESULT_REGISTER_OFFSET)
 #define OFF_FP_DEX_PC_PTR OFF_FP(SHADOWFRAME_DEX_PC_PTR_OFFSET)
-#define OFF_FP_CODE_ITEM OFF_FP(SHADOWFRAME_CODE_ITEM_OFFSET)
+#define OFF_FP_DEX_INSTRUCTIONS OFF_FP(SHADOWFRAME_DEX_INSTRUCTIONS_OFFSET)
 #define OFF_FP_COUNTDOWN_OFFSET OFF_FP(SHADOWFRAME_HOTNESS_COUNTDOWN_OFFSET)
 #define OFF_FP_SHADOWFRAME (-SHADOWFRAME_VREGS_OFFSET)
 
@@ -156,6 +157,8 @@ unspecified registers or condition codes.
 /* single-purpose registers, given names for clarity */
 #define rSELF    SELF_SPILL(%rsp)
 #define rPC      %r12
+#define CFI_DEX  12 // DWARF register number of the register holding dex-pc (rPC).
+#define CFI_TMP  5  // DWARF register number of the first argument register (rdi).
 #define rFP      %r13
 #define rINST    %ebx
 #define rINSTq   %rbx
@@ -191,9 +194,12 @@ unspecified registers or condition codes.
  * restore it in such cases also.
  *
  */
+.macro REFRESH_IBASE_REG self_reg
+    movq    THREAD_CURRENT_IBASE_OFFSET(\self_reg), rIBASE
+.endm
 .macro REFRESH_IBASE
     movq    rSELF, rIBASE
-    movq    THREAD_CURRENT_IBASE_OFFSET(rIBASE), rIBASE
+    REFRESH_IBASE_REG rIBASE
 .endm
 
 /*

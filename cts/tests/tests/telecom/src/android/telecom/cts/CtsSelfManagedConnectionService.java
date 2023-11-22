@@ -24,6 +24,7 @@ import android.telecom.ConnectionService;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,7 +42,11 @@ public class CtsSelfManagedConnectionService extends ConnectionService {
     public static int CONNECTION_CREATED_LOCK = 0;
     public static int CREATE_INCOMING_CONNECTION_FAILED_LOCK = 1;
     public static int CREATE_OUTGOING_CONNECTION_FAILED_LOCK = 2;
-    private static int NUM_LOCKS = CREATE_OUTGOING_CONNECTION_FAILED_LOCK + 1;
+    public static int HANDOVER_FAILED_LOCK = 3;
+    public static int FOCUS_GAINED_LOCK = 4;
+    public static int FOCUS_LOST_LOCK = 5;
+
+    private static int NUM_LOCKS = FOCUS_LOST_LOCK + 1;
 
     private static CtsSelfManagedConnectionService sConnectionService;
 
@@ -60,6 +65,10 @@ public class CtsSelfManagedConnectionService extends ConnectionService {
 
     private Object mLock = new Object();
     private List<SelfManagedConnection> mConnections = new ArrayList<>();
+    private TestUtils.InvokeCounter mOnCreateIncomingHandoverConnectionCounter =
+            new TestUtils.InvokeCounter("incomingHandoverConnection");
+    private TestUtils.InvokeCounter mOnCreateOutgoingHandoverConnectionCounter =
+            new TestUtils.InvokeCounter("outgoingHandoverConnection");
 
     public static CtsSelfManagedConnectionService getConnectionService() {
         return sConnectionService;
@@ -106,6 +115,37 @@ public class CtsSelfManagedConnectionService extends ConnectionService {
         mLocks[CREATE_OUTGOING_CONNECTION_FAILED_LOCK].countDown();
     }
 
+    @Override
+    public Connection onCreateIncomingHandoverConnection(PhoneAccountHandle fromPhoneAccountHandle,
+            ConnectionRequest request) {
+        mOnCreateIncomingHandoverConnectionCounter.invoke(fromPhoneAccountHandle, request);
+        return createSelfManagedConnection(request, true /* incoming */);
+    }
+
+    @Override
+    public Connection onCreateOutgoingHandoverConnection(PhoneAccountHandle fromPhoneAccountHandle,
+            ConnectionRequest request) {
+        mOnCreateOutgoingHandoverConnectionCounter.invoke(fromPhoneAccountHandle, request);
+        return createSelfManagedConnection(request, false /* incoming */);
+    }
+
+    @Override
+    public void onHandoverFailed(ConnectionRequest request, int error) {
+        mLocks[HANDOVER_FAILED_LOCK].countDown();
+    }
+
+
+    @Override
+    public void onConnectionServiceFocusGained() {
+        mLocks[FOCUS_GAINED_LOCK].countDown();
+    }
+
+    @Override
+    public void onConnectionServiceFocusLost() {
+        mLocks[FOCUS_LOST_LOCK].countDown();
+        connectionServiceFocusReleased();
+    }
+
     public void tearDown() {
         synchronized(mLock) {
             if (mConnections != null && mConnections.size() > 0) {
@@ -124,6 +164,8 @@ public class CtsSelfManagedConnectionService extends ConnectionService {
         SelfManagedConnection connection = new SelfManagedConnection(isIncoming,
                 mConnectionListener);
         connection.setConnectionProperties(Connection.PROPERTY_SELF_MANAGED);
+        connection.setConnectionCapabilities(
+                Connection.CAPABILITY_HOLD | Connection.CAPABILITY_SUPPORT_HOLD);
         connection.setAddress(request.getAddress(), TelecomManager.PRESENTATION_ALLOWED);
         connection.setExtras(request.getExtras());
 
@@ -133,6 +175,9 @@ public class CtsSelfManagedConnectionService extends ConnectionService {
         connection.putExtras(moreExtras);
         connection.setVideoState(request.getVideoState());
 
+        if (!isIncoming) {
+           connection.setInitializing();
+        }
         synchronized(mLock) {
             mConnections.add(connection);
         }
@@ -154,7 +199,7 @@ public class CtsSelfManagedConnectionService extends ConnectionService {
      *      timeout expired without the lock being released.
      */
     public boolean waitForUpdate(int lock) {
-        mLocks[lock] = waitForLock(mLocks[lock]);
+        mLocks[lock] = TestUtils.waitForLock(mLocks[lock]);
         return mLocks[lock] != null;
     }
 
@@ -163,30 +208,14 @@ public class CtsSelfManagedConnectionService extends ConnectionService {
      * @return {@code true} if binding happened within the time limit, or {@code false} otherwise.
      */
     public static boolean waitForBinding() {
-        sBindingLock = waitForLock(sBindingLock);
-        return sBindingLock != null;
+        return TestUtils.waitForLatchCountDown(sBindingLock);
     }
 
-    /**
-     * Given a {@link CountDownLatch}, wait for the latch to reach zero for 5 seconds.  If the lock
-     * was released, return a new instance.  Otherwise, return null to indicate that the timeout
-     * expired without the lock being released.
-     *
-     * @param lock The lock to wait on.
-     * @return {@code true} if the lock was released, and {@code false} if it failed to be released.
-     */
-    private static CountDownLatch waitForLock(CountDownLatch lock) {
-        boolean success;
-        try {
-            success = lock.await(5000, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException ie) {
-            return null;
-        }
+    public TestUtils.InvokeCounter getOnCreateIncomingHandoverConnectionCounter() {
+        return mOnCreateIncomingHandoverConnectionCounter;
+    }
 
-        if (success) {
-            return new CountDownLatch(1);
-        } else {
-            return null;
-        }
+    public TestUtils.InvokeCounter getOnCreateOutgoingHandoverConnectionCounter() {
+        return mOnCreateOutgoingHandoverConnectionCounter;
     }
 }

@@ -127,9 +127,10 @@
     <string name="reverting_settings" msgid="4752151682666912828">"Настройките се променят в първоначалното състояние…"</string>
     <string name="response_error" msgid="6674110501330139405">"Неочакван отговор от мрежата."</string>
     <string name="exception_error" msgid="7027667130619518211">"Грешка в мрежата или SIM картата."</string>
-    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"SS заявката е променена на DIAL заявка."</string>
-    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"SS заявката е променена на USSD заявка."</string>
-    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"SS заявката е променена на нова SS заявка."</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="4440038807310535377">"SS заявката е променена на обикновено обаждане"</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="6095812685884176176">"SS заявката е променена на USSD заявка"</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="7920654012697945858">"Променено на нова SS заявка"</string>
+    <string name="stk_cc_ss_to_dial_video_error" msgid="3873905132181743781">"SS заявката е променена на видеообаждане"</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"Настройката „Фиксирани номера за набиране“ на приложението ви Телефон е включена. В резултат на това някои функции, свързани с обажданията, не работят."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"Включете радиото, преди да разгледате тези настройки."</string>
     <string name="close_dialog" msgid="2365884406356986917">"OK"</string>
@@ -158,16 +159,16 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"Новият ПИН съдържа невалидни знаци."</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"Промяната на ПИН не е възможна"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"Типът на съобщението не се поддържа. Обадете се на <xliff:g id="NUMBER">%s</xliff:g>, за да го чуете."</string>
-    <string name="mobile_networks" msgid="5540397602919106177">"Настройки на мобилн. мрежа"</string>
     <string name="network_settings_title" msgid="514120489499925574">"Мобилна мрежа"</string>
     <string name="label_available" msgid="1181658289009300430">"Налични мрежи"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Търси се…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Не са намерени мрежи."</string>
-    <string name="network_query_error" msgid="6828516148953325006">"Грешка при търсенето на мрежи."</string>
+    <string name="network_query_error" msgid="8466081377231178298">"Не бяха намерени мрежи. Опитайте отново."</string>
     <string name="register_on_network" msgid="9055203954040805084">"Извършва се регистрация на <xliff:g id="NETWORK">%s</xliff:g>…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"SIM картата ви не позволява връзка с тази мрежа."</string>
     <string name="connect_later" msgid="2308119155752343975">"В момента не може да се осъществи връзка с тази мрежа. Опитайте отново по-късно."</string>
     <string name="registration_done" msgid="495135664535876612">"Регистрация в мрежа."</string>
+    <string name="already_auto" msgid="6067116884321285507">"Вече е избрано автоматично"</string>
     <string name="select_automatically" msgid="1046727200631770962">"Автоматично избиране на мрежа"</string>
     <string name="network_select_title" msgid="7733107364757544558">"Мрежа"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Регистрира се автоматично..."</string>
@@ -175,6 +176,36 @@
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"Промяна на операционния режим на мрежата"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Предпочитан тип мрежа"</string>
     <string name="forbidden_network" msgid="4384929668343563440">"(забранена)"</string>
+    <string name="choose_network_title" msgid="4023911977543009350">"Избиране на мрежа"</string>
+    <string name="network_disconnected" msgid="2227251609006103194">"Връзката е прекратена"</string>
+    <string name="network_connected" msgid="1288589103624338857">"Има връзка"</string>
+    <string name="network_connecting" msgid="4927203097283533783">"Свързва се…"</string>
+    <string name="network_could_not_connect" msgid="8254009365807767243">"Не можа да се установи връзка"</string>
+  <string-array name="preferred_network_mode_choices">
+    <item msgid="3628460389382468528">"Предпочита се GSM/WCDMA"</item>
+    <item msgid="8442633436636425221">"Само GSM"</item>
+    <item msgid="2032314385791760810">"Само WCDMA"</item>
+    <item msgid="6334554401059422303">"Авт. GSM/WCDMA"</item>
+    <item msgid="1462198368200398663">"Авт. CDMA/EvDo"</item>
+    <item msgid="3611460019185359968">"CDMA без EvDo"</item>
+    <item msgid="545430093607698090">"Само EvDo"</item>
+    <item msgid="4286774020869405140">"CDMA/EvDo/GSM/WCDMA"</item>
+    <item msgid="4006002265696868538">"CDMA + LTE/EvDo"</item>
+    <item msgid="8973936140318359205">"GSM/WCDMA/LTE"</item>
+    <item msgid="3471059554252610472">"Глобален"</item>
+    <item msgid="2882615514545171802">"LTE"</item>
+    <item msgid="8076204422288290116">"LTE/WCDMA"</item>
+    <item msgid="3982984144824159726">"Само TDSCDMA"</item>
+    <item msgid="3686191974505922271">"TDSCDMA/WCDMA"</item>
+    <item msgid="7135671700201836475">"LTE/TDSCDMA"</item>
+    <item msgid="3736619459066330755">"TDSCDMA/GSM"</item>
+    <item msgid="4778666570887216861">"LTE/TDSCDMA/GSM"</item>
+    <item msgid="2952322596201849456">"TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="115984258536697617">"LTE/TDSCDMA/WCDMA"</item>
+    <item msgid="7957991936217192636">"LTE/TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="2828588917858484655">"TDSCDMA/CDMA/EvDo/GSM/WCDMA"</item>
+    <item msgid="4989979948139945854">"LTE/TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+  </string-array>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Предпочитан режим на мрежата: Предпочита се WCDMA"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Предпочитан режим на мрежата: Само GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Предпочитан режим на мрежата: Само WCDMA"</string>
@@ -192,21 +223,15 @@
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"Предпочитан мрежов режим: LTE/GSM/UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"Предпочитан режим на мрежата: LTE / CDMA"</string>
     <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"Предпочитан режим на мрежата: TDSCDMA"</string>
-  <string-array name="preferred_network_mode_choices">
-    <item msgid="7886739962255042385">"LTE/WCDMA"</item>
-    <item msgid="577652050447385699">"LTE"</item>
-    <item msgid="6813597571293773656">"Глобален"</item>
-    <item msgid="127064712132619032">"GSM/WCDMA/LTE"</item>
-    <item msgid="1126767511633425977">"CDMA + LTE/EvDo"</item>
-    <item msgid="6389676313771670660">"CDMA/EvDo/GSM/WCDMA"</item>
-    <item msgid="545430093607698090">"Само EvDo"</item>
-    <item msgid="1508557726283094448">"CDMA без EvDo"</item>
-    <item msgid="4341433122263841224">"Авт. CDMA/EvDo"</item>
-    <item msgid="5958053792390386668">"Авт. GSM/WCDMA"</item>
-    <item msgid="7913148405605373434">"Само WCDMA"</item>
-    <item msgid="1524224863879435516">"Само GSM"</item>
-    <item msgid="3817924849415716259">"Предпочита се GSM/WCDMA"</item>
-  </string-array>
+    <string name="preferred_network_mode_tdscdma_wcdma_summary" msgid="2405154895437348623">"Предпочитан режим на мрежата: TDSCDMA/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_summary" msgid="2104702896644235637">"Предпочитан режим на мрежата: LTE/TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_summary" msgid="4893784445338396204">"Предпочитан режим на мрежата: TDSCDMA/GSM"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_summary" msgid="1815169717046729757">"Предпочитан режим на мрежата: LTE/GSM/TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_wcdma_summary" msgid="2195358773359424099">"Предпочитан режим на мрежата: TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_wcdma_summary" msgid="1181424059695667803">"Предпочитан режим на мрежата: LTE/TDSCDMA/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_wcdma_summary" msgid="2526539326505354382">"Предпочитан режим на мрежата: LTE/TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="8195248059196614939">"Предпочитан режим на мрежата: TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="5596733053095592791">"Предпочитан режим на мрежата: LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
     <string name="call_category" msgid="5863978196309462052">"Извършва се обаждане"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"Мрежа"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Подобрен режим с 4G LTE"</string>
@@ -218,14 +243,16 @@
     <string name="roaming" msgid="7894878421600247140">"Роуминг"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Свързване с услуги за данни при роуминг"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Свързване с услуги за данни при роуминг"</string>
-    <string name="roaming_reenable_message" msgid="8913735676127858115">"Изгубихте връзката за данни, защото сте излезли от домашната си мрежа при изключен роуминг."</string>
+    <string name="roaming_reenable_message" msgid="6843814381576397939">"Роумингът на данни е изключен. Докоснете за включване."</string>
+    <string name="roaming_notification_title" msgid="4749053220884743110">"Мобилната връзка за данни прекъсна"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"Това може да доведе до високи такси."</string>
+    <string name="roaming_check_price_warning" msgid="7497570906830902550">"За цени се обърнете към оператора си."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Да се разреши ли роуминг на данни?"</string>
-    <string name="data_usage_title" msgid="8759619109516889802">"Използване на данни"</string>
+    <string name="data_usage_title" msgid="4042209259808900283">"Пренос на данни от приложенията"</string>
     <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_1">%1$s</xliff:g> мобилни данни са използвани за периода <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="8074895510265488035">"Разширени"</string>
     <string name="carrier_settings_euicc" msgid="6714062862127226405">"Оператор"</string>
-    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"оператор, esim, sim, euicc"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="6861505396475991277">"оператор, esim, sim, euicc, смяна на оператори, превключване между оператори, добавяне на оператор"</string>
     <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> – <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="mobile_data_settings_title" msgid="4661165467914727157">"Мобилни данни"</string>
     <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Достъп до данните през мобилната мрежа"</string>
@@ -399,7 +426,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"Фиксираните номера за набиране се изтриват…"</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"Фиксираните номера за набиране са изтрити."</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"FDN не бе актуализирано, защото сте въвели неправилен ПИН."</string>
-    <string name="fdn_invalid_number" msgid="8602417141715473998">"FDN не бе актуализиран, защото номерът е празен или надвишава 20 цифри."</string>
+    <string name="fdn_invalid_number" msgid="2062898833049589309">"FDN не бе актуализиран, защото номерът надвишава 20 цифри."</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN не е актуализирано. PIN2 бе неправилен или телефонният номер бе отхвърлен."</string>
     <string name="fdn_failed" msgid="540018079008319747">"Операцията с фиксираните номера за набиране (FDN) не бе успешна."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"Четене на данни от SIM картата…"</string>
@@ -482,6 +509,7 @@
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Не може да се влезе в самолетен режим по време на спешно обаждане."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"Не може да се извърши обаждане. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> не е номер за спешни случаи."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Не може да се извърши обаждане. Наберете номер за спешни случаи."</string>
+    <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"Не се предлагат спешни обаждания"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Използвайте клавиатурата за набиране"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"Задържане"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"Край"</string>
@@ -502,6 +530,9 @@
     <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"Импортирането на контакта не бе успешно"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"Слухови апарати"</string>
     <string name="hac_mode_summary" msgid="6833851160514929341">"Включване на съвместимостта за слухов апарат"</string>
+    <string name="rtt_mode_title" msgid="6954652435543570121">"Обаждане с текстово съобщение в реално време (RTT)"</string>
+    <string name="rtt_mode_summary" msgid="5146344277246544580">"Позволяване на съобщения в рамките на гласово обаждане"</string>
+    <string name="rtt_mode_more_information" msgid="6080420780730383030">"RTT подпомага обаждащи се, които са глухи, имат затруднения със слуха, говорно увреждане или се нуждаят от повече от само глас.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Научете повече&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; – RTT обажданията се запазват като препис на съобщение.\n       &lt;br&gt; – RTT не е налице за видеообаждания."</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"TTY е изкл."</item>
     <item msgid="3971695875449640648">"Пълен TTY режим"</item>
@@ -613,4 +644,107 @@
     <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Може да се наложи да добавите данни чрез <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"ДОБАВЯНЕ НА ДАННИ"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ОТКАЗ"</string>
+    <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"Обаждането завърши"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"Радиото е изключено"</string>
+    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"Няма SIM карта или грешка в SIM картата"</string>
+    <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"Мобилната мрежа не е налице"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"Незададен номер"</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"Няма маршрут до дестинацията"</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"Каналът е неприемлив"</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"Определена от оператора забрана"</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"Нормално изчистване на обаждането"</string>
+    <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"Потребителят е зает"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"Потребителят не отговаря"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"Сигнал до потребителя, без отговор"</string>
+    <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"Обаждането е отхвърлено"</string>
+    <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"Номерът е променен"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"Изпреварване"</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"Изчистване на неизбрания потребител"</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"Дестинацията не работи нормално"</string>
+    <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"Невалиден формат на номера (непълен номер)"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"Функцията е отхвърлена"</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"Отговор на STATUS ENQUIRY"</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"Нормално, неуточнено"</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"Няма налична верига/канал"</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"Мрежата не работи нормално"</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"Временен неуспех"</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"Претоварване в комутационното оборудване"</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"Информацията за достъп е отхвърлена"</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"Заявената верига/канал не е налице"</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"Ресурсите не са налице, неуточнено"</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"Не е налице качество на услугата"</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"Няма абонамент за заявената функция"</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"Входящите обаждания са забранени в CUG"</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"Възможността на преносителя не е упълномощена"</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"Възможността на преносителя не е налице в момента"</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"Услугата или опцията не са налице, неуточнено"</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"Услугата на преносителя не е реализирана"</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM е по-голямо или равно на ACMmax"</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"Заявената функция не е реализирана"</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"Налице е само възможност за ограничен преносител на дигитална информация"</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"Услугата или опцията не са реализирани, неуточнено"</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"Невалидна стойност на идентификатора на транзакцията"</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"Потребителят не е член на CUG"</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"Несъвместима дестинация"</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"Невалиден избор на транзитна мрежа"</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"Семантично неправилно съобщение"</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"Невалидна задължителна информация"</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"Типът на съобщението не съществува или не е реализиран"</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"Типът на съобщението не е съвместим със състоянието на протокола"</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"Информационният елемент не съществува или не е реализиран"</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"Условна грешка в IE"</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"Съобщението не е съвместимо със състоянието на протокола"</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"Възстановяване при изтичане на таймер"</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"Грешка в протокола, неуточнена"</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"Взаимодействие, неуточнено"</string>
+    <string name="labelCallBarring" msgid="3452870940716226978">"Забрана за обаждания"</string>
+    <string name="sum_call_barring_enabled" msgid="6804489690436703488">"Вкл."</string>
+    <string name="sum_call_barring_disabled" msgid="5900772179198857783">"Изкл."</string>
+    <string name="call_barring_baoc" msgid="1199843944333106035">"Всички изходящи"</string>
+    <string name="call_barring_baoc_enabled" msgid="8112118391869380361">"Да се деактивира ли блокирането на всички изходящи обаждания?"</string>
+    <string name="call_barring_baoc_disabled" msgid="7806697133004697974">"Да се блокират ли всички изходящи обаждания?"</string>
+    <string name="call_barring_baoic" msgid="3162154267825211826">"Изходящи международни"</string>
+    <string name="call_barring_baoic_enabled" msgid="2634377543147258105">"Да се деактивира ли блокирането на изходящите международни обаждания?"</string>
+    <string name="call_barring_baoic_disabled" msgid="5817895648306183464">"Да се блокират ли изходящите международни обаждания?"</string>
+    <string name="call_barring_baoicr" msgid="8951699885885742076">"Изходящи при международен роуминг"</string>
+    <string name="call_barring_baoicr_enabled" msgid="2519630715322138317">"Да се деактивира ли блокирането на изходящите обаждания при международен роуминг?"</string>
+    <string name="call_barring_baoicr_disabled" msgid="5831267468931377699">"Да се блокират ли изходящите обаждания при международен роуминг?"</string>
+    <string name="call_barring_baic" msgid="5272726081458339912">"Всички входящи"</string>
+    <string name="call_barring_baic_enabled" msgid="2457134916223203380">"Да се деактивира ли блокирането на всички входящи обаждания?"</string>
+    <string name="call_barring_baic_disabled" msgid="6945604947500275636">"Да се блокират ли всички входящи обаждания?"</string>
+    <string name="call_barring_baicr" msgid="5728784220691481693">"Входящи при международен роуминг"</string>
+    <string name="call_barring_baicr_enabled" msgid="6533336994391716127">"Да се деактивира ли блокирането на входящите обаждания при международен роуминг?"</string>
+    <string name="call_barring_baicr_disabled" msgid="6746329853943256566">"Да се блокират ли входящите обаждания при международен роуминг?"</string>
+    <string name="call_barring_deactivate_all" msgid="5269788384941003415">"Деактивиране на всички"</string>
+    <string name="call_barring_deactivate_all_description" msgid="4972365443287257704">"Деактивиране на всички настройки за забрана за обаждания"</string>
+    <string name="call_barring_deactivate_success" msgid="8014685598632000936">"Забраната за обаждания е деактивирана"</string>
+    <string name="call_barring_change_pwd" msgid="6887420609726284232">"Промяна на паролата"</string>
+    <string name="call_barring_change_pwd_description" msgid="5505087790260233953">"Промяна на паролата за забрана за обаждания"</string>
+    <string name="call_barring_change_pwd_description_disabled" msgid="7630770327645349957">"Паролата за забрана за обаждания не може да се промени."</string>
+    <string name="call_barring_pwd_not_match" msgid="6716711689350314525">"Паролите не съвпадат"</string>
+    <string name="call_barring_right_pwd_number" msgid="2902966502520410446">"Въведете парола с 4 цифри"</string>
+    <string name="call_barring_change_pwd_success" msgid="3278310763742760321">"Паролата бе променена"</string>
+    <string name="call_barring_old_pwd" msgid="6080515987320238522">"Стара парола"</string>
+    <string name="call_barring_new_pwd" msgid="7048532299150269547">"Нова парола"</string>
+    <string name="call_barring_confirm_pwd" msgid="1947167278466285411">"Потвърждаване на паролата"</string>
+    <string name="messageCallBarring" msgid="2412123220272136055">"Въведете парола"</string>
+    <string name="call_barring_settings" msgid="80766145008623645">"Настройки за забрана на обажданията"</string>
+    <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"Да се деактивират ли всички настройки за забрана за обаждания?"</string>
+    <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"Обаждането е отклонено."</string>
+    <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"Обаждането е пренасочено."</string>
+    <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"Обаждането чака."</string>
+    <string name="supp_service_clir_suppression_rejected" msgid="1581851661582189045">"Блокирането на номера е отхвърлено."</string>
+    <string name="supp_service_closed_user_group_call" msgid="5761735840904590950">"Обаждане до затворена група потребители."</string>
+    <string name="supp_service_incoming_calls_barred" msgid="3248813207307882723">"Входящите обаждания са забранени."</string>
+    <string name="supp_service_outgoing_calls_barred" msgid="1962644621292054081">"Изходящите обаждания са забранени."</string>
+    <string name="supp_service_call_forwarding_active" msgid="1253134771682248735">"Пренасочването на обажданията е активно."</string>
+    <string name="supp_service_additional_call_forwarded" msgid="5228624725214727315">"Допълнителното обаждане е пренасочено."</string>
+    <string name="supp_service_additional_ect_connected" msgid="6396964292513707102">"Изричното прехвърляне на обаждането завърши."</string>
+    <string name="supp_service_additional_ect_connecting" msgid="5443373059716058480">"Обаждането се прехвърля изрично."</string>
+    <string name="supp_service_call_on_hold" msgid="1478976782361795422">"Обаждането е задържано."</string>
+    <string name="supp_service_call_resumed" msgid="1656475289958070674">"Обаждането е възобновено."</string>
+    <string name="supp_service_deflected_call" msgid="138970419873492166">"Обаждането бе отклонено."</string>
+    <string name="supp_service_forwarded_call" msgid="4509980341645679803">"Пренасочено обаждане."</string>
+    <string name="supp_service_conference_call" msgid="4448616364004466832">"Присъединявате се към конферентно обаждане."</string>
+    <string name="supp_service_held_call_released" msgid="2030677825038709779">"Задържаното обаждане бе освободено."</string>
 </resources>

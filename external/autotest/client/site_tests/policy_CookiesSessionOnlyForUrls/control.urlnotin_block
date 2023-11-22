@@ -4,7 +4,8 @@
 
 AUTHOR = 'scunningham'
 NAME = 'policy_CookiesSessionOnlyForUrls.urlnotin_block'
-ATTRIBUTES = 'suite:bvt-perbuild'
+# TODO(krishnargv): enable this test once crbug.com/712713 is fixed.
+# ATTRIBUTES = 'suite:bvt-perbuild, suite:policy'
 TIME = 'SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'enterprise'

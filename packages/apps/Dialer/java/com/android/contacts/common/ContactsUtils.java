@@ -18,7 +18,7 @@ package com.android.contacts.common;
 
 import android.provider.ContactsContract.Contacts;
 import android.support.annotation.IntDef;
-import com.android.contacts.common.compat.DirectoryCompat;
+import com.android.dialer.common.cp2.DirectoryCompat;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -79,6 +79,7 @@ public class ContactsUtils {
    * running inside Work Profile.
    */
   @Retention(RetentionPolicy.SOURCE)
-  @IntDef({USER_TYPE_CURRENT, USER_TYPE_WORK})
+  // TODO: Switch to @LongDef when @LongDef is available in the support library
+  @IntDef({(int) USER_TYPE_CURRENT, (int) USER_TYPE_WORK})
   public @interface UserType {}
 }

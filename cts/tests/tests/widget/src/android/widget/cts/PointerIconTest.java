@@ -59,8 +59,10 @@ public class PointerIconTest {
     }
 
     private void assertPointerIcon(String message, PointerIcon expectedIcon, View target) {
-        final int[] topPos = mTopView.getLocationOnScreen();
-        final int[] targetPos = target.getLocationOnScreen();
+        final int[] topPos = new int[2];
+        mTopView.getLocationOnScreen(topPos);
+        final int[] targetPos = new int[2];
+        target.getLocationOnScreen(targetPos);
         final int x = targetPos[0] + target.getWidth() / 2 - topPos[0];
         final int y = targetPos[1] + target.getHeight() / 2 - topPos[1];
         final MotionEvent event = MotionEvent.obtain(0, 0, MotionEvent.ACTION_HOVER_MOVE, x, y, 0);

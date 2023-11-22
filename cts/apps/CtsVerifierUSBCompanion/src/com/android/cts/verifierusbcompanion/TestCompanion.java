@@ -19,7 +19,7 @@ package com.android.cts.verifierusbcompanion;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Message;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.util.Log;
 
 import java.util.Arrays;

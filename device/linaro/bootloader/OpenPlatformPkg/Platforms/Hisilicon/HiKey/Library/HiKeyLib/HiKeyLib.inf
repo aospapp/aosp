@@ -1,6 +1,5 @@
 #
-#  Copyright (c) 2014-2015, Linaro Limited. All rights reserved.
-#  Copyright (c) 2014-2015, Hisilicon Limited. All rights reserved.
+#  Copyright (c) 2014-2017, Linaro Limited. All rights reserved.
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -12,7 +11,7 @@
 #
 
 [Defines]
-  INF_VERSION                    = 0x00010005
+  INF_VERSION                    = 0x00010019
   BASE_NAME                      = HiKeyLib
   FILE_GUID                      = 1f6c5192-f35c-462d-877c-8ee3227fff01
   MODULE_TYPE                    = BASE
@@ -20,18 +19,18 @@
   LIBRARY_CLASS                  = ArmPlatformLib
 
 [Packages]
-  MdePkg/MdePkg.dec
-  MdeModulePkg/MdeModulePkg.dec
-  EmbeddedPkg/EmbeddedPkg.dec
   ArmPkg/ArmPkg.dec
   ArmPlatformPkg/ArmPlatformPkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
   OpenPlatformPkg/Chips/Hisilicon/Hi6220/Hi6220.dec
   OpenPlatformPkg/Platforms/Hisilicon/HiKey/HiKey.dec
 
 [LibraryClasses]
-  IoLib
   ArmLib
   HobLib
+  IoLib
   MemoryAllocationLib
   SerialPortLib
 
@@ -40,14 +39,13 @@
   HiKeyMem.c
 
 [Sources.AARCH64]
-  HiKeyHelper.S | GCC
+  HiKeyHelper.S
 
 [FeaturePcd]
   gEmbeddedTokenSpaceGuid.PcdCacheEnable
 
 [FixedPcd]
+  gArmTokenSpaceGuid.PcdArmPrimaryCore
+  gArmTokenSpaceGuid.PcdArmPrimaryCoreMask
   gArmTokenSpaceGuid.PcdSystemMemoryBase
   gArmTokenSpaceGuid.PcdSystemMemorySize
-  gArmTokenSpaceGuid.PcdFvBaseAddress
-
-  gArmTokenSpaceGuid.PcdArmPrimaryCoreMask

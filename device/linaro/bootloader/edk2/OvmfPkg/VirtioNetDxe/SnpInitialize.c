@@ -95,8 +95,7 @@ VirtioNetInitRing (
   //
   // step 4c -- report GPFN (guest-physical frame number) of queue
   //
-  Status = Dev->VirtIo->SetQueueAddress (Dev->VirtIo,
-      (UINT32) ((UINTN) Ring->Base >> EFI_PAGE_SHIFT));
+  Status = Dev->VirtIo->SetQueueAddress (Dev->VirtIo, Ring);
   if (EFI_ERROR (Status)) {
     goto ReleaseQueue;
   }
@@ -139,6 +138,7 @@ VirtioNetInitTx (
   IN OUT VNET_DEV *Dev
   )
 {
+  UINTN TxSharedReqSize;
   UINTN PktIdx;
 
   Dev->TxMaxPending = (UINT16) MIN (Dev->TxRing.QueueSize / 2,
@@ -149,6 +149,14 @@ VirtioNetInitTx (
   if (Dev->TxFreeStack == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
+
+  //
+  // In VirtIo 1.0, the NumBuffers field is mandatory. In 0.9.5, it depends on
+  // VIRTIO_NET_F_MRG_RXBUF, which we never negotiate.
+  //
+  TxSharedReqSize = (Dev->VirtIo->Revision < VIRTIO_SPEC_REVISION (1, 0, 0)) ?
+                    sizeof Dev->TxSharedReq.V0_9_5 :
+                    sizeof Dev->TxSharedReq;
 
   for (PktIdx = 0; PktIdx < Dev->TxMaxPending; ++PktIdx) {
     UINT16 DescIdx;
@@ -161,7 +169,7 @@ VirtioNetInitTx (
     // (unmodified by the host) virtio-net request header.
     //
     Dev->TxRing.Desc[DescIdx].Addr  = (UINTN) &Dev->TxSharedReq;
-    Dev->TxRing.Desc[DescIdx].Len   = sizeof Dev->TxSharedReq;
+    Dev->TxRing.Desc[DescIdx].Len   = (UINT32) TxSharedReqSize;
     Dev->TxRing.Desc[DescIdx].Flags = VRING_DESC_F_NEXT;
     Dev->TxRing.Desc[DescIdx].Next  = (UINT16) (DescIdx + 1);
 
@@ -175,8 +183,13 @@ VirtioNetInitTx (
   //
   // virtio-0.9.5, Appendix C, Packet Transmission
   //
-  Dev->TxSharedReq.Flags   = 0;
-  Dev->TxSharedReq.GsoType = VIRTIO_NET_HDR_GSO_NONE;
+  Dev->TxSharedReq.V0_9_5.Flags   = 0;
+  Dev->TxSharedReq.V0_9_5.GsoType = VIRTIO_NET_HDR_GSO_NONE;
+
+  //
+  // For VirtIo 1.0 only -- the field exists, but it is unused
+  //
+  Dev->TxSharedReq.NumBuffers = 0;
 
   //
   // virtio-0.9.5, 2.4.2 Receiving Used Buffers From the Device
@@ -224,6 +237,7 @@ VirtioNetInitRx (
   )
 {
   EFI_STATUS Status;
+  UINTN      VirtioNetReqSize;
   UINTN      RxBufSize;
   UINT16     RxAlwaysPending;
   UINTN      PktIdx;
@@ -231,12 +245,20 @@ VirtioNetInitRx (
   UINT8      *RxPtr;
 
   //
+  // In VirtIo 1.0, the NumBuffers field is mandatory. In 0.9.5, it depends on
+  // VIRTIO_NET_F_MRG_RXBUF, which we never negotiate.
+  //
+  VirtioNetReqSize = (Dev->VirtIo->Revision < VIRTIO_SPEC_REVISION (1, 0, 0)) ?
+                     sizeof (VIRTIO_NET_REQ) :
+                     sizeof (VIRTIO_1_0_NET_REQ);
+
+  //
   // For each incoming packet we must supply two descriptors:
   // - the recipient for the virtio-net request header, plus
   // - the recipient for the network data (which consists of Ethernet header
   //   and Ethernet payload).
   //
-  RxBufSize = sizeof (VIRTIO_NET_REQ) +
+  RxBufSize = VirtioNetReqSize +
               (Dev->Snm.MediaHeaderSize + Dev->Snm.MaxPacketSize);
 
   //
@@ -281,14 +303,13 @@ VirtioNetInitRx (
     // virtio-0.9.5, 2.4.1.1 Placing Buffers into the Descriptor Table
     //
     Dev->RxRing.Desc[DescIdx].Addr  = (UINTN) RxPtr;
-    Dev->RxRing.Desc[DescIdx].Len   = sizeof (VIRTIO_NET_REQ);
+    Dev->RxRing.Desc[DescIdx].Len   = (UINT32) VirtioNetReqSize;
     Dev->RxRing.Desc[DescIdx].Flags = VRING_DESC_F_WRITE | VRING_DESC_F_NEXT;
     Dev->RxRing.Desc[DescIdx].Next  = (UINT16) (DescIdx + 1);
     RxPtr += Dev->RxRing.Desc[DescIdx++].Len;
 
     Dev->RxRing.Desc[DescIdx].Addr  = (UINTN) RxPtr;
-    Dev->RxRing.Desc[DescIdx].Len   = (UINT32) (RxBufSize -
-                                                sizeof (VIRTIO_NET_REQ));
+    Dev->RxRing.Desc[DescIdx].Len   = (UINT32) (RxBufSize - VirtioNetReqSize);
     Dev->RxRing.Desc[DescIdx].Flags = VRING_DESC_F_WRITE;
     RxPtr += Dev->RxRing.Desc[DescIdx++].Len;
   }
@@ -360,7 +381,7 @@ VirtioNetInitialize (
   EFI_TPL    OldTpl;
   EFI_STATUS Status;
   UINT8      NextDevStat;
-  UINT32     Features;
+  UINT64     Features;
 
   if (This == NULL) {
     return EFI_INVALID_PARAMETER;
@@ -418,6 +439,19 @@ VirtioNetInitialize (
   ASSERT (Dev->Snm.MediaPresentSupported ==
     !!(Features & VIRTIO_NET_F_STATUS));
 
+  Features &= VIRTIO_NET_F_MAC | VIRTIO_NET_F_STATUS | VIRTIO_F_VERSION_1;
+
+  //
+  // In virtio-1.0, feature negotiation is expected to complete before queue
+  // discovery, and the device can also reject the selected set of features.
+  //
+  if (Dev->VirtIo->Revision >= VIRTIO_SPEC_REVISION (1, 0, 0)) {
+    Status = Virtio10WriteFeatures (Dev->VirtIo, Features, &NextDevStat);
+    if (EFI_ERROR (Status)) {
+      goto DeviceFailed;
+    }
+  }
+
   //
   // step 4b, 4c -- allocate and report virtqueues
   //
@@ -434,10 +468,12 @@ VirtioNetInitialize (
   //
   // step 5 -- keep only the features we want
   //
-  Features &= VIRTIO_NET_F_MAC | VIRTIO_NET_F_STATUS;
-  Status = Dev->VirtIo->SetGuestFeatures (Dev->VirtIo, Features);
-  if (EFI_ERROR (Status)) {
-    goto ReleaseTxRing;
+  if (Dev->VirtIo->Revision < VIRTIO_SPEC_REVISION (1, 0, 0)) {
+    Features &= ~(UINT64)VIRTIO_F_VERSION_1;
+    Status = Dev->VirtIo->SetGuestFeatures (Dev->VirtIo, Features);
+    if (EFI_ERROR (Status)) {
+      goto ReleaseTxRing;
+    }
   }
 
   //

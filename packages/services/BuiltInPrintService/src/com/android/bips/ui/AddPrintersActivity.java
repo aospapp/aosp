@@ -19,6 +19,7 @@ package com.android.bips.ui;
 
 import android.app.ActionBar;
 import android.app.Activity;
+import android.app.Fragment;
 import android.os.Bundle;
 import android.view.MenuItem;
 
@@ -30,7 +31,7 @@ public class AddPrintersActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getFragmentManager().beginTransaction()
-                .replace(android.R.id.content, new ManualPrintersFragment())
+                .replace(android.R.id.content, new AddPrintersFragment())
                 .commit();
 
         ActionBar actionBar = getActionBar();
@@ -44,9 +45,22 @@ public class AddPrintersActivity extends Activity {
         switch (item.getItemId()) {
             // Respond to the action bar's Up/Home button
             case android.R.id.home:
-                finish();
+                onBackPressed();
                 return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            int[] grantResults) {
+        Fragment fragment = getFragmentManager().findFragmentById(android.R.id.content);
+        if (fragment != null && fragment instanceof OnPermissionChangeListener) {
+            ((OnPermissionChangeListener) fragment).onPermissionChange();
+        }
+    }
+
+    interface OnPermissionChangeListener {
+        void onPermissionChange();
     }
 }

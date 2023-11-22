@@ -58,7 +58,7 @@ struct MatrixKernel {
    private:
     friend struct MatrixKernelConverter;
     friend struct MatrixKernelConditionsConverter;
-    friend class AssembleVintf;
+    friend class AssembleVintfImpl;
 
     KernelVersion mMinLts;
     std::vector<KernelConfig> mConfigs;

@@ -12,5 +12,5 @@
     <string name="unknownName" msgid="2841414754740600042">"अज्ञात नाम"</string>
     <string name="localPhoneName" msgid="2349001318925409159">"मेरो नाम"</string>
     <string name="defaultnumber" msgid="8520116145890867338">"००००००"</string>
-    <string name="pbap_notification_group" msgid="8487669554703627168">"ब्लुटुथमार्फत सम्पर्कको आदान-प्रदान"</string>
+    <string name="pbap_notification_group" msgid="8487669554703627168">"ब्लुटुथमार्फत सम्पर्कको आदान प्रदान"</string>
 </resources>

@@ -269,6 +269,7 @@ void DisplayPlaneManager::reclaimPlane(int dsp, DisplayPlane& plane)
     }
 
     putPlane(index, mReclaimedPlanes[type]);
+    plane.resetCurrentBuffer();
 
     // NOTE: don't invalidate plane's data cache here because the reclaimed
     // plane might be re-assigned to the same layer later

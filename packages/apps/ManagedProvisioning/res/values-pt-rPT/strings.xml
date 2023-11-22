@@ -28,10 +28,10 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"A aplicação seguinte vai gerir o seu dispositivo:"</string>
     <string name="next" msgid="1004321437324424398">"Seguinte"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"A configurar o perfil de trabalho..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"O seu administrador tem a capacidade de monitorizar e gerir definições, acesso empresarial, aplicações, autorizações e dados associados a este perfil, incluindo a sua atividade de rede, bem como a localização, o histórico de chamadas e o histórico de pesquisas de contactos do dispositivo.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Contacte o administrador para obter mais informações, incluindo as Políticas de Privacidade da sua entidade."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"O seu administrador tem a capacidade de monitorizar e gerir as definições, o acesso empresarial, as aplicações, as autorizações e os dados associados a este dispositivo, incluindo a atividade da rede, bem como a localização, o histórico de chamadas e o histórico de pesquisas de contactos do dispositivo.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Contacte o administrador para obter mais informações, incluindo as políticas de privacidade da sua entidade."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"O seu gestor tem a capacidade de monitorizar e gerir definições, acesso empresarial, aplicações, autorizações e dados associados a este perfil, incluindo a sua atividade de rede, bem como a localização, o histórico de chamadas e o histórico de pesquisas de contactos do dispositivo.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Contacte o gestor para obter mais informações, incluindo as Políticas de Privacidade da sua entidade."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"O seu gestor tem a capacidade de monitorizar e gerir as definições, o acesso empresarial, as aplicações, as autorizações e os dados associados a este dispositivo, incluindo a atividade da rede, bem como a localização, o histórico de chamadas e o histórico de pesquisas de contactos do dispositivo.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Contacte o gestor para obter mais informações, incluindo as políticas de privacidade da sua entidade."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Para utilizar as funcionalidades de proteção contra roubo, necessita de um bloqueio de ecrã protegido por palavra-passe para o dispositivo."</string>
-    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Contacte o administrador para obter mais informações, incluindo as políticas de privacidade da sua entidade."</string>
+    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Contacte o gestor para obter mais informações, incluindo as políticas de privacidade da sua entidade."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Saiba mais"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"Cancelar"</string>
     <string name="ok_setup" msgid="4593707675416137504">"Ok"</string>
@@ -57,7 +57,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Não foi possível configurar o perfil de trabalho. Contacte o departamento de TI ou tente novamente mais tarde."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Não é possível adicionar o perfil de trabalho"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Não é possível substituir ou remover o perfil de trabalho"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Não é possível adicionar um perfil de trabalho a este dispositivo. Se tiver dúvidas, contacte o administrador."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Não é possível adicionar um perfil de trabalho a este dispositivo. Se tiver dúvidas, contacte o gestor."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Alterar o iniciador do dispositivo"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"O seu perfil de trabalho não pode utilizar esta aplicação de iniciador"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Cancelar"</string>
@@ -67,13 +67,14 @@
     <string name="setup_work_device" msgid="6003988351437862369">"A configurar o dispositivo de trabalho..."</string>
     <string name="progress_data_process" msgid="1707745321954672971">"A processar os dados de configuração..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"A ligar à rede Wi-Fi..."</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"A ligar à rede móvel…"</string>
     <string name="progress_download" msgid="3522436271691064624">"A transferir a aplicação de administração..."</string>
     <string name="progress_install" msgid="2258045670385866183">"A instalar a aplicação de administração..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"A remover aplic. do sistema não necessárias…"</string>
     <string name="progress_finishing_touches" msgid="9037776404089697198">"A dar os toques finais…"</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"A definir o proprietário do dispositivo..."</string>
     <string name="progress_initialize" msgid="1104643492713424939">"A inicializar o dispositivo…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="8297141458771829628">"Este dispositivo não permite encriptação, que é necessária para efetuar a configuração. Contacte o administrador para obter ajuda."</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="8297141458771829628">"Este dispositivo não permite encriptação, que é necessária para efetuar a configuração. Contacte o gestor para obter ajuda."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Pretende parar a configuração e repor o dispositivo?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Esta ação repõe o dispositivo e direciona-o para o primeiro ecrã"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"Pretende interromper a configuração e apagar os dados do dispositivo?"</string>
@@ -82,16 +83,16 @@
     <string name="reset" msgid="6467204151306265796">"Repor"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Não é possível configurar o perfil"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Não é possível configurar o dispositivo"</string>
-    <string name="couldnt_set_up_device" msgid="60699158233724802">"Não foi possível configurar o dispositivo. Contacte o administrador para obter ajuda."</string>
-    <string name="contact_your_admin_for_help" msgid="8045606258802719235">"Contacte o administrador para obter ajuda"</string>
+    <string name="couldnt_set_up_device" msgid="60699158233724802">"Não foi possível configurar o dispositivo. Contacte o gestor para obter ajuda."</string>
+    <string name="contact_your_admin_for_help" msgid="8045606258802719235">"Contacte o gestor para obter ajuda"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"O dispositivo já está configurado"</string>
     <string name="device_owner_error_wifi" msgid="4256310285761332378">"Não foi possível ligar à rede Wi-Fi"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"O dispositivo tem a proteção de reposição ativada. Contacte o administrador para obter ajuda."</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"O dispositivo tem a proteção de reposição ativada. Contacte o gestor para obter ajuda."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"A apagar"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Aguarde..."</string>
-    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"Não foi possível utilizar a aplicação de administração devido a um erro de soma de verificação. Contacte o administrador para obter ajuda."</string>
+    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"Não foi possível utilizar a aplicação de administração devido a um erro de soma de verificação. Contacte o gestor para obter ajuda."</string>
     <string name="device_owner_error_download_failed" msgid="4520111971592657116">"Não foi possível transferir a aplicação de administração"</string>
-    <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"Não é possível utilizar a aplicação de administração. Faltam componentes ou está danificada. Contacte o administrador para obter ajuda."</string>
+    <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"Não é possível utilizar a aplicação de administração. Faltam componentes ou está danificada. Contacte o gestor para obter ajuda."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Não foi possível instalar a aplicação de administração"</string>
     <string name="profile_owner_cancel_message" msgid="6868736915633023477">"Pretende interromper a configuração?"</string>
     <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Não"</string>
@@ -106,14 +107,14 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Está prestes a criar um perfil de trabalho que será gerido e monitorizado pela sua entidade. Aplicam-se os termos da <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"Será criado um perfil para as suas aplicações de trabalho. Este perfil e o restante dispositivo serão geridos e monitorizados pela sua entidade. Aplicam-se termos."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"Será criado um perfil para as suas aplicações de trabalho. Este perfil e o restante dispositivo serão geridos e monitorizados pela sua entidade. Aplicam-se os termos da <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"Este dispositivo será gerido e mantido em segurança pela <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Aplicam-se termos. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"Este dispositivo será gerido e mantido em segurança pela <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Aplicam-se os termos da <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"Este dispositivo será gerido, monitorizado e mantido em segurança pela <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Aplicam-se termos. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Este dispositivo será gerido, monitorizado e mantido em segurança pela <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Aplicam-se os termos da <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Este link não é seguro e não o pode abrir até concluir a configuração do dispositivo: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"Se tiver dúvidas, contacte o <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>."</string>
-    <string name="if_questions_contact_admin" msgid="6147462485780267795">"Se tiver dúvidas, contacte o administrador da entidade"</string>
-    <string name="setup_isnt_finished_contact_admin" msgid="235011880559615998">"A configuração não está concluída. Contacte o administrador para obter ajuda."</string>
-    <string name="for_help_contact_admin" msgid="8687037236275184653">"Contacte o administrador para obter ajuda"</string>
-    <string name="organization_admin" msgid="1595001081906025683">"administrador da entidade"</string>
+    <string name="if_questions_contact_admin" msgid="6147462485780267795">"Se tiver dúvidas, contacte o gestor da entidade"</string>
+    <string name="setup_isnt_finished_contact_admin" msgid="235011880559615998">"A configuração não está concluída. Contacte o gestor para obter ajuda."</string>
+    <string name="for_help_contact_admin" msgid="8687037236275184653">"Contacte o gestor para obter ajuda"</string>
+    <string name="organization_admin" msgid="1595001081906025683">"gestor da entidade"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"A <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> irá gerir e monitorizar este dispositivo através da seguinte aplicação:"</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"A sua entidade"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"a sua entidade"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> e <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"Esta ação pode demorar alguns minutos."</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"As suas aplicações de trabalho serão mantidas neste perfil e serão geridas pela sua entidade."</string>
+    <string name="device_owner_description" msgid="168013145812679664">"A proteção e a gestão deste dispositivo serão efetuadas pela sua entidade."</string>
 </resources>

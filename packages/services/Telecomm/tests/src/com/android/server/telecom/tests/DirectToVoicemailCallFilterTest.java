@@ -26,6 +26,10 @@ import com.android.server.telecom.CallerInfoLookupHelper;
 import com.android.server.telecom.callfiltering.CallFilteringResult;
 import com.android.server.telecom.callfiltering.DirectToVoicemailCallFilter;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
@@ -33,6 +37,7 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@RunWith(JUnit4.class)
 public class DirectToVoicemailCallFilterTest extends TelecomTestCase {
     @Mock private CallerInfoLookupHelper mCallerInfoLookupHelper;
     @Mock private CallFilterResultCallback mCallback;
@@ -40,11 +45,14 @@ public class DirectToVoicemailCallFilterTest extends TelecomTestCase {
 
     private static final Uri TEST_HANDLE = Uri.parse("tel:1235551234");
 
+    @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
     }
 
     @SmallTest
+    @Test
     public void testSendToVoicemail() {
         CallerInfoLookupHelper.OnQueryCompleteListener queryListener = verifyLookupStart();
 
@@ -62,6 +70,7 @@ public class DirectToVoicemailCallFilterTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testDontSendToVoicemail() {
         CallerInfoLookupHelper.OnQueryCompleteListener queryListener = verifyLookupStart();
 
@@ -79,6 +88,7 @@ public class DirectToVoicemailCallFilterTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testNullResponseFromLookupHelper() {
         CallerInfoLookupHelper.OnQueryCompleteListener queryListener = verifyLookupStart(null);
 

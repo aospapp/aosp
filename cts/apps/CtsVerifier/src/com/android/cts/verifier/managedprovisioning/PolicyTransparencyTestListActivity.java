@@ -16,7 +16,6 @@
 
 package com.android.cts.verifier.managedprovisioning;
 
-import android.app.admin.DevicePolicyManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.DataSetObserver;
@@ -30,7 +29,8 @@ import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.TestListAdapter.TestListItem;
 
-import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Test class to verify transparency for policies enforced by device/profile owner.
@@ -44,8 +44,9 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
             "com.android.cts.verifier.managedprovisioning.extra.mode";
 
     public static final int MODE_DEVICE_OWNER = 1;
-    public static final int MODE_PROFILE_OWNER = 2;
+    public static final int MODE_MANAGED_PROFILE = 2;
     public static final int MODE_COMP = 3;
+    public static final int MODE_MANAGED_USER = 4;
 
     /**
      * Pairs of:
@@ -100,12 +101,12 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
         }
     }
 
-    private static final ArrayList<String> ALSO_VALID_FOR_PO = new ArrayList<String>();
-    static {
-        ALSO_VALID_FOR_PO.add(
-                PolicyTransparencyTestActivity.TEST_CHECK_PERMITTED_ACCESSIBILITY_SERVICE);
-        ALSO_VALID_FOR_PO.add(PolicyTransparencyTestActivity.TEST_CHECK_PERMITTED_INPUT_METHOD);
-    }
+    private static final List<String> ALSO_VALID_FOR_MANAGED_PROFILE = Arrays.asList(
+            PolicyTransparencyTestActivity.TEST_CHECK_PERMITTED_ACCESSIBILITY_SERVICE,
+            PolicyTransparencyTestActivity.TEST_CHECK_PERMITTED_INPUT_METHOD);
+    private static final List<String> ALSO_VALID_FOR_MANAGED_USER = Arrays.asList(
+            PolicyTransparencyTestActivity.TEST_CHECK_PERMITTED_ACCESSIBILITY_SERVICE,
+            PolicyTransparencyTestActivity.TEST_CHECK_PERMITTED_INPUT_METHOD);
 
     private int mMode;
 
@@ -123,7 +124,8 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
                     + EXTRA_MODE);
         }
         mMode = getIntent().getIntExtra(EXTRA_MODE, MODE_DEVICE_OWNER);
-        if (mMode != MODE_DEVICE_OWNER && mMode != MODE_PROFILE_OWNER && mMode != MODE_COMP) {
+        if (mMode != MODE_DEVICE_OWNER && mMode != MODE_MANAGED_PROFILE && mMode != MODE_COMP
+                && mMode != MODE_MANAGED_USER) {
             throw new RuntimeException("Unknown mode " + mMode);
         }
 
@@ -161,7 +163,10 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
             if (!isPolicyValid(test)) {
                 continue;
             }
-            if (mMode == MODE_PROFILE_OWNER && !ALSO_VALID_FOR_PO.contains(test)) {
+            if (mMode == MODE_MANAGED_PROFILE && !ALSO_VALID_FOR_MANAGED_PROFILE.contains(test)) {
+                continue;
+            }
+            if (mMode == MODE_MANAGED_USER && !ALSO_VALID_FOR_MANAGED_USER.contains(test)) {
                 continue;
             }
             final String title = getString(policy.second);
@@ -175,10 +180,12 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
     private String getTestId(String title) {
         if (mMode == MODE_DEVICE_OWNER) {
             return "DO_" + title;
-        } else if (mMode == MODE_PROFILE_OWNER) {
-            return "PO_" + title;
+        } else if (mMode == MODE_MANAGED_PROFILE) {
+            return "MP_" + title;
         } else if (mMode == MODE_COMP){
             return "COMP_" + title;
+        } else if (mMode == MODE_MANAGED_USER) {
+            return "MU_" + title;
         }
         throw new RuntimeException("Unknown mode " + mMode);
     }

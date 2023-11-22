@@ -16,27 +16,21 @@
 
 package com.googlecode.android_scripting.facade.bluetooth;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import android.app.Service;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothA2dpSink;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothHeadsetClient;
-import android.bluetooth.BluetoothInputDevice;
+import android.bluetooth.BluetoothHidDevice;
+import android.bluetooth.BluetoothHidHost;
+import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothMap;
 import android.bluetooth.BluetoothMapClient;
+import android.bluetooth.BluetoothPan;
 import android.bluetooth.BluetoothPbapClient;
 import android.bluetooth.BluetoothProfile;
-import android.bluetooth.BluetoothPan;
 import android.bluetooth.BluetoothUuid;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -50,12 +44,19 @@ import com.googlecode.android_scripting.facade.EventFacade;
 import com.googlecode.android_scripting.facade.FacadeManager;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
-import com.googlecode.android_scripting.rpc.RpcParameter;
 import com.googlecode.android_scripting.rpc.RpcDefault;
 import com.googlecode.android_scripting.rpc.RpcOptional;
+import com.googlecode.android_scripting.rpc.RpcParameter;
 
 import org.json.JSONArray;
 import org.json.JSONException;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class BluetoothConnectionFacade extends RpcReceiver {
 
@@ -73,6 +74,7 @@ public class BluetoothConnectionFacade extends RpcReceiver {
     private final IntentFilter mA2dpStateChangeFilter;
     private final IntentFilter mA2dpSinkStateChangeFilter;
     private final IntentFilter mHidStateChangeFilter;
+    private final IntentFilter mHidDeviceStateChangeFilter;
     private final IntentFilter mHspStateChangeFilter;
     private final IntentFilter mHfpClientStateChangeFilter;
     private final IntentFilter mPbapClientStateChangeFilter;
@@ -86,6 +88,7 @@ public class BluetoothConnectionFacade extends RpcReceiver {
     private BluetoothA2dpFacade mA2dpProfile;
     private BluetoothA2dpSinkFacade mA2dpSinkProfile;
     private BluetoothHidFacade mHidProfile;
+    private BluetoothHidDeviceFacade mHidDeviceProfile;
     private BluetoothHspFacade mHspProfile;
     private BluetoothHfpClientFacade mHfpClientProfile;
     private BluetoothPbapClientFacade mPbapClientProfile;
@@ -110,6 +113,7 @@ public class BluetoothConnectionFacade extends RpcReceiver {
         mA2dpProfile = manager.getReceiver(BluetoothA2dpFacade.class);
         mA2dpSinkProfile = manager.getReceiver(BluetoothA2dpSinkFacade.class);
         mHidProfile = manager.getReceiver(BluetoothHidFacade.class);
+        mHidDeviceProfile = manager.getReceiver(BluetoothHidDeviceFacade.class);
         mHspProfile = manager.getReceiver(BluetoothHspFacade.class);
         mHfpClientProfile = manager.getReceiver(BluetoothHfpClientFacade.class);
         mPbapClientProfile = manager.getReceiver(BluetoothPbapClientFacade.class);
@@ -134,7 +138,9 @@ public class BluetoothConnectionFacade extends RpcReceiver {
         mA2dpSinkStateChangeFilter =
             new IntentFilter(BluetoothA2dpSink.ACTION_CONNECTION_STATE_CHANGED);
         mHidStateChangeFilter =
-            new IntentFilter(BluetoothInputDevice.ACTION_CONNECTION_STATE_CHANGED);
+            new IntentFilter(BluetoothHidHost.ACTION_CONNECTION_STATE_CHANGED);
+        mHidDeviceStateChangeFilter =
+                new IntentFilter(BluetoothHidDevice.ACTION_CONNECTION_STATE_CHANGED);
         mHspStateChangeFilter = new IntentFilter(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
         mHfpClientStateChangeFilter =
             new IntentFilter(BluetoothHeadsetClient.ACTION_CONNECTION_STATE_CHANGED);
@@ -304,8 +310,8 @@ public class BluetoothConnectionFacade extends RpcReceiver {
                 case BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED:
                     profile = BluetoothProfile.A2DP;
                     break;
-                case BluetoothInputDevice.ACTION_CONNECTION_STATE_CHANGED:
-                    profile = BluetoothProfile.INPUT_DEVICE;
+                case BluetoothHidHost.ACTION_CONNECTION_STATE_CHANGED:
+                    profile = BluetoothProfile.HID_HOST;
                     break;
                 case BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED:
                     profile = BluetoothProfile.HEADSET;
@@ -433,6 +439,7 @@ public class BluetoothConnectionFacade extends RpcReceiver {
         mA2dpProfile.a2dpDisconnect(device);
         mA2dpSinkProfile.a2dpSinkDisconnect(device);
         mHidProfile.hidDisconnect(device);
+        mHidDeviceProfile.hidDeviceDisconnect(device);
         mHspProfile.hspDisconnect(device);
         mHfpClientProfile.hfpClientDisconnect(device);
         mPbapClientProfile.pbapClientDisconnect(device);
@@ -458,8 +465,11 @@ public class BluetoothConnectionFacade extends RpcReceiver {
                 case BluetoothProfile.A2DP:
                     mA2dpProfile.a2dpDisconnect(device);
                     break;
-                case BluetoothProfile.INPUT_DEVICE:
+                case BluetoothProfile.HID_HOST:
                     mHidProfile.hidDisconnect(device);
+                    break;
+                case BluetoothProfile.HID_DEVICE:
+                    mHidDeviceProfile.hidDeviceDisconnect(device);
                     break;
                 case BluetoothProfile.HEADSET:
                     mHspProfile.hspDisconnect(device);

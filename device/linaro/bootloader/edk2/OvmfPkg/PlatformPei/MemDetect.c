@@ -1,7 +1,7 @@
 /**@file
   Memory Detection for Virtual Machines.
 
-  Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -32,11 +32,15 @@ Module Name:
 #include <Library/PeimEntryPoint.h>
 #include <Library/ResourcePublicationLib.h>
 #include <Library/MtrrLib.h>
+#include <Library/QemuFwCfgLib.h>
 
 #include "Platform.h"
 #include "Cmos.h"
 
 UINT8 mPhysMemAddressWidth;
+
+STATIC UINT32 mS3AcpiReservedMemoryBase;
+STATIC UINT32 mS3AcpiReservedMemorySize;
 
 UINT32
 GetSystemMemorySizeBelow4gb (
@@ -88,6 +92,136 @@ GetSystemMemorySizeAbove4gb (
 
 
 /**
+  Return the highest address that DXE could possibly use, plus one.
+**/
+STATIC
+UINT64
+GetFirstNonAddress (
+  VOID
+  )
+{
+  UINT64               FirstNonAddress;
+  UINT64               Pci64Base, Pci64Size;
+  CHAR8                MbString[7 + 1];
+  EFI_STATUS           Status;
+  FIRMWARE_CONFIG_ITEM FwCfgItem;
+  UINTN                FwCfgSize;
+  UINT64               HotPlugMemoryEnd;
+  RETURN_STATUS        PcdStatus;
+
+  FirstNonAddress = BASE_4GB + GetSystemMemorySizeAbove4gb ();
+
+  //
+  // If DXE is 32-bit, then we're done; PciBusDxe will degrade 64-bit MMIO
+  // resources to 32-bit anyway. See DegradeResource() in
+  // "PciResourceSupport.c".
+  //
+#ifdef MDE_CPU_IA32
+  if (!FeaturePcdGet (PcdDxeIplSwitchToLongMode)) {
+    return FirstNonAddress;
+  }
+#endif
+
+  //
+  // Otherwise, in order to calculate the highest address plus one, we must
+  // consider the 64-bit PCI host aperture too. Fetch the default size.
+  //
+  Pci64Size = PcdGet64 (PcdPciMmio64Size);
+
+  //
+  // See if the user specified the number of megabytes for the 64-bit PCI host
+  // aperture. The number of non-NUL characters in MbString allows for
+  // 9,999,999 MB, which is approximately 10 TB.
+  //
+  // As signaled by the "X-" prefix, this knob is experimental, and might go
+  // away at any time.
+  //
+  Status = QemuFwCfgFindFile ("opt/ovmf/X-PciMmio64Mb", &FwCfgItem,
+             &FwCfgSize);
+  if (!EFI_ERROR (Status)) {
+    if (FwCfgSize >= sizeof MbString) {
+      DEBUG ((EFI_D_WARN,
+        "%a: ignoring malformed 64-bit PCI host aperture size from fw_cfg\n",
+        __FUNCTION__));
+    } else {
+      QemuFwCfgSelectItem (FwCfgItem);
+      QemuFwCfgReadBytes (FwCfgSize, MbString);
+      MbString[FwCfgSize] = '\0';
+      Pci64Size = LShiftU64 (AsciiStrDecimalToUint64 (MbString), 20);
+    }
+  }
+
+  if (Pci64Size == 0) {
+    if (mBootMode != BOOT_ON_S3_RESUME) {
+      DEBUG ((EFI_D_INFO, "%a: disabling 64-bit PCI host aperture\n",
+        __FUNCTION__));
+      PcdStatus = PcdSet64S (PcdPciMmio64Size, 0);
+      ASSERT_RETURN_ERROR (PcdStatus);
+    }
+
+    //
+    // There's nothing more to do; the amount of memory above 4GB fully
+    // determines the highest address plus one. The memory hotplug area (see
+    // below) plays no role for the firmware in this case.
+    //
+    return FirstNonAddress;
+  }
+
+  //
+  // The "etc/reserved-memory-end" fw_cfg file, when present, contains an
+  // absolute, exclusive end address for the memory hotplug area. This area
+  // starts right at the end of the memory above 4GB. The 64-bit PCI host
+  // aperture must be placed above it.
+  //
+  Status = QemuFwCfgFindFile ("etc/reserved-memory-end", &FwCfgItem,
+             &FwCfgSize);
+  if (!EFI_ERROR (Status) && FwCfgSize == sizeof HotPlugMemoryEnd) {
+    QemuFwCfgSelectItem (FwCfgItem);
+    QemuFwCfgReadBytes (FwCfgSize, &HotPlugMemoryEnd);
+
+    ASSERT (HotPlugMemoryEnd >= FirstNonAddress);
+    FirstNonAddress = HotPlugMemoryEnd;
+  }
+
+  //
+  // SeaBIOS aligns both boundaries of the 64-bit PCI host aperture to 1GB, so
+  // that the host can map it with 1GB hugepages. Follow suit.
+  //
+  Pci64Base = ALIGN_VALUE (FirstNonAddress, (UINT64)SIZE_1GB);
+  Pci64Size = ALIGN_VALUE (Pci64Size, (UINT64)SIZE_1GB);
+
+  //
+  // The 64-bit PCI host aperture should also be "naturally" aligned. The
+  // alignment is determined by rounding the size of the aperture down to the
+  // next smaller or equal power of two. That is, align the aperture by the
+  // largest BAR size that can fit into it.
+  //
+  Pci64Base = ALIGN_VALUE (Pci64Base, GetPowerOfTwo64 (Pci64Size));
+
+  if (mBootMode != BOOT_ON_S3_RESUME) {
+    //
+    // The core PciHostBridgeDxe driver will automatically add this range to
+    // the GCD memory space map through our PciHostBridgeLib instance; here we
+    // only need to set the PCDs.
+    //
+    PcdStatus = PcdSet64S (PcdPciMmio64Base, Pci64Base);
+    ASSERT_RETURN_ERROR (PcdStatus);
+    PcdStatus = PcdSet64S (PcdPciMmio64Size, Pci64Size);
+    ASSERT_RETURN_ERROR (PcdStatus);
+
+    DEBUG ((EFI_D_INFO, "%a: Pci64Base=0x%Lx Pci64Size=0x%Lx\n",
+      __FUNCTION__, Pci64Base, Pci64Size));
+  }
+
+  //
+  // The useful address space ends with the 64-bit PCI host aperture.
+  //
+  FirstNonAddress = Pci64Base + Pci64Size;
+  return FirstNonAddress;
+}
+
+
+/**
   Initialize the mPhysMemAddressWidth variable, based on guest RAM size.
 **/
 VOID
@@ -103,7 +237,7 @@ AddressWidthInitialization (
   // The DXL IPL keys off of the physical address bits advertized in the CPU
   // HOB. To conserve memory, we calculate the minimum address width here.
   //
-  FirstNonAddress      = BASE_4GB + GetSystemMemorySizeAbove4gb ();
+  FirstNonAddress      = GetFirstNonAddress ();
   mPhysMemAddressWidth = (UINT8)HighBitSet64 (FirstNonAddress);
 
   //
@@ -206,21 +340,34 @@ PublishPeiMemory (
   EFI_STATUS                  Status;
   EFI_PHYSICAL_ADDRESS        MemoryBase;
   UINT64                      MemorySize;
-  UINT64                      LowerMemorySize;
+  UINT32                      LowerMemorySize;
   UINT32                      PeiMemoryCap;
 
-  if (mBootMode == BOOT_ON_S3_RESUME) {
-    MemoryBase = PcdGet32 (PcdS3AcpiReservedMemoryBase);
-    MemorySize = PcdGet32 (PcdS3AcpiReservedMemorySize);
-  } else {
-    LowerMemorySize = GetSystemMemorySizeBelow4gb ();
-    if (FeaturePcdGet (PcdSmmSmramRequire)) {
-      //
-      // TSEG is chipped from the end of low RAM
-      //
-      LowerMemorySize -= FixedPcdGet8 (PcdQ35TsegMbytes) * SIZE_1MB;
-    }
+  LowerMemorySize = GetSystemMemorySizeBelow4gb ();
+  if (FeaturePcdGet (PcdSmmSmramRequire)) {
+    //
+    // TSEG is chipped from the end of low RAM
+    //
+    LowerMemorySize -= FixedPcdGet8 (PcdQ35TsegMbytes) * SIZE_1MB;
+  }
 
+  //
+  // If S3 is supported, then the S3 permanent PEI memory is placed next,
+  // downwards. Its size is primarily dictated by CpuMpPei. The formula below
+  // is an approximation.
+  //
+  if (mS3Supported) {
+    mS3AcpiReservedMemorySize = SIZE_512KB +
+      mMaxCpuCount *
+      PcdGet32 (PcdCpuApStackSize);
+    mS3AcpiReservedMemoryBase = LowerMemorySize - mS3AcpiReservedMemorySize;
+    LowerMemorySize = mS3AcpiReservedMemoryBase;
+  }
+
+  if (mBootMode == BOOT_ON_S3_RESUME) {
+    MemoryBase = mS3AcpiReservedMemoryBase;
+    MemorySize = mS3AcpiReservedMemorySize;
+  } else {
     PeiMemoryCap = GetPeiMemoryCap ();
     DEBUG ((EFI_D_INFO, "%a: mPhysMemAddressWidth=%d PeiMemoryCap=%u KB\n",
       __FUNCTION__, mPhysMemAddressWidth, PeiMemoryCap >> 10));
@@ -278,7 +425,29 @@ QemuInitializeRam (
   LowerMemorySize = GetSystemMemorySizeBelow4gb ();
   UpperMemorySize = GetSystemMemorySizeAbove4gb ();
 
-  if (mBootMode != BOOT_ON_S3_RESUME) {
+  if (mBootMode == BOOT_ON_S3_RESUME) {
+    //
+    // Create the following memory HOB as an exception on the S3 boot path.
+    //
+    // Normally we'd create memory HOBs only on the normal boot path. However,
+    // CpuMpPei specifically needs such a low-memory HOB on the S3 path as
+    // well, for "borrowing" a subset of it temporarily, for the AP startup
+    // vector.
+    //
+    // CpuMpPei saves the original contents of the borrowed area in permanent
+    // PEI RAM, in a backup buffer allocated with the normal PEI services.
+    // CpuMpPei restores the original contents ("returns" the borrowed area) at
+    // End-of-PEI. End-of-PEI in turn is emitted by S3Resume2Pei before
+    // transferring control to the OS's wakeup vector in the FACS.
+    //
+    // We expect any other PEIMs that "borrow" memory similarly to CpuMpPei to
+    // restore the original contents. Furthermore, we expect all such PEIMs
+    // (CpuMpPei included) to claim the borrowed areas by producing memory
+    // allocation HOBs, and to honor preexistent memory allocation HOBs when
+    // looking for an area to borrow.
+    //
+    AddMemoryRangeHob (0, BASE_512KB + BASE_128KB);
+  } else {
     //
     // Create memory HOBs
     //
@@ -296,7 +465,7 @@ QemuInitializeRam (
     }
 
     if (UpperMemorySize != 0) {
-      AddUntestedMemoryBaseSizeHob (BASE_4GB, UpperMemorySize);
+      AddMemoryBaseSizeHob (BASE_4GB, UpperMemorySize);
     }
   }
 
@@ -366,8 +535,8 @@ InitializeRamRegions (
     // This is the memory range that will be used for PEI on S3 resume
     //
     BuildMemoryAllocationHob (
-      (EFI_PHYSICAL_ADDRESS)(UINTN) PcdGet32 (PcdS3AcpiReservedMemoryBase),
-      (UINT64)(UINTN) PcdGet32 (PcdS3AcpiReservedMemorySize),
+      mS3AcpiReservedMemoryBase,
+      mS3AcpiReservedMemorySize,
       EfiACPIMemoryNVS
       );
 

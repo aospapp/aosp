@@ -18,16 +18,11 @@ package com.android.tv.common.recording;
 
 import android.os.Parcel;
 import android.os.Parcelable;
-
 import java.util.Objects;
 
-/**
- * Static representation of the recording capability of a TvInputService.
- */
-public final class RecordingCapability implements Parcelable{
-    /**
-     * The inputId this capability represents.
-     */
+/** Static representation of the recording capability of a TvInputService. */
+public final class RecordingCapability implements Parcelable {
+    /** The inputId this capability represents. */
     public final String inputId;
 
     /**
@@ -40,8 +35,8 @@ public final class RecordingCapability implements Parcelable{
     /**
      * The max number concurrent session that play a stream.
      *
-     *<p>This is often limited by the number of decoders available.
-     * The count includes both playing live TV and playing a recorded stream.
+     * <p>This is often limited by the number of decoders available. The count includes both playing
+     * live TV and playing a recorded stream.
      */
     public final int maxConcurrentPlayingSessions;
 
@@ -52,13 +47,14 @@ public final class RecordingCapability implements Parcelable{
      */
     public final int maxConcurrentSessionsOfAllTypes;
 
-    /**
-     * True if a tuned session can support recording and playback from the same resource.
-     */
+    /** True if a tuned session can support recording and playback from the same resource. */
     public final boolean playbackWhileRecording;
 
-    private RecordingCapability(String inputId, int maxConcurrentTunedSessions,
-            int maxConcurrentPlayingSessions, int maxConcurrentSessionsOfAllTypes,
+    private RecordingCapability(
+            String inputId,
+            int maxConcurrentTunedSessions,
+            int maxConcurrentPlayingSessions,
+            int maxConcurrentSessionsOfAllTypes,
             boolean playbackWhileRecording) {
         this.inputId = inputId;
         this.maxConcurrentTunedSessions = maxConcurrentTunedSessions;
@@ -93,12 +89,12 @@ public final class RecordingCapability implements Parcelable{
             return false;
         }
         RecordingCapability that = (RecordingCapability) o;
-        return Objects.equals(maxConcurrentTunedSessions, that.maxConcurrentTunedSessions) &&
-                Objects.equals(maxConcurrentPlayingSessions, that.maxConcurrentPlayingSessions) &&
-                Objects.equals(maxConcurrentSessionsOfAllTypes,
-                        that.maxConcurrentSessionsOfAllTypes) &&
-                Objects.equals(playbackWhileRecording, that.playbackWhileRecording) &&
-                Objects.equals(inputId, that.inputId);
+        return Objects.equals(maxConcurrentTunedSessions, that.maxConcurrentTunedSessions)
+                && Objects.equals(maxConcurrentPlayingSessions, that.maxConcurrentPlayingSessions)
+                && Objects.equals(
+                        maxConcurrentSessionsOfAllTypes, that.maxConcurrentSessionsOfAllTypes)
+                && Objects.equals(playbackWhileRecording, that.playbackWhileRecording)
+                && Objects.equals(inputId, that.inputId);
     }
 
     @Override
@@ -108,13 +104,19 @@ public final class RecordingCapability implements Parcelable{
 
     @Override
     public String toString() {
-        return "RecordingCapability{" +
-                "inputId='" + inputId + '\'' +
-                ", maxConcurrentTunedSessions=" + maxConcurrentTunedSessions +
-                ", maxConcurrentPlayingSessions=" + maxConcurrentPlayingSessions +
-                ", maxConcurrentSessionsOfAllTypes=" + maxConcurrentSessionsOfAllTypes +
-                ", playbackWhileRecording=" + playbackWhileRecording +
-                '}';
+        return "RecordingCapability{"
+                + "inputId='"
+                + inputId
+                + '\''
+                + ", maxConcurrentTunedSessions="
+                + maxConcurrentTunedSessions
+                + ", maxConcurrentPlayingSessions="
+                + maxConcurrentPlayingSessions
+                + ", maxConcurrentSessionsOfAllTypes="
+                + maxConcurrentSessionsOfAllTypes
+                + ", playbackWhileRecording="
+                + playbackWhileRecording
+                + '}';
     }
 
     @Override
@@ -122,17 +124,18 @@ public final class RecordingCapability implements Parcelable{
         return 0;
     }
 
-    public static final Creator<RecordingCapability> CREATOR = new Creator<RecordingCapability>() {
-        @Override
-        public RecordingCapability createFromParcel(Parcel in) {
-            return new RecordingCapability(in);
-        }
+    public static final Creator<RecordingCapability> CREATOR =
+            new Creator<RecordingCapability>() {
+                @Override
+                public RecordingCapability createFromParcel(Parcel in) {
+                    return new RecordingCapability(in);
+                }
 
-        @Override
-        public RecordingCapability[] newArray(int size) {
-            return new RecordingCapability[size];
-        }
-    };
+                @Override
+                public RecordingCapability[] newArray(int size) {
+                    return new RecordingCapability[size];
+                }
+            };
 
     public static Builder builder() {
         return new Builder();
@@ -171,11 +174,12 @@ public final class RecordingCapability implements Parcelable{
         }
 
         public RecordingCapability build() {
-            return new RecordingCapability(mInputId, mMaxConcurrentTunedSessions,
-                    mMaxConcurrentPlayingSessions, mMaxConcurrentSessionsOfAllTypes,
+            return new RecordingCapability(
+                    mInputId,
+                    mMaxConcurrentTunedSessions,
+                    mMaxConcurrentPlayingSessions,
+                    mMaxConcurrentSessionsOfAllTypes,
                     mPlaybackWhileRecording);
         }
     }
 }
-
-

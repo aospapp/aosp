@@ -28,10 +28,10 @@ import java.util.Arrays;
  */
 public class SamplePointVerifier extends BitmapVerifier {
     private static final String TAG = "SamplePoint";
-    private static final int DEFAULT_TOLERANCE = 20;
+    public static final int DEFAULT_TOLERANCE = 20;
     private final Point[] mTestPoints;
     private final int[] mExpectedColors;
-    private final int mTolerance;
+    protected final int mTolerance;
 
     public SamplePointVerifier(Point[] testPoints, int[] expectedColors) {
         this(testPoints, expectedColors, DEFAULT_TOLERANCE);
@@ -73,5 +73,19 @@ public class SamplePointVerifier extends BitmapVerifier {
 
     protected boolean verifyPixel(int color, int expectedColor) {
         return CompareUtils.verifyPixelWithThreshold(color, expectedColor, mTolerance);
+    }
+
+    public interface VerifyPixelColor {
+        boolean verifyPixel(int color);
+    }
+
+    public static SamplePointVerifier create(Point[] testPoints, int[] expectedColors,
+            int tolerance, VerifyPixelColor verifier) {
+        return new SamplePointVerifier(testPoints, expectedColors, tolerance) {
+            @Override
+            protected boolean verifyPixel(int color, int expectedColor) {
+                return super.verifyPixel(color, expectedColor) && verifier.verifyPixel(color);
+            }
+        };
     }
 }

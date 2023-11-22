@@ -349,9 +349,7 @@ static void cma_test_invalid_perm(void)
 		ltpuser = getpwnam(nobody_uid);
 		if (ltpuser == NULL)
 			tst_brkm(TBROK | TERRNO, NULL, "getpwnam failed");
-		if (setuid(ltpuser->pw_uid) == -1)
-			tst_brkm(TBROK | TERRNO, NULL,
-				 "setuid(%u) failed", ltpuser->pw_uid);
+		SAFE_SETUID(NULL, ltpuser->pw_uid);
 
 		params = cma_alloc_sane_params();
 		params->pid = parent_pid;
@@ -361,8 +359,7 @@ static void cma_test_invalid_perm(void)
 		cma_free_params(params);
 		exit(ret);
 	default:
-		if (waitpid(child_pid, &status, 0) == -1)
-			tst_brkm(TBROK | TERRNO, cleanup, "waitpid");
+		SAFE_WAITPID(cleanup, child_pid, &status, 0);
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
 			tst_resm(TFAIL, "child returns %d", status);
 	}
@@ -396,8 +393,7 @@ static void cma_test_invalid_protection(void)
 	cma_check_ret(-1, TEST_RETURN);
 	cma_check_errno(EFAULT);
 
-	if (munmap(p, getpagesize()) < 0)
-		tst_brkm(TBROK | TERRNO, cleanup, "munmap");
+	SAFE_MUNMAP(cleanup, p, getpagesize());
 
 	cma_free_params(sane_params);
 }

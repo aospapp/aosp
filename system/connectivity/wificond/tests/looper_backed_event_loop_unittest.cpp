@@ -134,6 +134,7 @@ TEST_F(WificondLooperBackedEventLoopTest, LooperBackedEventLoopWatchFdOutputRead
   event_loop_->Poll();
   EXPECT_EQ(true, write_result);
   EXPECT_EQ(true, pipe.readSignal());
+  EXPECT_TRUE(event_loop_->StopWatchFileDescriptor(pipe.send_fd));
 }
 
 TEST_F(WificondLooperBackedEventLoopTest, LooperBackedEventLoopStopWatchFdTest) {
@@ -150,6 +151,9 @@ TEST_F(WificondLooperBackedEventLoopTest, LooperBackedEventLoopStopWatchFdTest) 
           event_loop_->TriggerExit();}));
   // Stop watching the file descriptor.
   EXPECT_TRUE(event_loop_->StopWatchFileDescriptor(pipe.receive_fd));
+  // If the lambda for |WatchFileDescriptor| is not triggered, we need this to
+  // terminate the event loop.
+  event_loop_->PostDelayedTask([this]() { event_loop_->TriggerExit();}, 500);
   event_loop_->Poll();
   // We wrote to pipe successfully.
   EXPECT_EQ(true, write_result);

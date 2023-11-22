@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2008-2016 Broadcom Corporation
+ *  Copyright 2008-2016 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -92,8 +92,8 @@ const tL2CAP_APPL_INFO avct_l2c_br_appl = {
     NULL,
     avct_l2c_br_data_ind_cback,
     avct_l2c_br_congestion_ind_cback,
-    NULL /* tL2CA_TX_COMPLETE_CB */
-};
+    NULL, /* tL2CA_TX_COMPLETE_CB */
+    NULL /* tL2CA_CREDITS_RECEIVED_CB */};
 
 /* Browsing channel eL2CAP default options */
 const tL2CAP_FCR_OPTS avct_l2c_br_fcr_opts_def = {

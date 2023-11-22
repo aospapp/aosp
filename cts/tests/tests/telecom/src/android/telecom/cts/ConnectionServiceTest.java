@@ -21,6 +21,7 @@ import static android.telecom.cts.TestUtils.*;
 import android.content.ComponentName;
 import android.content.Context;
 import android.media.AudioManager;
+import android.net.Uri;
 import android.telecom.Call;
 import android.telecom.Connection;
 import android.telecom.ConnectionService;
@@ -34,12 +35,16 @@ import java.util.Collection;
  */
 public class ConnectionServiceTest extends BaseTelecomTestWithMockServices {
 
+    private static final Uri SELF_MANAGED_TEST_ADDRESS =
+            Uri.fromParts("sip", "call1@test.com", null);
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         mContext = getInstrumentation().getContext();
         if (mShouldTestTelecom) {
             setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
+            mTelecomManager.registerPhoneAccount(TestUtils.TEST_SELF_MANAGED_PHONE_ACCOUNT_1);
         }
     }
 
@@ -122,6 +127,86 @@ public class ConnectionServiceTest extends BaseTelecomTestWithMockServices {
         connection.setAudioModeIsVoip(false);
         waitOnAllHandlers(getInstrumentation());
         assertEquals(AudioManager.MODE_IN_CALL, audioManager.getMode());
+    }
+
+    public void testConnectionServiceFocusGainedWithNoConnectionService() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        // WHEN place a managed call
+        placeAndVerifyCall();
+
+        // THEN managed connection service has gained the focus
+        assertTrue(connectionService.waitForEvent(
+                MockConnectionService.EVENT_CONNECTION_SERVICE_FOCUS_GAINED));
+    }
+
+    public void testConnectionServiceFocusGainedWithSameConnectionService() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        // GIVEN a managed call
+        placeAndVerifyCall();
+        verifyConnectionForOutgoingCall().setActive();
+        assertTrue(connectionService.waitForEvent(
+                MockConnectionService.EVENT_CONNECTION_SERVICE_FOCUS_GAINED));
+
+        // WHEN place another call has the same ConnectionService as the existing call
+        placeAndVerifyCall();
+        verifyConnectionForOutgoingCall();
+
+        // THEN the ConnectionService has not gained the focus again
+        assertFalse(connectionService.waitForEvent(
+                MockConnectionService.EVENT_CONNECTION_SERVICE_FOCUS_GAINED));
+        // and the ConnectionService didn't lose the focus
+        assertFalse(connectionService.waitForEvent(
+                MockConnectionService.EVENT_CONNECTION_SERVICE_FOCUS_LOST));
+    }
+
+    public void testConnectionServiceFocusGainedWithDifferentConnectionService() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        // GIVEN an existing managed call
+        placeAndVerifyCall();
+        verifyConnectionForOutgoingCall().setActive();
+        assertTrue(connectionService.waitForEvent(
+                MockConnectionService.EVENT_CONNECTION_SERVICE_FOCUS_GAINED));
+
+        // WHEN a self-managed call is coming
+        SelfManagedConnection selfManagedConnection =
+                addIncomingSelfManagedCall(TEST_SELF_MANAGED_HANDLE_1, SELF_MANAGED_TEST_ADDRESS);
+
+        // THEN the managed ConnectionService has lost the focus
+        assertTrue(connectionService.waitForEvent(
+                MockConnectionService.EVENT_CONNECTION_SERVICE_FOCUS_LOST));
+        // and the self-managed ConnectionService has gained the focus
+        assertTrue(CtsSelfManagedConnectionService.getConnectionService().waitForUpdate(
+                        CtsSelfManagedConnectionService.FOCUS_GAINED_LOCK));
+
+        // Disconnected the self-managed call
+        selfManagedConnection.disconnectAndDestroy();
+    }
+
+    private SelfManagedConnection addIncomingSelfManagedCall(
+            PhoneAccountHandle pah, Uri address) {
+
+        TestUtils.addIncomingCall(getInstrumentation(), mTelecomManager, pah, address);
+
+        // Ensure Telecom bound to the self managed CS
+        if (!CtsSelfManagedConnectionService.waitForBinding()) {
+            fail("Could not bind to Self-Managed ConnectionService");
+        }
+
+        SelfManagedConnection connection = TestUtils.waitForAndGetConnection(address);
+
+        // Active the call
+        connection.setActive();
+
+        return connection;
     }
 
     public void testGetAllConnections() {

@@ -14,32 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <resources>
-    <!-- Attributes that can be customized on a com.android.car.radio.RadioPresetButton. -->
-    <declare-styleable name="RadioPresetButton">
-        <!-- The station that is currently set on this preset (e.g. 96.5). -->
-        <attr name="presetStation" format="string" />
-
-        <!-- The preset title. This is usually the number of the preset. For example, a radio
-             with 5 presets could have buttons with the numbers 01 - 05. -->
-        <attr name="presetTitle" format="string" />
-
-        <!-- Whether or not this preset button will display the station that is currently set on it. -->
-        <attr name="presetDisplayEnabled" format="boolean" />
-
-        <!-- Whether or not this preset is currently selected. -->
-        <attr name="presetSelected" format="boolean" />
-    </declare-styleable>
-
     <!-- Attributes for the playing state of com.android.car.radio.PlayPauseButton. -->
     <declare-styleable name="PlayingState">
         <attr name="state_paused" format="boolean"/>
         <attr name="state_playing" format="boolean"/>
-    </declare-styleable>
-
-    <!-- Attributes for customizing a CaoruselView. -->
-    <declare-styleable name="CarouselView">
-        <attr name="topOffset" format="dimension" />
-        <attr name="itemMargins" format="dimension" />
     </declare-styleable>
 
     <!-- Attributes for customizing a RadioBandButton. -->

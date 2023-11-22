@@ -3045,9 +3045,9 @@ public class CoreMathVerifier {
         RemquoResult expected = remquo(args.inNumerator, args.inDenominator);
         // If the expected remainder is NaN, we don't validate the quotient.  It's because of
         // a division by zero.
-        if (expected.remainder != expected.remainder) {
+        if (Float.isNaN(expected.remainder)) {
             // Check that the value we got is NaN too.
-            if (args.out == args.out) {
+            if (!Float.isNaN(args.out)) {
                 return "Expected a remainder of NaN but got " +  Float.toString(args.out);
             }
         } else {

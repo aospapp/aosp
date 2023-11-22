@@ -70,7 +70,7 @@
     <string name="upload_fail_line1" msgid="7899394672421491701">"ഈ ഫയൽ \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" -ലേക്ക് അയച്ചില്ല."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"ഫയൽ: <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="upload_fail_ok" msgid="5807702461606714296">"വീണ്ടും ശ്രമിക്കുക"</string>
-    <string name="upload_fail_cancel" msgid="9118496285835687125">"അടയ്‌ക്കുക"</string>
+    <string name="upload_fail_cancel" msgid="9118496285835687125">"അവസാനിപ്പിക്കുക"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"ശരി"</string>
     <string name="unknown_file" msgid="6092727753965095366">"അജ്ഞാത ഫയൽ"</string>
     <string name="unknown_file_desc" msgid="480434281415453287">"ഇത്തരം ഫയൽ കൈകാര്യം ചെയ്യാനാകുന്ന അപ്ലിക്കേഷനുകളൊന്നുമില്ല. \n"</string>
@@ -130,4 +130,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"Bluetooth ഓഡിയോ കണക്‌റ്റുചെയ്തു"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Bluetooth ഓഡിയോ വിച്ഛേദിച്ചു"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth ഓഡിയോ"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4GB-യിൽ കൂടുതലുള്ള ഫയലുകൾ കൈമാറാനാവില്ല"</string>
 </resources>

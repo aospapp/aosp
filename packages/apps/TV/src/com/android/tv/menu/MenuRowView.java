@@ -27,7 +27,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-
 import com.android.tv.R;
 import com.android.tv.menu.Menu.MenuShowReason;
 
@@ -46,25 +45,23 @@ public abstract class MenuRowView extends LinearLayout {
      * reset when the menu is popped up.
      */
     private View mLastFocusView;
+
     private MenuRow mRow;
 
-    private final OnFocusChangeListener mOnFocusChangeListener = new OnFocusChangeListener() {
-        @Override
-        public void onFocusChange(View v, boolean hasFocus) {
-            onChildFocusChange(v, hasFocus);
-        }
-    };
+    private final OnFocusChangeListener mOnFocusChangeListener =
+            new OnFocusChangeListener() {
+                @Override
+                public void onFocusChange(View v, boolean hasFocus) {
+                    onChildFocusChange(v, hasFocus);
+                }
+            };
 
-    /**
-     * Returns the alpha value of the title view when it's deselected.
-     */
+    /** Returns the alpha value of the title view when it's deselected. */
     public float getTitleViewAlphaDeselected() {
         return mTitleViewAlphaDeselected;
     }
 
-    /**
-     * Returns the scale value of the title view when it's selected.
-     */
+    /** Returns the scale value of the title view when it's selected. */
     public float getTitleViewScaleSelected() {
         return mTitleViewScaleSelected;
     }
@@ -125,26 +122,22 @@ public abstract class MenuRowView extends LinearLayout {
         }
     }
 
-    abstract protected int getContentsViewId();
+    protected abstract int getContentsViewId();
 
-    /**
-     * Returns the title view.
-     */
+    /** Returns the title view. */
     public final TextView getTitleView() {
         return mTitleView;
     }
 
-    /**
-     * Returns the contents view.
-     */
+    /** Returns the contents view. */
     public final View getContentsView() {
         return mContentsView;
     }
 
     /**
-     * Initialize this view. e.g. Set the initial selection.
-     * This method is called when the main menu is visible.
-     * Subclass of {@link MenuRowView} should override this to set correct mLastFocusView.
+     * Initialize this view. e.g. Set the initial selection. This method is called when the main
+     * menu is visible. Subclass of {@link MenuRowView} should override this to set correct
+     * mLastFocusView.
      *
      * @param reason A reason why this is initialized. See {@link MenuShowReason}
      */
@@ -177,17 +170,17 @@ public abstract class MenuRowView extends LinearLayout {
     }
 
     /**
-     * Sets the view which needs to have focus when this row appears.
-     * Subclasses should call this in {@link #initialize} if needed.
+     * Sets the view which needs to have focus when this row appears. Subclasses should call this in
+     * {@link #initialize} if needed.
      */
     protected void setInitialFocusView(@NonNull View v) {
         mLastFocusView = v;
     }
 
     /**
-     * Called when the focus of a child view is changed.
-     * The inherited class should override this method instead of calling
-     * {@link android.view.View#setOnFocusChangeListener(android.view.View.OnFocusChangeListener)}.
+     * Called when the focus of a child view is changed. The inherited class should override this
+     * method instead of calling {@link
+     * android.view.View#setOnFocusChangeListener(android.view.View.OnFocusChangeListener)}.
      */
     protected void onChildFocusChange(View v, boolean hasFocus) {
         if (hasFocus) {
@@ -195,9 +188,7 @@ public abstract class MenuRowView extends LinearLayout {
         }
     }
 
-    /**
-     * Returns the ID of row object bound to this view.
-     */
+    /** Returns the ID of row object bound to this view. */
     public String getRowId() {
         return mRow == null ? null : mRow.getId();
     }
@@ -206,7 +197,7 @@ public abstract class MenuRowView extends LinearLayout {
      * Called when this row is selected.
      *
      * @param showTitle If {@code true}, the title is not hidden immediately after the row is
-     * selected even though hideTitleWhenSelected() is {@code true}.
+     *     selected even though hideTitleWhenSelected() is {@code true}.
      */
     public void onSelected(boolean showTitle) {
         if (mRow.hideTitleWhenSelected() && !showTitle) {
@@ -225,9 +216,7 @@ public abstract class MenuRowView extends LinearLayout {
         mLastFocusView = lastFocusView;
     }
 
-    /**
-     * Called when this row is deselected.
-     */
+    /** Called when this row is deselected. */
     public void onDeselected() {
         mTitleView.setVisibility(VISIBLE);
         mTitleView.setAlpha(mTitleViewAlphaDeselected);
@@ -236,9 +225,7 @@ public abstract class MenuRowView extends LinearLayout {
         mContentsView.setVisibility(GONE);
     }
 
-    /**
-     * Returns the preferred height of the contents view. The top/bottom padding is excluded.
-     */
+    /** Returns the preferred height of the contents view. The top/bottom padding is excluded. */
     public int getPreferredContentsHeight() {
         return mRow.getHeight();
     }

@@ -19,20 +19,26 @@
 #define METHOD_H_
 
 #include <android-base/macros.h>
-#include <functional>
 #include <hidl-util/Formatter.h>
+#include <utils/Errors.h>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
+#include <unordered_set>
 #include <vector>
+
+#include "DocComment.h"
+#include "Location.h"
+#include "Reference.h"
 
 namespace android {
 
 struct Annotation;
+struct ConstantExpression;
 struct Formatter;
 struct ScalarType;
 struct Type;
-struct TypedVar;
 struct TypedVarVector;
 
 enum MethodImplType {
@@ -45,16 +51,14 @@ enum MethodImplType {
 
 using MethodImpl = std::map<MethodImplType, std::function<void(Formatter &)>>;
 
-struct Method {
-    Method(const char *name,
-           std::vector<TypedVar *> *args,
-           std::vector<TypedVar *> *results,
-           bool oneway,
-           std::vector<Annotation *> *annotations);
+struct Method : DocCommentable {
+    Method(const char* name, std::vector<NamedReference<Type>*>* args,
+           std::vector<NamedReference<Type>*>* results, bool oneway,
+           std::vector<Annotation*>* annotations, const Location& location);
 
     std::string name() const;
-    const std::vector<TypedVar *> &args() const;
-    const std::vector<TypedVar *> &results() const;
+    const std::vector<NamedReference<Type>*>& args() const;
+    const std::vector<NamedReference<Type>*>& results() const;
     bool isOneway() const { return mOneway; }
     bool overridesCppImpl(MethodImplType type) const;
     bool overridesJavaImpl(MethodImplType type) const;
@@ -63,6 +67,15 @@ struct Method {
     bool isHidlReserved() const { return mIsHidlReserved; }
     bool isHiddenFromJava() const;
     const std::vector<Annotation *> &annotations() const;
+
+    std::vector<Reference<Type>*> getReferences();
+    std::vector<const Reference<Type>*> getReferences() const;
+
+    std::vector<Reference<Type>*> getStrongReferences();
+    std::vector<const Reference<Type>*> getStrongReferences() const;
+
+    std::vector<ConstantExpression*> getConstantExpressions();
+    std::vector<const ConstantExpression*> getConstantExpressions() const;
 
     // Make a copy with the same name, args, results, oneway, annotations.
     // Implementations, serial are not copied.
@@ -90,17 +103,19 @@ struct Method {
     void emitJavaArgSignature(Formatter &out) const;
     void emitJavaResultSignature(Formatter &out) const;
 
-    const TypedVar* canElideCallback() const;
+    const NamedReference<Type>* canElideCallback() const;
 
     void dumpAnnotations(Formatter &out) const;
 
-    bool isJavaCompatible() const;
+    bool deepIsJavaCompatible(std::unordered_set<const Type*>* visited) const;
 
-private:
+    const Location& location() const;
+
+   private:
     std::string mName;
     size_t mSerial = 0;
-    std::vector<TypedVar *> *mArgs;
-    std::vector<TypedVar *> *mResults;
+    std::vector<NamedReference<Type>*>* mArgs;
+    std::vector<NamedReference<Type>*>* mResults;
     bool mOneway;
     std::vector<Annotation *> *mAnnotations;
 
@@ -110,29 +125,17 @@ private:
     MethodImpl mCppImpl;
     MethodImpl mJavaImpl;
 
+    const Location mLocation;
+
     DISALLOW_COPY_AND_ASSIGN(Method);
 };
 
-struct TypedVar {
-    TypedVar(const char *name, Type *type);
-
-    std::string name() const;
-    const Type &type() const;
-
-    bool isJavaCompatible() const;
-
-private:
-    std::string mName;
-    Type *mType;
-
-    DISALLOW_COPY_AND_ASSIGN(TypedVar);
-};
-
-struct TypedVarVector : public std::vector<TypedVar *> {
+struct TypedVarVector : public std::vector<NamedReference<Type>*> {
     TypedVarVector() = default;
 
-    bool add(TypedVar *v);
-private:
+    bool add(NamedReference<Type>* v);
+
+   private:
     std::set<std::string> mNames;
 };
 

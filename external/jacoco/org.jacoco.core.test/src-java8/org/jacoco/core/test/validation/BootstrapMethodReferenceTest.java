@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -34,9 +34,9 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 /**
- * Test of ASM bug <a href=
- * "http://forge.ow2.org/tracker/?func=detail&aid=317748&group_id=23&atid=100023">#317748</a>
- * that caused
+ * Test of ASM bug
+ * <a href="https://gitlab.ow2.org/asm/asm/issues/317748">#317748</a> that
+ * caused
  * {@code java.lang.ClassFormatError: Short length on BootstrapMethods in class file}
  * during instrumentation.
  */

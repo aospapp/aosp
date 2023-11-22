@@ -1,6 +1,7 @@
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 2de6929
 
 #include "bit_reader.h"
 
@@ -15,7 +16,7 @@ BitReader::BitReader(const uint8_t* data, int size)
   DCHECK_GE(size, 0);
 }
 
-BitReader::~BitReader() {}
+BitReader::~BitReader() = default;
 
 bool BitReader::ReadString(int num_bits, std::string* str) {
   DCHECK_EQ(num_bits % 8, 0);

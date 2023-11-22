@@ -29,6 +29,7 @@ import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.os.Bundle;
 import android.os.RemoteException;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import java.io.IOException;
@@ -60,7 +61,10 @@ public class AbstractAuthenticatorTests extends AndroidTestCase {
     }
 
     public void tearDown() throws RemoteException {
-        mProviderClient.release();
+        if (mProviderClient != null) {
+            // mProviderClient is null in case of instant test
+            mProviderClient.release();
+        }
     }
 
     /**
@@ -139,6 +143,7 @@ public class AbstractAuthenticatorTests extends AndroidTestCase {
      * Tests finishSession default implementation with default startAddAccountSession.
      * Only account name and account type should be returned as a bundle.
      */
+    @AppModeFull
     public void testFinishSessionAndStartAddAccountSessionDefaultImpl()
             throws OperationCanceledException, AuthenticatorException, IOException,
             RemoteException {
@@ -208,6 +213,7 @@ public class AbstractAuthenticatorTests extends AndroidTestCase {
      * Tests finishSession default implementation with default startUpdateCredentialsSession.
      * Only account name and account type should be returned as a bundle.
      */
+    @AppModeFull
     public void testFinishSessionAndStartUpdateCredentialsSessionDefaultImpl()
             throws OperationCanceledException, AuthenticatorException, IOException,
             RemoteException {

@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.hardware.wifi.supplicant.V1_0.ISupplicantStaIfaceCallback.WpsConfigError;
@@ -32,7 +33,7 @@ import android.net.wifi.WifiSsid;
 import android.os.Handler;
 import android.os.Message;
 import android.os.test.TestLooper;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import com.android.server.wifi.hotspot2.AnqpEvent;
 import com.android.server.wifi.hotspot2.IconEvent;
@@ -347,16 +348,33 @@ public class WifiMonitorTest {
         mWifiMonitor.registerHandler(
                 WLAN_IFACE_NAME, WifiMonitor.AUTHENTICATION_FAILURE_EVENT, mHandlerSpy);
         int reason = WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD;
-        mWifiMonitor.broadcastAuthenticationFailureEvent(WLAN_IFACE_NAME, reason);
+        mWifiMonitor.broadcastAuthenticationFailureEvent(WLAN_IFACE_NAME, reason, -1);
         mLooper.dispatchAll();
 
         ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
         verify(mHandlerSpy).handleMessage(messageCaptor.capture());
         assertEquals(WifiMonitor.AUTHENTICATION_FAILURE_EVENT, messageCaptor.getValue().what);
-        assertEquals(reason, messageCaptor.getValue().arg2);
-
+        assertEquals(reason, messageCaptor.getValue().arg1);
     }
 
+    /**
+     * Broadcast authentication failure test (EAP Error).
+     */
+    @Test
+    public void testBroadcastAuthenticationFailureEapErrorEvent() {
+        mWifiMonitor.registerHandler(
+                WLAN_IFACE_NAME, WifiMonitor.AUTHENTICATION_FAILURE_EVENT, mHandlerSpy);
+        int reason = WifiManager.ERROR_AUTH_FAILURE_EAP_FAILURE;
+	int errorCode = WifiNative.EAP_SIM_VENDOR_SPECIFIC_CERT_EXPIRED;
+        mWifiMonitor.broadcastAuthenticationFailureEvent(WLAN_IFACE_NAME, reason, errorCode);
+        mLooper.dispatchAll();
+
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(mHandlerSpy).handleMessage(messageCaptor.capture());
+        assertEquals(WifiMonitor.AUTHENTICATION_FAILURE_EVENT, messageCaptor.getValue().what);
+        assertEquals(reason, messageCaptor.getValue().arg1);
+	assertEquals(errorCode, messageCaptor.getValue().arg2);
+    }
 
     /**
      * Broadcast association rejection test.
@@ -534,4 +552,38 @@ public class WifiMonitorTest {
         verify(mHandlerSpy).handleMessage(messageCaptor.capture());
         assertEquals(WifiMonitor.SUP_DISCONNECTION_EVENT, messageCaptor.getValue().what);
     }
+
+    @Test
+    public void testDeregisterHandlerNotCrash() {
+        mWifiMonitor.deregisterHandler(null, 0, null);
+    }
+
+    /**
+     * Register a handler, send an event and then verify that the event is handled.
+     * Unregister the handler, send an event and then verify the event is not handled.
+     */
+    @Test
+    public void testDeregisterHandlerRemovesHandler() {
+        mWifiMonitor.registerHandler(
+                WLAN_IFACE_NAME, WifiMonitor.WPS_FAIL_EVENT, mHandlerSpy);
+        mWifiMonitor.broadcastWpsFailEvent(
+                WLAN_IFACE_NAME, WpsConfigError.NO_ERROR,
+                WpsErrorIndication.SECURITY_TKIP_ONLY_PROHIBITED);
+        mLooper.dispatchAll();
+
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(mHandlerSpy, times(1)).handleMessage(messageCaptor.capture());
+        assertEquals(WifiMonitor.WPS_FAIL_EVENT, messageCaptor.getValue().what);
+        assertEquals(WifiManager.WPS_TKIP_ONLY_PROHIBITED, messageCaptor.getValue().arg1);
+        mWifiMonitor.deregisterHandler(
+                WLAN_IFACE_NAME, WifiMonitor.WPS_FAIL_EVENT, mHandlerSpy);
+        mWifiMonitor.broadcastWpsFailEvent(
+                WLAN_IFACE_NAME, WpsConfigError.NO_ERROR,
+                WpsErrorIndication.SECURITY_TKIP_ONLY_PROHIBITED);
+        mLooper.dispatchAll();
+
+        verify(mHandlerSpy, times(1)).handleMessage(messageCaptor.capture());
+    }
+
+
 }

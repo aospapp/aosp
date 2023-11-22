@@ -1,3 +1,0 @@
-# access /sys/devices/bt_bcm4354
-allow bluetooth sysfs_bluetooth:dir search;
-allow bluetooth sysfs_bluetooth:file rw_file_perms;

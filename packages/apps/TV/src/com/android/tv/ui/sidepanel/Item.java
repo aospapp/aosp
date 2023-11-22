@@ -35,9 +35,7 @@ public abstract class Item {
         }
     }
 
-    /**
-     * Sets the item to be clickable or not.
-     */
+    /** Sets the item to be clickable or not. */
     public void setClickable(boolean clickable) {
         mClickable = clickable;
         if (mItemView != null) {
@@ -45,9 +43,7 @@ public abstract class Item {
         }
     }
 
-    /**
-     * Returns whether this item is enabled.
-     */
+    /** Returns whether this item is enabled. */
     public boolean isEnabled() {
         return mEnabled;
     }
@@ -69,9 +65,9 @@ public abstract class Item {
     }
 
     /**
-     * Called after onBind is called and when {@link #notifyUpdated} is called.
-     * {@link #notifyUpdated} is usually called by {@link SideFragment#notifyItemChanged} and
-     * {@link SideFragment#notifyItemsChanged}.
+     * Called after onBind is called and when {@link #notifyUpdated} is called. {@link
+     * #notifyUpdated} is usually called by {@link SideFragment#notifyItemChanged} and {@link
+     * SideFragment#notifyItemsChanged}.
      */
     protected void onUpdate() {
         setEnabledInternal(mItemView, mEnabled);
@@ -80,12 +76,9 @@ public abstract class Item {
 
     protected abstract void onSelected();
 
-    protected void onFocused() {
-    }
+    protected void onFocused() {}
 
-    /**
-     * Returns true if the item is bound, i.e., onBind is called.
-     */
+    /** Returns true if the item is bound, i.e., onBind is called. */
     protected boolean isBound() {
         return mItemView != null;
     }

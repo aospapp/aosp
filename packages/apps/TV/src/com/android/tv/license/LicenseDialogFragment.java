@@ -26,7 +26,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.TextView;
-
 import com.android.tv.R;
 import com.android.tv.dialog.SafeDismissDialogFragment;
 

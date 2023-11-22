@@ -21,6 +21,7 @@ import android.content.res.TypedArray;
 import android.graphics.RectF;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
+import android.support.annotation.Nullable;
 import android.text.Layout.Alignment;
 import android.text.StaticLayout;
 import android.text.TextPaint;
@@ -29,13 +30,12 @@ import android.util.DisplayMetrics;
 import android.util.SparseIntArray;
 import android.util.TypedValue;
 import android.widget.TextView;
-import javax.annotation.Nullable;
 
 /**
  * A TextView that automatically scales its text to completely fill its allotted width.
  *
  * <p>Note: In some edge cases, the binary search algorithm to find the best fit may slightly
- * overshoot / undershoot its constraints. See b/26704434. No minimal repro case has been
+ * overshoot / undershoot its constraints. See a bug. No minimal repro case has been
  * found yet. A known workaround is the solution provided on StackOverflow:
  * http://stackoverflow.com/a/5535672
  */
@@ -82,6 +82,7 @@ public class AutoResizeTextView extends TextView {
     TypedArray typedArray = context.getTheme().obtainStyledAttributes(
         attrs, R.styleable.AutoResizeTextView, defStyleAttr, defStyleRes);
     readAttrs(typedArray);
+    typedArray.recycle();
     textPaint.set(getPaint());
   }
 
@@ -146,7 +147,7 @@ public class AutoResizeTextView extends TextView {
     float maxTextSize = TypedValue.applyDimension(unit, size, displayMetrics);
     if (this.maxTextSize != maxTextSize) {
       this.maxTextSize = maxTextSize;
-      // TODO: It's not actually necessary to clear the whole cache here. To optimize cache
+      // TODO(tobyj): It's not actually necessary to clear the whole cache here. To optimize cache
       // deletion we'd have to delete all entries in the cache with a value equal or larger than
       // MIN(old_max_size, new_max_size) when changing maxTextSize; and all entries with a value
       // equal or smaller than MAX(old_min_size, new_min_size) when changing minTextSize.

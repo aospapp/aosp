@@ -26,32 +26,59 @@
 #include <unistd.h>
 #include "private/KernelArgumentBlock.h"
 
-#define AT_SYSINFO_EHDR 33 /* until we have new enough uapi headers... */
+static inline int vdso_return(int result) {
+  if (__predict_true(result == 0)) return 0;
+
+  errno = -result;
+  return -1;
+}
 
 int clock_gettime(int clock_id, timespec* tp) {
   auto vdso_clock_gettime = reinterpret_cast<decltype(&clock_gettime)>(
     __libc_globals->vdso[VDSO_CLOCK_GETTIME].fn);
   if (__predict_true(vdso_clock_gettime)) {
-    return vdso_clock_gettime(clock_id, tp);
+    return vdso_return(vdso_clock_gettime(clock_id, tp));
   }
   return __clock_gettime(clock_id, tp);
+}
+
+int clock_getres(int clock_id, timespec* tp) {
+  auto vdso_clock_getres = reinterpret_cast<decltype(&clock_getres)>(
+    __libc_globals->vdso[VDSO_CLOCK_GETRES].fn);
+  if (__predict_true(vdso_clock_getres)) {
+    return vdso_return(vdso_clock_getres(clock_id, tp));
+  }
+  return __clock_getres(clock_id, tp);
 }
 
 int gettimeofday(timeval* tv, struct timezone* tz) {
   auto vdso_gettimeofday = reinterpret_cast<decltype(&gettimeofday)>(
     __libc_globals->vdso[VDSO_GETTIMEOFDAY].fn);
   if (__predict_true(vdso_gettimeofday)) {
-    return vdso_gettimeofday(tv, tz);
+    return vdso_return(vdso_gettimeofday(tv, tz));
   }
   return __gettimeofday(tv, tz);
 }
 
+time_t time(time_t* t) {
+  auto vdso_time = reinterpret_cast<decltype(&time)>(__libc_globals->vdso[VDSO_TIME].fn);
+  if (__predict_true(vdso_time)) {
+    return vdso_time(t);
+  }
+
+  // We can't fallback to the time(2) system call because it doesn't exist for most architectures.
+  timeval tv;
+  if (gettimeofday(&tv, nullptr) == -1) return -1;
+  if (t) *t = tv.tv_sec;
+  return tv.tv_sec;
+}
+
 void __libc_init_vdso(libc_globals* globals, KernelArgumentBlock& args) {
   auto&& vdso = globals->vdso;
-  vdso[VDSO_CLOCK_GETTIME] = { VDSO_CLOCK_GETTIME_SYMBOL,
-                               reinterpret_cast<void*>(__clock_gettime) };
-  vdso[VDSO_GETTIMEOFDAY] = { VDSO_GETTIMEOFDAY_SYMBOL,
-                              reinterpret_cast<void*>(__gettimeofday) };
+  vdso[VDSO_CLOCK_GETTIME] = { VDSO_CLOCK_GETTIME_SYMBOL, nullptr };
+  vdso[VDSO_CLOCK_GETRES] = { VDSO_CLOCK_GETRES_SYMBOL, nullptr };
+  vdso[VDSO_GETTIMEOFDAY] = { VDSO_GETTIMEOFDAY_SYMBOL, nullptr };
+  vdso[VDSO_TIME] = { VDSO_TIME_SYMBOL, nullptr };
 
   // Do we have a vdso?
   uintptr_t vdso_ehdr_addr = args.getauxval(AT_SYSINFO_EHDR);

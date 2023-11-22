@@ -51,6 +51,9 @@ def main():
     # Get target device info with adb
     runCommand('adb shell getprop ro.build.fingerprint', 'Target device info [ro.build.fingerprint]')
 
+    runCommand('adb shell lshal --init-vintf', 'Read HAL Info')
+    runCommand('adb shell cat /vendor/manifest.xml', 'Read vendor/manifest.xml')
+
 
 if __name__ == "__main__":
     main()

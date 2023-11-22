@@ -21,6 +21,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -47,6 +48,7 @@ import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
+import android.util.StatsLog;
 import android.os.UserHandle;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -74,7 +76,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *  connected etc).
  */
 @VisibleForTesting
-public class Call implements CreateConnectionResponse, EventManager.Loggable {
+public class Call implements CreateConnectionResponse, EventManager.Loggable,
+        ConnectionServiceFocusManager.CallFocus {
     public final static String CALL_ID_UNKNOWN = "-1";
     public final static long DATA_USAGE_NOT_SET = -1;
 
@@ -92,6 +95,9 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
     private static final int RTT_PIPE_WRITE_SIDE_INDEX = 1;
 
     private static final int INVALID_RTT_REQUEST_ID = -1;
+
+    private static final char NO_DTMF_TONE = '\0';
+
     /**
      * Listener for events on the call.
      */
@@ -131,7 +137,9 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
         void onRttInitiationFailure(Call call, int reason);
         void onRemoteRttRequest(Call call, int requestId);
         void onHandoverRequested(Call call, PhoneAccountHandle handoverTo, int videoState,
-                                 Bundle extras);
+                                 Bundle extras, boolean isLegacy);
+        void onHandoverFailed(Call call, int error);
+        void onHandoverComplete(Call call);
     }
 
     public abstract static class ListenerBase implements Listener {
@@ -205,7 +213,11 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
         public void onRemoteRttRequest(Call call, int requestId) {}
         @Override
         public void onHandoverRequested(Call call, PhoneAccountHandle handoverTo, int videoState,
-                                        Bundle extras) {}
+                                        Bundle extras, boolean isLegacy) {}
+        @Override
+        public void onHandoverFailed(Call call, int error) {}
+        @Override
+        public void onHandoverComplete(Call call) {}
     }
 
     private final CallerInfoLookupHelper.OnQueryCompleteListener mCallerInfoQueryListener =
@@ -403,8 +415,10 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
     private final String mId;
     private String mConnectionId;
     private Analytics.CallInfo mAnalytics;
+    private char mPlayingDtmfTone;
 
     private boolean mWasConferencePreviouslyMerged = false;
+    private boolean mWasHighDefAudio = false;
 
     // For conferences which support merge/swap at their level, we retain a notion of an active
     // call. This is used for BluetoothPhoneService.  In order to support hold/merge, it must have
@@ -420,6 +434,12 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
     private long mCallDataUsage = DATA_USAGE_NOT_SET;
 
     private boolean mIsWorkCall;
+
+    /**
+     * Tracks whether this {@link Call}'s {@link #getTargetPhoneAccount()} has
+     * {@link PhoneAccount#EXTRA_PLAY_CALL_RECORDING_TONE} set.
+     */
+    private boolean mUseCallRecordingTone;
 
     // Set to true once the NewOutgoingCallIntentBroadcast comes back and is processed.
     private boolean mIsNewOutgoingCallIntentBroadcastDone = false;
@@ -465,10 +485,20 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
      */
     private ParcelFileDescriptor[] mInCallToConnectionServiceStreams;
     private ParcelFileDescriptor[] mConnectionServiceToInCallStreams;
+
+    /**
+     * True if we're supposed to start this call with RTT, either due to the master switch or due
+     * to an extra.
+     */
+    private boolean mDidRequestToStartWithRtt = false;
     /**
      * Integer constant from {@link android.telecom.Call.RttCall}. Describes the current RTT mode.
      */
     private int mRttMode;
+    /**
+     * True if the call was ever an RTT call.
+     */
+    private boolean mWasEverRtt = false;
 
     /**
      * Integer indicating the remote RTT request ID that is pending a response from the user.
@@ -477,13 +507,13 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
 
     /**
      * When a call handover has been initiated via {@link #requestHandover(PhoneAccountHandle,
-     * int, Bundle)}, contains the call which this call is being handed over to.
+     * int, Bundle, boolean)}, contains the call which this call is being handed over to.
      */
     private Call mHandoverDestinationCall = null;
 
     /**
      * When a call handover has been initiated via {@link #requestHandover(PhoneAccountHandle,
-     * int, Bundle)}, contains the call which this call is being handed over from.
+     * int, Bundle, boolean)}, contains the call which this call is being handed over from.
      */
     private Call mHandoverSourceCall = null;
 
@@ -636,7 +666,33 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
             mCallerInfo.cachedPhotoIcon = null;
             mCallerInfo.cachedPhoto = null;
         }
+
         Log.addEvent(this, LogUtils.Events.DESTROYED);
+    }
+
+    private void closeRttStreams() {
+        if (mConnectionServiceToInCallStreams != null) {
+            for (ParcelFileDescriptor fd : mConnectionServiceToInCallStreams) {
+                if (fd != null) {
+                    try {
+                        fd.close();
+                    } catch (IOException e) {
+                        // ignore
+                    }
+                }
+            }
+        }
+        if (mInCallToConnectionServiceStreams != null) {
+            for (ParcelFileDescriptor fd : mInCallToConnectionServiceStreams) {
+                if (fd != null) {
+                    try {
+                        fd.close();
+                    } catch (IOException e) {
+                        // ignore
+                    }
+                }
+            }
+        }
     }
 
     /** {@inheritDoc} */
@@ -736,9 +792,26 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
         return sb.toString();
     }
 
+    @Override
+    public ConnectionServiceFocusManager.ConnectionServiceFocus getConnectionServiceWrapper() {
+        return mConnectionService;
+    }
+
     @VisibleForTesting
     public int getState() {
         return mState;
+    }
+
+    /**
+     * Determines if this {@link Call} can receive call focus via the
+     * {@link ConnectionServiceFocusManager}.
+     * Only top-level calls and non-external calls are eligible.
+     * @return {@code true} if this call is focusable, {@code false} otherwise.
+     */
+    @Override
+    public boolean isFocusable() {
+        boolean isChild = getParentCall() != null;
+        return !isChild && !isExternalCall();
     }
 
     private boolean shouldContinueProcessingAfterDisconnect() {
@@ -875,6 +948,10 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
                 }
                 Log.addEvent(this, event, stringData);
             }
+            int statsdDisconnectCause = (newState == CallState.DISCONNECTED) ?
+                    getDisconnectCause().getCode() : DisconnectCause.UNKNOWN;
+            StatsLog.write(StatsLog.CALL_STATE_CHANGED, newState, statsdDisconnectCause,
+                    isSelfManaged(), isExternalCall());
         }
     }
 
@@ -913,7 +990,7 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
         }
     }
 
-    int getHandlePresentation() {
+    public int getHandlePresentation() {
         return mHandlePresentation;
     }
 
@@ -1040,7 +1117,7 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
                 l.onConnectionManagerPhoneAccountChanged(this);
             }
         }
-
+        checkIfRttCapable();
     }
 
     @VisibleForTesting
@@ -1055,9 +1132,10 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
             for (Listener l : mListeners) {
                 l.onTargetPhoneAccountChanged(this);
             }
-            configureIsWorkCall();
+            configureCallAttributes();
         }
         checkIfVideoCapable();
+        checkIfRttCapable();
     }
 
     public CharSequence getTargetPhoneAccountLabel() {
@@ -1094,6 +1172,17 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
             return false;
         }
 
+        if (getHandle() == null) {
+            // No point in logging a null-handle call. Some self-managed calls will have this.
+            return false;
+        }
+
+        if (!PhoneAccount.SCHEME_SIP.equals(getHandle().getScheme()) &&
+                !PhoneAccount.SCHEME_TEL.equals(getHandle().getScheme())) {
+            // Can't log schemes other than SIP or TEL for now.
+            return false;
+        }
+
         return phoneAccount.getExtras() != null && phoneAccount.getExtras().getBoolean(
                 PhoneAccount.EXTRA_LOG_SELF_MANAGED_CALLS, false);
     }
@@ -1110,6 +1199,10 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
 
     public boolean isWorkCall() {
         return mIsWorkCall;
+    }
+
+    public boolean isUsingCallRecordingTone() {
+        return mUseCallRecordingTone;
     }
 
     public boolean isVideoCallingSupported() {
@@ -1179,9 +1272,10 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
         return mHandoverState;
     }
 
-    private void configureIsWorkCall() {
+    private void configureCallAttributes() {
         PhoneAccountRegistrar phoneAccountRegistrar = mCallsManager.getPhoneAccountRegistrar();
         boolean isWorkCall = false;
+        boolean isCallRecordingToneSupported = false;
         PhoneAccount phoneAccount =
                 phoneAccountRegistrar.getPhoneAccountUnchecked(mTargetPhoneAccountHandle);
         if (phoneAccount != null) {
@@ -1194,8 +1288,14 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
             if (userHandle != null) {
                 isWorkCall = UserUtil.isManagedProfile(mContext, userHandle);
             }
+
+            isCallRecordingToneSupported = (phoneAccount.hasCapabilities(
+                    PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION) && phoneAccount.getExtras() != null
+                    && phoneAccount.getExtras().getBoolean(
+                    PhoneAccount.EXTRA_PLAY_CALL_RECORDING_TONE, false));
         }
         mIsWorkCall = isWorkCall;
+        mUseCallRecordingTone = isCallRecordingToneSupported;
     }
 
     /**
@@ -1222,6 +1322,33 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
             // and the current call is configured to be a video call; downgrade to audio-only.
             setVideoState(VideoProfile.STATE_AUDIO_ONLY);
             Log.d(this, "checkIfVideoCapable: selected phone account doesn't support video.");
+        }
+    }
+
+    private void checkIfRttCapable() {
+        PhoneAccountRegistrar phoneAccountRegistrar = mCallsManager.getPhoneAccountRegistrar();
+        if (mTargetPhoneAccountHandle == null) {
+            return;
+        }
+
+        // Check both the target phone account and the connection manager phone account -- if
+        // either support RTT, just set the streams and have them set/unset the RTT property as
+        // needed.
+        PhoneAccount phoneAccount =
+                phoneAccountRegistrar.getPhoneAccountUnchecked(mTargetPhoneAccountHandle);
+        PhoneAccount connectionManagerPhoneAccount = phoneAccountRegistrar.getPhoneAccountUnchecked(
+                        mConnectionManagerPhoneAccountHandle);
+        boolean isRttSupported = phoneAccount != null && phoneAccount.hasCapabilities(
+                PhoneAccount.CAPABILITY_RTT);
+        boolean isConnectionManagerRttSupported = connectionManagerPhoneAccount != null
+                && connectionManagerPhoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_RTT);
+
+        if ((isConnectionManagerRttSupported || isRttSupported)
+                && mDidRequestToStartWithRtt && !areRttStreamsInitialized()) {
+            // If the phone account got set to an RTT capable one and we haven't set the streams
+            // yet, do so now.
+            createRttStreams();
+            Log.i(this, "Setting RTT streams after target phone account selected");
         }
     }
 
@@ -1326,8 +1453,21 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
         if (changedProperties != 0) {
             int previousProperties = mConnectionProperties;
             mConnectionProperties = connectionProperties;
-            setRttStreams((mConnectionProperties & Connection.PROPERTY_IS_RTT) ==
-                    Connection.PROPERTY_IS_RTT);
+            if ((mConnectionProperties & Connection.PROPERTY_IS_RTT) ==
+                    Connection.PROPERTY_IS_RTT) {
+                createRttStreams();
+                // Call startRtt to pass the RTT pipes down to the connection service.
+                // They already turned on the RTT property so no request should be sent.
+                mConnectionService.startRtt(this,
+                        getInCallToCsRttPipeForCs(), getCsToInCallRttPipeForCs());
+                mWasEverRtt = true;
+                if (isEmergencyCall()) {
+                    mCallsManager.setAudioRoute(CallAudioState.ROUTE_SPEAKER, null);
+                    mCallsManager.mute(false);
+                }
+            }
+            mWasHighDefAudio = (connectionProperties & Connection.PROPERTY_HIGH_DEF_AUDIO) ==
+                    Connection.PROPERTY_HIGH_DEF_AUDIO;
             boolean didRttChange =
                     (changedProperties & Connection.PROPERTY_IS_RTT) == Connection.PROPERTY_IS_RTT;
             for (Listener l : mListeners) {
@@ -1505,6 +1645,7 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
 
         setConnectionCapabilities(connection.getConnectionCapabilities());
         setConnectionProperties(connection.getConnectionProperties());
+        setIsVoipAudioMode(connection.getIsVoipAudioMode());
         setSupportedAudioRoutes(connection.getSupportedAudioRoutes());
         setVideoProvider(connection.getVideoProvider());
         setVideoState(connection.getVideoState());
@@ -1568,7 +1709,8 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
     /**
      * Plays the specified DTMF tone.
      */
-    void playDtmfTone(char digit) {
+    @VisibleForTesting
+    public void playDtmfTone(char digit) {
         if (mConnectionService == null) {
             Log.w(this, "playDtmfTone() request on a call without a connection service.");
         } else {
@@ -1576,12 +1718,14 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
             mConnectionService.playDtmfTone(this, digit);
             Log.addEvent(this, LogUtils.Events.START_DTMF, Log.pii(digit));
         }
+        mPlayingDtmfTone = digit;
     }
 
     /**
      * Stops playing any currently playing DTMF tone.
      */
-    void stopDtmfTone() {
+    @VisibleForTesting
+    public void stopDtmfTone() {
         if (mConnectionService == null) {
             Log.w(this, "stopDtmfTone() request on a call without a connection service.");
         } else {
@@ -1589,6 +1733,15 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
             Log.addEvent(this, LogUtils.Events.STOP_DTMF);
             mConnectionService.stopDtmfTone(this);
         }
+        mPlayingDtmfTone = NO_DTMF_TONE;
+    }
+
+    /**
+     * @return {@code true} if a DTMF tone has been started via {@link #playDtmfTone(char)} but has
+     * not been stopped via {@link #stopDtmfTone()}, {@code false} otherwise.
+     */
+    boolean isDtmfTonePlaying() {
+        return mPlayingDtmfTone != NO_DTMF_TONE;
     }
 
     /**
@@ -1609,12 +1762,28 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
         disconnect(0);
     }
 
+    @VisibleForTesting
+    public void disconnect(String reason) {
+        disconnect(0, reason);
+    }
+
     /**
      * Attempts to disconnect the call through the connection service.
      */
     @VisibleForTesting
     public void disconnect(long disconnectionTimeout) {
-        Log.addEvent(this, LogUtils.Events.REQUEST_DISCONNECT);
+        disconnect(disconnectionTimeout, "internal" /** reason */);
+    }
+
+    /**
+     * Attempts to disconnect the call through the connection service.
+     * @param reason the reason for the disconnect; used for logging purposes only.  In some cases
+     *               this can be a package name if the disconnect was initiated through an API such
+     *               as TelecomManager.
+     */
+    @VisibleForTesting
+    public void disconnect(long disconnectionTimeout, String reason) {
+        Log.addEvent(this, LogUtils.Events.REQUEST_DISCONNECT, reason);
 
         // Track that the call is now locally disconnecting.
         setLocallyDisconnecting(true);
@@ -1703,6 +1872,31 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
     }
 
     /**
+     * Deflects the call if it is ringing.
+     *
+     * @param address address to be deflected to.
+     */
+    @VisibleForTesting
+    public void deflect(Uri address) {
+        // Check to verify that the call is still in the ringing state. A call can change states
+        // between the time the user hits 'deflect' and Telecomm receives the command.
+        if (isRinging("deflect")) {
+            // At this point, we are asking the connection service to deflect but we don't assume
+            // that it will work. Instead, we wait until confirmation from the connection service
+            // that the call is in a non-STATE_RINGING state before changing the UI. See
+            // {@link ConnectionServiceAdapter#setActive} and other set* methods.
+            mVideoStateHistory |= mVideoState;
+            if (mConnectionService != null) {
+                mConnectionService.deflect(this, address);
+            } else {
+                Log.e(this, new NullPointerException(),
+                        "deflect call failed due to null CS callId=%s", getId());
+            }
+            Log.addEvent(this, LogUtils.Events.REQUEST_DEFLECT, Log.pii(address));
+        }
+    }
+
+    /**
      * Rejects the call if it is ringing.
      *
      * @param rejectWithMessage Whether to send a text message as part of the call rejection.
@@ -1710,6 +1904,19 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
      */
     @VisibleForTesting
     public void reject(boolean rejectWithMessage, String textMessage) {
+        reject(rejectWithMessage, textMessage, "internal" /** reason */);
+    }
+
+    /**
+     * Rejects the call if it is ringing.
+     *
+     * @param rejectWithMessage Whether to send a text message as part of the call rejection.
+     * @param textMessage An optional text message to send as part of the rejection.
+     * @param reason The reason for the reject; used for logging purposes.  May be a package name
+     *               if the reject is initiated from an API such as TelecomManager.
+     */
+    @VisibleForTesting
+    public void reject(boolean rejectWithMessage, String textMessage, String reason) {
         // Check to verify that the call is still in the ringing state. A call can change states
         // between the time the user hits 'reject' and Telecomm receives the command.
         if (isRinging("reject")) {
@@ -1722,15 +1929,19 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
                 Log.e(this, new NullPointerException(),
                         "reject call failed due to null CS callId=%s", getId());
             }
-            Log.addEvent(this, LogUtils.Events.REQUEST_REJECT);
-
+            Log.addEvent(this, LogUtils.Events.REQUEST_REJECT, reason);
         }
     }
 
     /**
      * Puts the call on hold if it is currently active.
      */
-    void hold() {
+    @VisibleForTesting
+    public void hold() {
+        hold(null /* reason */);
+    }
+
+    public void hold(String reason) {
         if (mState == CallState.ACTIVE) {
             if (mConnectionService != null) {
                 mConnectionService.hold(this);
@@ -1738,14 +1949,19 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
                 Log.e(this, new NullPointerException(),
                         "hold call failed due to null CS callId=%s", getId());
             }
-            Log.addEvent(this, LogUtils.Events.REQUEST_HOLD);
+            Log.addEvent(this, LogUtils.Events.REQUEST_HOLD, reason);
         }
     }
 
     /**
      * Releases the call from hold if it is currently active.
      */
-    void unhold() {
+    @VisibleForTesting
+    public void unhold() {
+        unhold(null /* reason */);
+    }
+
+    public void unhold(String reason) {
         if (mState == CallState.ON_HOLD) {
             if (mConnectionService != null) {
                 mConnectionService.unhold(this);
@@ -1753,7 +1969,7 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
                 Log.e(this, new NullPointerException(),
                         "unhold call failed due to null CS callId=%s", getId());
             }
-            Log.addEvent(this, LogUtils.Events.REQUEST_UNHOLD);
+            Log.addEvent(this, LogUtils.Events.REQUEST_UNHOLD, reason);
         }
     }
 
@@ -1993,16 +2209,34 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
     }
 
     /**
-     * Sends a call event to the {@link ConnectionService} for this call.
-     *
-     * See {@link Call#sendCallEvent(String, Bundle)}.
+     * Sends a call event to the {@link ConnectionService} for this call. This function is
+     * called for event other than {@link Call#EVENT_REQUEST_HANDOVER}
      *
      * @param event The call event.
      * @param extras Associated extras.
      */
     public void sendCallEvent(String event, Bundle extras) {
+        sendCallEvent(event, 0/*For Event != EVENT_REQUEST_HANDOVER*/, extras);
+    }
+
+    /**
+     * Sends a call event to the {@link ConnectionService} for this call.
+     *
+     * See {@link Call#sendCallEvent(String, Bundle)}.
+     *
+     * @param event The call event.
+     * @param targetSdkVer SDK version of the app calling this api
+     * @param extras Associated extras.
+     */
+    public void sendCallEvent(String event, int targetSdkVer, Bundle extras) {
         if (mConnectionService != null) {
             if (android.telecom.Call.EVENT_REQUEST_HANDOVER.equals(event)) {
+                if (targetSdkVer > Build.VERSION_CODES.O_MR1) {
+                    Log.e(this, new Exception(), "sendCallEvent failed. Use public api handoverTo" +
+                            " for API > 27(O-MR1)");
+                    // TODO: Add "return" after DUO team adds new API support for handover
+                }
+
                 // Handover requests are targeted at Telecom, not the ConnectionService.
                 if (extras == null) {
                     Log.w(this, "sendCallEvent: %s event received with null extras.",
@@ -2029,7 +2263,7 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
                 if (handoverExtras instanceof Bundle) {
                     handoverExtrasBundle = (Bundle) handoverExtras;
                 }
-                requestHandover(phoneAccountHandle, videoState, handoverExtrasBundle);
+                requestHandover(phoneAccountHandle, videoState, handoverExtrasBundle, true);
             } else {
                 Log.addEvent(this, LogUtils.Events.CALL_EVENT, event);
                 mConnectionService.sendCallEvent(this, event, extras);
@@ -2038,6 +2272,17 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
             Log.e(this, new NullPointerException(),
                     "sendCallEvent failed due to null CS callId=%s", getId());
         }
+    }
+
+    /**
+     * Initiates a handover of this Call to the {@link ConnectionService} identified
+     * by destAcct.
+     * @param destAcct ConnectionService to which the call should be handed over.
+     * @param videoState The video state desired after the handover.
+     * @param extras Extra information to be passed to ConnectionService
+     */
+    public void handoverTo(PhoneAccountHandle destAcct, int videoState, Bundle extras) {
+        requestHandover(destAcct, videoState, extras, false);
     }
 
     /**
@@ -2260,7 +2505,7 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
             return;
         }
 
-        if (!handle.equals(mHandle)) {
+        if ((handle != null) && !handle.equals(mHandle)) {
             Log.i(this, "setCallerInfo received stale caller info for an old handle. Ignoring.");
             return;
         }
@@ -2330,6 +2575,10 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
         return mSpeakerphoneOn;
     }
 
+    public void setRequestedToStartWithRtt() {
+        mDidRequestToStartWithRtt = true;
+    }
+
     public void stopRtt() {
         if (mConnectionService != null) {
             mConnectionService.stopRtt(this);
@@ -2341,29 +2590,29 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
     }
 
     public void sendRttRequest() {
-        setRttStreams(true);
+        createRttStreams();
         mConnectionService.startRtt(this, getInCallToCsRttPipeForCs(), getCsToInCallRttPipeForCs());
     }
 
-    public void setRttStreams(boolean shouldBeRtt) {
-        boolean areStreamsInitialized = mInCallToConnectionServiceStreams != null
+    private boolean areRttStreamsInitialized() {
+        return mInCallToConnectionServiceStreams != null
                 && mConnectionServiceToInCallStreams != null;
-        if (shouldBeRtt && !areStreamsInitialized) {
+    }
+
+    public void createRttStreams() {
+        if (!areRttStreamsInitialized()) {
+            Log.i(this, "Initializing RTT streams");
             try {
                 mInCallToConnectionServiceStreams = ParcelFileDescriptor.createReliablePipe();
                 mConnectionServiceToInCallStreams = ParcelFileDescriptor.createReliablePipe();
             } catch (IOException e) {
                 Log.e(this, e, "Failed to create pipes for RTT call.");
             }
-        } else if (!shouldBeRtt && areStreamsInitialized) {
-            closeRttPipes();
-            mInCallToConnectionServiceStreams = null;
-            mConnectionServiceToInCallStreams = null;
         }
     }
 
     public void onRttConnectionFailure(int reason) {
-        setRttStreams(false);
+        Log.i(this, "Got RTT initiation failure with reason %d", reason);
         for (Listener l : mListeners) {
             l.onRttInitiationFailure(this, reason);
         }
@@ -2390,8 +2639,8 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
             Log.w(this, "Response ID %d does not match expected %d", id, mPendingRttRequestId);
             return;
         }
-        setRttStreams(accept);
         if (accept) {
+            createRttStreams();
             Log.i(this, "RTT request %d accepted.", id);
             mConnectionService.respondToRttRequest(
                     this, getInCallToCsRttPipeForCs(), getCsToInCallRttPipeForCs());
@@ -2401,12 +2650,12 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
         }
     }
 
-    public void closeRttPipes() {
-        // TODO: may defer this until call is removed?
-    }
-
     public boolean isRttCall() {
         return (mConnectionProperties & Connection.PROPERTY_IS_RTT) == Connection.PROPERTY_IS_RTT;
+    }
+
+    public boolean wasEverRttCall() {
+        return mWasEverRtt;
     }
 
     public ParcelFileDescriptor getCsToInCallRttPipeForCs() {
@@ -2439,6 +2688,11 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
     public void setVideoProvider(IVideoProvider videoProvider) {
         Log.v(this, "setVideoProvider");
 
+        if (mVideoProviderProxy != null) {
+            mVideoProviderProxy.clearVideoCallback();
+            mVideoProviderProxy = null;
+        }
+
         if (videoProvider != null ) {
             try {
                 mVideoProviderProxy = new VideoProviderProxy(mLock, videoProvider, this,
@@ -2446,8 +2700,6 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
             } catch (RemoteException ignored) {
                 // Ignore RemoteException.
             }
-        } else {
-            mVideoProviderProxy = null;
         }
 
         mVideoProvider = videoProvider;
@@ -2709,6 +2961,31 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
         }
     }
 
+    /**
+     * Notifies interested parties that the handover has completed.
+     * Notifies:
+     * 1. {@link InCallController} which communicates this to the
+     * {@link android.telecom.InCallService} via {@link Listener#onHandoverComplete()}.
+     * 2. {@link ConnectionServiceWrapper} which informs the {@link android.telecom.Connection} of
+     * the successful handover.
+     */
+    public void onHandoverComplete() {
+        Log.i(this, "onHandoverComplete; callId=%s", getId());
+        if (mConnectionService != null) {
+            mConnectionService.handoverComplete(this);
+        }
+        for (Listener l : mListeners) {
+            l.onHandoverComplete(this);
+        }
+    }
+
+    public void onHandoverFailed(int handoverError) {
+        Log.i(this, "onHandoverFailed; callId=%s, handoverError=%d", getId(), handoverError);
+        for (Listener l : mListeners) {
+            l.onHandoverFailed(this, handoverError);
+        }
+    }
+
     public void setOriginalConnectionId(String originalConnectionId) {
         mOriginalConnectionId = originalConnectionId;
     }
@@ -2725,6 +3002,10 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
      */
     public String getOriginalConnectionId() {
         return mOriginalConnectionId;
+    }
+
+    public ConnectionServiceFocusManager getConnectionServiceFocusManager() {
+        return mCallsManager.getConnectionServiceFocusManager();
     }
 
     /**
@@ -2758,9 +3039,9 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
      *      {@link android.telecom.InCallService}.
      */
     private void requestHandover(PhoneAccountHandle handoverToHandle, int videoState,
-                                 Bundle extras) {
+                                 Bundle extras, boolean isLegacy) {
         for (Listener l : mListeners) {
-            l.onHandoverRequested(this, handoverToHandle, videoState, extras);
+            l.onHandoverRequested(this, handoverToHandle, videoState, extras, isLegacy);
         }
     }
 
@@ -2780,4 +3061,12 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable {
         mVideoStateHistory |= mVideoState;
     }
 
+    /**
+     * Returns whether or not high definition audio was used.
+     *
+     * @return true if high definition audio was used during this call.
+     */
+    boolean wasHighDefAudio() {
+        return mWasHighDefAudio;
+    }
 }

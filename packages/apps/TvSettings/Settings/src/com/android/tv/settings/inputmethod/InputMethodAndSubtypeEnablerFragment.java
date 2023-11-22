@@ -18,16 +18,17 @@ package com.android.tv.settings.inputmethod;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.inputmethod.InputMethodAndSubtypeEnablerManager;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 /**
  * Fragment for android.settings.INPUT_METHOD_SUBTYPE_SETTINGS
  */
-public class InputMethodAndSubtypeEnablerFragment extends LeanbackPreferenceFragment {
+public class InputMethodAndSubtypeEnablerFragment extends SettingsPreferenceFragment {
     private InputMethodAndSubtypeEnablerManager mManager;
 
     /**
@@ -92,5 +93,10 @@ public class InputMethodAndSubtypeEnablerFragment extends LeanbackPreferenceFrag
     public void onPause() {
         super.onPause();
         mManager.save(getContext(), this);
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.INPUTMETHOD_SUBTYPE_ENABLER;
     }
 }

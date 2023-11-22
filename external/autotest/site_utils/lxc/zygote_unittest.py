@@ -3,27 +3,21 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import argparse
-import logging
 import os
 import tempfile
 import shutil
-import sys
 import unittest
 from contextlib import contextmanager
 
 import common
 from autotest_lib.client.bin import utils
+from autotest_lib.client.common_lib import error
 from autotest_lib.site_utils import lxc
 from autotest_lib.site_utils.lxc import constants
 from autotest_lib.site_utils.lxc import unittest_http
-from autotest_lib.site_utils.lxc import unittest_logging
+from autotest_lib.site_utils.lxc import unittest_setup
 from autotest_lib.site_utils.lxc import utils as lxc_utils
-from autotest_lib.site_utils.lxc.unittest_container_bucket \
-        import FastContainerBucket
 
-
-options = None
 
 @unittest.skipIf(lxc.IS_MOBLAB, 'Zygotes are not supported on moblab.')
 class ZygoteTests(unittest.TestCase):
@@ -33,32 +27,32 @@ class ZygoteTests(unittest.TestCase):
     def setUpClass(cls):
         cls.test_dir = tempfile.mkdtemp(dir=lxc.DEFAULT_CONTAINER_PATH,
                                         prefix='zygote_unittest_')
-        cls.shared_host_path = os.path.join(cls.test_dir, 'host')
 
-        # Use a container bucket just to download and set up the base image.
-        cls.bucket = FastContainerBucket(cls.test_dir, cls.shared_host_path)
-
-        if cls.bucket.base_container is None:
-            logging.debug('Base container not found - reinitializing')
-            cls.bucket.setup_base()
-
-        cls.base_container = cls.bucket.base_container
+        # Check if a base container exists on this machine and download one if
+        # necessary.
+        image = lxc.BaseImage()
+        try:
+            cls.base_container = image.get()
+            cls.cleanup_base_container = False
+        except error.ContainerError:
+            image.setup()
+            cls.base_container = image.get()
+            cls.cleanup_base_container = True
         assert(cls.base_container is not None)
+
+        # Set up the zygote host path.
+        cls.shared_host_dir = lxc.SharedHostDir(
+                os.path.join(cls.test_dir, 'host'))
 
 
     @classmethod
     def tearDownClass(cls):
         cls.base_container = None
-        if not options.skip_cleanup:
-            cls.bucket.destroy_all()
+        if not unittest_setup.config.skip_cleanup:
+            if cls.cleanup_base_container:
+                lxc.BaseImage().cleanup()
+            cls.shared_host_dir.cleanup()
             shutil.rmtree(cls.test_dir)
-
-    def tearDown(self):
-        # Ensure host dirs from each test are completely destroyed.
-        for host_dir in os.listdir(self.shared_host_path):
-            host_dir = os.path.realpath(os.path.join(self.shared_host_path,
-                                                     host_dir))
-            lxc_utils.cleanup_host_mount(host_dir);
 
 
     def testCleanup(self):
@@ -101,16 +95,6 @@ class ZygoteTests(unittest.TestCase):
         # missing.
 
 
-    def testSetHostnameRunning(self):
-        """Verifies that the hostname can be set on a running container."""
-        with self.createZygote() as zygote:
-            expected_hostname = 'my-new-hostname'
-            zygote.start(wait_for_network=True)
-            zygote.set_hostname(expected_hostname)
-            hostname = zygote.attach_run('hostname -f').stdout.strip()
-            self.assertEqual(expected_hostname, hostname)
-
-
     def testHostDir(self):
         """Verifies that the host dir on the container is created, and correctly
         bind-mounted."""
@@ -122,20 +106,20 @@ class ZygoteTests(unittest.TestCase):
 
             self.verifyBindMount(
                 zygote,
-                container_path=lxc.CONTAINER_AUTOTEST_DIR,
+                container_path=lxc.CONTAINER_HOST_DIR,
                 host_path=zygote.host_path)
 
 
     def testHostDirExists(self):
         """Verifies that the host dir is just mounted if it already exists."""
         # Pre-create the host dir and put a file in it.
-        test_host_path = os.path.join(self.shared_host_path,
+        test_host_path = os.path.join(self.shared_host_dir.path,
                                       'testHostDirExists')
         test_filename = 'test_file'
         test_host_file = os.path.join(test_host_path, test_filename)
         test_string = 'jackdaws love my big sphinx of quartz.'
-        os.mkdir(test_host_path)
-        with open(test_host_file, 'w+') as f:
+        os.makedirs(test_host_path)
+        with open(test_host_file, 'w') as f:
             f.write(test_string)
 
         # Sanity check
@@ -146,11 +130,11 @@ class ZygoteTests(unittest.TestCase):
 
             self.verifyBindMount(
                 zygote,
-                container_path=lxc.CONTAINER_AUTOTEST_DIR,
+                container_path=lxc.CONTAINER_HOST_DIR,
                 host_path=zygote.host_path)
 
             # Verify that the old directory contents was preserved.
-            cmd = 'cat %s' % os.path.join(lxc.CONTAINER_AUTOTEST_DIR,
+            cmd = 'cat %s' % os.path.join(lxc.CONTAINER_HOST_DIR,
                                           test_filename)
             test_output = zygote.attach_run(cmd).stdout.strip()
             self.assertEqual(test_string, test_output)
@@ -199,6 +183,114 @@ class ZygoteTests(unittest.TestCase):
                                             os.path.basename(tmpfile)))
 
 
+    def testCopyFile(self):
+        """Verifies that files are correctly copied into the container."""
+        control_string = 'amazingly few discotheques provide jukeboxes'
+        with tempfile.NamedTemporaryFile() as tmpfile:
+            tmpfile.write(control_string)
+            tmpfile.flush()
+
+            with self.createZygote() as zygote:
+                dst = os.path.join(constants.CONTAINER_AUTOTEST_DIR,
+                                   os.path.basename(tmpfile.name))
+                zygote.start(wait_for_network=False)
+                zygote.copy(tmpfile.name, dst)
+                # Verify the file content.
+                test_string = zygote.attach_run('cat %s' % dst).stdout
+                self.assertEquals(control_string, test_string)
+
+
+    def testCopyDirectory(self):
+        """Verifies that directories are correctly copied into the container."""
+        control_string = 'pack my box with five dozen liquor jugs'
+        with lxc_utils.TempDir() as tmpdir:
+            fd, tmpfile = tempfile.mkstemp(dir=tmpdir)
+            f = os.fdopen(fd, 'w')
+            f.write(control_string)
+            f.close()
+
+            with self.createZygote() as zygote:
+                dst = os.path.join(constants.CONTAINER_AUTOTEST_DIR,
+                                   os.path.basename(tmpdir))
+                zygote.start(wait_for_network=False)
+                zygote.copy(tmpdir, dst)
+                # Verify the file content.
+                test_file = os.path.join(dst, os.path.basename(tmpfile))
+                test_string = zygote.attach_run('cat %s' % test_file).stdout
+                self.assertEquals(control_string, test_string)
+
+
+    def testFindHostMount(self):
+        """Verifies that zygotes pick up the correct host dirs."""
+        with self.createZygote() as zygote0:
+            # Not a clone, this just instantiates zygote1 on top of the LXC
+            # container created by zygote0.
+            zygote1 = lxc.Zygote(container_path=zygote0.container_path,
+                                 name=zygote0.name,
+                                 attribute_values={})
+            # Verify that the new zygote picked up the correct host path
+            # from the existing LXC container.
+            self.assertEquals(zygote0.host_path, zygote1.host_path)
+            self.assertEquals(zygote0.host_path_ro, zygote1.host_path_ro)
+
+
+    def testDetectExistingMounts(self):
+        """Verifies that host mounts are properly reconstructed.
+
+        When a Zygote is instantiated on top of an already-running container,
+        any previously-created bind mounts have to be detected.  This enables
+        proper cleanup later.
+        """
+        with lxc_utils.TempDir() as tmpdir, self.createZygote() as zygote0:
+            zygote0.start(wait_for_network=False)
+            # Create a bind mounted directory.
+            zygote0.mount_dir(tmpdir, 'foo')
+            # Create another zygote on top of the existing container.
+            zygote1 = lxc.Zygote(container_path=zygote0.container_path,
+                                 name=zygote0.name,
+                                 attribute_values={})
+            # Verify that the new zygote contains the same bind mounts.
+            self.assertEqual(zygote0.mounts, zygote1.mounts)
+
+
+    def testMountDirectory(self):
+        """Verifies that read-write mounts work."""
+        with lxc_utils.TempDir() as tmpdir, self.createZygote() as zygote:
+            dst = '/testMountDirectory/testMount'
+            zygote.start(wait_for_network=False)
+            zygote.mount_dir(tmpdir, dst, readonly=False)
+
+            # Verify that the mount point is correctly bound, and is read-write.
+            self.verifyBindMount(zygote, dst, tmpdir)
+            zygote.attach_run('test -r {0} -a -w {0}'.format(dst))
+
+
+    def testMountDirectoryReadOnly(self):
+        """Verifies that read-only mounts are mounted, and read-only."""
+        with lxc_utils.TempDir() as tmpdir, self.createZygote() as zygote:
+            dst = '/testMountDirectoryReadOnly/testMount'
+            zygote.start(wait_for_network=False)
+            zygote.mount_dir(tmpdir, dst, readonly=True)
+
+            # Verify that the mount point is correctly bound, and is read-only.
+            self.verifyBindMount(zygote, dst, tmpdir)
+            try:
+                zygote.attach_run('test -r {0} -a ! -w {0}'.format(dst))
+            except error.CmdError:
+                self.fail('Bind mount is not read-only')
+
+
+    def testMountDirectoryRelativePath(self):
+        """Verifies that relative-path mounts work."""
+        with lxc_utils.TempDir() as tmpdir, self.createZygote() as zygote:
+            dst = 'testMountDirectoryRelativePath/testMount'
+            zygote.start(wait_for_network=False)
+            zygote.mount_dir(tmpdir, dst, readonly=True)
+
+            # Verify that the mount points is correctly bound..
+            self.verifyBindMount(zygote, dst, tmpdir)
+
+
     @contextmanager
     def createZygote(self,
                      name = None,
@@ -217,7 +309,7 @@ class ZygoteTests(unittest.TestCase):
         if name is None:
             name = self.id().split('.')[-1]
         if host_path is None:
-            host_path = os.path.join(self.shared_host_path, name)
+            host_path = os.path.join(self.shared_host_dir.path, name)
         if attribute_values is None:
             attribute_values = {}
         zygote = lxc.Zygote(self.test_dir,
@@ -229,7 +321,7 @@ class ZygoteTests(unittest.TestCase):
         try:
             yield zygote
         finally:
-            if not options.skip_cleanup:
+            if not unittest_setup.config.skip_cleanup:
                 zygote.destroy()
 
 
@@ -248,29 +340,6 @@ class ZygoteTests(unittest.TestCase):
         self.assertEqual(container_inode, host_inode)
 
 
-def parse_options():
-    """Parse command line inputs.
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='Print out ALL entries.')
-    parser.add_argument('--skip_cleanup', action='store_true',
-                        help='Skip deleting test containers.')
-    args, argv = parser.parse_known_args()
-
-    # Hack: python unittest also processes args.  Construct an argv to pass to
-    # it, that filters out the options it won't recognize.
-    if args.verbose:
-        argv.insert(0, '-v')
-    argv.insert(0, sys.argv[0])
-
-    return args, argv
-
-
 if __name__ == '__main__':
-    options, unittest_argv = parse_options()
-
-    log_level=(logging.DEBUG if options.verbose else logging.INFO)
-    unittest_logging.setup(log_level)
-
-    unittest.main(argv=unittest_argv)
+    unittest_setup.setup()
+    unittest.main()

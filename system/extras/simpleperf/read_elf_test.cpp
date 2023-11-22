@@ -153,3 +153,10 @@ TEST(read_elf, check_symbol_for_plt_section) {
                                       std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
   ASSERT_NE(symbols.find("@plt"), symbols.end());
 }
+
+TEST(read_elf, read_elf_with_broken_section_table) {
+  std::map<std::string, ElfFileSymbol> symbols;
+  ASSERT_EQ(ElfStatus::NO_SYMBOL_TABLE,
+            ParseSymbolsFromElfFile(GetTestData("libsgmainso-6.4.36.so"), BuildId(),
+                                    std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
+}

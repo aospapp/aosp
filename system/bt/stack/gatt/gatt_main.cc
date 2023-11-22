@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2008-2012 Broadcom Corporation
+ *  Copyright 2008-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ using base::StringPrintf;
 #define GATT_L2C_CFG_CFM_DONE (1 << 1)
 
 /* minimum GATT MTU size over BR/EDR link
-*/
+ */
 #define GATT_MIN_BR_MTU_SIZE 48
 
 /******************************************************************************/
@@ -80,7 +80,8 @@ static const tL2CAP_APPL_INFO dyn_info = {gatt_l2cif_connect_ind_cback,
                                           NULL,
                                           gatt_l2cif_data_ind_cback,
                                           gatt_l2cif_congest_cback,
-                                          NULL};
+                                          NULL,
+                                          NULL /* tL2CA_CREDITS_RECEIVED_CB */};
 
 tGATT_CB gatt_cb;
 
@@ -476,7 +477,7 @@ static void gatt_channel_congestion(tGATT_TCB* p_tcb, bool congested) {
   uint16_t conn_id;
 
   /* if uncongested, check to see if there is any more pending data */
-  if (p_tcb != NULL && congested == false) {
+  if (p_tcb != NULL && !congested) {
     gatt_cl_send_next_cmd_inq(*p_tcb);
   }
   /* notifying all applications for the connection up event */
@@ -490,8 +491,18 @@ static void gatt_channel_congestion(tGATT_TCB* p_tcb, bool congested) {
   }
 }
 
-void gatt_notify_phy_updated(tGATT_TCB* p_tcb, uint8_t tx_phy, uint8_t rx_phy,
-                             uint8_t status) {
+void gatt_notify_phy_updated(uint8_t status, uint16_t handle, uint8_t tx_phy,
+                             uint8_t rx_phy) {
+  tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev_by_handle(handle);
+  if (!p_dev_rec) {
+    BTM_TRACE_WARNING("%s: No Device Found!", __func__);
+    return;
+  }
+
+  tGATT_TCB* p_tcb =
+      gatt_find_tcb_by_addr(p_dev_rec->ble.pseudo_addr, BT_TRANSPORT_LE);
+  if (p_tcb == NULL) return;
+
   for (int i = 0; i < GATT_MAX_APPS; i++) {
     tGATT_REG* p_reg = &gatt_cb.cl_rcb[i];
     if (p_reg->in_use && p_reg->app_cb.p_phy_update_cb) {
@@ -956,8 +967,11 @@ void gatt_data_process(tGATT_TCB& tcb, BT_HDR* p_buf) {
   pseudo_op_code = op_code & (~GATT_WRITE_CMD_MASK);
 
   if (pseudo_op_code >= GATT_OP_CODE_MAX) {
-    LOG(ERROR) << "ATT - Rcvd L2CAP data, unknown cmd: 0x" << std::hex
-               << op_code;
+    /* Note: PTS: GATT/SR/UNS/BI-01-C mandates error on unsupported ATT request.
+     */
+    LOG(ERROR) << __func__
+               << ": ATT - Rcvd L2CAP data, unknown cmd: " << loghex(op_code);
+    gatt_send_error_rsp(tcb, GATT_REQ_NOT_SUPPORTED, op_code, 0, false);
     return;
   }
 
@@ -1075,7 +1089,7 @@ void gatt_init_srv_chg(void) {
         req.client_read_index = i;
         status = (*gatt_cb.cb_info.p_srv_chg_callback)(
             GATTS_SRV_CHG_CMD_READ_CLENT, &req, &rsp);
-        if (status == true) {
+        if (status) {
           memcpy(&srv_chg_clt, &rsp.srv_chg, sizeof(tGATTS_SRV_CHG));
           if (gatt_add_srv_chg_clt(&srv_chg_clt) == NULL) {
             LOG(ERROR) << "Unable to add a service change client";

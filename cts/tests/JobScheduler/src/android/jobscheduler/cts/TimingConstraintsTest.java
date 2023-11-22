@@ -29,6 +29,7 @@ public class TimingConstraintsTest extends ConstraintTest {
     private static final int CANCEL_JOB_ID = TimingConstraintsTest.class.hashCode() + 1;
     private static final int EXPIRED_JOB_ID = TimingConstraintsTest.class.hashCode() + 2;
     private static final int UNEXPIRED_JOB_ID = TimingConstraintsTest.class.hashCode() + 3;
+    private static final int ZERO_DELAY_JOB_ID = TimingConstraintsTest.class.hashCode() + 4;
 
     public void testScheduleOnce() throws Exception {
         JobInfo oneTimeJob = new JobInfo.Builder(TIMING_JOB_ID, kJobServiceComponent)
@@ -45,6 +46,7 @@ public class TimingConstraintsTest extends ConstraintTest {
         JobInfo cancelJob = new JobInfo.Builder(CANCEL_JOB_ID, kJobServiceComponent)
                 .setMinimumLatency(5000L) // make sure it doesn't actually run immediately
                 .setOverrideDeadline(7000L)
+                .setRequiresDeviceIdle(true)
                 .build();
 
         kTestEnvironment.setExpectedExecutions(0);
@@ -53,6 +55,19 @@ public class TimingConstraintsTest extends ConstraintTest {
         mJobScheduler.cancel(CANCEL_JOB_ID);
         assertTrue("Cancel failed: job executed when it shouldn't have.",
                 kTestEnvironment.awaitTimeout());
+    }
+
+    public void testExplicitZeroLatency() throws Exception {
+        JobInfo job = new JobInfo.Builder(ZERO_DELAY_JOB_ID, kJobServiceComponent)
+                .setMinimumLatency(0L)
+                .setRequiresDeviceIdle(true)
+                .setOverrideDeadline(10_000L)
+                .build();
+        kTestEnvironment.setExpectedExecutions(1);
+        mJobScheduler.schedule(job);
+        final boolean executed = kTestEnvironment.awaitExecution();
+        assertTrue("Failed to execute job with explicit zero min latency",
+                kTestEnvironment.awaitExecution());
     }
 
     /**

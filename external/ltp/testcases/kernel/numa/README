@@ -54,6 +54,11 @@ Verifies the numa_node_size api with hardware checking.
 TestCase10:
 Verifieds the NUMA migratepages policy.
 
+TestCase11:
+Verifies the hugepage memory allocated from the node we specify.
+
+TestCase12:
+Verifies the preferred node policy with THP memory allocating from the node we specify.
 
 Pre-requisites
 ====================================================================================================================

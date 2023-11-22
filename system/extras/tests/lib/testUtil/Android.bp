@@ -17,6 +17,7 @@
 cc_library_static {
     name: "libtestUtil",
     srcs: ["testUtil.c"],
+    cflags: ["-Wall", "-Werror"],
     export_include_dirs: ["include"],
     shared_libs: [
         "libcutils",

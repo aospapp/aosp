@@ -22,6 +22,7 @@
 #include <wifi_system_test/mock_hostapd_manager.h>
 #include <wifi_system_test/mock_interface_tool.h>
 
+#include "wificond/tests/mock_ap_interface_event_callback.h"
 #include "wificond/tests/mock_netlink_manager.h"
 #include "wificond/tests/mock_netlink_utils.h"
 
@@ -53,6 +54,13 @@ void CaptureStationEventHandler(
     OnStationEventHandler* out_handler,
     uint32_t interface_index,
     OnStationEventHandler handler) {
+  *out_handler = handler;
+}
+
+void CaptureChannelSwitchEventHandler(
+    OnChannelSwitchEventHandler* out_handler,
+    uint32_t interface_index,
+    OnChannelSwitchEventHandler handler) {
   *out_handler = handler;
 }
 
@@ -111,18 +119,6 @@ TEST_F(ApInterfaceImplTest, ShouldReportStopSuccess) {
   testing::Mock::VerifyAndClearExpectations(if_tool_.get());
 }
 
-TEST_F(ApInterfaceImplTest, ShouldRejectInvalidConfig) {
-  EXPECT_CALL(*hostapd_manager_, CreateHostapdConfig(_, _, _, _, _, _))
-      .WillOnce(Return(""));
-  EXPECT_CALL(*hostapd_manager_, WriteHostapdConfig(_)).Times(0);
-  EXPECT_FALSE(ap_interface_->WriteHostapdConfig(
-        vector<uint8_t>(),
-        false,
-        0,
-        HostapdManager::EncryptionType::kWpa2,
-        vector<uint8_t>()));
-}
-
 TEST_F(ApInterfaceImplTest, CanGetNumberOfAssociatedStations) {
   OnStationEventHandler handler;
   EXPECT_CALL(*netlink_utils_,
@@ -145,6 +141,53 @@ TEST_F(ApInterfaceImplTest, CanGetNumberOfAssociatedStations) {
   EXPECT_EQ(2, ap_interface_->GetNumberOfAssociatedStations());
   handler(DEL_STATION, fake_mac_address);
   EXPECT_EQ(1, ap_interface_->GetNumberOfAssociatedStations());
+}
+
+TEST_F(ApInterfaceImplTest, CallbackIsCalledOnNumAssociatedStationsChanged) {
+  OnStationEventHandler handler;
+  EXPECT_CALL(*netlink_utils_, SubscribeStationEvent(kTestInterfaceIndex, _))
+      .WillOnce(Invoke(bind(CaptureStationEventHandler, &handler, _1, _2)));
+  ap_interface_.reset(new ApInterfaceImpl(
+      kTestInterfaceName, kTestInterfaceIndex, netlink_utils_.get(),
+      if_tool_.get(), hostapd_manager_.get()));
+
+  EXPECT_CALL(*hostapd_manager_, StartHostapd()).WillOnce(Return(true));
+  auto binder = ap_interface_->GetBinder();
+  sp<MockApInterfaceEventCallback> callback(new MockApInterfaceEventCallback());
+  bool out_success = false;
+  EXPECT_TRUE(binder->startHostapd(callback, &out_success).isOk());
+  EXPECT_TRUE(out_success);
+
+  vector<uint8_t> fake_mac_address(kFakeMacAddress,
+                                   kFakeMacAddress + sizeof(kFakeMacAddress));
+  EXPECT_CALL(*callback, onNumAssociatedStationsChanged(1));
+  handler(NEW_STATION, fake_mac_address);
+  EXPECT_CALL(*callback, onNumAssociatedStationsChanged(2));
+  handler(NEW_STATION, fake_mac_address);
+  EXPECT_CALL(*callback, onNumAssociatedStationsChanged(1));
+  handler(DEL_STATION, fake_mac_address);
+}
+
+TEST_F(ApInterfaceImplTest, CallbackIsCalledOnSoftApChannelSwitched) {
+  OnChannelSwitchEventHandler handler;
+  EXPECT_CALL(*netlink_utils_, SubscribeChannelSwitchEvent(kTestInterfaceIndex, _))
+      .WillOnce(Invoke(bind(CaptureChannelSwitchEventHandler, &handler, _1, _2)));
+  ap_interface_.reset(new ApInterfaceImpl(
+      kTestInterfaceName, kTestInterfaceIndex, netlink_utils_.get(),
+      if_tool_.get(), hostapd_manager_.get()));
+
+  EXPECT_CALL(*hostapd_manager_, StartHostapd()).WillOnce(Return(true));
+  auto binder = ap_interface_->GetBinder();
+  sp<MockApInterfaceEventCallback> callback(new MockApInterfaceEventCallback());
+  bool out_success = false;
+  EXPECT_TRUE(binder->startHostapd(callback, &out_success).isOk());
+  EXPECT_TRUE(out_success);
+
+  const uint32_t kTestChannelFrequency = 2437;
+  const ChannelBandwidth kTestChannelBandwidth = ChannelBandwidth::BW_20;
+  EXPECT_CALL(*callback, onSoftApChannelSwitched(kTestChannelFrequency,
+                                                 kTestChannelBandwidth));
+  handler(kTestChannelFrequency, kTestChannelBandwidth);
 }
 
 }  // namespace wificond

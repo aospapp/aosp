@@ -6,6 +6,8 @@
     <application
         android:label="_RS_Test_CompatLegacy"
         android:icon="@drawable/test_pattern">
+        <uses-library android:name="android.test.runner" />
+
         <activity android:name="RSTestCompatLegacy"
                   android:screenOrientation="portrait">
             <intent-filter>

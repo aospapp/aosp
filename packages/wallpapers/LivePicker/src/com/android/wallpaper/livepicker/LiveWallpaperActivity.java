@@ -42,7 +42,10 @@ public class LiveWallpaperActivity extends ListActivity {
         super.onActivityResult(requestCode, resultCode, data);
 
         if (requestCode == REQUEST_PREVIEW) {
-            if (resultCode == RESULT_OK) finish();
+            if (resultCode == RESULT_OK) {
+                setResult(resultCode);
+                finish();
+            }
         }
     }
 

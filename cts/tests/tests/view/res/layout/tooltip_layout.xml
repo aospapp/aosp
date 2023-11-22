@@ -30,14 +30,14 @@
                 android:id="@+id/no_tooltip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="10dp"
+                android:layout_margin="5dp"
                 android:text="View with no tooltip"/>
 
         <TextView
                 android:id="@+id/has_tooltip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="10dp"
+                android:layout_margin="5dp"
                 android:text="View with tooltip"
                 android:tooltipText="tooltip text"/>
 
@@ -47,21 +47,21 @@
             android:id="@+id/no_tooltip2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_margin="10dp"
+            android:layout_margin="5dp"
             android:text="Another view with no tooltip"/>
 
     <LinearLayout
             android:id="@+id/empty_group"
             android:layout_width="100dp"
             android:layout_height="30dp"
-            android:layout_margin="10dp"
+            android:layout_margin="5dp"
             android:background="#ddd"/>
 
     <RelativeLayout
             android:id="@+id/overlap_group"
             android:layout_width="100dp"
             android:layout_height="30dp"
-            android:layout_margin="10dp"
+            android:layout_margin="5dp"
             android:tooltipText="overlap tooltip group"
             android:background="#ddd">
         <View

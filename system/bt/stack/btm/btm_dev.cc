@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -68,6 +68,8 @@ bool BTM_SecAddDevice(const RawAddress& bd_addr, DEV_CLASS dev_class,
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(bd_addr);
   if (!p_dev_rec) {
     p_dev_rec = btm_sec_allocate_dev_rec();
+    BTM_TRACE_API("%s: allocated p_dev_rec=%p, bd_addr=%s", __func__, p_dev_rec,
+                  bd_addr.ToString().c_str());
 
     p_dev_rec->bd_addr = bd_addr;
     p_dev_rec->hci_handle = BTM_GetHCIConnHandle(bd_addr, BT_TRANSPORT_BR_EDR);
@@ -225,9 +227,11 @@ char* BTM_SecReadDevName(const RawAddress& bd_addr) {
  ******************************************************************************/
 tBTM_SEC_DEV_REC* btm_sec_alloc_dev(const RawAddress& bd_addr) {
   tBTM_INQ_INFO* p_inq_info;
-  BTM_TRACE_EVENT("btm_sec_alloc_dev");
 
   tBTM_SEC_DEV_REC* p_dev_rec = btm_sec_allocate_dev_rec();
+
+  BTM_TRACE_EVENT("%s: allocated p_dev_rec=%p, bd_addr=%s", __func__, p_dev_rec,
+                  bd_addr.ToString().c_str());
 
   /* Check with the BT manager if details about remote device are known */
   /* outgoing connection */
@@ -410,6 +414,8 @@ void btm_consolidate_dev(tBTM_SEC_DEV_REC* p_target_rec) {
 
       /* remove the combined record */
       list_remove(btm_cb.sec_dev_rec, p_dev_rec);
+      // p_dev_rec gets freed in list_remove, we should not  access it further
+      continue;
     }
 
     /* an RPA device entry is a duplicate of the target record */

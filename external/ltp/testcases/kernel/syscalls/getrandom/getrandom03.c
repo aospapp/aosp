@@ -31,7 +31,7 @@
  */
 
 #include "lapi/getrandom.h"
-#include "linux_syscall_numbers.h"
+#include "lapi/syscalls.h"
 #include "tst_test.h"
 
 #define MAX_SIZE 256
@@ -63,7 +63,6 @@ static void verify_getrandom(unsigned int n)
 }
 
 static struct tst_test test = {
-	.tid = "getrandom03",
 	.tcnt = ARRAY_SIZE(sizes),
 	.test = verify_getrandom,
 };

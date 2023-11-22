@@ -27,6 +27,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -77,6 +78,7 @@ import android.view.Display;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MotionEvent;
@@ -86,6 +88,7 @@ import android.view.TouchDelegate;
 import android.view.View;
 import android.view.View.BaseSavedState;
 import android.view.View.OnLongClickListener;
+import android.view.View.OnUnhandledKeyEventListener;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.ViewParent;
@@ -99,6 +102,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import com.android.compatibility.common.util.CtsMouseUtil;
 import com.android.compatibility.common.util.CtsTouchUtils;
@@ -133,6 +137,7 @@ public class ViewTest {
     private ViewTestCtsActivity mActivity;
     private Resources mResources;
     private MockViewParent mMockParent;
+    private Context mContext;
 
     @Rule
     public ActivityTestRule<ViewTestCtsActivity> mActivityRule =
@@ -145,11 +150,13 @@ public class ViewTest {
     @Before
     public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mContext = mInstrumentation.getTargetContext();
         mActivity = mActivityRule.getActivity();
         PollingCheck.waitFor(mActivity::hasWindowFocus);
         mResources = mActivity.getResources();
         mMockParent = new MockViewParent(mActivity);
-        assertTrue(mActivity.waitForWindowFocus(5 * DateUtils.SECOND_IN_MILLIS));
+        PollingCheck.waitFor(5 * DateUtils.SECOND_IN_MILLIS, mActivity::hasWindowFocus);
+        assertTrue(mActivity.hasWindowFocus());
     }
 
     @Test
@@ -340,11 +347,42 @@ public class ViewTest {
 
     @Test
     public void testFindViewById() {
+        // verify view can find self
         View parent = mActivity.findViewById(R.id.viewlayout_root);
         assertSame(parent, parent.findViewById(R.id.viewlayout_root));
 
+        // find expected view type
         View view = parent.findViewById(R.id.mock_view);
         assertTrue(view instanceof MockView);
+    }
+
+    @Test
+    public void testRequireViewById() {
+        View parent = mActivity.findViewById(R.id.viewlayout_root);
+
+        View requiredView = parent.requireViewById(R.id.mock_view);
+        View foundView = parent.findViewById(R.id.mock_view);
+        assertSame(foundView, requiredView);
+        assertTrue(requiredView instanceof MockView);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testRequireViewByIdNoId() {
+        View parent = mActivity.findViewById(R.id.viewlayout_root);
+        parent.requireViewById(View.NO_ID);
+    }
+
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testRequireViewByIdInvalid() {
+        View parent = mActivity.findViewById(R.id.viewlayout_root);
+        parent.requireViewById(0);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testRequireViewByIdNotFound() {
+        View parent = mActivity.findViewById(R.id.viewlayout_root);
+        parent.requireViewById(R.id.view); // id not present in view_layout
     }
 
     @Test
@@ -500,6 +538,31 @@ public class ViewTest {
 
         Bitmap bitmap = BitmapFactory.decodeResource(mResources, R.drawable.icon_blue);
         assertNotNull(PointerIcon.create(bitmap, 0, 0));
+        assertNotNull(PointerIcon.create(bitmap, bitmap.getWidth() / 2, bitmap.getHeight() / 2));
+
+        try {
+            PointerIcon.create(bitmap, -1, 0);
+            fail("Hotspot x can not be < 0");
+        } catch (IllegalArgumentException ignore) {
+        }
+
+        try {
+            PointerIcon.create(bitmap, 0, -1);
+            fail("Hotspot y can not be < 0");
+        } catch (IllegalArgumentException ignore) {
+        }
+
+        try {
+            PointerIcon.create(bitmap, bitmap.getWidth(), 0);
+            fail("Hotspot x cannot be >= width");
+        } catch (IllegalArgumentException ignore) {
+        }
+
+        try {
+            PointerIcon.create(bitmap, 0, bitmap.getHeight());
+            fail("Hotspot x cannot be >= height");
+        } catch (IllegalArgumentException e) {
+        }
     }
 
     private void assertSystemPointerIcon(int style) {
@@ -2385,6 +2448,112 @@ public class ViewTest {
     }
 
     @Test
+    public void testUnhandledKeys() throws Throwable {
+        MockUnhandledKeyListener listener = new MockUnhandledKeyListener();
+        ViewGroup viewGroup = (ViewGroup) mActivity.findViewById(R.id.viewlayout_root);
+        // Attaching a fallback handler
+        TextView mockView1 = new TextView(mActivity);
+        mockView1.addOnUnhandledKeyEventListener(listener);
+
+        // Before the view is attached, it shouldn't respond to anything
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_B);
+        assertFalse(listener.fired());
+
+        // Once attached, it should start receiving fallback events
+        mActivityRule.runOnUiThread(() -> viewGroup.addView(mockView1));
+        mInstrumentation.waitForIdleSync();
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_B);
+        assertTrue(listener.fired());
+        listener.reset();
+
+        // If multiple on one view, last added should receive event first
+        MockUnhandledKeyListener listener2 = new MockUnhandledKeyListener();
+        listener2.mReturnVal = true;
+        mActivityRule.runOnUiThread(() -> mockView1.addOnUnhandledKeyEventListener(listener2));
+        mInstrumentation.waitForIdleSync();
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_B);
+        assertTrue(listener2.fired());
+        assertFalse(listener.fired());
+        listener2.reset();
+
+        // If removed, it should not receive fallbacks anymore
+        mActivityRule.runOnUiThread(() -> {
+            mockView1.removeOnUnhandledKeyEventListener(listener);
+            mockView1.removeOnUnhandledKeyEventListener(listener2);
+        });
+        mInstrumentation.waitForIdleSync();
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_B);
+        assertFalse(listener.fired());
+
+        mActivityRule.runOnUiThread(() -> mActivity.setContentView(R.layout.key_fallback_layout));
+        mInstrumentation.waitForIdleSync();
+        View higherInNormal = mActivity.findViewById(R.id.higher_in_normal);
+        View higherGroup = mActivity.findViewById(R.id.higher_group);
+        View lowerInHigher = mActivity.findViewById(R.id.lower_in_higher);
+        View lastButton = mActivity.findViewById(R.id.last_button);
+        View lastInHigher = mActivity.findViewById(R.id.last_in_higher);
+        View lastInNormal = mActivity.findViewById(R.id.last_in_normal);
+
+        View[] allViews = new View[]{higherInNormal, higherGroup, lowerInHigher, lastButton,
+                lastInHigher, lastInNormal};
+
+        // Test ordering by depth
+        listener.mReturnVal = true;
+        mActivityRule.runOnUiThread(() -> {
+            for (View v : allViews) {
+                v.addOnUnhandledKeyEventListener(listener);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_B);
+        assertEquals(lastInHigher, listener.mLastView);
+        listener.reset();
+
+        mActivityRule.runOnUiThread(
+                () -> lastInHigher.removeOnUnhandledKeyEventListener(listener));
+        mInstrumentation.waitForIdleSync();
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_B);
+        assertEquals(lowerInHigher, listener.mLastView);
+        listener.reset();
+
+        mActivityRule.runOnUiThread(
+                () -> lowerInHigher.removeOnUnhandledKeyEventListener(listener));
+        mInstrumentation.waitForIdleSync();
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_B);
+        assertEquals(higherGroup, listener.mLastView);
+        listener.reset();
+
+        mActivityRule.runOnUiThread(() -> higherGroup.removeOnUnhandledKeyEventListener(listener));
+        mInstrumentation.waitForIdleSync();
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_B);
+        assertEquals(lastButton, listener.mLastView);
+        listener.reset();
+
+        mActivityRule.runOnUiThread(() -> lastButton.removeOnUnhandledKeyEventListener(listener));
+        mInstrumentation.waitForIdleSync();
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_B);
+        assertEquals(higherInNormal, listener.mLastView);
+        listener.reset();
+
+        mActivityRule.runOnUiThread(
+                () -> higherInNormal.removeOnUnhandledKeyEventListener(listener));
+        mInstrumentation.waitForIdleSync();
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_B);
+        assertEquals(lastInNormal, listener.mLastView);
+        listener.reset();
+
+        // Test "capture"
+        mActivityRule.runOnUiThread(() -> lastInNormal.requestFocus());
+        mInstrumentation.waitForIdleSync();
+        lastInNormal.setOnKeyListener((v, keyCode, event)
+                -> (keyCode == KeyEvent.KEYCODE_B && event.getAction() == KeyEvent.ACTION_UP));
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_B);
+        assertTrue(listener.fired()); // checks that both up and down were received
+        listener.reset();
+    }
+
+    @Test
     public void testWindowVisibilityChanged() throws Throwable {
         final MockView mockView = new MockView(mActivity);
         final ViewGroup viewGroup = (ViewGroup) mActivity.findViewById(R.id.viewlayout_root);
@@ -3884,7 +4053,9 @@ public class ViewTest {
         final MockEditText editText = new MockEditText(mActivity);
 
         mActivityRule.runOnUiThread(() -> {
-            viewGroup.addView(editText);
+            // Give a fixed size since, on most devices, the edittext is off-screen
+            // and therefore doesn't get laid-out properly.
+            viewGroup.addView(editText, 100, 30);
             editText.requestFocus();
         });
         mInstrumentation.waitForIdleSync();
@@ -4125,18 +4296,45 @@ public class ViewTest {
         assertTrue(overridingView.hasOverlappingRendering());
     }
 
+    private boolean startDragAndDrop(View view, View.DragShadowBuilder shadowBuilder) {
+        final Point size = new Point();
+        mActivity.getDisplay().getSize(size);
+        final MotionEvent event = MotionEvent.obtain(
+                SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
+                MotionEvent.ACTION_DOWN, size.x / 2, size.y / 2, 1);
+        event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+        mInstrumentation.getUiAutomation().injectInputEvent(event, true);
+
+        return view.startDragAndDrop(ClipData.newPlainText("", ""), shadowBuilder, view, 0);
+    }
+
+    private static View.DragShadowBuilder createDragShadowBuidler() {
+        View.DragShadowBuilder shadowBuilder = mock(View.DragShadowBuilder.class);
+        doAnswer(a -> {
+            final Point outPoint = (Point) a.getArguments()[0];
+            outPoint.x = 1;
+            outPoint.y = 1;
+            return null;
+        }).when(shadowBuilder).onProvideShadowMetrics(any(), any());
+        return shadowBuilder;
+    }
+
     @Test
     public void testUpdateDragShadow() {
         View view = mActivity.findViewById(R.id.fit_windows);
         assertTrue(view.isAttachedToWindow());
 
-        View.DragShadowBuilder shadowBuilder = mock(View.DragShadowBuilder.class);
-        view.startDragAndDrop(ClipData.newPlainText("", ""), shadowBuilder, view, 0);
-        reset(shadowBuilder);
-
-        view.updateDragShadow(shadowBuilder);
-        // TODO: Verify with the canvas from the drag surface instead.
-        verify(shadowBuilder).onDrawShadow(any(Canvas.class));
+        final View.DragShadowBuilder shadowBuilder = createDragShadowBuidler();
+        try {
+            assertTrue("Could not start drag and drop", startDragAndDrop(view, shadowBuilder));
+            reset(shadowBuilder);
+            view.updateDragShadow(shadowBuilder);
+            // TODO: Verify with the canvas from the drag surface instead.
+            verify(shadowBuilder).onDrawShadow(any(Canvas.class));
+        } finally {
+            // Ensure to cancel drag and drop operation so that it does not affect other tests.
+            view.cancelDragAndDrop();
+        }
     }
 
     @Test
@@ -4144,12 +4342,18 @@ public class ViewTest {
         View view = new View(mActivity);
         assertFalse(view.isAttachedToWindow());
 
-        View.DragShadowBuilder shadowBuilder = mock(View.DragShadowBuilder.class);
-        view.startDragAndDrop(ClipData.newPlainText("", ""), shadowBuilder, view, 0);
-        reset(shadowBuilder);
+        View.DragShadowBuilder shadowBuilder = createDragShadowBuidler();
+        try {
+            assertFalse("Drag and drop for detached view must fail",
+                    startDragAndDrop(view, shadowBuilder));
+            reset(shadowBuilder);
 
-        view.updateDragShadow(shadowBuilder);
-        verify(shadowBuilder, never()).onDrawShadow(any(Canvas.class));
+            view.updateDragShadow(shadowBuilder);
+            verify(shadowBuilder, never()).onDrawShadow(any(Canvas.class));
+        } finally {
+            // Ensure to cancel drag and drop operation so that it does not affect other tests.
+            view.cancelDragAndDrop();
+        }
     }
 
     @Test
@@ -4157,7 +4361,7 @@ public class ViewTest {
         View view = mActivity.findViewById(R.id.fit_windows);
         assertTrue(view.isAttachedToWindow());
 
-        View.DragShadowBuilder shadowBuilder = mock(View.DragShadowBuilder.class);
+        View.DragShadowBuilder shadowBuilder = createDragShadowBuidler();
         view.updateDragShadow(shadowBuilder);
         verify(shadowBuilder, never()).onDrawShadow(any(Canvas.class));
     }
@@ -4338,6 +4542,100 @@ public class ViewTest {
         view.onHoverEvent(event);
         assertFalse(view.isHovered());
         event.recycle();
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testScaleXNaN() {
+        View view = new View(mContext);
+        view.setScaleX(Float.NaN);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testScaleXPositiveInfinity() {
+        View view = new View(mContext);
+        view.setScaleX(Float.POSITIVE_INFINITY);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testScaleXNegativeInfinity() {
+        View view = new View(mContext);
+        view.setScaleX(Float.NEGATIVE_INFINITY);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testScaleYNaN() {
+        View view = new View(mContext);
+        view.setScaleY(Float.NaN);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testScaleYPositiveInfinity() {
+        View view = new View(mContext);
+        view.setScaleY(Float.POSITIVE_INFINITY);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testScaleYNegativeInfinity() {
+        View view = new View(mContext);
+        view.setScaleY(Float.NEGATIVE_INFINITY);
+    }
+
+    @Test
+    public void testSetGetOutlineShadowColor() {
+        ViewGroup group = (ViewGroup) LayoutInflater.from(mContext).inflate(
+                R.layout.view_outlineshadowcolor, null);
+        View defaultShadow = group.findViewById(R.id.default_shadow);
+        assertEquals(Color.BLACK, defaultShadow.getOutlineSpotShadowColor());
+        assertEquals(Color.BLACK, defaultShadow.getOutlineAmbientShadowColor());
+        defaultShadow.setOutlineSpotShadowColor(Color.YELLOW);
+        defaultShadow.setOutlineAmbientShadowColor(Color.GREEN);
+        assertEquals(Color.YELLOW, defaultShadow.getOutlineSpotShadowColor());
+        assertEquals(Color.GREEN, defaultShadow.getOutlineAmbientShadowColor());
+
+        View redAmbientShadow = group.findViewById(R.id.red_shadow);
+        assertEquals(Color.RED, redAmbientShadow.getOutlineAmbientShadowColor());
+        assertEquals(Color.BLACK, redAmbientShadow.getOutlineSpotShadowColor());
+
+        View blueSpotShadow = group.findViewById(R.id.blue_shadow);
+        assertEquals(Color.BLUE, blueSpotShadow.getOutlineSpotShadowColor());
+        assertEquals(Color.BLACK, blueSpotShadow.getOutlineAmbientShadowColor());
+
+        View greenShadow = group.findViewById(R.id.green_shadow);
+        assertEquals(Color.GREEN, greenShadow.getOutlineSpotShadowColor());
+        assertEquals(Color.GREEN, greenShadow.getOutlineAmbientShadowColor());
+    }
+
+    @Test
+    public void testPivot() {
+        View view = new View(mContext);
+        int widthSpec = View.MeasureSpec.makeMeasureSpec(100, View.MeasureSpec.EXACTLY);
+        int heightSpec = View.MeasureSpec.makeMeasureSpec(200, View.MeasureSpec.EXACTLY);
+        view.measure(widthSpec, heightSpec);
+        assertEquals(100, view.getMeasuredWidth());
+        assertEquals(200, view.getMeasuredHeight());
+        view.layout(0, 0, 100, 200);
+        assertEquals(100, view.getWidth());
+        assertEquals(200, view.getHeight());
+
+        // Assert default pivot behavior
+        assertEquals(50, view.getPivotX(), 0.0f);
+        assertEquals(100, view.getPivotY(), 0.0f);
+        assertFalse(view.isPivotSet());
+
+        // Assert it changes as expected
+        view.setPivotX(15);
+        assertEquals(15, view.getPivotX(), 0.0f);
+        assertEquals(100, view.getPivotY(), 0.0f);
+        assertTrue(view.isPivotSet());
+        view.setPivotY(0);
+        assertEquals(0, view.getPivotY(), 0.0f);
+        assertTrue(view.isPivotSet());
+
+        // Asset resetting back to default
+        view.resetPivot();
+        assertEquals(50, view.getPivotX(), 0.0f);
+        assertEquals(100, view.getPivotY(), 0.0f);
+        assertFalse(view.isPivotSet());
     }
 
     private static class MockDrawable extends Drawable {
@@ -4689,6 +4987,29 @@ public class ViewTest {
         public int childCount;
         public String tag;
         public View firstChild;
+    }
+
+    private static class MockUnhandledKeyListener implements OnUnhandledKeyEventListener {
+        public View mLastView = null;
+        public boolean mGotUp = false;
+        public boolean mReturnVal = false;
+
+        @Override
+        public boolean onUnhandledKeyEvent(View v, KeyEvent event) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                mLastView = v;
+            } else if (event.getAction() == KeyEvent.ACTION_UP) {
+                mGotUp = true;
+            }
+            return mReturnVal;
+        }
+        public void reset() {
+            mLastView = null;
+            mGotUp = false;
+        }
+        public boolean fired() {
+            return mLastView != null && mGotUp;
+        }
     }
 
     private static final Class<?> ASYNC_INFLATE_VIEWS[] = {

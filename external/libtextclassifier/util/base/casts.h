@@ -19,15 +19,14 @@
 
 #include <string.h>  // for memcpy
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
-// lang_id_bit_cast<Dest,Source> is a template function that implements the
-// equivalent of "*reinterpret_cast<Dest*>(&source)".  We need this in
-// very low-level functions like the protobuf library and fast math
-// support.
+// bit_cast<Dest, Source> is a template function that implements the equivalent
+// of "*reinterpret_cast<Dest*>(&source)".  We need this in very low-level
+// functions like fast math support.
 //
 //   float f = 3.14159265358979;
-//   int i = lang_id_bit_cast<int32>(f);
+//   int i = bit_cast<int32>(f);
 //   // i = 0x40490fdb
 //
 // The classical address-casting method is:
@@ -60,9 +59,9 @@ namespace libtextclassifier {
 //
 // Anyways ...
 //
-// lang_id_bit_cast<> calls memcpy() which is blessed by the standard,
-// especially by the example in section 3.9 .  Also, of course,
-// lang_id_bit_cast<> wraps up the nasty logic in one place.
+// bit_cast<> calls memcpy() which is blessed by the standard, especially by the
+// example in section 3.9 .  Also, of course, bit_cast<> wraps up the nasty
+// logic in one place.
 //
 // Fortunately memcpy() is very fast.  In optimized mode, with a
 // constant size, gcc 2.95.3, gcc 4.0.1, and msvc 7.1 produce inline
@@ -70,15 +69,14 @@ namespace libtextclassifier {
 // memcpy(d,s,4) compiles to one load and one store, and memcpy(d,s,8)
 // compiles to two loads and two stores.
 //
-// I tested this code with gcc 2.95.3, gcc 4.0.1, icc 8.1, and msvc 7.1.
+// Mike Chastain tested this code with gcc 2.95.3, gcc 4.0.1, icc 8.1, and msvc
+// 7.1.
 //
 // WARNING: if Dest or Source is a non-POD type, the result of the memcpy
 // is likely to surprise you.
 //
 // Props to Bill Gibbons for the compile time assertion technique and
 // Art Komninos and Igor Tandetnik for the msvc experiments.
-//
-// -- mec 2005-10-17
 
 template <class Dest, class Source>
 inline Dest bit_cast(const Source &source) {
@@ -89,6 +87,6 @@ inline Dest bit_cast(const Source &source) {
   return dest;
 }
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
 #endif  // LIBTEXTCLASSIFIER_UTIL_BASE_CASTS_H_

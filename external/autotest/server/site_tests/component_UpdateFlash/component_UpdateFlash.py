@@ -10,6 +10,7 @@ from autotest_lib.server import test
 
 
 class component_UpdateFlash(test.test):
+    """Downloads, installs, and verifies component updated flash."""
     version = 1
 
     def _run_client_test(self, name, CU_action):
@@ -22,7 +23,7 @@ class component_UpdateFlash(test.test):
                                           tag=CU_action,
                                           check_client_result=True)
         except:
-            raise error.TestError('Failed: %s.' % CU_action)
+            raise error.TestFail('Failed: %s.' % CU_action)
 
     def _run_flash_sanity(self):
         """Verify that simple Flash site runs."""
@@ -51,6 +52,14 @@ class component_UpdateFlash(test.test):
         self._run_client_test(
             'desktopui_FlashSanityCheck', CU_action='verify-system-flash')
 
+    def _verify_clean_shutdown(self):
+        """Verifies that the stateful partition was cleaned up on shutdown."""
+        try:
+            self.autotest_client.run_test('platform_CleanShutdown',
+                                          check_client_result=True)
+        except:
+            raise error.TestFail('Failed: platform_CleanShutdown')
+
     def _reboot(self):
         """Reboot the DUT."""
         self.host.reboot()
@@ -78,3 +87,6 @@ class component_UpdateFlash(test.test):
         # Currently mounting the component binaries requires a reboot.
         self._reboot()
         self._verify_component_flash()
+        # Reboot again to see if a clean unmount happens.
+        self._reboot()
+        self._verify_clean_shutdown()

@@ -240,21 +240,31 @@ bool XzDecompress(const std::string& compressed_data, std::string* decompressed_
   return true;
 }
 
+static std::map<std::string, android::base::LogSeverity> log_severity_map = {
+    {"verbose", android::base::VERBOSE},
+    {"debug", android::base::DEBUG},
+    {"info", android::base::INFO},
+    {"warning", android::base::WARNING},
+    {"error", android::base::ERROR},
+    {"fatal", android::base::FATAL},
+};
 bool GetLogSeverity(const std::string& name, android::base::LogSeverity* severity) {
-  static std::map<std::string, android::base::LogSeverity> log_severity_map = {
-      {"verbose", android::base::VERBOSE},
-      {"debug", android::base::DEBUG},
-      {"info", android::base::INFO},
-      {"warning", android::base::WARNING},
-      {"error", android::base::ERROR},
-      {"fatal", android::base::FATAL},
-  };
   auto it = log_severity_map.find(name);
   if (it != log_severity_map.end()) {
     *severity = it->second;
     return true;
   }
   return false;
+}
+
+std::string GetLogSeverityName() {
+  android::base::LogSeverity severity = android::base::GetMinimumLogSeverity();
+  for (auto& pair : log_severity_map) {
+    if (severity == pair.second) {
+      return pair.first;
+    }
+  }
+  return "info";
 }
 
 bool IsRoot() {

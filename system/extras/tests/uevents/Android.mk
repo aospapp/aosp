@@ -6,6 +6,6 @@ LOCAL_SRC_FILES := uevents.c
 LOCAL_SHARED_LIBRARIES += libcutils
 LOCAL_MODULE:= uevents
 
-LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter
 
 include $(BUILD_EXECUTABLE)

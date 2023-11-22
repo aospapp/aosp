@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 from autotest_lib.server import utils
+from autotest_lib.client.common_lib.cros.cfm.usb import cfm_usb_devices
 
 AUTHOR = "harpreet"
 NAME = "enterprise_CFM_USBPeripheralHotplugDetect.c920"
@@ -29,10 +30,12 @@ servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 
 def run_test(machine):
     host = hosts.create_host(machine, servo_args=servo_args)
-    peripheral_whitelist_dict = {'0b0e:0412': 'Jabra SPEAK 410',
-                                 '046d:082d': 'HD Pro Webcam C920 (046d:082d)'}
+    peripherals_to_check = [
+        cfm_usb_devices.JABRA_SPEAK_410,
+        cfm_usb_devices.HD_PRO_WEBCAM_C920
+    ]
     job.run_test('enterprise_CFM_USBPeripheralHotplugDetect', host=host,
-            peripheral_whitelist_dict=peripheral_whitelist_dict, tag="c920")
+            peripherals_to_check=peripherals_to_check, tag="c920")
 
 
 parallel_simple(run_test, machines)

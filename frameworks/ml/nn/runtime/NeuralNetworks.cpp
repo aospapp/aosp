@@ -29,6 +29,7 @@
 #include "Memory.h"
 #include "NeuralNetworksOEM.h"
 #include "ModelBuilder.h"
+#include "Utils.h"
 
 #include <memory>
 #include <vector>
@@ -90,6 +91,17 @@ static_assert(ANEURALNETWORKS_SPACE_TO_DEPTH == 26,
               "ANEURALNETWORKS_SPACE_TO_DEPTH has changed");
 static_assert(ANEURALNETWORKS_SVDF == 27, "ANEURALNETWORKS_SVDF has changed");
 static_assert(ANEURALNETWORKS_TANH == 28, "ANEURALNETWORKS_TANH has changed");
+
+static_assert(ANEURALNETWORKS_BATCH_TO_SPACE_ND == 29, "ANEURALNETWORKS_BATCH_TO_SPACE_ND has changed");
+static_assert(ANEURALNETWORKS_DIV == 30, "ANEURALNETWORKS_DIV has changed");
+static_assert(ANEURALNETWORKS_MEAN == 31, "ANEURALNETWORKS_MEAN has changed");
+static_assert(ANEURALNETWORKS_PAD == 32, "ANEURALNETWORKS_PAD has changed");
+static_assert(ANEURALNETWORKS_SPACE_TO_BATCH_ND == 33, "ANEURALNETWORKS_SPACE_TO_BATCH_ND has changed");
+static_assert(ANEURALNETWORKS_SQUEEZE == 34, "ANEURALNETWORKS_SQUEEZE has changed");
+static_assert(ANEURALNETWORKS_STRIDED_SLICE == 35, "ANEURALNETWORKS_STRIDED_SLICE has changed");
+static_assert(ANEURALNETWORKS_SUB == 36, "ANEURALNETWORKS_TANH has changed");
+static_assert(ANEURALNETWORKS_TRANSPOSE == 37, "ANEURALNETWORKS_TRANSPOSE has changed");
+
 static_assert(ANEURALNETWORKS_OEM_OPERATION == 10000,
               "ANEURALNETWORKS_OEM_OPERATION has changed");
 
@@ -204,6 +216,27 @@ static_assert(static_cast<int32_t>(OperationType::SVDF) == ANEURALNETWORKS_SVDF,
 static_assert(static_cast<int32_t>(OperationType::TANH) == ANEURALNETWORKS_TANH,
               "OperationType::TANH != ANEURALNETWORKS_TANH");
 
+static_assert(static_cast<int32_t>(OperationType::BATCH_TO_SPACE_ND) == ANEURALNETWORKS_BATCH_TO_SPACE_ND,
+              "OperationType::BATCH_TO_SPACE_ND != ANEURALNETWORKS_BATCH_TO_SPACE_ND");
+static_assert(static_cast<int32_t>(OperationType::DIV) == ANEURALNETWORKS_DIV,
+              "OperationType::DIV != ANEURALNETWORKS_DIV");
+static_assert(static_cast<int32_t>(OperationType::MEAN) == ANEURALNETWORKS_MEAN,
+              "OperationType::MEAN != ANEURALNETWORKS_MEAN");
+static_assert(static_cast<int32_t>(OperationType::PAD) == ANEURALNETWORKS_PAD,
+              "OperationType::PAD != ANEURALNETWORKS_PAD");
+static_assert(static_cast<int32_t>(OperationType::SPACE_TO_BATCH_ND) ==
+                          ANEURALNETWORKS_SPACE_TO_BATCH_ND,
+              "OperationType::SPACE_TO_BATCH_ND != ANEURALNETWORKS_SPACE_TO_BATCH_ND");
+static_assert(static_cast<int32_t>(OperationType::SQUEEZE) == ANEURALNETWORKS_SQUEEZE,
+              "OperationType::SQUEEZE != ANEURALNETWORKS_SQUEEZE");
+static_assert(static_cast<int32_t>(OperationType::STRIDED_SLICE) ==
+                          ANEURALNETWORKS_STRIDED_SLICE,
+              "OperationType::STRIDED_SLICE != ANEURALNETWORKS_STRIDED_SLICE");
+static_assert(static_cast<int32_t>(OperationType::SUB) == ANEURALNETWORKS_SUB,
+              "OperationType::SUB != ANEURALNETWORKS_SUB");
+static_assert(static_cast<int32_t>(OperationType::TRANSPOSE) == ANEURALNETWORKS_TRANSPOSE,
+              "OperationType::TRANSPOSE != ANEURALNETWORKS_TRANSPOSE");
+
 static_assert(static_cast<int32_t>(FusedActivationFunc::NONE) == ANEURALNETWORKS_FUSED_NONE,
               "FusedActivationFunc::NONE != ANEURALNETWORKS_FUSED_NONE");
 static_assert(static_cast<int32_t>(FusedActivationFunc::RELU) == ANEURALNETWORKS_FUSED_RELU,
@@ -243,7 +276,7 @@ int ANeuralNetworksModel_create(ANeuralNetworksModel** model) {
         LOG(ERROR) << "ANeuralNetworksModel_create passed a nullptr";
         return ANEURALNETWORKS_UNEXPECTED_NULL;
     }
-    ModelBuilder* m = new ModelBuilder();
+    ModelBuilder* m = new (std::nothrow) ModelBuilder();
     if (m == nullptr) {
         *model = nullptr;
         return ANEURALNETWORKS_OUT_OF_MEMORY;
@@ -279,7 +312,7 @@ int ANeuralNetworksModel_addOperand(ANeuralNetworksModel* model,
 
 int ANeuralNetworksModel_setOperandValue(ANeuralNetworksModel* model, int32_t index,
                                          const void* buffer, size_t length) {
-    if (!model || !buffer) {
+    if (!model || (!buffer && length != 0)) {
         LOG(ERROR) << "ANeuralNetworksModel_setOperandValue passed a nullptr";
         return ANEURALNETWORKS_UNEXPECTED_NULL;
     }
@@ -320,6 +353,16 @@ int ANeuralNetworksModel_identifyInputsAndOutputs(ANeuralNetworksModel* model, u
     }
     ModelBuilder* m = reinterpret_cast<ModelBuilder*>(model);
     return m->identifyInputsAndOutputs(inputCount, inputs, outputCount, outputs);
+}
+
+int ANeuralNetworksModel_relaxComputationFloat32toFloat16(ANeuralNetworksModel* model,
+                                                          bool allow) {
+    if (!model) {
+        LOG(ERROR) << ("ANeuralNetworksModel_relaxComputationFloat32toFloat16 passed a nullptr");
+        return ANEURALNETWORKS_UNEXPECTED_NULL;
+    }
+    ModelBuilder* m = reinterpret_cast<ModelBuilder*>(model);
+    return m->relaxComputationFloat32toFloat16(allow);
 }
 
 int ANeuralNetworksCompilation_create(ANeuralNetworksModel* model,
@@ -386,8 +429,7 @@ void ANeuralNetworksExecution_free(ANeuralNetworksExecution* execution) {
 int ANeuralNetworksExecution_setInput(ANeuralNetworksExecution* execution, int32_t index,
                                       const ANeuralNetworksOperandType* type, const void* buffer,
                                       size_t length) {
-    // TODO: For a non-optional input, also verify that buffer is not null.
-    if (!execution) {
+    if (!execution || (!buffer && length != 0)) {
         LOG(ERROR) << "ANeuralNetworksExecution_setInput passed a nullptr";
         return ANEURALNETWORKS_UNEXPECTED_NULL;
     }
@@ -412,7 +454,7 @@ int ANeuralNetworksExecution_setInputFromMemory(ANeuralNetworksExecution* execut
 int ANeuralNetworksExecution_setOutput(ANeuralNetworksExecution* execution, int32_t index,
                                        const ANeuralNetworksOperandType* type, void* buffer,
                                        size_t length) {
-    if (!execution || !buffer) {
+    if (!execution || (!buffer && length != 0)) {
         LOG(ERROR) << "ANeuralNetworksExecution_setOutput passed a nullptr";
         return ANEURALNETWORKS_UNEXPECTED_NULL;
     }
@@ -469,7 +511,7 @@ int ANeuralNetworksEvent_wait(ANeuralNetworksEvent* event) {
 
     sp<ExecutionCallback>* e = reinterpret_cast<sp<ExecutionCallback>*>(event);
     (*e)->wait();
-    return ANEURALNETWORKS_NO_ERROR;
+    return convertErrorStatusToResultCode((*e)->getStatus());
 }
 
 void ANeuralNetworksEvent_free(ANeuralNetworksEvent* event) {

@@ -25,6 +25,8 @@ import android.app.UiAutomation;
 import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.pm.PackageManager;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.os.SystemClock;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.rule.ActivityTestRule;
@@ -35,8 +37,6 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.android.internal.util.ArrayUtils;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -44,9 +44,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
-import java.util.Objects;
+import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 @RunWith(AndroidJUnit4.class)
 public class DragDropTest {
@@ -64,60 +65,83 @@ public class DragDropTest {
     private CountDownLatch mStartReceived;
     private CountDownLatch mEndReceived;
 
-    private static boolean equal(ClipDescription d1, ClipDescription d2) {
-        if ((d1 == null) != (d2 == null)) {
-            return false;
-        }
-        if (d1 == null) {
+    private AssertionError mMainThreadAssertionError;
+
+    /**
+     * Check whether two objects have the same binary data when dumped into Parcels
+     * @return True if the objects are equal
+     */
+    private static boolean compareParcelables(Parcelable obj1, Parcelable obj2) {
+        if (obj1 == null && obj2 == null) {
             return true;
         }
-        return d1.getLabel().equals(d2.getLabel()) &&
-                d1.getMimeTypeCount() == 1 && d2.getMimeTypeCount() == 1 &&
-                d1.getMimeType(0).equals(d2.getMimeType(0));
-    }
-
-    private static boolean equal(ClipData.Item i1, ClipData.Item i2) {
-        return Objects.equals(i1.getIntent(), i2.getIntent()) &&
-                Objects.equals(i1.getHtmlText(), i2.getHtmlText()) &&
-                Objects.equals(i1.getText(), i2.getText()) &&
-                Objects.equals(i1.getUri(), i2.getUri());
-    }
-
-    private static boolean equal(ClipData d1, ClipData d2) {
-        if ((d1 == null) != (d2 == null)) {
+        if (obj1 == null || obj2 == null) {
             return false;
         }
-        if (d1 == null) {
-            return true;
-        }
-        return equal(d1.getDescription(), d2.getDescription()) &&
-                Objects.equals(d1.getIcon(), d2.getIcon()) &&
-                d1.getItemCount() == 1 && d2.getItemCount() == 1 &&
-                equal(d1.getItemAt(0), d2.getItemAt(0));
+        Parcel p1 = Parcel.obtain();
+        obj1.writeToParcel(p1, 0);
+        Parcel p2 = Parcel.obtain();
+        obj2.writeToParcel(p2, 0);
+        boolean result = Arrays.equals(p1.marshall(), p2.marshall());
+        p1.recycle();
+        p2.recycle();
+        return result;
     }
 
-    private static boolean equal(DragEvent ev1, DragEvent ev2) {
-        return ev1.getAction() == ev2.getAction() &&
-                ev1.getX() == ev2.getX() &&
-                ev1.getY() == ev2.getY() &&
-                equal(ev1.getClipData(), ev2.getClipData()) &&
-                equal(ev1.getClipDescription(), ev2.getClipDescription()) &&
-                Objects.equals(ev1.getDragAndDropPermissions(), ev2.getDragAndDropPermissions()) &&
-                Objects.equals(ev1.getLocalState(), ev2.getLocalState()) &&
-                ev1.getResult() == ev2.getResult();
-    }
+    private static final ClipDescription sClipDescription =
+            new ClipDescription("TestLabel", new String[]{"text/plain"});
+    private static final ClipData sClipData =
+            new ClipData(sClipDescription, new ClipData.Item("TestText"));
+    private static final Object sLocalState = new Object(); // just check if null or not
 
     class LogEntry {
-        public View v;
-        public DragEvent ev;
+        public View view;
 
-        public LogEntry(View v, DragEvent ev) {
-            this.v = v;
-            this.ev = DragEvent.obtain(ev);
+        // Public DragEvent fields
+        public int action; // DragEvent.getAction()
+        public float x; // DragEvent.getX()
+        public float y; // DragEvent.getY()
+        public ClipData clipData; // DragEvent.getClipData()
+        public ClipDescription clipDescription; // DragEvent.getClipDescription()
+        public Object localState; // DragEvent.getLocalState()
+        public boolean result; // DragEvent.getResult()
+
+        LogEntry(View v, int action, float x, float y, ClipData clipData,
+                ClipDescription clipDescription, Object localState, boolean result) {
+            this.view = v;
+            this.action = action;
+            this.x = x;
+            this.y = y;
+            this.clipData = clipData;
+            this.clipDescription = clipDescription;
+            this.localState = localState;
+            this.result = result;
         }
 
-        public boolean eq(LogEntry other) {
-            return v == other.v && equal(ev, other.ev);
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof LogEntry)) {
+                return false;
+            }
+            final LogEntry other = (LogEntry) obj;
+            return view == other.view && action == other.action
+                    && x == other.x && y == other.y
+                    && compareParcelables(clipData, other.clipData)
+                    && compareParcelables(clipDescription, other.clipDescription)
+                    && localState == other.localState
+                    && result == other.result;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            sb.append("DragEvent {action=").append(action).append(" x=").append(x).append(" y=")
+                    .append(y).append(" result=").append(result).append("}")
+                    .append(" @ ").append(view);
+            return sb.toString();
         }
     }
 
@@ -126,19 +150,18 @@ public class DragDropTest {
     final private ArrayList<LogEntry> mActual = new ArrayList<LogEntry> ();
     final private ArrayList<LogEntry> mExpected = new ArrayList<LogEntry> ();
 
-    private static ClipDescription createClipDescription() {
-        return new ClipDescription("TestLabel", new String[]{"text/plain"});
+    private static ClipData obtainClipData(int action) {
+        if (action == DragEvent.ACTION_DROP) {
+            return sClipData;
+        }
+        return null;
     }
 
-    private static ClipData createClipData() {
-        return new ClipData(createClipDescription(), new ClipData.Item("TestText"));
-    }
-
-    static private DragEvent obtainDragEvent(int action, int x, int y, boolean result) {
-        final ClipDescription description =
-                action != DragEvent.ACTION_DRAG_ENDED ? createClipDescription() : null;
-        final ClipData data = action == DragEvent.ACTION_DROP ? createClipData() : null;
-        return DragEvent.obtain(action, x, y, null, description, data, null, result);
+    private static ClipDescription obtainClipDescription(int action) {
+        if (action == DragEvent.ACTION_DRAG_ENDED) {
+            return null;
+        }
+        return sClipDescription;
     }
 
     private void logEvent(View v, DragEvent ev) {
@@ -148,19 +171,23 @@ public class DragDropTest {
         if (ev.getAction() == DragEvent.ACTION_DRAG_ENDED) {
             mEndReceived.countDown();
         }
-        mActual.add(new LogEntry(v, ev));
+        mActual.add(new LogEntry(v, ev.getAction(), ev.getX(), ev.getY(), ev.getClipData(),
+                ev.getClipDescription(), ev.getLocalState(), ev.getResult()));
     }
 
     // Add expected event for a view, with zero coordinates.
     private void expectEvent5(int action, int viewId) {
         View v = mActivity.findViewById(viewId);
-        mExpected.add(new LogEntry(v, obtainDragEvent(action, 0, 0, false)));
+        mExpected.add(new LogEntry(v, action, 0, 0, obtainClipData(action),
+                obtainClipDescription(action), sLocalState, false));
     }
 
     // Add expected event for a view.
-    private void expectEndEvent(int viewId, int x, int y, boolean result) {
+    private void expectEndEvent(int viewId, float x, float y, boolean result) {
         View v = mActivity.findViewById(viewId);
-        mExpected.add(new LogEntry(v, obtainDragEvent(DragEvent.ACTION_DRAG_ENDED, x, y, result)));
+        int action = DragEvent.ACTION_DRAG_ENDED;
+        mExpected.add(new LogEntry(v, action, x, y, obtainClipData(action),
+                obtainClipDescription(action), sLocalState, result));
     }
 
     // Add expected successful-end event for a view.
@@ -173,9 +200,12 @@ public class DragDropTest {
     private void expectEndEventFailure6(int viewId, int releaseViewId) {
         View v = mActivity.findViewById(viewId);
         View release = mActivity.findViewById(releaseViewId);
-        int [] releaseLoc = release.getLocationOnScreen();
-        mExpected.add(new LogEntry(v, obtainDragEvent(DragEvent.ACTION_DRAG_ENDED,
-                releaseLoc[0] + 6, releaseLoc[1] + 6, false)));
+        int [] releaseLoc = new int[2];
+        release.getLocationOnScreen(releaseLoc);
+        int action = DragEvent.ACTION_DRAG_ENDED;
+        mExpected.add(new LogEntry(v, action,
+                releaseLoc[0] + 6, releaseLoc[1] + 6, obtainClipData(action),
+                obtainClipDescription(action), sLocalState, false));
     }
 
     // Add expected event for a view, with coordinates over view locationViewId, with the specified
@@ -183,11 +213,14 @@ public class DragDropTest {
     private void expectEventWithOffset(int action, int viewId, int locationViewId, int offset) {
         View v = mActivity.findViewById(viewId);
         View locationView = mActivity.findViewById(locationViewId);
-        int [] viewLocation = v.getLocationOnScreen();
-        int [] locationViewLocation = locationView.getLocationOnScreen();
-        mExpected.add(new LogEntry(v, obtainDragEvent(action,
+        int [] viewLocation = new int[2];
+        v.getLocationOnScreen(viewLocation);
+        int [] locationViewLocation = new int[2];
+        locationView.getLocationOnScreen(locationViewLocation);
+        mExpected.add(new LogEntry(v, action,
                 locationViewLocation[0] - viewLocation[0] + offset,
-                locationViewLocation[1] - viewLocation[1] + offset, false)));
+                locationViewLocation[1] - viewLocation[1] + offset, obtainClipData(action),
+                obtainClipDescription(action), sLocalState, false));
     }
 
     private void expectEvent5(int action, int viewId, int locationViewId) {
@@ -203,7 +236,8 @@ public class DragDropTest {
     private void injectMouseWithOffset(int viewId, int action, int offset) {
         runOnMain(() -> {
             View v = mActivity.findViewById(viewId);
-            int [] destLoc = v.getLocationOnScreen();
+            int [] destLoc = new int [2];
+            v.getLocationOnScreen(destLoc);
             long downTime = SystemClock.uptimeMillis();
             MotionEvent event = MotionEvent.obtain(downTime, downTime, action,
                     destLoc[0] + offset, destLoc[1] + offset, 1);
@@ -237,8 +271,7 @@ public class DragDropTest {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < log.size(); ++i) {
             LogEntry e = log.get(i);
-            sb.append("#").append(i + 1).append(": ").append(e.ev).append(" @ ").
-                    append(e.v.toString()).append('\n');
+            sb.append("#").append(i + 1).append(": ").append(e).append('\n');
         }
         return sb.toString();
     }
@@ -263,7 +296,7 @@ public class DragDropTest {
             }
 
             for (int i = 0; i < mActual.size(); ++i) {
-                if (!mActual.get(i).eq(mExpected.get(i))) {
+                if (!mActual.get(i).equals(mExpected.get(i))) {
                     failWithLogs("Actual event #" + (i + 1) + " is different from expected");
                 }
             }
@@ -309,8 +342,18 @@ public class DragDropTest {
         }
     }
 
-    private void runOnMain(Runnable runner) {
-        mInstrumentation.runOnMainSync(runner);
+    private void runOnMain(Runnable runner) throws AssertionError {
+        mMainThreadAssertionError = null;
+        mInstrumentation.runOnMainSync(() -> {
+            try {
+                runner.run();
+            } catch (AssertionError error) {
+                mMainThreadAssertionError = error;
+            }
+        });
+        if (mMainThreadAssertionError != null) {
+            throw mMainThreadAssertionError;
+        }
     }
 
     private void startDrag() {
@@ -321,7 +364,7 @@ public class DragDropTest {
             // Start drag.
             View v = mActivity.findViewById(R.id.draggable);
             assertTrue("Couldn't start drag",
-                    v.startDragAndDrop(createClipData(), new View.DragShadowBuilder(v), null, 0));
+                    v.startDragAndDrop(sClipData, new View.DragShadowBuilder(v), sLocalState, 0));
         });
 
         try {
@@ -585,6 +628,11 @@ public class DragDropTest {
         verifyEventLog();
     }
 
+    private boolean drawableStateContains(int resourceId, int attr) {
+        return IntStream.of(mActivity.findViewById(resourceId).getDrawableState())
+                .anyMatch(x -> x == attr);
+    }
+
     /**
      * Tests that state_drag_hovered and state_drag_can_accept are set correctly.
      */
@@ -600,52 +648,38 @@ public class DragDropTest {
                 logEvent(v, ev);
                 return true;
             });
-            assertFalse(ArrayUtils.contains(
-                    mActivity.findViewById(R.id.inner).getDrawableState(),
-                    android.R.attr.state_drag_can_accept));
+            assertFalse(drawableStateContains(R.id.inner, android.R.attr.state_drag_can_accept));
         });
 
         startDrag();
 
         runOnMain(() -> {
-            assertFalse(ArrayUtils.contains(
-                    mActivity.findViewById(R.id.inner).getDrawableState(),
-                    android.R.attr.state_drag_hovered));
-            assertTrue(ArrayUtils.contains(
-                    mActivity.findViewById(R.id.inner).getDrawableState(),
-                    android.R.attr.state_drag_can_accept));
+            assertFalse(drawableStateContains(R.id.inner, android.R.attr.state_drag_hovered));
+            assertTrue(drawableStateContains(R.id.inner, android.R.attr.state_drag_can_accept));
         });
 
         // Move mouse into the view.
         injectMouse5(R.id.inner, MotionEvent.ACTION_MOVE);
         runOnMain(() -> {
-            assertTrue(ArrayUtils.contains(
-                    mActivity.findViewById(R.id.inner).getDrawableState(),
-                    android.R.attr.state_drag_hovered));
+            assertTrue(drawableStateContains(R.id.inner, android.R.attr.state_drag_hovered));
         });
 
         // Move out.
         injectMouse5(R.id.subcontainer, MotionEvent.ACTION_MOVE);
         runOnMain(() -> {
-            assertFalse(ArrayUtils.contains(
-                    mActivity.findViewById(R.id.inner).getDrawableState(),
-                    android.R.attr.state_drag_hovered));
+            assertFalse(drawableStateContains(R.id.inner, android.R.attr.state_drag_hovered));
         });
 
         // Move in.
         injectMouse5(R.id.inner, MotionEvent.ACTION_MOVE);
         runOnMain(() -> {
-            assertTrue(ArrayUtils.contains(
-                    mActivity.findViewById(R.id.inner).getDrawableState(),
-                    android.R.attr.state_drag_hovered));
+            assertTrue(drawableStateContains(R.id.inner, android.R.attr.state_drag_hovered));
         });
 
         // Release there.
         injectMouse5(R.id.inner, MotionEvent.ACTION_UP);
         runOnMain(() -> {
-            assertFalse(ArrayUtils.contains(
-                    mActivity.findViewById(R.id.inner).getDrawableState(),
-                    android.R.attr.state_drag_hovered));
+            assertFalse(drawableStateContains(R.id.inner, android.R.attr.state_drag_hovered));
         });
     }
 }

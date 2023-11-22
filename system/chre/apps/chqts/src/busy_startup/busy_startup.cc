@@ -70,14 +70,17 @@ static uint32_t gFinishedBitmask = 0;
 constexpr uint16_t kEventType = CHRE_EVENT_FIRST_USER_VALUE;
 
 static void markSuccess(uint32_t stage) {
-  chreLog(CHRE_LOG_DEBUG, "Stage %" PRIu32 " succeeded", stage);
   uint32_t finishedBit = (1 << stage);
   if ((kAllFinished & finishedBit) == 0) {
     sendFatalFailureToHost("markSuccess bad stage", &stage);
   }
-  gFinishedBitmask |= finishedBit;
-  if (gFinishedBitmask == kAllFinished) {
-    sendSuccessToHost();
+
+  if ((gFinishedBitmask & finishedBit) == 0) {
+    chreLog(CHRE_LOG_DEBUG, "Stage %" PRIu32 " succeeded", stage);
+    gFinishedBitmask |= finishedBit;
+    if (gFinishedBitmask == kAllFinished) {
+      sendSuccessToHost();
+    }
   }
 }
 

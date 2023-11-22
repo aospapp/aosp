@@ -2173,6 +2173,7 @@ void *QCamera3PostProcessor::dataProcessRoutine(void *data)
                             LOGE("no mem for qcamera_hal3_pp_data_t");
                             ret = -1;
                         } else if (meta_buffer == NULL) {
+                            pme->m_parent->postprocFail(pp_buffer);
                             LOGE("failed to dequeue from m_inputMetaQ");
                             ret = -1;
                         } else if (pp_buffer == NULL) {

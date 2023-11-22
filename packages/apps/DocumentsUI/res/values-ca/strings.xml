@@ -41,7 +41,7 @@
     <string name="menu_compress" msgid="37539111904724188">"Comprimeix"</string>
     <string name="menu_extract" msgid="8171946945982532262">"Extreu a…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"Canvia el nom"</string>
-    <string name="menu_inspector" msgid="8217713416277319588">"Obtén informació"</string>
+    <string name="menu_inspect" msgid="7279855349299446224">"Obtén informació"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"Mostra a <xliff:g id="SOURCE">%1$s</xliff:g>"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"Finestra nova"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"Retalla"</string>
@@ -57,6 +57,8 @@
     <string name="button_move" msgid="8596460499325291272">"Mou"</string>
     <string name="button_dismiss" msgid="7235249361023803349">"Ignora"</string>
     <string name="button_retry" msgid="4011461781916631389">"Torna-ho a provar"</string>
+    <string name="button_clear" msgid="5412304437764369441">"Esborra"</string>
+    <string name="button_show_provider" msgid="6905880493806292753">"Mostra al proveïdor"</string>
     <string name="not_sorted" msgid="7813496644889115530">"Sense ordenar"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"Nom"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"Resum"</string>
@@ -64,14 +66,6 @@
     <string name="sort_dimension_size" msgid="2190547351159472884">"Mida"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"Modificat"</string>
     <string name="directory_items" msgid="6645621978998614003">"Nombre d\'elements"</string>
-    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"Aquest tipus de fitxer s\'obre amb"</string>
-    <string name="handler_app_belongs_to" msgid="5956928604521893459">"Aquest fitxer pertany a"</string>
-    <string name="handler_app_button_info_1" msgid="4271199640671067569">"Hi ha altres aplicacions que poden obrir aquest tipus de fitxer. Esborra"</string>
-    <string name="handler_app_button_info_2" msgid="4299969771512815898">"com a aplicació predeterminada."</string>
-    <string name="handler_app_clear" msgid="206579047716445033">"Esborra"</string>
-    <string name="handler_app_show_in" msgid="7923573101129079048">"Mostra al proveïdor"</string>
-    <string name="handler_app_not_selected" msgid="8178393676227130360">"No s\'ha seleccionat"</string>
-    <string name="handler_app_unknown" msgid="56574249066388341">"Desconeguda"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"Ascendent"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"Descendent"</string>
     <string name="drawer_open" msgid="8071673398187261741">"Mostra les arrels"</string>
@@ -90,7 +84,6 @@
     <string name="toast_no_application" msgid="7555319548595113121">"No es pot obrir el fitxer"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"No es poden obrir els fitxers dels arxius"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"No es poden suprimir alguns documents"</string>
-    <string name="file_inspector_load_error" msgid="1226344446677541109">"No s\'han pogut carregar les propietats"</string>
     <string name="share_via" msgid="8725082736005677161">"Comparteix mitjançant"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"S\'estan copiant fitxers"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"Comprimint els fitxers"</string>
@@ -119,11 +112,11 @@
       <item quantity="one">S\'està suprimint <xliff:g id="COUNT_0">%1$d</xliff:g> element.</item>
     </plurals>
     <string name="undo" msgid="2902438994196400565">"Desfés"</string>
-    <string name="copy_preparing" msgid="5326063807006898223">"S\'està preparant per copiar…"</string>
-    <string name="compress_preparing" msgid="6650018601382062672">"S\'està preparant la compressió…"</string>
-    <string name="extract_preparing" msgid="58266275455027829">"Preparant per a l\'extracció…"</string>
-    <string name="move_preparing" msgid="8742573245485449429">"S\'està preparant per moure\'ls…"</string>
-    <string name="delete_preparing" msgid="6513863752916028147">"S\'està preparant per suprimir…"</string>
+    <string name="copy_preparing" msgid="4759516490222449324">"S\'està preparant..."</string>
+    <string name="compress_preparing" msgid="7401605598969019696">"S\'està preparant..."</string>
+    <string name="extract_preparing" msgid="4796626960061745796">"S\'està preparant..."</string>
+    <string name="move_preparing" msgid="6504239656430530761">"S\'està preparant..."</string>
+    <string name="delete_preparing" msgid="7339349837842802508">"S\'està preparant..."</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
       <item quantity="other">No s\'han pogut copiar <xliff:g id="COUNT_1">%1$d</xliff:g> elements</item>
@@ -179,7 +172,7 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"Vols que l\'aplicació <xliff:g id="APPNAME"><b>^1</b></xliff:g> tingui accés al directori <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> de <xliff:g id="STORAGE"><i>^3</i></xliff:g>?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"Vols que l\'aplicació <xliff:g id="APPNAME"><b>^1</b></xliff:g> tingui accés al directori <xliff:g id="DIRECTORY"><i>^2</i></xliff:g>?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"Vols que l\'aplicació <xliff:g id="APPNAME"><b>^1</b></xliff:g> tingui accés a les dades de <xliff:g id="STORAGE"><i>^2</i></xliff:g>, incloses les fotos i els vídeos?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"No m\'ho demanis més"</string>
+    <string name="never_ask_again" msgid="525908236522201138">"No m\'ho tornis a preguntar"</string>
     <string name="allow" msgid="1275746941353040309">"Permet"</string>
     <string name="deny" msgid="5127201668078153379">"Denega"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -213,5 +206,4 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"fitxer<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"Vols sobreescriure <xliff:g id="NAME">%1$s</xliff:g>?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Continua en segon pla"</string>
-    <string name="inspector_debug_section" msgid="3447621501565766900">"Informació de depuració (per a desenvolupadors)"</string>
 </resources>

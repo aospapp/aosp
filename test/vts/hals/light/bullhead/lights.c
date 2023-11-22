@@ -132,7 +132,6 @@ static int set_light_backlight(struct light_device_t* dev __unused,
 
 static int set_light_locked(struct light_state_t const* state, int type __unused)
 {
-    int len;
     int red, green, blue;
     int onMS, offMS;
     unsigned int colorRGB;

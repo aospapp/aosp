@@ -16,7 +16,7 @@
 
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.Helper.FILL_TIMEOUT_MS;
+import static android.autofillservice.cts.Timeouts.FILL_TIMEOUT;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -50,8 +50,8 @@ final class MultipleTimesTimeListener implements TimePicker.OnTimeChangedListene
     }
 
     void assertAutoFilled() throws Exception {
-        final boolean set = latch.await(FILL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-        assertWithMessage("Timeout (%s ms) on TimePicker %s", FILL_TIMEOUT_MS, name)
+        final boolean set = latch.await(FILL_TIMEOUT.ms(), TimeUnit.MILLISECONDS);
+        assertWithMessage("Timeout (%s ms) on TimePicker %s", FILL_TIMEOUT.ms(), name)
                 .that(set).isTrue();
         assertWithMessage("Wrong hour on TimePicker %s", name)
                 .that(timePicker.getHour()).isEqualTo(expectedHour);

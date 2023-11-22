@@ -77,10 +77,10 @@ typedef enum camera_metadata_tag {
     % for sec in find_all_sections(metadata):
       % for idx,entry in enumerate(remove_synthetic(find_unique_entries(sec))):
         % if idx == 0:
-    ${entry.name + " = " | csym,ljust(50)}// ${annotated_type(entry) | ljust(12)} | ${entry.applied_visibility}
+    ${entry.name + " = " | csym,ljust(50)}// ${annotated_type(entry) | ljust(12)} | ${entry.applied_visibility | ljust(12)} | HIDL v${entry.hal_major_version}.${entry.hal_minor_version}
             ${path_name(find_parent_section(entry)) | csym}_START,
         % else:
-    ${entry.name + "," | csym,ljust(50)}// ${annotated_type(entry) | ljust(12)} | ${entry.applied_visibility}
+    ${entry.name + "," | csym,ljust(50)}// ${annotated_type(entry) | ljust(12)} | ${entry.applied_visibility | ljust(12)} | HIDL v${entry.hal_major_version}.${entry.hal_minor_version}
         % endif
       % endfor
     ${path_name(sec) | csym}_END,
@@ -99,9 +99,9 @@ typedef enum camera_metadata_tag {
 typedef enum camera_metadata_enum_${csym(entry.name).lower()} {
       % for val in entry.enum.values:
         % if val.id is None:
-    ${entry.name | csym}_${val.name},
+    ${entry.name | csym}_${val.name | pad(70)}, // HIDL v${val.hal_major_version}.${val.hal_minor_version}
         % else:
-    ${'%s_%s'%(csym(entry.name), val.name) | pad(65)} = ${val.id},
+    ${'%s_%s'%(csym(entry.name), val.name) | pad(70)} = ${val.id}, // HIDL v${val.hal_major_version}.${val.hal_minor_version}
         % endif
       % endfor
 } camera_metadata_enum_${csym(entry.name).lower()}_t;

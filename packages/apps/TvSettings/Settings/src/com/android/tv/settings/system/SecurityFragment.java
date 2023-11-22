@@ -40,7 +40,6 @@ import android.os.UserManager;
 import android.provider.Settings;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.IntDef;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v17.preference.LeanbackSettingsFragment;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.preference.Preference;
@@ -49,10 +48,12 @@ import android.support.v7.preference.TwoStatePreference;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.internal.widget.ILockSettings;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.internal.widget.VerifyCredentialResponse;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.dialog.PinDialogFragment;
 import com.android.tv.settings.users.AppRestrictionsFragment;
 import com.android.tv.settings.users.RestrictedProfilePinDialogFragment;
@@ -62,7 +63,10 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.List;
 
-public class SecurityFragment extends LeanbackPreferenceFragment
+/**
+ * The security settings screen in Tv settings.
+ */
+public class SecurityFragment extends SettingsPreferenceFragment
         implements RestrictedProfilePinDialogFragment.Callback {
 
     private static final String TAG = "SecurityFragment";
@@ -258,6 +262,7 @@ public class SecurityFragment extends LeanbackPreferenceFragment
                     Log.e(TAG, "Tried to enter non-existent restricted user");
                     return true;
                 }
+                updateBackgroundRestriction(restrictedUser);
                 switchUserNow(restrictedUser.id);
                 getActivity().finish();
                 return true;
@@ -279,6 +284,25 @@ public class SecurityFragment extends LeanbackPreferenceFragment
                 return true;
         }
         return super.onPreferenceTreeClick(preference);
+    }
+
+    private void updateBackgroundRestriction(UserInfo user) {
+        final boolean allowedToRun = shouldAllowRunInBackground();
+        mUserManager.setUserRestriction(
+                UserManager.DISALLOW_RUN_IN_BACKGROUND, !allowedToRun, user.getUserHandle());
+    }
+
+    /**
+     * Profiles are allowed to run in the background by default, unless the device specifically
+     * sets a config flag and/or has the global setting overridden by something on-device.
+     *
+     * @see Settings.Global#KEEP_PROFILE_IN_BACKGROUND
+     */
+    private boolean shouldAllowRunInBackground() {
+        final boolean defaultValue = getContext().getResources().getBoolean(
+                com.android.internal.R.bool.config_keepRestrictedProfilesInBackground);
+        return Settings.Global.getInt(getContext().getContentResolver(),
+                Settings.Global.KEEP_PROFILE_IN_BACKGROUND, defaultValue ? 1 : 0) > 0;
     }
 
     private boolean isUnknownSourcesBlocked() {
@@ -325,7 +349,7 @@ public class SecurityFragment extends LeanbackPreferenceFragment
                 pinDialogMode = PinDialogFragment.PIN_DIALOG_TYPE_NEW_PIN;
                 break;
             case PIN_MODE_RESTRICTED_PROFILE_DELETE:
-                pinDialogMode = PinDialogFragment.PIN_DIALOG_TYPE_ENTER_PIN;
+                pinDialogMode = PinDialogFragment.PIN_DIALOG_TYPE_DELETE_PIN;
                 break;
             default:
                 throw new IllegalArgumentException("Unknown pin mode: " + pinMode);
@@ -339,9 +363,14 @@ public class SecurityFragment extends LeanbackPreferenceFragment
     }
 
     @Override
-    public void saveLockPassword(String pin, int quality) {
-        new LockPatternUtils(getActivity()).saveLockPassword(pin, null, quality,
+    public void saveLockPassword(String pin, String originalPin, int quality) {
+        new LockPatternUtils(getActivity()).saveLockPassword(pin, originalPin, quality,
                 UserHandle.myUserId());
+    }
+
+    @Override
+    public void clearLockPassword(String oldPin) {
+        new LockPatternUtils(getActivity()).clearLock(oldPin, UserHandle.myUserId());
     }
 
     @Override
@@ -401,7 +430,6 @@ public class SecurityFragment extends LeanbackPreferenceFragment
             case PIN_MODE_RESTRICTED_PROFILE_DELETE:
                 if (success) {
                     removeRestrictedUser();
-                    new LockPatternUtils(getActivity()).clearLock(null, UserHandle.myUserId());
                 }
                 break;
         }
@@ -541,5 +569,10 @@ public class SecurityFragment extends LeanbackPreferenceFragment
             icon.draw(new Canvas(bitmap));
             return bitmap;
         }
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.SECURITY;
     }
 }

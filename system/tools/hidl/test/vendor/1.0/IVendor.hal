@@ -1,3 +1,5 @@
+// note this file tests carriage returns
+
 /*
  * Copyright (C) 2016 The Android Open Source Project
  *
@@ -14,7 +16,7 @@
  * limitations under the License.
  */
 
-package tests.vendor@1.0;
+package hidl.tests.vendor@1.0;
 
 import android.hardware.tests.baz@1.0;
 

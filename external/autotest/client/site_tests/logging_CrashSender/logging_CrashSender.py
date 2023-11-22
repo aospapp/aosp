@@ -55,13 +55,12 @@ class logging_CrashSender(crash_test.CrashTest):
             raise error.TestFail('Minidump send missing log')
         self._check_hardware_info(result)
         # Also test "Image type" field.  Note that it will not be "dev" even
-        # on a dev build because /tmp/crash-test-in-progress will exist.
+        # on a dev build because crash-test-in-progress will exist.
         if result['image_type']:
             raise error.TestFail('Image type "%s" should not exist' %
                                  result['image_type'])
         # Also test "Boot mode" field.  Note that it will not be "dev" even
-        # when booting in dev mode because /tmp/crash-test-in-progress will
-        # exist.
+        # when booting in dev mode because crash-test-in-progress will exist.
         if result['boot_mode']:
             raise error.TestFail('Boot mode "%s" should not exist' %
                                  result['boot_mode'])
@@ -208,7 +207,7 @@ class logging_CrashSender(crash_test.CrashTest):
 
         # Also test "Image type" field.  For testing purposes, we set it upon
         # mock failure.  Note that it will not be "dev" even on a dev build
-        # because /tmp/crash-test-in-progress will exist.
+        # because crash-test-in-progress will exist.
         if not result['image_type']:
             raise error.TestFail('Missing image type on mock failure')
         if result['image_type'] != 'mock-fail':
@@ -287,7 +286,7 @@ class logging_CrashSender(crash_test.CrashTest):
 
         # Also test force-official override by checking the image type.  Note
         # that it will not be "dev" even on a dev build because
-        # /tmp/crash-test-in-progress will exist.
+        # crash-test-in-progress will exist.
         if not result['image_type']:
             raise error.TestFail('Missing image type when forcing official')
         if result['image_type'] != 'force-official':

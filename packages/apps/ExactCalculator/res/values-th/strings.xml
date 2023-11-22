@@ -59,7 +59,7 @@
     <string name="desc_inv_on" msgid="2515675590767677178">"ซ่อนฟังก์ชันผกผัน"</string>
     <string name="desc_formula" msgid="8056588859637585007">"ไม่มีสูตร"</string>
     <string name="desc_result" msgid="1794073190203126821">"ไม่พบผลลัพธ์"</string>
-    <string name="desc_num_pad" msgid="515720457459745571">"แป้นตัวเลขและการคำนวนขั้นต้น"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"แป้นตัวเลขและการคำนวณขั้นต้น"</string>
     <string name="desc_adv_pad" msgid="3794276256462677914">"การใช้งานขั้นสูง"</string>
     <string name="error_nan" msgid="5674077944929888710">"ไม่ใช่ตัวเลข"</string>
     <string name="error_syntax" msgid="4786987111228645602">"นิพจน์ไม่ถูกต้อง"</string>

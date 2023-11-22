@@ -61,6 +61,6 @@ public class ExistingBuildProvider implements IBuildProvider {
      */
     @Override
     public void cleanUp(IBuildInfo info) {
-        info.cleanUp();
+        mParentProvider.cleanUp(info);
     }
 }

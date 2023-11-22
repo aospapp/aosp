@@ -76,17 +76,17 @@ var (
 type libraryProperties struct {
 	// Relative path to the symbol map.
 	// An example file can be seen here: TODO(danalbert): Make an example.
-	Symbol_file string
+	Symbol_file *string
 
 	// The first API level a library was available. A library will be generated
 	// for every API level beginning with this one.
-	First_version string
+	First_version *string
 
 	// The first API level that library should have the version script applied.
 	// This defaults to the value of first_version, and should almost never be
 	// used. This is only needed to work around platform bugs like
 	// https://github.com/android-ndk/ndk/issues/265.
-	Unversioned_until string
+	Unversioned_until *string
 
 	// Private property for use by the mutator that splits per-API level.
 	ApiLevel string `blueprint:"mutated"`
@@ -98,7 +98,7 @@ type stubDecorator struct {
 	properties libraryProperties
 
 	versionScriptPath android.ModuleGenPath
-	installPath       string
+	installPath       android.Path
 }
 
 // OMG GO
@@ -110,18 +110,20 @@ func intMax(a int, b int) int {
 	}
 }
 
-func normalizeNdkApiLevel(apiLevel string, arch android.Arch) (string, error) {
+func normalizeNdkApiLevel(ctx android.BaseContext, apiLevel string,
+	arch android.Arch) (string, error) {
+
 	if apiLevel == "current" {
 		return apiLevel, nil
 	}
 
-	minVersion := 9 // Minimum version supported by the NDK.
+	minVersion := ctx.Config().MinSupportedSdkVersion()
 	firstArchVersions := map[android.ArchType]int{
-		android.Arm:    9,
+		android.Arm:    minVersion,
 		android.Arm64:  21,
-		android.Mips:   9,
+		android.Mips:   minVersion,
 		android.Mips64: 21,
-		android.X86:    9,
+		android.X86:    minVersion,
 		android.X86_64: 21,
 	}
 
@@ -156,11 +158,11 @@ func getFirstGeneratedVersion(firstSupportedVersion string, platformVersion int)
 
 func shouldUseVersionScript(stub *stubDecorator) (bool, error) {
 	// unversioned_until is normally empty, in which case we should use the version script.
-	if stub.properties.Unversioned_until == "" {
+	if String(stub.properties.Unversioned_until) == "" {
 		return true, nil
 	}
 
-	if stub.properties.Unversioned_until == "current" {
+	if String(stub.properties.Unversioned_until) == "current" {
 		if stub.properties.ApiLevel == "current" {
 			return true, nil
 		} else {
@@ -172,7 +174,7 @@ func shouldUseVersionScript(stub *stubDecorator) (bool, error) {
 		return true, nil
 	}
 
-	unversionedUntil, err := strconv.Atoi(stub.properties.Unversioned_until)
+	unversionedUntil, err := strconv.Atoi(String(stub.properties.Unversioned_until))
 	if err != nil {
 		return true, err
 	}
@@ -186,9 +188,9 @@ func shouldUseVersionScript(stub *stubDecorator) (bool, error) {
 }
 
 func generateStubApiVariants(mctx android.BottomUpMutatorContext, c *stubDecorator) {
-	platformVersion := mctx.AConfig().PlatformSdkVersionInt()
+	platformVersion := mctx.Config().PlatformSdkVersionInt()
 
-	firstSupportedVersion, err := normalizeNdkApiLevel(c.properties.First_version,
+	firstSupportedVersion, err := normalizeNdkApiLevel(mctx, String(c.properties.First_version),
 		mctx.Arch())
 	if err != nil {
 		mctx.PropertyErrorf("first_version", err.Error())
@@ -205,7 +207,7 @@ func generateStubApiVariants(mctx android.BottomUpMutatorContext, c *stubDecorat
 	for version := firstGenVersion; version <= platformVersion; version++ {
 		versionStrs = append(versionStrs, strconv.Itoa(version))
 	}
-	versionStrs = append(versionStrs, mctx.AConfig().PlatformVersionAllCodenames()...)
+	versionStrs = append(versionStrs, mctx.Config().PlatformVersionActiveCodenames()...)
 	versionStrs = append(versionStrs, "current")
 
 	modules := mctx.CreateVariations(versionStrs...)
@@ -249,6 +251,8 @@ func addStubLibraryCompilerFlags(flags Flags) Flags {
 		"-Wno-incompatible-library-redeclaration",
 		"-Wno-builtin-requires-header",
 		"-Wno-invalid-noreturn",
+		"-Wall",
+		"-Werror",
 		// These libraries aren't actually used. Don't worry about unwinding
 		// (avoids the need to link an unwinder into a fake library).
 		"-fno-unwind-tables",
@@ -256,8 +260,8 @@ func addStubLibraryCompilerFlags(flags Flags) Flags {
 	return flags
 }
 
-func (stub *stubDecorator) compilerFlags(ctx ModuleContext, flags Flags) Flags {
-	flags = stub.baseCompiler.compilerFlags(ctx, flags)
+func (stub *stubDecorator) compilerFlags(ctx ModuleContext, flags Flags, deps PathDeps) Flags {
+	flags = stub.baseCompiler.compilerFlags(ctx, flags, deps)
 	return addStubLibraryCompilerFlags(flags)
 }
 
@@ -268,7 +272,7 @@ func compileStubLibrary(ctx ModuleContext, flags Flags, symbolFile, apiLevel, vn
 	versionScriptPath := android.PathForModuleGen(ctx, "stub.map")
 	symbolFilePath := android.PathForModuleSrc(ctx, symbolFile)
 	apiLevelsJson := android.GetApiLevelsJson(ctx)
-	ctx.ModuleBuild(pctx, android.ModuleBuildParams{
+	ctx.Build(pctx, android.BuildParams{
 		Rule:        genStubSrc,
 		Description: "generate stubs " + symbolFilePath.Rel(),
 		Outputs:     []android.WritablePath{stubSrcPath, versionScriptPath},
@@ -284,15 +288,16 @@ func compileStubLibrary(ctx ModuleContext, flags Flags, symbolFile, apiLevel, vn
 
 	subdir := ""
 	srcs := []android.Path{stubSrcPath}
-	return compileObjs(ctx, flagsToBuilderFlags(flags), subdir, srcs, nil), versionScriptPath
+	return compileObjs(ctx, flagsToBuilderFlags(flags), subdir, srcs, nil, nil), versionScriptPath
 }
 
 func (c *stubDecorator) compile(ctx ModuleContext, flags Flags, deps PathDeps) Objects {
-	if !strings.HasSuffix(c.properties.Symbol_file, ".map.txt") {
+	if !strings.HasSuffix(String(c.properties.Symbol_file), ".map.txt") {
 		ctx.PropertyErrorf("symbol_file", "must end with .map.txt")
 	}
 
-	objs, versionScript := compileStubLibrary(ctx, flags, c.properties.Symbol_file, c.properties.ApiLevel, "")
+	objs, versionScript := compileStubLibrary(ctx, flags, String(c.properties.Symbol_file),
+		c.properties.ApiLevel, "")
 	c.versionScriptPath = versionScript
 	return objs
 }
@@ -339,7 +344,7 @@ func (stub *stubDecorator) install(ctx ModuleContext, path android.Path) {
 
 	installDir := getNdkInstallBase(ctx).Join(ctx, fmt.Sprintf(
 		"platforms/android-%s/arch-%s/usr/%s", apiLevel, arch, libDir))
-	stub.installPath = ctx.InstallFile(installDir, path).String()
+	stub.installPath = ctx.InstallFile(installDir, path.Base(), path)
 }
 
 func newStubLibrary() *Module {
@@ -347,7 +352,7 @@ func newStubLibrary() *Module {
 	library.BuildOnlyShared()
 	module.stl = nil
 	module.sanitize = nil
-	library.StripProperties.Strip.None = true
+	library.StripProperties.Strip.None = BoolPtr(true)
 
 	stub := &stubDecorator{
 		libraryDecorator: library,

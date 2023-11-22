@@ -16,6 +16,7 @@
 
 #include <set>
 
+#include <cstdint>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,12 +29,18 @@
 #include <android-base/stringprintf.h>
 #include <cutils/log.h>
 
-#include "NetdConstants.h"
+#include "Controllers.h"
 #include "FirewallController.h"
+#include "NetdConstants.h"
+#include "bpf/BpfUtils.h"
 
 using android::base::Join;
 using android::base::StringAppendF;
 using android::base::StringPrintf;
+using android::bpf::DOZABLE_UID_MAP_PATH;
+using android::bpf::POWERSAVE_UID_MAP_PATH;
+using android::bpf::STANDBY_UID_MAP_PATH;
+using android::net::gCtls;
 
 auto FirewallController::execIptablesRestore = ::execIptablesRestore;
 
@@ -59,6 +66,10 @@ const char* FirewallController::ICMPV6_TYPES[] = {
     "redirect",
 };
 
+bool getBpfOwnerStatus() {
+    return gCtls->trafficCtrl.checkBpfStatsEnable();
+}
+
 FirewallController::FirewallController(void) {
     // If no rules are set, it's in BLACKLIST mode
     mFirewallType = BLACKLIST;
@@ -67,6 +78,10 @@ FirewallController::FirewallController(void) {
 
 int FirewallController::setupIptablesHooks(void) {
     int res = 0;
+    mUseBpfOwnerMatch = getBpfOwnerStatus();
+    if (mUseBpfOwnerMatch) {
+        return res;
+    }
     res |= createChain(LOCAL_DOZABLE, getFirewallType(DOZABLE));
     res |= createChain(LOCAL_STANDBY, getFirewallType(STANDBY));
     res |= createChain(LOCAL_POWERSAVE, getFirewallType(POWERSAVE));
@@ -126,6 +141,10 @@ int FirewallController::enableChildChains(ChildChain chain, bool enable) {
             break;
         default:
             return res;
+    }
+
+    if (mUseBpfOwnerMatch) {
+        return gCtls->trafficCtrl.toggleUidOwnerMap(chain, enable);
     }
 
     std::string command = "*filter\n";
@@ -223,6 +242,9 @@ int FirewallController::setUidRule(ChildChain chain, int uid, FirewallRule rule)
             ALOGW("Unknown child chain: %d", chain);
             return -1;
     }
+    if (mUseBpfOwnerMatch) {
+        return gCtls->trafficCtrl.changeUidOwnerRule(chain, uid, rule, firewallType);
+    }
 
     std::string command = "*filter\n";
     for (std::string chainName : chainNames) {
@@ -266,6 +288,14 @@ std::string FirewallController::makeUidRules(IptablesTarget target, const char *
         // Always whitelist system UIDs.
         StringAppendF(&commands,
                 "-A %s -m owner --uid-owner %d-%d -j RETURN\n", name, 0, MAX_SYSTEM_UID);
+
+        // This rule inverts the match for all UIDs; ie, if there is no UID match here,
+        // there is no socket to be found
+        StringAppendF(&commands,
+                "-A %s -m owner ! --uid-owner %d-%u -j RETURN\n", name, 0, UINT32_MAX-1);
+
+        // Always whitelist traffic with protocol ESP, or no known socket - required for IPSec
+        StringAppendF(&commands, "-A %s -p esp -j RETURN\n", name);
     }
 
     // Always allow networking on loopback.
@@ -300,6 +330,9 @@ std::string FirewallController::makeUidRules(IptablesTarget target, const char *
 
 int FirewallController::replaceUidChain(
         const char *name, bool isWhitelist, const std::vector<int32_t>& uids) {
+   if (mUseBpfOwnerMatch) {
+       return gCtls->trafficCtrl.replaceUidOwnerMap(name, isWhitelist, uids);
+   }
    std::string commands4 = makeUidRules(V4, name, isWhitelist, uids);
    std::string commands6 = makeUidRules(V6, name, isWhitelist, uids);
    return execIptablesRestore(V4, commands4.c_str()) | execIptablesRestore(V6, commands6.c_str());

@@ -147,14 +147,18 @@ class kernel_CrosECSysfsAccel(test.test):
         # Find the iio sysfs directory for EC accels
         self._find_sysfs_accel_dir()
 
-        # Get all accelerometer data
-        accel_info = utils.system_output('ectool motionsense')
-        info = accel_info.splitlines()
+        if self.sysfs_accel_old_path:
+            # Get all accelerometer data
+            accel_info = utils.system_output('ectool motionsense')
+            info = accel_info.splitlines()
 
-        # If the base accelerometer is present, then verify data
-        if 'None' not in info[1]:
-            self._verify_accel_data(self._ACCEL_BASE_LOC)
+            # If the base accelerometer is present, then verify data
+            if 'None' not in info[1]:
+                self._verify_accel_data(self._ACCEL_BASE_LOC)
 
-        # If the lid accelerometer is present, then verify data
-        if 'None' not in info[2]:
-            self._verify_accel_data(self._ACCEL_LID_LOC)
+            # If the lid accelerometer is present, then verify data
+            if 'None' not in info[2]:
+                self._verify_accel_data(self._ACCEL_LID_LOC)
+        else:
+            for loc in self.sysfs_accel_paths.keys():
+                self._verify_accel_data(loc)

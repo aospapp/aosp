@@ -22,11 +22,15 @@
 #include "FixedBuffer.h"
 
 #include <string>
+#include <vector>
 
 class GL2Encoder : public gl2_encoder_context_t {
 public:
     GL2Encoder(IOStream *stream, ChecksumCalculator* protocol);
     virtual ~GL2Encoder();
+    void setNoHostError(bool noHostError) {
+        m_noHostError = noHostError;
+    }
     void setClientState(GLClientState *state) {
         m_state = state;
     }
@@ -56,8 +60,10 @@ public:
     }
     int majorVersion() const { return m_currMajorVersion; }
     int minorVersion() const { return m_currMinorVersion; }
-    void setExtensions(const char* exts) {
+    void setExtensions(const char* exts,
+                       const std::vector<std::string>& extArray) {
         m_currExtensions = std::string(exts);
+        m_currExtensionsArray = extArray;
     }
     bool hasExtension(const char* ext) const {
         return m_currExtensions.find(ext) != std::string::npos;
@@ -90,8 +96,10 @@ private:
     int m_deviceMajorVersion;
     int m_deviceMinorVersion;
     std::string m_currExtensions;
+    std::vector<std::string> m_currExtensionsArray;
 
     bool    m_initialized;
+    bool    m_noHostError;
     GLClientState *m_state;
     GLSharedGroupPtr m_shared;
     GLenum  m_error;
@@ -391,6 +399,8 @@ private:
     static void s_glBindVertexArray(void *self , GLuint array);
 
     // Mapped buffers
+    static void* s_glMapBufferOES(void* self, GLenum target, GLenum access);
+    static GLboolean s_glUnmapBufferOES(void* self, GLenum target);
     static void* s_glMapBufferRange(void* self, GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access);
     static GLboolean s_glUnmapBuffer(void* self, GLenum target);
     static void s_glFlushMappedBufferRange(void* self, GLenum target, GLintptr offset, GLsizeiptr length);

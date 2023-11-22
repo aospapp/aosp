@@ -18,7 +18,8 @@
 #ifndef GEMMLOWP_INTERNAL_COMMON_H_
 #define GEMMLOWP_INTERNAL_COMMON_H_
 
-#include <pthread.h>
+#include "../internal/platform.h"
+#include "../profiling/pthread_everywhere.h"
 
 #include <algorithm>
 #include <cassert>
@@ -54,6 +55,19 @@
 #define GEMMLOWP_ARM
 #endif
 
+// Detect MIPS, 32-bit or 64-bit
+#if defined(__mips) && !defined(__LP64__)
+#define GEMMLOWP_MIPS_32
+#endif
+
+#if defined(__mips) && defined(__LP64__)
+#define GEMMLOWP_MIPS_64
+#endif
+
+#if defined(GEMMLOWP_MIPS_32) || defined(GEMMLOWP_MIPS_64)
+#define GEMMLOWP_MIPS
+#endif
+
 // Detect x86, 32-bit or 64-bit
 #if defined(__i386__) || defined(_M_IX86) || defined(_X86_) || defined(__i386)
 #define GEMMLOWP_X86_32
@@ -86,6 +100,23 @@
 #define GEMMLOWP_NEON_64
 #endif
 
+// Detect MIPS MSA.
+// Limit MSA optimizations to little-endian CPUs for now.
+// TODO: Perhaps, eventually support MSA optimizations on big-endian CPUs?
+#if defined(GEMMLOWP_MIPS) && (__mips_isa_rev >= 5) && defined(__mips_msa) && \
+    defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#define GEMMLOWP_MSA
+#endif
+
+// Convenience MIPS MSA tokens for 32-bit or 64-bit.
+#if defined(GEMMLOWP_MSA) && defined(GEMMLOWP_MIPS_32)
+#define GEMMLOWP_MSA_32
+#endif
+
+#if defined(GEMMLOWP_MSA) && defined(GEMMLOWP_MIPS_64)
+#define GEMMLOWP_MSA_64
+#endif
+
 // Detect SSE.
 #ifdef __SSE4_1__
 #define GEMMLOWP_SSE4
@@ -96,7 +127,8 @@
 #endif
 
 // Convenience SSE4 tokens for 32-bit or 64-bit
-#if defined(GEMMLOWP_SSE4) && defined(GEMMLOWP_X86_32)
+#if defined(GEMMLOWP_SSE4) && defined(GEMMLOWP_X86_32) && \
+   !defined(GEMMLOWP_DISABLE_SSE4)
 #define GEMMLOWP_SSE4_32
 #endif
 
@@ -104,7 +136,8 @@
 #define GEMMLOWP_SSE3_32
 #endif
 
-#if defined(GEMMLOWP_SSE4) && defined(GEMMLOWP_X86_64)
+#if defined(GEMMLOWP_SSE4) && defined(GEMMLOWP_X86_64) && \
+   !defined(GEMMLOWP_DISABLE_SSE4)
 #define GEMMLOWP_SSE4_64
 #endif
 
@@ -112,12 +145,22 @@
 #define GEMMLOWP_SSE3_64
 #endif
 
+#if defined(__has_feature)
+#if __has_feature(memory_sanitizer)
+#include <sanitizer/msan_interface.h>
+#define GEMMLOWP_MARK_MEMORY_AS_INITIALIZED __msan_unpoison
+#elif __has_feature(address_sanitizer)
+#include <sanitizer/asan_interface.h>
+#define GEMMLOWP_MARK_MEMORY_AS_INITIALIZED __asan_unpoison_memory_region
+#endif
+#endif
+
 #endif  // GEMMLOWP_ALLOW_INLINE_ASM
 
 // Detect Android. Don't conflate with ARM - we care about tuning
 // for non-ARM Android devices too. This can be used in conjunction
 // with x86 to tune differently for mobile x86 CPUs (Atom) vs. desktop x86 CPUs.
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(ANDROID)
 #define GEMMLOWP_ANDROID
 #endif
 
@@ -167,6 +210,10 @@ const int kDefaultL2CacheSize = 4 * 1024 * 1024;
 // x86-32 and not Android. Same as x86-64 but less bullish.
 const int kDefaultL1CacheSize = 32 * 1024;
 const int kDefaultL2CacheSize = 2 * 1024 * 1024;
+#elif defined(GEMMLOWP_MIPS)
+// MIPS and not Android. TODO: MIPS and Android?
+const int kDefaultL1CacheSize = 32 * 1024;
+const int kDefaultL2CacheSize = 1024 * 1024;
 #else
 // Less common hardware. Maybe some unusual or older or embedded thing.
 // Assume smaller caches, but don't depart too far from what we do
@@ -205,7 +252,7 @@ inline void Prefetch(const void* ptr) {
   // leaving __builtin_prefetch a no-op on this architecture.
   // For our purposes, "pldl1keep" is usually what we want, meaning:
   // "prefetch for load, into L1 cache, using each value multiple times".
-  asm volatile("prfm pldl1keep, [%[ptr]]\n" ::[ptr] "r"(ptr) : );
+  asm volatile("prfm pldl1keep, [%[ptr]]\n" ::[ptr] "r"(ptr) :);
 #elif defined \
     __GNUC__  // Clang and GCC define __GNUC__ and have __builtin_prefetch.
   __builtin_prefetch(ptr);
@@ -250,6 +297,17 @@ template <int N>
 struct IsPowerOfTwo {
   static const bool value = !(N & (N - 1));
 };
+
+template <typename T>
+void MarkMemoryAsInitialized(T* ptr, int size) {
+#ifdef GEMMLOWP_MARK_MEMORY_AS_INITIALIZED
+  GEMMLOWP_MARK_MEMORY_AS_INITIALIZED(static_cast<void*>(ptr),
+                                      size * sizeof(T));
+#else
+  (void)ptr;
+  (void)size;
+#endif
+}
 
 }  // namespace gemmlowp
 

@@ -22,6 +22,7 @@ import android.media.MediaPlayer;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
 import android.os.PowerManager;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
@@ -45,6 +46,7 @@ public class NoWakeLockPermissionTest extends AndroidTestCase {
      * <p>Requires Permission:
      *   {@link android.Manifest.permission#WAKE_LOCK}.
      */
+    @AppModeFull(reason = "Instant apps cannot access the WifiManager")
     @SmallTest
     public void testWifiLockAcquire() {
         final WifiManager wifiManager = (WifiManager) mContext.getSystemService(

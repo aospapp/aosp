@@ -73,7 +73,7 @@ class display_Resolution(test.test):
         chameleon_supported = True
         for chameleon_port in finder.iterate_all_ports():
             screen_test = chameleon_screen_test.ChameleonScreenTest(
-                    chameleon_port, display_facade, self.outputdir)
+                    host, chameleon_port, display_facade, self.outputdir)
             chameleon_port_name = chameleon_port.get_connector_type()
             logging.info('Detected %s chameleon port.', chameleon_port_name)
             for label, width, height in resolution_list:
@@ -97,6 +97,10 @@ class display_Resolution(test.test):
                     time.sleep(self.WAIT_TIME_LID_TRANSITION)
 
                 if test_reboot:
+                    # Unplug the monitor explicitly. Otherwise, the following
+                    # use_edid_file() call would expect a valid video signal,
+                    # which is not true during reboot.
+                    chameleon_port.unplug()
                     logging.info('Reboot...')
                     boot_id = host.get_boot_id()
                     host.reboot(wait=False)
@@ -113,6 +117,7 @@ class display_Resolution(test.test):
 
                     if test_reboot:
                         host.test_wait_for_boot(boot_id)
+                        chameleon_port.plug()
 
                     utils.wait_for_value_changed(
                             display_facade.get_external_connector_name,

@@ -16,6 +16,7 @@
 
 package com.android.cts.deviceinfo;
 
+import java.util.HashMap;
 import com.android.compatibility.common.deviceinfo.DeviceInfo;
 import com.android.compatibility.common.util.DeviceInfoStore;
 
@@ -72,25 +73,38 @@ import org.json.JSONObject;
  */
 public final class VulkanDeviceInfo extends DeviceInfo {
 
+    private static final String KEY_16BIT_STORAGE_FEATURES = "16bitStorageFeatures";
     private static final String KEY_ALPHA_TO_ONE = "alphaToOne";
     private static final String KEY_API_VERSION = "apiVersion";
     private static final String KEY_BUFFER_FEATURES = "bufferFeatures";
     private static final String KEY_BUFFER_IMAGE_GRANULARITY = "bufferImageGranularity";
+    private static final String KEY_COMPATIBLE_HANDLE_TYPES = "compatibleHandleTypes";
     private static final String KEY_DEPTH = "depth";
     private static final String KEY_DEPTH_BIAS_CLAMP = "depthBiasClamp";
     private static final String KEY_DEPTH_BOUNDS = "depthBounds";
     private static final String KEY_DEPTH_CLAMP = "depthClamp";
     private static final String KEY_DESCRIPTION = "description";
+    private static final String KEY_DEVICE_GROUPS = "deviceGroups";
     private static final String KEY_DEVICE_ID = "deviceID";
+    private static final String KEY_DEVICE_LUID = "deviceLUID";
+    private static final String KEY_DEVICE_LUID_VALID = "deviceLUIDValid";
     private static final String KEY_DEVICE_NAME = "deviceName";
+    private static final String KEY_DEVICE_NODE_MASK = "deviceNodeMask";
     private static final String KEY_DEVICE_TYPE = "deviceType";
+    private static final String KEY_DEVICE_UUID = "deviceUUID";
     private static final String KEY_DEVICES = "devices";
     private static final String KEY_DISCRETE_QUEUE_PRIORITIES = "discreteQueuePriorities";
     private static final String KEY_DRAW_INDIRECT_FIRST_INSTANCE = "drawIndirectFirstInstance";
     private static final String KEY_DRIVER_VERSION = "driverVersion";
+    private static final String KEY_DRIVER_UUID = "driverUUID";
     private static final String KEY_DUAL_SRC_BLEND = "dualSrcBlend";
+    private static final String KEY_EXPORT_FROM_IMPORTED_HANDLE_TYPES = "exportFromImportedHandleTypes";
     private static final String KEY_EXTENSION_NAME = "extensionName";
     private static final String KEY_EXTENSIONS = "extensions";
+    private static final String KEY_EXTERNAL_FENCE_FEATURES = "externalFenceFeatures";
+    private static final String KEY_EXTERNAL_FENCE_PROPERTIES = "externalFenceProperties";
+    private static final String KEY_EXTERNAL_SEMAPHORE_FEATURES = "externalSemaphoreFeatures";
+    private static final String KEY_EXTERNAL_SEMAPHORE_PROPERTIES = "externalSemaphoreProperties";
     private static final String KEY_FEATURES = "features";
     private static final String KEY_FILL_MODE_NON_SOLID = "fillModeNonSolid";
     private static final String KEY_FLAGS = "flags";
@@ -104,6 +118,7 @@ public final class VulkanDeviceInfo extends DeviceInfo {
     private static final String KEY_GEOMETRY_SHADER = "geometryShader";
     private static final String KEY_HEAP_INDEX = "heapIndex";
     private static final String KEY_HEIGHT = "height";
+    private static final String KEY_ID_PROPERTIES = "idProperties";
     private static final String KEY_IMAGE_CUBE_ARRAY = "imageCubeArray";
     private static final String KEY_IMPLEMENTATION_VERSION = "implementationVersion";
     private static final String KEY_INDEPENDENT_BLEND = "independentBlend";
@@ -116,6 +131,7 @@ public final class VulkanDeviceInfo extends DeviceInfo {
     private static final String KEY_LINE_WIDTH_RANGE = "lineWidthRange";
     private static final String KEY_LINEAR_TILING_FEATURES = "linearTilingFeatures";
     private static final String KEY_LOGIC_OP = "logicOp";
+    private static final String KEY_MAINTENANCE_3_PROPERTIES = "maintenance3Properties";
     private static final String KEY_MAX_BOUND_DESCRIPTOR_SETS = "maxBoundDescriptorSets";
     private static final String KEY_MAX_CLIP_DISTANCES = "maxClipDistances";
     private static final String KEY_MAX_COLOR_ATTACHMENTS = "maxColorAttachments";
@@ -154,6 +170,10 @@ public final class VulkanDeviceInfo extends DeviceInfo {
     private static final String KEY_MAX_IMAGE_DIMENSION_CUBE = "maxImageDimensionCube";
     private static final String KEY_MAX_INTERPOLATION_OFFSET = "maxInterpolationOffset";
     private static final String KEY_MAX_MEMORY_ALLOCATION_COUNT = "maxMemoryAllocationCount";
+    private static final String KEY_MAX_MEMORY_ALLOCATION_SIZE = "maxMemoryAllocationSize";
+    private static final String KEY_MAX_MULTIVIEW_INSTANCE_INDEX = "maxMultiviewInstanceIndex";
+    private static final String KEY_MAX_MULTIVIEW_VIEW_COUNT = "maxMultiviewViewCount";
+    private static final String KEY_MAX_PER_SET_DESCRIPTORS = "maxPerSetDescriptors";
     private static final String KEY_MAX_PER_STAGE_DESCRIPTOR_INPUT_ATTACHMENTS = "maxPerStageDescriptorInputAttachments";
     private static final String KEY_MAX_PER_STAGE_DESCRIPTOR_SAMPLED_IMAGES = "maxPerStageDescriptorSampledImages";
     private static final String KEY_MAX_PER_STAGE_DESCRIPTOR_SAMPLERS = "maxPerStageDescriptorSamplers";
@@ -202,6 +222,11 @@ public final class VulkanDeviceInfo extends DeviceInfo {
     private static final String KEY_MIPMAP_PRECISION_BITS = "mipmapPrecisionBits";
     private static final String KEY_MULTI_DRAW_INDIRECT = "multiDrawIndirect";
     private static final String KEY_MULTI_VIEWPORT = "multiViewport";
+    private static final String KEY_MULTIVIEW = "multiview";
+    private static final String KEY_MULTIVIEW_FEATURES = "multiviewFeatures";
+    private static final String KEY_MULTIVIEW_GEOMETRY_SHADER = "multiviewGeometryShader";
+    private static final String KEY_MULTIVIEW_PROPERTIES = "multiviewProperties";
+    private static final String KEY_MULTIVIEW_TESSELLATION_SHADER = "multiviewTessellationShader";
     private static final String KEY_NON_COHERENT_ATOM_SIZE = "nonCoherentAtomSize";
     private static final String KEY_OCCLUSION_QUERY_PRECISE = "occlusionQueryPrecise";
     private static final String KEY_OPTIMAL_BUFFER_COPY_OFFSET_ALIGNMENT = "optimalBufferCopyOffsetAlignment";
@@ -209,10 +234,15 @@ public final class VulkanDeviceInfo extends DeviceInfo {
     private static final String KEY_OPTIMAL_TILING_FEATURES = "optimalTilingFeatures";
     private static final String KEY_PIPELINE_CACHE_UUID = "pipelineCacheUUID";
     private static final String KEY_PIPELINE_STATISTICS_QUERY = "pipelineStatisticsQuery";
+    private static final String KEY_POINT_CLIPPING_BEHAVIOR = "pointClippingBehavior";
+    private static final String KEY_POINT_CLIPPING_PROPERTIES = "pointClippingProperties";
     private static final String KEY_POINT_SIZE_GRANULARITY = "pointSizeGranularity";
     private static final String KEY_POINT_SIZE_RANGE = "pointSizeRange";
     private static final String KEY_PROPERTIES = "properties";
     private static final String KEY_PROPERTY_FLAGS = "propertyFlags";
+    private static final String KEY_PROTECTED_MEMORY = "protectedMemory";
+    private static final String KEY_PROTECTED_MEMORY_FEATURES = "protectedMemoryFeatures";
+    private static final String KEY_QUAD_OPERATIONS_IN_ALL_STAGES = "quadOperationsInAllStages";
     private static final String KEY_QUEUE_COUNT = "queueCount";
     private static final String KEY_QUEUE_FLAGS = "queueFlags";
     private static final String KEY_QUEUES = "queues";
@@ -228,8 +258,12 @@ public final class VulkanDeviceInfo extends DeviceInfo {
     private static final String KEY_SAMPLED_IMAGE_INTEGER_SAMPLE_COUNTS = "sampledImageIntegerSampleCounts";
     private static final String KEY_SAMPLED_IMAGE_STENCIL_SAMPLE_COUNTS = "sampledImageStencilSampleCounts";
     private static final String KEY_SAMPLER_ANISOTROPY = "samplerAnisotropy";
+    private static final String KEY_SAMPLER_YCBCR_CONVERSION = "samplerYcbcrConversion";
+    private static final String KEY_SAMPLER_YCBCR_CONVERSION_FEATURES = "samplerYcbcrConversionFeatures";
     private static final String KEY_SHADER_CLIP_DISTANCE = "shaderClipDistance";
     private static final String KEY_SHADER_CULL_DISTANCE = "shaderCullDistance";
+    private static final String KEY_SHADER_DRAW_PARAMETER_FEATURES = "shaderDrawParameterFeatures";
+    private static final String KEY_SHADER_DRAW_PARAMETERS = "shaderDrawParameters";
     private static final String KEY_SHADER_FLOAT64 = "shaderFloat64";
     private static final String KEY_SHADER_IMAGE_GATHER_EXTENDED = "shaderImageGatherExtended";
     private static final String KEY_SHADER_INT16 = "shaderInt16";
@@ -259,11 +293,19 @@ public final class VulkanDeviceInfo extends DeviceInfo {
     private static final String KEY_SPARSE_RESIDENCY_IMAGE_3D = "sparseResidencyImage3D";
     private static final String KEY_SPEC_VERSION = "specVersion";
     private static final String KEY_STANDARD_SAMPLE_LOCATIONS = "standardSampleLocations";
+    private static final String KEY_STORAGE_BUFFER_16BIT_ACCESS = "storageBuffer16BitAccess";
     private static final String KEY_STORAGE_IMAGE_SAMPLE_COUNTS = "storageImageSampleCounts";
+    private static final String KEY_STORAGE_INPUT_OUTPUT_16 = "storageInputOutput16";
+    private static final String KEY_STORAGE_PUSH_CONSTANT_16 = "storagePushConstant16";
     private static final String KEY_STRICT_LINES = "strictLines";
     private static final String KEY_SUB_PIXEL_INTERPOLATION_OFFSET_BITS = "subPixelInterpolationOffsetBits";
     private static final String KEY_SUB_PIXEL_PRECISION_BITS = "subPixelPrecisionBits";
     private static final String KEY_SUB_TEXEL_PRECISION_BITS = "subTexelPrecisionBits";
+    private static final String KEY_SUBGROUP_PROPERTIES = "subgroupProperties";
+    private static final String KEY_SUBGROUP_SIZE = "subgroupSize";
+    private static final String KEY_SUBSET_ALLOCATION = "subsetAllocation";
+    private static final String KEY_SUPPORTED_OPERATIONS = "supportedOperations";
+    private static final String KEY_SUPPORTED_STAGES = "supportedStages";
     private static final String KEY_TESSELLATION_SHADER = "tessellationShader";
     private static final String KEY_TEXTURE_COMPRESSION_ASTC_LDR = "textureCompressionASTC_LDR";
     private static final String KEY_TEXTURE_COMPRESSION_BC = "textureCompressionBC";
@@ -271,22 +313,36 @@ public final class VulkanDeviceInfo extends DeviceInfo {
     private static final String KEY_TIMESTAMP_COMPUTE_AND_GRAPHICS = "timestampComputeAndGraphics";
     private static final String KEY_TIMESTAMP_PERIOD = "timestampPeriod";
     private static final String KEY_TIMESTAMP_VALID_BITS = "timestampValidBits";
+    private static final String KEY_UNIFORM_AND_STORAGE_BUFFER_16BIT_ACCESS = "uniformAndStorageBuffer16BitAccess";
     private static final String KEY_VARIABLE_MULTISAMPLE_RATE = "variableMultisampleRate";
+    private static final String KEY_VARIABLE_POINTER_FEATURES = "variablePointerFeatures";
+    private static final String KEY_VARIABLE_POINTER_FEATURES_KHR = "variablePointerFeaturesKHR";
+    private static final String KEY_VARIABLE_POINTERS = "variablePointers";
+    private static final String KEY_VARIABLE_POINTERS_STORAGE_BUFFER = "variablePointersStorageBuffer";
     private static final String KEY_VENDOR_ID = "vendorID";
     private static final String KEY_VERTEX_PIPELINE_STORES_AND_ATOMICS = "vertexPipelineStoresAndAtomics";
     private static final String KEY_VIEWPORT_BOUNDS_RANGE = "viewportBoundsRange";
     private static final String KEY_VIEWPORT_SUB_PIXEL_BITS = "viewportSubPixelBits";
+    private static final String KEY_VK_KHR_VARIABLE_POINTERS = "VK_KHR_variable_pointers";
     private static final String KEY_WIDE_LINES = "wideLines";
     private static final String KEY_WIDTH = "width";
 
+    private static final int VK_API_VERSION_1_1 = 4198400;
+    private static final int ENUM_VK_KHR_VARIABLE_POINTERS = 0;
+
+    private static HashMap<String, Integer> extensionNameToEnum;
+
     static {
         System.loadLibrary("ctsdeviceinfo");
+        extensionNameToEnum = new HashMap<>();
+        extensionNameToEnum.put(KEY_VK_KHR_VARIABLE_POINTERS, ENUM_VK_KHR_VARIABLE_POINTERS);
     }
 
     @Override
     protected void collectDeviceInfo(DeviceInfoStore store) throws Exception {
         try {
             JSONObject instance = new JSONObject(nativeGetVkJSON());
+            emitDeviceGroups(store, instance);
             emitLayers(store, instance);
             emitExtensions(store, instance);
             emitDevices(store, instance);
@@ -294,6 +350,22 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             e.printStackTrace();
             throw new RuntimeException(e);
         }
+    }
+
+    private static void emitDeviceGroups(DeviceInfoStore store, JSONObject parent)
+            throws Exception {
+        JSONArray deviceGroups = parent.getJSONArray(KEY_DEVICE_GROUPS);
+        store.startArray(convertName(KEY_DEVICE_GROUPS));
+        for (int deviceGroupIdx = 0; deviceGroupIdx < deviceGroups.length(); deviceGroupIdx++) {
+            JSONObject deviceGroup = deviceGroups.getJSONObject(deviceGroupIdx);
+            store.startGroup();
+            {
+                emitLongArray(store, deviceGroup, KEY_DEVICES);
+                emitBoolean(store, deviceGroup, KEY_SUBSET_ALLOCATION);
+            }
+            store.endGroup();
+        }
+        store.endArray();
     }
 
     private static void emitDevices(DeviceInfoStore store, JSONObject parent)
@@ -583,6 +655,132 @@ public final class VulkanDeviceInfo extends DeviceInfo {
                     store.endGroup();
                 }
                 store.endArray();
+
+                if (properties.getLong(KEY_API_VERSION) >= VK_API_VERSION_1_1) {
+                    JSONObject subgroupProperties = device.getJSONObject(KEY_SUBGROUP_PROPERTIES);
+                    store.startGroup(convertName(KEY_SUBGROUP_PROPERTIES));
+                    {
+                        emitLong(store, subgroupProperties, KEY_SUBGROUP_SIZE);
+                        emitLong(store, subgroupProperties, KEY_SUPPORTED_STAGES);
+                        emitLong(store, subgroupProperties, KEY_SUPPORTED_OPERATIONS);
+                        emitBoolean(store, subgroupProperties, KEY_QUAD_OPERATIONS_IN_ALL_STAGES);
+                    }
+                    store.endGroup();
+
+                    JSONObject pointClippingProperties = device.getJSONObject(KEY_POINT_CLIPPING_PROPERTIES);
+                    store.startGroup(convertName(KEY_POINT_CLIPPING_PROPERTIES));
+                    {
+                        emitLong(store, pointClippingProperties, KEY_POINT_CLIPPING_BEHAVIOR);
+                    }
+                    store.endGroup();
+
+                    JSONObject multiviewProperties = device.getJSONObject(KEY_MULTIVIEW_PROPERTIES);
+                    store.startGroup(convertName(KEY_MULTIVIEW_PROPERTIES));
+                    {
+                        emitLong(store, multiviewProperties, KEY_MAX_MULTIVIEW_VIEW_COUNT);
+                        emitLong(store, multiviewProperties, KEY_MAX_MULTIVIEW_INSTANCE_INDEX);
+                    }
+                    store.endGroup();
+
+                    JSONObject idProperties = device.getJSONObject(KEY_ID_PROPERTIES);
+                    store.startGroup(convertName(KEY_ID_PROPERTIES));
+                    {
+                        emitLongArray(store, idProperties, KEY_DEVICE_UUID);
+                        emitLongArray(store, idProperties, KEY_DRIVER_UUID);
+                        emitLongArray(store, idProperties, KEY_DEVICE_LUID);
+                        emitLong(store, idProperties, KEY_DEVICE_NODE_MASK);
+                        emitBoolean(store, idProperties, KEY_DEVICE_LUID_VALID);
+                    }
+                    store.endGroup();
+
+                    JSONObject maintenance3Properties = device.getJSONObject(KEY_MAINTENANCE_3_PROPERTIES);
+                    store.startGroup(convertName(KEY_MAINTENANCE_3_PROPERTIES));
+                    {
+                        emitLong(store, maintenance3Properties, KEY_MAX_PER_SET_DESCRIPTORS);
+                        emitString(store, maintenance3Properties, KEY_MAX_MEMORY_ALLOCATION_SIZE);
+                    }
+                    store.endGroup();
+
+                    JSONObject bit16StorageFeatures = device.getJSONObject(KEY_16BIT_STORAGE_FEATURES);
+                    store.startGroup(convertName(KEY_16BIT_STORAGE_FEATURES));
+                    {
+                        emitBoolean(store, bit16StorageFeatures, KEY_STORAGE_BUFFER_16BIT_ACCESS);
+                        emitBoolean(store, bit16StorageFeatures, KEY_UNIFORM_AND_STORAGE_BUFFER_16BIT_ACCESS);
+                        emitBoolean(store, bit16StorageFeatures, KEY_STORAGE_PUSH_CONSTANT_16);
+                        emitBoolean(store, bit16StorageFeatures, KEY_STORAGE_INPUT_OUTPUT_16);
+                    }
+                    store.endGroup();
+
+                    JSONObject multiviewFeatures = device.getJSONObject(KEY_MULTIVIEW_FEATURES);
+                    store.startGroup(convertName(KEY_MULTIVIEW_FEATURES));
+                    {
+                        emitBoolean(store, multiviewFeatures, KEY_MULTIVIEW);
+                        emitBoolean(store, multiviewFeatures, KEY_MULTIVIEW_GEOMETRY_SHADER);
+                        emitBoolean(store, multiviewFeatures, KEY_MULTIVIEW_TESSELLATION_SHADER);
+                    }
+                    store.endGroup();
+
+                    JSONObject variablePointerFeatures = device.getJSONObject(KEY_VARIABLE_POINTER_FEATURES);
+                    store.startGroup(convertName(KEY_VARIABLE_POINTER_FEATURES));
+                    {
+                        emitBoolean(store, variablePointerFeatures, KEY_VARIABLE_POINTERS_STORAGE_BUFFER);
+                        emitBoolean(store, variablePointerFeatures, KEY_VARIABLE_POINTERS);
+                    }
+                    store.endGroup();
+
+                    JSONObject protectedMemoryFeatures = device.getJSONObject(KEY_PROTECTED_MEMORY_FEATURES);
+                    store.startGroup(convertName(KEY_PROTECTED_MEMORY_FEATURES));
+                    {
+                        emitBoolean(store, protectedMemoryFeatures, KEY_PROTECTED_MEMORY);
+                    }
+                    store.endGroup();
+
+                    JSONObject samplerYcbcrConversionFeatures = device.getJSONObject(KEY_SAMPLER_YCBCR_CONVERSION_FEATURES);
+                    store.startGroup(convertName(KEY_SAMPLER_YCBCR_CONVERSION_FEATURES));
+                    {
+                        emitBoolean(store, samplerYcbcrConversionFeatures, KEY_SAMPLER_YCBCR_CONVERSION);
+                    }
+                    store.endGroup();
+
+                    JSONObject shaderDrawParameterFeatures = device.getJSONObject(KEY_SHADER_DRAW_PARAMETER_FEATURES);
+                    store.startGroup(convertName(KEY_SHADER_DRAW_PARAMETER_FEATURES));
+                    {
+                        emitBoolean(store, shaderDrawParameterFeatures, KEY_SHADER_DRAW_PARAMETERS);
+                    }
+                    store.endGroup();
+
+                    JSONArray externalFences = device.getJSONArray(KEY_EXTERNAL_FENCE_PROPERTIES);
+                    store.startArray(convertName(KEY_EXTERNAL_FENCE_PROPERTIES));
+                    for (int idx = 0; idx < externalFences.length(); ++idx) {
+                        JSONArray externalFencePair = externalFences.getJSONArray(idx);
+                        JSONObject externalFenceProperties = externalFencePair.getJSONObject(1);
+                        store.startGroup();
+                        {
+                            store.addResult("handle_type", externalFencePair.getLong(0));
+                            emitLong(store, externalFenceProperties, KEY_EXPORT_FROM_IMPORTED_HANDLE_TYPES);
+                            emitLong(store, externalFenceProperties, KEY_COMPATIBLE_HANDLE_TYPES);
+                            emitLong(store, externalFenceProperties, KEY_EXTERNAL_FENCE_FEATURES);
+                        }
+                        store.endGroup();
+                    }
+                    store.endArray();
+
+                    JSONArray externalSemaphores = device.getJSONArray(KEY_EXTERNAL_SEMAPHORE_PROPERTIES);
+                    store.startArray(convertName(KEY_EXTERNAL_SEMAPHORE_PROPERTIES));
+                    for (int idx = 0; idx < externalSemaphores.length(); ++idx) {
+                        JSONArray externalSemaphorePair = externalSemaphores.getJSONArray(idx);
+                        JSONObject externalSemaphoreProperties = externalSemaphorePair.getJSONObject(1);
+                        store.startGroup();
+                        {
+                            store.addResult("handle_type", externalSemaphorePair.getLong(0));
+                            emitLong(store, externalSemaphoreProperties, KEY_EXPORT_FROM_IMPORTED_HANDLE_TYPES);
+                            emitLong(store, externalSemaphoreProperties, KEY_COMPATIBLE_HANDLE_TYPES);
+                            emitLong(store, externalSemaphoreProperties, KEY_EXTERNAL_SEMAPHORE_FEATURES);
+                        }
+                        store.endGroup();
+                    }
+                    store.endArray();
+                }
             }
             store.endGroup();
         }
@@ -613,6 +811,40 @@ public final class VulkanDeviceInfo extends DeviceInfo {
         store.endArray();
     }
 
+    private static void emitVariablePointerFeaturesKHR(DeviceInfoStore store, JSONObject parent)
+            throws Exception {
+        try {
+            JSONObject extVariablePointerFeatures = parent.getJSONObject(KEY_VK_KHR_VARIABLE_POINTERS);
+            try {
+                store.startGroup(convertName(KEY_VK_KHR_VARIABLE_POINTERS));
+                {
+                    JSONObject variablePointerFeaturesKHR = extVariablePointerFeatures.getJSONObject(KEY_VARIABLE_POINTER_FEATURES_KHR);
+                    store.startGroup(convertName(KEY_VARIABLE_POINTER_FEATURES_KHR));
+                    {
+                        emitBoolean(store, variablePointerFeaturesKHR, KEY_VARIABLE_POINTERS_STORAGE_BUFFER);
+                        emitBoolean(store, variablePointerFeaturesKHR, KEY_VARIABLE_POINTERS);
+                    }
+                    store.endGroup();
+                }
+                store.endGroup();
+            } catch (JSONException e) {
+                e.printStackTrace();
+                throw new RuntimeException(e);
+            }
+        } catch (JSONException ignored) {
+        }
+    }
+
+    private static void emitExtension(String key, DeviceInfoStore store, JSONObject parent)
+            throws Exception {
+        if (!extensionNameToEnum.containsKey(key)) return;
+        switch (extensionNameToEnum.get(key)) {
+            case ENUM_VK_KHR_VARIABLE_POINTERS:
+              emitVariablePointerFeaturesKHR(store, parent);
+              break;
+        }
+    }
+
     private static void emitExtensions(DeviceInfoStore store, JSONObject parent)
             throws Exception {
         JSONArray extensions = parent.getJSONArray(KEY_EXTENSIONS);
@@ -627,6 +859,12 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             store.endGroup();
         }
         store.endArray();
+
+        for (int i = 0; i < extensions.length(); i++) {
+            JSONObject extension = extensions.getJSONObject(i);
+            String key = extension.getString(KEY_EXTENSION_NAME);
+            emitExtension(key, store, parent);
+        }
     }
 
     private static void emitBoolean(DeviceInfoStore store, JSONObject parent, String name)
@@ -673,25 +911,38 @@ public final class VulkanDeviceInfo extends DeviceInfo {
         // This translation could be done algorithmically, but in this case being able to
         // code-search for both the original and converted names is more important.
         switch (name) {
+            case KEY_16BIT_STORAGE_FEATURES: return "bit16_storage_features";
             case KEY_ALPHA_TO_ONE: return "alpha_to_one";
             case KEY_API_VERSION: return "api_version";
             case KEY_BUFFER_FEATURES: return "buffer_features";
             case KEY_BUFFER_IMAGE_GRANULARITY: return "buffer_image_granularity";
+            case KEY_COMPATIBLE_HANDLE_TYPES: return "compatible_handle_types";
             case KEY_DEPTH: return "depth";
             case KEY_DEPTH_BIAS_CLAMP: return "depth_bias_clamp";
             case KEY_DEPTH_BOUNDS: return "depth_bounds";
             case KEY_DEPTH_CLAMP: return "depth_clamp";
             case KEY_DESCRIPTION: return "description";
+            case KEY_DEVICE_GROUPS: return "device_groups";
             case KEY_DEVICE_ID: return "device_id";
+            case KEY_DEVICE_LUID: return "device_luid";
+            case KEY_DEVICE_LUID_VALID: return "device_luid_valid";
+            case KEY_DEVICE_NODE_MASK: return "device_node_mask";
             case KEY_DEVICE_NAME: return "device_name";
             case KEY_DEVICE_TYPE: return "device_type";
+            case KEY_DEVICE_UUID: return "device_uuid";
             case KEY_DEVICES: return "devices";
             case KEY_DISCRETE_QUEUE_PRIORITIES: return "discrete_queue_priorities";
             case KEY_DRAW_INDIRECT_FIRST_INSTANCE: return "draw_indirect_first_instance";
             case KEY_DRIVER_VERSION: return "driver_version";
+            case KEY_DRIVER_UUID: return "driver_uuid";
             case KEY_DUAL_SRC_BLEND: return "dual_src_blend";
+            case KEY_EXPORT_FROM_IMPORTED_HANDLE_TYPES: return "export_from_imported_handle_types";
             case KEY_EXTENSION_NAME: return "extension_name";
             case KEY_EXTENSIONS: return "extensions";
+            case KEY_EXTERNAL_FENCE_FEATURES: return "external_fence_features";
+            case KEY_EXTERNAL_FENCE_PROPERTIES: return "external_fence_properties";
+            case KEY_EXTERNAL_SEMAPHORE_FEATURES: return "external_semaphore_features";
+            case KEY_EXTERNAL_SEMAPHORE_PROPERTIES: return "external_semaphore_properties";
             case KEY_FEATURES: return "features";
             case KEY_FILL_MODE_NON_SOLID: return "fill_mode_non_solid";
             case KEY_FLAGS: return "flags";
@@ -705,6 +956,7 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             case KEY_GEOMETRY_SHADER: return "geometry_shader";
             case KEY_HEAP_INDEX: return "heap_index";
             case KEY_HEIGHT: return "height";
+            case KEY_ID_PROPERTIES: return "id_properties";
             case KEY_IMAGE_CUBE_ARRAY: return "image_cube_array";
             case KEY_IMPLEMENTATION_VERSION: return "implementation_version";
             case KEY_INDEPENDENT_BLEND: return "independent_blend";
@@ -717,6 +969,7 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             case KEY_LINE_WIDTH_RANGE: return "line_width_range";
             case KEY_LINEAR_TILING_FEATURES: return "linear_tiling_features";
             case KEY_LOGIC_OP: return "logic_op";
+            case KEY_MAINTENANCE_3_PROPERTIES: return "maintenance_3_properties";
             case KEY_MAX_BOUND_DESCRIPTOR_SETS: return "max_bound_descriptor_sets";
             case KEY_MAX_CLIP_DISTANCES: return "max_clip_distances";
             case KEY_MAX_COLOR_ATTACHMENTS: return "max_color_attachments";
@@ -755,6 +1008,10 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             case KEY_MAX_IMAGE_DIMENSION_CUBE: return "max_image_dimension_cube";
             case KEY_MAX_INTERPOLATION_OFFSET: return "max_interpolation_offset";
             case KEY_MAX_MEMORY_ALLOCATION_COUNT: return "max_memory_allocation_count";
+            case KEY_MAX_MEMORY_ALLOCATION_SIZE: return "max_memory_allocation_size";
+            case KEY_MAX_MULTIVIEW_VIEW_COUNT: return "max_multiview_view_count";
+            case KEY_MAX_MULTIVIEW_INSTANCE_INDEX: return "max_multiview_instance_index";
+            case KEY_MAX_PER_SET_DESCRIPTORS: return "max_per_set_descriptors";
             case KEY_MAX_PER_STAGE_DESCRIPTOR_INPUT_ATTACHMENTS: return "max_per_stage_descriptor_input_attachments";
             case KEY_MAX_PER_STAGE_DESCRIPTOR_SAMPLED_IMAGES: return "max_per_stage_descriptor_sampled_images";
             case KEY_MAX_PER_STAGE_DESCRIPTOR_SAMPLERS: return "max_per_stage_descriptor_samplers";
@@ -803,6 +1060,11 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             case KEY_MIPMAP_PRECISION_BITS: return "mipmap_precision_bits";
             case KEY_MULTI_DRAW_INDIRECT: return "multi_draw_indirect";
             case KEY_MULTI_VIEWPORT: return "multi_viewport";
+            case KEY_MULTIVIEW: return "multiview";
+            case KEY_MULTIVIEW_FEATURES: return "multiview_features";
+            case KEY_MULTIVIEW_GEOMETRY_SHADER: return "multiview_geometry_shader";
+            case KEY_MULTIVIEW_PROPERTIES: return "multiview_properties";
+            case KEY_MULTIVIEW_TESSELLATION_SHADER: return "multiview_tessellation_shader";
             case KEY_NON_COHERENT_ATOM_SIZE: return "non_coherent_atom_size";
             case KEY_OCCLUSION_QUERY_PRECISE: return "occlusion_query_precise";
             case KEY_OPTIMAL_BUFFER_COPY_OFFSET_ALIGNMENT: return "optimal_buffer_copy_offset_alignment";
@@ -810,10 +1072,15 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             case KEY_OPTIMAL_TILING_FEATURES: return "optimal_tiling_features";
             case KEY_PIPELINE_CACHE_UUID: return "pipeline_cache_uuid";
             case KEY_PIPELINE_STATISTICS_QUERY: return "pipeline_statistics_query";
+            case KEY_POINT_CLIPPING_BEHAVIOR: return "point_clipping_behavior";
+            case KEY_POINT_CLIPPING_PROPERTIES: return "point_clipping_properties";
             case KEY_POINT_SIZE_GRANULARITY: return "point_size_granularity";
             case KEY_POINT_SIZE_RANGE: return "point_size_range";
             case KEY_PROPERTIES: return "properties";
             case KEY_PROPERTY_FLAGS: return "property_flags";
+            case KEY_PROTECTED_MEMORY: return "protected_memory";
+            case KEY_PROTECTED_MEMORY_FEATURES: return "protected_memory_features";
+            case KEY_QUAD_OPERATIONS_IN_ALL_STAGES: return "quad_operations_in_all_stages";
             case KEY_QUEUE_COUNT: return "queue_count";
             case KEY_QUEUE_FLAGS: return "queue_flags";
             case KEY_QUEUES: return "queues";
@@ -829,8 +1096,12 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             case KEY_SAMPLED_IMAGE_INTEGER_SAMPLE_COUNTS: return "sampled_image_integer_sample_counts";
             case KEY_SAMPLED_IMAGE_STENCIL_SAMPLE_COUNTS: return "sampled_image_stencil_sample_counts";
             case KEY_SAMPLER_ANISOTROPY: return "sampler_anisotropy";
+            case KEY_SAMPLER_YCBCR_CONVERSION: return "sampler_ycbcr_conversion";
+            case KEY_SAMPLER_YCBCR_CONVERSION_FEATURES: return "sampler_ycbcr_conversion_features";
             case KEY_SHADER_CLIP_DISTANCE: return "shader_clip_distance";
             case KEY_SHADER_CULL_DISTANCE: return "shader_cull_distance";
+            case KEY_SHADER_DRAW_PARAMETER_FEATURES: return "shader_draw_parameter_features";
+            case KEY_SHADER_DRAW_PARAMETERS: return "shader_draw_parameters";
             case KEY_SHADER_FLOAT64: return "shader_float64";
             case KEY_SHADER_IMAGE_GATHER_EXTENDED: return "shader_image_gather_extended";
             case KEY_SHADER_INT16: return "shader_int16";
@@ -860,11 +1131,19 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             case KEY_SPARSE_RESIDENCY_IMAGE_3D: return "sparse_residency_image_3d";
             case KEY_SPEC_VERSION: return "spec_version";
             case KEY_STANDARD_SAMPLE_LOCATIONS: return "standard_sample_locations";
+            case KEY_STORAGE_BUFFER_16BIT_ACCESS: return "storage_buffer_16bit_access";
             case KEY_STORAGE_IMAGE_SAMPLE_COUNTS: return "storage_image_sample_counts";
+            case KEY_STORAGE_INPUT_OUTPUT_16: return "storage_input_output_16";
+            case KEY_STORAGE_PUSH_CONSTANT_16: return "storage_push_constant_16";
             case KEY_STRICT_LINES: return "strict_lines";
             case KEY_SUB_PIXEL_INTERPOLATION_OFFSET_BITS: return "sub_pixel_interpolation_offset_bits";
             case KEY_SUB_PIXEL_PRECISION_BITS: return "sub_pixel_precision_bits";
             case KEY_SUB_TEXEL_PRECISION_BITS: return "sub_texel_precision_bits";
+            case KEY_SUBGROUP_PROPERTIES: return "subgroup_properties";
+            case KEY_SUBGROUP_SIZE: return "subgroup_size";
+            case KEY_SUBSET_ALLOCATION: return "subset_allocation";
+            case KEY_SUPPORTED_OPERATIONS: return "supported_operations";
+            case KEY_SUPPORTED_STAGES: return "supported_stages";
             case KEY_TESSELLATION_SHADER: return "tessellation_shader";
             case KEY_TEXTURE_COMPRESSION_ASTC_LDR: return "texture_compression_astc_ldr";
             case KEY_TEXTURE_COMPRESSION_BC: return "texture_compression_bc";
@@ -872,11 +1151,17 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             case KEY_TIMESTAMP_COMPUTE_AND_GRAPHICS: return "timestamp_compute_and_graphics";
             case KEY_TIMESTAMP_PERIOD: return "timestamp_period";
             case KEY_TIMESTAMP_VALID_BITS: return "timestamp_valid_bits";
+            case KEY_UNIFORM_AND_STORAGE_BUFFER_16BIT_ACCESS: return "uniform_and_storage_buffer_16bit_access";
             case KEY_VARIABLE_MULTISAMPLE_RATE: return "variable_multisample_rate";
+            case KEY_VARIABLE_POINTER_FEATURES: return "variable_pointer_features";
+            case KEY_VARIABLE_POINTER_FEATURES_KHR: return "variable_pointer_features_khr";
+            case KEY_VARIABLE_POINTERS: return "variable_pointers";
+            case KEY_VARIABLE_POINTERS_STORAGE_BUFFER: return "variable_pointers_storage_buffer";
             case KEY_VENDOR_ID: return "vendor_id";
             case KEY_VERTEX_PIPELINE_STORES_AND_ATOMICS: return "vertex_pipeline_stores_and_atomics";
             case KEY_VIEWPORT_BOUNDS_RANGE: return "viewport_bounds_range";
             case KEY_VIEWPORT_SUB_PIXEL_BITS: return "viewport_sub_pixel_bits";
+            case KEY_VK_KHR_VARIABLE_POINTERS: return "vk_khr_variable_pointers";
             case KEY_WIDE_LINES: return "wide_lines";
             case KEY_WIDTH: return "width";
             default: throw new RuntimeException("unknown key name: " + name);

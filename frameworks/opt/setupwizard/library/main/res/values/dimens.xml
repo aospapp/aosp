@@ -20,15 +20,20 @@
     <!-- General -->
     <dimen name="suw_layout_margin_sides">40dp</dimen>
 
+    <dimen name="suw_glif_button_corner_radius">2dp</dimen>
     <!-- Calculated by (suw_glif_margin_sides - 4dp internal padding of button) -->
     <dimen name="suw_glif_button_margin_end">20dp</dimen>
     <!-- Calculated by (suw_glif_margin_sides - suw_glif_button_padding) -->
     <dimen name="suw_glif_button_margin_start">8dp</dimen>
     <dimen name="suw_glif_button_padding">16dp</dimen>
+    <!-- Negative of suw_glif_button_padding -->
+    <dimen name="suw_glif_negative_button_padding">-16dp</dimen>
     <dimen name="suw_glif_footer_padding_vertical">8dp</dimen>
-    <dimen name="suw_glif_footer_min_height">80dp</dimen>
+    <dimen name="suw_glif_footer_min_height">72dp</dimen>
     <dimen name="suw_glif_margin_sides">24dp</dimen>
     <dimen name="suw_glif_margin_top">48dp</dimen>
+
+    <dimen name="suw_glif_v3_button_corner_radius">4dp</dimen>
 
     <!-- Content styles -->
     <dimen name="suw_check_box_line_spacing_extra">4sp</dimen>
@@ -134,5 +139,9 @@
     <!-- The margin to compensate for the padding built-in to the widget itself -->
     <dimen name="suw_progress_bar_margin_vertical">-7dp</dimen>
     <dimen name="suw_glif_progress_bar_margin_vertical">7dp</dimen>
+
+    <!-- Edit Text dimensions -->
+    <dimen name="suw_edit_text_min_height">56dp</dimen>
+    <dimen name="suw_edit_text_padding_horizontal">12dp</dimen>
 
 </resources>

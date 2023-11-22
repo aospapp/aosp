@@ -43,4 +43,8 @@
     <string name="beam_requires_nfc_enabled" msgid="2800366967218600534">"Android prebacivanje zahteva NFC da biste mogli da ga omogućite. Želite li da ga omogućite?"</string>
     <string name="android_beam" msgid="1666446406999492763">"Android prebacivanje"</string>
     <string name="beam_requires_external_storage_permission" msgid="8798337545702206901">"Aplikacija nema dozvolu za spoljnu memoriju. To je potrebno za prebacivanje ove datoteke"</string>
+    <string name="title_confirm_url_open" msgid="8069968913244794478">"Želite li da otvorite link?"</string>
+    <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"Tablet je primio link preko NFC-a:"</string>
+    <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"Telefon je primio link preko NFC-a:"</string>
+    <string name="action_confirm_url_open" msgid="3458322738812921189">"Otvori link"</string>
 </resources>

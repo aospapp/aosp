@@ -28,7 +28,7 @@ import java.io.File;
  * A {@link ITargetPreparer} that pushes all {@link IBuildInfo#getFiles()} to specific path on
  * device.
  */
-public class AdditionalFilesInstaller implements ITargetPreparer, ITargetCleaner {
+public class AdditionalFilesInstaller extends BaseTargetPreparer implements ITargetCleaner {
 
     // TODO: make this an option
     private static final String DEST_PATH = "/data/local/tmp/";

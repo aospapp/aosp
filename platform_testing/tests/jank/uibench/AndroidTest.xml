@@ -24,8 +24,9 @@
     <option name="post-boot-command" value="settings put secure accessibility_disable_animations 0" />
 
     <option name="test-tag" value="UiBenchJankTests" />
-    <test class="com.android.tradefed.testtype.InstrumentationTest">
+    <test class="com.android.tradefed.testtype.UiAutomatorTest">
+        <option name="instrumentation" value="true"/>
         <option name="package" value="com.android.uibench.janktests" />
-        <option name="runner" value="android.test.InstrumentationTestRunner" />
+        <option name="runner" value="android.support.test.runner.AndroidJUnitRunner" />
     </test>
 </configuration>

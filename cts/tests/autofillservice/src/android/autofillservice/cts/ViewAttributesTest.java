@@ -21,13 +21,15 @@ import static android.autofillservice.cts.Helper.findNodeByResourceId;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.assist.AssistStructure;
-import android.support.annotation.IdRes;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+import android.platform.test.annotations.AppModeFull;
 import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.view.autofill.AutofillValue;
 import android.widget.EditText;
+
+import androidx.annotation.IdRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -37,6 +39,7 @@ import org.junit.runner.RunWith;
 import java.util.function.Consumer;
 
 @RunWith(AndroidJUnit4.class)
+@AppModeFull // Unit test
 public class ViewAttributesTest extends AutoFillServiceTestCase {
     @Rule
     public final AutofillActivityTestRule<ViewAttributesTestActivity> mActivityRule =

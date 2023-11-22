@@ -21,14 +21,13 @@ import static com.android.documentsui.OperationDialogFragment.DIALOG_TYPE_UNKNOW
 import android.app.ActivityManager.TaskDescription;
 import android.app.FragmentManager;
 import android.content.Intent;
-import android.content.Context;
-import android.graphics.drawable.AdaptiveIconDrawable;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.drawable.AdaptiveIconDrawable;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.CallSuper;
@@ -39,6 +38,7 @@ import android.view.MenuItem;
 
 import com.android.documentsui.ActionModeController;
 import com.android.documentsui.BaseActivity;
+import com.android.documentsui.DocsSelectionHelper;
 import com.android.documentsui.DocumentsApplication;
 import com.android.documentsui.FocusManager;
 import com.android.documentsui.Injector;
@@ -57,7 +57,6 @@ import com.android.documentsui.clipping.DocumentClipper;
 import com.android.documentsui.dirlist.AnimationView.AnimationType;
 import com.android.documentsui.dirlist.DirectoryFragment;
 import com.android.documentsui.prefs.ScopedPreferences;
-import com.android.documentsui.selection.SelectionManager;
 import com.android.documentsui.services.FileOperationService;
 import com.android.documentsui.sidebar.RootsFragment;
 import com.android.documentsui.ui.DialogController;
@@ -105,7 +104,7 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
         super.onCreate(icicle);
 
         DocumentClipper clipper = DocumentsApplication.getDocumentClipper(this);
-        mInjector.selectionMgr = new SelectionManager(SelectionManager.MODE_MULTIPLE);
+        mInjector.selectionMgr = DocsSelectionHelper.createMultiSelect();
 
         mInjector.focusManager = new FocusManager(
                 mInjector.features,
@@ -351,6 +350,9 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
                 break;
             case R.id.option_menu_select_all:
                 mInjector.actions.selectAllFiles();
+                break;
+            case R.id.option_menu_inspect:
+                mInjector.actions.showInspector(getCurrentDirectory());
                 break;
             default:
                 return super.onOptionsItemSelected(item);

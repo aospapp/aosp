@@ -21,6 +21,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Parcel;
 import android.support.test.filters.SmallTest;
@@ -100,4 +101,13 @@ public class WallpaperColorsTest {
         Assert.assertNull(colors.getSecondaryColor());
     }
 
+    @Test
+    public void fromDrawableDoesntMutateBounds() {
+        ColorDrawable drawable = new ColorDrawable(Color.GREEN);
+        Rect initialBounds = drawable.copyBounds();
+
+        WallpaperColors.fromDrawable(drawable);
+
+        Assert.assertEquals(drawable.getBounds(), initialBounds);
+    }
 }

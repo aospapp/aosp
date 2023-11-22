@@ -5,6 +5,7 @@
 import logging
 import time
 
+from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 from autotest_lib.server.cros import vboot_constants as vboot
 
@@ -28,19 +29,34 @@ class firmware_SoftwareSync(FirmwareTest):
         self.dev_mode = dev_mode
 
     def cleanup(self):
-        self.restore_firmware()
+        try:
+            self.restore_firmware()
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_SoftwareSync, self).cleanup()
 
-    def record_hash_and_corrupt(self):
-        """Record current EC hash and corrupt EC firmware."""
-        self._ec_hash = self.faft_client.ec.get_firmware_sha()
+    def record_hash(self):
+        """Record current EC hash."""
+        self._ec_hash = self.faft_client.ec.get_active_hash()
         logging.info("Stored EC hash: %s", self._ec_hash)
-        self.faft_client.ec.corrupt_body('rw')
+
+    def corrupt_active_rw(self):
+        """Corrupt the active RW portion."""
+        section = 'rw'
+        try:
+            if self.servo.get_ec_active_copy() == 'RW_B':
+                section = 'rw_b'
+        except error.TestFail:
+            # Skip the failure, as ec_active_copy is new.
+            # TODO(waihong): Remove this except clause.
+            pass
+        logging.info("Corrupt the EC section: %s", section)
+        self.faft_client.ec.corrupt_body(section)
 
     def software_sync_checker(self):
         """Check EC firmware is restored by software sync."""
-        ec_hash = self.faft_client.ec.get_firmware_sha()
-        logging.info("Current EC hash: %s", self._ec_hash)
+        ec_hash = self.faft_client.ec.get_active_hash()
+        logging.info("Current EC hash: %s", ec_hash)
         if self._ec_hash != ec_hash:
             return False
         return self.checkers.ec_act_copy_checker('RW')
@@ -57,8 +73,10 @@ class firmware_SoftwareSync(FirmwareTest):
     def run_once(self):
         logging.info("Corrupt EC firmware RW body.")
         self.check_state((self.checkers.ec_act_copy_checker, 'RW'))
-        self.record_hash_and_corrupt()
-        self.sync_and_ec_reboot()
+        self.record_hash()
+        self.corrupt_active_rw()
+        logging.info("Reboot AP, check EC hash, and software sync it.")
+        self.switcher.simple_reboot(reboot_type='warm')
         self.wait_software_sync_and_boot()
         self.switcher.wait_for_client()
 

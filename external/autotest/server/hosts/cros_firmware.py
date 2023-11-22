@@ -32,6 +32,8 @@ of DUT, based on pool assignments:
     from all of the verification and repair code in this module.
 """
 
+# pylint: disable=missing-docstring
+
 import logging
 import re
 
@@ -39,7 +41,7 @@ import common
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import hosts
 from autotest_lib.server import afe_utils
-from autotest_lib.site_utils.suite_scheduler import constants
+from autotest_lib.server import constants
 
 
 # _FIRMWARE_REPAIR_POOLS - The set of pools that should be
@@ -91,6 +93,54 @@ def _is_firmware_update_supported(host):
     """
     info = host.host_info_store.get()
     return bool(info.pools & _FIRMWARE_UPDATE_POOLS)
+
+
+def _get_firmware_version(output):
+    """Parse the output and get the firmware version.
+
+    @param output   The standard output of chromeos-firmwareupdate script.
+    @return Firmware version if found, else, None.
+    """
+    # At one point, the chromeos-firmwareupdate script was updated to
+    # add "RW" version fields.  The old string, "BIOS version:" still
+    # appears in the new output, however it now refers to the RO
+    # firmware version.  Therefore, we try searching for the new string
+    # first, "BIOS (RW) version".  If that string isn't found, we then
+    # fallback to searching for old string.
+    version = re.search(r'BIOS \(RW\) version:\s*(?P<version>.*)', output)
+
+    if not version:
+        version = re.search(r'BIOS version:\s*(?P<version>.*)', output)
+
+    if version is not None:
+        return version.group('version')
+
+    return None
+
+
+def _get_available_firmware(host, model):
+    """Get the available firmware version given the model.
+
+    @param host     The host to get available firmware for.
+    @param model    The model name to get corresponding firmware version.
+    @return The available firmware version if found, else, None.
+    """
+    result = host.run('chromeos-firmwareupdate -V', ignore_status=True)
+
+    if result.exit_status == 0:
+        unibuild = False
+        paragraphs = result.stdout.split('\n\n')
+        for p in paragraphs:
+            match = re.search(r'Model:\s*(?P<model>.*)', p)
+            if match:
+                unibuild = True
+                if model == match.group('model'):
+                    return _get_firmware_version(p)
+
+        if not unibuild:
+            return _get_firmware_version(result.stdout)
+
+    return None
 
 
 class FirmwareStatusVerifier(hosts.Verifier):
@@ -204,26 +254,6 @@ class FirmwareVersionVerifier(hosts.Verifier):
             return None
 
     @staticmethod
-    def _get_available_firmware(host):
-        result = host.run('chromeos-firmwareupdate -V',
-                          ignore_status=True)
-        if result.exit_status == 0:
-            # At one point, the chromeos-firmwareupdate script was updated to
-            # add "RW" version fields.  The old string, "BIOS version:" still
-            # appears in the new output, however it now refers to the RO
-            # firmware version.  Therefore, we try searching for the new string
-            # first, "BIOS (RW) version".  If that string isn't found, we then
-            # fallback to searching for old string.
-            version = re.search(r'BIOS \(RW\) version:\s*(?P<version>.*)',
-                                result.stdout)
-            if not version:
-                version = re.search(r'BIOS version:\s*(?P<version>.*)',
-                                    result.stdout)
-            if version is not None:
-                return version.group('version')
-        return None
-
-    @staticmethod
     def _check_hardware_match(version_a, version_b):
         """
         Check that two firmware versions identify the same hardware.
@@ -253,12 +283,12 @@ class FirmwareVersionVerifier(hosts.Verifier):
             return
         # Test 2 - The DUT has an assigned stable firmware version.
         info = host.host_info_store.get()
-        if info.board is None:
+        if info.model is None:
             raise hosts.AutoservVerifyError(
                     'Can not verify firmware version. '
-                    'No board label value found')
+                    'No model label value found')
 
-        stable_firmware = afe_utils.get_stable_firmware_version(info.board)
+        stable_firmware = afe_utils.get_stable_firmware_version(info.model)
         if stable_firmware is None:
             # This DUT doesn't have a firmware update target
             return
@@ -278,7 +308,7 @@ class FirmwareVersionVerifier(hosts.Verifier):
             return
         # Test 4 - The firmware supplied in the running OS build is not
         # the assigned stable firmware.
-        available_firmware = self._get_available_firmware(host)
+        available_firmware = _get_available_firmware(host, info.model)
         if available_firmware is None:
             logging.error('Supplied firmware version in OS can\'t be '
                           'determined.')

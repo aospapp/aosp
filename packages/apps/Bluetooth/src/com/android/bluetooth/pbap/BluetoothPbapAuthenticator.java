@@ -32,8 +32,6 @@
 
 package com.android.bluetooth.pbap;
 
-import android.os.Handler;
-import android.os.Message;
 import android.util.Log;
 
 import javax.obex.Authenticator;
@@ -44,61 +42,61 @@ import javax.obex.PasswordAuthentication;
  * authentication procedure.
  */
 public class BluetoothPbapAuthenticator implements Authenticator {
-    private static final String TAG = "BluetoothPbapAuthenticator";
+    private static final String TAG = "PbapAuthenticator";
 
     private boolean mChallenged;
-
     private boolean mAuthCancelled;
-
     private String mSessionKey;
+    private PbapStateMachine mPbapStateMachine;
 
-    private Handler mCallback;
-
-    public BluetoothPbapAuthenticator(final Handler callback) {
-        mCallback = callback;
+    BluetoothPbapAuthenticator(final PbapStateMachine stateMachine) {
+        mPbapStateMachine = stateMachine;
         mChallenged = false;
         mAuthCancelled = false;
         mSessionKey = null;
     }
 
-    public final synchronized void setChallenged(final boolean bool) {
+    final synchronized void setChallenged(final boolean bool) {
         mChallenged = bool;
+        notify();
     }
 
-    public final synchronized void setCancelled(final boolean bool) {
+    final synchronized void setCancelled(final boolean bool) {
         mAuthCancelled = bool;
+        notify();
     }
 
-    public final synchronized void setSessionKey(final String string) {
+    final synchronized void setSessionKey(final String string) {
         mSessionKey = string;
     }
 
     private void waitUserConfirmation() {
-        Message msg = Message.obtain(mCallback);
-        msg.what = BluetoothPbapService.MSG_OBEX_AUTH_CHALL;
-        msg.sendToTarget();
+        mPbapStateMachine.sendMessage(PbapStateMachine.CREATE_NOTIFICATION);
+        mPbapStateMachine.sendMessageDelayed(PbapStateMachine.REMOVE_NOTIFICATION,
+                BluetoothPbapService.USER_CONFIRM_TIMEOUT_VALUE);
         synchronized (this) {
             while (!mChallenged && !mAuthCancelled) {
                 try {
                     wait();
                 } catch (InterruptedException e) {
-                    Log.e(TAG, "Interrupted while waiting on isChalled");
+                    Log.e(TAG, "Interrupted while waiting on isChallenged or AuthCancelled");
                 }
             }
         }
     }
 
+    @Override
     public PasswordAuthentication onAuthenticationChallenge(final String description,
             final boolean isUserIdRequired, final boolean isFullAccess) {
         waitUserConfirmation();
         if (mSessionKey.trim().length() != 0) {
-            PasswordAuthentication pa = new PasswordAuthentication(null, mSessionKey.getBytes());
-            return pa;
+            return new PasswordAuthentication(null, mSessionKey.getBytes());
         }
         return null;
     }
 
     // TODO: Reserved for future use only, in case PSE challenge PCE
+    @Override
     public byte[] onAuthenticationResponse(final byte[] userName) {
         byte[] b = null;
         return b;

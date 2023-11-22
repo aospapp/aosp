@@ -1,4 +1,4 @@
-// Copyright (C) 2016 and later: Unicode, Inc. and others.
+// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
@@ -8,7 +8,7 @@
 *
 *******************************************************************************
 *   file name:  listformatter.cpp
-*   encoding:   US-ASCII
+*   encoding:   UTF-8
 *   tab size:   8 (not used)
 *   indentation:4
 *
@@ -63,7 +63,7 @@ ListFormatInternal(const ListFormatInternal &other) :
 
 static Hashtable* listPatternHash = NULL;
 static UMutex listFormatterMutex = U_MUTEX_INITIALIZER;
-static const char *STANDARD_STYLE = "standard";
+static const char STANDARD_STYLE[] = "standard";
 
 U_CDECL_BEGIN
 static UBool U_CALLCONV uprv_listformatter_cleanup() {
@@ -170,9 +170,16 @@ enum {
 
 struct ListFormatter::ListPatternsSink : public ResourceSink {
     UnicodeString two, start, middle, end;
+#if ((U_PLATFORM == U_PF_AIX) || (U_PLATFORM == U_PF_OS390)) && (U_CPLUSPLUS_VERSION < 11)
+    char aliasedStyle[kStyleLenMax+1];
+    ListPatternsSink() {
+      uprv_memset(aliasedStyle, 0, kStyleLenMax+1);
+    }
+#else
     char aliasedStyle[kStyleLenMax+1] = {0};
 
     ListPatternsSink() {}
+#endif
     virtual ~ListPatternsSink();
 
     void setAliasedStyle(UnicodeString alias) {

@@ -23,4 +23,6 @@ interface ISecondary {
     long getElapsedCpuTime();
 
     String getTimeZoneID();
+
+    boolean performDiskWrite();
 }

@@ -1,7 +1,7 @@
 /** @file
   Helper Library for ACPI
 
-  Copyright (c) 2014-2015, ARM Ltd. All rights reserved.
+  Copyright (c) 2014-2016, ARM Ltd. All rights reserved.
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -38,6 +38,13 @@
     GicDistHwId, GicDistBase, GicDistVector, EFI_ACPI_RESERVED_DWORD \
   }
 
+#define EFI_ACPI_6_0_GIC_DISTRIBUTOR_INIT(GicDistHwId, GicDistBase, GicDistVector, GicVersion) \
+  { \
+    EFI_ACPI_6_0_GICD, sizeof (EFI_ACPI_6_0_GIC_DISTRIBUTOR_STRUCTURE), EFI_ACPI_RESERVED_WORD, \
+    GicDistHwId, GicDistBase, GicDistVector, GicVersion, \
+    {EFI_ACPI_RESERVED_BYTE, EFI_ACPI_RESERVED_BYTE, EFI_ACPI_RESERVED_BYTE} \
+  }
+
 // Note the parking protocol is configured by UEFI if required
 #define EFI_ACPI_5_0_GIC_STRUCTURE_INIT(GicId, AcpiCpuId, Flags, PmuIrq, GicBase) \
   { \
@@ -54,6 +61,15 @@
     GsivId, GicRBase, Mpidr                                                          \
   }
 
+#define EFI_ACPI_6_0_GICC_STRUCTURE_INIT(GicId, AcpiCpuUid, Mpidr, Flags, PmuIrq,    \
+    GicBase, GicVBase, GicHBase, GsivId, GicRBase, Efficiency)                       \
+  {                                                                                  \
+    EFI_ACPI_6_0_GIC, sizeof (EFI_ACPI_6_0_GIC_STRUCTURE), EFI_ACPI_RESERVED_WORD,   \
+    GicId, AcpiCpuUid, Flags, 0, PmuIrq, 0, GicBase, GicVBase, GicHBase,             \
+    GsivId, GicRBase, Mpidr, Efficiency,                                             \
+    {EFI_ACPI_RESERVED_BYTE, EFI_ACPI_RESERVED_BYTE, EFI_ACPI_RESERVED_BYTE}         \
+  }
+
 #define EFI_ACPI_6_0_GIC_MSI_FRAME_INIT(GicMsiFrameId, PhysicalBaseAddress, Flags, SPICount, SPIBase) \
   { \
     EFI_ACPI_6_0_GIC_MSI_FRAME, sizeof (EFI_ACPI_6_0_GIC_MSI_FRAME_STRUCTURE), EFI_ACPI_RESERVED_WORD, \
@@ -67,7 +83,7 @@
     ControlFramePhysicalAddress, WatchdogTimerGSIV, WatchdogTimerFlags)                                 \
   {                                                                                                     \
     EFI_ACPI_5_1_GTDT_SBSA_GENERIC_WATCHDOG, sizeof(EFI_ACPI_5_1_GTDT_SBSA_GENERIC_WATCHDOG_STRUCTURE), \
-    EFI_ACPI_RESERVED_WORD, RefreshFramePhysicalAddress, ControlFramePhysicalAddress,                   \
+    EFI_ACPI_RESERVED_BYTE, RefreshFramePhysicalAddress, ControlFramePhysicalAddress,                   \
     WatchdogTimerGSIV, WatchdogTimerFlags                                                               \
   }
 

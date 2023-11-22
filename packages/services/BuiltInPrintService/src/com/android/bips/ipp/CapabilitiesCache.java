@@ -17,15 +17,22 @@
 
 package com.android.bips.ipp;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.net.NetworkInfo;
 import android.net.Uri;
+import android.net.wifi.p2p.WifiP2pManager;
 import android.os.AsyncTask;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.LruCache;
 
+import com.android.bips.BuiltInPrintService;
 import com.android.bips.discovery.DiscoveredPrinter;
 import com.android.bips.jni.LocalPrinterCapabilities;
+import com.android.bips.p2p.P2pUtils;
+import com.android.bips.util.BroadcastMonitor;
 import com.android.bips.util.WifiMonitor;
 
 import java.util.ArrayList;
@@ -34,11 +41,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
- * A cache of printer URIs (see {@link DiscoveredPrinter#getUri}) to printer capabilities,
+ * A cache of printer URIs (see {@link DiscoveredPrinter#path}) to printer capabilities,
  * with the ability to fetch them on cache misses. {@link #close} must be called when use
- * is complete..
+ * is complete.
  */
 public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> implements
         AutoCloseable {
@@ -58,27 +66,50 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
     // Maximum time per retry before giving up on second pass. Must differ from FIRST_PASS_TIMEOUT.
     private static final int SECOND_PASS_TIMEOUT = 8000;
 
+    // Outstanding requests based on printer path
     private final Map<Uri, Request> mRequests = new HashMap<>();
     private final Set<Uri> mToEvict = new HashSet<>();
+    private final Set<Uri> mToEvictP2p = new HashSet<>();
     private final int mMaxConcurrent;
     private final Backend mBackend;
     private final WifiMonitor mWifiMonitor;
-    private boolean mClosed = false;
+    private final BroadcastMonitor mP2pMonitor;
+    private final BuiltInPrintService mService;
+    private boolean mIsStopped = false;
 
     /**
      * @param maxConcurrent Maximum number of capabilities requests to make at any one time
      */
-    public CapabilitiesCache(Context context, Backend backend, int maxConcurrent) {
+    public CapabilitiesCache(BuiltInPrintService service, Backend backend, int maxConcurrent) {
         super(CACHE_SIZE);
         if (DEBUG) Log.d(TAG, "CapabilitiesCache()");
 
+        mService = service;
         mBackend = backend;
         mMaxConcurrent = maxConcurrent;
-        mWifiMonitor = new WifiMonitor(context, connected -> {
+
+        mP2pMonitor = mService.receiveBroadcasts(new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                NetworkInfo info = intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
+                if (!info.isConnected()) {
+                    // Evict specified device capabilities when P2P network is lost.
+                    if (DEBUG) Log.d(TAG, "Evicting P2P " + mToEvictP2p);
+                    for (Uri uri : mToEvictP2p) {
+                        remove(uri);
+                    }
+                    mToEvictP2p.clear();
+                }
+            }
+        }, WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
+
+        mWifiMonitor = new WifiMonitor(service, connected -> {
             if (!connected) {
                 // Evict specified device capabilities when network is lost.
-                if (DEBUG) Log.d(TAG, "Evicting " + mToEvict);
-                mToEvict.forEach(this::remove);
+                if (DEBUG) Log.d(TAG, "Evicting Wi-Fi " + mToEvict);
+                for (Uri uri : mToEvict) {
+                    remove(uri);
+                }
                 mToEvict.clear();
             }
         });
@@ -86,22 +117,16 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
 
     @Override
     public void close() {
-        if (DEBUG) Log.d(TAG, "close()");
-        mClosed = true;
+        if (DEBUG) Log.d(TAG, "stop()");
+        mIsStopped = true;
         mWifiMonitor.close();
-    }
-
-    /**
-     * Indicate that a device should be evicted when this object is closed or network
-     * parameters change.
-     */
-    public void evictOnNetworkChange(Uri printerUri) {
-        mToEvict.add(printerUri);
+        mP2pMonitor.close();
     }
 
     /** Callback for receiving capabilities */
     public interface OnLocalPrinterCapabilities {
-        void onCapabilities(DiscoveredPrinter printer, LocalPrinterCapabilities capabilities);
+        /** Called when capabilities are retrieved */
+        void onCapabilities(LocalPrinterCapabilities capabilities);
     }
 
     /**
@@ -117,69 +142,123 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
             OnLocalPrinterCapabilities onLocalPrinterCapabilities) {
         if (DEBUG) Log.d(TAG, "request() printer=" + printer + " high=" + highPriority);
 
-        Uri printerUri = printer.getUri();
-        Uri printerPath = printer.path;
-        LocalPrinterCapabilities capabilities = get(printer.getUri());
+        LocalPrinterCapabilities capabilities = get(printer);
         if (capabilities != null && capabilities.nativeData != null) {
-            onLocalPrinterCapabilities.onCapabilities(printer, capabilities);
+            onLocalPrinterCapabilities.onCapabilities(capabilities);
             return;
         }
 
-        Request request = mRequests.get(printerUri);
-        if (request == null) {
-            if (highPriority) {
-                // Go straight to the long-timeout request
-                request = new Request(printer, SECOND_PASS_TIMEOUT);
-            } else {
-                request = new Request(printer, FIRST_PASS_TIMEOUT);
-            }
-            mRequests.put(printerUri, request);
-        } else if (!request.printer.path.equals(printerPath)) {
-            Log.w(TAG, "Capabilities request for printer " + printer +
-                    " overlaps with different path " + request.printer.path);
-            onLocalPrinterCapabilities.onCapabilities(printer, null);
-            return;
+        if (P2pUtils.isOnConnectedInterface(mService, printer)) {
+            if (DEBUG) Log.d(TAG, "Adding to P2P evict list: " + printer);
+            mToEvictP2p.add(printer.path);
+        } else {
+            if (DEBUG) Log.d(TAG, "Adding to WLAN evict list: " + printer);
+            mToEvict.add(printer.path);
         }
 
-        request.callbacks.add(onLocalPrinterCapabilities);
+        // Create a new request with timeout based on priority
+        Request request = mRequests.computeIfAbsent(printer.path, uri ->
+                new Request(printer, highPriority ? SECOND_PASS_TIMEOUT : FIRST_PASS_TIMEOUT));
 
         if (highPriority) {
-            request.highPriority = true;
+            request.mHighPriority = true;
         }
+
+        request.mCallbacks.add(onLocalPrinterCapabilities);
 
         startNextRequest();
     }
 
     /**
-     * Cancel any outstanding attempts to get capabilities on this callback
+     * Returns capabilities for the specified printer, if known
+     */
+    public LocalPrinterCapabilities get(DiscoveredPrinter printer) {
+        return get(printer.path);
+    }
+
+    /**
+     * Cancel all outstanding attempts to get capabilities for this callback
      */
     public void cancel(OnLocalPrinterCapabilities onLocalPrinterCapabilities) {
         List<Uri> toDrop = new ArrayList<>();
         for (Map.Entry<Uri, Request> entry : mRequests.entrySet()) {
             Request request = entry.getValue();
-            request.callbacks.remove(onLocalPrinterCapabilities);
-            if (request.callbacks.isEmpty()) {
-                // There is no further interest in this request so cancel it
+            request.mCallbacks.remove(onLocalPrinterCapabilities);
+            if (request.mCallbacks.isEmpty()) {
                 toDrop.add(entry.getKey());
-                if (request.query != null) {
-                    request.query.cancel(true);
-                }
+                request.cancel();
             }
         }
-        toDrop.forEach(mRequests::remove);
+        for (Uri request : toDrop) {
+            mRequests.remove(request);
+        }
     }
 
     /** Look for next query and launch it */
     private void startNextRequest() {
         final Request request = getNextRequest();
-        if (request == null) return;
+        if (request == null) {
+            return;
+        }
 
-        request.query = mBackend.getCapabilities(request.printer.path, request.timeout, capabilities -> {
-            DiscoveredPrinter printer = request.printer;
+        request.start();
+    }
+
+    /** Return the next request if it is appropriate to perform one */
+    private Request getNextRequest() {
+        Request found = null;
+        int total = 0;
+        for (Request request : mRequests.values()) {
+            if (request.mQuery != null) {
+                total++;
+            } else if (found == null || (!found.mHighPriority && request.mHighPriority)
+                    || (found.mHighPriority == request.mHighPriority
+                    && request.mTimeout < found.mTimeout)) {
+                // First valid or higher priority request
+                found = request;
+            }
+        }
+
+        if (total >= mMaxConcurrent) {
+            return null;
+        }
+
+        return found;
+    }
+
+    /** Holds an outstanding capabilities request */
+    public class Request implements Consumer<LocalPrinterCapabilities> {
+        final DiscoveredPrinter mPrinter;
+        final List<OnLocalPrinterCapabilities> mCallbacks = new ArrayList<>();
+        GetCapabilitiesTask mQuery;
+        boolean mHighPriority = false;
+        long mTimeout;
+
+        Request(DiscoveredPrinter printer, long timeout) {
+            mPrinter = printer;
+            mTimeout = timeout;
+        }
+
+        private void start() {
+            mQuery = mBackend.getCapabilities(mPrinter.path, mTimeout, mHighPriority, this);
+        }
+
+        private void cancel() {
+            if (mQuery != null) {
+                mQuery.forceCancel();
+                mQuery = null;
+            }
+        }
+
+        @Override
+        public void accept(LocalPrinterCapabilities capabilities) {
+            DiscoveredPrinter printer = mPrinter;
             if (DEBUG) Log.d(TAG, "Capabilities for " + printer + " cap=" + capabilities);
 
-            if (mClosed) return;
-            mRequests.remove(printer.getUri());
+            if (mIsStopped) {
+                return;
+            }
+            mRequests.remove(printer.path);
 
             // Grab uuid from capabilities if possible
             Uri capUuid = null;
@@ -194,66 +273,25 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
             }
 
             if (capabilities == null) {
-                if (request.timeout == FIRST_PASS_TIMEOUT) {
+                if (mTimeout == FIRST_PASS_TIMEOUT) {
                     // Printer did not respond quickly, try again in the slow lane
-                    request.timeout = SECOND_PASS_TIMEOUT;
-                    request.query = null;
-                    mRequests.put(printer.getUri(), request);
+                    mTimeout = SECOND_PASS_TIMEOUT;
+                    mQuery = null;
+                    mRequests.put(printer.path, this);
                     startNextRequest();
                     return;
                 } else {
                     remove(printer.getUri());
                 }
             } else {
-                Uri key = printer.getUri();
-                if (printer.uuid == null) {
-                    // For non-uuid URIs, evict later
-                    evictOnNetworkChange(key);
-                    if (capUuid != null) {
-                        // Upgrade to UUID if we have it
-                        key = capUuid;
-                    }
-                }
-                put(key, capabilities);
+                put(printer.path, capabilities);
             }
 
-            for (OnLocalPrinterCapabilities callback : request.callbacks) {
-                callback.onCapabilities(printer, capabilities);
+            LocalPrinterCapabilities result = capabilities;
+            for (OnLocalPrinterCapabilities callback : mCallbacks) {
+                callback.onCapabilities(result);
             }
             startNextRequest();
-        });
-    }
-
-    /** Return the next request if it is appropriate to perform one */
-    private Request getNextRequest() {
-        Request found = null;
-        int total = 0;
-        for (Request request : mRequests.values()) {
-            if (request.query != null) {
-                total++;
-            } else if (found == null || (!found.highPriority && request.highPriority) ||
-                    (found.highPriority == request.highPriority && request.timeout < found.timeout)) {
-                // First valid or higher priority request
-                found = request;
-            }
-        }
-
-        if (total >= mMaxConcurrent) return null;
-
-        return found;
-    }
-
-    /** Holds an outstanding capabilities request */
-    public class Request {
-        final DiscoveredPrinter printer;
-        final Set<OnLocalPrinterCapabilities> callbacks = new HashSet<>();
-        AsyncTask<?, ?, ?> query;
-        boolean highPriority = false;
-        long timeout;
-
-        Request(DiscoveredPrinter printer, long timeout) {
-            this.printer = printer;
-            this.timeout = timeout;
         }
     }
 }

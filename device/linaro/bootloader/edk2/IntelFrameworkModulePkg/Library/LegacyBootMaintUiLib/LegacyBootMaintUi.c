@@ -1,7 +1,7 @@
 /** @file
   Legacy Boot Maintainence UI implementation.
 
-Copyright (c) 2004 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -19,6 +19,7 @@ LEGACY_BOOT_OPTION_CALLBACK_DATA  *mLegacyBootOptionPrivate;
 EFI_GUID  mLegacyBootOptionGuid     = LEGACY_BOOT_OPTION_FORMSET_GUID;
 CHAR16    mLegacyBootStorageName[]  = L"LegacyBootData";
 BBS_TYPE  mBbsType[] = {BBS_FLOPPY, BBS_HARDDISK, BBS_CDROM, BBS_EMBED_NETWORK, BBS_BEV_DEVICE, BBS_UNKNOWN};
+BOOLEAN   mFirstEnterLegacyForm = FALSE;
 
 
 ///
@@ -95,6 +96,26 @@ HII_VENDOR_DEVICE_PATH  mLegacyBootOptionHiiVendorDevicePath = {
   }
 };
 
+/**
+
+  Build the LegacyFDMenu LegacyHDMenu LegacyCDMenu according to LegacyBios.GetBbsInfo().
+
+**/
+VOID
+GetLegacyOptions (
+  VOID
+  );
+
+
+/**
+
+  Base on the L"LegacyDevOrder" variable to build the current order data.
+
+**/
+VOID
+GetLegacyOptionsOrder (
+  VOID
+  );
 
 /**
   Re-order the Boot Option according to the DevOrder.
@@ -109,8 +130,11 @@ HII_VENDOR_DEVICE_PATH  mLegacyBootOptionHiiVendorDevicePath = {
   @param EnBootOptionCount  Count of the enabled Boot Option Numbers
   @param DisBootOption      Callee allocated buffer containing the disabled Boot Option Numbers
   @param DisBootOptionCount Count of the disabled Boot Option Numbers
+
+  @return EFI_SUCCESS       The function completed successfully.
+  @retval other             Contain some error, details see  the status return by gRT->SetVariable.
 **/
-VOID
+EFI_STATUS
 OrderLegacyBootOption4SameType (
   UINT16                   *DevOrder,
   UINTN                    DevOrderCount,
@@ -143,6 +167,7 @@ OrderLegacyBootOption4SameType (
   *DisBootOptionCount = 0;
   *EnBootOptionCount  = 0;
   Index               = 0;
+  Status              = EFI_SUCCESS;
 
   ASSERT (BbsIndexArray != NULL);
   ASSERT (DeviceTypeArray != NULL);
@@ -207,11 +232,12 @@ OrderLegacyBootOption4SameType (
                   BootOrderSize,
                   BootOrder
                   );
-  ASSERT_EFI_ERROR (Status);
 
   FreePool (NewBootOption);
   FreePool (DeviceTypeArray);
   FreePool (BbsIndexArray);
+
+  return Status;
 }
 
 /**
@@ -222,8 +248,9 @@ OrderLegacyBootOption4SameType (
   @param NVMapData   The data for egacy BBS boot.
 
   @return EFI_SUCCESS           The function completed successfully.
-  @retval EFI_NOT_FOUND         If L"LegacyDevOrder" and gEfiLegacyDevOrderVariableGuid EFI Variable can be found.
+  @retval EFI_NOT_FOUND         If L"LegacyDevOrder" and gEfiLegacyDevOrderVariableGuid EFI Variable can not be found.
   @retval EFI_OUT_OF_RESOURCES  Fail to allocate memory resource
+  @retval other                 Contain some error, details see  the status return by gRT->SetVariable.
 **/
 EFI_STATUS
 UpdateBBSOption (
@@ -260,6 +287,8 @@ UpdateBBSOption (
   DisMap              = NULL;
   NewOrder            = NULL;
   CurrentType         = 0;
+  EnBootOption        = NULL;
+  DisBootOption       = NULL;
 
   
   DisMap  = mLegacyBootOptionPrivate->MaintainMapData->DisableMap;
@@ -381,7 +410,7 @@ UpdateBBSOption (
     //
     ASSERT (OptionMenu->MenuNumber == DevOrder->Length / sizeof (UINT16) - 1);
 
-    OrderLegacyBootOption4SameType (
+    Status = OrderLegacyBootOption4SameType (
       DevOrder->Data,
       DevOrder->Length / sizeof (UINT16) - 1,
       &EnBootOption,
@@ -389,6 +418,9 @@ UpdateBBSOption (
       &DisBootOption,
       &DisBootOptionCount
       );
+     if (EFI_ERROR(Status)) {
+       goto Fail;
+     }
 
     //
     // 2. Deactivate the DisBootOption and activate the EnBootOption
@@ -445,6 +477,15 @@ UpdateBBSOption (
                   VarSize,
                   OriginalPtr
                   );
+
+Fail:
+  if (EnBootOption != NULL) {
+    FreePool (EnBootOption);
+  }
+
+  if (DisBootOption != NULL) {
+    FreePool (DisBootOption);
+  }
 
   FreePool (OriginalPtr);
   return Status;
@@ -700,7 +741,6 @@ UpdateLegacyDeviceOrderPage (
   LEGACY_MENU_ENTRY           *NewMenuEntry;
   EFI_STRING_ID               StrRef;
   EFI_STRING_ID               StrRefHelp;
-  BBS_TYPE                    BbsType;
   UINT16                      *Default;
   UINT16                      Index;
   UINT16                      Key;
@@ -718,7 +758,6 @@ UpdateLegacyDeviceOrderPage (
   TypeStr     = NULL;
   TypeStrHelp = NULL;
   Default     = NULL;
-  BbsType     = BBS_FLOPPY;
 
   RefreshLegacyUpdateData();
 
@@ -732,7 +771,6 @@ UpdateLegacyDeviceOrderPage (
     TypeStr     = STR_FLOPPY;
     TypeStrHelp = STR_FLOPPY_HELP;
     FormTitle   = STR_FLOPPY_TITLE;
-    BbsType     = BBS_FLOPPY;
     Default     = mLegacyBootOptionPrivate->MaintainMapData->CurrentNvData.LegacyFD;
     break;
 
@@ -742,7 +780,6 @@ UpdateLegacyDeviceOrderPage (
     TypeStr     = STR_HARDDISK;
     TypeStrHelp = STR_HARDDISK_HELP;
     FormTitle   = STR_HARDDISK_TITLE;
-    BbsType     = BBS_HARDDISK;
     Default     = mLegacyBootOptionPrivate->MaintainMapData->CurrentNvData.LegacyHD;
     break;
 
@@ -752,7 +789,6 @@ UpdateLegacyDeviceOrderPage (
     TypeStr     = STR_CDROM;
     TypeStrHelp = STR_CDROM_HELP;
     FormTitle   = STR_CDROM_TITLE;
-    BbsType     = BBS_CDROM;
     Default     = mLegacyBootOptionPrivate->MaintainMapData->CurrentNvData.LegacyCD;
     break;
 
@@ -762,7 +798,6 @@ UpdateLegacyDeviceOrderPage (
     TypeStr     = STR_NET;
     TypeStrHelp = STR_NET_HELP;
     FormTitle   = STR_NET_TITLE;
-    BbsType     = BBS_EMBED_NETWORK;
     Default     = mLegacyBootOptionPrivate->MaintainMapData->CurrentNvData.LegacyNET;
     break;
 
@@ -772,7 +807,6 @@ UpdateLegacyDeviceOrderPage (
     TypeStr     = STR_BEV;
     TypeStrHelp = STR_BEV_HELP;
     FormTitle   = STR_BEV_TITLE;
-    BbsType     = BBS_BEV_DEVICE;
     Default     = mLegacyBootOptionPrivate->MaintainMapData->CurrentNvData.LegacyBEV;
     break;
 
@@ -879,8 +913,6 @@ AdjustOptionValue (
   )
 {
   UINTN                       Number;
-  BBS_TYPE                    BbsType;
-  LEGACY_DEV_ORDER_ENTRY      *DevOrder;
   UINT16                      *Default;
   LEGACY_BOOT_NV_DATA         *CurrentNVMap;
   UINT16                      *CurrentVal;
@@ -895,9 +927,7 @@ AdjustOptionValue (
   UINTN                       Bit;
 
   Number = 0;
-  BbsType = BBS_UNKNOWN;
   CurrentVal = 0;
-  DevOrder = NULL;
   Default = NULL;
   NewValue = 0;
   NewValuePos = 0;
@@ -914,27 +944,22 @@ AdjustOptionValue (
 
   if (QuestionId >= LEGACY_FD_QUESTION_ID && QuestionId < LEGACY_FD_QUESTION_ID + MAX_MENU_NUMBER) {
     Number      = (UINT16) LegacyFDMenu.MenuNumber;
-    BbsType     = BBS_FLOPPY;
     CurrentVal  = CurrentNVMap->LegacyFD;
     Default     = mLegacyBootOptionPrivate->MaintainMapData->LastTimeNvData.LegacyFD;
   } else if (QuestionId >= LEGACY_HD_QUESTION_ID && QuestionId < LEGACY_HD_QUESTION_ID + MAX_MENU_NUMBER) {
     Number      = (UINT16) LegacyHDMenu.MenuNumber;
-    BbsType     = BBS_HARDDISK;
     CurrentVal  = CurrentNVMap->LegacyHD;
     Default     = mLegacyBootOptionPrivate->MaintainMapData->LastTimeNvData.LegacyHD;
   } else if (QuestionId >= LEGACY_CD_QUESTION_ID && QuestionId < LEGACY_CD_QUESTION_ID + MAX_MENU_NUMBER) {
     Number      = (UINT16) LegacyCDMenu.MenuNumber;
-    BbsType     = BBS_CDROM;
     CurrentVal  = CurrentNVMap->LegacyCD;
     Default     = mLegacyBootOptionPrivate->MaintainMapData->LastTimeNvData.LegacyCD;
   } else if (QuestionId >= LEGACY_NET_QUESTION_ID && QuestionId < LEGACY_NET_QUESTION_ID + MAX_MENU_NUMBER) {
     Number      = (UINT16) LegacyNETMenu.MenuNumber;
-    BbsType     = BBS_EMBED_NETWORK;
     CurrentVal  = CurrentNVMap->LegacyNET;
     Default     = mLegacyBootOptionPrivate->MaintainMapData->LastTimeNvData.LegacyNET;
   } else if (QuestionId >= LEGACY_BEV_QUESTION_ID && QuestionId < LEGACY_BEV_QUESTION_ID + MAX_MENU_NUMBER) {
     Number      = (UINT16) LegacyBEVMenu.MenuNumber;
-    BbsType     = BBS_BEV_DEVICE;
     CurrentVal  = CurrentNVMap->LegacyBEV;
     Default     = mLegacyBootOptionPrivate->MaintainMapData->LastTimeNvData.LegacyBEV;
   }
@@ -1090,15 +1115,30 @@ LegacyBootOptionCallback (
   OUT EFI_BROWSER_ACTION_REQUEST             *ActionRequest
   )
 {
-  if (Action != EFI_BROWSER_ACTION_CHANGED && Action != EFI_BROWSER_ACTION_CHANGING) {
+  if (Action != EFI_BROWSER_ACTION_CHANGED && Action != EFI_BROWSER_ACTION_CHANGING && Action != EFI_BROWSER_ACTION_FORM_OPEN) {
     //
-    // Do nothing for other UEFI Action. Only do call back when data is changed.
+    // Do nothing for other UEFI Action. Only do call back when data is changed or the form is open.
     //
     return EFI_UNSUPPORTED;
   }
 
   if ((Value == NULL) || (ActionRequest == NULL)) {
     return EFI_INVALID_PARAMETER;
+  }
+
+  if (Action == EFI_BROWSER_ACTION_FORM_OPEN) {
+    if (QuestionId == FORM_FLOPPY_BOOT_ID) {
+      if (!mFirstEnterLegacyForm) {
+        //
+        // The leagcyBootMaintUiLib depends on the LegacyBootManagerLib to realize its functionality.
+        // We need to do the leagcy boot options related actions after the LegacyBootManagerLib has been initialized.
+        // Opening the legacy menus is the appropriate time that the LegacyBootManagerLib has already been initialized.
+        //
+        mFirstEnterLegacyForm = TRUE;
+        GetLegacyOptions ();
+        GetLegacyOptionsOrder ();
+      }
+    }
   }
 
   if (Action == EFI_BROWSER_ACTION_CHANGING) {
@@ -1422,10 +1462,6 @@ LegacyBootMaintUiLibConstructor (
     ASSERT (LegacyBootOptionData->HiiHandle != NULL);
 
     mLegacyBootOptionPrivate = LegacyBootOptionData;
-
-    GetLegacyOptions ();
-
-    GetLegacyOptionsOrder();
   }
 
   return EFI_SUCCESS;

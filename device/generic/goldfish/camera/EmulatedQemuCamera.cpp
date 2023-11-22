@@ -84,7 +84,7 @@ status_t EmulatedQemuCamera::Initialize(const char* device_name,
          * ignore this entry. */
         if (sscanf(input.c_str(), "%dx%d%c", &width, &height, &none) == 2) {
             resolutions.push_back(Size(width, height));
-            ALOGE("%s: %dx%d", __FUNCTION__, width, height);
+            ALOGI("%s: %dx%d", __FUNCTION__, width, height);
         }
     }
 
@@ -144,6 +144,13 @@ status_t EmulatedQemuCamera::Initialize(const char* device_name,
                     sizes.c_str());
     mParameters.set(CameraParameters::KEY_SUPPORTED_PREVIEW_SIZES,
                     sizes.c_str());
+    mParameters.set(CameraParameters::KEY_SUPPORTED_VIDEO_SIZES,
+                    sizes.c_str());
+
+    std::string preferred_size = std::to_string(resolutions[0].first)
+        + "x" + std::to_string(resolutions[0].second);
+    mParameters.set(CameraParameters::KEY_PREFERRED_PREVIEW_SIZE_FOR_VIDEO,
+                    preferred_size.c_str());
 
     /*
      * Use first dimension reported by the device to set current preview and

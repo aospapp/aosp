@@ -14,23 +14,52 @@
 
 LOCAL_PATH := $(call my-dir)
 
-# the hat script
+# the cts-api-coverage script
 # ============================================================
 include $(CLEAR_VARS)
 LOCAL_IS_HOST_MODULE := true
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_MODULE := cts-api-coverage
-LOCAL_STATIC_JAVA_LIBRARIES := \
-    compatibility-common-util-devicesidelib
 LOCAL_SRC_FILES := etc/$(LOCAL_MODULE)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(HOST_OUT_JAVA_LIBRARIES)/$(LOCAL_MODULE)$(COMMON_JAVA_PACKAGE_SUFFIX)
 
 include $(BUILD_PREBUILT)
 
-# the other stuff
+# the ndk-api-report script
 # ============================================================
-subdirs := $(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, \
-		src \
-	))
+include $(CLEAR_VARS)
+LOCAL_IS_HOST_MODULE := true
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE := ndk-api-report
+LOCAL_SRC_FILES := etc/$(LOCAL_MODULE)
 
-include $(subdirs)
+include $(BUILD_PREBUILT)
+
+# cts-api-coverage java library
+# ============================================================
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES := \
+    $(call all-subdir-java-files) \
+    $(call all-proto-files-under, proto)
+
+LOCAL_PROTOC_OPTIMIZE_TYPE := full
+LOCAL_PROTOC_FLAGS := --proto_path=$(LOCAL_PATH)/proto/
+
+LOCAL_JAVA_RESOURCE_DIRS := res
+LOCAL_JAR_MANIFEST := MANIFEST.mf
+
+LOCAL_STATIC_JAVA_LIBRARIES := \
+  compatibility-host-util \
+  dexlib2
+
+LOCAL_MODULE := cts-api-coverage
+
+# This tool is not checking any dependencies or metadata, so all of the
+# dependencies of all of the tests must be on its classpath. This is
+# super fragile.
+LOCAL_STATIC_JAVA_LIBRARIES += \
+  tradefed hosttestlib \
+  platformprotos
+
+include $(BUILD_HOST_JAVA_LIBRARY)

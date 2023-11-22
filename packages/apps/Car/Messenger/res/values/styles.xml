@@ -26,13 +26,12 @@
         <item name="android:windowNoTitle">true</item>
     </style>
 
-    <style name="MessageEmoji" parent="@style/CarBody1">
+    <style name="MessageEmoji" parent="@style/TextAppearance.Car.Body1">
         <item name="android:background">@drawable/circle_bg</item>
         <item name="android:textSize">@dimen/car_emoji_size</item>
         <item name="android:gravity">center</item>
         <item name="android:layout_gravity">center</item>
-        <item name="android:layout_columnWeight">1</item>
-        <item name="android:layout_rowWeight">1</item>
-        <item name="android:layout_height">@dimen/car_touch_target</item>
+        <item name="android:layout_height">@dimen/car_touch_target_size</item>
+        <item name="android:layout_width">@dimen/car_touch_target_size</item>
     </style>
 </resources>

@@ -17,4 +17,5 @@ PRODUCT_PROPERTY_OVERRIDES += \
   debug.composition.type=dyn \
   debug.hwc.dynThreshold=4.5 \
   debug.sf.hwc.canUseABC=1 \
-  debug.sf.disable_backpressure=1
+  debug.sf.disable_backpressure=1 \
+  debug.sf.latch_unsignaled=1 \

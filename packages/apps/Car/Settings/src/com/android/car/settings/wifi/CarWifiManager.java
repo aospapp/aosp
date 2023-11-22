@@ -15,15 +15,14 @@
  */
 package com.android.car.settings.wifi;
 
+import android.annotation.Nullable;
 import android.content.Context;
+import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
-import android.os.HandlerThread;
-import android.os.Process;
 import android.support.annotation.UiThread;
 
 import com.android.settingslib.wifi.AccessPoint;
 import com.android.settingslib.wifi.WifiTracker;
-import com.android.settingslib.wifi.WifiTracker.WifiListener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,13 +31,11 @@ import java.util.List;
  * Manages Wifi configuration: e.g. monitors wifi states, change wifi setting etc.
  */
 public class CarWifiManager implements WifiTracker.WifiListener {
-    private static final String TAG = "CarWifiManager";
     private final Context mContext;
     private Listener mListener;
     private boolean mStarted;
 
     private WifiTracker mWifiTracker;
-    private final HandlerThread mBgThread;
     private WifiManager mWifiManager;
     public interface Listener {
         /**
@@ -66,9 +63,7 @@ public class CarWifiManager implements WifiTracker.WifiListener {
         mContext = context;
         mListener = listener;
         mWifiManager = (WifiManager) mContext.getSystemService(WifiManager.class);
-        mBgThread = new HandlerThread(TAG, Process.THREAD_PRIORITY_BACKGROUND);
-        mBgThread.start();
-        mWifiTracker = new WifiTracker(context, this, mBgThread.getLooper(), true, true);
+        mWifiTracker = new WifiTracker(context, this, true, true);
     }
 
     /**
@@ -79,7 +74,7 @@ public class CarWifiManager implements WifiTracker.WifiListener {
     public void start() {
         if (!mStarted) {
             mStarted = true;
-            mWifiTracker.startTracking();
+            mWifiTracker.onStart();
         }
     }
 
@@ -91,21 +86,59 @@ public class CarWifiManager implements WifiTracker.WifiListener {
     public void stop() {
         if (mStarted) {
             mStarted = false;
-            mWifiTracker.stopTracking();
+            mWifiTracker.onStop();
         }
     }
 
-    public List<AccessPoint> getAccessPoints() {
+    /**
+     * Destroys {@link CarWifiManager}
+     * This should only be called from main thread.
+     */
+    @UiThread
+    public void destroy() {
+        mWifiTracker.onDestroy();
+    }
+
+    /**
+     * Returns a list of all reachable access points.
+     */
+    public List<AccessPoint> getAllAccessPoints() {
+        return getAccessPoints(false);
+    }
+
+    /**
+     * Returns a list of saved access points.
+     */
+    public List<AccessPoint> getSavedAccessPoints() {
+        return getAccessPoints(true);
+    }
+
+    private List<AccessPoint> getAccessPoints(boolean saved) {
         List<AccessPoint> accessPoints = new ArrayList<AccessPoint>();
         if (mWifiManager.isWifiEnabled()) {
             for (AccessPoint accessPoint : mWifiTracker.getAccessPoints()) {
                 // ignore out of reach access points.
-                if (accessPoint.getLevel() != -1) {
+                if (shouldIncludeAp(accessPoint, saved)) {
                     accessPoints.add(accessPoint);
                 }
             }
         }
         return accessPoints;
+    }
+
+    private boolean shouldIncludeAp(AccessPoint accessPoint, boolean saved) {
+        return saved ? accessPoint.isReachable() && accessPoint.isSaved()
+                : accessPoint.isReachable();
+    }
+
+    @Nullable
+    public AccessPoint getConnectedAccessPoint() {
+        for (AccessPoint accessPoint : getAllAccessPoints()) {
+            if (accessPoint.getDetailedState() == NetworkInfo.DetailedState.CONNECTED) {
+                return accessPoint;
+            }
+        }
+        return null;
     }
 
     public boolean isWifiEnabled() {

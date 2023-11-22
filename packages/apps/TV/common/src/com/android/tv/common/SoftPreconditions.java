@@ -17,17 +17,18 @@
 package com.android.tv.common;
 
 import android.content.Context;
+import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
-
 import com.android.tv.common.feature.Feature;
+import com.android.tv.common.util.CommonUtils;
 
 /**
- * Simple static methods to be called at the start of your own methods to verify
- * correct arguments and state.
+ * Simple static methods to be called at the start of your own methods to verify correct arguments
+ * and state.
  *
- * <p>{@code checkXXX} methods throw exceptions when {@link BuildConfig#ENG} is true, and
- * logs a warning when it is false.
+ * <p>{@code checkXXX} methods throw exceptions when {@link BuildConfig#ENG} is true, and logs a
+ * warning when it is false.
  *
  * <p>This is based on com.android.internal.util.Preconditions.
  */
@@ -35,26 +36,35 @@ public final class SoftPreconditions {
     private static final String TAG = "SoftPreconditions";
 
     /**
-     * Throws or logs if an expression involving the parameter of the calling
-     * method is not true.
+     * Throws or logs if an expression involving the parameter of the calling method is not true.
      *
      * @param expression a boolean expression
-     * @param tag Used to identify the source of a log message.  It usually
-     *            identifies the class or activity where the log call occurs.
-     * @param msg The message you would like logged.
+     * @param tag Used to identify the source of a log message. It usually identifies the class or
+     *     activity where the log call occurs.
+     * @param errorMessageTemplate a template for the exception message should the check fail. The
+     *     message is formed by replacing each {@code %s} placeholder in the template with an
+     *     argument. These are matched by position - the first {@code %s} gets {@code
+     *     errorMessageArgs[0]}, etc. Unmatched arguments will be appended to the formatted message
+     *     in square braces. Unmatched placeholders will be left as-is.
+     * @param errorMessageArgs the arguments to be substituted into the message template. Arguments
+     *     are converted to strings using {@link String#valueOf(Object)}.
      * @return the evaluation result of the boolean expression
      * @throws IllegalArgumentException if {@code expression} is true
      */
-    public static boolean checkArgument(final boolean expression, String tag, String msg) {
+    public static boolean checkArgument(
+            final boolean expression,
+            String tag,
+            @Nullable String errorMessageTemplate,
+            @Nullable Object... errorMessageArgs) {
         if (!expression) {
-            warn(tag, "Illegal argument", msg, new IllegalArgumentException(msg));
+            String msg = format(errorMessageTemplate, errorMessageArgs);
+            warn(tag, "Illegal argument", new IllegalArgumentException(msg), msg);
         }
         return expression;
     }
 
     /**
-     * Throws or logs if an expression involving the parameter of the calling
-     * method is not true.
+     * Throws or logs if an expression involving the parameter of the calling method is not true.
      *
      * @param expression a boolean expression
      * @return the evaluation result of the boolean expression
@@ -69,15 +79,26 @@ public final class SoftPreconditions {
      * Throws or logs if an and object is null.
      *
      * @param reference an object reference
-     * @param tag Used to identify the source of a log message.  It usually
-     *            identifies the class or activity where the log call occurs.
-     * @param msg The message you would like logged.
+     * @param tag Used to identify the source of a log message. It usually identifies the class or
+     *     activity where the log call occurs.
+     * @param errorMessageTemplate a template for the exception message should the check fail. The
+     *     message is formed by replacing each {@code %s} placeholder in the template with an
+     *     argument. These are matched by position - the first {@code %s} gets {@code
+     *     errorMessageArgs[0]}, etc. Unmatched arguments will be appended to the formatted message
+     *     in square braces. Unmatched placeholders will be left as-is.
+     * @param errorMessageArgs the arguments to be substituted into the message template. Arguments
+     *     are converted to strings using {@link String#valueOf(Object)}.
      * @return true if the object is null
      * @throws NullPointerException if {@code reference} is null
      */
-    public static <T> T checkNotNull(final T reference, String tag, String msg) {
+    public static <T> T checkNotNull(
+            final T reference,
+            String tag,
+            @Nullable String errorMessageTemplate,
+            @Nullable Object... errorMessageArgs) {
         if (reference == null) {
-            warn(tag, "Null Pointer", msg, new NullPointerException(msg));
+            String msg = format(errorMessageTemplate, errorMessageArgs);
+            warn(tag, "Null Pointer", new NullPointerException(msg), msg);
         }
         return reference;
     }
@@ -94,26 +115,37 @@ public final class SoftPreconditions {
     }
 
     /**
-     * Throws or logs if an expression involving the state of the calling
-     * instance, but not involving any parameters to the calling method is not true.
+     * Throws or logs if an expression involving the state of the calling instance, but not
+     * involving any parameters to the calling method is not true.
      *
      * @param expression a boolean expression
-     * @param tag Used to identify the source of a log message.  It usually
-     *            identifies the class or activity where the log call occurs.
-     * @param msg The message you would like logged.
+     * @param tag Used to identify the source of a log message. It usually identifies the class or
+     *     activity where the log call occurs.
+     * @param errorMessageTemplate a template for the exception message should the check fail. The
+     *     message is formed by replacing each {@code %s} placeholder in the template with an
+     *     argument. These are matched by position - the first {@code %s} gets {@code
+     *     errorMessageArgs[0]}, etc. Unmatched arguments will be appended to the formatted message
+     *     in square braces. Unmatched placeholders will be left as-is.
+     * @param errorMessageArgs the arguments to be substituted into the message template. Arguments
+     *     are converted to strings using {@link String#valueOf(Object)}.
      * @return the evaluation result of the boolean expression
      * @throws IllegalStateException if {@code expression} is true
      */
-    public static boolean checkState(final boolean expression, String tag, String msg) {
+    public static boolean checkState(
+            final boolean expression,
+            String tag,
+            @Nullable String errorMessageTemplate,
+            @Nullable Object... errorMessageArgs) {
         if (!expression) {
-            warn(tag, "Illegal State", msg, new IllegalStateException(msg));
+            String msg = format(errorMessageTemplate, errorMessageArgs);
+            warn(tag, "Illegal State", new IllegalStateException(msg), msg);
         }
         return expression;
     }
 
     /**
-     * Throws or logs if an expression involving the state of the calling
-     * instance, but not involving any parameters to the calling method is not true.
+     * Throws or logs if an expression involving the state of the calling instance, but not
+     * involving any parameters to the calling method is not true.
      *
      * @param expression a boolean expression
      * @return the evaluation result of the boolean expression
@@ -129,8 +161,8 @@ public final class SoftPreconditions {
      *
      * @param context an android context
      * @param feature the required feature
-     * @param tag used to identify the source of a log message.  It usually
-     *            identifies the class or activity where the log call occurs
+     * @param tag used to identify the source of a log message. It usually identifies the class or
+     *     activity where the log call occurs
      * @throws IllegalStateException if {@code feature} is not enabled
      */
     public static void checkFeatureEnabled(Context context, Feature feature, String tag) {
@@ -138,14 +170,15 @@ public final class SoftPreconditions {
     }
 
     /**
-     * Throws a {@link RuntimeException} if {@link BuildConfig#ENG} is true, else log a warning.
+     * Throws a {@link RuntimeException} if {@link BuildConfig#ENG} is true and not running in a
+     * test, else log a warning.
      *
-     * @param tag Used to identify the source of a log message.  It usually
-     *            identifies the class or activity where the log call occurs.
-     * @param msg The message you would like logged
+     * @param tag Used to identify the source of a log message. It usually identifies the class or
+     *     activity where the log call occurs.
      * @param e The exception to wrap with a RuntimeException when thrown.
+     * @param msg The message to be logged
      */
-    public static void warn(String tag, String prefix, String msg, Exception e)
+    public static void warn(String tag, String prefix, Exception e, String msg)
             throws RuntimeException {
         if (TextUtils.isEmpty(tag)) {
             tag = TAG;
@@ -159,13 +192,57 @@ public final class SoftPreconditions {
             logMessage = prefix + ": " + msg;
         }
 
-        if (BuildConfig.ENG) {
+        if (BuildConfig.ENG && !CommonUtils.isRunningInTest()) {
             throw new RuntimeException(msg, e);
         } else {
             Log.w(tag, logMessage, e);
         }
     }
 
-    private SoftPreconditions() {
+    /**
+     * Substitutes each {@code %s} in {@code template} with an argument. These are matched by
+     * position: the first {@code %s} gets {@code args[0]}, etc. If there are more arguments than
+     * placeholders, the unmatched arguments will be appended to the end of the formatted message in
+     * square braces.
+     *
+     * @param template a string containing 0 or more {@code %s} placeholders. null is treated as
+     *     "null".
+     * @param args the arguments to be substituted into the message template. Arguments are
+     *     converted to strings using {@link String#valueOf(Object)}. Arguments can be null.
+     */
+    static String format(@Nullable String template, @Nullable Object... args) {
+        template = String.valueOf(template); // null -> "null"
+
+        args = args == null ? new Object[] {"(Object[])null"} : args;
+
+        // start substituting the arguments into the '%s' placeholders
+        StringBuilder builder = new StringBuilder(template.length() + 16 * args.length);
+        int templateStart = 0;
+        int i = 0;
+        while (i < args.length) {
+            int placeholderStart = template.indexOf("%s", templateStart);
+            if (placeholderStart == -1) {
+                break;
+            }
+            builder.append(template, templateStart, placeholderStart);
+            builder.append(args[i++]);
+            templateStart = placeholderStart + 2;
+        }
+        builder.append(template, templateStart, template.length());
+
+        // if we run out of placeholders, append the extra args in square braces
+        if (i < args.length) {
+            builder.append(" [");
+            builder.append(args[i++]);
+            while (i < args.length) {
+                builder.append(", ");
+                builder.append(args[i++]);
+            }
+            builder.append(']');
+        }
+
+        return builder.toString();
     }
+
+    private SoftPreconditions() {}
 }

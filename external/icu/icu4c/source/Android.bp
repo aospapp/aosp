@@ -19,8 +19,12 @@ subdirs = [
 
 cc_library_static {
     name: "libicuuc_stubdata",
-    vendor_available: true,
     host_supported: true,
-    srcs: ["stubdata/stubdata.c"],
+    srcs: ["stubdata/stubdata.cpp"],
     local_include_dirs: ["common"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+    cppflags: ["-std=c++11"],
 }

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <string.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <termios.h>
@@ -55,11 +56,17 @@ uint8_t uart_write_cmd(handle_t *handle, uint8_t cmd)
 uint8_t uart_read_data(handle_t *handle, uint8_t *data, int length)
 {
     uart_handle_t *uart_handle = (uart_handle_t *)handle;
+    int ret;
 
-    if (read(uart_handle->fd, data, length) == length)
-        return CMD_ACK;
-    else
-        return CMD_NACK;
+    while (length > 0) {
+        ret = read(uart_handle->fd, data, length);
+        if (ret <= 0)
+            return CMD_NACK;
+        data += ret;
+        length -= ret;
+    }
+
+    return CMD_ACK;
 }
 
 uint8_t uart_read_ack(handle_t *handle)
@@ -81,6 +88,8 @@ int uart_init(handle_t *handle)
     handle->cmd_erase = CMD_ERASE;
     handle->cmd_read_memory = CMD_READ_MEMORY;
     handle->cmd_write_memory = CMD_WRITE_MEMORY;
+
+    handle->no_extra_sync = 1;
 
     handle->write_data = uart_write_data;
     handle->write_cmd = uart_write_cmd;

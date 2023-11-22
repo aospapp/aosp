@@ -17,7 +17,6 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
-CAR_CURRENT_SDK_VERSION := 23
 CAR_API_CHECK := $(LOCAL_PATH)/apicheck.mk
 api_check_current_msg_file := $(LOCAL_PATH)/apicheck_msg_current.txt
 api_check_last_msg_file := $(LOCAL_PATH)/apicheck_msg_last.txt
@@ -28,7 +27,6 @@ api_check_last_msg_file := $(LOCAL_PATH)/apicheck_msg_last.txt
 include $(call all-makefiles-under,$(LOCAL_PATH))
 
 # Clear out variables
-CAR_CURRENT_SDK_VERSION :=
 CAR_API_CHECK :=
 api_check_current_msg_file :=
 api_check_last_msg_file :=

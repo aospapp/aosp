@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Carrier APIs test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="telecom" />
     <option name="not-shardable" value="true" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.TokenRequirement">
@@ -25,5 +26,6 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.carrierapi.cts" />
+        <option name="hidden-api-checks" value="false"/>
     </test>
 </configuration>

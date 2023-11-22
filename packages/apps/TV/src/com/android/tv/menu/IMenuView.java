@@ -17,33 +17,26 @@
 package com.android.tv.menu;
 
 import com.android.tv.menu.Menu.MenuShowReason;
-
 import java.util.List;
 
-/**
- * An base interface for menu view.
- */
+/** An base interface for menu view. */
 public interface IMenuView {
-    /**
-     * Sets menu rows.
-     */
+    /** Sets menu rows. */
     void setMenuRows(List<MenuRow> menuRows);
 
     /**
      * Shows the main menu.
      *
-     * <p> The inherited class should show the menu and select the row corresponding to
-     * {@code rowIdToSelect}. If the menu is already visible, change the current selection to the
-     * given row.
+     * <p>The inherited class should show the menu and select the row corresponding to {@code
+     * rowIdToSelect}. If the menu is already visible, change the current selection to the given
+     * row.
      *
      * @param reason A reason why this is called. See {@link MenuShowReason}.
      * @param rowIdToSelect An ID of the row which corresponds to the {@code reason}.
      */
     void onShow(@MenuShowReason int reason, String rowIdToSelect, Runnable runnableAfterShow);
 
-    /**
-     * Hides the main menu
-     */
+    /** Hides the main menu */
     void onHide();
 
     /**
@@ -60,8 +53,6 @@ public interface IMenuView {
      */
     boolean update(String rowId, boolean menuActive);
 
-    /**
-     * Checks if the menu view is visible or not.
-     */
+    /** Checks if the menu view is visible or not. */
     boolean isVisible();
 }

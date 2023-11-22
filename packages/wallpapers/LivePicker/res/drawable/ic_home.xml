@@ -21,7 +21,7 @@ Copyright (C) 2016 The Android Open Source Project
         android:tint="?android:attr/colorAccent">
 
     <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+        android:fillColor="#FF000000"
+        android:pathData="M12,3L4,9v12h16V9L12,3zM18,19h-3v-6H9v6H6v-9l6,-4.5l6,4.5V19z"/>
 
 </vector>

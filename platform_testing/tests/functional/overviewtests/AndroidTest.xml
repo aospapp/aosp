@@ -14,7 +14,10 @@
      limitations under the License.
 -->
 <configuration description="Runs Platform Android Overview Functional Tests.">
-    <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
+    <option name="test-suite-tag" value="apct" />
+    <option name="test-suite-tag" value="apct-instrumentation" />
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="OverviewFunctionalTests.apk" />
     </target_preparer>
 

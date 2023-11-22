@@ -95,8 +95,12 @@ static void audio_state_cb(const RawAddress* bd_addr,
 static void vr_cmd_cb(const RawAddress* bd_addr, bthf_client_vr_state_t state) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
+
+  ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
+  if (!addr.get()) return;
+
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onVrStateChanged,
-                               (jint)state);
+                               (jint)state, addr.get());
 }
 
 static void network_state_cb(const RawAddress* bd_addr,
@@ -348,7 +352,8 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
       env->GetMethodID(clazz, "onConnectionStateChanged", "(III[B)V");
   method_onAudioStateChanged =
       env->GetMethodID(clazz, "onAudioStateChanged", "(I[B)V");
-  method_onVrStateChanged = env->GetMethodID(clazz, "onVrStateChanged", "(I)V");
+  method_onVrStateChanged =
+      env->GetMethodID(clazz, "onVrStateChanged", "(I[B)V");
   method_onNetworkState = env->GetMethodID(clazz, "onNetworkState", "(I[B)V");
   method_onNetworkRoaming = env->GetMethodID(clazz, "onNetworkRoaming", "(I[B)V");
   method_onNetworkSignal = env->GetMethodID(clazz, "onNetworkSignal", "(I[B)V");
@@ -576,17 +581,18 @@ static jboolean dialNative(JNIEnv* env, jobject object, jbyteArray address,
     return JNI_FALSE;
   }
 
-  const char* number = NULL;
-  if (number_str != NULL) {
-    number = env->GetStringUTFChars(number_str, NULL);
+  const char* number = nullptr;
+  if (number_str != nullptr) {
+    number = env->GetStringUTFChars(number_str, nullptr);
   }
-
   bt_status_t status =
-      sBluetoothHfpClientInterface->dial((const RawAddress*)addr, number);
+    sBluetoothHfpClientInterface->dial((const RawAddress*)addr,
+                                       number == nullptr ? "" : number);
+
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed to dial, status: %d", status);
   }
-  if (number != NULL) {
+  if (number != nullptr) {
     env->ReleaseStringUTFChars(number_str, number);
   }
   env->ReleaseByteArrayElements(address, addr, 0);
@@ -747,7 +753,6 @@ static jboolean sendATCmdNative(JNIEnv* env, jobject object, jbyteArray address,
     jniThrowIOException(env, EINVAL);
     return JNI_FALSE;
   }
-
   const char* arg = NULL;
   if (arg_str != NULL) {
     arg = env->GetStringUTFChars(arg_str, NULL);

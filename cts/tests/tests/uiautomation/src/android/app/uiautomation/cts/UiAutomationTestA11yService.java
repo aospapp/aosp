@@ -49,7 +49,7 @@ public class UiAutomationTestA11yService extends AccessibilityService {
 
     public boolean isConnected() {
         try {
-            if (getRootInActiveWindow() == null) {
+            if (getServiceInfo() == null) {
                 return false;
             }
             return true;

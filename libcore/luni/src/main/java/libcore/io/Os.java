@@ -18,12 +18,13 @@ package libcore.io;
 
 import android.system.ErrnoException;
 import android.system.GaiException;
+import android.system.Int32Ref;
+import android.system.Int64Ref;
 import android.system.StructAddrinfo;
 import android.system.StructCapUserData;
 import android.system.StructCapUserHeader;
 import android.system.StructFlock;
 import android.system.StructGroupReq;
-import android.system.StructGroupSourceReq;
 import android.system.StructIfaddrs;
 import android.system.StructLinger;
 import android.system.StructPasswd;
@@ -34,8 +35,7 @@ import android.system.StructStatVfs;
 import android.system.StructTimeval;
 import android.system.StructUcred;
 import android.system.StructUtsname;
-import android.util.MutableInt;
-import android.util.MutableLong;
+
 import java.io.FileDescriptor;
 import java.io.InterruptedIOException;
 import java.net.InetAddress;
@@ -102,7 +102,7 @@ public interface Os {
     public InetAddress inet_pton(int family, String address);
     public int ioctlFlags(FileDescriptor fd, String interfaceName) throws ErrnoException;
     public InetAddress ioctlInetAddress(FileDescriptor fd, int cmd, String interfaceName) throws ErrnoException;
-    public int ioctlInt(FileDescriptor fd, int cmd, MutableInt arg) throws ErrnoException;
+    public int ioctlInt(FileDescriptor fd, int cmd, Int32Ref arg) throws ErrnoException;
     public int ioctlMTU(FileDescriptor fd, String interfaceName) throws ErrnoException;
     public boolean isatty(FileDescriptor fd);
     public void kill(int pid, int signal) throws ErrnoException;
@@ -143,7 +143,7 @@ public interface Os {
     public int sendto(FileDescriptor fd, ByteBuffer buffer, int flags, InetAddress inetAddress, int port) throws ErrnoException, SocketException;
     public int sendto(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, InetAddress inetAddress, int port) throws ErrnoException, SocketException;
     public int sendto(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, SocketAddress address) throws ErrnoException, SocketException;
-    public long sendfile(FileDescriptor outFd, FileDescriptor inFd, MutableLong inOffset, long byteCount) throws ErrnoException;
+    public long sendfile(FileDescriptor outFd, FileDescriptor inFd, Int64Ref offset, long byteCount) throws ErrnoException;
     public void setegid(int egid) throws ErrnoException;
     public void setenv(String name, String value, boolean overwrite) throws ErrnoException;
     public void seteuid(int euid) throws ErrnoException;
@@ -157,7 +157,6 @@ public interface Os {
     public void setsockoptInt(FileDescriptor fd, int level, int option, int value) throws ErrnoException;
     public void setsockoptIpMreqn(FileDescriptor fd, int level, int option, int value) throws ErrnoException;
     public void setsockoptGroupReq(FileDescriptor fd, int level, int option, StructGroupReq value) throws ErrnoException;
-    public void setsockoptGroupSourceReq(FileDescriptor fd, int level, int option, StructGroupSourceReq value) throws ErrnoException;
     public void setsockoptLinger(FileDescriptor fd, int level, int option, StructLinger value) throws ErrnoException;
     public void setsockoptTimeval(FileDescriptor fd, int level, int option, StructTimeval value) throws ErrnoException;
     public void setuid(int uid) throws ErrnoException;
@@ -165,6 +164,7 @@ public interface Os {
     public void shutdown(FileDescriptor fd, int how) throws ErrnoException;
     public FileDescriptor socket(int domain, int type, int protocol) throws ErrnoException;
     public void socketpair(int domain, int type, int protocol, FileDescriptor fd1, FileDescriptor fd2) throws ErrnoException;
+    public long splice(FileDescriptor fdIn, Int64Ref offIn, FileDescriptor fdOut, Int64Ref offOut, long len, int flags) throws ErrnoException;
     public StructStat stat(String path) throws ErrnoException;
     public StructStatVfs statvfs(String path) throws ErrnoException;
     public String strerror(int errno);
@@ -177,7 +177,7 @@ public interface Os {
     public StructUtsname uname();
     public void unlink(String pathname) throws ErrnoException;
     public void unsetenv(String name) throws ErrnoException;
-    public int waitpid(int pid, MutableInt status, int options) throws ErrnoException;
+    public int waitpid(int pid, Int32Ref status, int options) throws ErrnoException;
     public int write(FileDescriptor fd, ByteBuffer buffer) throws ErrnoException, InterruptedIOException;
     public int write(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount) throws ErrnoException, InterruptedIOException;
     public int writev(FileDescriptor fd, Object[] buffers, int[] offsets, int[] byteCounts) throws ErrnoException, InterruptedIOException;

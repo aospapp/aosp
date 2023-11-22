@@ -16,6 +16,7 @@
 
 #include <algos/time_sync.h>
 #include <atomic.h>
+#include <common/math/macros.h>
 #include <cpu/cpuMath.h>
 #include <errno.h>
 #include <gpio.h>
@@ -40,7 +41,7 @@
 #include <variant/variant.h>
 
 #ifdef MAG_SLAVE_PRESENT
-#include <calibration/magnetometer/mag_cal.h>
+#include <calibration/magnetometer/mag_cal/mag_cal.h>
 #endif
 
 #ifdef ACCEL_CAL_ENABLED
@@ -61,12 +62,7 @@
 
 #ifdef GYRO_CAL_ENABLED
 #include <calibration/gyroscope/gyro_cal.h>
-#include <common/math/macros.h>
 #endif  // GYRO_CAL_ENABLED
-
-#if defined(GYRO_CAL_DBG_ENABLED) || defined(OVERTEMPCAL_DBG_ENABLED)
-#include <calibration/util/cal_log.h>
-#endif  // GYRO_CAL_DBG_ENABLED || OVERTEMPCAL_DBG_ENABLED
 
 #ifdef OVERTEMPCAL_ENABLED
 #include <calibration/over_temp/over_temp_cal.h>
@@ -108,7 +104,7 @@
 #define DBG_WM_CALC               0
 #define TIMESTAMP_DBG             0
 
-#define BMI160_APP_VERSION 17
+#define BMI160_APP_VERSION 20
 
 // fixme: to list required definitions for a slave mag
 #ifdef USE_BMM150
@@ -258,6 +254,18 @@
 #define EVT_SENSOR_STEP_COUNTER sensorGetMyEventType(SENS_TYPE_STEP_COUNT)
 
 #define MAX_NUM_COMMS_EVENT_SAMPLES 15
+
+#ifndef BMI160_ACC_SAMPLES
+#define BMI160_ACC_SAMPLES 3000
+#endif
+
+#ifndef BMI160_GYRO_SAMPLES
+#define BMI160_GYRO_SAMPLES 20
+#endif
+
+#ifndef BMI160_MAG_SAMPLES
+#define BMI160_MAG_SAMPLES 600
+#endif
 
 // Default accel range is 8g
 #ifndef BMI160_ACC_RANGE_G
@@ -749,18 +757,19 @@ static const struct SensorInfo mSensorInfo[NUM_OF_SENSOR] =
 {
 #ifdef ACCEL_CAL_ENABLED
     { DEC_INFO_RATE_RAW_BIAS("Accelerometer", AccRates, SENS_TYPE_ACCEL, NUM_AXIS_THREE,
-            NANOHUB_INT_NONWAKEUP, 3000, SENS_TYPE_ACCEL_RAW, 1.0/kScale_acc,
-            SENS_TYPE_ACCEL_BIAS) },
+            NANOHUB_INT_NONWAKEUP, BMI160_ACC_SAMPLES, SENS_TYPE_ACCEL_RAW,
+            1.0/kScale_acc, SENS_TYPE_ACCEL_BIAS) },
 #else
     { DEC_INFO_RATE_RAW("Accelerometer", AccRates, SENS_TYPE_ACCEL, NUM_AXIS_THREE,
-            NANOHUB_INT_NONWAKEUP, 3000, SENS_TYPE_ACCEL_RAW, 1.0/kScale_acc) },
+            NANOHUB_INT_NONWAKEUP, BMI160_ACC_SAMPLES, SENS_TYPE_ACCEL_RAW,
+            1.0/kScale_acc) },
 #endif
     { DEC_INFO_RATE_BIAS("Gyroscope", GyrRates, SENS_TYPE_GYRO, NUM_AXIS_THREE,
-            NANOHUB_INT_NONWAKEUP, 20, SENS_TYPE_GYRO_BIAS) },
+            NANOHUB_INT_NONWAKEUP, BMI160_GYRO_SAMPLES, SENS_TYPE_GYRO_BIAS) },
 #ifdef MAG_SLAVE_PRESENT
     { DEC_INFO_RATE_RAW_BIAS("Magnetometer", MagRates, SENS_TYPE_MAG, NUM_AXIS_THREE,
-            NANOHUB_INT_NONWAKEUP, 600, SENS_TYPE_MAG_RAW, 1.0/kScale_mag,
-            SENS_TYPE_MAG_BIAS) },
+            NANOHUB_INT_NONWAKEUP, BMI160_MAG_SAMPLES, SENS_TYPE_MAG_RAW,
+            1.0/kScale_mag, SENS_TYPE_MAG_BIAS) },
 #endif
     { DEC_INFO("Step Detector", SENS_TYPE_STEP_DETECT, NUM_AXIS_EMBEDDED,
             NANOHUB_INT_NONWAKEUP, 100) },
@@ -1201,13 +1210,6 @@ static void configFifo(void)
     int i;
     uint8_t val = 0x12;
     bool any_fifo_enabled_prev = anyFifoEnabled();
-#ifdef ACCEL_CAL_ENABLED
-    struct BMI160Sensor *mSensorAcc;
-    bool accelCalNewBiasAvailable;
-    struct TripleAxisDataPoint *sample;
-    float accelCalBiasX, accelCalBiasY, accelCalBiasZ;
-    bool fallThrough;
-#endif
 
     // if ACC is configed, enable ACC bit in fifo_config reg.
     if (mTask.sensors[ACC].configed && mTask.sensors[ACC].latency != SENSOR_LATENCY_NODATA) {
@@ -1215,42 +1217,6 @@ static void configFifo(void)
         mTask.fifo_enabled[ACC] = true;
     } else {
         mTask.fifo_enabled[ACC] = false;
-#ifdef ACCEL_CAL_ENABLED
-        // https://source.android.com/devices/sensors/sensor-types.html
-        // "The bias and scale calibration must only be updated while the sensor is deactivated,
-        // so as to avoid causing jumps in values during streaming."
-        accelCalNewBiasAvailable = accelCalUpdateBias(&mTask.acc, &accelCalBiasX, &accelCalBiasY, &accelCalBiasZ);
-
-        mSensorAcc = &mTask.sensors[ACC];
-        // notify HAL about new accel bias calibration
-        if (accelCalNewBiasAvailable) {
-            fallThrough = true;
-            if (mSensorAcc->data_evt->samples[0].firstSample.numSamples > 0) {
-                // flush existing samples so the bias appears after them
-                flushData(mSensorAcc,
-                        EVENT_TYPE_BIT_DISCARDABLE | sensorGetMyEventType(mSensorInfo[ACC].sensorType));
-
-                // try to allocate another data event and break if unsuccessful
-                if (!allocateDataEvt(mSensorAcc, sensorGetTime())) {
-                    fallThrough = false;
-                }
-            }
-
-            if (fallThrough) {
-                mSensorAcc->data_evt->samples[0].firstSample.biasCurrent = true;
-                mSensorAcc->data_evt->samples[0].firstSample.biasPresent = 1;
-                mSensorAcc->data_evt->samples[0].firstSample.biasSample =
-                        mSensorAcc->data_evt->samples[0].firstSample.numSamples;
-                sample = &mSensorAcc->data_evt->samples[mSensorAcc->data_evt->samples[0].firstSample.numSamples++];
-                sample->x = accelCalBiasX;
-                sample->y = accelCalBiasY;
-                sample->z = accelCalBiasZ;
-                flushData(mSensorAcc, sensorGetMyEventType(mSensorInfo[ACC].biasType));
-
-                allocateDataEvt(mSensorAcc, sensorGetTime());
-            }
-        }
-#endif
     }
 
     // if GYR is configed, enable GYR bit in fifo_config reg.
@@ -2092,7 +2058,12 @@ static void parseRawData(struct BMI160Sensor *mSensor, uint8_t *buf, float kScal
                       x, y, z, mTask.tempCelsius);
 
           accelCalBiasRemove(&mTask.acc, &x, &y, &z);
-#endif
+
+#ifdef ACCEL_CAL_DBG_ENABLED
+          // Prints debug data report.
+          accelCalDebPrint(&mTask.acc, mTask.tempCelsius);
+#endif  // ACCEL_CAL_DBG_ENABLED
+#endif  // ACCEL_CAL_ENABLED
 
 #ifdef GYRO_CAL_ENABLED
           // Gyro Cal -- Add accelerometer sample.
@@ -2159,12 +2130,54 @@ static void parseRawData(struct BMI160Sensor *mSensor, uint8_t *buf, float kScal
         return;
     }
 
+#ifdef ACCEL_CAL_ENABLED
+    // https://source.android.com/devices/sensors/sensor-types.html
+    // "The bias and scale calibration must only be updated while the sensor is deactivated,
+    // so as to avoid causing jumps in values during streaming." Note, this is now regulated
+    // by the SensorHAL.
+    if (mSensor->idx == ACC) {
+        float accel_offset[3] = {0.0f, 0.0f, 0.0f};
+        bool accelCalNewBiasAvailable = accelCalUpdateBias(
+            &mTask.acc, &accel_offset[0], &accel_offset[1], &accel_offset[2]);
+        if (accelCalNewBiasAvailable) {
+            if (mSensor->data_evt->samples[0].firstSample.numSamples > 0) {
+                // Flushes existing samples so the bias appears after them.
+                flushData(mSensor,
+                          EVENT_TYPE_BIT_DISCARDABLE |
+                          sensorGetMyEventType(mSensorInfo[ACC].sensorType));
+
+                // Tries to allocate another data event and breaks if unsuccessful.
+                if (!allocateDataEvt(mSensor, rtc_time)) {
+                    return;
+                }
+            }
+            mSensor->data_evt->samples[0].firstSample.biasCurrent = true;
+            mSensor->data_evt->samples[0].firstSample.biasPresent = 1;
+            mSensor->data_evt->samples[0].firstSample.biasSample =
+                mSensor->data_evt->samples[0].firstSample.numSamples;
+            sample = &mSensor->data_evt->
+                samples[mSensor->data_evt->samples[0].firstSample.numSamples++];
+
+            // Updates the accel offset in HAL.
+            sample->x = accel_offset[0];
+            sample->y = accel_offset[1];
+            sample->z = accel_offset[2];
+
+            flushData(mSensor, sensorGetMyEventType(mSensorInfo[ACC].biasType));
+            if (!allocateDataEvt(mSensor, rtc_time)) {
+                return;
+            }
+        }
+    }
+#endif  // ACCEL_CAL_ENABLED
+
 #ifdef MAG_SLAVE_PRESENT
     if (mSensor->idx == MAG && (newMagBias || !mTask.magBiasPosted)) {
         if (mSensor->data_evt->samples[0].firstSample.numSamples > 0) {
             // flush existing samples so the bias appears after them
             flushData(mSensor,
-                    EVENT_TYPE_BIT_DISCARDABLE | sensorGetMyEventType(mSensorInfo[MAG].sensorType));
+                      EVENT_TYPE_BIT_DISCARDABLE |
+                      sensorGetMyEventType(mSensorInfo[MAG].sensorType));
             if (!allocateDataEvt(mSensor, rtc_time)) {
                 return;
             }
@@ -2176,9 +2189,13 @@ static void parseRawData(struct BMI160Sensor *mSensor, uint8_t *buf, float kScal
         mSensor->data_evt->samples[0].firstSample.biasPresent = 1;
         mSensor->data_evt->samples[0].firstSample.biasSample =
                 mSensor->data_evt->samples[0].firstSample.numSamples;
-        sample = &mSensor->data_evt->samples[mSensor->data_evt->samples[0].firstSample.numSamples++];
+        sample = &mSensor->data_evt->
+            samples[mSensor->data_evt->samples[0].firstSample.numSamples++];
+
+        // Updates the mag offset in HAL.
         magCalGetBias(&mTask.moc, &sample->x, &sample->y, &sample->z);
-        // bias is non-discardable, if we fail to enqueue, don't clear new_mag_bias
+
+        // Bias is non-discardable, if we fail to enqueue, don't clear magBiasPosted.
         if (flushData(mSensor, sensorGetMyEventType(mSensorInfo[MAG].biasType))) {
             mTask.magBiasPosted = true;
         }
@@ -2187,17 +2204,20 @@ static void parseRawData(struct BMI160Sensor *mSensor, uint8_t *buf, float kScal
             return;
         }
     }
-#endif
+#endif  // MAG_SLAVE_PRESENT
+
 #ifdef GYRO_CAL_ENABLED
     if (mSensor->idx == GYR) {
       // GyroCal -- Checks for a new offset estimate update.
       float gyro_offset[3] = {0.0f, 0.0f, 0.0f};
       float gyro_offset_temperature_celsius = 0.0f;
+      uint64_t calibration_time_nanos = 0;
       bool new_gyrocal_offset_update = gyroCalNewBiasAvailable(&mTask.gyro_cal);
       if (new_gyrocal_offset_update) {
         // GyroCal -- Gets the GyroCal offset estimate.
         gyroCalGetBias(&mTask.gyro_cal, &gyro_offset[0], &gyro_offset[1],
-                       &gyro_offset[2], &gyro_offset_temperature_celsius);
+                       &gyro_offset[2], &gyro_offset_temperature_celsius,
+                       &calibration_time_nanos);
 
 #ifdef OVERTEMPCAL_ENABLED
         // OTC-Gyro Cal -- Sends a new GyroCal estimate to the OTC-Gyro.
@@ -2243,17 +2263,6 @@ static void parseRawData(struct BMI160Sensor *mSensor, uint8_t *buf, float kScal
         sample->y = gyro_offset[1];
         sample->z = gyro_offset[2];
 
-#if defined(GYRO_CAL_DBG_ENABLED) || defined(OVERTEMPCAL_DBG_ENABLED)
-        CAL_DEBUG_LOG("[GYRO_OFFSET:STORED]",
-                      "Offset|Temp|Time: %s%d.%06d, %s%d.%06d, %s%d.%06d | "
-                      "%s%d.%06d | %llu",
-                      CAL_ENCODE_FLOAT(sample->x, 6),
-                      CAL_ENCODE_FLOAT(sample->y, 6),
-                      CAL_ENCODE_FLOAT(sample->z, 6),
-                      CAL_ENCODE_FLOAT(gyro_offset_temperature_celsius, 6),
-                      (unsigned long long int)rtc_time);
-#endif  // GYRO_CAL_DBG_ENABLED || OVERTEMPCAL_DBG_ENABLED
-
         flushData(mSensor, sensorGetMyEventType(mSensorInfo[GYR].biasType));
         if (!allocateDataEvt(mSensor, rtc_time)) {
           return;
@@ -2284,7 +2293,7 @@ static void parseRawData(struct BMI160Sensor *mSensor, uint8_t *buf, float kScal
 
     //DEBUG_PRINT("bmi160: x: %d, y: %d, z: %d\n", (int)(1000*x), (int)(1000*y), (int)(1000*z));
 
-    //TODO: This was added to prevent to much data of the same type accumulate in internal buffer.
+    //TODO: This was added to prevent too much data of the same type accumulate in internal buffer.
     //      It might no longer be necessary and can be removed.
     if (mSensor->data_evt->samples[0].firstSample.numSamples == MAX_NUM_COMMS_EVENT_SAMPLES) {
         flushAllData();
@@ -3116,8 +3125,11 @@ static bool gyrCfgData(void *data, void *cookie)
                 bias->hardwareBias[2] & 0xFF);
 
 #ifdef GYRO_CAL_ENABLED
-        gyroCalSetBias(&T(gyro_cal), bias->softwareBias[0], bias->softwareBias[1],
-                       bias->softwareBias[2], sensorGetTime());
+        const float dummy_temperature_celsius = 25.0f;
+        gyroCalSetBias(&T(gyro_cal), bias->softwareBias[0],
+                       bias->softwareBias[1], bias->softwareBias[2],
+                       dummy_temperature_celsius,
+                       sensorGetTime());
 #endif  // GYRO_CAL_ENABLED
         if (!saveCalibration()) {
             T(pending_calibration_save) = true;
@@ -3217,9 +3229,8 @@ static bool magCfgData(void *data, void *cookie)
                 (int)(d->inclination * 180 / M_PI + 0.5f));
 
         // Passing local field information to mag calibration routine
-#ifdef DIVERSITY_CHECK_ENABLED
         diversityCheckerLocalFieldUpdate(&mTask.moc.diversity_checker, d->strength);
-#endif
+
         // TODO: pass local field information to rotation vector sensor.
     } else {
         ERROR_PRINT("magCfgData: unknown type 0x%04x, size %d", p->type, p->size);
@@ -3333,7 +3344,7 @@ static void processPendingEvt(void)
         }
     }
     if (mTask.sensors[STEPCNT].flush > 0 || T(pending_step_cnt)) {
-        T(pending_step_cnt) = T(pending_step_cnt) && !stepCntFlushGetData();
+        T(pending_step_cnt) = !stepCntFlushGetData() && T(pending_step_cnt);
         return;
     }
     if (mTask.pending_calibration_save) {
@@ -3833,83 +3844,98 @@ static bool startTask(uint32_t task_id)
     osEventSubscribe(mTask.tid, EVT_APP_START);
 
 #ifdef ACCEL_CAL_ENABLED
-    // Init Accel Cal
-    accelCalInit(&mTask.acc,
-                 800000000, /* Stillness Time in ns (0.8s) */
-                 5,         /* Minimum Sample Number */
-                 0.00025,   /* Threshold */
-                 15,        /* nx bucket count */
-                 15,        /* nxb bucket count */
-                 15,        /* ny bucket count */
-                 15,        /* nyb bucket count */
-                 15,        /* nz bucket count */
-                 15,        /* nzb bucket count */
-                 15);       /* nle bucket count */
-#endif
+    // Initializes the accelerometer offset calibration algorithm.
+    const struct AccelCalParameters accel_cal_parameters = {
+        MSEC_TO_NANOS(800),  // t0
+        5,                   // n_s
+        15,                  // fx
+        15,                  // fxb
+        15,                  // fy
+        15,                  // fyb
+        15,                  // fz
+        15,                  // fzb
+        15,                  // fle
+        0.00025f             // th
+    };
+    accelCalInit(&mTask.acc, &accel_cal_parameters);
+#endif  // ACCEL_CAL_ENABLED
 
 #ifdef GYRO_CAL_ENABLED
-    // Gyro Cal -- Initialization.
-    gyroCalInit(&mTask.gyro_cal,
-                SEC_TO_NANOS(5.0f),   // Min stillness period = 5.0 seconds
-                SEC_TO_NANOS(5.9f),   // Max stillness period = 6.0 seconds (NOTE 1)
-                0, 0, 0,              // Initial bias offset calibration
-                0,                    // Time stamp of initial bias calibration
-                SEC_TO_NANOS(1.5f),   // Analysis window length = 1.5 seconds
-                7.5e-5f,              // Gyroscope variance threshold [rad/sec]^2
-                1.5e-5f,              // Gyroscope confidence delta [rad/sec]^2
-                4.5e-3f,              // Accelerometer variance threshold [m/sec^2]^2
-                9.0e-4f,              // Accelerometer confidence delta [m/sec^2]^2
-                5.0f,                 // Magnetometer variance threshold [uT]^2
-                1.0f,                 // Magnetometer confidence delta [uT]^2
-                0.95f,                // Stillness threshold [0,1]
-                40.0f * MDEG_TO_RAD,  // Stillness mean variation limit [rad/sec]
-                1.5f,                 // Max temperature delta during stillness [C]
-                true);                // Gyro calibration enable
-    // NOTE 1: This parameter is set to 5.9 seconds to achieve a max stillness
-    // period of 6.0 seconds and avoid buffer boundary conditions that could push
-    // the max stillness to the next multiple of the analysis window length
-    // (i.e., 7.5 seconds).
+    // Initializes the gyroscope offset calibration algorithm.
+    const struct GyroCalParameters gyro_cal_parameters = {
+        SEC_TO_NANOS(5),      // min_still_duration_nanos
+        SEC_TO_NANOS(5.9f),   // max_still_duration_nanos [see, NOTE 1]
+        0,                    // calibration_time_nanos
+        SEC_TO_NANOS(1.5f),   // window_time_duration_nanos
+        0,                    // bias_x
+        0,                    // bias_y
+        0,                    // bias_z
+        0.95f,                // stillness_threshold
+        MDEG_TO_RAD * 40.0f,  // stillness_mean_delta_limit [rad/sec]
+        7.5e-5f,              // gyro_var_threshold [rad/sec]^2
+        1.5e-5f,              // gyro_confidence_delta [rad/sec]^2
+        4.5e-3f,              // accel_var_threshold [m/sec^2]^2
+        9.0e-4f,              // accel_confidence_delta [m/sec^2]^2
+        5.0f,                 // mag_var_threshold [uTesla]^2
+        1.0f,                 // mag_confidence_delta [uTesla]^2
+        1.5f,                 // temperature_delta_limit_celsius
+        true                  // gyro_calibration_enable
+    };
+    // [NOTE 1]: 'max_still_duration_nanos' is set to 5.9 seconds to achieve a
+    // max stillness period of 6.0 seconds and avoid buffer boundary conditions
+    // that could push the max stillness to the next multiple of the analysis
+    // window length (i.e., 7.5 seconds).
+    gyroCalInit(&mTask.gyro_cal, &gyro_cal_parameters);
 
 #ifdef OVERTEMPCAL_ENABLED
-    // Initialize over-temp calibration.
-    overTempCalInit(&mTask.over_temp_gyro_cal,
-                    5,                     // Min num of points to enable model update
-                    SEC_TO_NANOS(0.5f),    // Min temperature update interval [nsec]
-                    0.75f,                 // Temperature span of bin method [C]
-                    40.0f * MDEG_TO_RAD,   // Jump tolerance [rad/sec]
-                    50.0f * MDEG_TO_RAD,   // Outlier rejection tolerance [rad/sec]
-                    DAYS_TO_NANOS(2),      // Model data point age limit [nsec]
-                    80.0f * MDEG_TO_RAD,   // Limit for temp. sensitivity [rad/sec/C]
-                    3.0e3f * MDEG_TO_RAD,  // Limit for model intercept parameter [rad/sec]
-                    0.1f * MDEG_TO_RAD,    // Significant offset change [rad/sec]
-                    true);                 // Over-temp compensation enable
+    // Initializes the gyroscope over-temperature offset compensation algorithm.
+    const struct OverTempCalParameters gyro_otc_parameters = {
+        MSEC_TO_NANOS(500),    // min_temp_update_period_nanos
+        DAYS_TO_NANOS(2),      // age_limit_nanos
+        0.75f,                 // delta_temp_per_bin
+        40.0f * MDEG_TO_RAD,   // jump_tolerance
+        50.0f * MDEG_TO_RAD,   // outlier_limit
+        80.0f * MDEG_TO_RAD,   // temp_sensitivity_limit
+        3.0e3f * MDEG_TO_RAD,  // sensor_intercept_limit
+        0.1f * MDEG_TO_RAD,    // significant_offset_change
+        5,                     // min_num_model_pts
+        true                   // over_temp_enable
+    };
+    overTempCalInit(&mTask.over_temp_gyro_cal, &gyro_otc_parameters);
+
 #endif  // OVERTEMPCAL_ENABLED
 #endif  // GYRO_CAL_ENABLED
 
 #ifdef MAG_SLAVE_PRESENT
-#ifdef DIVERSITY_CHECK_ENABLED
-    initMagCal(&mTask.moc,
-               0.0f, 0.0f, 0.0f,   // bias x, y, z
-               1.0f, 0.0f, 0.0f,   // c00, c01, c02
-               0.0f, 1.0f, 0.0f,   // c10, c11, c12
-               0.0f, 0.0f, 1.0f,   // c20, c21, c22
-               3000000,            // min_batch_window_in_micros
-               8,                  // min_num_diverse_vectors
-               1,                  // max_num_max_distance
-               6.0f,               // var_threshold
-               10.0f,              // max_min_threshold
-               48.f,               // local_field
-               0.5f,               // threshold_tuning_param
-               2.552f);            // max_distance_tuning_param
-#else
-    initMagCal(&mTask.moc,
-               0.0f, 0.0f, 0.0f,   // bias x, y, z
-               1.0f, 0.0f, 0.0f,   // c00, c01, c02
-               0.0f, 1.0f, 0.0f,   // c10, c11, c12
-               0.0f, 0.0f, 1.0f,   // c20, c21, c22
-               3000000);           // min_batch_window_in_micros
-#endif
-#endif
+    const struct MagCalParameters mag_cal_parameters = {
+        3000000,  // min_batch_window_in_micros
+        0.0f,     // x_bias
+        0.0f,     // y_bias
+        0.0f,     // z_bias
+        1.0f,     // c00
+        0.0f,     // c01
+        0.0f,     // c02
+        0.0f,     // c10
+        1.0f,     // c11
+        0.0f,     // c12
+        0.0f,     // c20
+        0.0f,     // c21
+        1.0f      // c22
+    };
+
+    // Initializes the magnetometer offset calibration algorithm with diversity
+    // checker.
+    const struct DiversityCheckerParameters mag_diversity_parameters = {
+        6.0f,    // var_threshold
+        10.0f,   // max_min_threshold
+        48.0f,   // local_field
+        0.5f,    // threshold_tuning_param
+        2.552f,  // max_distance_tuning_param
+        8,       // min_num_diverse_vectors
+        1        // max_num_max_distance
+    };
+    initMagCal(&mTask.moc, &mag_cal_parameters, &mag_diversity_parameters);
+#endif  // MAG_SLAVE_PRESENT
 
     slabSize = sizeof(struct TripleAxisDataEvent) +
                MAX_NUM_COMMS_EVENT_SAMPLES * sizeof(struct TripleAxisDataPoint);

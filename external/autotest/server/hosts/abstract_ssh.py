@@ -1,8 +1,10 @@
-import os, time, socket, shutil, glob, logging, traceback, tempfile, re
+import os, time, socket, shutil, glob, logging, tempfile, re
 import shlex
 import subprocess
 
+from autotest_lib.client.bin.result_tools import runner as result_tools_runner
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib.cros.network import ping_runner
 from autotest_lib.client.common_lib.global_config import global_config
 from autotest_lib.server import utils, autotest
 from autotest_lib.server.hosts import host_info
@@ -16,6 +18,15 @@ get_value = global_config.get_config_value
 enable_master_ssh = get_value('AUTOSERV', 'enable_master_ssh', type=bool,
                               default=False)
 
+# Number of seconds to use the cached up status.
+_DEFAULT_UP_STATUS_EXPIRATION_SECONDS = 300
+_DEFAULT_SSH_PORT = 22
+
+# Number of seconds to wait for the host to shut down in wait_down().
+_DEFAULT_WAIT_DOWN_TIME_SECONDS = 120
+
+# Timeout in seconds for a single call of get_boot_id() in wait_down().
+_DEFAULT_MAX_PING_TIMEOUT = 10
 
 class AbstractSSHHost(remote.RemoteHost):
     """
@@ -26,9 +37,9 @@ class AbstractSSHHost(remote.RemoteHost):
     """
     VERSION_PREFIX = ''
 
-    def _initialize(self, hostname, user="root", port=22, password="",
-                    is_client_install_supported=True, afe_host=None,
-                    host_info_store=None, connection_pool=None,
+    def _initialize(self, hostname, user="root", port=_DEFAULT_SSH_PORT,
+                    password="", is_client_install_supported=True,
+                    afe_host=None, host_info_store=None, connection_pool=None,
                     *args, **dargs):
         super(AbstractSSHHost, self)._initialize(hostname=hostname,
                                                  *args, **dargs)
@@ -71,6 +82,12 @@ class AbstractSSHHost(remote.RemoteHost):
         self.host_info_store = (host_info_store or
                                 host_info.InMemoryHostInfoStore())
 
+        # The cached status of whether the DUT responded to ping.
+        self._cached_up_status = None
+        # The timestamp when the value of _cached_up_status is set.
+        self._cached_up_status_updated = None
+
+
     @property
     def ip(self):
         """@return IP address of the host.
@@ -97,17 +114,52 @@ class AbstractSSHHost(remote.RemoteHost):
         return self._rpc_server_tracker
 
 
-    def make_ssh_command(self, user="root", port=22, opts='',
-                         hosts_file='/dev/null',
-                         connect_timeout=30, alive_interval=300):
-        base_command = ("/usr/bin/ssh -a -x %s -o StrictHostKeyChecking=no "
-                        "-o UserKnownHostsFile=%s -o BatchMode=yes "
-                        "-o ConnectTimeout=%d -o ServerAliveInterval=%d "
-                        "-l %s -p %d")
+    @property
+    def is_default_port(self):
+      """Returns True if its port is default SSH port."""
+      return self.port == _DEFAULT_SSH_PORT
+
+    @property
+    def host_port(self):
+        """Returns hostname if port is default. Otherwise, hostname:port.
+        """
+        if self.is_default_port:
+            return self.hostname
+        else:
+            return '%s:%d' % (self.hostname, self.port)
+
+
+    # Though it doesn't use self here, it is not declared as staticmethod
+    # because its subclass may use self to access member variables.
+    def make_ssh_command(self, user="root", port=_DEFAULT_SSH_PORT, opts='',
+                         hosts_file='/dev/null', connect_timeout=30,
+                         alive_interval=300, alive_count_max=3,
+                         connection_attempts=1):
+        ssh_options = " ".join([
+            opts,
+            self.make_ssh_options(
+                hosts_file=hosts_file, connect_timeout=connect_timeout,
+                alive_interval=alive_interval, alive_count_max=alive_count_max,
+                connection_attempts=connection_attempts)])
+        return "/usr/bin/ssh -a -x %s -l %s -p %d" % (ssh_options, user, port)
+
+
+    @staticmethod
+    def make_ssh_options(hosts_file='/dev/null', connect_timeout=30,
+                         alive_interval=300, alive_count_max=3,
+                         connection_attempts=1):
+        """Composes SSH -o options."""
         assert isinstance(connect_timeout, (int, long))
         assert connect_timeout > 0 # can't disable the timeout
-        return base_command % (opts, hosts_file, connect_timeout,
-                               alive_interval, user, port)
+
+        options = [("StrictHostKeyChecking", "no"),
+                   ("UserKnownHostsFile", hosts_file),
+                   ("BatchMode", "yes"),
+                   ("ConnectTimeout", str(connect_timeout)),
+                   ("ServerAliveInterval", str(alive_interval)),
+                   ("ServerAliveCountMax", str(alive_count_max)),
+                   ("ConnectionAttempts", str(connection_attempts))]
+        return " ".join("-o %s=%s" % kv for kv in options)
 
 
     def use_rsync(self):
@@ -119,7 +171,7 @@ class AbstractSSHHost(remote.RemoteHost):
         self._use_rsync = self.check_rsync()
         if not self._use_rsync:
             logging.warning("rsync not available on remote host %s -- disabled",
-                         self.hostname)
+                            self.host_port)
         return self._use_rsync
 
 
@@ -169,13 +221,10 @@ class AbstractSSHHost(remote.RemoteHost):
 
         return " ".join('"%s"' % p for p in paths)
 
-    def _make_rsync_cmd(self, sources, dest, delete_dest,
-                        preserve_symlinks, safe_symlinks):
-        """
-        Given a string of source paths and a destination path, produces the
-        appropriate rsync command for copying them. Remote paths must be
-        pre-encoded.
-        """
+
+    def rsync_options(self, delete_dest=False, preserve_symlinks=False,
+                      safe_symlinks=False, excludes=None):
+        """Obtains rsync options for the remote."""
         ssh_cmd = self.make_ssh_command(user=self.user, port=self.port,
                                         opts=self._master_ssh.ssh_option,
                                         hosts_file=self.known_hosts_file)
@@ -189,9 +238,25 @@ class AbstractSSHHost(remote.RemoteHost):
             symlink_flag = "-l"
         else:
             symlink_flag = "-L"
-        command = ("rsync %s %s --timeout=1800 --rsh='%s' -az --no-o --no-g "
-                   "%s \"%s\"")
-        return command % (symlink_flag, delete_flag, ssh_cmd, sources, dest)
+        exclude_args = ''
+        if excludes:
+            exclude_args = ' '.join(
+                    ["--exclude '%s'" % exclude for exclude in excludes])
+        return "%s %s --timeout=1800 --rsh='%s' -az --no-o --no-g %s" % (
+            symlink_flag, delete_flag, ssh_cmd, exclude_args)
+
+
+    def _make_rsync_cmd(self, sources, dest, delete_dest,
+                        preserve_symlinks, safe_symlinks, excludes=None):
+        """
+        Given a string of source paths and a destination path, produces the
+        appropriate rsync command for copying them. Remote paths must be
+        pre-encoded.
+        """
+        rsync_options = self.rsync_options(
+            delete_dest=delete_dest, preserve_symlinks=preserve_symlinks,
+            safe_symlinks=safe_symlinks, excludes=excludes)
+        return 'rsync %s %s "%s"' % (rsync_options, sources, dest)
 
 
     def _make_ssh_cmd(self, cmd):
@@ -346,6 +411,7 @@ class AbstractSSHHost(remote.RemoteHost):
         logging.debug('get_file. source: %s, dest: %s, delete_dest: %s,'
                       'preserve_perm: %s, preserve_symlinks:%s', source, dest,
                       delete_dest, preserve_perm, preserve_symlinks)
+
         # Start a master SSH connection if necessary.
         self.start_master_ssh()
 
@@ -417,7 +483,7 @@ class AbstractSSHHost(remote.RemoteHost):
 
 
     def send_file(self, source, dest, delete_dest=False,
-                  preserve_symlinks=False):
+                  preserve_symlinks=False, excludes=None):
         """
         Copy files from a local path to the remote host.
 
@@ -441,6 +507,10 @@ class AbstractSSHHost(remote.RemoteHost):
                 preserve_symlinks: controls if symlinks on the source will be
                     copied as such on the destination or transformed into the
                     referenced file/directory
+                excludes: A list of file pattern that matches files not to be
+                          sent. `send_file` will fail if exclude is set, since
+                          local copy does not support --exclude, e.g., when
+                          using scp to copy file.
 
         Raises:
                 AutoservRunError: the scp command failed
@@ -469,7 +539,7 @@ class AbstractSSHHost(remote.RemoteHost):
             try:
                 rsync = self._make_rsync_cmd(local_sources, remote_dest,
                                              delete_dest, preserve_symlinks,
-                                             False)
+                                             False, excludes=excludes)
                 utils.run(rsync)
                 try_scp = False
             except error.CmdError, e:
@@ -477,6 +547,10 @@ class AbstractSSHHost(remote.RemoteHost):
 
         if try_scp:
             logging.debug('Trying scp.')
+            if excludes:
+                raise error.AutotestHostRunError(
+                        '--exclude is not supported in scp, try to use rsync. '
+                        'excludes: %s' % ','.join(excludes), None)
             # scp has no equivalent to --delete, just drop the entire dest dir
             if delete_dest:
                 is_dir = self.run("ls -d %s/" % dest,
@@ -563,6 +637,13 @@ class AbstractSSHHost(remote.RemoteHost):
             return True
 
 
+    def is_up_fast(self):
+        """Return True if the host can be pinged."""
+        ping_config = ping_runner.PingConfig(
+                self.hostname, count=3, ignore_result=True, ignore_status=True)
+        return ping_runner.PingRunner().ping(ping_config).received > 0
+
+
     def wait_up(self, timeout=None):
         """
         Wait until the remote host is up or the timeout expires.
@@ -586,73 +667,63 @@ class AbstractSSHHost(remote.RemoteHost):
                           connect_timeout=20):
                 try:
                     if self.are_wait_up_processes_up():
-                        logging.debug('Host %s is now up', self.hostname)
+                        logging.debug('Host %s is now up', self.host_port)
                         return True
                 except error.AutoservError as e:
                     if not autoserv_error_logged:
                         logging.debug('Ignoring failure to reach %s: %s %s',
-                                      self.hostname, e,
+                                      self.host_port, e,
                                       '(and further similar failures)')
                         autoserv_error_logged = True
             time.sleep(1)
             current_time = int(time.time())
 
         logging.debug('Host %s is still down after waiting %d seconds',
-                      self.hostname, int(timeout + time.time() - end_time))
+                      self.host_port, int(timeout + time.time() - end_time))
         return False
 
 
-    def wait_down(self, timeout=None, warning_timer=None, old_boot_id=None):
+    def wait_down(self, timeout=_DEFAULT_WAIT_DOWN_TIME_SECONDS,
+                  warning_timer=None, old_boot_id=None,
+                  max_ping_timeout=_DEFAULT_MAX_PING_TIMEOUT):
         """
         Wait until the remote host is down or the timeout expires.
 
-        If old_boot_id is provided, this will wait until either the machine
-        is unpingable or self.get_boot_id() returns a value different from
+        If old_boot_id is provided, waits until either the machine is
+        unpingable or self.get_boot_id() returns a value different from
         old_boot_id. If the boot_id value has changed then the function
-        returns true under the assumption that the machine has shut down
+        returns True under the assumption that the machine has shut down
         and has now already come back up.
 
         If old_boot_id is None then until the machine becomes unreachable the
         method assumes the machine has not yet shut down.
 
-        Based on this definition, the 4 possible permutations of timeout
-        and old_boot_id are:
-        1. timeout and old_boot_id: wait timeout seconds for either the
-                                    host to become unpingable, or the boot id
-                                    to change. In the latter case we've rebooted
-                                    and in the former case we've only shutdown,
-                                    but both cases return True.
-        2. only timeout: wait timeout seconds for the host to become unpingable.
-                         If the host remains pingable throughout timeout seconds
-                         we return False.
-        3. only old_boot_id: wait forever until either the host becomes
-                             unpingable or the boot_id changes. Return true
-                             when either of those conditions are met.
-        4. not timeout, not old_boot_id: wait forever till the host becomes
-                                         unpingable.
-
-        @param timeout Time limit in seconds before returning even
-            if the host is still up.
-        @param warning_timer Time limit in seconds that will generate
-            a warning if the host is not down yet.
+        @param timeout Time limit in seconds before returning even if the host
+            is still up.
+        @param warning_timer Time limit in seconds that will generate a warning
+            if the host is not down yet. Can be None for no warning.
         @param old_boot_id A string containing the result of self.get_boot_id()
             prior to the host being told to shut down. Can be None if this is
             not available.
+        @param max_ping_timeout Maximum timeout in seconds for each
+            self.get_boot_id() call. If this timeout is hit, it is assumed that
+            the host went down and became unreachable.
 
-        @returns True if the host was found to be down, False otherwise
+        @returns True if the host was found to be down (max_ping_timeout timeout
+            expired or boot_id changed if provided) and False if timeout
+            expired.
         """
         #TODO: there is currently no way to distinguish between knowing
         #TODO: boot_id was unsupported and not knowing the boot_id.
         current_time = int(time.time())
-        if timeout:
-            end_time = current_time + timeout
+        end_time = current_time + timeout
 
         if warning_timer:
             warn_time = current_time + warning_timer
 
         if old_boot_id is not None:
             logging.debug('Host %s pre-shutdown boot_id is %s',
-                          self.hostname, old_boot_id)
+                          self.host_port, old_boot_id)
 
         # Impose semi real-time deadline constraints, since some clients
         # (eg: watchdog timer tests) expect strict checking of time elapsed.
@@ -660,7 +731,7 @@ class AbstractSSHHost(remote.RemoteHost):
         # completes within current_time, this is needed because if we used
         # inline time.time() calls instead then the following could happen:
         #
-        # while not timeout or time.time() < end_time:      [23 < 30]
+        # while time.time() < end_time:                     [23 < 30]
         #    some code.                                     [takes 10 secs]
         #    try:
         #        new_boot_id = self.get_boot_id(timeout=end_time - time.time())
@@ -668,12 +739,13 @@ class AbstractSSHHost(remote.RemoteHost):
         # The last step will lead to a return True, when in fact the machine
         # went down at 32 seconds (>30). Hence we need to pass get_boot_id
         # the same time that allowed us into that iteration of the loop.
-        while not timeout or current_time < end_time:
+        while current_time < end_time:
+            ping_timeout = min(end_time - current_time, max_ping_timeout)
             try:
-                new_boot_id = self.get_boot_id(timeout=end_time-current_time)
+                new_boot_id = self.get_boot_id(timeout=ping_timeout)
             except error.AutoservError:
                 logging.debug('Host %s is now unreachable over ssh, is down',
-                              self.hostname)
+                              self.host_port)
                 return True
             else:
                 # if the machine is up but the boot_id value has changed from
@@ -681,7 +753,7 @@ class AbstractSSHHost(remote.RemoteHost):
                 # and then already come back up
                 if old_boot_id is not None and old_boot_id != new_boot_id:
                     logging.debug('Host %s now has boot_id %s and so must '
-                                  'have rebooted', self.hostname, new_boot_id)
+                                  'have rebooted', self.host_port, new_boot_id)
                     return True
 
             if warning_timer and current_time > warn_time:
@@ -709,9 +781,9 @@ class AbstractSSHHost(remote.RemoteHost):
     def verify_connectivity(self):
         super(AbstractSSHHost, self).verify_connectivity()
 
-        logging.info('Pinging host ' + self.hostname)
+        logging.info('Pinging host ' + self.host_port)
         self.ssh_ping()
-        logging.info("Host (ssh) %s is alive", self.hostname)
+        logging.info("Host (ssh) %s is alive", self.host_port)
 
         if self.is_shutting_down():
             raise error.AutoservHostIsShuttingDownError("Host is shutting down")
@@ -722,12 +794,12 @@ class AbstractSSHHost(remote.RemoteHost):
         try:
             self.check_diskspace(autotest.Autotest.get_install_dir(self),
                                  self.AUTOTEST_GB_DISKSPACE_REQUIRED)
-        except error.AutoservHostError:
-            raise           # only want to raise if it's a space issue
-        except autotest.AutodirNotFoundError:
-            # autotest dir may not exist, etc. ignore
-            logging.debug('autodir space check exception, this is probably '
-                          'safe to ignore\n' + traceback.format_exc())
+        except error.AutoservDiskFullHostError:
+            # only want to raise if it's a space issue
+            raise
+        except (error.AutoservHostError, autotest.AutodirNotFoundError):
+            logging.exception('autodir space check exception, this is probably '
+                             'safe to ignore\n')
 
 
     def close(self):
@@ -775,7 +847,7 @@ class AbstractSSHHost(remote.RemoteHost):
         reduce the spam in the logs.
         """
         logging.info("Clearing known hosts for host '%s', file '%s'.",
-                     self.hostname, self.known_hosts_file)
+                     self.host_port, self.known_hosts_file)
         # Clear out the file by opening it for writing and then closing.
         fh = open(self.known_hosts_file, "w")
         fh.close()
@@ -794,6 +866,11 @@ class AbstractSSHHost(remote.RemoteHost):
         @raises AutoservRunError, AutotestRunError: If something goes wrong
             while copying the directories and ignore_errors is False.
         """
+        if not self.check_cached_up_status():
+            logging.warning('Host %s did not answer to ping, skip collecting '
+                            'logs.', self.host_port)
+            return
+
         locally_created_dest = False
         if (not os.path.exists(local_dest_dir)
                 or not os.path.isdir(local_dest_dir)):
@@ -802,21 +879,42 @@ class AbstractSSHHost(remote.RemoteHost):
                 locally_created_dest = True
             except OSError as e:
                 logging.warning('Unable to collect logs from host '
-                                '%s: %s', self.hostname, e)
+                                '%s: %s', self.host_port, e)
                 if not ignore_errors:
                     raise
                 return
+
+        # Build test result directory summary
+        try:
+            result_tools_runner.run_on_client(self, remote_src_dir)
+        except (error.AutotestRunError, error.AutoservRunError,
+                error.AutoservSSHTimeout) as e:
+            logging.exception(
+                    'Non-critical failure: Failed to collect and throttle '
+                    'results at %s from host %s', remote_src_dir,
+                    self.host_port)
+
         try:
             self.get_file(remote_src_dir, local_dest_dir, safe_symlinks=True)
         except (error.AutotestRunError, error.AutoservRunError,
                 error.AutoservSSHTimeout) as e:
             logging.warning('Collection of %s to local dir %s from host %s '
                             'failed: %s', remote_src_dir, local_dest_dir,
-                            self.hostname, e)
+                            self.host_port, e)
             if locally_created_dest:
                 shutil.rmtree(local_dest_dir, ignore_errors=ignore_errors)
             if not ignore_errors:
                 raise
+
+        # Clean up directory summary file on the client side.
+        try:
+            result_tools_runner.run_on_client(self, remote_src_dir,
+                                              cleanup_only=True)
+        except (error.AutotestRunError, error.AutoservRunError,
+                error.AutoservSSHTimeout) as e:
+            logging.exception(
+                    'Non-critical failure: Failed to cleanup result summary '
+                    'files at %s in host %s', remote_src_dir, self.hostname)
 
 
     def create_ssh_tunnel(self, port, local_port):
@@ -831,7 +929,7 @@ class AbstractSSHHost(remote.RemoteHost):
         @return: the tunnel process.
         """
         tunnel_options = '-n -N -q -L %d:localhost:%d' % (local_port, port)
-        ssh_cmd = self.make_ssh_command(opts=tunnel_options)
+        ssh_cmd = self.make_ssh_command(opts=tunnel_options, port=self.port)
         tunnel_cmd = '%s %s' % (ssh_cmd, self.hostname)
         logging.debug('Full tunnel command: %s', tunnel_cmd)
         # Exec the ssh process directly here rather than using a shell.
@@ -868,3 +966,26 @@ class AbstractSSHHost(remote.RemoteHost):
         @return A string describing the OS type.
         """
         raise NotImplementedError
+
+
+    def check_cached_up_status(
+            self, expiration_seconds=_DEFAULT_UP_STATUS_EXPIRATION_SECONDS):
+        """Check if the DUT responded to ping in the past `expiration_seconds`.
+
+        @param expiration_seconds: The number of seconds to keep the cached
+                status of whether the DUT responded to ping.
+        @return: True if the DUT has responded to ping during the past
+                 `expiration_seconds`.
+        """
+        # Refresh the up status if any of following conditions is true:
+        # * cached status is never set
+        # * cached status is False, so the method can check if the host is up
+        #   again.
+        # * If the cached status is older than `expiration_seconds`
+        expire_time = time.time() - expiration_seconds
+        if (self._cached_up_status_updated is None or
+                not self._cached_up_status or
+                self._cached_up_status_updated < expire_time):
+            self._cached_up_status = self.is_up_fast()
+            self._cached_up_status_updated = time.time()
+        return self._cached_up_status

@@ -22,15 +22,21 @@ cc_library_static {
         "VtsHalHidlTargetTestEnvBase.cpp"
     ],
 
+    cflags: ["-Wall", "-Werror"],
+
     shared_libs: [
-        "libbase",
         "libhidlbase",
         "liblog",
-        "libutils",
         "libcutils",
     ],
 
-    static_libs : ["libgtest"],
+    static_libs : [
+        "libgtest",
+        "libutils",
+    ],
     export_include_dirs: ["."],
-    export_static_lib_headers: ["libgtest"],
+    export_static_lib_headers: [
+        "libgtest",
+        "libutils",
+    ],
 }

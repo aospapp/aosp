@@ -20,6 +20,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <algorithm>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -28,6 +29,7 @@
 #include <android-base/file.h>
 #include <android-base/logging.h>
 
+#include "dso.h"
 #include "event_attr.h"
 #include "perf_event.h"
 #include "record.h"
@@ -64,7 +66,8 @@ RecordFileWriter::RecordFileWriter(const std::string& filename, FILE* fp)
 
 RecordFileWriter::~RecordFileWriter() {
   if (record_fp_ != nullptr) {
-    Close();
+    fclose(record_fp_);
+    unlink(filename_.c_str());
   }
 }
 
@@ -294,6 +297,32 @@ bool RecordFileWriter::WriteBranchStackFeature() {
   return WriteFeatureEnd(FEAT_BRANCH_STACK);
 }
 
+bool RecordFileWriter::WriteFileFeatures(const std::vector<Dso*>& files) {
+  for (Dso* dso : files) {
+    if (!dso->HasDumpId()) {
+      continue;
+    }
+    uint32_t dso_type = dso->type();
+    uint64_t min_vaddr = dso->MinVirtualAddress();
+
+    // Dumping all symbols in hit files takes too much space, so only dump
+    // needed symbols.
+    const std::vector<Symbol>& symbols = dso->GetSymbols();
+    std::vector<const Symbol*> dump_symbols;
+    for (const auto& sym : symbols) {
+      if (sym.HasDumpId()) {
+        dump_symbols.push_back(&sym);
+      }
+    }
+    std::sort(dump_symbols.begin(), dump_symbols.end(), Symbol::CompareByAddr);
+
+    if (!WriteFileFeature(dso->Path(), dso_type, min_vaddr, dump_symbols)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool RecordFileWriter::WriteFileFeature(const std::string& file_path,
                                         uint32_t file_type,
                                         uint64_t min_vaddr,
@@ -319,13 +348,7 @@ bool RecordFileWriter::WriteFileFeature(const std::string& file_path,
   }
   CHECK_EQ(buf.size(), static_cast<size_t>(p - buf.data()));
 
-  if (!WriteFeatureBegin(FEAT_FILE)) {
-    return false;
-  }
-  if (!Write(buf.data(), buf.size())) {
-    return false;
-  }
-  return WriteFeatureEnd(FEAT_FILE);
+  return WriteFeature(FEAT_FILE, buf);
 }
 
 bool RecordFileWriter::WriteMetaInfoFeature(
@@ -341,13 +364,11 @@ bool RecordFileWriter::WriteMetaInfoFeature(
     MoveToBinaryFormat(pair.first.c_str(), pair.first.size() + 1, p);
     MoveToBinaryFormat(pair.second.c_str(), pair.second.size() + 1, p);
   }
-  if (!WriteFeatureBegin(FEAT_META_INFO)) {
-    return false;
-  }
-  if (!Write(buf.data(), buf.size())) {
-    return false;
-  }
-  return WriteFeatureEnd(FEAT_META_INFO);
+  return WriteFeature(FEAT_META_INFO, buf);
+}
+
+bool RecordFileWriter::WriteFeature(int feature, const std::vector<char>& data) {
+  return WriteFeatureBegin(feature) && Write(data.data(), data.size()) && WriteFeatureEnd(feature);
 }
 
 bool RecordFileWriter::WriteFeatureBegin(int feature) {

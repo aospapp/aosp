@@ -538,7 +538,7 @@ abstract class BlockCipherTestBase extends AndroidTestCase {
         byte[] output1 = doFinal(input);
 
         // Create a different key by flipping a bit in the KAT key.
-        katKeyBytes[0] ^= 1;
+        katKeyBytes[0] ^= 0b1000; // Flip a bit that _does_ affect 3DES
         SecretKey key2 = importKey(katKeyBytes);
 
         init(opmode, key2, getKatAlgorithmParameterSpec());
@@ -547,7 +547,7 @@ abstract class BlockCipherTestBase extends AndroidTestCase {
             output2 = doFinal(input);
         } catch (BadPaddingException expected) {
             // Padding doesn't decode probably because the new key is being used. This can only
-            // occur is padding is used.
+            // occur if padding is used.
             return;
         }
 
@@ -658,8 +658,8 @@ abstract class BlockCipherTestBase extends AndroidTestCase {
         assertEquals(0, update(new byte[1], 0, 1, new byte[getBlockSize()], 0));
         assertEquals(0, update(ByteBuffer.allocate(1), ByteBuffer.allocate(getBlockSize())));
 
-        // Feed a block through the Cipher, so that it's potentially no longer in an initial state.
-        byte[] output = update(new byte[getBlockSize()]);
+        // Complete the current block. There are blockSize - 4 bytes left to fill.
+        byte[] output = update(new byte[getBlockSize() - 4]);
         assertEquals(getBlockSize(), output.length);
 
         assertEquals(null, update(new byte[1]));

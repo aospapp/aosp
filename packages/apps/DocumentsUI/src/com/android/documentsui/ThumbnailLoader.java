@@ -15,15 +15,13 @@
  */
 package com.android.documentsui;
 
-import static com.android.documentsui.base.Shared.VERBOSE;
+import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
-import android.annotation.Nullable;
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Point;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.CancellationSignal;

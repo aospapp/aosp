@@ -35,12 +35,22 @@ message Sample {
 
   repeated CallChainEntry callchain = 3;
 
-  // Count of the events that have happened since last sample (regardless of
-  // whether the last sample is lost). The event type is decided by '-e' option
-  // in simpleperf record command. By default, '-e cpu-cycles' is used, and this
-  // field is the number of cpu cycles.
+  // Simpleperf generates one sample whenever a specified amount of events happen
+  // while running a monitored thread. So each sample belongs to one event type.
+  // Event type can be cpu-cycles, cpu-clock, sched:sched_switch or other types.
+  // By using '-e' option, we can ask simpleperf to record samples for one or more
+  // event types.
+  // Each event type generates samples independently. But recording more event types
+  // will cost more cpu time generating samples, which may affect the monitored threads
+  // and sample lost rate.
+  // event_count field shows the count of the events (belong to the sample's event type)
+  // that have happened since last sample (belong to the sample's event type) for the
+  // same thread. However, if there are lost samples between current sample and previous
+  // sample, the event_count is the count of events from the last lost sample.
   optional uint64 event_count = 4;
 
+  // An index in meta_info.event_type, shows which event type current sample belongs to.
+  optional uint32 event_type_id = 5;
 }
 
 message LostSituation {
@@ -65,11 +75,16 @@ message Thread {
   optional string thread_name = 3;
 }
 
+message MetaInfo {
+  repeated string event_type = 1;
+}
+
 message Record {
   oneof record_data {
     Sample sample = 1;
     LostSituation lost = 2;
     File file = 3;
     Thread thread = 4;
+    MetaInfo meta_info = 5;
   }
 }

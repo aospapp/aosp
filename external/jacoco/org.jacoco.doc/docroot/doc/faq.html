@@ -31,7 +31,7 @@
 
 <h3>What Java versions are supported by JaCoCo?</h3>
 <p>
-  JaCoCo supports Java class files from version 1.0 to 1.8. However the minimum
+  JaCoCo supports Java class files from version 1.0 to 9. However the minimum
   JRE version required by the JaCoCo runtime (e.g. the agent) and the JaCoCo
   tools is 1.5. Also note that class files under test from version 1.6 and above
   have to contain valid stackmap frames.
@@ -141,7 +141,9 @@
   <code>-Xshareclasses:none</code>.
 </p>
 
-<h3>Why do I get an error "<code>ClassNotFoundException: org.jacoco.agent[...]Offline</code>"?</h3>
+<h3>Why do I get a <code>NoClassDefFoundError</code> or
+    <code>ClassNotFoundException</code> for class
+    <code>org.jacoco.agent[...]Offline</code>?</h3>
 <p>
   If you use <a href="offline.html">offline instrumentation</a> the instrumented
   classes get a direct dependency on the JaCoCo runtime. Therefore

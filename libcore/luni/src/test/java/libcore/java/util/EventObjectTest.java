@@ -19,7 +19,7 @@ package libcore.java.util;
 
 import java.util.EventObject;
 import junit.framework.TestCase;
-import libcore.util.SerializationTester;
+import libcore.libcore.util.SerializationTester;
 
 public final class EventObjectTest extends TestCase {
 

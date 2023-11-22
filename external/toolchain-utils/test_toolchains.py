@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 
 # Script to test different toolchains against ChromeOS benchmarks.
 """Toolchain team nightly performance test script (local builds)."""
@@ -11,7 +11,6 @@ import os
 import sys
 import build_chromeos
 import setup_chromeos
-import time
 from cros_utils import command_executer
 from cros_utils import misc
 from cros_utils import logger

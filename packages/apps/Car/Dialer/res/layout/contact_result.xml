@@ -21,7 +21,7 @@
     android:layout_height="wrap_content"
     android:focusable="true">
 
-    <com.android.car.stream.ui.StreamCardView
+    <androidx.car.widget.ColumnCardView
         android:id="@+id/contact_result_card"
         android:foreground="@drawable/dialer_ripple_background"
         android:layout_gravity="center"
@@ -29,9 +29,9 @@
         android:layout_height="@dimen/contact_result_card_height" >
 
         <!-- Using this FrameLayout to center the ImageView within a width of
-             stream_card_keyline_2. -->
+            car_keyline_2. -->
         <FrameLayout
-            android:layout_width="@dimen/stream_card_keyline_2"
+            android:layout_width="@dimen/car_keyline_2"
             android:layout_height="match_parent">
 
             <ImageView
@@ -44,12 +44,12 @@
 
         <TextView
             android:id="@+id/contact_name"
-            android:layout_marginStart="@dimen/stream_card_keyline_2"
+            android:layout_marginStart="@dimen/car_keyline_2"
             android:layout_gravity="center_vertical|start"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="2"
-            style="@style/CarBody1" />
-    </com.android.car.stream.ui.StreamCardView>
+            style="@style/TextAppearance.Car.Body1" />
+    </androidx.car.widget.ColumnCardView>
 </FrameLayout>

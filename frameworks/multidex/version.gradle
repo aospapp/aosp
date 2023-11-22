@@ -14,4 +14,4 @@
  * limitations under the License.
  */
 
-ext.multidexVersion = '1.0.2'
+ext.multidexVersion = '2.0.0'

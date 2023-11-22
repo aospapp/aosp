@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"சிம் இல்லை அல்லது சிம் பிழை"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"செல்லுலார் நெட்வொர்க் இல்லை"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"வெளிச்செல்லும் அழைப்புகள் FDN ஆல் தடுக்கப்பட்டன."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL கோரிக்கையானது USSD கோரிக்கைக்கு மாற்றப்பட்டது."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL கோரிக்கையானது SS கோரிக்கைக்கு மாற்றப்பட்டது."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL கோரிக்கையானது, வேறொரு எண்ணை DIAL செய்ய மாற்றப்பட்டது."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"அழைப்பு, USSD கோரிக்கைக்கு மாற்றப்பட்டது"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"அழைப்பு, SS கோரிக்கைக்கு மாற்றப்பட்டது"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"மற்றொரு எண்ணிற்கு மாற்றப்பட்டது"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"வீடியோ அழைப்பிற்கு மாற்றப்பட்டது"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"வீடியோ அழைப்பு, SS கோரிக்கைக்கு மாற்றப்பட்டது"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"வீடியோ அழைப்பு, USSD கோரிக்கைக்கு மாற்றப்பட்டது"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"வழக்கமான அழைப்பிற்கு மாற்றப்பட்டது"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"மற்றொரு எண்ணிற்கு மாற்றப்பட்டது"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"அழைப்பு தடுப்பு இயக்கத்தில் இருக்கும்போது, அழைக்க முடியாது."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"அழைப்புகள் அணுகல் கட்டுப்பாட்டினால் தடைசெய்யப்பட்டுள்ளன."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"அவசர அழைப்புகள் அணுகல் கட்டுப்பாட்டினால் தடைசெய்யப்பட்டுள்ளன."</string>

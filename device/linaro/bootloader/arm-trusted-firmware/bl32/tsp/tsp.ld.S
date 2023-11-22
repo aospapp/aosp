@@ -1,31 +1,7 @@
 /*
- * Copyright (c) 2013-2014, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2017, ARM Limited and Contributors. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this
- * list of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * Neither the name of ARM nor the names of its contributors may be used
- * to endorse or promote products derived from this software without specific
- * prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <platform_def.h>
@@ -46,6 +22,23 @@ SECTIONS
     ASSERT(. == ALIGN(4096),
            "BL32_BASE address is not aligned on a page boundary.")
 
+#if SEPARATE_CODE_AND_RODATA
+    .text . : {
+        __TEXT_START__ = .;
+        *tsp_entrypoint.o(.text*)
+        *(.text*)
+        *(.vectors)
+        . = NEXT(4096);
+        __TEXT_END__ = .;
+    } >RAM
+
+    .rodata . : {
+        __RODATA_START__ = .;
+        *(.rodata*)
+        . = NEXT(4096);
+        __RODATA_END__ = .;
+    } >RAM
+#else
     ro . : {
         __RO_START__ = .;
         *tsp_entrypoint.o(.text*)
@@ -61,6 +54,13 @@ SECTIONS
         . = NEXT(4096);
         __RO_END__ = .;
     } >RAM
+#endif
+
+    /*
+     * Define a linker symbol to mark start of the RW memory area for this
+     * image.
+     */
+    __RW_START__ = . ;
 
     .data . : {
         __DATA_START__ = .;
@@ -80,7 +80,8 @@ SECTIONS
 
     /*
      * The .bss section gets initialised to 0 at runtime.
-     * Its base address must be 16-byte aligned.
+     * Its base address should be 16-byte aligned for better performance of the
+     * zero-initialization code.
      */
     .bss : ALIGN(16) {
         __BSS_START__ = .;
@@ -119,6 +120,11 @@ SECTIONS
     } >RAM
 #endif
 
+    /*
+     * Define a linker symbol to mark the end of the RW memory area for this
+     * image.
+     */
+    __RW_END__ = .;
     __BL32_END__ = .;
 
     __BSS_SIZE__ = SIZEOF(.bss);
@@ -127,5 +133,5 @@ SECTIONS
         __COHERENT_RAM_END_UNALIGNED__ - __COHERENT_RAM_START__;
 #endif
 
-    ASSERT(. <= BL32_LIMIT, "BL3-2 image has exceeded its limit.")
+    ASSERT(. <= BL32_LIMIT, "BL32 image has exceeded its limit.")
 }

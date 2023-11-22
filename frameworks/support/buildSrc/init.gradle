@@ -14,12 +14,16 @@
  * limitations under the License.
  */
 
-import android.support.LibraryVersions
-import com.android.build.gradle.internal.coverage.JacocoPlugin
+
+import androidx.build.DiffAndDocs
+import androidx.build.PublishDocsRulesKt
+import androidx.build.gmaven.GMavenVersionChecker
+import androidx.build.license.CheckExternalDependencyLicensesTask
 import com.android.build.gradle.internal.coverage.JacocoReportTask
 import com.android.build.gradle.internal.tasks.DeviceProviderInstrumentTestTask
 import org.gradle.api.logging.configuration.ShowStacktrace
-import android.support.gmaven.GMavenVersionChecker
+
+import javax.tools.ToolProvider
 
 def supportRoot = ext.supportRootFolder
 if (supportRoot == null) {
@@ -28,63 +32,93 @@ if (supportRoot == null) {
 }
 def init = new Properties()
 ext.init = init
-ext.init.debugKeystore = file("${supportRoot}/development/keystore/debug.keystore")
-rootProject.ext.versionChecker = new GMavenVersionChecker(rootProject)
+rootProject.ext.versionChecker = new GMavenVersionChecker(rootProject.logger)
 ext.runningInBuildServer = System.env.DIST_DIR != null && System.env.OUT_DIR != null
 
 apply from: "${supportRoot}/buildSrc/dependencies.gradle"
-ext.docs = [:]
-ext.docs.offline = rootProject.getProperties().containsKey("offlineDocs")
-ext.docs.dac = [
-        libraryroot: "android/support",
-        dataname: "SUPPORT_DATA"
-]
+apply from: "${supportRoot}/buildSrc/build_dependencies.gradle"
+apply from: "${supportRoot}/buildSrc/unbundled_check.gradle"
 
-def enableDoclavaAndJDiff(p) {
+
+def enableDoclavaAndJDiff(p, dacOptions, rules = []) {
     p.configurations {
         doclava
         jdiff
     }
 
     p.dependencies {
-        doclava project(':doclava')
-        jdiff project(':jdiff')
-        jdiff libs.xml_parser_apis
-        jdiff libs.xerces_impl
+        doclava build_libs.doclava
+        // tools.jar required for com.sun.javadoc
+        doclava files(((URLClassLoader) ToolProvider.getSystemToolClassLoader()).getURLs())
+        jdiff build_libs.jdiff
+        jdiff build_libs.xml_parser_apis
+        jdiff build_libs.xerces_impl
     }
-    apply from: "${ext.supportRootFolder}/buildSrc/diff_and_docs.gradle"
+
+    return DiffAndDocs.configureDiffAndDocs(rootProject, supportRootFolder,
+            dacOptions, rules)
 }
 
 def getFullSdkPath() {
-    final String osName = System.getProperty("os.name").toLowerCase();
-    final boolean isMacOsX =
-            osName.contains("mac os x") || osName.contains("darwin") || osName.contains("osx");
-    final String platform = isMacOsX ? 'darwin' : 'linux'
-    return "${repos.prebuiltsRoot}/fullsdk-${platform}"
+    if (isUnbundledBuild(ext.supportRootFolder)) {
+        Properties properties = new Properties()
+        File propertiesFile = new File('local.properties')
+        if (propertiesFile.exists()) {
+            propertiesFile.withInputStream {
+                properties.load(it)
+            }
+        }
+        File location = findSdkLocation(properties, supportRootFolder)
+        return location.getAbsolutePath()
+    } else {
+        final String osName = System.getProperty("os.name").toLowerCase();
+        final boolean isMacOsX =
+                osName.contains("mac os x") || osName.contains("darwin") || osName.contains("osx");
+        final String platform = isMacOsX ? 'darwin' : 'linux'
+        return "${repos.prebuiltsRoot}/fullsdk-${platform}"
+    }
+}
+
+/**
+ * Adapted from com.android.build.gradle.internal.SdkHandler
+ */
+public static File findSdkLocation(Properties properties, File rootDir) {
+    String sdkDirProp = properties.getProperty("sdk.dir");
+    if (sdkDirProp != null) {
+        File sdk = new File(sdkDirProp);
+        if (!sdk.isAbsolute()) {
+            sdk = new File(rootDir, sdkDirProp);
+        }
+        return sdk
+    }
+
+    sdkDirProp = properties.getProperty("android.dir");
+    if (sdkDirProp != null) {
+        return new File(rootDir, sdkDirProp);
+    }
+
+    String envVar = System.getenv("ANDROID_HOME");
+    if (envVar != null) {
+        return new File(envVar);
+    }
+
+    String property = System.getProperty("android.home");
+    if (property != null) {
+        return new File(property);
+    }
+    return null;
 }
 
 def setSdkInLocalPropertiesFile() {
-    ext.buildToolsVersion = '26.0.0'
-    final String fullSdkPath = getFullSdkPath();
-    if (file(fullSdkPath).exists()) {
-        gradle.ext.currentSdk = 26
-        project.ext.androidJar =
-                files("${fullSdkPath}/platforms/android-${gradle.currentSdk}/android.jar")
-        project.ext.androidSrcJar =
-                file("${fullSdkPath}/platforms/android-${gradle.currentSdk}/android-stubs-src.jar")
-        project.ext.androidApiTxt = null
+    final File fullSdkPath = file(getFullSdkPath())
+    if (fullSdkPath.exists()) {
+        project.ext.fullSdkPath = fullSdkPath
         File props = file("local.properties")
-        props.write "sdk.dir=${fullSdkPath}"
+        props.write "sdk.dir=${fullSdkPath.getAbsolutePath()}"
         ext.usingFullSdk = true
     } else {
-        gradle.ext.currentSdk = 'current'
-        project.ext.androidJar = files("${repos.prebuiltsRoot}/sdk/current/android.jar")
-        project.ext.androidSrcJar = null
-        project.ext.androidApiTxt = file("${repos.prebuiltsRoot}/sdk/api/26.txt")
-        System.setProperty('android.dir', "${supportRootFolder}/../../")
-        File props = file("local.properties")
-        props.write "android.dir=../../"
-        ext.usingFullSdk = false
+        throw Exception("You are using non ub-supportlib-* checkout. You need to check out "
+                + "ub-supportlib-* to work on support library. See go/supportlib for details.")
     }
 }
 
@@ -127,31 +161,59 @@ def setupRepoOutAndBuildNumber() {
 def configureBuildOnServer() {
     def buildOnServerTask = rootProject.tasks.create("buildOnServer")
     rootProject.tasks.whenTaskAdded { task ->
-        if ("createArchive".equals(task.name)) {
+        if ("createArchive".equals(task.name)
+                || "createDiffArchive".equals(task.name)
+                || "distDocs".equals(task.name)
+                || "dejetifyArchive".equals(task.name)
+                || CheckExternalDependencyLicensesTask.ROOT_TASK_NAME.equals(task.name)) {
             buildOnServerTask.dependsOn task
         }
     }
-
+    def docsProject = rootProject.findProject(":docs-fake")
     subprojects {
+        if (docsProject == project) {
+            return
+        }
         project.tasks.whenTaskAdded { task ->
-            if ("assembleErrorProne".equals(task.name) || "assembleAndroidTest".equals(task.name)) {
+            if ("assembleErrorProne".equals(task.name)
+                    || "assembleAndroidTest".equals(task.name)
+                    || "assembleDebug".equals(task.name)) {
                 buildOnServerTask.dependsOn task
             }
         }
     }
+    buildOnServerTask.dependsOn createJacocoAntUberJarTask()
+    return buildOnServerTask
+}
+
+def createJacocoAntUberJarTask() {
+    def myJacoco = project.configurations.create('myJacoco')
+    project.dependencies.add('myJacoco', build_libs.jacoco_ant)
+
+    return project.tasks.create(
+            name: "JacocoAntUberJar",
+            type: Jar) {
+        inputs.files myJacoco
+        from {
+            myJacoco
+                    .resolvedConfiguration
+                    .resolvedArtifacts.collect{ zipTree(it.getFile()) }} {
+            // exclude all the signatures the jar might have
+            exclude "META-INF/*.SF"
+            exclude "META-INF/*.DSA"
+            exclude "META-INF/*.RSA"
+        }
+        destinationDir file(project.distDir)
+        archiveName "jacocoant.jar"
+    }
 }
 
 def configureSubProjects() {
-    // lint every library
-    def lintTask = project.tasks.create("lint")
     subprojects {
         repos.addMavenRepositories(repositories)
 
         // Only modify Android projects.
-        if (project.name.equals('doclava')
-                || project.name.equals('jdiff')
-                || project.name.equals('noto-emoji-compat')
-                || project.name.equals('support-media-compat-test-lib')) {
+        if (project.name.equals('noto-emoji-compat')) {
             // disable tests and return
             project.tasks.whenTaskAdded { task ->
                 if (task instanceof org.gradle.api.tasks.testing.Test) {
@@ -161,21 +223,12 @@ def configureSubProjects() {
             return
         }
 
-        project.ext.currentSdk = gradle.ext.currentSdk
-        apply plugin: 'maven'
-
-        version = LibraryVersions.SUPPORT_LIBRARY.toString();
-        group = 'com.android.support'
-
         project.plugins.whenPluginAdded { plugin ->
             def isAndroidLibrary = "com.android.build.gradle.LibraryPlugin"
                     .equals(plugin.class.name)
             def isAndroidApp = "com.android.build.gradle.AppPlugin".equals(plugin.class.name)
-            def isJavaLibrary = "org.gradle.api.plugins.JavaPlugin".equals(plugin.class.name)
 
             if (isAndroidLibrary || isAndroidApp) {
-                project.android.buildToolsVersion = rootProject.buildToolsVersion
-
                 // Enable code coverage for debug builds only if we are not running inside the IDE,
                 // since enabling coverage reports breaks the method parameter resolution in the IDE
                 // debugger.
@@ -199,49 +252,9 @@ def configureSubProjects() {
                             archiveName "${project.name}-${v.baseName}-allclasses.jar"
                         }
 
-                        def collectJacocoAntPackages = project.tasks.create(
-                                name: "collectJacocoAntPackages",
-                                type: Jar) {
-                            inputs.files project.configurations[JacocoPlugin.ANT_CONFIGURATION_NAME]
-                            from {
-                                project.configurations[JacocoPlugin.ANT_CONFIGURATION_NAME]
-                                        .resolvedConfiguration
-                                        .resolvedArtifacts.collect{ zipTree(it.getFile()) }} {
-                                    // exclude all the signatures the jar might have
-                                    exclude "META-INF/*.SF"
-                                    exclude "META-INF/*.DSA"
-                                    exclude "META-INF/*.RSA"
-                                }
-                            destinationDir file(project.distDir)
-                            archiveName "jacocoant.jar"
-                        }
-
                         jarifyTask.dependsOn v.getJavaCompiler()
-                        v.assemble.dependsOn jarifyTask , collectJacocoAntPackages
+                        v.assemble.dependsOn jarifyTask
                     }
-                }
-
-                // Enforce NewApi lint check as fatal.
-                project.android.lintOptions.fatal 'NewApi'
-                lintTask.dependsOn {project.lint}
-            }
-
-            if (isAndroidLibrary || isJavaLibrary) {
-                // Add library to the aggregate dependency report.
-                task allDeps(type: DependencyReportTask) {}
-
-                project.afterEvaluate {
-                    Upload uploadTask = (Upload) project.tasks.uploadArchives;
-                    uploadTask.repositories.mavenDeployer {
-                        repository(url: uri("$rootProject.ext.supportRepoOut"))
-                        setUniqueVersion(true)
-                    }
-
-                    // Before the upload, make sure the repo is ready.
-                    uploadTask.dependsOn rootProject.tasks.prepareRepo
-
-                    // Make the mainupload depend on this one.
-                    mainUpload.dependsOn uploadTask
                 }
             }
         }
@@ -255,7 +268,20 @@ def configureSubProjects() {
                 task.doLast {
                     def source = testApk ? project.android.sourceSets.androidTest
                             : project.android.sourceSets.main
-                    if (task.hasProperty("outputDirectory") && !source.java.sourceFiles.isEmpty()) {
+                    def hasKotlinSources = false
+                    if (source.hasProperty('kotlin')) {
+                        if (!source.kotlin.files.isEmpty()) {
+                            hasKotlinSources = true
+                        } else {
+                            // kotlin files does not show in java sources due to the *.java filter
+                            // so we need to check them manually
+                            hasKotlinSources = source.java.sourceDirectoryTrees.any {
+                                !fileTree(dir: it.dir, include:'**/*.kt').files.isEmpty()
+                            }
+                        }
+                    }
+                    def hasSourceCode = !source.java.sourceFiles.isEmpty() || hasKotlinSources
+                    if (task.hasProperty("outputDirectory") && (hasSourceCode || !testApk)) {
                         copy {
                             from(task.outputDirectory)
                             include '*.apk'

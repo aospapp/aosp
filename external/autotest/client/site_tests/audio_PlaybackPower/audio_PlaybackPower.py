@@ -8,7 +8,8 @@ import hashlib, logging, os, time
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error, file_utils
 from autotest_lib.client.common_lib.cros import chrome
-from autotest_lib.client.cros import power_status, power_utils, service_stopper
+from autotest_lib.client.cros import service_stopper
+from autotest_lib.client.cros.power import power_status, power_utils
 
 _DOWNLOAD_BASE = ('http://commondatastorage.googleapis.com/'
                   'chromiumos-test-assets-public/audio_power/')

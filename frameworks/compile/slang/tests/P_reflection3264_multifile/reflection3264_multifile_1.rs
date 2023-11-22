@@ -4,4 +4,4 @@
 int a[10];
 rs_allocation b[10];
 
-void f(int c, rs_allocation d, int e) { }
+void f(int c, rs_allocation d, int e) { (void)d; }

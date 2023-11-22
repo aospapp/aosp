@@ -34,13 +34,14 @@
 
 __BEGIN_DECLS
 
+/* See https://android.googlesource.com/platform/bionic/+/master/docs/32-bit-abi.md */
 #if defined(__USE_FILE_OFFSET64)
-ssize_t sendfile(int out_fd, int in_fd, off_t* offset, size_t count) __RENAME(sendfile64) __INTRODUCED_IN(21);
+ssize_t sendfile(int __out_fd, int __in_fd, off_t* __offset, size_t __count) __RENAME(sendfile64) __INTRODUCED_IN(21);
 #else
-ssize_t sendfile(int out_fd, int in_fd, off_t* offset, size_t count);
+ssize_t sendfile(int __out_fd, int __in_fd, off_t* __offset, size_t __count);
 #endif
-ssize_t sendfile64(int out_fd, int in_fd, off64_t* offset, size_t count) __INTRODUCED_IN(21);
+ssize_t sendfile64(int __out_fd, int __in_fd, off64_t* __offset, size_t __count) __INTRODUCED_IN(21);
 
 __END_DECLS
 
-#endif /* _SYS_SENDFILE_H_ */
+#endif

@@ -16,16 +16,16 @@ if __name__ == '__main__':
   sys.path.append(
       os.path.abspath(os.path.join(os.path.dirname(__file__),
                                    '..', '..', '..')))
-from devil import devil_env
 from devil.android import battery_utils
 from devil.android import device_blacklist
 from devil.android import device_errors
 from devil.android import device_list
 from devil.android import device_utils
 from devil.android.sdk import adb_wrapper
+from devil.android.tools import script_common
 from devil.constants import exit_codes
+from devil.utils import logging_common
 from devil.utils import lsusb
-from devil.utils import run_tests_helper
 
 logger = logging.getLogger(__name__)
 
@@ -57,21 +57,6 @@ def _BatteryStatus(device, blacklist):
                      str(device))
 
   return battery_info
-
-
-def _IMEISlice(device):
-  imei_slice = ''
-  try:
-    for l in device.RunShellCommand(['dumpsys', 'iphonesubinfo'],
-                                    check_return=True, timeout=5):
-      m = _RE_DEVICE_ID.match(l)
-      if m:
-        imei_slice = m.group(1)[-6:]
-  except (device_errors.CommandFailedError,
-          device_errors.DeviceUnreachableError):
-    logger.exception('Failed to get IMEI slice for %s', str(device))
-
-  return imei_slice
 
 
 def DeviceStatus(devices, blacklist):
@@ -129,7 +114,11 @@ def DeviceStatus(devices, blacklist):
           build_description = device.build_description
           wifi_ip = device.GetProp('dhcp.wlan0.ipaddress')
           battery_info = _BatteryStatus(device, blacklist)
-          imei_slice = _IMEISlice(device)
+          try:
+            imei_slice = device.GetIMEI()
+          except device_errors.CommandFailedError:
+            logging.exception('Unable to fetch IMEI for %s.', str(device))
+            imei_slice = 'unknown'
 
           if (device.product_name == 'mantaray' and
               battery_info.get('AC powered', None) != 'true'):
@@ -242,8 +231,6 @@ def GetExpectedDevices(known_devices_files):
 def AddArguments(parser):
   parser.add_argument('--json-output',
                       help='Output JSON information into a specified file.')
-  parser.add_argument('--adb-path',
-                      help='Absolute path to the adb binary to use.')
   parser.add_argument('--blacklist-file', help='Device blacklist JSON file.')
   parser.add_argument('--known-devices-file', action='append', default=[],
                       dest='known_devices_files',
@@ -251,8 +238,6 @@ def AddArguments(parser):
   parser.add_argument('--buildbot-path', '-b',
                       default='/home/chrome-bot/.adb_device_info',
                       help='Absolute path to buildbot file location')
-  parser.add_argument('-v', '--verbose', action='count', default=1,
-                      help='Log more information.')
   parser.add_argument('-w', '--overwrite-known-devices-files',
                       action='store_true',
                       help='If set, overwrites known devices files wiht new '
@@ -260,18 +245,13 @@ def AddArguments(parser):
 
 def main():
   parser = argparse.ArgumentParser()
+  logging_common.AddLoggingArguments(parser)
+  script_common.AddEnvironmentArguments(parser)
   AddArguments(parser)
   args = parser.parse_args()
 
-  run_tests_helper.SetLogLevel(args.verbose)
-
-  devil_dynamic_config = devil_env.EmptyConfig()
-
-  if args.adb_path:
-    devil_dynamic_config['dependencies'].update(
-        devil_env.LocalConfigItem(
-            'adb', devil_env.GetPlatform(), args.adb_path))
-  devil_env.config.Initialize(configs=[devil_dynamic_config])
+  logging_common.InitializeLogging(args)
+  script_common.InitializeEnvironment(args)
 
   blacklist = (device_blacklist.Blacklist(args.blacklist_file)
                if args.blacklist_file

@@ -15,30 +15,34 @@
  */
 package com.android.tradefed.result;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.LogAnnotation;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.MetricAnnotation;
 import com.android.tradefed.testtype.MetricTestCase.LogHolder;
 import com.android.tradefed.util.StreamUtil;
 
+import org.junit.AssumptionViolatedException;
 import org.junit.runner.Description;
 import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
+import org.junit.runners.model.MultipleFailureException;
 
 import java.lang.annotation.Annotation;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 
 /**
  * Result forwarder from JUnit4 Runner.
  */
 public class JUnit4ResultForwarder extends RunListener {
 
-    ITestInvocationListener mListener;
+    private ITestInvocationListener mListener;
+    private List<Throwable> mTestCaseFailures;
 
     public JUnit4ResultForwarder(ITestInvocationListener listener) {
         mListener = listener;
+        mTestCaseFailures = new ArrayList<>();
     }
 
     @Override
@@ -49,33 +53,35 @@ public class JUnit4ResultForwarder extends RunListener {
             mListener.testRunFailed(String.format("Failed with trace: %s", failure.getTrace()));
             return;
         }
-        TestIdentifier testid = new TestIdentifier(description.getClassName(),
-                description.getMethodName());
-
-        mListener.testFailed(testid, failure.getTrace());
+        mTestCaseFailures.add(failure.getException());
     }
 
     @Override
     public void testAssumptionFailure(Failure failure) {
-        Description description = failure.getDescription();
-        TestIdentifier testid = new TestIdentifier(description.getClassName(),
-                description.getMethodName());
-        mListener.testAssumptionFailure(testid, failure.getTrace());
+        mTestCaseFailures.add(failure.getException());
     }
 
     @Override
     public void testStarted(Description description) {
-        TestIdentifier testid = new TestIdentifier(description.getClassName(),
-                description.getMethodName());
+        mTestCaseFailures.clear();
+        TestDescription testid =
+                new TestDescription(
+                        description.getClassName(),
+                        description.getMethodName(),
+                        description.getAnnotations());
         mListener.testStarted(testid);
     }
 
     @Override
     public void testFinished(Description description) {
-        TestIdentifier testid = new TestIdentifier(description.getClassName(),
-                description.getMethodName());
+        TestDescription testid =
+                new TestDescription(
+                        description.getClassName(),
+                        description.getMethodName(),
+                        description.getAnnotations());
+        handleFailures(testid);
         // Explore the Description to see if we find any Annotation metrics carrier
-        Map<String, String> metrics = new HashMap<>();
+        HashMap<String, Metric> metrics = new HashMap<>();
         for (Description child : description.getChildren()) {
             for (Annotation a : child.getAnnotations()) {
                 if (a instanceof MetricAnnotation) {
@@ -97,12 +103,38 @@ public class JUnit4ResultForwarder extends RunListener {
 
     @Override
     public void testIgnored(Description description) throws Exception {
-        TestIdentifier testid = new TestIdentifier(description.getClassName(),
-                description.getMethodName());
+        TestDescription testid =
+                new TestDescription(
+                        description.getClassName(),
+                        description.getMethodName(),
+                        description.getAnnotations());
         // We complete the event life cycle since JUnit4 fireIgnored is not within fireTestStarted
         // and fireTestEnded.
         mListener.testStarted(testid);
         mListener.testIgnored(testid);
-        mListener.testEnded(testid, Collections.emptyMap());
+        mListener.testEnded(testid, new HashMap<String, Metric>());
+    }
+
+    /**
+     * Handle all the failure received from the JUnit4 tests, if a single
+     * AssumptionViolatedException is received then treat the test as assumption failure. Otherwise
+     * treat everything else as failure.
+     */
+    private void handleFailures(TestDescription testid) {
+        if (mTestCaseFailures.isEmpty()) {
+            return;
+        }
+        if (mTestCaseFailures.size() == 1) {
+            Throwable t = mTestCaseFailures.get(0);
+            if (t instanceof AssumptionViolatedException) {
+                mListener.testAssumptionFailure(testid, StreamUtil.getStackTrace(t));
+            } else {
+                mListener.testFailed(testid, StreamUtil.getStackTrace(t));
+            }
+        } else {
+            MultipleFailureException multiException =
+                    new MultipleFailureException(mTestCaseFailures);
+            mListener.testFailed(testid, StreamUtil.getStackTrace(multiException));
+        }
     }
 }

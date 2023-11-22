@@ -19,44 +19,20 @@
 # (at the time of authorship, it is included by java.mk and
 # java_host_library.mk)
 
-my_include_filter :=
-my_exclude_filter :=
+# determine Jacoco include/exclude filters even when coverage is not enabled
+# to get syntax checking on LOCAL_JACK_COVERAGE_(INCLUDE|EXCLUDE)_FILTER
+# copy filters from Jack but also skip some known java packages
+my_include_filter := $(strip $(LOCAL_JACK_COVERAGE_INCLUDE_FILTER))
+my_exclude_filter := $(strip $(DEFAULT_JACOCO_EXCLUDE_FILTER),$(LOCAL_JACK_COVERAGE_EXCLUDE_FILTER))
+
+my_include_args := $(call jacoco-class-filter-to-file-args, $(my_include_filter))
+my_exclude_args := $(call jacoco-class-filter-to-file-args, $(my_exclude_filter))
+
+# single-quote each arg of the include args so the '*' gets evaluated by zip
+# don't quote the exclude args they need to be evaluated by bash for rm -rf
+my_include_args := $(foreach arg,$(my_include_args),'$(arg)')
 
 ifeq ($(LOCAL_EMMA_INSTRUMENT),true)
-  ifeq ($(ANDROID_COMPILE_WITH_JACK),false)
-    # determine Jacoco include/exclude filters
-    DEFAULT_JACOCO_EXCLUDE_FILTER := org/junit/*,org/jacoco/*,org/mockito/*
-    # copy filters from Jack but also skip some known java packages
-    my_include_filter := $(strip $(LOCAL_JACK_COVERAGE_INCLUDE_FILTER))
-    my_exclude_filter := $(strip $(DEFAULT_JACOCO_EXCLUDE_FILTER),$(LOCAL_JACK_COVERAGE_EXCLUDE_FILTER))
-
-    # replace '.' with '/' and ',' with ' ', and quote each arg
-    ifneq ($(strip $(my_include_filter)),)
-      my_include_args := $(strip $(my_include_filter))
-
-      my_include_args := $(subst .,/,$(my_include_args))
-      my_include_args := '$(subst $(comma),' ',$(my_include_args))'
-    else
-      my_include_args :=
-    endif
-
-    # replace '.' with '/' and ',' with ' ', and quote each arg
-    ifneq ($(strip $(my_exclude_filter)),)
-      my_exclude_args := $(my_exclude_filter)
-
-      my_exclude_args := $(subst .,/,$(my_exclude_args))
-      my_exclude_args := $(subst $(comma)$(comma),$(comma),$(my_exclude_args))
-      my_exclude_args := '$(subst $(comma),' ', $(my_exclude_args))'
-    else
-      my_exclude_args :=
-    endif
-  endif # ANDROID_COMPILE_WITH_JACK==false
-endif # LOCAL_EMMA_INSTRUMENT == true
-
-# determine whether to run the instrumenter based on whether there is any work
-# for it to do
-ifneq ($(my_include_filter),)
-
   my_files := $(intermediates.COMMON)/jacoco
 
   # make a task that unzips the classes that we want to instrument from the
@@ -74,7 +50,8 @@ $(my_unzipped_timestamp_path): $(LOCAL_FULL_CLASSES_PRE_JACOCO_JAR)
 	unzip -q $(PRIVATE_FULL_CLASSES_PRE_JACOCO_JAR) \
 	  -d $(PRIVATE_UNZIPPED_PATH) \
 	  $(PRIVATE_INCLUDE_ARGS)
-	rm -rf $(PRIVATE_EXCLUDE_ARGS)
+	(cd $(PRIVATE_UNZIPPED_PATH) && rm -rf $(PRIVATE_EXCLUDE_ARGS))
+	(cd $(PRIVATE_UNZIPPED_PATH) && find -not -name "*.class" -type f | xargs --no-run-if-empty rm)
 	touch $(PRIVATE_UNZIPPED_TIMESTAMP_PATH)
 # Unfortunately in the previous task above,
 # 'rm -rf $(PRIVATE_EXCLUDE_ARGS)' needs to be a separate
@@ -107,8 +84,8 @@ $(my_instrumented_timestamp_path): $(my_unzipped_timestamp_path) $(JACOCO_CLI_JA
 	mkdir -p $(PRIVATE_INSTRUMENTED_PATH)
 	java -jar $(JACOCO_CLI_JAR) \
 	  instrument \
-	  -quiet \
-	  -dest '$(PRIVATE_INSTRUMENTED_PATH)' \
+	  --quiet \
+	  --dest '$(PRIVATE_INSTRUMENTED_PATH)' \
 	  $(PRIVATE_UNZIPPED_PATH)
 	touch $(PRIVATE_INSTRUMENTED_TIMESTAMP_PATH)
 
@@ -120,12 +97,13 @@ $(my_instrumented_timestamp_path): $(my_unzipped_timestamp_path) $(JACOCO_CLI_JA
 $(LOCAL_FULL_CLASSES_JACOCO_JAR): PRIVATE_TEMP_JAR_PATH := $(my_temp_jar_path)
 $(LOCAL_FULL_CLASSES_JACOCO_JAR): PRIVATE_INSTRUMENTED_PATH := $(my_instrumented_path)
 $(LOCAL_FULL_CLASSES_JACOCO_JAR): PRIVATE_FULL_CLASSES_PRE_JACOCO_JAR := $(LOCAL_FULL_CLASSES_PRE_JACOCO_JAR)
+$(LOCAL_FULL_CLASSES_JACOCO_JAR): $(JAR_ARGS)
 $(LOCAL_FULL_CLASSES_JACOCO_JAR): $(my_instrumented_timestamp_path) $(LOCAL_FULL_CLASSES_PRE_JACOCO_JAR)
 	rm -f $@ $(PRIVATE_TEMP_JAR_PATH)
 	# copy the pre-jacoco jar (containing files excluded from instrumentation)
 	cp $(PRIVATE_FULL_CLASSES_PRE_JACOCO_JAR) $(PRIVATE_TEMP_JAR_PATH)
 	# copy instrumented files back into the resultant jar
-	$(JAR) -uf $(PRIVATE_TEMP_JAR_PATH) -C $(PRIVATE_INSTRUMENTED_PATH) .
+	$(JAR) -uf $(PRIVATE_TEMP_JAR_PATH) $(call jar-args-sorted-files-in-directory,$(PRIVATE_INSTRUMENTED_PATH))
 	mv $(PRIVATE_TEMP_JAR_PATH) $@
 
   # this is used to trigger $(my_classes_to_report_on_path) to build
@@ -133,8 +111,8 @@ $(LOCAL_FULL_CLASSES_JACOCO_JAR): $(my_instrumented_timestamp_path) $(LOCAL_FULL
   # dependency.
 $(LOCAL_FULL_CLASSES_JACOCO_JAR): $(my_classes_to_report_on_path)
 
-else # my_include_filter == ''
+else # LOCAL_EMMA_INSTRUMENT != true
   LOCAL_FULL_CLASSES_JACOCO_JAR := $(LOCAL_FULL_CLASSES_PRE_JACOCO_JAR)
-endif # my_include_filter != ''
+endif # LOCAL_EMMA_INSTRUMENT == true
 
 LOCAL_INTERMEDIATE_TARGETS += $(LOCAL_FULL_CLASSES_JACOCO_JAR)

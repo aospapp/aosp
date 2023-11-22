@@ -24,14 +24,15 @@ import android.os.Bundle;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.support.annotation.Keep;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.TwoStatePreference;
 import android.text.TextUtils;
 import android.view.accessibility.AccessibilityManager;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.accessibility.AccessibilityUtils;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.List;
 
@@ -39,7 +40,7 @@ import java.util.List;
  * Fragment for configuring the accessibility shortcut
  */
 @Keep
-public class AccessibilityShortcutFragment extends LeanbackPreferenceFragment {
+public class AccessibilityShortcutFragment extends SettingsPreferenceFragment {
     private static final String KEY_ENABLE = "enable";
     private static final String KEY_SERVICE = "service";
 
@@ -93,5 +94,10 @@ public class AccessibilityShortcutFragment extends LeanbackPreferenceFragment {
             }
         }
         return null;
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.ACCESSIBILITY_TOGGLE_GLOBAL_GESTURE;
     }
 }

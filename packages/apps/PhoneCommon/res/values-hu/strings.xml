@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Hiányzó vagy hibás SIM kártya"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"A mobilhálózat nem érhető el"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"A fix hívószám korlátozza a kimenő hívásokat."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"A DIAL-kérés módosítva USSD-kérésre."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"A DIAL-kérés módosítva SS-kérésre."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"A DIAL-kérés módosítva eltérő számú DIAL-ra."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Hívás módosítva USSD-kérésre"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Hívás módosítva SS-kérésre"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Módosítva másik számra"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Módosítva videohívásra"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Videohívás módosítva SS-kérésre"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Videohívás módosítva USSD-kérésre"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Módosítva hagyományos hívásra"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Módosítva másik számra"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Nem kezdeményezhető kimenő hívás addig, amíg a hívásletiltás be van kapcsolva."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"A hozzáférés-vezérlés korlátozza a hívásokat."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"A hozzáférés-vezérlés korlátozza a segélyhívásokat."</string>

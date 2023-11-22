@@ -35,6 +35,7 @@ import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.StrictMode;
+import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.test.ActivityInstrumentationTestCase2;
 
@@ -568,6 +569,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     /**
      * Test addAccountExplicitly(), renameAccount() and removeAccount().
      */
+    @AppModeFull(reason = "The methods are for sign-up wizards associated with authenticators.")
     public void testAddAccountExplicitlyAndRemoveAccount() throws IOException,
             AuthenticatorException, OperationCanceledException {
 
@@ -593,6 +595,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     /**
      * Test addAccountExplicitly(), renameAccount() and removeAccount().
      */
+    @AppModeFull(reason = "The methods are for sign-up wizards associated with authenticators.")
     public void testAddAccountExplicitlyAndRemoveAccountWithNewApi() throws IOException,
             AuthenticatorException, OperationCanceledException {
 
@@ -624,6 +627,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * Test addAccountExplicitly(), renameAccount() and removeAccount() calling
      * into default implementations.
      */
+    @AppModeFull(reason = "The methods are for sign-up wizards associated with authenticators.")
     public void testAddAccountExplicitlyAndRemoveAccountWithDefaultImpl() throws IOException,
             AuthenticatorException, OperationCanceledException {
 
@@ -648,6 +652,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     /**
      * Test addAccountExplicitly(), renameAccount() and removeAccount().
      */
+    @AppModeFull(reason = "The methods are for sign-up wizards associated with authenticators.")
     public void testAddAccountExplicitlyAndRemoveAccountWithDeprecatedApi() throws IOException,
             AuthenticatorException, OperationCanceledException {
 
@@ -672,6 +677,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     /**
      * Test addAccountExplicitly() and removeAccountExplictly().
      */
+    @AppModeFull(reason = "The methods are for sign-up wizards associated with authenticators.")
     public void testAddAccountExplicitlyAndRemoveAccountExplicitly() {
         final int expectedAccountsCount = getAccountsCount();
 
@@ -694,6 +700,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     /**
      * Test updates to account visibility.
      */
+    @AppModeFull(reason = "The methods requires the caller to match signature with authenticator.")
     public void testSetAccountVisibility()
             throws IOException, AuthenticatorException, OperationCanceledException {
         am.addAccountExplicitly(ACCOUNT, ACCOUNT_PASSWORD, null /* userData */);
@@ -716,6 +723,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     /**
      * Test updates to account visibility for authenticator package.
      */
+    @AppModeFull(reason = "The methods requires the caller to match signature with authenticator.")
     public void testSetAccountVisibilityForPrivilegedPackage()
             throws IOException, AuthenticatorException, OperationCanceledException {
         am.addAccountExplicitly(ACCOUNT, ACCOUNT_PASSWORD, null /* userData */);
@@ -739,6 +747,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     /**
      * Test getPackagesAndVisibilityForAccount() method.
      */
+    @AppModeFull(reason = "The methods requires the caller to match signature with authenticator.")
     public void testGetPackagesAndVisibilityForAccount()
             throws IOException, AuthenticatorException, OperationCanceledException {
         am.addAccountExplicitly(ACCOUNT, ACCOUNT_PASSWORD, null /* userData */);
@@ -760,6 +769,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * Test addAccountExplicitly(), setAccountVisibility() , getAccountVisibility(), and
      * removeAccount().
      */
+    @AppModeFull(reason = "The methods are for sign-up wizards associated with authenticators.")
     public void testAddAccountExplicitlyWithVisibility()
             throws IOException, AuthenticatorException, OperationCanceledException {
         Map<String, Integer> visibility = new HashMap<>();
@@ -795,6 +805,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     /**
      * Test testGetAccountsAndVisibilityForPackage(), getAccountsByTypeForPackage() methods.
      */
+    @AppModeFull(reason = "The methods requires the caller to match signature with authenticator.")
     public void testGetAccountsAndVisibilityForPackage() {
         am.addAccountExplicitly(ACCOUNT, ACCOUNT_PASSWORD, null /* userData */, null);
         am.addAccountExplicitly(ACCOUNT_SAME_TYPE, ACCOUNT_PASSWORD, null /* userData */, null);
@@ -852,6 +863,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * Test checks order of accounts returned by getAccounts...().
      * Accounts should be grouped by type.
      */
+    @AppModeFull(reason = "The methods requires the caller to match signature with authenticator.")
     public void testGetAccountsReturnedOrder() {
         Account account_1_1 = new Account("account_z", ACCOUNT_TYPE);
         Account account_1_2 = new Account("account_c", ACCOUNT_TYPE);
@@ -1682,6 +1694,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     /**
      * Tests the setting of lastAuthenticatedTime on adding account
      */
+    // TODO: Either allow the system to see the activity from instant app,
+    // Or separate the authenticator and test app to allow the instant app mode test.
+    @AppModeFull
     public void testLastAuthenticatedTimeAfterAddAccount() throws IOException,
             AuthenticatorException, OperationCanceledException {
         assertTrue(addAccountAndReturnAccountAddedTime(ACCOUNT, ACCOUNT_PASSWORD) > 0);
@@ -1708,6 +1723,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * Tests the setting of lastAuthenticatedTime on confirmCredentials being
      * successful.
      */
+    // TODO: Either allow the system to see the activity from instant app,
+    // Or separate the authenticator and test app to allow the instant app mode test.
+    @AppModeFull
     public void testLastAuthenticatedTimeAfterConfirmCredentialsSuccess() throws IOException,
             AuthenticatorException, OperationCanceledException {
 
@@ -1729,6 +1747,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * Tests the setting of lastAuthenticatedTime on updateCredentials being
      * successful.
      */
+    // TODO: Either allow the system to see the activity from instant app,
+    // Or separate the authenticator and test app to allow the instant app mode test.
+    @AppModeFull
     public void testLastAuthenticatedTimeAfterUpdateCredentialsSuccess() throws IOException,
             AuthenticatorException, OperationCanceledException {
 
@@ -1747,6 +1768,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     /**
      * LastAuthenticatedTime on setPassword should not be disturbed.
      */
+    @AppModeFull(reason = "setPassword should be called by authenticator.")
     public void testLastAuthenticatedTimeAfterSetPassword() throws IOException,
             AuthenticatorException, OperationCanceledException {
         long accountAddTime = addAccountAndReturnAccountAddedTime(ACCOUNT, ACCOUNT_PASSWORD);
@@ -2428,6 +2450,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * and return the final result which contains an encrypted session bundle,
      * account password and status token.
      */
+    // TODO: Either allow the system to see the activity from instant app,
+    // Or separate the authenticator and test app to allow the instant app mode test.
+    @AppModeFull
     public void testStartAddAccountSessionIntervene()
             throws IOException, AuthenticatorException, OperationCanceledException {
         final String accountName = Fixtures.PREFIX_NAME_INTERVENE + "@"
@@ -2458,6 +2483,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * automatically. When no Activity is provided and authenticator requires
      * additional data from user, KEY_INTENT will be returned by AccountManager.
      */
+    // TODO: Either allow the system to see the activity from instant app,
+    // Or separate the authenticator and test app to allow the instant app mode test.
+    @AppModeFull
     public void testStartAddAccountSessionWithReturnIntent()
             throws IOException, AuthenticatorException, OperationCanceledException {
         final String accountName = Fixtures.PREFIX_NAME_INTERVENE + "@"
@@ -2532,6 +2560,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * session bundle, account password and status token. Callback should be
      * triggered with the result regardless of a handled is provided or not.
      */
+    // TODO: Either allow the system to see the activity from instant app,
+    // Or separate the authenticator and test app to allow the instant app mode test.
+    @AppModeFull
     public void testStartAddAccountSessionWithCallbackAndHandlerWithIntervene()
             throws IOException, AuthenticatorException, OperationCanceledException {
         testStartAddAccountSessionWithCallbackAndHandlerWithIntervene(null /* handler */);
@@ -2545,6 +2576,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * additional data from user, KEY_INTENT will be returned by AccountManager
      * in callback regardless of a handler is provided or not.
      */
+    // TODO: Either allow the system to see the activity from instant app,
+    // Or separate the authenticator and test app to allow the instant app mode test.
+    @AppModeFull
     public void testStartAddAccountSessionWithCallbackAndHandlerWithReturnIntent()
             throws IOException, AuthenticatorException, OperationCanceledException {
         testStartAddAccountSessionWithCallbackAndHandlerWithReturnIntent(null /* handler */);
@@ -2818,6 +2852,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * and return the final result which contains an encrypted session bundle,
      * account password and status token.
      */
+    // TODO: Either allow the system to see the activity from instant app,
+    // Or separate the authenticator and test app to allow the instant app mode test.
+    @AppModeFull
     public void testStartUpdateCredentialsSessionIntervene()
             throws IOException, AuthenticatorException, OperationCanceledException {
         String accountName = Fixtures.PREFIX_NAME_INTERVENE + "@" + Fixtures.SUFFIX_NAME_FIXTURE;
@@ -2846,6 +2883,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * started automatically. When no Activity is provided and authenticator requires
      * additional data from user, KEY_INTENT will be returned by AccountManager.
      */
+    // TODO: Either allow the system to see the activity from instant app,
+    // Or separate the authenticator and test app to allow the instant app mode test.
+    @AppModeFull
     public void testStartUpdateCredentialsSessionWithReturnIntent()
             throws IOException, AuthenticatorException, OperationCanceledException {
         String accountName = Fixtures.PREFIX_NAME_INTERVENE + "@" + Fixtures.SUFFIX_NAME_FIXTURE;
@@ -2918,6 +2958,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * session bundle, account password and status token. Callback should be
      * triggered with the result regardless of a handler is provided or not.
      */
+    // TODO: Either allow the system to see the activity from instant app,
+    // Or separate the authenticator and test app to allow the instant app mode test.
+    @AppModeFull
     public void testStartUpdateCredentialsSessionWithCallbackAndHandlerWithIntervene()
             throws IOException, AuthenticatorException, OperationCanceledException {
         testStartUpdateCredentialsSessionWithCallbackAndHandlerWithIntervene(null /* handler */);
@@ -2931,6 +2974,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * additional data from user, KEY_INTENT will be returned by AccountManager
      * in callback regardless of a handler is provided or not.
      */
+    // TODO: Either allow the system to see the activity from instant app,
+    // Or separate the authenticator and test app to allow the instant app mode test.
+    @AppModeFull
     public void testStartUpdateCredentialsSessionWithCallbackAndHandlerWithReturnIntent()
             throws IOException, AuthenticatorException, OperationCanceledException {
         testStartUpdateCredentialsSessionWithCallbackAndHandlerWithReturnIntent(null /* handler */);
@@ -3626,6 +3672,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * provided by caller, the resolution intent will be started automatically.
      * A bundle containing account name and type will be returned.
      */
+    // TODO: Either allow the system to see the activity from instant app,
+    // Or separate the authenticator and test app to allow the instant app mode test.
+    @AppModeFull
     public void testFinishSessionIntervene()
             throws IOException, AuthenticatorException, OperationCanceledException {
         String accountName = Fixtures.PREFIX_NAME_INTERVENE + "@" + Fixtures.SUFFIX_NAME_FIXTURE;
@@ -3675,6 +3724,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * will not be started automatically. A bundle containing KEY_INTENT will be
      * returned instead.
      */
+    // TODO: Either allow the system to see the activity from instant app,
+    // Or separate the authenticator and test app to allow the instant app mode test.
+    @AppModeFull
     public void testFinishSessionWithReturnIntent()
             throws IOException, AuthenticatorException, OperationCanceledException {
         String accountName = Fixtures.PREFIX_NAME_INTERVENE + "@" + Fixtures.SUFFIX_NAME_FIXTURE;
@@ -3789,6 +3841,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * automatically. A bundle containing account name and type will be returned
      * via the callback regardless of if handler is provided or now.
      */
+    // TODO: Either allow the system to see the activity from instant app,
+    // Or separate the authenticator and test app to allow the instant app mode test.
+    @AppModeFull
     public void testFinishSessionWithCallbackAndHandlerWithIntervene()
             throws IOException, AuthenticatorException, OperationCanceledException {
         testFinishSessionWithCallbackAndHandlerWithIntervene(null /* handler */);
@@ -3803,6 +3858,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      * will not be started automatically. A bundle containing KEY_INTENT will be
      * returned instead via callback regardless of if handler is provided or not.
      */
+    // TODO: Either allow the system to see the activity from instant app,
+    // Or separate the authenticator and test app to allow the instant app mode test.
+    @AppModeFull
     public void testFinishSessionWithCallbackAndHandlerWithReturnIntent()
             throws IOException, AuthenticatorException, OperationCanceledException {
         testFinishSessionWithCallbackAndHandlerWithReturnIntent(null /* handler */);

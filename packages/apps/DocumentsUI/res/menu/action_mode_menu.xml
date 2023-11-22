@@ -63,8 +63,8 @@
         android:showAsAction="never"
         android:visible="false" />
     <item
-        android:id="@+id/action_menu_inspector"
-        android:title="@string/menu_inspector"
+        android:id="@+id/action_menu_inspect"
+        android:title="@string/menu_inspect"
         android:showAsAction="never"
         android:visible="false" />
     <item

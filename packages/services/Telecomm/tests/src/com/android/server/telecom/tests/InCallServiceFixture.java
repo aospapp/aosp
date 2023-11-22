@@ -25,7 +25,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.IInterface;
 import android.os.RemoteException;
-import android.telecom.AudioState;
 import android.telecom.CallAudioState;
 import android.telecom.ParcelableCall;
 
@@ -49,7 +48,8 @@ public class InCallServiceFixture implements TestFixture<IInCallService> {
     public boolean mShowDialpad;
     public boolean mCanAddCall;
     public boolean mSilenceRinger;
-    public CountDownLatch mLock = new CountDownLatch(1);
+    public CountDownLatch mUpdateCallLock = new CountDownLatch(1);
+    public CountDownLatch mAddCallLock = new CountDownLatch(1);
 
     public class FakeInCallService extends IInCallService.Stub {
         @Override
@@ -68,8 +68,9 @@ public class InCallServiceFixture implements TestFixture<IInCallService> {
             if (mCallById.containsKey(call.getId())) {
                 throw new RuntimeException("Call " + call.getId() + " already added");
             }
-            mCallById.put(call.getId(), call);
             mLatestCallId = call.getId();
+            mCallById.put(call.getId(), call);
+            mAddCallLock.countDown();
         }
 
         @Override
@@ -77,9 +78,9 @@ public class InCallServiceFixture implements TestFixture<IInCallService> {
             if (!mCallById.containsKey(call.getId())) {
                 throw new RuntimeException("Call " + call.getId() + " not added yet");
             }
-            mCallById.put(call.getId(), call);
             mLatestCallId = call.getId();
-            mLock.countDown();
+            mCallById.put(call.getId(), call);
+            mUpdateCallLock.countDown();
         }
 
         @Override
@@ -137,6 +138,12 @@ public class InCallServiceFixture implements TestFixture<IInCallService> {
         public IInterface queryLocalInterface(String descriptor) {
             return this;
         }
+
+        @Override
+        public void onHandoverFailed(String callId, int error) {}
+
+        @Override
+        public void onHandoverComplete(String callId) {}
     }
 
     private IInCallService.Stub mInCallServiceFake = new FakeInCallService();
@@ -159,10 +166,23 @@ public class InCallServiceFixture implements TestFixture<IInCallService> {
 
     public void waitForUpdate() {
         try {
-            mLock.await(5000, TimeUnit.MILLISECONDS);
+            mUpdateCallLock.await(5000, TimeUnit.MILLISECONDS);
         } catch (InterruptedException ie) {
             return;
         }
-        mLock = new CountDownLatch(1);
+        mUpdateCallLock = new CountDownLatch(1);
+    }
+
+    public void waitUntilNumCalls(int numCalls) {
+        if (mCallById.size() == numCalls) {
+            return;
+        }
+        mAddCallLock = new CountDownLatch(1);
+
+        try {
+            mAddCallLock.await(5000, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ie) {
+            return;
+        }
     }
 }

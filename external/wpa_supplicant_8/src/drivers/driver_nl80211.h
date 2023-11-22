@@ -162,6 +162,8 @@ struct wpa_driver_nl80211_data {
 	unsigned int connect_reassoc:1;
 	unsigned int set_wifi_conf_vendor_cmd_avail:1;
 	unsigned int he_capab_vendor_cmd_avail:1;
+	unsigned int fetch_bss_trans_status:1;
+	unsigned int roam_vendor_cmd_avail:1;
 
 	u64 vendor_scan_cookie;
 	u64 remain_on_chan_cookie;
@@ -259,7 +261,8 @@ int nl80211_send_monitor(struct wpa_driver_nl80211_data *drv,
 
 int wpa_driver_nl80211_capa(struct wpa_driver_nl80211_data *drv);
 struct hostapd_hw_modes *
-nl80211_get_hw_feature_data(void *priv, u16 *num_modes, u16 *flags);
+nl80211_get_hw_feature_data(void *priv, u16 *num_modes, u16 *flags,
+			    u8 *dfs_domain);
 
 int process_global_event(struct nl_msg *msg, void *arg);
 int process_bss_event(struct nl_msg *msg, void *arg);

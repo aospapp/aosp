@@ -252,6 +252,12 @@ public interface IGlobalConfiguration {
     public Object getConfigurationObject(String typeName);
 
     /**
+     * Gets global config server. Global config server is used to get host configs from a server
+     * instead of getting it from local files.
+     */
+    public IConfigurationServer getGlobalConfigServer();
+
+    /**
      * Validate option values.
      * <p/>
      * Currently this will just validate that all mandatory options have been set

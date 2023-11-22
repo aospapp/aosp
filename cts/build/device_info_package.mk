@@ -18,8 +18,12 @@
 
 DEVICE_INFO_PACKAGE := com.android.compatibility.common.deviceinfo
 DEVICE_INFO_INSTRUMENT := android.support.test.runner.AndroidJUnitRunner
-DEVICE_INFO_PERMISSIONS += android.permission.WRITE_EXTERNAL_STORAGE
+DEVICE_INFO_USES_LIBRARY := android.test.runner
+DEVICE_INFO_PERMISSIONS += \
+  android.permission.READ_PHONE_STATE \
+  android.permission.WRITE_EXTERNAL_STORAGE
 DEVICE_INFO_ACTIVITIES += \
+  $(DEVICE_INFO_PACKAGE).AppStandbyDeviceInfo \
   $(DEVICE_INFO_PACKAGE).ConfigurationDeviceInfo \
   $(DEVICE_INFO_PACKAGE).CpuDeviceInfo \
   $(DEVICE_INFO_PACKAGE).FeatureDeviceInfo \
@@ -41,7 +45,7 @@ DEVICE_INFO_MIN_SDK := 8
 endif
 
 ifeq ($(DEVICE_INFO_TARGET_SDK),)
-DEVICE_INFO_TARGET_SDK := 8
+DEVICE_INFO_TARGET_SDK := 17
 endif
 
 # Add the base device info
@@ -55,6 +59,7 @@ MANIFEST_GENERATOR := $(JAVA) -jar $(MANIFEST_GENERATOR_JAR)
 manifest_xml := $(call intermediates-dir-for,APPS,$(LOCAL_PACKAGE_NAME))/AndroidManifest.xml
 $(manifest_xml): PRIVATE_INFO_PERMISSIONS := $(foreach permission, $(DEVICE_INFO_PERMISSIONS),-r $(permission))
 $(manifest_xml): PRIVATE_INFO_ACTIVITIES := $(foreach activity,$(DEVICE_INFO_ACTIVITIES),-a $(activity))
+$(manifest_xml): PRIVATE_USES_LIBRARY := $(DEVICE_INFO_USES_LIBRARY)
 $(manifest_xml): PRIVATE_PACKAGE := $(DEVICE_INFO_PACKAGE)
 $(manifest_xml): PRIVATE_INSTRUMENT := $(DEVICE_INFO_INSTRUMENT)
 $(manifest_xml): PRIVATE_MIN_SDK := $(DEVICE_INFO_MIN_SDK)
@@ -67,6 +72,7 @@ $(manifest_xml): $(MANIFEST_GENERATOR_JAR) $(LOCAL_PATH)/Android.mk cts/build/de
 	$(hide) $(MANIFEST_GENERATOR) \
 						$(PRIVATE_INFO_PERMISSIONS) \
 						$(PRIVATE_INFO_ACTIVITIES) \
+						-l $(PRIVATE_USES_LIBRARY) \
 						-p $(PRIVATE_PACKAGE) \
 						-i $(PRIVATE_INSTRUMENT) \
 						-s $(PRIVATE_MIN_SDK) \
@@ -91,6 +97,10 @@ LOCAL_MODULE_TAGS := optional
 # And when built explicitly put it in the data partition
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
+
+#TODO(b/72620511) remove this condition when AtsDeviceInfo can be built with SDK again
+ifneq ($(LOCAL_PRIVATE_PLATFORM_APIS),true)
 LOCAL_SDK_VERSION := current
+endif
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

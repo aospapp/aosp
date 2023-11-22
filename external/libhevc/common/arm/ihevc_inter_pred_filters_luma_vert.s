@@ -103,6 +103,11 @@
 @   r12 => *pi1_coeff
 @   r5 =>  ht
 @   r3 =>  wd
+
+.equ    coeff_offset,   104
+.equ    ht_offset,      108
+.equ    wd_offset,      112
+
 .text
 .align 4
 .syntax unified
@@ -116,15 +121,16 @@
 ihevc_inter_pred_luma_vert_a9q:
 
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
+    vpush        {d8 - d15}
 
-    ldr         r12,[sp,#40]                @load pi1_coeff
+    ldr         r12,[sp,#coeff_offset]                @load pi1_coeff
     mov         r6,r3
-    ldr         r5,[sp,#48]                 @load wd
+    ldr         r5,[sp,#wd_offset]                 @load wd
     vld1.u8     {d0},[r12]                  @coeff = vld1_s8(pi1_coeff)
     sub         r12,r2,r2,lsl #2            @src_ctrd & pi1_coeff
     vabs.s8     d0,d0                       @vabs_s8(coeff)
     add         r0,r0,r12                   @r0->pu1_src    r12->pi1_coeff
-    ldr         r3,[sp,#44]                 @load ht
+    ldr         r3,[sp,#ht_offset]                 @load ht
     subs        r7,r3,#0                    @r3->ht
     @ble        end_loops           @end loop jump
     vdup.u8     d22,d0[0]                   @coeffabs_0 = vdup_lane_u8(coeffabs, 0)@
@@ -407,7 +413,8 @@ end_loops:
     ldr         r1, [sp], #4
     ldr         r0, [sp], #4
 
-    ldmfdeq     sp!,{r4-r12,r15}            @reload the registers from sp
+    beq         end1
+
     mov         r5, #4
     add         r0, r0, #8
     add         r1, r1, #8
@@ -491,6 +498,8 @@ end_inner_loop_wd_4:
     add         r0,r0,r8
     bgt         outer_loop_wd_4
 
+end1:
+    vpop         {d8 - d15}
     ldmfd       sp!, {r4-r12, r15}          @reload the registers from sp
 
 
@@ -564,15 +573,16 @@ end_inner_loop_wd_4:
 ihevc_inter_pred_luma_vert_w16out_a9q:
 
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
+    vpush        {d8 - d15}
 
-    ldr         r12,[sp,#40]                @load pi1_coeff
+    ldr         r12,[sp,#coeff_offset]                @load pi1_coeff
     mov         r6,r3
-    ldr         r5,[sp,#48]                 @load wd
+    ldr         r5,[sp,#wd_offset]                 @load wd
     vld1.u8     {d0},[r12]                  @coeff = vld1_s8(pi1_coeff)
     sub         r12,r2,r2,lsl #2            @src_ctrd & pi1_coeff
     vabs.s8     d0,d0                       @vabs_s8(coeff)
     add         r0,r0,r12                   @r0->pu1_src    r12->pi1_coeff
-    ldr         r3,[sp,#44]                 @load ht
+    ldr         r3,[sp,#ht_offset]                 @load ht
     subs        r7,r3,#0                    @r3->ht
     @ble        end_loops_16out         @end loop jump
     vdup.u8     d22,d0[0]                   @coeffabs_0 = vdup_lane_u8(coeffabs, 0)@
@@ -848,7 +858,8 @@ end_loops_16out:
     ldr         r1, [sp], #4
     ldr         r0, [sp], #4
 
-    ldmfdeq     sp!,{r4-r12,r15}            @reload the registers from sp
+    beq         end2
+
     mov         r5, #4
     add         r0, r0, #8
     add         r1, r1, #16
@@ -934,7 +945,8 @@ end_inner_loop_wd_4_16out:
     add         r1,r1,r9,lsl #1
     add         r0,r0,r8
     bgt         outer_loop_wd_4_16out
-
+end2:
+    vpop         {d8 - d15}
     ldmfd       sp!, {r4-r12, r15}          @reload the registers from sp
 
 

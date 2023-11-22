@@ -30,7 +30,9 @@ import java.util.List;
  * TelephonyConnection-based conference call for GSM conferences and IMS conferences (which may
  * be either GSM-based or CDMA-based).
  */
-public class TelephonyConference extends Conference {
+public class TelephonyConference extends Conference implements Holdable {
+
+    private boolean mIsHoldable;
 
     public TelephonyConference(PhoneAccountHandle phoneAccount) {
         super(phoneAccount);
@@ -40,6 +42,7 @@ public class TelephonyConference extends Conference {
                 Connection.CAPABILITY_MUTE |
                 Connection.CAPABILITY_MANAGE_CONFERENCE);
         setActive();
+        mIsHoldable = true;
     }
 
     /**
@@ -174,6 +177,22 @@ public class TelephonyConference extends Conference {
         }
 
         return primaryConnection;
+    }
+
+    @Override
+    public void setHoldable(boolean isHoldable) {
+        mIsHoldable = isHoldable;
+        if (!mIsHoldable) {
+            removeCapability(Connection.CAPABILITY_HOLD);
+        } else {
+            addCapability(Connection.CAPABILITY_HOLD);
+        }
+    }
+
+    @Override
+    public boolean isChildHoldable() {
+        // The conference should not be a child of other conference.
+        return false;
     }
 
     private Call getMultipartyCallForConnection(Connection connection, String tag) {

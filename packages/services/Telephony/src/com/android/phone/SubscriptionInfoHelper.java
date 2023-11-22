@@ -20,12 +20,12 @@ import android.app.ActionBar;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
+import android.telecom.PhoneAccountHandle;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 
-import com.android.phone.PhoneGlobals;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
 
@@ -37,7 +37,6 @@ import com.android.internal.telephony.PhoneFactory;
  * helping extract this info and perform common operations using this info.
  */
 public class SubscriptionInfoHelper {
-    public static final int NO_SUB_ID = -1;
 
     // Extra on intent containing the id of a subscription.
     public static final String SUB_ID_EXTRA =
@@ -46,17 +45,24 @@ public class SubscriptionInfoHelper {
     private static final String SUB_LABEL_EXTRA =
             "com.android.phone.settings.SubscriptionInfoHelper.SubscriptionLabel";
 
-    private static Context mContext;
+    private Context mContext;
 
-    private static int mSubId = NO_SUB_ID;
-    private static String mSubLabel;
+    private int mSubId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+    private String mSubLabel;
 
     /**
      * Instantiates the helper, by extracting the subscription id and label from the intent.
      */
     public SubscriptionInfoHelper(Context context, Intent intent) {
         mContext = context;
-        mSubId = intent.getIntExtra(SUB_ID_EXTRA, NO_SUB_ID);
+        PhoneAccountHandle phoneAccountHandle =
+                intent.getParcelableExtra(TelephonyManager.EXTRA_PHONE_ACCOUNT_HANDLE);
+        if (phoneAccountHandle != null) {
+            mSubId = PhoneUtils.getSubIdForPhoneAccountHandle(phoneAccountHandle);
+        }
+        if (mSubId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+            mSubId = intent.getIntExtra(SUB_ID_EXTRA, SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+        }
         mSubLabel = intent.getStringExtra(SUB_LABEL_EXTRA);
     }
 
@@ -118,7 +124,7 @@ public class SubscriptionInfoHelper {
     }
 
     public boolean hasSubId() {
-        return mSubId != NO_SUB_ID;
+        return mSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID;
     }
 
     public int getSubId() {

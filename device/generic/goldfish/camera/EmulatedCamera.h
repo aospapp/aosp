@@ -301,6 +301,7 @@ private:
     status_t getConfiguredPixelFormat(uint32_t* pixelFormat) const;
     status_t getConfiguredFrameSize(int* width, int* height) const;
 
+
     /****************************************************************************
      * Camera API callbacks as defined by camera_device_ops structure.
      * See hardware/libhardware/include/hardware/camera.h for information on

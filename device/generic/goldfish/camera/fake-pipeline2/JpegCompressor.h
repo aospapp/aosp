@@ -29,12 +29,16 @@
 #include "utils/Timers.h"
 
 #include "Base.h"
+#include "../JpegCompressor.h"
+#include <CameraMetadata.h>
 
 #include <stdio.h>
 
 extern "C" {
 #include <jpeglib.h>
 }
+
+using ::android::hardware::camera::common::V1_0::helper::CameraMetadata;
 
 namespace android {
 
@@ -57,7 +61,7 @@ class JpegCompressor: private Thread, public virtual RefBase {
     // Start compressing COMPRESSED format buffers; JpegCompressor takes
     // ownership of the Buffers vector.
     // Reserve() must be called first.
-    status_t start(Buffers *buffers, JpegListener *listener);
+    status_t start(Buffers *buffers, JpegListener *listener, CameraMetadata* settings);
 
     // Compress and block until buffer is complete.
     status_t compressSynchronous(Buffers *buffers);
@@ -88,25 +92,8 @@ class JpegCompressor: private Thread, public virtual RefBase {
 
     StreamBuffer mJpegBuffer, mAuxBuffer;
     bool mFoundJpeg, mFoundAux;
+    CameraMetadata mSettings;
 
-    jpeg_compress_struct mCInfo;
-
-    struct JpegError : public jpeg_error_mgr {
-        JpegCompressor *parent;
-    };
-    j_common_ptr mJpegErrorInfo;
-
-    struct JpegDestination : public jpeg_destination_mgr {
-        JpegCompressor *parent;
-    };
-
-    static void jpegErrorHandler(j_common_ptr cinfo);
-
-    static void jpegInitDestination(j_compress_ptr cinfo);
-    static boolean jpegEmptyOutputBuffer(j_compress_ptr cinfo);
-    static void jpegTermDestination(j_compress_ptr cinfo);
-
-    bool checkError(const char *msg);
     status_t compress();
 
     void cleanUp();

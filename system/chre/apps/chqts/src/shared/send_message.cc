@@ -85,7 +85,7 @@ static void *getMessageMemory(size_t *size, bool *dumbAlloc) {
     // Not expected, but possible if the CHRE is lagging in freeing
     // these messages, or if we're sending a huge message.
     *dumbAlloc = false;
-    ret = chreHeapAlloc(*size);
+    ret = chreHeapAlloc(static_cast<uint32_t>(*size));
     if (ret == nullptr) {
       fatalError();
     }
@@ -98,8 +98,8 @@ static void *prependMessageType(MessageType messageType, void *memory) {
   if (!needToPrependMessageType()) {
     return memory;
   }
-  uint32_t type = static_cast<uint32_t>(messageType);
-  nanoapp_testing::hostToLittleEndian(&type);
+  uint32_t type = nanoapp_testing::hostToLittleEndian(
+      static_cast<uint32_t>(messageType));
   memcpy(memory, &type, sizeof(type));
   uint8_t *ptr = static_cast<uint8_t*>(memory);
   ptr += sizeof(type);
@@ -111,10 +111,11 @@ static void internalSendMessage(MessageType messageType, void *data,
   // Note that if the CHRE implementation occasionally drops a message
   // here, then tests will become flaky.  For now, we consider that to
   // be a flaky CHRE implementation which should fail testing.
-  if (!chreSendMessageToHost(data, dataSize,
-                             static_cast<uint32_t>(messageType),
-                             dumbAlloc ? freeDumbAllocMessage :
-                             freeHeapMessage)) {
+  if (!chreSendMessageToHostEndpoint(data, dataSize,
+                                     static_cast<uint32_t>(messageType),
+                                     CHRE_HOST_ENDPOINT_BROADCAST,
+                                     dumbAlloc ? freeDumbAllocMessage :
+                                     freeHeapMessage)) {
     fatalError();
   }
 }
@@ -154,7 +155,8 @@ void sendStringToHost(MessageType messageType, const char *message,
   memcpy(ptr, message, messageStrlen);
   ptr += messageStrlen;
   if (value != nullptr) {
-    uint32ToHexAscii(ptr, fullMessageLen - (ptr - fullMessage), *value);
+    uint32ToHexAscii(
+        ptr, fullMessageLen - static_cast<size_t>(ptr - fullMessage), *value);
   }
   // Add the terminator.
   fullMessage[fullMessageLen - 1] = '\0';

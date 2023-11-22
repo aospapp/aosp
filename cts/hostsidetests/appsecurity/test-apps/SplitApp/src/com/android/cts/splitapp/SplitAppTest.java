@@ -19,10 +19,8 @@ package com.android.cts.splitapp;
 import static org.xmlpull.v1.XmlPullParser.END_DOCUMENT;
 import static org.xmlpull.v1.XmlPullParser.START_TAG;
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -35,12 +33,12 @@ import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
+import android.os.Bundle;
 import android.os.ConditionVariable;
 import android.os.Environment;
-import android.os.ParcelFileDescriptor;
-import android.os.StatFs;
+import android.os.RemoteCallback;
 import android.system.Os;
-import android.system.OsConstants;
 import android.system.StructStat;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
@@ -54,7 +52,6 @@ import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -309,22 +306,7 @@ public class SplitAppTest extends AndroidTestCase {
     }
 
     public void testBaseInstalled() throws Exception {
-        final ConditionVariable cv = new ConditionVariable();
-        final BroadcastReceiver r = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                assertEquals(1, intent.getIntExtra("CREATE_COUNT", -1));
-                assertEquals(0, intent.getIntExtra("NEW_INTENT_COUNT", -1));
-                cv.open();
-            }
-        };
-        final IntentFilter filter = new IntentFilter("com.android.cts.norestart.BROADCAST");
-        getContext().registerReceiver(r, filter);
-        final Intent i = new Intent("com.android.cts.norestart.START");
-        i.addCategory(Intent.CATEGORY_DEFAULT);
-        getContext().startActivity(i);
-        assertTrue(cv.block(2000L));
-        getContext().unregisterReceiver(r);
+        launchBaseActivity(1, 0);
     }
 
     /**
@@ -334,22 +316,27 @@ public class SplitAppTest extends AndroidTestCase {
      * done in {@link #testBaseInstalled()}.
      */
     public void testFeatureInstalled() throws Exception {
+        launchBaseActivity(1, 1);
+    }
+
+    private void launchBaseActivity(int expectedCreateCount, int expectedNewIntentCount) {
         final ConditionVariable cv = new ConditionVariable();
-        final BroadcastReceiver r = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                assertEquals(1, intent.getIntExtra("CREATE_COUNT", -1));
-                assertEquals(1, intent.getIntExtra("NEW_INTENT_COUNT", -1));
-                cv.open();
-            }
-        };
-        final IntentFilter filter = new IntentFilter("com.android.cts.norestart.BROADCAST");
-        getContext().registerReceiver(r, filter);
-        final Intent i = new Intent("com.android.cts.norestart.START");
+
+        final Intent i = new Intent(Intent.ACTION_VIEW);
+        i.setPackage("com.android.cts.norestart");
         i.addCategory(Intent.CATEGORY_DEFAULT);
+        i.addCategory(Intent.CATEGORY_BROWSABLE);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        i.setData(Uri.parse("https://foo.com/bar"));
+
+        i.putExtra("RESPONSE", new RemoteCallback((Bundle result) -> {
+            assertEquals(expectedCreateCount, result.getInt("CREATE_COUNT", -1));
+            assertEquals(expectedNewIntentCount, result.getInt("NEW_INTENT_COUNT", -1));
+            cv.open();
+        }));
+
         getContext().startActivity(i);
         assertTrue(cv.block(2000L));
-        getContext().unregisterReceiver(r);
     }
 
     public void testFeatureApi() throws Exception {

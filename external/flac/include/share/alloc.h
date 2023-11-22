@@ -1,6 +1,6 @@
 /* alloc - Convenience routines for safely allocating memory
  * Copyright (C) 2007-2009  Josh Coalson
- * Copyright (C) 2011-2014  Xiph.Org Foundation
+ * Copyright (C) 2011-2016  Xiph.Org Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,7 +52,7 @@
 # ifndef SIZE_T_MAX
 #  ifdef _MSC_VER
 #   ifdef _WIN64
-#    define SIZE_T_MAX 0xffffffffffffffffui64
+#    define SIZE_T_MAX FLAC__U64L(0xffffffffffffffff)
 #   else
 #    define SIZE_T_MAX 0xffffffff
 #   endif

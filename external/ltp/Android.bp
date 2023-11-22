@@ -18,11 +18,11 @@
 build = ["gen.bp"]
 
 genrule {
-    name: "ltp_linux_syscall_numbers",
-    tool_files: ["testcases/kernel/include/regen.sh"],
-    cmd: "$(location) $(genDir)/linux_syscall_numbers.h",
-    srcs: ["testcases/kernel/include/*.in"],
-    out: ["linux_syscall_numbers.h"],
+    name: "ltp_syscalls_h",
+    tool_files: ["include/lapi/syscalls/regen.sh"],
+    cmd: "$(location) $(genDir)/lapi/syscalls.h",
+    srcs: ["include/lapi/syscalls/*.in"],
+    out: ["lapi/syscalls.h"],
 }
 
 cc_defaults {
@@ -32,16 +32,35 @@ cc_defaults {
         // Hacks for bionic compatibility
         "-include bionic-compat.h",
 
+        "-Wall",
+        "-Werror",
+        // Keep some warnings to check later
+        "-Wno-error=absolute-value",
+        "-Wno-error=undefined-internal",
+        "-Wno-error=uninitialized",
+        "-Wno-error=user-defined-warnings",
         // Silence noisy warnings
+        "-Wno-constant-conversion",
         "-Wno-deprecated",
+        "-Wno-duplicate-decl-specifier",
+        "-Wno-empty-body",
         "-Wno-format",
         "-Wno-gnu-designator",
+	"-Wno-implicit-function-declaration",
+	"-Wno-incompatible-pointer-types-discards-qualifiers",
+        "-Wno-knr-promoted-parameter",
         "-Wno-macro-redefined",
+	"-Wno-missing-braces",
         "-Wno-missing-field-initializers",
         "-Wno-parentheses-equality",
         "-Wno-pointer-arith",
+        "-Wno-pointer-sign",
         "-Wno-sign-compare",
+        "-Wno-tautological-compare",
+        "-Wno-unneeded-internal-declaration",
+        "-Wno-unused-function",
         "-Wno-unused-parameter",
+        "-Wno-unused-variable",
     ],
 
     local_include_dirs: [
@@ -60,7 +79,7 @@ cc_defaults {
         },
     },
 
-    generated_headers: ["ltp_linux_syscall_numbers"],
+    generated_headers: ["ltp_syscalls_h"],
 
     static_libs: ["libcap"],
 

@@ -21,7 +21,7 @@
 
 #include "util/base/integral_types.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 // Parses an int32 from a C-style string.
 //
@@ -47,7 +47,6 @@ bool ParseDouble(const char *c_str, double *value);
 // int types.
 std::string IntToString(int64 input);
 
-
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
 #endif  // LIBTEXTCLASSIFIER_UTIL_STRINGS_NUMBERS_H_

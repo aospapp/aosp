@@ -1,19 +1,9 @@
-// libminijail_unittest.cpp
-// Copyright (C) 2016 The Android Open Source Project
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-// Test platform independent logic of Minijail using gtest.
+/* Copyright 2016 The Chromium OS Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ *
+ * Test platform independent logic of Minijail using gtest.
+ */
 
 #include <errno.h>
 
@@ -21,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include <gtest/gtest.h>
 
@@ -28,15 +19,20 @@
 #include "libminijail-private.h"
 #include "util.h"
 
+namespace {
+
 #if defined(__ANDROID__)
-const char *kShellPath = "/system/bin/sh";
+# define ROOT_PREFIX "/system"
 #else
-const char *kShellPath = "/bin/sh";
+# define ROOT_PREFIX ""
 #endif
 
+const char kShellPath[] = ROOT_PREFIX "/bin/sh";
+const char kCatPath[] = ROOT_PREFIX "/bin/cat";
+
+}  // namespace
+
 /* Prototypes needed only by test. */
-void *consumebytes(size_t length, char **buf, size_t *buflength);
-char *consumestr(char **buf, size_t *buflength);
 size_t minijail_get_tmpfs_size(const struct minijail *);
 
 /* Silence unused variable warnings. */
@@ -166,18 +162,13 @@ TEST(Test, minijail_run_pid_pipes_no_preload) {
   const size_t buf_len = 128;
   char buf[buf_len];
   int status;
-#if defined(__ANDROID__)
-  char filename[] = "/system/bin/cat";
-#else
-  char filename[] = "/bin/cat";
-#endif
   char teststr[] = "test\n";
   size_t teststr_len = strlen(teststr);
   char *argv[4];
 
   struct minijail *j = minijail_new();
 
-  argv[0] = filename;
+  argv[0] = (char*)kCatPath;
   argv[1] = NULL;
   mj_run_ret = minijail_run_pid_pipes_no_preload(j, argv[0], argv,
                                                  &pid,
@@ -271,6 +262,194 @@ TEST(Test, test_minijail_no_fd_leaks) {
   minijail_destroy(j);
 
   close(dev_null);
+}
+
+TEST(Test, test_minijail_fork) {
+  pid_t mj_fork_ret;
+  int status;
+  int pipe_fds[2];
+  ssize_t pid_size = sizeof(mj_fork_ret);
+
+  struct minijail *j = minijail_new();
+
+  ASSERT_EQ(pipe(pipe_fds), 0);
+
+  mj_fork_ret = minijail_fork(j);
+  ASSERT_GE(mj_fork_ret, 0);
+  if (mj_fork_ret == 0) {
+    pid_t pid_in_parent;
+    // Wait for the parent to tell us the pid in the parent namespace.
+    EXPECT_EQ(read(pipe_fds[0], &pid_in_parent, pid_size), pid_size);
+    EXPECT_EQ(pid_in_parent, getpid());
+    exit(0);
+  }
+
+  EXPECT_EQ(write(pipe_fds[1], &mj_fork_ret, pid_size), pid_size);
+  waitpid(mj_fork_ret, &status, 0);
+  ASSERT_TRUE(WIFEXITED(status));
+  EXPECT_EQ(WEXITSTATUS(status), 0);
+
+  minijail_destroy(j);
+}
+
+static int early_exit(void* payload) {
+  exit(static_cast<int>(reinterpret_cast<intptr_t>(payload)));
+}
+
+TEST(Test, test_minijail_callback) {
+  pid_t pid;
+  int mj_run_ret;
+  int status;
+  char *argv[2];
+  int exit_code = 42;
+
+  struct minijail *j = minijail_new();
+
+  status =
+      minijail_add_hook(j, &early_exit, reinterpret_cast<void *>(exit_code),
+			MINIJAIL_HOOK_EVENT_PRE_DROP_CAPS);
+  EXPECT_EQ(status, 0);
+
+  argv[0] = (char*)kCatPath;
+  argv[1] = NULL;
+  mj_run_ret = minijail_run_pid_pipes_no_preload(j, argv[0], argv, &pid, NULL,
+						 NULL, NULL);
+  EXPECT_EQ(mj_run_ret, 0);
+
+  status = minijail_wait(j);
+  EXPECT_EQ(status, exit_code);
+
+  minijail_destroy(j);
+}
+
+TEST(Test, test_minijail_preserve_fd) {
+  int mj_run_ret;
+  int status;
+  char *argv[2];
+  char teststr[] = "test\n";
+  size_t teststr_len = strlen(teststr);
+  int read_pipe[2];
+  int write_pipe[2];
+  char buf[1024];
+
+  struct minijail *j = minijail_new();
+
+  status = pipe(read_pipe);
+  ASSERT_EQ(status, 0);
+  status = pipe(write_pipe);
+  ASSERT_EQ(status, 0);
+
+  status = minijail_preserve_fd(j, write_pipe[0], STDIN_FILENO);
+  ASSERT_EQ(status, 0);
+  status = minijail_preserve_fd(j, read_pipe[1], STDOUT_FILENO);
+  ASSERT_EQ(status, 0);
+  minijail_close_open_fds(j);
+
+  argv[0] = (char*)kCatPath;
+  argv[1] = NULL;
+  mj_run_ret = minijail_run_no_preload(j, argv[0], argv);
+  EXPECT_EQ(mj_run_ret, 0);
+
+  close(write_pipe[0]);
+  status = write(write_pipe[1], teststr, teststr_len);
+  EXPECT_EQ(status, (int)teststr_len);
+  close(write_pipe[1]);
+
+  close(read_pipe[1]);
+  status = read(read_pipe[0], buf, 8);
+  EXPECT_EQ(status, (int)teststr_len);
+  buf[teststr_len] = 0;
+  EXPECT_EQ(strcmp(buf, teststr), 0);
+
+  status = minijail_wait(j);
+  EXPECT_EQ(status, 0);
+
+  minijail_destroy(j);
+}
+
+namespace {
+
+// Tests that require userns access.
+// Android unit tests don't currently support entering user namespaces as
+// unprivileged users due to having an older kernel.  Chrome OS unit tests
+// don't support it either due to being in a chroot environment (see man 2
+// clone for more information about failure modes with the CLONE_NEWUSER flag).
+class NamespaceTest : public ::testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    userns_supported_ = UsernsSupported();
+  }
+
+  // Whether userns is supported.
+  static bool userns_supported_;
+
+  static bool UsernsSupported() {
+    pid_t pid = fork();
+    if (pid == -1)
+      pdie("could not fork");
+
+    if (pid == 0)
+      _exit(unshare(CLONE_NEWUSER) == 0 ? 0 : 1);
+
+    int status;
+    if (waitpid(pid, &status, 0) < 0)
+      pdie("could not wait");
+
+    if (!WIFEXITED(status))
+      die("child did not exit properly: %#x", status);
+
+    bool ret = WEXITSTATUS(status) == 0;
+    if (!ret)
+      warn("Skipping userns related tests");
+    return ret;
+  }
+};
+
+bool NamespaceTest::userns_supported_;
+
+}  // namespace
+
+TEST_F(NamespaceTest, test_tmpfs_userns) {
+  int mj_run_ret;
+  int status;
+  char *argv[4];
+  char uidmap[128], gidmap[128];
+  constexpr uid_t kTargetUid = 1000;  // Any non-zero value will do.
+  constexpr gid_t kTargetGid = 1000;
+
+  if (!userns_supported_) {
+    SUCCEED();
+    return;
+  }
+
+  struct minijail *j = minijail_new();
+
+  minijail_namespace_pids(j);
+  minijail_namespace_vfs(j);
+  minijail_mount_tmp(j);
+  minijail_run_as_init(j);
+
+  // Perform userns mapping.
+  minijail_namespace_user(j);
+  snprintf(uidmap, sizeof(uidmap), "%d %d 1", kTargetUid, getuid());
+  snprintf(gidmap, sizeof(gidmap), "%d %d 1", kTargetGid, getgid());
+  minijail_change_uid(j, kTargetUid);
+  minijail_change_gid(j, kTargetGid);
+  minijail_uidmap(j, uidmap);
+  minijail_gidmap(j, gidmap);
+  minijail_namespace_user_disable_setgroups(j);
+
+  argv[0] = (char*)kShellPath;
+  argv[1] = "-c";
+  argv[2] = "exec touch /tmp/foo";
+  argv[3] = NULL;
+  mj_run_ret = minijail_run_no_preload(j, argv[0], argv);
+  EXPECT_EQ(mj_run_ret, 0);
+
+  status = minijail_wait(j);
+  EXPECT_EQ(status, 0);
+
+  minijail_destroy(j);
 }
 
 TEST(Test, parse_size) {

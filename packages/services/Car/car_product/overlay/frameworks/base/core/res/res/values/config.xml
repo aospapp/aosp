@@ -47,8 +47,6 @@
     <integer name="config_jobSchedulerInactivityIdleThreshold">0</integer>
     <integer name="config_jobSchedulerIdleWindowSlop">0</integer>
 
-    <bool name="config_supportsMultiWindow">false</bool>
-
     <!-- Automotive Bluetooth pairing option -->
     <bool name="enable_pbap_pce_profile">true</bool>
 
@@ -69,4 +67,12 @@
 
     <!-- Home screen(Launcher) app presence -->
     <bool name="config_noHomeScreen">true</bool>
+
+    <!-- Flag indicating that this device does not rotate and will always remain in its default
+         orientation. Activities that desire to run in a non-compatible orientation will find that
+         they are not able to. -->
+    <bool name="config_forceDefaultOrientation">true</bool>
+
+    <!-- Corner radius of system dialogs -->
+    <dimen name="config_dialogCornerRadius">16dp</dimen>
 </resources>

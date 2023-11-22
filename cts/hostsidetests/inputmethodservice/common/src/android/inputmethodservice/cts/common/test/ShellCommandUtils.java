@@ -29,11 +29,6 @@ public final class ShellCommandUtils {
     // Copied from android.content.pm.PackageManager#FEATURE_INPUT_METHODS.
     public static final String FEATURE_INPUT_METHODS = "android.software.input_methods";
 
-    /** Command to check whether system has specified {@code featureName} feature. */
-    public static String hasFeature(final String featureName) {
-        return "cmd package has-feature " + featureName;
-    }
-
     private static final String SETTING_DEFAULT_IME = "secure default_input_method";
 
     /** Command to get ID of current IME. */
@@ -56,9 +51,18 @@ public final class ShellCommandUtils {
         return "ime disable " + imeId;
     }
 
+    /** Command to reset currently selected/enabled IMEs to the default ones. */
+    public static String resetImes() {
+        return "ime reset";
+    }
+
     /** Command to delete all records of IME event provider. */
     public static String deleteContent(final String contentUri) {
         return "content delete --uri " + contentUri;
+    }
+
+    public static String uninstallPackage(String packageName) {
+        return "pm uninstall " + packageName;
     }
 
     /**

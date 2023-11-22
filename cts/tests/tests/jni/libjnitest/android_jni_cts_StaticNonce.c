@@ -20,7 +20,7 @@
  */
 
 #include <jni.h>
-#include <JNIHelp.h>
+#include <nativehelper/JNIHelp.h>
 
 #include <stdbool.h>
 #include <string.h>

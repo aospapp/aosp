@@ -32,10 +32,9 @@ import java.util.Map.Entry;
 /**
  * An {@link ITargetPreparer} that waits until max frequency on all cores are restored to highest
  * level available
- *
  */
 @OptionClass(alias = "cpu-throttle-waiter")
-public class CpuThrottlingWaiter implements ITargetPreparer {
+public class CpuThrottlingWaiter extends BaseTargetPreparer {
 
     @Option(name = "poll-interval",
             description = "Interval in seconds, to poll for core frequencies; defaults to 5s")

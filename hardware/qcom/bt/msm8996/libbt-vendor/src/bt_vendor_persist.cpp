@@ -28,7 +28,7 @@
 
 #ifdef BT_NV_SUPPORT
 #include "bt_nv.h"
-#include <utils/Log.h>
+#include <log/log.h>
 
 /*===========================================================================
 FUNCTION   bt_vendor_nv_read

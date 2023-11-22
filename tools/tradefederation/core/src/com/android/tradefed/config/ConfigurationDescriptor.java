@@ -67,6 +67,8 @@ public class ConfigurationDescriptor implements Serializable {
 
     /** Optional Abi information the configuration will be run against. */
     private IAbi mAbi = null;
+    /** Optional for a module configuration, the original name of the module. */
+    private String mModuleName = null;
 
     /** Returns the list of suite tags the test is part of. */
     public List<String> getSuiteTags() {
@@ -78,9 +80,11 @@ public class ConfigurationDescriptor implements Serializable {
         mSuiteTags = suiteTags;
     }
 
-    /** Retrieves all configured metadata */
+    /** Retrieves all configured metadata and return a copy of the map. */
     public MultiMap<String, String> getAllMetaData() {
-        return mMetaData;
+        MultiMap<String, String> copy = new MultiMap<>();
+        copy.putAll(mMetaData);
+        return copy;
     }
 
     /** Get the named metadata entries */
@@ -111,6 +115,16 @@ public class ConfigurationDescriptor implements Serializable {
     /** Returns the abi the configuration is running against if known, null otherwise. */
     public IAbi getAbi() {
         return mAbi;
+    }
+
+    /** If this configuration represents a module, we can set the module name associated with it. */
+    public void setModuleName(String name) {
+        mModuleName = name;
+    }
+
+    /** Returns the module name of the module configuration. */
+    public String getModuleName() {
+        return mModuleName;
     }
 
     /** Returns true if the invocation should run in sandboxed mode. False otherwise. */

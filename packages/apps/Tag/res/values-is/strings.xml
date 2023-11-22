@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"Gögn úr NFC-merki"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Samskiptaupplýsingar fyrir ^1"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Þetta forrit þarf símaheimild til að hægt sé að hringja úr því. Þú getur breytt heimildum Tag í stillingunum"</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Þetta forrit þarf leyfi til að opna ytri geymslu til að fá aðgang að skrám. Þú getur breytt heimildum Tag í stillingunum"</string>
 </resources>

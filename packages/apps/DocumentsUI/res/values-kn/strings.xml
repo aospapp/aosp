@@ -41,7 +41,7 @@
     <string name="menu_compress" msgid="37539111904724188">"ಕುಗ್ಗಿಸಿ"</string>
     <string name="menu_extract" msgid="8171946945982532262">"ಇದಕ್ಕೆ ಬೇರ್ಪಡಿಸಲಾಗಿದೆ…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"ಮರುಹೆಸರಿಸು"</string>
-    <string name="menu_inspector" msgid="8217713416277319588">"ಮಾಹಿತಿಯನ್ನು ಪಡೆಯಿರಿ"</string>
+    <string name="menu_inspect" msgid="7279855349299446224">"ಮಾಹಿತಿಯನ್ನು ಪಡೆಯಿರಿ"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"<xliff:g id="SOURCE">%1$s</xliff:g> ನಲ್ಲಿ ವೀಕ್ಷಿಸಿ"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"ಹೊಸ ವಿಂಡೋ"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"ಕತ್ತರಿಸು"</string>
@@ -57,6 +57,8 @@
     <string name="button_move" msgid="8596460499325291272">"ಸರಿಸು"</string>
     <string name="button_dismiss" msgid="7235249361023803349">"ವಜಾಗೊಳಿಸಿ"</string>
     <string name="button_retry" msgid="4011461781916631389">"ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ"</string>
+    <string name="button_clear" msgid="5412304437764369441">"ತೆರವುಗೊಳಿಸಿ"</string>
+    <string name="button_show_provider" msgid="6905880493806292753">"ಒದಗಿಸುವವರಲ್ಲಿ ತೋರಿಸಿ"</string>
     <string name="not_sorted" msgid="7813496644889115530">"ವಿಂಗಡಿಸಲಾಗಿಲ್ಲ"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"ಹೆಸರು"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"ಸಾರಾಂಶ"</string>
@@ -64,14 +66,6 @@
     <string name="sort_dimension_size" msgid="2190547351159472884">"ಗಾತ್ರ"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"ಮಾರ್ಪಾಡು"</string>
     <string name="directory_items" msgid="6645621978998614003">"ಐಟಂಗಳ ಸಂಖ್ಯೆ"</string>
-    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"ಈ ಪ್ರಕಾರದ ಫೈಲ್ ಇದರ ಮೂಲಕ ತೆರೆಯುತ್ತದೆ"</string>
-    <string name="handler_app_belongs_to" msgid="5956928604521893459">"ಈ ಫೈಲ್ ಇದಕ್ಕೆ ಸೇರಿದೆ:"</string>
-    <string name="handler_app_button_info_1" msgid="4271199640671067569">"ಇತರ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು ಈ ಫೈಲ್ ಪ್ರಕಾರವನ್ನು ತೆರೆಯಬಹುದು. ತೆರವುಗೊಳಿಸಿ"</string>
-    <string name="handler_app_button_info_2" msgid="4299969771512815898">"ಡಿಫಾಲ್ಟ್‌ನಂತೆ"</string>
-    <string name="handler_app_clear" msgid="206579047716445033">"ತೆರವುಗೊಳಿಸಿ"</string>
-    <string name="handler_app_show_in" msgid="7923573101129079048">"ಒದಗಿಸುವವರಲ್ಲಿ ತೋರಿಸಿ"</string>
-    <string name="handler_app_not_selected" msgid="8178393676227130360">"ಆಯ್ಕೆಮಾಡಲಾಗಿಲ್ಲ"</string>
-    <string name="handler_app_unknown" msgid="56574249066388341">"ಅಪರಿಚಿತ"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"ಆರೋಹಣ"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"ಅವರೋಹಣ"</string>
     <string name="drawer_open" msgid="8071673398187261741">"ರೂಟ್‌ಗಳನ್ನು ತೋರಿಸು"</string>
@@ -90,7 +84,6 @@
     <string name="toast_no_application" msgid="7555319548595113121">"ಫೈಲ್ ತೆರೆಯಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"ಆರ್ಕೈವ್‌ಗಳಲ್ಲಿ ಫೈಲ್‌ಗಳನ್ನು ತೆರೆಯಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"ಕೆಲವು ಡಾಕ್ಯುಮೆಂಟ್‌ಗಳನ್ನು ಅಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ"</string>
-    <string name="file_inspector_load_error" msgid="1226344446677541109">"ಗುಣಲಕ್ಷಣಗಳನ್ನು ಲೋಡ್ ಮಾಡುವುದು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ"</string>
     <string name="share_via" msgid="8725082736005677161">"ಈ ಮೂಲಕ ಹಂಚಿಕೊಳ್ಳಿ"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"ಫೈಲ್‌ಗಳನ್ನು ನಕಲಿಸಲಾಗುತ್ತಿದೆ"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"ಫೈಲ್‌ ಕುಗ್ಗಿಸಲಾಗುತ್ತಿದೆ"</string>
@@ -119,11 +112,11 @@
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g>ಐಟಂಗಳನ್ನು ಅಳಿಸಲಾಗುತ್ತಿದೆ.</item>
     </plurals>
     <string name="undo" msgid="2902438994196400565">"ರದ್ದುಮಾಡಿ"</string>
-    <string name="copy_preparing" msgid="5326063807006898223">"ನಕಲಿಸಲು ಸಿದ್ಧಪಡಿಸಲಾಗುತ್ತಿದೆ..."</string>
-    <string name="compress_preparing" msgid="6650018601382062672">"ಕುಗ್ಗಿಸಲು ತಯಾರಿ ಮಾಡಲಾಗುತ್ತಿದೆ..."</string>
-    <string name="extract_preparing" msgid="58266275455027829">"ಹೊರತೆಗೆಯಲು ಸಿದ್ಧವಾಗುತ್ತಿದೆ..."</string>
-    <string name="move_preparing" msgid="8742573245485449429">"ಸರಿಸಲು ಸಿದ್ಧಪಡಿಸಲಾಗುತ್ತಿದೆ…"</string>
-    <string name="delete_preparing" msgid="6513863752916028147">"ಅಳಿಸಲು ಸಿದ್ಧಪಡಿಸಲಾಗುತ್ತಿದೆ…"</string>
+    <string name="copy_preparing" msgid="4759516490222449324">"ಸಿದ್ಧಪಡಿಸಲಾಗುತ್ತಿದೆ..."</string>
+    <string name="compress_preparing" msgid="7401605598969019696">"ಸಿದ್ಧಪಡಿಸಲಾಗುತ್ತಿದೆ..."</string>
+    <string name="extract_preparing" msgid="4796626960061745796">"ಸಿದ್ಧಪಡಿಸಲಾಗುತ್ತಿದೆ..."</string>
+    <string name="move_preparing" msgid="6504239656430530761">"ಸಿದ್ಧಪಡಿಸಲಾಗುತ್ತಿದೆ..."</string>
+    <string name="delete_preparing" msgid="7339349837842802508">"ಸಿದ್ಧಪಡಿಸಲಾಗುತ್ತಿದೆ..."</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g> / <xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
       <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g>ಐಟಂ ಅನ್ನು ನಕಲು ಮಾಡಲಾಗಲಿಲ್ಲ</item>
@@ -213,5 +206,4 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"archive<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g> ಅನ್ನು ತಿದ್ದಿಬರೆಯಬೇಕೇ?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"ಹಿನ್ನೆಲೆಯಲ್ಲಿ ಮುಂದುವರಿಯಿರಿ"</string>
-    <string name="inspector_debug_section" msgid="3447621501565766900">"ಡೀಬಗ್‌ ಮಾಹಿತಿ (dev ಮಾತ್ರ)"</string>
 </resources>

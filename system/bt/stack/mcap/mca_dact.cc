@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ void mca_dcb_free_data(UNUSED_ATTR tMCA_DCB* p_dcb, tMCA_DCB_EVT* p_data) {
  *
  ******************************************************************************/
 void mca_dcb_do_disconn(tMCA_DCB* p_dcb, UNUSED_ATTR tMCA_DCB_EVT* p_data) {
-  if ((p_dcb->lcid == 0) || (L2CA_DisconnectReq(p_dcb->lcid) == false)) {
+  if ((p_dcb->lcid == 0) || (!L2CA_DisconnectReq(p_dcb->lcid))) {
     tMCA_CLOSE close;
     close.param = MCA_INT;
     close.reason = L2CAP_DISC_OK;

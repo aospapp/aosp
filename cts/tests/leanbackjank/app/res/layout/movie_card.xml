@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<android.support.v17.leanback.widget.NonOverlappingLinearLayout
+<androidx.leanback.widget.NonOverlappingLinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
               android:orientation="vertical"
               android:layout_height="wrap_content"
@@ -20,4 +20,4 @@
        android:paddingRight="10dp"
        android:paddingBottom="10dp"
        android:paddingLeft="10dp" />
-</android.support.v17.leanback.widget.NonOverlappingLinearLayout>
+</androidx.leanback.widget.NonOverlappingLinearLayout>

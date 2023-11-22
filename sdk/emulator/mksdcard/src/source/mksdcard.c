@@ -60,13 +60,26 @@ typedef Byte*          Bytes;
 static Byte  s_boot_sector   [ BYTES_PER_SECTOR ];   /* boot sector */
 static Byte  s_fsinfo_sector [ BYTES_PER_SECTOR ];   /* FS Info sector */
 static Byte  s_fat_head      [ BYTES_PER_SECTOR ];   /* first FAT sector */
-static Byte  s_zero_sector   [ BYTES_PER_SECTOR ];   /* empty sector */
+// static Byte  s_zero_sector   [ BYTES_PER_SECTOR ];   /* empty sector */
+
+// For handling Unicode paths
+#ifdef _WIN32
+    #define WIDE_CHAR   wchar_t
+    #define ARGC        wargc
+    #define ARGV        wargv
+    #define STRINGPRINT "%S"
+#else
+    #define WIDE_CHAR   char
+    #define ARGC        argc
+    #define ARGV        argv
+    #define STRINGPRINT "%s"
+#endif
 
 /* this is the date and time when creating the disk */
 static int
 get_serial_id( void )
 {
-    unsigned short  lo, hi, mid;
+    unsigned short  lo, hi;
     time_t          now = time(NULL);
     struct tm       tm  = gmtime( &now )[0];
 
@@ -220,26 +233,35 @@ static void usage (void)
 
 int  main( int argc, char**  argv )
 {
-    Wide   disk_size;
-    int    sectors_per_fat;
-    int    sectors_per_disk;
-    char*  end;
-    const char*  label = NULL;
-    FILE*  f = NULL;
+    Wide              disk_size;
+    int               sectors_per_fat;
+    int               sectors_per_disk;
+    WIDE_CHAR*        end;
+    const WIDE_CHAR*  label = NULL;
+    FILE*             f = NULL;
 
-    for ( ; argc > 1 && argv[1][0] == '-'; argc--, argv++ )
+#ifdef _WIN32
+    int          wargc;
+    WIDE_CHAR**  wargv;
+    WIDE_CHAR**  unused_environment;
+    WIDE_CHAR**  unused_startupinfo;
+
+    __wgetmainargs(&wargc, &wargv, &unused_environment, 0, &unused_startupinfo);
+#endif
+
+    for ( ; ARGC > 1 && ARGV[1][0] == '-'; ARGC--, ARGV++ )
     {
-        char*  arg = argv[1] + 1;
+        WIDE_CHAR*  arg = ARGV[1] + 1;
         switch (arg[0]) {
             case 'l':
                 if (arg[1] != 0)
                     arg += 2;
                 else {
-                    argc--;
-                    argv++;
-                    if (argc <= 1)
+                    ARGC--;
+                    ARGV++;
+                    if (ARGC <= 1)
                         usage();
-                    arg = argv[1];
+                    arg = ARGV[1];
                 }
                 label = arg;
                 break;
@@ -249,12 +271,17 @@ int  main( int argc, char**  argv )
         }
     }
 
-    if (argc != 3)
+    if (ARGC != 3)
         usage();
 
-    disk_size = strtoll( argv[1], &end, 10 );
+#ifdef _WIN32
+    disk_size = wcstoll( ARGV[1], &end, 10 );
+#else
+    disk_size = strtoll( ARGV[1], &end, 10 );
+#endif
+
     if (disk_size <= 0 || errno == EINVAL || errno == ERANGE) {
-        fprintf(stderr, "Invalid argument size '%s'\n\n", argv[1]);
+        fprintf(stderr, "Invalid argument size '" STRINGPRINT "'\n\n", ARGV[1]);
         usage();
     }
 
@@ -266,10 +293,10 @@ int  main( int argc, char**  argv )
         disk_size *= 1024*1024*1024;
 
     if (disk_size < 9*1024*1024) {
-        fprintf(stderr, "Invalid argument: size '%s' is too small.\n\n", argv[1]);
+        fprintf(stderr, "Invalid argument: size '" STRINGPRINT "' is too small.\n\n", ARGV[1]);
         usage();
     } else if (disk_size > MAX_DISK_SIZE) {
-        fprintf(stderr, "Invalid argument: size '%s' is too large.\n\n", argv[1]);
+        fprintf(stderr, "Invalid argument: size '" STRINGPRINT "' is too large.\n\n", ARGV[1]);
         usage();
     }
 
@@ -279,9 +306,13 @@ int  main( int argc, char**  argv )
     boot_sector_init( s_boot_sector, s_fsinfo_sector, disk_size, NULL );
     fat_init( s_fat_head );
 
-    f = fopen( argv[2], "wb" );
+#ifdef _WIN32
+    f = _wfopen( ARGV[2], L"wb" );
+#else
+    f = fopen( ARGV[2], "wb" );
+#endif
     if ( !f ) {
-      fprintf(stderr, "Could not create file '%s': %s\n", argv[2], strerror(errno));
+      fprintf(stderr, "Could not create file '" STRINGPRINT "': %s\n", ARGV[2], strerror(errno));
       goto FailWrite;
     }
 
@@ -322,8 +353,12 @@ int  main( int argc, char**  argv )
 FailWrite:
     if (f != NULL) {
       fclose(f);
-      unlink( argv[2] );
-      fprintf(stderr, "File '%s' was not created.\n", argv[2]);
+#ifdef _WIN32
+      _wunlink( ARGV[2] );
+#else
+      unlink( ARGV[2] );
+#endif
+      fprintf(stderr, "File '" STRINGPRINT "' was not created.\n", ARGV[2]);
     }
     return 1;
 }

@@ -19,12 +19,12 @@
 
 #include "base/macros.h"
 #include "base/mutex.h"
+#include "base/safe_map.h"
 #include "base/value_object.h"
-#include "dex_file_types.h"
+#include "dex/dex_file_types.h"
+#include "dex/primitive.h"
 #include "gc_root.h"
 #include "offsets.h"
-#include "primitive.h"
-#include "safe_map.h"
 
 #include <list>
 #include <map>
@@ -32,6 +32,7 @@
 namespace art {
 namespace mirror {
 class Array;
+class Class;
 class DexCache;
 class Object;
 class String;
@@ -44,6 +45,7 @@ class Transaction FINAL {
   static constexpr const char* kAbortExceptionSignature = "Ldalvik/system/TransactionAbortError;";
 
   Transaction();
+  explicit Transaction(bool strict, mirror::Class* root);
   ~Transaction();
 
   void Abort(const std::string& abort_message)
@@ -53,6 +55,15 @@ class Transaction FINAL {
       REQUIRES(!log_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
   bool IsAborted() REQUIRES(!log_lock_);
+
+  // If the transaction is rollbacking. Transactions will set this flag when they start rollbacking,
+  // because the nested transaction should be disabled when rollbacking to restore the memory.
+  bool IsRollingBack();
+
+  // If the transaction is in strict mode, then all access of static fields will be constrained,
+  // one class's clinit will not be allowed to read or modify another class's static fields, unless
+  // the transaction is aborted.
+  bool IsStrict() REQUIRES(!log_lock_);
 
   // Record object field changes.
   void RecordWriteFieldBoolean(mirror::Object* obj,
@@ -121,6 +132,14 @@ class Transaction FINAL {
       REQUIRES(!log_lock_);
 
   void VisitRoots(RootVisitor* visitor)
+      REQUIRES(!log_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  bool ReadConstraint(mirror::Object* obj, ArtField* field)
+      REQUIRES(!log_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  bool WriteConstraint(mirror::Object* obj, ArtField* field)
       REQUIRES(!log_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -287,7 +306,10 @@ class Transaction FINAL {
   std::list<InternStringLog> intern_string_logs_ GUARDED_BY(log_lock_);
   std::list<ResolveStringLog> resolve_string_logs_ GUARDED_BY(log_lock_);
   bool aborted_ GUARDED_BY(log_lock_);
+  bool rolling_back_;  // Single thread, no race.
+  bool strict_ GUARDED_BY(log_lock_);
   std::string abort_message_ GUARDED_BY(log_lock_);
+  mirror::Class* root_ GUARDED_BY(log_lock_);
 
   DISALLOW_COPY_AND_ASSIGN(Transaction);
 };

@@ -15,20 +15,31 @@
  */
 package com.android.internal.telephony;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.verify;
+
 import android.os.HandlerThread;
 import android.telephony.PhoneStateListener;
+import android.telephony.PhysicalChannelConfig;
 import android.telephony.ServiceState;
 import android.test.suitebuilder.annotation.SmallTest;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
 import java.lang.reflect.Field;
-import static org.mockito.Mockito.verify;
+import java.util.Collections;
+import java.util.List;
 
 public class PhoneStateListenerTest extends TelephonyTest {
 
     private PhoneStateListener mPhoneStateListenerUT;
     private PhoneStateListenerHandler mPhoneStateListenerHandler;
+    private boolean mUserMobileDataState = false;
+    private List<PhysicalChannelConfig> mPhysicalChannelConfigs;
 
     private class PhoneStateListenerHandler extends HandlerThread {
         private PhoneStateListenerHandler(String name) {
@@ -43,6 +54,21 @@ public class PhoneStateListenerTest extends TelephonyTest {
                     logd("Service State Changed");
                     mServiceState.setVoiceRegState(serviceState.getVoiceRegState());
                     mServiceState.setDataRegState(serviceState.getDataRegState());
+                    setReady(true);
+                }
+
+                @Override
+                public void onUserMobileDataStateChanged(boolean state) {
+                    logd("User Mobile Data State Changed");
+                    mUserMobileDataState = true;
+                    setReady(true);
+                }
+
+                @Override
+                public void onPhysicalChannelConfigurationChanged(
+                        List<PhysicalChannelConfig> configs) {
+                    logd("PhysicalChannelConfig Changed");
+                    mPhysicalChannelConfigs = configs;
                     setReady(true);
                 }
             };
@@ -81,4 +107,37 @@ public class PhoneStateListenerTest extends TelephonyTest {
         verify(mServiceState).setVoiceRegState(ServiceState.STATE_EMERGENCY_ONLY);
     }
 
+    @Test @SmallTest
+    public void testTriggerUserMobileDataStateChanged() throws Exception {
+        Field field = PhoneStateListener.class.getDeclaredField("callback");
+        field.setAccessible(true);
+
+        assertFalse(mUserMobileDataState);
+
+        setReady(false);
+        ((IPhoneStateListener) field.get(mPhoneStateListenerUT)).onUserMobileDataStateChanged(true);
+        waitUntilReady();
+
+        assertTrue(mUserMobileDataState);
+    }
+
+    @Test @SmallTest
+    public void testTriggerPhysicalChannelConfigurationChanged() throws Exception {
+        Field field = PhoneStateListener.class.getDeclaredField("callback");
+        field.setAccessible(true);
+
+        assertNull(mPhysicalChannelConfigs);
+
+        PhysicalChannelConfig config = new PhysicalChannelConfig(
+                PhysicalChannelConfig.CONNECTION_PRIMARY_SERVING, 20000 /* bandwidth */);
+
+        List<PhysicalChannelConfig> configs = Collections.singletonList(config);
+
+        setReady(false);
+        ((IPhoneStateListener) field.get(mPhoneStateListenerUT))
+            .onPhysicalChannelConfigurationChanged(configs);
+        waitUntilReady();
+
+        assertTrue(mPhysicalChannelConfigs.equals(configs));
+    }
 }

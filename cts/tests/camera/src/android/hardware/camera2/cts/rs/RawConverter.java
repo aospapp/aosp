@@ -91,12 +91,22 @@ public class RawConverter {
     private static final SparseIntArray sStandardIlluminants = new SparseIntArray();
     private static final int NO_ILLUMINANT = -1;
     static {
+        sStandardIlluminants.append(CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_CLOUDY_WEATHER,
+                6504);
         sStandardIlluminants.append(CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_DAYLIGHT, 6504);
         sStandardIlluminants.append(CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_D65, 6504);
+        sStandardIlluminants.append(CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_FINE_WEATHER, 5003);
         sStandardIlluminants.append(CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_D50, 5003);
+        sStandardIlluminants.append(CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_FLASH, 5503);
         sStandardIlluminants.append(CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_D55, 5503);
+        sStandardIlluminants.append(CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_SHADE, 7504);
         sStandardIlluminants.append(CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_D75, 7504);
+        sStandardIlluminants.append(CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_ISO_STUDIO_TUNGSTEN,
+                2856);
+        sStandardIlluminants.append(CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_TUNGSTEN, 2856);
         sStandardIlluminants.append(CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_STANDARD_A, 2856);
+        sStandardIlluminants.append(
+                CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_DAY_WHITE_FLUORESCENT, 4874);
         sStandardIlluminants.append(CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_STANDARD_B, 4874);
         sStandardIlluminants.append(CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_STANDARD_C, 6774);
         sStandardIlluminants.append(
@@ -105,7 +115,7 @@ public class RawConverter {
                 CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_COOL_WHITE_FLUORESCENT, 4230);
         sStandardIlluminants.append(
                 CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_WHITE_FLUORESCENT, 3450);
-        // TODO: Add the rest of the illuminants included in the LightSource EXIF tag.
+        sStandardIlluminants.append(CameraMetadata.SENSOR_REFERENCE_ILLUMINANT1_FLUORESCENT, 2940);
     }
 
     /**

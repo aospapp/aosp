@@ -45,7 +45,7 @@
     <uses-permission android:name="android.permission.DEVICE_POWER" />
     <uses-permission android:name="android.os.cts.permission.TEST_GRANTED" />
 
-    <application>
+    <application android:usesCleartextTraffic="true">
         <activity android:name="android.os.cts.LaunchpadActivity"
                   android:configChanges="keyboardHidden|orientation|screenSize"
                   android:multiprocess="true">

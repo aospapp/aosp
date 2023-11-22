@@ -16,6 +16,7 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := librank.c
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_SHARED_LIBRARIES := libpagemap
 LOCAL_MODULE := librank
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockito.quality;
 
 import org.mockito.Incubating;
@@ -76,7 +80,8 @@ public enum Strictness {
      *      <li>Cleaner, more DRY tests ("Don't Repeat Yourself"):
      *          If you use {@link org.mockito.Mockito#verifyNoMoreInteractions(Object...)}
      *          you no longer need to explicitly verify stubbed invocations.
-     *          They are automatically verified for you.</li>
+     *          They are automatically verified for you. However if you have more invocations,
+     *          the test won't fail since it won't check that there are no more interactions on that stub.</li>
      *  </ul>
      *
      * For more information see {@link Strictness}.

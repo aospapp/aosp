@@ -139,23 +139,76 @@ function gen_config_files {
   rm -rf vpx_config.* vpx_version.h
 }
 
+# Generate a text file containing sources for a config
+# $1 - Config
+function gen_source_list {
+  make_clean
+  if [[ "$1" = "mips"* ]] || [[ "$1" = "generic" ]]; then
+    config=$(print_config_basic $1)
+  else
+    config=$(print_config $1)
+  fi
+  make libvpx_srcs.txt target=libs $config > /dev/null
+  mv libvpx_srcs.txt libvpx_srcs_$1.txt
+}
+
+# Extract a list of C sources from a libvpx_srcs.txt file
+# $1 - path to libvpx_srcs.txt
+function libvpx_srcs_txt_to_c_srcs {
+    grep ".c$" $1 | grep -v "^vpx_config.c$" | awk '$0="\"libvpx/"$0"\","' | sort
+}
+
+# Extract a list of ASM sources from a libvpx_srcs.txt file
+# $1 - path to libvpx_srcs.txt
+function libvpx_srcs_txt_to_asm_srcs {
+    grep ".asm$" $1 | awk '$0="\"libvpx/"$0"\","' | sort
+}
+
 # Convert a list of sources to a blueprint file containing a variable
 # assignment.
-# $1 - Variable name prefix.
-# $2 - Input file.
-# $3 - Config directory.
+# $1 - Config
 function gen_bp_srcs {
-  echo "$1_c_srcs = ["
-  grep ".c$" $2 | grep -v "^vpx_config.c$" | awk '$0="\"libvpx/"$0"\","'
-  echo "\"$3/vpx_config.c\","
-  echo "]"
-  if grep -q ".asm$" $2; then
-    echo
-    echo "$1_asm_srcs = ["
-    grep ".asm$" $2 | awk '$0="\"libvpx/"$0"\","'
+  (
+    varprefix=libvpx_${1//-/_}
+    echo "${varprefix}_c_srcs = ["
+    libvpx_srcs_txt_to_c_srcs libvpx_srcs_$1.txt
+    echo "\"$LIBVPX_CONFIG_DIR/$1/vpx_config.c\","
     echo "]"
-  fi
-  echo
+    if grep -q ".asm$" libvpx_srcs_$1.txt; then
+      echo
+      echo "${varprefix}_asm_srcs = ["
+      libvpx_srcs_txt_to_asm_srcs libvpx_srcs_$1.txt
+      echo "]"
+    fi
+    echo
+  ) > config_$1.bp
+}
+
+# Convert a list of sources to a blueprint file containing a variable
+# assignment, relative to a reference config.
+# $1 - Config
+# $2 - Reference config
+function gen_bp_srcs_with_excludes {
+  (
+    varprefix=libvpx_${1//-/_}
+    echo "${varprefix}_c_srcs = ["
+    comm -23 <(libvpx_srcs_txt_to_c_srcs libvpx_srcs_$1.txt) <(libvpx_srcs_txt_to_c_srcs libvpx_srcs_$2.txt)
+    echo "\"$LIBVPX_CONFIG_DIR/$1/vpx_config.c\","
+    echo "]"
+    echo
+    echo "${varprefix}_exclude_c_srcs = ["
+    comm -13 <(libvpx_srcs_txt_to_c_srcs libvpx_srcs_$1.txt) <(libvpx_srcs_txt_to_c_srcs libvpx_srcs_$2.txt)
+    echo "\"$LIBVPX_CONFIG_DIR/$2/vpx_config.c\","
+    echo "]"
+    echo
+    if grep -q ".asm$" libvpx_srcs_$1.txt; then
+      echo
+      echo "${varprefix}_asm_srcs = ["
+      libvpx_srcs_txt_to_asm_srcs libvpx_srcs_$1.txt
+      echo "]"
+    fi
+    echo
+  ) > config_$1.bp
 }
 
 echo "Create temporary directory."
@@ -165,8 +218,10 @@ cp -R $LIBVPX_SRC_DIR $TEMP_DIR
 cd $TEMP_DIR
 
 echo "Generate config files."
-all_platforms="--enable-external-build --enable-realtime-only --enable-pic --disable-runtime-cpu-detect --disable-install-docs --size-limit=4096x3072"
-intel="--disable-sse4_1 --disable-avx --disable-avx2 --as=yasm"
+all_platforms="--enable-external-build --enable-realtime-only --enable-pic"
+all_platforms+=" --disable-runtime-cpu-detect --disable-install-docs"
+all_platforms+=" --size-limit=4096x3072 --enable-vp9-highbitdepth"
+intel="--disable-sse4_1 --disable-avx --disable-avx2 --disable-avx512 --as=yasm"
 gen_config_files x86 "--target=x86-linux-gcc ${intel} ${all_platforms}"
 gen_config_files x86_64 "--target=x86_64-linux-gcc ${intel} ${all_platforms}"
 gen_config_files arm "--target=armv7-linux-gcc --disable-neon ${all_platforms}"
@@ -218,71 +273,31 @@ echo "Prepare Makefile."
 ./configure --target=generic-gnu > /dev/null
 make_clean
 
-echo "Generate X86 source list."
-config=$(print_config x86)
-make_clean
-make libvpx_srcs.txt target=libs $config > /dev/null
-gen_bp_srcs libvpx_x86 libvpx_srcs.txt $LIBVPX_CONFIG_DIR/x86 > config_x86.bp
+echo "Generate source lists"
+gen_source_list x86
+gen_source_list x86_64
+gen_source_list arm
+gen_source_list arm-neon
+gen_source_list arm64
+gen_source_list mips32
+gen_source_list mips32-dspr2
+gen_source_list mips32-msa
+gen_source_list mips64
+gen_source_list mips64-msa
+gen_source_list generic
 
-echo "Generate X86_64 source list."
-config=$(print_config x86_64)
-make_clean
-make libvpx_srcs.txt target=libs $config > /dev/null
-gen_bp_srcs libvpx_x86_64 libvpx_srcs.txt $LIBVPX_CONFIG_DIR/x86_64 > config_x86_64.bp
-
-echo "Generate ARM source list."
-config=$(print_config arm)
-make_clean
-make libvpx_srcs.txt target=libs $config > /dev/null
-gen_bp_srcs libvpx_arm libvpx_srcs.txt $LIBVPX_CONFIG_DIR/arm > config_arm.bp
-
-echo "Generate ARM NEON source list."
-config=$(print_config arm-neon)
-make_clean
-make libvpx_srcs.txt target=libs $config > /dev/null
-gen_bp_srcs libvpx_arm_neon libvpx_srcs.txt $LIBVPX_CONFIG_DIR/arm-neon > config_arm-neon.bp
-
-echo "Generate ARM64 source list."
-config=$(print_config arm64)
-make_clean
-make libvpx_srcs.txt target=libs $config > /dev/null
-gen_bp_srcs libvpx_arm64 libvpx_srcs.txt $LIBVPX_CONFIG_DIR/arm64 > config_arm64.bp
-
-echo "Generate MIPS source list."
-config=$(print_config_basic mips32)
-make_clean
-make libvpx_srcs.txt target=libs $config > /dev/null
-gen_bp_srcs libvpx_mips32 libvpx_srcs.txt $LIBVPX_CONFIG_DIR/mips32 > config_mips32.bp
-
-echo "Generate MIPS DSPR2 source list."
-config=$(print_config_basic mips32-dspr2)
-make_clean
-make libvpx_srcs.txt target=libs $config > /dev/null
-gen_bp_srcs libvpx_mips32_dspr2 libvpx_srcs.txt $LIBVPX_CONFIG_DIR/mips32-dspr2 > config_mips32-dispr2.bp
-
-echo "Generate MIPS MSA source list."
-config=$(print_config_basic mips32-msa)
-make_clean
-make libvpx_srcs.txt target=libs $config > /dev/null
-gen_bp_srcs libvpx_mips32_msa libvpx_srcs.txt $LIBVPX_CONFIG_DIR/mips32-msa > config_mips32-msa.bp
-
-echo "Generate MIPS64 source list."
-config=$(print_config_basic mips64)
-make_clean
-make libvpx_srcs.txt target=libs $config > /dev/null
-gen_bp_srcs libvpx_mips64 libvpx_srcs.txt $LIBVPX_CONFIG_DIR/mips64 > config_mips64.bp
-
-echo "Generate MIPS64 MSA source list."
-config=$(print_config_basic mips64-msa)
-make_clean
-make libvpx_srcs.txt target=libs $config > /dev/null
-gen_bp_srcs libvpx_mips64_msa libvpx_srcs.txt $LIBVPX_CONFIG_DIR/mips64-msa > config_mips64-msa.bp
-
-echo "Generate GENERIC source list."
-config=$(print_config_basic generic)
-make_clean
-make libvpx_srcs.txt target=libs $config > /dev/null
-gen_bp_srcs libvpx_generic libvpx_srcs.txt $LIBVPX_CONFIG_DIR/generic > config_generic.bp
+echo "Convert to bp"
+gen_bp_srcs x86
+gen_bp_srcs x86_64
+gen_bp_srcs arm
+gen_bp_srcs_with_excludes arm-neon arm
+gen_bp_srcs arm64
+gen_bp_srcs mips32
+gen_bp_srcs_with_excludes mips32-dspr2 mips32
+gen_bp_srcs_with_excludes mips32-msa mips32
+gen_bp_srcs mips64
+gen_bp_srcs_with_excludes mips64-msa mips64
+gen_bp_srcs generic
 
 rm -f $BASE_DIR/Android.bp
 (

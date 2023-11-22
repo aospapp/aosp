@@ -39,21 +39,17 @@ static double currentTimeMillis() {
 
 DvbManager::DvbManager(JNIEnv *env, jobject)
         : mFeFd(-1),
-          mDemuxFd(-1),
           mDvrFd(-1),
           mPatFilterFd(-1),
           mDvbApiVersion(DVB_API_VERSION_UNDEFINED),
           mDeliverySystemType(-1),
           mFeHasLock(false),
           mHasPendingTune(false) {
-    jclass clazz = env->FindClass(
-        "com/android/tv/tuner/TunerHal");
-    mOpenDvbFrontEndMethodID = env->GetMethodID(
-        clazz, "openDvbFrontEndFd", "()I");
-    mOpenDvbDemuxMethodID = env->GetMethodID(
-        clazz, "openDvbDemuxFd", "()I");
-    mOpenDvbDvrMethodID = env->GetMethodID(
-        clazz, "openDvbDvrFd", "()I");
+  jclass clazz = env->FindClass("com/android/tv/tuner/TunerHal");
+  mOpenDvbFrontEndMethodID =
+      env->GetMethodID(clazz, "openDvbFrontEndFd", "()I");
+  mOpenDvbDemuxMethodID = env->GetMethodID(clazz, "openDvbDemuxFd", "()I");
+  mOpenDvbDvrMethodID = env->GetMethodID(clazz, "openDvbDvrFd", "()I");
 }
 
 DvbManager::~DvbManager() {
@@ -93,6 +89,11 @@ int DvbManager::tune(JNIEnv *env, jobject thiz,
     if (openDvbFe(env, thiz) != 0) {
         return -1;
     }
+
+    if (frequency < 0) {
+        return -1;
+    }
+
     if (mDvbApiVersion == DVB_API_VERSION_UNDEFINED) {
         struct dtv_property testProps[1] = {
             { .cmd = DTV_DELIVERY_SYSTEM }
@@ -112,11 +113,13 @@ int DvbManager::tune(JNIEnv *env, jobject thiz,
 
     if (mDvbApiVersion == DVB_API_VERSION5) {
         struct dtv_property deliverySystemProperty = {
-            .cmd = DTV_DELIVERY_SYSTEM, .u.data = SYS_ATSC
+            .cmd = DTV_DELIVERY_SYSTEM
         };
+        deliverySystemProperty.u.data = SYS_ATSC;
         struct dtv_property frequencyProperty = {
-            .cmd = DTV_FREQUENCY, .u.data = frequency
+            .cmd = DTV_FREQUENCY
         };
+        frequencyProperty.u.data = static_cast<__u32>(frequency);
         struct dtv_property modulationProperty = { .cmd = DTV_MODULATION };
         if (strncmp(modulationStr, "QAM", 3) == 0) {
             modulationProperty.u.data = QAM_AUTO;

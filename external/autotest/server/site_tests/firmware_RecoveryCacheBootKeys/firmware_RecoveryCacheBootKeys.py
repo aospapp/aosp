@@ -4,10 +4,10 @@
 
 import logging
 import re
+import time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
-from autotest_lib.server.cros.faft.firmware_test import ConnectionError
 
 class firmware_RecoveryCacheBootKeys(FirmwareTest):
     """
@@ -23,21 +23,17 @@ class firmware_RecoveryCacheBootKeys(FirmwareTest):
     FIRMWARE_LOG_CMD = 'cbmem -c'
     FMAP_CMD = 'mosys eeprom map'
     RECOVERY_REASON_REBUILD_CMD = 'crossystem recovery_request=0xC4'
+    APSHUTDOWN_DELAY = 5
 
     def initialize(self, host, cmdline_args, dev_mode=False):
         super(firmware_RecoveryCacheBootKeys, self).initialize(host,
                                                               cmdline_args)
         self.client = host
         self.dev_mode = dev_mode
-        self.backup_firmware()
         self.switcher.setup_mode('dev' if dev_mode else 'normal')
         self.setup_usbkey(usbkey=True, host=False)
 
     def cleanup(self):
-        try:
-            self.restore_firmware()
-        except ConnectionError:
-            logging.error("ERROR: DUT did not come up.  Need to cleanup!")
         super(firmware_RecoveryCacheBootKeys, self).cleanup()
 
     def boot_to_recovery(self):
@@ -120,6 +116,9 @@ class firmware_RecoveryCacheBootKeys(FirmwareTest):
         if not self.cache_exist():
             raise error.TestNAError('No RECOVERY_MRC_CACHE was found on DUT.')
 
+        logging.info('Ensure we\'ve done memory training.')
+        self.boot_to_recovery()
+
         logging.info('Checking 3-Key recovery boot.')
         self.boot_to_recovery()
 
@@ -127,11 +126,18 @@ class firmware_RecoveryCacheBootKeys(FirmwareTest):
             raise error.TestFail('[3-Key] - Recovery Cache was not used.')
 
         logging.info('Checking 4-key recovery rebuilt cache boot.')
-
-        self.ec.send_command('apshutdown')
-        self.ec.send_command('hostevent set 0x20004000')
+        self.ec.send_command_get_output(
+            'apshutdown',
+            ["\[[0-9\.]+ chipset_force_shutdown\(\)"])
+        self.ec.send_command_get_output('hostevent set 0x20004000',
+                                        ["Events:\s+0x0000000020004000"])
+        time.sleep(self.APSHUTDOWN_DELAY)
         self.ec.send_command('powerbtn')
         self.switcher.wait_for_client()
 
         if not self.check_cache_rebuilt():
             raise error.TestFail('[4-key] - Recovery Cache was not rebuilt.')
+
+        logging.info('Reboot out of Recovery')
+        self.switcher.simple_reboot()
+

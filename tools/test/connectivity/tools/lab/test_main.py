@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3.4
 #
 #   Copyright 2017 - The Android Open Source Project
 #
@@ -17,11 +17,16 @@
 import sys
 import unittest
 
-if __name__ == "__main__":
+
+def main():
     suite = unittest.TestLoader().discover(
         start_dir='./tools/lab', pattern='*_test.py')
     runner = unittest.TextTestRunner()
 
-    # Return exit code of tests, so preupload hook fails if tests don't pass
+    # Pass the return status of the tests to the exit code.
     ret = not runner.run(suite).wasSuccessful()
     sys.exit(ret)
+
+
+if __name__ == "__main__":
+    main()

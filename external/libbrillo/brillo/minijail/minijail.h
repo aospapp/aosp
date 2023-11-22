@@ -12,9 +12,9 @@ extern "C" {
 #include <sys/types.h>
 }
 
-#include <base/lazy_instance.h>
-
 #include <libminijail.h>
+
+#include "base/macros.h"
 
 namespace brillo {
 
@@ -108,8 +108,6 @@ class Minijail {
   Minijail();
 
  private:
-  friend struct base::DefaultLazyInstanceTraits<Minijail>;
-
   DISALLOW_COPY_AND_ASSIGN(Minijail);
 };
 

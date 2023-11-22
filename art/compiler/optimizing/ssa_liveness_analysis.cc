@@ -26,7 +26,7 @@ namespace art {
 void SsaLivenessAnalysis::Analyze() {
   // Compute the linear order directly in the graph's data structure
   // (there are no more following graph mutations).
-  LinearizeGraph(graph_, graph_->GetArena(), &graph_->linear_order_);
+  LinearizeGraph(graph_, &graph_->linear_order_);
 
   // Liveness analysis.
   NumberInstructions();
@@ -56,7 +56,7 @@ void SsaLivenessAnalysis::NumberInstructions() {
         instructions_from_ssa_index_.push_back(current);
         current->SetSsaIndex(ssa_index++);
         current->SetLiveInterval(
-            LiveInterval::MakeInterval(graph_->GetArena(), current->GetType(), current));
+            LiveInterval::MakeInterval(allocator_, current->GetType(), current));
       }
       current->SetLifetimePosition(lifetime_position);
     }
@@ -74,7 +74,7 @@ void SsaLivenessAnalysis::NumberInstructions() {
         instructions_from_ssa_index_.push_back(current);
         current->SetSsaIndex(ssa_index++);
         current->SetLiveInterval(
-            LiveInterval::MakeInterval(graph_->GetArena(), current->GetType(), current));
+            LiveInterval::MakeInterval(allocator_, current->GetType(), current));
       }
       instructions_from_lifetime_position_.push_back(current);
       current->SetLifetimePosition(lifetime_position);
@@ -89,7 +89,7 @@ void SsaLivenessAnalysis::NumberInstructions() {
 void SsaLivenessAnalysis::ComputeLiveness() {
   for (HBasicBlock* block : graph_->GetLinearOrder()) {
     block_infos_[block->GetBlockId()] =
-        new (graph_->GetArena()) BlockInfo(graph_->GetArena(), *block, number_of_ssa_values_);
+        new (allocator_) BlockInfo(allocator_, *block, number_of_ssa_values_);
   }
 
   // Compute the live ranges, as well as the initial live_in, live_out, and kill sets.
@@ -474,11 +474,14 @@ size_t LiveInterval::NumberOfSpillSlotsNeeded() const {
   // For a SIMD operation, compute the number of needed spill slots.
   // TODO: do through vector type?
   HInstruction* definition = GetParent()->GetDefinedBy();
-  if (definition != nullptr && definition->IsVecOperation()) {
+  if (definition != nullptr && HVecOperation::ReturnsSIMDValue(definition)) {
+    if (definition->IsPhi()) {
+      definition = definition->InputAt(1);  // SIMD always appears on back-edge
+    }
     return definition->AsVecOperation()->GetVectorNumberOfBytes() / kVRegSize;
   }
   // Return number of needed spill slots based on type.
-  return (type_ == Primitive::kPrimLong || type_ == Primitive::kPrimDouble) ? 2 : 1;
+  return (type_ == DataType::Type::kInt64 || type_ == DataType::Type::kFloat64) ? 2 : 1;
 }
 
 Location LiveInterval::ToLocation() const {

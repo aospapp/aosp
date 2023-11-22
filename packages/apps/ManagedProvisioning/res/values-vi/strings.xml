@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"Đang thiết lập thiết bị cơ quan…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Đang xử lý dữ liệu thiết lập..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Đang kết nối Wi-Fi…"</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Đang kết nối với mạng di động…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Đang tải xuống ứng dụng quản trị..."</string>
     <string name="progress_install" msgid="2258045670385866183">"Đang cài đặt ứng dụng quản trị..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Đang xóa các ứng dụng không bắt buộc của hệ thống…"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Bạn sắp tạo một hồ sơ công việc sẽ do tổ chức của bạn quản lý và giám sát. Các điều khoản từ <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> sẽ được áp dụng."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"Một hồ sơ sẽ được tạo cho các ứng dụng công việc của bạn. Hồ sơ này và phần còn lại của thiết bị sẽ do tổ chức của bạn quản lý và giám sát. Các điều khoản sẽ được áp dụng."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"Một hồ sơ sẽ được tạo cho các ứng dụng công việc của bạn. Hồ sơ này và phần còn lại của thiết bị sẽ do tổ chức của bạn quản lý và giám sát. Các điều khoản từ <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> sẽ được áp dụng."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"Thiết bị này sẽ do <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> quản lý và giữ an toàn. Các điều khoản sẽ được áp dụng. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"Thiết bị này sẽ do <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> quản lý và giữ an toàn. Các điều khoản từ <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> sẽ được áp dụng. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"Thiết bị này sẽ do <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> quản lý, giám sát và bảo mật. Các điều khoản sẽ được áp dụng. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Thiết bị này sẽ do <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> quản lý, giám sát và bảo mật. Các điều khoản từ <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> sẽ được áp dụng. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Liên kết này không an toàn và không thể mở được cho đến khi quá trình thiết lập thiết bị hoàn tất: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"Nếu bạn có thắc mắc, hãy liên hệ với <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> của bạn."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"Nếu bạn có thắc mắc, hãy liên hệ với quản trị viên của tổ chức bạn"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> và <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"Quá trình này có thể mất vài phút"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"Các ứng dụng công việc của bạn sẽ được lưu trong hồ sơ này và do tổ chức của bạn quản lý"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"Tổ chức của bạn sẽ giữ an toàn và quản lý thiết bị này"</string>
 </resources>

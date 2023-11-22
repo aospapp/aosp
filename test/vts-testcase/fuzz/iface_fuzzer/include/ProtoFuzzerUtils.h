@@ -17,6 +17,7 @@
 #ifndef __VTS_PROTO_FUZZER_UTILS_H__
 #define __VTS_PROTO_FUZZER_UTILS_H__
 
+#include <unistd.h>
 #include <iostream>
 #include <random>
 #include <string>
@@ -64,7 +65,8 @@ class Random {
 };
 
 // Additional non-libfuzzer parameters passed to the fuzzer.
-struct ProtoFuzzerParams {
+class ProtoFuzzerParams {
+ public:
   // Number of function calls per execution (fixed throughout fuzzer run).
   size_t exec_size_;
   // VTS specs supplied to the fuzzer.
@@ -72,8 +74,12 @@ struct ProtoFuzzerParams {
   // Name of target interface, e.g. "INfc".
   std::string target_iface_;
   // Controls whether HAL is opened in passthrough or binder mode.
-  // Passthrough mode is default. Used for testing.
-  bool binder_mode_ = false;
+  // Binder mode is default. Used for testing.
+  bool binder_mode_ = true;
+  // Seed used to initialize the random number generator.
+  uint64_t seed_ = static_cast<uint64_t>(time(0));
+  // Returns a string summarizing content of this object.
+  string DebugString() const;
 };
 
 // Parses command-line flags to create a ProtoFuzzerParams instance.

@@ -76,15 +76,9 @@ final class GsmConnection extends TelephonyConnection {
         // hold for IMS calls.
         if (!shouldTreatAsEmergencyCall()) {
             capabilities |= CAPABILITY_SUPPORT_HOLD;
-            if (getState() == STATE_ACTIVE || getState() == STATE_HOLDING) {
+            if (isHoldable() && (getState() == STATE_ACTIVE || getState() == STATE_HOLDING)) {
                 capabilities |= CAPABILITY_HOLD;
             }
-        }
-
-        // For GSM connections, CAPABILITY_CONFERENCE_HAS_NO_CHILDREN should be applied whenever
-        // PROPERTY_IS_DOWNGRADED_CONFERENCE is true.
-        if ((getConnectionProperties() & PROPERTY_IS_DOWNGRADED_CONFERENCE) != 0) {
-            capabilities |= CAPABILITY_CONFERENCE_HAS_NO_CHILDREN;
         }
 
         return capabilities;

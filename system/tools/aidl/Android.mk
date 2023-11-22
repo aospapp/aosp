@@ -26,6 +26,7 @@ ifndef BRILLO
 
 include $(CLEAR_VARS)
 LOCAL_PACKAGE_NAME := aidl_test_services
+LOCAL_PRIVATE_PLATFORM_APIS := true
 # Turn off Java optimization tools to speed up our test iterations.
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false

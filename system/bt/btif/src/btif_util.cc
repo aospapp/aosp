@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  *  Copyright (c) 2014 The Android Open Source Project
- *  Copyright (C) 2009-2016 Broadcom Corporation
+ *  Copyright 2009-2016 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -56,29 +56,6 @@
  *  Constants & Macros
  ******************************************************************************/
 #define ISDIGIT(a) (((a) >= '0') && ((a) <= '9'))
-#define ISXDIGIT(a)                                                    \
-  ((((a) >= '0') && ((a) <= '9')) || (((a) >= 'A') && ((a) <= 'F')) || \
-   (((a) >= 'a') && ((a) <= 'f')))
-
-/*******************************************************************************
- *  Local type definitions
- ******************************************************************************/
-
-/*******************************************************************************
- *  Static variables
- ******************************************************************************/
-
-/*******************************************************************************
- *  Static functions
- ******************************************************************************/
-
-/*******************************************************************************
- *  Externs
- ******************************************************************************/
-
-/*******************************************************************************
- *  Functions
- ******************************************************************************/
 
 /*****************************************************************************
  *   Logging helper functions
@@ -98,64 +75,6 @@ void uint2devclass(uint32_t cod, DEV_CLASS dev_class) {
   dev_class[2] = (uint8_t)cod;
   dev_class[1] = (uint8_t)(cod >> 8);
   dev_class[0] = (uint8_t)(cod >> 16);
-}
-
-static const uint8_t sdp_base_uuid[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                        0x10, 0x00, 0x80, 0x00, 0x00, 0x80,
-                                        0x5F, 0x9B, 0x34, 0xFB};
-
-void uuid16_to_uuid128(uint16_t uuid16, bt_uuid_t* uuid128) {
-  uint16_t uuid16_bo;
-  memset(uuid128, 0, sizeof(bt_uuid_t));
-
-  memcpy(uuid128->uu, sdp_base_uuid, MAX_UUID_SIZE);
-  uuid16_bo = ntohs(uuid16);
-  memcpy(uuid128->uu + 2, &uuid16_bo, sizeof(uint16_t));
-}
-
-bool string_to_uuid(const char* str, bt_uuid_t* p_uuid) {
-  CHECK(p_uuid);
-  if (str == NULL) return false;
-
-  uint32_t uuid0, uuid4;
-  uint16_t uuid1, uuid2, uuid3, uuid5;
-
-  int rc = sscanf(str, "%08x-%04hx-%04hx-%04hx-%08x%04hx", &uuid0, &uuid1,
-                  &uuid2, &uuid3, &uuid4, &uuid5);
-  if (rc != 6) return false;
-
-  uuid0 = htonl(uuid0);
-  uuid1 = htons(uuid1);
-  uuid2 = htons(uuid2);
-  uuid3 = htons(uuid3);
-  uuid4 = htonl(uuid4);
-  uuid5 = htons(uuid5);
-
-  memcpy(&(p_uuid->uu[0]), &uuid0, 4);
-  memcpy(&(p_uuid->uu[4]), &uuid1, 2);
-  memcpy(&(p_uuid->uu[6]), &uuid2, 2);
-  memcpy(&(p_uuid->uu[8]), &uuid3, 2);
-  memcpy(&(p_uuid->uu[10]), &uuid4, 4);
-  memcpy(&(p_uuid->uu[14]), &uuid5, 2);
-
-  return true;
-}
-
-void uuid_to_string_legacy(bt_uuid_t* p_uuid, char* str, size_t str_len) {
-  uint32_t uuid0, uuid4;
-  uint16_t uuid1, uuid2, uuid3, uuid5;
-
-  memcpy(&uuid0, &(p_uuid->uu[0]), 4);
-  memcpy(&uuid1, &(p_uuid->uu[4]), 2);
-  memcpy(&uuid2, &(p_uuid->uu[6]), 2);
-  memcpy(&uuid3, &(p_uuid->uu[8]), 2);
-  memcpy(&uuid4, &(p_uuid->uu[10]), 4);
-  memcpy(&uuid5, &(p_uuid->uu[14]), 2);
-
-  snprintf(str, str_len, "%.8x-%.4x-%.4x-%.4x-%.8x%.4x", ntohl(uuid0),
-           ntohs(uuid1), ntohs(uuid2), ntohs(uuid3), ntohl(uuid4),
-           ntohs(uuid5));
-  return;
 }
 
 /*****************************************************************************
@@ -291,6 +210,7 @@ const char* dump_hf_event(uint16_t event) {
     CASE_RETURN_STR(BTA_AG_AT_BCS_EVT)
     CASE_RETURN_STR(BTA_AG_AT_BIND_EVT)
     CASE_RETURN_STR(BTA_AG_AT_BIEV_EVT)
+    CASE_RETURN_STR(BTA_AG_AT_BIA_EVT)
 
     default:
       return "UNKNOWN MSG ID";
@@ -349,18 +269,6 @@ const char* dump_hh_event(uint16_t event) {
   }
 }
 
-const char* dump_hf_conn_state(uint16_t event) {
-  switch (event) {
-    CASE_RETURN_STR(BTHF_CONNECTION_STATE_DISCONNECTED)
-    CASE_RETURN_STR(BTHF_CONNECTION_STATE_CONNECTING)
-    CASE_RETURN_STR(BTHF_CONNECTION_STATE_CONNECTED)
-    CASE_RETURN_STR(BTHF_CONNECTION_STATE_SLC_CONNECTED)
-    CASE_RETURN_STR(BTHF_CONNECTION_STATE_DISCONNECTING)
-    default:
-      return "UNKNOWN MSG ID";
-  }
-}
-
 const char* dump_hd_event(uint16_t event) {
   switch (event) {
     CASE_RETURN_STR(BTA_HD_ENABLE_EVT)
@@ -381,20 +289,6 @@ const char* dump_hd_event(uint16_t event) {
   }
 }
 
-const char* dump_hf_call_state(bthf_call_state_t call_state) {
-  switch (call_state) {
-    CASE_RETURN_STR(BTHF_CALL_STATE_IDLE)
-    CASE_RETURN_STR(BTHF_CALL_STATE_HELD)
-    CASE_RETURN_STR(BTHF_CALL_STATE_DIALING)
-    CASE_RETURN_STR(BTHF_CALL_STATE_ALERTING)
-    CASE_RETURN_STR(BTHF_CALL_STATE_INCOMING)
-    CASE_RETURN_STR(BTHF_CALL_STATE_WAITING)
-    CASE_RETURN_STR(BTHF_CALL_STATE_ACTIVE)
-    default:
-      return "UNKNOWN CALL STATE";
-  }
-}
-
 const char* dump_thread_evt(bt_cb_thread_evt evt) {
   switch (evt) {
     CASE_RETURN_STR(ASSOCIATE_JVM)
@@ -402,17 +296,6 @@ const char* dump_thread_evt(bt_cb_thread_evt evt) {
 
     default:
       return "unknown thread evt";
-  }
-}
-
-const char* dump_hf_audio_state(uint16_t event) {
-  switch (event) {
-    CASE_RETURN_STR(BTHF_AUDIO_STATE_DISCONNECTED)
-    CASE_RETURN_STR(BTHF_AUDIO_STATE_CONNECTING)
-    CASE_RETURN_STR(BTHF_AUDIO_STATE_CONNECTED)
-    CASE_RETURN_STR(BTHF_AUDIO_STATE_DISCONNECTING)
-    default:
-      return "UNKNOWN MSG ID";
   }
 }
 

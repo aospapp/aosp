@@ -71,7 +71,11 @@ public class ApiCheck {
     } else if (originalArgs.length == 4 && "-new_api".equals(originalArgs[0])) {
       // command syntax: -new_api oldapi.txt newapi.txt diff.xml
       // TODO: Support reading in other options for new_api, such as ignored classes/packages.
-      System.exit(newApi(originalArgs[1], originalArgs[2], originalArgs[3]));
+      System.exit(newApi(originalArgs[1], originalArgs[2], originalArgs[3], true));
+    } else if (originalArgs.length == 4 && "-new_api_no_strip".equals(originalArgs[0])) {
+      // command syntax: -new_api oldapi.txt newapi.txt diff.xml
+      // TODO: Support reading in other options for new_api, such as ignored classes/packages.
+      System.exit(newApi(originalArgs[1], originalArgs[2], originalArgs[3], false));
     } else {
       ApiCheck acheck = new ApiCheck();
       Report report = acheck.checkApi(originalArgs);
@@ -250,25 +254,9 @@ public class ApiCheck {
   }
 
   static int convertToApi(String src, String dst) {
-    ApiInfo api;
-    try {
-      api = parseApi(src);
-    } catch (ApiParseException e) {
-      e.printStackTrace();
-      System.err.println("Error parsing API: " + src);
-      return 1;
-    }
-
-    PrintStream apiWriter = null;
-    try {
-      apiWriter = new PrintStream(dst);
-    } catch (FileNotFoundException ex) {
-      System.err.println("can't open file: " + dst);
-    }
-
-    Stubs.writeApi(apiWriter, api.getPackages().values());
-
-    return 0;
+    // This was historically used to convert XML to TXT format, which was a
+    // one-time migration.
+    throw new UnsupportedOperationException();
   }
 
   static int convertToXml(String src, String dst, boolean strip) {
@@ -288,7 +276,7 @@ public class ApiCheck {
       System.err.println("can't open file: " + dst);
     }
 
-    Stubs.writeXml(apiWriter, api.getPackages().values(), c -> true);
+    Stubs.writeXml(apiWriter, api.getPackages().values(), strip);
 
     return 0;
   }
@@ -298,9 +286,10 @@ public class ApiCheck {
    * @param origApiPath path to old API text file
    * @param newApiPath path to new API text file
    * @param outputPath output XML path for the generated diff
+   * @param strip true if any unknown classes should be stripped from the output, false otherwise
    * @return
    */
-  static int newApi(String origApiPath, String newApiPath, String outputPath) {
+  static int newApi(String origApiPath, String newApiPath, String outputPath, boolean strip) {
     ApiInfo origApi, newApi;
     try {
       origApi = parseApi(origApiPath);
@@ -324,7 +313,7 @@ public class ApiCheck {
       } catch (FileNotFoundException ex) {
         System.err.println("can't open file: " + outputPath);
       }
-      Stubs.writeXml(apiWriter, pkgInfoDiff);
+      Stubs.writeXml(apiWriter, pkgInfoDiff, strip);
     } else {
       System.err.println("No API change detected, not generating diff.");
     }

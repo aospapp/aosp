@@ -107,6 +107,11 @@
 @r11 - #1
 @r12 - src_ptr1
 @r14 - loop_counter
+
+.equ    coeff_offset,   104
+.equ    ht_offset,      108
+.equ    wd_offset,      112
+
 .text
 .align 4
 .syntax unified
@@ -122,16 +127,16 @@ ihevc_inter_pred_luma_horz_w16out_a9q:
 
     bic         r14, #1                     @ clearing bit[0], so that it goes back to mode
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
-    ldr         r4,[sp,#40]                 @loads pi1_coeff
-    ldr         r7,[sp,#44]                 @loads ht
+    vpush       {d8 - d15}
+    ldr         r4,[sp,#coeff_offset]                 @loads pi1_coeff
+    ldr         r7,[sp,#ht_offset]                 @loads ht
 
 
     vld1.8      {d0},[r4]                   @coeff = vld1_s8(pi1_coeff)
     sub         r14,r7,#0                   @checks for ht == 0
     vabs.s8     d2,d0                       @vabs_s8(coeff)
     mov         r11,#1
-    @ble       end_loops
-    ldr         r10,[sp,#48]                @loads wd
+    ldr         r10,[sp,#wd_offset]                @loads wd
     vdup.8      d24,d2[0]                   @coeffabs_0 = vdup_lane_u8(coeffabs, 0)
     sub         r12,r0,#3                   @pu1_src - 3
     vdup.8      d25,d2[1]                   @coeffabs_1 = vdup_lane_u8(coeffabs, 1)
@@ -274,11 +279,10 @@ end_inner_loop_4:
 
 height_residue_4:
 
-    ldr         r7,[sp,#44]                 @loads ht
+    ldr         r7,[sp,#ht_offset]                 @loads ht
     and         r7,r7,#1                    @calculating ht_residue ht_residue = (ht & 1)
     cmp         r7,#0
-    @beq        end_loops
-    ldmfdeq     sp!,{r4-r12,r15}            @reload the registers from sp
+    beq         end_loops
 
 outer_loop_height_residue_4:
 
@@ -331,7 +335,7 @@ end_inner_loop_height_residue_4:
     add         r12,r12,r9                  @increment the input pointer src_strd-wd
     add         r1,r1,r8                    @increment the output pointer dst_strd-wd
     bgt         outer_loop_height_residue_4
-
+    vpop        {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 outer_loop8_residual:
@@ -427,18 +431,18 @@ end_inner_loop_8:
 
 
 
-    ldr         r10,[sp,#48]                @loads wd
+    ldr         r10,[sp,#wd_offset]                @loads wd
     cmp         r10,#12
 
     beq         outer_loop4_residual
 
-    ldr         r7,[sp,#44]                 @loads ht
+    ldr         r7,[sp,#ht_offset]                 @loads ht
     and         r7,r7,#1
     cmp         r7,#1
     beq         height_residue_4
 
-@end_loops
 
+    vpop        {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 
@@ -452,7 +456,6 @@ outer_loop_16:
     add         r4,r12,r2                   @pu1_src + src_strd
     and         r0, r12, #31
     sub         r5,r10,#0                   @checks wd
-    @ble       end_loops1
     pld         [r12, r2, lsl #1]
     vld1.u32    {q0},[r12],r11              @vector load pu1_src
     pld         [r4, r2, lsl #1]
@@ -580,17 +583,17 @@ epilog_16:
 
     ldr         r7, [sp], #4
     ldr         r0, [sp], #4
-    ldr         r10,[sp,#48]
+    ldr         r10,[sp,#wd_offset]
     cmp         r10,#24
     beq         outer_loop8_residual
     add         r1,r6,r8,lsl #1
-    ldr         r7,[sp,#44]                 @loads ht
+    ldr         r7,[sp,#ht_offset]                 @loads ht
     and         r7,r7,#1
     cmp         r7,#1
     beq         height_residue_4
 
-end_loops1:
-
+end_loops:
+    vpop        {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 

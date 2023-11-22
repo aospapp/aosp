@@ -24,7 +24,6 @@ cc_benchmark {
     ],
     srcs: [
         "FontCollection.cpp",
-        "FontFamily.cpp",
         "FontLanguage.cpp",
         "GraphemeBreak.cpp",
         "Hyphenator.cpp",
@@ -41,9 +40,10 @@ cc_benchmark {
     ],
 
     shared_libs: [
+        "libft2",
         "libharfbuzz_ng",
         "libicuuc",
         "liblog",
-        "libskia",
+
     ],
 }

@@ -4,11 +4,7 @@ COMMON_C_INCLUDES += \
 	bionic \
 	$(LOCAL_PATH)/../include \
 	$(LOCAL_PATH)/OpenGL/ \
-	$(LOCAL_PATH) \
-	$(LOCAL_PATH)/Renderer/ \
-	$(LOCAL_PATH)/Common/ \
-	$(LOCAL_PATH)/Shader/ \
-	$(LOCAL_PATH)/Main/
+	$(LOCAL_PATH)
 
 ifdef use_subzero
 COMMON_C_INCLUDES += \
@@ -21,8 +17,8 @@ COMMON_C_INCLUDES += \
 	$(LOCAL_PATH)/../third_party/LLVM/include
 endif
 
-# libnativewindow is introduced from O
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo O),O)
+# Project Treble is introduced from Oreo MR1
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 27 && echo OreoMR1),OreoMR1)
 COMMON_SHARED_LIBRARIES := libnativewindow liblog
 COMMON_HEADER_LIBRARIES := libhardware_headers libnativebase_headers
 COMMON_STATIC_LIBRARIES := libarect
@@ -106,7 +102,14 @@ COMMON_SRC_FILES += \
 
 COMMON_CFLAGS := \
 	-DLOG_TAG=\"swiftshader\" \
+	-Wall \
+	-Werror \
+	-Wno-format \
+	-Wno-switch \
+	-Wno-unused-local-typedef \
 	-Wno-unused-parameter \
+	-Wno-unused-value \
+	-Wno-unused-variable \
 	-Wno-implicit-exception-spec-mismatch \
 	-Wno-overloaded-virtual \
 	-Wno-non-virtual-dtor \

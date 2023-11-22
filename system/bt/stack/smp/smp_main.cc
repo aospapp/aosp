@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2012 Broadcom Corporation
+ *  Copyright 2003-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 #include "bt_target.h"
 
+#include <cutils/log.h>
 #include <string.h>
 #include "smp_int.h"
 
@@ -950,10 +951,17 @@ tSMP_STATE smp_get_state(void) { return smp_cb.state; }
  * Returns      void.
  *
  ******************************************************************************/
-void smp_sm_event(tSMP_CB* p_cb, tSMP_EVENT event, void* p_data) {
+void smp_sm_event(tSMP_CB* p_cb, tSMP_EVENT event, tSMP_INT_DATA* p_data) {
   uint8_t curr_state = p_cb->state;
   tSMP_SM_TBL state_table;
   uint8_t action, entry, i;
+
+  if (p_cb->role >= 2) {
+    SMP_TRACE_DEBUG("Invalid role: %d", p_cb->role);
+    android_errorWriteLog(0x534e4554, "74121126");
+    return;
+  }
+
   tSMP_ENTRY_TBL entry_table = smp_entry_table[p_cb->role];
 
   SMP_TRACE_EVENT("main smp_sm_event");
@@ -997,7 +1005,7 @@ void smp_sm_event(tSMP_CB* p_cb, tSMP_EVENT event, void* p_data) {
   for (i = 0; i < SMP_NUM_ACTIONS; i++) {
     action = state_table[entry - 1][i];
     if (action != SMP_SM_NO_ACTION) {
-      (*smp_sm_action[action])(p_cb, (tSMP_INT_DATA*)p_data);
+      (*smp_sm_action[action])(p_cb, p_data);
     } else {
       break;
     }

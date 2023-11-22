@@ -121,7 +121,8 @@ def _join_with_nickname(base_string, nickname):
 # semantics problem in BgJob. See crbug.com/279312
 class BgJob(object):
     def __init__(self, command, stdout_tee=None, stderr_tee=None, verbose=True,
-                 stdin=None, stderr_level=DEFAULT_STDERR_LEVEL, nickname=None,
+                 stdin=None, stdout_level=DEFAULT_STDOUT_LEVEL,
+                 stderr_level=DEFAULT_STDERR_LEVEL, nickname=None,
                  unjoinable=False, env=None, extra_paths=None):
         """Create and start a new BgJob.
 
@@ -158,10 +159,11 @@ class BgJob(object):
         @param verbose: Boolean, make BgJob logging more verbose.
         @param stdin: Stream object, will be passed to Popen as the new
                       process's stdin.
-        @param stderr_level: A logging level value. If stderr_tee was set to
+        @param stdout_level: A logging level value. If stdout_tee was set to
                              TEE_TO_LOGS, sets the level that tee'd
-                             stderr output will be logged at. Ignored
+                             stdout output will be logged at. Ignored
                              otherwise.
+        @param stderr_level: Same as stdout_level, but for stderr.
         @param nickname: Optional string, to be included in logging messages
         @param unjoinable: Optional bool, default False.
                            This should be True for BgJobs running in background
@@ -186,7 +188,7 @@ class BgJob(object):
                 'stdout_tee and stderr_tee must be DEVNULL for '
                 'unjoinable BgJob')
         self._stdout_tee = get_stream_tee_file(
-                stdout_tee, DEFAULT_STDOUT_LEVEL,
+                stdout_tee, stdout_level,
                 prefix=_join_with_nickname(STDOUT_PREFIX, nickname))
         self._stderr_tee = get_stream_tee_file(
                 stderr_tee, stderr_level,
@@ -660,16 +662,16 @@ def update_version(srcdir, preserve_srcdir, new_version, install,
             pickle.dump(new_version, open(versionfile, 'w'))
 
 
-def get_stderr_level(stderr_is_expected):
+def get_stderr_level(stderr_is_expected, stdout_level=DEFAULT_STDOUT_LEVEL):
     if stderr_is_expected:
-        return DEFAULT_STDOUT_LEVEL
+        return stdout_level
     return DEFAULT_STDERR_LEVEL
 
 
-def run(command, timeout=None, ignore_status=False,
-        stdout_tee=None, stderr_tee=None, verbose=True, stdin=None,
-        stderr_is_expected=None, args=(), nickname=None, ignore_timeout=False,
-        env=None, extra_paths=None):
+def run(command, timeout=None, ignore_status=False, stdout_tee=None,
+        stderr_tee=None, verbose=True, stdin=None, stderr_is_expected=None,
+        stdout_level=None, stderr_level=None, args=(), nickname=None,
+        ignore_timeout=False, env=None, extra_paths=None):
     """
     Run a command on the host.
 
@@ -688,6 +690,9 @@ def run(command, timeout=None, ignore_status=False,
             descriptor, a file object of a real file or a string).
     @param stderr_is_expected: if True, stderr will be logged at the same level
             as stdout
+    @param stdout_level: logging level used if stdout_tee is TEE_TO_LOGS;
+            if None, a default is used.
+    @param stderr_level: like stdout_level but for stderr.
     @param args: sequence of strings of arguments to be given to the command
             inside " quotes after they have been escaped for that; each
             element in the sequence will be given as a separate command
@@ -719,13 +724,18 @@ def run(command, timeout=None, ignore_status=False,
         command = ' '.join([sh_quote_word(arg) for arg in command])
 
     command = ' '.join([command] + [sh_quote_word(arg) for arg in args])
+
     if stderr_is_expected is None:
         stderr_is_expected = ignore_status
+    if stdout_level is None:
+        stdout_level = DEFAULT_STDOUT_LEVEL
+    if stderr_level is None:
+        stderr_level = get_stderr_level(stderr_is_expected, stdout_level)
 
     try:
         bg_job = join_bg_jobs(
             (BgJob(command, stdout_tee, stderr_tee, verbose, stdin=stdin,
-                   stderr_level=get_stderr_level(stderr_is_expected),
+                   stdout_level=stdout_level, stderr_level=stderr_level,
                    nickname=nickname, env=env, extra_paths=extra_paths),),
             timeout)[0]
     except error.CmdTimeoutError:
@@ -1822,27 +1832,24 @@ _setup_restricted_subnets()
 WIRELESS_SSID_PATTERN = 'wireless_ssid_(.*)/(\d+)'
 
 
-def get_built_in_ethernet_nic_name():
+def get_moblab_serial_number():
     """Gets the moblab public network interface.
 
     If the eth0 is an USB interface, try to use eth1 instead. Otherwise
     use eth0 by default.
     """
     try:
-        cmd_result = run('readlink -f /sys/class/net/eth0')
-        if cmd_result.exit_status == 0 and 'usb' in cmd_result.stdout:
-            cmd_result = run('readlink -f /sys/class/net/eth1')
-            if cmd_result.exit_status == 0 and not ('usb' in cmd_result.stdout):
-                logging.info('Eth0 is a USB dongle, use eth1 as moblab nic.')
-                return _MOBLAB_ETH_1
-    except error.CmdError:
-        # readlink is not supported.
-        logging.info('No readlink available, use eth0 as moblab nic.')
+        cmd_result = run('sudo vpd -g serial_number')
+        if cmd_result.stdout:
+          return cmd_result.stdout
+    except error.CmdError as e:
+        logging.error(str(e))
+        logging.info('Serial number ')
         pass
-    return _MOBLAB_ETH_0
+    return 'NoSerialNumber'
 
 
-def ping(host, deadline=None, tries=None, timeout=60):
+def ping(host, deadline=None, tries=None, timeout=60, user=None):
     """Attempt to ping |host|.
 
     Shell out to 'ping' if host is an IPv4 addres or 'ping6' if host is an
@@ -1865,14 +1872,18 @@ def ping(host, deadline=None, tries=None, timeout=60):
     @return exit code of ping command.
     """
     args = [host]
-    ping_cmd = 'ping6' if re.search(r':.*:', host) else 'ping'
+    cmd = 'ping6' if re.search(r':.*:', host) else 'ping'
 
     if deadline:
         args.append('-w%d' % deadline)
     if tries:
         args.append('-c%d' % tries)
 
-    return run(ping_cmd, args=args, verbose=True,
+    if user != None:
+        args = [user, '-c', ' '.join([cmd] + args)]
+        cmd = 'su'
+
+    return run(cmd, args=args, verbose=True,
                           ignore_status=True, timeout=timeout,
                           stdout_tee=TEE_TO_LOGS,
                           stderr_tee=TEE_TO_LOGS).exit_status
@@ -1943,24 +1954,6 @@ def get_chrome_version(job_views):
     return None
 
 
-def get_default_interface_mac_address():
-    """Returns the default moblab MAC address."""
-    return get_interface_mac_address(
-            get_built_in_ethernet_nic_name())
-
-
-def get_interface_mac_address(interface):
-    """Return the MAC address of a given interface.
-
-    @param interface: Interface to look up the MAC address of.
-    """
-    interface_link = run(
-            'ip addr show %s | grep link/ether' % interface).stdout
-    # The output will be in the format of:
-    # 'link/ether <mac> brd ff:ff:ff:ff:ff:ff'
-    return interface_link.split()[1]
-
-
 def get_moblab_id():
     """Gets the moblab random id.
 
@@ -2010,9 +2003,7 @@ def get_offload_gsuri():
     if not gsuri:
         gsuri = "%sresults/" % CONFIG.get_config_value('CROS', 'image_storage_server')
 
-    return '%s%s/%s/' % (
-            gsuri, get_interface_mac_address(get_built_in_ethernet_nic_name()),
-            get_moblab_id())
+    return '%s%s/%s/' % (gsuri, get_moblab_serial_number(), get_moblab_id())
 
 
 # TODO(petermayo): crosbug.com/31826 Share this with _GsUpload in
@@ -2208,26 +2199,6 @@ def is_localhost(server):
         return False
 
 
-def is_puppylab_vm(server):
-    """Check if server is a virtual machine in puppylab.
-
-    In the virtual machine testing environment (i.e., puppylab), each
-    shard VM has a hostname like localhost:<port>.
-
-    @param server: Server name to check.
-
-    @return True if given server is a virtual machine in puppylab.
-
-    """
-    # TODO(mkryu): This is a puppylab specific hack. Please update
-    # this method if you have a better solution.
-    regex = re.compile(r'(.+):\d+')
-    m = regex.match(server)
-    if m:
-        return m.group(1) in _LOCAL_HOST_LIST
-    return False
-
-
 def get_function_arg_value(func, arg_name, args, kwargs):
     """Get the value of the given argument for the function.
 
@@ -2269,7 +2240,7 @@ def has_systemd():
 
 
 def version_match(build_version, release_version, update_url=''):
-    """Compare release versino from lsb-release with cros-version label.
+    """Compare release version from lsb-release with cros-version label.
 
     build_version is a string based on build name. It is prefixed with builder
     info and branch ID, e.g., lumpy-release/R43-6809.0.0. It may not include
@@ -2304,6 +2275,10 @@ def version_match(build_version, release_version, update_url=''):
     build version:   lumpy-release-pgo-generate/R28-3837.0.0-b2996
     release version: 3837.0.0-pgo-generate
 
+    7. build version with --cheetsth suffix.
+    build version:   lumpy-release/R28-3837.0.0-cheetsth
+    release version: 3837.0.0
+
     TODO: This logic has a bug if a trybot paladin build failed to be
     installed in a DUT running an older trybot paladin build with same
     platform number, but different build number (-b###). So to conclusively
@@ -2321,8 +2296,12 @@ def version_match(build_version, release_version, update_url=''):
     """
     # If the build is from release, CQ or PFQ builder, cros-version label must
     # be ended with release version in lsb-release.
-    if build_version.endswith(release_version):
+    if (build_version.endswith(release_version) or
+            build_version.endswith(release_version + '-cheetsth')):
         return True
+
+    if build_version.endswith('-cheetsth'):
+        build_version = re.sub('-cheetsth' + '$', '', build_version)
 
     # Remove R#- and -b# at the end of build version
     stripped_version = re.sub(r'(R\d+-|-b\d+)', '', build_version)
@@ -2747,7 +2726,8 @@ def poll_for_condition(condition,
             return value
         if time.time() + sleep_interval - start_time > timeout:
             if exception:
-                logging.error(exception)
+                logging.error('Will raise error %r due to unexpected return: '
+                              '%r', exception, value)
                 raise exception
 
             if desc:

@@ -14,7 +14,6 @@ package android.icu.util;
  * indicate that an argument is not a well-formed BCP 47 tag.
  * 
  * @see ULocale
- * @hide Only a subset of ICU is exposed in Android
  */
 public class IllformedLocaleException extends RuntimeException {
 

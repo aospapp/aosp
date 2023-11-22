@@ -19,7 +19,9 @@ from autotest_lib.server.cros.faft.config.config import Config as FAFTConfig
 from autotest_lib.server.cros.faft.rpc_proxy import RPCProxy
 from autotest_lib.server.cros.faft.utils import mode_switcher
 from autotest_lib.server.cros.faft.utils.faft_checkers import FAFTCheckers
-from autotest_lib.server.cros.servo import chrome_cr50, chrome_ec
+from autotest_lib.server.cros.servo import chrome_base_ec
+from autotest_lib.server.cros.servo import chrome_cr50
+from autotest_lib.server.cros.servo import chrome_ec
 
 ConnectionError = mode_switcher.ConnectionError
 
@@ -129,6 +131,9 @@ class FirmwareTest(FAFTBase):
                                        % (host.POWER_CONTROL_VALID_ARGS,
                                        self.power_control))
 
+        if not self.faft_client.system.dev_tpm_present():
+            raise error.TestError('/dev/tpm0 does not exist on the client')
+
         self.faft_config = FAFTConfig(
                 self.faft_client.system.get_platform_name())
         self.checkers = FAFTCheckers(self)
@@ -146,6 +151,9 @@ class FirmwareTest(FAFTBase):
         self.plankton = host.plankton
         self.plankton_host = host._plankton_host
 
+        # Create the BaseEC object. None if not available.
+        self.base_ec = chrome_base_ec.create_base_ec(self.servo)
+
         self._setup_uart_capture()
         self._setup_servo_log()
         self._record_system_info()
@@ -157,7 +165,7 @@ class FirmwareTest(FAFTBase):
                 logging.info('mainfw_act is B. rebooting to set it A')
                 self.switcher.mode_aware_reboot()
         self._setup_gbb_flags()
-        self._stop_service('update-engine')
+        self.faft_client.updater.stop_daemon()
         self._create_faft_lockfile()
         self._setup_ec_write_protect(ec_wp)
         # See chromium:239034 regarding needing this sync.
@@ -177,7 +185,7 @@ class FirmwareTest(FAFTBase):
         self.switcher.restore_mode()
         self._restore_ec_write_protect()
         self._restore_gbb_flags()
-        self._start_service('update-engine')
+        self.faft_client.updater.start_daemon()
         self._remove_faft_lockfile()
         self._record_servo_log()
         self._record_faft_client_log()
@@ -450,24 +458,6 @@ class FirmwareTest(FAFTBase):
         command = 'rm -f %s' % (self.lockfile)
         self.faft_client.system.run_shell_command(command)
 
-    def _stop_service(self, service):
-        """Stops a upstart service on the client.
-
-        @param service: The name of the upstart service.
-        """
-        logging.info('Stopping %s...', service)
-        command = 'status %s | grep stop || stop %s' % (service, service)
-        self.faft_client.system.run_shell_command(command)
-
-    def _start_service(self, service):
-        """Starts a upstart service on the client.
-
-        @param service: The name of the upstart service.
-        """
-        logging.info('Starting %s...', service)
-        command = 'status %s | grep start || start %s' % (service, service)
-        self.faft_client.system.run_shell_command(command)
-
     def clear_set_gbb_flags(self, clear_mask, set_mask):
         """Clear and set the GBB flags in the current flashrom.
 
@@ -481,8 +471,11 @@ class FirmwareTest(FAFTBase):
             logging.info('Changing GBB flags from 0x%x to 0x%x.',
                          gbb_flags, new_flags)
             self.faft_client.bios.set_gbb_flags(new_flags)
-            # If changing FORCE_DEV_SWITCH_ON flag, reboot to get a clear state
-            if ((gbb_flags ^ new_flags) & vboot.GBB_FLAG_FORCE_DEV_SWITCH_ON):
+            # If changing FORCE_DEV_SWITCH_ON or DISABLE_EC_SOFTWARE_SYNC flag,
+            # reboot to get a clear state
+            if ((gbb_flags ^ new_flags) &
+                (vboot.GBB_FLAG_FORCE_DEV_SWITCH_ON |
+                 vboot.GBB_FLAG_DISABLE_EC_SOFTWARE_SYNC)):
                 self.switcher.mode_aware_reboot()
         else:
             logging.info('Current GBB flags look good for test: 0x%x.',
@@ -541,6 +534,8 @@ class FirmwareTest(FAFTBase):
         """
         if 'mmcblk' in dev:
             return dev + 'p' + part
+        elif 'nvme' in dev:
+            return dev + 'p' + part
         else:
             return dev + part
 
@@ -577,6 +572,22 @@ class FirmwareTest(FAFTBase):
                         to_part=part)
             self.reset_and_prioritize_kernel(part)
             self.switcher.mode_aware_reboot()
+
+    def ensure_dev_internal_boot(self, original_dev_boot_usb):
+        """Ensure internal device boot in developer mode.
+
+        If not internal device boot, it will try to reboot the device and
+        bypass dev mode to boot into internal device.
+
+        @param original_dev_boot_usb: Original dev_boot_usb value.
+        """
+        logging.info('Checking internal device boot.')
+        if self.faft_client.system.is_removable_device_boot():
+            logging.info('Reboot into internal disk...')
+            self.faft_client.system.set_dev_boot_usb(original_dev_boot_usb)
+            self.switcher.mode_aware_reboot()
+        self.check_state((self.checkers.dev_boot_usb_checker, False,
+                          'Device not booted from internal disk properly.'))
 
     def set_hardware_write_protect(self, enable):
         """Set hardware write protect pin.
@@ -669,16 +680,15 @@ class FirmwareTest(FAFTBase):
         """Setup the CPU/EC/PD UART capture."""
         self.cpu_uart_file = os.path.join(self.resultsdir, 'cpu_uart.txt')
         self.servo.set('cpu_uart_capture', 'on')
-        self.cr50_console_file = None
+        self.cr50_uart_file = None
         self.ec_uart_file = None
         self.usbpd_uart_file = None
         try:
-            self.servo.set('cr50_console_capture', 'on')
-            self.cr50_console_file = os.path.join(self.resultsdir,
-                                                  'cr50_console.txt')
             # Check that the console works before declaring the cr50 console
-            # connection exists.
-            self.servo.get('ccd_lock')
+            # connection exists and enabling uart capture.
+            self.servo.get('cr50_version')
+            self.servo.set('cr50_uart_capture', 'on')
+            self.cr50_uart_file = os.path.join(self.resultsdir, 'cr50_uart.txt')
             self.cr50 = chrome_cr50.ChromeCr50(self.servo)
         except error.TestFail as e:
             if 'No control named' in str(e):
@@ -709,9 +719,9 @@ class FirmwareTest(FAFTBase):
         if self.cpu_uart_file:
             with open(self.cpu_uart_file, 'a') as f:
                 f.write(ast.literal_eval(self.servo.get('cpu_uart_stream')))
-        if self.cr50_console_file:
-            with open(self.cr50_console_file, 'a') as f:
-                f.write(ast.literal_eval(self.servo.get('cr50_console_stream')))
+        if self.cr50_uart_file:
+            with open(self.cr50_uart_file, 'a') as f:
+                f.write(ast.literal_eval(self.servo.get('cr50_uart_stream')))
         if self.ec_uart_file and self.faft_config.chrome_ec:
             with open(self.ec_uart_file, 'a') as f:
                 f.write(ast.literal_eval(self.servo.get('ec_uart_stream')))
@@ -725,8 +735,8 @@ class FirmwareTest(FAFTBase):
         # Flush the remaining UART output.
         self._record_uart_capture()
         self.servo.set('cpu_uart_capture', 'off')
-        if self.cr50_console_file:
-            self.servo.set('cr50_console_capture', 'off')
+        if self.cr50_uart_file:
+            self.servo.set('cr50_uart_capture', 'off')
         if self.ec_uart_file and self.faft_config.chrome_ec:
             self.servo.set('ec_uart_capture', 'off')
         if (self.usbpd_uart_file and self.faft_config.chrome_ec and
@@ -916,8 +926,35 @@ class FirmwareTest(FAFTBase):
         self.faft_client.system.run_shell_command('cgpt prioritize -i%s %s' %
                 (self.KERNEL_MAP[part], root_dev))
 
-    def blocking_sync(self):
+    def do_blocking_sync(self, device):
         """Run a blocking sync command."""
+        logging.info("Blocking sync for %s", device)
+        if 'mmcblk' in device:
+            # For mmc devices, use `mmc status get` command to send an
+            # empty command to wait for the disk to be available again.
+            self.faft_client.system.run_shell_command('mmc status get %s' %
+                                                      device)
+        elif 'nvme' in device:
+            # Get a list of NVMe namespace and flush them individually
+            # Assumes the output format from nvme list-ns command will
+            # be something like follows:
+            # [ 0]:0x1
+            # [ 1]:0x2
+            available_ns = self.faft_client.system.run_shell_command_get_output(
+                                                  'nvme list-ns %s -a' % device)
+            for ns in available_ns:
+                ns = ns.split(':')[-1]
+                # For NVMe devices, use `nvme flush` command to commit data
+                # and metadata to non-volatile media.
+                self.faft_client.system.run_shell_command(
+                                 'nvme flush %s -n %s' % (device, ns))
+        else:
+            # For other devices, hdparm sends TUR to check if
+            # a device is ready for transfer operation.
+            self.faft_client.system.run_shell_command('hdparm -f %s' % device)
+
+    def blocking_sync(self):
+        """Sync root device and internal device."""
         # The double calls to sync fakes a blocking call
         # since the first call returns before the flush
         # is complete, but the second will wait for the
@@ -925,18 +962,15 @@ class FirmwareTest(FAFTBase):
         self.faft_client.system.run_shell_command('sync')
         self.faft_client.system.run_shell_command('sync')
 
-        # sync only sends SYNCHRONIZE_CACHE but doesn't
-        # check the status. For mmc devices, use `mmc
-        # status get` command to send an empty command to
-        # wait for the disk to be available again.  For
-        # other devices, hdparm sends TUR to check if
-        # a device is ready for transfer operation.
+        # sync only sends SYNCHRONIZE_CACHE but doesn't check the status.
+        # This function will perform a device-specific sync command.
         root_dev = self.faft_client.system.get_root_dev()
-        if 'mmcblk' in root_dev:
-            self.faft_client.system.run_shell_command('mmc status get %s' %
-                                                      root_dev)
-        else:
-            self.faft_client.system.run_shell_command('hdparm -f %s' % root_dev)
+        self.do_blocking_sync(root_dev)
+
+        # Also sync the internal device if booted from removable media.
+        if self.faft_client.system.is_removable_device_boot():
+            internal_dev = self.faft_client.system.get_internal_device()
+            self.do_blocking_sync(internal_dev)
 
     def sync_and_ec_reboot(self, flags=''):
         """Request the client sync and do a EC triggered reboot.
@@ -1100,6 +1134,12 @@ class FirmwareTest(FAFTBase):
                     'Should shut the device down after calling %s.' %
                     shutdown_action.__name__)
         except ConnectionError:
+            if self.check_ec_capability(['x86'], suppress_warning=True):
+                PWR_RETRIES=5
+                if not self.wait_power_state("G3", PWR_RETRIES):
+                    raise error.TestFail("System not shutdown properly and EC"
+                                         "fails to enter into G3 state.")
+                logging.info('System entered into G3 state..')
             logging.info(
                 'DUT is surely shutdown. We are going to power it on again...')
 
@@ -1223,10 +1263,11 @@ class FirmwareTest(FAFTBase):
         """Clear the firmware saved by the method backup_firmware."""
         self._backup_firmware_sha = ()
 
-    def restore_firmware(self, suffix='.original'):
+    def restore_firmware(self, suffix='.original', restore_ec=True):
         """Restore firmware from host in resultsdir.
 
         @param suffix: a string appended to backup file name
+        @param restore_ec: True to restore the ec firmware; False not to do.
         """
         if not self.is_firmware_changed():
             return
@@ -1242,7 +1283,7 @@ class FirmwareTest(FAFTBase):
         self.faft_client.bios.write_whole(
             os.path.join(remote_temp_dir, 'bios'))
 
-        if self.faft_config.chrome_ec:
+        if self.faft_config.chrome_ec and restore_ec:
             self._client.send_file(os.path.join(self.resultsdir, 'ec' + suffix),
                 os.path.join(remote_temp_dir, 'ec'))
             self.faft_client.ec.write_whole(
@@ -1280,10 +1321,14 @@ class FirmwareTest(FAFTBase):
             logging.info('No shellball given, use the original shellball and '
                          'replace its BIOS and EC images.')
             work_path = self.faft_client.updater.get_work_path()
-            bios_in_work_path = os.path.join(work_path, 'bios.bin')
-            ec_in_work_path = os.path.join(work_path, 'ec.bin')
+            bios_in_work_path = os.path.join(
+                work_path, self.faft_client.updater.get_bios_relative_path())
+            ec_in_work_path = os.path.join(
+                work_path, self.faft_client.updater.get_ec_relative_path())
+            logging.info('Writing current BIOS to: %s', bios_in_work_path)
             self.faft_client.bios.dump_whole(bios_in_work_path)
             if self.faft_config.chrome_ec:
+                logging.info('Writing current EC to: %s', ec_in_work_path)
                 self.faft_client.ec.dump_firmware(ec_in_work_path)
             self.faft_client.updater.repack_shellball()
 

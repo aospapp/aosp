@@ -257,7 +257,11 @@ load_debug_frame (const char *file, char **buf, size_t *bufsize,
       newname = malloc (strlen (linkbuf) + strlen (debugdir)
 			+ strlen (file) + 9);
       if (basedir == NULL || newname == NULL)
-        goto file_error;
+	{
+	  free (basedir);
+	  free (newname);
+	  goto load_debug_frame_error;
+	}
 
       p = strrchr (file, '/');
       if (p != NULL)
@@ -299,11 +303,12 @@ load_debug_frame (const char *file, char **buf, size_t *bufsize,
 
 /* An error reading image file. Release resources and return error code */
 file_error:
-  free(stringtab);
-  free(sec_hdrs);
-  free(linkbuf);
-  free(*buf);
-  fclose(f);
+  free (stringtab);
+  free (sec_hdrs);
+  fclose (f);
+load_debug_frame_error:
+  free (linkbuf);
+  free (*buf);
 
   return 1;
 }

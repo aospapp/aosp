@@ -20,6 +20,7 @@
 #include "driver_i.h"
 #include "mesh_mpm.h"
 #include "mesh_rsn.h"
+#include "notify.h"
 
 struct mesh_peer_mgmt_ie {
 	const u8 *proto_id; /* Mesh Peering Protocol Identifier (2 octets) */
@@ -857,6 +858,9 @@ static void mesh_mpm_plink_estab(struct wpa_supplicant *wpa_s,
 	/* Send ctrl event */
 	wpa_msg(wpa_s, MSG_INFO, MESH_PEER_CONNECTED MACSTR,
 		MAC2STR(sta->addr));
+
+	/* Send D-Bus event */
+	wpas_notify_mesh_peer_connected(wpa_s, sta->addr);
 }
 
 
@@ -1008,6 +1012,10 @@ static void mesh_mpm_fsm(struct wpa_supplicant *wpa_s, struct sta_info *sta,
 
 			wpa_msg(wpa_s, MSG_INFO, MESH_PEER_DISCONNECTED MACSTR,
 				MAC2STR(sta->addr));
+
+			/* Send D-Bus event */
+			wpas_notify_mesh_peer_disconnected(wpa_s, sta->addr,
+							   reason);
 
 			hapd->num_plinks--;
 

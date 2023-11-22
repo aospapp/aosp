@@ -27,6 +27,7 @@ package org.apache.harmony.jpda.tests.jdwp.ArrayReference;
 
 import org.apache.harmony.jpda.tests.framework.jdwp.ArrayRegion;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
+import org.apache.harmony.jpda.tests.framework.jdwp.Field;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
@@ -56,19 +57,11 @@ public class GetValuesTest extends JDWPArrayReferenceTestCase {
         long classID = getClassIDBySignature(debuggeeSig);
 
         // obtain fields
-        CommandPacket packet = new CommandPacket(
-                JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
-                JDWPCommands.ReferenceTypeCommandSet.FieldsCommand);
-        packet.setNextValueAsReferenceTypeID(classID);
-        ReplyPacket reply = debuggeeWrapper.vmMirror.performCommand(packet);
-        checkReplyPacket(reply, "ReferenceType::Fields command");
+        Field[] fields = debuggeeWrapper.vmMirror.getFieldsInfo(classID);
 
-        int declared = reply.getNextValueAsInt();
-        for (int i = 0; i < declared; i++) {
-            long fieldID = reply.getNextValueAsFieldID();
-            String name = reply.getNextValueAsString();
-            reply.getNextValueAsString();
-            reply.getNextValueAsInt();
+        for (Field fieldInfo : fields) {
+            long fieldID = fieldInfo.getFieldID();
+            String name = fieldInfo.getName();
 
             if (name.equals("threadArray")) {
                 logWriter.println

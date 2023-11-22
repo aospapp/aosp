@@ -201,12 +201,14 @@ public class Frame {
      * This describing frame variable.
      * 
      */
-    public final class Variable {
+    public static final class Variable {
         private long codeIndex;
 
         private String name;
 
         private String signature;
+
+        private String genericSignature;
 
         private int length;
 
@@ -224,6 +226,7 @@ public class Frame {
             codeIndex = -1;
             name = "unknown";
             signature = "unknown";
+            genericSignature = "unknown";
             length = -1;
             slot = -1;
             tag = JDWPConstants.Tag.NO_TAG;
@@ -334,6 +337,24 @@ public class Frame {
             }
 
             this.signature = signature;
+        }
+
+        /**
+         * Gets variable generic signature.
+         *
+         * @return the generic signature
+         */
+        public String getGenericSignature() {
+            return genericSignature;
+        }
+
+        /**
+         * Sets new variable generic signature.
+         *
+         * @param genericSignature the generic signature to set
+         */
+        public void setGenericSignature(String genericSignature) {
+            this.genericSignature = genericSignature;
         }
 
         /**

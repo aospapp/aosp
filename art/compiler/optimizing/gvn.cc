@@ -17,10 +17,11 @@
 #include "gvn.h"
 
 #include "base/arena_bit_vector.h"
-#include "base/arena_containers.h"
 #include "base/bit_vector-inl.h"
+#include "base/scoped_arena_allocator.h"
+#include "base/scoped_arena_containers.h"
+#include "base/utils.h"
 #include "side_effects_analysis.h"
-#include "utils.h"
 
 namespace art {
 
@@ -36,7 +37,7 @@ namespace art {
 class ValueSet : public ArenaObject<kArenaAllocGvn> {
  public:
   // Constructs an empty ValueSet which owns all its buckets.
-  explicit ValueSet(ArenaAllocator* allocator)
+  explicit ValueSet(ScopedArenaAllocator* allocator)
       : allocator_(allocator),
         num_buckets_(kMinimumNumberOfBuckets),
         buckets_(allocator->AllocArray<Node*>(num_buckets_, kArenaAllocGvn)),
@@ -44,12 +45,13 @@ class ValueSet : public ArenaObject<kArenaAllocGvn> {
         num_entries_(0u) {
     // ArenaAllocator returns zeroed memory, so no need to set buckets to null.
     DCHECK(IsPowerOfTwo(num_buckets_));
+    std::fill_n(buckets_, num_buckets_, nullptr);
     buckets_owned_.SetInitialBits(num_buckets_);
   }
 
   // Copy constructor. Depending on the load factor, it will either make a deep
   // copy (all buckets owned) or a shallow one (buckets pointing to the parent).
-  ValueSet(ArenaAllocator* allocator, const ValueSet& other)
+  ValueSet(ScopedArenaAllocator* allocator, const ValueSet& other)
       : allocator_(allocator),
         num_buckets_(other.IdealBucketCount()),
         buckets_(allocator->AllocArray<Node*>(num_buckets_, kArenaAllocGvn)),
@@ -58,7 +60,7 @@ class ValueSet : public ArenaObject<kArenaAllocGvn> {
     // ArenaAllocator returns zeroed memory, so entries of buckets_ and
     // buckets_owned_ are initialized to null and false, respectively.
     DCHECK(IsPowerOfTwo(num_buckets_));
-    PopulateFromInternal(other, /* is_dirty */ false);
+    PopulateFromInternal(other);
   }
 
   // Erases all values in this set and populates it with values from `other`.
@@ -66,7 +68,7 @@ class ValueSet : public ArenaObject<kArenaAllocGvn> {
     if (this == &other) {
       return;
     }
-    PopulateFromInternal(other, /* is_dirty */ true);
+    PopulateFromInternal(other);
   }
 
   // Returns true if `this` has enough buckets so that if `other` is copied into
@@ -159,33 +161,19 @@ class ValueSet : public ArenaObject<kArenaAllocGvn> {
 
  private:
   // Copies all entries from `other` to `this`.
-  // If `is_dirty` is set to true, existing data will be wiped first. It is
-  // assumed that `buckets_` and `buckets_owned_` are zero-allocated otherwise.
-  void PopulateFromInternal(const ValueSet& other, bool is_dirty) {
+  void PopulateFromInternal(const ValueSet& other) {
     DCHECK_NE(this, &other);
     DCHECK_GE(num_buckets_, other.IdealBucketCount());
 
     if (num_buckets_ == other.num_buckets_) {
       // Hash table remains the same size. We copy the bucket pointers and leave
       // all buckets_owned_ bits false.
-      if (is_dirty) {
-        buckets_owned_.ClearAllBits();
-      } else {
-        DCHECK_EQ(buckets_owned_.NumSetBits(), 0u);
-      }
+      buckets_owned_.ClearAllBits();
       memcpy(buckets_, other.buckets_, num_buckets_ * sizeof(Node*));
     } else {
       // Hash table size changes. We copy and rehash all entries, and set all
       // buckets_owned_ bits to true.
-      if (is_dirty) {
-        memset(buckets_, 0, num_buckets_ * sizeof(Node*));
-      } else {
-        if (kIsDebugBuild) {
-          for (size_t i = 0; i < num_buckets_; ++i) {
-            DCHECK(buckets_[i] == nullptr) << i;
-          }
-        }
-      }
+      std::fill_n(buckets_, num_buckets_, nullptr);
       for (size_t i = 0; i < other.num_buckets_; ++i) {
         for (Node* node = other.buckets_[i]; node != nullptr; node = node->GetNext()) {
           size_t new_index = BucketIndex(node->GetHashCode());
@@ -208,7 +196,7 @@ class ValueSet : public ArenaObject<kArenaAllocGvn> {
     Node* GetNext() const { return next_; }
     void SetNext(Node* node) { next_ = node; }
 
-    Node* Dup(ArenaAllocator* allocator, Node* new_next = nullptr) {
+    Node* Dup(ScopedArenaAllocator* allocator, Node* new_next = nullptr) {
       return new (allocator) Node(instruction_, hash_code_, new_next);
     }
 
@@ -313,8 +301,11 @@ class ValueSet : public ArenaObject<kArenaAllocGvn> {
     // Pure instructions are put into odd buckets to speed up deletion. Note that in the
     // case of irreducible loops, we don't put pure instructions in odd buckets, as we
     // need to delete them when entering the loop.
-    if (instruction->GetSideEffects().HasDependencies() ||
-        instruction->GetBlock()->GetGraph()->HasIrreducibleLoops()) {
+    // ClinitCheck is treated as a pure instruction since it's only executed
+    // once.
+    bool pure = !instruction->GetSideEffects().HasDependencies() ||
+                instruction->IsClinitCheck();
+    if (!pure || instruction->GetBlock()->GetGraph()->HasIrreducibleLoops()) {
       return (hash_code << 1) | 0;
     } else {
       return (hash_code << 1) | 1;
@@ -326,7 +317,7 @@ class ValueSet : public ArenaObject<kArenaAllocGvn> {
     return hash_code & (num_buckets_ - 1);
   }
 
-  ArenaAllocator* const allocator_;
+  ScopedArenaAllocator* const allocator_;
 
   // The internal bucket implementation of the set.
   size_t const num_buckets_;
@@ -350,15 +341,16 @@ class ValueSet : public ArenaObject<kArenaAllocGvn> {
  */
 class GlobalValueNumberer : public ValueObject {
  public:
-  GlobalValueNumberer(ArenaAllocator* allocator,
-                      HGraph* graph,
+  GlobalValueNumberer(HGraph* graph,
                       const SideEffectsAnalysis& side_effects)
       : graph_(graph),
-        allocator_(allocator),
+        allocator_(graph->GetArenaStack()),
         side_effects_(side_effects),
-        sets_(graph->GetBlocks().size(), nullptr, allocator->Adapter(kArenaAllocGvn)),
+        sets_(graph->GetBlocks().size(), nullptr, allocator_.Adapter(kArenaAllocGvn)),
         visited_blocks_(
-            allocator, graph->GetBlocks().size(), /* expandable */ false, kArenaAllocGvn) {}
+            &allocator_, graph->GetBlocks().size(), /* expandable */ false, kArenaAllocGvn) {
+    visited_blocks_.ClearAllBits();
+  }
 
   void Run();
 
@@ -368,7 +360,7 @@ class GlobalValueNumberer : public ValueObject {
   void VisitBasicBlock(HBasicBlock* block);
 
   HGraph* graph_;
-  ArenaAllocator* const allocator_;
+  ScopedArenaAllocator allocator_;
   const SideEffectsAnalysis& side_effects_;
 
   ValueSet* FindSetFor(HBasicBlock* block) const {
@@ -396,7 +388,7 @@ class GlobalValueNumberer : public ValueObject {
   // ValueSet for blocks. Initially null, but for an individual block they
   // are allocated and populated by the dominator, and updated by all blocks
   // in the path from the dominator to the block.
-  ArenaVector<ValueSet*> sets_;
+  ScopedArenaVector<ValueSet*> sets_;
 
   // BitVector which serves as a fast-access map from block id to
   // visited/unvisited Boolean.
@@ -407,7 +399,7 @@ class GlobalValueNumberer : public ValueObject {
 
 void GlobalValueNumberer::Run() {
   DCHECK(side_effects_.HasRun());
-  sets_[graph_->GetEntryBlock()->GetBlockId()] = new (allocator_) ValueSet(allocator_);
+  sets_[graph_->GetEntryBlock()->GetBlockId()] = new (&allocator_) ValueSet(&allocator_);
 
   // Use the reverse post order to ensure the non back-edge predecessors of a block are
   // visited before the block itself.
@@ -424,7 +416,7 @@ void GlobalValueNumberer::VisitBasicBlock(HBasicBlock* block) {
     // The entry block should only accumulate constant instructions, and
     // the builder puts constants only in the entry block.
     // Therefore, there is no need to propagate the value set to the next block.
-    set = new (allocator_) ValueSet(allocator_);
+    set = new (&allocator_) ValueSet(&allocator_);
   } else {
     HBasicBlock* dominator = block->GetDominator();
     ValueSet* dominator_set = FindSetFor(dominator);
@@ -443,7 +435,7 @@ void GlobalValueNumberer::VisitBasicBlock(HBasicBlock* block) {
       if (recyclable == nullptr) {
         // No block with a suitable ValueSet found. Allocate a new one and
         // copy `dominator_set` into it.
-        set = new (allocator_) ValueSet(allocator_, *dominator_set);
+        set = new (&allocator_) ValueSet(&allocator_, *dominator_set);
       } else {
         // Block with a recyclable ValueSet found. Clone `dominator_set` into it.
         set = FindSetFor(recyclable);
@@ -566,7 +558,7 @@ HBasicBlock* GlobalValueNumberer::FindVisitedBlockWithRecyclableSet(
 }
 
 void GVNOptimization::Run() {
-  GlobalValueNumberer gvn(graph_->GetArena(), graph_, side_effects_);
+  GlobalValueNumberer gvn(graph_, side_effects_);
   gvn.Run();
 }
 

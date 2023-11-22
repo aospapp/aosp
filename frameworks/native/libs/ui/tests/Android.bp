@@ -18,10 +18,19 @@ cc_test {
     name: "Region_test",
     shared_libs: ["libui"],
     srcs: ["Region_test.cpp"],
+    cflags: ["-Wall", "-Werror"],
 }
 
 cc_test {
     name: "colorspace_test",
     shared_libs: ["libui"],
     srcs: ["colorspace_test.cpp"],
+    cflags: ["-Wall", "-Werror"],
+}
+
+cc_test {
+    name: "GraphicBuffer_test",
+    shared_libs: ["libpdx_default_transport", "libui", "libutils"],
+    srcs: ["GraphicBuffer_test.cpp"],
+    cflags: ["-Wall", "-Werror"],
 }

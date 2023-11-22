@@ -25,10 +25,14 @@ import android.system.OsConstants;
 
 import com.android.cts.deviceandprofileowner.vpn.VpnTestHelper;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * Contains methods to test always-on VPN invoked by DeviceAndProfileOwnerTest
  */
 public class AlwaysOnVpnMultiStageTest extends BaseDeviceAdminTest {
+
+    private final int MAX_NUMBER_OF_ATTEMPTS = 5;
 
     public void testAlwaysOnSet() throws Exception {
         // Setup always-on vpn
@@ -46,6 +50,9 @@ public class AlwaysOnVpnMultiStageTest extends BaseDeviceAdminTest {
         // After the vpn app being force-stop, expect that always-on package stays the same
         assertEquals(VPN_PACKAGE, mDevicePolicyManager.getAlwaysOnVpnPackage(
                 ADMIN_RECEIVER_COMPONENT));
+        for(int i = 0; i < MAX_NUMBER_OF_ATTEMPTS && VpnTestHelper.isNetworkVpn(mContext); ++i) {
+            Thread.sleep(TimeUnit.SECONDS.toMillis(1));
+        }
         assertFalse(VpnTestHelper.isNetworkVpn(mContext));
         // Expect the network is still locked down after the vpn app process is killed
         try {
@@ -59,6 +66,14 @@ public class AlwaysOnVpnMultiStageTest extends BaseDeviceAdminTest {
     }
 
     public void testAlwaysOnVpnDisabled() throws Exception {
+        // Wait until always-on vpn package is being removed (with 1 minute timeout).
+        for (int i = 0; i < 60; i++) {
+            if (mDevicePolicyManager.getAlwaysOnVpnPackage(ADMIN_RECEIVER_COMPONENT) == null) {
+                break;
+            }
+            Thread.sleep(1000);  // 1 second.
+        }
+
         // After the vpn app being uninstalled, check that always-on vpn is null
         assertNull(mDevicePolicyManager.getAlwaysOnVpnPackage(ADMIN_RECEIVER_COMPONENT));
         assertFalse(VpnTestHelper.isNetworkVpn(mContext));

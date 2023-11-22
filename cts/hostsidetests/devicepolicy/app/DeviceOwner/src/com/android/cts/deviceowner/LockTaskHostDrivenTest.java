@@ -45,10 +45,6 @@ public class LockTaskHostDrivenTest {
 
     private static final String TAG = LockTaskHostDrivenTest.class.getName();
 
-    private static final String PACKAGE_NAME = LockTaskHostDrivenTest.class.getPackage().getName();
-    private static final ComponentName ADMIN_COMPONENT =
-            new ComponentName(PACKAGE_NAME, BaseDeviceOwnerTest.BasicAdminReceiver.class.getName());
-
     private static final String LOCK_TASK_ACTIVITY
             = LockTaskUtilityActivityIfWhitelisted.class.getName();
 
@@ -60,7 +56,7 @@ public class LockTaskHostDrivenTest {
     @Before
     public void setUp() {
         mContext = InstrumentationRegistry.getContext();
-        mDevicePolicyManager =  mContext.getSystemService(DevicePolicyManager.class);
+        mDevicePolicyManager = mContext.getSystemService(DevicePolicyManager.class);
         mActivityManager = mContext.getSystemService(ActivityManager.class);
         mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
     }
@@ -96,9 +92,11 @@ public class LockTaskHostDrivenTest {
 
     @Test
     public void clearDefaultHomeIntentReceiver() {
-        mDevicePolicyManager.clearPackagePersistentPreferredActivities(ADMIN_COMPONENT,
-                PACKAGE_NAME);
-        mDevicePolicyManager.setLockTaskPackages(ADMIN_COMPONENT, new String[0]);
+        mDevicePolicyManager.clearPackagePersistentPreferredActivities(
+                BasicAdminReceiver.getComponentName(mContext),
+                mContext.getPackageName());
+        mDevicePolicyManager.setLockTaskPackages(BasicAdminReceiver.getComponentName(mContext),
+                new String[0]);
     }
 
     private void checkLockedActivityIsRunning() throws Exception {
@@ -113,19 +111,20 @@ public class LockTaskHostDrivenTest {
     }
 
     private void launchLockTaskActivity() {
-        Intent intent = new Intent();
-        intent.setClassName(PACKAGE_NAME, LOCK_TASK_ACTIVITY);
+        Intent intent = new Intent(mContext, LockTaskUtilityActivityIfWhitelisted.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.putExtra(LockTaskUtilityActivity.START_LOCK_TASK, true);
         mContext.startActivity(intent);
     }
 
     private void setDefaultHomeIntentReceiver() {
-        mDevicePolicyManager.setLockTaskPackages(ADMIN_COMPONENT, new String[] { PACKAGE_NAME });
+        mDevicePolicyManager.setLockTaskPackages(BasicAdminReceiver.getComponentName(mContext),
+                new String[]{mContext.getPackageName()});
         IntentFilter intentFilter = new IntentFilter(Intent.ACTION_MAIN);
         intentFilter.addCategory(Intent.CATEGORY_HOME);
         intentFilter.addCategory(Intent.CATEGORY_DEFAULT);
-        mDevicePolicyManager.addPersistentPreferredActivity(ADMIN_COMPONENT, intentFilter,
-                new ComponentName(PACKAGE_NAME, LOCK_TASK_ACTIVITY));
+        mDevicePolicyManager.addPersistentPreferredActivity(
+                BasicAdminReceiver.getComponentName(mContext), intentFilter,
+                new ComponentName(mContext.getPackageName(), LOCK_TASK_ACTIVITY));
     }
 }

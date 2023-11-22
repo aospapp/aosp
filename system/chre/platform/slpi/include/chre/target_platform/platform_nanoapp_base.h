@@ -31,20 +31,29 @@ namespace chre {
 class PlatformNanoappBase {
  public:
   /**
-   * Copies the supplied application binary data into a new buffer. The
-   * application may be invalid - full checking and initialization happens just
-   * before invoking start() nanoapp entry point.
+   * Reserves buffer space for a nanoapp's binary. This method should be called
+   * before copyNanoappFragment is called.
    *
    * @param appId The unique app identifier associated with this binary
    * @param appVersion An application-defined version number
-   * @param appBinary Buffer containing the complete ELF binary for this
-   *        nanoapp, without any CHRE-specific header
    * @param appBinaryLen Size of appBinary, in bytes
    *
-   * @return true if the allocation was successful
+   * @return true if the allocation was successful, false otherwise
    */
-  bool loadFromBuffer(uint64_t appId, uint32_t appVersion,
-                      const void *appBinary, size_t appBinaryLen);
+  bool reserveBuffer(uint64_t appId, uint32_t appVersion, size_t appBinarylen);
+
+  /**
+   * Copies the (possibly fragmented) application binary data into the allocated
+   * buffer, and updates the pointer to the next address to write into. The
+   * application may be invalid - full checking and initialization happens just
+   * before invoking start() nanoapp entry point.
+   *
+   * @param buffer The pointer to the buffer
+   * @param bufferSize The size of the buffer in bytes
+   *
+   * @return true if the reserved buffer did not overflow, false otherwise
+   */
+  bool copyNanoappFragment(const void *buffer, size_t bufferSize);
 
   /**
    * Associate this Nanoapp with a nanoapp included in a .so that is pre-loaded
@@ -65,8 +74,9 @@ class PlatformNanoappBase {
   void loadStatic(const struct chreNslNanoappInfo *appInfo);
 
   /**
-   * @return true if the app's binary data is resident in memory, i.e. a
-   *         previous call to loadFromBuffer() or loadStatic() was successful
+   * @return true if the app's binary data is resident in memory, i.e. all
+   *         binary fragments are loaded through copyNanoappFragment, or
+   *         loadFromFile/loadStatic() was successful
    */
   bool isLoaded() const;
 
@@ -86,7 +96,7 @@ class PlatformNanoappBase {
   uint32_t mExpectedAppVersion = 0;
 
   //! Buffer containing the complete DSO binary - only populated if
-  //! loadFromBuffer() was used to load this nanoapp
+  //! copyNanoappFragment() was used to load this nanoapp
   void *mAppBinary = nullptr;
   size_t mAppBinaryLen = 0;
 
@@ -107,6 +117,9 @@ class PlatformNanoappBase {
 
   //! True if the nanoapp runs in micro-image.
   bool mIsUimgApp = false;
+
+  //! The number of bytes of the binary that has been loaded so far.
+  size_t mBytesLoaded = 0;
 
   /**
    * Calls through to openNanoappFromBuffer or openNanoappFromFile, depending on

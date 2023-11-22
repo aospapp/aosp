@@ -16,29 +16,45 @@
 
 package android.content.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
 import android.content.ClipData;
+import android.content.ClipData.Item;
 import android.content.ClipDescription;
 import android.content.ClipboardManager;
+import android.content.ClipboardManager.OnPrimaryClipChangedListener;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.ClipData.Item;
 import android.net.Uri;
-import android.test.InstrumentationTestCase;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.runner.AndroidJUnit4;
 
-public class ClipboardManagerTest extends InstrumentationTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+@RunWith(AndroidJUnit4.class)
+public class ClipboardManagerTest {
     private Context mContext;
+    private ClipboardManager mClipboardManager;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getTargetContext();
+    @Before
+    public void setUp() throws Exception {
+        mContext = InstrumentationRegistry.getTargetContext();
+        mClipboardManager = mContext.getSystemService(ClipboardManager.class);
     }
 
-    @UiThreadTest
+    @Test
     public void testSetGetText() {
-        ClipboardManager clipboardManager = makeClipboardManager();
+        ClipboardManager clipboardManager = mClipboardManager;
         clipboardManager.setText("Test Text 1");
         assertEquals("Test Text 1", clipboardManager.getText());
 
@@ -46,9 +62,9 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
         assertEquals("Test Text 2", clipboardManager.getText());
     }
 
-    @UiThreadTest
+    @Test
     public void testHasPrimaryClip() {
-        ClipboardManager clipboardManager = makeClipboardManager();
+        ClipboardManager clipboardManager = mClipboardManager;
         if (clipboardManager.hasPrimaryClip()) {
             assertNotNull(clipboardManager.getPrimaryClip());
             assertNotNull(clipboardManager.getPrimaryClipDescription());
@@ -61,7 +77,7 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
         assertTrue(clipboardManager.hasPrimaryClip());
     }
 
-    @UiThreadTest
+    @Test
     public void testSetPrimaryClip_plainText() {
         ClipData textData = ClipData.newPlainText("TextLabel", "Text");
         assertSetPrimaryClip(textData, "TextLabel",
@@ -69,7 +85,7 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
                 new ExpectedClipItem("Text", null, null));
     }
 
-    @UiThreadTest
+    @Test
     public void testSetPrimaryClip_intent() {
         Intent intent = new Intent(mContext, ClipboardManagerTest.class);
         ClipData intentData = ClipData.newIntent("IntentLabel", intent);
@@ -78,7 +94,7 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
                 new ExpectedClipItem(null, intent, null));
     }
 
-    @UiThreadTest
+    @Test
     public void testSetPrimaryClip_rawUri() {
         Uri uri = Uri.parse("http://www.google.com");
         ClipData uriData = ClipData.newRawUri("UriLabel", uri);
@@ -87,7 +103,7 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
                 new ExpectedClipItem(null, null, uri));
     }
 
-    @UiThreadTest
+    @Test
     public void testSetPrimaryClip_contentUri() {
         Uri contentUri = Uri.parse("content://cts/test/for/clipboardmanager");
         ClipData contentUriData = ClipData.newUri(mContext.getContentResolver(),
@@ -97,7 +113,7 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
                 new ExpectedClipItem(null, null, contentUri));
     }
 
-    @UiThreadTest
+    @Test
     public void testSetPrimaryClip_complexItem() {
         Intent intent = new Intent(mContext, ClipboardManagerTest.class);
         Uri uri = Uri.parse("http://www.google.com");
@@ -113,7 +129,7 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
                 new ExpectedClipItem("Text", intent, uri));
     }
 
-    @UiThreadTest
+    @Test
     public void testSetPrimaryClip_multipleItems() {
         Intent intent = new Intent(mContext, ClipboardManagerTest.class);
         Uri uri = Uri.parse("http://www.google.com");
@@ -129,7 +145,7 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
                 new ExpectedClipItem(null, null, uri));
     }
 
-    @UiThreadTest
+    @Test
     public void testSetPrimaryClip_multipleMimeTypes() {
         ContentResolver contentResolver = mContext.getContentResolver();
 
@@ -184,6 +200,38 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
                 new ExpectedClipItem(null, null, contentUri8));
     }
 
+    @Test
+    public void testPrimaryClipChangedListener() throws Exception {
+        final CountDownLatch latch = new CountDownLatch(1);
+        mClipboardManager.addPrimaryClipChangedListener(new OnPrimaryClipChangedListener() {
+            @Override
+            public void onPrimaryClipChanged() {
+                latch.countDown();
+            }
+        });
+
+        final ClipData clipData = ClipData.newPlainText("TextLabel", "Text");
+        mClipboardManager.setPrimaryClip(clipData);
+
+        latch.await(5, TimeUnit.SECONDS);
+    }
+
+    @Test
+    public void testClearPrimaryClip() {
+        final ClipData clipData = ClipData.newPlainText("TextLabel", "Text");
+        mClipboardManager.setPrimaryClip(clipData);
+        assertTrue(mClipboardManager.hasPrimaryClip());
+        assertTrue(mClipboardManager.hasText());
+        assertNotNull(mClipboardManager.getPrimaryClip());
+        assertNotNull(mClipboardManager.getPrimaryClipDescription());
+
+        mClipboardManager.clearPrimaryClip();
+        assertFalse(mClipboardManager.hasPrimaryClip());
+        assertFalse(mClipboardManager.hasText());
+        assertNull(mClipboardManager.getPrimaryClip());
+        assertNull(mClipboardManager.getPrimaryClipDescription());
+    }
+
     private class ExpectedClipItem {
         CharSequence mText;
         Intent mIntent;
@@ -200,7 +248,7 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
             String expectedLabel,
             String[] expectedMimeTypes,
             ExpectedClipItem... expectedClipItems) {
-        ClipboardManager clipboardManager = makeClipboardManager();
+        ClipboardManager clipboardManager = mClipboardManager;
 
         clipboardManager.setPrimaryClip(clipData);
         assertTrue(clipboardManager.hasPrimaryClip());
@@ -223,7 +271,7 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
                 expectedLabel, expectedMimeTypes);
     }
 
-    private void assertClipData(ClipData actualData, String expectedLabel,
+    private static void assertClipData(ClipData actualData, String expectedLabel,
             String[] expectedMimeTypes, ExpectedClipItem... expectedClipItems) {
         if (expectedClipItems != null) {
             assertEquals(expectedClipItems.length, actualData.getItemCount());
@@ -237,7 +285,7 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
         assertClipDescription(actualData.getDescription(), expectedLabel, expectedMimeTypes);
     }
 
-    private void assertClipDescription(ClipDescription description, String expectedLabel,
+    private static void assertClipDescription(ClipDescription description, String expectedLabel,
             String... mimeTypes) {
         assertEquals(expectedLabel, description.getLabel());
         assertEquals(mimeTypes.length, description.getMimeTypeCount());
@@ -247,7 +295,7 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
         }
     }
 
-    private void assertClipItem(ExpectedClipItem expectedItem, Item item) {
+    private static void assertClipItem(ExpectedClipItem expectedItem, Item item) {
         assertEquals(expectedItem.mText, item.getText());
         if (expectedItem.mIntent != null) {
             assertNotNull(item.getIntent());
@@ -259,9 +307,5 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
         } else {
             assertNull(item.getUri());
         }
-    }
-
-    private ClipboardManager makeClipboardManager() {
-        return (ClipboardManager) mContext.getSystemService(Context.CLIPBOARD_SERVICE);
     }
 }

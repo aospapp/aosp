@@ -19,9 +19,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
+import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -29,6 +33,7 @@ import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
+import com.android.tradefed.util.IRunUtil.EnvPriority;
 
 import org.easymock.EasyMock;
 import org.junit.After;
@@ -64,6 +69,8 @@ public class TradefedSandboxTest {
                 };
         mMockListener = EasyMock.createMock(ITestInvocationListener.class);
         mMockConfig = EasyMock.createMock(IConfiguration.class);
+        EasyMock.expect(mMockConfig.getConfigurationObject(Configuration.SANBOX_OPTIONS_TYPE_NAME))
+                .andStubReturn(new SandboxOptions());
         mMockContext = new InvocationContext();
 
         mTmpFolder = FileUtil.createTempDir("tmp-tf-jar-dir");
@@ -72,6 +79,11 @@ public class TradefedSandboxTest {
             mCachedProperty = System.getProperty(TF_JAR_DIR);
         }
         System.setProperty(TF_JAR_DIR, mTmpFolder.getAbsolutePath());
+        try {
+            GlobalConfiguration.createGlobalConfiguration(new String[] {});
+        } catch (IllegalStateException ignore) {
+            // ignore the global config re-init
+        }
     }
 
     @After
@@ -91,6 +103,10 @@ public class TradefedSandboxTest {
     @Test
     public void testPrepareEnvironment() throws Exception {
         mMockRunUtil.unsetEnvVariable(TradefedSandbox.TF_GLOBAL_CONFIG);
+        EasyMock.expectLastCall().times(2);
+        mMockRunUtil.setEnvVariable(
+                EasyMock.eq(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE), EasyMock.anyObject());
+        mMockRunUtil.setEnvVariablePriority(EnvPriority.SET);
         CommandResult result = new CommandResult();
         result.setStatus(CommandStatus.SUCCESS);
         EasyMock.expect(
@@ -122,6 +138,10 @@ public class TradefedSandboxTest {
     @Test
     public void testPrepareEnvironment_dumpConfigFail() throws Exception {
         mMockRunUtil.unsetEnvVariable(TradefedSandbox.TF_GLOBAL_CONFIG);
+        EasyMock.expectLastCall().times(2);
+        mMockRunUtil.setEnvVariable(
+                EasyMock.eq(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE), EasyMock.anyObject());
+        mMockRunUtil.setEnvVariablePriority(EnvPriority.SET);
         CommandResult result = new CommandResult();
         result.setStatus(CommandStatus.FAILED);
         result.setStderr("Ouch I failed.");
@@ -168,5 +188,64 @@ public class TradefedSandboxTest {
 
     private void setPrepareConfigurationExpectations() throws Exception {
         EasyMock.expect(mMockConfig.getCommandLine()).andReturn("empty --arg 1").times(2);
+    }
+
+    /**
+     * Test that when the sandbox option received a TF location, it uses it instead of the current
+     * one.
+     */
+    @Test
+    public void testSandboxOptions() throws Exception {
+        File tmpDir = FileUtil.createTempDir("tmp-sandbox-dir");
+        try {
+            mMockConfig = new Configuration("NAME", "DESC");
+            mMockConfig.setCommandLine(new String[] {"empty", "--arg", "1"});
+            SandboxOptions options = new SandboxOptions();
+            OptionSetter setter = new OptionSetter(options);
+            setter.setOptionValue("sandbox:tf-location", tmpDir.getAbsolutePath());
+            mMockConfig.setConfigurationObject(Configuration.SANBOX_OPTIONS_TYPE_NAME, options);
+
+            EasyMock.replay(mMockListener, mMockRunUtil);
+            File res =
+                    mSandbox.getTradefedSandboxEnvironment(
+                            mMockContext, mMockConfig, new String[] {"empty", "--arg", "1"});
+            EasyMock.verify(mMockListener, mMockRunUtil);
+            assertEquals(tmpDir, res);
+        } finally {
+            FileUtil.recursiveDelete(tmpDir);
+        }
+    }
+
+    /**
+     * Test that when the sandbox option received a TF location and a build id at the same time that
+     * it is rejected, because that combination is not supported.
+     */
+    @Test
+    public void testSandboxOptions_exclusion() throws Exception {
+        File tmpDir = FileUtil.createTempDir("tmp-sandbox-dir");
+        try {
+            mMockConfig = new Configuration("NAME", "DESC");
+            mMockConfig.setCommandLine(new String[] {"empty", "--arg", "1"});
+            SandboxOptions options = new SandboxOptions();
+            OptionSetter setter = new OptionSetter(options);
+            setter.setOptionValue("sandbox:tf-location", tmpDir.getAbsolutePath());
+            setter.setOptionValue("sandbox:sandbox-build-id", "9999");
+            mMockConfig.setConfigurationObject(Configuration.SANBOX_OPTIONS_TYPE_NAME, options);
+
+            EasyMock.replay(mMockListener, mMockRunUtil);
+            try {
+                mSandbox.getTradefedSandboxEnvironment(
+                        mMockContext, mMockConfig, new String[] {"empty", "--arg", "1"});
+                fail("Should have thrown an exception.");
+            } catch (ConfigurationException expected) {
+                assertEquals(
+                        "Sandbox options tf-location and sandbox-build-id cannot be set at "
+                                + "the same time",
+                        expected.getMessage());
+            }
+            EasyMock.verify(mMockListener, mMockRunUtil);
+        } finally {
+            FileUtil.recursiveDelete(tmpDir);
+        }
     }
 }

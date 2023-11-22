@@ -58,6 +58,14 @@
 @r7 =>  wd
 @r8=>   ht
 
+.equ    pu1_src_top_left_offset,    264
+.equ    pu1_src_top_right_offset,   268
+.equ    pu1_src_bot_left_offset,    272
+.equ    pu1_avail_offset,           276
+.equ    pi1_sao_offset,             280
+.equ    wd_offset,                  284
+.equ    ht_offset,                  288
+
 .text
 .syntax unified
 .p2align 2
@@ -78,28 +86,29 @@ ihevc_sao_edge_offset_class2_a9q:
 
 
     STMFD       sp!,{r4-r12,r14}            @stack stores the values of the arguments
-    LDR         r7,[sp,#0x3C]               @Loads wd
+    vpush       {d8  -  d15}
+    SUB         sp,sp,#160                  @Decrement the stack pointer to store some temp arr values
 
-    LDR         r8,[sp,#0x40]               @Loads ht
+    LDR         r7,[sp,#wd_offset]          @Loads wd
+    LDR         r8,[sp,#ht_offset]          @Loads ht
     SUB         r9,r7,#1                    @wd - 1
 
-    LDR         r4,[sp,#0x28]               @Loads pu1_src_top_left
+    LDR         r4,[sp,#pu1_src_top_left_offset]    @Loads pu1_src_top_left
     LDRB        r10,[r3,r9]                 @pu1_src_top[wd - 1]
 
-    STR         r0,[sp,#0x2C]               @Store pu1_src in sp
+    STR         r0,[sp,#152]                @Store pu1_src in sp
     MOV         r9,r7                       @Move width to r9 for loop count
 
-    STR         r2,[sp,#0x30]               @Store pu1_src_left in sp
-    LDR         r5,[sp,#0x34]               @Loads pu1_avail
-    LDR         r6,[sp,#0x38]               @Loads pi1_sao_offset
-    STR         r3,[sp,#0x38]               @Store pu1_src_top in sp
+    STR         r2,[sp,#156]                @Store pu1_src_left in sp
+    LDR         r5,[sp,#pu1_avail_offset]   @Loads pu1_avail
+    LDR         r6,[sp,#pi1_sao_offset]     @Loads pi1_sao_offset
+    STR         r3,[sp,#148]                @Store pu1_src_top in sp
 
-    SUB         sp,sp,#0x94                 @Decrement the stack pointer to store some temp arr values
 
     STRB        r10,[sp]                    @u1_src_top_left_tmp = pu1_src_top[wd - 1]
     SUB         r10,r8,#1                   @ht-1
     MLA         r11,r10,r1,r0               @pu1_src[(ht - 1) * src_strd + col]
-    ADD         r12,sp,#0x02                @temp array
+    ADD         r12,sp,#2                   @temp array
 
 AU1_SRC_TOP_LOOP:
     VLD1.8      D0,[r11]!                   @pu1_src[(ht - 1) * src_strd + col]
@@ -203,7 +212,7 @@ ulbl3:
     VMOV.S8     Q4,#0xFF                    @au1_mask = vdupq_n_s8(-1)
     ADDEQ       r14,r14,#1                  @pu1_src_left_cpy += 1
 
-    STR         r0,[sp,#0x90]               @Store pu1_src in sp
+    STR         r0,[sp,#144]                @Store pu1_src in sp
     CMP         r7,#16                      @Compare wd with 16
 
     BLT         WIDTH_RESIDUE               @If not jump to WIDTH_RESIDUE where loop is unrolled for 8 case
@@ -211,9 +220,9 @@ ulbl3:
     BLE         WD_16_HT_4_LOOP             @If jump to WD_16_HT_4_LOOP
 
 WIDTH_LOOP_16:
-    LDR         r7,[sp,#0xD0]               @Loads wd
+    LDR         r7,[sp,#wd_offset]          @Loads wd
 
-    LDR         r5,[sp,#0xC8]               @Loads pu1_avail
+    LDR         r5,[sp,#pu1_avail_offset]   @Loads pu1_avail
     CMP         r6,r7                       @col == wd
     LDRBEQ      r8,[r5]                     @pu1_avail[0]
     MOVNE       r8,#-1                      @au1_mask = vsetq_lane_s8(-1, au1_mask, 0)
@@ -232,21 +241,21 @@ SKIP_AU1_MASK_VAL:
     MOVNE       r8,r3                       @pu1_src_top_cpy
     SUB         r8,r8,#1                    @pu1_src_top_cpy - 1 || pu1_src - src_strd - 1
 
-    LDR         r7,[sp,#0xD0]               @Loads wd
+    LDR         r7,[sp,#wd_offset]          @Loads wd
     VLD1.8      D10,[r8]!                   @pu1_top_row = vld1q_u8(pu1_src - src_strd - 1) || vld1q_u8(pu1_src_top_cpy - 1)
     VLD1.8      D11,[r8]                    @pu1_top_row = vld1q_u8(pu1_src - src_strd - 1) || vld1q_u8(pu1_src_top_cpy - 1)
     SUB         r8,#8
     ADD         r3,r3,#16
 
-    ADD         r5,sp,#0x42                 @*au1_src_left_tmp
+    ADD         r5,sp,#66                   @*au1_src_left_tmp
     VLD1.8      D12,[r0]!                   @pu1_cur_row = vld1q_u8(pu1_src)
     VLD1.8      D13,[r0]                    @pu1_cur_row = vld1q_u8(pu1_src)
     SUB         r0,#8
-    LDR         r4,[sp,#0xD4]               @Loads ht
+    LDR         r4,[sp,#ht_offset]          @Loads ht
 
     SUB         r7,r7,r6                    @(wd - col)
     VCGT.U8     Q7,Q6,Q5                    @vcgtq_u8(pu1_cur_row, pu1_top_row)
-    LDR         r8,[sp,#0xC0]               @Loads *pu1_src
+    LDR         r8,[sp,#152]                @Loads *pu1_src
 
     ADD         r7,r7,#15                   @15 + (wd - col)
     VCLT.U8     Q8,Q6,Q5                    @vcltq_u8(pu1_cur_row, pu1_top_row)
@@ -263,7 +272,7 @@ AU1_SRC_LEFT_LOOP:
 
     ADD         r8,r0,r1                    @I Iteration *pu1_src + src_strd
     VMOV.I8     Q9,#0
-    LDR         r4,[sp,#0xC8]               @I Loads pu1_avail
+    LDR         r4,[sp,#pu1_avail_offset]   @I Loads pu1_avail
 
     MOV         r7,r12                      @row count, move ht_tmp to r7
     VLD1.8      D16,[r8]!                   @I pu1_next_row = vld1q_u8(pu1_src_cpy + src_strd)
@@ -498,11 +507,11 @@ PU1_SRC_LOOP:
 
 
 INNER_LOOP_DONE:
-    ADD         r5,sp,#0x42                 @*au1_src_left_tmp
+    ADD         r5,sp,#66                   @*au1_src_left_tmp
     VST1.8      {Q10},[r0],r1               @vst1q_u8(pu1_src_cpy, pu1_cur_row)
-    LDR         r2,[sp,#0xC4]               @Loads *pu1_src_left
+    LDR         r2,[sp,#156]                @Loads *pu1_src_left
 
-    LDR         r8,[sp,#0xD4]               @Loads ht
+    LDR         r8,[sp,#ht_offset]          @Loads ht
     SUB         r5,r5,#1
 
     SUB         r2,r2,#1
@@ -515,8 +524,8 @@ SRC_LEFT_LOOP:
     SUB         r6,r6,#16                   @Decrement the wd loop count by 16
     CMP         r6,#8                       @Check whether residue remains
     BLT         RE_ASSINING_LOOP            @Jump to re-assigning loop
-    LDR         r7,[sp,#0xD0]               @Loads wd
-    LDR         r0,[sp,#0x90]               @Loads *pu1_src
+    LDR         r7,[sp,#wd_offset]          @Loads wd
+    LDR         r0,[sp,#144]                @Loads *pu1_src
     SUB         r7,r7,r6
     ADD         r0,r0,r7
     BGT         WIDTH_LOOP_16               @If not equal jump to width_loop
@@ -524,8 +533,8 @@ SRC_LEFT_LOOP:
 
 
 WD_16_HT_4_LOOP:
-    LDR         r7,[sp,#0xD0]               @Loads wd
-    LDR         r5,[sp,#0xC8]               @Loads pu1_avail
+    LDR         r7,[sp,#wd_offset]          @Loads wd
+    LDR         r5,[sp,#pu1_avail_offset]   @Loads pu1_avail
     CMP         r6,r7                       @col == wd
     LDRBEQ      r8,[r5]                     @pu1_avail[0]
     MOVNE       r8,#-1                      @au1_mask = vsetq_lane_s8(-1, au1_mask, 0)
@@ -544,21 +553,21 @@ SKIP_AU1_MASK_VAL_WD_16_HT_4:
     MOVNE       r8,r3
     SUB         r8,r8,#1                    @pu1_src_top_cpy - 1 || pu1_src - src_strd - 1
 
-    LDR         r7,[sp,#0xD0]               @Loads wd
+    LDR         r7,[sp,#wd_offset]          @Loads wd
     VLD1.8      D10,[r8]!                   @pu1_top_row = vld1q_u8(pu1_src - src_strd - 1) || vld1q_u8(pu1_src_top_cpy - 1)
     VLD1.8      D11,[r8]                    @pu1_top_row = vld1q_u8(pu1_src - src_strd - 1) || vld1q_u8(pu1_src_top_cpy - 1)
     SUB         r8,#8
     ADD         r3,r3,#16
 
-    ADD         r5,sp,#0x42                 @*au1_src_left_tmp
+    ADD         r5,sp,#66                   @*au1_src_left_tmp
     VLD1.8      D12,[r0]!                   @pu1_cur_row = vld1q_u8(pu1_src)
     VLD1.8      D13,[r0]                    @pu1_cur_row = vld1q_u8(pu1_src)
     SUB         r0,#8
-    LDR         r4,[sp,#0xD4]               @Loads ht
+    LDR         r4,[sp,#ht_offset]          @Loads ht
 
     SUB         r7,r7,r6                    @(wd - col)
     VCGT.U8     Q7,Q6,Q5                    @vcgtq_u8(pu1_cur_row, pu1_top_row)
-    LDR         r8,[sp,#0xC0]               @Loads *pu1_src
+    LDR         r8,[sp,#152]                @Loads *pu1_src
 
     ADD         r7,r7,#15                   @15 + (wd - col)
     VCLT.U8     Q8,Q6,Q5                    @vcltq_u8(pu1_cur_row, pu1_top_row)
@@ -588,7 +597,7 @@ PU1_SRC_LOOP_WD_16_HT_4:
 
     CMP         r7,r12
     BLT         SIGN_UP_CHANGE_WD_16_HT_4
-    LDR         r5,[sp,#0xC8]               @Loads pu1_avail
+    LDR         r5,[sp,#pu1_avail_offset]   @Loads pu1_avail
     LDRB        r5,[r5,#2]                  @pu1_avail[2]
     CMP         r5,#0
     BNE         SIGN_UP_CHANGE_DONE_WD_16_HT_4
@@ -639,9 +648,9 @@ SIGN_UP_CHANGE_DONE_WD_16_HT_4:
     SUBS        r7,r7,#1                    @Decrement the ht_tmp loop count by 1
     BNE         PU1_SRC_LOOP_WD_16_HT_4     @If not equal jump to PU1_SRC_LOOP_WD_16_HT_4
 
-    LDR         r8,[sp,#0xD4]               @Loads ht
-    ADD         r5,sp,#0x42                 @*au1_src_left_tmp
-    LDR         r2,[sp,#0xC4]               @Loads *pu1_src_left
+    LDR         r8,[sp,#ht_offset]          @Loads ht
+    ADD         r5,sp,#66                   @*au1_src_left_tmp
+    LDR         r2,[sp,#156]                @Loads *pu1_src_left
     SUB         r5,r5,#1
     SUB         r2,r2,#1
 
@@ -656,8 +665,8 @@ SRC_LEFT_LOOP_WD_16_HT_4:
 
 
 WIDTH_RESIDUE:
-    LDR         r7,[sp,#0xD0]               @Loads wd
-    LDR         r5,[sp,#0xC8]               @Loads pu1_avail
+    LDR         r7,[sp,#wd_offset]          @Loads wd
+    LDR         r5,[sp,#pu1_avail_offset]   @Loads pu1_avail
     CMP         r6,r7                       @wd_residue == wd
     LDRBEQ      r8,[r5]                     @pu1_avail[0]
 
@@ -679,16 +688,16 @@ PU1_AVAIL_2_RESIDUE:
 
     SUB         r8,r8,#1
 
-    ADD         r5,sp,#0x42                 @*au1_src_left_tmp
+    ADD         r5,sp,#66                   @*au1_src_left_tmp
     VLD1.8      D10,[r8]!                   @pu1_top_row = vld1q_u8(pu1_src_top_cpy - 1)
     VLD1.8      D11,[r8]!                   @pu1_top_row = vld1q_u8(pu1_src_top_cpy - 1)
-    LDR         r7,[sp,#0xD0]               @Loads wd
+    LDR         r7,[sp,#wd_offset]          @Loads wd
 
-    LDR         r4,[sp,#0xD4]               @Loads ht
+    LDR         r4,[sp,#ht_offset]          @Loads ht
     VCGT.U8     Q7,Q6,Q5                    @vcgtq_u8(pu1_cur_row, pu1_top_row)
     SUB         r7,r7,#1                    @(wd - 1)
 
-    LDR         r8,[sp,#0xC0]               @Loads *pu1_src
+    LDR         r8,[sp,#152]                @Loads *pu1_src
     VCLT.U8     Q8,Q6,Q5                    @vcltq_u8(pu1_cur_row, pu1_top_row)
     SUB         r5,r5,#1
 
@@ -718,7 +727,7 @@ PU1_SRC_LOOP_RESIDUE:
 
     CMP         r7,r12
     BLT         SIGN_UP_CHANGE_RESIDUE
-    LDR         r5,[sp,#0xC8]               @Loads pu1_avail
+    LDR         r5,[sp,#pu1_avail_offset]   @Loads pu1_avail
     LDRB        r5,[r5,#2]                  @pu1_avail[2]
     CMP         r5,#0
     BNE         SIGN_UP_CHANGE_DONE_RESIDUE
@@ -762,10 +771,10 @@ SIGN_UP_CHANGE_DONE_RESIDUE:
     SUBS        r7,r7,#1
     BNE         PU1_SRC_LOOP_RESIDUE
 
-    LDR         r8,[sp,#0xD4]               @Loads ht
-    ADD         r5,sp,#0x42                 @*au1_src_left_tmp
+    LDR         r8,[sp,#ht_offset]          @Loads ht
+    ADD         r5,sp,#66                   @*au1_src_left_tmp
 
-    LDR         r2,[sp,#0xC4]               @Loads *pu1_src_left
+    LDR         r2,[sp,#156]                @Loads *pu1_src_left
     SUB         r5,r5,#1
 
     SUB         r2,r2,#1
@@ -778,23 +787,23 @@ SRC_LEFT_LOOP_RESIDUE:
 
 
 RE_ASSINING_LOOP:
-    LDR         r8,[sp,#0xD4]               @Loads ht
-    LDR         r7,[sp,#0xD0]               @Loads wd
+    LDR         r8,[sp,#ht_offset]          @Loads ht
+    LDR         r7,[sp,#wd_offset]          @Loads wd
 
-    LDR         r0,[sp,#0xC0]               @Loads *pu1_src
+    LDR         r0,[sp,#152]                @Loads *pu1_src
     SUB         r8,r8,#1                    @ht - 1
 
     MLA         r6,r8,r1,r7                 @wd - 1 + (ht - 1) * src_strd
     STRB        r9,[r0]                     @pu1_src_org[0] = u1_pos_0_0_tmp
 
-    LDR         r4,[sp,#0xBC]               @Loads pu1_src_top_left
+    LDR         r4,[sp,#pu1_src_top_left_offset] @Loads pu1_src_top_left
     ADD         r6,r0,r6                    @pu1_src[wd - 1 + (ht - 1) * src_strd]
 
-    ADD         r12,sp,#0x02
+    ADD         r12,sp,#2
     STRB        r10,[r6,#-1]                @pu1_src_org[wd - 1 + (ht - 1) * src_strd] = u1_pos_wd_ht_tmp
 
     LDRB        r11,[sp]                    @load u1_src_top_left_tmp from stack pointer
-    LDR         r3,[sp,#0xCC]               @Loads pu1_src_top
+    LDR         r3,[sp,#148]                @Loads pu1_src_top
 
     STRB        r11,[r4]                    @*pu1_src_top_left = u1_src_top_left_tmp
 
@@ -805,7 +814,8 @@ SRC_TOP_LOOP:
     BNE         SRC_TOP_LOOP
 
 END_LOOPS:
-    ADD         sp,sp,#0x94
+    ADD         sp,sp,#160
+    vpop        {d8  -  d15}
     LDMFD       sp!,{r4-r12,r15}            @Reload the registers from SP
 
 

@@ -18,19 +18,25 @@
 
 #include <stdlib.h>
 
-#include "android-base/stringprintf.h"
+#include <android-base/logging.h>
+#include <android-base/stringprintf.h>
 
 #include "arch/instruction_set.h"
 #include "art_method-inl.h"
+#include "base/macros.h"
+#include "base/mutex.h"
+#include "base/runtime_debug.h"
 #include "debugger.h"
+#include "hidden_api.h"
 #include "java_vm_ext.h"
 #include "jit/jit.h"
 #include "jni_internal.h"
 #include "native_util.h"
 #include "nativehelper/jni_macros.h"
-#include "nativehelper/JNIHelp.h"
-#include "nativehelper/ScopedUtfChars.h"
+#include "nativehelper/scoped_utf_chars.h"
 #include "non_debuggable_classes.h"
+#include "oat_file.h"
+#include "oat_file_manager.h"
 #include "scoped_thread_state_change-inl.h"
 #include "stack.h"
 #include "thread-current-inl.h"
@@ -47,7 +53,8 @@ namespace art {
 
 // Set to true to always determine the non-debuggable classes even if we would not allow a debugger
 // to actually attach.
-static constexpr bool kAlwaysCollectNonDebuggableClasses = kIsDebugBuild;
+static bool kAlwaysCollectNonDebuggableClasses =
+    RegisterRuntimeDebugFlag(&kAlwaysCollectNonDebuggableClasses);
 
 using android::base::StringPrintf;
 
@@ -154,22 +161,32 @@ static void CollectNonDebuggableClasses() REQUIRES(!Locks::mutator_lock_) {
   }
 }
 
-static void EnableDebugFeatures(uint32_t debug_flags) {
-  // Must match values in com.android.internal.os.Zygote.
-  enum {
-    DEBUG_ENABLE_JDWP               = 1,
-    DEBUG_ENABLE_CHECKJNI           = 1 << 1,
-    DEBUG_ENABLE_ASSERT             = 1 << 2,
-    DEBUG_ENABLE_SAFEMODE           = 1 << 3,
-    DEBUG_ENABLE_JNI_LOGGING        = 1 << 4,
-    DEBUG_GENERATE_DEBUG_INFO       = 1 << 5,
-    DEBUG_ALWAYS_JIT                = 1 << 6,
-    DEBUG_NATIVE_DEBUGGABLE         = 1 << 7,
-    DEBUG_JAVA_DEBUGGABLE           = 1 << 8,
-  };
+// Must match values in com.android.internal.os.Zygote.
+enum {
+  DEBUG_ENABLE_JDWP                  = 1,
+  DEBUG_ENABLE_CHECKJNI              = 1 << 1,
+  DEBUG_ENABLE_ASSERT                = 1 << 2,
+  DEBUG_ENABLE_SAFEMODE              = 1 << 3,
+  DEBUG_ENABLE_JNI_LOGGING           = 1 << 4,
+  DEBUG_GENERATE_DEBUG_INFO          = 1 << 5,
+  DEBUG_ALWAYS_JIT                   = 1 << 6,
+  DEBUG_NATIVE_DEBUGGABLE            = 1 << 7,
+  DEBUG_JAVA_DEBUGGABLE              = 1 << 8,
+  DISABLE_VERIFIER                   = 1 << 9,
+  ONLY_USE_SYSTEM_OAT_FILES          = 1 << 10,
+  DEBUG_GENERATE_MINI_DEBUG_INFO     = 1 << 11,
+  HIDDEN_API_ENFORCEMENT_POLICY_MASK = (1 << 12)
+                                     | (1 << 13),
+  PROFILE_SYSTEM_SERVER              = 1 << 14,
 
+  // bits to shift (flags & HIDDEN_API_ENFORCEMENT_POLICY_MASK) by to get a value
+  // corresponding to hiddenapi::EnforcementPolicy
+  API_ENFORCEMENT_POLICY_SHIFT = CTZ(HIDDEN_API_ENFORCEMENT_POLICY_MASK),
+};
+
+static uint32_t EnableDebugFeatures(uint32_t runtime_flags) {
   Runtime* const runtime = Runtime::Current();
-  if ((debug_flags & DEBUG_ENABLE_CHECKJNI) != 0) {
+  if ((runtime_flags & DEBUG_ENABLE_CHECKJNI) != 0) {
     JavaVMExt* vm = runtime->GetJavaVM();
     if (!vm->IsCheckJniEnabled()) {
       LOG(INFO) << "Late-enabling -Xcheck:jni";
@@ -179,67 +196,72 @@ static void EnableDebugFeatures(uint32_t debug_flags) {
     } else {
       LOG(INFO) << "Not late-enabling -Xcheck:jni (already on)";
     }
-    debug_flags &= ~DEBUG_ENABLE_CHECKJNI;
+    runtime_flags &= ~DEBUG_ENABLE_CHECKJNI;
   }
 
-  if ((debug_flags & DEBUG_ENABLE_JNI_LOGGING) != 0) {
+  if ((runtime_flags & DEBUG_ENABLE_JNI_LOGGING) != 0) {
     gLogVerbosity.third_party_jni = true;
-    debug_flags &= ~DEBUG_ENABLE_JNI_LOGGING;
+    runtime_flags &= ~DEBUG_ENABLE_JNI_LOGGING;
   }
 
-  Dbg::SetJdwpAllowed((debug_flags & DEBUG_ENABLE_JDWP) != 0);
-  if ((debug_flags & DEBUG_ENABLE_JDWP) != 0) {
+  Dbg::SetJdwpAllowed((runtime_flags & DEBUG_ENABLE_JDWP) != 0);
+  if ((runtime_flags & DEBUG_ENABLE_JDWP) != 0) {
     EnableDebugger();
   }
-  debug_flags &= ~DEBUG_ENABLE_JDWP;
+  runtime_flags &= ~DEBUG_ENABLE_JDWP;
 
-  const bool safe_mode = (debug_flags & DEBUG_ENABLE_SAFEMODE) != 0;
+  const bool safe_mode = (runtime_flags & DEBUG_ENABLE_SAFEMODE) != 0;
   if (safe_mode) {
     // Only quicken oat files.
     runtime->AddCompilerOption("--compiler-filter=quicken");
     runtime->SetSafeMode(true);
-    debug_flags &= ~DEBUG_ENABLE_SAFEMODE;
-  }
-
-  const bool generate_debug_info = (debug_flags & DEBUG_GENERATE_DEBUG_INFO) != 0;
-  if (generate_debug_info) {
-    runtime->AddCompilerOption("--generate-debug-info");
-    debug_flags &= ~DEBUG_GENERATE_DEBUG_INFO;
+    runtime_flags &= ~DEBUG_ENABLE_SAFEMODE;
   }
 
   // This is for backwards compatibility with Dalvik.
-  debug_flags &= ~DEBUG_ENABLE_ASSERT;
+  runtime_flags &= ~DEBUG_ENABLE_ASSERT;
 
-  if ((debug_flags & DEBUG_ALWAYS_JIT) != 0) {
+  if ((runtime_flags & DEBUG_ALWAYS_JIT) != 0) {
     jit::JitOptions* jit_options = runtime->GetJITOptions();
     CHECK(jit_options != nullptr);
     jit_options->SetJitAtFirstUse();
-    debug_flags &= ~DEBUG_ALWAYS_JIT;
+    runtime_flags &= ~DEBUG_ALWAYS_JIT;
   }
 
   bool needs_non_debuggable_classes = false;
-  if ((debug_flags & DEBUG_JAVA_DEBUGGABLE) != 0) {
+  if ((runtime_flags & DEBUG_JAVA_DEBUGGABLE) != 0) {
     runtime->AddCompilerOption("--debuggable");
+    runtime_flags |= DEBUG_GENERATE_MINI_DEBUG_INFO;
     runtime->SetJavaDebuggable(true);
     // Deoptimize the boot image as it may be non-debuggable.
     runtime->DeoptimizeBootImage();
-    debug_flags &= ~DEBUG_JAVA_DEBUGGABLE;
+    runtime_flags &= ~DEBUG_JAVA_DEBUGGABLE;
     needs_non_debuggable_classes = true;
   }
   if (needs_non_debuggable_classes || kAlwaysCollectNonDebuggableClasses) {
     CollectNonDebuggableClasses();
   }
 
-  if ((debug_flags & DEBUG_NATIVE_DEBUGGABLE) != 0) {
+  if ((runtime_flags & DEBUG_NATIVE_DEBUGGABLE) != 0) {
     runtime->AddCompilerOption("--debuggable");
-    runtime->AddCompilerOption("--generate-debug-info");
+    runtime_flags |= DEBUG_GENERATE_DEBUG_INFO;
     runtime->SetNativeDebuggable(true);
-    debug_flags &= ~DEBUG_NATIVE_DEBUGGABLE;
+    runtime_flags &= ~DEBUG_NATIVE_DEBUGGABLE;
   }
 
-  if (debug_flags != 0) {
-    LOG(ERROR) << StringPrintf("Unknown bits set in debug_flags: %#x", debug_flags);
+  if ((runtime_flags & DEBUG_GENERATE_MINI_DEBUG_INFO) != 0) {
+    // Generate native minimal debug information to allow backtracing.
+    runtime->AddCompilerOption("--generate-mini-debug-info");
+    runtime_flags &= ~DEBUG_GENERATE_MINI_DEBUG_INFO;
   }
+
+  if ((runtime_flags & DEBUG_GENERATE_DEBUG_INFO) != 0) {
+    // Generate all native debug information we can (e.g. line-numbers).
+    runtime->AddCompilerOption("--generate-debug-info");
+    runtime_flags &= ~DEBUG_GENERATE_DEBUG_INFO;
+  }
+
+  return runtime_flags;
 }
 
 static jlong ZygoteHooks_nativePreFork(JNIEnv* env, jclass) {
@@ -260,13 +282,39 @@ static jlong ZygoteHooks_nativePreFork(JNIEnv* env, jclass) {
 static void ZygoteHooks_nativePostForkChild(JNIEnv* env,
                                             jclass,
                                             jlong token,
-                                            jint debug_flags,
+                                            jint runtime_flags,
                                             jboolean is_system_server,
+                                            jboolean is_zygote,
                                             jstring instruction_set) {
+  DCHECK(!(is_system_server && is_zygote));
+
   Thread* thread = reinterpret_cast<Thread*>(token);
   // Our system thread ID, etc, has changed so reset Thread state.
   thread->InitAfterFork();
-  EnableDebugFeatures(debug_flags);
+  runtime_flags = EnableDebugFeatures(runtime_flags);
+  hiddenapi::EnforcementPolicy api_enforcement_policy = hiddenapi::EnforcementPolicy::kNoChecks;
+  bool dedupe_hidden_api_warnings = true;
+
+  if ((runtime_flags & DISABLE_VERIFIER) != 0) {
+    Runtime::Current()->DisableVerifier();
+    runtime_flags &= ~DISABLE_VERIFIER;
+  }
+
+  if ((runtime_flags & ONLY_USE_SYSTEM_OAT_FILES) != 0) {
+    Runtime::Current()->GetOatFileManager().SetOnlyUseSystemOatFiles();
+    runtime_flags &= ~ONLY_USE_SYSTEM_OAT_FILES;
+  }
+
+  api_enforcement_policy = hiddenapi::EnforcementPolicyFromInt(
+      (runtime_flags & HIDDEN_API_ENFORCEMENT_POLICY_MASK) >> API_ENFORCEMENT_POLICY_SHIFT);
+  runtime_flags &= ~HIDDEN_API_ENFORCEMENT_POLICY_MASK;
+
+  bool profile_system_server = (runtime_flags & PROFILE_SYSTEM_SERVER) == PROFILE_SYSTEM_SERVER;
+  runtime_flags &= ~PROFILE_SYSTEM_SERVER;
+
+  if (runtime_flags != 0) {
+    LOG(ERROR) << StringPrintf("Unknown bits set in runtime_flags: %#x", runtime_flags);
+  }
 
   // Update tracing.
   if (Trace::GetMethodTracingMode() != TracingMode::kTracingInactive) {
@@ -311,18 +359,47 @@ static void ZygoteHooks_nativePostForkChild(JNIEnv* env,
     }
   }
 
+  bool do_hidden_api_checks = api_enforcement_policy != hiddenapi::EnforcementPolicy::kNoChecks;
+  DCHECK(!(is_system_server && do_hidden_api_checks))
+      << "SystemServer should be forked with EnforcementPolicy::kDisable";
+  DCHECK(!(is_zygote && do_hidden_api_checks))
+      << "Child zygote processes should be forked with EnforcementPolicy::kDisable";
+  Runtime::Current()->SetHiddenApiEnforcementPolicy(api_enforcement_policy);
+  Runtime::Current()->SetDedupeHiddenApiWarnings(dedupe_hidden_api_warnings);
+  if (api_enforcement_policy != hiddenapi::EnforcementPolicy::kNoChecks &&
+      Runtime::Current()->GetHiddenApiEventLogSampleRate() != 0) {
+    // Hidden API checks are enabled, and we are sampling access for the event log. Initialize the
+    // random seed, to ensure the sampling is actually random. We do this post-fork, as doing it
+    // pre-fork would result in the same sequence for every forked process.
+    std::srand(static_cast<uint32_t>(NanoTime()));
+  }
+
+  // Clear the hidden API warning flag, in case it was set.
+  Runtime::Current()->SetPendingHiddenApiWarning(false);
+
+  if (is_zygote) {
+    // If creating a child-zygote, do not call into the runtime's post-fork logic.
+    // Doing so would spin up threads for Binder and JDWP. Instead, the Java side
+    // of the child process will call a static main in a class specified by the parent.
+    return;
+  }
+
   if (instruction_set != nullptr && !is_system_server) {
     ScopedUtfChars isa_string(env, instruction_set);
     InstructionSet isa = GetInstructionSetFromString(isa_string.c_str());
     Runtime::NativeBridgeAction action = Runtime::NativeBridgeAction::kUnload;
-    if (isa != kNone && isa != kRuntimeISA) {
+    if (isa != InstructionSet::kNone && isa != kRuntimeISA) {
       action = Runtime::NativeBridgeAction::kInitialize;
     }
     Runtime::Current()->InitNonZygoteOrPostFork(
         env, is_system_server, action, isa_string.c_str());
   } else {
     Runtime::Current()->InitNonZygoteOrPostFork(
-        env, is_system_server, Runtime::NativeBridgeAction::kUnload, nullptr);
+        env,
+        is_system_server,
+        Runtime::NativeBridgeAction::kUnload,
+        /*isa*/ nullptr,
+        profile_system_server);
   }
 }
 
@@ -338,7 +415,7 @@ static void ZygoteHooks_stopZygoteNoThreadCreation(JNIEnv* env ATTRIBUTE_UNUSED,
 
 static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(ZygoteHooks, nativePreFork, "()J"),
-  NATIVE_METHOD(ZygoteHooks, nativePostForkChild, "(JIZLjava/lang/String;)V"),
+  NATIVE_METHOD(ZygoteHooks, nativePostForkChild, "(JIZZLjava/lang/String;)V"),
   NATIVE_METHOD(ZygoteHooks, startZygoteNoThreadCreation, "()V"),
   NATIVE_METHOD(ZygoteHooks, stopZygoteNoThreadCreation, "()V"),
 };

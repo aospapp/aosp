@@ -7,6 +7,7 @@ import logging
 import os.path
 import time
 
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 from autotest_lib.server.cros.network import netperf_runner
 from autotest_lib.server.cros.network import netperf_session
@@ -62,6 +63,7 @@ class network_WiFi_AttenuatedPerf(wifi_cell_test_base.WiFiCellTestBase):
     def run_once(self):
         start_time = time.time()
         throughput_data = []
+        max_atten = None
         self.context.client.host.get_file('/etc/lsb-release', self.resultsdir)
         # Set up the router and associate the client with it.
         self.context.configure(self._ap_config)
@@ -76,21 +78,31 @@ class network_WiFi_AttenuatedPerf(wifi_cell_test_base.WiFiCellTestBase):
         session = netperf_session.NetperfSession(self.context.client,
                                                  self.context.router,
                                                  ignore_failures=True)
-        session.warmup_stations() 
+        session.warmup_stations()
         start_atten = self.context.attenuator.get_minimal_total_attenuation()
-        for atten in range(start_atten,
-                           min(start_atten + 20, self.FINAL_ATTENUATION),
+        for atten in range(start_atten, self.FINAL_ATTENUATION,
                            self.ATTENUATION_STEP):
             atten_tag = 'atten%03d' % atten
             self.context.attenuator.set_total_attenuation(
                     atten, self._ap_config.frequency)
             logging.info('RvR test: current attenuation = %d dB', atten)
+
+            # Give this attenuation level a quick sanity test. If we can't stay
+            # associated and handle a few pings, we probably won't get
+            # meaningful results out of netperf.
+            try:
+                self.context.wait_for_connection(self.context.router.get_ssid())
+            except error.TestFail as e:
+                logging.warning('Could not establish connection at %d dB (%s)',
+                                atten, str(e))
+                break
+
             for config in self.NETPERF_CONFIGS:
                 results = session.run(config)
                 if not results:
-                    logging.warning('Unable to take measurement for %s',
+                    logging.warning('Unable to take measurement for %s; aborting',
                                     config.human_readable_tag)
-                    continue
+                    break
                 graph_name = '.'.join(
                         [self._ap_config.perf_loggable_description, config.tag])
                 values = [result.throughput for result in results]
@@ -101,24 +113,41 @@ class network_WiFi_AttenuatedPerf(wifi_cell_test_base.WiFiCellTestBase):
                                        units='dBm', higher_is_better=True,
                                        graph=graph_name)
                 result = netperf_runner.NetperfResult.from_samples(results)
+                signal_level = self.context.client.wifi_signal_level
                 throughput_data.append(self.DataPoint(
                         atten,
                         result.throughput,
                         result.throughput_dev,
-                        self.context.client.wifi_signal_level,
+                        signal_level,
                         config.tag))
                 keyval_prefix = '_'.join(
                         [self._ap_config.perf_loggable_description, config.tag,
                          atten_tag])
                 self.write_perf_keyval(result.get_keyval(prefix=keyval_prefix))
+                # Reported at least one successful result at this attenuation.
+                max_atten = (atten, signal_level)
+
             signal_level = self.context.client.wifi_signal_level
             self.write_perf_keyval(
                     {'_'.join([atten_tag, 'signal']): signal_level})
+
+            if not results:
+                logging.warning('No results for atten %d dB; terminating',
+                                atten)
+
         # Clean up router and client state.
         self.context.client.shill.disconnect(assoc_params.ssid)
         self.context.router.deconfig()
         end_time = time.time()
         logging.info('Running time %0.1f seconds.', end_time - start_time)
+
+        if max_atten is None:
+            raise error.TestFail('Did not succeed at any atten level')
+        logging.info('Reached attenuation of: %d dB (signal %d)' % max_atten)
+        self.write_perf_keyval({'ch%03d_max_atten' % self._ap_config.channel:
+                                max_atten[0]})
+        self.write_perf_keyval({'ch%03d_min_signal' % self._ap_config.channel:
+                                max_atten[1]})
         self.write_throughput_tsv_files(throughput_data)
 
 

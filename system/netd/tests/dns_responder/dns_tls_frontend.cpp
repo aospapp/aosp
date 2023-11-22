@@ -26,15 +26,15 @@
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/ssl.h>
+#include <unistd.h>
 
 #define LOG_TAG "DnsTlsFrontend"
 #include <log/log.h>
+#include <netdutils/SocketOption.h>
 
-#include <unistd.h>
+using android::netdutils::enableSockopt;
 
 namespace {
-
-const int SHA256_SIZE = 32;
 
 // Copied from DnsTlsTransport.
 bool getSPKIDigest(const X509* cert, std::vector<uint8_t>* out) {
@@ -45,7 +45,7 @@ bool getSPKIDigest(const X509* cert, std::vector<uint8_t>* out) {
         ALOGE("SPKI length mismatch");
         return false;
     }
-    out->resize(SHA256_SIZE);
+    out->resize(test::SHA256_SIZE);
     unsigned int digest_len = 0;
     int ret = EVP_Digest(spki, spki_len, out->data(), &digest_len, EVP_sha256(), NULL);
     if (ret != 1) {
@@ -112,7 +112,7 @@ bssl::UniquePtr<EVP_PKEY> make_private_key() {
     return privkey;
 }
 
-bssl::UniquePtr<X509> make_cert(EVP_PKEY* privkey) {
+bssl::UniquePtr<X509> make_cert(EVP_PKEY* privkey, EVP_PKEY* parent_key) {
     bssl::UniquePtr<X509> cert(X509_new());
     if (!cert) {
         ALOGE("X509_new failed");
@@ -127,7 +127,7 @@ bssl::UniquePtr<X509> make_cert(EVP_PKEY* privkey) {
 
     X509_set_pubkey(cert.get(), privkey);
 
-    if (!X509_sign(cert.get(), privkey, EVP_sha256())) {
+    if (!X509_sign(cert.get(), parent_key, EVP_sha256())) {
         ALOGE("X509_sign failed");
         return nullptr;
     }
@@ -151,20 +151,37 @@ bool DnsTlsFrontend::startServer() {
 
     SSL_CTX_set_ecdh_auto(ctx_.get(), 1);
 
-    bssl::UniquePtr<EVP_PKEY> key(make_private_key());
-    bssl::UniquePtr<X509> cert(make_cert(key.get()));
-    if (SSL_CTX_use_certificate(ctx_.get(), cert.get()) <= 0) {
+    // Make certificate chain
+    std::vector<bssl::UniquePtr<EVP_PKEY>> keys(chain_length_);
+    for (int i = 0; i < chain_length_; ++i) {
+        keys[i] = make_private_key();
+    }
+    std::vector<bssl::UniquePtr<X509>> certs(chain_length_);
+    for (int i = 0; i < chain_length_; ++i) {
+        int next = std::min(i + 1, chain_length_ - 1);
+        certs[i] = make_cert(keys[i].get(), keys[next].get());
+    }
+
+    // Install certificate chain.
+    if (SSL_CTX_use_certificate(ctx_.get(), certs[0].get()) <= 0) {
         ALOGE("SSL_CTX_use_certificate failed");
         return false;
     }
-
-    if (!getSPKIDigest(cert.get(), &fingerprint_)) {
-        ALOGE("getSPKIDigest failed");
+    if (SSL_CTX_use_PrivateKey(ctx_.get(), keys[0].get()) <= 0 ) {
+        ALOGE("SSL_CTX_use_PrivateKey failed");
         return false;
     }
+    for (int i = 1; i < chain_length_; ++i) {
+        if (SSL_CTX_add1_chain_cert(ctx_.get(), certs[i].get()) != 1) {
+            ALOGE("SSL_CTX_add1_chain_cert failed");
+            return false;
+        }
+    }
 
-    if (SSL_CTX_use_PrivateKey(ctx_.get(), key.get()) <= 0 ) {
-        ALOGE("SSL_CTX_use_PrivateKey failed");
+    // Report the fingerprint of the "middle" cert.  For N = 2, this is the root.
+    int fp_index = chain_length_ / 2;
+    if (!getSPKIDigest(certs[fp_index].get(), &fingerprint_)) {
+        ALOGE("getSPKIDigest failed");
         return false;
     }
 
@@ -187,8 +204,8 @@ bool DnsTlsFrontend::startServer() {
     for (const addrinfo* ai = frontend_ai_res ; ai ; ai = ai->ai_next) {
         s = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
         if (s < 0) continue;
-        const int one = 1;
-        setsockopt(s, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one));
+        enableSockopt(s, SOL_SOCKET, SO_REUSEPORT);
+        enableSockopt(s, SOL_SOCKET, SO_REUSEADDR);
         if (bind(s, ai->ai_addr, ai->ai_addrlen)) {
             APLOGI("bind failed for socket %d", s);
             close(s);
@@ -299,9 +316,14 @@ bool DnsTlsFrontend::handleOneRequest(SSL* ssl) {
     }
     const uint16_t qlen = (queryHeader[0] << 8) | queryHeader[1];
     uint8_t query[qlen];
-    if (SSL_read(ssl, &query, qlen) != qlen) {
-        ALOGI("Not enough query bytes");
-        return false;
+    size_t qbytes = 0;
+    while (qbytes < qlen) {
+        int ret = SSL_read(ssl, query + qbytes, qlen - qbytes);
+        if (ret <= 0) {
+            ALOGI("Error while reading query");
+            return false;
+        }
+        qbytes += ret;
     }
     int sent = send(backend_socket_, query, qlen, 0);
     if (sent != qlen) {

@@ -215,7 +215,7 @@ The path is constructed according to these rules:
 
 1. if '$LTPROOT' is set, return '$LTPROOT/testcases/data/$TCID'
 2. else if 'tst_tmpdir()' was called return '$STARTWD/datafiles'
-   (where '$STARTWD' is initial working directory as recorded by 'tst_tmdir()')
+   (where '$STARTWD' is initial working directory as recorded by 'tst_tmpdir()')
 3. else return '$CWD/datafiles'
 
 See 'testcases/commands/file/' for example.
@@ -224,9 +224,9 @@ See 'testcases/commands/file/' for example.
 ^^^^^^^^^^^^^^^^^^^^
 
 If you test needs to execute a binary, place it in the same directory as the
-testcase and name the file starting with testname_ ('.tid' see below).
-Once the test is executed by the framework, the path to the directory with all
-LTP binaries is added to the '$PATH' and you can execute it just by its name.
+testcase and name the file starting with '${test_binary_name}_'.  Once the
+test is executed by the framework, the path to the directory with all LTP
+binaries is added to the '$PATH' and you can execute it just by its name.
 
 TIP: If you need to execute such test from the LTP tree, you can add path to
      current directory to '$PATH' manually with: 'PATH="$PATH:$PWD" ./foo01'.
@@ -288,7 +288,6 @@ next:
 }
 
 static struct tst_test test = {
-	.tid = "getenv01",
 	.test_all = test,
 	.setup = setup,
 };
@@ -296,11 +295,6 @@ static struct tst_test test = {
 
 Each test includes the 'tst_test.h' header and must define the 'struct
 tst_test test' structure.
-
-The '.tid' defines test name (usually syscall/libcall name + number). The name
-is used in the test results as well as a base for temporary directory name if
-temporary directory is needed. In most of the cases it's the same as test
-filename without the extension.
 
 The overall test initialization is done in the 'setup()' function.
 
@@ -326,7 +320,9 @@ IMPORTANT: Only one of '.test' and '.test_all' can be set at a time.
 
 Each test has a default timeout set to 300s. The default timeout can be
 overriden by setting '.timeout' in the test structure or by calling
-'tst_set_timeout()' in the test 'setup()'.
+'tst_set_timeout()' in the test 'setup()'. There are a few testcases whose run
+time may vary arbitrarily, for these timeout can be disabled by setting it to
+-1.
 
 A word about the cleanup() callback
 +++++++++++++++++++++++++++++++++++
@@ -453,11 +449,21 @@ translate 'errno' values to strings is preferred. You should not use the
 
 [source,c]
 -------------------------------------------------------------------------------
+const char *tst_strstatus(int status);
+-------------------------------------------------------------------------------
+
+Returns string describing the status as returned by 'wait()'.
+
+WARNING: This function is not thread safe.
+
+[source,c]
+-------------------------------------------------------------------------------
 void tst_set_timeout(unsigned int timeout);
 -------------------------------------------------------------------------------
 
 Allows for setting timeout per test iteration dymanically in the test setup(),
-the timeout is specified in seconds.
+the timeout is specified in seconds. There are a few testcases whose runtime
+can vary arbitrarily, these can disable timeouts by setting it to -1.
 
 2.2.3 Test temporary directory
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -816,7 +822,7 @@ Aligns the x to be next multiple of a. The a must be power of 2.
 2.2.12 Filesystem type detection
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Some tests are known to fail on certain filesytems (you cannot swap on TMPFS,
+Some tests are known to fail on certain filesystems (you cannot swap on TMPFS,
 there are unimplemented 'fcntl()' etc.).
 
 If your test needs to be skipped on certain filesystems, use the interface
@@ -917,12 +923,27 @@ then.
 If '.format_device' flag is set the device is formatted with a filesystem as
 well. You can use '.dev_fs_type' to override the default filesystem type if
 needed and pass additional options to mkfs via '.dev_fs_opts' and
-'.dev_extra_opt' pointers.
+'.dev_extra_opt' pointers. Note that '.format_device' implies '.needs_device'
+there is no need to set both.
 
 If '.mount_device' is set, the device is mounted at '.mntpoint' which is used
 to pass a directory name that will be created and used as mount destination.
 You can pass additional flags and data to the mount command via '.mnt_flags'
-and '.mnt_data' pointers.
+and '.mnt_data' pointers. Note that '.mount_device' implies '.needs_device'
+and '.format_device' so there is no need to set the later two.
+
+If '.needs_rofs' is set, read-only filesystem is mounted at '.mntpoint' this
+one is supposed to be used for 'EROFS' tests.
+
+If '.all_filesystems' is set the test function is executed for all supported
+filesystems. Supported filesystems are detected based on existence of the
+'mkfs.$fs' helper and on kernel support to mount it. For each supported
+filesystem the 'tst_device.fs_type' is set to the currently tested fs type, if
+'.format_device' is set the device is formatted as well, if '.mount_device' is
+set it's mounted at '.mntpoint'. Also the test timeout is reset for each
+execution of the test fuction. This flag is expected to be used for filesystem
+related syscalls that are at least partly implemented in the filesystem
+specific code e.g. fallocate().
 
 [source,c]
 -------------------------------------------------------------------------------
@@ -1235,11 +1256,11 @@ there is need to set '.needs_tmpdir' as well.
 
 The test library looks for datafiles first, these are either stored in a
 directory called +datafiles+ in the +$PWD+ at the start of the test or in
-+$LTPROOT/testcases/data/$tid+. If the file is not found the library looks
-into +$LTPROOT/testcases/bin/+ and to +$PWD+ at the start of the test. This
-ensures that the testcases can copy the file(s) effortlessly both when test is
-started from the directory it was compiled in as well as when LTP was
-installed.
++$LTPROOT/testcases/data/${test_binary_name}+. If the file is not found the
+library looks into +$LTPROOT/testcases/bin/+ and to +$PWD+ at the start of the
+test. This ensures that the testcases can copy the file(s) effortlessly both
+when test is started from the directory it was compiled in as well as when LTP
+was installed.
 
 The file(s) are copied to the newly created test temporary directory which is
 set as the test working directory when the 'test()' functions is executed.
@@ -1312,7 +1333,6 @@ WARNING: All identifiers starting with TST_ or tst_ are reserved for the
 # This is a basic test for true shell buildin
 #
 
-TST_ID="true01"
 TST_TESTFUNC=do_test
 . tst_test.sh
 
@@ -1358,7 +1378,6 @@ starts the test.
 # Example test with tests in separate functions
 #
 
-TST_ID="example01"
 TST_TESTFUNC=test
 TST_CNT=2
 . tst_test.sh
@@ -1387,7 +1406,6 @@ found they are executed one by one.
 # Example test with tests in a single function
 #
 
-TST_ID="example02"
 TST_TESTFUNC=do_test
 TST_CNT=2
 . tst_test.sh
@@ -1467,7 +1485,6 @@ variable, if module wasn't found the test will exit with 'TCONF'.
 # Optional test command line parameters
 #
 
-TST_ID="example03"
 TST_OPTS="af:"
 TST_USAGE=usage
 TST_PARSE_ARGS=parse_args
@@ -1522,7 +1539,6 @@ if option has argument, its value in '$2'.
 # Optional test positional paramters
 #
 
-TST_ID="example04"
 TST_POS_ARGS=3
 TST_USAGE=usage
 TST_TESTFUNC=do_test

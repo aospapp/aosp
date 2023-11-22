@@ -9,12 +9,14 @@
 #include <string>
 #include <vector>
 
-#define TEST_AND_RETURN_FALSE(_x)         \
-  do {                                    \
-    if (!static_cast<bool>(_x)) {         \
-      fprintf(stderr, "%s failed.", #_x); \
-      return false;                       \
-    }                                     \
+#include "bsdiff/logging.h"
+
+#define TEST_AND_RETURN_FALSE(_x)   \
+  do {                              \
+    if (!static_cast<bool>(_x)) {   \
+      LOG(ERROR) << #_x " failed."; \
+      return false;                 \
+    }                               \
   } while (0)
 
 namespace test_utils {

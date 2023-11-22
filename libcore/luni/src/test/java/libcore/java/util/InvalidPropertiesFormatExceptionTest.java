@@ -24,7 +24,7 @@ import java.io.NotSerializableException;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.InvalidPropertiesFormatException;
-import libcore.util.SerializationTester;
+import libcore.libcore.util.SerializationTester;
 
 public class InvalidPropertiesFormatExceptionTest extends TestCase {
 

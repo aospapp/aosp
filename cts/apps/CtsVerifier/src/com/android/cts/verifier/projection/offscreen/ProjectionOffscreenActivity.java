@@ -181,6 +181,14 @@ public class ProjectionOffscreenActivity extends PassFailButtons.Activity
     protected void onDestroy() {
         super.onDestroy();
         unregisterReceiver(mReceiver);
+        try {
+            mService.stopRendering();
+        } catch (RemoteException e) {
+            Log.e(TAG, "Failed to execute stopRendering", e);
+        }
+        if (mConnection != null) {
+            unbindService(mConnection);
+        }
         mReader.close();
     }
 

@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="1090682794607161063">"ਸੰਕਟਕਾਲ ਜਾਣਕਾਰੀ"</string>
+    <string name="app_label" msgid="1090682794607161063">"ਸੰਕਟਕਾਲੀਨ ਜਾਣਕਾਰੀ"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"ਡਾਕਟਰੀ ਜਾਣਕਾਰੀ"</string>
     <string name="edit_medical_info" msgid="6733720353375319476">"ਜਾਣਕਾਰੀ ਦਾ ਸੰਪਾਦਨ ਕਰੋ"</string>
     <string name="edit_info" msgid="5973929805855224805">"ਸੰਕਟਕਾਲੀਨ ਜਾਣਕਾਰੀ ਦਾ ਸੰਪਾਦਨ ਕਰੋ"</string>
@@ -87,7 +87,7 @@
     <!-- no translation found for organ_donor_entries:0 (4680498266537823362) -->
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
-    <string name="emergency_contacts_title" msgid="5462202017417821030">"ਐਮਰਜੈਂਸੀ ਸੰਪਰਕ"</string>
+    <string name="emergency_contacts_title" msgid="5462202017417821030">"ਸੰਕਟਕਾਲੀ ਸੰਪਰਕ"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"ਸੰਪਰਕ ਸ਼ਾਮਲ ਕਰੋ"</string>
     <string name="fail_load_contact_picker" msgid="817205483833876726">"ਕਿਸੇ ਸੰਪਰਕ ਚੋਣਕਾਰ ਨੂੰ ਲੱਭਿਆ ਨਹੀਂ ਜਾ ਸਕਿਆ"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"ਸੰਪਰਕ ਪ੍ਰਦਰਸ਼ਿਤ ਨਹੀਂ ਜਾ ਸਕਦਾ"</string>
@@ -103,7 +103,7 @@
     <string name="clear_all" msgid="8899013032870561633">"ਸਭ ਕਲੀਅਰ ਕਰੋ"</string>
     <string name="clear" msgid="3648880442502887163">"ਕਲੀਅਰ ਕਰੋ"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"ਕੀ ਸਾਰੀ ਜਾਣਕਾਰੀ ਅਤੇ ਸੰਪਰਕਾਂ ਨੂੰ ਮਿਟਾਉਣਾ ਹੈ?"</string>
-    <string name="emergency_info_footer" msgid="8751758742506410146">"Adding medical information and emergency contacts can help first responders in an emergency.\n\nAnyone can read this information from your lock screen, and dial your contacts by tapping their names, without unlocking your phone."</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"ਡਾਕਟਰੀ ਜਾਣਕਾਰੀ ਅਤੇ ਸੰਕਟਕਾਲੀਨ ਸੰਪਰਕ ਸ਼ਾਮਲ ਕਰਨ ਨਾਲ ਕਿਸੇ ਸੰਕਟਕਾਲ ਵਿੱਚ ਸਭ ਤੋਂ ਪਹਿਲਾਂ ਪਹੁੰਚਣ ਵਾਲੇ ਮਦਦਗਾਰਾਂ ਨੂੰ ਮਦਦ ਮਿਲ ਸਕਦੀ ਹੈ।\n\nਕੋਈ ਵੀ ਵਿਅਕਤੀ ਤੁਹਾਡੀ ਲਾਕ ਸਕ੍ਰੀਨ ਤੋਂ ਇਹ ਜਾਣਕਾਰੀ ਪੜ੍ਹ ਸਕਦਾ ਹੈ, ਅਤੇ ਤੁਹਾਡੇ ਫ਼ੋਨ ਨੂੰ ਅਣਲਾਕ ਕੀਤੇ ਬਿਨਾਂ ਤੁਹਾਡੇ ਸੰਪਰਕਾਂ ਨੂੰ ਉਹਨਾਂ ਦੇ ਨਾਮਾਂ \'ਤੇ ਟੈਪ ਕਰਕੇ ਕਾਲ ਕਰ ਸਕਦਾ ਹੈ।"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"ਸੰਕਟਕਾਲੀਨ ਜਾਣਕਾਰੀ ਸ਼ਾਮਲ ਕਰੋ"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"ਮਹੱਤਵਪੂਰਨ ਜਾਣਕਾਰੀ ਲੱਭਣ ਵਿੱਚ ਸਭ ਤੋਂ ਪਹਿਲਾਂ ਪਹੁੰਚਣ ਵਾਲੇ ਮਦਦਗਾਰਾਂ ਦੀ ਮਦਦ ਕਰੋ"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"ਪਹਿਲੇ ਮਦਦਗਾਰਾਂ ਨੂੰ ਤੁਹਾਡੀ ਜਾਣਕਾਰੀ ਦੇਖਣ ਦਿਓ"</string>
 </resources>

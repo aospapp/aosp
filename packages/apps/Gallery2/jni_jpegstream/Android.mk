@@ -6,7 +6,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE        := libjni_jpegstream
 
-LOCAL_NDK_STL_VARIANT := stlport_static
+LOCAL_NDK_STL_VARIANT := c++_static
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH) \
                     $(LOCAL_PATH)/src
@@ -17,7 +17,7 @@ LOCAL_SDK_VERSION   := 17
 LOCAL_ARM_MODE := arm
 
 LOCAL_CFLAGS    += -ffast-math -O3 -funroll-loops
-LOCAL_CFLAGS += -Wall -Wextra
+LOCAL_CFLAGS += -Wall -Wextra -Werror
 LOCAL_LDLIBS := -llog
 
 LOCAL_CPP_EXTENSION := .cpp

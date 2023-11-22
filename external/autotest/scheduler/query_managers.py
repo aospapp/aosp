@@ -298,28 +298,6 @@ class AFEHostQueryManager(object):
         """
         return self._get_many2many_dict(query, job_ids)
 
-    def _get_host_acls(self, host_ids):
-        query = """
-        SELECT host_id, aclgroup_id
-        FROM afe_acl_groups_hosts
-        WHERE host_id IN (%s)
-        """
-        return self._get_many2many_dict(query, host_ids)
-
-
-    def _get_label_hosts(self, host_ids):
-        if not host_ids:
-            return {}, {}
-        query = """
-        SELECT label_id, host_id
-        FROM afe_hosts_labels
-        WHERE host_id IN (%s)
-        """ % self._get_sql_id_list(host_ids)
-        rows = self._db.execute(query)
-        labels_to_hosts = self._process_many2many_dict(rows)
-        hosts_to_labels = self._process_many2many_dict(rows, flip=True)
-        return labels_to_hosts, hosts_to_labels
-
 
     @classmethod
     def find_unused_healty_hosts(cls):
@@ -412,7 +390,4 @@ class AFEHostQueryManager(object):
         self._ineligible_hosts = (self._get_job_ineligible_hosts(relevant_jobs))
         self._job_dependencies = (self._get_job_dependencies(relevant_jobs))
         host_ids = self._hosts_available.keys()
-        self._host_acls = self._get_host_acls(host_ids)
-        self._label_hosts, self._host_labels = (
-                self._get_label_hosts(host_ids))
         self._labels = self._get_labels(self._job_dependencies)

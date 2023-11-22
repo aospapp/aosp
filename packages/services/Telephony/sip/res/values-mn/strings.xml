@@ -27,7 +27,7 @@
     <string name="sip_call_options_entry_2" msgid="1815335903940609729">"SIP дуудлага хийхэд зориулагдсан"</string>
     <string name="sip_call_options_wifi_only_entry_1" msgid="1358513095551847314">"Бүх дуудлагад"</string>
     <string name="add_sip_account" msgid="800843669753980091">"Бүртгэл нэмэх"</string>
-    <string name="remove_sip_account" msgid="1367664438506503690">"Акаунтыг арилгах"</string>
+    <string name="remove_sip_account" msgid="1367664438506503690">"Бүртгэлийг хасах"</string>
     <string name="sip_account_list" msgid="5610858485304821480">"SIP бүртгэл"</string>
     <string name="saving_account" msgid="5336529880235177448">"Акаунтыг хадгалж байна…"</string>
     <string name="removing_account" msgid="5537351356808985756">"Акаунтыг арилгаж байна…"</string>

@@ -358,7 +358,7 @@ public class TimePickerTest {
 
     private boolean isWatch() {
         return (mActivity.getResources().getConfiguration().uiMode
-                & Configuration.UI_MODE_TYPE_WATCH) == Configuration.UI_MODE_TYPE_WATCH;
+                & Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_WATCH;
     }
 
     @Test
@@ -553,6 +553,12 @@ public class TimePickerTest {
         prepareForKeyboardInput(initialHour, initialMinute, false /* is24hFormat */,
                 false /* isClockMode */);
 
+        // when testing on device with lower resolution, the Spinner mode time picker may not show
+        // completely, which will cause case fail, so in this case remove the clock time picker to
+        // focus on the test of Spinner mode
+        final TimePicker clock = mActivity.findViewById(R.id.timepicker_clock);
+        mActivityRule.runOnUiThread(() -> clock.setVisibility(View.GONE));
+
         assertEquals(initialHour, mTimePicker.getHour());
         mActivityRule.runOnUiThread(() -> mTimePicker.getHourView().requestFocus());
         mInstrumentation.waitForIdleSync();
@@ -665,6 +671,12 @@ public class TimePickerTest {
         prepareForKeyboardInput(initialHour, initialMinute, true /* is24hFormat */,
                 false /* isClockMode */);
 
+        // when testing on device with lower resolution, the Spinner mode time picker may not show
+        // completely, which will cause case fail, so in this case remove the clock time picker to
+        // focus on the test of Spinner mode
+        final TimePicker clock = mActivity.findViewById(R.id.timepicker_clock);
+        mActivityRule.runOnUiThread(() -> clock.setVisibility(View.GONE));
+
         assertEquals(initialHour, mTimePicker.getHour());
         mActivityRule.runOnUiThread(() -> mTimePicker.getHourView().requestFocus());
         mInstrumentation.waitForIdleSync();
@@ -776,6 +788,12 @@ public class TimePickerTest {
                 : (TimePicker) mActivity.findViewById(R.id.timepicker_spinner);
 
         mActivityRule.runOnUiThread(() -> {
+            /* hide one of the widgets to assure they fit onto the screen */
+            if (isClockMode) {
+                mActivity.findViewById(R.id.timepicker_spinner).setVisibility(View.GONE);
+            } else {
+                mActivity.findViewById(R.id.timepicker_clock).setVisibility(View.GONE);
+            }
             mTimePicker.setIs24HourView(is24hFormat);
             mTimePicker.setHour(initialHour);
             mTimePicker.setMinute(initialMinute);

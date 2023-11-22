@@ -749,6 +749,7 @@ void MDnsSdListener::Monitor::freeServiceRef(int id) {
             mLiveCount--;
             if (cur->mReady == 1) {
                 cur->mReady = -1; // tell poll thread to delete
+                cur->mRef = NULL; // do not process further results
                 write(mCtrlSocketPair[1], RESCAN, 1); // trigger a rescan for a fresh poll
                 if (VDBG) ALOGD("triggering rescan");
             } else {

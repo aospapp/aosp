@@ -26,23 +26,24 @@ import android.view.View;
 import android.widget.QuickContactBadge;
 import android.widget.SimpleCursorAdapter;
 import android.widget.TextView;
-import com.android.contacts.common.ContactPhotoManager;
-import com.android.contacts.common.ContactPhotoManager.DefaultImageRequest;
-import com.android.contacts.common.lettertiles.LetterTileDrawable;
-import com.android.contacts.common.util.UriUtils;
 import com.android.dialer.app.R;
 import com.android.dialer.compat.CompatUtils;
+import com.android.dialer.contactphoto.ContactPhotoManager;
+import com.android.dialer.contactphoto.ContactPhotoManager.DefaultImageRequest;
+import com.android.dialer.lettertile.LetterTileDrawable;
 import com.android.dialer.phonenumbercache.ContactInfo;
 import com.android.dialer.phonenumbercache.ContactInfoHelper;
 import com.android.dialer.phonenumberutil.PhoneNumberHelper;
+import com.android.dialer.util.UriUtils;
 
+/** TODO(calderwoodra): documentation */
 public class NumbersAdapter extends SimpleCursorAdapter {
 
-  private Context mContext;
-  private FragmentManager mFragmentManager;
-  private ContactInfoHelper mContactInfoHelper;
-  private BidiFormatter mBidiFormatter = BidiFormatter.getInstance();
-  private ContactPhotoManager mContactPhotoManager;
+  private final Context context;
+  private final FragmentManager fragmentManager;
+  private final ContactInfoHelper contactInfoHelper;
+  private final BidiFormatter bidiFormatter = BidiFormatter.getInstance();
+  private final ContactPhotoManager contactPhotoManager;
 
   public NumbersAdapter(
       Context context,
@@ -50,10 +51,10 @@ public class NumbersAdapter extends SimpleCursorAdapter {
       ContactInfoHelper contactInfoHelper,
       ContactPhotoManager contactPhotoManager) {
     super(context, R.layout.blocked_number_item, null, new String[] {}, new int[] {}, 0);
-    mContext = context;
-    mFragmentManager = fragmentManager;
-    mContactInfoHelper = contactInfoHelper;
-    mContactPhotoManager = contactPhotoManager;
+    this.context = context;
+    this.fragmentManager = fragmentManager;
+    this.contactInfoHelper = contactInfoHelper;
+    this.contactPhotoManager = contactPhotoManager;
   }
 
   public void updateView(View view, String number, String countryIso) {
@@ -66,15 +67,15 @@ public class NumbersAdapter extends SimpleCursorAdapter {
       quickContactBadge.setPrioritizedMimeType(Phone.CONTENT_ITEM_TYPE);
     }
 
-    ContactInfo info = mContactInfoHelper.lookupNumber(number, countryIso);
+    ContactInfo info = contactInfoHelper.lookupNumber(number, countryIso);
     if (info == null) {
       info = new ContactInfo();
       info.number = number;
     }
-    final CharSequence locationOrType = getNumberTypeOrLocation(info);
+    final CharSequence locationOrType = getNumberTypeOrLocation(info, countryIso);
     final String displayNumber = getDisplayNumber(info);
     final String displayNumberStr =
-        mBidiFormatter.unicodeWrap(displayNumber, TextDirectionHeuristics.LTR);
+        bidiFormatter.unicodeWrap(displayNumber, TextDirectionHeuristics.LTR);
 
     String nameForDefaultImage;
     if (!TextUtils.isEmpty(info.name)) {
@@ -98,15 +99,15 @@ public class NumbersAdapter extends SimpleCursorAdapter {
     final String lookupKey =
         info.lookupUri == null ? null : UriUtils.getLookupKeyFromUri(info.lookupUri);
     final int contactType =
-        mContactInfoHelper.isBusiness(info.sourceType)
+        contactInfoHelper.isBusiness(info.sourceType)
             ? LetterTileDrawable.TYPE_BUSINESS
             : LetterTileDrawable.TYPE_DEFAULT;
     final DefaultImageRequest request =
         new DefaultImageRequest(displayName, lookupKey, contactType, true /* isCircular */);
     badge.assignContactUri(info.lookupUri);
     badge.setContentDescription(
-        mContext.getResources().getString(R.string.description_contact_details, displayName));
-    mContactPhotoManager.loadDirectoryPhoto(
+        context.getResources().getString(R.string.description_contact_details, displayName));
+    contactPhotoManager.loadDirectoryPhoto(
         badge, info.photoUri, false /* darkTheme */, true /* isCircular */, request);
   }
 
@@ -120,20 +121,20 @@ public class NumbersAdapter extends SimpleCursorAdapter {
     }
   }
 
-  private CharSequence getNumberTypeOrLocation(ContactInfo info) {
+  private CharSequence getNumberTypeOrLocation(ContactInfo info, String countryIso) {
     if (!TextUtils.isEmpty(info.name)) {
       return ContactsContract.CommonDataKinds.Phone.getTypeLabel(
-          mContext.getResources(), info.type, info.label);
+          context.getResources(), info.type, info.label);
     } else {
-      return PhoneNumberHelper.getGeoDescription(mContext, info.number);
+      return PhoneNumberHelper.getGeoDescription(context, info.number, countryIso);
     }
   }
 
   protected Context getContext() {
-    return mContext;
+    return context;
   }
 
   protected FragmentManager getFragmentManager() {
-    return mFragmentManager;
+    return fragmentManager;
   }
 }

@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Dieser Anruf kann aufgrund eines Anrufs in einer anderen App nicht getätigt werden."</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Eingehende Anrufe"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Entgangene Anrufe"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Anrufblockierung"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Durch diesen Anruf wird der Anruf in <xliff:g id="OTHER_APP">%1$s</xliff:g> beendet."</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Anrufblockierung"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Nicht in den Kontakten gespeicherte Telefonnummern"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Telefonnummern, die nicht in den Kontakten gespeichert sind, werden blockiert"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"Privat"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"Anrufer mit unterdrückter Nummer werden blockiert"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"Öffentliche Telefone"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"Anrufe von öffentlichen Telefonen werden blockiert"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"Unbekannt"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"Anrufe von nicht identifizierten Anrufern werden blockiert"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"Anrufblockierung"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Anrufblockierung deaktiviert"</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Notruf abgesetzt"</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Die Anrufblockierung wurde deaktiviert, damit Ersthelfer und Rettungskräfte dich kontaktieren können."</string>
 </resources>

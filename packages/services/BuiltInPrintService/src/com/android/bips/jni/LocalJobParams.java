@@ -64,41 +64,41 @@ public final class LocalJobParams {
 
     @Override
     public String toString() {
-        return "LocalJobParams{" +
-                " borderless=" + borderless +
-                " duplex=" + duplex +
-                " pdf_render_resolution=" + pdf_render_resolution +
-                " job_name=" + job_name +
-                " job_originating_user_name=" + job_originating_user_name +
-                " media_size=" + media_size +
-                " media_type=" + media_type +
-                " media_tray=" + media_tray +
-                " render_flags=" + render_flags +
-                " num_copies=" + num_copies +
-                " color_space=" + color_space +
-                " print_resolution=" + print_resolution +
-                " printable_width=" + printable_width +
-                " printable_height=" + printable_height +
-                " job_margin_top=" + job_margin_top +
-                " job_margin_left=" + job_margin_left +
-                " job_margin_right=" + job_margin_right +
-                " job_margin_bottom=" + job_margin_bottom +
-                " page_width=" + page_width +
-                " page_height=" + page_height +
-                " page_margin_top=" + page_margin_top +
-                " page_margin_left=" + page_margin_left +
-                " page_margin_right=" + page_margin_right +
-                " page_margin_bottom=" + page_margin_bottom +
-                " fit_to_page=" + fit_to_page +
-                " auto_rotate=" + auto_rotate +
-                " fill_page=" + fill_page +
-                " portrait_mode=" + portrait_mode +
-                " landscape_mode=" + landscape_mode +
-                " page_range=" + page_range +
-                " document_category=" + document_category +
-                " nativeData=" + !(nativeData == null) +
-                " alignment=" + alignment +
-                " document_scaling=" + document_scaling +
-                "}";
+        return "LocalJobParams{"
+                + " borderless=" + borderless
+                + " duplex=" + duplex
+                + " pdf_render_resolution=" + pdf_render_resolution
+                + " job_name=" + job_name
+                + " job_originating_user_name=" + job_originating_user_name
+                + " media_size=" + media_size
+                + " media_type=" + media_type
+                + " media_tray=" + media_tray
+                + " render_flags=" + render_flags
+                + " num_copies=" + num_copies
+                + " color_space=" + color_space
+                + " print_resolution=" + print_resolution
+                + " printable_width=" + printable_width
+                + " printable_height=" + printable_height
+                + " job_margin_top=" + job_margin_top
+                + " job_margin_left=" + job_margin_left
+                + " job_margin_right=" + job_margin_right
+                + " job_margin_bottom=" + job_margin_bottom
+                + " page_width=" + page_width
+                + " page_height=" + page_height
+                + " page_margin_top=" + page_margin_top
+                + " page_margin_left=" + page_margin_left
+                + " page_margin_right=" + page_margin_right
+                + " page_margin_bottom=" + page_margin_bottom
+                + " fit_to_page=" + fit_to_page
+                + " auto_rotate=" + auto_rotate
+                + " fill_page=" + fill_page
+                + " portrait_mode=" + portrait_mode
+                + " landscape_mode=" + landscape_mode
+                + " page_range=" + page_range
+                + " document_category=" + document_category
+                + " nativeData=" + !(nativeData == null)
+                + " alignment=" + alignment
+                + " document_scaling=" + document_scaling
+                + "}";
     }
 }

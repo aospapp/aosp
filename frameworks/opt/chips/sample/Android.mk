@@ -21,10 +21,12 @@ include $(CLEAR_VARS)
 src_dirs := src
 LOCAL_PACKAGE_NAME := libChipsSample
 
+LOCAL_STATIC_JAVA_LIBRARIES := \
+     android-support-annotations
+
 LOCAL_STATIC_ANDROID_LIBRARIES := \
      libchips \
-     android-support-compat \
-     android-support-annotations
+     android-support-compat
 
 LOCAL_SDK_VERSION := current
 

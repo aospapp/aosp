@@ -25,7 +25,9 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := linux/seccomp_bpf.c
 
-LOCAL_CFLAGS := -Wno-gnu-designator \
+LOCAL_CFLAGS := \
+		-Wall -Werror \
+		-Wno-gnu-designator \
 		-Wno-unused-parameter \
 		-Wno-literal-conversion \
 		-Wno-incompatible-pointer-types-discards-qualifiers \

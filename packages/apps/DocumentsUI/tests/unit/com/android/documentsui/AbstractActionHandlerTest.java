@@ -17,7 +17,7 @@
 package com.android.documentsui;
 
 import static junit.framework.Assert.assertTrue;
-
+import static junit.framework.Assert.fail;
 import static org.junit.Assert.assertEquals;
 
 import android.content.Intent;
@@ -31,8 +31,8 @@ import android.support.test.runner.AndroidJUnit4;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
-import com.android.documentsui.dirlist.DocumentDetails;
 import com.android.documentsui.files.LauncherActivity;
+import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
 import com.android.documentsui.sorting.SortDimension;
 import com.android.documentsui.sorting.SortModel;
 import com.android.documentsui.testing.DocumentStackAsserts;
@@ -77,8 +77,7 @@ public class AbstractActionHandlerTest {
             }
 
             @Override
-            public boolean openDocument(DocumentDetails doc, @ViewType int type,
-                    @ViewType int fallback) {
+            public boolean openItem(ItemDetails doc, @ViewType int type, @ViewType int fallback) {
                 throw new UnsupportedOperationException();
             }
 
@@ -106,7 +105,8 @@ public class AbstractActionHandlerTest {
     }
 
     @Test
-    public void testOpensContainerDocuments_jumpToNewLocation() throws Exception {
+    public void testOpensContainerDocuments_OpenFolderInSearch_JumpsToNewLocation()
+            throws Exception {
         if (!mEnv.features.isLaunchToDocumentEnabled()) {
             return;
         }
@@ -114,6 +114,7 @@ public class AbstractActionHandlerTest {
         mEnv.populateStack();
 
         mEnv.searchViewManager.isSearching = true;
+        mEnv.docs.nextIsDocumentsUri = true;
         mEnv.docs.nextPath = new Path(
                 TestProvidersAccess.HOME.rootId,
                 Arrays.asList(TestEnv.FOLDER_1.documentId, TestEnv.FOLDER_2.documentId));
@@ -124,15 +125,18 @@ public class AbstractActionHandlerTest {
         mEnv.beforeAsserts();
 
         assertEquals(mEnv.docs.nextPath.getPath().size(), mEnv.state.stack.size());
-        assertEquals(TestEnv.FOLDER_2, mEnv.state.stack.peek());
+        assertEquals(TestEnv.FOLDER_2, mEnv.state.stack.pop());
+        assertEquals(TestEnv.FOLDER_1, mEnv.state.stack.pop());
     }
 
 
     @Test
-    public void testOpensContainerDocuments_pushToRootDoc_NoFindPathSupport() throws Exception {
+    public void testOpensContainerDocuments_ClickFolderInSearch_PushToRootDoc_NoFindPathSupport()
+            throws Exception {
         mEnv.populateStack();
 
         mEnv.searchViewManager.isSearching = true;
+        mEnv.docs.nextIsDocumentsUri = true;
         mEnv.docs.nextDocuments = Arrays.asList(TestEnv.FOLDER_1, TestEnv.FOLDER_2);
 
         mHandler.openContainerDocument(TestEnv.FOLDER_2);
@@ -145,15 +149,42 @@ public class AbstractActionHandlerTest {
     }
 
     @Test
-    public void testOpensDocument_AssertionErrorIfAlreadyInStack() throws Exception {
+    public void testOpensContainerDocuments_ClickArchiveInSearch_opensArchiveInArchiveProvider()
+            throws Exception {
+        if (!mEnv.features.isLaunchToDocumentEnabled()) {
+            return;
+        }
+
         mEnv.populateStack();
-        boolean threw = false;
+
+        mEnv.searchViewManager.isSearching = true;
+        mEnv.docs.nextIsDocumentsUri = true;
+        mEnv.docs.nextPath = new Path(
+                TestProvidersAccess.HOME.rootId,
+                Arrays.asList(TestEnv.FOLDER_1.documentId, TestEnv.FOLDER_2.documentId,
+                        TestEnv.FILE_ARCHIVE.documentId));
+        mEnv.docs.nextDocuments = Arrays.asList(
+                TestEnv.FOLDER_1, TestEnv.FOLDER_2, TestEnv.FILE_ARCHIVE);
+        mEnv.docs.nextDocument = TestEnv.FILE_IN_ARCHIVE;
+
+        mHandler.openContainerDocument(TestEnv.FILE_ARCHIVE);
+
+        mEnv.beforeAsserts();
+
+        assertEquals(mEnv.docs.nextPath.getPath().size(), mEnv.state.stack.size());
+        assertEquals(TestEnv.FILE_IN_ARCHIVE, mEnv.state.stack.pop());
+        assertEquals(TestEnv.FOLDER_2, mEnv.state.stack.pop());
+        assertEquals(TestEnv.FOLDER_1, mEnv.state.stack.pop());
+    }
+
+    @Test
+    public void testOpensDocument_ExceptionIfAlreadyInStack() throws Exception {
+        mEnv.populateStack();
         try {
             mEnv.state.stack.push(TestEnv.FOLDER_0);
-        } catch (AssertionError e) {
-            threw = true;
+            fail("Should have thrown IllegalArgumentException.");
+        } catch (IllegalArgumentException expected) {
         }
-        assertTrue(threw);
     }
 
     @Test

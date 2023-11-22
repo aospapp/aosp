@@ -67,6 +67,22 @@ of reference images from a real device, do the following:
 
      ./cts/hostsidetests/theme/generate_images.py
 
+There is an option to build locally an Android system image and use an emulator that is stored in
+Android source tree under "prebuilts/android-emulator/linux-x86_64/emulator". This option does not
+require a SDK and can be used to generate images with locally modified source code: for example
+right before making a test breaking change.
+
+  1. From the console, set up your build environment for sdk_phone_x86_64 and build Android and CTS:
+
+     lunch sdk_phone_x86_64-userdebug && make -j32 && make cts -j32
+
+  2. Use the reference image script to generate the reference images. The script
+     will automatically start the emulator in the required configurations and
+     install the resulting reference images in assets/<platform>/<dpi>.zip,
+     overwriting any existing images.
+
+     ./cts/hostsidetests/theme/generate_images.py local
+
 A complete collection of reference images for a given API revision must include
 a set for each possible DPI bucket (tvdpi, xxhdpi, etc.) that may be tested.
 

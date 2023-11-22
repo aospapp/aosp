@@ -42,7 +42,7 @@ cc_defaults {
     ],
 
     target: {
-        linux: {
+        linux_glibc: {
             cflags: ["-DHAVE_POSIX_FALLOCATE=1"],
         },
     },
@@ -147,12 +147,6 @@ cc_binary {
                 "libsqlite",
                 // sqlite3MemsysAlarm uses LOG()
                 "liblog",
-            ],
-        },
-        not_windows: {
-            host_ldlibs: [
-                "-lpthread",
-                "-ldl",
             ],
         },
 

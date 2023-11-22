@@ -16,6 +16,7 @@
 
 package com.android.server.telecom;
 
+import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
 import android.telecom.Log;
@@ -69,9 +70,38 @@ class InCallAdapter extends IInCallAdapter.Stub {
     }
 
     @Override
+    public void deflectCall(String callId, Uri address) {
+        try {
+            Log.startSession(LogUtils.Sessions.ICA_DEFLECT_CALL, mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    Log.i(this, "deflectCall - %s, %s ", callId, Log.pii(address));
+                    Call call = mCallIdMapper.getCall(callId);
+                    if (call != null) {
+                        mCallsManager.deflectCall(call, address);
+                    } else {
+                        Log.w(this, "deflectCall, unknown call id: %s", callId);
+                    }
+                }
+            } finally {
+                Binder.restoreCallingIdentity(token);
+            }
+        } finally {
+            Log.endSession();
+        }
+    }
+
+    @Override
     public void rejectCall(String callId, boolean rejectWithMessage, String textMessage) {
         try {
             Log.startSession(LogUtils.Sessions.ICA_REJECT_CALL, mOwnerComponentName);
+            // Check to make sure the in-call app's user isn't restricted from sending SMS. If so,
+            // silently drop the outgoing message. Also drop message if the screen is locked.
+            if (!mCallsManager.isReplyWithSmsAllowed(Binder.getCallingUid())) {
+                rejectWithMessage = false;
+                textMessage = null;
+            }
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
@@ -268,13 +298,13 @@ class InCallAdapter extends IInCallAdapter.Stub {
     }
 
     @Override
-    public void setAudioRoute(int route) {
+    public void setAudioRoute(int route, String bluetoothAddress) {
         try {
             Log.startSession(LogUtils.Sessions.ICA_SET_AUDIO_ROUTE, mOwnerComponentName);
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
-                    mCallsManager.setAudioRoute(route);
+                    mCallsManager.setAudioRoute(route, bluetoothAddress);
                 }
             } finally {
                 Binder.restoreCallingIdentity(token);
@@ -396,7 +426,7 @@ class InCallAdapter extends IInCallAdapter.Stub {
     }
 
     @Override
-    public void sendCallEvent(String callId, String event, Bundle extras) {
+    public void sendCallEvent(String callId, String event, int targetSdkVer, Bundle extras) {
         try {
             Log.startSession("ICA.sCE", mOwnerComponentName);
             long token = Binder.clearCallingIdentity();
@@ -404,7 +434,7 @@ class InCallAdapter extends IInCallAdapter.Stub {
                 synchronized (mLock) {
                     Call call = mCallIdMapper.getCall(callId);
                     if (call != null) {
-                        call.sendCallEvent(event, extras);
+                        call.sendCallEvent(event, targetSdkVer, extras);
                     } else {
                         Log.w(this, "sendCallEvent, unknown call id: %s", callId);
                     }
@@ -569,6 +599,29 @@ class InCallAdapter extends IInCallAdapter.Stub {
             try {
                 synchronized (mLock) {
                     // TODO
+                }
+            } finally {
+                Binder.restoreCallingIdentity(token);
+            }
+        } finally {
+            Log.endSession();
+        }
+    }
+
+    @Override
+    public void handoverTo(String callId, PhoneAccountHandle destAcct, int videoState,
+                           Bundle extras) {
+        try {
+            Log.startSession("ICA.hT", mOwnerComponentName);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    Call call = mCallIdMapper.getCall(callId);
+                    if (call != null) {
+                        call.handoverTo(destAcct, videoState, extras);
+                    } else {
+                        Log.w(this, "handoverTo, unknown call id: %s", callId);
+                    }
                 }
             } finally {
                 Binder.restoreCallingIdentity(token);

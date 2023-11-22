@@ -8,144 +8,152 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
+#include <emmintrin.h>  // SSE2
+
 #include "./vpx_dsp_rtcd.h"
 #include "vpx_dsp/x86/highbd_inv_txfm_sse2.h"
 #include "vpx_dsp/x86/inv_txfm_sse2.h"
 #include "vpx_dsp/x86/transpose_sse2.h"
-#include "vpx_dsp/x86/txfm_common_sse2.h"
+
+static INLINE __m128i dct_const_round_shift_4_sse2(const __m128i in0,
+                                                   const __m128i in1) {
+  const __m128i t0 = _mm_unpacklo_epi32(in0, in1);  // 0, 1
+  const __m128i t1 = _mm_unpackhi_epi32(in0, in1);  // 2, 3
+  const __m128i t2 = _mm_unpacklo_epi64(t0, t1);    // 0, 1, 2, 3
+  return dct_const_round_shift_sse2(t2);
+}
+
+static INLINE void highbd_idct4_small_sse2(__m128i *const io) {
+  const __m128i cospi_p16_p16 = _mm_setr_epi32(cospi_16_64, 0, cospi_16_64, 0);
+  const __m128i cospi_p08_p08 = _mm_setr_epi32(cospi_8_64, 0, cospi_8_64, 0);
+  const __m128i cospi_p24_p24 = _mm_setr_epi32(cospi_24_64, 0, cospi_24_64, 0);
+  __m128i temp1[4], temp2[4], step[4];
+
+  transpose_32bit_4x4(io, io);
+
+  // Note: There is no 32-bit signed multiply SIMD instruction in SSE2.
+  //       _mm_mul_epu32() is used which can only guarantee the lower 32-bit
+  //       (signed) result is meaningful, which is enough in this function.
+
+  // stage 1
+  temp1[0] = _mm_add_epi32(io[0], io[2]);             // input[0] + input[2]
+  temp2[0] = _mm_sub_epi32(io[0], io[2]);             // input[0] - input[2]
+  temp1[1] = _mm_srli_si128(temp1[0], 4);             // 1, 3
+  temp2[1] = _mm_srli_si128(temp2[0], 4);             // 1, 3
+  temp1[0] = _mm_mul_epu32(temp1[0], cospi_p16_p16);  // ([0] + [2])*cospi_16_64
+  temp1[1] = _mm_mul_epu32(temp1[1], cospi_p16_p16);  // ([0] + [2])*cospi_16_64
+  temp2[0] = _mm_mul_epu32(temp2[0], cospi_p16_p16);  // ([0] - [2])*cospi_16_64
+  temp2[1] = _mm_mul_epu32(temp2[1], cospi_p16_p16);  // ([0] - [2])*cospi_16_64
+  step[0] = dct_const_round_shift_4_sse2(temp1[0], temp1[1]);
+  step[1] = dct_const_round_shift_4_sse2(temp2[0], temp2[1]);
+
+  temp1[3] = _mm_srli_si128(io[1], 4);
+  temp2[3] = _mm_srli_si128(io[3], 4);
+  temp1[0] = _mm_mul_epu32(io[1], cospi_p24_p24);     // input[1] * cospi_24_64
+  temp1[1] = _mm_mul_epu32(temp1[3], cospi_p24_p24);  // input[1] * cospi_24_64
+  temp2[0] = _mm_mul_epu32(io[1], cospi_p08_p08);     // input[1] * cospi_8_64
+  temp2[1] = _mm_mul_epu32(temp1[3], cospi_p08_p08);  // input[1] * cospi_8_64
+  temp1[2] = _mm_mul_epu32(io[3], cospi_p08_p08);     // input[3] * cospi_8_64
+  temp1[3] = _mm_mul_epu32(temp2[3], cospi_p08_p08);  // input[3] * cospi_8_64
+  temp2[2] = _mm_mul_epu32(io[3], cospi_p24_p24);     // input[3] * cospi_24_64
+  temp2[3] = _mm_mul_epu32(temp2[3], cospi_p24_p24);  // input[3] * cospi_24_64
+  temp1[0] = _mm_sub_epi64(temp1[0], temp1[2]);  // [1]*cospi_24 - [3]*cospi_8
+  temp1[1] = _mm_sub_epi64(temp1[1], temp1[3]);  // [1]*cospi_24 - [3]*cospi_8
+  temp2[0] = _mm_add_epi64(temp2[0], temp2[2]);  // [1]*cospi_8 + [3]*cospi_24
+  temp2[1] = _mm_add_epi64(temp2[1], temp2[3]);  // [1]*cospi_8 + [3]*cospi_24
+  step[2] = dct_const_round_shift_4_sse2(temp1[0], temp1[1]);
+  step[3] = dct_const_round_shift_4_sse2(temp2[0], temp2[1]);
+
+  // stage 2
+  io[0] = _mm_add_epi32(step[0], step[3]);  // step[0] + step[3]
+  io[1] = _mm_add_epi32(step[1], step[2]);  // step[1] + step[2]
+  io[2] = _mm_sub_epi32(step[1], step[2]);  // step[1] - step[2]
+  io[3] = _mm_sub_epi32(step[0], step[3]);  // step[0] - step[3]
+}
+
+static INLINE void highbd_idct4_large_sse2(__m128i *const io) {
+  __m128i step[4];
+
+  transpose_32bit_4x4(io, io);
+
+  // stage 1
+  highbd_butterfly_cospi16_sse2(io[0], io[2], &step[0], &step[1]);
+  highbd_butterfly_sse2(io[1], io[3], cospi_24_64, cospi_8_64, &step[2],
+                        &step[3]);
+
+  // stage 2
+  io[0] = _mm_add_epi32(step[0], step[3]);  // step[0] + step[3]
+  io[1] = _mm_add_epi32(step[1], step[2]);  // step[1] + step[2]
+  io[2] = _mm_sub_epi32(step[1], step[2]);  // step[1] - step[2]
+  io[3] = _mm_sub_epi32(step[0], step[3]);  // step[0] - step[3]
+}
 
 void vpx_highbd_idct4x4_16_add_sse2(const tran_low_t *input, uint16_t *dest,
                                     int stride, int bd) {
-  tran_low_t out[4 * 4];
-  tran_low_t *outptr = out;
-  int i, j;
-  __m128i inptr[4];
-  __m128i sign_bits[2];
-  __m128i temp_mm, min_input, max_input;
-  int test;
-  int optimised_cols = 0;
-  const __m128i zero = _mm_set1_epi16(0);
-  const __m128i eight = _mm_set1_epi16(8);
-  const __m128i max = _mm_set1_epi16(12043);
-  const __m128i min = _mm_set1_epi16(-12043);
-  // Load input into __m128i
-  inptr[0] = _mm_loadu_si128((const __m128i *)input);
-  inptr[1] = _mm_loadu_si128((const __m128i *)(input + 4));
-  inptr[2] = _mm_loadu_si128((const __m128i *)(input + 8));
-  inptr[3] = _mm_loadu_si128((const __m128i *)(input + 12));
+  int16_t max = 0, min = 0;
+  __m128i io[4], io_short[2];
 
-  // Pack to 16 bits
-  inptr[0] = _mm_packs_epi32(inptr[0], inptr[1]);
-  inptr[1] = _mm_packs_epi32(inptr[2], inptr[3]);
+  io[0] = _mm_load_si128((const __m128i *)(input + 0));
+  io[1] = _mm_load_si128((const __m128i *)(input + 4));
+  io[2] = _mm_load_si128((const __m128i *)(input + 8));
+  io[3] = _mm_load_si128((const __m128i *)(input + 12));
 
-  max_input = _mm_max_epi16(inptr[0], inptr[1]);
-  min_input = _mm_min_epi16(inptr[0], inptr[1]);
-  max_input = _mm_cmpgt_epi16(max_input, max);
-  min_input = _mm_cmplt_epi16(min_input, min);
-  temp_mm = _mm_or_si128(max_input, min_input);
-  test = _mm_movemask_epi8(temp_mm);
+  io_short[0] = _mm_packs_epi32(io[0], io[1]);
+  io_short[1] = _mm_packs_epi32(io[2], io[3]);
 
-  if (!test) {
-    // Do the row transform
-    idct4_sse2(inptr);
+  if (bd != 8) {
+    __m128i max_input, min_input;
 
-    // Check the min & max values
-    max_input = _mm_max_epi16(inptr[0], inptr[1]);
-    min_input = _mm_min_epi16(inptr[0], inptr[1]);
-    max_input = _mm_cmpgt_epi16(max_input, max);
-    min_input = _mm_cmplt_epi16(min_input, min);
-    temp_mm = _mm_or_si128(max_input, min_input);
-    test = _mm_movemask_epi8(temp_mm);
+    max_input = _mm_max_epi16(io_short[0], io_short[1]);
+    min_input = _mm_min_epi16(io_short[0], io_short[1]);
+    max_input = _mm_max_epi16(max_input, _mm_srli_si128(max_input, 8));
+    min_input = _mm_min_epi16(min_input, _mm_srli_si128(min_input, 8));
+    max_input = _mm_max_epi16(max_input, _mm_srli_si128(max_input, 4));
+    min_input = _mm_min_epi16(min_input, _mm_srli_si128(min_input, 4));
+    max_input = _mm_max_epi16(max_input, _mm_srli_si128(max_input, 2));
+    min_input = _mm_min_epi16(min_input, _mm_srli_si128(min_input, 2));
+    max = _mm_extract_epi16(max_input, 0);
+    min = _mm_extract_epi16(min_input, 0);
+  }
 
-    if (test) {
-      transpose_16bit_4x4(inptr);
-      sign_bits[0] = _mm_cmplt_epi16(inptr[0], zero);
-      sign_bits[1] = _mm_cmplt_epi16(inptr[1], zero);
-      inptr[3] = _mm_unpackhi_epi16(inptr[1], sign_bits[1]);
-      inptr[2] = _mm_unpacklo_epi16(inptr[1], sign_bits[1]);
-      inptr[1] = _mm_unpackhi_epi16(inptr[0], sign_bits[0]);
-      inptr[0] = _mm_unpacklo_epi16(inptr[0], sign_bits[0]);
-      _mm_storeu_si128((__m128i *)outptr, inptr[0]);
-      _mm_storeu_si128((__m128i *)(outptr + 4), inptr[1]);
-      _mm_storeu_si128((__m128i *)(outptr + 8), inptr[2]);
-      _mm_storeu_si128((__m128i *)(outptr + 12), inptr[3]);
+  if (bd == 8 || (max < 4096 && min >= -4096)) {
+    idct4_sse2(io_short);
+    idct4_sse2(io_short);
+    io_short[0] = _mm_add_epi16(io_short[0], _mm_set1_epi16(8));
+    io_short[1] = _mm_add_epi16(io_short[1], _mm_set1_epi16(8));
+    io[0] = _mm_srai_epi16(io_short[0], 4);
+    io[1] = _mm_srai_epi16(io_short[1], 4);
+  } else {
+    if (max < 32767 && min > -32768) {
+      highbd_idct4_small_sse2(io);
+      highbd_idct4_small_sse2(io);
     } else {
-      // Set to use the optimised transform for the column
-      optimised_cols = 1;
+      highbd_idct4_large_sse2(io);
+      highbd_idct4_large_sse2(io);
     }
-  } else {
-    // Run the un-optimised row transform
-    for (i = 0; i < 4; ++i) {
-      vpx_highbd_idct4_c(input, outptr, bd);
-      input += 4;
-      outptr += 4;
-    }
+    io[0] = wraplow_16bit_shift4(io[0], io[1], _mm_set1_epi32(8));
+    io[1] = wraplow_16bit_shift4(io[2], io[3], _mm_set1_epi32(8));
   }
 
-  if (optimised_cols) {
-    idct4_sse2(inptr);
-
-    // Final round and shift
-    inptr[0] = _mm_add_epi16(inptr[0], eight);
-    inptr[1] = _mm_add_epi16(inptr[1], eight);
-
-    inptr[0] = _mm_srai_epi16(inptr[0], 4);
-    inptr[1] = _mm_srai_epi16(inptr[1], 4);
-
-    // Reconstruction and Store
-    {
-      __m128i d0 = _mm_loadl_epi64((const __m128i *)dest);
-      __m128i d2 = _mm_loadl_epi64((const __m128i *)(dest + stride * 2));
-      d0 = _mm_unpacklo_epi64(
-          d0, _mm_loadl_epi64((const __m128i *)(dest + stride)));
-      d2 = _mm_unpacklo_epi64(
-          d2, _mm_loadl_epi64((const __m128i *)(dest + stride * 3)));
-      d0 = clamp_high_sse2(_mm_adds_epi16(d0, inptr[0]), bd);
-      d2 = clamp_high_sse2(_mm_adds_epi16(d2, inptr[1]), bd);
-      // store input0
-      _mm_storel_epi64((__m128i *)dest, d0);
-      // store input1
-      d0 = _mm_srli_si128(d0, 8);
-      _mm_storel_epi64((__m128i *)(dest + stride), d0);
-      // store input2
-      _mm_storel_epi64((__m128i *)(dest + stride * 2), d2);
-      // store input3
-      d2 = _mm_srli_si128(d2, 8);
-      _mm_storel_epi64((__m128i *)(dest + stride * 3), d2);
-    }
-  } else {
-    // Run the un-optimised column transform
-    tran_low_t temp_in[4], temp_out[4];
-    // Columns
-    for (i = 0; i < 4; ++i) {
-      for (j = 0; j < 4; ++j) temp_in[j] = out[j * 4 + i];
-      vpx_highbd_idct4_c(temp_in, temp_out, bd);
-      for (j = 0; j < 4; ++j) {
-        dest[j * stride + i] = highbd_clip_pixel_add(
-            dest[j * stride + i], ROUND_POWER_OF_TWO(temp_out[j], 4), bd);
-      }
-    }
-  }
+  recon_and_store_4x4(io, dest, stride, bd);
 }
 
 void vpx_highbd_idct4x4_1_add_sse2(const tran_low_t *input, uint16_t *dest,
                                    int stride, int bd) {
-  const __m128i zero = _mm_setzero_si128();
-  // Faster than _mm_set1_epi16((1 << bd) - 1).
-  const __m128i one = _mm_set1_epi16(1);
-  const __m128i max = _mm_sub_epi16(_mm_slli_epi16(one, bd), one);
   int a1, i;
   tran_low_t out;
   __m128i dc, d;
 
-  out = HIGHBD_WRAPLOW(dct_const_round_shift(input[0] * cospi_16_64), bd);
-  out = HIGHBD_WRAPLOW(dct_const_round_shift(out * cospi_16_64), bd);
+  out = HIGHBD_WRAPLOW(
+      dct_const_round_shift(input[0] * (tran_high_t)cospi_16_64), bd);
+  out =
+      HIGHBD_WRAPLOW(dct_const_round_shift(out * (tran_high_t)cospi_16_64), bd);
   a1 = ROUND_POWER_OF_TWO(out, 4);
   dc = _mm_set1_epi16(a1);
 
   for (i = 0; i < 4; ++i) {
     d = _mm_loadl_epi64((const __m128i *)dest);
-    d = add_dc_clamp(&zero, &max, &dc, &d);
+    d = add_clamp(d, dc, bd);
     _mm_storel_epi64((__m128i *)dest, d);
     dest += stride;
   }

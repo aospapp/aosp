@@ -22,10 +22,11 @@ def PrintUsage(msg):
 def Main(argv):
 
   parser = argparse.ArgumentParser()
-  parser.add_argument('--chromeos_root',
-                      default='/path/to/chromeos',
-                      dest='chromeos_root',
-                      help='ChromeOS root checkout directory')
+  parser.add_argument(
+      '--chromeos_root',
+      default='/path/to/chromeos',
+      dest='chromeos_root',
+      help='ChromeOS root checkout directory')
   parser.add_argument('remotes', nargs=argparse.REMAINDER)
 
   options = parser.parse_args(argv)

@@ -21,6 +21,7 @@
 #include "wificond/scanning/scan_result.h"
 
 using ::com::android::server::wifi::wificond::NativeScanResult;
+using ::com::android::server::wifi::wificond::RadioChainInfo;
 using std::vector;
 
 namespace android {
@@ -38,6 +39,8 @@ constexpr int32_t kFakeSignalMbm= -32;
 constexpr uint64_t kFakeTsf = 1200;
 constexpr int16_t kFakeCapability = 0;
 constexpr bool kFakeAssociated = true;
+constexpr int32_t kFakeRadioChainIds[] = { 0, 1 };
+constexpr int32_t kFakeRadioChainLevels[] = { -56, -64};
 
 }  // namespace
 
@@ -48,9 +51,16 @@ TEST_F(ScanResultTest, ParcelableTest) {
   std::vector<uint8_t> ssid(kFakeSsid, kFakeSsid + sizeof(kFakeSsid));
   std::vector<uint8_t> bssid(kFakeBssid, kFakeBssid + sizeof(kFakeBssid));
   std::vector<uint8_t> ie(kFakeIE, kFakeIE + sizeof(kFakeIE));
+  std::vector<RadioChainInfo> radio_chain_infos;
+  radio_chain_infos.emplace_back(
+      kFakeRadioChainIds[0], kFakeRadioChainLevels[0]);
+  radio_chain_infos.emplace_back(
+      kFakeRadioChainIds[1], kFakeRadioChainLevels[1]);
 
   NativeScanResult scan_result(ssid, bssid, ie, kFakeFrequency,
-      kFakeSignalMbm, kFakeTsf, kFakeCapability, kFakeAssociated);
+      kFakeSignalMbm, kFakeTsf, kFakeCapability, kFakeAssociated,
+      radio_chain_infos);
+
   Parcel parcel;
   EXPECT_EQ(::android::OK, scan_result.writeToParcel(&parcel));
 
@@ -66,6 +76,11 @@ TEST_F(ScanResultTest, ParcelableTest) {
   EXPECT_EQ(kFakeTsf, scan_result_copy.tsf);
   EXPECT_EQ(kFakeCapability, scan_result_copy.capability);
   EXPECT_EQ(kFakeAssociated, scan_result_copy.associated);
+  EXPECT_EQ(2u, scan_result_copy.radio_chain_infos.size());
+  EXPECT_EQ(kFakeRadioChainIds[0], scan_result_copy.radio_chain_infos[0].chain_id);
+  EXPECT_EQ(kFakeRadioChainIds[1], scan_result_copy.radio_chain_infos[1].chain_id);
+  EXPECT_EQ(kFakeRadioChainLevels[0], scan_result_copy.radio_chain_infos[0].level);
+  EXPECT_EQ(kFakeRadioChainLevels[1], scan_result_copy.radio_chain_infos[1].level);
 }
 
 }  // namespace wificond

@@ -71,6 +71,7 @@ REQUIRES_HTTPLIB2 = set((
         ))
 
 REQUIRES_PROTOBUFS = set((
+        'cloud_console_client_unittest.py',
         'job_serializer_unittest.py',
         ))
 
@@ -107,9 +108,12 @@ SKIP = set((
     'des_01_test.py',
     'des_02_test.py',
     # Require lxc to be installed
+    'base_image_unittest.py',
     'container_bucket_unittest.py',
+    'container_factory_unittest.py',
     'container_unittest.py',
     'lxc_functional_test.py',
+    'service_unittest.py',
     'zygote_unittest.py',
     # Require sponge utils installed in site-packages
     'sponge_utils_functional_test.py',

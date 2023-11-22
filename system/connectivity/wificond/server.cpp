@@ -94,9 +94,10 @@ Status Server::UnregisterCallback(const sp<IInterfaceEventCallback>& callback) {
   return Status::ok();
 }
 
-Status Server::createApInterface(sp<IApInterface>* created_interface) {
+Status Server::createApInterface(const std::string& iface_name,
+                                 sp<IApInterface>* created_interface) {
   InterfaceInfo interface;
-  if (!SetupInterface(&interface)) {
+  if (!SetupInterface(iface_name, &interface)) {
     return Status::ok();  // Logging was done internally
   }
 
@@ -107,15 +108,28 @@ Status Server::createApInterface(sp<IApInterface>* created_interface) {
       if_tool_.get(),
       hostapd_manager_.get()));
   *created_interface = ap_interface->GetBinder();
-  ap_interfaces_.push_back(std::move(ap_interface));
-  BroadcastApInterfaceReady(ap_interfaces_.back()->GetBinder());
+  BroadcastApInterfaceReady(ap_interface->GetBinder());
+  ap_interfaces_[iface_name] = std::move(ap_interface);
 
   return Status::ok();
 }
 
-Status Server::createClientInterface(sp<IClientInterface>* created_interface) {
+Status Server::tearDownApInterface(const std::string& iface_name,
+                                   bool* out_success) {
+  *out_success = false;
+  const auto iter = ap_interfaces_.find(iface_name);
+  if (iter != ap_interfaces_.end()) {
+    BroadcastApInterfaceTornDown(iter->second->GetBinder());
+    ap_interfaces_.erase(iter);
+    *out_success = true;
+  }
+  return Status::ok();
+}
+
+Status Server::createClientInterface(const std::string& iface_name,
+                                     sp<IClientInterface>* created_interface) {
   InterfaceInfo interface;
-  if (!SetupInterface(&interface)) {
+  if (!SetupInterface(iface_name, &interface)) {
     return Status::ok();  // Logging was done internally
   }
 
@@ -125,24 +139,35 @@ Status Server::createClientInterface(sp<IClientInterface>* created_interface) {
       interface.index,
       interface.mac_address,
       if_tool_.get(),
-      supplicant_manager_.get(),
       netlink_utils_,
       scan_utils_));
   *created_interface = client_interface->GetBinder();
-  client_interfaces_.push_back(std::move(client_interface));
-  BroadcastClientInterfaceReady(client_interfaces_.back()->GetBinder());
+  BroadcastClientInterfaceReady(client_interface->GetBinder());
+  client_interfaces_[iface_name] = std::move(client_interface);
 
+  return Status::ok();
+}
+
+Status Server::tearDownClientInterface(const std::string& iface_name,
+                                       bool* out_success) {
+  *out_success = false;
+  const auto iter = client_interfaces_.find(iface_name);
+  if (iter != client_interfaces_.end()) {
+    BroadcastClientInterfaceTornDown(iter->second->GetBinder());
+    client_interfaces_.erase(iter);
+    *out_success = true;
+  }
   return Status::ok();
 }
 
 Status Server::tearDownInterfaces() {
   for (auto& it : client_interfaces_) {
-    BroadcastClientInterfaceTornDown(it->GetBinder());
+    BroadcastClientInterfaceTornDown(it.second->GetBinder());
   }
   client_interfaces_.clear();
 
   for (auto& it : ap_interfaces_) {
-    BroadcastApInterfaceTornDown(it->GetBinder());
+    BroadcastApInterfaceTornDown(it.second->GetBinder());
   }
   ap_interfaces_.clear();
 
@@ -153,10 +178,20 @@ Status Server::tearDownInterfaces() {
   return Status::ok();
 }
 
+Status Server::enableSupplicant(bool* success) {
+  *success = supplicant_manager_->StartSupplicant();
+  return Status::ok();
+}
+
+Status Server::disableSupplicant(bool* success) {
+  *success = supplicant_manager_->StopSupplicant();
+  return Status::ok();
+}
+
 Status Server::GetClientInterfaces(vector<sp<IBinder>>* out_client_interfaces) {
   vector<sp<android::IBinder>> client_interfaces_binder;
   for (auto& it : client_interfaces_) {
-    out_client_interfaces->push_back(asBinder(it->GetBinder()));
+    out_client_interfaces->push_back(asBinder(it.second->GetBinder()));
   }
   return binder::Status::ok();
 }
@@ -164,7 +199,7 @@ Status Server::GetClientInterfaces(vector<sp<IBinder>>* out_client_interfaces) {
 Status Server::GetApInterfaces(vector<sp<IBinder>>* out_ap_interfaces) {
   vector<sp<IBinder>> ap_interfaces_binder;
   for (auto& it : ap_interfaces_) {
-    out_ap_interfaces->push_back(asBinder(it->GetBinder()));
+    out_ap_interfaces->push_back(asBinder(it.second->GetBinder()));
   }
   return binder::Status::ok();
 }
@@ -187,12 +222,19 @@ status_t Server::dump(int fd, const Vector<String16>& /*args*/) {
        << LoggingUtils::GetMacString(iface.mac_address) << endl;
   }
 
+  string country_code;
+  if (netlink_utils_->GetCountryCode(&country_code)) {
+    ss << "Current country code from kernel: " << country_code << endl;
+  } else {
+    ss << "Failed to get country code from kernel." << endl;
+  }
+
   for (const auto& iface : client_interfaces_) {
-    iface->Dump(&ss);
+    iface.second->Dump(&ss);
   }
 
   for (const auto& iface : ap_interfaces_) {
-    iface->Dump(&ss);
+    iface.second->Dump(&ss);
   }
 
   if (!WriteStringToFd(ss.str(), fd)) {
@@ -214,20 +256,65 @@ void Server::MarkDownAllInterfaces() {
   }
 }
 
-void Server::CleanUpSystemState() {
-  supplicant_manager_->StopSupplicant();
-  hostapd_manager_->StopHostapd();
-  MarkDownAllInterfaces();
-}
+Status Server::getAvailable2gChannels(
+    std::unique_ptr<vector<int32_t>>* out_frequencies) {
+  BandInfo band_info;
+  ScanCapabilities scan_capabilities_ignored;
+  WiphyFeatures wiphy_features_ignored;
 
-bool Server::SetupInterface(InterfaceInfo* interface) {
-  if (!ap_interfaces_.empty() || !client_interfaces_.empty()) {
-    // In the future we may support multiple interfaces at once.  However,
-    // today, we support just one.
-    LOG(ERROR) << "Cannot create AP interface when other interfaces exist";
-    return false;
+  if (!netlink_utils_->GetWiphyInfo(wiphy_index_, &band_info,
+                                    &scan_capabilities_ignored,
+                                    &wiphy_features_ignored)) {
+    LOG(ERROR) << "Failed to get wiphy info from kernel";
+    out_frequencies->reset(nullptr);
+    return Status::ok();
   }
 
+  out_frequencies->reset(
+      new vector<int32_t>(band_info.band_2g.begin(), band_info.band_2g.end()));
+  return Status::ok();
+}
+
+Status Server::getAvailable5gNonDFSChannels(
+    std::unique_ptr<vector<int32_t>>* out_frequencies) {
+  BandInfo band_info;
+  ScanCapabilities scan_capabilities_ignored;
+  WiphyFeatures wiphy_features_ignored;
+
+  if (!netlink_utils_->GetWiphyInfo(wiphy_index_, &band_info,
+                                    &scan_capabilities_ignored,
+                                    &wiphy_features_ignored)) {
+    LOG(ERROR) << "Failed to get wiphy info from kernel";
+    out_frequencies->reset(nullptr);
+    return Status::ok();
+  }
+
+  out_frequencies->reset(
+      new vector<int32_t>(band_info.band_5g.begin(), band_info.band_5g.end()));
+  return Status::ok();
+}
+
+Status Server::getAvailableDFSChannels(
+    std::unique_ptr<vector<int32_t>>* out_frequencies) {
+  BandInfo band_info;
+  ScanCapabilities scan_capabilities_ignored;
+  WiphyFeatures wiphy_features_ignored;
+
+  if (!netlink_utils_->GetWiphyInfo(wiphy_index_, &band_info,
+                                    &scan_capabilities_ignored,
+                                    &wiphy_features_ignored)) {
+    LOG(ERROR) << "Failed to get wiphy info from kernel";
+    out_frequencies->reset(nullptr);
+    return Status::ok();
+  }
+
+  out_frequencies->reset(new vector<int32_t>(band_info.band_dfs.begin(),
+                                             band_info.band_dfs.end()));
+  return Status::ok();
+}
+
+bool Server::SetupInterface(const std::string& iface_name,
+                            InterfaceInfo* interface) {
   if (!RefreshWiphyIndex()) {
     return false;
   }
@@ -245,13 +332,7 @@ bool Server::SetupInterface(InterfaceInfo* interface) {
   }
 
   for (const auto& iface : interfaces_) {
-    // Some kernel/driver uses station type for p2p interface.
-    // In that case we can only rely on hard-coded name to exclude
-    // p2p interface from station interfaces.
-    // Currently NAN interfaces also use station type.
-    // We should blacklist NAN interfaces as well.
-    if (iface.name != "p2p0" &&
-        !android::base::StartsWith(iface.name, "aware_data")) {
+    if (iface.name == iface_name) {
       *interface = iface;
       return true;
     }

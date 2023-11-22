@@ -18,7 +18,6 @@ package com.android.dialer.contactsfragment;
 
 import android.content.Context;
 import android.net.Uri;
-import android.provider.ContactsContract.QuickContact;
 import android.support.v7.widget.RecyclerView;
 import android.text.TextUtils;
 import android.view.View;
@@ -26,6 +25,7 @@ import android.view.View.OnClickListener;
 import android.widget.QuickContactBadge;
 import android.widget.TextView;
 import com.android.dialer.common.Assert;
+import com.android.dialer.contactsfragment.ContactsFragment.OnContactSelectedListener;
 import com.android.dialer.logging.InteractionEvent;
 import com.android.dialer.logging.Logger;
 
@@ -36,17 +36,20 @@ final class ContactViewHolder extends RecyclerView.ViewHolder implements OnClick
   private final TextView name;
   private final QuickContactBadge photo;
   private final Context context;
+  private final OnContactSelectedListener onContactSelectedListener;
 
   private String headerText;
   private Uri contactUri;
+  private long contactId;
 
-  public ContactViewHolder(View itemView) {
+  ContactViewHolder(View itemView, OnContactSelectedListener onContactSelectedListener) {
     super(itemView);
+    this.onContactSelectedListener = Assert.isNotNull(onContactSelectedListener);
     context = itemView.getContext();
     itemView.findViewById(R.id.click_target).setOnClickListener(this);
-    header = (TextView) itemView.findViewById(R.id.header);
-    name = (TextView) itemView.findViewById(R.id.contact_name);
-    photo = (QuickContactBadge) itemView.findViewById(R.id.photo);
+    header = itemView.findViewById(R.id.header);
+    name = itemView.findViewById(R.id.contact_name);
+    photo = itemView.findViewById(R.id.photo);
   }
 
   /**
@@ -57,9 +60,11 @@ final class ContactViewHolder extends RecyclerView.ViewHolder implements OnClick
    * @param contactUri to be shown by the contact card on photo click.
    * @param showHeader if header view should be shown {@code True}, {@code False} otherwise.
    */
-  public void bind(String headerText, String displayName, Uri contactUri, boolean showHeader) {
+  public void bind(
+      String headerText, String displayName, Uri contactUri, long contactId, boolean showHeader) {
     Assert.checkArgument(!TextUtils.isEmpty(displayName));
     this.contactUri = contactUri;
+    this.contactId = contactId;
     this.headerText = headerText;
 
     name.setText(displayName);
@@ -85,9 +90,6 @@ final class ContactViewHolder extends RecyclerView.ViewHolder implements OnClick
 
   @Override
   public void onClick(View v) {
-    Logger.get(context)
-        .logInteraction(InteractionEvent.Type.OPEN_QUICK_CONTACT_FROM_CONTACTS_FRAGMENT_ITEM);
-    QuickContact.showQuickContact(
-        photo.getContext(), photo, contactUri, QuickContact.MODE_LARGE, null /* excludeMimes */);
+    onContactSelectedListener.onContactSelected(photo, contactUri, contactId);
   }
 }

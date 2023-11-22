@@ -19,6 +19,8 @@
 
 #include "register_line.h"
 
+#include "base/logging.h"  // For VLOG.
+#include "debug_print.h"
 #include "method_verifier.h"
 #include "reg_type_cache-inl.h"
 
@@ -146,6 +148,14 @@ inline bool RegisterLine::VerifyRegisterType(MethodVerifier* verifier, uint32_t 
     }
     verifier->Fail(fail_type) << "register v" << vsrc << " has type "
                                << src_type << " but expected " << check_type;
+    if (check_type.IsNonZeroReferenceTypes() &&
+        !check_type.IsUnresolvedTypes() &&
+        check_type.HasClass() &&
+        src_type.IsNonZeroReferenceTypes() &&
+        !src_type.IsUnresolvedTypes() &&
+        src_type.HasClass()) {
+      DumpB77342775DebugData(check_type.GetClass(), src_type.GetClass());
+    }
     return false;
   }
   if (check_type.IsLowHalf()) {
@@ -178,17 +188,39 @@ inline size_t RegisterLine::ComputeSize(size_t num_regs) {
 }
 
 inline RegisterLine* RegisterLine::Create(size_t num_regs, MethodVerifier* verifier) {
-  void* memory = verifier->GetArena().Alloc(ComputeSize(num_regs));
+  void* memory = verifier->GetScopedAllocator().Alloc(ComputeSize(num_regs));
   return new (memory) RegisterLine(num_regs, verifier);
 }
 
 inline RegisterLine::RegisterLine(size_t num_regs, MethodVerifier* verifier)
     : num_regs_(num_regs),
-      monitors_(verifier->GetArena().Adapter(kArenaAllocVerifier)),
-      reg_to_lock_depths_(std::less<uint32_t>(), verifier->GetArena().Adapter(kArenaAllocVerifier)),
+      monitors_(verifier->GetScopedAllocator().Adapter(kArenaAllocVerifier)),
+      reg_to_lock_depths_(std::less<uint32_t>(),
+                          verifier->GetScopedAllocator().Adapter(kArenaAllocVerifier)),
       this_initialized_(false) {
   std::uninitialized_fill_n(line_, num_regs_, 0u);
   SetResultTypeToUnknown(verifier);
+}
+
+inline void RegisterLine::ClearRegToLockDepth(size_t reg, size_t depth) {
+  CHECK_LT(depth, 32u);
+  DCHECK(IsSetLockDepth(reg, depth));
+  auto it = reg_to_lock_depths_.find(reg);
+  DCHECK(it != reg_to_lock_depths_.end());
+  uint32_t depths = it->second ^ (1 << depth);
+  if (depths != 0) {
+    it->second = depths;
+  } else {
+    reg_to_lock_depths_.erase(it);
+  }
+  // Need to unlock every register at the same lock depth. These are aliased locks.
+  uint32_t mask = 1 << depth;
+  for (auto& pair : reg_to_lock_depths_) {
+    if ((pair.second & mask) != 0) {
+      VLOG(verifier) << "Also unlocking " << pair.first;
+      pair.second ^= mask;
+    }
+  }
 }
 
 inline void RegisterLineArenaDelete::operator()(RegisterLine* ptr) const {

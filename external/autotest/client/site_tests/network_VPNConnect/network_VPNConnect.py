@@ -81,11 +81,13 @@ class network_VPNConnect(test.test):
     def get_vpn_server(self):
         """Returns a VPN server instance."""
         if self._vpn_type.startswith('l2tpipsec-psk'):
-            return vpn_server.L2TPIPSecVPNServer('psk',
-                                                 self.SERVER_INTERFACE_NAME,
-                                                 self.SERVER_ADDRESS,
-                                                 self.NETWORK_PREFIX,
-                                                 'xauth' in self._vpn_type)
+            return vpn_server.L2TPIPSecVPNServer(
+                'psk',
+                self.SERVER_INTERFACE_NAME,
+                self.SERVER_ADDRESS,
+                self.NETWORK_PREFIX,
+                perform_xauth_authentication = 'xauth' in self._vpn_type,
+                local_ip_is_public_ip = 'evil' in self._vpn_type)
         elif self._vpn_type.startswith('l2tpipsec-cert'):
             return vpn_server.L2TPIPSecVPNServer('cert',
                                                  self.SERVER_INTERFACE_NAME,
@@ -207,6 +209,7 @@ class network_VPNConnect(test.test):
         if successful and not self._expect_success:
             raise error.TestFail('VPN connection suceeded '
                                  'when it should have failed')
+        return successful
 
 
     def run_once(self, vpn_types=[]):
@@ -249,5 +252,15 @@ class network_VPNConnect(test.test):
                                          self.NETWORK_PREFIX)
 
                 with self.get_vpn_server() as server:
-                    self.connect_vpn()
-                    utils.ping(server.SERVER_IP_ADDRESS, tries=3)
+                    if self.connect_vpn():
+                        res = utils.ping(server.SERVER_IP_ADDRESS, tries=3,
+                                         user='chronos')
+                        if res != 0:
+                            raise error.TestFail('Error pinging server IP')
+
+                        # IPv6 should be blackholed, so ping returns
+                        # "other error"
+                        res = utils.ping("2001:db8::1", tries=1, user='chronos')
+                        if res != 2:
+                            raise error.TestFail('IPv6 ping should '
+                                                 'have aborted')

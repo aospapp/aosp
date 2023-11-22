@@ -41,6 +41,7 @@ public class EphemeralService extends Service {
                 .setPackageName("com.android.cts.ephemeralapp1")
                 .setComponentName("EphemeralService")
                 .setMethodName("onBind")
+                .setIntent(intent)
                 .setStatus("PASS")
                 .build()
                 .broadcast(this);
@@ -53,6 +54,7 @@ public class EphemeralService extends Service {
                 .setPackageName("com.android.cts.ephemeralapp1")
                 .setComponentName("EphemeralService")
                 .setMethodName("onStartCommand")
+                .setIntent(intent)
                 .setStatus("PASS")
                 .build()
                 .broadcast(this);

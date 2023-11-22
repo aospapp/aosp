@@ -81,6 +81,7 @@
 #include <pwd.h>
 
 #include "test.h"
+#include "safe_macros.h"
 #include "compat_16.h"
 
 #define FILE_MODE	(S_IFREG|S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)
@@ -169,12 +170,8 @@ void setup(void)
 	ltpuser = getpwnam(nobody_uid);
 	if (ltpuser == NULL)
 		tst_brkm(TBROK | TERRNO, NULL, "getpwnam(\"nobody\") failed");
-	if (setegid(ltpuser->pw_gid) == -1)
-		tst_brkm(TBROK | TERRNO, NULL, "setegid(%d) failed",
-			 ltpuser->pw_gid);
-	if (seteuid(ltpuser->pw_uid) == -1)
-		tst_brkm(TBROK | TERRNO, NULL, "seteuid(%d) failed",
-			 ltpuser->pw_uid);
+	SAFE_SETEGID(NULL, ltpuser->pw_gid);
+	SAFE_SETEUID(NULL, ltpuser->pw_uid);
 
 	/* Create a test file under temporary directory */
 	if ((fd = open(TESTFILE, O_RDWR | O_CREAT, FILE_MODE)) == -1)
@@ -182,21 +179,15 @@ void setup(void)
 			 "open(%s, O_RDWR|O_CREAT, %o) failed", TESTFILE,
 			 FILE_MODE);
 
-	if (seteuid(0) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "seteuid(0) failed");
+	SAFE_SETEUID(cleanup, 0);
 
-	if (fchown(fd, -1, 0) < 0)
-		tst_brkm(TBROK | TERRNO, cleanup, "fchown failed");
+	SAFE_FCHOWN(cleanup, fd, -1, 0);
 
-	if (fchmod(fd, NEW_PERMS) < 0)
-		tst_brkm(TBROK | TERRNO, cleanup, "fchmod failed");
+	SAFE_FCHMOD(cleanup, fd, NEW_PERMS);
 
-	if (seteuid(ltpuser->pw_uid) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "seteuid to nobody failed");
+	SAFE_SETEUID(cleanup, ltpuser->pw_uid);
 
-	if (close(fd) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "closing %s failed",
-			 TESTFILE);
+	SAFE_CLOSE(cleanup, fd);
 }
 
 void cleanup(void)

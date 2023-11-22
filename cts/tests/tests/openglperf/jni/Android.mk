@@ -28,6 +28,6 @@ LOCAL_SHARED_LIBRARIES := libnativehelper_compat_libc++ liblog libEGL
 
 LOCAL_SDK_VERSION := 14
 
-LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter
 
 include $(BUILD_SHARED_LIBRARY)

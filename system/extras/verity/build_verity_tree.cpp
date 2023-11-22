@@ -10,11 +10,11 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <vector>
 
 #include <android-base/file.h>
 
@@ -126,8 +126,7 @@ int main(int argc, char **argv)
 {
     char *data_filename;
     char *verity_filename;
-    unsigned char *salt = NULL;
-    size_t salt_size = 0;
+    std::vector<unsigned char> salt;
     bool sparse = false;
     size_t block_size = 4096;
     uint64_t calculate_size = 0;
@@ -150,24 +149,17 @@ int main(int argc, char **argv)
 
         switch (c) {
         case 'a':
-            salt_size = strlen(optarg);
-            salt = new unsigned char[salt_size]();
-            if (salt == NULL) {
-                FATAL("failed to allocate memory for salt\n");
-            }
-            memcpy(salt, optarg, salt_size);
+            salt.clear();
+            salt.insert(salt.end(), optarg, &optarg[strlen(optarg)]);
             break;
         case 'A': {
                 BIGNUM *bn = NULL;
                 if(!BN_hex2bn(&bn, optarg)) {
                     FATAL("failed to convert salt from hex\n");
                 }
-                salt_size = BN_num_bytes(bn);
-                salt = new unsigned char[salt_size]();
-                if (salt == NULL) {
-                    FATAL("failed to allocate memory for salt\n");
-                }
-                if((size_t)BN_bn2bin(bn, salt) != salt_size) {
+                size_t salt_size = BN_num_bytes(bn);
+                salt.resize(salt_size);
+                if (BN_bn2bin(bn, salt.data()) != salt_size) {
                     FATAL("failed to convert salt to bytes\n");
                 }
             }
@@ -214,21 +206,17 @@ int main(int argc, char **argv)
     size_t hash_size = EVP_MD_size(md);
     assert(hash_size * 2 < block_size);
 
-    if (!salt || !salt_size) {
-        salt_size = hash_size;
-        salt = new unsigned char[salt_size];
-        if (salt == NULL) {
-            FATAL("failed to allocate memory for salt\n");
-        }
+    if (salt.empty()) {
+        salt.resize(hash_size);
 
         int random_fd = open("/dev/urandom", O_RDONLY);
         if (random_fd < 0) {
             FATAL("failed to open /dev/urandom\n");
         }
 
-        ssize_t ret = read(random_fd, salt, salt_size);
-        if (ret != (ssize_t)salt_size) {
-            FATAL("failed to read %zu bytes from /dev/urandom: %zd %d\n", salt_size, ret, errno);
+        ssize_t ret = read(random_fd, salt.data(), salt.size());
+        if (ret != static_cast<ssize_t>(salt.size())) {
+            FATAL("failed to read %zu bytes from /dev/urandom: %zd %d\n", salt.size(), ret, errno);
         }
         close(random_fd);
     }
@@ -310,15 +298,15 @@ int main(int argc, char **argv)
     unsigned char zero_block_hash[hash_size];
     unsigned char zero_block[block_size];
     memset(zero_block, 0, block_size);
-    hash_block(md, zero_block, block_size, salt, salt_size, zero_block_hash, NULL);
+    hash_block(md, zero_block, block_size, salt.data(), salt.size(), zero_block_hash, NULL);
 
     unsigned char root_hash[hash_size];
     verity_tree_levels[levels] = root_hash;
 
     struct sparse_hash_ctx ctx;
     ctx.hashes = verity_tree_levels[0];
-    ctx.salt = salt;
-    ctx.salt_size = salt_size;
+    ctx.salt = salt.data();
+    ctx.salt_size = salt.size();
     ctx.hash_size = hash_size;
     ctx.block_size = block_size;
     ctx.zero_block_hash = zero_block_hash;
@@ -334,7 +322,7 @@ int main(int argc, char **argv)
         hash_blocks(md,
                 verity_tree_levels[i], verity_tree_level_blocks[i] * block_size,
                 verity_tree_levels[i + 1], &out_size,
-                salt, salt_size, block_size);
+                salt.data(), salt.size(), block_size);
           if (i < levels - 1) {
               assert(div_round_up(out_size, block_size) == verity_tree_level_blocks[i + 1]);
           } else {
@@ -346,7 +334,7 @@ int main(int argc, char **argv)
         printf("%02x", root_hash[i]);
     }
     printf(" ");
-    for (size_t i = 0; i < salt_size; i++) {
+    for (size_t i = 0; i < salt.size(); i++) {
         printf("%02x", salt[i]);
     }
     printf("\n");
@@ -363,5 +351,4 @@ int main(int argc, char **argv)
     delete[] verity_tree_levels;
     delete[] verity_tree_level_blocks;
     delete[] verity_tree;
-    delete[] salt;
 }

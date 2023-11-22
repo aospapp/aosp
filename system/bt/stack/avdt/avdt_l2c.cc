@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2002-2012 Broadcom Corporation
+ *  Copyright 2002-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 #include "bt_target.h"
 #include "bt_types.h"
 #include "bt_utils.h"
+#include "bta/include/bta_av_api.h"
 #include "btm_api.h"
 #include "btm_int.h"
 #include "device/include/interop.h"
@@ -48,19 +49,18 @@ void avdt_l2c_congestion_ind_cback(uint16_t lcid, bool is_congested);
 void avdt_l2c_data_ind_cback(uint16_t lcid, BT_HDR* p_buf);
 
 /* L2CAP callback function structure */
-const tL2CAP_APPL_INFO avdt_l2c_appl = {
-    avdt_l2c_connect_ind_cback,
-    avdt_l2c_connect_cfm_cback,
-    NULL,
-    avdt_l2c_config_ind_cback,
-    avdt_l2c_config_cfm_cback,
-    avdt_l2c_disconnect_ind_cback,
-    avdt_l2c_disconnect_cfm_cback,
-    NULL,
-    avdt_l2c_data_ind_cback,
-    avdt_l2c_congestion_ind_cback,
-    NULL /* tL2CA_TX_COMPLETE_CB */
-};
+const tL2CAP_APPL_INFO avdt_l2c_appl = {avdt_l2c_connect_ind_cback,
+                                        avdt_l2c_connect_cfm_cback,
+                                        NULL,
+                                        avdt_l2c_config_ind_cback,
+                                        avdt_l2c_config_cfm_cback,
+                                        avdt_l2c_disconnect_ind_cback,
+                                        avdt_l2c_disconnect_cfm_cback,
+                                        NULL,
+                                        avdt_l2c_data_ind_cback,
+                                        avdt_l2c_congestion_ind_cback,
+                                        NULL, /* tL2CA_TX_COMPLETE_CB */
+                                        NULL /* tL2CA_CREDITS_RECEIVED_CB */};
 
 /*******************************************************************************
  *
@@ -76,9 +76,9 @@ static void avdt_sec_check_complete_term(const RawAddress* bd_addr,
                                          tBT_TRANSPORT transport,
                                          UNUSED_ATTR void* p_ref_data,
                                          uint8_t res) {
-  tAVDT_CCB* p_ccb = NULL;
+  AvdtpCcb* p_ccb = NULL;
   tL2CAP_CFG_INFO cfg;
-  tAVDT_TC_TBL* p_tbl;
+  AvdtpTransportChannel* p_tbl;
 
   AVDT_TRACE_DEBUG("avdt_sec_check_complete_term res: %d", res);
   p_ccb = avdt_ccb_by_bd(*bd_addr);
@@ -92,9 +92,9 @@ static void avdt_sec_check_complete_term(const RawAddress* bd_addr,
                     L2CAP_CONN_OK);
 
     /* store idx in LCID table, store LCID in routing table */
-    avdt_cb.ad.lcid_tbl[p_tbl->lcid - L2CAP_BASE_APPL_CID] =
+    avdtp_cb.ad.lcid_tbl[p_tbl->lcid - L2CAP_BASE_APPL_CID] =
         avdt_ad_tc_tbl_to_idx(p_tbl);
-    avdt_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][p_tbl->tcid].lcid = p_tbl->lcid;
+    avdtp_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][p_tbl->tcid].lcid = p_tbl->lcid;
 
     /* transition to configuration state */
     p_tbl->state = AVDT_AD_ST_CFG;
@@ -127,9 +127,9 @@ static void avdt_sec_check_complete_orig(const RawAddress* bd_addr,
                                          tBT_TRANSPORT trasnport,
                                          UNUSED_ATTR void* p_ref_data,
                                          uint8_t res) {
-  tAVDT_CCB* p_ccb = NULL;
+  AvdtpCcb* p_ccb = NULL;
   tL2CAP_CFG_INFO cfg;
-  tAVDT_TC_TBL* p_tbl;
+  AvdtpTransportChannel* p_tbl;
 
   AVDT_TRACE_DEBUG("avdt_sec_check_complete_orig res: %d", res);
   if (bd_addr) p_ccb = avdt_ccb_by_bd(*bd_addr);
@@ -164,8 +164,8 @@ static void avdt_sec_check_complete_orig(const RawAddress* bd_addr,
  ******************************************************************************/
 void avdt_l2c_connect_ind_cback(const RawAddress& bd_addr, uint16_t lcid,
                                 UNUSED_ATTR uint16_t psm, uint8_t id) {
-  tAVDT_CCB* p_ccb;
-  tAVDT_TC_TBL* p_tbl = NULL;
+  AvdtpCcb* p_ccb;
+  AvdtpTransportChannel* p_tbl = NULL;
   uint16_t result;
   tL2CAP_CFG_INFO cfg;
   tBTM_STATUS rc;
@@ -174,14 +174,20 @@ void avdt_l2c_connect_ind_cback(const RawAddress& bd_addr, uint16_t lcid,
   p_ccb = avdt_ccb_by_bd(bd_addr);
   if (p_ccb == NULL) {
     /* no, allocate ccb */
-    p_ccb = avdt_ccb_alloc(bd_addr);
+    int channel_index = BTA_AvObtainPeerChannelIndex(bd_addr);
+    if (channel_index >= 0) {
+      p_ccb = avdt_ccb_alloc_by_channel_index(bd_addr, channel_index);
+    }
+    if (p_ccb == nullptr) {
+      p_ccb = avdt_ccb_alloc(bd_addr);
+    }
     if (p_ccb == NULL) {
       /* no ccb available, reject L2CAP connection */
       result = L2CAP_CONN_NO_RESOURCES;
     } else {
       /* allocate and set up entry; first channel is always signaling */
       p_tbl = avdt_ad_tc_tbl_alloc(p_ccb);
-      p_tbl->my_mtu = avdt_cb.rcb.ctrl_mtu;
+      p_tbl->my_mtu = avdtp_cb.rcb.ctrl_mtu;
       p_tbl->my_flush_to = L2CAP_DEFAULT_FLUSH_TO;
       p_tbl->tcid = AVDT_CHAN_SIG;
       p_tbl->lcid = lcid;
@@ -208,36 +214,30 @@ void avdt_l2c_connect_ind_cback(const RawAddress& bd_addr, uint16_t lcid,
       }
       return;
     }
-  }
-  /* deal with simultaneous control channel connect case */
-  else {
+  } else {
+    /* deal with simultaneous control channel connect case */
     p_tbl = avdt_ad_tc_tbl_by_st(AVDT_CHAN_SIG, p_ccb, AVDT_AD_ST_CONN);
     if (p_tbl != NULL) {
       /* reject their connection */
       result = L2CAP_CONN_NO_RESOURCES;
-    }
-    /* this must be a traffic channel; are we accepting a traffic channel
-    ** for this ccb?
-    */
-    else {
+    } else {
+      /* This must be a traffic channel; are we accepting a traffic channel
+       * for this ccb?
+       */
       p_tbl = avdt_ad_tc_tbl_by_st(AVDT_CHAN_MEDIA, p_ccb, AVDT_AD_ST_ACP);
       if (p_tbl != NULL) {
         /* yes; proceed with connection */
         result = L2CAP_CONN_OK;
-      }
-#if (AVDT_REPORTING == TRUE)
-      /* this must be a reporting channel; are we accepting a reporting channel
-      ** for this ccb?
-      */
-      else {
+      } else {
+        /* this must be a reporting channel; are we accepting a reporting
+         * channel for this ccb?
+         */
         p_tbl = avdt_ad_tc_tbl_by_st(AVDT_CHAN_REPORT, p_ccb, AVDT_AD_ST_ACP);
         if (p_tbl != NULL) {
           /* yes; proceed with connection */
           result = L2CAP_CONN_OK;
-        }
-#endif
-        /* else we're not listening for traffic channel; reject */
-        else {
+        } else {
+          /* else we're not listening for traffic channel; reject */
           result = L2CAP_CONN_NO_PSM;
         }
       }
@@ -250,9 +250,9 @@ void avdt_l2c_connect_ind_cback(const RawAddress& bd_addr, uint16_t lcid,
   /* if result ok, proceed with connection */
   if (result == L2CAP_CONN_OK) {
     /* store idx in LCID table, store LCID in routing table */
-    avdt_cb.ad.lcid_tbl[lcid - L2CAP_BASE_APPL_CID] =
+    avdtp_cb.ad.lcid_tbl[lcid - L2CAP_BASE_APPL_CID] =
         avdt_ad_tc_tbl_to_idx(p_tbl);
-    avdt_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][p_tbl->tcid].lcid = lcid;
+    avdtp_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][p_tbl->tcid].lcid = lcid;
 
     /* transition to configuration state */
     p_tbl->state = AVDT_AD_ST_CFG;
@@ -278,9 +278,9 @@ void avdt_l2c_connect_ind_cback(const RawAddress& bd_addr, uint16_t lcid,
  *
  ******************************************************************************/
 void avdt_l2c_connect_cfm_cback(uint16_t lcid, uint16_t result) {
-  tAVDT_TC_TBL* p_tbl;
+  AvdtpTransportChannel* p_tbl;
   tL2CAP_CFG_INFO cfg;
-  tAVDT_CCB* p_ccb;
+  AvdtpCcb* p_ccb;
 
   AVDT_TRACE_DEBUG("avdt_l2c_connect_cfm_cback lcid: %d, result: %d", lcid,
                    result);
@@ -351,7 +351,9 @@ void avdt_l2c_connect_cfm_cback(uint16_t lcid, uint16_t result) {
  *
  ******************************************************************************/
 void avdt_l2c_config_cfm_cback(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg) {
-  tAVDT_TC_TBL* p_tbl;
+  AvdtpTransportChannel* p_tbl;
+
+  AVDT_TRACE_DEBUG("%s: lcid: %d", __func__, lcid);
 
   /* look up info for this channel */
   p_tbl = avdt_ad_tc_tbl_by_lcid(lcid);
@@ -390,7 +392,9 @@ void avdt_l2c_config_cfm_cback(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg) {
  *
  ******************************************************************************/
 void avdt_l2c_config_ind_cback(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg) {
-  tAVDT_TC_TBL* p_tbl;
+  AvdtpTransportChannel* p_tbl;
+
+  AVDT_TRACE_DEBUG("%s: lcid: %d", __func__, lcid);
 
   /* look up info for this channel */
   p_tbl = avdt_ad_tc_tbl_by_lcid(lcid);
@@ -401,7 +405,8 @@ void avdt_l2c_config_ind_cback(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg) {
     } else {
       p_tbl->peer_mtu = L2CAP_DEFAULT_MTU;
     }
-    AVDT_TRACE_DEBUG("peer_mtu: %d, lcid: x%x", p_tbl->peer_mtu, lcid);
+    AVDT_TRACE_DEBUG("%s: peer_mtu: %d, lcid: %d", __func__, p_tbl->peer_mtu,
+                     lcid);
 
     /* send L2CAP configure response */
     memset(p_cfg, 0, sizeof(tL2CAP_CFG_INFO));
@@ -432,7 +437,7 @@ void avdt_l2c_config_ind_cback(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg) {
  *
  ******************************************************************************/
 void avdt_l2c_disconnect_ind_cback(uint16_t lcid, bool ack_needed) {
-  tAVDT_TC_TBL* p_tbl;
+  AvdtpTransportChannel* p_tbl;
 
   AVDT_TRACE_DEBUG("avdt_l2c_disconnect_ind_cback lcid: %d, ack_needed: %d",
                    lcid, ack_needed);
@@ -459,7 +464,7 @@ void avdt_l2c_disconnect_ind_cback(uint16_t lcid, bool ack_needed) {
  *
  ******************************************************************************/
 void avdt_l2c_disconnect_cfm_cback(uint16_t lcid, uint16_t result) {
-  tAVDT_TC_TBL* p_tbl;
+  AvdtpTransportChannel* p_tbl;
 
   AVDT_TRACE_DEBUG("avdt_l2c_disconnect_cfm_cback lcid: %d, result: %d", lcid,
                    result);
@@ -481,7 +486,7 @@ void avdt_l2c_disconnect_cfm_cback(uint16_t lcid, uint16_t result) {
  *
  ******************************************************************************/
 void avdt_l2c_congestion_ind_cback(uint16_t lcid, bool is_congested) {
-  tAVDT_TC_TBL* p_tbl;
+  AvdtpTransportChannel* p_tbl;
 
   /* look up info for this channel */
   p_tbl = avdt_ad_tc_tbl_by_lcid(lcid);
@@ -501,7 +506,7 @@ void avdt_l2c_congestion_ind_cback(uint16_t lcid, bool is_congested) {
  *
  ******************************************************************************/
 void avdt_l2c_data_ind_cback(uint16_t lcid, BT_HDR* p_buf) {
-  tAVDT_TC_TBL* p_tbl;
+  AvdtpTransportChannel* p_tbl;
 
   /* look up info for this channel */
   p_tbl = avdt_ad_tc_tbl_by_lcid(lcid);

@@ -99,7 +99,8 @@ public class JDWPUnitDebuggeeWrapper extends JDWPUnitDebuggeeProcessWrapper {
     @Override
     public void start() {
         String cmdLine = settings.getDebuggeeJavaPath() + " -cp \""
-                + settings.getDebuggeeClassPath() + "\" -agentlib:"
+                + settings.getDebuggeeClassPath() + "\" "
+                + settings.getDebuggeeAgentArgument()
                 + settings.getDebuggeeAgentName() + "="
                 + settings.getDebuggeeAgentOptions(address, isListenConnection)
                 + " " + settings.getDebuggeeVMExtraOptions() + " "

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "fault_handler.h"
 
 #include <sys/ucontext.h>
@@ -22,7 +21,7 @@
 #include "art_method.h"
 #include "base/enums.h"
 #include "base/hex_dump.h"
-#include "base/logging.h"
+#include "base/logging.h"  // For VLOG.
 #include "base/macros.h"
 #include "base/safe_copy.h"
 #include "globals.h"
@@ -292,9 +291,9 @@ void FaultManager::GetMethodAndReturnPcAndSp(siginfo_t* siginfo, void* context,
   uintptr_t* fault_addr = reinterpret_cast<uintptr_t*>(siginfo->si_addr);
   uintptr_t* overflow_addr = reinterpret_cast<uintptr_t*>(
 #if defined(__x86_64__)
-      reinterpret_cast<uint8_t*>(*out_sp) - GetStackOverflowReservedBytes(kX86_64));
+      reinterpret_cast<uint8_t*>(*out_sp) - GetStackOverflowReservedBytes(InstructionSet::kX86_64));
 #else
-      reinterpret_cast<uint8_t*>(*out_sp) - GetStackOverflowReservedBytes(kX86));
+      reinterpret_cast<uint8_t*>(*out_sp) - GetStackOverflowReservedBytes(InstructionSet::kX86));
 #endif
   if (overflow_addr == fault_addr) {
     *out_method = reinterpret_cast<ArtMethod*>(uc->CTX_METHOD);
@@ -446,9 +445,9 @@ bool StackOverflowHandler::Action(int, siginfo_t* info, void* context) {
     ", fault_addr: " << fault_addr;
 
 #if defined(__x86_64__)
-  uintptr_t overflow_addr = sp - GetStackOverflowReservedBytes(kX86_64);
+  uintptr_t overflow_addr = sp - GetStackOverflowReservedBytes(InstructionSet::kX86_64);
 #else
-  uintptr_t overflow_addr = sp - GetStackOverflowReservedBytes(kX86);
+  uintptr_t overflow_addr = sp - GetStackOverflowReservedBytes(InstructionSet::kX86);
 #endif
 
   // Check that the fault address is the value expected for a stack overflow.

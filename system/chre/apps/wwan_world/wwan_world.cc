@@ -62,7 +62,7 @@ void handleTimerEvent(const void *eventData) {
  * @param cell the cell info to log.
  */
 void logChreWwanInfo(const chreWwanCellInfo *cell) {
-  LOGI("Found cell at time %" PRIu8, cell->timeStamp);
+  LOGI("Found cell at time %" PRIu64, cell->timeStamp);
   LOGI("  timestamp type %" PRIu8, cell->timeStampType);
   LOGI("  registered %" PRIu8, cell->registered);
 

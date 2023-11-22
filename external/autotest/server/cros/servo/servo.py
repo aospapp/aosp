@@ -443,10 +443,27 @@ class Servo(object):
 
 
     def get_board(self):
-        """Get the board connected to servod.
-
-        """
+        """Get the board connected to servod."""
         return self._server.get_board()
+
+
+    def get_base_board(self):
+        """Get the board of the base connected to servod."""
+        try:
+            return self._server.get_base_board()
+        except  xmlrpclib.Fault as e:
+            # TODO(waihong): Remove the following compatibility check when
+            # the new versions of hdctools are deployed.
+            if 'not supported' in str(e):
+                logging.warning('The servod is too old that get_base_board '
+                        'not supported.')
+                return ''
+            raise
+
+
+    def get_ec_active_copy(self):
+        """Get the active copy of the EC image."""
+        return self.get('ec_active_copy')
 
 
     def _get_xmlrpclib_exception(self, xmlexc):

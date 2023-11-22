@@ -20,12 +20,16 @@
 #include "FwmarkCommand.h"
 #include "NetdConstants.h"
 #include "NetworkController.h"
+#include "TrafficController.h"
 #include "resolv_netid.h"
 
 #include <netinet/in.h>
+#include <selinux/selinux.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <utils/String16.h>
+
+#include <binder/IServiceManager.h>
 
 using android::String16;
 using android::net::metrics::INetdEventListener;
@@ -33,10 +37,41 @@ using android::net::metrics::INetdEventListener;
 namespace android {
 namespace net {
 
-FwmarkServer::FwmarkServer(NetworkController* networkController, EventReporter* eventReporter) :
-        SocketListener(SOCKET_NAME, true), mNetworkController(networkController),
-        mEventReporter(eventReporter) {
+constexpr const char *UPDATE_DEVICE_STATS = "android.permission.UPDATE_DEVICE_STATS";
+constexpr const char *SYSTEM_SERVER_CONTEXT = "u:r:system_server:s0";
+
+bool isSystemServer(SocketClient* client) {
+    if (client->getUid() != AID_SYSTEM) {
+        return false;
+    }
+
+    char *context;
+    if (getpeercon(client->getSocket(), &context)) {
+        return false;
+    }
+
+    // We can't use context_new and context_type_get as they're private to libselinux. So just do
+    // a string match instead.
+    bool ret = !strcmp(context, SYSTEM_SERVER_CONTEXT);
+    freecon(context);
+
+    return ret;
 }
+
+bool hasUpdateDeviceStatsPermission(SocketClient* client) {
+    // If the caller is the system server, allow without any further checks.
+    // Otherwise, if the system server's binder thread pool is full, and all the threads are
+    // blocked on a thread that's waiting for us to complete, we deadlock. http://b/69389492
+    return isSystemServer(client) ||
+           checkPermission(String16(UPDATE_DEVICE_STATS), client->getPid(), client->getUid());
+}
+
+FwmarkServer::FwmarkServer(NetworkController* networkController, EventReporter* eventReporter,
+                           TrafficController* trafficCtrl)
+    : SocketListener(SOCKET_NAME, true),
+      mNetworkController(networkController),
+      mEventReporter(eventReporter),
+      mTrafficCtrl(trafficCtrl) {}
 
 bool FwmarkServer::onDataAvailable(SocketClient* client) {
     int socketFd = -1;
@@ -95,6 +130,20 @@ int FwmarkServer::processClient(SocketClient* client, int* socketFd) {
             return -EPERM;
         }
         return mNetworkController->checkUserNetworkAccess(command.uid, command.netId);
+    }
+
+    if (command.cmdId == FwmarkCommand::SET_COUNTERSET) {
+        if (!hasUpdateDeviceStatsPermission(client)) {
+            return -EPERM;
+        }
+        return mTrafficCtrl->setCounterSet(command.trafficCtrlInfo, command.uid);
+    }
+
+    if (command.cmdId == FwmarkCommand::DELETE_TAGDATA) {
+        if (!hasUpdateDeviceStatsPermission(client)) {
+            return -EPERM;
+        }
+        return mTrafficCtrl->deleteTagData(command.trafficCtrlInfo, command.uid);
     }
 
     cmsghdr* const cmsgh = CMSG_FIRSTHDR(&message);
@@ -238,6 +287,26 @@ int FwmarkServer::processClient(SocketClient* client, int* socketFd) {
             fwmark.netId = mNetworkController->getNetworkForUser(command.uid);
             fwmark.protectedFromVpn = true;
             break;
+        }
+
+        case FwmarkCommand::TAG_SOCKET: {
+            // If the UID is -1, tag as the caller's UID:
+            //  - TrafficStats and NetworkManagementSocketTagger use -1 to indicate "use the
+            //    caller's UID".
+            //  - xt_qtaguid will see -1 on the command line, fail to parse it as a uint32_t, and
+            //    fall back to current_fsuid().
+            if (static_cast<int>(command.uid) == -1) {
+                command.uid = client->getUid();
+            }
+            if (command.uid != client->getUid() && !hasUpdateDeviceStatsPermission(client)) {
+                return -EPERM;
+            }
+            return mTrafficCtrl->tagSocket(*socketFd, command.trafficCtrlInfo, command.uid);
+        }
+
+        case FwmarkCommand::UNTAG_SOCKET: {
+            // Any process can untag a socket it has an fd for.
+            return mTrafficCtrl->untagSocket(*socketFd);
         }
 
         default: {

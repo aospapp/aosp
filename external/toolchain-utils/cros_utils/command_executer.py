@@ -98,11 +98,13 @@ class CommandExecuter(object):
     # In this way the child cannot mess the parent's terminal.
     p = None
     try:
-      p = subprocess.Popen(cmd,
-                           stdout=subprocess.PIPE,
-                           stderr=subprocess.PIPE,
-                           shell=True,
-                           preexec_fn=os.setsid)
+      p = subprocess.Popen(
+          cmd,
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE,
+          shell=True,
+          preexec_fn=os.setsid,
+          executable='/bin/bash')
 
       full_stdout = ''
       full_stderr = ''
@@ -156,8 +158,7 @@ class CommandExecuter(object):
             if self.logger:
               self.logger.LogWarning('Timeout of %s seconds reached since '
                                      'process termination.' %
-                                     terminated_timeout,
-                                     print_to_console)
+                                     terminated_timeout, print_to_console)
             break
 
         if (command_timeout is not None and
@@ -277,14 +278,15 @@ class CommandExecuter(object):
 
     # Write all commands to a file.
     command_file = self.WriteToTempShFile(cmd)
-    retval = self.CopyFiles(command_file,
-                            command_file,
-                            dest_machine=machine,
-                            command_terminator=command_terminator,
-                            chromeos_root=chromeos_root,
-                            dest_cros=True,
-                            recursive=False,
-                            print_to_console=print_to_console)
+    retval = self.CopyFiles(
+        command_file,
+        command_file,
+        dest_machine=machine,
+        command_terminator=command_terminator,
+        chromeos_root=chromeos_root,
+        dest_cros=True,
+        recursive=False,
+        print_to_console=print_to_console)
     if retval:
       if self.logger:
         self.logger.LogError('Could not run remote command on machine.'
@@ -294,12 +296,13 @@ class CommandExecuter(object):
     command = self.RemoteAccessInitCommand(chromeos_root, machine)
     command += '\nremote_sh bash %s' % command_file
     command += "\nl_retval=$?; echo \"$REMOTE_OUT\"; exit $l_retval"
-    retval = self.RunCommandGeneric(command,
-                                    return_output,
-                                    command_terminator=command_terminator,
-                                    command_timeout=command_timeout,
-                                    terminated_timeout=terminated_timeout,
-                                    print_to_console=print_to_console)
+    retval = self.RunCommandGeneric(
+        command,
+        return_output,
+        command_terminator=command_terminator,
+        command_timeout=command_timeout,
+        terminated_timeout=terminated_timeout,
+        print_to_console=print_to_console)
     if return_output:
       connect_signature = (
           'Initiating first contact with remote host\n' + 'Connection OK\n')
@@ -368,8 +371,8 @@ class CommandExecuter(object):
     # the chroot already exists. We want the final returned output to skip
     # the output from chroot creation steps.
     if return_output:
-      ret = self.RunCommand('cd %s; cros_sdk %s -- true' %
-                            (chromeos_root, cros_sdk_options))
+      ret = self.RunCommand('cd %s; cros_sdk %s -- true' % (chromeos_root,
+                                                            cros_sdk_options))
       if ret:
         return (ret, '', '')
 
@@ -378,12 +381,13 @@ class CommandExecuter(object):
     command = ("cd %s; cros_sdk %s -- bash -c '%s/%s'" %
                (chromeos_root, cros_sdk_options, misc.CHROMEOS_SCRIPTS_DIR,
                 os.path.basename(command_file)))
-    ret = self.RunCommandGeneric(command,
-                                 return_output,
-                                 command_terminator=command_terminator,
-                                 command_timeout=command_timeout,
-                                 terminated_timeout=terminated_timeout,
-                                 print_to_console=print_to_console)
+    ret = self.RunCommandGeneric(
+        command,
+        return_output,
+        command_terminator=command_terminator,
+        command_timeout=command_timeout,
+        terminated_timeout=terminated_timeout,
+        print_to_console=print_to_console)
     os.remove(command_file)
     return ret
 
@@ -419,10 +423,11 @@ class CommandExecuter(object):
                   username=None,
                   command_terminator=None):
     cmd = ' ;\n'.join(cmdlist)
-    return self.RunCommand(cmd,
-                           machine=machine,
-                           username=username,
-                           command_terminator=command_terminator)
+    return self.RunCommand(
+        cmd,
+        machine=machine,
+        username=username,
+        command_terminator=command_terminator)
 
   def CopyFiles(self,
                 src,
@@ -464,18 +469,20 @@ class CommandExecuter(object):
       rsync_prefix = "\nrsync -r -e \"%s\" " % ssh_command
       if dest_cros == True:
         command += rsync_prefix + '%s root@%s:%s' % (src, dest_machine, dest)
-        return self.RunCommand(command,
-                               machine=src_machine,
-                               username=src_user,
-                               command_terminator=command_terminator,
-                               print_to_console=print_to_console)
+        return self.RunCommand(
+            command,
+            machine=src_machine,
+            username=src_user,
+            command_terminator=command_terminator,
+            print_to_console=print_to_console)
       else:
         command += rsync_prefix + 'root@%s:%s %s' % (src_machine, src, dest)
-        return self.RunCommand(command,
-                               machine=dest_machine,
-                               username=dest_user,
-                               command_terminator=command_terminator,
-                               print_to_console=print_to_console)
+        return self.RunCommand(
+            command,
+            machine=dest_machine,
+            username=dest_user,
+            command_terminator=command_terminator,
+            print_to_console=print_to_console)
 
     if dest_machine == src_machine:
       command = 'rsync -a %s %s' % (src, dest)
@@ -484,11 +491,12 @@ class CommandExecuter(object):
         src_machine = os.uname()[1]
         src_user = getpass.getuser()
       command = 'rsync -a %s@%s:%s %s' % (src_user, src_machine, src, dest)
-    return self.RunCommand(command,
-                           machine=dest_machine,
-                           username=dest_user,
-                           command_terminator=command_terminator,
-                           print_to_console=print_to_console)
+    return self.RunCommand(
+        command,
+        machine=dest_machine,
+        username=dest_user,
+        command_terminator=command_terminator,
+        print_to_console=print_to_console)
 
   def RunCommand2(self,
                   cmd,
@@ -557,9 +565,8 @@ class CommandExecuter(object):
       def notify_line(self):
         p = self._buf.find('\n')
         while p >= 0:
-          self._line_consumer(line=self._buf[:p + 1],
-                              output=self._name,
-                              pobject=self._pobject)
+          self._line_consumer(
+              line=self._buf[:p + 1], output=self._name, pobject=self._pobject)
           if p < len(self._buf) - 1:
             self._buf = self._buf[p + 1:]
             p = self._buf.find('\n')
@@ -571,9 +578,8 @@ class CommandExecuter(object):
       def notify_eos(self):
         # Notify end of stream. The last line may not end with a '\n'.
         if self._buf != '':
-          self._line_consumer(line=self._buf,
-                              output=self._name,
-                              pobject=self._pobject)
+          self._line_consumer(
+              line=self._buf, output=self._name, pobject=self._pobject)
           self._buf = ''
 
     if self.log_level == 'verbose':
@@ -605,15 +611,13 @@ class CommandExecuter(object):
       poll = select.poll()
       outfd = pobject.stdout.fileno()
       poll.register(outfd, select.POLLIN | select.POLLPRI)
-      handlermap = {outfd:
-                    StreamHandler(pobject, outfd, 'stdout', line_consumer)}
+      handlermap = {
+          outfd: StreamHandler(pobject, outfd, 'stdout', line_consumer)
+      }
       if not join_stderr:
         errfd = pobject.stderr.fileno()
-        poll.register(errfd,
-                      select.POLLIN | select.POLLPRI)
-        handlermap[errfd] = StreamHandler(pobject,
-                                          errfd,
-                                          'stderr',
+        poll.register(errfd, select.POLLIN | select.POLLPRI)
+        handlermap[errfd] = StreamHandler(pobject, errfd, 'stderr',
                                           line_consumer)
       while len(handlermap):
         readables = poll.poll(300)

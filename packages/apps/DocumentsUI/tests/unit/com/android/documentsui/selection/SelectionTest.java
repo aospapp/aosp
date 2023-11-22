@@ -23,8 +23,6 @@ import static junit.framework.Assert.assertTrue;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 
-import com.android.documentsui.selection.Selection;
-
 import com.google.common.collect.Sets;
 
 import org.junit.Before;

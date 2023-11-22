@@ -68,8 +68,7 @@ int main(int argc, char *argv[])
     int atag_file,
         zimage_file;
     int atag_size,
-        zimage_size,
-        total_size;
+        zimage_size;
     void *atag_buffer;
     void *zimage_buffer;
     struct kexec_segment segment[2];
@@ -85,7 +84,6 @@ int main(int argc, char *argv[])
     };
 
     while (1) {
-        int option_index = 0;
         c = getopt_long(argc, argv, "s:th", longopts, NULL);
         if (c < 0) {
             break;

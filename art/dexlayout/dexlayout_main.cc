@@ -22,17 +22,19 @@
 
 #include "dexlayout.h"
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-#include "base/logging.h"
+#include <android-base/logging.h>
+
+#include "base/logging.h"  // For InitLogging.
 #include "jit/profile_compilation_info.h"
-#include "runtime.h"
 #include "mem_map.h"
+#include "runtime.h"
 
 namespace art {
 
@@ -42,24 +44,26 @@ static const char* kProgramName = "dexlayout";
  * Shows usage.
  */
 static void Usage(void) {
-  fprintf(stderr, "Copyright (C) 2016 The Android Open Source Project\n\n");
-  fprintf(stderr, "%s: [-a] [-c] [-d] [-e] [-f] [-h] [-i] [-l layout] [-o outfile] [-p profile]"
-                  " [-s] [-t] [-v] [-w directory] dexfile...\n\n", kProgramName);
-  fprintf(stderr, " -a : display annotations\n");
-  fprintf(stderr, " -b : build dex_ir\n");
-  fprintf(stderr, " -c : verify checksum and exit\n");
-  fprintf(stderr, " -d : disassemble code sections\n");
-  fprintf(stderr, " -e : display exported items only\n");
-  fprintf(stderr, " -f : display summary information from file header\n");
-  fprintf(stderr, " -h : display file header details\n");
-  fprintf(stderr, " -i : ignore checksum failures\n");
-  fprintf(stderr, " -l : output layout, either 'plain' or 'xml'\n");
-  fprintf(stderr, " -o : output file name (defaults to stdout)\n");
-  fprintf(stderr, " -p : profile file name (defaults to no profile)\n");
-  fprintf(stderr, " -s : visualize reference pattern\n");
-  fprintf(stderr, " -t : display file section sizes\n");
-  fprintf(stderr, " -v : verify output file is canonical to input (IR level comparison)\n");
-  fprintf(stderr, " -w : output dex directory \n");
+  LOG(ERROR) << "Copyright (C) 2016 The Android Open Source Project\n";
+  LOG(ERROR) << kProgramName
+             << ": [-a] [-c] [-d] [-e] [-f] [-h] [-i] [-l layout] [-o outfile] [-p profile]"
+                " [-s] [-t] [-v] [-w directory] dexfile...\n";
+  LOG(ERROR) << " -a : display annotations";
+  LOG(ERROR) << " -b : build dex_ir";
+  LOG(ERROR) << " -c : verify checksum and exit";
+  LOG(ERROR) << " -d : disassemble code sections";
+  LOG(ERROR) << " -e : display exported items only";
+  LOG(ERROR) << " -f : display summary information from file header";
+  LOG(ERROR) << " -h : display file header details";
+  LOG(ERROR) << " -i : ignore checksum failures";
+  LOG(ERROR) << " -l : output layout, either 'plain' or 'xml'";
+  LOG(ERROR) << " -o : output file name (defaults to stdout)";
+  LOG(ERROR) << " -p : profile file name (defaults to no profile)";
+  LOG(ERROR) << " -s : visualize reference pattern";
+  LOG(ERROR) << " -t : display file section sizes";
+  LOG(ERROR) << " -v : verify output file is canonical to input (IR level comparison)";
+  LOG(ERROR) << " -w : output dex directory";
+  LOG(ERROR) << " -x : compact dex generation level, either 'none' or 'fast'";
 }
 
 /*
@@ -77,7 +81,7 @@ int DexlayoutDriver(int argc, char** argv) {
 
   // Parse all arguments.
   while (1) {
-    const int ic = getopt(argc, argv, "abcdefghil:mo:p:stvw:");
+    const int ic = getopt(argc, argv, "abcdefghil:o:p:stvw:x:");
     if (ic < 0) {
       break;  // done
     }
@@ -116,9 +120,6 @@ int DexlayoutDriver(int argc, char** argv) {
           want_usage = true;
         }
         break;
-      case 'm':  // output dex files to a memmap
-        options.output_to_memmap_ = true;
-        break;
       case 'o':  // output file
         options.output_file_name_ = optarg;
         break;
@@ -139,6 +140,15 @@ int DexlayoutDriver(int argc, char** argv) {
       case 'w':  // output dex files directory
         options.output_dex_directory_ = optarg;
         break;
+      case 'x':  // compact dex level
+        if (strcmp(optarg, "none") == 0) {
+          options.compact_dex_level_ = CompactDexLevel::kCompactDexLevelNone;
+        } else if (strcmp(optarg, "fast") == 0) {
+          options.compact_dex_level_ = CompactDexLevel::kCompactDexLevelFast;
+        } else {
+          want_usage = true;
+        }
+        break;
       default:
         want_usage = true;
         break;
@@ -147,11 +157,11 @@ int DexlayoutDriver(int argc, char** argv) {
 
   // Detect early problems.
   if (optind == argc) {
-    fprintf(stderr, "%s: no file specified\n", kProgramName);
+    LOG(ERROR) << "no file specified";
     want_usage = true;
   }
   if (options.checksum_only_ && options.ignore_bad_checksum_) {
-    fprintf(stderr, "Can't specify both -c and -i\n");
+    LOG(ERROR) << "Can't specify both -c and -i";
     want_usage = true;
   }
   if (want_usage) {
@@ -164,7 +174,7 @@ int DexlayoutDriver(int argc, char** argv) {
   if (options.output_file_name_) {
     out_file = fopen(options.output_file_name_, "w");
     if (!out_file) {
-      fprintf(stderr, "Can't open %s\n", options.output_file_name_);
+      PLOG(ERROR) << "Can't open " << options.output_file_name_;
       return 1;
     }
   }
@@ -174,18 +184,18 @@ int DexlayoutDriver(int argc, char** argv) {
   if (options.profile_file_name_) {
     int profile_fd = open(options.profile_file_name_, O_RDONLY);
     if (profile_fd < 0) {
-      fprintf(stderr, "Can't open %s\n", options.profile_file_name_);
+      PLOG(ERROR) << "Can't open " << options.profile_file_name_;
       return 1;
     }
     profile_info.reset(new ProfileCompilationInfo());
     if (!profile_info->Load(profile_fd)) {
-      fprintf(stderr, "Can't read profile info from %s\n", options.profile_file_name_);
+      LOG(ERROR) << "Can't read profile info from " << options.profile_file_name_;
       return 1;
     }
   }
 
   // Create DexLayout instance.
-  DexLayout dex_layout(options, profile_info.get(), out_file);
+  DexLayout dex_layout(options, profile_info.get(), out_file, /*header*/ nullptr);
 
   // Process all files supplied on command line.
   int result = 0;
@@ -204,5 +214,8 @@ int DexlayoutDriver(int argc, char** argv) {
 }  // namespace art
 
 int main(int argc, char** argv) {
+  // Output all logging to stderr.
+  android::base::SetLogger(android::base::StderrLogger);
+
   return art::DexlayoutDriver(argc, argv);
 }

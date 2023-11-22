@@ -22,7 +22,7 @@
 #include <android/hardware/tests/baz/1.0/IBaz.h>
 
 #include <hidl/LegacySupport.h>
-
+#include <hidl/ServiceManagement.h>
 #include <gtest/gtest.h>
 
 #include <hidl/HidlTransportSupport.h>
@@ -77,9 +77,13 @@ struct HidlTest : public ::testing::Test {
     void SetUp() override {
         using namespace ::android::hardware;
 
+        ::android::hardware::details::waitForHwService(
+                IBaz::descriptor, "baz");
+
         baz = IBaz::getService("baz");
 
         CHECK(baz != NULL);
+        CHECK(baz->isRemote());
     }
 
     void TearDown() override {
@@ -487,6 +491,87 @@ TEST_F(HidlTest, BazReturnABunchOfStringsMethodTest) {
                     EXPECT_EQ(b, expectedB);
                     EXPECT_EQ(c, expectedC);
                 }));
+}
+
+TEST_F(HidlTest, BazTestArrays) {
+    IBase::LotsOfPrimitiveArrays in;
+
+    for (size_t i = 0; i < 128; ++i) {
+        in.byte1[i] = i;
+        in.boolean1[i] = (i & 4) != 0;
+        in.double1[i] = i;
+    }
+
+    size_t k = 0;
+    for (size_t i = 0; i < 8; ++i) {
+        for (size_t j = 0; j < 128; ++j, ++k) {
+            in.byte2[i][j] = k;
+            in.boolean2[i][j] = (k & 4) != 0;
+            in.double2[i][j] = k;
+        }
+    }
+
+    size_t m = 0;
+    for (size_t i = 0; i < 8; ++i) {
+        for (size_t j = 0; j < 16; ++j) {
+            for (size_t k = 0; k < 128; ++k, ++m) {
+                in.byte3[i][j][k] = m;
+                in.boolean3[i][j][k] = (m & 4) != 0;
+                in.double3[i][j][k] = m;
+            }
+        }
+    }
+
+    EXPECT_OK(
+            baz->testArrays(in,
+                [&](const auto &out) {
+                    EXPECT_EQ(in, out);
+                }));
+}
+
+TEST_F(HidlTest, BazTestByteVecs) {
+    hidl_vec<IBase::ByteOneDim> in;
+    in.resize(8);
+
+    size_t k = 0;
+    for (size_t i = 0; i < in.size(); ++i) {
+        for (size_t j = 0; j < 128; ++j, ++k) {
+            in[i][j] = k;
+        }
+    }
+
+    EXPECT_OK(baz->testByteVecs(
+                in, [&](const auto &out) { EXPECT_EQ(in, out); }));
+}
+
+TEST_F(HidlTest, BazTestBooleanVecs) {
+    hidl_vec<IBase::BooleanOneDim> in;
+    in.resize(8);
+
+    size_t k = 0;
+    for (size_t i = 0; i < in.size(); ++i) {
+        for (size_t j = 0; j < 128; ++j, ++k) {
+            in[i][j] = (k & 4) != 0;
+        }
+    }
+
+    EXPECT_OK(baz->testBooleanVecs(
+                in, [&](const auto &out) { EXPECT_EQ(in, out); }));
+}
+
+TEST_F(HidlTest, BazTestDoubleVecs) {
+    hidl_vec<IBase::DoubleOneDim> in;
+    in.resize(8);
+
+    size_t k = 0;
+    for (size_t i = 0; i < in.size(); ++i) {
+        for (size_t j = 0; j < 128; ++j, ++k) {
+            in[i][j] = k;
+        }
+    }
+
+    EXPECT_OK(baz->testDoubleVecs(
+                in, [&](const auto &out) { EXPECT_EQ(in, out); }));
 }
 
 int main(int argc, char **argv) {

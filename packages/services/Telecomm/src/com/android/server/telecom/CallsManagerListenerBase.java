@@ -88,4 +88,8 @@ public class CallsManagerListenerBase implements CallsManager.CallsManagerListen
     @Override
     public void onExternalCallChanged(Call call, boolean isExternalCall) {
     }
+
+    @Override
+    public void onDisconnectedTonePlaying(boolean isTonePlaying) {
+    }
 }

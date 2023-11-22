@@ -2,7 +2,7 @@
   
   Vfr common library functions.
 
-Copyright (c) 2004 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials                          
 are licensed and made available under the terms and conditions of the BSD License         
 which accompanies this distribution.  The full text of the license may be found at        
@@ -123,7 +123,7 @@ SConfigInfo::~SConfigInfo (
   VOID
   )
 {
-  BUFFER_SAFE_FREE (mValue);
+  ARRAY_SAFE_FREE (mValue);
 }
 
 SConfigItem::SConfigItem (
@@ -200,9 +200,9 @@ SConfigItem::~SConfigItem (
 {
   SConfigInfo  *Info;
 
-  BUFFER_SAFE_FREE (mName);
-  BUFFER_SAFE_FREE (mGuid);
-  BUFFER_SAFE_FREE (mId);
+  ARRAY_SAFE_FREE (mName);
+  ARRAY_SAFE_FREE (mGuid);
+  ARRAY_SAFE_FREE (mId);
   while (mInfoStrList != NULL) {
     Info = mInfoStrList;
     mInfoStrList = mInfoStrList->mNext;
@@ -665,7 +665,7 @@ CVfrVarDataTypeDB::GetTypeField (
 {
   SVfrDataField  *pField = NULL;
 
-  if ((FName == NULL) && (Type == NULL)) {
+  if ((FName == NULL) || (Type == NULL)) {
     return VFR_RETURN_FATAL_ERROR;
   }
 
@@ -1328,7 +1328,7 @@ SVfrVarStorageNode::SVfrVarStorageNode (
   if (Guid != NULL) {
     mGuid = *Guid;
   } else {
-    memset (&Guid, 0, sizeof (EFI_GUID));
+    memset (&mGuid, 0, sizeof (EFI_GUID));
   }
   if (StoreName != NULL) {
     mVarStoreName = new CHAR8[strlen(StoreName) + 1];
@@ -1355,7 +1355,7 @@ SVfrVarStorageNode::SVfrVarStorageNode (
   if (Guid != NULL) {
     mGuid = *Guid;
   } else {
-    memset (&Guid, 0, sizeof (EFI_GUID));
+    memset (&mGuid, 0, sizeof (EFI_GUID));
   }
   if (StoreName != NULL) {
     mVarStoreName = new CHAR8[strlen(StoreName) + 1];
@@ -1393,7 +1393,7 @@ SVfrVarStorageNode::~SVfrVarStorageNode (
   )
 {
   if (mVarStoreName != NULL) {
-    delete mVarStoreName;
+    delete[] mVarStoreName;
   }
 
   if (mVarStoreType == EFI_VFR_VARSTORE_NAME) {
@@ -1419,6 +1419,8 @@ CVfrDataStorage::CVfrDataStorage (
   mNameVarStoreList        = NULL;
   mCurrVarStorageNode      = NULL;
   mNewVarStorageNode       = NULL;
+  mBufferFieldInfoListHead = NULL;
+  mBufferFieldInfoListTail = NULL;
 }
 
 CVfrDataStorage::~CVfrDataStorage (
@@ -1470,6 +1472,10 @@ CVfrDataStorage::GetFreeVarStoreId (
     if (mFreeVarStoreIdBitMap[Index] != 0xFFFFFFFF) {
       break;
     }
+  }
+
+  if (Index == EFI_FREE_VARSTORE_ID_BITMAP_SIZE) {
+    return EFI_VARSTORE_ID_INVALID;
   }
 
   for (Offset = 0, Mask = 0x80000000; Mask != 0; Mask >>= 1, Offset++) {
@@ -2000,6 +2006,48 @@ CVfrDataStorage::GetEfiVarStoreInfo (
 }
 
 EFI_VFR_RETURN_CODE
+CVfrDataStorage::AddBufferVarStoreFieldInfo (
+  IN EFI_VARSTORE_INFO  *Info
+  )
+{
+  BufferVarStoreFieldInfoNode *pNew;
+
+  if ((pNew = new BufferVarStoreFieldInfoNode(Info)) == NULL) {
+    return VFR_RETURN_FATAL_ERROR;
+  }
+
+  if (mBufferFieldInfoListHead == NULL) {
+    mBufferFieldInfoListHead = pNew;
+    mBufferFieldInfoListTail= pNew;
+  } else {
+    mBufferFieldInfoListTail->mNext = pNew;
+    mBufferFieldInfoListTail = pNew;
+  }
+
+  return VFR_RETURN_SUCCESS;
+}
+
+EFI_VFR_RETURN_CODE
+CVfrDataStorage::GetBufferVarStoreFieldInfo (
+  IN OUT EFI_VARSTORE_INFO  *Info
+  )
+{
+  BufferVarStoreFieldInfoNode *pNode;
+
+  pNode = mBufferFieldInfoListHead;
+  while (pNode != NULL) {
+    if (Info->mVarStoreId == pNode->mVarStoreInfo.mVarStoreId &&
+      Info->mInfo.mVarOffset == pNode->mVarStoreInfo.mInfo.mVarOffset) {
+      Info->mVarTotalSize = pNode->mVarStoreInfo.mVarTotalSize;
+      Info->mVarType      = pNode->mVarStoreInfo.mVarType;
+      return VFR_RETURN_SUCCESS;
+    }
+    pNode = pNode->mNext;
+  }
+  return VFR_RETURN_FATAL_ERROR;
+}
+
+EFI_VFR_RETURN_CODE
 CVfrDataStorage::GetNameVarStoreInfo (
   OUT EFI_VARSTORE_INFO  *Info,
   IN  UINT32             Index
@@ -2054,7 +2102,7 @@ SVfrDefaultStoreNode::~SVfrDefaultStoreNode (
   )
 {
   if (mRefName != NULL) {
-    delete mRefName;
+    delete[] mRefName;
   }
 }
 
@@ -2256,7 +2304,7 @@ SVfrRuleNode::~SVfrRuleNode (
   )
 {
   if (mRuleName != NULL) {
-    delete mRuleName;
+    delete[] mRuleName;
   }
 }
 
@@ -2342,6 +2390,22 @@ EFI_VARSTORE_INFO::EFI_VARSTORE_INFO (
   mVarTotalSize    = Info.mVarTotalSize;
 }
 
+EFI_VARSTORE_INFO&
+EFI_VARSTORE_INFO::operator= (
+  IN CONST EFI_VARSTORE_INFO &Info
+  )
+{
+  if (this != &Info) {
+    mVarStoreId      = Info.mVarStoreId;
+    mInfo.mVarName   = Info.mInfo.mVarName;
+    mInfo.mVarOffset = Info.mInfo.mVarOffset;
+    mVarType         = Info.mVarType;
+    mVarTotalSize    = Info.mVarTotalSize;
+  }
+
+  return *this;
+}
+
 BOOLEAN
 EFI_VARSTORE_INFO::operator == (
   IN EFI_VARSTORE_INFO  *Info
@@ -2358,6 +2422,26 @@ EFI_VARSTORE_INFO::operator == (
   return FALSE;
 }
 
+BufferVarStoreFieldInfoNode::BufferVarStoreFieldInfoNode(
+  IN EFI_VARSTORE_INFO  *Info
+  )
+{
+  mVarStoreInfo.mVarType               = Info->mVarType;
+  mVarStoreInfo.mVarTotalSize          = Info->mVarTotalSize;
+  mVarStoreInfo.mInfo.mVarOffset       = Info->mInfo.mVarOffset;
+  mVarStoreInfo.mVarStoreId            = Info->mVarStoreId;
+  mNext = NULL;
+}
+
+BufferVarStoreFieldInfoNode::~BufferVarStoreFieldInfoNode ()
+{
+  mVarStoreInfo.mVarType               = EFI_IFR_TYPE_OTHER;
+  mVarStoreInfo.mVarTotalSize          = 0;
+  mVarStoreInfo.mInfo.mVarOffset       = EFI_VAROFFSET_INVALID;
+  mVarStoreInfo.mVarStoreId            = EFI_VARSTORE_ID_INVALID;
+  mNext = NULL;
+}
+
 static EFI_VARSTORE_INFO gEfiInvalidVarStoreInfo;
 
 EFI_QUESTION_ID
@@ -2371,6 +2455,10 @@ CVfrQuestionDB::GetFreeQuestionId (
     if (mFreeQIdBitMap[Index] != 0xFFFFFFFF) {
       break;
     }
+  }
+
+  if (Index == EFI_FREE_QUESTION_ID_BITMAP_SIZE) {
+    return EFI_QUESTION_ID_INVALID;
   }
 
   for (Offset = 0, Mask = 0x80000000; Mask != 0; Mask >>= 1, Offset++) {
@@ -2451,11 +2539,11 @@ SVfrQuestionNode::~SVfrQuestionNode (
   )
 {
   if (mName != NULL) {
-    delete mName;
+    delete[] mName;
   }
 
   if (mVarIdStr != NULL) {
-    delete mVarIdStr;
+    delete[] mVarIdStr;
   }
 }
 
@@ -3284,7 +3372,7 @@ CVfrStringDB::GetVarStoreNameFormStringId (
   UINT8       BlockType;
   EFI_HII_STRING_PACKAGE_HDR *PkgHeader;
   
-  if (mStringFileName == '\0' ) {
+  if (mStringFileName == NULL) {
     return NULL;
   }
 
@@ -3315,7 +3403,7 @@ CVfrStringDB::GetVarStoreNameFormStringId (
   // Check the String package.
   //
   if (PkgHeader->Header.Type != EFI_HII_PACKAGE_STRINGS) {
-    delete StringPtr;
+    delete[] StringPtr;
     return NULL;
   }
 
@@ -3342,7 +3430,7 @@ CVfrStringDB::GetVarStoreNameFormStringId (
   //
   Status = FindStringBlock(Current, StringId, &NameOffset, &BlockType);
   if (Status != EFI_SUCCESS) {
-    delete StringPtr;
+    delete[] StringPtr;
     return NULL;
   }
 
@@ -3375,7 +3463,7 @@ CVfrStringDB::GetVarStoreNameFormStringId (
     break;
   }
 
-  delete StringPtr;
+  delete[] StringPtr;
 
   return VarStoreName;
 }
@@ -3632,5 +3720,7 @@ CVfrStringDB::GetUnicodeStringTextSize (
 BOOLEAN  VfrCompatibleMode = FALSE;
 
 CVfrVarDataTypeDB gCVfrVarDataTypeDB;
+CVfrDefaultStore  gCVfrDefaultStore;
+CVfrDataStorage  gCVfrDataStorage;
 
 

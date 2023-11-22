@@ -127,9 +127,10 @@
     <string name="reverting_settings" msgid="4752151682666912828">"ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಹಿಂತಿರುಗಿಸಲಾಗುತ್ತಿದೆ…"</string>
     <string name="response_error" msgid="6674110501330139405">"ನೆಟ್‌ವರ್ಕ್‌ನಿಂದ ಅನಿರೀಕ್ಷಿತ ಪ್ರತಿಕ್ರಿಯೆ."</string>
     <string name="exception_error" msgid="7027667130619518211">"ನೆಟ್‌ವರ್ಕ್‌ ಅಥವಾ ಸಿಮ್‌ ಕಾರ್ಡ್‌ ದೋಷ."</string>
-    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"SS ವಿನಂತಿಯನ್ನು DIAL ವಿನಂತಿಗೆ ಮಾರ್ಪಡಿಸಲಾಗಿದೆ."</string>
-    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"SS ವಿನಂತಿಯನ್ನು USSD ವಿನಂತಿಗೆ ಮಾರ್ಪಡಿಸಲಾಗಿದೆ."</string>
-    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"SS ವಿನಂತಿಯನ್ನು ಹೊಸ SS ವಿನಂತಿಗೆ ಮಾರ್ಪಡಿಸಲಾಗಿದೆ."</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="4440038807310535377">"SS ವಿನಂತಿಯನ್ನು ಸಾಮಾನ್ಯ ಕರೆಗೆ ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="6095812685884176176">"SS ವಿನಂತಿಯನ್ನು USSD ವಿನಂತಿಗೆ ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="7920654012697945858">"ಹೊಸ SS ವಿನಂತಿಗೆ ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
+    <string name="stk_cc_ss_to_dial_video_error" msgid="3873905132181743781">"SS ವಿನಂತಿಯನ್ನು ವೀಡಿಯೊ ಕರೆಗೆ ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"ನಿಮ್ಮ ಫೋನ್‌ ಅಪ್ಲಿಕೇಶನ್‌‌ನ ಸ್ಥಿರ ಡಯಲಿಂಗ್‌‌ ಸಂಖ್ಯೆಗಳ ಸೆಟ್ಟಿಂಗ್‌ ಅನ್ನು ಆನ್‌ ಮಾಡಲಾಗಿದೆ. ಪರಿಣಾಮ, ಕೆಲವು ಕರೆ ಸಂಬಂಧಿತ ವೈಶಿಷ್ಟ್ಯಗಳು ಕಾರ್ಯ ನಿರ್ವಹಿಸುತ್ತಿಲ್ಲ."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"ಈ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ವೀಕ್ಷಿಸುವ ಮೊದಲು ರೇಡಿಯೋ ಆನ್ ಮಾಡಿ."</string>
     <string name="close_dialog" msgid="2365884406356986917">"ಸರಿ"</string>
@@ -158,16 +159,16 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"ಹೊಸ ಪಿನ್ ಅಮಾನ್ಯವಾದ ಅಕ್ಷರಗಳನ್ನು ಒಳಗೊಂಡಿದೆ."</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"ಪಿನ್ ಬದಲಾಯಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"ಬೆಂಬಲಿತವಲ್ಲದ ಸಂದೇಶ ಮಾದರಿ, ಆಲಿಸಲು <xliff:g id="NUMBER">%s</xliff:g> ಗೆ ಕರೆ ಮಾಡಿ."</string>
-    <string name="mobile_networks" msgid="5540397602919106177">"ಮೊಬೈಲ್‌ ನೆಟ್‌ವರ್ಕ್‌ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
     <string name="network_settings_title" msgid="514120489499925574">"ಮೊಬೈಲ್‌ ನೆಟ್‌ವರ್ಕ್‌"</string>
     <string name="label_available" msgid="1181658289009300430">"ಲಭ್ಯವಿರುವ ನೆಟ್‌ವರ್ಕ್‌ಗಳು"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"ಹುಡುಕಲಾಗುತ್ತಿದೆ…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"ಯಾವುದೇ ನೆಟ್‌ವರ್ಕ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ."</string>
-    <string name="network_query_error" msgid="6828516148953325006">"ನೆಟ್‌ವರ್ಕ್‌ಗಳಿಗಾಗಿ ಹುಡುಕುತ್ತಿರುವಾಗ ದೋಷ."</string>
+    <string name="network_query_error" msgid="8466081377231178298">"ನೆಟ್‌ವರ್ಕ್‌ಗಳನ್ನು ಹುಡುಕಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."</string>
     <string name="register_on_network" msgid="9055203954040805084">"<xliff:g id="NETWORK">%s</xliff:g> ನಲ್ಲಿ ನೋಂದಾಯಿಸಲಾಗುತ್ತಿದೆ…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"ಈ ನೆಟ್‌ವರ್ಕ್‌ಗೆ ಸಂಪರ್ಕವನ್ನು ನಿಮ್ಮ ಸಿಮ್‌ ಕಾರ್ಡ್‌ ಅನುಮತಿಸುವುದಿಲ್ಲ."</string>
     <string name="connect_later" msgid="2308119155752343975">"ಇದೀಗ ಈ ನೆಟ್‌ವರ್ಕ್‌ಗೆ ಸಂಪರ್ಕಪಡಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."</string>
     <string name="registration_done" msgid="495135664535876612">"ನೆಟ್‌ವರ್ಕ್‌ನಲ್ಲಿ ನೋಂದಾಯಿಸಲಾಗಿದೆ."</string>
+    <string name="already_auto" msgid="6067116884321285507">"ಈಗಾಗಲೇ ಸ್ವಯಂಚಾಲಿತ ಆಯ್ಕೆಯಲ್ಲಿದೆ."</string>
     <string name="select_automatically" msgid="1046727200631770962">"ನೆಟ್‌ವರ್ಕ್‌ ಅನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಆಯ್ಕೆಮಾಡಿ"</string>
     <string name="network_select_title" msgid="7733107364757544558">"ನೆಟ್‌ವರ್ಕ್"</string>
     <string name="register_automatically" msgid="6017849844573519637">"ಸ್ವಯಂಚಾಲಿತ ನೋಂದಣಿ…"</string>
@@ -175,6 +176,36 @@
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"ನೆಟ್‌ವರ್ಕ್‌ ಕಾರ್ಯಾಚರಣಾ ಮೋಡ್‌ ಬದಲಿಸಿ"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"ಬಯಸಿದ ನೆಟ್‌ವರ್ಕ್‌ ಪ್ರಕಾರ"</string>
     <string name="forbidden_network" msgid="4384929668343563440">"(ನಿಷೇಧಿತ)"</string>
+    <string name="choose_network_title" msgid="4023911977543009350">"ನೆಟ್‌ವರ್ಕ್ ಆಯ್ಕೆಮಾಡಿ"</string>
+    <string name="network_disconnected" msgid="2227251609006103194">"ಸಂಪರ್ಕ ಕಡಿತಗೊಳಿಸಲಾಗಿದೆ"</string>
+    <string name="network_connected" msgid="1288589103624338857">"ಸಂಪರ್ಕಗೊಂಡಿದೆ"</string>
+    <string name="network_connecting" msgid="4927203097283533783">"ಸಂಪರ್ಕಿಸಲಾಗುತ್ತಿದೆ..."</string>
+    <string name="network_could_not_connect" msgid="8254009365807767243">"ಸಂಪರ್ಕಿಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ"</string>
+  <string-array name="preferred_network_mode_choices">
+    <item msgid="3628460389382468528">"GSM/WCDMA ಗೆ ಪ್ರಾಶಸ್ತ್ಯ ನೀಡಲಾಗಿದೆ"</item>
+    <item msgid="8442633436636425221">"GSM ಮಾತ್ರ"</item>
+    <item msgid="2032314385791760810">"WCDMA ಮಾತ್ರ"</item>
+    <item msgid="6334554401059422303">"GSM/WCDMA  ಸ್ವಯಂ"</item>
+    <item msgid="1462198368200398663">"CDMA/EvDo ಸ್ವಯಂ"</item>
+    <item msgid="3611460019185359968">"EvDo ಇಲ್ಲದೆ CDMA"</item>
+    <item msgid="545430093607698090">"EvDo ಮಾತ್ರ"</item>
+    <item msgid="4286774020869405140">"CDMA/EvDo/GSM/WCDMA"</item>
+    <item msgid="4006002265696868538">"CDMA + LTE/EvDo"</item>
+    <item msgid="8973936140318359205">"GSM/WCDMA/LTE"</item>
+    <item msgid="3471059554252610472">"ಜಾಗತಿಕ"</item>
+    <item msgid="2882615514545171802">"LTE"</item>
+    <item msgid="8076204422288290116">"LTE / WCDMA"</item>
+    <item msgid="3982984144824159726">"TDSCDMA ಮಾತ್ರ"</item>
+    <item msgid="3686191974505922271">"TDSCDMA/WCDMA"</item>
+    <item msgid="7135671700201836475">"LTE/TDSCDMA"</item>
+    <item msgid="3736619459066330755">"TDSCDMA/GSM"</item>
+    <item msgid="4778666570887216861">"LTE/TDSCDMA/GSM"</item>
+    <item msgid="2952322596201849456">"TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="115984258536697617">"LTE/TDSCDMA/WCDMA"</item>
+    <item msgid="7957991936217192636">"LTE/TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="2828588917858484655">"TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+    <item msgid="4989979948139945854">"LTE/TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+  </string-array>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"ಬಯಸಿದ ನೆಟ್‌ವರ್ಕ್‌ ಮೋಡ್‌: WCDMA ಗೆ ಪ್ರಾಶಸ್ತ್ಯ ನೀಡಲಾಗಿದೆ"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"ಬಯಸಿದ ನೆಟ್‌ವರ್ಕ್‌ ಮೋಡ್‌‌: GSM ಮಾತ್ರ"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"ಬಯಸಿದ ನೆಟ್‌ವರ್ಕ್‌ ಮೋಡ್‌: WCDMA ಮಾತ್ರ"</string>
@@ -192,21 +223,15 @@
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"ಆದ್ಯತೆಯ ನೆಟ್‌ವರ್ಕ್ ಮೋಡ್: LTE / GSM / UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"ಪ್ರಾಶಸ್ತ್ಯದ ನೆಟ್‌ವರ್ಕ್‌ ಮೋಡ್‌‌: LTE / CDMA"</string>
     <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"ಪ್ರಾಶಸ್ತ್ಯದ ನೆಟ್‌ವರ್ಕ್‌ ಮೋಡ್‌: TDSCDMA"</string>
-  <string-array name="preferred_network_mode_choices">
-    <item msgid="7886739962255042385">"LTE / WCDMA"</item>
-    <item msgid="577652050447385699">"LTE"</item>
-    <item msgid="6813597571293773656">"ಜಾಗತಿಕ"</item>
-    <item msgid="127064712132619032">"GSM/WCDMA/LTE"</item>
-    <item msgid="1126767511633425977">"CDMA + LTE/EvDo"</item>
-    <item msgid="6389676313771670660">"CDMA/EvDo/GSM/WCDMA"</item>
-    <item msgid="545430093607698090">"EvDo ಮಾತ್ರ"</item>
-    <item msgid="1508557726283094448">"EvDo ಇಲ್ಲದೆ CDMA"</item>
-    <item msgid="4341433122263841224">"CDMA/EvDo ಸ್ವಯಂ"</item>
-    <item msgid="5958053792390386668">"GSM/WCDMA  ಸ್ವಯಂ"</item>
-    <item msgid="7913148405605373434">"WCDMA ಮಾತ್ರ"</item>
-    <item msgid="1524224863879435516">"GSM ಮಾತ್ರ"</item>
-    <item msgid="3817924849415716259">"GSM/WCDMA ಗೆ ಪ್ರಾಶಸ್ತ್ಯ ನೀಡಲಾಗಿದೆ"</item>
-  </string-array>
+    <string name="preferred_network_mode_tdscdma_wcdma_summary" msgid="2405154895437348623">"ಬಯಸಿದ ನೆಟ್‌ವರ್ಕ್‌ ಮೋಡ್‌‌: TDSCDMA / WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_summary" msgid="2104702896644235637">"ಬಯಸಿದ ನೆಟ್‌ವರ್ಕ್‌ ಮೋಡ್‌‌: LTE / TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_summary" msgid="4893784445338396204">"ಬಯಸಿದ ನೆಟ್‌ವರ್ಕ್‌ ಮೋಡ್‌‌: TDSCDMA / GSM"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_summary" msgid="1815169717046729757">"ಬಯಸಿದ ನೆಟ್‌ವರ್ಕ್‌ ಮೋಡ್‌‌: LTE/GSM/TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_wcdma_summary" msgid="2195358773359424099">"ಬಯಸಿದ ನೆಟ್‌ವರ್ಕ್‌ ಮೋಡ್‌‌: TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_wcdma_summary" msgid="1181424059695667803">"ಬಯಸಿದ ನೆಟ್‌ವರ್ಕ್‌ ಮೋಡ್‌‌: LTE/TDSCDMA/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_wcdma_summary" msgid="2526539326505354382">"ಬಯಸಿದ ನೆಟ್‌ವರ್ಕ್‌ ಮೋಡ್‌‌: LTE/TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="8195248059196614939">"ಬಯಸಿದ ನೆಟ್‌ವರ್ಕ್‌ ಮೋಡ್‌‌: TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="5596733053095592791">"ಬಯಸಿದ ನೆಟ್‌ವರ್ಕ್‌ ಮೋಡ್‌‌: LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
     <string name="call_category" msgid="5863978196309462052">"ಕರೆಮಾಡಲಾಗುತ್ತಿದೆ"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"ನೆಟ್‌ವರ್ಕ್"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"ವರ್ಧಿಸಲಾದ 4G LTE ಮೋಡ್"</string>
@@ -218,14 +243,16 @@
     <string name="roaming" msgid="7894878421600247140">"ರೋಮಿಂಗ್"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"ರೋಮಿಂಗ್‌ನಲ್ಲಿರುವಾಗ ಡೇಟಾ ಸೇವೆಗಳಿಗೆ ಸಂಪರ್ಕಿಸು"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"ರೋಮಿಂಗ್‌ನಲ್ಲಿರುವಾಗ ಡೇಟಾ ಸೇವೆಗಳಿಗೆ ಸಂಪರ್ಕಿಸು"</string>
-    <string name="roaming_reenable_message" msgid="8913735676127858115">"ಡೇಟಾ ರೋಮಿಂಗ್ ಅನ್ನು ಆಫ್‌ ಮಾಡಿರುವ ಸ್ಥಿತಿಯಲ್ಲಿ ನಿಮ್ಮ ಮುಖಪುಟ‌ ನೆಟ್‌ವರ್ಕ್‌ ಅನ್ನು ನೀವು ಇರಿಸಿರುವ ಕಾರಣ ನೀವು ಡೇಟಾ ಸಂಪರ್ಕವನ್ನು ಕಳೆದುಕೊಂಡಿರುವಿರಿ."</string>
+    <string name="roaming_reenable_message" msgid="6843814381576397939">"ಡೇಟಾ ರೋಮಿಂಗ್ ಆಫ್ ಮಾಡಲಾಗಿದೆ. ಆನ್ ಮಾಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ."</string>
+    <string name="roaming_notification_title" msgid="4749053220884743110">"ಮೊಬೈಲ್ ಡೇಟಾ ಸಂಪರ್ಕ ಕಡಿತಗೊಂಡಿದೆ"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"ನೀವು ಗಣನೀಯವಾಗಿ ಶುಲ್ಕಗಳನ್ನು ತೆರಬೇಕಾಗಬಹುದು."</string>
+    <string name="roaming_check_price_warning" msgid="7497570906830902550">"ಬೆಲೆ ನಿಗದಿಗಾಗಿ ನಿಮ್ಮ ನೆಟ್‌ವರ್ಕ್ ಒದಗಿಸುವವರೊಂದಿಗೆ ಪರಿಶೀಲಿಸಿ."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"ಡೇಟಾ ರೋಮಿಂಗ್ ಅನುಮತಿಸುವುದೇ?"</string>
-    <string name="data_usage_title" msgid="8759619109516889802">"ಡೇಟಾ ಬಳಕೆ"</string>
+    <string name="data_usage_title" msgid="4042209259808900283">"ಅಪ್ಲಿಕೇಶನ್‌ ಡೇಟಾ ಬಳಕೆ"</string>
     <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_1">%1$s</xliff:g> ಬಳಸಲಾದ ಮೊಬೈಲ್ ಡೇಟಾ <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="8074895510265488035">"ಸುಧಾರಿತ"</string>
     <string name="carrier_settings_euicc" msgid="6714062862127226405">"ವಾಹಕ"</string>
-    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"carrier, esim, sim, euicc"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="6861505396475991277">"ವಾಹಕ, eSIM, ಸಿಮ್, euicc ವಾಹಕಗಳನ್ನು ಬದಲಿಸಿ, ವಾಹಕ ಸೇರಿಸಿ"</string>
     <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="mobile_data_settings_title" msgid="4661165467914727157">"ಮೊಬೈಲ್ ಡೇಟಾ"</string>
     <string name="mobile_data_settings_summary" msgid="5087255915840576895">"ಮೊಬೈಲ್ ನೆಟ್‌ವರ್ಕ್‌ ಬಳಸಿ ಡೇಟಾ ಪ್ರವೇಶಿಸಿ"</string>
@@ -399,7 +426,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"ಸ್ಥಿರ ಡಯಲಿಂಗ್‌‌ ಸಂಖ್ಯೆಯನ್ನು ಅಳಿಸಲಾಗುತ್ತಿದೆ…"</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"ಸ್ಥಿರ ಡಯಲಿಂಗ್ ಸಂಖ್ಯೆಯನ್ನು ಅಳಿಸಲಾಗಿದೆ."</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"ನೀವು ತಪ್ಪಾದ ಪಿನ್‌ ಟೈಪ್‌ ಮಾಡಿರುವ ಕಾರಣ ಎಫ್‌ಡಿಎನ್‌ ಅನ್ನು ನವೀಕರಿಸಲಾಗಲಿಲ್ಲ."</string>
-    <string name="fdn_invalid_number" msgid="8602417141715473998">"ಸಂಖ್ಯೆಯು ಖಾಲಿ ಇರುವುದರಿಂದ ಅಥವಾ 20 ಅಂಕಿಗಳನ್ನು ಮೀರುವುದರಿಂದಾಗಿ ಎಫ್‌ಡಿಎನ್‌ ಅನ್ನು ಅಪ್‌ಡೇಟ್ ಮಾಡಲಾಗಿಲ್ಲ."</string>
+    <string name="fdn_invalid_number" msgid="2062898833049589309">"ಸಂಖ್ಯೆಯು 20 ಅಂಕೆಗಳನ್ನು ಮೀರಿರುವುದರಿಂದ FDN ಅನ್ನು ಅಪ್‌ಡೇಟ್ ಮಾಡಲಾಗಿಲ್ಲ."</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"ಎಫ್‌ಡಿಎನ್‌ ಅನ್ನು ನವೀಕರಿಸಲಾಗಲಿಲ್ಲ. PIN2 ತಪ್ಪಾಗಿದೆ ಅಥವಾ ಫೋನ್ ಸಂಖ್ಯೆಯನ್ನು ತಿರಸ್ಕರಿಸಲಾಗಿದೆ."</string>
     <string name="fdn_failed" msgid="540018079008319747">"ಎಫ್‌ಡಿಎನ್‌ ಕಾರ್ಯಾಚರಣೆ ವಿಫಲವಾಗಿದೆ."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"ಸಿಮ್‌ ಕಾರ್ಡ್‌ನಿಂದ ಓದಲಾಗುತ್ತಿದೆ…"</string>
@@ -482,6 +509,7 @@
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"ತುರ್ತು ಕರೆ ಸಮಯದಲ್ಲಿ ಏರ್‌ಪ್ಲೇನ್ ಮೋಡ್‌ಗೆ ಪ್ರವೇಶಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"ಕರೆ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> ಇದು ತುರ್ತು ಸಂಖ್ಯೆಯಲ್ಲ."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"ಕರೆ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ. ತುರ್ತು ಸಂಖ್ಯೆಯನ್ನು ಡಯಲ್ ಮಾಡಿ."</string>
+    <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"ತುರ್ತು ಕರೆ ಮಾಡುವಿಕೆ ಲಭ್ಯವಿಲ್ಲ"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"ಡಯಲ್‌ ಮಾಡಲು ಕೀಬೋರ್ಡ್‌ ಬಳಸಿ"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"ಹೋಲ್ಡ್‌‌ ಮಾಡು"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"ಮುಕ್ತಾಯ"</string>
@@ -502,6 +530,9 @@
     <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"ಸಂಪರ್ಕ ಆಮದು ಮಾಡುವಲ್ಲಿ ವಿಫಲವಾಗಿದೆ"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"ಕೇಳುವಿಕೆ ಸಾಧನಗಳು"</string>
     <string name="hac_mode_summary" msgid="6833851160514929341">"ಶ್ರವಣ ಸಾಧನ ಹೊಂದಾಣಿಕೆಯನ್ನು ಆನ್‌ ಮಾಡಿ"</string>
+    <string name="rtt_mode_title" msgid="6954652435543570121">"ನೈಜ-ಸಮಯ ಪಠ್ಯ (RTT) ಕರೆ"</string>
+    <string name="rtt_mode_summary" msgid="5146344277246544580">"ಧ್ವನಿ ಕರೆಯ ಒಳಗೆ ಸಂದೇಶ ಕಳುಹಿಸುವಿಕೆಗೆ ಅನುಮತಿಸಿ"</string>
+    <string name="rtt_mode_more_information" msgid="6080420780730383030">"ಕಿವುಡರು, ಆಲಿಸುವಿಕೆಯ ದೋಷಗಳನ್ನು ಹೊಂದಿದವರು, ಮಾತನಾಡುವಿಕೆಯಲ್ಲಿ ದೋಷಗಳನ್ನು ಹೊಂದಿದವರು ಅಥವಾ ಧ್ವನಿ ಮೀರಿ ಬೇರೆ ರೀತಿಯಲ್ಲಿ ಕರೆ ಮಾಡಲು ಕಠಿಣರಾಗಿರುವವರಿಗೆ RTT ಮೋಡ್ ಸಹಾಯ ಮಾಡುತ್ತದೆ.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ&lt;/a&gt;\n   &lt;br&gt;&lt;br&gt; - RTT ಕರೆಗಳನ್ನು ಸಂದೇಶ ಪ್ರತಿಲಿಪಿಗಳಂತೆ ಉಳಿಸಲಾಗಿದೆ \n    &lt;br&gt; - ವೀಡಿಯೊ ಕರೆಗಳಿಗೆ RTT ಲಭ್ಯವಿಲ್ಲ"</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"TTY ಆಫ್"</item>
     <item msgid="3971695875449640648">"TTY ಪೂರ್ಣ"</item>
@@ -613,4 +644,107 @@
     <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> ಮೂಲಕ ನೀವು ಡೇಟಾ ಸೇರಿಸಬೇಕಾಗಬಹುದು"</string>
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"ಡೇಟಾ ಸೇರಿಸಿ"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ರದ್ದುಮಾಡಿ"</string>
+    <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"ಕರೆ ಅಂತ್ಯಗೊಂಡಿದೆ"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"ರೇಡಿಯೋ ಆಫ್ ಮಾಡಿ"</string>
+    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"ಯಾವುದೇ ಸಿಮ್‌ ಇಲ್ಲ ಅಥವಾ ಸಿಮ್ ಕಾರ್ಡ್ ದೋಷ"</string>
+    <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"ಮೊಬೈಲ್ ನೆಟ್‌ವರ್ಕ್ ಲಭ್ಯವಿಲ್ಲ"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"ನಿಯೋಜಿಸದಿರುವ (ಹಂಚದ) ಸಂಖ್ಯೆ"</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"ಗಮ್ಯಸ್ಥಾನಕ್ಕೆ ಯಾವುದೇ ಮಾರ್ಗವಿಲ್ಲ"</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"ಚಾನಲ್ ಅನ್ನು ಅಂಗೀಕರಿಸಿಲ್ಲ"</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"ಆಪರೇಟರ್ ಬಾರಿಂಗ್‌ ಅನ್ನು ಪತ್ತೆ ಹಚ್ಚುತ್ತದೆ"</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"ಸಾಮಾನ್ಯ ಕರೆಯನ್ನು ತೆರವುಗೊಳಿಸಲಾಗುತ್ತಿದೆ"</string>
+    <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"ಬಳಕೆದಾರರು ಕಾರ್ಯನಿರತರಾಗಿದ್ದಾರೆ"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"ಯಾವುದೇ ಬಳಕೆದಾರರು ಪ್ರತಿಕ್ರಿಯಿಸುತ್ತಿಲ್ಲ"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"ಬಳಕೆದಾರರನ್ನು ಎಚ್ಚರಿಸುವುದು, ಯಾವುದೇ ಉತ್ತರವಿಲ್ಲ"</string>
+    <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"ಕರೆಯನ್ನು ತಿರಸ್ಕರಿಸಲಾಗಿದೆ"</string>
+    <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"ಸಂಖ್ಯೆಯನ್ನು ಬದಲಾಯಿಸಲಾಗಿದೆ"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"ಮುಂಗಡ-ಎಂಪ್ಷನ್"</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"ಆಯ್ಕೆ ಆಗದಿರುವ ಬಳಕೆದಾರರನ್ನು ತೆರವುಗೊಳಿಸಲಾಗುತ್ತಿದೆ"</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"ಗಮ್ಯಸ್ಥಾನವು ಆದೇಶವನ್ನು ಹೊಂದಿಲ್ಲ"</string>
+    <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"ಅಮಾನ್ಯ ಸಂಖ್ಯೆ ಸ್ವರೂಪ (ಅಪೂರ್ಣ ಸಂಖ್ಯೆ)"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"ಸೌಲಭ್ಯಗಳನ್ನು ತಿರಸ್ಕರಿಸಲಾಗಿದೆ"</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"STATUS ENQUIRY ಗೆ ಪ್ರತಿಕ್ರಿಯಿಸಿ"</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"ಸಾಮಾನ್ಯ, ನಿರ್ದಿಷ್ಟಪಡಿಸದ"</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"ಯಾವುದೇ ಸರ್ಕ್ಯೂಟ್/ಚಾನಲ್ ಲಭ್ಯವಿಲ್ಲ"</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"ನೆಟ್‌ವರ್ಕ್‌ ಆದೇಶವನ್ನು ಹೊಂದಿಲ್ಲ"</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"ತಾತ್ಕಾಲಿಕ ವೈಫಲ್ಯ"</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"ಸಲಕರಣೆ ದಟ್ಟಣೆಯನ್ನು ಬದಲಾಯಿಸಲಾಗುತ್ತಿದೆ"</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"ಪ್ರವೇಶ ಮಾಹಿತಿಯನ್ನು ತ್ಯಜಿಸಲಾಗಿದೆ"</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"ವಿನಂತಿಸಿದ ಸರ್ಕ್ಯೂಟ್ / ಚಾನಲ್ ಲಭ್ಯವಿಲ್ಲ"</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"ಸಂಪನ್ಮೂಲಗಳು ಲಭ್ಯವಿಲ್ಲ, ನಿರ್ದಿಷ್ಟಪಡಿಸಲಾಗಿಲ್ಲ"</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"ಸೇವೆಯ ಗುಣಮಟ್ಟ ಲಭ್ಯವಿಲ್ಲ"</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"ವಿನಂತಿಸಿದ ಸೌಲಭ್ಯವನ್ನು ಸಬ್‌ಸ್ಕ್ರೈಬ್ ಮಾಡಲಾಗಿದೆ"</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"CUG ಒಳಗೆ ಒಳಬರುವ ಕರೆಗಳನ್ನು ತಡೆಹಿಡಿಯಲಾಗಿದೆ"</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"ಬೇರರ್ ಸಾಮರ್ಥ್ಯವನ್ನು ದೃಢೀಕರಿಸಿಲ್ಲ"</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"ಬೇರರ್ ಸಾಮರ್ಥ್ಯವು ಪ್ರಸ್ತುತ ಲಭ್ಯವಿಲ್ಲ"</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"ಸೇವೆ ಅಥವಾ ಆಯ್ಕೆ ಲಭ್ಯವಿಲ್ಲ, ನಿರ್ದಿಷ್ಟಪಡಿಸಲಾಗಿಲ್ಲ"</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"ಬೇರರ್ ಸೇವೆಯನ್ನು ಕಾರ್ಯಗತಗೊಳಿಸಿಲ್ಲ"</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM ACMmax ಗೆ ಸಮ ಅಥವಾ ಅದಕ್ಕಿಂತ ಹೆಚ್ಚು"</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"ವಿನಂತಿಸಿದ ಸೌಲಭ್ಯಗಳು ಅನುಷ್ಠಾನಗೊಂಡಿಲ್ಲ"</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"ನಿರ್ಬಂಧಿತ ಡಿಜಿಟಲ್ ಮಾಹಿತಿ ಬೇರರ್ ಸಾಮರ್ಥ್ಯ ಮಾತ್ರ ಲಭ್ಯವಿದೆ"</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"ಸೇವೆ ಅಥವಾ ಆಯ್ಕೆ ಅನುಷ್ಠಾನಗೊಳಿಸಿಲ್ಲ, ನಿರ್ದಿಷ್ಟಪಡಿಸಲಾಗಿಲ್ಲ"</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"ಅಮಾನ್ಯ ವಹಿವಾಟು ಗುರುತಿಸುವಿಕೆಯ ಮೌಲ್ಯ"</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"ಬಳಕೆದಾರರು CUG ಯ ಸದಸ್ಯರಲ್ಲ"</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"ಹೊಂದಿಕೆಯಾಗದ ಗಮ್ಯಸ್ಥಾನ"</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"ಅಮಾನ್ಯ ಸಾರಿಗೆ ನೆಟ್‌ವರ್ಕ್‌ ಆಯ್ಕೆ"</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"ಅರ್ಥಾತ್ ತಪ್ಪಾದ ಸಂದೇಶ"</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"ಅಮಾನ್ಯ ಕಡ್ಡಾಯ ಮಾಹಿತಿ"</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"ಸಂದೇಶದ ಪ್ರಕಾರವು ಅಸ್ತಿತ್ವದಲ್ಲಿಲ್ಲ ಅಥವಾ ಅನುಷ್ಠಾನಗೊಂಡಿಲ್ಲ"</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"ಸಂದೇಶ ಪ್ರಕಾರವು ಪ್ರೊಟೊಕಾಲ್ ಸ್ಥಿತಿಯೊಂದಿಗೆ ಹೊಂದಿಕೆಯಾಗುವುದಿಲ್ಲ"</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"ಮಾಹಿತಿ ಅಂಶವು ಅಸ್ತಿತ್ವದಲ್ಲಿಲ್ಲ ಅಥವಾ ಅನುಷ್ಠಾನಗೊಂಡಿಲ್ಲ"</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"ಷರತ್ತುಬದ್ಧ IE ದೋಷ"</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"ಪ್ರೊಟೊಕಾಲ್ ಸ್ಥಿತಿಯೊಂದಿಗೆ ಸಂದೇಶವು ಹೊಂದಾಣಿಕೆಯಾಗುವುದಿಲ್ಲ"</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"ಮರುಪಡುವಿಕೆಯ ಮುಕ್ತಾಯ ಸಮಯ"</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"ಪ್ರೊಟೊಕಾಲ್ ದೋಷ, ನಿರ್ದಿಷ್ಟಪಡಿಸಲಾಗದ್ದು"</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"ಇಂಟರ್‌ವರ್ಕಿಂಗ್, ನಿರ್ದಿಷ್ಟಪಡಿಸಲಾಗದ್ದು"</string>
+    <string name="labelCallBarring" msgid="3452870940716226978">"ಕರೆ ನಿಷೇಧಿಸುವಿಕೆ"</string>
+    <string name="sum_call_barring_enabled" msgid="6804489690436703488">"ಆನ್"</string>
+    <string name="sum_call_barring_disabled" msgid="5900772179198857783">"ಆಫ್"</string>
+    <string name="call_barring_baoc" msgid="1199843944333106035">"ಎಲ್ಲಾ ಹೊರಹೋಗುವ ಕರೆಗಳು"</string>
+    <string name="call_barring_baoc_enabled" msgid="8112118391869380361">"ಎಲ್ಲಾ ಹೊರಹೋಗುವ ಕರೆಗಳ ನಿರ್ಬಂಧನೆಯನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸುವುದೇ?"</string>
+    <string name="call_barring_baoc_disabled" msgid="7806697133004697974">"ಎಲ್ಲಾ ಹೊರಹೋಗುವ ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸುವುದೇ?"</string>
+    <string name="call_barring_baoic" msgid="3162154267825211826">"ಹೊರಹೋಗುವ ಅಂತಾರಾಷ್ಟ್ರೀಯ ಕರೆಗಳು"</string>
+    <string name="call_barring_baoic_enabled" msgid="2634377543147258105">"ಹೊರಹೋಗುವ ಅಂತಾರಾಷ್ಟ್ರೀಯ ಕರೆಗಳ ನಿರ್ಬಂಧನೆಯನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸುವುದೇ?"</string>
+    <string name="call_barring_baoic_disabled" msgid="5817895648306183464">"ಹೊರಹೋಗುವ ಅಂತಾರಾಷ್ಟ್ರೀಯ ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸುವುದೇ?"</string>
+    <string name="call_barring_baoicr" msgid="8951699885885742076">"ಹೊರಹೋಗುವ ಅಂತಾರಾಷ್ಟ್ರೀಯ ರೋಮಿಂಗ್ ಕರೆಗಳು"</string>
+    <string name="call_barring_baoicr_enabled" msgid="2519630715322138317">"ಹೊರಹೋಗುವ ಅಂತಾರಾಷ್ಟ್ರೀಯ ರೋಮಿಂಗ್ ಕರೆಗಳ ನಿರ್ಬಂಧನೆಯನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸುವುದೇ?"</string>
+    <string name="call_barring_baoicr_disabled" msgid="5831267468931377699">"ಹೊರಹೋಗುವ ಅಂತಾರಾಷ್ಟ್ರೀಯ ರೋಮಿಂಗ್ ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸುವುದೇ?"</string>
+    <string name="call_barring_baic" msgid="5272726081458339912">"ಎಲ್ಲಾ ಒಳಬರುವ ಕರೆಗಳು"</string>
+    <string name="call_barring_baic_enabled" msgid="2457134916223203380">"ಎಲ್ಲಾ ಒಳಬರುವ ಕರೆಗಳ ನಿರ್ಬಂಧನೆಯನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸುವುದೇ?"</string>
+    <string name="call_barring_baic_disabled" msgid="6945604947500275636">"ಎಲ್ಲಾ ಒಳಬರುವ ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸುವುದೇ?"</string>
+    <string name="call_barring_baicr" msgid="5728784220691481693">"ಒಳಬರುವ ಅಂತಾರಾಷ್ಟ್ರೀಯ ರೋಮಿಂಗ್ ಕರೆಗಳು"</string>
+    <string name="call_barring_baicr_enabled" msgid="6533336994391716127">"ಎಲ್ಲಾ ಒಳಬರುವ ಅಂತಾರಾಷ್ಟ್ರೀಯ ರೋಮಿಂಗ್ ಕರೆಗಳ ನಿರ್ಬಂಧನೆಯನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸುವುದೇ?"</string>
+    <string name="call_barring_baicr_disabled" msgid="6746329853943256566">"ಒಳಬರುವ ಅಂತಾರಾಷ್ಟ್ರೀಯ ರೋಮಿಂಗ್ ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸುವುದೇ?"</string>
+    <string name="call_barring_deactivate_all" msgid="5269788384941003415">"ಎಲ್ಲಾ ಕರೆಗಳನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ"</string>
+    <string name="call_barring_deactivate_all_description" msgid="4972365443287257704">"ಎಲ್ಲಾ ಕರೆ ನಿಷೇಧಿಸುವಿಕೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ"</string>
+    <string name="call_barring_deactivate_success" msgid="8014685598632000936">"ಕರೆ ನಿಷೇಧಿಸುವಿಕೆ ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ"</string>
+    <string name="call_barring_change_pwd" msgid="6887420609726284232">"ಪಾಸ್‌ವರ್ಡ್ ಬದಲಿಸಿ"</string>
+    <string name="call_barring_change_pwd_description" msgid="5505087790260233953">"ಕರೆ ನಿಷೇಧಿಸುವಿಕೆ ಪಾಸ್‌ವರ್ಡ್ ಅನ್ನು ಬದಲಾಯಿಸಿ"</string>
+    <string name="call_barring_change_pwd_description_disabled" msgid="7630770327645349957">"ಕರೆ ನಿಷೇಧಿಸುವಿಕೆ ಪಾಸ್‌ವರ್ಡ್ ಅನ್ನು ಬದಲಾಯಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
+    <string name="call_barring_pwd_not_match" msgid="6716711689350314525">"ಪಾಸ್‌ವರ್ಡ್‌ಗಳು ಹೊಂದಿಕೆಯಾಗುತ್ತಿಲ್ಲ"</string>
+    <string name="call_barring_right_pwd_number" msgid="2902966502520410446">"4 ಸಂಖ್ಯೆಯ ಪಾಸ್‌ವರ್ಡ್‌ ನಮೂದಿಸಿ"</string>
+    <string name="call_barring_change_pwd_success" msgid="3278310763742760321">"ಪಾಸ್‌ವರ್ಡ್ ಬದಲಾವಣೆಯಾಗಿದೆ"</string>
+    <string name="call_barring_old_pwd" msgid="6080515987320238522">"ಹಳೆಯ ಪಾಸ್‌ವರ್ಡ್‌"</string>
+    <string name="call_barring_new_pwd" msgid="7048532299150269547">"ಹೊಸ ಪಾಸ್‌ವರ್ಡ್"</string>
+    <string name="call_barring_confirm_pwd" msgid="1947167278466285411">"ಪಾಸ್‌ವರ್ಡ್‌ ದೃಢೀಕರಿಸಿ"</string>
+    <string name="messageCallBarring" msgid="2412123220272136055">"ಪಾಸ್‌ವರ್ಡ್ ನಮೂದಿಸಿ"</string>
+    <string name="call_barring_settings" msgid="80766145008623645">"ಕರೆ ನಿಷೇಧಿಸುವಿಕೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
+    <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"ಎಲ್ಲಾ ಕರೆ ನಿಷೇಧಿಸುವಿಕೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸುವುದೇ?"</string>
+    <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"ಕರೆ ಫಾರ್ವರ್ಡ್ ಮಾಡಲಾಗಿದೆ."</string>
+    <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"ಕರೆಯನ್ನು ಫಾರ್ವರ್ಡ್ ಮಾಡಲಾಗಿದೆ."</string>
+    <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"ಕರೆಯು ನಿರೀಕ್ಷಣೆಯಲ್ಲಿದೆ."</string>
+    <string name="supp_service_clir_suppression_rejected" msgid="1581851661582189045">"ಸಂಖ್ಯೆ ನಿರ್ಬಂಧಿಸುವಿಕೆಯನ್ನು ತಿರಸ್ಕರಿಸಲಾಗಿದೆ."</string>
+    <string name="supp_service_closed_user_group_call" msgid="5761735840904590950">"ಮುಚ್ಚಿದ ಬಳಕೆದಾರ ಗುಂಪು ಕರೆ."</string>
+    <string name="supp_service_incoming_calls_barred" msgid="3248813207307882723">"ಒಳಬರುವ ಕರೆಗಳನ್ನು ನಿಷೇಧಿಸಲಾಗಿದೆ."</string>
+    <string name="supp_service_outgoing_calls_barred" msgid="1962644621292054081">"ಹೊರಹೋಗುವ ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ."</string>
+    <string name="supp_service_call_forwarding_active" msgid="1253134771682248735">"ಕರೆ ಫಾರ್ವರ್ಡ್‌ ಮಾಡುವಿಕೆ ಸಕ್ರಿಯಗೊಂಡಿದೆ."</string>
+    <string name="supp_service_additional_call_forwarded" msgid="5228624725214727315">"ಹೆಚ್ಚುವರಿ ಕರೆಯನ್ನು ಫರ್ವರ್ಡ್‌ ಮಾಡಲಾಗಿದೆ."</string>
+    <string name="supp_service_additional_ect_connected" msgid="6396964292513707102">"ಸುಸ್ಪಷ್ಟ ಕರೆ ವರ್ಗಾವಣೆಯು ಪೂರ್ಣಗೊಂಡಿದೆ."</string>
+    <string name="supp_service_additional_ect_connecting" msgid="5443373059716058480">"ಸುಸ್ಪಷ್ಟ ಕರೆ ವರ್ಗಾವಣೆಯು ಪ್ರಕ್ರಿಯೆಯಲ್ಲಿದೆ."</string>
+    <string name="supp_service_call_on_hold" msgid="1478976782361795422">"ಕರೆ ಹೋಲ್ಡ್‌ ಮಾಡಲಾಗಿದೆ."</string>
+    <string name="supp_service_call_resumed" msgid="1656475289958070674">"ಕರೆಯನ್ನು ಪುನರಾರಂಭಿಸಲಾಗಿದೆ."</string>
+    <string name="supp_service_deflected_call" msgid="138970419873492166">"ಕರೆಯನ್ನು ಫಾರ್ವರ್ಡ್‌ ಮಾಡಲಾಗಿದೆ."</string>
+    <string name="supp_service_forwarded_call" msgid="4509980341645679803">"ಫಾರ್ವರ್ಡ್ ಮಾಡಲಾದ ಕರೆ."</string>
+    <string name="supp_service_conference_call" msgid="4448616364004466832">"ಕಾನ್ಫರೆನ್ಸ್ ಕರೆಗೆ ಸೇರಿಕೊಳ್ಳುತ್ತಿದ್ದಾರೆ."</string>
+    <string name="supp_service_held_call_released" msgid="2030677825038709779">"ಹೋಲ್ಡ್‌ ಮಾಡಿದ ಕರೆಯನ್ನು ಕಡಿತಗೊಳಿಸಲಾಗಿದೆ."</string>
 </resources>

@@ -19,8 +19,8 @@
 #include "builder.h"
 #include "code_generator.h"
 #include "code_generator_x86.h"
-#include "dex_file.h"
-#include "dex_instruction.h"
+#include "dex/dex_file.h"
+#include "dex/dex_instruction.h"
 #include "driver/compiler_options.h"
 #include "nodes.h"
 #include "optimizing_unit_test.h"
@@ -29,7 +29,10 @@
 
 namespace art {
 
-class LivenessTest : public CommonCompilerTest {};
+class LivenessTest : public OptimizingUnitTest {
+ protected:
+  void TestCode(const std::vector<uint16_t>& data, const char* expected);
+};
 
 static void DumpBitVector(BitVector* vector,
                           std::ostream& buffer,
@@ -43,16 +46,14 @@ static void DumpBitVector(BitVector* vector,
   buffer << ")\n";
 }
 
-static void TestCode(const uint16_t* data, const char* expected) {
-  ArenaPool pool;
-  ArenaAllocator allocator(&pool);
-  HGraph* graph = CreateCFG(&allocator, data);
+void LivenessTest::TestCode(const std::vector<uint16_t>& data, const char* expected) {
+  HGraph* graph = CreateCFG(data);
   // `Inline` conditions into ifs.
   PrepareForRegisterAllocation(graph).Run();
   std::unique_ptr<const X86InstructionSetFeatures> features_x86(
       X86InstructionSetFeatures::FromCppDefines());
   x86::CodeGeneratorX86 codegen(graph, *features_x86.get(), CompilerOptions());
-  SsaLivenessAnalysis liveness(graph, &codegen);
+  SsaLivenessAnalysis liveness(graph, &codegen, GetScopedAllocator());
   liveness.Analyze();
 
   std::ostringstream buffer;
@@ -85,7 +86,7 @@ TEST_F(LivenessTest, CFG1) {
     "  kill: (0)\n";
 
   // Constant is not used.
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::RETURN_VOID);
 
@@ -107,7 +108,7 @@ TEST_F(LivenessTest, CFG2) {
     "  live out: (0)\n"
     "  kill: (0)\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::RETURN);
 
@@ -133,7 +134,7 @@ TEST_F(LivenessTest, CFG3) {
     "  live out: (000)\n"
     "  kill: (000)\n";
 
-  const uint16_t data[] = TWO_REGISTERS_CODE_ITEM(
+  const std::vector<uint16_t> data = TWO_REGISTERS_CODE_ITEM(
     Instruction::CONST_4 | 3 << 12 | 0,
     Instruction::CONST_4 | 4 << 12 | 1 << 8,
     Instruction::ADD_INT_2ADDR | 1 << 12,
@@ -180,7 +181,7 @@ TEST_F(LivenessTest, CFG4) {
     "  live out: (0000)\n"
     "  kill: (0000)\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 4,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -227,7 +228,7 @@ TEST_F(LivenessTest, CFG5) {
     "  live out: (000)\n"
     "  kill: (000)\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 3,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -272,7 +273,7 @@ TEST_F(LivenessTest, Loop1) {
     "  kill: (000)\n";
 
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 4,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -317,7 +318,7 @@ TEST_F(LivenessTest, Loop3) {
     "  live out: (0000)\n"
     "  kill: (0000)\n";
 
-  const uint16_t data[] = TWO_REGISTERS_CODE_ITEM(
+  const std::vector<uint16_t> data = TWO_REGISTERS_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 4,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -369,7 +370,7 @@ TEST_F(LivenessTest, Loop4) {
     "  live out: (000)\n"
     "  kill: (000)\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::GOTO | 0x500,
     Instruction::IF_EQ, 5,
@@ -424,7 +425,7 @@ TEST_F(LivenessTest, Loop5) {
     "  live out: (0001)\n"
     "  kill: (0001)\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 4,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -474,7 +475,7 @@ TEST_F(LivenessTest, Loop6) {
     "  live out: (0000)\n"
     "  kill: (0000)\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 8,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -529,7 +530,7 @@ TEST_F(LivenessTest, Loop7) {
     "  live out: (00000)\n"
     "  kill: (00000)\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 8,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -579,7 +580,7 @@ TEST_F(LivenessTest, Loop8) {
     "  live out: (000)\n"
     "  kill: (000)\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 6,
     Instruction::ADD_INT, 0, 0,

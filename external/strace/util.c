@@ -6,7 +6,7 @@
  * Copyright (c) 1999 IBM Deutschland Entwicklung GmbH, IBM Corporation
  *                     Linux for s390 port by D.J. Barrow
  *                    <barrow_dj@mail.yahoo.com,djbarrow@de.ibm.com>
- * Copyright (c) 1999-2017 The strace developers.
+ * Copyright (c) 1999-2018 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,50 +33,14 @@
  */
 
 #include "defs.h"
-#include <sys/param.h>
+#include <limits.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #ifdef HAVE_SYS_XATTR_H
 # include <sys/xattr.h>
 #endif
 #include <sys/uio.h>
-#include <asm/unistd.h>
-
-#include "scno.h"
-#include "regs.h"
-#include "ptrace.h"
-
-int
-string_to_uint_ex(const char *const str, char **const endptr,
-		  const unsigned int max_val, const char *const accepted_ending)
-{
-	char *end;
-	long val;
-
-	if (!*str)
-		return -1;
-
-	errno = 0;
-	val = strtol(str, &end, 10);
-
-	if (str == end || val < 0 || (unsigned long) val > max_val
-	    || (val == LONG_MAX && errno == ERANGE))
-		return -1;
-
-	if (*end && (!accepted_ending || !strchr(accepted_ending, *end)))
-		return -1;
-
-	if (endptr)
-		*endptr = end;
-
-	return (int) val;
-}
-
-int
-string_to_uint(const char *const str)
-{
-	return string_to_uint_upto(str, INT_MAX);
-}
+#include "xstring.h"
 
 int
 tv_nz(const struct timeval *a)
@@ -381,15 +345,9 @@ sprinttime_ex(const long long sec, const unsigned long long part_sec,
 	if (!pos)
 		return NULL;
 
-	if (part_sec > 0) {
-		int ret = snprintf(buf + pos, sizeof(buf) - pos, ".%0*llu",
-				   width, part_sec);
-
-		if (ret < 0 || (size_t) ret >= sizeof(buf) - pos)
-			return NULL;
-
-		pos += ret;
-	}
+	if (part_sec > 0)
+		pos += xsnprintf(buf + pos, sizeof(buf) - pos, ".%0*llu",
+				 width, part_sec);
 
 	return strftime(buf + pos, sizeof(buf) - pos, "%z", tmp) ? buf : NULL;
 }
@@ -424,7 +382,7 @@ getfdproto(struct tcb *tcp, int fd)
 	if (fd < 0)
 		return SOCK_PROTO_UNKNOWN;
 
-	sprintf(path, "/proc/%u/fd/%u", tcp->pid, fd);
+	xsprintf(path, "/proc/%u/fd/%u", tcp->pid, fd);
 	r = getxattr(path, "system.sockprotoname", buf, bufsize - 1);
 	if (r <= 0)
 		return SOCK_PROTO_UNKNOWN;
@@ -539,6 +497,8 @@ string_quote(const char *instr, char *outstr, const unsigned int size,
 		}
 	}
 
+	if (style & QUOTE_EMIT_COMMENT)
+		s = stpcpy(s, " /* ");
 	if (!(style & QUOTE_OMIT_LEADING_TRAILING_QUOTES))
 		*s++ = '\"';
 
@@ -618,6 +578,8 @@ string_quote(const char *instr, char *outstr, const unsigned int size,
 
 	if (!(style & QUOTE_OMIT_LEADING_TRAILING_QUOTES))
 		*s++ = '\"';
+	if (style & QUOTE_EMIT_COMMENT)
+		s = stpcpy(s, " */");
 	*s = '\0';
 
 	/* Return zero if we printed entire ASCIZ string (didn't truncate it) */
@@ -633,6 +595,8 @@ string_quote(const char *instr, char *outstr, const unsigned int size,
  asciz_ended:
 	if (!(style & QUOTE_OMIT_LEADING_TRAILING_QUOTES))
 		*s++ = '\"';
+	if (style & QUOTE_EMIT_COMMENT)
+		s = stpcpy(s, " */");
 	*s = '\0';
 	/* Return zero: we printed entire ASCIZ string (didn't truncate it) */
 	return 0;
@@ -674,7 +638,8 @@ print_quoted_string(const char *str, unsigned int size,
 		tprints("???");
 		return -1;
 	}
-	alloc_size += 1 + (style & QUOTE_OMIT_LEADING_TRAILING_QUOTES ? 0 : 2);
+	alloc_size += 1 + (style & QUOTE_OMIT_LEADING_TRAILING_QUOTES ? 0 : 2) +
+		(style & QUOTE_EMIT_COMMENT ? 7 : 0);
 
 	if (use_alloca(alloc_size)) {
 		outstr = alloca(alloc_size);
@@ -696,18 +661,38 @@ print_quoted_string(const char *str, unsigned int size,
 }
 
 /*
+ * Quote a NUL-terminated string `str' of length up to `size' - 1
+ * and print the result.
+ *
+ * Returns 0 if NUL was seen, 1 otherwise.
+ */
+int
+print_quoted_cstring(const char *str, unsigned int size)
+{
+	int unterminated =
+		print_quoted_string(str, size, QUOTE_0_TERMINATED);
+
+	if (unterminated)
+		tprints("...");
+
+	return unterminated;
+}
+
+/*
  * Print path string specified by address `addr' and length `n'.
  * If path length exceeds `n', append `...' to the output.
+ *
+ * Returns the result of umovenstr.
  */
-void
+int
 printpathn(struct tcb *const tcp, const kernel_ulong_t addr, unsigned int n)
 {
-	char path[PATH_MAX + 1];
+	char path[PATH_MAX];
 	int nul_seen;
 
 	if (!addr) {
 		tprints("NULL");
-		return;
+		return -1;
 	}
 
 	/* Cap path length to the path buffer size */
@@ -719,18 +704,18 @@ printpathn(struct tcb *const tcp, const kernel_ulong_t addr, unsigned int n)
 	if (nul_seen < 0)
 		printaddr(addr);
 	else {
-		path[n++] = '\0';
-		print_quoted_string(path, n, QUOTE_0_TERMINATED);
-		if (!nul_seen)
-			tprints("...");
+		path[n++] = !nul_seen;
+		print_quoted_cstring(path, n);
 	}
+
+	return nul_seen;
 }
 
-void
+int
 printpath(struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	/* Size must correspond to char path[] size in printpathn */
-	printpathn(tcp, addr, PATH_MAX);
+	return printpathn(tcp, addr, PATH_MAX - 1);
 }
 
 /*
@@ -740,8 +725,11 @@ printpath(struct tcb *const tcp, const kernel_ulong_t addr)
  * Pass `user_style' on to `string_quote'.
  * Append `...' to the output if either the string length exceeds `max_strlen',
  * or QUOTE_0_TERMINATED bit is set and the string length exceeds `len'.
+ *
+ * Returns the result of umovenstr if style has QUOTE_0_TERMINATED,
+ * or the result of umoven otherwise.
  */
-void
+int
 printstr_ex(struct tcb *const tcp, const kernel_ulong_t addr,
 	    const kernel_ulong_t len, const unsigned int user_style)
 {
@@ -755,7 +743,7 @@ printstr_ex(struct tcb *const tcp, const kernel_ulong_t addr,
 
 	if (!addr) {
 		tprints("NULL");
-		return;
+		return -1;
 	}
 	/* Allocate static buffers if they are not allocated yet. */
 	if (!str) {
@@ -782,7 +770,7 @@ printstr_ex(struct tcb *const tcp, const kernel_ulong_t addr,
 
 	if (rc < 0) {
 		printaddr(addr);
-		return;
+		return rc;
 	}
 
 	if (size > max_strlen)
@@ -801,6 +789,8 @@ printstr_ex(struct tcb *const tcp, const kernel_ulong_t addr,
 	tprints(outstr);
 	if (ellipsis)
 		tprints("...");
+
+	return rc;
 }
 
 void
@@ -927,164 +917,6 @@ dumpstr(struct tcb *const tcp, const kernel_ulong_t addr, const int len)
 	}
 }
 
-static bool process_vm_readv_not_supported;
-
-#ifndef HAVE_PROCESS_VM_READV
-/*
- * Need to do this since process_vm_readv() is not yet available in libc.
- * When libc is be updated, only "static bool process_vm_readv_not_supported"
- * line should remain.
- */
-/* Have to avoid duplicating with the C library headers. */
-static ssize_t strace_process_vm_readv(pid_t pid,
-		 const struct iovec *lvec,
-		 unsigned long liovcnt,
-		 const struct iovec *rvec,
-		 unsigned long riovcnt,
-		 unsigned long flags)
-{
-	return syscall(__NR_process_vm_readv, (long)pid, lvec, liovcnt, rvec, riovcnt, flags);
-}
-# define process_vm_readv strace_process_vm_readv
-#endif /* !HAVE_PROCESS_VM_READV */
-
-static ssize_t
-vm_read_mem(const pid_t pid, void *const laddr,
-	    const kernel_ulong_t raddr, const size_t len)
-{
-	const unsigned long truncated_raddr = raddr;
-
-	if (raddr != (kernel_ulong_t) truncated_raddr) {
-		errno = EIO;
-		return -1;
-	}
-
-	const struct iovec local = {
-		.iov_base = laddr,
-		.iov_len = len
-	};
-	const struct iovec remote = {
-		.iov_base = (void *) truncated_raddr,
-		.iov_len = len
-	};
-
-	return process_vm_readv(pid, &local, 1, &remote, 1, 0);
-}
-
-/*
- * move `len' bytes of data from process `pid'
- * at address `addr' to our space at `our_addr'
- */
-int
-umoven(struct tcb *const tcp, kernel_ulong_t addr, unsigned int len,
-       void *const our_addr)
-{
-	char *laddr = our_addr;
-	int pid = tcp->pid;
-	unsigned int n, m, nread;
-	union {
-		long val;
-		char x[sizeof(long)];
-	} u;
-
-#if ANY_WORDSIZE_LESS_THAN_KERNEL_LONG
-	if (current_wordsize < sizeof(addr)
-	    && (addr & (~(kernel_ulong_t) -1U))) {
-		return -1;
-	}
-#endif
-
-	if (!process_vm_readv_not_supported) {
-		int r = vm_read_mem(pid, laddr, addr, len);
-		if ((unsigned int) r == len)
-			return 0;
-		if (r >= 0) {
-			error_msg("umoven: short read (%u < %u) @0x%" PRI_klx,
-				  (unsigned int) r, len, addr);
-			return -1;
-		}
-		switch (errno) {
-			case ENOSYS:
-				process_vm_readv_not_supported = 1;
-				break;
-			case EPERM:
-				/* operation not permitted, try PTRACE_PEEKDATA */
-				break;
-			case ESRCH:
-				/* the process is gone */
-				return -1;
-			case EFAULT: case EIO:
-				/* address space is inaccessible */
-				return -1;
-			default:
-				/* all the rest is strange and should be reported */
-				perror_msg("process_vm_readv");
-				return -1;
-		}
-	}
-
-	nread = 0;
-	if (addr & (sizeof(long) - 1)) {
-		/* addr not a multiple of sizeof(long) */
-		n = addr & (sizeof(long) - 1);	/* residue */
-		addr &= -sizeof(long);		/* aligned address */
-		errno = 0;
-		u.val = ptrace(PTRACE_PEEKDATA, pid, addr, 0);
-		switch (errno) {
-			case 0:
-				break;
-			case ESRCH: case EINVAL:
-				/* these could be seen if the process is gone */
-				return -1;
-			case EFAULT: case EIO: case EPERM:
-				/* address space is inaccessible */
-				return -1;
-			default:
-				/* all the rest is strange and should be reported */
-				perror_msg("umoven: PTRACE_PEEKDATA pid:%d @0x%" PRI_klx,
-					    pid, addr);
-				return -1;
-		}
-		m = MIN(sizeof(long) - n, len);
-		memcpy(laddr, &u.x[n], m);
-		addr += sizeof(long);
-		laddr += m;
-		nread += m;
-		len -= m;
-	}
-	while (len) {
-		errno = 0;
-		u.val = ptrace(PTRACE_PEEKDATA, pid, addr, 0);
-		switch (errno) {
-			case 0:
-				break;
-			case ESRCH: case EINVAL:
-				/* these could be seen if the process is gone */
-				return -1;
-			case EFAULT: case EIO: case EPERM:
-				/* address space is inaccessible */
-				if (nread) {
-					perror_msg("umoven: short read (%u < %u) @0x%" PRI_klx,
-						   nread, nread + len, addr - nread);
-				}
-				return -1;
-			default:
-				/* all the rest is strange and should be reported */
-				perror_msg("umoven: PTRACE_PEEKDATA pid:%d @0x%" PRI_klx,
-					    pid, addr);
-				return -1;
-		}
-		m = MIN(sizeof(long), len);
-		memcpy(laddr, u.x, m);
-		addr += sizeof(long);
-		laddr += m;
-		nread += m;
-		len -= m;
-	}
-
-	return 0;
-}
-
 int
 umoven_or_printaddr(struct tcb *const tcp, const kernel_ulong_t addr,
 		    const unsigned int len, void *const our_addr)
@@ -1106,163 +938,6 @@ umoven_or_printaddr_ignore_syserror(struct tcb *const tcp,
 	if (!addr || !verbose(tcp) || umoven(tcp, addr, len, our_addr) < 0) {
 		printaddr(addr);
 		return -1;
-	}
-	return 0;
-}
-
-/*
- * Like `umove' but make the additional effort of looking
- * for a terminating zero byte.
- *
- * Returns < 0 on error, > 0 if NUL was seen,
- * (TODO if useful: return count of bytes including NUL),
- * else 0 if len bytes were read but no NUL byte seen.
- *
- * Note: there is no guarantee we won't overwrite some bytes
- * in laddr[] _after_ terminating NUL (but, of course,
- * we never write past laddr[len-1]).
- */
-int
-umovestr(struct tcb *const tcp, kernel_ulong_t addr, unsigned int len, char *laddr)
-{
-	const unsigned long x01010101 = (unsigned long) 0x0101010101010101ULL;
-	const unsigned long x80808080 = (unsigned long) 0x8080808080808080ULL;
-
-	int pid = tcp->pid;
-	unsigned int n, m, nread;
-	union {
-		unsigned long val;
-		char x[sizeof(long)];
-	} u;
-
-#if ANY_WORDSIZE_LESS_THAN_KERNEL_LONG
-	if (current_wordsize < sizeof(addr)
-	    && (addr & (~(kernel_ulong_t) -1U))) {
-		return -1;
-	}
-#endif
-
-	nread = 0;
-	if (!process_vm_readv_not_supported) {
-		const size_t page_size = get_pagesize();
-		const size_t page_mask = page_size - 1;
-
-		while (len > 0) {
-			unsigned int chunk_len;
-			unsigned int end_in_page;
-
-			/*
-			 * Don't cross pages, otherwise we can get EFAULT
-			 * and fail to notice that terminating NUL lies
-			 * in the existing (first) page.
-			 */
-			chunk_len = len > page_size ? page_size : len;
-			end_in_page = (addr + chunk_len) & page_mask;
-			if (chunk_len > end_in_page) /* crosses to the next page */
-				chunk_len -= end_in_page;
-
-			int r = vm_read_mem(pid, laddr, addr, chunk_len);
-			if (r > 0) {
-				if (memchr(laddr, '\0', r))
-					return 1;
-				addr += r;
-				laddr += r;
-				nread += r;
-				len -= r;
-				continue;
-			}
-			switch (errno) {
-				case ENOSYS:
-					process_vm_readv_not_supported = 1;
-					goto vm_readv_didnt_work;
-				case ESRCH:
-					/* the process is gone */
-					return -1;
-				case EPERM:
-					/* operation not permitted, try PTRACE_PEEKDATA */
-					if (!nread)
-						goto vm_readv_didnt_work;
-					/* fall through */
-				case EFAULT: case EIO:
-					/* address space is inaccessible */
-					if (nread) {
-						perror_msg("umovestr: short read (%d < %d) @0x%" PRI_klx,
-							   nread, nread + len, addr - nread);
-					}
-					return -1;
-				default:
-					/* all the rest is strange and should be reported */
-					perror_msg("process_vm_readv");
-					return -1;
-			}
-		}
-		return 0;
-	}
- vm_readv_didnt_work:
-
-	if (addr & (sizeof(long) - 1)) {
-		/* addr not a multiple of sizeof(long) */
-		n = addr & (sizeof(long) - 1);	/* residue */
-		addr &= -sizeof(long);		/* aligned address */
-		errno = 0;
-		u.val = ptrace(PTRACE_PEEKDATA, pid, addr, 0);
-		switch (errno) {
-			case 0:
-				break;
-			case ESRCH: case EINVAL:
-				/* these could be seen if the process is gone */
-				return -1;
-			case EFAULT: case EIO: case EPERM:
-				/* address space is inaccessible */
-				return -1;
-			default:
-				/* all the rest is strange and should be reported */
-				perror_msg("umovestr: PTRACE_PEEKDATA pid:%d @0x%" PRI_klx,
-					    pid, addr);
-				return -1;
-		}
-		m = MIN(sizeof(long) - n, len);
-		memcpy(laddr, &u.x[n], m);
-		while (n & (sizeof(long) - 1))
-			if (u.x[n++] == '\0')
-				return 1;
-		addr += sizeof(long);
-		laddr += m;
-		nread += m;
-		len -= m;
-	}
-
-	while (len) {
-		errno = 0;
-		u.val = ptrace(PTRACE_PEEKDATA, pid, addr, 0);
-		switch (errno) {
-			case 0:
-				break;
-			case ESRCH: case EINVAL:
-				/* these could be seen if the process is gone */
-				return -1;
-			case EFAULT: case EIO: case EPERM:
-				/* address space is inaccessible */
-				if (nread) {
-					perror_msg("umovestr: short read (%d < %d) @0x%" PRI_klx,
-						   nread, nread + len, addr - nread);
-				}
-				return -1;
-			default:
-				/* all the rest is strange and should be reported */
-				perror_msg("umovestr: PTRACE_PEEKDATA pid:%d @0x%" PRI_klx,
-					   pid, addr);
-				return -1;
-		}
-		m = MIN(sizeof(long), len);
-		memcpy(laddr, u.x, m);
-		/* "If a NUL char exists in this word" */
-		if ((u.val - x01010101) & ~u.val & x80808080)
-			return 1;
-		addr += sizeof(long);
-		laddr += m;
-		nread += m;
-		len -= m;
 	}
 	return 0;
 }
@@ -1417,7 +1092,7 @@ print_abnormal_hi(const kernel_ulong_t val)
 #endif
 
 int
-read_int_from_file(const char *const fname, int *const pvalue)
+read_int_from_file(struct tcb *tcp, const char *const fname, int *const pvalue)
 {
 	const int fd = open_file(fname, O_RDONLY);
 	if (fd < 0)

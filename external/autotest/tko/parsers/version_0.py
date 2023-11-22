@@ -77,12 +77,17 @@ class job(models.job):
                 tko_utils.dprint('Unable to parse host keyval for %s'
                                  % individual_hostname)
             elif 'labels' in host_keyval:
-                # Use board label as machine group. This is to avoid the
+                # Use `model` label as machine group. This is to avoid the
                 # confusion of multiple boards mapping to the same platform in
                 # wmatrix. With this change, wmatrix will group tests with the
-                # same board, rather than the same platform.
+                # same model, rather than the same platform.
                 labels = host_keyval['labels'].split(',')
                 board_labels = [l[8:] for l in labels
+                               if l.startswith('model%3A')]
+                # If the host doesn't have `model:` label, fall back to `board:`
+                # label.
+                if not board_labels:
+                    board_labels = [l[8:] for l in labels
                                if l.startswith('board%3A')]
                 if board_labels:
                     # Testbeds have multiple boards so concat them into a

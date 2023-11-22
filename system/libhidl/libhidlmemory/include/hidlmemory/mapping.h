@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef ANDROID_HARDWARE_MAPPING_H
+#define ANDROID_HARDWARE_MAPPING_H
 #include <android/hidl/memory/1.0/IMemory.h>
 #include <hidl/HidlSupport.h>
 
@@ -22,8 +24,12 @@ namespace hardware {
 /**
  * Returns the IMemory instance corresponding to a hidl_memory object.
  * If the shared memory cannot be fetched, this returns nullptr.
+ *
+ * Note, this method call is relatively expensive and does not cache conversions.
+ * It should only be done when initializing a buffer and not on every buffer read.
  */
 sp<android::hidl::memory::V1_0::IMemory> mapMemory(const hidl_memory &memory);
 
 }  // namespace hardware
 }  // namespace android
+#endif

@@ -345,6 +345,7 @@ int32_t V4L2Device::ReadOneFrame(uint32_t* buffer_index, uint32_t* data_size) {
   }
 
   v4l2_buffer buf;
+  int64_t ts;
   memset(&buf, 0, sizeof(buf));
   switch (io_) {
     case IO_METHOD_MMAP:
@@ -362,14 +363,13 @@ int32_t V4L2Device::ReadOneFrame(uint32_t* buffer_index, uint32_t* data_size) {
             return -2;
         }
       }
-      // We cannot use the timestamp in v4l2_buffer because
-      // 1. The time delta between the first and the second frame may be bigger
-      //    because it includes sensor initialization time.
-      // 2. Even if we ignore the first frame timestamp, v4l2_buffer timestamps
-      //    on Kevin are totally wrong for unknown reasons.
-      // 3. Kernel version <= 3.18 doesn't have the fix to disable hardware
-      //    timestamp. https://patchwork.kernel.org/patch/6874491/
-      frame_timestamps_.push_back(Now());
+      // For checking constant frame rate, we have to use HW timestamp from
+      // v4l2_buffer to get more stable timestamp.
+      // Since kerenel after 3.18 have a fix to disable hardware timestamp
+      // (https://patchwork.kernel.org/patch/6874491/), we have to manually
+      // enable HW timestamp via /sys/module/uvcvideo/parameters/hwtimestamps.
+      ts = buf.timestamp.tv_sec * 1000000000LL + buf.timestamp.tv_usec * 1000;
+      frame_timestamps_.push_back(ts);
       CHECK(buf.index < num_buffers_);
       // TODO: uvcvideo driver ignores this field. This is negligible,
       // so disabling this for now until we get a fix into the upstream driver.
@@ -390,7 +390,8 @@ int32_t V4L2Device::ReadOneFrame(uint32_t* buffer_index, uint32_t* data_size) {
             return -2;
         }
       }
-      frame_timestamps_.push_back(Now());
+      ts = buf.timestamp.tv_sec * 1000000000LL + buf.timestamp.tv_usec * 1000;
+      frame_timestamps_.push_back(ts);
       CHECK(buf.index < num_buffers_);
       break;
     default:

@@ -27,6 +27,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.TZDBTimeZoneNames;
@@ -50,8 +52,11 @@ import android.icu.util.TimeZone;
 import android.icu.util.TimeZone.SystemTimeZoneType;
 import android.icu.util.TimeZoneTransition;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
-public class TimeZoneFormatTest extends android.icu.dev.test.TestFmwk {
+@MainTestShard
+@RunWith(JUnit4.class)
+public class TimeZoneFormatTest extends TestFmwk {
 
     private static boolean JDKTZ = (TimeZone.getDefaultTimeZoneType() == TimeZone.TIMEZONE_JDK);
     private static final Pattern EXCL_TZ_PATTERN = Pattern.compile(".*/Riyadh8[7-9]");
@@ -126,7 +131,8 @@ public class TimeZoneFormatTest extends android.icu.dev.test.TestFmwk {
         if (TEST_ALL || TestFmwk.getExhaustiveness() > 5) {
             LOCALES = ULocale.getAvailableLocales();
         } else {
-            LOCALES = new ULocale[] {new ULocale("en"), new ULocale("en_CA"), new ULocale("fr"), new ULocale("zh_Hant")};
+            LOCALES = new ULocale[] {new ULocale("en"), new ULocale("en_CA"), new ULocale("fr"),
+                    new ULocale("zh_Hant"), new ULocale("fa"), new ULocale("ccp")};
         }
 
         String[] tzids;
@@ -243,10 +249,13 @@ public class TimeZoneFormatTest extends android.icu.dev.test.TestFmwk {
                             if (!isOffsetFormat) {
                                 // Check if localized GMT format is used as a fallback of name styles
                                 int numDigits = 0;
-                                for (int n = 0; n < tzstr.length(); n++) {
-                                    if (UCharacter.isDigit(tzstr.charAt(n))) {
+                                int idx = 0;
+                                while (idx < tzstr.length()) {
+                                    int cp = tzstr.codePointAt(idx);
+                                    if (UCharacter.isDigit(cp)) {
                                         numDigits++;
                                     }
+                                    idx += UCharacter.charCount(cp);
                                 }
                                 isOffsetFormat = (numDigits > 0);
                             }
@@ -354,7 +363,7 @@ public class TimeZoneFormatTest extends android.icu.dev.test.TestFmwk {
                 new ULocale("ko_KR"), new ULocale("nb_NO"), new ULocale("nl_NL"), new ULocale("nn_NO"), new ULocale("pl_PL"),
                 new ULocale("pt"), new ULocale("pt_BR"), new ULocale("pt_PT"), new ULocale("ru_RU"), new ULocale("sv_SE"),
                 new ULocale("th_TH"), new ULocale("tr_TR"), new ULocale("zh"), new ULocale("zh_Hans"), new ULocale("zh_Hans_CN"),
-                new ULocale("zh_Hant"), new ULocale("zh_Hant_HK"), new ULocale("zh_Hant_TW")
+                new ULocale("zh_Hant"), new ULocale("zh_Hant_HK"), new ULocale("zh_Hant_TW"), new ULocale("ccp"), new ULocale("fa")
             };
         } else {
             LOCALES = new ULocale[] {
@@ -412,7 +421,8 @@ public class TimeZoneFormatTest extends android.icu.dev.test.TestFmwk {
                         }
                     }
 
-                    if (id.equals("Pacific/Apia") && PATTERNS[patidx].equals("vvvv")
+                    if ((id.equals("Pacific/Apia") || id.equals("Pacific/Midway") || id.equals("Pacific/Pago_Pago"))
+                            && PATTERNS[patidx].equals("vvvv")
                             && logKnownIssue("11052", "Ambiguous zone name - Samoa Time")) {
                         continue;
                     }
@@ -679,6 +689,7 @@ public class TimeZoneFormatTest extends android.icu.dev.test.TestFmwk {
 
     // Coverage tests for other versions of the parse() method. All of them end up
     // calling the full parse() method tested on the TestParse() test.
+    @Test
     public void TestParseCoverage() {
         TimeZone expectedTZ = TimeZone.getTimeZone("America/Los_Angeles");
         TimeZoneFormat fmt = TimeZoneFormat.getInstance(ULocale.ENGLISH);
@@ -1051,6 +1062,7 @@ public class TimeZoneFormatTest extends android.icu.dev.test.TestFmwk {
 
     // Tests format(Object, StringBuffer, FieldPosition):StringBuffer method
     // inherited from Format class
+    @Test
     public void TestInheritedFormat() {
         TimeZone tz = TimeZone.getTimeZone("America/Los_Angeles");
         Calendar cal = Calendar.getInstance(tz);

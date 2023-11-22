@@ -54,6 +54,11 @@ import com.android.server.telecom.SystemStateProvider;
 import com.android.server.telecom.TelecomSystem;
 import com.android.server.telecom.Timeouts;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -63,6 +68,8 @@ import org.mockito.stubbing.Answer;
 import java.util.Collections;
 import java.util.LinkedList;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
@@ -76,6 +83,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 
+@RunWith(JUnit4.class)
 public class InCallControllerTests extends TelecomTestCase {
     @Mock CallsManager mMockCallsManager;
     @Mock PhoneAccountRegistrar mMockPhoneAccountRegistrar;
@@ -102,6 +110,7 @@ public class InCallControllerTests extends TelecomTestCase {
     private EmergencyCallHelper mEmergencyCallHelper;
 
     @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         MockitoAnnotations.initMocks(this);
@@ -118,11 +127,13 @@ public class InCallControllerTests extends TelecomTestCase {
     }
 
     @Override
+    @After
     public void tearDown() throws Exception {
         super.tearDown();
     }
 
     @MediumTest
+    @Test
     public void testBindToService_NoServicesFound_IncomingCall() throws Exception {
         when(mMockCallsManager.getCurrentUserHandle()).thenReturn(mUserHandle);
         when(mMockContext.getPackageManager()).thenReturn(mMockPackageManager);
@@ -150,6 +161,7 @@ public class InCallControllerTests extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testBindToService_NoServicesFound_OutgoingCall() throws Exception {
         Bundle callExtras = new Bundle();
         callExtras.putBoolean("whatever", true);
@@ -186,6 +198,7 @@ public class InCallControllerTests extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testBindToService_DefaultDialer_NoEmergency() throws Exception {
         Bundle callExtras = new Bundle();
         callExtras.putBoolean("whatever", true);
@@ -236,6 +249,7 @@ public class InCallControllerTests extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testBindToService_SystemDialer_Emergency() throws Exception {
         Bundle callExtras = new Bundle();
         callExtras.putBoolean("whatever", true);
@@ -303,6 +317,7 @@ public class InCallControllerTests extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testBindToService_DefaultDialer_FallBackToSystem() throws Exception {
         Bundle callExtras = new Bundle();
         callExtras.putBoolean("whatever", true);
@@ -391,6 +406,7 @@ public class InCallControllerTests extends TelecomTestCase {
      * supports external calls.
      */
     @MediumTest
+    @Test
     public void testBindToService_IncludeExternal() throws Exception {
         setupMocks(true /* isExternalCall */);
         setupMockPackageManager(true /* default */, true /* system */, true /* external calls */);
@@ -427,6 +443,7 @@ public class InCallControllerTests extends TelecomTestCase {
      * call gets connected soon after, the new call will still be sent to the in-call service.
      */
     @MediumTest
+    @Test
     public void testUnbindDueToCallDisconnect() throws Exception {
         when(mMockCallsManager.getCurrentUserHandle()).thenReturn(mUserHandle);
         when(mMockContext.getPackageManager()).thenReturn(mMockPackageManager);

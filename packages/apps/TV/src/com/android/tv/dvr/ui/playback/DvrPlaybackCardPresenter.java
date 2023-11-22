@@ -17,14 +17,11 @@
 package com.android.tv.dvr.ui.playback;
 
 import android.content.Context;
-
 import com.android.tv.R;
 import com.android.tv.dvr.ui.browse.RecordedProgramPresenter;
 import com.android.tv.dvr.ui.browse.RecordingCardView;
 
-/**
- * This class is used to generate Views and bind Objects for related recordings in DVR playback.
- */
+/** This class is used to generate Views and bind Objects for related recordings in DVR playback. */
 class DvrPlaybackCardPresenter extends RecordedProgramPresenter {
     private final int mRelatedRecordingCardWidth;
     private final int mRelatedRecordingCardHeight;
@@ -39,7 +36,12 @@ class DvrPlaybackCardPresenter extends RecordedProgramPresenter {
 
     @Override
     public DvrItemViewHolder onCreateDvrItemViewHolder() {
-        return new RecordedProgramViewHolder(new RecordingCardView(
-                getContext(), mRelatedRecordingCardWidth, mRelatedRecordingCardHeight, true), null);
+        return new RecordedProgramViewHolder(
+                new RecordingCardView(
+                        getContext(),
+                        mRelatedRecordingCardWidth,
+                        mRelatedRecordingCardHeight,
+                        true),
+                null);
     }
 }

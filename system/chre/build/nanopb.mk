@@ -4,8 +4,10 @@
 # Include this file in your nanoapp Makefile to produce pb.c and pb.h for .proto
 # files specified in the NANOPB_SRCS variable. The produced pb.c files are
 # automatically be added to the COMMON_SRCS variable for the nanoapp build.
-
-include $(CHRE_PREFIX)/build/defs.mk
+#
+# NANOPB_FLAGS can be used to supply additional command line arguments to the
+# nanopb compiler. Note that this is global and applies to all protobuf
+# generated source.
 
 # Environment Checks ###########################################################
 
@@ -55,8 +57,15 @@ COMMON_SRCS += $(NANOPB_GEN_SRCS)
 NANOPB_PROTOC = $(NANOPB_PREFIX)/generator/protoc-gen-nanopb
 
 $(NANOPB_GEN_PATH)/%.pb.c $(NANOPB_GEN_PATH)/%.pb.h: %.proto \
-                                                     $(wildcard %.options) \
+                                                     %.options \
                                                      $(NANOPB_GENERATOR_SRCS)
 	mkdir -p $(dir $@)
-	protoc --plugin=protoc-gen-nanopb=$(NANOPB_PROTOC) \
-	  --nanopb_out=$(NANOPB_GEN_PATH) $<
+	protoc --plugin=protoc-gen-nanopb=$(NANOPB_PROTOC) $(NANOPB_FLAGS) \
+	  --nanopb_out="--options-file=$(basename $<).options:$(NANOPB_GEN_PATH)/$(NANOPB_PROTO_PATH)" \
+	  $<
+
+$(NANOPB_GEN_PATH)/%.pb.c $(NANOPB_GEN_PATH)/%.pb.h: %.proto \
+                                                     $(NANOPB_GENERATOR_SRCS)
+	mkdir -p $(dir $@)
+	protoc --plugin=protoc-gen-nanopb=$(NANOPB_PROTOC) $(NANOPB_FLAGS)\
+	  --nanopb_out="$(NANOPB_GEN_PATH)" $<

@@ -32,6 +32,7 @@ public final class ServiceConnectionHandler implements ServiceConnection {
 
     final Context mContext;
     final Intent mIntent;
+    final long mDefaultWaitTime;
     boolean mMonitoring;
     boolean mBound;
     IBinder mService;
@@ -47,8 +48,13 @@ public final class ServiceConnectionHandler implements ServiceConnection {
     };
 
     public ServiceConnectionHandler(Context context, Intent intent) {
+        this(context, intent, 5*1000);
+    }
+
+    public ServiceConnectionHandler(Context context, Intent intent, long defaultWaitTime) {
         mContext = context;
         mIntent = intent;
+        mDefaultWaitTime = defaultWaitTime;
     }
 
     public void startMonitoring() {
@@ -56,12 +62,17 @@ public final class ServiceConnectionHandler implements ServiceConnection {
             if (mMonitoring) {
                 throw new IllegalStateException("Already monitoring");
             }
-            if (!mContext.bindService(mIntent, this, Context.BIND_WAIVE_PRIORITY)) {
+            if (!mContext.bindService(mIntent, this, Context.BIND_WAIVE_PRIORITY
+                    | Context.BIND_ALLOW_OOM_MANAGEMENT)) {
                 throw new IllegalStateException("Failed to bind " + mIntent);
             }
             mMonitoring = true;
             mService = null;
         }
+    }
+
+    public void waitForConnect() {
+        waitForConnect(mDefaultWaitTime);
     }
 
     public void waitForConnect(long timeout) {
@@ -83,6 +94,10 @@ public final class ServiceConnectionHandler implements ServiceConnection {
 
     public IBinder getServiceIBinder() {
         return mService;
+    }
+
+    public void waitForDisconnect() {
+        waitForDisconnect(mDefaultWaitTime);
     }
 
     public void waitForDisconnect(long timeout) {
@@ -120,6 +135,10 @@ public final class ServiceConnectionHandler implements ServiceConnection {
         }
     }
 
+    public void bind() {
+        bind(mDefaultWaitTime);
+    }
+
     public void bind(long timeout) {
         synchronized (this) {
             if (mBound) {
@@ -135,6 +154,10 @@ public final class ServiceConnectionHandler implements ServiceConnection {
             mBound = true;
             waitForConnect(timeout);
         }
+    }
+
+    public void unbind() {
+        unbind(mDefaultWaitTime);
     }
 
     public void unbind(long timeout) {
@@ -153,6 +176,10 @@ public final class ServiceConnectionHandler implements ServiceConnection {
                 stopMonitoring();
             }
         }
+    }
+
+    public void cleanup() {
+        cleanup(mDefaultWaitTime);
     }
 
     public void cleanup(long timeout) {

@@ -17,14 +17,10 @@
 #ifndef VTS_COMPILATION_TOOLS_VTSC_CODE_GEN_DRIVER_LIBSHARED_CODEGEN_H_
 #define VTS_COMPILATION_TOOLS_VTSC_CODE_GEN_DRIVER_LIBSHARED_CODEGEN_H_
 
-#include <fstream>
-#include <iostream>
-#include <sstream>
 #include <string>
 
-#include "test/vts/proto/ComponentSpecificationMessage.pb.h"
-
 #include "code_gen/driver/HalCodeGen.h"
+#include "test/vts/proto/ComponentSpecificationMessage.pb.h"
 
 using namespace std;
 

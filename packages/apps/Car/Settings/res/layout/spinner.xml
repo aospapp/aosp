@@ -19,5 +19,5 @@
           android:id="@+id/spinnerTarget"
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
-          style="@style/CarBody1.SingleLine"
+          android:textAppearance="@style/TextAppearance.Car.Body1.SingleLine"
 />

@@ -131,13 +131,14 @@ public class FinalizationController {
         } else {
             // For managed user and device owner, we send the provisioning complete intent and maybe
             // launch the DPC.
-            Intent provisioningCompleteIntent = createProvisioningCompleteIntent(params);
+            int userId = UserHandle.myUserId();
+            Intent provisioningCompleteIntent = createProvisioningCompleteIntent(params, userId);
             if (provisioningCompleteIntent == null) {
                 return;
             }
             mContext.sendBroadcast(provisioningCompleteIntent);
 
-            maybeLaunchDpc(params, UserHandle.myUserId());
+            maybeLaunchDpc(params, userId);
         }
 
         mHelper.markUserProvisioningStateFinalized(params);
@@ -148,22 +149,23 @@ public class FinalizationController {
      * received the intent, send notify the primary instance that the profile is ready.
      */
     private void notifyDpcManagedProfile(ProvisioningParams params) {
-        UserHandle managedUserHandle = mUtils.getManagedProfile(mContext);
+        UserHandle managedProfileUserHandle = mUtils.getManagedProfile(mContext);
 
         // Use an ordered broadcast, so that we only finish when the DPC has received it.
         // Avoids a lag in the transition between provisioning and the DPC.
         BroadcastReceiver dpcReceivedSuccessReceiver =
                 new DpcReceivedSuccessReceiver(params.accountToMigrate,
-                        params.keepAccountMigrated, managedUserHandle,
-                        params.deviceAdminComponentName.getPackageName());
-        Intent completeIntent = createProvisioningCompleteIntent(params);
+                        params.keepAccountMigrated, managedProfileUserHandle,
+                        params.inferDeviceAdminPackageName());
+        Intent completeIntent = createProvisioningCompleteIntent(
+                params, managedProfileUserHandle.getIdentifier());
 
-        mContext.sendOrderedBroadcastAsUser(completeIntent, managedUserHandle, null,
+        mContext.sendOrderedBroadcastAsUser(completeIntent, managedProfileUserHandle, null,
                 dpcReceivedSuccessReceiver, null, Activity.RESULT_OK, null, null);
         ProvisionLogger.logd("Provisioning complete broadcast has been sent to user "
-                + managedUserHandle.getIdentifier());
+                + managedProfileUserHandle.getIdentifier());
 
-        maybeLaunchDpc(params, managedUserHandle.getIdentifier());
+        maybeLaunchDpc(params, managedProfileUserHandle.getIdentifier());
     }
 
     private void maybeLaunchDpc(ProvisioningParams params, int userId) {
@@ -174,12 +176,11 @@ public class FinalizationController {
         }
     }
 
-    private Intent createProvisioningCompleteIntent(@NonNull ProvisioningParams params) {
+    private Intent createProvisioningCompleteIntent(
+            @NonNull ProvisioningParams params, int userId) {
         Intent intent = new Intent(ACTION_PROFILE_PROVISIONING_COMPLETE);
         try {
-            intent.setComponent(mUtils.findDeviceAdmin(
-                    params.deviceAdminPackageName,
-                    params.deviceAdminComponentName, mContext));
+            intent.setComponent(params.inferDeviceAdminComponentName(mUtils, mContext, userId));
         } catch (IllegalProvisioningArgumentException e) {
             ProvisionLogger.loge("Failed to infer the device admin component name", e);
             return null;

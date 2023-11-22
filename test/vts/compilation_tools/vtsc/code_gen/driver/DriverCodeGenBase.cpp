@@ -16,19 +16,14 @@
 
 #include "code_gen/driver/DriverCodeGenBase.h"
 
+#include <iostream>
+#include <string>
+
 #include <hidl-util/Formatter.h>
 #include <hidl-util/FQName.h>
 
-#include <fstream>
-#include <iostream>
-#include <iomanip>
-#include <limits>
-#include <sstream>
-#include <string>
-
-#include "utils/InterfaceSpecUtil.h"
-
 #include "VtsCompilerUtils.h"
+#include "utils/InterfaceSpecUtil.h"
 #include "utils/StringUtil.h"
 
 using namespace std;
@@ -202,7 +197,8 @@ void DriverCodeGenBase::GenerateSourceIncludeFiles(Formatter& out,
         << ".vts.h\"\n";
   }
   out << "#include \"vts_measurement.h\"" << "\n";
-  out << "#include <iostream>" << "\n";
+  out << "#include <android-base/logging.h>"
+      << "\n";
 }
 
 void DriverCodeGenBase::GenerateHeaderGlobalFunctionDeclarations(
@@ -243,23 +239,21 @@ void DriverCodeGenBase::GenerateCppBodyGlobalFunctions(
 void DriverCodeGenBase::GenerateFuzzFunctionForSubStruct(
     Formatter& out, const StructSpecificationMessage& message,
     const string& parent_path) {
-  out.indent();
   out << "bool Fuzz_" << parent_path << message.name()
       << "(FunctionSpecificationMessage* func_msg," << "\n";
-  out << "            void** result, const string& callback_socket_name);"
+  out << "    void** result, const string& callback_socket_name);"
       << "\n";
 
   out << "bool GetAttribute_" << parent_path << message.name()
       << "(FunctionSpecificationMessage* /*func_msg*/,"
       << "\n";
-  out << "            void** /*result*/);"
+  out << "    void** /*result*/);"
       << "\n";
 
   for (auto const& sub_struct : message.sub_struct()) {
     GenerateFuzzFunctionForSubStruct(out, sub_struct,
                                      parent_path + message.name() + "_");
   }
-  out.unindent();
 }
 
 void DriverCodeGenBase::GenerateDriverFunctionImpl(Formatter& out,
@@ -324,7 +318,8 @@ void DriverCodeGenBase::GenerateCodeToStartMeasurement(Formatter& out) {
 
 void DriverCodeGenBase::GenerateCodeToStopMeasurement(Formatter& out) {
   out << "vector<float>* measured = vts_measurement.Stop();" << "\n";
-  out << "cout << \"time \" << (*measured)[0] << endl;" << "\n";
+  out << "LOG(INFO) << \"time \" << (*measured)[0];"
+      << "\n";
 }
 
 }  // namespace vts

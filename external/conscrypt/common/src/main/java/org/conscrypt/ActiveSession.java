@@ -20,13 +20,11 @@ import static org.conscrypt.Preconditions.checkNotNull;
 
 import java.security.Principal;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import javax.net.ssl.SSLPeerUnverifiedException;
-import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSessionBindingEvent;
 import javax.net.ssl.SSLSessionBindingListener;
 import javax.net.ssl.SSLSessionContext;
@@ -35,12 +33,11 @@ import javax.net.ssl.SSLSessionContext;
  * A session that is dedicated a single connection and operates directly on the underlying
  * {@code SSL}.
  */
-final class ActiveSession implements SSLSession {
-    private final SslWrapper ssl;
+final class ActiveSession implements ConscryptSession {
+    private final NativeSsl ssl;
     private AbstractSessionContext sessionContext;
     private byte[] id;
     private long creationTime;
-    private String cipherSuite;
     private String protocol;
     private String peerHost;
     private int peerPort = -1;
@@ -51,10 +48,7 @@ final class ActiveSession implements SSLSession {
     private byte[] peerCertificateOcspData;
     private byte[] peerTlsSctData;
 
-    // lazy init for memory reasons
-    private Map<String, Object> values;
-
-    ActiveSession(SslWrapper ssl, AbstractSessionContext sessionContext) {
+    ActiveSession(NativeSsl ssl, AbstractSessionContext sessionContext) {
         this.ssl = checkNotNull(ssl, "ssl");
         this.sessionContext = checkNotNull(sessionContext, "sessionContext");
     }
@@ -62,7 +56,9 @@ final class ActiveSession implements SSLSession {
     @Override
     public byte[] getId() {
         if (id == null) {
-            id = ssl.getSessionId();
+            synchronized (ssl) {
+                id = ssl.getSessionId();
+            }
         }
         return id != null ? id.clone() : EmptyArray.BYTE;
     }
@@ -82,7 +78,9 @@ final class ActiveSession implements SSLSession {
     @Override
     public long getCreationTime() {
         if (creationTime == 0) {
-            creationTime = ssl.getTime();
+            synchronized (ssl) {
+                creationTime = ssl.getTime();
+            }
         }
         return creationTime;
     }
@@ -115,8 +113,7 @@ final class ActiveSession implements SSLSession {
      * @see <a href="https://tools.ietf.org/html/rfc6066">RFC 6066</a>
      * @see <a href="https://tools.ietf.org/html/rfc6961">RFC 6961</a>
      */
-    /* @Override */
-    @SuppressWarnings("MissingOverride") // For Pre-Java9 compatibility.
+    @Override
     public List<byte[]> getStatusResponses() {
         if (peerCertificateOcspData == null) {
             return Collections.<byte[]>emptyList();
@@ -131,83 +128,59 @@ final class ActiveSession implements SSLSession {
      *
      * @see <a href="https://tools.ietf.org/html/rfc6962">RFC 6962</a>
      */
-    byte[] getPeerSignedCertificateTimestamp() {
+    @Override
+    public byte[] getPeerSignedCertificateTimestamp() {
         if (peerTlsSctData == null) {
             return null;
         }
         return peerTlsSctData.clone();
     }
 
-    String getRequestedServerName() {
-        return ssl.getRequestedServerName();
+    @Override
+    public String getRequestedServerName() {
+        synchronized (ssl) {
+            return ssl.getRequestedServerName();
+        }
     }
 
     @Override
     public void invalidate() {
-        ssl.setTimeout(0L);
+        synchronized (ssl) {
+            ssl.setTimeout(0L);
+        }
     }
 
     @Override
     public boolean isValid() {
-        long creationTimeMillis = ssl.getTime();
-        long timeoutMillis = ssl.getTimeout();
-        return (System.currentTimeMillis() - timeoutMillis) < creationTimeMillis;
+        synchronized (ssl) {
+            long creationTimeMillis = ssl.getTime();
+            long timeoutMillis = ssl.getTimeout();
+            return (System.currentTimeMillis() - timeoutMillis) < creationTimeMillis;
+        }
     }
 
     @Override
     public void putValue(String name, Object value) {
-        if (name == null) {
-            throw new NullPointerException("name");
-        }
-        if (value == null) {
-            throw new NullPointerException("value");
-        }
-        Map<String, Object> values = this.values;
-        if (values == null) {
-            // Use size of 2 to keep the memory overhead small
-            values = this.values = new HashMap<String, Object>(2);
-        }
-        Object old = values.put(name, value);
-        if (value instanceof SSLSessionBindingListener) {
-            ((SSLSessionBindingListener) value).valueBound(new SSLSessionBindingEvent(this, name));
-        }
-        if (old instanceof SSLSessionBindingListener) {
-            ((SSLSessionBindingListener) old).valueUnbound(new SSLSessionBindingEvent(this, name));
-        }
-        notifyUnbound(old, name);
+        throw new UnsupportedOperationException(
+                "All calls to this method should be intercepted by ProvidedSessionDecorator.");
     }
 
     @Override
     public Object getValue(String name) {
-        if (name == null) {
-            throw new NullPointerException("name");
-        }
-        if (values == null) {
-            return null;
-        }
-        return values.get(name);
+        throw new UnsupportedOperationException(
+                "All calls to this method should be intercepted by ProvidedSessionDecorator.");
     }
 
     @Override
     public void removeValue(String name) {
-        if (name == null) {
-            throw new NullPointerException("name");
-        }
-        Map<String, Object> values = this.values;
-        if (values == null) {
-            return;
-        }
-        Object old = values.remove(name);
-        notifyUnbound(old, name);
+        throw new UnsupportedOperationException(
+                "All calls to this method should be intercepted by ProvidedSessionDecorator.");
     }
 
     @Override
     public String[] getValueNames() {
-        Map<String, Object> values = this.values;
-        if (values == null || values.isEmpty()) {
-            return EmptyArray.STRING;
-        }
-        return values.keySet().toArray(new String[values.size()]);
+        throw new UnsupportedOperationException(
+                "All calls to this method should be intercepted by ProvidedSessionDecorator.");
     }
 
     @Override
@@ -263,17 +236,22 @@ final class ActiveSession implements SSLSession {
 
     @Override
     public String getCipherSuite() {
-        if (cipherSuite == null) {
-            cipherSuite = ssl.getCipherSuite();
+        // Always get the Cipher from the SSL directly since it may have changed during a
+        // renegotiation.
+        String cipher;
+        synchronized (ssl) {
+            cipher = ssl.getCipherSuite();
         }
-        return cipherSuite;
+        return cipher == null ? SSLNullSession.INVALID_CIPHER : cipher;
     }
 
     @Override
     public String getProtocol() {
         String protocol = this.protocol;
         if (protocol == null) {
-            protocol = ssl.getVersion();
+            synchronized (ssl) {
+                protocol = ssl.getVersion();
+            }
             this.protocol = protocol;
         }
         return protocol;
@@ -303,33 +281,37 @@ final class ActiveSession implements SSLSession {
      * Configures the peer information once it has been received by the handshake.
      */
     void onPeerCertificatesReceived(
-            String peerHost, int peerPort, OpenSSLX509Certificate[] peerCertificates) {
+            String peerHost, int peerPort, X509Certificate[] peerCertificates) {
         configurePeer(peerHost, peerPort, peerCertificates);
     }
 
-    /**
-     * Configures the peer and local state from a newly created BoringSSL session.
-     */
-    void onSessionEstablished(String peerHost, int peerPort) {
-        id = null;
-        this.localCertificates = ssl.getLocalCertificates();
-        configurePeer(peerHost, peerPort, ssl.getPeerCertificates());
-    }
-
-    private void configurePeer(
-            String peerHost, int peerPort, OpenSSLX509Certificate[] peerCertificates) {
+    private void configurePeer(String peerHost, int peerPort, X509Certificate[] peerCertificates) {
         this.peerHost = peerHost;
         this.peerPort = peerPort;
         this.peerCertificates = peerCertificates;
-        this.peerCertificateOcspData = ssl.getPeerCertificateOcspData();
-        this.peerTlsSctData = ssl.getPeerTlsSctData();
+        synchronized (ssl) {
+            this.peerCertificateOcspData = ssl.getPeerCertificateOcspData();
+            this.peerTlsSctData = ssl.getPeerTlsSctData();
+        }
     }
 
-    private X509Certificate[] getX509PeerCertificates() throws SSLPeerUnverifiedException {
-        if (peerCertificates == null || peerCertificates.length == 0) {
-            throw new SSLPeerUnverifiedException("No peer certificates");
+    /**
+     * Updates the cached peer certificate after the handshake has completed
+     * (or entered False Start).
+     */
+    void onPeerCertificateAvailable(String peerHost, int peerPort) throws CertificateException {
+        synchronized (ssl) {
+            id = null;
+            this.localCertificates = ssl.getLocalCertificates();
+            if (this.peerCertificates == null) {
+                // When resuming a session, the cert_verify_callback (which calls
+                // onPeerCertificatesReceived) isn't called by BoringSSL during the handshake
+                // because it presumes the certs were verified in the previous connection on that
+                // session, leaving us without the peer certificates.  If that happens, fetch them
+                // explicitly.
+                configurePeer(peerHost, peerPort, ssl.getPeerCertificates());
+            }
         }
-        return peerCertificates;
     }
 
     /**

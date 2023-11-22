@@ -36,7 +36,12 @@ LOCAL_SHARED_LIBRARIES := \
 	libcutils \
 	libbase
 LOCAL_INIT_RC := fake-nvram.rc
-LOCAL_REQUIRED_MODULES := fake-nvram-seccomp.policy
+
+LOCAL_REQUIRED_MODULES_arm := fake-nvram-seccomp.policy
+LOCAL_REQUIRED_MODULES_arm64 := fake-nvram-seccomp.policy
+LOCAL_REQUIRED_MODULES_x86 := fake-nvram-seccomp.policy
+LOCAL_REQUIRED_MODULES_x86_64 := fake-nvram-seccomp.policy
+
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_EXECUTABLE)
 

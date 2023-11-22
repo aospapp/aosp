@@ -62,11 +62,12 @@ class TestClass3 {
 
 class Finalizable {
   static boolean sVisited = false;
-  static final int VALUE = 0xbeef;
+  static final int VALUE1 = 0xbeef;
+  static final int VALUE2 = 0xcafe;
   int i;
 
   protected void finalize() {
-    if (i != VALUE) {
+    if (i != VALUE1) {
       System.out.println("Where is the beef?");
     }
     sVisited = true;
@@ -397,7 +398,6 @@ public class Main {
   /// CHECK-START: int Main.test15() load_store_elimination (after)
   /// CHECK: <<Const2:i\d+>> IntConstant 2
   /// CHECK: StaticFieldSet
-  /// CHECK: StaticFieldSet
   /// CHECK-NOT: StaticFieldGet
   /// CHECK: Return [<<Const2>>]
 
@@ -620,15 +620,18 @@ public class Main {
   /// CHECK-START: void Main.testFinalizable() load_store_elimination (before)
   /// CHECK: NewInstance
   /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
 
   /// CHECK-START: void Main.testFinalizable() load_store_elimination (after)
   /// CHECK: NewInstance
   /// CHECK: InstanceFieldSet
+  /// CHECK-NOT: InstanceFieldSet
 
-  // Allocations and stores into finalizable objects cannot be eliminated.
+  // Allocations of finalizable objects cannot be eliminated.
   static void testFinalizable() {
     Finalizable finalizable = new Finalizable();
-    finalizable.i = Finalizable.VALUE;
+    finalizable.i = Finalizable.VALUE2;
+    finalizable.i = Finalizable.VALUE1;
   }
 
   static java.lang.ref.WeakReference<Object> getWeakReference() {
@@ -769,6 +772,127 @@ public class Main {
     return obj;
   }
 
+  /// CHECK-START: void Main.testStoreStore2(TestClass2) load_store_elimination (before)
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+
+  /// CHECK-START: void Main.testStoreStore2(TestClass2) load_store_elimination (after)
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+  /// CHECK-NOT: InstanceFieldSet
+
+  private static void testStoreStore2(TestClass2 obj) {
+    obj.i = 41;
+    obj.j = 42;
+    obj.i = 43;
+    obj.j = 44;
+  }
+
+  /// CHECK-START: void Main.testStoreStore3(TestClass2, boolean) load_store_elimination (before)
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+
+  /// CHECK-START: void Main.testStoreStore3(TestClass2, boolean) load_store_elimination (after)
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+  /// CHECK-NOT: InstanceFieldSet
+
+  private static void testStoreStore3(TestClass2 obj, boolean flag) {
+    obj.i = 41;
+    obj.j = 42;    // redundant since it's overwritten in both branches below.
+    if (flag) {
+      obj.j = 43;
+    } else {
+      obj.j = 44;
+    }
+  }
+
+  /// CHECK-START: void Main.testStoreStore4() load_store_elimination (before)
+  /// CHECK: StaticFieldSet
+  /// CHECK: StaticFieldSet
+
+  /// CHECK-START: void Main.testStoreStore4() load_store_elimination (after)
+  /// CHECK: StaticFieldSet
+  /// CHECK-NOT: StaticFieldSet
+
+  private static void testStoreStore4() {
+    TestClass.si = 61;
+    TestClass.si = 62;
+  }
+
+  /// CHECK-START: int Main.testStoreStore5(TestClass2, TestClass2) load_store_elimination (before)
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldGet
+  /// CHECK: InstanceFieldSet
+
+  /// CHECK-START: int Main.testStoreStore5(TestClass2, TestClass2) load_store_elimination (after)
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldGet
+  /// CHECK: InstanceFieldSet
+
+  private static int testStoreStore5(TestClass2 obj1, TestClass2 obj2) {
+    obj1.i = 71;      // This store is needed since obj2.i may load from it.
+    int i = obj2.i;
+    obj1.i = 72;
+    return i;
+  }
+
+  /// CHECK-START: int Main.testStoreStore6(TestClass2, TestClass2) load_store_elimination (before)
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldGet
+  /// CHECK: InstanceFieldSet
+
+  /// CHECK-START: int Main.testStoreStore6(TestClass2, TestClass2) load_store_elimination (after)
+  /// CHECK-NOT: InstanceFieldSet
+  /// CHECK: InstanceFieldGet
+  /// CHECK: InstanceFieldSet
+
+  private static int testStoreStore6(TestClass2 obj1, TestClass2 obj2) {
+    obj1.i = 81;      // This store is not needed since obj2.j cannot load from it.
+    int j = obj2.j;
+    obj1.i = 82;
+    return j;
+  }
+
+  /// CHECK-START: int Main.testNoSideEffects(int[]) load_store_elimination (before)
+  /// CHECK: ArraySet
+  /// CHECK: ArraySet
+  /// CHECK: ArraySet
+  /// CHECK: ArrayGet
+
+  /// CHECK-START: int Main.testNoSideEffects(int[]) load_store_elimination (after)
+  /// CHECK: ArraySet
+  /// CHECK: ArraySet
+  /// CHECK-NOT: ArraySet
+  /// CHECK-NOT: ArrayGet
+
+  private static int testNoSideEffects(int[] array) {
+    array[0] = 101;
+    array[1] = 102;
+    int bitCount = Integer.bitCount(0x3456);
+    array[1] = 103;
+    return array[0] + bitCount;
+  }
+
+  /// CHECK-START: void Main.testThrow(TestClass2, java.lang.Exception) load_store_elimination (before)
+  /// CHECK: InstanceFieldSet
+  /// CHECK: Throw
+
+  /// CHECK-START: void Main.testThrow(TestClass2, java.lang.Exception) load_store_elimination (after)
+  /// CHECK: InstanceFieldSet
+  /// CHECK: Throw
+
+  // Make sure throw keeps the store.
+  private static void testThrow(TestClass2 obj, Exception e) throws Exception {
+    obj.i = 55;
+    throw e;
+  }
+
   /// CHECK-START: int Main.testStoreStoreWithDeoptimize(int[]) load_store_elimination (before)
   /// CHECK: NewInstance
   /// CHECK: InstanceFieldSet
@@ -881,10 +1005,10 @@ public class Main {
   /// CHECK: ArrayGet
   private static int testAllocationEliminationOfArray2() {
     // Cannot eliminate array allocation since array is accessed with non-constant
-    // index.
-    int[] array = new int[4];
-    array[2] = 4;
-    array[3] = 7;
+    // index (only 3 elements to prevent vectorization of the reduction).
+    int[] array = new int[3];
+    array[1] = 4;
+    array[2] = 7;
     int sum = 0;
     for (int e : array) {
       sum += e;
@@ -927,6 +1051,91 @@ public class Main {
     array[i] = 4;
     return array[1] + array[i];
   }
+
+  /// CHECK-START: int Main.testAllocationEliminationOfArray5(int) load_store_elimination (before)
+  /// CHECK: NewArray
+  /// CHECK: ArraySet
+  /// CHECK: ArrayGet
+
+  /// CHECK-START: int Main.testAllocationEliminationOfArray5(int) load_store_elimination (after)
+  /// CHECK: NewArray
+  /// CHECK-NOT: ArraySet
+  /// CHECK-NOT: ArrayGet
+  private static int testAllocationEliminationOfArray5(int i) {
+    // Cannot eliminate array allocation due to unknown i that may
+    // cause NegativeArraySizeException.
+    int[] array = new int[i];
+    array[1] = 12;
+    return array[1];
+  }
+
+  /// CHECK-START: int Main.testExitMerge(boolean) load_store_elimination (before)
+  /// CHECK: NewInstance
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldGet
+  /// CHECK: Return
+  /// CHECK: InstanceFieldSet
+  /// CHECK: Throw
+
+  /// CHECK-START: int Main.testExitMerge(boolean) load_store_elimination (after)
+  /// CHECK-NOT: NewInstance
+  /// CHECK-NOT: InstanceFieldSet
+  /// CHECK-NOT: InstanceFieldGet
+  /// CHECK: Return
+  /// CHECK-NOT: InstanceFieldSet
+  /// CHECK: Throw
+  private static int testExitMerge(boolean cond) {
+    TestClass obj = new TestClass();
+    if (cond) {
+      obj.i = 1;
+      return obj.i + 1;
+    } else {
+      obj.i = 2;
+      throw new Error();
+    }
+  }
+
+  /// CHECK-START: int Main.testExitMerge2(boolean) load_store_elimination (before)
+  /// CHECK: NewInstance
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldGet
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldGet
+
+  /// CHECK-START: int Main.testExitMerge2(boolean) load_store_elimination (after)
+  /// CHECK-NOT: NewInstance
+  /// CHECK-NOT: InstanceFieldSet
+  /// CHECK-NOT: InstanceFieldGet
+  private static int testExitMerge2(boolean cond) {
+    TestClass obj = new TestClass();
+    int res;
+    if (cond) {
+      obj.i = 1;
+      res = obj.i + 1;
+    } else {
+      obj.i = 2;
+      res = obj.j + 2;
+    }
+    return res;
+  }
+
+  /// CHECK-START: void Main.testStoreSameValue() load_store_elimination (before)
+  /// CHECK: NewArray
+  /// CHECK: ArrayGet
+  /// CHECK: ArraySet
+
+  /// CHECK-START: void Main.testStoreSameValue() load_store_elimination (after)
+  /// CHECK: NewArray
+  /// CHECK-NOT: ArrayGet
+  /// CHECK-NOT: ArraySet
+  private static void testStoreSameValue() {
+    Object[] array = new Object[2];
+    sArray = array;
+    Object obj = array[0];
+    array[1] = obj;    // store the same value as the defaut value.
+  }
+
+  static Object[] sArray;
 
   static void assertIntEquals(int result, int expected) {
     if (expected != result) {
@@ -1013,9 +1222,54 @@ public class Main {
     assertIntEquals(testAllocationEliminationOfArray2(), 11);
     assertIntEquals(testAllocationEliminationOfArray3(2), 4);
     assertIntEquals(testAllocationEliminationOfArray4(2), 6);
+    assertIntEquals(testAllocationEliminationOfArray5(2), 12);
+    try {
+      testAllocationEliminationOfArray5(-2);
+    } catch (NegativeArraySizeException e) {
+      System.out.println("Got NegativeArraySizeException.");
+    }
 
     assertIntEquals(testStoreStore().i, 41);
     assertIntEquals(testStoreStore().j, 43);
+
+    assertIntEquals(testExitMerge(true), 2);
+    assertIntEquals(testExitMerge2(true), 2);
+    assertIntEquals(testExitMerge2(false), 2);
+
+    TestClass2 testclass2 = new TestClass2();
+    testStoreStore2(testclass2);
+    assertIntEquals(testclass2.i, 43);
+    assertIntEquals(testclass2.j, 44);
+
+    testStoreStore3(testclass2, true);
+    assertIntEquals(testclass2.i, 41);
+    assertIntEquals(testclass2.j, 43);
+    testStoreStore3(testclass2, false);
+    assertIntEquals(testclass2.i, 41);
+    assertIntEquals(testclass2.j, 44);
+
+    testStoreStore4();
+    assertIntEquals(TestClass.si, 62);
+
+    int ret = testStoreStore5(testclass2, testclass2);
+    assertIntEquals(testclass2.i, 72);
+    assertIntEquals(ret, 71);
+
+    testclass2.j = 88;
+    ret = testStoreStore6(testclass2, testclass2);
+    assertIntEquals(testclass2.i, 82);
+    assertIntEquals(ret, 88);
+
+    ret = testNoSideEffects(iarray);
+    assertIntEquals(iarray[0], 101);
+    assertIntEquals(iarray[1], 103);
+    assertIntEquals(ret, 108);
+
+    try {
+      testThrow(testclass2, new Exception());
+    } catch (Exception e) {}
+    assertIntEquals(testclass2.i, 55);
+
     assertIntEquals(testStoreStoreWithDeoptimize(new int[4]), 4);
   }
 

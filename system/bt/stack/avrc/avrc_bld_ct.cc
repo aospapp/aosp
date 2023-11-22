@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2006-2013 Broadcom Corporation
+ *  Copyright 2006-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@
  *  Global data
  ****************************************************************************/
 
-#if (AVRC_METADATA_INCLUDED == TRUE)
 /*******************************************************************************
  *
  * Function         avrc_bld_next_cmd
@@ -661,4 +660,3 @@ tAVRC_STS AVRC_BldCommand(tAVRC_COMMAND* p_cmd, BT_HDR** pp_pkt) {
   AVRC_TRACE_API("AVRC_BldCommand: returning %d", status);
   return status;
 }
-#endif /* (AVRC_METADATA_INCLUDED == TRUE) */

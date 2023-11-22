@@ -16,25 +16,44 @@
 
 package com.android.dialer.simulator.impl;
 
-import android.content.Context;
+import android.support.v7.app.AppCompatActivity;
 import android.view.ActionProvider;
 import com.android.dialer.buildtype.BuildType;
+import com.android.dialer.buildtype.BuildType.Type;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.simulator.Simulator;
 import javax.inject.Inject;
 
 /** The entry point for the simulator feature. */
 final class SimulatorImpl implements Simulator {
+
+  private boolean simulatorMode = false;
+
   @Inject
   public SimulatorImpl() {}
 
   @Override
   public boolean shouldShow() {
-    return BuildType.get() == BuildType.BUGFOOD || LogUtil.isDebugEnabled();
+    return BuildType.get() == Type.BUGFOOD || LogUtil.isDebugEnabled();
   }
 
   @Override
-  public ActionProvider getActionProvider(Context context) {
-    return new SimulatorActionProvider(context);
+  public ActionProvider getActionProvider(AppCompatActivity activity) {
+    return SimulatorMainMenu.getActionProvider(activity);
+  }
+
+  @Override
+  public boolean isSimulatorMode() {
+    return simulatorMode;
+  }
+
+  @Override
+  public void enableSimulatorMode() {
+    simulatorMode = true;
+  }
+
+  @Override
+  public void disableSimulatorMode() {
+    simulatorMode = false;
   }
 }

@@ -43,7 +43,8 @@ import java.util.Set;
  * $ make layoutlib_create &lt;bunch of framework jars&gt;
  * $ java -jar out/host/linux-x86/framework/layoutlib_create.jar \
  *        out/host/common/obj/JAVA_LIBRARIES/temp_layoutlib_intermediates/javalib.jar \
- *        out/target/common/obj/JAVA_LIBRARIES/core_intermediates/classes.jar \
+ *        out/target/common/obj/JAVA_LIBRARIES/core-libart_intermediates/classes.jar \
+ *        out/target/common/obj/JAVA_LIBRARIES/core-oj_intermediates/classes.jar \
  *        out/target/common/obj/JAVA_LIBRARIES/framework_intermediates/classes.jar
  * </pre>
  */
@@ -54,7 +55,7 @@ public class Main {
         public boolean listOnlyMissingDeps = false;
     }
 
-    public static final int ASM_VERSION = Opcodes.ASM5;
+    public static final int ASM_VERSION = Opcodes.ASM6;
 
     public static final Options sOptions = new Options();
 

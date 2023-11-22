@@ -1,7 +1,7 @@
 Run on Android with
 
 1) Build the tests.
-2) adb install <tree root>/out/target/product/generic/data/app/CRTests/CRTests.apk
+2) adb install <tree root>/out/target/product/<name>/data/app/CRTests/CRTests.apk
 3) adb shell am instrument -w com.hp.creals.tests/android.test.InstrumentationTestRunner
 
 The last step takes around 10 minutes on a Nexus 5.

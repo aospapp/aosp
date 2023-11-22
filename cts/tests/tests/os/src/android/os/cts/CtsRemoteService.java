@@ -20,8 +20,10 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
 import android.os.Process;
+import java.io.File;
+import java.io.IOException;
 
-public class CtsRemoteService extends Service{
+public class CtsRemoteService extends Service {
 
     @Override
     public void onCreate() {
@@ -41,6 +43,15 @@ public class CtsRemoteService extends Service{
         public String getTimeZoneID() {
             return java.util.TimeZone.getDefault().getID();
         }
+
+        public boolean performDiskWrite() {
+            try {
+                File tempFile = File.createTempFile("foo", "bar");
+                return tempFile.delete();
+            } catch (IOException exception) {
+                return false;
+            }
+        }
     };
 
     @Override
@@ -50,5 +61,4 @@ public class CtsRemoteService extends Service{
         }
         return null;
     }
-
 }

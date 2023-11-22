@@ -16,14 +16,20 @@
 
 package android.security.cts;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import android.content.pm.PackageManager;
 import android.platform.test.annotations.SecurityTest;
+import android.test.AndroidTestCase;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Collections;
@@ -31,10 +37,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import junit.framework.TestCase;
-
 @SecurityTest
-public class CertificateTest extends TestCase {
+public class CertificateTest extends AndroidTestCase {
+    // The directory for CA root certificates trusted by WFA (WiFi Alliance)
+    static final String DIR_OF_CACERTS_FOR_WFA = "/etc/security/cacerts_wfa";
 
     public void testNoRemovedCertificates() throws Exception {
         Set<String> expectedCertificates = new HashSet<String>(
@@ -77,6 +83,89 @@ public class CertificateTest extends TestCase {
         Set<String> deviceCertificates = getDeviceCertificates();
         deviceCertificates.retainAll(blockCertificates);
         assertEquals("Blocked CA certificates", Collections.EMPTY_SET, deviceCertificates);
+    }
+
+    /**
+     * This test exists because adding new ca certificate or removing the ca certificates trusted by
+     * WFA (WiFi Alliance) is not allowed.
+     *
+     * For questions, comments, and code reviews please contact security@android.com.
+     */
+    public void testNoRemovedWfaCertificates() throws Exception {
+        if (!supportPasspoint()) {
+            return;
+        }
+        Set<String> expectedCertificates = new HashSet<>(
+                Arrays.asList(CertificateData.WFA_CERTIFICATE_DATA));
+        Set<String> deviceWfaCertificates = getDeviceWfaCertificates();
+        expectedCertificates.removeAll(deviceWfaCertificates);
+        assertEquals("Missing WFA CA certificates", Collections.EMPTY_SET, expectedCertificates);
+    }
+
+    public void testNoAddedWfaCertificates() throws Exception {
+        if (!supportPasspoint()) {
+            return;
+        }
+        Set<String> expectedCertificates = new HashSet<String>(
+                Arrays.asList(CertificateData.WFA_CERTIFICATE_DATA));
+        Set<String> deviceWfaCertificates = getDeviceWfaCertificates();
+        deviceWfaCertificates.removeAll(expectedCertificates);
+        assertEquals("Unknown WFA CA certificates", Collections.EMPTY_SET, deviceWfaCertificates);
+    }
+
+    private boolean supportPasspoint() {
+        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI_PASSPOINT);
+    }
+
+    private KeyStore createWfaKeyStore(String dirPath) throws CertificateException, IOException,
+            KeyStoreException, NoSuchAlgorithmException {
+        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        keyStore.load(null, null);
+        String wfaCertsDir = System.getenv("ANDROID_ROOT") + dirPath;
+        int index = 0;
+        for (X509Certificate cert : loadCertsFromDisk(wfaCertsDir)) {
+            keyStore.setCertificateEntry(String.format("%d", index++), cert);
+        }
+        return keyStore;
+    }
+
+    private Set<X509Certificate> loadCertsFromDisk(String directory) throws CertificateException,
+            IOException {
+        Set<X509Certificate> certs = new HashSet<>();
+        File certDir = new File(directory);
+        File[] certFiles = certDir.listFiles();
+        if (certFiles == null || certFiles.length <= 0) {
+            return certs;
+        }
+        CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
+        for (File certFile : certFiles) {
+            FileInputStream fis = new FileInputStream(certFile);
+            Certificate cert = certFactory.generateCertificate(fis);
+            if (cert instanceof X509Certificate) {
+                certs.add((X509Certificate) cert);
+            }
+            fis.close();
+        }
+        return certs;
+    }
+
+    private Set<String> getDeviceWfaCertificates() throws KeyStoreException,
+            NoSuchAlgorithmException, CertificateException, IOException {
+        KeyStore wfaKeyStore = createWfaKeyStore(DIR_OF_CACERTS_FOR_WFA);
+        List<String> aliases = Collections.list(wfaKeyStore.aliases());
+        assertFalse(aliases.isEmpty());
+
+        Set<String> certificates = new HashSet<>();
+        for (String alias : aliases) {
+            assertTrue(wfaKeyStore.isCertificateEntry(alias));
+            X509Certificate certificate = (X509Certificate) wfaKeyStore.getCertificate(alias);
+            assertEquals(certificate.getSubjectUniqueID(), certificate.getIssuerUniqueID());
+            assertNotNull(certificate.getSubjectDN());
+            assertNotNull(certificate.getIssuerDN());
+            String fingerprint = getFingerprint(certificate);
+            certificates.add(fingerprint);
+        }
+        return certificates;
     }
 
     private Set<String> getDeviceCertificates() throws KeyStoreException,

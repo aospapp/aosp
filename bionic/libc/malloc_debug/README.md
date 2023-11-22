@@ -23,6 +23,7 @@ the normal allocation calls. The replaced calls are:
 * `realloc`
 * `posix_memalign`
 * `memalign`
+* `aligned_alloc`
 * `malloc_usable_size`
 
 On 32 bit systems, these two deprecated functions are also replaced:
@@ -31,6 +32,13 @@ On 32 bit systems, these two deprecated functions are also replaced:
 * `valloc`
 
 Any errors detected by the library are reported in the log.
+
+NOTE: There is a small behavioral change beginning in P for realloc.
+Before, a realloc from one size to a smaller size would not update the
+backtrace related to the allocation. Starting in P, every single realloc
+call changes the backtrace for the pointer no matter whether the pointer
+returned has changed or not.
+
 
 Controlling Malloc Debug Behavior
 ---------------------------------
@@ -105,8 +113,20 @@ If MAX\_FRAMES is present, it indicates the maximum number of frames to
 capture in a backtrace. The default is 16 frames, the maximumum value
 this can be set to is 256.
 
-This option adds a special header to all allocations that contains the
-backtrace and information about the original allocation.
+Before P, this option adds a special header to all allocations that contains
+the backtrace and information about the original allocation. After that, this
+option will not add a special header.
+
+As of P, this option will also enable dumping backtrace heap data to a
+file when the process receives the signal SIGRTMAX - 17 ( which is 47 on most
+Android devices). The format of this dumped data is the same format as
+that dumped when running am dumpheap -n. The default is to dump this data
+to the file /data/local/tmp/backtrace\_heap.**PID**.txt. This is useful when
+used with native only executables that run for a while since these processes
+are not spawned from a zygote process.
+
+Note that when the signal is received, the heap is not dumped until the next
+malloc/free occurs.
 
 ### backtrace\_enable\_on\_signal[=MAX\_FRAMES]
 Enable capturing the backtrace of each allocation site. If the
@@ -120,8 +140,29 @@ If MAX\_FRAMES is present, it indicates the maximum number of frames to
 capture in a backtrace. The default is 16 frames, the maximumum value
 this can be set to is 256.
 
-This option adds a special header to all allocations that contains the
-backtrace and information about the original allocation.
+Before P, this option adds a special header to all allocations that contains
+the backtrace and information about the original allocation. After that, this
+option will not add a special header.
+
+### backtrace\_dump\_on\_exit
+As of P, when the backtrace option has been enabled, this causes the backtrace
+dump heap data to be dumped to a file when the program exits. If the backtrace
+option has not been enabled, this does nothing. The default is to dump this
+to the file named /data/local/tmp/backtrace\_heap.**PID**.exit.txt.
+
+The file location can be changed by setting the backtrace\_dump\_prefix
+option.
+
+### backtrace\_dump\_prefix
+As of P, when the backtrace options has been enabled, this sets the prefix
+used for dumping files when the signal SIGRTMAX - 17 is received or when
+the program exits and backtrace\_dump\_on\_exit is set.
+
+The default is /data/local/tmp/backtrace\_heap.
+
+When this value is changed from the default, then the filename chosen
+on the signal will be backtrace\_dump\_prefix.**PID**.txt. The filename chosen
+when the program exits will be backtrace\_dump\_prefix.**PID**.exit.txt.
 
 ### fill\_on\_alloc[=MAX\_FILLED\_BYTES]
 Any allocation routine, other than calloc, will result in the allocation being
@@ -169,8 +210,9 @@ If ALLOCATION\_COUNT is present, it indicates the total number of allocations
 in the list. The default is to record 100 freed allocations, the max
 allocations to record is 16384.
 
-This option adds a special header to all allocations that contains
-information about the original allocation.
+Before P, this option adds a special header to all allocations that contains
+the backtrace and information about the original allocation. After that, this
+option will not add a special header.
 
 Example error:
 
@@ -206,8 +248,9 @@ then the log will include the backtrace of the leaked allocations. This
 option is not useful when enabled globally because a lot of programs do not
 free everything before the program terminates.
 
-This option adds a special header to all allocations that contains
-information about the original allocation.
+Before P, this option adds a special header to all allocations that contains
+the backtrace and information about the original allocation. After that, this
+option will not add a special header.
 
 Example leak error found in the log:
 
@@ -293,6 +336,10 @@ pointer = memalign(alignment, size)
 
 **THREAD\_ID**: memalign pointer alignment size
 
+pointer = aligned\_alloc(alignment, size)
+
+**THREAD\_ID**: memalign pointer alignment size
+
 posix\_memalign(&pointer, alignment, size)
 
 **THREAD\_ID**: memalign pointer alignment size
@@ -325,6 +372,26 @@ If FILE\_NAME is set, then it indicates where the record allocation data
 will be placed.
 
 **NOTE**: This option is not available until the O release of Android.
+
+### verify\_pointers
+Track all live allocations to determine if a pointer is used that does not
+exist. This option is a lightweight way to verify that all
+free/malloc\_usable\_size/realloc calls are passed valid pointers.
+
+Example error:
+
+    04-15 12:00:31.304  7412  7412 E malloc_debug: +++ ALLOCATION 0x12345678 UNKNOWN POINTER (free)
+    04-15 12:00:31.305  7412  7412 E malloc_debug: Backtrace at time of failure:
+    04-15 12:00:31.305  7412  7412 E malloc_debug:           #00  pc 00029310  /system/lib/libc.so
+    04-15 12:00:31.305  7412  7412 E malloc_debug:           #01  pc 00021438  /system/lib/libc.so (newlocale+160)
+    04-15 12:00:31.305  7412  7412 E malloc_debug:           #02  pc 000a9e38  /system/lib/libc++.so
+    04-15 12:00:31.305  7412  7412 E malloc_debug:           #03  pc 000a28a8  /system/lib/libc++.so
+
+Where the name of the function varies depending on the function that called
+with a bad pointer. Only three functions do this checking: free,
+malloc\_usable\_size, realloc.
+
+**NOTE**: This option is not available until the P release of Android.
 
 Additional Errors
 -----------------
@@ -369,8 +436,71 @@ the pointer has been corrupted.
 As with the other error message, the function in parenthesis is the
 function that was called with the bad pointer.
 
+Backtrace Heap Dump Format
+==========================
+
+This section describes the format of the backtrace heap dump. This data is
+generated by am dumpheap -n or, as of P, by the signal or on exit.
+
+The data has this header:
+
+    Android Native Heap Dump v1.0
+
+    Total memory: XXXX
+    Allocation records: YYYY
+    Backtrace size: ZZZZ
+
+Total memory is the total of all of the currently live allocations.
+Allocation records is the total number of allocation records.
+Backtrace size is the maximum number of backtrace frames that can be present.
+
+Following this header are two different sections, the first section is the
+allocation records, the second section is the map data.
+
+The allocation record data has this format:
+
+    z ZYGOTE_CHILD_ALLOC  sz    ALLOCATION_SIZE  num  NUM_ALLOCATIONS bt FRAMES
+
+ZYGOTE\_CHILD\_ALLOC is either 0 or 1. 0 means this was allocated by the
+zygote process or in a process not spawned from the zygote. 1 means this
+was allocated by an application after it forked off from the zygote process.
+
+ALLOCATION\_SIZE is the size of the allocation.
+NUM\_ALLOCATIONS is the number of allocations that have this size and have the
+same backtrace.
+FRAMES is a list of instruction pointers that represent the backtrace of the
+allocation.
+
+Example:
+
+    z 0  sz      400  num    1  bt 0000a230 0000b500
+    z 1  sz      500  num    3  bt 0000b000 0000c000
+
+The first allocation record was created by the zygote of size 400 only one
+with this backtrace/size and a backtrace of 0xa230, 0xb500.
+The second allocation record was create by an application spawned from the
+zygote of size 500, where there are three of these allocation with the same
+backtrace/size and a backtrace of 0xb000, 0xc000.
+
+The final section is the map data for the process:
+
+    MAPS
+    7fe9181000-7fe91a2000 rw-p 00000000 00:00 0                              /system/lib/libc.so
+    .
+    .
+    .
+    END
+
+The map data is simply the output of /proc/PID/maps. This data can be used to
+decode the frames in the backtraces.
+
+There is a tool to visualize this data, development/scripts/native\_heapdump\_viewer.py.
+
 Examples
 ========
+
+### For platform developers
+
 Enable backtrace tracking of all allocation for all processes:
 
     adb shell stop
@@ -390,15 +520,15 @@ Enable backtrace tracking for the zygote and zygote based processes:
     adb shell setprop libc.debug.malloc.options backtrace
     adb shell start
 
-Enable multiple options (backtrace and guards):
+Enable multiple options (backtrace and guard):
 
     adb shell stop
-    adb shell setprop libc.debug.malloc.options "\"backtrace guards\""
+    adb shell setprop libc.debug.malloc.options "\"backtrace guard\""
     adb shell start
 
 Note: The two levels of quoting in the adb shell command is necessary.
 The outer layer of quoting is for the shell on the host, to ensure that the
-inner layer of quoting is sent to the device, to make 'backtrace guards'
+inner layer of quoting is sent to the device, to make 'backtrace guard'
 a single argument.
 
 Enable malloc debug using an environment variable (pre-O Android release):
@@ -427,17 +557,7 @@ It is possible to use the backtrace\_enable\_on\_signal option as well,
 but, obviously, it must be enabled through the signal before the file will
 contain any data.
 
-To analyze the data produced by the dumpheap command, run this script:
-
-    development/scripts/native_heapdump_viewer.py
-
-In order for the script to properly symbolize the stacks in the file,
-make sure the script is executed from the tree that built the image.
-Below is an example of how to execute the script using the dump created by the
-above command:
-
-    adb shell pull /data/local/tmp/heap.txt .
-    development/scripts/native_heapdump_viewer.py heap.txt > heap_info.txt
+### For app developers
 
 Enable malloc debug for a specific program/application (Android O or later):
 
@@ -453,3 +573,40 @@ of 32. This meant that to create a wrap property with the name of the app, it
 was necessary to truncate the name to fit. On O, property names can be
 an order of magnitude larger, so there should be no need to truncate the name
 at all.
+
+To detect leaks while an app is running:
+
+    adb shell dumpsys meminfo --unreachable <PID_OF_APP>
+
+Without also enabling malloc debug, this command will only tell
+you whether it can detect leaked memory, not where those leaks are
+occurring. If you enable malloc debug with the backtrace option for your
+app before running the dumpsys command, you'll get backtraces showing
+where the memory was allocated.
+
+For backtraces from your app to be useful, you'll want to keep the
+symbols in your app's shared libraries rather than stripping them. That
+way you'll see the location of the leak directly without having to use
+something like the <code>ndk-stack</code> tool.
+
+### Analyzing heap dumps
+
+To analyze the data produced by the dumpheap command, run this script:
+
+    development/scripts/native_heapdump_viewer.py
+
+In order for the script to properly symbolize the stacks in the file,
+make sure the script is executed from the tree that built the image.
+
+To collect, transfer, and analyze a dump:
+
+    adb shell am dumpheap -n <PID_TO_DUMP> /data/local/tmp/heap.txt
+    adb shell pull /data/local/tmp/heap.txt .
+    python development/scripts/native_heapdump_viewer.py --symbols /some/path/to/symbols/ heap.txt > heap_info.txt
+
+At the moment, the script will look for symbols in the given directory,
+using the path the .so file would have on the device. So if your .so file
+is at `/data/app/.../lib/arm/libx.so` on the device, it will need to be at
+`/some/path/to/symbols/data/app/.../lib/arm/libx.so` locally given the
+command line above. That is: you need to mirror the directory structure
+for the app in the symbols directory.

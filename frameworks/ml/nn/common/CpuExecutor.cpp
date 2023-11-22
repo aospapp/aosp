@@ -21,6 +21,8 @@
 #include "NeuralNetworks.h"
 #include "Operations.h"
 
+#include "Eigen/Core"
+#include <omp.h>
 #include <sys/mman.h>
 
 namespace android {
@@ -28,22 +30,25 @@ namespace nn {
 
 // TODO: short term, make share memory mapping and updating a utility function.
 // TODO: long term, implement mmap_fd as a hidl IMemory service.
-bool RunTimePoolInfo::set(const hidl_memory& hidlMemory) {
-    this->hidlMemory = hidlMemory;
+RunTimePoolInfo::RunTimePoolInfo(const hidl_memory& hidlMemory, bool* fail) {
+    sp<IMemory> memory;
+    uint8_t* buffer = nullptr;
+
     auto memType = hidlMemory.name();
     if (memType == "ashmem") {
         memory = mapMemory(hidlMemory);
         if (memory == nullptr) {
             LOG(ERROR) << "Can't map shared memory.";
-            return false;
+            if (fail) *fail = true;
+            return;
         }
         memory->update();
         buffer = reinterpret_cast<uint8_t*>(static_cast<void*>(memory->getPointer()));
         if (buffer == nullptr) {
             LOG(ERROR) << "Can't access shared memory.";
-            return false;
+            if (fail) *fail = true;
+            return;
         }
-        return true;
     } else if (memType == "mmap_fd") {
         size_t size = hidlMemory.size();
         int fd = hidlMemory.handle()->data[0];
@@ -52,27 +57,80 @@ bool RunTimePoolInfo::set(const hidl_memory& hidlMemory) {
                                         hidlMemory.handle()->data[3]);
         buffer = static_cast<uint8_t*>(mmap(nullptr, size, prot, MAP_SHARED, fd, offset));
         if (buffer == MAP_FAILED) {
-            LOG(ERROR) << "Can't mmap the file descriptor.";
-            return false;
+            LOG(ERROR) << "RunTimePoolInfo::set(): Can't mmap the file descriptor.";
+            if (fail) *fail = true;
+            return;
         }
-        return true;
     } else {
-        LOG(ERROR) << "unsupported hidl_memory type";
-        return false;
+        LOG(ERROR) << "RunTimePoolInfo::set(): unsupported hidl_memory type";
+        if (fail) *fail = true;
+        return;
     }
+
+    mHidlMemory = hidlMemory;
+    mBuffer     = buffer;
+    mMemory     = memory;
+}
+
+RunTimePoolInfo::RunTimePoolInfo(uint8_t* buffer) {
+    mBuffer = buffer;
+}
+
+RunTimePoolInfo::RunTimePoolInfo(RunTimePoolInfo&& other) {
+    moveFrom(std::move(other));
+    other.mBuffer = nullptr;
+}
+
+RunTimePoolInfo& RunTimePoolInfo::operator=(RunTimePoolInfo&& other) {
+    if (this != &other) {
+        release();
+        moveFrom(std::move(other));
+        other.mBuffer = nullptr;
+    }
+    return *this;
+}
+
+void RunTimePoolInfo::moveFrom(RunTimePoolInfo &&other) {
+    mHidlMemory = std::move(other.mHidlMemory);
+    mBuffer     = std::move(other.mBuffer);
+    mMemory     = std::move(other.mMemory);
+}
+
+void RunTimePoolInfo::release() {
+    if (mBuffer == nullptr) {
+        return;
+    }
+
+    auto memType = mHidlMemory.name();
+    if (memType == "ashmem") {
+        // nothing to do
+    } else if (memType == "mmap_fd") {
+        size_t size = mHidlMemory.size();
+        if (munmap(mBuffer, size)) {
+            LOG(ERROR) << "RunTimePoolInfo::release(): Can't munmap";
+        }
+    } else if (memType == "") {
+        // Represents a POINTER argument; nothing to do
+    } else {
+        LOG(ERROR) << "RunTimePoolInfo::release(): unsupported hidl_memory type";
+    }
+
+    mHidlMemory = hidl_memory();
+    mMemory     = nullptr;
+    mBuffer     = nullptr;
 }
 
 // Making sure the output data are correctly updated after execution.
-bool RunTimePoolInfo::update() {
-    auto memType = hidlMemory.name();
+bool RunTimePoolInfo::update() const {
+    auto memType = mHidlMemory.name();
     if (memType == "ashmem") {
-        memory->commit();
+        mMemory->commit();
         return true;
     } else if (memType == "mmap_fd") {
-        int prot = hidlMemory.handle()->data[1];
+        int prot = mHidlMemory.handle()->data[1];
         if (prot & PROT_WRITE) {
-            size_t size = hidlMemory.size();
-            return msync(buffer, size, MS_SYNC) == 0;
+            size_t size = mHidlMemory.size();
+            return msync(mBuffer, size, MS_SYNC) == 0;
         }
     }
     // No-op for other types of memory.
@@ -81,13 +139,16 @@ bool RunTimePoolInfo::update() {
 
 bool setRunTimePoolInfosFromHidlMemories(std::vector<RunTimePoolInfo>* poolInfos,
                                          const hidl_vec<hidl_memory>& pools) {
-    poolInfos->resize(pools.size());
-    for (size_t i = 0; i < pools.size(); i++) {
-        auto& poolInfo = (*poolInfos)[i];
-        if (!poolInfo.set(pools[i])) {
-            LOG(ERROR) << "Could not map pool";
-            return false;
-        }
+    poolInfos->clear();
+    poolInfos->reserve(pools.size());
+    bool fail = false;
+    for (const auto& pool : pools) {
+        poolInfos->emplace_back(pool, &fail);
+    }
+    if (fail) {
+        LOG(ERROR) << "Could not map pools";
+        poolInfos->clear();
+        return false;
     }
     return true;
 }
@@ -125,12 +186,19 @@ static bool setInfoAndAllocateIfNeeded(RunTimeOperandInfo* info, const Shape& sh
 
 // Ignore the .pools entry in model and request.  This will have been taken care of
 // by the caller.
-int CpuExecutor::run(const Model& model, const Request& request,
+int CpuExecutor::run(const V1_0::Model& model, const Request& request,
                      const std::vector<RunTimePoolInfo>& modelPoolInfos,
                      const std::vector<RunTimePoolInfo>& requestPoolInfos) {
-    VLOG(CPUEXE) << "CpuExecutor::run()";
-    // VLOG(CPUEXE) << "model: " << toString(model);
-    VLOG(CPUEXE) << "request: " << toString(request);
+    return run(convertToV1_1(model), request, modelPoolInfos, requestPoolInfos);
+}
+
+int CpuExecutor::run(const V1_1::Model& model, const Request& request,
+                     const std::vector<RunTimePoolInfo>& modelPoolInfos,
+                     const std::vector<RunTimePoolInfo>& requestPoolInfos) {
+    VLOG(CPUEXE) << "CpuExecutor::run() with request("
+                 << SHOW_IF_DEBUG(toString(request)) << ")";
+
+    ScopedOpenmpSettings openMpSettings;
 
     mModel = &model;
     mRequest = &request; // TODO check if mRequest is needed
@@ -142,10 +210,10 @@ int CpuExecutor::run(const Model& model, const Request& request,
             return n;
         }
     }
-    for (auto runtimeInfo : modelPoolInfos) {
+    for (auto& runtimeInfo : modelPoolInfos) {
         runtimeInfo.update();
     }
-    for (auto runtimeInfo : requestPoolInfos) {
+    for (auto& runtimeInfo : requestPoolInfos) {
         runtimeInfo.update();
     }
     mModel = nullptr;
@@ -183,7 +251,7 @@ bool CpuExecutor::initializeRunTimeInfo(const std::vector<RunTimePoolInfo>& mode
                 auto poolIndex = from.location.poolIndex;
                 nnAssert(poolIndex < modelPoolInfos.size());
                 auto& r = modelPoolInfos[poolIndex];
-                to.buffer = r.buffer + from.location.offset;
+                to.buffer = r.getBuffer() + from.location.offset;
                 to.numberOfUsesLeft = 0;
                 break;
             }
@@ -223,7 +291,7 @@ bool CpuExecutor::initializeRunTimeInfo(const std::vector<RunTimePoolInfo>& mode
                 auto poolIndex = from.location.poolIndex;
                 nnAssert(poolIndex < requestPoolInfos.size());
                 auto& r = requestPoolInfos[poolIndex];
-                to.buffer = r.buffer + from.location.offset;
+                to.buffer = r.getBuffer() + from.location.offset;
             }
         }
     };
@@ -1238,6 +1306,221 @@ int CpuExecutor::executeOperation(const Operation& operation) {
                 setInfoAndAllocateIfNeeded(&output, outputShape) &&
                 svdf.Eval();
         } break;
+        case OperationType::BATCH_TO_SPACE_ND: {
+            if (!allParametersPresent(2, 1)) {
+                return ANEURALNETWORKS_BAD_DATA;
+            }
+            const RunTimeOperandInfo& input = mOperands[ins[0]];
+            const RunTimeOperandInfo& blockSize = mOperands[ins[1]];
+
+            RunTimeOperandInfo& output = mOperands[outs[0]];
+            Shape outShape = output.shape();
+
+            success = batchToSpacePrepare(input.shape(),
+                                          reinterpret_cast<const int32_t*>(blockSize.buffer),
+                                          blockSize.shape(),
+                                          &outShape) &&
+                      setInfoAndAllocateIfNeeded(&output, outShape) &&
+                      batchToSpaceGeneric(input.buffer,
+                                          input.shape(),
+                                          reinterpret_cast<const int32_t*>(blockSize.buffer),
+                                          output.buffer,
+                                          outShape);
+        } break;
+        case OperationType::SPACE_TO_BATCH_ND: {
+            if (!allParametersPresent(3, 1)) {
+                return ANEURALNETWORKS_BAD_DATA;
+            }
+            const RunTimeOperandInfo& input = mOperands[ins[0]];
+            const RunTimeOperandInfo& blockSize = mOperands[ins[1]];
+            const RunTimeOperandInfo& paddings = mOperands[ins[2]];
+
+            RunTimeOperandInfo& output = mOperands[outs[0]];
+            Shape outShape = output.shape();
+
+            success = spaceToBatchPrepare(input.shape(),
+                                          reinterpret_cast<const int32_t*>(blockSize.buffer),
+                                          blockSize.shape(),
+                                          reinterpret_cast<const int32_t*>(paddings.buffer),
+                                          paddings.shape(),
+                                          &outShape) &&
+                      setInfoAndAllocateIfNeeded(&output, outShape) &&
+                      spaceToBatchGeneric(input.buffer,
+                                          input.shape(),
+                                          reinterpret_cast<const int32_t*>(blockSize.buffer),
+                                          reinterpret_cast<const int32_t*>(paddings.buffer),
+                                          paddings.shape(),
+                                          output.buffer,
+                                          outShape);
+        } break;
+        case OperationType::PAD: {
+            if (!allParametersPresent(2, 1)) {
+                return ANEURALNETWORKS_BAD_DATA;
+            }
+            const RunTimeOperandInfo& input = mOperands[ins[0]];
+            const RunTimeOperandInfo& paddings = mOperands[ins[1]];
+
+            RunTimeOperandInfo& output = mOperands[outs[0]];
+            Shape outShape = output.shape();
+
+            success = padPrepare(input.shape(),
+                                 reinterpret_cast<const int32_t*>(paddings.buffer),
+                                 paddings.shape(),
+                                 &outShape) &&
+                      setInfoAndAllocateIfNeeded(&output, outShape) &&
+                      padGeneric(input.buffer,
+                                 input.shape(),
+                                 reinterpret_cast<const int32_t*>(paddings.buffer),
+                                 output.buffer,
+                                 outShape);
+        } break;
+        case OperationType::SQUEEZE: {
+            if (!allParametersPresent(2, 1)) {
+                return ANEURALNETWORKS_BAD_DATA;
+            }
+            const RunTimeOperandInfo& input = mOperands[ins[0]];
+            const RunTimeOperandInfo& squeezeDims = mOperands[ins[1]];
+
+            RunTimeOperandInfo& output = mOperands[outs[0]];
+            Shape outShape = output.shape();
+
+            success = squeezePrepare(input.shape(),
+                                     reinterpret_cast<const int32_t*>(squeezeDims.buffer),
+                                     squeezeDims.shape(),
+                                     &outShape) &&
+                      setInfoAndAllocateIfNeeded(&output, outShape) &&
+                      squeezeGeneric(input.buffer,
+                                     input.shape(),
+                                     output.buffer,
+                                     outShape);
+        } break;
+        case OperationType::TRANSPOSE: {
+            if (!allParametersPresent(2, 1)) {
+                return ANEURALNETWORKS_BAD_DATA;
+            }
+            const RunTimeOperandInfo& input = mOperands[ins[0]];
+            const RunTimeOperandInfo& perms = mOperands[ins[1]];
+
+            RunTimeOperandInfo& output = mOperands[outs[0]];
+            Shape outShape = output.shape();
+
+            success = transposePrepare(input.shape(),
+                                       reinterpret_cast<const int32_t*>(perms.buffer),
+                                       perms.shape(),
+                                       &outShape) &&
+                      setInfoAndAllocateIfNeeded(&output, outShape) &&
+                      transposeGeneric(input.buffer,
+                                       input.shape(),
+                                       reinterpret_cast<const int32_t*>(perms.buffer),
+                                       perms.shape(),
+                                       output.buffer,
+                                       outShape);
+        } break;
+        case OperationType::STRIDED_SLICE: {
+            if (!allParametersPresent(7, 1)) {
+                return ANEURALNETWORKS_BAD_DATA;
+            }
+            const RunTimeOperandInfo& input = mOperands[ins[0]];
+            const RunTimeOperandInfo& begins = mOperands[ins[1]];
+            const RunTimeOperandInfo& ends = mOperands[ins[2]];
+            const RunTimeOperandInfo& strides = mOperands[ins[3]];
+            int32_t beginMask = getScalarData<int32_t>(mOperands[ins[4]]);
+            int32_t endMask = getScalarData<int32_t>(mOperands[ins[5]]);
+            int32_t shrinkAxisMask = getScalarData<int32_t>(mOperands[ins[6]]);
+
+            RunTimeOperandInfo& output = mOperands[outs[0]];
+            Shape outShape = output.shape();
+
+            success = stridedSlicePrepare(input.shape(),
+                                          reinterpret_cast<const int32_t*>(begins.buffer),
+                                          begins.shape(),
+                                          reinterpret_cast<const int32_t*>(ends.buffer),
+                                          ends.shape(),
+                                          reinterpret_cast<const int32_t*>(strides.buffer),
+                                          strides.shape(),
+                                          beginMask, endMask, shrinkAxisMask,
+                                          &outShape) &&
+                      setInfoAndAllocateIfNeeded(&output, outShape) &&
+                      stridedSliceGeneric(input.buffer,
+                                          input.shape(),
+                                          reinterpret_cast<const int32_t*>(begins.buffer),
+                                          reinterpret_cast<const int32_t*>(ends.buffer),
+                                          reinterpret_cast<const int32_t*>(strides.buffer),
+                                          beginMask, endMask, shrinkAxisMask,
+                                          output.buffer,
+                                          outShape);
+        } break;
+        case OperationType::DIV: {
+            if (!allParametersPresent(3, 1)) {
+                return ANEURALNETWORKS_BAD_DATA;
+            }
+            const RunTimeOperandInfo& in1 = mOperands[ins[0]];
+            const RunTimeOperandInfo& in2 = mOperands[ins[1]];
+            int32_t activation = getScalarData<int32_t>(mOperands[ins[2]]);
+
+            RunTimeOperandInfo& out = mOperands[outs[0]];
+            Shape outShape = out.shape();
+
+            if (in1.type == OperandType::TENSOR_FLOAT32) {
+                success = addMulPrepare(in1.shape(), in2.shape(), &outShape) &&
+                          setInfoAndAllocateIfNeeded(&out, outShape) &&
+                          divFloat32(reinterpret_cast<const float*>(in1.buffer),
+                                     in1.shape(),
+                                     reinterpret_cast<const float*>(in2.buffer),
+                                     in2.shape(),
+                                     activation,
+                                     reinterpret_cast<float*>(out.buffer),
+                                     outShape);
+            }
+        } break;
+        case OperationType::SUB: {
+            if (!allParametersPresent(3, 1)) {
+                return ANEURALNETWORKS_BAD_DATA;
+            }
+            const RunTimeOperandInfo& in1 = mOperands[ins[0]];
+            const RunTimeOperandInfo& in2 = mOperands[ins[1]];
+            int32_t activation = getScalarData<int32_t>(mOperands[ins[2]]);
+
+            RunTimeOperandInfo& out = mOperands[outs[0]];
+            Shape outShape = out.shape();
+
+            if (in1.type == OperandType::TENSOR_FLOAT32) {
+                success = addMulPrepare(in1.shape(), in2.shape(), &outShape) &&
+                          setInfoAndAllocateIfNeeded(&out, outShape) &&
+                          subFloat32(reinterpret_cast<const float*>(in1.buffer),
+                                     in1.shape(),
+                                     reinterpret_cast<const float*>(in2.buffer),
+                                     in2.shape(),
+                                     activation,
+                                     reinterpret_cast<float*>(out.buffer),
+                                     outShape);
+            }
+        } break;
+        case OperationType::MEAN: {
+            if (!allParametersPresent(3, 1)) {
+                return ANEURALNETWORKS_BAD_DATA;
+            }
+            const RunTimeOperandInfo& input = mOperands[ins[0]];
+            const RunTimeOperandInfo& axis = mOperands[ins[1]];
+            int32_t keepDims = getScalarData<int32_t>(mOperands[ins[2]]);
+
+            RunTimeOperandInfo& output = mOperands[outs[0]];
+            Shape outShape = output.shape();
+
+            success = meanPrepare(input.shape(),
+                                  reinterpret_cast<const int32_t*>(axis.buffer),
+                                  axis.shape(),
+                                  keepDims > 0,
+                                  &outShape) &&
+                      setInfoAndAllocateIfNeeded(&output, outShape) &&
+                      meanGeneric(input.buffer,
+                                  input.shape(),
+                                  reinterpret_cast<const int32_t*>(axis.buffer),
+                                  axis.shape(),
+                                  keepDims > 0,
+                                  output.buffer,
+                                  outShape);
+        } break;
         default:
             nnAssert(false);
             break;
@@ -1250,6 +1533,33 @@ int CpuExecutor::executeOperation(const Operation& operation) {
     freeNoLongerUsedOperands(ins);
     return ANEURALNETWORKS_NO_ERROR;
 }
+
+ScopedOpenmpSettings::ScopedOpenmpSettings() {
+    mBlocktimeInitial = kmp_get_blocktime();
+    kmp_set_blocktime(20);  // ms, see b/109645291
+
+#if NNAPI_LIMIT_CPU_THREADS
+    // Code not yet enabled. Choosing the number of threads to be based on
+    // benchmarking. See longer comment by the class declaration.
+    mMaxThreadsInitial = Eigen::nbThreads();
+    const int nProcs = omp_get_num_procs();
+    int threads = nProcs;
+    if (nProcs >= 8) {
+        threads = nProcs - 4;
+    } else if (nProcs >= 4) {
+        threads = nProcs - 2;
+    }
+    Eigen::setNbThreads(threads);
+#endif
+}
+
+ScopedOpenmpSettings::~ScopedOpenmpSettings() {
+    kmp_set_blocktime(mBlocktimeInitial);
+#if NNAPI_LIMIT_CPU_THREADS
+    Eigen::setNbThreads(mMaxThreadsInitial);
+#endif
+}
+
 
 } // namespace nn
 } // namespace android

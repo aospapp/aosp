@@ -26,6 +26,7 @@ import android.app.stubs.LocalDeniedService;
 import android.app.stubs.LocalForegroundService;
 import android.app.stubs.LocalGrantedService;
 import android.app.stubs.LocalService;
+import android.app.stubs.NullService;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -36,6 +37,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.service.notification.StatusBarNotification;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
@@ -82,6 +84,41 @@ public class ServiceTest extends ActivityTestsBase {
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
+        }
+    }
+
+    private static class NullServiceConnection implements ServiceConnection {
+        boolean mNullBinding = false;
+
+        @Override public void onServiceConnected(ComponentName name, IBinder service) {}
+        @Override public void onServiceDisconnected(ComponentName name) {}
+
+        @Override
+        public void onNullBinding(ComponentName name) {
+            synchronized (this) {
+                mNullBinding = true;
+                this.notifyAll();
+            }
+        }
+
+        public void waitForNullBinding(final long timeout) {
+            long now = SystemClock.uptimeMillis();
+            final long end = now + timeout;
+            synchronized (this) {
+                while (!mNullBinding && (now < end)) {
+                    try {
+                        this.wait(end - now);
+                    } catch (InterruptedException e) {
+                    }
+                    now = SystemClock.uptimeMillis();
+                }
+            }
+        }
+
+        public boolean nullBindingReceived() {
+            synchronized (this) {
+                return mNullBinding;
+            }
         }
     }
 
@@ -829,6 +866,30 @@ public class ServiceTest extends ActivityTestsBase {
             fail("Implicit intents should be disallowed for apps targeting API 21+");
         } catch (IllegalArgumentException e) {
             // expected
+        }
+    }
+
+    /**
+     * Verify that when the requested service's onBind() returns null,
+     * the connection's onNullBinding() method is invoked.
+     */
+    @MediumTest
+    public void testNullServiceBinder() throws Exception {
+        Intent intent = new Intent(mContext, NullService.class);
+        intent.setAction("testNullServiceBinder");
+        NullServiceConnection conn1 = new NullServiceConnection();
+        NullServiceConnection conn2 = new NullServiceConnection();
+        try {
+            assertTrue(mContext.bindService(intent, conn1, Context.BIND_AUTO_CREATE));
+            conn1.waitForNullBinding(DELAY);
+            assertTrue(conn1.nullBindingReceived());
+
+            assertTrue(mContext.bindService(intent, conn2, Context.BIND_AUTO_CREATE));
+            conn2.waitForNullBinding(DELAY);
+            assertTrue(conn2.nullBindingReceived());
+        } finally {
+            mContext.unbindService(conn1);
+            mContext.unbindService(conn2);
         }
     }
 }

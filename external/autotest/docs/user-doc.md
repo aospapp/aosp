@@ -332,7 +332,7 @@ client-side test
 Suites provide a mechanism to group tests together in test groups. They also
 serve as hooks for automated runs of tests verifying various builds. Most
 importantly, that is the BVT (board verification tests) and Smoke (a subset of
-BVT that can run in a VM.
+BVT that can run in a VM).
 
 Please refer to the [suites documentation](https://www.chromium.org/chromium-os/testing/test-suites).
 

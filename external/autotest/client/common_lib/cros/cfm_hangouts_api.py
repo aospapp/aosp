@@ -148,6 +148,12 @@ class CfmHangoutsAPI(object):
         raise NotImplementedError
 
 
+    def get_participant_count(self):
+        """Returns the total number of participants in a hangout."""
+        return self._webview_context.EvaluateJavaScript(
+                "window.hrGetParticipantsCountInCallForTest()")
+
+
     # Diagnostics commands/functions
     def is_diagnostic_run_in_progress(self):
         """Check if hotrod diagnostics is running."""

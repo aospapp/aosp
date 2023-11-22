@@ -116,3 +116,13 @@ DLL_EXPORT void chreConfigureNanoappInfoEvents(bool enable) {
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
   nanoapp->configureNanoappInfoEvents(enable);
 }
+
+DLL_EXPORT void chreConfigureHostSleepStateEvents(bool enable) {
+  chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
+  nanoapp->configureHostSleepEvents(enable);
+}
+
+DLL_EXPORT bool chreIsHostAwake() {
+  return EventLoopManagerSingleton::get()->getEventLoop()
+      .getPowerControlManager().hostIsAwake();
+}

@@ -80,6 +80,33 @@ public class RVCVRecordActivity extends Activity {
     private final static boolean     LOG_RAW_SENSORS = false;
     private RawSensorLogger          mRawSensorLogger;
 
+    public final RecordProcedureControllerCallback mRecordProcedureControllerCallback =
+            new RecordProcedureControllerCallback() {
+        public void startRecordProcedureController() {
+            startRecordcontroller();
+        }
+        public void stopRecordProcedureController() {
+            stopRecordcontroller();
+        }
+    };
+
+    public void startRecordcontroller() {
+        if (mController != null) {
+            Log.v(TAG, "startRecordcontroller is working. stop it");
+            mController.quit();
+        }
+        Log.v(TAG, "startRecordcontroller");
+        mController = new RecordProcedureController(this);
+    }
+
+    public void stopRecordcontroller() {
+        if (mController != null) {
+            Log.v(TAG, "startRecordcontroller is working. stop it");
+            mController.quit();
+        }
+        Log.v(TAG, "stopRecordcontroller");
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -99,7 +126,9 @@ public class RVCVRecordActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
-        mController.quit();
+        if (mController != null) {
+            mController.quit();
+        }
 
         mCameraContext.end();
         endSoundPool();
@@ -131,7 +160,7 @@ public class RVCVRecordActivity extends Activity {
      */
     private void init() {
         mCameraContext = new CameraContext();
-        mCameraContext.init();
+        mCameraContext.init(mRecordProcedureControllerCallback);
 
         mCoverManager = new CoverageManager();
         mIndicatorView.setDataProvider(
@@ -147,8 +176,6 @@ public class RVCVRecordActivity extends Activity {
         if (LOG_RAW_SENSORS) {
             mRawSensorLogger = new RawSensorLogger(mRecordDir);
         }
-
-        mController = new RecordProcedureController(this);
     }
 
     /**
@@ -381,6 +408,11 @@ public class RVCVRecordActivity extends Activity {
         }
     }
 
+    public interface RecordProcedureControllerCallback {
+        public void startRecordProcedureController();
+        public void stopRecordProcedureController();
+    }
+
     /**
      * Camera preview control class
      */
@@ -388,6 +420,7 @@ public class RVCVRecordActivity extends Activity {
         private Camera mCamera;
         private CamcorderProfile mProfile;
         private Camera.CameraInfo mCameraInfo;
+        private RVCVCameraPreview mCameraPreview;
 
         private int [] mPreferredProfiles = {
                 CamcorderProfile.QUALITY_480P,  // smaller -> faster
@@ -514,7 +547,7 @@ public class RVCVRecordActivity extends Activity {
         /**
          * Setup the camera
          */
-        public void init() {
+        public void init(RVCVRecordActivity.RecordProcedureControllerCallback callback) {
             if (mCamera != null) {
                 double alpha = mCamera.getParameters().getHorizontalViewAngle()*Math.PI/180.0;
                 int width = mProfile.videoFrameWidth;
@@ -523,9 +556,10 @@ public class RVCVRecordActivity extends Activity {
                 if (LOCAL_LOGV) Log.v(TAG, "View angle="
                         + mCamera.getParameters().getHorizontalViewAngle() +"  Estimated fx = "+fx);
 
-                RVCVCameraPreview cameraPreview =
+                mCameraPreview =
                         (RVCVCameraPreview) findViewById(R.id.cam_preview);
-                cameraPreview.init(mCamera,
+                mCameraPreview.setRecordProcedureControllerCallback(callback);
+                mCameraPreview.init(mCamera,
                         (float)mProfile.videoFrameWidth/mProfile.videoFrameHeight,
                         mCameraInfo.orientation);
             } else {
@@ -633,13 +667,28 @@ public class RVCVRecordActivity extends Activity {
             }
 
             mRecorder = new MediaRecorder();
-            mCamera.unlock();
-            mRecorder.setCamera(mCamera);
+            try {
+                mCamera.unlock();
+            } catch (RuntimeException e) {
+                e.printStackTrace();
+                try {
+                    mRecorder.reset();
+                    mRecorder.release();
+                } catch (RuntimeException ex) {
+                    e.printStackTrace();
+                }
+                return;
+            }
 
-            mRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
-            mRecorder.setAudioSource(MediaRecorder.AudioSource.DEFAULT);
-
-            mRecorder.setProfile(mProfile);
+            try {
+                mRecorder.setCamera(mCamera);
+                mRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
+                mRecorder.setAudioSource(MediaRecorder.AudioSource.DEFAULT);
+                mRecorder.setProfile(mProfile);
+            } catch (RuntimeException e) {
+                e.printStackTrace();
+                return;
+            }
 
             try {
                 mRecorder.setOutputFile(getVideoRecFilePath());
@@ -653,9 +702,13 @@ public class RVCVRecordActivity extends Activity {
                 mRecorder.start();
             } catch (RuntimeException e) {
                 Log.e(TAG, "Starting recording failed.");
-                mRecorder.reset();
-                mRecorder.release();
-                mCamera.lock();
+                try {
+                    mRecorder.reset();
+                    mRecorder.release();
+                    mCamera.lock();
+                } catch (RuntimeException ex1) {
+                    e.printStackTrace();
+                }
                 return;
             }
             mRunning = true;

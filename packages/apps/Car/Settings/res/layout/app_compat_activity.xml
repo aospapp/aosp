@@ -24,15 +24,30 @@
     <android.support.v7.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/lens_header_height"
-        app:theme="@style/ActionBarStyle.Car"
-        app:contentInsetStart="0dp" />
+        android:layout_height="@dimen/car_app_bar_height"
+        app:contentInsetStart="0dp"
+        style="@style/ActionBarStyle.Car" />
     <View
         android:layout_width="match_parent"
-        android:layout_height="@dimen/car_divider_height"
+        android:layout_height="@dimen/car_list_divider_height"
         android:background="@color/car_list_divider"/>
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:id="@+id/fragment_container"/>
+        android:layout_height="match_parent">
+        <FrameLayout
+            android:id="@+id/fragment_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+        <!-- set the text clickable to true so that it blocks touch event -->
+        <TextView
+            android:id="@+id/restricted_message"
+            android:gravity="center"
+            android:background="@color/car_grey_1000"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="@string/restricted_while_driving"
+            android:clickable="true"
+            android:visibility="gone"
+            android:textAppearance="@style/TextAppearance.Car.Body1.Light" />
+    </FrameLayout>
 </LinearLayout>

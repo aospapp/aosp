@@ -16,6 +16,9 @@
 
 package android.hardware.cts;
 
+import android.hardware.cts.helpers.sensorverification.ContinuousEventSanitizedVerification;
+import android.support.test.InstrumentationRegistry;
+import com.android.compatibility.common.util.SystemUtil;
 import junit.framework.Assert;
 
 import android.content.Context;
@@ -45,9 +48,9 @@ import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
 import android.util.Log;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -307,14 +310,60 @@ public class SensorTest extends SensorTestCase {
         assertFalse(result);
     }
 
-    // TODO: remove when parametized tests are supported and EventTimestampSynchronization
+    /**
+     * Verifies that if the UID is idle the continuous events are being reported
+     * but sanitized - all events are the same as the first one delivered except
+     * for their timestamps. From the point of view of an idle app these events are
+     * being properly generated but the sensor reading does not change - privacy.
+     */
+    // TODO: remove when parametrized tests are supported and EventTimestampSynchronization
+    public void testSanitizedContinuousEventsUidIdle() throws Exception {
+        ArrayList<Throwable> errorsFound = new ArrayList<>();
+        for (Sensor sensor : mAndroidSensorList) {
+            // If the UID is active no sanitization should be performed
+            verifyLongActivation(sensor, 0 /* maxReportLatencyUs */,
+                    5 /* duration */, TimeUnit.SECONDS, "continuous event",
+                    false /* sanitized */, errorsFound);
+            verifyLongActivation(sensor, (int) TimeUnit.SECONDS.toMicros(10),
+                    5 /* duration */, TimeUnit.SECONDS, "continuous event",
+                    false /* sanitized */, errorsFound);
+
+            // If the UID is idle sanitization should be performed
+            makeMyPackageIdle();
+            try {
+                verifyLongActivation(sensor, 0 /* maxReportLatencyUs */,
+                        5 /* duration */, TimeUnit.SECONDS, "continuous event",
+                        true /* sanitized */, errorsFound);
+                verifyLongActivation(sensor, (int) TimeUnit.SECONDS.toMicros(10),
+                        5 /* duration */, TimeUnit.SECONDS, "continuous event",
+                        true /* sanitized */, errorsFound);
+            } finally {
+                makeMyPackageActive();
+            }
+
+            // If the UID is active no sanitization should be performed
+            verifyLongActivation(sensor, 0 /* maxReportLatencyUs */,
+                    5 /* duration */, TimeUnit.SECONDS, "continuous event",
+                    false /* sanitized */, errorsFound);
+            verifyLongActivation(sensor, (int) TimeUnit.SECONDS.toMicros(10),
+                    5 /* duration */, TimeUnit.SECONDS, "continuous event",
+                    false /* sanitized */, errorsFound);
+        }
+        assertOnErrors(errorsFound);
+    }
+
+    // TODO: remove when parametrized tests are supported and EventTimestampSynchronization
     //       verification is added to default verifications
     public void testSensorTimeStamps() throws Exception {
         ArrayList<Throwable> errorsFound = new ArrayList<>();
         for (Sensor sensor : mAndroidSensorList) {
             // test both continuous and batching mode sensors
-            verifyLongActivation(sensor, 0 /* maxReportLatencyUs */, errorsFound);
-            verifyLongActivation(sensor, (int) TimeUnit.SECONDS.toMicros(10), errorsFound);
+            verifyLongActivation(sensor, 0 /* maxReportLatencyUs */,
+                    20 /* duration */, TimeUnit.SECONDS, "timestamp", false
+                    /* sanitized */, errorsFound);
+            verifyLongActivation(sensor, (int) TimeUnit.SECONDS.toMicros(10),
+                    20 /* duration */, TimeUnit.SECONDS, "timestamp",
+                    false /* sanitized */, errorsFound);
         }
         assertOnErrors(errorsFound);
     }
@@ -324,7 +373,24 @@ public class SensorTest extends SensorTestCase {
         SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
         ArrayList<Throwable> errorsFound = new ArrayList<>();
         for (Sensor sensor : mAndroidSensorList) {
-            verifyRegisterListenerCallFlush(sensor, null /* handler */, errorsFound);
+            verifyRegisterListenerCallFlush(sensor, null /* handler */, errorsFound,
+                    false /* flushWhileIdle */);
+        }
+        assertOnErrors(errorsFound);
+    }
+
+    /**
+     * Verifies that if the UID is idle flush events are reported. Since
+     * these events have no payload with private data they are working as
+     * for a non-idle UID.
+     */
+    // TODO: remove when parametized tests are supported and EventTimestampSynchronization
+    public void testBatchAndFlushUidIdle() throws Exception {
+        SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
+        ArrayList<Throwable> errorsFound = new ArrayList<>();
+        for (Sensor sensor : mAndroidSensorList) {
+            verifyRegisterListenerCallFlush(sensor, null /* handler */, errorsFound,
+                    true /* flushWhileIdle */);
         }
         assertOnErrors(errorsFound);
     }
@@ -426,7 +492,8 @@ public class SensorTest extends SensorTestCase {
                     shouldEmulateSensorUnderLoad(),
                     SensorManager.SENSOR_DELAY_FASTEST,
                     maxReportLatencyUs);
-            FlushExecutor executor = new FlushExecutor(environment, 500 /* eventCount */);
+            FlushExecutor executor = new FlushExecutor(environment, 500 /* eventCount */,
+                    false /* flushWhileIdle */);
             parallelSensorOperation.add(new TestSensorOperation(environment, executor));
             builder.append(sensor.getName()).append(", ");
         }
@@ -479,11 +546,15 @@ public class SensorTest extends SensorTestCase {
 
     /**
      * Verifies that a continuous sensor produces events that have timestamps synchronized with
-     * {@link SystemClock#elapsedRealtimeNanos()}.
+     * {@link SystemClock#elapsedRealtimeNanos()} and that the events are sanitized/non-sanitized.
      */
     private void verifyLongActivation(
             Sensor sensor,
             int maxReportLatencyUs,
+            long duration,
+            TimeUnit durationTimeUnit,
+            String testType,
+            boolean sanitized,
             ArrayList<Throwable> errorsFound) throws InterruptedException {
         if (sensor.getReportingMode() != Sensor.REPORTING_MODE_CONTINUOUS) {
             return;
@@ -496,14 +567,20 @@ public class SensorTest extends SensorTestCase {
                     shouldEmulateSensorUnderLoad(),
                     SensorManager.SENSOR_DELAY_FASTEST,
                     maxReportLatencyUs);
-            TestSensorOperation operation =
-                    TestSensorOperation.createOperation(environment, 20, TimeUnit.SECONDS);
-            operation.addVerification(EventGapVerification.getDefault(environment));
-            operation.addVerification(EventOrderingVerification.getDefault(environment));
-            operation.addVerification(
-                    EventTimestampSynchronizationVerification.getDefault(environment));
-
-            Log.i(TAG, "Running timestamp test on: " + sensor.getName());
+            TestSensorOperation operation = TestSensorOperation.createOperation(
+                    environment, duration, durationTimeUnit);
+            if (sanitized) {
+                final long verificationDelayNano = TimeUnit.NANOSECONDS.convert(
+                        maxReportLatencyUs, TimeUnit.MICROSECONDS) * 2;
+                operation.addVerification(ContinuousEventSanitizedVerification
+                        .getDefault(environment, verificationDelayNano));
+            } else {
+                operation.addVerification(EventGapVerification.getDefault(environment));
+                operation.addVerification(EventOrderingVerification.getDefault(environment));
+                operation.addVerification(EventTimestampSynchronizationVerification
+                        .getDefault(environment));
+            }
+            Log.i(TAG, "Running " + testType + " test on: " + sensor.getName());
             operation.execute(getCurrentTestNode());
         } catch (InterruptedException e) {
             // propagate so the test can stop
@@ -522,7 +599,8 @@ public class SensorTest extends SensorTestCase {
     private void verifyRegisterListenerCallFlush(
             Sensor sensor,
             Handler handler,
-            ArrayList<Throwable> errorsFound)
+            ArrayList<Throwable> errorsFound,
+            boolean flushWhileIdle)
             throws InterruptedException {
         if (sensor.getReportingMode() == Sensor.REPORTING_MODE_ONE_SHOT) {
             return;
@@ -535,7 +613,8 @@ public class SensorTest extends SensorTestCase {
                     shouldEmulateSensorUnderLoad(),
                     SensorManager.SENSOR_DELAY_FASTEST,
                     (int) TimeUnit.SECONDS.toMicros(10));
-            FlushExecutor executor = new FlushExecutor(environment, 500 /* eventCount */);
+            FlushExecutor executor = new FlushExecutor(environment, 500 /* eventCount */,
+                    flushWhileIdle);
             TestSensorOperation operation = new TestSensorOperation(environment, executor, handler);
 
             Log.i(TAG, "Running flush test on: " + sensor.getName());
@@ -559,6 +638,18 @@ public class SensorTest extends SensorTestCase {
         }
     }
 
+    private static void makeMyPackageActive() throws IOException {
+        final String command = "cmd sensorservice reset-uid-state "
+                +  InstrumentationRegistry.getTargetContext().getPackageName();
+        SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), command);
+    }
+
+    private void makeMyPackageIdle() throws IOException {
+        final String command = "cmd sensorservice set-uid-state "
+                + InstrumentationRegistry.getTargetContext().getPackageName() + " idle";
+        SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), command);
+    }
+
     /**
      * A delegate that drives the execution of Batch/Flush tests.
      * It performs several operations in order:
@@ -572,10 +663,13 @@ public class SensorTest extends SensorTestCase {
     private class FlushExecutor implements TestSensorOperation.Executor {
         private final TestSensorEnvironment mEnvironment;
         private final int mEventCount;
+        private final boolean mFlushWhileIdle;
 
-        public FlushExecutor(TestSensorEnvironment environment, int eventCount) {
+        public FlushExecutor(TestSensorEnvironment environment, int eventCount,
+                boolean flushWhileIdle) {
             mEnvironment = environment;
             mEventCount = eventCount;
+            mFlushWhileIdle = flushWhileIdle;
         }
 
         /**
@@ -588,17 +682,23 @@ public class SensorTest extends SensorTestCase {
          */
         @Override
         public void execute(TestSensorManager sensorManager, TestSensorEventListener listener)
-                throws InterruptedException {
+                throws Exception {
             int sensorReportingMode = mEnvironment.getSensor().getReportingMode();
             try {
                 CountDownLatch eventLatch = sensorManager.registerListener(listener, mEventCount);
                 if (sensorReportingMode == Sensor.REPORTING_MODE_CONTINUOUS) {
                     listener.waitForEvents(eventLatch, mEventCount, true);
                 }
+                if (mFlushWhileIdle) {
+                    makeMyPackageIdle();
+                }
                 CountDownLatch flushLatch = sensorManager.requestFlush();
                 listener.waitForFlushComplete(flushLatch, true);
             } finally {
                 sensorManager.unregisterListener();
+                if (mFlushWhileIdle) {
+                    makeMyPackageActive();
+                }
             }
         }
     }

@@ -19,20 +19,16 @@
 #include <memory>
 #include <string>
 
-#include <gtest/gtest.h>
 #include <android-base/file.h>
+#include <android-base/properties.h>
+#include <gtest/gtest.h>
 
-#include "utility.h"
+#include "libdebuggerd/utility.h"
 
 #include "BacktraceMock.h"
 #include "elf_fake.h"
 #include "host_signal_fixup.h"
 #include "log_fake.h"
-#include "ptrace_fake.h"
-
-// In order to test this code, we need to include the tombstone.cpp code.
-// Including it, also allows us to override the ptrace function.
-#define ptrace ptrace_fake
 
 #include "tombstone.cpp"
 
@@ -49,7 +45,6 @@ class TombstoneTest : public ::testing::Test {
  protected:
   virtual void SetUp() {
     map_mock_.reset(new BacktraceMapMock());
-    backtrace_mock_.reset(new BacktraceMock(map_mock_.get()));
 
     char tmp_file[256];
     const char data_template[] = "/data/local/tmp/debuggerd_memory_testXXXXXX";
@@ -76,11 +71,6 @@ class TombstoneTest : public ::testing::Test {
 
     resetLogs();
     elf_set_fake_build_id("");
-    siginfo_t si;
-    memset(&si, 0, sizeof(si));
-    si.si_signo = SIGABRT;
-    si.si_code = SI_KERNEL;
-    ptrace_set_fake_getsiginfo(si);
   }
 
   virtual void TearDown() {
@@ -90,7 +80,6 @@ class TombstoneTest : public ::testing::Test {
   }
 
   std::unique_ptr<BacktraceMapMock> map_mock_;
-  std::unique_ptr<BacktraceMock> backtrace_mock_;
 
   log_t log_;
   std::string amfd_data_;
@@ -107,13 +96,13 @@ TEST_F(TombstoneTest, single_map) {
 #endif
   map_mock_->AddMap(map);
 
-  dump_all_maps(backtrace_mock_.get(), map_mock_.get(), &log_, 100);
+  dump_all_maps(&log_, map_mock_.get(), nullptr, 0);
 
   std::string tombstone_contents;
   ASSERT_TRUE(lseek(log_.tfd, 0, SEEK_SET) == 0);
   ASSERT_TRUE(android::base::ReadFdToString(log_.tfd, &tombstone_contents));
   const char* expected_dump = \
-"\nmemory map:\n"
+"\nmemory map (1 entry):\n"
 #if defined(__LP64__)
 "    12345678'9abcd000-12345678'9abdefff ---         0     12000\n";
 #else
@@ -142,13 +131,13 @@ TEST_F(TombstoneTest, single_map_elf_build_id) {
   map_mock_->AddMap(map);
 
   elf_set_fake_build_id("abcdef1234567890abcdef1234567890");
-  dump_all_maps(backtrace_mock_.get(), map_mock_.get(), &log_, 100);
+  dump_all_maps(&log_, map_mock_.get(), nullptr, 0);
 
   std::string tombstone_contents;
   ASSERT_TRUE(lseek(log_.tfd, 0, SEEK_SET) == 0);
   ASSERT_TRUE(android::base::ReadFdToString(log_.tfd, &tombstone_contents));
   const char* expected_dump = \
-"\nmemory map:\n"
+"\nmemory map (1 entry):\n"
 #if defined(__LP64__)
 "    12345678'9abcd000-12345678'9abdefff r--         0     12000  /system/lib/libfake.so (BuildId: abcdef1234567890abcdef1234567890)\n";
 #else
@@ -181,13 +170,13 @@ TEST_F(TombstoneTest, single_map_no_build_id) {
   map_mock_->AddMap(map);
 
   elf_set_fake_build_id("abcdef1234567890abcdef1234567890");
-  dump_all_maps(backtrace_mock_.get(), map_mock_.get(), &log_, 100);
+  dump_all_maps(&log_, map_mock_.get(), nullptr, 0);
 
   std::string tombstone_contents;
   ASSERT_TRUE(lseek(log_.tfd, 0, SEEK_SET) == 0);
   ASSERT_TRUE(android::base::ReadFdToString(log_.tfd, &tombstone_contents));
   const char* expected_dump = \
-"\nmemory map:\n"
+"\nmemory map (2 entries):\n"
 #if defined(__LP64__)
 "    12345678'9abcd000-12345678'9abdefff -w-         0     12000\n"
 "    12345678'9abcd000-12345678'9abdefff -w-         0     12000  /system/lib/libfake.so\n";
@@ -239,13 +228,13 @@ TEST_F(TombstoneTest, multiple_maps) {
   map.name = "/system/lib/fake.so";
   map_mock_->AddMap(map);
 
-  dump_all_maps(backtrace_mock_.get(), map_mock_.get(), &log_, 100);
+  dump_all_maps(&log_, map_mock_.get(), nullptr, 0);
 
   std::string tombstone_contents;
   ASSERT_TRUE(lseek(log_.tfd, 0, SEEK_SET) == 0);
   ASSERT_TRUE(android::base::ReadFdToString(log_.tfd, &tombstone_contents));
   const char* expected_dump =
-      "\nmemory map:\n"
+      "\nmemory map (5 entries):\n"
 #if defined(__LP64__)
       "    00000000'0a234000-00000000'0a234fff ---         0      1000\n"
       "    00000000'0a334000-00000000'0a334fff r--      f000      1000\n"
@@ -293,19 +282,13 @@ TEST_F(TombstoneTest, multiple_maps_fault_address_before) {
   map.name = "/system/lib/fake.so";
   map_mock_->AddMap(map);
 
-  siginfo_t si;
-  memset(&si, 0, sizeof(si));
-  si.si_signo = SIGBUS;
-  si.si_code = SI_KERNEL;
-  si.si_addr = reinterpret_cast<void*>(0x1000);
-  ptrace_set_fake_getsiginfo(si);
-  dump_all_maps(backtrace_mock_.get(), map_mock_.get(), &log_, 100);
+  dump_all_maps(&log_, map_mock_.get(), nullptr, 0x1000);
 
   std::string tombstone_contents;
   ASSERT_TRUE(lseek(log_.tfd, 0, SEEK_SET) == 0);
   ASSERT_TRUE(android::base::ReadFdToString(log_.tfd, &tombstone_contents));
   const char* expected_dump =
-      "\nmemory map: (fault address prefixed with --->)\n"
+      "\nmemory map (3 entries):\n"
 #if defined(__LP64__)
       "--->Fault address falls at 00000000'00001000 before any mapped regions\n"
       "    00000000'0a434000-00000000'0a434fff -w-      1000      1000  (load bias 0xd000)\n"
@@ -351,19 +334,13 @@ TEST_F(TombstoneTest, multiple_maps_fault_address_between) {
   map.name = "/system/lib/fake.so";
   map_mock_->AddMap(map);
 
-  siginfo_t si;
-  memset(&si, 0, sizeof(si));
-  si.si_signo = SIGBUS;
-  si.si_code = SI_KERNEL;
-  si.si_addr = reinterpret_cast<void*>(0xa533000);
-  ptrace_set_fake_getsiginfo(si);
-  dump_all_maps(backtrace_mock_.get(), map_mock_.get(), &log_, 100);
+  dump_all_maps(&log_, map_mock_.get(), nullptr, 0xa533000);
 
   std::string tombstone_contents;
   ASSERT_TRUE(lseek(log_.tfd, 0, SEEK_SET) == 0);
   ASSERT_TRUE(android::base::ReadFdToString(log_.tfd, &tombstone_contents));
   const char* expected_dump =
-      "\nmemory map: (fault address prefixed with --->)\n"
+      "\nmemory map (3 entries): (fault address prefixed with --->)\n"
 #if defined(__LP64__)
       "    00000000'0a434000-00000000'0a434fff -w-      1000      1000  (load bias 0xd000)\n"
       "--->Fault address falls at 00000000'0a533000 between mapped regions\n"
@@ -409,19 +386,13 @@ TEST_F(TombstoneTest, multiple_maps_fault_address_in_map) {
   map.name = "/system/lib/fake.so";
   map_mock_->AddMap(map);
 
-  siginfo_t si;
-  memset(&si, 0, sizeof(si));
-  si.si_signo = SIGBUS;
-  si.si_code = SI_KERNEL;
-  si.si_addr = reinterpret_cast<void*>(0xa534040);
-  ptrace_set_fake_getsiginfo(si);
-  dump_all_maps(backtrace_mock_.get(), map_mock_.get(), &log_, 100);
+  dump_all_maps(&log_, map_mock_.get(), nullptr, 0xa534040);
 
   std::string tombstone_contents;
   ASSERT_TRUE(lseek(log_.tfd, 0, SEEK_SET) == 0);
   ASSERT_TRUE(android::base::ReadFdToString(log_.tfd, &tombstone_contents));
   const char* expected_dump =
-      "\nmemory map: (fault address prefixed with --->)\n"
+      "\nmemory map (3 entries): (fault address prefixed with --->)\n"
 #if defined(__LP64__)
       "    00000000'0a434000-00000000'0a434fff -w-      1000      1000  (load bias 0xd000)\n"
       "--->00000000'0a534000-00000000'0a534fff --x      3000      1000  (load bias 0x2000)\n"
@@ -465,23 +436,18 @@ TEST_F(TombstoneTest, multiple_maps_fault_address_after) {
   map.name = "/system/lib/fake.so";
   map_mock_->AddMap(map);
 
-  siginfo_t si;
-  memset(&si, 0, sizeof(si));
-  si.si_signo = SIGBUS;
-  si.si_code = SI_KERNEL;
 #if defined(__LP64__)
-  si.si_addr = reinterpret_cast<void*>(0x12345a534040UL);
+  uint64_t addr = 0x12345a534040UL;
 #else
-  si.si_addr = reinterpret_cast<void*>(0xf534040UL);
+  uint64_t addr = 0xf534040UL;
 #endif
-  ptrace_set_fake_getsiginfo(si);
-  dump_all_maps(backtrace_mock_.get(), map_mock_.get(), &log_, 100);
+  dump_all_maps(&log_, map_mock_.get(), nullptr, addr);
 
   std::string tombstone_contents;
   ASSERT_TRUE(lseek(log_.tfd, 0, SEEK_SET) == 0);
   ASSERT_TRUE(android::base::ReadFdToString(log_.tfd, &tombstone_contents));
   const char* expected_dump =
-      "\nmemory map: (fault address prefixed with --->)\n"
+      "\nmemory map (3 entries): (fault address prefixed with --->)\n"
 #if defined(__LP64__)
       "    00000000'0a434000-00000000'0a434fff -w-      1000      1000  (load bias 0xd000)\n"
       "    00000000'0a534000-00000000'0a534fff --x      3000      1000  (load bias 0x2000)\n"
@@ -500,124 +466,6 @@ TEST_F(TombstoneTest, multiple_maps_fault_address_after) {
   // Verify that the log buf is empty, and no error messages.
   ASSERT_STREQ("", getFakeLogBuf().c_str());
   ASSERT_STREQ("", getFakeLogPrint().c_str());
-}
-
-TEST_F(TombstoneTest, multiple_maps_getsiginfo_fail) {
-  backtrace_map_t map;
-
-  map.start = 0xa434000;
-  map.end = 0xa435000;
-  map.offset = 0x1000;
-  map.load_bias = 0xd000;
-  map.flags = PROT_WRITE;
-  map_mock_->AddMap(map);
-
-  siginfo_t si;
-  memset(&si, 0, sizeof(si));
-  ptrace_set_fake_getsiginfo(si);
-  dump_all_maps(backtrace_mock_.get(), map_mock_.get(), &log_, 100);
-
-  std::string tombstone_contents;
-  ASSERT_TRUE(lseek(log_.tfd, 0, SEEK_SET) == 0);
-  ASSERT_TRUE(android::base::ReadFdToString(log_.tfd, &tombstone_contents));
-  const char* expected_dump =
-      "\nmemory map:\n"
-#if defined(__LP64__)
-      "    00000000'0a434000-00000000'0a434fff -w-      1000      1000  (load bias 0xd000)\n";
-#else
-      "    0a434000-0a434fff -w-      1000      1000  (load bias 0xd000)\n";
-#endif
-  ASSERT_STREQ(expected_dump, tombstone_contents.c_str());
-
-  ASSERT_STREQ("", amfd_data_.c_str());
-
-  // Verify that the log buf is empty, and no error messages.
-  ASSERT_STREQ("", getFakeLogBuf().c_str());
-  ASSERT_STREQ("6 DEBUG Cannot get siginfo for 100: Bad address\n\n", getFakeLogPrint().c_str());
-}
-
-TEST_F(TombstoneTest, multiple_maps_check_signal_has_si_addr) {
-  backtrace_map_t map;
-
-  map.start = 0xa434000;
-  map.end = 0xa435000;
-  map.flags = PROT_WRITE;
-  map_mock_->AddMap(map);
-
-  for (int i = 1; i < 255; i++) {
-    ASSERT_TRUE(ftruncate(log_.tfd, 0) == 0);
-    ASSERT_TRUE(lseek(log_.tfd, 0, SEEK_SET) == 0);
-
-    siginfo_t si;
-    memset(&si, 0, sizeof(si));
-    si.si_signo = i;
-    si.si_code = SI_KERNEL;
-    si.si_addr = reinterpret_cast<void*>(0x1000);
-    ptrace_set_fake_getsiginfo(si);
-    dump_all_maps(backtrace_mock_.get(), map_mock_.get(), &log_, 100);
-
-    std::string tombstone_contents;
-    ASSERT_TRUE(lseek(log_.tfd, 0, SEEK_SET) == 0);
-    ASSERT_TRUE(android::base::ReadFdToString(log_.tfd, &tombstone_contents));
-    bool has_addr = false;
-    switch (si.si_signo) {
-    case SIGBUS:
-    case SIGFPE:
-    case SIGILL:
-    case SIGSEGV:
-    case SIGTRAP:
-      has_addr = true;
-      break;
-    }
-
-    const char* expected_addr_dump = \
-"\nmemory map: (fault address prefixed with --->)\n"
-#if defined(__LP64__)
-"--->Fault address falls at 00000000'00001000 before any mapped regions\n"
-"    00000000'0a434000-00000000'0a434fff -w-         0      1000\n";
-#else
-"--->Fault address falls at 00001000 before any mapped regions\n"
-"    0a434000-0a434fff -w-         0      1000\n";
-#endif
-    const char* expected_dump = \
-"\nmemory map:\n"
-#if defined(__LP64__)
-"    00000000'0a434000-00000000'0a434fff -w-         0      1000\n";
-#else
-"    0a434000-0a434fff -w-         0      1000\n";
-#endif
-    if (has_addr) {
-      ASSERT_STREQ(expected_addr_dump, tombstone_contents.c_str())
-        << "Signal " << si.si_signo << " expected to include an address.";
-    } else {
-      ASSERT_STREQ(expected_dump, tombstone_contents.c_str())
-        << "Signal " << si.si_signo << " is not expected to include an address.";
-    }
-
-    ASSERT_STREQ("", amfd_data_.c_str());
-
-    // Verify that the log buf is empty, and no error messages.
-    ASSERT_STREQ("", getFakeLogBuf().c_str());
-    ASSERT_STREQ("", getFakeLogPrint().c_str());
-  }
-}
-
-TEST_F(TombstoneTest, dump_signal_info_error) {
-  siginfo_t si;
-  memset(&si, 0, sizeof(si));
-  ptrace_set_fake_getsiginfo(si);
-
-  dump_signal_info(&log_, 123);
-
-  std::string tombstone_contents;
-  ASSERT_TRUE(lseek(log_.tfd, 0, SEEK_SET) == 0);
-  ASSERT_TRUE(android::base::ReadFdToString(log_.tfd, &tombstone_contents));
-  ASSERT_STREQ("", tombstone_contents.c_str());
-
-  ASSERT_STREQ("", getFakeLogBuf().c_str());
-  ASSERT_STREQ("6 DEBUG cannot get siginfo: Bad address\n\n", getFakeLogPrint().c_str());
-
-  ASSERT_STREQ("", amfd_data_.c_str());
 }
 
 TEST_F(TombstoneTest, dump_log_file_error) {
@@ -639,7 +487,10 @@ TEST_F(TombstoneTest, dump_log_file_error) {
 TEST_F(TombstoneTest, dump_header_info) {
   dump_header_info(&log_);
 
-  std::string expected = "Build fingerprint: 'unknown'\nRevision: 'unknown'\n";
+  std::string expected = android::base::StringPrintf(
+      "Build fingerprint: '%s'\nRevision: '%s'\n",
+      android::base::GetProperty("ro.build.fingerprint", "unknown").c_str(),
+      android::base::GetProperty("ro.revision", "unknown").c_str());
   expected += android::base::StringPrintf("ABI: '%s'\n", ABI_STRING);
   ASSERT_STREQ(expected.c_str(), amfd_data_.c_str());
 }

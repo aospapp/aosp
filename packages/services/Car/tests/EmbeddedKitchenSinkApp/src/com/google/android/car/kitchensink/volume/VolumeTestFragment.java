@@ -18,46 +18,41 @@ package com.google.android.car.kitchensink.volume;
 import android.car.Car;
 import android.car.CarNotConnectedException;
 import android.car.media.CarAudioManager;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.ServiceConnection;
 import android.media.AudioManager;
-import android.media.IVolumeController;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Message;
-import android.os.RemoteException;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.util.SparseIntArray;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.ListView;
+import android.widget.SeekBar;
 
-import com.google.android.car.kitchensink.CarEmulator;
 import com.google.android.car.kitchensink.R;
 
-public class VolumeTestFragment extends Fragment{
+public class VolumeTestFragment extends Fragment {
     private static final String TAG = "CarVolumeTest";
     private static final int MSG_VOLUME_CHANGED = 0;
     private static final int MSG_REQUEST_FOCUS = 1;
     private static final int MSG_FOCUS_CHANGED= 2;
 
-    private ListView mVolumeList;
-    private Button mRefreshButton;
     private AudioManager mAudioManager;
     private VolumeAdapter mAdapter;
 
     private CarAudioManager mCarAudioManager;
     private Car mCar;
-    private CarEmulator mCarEmulator;
 
-    private Button mVolumeUp;
-    private Button mVolumeDown;
+    private SeekBar mFader;
+    private SeekBar mBalance;
 
-    private final VolumeController mVolumeController = new VolumeController();
     private final Handler mHandler = new VolumeHandler();
 
     private class VolumeHandler extends Handler {
@@ -70,20 +65,20 @@ public class VolumeTestFragment extends Fragment{
                     initVolumeInfo();
                     break;
                 case MSG_REQUEST_FOCUS:
-                    int stream = msg.arg1;
+                    int groupId = msg.arg1;
                     if (mFocusListener != null) {
                         mAudioManager.abandonAudioFocus(mFocusListener);
-                        mVolumeInfos[mStreamIndexMap.get(stream)].mHasFocus = false;
+                        mVolumeInfos[mGroupIdIndexMap.get(groupId)].mHasFocus = false;
                         mAdapter.notifyDataSetChanged();
                     }
 
-                    mFocusListener = new AudioFocusListener(stream);
-                    mAudioManager.requestAudioFocus(mFocusListener, stream,
+                    mFocusListener = new AudioFocusListener(groupId);
+                    mAudioManager.requestAudioFocus(mFocusListener, groupId,
                             AudioManager.AUDIOFOCUS_GAIN);
                     break;
                 case MSG_FOCUS_CHANGED:
-                    int focusStream = msg.arg1;
-                    mVolumeInfos[mStreamIndexMap.get(focusStream)].mHasFocus = true;
+                    int focusGroupId = msg.arg1;
+                    mVolumeInfos[mGroupIdIndexMap.get(focusGroupId)].mHasFocus = true;
                     mAdapter.refreshVolumes(mVolumeInfos);
                     break;
 
@@ -91,18 +86,18 @@ public class VolumeTestFragment extends Fragment{
         }
     }
 
-    private VolumeInfo[] mVolumeInfos = new VolumeInfo[LOGICAL_STREAMS.length + 1];
-    private SparseIntArray mStreamIndexMap = new SparseIntArray(LOGICAL_STREAMS.length);
+    private VolumeInfo[] mVolumeInfos = new VolumeInfo[0];
+    private SparseIntArray mGroupIdIndexMap = new SparseIntArray();
 
     private class AudioFocusListener implements AudioManager.OnAudioFocusChangeListener {
-        private final int mStream;
-        public AudioFocusListener(int stream) {
-            mStream = stream;
+        private final int mGroupId;
+        public AudioFocusListener(int groupId) {
+            mGroupId = groupId;
         }
         @Override
         public void onAudioFocusChange(int focusChange) {
             if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
-                mHandler.sendMessage(mHandler.obtainMessage(MSG_FOCUS_CHANGED, mStream, 0));
+                mHandler.sendMessage(mHandler.obtainMessage(MSG_FOCUS_CHANGED, mGroupId, 0));
             } else {
                 Log.e(TAG, "Audio focus request failed");
             }
@@ -110,158 +105,127 @@ public class VolumeTestFragment extends Fragment{
     }
 
     public static class VolumeInfo {
-        public int logicalStream;
+        public int mGroupId;
         public String mId;
         public String mMax;
         public String mCurrent;
-        public String mLogicalMax;
-        public String mLogicalCurrent;
         public boolean mHasFocus;
     }
 
-    private static final int LOGICAL_STREAMS[] = {
-            AudioManager.STREAM_MUSIC,
-            AudioManager.STREAM_ALARM,
-            AudioManager.STREAM_NOTIFICATION,
-            AudioManager.STREAM_RING,
-            AudioManager.STREAM_VOICE_CALL,
-            AudioManager.STREAM_SYSTEM
-            //            AudioManager.STREAM_DTMF,
-    };
+    private final ServiceConnection mCarConnectionCallback =
+            new ServiceConnection() {
+                @Override
+                public void onServiceConnected(ComponentName name, IBinder binder) {
+                    Log.d(TAG, "Connected to Car Service");
+                    try {
+                        mCarAudioManager = (CarAudioManager) mCar.getCarManager(Car.AUDIO_SERVICE);
+                        initVolumeInfo();
+                    } catch (CarNotConnectedException e) {
+                        Log.e(TAG, "Car is not connected!", e);
+                    }
+                }
 
-    private static String streamToName (int stream) {
-        switch (stream) {
-            case AudioManager.STREAM_ALARM: return "Alarm";
-            case AudioManager.STREAM_MUSIC: return "Music";
-            case AudioManager.STREAM_NOTIFICATION: return "Notification";
-            case AudioManager.STREAM_RING: return "Ring";
-            case AudioManager.STREAM_VOICE_CALL: return "Call";
-            case AudioManager.STREAM_SYSTEM: return "System";
-            default: return "Unknown";
-        }
-    }
+                @Override
+                public void onServiceDisconnected(ComponentName name) {
+                    Log.d(TAG, "Disconnect from Car Service");
+                }
+            };
 
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.volume_test, container, false);
 
-        mVolumeList = (ListView) v.findViewById(R.id.volume_list);
+        ListView volumeListView = v.findViewById(R.id.volume_list);
         mAudioManager = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
 
-        mRefreshButton = (Button) v.findViewById(R.id.refresh);
         mAdapter = new VolumeAdapter(getContext(), R.layout.volume_item, mVolumeInfos, this);
-        mVolumeList.setAdapter(mAdapter);
+        volumeListView.setAdapter(mAdapter);
 
-        mRefreshButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                initVolumeInfo();
+        v.findViewById(R.id.refresh).setOnClickListener((view) -> initVolumeInfo());
+
+        final SeekBar.OnSeekBarChangeListener seekListener = new SeekBar.OnSeekBarChangeListener() {
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                final float percent = (progress - 100) / 100.0f;
+                try {
+                    if (seekBar.getId() == R.id.fade_bar) {
+                        mCarAudioManager.setFadeTowardFront(percent);
+                    } else {
+                        mCarAudioManager.setBalanceTowardRight(percent);
+                    }
+                } catch (CarNotConnectedException e) {
+                    Log.e(TAG, "Can't adjust fade or balance when car not connected", e);
+                }
             }
-        });
 
-        mCarEmulator = CarEmulator.create(getContext());
-        mCar = mCarEmulator.getCar();
-        try {
-            mCarAudioManager = (CarAudioManager) mCar.getCarManager(Car.AUDIO_SERVICE);
-            initVolumeInfo();
-            mCarAudioManager.setVolumeController(mVolumeController);
-        } catch (CarNotConnectedException e) {
-            throw new RuntimeException(e); // Should never occur in car emulator.
-        }
+            public void onStartTrackingTouch(SeekBar seekBar) {}
 
-        mVolumeUp = (Button) v.findViewById(R.id.volume_up);
-        mVolumeDown = (Button) v.findViewById(R.id.volume_down);
+            public void onStopTrackingTouch(SeekBar seekBar) {}
+        };
 
-        mVolumeUp.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                mCarEmulator.injectKey(KeyEvent.KEYCODE_VOLUME_UP);
-            }
-        });
+        mFader = v.findViewById(R.id.fade_bar);
+        mFader.setOnSeekBarChangeListener(seekListener);
 
-        mVolumeDown.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                mCarEmulator.injectKey(KeyEvent.KEYCODE_VOLUME_DOWN);
-            }
-        });
+        mBalance = v.findViewById(R.id.balance_bar);
+        mBalance.setOnSeekBarChangeListener(seekListener);
 
+        mCar = Car.createCar(getActivity(), mCarConnectionCallback);
+        mCar.connect();
         return v;
     }
 
-    public void adjustVolumeByOne(int logicalStream, boolean up) {
+    public void adjustVolumeByOne(int groupId, boolean up) {
         if (mCarAudioManager == null) {
             Log.e(TAG, "CarAudioManager is null");
             return;
         }
         int current = 0;
         try {
-            current = mCarAudioManager.getStreamVolume(logicalStream);
+            current = mCarAudioManager.getGroupVolume(groupId);
+            int volume = current + (up ? 1 : -1);
+            mCarAudioManager.setGroupVolume(groupId, volume,
+                    AudioManager.FLAG_SHOW_UI | AudioManager.FLAG_PLAY_SOUND);
+            Log.d(TAG, "Set group " + groupId + " volume " + volume);
         } catch (CarNotConnectedException e) {
             Log.e(TAG, "car not connected", e);
         }
-        setStreamVolume(logicalStream, current + (up ? 1 : -1));
     }
 
-    public void requestFocus(int logicalStream) {
-        mHandler.sendMessage(mHandler.obtainMessage(MSG_REQUEST_FOCUS, logicalStream));
+    public void requestFocus(int groupId) {
+        mHandler.sendMessage(mHandler.obtainMessage(MSG_REQUEST_FOCUS, groupId));
     }
-
-    public void setStreamVolume(int logicalStream, int volume) {
-        if (mCarAudioManager == null) {
-            Log.e(TAG, "CarAudioManager is null");
-            return;
-        }
-        try {
-            mCarAudioManager.setStreamVolume(logicalStream, volume, 0);
-        } catch (CarNotConnectedException e) {
-            Log.e(TAG, "car not connected", e);
-        }
-
-        Log.d(TAG, "Set stream " + logicalStream + " volume " + volume);
-    }
-
 
     private void initVolumeInfo() {
-        if (mVolumeInfos[0] == null) {
+        try {
+            int volumeGroupCount = mCarAudioManager.getVolumeGroupCount();
+            mVolumeInfos = new VolumeInfo[volumeGroupCount + 1];
+            mGroupIdIndexMap.clear();
             mVolumeInfos[0] = new VolumeInfo();
-            mVolumeInfos[0].mId = "Stream";
+            mVolumeInfos[0].mId = "Group id";
             mVolumeInfos[0].mCurrent = "Current";
             mVolumeInfos[0].mMax = "Max";
-            mVolumeInfos[0].mLogicalMax = "Android_Max";
-            mVolumeInfos[0].mLogicalCurrent = "Android_Current";
 
-        }
-        int i = 1;
-        for (int stream : LOGICAL_STREAMS) {
-            if (mVolumeInfos[i] == null) {
+            int i = 1;
+            for (int groupId = 0; groupId < volumeGroupCount; groupId++) {
                 mVolumeInfos[i] = new VolumeInfo();
+                mVolumeInfos[i].mGroupId = groupId;
+                mGroupIdIndexMap.put(groupId, i);
+                mVolumeInfos[i].mId = String.valueOf(groupId);
+
+
+                int current = mCarAudioManager.getGroupVolume(groupId);
+                int max = mCarAudioManager.getGroupMaxVolume(groupId);
+                mVolumeInfos[i].mCurrent = String.valueOf(current);
+                mVolumeInfos[i].mMax = String.valueOf(max);
+
+                Log.d(TAG, groupId + " max: " + mVolumeInfos[i].mMax + " current: "
+                        + mVolumeInfos[i].mCurrent);
+                i++;
             }
-            mVolumeInfos[i].logicalStream = stream;
-            mStreamIndexMap.put(stream, i);
-            mVolumeInfos[i].mId = streamToName(stream);
-
-            int current = 0;
-            int max = 0;
-            try {
-                current = mCarAudioManager.getStreamVolume(stream);
-                max = mCarAudioManager.getStreamMaxVolume(stream);
-            } catch (CarNotConnectedException e) {
-                Log.e(TAG, "car not connected", e);
-            }
-
-            mVolumeInfos[i].mCurrent = String.valueOf(current);
-            mVolumeInfos[i].mMax = String.valueOf(max);
-
-            mVolumeInfos[i].mLogicalMax = String.valueOf(mAudioManager.getStreamMaxVolume(stream));
-            mVolumeInfos[i].mLogicalCurrent = String.valueOf(mAudioManager.getStreamVolume(stream));
-
-            Log.d(TAG, stream + " max: " + mVolumeInfos[i].mMax + " current: "
-                    + mVolumeInfos[i].mCurrent);
-            i++;
+            mAdapter.refreshVolumes(mVolumeInfos);
+        } catch (CarNotConnectedException e) {
+            Log.e(TAG, "car not connected", e);
         }
-        mAdapter.refreshVolumes(mVolumeInfos);
     }
 
     @Override
@@ -270,31 +234,5 @@ public class VolumeTestFragment extends Fragment{
             mCar.disconnect();
         }
         super.onDestroy();
-    }
-
-    private class VolumeController extends IVolumeController.Stub {
-
-        @Override
-        public void displaySafeVolumeWarning(int flags) throws RemoteException {}
-
-        @Override
-        public void volumeChanged(int streamType, int flags) throws RemoteException {
-            mHandler.sendMessage(mHandler.obtainMessage(MSG_VOLUME_CHANGED, streamType));
-        }
-
-        @Override
-        public void masterMuteChanged(int flags) throws RemoteException {}
-
-        @Override
-        public void setLayoutDirection(int layoutDirection) throws RemoteException {
-        }
-
-        @Override
-        public void dismiss() throws RemoteException {
-        }
-
-        @Override
-        public void setA11yMode(int mode) throws RemoteException {
-        }
     }
 }

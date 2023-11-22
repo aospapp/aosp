@@ -56,6 +56,7 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 import libcore.io.MemoryMappedFile_Delegate;
@@ -104,10 +105,9 @@ public final class Bridge extends com.android.ide.common.rendering.api.Bridge {
     private final static DynamicIdMap sDynamicIds = new DynamicIdMap(DYNAMIC_ID_SEED_START);
 
     private final static Map<Object, Map<String, SoftReference<Bitmap>>> sProjectBitmapCache =
-            new HashMap<>();
+            new WeakHashMap<>();
     private final static Map<Object, Map<String, SoftReference<NinePatchChunk>>> sProject9PatchCache =
-
-            new HashMap<>();
+            new WeakHashMap<>();
 
     private final static Map<String, SoftReference<Bitmap>> sFrameworkBitmapCache = new HashMap<>();
     private final static Map<String, SoftReference<NinePatchChunk>> sFramework9PatchCache =
@@ -355,6 +355,8 @@ public final class Bridge extends com.android.ide.common.rendering.api.Bridge {
         // dispose of the default typeface.
         Typeface_Delegate.resetDefaults();
         Typeface.sDynamicTypefaceCache.evictAll();
+        sProject9PatchCache.clear();
+        sProjectBitmapCache.clear();
 
         return true;
     }
@@ -397,7 +399,7 @@ public final class Bridge extends com.android.ide.common.rendering.api.Bridge {
             // get the real cause of the exception.
             Throwable t2 = t;
             while (t2.getCause() != null) {
-                t2 = t.getCause();
+                t2 = t2.getCause();
             }
             return new BridgeRenderSession(null,
                     ERROR_UNKNOWN.createResult(t2.getMessage(), t));

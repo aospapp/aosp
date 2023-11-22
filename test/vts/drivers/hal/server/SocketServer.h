@@ -47,7 +47,6 @@ class VtsDriverHalSocketServer : public VtsDriverCommUtil {
                   const string& target_component_name,
                   const string& hw_binder_service_name,
                   const string& module_name);
-  int32_t Status(int32_t type);
   string ReadSpecification(const string& name, int target_class,
                            int target_type, float target_version,
                            const string& target_package);

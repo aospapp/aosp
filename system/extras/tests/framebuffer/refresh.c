@@ -32,7 +32,6 @@ int main(int argc, char** argv)
             0 };
     int fd = -1;
     int i=0;
-    int j=0;
     char name[64];
     while ((fd==-1) && device_template[i]) {
         snprintf(name, 64, device_template[i], 0);

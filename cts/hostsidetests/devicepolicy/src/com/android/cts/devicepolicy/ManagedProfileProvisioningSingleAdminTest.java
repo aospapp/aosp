@@ -15,8 +15,6 @@
  */
 package com.android.cts.devicepolicy;
 
-import org.junit.Test;
-
 /**
  * This class tests the provisioning flow with an APK that declares a single receiver with
  * BIND_DEVICE_ADMIN permissions, which was a requirement for the app sending the
@@ -54,7 +52,6 @@ public class ManagedProfileProvisioningSingleAdminTest extends BaseDevicePolicyT
         super.tearDown();
     }
 
-    @Test
     public void testEXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME() throws Exception {
         if (!mHasFeature) {
             return;

@@ -16,19 +16,20 @@
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/telecom_activity_background_color">
 
     <FrameLayout
         android:layout_gravity="top|end"
-        android:layout_width="@dimen/stream_content_keyline_1"
-        android:layout_height="@dimen/lens_header_height">
+        android:layout_width="@dimen/car_keyline_1"
+        android:layout_height="@dimen/car_app_bar_height">
 
         <ImageView
             android:id="@+id/search"
             android:background="@drawable/dialer_ripple_background"
             android:layout_gravity="center"
-            android:layout_width="@dimen/stream_button_size"
-            android:layout_height="@dimen/stream_button_size"
+            android:layout_width="@dimen/car_touch_target_size"
+            android:layout_height="@dimen/car_touch_target_size"
             android:src="@drawable/ic_search"
             android:scaleType="center"
             android:tint="@color/car_grey_50"/>
@@ -37,6 +38,6 @@
     <FrameLayout
         android:id="@+id/content_fragment_container"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"/>
 
 </FrameLayout>

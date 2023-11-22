@@ -83,5 +83,5 @@
     <string name="dialog_timeout" msgid="9069768442342329065">"Tanaffus"</string>
     <string name="dialog_clear" msgid="7137395395908350702">"Hisob-kitob tarixi va xotiradagi qiymatlar tozalab tashlansinmi?"</string>
     <string name="title_current_expression" msgid="2442754548537900591">"Joriy amal"</string>
-    <string name="no_history" msgid="4331262030447527188">"Hech narsa yo‘q"</string>
+    <string name="no_history" msgid="4331262030447527188">"Hech narsa topilmadi"</string>
 </resources>

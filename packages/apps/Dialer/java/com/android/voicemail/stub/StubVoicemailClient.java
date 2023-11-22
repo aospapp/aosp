@@ -17,12 +17,12 @@
 package com.android.voicemail.stub;
 
 import android.content.Context;
-import android.content.Intent;
 import android.os.PersistableBundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.telecom.PhoneAccountHandle;
-import android.telephony.TelephonyManager;
+import com.android.dialer.common.Assert;
+import com.android.voicemail.PinChanger;
 import com.android.voicemail.VoicemailClient;
 import java.util.List;
 import javax.inject.Inject;
@@ -57,11 +57,6 @@ public final class StubVoicemailClient implements VoicemailClient {
       Context context, StringBuilder where, List<String> selectionArgs) {}
 
   @Override
-  public String getSettingsFragment() {
-    return null;
-  }
-
-  @Override
   public boolean isVoicemailArchiveEnabled(Context context, PhoneAccountHandle phoneAccountHandle) {
     return false;
   }
@@ -76,9 +71,23 @@ public final class StubVoicemailClient implements VoicemailClient {
       Context context, PhoneAccountHandle phoneAccountHandle, boolean value) {}
 
   @Override
-  public Intent getSetPinIntent(Context context, PhoneAccountHandle phoneAccountHandle) {
-    return new Intent(TelephonyManager.ACTION_CONFIGURE_VOICEMAIL);
+  public boolean isVoicemailTranscriptionAvailable(Context context) {
+    return false;
   }
+
+  @Override
+  public boolean isVoicemailDonationAvailable(Context context) {
+    return false;
+  }
+
+  @Override
+  public boolean isVoicemailDonationEnabled(Context context, PhoneAccountHandle account) {
+    return false;
+  }
+
+  @Override
+  public void setVoicemailDonationEnabled(
+      Context context, PhoneAccountHandle phoneAccountHandle, boolean enabled) {}
 
   @Override
   public boolean isActivated(Context context, PhoneAccountHandle phoneAccountHandle) {
@@ -99,4 +108,38 @@ public final class StubVoicemailClient implements VoicemailClient {
 
   @Override
   public void onShutdown(@NonNull Context context) {}
+
+  @Override
+  public void addActivationStateListener(ActivationStateListener listener) {
+    // Do nothing
+  }
+
+  @Override
+  public void removeActivationStateListener(ActivationStateListener listener) {
+    // Do nothing
+  }
+
+  @Override
+  public boolean hasCarrierSupport(Context context, PhoneAccountHandle phoneAccountHandle) {
+    return false;
+  }
+
+  @Override
+  public PinChanger createPinChanger(Context context, PhoneAccountHandle phoneAccountHandle) {
+    throw Assert.createAssertionFailException("should never be called on stub.");
+  }
+
+  @Override
+  public void onTosAccepted(Context context, PhoneAccountHandle account) {}
+
+  @Override
+  public boolean hasAcceptedTos(Context context, PhoneAccountHandle phoneAccountHandle) {
+    return false;
+  }
+
+  @Override
+  @Nullable
+  public String getCarrierConfigString(Context context, PhoneAccountHandle account, String key) {
+    return null;
+  }
 }

@@ -2,7 +2,7 @@
   The internal header file includes the common header files, defines
   internal structure and functions used by DxeCore module.
 
-Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -69,7 +69,6 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Guid/IdleLoopEvent.h>
 #include <Guid/VectorHandoffTable.h>
 #include <Ppi/VectorHandoffInfo.h>
-#include <Guid/ZeroGuid.h>
 #include <Guid/MemoryProfile.h>
 
 #include <Library/DxeCoreEntryPoint.h>
@@ -110,8 +109,8 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 
 ///
-/// EFI_DEP_REPLACE_TRUE - Used to dynamically patch the dependecy expression
-///                        to save time.  A EFI_DEP_PUSH is evauated one an
+/// EFI_DEP_REPLACE_TRUE - Used to dynamically patch the dependency expression
+///                        to save time.  A EFI_DEP_PUSH is evaluated one an
 ///                        replaced with EFI_DEP_REPLACE_TRUE. If PI spec's Vol 2
 ///                        Driver Execution Environment Core Interface use 0xff
 ///                        as new DEPEX opcode. EFI_DEP_REPLACE_TRUE should be
@@ -142,7 +141,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 #else
 ///
-/// For genric EFI machines make the default allocations 4K aligned
+/// For generic EFI machines make the default allocations 4K aligned
 ///
 #define EFI_ACPI_RUNTIME_PAGE_ALLOCATION_ALIGNMENT  (EFI_PAGE_SIZE)
 #define DEFAULT_PAGE_ALLOCATION                     (EFI_PAGE_SIZE)
@@ -247,9 +246,9 @@ typedef struct {
   UINTN                       ExitDataSize;   
   /// Pointer to exit data from started image
   VOID                        *ExitData;      
-  /// Pointer to pool allocation for context save/retore
+  /// Pointer to pool allocation for context save/restore
   VOID                        *JumpBuffer;    
-  /// Pointer to buffer for context save/retore
+  /// Pointer to buffer for context save/restore
   BASE_LIBRARY_JUMP_BUFFER    *JumpContext;  
   /// Machine type from PE image
   UINT16                      Machine;        
@@ -257,7 +256,7 @@ typedef struct {
   EFI_EBC_PROTOCOL            *Ebc;           
   /// Runtime image list
   EFI_RUNTIME_IMAGE_ENTRY     *RuntimeData;   
-  /// Pointer to Loaded Image Device Path Protocl
+  /// Pointer to Loaded Image Device Path Protocol
   EFI_DEVICE_PATH_PROTOCOL    *LoadedImageDevicePath;  
   /// PeCoffLoader ImageContext
   PE_COFF_LOADER_IMAGE_CONTEXT  ImageContext; 
@@ -275,6 +274,8 @@ extern EFI_SYSTEM_TABLE                         *gDxeCoreST;
 extern EFI_RUNTIME_SERVICES                     *gDxeCoreRT;
 extern EFI_DXE_SERVICES                         *gDxeCoreDS;
 extern EFI_HANDLE                               gDxeCoreImageHandle;
+
+extern BOOLEAN                                  gMemoryMapTerminated;
 
 extern EFI_DECOMPRESS_PROTOCOL                  gEfiDecompress;
 
@@ -444,7 +445,7 @@ CoreNotifyOnProtocolInstallation (
 
 
 /**
-  Return TRUE if all AP services are availible.
+  Return TRUE if all AP services are available.
 
   @retval EFI_SUCCESS    All AP services are available
   @retval EFI_NOT_FOUND  At least one AP service is not available
@@ -472,7 +473,7 @@ CalculateEfiHdrCrc (
 /**
   Called by the platform code to process a tick.
 
-  @param  Duration               The number of 100ns elasped since the last call
+  @param  Duration               The number of 100ns elapsed since the last call
                                  to TimerTick
 
 **/
@@ -1096,7 +1097,7 @@ CoreLocateDevicePath (
   @retval EFI_NOT_FOUND          No handles match the search.
   @retval EFI_OUT_OF_RESOURCES   There is not enough pool memory to store the
                                  matching results.
-  @retval EFI_INVALID_PARAMETER  One or more paramters are not valid.
+  @retval EFI_INVALID_PARAMETER  One or more parameters are not valid.
 
 **/
 EFI_STATUS
@@ -1270,33 +1271,6 @@ CoreAllocatePages (
   );
 
 /**
-  Allocates pages from the memory map.
-
-  @param  Type                   The type of allocation to perform
-  @param  MemoryType             The type of memory to turn the allocated pages
-                                 into
-  @param  NumberOfPages          The number of pages to allocate
-  @param  Memory                 A pointer to receive the base allocated memory
-                                 address
-
-  @return Status. On success, Memory is filled in with the base address allocated
-  @retval EFI_INVALID_PARAMETER  Parameters violate checking rules defined in
-                                 spec.
-  @retval EFI_NOT_FOUND          Could not allocate pages match the requirement.
-  @retval EFI_OUT_OF_RESOURCES   No enough pages to allocate.
-  @retval EFI_SUCCESS            Pages successfully allocated.
-
-**/
-EFI_STATUS
-EFIAPI
-CoreInternalAllocatePages (
-  IN EFI_ALLOCATE_TYPE      Type,
-  IN EFI_MEMORY_TYPE        MemoryType,
-  IN UINTN                  NumberOfPages,
-  IN OUT EFI_PHYSICAL_ADDRESS  *Memory
-  );
-
-/**
   Frees previous allocated pages.
 
   @param  Memory                 Base address of memory being freed
@@ -1310,24 +1284,6 @@ CoreInternalAllocatePages (
 EFI_STATUS
 EFIAPI
 CoreFreePages (
-  IN EFI_PHYSICAL_ADDRESS   Memory,
-  IN UINTN                  NumberOfPages
-  );
-
-/**
-  Frees previous allocated pages.
-
-  @param  Memory                 Base address of memory being freed
-  @param  NumberOfPages          The number of pages to free
-
-  @retval EFI_NOT_FOUND          Could not find the entry that covers the range
-  @retval EFI_INVALID_PARAMETER  Address not aligned
-  @return EFI_SUCCESS         -Pages successfully freed.
-
-**/
-EFI_STATUS
-EFIAPI
-CoreInternalFreePages (
   IN EFI_PHYSICAL_ADDRESS   Memory,
   IN UINTN                  NumberOfPages
   );
@@ -1435,6 +1391,7 @@ CoreFreePool (
   Frees pool.
 
   @param  Buffer                 The allocated pool entry to free
+  @param  PoolType               Pointer to pool type
 
   @retval EFI_INVALID_PARAMETER  Buffer is not a valid value.
   @retval EFI_SUCCESS            Pool successfully freed.
@@ -1443,7 +1400,8 @@ CoreFreePool (
 EFI_STATUS
 EFIAPI
 CoreInternalFreePool (
-  IN VOID        *Buffer
+  IN VOID               *Buffer,
+  OUT EFI_MEMORY_TYPE   *PoolType OPTIONAL
   );
 
 /**
@@ -1500,7 +1458,7 @@ CoreLoadImage (
                                   unloaded.
 
   @retval EFI_SUCCESS             The image has been unloaded.
-  @retval EFI_UNSUPPORTED         The image has been sarted, and does not support
+  @retval EFI_UNSUPPORTED         The image has been started, and does not support
                                   unload.
   @retval EFI_INVALID_PARAMPETER  ImageHandle is not a valid image handle.
 
@@ -2471,7 +2429,7 @@ OpenSectionStream (
                                 non-null on input, then the buffer is caller
                                 allocated.  If Buffer is NULL, then the buffer
                                 is callee allocated.  In either case, the
-                                requried buffer size is returned in *BufferSize.
+                                required buffer size is returned in *BufferSize.
   @param  BufferSize            On input, indicates the size of *Buffer if
                                 *Buffer is non-null on input.  On output,
                                 indicates the required size (allocated size if
@@ -2821,11 +2779,13 @@ MemoryProfileInstallProtocol (
   @param DriverEntry    Image info.
   @param FileType       Image file type.
 
-  @retval TRUE          Register success.
-  @retval FALSE         Register fail.
+  @return EFI_SUCCESS           Register successfully.
+  @return EFI_UNSUPPORTED       Memory profile unsupported,
+                                or memory profile for the image is not required.
+  @return EFI_OUT_OF_RESOURCES  No enough resource for this register.
 
 **/
-BOOLEAN
+EFI_STATUS
 RegisterMemoryProfileImage (
   IN LOADED_IMAGE_PRIVATE_DATA  *DriverEntry,
   IN EFI_FV_FILETYPE            FileType
@@ -2836,11 +2796,13 @@ RegisterMemoryProfileImage (
 
   @param DriverEntry    Image info.
 
-  @retval TRUE          Unregister success.
-  @retval FALSE         Unregister fail.
+  @return EFI_SUCCESS           Unregister successfully.
+  @return EFI_UNSUPPORTED       Memory profile unsupported,
+                                or memory profile for the image is not required.
+  @return EFI_NOT_FOUND         The image is not found.
 
 **/
-BOOLEAN
+EFI_STATUS
 UnregisterMemoryProfileImage (
   IN LOADED_IMAGE_PRIVATE_DATA  *DriverEntry
   );
@@ -2851,20 +2813,31 @@ UnregisterMemoryProfileImage (
   @param CallerAddress  Address of caller who call Allocate or Free.
   @param Action         This Allocate or Free action.
   @param MemoryType     Memory type.
+                        EfiMaxMemoryType means the MemoryType is unknown.
   @param Size           Buffer size.
   @param Buffer         Buffer address.
+  @param ActionString   String for memory profile action.
+                        Only needed for user defined allocate action.
 
-  @retval TRUE          Profile udpate success.
-  @retval FALSE         Profile update fail.
+  @return EFI_SUCCESS           Memory profile is updated.
+  @return EFI_UNSUPPORTED       Memory profile is unsupported,
+                                or memory profile for the image is not required,
+                                or memory profile for the memory type is not required.
+  @return EFI_ACCESS_DENIED     It is during memory profile data getting.
+  @return EFI_ABORTED           Memory profile recording is not enabled.
+  @return EFI_OUT_OF_RESOURCES  No enough resource to update memory profile for allocate action.
+  @return EFI_NOT_FOUND         No matched allocate info found for free action.
 
 **/
-BOOLEAN
+EFI_STATUS
+EFIAPI
 CoreUpdateProfile (
   IN EFI_PHYSICAL_ADDRESS   CallerAddress,
   IN MEMORY_PROFILE_ACTION  Action,
-  IN EFI_MEMORY_TYPE        MemoryType, // Valid for AllocatePages/AllocatePool
+  IN EFI_MEMORY_TYPE        MemoryType,
   IN UINTN                  Size,       // Valid for AllocatePages/FreePages/AllocatePool
-  IN VOID                   *Buffer
+  IN VOID                   *Buffer,
+  IN CHAR8                  *ActionString OPTIONAL
   );
 
 /**
@@ -2890,6 +2863,25 @@ VOID
 EFIAPI
 CoreInitializePropertiesTable (
   VOID
+  );
+
+/**
+  Initialize MemoryAttrubutesTable support.
+**/
+VOID
+EFIAPI
+CoreInitializeMemoryAttributesTable (
+  VOID
+  );
+
+/**
+  Install MemoryAttributesTable on memory allocation.
+
+  @param[in] MemoryType EFI memory type.
+**/
+VOID
+InstallMemoryAttributesTableOnMemoryAllocation (
+  IN EFI_MEMORY_TYPE    MemoryType
   );
 
 /**

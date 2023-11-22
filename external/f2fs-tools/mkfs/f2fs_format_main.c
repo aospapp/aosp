@@ -14,7 +14,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#ifndef ANDROID_WINDOWS_HOST
 #include <sys/mount.h>
+#endif
 #include <time.h>
 #include <uuid/uuid.h>
 #include <errno.h>
@@ -52,6 +54,7 @@ static void mkfs_usage()
 	MSG(0, "  -s # of segments per section [default:1]\n");
 	MSG(0, "  -S sparse mode\n");
 	MSG(0, "  -t 0: nodiscard, 1: discard [default:1]\n");
+	MSG(0, "  -w wanted sector size\n");
 	MSG(0, "  -z # of sections per zone [default:1]\n");
 	MSG(0, "sectors: number of sectors. [default: determined by device size]\n");
 	exit(1);
@@ -80,6 +83,20 @@ static void parse_feature(const char *features)
 		features++;
 	if (!strcmp(features, "encrypt")) {
 		c.feature |= cpu_to_le32(F2FS_FEATURE_ENCRYPT);
+	} else if (!strcmp(features, "verity")) {
+		c.feature |= cpu_to_le32(F2FS_FEATURE_VERITY);
+	} else if (!strcmp(features, "extra_attr")) {
+		c.feature |= cpu_to_le32(F2FS_FEATURE_EXTRA_ATTR);
+	} else if (!strcmp(features, "project_quota")) {
+		c.feature |= cpu_to_le32(F2FS_FEATURE_PRJQUOTA);
+	} else if (!strcmp(features, "inode_checksum")) {
+		c.feature |= cpu_to_le32(F2FS_FEATURE_INODE_CHKSUM);
+	} else if (!strcmp(features, "flexible_inline_xattr")) {
+		c.feature |= cpu_to_le32(F2FS_FEATURE_FLEXIBLE_INLINE_XATTR);
+	} else if (!strcmp(features, "quota")) {
+		c.feature |= cpu_to_le32(F2FS_FEATURE_QUOTA_INO);
+	} else if (!strcmp(features, "inode_crtime")) {
+		c.feature |= cpu_to_le32(F2FS_FEATURE_INODE_CRTIME);
 	} else {
 		MSG(0, "Error: Wrong features\n");
 		mkfs_usage();
@@ -88,7 +105,7 @@ static void parse_feature(const char *features)
 
 static void f2fs_parse_options(int argc, char *argv[])
 {
-	static const char *option_string = "qa:c:d:e:l:mo:O:s:S:z:t:f";
+	static const char *option_string = "qa:c:d:e:l:mo:O:s:S:z:t:fw:";
 	int32_t option=0;
 
 	while ((option = getopt(argc,argv,option_string)) != EOF) {
@@ -152,10 +169,36 @@ static void f2fs_parse_options(int argc, char *argv[])
 		case 'f':
 			force_overwrite = 1;
 			break;
+		case 'w':
+			c.wanted_sector_size = atoi(optarg);
+			break;
 		default:
 			MSG(0, "\tError: Unknown option %c\n",option);
 			mkfs_usage();
 			break;
+		}
+	}
+
+	if (!(c.feature & cpu_to_le32(F2FS_FEATURE_EXTRA_ATTR))) {
+		if (c.feature & cpu_to_le32(F2FS_FEATURE_PRJQUOTA)) {
+			MSG(0, "\tInfo: project quota feature should always been"
+				"enabled with extra attr feature\n");
+			exit(1);
+		}
+		if (c.feature & cpu_to_le32(F2FS_FEATURE_INODE_CHKSUM)) {
+			MSG(0, "\tInfo: inode checksum feature should always been"
+				"enabled with extra attr feature\n");
+			exit(1);
+		}
+		if (c.feature & cpu_to_le32(F2FS_FEATURE_FLEXIBLE_INLINE_XATTR)) {
+			MSG(0, "\tInfo: flexible inline xattr feature should always been"
+				"enabled with extra attr feature\n");
+			exit(1);
+		}
+		if (c.feature & cpu_to_le32(F2FS_FEATURE_INODE_CRTIME)) {
+			MSG(0, "\tInfo: inode crtime feature should always been"
+				"enabled with extra attr feature\n");
+			exit(1);
 		}
 	}
 
@@ -263,6 +306,8 @@ int main(int argc, char *argv[])
 
 	f2fs_show_info();
 
+	c.func = MKFS;
+
 	if (!force_overwrite && f2fs_check_overwrite()) {
 		MSG(0, "\tUse the -f option to force overwrite.\n");
 		return -1;
@@ -292,20 +337,15 @@ int main(int argc, char *argv[])
 	}
 
 	if (c.sparse_mode) {
-#ifndef WITH_ANDROID
-		MSG(0, "\tError: Sparse mode is only supported for android\n");
-		return -1;
-#else
-		if (f2fs_sparse_file)
-			sparse_file_destroy(f2fs_sparse_file);
-		f2fs_sparse_file = sparse_file_new(F2FS_BLKSIZE, c.device_size);
-#endif
+		if (f2fs_init_sparse_file())
+			return -1;
 	}
 
 	if (f2fs_format_device() < 0)
 		return -1;
 
-	f2fs_finalize_device();
+	if (f2fs_finalize_device() < 0)
+		return -1;
 
 	MSG(0, "Info: format successful\n");
 

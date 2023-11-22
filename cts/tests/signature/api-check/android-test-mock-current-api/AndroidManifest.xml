@@ -20,7 +20,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
-    <application>
+    <application android:debuggable="true">
         <uses-library android:name="android.test.mock"/>
     </application>
 

@@ -17,12 +17,11 @@
 #include "calibration/over_temp/over_temp_cal.h"
 
 #include <float.h>
+#include <inttypes.h>
 #include <math.h>
-#include <stdio.h>
 #include <string.h>
 
 #include "calibration/util/cal_log.h"
-#include "common/math/macros.h"
 #include "util/nano_assert.h"
 
 /////// DEFINITIONS AND MACROS ////////////////////////////////////////////////
@@ -32,40 +31,39 @@
 
 // Defines the default weighting function for the linear model fit routine.
 // Weighting = 10.0; for offsets newer than 5 minutes.
-static const struct OverTempCalWeightPt kOtcDefaultWeight0 = {
+static const struct OverTempCalWeight kOtcDefaultWeight0 = {
     .offset_age_nanos = MIN_TO_NANOS(5),
     .weight = 10.0f,
 };
 
 // Weighting = 0.1; for offsets newer than 15 minutes.
-static const struct OverTempCalWeightPt kOtcDefaultWeight1 = {
+static const struct OverTempCalWeight kOtcDefaultWeight1 = {
     .offset_age_nanos = MIN_TO_NANOS(15),
     .weight = 0.1f,
 };
 
 // The default weighting used for all older offsets.
-#define OTC_MIN_WEIGHT_VALUE  (0.04f)
+#define OTC_MIN_WEIGHT_VALUE (0.04f)
 
 #ifdef OVERTEMPCAL_DBG_ENABLED
 // A debug version label to help with tracking results.
-#define OTC_DEBUG_VERSION_STRING "[July 05, 2017]"
+#define OTC_DEBUG_VERSION_STRING "[Jan 10, 2018]"
 
 // The time interval used to throttle debug messaging (100msec).
 #define OTC_WAIT_TIME_NANOS (SEC_TO_NANOS(0.1))
 
-// The time interval used to throttle temperture print messaging (1 second).
+// The time interval used to throttle temperature print messaging (1 second).
 #define OTC_PRINT_TEMP_NANOS (SEC_TO_NANOS(1))
 
 // Sensor axis label definition with index correspondence: 0=X, 1=Y, 2=Z.
-static const char  kDebugAxisLabel[3] = "XYZ";
+static const char kDebugAxisLabel[3] = "XYZ";
 #endif  // OVERTEMPCAL_DBG_ENABLED
 
 /////// FORWARD DECLARATIONS //////////////////////////////////////////////////
 
 // Updates the latest received model estimate data.
 static void setLatestEstimate(struct OverTempCal *over_temp_cal,
-                              const float *offset, float offset_temp_celsius,
-                              uint64_t timestamp_nanos);
+                              const float *offset, float offset_temp_celsius);
 
 /*
  * Determines if a new over-temperature model fit should be performed, and then
@@ -103,11 +101,10 @@ static bool removeModelDataByIndex(struct OverTempCal *over_temp_cal,
  * Since it may take a while for an empty model to build up enough data to start
  * producing new model parameter updates, the model collection can be
  * jump-started by using the new model parameters to insert "fake" data in place
- * of actual sensor offset data. 'timestamp_nanos' sets the timestamp for the
- * new model data.
+ * of actual sensor offset data. The new model data 'offset_age_nanos' is set to
+ * zero.
  */
-static bool jumpStartModelData(struct OverTempCal *over_temp_cal,
-                               uint64_t timestamp_nanos);
+static bool jumpStartModelData(struct OverTempCal *over_temp_cal);
 
 /*
  * Computes a new model fit and provides updated model parameters for the
@@ -116,7 +113,6 @@ static bool jumpStartModelData(struct OverTempCal *over_temp_cal,
  *
  * INPUTS:
  *   over_temp_cal:    Over-temp data structure.
- *   timestamp_nanos:  Current timestamp for the model update.
  * OUTPUTS:
  *   temp_sensitivity: Updated modeled temperature sensitivity (array).
  *   sensor_intercept: Updated model intercept (array).
@@ -127,8 +123,7 @@ static bool jumpStartModelData(struct OverTempCal *over_temp_cal,
  * Numerical Recipes: The Art of Scientific Computing. Cambridge, 1992.
  */
 static void updateModel(const struct OverTempCal *over_temp_cal,
-                        uint64_t timestamp_nanos, float *temp_sensitivity,
-                        float *sensor_intercept);
+                        float *temp_sensitivity, float *sensor_intercept);
 
 /*
  * Computes a new over-temperature compensated offset estimate based on the
@@ -183,7 +178,8 @@ static bool checkAndEnforceTemperatureRange(float *temperature_celsius);
 // Returns "true" if the candidate linear model parameters are within the valid
 // range, and not all zeros.
 static bool isValidOtcLinearModel(const struct OverTempCal *over_temp_cal,
-                   float temp_sensitivity, float sensor_intercept);
+                                  float temp_sensitivity,
+                                  float sensor_intercept);
 
 // Returns "true" if 'offset' and 'offset_temp_celsius' is valid.
 static bool isValidOtcOffset(const float *offset, float offset_temp_celsius);
@@ -191,8 +187,12 @@ static bool isValidOtcOffset(const float *offset, float offset_temp_celsius);
 // Returns the least-squares weight based on the age of a particular offset
 // estimate.
 static float evaluateWeightingFunction(const struct OverTempCal *over_temp_cal,
-                                       uint64_t offset_timestamp_nanos,
-                                       uint64_t current_timestamp_nanos);
+                                       uint64_t offset_age_nanos);
+
+// Computes the age increment, adds it to the age of each OTC model data point,
+// and resets the age update counter.
+static void modelDataSetAgeUpdate(struct OverTempCal *over_temp_cal,
+                                  uint64_t timestamp_nanos);
 
 // Updates 'compensated_offset' using the linear OTC model.
 static void compensateWithLinearModel(struct OverTempCal *over_temp_cal,
@@ -208,9 +208,10 @@ static void addLinearTemperatureExtrapolation(struct OverTempCal *over_temp_cal,
                                               float delta_temp_celsius);
 
 // Provides an over-temperature compensated offset based on the 'estimate'.
-static void compensateWithEstimate(
-    struct OverTempCal *over_temp_cal, uint64_t timestamp_nanos,
-    struct OverTempCalDataPt *estimate, float temperature_celsius);
+static void compensateWithEstimate(struct OverTempCal *over_temp_cal,
+                                   uint64_t timestamp_nanos,
+                                   struct OverTempModelThreeAxis *estimate,
+                                   float temperature_celsius);
 
 // Evaluates the nearest-temperature compensation (with linear extrapolation
 // term due to temperature), and compares it with the compensation due to
@@ -233,7 +234,7 @@ static void refreshOtcModel(struct OverTempCal *over_temp_cal,
 #ifdef OVERTEMPCAL_DBG_ENABLED
 // This helper function stores all of the debug tracking information necessary
 // for printing log messages.
-static void updateDebugData(struct OverTempCal* over_temp_cal);
+static void updateDebugData(struct OverTempCal *over_temp_cal);
 
 // Helper function that creates tag strings useful for identifying specific
 // debug output data (embedded system friendly; not all systems have 'sprintf').
@@ -251,12 +252,7 @@ static void createDebugTag(struct OverTempCal *over_temp_cal,
 /////// FUNCTION DEFINITIONS //////////////////////////////////////////////////
 
 void overTempCalInit(struct OverTempCal *over_temp_cal,
-                     size_t min_num_model_pts,
-                     uint64_t min_temp_update_period_nanos,
-                     float delta_temp_per_bin, float jump_tolerance,
-                     float outlier_limit, uint64_t age_limit_nanos,
-                     float temp_sensitivity_limit, float sensor_intercept_limit,
-                     float significant_offset_change, bool over_temp_enable) {
+                     const struct OverTempCalParameters *parameters) {
   ASSERT_NOT_NULL(over_temp_cal);
 
   // Clears OverTempCal memory.
@@ -264,7 +260,7 @@ void overTempCalInit(struct OverTempCal *over_temp_cal,
 
   // Initializes the pointers to important sensor offset estimates.
   over_temp_cal->nearest_offset = &over_temp_cal->model_data[0];
-  over_temp_cal->latest_offset  = NULL;
+  over_temp_cal->latest_offset = NULL;
 
   // Initializes the OTC linear model parameters.
   resetOtcLinearModel(over_temp_cal);
@@ -272,24 +268,22 @@ void overTempCalInit(struct OverTempCal *over_temp_cal,
   // Initializes the model identification parameters.
   over_temp_cal->new_overtemp_model_available = false;
   over_temp_cal->new_overtemp_offset_available = false;
-  over_temp_cal->min_num_model_pts = min_num_model_pts;
-  over_temp_cal->min_temp_update_period_nanos = min_temp_update_period_nanos;
-  over_temp_cal->delta_temp_per_bin = delta_temp_per_bin;
-  over_temp_cal->jump_tolerance = jump_tolerance;
-  over_temp_cal->outlier_limit = outlier_limit;
-  over_temp_cal->age_limit_nanos = age_limit_nanos;
-  over_temp_cal->temp_sensitivity_limit = temp_sensitivity_limit;
-  over_temp_cal->sensor_intercept_limit = sensor_intercept_limit;
-  over_temp_cal->significant_offset_change = significant_offset_change;
-  over_temp_cal->over_temp_enable = over_temp_enable;
+  over_temp_cal->min_num_model_pts = parameters->min_num_model_pts;
+  over_temp_cal->min_temp_update_period_nanos =
+      parameters->min_temp_update_period_nanos;
+  over_temp_cal->delta_temp_per_bin = parameters->delta_temp_per_bin;
+  over_temp_cal->jump_tolerance = parameters->jump_tolerance;
+  over_temp_cal->outlier_limit = parameters->outlier_limit;
+  over_temp_cal->age_limit_nanos = parameters->age_limit_nanos;
+  over_temp_cal->temp_sensitivity_limit = parameters->temp_sensitivity_limit;
+  over_temp_cal->sensor_intercept_limit = parameters->sensor_intercept_limit;
+  over_temp_cal->significant_offset_change =
+      parameters->significant_offset_change;
+  over_temp_cal->over_temp_enable = parameters->over_temp_enable;
 
   // Initializes the over-temperature compensated offset temperature.
   over_temp_cal->compensated_offset.offset_temp_celsius =
-      OTC_TEMP_INVALID_CELSIUS;
-
-  // Defines the default weighting function for the linear model fit routine.
-  overTempSetWeightingFunction(over_temp_cal, 0, &kOtcDefaultWeight0);
-  overTempSetWeightingFunction(over_temp_cal, 1, &kOtcDefaultWeight1);
+      INVALID_TEMPERATURE_CELSIUS;
 
 #ifdef OVERTEMPCAL_DBG_ENABLED
   // Sets the default sensor descriptors for debugging.
@@ -305,6 +299,10 @@ void overTempCalInit(struct OverTempCal *over_temp_cal,
                   "Over-temperature compensation DISABLED.");
   }
 #endif  // OVERTEMPCAL_DBG_ENABLED
+
+  // Defines the default weighting function for the linear model fit routine.
+  overTempValidateAndSetWeight(over_temp_cal, 0, &kOtcDefaultWeight0);
+  overTempValidateAndSetWeight(over_temp_cal, 1, &kOtcDefaultWeight1);
 }
 
 void overTempCalSetModel(struct OverTempCal *over_temp_cal, const float *offset,
@@ -332,8 +330,7 @@ void overTempCalSetModel(struct OverTempCal *over_temp_cal, const float *offset,
 
   // Model "Jump-Start".
   const bool model_jump_started =
-      (jump_start_model) ? jumpStartModelData(over_temp_cal, timestamp_nanos)
-                         : false;
+      jump_start_model ? jumpStartModelData(over_temp_cal) : false;
 
   if (!model_jump_started) {
     // Checks that the new offset data is valid.
@@ -342,7 +339,7 @@ void overTempCalSetModel(struct OverTempCal *over_temp_cal, const float *offset,
       memcpy(over_temp_cal->model_data[0].offset, offset,
              sizeof(over_temp_cal->model_data[0].offset));
       over_temp_cal->model_data[0].offset_temp_celsius = offset_temp_celsius;
-      over_temp_cal->model_data[0].timestamp_nanos = timestamp_nanos;
+      over_temp_cal->model_data[0].offset_age_nanos = 0;
       over_temp_cal->num_model_pts = 1;
     } else {
       // No valid offset data to load.
@@ -361,7 +358,7 @@ void overTempCalSetModel(struct OverTempCal *over_temp_cal, const float *offset,
     memcpy(over_temp_cal->compensated_offset.offset, offset,
            sizeof(over_temp_cal->compensated_offset.offset));
     over_temp_cal->compensated_offset.offset_temp_celsius = offset_temp_celsius;
-    over_temp_cal->compensated_offset.timestamp_nanos = timestamp_nanos;
+    over_temp_cal->compensated_offset.offset_age_nanos = 0;
   }
 
   // Resets the latest offset pointer. There are no new offset estimates to
@@ -435,7 +432,7 @@ void overTempCalGetModel(struct OverTempCal *over_temp_cal, float *offset,
 
 void overTempCalSetModelData(struct OverTempCal *over_temp_cal,
                              size_t data_length, uint64_t timestamp_nanos,
-                             const struct OverTempCalDataPt *model_data) {
+                             const struct OverTempModelThreeAxis *model_data) {
   ASSERT_NOT_NULL(over_temp_cal);
   ASSERT_NOT_NULL(model_data);
 
@@ -446,11 +443,7 @@ void overTempCalSetModelData(struct OverTempCal *over_temp_cal,
     if (isValidOtcOffset(model_data[i].offset,
                          model_data[i].offset_temp_celsius)) {
       memcpy(&over_temp_cal->model_data[i], &model_data[i],
-             sizeof(struct OverTempCalDataPt));
-
-      // Updates the model time stamps to the current load time.
-      over_temp_cal->model_data[i].timestamp_nanos = timestamp_nanos;
-
+             sizeof(struct OverTempModelThreeAxis));
       valid_data_count++;
     }
   }
@@ -491,11 +484,11 @@ void overTempCalSetModelData(struct OverTempCal *over_temp_cal,
 
 void overTempCalGetModelData(struct OverTempCal *over_temp_cal,
                              size_t *data_length,
-                             struct OverTempCalDataPt *model_data) {
+                             struct OverTempModelThreeAxis *model_data) {
   ASSERT_NOT_NULL(over_temp_cal);
   *data_length = over_temp_cal->num_model_pts;
   memcpy(model_data, over_temp_cal->model_data,
-         over_temp_cal->num_model_pts * sizeof(struct OverTempCalDataPt));
+         over_temp_cal->num_model_pts * sizeof(struct OverTempModelThreeAxis));
 }
 
 void overTempCalGetOffset(struct OverTempCal *over_temp_cal,
@@ -559,6 +552,9 @@ void overTempCalUpdateSensorEstimate(struct OverTempCal *over_temp_cal,
   ASSERT_NOT_NULL(offset);
   ASSERT(over_temp_cal->delta_temp_per_bin > 0);
 
+  // Updates the age of each OTC model data point.
+  modelDataSetAgeUpdate(over_temp_cal, timestamp_nanos);
+
   // Checks that the new offset data is valid, returns if bad.
   if (!isValidOtcOffset(offset, temperature_celsius)) {
     return;
@@ -586,14 +582,13 @@ void overTempCalUpdateSensorEstimate(struct OverTempCal *over_temp_cal,
       createDebugTag(over_temp_cal, ":OUTLIER]");
       CAL_DEBUG_LOG(
           over_temp_cal->otc_debug_tag,
-          "Offset|Temperature|Time [%s|C|nsec]: "
-          CAL_FORMAT_3DIGITS_TRIPLET ", " CAL_FORMAT_3DIGITS ", %llu",
+          "Offset|Temperature|Time [%s|C|nsec]: " CAL_FORMAT_3DIGITS_TRIPLET
+          ", " CAL_FORMAT_3DIGITS ", %" PRIu64,
           over_temp_cal->otc_unit_tag,
           CAL_ENCODE_FLOAT(offset[0] * over_temp_cal->otc_unit_conversion, 3),
           CAL_ENCODE_FLOAT(offset[1] * over_temp_cal->otc_unit_conversion, 3),
           CAL_ENCODE_FLOAT(offset[2] * over_temp_cal->otc_unit_conversion, 3),
-          CAL_ENCODE_FLOAT(temperature_celsius, 3),
-          (unsigned long long int)timestamp_nanos);
+          CAL_ENCODE_FLOAT(temperature_celsius, 3), timestamp_nanos);
 #endif  // OVERTEMPCAL_DBG_ENABLED
 
       return;  // Outlier detected: skips adding this offset to the model.
@@ -648,8 +643,8 @@ void overTempCalUpdateSensorEstimate(struct OverTempCal *over_temp_cal,
       //    oldest data with the incoming one.
       over_temp_cal->latest_offset = &over_temp_cal->model_data[0];
       for (size_t i = 1; i < over_temp_cal->num_model_pts; i++) {
-        if (over_temp_cal->latest_offset->timestamp_nanos <
-            over_temp_cal->model_data[i].timestamp_nanos) {
+        if (over_temp_cal->latest_offset->offset_age_nanos <
+            over_temp_cal->model_data[i].offset_age_nanos) {
           over_temp_cal->latest_offset = &over_temp_cal->model_data[i];
         }
       }
@@ -657,8 +652,7 @@ void overTempCalUpdateSensorEstimate(struct OverTempCal *over_temp_cal,
   }
 
   // Updates the latest model estimate data.
-  setLatestEstimate(over_temp_cal, offset, temperature_celsius,
-                    timestamp_nanos);
+  setLatestEstimate(over_temp_cal, offset, temperature_celsius);
 
   // The latest offset estimate is the nearest temperature offset.
   over_temp_cal->nearest_offset = over_temp_cal->latest_offset;
@@ -705,12 +699,19 @@ void overTempCalSetTemperature(struct OverTempCal *over_temp_cal,
     // Prints out temperature and the current timestamp.
     createDebugTag(over_temp_cal, ":TEMP]");
     CAL_DEBUG_LOG(over_temp_cal->otc_debug_tag,
-                  "Temperature|Time [C|nsec] = " CAL_FORMAT_3DIGITS ", %llu",
-                  CAL_ENCODE_FLOAT(temperature_celsius, 3),
-                  (unsigned long long int)timestamp_nanos);
+                  "Temperature|Time [C|nsec] = " CAL_FORMAT_3DIGITS
+                  ", %" PRIu64,
+                  CAL_ENCODE_FLOAT(temperature_celsius, 3), timestamp_nanos);
   }
 #endif  // OVERTEMPCAL_DBG_LOG_TEMP
 #endif  // OVERTEMPCAL_DBG_ENABLED
+
+  // Updates the age of each OTC model data point.
+  if (NANO_TIMER_CHECK_T1_GEQUAL_T2_PLUS_DELTA(
+          timestamp_nanos, over_temp_cal->last_age_update_nanos,
+          OTC_MODEL_AGE_UPDATE_NANOS)) {
+    modelDataSetAgeUpdate(over_temp_cal, timestamp_nanos);
+  }
 
   // This check throttles new OTC offset compensation updates so that high data
   // rate temperature samples do not cause excessive computational burden. Note,
@@ -720,7 +721,7 @@ void overTempCalSetTemperature(struct OverTempCal *over_temp_cal,
   if (!NANO_TIMER_CHECK_T1_GEQUAL_T2_PLUS_DELTA(
           timestamp_nanos, over_temp_cal->last_offset_update_nanos,
           over_temp_cal->min_temp_update_period_nanos)) {
-    return; // Time interval too short, skip further data processing.
+    return;  // Time interval too short, skip further data processing.
   }
 
   // Checks that the offset temperature is within a valid range, saturates if
@@ -746,8 +747,8 @@ void overTempCalSetTemperature(struct OverTempCal *over_temp_cal,
 }
 
 void overTempGetModelError(const struct OverTempCal *over_temp_cal,
-                   const float *temp_sensitivity, const float *sensor_intercept,
-                   float *max_error) {
+                           const float *temp_sensitivity,
+                           const float *sensor_intercept, float *max_error) {
   ASSERT_NOT_NULL(over_temp_cal);
   ASSERT_NOT_NULL(temp_sensitivity);
   ASSERT_NOT_NULL(sensor_intercept);
@@ -770,14 +771,34 @@ void overTempGetModelError(const struct OverTempCal *over_temp_cal,
   }
 }
 
-// TODO(davejacobs): Refactor to implement a compliance check on the storage of
-// 'offset_age_nanos' to ensure a monotonically increasing order with index.
-void overTempSetWeightingFunction(
+bool overTempValidateAndSetWeight(
     struct OverTempCal *over_temp_cal, size_t index,
-    const struct OverTempCalWeightPt *new_otc_weight) {
-  if (index < OTC_NUM_WEIGHT_LEVELS) {
-    over_temp_cal->weighting_function[index] = *new_otc_weight;
+    const struct OverTempCalWeight *new_otc_weight) {
+  ASSERT_NOT_NULL(over_temp_cal);
+  ASSERT_NOT_NULL(new_otc_weight);
+
+  // The input weighting coefficient must be positive.
+  if (new_otc_weight->weight <= 0.0f) {
+#ifdef OVERTEMPCAL_DBG_ENABLED
+    createDebugTag(over_temp_cal, ":WEIGHT_FUNCTION]");
+    CAL_DEBUG_LOG(over_temp_cal->otc_debug_tag, "Invalid weight: Must > 0.");
+#endif  // OVERTEMPCAL_DBG_ENABLED
+    return false;
   }
+
+  // Ensures that the 'index-1' weight's age is younger.
+  if (index == 0 ||
+      over_temp_cal->weighting_function[index - 1].offset_age_nanos <
+          new_otc_weight->offset_age_nanos) {
+    over_temp_cal->weighting_function[index] = *new_otc_weight;
+    return true;
+  }
+
+#ifdef OVERTEMPCAL_DBG_ENABLED
+  createDebugTag(over_temp_cal, ":WEIGHT_FUNCTION]");
+  CAL_DEBUG_LOG(over_temp_cal->otc_debug_tag, "Non monotonic weight age.");
+#endif  // OVERTEMPCAL_DBG_ENABLED
+  return false;
 }
 
 /////// LOCAL HELPER FUNCTION DEFINITIONS /////////////////////////////////////
@@ -827,9 +848,10 @@ void addLinearTemperatureExtrapolation(struct OverTempCal *over_temp_cal,
   }
 }
 
-void compensateWithEstimate(
-    struct OverTempCal *over_temp_cal, uint64_t timestamp_nanos,
-    struct OverTempCalDataPt *estimate, float temperature_celsius) {
+void compensateWithEstimate(struct OverTempCal *over_temp_cal,
+                            uint64_t timestamp_nanos,
+                            struct OverTempModelThreeAxis *estimate,
+                            float temperature_celsius) {
   ASSERT_NOT_NULL(over_temp_cal);
   ASSERT_NOT_NULL(estimate);
 
@@ -838,7 +860,7 @@ void compensateWithEstimate(
   memcpy(compensated_offset, estimate->offset, sizeof(compensated_offset));
 
   // Checks that the offset temperature is valid.
-  if (estimate->offset_temp_celsius > OTC_TEMP_INVALID_CELSIUS) {
+  if (estimate->offset_temp_celsius > INVALID_TEMPERATURE_CELSIUS) {
     const float delta_temp_celsius =
         temperature_celsius - estimate->offset_temp_celsius;
 
@@ -886,7 +908,7 @@ void compareAndCompensateWithNearest(struct OverTempCal *over_temp_cal,
         // Adds a delta term to the compensated offset using the temperature
         // difference defined by 'delta_temp_celsius'.
         if (over_temp_cal->compensated_offset.offset_temp_celsius <=
-            OTC_TEMP_INVALID_CELSIUS) {
+            INVALID_TEMPERATURE_CELSIUS) {
           // If temperature is invalid, then skip further processing.
           break;
         }
@@ -918,7 +940,7 @@ void updateCalOffset(struct OverTempCal *over_temp_cal,
 
   // If 'temperature_celsius' is invalid, then no changes to the compensated
   // offset are computed.
-  if (temperature_celsius <= OTC_TEMP_INVALID_CELSIUS) {
+  if (temperature_celsius <= INVALID_TEMPERATURE_CELSIUS) {
     return;
   }
 
@@ -927,9 +949,9 @@ void updateCalOffset(struct OverTempCal *over_temp_cal,
   // than one estimate in the model (i.e., don't want to remove all data, even
   // if it is very old [something is likely better than nothing]).
   if ((timestamp_nanos >=
-       OTC_STALE_CHECK_TIME_NANOS + over_temp_cal->stale_data_timer) &&
+       OTC_STALE_CHECK_TIME_NANOS + over_temp_cal->stale_data_timer_nanos) &&
       over_temp_cal->num_model_pts > 1) {
-    over_temp_cal->stale_data_timer = timestamp_nanos;  // Resets timer.
+    over_temp_cal->stale_data_timer_nanos = timestamp_nanos;  // Resets timer.
     removeStaleModelData(over_temp_cal, timestamp_nanos);
   }
 
@@ -944,12 +966,32 @@ void updateCalOffset(struct OverTempCal *over_temp_cal,
   // not empty.
   const bool model_points_available = (over_temp_cal->num_model_pts > 0);
 
+  // To properly evaluate the logic paths that use the latest and nearest offset
+  // data below, the current age of the nearest and latest offset estimates are
+  // computed.
+  uint64_t latest_offset_age_nanos = 0;
+  if (over_temp_cal->latest_offset != NULL) {
+    latest_offset_age_nanos =
+        (over_temp_cal->last_age_update_nanos < timestamp_nanos)
+            ? over_temp_cal->latest_offset->offset_age_nanos +
+                  timestamp_nanos - over_temp_cal->last_age_update_nanos
+            : over_temp_cal->latest_offset->offset_age_nanos;
+  }
+
+  uint64_t nearest_offset_age_nanos = 0;
+  if (over_temp_cal->nearest_offset != NULL) {
+    nearest_offset_age_nanos =
+        (over_temp_cal->last_age_update_nanos < timestamp_nanos)
+            ? over_temp_cal->nearest_offset->offset_age_nanos +
+                  timestamp_nanos - over_temp_cal->last_age_update_nanos
+            : over_temp_cal->nearest_offset->offset_age_nanos;
+  }
+
   // True when the latest offset estimate will be used to compute a sensor
   // offset calibration estimate.
   const bool use_latest_offset_compensation =
-      over_temp_cal->latest_offset && model_points_available &&
-      timestamp_nanos < over_temp_cal->latest_offset->timestamp_nanos +
-                            OTC_USE_RECENT_OFFSET_TIME_NANOS;
+      over_temp_cal->latest_offset != NULL && model_points_available &&
+      latest_offset_age_nanos <= OTC_USE_RECENT_OFFSET_TIME_NANOS;
 
   // True when the conditions are met to use the nearest-temperature offset to
   // compute a sensor offset calibration estimate.
@@ -958,7 +1000,7 @@ void updateCalOffset(struct OverTempCal *over_temp_cal,
   //    ii. Offset temperature must be within a small neighborhood of the
   //        current measured temperature (+/- 'delta_temp_per_bin').
   const bool can_compensate_with_nearest =
-      model_points_available && over_temp_cal->nearest_offset &&
+      model_points_available && over_temp_cal->nearest_offset != NULL &&
       NANO_ABS(temperature_celsius -
                over_temp_cal->nearest_offset->offset_temp_celsius) <
           over_temp_cal->delta_temp_per_bin;
@@ -966,18 +1008,14 @@ void updateCalOffset(struct OverTempCal *over_temp_cal,
   // True if the last received sensor offset estimate is old or non-existent.
   const bool latest_model_point_not_relevant =
       (over_temp_cal->latest_offset == NULL) ||
-      (over_temp_cal->latest_offset &&
-       NANO_TIMER_CHECK_T1_GEQUAL_T2_PLUS_DELTA(
-           timestamp_nanos, over_temp_cal->latest_offset->timestamp_nanos,
-           OTC_OFFSET_IS_STALE_NANOS));
+      (over_temp_cal->latest_offset != NULL &&
+       latest_offset_age_nanos >= OTC_OFFSET_IS_STALE_NANOS);
 
   // True if the nearest-temperature offset estimate is old or non-existent.
   const bool nearest_model_point_not_relevant =
       (over_temp_cal->nearest_offset == NULL) ||
-      (over_temp_cal->nearest_offset &&
-       NANO_TIMER_CHECK_T1_GEQUAL_T2_PLUS_DELTA(
-           timestamp_nanos, over_temp_cal->nearest_offset->timestamp_nanos,
-           OTC_OFFSET_IS_STALE_NANOS));
+      (over_temp_cal->nearest_offset != NULL &&
+       nearest_offset_age_nanos >= OTC_OFFSET_IS_STALE_NANOS);
 
   // ---------------------------------------------------------------------------
   // The following conditional expressions govern new OTC offset updates.
@@ -1051,26 +1089,25 @@ void setCompensatedOffset(struct OverTempCal *over_temp_cal,
   over_temp_cal->new_overtemp_offset_available |= new_overtemp_offset_available;
 
   // If the offset has changed significantly, then the offset compensation
-  // vector and timestamp are updated.
+  // vector is updated.
   if (new_overtemp_offset_available) {
     memcpy(over_temp_cal->compensated_offset.offset, compensated_offset,
            sizeof(over_temp_cal->compensated_offset.offset));
-    over_temp_cal->compensated_offset.timestamp_nanos = timestamp_nanos;
     over_temp_cal->compensated_offset.offset_temp_celsius = temperature_celsius;
   }
 }
 
 void setLatestEstimate(struct OverTempCal *over_temp_cal, const float *offset,
-                       float offset_temp_celsius, uint64_t timestamp_nanos) {
+                       float offset_temp_celsius) {
   ASSERT_NOT_NULL(over_temp_cal);
   ASSERT_NOT_NULL(offset);
 
-  if (over_temp_cal->latest_offset) {
+  if (over_temp_cal->latest_offset != NULL) {
     // Sets the latest over-temp calibration estimate.
     memcpy(over_temp_cal->latest_offset->offset, offset,
            sizeof(over_temp_cal->latest_offset->offset));
     over_temp_cal->latest_offset->offset_temp_celsius = offset_temp_celsius;
-    over_temp_cal->latest_offset->timestamp_nanos = timestamp_nanos;
+    over_temp_cal->latest_offset->offset_age_nanos = 0;
   }
 }
 
@@ -1098,19 +1135,17 @@ void computeModelUpdate(struct OverTempCal *over_temp_cal,
 
   // Ensures that the minimum number of points required for a model fit has been
   // satisfied.
-  if (over_temp_cal->num_model_pts < over_temp_cal->min_num_model_pts)
-      return;
+  if (over_temp_cal->num_model_pts < over_temp_cal->min_num_model_pts) return;
 
   // Updates the linear model fit.
   float temp_sensitivity[3];
   float sensor_intercept[3];
-  updateModel(over_temp_cal, timestamp_nanos, temp_sensitivity,
-              sensor_intercept);
+  updateModel(over_temp_cal, temp_sensitivity, sensor_intercept);
 
   //    2) A new set of model parameters are accepted if:
   //         i. The model fit parameters must be within certain absolute bounds:
-  //              a. NANO_ABS(temp_sensitivity) < temp_sensitivity_limit
-  //              b. NANO_ABS(sensor_intercept) < sensor_intercept_limit
+  //              a. |temp_sensitivity| < temp_sensitivity_limit
+  //              b. |sensor_intercept| < sensor_intercept_limit
   // NOTE: Model parameter updates are not qualified against model fit error
   // here to protect against the case where there is large change in the
   // temperature characteristic either during runtime (e.g., temperature
@@ -1131,14 +1166,14 @@ void computeModelUpdate(struct OverTempCal *over_temp_cal,
       CAL_DEBUG_LOG(
           over_temp_cal->otc_debug_tag,
           "%c-Axis Parameters|Time [%s/C|%s|nsec]: " CAL_FORMAT_3DIGITS
-          ", " CAL_FORMAT_3DIGITS ", %llu",
+          ", " CAL_FORMAT_3DIGITS ", %" PRIu64,
           kDebugAxisLabel[i], over_temp_cal->otc_unit_tag,
           over_temp_cal->otc_unit_tag,
           CAL_ENCODE_FLOAT(
               temp_sensitivity[i] * over_temp_cal->otc_unit_conversion, 3),
           CAL_ENCODE_FLOAT(
               sensor_intercept[i] * over_temp_cal->otc_unit_conversion, 3),
-          (unsigned long long int)timestamp_nanos);
+          timestamp_nanos);
 #endif  // OVERTEMPCAL_DBG_ENABLED
     }
   }
@@ -1161,7 +1196,7 @@ void findNearestEstimate(struct OverTempCal *over_temp_cal,
   ASSERT_NOT_NULL(over_temp_cal);
 
   // If 'temperature_celsius' is invalid, then do not search.
-  if (temperature_celsius <= OTC_TEMP_INVALID_CELSIUS) {
+  if (temperature_celsius <= INVALID_TEMPERATURE_CELSIUS) {
     return;
   }
 
@@ -1186,9 +1221,8 @@ void removeStaleModelData(struct OverTempCal *over_temp_cal,
 
   bool removed_one = false;
   for (size_t i = 0; i < over_temp_cal->num_model_pts; i++) {
-    if (timestamp_nanos > over_temp_cal->model_data[i].timestamp_nanos &&
-        timestamp_nanos > over_temp_cal->age_limit_nanos +
-                              over_temp_cal->model_data[i].timestamp_nanos) {
+    if (over_temp_cal->model_data[i].offset_age_nanos >=
+        over_temp_cal->age_limit_nanos) {
       // If the latest offset was removed, then indicate this by setting it to
       // NULL.
       if (over_temp_cal->latest_offset == &over_temp_cal->model_data[i]) {
@@ -1223,8 +1257,8 @@ bool removeModelDataByIndex(struct OverTempCal *over_temp_cal,
   createDebugTag(over_temp_cal, ":REMOVE]");
   CAL_DEBUG_LOG(
       over_temp_cal->otc_debug_tag,
-      "Offset|Temp|Time [%s|C|nsec]: " CAL_FORMAT_3DIGITS_TRIPLET
-      ", " CAL_FORMAT_3DIGITS ", %llu",
+      "Offset|Temp|Age [%s|C|nsec]: " CAL_FORMAT_3DIGITS_TRIPLET
+      ", " CAL_FORMAT_3DIGITS ", %" PRIu64,
       over_temp_cal->otc_unit_tag,
       CAL_ENCODE_FLOAT(over_temp_cal->model_data[model_index].offset[0] *
                            over_temp_cal->otc_unit_conversion,
@@ -1237,22 +1271,20 @@ bool removeModelDataByIndex(struct OverTempCal *over_temp_cal,
                        3),
       CAL_ENCODE_FLOAT(
           over_temp_cal->model_data[model_index].offset_temp_celsius, 3),
-      (unsigned long long int)over_temp_cal->model_data[model_index]
-          .timestamp_nanos);
+      over_temp_cal->model_data[model_index].offset_age_nanos);
 #endif  // OVERTEMPCAL_DBG_ENABLED
 
   // Remove the model data at 'model_index'.
   for (size_t i = model_index; i < over_temp_cal->num_model_pts - 1; i++) {
     memcpy(&over_temp_cal->model_data[i], &over_temp_cal->model_data[i + 1],
-           sizeof(struct OverTempCalDataPt));
+           sizeof(struct OverTempModelThreeAxis));
   }
   over_temp_cal->num_model_pts--;
 
   return true;
 }
 
-bool jumpStartModelData(struct OverTempCal *over_temp_cal,
-                        uint64_t timestamp_nanos) {
+bool jumpStartModelData(struct OverTempCal *over_temp_cal) {
   ASSERT_NOT_NULL(over_temp_cal);
   ASSERT(over_temp_cal->delta_temp_per_bin > 0);
 
@@ -1291,7 +1323,7 @@ bool jumpStartModelData(struct OverTempCal *over_temp_cal,
           over_temp_cal->sensor_intercept[j];
     }
     over_temp_cal->model_data[i].offset_temp_celsius = offset_temp_celsius;
-    over_temp_cal->model_data[i].timestamp_nanos = timestamp_nanos;
+    over_temp_cal->model_data[i].offset_age_nanos = 0;
 
     offset_temp_celsius += over_temp_cal->delta_temp_per_bin;
     over_temp_cal->num_model_pts++;
@@ -1301,8 +1333,8 @@ bool jumpStartModelData(struct OverTempCal *over_temp_cal,
   createDebugTag(over_temp_cal, ":INIT]");
   if (over_temp_cal->num_model_pts > 0) {
     CAL_DEBUG_LOG(over_temp_cal->otc_debug_tag,
-                  "Model Jump-Start:  #Points = %lu.",
-                  (unsigned long int)over_temp_cal->num_model_pts);
+                  "Model Jump-Start:  #Points = %zu.",
+                  over_temp_cal->num_model_pts);
   }
 #endif  // OVERTEMPCAL_DBG_ENABLED
 
@@ -1310,8 +1342,7 @@ bool jumpStartModelData(struct OverTempCal *over_temp_cal,
 }
 
 void updateModel(const struct OverTempCal *over_temp_cal,
-                 uint64_t timestamp_nanos, float *temp_sensitivity,
-                 float *sensor_intercept) {
+                 float *temp_sensitivity, float *sensor_intercept) {
   ASSERT_NOT_NULL(over_temp_cal);
   ASSERT_NOT_NULL(temp_sensitivity);
   ASSERT_NOT_NULL(sensor_intercept);
@@ -1328,8 +1359,7 @@ void updateModel(const struct OverTempCal *over_temp_cal,
   const size_t n = over_temp_cal->num_model_pts;
   for (size_t i = 0; i < n; ++i) {
     weight = evaluateWeightingFunction(
-        over_temp_cal, over_temp_cal->model_data[i].timestamp_nanos,
-        timestamp_nanos);
+        over_temp_cal, over_temp_cal->model_data[i].offset_age_nanos);
 
     sw += weight;
     st += over_temp_cal->model_data[i].offset_temp_celsius * weight;
@@ -1343,13 +1373,11 @@ void updateModel(const struct OverTempCal *over_temp_cal,
   const float inv_sw = 1.0f / sw;
   for (size_t i = 0; i < n; ++i) {
     weight = evaluateWeightingFunction(
-        over_temp_cal, over_temp_cal->model_data[i].timestamp_nanos,
-        timestamp_nanos);
+        over_temp_cal, over_temp_cal->model_data[i].offset_age_nanos);
 
     const float t =
-        over_temp_cal->model_data[i].offset_temp_celsius -
-        st * inv_sw;
-    stt +=  weight * t * t;
+        over_temp_cal->model_data[i].offset_temp_celsius - st * inv_sw;
+    stt += weight * t * t;
     stsx += t * over_temp_cal->model_data[i].offset[0] * weight;
     stsy += t * over_temp_cal->model_data[i].offset[1] * weight;
     stsz += t * over_temp_cal->model_data[i].offset[2] * weight;
@@ -1440,19 +1468,37 @@ bool isValidOtcOffset(const float *offset, float offset_temp_celsius) {
 }
 
 float evaluateWeightingFunction(const struct OverTempCal *over_temp_cal,
-                                uint64_t offset_timestamp_nanos,
-                                uint64_t current_timestamp_nanos) {
+                                uint64_t offset_age_nanos) {
   ASSERT_NOT_NULL(over_temp_cal);
   for (size_t i = 0; i < OTC_NUM_WEIGHT_LEVELS; i++) {
-    if (current_timestamp_nanos <=
-        offset_timestamp_nanos +
-            over_temp_cal->weighting_function[i].offset_age_nanos) {
+    if (offset_age_nanos <=
+        over_temp_cal->weighting_function[i].offset_age_nanos) {
       return over_temp_cal->weighting_function[i].weight;
     }
   }
 
   // Returning the default weight for all older offsets.
   return OTC_MIN_WEIGHT_VALUE;
+}
+
+void modelDataSetAgeUpdate(struct OverTempCal *over_temp_cal,
+                           uint64_t timestamp_nanos) {
+  ASSERT_NOT_NULL(over_temp_cal);
+  if (over_temp_cal->last_age_update_nanos >= timestamp_nanos) {
+    // Age updates must be monotonic.
+    return;
+  }
+
+  uint64_t age_increment_nanos =
+      timestamp_nanos - over_temp_cal->last_age_update_nanos;
+
+  // Resets the age update counter.
+  over_temp_cal->last_age_update_nanos = timestamp_nanos;
+
+  // Updates the model dataset ages.
+  for (size_t i = 0; i < over_temp_cal->num_model_pts; i++) {
+    over_temp_cal->model_data[i].offset_age_nanos += age_increment_nanos;
+  }
 }
 
 /////// DEBUG FUNCTION DEFINITIONS ////////////////////////////////////////////
@@ -1468,7 +1514,7 @@ void createDebugTag(struct OverTempCal *over_temp_cal,
       new_debug_tag, strlen(new_debug_tag) + 1);
 }
 
-void updateDebugData(struct OverTempCal* over_temp_cal) {
+void updateDebugData(struct OverTempCal *over_temp_cal) {
   ASSERT_NOT_NULL(over_temp_cal);
 
   // Only update this data if debug printing is not currently in progress
@@ -1502,13 +1548,13 @@ void updateDebugData(struct OverTempCal* over_temp_cal) {
 
   // If 'latest_offset' is defined the copy the data for debug printing.
   // Otherwise, the current compensated offset will be printed.
-  if (over_temp_cal->latest_offset) {
+  if (over_temp_cal->latest_offset != NULL) {
     memcpy(&over_temp_cal->debug_overtempcal.latest_offset,
-           over_temp_cal->latest_offset, sizeof(struct OverTempCalDataPt));
+           over_temp_cal->latest_offset, sizeof(struct OverTempModelThreeAxis));
   } else {
     memcpy(&over_temp_cal->debug_overtempcal.latest_offset,
            &over_temp_cal->compensated_offset,
-           sizeof(struct OverTempCalDataPt));
+           sizeof(struct OverTempModelThreeAxis));
   }
 
   // Total number of OTC model data points.
@@ -1516,9 +1562,9 @@ void updateDebugData(struct OverTempCal* over_temp_cal) {
 
   // Computes the maximum error over all of the model data.
   overTempGetModelError(over_temp_cal,
-                over_temp_cal->debug_overtempcal.temp_sensitivity,
-                over_temp_cal->debug_overtempcal.sensor_intercept,
-                over_temp_cal->debug_overtempcal.max_error);
+                        over_temp_cal->debug_overtempcal.temp_sensitivity,
+                        over_temp_cal->debug_overtempcal.sensor_intercept,
+                        over_temp_cal->debug_overtempcal.max_error);
 }
 
 void overTempCalDebugPrint(struct OverTempCal *over_temp_cal,
@@ -1554,10 +1600,9 @@ void overTempCalDebugPrint(struct OverTempCal *over_temp_cal,
       // Prints out the latest offset estimate (input data).
       CAL_DEBUG_LOG(
           over_temp_cal->otc_debug_tag,
-          "Cal#|Offset|Temp|Time [%s|C|nsec]: %lu, " CAL_FORMAT_3DIGITS_TRIPLET
-          ", " CAL_FORMAT_3DIGITS ", %llu",
-          over_temp_cal->otc_unit_tag,
-          (unsigned long int)over_temp_cal->debug_num_estimates,
+          "Cal#|Offset|Temp|Age [%s|C|nsec]: %zu, " CAL_FORMAT_3DIGITS_TRIPLET
+          ", " CAL_FORMAT_3DIGITS ", %" PRIu64,
+          over_temp_cal->otc_unit_tag, over_temp_cal->debug_num_estimates,
           CAL_ENCODE_FLOAT(
               over_temp_cal->debug_overtempcal.latest_offset.offset[0] *
                   over_temp_cal->otc_unit_conversion,
@@ -1573,40 +1618,40 @@ void overTempCalDebugPrint(struct OverTempCal *over_temp_cal,
           CAL_ENCODE_FLOAT(over_temp_cal->debug_overtempcal.latest_offset
                                .offset_temp_celsius,
                            3),
-          (unsigned long long int)
-              over_temp_cal->debug_overtempcal.latest_offset.timestamp_nanos);
+          over_temp_cal->debug_overtempcal.latest_offset.offset_age_nanos);
 
+      // clang-format off
       over_temp_cal->wait_timer_nanos =
           timestamp_nanos;                          // Starts the wait timer.
       over_temp_cal->next_state =
           OTC_PRINT_MODEL_PARAMETERS;               // Sets the next state.
       over_temp_cal->debug_state = OTC_WAIT_STATE;  // First, go to wait state.
+      // clang-format on
       break;
 
     case OTC_PRINT_MODEL_PARAMETERS:
       // Prints out the model parameters.
-      CAL_DEBUG_LOG(
-          over_temp_cal->otc_debug_tag,
-          "Cal#|Sensitivity [%s/C]: %lu, " CAL_FORMAT_3DIGITS_TRIPLET,
-          over_temp_cal->otc_unit_tag,
-          (unsigned long int)over_temp_cal->debug_num_estimates,
-          CAL_ENCODE_FLOAT(
-              over_temp_cal->debug_overtempcal.temp_sensitivity[0] *
-                  over_temp_cal->otc_unit_conversion,
-              3),
-          CAL_ENCODE_FLOAT(
-              over_temp_cal->debug_overtempcal.temp_sensitivity[1] *
-                  over_temp_cal->otc_unit_conversion,
-              3),
-          CAL_ENCODE_FLOAT(
-              over_temp_cal->debug_overtempcal.temp_sensitivity[2] *
-                  over_temp_cal->otc_unit_conversion,
-              3));
+      CAL_DEBUG_LOG(over_temp_cal->otc_debug_tag,
+                    "Cal#|Sensitivity [%s/C]: %zu, " CAL_FORMAT_3DIGITS_TRIPLET,
+                    over_temp_cal->otc_unit_tag,
+                    over_temp_cal->debug_num_estimates,
+                    CAL_ENCODE_FLOAT(
+                        over_temp_cal->debug_overtempcal.temp_sensitivity[0] *
+                            over_temp_cal->otc_unit_conversion,
+                        3),
+                    CAL_ENCODE_FLOAT(
+                        over_temp_cal->debug_overtempcal.temp_sensitivity[1] *
+                            over_temp_cal->otc_unit_conversion,
+                        3),
+                    CAL_ENCODE_FLOAT(
+                        over_temp_cal->debug_overtempcal.temp_sensitivity[2] *
+                            over_temp_cal->otc_unit_conversion,
+                        3));
 
       CAL_DEBUG_LOG(over_temp_cal->otc_debug_tag,
-                    "Cal#|Intercept [%s]: %lu, " CAL_FORMAT_3DIGITS_TRIPLET,
+                    "Cal#|Intercept [%s]: %zu, " CAL_FORMAT_3DIGITS_TRIPLET,
                     over_temp_cal->otc_unit_tag,
-                    (unsigned long int)over_temp_cal->debug_num_estimates,
+                    over_temp_cal->debug_num_estimates,
                     CAL_ENCODE_FLOAT(
                         over_temp_cal->debug_overtempcal.sensor_intercept[0] *
                             over_temp_cal->otc_unit_conversion,
@@ -1621,8 +1666,9 @@ void overTempCalDebugPrint(struct OverTempCal *over_temp_cal,
                         3));
 
       over_temp_cal->wait_timer_nanos =
-          timestamp_nanos;                          // Starts the wait timer.
-      over_temp_cal->next_state = OTC_PRINT_MODEL_ERROR;  // Sets the next state.
+          timestamp_nanos;  // Starts the wait timer.
+      over_temp_cal->next_state =
+          OTC_PRINT_MODEL_ERROR;                    // Sets the next state.
       over_temp_cal->debug_state = OTC_WAIT_STATE;  // First, go to wait state.
       break;
 
@@ -1630,12 +1676,11 @@ void overTempCalDebugPrint(struct OverTempCal *over_temp_cal,
       // Computes the maximum error over all of the model data.
       CAL_DEBUG_LOG(
           over_temp_cal->otc_debug_tag,
-          "Cal#|#Updates|#ModelPts|Model Error [%s]: %lu, "
-          "%lu, %lu, " CAL_FORMAT_3DIGITS_TRIPLET,
-          over_temp_cal->otc_unit_tag,
-          (unsigned long int)over_temp_cal->debug_num_estimates,
-          (unsigned long int)over_temp_cal->debug_num_model_updates,
-          (unsigned long int)over_temp_cal->debug_overtempcal.num_model_pts,
+          "Cal#|#Updates|#ModelPts|Model Error [%s]: %zu, "
+          "%zu, %zu, " CAL_FORMAT_3DIGITS_TRIPLET,
+          over_temp_cal->otc_unit_tag, over_temp_cal->debug_num_estimates,
+          over_temp_cal->debug_num_model_updates,
+          over_temp_cal->debug_overtempcal.num_model_pts,
           CAL_ENCODE_FLOAT(over_temp_cal->debug_overtempcal.max_error[0] *
                                over_temp_cal->otc_unit_conversion,
                            3),
@@ -1648,7 +1693,7 @@ void overTempCalDebugPrint(struct OverTempCal *over_temp_cal,
 
       over_temp_cal->model_counter = 0;  // Resets the model data print counter.
       over_temp_cal->wait_timer_nanos =
-          timestamp_nanos;               // Starts the wait timer.
+          timestamp_nanos;  // Starts the wait timer.
       over_temp_cal->next_state = OTC_PRINT_MODEL_DATA;  // Sets the next state.
       over_temp_cal->debug_state = OTC_WAIT_STATE;  // First, go to wait state.
       break;
@@ -1658,10 +1703,9 @@ void overTempCalDebugPrint(struct OverTempCal *over_temp_cal,
       if (over_temp_cal->model_counter < over_temp_cal->num_model_pts) {
         CAL_DEBUG_LOG(
             over_temp_cal->otc_debug_tag,
-            "  Model[%lu] [%s|C|nsec] = " CAL_FORMAT_3DIGITS_TRIPLET
-            ", " CAL_FORMAT_3DIGITS ", %llu",
-            (unsigned long int)over_temp_cal->model_counter,
-            over_temp_cal->otc_unit_tag,
+            "  Model[%zu] [%s|C|nsec] = " CAL_FORMAT_3DIGITS_TRIPLET
+            ", " CAL_FORMAT_3DIGITS ", %" PRIu64,
+            over_temp_cal->model_counter, over_temp_cal->otc_unit_tag,
             CAL_ENCODE_FLOAT(
                 over_temp_cal->model_data[over_temp_cal->model_counter]
                         .offset[0] *
@@ -1681,24 +1725,23 @@ void overTempCalDebugPrint(struct OverTempCal *over_temp_cal,
                 over_temp_cal->model_data[over_temp_cal->model_counter]
                     .offset_temp_celsius,
                 3),
-            (unsigned long long int)over_temp_cal
-                ->model_data[over_temp_cal->model_counter]
-                .timestamp_nanos);
+            over_temp_cal->model_data[over_temp_cal->model_counter]
+                .offset_age_nanos);
 
         over_temp_cal->model_counter++;
         over_temp_cal->wait_timer_nanos =
-            timestamp_nanos;                        // Starts the wait timer.
+            timestamp_nanos;  // Starts the wait timer.
         over_temp_cal->next_state =
-            OTC_PRINT_MODEL_DATA;                   // Sets the next state.
+            OTC_PRINT_MODEL_DATA;  // Sets the next state.
         over_temp_cal->debug_state =
-            OTC_WAIT_STATE;                         // First, go to wait state.
+            OTC_WAIT_STATE;  // First, go to wait state.
       } else {
         // Sends this state machine to its idle state.
         over_temp_cal->wait_timer_nanos =
-            timestamp_nanos;                        // Starts the wait timer.
-        over_temp_cal->next_state = OTC_IDLE;       // Sets the next state.
+            timestamp_nanos;                   // Starts the wait timer.
+        over_temp_cal->next_state = OTC_IDLE;  // Sets the next state.
         over_temp_cal->debug_state =
-            OTC_WAIT_STATE;                         // First, go to wait state.
+            OTC_WAIT_STATE;  // First, go to wait state.
       }
       break;
 

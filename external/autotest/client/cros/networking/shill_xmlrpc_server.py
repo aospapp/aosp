@@ -15,10 +15,10 @@ from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 from autotest_lib.client.cros import xmlrpc_server
 from autotest_lib.client.cros import constants
 from autotest_lib.client.cros import cros_ui
-from autotest_lib.client.cros import sys_power
 from autotest_lib.client.cros import tpm_store
 from autotest_lib.client.cros.networking import shill_proxy
 from autotest_lib.client.cros.networking import wifi_proxy
+from autotest_lib.client.cros.power import sys_power
 
 
 class ShillXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
@@ -614,6 +614,17 @@ class ShillXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         if device_object is None:
             return False
         device_object.RemoveAllWakeOnPacketConnections()
+        return True
+
+
+    @xmlrpc_server.dbus_safe(False)
+    def request_scan(self):
+        """Request a scan from shill.
+
+        @return True on success, False otherwise.
+
+        """
+        self._wifi_proxy.manager.RequestScan('wifi')
         return True
 
 

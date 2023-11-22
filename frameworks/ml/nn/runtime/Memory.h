@@ -80,6 +80,7 @@ public:
 
 private:
     native_handle_t* mHandle = nullptr;
+    mutable uint8_t* mMapping = nullptr;
 };
 
 // A utility class to accumulate mulitple Memory objects and assign each
@@ -88,6 +89,12 @@ private:
 // The user of this class is responsible for avoiding concurrent calls
 // to this class from multiple threads.
 class MemoryTracker {
+private:
+    // The vector of Memory pointers we are building.
+    std::vector<const Memory*> mMemories;
+    // A faster way to see if we already have a memory than doing find().
+    std::unordered_map<const Memory*, uint32_t> mKnown;
+
 public:
     // Adds the memory, if it does not already exists.  Returns its index.
     // The memories should survive the tracker.
@@ -96,12 +103,9 @@ public:
     uint32_t size() const { return static_cast<uint32_t>(mKnown.size()); }
     // Returns the ith memory.
     const Memory* operator[](size_t i) const { return mMemories[i]; }
-
-private:
-    // The vector of Memory pointers we are building.
-    std::vector<const Memory*> mMemories;
-    // A faster way to see if we already have a memory than doing find().
-    std::unordered_map<const Memory*, uint32_t> mKnown;
+    // Iteration
+    decltype(mMemories.begin()) begin() { return mMemories.begin(); }
+    decltype(mMemories.end())   end()   { return mMemories.end(); }
 };
 
 }  // namespace nn

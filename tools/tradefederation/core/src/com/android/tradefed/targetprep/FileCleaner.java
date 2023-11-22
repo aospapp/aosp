@@ -28,11 +28,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 
-/**
- * A {@link ITargetCleaner} that removes filesystem files on teardown
- */
+/** A {@link ITargetCleaner} that removes filesystem files on teardown */
 @OptionClass(alias = "file-cleaner")
-public class FileCleaner implements ITargetCleaner {
+public class FileCleaner extends BaseTargetPreparer implements ITargetCleaner {
 
     @Option(name = "apk-path", description =
         "the filesystem path of the apk to cleanup. Can be repeated.",

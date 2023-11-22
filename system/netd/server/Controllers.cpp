@@ -30,6 +30,7 @@
 #include "RouteController.h"
 #include "Stopwatch.h"
 #include "oem_iptables_hook.h"
+#include "XfrmController.h"
 
 namespace android {
 namespace net {
@@ -58,7 +59,7 @@ static const std::vector<const char*> FILTER_FORWARD = {
         OEM_IPTABLES_FILTER_FORWARD,
         FirewallController::LOCAL_FORWARD,
         BandwidthController::LOCAL_FORWARD,
-        NatController::LOCAL_FORWARD,
+        TetherController::LOCAL_FORWARD,
 };
 
 static const std::vector<const char*> FILTER_OUTPUT = {
@@ -71,7 +72,7 @@ static const std::vector<const char*> FILTER_OUTPUT = {
 static const std::vector<const char*> RAW_PREROUTING = {
         BandwidthController::LOCAL_RAW_PREROUTING,
         IdletimerController::LOCAL_RAW_PREROUTING,
-        NatController::LOCAL_RAW_PREROUTING,
+        TetherController::LOCAL_RAW_PREROUTING,
 };
 
 static const std::vector<const char*> MANGLE_POSTROUTING = {
@@ -86,7 +87,7 @@ static const std::vector<const char*> MANGLE_INPUT = {
 };
 
 static const std::vector<const char*> MANGLE_FORWARD = {
-        NatController::LOCAL_MANGLE_FORWARD,
+        TetherController::LOCAL_MANGLE_FORWARD,
 };
 
 static const std::vector<const char*> NAT_PREROUTING = {
@@ -94,7 +95,7 @@ static const std::vector<const char*> NAT_PREROUTING = {
 };
 
 static const std::vector<const char*> NAT_POSTROUTING = {
-        NatController::LOCAL_NAT_POSTROUTING,
+        TetherController::LOCAL_NAT_POSTROUTING,
 };
 
 // Commands to create child chains and to match created chains in iptables -S output. Keep in sync.
@@ -188,13 +189,18 @@ void Controllers::createChildChains(IptablesTarget target, const char* table,
 Controllers::Controllers()
     : clatdCtrl(&netCtrl),
       wakeupCtrl(
-          [this](const std::string& prefix, uid_t uid, gid_t gid, uint64_t timestampNs) {
+          [this](const WakeupController::ReportArgs& args) {
               const auto listener = eventReporter.getNetdEventListener();
               if (listener == nullptr) {
                   ALOGE("getNetdEventListener() returned nullptr. dropping wakeup event");
                   return;
               }
-              listener->onWakeupEvent(String16(prefix.c_str()), uid, gid, timestampNs);
+              String16 prefix = String16(args.prefix.c_str());
+              String16 srcIp = String16(args.srcIp.c_str());
+              String16 dstIp = String16(args.dstIp.c_str());
+              listener->onWakeupEvent(prefix, args.uid, args.ethertype, args.ipNextHeader,
+                                      args.dstHw, srcIp, dstIp, args.srcPort, args.dstPort,
+                                      args.timestampNs);
           },
           &iptablesRestoreCtrl) {
     InterfaceController::initializeAll();
@@ -240,8 +246,8 @@ void Controllers::initIptablesRules() {
     ALOGI("Setting up FirewallController hooks: %.1fms", s.getTimeAndReset());
 
     /* Does DROPs in FORWARD by default */
-    natCtrl.setupIptablesHooks();
-    ALOGI("Setting up NatController hooks: %.1fms", s.getTimeAndReset());
+    tetherCtrl.setupIptablesHooks();
+    ALOGI("Setting up TetherController hooks: %.1fms", s.getTimeAndReset());
 
     /*
      * Does REJECT in INPUT, OUTPUT. Does counting also.
@@ -260,8 +266,13 @@ void Controllers::initIptablesRules() {
 
 void Controllers::init() {
     initIptablesRules();
-
     Stopwatch s;
+    netdutils::Status tcStatus = trafficCtrl.start();
+    if (!isOk(tcStatus)) {
+        ALOGE("failed to start trafficcontroller: (%s)", toString(tcStatus).c_str());
+    }
+    ALOGI("initializing traffic control: %.1fms", s.getTimeAndReset());
+
     bandwidthCtrl.enableBandwidthControl(false);
     ALOGI("Disabling bandwidth control: %.1fms", s.getTimeAndReset());
 
@@ -269,6 +280,12 @@ void Controllers::init() {
         ALOGE("failed to initialize RouteController (%s)", strerror(-ret));
     }
     ALOGI("Initializing RouteController: %.1fms", s.getTimeAndReset());
+
+    netdutils::Status xStatus = XfrmController::Init();
+    if (!isOk(xStatus)) {
+        ALOGE("Failed to initialize XfrmController (%s)", netdutils::toString(xStatus).c_str());
+    };
+    ALOGI("Initializing XfrmController: %.1fms", s.getTimeAndReset());
 }
 
 Controllers* gCtls = nullptr;

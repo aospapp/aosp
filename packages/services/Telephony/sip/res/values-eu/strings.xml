@@ -69,9 +69,9 @@
     <string name="advanced_settings_show" msgid="7838761602853998622">"▷ Guztiak erakusteko, ukitu"</string>
     <string name="advanced_settings_hide" msgid="3480554978705290228">"▽ Guztiak ezkutatzeko, ukitu"</string>
     <string name="all_empty_alert" msgid="4087734950375192387">"Idatzi SIP kontu berriaren xehetasunak."</string>
-    <string name="empty_alert" msgid="6659484914371384024">"<xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> beharrezkoa da eta ezin da hutsik utzi."</string>
+    <string name="empty_alert" msgid="6659484914371384024">"<xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> behar da eta ezin da hutsik utzi."</string>
     <string name="not_a_valid_port" msgid="7931422555587011830">"Ataka-zenbakiak 1000 eta 65534 artean egon behar luke."</string>
-    <string name="no_internet_available" msgid="5523747991760017298">"SIP deiak egiteko, egiaztatu Interneteko konexioa."</string>
+    <string name="no_internet_available" msgid="5523747991760017298">"SIP deiak egiteko, egiaztatu Internetera konektatuta zaudela."</string>
     <string name="no_wifi_available" msgid="1955023904229673488">"Wi-Fi sare batera konektatuta egon behar zara SIP deiak egiteko (erabili hari gabekoen eta sareen ezarpenak)."</string>
     <string name="no_voip" msgid="3038021971231952704">"SIP deiak ez dira onartzen"</string>
     <string name="sip_system_decide" msgid="5577696249416700671">"Automatikoa"</string>

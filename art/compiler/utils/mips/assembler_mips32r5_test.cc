@@ -32,12 +32,14 @@ struct MIPSCpuRegisterCompare {
 };
 
 class AssemblerMIPS32r5Test : public AssemblerTest<mips::MipsAssembler,
+                                                   mips::MipsLabel,
                                                    mips::Register,
                                                    mips::FRegister,
                                                    uint32_t,
                                                    mips::VectorRegister> {
  public:
   typedef AssemblerTest<mips::MipsAssembler,
+                        mips::MipsLabel,
                         mips::Register,
                         mips::FRegister,
                         uint32_t,
@@ -70,8 +72,8 @@ class AssemblerMIPS32r5Test : public AssemblerTest<mips::MipsAssembler,
     return " -D -bbinary -mmips:isa32r5";
   }
 
-  mips::MipsAssembler* CreateAssembler(ArenaAllocator* arena) OVERRIDE {
-    return new (arena) mips::MipsAssembler(arena, instruction_set_features_.get());
+  mips::MipsAssembler* CreateAssembler(ArenaAllocator* allocator) OVERRIDE {
+    return new (allocator) mips::MipsAssembler(allocator, instruction_set_features_.get());
   }
 
   void SetUpHelpers() OVERRIDE {
@@ -215,6 +217,11 @@ class AssemblerMIPS32r5Test : public AssemblerTest<mips::MipsAssembler,
     STLDeleteElements(&registers_);
     STLDeleteElements(&fp_registers_);
     STLDeleteElements(&vec_registers_);
+  }
+
+  std::vector<mips::MipsLabel> GetAddresses() {
+    UNIMPLEMENTED(FATAL) << "Feature not implemented yet";
+    UNREACHABLE();
   }
 
   std::vector<mips::Register*> GetRegisters() OVERRIDE {

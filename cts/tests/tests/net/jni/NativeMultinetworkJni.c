@@ -47,7 +47,7 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runGetaddrinfoCheck(
     const int saved_errno = errno;
     freeaddrinfo(res);
 
-    ALOGD("android_getaddrinfofornetwork(%llu, %s) returned rval=%d errno=%d",
+    ALOGD("android_getaddrinfofornetwork(%" PRIu64 ", %s) returned rval=%d errno=%d",
           handle, kHostname, rval, saved_errno);
     return rval == 0 ? 0 : -saved_errno;
 }
@@ -61,7 +61,7 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runSetprocnetwork(
     errno = 0;
     int rval = android_setprocnetwork(handle);
     const int saved_errno = errno;
-    ALOGD("android_setprocnetwork(%llu) returned rval=%d errno=%d",
+    ALOGD("android_setprocnetwork(%" PRIu64 ") returned rval=%d errno=%d",
           handle, rval, saved_errno);
     return rval == 0 ? 0 : -saved_errno;
 }
@@ -82,7 +82,7 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runSetsocknetwork(
     errno = 0;
     int rval = android_setsocknetwork(handle, fd);
     const int saved_errno = errno;
-    ALOGD("android_setprocnetwork(%llu, %d) returned rval=%d errno=%d",
+    ALOGD("android_setprocnetwork(%" PRIu64 ", %d) returned rval=%d errno=%d",
           handle, fd, rval, saved_errno);
     close(fd);
     return rval == 0 ? 0 : -saved_errno;

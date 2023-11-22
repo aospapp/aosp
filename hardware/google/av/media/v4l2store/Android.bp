@@ -1,0 +1,16 @@
+cc_library_shared {
+    name: "libv4l2_c2componentstore",
+    defaults: ["libstagefright_codec2-impl-defaults"],
+    vendor_available: true,
+    srcs: [
+        "C2VDAComponentStore.cpp",
+    ],
+    cflags: [
+      "-Werror",
+      "-Wall",
+      "-std=c++14",
+    ],
+    export_include_dirs: [
+        "include",
+    ],
+}

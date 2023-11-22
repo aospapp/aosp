@@ -1,8 +1,6 @@
-
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """Module of benchmark runs."""
 from __future__ import print_function
 
@@ -30,6 +28,7 @@ STATUS_PENDING = 'PENDING'
 
 class BenchmarkRun(threading.Thread):
   """The benchmarkrun class."""
+
   def __init__(self, name, benchmark, label, iteration, cache_conditions,
                machine_manager, logger_to_use, log_level, share_cache):
     threading.Thread.__init__(self)
@@ -53,8 +52,8 @@ class BenchmarkRun(threading.Thread):
     self.test_args = benchmark.test_args
     self.cache = None
     self.profiler_args = self.GetExtraAutotestArgs()
-    self._ce = command_executer.GetCommandExecuter(self._logger,
-                                                   log_level=self.log_level)
+    self._ce = command_executer.GetCommandExecuter(
+        self._logger, log_level=self.log_level)
     self.timeline = timeline.Timeline()
     self.timeline.Record(STATUS_PENDING)
     self.share_cache = share_cache
@@ -96,8 +95,7 @@ class BenchmarkRun(threading.Thread):
         err = 'No cache hit.'
         self.result = Result.CreateFromRun(
             self._logger, self.log_level, self.label, self.machine, output, err,
-            retval, self.benchmark.test_name,
-            self.benchmark.suite)
+            retval, self.benchmark.test_name, self.benchmark.suite)
 
       else:
         self._logger.LogOutput('%s: No cache hit.' % self.name)
@@ -141,8 +139,8 @@ class BenchmarkRun(threading.Thread):
         pass
       elif self.machine:
         if not self.machine.IsReachable():
-          self._logger.LogOutput('Machine %s is not reachable, removing it.' %
-                                 self.machine.name)
+          self._logger.LogOutput(
+              'Machine %s is not reachable, removing it.' % self.machine.name)
           self.machine_manager.RemoveMachine(self.machine.name)
         self._logger.LogOutput('Releasing machine: %s' % self.machine.name)
         self.machine_manager.ReleaseMachine(self.machine)
@@ -190,8 +188,10 @@ class BenchmarkRun(threading.Thread):
       perf_args = ' '.join(perf_args_list)
       if not perf_args_list[0] in ['record', 'stat']:
         raise SyntaxError('perf_args must start with either record or stat')
-      extra_test_args = ['--profiler=custom_perf',
-                         ("--profiler_args='perf_options=\"%s\"'" % perf_args)]
+      extra_test_args = [
+          '--profiler=custom_perf',
+          ("--profiler_args='perf_options=\"%s\"'" % perf_args)
+      ]
       return ' '.join(extra_test_args)
     else:
       return ''
@@ -254,9 +254,9 @@ class MockBenchmarkRun(BenchmarkRun):
     self.timeline.Record(STATUS_IMAGING)
     self.machine_manager.ImageMachine(machine, self.label)
     self.timeline.Record(STATUS_RUNNING)
-    [retval, out, err] = self.suite_runner.Run(machine.name, self.label,
-                                               self.benchmark, self.test_args,
-                                               self.profiler_args)
+    [retval, out,
+     err] = self.suite_runner.Run(machine.name, self.label, self.benchmark,
+                                  self.test_args, self.profiler_args)
     self.run_completed = True
     rr = MockResult('logger', self.label, self.log_level, machine)
     rr.out = out

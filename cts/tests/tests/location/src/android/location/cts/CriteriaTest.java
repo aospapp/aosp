@@ -217,5 +217,7 @@ public class CriteriaTest extends AndroidTestCase {
         assertEquals(criteria.isBearingRequired(), newCriteria.isBearingRequired());
         assertEquals(criteria.isSpeedRequired(), newCriteria.isSpeedRequired());
         assertEquals(criteria.isCostAllowed(), newCriteria.isCostAllowed());
+
+        parcel.recycle();
     }
 }

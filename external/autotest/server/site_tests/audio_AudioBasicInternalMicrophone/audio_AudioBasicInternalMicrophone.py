@@ -8,7 +8,6 @@ import logging
 import os
 import time
 
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.audio import audio_test_data
 from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_helper
@@ -29,8 +28,16 @@ class audio_AudioBasicInternalMicrophone(audio_test.AudioTest):
     RECORD_SECONDS = 9
     DELAY_AFTER_BINDING = 0.5
 
-    def run_once(self, host):
-        if not audio_test_utils.has_internal_microphone(host):
+    def run_once(self, host, cfm_speaker=False):
+        """Runs Basic Audio Microphone test.
+
+        @param host: device under test CrosHost
+        @param cfm_speaker: whether cfm_speaker's audio is tested which is an
+            external USB speaker on CFM (ChromeBox For Meetings) devices.
+
+        """
+        if (not cfm_speaker and
+            not audio_test_utils.has_internal_microphone(host)):
             return
 
         golden_file = audio_test_data.SIMPLE_FREQUENCY_TEST_1330_FILE
@@ -61,11 +68,12 @@ class audio_AudioBasicInternalMicrophone(audio_test.AudioTest):
             audio_test_utils.dump_cros_audio_logs(
                     host, audio_facade, self.resultsdir, 'after_binding')
 
-            _, input_nodes = audio_facade.get_selected_node_types()
-            if input_nodes != ['INTERNAL_MIC']:
-                raise error.TestFail(
-                        '%s rather than internal mic is selected on Cros '
-                        'device' % input_nodes)
+            if not cfm_speaker:
+                audio_test_utils.check_audio_nodes(audio_facade,
+                        (None, ['INTERNAL_MIC']))
+            else:
+                audio_test_utils.check_audio_nodes(audio_facade,
+                        (None, ['USB']))
 
             logging.info('Setting playback data on Chameleon')
             source.set_playback_data(golden_file)

@@ -137,6 +137,8 @@
   <string name="progress_data_process">Processing setup data\u2026</string>
   <!-- Progress text indicating that wifi is set up. [CHAR LIMIT=45] -->
   <string name="progress_connect_to_wifi">Connecting to Wi-Fi\u2026</string>
+  <!-- Progress text indicating that mobile network is being set up. [CHAR LIMIT=45] -->
+  <string name="progress_connect_to_mobile_network">Connecting to mobile network\u2026</string>
   <!-- Progress text indicating that the device admin package is being downloaded. [CHAR LIMIT=45] -->
   <string name="progress_download">Downloading the admin app\u2026</string>
   <!-- Progress text indicating that the device admin package is being installed. [CHAR LIMIT=45] -->
@@ -219,9 +221,9 @@
   <!-- Short explanation of consequences of creating a work profile [CHAR LIMIT=NONE] -->
   <string name="profile_owner_info_with_terms_headers_comp">A profile will be created for your work apps. This profile and the rest of your device will be managed and monitored by your organization. Terms from <xliff:g id="terms_headers" example="EMM Partner A, Company B and Google">%1$s</xliff:g> will apply.</string>
   <!-- Short explanation of consequences of setting a device owner [CHAR LIMIT=NONE] -->
-  <string name="device_owner_info">This device will be managed and kept secure by <xliff:g id="your organization" example="your organization">%1$s</xliff:g>. Terms will apply. <xliff:g id="view_terms" example="View Terms">%2$s</xliff:g></string>
+  <string name="device_owner_info">This device will be managed, monitored, and kept secure by <xliff:g id="your organization" example="your organization">%1$s</xliff:g>. Terms will apply. <xliff:g id="view_terms" example="View Terms">%2$s</xliff:g></string>
   <!-- Short explanation of consequences of setting a device owner [CHAR LIMIT=NONE] -->
-  <string name="device_owner_info_with_terms_headers">This device will be managed and kept secure by <xliff:g id="your organization" example="your organization">%1$s</xliff:g>. Terms from <xliff:g id="terms_headers" example="EMM Partner A, Company B and Google">%2$s</xliff:g> will apply. <xliff:g id="view_terms" example="View Terms">%3$s</xliff:g></string>
+  <string name="device_owner_info_with_terms_headers">This device will be managed, monitored, and kept secure by <xliff:g id="your organization" example="your organization">%1$s</xliff:g>. Terms from <xliff:g id="terms_headers" example="EMM Partner A, Company B and Google">%2$s</xliff:g> will apply. <xliff:g id="view_terms" example="View Terms">%3$s</xliff:g></string>
   <!-- Short explanation of consequences of setting a device owner [CHAR LIMIT=NONE] -->
   <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished">This link isn\'t secure and can\'t be opened until device setup is finished: <xliff:g id="link_raw_test" example="http://insecure-http-link.com/?p1=v1&amp;p2=v2">%1$s</xliff:g></string>
   <!-- Text with link to device's provider in case of more questions [CHAR LIMIT=NONE] -->
@@ -325,4 +327,10 @@
   <string name="join_many_items_first"><xliff:g id="first_item">%1$s</xliff:g>, <xliff:g id="all_but_first_and_last_item">%2$s</xliff:g></string>
   <!-- [CHAR_LIMIT=NONE] Format to put the middle items together in a series of 4 or more items in a list -->
   <string name="join_many_items_middle"><xliff:g id="added_item">%1$s</xliff:g>, <xliff:g id="rest_of_items">%2$s</xliff:g></string>
+  <!-- [CHAR_LIMIT=40] String below a progress bar. This string lets users know that the setup process (which is referred to as "this" in this string) may take a few minutes. -->
+  <string name="take_a_few_minutes">This may take a few minutes</string>
+  <!-- [CHAR_LIMIT=NONE] Subtext below a full-screen title. This string explains that the user's work apps will be kept in a separate profile (called a "work profile") and managed by their employer (referred to generally as "organization").  -->
+  <string name="work_profile_description">Your work apps will be kept in this profile and managed by your organization</string>
+  <!-- [CHAR_LIMIT=NONE] Subtext below a full-screen title. This string explains that the user's work device will be kept secure and managed by their employer (referred to generally as "organization"). -->
+  <string name="device_owner_description">This device will be kept secure and managed by your organization</string>
 </resources>

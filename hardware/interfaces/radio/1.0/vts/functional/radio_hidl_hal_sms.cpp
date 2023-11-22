@@ -22,22 +22,22 @@ using namespace ::android::hardware::radio::V1_0;
  * Test IRadio.sendSms() for the response returned.
  */
 TEST_F(RadioHidlTest, sendSms) {
-    int serial = GetRandomSerialNumber();
+    serial = GetRandomSerialNumber();
     GsmSmsMessage msg;
     msg.smscPdu = "";
     msg.pdu = "01000b916105770203f3000006d4f29c3e9b01";
 
     radio->sendSms(serial, msg);
 
-    EXPECT_EQ(std::cv_status::no_timeout, wait());
+    EXPECT_EQ(std::cv_status::no_timeout, wait(300));
     EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp->rspInfo.type);
     EXPECT_EQ(serial, radioRsp->rspInfo.serial);
 
     if (cardStatus.cardState == CardState::ABSENT) {
-        ASSERT_TRUE(CheckGeneralError() ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_ARGUMENTS ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_STATE ||
-                    radioRsp->rspInfo.error == RadioError::SIM_ABSENT);
+        ASSERT_TRUE(CheckAnyOfErrors(
+            radioRsp->rspInfo.error,
+            {RadioError::INVALID_ARGUMENTS, RadioError::INVALID_STATE, RadioError::SIM_ABSENT},
+            CHECK_GENERAL_ERROR));
         EXPECT_EQ(0, radioRsp->sendSmsResult.errorCode);
     }
 }
@@ -46,7 +46,7 @@ TEST_F(RadioHidlTest, sendSms) {
  * Test IRadio.sendSMSExpectMore() for the response returned.
  */
 TEST_F(RadioHidlTest, sendSMSExpectMore) {
-    int serial = GetRandomSerialNumber();
+    serial = GetRandomSerialNumber();
     GsmSmsMessage msg;
     msg.smscPdu = "";
     msg.pdu = "01000b916105770203f3000006d4f29c3e9b01";
@@ -56,15 +56,15 @@ TEST_F(RadioHidlTest, sendSMSExpectMore) {
     // TODO(shuoq): add more test for this API when inserted sim card is
     // considered
 
-    EXPECT_EQ(std::cv_status::no_timeout, wait());
+    EXPECT_EQ(std::cv_status::no_timeout, wait(300));
     EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp->rspInfo.type);
     EXPECT_EQ(serial, radioRsp->rspInfo.serial);
 
     if (cardStatus.cardState == CardState::ABSENT) {
-        ASSERT_TRUE(CheckGeneralError() ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_ARGUMENTS ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_STATE ||
-                    radioRsp->rspInfo.error == RadioError::SIM_ABSENT);
+        ASSERT_TRUE(CheckAnyOfErrors(
+            radioRsp->rspInfo.error,
+            {RadioError::INVALID_ARGUMENTS, RadioError::INVALID_STATE, RadioError::SIM_ABSENT},
+            CHECK_GENERAL_ERROR));
     }
 }
 
@@ -72,7 +72,7 @@ TEST_F(RadioHidlTest, sendSMSExpectMore) {
  * Test IRadio.acknowledgeLastIncomingGsmSms() for the response returned.
  */
 TEST_F(RadioHidlTest, acknowledgeLastIncomingGsmSms) {
-    int serial = GetRandomSerialNumber();
+    serial = GetRandomSerialNumber();
     bool success = true;
 
     radio->acknowledgeLastIncomingGsmSms(serial, success,
@@ -83,9 +83,9 @@ TEST_F(RadioHidlTest, acknowledgeLastIncomingGsmSms) {
     EXPECT_EQ(serial, radioRsp->rspInfo.serial);
 
     if (cardStatus.cardState == CardState::ABSENT) {
-        ASSERT_TRUE(CheckGeneralError() ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_ARGUMENTS ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_STATE);
+        ASSERT_TRUE(CheckAnyOfErrors(radioRsp->rspInfo.error,
+                                     {RadioError::INVALID_ARGUMENTS, RadioError::INVALID_STATE},
+                                     CHECK_GENERAL_ERROR));
     }
 }
 
@@ -93,7 +93,7 @@ TEST_F(RadioHidlTest, acknowledgeLastIncomingGsmSms) {
  * Test IRadio.acknowledgeIncomingGsmSmsWithPdu() for the response returned.
  */
 TEST_F(RadioHidlTest, acknowledgeIncomingGsmSmsWithPdu) {
-    int serial = GetRandomSerialNumber();
+    serial = GetRandomSerialNumber();
     bool success = true;
     std::string ackPdu = "";
 
@@ -112,7 +112,7 @@ TEST_F(RadioHidlTest, acknowledgeIncomingGsmSmsWithPdu) {
  * Test IRadio.sendCdmaSms() for the response returned.
  */
 TEST_F(RadioHidlTest, sendCdmaSms) {
-    int serial = GetRandomSerialNumber();
+    serial = GetRandomSerialNumber();
 
     // Create a CdmaSmsAddress
     CdmaSmsAddress cdmaSmsAddress;
@@ -145,10 +145,10 @@ TEST_F(RadioHidlTest, sendCdmaSms) {
     EXPECT_EQ(serial, radioRsp->rspInfo.serial);
 
     if (cardStatus.cardState == CardState::ABSENT) {
-        ASSERT_TRUE(CheckGeneralError() ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_ARGUMENTS ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_STATE ||
-                    radioRsp->rspInfo.error == RadioError::SIM_ABSENT);
+        ASSERT_TRUE(CheckAnyOfErrors(
+            radioRsp->rspInfo.error,
+            {RadioError::INVALID_ARGUMENTS, RadioError::INVALID_STATE, RadioError::SIM_ABSENT},
+            CHECK_GENERAL_ERROR));
     }
 }
 
@@ -156,7 +156,7 @@ TEST_F(RadioHidlTest, sendCdmaSms) {
  * Test IRadio.acknowledgeLastIncomingCdmaSms() for the response returned.
  */
 TEST_F(RadioHidlTest, acknowledgeLastIncomingCdmaSms) {
-    int serial = GetRandomSerialNumber();
+    serial = GetRandomSerialNumber();
 
     // Create a CdmaSmsAck
     CdmaSmsAck cdmaSmsAck;
@@ -170,9 +170,9 @@ TEST_F(RadioHidlTest, acknowledgeLastIncomingCdmaSms) {
     EXPECT_EQ(serial, radioRsp->rspInfo.serial);
 
     if (cardStatus.cardState == CardState::ABSENT) {
-        ASSERT_TRUE(CheckGeneralError() ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_ARGUMENTS ||
-                    radioRsp->rspInfo.error == RadioError::NO_SMS_TO_ACK);
+        ASSERT_TRUE(CheckAnyOfErrors(radioRsp->rspInfo.error,
+                                     {RadioError::INVALID_ARGUMENTS, RadioError::NO_SMS_TO_ACK},
+                                     CHECK_GENERAL_ERROR));
     }
 }
 
@@ -180,7 +180,7 @@ TEST_F(RadioHidlTest, acknowledgeLastIncomingCdmaSms) {
  * Test IRadio.sendImsSms() for the response returned.
  */
 TEST_F(RadioHidlTest, sendImsSms) {
-    int serial = GetRandomSerialNumber();
+    serial = GetRandomSerialNumber();
 
     // Create a CdmaSmsAddress
     CdmaSmsAddress cdmaSmsAddress;
@@ -221,8 +221,8 @@ TEST_F(RadioHidlTest, sendImsSms) {
     EXPECT_EQ(serial, radioRsp->rspInfo.serial);
 
     if (cardStatus.cardState == CardState::ABSENT) {
-        ASSERT_TRUE(CheckGeneralError() ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_ARGUMENTS);
+        ASSERT_TRUE(CheckAnyOfErrors(radioRsp->rspInfo.error, {RadioError::INVALID_ARGUMENTS},
+                                     CHECK_GENERAL_ERROR));
     }
 }
 
@@ -230,7 +230,7 @@ TEST_F(RadioHidlTest, sendImsSms) {
  * Test IRadio.getSmscAddress() for the response returned.
  */
 TEST_F(RadioHidlTest, getSmscAddress) {
-    int serial = GetRandomSerialNumber();
+    serial = GetRandomSerialNumber();
 
     radio->getSmscAddress(serial);
 
@@ -239,9 +239,10 @@ TEST_F(RadioHidlTest, getSmscAddress) {
     EXPECT_EQ(serial, radioRsp->rspInfo.serial);
 
     if (cardStatus.cardState == CardState::ABSENT) {
-        ASSERT_TRUE(CheckGeneralError() || radioRsp->rspInfo.error == RadioError::INVALID_STATE ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_MODEM_STATE ||
-                    radioRsp->rspInfo.error == RadioError::SIM_ABSENT);
+        ASSERT_TRUE(CheckAnyOfErrors(
+            radioRsp->rspInfo.error,
+            {RadioError::INVALID_MODEM_STATE, RadioError::INVALID_STATE, RadioError::SIM_ABSENT},
+            CHECK_GENERAL_ERROR));
     }
 }
 
@@ -249,7 +250,7 @@ TEST_F(RadioHidlTest, getSmscAddress) {
  * Test IRadio.setSmscAddress() for the response returned.
  */
 TEST_F(RadioHidlTest, setSmscAddress) {
-    int serial = GetRandomSerialNumber();
+    serial = GetRandomSerialNumber();
     hidl_string address = hidl_string("smscAddress");
 
     radio->setSmscAddress(serial, address);
@@ -259,10 +260,10 @@ TEST_F(RadioHidlTest, setSmscAddress) {
     EXPECT_EQ(serial, radioRsp->rspInfo.serial);
 
     if (cardStatus.cardState == CardState::ABSENT) {
-        ASSERT_TRUE(CheckGeneralError() ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_ARGUMENTS ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_SMS_FORMAT ||
-                    radioRsp->rspInfo.error == RadioError::SIM_ABSENT);
+        ASSERT_TRUE(CheckAnyOfErrors(
+            radioRsp->rspInfo.error,
+            {RadioError::INVALID_ARGUMENTS, RadioError::INVALID_SMS_FORMAT, RadioError::SIM_ABSENT},
+            CHECK_GENERAL_ERROR));
     }
 }
 
@@ -270,7 +271,7 @@ TEST_F(RadioHidlTest, setSmscAddress) {
  * Test IRadio.writeSmsToSim() for the response returned.
  */
 TEST_F(RadioHidlTest, writeSmsToSim) {
-    int serial = GetRandomSerialNumber();
+    serial = GetRandomSerialNumber();
     SmsWriteArgs smsWriteArgs;
     smsWriteArgs.status = SmsWriteArgsStatus::REC_UNREAD;
     smsWriteArgs.smsc = "";
@@ -283,15 +284,12 @@ TEST_F(RadioHidlTest, writeSmsToSim) {
     EXPECT_EQ(serial, radioRsp->rspInfo.serial);
 
     if (cardStatus.cardState == CardState::ABSENT) {
-        ASSERT_TRUE(CheckGeneralError() ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_ARGUMENTS ||
-                    radioRsp->rspInfo.error == RadioError::NONE ||
-                    radioRsp->rspInfo.error == RadioError::MODEM_ERR ||
-                    radioRsp->rspInfo.error == RadioError::ENCODING_ERR ||
-                    radioRsp->rspInfo.error == RadioError::NO_RESOURCES ||
-                    radioRsp->rspInfo.error == RadioError::NETWORK_NOT_READY ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_SMSC_ADDRESS ||
-                    radioRsp->rspInfo.error == RadioError::SIM_ABSENT);
+        ASSERT_TRUE(CheckAnyOfErrors(
+            radioRsp->rspInfo.error,
+            {RadioError::NONE, RadioError::ENCODING_ERR, RadioError::INVALID_ARGUMENTS,
+             RadioError::INVALID_SMSC_ADDRESS, RadioError::MODEM_ERR, RadioError::NETWORK_NOT_READY,
+             RadioError::NO_RESOURCES, RadioError::SIM_ABSENT},
+            CHECK_GENERAL_ERROR));
     }
 }
 
@@ -299,7 +297,7 @@ TEST_F(RadioHidlTest, writeSmsToSim) {
  * Test IRadio.deleteSmsOnSim() for the response returned.
  */
 TEST_F(RadioHidlTest, deleteSmsOnSim) {
-    int serial = GetRandomSerialNumber();
+    serial = GetRandomSerialNumber();
     int index = 1;
 
     radio->deleteSmsOnSim(serial, index);
@@ -309,13 +307,12 @@ TEST_F(RadioHidlTest, deleteSmsOnSim) {
     EXPECT_EQ(serial, radioRsp->rspInfo.serial);
 
     if (cardStatus.cardState == CardState::ABSENT) {
-        ASSERT_TRUE(CheckGeneralError() ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_ARGUMENTS ||
-                    radioRsp->rspInfo.error == RadioError::NONE ||
-                    radioRsp->rspInfo.error == RadioError::MODEM_ERR ||
-                    radioRsp->rspInfo.error == RadioError::NO_SUCH_ENTRY ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_MODEM_STATE ||
-                    radioRsp->rspInfo.error == RadioError::SIM_ABSENT);
+        ASSERT_TRUE(CheckAnyOfErrors(
+            radioRsp->rspInfo.error,
+            {RadioError::NONE, RadioError::ENCODING_ERR, RadioError::INVALID_ARGUMENTS,
+             RadioError::INVALID_MODEM_STATE, RadioError::NO_SUCH_ENTRY, RadioError::MODEM_ERR,
+             RadioError::SIM_ABSENT},
+            CHECK_GENERAL_ERROR));
     }
 }
 
@@ -323,7 +320,7 @@ TEST_F(RadioHidlTest, deleteSmsOnSim) {
  * Test IRadio.writeSmsToRuim() for the response returned.
  */
 TEST_F(RadioHidlTest, writeSmsToRuim) {
-    int serial = GetRandomSerialNumber();
+    serial = GetRandomSerialNumber();
 
     // Create a CdmaSmsAddress
     CdmaSmsAddress cdmaSmsAddress;
@@ -361,15 +358,12 @@ TEST_F(RadioHidlTest, writeSmsToRuim) {
     EXPECT_EQ(serial, radioRsp->rspInfo.serial);
 
     if (cardStatus.cardState == CardState::ABSENT) {
-        ASSERT_TRUE(CheckGeneralError() ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_ARGUMENTS ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_STATE ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_SMS_FORMAT ||
-                    radioRsp->rspInfo.error == RadioError::NONE ||
-                    radioRsp->rspInfo.error == RadioError::MODEM_ERR ||
-                    radioRsp->rspInfo.error == RadioError::NO_SUCH_ENTRY ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_SMSC_ADDRESS ||
-                    radioRsp->rspInfo.error == RadioError::SIM_ABSENT);
+        ASSERT_TRUE(CheckAnyOfErrors(
+            radioRsp->rspInfo.error,
+            {RadioError::NONE, RadioError::INVALID_ARGUMENTS, RadioError::INVALID_SMS_FORMAT,
+             RadioError::INVALID_SMSC_ADDRESS, RadioError::INVALID_STATE, RadioError::MODEM_ERR,
+             RadioError::NO_SUCH_ENTRY, RadioError::SIM_ABSENT},
+            CHECK_GENERAL_ERROR));
     }
 }
 
@@ -377,7 +371,7 @@ TEST_F(RadioHidlTest, writeSmsToRuim) {
  * Test IRadio.deleteSmsOnRuim() for the response returned.
  */
 TEST_F(RadioHidlTest, deleteSmsOnRuim) {
-    int serial = GetRandomSerialNumber();
+    serial = GetRandomSerialNumber();
     int index = 1;
 
     // Create a CdmaSmsAddress
@@ -416,13 +410,11 @@ TEST_F(RadioHidlTest, deleteSmsOnRuim) {
     EXPECT_EQ(serial, radioRsp->rspInfo.serial);
 
     if (cardStatus.cardState == CardState::ABSENT) {
-        ASSERT_TRUE(CheckGeneralError() ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_ARGUMENTS ||
-                    radioRsp->rspInfo.error == RadioError::NONE ||
-                    radioRsp->rspInfo.error == RadioError::MODEM_ERR ||
-                    radioRsp->rspInfo.error == RadioError::NO_SUCH_ENTRY ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_MODEM_STATE ||
-                    radioRsp->rspInfo.error == RadioError::SIM_ABSENT);
+        ASSERT_TRUE(CheckAnyOfErrors(
+            radioRsp->rspInfo.error,
+            {RadioError::NONE, RadioError::INVALID_ARGUMENTS, RadioError::INVALID_MODEM_STATE,
+             RadioError::MODEM_ERR, RadioError::NO_SUCH_ENTRY, RadioError::SIM_ABSENT},
+            CHECK_GENERAL_ERROR));
     }
 }
 
@@ -430,7 +422,7 @@ TEST_F(RadioHidlTest, deleteSmsOnRuim) {
  * Test IRadio.reportSmsMemoryStatus() for the response returned.
  */
 TEST_F(RadioHidlTest, reportSmsMemoryStatus) {
-    int serial = GetRandomSerialNumber();
+    serial = GetRandomSerialNumber();
     bool available = true;
 
     radio->reportSmsMemoryStatus(serial, available);
@@ -440,10 +432,9 @@ TEST_F(RadioHidlTest, reportSmsMemoryStatus) {
     EXPECT_EQ(serial, radioRsp->rspInfo.serial);
 
     if (cardStatus.cardState == CardState::ABSENT) {
-        ASSERT_TRUE(CheckGeneralError() ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_ARGUMENTS ||
-                    radioRsp->rspInfo.error == RadioError::INVALID_STATE ||
-                    radioRsp->rspInfo.error == RadioError::MODEM_ERR ||
-                    radioRsp->rspInfo.error == RadioError::SIM_ABSENT);
+        ASSERT_TRUE(CheckAnyOfErrors(radioRsp->rspInfo.error,
+                                     {RadioError::INVALID_ARGUMENTS, RadioError::INVALID_STATE,
+                                      RadioError::MODEM_ERR, RadioError::SIM_ABSENT},
+                                     CHECK_GENERAL_ERROR));
     }
 }

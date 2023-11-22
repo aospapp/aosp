@@ -18,10 +18,9 @@
 
 #include <vector>
 
-#include <linux/nl80211.h>
-
 #include <android-base/logging.h>
 
+#include "wificond/net/kernel-header-latest/nl80211.h"
 #include "wificond/net/nl80211_packet.h"
 
 using std::unique_ptr;
@@ -102,12 +101,6 @@ unique_ptr<MlmeRoamEvent> MlmeRoamEvent::InitFromPacket(
                        &(roam_event->interface_index_),
                        &(roam_event->bssid_))){
     return nullptr;
-  }
-
-  if (!packet->GetAttributeValue(NL80211_ATTR_STATUS_CODE,
-                                 &(roam_event->status_code_))) {
-    LOG(WARNING) << "Failed to get NL80211_ATTR_STATUS_CODE";
-    roam_event->status_code_ = 0;
   }
 
   return roam_event;

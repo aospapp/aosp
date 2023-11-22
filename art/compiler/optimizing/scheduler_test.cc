@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "scheduler.h"
+
 #include "base/arena_allocator.h"
 #include "builder.h"
 #include "codegen_test_utils.h"
@@ -23,7 +25,6 @@
 #include "optimizing_unit_test.h"
 #include "pc_relative_fixups_x86.h"
 #include "register_allocator.h"
-#include "scheduler.h"
 
 #ifdef ART_ENABLE_CODEGEN_arm64
 #include "scheduler_arm64.h"
@@ -42,22 +43,22 @@ static ::std::vector<CodegenTargetConfig> GetTargetConfigs() {
   ::std::vector<CodegenTargetConfig> test_config_candidates = {
 #ifdef ART_ENABLE_CODEGEN_arm
     // TODO: Should't this be `kThumb2` instead of `kArm` here?
-    CodegenTargetConfig(kArm, create_codegen_arm_vixl32),
+    CodegenTargetConfig(InstructionSet::kArm, create_codegen_arm_vixl32),
 #endif
 #ifdef ART_ENABLE_CODEGEN_arm64
-    CodegenTargetConfig(kArm64, create_codegen_arm64),
+    CodegenTargetConfig(InstructionSet::kArm64, create_codegen_arm64),
 #endif
 #ifdef ART_ENABLE_CODEGEN_x86
-    CodegenTargetConfig(kX86, create_codegen_x86),
+    CodegenTargetConfig(InstructionSet::kX86, create_codegen_x86),
 #endif
 #ifdef ART_ENABLE_CODEGEN_x86_64
-    CodegenTargetConfig(kX86_64, create_codegen_x86_64),
+    CodegenTargetConfig(InstructionSet::kX86_64, create_codegen_x86_64),
 #endif
 #ifdef ART_ENABLE_CODEGEN_mips
-    CodegenTargetConfig(kMips, create_codegen_mips),
+    CodegenTargetConfig(InstructionSet::kMips, create_codegen_mips),
 #endif
 #ifdef ART_ENABLE_CODEGEN_mips64
-    CodegenTargetConfig(kMips64, create_codegen_mips64)
+    CodegenTargetConfig(InstructionSet::kMips64, create_codegen_mips64)
 #endif
   };
 
@@ -70,16 +71,14 @@ static ::std::vector<CodegenTargetConfig> GetTargetConfigs() {
   return v;
 }
 
-class SchedulerTest : public CommonCompilerTest {
+class SchedulerTest : public OptimizingUnitTest {
  public:
-  SchedulerTest() : pool_(), allocator_(&pool_) {
-    graph_ = CreateGraph(&allocator_);
-  }
+  SchedulerTest() : graph_(CreateGraph()) { }
 
   // Build scheduling graph, and run target specific scheduling on it.
   void TestBuildDependencyGraphAndSchedule(HScheduler* scheduler) {
-    HBasicBlock* entry = new (&allocator_) HBasicBlock(graph_);
-    HBasicBlock* block1 = new (&allocator_) HBasicBlock(graph_);
+    HBasicBlock* entry = new (GetAllocator()) HBasicBlock(graph_);
+    HBasicBlock* block1 = new (GetAllocator()) HBasicBlock(graph_);
     graph_->AddBlock(entry);
     graph_->AddBlock(block1);
     graph_->SetEntryBlock(entry);
@@ -99,21 +98,25 @@ class SchedulerTest : public CommonCompilerTest {
     // array_get2    ArrayGet [array, add1]
     // array_set2    ArraySet [array, add1, add2]
 
-    HInstruction* array = new (&allocator_) HParameterValue(graph_->GetDexFile(),
-                                                            dex::TypeIndex(0),
-                                                            0,
-                                                            Primitive::kPrimNot);
+    HInstruction* array = new (GetAllocator()) HParameterValue(graph_->GetDexFile(),
+                                                           dex::TypeIndex(0),
+                                                           0,
+                                                           DataType::Type::kReference);
     HInstruction* c1 = graph_->GetIntConstant(1);
     HInstruction* c2 = graph_->GetIntConstant(10);
-    HInstruction* add1 = new (&allocator_) HAdd(Primitive::kPrimInt, c1, c2);
-    HInstruction* add2 = new (&allocator_) HAdd(Primitive::kPrimInt, add1, c2);
-    HInstruction* mul = new (&allocator_) HMul(Primitive::kPrimInt, add1, add2);
-    HInstruction* div_check = new (&allocator_) HDivZeroCheck(add2, 0);
-    HInstruction* div = new (&allocator_) HDiv(Primitive::kPrimInt, add1, div_check, 0);
-    HInstruction* array_get1 = new (&allocator_) HArrayGet(array, add1, Primitive::kPrimInt, 0);
-    HInstruction* array_set1 = new (&allocator_) HArraySet(array, add1, add2, Primitive::kPrimInt, 0);
-    HInstruction* array_get2 = new (&allocator_) HArrayGet(array, add1, Primitive::kPrimInt, 0);
-    HInstruction* array_set2 = new (&allocator_) HArraySet(array, add1, add2, Primitive::kPrimInt, 0);
+    HInstruction* add1 = new (GetAllocator()) HAdd(DataType::Type::kInt32, c1, c2);
+    HInstruction* add2 = new (GetAllocator()) HAdd(DataType::Type::kInt32, add1, c2);
+    HInstruction* mul = new (GetAllocator()) HMul(DataType::Type::kInt32, add1, add2);
+    HInstruction* div_check = new (GetAllocator()) HDivZeroCheck(add2, 0);
+    HInstruction* div = new (GetAllocator()) HDiv(DataType::Type::kInt32, add1, div_check, 0);
+    HInstruction* array_get1 =
+        new (GetAllocator()) HArrayGet(array, add1, DataType::Type::kInt32, 0);
+    HInstruction* array_set1 =
+        new (GetAllocator()) HArraySet(array, add1, add2, DataType::Type::kInt32, 0);
+    HInstruction* array_get2 =
+        new (GetAllocator()) HArrayGet(array, add1, DataType::Type::kInt32, 0);
+    HInstruction* array_set2 =
+        new (GetAllocator()) HArraySet(array, add1, add2, DataType::Type::kInt32, 0);
 
     DCHECK(div_check->CanThrow());
 
@@ -132,18 +135,18 @@ class SchedulerTest : public CommonCompilerTest {
       block1->AddInstruction(instr);
     }
 
-    HEnvironment* environment = new (&allocator_) HEnvironment(&allocator_,
-                                                               2,
-                                                               graph_->GetArtMethod(),
-                                                               0,
-                                                               div_check);
+    HEnvironment* environment = new (GetAllocator()) HEnvironment(GetAllocator(),
+                                                                  2,
+                                                                  graph_->GetArtMethod(),
+                                                                  0,
+                                                                  div_check);
     div_check->SetRawEnvironment(environment);
     environment->SetRawEnvAt(0, add2);
     add2->AddEnvUseAt(div_check->GetEnvironment(), 0);
     environment->SetRawEnvAt(1, mul);
     mul->AddEnvUseAt(div_check->GetEnvironment(), 1);
 
-    SchedulingGraph scheduling_graph(scheduler, graph_->GetArena());
+    SchedulingGraph scheduling_graph(scheduler, GetScopedAllocator());
     // Instructions must be inserted in reverse order into the scheduling graph.
     for (HInstruction* instr : ReverseRange(block_instructions)) {
       scheduling_graph.AddNode(instr);
@@ -179,9 +182,11 @@ class SchedulerTest : public CommonCompilerTest {
     scheduler->Schedule(graph_);
   }
 
-  void CompileWithRandomSchedulerAndRun(const uint16_t* data, bool has_result, int expected) {
+  void CompileWithRandomSchedulerAndRun(const std::vector<uint16_t>& data,
+                                        bool has_result,
+                                        int expected) {
     for (CodegenTargetConfig target_config : GetTargetConfigs()) {
-      HGraph* graph = CreateCFG(&allocator_, data);
+      HGraph* graph = CreateCFG(data);
 
       // Schedule the graph randomly.
       HInstructionScheduling scheduling(graph, target_config.GetInstructionSet());
@@ -195,51 +200,57 @@ class SchedulerTest : public CommonCompilerTest {
   }
 
   void TestDependencyGraphOnAliasingArrayAccesses(HScheduler* scheduler) {
-    HBasicBlock* entry = new (&allocator_) HBasicBlock(graph_);
+    HBasicBlock* entry = new (GetAllocator()) HBasicBlock(graph_);
     graph_->AddBlock(entry);
     graph_->SetEntryBlock(entry);
     graph_->BuildDominatorTree();
 
-    HInstruction* arr = new (&allocator_) HParameterValue(graph_->GetDexFile(),
-                                                          dex::TypeIndex(0),
-                                                          0,
-                                                          Primitive::kPrimNot);
-    HInstruction* i = new (&allocator_) HParameterValue(graph_->GetDexFile(),
-                                                        dex::TypeIndex(1),
-                                                        1,
-                                                        Primitive::kPrimInt);
-    HInstruction* j = new (&allocator_) HParameterValue(graph_->GetDexFile(),
-                                                        dex::TypeIndex(1),
-                                                        1,
-                                                        Primitive::kPrimInt);
-    HInstruction* object = new (&allocator_) HParameterValue(graph_->GetDexFile(),
+    HInstruction* arr = new (GetAllocator()) HParameterValue(graph_->GetDexFile(),
                                                              dex::TypeIndex(0),
                                                              0,
-                                                             Primitive::kPrimNot);
+                                                             DataType::Type::kReference);
+    HInstruction* i = new (GetAllocator()) HParameterValue(graph_->GetDexFile(),
+                                                           dex::TypeIndex(1),
+                                                           1,
+                                                           DataType::Type::kInt32);
+    HInstruction* j = new (GetAllocator()) HParameterValue(graph_->GetDexFile(),
+                                                           dex::TypeIndex(1),
+                                                           1,
+                                                           DataType::Type::kInt32);
+    HInstruction* object = new (GetAllocator()) HParameterValue(graph_->GetDexFile(),
+                                                                dex::TypeIndex(0),
+                                                                0,
+                                                                DataType::Type::kReference);
     HInstruction* c0 = graph_->GetIntConstant(0);
     HInstruction* c1 = graph_->GetIntConstant(1);
-    HInstruction* add0 = new (&allocator_) HAdd(Primitive::kPrimInt, i, c0);
-    HInstruction* add1 = new (&allocator_) HAdd(Primitive::kPrimInt, i, c1);
-    HInstruction* sub0 = new (&allocator_) HSub(Primitive::kPrimInt, i, c0);
-    HInstruction* sub1 = new (&allocator_) HSub(Primitive::kPrimInt, i, c1);
-    HInstruction* arr_set_0 = new (&allocator_) HArraySet(arr, c0, c0, Primitive::kPrimInt, 0);
-    HInstruction* arr_set_1 = new (&allocator_) HArraySet(arr, c1, c0, Primitive::kPrimInt, 0);
-    HInstruction* arr_set_i = new (&allocator_) HArraySet(arr, i, c0, Primitive::kPrimInt, 0);
-    HInstruction* arr_set_add0 = new (&allocator_) HArraySet(arr, add0, c0, Primitive::kPrimInt, 0);
-    HInstruction* arr_set_add1 = new (&allocator_) HArraySet(arr, add1, c0, Primitive::kPrimInt, 0);
-    HInstruction* arr_set_sub0 = new (&allocator_) HArraySet(arr, sub0, c0, Primitive::kPrimInt, 0);
-    HInstruction* arr_set_sub1 = new (&allocator_) HArraySet(arr, sub1, c0, Primitive::kPrimInt, 0);
-    HInstruction* arr_set_j = new (&allocator_) HArraySet(arr, j, c0, Primitive::kPrimInt, 0);
-    HInstanceFieldSet* set_field10 = new (&allocator_) HInstanceFieldSet(object,
-                                                                         c1,
-                                                                         nullptr,
-                                                                         Primitive::kPrimInt,
-                                                                         MemberOffset(10),
-                                                                         false,
-                                                                         kUnknownFieldIndex,
-                                                                         kUnknownClassDefIndex,
-                                                                         graph_->GetDexFile(),
-                                                                         0);
+    HInstruction* add0 = new (GetAllocator()) HAdd(DataType::Type::kInt32, i, c0);
+    HInstruction* add1 = new (GetAllocator()) HAdd(DataType::Type::kInt32, i, c1);
+    HInstruction* sub0 = new (GetAllocator()) HSub(DataType::Type::kInt32, i, c0);
+    HInstruction* sub1 = new (GetAllocator()) HSub(DataType::Type::kInt32, i, c1);
+    HInstruction* arr_set_0 =
+        new (GetAllocator()) HArraySet(arr, c0, c0, DataType::Type::kInt32, 0);
+    HInstruction* arr_set_1 =
+        new (GetAllocator()) HArraySet(arr, c1, c0, DataType::Type::kInt32, 0);
+    HInstruction* arr_set_i = new (GetAllocator()) HArraySet(arr, i, c0, DataType::Type::kInt32, 0);
+    HInstruction* arr_set_add0 =
+        new (GetAllocator()) HArraySet(arr, add0, c0, DataType::Type::kInt32, 0);
+    HInstruction* arr_set_add1 =
+        new (GetAllocator()) HArraySet(arr, add1, c0, DataType::Type::kInt32, 0);
+    HInstruction* arr_set_sub0 =
+        new (GetAllocator()) HArraySet(arr, sub0, c0, DataType::Type::kInt32, 0);
+    HInstruction* arr_set_sub1 =
+        new (GetAllocator()) HArraySet(arr, sub1, c0, DataType::Type::kInt32, 0);
+    HInstruction* arr_set_j = new (GetAllocator()) HArraySet(arr, j, c0, DataType::Type::kInt32, 0);
+    HInstanceFieldSet* set_field10 = new (GetAllocator()) HInstanceFieldSet(object,
+                                                                            c1,
+                                                                            nullptr,
+                                                                            DataType::Type::kInt32,
+                                                                            MemberOffset(10),
+                                                                            false,
+                                                                            kUnknownFieldIndex,
+                                                                            kUnknownClassDefIndex,
+                                                                            graph_->GetDexFile(),
+                                                                            0);
 
     HInstruction* block_instructions[] = {arr,
                                           i,
@@ -263,7 +274,7 @@ class SchedulerTest : public CommonCompilerTest {
       entry->AddInstruction(instr);
     }
 
-    SchedulingGraph scheduling_graph(scheduler, graph_->GetArena());
+    SchedulingGraph scheduling_graph(scheduler, GetScopedAllocator());
     HeapLocationCollector heap_location_collector(graph_);
     heap_location_collector.VisitBasicBlock(entry);
     heap_location_collector.BuildAliasingMatrix();
@@ -285,38 +296,38 @@ class SchedulerTest : public CommonCompilerTest {
     size_t loc2 = HeapLocationCollector::kHeapLocationNotFound;
 
     // Test side effect dependency: array[0] and array[1]
-    loc1 = heap_location_collector.GetArrayAccessHeapLocation(arr, c0);
-    loc2 = heap_location_collector.GetArrayAccessHeapLocation(arr, c1);
+    loc1 = heap_location_collector.GetArrayHeapLocation(arr, c0);
+    loc2 = heap_location_collector.GetArrayHeapLocation(arr, c1);
     ASSERT_FALSE(heap_location_collector.MayAlias(loc1, loc2));
     ASSERT_FALSE(scheduling_graph.HasImmediateOtherDependency(arr_set_1, arr_set_0));
 
     // Test side effect dependency based on LSA analysis: array[i] and array[j]
-    loc1 = heap_location_collector.GetArrayAccessHeapLocation(arr, i);
-    loc2 = heap_location_collector.GetArrayAccessHeapLocation(arr, j);
+    loc1 = heap_location_collector.GetArrayHeapLocation(arr, i);
+    loc2 = heap_location_collector.GetArrayHeapLocation(arr, j);
     ASSERT_TRUE(heap_location_collector.MayAlias(loc1, loc2));
     ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(arr_set_j, arr_set_i));
 
     // Test side effect dependency based on LSA analysis: array[i] and array[i+0]
-    loc1 = heap_location_collector.GetArrayAccessHeapLocation(arr, i);
-    loc2 = heap_location_collector.GetArrayAccessHeapLocation(arr, add0);
+    loc1 = heap_location_collector.GetArrayHeapLocation(arr, i);
+    loc2 = heap_location_collector.GetArrayHeapLocation(arr, add0);
     ASSERT_TRUE(heap_location_collector.MayAlias(loc1, loc2));
     ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(arr_set_add0, arr_set_i));
 
     // Test side effect dependency based on LSA analysis: array[i] and array[i-0]
-    loc1 = heap_location_collector.GetArrayAccessHeapLocation(arr, i);
-    loc2 = heap_location_collector.GetArrayAccessHeapLocation(arr, sub0);
+    loc1 = heap_location_collector.GetArrayHeapLocation(arr, i);
+    loc2 = heap_location_collector.GetArrayHeapLocation(arr, sub0);
     ASSERT_TRUE(heap_location_collector.MayAlias(loc1, loc2));
     ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(arr_set_sub0, arr_set_i));
 
     // Test side effect dependency based on LSA analysis: array[i] and array[i+1]
-    loc1 = heap_location_collector.GetArrayAccessHeapLocation(arr, i);
-    loc2 = heap_location_collector.GetArrayAccessHeapLocation(arr, add1);
+    loc1 = heap_location_collector.GetArrayHeapLocation(arr, i);
+    loc2 = heap_location_collector.GetArrayHeapLocation(arr, add1);
     ASSERT_FALSE(heap_location_collector.MayAlias(loc1, loc2));
     ASSERT_FALSE(scheduling_graph.HasImmediateOtherDependency(arr_set_add1, arr_set_i));
 
     // Test side effect dependency based on LSA analysis: array[i+1] and array[i-1]
-    loc1 = heap_location_collector.GetArrayAccessHeapLocation(arr, add1);
-    loc2 = heap_location_collector.GetArrayAccessHeapLocation(arr, sub1);
+    loc1 = heap_location_collector.GetArrayHeapLocation(arr, add1);
+    loc2 = heap_location_collector.GetArrayHeapLocation(arr, sub1);
     ASSERT_FALSE(heap_location_collector.MayAlias(loc1, loc2));
     ASSERT_FALSE(scheduling_graph.HasImmediateOtherDependency(arr_set_sub1, arr_set_add1));
 
@@ -335,21 +346,19 @@ class SchedulerTest : public CommonCompilerTest {
     scheduler->Schedule(graph_);
   }
 
-  ArenaPool pool_;
-  ArenaAllocator allocator_;
   HGraph* graph_;
 };
 
 #if defined(ART_ENABLE_CODEGEN_arm64)
 TEST_F(SchedulerTest, DependencyGraphAndSchedulerARM64) {
   CriticalPathSchedulingNodeSelector critical_path_selector;
-  arm64::HSchedulerARM64 scheduler(&allocator_, &critical_path_selector);
+  arm64::HSchedulerARM64 scheduler(GetScopedAllocator(), &critical_path_selector);
   TestBuildDependencyGraphAndSchedule(&scheduler);
 }
 
 TEST_F(SchedulerTest, ArrayAccessAliasingARM64) {
   CriticalPathSchedulingNodeSelector critical_path_selector;
-  arm64::HSchedulerARM64 scheduler(&allocator_, &critical_path_selector);
+  arm64::HSchedulerARM64 scheduler(GetScopedAllocator(), &critical_path_selector);
   TestDependencyGraphOnAliasingArrayAccesses(&scheduler);
 }
 #endif
@@ -358,14 +367,14 @@ TEST_F(SchedulerTest, ArrayAccessAliasingARM64) {
 TEST_F(SchedulerTest, DependencyGraphAndSchedulerARM) {
   CriticalPathSchedulingNodeSelector critical_path_selector;
   arm::SchedulingLatencyVisitorARM arm_latency_visitor(/*CodeGenerator*/ nullptr);
-  arm::HSchedulerARM scheduler(&allocator_, &critical_path_selector, &arm_latency_visitor);
+  arm::HSchedulerARM scheduler(GetScopedAllocator(), &critical_path_selector, &arm_latency_visitor);
   TestBuildDependencyGraphAndSchedule(&scheduler);
 }
 
 TEST_F(SchedulerTest, ArrayAccessAliasingARM) {
   CriticalPathSchedulingNodeSelector critical_path_selector;
   arm::SchedulingLatencyVisitorARM arm_latency_visitor(/*CodeGenerator*/ nullptr);
-  arm::HSchedulerARM scheduler(&allocator_, &critical_path_selector, &arm_latency_visitor);
+  arm::HSchedulerARM scheduler(GetScopedAllocator(), &critical_path_selector, &arm_latency_visitor);
   TestDependencyGraphOnAliasingArrayAccesses(&scheduler);
 }
 #endif
@@ -386,7 +395,7 @@ TEST_F(SchedulerTest, RandomScheduling) {
   //  }
   //  return result;
   //
-  const uint16_t data[] = SIX_REGISTERS_CODE_ITEM(
+  const std::vector<uint16_t> data = SIX_REGISTERS_CODE_ITEM(
     Instruction::CONST_4 | 0 << 12 | 2 << 8,          // const/4 v2, #int 0
     Instruction::CONST_HIGH16 | 0 << 8, 0x4120,       // const/high16 v0, #float 10.0 // #41200000
     Instruction::CONST_4 | 1 << 12 | 1 << 8,          // const/4 v1, #int 1

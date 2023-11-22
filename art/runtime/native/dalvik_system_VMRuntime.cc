@@ -17,28 +17,23 @@
 #include "dalvik_system_VMRuntime.h"
 
 #ifdef ART_TARGET_ANDROID
-#include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/time.h>
 extern "C" void android_set_application_target_sdk_version(uint32_t version);
 #endif
 #include <limits.h>
-#include "nativehelper/ScopedUtfChars.h"
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wshadow"
-#include "nativehelper/toStringArray.h"
-#pragma GCC diagnostic pop
+#include "nativehelper/scoped_utf_chars.h"
 
 #include "android-base/stringprintf.h"
 
-#include "art_method-inl.h"
 #include "arch/instruction_set.h"
+#include "art_method-inl.h"
 #include "base/enums.h"
 #include "class_linker-inl.h"
 #include "common_throws.h"
 #include "debugger.h"
-#include "dex_file-inl.h"
-#include "dex_file_types.h"
+#include "dex/dex_file-inl.h"
+#include "dex/dex_file_types.h"
 #include "gc/accounting/card_table-inl.h"
 #include "gc/allocator/dlmalloc.h"
 #include "gc/heap.h"
@@ -53,11 +48,13 @@ extern "C" void android_set_application_target_sdk_version(uint32_t version);
 #include "mirror/object-inl.h"
 #include "native_util.h"
 #include "nativehelper/jni_macros.h"
+#include "nativehelper/scoped_local_ref.h"
 #include "runtime.h"
 #include "scoped_fast_native_object_access-inl.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread.h"
 #include "thread_list.h"
+#include "well_known_classes.h"
 
 namespace art {
 
@@ -75,6 +72,29 @@ static void VMRuntime_startJitCompilation(JNIEnv*, jobject) {
 }
 
 static void VMRuntime_disableJitCompilation(JNIEnv*, jobject) {
+}
+
+static jboolean VMRuntime_hasUsedHiddenApi(JNIEnv*, jobject) {
+  return Runtime::Current()->HasPendingHiddenApiWarning() ? JNI_TRUE : JNI_FALSE;
+}
+
+static void VMRuntime_setHiddenApiExemptions(JNIEnv* env,
+                                            jclass,
+                                            jobjectArray exemptions) {
+  std::vector<std::string> exemptions_vec;
+  int exemptions_length = env->GetArrayLength(exemptions);
+  for (int i = 0; i < exemptions_length; i++) {
+    jstring exemption = reinterpret_cast<jstring>(env->GetObjectArrayElement(exemptions, i));
+    const char* raw_exemption = env->GetStringUTFChars(exemption, nullptr);
+    exemptions_vec.push_back(raw_exemption);
+    env->ReleaseStringUTFChars(exemption, raw_exemption);
+  }
+
+  Runtime::Current()->SetHiddenApiExemptions(exemptions_vec);
+}
+
+static void VMRuntime_setHiddenApiAccessLogSamplingRate(JNIEnv*, jclass, jint rate) {
+  Runtime::Current()->SetHiddenApiEventLogSampleRate(rate);
 }
 
 static jobject VMRuntime_newNonMovableArray(JNIEnv* env, jobject, jclass javaElementClass,
@@ -165,8 +185,32 @@ static jboolean VMRuntime_isNativeDebuggable(JNIEnv*, jobject) {
   return Runtime::Current()->IsNativeDebuggable();
 }
 
+static jboolean VMRuntime_isJavaDebuggable(JNIEnv*, jobject) {
+  return Runtime::Current()->IsJavaDebuggable();
+}
+
 static jobjectArray VMRuntime_properties(JNIEnv* env, jobject) {
-  return toStringArray(env, Runtime::Current()->GetProperties());
+  DCHECK(WellKnownClasses::java_lang_String != nullptr);
+
+  const std::vector<std::string>& properties = Runtime::Current()->GetProperties();
+  ScopedLocalRef<jobjectArray> ret(env,
+                                   env->NewObjectArray(static_cast<jsize>(properties.size()),
+                                                       WellKnownClasses::java_lang_String,
+                                                       nullptr /* initial element */));
+  if (ret == nullptr) {
+    DCHECK(env->ExceptionCheck());
+    return nullptr;
+  }
+  for (size_t i = 0; i != properties.size(); ++i) {
+    ScopedLocalRef<jstring> str(env, env->NewStringUTF(properties[i].c_str()));
+    if (str == nullptr) {
+      DCHECK(env->ExceptionCheck());
+      return nullptr;
+    }
+    env->SetObjectArrayElement(ret.get(), static_cast<jsize>(i), str.get());
+    DCHECK(!env->ExceptionCheck());
+  }
+  return ret.release();
 }
 
 // This is for backward compatibility with dalvik which returned the
@@ -206,7 +250,7 @@ static jboolean VMRuntime_is64Bit(JNIEnv*, jobject) {
 }
 
 static jboolean VMRuntime_isCheckJniEnabled(JNIEnv* env, jobject) {
-  return down_cast<JNIEnvExt*>(env)->vm->IsCheckJniEnabled() ? JNI_TRUE : JNI_FALSE;
+  return down_cast<JNIEnvExt*>(env)->GetVm()->IsCheckJniEnabled() ? JNI_TRUE : JNI_FALSE;
 }
 
 static void VMRuntime_setTargetSdkVersionNative(JNIEnv*, jobject, jint target_sdk_version) {
@@ -358,8 +402,8 @@ static void PreloadDexCachesResolveField(ObjPtr<mirror::DexCache> dex_cache,
   }
   const DexFile* dex_file = dex_cache->GetDexFile();
   const DexFile::FieldId& field_id = dex_file->GetFieldId(field_idx);
-  ObjPtr<mirror::Class> klass =
-      ClassLinker::LookupResolvedType(field_id.class_idx_, dex_cache, nullptr);
+  ObjPtr<mirror::Class> klass = Runtime::Current()->GetClassLinker()->LookupResolvedType(
+      field_id.class_idx_, dex_cache, /* class_loader */ nullptr);
   if (klass == nullptr) {
     return;
   }
@@ -384,18 +428,15 @@ static void PreloadDexCachesResolveMethod(ObjPtr<mirror::DexCache> dex_cache, ui
   }
   const DexFile* dex_file = dex_cache->GetDexFile();
   const DexFile::MethodId& method_id = dex_file->GetMethodId(method_idx);
-  ObjPtr<mirror::Class> klass =
-      ClassLinker::LookupResolvedType(method_id.class_idx_, dex_cache, nullptr);
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+
+  ObjPtr<mirror::Class> klass = class_linker->LookupResolvedType(
+      method_id.class_idx_, dex_cache, /* class_loader */ nullptr);
   if (klass == nullptr) {
     return;
   }
-  ArtMethod* method = klass->IsInterface()
-      ? klass->FindInterfaceMethod(dex_cache, method_idx, kRuntimePointerSize)
-      : klass->FindClassMethod(dex_cache, method_idx, kRuntimePointerSize);
-  if (method == nullptr) {
-    return;
-  }
-  dex_cache->SetResolvedMethod(method_idx, method, kRuntimePointerSize);
+  // Call FindResolvedMethod to populate the dex cache.
+  class_linker->FindResolvedMethod(klass, dex_cache, /* class_loader */ nullptr, method_idx);
 }
 
 struct DexCacheStats {
@@ -607,7 +648,7 @@ static jboolean VMRuntime_isBootClassPathOnDisk(JNIEnv* env, jclass, jstring jav
     return JNI_FALSE;
   }
   InstructionSet isa = GetInstructionSetFromString(instruction_set.c_str());
-  if (isa == kNone) {
+  if (isa == InstructionSet::kNone) {
     ScopedLocalRef<jclass> iae(env, env->FindClass("java/lang/IllegalArgumentException"));
     std::string message(StringPrintf("Instruction set %s is invalid.", instruction_set.c_str()));
     env->ThrowNew(iae.get(), message.c_str());
@@ -645,6 +686,19 @@ static void VMRuntime_setSystemDaemonThreadPriority(JNIEnv* env ATTRIBUTE_UNUSED
 #endif
 }
 
+static void VMRuntime_setDedupeHiddenApiWarnings(JNIEnv* env ATTRIBUTE_UNUSED,
+                                                 jclass klass ATTRIBUTE_UNUSED,
+                                                 jboolean dedupe) {
+  Runtime::Current()->SetDedupeHiddenApiWarnings(dedupe);
+}
+
+static void VMRuntime_setProcessPackageName(JNIEnv* env,
+                                            jclass klass ATTRIBUTE_UNUSED,
+                                            jstring java_package_name) {
+  ScopedUtfChars package_name(env, java_package_name);
+  Runtime::Current()->SetProcessPackageName(package_name.c_str());
+}
+
 static JNINativeMethod gMethods[] = {
   FAST_NATIVE_METHOD(VMRuntime, addressOf, "(Ljava/lang/Object;)J"),
   NATIVE_METHOD(VMRuntime, bootClassPath, "()Ljava/lang/String;"),
@@ -653,9 +707,13 @@ static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(VMRuntime, clearGrowthLimit, "()V"),
   NATIVE_METHOD(VMRuntime, concurrentGC, "()V"),
   NATIVE_METHOD(VMRuntime, disableJitCompilation, "()V"),
+  NATIVE_METHOD(VMRuntime, hasUsedHiddenApi, "()Z"),
+  NATIVE_METHOD(VMRuntime, setHiddenApiExemptions, "([Ljava/lang/String;)V"),
+  NATIVE_METHOD(VMRuntime, setHiddenApiAccessLogSamplingRate, "(I)V"),
   NATIVE_METHOD(VMRuntime, getTargetHeapUtilization, "()F"),
   FAST_NATIVE_METHOD(VMRuntime, isDebuggerActive, "()Z"),
   FAST_NATIVE_METHOD(VMRuntime, isNativeDebuggable, "()Z"),
+  NATIVE_METHOD(VMRuntime, isJavaDebuggable, "()Z"),
   NATIVE_METHOD(VMRuntime, nativeSetTargetHeapUtilization, "(F)V"),
   FAST_NATIVE_METHOD(VMRuntime, newNonMovableArray, "(Ljava/lang/Class;I)Ljava/lang/Object;"),
   FAST_NATIVE_METHOD(VMRuntime, newUnpaddedArray, "(Ljava/lang/Class;I)Ljava/lang/Object;"),
@@ -683,6 +741,8 @@ static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(VMRuntime, getCurrentInstructionSet, "()Ljava/lang/String;"),
   NATIVE_METHOD(VMRuntime, didPruneDalvikCache, "()Z"),
   NATIVE_METHOD(VMRuntime, setSystemDaemonThreadPriority, "()V"),
+  NATIVE_METHOD(VMRuntime, setDedupeHiddenApiWarnings, "(Z)V"),
+  NATIVE_METHOD(VMRuntime, setProcessPackageName, "(Ljava/lang/String;)V"),
 };
 
 void register_dalvik_system_VMRuntime(JNIEnv* env) {

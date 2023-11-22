@@ -46,6 +46,24 @@ char schedtune_boost_norm[PROPERTY_VALUE_MAX] = "10";
 char schedtune_boost_interactive[PROPERTY_VALUE_MAX] = SCHEDTUNE_BOOST_VAL_DEFAULT;
 long long schedtune_boost_time_ns = 1000000000LL;
 
+#define DEVFREQ_DDR_MIN_FREQ_PATH_PROP \
+	"ro.config.devfreq.ddr.min_freq.path"
+#define DEVFREQ_DDR_MIN_FREQ_BOOST_PROP \
+	"ro.config.devfreq.ddr.min_freq.boost"
+
+char devfreq_ddr_min_path[PROPERTY_VALUE_MAX];
+char devfreq_ddr_min_orig[PROPERTY_VALUE_MAX];
+char devfreq_ddr_min_boost[PROPERTY_VALUE_MAX];
+
+#define DEVFREQ_GPU_MIN_FREQ_PATH_PROP \
+	"ro.config.devfreq.gpu.min_freq.path"
+#define DEVFREQ_GPU_MIN_FREQ_BOOST_PROP \
+	"ro.config.devfreq.gpu.min_freq.boost"
+
+char devfreq_gpu_min_path[PROPERTY_VALUE_MAX];
+char devfreq_gpu_min_orig[PROPERTY_VALUE_MAX];
+char devfreq_gpu_min_boost[PROPERTY_VALUE_MAX];
+
 #define INTERACTIVE_BOOSTPULSE_PATH "/sys/devices/system/cpu/cpufreq/interactive/boostpulse"
 #define INTERACTIVE_IO_IS_BUSY_PATH "/sys/devices/system/cpu/cpufreq/interactive/io_is_busy"
 
@@ -76,7 +94,6 @@ static struct hikey_cpufreq_t {
 	char normal_max[PROPERTY_VALUE_MAX];
 	char low_power_max[PROPERTY_VALUE_MAX];
 } hikey_cpufreq_clusters[NR_CLUSTERS];
-
 
 #define container_of(addr, struct_name, field_name) \
     ((struct_name *)((char *)(addr) - offsetof(struct_name, field_name)))
@@ -192,6 +209,43 @@ static int interactive_boostpulse(struct hikey_power_module *hikey)
     return 0;
 }
 
+static void
+hikey_devfreq_set_interactive(struct hikey_power_module __unused *hikey, int on)
+{
+    if (!on || low_power_mode) {
+        if (devfreq_ddr_min_path[0] != '\0')
+            sysfs_write(devfreq_ddr_min_path, devfreq_ddr_min_orig);
+
+        if (devfreq_gpu_min_path[0] != '\0')
+            sysfs_write(devfreq_gpu_min_path, devfreq_gpu_min_orig);
+    } else {
+        if (devfreq_ddr_min_path[0] != '\0')
+            sysfs_write(devfreq_ddr_min_path, devfreq_ddr_min_boost);
+
+        if (devfreq_gpu_min_path[0] != '\0')
+            sysfs_write(devfreq_gpu_min_path, devfreq_gpu_min_boost);
+    }
+}
+
+static void hikey_devfreq_init(struct hikey_power_module __unused *hikey)
+{
+    property_get(DEVFREQ_DDR_MIN_FREQ_PATH_PROP, devfreq_ddr_min_path, "");
+    if (devfreq_ddr_min_path[0] != '\0') {
+        sysfs_read(devfreq_ddr_min_path, devfreq_ddr_min_orig,
+                   PROPERTY_VALUE_MAX);
+        property_get(DEVFREQ_DDR_MIN_FREQ_BOOST_PROP,
+                     devfreq_ddr_min_boost, "");
+    }
+
+    property_get(DEVFREQ_GPU_MIN_FREQ_PATH_PROP, devfreq_gpu_min_path, "");
+    if (devfreq_gpu_min_path[0] != '\0') {
+        sysfs_read(devfreq_gpu_min_path, devfreq_gpu_min_orig,
+                   PROPERTY_VALUE_MAX);
+        property_get(DEVFREQ_GPU_MIN_FREQ_BOOST_PROP,
+                     devfreq_gpu_min_boost, "");
+    }
+}
+
 /*[schedtune functions]*******************************************************/
 
 int schedtune_sysfs_boost(struct hikey_power_module *hikey, char* booststr)
@@ -229,6 +283,7 @@ static void* schedtune_deboost_thread(void* arg)
             }
 
             schedtune_sysfs_boost(hikey, schedtune_boost_norm);
+            hikey_devfreq_set_interactive(hikey, 0);
             hikey->deboost_time = 0;
             pthread_mutex_unlock(&hikey->lock);
             break;
@@ -247,6 +302,7 @@ static int schedtune_boost(struct hikey_power_module *hikey)
     now = gettime_ns();
     if (!hikey->deboost_time) {
         schedtune_sysfs_boost(hikey, schedtune_boost_interactive);
+        hikey_devfreq_set_interactive(hikey, 1);
         sem_post(&hikey->signal_lock);
     }
     hikey->deboost_time = now + schedtune_boost_time_ns;
@@ -309,7 +365,7 @@ static void hikey_cpufreq_set_interactive(struct power_module __unused *module, 
 }
 
 
-static void hikey_cpufreq_init(struct hikey_power_module *hikey)
+static void hikey_cpufreq_init(struct hikey_power_module __unused *hikey)
 {
     char buf[128];
     int len, i;
@@ -340,12 +396,12 @@ static void hikey_cpufreq_init(struct hikey_power_module *hikey)
     max_clusters = i;
 }
 
-
 static void hikey_power_init(struct power_module __unused *module)
 {
     struct hikey_power_module *hikey = container_of(module,
                                               struct hikey_power_module, base);
     hikey_cpufreq_init(hikey);
+    hikey_devfreq_init(hikey);
     interactive_power_init(hikey);
     schedtune_power_init(hikey);
 }
@@ -386,10 +442,9 @@ static void hikey_power_hint(struct power_module *module, power_hint_t hint,
     pthread_mutex_unlock(&hikey->lock);
 }
 
-static void set_feature(struct power_module *module, feature_t feature, int state)
+static void set_feature(struct power_module __unused *module,
+                        feature_t feature, int state)
 {
-    struct hikey_power_module *hikey = container_of(module,
-                                              struct hikey_power_module, base);
     switch (feature) {
     default:
         ALOGW("Error setting the feature %d and state %d, it doesn't exist\n",
@@ -405,21 +460,25 @@ static int power_open(const hw_module_t* __unused module, const char* name,
     ALOGD("%s: enter; name=%s", __FUNCTION__, name);
 
     if (strcmp(name, POWER_HARDWARE_MODULE_ID) == 0) {
-        power_module_t *dev = (power_module_t *)calloc(1,
-                sizeof(power_module_t));
+        struct hikey_power_module *dev = (struct hikey_power_module *)calloc(1,
+                sizeof(struct hikey_power_module));
 
         if (dev) {
             /* Common hw_device_t fields */
-            dev->common.tag = HARDWARE_DEVICE_TAG;
-            dev->common.module_api_version = POWER_MODULE_API_VERSION_0_5;
-            dev->common.hal_api_version = HARDWARE_HAL_API_VERSION;
+            dev->base.common.tag = HARDWARE_DEVICE_TAG;
+            dev->base.common.module_api_version = POWER_MODULE_API_VERSION_0_5;
+            dev->base.common.hal_api_version = HARDWARE_HAL_API_VERSION;
 
-            dev->init = hikey_power_init;
-            dev->powerHint = hikey_power_hint;
-            dev->setInteractive = hikey_cpufreq_set_interactive;
-            dev->setFeature = set_feature;
+            dev->base.init = hikey_power_init;
+            dev->base.powerHint = hikey_power_hint;
+            dev->base.setInteractive = hikey_cpufreq_set_interactive;
+            dev->base.setFeature = set_feature;
 
-            *device = (hw_device_t*)dev;
+            pthread_mutex_init(&dev->lock, NULL);
+            dev->boostpulse_fd = -1;
+            dev->boostpulse_warned = 0;
+
+            *device = (hw_device_t*)&dev->base;
         } else
             retval = -ENOMEM;
     } else {
@@ -445,14 +504,5 @@ struct hikey_power_module HAL_MODULE_INFO_SYM = {
             .author = "The Android Open Source Project",
             .methods = &power_module_methods,
         },
-
-        .init = hikey_power_init,
-        .setInteractive = hikey_cpufreq_set_interactive,
-        .powerHint = hikey_power_hint,
-        .setFeature = set_feature,
     },
-
-    .lock = PTHREAD_MUTEX_INITIALIZER,
-    .boostpulse_fd = -1,
-    .boostpulse_warned = 0,
 };

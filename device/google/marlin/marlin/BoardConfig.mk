@@ -17,7 +17,7 @@ TARGET_CPU_ABI2 :=
 TARGET_CPU_VARIANT := kryo
 
 TARGET_2ND_ARCH := arm
-TARGET_2ND_ARCH_VARIANT := armv7-a-neon
+TARGET_2ND_ARCH_VARIANT := armv8-a
 TARGET_2ND_CPU_ABI := armeabi-v7a
 TARGET_2ND_CPU_ABI2 := armeabi
 TARGET_2ND_CPU_VARIANT := kryo
@@ -61,6 +61,7 @@ BOARD_HAVE_BLUETOOTH := true
 BOARD_USES_WIPOWER := true
 BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR := device/google/marlin/bluetooth
 BOARD_HAVE_BLUETOOTH_QCOM := true
+BOARD_USES_SDM845_BLUETOOTH_HAL := true
 BOARD_HAS_QCA_BT_ROME := true
 WCNSS_FILTER_USES_SIBS := true
 
@@ -82,6 +83,7 @@ OVERRIDE_RS_DRIVER:= libRSDriver_adreno.so
 TARGET_USERIMAGES_USE_EXT4 := true
 BOARD_BOOTIMAGE_PARTITION_SIZE := 0x02000000
 BOARD_SYSTEMIMAGE_PARTITION_SIZE := 2147483648
+BOARD_SYSTEMIMAGE_EXTFS_INODE_COUNT := 4096
 ifneq ($(findstring aosp_marlin_svelte, $(TARGET_PRODUCT)),)
 BOARD_SYSTEMIMAGE_FILE_SYSTEM_TYPE := squashfs
 BOARD_SYSTEMIMAGE_JOURNAL_SIZE := 0
@@ -154,18 +156,6 @@ TARGET_PD_SERVICE_ENABLED := true
 BOARD_QTI_CAMERA_32BIT_ONLY := true
 TARGET_BOOTIMG_SIGNED := true
 
-# Enable dex pre-opt to speed up initial boot
-ifeq ($(HOST_OS),linux)
-  ifeq ($(WITH_DEXPREOPT),)
-    WITH_DEXPREOPT := true
-    WITH_DEXPREOPT_PIC := true
-    ifneq ($(TARGET_BUILD_VARIANT),user)
-      # Retain classes.dex in APK's for non-user builds
-      DEX_PREOPT_DEFAULT := nostripping
-    endif
-  endif
-endif
-
 # HTC_SENSOR_HUB
 LIBHTC_SENSORHUB_PROJECT := g_project
 
@@ -211,9 +201,12 @@ TARGET_USES_MKE2FS := true
 BOARD_PROPERTY_OVERRIDES_SPLIT_ENABLED := true
 
 ifneq ($(findstring marlin_svelte, $(TARGET_PRODUCT)),)
-BOARD_KERNEL_CMDLINE += mem=1152M
 MALLOC_SVELTE := true
 endif
 
 DEVICE_MANIFEST_FILE := device/google/marlin/manifest.xml
 DEVICE_MATRIX_FILE   := device/google/marlin/compatibility_matrix.xml
+DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE := device/google/marlin/device_framework_matrix.xml
+
+# Exclude serif fonts for saving system.img size.
+EXCLUDE_SERIF_FONTS := true

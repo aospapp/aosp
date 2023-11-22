@@ -1,7 +1,7 @@
 /** @file
 Entry and initialization module for the browser.
 
-Copyright (c) 2007 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 Copyright (c) 2014, Hewlett-Packard Development Company, L.P.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
@@ -49,7 +49,7 @@ SCAN_CODE_TO_SCREEN_OPERATION     gScanCodeToOperation[] = {
   }
 };
 
-UINTN mScanCodeNumber = sizeof (gScanCodeToOperation) / sizeof (gScanCodeToOperation[0]);
+UINTN mScanCodeNumber = ARRAY_SIZE (gScanCodeToOperation);
 
 SCREEN_OPERATION_T0_CONTROL_FLAG  gScreenOperationToControlFlag[] = {
   {
@@ -153,6 +153,7 @@ CHAR16            *gConfirmOptYes;
 CHAR16            *gConfirmOptNo;
 CHAR16            *gConfirmMsgConnect;
 CHAR16            *gConfirmMsgEnd;
+CHAR16            *gPasswordUnsupported;
 CHAR16            gModalSkipColumn;
 CHAR16            gPromptBlockWidth;
 CHAR16            gOptionBlockWidth;
@@ -248,6 +249,7 @@ InitializeDisplayStrings (
   gConfirmOptNo         = GetToken (STRING_TOKEN (CONFIRM_OPTION_NO), gHiiHandle);
   gConfirmMsgConnect    = GetToken (STRING_TOKEN (CONFIRM_OPTION_CONNECT), gHiiHandle);
   gConfirmMsgEnd        = GetToken (STRING_TOKEN (CONFIRM_OPTION_END), gHiiHandle);
+  gPasswordUnsupported  = GetToken (STRING_TOKEN (PASSWORD_NOT_SUPPORTED ), gHiiHandle);
 }
 
 /**
@@ -301,6 +303,7 @@ FreeDisplayStrings (
   FreePool (gConfirmOptNo);
   FreePool (gConfirmMsgConnect);
   FreePool (gConfirmMsgEnd);
+  FreePool (gPasswordUnsupported);
 }
 
 /**
@@ -604,7 +607,6 @@ UiAddMenuOption (
   UI_MENU_OPTION   *MenuOption;
   UINTN            Index;
   UINTN            Count;
-  CHAR16           *String;
   UINT16           NumberOfLines;
   UINT16           GlyphWidth;
   UINT16           Width;
@@ -621,9 +623,6 @@ UiAddMenuOption (
   PromptId = GetPrompt (Statement->OpCode);
   ASSERT (PromptId != 0);
 
-  String = GetToken (PromptId, gFormData->HiiHandle);
-  ASSERT (String != NULL);
-
   if (Statement->OpCode->OpCode == EFI_IFR_DATE_OP || Statement->OpCode->OpCode == EFI_IFR_TIME_OP) {
     Count = 3;
   }
@@ -633,7 +632,7 @@ UiAddMenuOption (
     ASSERT (MenuOption);
 
     MenuOption->Signature   = UI_MENU_OPTION_SIGNATURE;
-    MenuOption->Description = String;
+    MenuOption->Description = GetToken (PromptId, gFormData->HiiHandle);
     MenuOption->Handle      = gFormData->HiiHandle;
     MenuOption->ThisTag     = Statement;
     MenuOption->NestInStatement = NestIn;
@@ -697,11 +696,11 @@ UiAddMenuOption (
       (Statement->OpCode->OpCode != EFI_IFR_DATE_OP) && 
       (Statement->OpCode->OpCode != EFI_IFR_TIME_OP)) {
       Width  = GetWidth (MenuOption, NULL);
-      for (; GetLineByWidth (String, Width, &GlyphWidth,&ArrayEntry, &OutputString) != 0x0000;) {
+      for (; GetLineByWidth (MenuOption->Description, Width, &GlyphWidth,&ArrayEntry, &OutputString) != 0x0000;) {
         //
         // If there is more string to process print on the next row and increment the Skip value
         //
-        if (StrLen (&String[ArrayEntry]) != 0) {
+        if (StrLen (&MenuOption->Description[ArrayEntry]) != 0) {
           NumberOfLines++;
         }
         FreePool (OutputString);
@@ -1054,18 +1053,21 @@ MoveToNextStatement (
       UpdateOptionSkipLines (NextMenuOption);
     }
 
-    if (IsSelectable (NextMenuOption)) {
-      break;
-    }
-
     //
-    // In this case, still can't find the selectable menu,
+    // Check whether the menu is beyond current showing form,
     // return the first one beyond the showing form.
     //
     if ((UINTN) Distance + NextMenuOption->Skip > GapToTop) {
       if (FindInForm) {
         NextMenuOption = PreMenuOption;
       }
+      break;
+    }
+
+    //
+    // return the selectable menu in the showing form.
+    //
+    if (IsSelectable (NextMenuOption)) {
       break;
     }
 
@@ -1831,7 +1833,7 @@ FindTopMenu (
       }
     } else {
       //
-      // Last time highlight menu has disappear, find the first highlightable menu as the defalut one.
+      // Last time highlight menu has disappear, find the first highlightable menu as the default one.
       //
       *HighlightMenu = gMenuOption.ForwardLink;
       if (!IsListEmpty (&gMenuOption)) {
@@ -3252,7 +3254,7 @@ UiDisplayMenu (
       }
 
       for (Index = 0;
-           Index < sizeof (gScreenOperationToControlFlag) / sizeof (gScreenOperationToControlFlag[0]);
+           Index < ARRAY_SIZE (gScreenOperationToControlFlag);
            Index++
           ) {
         if (ScreenOperation == gScreenOperationToControlFlag[Index].ScreenOperation) {
@@ -3730,6 +3732,34 @@ UiDisplayMenu (
 }
 
 /**
+  Free the UI Menu Option structure data.
+
+  @param   MenuOptionList         Point to the menu option list which need to be free.
+
+**/
+VOID
+FreeMenuOptionData(
+  LIST_ENTRY           *MenuOptionList
+  )
+{
+  LIST_ENTRY           *Link;
+  UI_MENU_OPTION       *Option;
+
+  //
+  // Free menu option list
+  //
+  while (!IsListEmpty (MenuOptionList)) {
+    Link = GetFirstNode (MenuOptionList);
+    Option = MENU_OPTION_FROM_LINK (Link);
+    if (Option->Description != NULL){
+      FreePool(Option->Description);
+    }
+    RemoveEntryList (&Option->Link);
+    FreePool (Option);
+  }
+}
+
+/**
 
   Base on the browser status info to show an pop up message.
 
@@ -4000,6 +4030,11 @@ FormDisplay (
   gOldFormEntry.HiiHandle = FormData->HiiHandle;
   CopyGuid (&gOldFormEntry.FormSetGuid, &FormData->FormSetGuid);
   gOldFormEntry.FormId    = FormData->FormId;
+
+  //
+  //Free the Ui menu option list.
+  //
+  FreeMenuOptionData(&gMenuOption);
 
   return Status;
 }

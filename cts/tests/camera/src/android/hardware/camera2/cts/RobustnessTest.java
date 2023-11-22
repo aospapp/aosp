@@ -30,14 +30,17 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.CaptureFailure;
-import android.hardware.camera2.params.InputConfiguration;
-import android.hardware.camera2.params.StreamConfigurationMap;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
+import android.hardware.camera2.params.InputConfiguration;
+import android.hardware.camera2.params.OisSample;
+import android.hardware.camera2.params.OutputConfiguration;
+import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.CamcorderProfile;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.ImageWriter;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Size;
 import android.view.Display;
@@ -48,7 +51,10 @@ import com.android.ex.camera2.blocking.BlockingSessionCallback;
 
 import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static junit.framework.Assert.assertTrue;
 import static org.mockito.Mockito.*;
@@ -56,6 +62,7 @@ import static org.mockito.Mockito.*;
 /**
  * Tests exercising edge cases in camera setup, configuration, and usage.
  */
+@AppModeFull
 public class RobustnessTest extends Camera2AndroidTestCase {
     private static final String TAG = "RobustnessTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -146,6 +153,7 @@ public class RobustnessTest extends Camera2AndroidTestCase {
 
                 assertTrue("Camera does not contain outputted image resolution " + actualSize,
                         testSizes.contains(actualSize));
+                imageReader.close();
             } finally {
                 closeDevice(id);
             }
@@ -303,6 +311,10 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                         CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW)) {
                     for (int[] config : RAW_COMBINATIONS) {
                         testOutputCombination(id, config, maxSizes);
+                    }
+                } else if (mStaticInfo.isLogicalMultiCamera()) {
+                    for (int[] config : RAW_COMBINATIONS) {
+                        testMultiCameraOutputCombination(id, config, maxSizes);
                     }
                 }
 
@@ -957,6 +969,179 @@ public class RobustnessTest extends Camera2AndroidTestCase {
         }
     }
 
+    public void testConfigureAbandonedSurface() throws Exception {
+        for (String id : mCameraIds) {
+            Log.i(TAG, String.format(
+                    "Testing Camera %s for configuring abandoned surface", id));
+
+            openDevice(id);
+            try {
+                SurfaceTexture preview = new SurfaceTexture(/*random int*/ 1);
+                Surface previewSurface = new Surface(preview);
+
+                // Abandon preview SurfaceTexture.
+                preview.release();
+
+                try {
+                    CaptureRequest.Builder previewRequest = preparePreviewTestSession(preview);
+                    fail("Configuring abandoned surfaces must fail!");
+                } catch (IllegalArgumentException e) {
+                    // expected
+                    Log.i(TAG, "normal session check passed");
+                }
+
+                // Try constrained high speed session/requests
+                if (!mStaticInfo.isConstrainedHighSpeedVideoSupported()) {
+                    continue;
+                }
+
+                List<Surface> surfaces = new ArrayList<>();
+                surfaces.add(previewSurface);
+                CameraCaptureSession.StateCallback sessionListener =
+                        mock(CameraCaptureSession.StateCallback.class);
+
+                try {
+                    mCamera.createConstrainedHighSpeedCaptureSession(surfaces,
+                            sessionListener, mHandler);
+                    fail("Configuring abandoned surfaces in high speed session must fail!");
+                } catch (IllegalArgumentException e) {
+                    // expected
+                    Log.i(TAG, "high speed session check 1 passed");
+                }
+
+                // Also try abandone the Surface directly
+                previewSurface.release();
+
+                try {
+                    mCamera.createConstrainedHighSpeedCaptureSession(surfaces,
+                            sessionListener, mHandler);
+                    fail("Configuring abandoned surfaces in high speed session must fail!");
+                } catch (IllegalArgumentException e) {
+                    // expected
+                    Log.i(TAG, "high speed session check 2 passed");
+                }
+            } finally {
+                closeDevice(id);
+            }
+        }
+    }
+
+    public void testAfSceneChange() throws Exception {
+        final int NUM_FRAMES_VERIFIED = 3;
+
+        for (String id : mCameraIds) {
+            Log.i(TAG, String.format("Testing Camera %s for AF scene change", id));
+
+            StaticMetadata staticInfo =
+                    new StaticMetadata(mCameraManager.getCameraCharacteristics(id));
+            if (!staticInfo.isAfSceneChangeSupported()) {
+                continue;
+            }
+
+            openDevice(id);
+
+            try {
+                SurfaceTexture preview = new SurfaceTexture(/*random int*/ 1);
+                Surface previewSurface = new Surface(preview);
+
+                CaptureRequest.Builder previewRequest = preparePreviewTestSession(preview);
+                SimpleCaptureCallback previewListener = new CameraTestUtils.SimpleCaptureCallback();
+
+                int[] availableAfModes = mStaticInfo.getAfAvailableModesChecked();
+
+                // Test AF scene change in each AF mode.
+                for (int afMode : availableAfModes) {
+                    previewRequest.set(CaptureRequest.CONTROL_AF_MODE, afMode);
+
+                    int sequenceId = mCameraSession.setRepeatingRequest(previewRequest.build(),
+                            previewListener, mHandler);
+
+                    // Verify that AF scene change is NOT_DETECTED or DETECTED.
+                    for (int i = 0; i < NUM_FRAMES_VERIFIED; i++) {
+                        TotalCaptureResult result =
+                            previewListener.getTotalCaptureResult(CAPTURE_TIMEOUT);
+                        mCollector.expectKeyValueIsIn(result,
+                                CaptureResult.CONTROL_AF_SCENE_CHANGE,
+                                CaptureResult.CONTROL_AF_SCENE_CHANGE_DETECTED,
+                                CaptureResult.CONTROL_AF_SCENE_CHANGE_NOT_DETECTED);
+                    }
+
+                    mCameraSession.stopRepeating();
+                    previewListener.getCaptureSequenceLastFrameNumber(sequenceId, CAPTURE_TIMEOUT);
+                    previewListener.drain();
+                }
+            } finally {
+                closeDevice(id);
+            }
+        }
+    }
+
+    public void testOisDataMode() throws Exception {
+        final int NUM_FRAMES_VERIFIED = 3;
+
+        for (String id : mCameraIds) {
+            Log.i(TAG, String.format("Testing Camera %s for OIS mode", id));
+
+            StaticMetadata staticInfo =
+                    new StaticMetadata(mCameraManager.getCameraCharacteristics(id));
+            if (!staticInfo.isOisDataModeSupported()) {
+                continue;
+            }
+
+            openDevice(id);
+
+            try {
+                SurfaceTexture preview = new SurfaceTexture(/*random int*/ 1);
+                Surface previewSurface = new Surface(preview);
+
+                CaptureRequest.Builder previewRequest = preparePreviewTestSession(preview);
+                SimpleCaptureCallback previewListener = new CameraTestUtils.SimpleCaptureCallback();
+
+                int[] availableOisDataModes = staticInfo.getCharacteristics().get(
+                        CameraCharacteristics.STATISTICS_INFO_AVAILABLE_OIS_DATA_MODES);
+
+                // Test each OIS data mode
+                for (int oisMode : availableOisDataModes) {
+                    previewRequest.set(CaptureRequest.STATISTICS_OIS_DATA_MODE, oisMode);
+
+                    int sequenceId = mCameraSession.setRepeatingRequest(previewRequest.build(),
+                            previewListener, mHandler);
+
+                    // Check OIS data in each mode.
+                    for (int i = 0; i < NUM_FRAMES_VERIFIED; i++) {
+                        TotalCaptureResult result =
+                            previewListener.getTotalCaptureResult(CAPTURE_TIMEOUT);
+
+                        OisSample[] oisSamples = result.get(CaptureResult.STATISTICS_OIS_SAMPLES);
+
+                        if (oisMode == CameraCharacteristics.STATISTICS_OIS_DATA_MODE_OFF) {
+                            mCollector.expectKeyValueEquals(result,
+                                    CaptureResult.STATISTICS_OIS_DATA_MODE,
+                                    CaptureResult.STATISTICS_OIS_DATA_MODE_OFF);
+                            mCollector.expectTrue("OIS samples reported in OIS_DATA_MODE_OFF",
+                                    oisSamples == null || oisSamples.length == 0);
+
+                        } else if (oisMode == CameraCharacteristics.STATISTICS_OIS_DATA_MODE_ON) {
+                            mCollector.expectKeyValueEquals(result,
+                                    CaptureResult.STATISTICS_OIS_DATA_MODE,
+                                    CaptureResult.STATISTICS_OIS_DATA_MODE_ON);
+                            mCollector.expectTrue("OIS samples not reported in OIS_DATA_MODE_ON",
+                                    oisSamples != null && oisSamples.length != 0);
+                        } else {
+                            mCollector.addMessage(String.format("Invalid OIS mode: %d", oisMode));
+                        }
+                    }
+
+                    mCameraSession.stopRepeating();
+                    previewListener.getCaptureSequenceLastFrameNumber(sequenceId, CAPTURE_TIMEOUT);
+                    previewListener.drain();
+                }
+            } finally {
+                closeDevice(id);
+            }
+        }
+    }
+
     private CaptureRequest.Builder preparePreviewTestSession(SurfaceTexture preview)
             throws Exception {
         Surface previewSurface = new Surface(preview);
@@ -1171,7 +1356,11 @@ public class RobustnessTest extends Camera2AndroidTestCase {
         static final int RECORD  = 1;
         static final int MAXIMUM = 2;
         static final int VGA = 3;
-        static final int RESOLUTION_COUNT = 4;
+        static final int VGA_FULL_FOV = 4;
+        static final int MAX_30FPS = 5;
+        static final int RESOLUTION_COUNT = 6;
+
+        static final long FRAME_DURATION_30FPS_NSEC = (long) 1e9 / 30;
 
         public MaxStreamSizes(StaticMetadata sm, String cameraId, Context context) {
             Size[] privSizes = sm.getAvailableSizesForFormatChecked(ImageFormat.PRIVATE,
@@ -1185,14 +1374,22 @@ public class RobustnessTest extends Camera2AndroidTestCase {
 
             maxRawSize = (rawSizes.length != 0) ? CameraTestUtils.getMaxSize(rawSizes) : null;
 
+            StreamConfigurationMap configs = sm.getCharacteristics().get(
+                    CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             if (sm.isColorOutputSupported()) {
                 maxPrivSizes[PREVIEW] = getMaxSize(privSizes, maxPreviewSize);
                 maxYuvSizes[PREVIEW]  = getMaxSize(yuvSizes, maxPreviewSize);
                 maxJpegSizes[PREVIEW] = getMaxSize(jpegSizes, maxPreviewSize);
 
-                maxPrivSizes[RECORD] = getMaxRecordingSize(cameraId);
-                maxYuvSizes[RECORD]  = getMaxRecordingSize(cameraId);
-                maxJpegSizes[RECORD] = getMaxRecordingSize(cameraId);
+                if (sm.isExternalCamera()) {
+                    maxPrivSizes[RECORD] = getMaxExternalRecordingSize(cameraId, configs);
+                    maxYuvSizes[RECORD]  = getMaxExternalRecordingSize(cameraId, configs);
+                    maxJpegSizes[RECORD] = getMaxExternalRecordingSize(cameraId, configs);
+                } else {
+                    maxPrivSizes[RECORD] = getMaxRecordingSize(cameraId);
+                    maxYuvSizes[RECORD]  = getMaxRecordingSize(cameraId);
+                    maxJpegSizes[RECORD] = getMaxRecordingSize(cameraId);
+                }
 
                 maxPrivSizes[MAXIMUM] = CameraTestUtils.getMaxSize(privSizes);
                 maxYuvSizes[MAXIMUM] = CameraTestUtils.getMaxSize(yuvSizes);
@@ -1205,8 +1402,72 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                 maxJpegSizes[VGA] = vgaSize;
             }
 
-            StreamConfigurationMap configs = sm.getCharacteristics().get(
-                    CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            if (sm.isColorOutputSupported() && !sm.isHardwareLevelLegacy()) {
+                // VGA resolution, but with aspect ratio matching full res FOV
+                float fullFovAspect = maxYuvSizes[MAXIMUM].getWidth() / (float) maxYuvSizes[MAXIMUM].getHeight();
+                Size vgaFullFovSize = new Size(640, (int) (640 / fullFovAspect));
+
+                maxPrivSizes[VGA_FULL_FOV] = vgaFullFovSize;
+                maxYuvSizes[VGA_FULL_FOV] = vgaFullFovSize;
+                maxJpegSizes[VGA_FULL_FOV] = vgaFullFovSize;
+
+                // Max resolution that runs at 30fps
+
+                Size maxPriv30fpsSize = null;
+                Size maxYuv30fpsSize = null;
+                Size maxJpeg30fpsSize = null;
+                Comparator<Size> comparator = new SizeComparator();
+                for (Map.Entry<Size, Long> e :
+                             sm.getAvailableMinFrameDurationsForFormatChecked(ImageFormat.PRIVATE).
+                             entrySet()) {
+                    Size s = e.getKey();
+                    Long minDuration = e.getValue();
+                    Log.d(TAG, String.format("Priv Size: %s, duration %d limit %d", s, minDuration, FRAME_DURATION_30FPS_NSEC));
+                    if (minDuration <= FRAME_DURATION_30FPS_NSEC) {
+                        if (maxPriv30fpsSize == null ||
+                                comparator.compare(maxPriv30fpsSize, s) < 0) {
+                            maxPriv30fpsSize = s;
+                        }
+                    }
+                }
+                assertTrue("No PRIVATE resolution available at 30fps!", maxPriv30fpsSize != null);
+
+                for (Map.Entry<Size, Long> e :
+                             sm.getAvailableMinFrameDurationsForFormatChecked(
+                                     ImageFormat.YUV_420_888).
+                             entrySet()) {
+                    Size s = e.getKey();
+                    Long minDuration = e.getValue();
+                    Log.d(TAG, String.format("YUV Size: %s, duration %d limit %d", s, minDuration, FRAME_DURATION_30FPS_NSEC));
+                    if (minDuration <= FRAME_DURATION_30FPS_NSEC) {
+                        if (maxYuv30fpsSize == null ||
+                                comparator.compare(maxYuv30fpsSize, s) < 0) {
+                            maxYuv30fpsSize = s;
+                        }
+                    }
+                }
+                assertTrue("No YUV_420_888 resolution available at 30fps!", maxYuv30fpsSize != null);
+
+                for (Map.Entry<Size, Long> e :
+                             sm.getAvailableMinFrameDurationsForFormatChecked(ImageFormat.JPEG).
+                             entrySet()) {
+                    Size s = e.getKey();
+                    Long minDuration = e.getValue();
+                    Log.d(TAG, String.format("JPEG Size: %s, duration %d limit %d", s, minDuration, FRAME_DURATION_30FPS_NSEC));
+                    if (minDuration <= FRAME_DURATION_30FPS_NSEC) {
+                        if (maxJpeg30fpsSize == null ||
+                                comparator.compare(maxJpeg30fpsSize, s) < 0) {
+                            maxJpeg30fpsSize = s;
+                        }
+                    }
+                }
+                assertTrue("No JPEG resolution available at 30fps!", maxJpeg30fpsSize != null);
+
+                maxPrivSizes[MAX_30FPS] = maxPriv30fpsSize;
+                maxYuvSizes[MAX_30FPS] = maxYuv30fpsSize;
+                maxJpegSizes[MAX_30FPS] = maxJpeg30fpsSize;
+            }
+
             Size[] privInputSizes = configs.getInputSizes(ImageFormat.PRIVATE);
             maxInputPrivSize = privInputSizes != null ?
                     CameraTestUtils.getMaxSize(privInputSizes) : null;
@@ -1286,6 +1547,12 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                     break;
                 case VGA:
                     b.append("VGA]");
+                    break;
+                case VGA_FULL_FOV:
+                    b.append("VGA_FULL_FOV]");
+                    break;
+                case MAX_30FPS:
+                    b.append("MAX_30FPS]");
                     break;
                 default:
                     b.append("UNK]");
@@ -1462,36 +1729,50 @@ public class RobustnessTest extends Camera2AndroidTestCase {
     private void testOutputCombination(String cameraId, int[] config, MaxStreamSizes maxSizes)
             throws Exception {
 
-        Log.i(TAG, String.format("Testing Camera %s, config %s",
+        Log.i(TAG, String.format("Testing single Camera %s, config %s",
                         cameraId, MaxStreamSizes.configToString(config)));
+
+        testSingleCameraOutputCombination(cameraId, config, maxSizes);
+
+        if (mStaticInfo.isLogicalMultiCamera()) {
+            Log.i(TAG, String.format("Testing logical Camera %s, config %s",
+                    cameraId, MaxStreamSizes.configToString(config)));
+
+            testMultiCameraOutputCombination(cameraId, config, maxSizes);
+        }
+    }
+
+    private void testSingleCameraOutputCombination(String cameraId, int[] config,
+        MaxStreamSizes maxSizes) throws Exception {
 
         // Timeout is relaxed by 1 second for LEGACY devices to reduce false positive rate in CTS
         final int TIMEOUT_FOR_RESULT_MS = (mStaticInfo.isHardwareLevelLegacy()) ? 2000 : 1000;
         final int MIN_RESULT_COUNT = 3;
 
         // Set up outputs
-        List<Surface> outputSurfaces = new ArrayList<Surface>();
+        List<OutputConfiguration> outputConfigs = new ArrayList<OutputConfiguration>();
         List<SurfaceTexture> privTargets = new ArrayList<SurfaceTexture>();
         List<ImageReader> jpegTargets = new ArrayList<ImageReader>();
         List<ImageReader> yuvTargets = new ArrayList<ImageReader>();
         List<ImageReader> rawTargets = new ArrayList<ImageReader>();
 
         setupConfigurationTargets(config, maxSizes, privTargets, jpegTargets, yuvTargets,
-                rawTargets, outputSurfaces, MIN_RESULT_COUNT);
+                rawTargets, outputConfigs, MIN_RESULT_COUNT, -1 /*overrideStreamIndex*/,
+                null /*overridePhysicalCameraIds*/, null /*overridePhysicalCameraSizes*/);
 
         boolean haveSession = false;
         try {
             CaptureRequest.Builder requestBuilder =
                     mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
 
-            for (Surface s : outputSurfaces) {
-                requestBuilder.addTarget(s);
+            for (OutputConfiguration c : outputConfigs) {
+                requestBuilder.addTarget(c.getSurface());
             }
 
             CameraCaptureSession.CaptureCallback mockCaptureCallback =
                     mock(CameraCaptureSession.CaptureCallback.class);
 
-            createSession(outputSurfaces);
+            createSessionByConfigs(outputConfigs);
             haveSession = true;
             CaptureRequest request = requestBuilder.build();
             mCameraSession.setRepeatingRequest(request, mockCaptureCallback, mHandler);
@@ -1538,55 +1819,211 @@ public class RobustnessTest extends Camera2AndroidTestCase {
         }
     }
 
-    private void setupConfigurationTargets(int[] outputConfigs, MaxStreamSizes maxSizes,
+    private void testMultiCameraOutputCombination(String cameraId, int[] config,
+        MaxStreamSizes maxSizes) throws Exception {
+
+        // Timeout is relaxed by 1 second for LEGACY devices to reduce false positive rate in CTS
+        final int TIMEOUT_FOR_RESULT_MS = (mStaticInfo.isHardwareLevelLegacy()) ? 2000 : 1000;
+        final int MIN_RESULT_COUNT = 3;
+        Set<String> physicalCameraIds = mStaticInfo.getCharacteristics().getPhysicalCameraIds();
+
+        for (int i = 0; i < config.length; i += 2) {
+            int format = config[i];
+            int sizeLimit = config[i+1];
+            if (format != YUV && format != RAW) {
+                continue;
+            }
+
+            // Find physical cameras with matching size.
+            Size targetSize = (format == YUV) ? maxSizes.maxYuvSizes[sizeLimit] :
+                    maxSizes.maxRawSize;
+            List<String> physicalCamerasForSize = new ArrayList<String>();
+            List<Size> physicalCameraSizes = new ArrayList<Size>();
+            for (String physicalId : physicalCameraIds) {
+                Size[] sizes = mAllStaticInfo.get(physicalId).getAvailableSizesForFormatChecked(
+                        format, StaticMetadata.StreamDirection.Output);
+                if (targetSize != null) {
+                    if (Arrays.asList(sizes).contains(targetSize)) {
+                        physicalCameraSizes.add(targetSize);
+                        physicalCamerasForSize.add(physicalId);
+                    }
+                } else if (format == RAW && sizes.length > 0) {
+                    physicalCamerasForSize.add(physicalId);
+                    physicalCameraSizes.add(CameraTestUtils.getMaxSize(sizes));
+                }
+                if (physicalCamerasForSize.size() == 2) {
+                    break;
+                }
+            }
+            if (physicalCamerasForSize.size() < 2) {
+                continue;
+            }
+
+            // Set up outputs
+            List<OutputConfiguration> outputConfigs = new ArrayList<OutputConfiguration>();
+            List<SurfaceTexture> privTargets = new ArrayList<SurfaceTexture>();
+            List<ImageReader> jpegTargets = new ArrayList<ImageReader>();
+            List<ImageReader> yuvTargets = new ArrayList<ImageReader>();
+            List<ImageReader> rawTargets = new ArrayList<ImageReader>();
+
+            setupConfigurationTargets(config, maxSizes, privTargets, jpegTargets, yuvTargets,
+                    rawTargets, outputConfigs, MIN_RESULT_COUNT, i, physicalCamerasForSize,
+                    physicalCameraSizes);
+
+            boolean haveSession = false;
+            try {
+                CaptureRequest.Builder requestBuilder =
+                        mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+
+                for (OutputConfiguration c : outputConfigs) {
+                    requestBuilder.addTarget(c.getSurface());
+                }
+
+                CameraCaptureSession.CaptureCallback mockCaptureCallback =
+                        mock(CameraCaptureSession.CaptureCallback.class);
+
+                createSessionByConfigs(outputConfigs);
+                haveSession = true;
+                CaptureRequest request = requestBuilder.build();
+                mCameraSession.setRepeatingRequest(request, mockCaptureCallback, mHandler);
+
+                verify(mockCaptureCallback,
+                        timeout(TIMEOUT_FOR_RESULT_MS * MIN_RESULT_COUNT).atLeast(MIN_RESULT_COUNT))
+                        .onCaptureCompleted(
+                            eq(mCameraSession),
+                            eq(request),
+                            isA(TotalCaptureResult.class));
+                verify(mockCaptureCallback, never()).
+                        onCaptureFailed(
+                            eq(mCameraSession),
+                            eq(request),
+                            isA(CaptureFailure.class));
+
+            } catch (Throwable e) {
+                mCollector.addMessage(String.format("Output combination %s failed due to: %s",
+                        MaxStreamSizes.configToString(config), e.getMessage()));
+            }
+            if (haveSession) {
+                try {
+                    Log.i(TAG, String.format("Done with camera %s, config %s, closing session",
+                                    cameraId, MaxStreamSizes.configToString(config)));
+                    stopCapture(/*fast*/false);
+                } catch (Throwable e) {
+                    mCollector.addMessage(
+                        String.format("Closing down for output combination %s failed due to: %s",
+                                MaxStreamSizes.configToString(config), e.getMessage()));
+                }
+            }
+
+            for (SurfaceTexture target : privTargets) {
+                target.release();
+            }
+            for (ImageReader target : jpegTargets) {
+                target.close();
+            }
+            for (ImageReader target : yuvTargets) {
+                target.close();
+            }
+            for (ImageReader target : rawTargets) {
+                target.close();
+            }
+        }
+    }
+
+    private void setupConfigurationTargets(int[] configs, MaxStreamSizes maxSizes,
             List<SurfaceTexture> privTargets, List<ImageReader> jpegTargets,
             List<ImageReader> yuvTargets, List<ImageReader> rawTargets,
             List<Surface> outputSurfaces, int numBuffers) {
+        List<OutputConfiguration> outputConfigs = new ArrayList<OutputConfiguration> ();
+
+        setupConfigurationTargets(configs, maxSizes, privTargets, jpegTargets, yuvTargets,
+                rawTargets, outputConfigs, numBuffers, -1 /*overrideStreamIndex*/,
+                null /*overridePhysicalCameraIds*/, null /* overridePhysicalCameraSizes) */);
+
+        for (OutputConfiguration outputConfig : outputConfigs) {
+            outputSurfaces.add(outputConfig.getSurface());
+        }
+    }
+
+    private void setupConfigurationTargets(int[] configs, MaxStreamSizes maxSizes,
+            List<SurfaceTexture> privTargets, List<ImageReader> jpegTargets,
+            List<ImageReader> yuvTargets, List<ImageReader> rawTargets,
+            List<OutputConfiguration> outputConfigs, int numBuffers,
+            int overrideStreamIndex, List<String> overridePhysicalCameraIds,
+            List<Size> overridePhysicalCameraSizes) {
 
         ImageDropperListener imageDropperListener = new ImageDropperListener();
 
-        for (int i = 0; i < outputConfigs.length; i += 2) {
-            int format = outputConfigs[i];
-            int sizeLimit = outputConfigs[i + 1];
+        for (int i = 0; i < configs.length; i += 2) {
+            int format = configs[i];
+            int sizeLimit = configs[i + 1];
+            Surface newSurface;
 
-            switch (format) {
-                case PRIV: {
-                    Size targetSize = maxSizes.maxPrivSizes[sizeLimit];
-                    SurfaceTexture target = new SurfaceTexture(/*random int*/1);
-                    target.setDefaultBufferSize(targetSize.getWidth(), targetSize.getHeight());
-                    outputSurfaces.add(new Surface(target));
-                    privTargets.add(target);
-                    break;
+            int numConfigs = 1;
+            if (overrideStreamIndex == i && overridePhysicalCameraIds != null &&
+                    overridePhysicalCameraIds.size() > 1) {
+                numConfigs = overridePhysicalCameraIds.size();
+            }
+            for (int j = 0; j < numConfigs; j++) {
+                switch (format) {
+                    case PRIV: {
+                        Size targetSize = (numConfigs == 1) ? maxSizes.maxPrivSizes[sizeLimit] :
+                                overridePhysicalCameraSizes.get(j);
+                        SurfaceTexture target = new SurfaceTexture(/*random int*/1);
+                        target.setDefaultBufferSize(targetSize.getWidth(), targetSize.getHeight());
+                        OutputConfiguration config = new OutputConfiguration(new Surface(target));
+                        if (numConfigs > 1) {
+                            config.setPhysicalCameraId(overridePhysicalCameraIds.get(j));
+                        }
+                        outputConfigs.add(config);
+                        privTargets.add(target);
+                        break;
+                    }
+                    case JPEG: {
+                        Size targetSize = (numConfigs == 1) ? maxSizes.maxJpegSizes[sizeLimit] :
+                                overridePhysicalCameraSizes.get(j);
+                        ImageReader target = ImageReader.newInstance(
+                            targetSize.getWidth(), targetSize.getHeight(), JPEG, numBuffers);
+                        target.setOnImageAvailableListener(imageDropperListener, mHandler);
+                        OutputConfiguration config = new OutputConfiguration(target.getSurface());
+                        if (numConfigs > 1) {
+                            config.setPhysicalCameraId(overridePhysicalCameraIds.get(j));
+                        }
+                        outputConfigs.add(config);
+                        jpegTargets.add(target);
+                        break;
+                    }
+                    case YUV: {
+                        Size targetSize = (numConfigs == 1) ? maxSizes.maxYuvSizes[sizeLimit] :
+                                overridePhysicalCameraSizes.get(j);
+                        ImageReader target = ImageReader.newInstance(
+                            targetSize.getWidth(), targetSize.getHeight(), YUV, numBuffers);
+                        target.setOnImageAvailableListener(imageDropperListener, mHandler);
+                        OutputConfiguration config = new OutputConfiguration(target.getSurface());
+                        if (numConfigs > 1) {
+                            config.setPhysicalCameraId(overridePhysicalCameraIds.get(j));
+                        }
+                        outputConfigs.add(config);
+                        yuvTargets.add(target);
+                        break;
+                    }
+                    case RAW: {
+                        Size targetSize = (numConfigs == 1) ? maxSizes.maxRawSize :
+                                overridePhysicalCameraSizes.get(j);
+                        ImageReader target = ImageReader.newInstance(
+                            targetSize.getWidth(), targetSize.getHeight(), RAW, numBuffers);
+                        target.setOnImageAvailableListener(imageDropperListener, mHandler);
+                        OutputConfiguration config = new OutputConfiguration(target.getSurface());
+                        if (numConfigs > 1) {
+                            config.setPhysicalCameraId(overridePhysicalCameraIds.get(j));
+                        }
+                        outputConfigs.add(config);
+                        rawTargets.add(target);
+                        break;
+                    }
+                    default:
+                        fail("Unknown output format " + format);
                 }
-                case JPEG: {
-                    Size targetSize = maxSizes.maxJpegSizes[sizeLimit];
-                    ImageReader target = ImageReader.newInstance(
-                        targetSize.getWidth(), targetSize.getHeight(), JPEG, numBuffers);
-                    target.setOnImageAvailableListener(imageDropperListener, mHandler);
-                    outputSurfaces.add(target.getSurface());
-                    jpegTargets.add(target);
-                    break;
-                }
-                case YUV: {
-                    Size targetSize = maxSizes.maxYuvSizes[sizeLimit];
-                    ImageReader target = ImageReader.newInstance(
-                        targetSize.getWidth(), targetSize.getHeight(), YUV, numBuffers);
-                    target.setOnImageAvailableListener(imageDropperListener, mHandler);
-                    outputSurfaces.add(target.getSurface());
-                    yuvTargets.add(target);
-                    break;
-                }
-                case RAW: {
-                    Size targetSize = maxSizes.maxRawSize;
-                    ImageReader target = ImageReader.newInstance(
-                        targetSize.getWidth(), targetSize.getHeight(), RAW, numBuffers);
-                    target.setOnImageAvailableListener(imageDropperListener, mHandler);
-                    outputSurfaces.add(target.getSurface());
-                    rawTargets.add(target);
-                    break;
-                }
-                default:
-                    fail("Unknown output format " + format);
             }
         }
     }
@@ -1615,6 +2052,31 @@ public class RobustnessTest extends Camera2AndroidTestCase {
 
         CamcorderProfile maxProfile = CamcorderProfile.get(id, quality);
         return new Size(maxProfile.videoFrameWidth, maxProfile.videoFrameHeight);
+    }
+
+    private static Size getMaxExternalRecordingSize(
+            String cameraId, StreamConfigurationMap config) {
+        final Size FULLHD = new Size(1920, 1080);
+
+        Size[] videoSizeArr = config.getOutputSizes(android.media.MediaRecorder.class);
+        List<Size> sizes = new ArrayList<Size>();
+        for (Size sz: videoSizeArr) {
+            if (sz.getWidth() <= FULLHD.getWidth() && sz.getHeight() <= FULLHD.getHeight()) {
+                sizes.add(sz);
+            }
+        }
+        List<Size> videoSizes = getAscendingOrderSizes(sizes, /*ascending*/false);
+        for (Size sz : videoSizes) {
+            long minFrameDuration = config.getOutputMinFrameDuration(
+                    android.media.MediaRecorder.class, sz);
+            // Give some margin for rounding error
+            if (minFrameDuration > (1e9 / 30.1)) {
+                Log.i(TAG, "External camera " + cameraId + " has max video size:" + sz);
+                return sz;
+            }
+        }
+        fail("Camera " + cameraId + " does not support any 30fps video output");
+        return FULLHD; // doesn't matter what size is returned here
     }
 
     /**

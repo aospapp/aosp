@@ -2,6 +2,10 @@ cc_defaults {
     name: "llvm-defaults",
     defaults: ["llvm-defaults-no-generated-headers"],
     header_libs: ["llvm-headers"],
+    tidy_checks: [
+        "-google-build-*",
+        "-google-global-*",
+    ],
 }
 
 // This module defines all of the defaults used to compiled llvm, except for
@@ -11,7 +15,6 @@ llvm_defaults {
     name: "llvm-defaults-no-generated-headers",
 
     host_supported: true,
-    clang: true,
 
     cflags: [
         "-D_GNU_SOURCE",
@@ -21,6 +24,7 @@ llvm_defaults {
         "-fomit-frame-pointer",
         "-Wall",
         "-W",
+        "-Wno-cast-qual",
         "-Wno-sign-compare",
         "-Wno-unused-parameter",
         "-Wno-maybe-uninitialized",
@@ -41,6 +45,11 @@ llvm_defaults {
         "-Wno-error=user-defined-warnings",
     ],
 
+    tidy_checks: [
+        "-google-build-*",
+        "-google-global-*",
+    ],
+
     header_libs: ["llvm-headers-no-generated-headers"],
 
     target: {
@@ -48,6 +57,8 @@ llvm_defaults {
             cflags: [
                 "-finline-functions",
             ],
+        },
+        linux: {
             cppflags: [
                 "-Woverloaded-virtual",
             ],
@@ -70,12 +81,9 @@ llvm_defaults {
 
             host_ldlibs: ["-luuid"],
         },
-        linux: {
-            cppflags: ["-Woverloaded-virtual"],
-
+        linux_glibc: {
             // Add on ncurses to have support for terminfo
             host_ldlibs: [
-                "-ldl",
                 "-lncurses",
                 "-lgcc_s",
             ],
@@ -88,7 +96,6 @@ llvm_defaults {
 
             // Add on ncurses to have support for terminfo
             host_ldlibs: [
-                "-ldl",
                 "-lncurses",
             ],
         },
@@ -197,7 +204,7 @@ llvm_aarch64_static_libraries = [
 
 cc_library_shared {
     host_supported: true,
-    name: "libLLVM",
+    name: "libLLVM_android",
     defaults: [
         "llvm-defaults",
         "force_build_llvm_components",
@@ -264,18 +271,6 @@ cc_library_shared {
                 "-lpsapi",
                 "-lole32",
                 "-lversion",
-            ],
-        },
-        darwin: {
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
-            ],
-        },
-        linux: {
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
             ],
         },
         android: {

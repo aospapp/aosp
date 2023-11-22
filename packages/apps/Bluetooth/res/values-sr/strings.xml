@@ -134,4 +134,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"Bluetooth аудио је повезан"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Веза са Bluetooth аудијом је прекинута"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth аудио"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Не могу да се преносе датотеке веће од 4 GB"</string>
 </resources>

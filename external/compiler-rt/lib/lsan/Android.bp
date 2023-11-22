@@ -33,13 +33,14 @@ cc_library_static {
         "-std=c++11",
         "-fno-rtti",
         "-fno-builtin",
+        "-Wall",
+        "-Werror",
     ],
     srcs: [
         "lsan_common.cc",
         "lsan_common_linux.cc",
     ],
 
-    clang: true,
     sdk_version: "19",
     stl: "none",
 

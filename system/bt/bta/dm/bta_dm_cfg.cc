@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2012 Broadcom Corporation
+ *  Copyright 2003-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -111,9 +111,9 @@ const tBTA_DM_RM bta_dm_rm_cfg[] = {
     {BTA_ID_HH, BTA_ALL_APP_ID, BTA_HH_ROLE},
     {BTA_ID_AV, BTA_ALL_APP_ID, BTA_AV_ROLE}};
 
-tBTA_DM_CFG* p_bta_dm_cfg = (tBTA_DM_CFG*)&bta_dm_cfg;
+const tBTA_DM_CFG* p_bta_dm_cfg = &bta_dm_cfg;
 
-tBTA_DM_RM* p_bta_dm_rm_cfg = (tBTA_DM_RM*)&bta_dm_rm_cfg;
+const tBTA_DM_RM* p_bta_dm_rm_cfg = &bta_dm_rm_cfg[0];
 
 #define BTA_DM_NUM_PM_ENTRY \
   23 /* number of entries in bta_dm_pm_cfg except the first */
@@ -236,7 +236,7 @@ tBTA_DM_PM_TYPE_QUALIFIER tBTA_DM_PM_SPEC bta_dm_pm_spec[BTA_DM_NUM_PM_SPEC] = {
     /* AV : 4 */
     {(BTA_DM_PM_SNIFF), /* allow sniff */
 #if (BTM_SSR_INCLUDED == TRUE)
-     (BTA_DM_PM_SSR2), /* the SSR entry */
+     (BTA_DM_PM_SSR0), /* the SSR entry */
 #endif
      {
          {{BTA_DM_PM_SNIFF_A2DP_IDX, 7000},
@@ -288,7 +288,7 @@ tBTA_DM_PM_TYPE_QUALIFIER tBTA_DM_PM_SPEC bta_dm_pm_spec[BTA_DM_NUM_PM_SPEC] = {
          {{BTA_DM_PM_NO_ACTION, 0}, {BTA_DM_PM_NO_ACTION, 0}}, /* app close */
          {{BTA_DM_PM_NO_ACTION, 0}, {BTA_DM_PM_NO_ACTION, 0}}, /* sco open  */
          {{BTA_DM_PM_NO_ACTION, 0}, {BTA_DM_PM_NO_ACTION, 0}}, /* sco close   */
-         {{BTA_DM_PM_SNIFF_A2DP_IDX, 5000},
+         {{BTA_DM_PM_SNIFF_A2DP_IDX, BTA_FTC_IDLE_TO_SNIFF_DELAY_MS},
           {BTA_DM_PM_NO_ACTION, 0}},                        /* idle */
          {{BTA_DM_PM_ACTIVE, 0}, {BTA_DM_PM_NO_ACTION, 0}}, /* busy */
          {{BTA_DM_PM_NO_ACTION, 0},
@@ -559,12 +559,12 @@ tBTA_DM_SSR_SPEC bta_dm_ssr_spec[] = {
     {360, 160, 1600} /* BTA_DM_PM_SSR3 - HD */
 };
 
-tBTA_DM_SSR_SPEC* p_bta_dm_ssr_spec = (tBTA_DM_SSR_SPEC*)&bta_dm_ssr_spec;
+tBTA_DM_SSR_SPEC* p_bta_dm_ssr_spec = &bta_dm_ssr_spec[0];
 #endif
 
-tBTA_DM_PM_CFG* p_bta_dm_pm_cfg = (tBTA_DM_PM_CFG*)&bta_dm_pm_cfg;
-tBTA_DM_PM_SPEC* p_bta_dm_pm_spec = (tBTA_DM_PM_SPEC*)&bta_dm_pm_spec;
-tBTM_PM_PWR_MD* p_bta_dm_pm_md = (tBTM_PM_PWR_MD*)&bta_dm_pm_md;
+const tBTA_DM_PM_CFG* p_bta_dm_pm_cfg = &bta_dm_pm_cfg[0];
+const tBTA_DM_PM_SPEC* p_bta_dm_pm_spec = &bta_dm_pm_spec[0];
+const tBTM_PM_PWR_MD* p_bta_dm_pm_md = &bta_dm_pm_md[0];
 
 /* The performance impact of EIR packet size
  *
@@ -620,4 +620,4 @@ const tBTA_DM_EIR_CONF bta_dm_eir_cfg = {
     0,    /* length of additional data in bytes */
     NULL  /* additional data */
 };
-tBTA_DM_EIR_CONF* p_bta_dm_eir_cfg = (tBTA_DM_EIR_CONF*)&bta_dm_eir_cfg;
+const tBTA_DM_EIR_CONF* p_bta_dm_eir_cfg = &bta_dm_eir_cfg;

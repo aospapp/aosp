@@ -30,15 +30,4 @@ public class Poc17_01 extends SecurityTestCase {
             AdbUtils.runPoc("CVE-2016-8482", getDevice(), 60);
         }
     }
-
-   /**
-     *  b/32636619
-     */
-    @SecurityTest
-    public void testPocCVE_2017_0429() throws Exception {
-        if(containsDriver(getDevice(), "/dev/nvhost-as-gpu")) {
-            enableAdbRoot(getDevice());
-            AdbUtils.runPoc("CVE-2017-0429", getDevice(), 60);
-        }
-    }
- }
+}

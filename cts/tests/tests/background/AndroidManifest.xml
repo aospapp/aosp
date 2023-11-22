@@ -14,7 +14,8 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.app.cts.backgroundrestrictions">
+    package="android.app.cts.backgroundrestrictions"
+    android:targetSandboxVersion="2">
 
     <application>
         <uses-library android:name="android.test.runner" />

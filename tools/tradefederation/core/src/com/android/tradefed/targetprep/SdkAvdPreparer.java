@@ -45,10 +45,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * A {@link ITargetPreparer} that will create an avd and launch an emulator
- */
-public class SdkAvdPreparer implements ITargetPreparer, IHostCleaner {
+/** A {@link ITargetPreparer} that will create an avd and launch an emulator */
+public class SdkAvdPreparer extends BaseTargetPreparer implements IHostCleaner {
 
 
     @Option(name = "sdk-target", description = "the name of SDK target to launch. " +

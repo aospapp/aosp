@@ -14,30 +14,35 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.ICUBinary;
+import android.icu.testsharding.MainTestShard;
 
 /**
-* Testing class for Trie. Tests here will be simple, since both CharTrie and 
+* Testing class for Trie. Tests here will be simple, since both CharTrie and
 * IntTrie are very similar and are heavily used in other parts of ICU4J.
 * Codes using Tries are expected to have detailed tests.
 * @author Syn Wee Quek
 * @since release 2.1 Jan 01 2002
 */
-public final class ICUBinaryTest extends TestFmwk 
-{ 
+@MainTestShard
+@RunWith(JUnit4.class)
+public final class ICUBinaryTest extends TestFmwk
+{
     // constructor ---------------------------------------------------
-  
+
     /**
     * Constructor
     */
     public ICUBinaryTest()
     {
     }
-      
+
     // public methods -----------------------------------------------
-    
+
     /**
      * Testing the constructors of the Tries
      */
@@ -72,6 +77,7 @@ public final class ICUBinaryTest extends TestFmwk
         ByteBuffer bytes = ByteBuffer.wrap(array);
         ICUBinary.Authenticate authenticate
                 = new ICUBinary.Authenticate() {
+                    @Override
                     public boolean isDataVersionAcceptable(byte version[])
                     {
                         return version[0] == 1;

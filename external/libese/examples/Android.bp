@@ -19,6 +19,7 @@ cc_binary {
     proprietary: true,
     srcs: ["ese_nxp_sample.c"],
     host_supported: false,
+    cflags: ["-Wall", "-Werror"],
     target: {
         darwin: {
             enabled: false,

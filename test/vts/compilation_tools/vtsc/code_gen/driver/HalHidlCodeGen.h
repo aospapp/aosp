@@ -17,14 +17,10 @@
 #ifndef VTS_COMPILATION_TOOLS_VTSC_CODE_GEN_DRIVER_HALHIDLCODEGEN_H_
 #define VTS_COMPILATION_TOOLS_VTSC_CODE_GEN_DRIVER_HALHIDLCODEGEN_H_
 
-#include <fstream>
-#include <iostream>
-#include <sstream>
 #include <string>
 
-#include "test/vts/proto/ComponentSpecificationMessage.pb.h"
-
 #include "code_gen/driver/DriverCodeGenBase.h"
+#include "test/vts/proto/ComponentSpecificationMessage.pb.h"
 
 using namespace std;
 
@@ -117,17 +113,14 @@ class HalHidlCodeGen : public DriverCodeGenBase {
 
   // Generates the driver function implementation for a method.
   void GenerateDriverImplForMethod(Formatter& out,
-      const ComponentSpecificationMessage& message,
       const FunctionSpecificationMessage& func_msg);
 
   // Generates the code to perform a Hal function call.
   void GenerateHalFunctionCall(Formatter& out,
-      const ComponentSpecificationMessage& message,
       const FunctionSpecificationMessage& func_msg);
 
   // Generates the implementation of a callback passed to the Hal function call.
   void GenerateSyncCallbackFunctionImpl(Formatter& out,
-      const ComponentSpecificationMessage& message,
       const FunctionSpecificationMessage& func_msg);
 
   // Generates the driver function declaration for attributes defined within
@@ -180,6 +173,10 @@ class HalHidlCodeGen : public DriverCodeGenBase {
   void GenerateRandomFunctionDeclForAttribute(Formatter& out,
       const VariableSpecificationMessage& attribute);
 
+  // Generates the default return value for a typed variable.
+  void GenerateDefaultReturnValForTypedVariable(
+      Formatter& out, const VariableSpecificationMessage& val);
+
   // Generates the random function implementation for attributes defined within
   // an interface or in a types.hal.
   void GenerateRandomFunctionImplForAttribute(Formatter& out,
@@ -201,10 +198,6 @@ class HalHidlCodeGen : public DriverCodeGenBase {
   // Returns true if we could omit the callback function and return result
   // directly.
   bool CanElideCallback(const FunctionSpecificationMessage& func_msg);
-  bool isElidableType(const VariableType& type);
-
-  // Returns true if a HIDL type uses 'const' in its native C/C++ form.
-  bool isConstType(const VariableType& type);
 
   // instance variable name (e.g., device_);
   static const char* const kInstanceVariableName;

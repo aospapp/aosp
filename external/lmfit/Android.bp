@@ -21,5 +21,11 @@ cc_library_static {
         "lib/lmcurve_tyd.c",
         "lib/lmmin.c",
     ],
+    cflags: [
+        "-W",
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-parameter",
+    ],
     export_include_dirs: ["lib"],
 }

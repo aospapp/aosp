@@ -250,27 +250,35 @@ class InputPlayback(object):
         return utils.run('cat %s' % filepath).stdout.strip()
 
 
-    def _find_input_name(self, device_dir):
+    def _find_input_name(self, device_dir, name=None):
         """Find the associated input* name for the given device directory.
 
         E.g. given '/dev/input/event4', return 'input3'.
 
         @param device_dir: the device directory.
+        @param name: the device name.
+
 
         @returns: string of the associated input name.
 
         """
         input_names = glob.glob(os.path.join(device_dir, 'input', 'input*'))
-        if len(input_names) != 1:
-            logging.error('Input names found: %s', input_names)
-            raise error.TestError('Could not match input* to this device!')
-        return os.path.basename(input_names[0])
+        for input_name in input_names:
+          name_path = os.path.join(input_name, 'name')
+          if not os.path.exists(name_path):
+            continue
+          if name == self._get_contents_of_file(name_path):
+            return os.path.basename(input_name)
+        # Raise if name could not be matched.
+        logging.error('Input names found(%s): %s', device_dir, input_names)
+        raise error.TestError('Could not match input* to this device!')
 
 
-    def _find_device_ids_for_styluses(self, device_dir):
+    def _find_device_ids_for_styluses(self, device_dir, name=None):
         """Find the fw_id and hw_id for the stylus in the given directory.
 
         @param device_dir: the device directory.
+        @param name: the device name.
 
         @returns: firmware id, hardware id for this device.
 
@@ -281,7 +289,7 @@ class InputPlayback(object):
         # Find fw_id for wacom styluses via wacom_flash command.  Arguments
         # to this command are wacom_flash (dummy placeholder arg) -a (i2c name)
         # Find i2c name if any /dev/i2c-* link to this device's input event.
-        input_name = self._find_input_name(device_dir)
+        input_name = self._find_input_name(device_dir, name)
         i2c_paths = glob.glob('/dev/i2c-*')
         for i2c_path in i2c_paths:
             class_folder = i2c_path.replace('dev', 'sys/class/i2c-adapter')
@@ -321,7 +329,7 @@ class InputPlayback(object):
                                                 'stylus']:
             return fw_id, hw_id
         if input_type == 'stylus':
-            return self._find_device_ids_for_styluses(device_dir)
+            return self._find_device_ids_for_styluses(device_dir, name)
 
         # Touch devices with custom drivers usually save this info as a file.
         fw_filenames = ['fw_version', 'firmware_version', 'firmware_id']
@@ -360,7 +368,7 @@ class InputPlayback(object):
         if not fw_id:
             # Fw_ids for 2nd gen Synaptics can only be found via rmi4update.
             # See if any /dev/hidraw* link to this device's input event.
-            input_name = self._find_input_name(device_dir)
+            input_name = self._find_input_name(device_dir, name)
             hidraws = glob.glob('/dev/hidraw*')
             for hidraw in hidraws:
                 class_folder = hidraw.replace('dev', 'sys/class/hidraw')

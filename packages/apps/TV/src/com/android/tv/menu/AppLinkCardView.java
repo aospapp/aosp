@@ -33,19 +33,15 @@ import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
-
 import com.android.tv.MainActivity;
 import com.android.tv.R;
-import com.android.tv.data.Channel;
-import com.android.tv.util.BitmapUtils;
-import com.android.tv.util.ImageLoader;
+import com.android.tv.data.api.Channel;
 import com.android.tv.util.TvInputManagerHelper;
-
+import com.android.tv.util.images.BitmapUtils;
+import com.android.tv.util.images.ImageLoader;
 import java.util.Objects;
 
-/**
- * A view to render an app link card.
- */
+/** A view to render an app link card. */
 public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
     private static final String TAG = MenuView.TAG;
     private static final boolean DEBUG = MenuView.DEBUG;
@@ -88,9 +84,7 @@ public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
         mDefaultDrawable = getResources().getDrawable(R.drawable.ic_recent_thumbnail_default, null);
     }
 
-    /**
-     * Returns the intent which will be started once this card is clicked.
-     */
+    /** Returns the intent which will be started once this card is clicked. */
     public Intent getIntent() {
         return mIntent;
     }
@@ -100,13 +94,20 @@ public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
         Channel newChannel = item.getChannel();
         boolean channelChanged = !Objects.equals(mChannel, newChannel);
         String previousPosterArtUri = mChannel == null ? null : mChannel.getAppLinkPosterArtUri();
-        boolean posterArtChanged = previousPosterArtUri == null
-                || newChannel.getAppLinkPosterArtUri() == null
-                || !TextUtils.equals(previousPosterArtUri, newChannel.getAppLinkPosterArtUri());
+        boolean posterArtChanged =
+                previousPosterArtUri == null
+                        || newChannel.getAppLinkPosterArtUri() == null
+                        || !TextUtils.equals(
+                                previousPosterArtUri, newChannel.getAppLinkPosterArtUri());
         mChannel = newChannel;
         if (DEBUG) {
-            Log.d(TAG, "onBind(channelName=" + mChannel.getDisplayName() + ", selected=" + selected
-                    + ")");
+            Log.d(
+                    TAG,
+                    "onBind(channelName="
+                            + mChannel.getDisplayName()
+                            + ", selected="
+                            + selected
+                            + ")");
         }
         ApplicationInfo appInfo = mTvInputManagerHelper.getTvInputAppInfo(mChannel.getInputId());
         if (channelChanged) {
@@ -120,8 +121,8 @@ public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
                     mAppInfoView.setVisibility(VISIBLE);
                     mAppInfoView.setCompoundDrawablePadding(mIconPadding);
                     mAppInfoView.setCompoundDrawablesRelative(null, null, null, null);
-                    appLabel = mTvInputManagerHelper
-                            .getTvInputApplicationLabel(mChannel.getInputId());
+                    appLabel =
+                            mTvInputManagerHelper.getTvInputApplicationLabel(mChannel.getInputId());
                     if (appLabel != null) {
                         mAppInfoView.setText(appLabel);
                     } else {
@@ -140,7 +141,7 @@ public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
                             protected void onPostExecute(CharSequence appLabel) {
                                 mTvInputManagerHelper.setTvInputApplicationLabel(
                                         mLoadTvInputId, appLabel);
-                                if (mLoadTvInputId != mChannel.getInputId()
+                                if (mLoadTvInputId.equals(mChannel.getInputId())
                                         || !isAttachedToWindow()) {
                                     return;
                                 }
@@ -149,12 +150,17 @@ public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
                         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
                     }
                     if (!TextUtils.isEmpty(mChannel.getAppLinkIconUri())) {
-                        mChannel.loadBitmap(getContext(), Channel.LOAD_IMAGE_TYPE_APP_LINK_ICON,
-                                mIconWidth, mIconHeight, createChannelLogoCallback(
+                        mChannel.loadBitmap(
+                                getContext(),
+                                Channel.LOAD_IMAGE_TYPE_APP_LINK_ICON,
+                                mIconWidth,
+                                mIconHeight,
+                                createChannelLogoCallback(
                                         this, mChannel, Channel.LOAD_IMAGE_TYPE_APP_LINK_ICON));
                     } else if (appInfo.icon != 0) {
-                        Drawable appIcon = mTvInputManagerHelper
-                                .getTvInputApplicationIcon(mChannel.getInputId());
+                        Drawable appIcon =
+                                mTvInputManagerHelper.getTvInputApplicationIcon(
+                                        mChannel.getInputId());
                         if (appIcon != null) {
                             BitmapUtils.setColorFilterToDrawable(mIconColorFilter, appIcon);
                             appIcon.setBounds(0, 0, mIconWidth, mIconHeight);
@@ -186,11 +192,14 @@ public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
                     }
                     break;
                 case Channel.APP_LINK_TYPE_APP:
-                    appLabel = mTvInputManagerHelper
-                        .getTvInputApplicationLabel(mChannel.getInputId());
+                    appLabel =
+                            mTvInputManagerHelper.getTvInputApplicationLabel(mChannel.getInputId());
                     if (appLabel != null) {
-                        setText(getContext()
-                            .getString(R.string.channels_item_app_link_app_launcher, appLabel));
+                        setText(
+                                getContext()
+                                        .getString(
+                                                R.string.channels_item_app_link_app_launcher,
+                                                appLabel));
                     } else {
                         new AsyncTask<Void, Void, CharSequence>() {
                             private final String mLoadTvInputId = mChannel.getInputId();
@@ -206,15 +215,17 @@ public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
                             @Override
                             protected void onPostExecute(CharSequence appLabel) {
                                 mTvInputManagerHelper.setTvInputApplicationLabel(
-                                    mLoadTvInputId, appLabel);
+                                        mLoadTvInputId, appLabel);
                                 if (!mLoadTvInputId.equals(mChannel.getInputId())
-                                    || !isAttachedToWindow()) {
+                                        || !isAttachedToWindow()) {
                                     return;
                                 }
-                                setText(getContext()
-                                    .getString(
-                                        R.string.channels_item_app_link_app_launcher,
-                                        appLabel));
+                                setText(
+                                        getContext()
+                                                .getString(
+                                                        R.string
+                                                                .channels_item_app_link_app_launcher,
+                                                        appLabel));
                             }
                         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
                     }
@@ -235,9 +246,13 @@ public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
             mImageView.setImageDrawable(mDefaultDrawable);
             mImageView.setForeground(null);
             if (!TextUtils.isEmpty(mChannel.getAppLinkPosterArtUri())) {
-                mChannel.loadBitmap(getContext(), Channel.LOAD_IMAGE_TYPE_APP_LINK_POSTER_ART,
-                        mCardImageWidth, mCardImageHeight, createChannelLogoCallback(this, mChannel,
-                                Channel.LOAD_IMAGE_TYPE_APP_LINK_POSTER_ART));
+                mChannel.loadBitmap(
+                        getContext(),
+                        Channel.LOAD_IMAGE_TYPE_APP_LINK_POSTER_ART,
+                        mCardImageWidth,
+                        mCardImageHeight,
+                        createChannelLogoCallback(
+                                this, mChannel, Channel.LOAD_IMAGE_TYPE_APP_LINK_POSTER_ART));
             } else {
                 setCardImageWithBanner(appInfo);
             }
@@ -265,10 +280,12 @@ public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
             if (bitmap != null) {
                 drawable = new BitmapDrawable(getResources(), bitmap);
                 if (bitmap.getWidth() > bitmap.getHeight()) {
-                    drawable.setBounds(0, 0, mIconWidth,
-                            mIconWidth * bitmap.getHeight() / bitmap.getWidth());
+                    drawable.setBounds(
+                            0, 0, mIconWidth, mIconWidth * bitmap.getHeight() / bitmap.getWidth());
                 } else {
-                    drawable.setBounds(0, 0,
+                    drawable.setBounds(
+                            0,
+                            0,
                             mIconHeight * bitmap.getWidth() / bitmap.getHeight(),
                             mIconHeight);
                 }
@@ -303,6 +320,7 @@ public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
     private void setCardImageWithBanner(ApplicationInfo appInfo) {
         new AsyncTask<Void, Void, Drawable>() {
             private String mLoadTvInputId = mChannel.getInputId();
+
             @Override
             protected Drawable doInBackground(Void... params) {
                 Drawable banner = null;
@@ -321,7 +339,7 @@ public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
 
             @Override
             protected void onPostExecute(Drawable banner) {
-                if (mLoadTvInputId != mChannel.getInputId() || !isAttachedToWindow()) {
+                if (mLoadTvInputId.equals(mChannel.getInputId()) || !isAttachedToWindow()) {
                     return;
                 }
                 if (banner != null) {
@@ -341,6 +359,7 @@ public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
         } else {
             new AsyncTask<Void, Void, Drawable>() {
                 private final String mLoadTvInputId = mChannel.getInputId();
+
                 @Override
                 protected Drawable doInBackground(Void... params) {
                     Drawable banner = null;
@@ -373,8 +392,8 @@ public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
             mImageView.setImageDrawable(mDefaultDrawable);
             mImageView.setBackgroundResource(R.color.channel_card);
         } else {
-            Bitmap bitmap = Bitmap.createBitmap(
-                    mCardImageWidth, mCardImageHeight, Bitmap.Config.ARGB_8888);
+            Bitmap bitmap =
+                    Bitmap.createBitmap(mCardImageWidth, mCardImageHeight, Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(bitmap);
             banner.setBounds(0, 0, mCardImageWidth, mCardImageHeight);
             banner.draw(canvas);
@@ -387,12 +406,19 @@ public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
     }
 
     private void extractAndSetMetaViewBackgroundColor(Bitmap bitmap) {
-        new Palette.Builder(bitmap).generate(new Palette.PaletteAsyncListener() {
-            @Override
-            public void onGenerated(Palette palette) {
-                mMetaViewHolder.setBackgroundColor(palette.getDarkVibrantColor(
-                        getResources().getColor(R.color.channel_card_meta_background, null)));
-            }
-        });
+        new Palette.Builder(bitmap)
+                .generate(
+                        new Palette.PaletteAsyncListener() {
+                            @Override
+                            public void onGenerated(Palette palette) {
+                                mMetaViewHolder.setBackgroundColor(
+                                        palette.getDarkVibrantColor(
+                                                getResources()
+                                                        .getColor(
+                                                                R.color
+                                                                        .channel_card_meta_background,
+                                                                null)));
+                            }
+                        });
     }
 }

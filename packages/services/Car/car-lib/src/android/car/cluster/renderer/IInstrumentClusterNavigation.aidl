@@ -25,13 +25,6 @@ import android.os.Bundle;
  * @hide
  */
 interface IInstrumentClusterNavigation {
-    void onStartNavigation();
-    void onStopNavigation();
-    void onNextManeuverChanged(
-        int event, CharSequence eventName, int turnAngle, int turnNumber, in Bitmap image,
-        int turnSide);
-    void onNextManeuverDistanceChanged(int distanceMeters, int timeSeconds,
-        int displayDistanceMillis, int displayDistanceUnit);
     void onEvent(int eventType, in Bundle bundle);
     CarNavigationInstrumentCluster getInstrumentClusterInfo();
 }

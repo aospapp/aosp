@@ -52,6 +52,7 @@ import org.jf.dexlib2.iface.debug.LineNumber;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
+import org.jf.dexlib2.iface.instruction.VariableRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.formats.*;
 import org.jf.dexlib2.iface.reference.*;
 import org.jf.dexlib2.util.InstructionUtil;
@@ -955,7 +956,13 @@ public abstract class DexWriter<
                 if (instruction.getOpcode().referenceType == ReferenceType.METHOD) {
                     ReferenceInstruction refInsn = (ReferenceInstruction)instruction;
                     MethodReference methodRef = (MethodReference)refInsn.getReference();
-                    int paramCount = MethodUtil.getParameterRegisterCount(methodRef, InstructionUtil.isInvokeStatic(instruction.getOpcode()));
+                    Opcode opcode = instruction.getOpcode();
+                    int paramCount;
+                    if (InstructionUtil.isInvokePolymorphic(opcode)) {
+                        paramCount = ((VariableRegisterInstruction)instruction).getRegisterCount();
+                    } else {
+                        paramCount = MethodUtil.getParameterRegisterCount(methodRef, InstructionUtil.isInvokeStatic(opcode));
+                    }
                     if (paramCount > outParamCount) {
                         outParamCount = paramCount;
                     }
@@ -1017,6 +1024,9 @@ public abstract class DexWriter<
                         case Format22c:
                             instructionWriter.write((Instruction22c)instruction);
                             break;
+                        case Format22cs:
+                            instructionWriter.write((Instruction22cs)instruction);
+                            break;
                         case Format22s:
                             instructionWriter.write((Instruction22s)instruction);
                             break;
@@ -1047,8 +1057,20 @@ public abstract class DexWriter<
                         case Format35c:
                             instructionWriter.write((Instruction35c)instruction);
                             break;
+                        case Format35mi:
+                            instructionWriter.write((Instruction35mi)instruction);
+                            break;
+                        case Format35ms:
+                            instructionWriter.write((Instruction35ms)instruction);
+                            break;
                         case Format3rc:
                             instructionWriter.write((Instruction3rc)instruction);
+                            break;
+                        case Format3rmi:
+                            instructionWriter.write((Instruction3rmi)instruction);
+                            break;
+                        case Format3rms:
+                            instructionWriter.write((Instruction3rms)instruction);
                             break;
                         case Format45cc:
                             instructionWriter.write((Instruction45cc)instruction);

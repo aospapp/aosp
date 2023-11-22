@@ -1,4 +1,16 @@
 /*
+ * Copyright (C) 2010-2017  Red Hat, Inc.
+ *
+ * This program is free software;  you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY;  without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+ * the GNU General Public License for more details.
+ *
  * Kernel Samepage Merging (KSM)
  *
  * Basic tests were to start several programs with same and different
@@ -31,28 +43,6 @@
  * - Change run setting to 2 - unmerging.
  * - Check ksm statistics and verify the content.
  * - Change run setting to 0 - stop.
- *
- * Copyright (C) 2010  Red Hat, Inc.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it would be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- * Further, this software is distributed without any warranty that it
- * is free of the rightful claim of any third person regarding
- * infringement or the like.  Any license provided herein, whether
- * implied or otherwise, applies only to this software file.  Patent
- * licenses, if any, provided herein do not apply to combinations of
- * this program with other software, or any other product whatsoever.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
  */
 
 #include <sys/types.h>
@@ -66,47 +56,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "test.h"
 #include "mem.h"
+#include "ksm_common.h"
 
-char *TCID = "ksm01";
-int TST_TOTAL = 1;
-
-static int merge_across_nodes;
-
-option_t ksm_options[] = {
-	{"n:", &opt_num, &opt_numstr},
-	{"s:", &opt_size, &opt_sizestr},
-	{"u:", &opt_unit, &opt_unitstr},
-	{NULL, NULL, NULL}
-};
-
-int main(int argc, char *argv[])
+static void verify_ksm(void)
 {
-	int lc;
-	int size = 128, num = 3, unit = 1;
-
-	tst_parse_opts(argc, argv, ksm_options, ksm_usage);
-	setup();
-	for (lc = 0; TEST_LOOPING(lc); lc++) {
-		tst_count = 0;
-		check_ksm_options(&size, &num, &unit);
-		create_same_memory(size, num, unit);
-	}
-	cleanup();
-	tst_exit();
+	create_same_memory(size, num, unit);
 }
 
-void setup(void)
+static void setup(void)
 {
-	tst_require_root();
-
-	if (tst_kvercmp(2, 6, 32) < 0)
-		tst_brkm(TCONF, NULL, "2.6.32 or greater kernel required");
 	if (access(PATH_KSM, F_OK) == -1)
-		tst_brkm(TCONF, NULL, "KSM configuration is not enabled");
+		tst_brk(TCONF, "KSM configuration is not enabled");
 
 	save_max_page_sharing();
+
+	parse_ksm_options(opt_sizestr, &size, opt_numstr, &num, opt_unitstr, &unit);
 
 	/*
 	 * kernel commit 90bd6fd introduced a new KSM sysfs knob
@@ -116,16 +81,13 @@ void setup(void)
 	 * it is enabled before testing.
 	 */
 	if (access(PATH_KSM "merge_across_nodes", F_OK) == 0) {
-		SAFE_FILE_SCANF(NULL, PATH_KSM "merge_across_nodes",
+		SAFE_FILE_SCANF(PATH_KSM "merge_across_nodes",
 				"%d", &merge_across_nodes);
-		SAFE_FILE_PRINTF(NULL, PATH_KSM "merge_across_nodes", "1");
+		SAFE_FILE_PRINTF(PATH_KSM "merge_across_nodes", "1");
 	}
-
-	tst_sig(FORK, DEF_HANDLER, NULL);
-	TEST_PAUSE;
 }
 
-void cleanup(void)
+static void cleanup(void)
 {
 	if (access(PATH_KSM "merge_across_nodes", F_OK) == 0)
 		FILE_PRINTF(PATH_KSM "merge_across_nodes",
@@ -133,3 +95,13 @@ void cleanup(void)
 
 	restore_max_page_sharing();
 }
+
+static struct tst_test test = {
+	.needs_root = 1,
+	.forks_child = 1,
+	.options = ksm_options,
+	.setup = setup,
+	.cleanup = cleanup,
+	.test_all = verify_ksm,
+	.min_kver = "2.6.32",
+};

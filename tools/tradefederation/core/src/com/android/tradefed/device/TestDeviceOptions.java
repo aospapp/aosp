@@ -25,6 +25,7 @@ import java.util.List;
  */
 public class TestDeviceOptions {
 
+    /** Do not provide a setter method for that Option as it might be misused. */
     @Option(name = "enable-root", description = "enable adb root on boot.")
     private boolean mEnableAdbRoot = true;
 
@@ -87,6 +88,13 @@ public class TestDeviceOptions {
             + "The actual wait time would be a multiple of this value.")
     private int mWifiRetryWaitTime = 60 * 1000;
 
+    @Option(
+        name = "max-wifi-connect-time",
+        isTimeVal = true,
+        description = "the maximum amount of time to attempt to connect to wifi."
+    )
+    private long mMaxWifiConnectTime = 10 * 60 * 1000;
+
     @Option(name = "wifi-exponential-retry",
             description = "Change the wifi connection retry strategy from a linear wait time into"
                     + " a binary exponential back-offs when retrying.")
@@ -112,13 +120,6 @@ public class TestDeviceOptions {
      */
     public boolean isEnableAdbRoot() {
         return mEnableAdbRoot;
-    }
-
-    /**
-     * Set whether adb root should be enabled on boot for this device
-     */
-    public void setEnableAdbRoot(boolean enableAdbRoot) {
-        mEnableAdbRoot = enableAdbRoot;
     }
 
     /**
@@ -274,6 +275,11 @@ public class TestDeviceOptions {
      */
     public int getWifiRetryWaitTime() {
         return mWifiRetryWaitTime;
+    }
+
+    /** @return the maximum time to attempt to connect to wifi. */
+    public long getMaxWifiConnectTime() {
+        return mMaxWifiConnectTime;
     }
 
     /**

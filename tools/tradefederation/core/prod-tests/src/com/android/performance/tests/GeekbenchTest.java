@@ -17,13 +17,14 @@
 package com.android.performance.tests;
 
 import com.android.ddmlib.CollectingOutputReceiver;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -94,7 +95,7 @@ public class GeekbenchTest implements IDeviceTest, IRemoteTest {
      */
     @Override
     public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
-        TestIdentifier testId = new TestIdentifier(getClass().getCanonicalName(), RUN_KEY);
+        TestDescription testId = new TestDescription(getClass().getCanonicalName(), RUN_KEY);
         ITestDevice device = getDevice();
 
         // delete old results
@@ -141,12 +142,12 @@ public class GeekbenchTest implements IDeviceTest, IRemoteTest {
         if (errMsg != null) {
             CLog.e(errMsg);
             listener.testFailed(testId, errMsg);
-            listener.testEnded(testId, metrics);
+            listener.testEnded(testId, TfMetricProtoUtil.upgradeConvert(metrics));
             listener.testRunFailed(errMsg);
         } else {
             long durationMs = System.currentTimeMillis() - testStartTime;
-            listener.testEnded(testId, metrics);
-            listener.testRunEnded(durationMs, metrics);
+            listener.testEnded(testId, TfMetricProtoUtil.upgradeConvert(metrics));
+            listener.testRunEnded(durationMs, TfMetricProtoUtil.upgradeConvert(metrics));
         }
     }
 

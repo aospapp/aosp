@@ -468,6 +468,18 @@ public class VmMirror {
     }
 
     /**
+     * Indicates whether the non-standard capability <i>canRedefineDexClasses</i> is supported.
+     *
+     * @return true if supported, false otherwise.
+     */
+    public boolean canRedefineDexClasses() {
+        capabilities();
+        // This unused capability is used by android libjdwp agents to say if they can redefine
+        // classes using (single class) DEX files.
+        return targetVMCapabilities.reserved32;
+    }
+
+    /**
      * Resumes debuggee VM.
      * 
      * @return ReplyPacket for corresponding command
@@ -829,39 +841,13 @@ public class VmMirror {
      * @return received FieldID
      */
     public long getFieldID(long classID, String fieldName) {
-        ReplyPacket reply = getFieldsInClass(classID);
-        return getFieldID(reply, fieldName);
-    }
-
-    /**
-     * Gets FieldID from ReplyPacket.
-     * 
-     * @param request
-     *            ReplyPacket for request
-     * @param field
-     *            field name to get ID for
-     * @return received FieldID
-     */
-    public long getFieldID(ReplyPacket request, String field) {
-        long fieldID = -1;
-        String fieldName;
-        // Get fieldID from received packet
-        int count = request.getNextValueAsInt();
-        for (int i = 0; i < count; i++) {
-            fieldID = request.getNextValueAsFieldID();
-            fieldName = request.getNextValueAsString();
-            if (field.equals(fieldName)) {
-                request.getNextValueAsString();
-                request.getNextValueAsInt();
-                break;
-            } else {
-                request.getNextValueAsString();
-                request.getNextValueAsInt();
-                fieldID = 0;
-                fieldName = null;
+        Field[] fields = getFieldsInfo(classID);
+        for (Field field : fields) {
+            if (field.getName().equals(fieldName)) {
+                return field.getFieldID();
             }
         }
-        return fieldID;
+        return -1;
     }
 
     /**
@@ -874,33 +860,31 @@ public class VmMirror {
      * @return received MethodID
      */
     public long getMethodID(long classID, String methodName) {
-        ReplyPacket reply;
-        int declared = 0;
-        String method = null;
-        long methodID = -1;
+        // Only take method name into account.
+        return getMethodID(classID, methodName, null);
+    }
 
-        // Get Method reference ID
-        reply = getMethods(classID);
-
-        // Get methodID from received packet
-        declared = reply.getNextValueAsInt();
-        for (int i = 0; i < declared; i++) {
-            methodID = reply.getNextValueAsMethodID();
-            method = reply.getNextValueAsString();
-            if (methodName.equals(method)) {
-                // If this method name is the same as requested
-                reply.getNextValueAsString();
-                reply.getNextValueAsInt();
-                break;
-            } else {
-                // If this method name is not the requested one
-                reply.getNextValueAsString();
-                reply.getNextValueAsInt();
-                methodID = -1;
-                method = null;
+    /**
+     * Gets Method ID for specified class, method name and signature.
+     *
+     * @param classID
+     *            class to find method
+     * @param methodName
+     *            method name
+     * @param methodSignature
+     *            method signature
+     * @return received MethodID
+     */
+    public long getMethodID(long classID, String methodName, String methodSignature) {
+        Method[] methods = getMethods(classID);
+        for (Method method : methods) {
+            if (method.getName().equals(methodName)) {
+                if (methodSignature == null || method.getSignature().equals(methodSignature)) {
+                    return method.getMethodID();
+                }
             }
         }
-        return methodID;
+        return -1;
     }
 
     /**
@@ -911,27 +895,13 @@ public class VmMirror {
      * @return method name
      */
     public String getMethodName(long classID, long methodID) {
-        CommandPacket packet = new CommandPacket(
-                JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
-                JDWPCommands.ReferenceTypeCommandSet.MethodsCommand);
-        packet.setNextValueAsReferenceTypeID(classID);
-        ReplyPacket reply = performCommand(packet);
-
-        int declared = reply.getNextValueAsInt();
-        long mID;
-        String value = null;
-        String methodName = "";
-        for (int i = 0; i < declared; i++) {
-            mID = reply.getNextValueAsMethodID();
-            methodName = reply.getNextValueAsString();
-            reply.getNextValueAsString();
-            reply.getNextValueAsInt();
-            if (mID == methodID) {
-                value = methodName;
-                break;
+        Method[] methods = getMethods(classID);
+        for (Method method : methods) {
+            if (methodID == method.getMethodID()) {
+                return method.getName();
             }
         }
-        return value;
+        return "unknown";
     }
 
     /**
@@ -1260,32 +1230,40 @@ public class VmMirror {
         return checkReply(performCommand(commandPacket));
     }
 
-    /**
-     * Gets method reference by signature.
-     * 
-     * @param classReferenceTypeID
-     *            class referenceTypeID.
-     * @return ReplyPacket for corresponding command
-     */
-    public ReplyPacket getMethods(long classReferenceTypeID) {
-        // Create new command packet
-        CommandPacket commandPacket = new CommandPacket();
+    public Method[] getMethods(long classID) {
+        boolean withGeneric = true;
+        CommandPacket commandPacket = new CommandPacket(
+                JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
+                JDWPCommands.ReferenceTypeCommandSet.MethodsWithGenericCommand);
+        commandPacket.setNextValueAsReferenceTypeID(classID);
+        ReplyPacket reply = performCommand(commandPacket);
+        if (reply.getErrorCode() == JDWPConstants.Error.NOT_IMPLEMENTED) {
+            withGeneric = false;
+            commandPacket.setCommand(JDWPCommands.ReferenceTypeCommandSet.MethodsCommand);
+            reply = performCommand(commandPacket);
+        }
+        checkReply(reply);
 
-        // Set command. "5" - is ID of Methods command in ReferenceType Command
-        // Set
-        commandPacket
-                .setCommand(JDWPCommands.ReferenceTypeCommandSet.MethodsCommand);
-
-        // Set command set. "2" - is ID of ReferenceType Command Set
-        commandPacket
-                .setCommandSet(JDWPCommands.ReferenceTypeCommandSet.CommandSetID);
-
-        // Set outgoing data
-        // Set referenceTypeID
-        commandPacket.setNextValueAsObjectID(classReferenceTypeID);
-
-        // Send packet
-        return checkReply(performCommand(commandPacket));
+        int declared = reply.getNextValueAsInt();
+        Method[] methods = new Method[declared];
+        for (int i = 0; i < declared; i++) {
+            long methodID = reply.getNextValueAsMethodID();
+            String methodName = reply.getNextValueAsString();
+            String methodSignature = reply.getNextValueAsString();
+            String methodGenericSignature = "";
+            if (withGeneric) {
+                methodGenericSignature = reply.getNextValueAsString();
+            }
+            int methodModifiers = reply.getNextValueAsInt();
+            methods[i] = new Method(
+                methodID,
+                methodName,
+                methodSignature,
+                methodGenericSignature,
+                methodModifiers
+            );
+        }
+        return methods;
     }
 
     /**
@@ -1304,18 +1282,40 @@ public class VmMirror {
     }
 
     /**
-     * Gets class fields by class referenceTypeID.
-     * 
-     * @param referenceTypeID
-     *            class referenceTypeID.
-     * @return ReplyPacket for corresponding command
+     * Returns for specified class array with information about fields of this class.
+     * <BR>Each element of array contains:
+     * <BR>Field ID, Field name, Field signature, Field modifier bit flags;
+     * @param refType - ReferenceTypeID, defining class.
+     * @return array with information about fields.
      */
-    public ReplyPacket getFieldsInClass(long referenceTypeID) {
-        CommandPacket commandPacket = new CommandPacket(
-                JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
-                JDWPCommands.ReferenceTypeCommandSet.FieldsCommand);
-        commandPacket.setNextValueAsReferenceTypeID(referenceTypeID);
-        return checkReply(performCommand(commandPacket));
+    public Field[] getFieldsInfo(long refType) {
+        boolean withGeneric = true;
+        CommandPacket packet = new CommandPacket(JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
+                JDWPCommands.ReferenceTypeCommandSet.FieldsWithGenericCommand);
+        packet.setNextValueAsReferenceTypeID(refType);
+        ReplyPacket reply = performCommand(packet);
+        if (reply.getErrorCode() == JDWPConstants.Error.NOT_IMPLEMENTED) {
+            withGeneric = false;
+            packet.setCommand(JDWPCommands.ReferenceTypeCommandSet.FieldsCommand);
+            reply = performCommand(packet);
+        }
+        checkReply(reply);
+
+        int declared = reply.getNextValueAsInt();
+        Field[] fields = new Field[declared];
+        for (int i = 0; i < declared; i++) {
+            long fieldID = reply.getNextValueAsFieldID();
+            String fieldName = reply.getNextValueAsString();
+            String fieldSignature = reply.getNextValueAsString();
+            String fieldGenericSignature = "";
+            if (withGeneric) {
+                fieldGenericSignature = reply.getNextValueAsString();
+            }
+            int fieldModifiers = reply.getNextValueAsInt();
+            fields[i] = new Field(fieldID, refType, fieldName, fieldSignature,
+                    fieldGenericSignature, fieldModifiers);
+        }
+        return fields;
     }
 
     /**
@@ -1892,14 +1892,18 @@ public class VmMirror {
      *         within the method.
      */
     public final List<Variable> getVariableTable(long classID, long methodID) {
+        boolean withGeneric = true;
         CommandPacket command = new CommandPacket(
                 JDWPCommands.MethodCommandSet.CommandSetID,
-                JDWPCommands.MethodCommandSet.VariableTableCommand);
+                JDWPCommands.MethodCommandSet.VariableTableWithGenericCommand);
         command.setNextValueAsReferenceTypeID(classID);
         command.setNextValueAsMethodID(methodID);
-        // ReplyPacket reply =
-        // debuggeeWrapper.vmMirror.checkReply(debuggeeWrapper.vmMirror.performCommand(command));
         ReplyPacket reply = performCommand(command);
+        if (reply.getErrorCode() == JDWPConstants.Error.NOT_IMPLEMENTED) {
+            withGeneric = false;
+            command.setCommand(JDWPCommands.MethodCommandSet.VariableTableCommand);
+            reply = performCommand(command);
+        }
         if (reply.getErrorCode() == JDWPConstants.Error.ABSENT_INFORMATION
                 || reply.getErrorCode() == JDWPConstants.Error.NATIVE_METHOD) {
             return null;
@@ -1909,16 +1913,15 @@ public class VmMirror {
 
         reply.getNextValueAsInt(); // argCnt, is not used
         int slots = reply.getNextValueAsInt();
-        if (slots == 0) {
-            return null;
-        }
-
         ArrayList<Variable> vars = new ArrayList<Variable>(slots);
         for (int i = 0; i < slots; i++) {
-            Variable var = new Frame().new Variable();
+            Variable var = new Variable();
             var.setCodeIndex(reply.getNextValueAsLong());
             var.setName(reply.getNextValueAsString());
             var.setSignature(reply.getNextValueAsString());
+            if (withGeneric) {
+                var.setGenericSignature(reply.getNextValueAsString());
+            }
             var.setLength(reply.getNextValueAsInt());
             var.setSlot(reply.getNextValueAsInt());
             vars.add(var);
@@ -2141,37 +2144,6 @@ public class VmMirror {
     }
 
     /**
-     * Returns information for each field in a reference type including
-     * inherited fields
-     * 
-     * @param classID
-     *            The reference type ID
-     * @return A list of Field objects representing each field of the class
-     */
-    public final List<Field> getAllFields(long classID) {
-        ArrayList<Field> fields = new ArrayList<Field>(0);
-
-        long superID = getSuperclassId(classID);
-        if (superID != 0) {
-            List<Field> superClassFields = getAllFields(superID);
-            for (int i = 0; i < superClassFields.size(); i++) {
-                fields.add((Field) superClassFields.toArray()[i]);
-            }
-        }
-
-        ReplyPacket reply = getFieldsInClass(classID);
-        int fieldsCount = reply.getNextValueAsInt();
-        for (int i = 0; i < fieldsCount; i++) {
-            Field field = new Field(reply.getNextValueAsFieldID(), classID,
-                    reply.getNextValueAsString(), reply.getNextValueAsString(),
-                    reply.getNextValueAsInt());
-            fields.add(field);
-        }
-
-        return fields;
-    }
-
-    /**
      * Returns the reference type reflected by this class object
      * 
      * @param classObjectID
@@ -2246,28 +2218,17 @@ public class VmMirror {
      * @return JNI signature of method.
      */
     public final String getMethodSignature(long classID, long methodID) {
-        CommandPacket command = new CommandPacket(
-                JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
-                JDWPCommands.ReferenceTypeCommandSet.MethodsCommand);
-        command.setNextValueAsReferenceTypeID(classID);
-        ReplyPacket reply = checkReply(performCommand(command));
-        int methods = reply.getNextValueAsInt();
-        String value = null;
-        for (int i = 0; i < methods; i++) {
-            long mID = reply.getNextValueAsMethodID();
-            reply.getNextValueAsString(); // name of the method; is not used
-            String methodSign = reply.getNextValueAsString();
-            reply.getNextValueAsInt();
-            if (mID == methodID) {
-                value = methodSign;
+        Method[] methods = getMethods(classID);
+        for (Method method : methods) {
+            if (methodID == method.getMethodID()) {
+                String value = method.getSignature();
                 value = value.replaceAll("/", ".");
                 int lastRoundBracketIndex = value.lastIndexOf(")");
                 value = value.substring(0, lastRoundBracketIndex + 1);
-                break;
+                return value;
             }
         }
-
-        return value;
+        return null;
     }
 
     /**

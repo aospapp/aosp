@@ -51,6 +51,8 @@ struct FwmarkConnectInfo {
 // Commands sent from clients to the fwmark server to mark sockets (i.e., set their SO_MARK).
 // ON_CONNECT_COMPLETE command should be accompanied by FwmarkConnectInfo which should  contain
 // info about that connect attempt
+// TODO: rework this struct into a more flexible data structure such as union or
+// a hierarchy class.
 struct FwmarkCommand {
     enum {
         ON_ACCEPT,
@@ -60,10 +62,20 @@ struct FwmarkCommand {
         SELECT_FOR_USER,
         QUERY_USER_ACCESS,
         ON_CONNECT_COMPLETE,
+        TAG_SOCKET,
+        UNTAG_SOCKET,
+        // TODO: use binder to pass the following two request in future after we
+        // completely get rid of qtaguid module, since these are privileged
+        // command.
+        SET_COUNTERSET,
+        DELETE_TAGDATA,
     } cmdId;
     unsigned netId;  // used only in the SELECT_NETWORK command; ignored otherwise.
-    uid_t uid;  // used only in the SELECT_FOR_USER and QUERY_USER_ACCESS commands;
-                // ignored otherwise.
+    uid_t uid;       // used in the SELECT_FOR_USER, QUERY_USER_ACCESS, TAG_SOCKET,
+                     // SET_COUNTERSET, and DELETE_TAGDATA command; ignored otherwise.
+    uint32_t trafficCtrlInfo;  // used in TAG_SOCKET, SET_COUNTERSET and SET_PACIFIER command;
+                               // ignored otherwise. Depend on the case, it can be a tag, a
+                               // counterSet or a pacifier signal.
 };
 
 #endif  // NETD_INCLUDE_FWMARK_COMMAND_H

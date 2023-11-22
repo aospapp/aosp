@@ -16,10 +16,10 @@
 
 #include <dirent.h>
 #include <errno.h>
-#include <fstream>
-#include <map>
 #include <string.h>
 #include <sys/types.h>
+#include <fstream>
+#include <map>
 
 #include "gtest/gtest.h"
 
@@ -81,7 +81,7 @@ std::string GetToolsDir() {
 
   if (toolsdir.empty()) {
     setup_results();
-    toolsdir = CommonRuntimeTest::GetAndroidTargetToolsDir(kThumb2);
+    toolsdir = CommonRuntimeTest::GetAndroidTargetToolsDir(InstructionSet::kThumb2);
     SetAndroidData();
   }
 
@@ -126,15 +126,8 @@ void DumpAndCheck(std::vector<uint8_t>& code, const char* testname, const char* 
   int cmd_result = system(cmd);
   ASSERT_EQ(cmd_result, 0) << strerror(errno);
 
-  // Remove the $d symbols to prevent the disassembler dumping the instructions
-  // as .word
-  snprintf(cmd, sizeof(cmd), "%sobjcopy -N '$d' %s.o %s.oo", toolsdir.c_str(), filename, filename);
-  int cmd_result2 = system(cmd);
-  ASSERT_EQ(cmd_result2, 0) << strerror(errno);
-
   // Disassemble.
-
-  snprintf(cmd, sizeof(cmd), "%sobjdump -d %s.oo | grep '^  *[0-9a-f][0-9a-f]*:'",
+  snprintf(cmd, sizeof(cmd), "%sobjdump -D -M force-thumb --section=.text %s.o  | grep '^  *[0-9a-f][0-9a-f]*:'",
     toolsdir.c_str(), filename);
   if (kPrintResults) {
     // Print the results only, don't check. This is used to generate new output for inserting
@@ -169,18 +162,15 @@ void DumpAndCheck(std::vector<uint8_t>& code, const char* testname, const char* 
   char buf[FILENAME_MAX];
   snprintf(buf, sizeof(buf), "%s.o", filename);
   unlink(buf);
-
-  snprintf(buf, sizeof(buf), "%s.oo", filename);
-  unlink(buf);
 #endif  // ART_TARGET_ANDROID
 }
 
 class ArmVIXLAssemblerTest : public ::testing::Test {
  public:
-  ArmVIXLAssemblerTest() : pool(), arena(&pool), assembler(&arena) { }
+  ArmVIXLAssemblerTest() : pool(), allocator(&pool), assembler(&allocator) { }
 
   ArenaPool pool;
-  ArenaAllocator arena;
+  ArenaAllocator allocator;
   ArmVIXLJNIMacroAssembler assembler;
 };
 
@@ -219,18 +209,16 @@ TEST_F(ArmVIXLAssemblerTest, VixlJniHelpers) {
   const bool is_critical_native = false;
   const char* shorty = "IIFII";
 
-  ArenaPool pool;
-  ArenaAllocator arena(&pool);
-
   std::unique_ptr<JniCallingConvention> jni_conv(
-      JniCallingConvention::Create(&arena,
+      JniCallingConvention::Create(&allocator,
                                    is_static,
                                    is_synchronized,
                                    is_critical_native,
                                    shorty,
-                                   kThumb2));
+                                   InstructionSet::kThumb2));
   std::unique_ptr<ManagedRuntimeCallingConvention> mr_conv(
-      ManagedRuntimeCallingConvention::Create(&arena, is_static, is_synchronized, shorty, kThumb2));
+      ManagedRuntimeCallingConvention::Create(
+          &allocator, is_static, is_synchronized, shorty, InstructionSet::kThumb2));
   const int frame_size(jni_conv->FrameSize());
   ArrayRef<const ManagedRegister> callee_save_regs = jni_conv->CalleeSaveRegisters();
 
@@ -295,7 +283,7 @@ TEST_F(ArmVIXLAssemblerTest, VixlJniHelpers) {
 
   __ DecreaseFrameSize(4096);
   __ DecreaseFrameSize(32);
-  __ RemoveFrame(frame_size, callee_save_regs);
+  __ RemoveFrame(frame_size, callee_save_regs, /* may_suspend */ true);
 
   EmitAndCheck(&assembler, "VixlJniHelpers");
 }

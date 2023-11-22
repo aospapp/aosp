@@ -12,7 +12,7 @@ import org.mockitoutil.TestBase;
 
 import java.util.List;
 
-import static junit.framework.TestCase.fail;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.*;
 
 public class AtLeastXVerificationTest extends TestBase {
@@ -31,7 +31,7 @@ public class AtLeastXVerificationTest extends TestBase {
     }
 
     @Test
-    public void shouldFailVerifiationAtLeastXTimes() throws Exception {
+    public void shouldFailVerificationAtLeastXTimes() throws Exception {
         mock.add("one");
         verify(mock, atLeast(1)).add(anyString());
 

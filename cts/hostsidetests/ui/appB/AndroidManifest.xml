@@ -15,20 +15,32 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.taskswitching.appb">
+        package="android.taskswitching.appb"
+        android:targetSandboxVersion="2">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
 
     <application>
+        <uses-library android:name="android.test.runner" />
+
         <activity
             android:name=".AppBActivity"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|uiMode"
             android:screenOrientation="portrait" >
 
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="foo.com" />
+                <data android:path="/appb" />
             </intent-filter>
+
         </activity>
     </application>
+
+    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+                     android:targetPackage="android.taskswitching.appb" />
+
 </manifest>

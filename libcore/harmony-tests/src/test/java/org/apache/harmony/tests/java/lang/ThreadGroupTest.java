@@ -230,6 +230,7 @@ public class ThreadGroupTest extends junit.framework.TestCase {
     }
 
     // Test for method java.lang.ThreadGroup.destroy()
+    @SuppressWarnings("DeadThread")
     public void test_destroy_subtest0() {
         ThreadGroup group1 = new ThreadGroup("test_destroy_subtest0");
         group1.destroy();

@@ -100,7 +100,7 @@ class CarTestService extends ICarTest.Stub implements CarServiceBase {
         }
 
         if (mTokens.size() == 0) {
-            mICarImpl.init();
+            CarServiceUtils.runOnMain(mICarImpl::init);
         }
     }
 

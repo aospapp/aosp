@@ -30,8 +30,7 @@ int listen_all_nsid;
 
 static void usage(void)
 {
-	fprintf(stderr, "Usage: ip monitor [ all | LISTofOBJECTS ] [ FILE ] "
-			"[ label ] [all-nsid] [dev DEVICE]\n");
+	fprintf(stderr, "Usage: ip monitor [ all | LISTofOBJECTS ] [ FILE ] [ label ] [all-nsid] [dev DEVICE]\n");
 	fprintf(stderr, "LISTofOBJECTS := link | address | route | mroute | prefix |\n");
 	fprintf(stderr, "                 neigh | netconf | rule | nsid\n");
 	fprintf(stderr, "FILE := file FILENAME\n");
@@ -58,7 +57,7 @@ static int accept_msg(const struct sockaddr_nl *who,
 		      struct rtnl_ctrl_data *ctrl,
 		      struct nlmsghdr *n, void *arg)
 {
-	FILE *fp = (FILE*)arg;
+	FILE *fp = (FILE *)arg;
 
 	if (n->nlmsg_type == RTM_NEWROUTE || n->nlmsg_type == RTM_DELROUTE) {
 		struct rtmsg *r = NLMSG_DATA(n);
@@ -139,8 +138,8 @@ static int accept_msg(const struct sockaddr_nl *who,
 	}
 	if (n->nlmsg_type != NLMSG_ERROR && n->nlmsg_type != NLMSG_NOOP &&
 	    n->nlmsg_type != NLMSG_DONE) {
-		fprintf(fp, "Unknown message: type=0x%08x(%d) flags=0x%08x(%d)"
-			"len=0x%08x(%d)\n", n->nlmsg_type, n->nlmsg_type,
+		fprintf(fp, "Unknown message: type=0x%08x(%d) flags=0x%08x(%d)len=0x%08x(%d)\n",
+			n->nlmsg_type, n->nlmsg_type,
 			n->nlmsg_flags, n->nlmsg_flags, n->nlmsg_len,
 			n->nlmsg_len);
 	}
@@ -150,17 +149,17 @@ static int accept_msg(const struct sockaddr_nl *who,
 int do_ipmonitor(int argc, char **argv)
 {
 	char *file = NULL;
-	unsigned groups = 0;
-	int llink=0;
-	int laddr=0;
-	int lroute=0;
-	int lmroute=0;
-	int lprefix=0;
-	int lneigh=0;
-	int lnetconf=0;
-	int lrule=0;
-	int lnsid=0;
-	int ifindex=0;
+	unsigned int groups = 0;
+	int llink = 0;
+	int laddr = 0;
+	int lroute = 0;
+	int lmroute = 0;
+	int lprefix = 0;
+	int lneigh = 0;
+	int lnetconf = 0;
+	int lrule = 0;
+	int lnsid = 0;
+	int ifindex = 0;
 
 	groups |= nl_mgrp(RTNLGRP_LINK);
 	groups |= nl_mgrp(RTNLGRP_IPV4_IFADDR);
@@ -177,6 +176,7 @@ int do_ipmonitor(int argc, char **argv)
 	groups |= nl_mgrp(RTNLGRP_IPV4_RULE);
 	groups |= nl_mgrp(RTNLGRP_IPV6_RULE);
 	groups |= nl_mgrp(RTNLGRP_NSID);
+	groups |= nl_mgrp(RTNLGRP_MPLS_NETCONF);
 
 	rtnl_close(&rth);
 
@@ -186,22 +186,20 @@ int do_ipmonitor(int argc, char **argv)
 			file = *argv;
 		} else if (matches(*argv, "label") == 0) {
 			prefix_banner = 1;
-		} else if (matches(*argv, "all-nsid") == 0) {
-			listen_all_nsid = 1;
 		} else if (matches(*argv, "link") == 0) {
-			llink=1;
+			llink = 1;
 			groups = 0;
 		} else if (matches(*argv, "address") == 0) {
-			laddr=1;
+			laddr = 1;
 			groups = 0;
 		} else if (matches(*argv, "route") == 0) {
-			lroute=1;
+			lroute = 1;
 			groups = 0;
 		} else if (matches(*argv, "mroute") == 0) {
-			lmroute=1;
+			lmroute = 1;
 			groups = 0;
 		} else if (matches(*argv, "prefix") == 0) {
-			lprefix=1;
+			lprefix = 1;
 			groups = 0;
 		} else if (matches(*argv, "neigh") == 0) {
 			lneigh = 1;
@@ -216,7 +214,9 @@ int do_ipmonitor(int argc, char **argv)
 			lnsid = 1;
 			groups = 0;
 		} else if (strcmp(*argv, "all") == 0) {
-			prefix_banner=1;
+			prefix_banner = 1;
+		} else if (matches(*argv, "all-nsid") == 0) {
+			listen_all_nsid = 1;
 		} else if (matches(*argv, "help") == 0) {
 			usage();
 		} else if (strcmp(*argv, "dev") == 0) {
@@ -272,6 +272,8 @@ int do_ipmonitor(int argc, char **argv)
 			groups |= nl_mgrp(RTNLGRP_IPV4_NETCONF);
 		if (!preferred_family || preferred_family == AF_INET6)
 			groups |= nl_mgrp(RTNLGRP_IPV6_NETCONF);
+		if (!preferred_family || preferred_family == AF_MPLS)
+			groups |= nl_mgrp(RTNLGRP_MPLS_NETCONF);
 	}
 	if (lrule) {
 		if (!preferred_family || preferred_family == AF_INET)
@@ -302,6 +304,7 @@ int do_ipmonitor(int argc, char **argv)
 		exit(1);
 
 	ll_init_map(&rth);
+	netns_nsid_socket_init();
 	netns_map_init();
 
 	if (rtnl_listen(&rth, accept_msg, stdout) < 0)

@@ -20,7 +20,6 @@
 #include <string>
 #include <vector>
 
-#include <android-base/unique_fd.h>
 #include <cutils/native_handle.h>
 #include <utils/Errors.h>
 #include <utils/RefBase.h>

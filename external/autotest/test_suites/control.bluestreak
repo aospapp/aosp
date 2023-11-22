@@ -24,7 +24,7 @@ from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 # the bug filer will fallback to it's defaults.
 _BUG_TEMPLATE = {
     'labels': ['Proj-Hotrod', 'Hotrod-Auto-Bug'],
-    'owner': '',
+    'owner': 'chromeos-meetings@google.com',
     'status': None,
     'summary': None,
     'title': None,

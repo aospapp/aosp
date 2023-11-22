@@ -1,6 +1,8 @@
 #!/usr/bin/env python2
 #
-# Copyright 2014 Google Inc. All Rights Reserved.
+# Copyright 2017 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 """Unittest for crosperf."""
 
 from __future__ import print_function
@@ -19,7 +21,7 @@ class BenchmarkSettingsTest(unittest.TestCase):
     self.assertEqual(len(res.fields), 6)
     self.assertEqual(res.GetField('test_name'), '')
     self.assertEqual(res.GetField('test_args'), '')
-    self.assertEqual(res.GetField('iterations'), 1)
+    self.assertEqual(res.GetField('iterations'), 0)
     self.assertEqual(res.GetField('suite'), '')
 
 
@@ -56,7 +58,7 @@ class GlobalSettingsTest(unittest.TestCase):
     self.assertEqual(res.GetField('rerun'), False)
     self.assertEqual(res.GetField('same_specs'), True)
     self.assertEqual(res.GetField('same_machine'), False)
-    self.assertEqual(res.GetField('iterations'), 1)
+    self.assertEqual(res.GetField('iterations'), 0)
     self.assertEqual(res.GetField('chromeos_root'), '')
     self.assertEqual(res.GetField('logging_level'), 'average')
     self.assertEqual(res.GetField('acquire_timeout'), 0)
@@ -77,18 +79,18 @@ class SettingsFactoryTest(unittest.TestCase):
     self.assertRaises(Exception, settings_factory.SettingsFactory.GetSettings,
                       'global', 'bad_type')
 
-    l_settings = settings_factory.SettingsFactory().GetSettings('label',
-                                                                'label')
+    l_settings = settings_factory.SettingsFactory().GetSettings(
+        'label', 'label')
     self.assertIsInstance(l_settings, settings_factory.LabelSettings)
     self.assertEqual(len(l_settings.fields), 9)
 
-    b_settings = settings_factory.SettingsFactory().GetSettings('benchmark',
-                                                                'benchmark')
+    b_settings = settings_factory.SettingsFactory().GetSettings(
+        'benchmark', 'benchmark')
     self.assertIsInstance(b_settings, settings_factory.BenchmarkSettings)
     self.assertEqual(len(b_settings.fields), 6)
 
-    g_settings = settings_factory.SettingsFactory().GetSettings('global',
-                                                                'global')
+    g_settings = settings_factory.SettingsFactory().GetSettings(
+        'global', 'global')
     self.assertIsInstance(g_settings, settings_factory.GlobalSettings)
     self.assertEqual(len(g_settings.fields), 25)
 

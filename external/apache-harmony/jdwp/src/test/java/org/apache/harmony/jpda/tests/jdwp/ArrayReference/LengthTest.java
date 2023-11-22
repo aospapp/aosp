@@ -26,6 +26,7 @@
 package org.apache.harmony.jpda.tests.jdwp.ArrayReference;
 
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
+import org.apache.harmony.jpda.tests.framework.jdwp.Field;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
@@ -54,19 +55,11 @@ public class LengthTest extends JDWPArrayReferenceTestCase {
         long classID = getClassIDBySignature("Lorg/apache/harmony/jpda/tests/jdwp/ArrayReference/ArrayReferenceDebuggee;");
 
         // obtain fields
-        CommandPacket packet = new CommandPacket(
-                JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
-                JDWPCommands.ReferenceTypeCommandSet.FieldsCommand);
-        packet.setNextValueAsReferenceTypeID(classID);
-        ReplyPacket reply = debuggeeWrapper.vmMirror.performCommand(packet);
-        checkReplyPacket(reply, "ReferenceType::Fields command");
+        Field[] fields = debuggeeWrapper.vmMirror.getFieldsInfo(classID);
 
-        int declared = reply.getNextValueAsInt();
-        for (int i = 0; i < declared; i++) {
-            long fieldID = reply.getNextValueAsFieldID();
-            String fieldName = reply.getNextValueAsString();
-            reply.getNextValueAsString();
-            reply.getNextValueAsInt();
+        for (Field fieldInfo : fields) {
+            long fieldID = fieldInfo.getFieldID();
+            String fieldName = fieldInfo.getName();
 
             if (fieldName.equals("intArray")) {
                 // int[] intArray = new int[10]

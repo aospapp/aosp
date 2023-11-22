@@ -2,33 +2,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, os, time
+import logging, os
 
 from autotest_lib.client.bin import test, utils
-from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros import chrome, enrollment, kiosk_utils
+from autotest_lib.client.common_lib.cros import chrome, enrollment
+from autotest_lib.client.cros.multimedia import cfm_facade_native
 
-TIMEOUT = 20
 
 class enterprise_RemoraRequisition(test.test):
     """Enroll as a Remora device."""
     version = 1
-
-    _HANGOUTS_EXT_ID = 'ikfcpmgefdpheiiomgmhlmmkihchmdlj'
-
-    def _CheckHangoutsExtensionContexts(self, browser):
-        ext_contexts = kiosk_utils.wait_for_kiosk_ext(
-                browser, self._HANGOUTS_EXT_ID)
-        ext_urls = set([context.EvaluateJavaScript('location.href;')
-                       for context in ext_contexts])
-        expected_urls = set(
-                ['chrome-extension://' + self._HANGOUTS_EXT_ID + '/' + path
-                for path in ['hangoutswindow.html?windowid=0',
-                             '_generated_background_page.html']])
-        if expected_urls != ext_urls:
-            raise error.TestFail(
-                    'Unexpected extension context urls, expected %s, got %s'
-                    % (expected_urls, ext_urls))
 
 
     def run_once(self):
@@ -41,15 +24,5 @@ class enterprise_RemoraRequisition(test.test):
         with chrome.Chrome(auto_login=False,
                            disable_gaia_services=False) as cr:
             enrollment.RemoraEnrollment(cr.browser, user_id, password)
-            # Timeout to allow for the device to stablize and go back to the
-            # login screen before proceeding.
-            time.sleep(TIMEOUT)
-
-        # This is a workaround fix for crbug.com/495847. A more permanent fix
-        # should be to get the hotrod app to auto launch after enrollment.
-        with chrome.Chrome(clear_enterprise_policy=False,
-                           dont_override_profile=True,
-                           disable_gaia_services=False,
-                           disable_default_apps=False,
-                           auto_login=False) as cr:
-            self._CheckHangoutsExtensionContexts(cr.browser)
+            self.cfm_facade = cfm_facade_native.CFMFacadeNative(cr, 'hotrod')
+            self.cfm_facade.check_hangout_extension_context()

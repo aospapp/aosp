@@ -113,7 +113,7 @@ public class CaptionSettingsFragment extends BaseSettingsFragment {
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        mPreviewText = (SubtitleView) view.findViewById(R.id.preview_text);
+        mPreviewText = view.findViewById(R.id.preview_text);
         mPreviewWindow = view.findViewById(R.id.preview_window);
     }
 

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2014-2016 Oracle and/or its affiliates. All Rights Reserved.
+# Copyright (c) 2014-2017 Oracle and/or its affiliates. All Rights Reserved.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -29,53 +29,28 @@
 #          solve it.
 
 ip_local=$(tst_ipaddr)
-ip_virt_local="192.168.124.1"
-ip6_virt_local="fe80::381c:c0ff:fea8:7c01"
-mac_virt_local="3A:1C:C0:A8:7C:01"
+ip_virt_local="$(TST_IPV6= tst_ipaddr_un)"
+ip6_virt_local="$(TST_IPV6=6 tst_ipaddr_un)"
 
 ip_remote=$(tst_ipaddr rhost)
-ip_virt_remote="192.168.124.2"
-ip6_virt_remote="fe80::381c:c0ff:fea8:7c02"
-mac_virt_remote="3A:1C:C0:A8:7C:02"
+ip_virt_remote="$(TST_IPV6= tst_ipaddr_un rhost)"
+ip6_virt_remote="$(TST_IPV6=6 tst_ipaddr_un rhost)"
 
 # Max performance loss (%) for virtual devices during network load
 VIRT_PERF_THRESHOLD=${VIRT_PERF_THRESHOLD:-80}
 vxlan_dstport=0
 
-clients_num=2
-client_requests=500000
-max_requests=20
-
-while getopts :hsx:i:r:c:R:p:n:t:d:6 opt; do
+while getopts :hi:d:6 opt; do
 	case "$opt" in
 	h)
 		echo "Usage:"
 		echo "h        help"
-		echo "s        use ssh to run remote cmds"
-		echo "x n      n is a number of interfaces for tc1 and tc2"
 		echo "i n      start ID to use"
-		echo "r n      client requests for TCP performance test"
-		echo "c n      clients run concurrently in TCP perf"
-		echo "R n      num of reqs, after which conn.closed in TCP perf"
-		echo "p x      x and x + 1 are ports in TCP perf"
-		echo "n x      virtual network 192.168.x"
-		echo "t x      performance threshold, default is 60%"
 		echo "d x      VxLAN destination address, 'uni' or 'multi'"
 		echo "6        run over IPv6"
 		exit 0
 	;;
-	s) TST_USE_SSH=1 ;;
-	x) virt_count=$OPTARG ;;
 	i) start_id=$OPTARG ;;
-	c) clients_num=$OPTARG ;;
-	r) client_requests=$OPTARG ;;
-	R) max_requests=$OPTARG ;;
-	p) srv_port=$OPTARG ;;
-	n)
-		ip_virt_local="192.168.${OPTARG}.1"
-		ip_virt_remote="192.168.${OPTARG}.2"
-	;;
-	t) VIRT_PERF_THRESHOLD=$OPTARG ;;
 	d) vxlan_dst_addr=$OPTARG ;;
 	6) # skip, test_net library already processed it
 	;;
@@ -92,6 +67,22 @@ cleanup_vifaces()
 	for vx in $viface; do
 		ip link delete $vx
 	done
+}
+
+virt_cleanup_rmt()
+{
+	cleanup_vifaces
+	tst_rhost_run -c "ip link delete ltp_v0 2>/dev/null"
+	if [ "$virt_tcp_syn" ]; then
+		sysctl -q net.ipv4.tcp_syn_retries=$virt_tcp_syn
+		virt_tcp_syn=
+	fi
+}
+
+virt_cleanup()
+{
+	virt_cleanup_rmt
+	[ "$TST_NEEDS_TMPDIR" = 1 ] && tst_rmdir
 }
 
 TST_CLEANUP="cleanup_vifaces"
@@ -119,7 +110,7 @@ virt_add()
 
 	case $virt_type in
 	vxlan|geneve)
-		ip li add $vname type $virt_type $opt
+		ip li add $vname type $virt_type $opt dev $(tst_iface)
 	;;
 	gre|ip6gre)
 		ip -f inet$TST_IPV6 tu add $vname mode $virt_type $opt
@@ -135,7 +126,8 @@ virt_add_rhost()
 	local opt=""
 	case $virt_type in
 	vxlan|geneve)
-		[ "$vxlan_dstport" -eq 1 ] && opt="dstport 0"
+		opt="dev $(tst_iface rhost)"
+		[ "$vxlan_dstport" -eq 1 ] && opt="$opt dstport 0"
 		tst_rhost_run -s -c "ip li add ltp_v0 type $virt_type $@ $opt"
 	;;
 	gre|ip6gre)
@@ -152,12 +144,13 @@ virt_add_rhost()
 virt_multiple_add_test()
 {
 	local opt="$@"
-	local max=$(($start_id + $virt_count - 1))
+	local max=$(($start_id + $NS_TIMES - 1))
 
-	tst_resm TINFO "add $virt_count $virt_type, then delete"
+	tst_resm TINFO "add $NS_TIMES $virt_type, then delete"
 
 	for i in $(seq $start_id $max); do
-		ROD_SILENT "virt_add ltp_v$i id $i $opt"
+		virt_add ltp_v$i id $i $opt || \
+			tst_brkm TFAIL "failed to create 'ltp_v0 $opt'"
 		ROD_SILENT "ip link set ltp_v$i up"
 	done
 
@@ -172,12 +165,13 @@ virt_multiple_add_test()
 virt_add_delete_test()
 {
 	local opt="$@"
-	local max=$(($virt_count - 1))
+	local max=$(($NS_TIMES - 1))
 
-	tst_resm TINFO "add/del $virt_type $virt_count times"
+	tst_resm TINFO "add/del $virt_type $NS_TIMES times"
 
 	for i in $(seq 0 $max); do
-		ROD_SILENT "virt_add ltp_v0 $opt"
+		virt_add ltp_v0 $opt || \
+			tst_brkm TFAIL "failed to create 'ltp_v0 $opt'"
 		ROD_SILENT "ip link set ltp_v0 up"
 		ROD_SILENT "ip link delete ltp_v0"
 	done
@@ -187,32 +181,40 @@ virt_add_delete_test()
 virt_setup()
 {
 	local opt="$1"
-	local opt_r="$2"
+	local opt_r="${2:-$1}"
 
 	tst_resm TINFO "setup local ${virt_type} with '$opt'"
-	ROD_SILENT "virt_add ltp_v0 $opt"
+	virt_add ltp_v0 $opt || \
+		tst_brkm TBROK "failed to create 'ltp_v0 $opt'"
 
 	tst_resm TINFO "setup rhost ${virt_type} with '$opt_r'"
 	virt_add_rhost "$opt_r"
 
-	case $virt_type in
-	gre|ip6gre)
-		# We can't set hwaddr to GRE tunnel, add IPv6 link local
-		# addresses manually.
-		ROD_SILENT "ip addr add ${ip6_virt_local}/64 dev ltp_v0"
-		tst_rhost_run -s -c "ip ad add ${ip6_virt_remote}/64 dev ltp_v0"
-	;;
-	*)
-		ROD_SILENT "ip li set ltp_v0 address $mac_virt_local"
-		tst_rhost_run -s -c "ip li set ltp_v0 address $mac_virt_remote"
-	;;
-	esac
+	ROD_SILENT "ip addr add ${ip6_virt_local}/64 dev ltp_v0 nodad"
+	tst_rhost_run -s -c "ip ad add ${ip6_virt_remote}/64 dev ltp_v0 nodad"
 
 	ROD_SILENT "ip addr add ${ip_virt_local}/24 dev ltp_v0"
 	tst_rhost_run -s -c "ip addr add ${ip_virt_remote}/24 dev ltp_v0"
 
+	ROD_SILENT "sysctl -q net.ipv6.conf.ltp_v0.accept_dad=0"
+	tst_rhost_run -s -c "sysctl -q net.ipv6.conf.ltp_v0.accept_dad=0"
+
 	ROD_SILENT "ip li set up ltp_v0"
 	tst_rhost_run -s -c "ip li set up ltp_v0"
+}
+
+virt_tcp_syn=
+virt_minimize_timeout()
+{
+	local mac_loc="$(cat /sys/class/net/ltp_v0/address)"
+	local mac_rmt="$(tst_rhost_run -c 'cat /sys/class/net/ltp_v0/address')"
+
+	ROD_SILENT "ip ne replace $ip_virt_remote lladdr \
+		    $mac_rmt nud permanent dev ltp_v0"
+	tst_rhost_run -s -c "ip ne replace $ip_virt_local lladdr \
+			     $mac_loc nud permanent dev ltp_v0"
+	virt_tcp_syn=$(sysctl -n net.ipv4.tcp_syn_retries)
+	ROD sysctl -q net.ipv4.tcp_syn_retries=1
 }
 
 vxlan_setup_subnet_uni()
@@ -244,8 +246,8 @@ vxlan_setup_subnet_multi()
 		grp="group 239.$b1.$b2.$b3"
 	fi
 
-	local opt="$1 $grp dev $(tst_iface)"
-	local opt_r="$2 $grp dev $(tst_iface rhost)"
+	local opt="$1 $grp"
+	local opt_r="$2 $grp"
 
 	virt_setup "$opt" "$opt_r"
 }
@@ -255,24 +257,20 @@ virt_compare_netperf()
 	local ret1="pass"
 	local ret2="pass"
 	local expect_res="${1:-pass}"
+	local opts="$2"
 
-	tst_netload -H $ip_virt_remote -a $clients_num -R $max_requests \
-		-r $client_requests -d res_ipv4 -e $expect_res || ret1="fail"
+	tst_netload -H $ip_virt_remote $opts -d res_ipv4 -e $expect_res || \
+		ret1="fail"
 
-	tst_netload -H ${ip6_virt_remote}%ltp_v0 -a $clients_num \
-		-R $max_requests -r $client_requests -d res_ipv6 \
-		-e $expect_res || ret2="fail"
-
-	ROD_SILENT "ip link delete ltp_v0"
-	tst_rhost_run -s -c "ip link delete ltp_v0"
+	tst_netload -H ${ip6_virt_remote} $opts -d res_ipv6 -e $expect_res || \
+		ret2="fail"
 
 	[ "$ret1" = "fail" -o "$ret2" = "fail" ] && return
 
 	local vt="$(cat res_ipv4)"
 	local vt6="$(cat res_ipv6)"
 
-	tst_netload -H $ip_remote -a $clients_num -R $max_requests \
-		-r $client_requests -d res_ipv4
+	tst_netload -H $ip_remote $opts -d res_ipv4
 
 	local lt="$(cat res_ipv4)"
 	tst_resm TINFO "time lan($lt) $virt_type IPv4($vt) and IPv6($vt6) ms"
@@ -309,14 +307,49 @@ virt_check_cmd()
 	return 0
 }
 
+# virt_macsec_setup [OPTIONS]
+# OPTIONS - [ cipher { default | gcm-aes-128 } ] [ encrypt { on | off } ]
+#           [ protect { on | off } ] [ replay { on | off } ] [ window WINDOW ]
+#           [ validate { strict | check | disabled } ]
+virt_macsec_setup()
+{
+	local keyid0=01
+	local keyid1=02
+	local sa=0
+	local h0=$(tst_hwaddr)
+	local h1=$(tst_hwaddr rhost)
+	local cmd="ip macsec add ltp_v0"
+	local key0="01234567890123456789012345678901"
+	local key1="98765432109876543210987612343434"
+
+	virt_setup "icvlen 16 encodingsa $sa $@"
+
+	ROD $cmd tx sa $sa pn 100 on key $keyid0 $key0
+	ROD $cmd rx address $h1 port 1
+	ROD $cmd rx address $h1 port 1 sa $sa pn 100 on key $keyid1 $key1
+
+	tst_rhost_run -s -c "$cmd tx sa $sa pn 100 on key $keyid1 $key1"
+	tst_rhost_run -s -c "$cmd rx address $h0 port 1"
+	tst_rhost_run -s -c \
+		"$cmd rx address $h0 port 1 sa $sa pn 100 on key $keyid0 $key0"
+}
+
+virt_netperf_msg_sizes()
+{
+	local sizes="${@:-100 1000 2000 10000}"
+	client_requests=20000
+
+	for s in $sizes; do
+		virt_compare_netperf pass "-n $s -N $s"
+	done
+}
+
 # Check if we can create then delete virtual interface n times.
 # virt_test_01 [OPTIONS]
 # OPTIONS - different options separated by comma.
 virt_test_01()
 {
 	start_id=${start_id:-"1"}
-	virt_count=${virt_count:-"400"}
-
 	local opts=${1:-""}
 	local n=0
 
@@ -333,7 +366,7 @@ virt_test_01()
 
 		virt_multiple_add_test "$p"
 
-		start_id=$(($start_id + $virt_count))
+		start_id=$(($start_id + $NS_TIMES))
 	done
 }
 
@@ -343,8 +376,6 @@ virt_test_01()
 virt_test_02()
 {
 	start_id=${start_id:-"1"}
-	virt_count=${virt_count:-"500"}
-
 	local opts=${1:-""}
 	local n=0
 
@@ -361,7 +392,7 @@ virt_test_02()
 
 		virt_add_delete_test "$p"
 
-		start_id=$(($start_id + $virt_count))
+		start_id=$(($start_id + $NS_TIMES))
 	done
 }
 

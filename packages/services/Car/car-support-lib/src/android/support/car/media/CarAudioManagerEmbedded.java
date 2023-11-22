@@ -15,14 +15,13 @@
  */
 package android.support.car.media;
 
-import android.media.AudioAttributes;
+import static androidx.annotation.RestrictTo.Scope.GROUP_ID;
+
 import android.media.AudioFormat;
-import android.media.AudioManager.OnAudioFocusChangeListener;
 import android.media.AudioRecord;
-import android.support.annotation.RestrictTo;
 import android.support.car.CarNotConnectedException;
 
-import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
+import androidx.annotation.RestrictTo;
 
 /**
  * @hide
@@ -42,45 +41,6 @@ public class CarAudioManagerEmbedded extends CarAudioManager {
 
     public CarAudioManagerEmbedded(Object manager) {
         mManager = (android.car.media.CarAudioManager) manager;
-    }
-
-    @Override
-    public AudioAttributes getAudioAttributesForCarUsage(@CarAudioUsage int carUsage)
-            throws CarNotConnectedException {
-        try {
-            return mManager.getAudioAttributesForCarUsage(carUsage);
-        } catch (android.car.CarNotConnectedException e) {
-            throw new CarNotConnectedException(e);
-        }
-    }
-
-    @Override
-    public int requestAudioFocus(OnAudioFocusChangeListener listener,
-            AudioAttributes requestAttributes,
-            int durationHint,
-            int flags) throws CarNotConnectedException, IllegalArgumentException {
-        try {
-            return mManager.requestAudioFocus(listener, requestAttributes, durationHint, flags);
-        } catch (android.car.CarNotConnectedException e) {
-            throw new CarNotConnectedException(e);
-        }
-    }
-
-    @Override
-    public int requestAudioFocus(OnAudioFocusChangeListener listener,
-            AudioAttributes requestAttributes,
-            int durationHint) throws CarNotConnectedException, IllegalArgumentException {
-        try {
-            return mManager.requestAudioFocus(listener, requestAttributes, durationHint,
-                    0 /*flags*/);
-        } catch (android.car.CarNotConnectedException e) {
-            throw new CarNotConnectedException(e);
-        }
-    }
-
-    @Override
-    public void abandonAudioFocus(OnAudioFocusChangeListener listener, AudioAttributes aa) {
-        mManager.abandonAudioFocus(listener, aa);
     }
 
     @Override
@@ -113,24 +73,6 @@ public class CarAudioManagerEmbedded extends CarAudioManager {
             throw new IllegalArgumentException("Bad bufferSize value");
         }
         return new CarAudioRecordEmbedded(AUDIO_RECORD_FORMAT, bufferSize);
-    }
-
-    @Override
-    public boolean isMediaMuted() throws CarNotConnectedException {
-        try {
-            return mManager.isMediaMuted();
-        } catch (android.car.CarNotConnectedException e) {
-            throw new CarNotConnectedException(e);
-        }
-    }
-
-    @Override
-    public boolean setMediaMute(boolean mute) throws CarNotConnectedException {
-        try {
-            return mManager.setMediaMute(mute);
-        } catch (android.car.CarNotConnectedException e) {
-            throw new CarNotConnectedException(e);
-        }
     }
 
     @Override

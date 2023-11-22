@@ -20,14 +20,16 @@
 #include <android-base/macros.h>
 #include <test/vts/proto/VtsProfilingMessage.pb.h>
 #include <test/vts/proto/VtsReportMessage.pb.h>
+#include "VtsCoverageProcessor.h"
 
 namespace android {
 namespace vts {
 
 class VtsTraceProcessor {
  public:
-  VtsTraceProcessor() {};
-  virtual ~VtsTraceProcessor() {};
+  VtsTraceProcessor(VtsCoverageProcessor* coverage_processor)
+      : coverage_processor_(coverage_processor){};
+  virtual ~VtsTraceProcessor(){};
 
   enum TraceSelectionMetric {
     MAX_COVERAGE,
@@ -60,12 +62,20 @@ class VtsTraceProcessor {
   // Reads a text trace file, parse each trace event and convert it into a
   // binary trace file.
   void ConvertTrace(const std::string& trace_file);
+  // Parse all trace files under test_trace_dir and create a list of test
+  // modules for each hal@version that access all apis covered by the whole test
+  // set. (i.e. such list should be a subset of the whole test list that access
+  // the corresponding hal@version)
+  void GetTestListForHal(const std::string& test_trace_dir,
+                         const std::string& output_file,
+                         bool verbose_output = false);
 
  private:
   // Reads a binary trace file and parse each trace event into
   // VtsProfilingRecord.
   bool ParseBinaryTrace(const std::string& trace_file, bool ignore_timestamp,
-                        bool entry_only, VtsProfilingMessage* profiling_msg);
+                        bool entry_only, bool summary_only,
+                        VtsProfilingMessage* profiling_msg);
 
   // Reads a text trace file and parse each trace event into
   // VtsProfilingRecord.
@@ -90,8 +100,7 @@ class VtsTraceProcessor {
   long GetTotalCoverageLine(const TestReportMessage& msg);
   // Helper method to calculate total code line in the given report message.
   long GetTotalLine(const TestReportMessage& msg);
-  // Helper method to extract the trace file name from the given coverage file
-  // name.
+  // Helper method to extract the trace file name from the given file name.
   std::string GetTraceFileName(const std::string& coverage_file_name);
   // Helper method to check whether the given event is an entry event.
   bool isEntryEvent(const InstrumentationEventType& event);
@@ -108,7 +117,48 @@ class VtsTraceProcessor {
     long trace_file_size;
   };
 
-  DISALLOW_COPY_AND_ASSIGN (VtsTraceProcessor);
+  // Struct to store the trace summary data.
+  struct TraceSummary {
+    // Name of test module that generates the trace. e.g. CtsUsbTests.
+    std::string test_name;
+    // Hal package name. e.g. android.hardware.light
+    std::string package;
+    // Hal version e.g. 1.0
+    float version;
+    // Total number of API calls recorded in the trace.
+    long total_api_count;
+    // Total number of different APIs recorded in the trace.
+    long unique_api_count;
+    // Call statistics for each API: <API_name, number_called>
+    std::map<std::string, long> api_stats;
+
+    TraceSummary(std::string test_name, std::string package, float version,
+                 long total_api_count, long unique_api_count,
+                 std::map<std::string, long> api_stats)
+        : test_name(test_name),
+          package(package),
+          version(version),
+          total_api_count(total_api_count),
+          unique_api_count(unique_api_count),
+          api_stats(api_stats){};
+  };
+
+  // Internal method to parse all trace files under test_trace_dir and create
+  // the mapping from each hal@version to the list of test that access it.
+  void GetHalTraceMapping(
+      const std::string& test_trace_dir,
+      std::map<std::string, std::vector<TraceSummary>>* hal_trace_mapping);
+
+  // Internal method to parse a trace file and create the corresponding
+  // TraceSummary from it.
+  void GetHalTraceSummary(const std::string& trace_file,
+                          const std::string& test_name,
+                          std::vector<TraceSummary>* trace_summaries);
+
+  // A class to process coverage reports. Not owned.
+  VtsCoverageProcessor* coverage_processor_;
+
+  DISALLOW_COPY_AND_ASSIGN(VtsTraceProcessor);
 };
 
 }  // namespace vts

@@ -1,7 +1,7 @@
 /** @file
   Generic ARM implementation of TimerLib.h
 
-  Copyright (c) 2011-2014, ARM Limited. All rights reserved.
+  Copyright (c) 2011-2016, ARM Limited. All rights reserved.
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -24,6 +24,14 @@
 
 #define TICKS_PER_MICRO_SEC     (PcdGet32 (PcdArmArchTimerFreqInHz)/1000000U)
 
+// Select appropriate multiply function for platform architecture.
+#ifdef MDE_CPU_ARM
+#define MultU64xN MultU64x32
+#else
+#define MultU64xN MultU64x64
+#endif
+
+
 RETURN_STATUS
 EFIAPI
 TimerConstructor (
@@ -34,7 +42,6 @@ TimerConstructor (
   // Check if the ARM Generic Timer Extension is implemented.
   //
   if (ArmIsArchTimerImplemented ()) {
-    UINTN TimerFreq;
 
     //
     // Check if Architectural Timer frequency is pre-determined by the platform
@@ -43,7 +50,7 @@ TimerConstructor (
     if (PcdGet32 (PcdArmArchTimerFreqInHz) != 0) {
       //
       // Check if ticks/uS is not 0. The Architectural timer runs at constant
-      // frequency, irrespective of CPU frequency. According to General Timer
+      // frequency, irrespective of CPU frequency. According to Generic Timer
       // Ref manual, lower bound of the frequency is in the range of 1-10MHz.
       //
       ASSERT (TICKS_PER_MICRO_SEC);
@@ -62,18 +69,40 @@ TimerConstructor (
     }
 
     //
-    // Architectural Timer Frequency must be set in the Secure privileged
+    // Architectural Timer Frequency must be set in Secure privileged
     // mode (if secure extension is supported).
     // If the reset value (0) is returned, just ASSERT.
     //
-    TimerFreq = ArmGenericTimerGetTimerFreq ();
-    ASSERT (TimerFreq != 0);
+    ASSERT (ArmGenericTimerGetTimerFreq () != 0);
+
   } else {
-    DEBUG ((EFI_D_ERROR, "ARM Architectural Timer is not available in the CPU, hence this library can not be used.\n"));
+    DEBUG ((EFI_D_ERROR, "ARM Architectural Timer is not available in the CPU, hence this library cannot be used.\n"));
     ASSERT (0);
   }
 
   return RETURN_SUCCESS;
+}
+
+/**
+  A local utility function that returns the PCD value, if specified.
+  Otherwise it defaults to ArmGenericTimerGetTimerFreq.
+
+  @return The timer frequency.
+
+**/
+STATIC
+UINTN
+EFIAPI
+GetPlatformTimerFreq (
+  )
+{
+  UINTN TimerFreq;
+
+  TimerFreq = PcdGet32 (PcdArmArchTimerFreqInHz);
+  if (TimerFreq == 0) {
+    TimerFreq = ArmGenericTimerGetTimerFreq ();
+  }
+  return TimerFreq;
 }
 
 
@@ -82,7 +111,7 @@ TimerConstructor (
 
   @param  MicroSeconds  The minimum number of microseconds to delay.
 
-  @return The value of MicroSeconds inputted.
+  @return The value of MicroSeconds input.
 
 **/
 UINTN
@@ -93,31 +122,14 @@ MicroSecondDelay (
 {
   UINT64 TimerTicks64;
   UINT64 SystemCounterVal;
-  UINT64 (EFIAPI
-          *MultU64xN) (
-            IN UINT64 Multiplicand,
-            IN UINTN  Multiplier
-            );
-  UINTN TimerFreq;
 
-#ifdef MDE_CPU_ARM
-  MultU64xN = MultU64x32;
-#else
-  MultU64xN = MultU64x64;
-#endif
-
-  TimerFreq = PcdGet32 (PcdArmArchTimerFreqInHz);
-  if (TimerFreq == 0) {
-    TimerFreq = ArmGenericTimerGetTimerFreq ();
-  }
-
-  // Calculate counter ticks that can represent requested delay:
+  // Calculate counter ticks that represent requested delay:
   //  = MicroSeconds x TICKS_PER_MICRO_SEC
   //  = MicroSeconds x Frequency.10^-6
   TimerTicks64 = DivU64x32 (
                    MultU64xN (
                      MicroSeconds,
-                     TimerFreq
+                     GetPlatformTimerFreq ()
                      ),
                    1000000U
                    );
@@ -127,7 +139,7 @@ MicroSecondDelay (
 
   TimerTicks64 += SystemCounterVal;
 
-  // Wait until delay count is expired.
+  // Wait until delay count expires.
   while (SystemCounterVal < TimerTicks64) {
     SystemCounterVal = ArmGenericTimerGetSystemCount ();
   }
@@ -218,14 +230,63 @@ GetPerformanceCounterProperties (
   )
 {
   if (StartValue != NULL) {
-    // Timer starts with the reload value
+    // Timer starts at 0
     *StartValue = (UINT64)0ULL ;
   }
 
   if (EndValue != NULL) {
-    // Timer counts down to 0x0
+    // Timer counts up.
     *EndValue = 0xFFFFFFFFFFFFFFFFUL;
   }
 
   return (UINT64)ArmGenericTimerGetTimerFreq ();
+}
+
+/**
+  Converts elapsed ticks of performance counter to time in nanoseconds.
+
+  This function converts the elapsed ticks of running performance counter to
+  time value in unit of nanoseconds.
+
+  @param  Ticks     The number of elapsed ticks of running performance counter.
+
+  @return The elapsed time in nanoseconds.
+
+**/
+UINT64
+EFIAPI
+GetTimeInNanoSecond (
+  IN      UINT64                     Ticks
+  )
+{
+  UINT64  NanoSeconds;
+  UINT32  Remainder;
+  UINT32  TimerFreq;
+
+  TimerFreq = GetPlatformTimerFreq ();
+  //
+  //          Ticks
+  // Time = --------- x 1,000,000,000
+  //        Frequency
+  //
+  NanoSeconds = MultU64xN (
+                  DivU64x32Remainder (
+                    Ticks,
+                    TimerFreq,
+                    &Remainder),
+                  1000000000U
+                  );
+
+  //
+  // Frequency < 0x100000000, so Remainder < 0x100000000, then (Remainder * 1,000,000,000)
+  // will not overflow 64-bit.
+  //
+  NanoSeconds += DivU64x32 (
+                   MultU64xN (
+                     (UINT64) Remainder,
+                     1000000000U),
+                   TimerFreq
+                   );
+
+  return NanoSeconds;
 }

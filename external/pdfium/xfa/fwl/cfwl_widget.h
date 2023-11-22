@@ -6,16 +6,18 @@
 
 #ifndef XFA_FWL_CFWL_WIDGET_H_
 #define XFA_FWL_CFWL_WIDGET_H_
+
 #include <memory>
 
 #include "core/fxcrt/fx_coordinates.h"
 #include "core/fxcrt/fx_system.h"
+#include "core/fxcrt/unowned_ptr.h"
+#include "xfa/fde/cfde_data.h"
 #include "xfa/fwl/cfwl_event.h"
 #include "xfa/fwl/cfwl_themepart.h"
 #include "xfa/fwl/cfwl_widgetmgr.h"
 #include "xfa/fwl/fwl_widgethit.h"
 #include "xfa/fwl/ifwl_widgetdelegate.h"
-#include "xfa/fwl/theme/cfwl_widgettp.h"
 
 enum class FWL_Type {
   Unknown = 0,
@@ -51,7 +53,7 @@ class CFWL_Widget : public IFWL_WidgetDelegate {
   ~CFWL_Widget() override;
 
   virtual FWL_Type GetClassID() const = 0;
-  virtual bool IsInstance(const CFX_WideStringC& wsClass) const;
+  virtual bool IsInstance(const WideStringView& wsClass) const;
   virtual CFX_RectF GetAutosizedWidgetRect();
   virtual CFX_RectF GetWidgetRect();
   virtual CFX_RectF GetClientRect();
@@ -61,15 +63,15 @@ class CFWL_Widget : public IFWL_WidgetDelegate {
   virtual void RemoveStates(uint32_t dwStates);
   virtual void Update() = 0;
   virtual FWL_WidgetHit HitTest(const CFX_PointF& point);
-  virtual void DrawWidget(CFX_Graphics* pGraphics,
-                          const CFX_Matrix* pMatrix) = 0;
+  virtual void DrawWidget(CXFA_Graphics* pGraphics,
+                          const CFX_Matrix& matrix) = 0;
   virtual void SetThemeProvider(IFWL_ThemeProvider* pThemeProvider);
 
   // IFWL_WidgetDelegate.
   void OnProcessMessage(CFWL_Message* pMessage) override;
   void OnProcessEvent(CFWL_Event* pEvent) override;
-  void OnDrawWidget(CFX_Graphics* pGraphics,
-                    const CFX_Matrix* pMatrix) override;
+  void OnDrawWidget(CXFA_Graphics* pGraphics,
+                    const CFX_Matrix& matrix) override;
 
   void InflateWidgetRect(CFX_RectF& rect);
   void SetWidgetRect(const CFX_RectF& rect);
@@ -96,13 +98,13 @@ class CFWL_Widget : public IFWL_WidgetDelegate {
 
   void SetDelegate(IFWL_WidgetDelegate* delegate) { m_pDelegate = delegate; }
   IFWL_WidgetDelegate* GetDelegate() {
-    return m_pDelegate ? m_pDelegate : this;
+    return m_pDelegate ? m_pDelegate.Get() : this;
   }
   const IFWL_WidgetDelegate* GetDelegate() const {
-    return m_pDelegate ? m_pDelegate : this;
+    return m_pDelegate ? m_pDelegate.Get() : this;
   }
 
-  const CFWL_App* GetOwnerApp() const { return m_pOwnerApp; }
+  const CFWL_App* GetOwnerApp() const { return m_pOwnerApp.Get(); }
   uint32_t GetEventKey() const { return m_nEventKey; }
   void SetEventKey(uint32_t key) { m_nEventKey = key; }
 
@@ -122,32 +124,32 @@ class CFWL_Widget : public IFWL_WidgetDelegate {
   bool IsLocked() const { return m_iLock > 0; }
   bool HasBorder() const;
   CFX_RectF GetEdgeRect();
-  FX_FLOAT GetBorderSize(bool bCX);
+  float GetBorderSize(bool bCX);
   CFX_RectF GetRelativeRect();
   IFWL_ThemeProvider* GetAvailableTheme();
-  CFX_SizeF CalcTextSize(const CFX_WideString& wsText,
+  CFX_SizeF CalcTextSize(const WideString& wsText,
                          IFWL_ThemeProvider* pTheme,
                          bool bMultiLine);
-  void CalcTextRect(const CFX_WideString& wsText,
+  void CalcTextRect(const WideString& wsText,
                     IFWL_ThemeProvider* pTheme,
-                    uint32_t dwTTOStyles,
-                    int32_t iTTOAlign,
+                    const FDE_TextStyle& dwTTOStyles,
+                    FDE_TextAlignment iTTOAlign,
                     CFX_RectF& rect);
   void SetGrab(bool bSet);
-  void GetPopupPos(FX_FLOAT fMinHeight,
-                   FX_FLOAT fMaxHeight,
+  void GetPopupPos(float fMinHeight,
+                   float fMaxHeight,
                    const CFX_RectF& rtAnchor,
                    CFX_RectF& rtPopup);
   void RegisterEventTarget(CFWL_Widget* pEventSource);
   void UnregisterEventTarget();
   void DispatchEvent(CFWL_Event* pEvent);
-  void DrawBorder(CFX_Graphics* pGraphics,
+  void DrawBorder(CXFA_Graphics* pGraphics,
                   CFWL_Part iPartBorder,
                   IFWL_ThemeProvider* pTheme,
-                  const CFX_Matrix* pMatrix);
+                  const CFX_Matrix& pMatrix);
 
-  const CFWL_App* const m_pOwnerApp;
-  CFWL_WidgetMgr* const m_pWidgetMgr;
+  UnownedPtr<const CFWL_App> const m_pOwnerApp;
+  UnownedPtr<CFWL_WidgetMgr> const m_pWidgetMgr;
   std::unique_ptr<CFWL_WidgetProperties> m_pProperties;
   CFWL_Widget* m_pOuter;
   int32_t m_iLock;
@@ -161,19 +163,19 @@ class CFWL_Widget : public IFWL_WidgetDelegate {
   bool IsPopup() const;
   bool IsChild() const;
   CFWL_Widget* GetRootOuter();
-  bool GetPopupPosMenu(FX_FLOAT fMinHeight,
-                       FX_FLOAT fMaxHeight,
+  bool GetPopupPosMenu(float fMinHeight,
+                       float fMaxHeight,
                        const CFX_RectF& rtAnchor,
                        CFX_RectF& rtPopup);
-  bool GetPopupPosComboBox(FX_FLOAT fMinHeight,
-                           FX_FLOAT fMaxHeight,
+  bool GetPopupPosComboBox(float fMinHeight,
+                           float fMaxHeight,
                            const CFX_RectF& rtAnchor,
                            CFX_RectF& rtPopup);
-  bool GetPopupPosGeneral(FX_FLOAT fMinHeight,
-                          FX_FLOAT fMaxHeight,
+  bool GetPopupPosGeneral(float fMinHeight,
+                          float fMaxHeight,
                           const CFX_RectF& rtAnchor,
                           CFX_RectF& rtPopup);
-  void DrawBackground(CFX_Graphics* pGraphics,
+  void DrawBackground(CXFA_Graphics* pGraphics,
                       CFWL_Part iPartBk,
                       IFWL_ThemeProvider* pTheme,
                       const CFX_Matrix* pMatrix);
@@ -182,7 +184,7 @@ class CFWL_Widget : public IFWL_WidgetDelegate {
 
   CXFA_FFWidget* m_pLayoutItem;
   uint32_t m_nEventKey;
-  IFWL_WidgetDelegate* m_pDelegate;  // Not owned.
+  UnownedPtr<IFWL_WidgetDelegate> m_pDelegate;
 };
 
 #endif  // XFA_FWL_CFWL_WIDGET_H_

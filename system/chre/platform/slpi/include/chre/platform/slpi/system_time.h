@@ -17,6 +17,8 @@
 #ifndef CHRE_PLATFORM_SLPI_SYSTEM_TIME_H_
 #define CHRE_PLATFORM_SLPI_SYSTEM_TIME_H_
 
+#include <cstdint>
+
 namespace chre {
 
 /**
@@ -25,19 +27,6 @@ namespace chre {
  * @param offset The current estimated offset in nanoseconds.
  */
 void setEstimatedHostTimeOffset(int64_t offset);
-
-/**
- * Sends a time sync request if the time since last time sync request exceeds a
- * predefined threshold.
- */
-void requestTimeSyncIfStale();
-
-/**
- * Updates the timestamp tracking the last time a time sync was requested by
- * CHRE. Only to be called if a TimeSyncRequest message was scheduled to be
- * sent.
- */
-void updateLastTimeSyncRequest();
 
 }  // namespace chre
 

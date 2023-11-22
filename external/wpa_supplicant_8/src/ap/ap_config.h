@@ -327,21 +327,26 @@ struct hostapd_bss_config {
 	int wpa_pairwise;
 	int wpa_group;
 	int wpa_group_rekey;
+	int wpa_group_rekey_set;
 	int wpa_strict_rekey;
 	int wpa_gmk_rekey;
 	int wpa_ptk_rekey;
 	u32 wpa_group_update_count;
 	u32 wpa_pairwise_update_count;
+	int wpa_disable_eapol_key_retries;
 	int rsn_pairwise;
 	int rsn_preauth;
 	char *rsn_preauth_interfaces;
-	int peerkey;
 
 #ifdef CONFIG_IEEE80211R_AP
 	/* IEEE 802.11r - Fast BSS Transition */
 	u8 mobility_domain[MOBILITY_DOMAIN_ID_LEN];
 	u8 r1_key_holder[FT_R1KH_ID_LEN];
 	u32 r0_key_lifetime;
+	int rkh_pos_timeout;
+	int rkh_neg_timeout;
+	int rkh_pull_timeout; /* ms */
+	int rkh_pull_retries;
 	u32 reassociation_deadline;
 	struct ft_remote_r0kh *r0kh_list;
 	struct ft_remote_r1kh *r1kh_list;
@@ -362,6 +367,7 @@ struct hostapd_bss_config {
 	char *private_key_passwd;
 	int check_crl;
 	unsigned int tls_session_lifetime;
+	unsigned int tls_flags;
 	char *ocsp_stapling_response;
 	char *ocsp_stapling_response_multi;
 	char *dh_file;
@@ -576,6 +582,7 @@ struct hostapd_bss_config {
 
 	unsigned int sae_anti_clogging_threshold;
 	int *sae_groups;
+	char *sae_password;
 
 	char *wowlan_triggers; /* Wake-on-WLAN triggers */
 
@@ -583,6 +590,8 @@ struct hostapd_bss_config {
 	u8 bss_load_test[5];
 	u8 bss_load_test_set;
 	struct wpabuf *own_ie_override;
+	int sae_reflection_attack;
+	struct wpabuf *sae_commit_override;
 #endif /* CONFIG_TESTING_OPTIONS */
 
 #define MESH_ENABLED BIT(0)
@@ -600,6 +609,14 @@ struct hostapd_bss_config {
 
 #ifdef CONFIG_MBO
 	int mbo_enabled;
+	/**
+	 * oce - Enable OCE in AP and/or STA-CFON mode
+	 *  - BIT(0) is Reserved
+	 *  - Set BIT(1) to enable OCE in STA-CFON mode
+	 *  - Set BIT(2) to enable OCE in AP mode
+	 */
+	unsigned int oce;
+	int mbo_cell_data_conn_pref;
 #endif /* CONFIG_MBO */
 
 	int ftm_responder;
@@ -609,6 +626,7 @@ struct hostapd_bss_config {
 	u8 fils_cache_id[FILS_CACHE_ID_LEN];
 	int fils_cache_id_set;
 	struct dl_list fils_realms; /* list of struct fils_realm */
+	int fils_dh_group;
 	struct hostapd_ip_addr dhcp_server;
 	int dhcp_rapid_commit_proxy;
 	unsigned int fils_hlp_wait_time;
@@ -617,6 +635,23 @@ struct hostapd_bss_config {
 #endif /* CONFIG_FILS */
 
 	int multicast_to_unicast;
+
+	int broadcast_deauth;
+
+#ifdef CONFIG_DPP
+	char *dpp_connector;
+	struct wpabuf *dpp_netaccesskey;
+	unsigned int dpp_netaccesskey_expiry;
+	struct wpabuf *dpp_csign;
+#endif /* CONFIG_DPP */
+
+#ifdef CONFIG_OWE
+	macaddr owe_transition_bssid;
+	u8 owe_transition_ssid[SSID_MAX_LEN];
+	size_t owe_transition_ssid_len;
+	char owe_transition_ifname[IFNAMSIZ + 1];
+	int *owe_groups;
+#endif /* CONFIG_OWE */
 };
 
 /**
@@ -652,6 +687,7 @@ struct hostapd_config {
 	u8 channel;
 	u8 acs;
 	struct wpa_freq_range_list acs_ch_list;
+	int acs_exclude_dfs;
 	enum hostapd_hw_mode hw_mode; /* HOSTAPD_MODE_IEEE80211A, .. */
 	enum {
 		LONG_PREAMBLE = 0,
@@ -677,6 +713,9 @@ struct hostapd_config {
 			  * ' ' (ascii 32): all environments
 			  * 'O': Outdoor environemnt only
 			  * 'I': Indoor environment only
+			  * 'X': Used with noncountry entity ("XXX")
+			  * 0x00..0x31: identifying IEEE 802.11 standard
+			  *	Annex E table (0x04 = global table)
 			  */
 
 	int ieee80211d;
@@ -717,6 +756,7 @@ struct hostapd_config {
 	u8 vht_oper_chwidth;
 	u8 vht_oper_centr_freq_seg0_idx;
 	u8 vht_oper_centr_freq_seg1_idx;
+	u8 ht40_plus_minus_allowed;
 
 	/* Use driver-generated interface addresses when adding multiple BSSs */
 	u8 use_driver_iface_addr;

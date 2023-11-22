@@ -51,13 +51,14 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
 
     @Override
     protected void tearDown() throws Exception {
+        // try/catch for every method in case the tests left the objects in various states
         if (mMp != null) {
-            mMp.stop();
-            mMp.release();
+            try { mMp.stop(); } catch (Exception e) {}
+            try { mMp.release(); } catch (Exception e) {}
             mMp = null;
         }
         if (mSp != null) {
-            mSp.release();
+            try { mSp.release(); } catch (Exception e) {}
             mSp = null;
         }
     }
@@ -145,11 +146,11 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
         final Method getClientPidMethod = confClass.getDeclaredMethod("getClientPid");
         final Method getPlayerTypeMethod = confClass.getDeclaredMethod("getPlayerType");
         try {
-            Integer uid = (Integer) getClientUidMethod.invoke(config, null);
+            Integer uid = (Integer) getClientUidMethod.invoke(config, (Object[]) null);
             assertEquals("uid isn't protected", -1 /*expected*/, uid.intValue());
-            Integer pid = (Integer) getClientPidMethod.invoke(config, null);
+            Integer pid = (Integer) getClientPidMethod.invoke(config, (Object[]) null);
             assertEquals("pid isn't protected", -1 /*expected*/, pid.intValue());
-            Integer type = (Integer) getPlayerTypeMethod.invoke(config, null);
+            Integer type = (Integer) getPlayerTypeMethod.invoke(config, (Object[]) null);
             assertEquals("player type isn't protected", -1 /*expected*/, type.intValue());
         } catch (Exception e) {
             fail("Exception thrown during reflection on config privileged fields"+ e);
@@ -205,7 +206,7 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
                     nbActivePlayersBeforeStart + 1/*expected*/, callback.getNbConfigs());
             assertTrue("Active player, attributes not found", hasAttr(callback.getConfigs(), aa));
 
-            // stopping recording: callback is called with no match
+            // stopping playback: callback is called with no match
             callback.reset();
             mMp.pause();
             Thread.sleep(TEST_TIMING_TOLERANCE_MS);
@@ -215,7 +216,7 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
             assertEquals("number of active players not expected after pause",
                     nbActivePlayersBeforeStart/*expected*/, callback.getNbConfigs());
 
-            // unregister callback and start recording again
+            // unregister callback and start playback again
             am.unregisterAudioPlaybackCallback(callback);
             Thread.sleep(TEST_TIMING_TOLERANCE_MS);
             callback.reset();
@@ -228,6 +229,58 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
             final AudioManager.AudioPlaybackCallback apc =
                     (AudioManager.AudioPlaybackCallback) callback;
             apc.onPlaybackConfigChanged(new ArrayList<AudioPlaybackConfiguration>());
+        } finally {
+            if (h != null) {
+                h.getLooper().quit();
+            }
+        }
+    }
+
+    public void testCallbackMediaPlayerRelease() throws Exception {
+        final HandlerThread handlerThread = new HandlerThread(TAG);
+        handlerThread.start();
+        final Handler h = new Handler(handlerThread.getLooper());
+
+        try {
+            AudioManager am = new AudioManager(getContext());
+            assertNotNull("Could not create AudioManager", am);
+
+            final AudioAttributes aa = (new AudioAttributes.Builder())
+                    .setUsage(TEST_USAGE)
+                    .setContentType(TEST_CONTENT)
+                    .build();
+
+            mMp = MediaPlayer.create(getContext(), R.raw.sine1khzs40dblong,
+                    aa, am.generateAudioSessionId());
+
+            MyAudioPlaybackCallback callback = new MyAudioPlaybackCallback();
+            am.registerAudioPlaybackCallback(callback, h /*handler*/);
+
+            // query how many active players before starting the MediaPlayer
+            List<AudioPlaybackConfiguration> configs = am.getActivePlaybackConfigurations();
+            final int nbActivePlayersBeforeStart = configs.size();
+
+            mMp.start();
+            Thread.sleep(TEST_TIMING_TOLERANCE_MS);
+
+            assertEquals("onPlaybackConfigChanged call count not expected",
+                    1/*expected*/, callback.getCbInvocationNumber()); //only one start call
+            assertEquals("number of active players not expected",
+                    // one more player active
+                    nbActivePlayersBeforeStart + 1/*expected*/, callback.getNbConfigs());
+            assertTrue("Active player, attributes not found", hasAttr(callback.getConfigs(), aa));
+
+            // release the player without stopping or pausing it first
+            callback.reset();
+            mMp.release();
+            Thread.sleep(TEST_TIMING_TOLERANCE_MS);
+
+            assertEquals("onPlaybackConfigChanged call count not expected after release",
+                    1/*expected*/, callback.getCbInvocationNumber());//only release call since reset
+            assertEquals("number of active players not expected after release",
+                    nbActivePlayersBeforeStart/*expected*/, callback.getNbConfigs());
+
+            am.unregisterAudioPlaybackCallback(callback);
         } finally {
             if (h != null) {
                 h.getLooper().quit();

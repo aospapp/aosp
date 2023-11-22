@@ -21,6 +21,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 LOCAL_MODULE_TAGS := samples
 LOCAL_SRC_FILES := $(call all-subdir-java-files)
 LOCAL_PACKAGE_NAME := FingerprintDialog
+LOCAL_SDK_VERSION := current
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res \
     frameworks/support/v7/appcompat/res
 LOCAL_AAPT_FLAGS := --auto-add-overlay \

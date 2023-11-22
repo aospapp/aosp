@@ -18,6 +18,8 @@ package libcore.java.security.cert;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import dalvik.system.VMRuntime;
+import sun.security.jca.Providers;
 import sun.security.provider.X509Factory;
 import sun.security.x509.X509CRLImpl;
 import tests.support.resource.Support_Resources;
@@ -51,6 +53,25 @@ import junit.framework.TestCase;
 import libcore.java.security.StandardNames;
 
 public class X509CRLTest extends TestCase {
+
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        mX509Providers = Security.getProviders("CertificateFactory.X509");
+
+        // Allow access to deprecated BC algorithms in this test, so we can ensure they
+        // continue to work
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                VMRuntime.getRuntime().getTargetSdkVersion());
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
+        super.tearDown();
+    }
+
     private Provider[] mX509Providers;
 
     private static final String CERT_RSA = "x509/cert-rsa.der";
@@ -498,12 +519,5 @@ public class X509CRLTest extends TestCase {
         assertNotNull(entry2);
 
         assertEquals(entry1, entry2);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        mX509Providers = Security.getProviders("CertificateFactory.X509");
     }
 }

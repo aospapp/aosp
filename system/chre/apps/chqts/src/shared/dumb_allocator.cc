@@ -73,7 +73,7 @@ bool DumbAllocatorBase::getSlot(const void *pointer, size_t *slot) const {
     // Out of range.
     return false;
   }
-  *slot = (ptr - mRawMemory) / mAllocSize;
+  *slot = static_cast<size_t>(ptr - mRawMemory) / mAllocSize;
   if (*slot >= mSlotCount) {
     // Out of range.
     return false;

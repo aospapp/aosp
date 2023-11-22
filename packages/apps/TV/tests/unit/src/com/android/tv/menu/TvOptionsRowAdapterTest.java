@@ -16,30 +16,28 @@
 package com.android.tv.menu;
 
 import static android.support.test.InstrumentationRegistry.getInstrumentation;
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import android.media.tv.TvTrackInfo;
 import android.os.SystemClock;
 import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextUtils;
-
-import com.android.tv.BaseMainActivityTestCase;
-import com.android.tv.testing.Constants;
+import com.android.tv.testing.activities.BaseMainActivityTestCase;
+import com.android.tv.testing.constants.Constants;
 import com.android.tv.testing.testinput.ChannelState;
 import com.android.tv.testing.testinput.ChannelStateData;
 import com.android.tv.testing.testinput.TvTestInputConstants;
-
-import org.junit.Before;
-import org.junit.Test;
-
 import java.util.Collections;
 import java.util.List;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-/**
- * Tests for {@link TvOptionsRowAdapter}.
- */
+/** Tests for {@link TvOptionsRowAdapter}. */
 @MediumTest
+@RunWith(AndroidJUnit4.class)
 public class TvOptionsRowAdapterTest extends BaseMainActivityTestCase {
     private static final int WAIT_TRACK_EVENT_TIMEOUT_MS = 300;
     public static final int TRACK_CHECK_INTERVAL_MS = 10;
@@ -56,12 +54,14 @@ public class TvOptionsRowAdapterTest extends BaseMainActivityTestCase {
         waitUntilAudioTracksHaveSize(1);
         waitUntilAudioTrackSelected(ChannelState.DEFAULT.getSelectedAudioTrackId());
         // update should be called on the main thread to avoid the multi-thread problem.
-        getInstrumentation().runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                mTvOptionsRowAdapter.update();
-            }
-        });
+        getInstrumentation()
+                .runOnMainSync(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                mTvOptionsRowAdapter.update();
+                            }
+                        });
     }
 
     @Test
@@ -73,9 +73,10 @@ public class TvOptionsRowAdapterTest extends BaseMainActivityTestCase {
         waitUntilAudioTrackSelected(Constants.EN_STEREO_AUDIO_TRACK.getId());
 
         boolean result = mTvOptionsRowAdapter.updateMultiAudioAction();
-        assertEquals("update Action had change", true, result);
-        assertEquals("Multi Audio enabled", true,
-                MenuAction.SELECT_AUDIO_LANGUAGE_ACTION.isEnabled());
+    assertWithMessage("update Action had change").that(result).isTrue();
+    assertWithMessage("Multi Audio enabled")
+        .that(MenuAction.SELECT_AUDIO_LANGUAGE_ACTION.isEnabled())
+        .isTrue();
     }
 
     @Test
@@ -90,9 +91,10 @@ public class TvOptionsRowAdapterTest extends BaseMainActivityTestCase {
         waitUntilAudioTrackSelected(Constants.GENERIC_AUDIO_TRACK.getId());
 
         boolean result = mTvOptionsRowAdapter.updateMultiAudioAction();
-        assertEquals("update Action had change", true, result);
-        assertEquals("Multi Audio enabled", false,
-                MenuAction.SELECT_AUDIO_LANGUAGE_ACTION.isEnabled());
+    assertWithMessage("update Action had change").that(result).isTrue();
+    assertWithMessage("Multi Audio enabled")
+        .that(MenuAction.SELECT_AUDIO_LANGUAGE_ACTION.isEnabled())
+        .isFalse();
     }
 
     @Test
@@ -108,9 +110,10 @@ public class TvOptionsRowAdapterTest extends BaseMainActivityTestCase {
         waitUntilVideoTrackSelected(data.mSelectedVideoTrackId);
 
         boolean result = mTvOptionsRowAdapter.updateMultiAudioAction();
-        assertEquals("update Action had change", true, result);
-        assertEquals("Multi Audio enabled", false,
-                MenuAction.SELECT_AUDIO_LANGUAGE_ACTION.isEnabled());
+    assertWithMessage("update Action had change").that(result).isTrue();
+    assertWithMessage("Multi Audio enabled")
+        .that(MenuAction.SELECT_AUDIO_LANGUAGE_ACTION.isEnabled())
+        .isFalse();
     }
 
     private void waitUntilAudioTracksHaveSize(int expected) {
@@ -135,8 +138,13 @@ public class TvOptionsRowAdapterTest extends BaseMainActivityTestCase {
             }
             SystemClock.sleep(TRACK_CHECK_INTERVAL_MS);
         }
-        fail("Waited for " + WAIT_TRACK_EVENT_TIMEOUT_MS + " milliseconds for track size to be "
-                + expected + " but was " + size);
+        fail(
+                "Waited for "
+                        + WAIT_TRACK_EVENT_TIMEOUT_MS
+                        + " milliseconds for track size to be "
+                        + expected
+                        + " but was "
+                        + size);
     }
 
     private void waitUntilAudioTrackSelected(String trackId) {
@@ -158,7 +166,12 @@ public class TvOptionsRowAdapterTest extends BaseMainActivityTestCase {
             }
             SystemClock.sleep(TRACK_CHECK_INTERVAL_MS);
         }
-        fail("Waited for " + WAIT_TRACK_EVENT_TIMEOUT_MS + " milliseconds for track ID to be "
-                + trackId + " but was " + selectedTrackId);
+        fail(
+                "Waited for "
+                        + WAIT_TRACK_EVENT_TIMEOUT_MS
+                        + " milliseconds for track ID to be "
+                        + trackId
+                        + " but was "
+                        + selectedTrackId);
     }
 }

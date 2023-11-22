@@ -21,8 +21,10 @@ include $(CLEAR_VARS)
 src_dirs := src
 LOCAL_PACKAGE_NAME := PhotoViewerSample
 
+LOCAL_JAVA_LIBRARIES := \
+    android-support-annotations
+
 LOCAL_STATIC_ANDROID_LIBRARIES := \
-    android-support-annotations \
     android-support-compat \
     android-support-core-ui \
     android-support-core-utils \
@@ -45,8 +47,10 @@ include $(CLEAR_VARS)
 src_dirs := src
 LOCAL_PACKAGE_NAME := AppcompatPhotoViewerSample
 
+LOCAL_JAVA_LIBRARIES := \
+    android-support-annotations
+
 LOCAL_STATIC_ANDROID_LIBRARIES := \
-    android-support-annotations \
     android-support-compat \
     android-support-core-ui \
     android-support-core-utils \

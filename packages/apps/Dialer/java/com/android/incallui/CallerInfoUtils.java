@@ -16,15 +16,10 @@
 
 package com.android.incallui;
 
-import android.Manifest.permission;
 import android.content.Context;
 import android.content.Loader;
 import android.content.Loader.OnLoadCompleteListener;
-import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.support.annotation.NonNull;
-import android.support.v4.content.ContextCompat;
-import android.telecom.PhoneAccount;
 import android.telecom.TelecomManager;
 import android.text.TextUtils;
 import com.android.contacts.common.model.Contact;
@@ -34,7 +29,6 @@ import com.android.dialer.phonenumbercache.CachedNumberLookupService;
 import com.android.dialer.phonenumbercache.CachedNumberLookupService.CachedContactInfo;
 import com.android.dialer.phonenumbercache.ContactInfo;
 import com.android.dialer.phonenumberutil.PhoneNumberHelper;
-import com.android.dialer.telecom.TelecomUtil;
 import com.android.dialer.util.PermissionsUtil;
 import com.android.incallui.call.DialerCall;
 import java.util.Arrays;
@@ -70,7 +64,7 @@ public class CallerInfoUtils {
             "CallerInfoUtils.getCallerInfoForCall",
             "Actually starting CallerInfoAsyncQuery.startQuery()...");
 
-        //noinspection MissingPermission
+        // noinspection MissingPermission
         CallerInfoAsyncQuery.startQuery(QUERY_TOKEN, context, info, listener, cookie);
       } else {
         LogUtil.w(
@@ -93,6 +87,7 @@ public class CallerInfoUtils {
     info.namePresentation = call.getCnapNamePresentation();
     info.callSubject = call.getCallSubject();
     info.contactExists = false;
+    info.countryIso = PhoneNumberHelper.getCurrentCountryIso(context, call.getAccountHandle());
 
     String number = call.getNumber();
     if (!TextUtils.isEmpty(number)) {
@@ -111,7 +106,7 @@ public class CallerInfoUtils {
     // Because the InCallUI is immediately launched before the call is connected, occasionally
     // a voicemail call will be passed to InCallUI as a "voicemail:" URI without a number.
     // This call should still be handled as a voicemail call.
-    if (isVoiceMailNumber(context, call)) {
+    if (call.isVoiceMailNumber()) {
       info.markAsVoiceMail(context);
     }
 
@@ -143,20 +138,6 @@ public class CallerInfoUtils {
     CachedContactInfo cacheInfo = lookupService.buildCachedContactInfo(info);
     cacheInfo.setLookupKey(ci.lookupKeyOrNull);
     return cacheInfo;
-  }
-
-  public static boolean isVoiceMailNumber(Context context, @NonNull DialerCall call) {
-    if (call.getHandle() != null
-        && PhoneAccount.SCHEME_VOICEMAIL.equals(call.getHandle().getScheme())) {
-      return true;
-    }
-
-    if (ContextCompat.checkSelfPermission(context, permission.READ_PHONE_STATE)
-        != PackageManager.PERMISSION_GRANTED) {
-      return false;
-    }
-
-    return TelecomUtil.isVoicemailNumber(context, call.getAccountHandle(), call.getNumber());
   }
 
   /**

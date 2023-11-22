@@ -15,9 +15,10 @@
  */
 package com.android.tradefed.suite.checker;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.suite.checker.StatusCheckerResult.CheckStatus;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
@@ -45,8 +46,8 @@ public class SystemServerStatusCheckerTest {
                 .andReturn("914")
                 .times(2);
         EasyMock.replay(mMockDevice);
-        assertTrue(mChecker.preExecutionCheck(mMockDevice));
-        assertTrue(mChecker.postExecutionCheck(mMockDevice));
+        assertEquals(CheckStatus.SUCCESS, mChecker.preExecutionCheck(mMockDevice).getStatus());
+        assertEquals(CheckStatus.SUCCESS, mChecker.postExecutionCheck(mMockDevice).getStatus());
         EasyMock.verify(mMockDevice);
     }
 
@@ -58,8 +59,8 @@ public class SystemServerStatusCheckerTest {
         EasyMock.expect(mMockDevice.executeShellCommand(EasyMock.eq("pidof system_server")))
                 .andReturn("1024\n");
         EasyMock.replay(mMockDevice);
-        assertTrue(mChecker.preExecutionCheck(mMockDevice));
-        assertFalse(mChecker.postExecutionCheck(mMockDevice));
+        assertEquals(CheckStatus.SUCCESS, mChecker.preExecutionCheck(mMockDevice).getStatus());
+        assertEquals(CheckStatus.FAILED, mChecker.postExecutionCheck(mMockDevice).getStatus());
         EasyMock.verify(mMockDevice);
     }
 
@@ -69,8 +70,8 @@ public class SystemServerStatusCheckerTest {
         EasyMock.expect(mMockDevice.executeShellCommand(EasyMock.eq("pidof system_server")))
                 .andReturn("not found\n");
         EasyMock.replay(mMockDevice);
-        assertTrue(mChecker.preExecutionCheck(mMockDevice));
-        assertTrue(mChecker.postExecutionCheck(mMockDevice));
+        assertEquals(CheckStatus.SUCCESS, mChecker.preExecutionCheck(mMockDevice).getStatus());
+        assertEquals(CheckStatus.SUCCESS, mChecker.postExecutionCheck(mMockDevice).getStatus());
         EasyMock.verify(mMockDevice);
     }
 
@@ -83,8 +84,8 @@ public class SystemServerStatusCheckerTest {
         EasyMock.expect(mMockDevice.executeShellCommand(EasyMock.eq("pidof system_server")))
                 .andReturn(null);
         EasyMock.replay(mMockDevice);
-        assertFalse(mChecker.preExecutionCheck(mMockDevice));
-        assertTrue(mChecker.postExecutionCheck(mMockDevice));
+        assertEquals(CheckStatus.FAILED, mChecker.preExecutionCheck(mMockDevice).getStatus());
+        assertEquals(CheckStatus.SUCCESS, mChecker.postExecutionCheck(mMockDevice).getStatus());
         EasyMock.verify(mMockDevice);
     }
 }

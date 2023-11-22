@@ -57,11 +57,11 @@ def main():
         utils.run('sudo true')
 
     options = parse_options()
-    bucket = lxc.ContainerBucket(container_path=options.path)
+    image = lxc.BaseImage(container_path=options.path)
     if options.setup:
-        bucket.setup_base(name=options.name, force_delete=options.force_delete)
+        image.setup(name=options.name, force_delete=options.force_delete)
     elif options.force_delete:
-        bucket.destroy_all()
+        image.cleanup()
 
 
 if __name__ == '__main__':

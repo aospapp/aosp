@@ -17,7 +17,7 @@
 import io
 import os
 import subprocess
-
+import logging
 import sys
 
 from metrics.metric import Metric
@@ -59,7 +59,7 @@ class UsbMetric(Metric):
         try:
             self._shell.run(self.USBMON_CHECK_COMMAND)
         except job.Error:
-            print('Kernel module not loaded, attempting to load usbmon')
+            logging.info('Kernel module not loaded, attempting to load usbmon')
             try:
                 self._shell.run(self.USBMON_INSTALL_COMMAND)
             except job.Error as error:

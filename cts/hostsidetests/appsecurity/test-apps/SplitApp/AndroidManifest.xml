@@ -15,13 +15,18 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.splitapp">
+    package="com.android.cts.splitapp"
+    android:targetSandboxVersion="2">
+
+    <!-- TODO(b/73365611) Remove targetSdkVersion once EncryptionApp tests
+         are fixed to no longer access SplitApp's data by path. -->
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="27" />
 
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application android:label="SplitApp">
-        <activity android:name=".MyActivity">
+        <activity android:name=".MyActivity" android:visibleToInstantApps="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

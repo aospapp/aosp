@@ -403,10 +403,11 @@ public class ContactsFacade extends RpcReceiver {
           )
           String uri) {
     Intent intent = new Intent();
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
     intent.setComponent(
         new ComponentName(
             "com.google.android.contacts",
-            "com.android.contacts.common.vcard.ImportVCardActivity"));
+            "com.google.android.apps.contacts.vcard.ImportVCardActivity"));
     intent.setData(Uri.parse(uri));
     mService.startActivity(intent);
   }

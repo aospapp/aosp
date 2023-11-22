@@ -1,7 +1,7 @@
 #
 #  Copyright (c) 2011-2015, ARM Limited. All rights reserved.
 #  Copyright (c) 2014, Linaro Limited. All rights reserved.
-#  Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2015 - 2016, Intel Corporation. All rights reserved.<BR>
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -37,14 +37,15 @@
   XenHypercallLib|OvmfPkg/Library/XenHypercallLib/XenHypercallLib.inf
 
 [LibraryClasses.AARCH64]
-  ArmLib|ArmPkg/Library/ArmLib/AArch64/AArch64Lib.inf
   ArmCpuLib|ArmPkg/Drivers/ArmCpuLib/ArmCortexAEMv8Lib/ArmCortexAEMv8Lib.inf
 
 [LibraryClasses.ARM]
-  ArmLib|ArmPkg/Library/ArmLib/ArmV7/ArmV7Lib.inf
   ArmCpuLib|ArmPkg/Drivers/ArmCpuLib/ArmCortexA15Lib/ArmCortexA15Lib.inf
 
 [LibraryClasses.common]
+  ArmLib|ArmPkg/Library/ArmLib/ArmBaseLib.inf
+  ArmMmuLib|ArmPkg/Library/ArmMmuLib/ArmMmuBaseLib.inf
+
   # Virtio Support
   VirtioLib|OvmfPkg/Library/VirtioLib/VirtioLib.inf
   VirtioMmioDeviceLib|OvmfPkg/Library/VirtioMmioDeviceLib/VirtioMmioDeviceLib.inf
@@ -64,16 +65,16 @@
 [LibraryClasses.common.UEFI_DRIVER]
   UefiScsiLib|MdePkg/Library/UefiScsiLib/UefiScsiLib.inf
 
-[LibraryClasses.AARCH64.SEC]
-  ArmLib|ArmPkg/Library/ArmLib/AArch64/AArch64LibPrePi.inf
-
-[LibraryClasses.ARM.SEC]
-  ArmLib|ArmPkg/Library/ArmLib/ArmV7/ArmV7LibPrePi.inf
-
 [BuildOptions]
   RVCT:*_*_ARM_PLATFORM_FLAGS == --cpu Cortex-A15 -I$(WORKSPACE)/ArmVirtPkg/Include
   GCC:*_*_ARM_PLATFORM_FLAGS == -mcpu=cortex-a15 -I$(WORKSPACE)/ArmVirtPkg/Include
   GCC:*_*_AARCH64_PLATFORM_FLAGS == -I$(WORKSPACE)/ArmVirtPkg/Include
+
+[BuildOptions.ARM.EDKII.SEC, BuildOptions.ARM.EDKII.BASE]
+  # Avoid MOVT/MOVW instruction pairs in code that may end up in the PIE
+  # executable we build for the relocatable PrePi. They are not runtime
+  # relocatable in ELF.
+  *_CLANG35_*_CC_FLAGS = -mno-movt
 
 ################################################################################
 #
@@ -114,9 +115,6 @@
   gArmTokenSpaceGuid.PcdFvBaseAddress|0x0
 
 [PcdsDynamicDefault.common]
-  ## If TRUE, OvmfPkg/AcpiPlatformDxe will not wait for PCI
-  #  enumeration to complete before installing ACPI tables.
-  gEfiMdeModulePkgTokenSpaceGuid.PcdPciDisableBusEnumeration|TRUE
 
   gArmTokenSpaceGuid.PcdArmArchTimerSecIntrNum|0x0
   gArmTokenSpaceGuid.PcdArmArchTimerIntrNum|0x0
@@ -129,25 +127,9 @@
   gArmTokenSpaceGuid.PcdGicDistributorBase|0x0
   gArmTokenSpaceGuid.PcdGicRedistributorsBase|0x0
   gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase|0x0
-  gArmVirtTokenSpaceGuid.PcdArmGicRevision|0x0
 
   ## PL031 RealTimeClock
   gArmPlatformTokenSpaceGuid.PcdPL031RtcBase|0x0
-
-  gArmPlatformTokenSpaceGuid.PcdPciBusMin|0x0
-  gArmPlatformTokenSpaceGuid.PcdPciBusMax|0x0
-  gArmPlatformTokenSpaceGuid.PcdPciIoBase|0x0
-  gArmPlatformTokenSpaceGuid.PcdPciIoSize|0x0
-  gArmPlatformTokenSpaceGuid.PcdPciIoTranslation|0x0
-  gArmPlatformTokenSpaceGuid.PcdPciMmio32Base|0x0
-  gArmPlatformTokenSpaceGuid.PcdPciMmio32Size|0x0
-  gEfiMdePkgTokenSpaceGuid.PcdPciExpressBaseAddress|0x0
-
-  gArmVirtTokenSpaceGuid.PcdFwCfgSelectorAddress|0x0
-  gArmVirtTokenSpaceGuid.PcdFwCfgDataAddress|0x0
-  gArmVirtTokenSpaceGuid.PcdFwCfgDmaAddress|0x0
-
-  gArmVirtTokenSpaceGuid.PcdArmPsciMethod|0
 
   gEfiMdePkgTokenSpaceGuid.PcdPlatformBootTimeOut|3
 
@@ -178,7 +160,10 @@
     <LibraryClasses>
       NULL|MdeModulePkg/Library/DxeCrc32GuidedSectionExtractLib/DxeCrc32GuidedSectionExtractLib.inf
   }
-  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
+  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf {
+    <LibraryClasses>
+      PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
+  }
 
   #
   # Architectural Protocols
@@ -202,13 +187,17 @@
   MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
 
   ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
-  ArmPkg/Drivers/TimerDxe/TimerDxe.inf
+  ArmPkg/Drivers/TimerDxe/TimerDxe.inf {
+    <LibraryClasses>
+      NULL|ArmVirtPkg/Library/ArmVirtTimerFdtClientLib/ArmVirtTimerFdtClientLib.inf
+  }
   MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf
 
   #
   # Platform Driver
   #
-  ArmVirtPkg/VirtFdtDxe/VirtFdtDxe.inf
+  ArmVirtPkg/XenioFdtDxe/XenioFdtDxe.inf
+  ArmVirtPkg/FdtClientDxe/FdtClientDxe.inf
 
   #
   # FAT filesystem + GPT/MBR partitioning
@@ -216,6 +205,7 @@
   MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
   MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
   MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
+  FatPkg/EnhancedFatDxe/Fat.inf
 
   #
   # Bds
@@ -227,3 +217,10 @@
 
   OvmfPkg/XenBusDxe/XenBusDxe.inf
   OvmfPkg/XenPvBlkDxe/XenPvBlkDxe.inf
+
+  #
+  # ACPI support
+  #
+!if $(ARCH) == AARCH64
+  ArmVirtPkg/XenAcpiPlatformDxe/XenAcpiPlatformDxe.inf
+!endif

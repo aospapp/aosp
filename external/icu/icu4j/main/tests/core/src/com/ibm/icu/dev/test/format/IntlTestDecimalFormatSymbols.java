@@ -23,12 +23,18 @@ import java.util.Arrays;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
+import com.ibm.icu.dev.test.TestFmwk;
+import com.ibm.icu.text.DecimalFormat;
 import com.ibm.icu.text.DecimalFormatSymbols;
+import com.ibm.icu.text.NumberingSystem;
 import com.ibm.icu.util.Currency;
 import com.ibm.icu.util.ULocale;
 
-public class IntlTestDecimalFormatSymbols extends com.ibm.icu.dev.test.TestFmwk
+@RunWith(JUnit4.class)
+public class IntlTestDecimalFormatSymbols extends TestFmwk
 {
     // Test the API of DecimalFormatSymbols; primarily a simple get/set set.
     @Test
@@ -261,6 +267,24 @@ public class IntlTestDecimalFormatSymbols extends com.ibm.icu.dev.test.TestFmwk
     }
 
     @Test
+    public void testPropagateZeroDigit() {
+        DecimalFormatSymbols dfs = new DecimalFormatSymbols();
+        dfs.setZeroDigit('\u1040');
+        DecimalFormat df = new DecimalFormat("0");
+        df.setDecimalFormatSymbols(dfs);
+        assertEquals("Should propagate char with number property zero",
+                '\u1041', dfs.getDigits()[1]);
+        assertEquals("Should propagate char with number property zero",
+                "\u1044\u1040\u1041\u1042\u1043", df.format(40123));
+        dfs.setZeroDigit('a');
+        df.setDecimalFormatSymbols(dfs);
+        assertEquals("Should propagate char WITHOUT number property zero",
+                'b', dfs.getDigits()[1]);
+        assertEquals("Should propagate char WITHOUT number property zero",
+                "eabcd", df.format(40123));
+    }
+
+    @Test
     public void testDigitSymbols() {
         final char defZero = '0';
         final char[] defDigits = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
@@ -269,12 +293,16 @@ public class IntlTestDecimalFormatSymbols extends com.ibm.icu.dev.test.TestFmwk
             "\uD801\uDCA0", "\uD801\uDCA1", "\uD801\uDCA2", "\uD801\uDCA3", "\uD801\uDCA4",
             "\uD801\uDCA5", "\uD801\uDCA6", "\uD801\uDCA7", "\uD801\uDCA8", "\uD801\uDCA9"
         };
+        final String[] differentDigitStrings = {"0", "b", "3", "d", "5", "ff", "7", "h", "9", "j"};
 
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.ENGLISH);
 
         symbols.setDigitStrings(osmanyaDigitStrings);
         if (!Arrays.equals(symbols.getDigitStrings(), osmanyaDigitStrings)) {
             errln("ERROR: Osmanya digits (supplementary) should be set");
+        }
+        if (Character.codePointAt(osmanyaDigitStrings[0], 0) != symbols.getCodePointZero()) {
+            errln("ERROR: Code point zero be Osmanya code point zero");
         }
         if (defZero != symbols.getZeroDigit()) {
             errln("ERROR: Zero digit should be 0");
@@ -283,10 +311,57 @@ public class IntlTestDecimalFormatSymbols extends com.ibm.icu.dev.test.TestFmwk
             errln("ERROR: Char digits should be Latin digits");
         }
 
+        symbols.setDigitStrings(differentDigitStrings);
+        if (!Arrays.equals(symbols.getDigitStrings(), differentDigitStrings)) {
+            errln("ERROR: Different digits should be set");
+        }
+        if (-1 != symbols.getCodePointZero()) {
+            errln("ERROR: Code point zero should be invalid");
+        }
+
         // Reset digits to Latin
         symbols.setZeroDigit(defZero);
         if (!Arrays.equals(symbols.getDigitStrings(), defDigitStrings)) {
             errln("ERROR: Latin digits should be set" + symbols.getDigitStrings()[0]);
+        }
+        if (defZero != symbols.getCodePointZero()) {
+            errln("ERROR: Code point zero be ASCII 0");
+        }
+    }
+
+    @Test
+    public void testNumberingSystem() {
+        Object[][] cases = {
+                {"en", "latn", "1,234.56", ';'},
+                {"en", "arab", "١٬٢٣٤٫٥٦", '؛'},
+                {"en", "mathsanb", "𝟭,𝟮𝟯𝟰.𝟱𝟲", ';'},
+                {"en", "mymr", "၁,၂၃၄.၅၆", ';'},
+                {"my", "latn", "1,234.56", ';'},
+                {"my", "arab", "١٬٢٣٤٫٥٦", '؛'},
+                {"my", "mathsanb", "𝟭,𝟮𝟯𝟰.𝟱𝟲", ';'},
+                {"my", "mymr", "၁,၂၃၄.၅၆", '၊'},
+                {"en@numbers=thai", "mymr", "၁,၂၃၄.၅၆", ';'}, // conflicting numbering system
+        };
+
+        for (Object[] cas : cases) {
+            ULocale loc = new ULocale((String) cas[0]);
+            NumberingSystem ns = NumberingSystem.getInstanceByName((String) cas[1]);
+            String expectedFormattedNumberString = (String) cas[2];
+            char expectedPatternSeparator = (Character) cas[3];
+
+            DecimalFormatSymbols dfs = DecimalFormatSymbols.forNumberingSystem(loc, ns);
+            DecimalFormat df = new DecimalFormat("#,##0.##", dfs);
+            String actual1 = df.format(1234.56);
+            assertEquals("1234.56 with " + loc + " and " + ns.getName(),
+                    expectedFormattedNumberString, actual1);
+            // The pattern separator is something that differs by numbering system in my@numbers=mymr.
+            char actual2 = dfs.getPatternSeparator();
+            assertEquals("Pattern separator with " + loc + " and " + ns.getName(),
+                    expectedPatternSeparator, actual2);
+
+            // Coverage for JDK Locale overload
+            DecimalFormatSymbols dfs2 = DecimalFormatSymbols.forNumberingSystem(loc.toLocale(), ns);
+            assertEquals("JDK Locale and ICU Locale should produce the same object", dfs, dfs2);
         }
     }
 }

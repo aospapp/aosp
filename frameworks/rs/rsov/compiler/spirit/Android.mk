@@ -30,11 +30,13 @@ SPIRIT_SRCS := \
 
 LIBNAME = libspirit
 
-NDK_PREBUILTS := $(TOP)/prebuilts/ndk/r13
+NDK_PREBUILTS := $(TOP)/prebuilts/ndk/current
 SPIRV_TOOLS_PATH := $(NDK_PREBUILTS)/sources/third_party/shaderc/third_party/spirv-tools
 SPIRV_HEADERS_PATH := $(SPIRV_TOOLS_PATH)/external/spirv-headers
 SPIRV_CORE_GRAMMAR := $(SPIRV_HEADERS_PATH)/include/spirv/1.1/spirv.core.grammar.json
 GENERATOR := $(LOCAL_PATH)/generate.py
+
+LOCAL_CFLAGS := -Wall -Werror
 
 # Don't build for unbundled branches
 ifeq (,$(TARGET_BUILD_APPS))
@@ -68,6 +70,8 @@ $(FULL_GEN): $(SPIRV_CORE_GRAMMAR) $(GENERATOR)
 	$(GENERATOR) $< --$(notdir $(@:%_generated.h=%)) $@
 
 LOCAL_GENERATED_SOURCES := $(FULL_GEN)
+
+LOCAL_CFLAGS := -Wall -Werror
 
 LOCAL_C_INCLUDES += $(PATH_TO_GENERATED)
 
@@ -107,6 +111,8 @@ LOCAL_GENERATED_SOURCES := $(FULL_GEN)
 
 LOCAL_C_INCLUDES += $(PATH_TO_GENERATED)
 
+LOCAL_CFLAGS := -Wall -Werror
+
 include $(BUILD_HOST_NATIVE_TEST)
 
 #=====================================================================
@@ -145,6 +151,8 @@ $(FULL_GEN): $(SPIRV_CORE_GRAMMAR) $(GENERATOR)
 
 LOCAL_GENERATED_SOURCES := $(FULL_GEN)
 
+LOCAL_CFLAGS := -Wall -Werror
+
 LOCAL_C_INCLUDES += $(PATH_TO_GENERATED)
 
 include $(BUILD_HOST_NATIVE_TEST)
@@ -169,6 +177,7 @@ LOCAL_MULTILIB := first
 LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE_CLASS := NATIVE_TESTS
 LOCAL_IS_HOST_MODULE := true
+LOCAL_CFLAGS := -Wall -Werror
 
 include $(BUILD_HOST_NATIVE_TEST)
 
@@ -192,6 +201,7 @@ LOCAL_MULTILIB := first
 LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE_CLASS := NATIVE_TESTS
 LOCAL_IS_HOST_MODULE := true
+LOCAL_CFLAGS := -Wall -Werror
 
 include $(BUILD_HOST_NATIVE_TEST)
 
@@ -230,7 +240,7 @@ LOCAL_GENERATED_SOURCES := $(FULL_GEN)
 
 LOCAL_C_INCLUDES += $(PATH_TO_GENERATED)
 
-LOCAL_CFLAGS := -Wno-error=non-virtual-dtor
+LOCAL_CFLAGS := -Wall -Werror -Wno-error=non-virtual-dtor
 
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH) $(PATH_TO_GENERATED)
 

@@ -38,6 +38,7 @@ typedef void (*TimTimerCbkF)(uint32_t timerId, void* data);
 
 
 uint64_t timGetTime(void);   /* Time since some stable reference point in nanoseconds */
+void timDelay(uint32_t length);
 
 uint32_t timTimerSet(uint64_t length, uint32_t jitterPpm, uint32_t driftPpm, TimTimerCbkF cbk, void* data, bool oneShot); /* return timer id or 0 if failed */
 uint32_t timTimerSetAsApp(uint64_t length, uint32_t jitterPpm, uint32_t driftPpm, uint32_t tid, void* data, bool oneShot); /* return timer id or 0 if failed */

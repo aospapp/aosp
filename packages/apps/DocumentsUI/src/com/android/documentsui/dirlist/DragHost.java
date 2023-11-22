@@ -16,7 +16,7 @@
 
 package com.android.documentsui.dirlist;
 
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
 import android.app.Activity;
 import android.content.ClipData;
@@ -32,7 +32,7 @@ import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.State;
-import com.android.documentsui.selection.SelectionManager;
+import com.android.documentsui.selection.SelectionHelper;
 import com.android.documentsui.ui.DialogController;
 
 import java.util.function.Predicate;
@@ -45,7 +45,7 @@ class DragHost<T extends Activity & AbstractActionHandler.CommonAddons> extends 
     private static final String TAG = "dirlist.DragHost";
 
     private final T mActivity;
-    private final SelectionManager mSelectionMgr;
+    private final SelectionHelper mSelectionMgr;
     private final ActionHandler mActions;
     private final State mState;
     private final DialogController mDialogs;
@@ -56,7 +56,7 @@ class DragHost<T extends Activity & AbstractActionHandler.CommonAddons> extends 
     DragHost(
             T activity,
             DragAndDropManager dragAndDropManager,
-            SelectionManager selectionMgr,
+            SelectionHelper selectionMgr,
             ActionHandler actions,
             State state,
             DialogController dialogs,

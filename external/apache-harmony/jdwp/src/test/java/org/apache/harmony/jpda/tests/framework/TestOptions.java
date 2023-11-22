@@ -43,6 +43,8 @@ import java.util.HashMap;
  *   - name of Java executable to run debuggee on
  * <li><code>jpda.settings.debuggeeJavaPath</code>
  *   - full path to Java executable to run debuggee on
+ * <li><code>jdpa.settings.debuggeeAgentArgument</code>
+ *   - Command-line argument for agent native library. Defaults to "-agentlib:"
  * <li><code>jpda.settings.debuggeeAgentName</code>
  *   - name of agent native library
  * <li><code>jpda.settings.debuggeeAgentExtraOptions</code>
@@ -67,6 +69,9 @@ import java.util.HashMap;
  *   - timeout used in JPDA tests
  * <li><code>jpda.settings.waitingTime</code>
  *   - timeout for waiting events
+ * </ul>
+ * <li><code>jpda.settings.dumpProcess</code>
+ *   - Command to dump a process' data
  * </ul>
  * <li><code>jpda.settings.verbose</code>
  *   - flag that disables (default) or enables writing messages to the log
@@ -113,6 +118,13 @@ public class TestOptions {
      */
     public TestOptions() {
         super();
+    }
+
+    /**
+     * Gets the command line needed to get backtraces/status of a given pid
+     */
+    public String getDumpProcessCommand() {
+      return getProperty("jpda.settings.dumpProcess", "true");
     }
 
     /**
@@ -172,6 +184,15 @@ public class TestOptions {
      */
     public void setTransportAddress(String address) {
         setProperty("jpda.settings.transportAddress", address);
+    }
+
+    /**
+     * Returns command line argument to use with name of JDWP agent library.
+     *
+     * @return option "jpda.settings.debuggeeAgentArgument" or "-agentlib:" by default
+     */
+    public String getDebuggeeAgentArgument() {
+        return getProperty("jpda.settings.debuggeeAgentArgument", "-agentlib:");
     }
 
     /**

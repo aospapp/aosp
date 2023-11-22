@@ -30,11 +30,14 @@ import android.graphics.Rect;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewTreeObserver.OnDrawListener;
+import android.view.WindowInsets;
+import android.widget.FrameLayout;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-public class PixelCopyViewProducerActivity extends Activity implements OnDrawListener {
+public class PixelCopyViewProducerActivity extends Activity implements OnDrawListener,
+        View.OnApplyWindowInsetsListener{
     private static final int[] ORIENTATIONS = {
             ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
             ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
@@ -44,6 +47,7 @@ public class PixelCopyViewProducerActivity extends Activity implements OnDrawLis
     private int mCurrentOrientation = 0;
     private View mContent;
     private Rect mContentBounds = new Rect();
+    private Rect mOutsets = new Rect();
     private CountDownLatch mFence = new CountDownLatch(3);
     private boolean mSupportsRotation;
 
@@ -62,6 +66,7 @@ public class PixelCopyViewProducerActivity extends Activity implements OnDrawLis
         mContent = new ColoredGrid(this);
         setContentView(mContent);
         mContent.getViewTreeObserver().addOnDrawListener(this);
+        mContent.setOnApplyWindowInsetsListener(this);
     }
 
     @Override
@@ -79,13 +84,27 @@ public class PixelCopyViewProducerActivity extends Activity implements OnDrawLis
             // We pass mContentBounds here just as a throwaway rect, we don't care about
             // the visible rect just the global offset.
             mContent.getGlobalVisibleRect(mContentBounds, offset);
-            mContentBounds.set(offset.x, offset.y,
-                    offset.x + mContent.getWidth(), offset.y + mContent.getHeight());
+            mContentBounds.set(offset.x - mOutsets.left, offset.y - mOutsets.top,
+                    offset.x - mOutsets.left + mContent.getWidth(),
+                    offset.y - mOutsets.top + mContent.getHeight());
             mFence.countDown();
             if (mFence.getCount() > 0) {
                 mContent.invalidate();
             }
         });
+    }
+
+    @Override
+    public WindowInsets onApplyWindowInsets(View v, WindowInsets in) {
+        if (in.isRound()) {
+            FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) mContent.getLayoutParams();
+            params.setMargins(in.getSystemWindowInsetLeft(), in.getSystemWindowInsetTop(),
+                    in.getSystemWindowInsetRight(), in.getSystemWindowInsetBottom());
+            mOutsets = new Rect(in.getSystemWindowInsetLeft(), in.getSystemWindowInsetTop(),
+                    in.getSystemWindowInsetRight(), in.getSystemWindowInsetBottom());
+            mContent.setLayoutParams(params);
+        }
+        return in;
     }
 
     public void waitForFirstDrawCompleted(int timeout, TimeUnit unit) {

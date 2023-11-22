@@ -39,7 +39,17 @@ public class EditPinPreference extends EditTextPreference {
 
     private boolean shouldHideButtons;
 
-    interface OnPinEnteredListener {
+    /**
+     * Interface definition for a callback to be invoked when the PIN is entered.
+     */
+    public interface OnPinEnteredListener {
+        /**
+         * Called when the dialog of {@link #EditPinPreference} is dismissed.
+         *
+         * @param preference the specified {@link #EditPinPreference}
+         * @param positiveResult Whether the positive button was clicked (true), or
+         *                       the negative button was clicked or the dialog was canceled (false).
+         */
         void onPinEntered(EditPinPreference preference, boolean positiveResult);
     }
 

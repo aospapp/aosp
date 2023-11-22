@@ -21,39 +21,46 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     services.net
 
 LOCAL_JAVA_LIBRARIES := \
-    android.test.runner
+    android.test.runner \
+    android.test.base \
+    android.test.mock
 
 LOCAL_PACKAGE_NAME := FrameworksNetTests
+LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_COMPATIBILITY_SUITE := device-tests
 
 LOCAL_CERTIFICATE := platform
 
 # These are not normally accessible from apps so they must be explicitly included.
-LOCAL_JNI_SHARED_LIBRARIES := libframeworksnettestsjni \
+LOCAL_JNI_SHARED_LIBRARIES := \
+    android.hidl.token@1.0 \
     libbacktrace \
     libbase \
     libbinder \
     libc++ \
+    libcrypto \
     libcutils \
+    libdexfile \
+    libframeworksnettestsjni \
+    libhidl-gen-utils \
+    libhidlbase \
+    libhidltransport \
+    libhwbinder \
     liblog \
     liblzma \
     libnativehelper \
     libnetdaidl \
-    libui \
-    libunwind \
-    libutils \
-    libvndksupport \
-    libcrypto \
-    libhidl-gen-utils \
-    libhidlbase \
-    libhidltransport \
     libpackagelistparser \
     libpcre2 \
     libselinux \
-    libtinyxml2 \
+    libui \
+    libunwind \
+    libutils \
     libvintf \
-    libhwbinder \
-    android.hidl.token@1.0
+    libvndksupport \
+    libtinyxml2 \
+    libunwindstack \
+    libutilscallstack
 
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 

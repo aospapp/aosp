@@ -10,13 +10,18 @@
 package android.icu.dev.test.util;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author srl
  *
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class DebugUtilitiesTest extends TestFmwk {
 
     @Test

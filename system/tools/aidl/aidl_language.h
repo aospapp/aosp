@@ -345,6 +345,14 @@ class AidlInterface : public AidlAnnotatable {
     return reinterpret_cast<const T*>(language_type_);
   }
 
+  void SetGenerateTraces(bool generate_traces) {
+    generate_traces_ = generate_traces;
+  }
+
+  bool ShouldGenerateTraces() const {
+    return generate_traces_;
+  }
+
  private:
   std::string name_;
   std::string comments_;
@@ -356,6 +364,7 @@ class AidlInterface : public AidlAnnotatable {
   std::vector<std::string> package_;
 
   const android::aidl::ValidatableType* language_type_ = nullptr;
+  bool generate_traces_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(AidlInterface);
 };

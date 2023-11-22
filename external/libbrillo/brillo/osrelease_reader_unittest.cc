@@ -16,8 +16,8 @@ class OsReleaseReaderTest : public ::testing::Test {
  public:
   void SetUp() override {
     CHECK(temp_dir_.CreateUniqueTempDir());
-    osreleased_ = temp_dir_.path().Append("etc").Append("os-release.d");
-    osrelease_ = temp_dir_.path().Append("etc").Append("os-release");
+    osreleased_ = temp_dir_.GetPath().Append("etc").Append("os-release.d");
+    osrelease_ = temp_dir_.GetPath().Append("etc").Append("os-release");
     base::CreateDirectory(osreleased_);
   }
 
@@ -28,12 +28,12 @@ class OsReleaseReaderTest : public ::testing::Test {
 };
 
 TEST_F(OsReleaseReaderTest, MissingOsReleaseTest) {
-  store_.LoadTestingOnly(temp_dir_.path());
+  store_.LoadTestingOnly(temp_dir_.GetPath());
 }
 
 TEST_F(OsReleaseReaderTest, MissingOsReleaseDTest) {
   base::DeleteFile(osreleased_, true);
-  store_.LoadTestingOnly(temp_dir_.path());
+  store_.LoadTestingOnly(temp_dir_.GetPath());
 }
 
 TEST_F(OsReleaseReaderTest, CompleteTest) {
@@ -46,7 +46,7 @@ TEST_F(OsReleaseReaderTest, CompleteTest) {
   base::WriteFile(osreleased_.Append("GREETINGS"), ola.data(), ola.size());
   base::WriteFile(osrelease_, osreleasecontent.data(), osreleasecontent.size());
 
-  store_.LoadTestingOnly(temp_dir_.path());
+  store_.LoadTestingOnly(temp_dir_.GetPath());
 
   string test_key_value;
   ASSERT_TRUE(store_.GetString("TEST_KEY", &test_key_value));
@@ -80,7 +80,7 @@ TEST_F(OsReleaseReaderTest, NoNewLine) {
   base::WriteFile(
       osreleased_.Append("BONJOUR"), bonjour.data(), bonjour.size());
 
-  store_.LoadTestingOnly(temp_dir_.path());
+  store_.LoadTestingOnly(temp_dir_.GetPath());
 
   string hello_value;
   string bonjour_value;

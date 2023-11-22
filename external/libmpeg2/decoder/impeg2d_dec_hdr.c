@@ -712,6 +712,11 @@ IMPEG2D_ERROR_CODES_T impeg2d_dec_pic_hdr(dec_state_t *ps_dec)
 
     if(ps_dec->u2_is_mpeg2 == 0)
     {
+        if (ps_dec->u2_forw_f_code < 1 || ps_dec->u2_forw_f_code > 7 ||
+                        ps_dec->u2_back_f_code < 1 || ps_dec->u2_back_f_code > 7)
+        {
+            return IMPEG2D_UNKNOWN_ERROR;
+        }
         ps_dec->au2_f_code[0][0] = ps_dec->au2_f_code[0][1] = ps_dec->u2_forw_f_code;
         ps_dec->au2_f_code[1][0] = ps_dec->au2_f_code[1][1] = ps_dec->u2_back_f_code;
     }
@@ -1013,23 +1018,30 @@ void impeg2d_dec_pic_data_thread(dec_state_t *ps_dec)
 
             if(i4_continue_decode)
             {
-                /* If the slice is from the same row, then continue decoding without dequeue */
-                if((temp - 1) == i4_cur_row)
+                if (0 != ps_dec->u2_num_mbs_left)
                 {
-                    i4_dequeue_job = 0;
-                    break;
-                }
-
-                if(temp < ps_dec->i4_end_mb_y)
-                {
-                    i4_cur_row = ps_dec->u2_mb_y;
+                    /* If the slice is from the same row, then continue decoding without dequeue */
+                    if((temp - 1) == i4_cur_row)
+                    {
+                        i4_dequeue_job = 0;
+                    }
+                    else
+                    {
+                        if(temp < ps_dec->i4_end_mb_y)
+                        {
+                            i4_cur_row = ps_dec->u2_mb_y;
+                        }
+                        else
+                        {
+                            i4_dequeue_job = 1;
+                        }
+                    }
                 }
                 else
                 {
                     i4_dequeue_job = 1;
                 }
                 break;
-
             }
             else
                 break;
@@ -1863,7 +1875,11 @@ IMPEG2D_ERROR_CODES_T impeg2d_process_video_bit_stream(dec_state_t *ps_dec)
                     return e_error;
                 }
                 impeg2d_flush_ext_and_user_data(ps_dec);
-                impeg2d_pre_pic_dec_proc(ps_dec);
+                e_error = impeg2d_pre_pic_dec_proc(ps_dec);
+                if ((IMPEG2D_ERROR_CODES_T)IVD_ERROR_NONE != e_error)
+                {
+                    return e_error;
+                }
                 impeg2d_dec_pic_data(ps_dec);
                 impeg2d_post_pic_dec_proc(ps_dec);
                 u4_start_code_found = 1;

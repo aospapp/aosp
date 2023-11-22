@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -37,17 +37,26 @@ public class ReportTest extends CommandTestBase {
 		execute("report");
 
 		assertFailure();
-		assertContains("Option \"-classfiles\" is required", err);
+		assertContains("Option \"--classfiles\" is required", err);
 		assertContains(
 				"Usage: java -jar jacococli.jar report [<execfiles> ...]", err);
 	}
 
 	@Test
-	public void should_print_number_of_analyzed_classes() throws Exception {
-		execute("report", "-classfiles", getClassPath());
+	public void should_print_warning_when_no_exec_files_are_provided()
+			throws Exception {
+		execute("report", "--classfiles", getClassPath());
 
 		assertOk();
-		assertContains("[INFO] Writing report with 14 classes.", out);
+		assertContains("[WARN] No execution data files provided.", out);
+	}
+
+	@Test
+	public void should_print_number_of_analyzed_classes() throws Exception {
+		execute("report", "--classfiles", getClassPath());
+
+		assertOk();
+		assertContains("[INFO] Analyzing 14 classes.", out);
 	}
 
 	@Test
@@ -62,7 +71,7 @@ public class ReportTest extends CommandTestBase {
 						new boolean[] { true }));
 		execout.close();
 
-		execute("report", exec.getAbsolutePath(), "-classfiles",
+		execute("report", exec.getAbsolutePath(), "--classfiles",
 				getClassPath());
 
 		assertOk();
@@ -81,7 +90,7 @@ public class ReportTest extends CommandTestBase {
 			throws Exception {
 		File xml = new File(tmp.getRoot(), "coverage.xml");
 
-		execute("report", "-classfiles", getClassPath(), "-xml",
+		execute("report", "--classfiles", getClassPath(), "--xml",
 				xml.getAbsolutePath());
 
 		assertOk();
@@ -93,7 +102,7 @@ public class ReportTest extends CommandTestBase {
 			throws Exception {
 		File csv = new File(tmp.getRoot(), "coverage.csv");
 
-		execute("report", "-classfiles", getClassPath(), "-csv",
+		execute("report", "--classfiles", getClassPath(), "--csv",
 				csv.getAbsolutePath());
 
 		assertOk();
@@ -105,8 +114,8 @@ public class ReportTest extends CommandTestBase {
 			throws Exception {
 		File html = new File(tmp.getRoot(), "coverage");
 
-		execute("report", "-classfiles", getClassPath(), "-sourcefiles",
-				"./src", "-html", html.getAbsolutePath());
+		execute("report", "--classfiles", getClassPath(), "--sourcefiles",
+				"./src", "--html", html.getAbsolutePath());
 
 		assertOk();
 		assertTrue(html.isDirectory());
@@ -127,7 +136,7 @@ public class ReportTest extends CommandTestBase {
 		final String c2 = getClassPath()
 				+ "/org/jacoco/cli/internal/commands/DumpTest.class";
 
-		execute("report", "-classfiles", c1, "-classfiles", c2, "-html",
+		execute("report", "--classfiles", c1, "--classfiles", c2, "--html",
 				html.getAbsolutePath());
 
 		assertOk();

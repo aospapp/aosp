@@ -37,6 +37,12 @@ void SynchronizedMemoryPool<ElementType, kSize>::deallocate(
   mMemoryPool.deallocate(element);
 }
 
+template<typename ElementType, size_t kSize>
+size_t SynchronizedMemoryPool<ElementType, kSize>::getFreeBlockCount() {
+  LockGuard<Mutex> lock(mMutex);
+  return mMemoryPool.getFreeBlockCount();
+}
+
 }  // namespace chre
 
 #endif  // CHRE_UTIL_SYNCHRONIZED_MEMORY_POOL_IMPL_H_

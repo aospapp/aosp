@@ -15,6 +15,7 @@ rm -Rf src/fuzz
 rm -Rf src/third_party/googletest
 rm -Rf linux-aarch64/ linux-arm/ linux-x86/ linux-x86_64/ mac-x86/ mac-x86_64/ win-x86_64/ win-x86/
 python src/util/generate_build_files.py android
+python src/util/generate_build_files.py eureka
 
 git add .
 git commit -m "external/boringssl: Sync to ${new_revision}.

@@ -25,8 +25,11 @@ class firmware_CorruptKernelA(FirmwareTest):
         self.setup_kernel('a')
 
     def cleanup(self):
-        self.restore_cgpt_attributes()
-        self.restore_kernel()
+        try:
+            self.restore_cgpt_attributes()
+            self.restore_kernel()
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_CorruptKernelA, self).cleanup()
 
     def run_once(self, dev_mode=False):

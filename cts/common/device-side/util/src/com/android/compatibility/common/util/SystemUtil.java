@@ -16,17 +16,25 @@
 
 package com.android.compatibility.common.util;
 
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.app.ActivityManager;
 import android.app.ActivityManager.MemoryInfo;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.os.ParcelFileDescriptor;
 import android.os.StatFs;
+import android.support.test.InstrumentationRegistry;
+import android.util.Log;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.function.Predicate;
 
 public class SystemUtil {
+    private static final String TAG = "CtsSystemUtil";
+
     public static long getFreeDiskSize(Context context) {
         final StatFs statFs = new StatFs(context.getFilesDir().getAbsolutePath());
         return (long)statFs.getAvailableBlocks() * statFs.getBlockSize();
@@ -55,6 +63,11 @@ public class SystemUtil {
      */
     public static String runShellCommand(Instrumentation instrumentation, String cmd)
             throws IOException {
+        Log.v(TAG, "Running command: " + cmd);
+        if (cmd.startsWith("pm grant ") || cmd.startsWith("pm revoke ")) {
+            throw new UnsupportedOperationException("Use UiAutomation.grantRuntimePermission() "
+                    + "or revokeRuntimePermission() directly, which are more robust.");
+        }
         ParcelFileDescriptor pfd = instrumentation.getUiAutomation().executeShellCommand(cmd);
         byte[] buf = new byte[512];
         int bytesRead;
@@ -65,5 +78,65 @@ public class SystemUtil {
         }
         fis.close();
         return stdout.toString();
+    }
+
+    /**
+     * Simpler version of {@link #runShellCommand(Instrumentation, String)}.
+     */
+    public static String runShellCommand(String cmd) {
+        try {
+            return runShellCommand(InstrumentationRegistry.getInstrumentation(), cmd);
+        } catch (IOException e) {
+            fail("Failed reading command output: " + e);
+            return "";
+        }
+    }
+
+    /**
+     * Same as {@link #runShellCommand(String)}, with optionally
+     * check the result using {@code resultChecker}.
+     */
+    public static String runShellCommand(String cmd, Predicate<String> resultChecker) {
+        final String result = runShellCommand(cmd);
+        if (resultChecker != null) {
+            assertTrue("Assertion failed. Command was: " + cmd + "\n"
+                    + "Output was:\n" + result,
+                    resultChecker.test(result));
+        }
+        return result;
+    }
+
+    /**
+     * Same as {@link #runShellCommand(String)}, but fails if the output is not empty.
+     */
+    public static String runShellCommandForNoOutput(String cmd) {
+        final String result = runShellCommand(cmd);
+        assertTrue("Command failed. Command was: " + cmd + "\n"
+                + "Didn't expect any output, but the output was:\n" + result,
+                result.length() == 0);
+        return result;
+    }
+
+    /**
+     * Run a command and print the result on logcat.
+     */
+    public static void runCommandAndPrintOnLogcat(String logtag, String cmd) {
+        Log.i(logtag, "Executing: " + cmd);
+        final String output = runShellCommand(cmd);
+        for (String line : output.split("\\n", -1)) {
+            Log.i(logtag, line);
+        }
+    }
+
+    /**
+     * Run a command and return the section matching the patterns.
+     *
+     * @see TextUtils#extractSection
+     */
+    public static String runCommandAndExtractSection(String cmd,
+            String extractionStartRegex, boolean startInclusive,
+            String extractionEndRegex, boolean endInclusive) {
+        return TextUtils.extractSection(runShellCommand(cmd), extractionStartRegex, startInclusive,
+                extractionEndRegex, endInclusive);
     }
 }

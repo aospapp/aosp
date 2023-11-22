@@ -52,12 +52,6 @@ class ApInterfaceImpl {
 
   bool StartHostapd();
   bool StopHostapd();
-  bool WriteHostapdConfig(
-      const std::vector<uint8_t>& ssid,
-      bool is_hidden,
-      int32_t channel,
-      wifi_system::HostapdManager::EncryptionType encryption_type,
-      const std::vector<uint8_t>& passphrase);
   std::string GetInterfaceName() { return interface_name_; }
   int GetNumberOfAssociatedStations() const;
   void Dump(std::stringstream* ss) const;
@@ -75,6 +69,8 @@ class ApInterfaceImpl {
 
   void OnStationEvent(StationEvent event,
                       const std::vector<uint8_t>& mac_address);
+
+  void OnChannelSwitchEvent(uint32_t frequency, ChannelBandwidth bandwidth);
 
   DISALLOW_COPY_AND_ASSIGN(ApInterfaceImpl);
 };

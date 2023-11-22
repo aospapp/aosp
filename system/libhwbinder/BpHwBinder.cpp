@@ -96,7 +96,7 @@ BpHwBinder::BpHwBinder(int32_t handle)
     ALOGV("Creating BpHwBinder %p handle %d\n", this, mHandle);
 
     extendObjectLifetime(OBJECT_LIFETIME_WEAK);
-    IPCThreadState::self()->incWeakHandle(handle);
+    IPCThreadState::self()->incWeakHandle(handle, this);
 }
 
 status_t BpHwBinder::transact(
@@ -282,7 +282,7 @@ void BpHwBinder::onFirstRef()
 {
     ALOGV("onFirstRef BpHwBinder %p handle %d\n", this, mHandle);
     IPCThreadState* ipc = IPCThreadState::self();
-    if (ipc) ipc->incStrongHandle(mHandle);
+    if (ipc) ipc->incStrongHandle(mHandle, this);
 }
 
 void BpHwBinder::onLastStrongRef(const void* /*id*/)

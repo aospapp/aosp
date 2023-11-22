@@ -32,11 +32,9 @@ class ZombieMetric(Metric):
         If process does not have serial, None is returned instead.
 
         Returns:
-            A dict with the following fields:
-              adb_zombies, fastboot_zombies, other_zombies: lists of
-                (PID, serial number) tuples
-              num_adb_zombies, num_fastboot_zombies, num_other_zombies: int
-                representing the number of tuples in the respective list
+            A dict with the following fields: adb/fastboot/other_zombies; lists
+            of serial numbers and num_adb/fastboot/other_zombies; ints
+            representing the number of entries in the respective list
         """
         adb_zombies, fastboot_zombies, other_zombies = [], [], []
         result = self._shell.run(self.COMMAND).stdout
@@ -46,8 +44,8 @@ class ZombieMetric(Metric):
 
         output = result.splitlines()
         for ln in output:
-            spl_ln = ln.split()
             # spl_ln looks like ['1xx', 'Z+', 'adb', '<defunct'>, ...]
+            spl_ln = ln.split()
             pid, state, name = spl_ln[:3]
 
             if '-s' in spl_ln:
@@ -57,15 +55,15 @@ class ZombieMetric(Metric):
                     sn = None
                 else:
                     sn = spl_ln[sn_idx + 1]
-                zombie = (pid, sn)
+                zombie = sn
             else:
-                zombie = (pid, None)
+                zombie = None
             if 'adb' in ln:
                 adb_zombies.append(zombie)
             elif 'fastboot' in ln:
                 fastboot_zombies.append(zombie)
             else:
-                other_zombies.append(zombie)
+                other_zombies.append(pid)
 
         return {
             self.ADB_ZOMBIES: adb_zombies,

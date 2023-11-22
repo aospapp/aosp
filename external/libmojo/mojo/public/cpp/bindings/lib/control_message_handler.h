@@ -7,7 +7,9 @@
 
 #include <stdint.h>
 
+#include "base/compiler_specific.h"
 #include "base/macros.h"
+#include "mojo/public/cpp/bindings/bindings_export.h"
 #include "mojo/public/cpp/bindings/lib/serialization_context.h"
 #include "mojo/public/cpp/bindings/message.h"
 
@@ -15,7 +17,8 @@ namespace mojo {
 namespace internal {
 
 // Handlers for request messages defined in interface_control_messages.mojom.
-class ControlMessageHandler : public MessageReceiverWithResponderStatus {
+class MOJO_CPP_BINDINGS_EXPORT ControlMessageHandler
+    : NON_EXPORTED_BASE(public MessageReceiverWithResponderStatus) {
  public:
   static bool IsControlMessage(const Message* message);
 

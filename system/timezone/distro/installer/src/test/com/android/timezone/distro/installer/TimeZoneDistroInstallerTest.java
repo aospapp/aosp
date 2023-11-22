@@ -332,7 +332,9 @@ public class TimeZoneDistroInstallerTest extends TestCase {
     public void testStageInstallWithErrorCode_withNewerDistroVersion() throws Exception {
         // Create a distro that will appear to be newer than the one currently supported.
         byte[] distroBytes = createValidTimeZoneDistroBuilder(NEW_RULES_VERSION, 1)
-                .replaceFormatVersionForTests(2, 1)
+                .replaceFormatVersionForTests(
+                        DistroVersion.CURRENT_FORMAT_MAJOR_VERSION + 1,
+                        DistroVersion.CURRENT_FORMAT_MINOR_VERSION)
                 .buildUnvalidatedBytes();
         assertEquals(
                 TimeZoneDistroInstaller.INSTALL_FAIL_BAD_DISTRO_FORMAT_VERSION,
@@ -347,8 +349,8 @@ public class TimeZoneDistroInstallerTest extends TestCase {
     public void testStageInstallWithErrorCode_withBadlyFormedDistroVersion() throws Exception {
         // Create a distro that has an invalid major distro version. It should be 3 numeric
         // characters, "." and 3 more numeric characters.
-        DistroVersion validDistroVersion = new DistroVersion(1, 1, NEW_RULES_VERSION, 1);
-        byte[] invalidFormatVersionBytes = validDistroVersion.toBytes();
+        byte[] invalidFormatVersionBytes =
+                createValidTimeZoneDistroBuilder(NEW_RULES_VERSION, 1).buildUnvalidatedBytes();
         invalidFormatVersionBytes[0] = 'A';
 
         TimeZoneDistro distro = createTimeZoneDistroWithVersionBytes(invalidFormatVersionBytes);
@@ -364,8 +366,8 @@ public class TimeZoneDistroInstallerTest extends TestCase {
      */
     public void testStageInstallWithErrorCode_withBadlyFormedRevision() throws Exception {
         // Create a distro that has an invalid revision. It should be 3 numeric characters.
-        DistroVersion validDistroVersion = new DistroVersion(1, 1, NEW_RULES_VERSION, 1);
-        byte[] invalidRevisionBytes = validDistroVersion.toBytes();
+        byte[] invalidRevisionBytes =
+                createValidTimeZoneDistroBuilder(NEW_RULES_VERSION, 1).buildUnvalidatedBytes();
         invalidRevisionBytes[invalidRevisionBytes.length - 3] = 'A';
 
         TimeZoneDistro distro = createTimeZoneDistroWithVersionBytes(invalidRevisionBytes);
@@ -381,8 +383,8 @@ public class TimeZoneDistroInstallerTest extends TestCase {
      */
     public void testStageInstallWithErrorCode_withBadlyFormedRulesVersion() throws Exception {
         // Create a distro that has an invalid rules version. It should be in the form "2016c".
-        DistroVersion validDistroVersion = new DistroVersion(1, 1, NEW_RULES_VERSION, 1);
-        byte[] invalidRulesVersionBytes = validDistroVersion.toBytes();
+        byte[] invalidRulesVersionBytes =
+                createValidTimeZoneDistroBuilder(NEW_RULES_VERSION, 1).buildUnvalidatedBytes();
         invalidRulesVersionBytes[invalidRulesVersionBytes.length - 6] = 'B';
 
         TimeZoneDistro distro = createTimeZoneDistroWithVersionBytes(invalidRulesVersionBytes);
@@ -583,13 +585,13 @@ public class TimeZoneDistroInstallerTest extends TestCase {
 
         byte[] tzData = createTzData(rulesVersion);
         byte[] icuData = new byte[] { 'a' };
-        String tzlookupXml = "<timezones>\n"
+        String tzlookupXml = "<timezones ianaversion=\"" + rulesVersion + "\">\n"
                 + "  <countryzones>\n"
-                + "    <country code=\"us\">\n"
-                + "      <id>America/New_York\"</id>\n"
+                + "    <country code=\"us\" default=\"America/New_York\" everutc=\"n\">\n"
+                + "      <id>America/New_York</id>\n"
                 + "      <id>America/Los_Angeles</id>\n"
                 + "    </country>\n"
-                + "    <country code=\"gb\">\n"
+                + "    <country code=\"gb\" default=\"Europe/London\" everutc=\"y\">\n"
                 + "      <id>Europe/London</id>\n"
                 + "    </country>\n"
                 + "  </countryzones>\n"

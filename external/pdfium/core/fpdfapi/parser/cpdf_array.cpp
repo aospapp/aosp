@@ -14,13 +14,13 @@
 #include "core/fpdfapi/parser/cpdf_reference.h"
 #include "core/fpdfapi/parser/cpdf_stream.h"
 #include "core/fpdfapi/parser/cpdf_string.h"
+#include "core/fxcrt/fx_stream.h"
 #include "third_party/base/logging.h"
 #include "third_party/base/stl_util.h"
 
 CPDF_Array::CPDF_Array() {}
 
-CPDF_Array::CPDF_Array(const CFX_WeakPtr<CFX_ByteStringPool>& pPool)
-    : m_pPool(pPool) {}
+CPDF_Array::CPDF_Array(const WeakPtr<ByteStringPool>& pPool) : m_pPool(pPool) {}
 
 CPDF_Array::~CPDF_Array() {
   // Break cycles for cyclic references.
@@ -57,8 +57,11 @@ std::unique_ptr<CPDF_Object> CPDF_Array::CloneNonCyclic(
   pVisited->insert(this);
   auto pCopy = pdfium::MakeUnique<CPDF_Array>();
   for (const auto& pValue : m_Objects) {
-    if (!pdfium::ContainsKey(*pVisited, pValue.get()))
-      pCopy->m_Objects.push_back(pValue->CloneNonCyclic(bDirect, pVisited));
+    if (!pdfium::ContainsKey(*pVisited, pValue.get())) {
+      std::set<const CPDF_Object*> visited(*pVisited);
+      if (auto obj = pValue->CloneNonCyclic(bDirect, &visited))
+        pCopy->m_Objects.push_back(std::move(obj));
+    }
   }
   return std::move(pCopy);
 }
@@ -96,10 +99,16 @@ CPDF_Object* CPDF_Array::GetDirectObjectAt(size_t i) const {
   return m_Objects[i]->GetDirect();
 }
 
-CFX_ByteString CPDF_Array::GetStringAt(size_t i) const {
+ByteString CPDF_Array::GetStringAt(size_t i) const {
   if (i >= m_Objects.size())
-    return CFX_ByteString();
+    return ByteString();
   return m_Objects[i]->GetString();
+}
+
+WideString CPDF_Array::GetUnicodeTextAt(size_t i) const {
+  if (i >= m_Objects.size())
+    return WideString();
+  return m_Objects[i]->GetUnicodeText();
 }
 
 int CPDF_Array::GetIntegerAt(size_t i) const {
@@ -108,7 +117,7 @@ int CPDF_Array::GetIntegerAt(size_t i) const {
   return m_Objects[i]->GetInteger();
 }
 
-FX_FLOAT CPDF_Array::GetNumberAt(size_t i) const {
+float CPDF_Array::GetNumberAt(size_t i) const {
   if (i >= m_Objects.size())
     return 0;
   return m_Objects[i]->GetNumber();
@@ -133,14 +142,13 @@ CPDF_Array* CPDF_Array::GetArrayAt(size_t i) const {
   return ToArray(GetDirectObjectAt(i));
 }
 
-void CPDF_Array::RemoveAt(size_t i, size_t nCount) {
-  if (i >= m_Objects.size())
-    return;
+void CPDF_Array::Clear() {
+  m_Objects.clear();
+}
 
-  if (nCount <= 0 || nCount > m_Objects.size() - i)
-    return;
-
-  m_Objects.erase(m_Objects.begin() + i, m_Objects.begin() + i + nCount);
+void CPDF_Array::RemoveAt(size_t i) {
+  if (i < m_Objects.size())
+    m_Objects.erase(m_Objects.begin() + i);
 }
 
 void CPDF_Array::ConvertToIndirectObjectAt(size_t i,
@@ -159,7 +167,7 @@ CPDF_Object* CPDF_Array::SetAt(size_t i, std::unique_ptr<CPDF_Object> pObj) {
   ASSERT(IsArray());
   ASSERT(!pObj || pObj->IsInline());
   if (i >= m_Objects.size()) {
-    ASSERT(false);
+    NOTREACHED();
     return nullptr;
   }
   CPDF_Object* pRet = pObj.get();
@@ -189,4 +197,23 @@ CPDF_Object* CPDF_Array::Add(std::unique_ptr<CPDF_Object> pObj) {
   CPDF_Object* pRet = pObj.get();
   m_Objects.push_back(std::move(pObj));
   return pRet;
+}
+
+bool CPDF_Array::WriteTo(IFX_ArchiveStream* archive) const {
+  if (!archive->WriteString("["))
+    return false;
+
+  for (size_t i = 0; i < GetCount(); ++i) {
+    CPDF_Object* pElement = GetObjectAt(i);
+    if (!pElement->IsInline()) {
+      if (!archive->WriteString(" ") ||
+          !archive->WriteDWord(pElement->GetObjNum()) ||
+          !archive->WriteString(" 0 R")) {
+        return false;
+      }
+    } else if (!pElement->WriteTo(archive)) {
+      return false;
+    }
+  }
+  return archive->WriteString("]");
 }

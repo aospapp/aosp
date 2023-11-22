@@ -256,6 +256,11 @@ public class Attachment implements Parcelable {
                 name = MimeUtility.getHeaderParameter(contentDisposition, "filename");
             }
 
+            // Prevent passing in a file path as part of the name.
+            if (name != null) {
+                name = name.replace('/', '_');
+            }
+
             contentType = MimeType.inferMimeType(name, part.getMimeType());
             uri = EmlAttachmentProvider.getAttachmentUri(emlFileUri, messageId, cid);
             contentUri = uri;

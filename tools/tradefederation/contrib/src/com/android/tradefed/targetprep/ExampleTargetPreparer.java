@@ -23,7 +23,7 @@ import com.android.tradefed.device.ITestDevice;
  * Placeholder empty implementation of a {@link ITargetPreparer}.
  */
 // TODO: Delete when real target preparers live here.
-public class ExampleTargetPreparer implements ITargetPreparer {
+public class ExampleTargetPreparer extends BaseTargetPreparer {
 
     /**
      * {@inheritDoc}

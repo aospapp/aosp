@@ -14,6 +14,7 @@ This class can be used to:
 4) reset all connections.
 """
 
+import common
 import logging
 
 from autotest_lib.server import frontend
@@ -44,7 +45,7 @@ class RFSwitchController(object):
                 s for s in self.rf_switch_labels if s.startswith(RF_SWITCH_STR)]
         afe = frontend.AFE(
                 debug=True, server=site_utils.get_global_afe_hostname())
-        self.hosts = afe.get_hosts(label=labels)
+        self.hosts = afe.get_hosts(label=labels[0])
         self.ap_boxes = []
         self.client_boxes = []
         for host in self.hosts:

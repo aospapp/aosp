@@ -20,6 +20,7 @@
         package="android.security.net.config.cts.CtsNetSecConfigDownloadManagerTestCases">
   <application android:networkSecurityConfig="@xml/network_security_config">
       <uses-library android:name="android.test.runner"/>
+      <uses-library android:name="org.apache.http.legacy" />
   </application>
 
   <uses-permission android:name="android.permission.INTERNET" />

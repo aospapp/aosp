@@ -20,11 +20,14 @@ import static com.android.internal.util.Preconditions.checkNotNull;
 
 import android.annotation.IntDef;
 import android.app.AppGlobals;
+import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.IPackageManager;
-import android.content.pm.PackageManager;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
+import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
@@ -53,12 +56,12 @@ public class NonRequiredAppsLogic {
         int NEW_PROFILE_REMOVE_APPS = 3;
     }
 
-    private final PackageManager mPackageManager;
+    private final Context mContext;
     private final IPackageManager mIPackageManager;
+    private final DevicePolicyManager mDevicePolicyManager;
     private final boolean mNewProfile;
     private final ProvisioningParams mParams;
     private final SystemAppsSnapshot mSnapshot;
-    private final OverlayPackagesProvider mProvider;
     private final Utils mUtils;
 
     public NonRequiredAppsLogic(
@@ -66,30 +69,30 @@ public class NonRequiredAppsLogic {
             boolean newProfile,
             ProvisioningParams params) {
         this(
-                context.getPackageManager(),
+                context,
                 AppGlobals.getPackageManager(),
+                (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE),
                 newProfile,
                 params,
                 new SystemAppsSnapshot(context),
-                new OverlayPackagesProvider(context, params),
                 new Utils());
     }
 
     @VisibleForTesting
     NonRequiredAppsLogic(
-            PackageManager packageManager,
+            Context context,
             IPackageManager iPackageManager,
+            DevicePolicyManager devicePolicyManager,
             boolean newProfile,
             ProvisioningParams params,
             SystemAppsSnapshot snapshot,
-            OverlayPackagesProvider provider,
             Utils utils) {
-        mPackageManager = checkNotNull(packageManager);
+        mContext = context;
         mIPackageManager = checkNotNull(iPackageManager);
+        mDevicePolicyManager = checkNotNull(devicePolicyManager);
         mNewProfile = newProfile;
         mParams = checkNotNull(params);
         mSnapshot = checkNotNull(snapshot);
-        mProvider = checkNotNull(provider);
         mUtils = checkNotNull(utils);
     }
 
@@ -105,9 +108,17 @@ public class NonRequiredAppsLogic {
         if (!mNewProfile) {
             newSystemApps.removeAll(mSnapshot.getSnapshot(userId));
         }
-
+        ComponentName deviceAdminComponentName;
+        try {
+            deviceAdminComponentName = mParams.inferDeviceAdminComponentName(
+                    mUtils, mContext, userId);
+        } catch (IllegalProvisioningArgumentException ex) {
+            // Should not happen
+            throw new RuntimeException("Failed to infer device admin component name", ex);
+        }
         // Get the packages from the black/white lists
-        Set<String> packagesToDelete = mProvider.getNonRequiredApps(userId);
+        Set<String> packagesToDelete = mDevicePolicyManager.getDisallowedSystemApps(
+                deviceAdminComponentName, userId, mParams.provisioningAction);
 
         // Retain only new system apps
         packagesToDelete.retainAll(newSystemApps);
@@ -126,7 +137,8 @@ public class NonRequiredAppsLogic {
         return (Case.NEW_PROFILE_REMOVE_APPS == which) || (Case.OTA_REMOVE_APPS == which);
     }
 
-    private @Case int getCase(int userId) {
+    @Case
+    private int getCase(int userId) {
         if (mNewProfile) {
             if (mParams.leaveAllSystemAppsEnabled) {
                 return Case.NEW_PROFILE_LEAVE_APPS;

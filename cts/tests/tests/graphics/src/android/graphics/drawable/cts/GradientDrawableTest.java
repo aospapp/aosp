@@ -37,7 +37,6 @@ import android.graphics.drawable.Drawable.ConstantState;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.GradientDrawable.Orientation;
 import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
@@ -98,10 +97,20 @@ public class GradientDrawableTest {
                 PixelFormat.OPAQUE, gradientDrawable.getOpacity());
 
         gradientDrawable.setCornerRadius(10);
-        gradientDrawable.setColor(Color.RED);
         assertEquals("RED with corner radius is TRANSLUCENT",
                 PixelFormat.TRANSLUCENT, gradientDrawable.getOpacity());
 
+        gradientDrawable.setCornerRadius(0);
+        assertEquals("RED with no corner radius is OPAQUE",
+                PixelFormat.OPAQUE, gradientDrawable.getOpacity());
+
+        gradientDrawable.setCornerRadii(new float[] { 2, 2, 0, 0, 0, 0, 0, 0});
+        assertEquals("RED with corner radii is TRANSLUCENT",
+                PixelFormat.TRANSLUCENT, gradientDrawable.getOpacity());
+
+        gradientDrawable.setCornerRadii(null);
+        assertEquals("RED with no corner radii is OPAQUE",
+                PixelFormat.OPAQUE, gradientDrawable.getOpacity());
     }
 
     @Test

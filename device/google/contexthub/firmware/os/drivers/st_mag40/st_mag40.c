@@ -25,6 +25,7 @@
 #include <plat/rtc.h>
 #include <sensors.h>
 #include <seos.h>
+#include <halIntf.h>
 #include <slab.h>
 #include <heap.h>
 #include <i2c.h>
@@ -506,13 +507,34 @@ static bool magFlush(void *cookie)
 static bool magCfgData(void *data, void *cookie)
 {
 #if defined(ST_MAG40_CAL_ENABLED)
-    float *values = data;
+    const struct AppToSensorHalDataPayload *p = data;
 
-    INFO_PRINT("magCfgData: (values in uT * 1000) %ld, %ld, %ld\n",
-            (int32_t)(values[0] * 1000), (int32_t)(values[1] * 1000), (int32_t)(values[2] * 1000));
+    if (p->type == HALINTF_TYPE_MAG_CAL_BIAS && p->size == sizeof(struct MagCalBias)) {
+        const struct MagCalBias *d = p->magCalBias;
+        INFO_PRINT("magCfgData: calibration %ldnT, %ldnT, %ldnT\n",
+                (int32_t)(d->bias[0] * 1000),
+                (int32_t)(d->bias[1] * 1000),
+                (int32_t)(d->bias[2] * 1000));
 
-    magCalAddBias(&mTask.moc, values[0], values[1], values[2]);
+        mTask.moc.x_bias = d->bias[0];
+        mTask.moc.y_bias = d->bias[1];
+        mTask.moc.z_bias = d->bias[2];
+    } else if (p->type == HALINTF_TYPE_MAG_LOCAL_FIELD && p->size == sizeof(struct MagLocalField)) {
+        const struct MagLocalField *d = p->magLocalField;
+        INFO_PRINT("magCfgData: local field strength %dnT, dec %ddeg, inc %ddeg\n",
+                (int)(d->strength * 1000),
+                (int)(d->declination * 180 / M_PI + 0.5f),
+                (int)(d->inclination * 180 / M_PI + 0.5f));
+
+        // Passing local field information to mag calibration routine
+#ifdef DIVERSITY_CHECK_ENABLED
+        diversityCheckerLocalFieldUpdate(&mTask.moc.diversity_checker, d->strength);
 #endif
+        // TODO: pass local field information to rotation vector sensor.
+    } else {
+        ERROR_PRINT("magCfgData: unknown type 0x%04x, size %d", p->type, p->size);
+    }
+#endif /* ST_MAG40_CAL_ENABLED */
 
     return true;
 }
@@ -674,8 +696,6 @@ static bool st_mag40_int1_isr(struct ChainedIsr *isr)
     if (!extiIsPendingGpio(mTask.Int1))
         return false;
 
-    mTask.timestampInt = rtcGetTime();
-
     /* Start sampling for a value */
     if (!osEnqueuePrivateEvt(EVT_SENSOR_INTERRUPT, NULL, NULL, mTask.tid))
         ERROR_PRINT("st_mag40_int1_isr: osEnqueuePrivateEvt() failed\n");
@@ -701,7 +721,9 @@ static void parseRawData(uint8_t *raw)
     float xi, yi, zi;
 #endif
 
-	/* Discard samples generated during sensor turn-on time */
+    mTask.timestampInt = sensorGetTime();
+
+    /* Discard samples generated during sensor turn-on time */
     if (mTask.samplesToDiscard > 0) {
         mTask.samplesToDiscard--;
         return;
@@ -1006,12 +1028,29 @@ static bool startTask(uint32_t task_id)
     enableInterrupt(mTask.Int1, &mTask.Isr1);
 
 #if defined(ST_MAG40_CAL_ENABLED)
+#ifdef DIVERSITY_CHECK_ENABLED
     initMagCal(&mTask.moc,
             0.0f, 0.0f, 0.0f,      // bias x, y, z
             1.0f, 0.0f, 0.0f,      // c00, c01, c02
             0.0f, 1.0f, 0.0f,      // c10, c11, c12
-            0.0f, 0.0f, 1.0f);     // c20, c21, c22
-#endif
+            0.0f, 0.0f, 1.0f,      // c20, c21, c22
+            3000000,               // min_batch_window_in_micros
+            8,                     // min_num_diverse_vectors
+            1,                     // max_num_max_distance
+            6.0f,                  // var_threshold
+            10.0f,                 // max_min_threshold
+            48.f,                  // local_field
+            0.5f,                  // threshold_tuning_param
+            2.552f);               // max_distance_tuning_param
+#else
+    initMagCal(&mTask.moc,
+            0.0f, 0.0f, 0.0f,      // bias x, y, z
+            1.0f, 0.0f, 0.0f,      // c00, c01, c02
+            0.0f, 1.0f, 0.0f,      // c10, c11, c12
+            0.0f, 0.0f, 1.0f,      // c20, c21, c22
+            3000000);              // min_batch_window_in_micros
+#endif /* DIVERSITY_CHECK_ENABLED */
+#endif /* ST_MAG40_CAL_ENABLED */
 
     mTask.magHandle =
             sensorRegister(&st_mag40_SensorInfo, &st_mag40_SensorOps, NULL, false);
@@ -1024,6 +1063,9 @@ static bool startTask(uint32_t task_id)
 static void endTask(void)
 {
     INFO_PRINT("ended\n");
+#if defined(ST_MAG40_CAL_ENABLED)
+    magCalDestroy(&mTask.moc);
+#endif /* ST_MAG40_CAL_ENABLED */
     slabAllocatorDestroy(mTask.magDataSlab);
     disableInterrupt(mTask.Int1, &mTask.Isr1);
 }

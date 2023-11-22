@@ -21,7 +21,7 @@ import junit.framework.TestCase;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.FileSystemException;
-import libcore.util.SerializationTester;
+import libcore.libcore.util.SerializationTester;
 
 public class AccessDeniedExceptionTest extends TestCase {
 

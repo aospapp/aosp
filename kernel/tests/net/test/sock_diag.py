@@ -28,9 +28,6 @@ import cstruct
 import net_test
 import netlink
 
-### Base netlink constants. See include/uapi/linux/netlink.h.
-NETLINK_SOCK_DIAG = 4
-
 ### sock_diag constants. See include/uapi/linux/sock_diag.h.
 # Message types.
 SOCK_DIAG_BY_FAMILY = 20
@@ -112,8 +109,10 @@ ALL_NON_TIME_WAIT = 0xffffffff & ~(1 << TCP_TIME_WAIT)
 
 class SockDiag(netlink.NetlinkSocket):
 
-  FAMILY = NETLINK_SOCK_DIAG
   NL_DEBUG = []
+
+  def __init__(self):
+    super(SockDiag, self).__init__(netlink.NETLINK_SOCK_DIAG)
 
   def _Decode(self, command, msg, nla_type, nla_data):
     """Decodes netlink attributes to Python types."""

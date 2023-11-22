@@ -1,4 +1,4 @@
-// Copyright 2015, VIXL authors
+// Copyright 2017, VIXL authors
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,7 @@
 #include "assembler-base-vixl.h"
 
 #include "aarch32/instructions-aarch32.h"
-#include "aarch32/label-aarch32.h"
+#include "aarch32/location-aarch32.h"
 
 namespace vixl {
 namespace aarch32 {
@@ -59,15 +59,19 @@ class Assembler : public internal::AssemblerBase {
 #ifdef VIXL_DEBUG
   void PerformCheckIT(Condition condition);
 #endif
-  void AdvanceIT() { it_mask_ = (it_mask_ << 1) & 0xf; }
-  void BindHelper(Label* label);
-  void PlaceHelper(RawLiteral* literal) {
-    BindHelper(literal);
-    GetBuffer()->EmitData(literal->GetDataAddress(), literal->GetSize());
+  void AdvanceIT() {
+    first_condition_ =
+        Condition((first_condition_.GetCondition() & 0xe) | (it_mask_ >> 3));
+    it_mask_ = (it_mask_ << 1) & 0xf;
   }
+  // Virtual, in order to be overridden by the MacroAssembler, which needs to
+  // notify the pool manager.
+  virtual void BindHelper(Label* label);
+
   uint32_t Link(uint32_t instr,
-                Label* label,
-                const Label::LabelEmitOperator& op);
+                Location* location,
+                const Location::EmitOperator& op,
+                const ReferenceInfo* info);
 
  public:
   class AllowUnpredictableScope {
@@ -172,10 +176,6 @@ class Assembler : public internal::AssemblerBase {
     first_condition_ = first_condition;
     it_mask_ = it_mask;
   }
-  bool Is16BitEncoding(uint16_t instr) const {
-    VIXL_ASSERT(IsUsingT32());
-    return instr < 0xe800;
-  }
   bool InITBlock() { return it_mask_ != 0; }
   bool OutsideITBlock() { return it_mask_ == 0; }
   bool OutsideITBlockOrLast() { return (it_mask_ == 0) || (it_mask_ == 0x8); }
@@ -193,22 +193,35 @@ class Assembler : public internal::AssemblerBase {
   }
 
   uint32_t GetArchitectureStatePCOffset() const { return IsUsingT32() ? 4 : 8; }
+
+  // Bind a raw Location that will never be tracked by the pool manager.
+  void bind(Location* location) {
+    VIXL_ASSERT(AllowAssembler());
+    VIXL_ASSERT(!location->IsBound());
+    location->SetLocation(this, GetCursorOffset());
+    location->MarkBound();
+  }
+
+  // Bind a Label, which may be tracked by the pool manager in the presence of a
+  // MacroAssembler.
   void bind(Label* label) {
     VIXL_ASSERT(AllowAssembler());
     BindHelper(label);
   }
+
   void place(RawLiteral* literal) {
     VIXL_ASSERT(AllowAssembler());
     VIXL_ASSERT(literal->IsManuallyPlaced());
-    PlaceHelper(literal);
+    literal->SetLocation(this, GetCursorOffset());
+    literal->MarkBound();
+    GetBuffer()->EnsureSpaceFor(literal->GetSize());
+    GetBuffer()->EmitData(literal->GetDataAddress(), literal->GetSize());
   }
 
   size_t GetSizeOfCodeGeneratedSince(Label* label) const {
     VIXL_ASSERT(label->IsBound());
     return buffer_.GetOffsetFrom(label->GetLocation());
   }
-
-  void EncodeLabelFor(const Label::ForwardReference& forward, Label* label);
 
   // Helpers for it instruction.
   void it(Condition cond) { it(cond, 0x8); }
@@ -245,23 +258,21 @@ class Assembler : public internal::AssemblerBase {
   typedef void (Assembler::*InstructionCondSizeRL)(Condition cond,
                                                    EncodingSize size,
                                                    Register rd,
-                                                   Label* label);
+                                                   Location* location);
   typedef void (Assembler::*InstructionCondSizeL)(Condition cond,
                                                   EncodingSize size,
-                                                  Label* label);
-  typedef void (Assembler::*InstructionCondRIOp)(Condition cond,
-                                                 Register rd,
-                                                 uint32_t lsb,
-                                                 const Operand& operand);
-  typedef void (Assembler::*InstructionCondRRIOp)(Condition cond,
-                                                  Register rd,
-                                                  Register rn,
-                                                  uint32_t lsb,
-                                                  const Operand& operand);
+                                                  Location* location);
+  typedef void (Assembler::*InstructionCondRII)(Condition cond,
+                                                Register rd,
+                                                uint32_t lsb,
+                                                uint32_t width);
+  typedef void (Assembler::*InstructionCondRRII)(
+      Condition cond, Register rd, Register rn, uint32_t lsb, uint32_t width);
   typedef void (Assembler::*InstructionCondI)(Condition cond, uint32_t imm);
-  typedef void (Assembler::*InstructionCondL)(Condition cond, Label* label);
+  typedef void (Assembler::*InstructionCondL)(Condition cond,
+                                              Location* location);
   typedef void (Assembler::*InstructionCondR)(Condition cond, Register rm);
-  typedef void (Assembler::*InstructionRL)(Register rn, Label* label);
+  typedef void (Assembler::*InstructionRL)(Register rn, Location* location);
   typedef void (Assembler::*InstructionCond)(Condition cond);
   typedef void (Assembler::*InstructionCondRR)(Condition cond,
                                                Register rd,
@@ -302,11 +313,11 @@ class Assembler : public internal::AssemblerBase {
                                                      const MemOperand& operand);
   typedef void (Assembler::*InstructionCondRL)(Condition cond,
                                                Register rt,
-                                               Label* label);
+                                               Location* location);
   typedef void (Assembler::*InstructionCondRRL)(Condition cond,
                                                 Register rt,
                                                 Register rt2,
-                                                Label* label);
+                                                Location* location);
   typedef void (Assembler::*InstructionCondRRRR)(
       Condition cond, Register rd, Register rn, Register rm, Register ra);
   typedef void (Assembler::*InstructionCondRSr)(Condition cond,
@@ -334,6 +345,10 @@ class Assembler : public internal::AssemblerBase {
                                               QRegister rd,
                                               QRegister rn,
                                               QRegister rm);
+  typedef void (Assembler::*InstructionCondRIOp)(Condition cond,
+                                                 Register rd,
+                                                 uint32_t imm,
+                                                 const Operand& operand);
   typedef void (Assembler::*InstructionCondRIR)(Condition cond,
                                                 Register rd,
                                                 uint32_t imm,
@@ -380,14 +395,14 @@ class Assembler : public internal::AssemblerBase {
                                                     QRegister rd,
                                                     QRegister rn,
                                                     const QOperand& operand);
-  typedef void (Assembler::*InstructionCondDtSFi)(Condition cond,
-                                                  DataType dt,
-                                                  SRegister rd,
-                                                  double imm);
-  typedef void (Assembler::*InstructionCondDtDFi)(Condition cond,
-                                                  DataType dt,
-                                                  DRegister rd,
-                                                  double imm);
+  typedef void (Assembler::*InstructionCondDtSSop)(Condition cond,
+                                                   DataType dt,
+                                                   SRegister rd,
+                                                   const SOperand& operand);
+  typedef void (Assembler::*InstructionCondDtDDop)(Condition cond,
+                                                   DataType dt,
+                                                   DRegister rd,
+                                                   const DOperand& operand);
   typedef void (Assembler::*InstructionCondDtDtDS)(
       Condition cond, DataType dt1, DataType dt2, DRegister rd, SRegister rm);
   typedef void (Assembler::*InstructionCondDtDtSD)(
@@ -487,7 +502,7 @@ class Assembler : public internal::AssemblerBase {
   typedef void (Assembler::*InstructionCondDtDL)(Condition cond,
                                                  DataType dt,
                                                  DRegister rd,
-                                                 Label* label);
+                                                 Location* location);
   typedef void (Assembler::*InstructionCondDtDMop)(Condition cond,
                                                    DataType dt,
                                                    DRegister rd,
@@ -495,7 +510,7 @@ class Assembler : public internal::AssemblerBase {
   typedef void (Assembler::*InstructionCondDtSL)(Condition cond,
                                                  DataType dt,
                                                  SRegister rd,
-                                                 Label* label);
+                                                 Location* location);
   typedef void (Assembler::*InstructionCondDtSMop)(Condition cond,
                                                    DataType dt,
                                                    SRegister rd,
@@ -545,18 +560,10 @@ class Assembler : public internal::AssemblerBase {
                                                   DataType dt,
                                                   DRegisterLane rd,
                                                   Register rt);
-  typedef void (Assembler::*InstructionCondDtDDop)(Condition cond,
-                                                   DataType dt,
-                                                   DRegister rd,
-                                                   const DOperand& operand);
   typedef void (Assembler::*InstructionCondDtQQop)(Condition cond,
                                                    DataType dt,
                                                    QRegister rd,
                                                    const QOperand& operand);
-  typedef void (Assembler::*InstructionCondDtSSop)(Condition cond,
-                                                   DataType dt,
-                                                   SRegister rd,
-                                                   const SOperand& operand);
   typedef void (Assembler::*InstructionCondDtRDx)(Condition cond,
                                                   DataType dt,
                                                   Register rt,
@@ -672,7 +679,7 @@ class Assembler : public internal::AssemblerBase {
                         Condition /*cond*/,
                         EncodingSize /*size*/,
                         Register /*rd*/,
-                        Label* /*label*/) {
+                        Location* /*location*/) {
     USE(type);
     VIXL_ASSERT((type == kAdr) || (type == kLdr));
     UnimplementedDelegate(type);
@@ -681,28 +688,28 @@ class Assembler : public internal::AssemblerBase {
                         InstructionCondSizeL /*instruction*/,
                         Condition /*cond*/,
                         EncodingSize /*size*/,
-                        Label* /*label*/) {
+                        Location* /*location*/) {
     USE(type);
     VIXL_ASSERT((type == kB));
     UnimplementedDelegate(type);
   }
   virtual void Delegate(InstructionType type,
-                        InstructionCondRIOp /*instruction*/,
+                        InstructionCondRII /*instruction*/,
                         Condition /*cond*/,
                         Register /*rd*/,
                         uint32_t /*lsb*/,
-                        const Operand& /*operand*/) {
+                        uint32_t /*width*/) {
     USE(type);
-    VIXL_ASSERT((type == kBfc) || (type == kSsat) || (type == kUsat));
+    VIXL_ASSERT((type == kBfc));
     UnimplementedDelegate(type);
   }
   virtual void Delegate(InstructionType type,
-                        InstructionCondRRIOp /*instruction*/,
+                        InstructionCondRRII /*instruction*/,
                         Condition /*cond*/,
                         Register /*rd*/,
                         Register /*rn*/,
                         uint32_t /*lsb*/,
-                        const Operand& /*operand*/) {
+                        uint32_t /*width*/) {
     USE(type);
     VIXL_ASSERT((type == kBfi) || (type == kSbfx) || (type == kUbfx));
     UnimplementedDelegate(type);
@@ -719,7 +726,7 @@ class Assembler : public internal::AssemblerBase {
   virtual void Delegate(InstructionType type,
                         InstructionCondL /*instruction*/,
                         Condition /*cond*/,
-                        Label* /*label*/) {
+                        Location* /*location*/) {
     USE(type);
     VIXL_ASSERT((type == kBl) || (type == kBlx) || (type == kPld) ||
                 (type == kPli));
@@ -736,7 +743,7 @@ class Assembler : public internal::AssemblerBase {
   virtual void Delegate(InstructionType type,
                         InstructionRL /*instruction*/,
                         Register /*rn*/,
-                        Label* /*label*/) {
+                        Location* /*location*/) {
     USE(type);
     VIXL_ASSERT((type == kCbnz) || (type == kCbz));
     UnimplementedDelegate(type);
@@ -889,7 +896,7 @@ class Assembler : public internal::AssemblerBase {
                         InstructionCondRL /*instruction*/,
                         Condition /*cond*/,
                         Register /*rt*/,
-                        Label* /*label*/) {
+                        Location* /*location*/) {
     USE(type);
     VIXL_ASSERT((type == kLdrb) || (type == kLdrh) || (type == kLdrsb) ||
                 (type == kLdrsh));
@@ -900,7 +907,7 @@ class Assembler : public internal::AssemblerBase {
                         Condition /*cond*/,
                         Register /*rt*/,
                         Register /*rt2*/,
-                        Label* /*label*/) {
+                        Location* /*location*/) {
     USE(type);
     VIXL_ASSERT((type == kLdrd));
     UnimplementedDelegate(type);
@@ -1011,6 +1018,16 @@ class Assembler : public internal::AssemblerBase {
     UnimplementedDelegate(type);
   }
   virtual void Delegate(InstructionType type,
+                        InstructionCondRIOp /*instruction*/,
+                        Condition /*cond*/,
+                        Register /*rd*/,
+                        uint32_t /*imm*/,
+                        const Operand& /*operand*/) {
+    USE(type);
+    VIXL_ASSERT((type == kSsat) || (type == kUsat));
+    UnimplementedDelegate(type);
+  }
+  virtual void Delegate(InstructionType type,
                         InstructionCondRIR /*instruction*/,
                         Condition /*cond*/,
                         Register /*rd*/,
@@ -1109,12 +1126,12 @@ class Assembler : public internal::AssemblerBase {
                         DRegister /*rm*/) {
     USE(type);
     VIXL_ASSERT((type == kVabs) || (type == kVcls) || (type == kVclz) ||
-                (type == kVcmp) || (type == kVcmpe) || (type == kVcnt) ||
-                (type == kVneg) || (type == kVpadal) || (type == kVpaddl) ||
-                (type == kVqabs) || (type == kVqneg) || (type == kVrecpe) ||
-                (type == kVrev16) || (type == kVrev32) || (type == kVrev64) ||
-                (type == kVrsqrte) || (type == kVsqrt) || (type == kVswp) ||
-                (type == kVtrn) || (type == kVuzp) || (type == kVzip));
+                (type == kVcnt) || (type == kVneg) || (type == kVpadal) ||
+                (type == kVpaddl) || (type == kVqabs) || (type == kVqneg) ||
+                (type == kVrecpe) || (type == kVrev16) || (type == kVrev32) ||
+                (type == kVrev64) || (type == kVrsqrte) || (type == kVsqrt) ||
+                (type == kVswp) || (type == kVtrn) || (type == kVuzp) ||
+                (type == kVzip));
     UnimplementedDelegate(type);
   }
   virtual void Delegate(InstructionType type,
@@ -1139,8 +1156,7 @@ class Assembler : public internal::AssemblerBase {
                         SRegister /*rd*/,
                         SRegister /*rm*/) {
     USE(type);
-    VIXL_ASSERT((type == kVabs) || (type == kVcmp) || (type == kVcmpe) ||
-                (type == kVneg) || (type == kVsqrt));
+    VIXL_ASSERT((type == kVabs) || (type == kVneg) || (type == kVsqrt));
     UnimplementedDelegate(type);
   }
   virtual void Delegate(InstructionType type,
@@ -1214,23 +1230,24 @@ class Assembler : public internal::AssemblerBase {
     UnimplementedDelegate(type);
   }
   virtual void Delegate(InstructionType type,
-                        InstructionCondDtSFi /*instruction*/,
+                        InstructionCondDtSSop /*instruction*/,
                         Condition /*cond*/,
                         DataType /*dt*/,
                         SRegister /*rd*/,
-                        double /*imm*/) {
+                        const SOperand& /*operand*/) {
     USE(type);
-    VIXL_ASSERT((type == kVcmp) || (type == kVcmpe));
+    VIXL_ASSERT((type == kVcmp) || (type == kVcmpe) || (type == kVmov));
     UnimplementedDelegate(type);
   }
   virtual void Delegate(InstructionType type,
-                        InstructionCondDtDFi /*instruction*/,
+                        InstructionCondDtDDop /*instruction*/,
                         Condition /*cond*/,
                         DataType /*dt*/,
                         DRegister /*rd*/,
-                        double /*imm*/) {
+                        const DOperand& /*operand*/) {
     USE(type);
-    VIXL_ASSERT((type == kVcmp) || (type == kVcmpe));
+    VIXL_ASSERT((type == kVcmp) || (type == kVcmpe) || (type == kVmov) ||
+                (type == kVmvn));
     UnimplementedDelegate(type);
   }
   virtual void Delegate(InstructionType type,
@@ -1513,7 +1530,7 @@ class Assembler : public internal::AssemblerBase {
                         Condition /*cond*/,
                         DataType /*dt*/,
                         DRegister /*rd*/,
-                        Label* /*label*/) {
+                        Location* /*location*/) {
     USE(type);
     VIXL_ASSERT((type == kVldr));
     UnimplementedDelegate(type);
@@ -1533,7 +1550,7 @@ class Assembler : public internal::AssemblerBase {
                         Condition /*cond*/,
                         DataType /*dt*/,
                         SRegister /*rd*/,
-                        Label* /*label*/) {
+                        Location* /*location*/) {
     USE(type);
     VIXL_ASSERT((type == kVldr));
     UnimplementedDelegate(type);
@@ -1676,16 +1693,6 @@ class Assembler : public internal::AssemblerBase {
     UnimplementedDelegate(type);
   }
   virtual void Delegate(InstructionType type,
-                        InstructionCondDtDDop /*instruction*/,
-                        Condition /*cond*/,
-                        DataType /*dt*/,
-                        DRegister /*rd*/,
-                        const DOperand& /*operand*/) {
-    USE(type);
-    VIXL_ASSERT((type == kVmov) || (type == kVmvn));
-    UnimplementedDelegate(type);
-  }
-  virtual void Delegate(InstructionType type,
                         InstructionCondDtQQop /*instruction*/,
                         Condition /*cond*/,
                         DataType /*dt*/,
@@ -1693,16 +1700,6 @@ class Assembler : public internal::AssemblerBase {
                         const QOperand& /*operand*/) {
     USE(type);
     VIXL_ASSERT((type == kVmov) || (type == kVmvn));
-    UnimplementedDelegate(type);
-  }
-  virtual void Delegate(InstructionType type,
-                        InstructionCondDtSSop /*instruction*/,
-                        Condition /*cond*/,
-                        DataType /*dt*/,
-                        SRegister /*rd*/,
-                        const SOperand& /*operand*/) {
-    USE(type);
-    VIXL_ASSERT((type == kVmov));
     UnimplementedDelegate(type);
   }
   virtual void Delegate(InstructionType type,
@@ -1925,13 +1922,18 @@ class Assembler : public internal::AssemblerBase {
     addw(al, rd, rn, operand);
   }
 
-  void adr(Condition cond, EncodingSize size, Register rd, Label* label);
-  void adr(Register rd, Label* label) { adr(al, Best, rd, label); }
-  void adr(Condition cond, Register rd, Label* label) {
-    adr(cond, Best, rd, label);
+  void adr(Condition cond, EncodingSize size, Register rd, Location* location);
+  bool adr_info(Condition cond,
+                EncodingSize size,
+                Register rd,
+                Location* location,
+                const struct ReferenceInfo** info);
+  void adr(Register rd, Location* location) { adr(al, Best, rd, location); }
+  void adr(Condition cond, Register rd, Location* location) {
+    adr(cond, Best, rd, location);
   }
-  void adr(EncodingSize size, Register rd, Label* label) {
-    adr(al, size, rd, label);
+  void adr(EncodingSize size, Register rd, Location* location) {
+    adr(al, size, rd, location);
   }
 
   void and_(Condition cond,
@@ -2006,23 +2008,24 @@ class Assembler : public internal::AssemblerBase {
     asrs(al, size, rd, rm, operand);
   }
 
-  void b(Condition cond, EncodingSize size, Label* label);
-  void b(Label* label) { b(al, Best, label); }
-  void b(Condition cond, Label* label) { b(cond, Best, label); }
-  void b(EncodingSize size, Label* label) { b(al, size, label); }
+  void b(Condition cond, EncodingSize size, Location* location);
+  bool b_info(Condition cond,
+              EncodingSize size,
+              Location* location,
+              const struct ReferenceInfo** info);
+  void b(Location* location) { b(al, Best, location); }
+  void b(Condition cond, Location* location) { b(cond, Best, location); }
+  void b(EncodingSize size, Location* location) { b(al, size, location); }
 
-  void bfc(Condition cond, Register rd, uint32_t lsb, const Operand& operand);
-  void bfc(Register rd, uint32_t lsb, const Operand& operand) {
-    bfc(al, rd, lsb, operand);
+  void bfc(Condition cond, Register rd, uint32_t lsb, uint32_t width);
+  void bfc(Register rd, uint32_t lsb, uint32_t width) {
+    bfc(al, rd, lsb, width);
   }
 
-  void bfi(Condition cond,
-           Register rd,
-           Register rn,
-           uint32_t lsb,
-           const Operand& operand);
-  void bfi(Register rd, Register rn, uint32_t lsb, const Operand& operand) {
-    bfi(al, rd, rn, lsb, operand);
+  void bfi(
+      Condition cond, Register rd, Register rn, uint32_t lsb, uint32_t width);
+  void bfi(Register rd, Register rn, uint32_t lsb, uint32_t width) {
+    bfi(al, rd, rn, lsb, width);
   }
 
   void bic(Condition cond,
@@ -2064,11 +2067,17 @@ class Assembler : public internal::AssemblerBase {
   void bkpt(Condition cond, uint32_t imm);
   void bkpt(uint32_t imm) { bkpt(al, imm); }
 
-  void bl(Condition cond, Label* label);
-  void bl(Label* label) { bl(al, label); }
+  void bl(Condition cond, Location* location);
+  bool bl_info(Condition cond,
+               Location* location,
+               const struct ReferenceInfo** info);
+  void bl(Location* location) { bl(al, location); }
 
-  void blx(Condition cond, Label* label);
-  void blx(Label* label) { blx(al, label); }
+  void blx(Condition cond, Location* location);
+  bool blx_info(Condition cond,
+                Location* location,
+                const struct ReferenceInfo** info);
+  void blx(Location* location) { blx(al, location); }
 
   void blx(Condition cond, Register rm);
   void blx(Register rm) { blx(al, rm); }
@@ -2079,9 +2088,15 @@ class Assembler : public internal::AssemblerBase {
   void bxj(Condition cond, Register rm);
   void bxj(Register rm) { bxj(al, rm); }
 
-  void cbnz(Register rn, Label* label);
+  void cbnz(Register rn, Location* location);
+  bool cbnz_info(Register rn,
+                 Location* location,
+                 const struct ReferenceInfo** info);
 
-  void cbz(Register rn, Label* label);
+  void cbz(Register rn, Location* location);
+  bool cbz_info(Register rn,
+                Location* location,
+                const struct ReferenceInfo** info);
 
   void clrex(Condition cond);
   void clrex() { clrex(al); }
@@ -2356,13 +2371,18 @@ class Assembler : public internal::AssemblerBase {
     ldr(al, size, rt, operand);
   }
 
-  void ldr(Condition cond, EncodingSize size, Register rt, Label* label);
-  void ldr(Register rt, Label* label) { ldr(al, Best, rt, label); }
-  void ldr(Condition cond, Register rt, Label* label) {
-    ldr(cond, Best, rt, label);
+  void ldr(Condition cond, EncodingSize size, Register rt, Location* location);
+  bool ldr_info(Condition cond,
+                EncodingSize size,
+                Register rt,
+                Location* location,
+                const struct ReferenceInfo** info);
+  void ldr(Register rt, Location* location) { ldr(al, Best, rt, location); }
+  void ldr(Condition cond, Register rt, Location* location) {
+    ldr(cond, Best, rt, location);
   }
-  void ldr(EncodingSize size, Register rt, Label* label) {
-    ldr(al, size, rt, label);
+  void ldr(EncodingSize size, Register rt, Location* location) {
+    ldr(al, size, rt, location);
   }
 
   void ldrb(Condition cond,
@@ -2379,8 +2399,12 @@ class Assembler : public internal::AssemblerBase {
     ldrb(al, size, rt, operand);
   }
 
-  void ldrb(Condition cond, Register rt, Label* label);
-  void ldrb(Register rt, Label* label) { ldrb(al, rt, label); }
+  void ldrb(Condition cond, Register rt, Location* location);
+  bool ldrb_info(Condition cond,
+                 Register rt,
+                 Location* location,
+                 const struct ReferenceInfo** info);
+  void ldrb(Register rt, Location* location) { ldrb(al, rt, location); }
 
   void ldrd(Condition cond,
             Register rt,
@@ -2390,9 +2414,14 @@ class Assembler : public internal::AssemblerBase {
     ldrd(al, rt, rt2, operand);
   }
 
-  void ldrd(Condition cond, Register rt, Register rt2, Label* label);
-  void ldrd(Register rt, Register rt2, Label* label) {
-    ldrd(al, rt, rt2, label);
+  void ldrd(Condition cond, Register rt, Register rt2, Location* location);
+  bool ldrd_info(Condition cond,
+                 Register rt,
+                 Register rt2,
+                 Location* location,
+                 const struct ReferenceInfo** info);
+  void ldrd(Register rt, Register rt2, Location* location) {
+    ldrd(al, rt, rt2, location);
   }
 
   void ldrex(Condition cond, Register rt, const MemOperand& operand);
@@ -2430,8 +2459,12 @@ class Assembler : public internal::AssemblerBase {
     ldrh(al, size, rt, operand);
   }
 
-  void ldrh(Condition cond, Register rt, Label* label);
-  void ldrh(Register rt, Label* label) { ldrh(al, rt, label); }
+  void ldrh(Condition cond, Register rt, Location* location);
+  bool ldrh_info(Condition cond,
+                 Register rt,
+                 Location* location,
+                 const struct ReferenceInfo** info);
+  void ldrh(Register rt, Location* location) { ldrh(al, rt, location); }
 
   void ldrsb(Condition cond,
              EncodingSize size,
@@ -2447,8 +2480,12 @@ class Assembler : public internal::AssemblerBase {
     ldrsb(al, size, rt, operand);
   }
 
-  void ldrsb(Condition cond, Register rt, Label* label);
-  void ldrsb(Register rt, Label* label) { ldrsb(al, rt, label); }
+  void ldrsb(Condition cond, Register rt, Location* location);
+  bool ldrsb_info(Condition cond,
+                  Register rt,
+                  Location* location,
+                  const struct ReferenceInfo** info);
+  void ldrsb(Register rt, Location* location) { ldrsb(al, rt, location); }
 
   void ldrsh(Condition cond,
              EncodingSize size,
@@ -2464,8 +2501,12 @@ class Assembler : public internal::AssemblerBase {
     ldrsh(al, size, rt, operand);
   }
 
-  void ldrsh(Condition cond, Register rt, Label* label);
-  void ldrsh(Register rt, Label* label) { ldrsh(al, rt, label); }
+  void ldrsh(Condition cond, Register rt, Location* location);
+  bool ldrsh_info(Condition cond,
+                  Register rt,
+                  Location* location,
+                  const struct ReferenceInfo** info);
+  void ldrsh(Register rt, Location* location) { ldrsh(al, rt, location); }
 
   void lsl(Condition cond,
            EncodingSize size,
@@ -2696,8 +2737,11 @@ class Assembler : public internal::AssemblerBase {
     pkhtb(al, rd, rn, operand);
   }
 
-  void pld(Condition cond, Label* label);
-  void pld(Label* label) { pld(al, label); }
+  void pld(Condition cond, Location* location);
+  bool pld_info(Condition cond,
+                Location* location,
+                const struct ReferenceInfo** info);
+  void pld(Location* location) { pld(al, location); }
 
   void pld(Condition cond, const MemOperand& operand);
   void pld(const MemOperand& operand) { pld(al, operand); }
@@ -2708,8 +2752,11 @@ class Assembler : public internal::AssemblerBase {
   void pli(Condition cond, const MemOperand& operand);
   void pli(const MemOperand& operand) { pli(al, operand); }
 
-  void pli(Condition cond, Label* label);
-  void pli(Label* label) { pli(al, label); }
+  void pli(Condition cond, Location* location);
+  bool pli_info(Condition cond,
+                Location* location,
+                const struct ReferenceInfo** info);
+  void pli(Location* location) { pli(al, location); }
 
   void pop(Condition cond, EncodingSize size, RegisterList registers);
   void pop(RegisterList registers) { pop(al, Best, registers); }
@@ -2932,13 +2979,10 @@ class Assembler : public internal::AssemblerBase {
     sbcs(al, size, rd, rn, operand);
   }
 
-  void sbfx(Condition cond,
-            Register rd,
-            Register rn,
-            uint32_t lsb,
-            const Operand& operand);
-  void sbfx(Register rd, Register rn, uint32_t lsb, const Operand& operand) {
-    sbfx(al, rd, rn, lsb, operand);
+  void sbfx(
+      Condition cond, Register rd, Register rn, uint32_t lsb, uint32_t width);
+  void sbfx(Register rd, Register rn, uint32_t lsb, uint32_t width) {
+    sbfx(al, rd, rn, lsb, width);
   }
 
   void sdiv(Condition cond, Register rd, Register rn, Register rm);
@@ -3542,13 +3586,10 @@ class Assembler : public internal::AssemblerBase {
   void uasx(Condition cond, Register rd, Register rn, Register rm);
   void uasx(Register rd, Register rn, Register rm) { uasx(al, rd, rn, rm); }
 
-  void ubfx(Condition cond,
-            Register rd,
-            Register rn,
-            uint32_t lsb,
-            const Operand& operand);
-  void ubfx(Register rd, Register rn, uint32_t lsb, const Operand& operand) {
-    ubfx(al, rd, rn, lsb, operand);
+  void ubfx(
+      Condition cond, Register rd, Register rn, uint32_t lsb, uint32_t width);
+  void ubfx(Register rd, Register rn, uint32_t lsb, uint32_t width) {
+    ubfx(al, rd, rn, lsb, width);
   }
 
   void udf(Condition cond, EncodingSize size, uint32_t imm);
@@ -4109,29 +4150,31 @@ class Assembler : public internal::AssemblerBase {
   void vclz(Condition cond, DataType dt, QRegister rd, QRegister rm);
   void vclz(DataType dt, QRegister rd, QRegister rm) { vclz(al, dt, rd, rm); }
 
-  void vcmp(Condition cond, DataType dt, SRegister rd, SRegister rm);
-  void vcmp(DataType dt, SRegister rd, SRegister rm) { vcmp(al, dt, rd, rm); }
+  void vcmp(Condition cond, DataType dt, SRegister rd, const SOperand& operand);
+  void vcmp(DataType dt, SRegister rd, const SOperand& operand) {
+    vcmp(al, dt, rd, operand);
+  }
 
-  void vcmp(Condition cond, DataType dt, DRegister rd, DRegister rm);
-  void vcmp(DataType dt, DRegister rd, DRegister rm) { vcmp(al, dt, rd, rm); }
+  void vcmp(Condition cond, DataType dt, DRegister rd, const DOperand& operand);
+  void vcmp(DataType dt, DRegister rd, const DOperand& operand) {
+    vcmp(al, dt, rd, operand);
+  }
 
-  void vcmp(Condition cond, DataType dt, SRegister rd, double imm);
-  void vcmp(DataType dt, SRegister rd, double imm) { vcmp(al, dt, rd, imm); }
+  void vcmpe(Condition cond,
+             DataType dt,
+             SRegister rd,
+             const SOperand& operand);
+  void vcmpe(DataType dt, SRegister rd, const SOperand& operand) {
+    vcmpe(al, dt, rd, operand);
+  }
 
-  void vcmp(Condition cond, DataType dt, DRegister rd, double imm);
-  void vcmp(DataType dt, DRegister rd, double imm) { vcmp(al, dt, rd, imm); }
-
-  void vcmpe(Condition cond, DataType dt, SRegister rd, SRegister rm);
-  void vcmpe(DataType dt, SRegister rd, SRegister rm) { vcmpe(al, dt, rd, rm); }
-
-  void vcmpe(Condition cond, DataType dt, DRegister rd, DRegister rm);
-  void vcmpe(DataType dt, DRegister rd, DRegister rm) { vcmpe(al, dt, rd, rm); }
-
-  void vcmpe(Condition cond, DataType dt, SRegister rd, double imm);
-  void vcmpe(DataType dt, SRegister rd, double imm) { vcmpe(al, dt, rd, imm); }
-
-  void vcmpe(Condition cond, DataType dt, DRegister rd, double imm);
-  void vcmpe(DataType dt, DRegister rd, double imm) { vcmpe(al, dt, rd, imm); }
+  void vcmpe(Condition cond,
+             DataType dt,
+             DRegister rd,
+             const DOperand& operand);
+  void vcmpe(DataType dt, DRegister rd, const DOperand& operand) {
+    vcmpe(al, dt, rd, operand);
+  }
 
   void vcnt(Condition cond, DataType dt, DRegister rd, DRegister rm);
   void vcnt(DataType dt, DRegister rd, DRegister rm) { vcnt(al, dt, rd, rm); }
@@ -4634,13 +4677,20 @@ class Assembler : public internal::AssemblerBase {
     vldmia(cond, kDataTypeValueNone, rn, write_back, sreglist);
   }
 
-  void vldr(Condition cond, DataType dt, DRegister rd, Label* label);
-  void vldr(DataType dt, DRegister rd, Label* label) {
-    vldr(al, dt, rd, label);
+  void vldr(Condition cond, DataType dt, DRegister rd, Location* location);
+  bool vldr_info(Condition cond,
+                 DataType dt,
+                 DRegister rd,
+                 Location* location,
+                 const struct ReferenceInfo** info);
+  void vldr(DataType dt, DRegister rd, Location* location) {
+    vldr(al, dt, rd, location);
   }
-  void vldr(DRegister rd, Label* label) { vldr(al, Untyped64, rd, label); }
-  void vldr(Condition cond, DRegister rd, Label* label) {
-    vldr(cond, Untyped64, rd, label);
+  void vldr(DRegister rd, Location* location) {
+    vldr(al, Untyped64, rd, location);
+  }
+  void vldr(Condition cond, DRegister rd, Location* location) {
+    vldr(cond, Untyped64, rd, location);
   }
 
   void vldr(Condition cond,
@@ -4657,13 +4707,20 @@ class Assembler : public internal::AssemblerBase {
     vldr(cond, Untyped64, rd, operand);
   }
 
-  void vldr(Condition cond, DataType dt, SRegister rd, Label* label);
-  void vldr(DataType dt, SRegister rd, Label* label) {
-    vldr(al, dt, rd, label);
+  void vldr(Condition cond, DataType dt, SRegister rd, Location* location);
+  bool vldr_info(Condition cond,
+                 DataType dt,
+                 SRegister rd,
+                 Location* location,
+                 const struct ReferenceInfo** info);
+  void vldr(DataType dt, SRegister rd, Location* location) {
+    vldr(al, dt, rd, location);
   }
-  void vldr(SRegister rd, Label* label) { vldr(al, Untyped32, rd, label); }
-  void vldr(Condition cond, SRegister rd, Label* label) {
-    vldr(cond, Untyped32, rd, label);
+  void vldr(SRegister rd, Location* location) {
+    vldr(al, Untyped32, rd, location);
+  }
+  void vldr(Condition cond, SRegister rd, Location* location) {
+    vldr(cond, Untyped32, rd, location);
   }
 
   void vldr(Condition cond,

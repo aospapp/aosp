@@ -14,6 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+from acts import utils
 from acts.libs.ota.ota_runners import ota_runner_factory
 
 # Maps AndroidDevices to OtaRunners
@@ -54,10 +55,13 @@ def update(android_device, ignore_update_errors=False):
     _check_initialization(android_device)
     try:
         ota_runners[android_device].update()
-    except:
+    except Exception as e:
         if ignore_update_errors:
             return
-        raise
+        android_device.log.error(e)
+        android_device.take_bug_report('ota_update',
+                                       utils.get_current_epoch_time())
+        raise e
 
 
 def can_update(android_device):

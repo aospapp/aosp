@@ -7,7 +7,7 @@ var URLS = new Array();
 
 var ViewGDoc = ('https://docs.google.com/document/d/');
 
-var BBC_AUDIO_URL = 'http://www.bbc.co.uk/radio/player/bbc_world_service';
+var BBC_AUDIO_URL = 'https://www.bbc.co.uk/radio/player/bbc_world_service';
 
 var PLAY_MUSIC_URL = 'https://play.google.com/music/listen?u=0#/wst/st/a2be2d85-0ac9-3a7a-b038-e221bb63ef71';
 
@@ -25,11 +25,11 @@ var tasks = [
     duration: minutes(60),
     focus: false,
     tabs: [
-     'http://www.google.com',
-     'http://news.google.com',
-     'http://finance.yahoo.com',
-     'http://clothing.shop.ebay.com/Womens-Shoes-/63889/i.html',
-     'http://www.facebook.com'
+     'https://www.google.com',
+     'https://news.google.com',
+     'https://finance.yahoo.com',
+     'https://clothing.shop.ebay.com/Womens-Shoes-/63889/i.html',
+     'https://www.facebook.com'
     ]
   },
   {
@@ -53,8 +53,8 @@ var tasks = [
     timeout: seconds(30),
     focus: true,
     urls: [
-       'http://gmail.com',
-       'http://mail.google.com'
+       'https://gmail.com',
+       'https://mail.google.com'
     ],
   },
   {
@@ -94,7 +94,7 @@ var tasks = [
     duration: minutes(6),
     focus: true,
     tabs: [
-        'http://www.youtube.com/embed/YE7VzlLtp-4?start=236&vq=hd720&autoplay=1'
+        'https://www.youtube.com/embed/YE7VzlLtp-4?start=236&vq=hd720&autoplay=1'
     ]
   },
 ];
@@ -102,56 +102,56 @@ var tasks = [
 
 // List of URLs to cycle through
 var u_index = 0;
-URLS[u_index++] = 'http://www.google.com';
-URLS[u_index++] = 'http://www.yahoo.com';
-URLS[u_index++] = 'http://www.facebook.com';
-URLS[u_index++] = 'http://www.youtube.com';
-URLS[u_index++] = 'http://www.wikipedia.org';
-URLS[u_index++] = 'http://www.amazon.com';
-URLS[u_index++] = 'http://www.msn.com';
-URLS[u_index++] = 'http://www.bing.com';
-URLS[u_index++] = 'http://www.blogspot.com';
-URLS[u_index++] = 'http://www.microsoft.com';
-URLS[u_index++] = 'http://www.myspace.com';
+URLS[u_index++] = 'https://www.google.com';
+URLS[u_index++] = 'https://www.yahoo.com';
+URLS[u_index++] = 'https://www.facebook.com';
+URLS[u_index++] = 'https://www.youtube.com';
+URLS[u_index++] = 'https://www.wikipedia.org';
+URLS[u_index++] = 'https://www.amazon.com';
+URLS[u_index++] = 'https://www.msn.com';
+URLS[u_index++] = 'https://www.bing.com';
+URLS[u_index++] = 'https://www.blogspot.com';
+URLS[u_index++] = 'https://www.microsoft.com';
+URLS[u_index++] = 'https://www.myspace.com';
 URLS[u_index++] = 'http://www.go.com';
-URLS[u_index++] = 'http://www.walmart.com';
-URLS[u_index++] = 'http://www.about.com';
-URLS[u_index++] = 'http://www.target.com';
-URLS[u_index++] = 'http://www.aol.com';
-URLS[u_index++] = 'http://www.mapquest.com';
-URLS[u_index++] = 'http://www.ask.com';
-URLS[u_index++] = 'http://www.craigslist.org';
-URLS[u_index++] = 'http://www.wordpress.com';
-URLS[u_index++] = 'http://www.answers.com';
-URLS[u_index++] = 'http://www.paypal.com';
-URLS[u_index++] = 'http://www.imdb.com';
-URLS[u_index++] = 'http://www.bestbuy.com';
-URLS[u_index++] = 'http://www.ehow.com';
+URLS[u_index++] = 'https://www.walmart.com';
+URLS[u_index++] = 'https://www.about.com';
+URLS[u_index++] = 'https://www.target.com';
+URLS[u_index++] = 'https://www.aol.com';
+URLS[u_index++] = 'https://www.mapquest.com';
+URLS[u_index++] = 'https://www.ask.com';
+URLS[u_index++] = 'https://www.craigslist.org';
+URLS[u_index++] = 'https://www.wordpress.com';
+URLS[u_index++] = 'https://www.answers.com';
+URLS[u_index++] = 'https://www.paypal.com';
+URLS[u_index++] = 'https://www.imdb.com';
+URLS[u_index++] = 'https://www.bestbuy.com';
+URLS[u_index++] = 'https://www.ehow.com';
 URLS[u_index++] = 'http://www.photobucket.com';
-URLS[u_index++] = 'http://www.cnn.com';
-URLS[u_index++] = 'http://www.chase.com';
-URLS[u_index++] = 'http://www.att.com';
-URLS[u_index++] = 'http://www.sears.com';
-URLS[u_index++] = 'http://www.weather.com';
-URLS[u_index++] = 'http://www.apple.com';
-URLS[u_index++] = 'http://www.zynga.com';
-URLS[u_index++] = 'http://www.adobe.com';
-URLS[u_index++] = 'http://www.bankofamerica.com';
-URLS[u_index++] = 'http://www.zedo.com';
-URLS[u_index++] = 'http://www.flickr.com';
-URLS[u_index++] = 'http://www.shoplocal.com';
-URLS[u_index++] = 'http://www.twitter.com';
-URLS[u_index++] = 'http://www.cnet.com';
-URLS[u_index++] = 'http://www.verizonwireless.com';
-URLS[u_index++] = 'http://www.kohls.com';
-URLS[u_index++] = 'http://www.bizrate.com';
-URLS[u_index++] = 'http://www.jcpenney.com';
-URLS[u_index++] = 'http://www.netflix.com';
-URLS[u_index++] = 'http://www.fastclick.net';
-URLS[u_index++] = 'http://www.windows.com';
-URLS[u_index++] = 'http://www.questionmarket.com';
-URLS[u_index++] = 'http://www.nytimes.com';
-URLS[u_index++] = 'http://www.toysrus.com';
-URLS[u_index++] = 'http://www.allrecipes.com';
-URLS[u_index++] = 'http://www.overstock.com';
-URLS[u_index++] = 'http://www.comcast.net';
+URLS[u_index++] = 'https://www.cnn.com';
+URLS[u_index++] = 'https://www.chase.com';
+URLS[u_index++] = 'https://www.att.com';
+URLS[u_index++] = 'https://www.sears.com';
+URLS[u_index++] = 'https://www.weather.com';
+URLS[u_index++] = 'https://www.apple.com';
+URLS[u_index++] = 'https://www.zynga.com';
+URLS[u_index++] = 'https://www.adobe.com';
+URLS[u_index++] = 'https://www.bankofamerica.com';
+URLS[u_index++] = 'https://www.zedo.com';
+URLS[u_index++] = 'https://www.flickr.com';
+URLS[u_index++] = 'https://www.shoplocal.com';
+URLS[u_index++] = 'https://www.twitter.com';
+URLS[u_index++] = 'https://www.cnet.com';
+URLS[u_index++] = 'https://www.verizonwireless.com';
+URLS[u_index++] = 'https://www.kohls.com';
+URLS[u_index++] = 'https://www.bizrate.com';
+URLS[u_index++] = 'https://www.jcpenney.com';
+URLS[u_index++] = 'https://www.netflix.com';
+URLS[u_index++] = 'https://www.fastclick.net';
+URLS[u_index++] = 'https://www.windows.com';
+URLS[u_index++] = 'https://www.questionmarket.com';
+URLS[u_index++] = 'https://www.nytimes.com';
+URLS[u_index++] = 'https://www.toysrus.com';
+URLS[u_index++] = 'https://www.allrecipes.com';
+URLS[u_index++] = 'https://www.overstock.com';
+URLS[u_index++] = 'https://www.comcast.net';

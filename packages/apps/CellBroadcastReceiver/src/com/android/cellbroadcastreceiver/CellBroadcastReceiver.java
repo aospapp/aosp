@@ -16,11 +16,14 @@
 
 package com.android.cellbroadcastreceiver;
 
+import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
+import android.content.res.Configuration;
+import android.os.RemoteException;
 import android.os.UserManager;
 import android.preference.PreferenceManager;
 import android.provider.Telephony;
@@ -72,6 +75,16 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
                 || CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED.equals(action)
                 || Intent.ACTION_BOOT_COMPLETED.equals(action)
                 || CELLBROADCAST_START_CONFIG_ACTION.equals(action)) {
+            // Set default values for preferences.
+            if (CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED.equals(action)) {
+                try {
+                    Configuration configuration = ActivityManager.getService().getConfiguration();
+                    if (configuration.mcc != 0 && configuration.mnc != 0) {
+                        PreferenceManager.setDefaultValues(context, R.xml.preferences, false);
+                    }
+                } catch (RemoteException e) {
+                }
+            }
             // Todo: Add the service state check once the new get service state API is done.
             // Do not rely on mServiceState as it gets reset to -1 time to time because
             // the process of CellBroadcastReceiver gets killed every time once the job is done.
@@ -201,7 +214,7 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
 
             case SmsEnvelope.SERVICE_CATEGORY_CMAS_TEST_MESSAGE:
                 sharedPrefs.edit().putBoolean(
-                        CellBroadcastSettings.KEY_ENABLE_CMAS_TEST_ALERTS, enable).apply();
+                        CellBroadcastSettings.KEY_ENABLE_TEST_ALERTS, enable).apply();
                 break;
 
             default:

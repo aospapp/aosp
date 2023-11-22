@@ -17,11 +17,15 @@
 #ifndef ART_COMPILER_DEBUG_ELF_SYMTAB_WRITER_H_
 #define ART_COMPILER_DEBUG_ELF_SYMTAB_WRITER_H_
 
+#include <map>
 #include <unordered_set>
 
+#include "base/utils.h"
+#include "debug/debug_info.h"
 #include "debug/method_debug_info.h"
-#include "elf_builder.h"
-#include "utils.h"
+#include "dex/dex_file-inl.h"
+#include "dex/code_item_accessors.h"
+#include "linker/elf_builder.h"
 
 namespace art {
 namespace debug {
@@ -33,76 +37,83 @@ namespace debug {
 // exist, but it will still work well without them.
 // However, these extra symbols take space, so let's just generate
 // one symbol which marks the whole .text section as code.
-constexpr bool kGenerateSingleArmMappingSymbol = true;
+// Note that ARM's Streamline requires it to match function symbol.
+constexpr bool kGenerateArmMappingSymbol = true;
+
+// Magic name for .symtab symbols which enumerate dex files used
+// by this ELF file (currently mmapped inside the .dex section).
+constexpr const char* kDexFileSymbolName = "$dexfile";
 
 template <typename ElfTypes>
-static void WriteDebugSymbols(ElfBuilder<ElfTypes>* builder,
-                              const ArrayRef<const MethodDebugInfo>& method_infos,
-                              bool with_signature) {
+static void WriteDebugSymbols(linker::ElfBuilder<ElfTypes>* builder,
+                              bool mini_debug_info,
+                              const DebugInfo& debug_info) {
   uint64_t mapping_symbol_address = std::numeric_limits<uint64_t>::max();
+  const auto* text = builder->GetText();
   auto* strtab = builder->GetStrTab();
   auto* symtab = builder->GetSymTab();
 
-  if (method_infos.empty()) {
+  if (debug_info.Empty()) {
     return;
   }
 
   // Find all addresses which contain deduped methods.
   // The first instance of method is not marked deduped_, but the rest is.
   std::unordered_set<uint64_t> deduped_addresses;
-  for (const MethodDebugInfo& info : method_infos) {
+  for (const MethodDebugInfo& info : debug_info.compiled_methods) {
     if (info.deduped) {
       deduped_addresses.insert(info.code_address);
+    }
+    if (kGenerateArmMappingSymbol && info.isa == InstructionSet::kThumb2) {
+      uint64_t address = info.code_address;
+      address += info.is_code_address_text_relative ? text->GetAddress() : 0;
+      mapping_symbol_address = std::min(mapping_symbol_address, address);
     }
   }
 
   strtab->Start();
   strtab->Write("");  // strtab should start with empty string.
-  std::string last_name;
-  size_t last_name_offset = 0;
-  for (const MethodDebugInfo& info : method_infos) {
+  // Generate ARM mapping symbols. ELF local symbols must be added first.
+  if (mapping_symbol_address != std::numeric_limits<uint64_t>::max()) {
+    symtab->Add(strtab->Write("$t"), text, mapping_symbol_address, 0, STB_LOCAL, STT_NOTYPE);
+  }
+  // Add symbols for compiled methods.
+  for (const MethodDebugInfo& info : debug_info.compiled_methods) {
     if (info.deduped) {
       continue;  // Add symbol only for the first instance.
     }
     size_t name_offset;
-    if (info.trampoline_name != nullptr) {
-      name_offset = strtab->Write(info.trampoline_name);
+    if (!info.custom_name.empty()) {
+      name_offset = strtab->Write(info.custom_name);
     } else {
       DCHECK(info.dex_file != nullptr);
-      std::string name = info.dex_file->PrettyMethod(info.dex_method_index, with_signature);
+      std::string name = info.dex_file->PrettyMethod(info.dex_method_index, !mini_debug_info);
       if (deduped_addresses.find(info.code_address) != deduped_addresses.end()) {
         name += " [DEDUPED]";
       }
-      // If we write method names without signature, we might see the same name multiple times.
-      name_offset = (name == last_name ? last_name_offset : strtab->Write(name));
-      last_name = std::move(name);
-      last_name_offset = name_offset;
+      name_offset = strtab->Write(name);
     }
 
-    const auto* text = info.is_code_address_text_relative ? builder->GetText() : nullptr;
-    uint64_t address = info.code_address + (text != nullptr ? text->GetAddress() : 0);
+    uint64_t address = info.code_address;
+    address += info.is_code_address_text_relative ? text->GetAddress() : 0;
     // Add in code delta, e.g., thumb bit 0 for Thumb2 code.
     address += CompiledMethod::CodeDelta(info.isa);
     symtab->Add(name_offset, text, address, info.code_size, STB_GLOBAL, STT_FUNC);
-
-    // Conforming to aaelf, add $t mapping symbol to indicate start of a sequence of thumb2
-    // instructions, so that disassembler tools can correctly disassemble.
-    // Note that even if we generate just a single mapping symbol, ARM's Streamline
-    // requires it to match function symbol.  Just address 0 does not work.
-    if (info.isa == kThumb2) {
-      if (address < mapping_symbol_address || !kGenerateSingleArmMappingSymbol) {
-        symtab->Add(strtab->Write("$t"), text, address & ~1, 0, STB_LOCAL, STT_NOTYPE);
-        mapping_symbol_address = address;
-      }
+  }
+  // Add symbols for dex files.
+  if (!debug_info.dex_files.empty() && builder->GetDex()->Exists()) {
+    auto dex = builder->GetDex();
+    for (auto it : debug_info.dex_files) {
+      uint64_t dex_address = dex->GetAddress() + it.first /* offset within the section */;
+      const DexFile* dex_file = it.second;
+      typename ElfTypes::Word dex_name = strtab->Write(kDexFileSymbolName);
+      symtab->Add(dex_name, dex, dex_address, dex_file->Size(), STB_GLOBAL, STT_FUNC);
     }
   }
   strtab->End();
 
   // Symbols are buffered and written after names (because they are smaller).
-  // We could also do two passes in this function to avoid the buffering.
-  symtab->Start();
-  symtab->Write();
-  symtab->End();
+  symtab->WriteCachedSection();
 }
 
 }  // namespace debug

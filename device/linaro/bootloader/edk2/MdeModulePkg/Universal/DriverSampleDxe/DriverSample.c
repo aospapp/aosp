@@ -2,7 +2,7 @@
 This is an example of how a driver might export data to the HII protocol to be
 later utilized by the Setup Protocol
 
-Copyright (c) 2004 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -67,6 +67,48 @@ HII_VENDOR_DEVICE_PATH  mHiiVendorDevicePath1 = {
     }
   }
 };
+
+/**
+  Set value of a data element in an Array by its Index.
+
+  @param  Array                  The data array.
+  @param  Type                   Type of the data in this array.
+  @param  Index                  Zero based index for data in this array.
+  @param  Value                  The value to be set.
+
+**/
+VOID
+SetArrayData (
+  IN VOID                     *Array,
+  IN UINT8                    Type,
+  IN UINTN                    Index,
+  IN UINT64                   Value
+  )
+{
+
+  ASSERT (Array != NULL);
+
+  switch (Type) {
+  case EFI_IFR_TYPE_NUM_SIZE_8:
+    *(((UINT8 *) Array) + Index) = (UINT8) Value;
+    break;
+
+  case EFI_IFR_TYPE_NUM_SIZE_16:
+    *(((UINT16 *) Array) + Index) = (UINT16) Value;
+    break;
+
+  case EFI_IFR_TYPE_NUM_SIZE_32:
+    *(((UINT32 *) Array) + Index) = (UINT32) Value;
+    break;
+
+  case EFI_IFR_TYPE_NUM_SIZE_64:
+    *(((UINT64 *) Array) + Index) = (UINT64) Value;
+    break;
+
+  default:
+    break;
+  }
+}
 
 /**
   Add empty function for event process function.
@@ -217,233 +259,6 @@ InternalStopMonitor(
     }
   }
   return EFI_SUCCESS;
-}
-
-
-/**
-  Encode the password using a simple algorithm.
-
-  @param Password The string to be encoded.
-  @param MaxSize  The size of the string.
-
-**/
-VOID
-EncodePassword (
-  IN  CHAR16                      *Password,
-  IN  UINTN                       MaxSize
-  )
-{
-  UINTN   Index;
-  UINTN   Loop;
-  CHAR16  *Buffer;
-  CHAR16  *Key;
-
-  Key     = L"MAR10648567";
-  Buffer  = AllocateZeroPool (MaxSize);
-  ASSERT (Buffer != NULL);
-
-  for (Index = 0; Key[Index] != 0; Index++) {
-    for (Loop = 0; Loop < (UINT8) (MaxSize / 2); Loop++) {
-      Buffer[Loop] = (CHAR16) (Password[Loop] ^ Key[Index]);
-    }
-  }
-
-  CopyMem (Password, Buffer, MaxSize);
-
-  FreePool (Buffer);
-  return ;
-}
-
-/**
-  Validate the user's password.
-
-  @param PrivateData This driver's private context data.
-  @param StringId    The user's input.
-
-  @retval EFI_SUCCESS   The user's input matches the password.
-  @retval EFI_NOT_READY The user's input does not match the password.
-**/
-EFI_STATUS
-ValidatePassword (
-  IN       DRIVER_SAMPLE_PRIVATE_DATA      *PrivateData,
-  IN       EFI_STRING_ID                   StringId
-  )
-{
-  EFI_STATUS                      Status;
-  UINTN                           Index;
-  UINTN                           BufferSize;
-  UINTN                           PasswordMaxSize;
-  CHAR16                          *Password;
-  CHAR16                          *EncodedPassword;
-  BOOLEAN                         OldPassword;
-
-  //
-  // Get encoded password first
-  //
-  BufferSize = sizeof (DRIVER_SAMPLE_CONFIGURATION);
-  Status = gRT->GetVariable (
-                  VariableName,
-                  &gDriverSampleFormSetGuid,
-                  NULL,
-                  &BufferSize,
-                  &PrivateData->Configuration
-                  );
-  if (EFI_ERROR (Status)) {
-    //
-    // Old password not exist, prompt for new password
-    //
-    return EFI_SUCCESS;
-  }
-
-  OldPassword = FALSE;
-  PasswordMaxSize = sizeof (PrivateData->Configuration.WhatIsThePassword2);
-  //
-  // Check whether we have any old password set
-  //
-  for (Index = 0; Index < PasswordMaxSize / sizeof (UINT16); Index++) {
-    if (PrivateData->Configuration.WhatIsThePassword2[Index] != 0) {
-      OldPassword = TRUE;
-      break;
-    }
-  }
-  if (!OldPassword) {
-    //
-    // Old password not exist, return EFI_SUCCESS to prompt for new password
-    //
-    return EFI_SUCCESS;
-  }
-
-  //
-  // Get user input password
-  //
-  Password = HiiGetString (PrivateData->HiiHandle[0], StringId, NULL);
-  if (Password == NULL) {
-    return EFI_NOT_READY;
-  }
-  if (StrSize (Password) > PasswordMaxSize) {
-    FreePool (Password);
-    return EFI_NOT_READY;
-  }
-
-  //
-  // Validate old password
-  //
-  EncodedPassword = AllocateZeroPool (PasswordMaxSize);
-  ASSERT (EncodedPassword != NULL);
-  StrnCpyS (EncodedPassword, PasswordMaxSize / sizeof (CHAR16), Password, StrLen (Password));
-  EncodePassword (EncodedPassword, StrLen (EncodedPassword) * sizeof (CHAR16));
-  if (CompareMem (EncodedPassword, PrivateData->Configuration.WhatIsThePassword2, PasswordMaxSize) != 0) {
-    //
-    // Old password mismatch, return EFI_NOT_READY to prompt for error message
-    //
-    Status = EFI_NOT_READY;
-  } else {
-    Status = EFI_SUCCESS;
-  }
-
-  FreePool (Password);
-  FreePool (EncodedPassword);
-
-  return Status;
-}
-
-/**
-  Encode the password using a simple algorithm.
-
-  @param PrivateData This driver's private context data.
-  @param StringId    The password from User.
-
-  @retval  EFI_SUCESS The operation is successful.
-  @return  Other value if gRT->SetVariable () fails.
-
-**/
-EFI_STATUS
-SetPassword (
-  IN DRIVER_SAMPLE_PRIVATE_DATA      *PrivateData,
-  IN EFI_STRING_ID                   StringId
-  )
-{
-  EFI_STATUS                      Status;
-  CHAR16                          *Password;
-  CHAR16                          *TempPassword;
-  UINTN                           PasswordSize;
-  DRIVER_SAMPLE_CONFIGURATION     *Configuration;
-  UINTN                           BufferSize;
-
-  //
-  // Get Buffer Storage data from EFI variable
-  //
-  BufferSize = sizeof (DRIVER_SAMPLE_CONFIGURATION);
-  Status = gRT->GetVariable (
-                  VariableName,
-                  &gDriverSampleFormSetGuid,
-                  NULL,
-                  &BufferSize,
-                  &PrivateData->Configuration
-                  );
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  //
-  // Get user input password
-  //
-  Password = PrivateData->Configuration.WhatIsThePassword2;
-  PasswordSize = sizeof (PrivateData->Configuration.WhatIsThePassword2);
-  ZeroMem (Password, PasswordSize);
-
-  TempPassword = HiiGetString (PrivateData->HiiHandle[0], StringId, NULL);
-  if (TempPassword == NULL) {
-    return EFI_NOT_READY;
-  }
-  if (StrSize (TempPassword) > PasswordSize) {
-    FreePool (TempPassword);
-    return EFI_NOT_READY;
-  }
-  StrnCpyS (Password, PasswordSize / sizeof (CHAR16), TempPassword, StrLen (TempPassword));
-  FreePool (TempPassword);
-
-  //
-  // Retrive uncommitted data from Browser
-  //
-  Configuration = AllocateZeroPool (sizeof (DRIVER_SAMPLE_CONFIGURATION));
-  ASSERT (Configuration != NULL);
-  if (HiiGetBrowserData (&gDriverSampleFormSetGuid, VariableName, sizeof (DRIVER_SAMPLE_CONFIGURATION), (UINT8 *) Configuration)) {
-    //
-    // Update password's clear text in the screen
-    //
-    CopyMem (Configuration->PasswordClearText, Password, StrSize (Password));
-
-    //
-    // Update uncommitted data of Browser
-    //
-    HiiSetBrowserData (
-       &gDriverSampleFormSetGuid,
-       VariableName,
-       sizeof (DRIVER_SAMPLE_CONFIGURATION),
-       (UINT8 *) Configuration,
-       NULL
-       );
-  }
-
-  //
-  // Free Configuration Buffer
-  //
-  FreePool (Configuration);
-
-
-  //
-  // Set password
-  //
-  EncodePassword (Password, StrLen (Password) * 2);
-  Status = gRT->SetVariable(
-                  VariableName,
-                  &gDriverSampleFormSetGuid,
-                  EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
-                  sizeof (DRIVER_SAMPLE_CONFIGURATION),
-                  &PrivateData->Configuration
-                  );
-  return Status;
 }
 
 /**
@@ -734,6 +549,11 @@ AppendAltCfgString (
       return;
     }
     StringPtr += Length;
+
+    //
+    // Skip the character "&" before "OFFSET".
+    //
+    StringPtr ++;
 
     //
     // Calculate Value and convert it to hex string.
@@ -1283,7 +1103,9 @@ DriverCallback (
   EFI_STRING                      Results;
   UINT32                          ProgressErr;
   CHAR16                          *TmpStr;
-  
+  UINTN                           Index;
+  UINT64                          BufferValue;
+
   if (((Value == NULL) && (Action != EFI_BROWSER_ACTION_FORM_OPEN) && (Action != EFI_BROWSER_ACTION_FORM_CLOSE))||
     (ActionRequest == NULL)) {
     return EFI_INVALID_PARAMETER;
@@ -1293,6 +1115,7 @@ DriverCallback (
   FormId = 0;
   ProgressErr = 0;
   Status = EFI_SUCCESS;
+  BufferValue = 3;
   PrivateData = DRIVER_SAMPLE_PRIVATE_FROM_THIS (This);
 
   switch (Action) {
@@ -1468,6 +1291,12 @@ DriverCallback (
       switch (QuestionId) {
       case 0x1240:
         Value->u8 = DEFAULT_CLASS_STANDARD_VALUE;
+      break;
+
+      case 0x1252:
+        for (Index = 0; Index < 3; Index ++) {
+          SetArrayData (Value, EFI_IFR_TYPE_NUM_SIZE_8, Index, BufferValue--);
+        }
       break;
 
       default:
@@ -1672,40 +1501,6 @@ DriverCallback (
       HiiFreeOpCodeHandle (EndOpCodeHandle);
       break;
 
-    case 0x2000:
-      //
-      // Only used to update the state.
-      //
-      if ((Type == EFI_IFR_TYPE_STRING) && (Value->string == 0) && 
-        (PrivateData->PasswordState == BROWSER_STATE_SET_PASSWORD)) {
-        PrivateData->PasswordState = BROWSER_STATE_VALIDATE_PASSWORD;
-        return EFI_INVALID_PARAMETER;
-      }
-
-      //
-      // When try to set a new password, user will be chanlleged with old password.
-      // The Callback is responsible for validating old password input by user,
-      // If Callback return EFI_SUCCESS, it indicates validation pass.
-      //
-      switch (PrivateData->PasswordState) {
-      case BROWSER_STATE_VALIDATE_PASSWORD:
-        Status = ValidatePassword (PrivateData, Value->string);
-        if (Status == EFI_SUCCESS) {
-          PrivateData->PasswordState = BROWSER_STATE_SET_PASSWORD;
-        }
-        break;
-
-      case BROWSER_STATE_SET_PASSWORD:
-        Status = SetPassword (PrivateData, Value->string);
-        PrivateData->PasswordState = BROWSER_STATE_VALIDATE_PASSWORD;
-        break;
-
-      default:
-        break;
-      }
-
-      break;
-
     default:
       break;
     }
@@ -1834,6 +1629,28 @@ DriverCallback (
     }
   break;
 
+  case EFI_BROWSER_ACTION_SUBMITTED:
+    {
+      if (QuestionId == 0x1250) {
+        //
+        // Sample CallBack for EFI_BROWSER_ACTION_SUBMITTED action:
+        // Show up a pop-up to show SUBMITTED callback has been triggered.
+        //
+        do {
+          CreatePopUp (
+            EFI_LIGHTGRAY | EFI_BACKGROUND_BLUE,
+            &Key,
+            L"",
+            L"EfiVarstore value has been submitted!",
+            L"Press ESC or ENTER to continue ...",
+            L"",
+            NULL
+            );
+        } while ((Key.ScanCode != SCAN_ESC) && (Key.UnicodeChar != CHAR_CARRIAGE_RETURN));
+      }
+    }
+    break;
+
   default:
     Status = EFI_UNSUPPORTED;
     break;
@@ -1874,7 +1691,7 @@ DriverSampleInit (
   EFI_STRING                      NameRequestHdr;
   MY_EFI_VARSTORE_DATA            *VarStoreConfig;
   EFI_INPUT_KEY                   HotKey;
-  EFI_FORM_BROWSER_EXTENSION_PROTOCOL *FormBrowserEx;
+  EDKII_FORM_BROWSER_EXTENSION_PROTOCOL *FormBrowserEx;
 
   //
   // Initialize the local variables.
@@ -1905,7 +1722,6 @@ DriverSampleInit (
   mPrivateData->ConfigAccess.ExtractConfig = ExtractConfig;
   mPrivateData->ConfigAccess.RouteConfig = RouteConfig;
   mPrivateData->ConfigAccess.Callback = DriverCallback;
-  mPrivateData->PasswordState = BROWSER_STATE_VALIDATE_PASSWORD;
 
   //
   // Locate Hii Database protocol
@@ -2166,7 +1982,7 @@ DriverSampleInit (
   //
   // Example of how to use BrowserEx protocol to register HotKey.
   // 
-  Status = gBS->LocateProtocol (&gEfiFormBrowserExProtocolGuid, NULL, (VOID **) &FormBrowserEx);
+  Status = gBS->LocateProtocol (&gEdkiiFormBrowserExProtocolGuid, NULL, (VOID **) &FormBrowserEx);
   if (!EFI_ERROR (Status)) {
     //
     // First unregister the default hot key F9 and F10.
@@ -2256,6 +2072,8 @@ DriverSampleUnload (
             DriverHandle[1],
             &gEfiDevicePathProtocolGuid,
             &mHiiVendorDevicePath1,
+            &gEfiHiiConfigAccessProtocolGuid,
+            &mPrivateData->ConfigAccess,
             NULL
            );
     DriverHandle[1] = NULL;

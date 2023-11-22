@@ -51,6 +51,7 @@ LOCAL_SRC_FILES :=  \
     device3/StatusTracker.cpp \
     device3/Camera3BufferManager.cpp \
     device3/Camera3StreamSplitter.cpp \
+    device3/DistortionMapper.cpp \
     gui/RingBufferConsumer.cpp \
     utils/CameraTraces.cpp \
     utils/AutoConditionLock.cpp \
@@ -60,6 +61,7 @@ LOCAL_SRC_FILES :=  \
 LOCAL_SHARED_LIBRARIES:= \
     libui \
     liblog \
+    libutilscallstack \
     libutils \
     libbinder \
     libcutils \
@@ -78,7 +80,8 @@ LOCAL_SHARED_LIBRARIES:= \
     android.hardware.camera.provider@2.4 \
     android.hardware.camera.device@1.0 \
     android.hardware.camera.device@3.2 \
-    android.hardware.camera.device@3.3
+    android.hardware.camera.device@3.3 \
+    android.hardware.camera.device@3.4
 
 LOCAL_EXPORT_SHARED_LIBRARY_HEADERS := libbinder libcamera_client libfmq
 
@@ -91,9 +94,11 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := \
 
 LOCAL_CFLAGS += -Wall -Wextra -Werror
 
-# Workaround for invalid unused-lambda-capture warning http://b/38349491
-LOCAL_CLANG_CFLAGS += -Wno-error=unused-lambda-capture
-
 LOCAL_MODULE:= libcameraservice
 
 include $(BUILD_SHARED_LIBRARY)
+
+# Build tests too
+
+include $(LOCAL_PATH)/tests/Android.mk
+

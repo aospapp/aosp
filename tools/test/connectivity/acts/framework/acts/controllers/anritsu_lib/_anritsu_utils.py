@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3.4
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -13,10 +13,10 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-
 """
 Utility functions for for Anritsu Signalling Tester.
 """
+# yapf: disable
 
 OPERATION_COMPLETE = 1
 NO_ERROR = 0
@@ -229,3 +229,4 @@ class AnritsuError(Exception):
 
     def __str__(self):
         return self._error_message
+# yapf: enable

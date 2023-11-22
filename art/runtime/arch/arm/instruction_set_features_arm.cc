@@ -17,17 +17,17 @@
 #include "instruction_set_features_arm.h"
 
 #if defined(ART_TARGET_ANDROID) && defined(__arm__)
-#include <sys/auxv.h>
 #include <asm/hwcap.h>
+#include <sys/auxv.h>
 #endif
 
 #include "signal.h"
+
 #include <fstream>
 
-#include "android-base/stringprintf.h"
-#include "android-base/strings.h"
-
-#include "base/logging.h"
+#include <android-base/logging.h>
+#include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 
 #if defined(__arm__)
 extern "C" bool artCheckForArmSdivInstruction();
@@ -46,9 +46,11 @@ ArmFeaturesUniquePtr ArmInstructionSetFeatures::FromVariant(
       "cortex-a53",
       "cortex-a53.a57",
       "cortex-a53.a72",
+      "cortex-a55",
       "cortex-a57",
       "cortex-a72",
       "cortex-a73",
+      "cortex-a75",
       "exynos-m1",
       "denver",
       "kryo"
@@ -265,7 +267,7 @@ ArmFeaturesUniquePtr ArmInstructionSetFeatures::FromAssembly() {
 }
 
 bool ArmInstructionSetFeatures::Equals(const InstructionSetFeatures* other) const {
-  if (kArm != other->GetInstructionSet()) {
+  if (InstructionSet::kArm != other->GetInstructionSet()) {
     return false;
   }
   const ArmInstructionSetFeatures* other_as_arm = other->AsArmInstructionSetFeatures();
@@ -275,14 +277,13 @@ bool ArmInstructionSetFeatures::Equals(const InstructionSetFeatures* other) cons
 }
 
 bool ArmInstructionSetFeatures::HasAtLeast(const InstructionSetFeatures* other) const {
-  if (kArm != other->GetInstructionSet()) {
+  if (InstructionSet::kArm != other->GetInstructionSet()) {
     return false;
   }
   const ArmInstructionSetFeatures* other_as_arm = other->AsArmInstructionSetFeatures();
-
-  return (has_div_ || (has_div_ == other_as_arm->has_div_))
-      && (has_atomic_ldrd_strd_ || (has_atomic_ldrd_strd_ == other_as_arm->has_atomic_ldrd_strd_))
-      && (has_armv8a_ || (has_armv8a_ == other_as_arm->has_armv8a_));
+  return (has_div_ || !other_as_arm->has_div_)
+      && (has_atomic_ldrd_strd_ || !other_as_arm->has_atomic_ldrd_strd_)
+      && (has_armv8a_ || !other_as_arm->has_armv8a_);
 }
 
 uint32_t ArmInstructionSetFeatures::AsBitmap() const {

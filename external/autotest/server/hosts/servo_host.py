@@ -66,7 +66,7 @@ class ServoHost(ssh_host.SSHHost):
     DEFAULT_PORT = 9999
 
     # Timeout for initializing servo signals.
-    INITIALIZE_SERVO_TIMEOUT_SECS = 30
+    INITIALIZE_SERVO_TIMEOUT_SECS = 60
 
     # Ready test function
     SERVO_READY_METHOD = 'get_version'
@@ -201,7 +201,8 @@ class ServoHost(ssh_host.SSHHost):
 
 
     def make_ssh_command(self, user='root', port=22, opts='', hosts_file=None,
-                         connect_timeout=None, alive_interval=None):
+                         connect_timeout=None, alive_interval=None,
+                         alive_count_max=None, connection_attempts=None):
         """Override default make_ssh_command to use tuned options.
 
         Tuning changes:
@@ -227,16 +228,17 @@ class ServoHost(ssh_host.SSHHost):
         @param hosts_file Ignored.
         @param connect_timeout Ignored.
         @param alive_interval Ignored.
+        @param alive_count_max Ignored.
+        @param connection_attempts Ignored.
 
         @returns: An ssh command with the requested settings.
 
         """
-        base_command = ('/usr/bin/ssh -a -x %s -o StrictHostKeyChecking=no'
-                        ' -o UserKnownHostsFile=/dev/null -o BatchMode=yes'
-                        ' -o ConnectTimeout=30 -o ServerAliveInterval=180'
-                        ' -o ServerAliveCountMax=3 -o ConnectionAttempts=4'
-                        ' -o Protocol=2 -l %s -p %d')
-        return base_command % (opts, user, port)
+        options = ' '.join([opts, '-o Protocol=2'])
+        return super(ServoHost, self).make_ssh_command(
+            user=user, port=port, opts=options, hosts_file='/dev/null',
+            connect_timeout=30, alive_interval=180, alive_count_max=3,
+            connection_attempts=4)
 
 
     def _make_scp_cmd(self, sources, dest):

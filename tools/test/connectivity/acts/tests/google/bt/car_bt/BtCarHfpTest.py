@@ -30,6 +30,8 @@ from acts.test_utils.tel import tel_defines
 BLUETOOTH_PKG_NAME = "com.android.bluetooth"
 CALL_TYPE_OUTGOING = "CALL_TYPE_OUTGOING"
 CALL_TYPE_INCOMING = "CALL_TYPE_INCOMING"
+AUDIO_STATE_DISCONNECTED = 0
+AUDIO_STATE_ROUTED = 2
 SHORT_TIMEOUT = 5
 
 
@@ -211,6 +213,59 @@ class BtCarHfpTest(BluetoothCarHfpBaseTest):
         Priority: 0
         """
         return self.dial_a_hangup_b(self.re, self.re, self.ag_phone_number)
+
+    def test_bluetooth_voice_recognition_assistant(self):
+        """
+        Tests if we can initate a remote Voice Recognition session.
+
+        Precondition:
+        1. Devices are connected.
+
+        Steps:
+        1. Verify that audio isn't routed between the HF and AG.
+        2. From the HF send a BVRA command.
+        3. Verify that audio is routed from the HF to AG.
+        4. From the HF send a BVRA command to stop the session.
+        5. Verify that audio is no longer routed from the HF to AG.
+
+        Returns:
+          Pass if True
+          Fail if False
+
+        Priority: 0
+        """
+        audio_state = self.hf.droid.bluetoothHfpClientGetAudioState(
+            self.ag.droid.bluetoothGetLocalAddress())
+        if (audio_state != AUDIO_STATE_DISCONNECTED):
+            self.log.info(
+                "Audio connected before test started, current state {}.".
+                format(str(audio_state)))
+            return False
+        bvra_started = self.hf.droid.bluetoothHfpClientStartVoiceRecognition(
+            self.ag.droid.bluetoothGetLocalAddress())
+        if (bvra_started != True):
+            self.log.info("BVRA Failed to start.")
+            return False
+        time.sleep(SHORT_TIMEOUT)
+        audio_state = self.hf.droid.bluetoothHfpClientGetAudioState(
+            self.ag.droid.bluetoothGetLocalAddress())
+        if (audio_state != AUDIO_STATE_ROUTED):
+            self.log.info("Audio didn't route, current state {}.".format(
+                str(audio_state)))
+            return False
+        bvra_stopped = self.hf.droid.bluetoothHfpClientStopVoiceRecognition(
+            self.ag.droid.bluetoothGetLocalAddress())
+        if (bvra_stopped != True):
+            self.log.info("BVRA Failed to stop.")
+            return False
+        time.sleep(SHORT_TIMEOUT)
+        audio_state = self.hf.droid.bluetoothHfpClientGetAudioState(
+            self.ag.droid.bluetoothGetLocalAddress())
+        if (audio_state != AUDIO_STATE_DISCONNECTED):
+            self.log.info("Audio didn't cleanup, current state {}.".format(
+                str(audio_state)))
+            return False
+        return True
 
     def dial_a_hangup_b(self, caller, callee, ph=""):
         """

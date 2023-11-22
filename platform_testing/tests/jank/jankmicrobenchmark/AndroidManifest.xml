@@ -23,7 +23,7 @@
     </application>
 
     <instrumentation
-            android:name="android.test.InstrumentationTestRunner"
+            android:name="android.support.test.runner.AndroidJUnitRunner"
             android:targetPackage="com.android.jankmicrobenchmark.janktests"
             android:label="Platform Benchmark Jank Tests" />
 

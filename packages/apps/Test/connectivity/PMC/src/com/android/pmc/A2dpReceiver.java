@@ -403,7 +403,7 @@ public class A2dpReceiver extends BroadcastReceiver {
         BluetoothCodecConfig[] codecsSelectableCapabilities = null;
 
         if (mBluetoothA2dp != null) {
-            codecStatus = mBluetoothA2dp.getCodecStatus();
+            codecStatus = mBluetoothA2dp.getCodecStatus(null);  // Use current active device
             if (codecStatus != null) {
                 codecConfig = codecStatus.getCodecConfig();
                 codecsLocalCapabilities = codecStatus.getCodecsLocalCapabilities();
@@ -466,7 +466,7 @@ public class A2dpReceiver extends BroadcastReceiver {
 
         if (mBluetoothA2dp != null) {
             Log.d(TAG, "setCodecConfigPreference()");
-            mBluetoothA2dp.setCodecConfigPreference(codecConfig);
+            mBluetoothA2dp.setCodecConfigPreference(null, codecConfig); // Use current active device
         } else {
             Log.e(TAG, "mBluetoothA2dp is null. Codec is not set");
             return false;

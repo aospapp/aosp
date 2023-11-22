@@ -20,11 +20,16 @@ package com.android.tradefed.util;
  * Event types for {@link LogcatUpdaterEventParser}.
  */
 public enum UpdaterEventType {
+    UPDATE_START,
     DOWNLOAD_COMPLETE,
     PATCH_COMPLETE,
     UPDATE_VERIFIER_COMPLETE,
     D2O_COMPLETE,
     UPDATE_COMPLETE,
-    ERROR
+    // error found in logcat output
+    ERROR,
+    // error found in logcat output, but doesn't necessarily indicate OTA failure. Should retry.
+    ERROR_FLAKY,
+    // TradeFed test timed out waiting for event
+    INFRA_TIMEOUT,
 }
-

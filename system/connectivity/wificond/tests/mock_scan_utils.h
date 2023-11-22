@@ -41,18 +41,21 @@ class MockScanUtils : public ScanUtils {
       uint32_t interface_index,
       std::vector<::com::android::server::wifi::wificond::NativeScanResult>* out_scan_results));
 
-  MOCK_METHOD5(Scan, bool(
+  MOCK_METHOD6(Scan, bool(
       uint32_t interface_index,
-      bool random_mac,
+      bool request_random_mac,
+      int scan_type,
       const std::vector<std::vector<uint8_t>>& ssids,
       const std::vector<uint32_t>& freqs,
       int* error_code));
 
-  MOCK_METHOD8(StartScheduledScan, bool(
+  MOCK_METHOD10(StartScheduledScan, bool(
       uint32_t interface_index,
       const SchedScanIntervalSetting& interval_setting,
-      int32_t rssi_threshold,
+      int32_t rssi_threshold_2g,
+      int32_t rssi_threshold_5g,
       bool request_random_mac,
+      bool request_low_power,
       const std::vector<std::vector<uint8_t>>& scan_ssids,
       const std::vector<std::vector<uint8_t>>& match_ssids,
       const std::vector<uint32_t>& freqs,

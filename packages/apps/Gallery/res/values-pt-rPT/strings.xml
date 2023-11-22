@@ -134,7 +134,7 @@
     <string name="video_context_menu_header" msgid="7318971116949475029">"Opções de vídeo"</string>
     <string name="multiface_crop_help" msgid="2554690102655855657">"Toque num rosto para começar."</string>
     <string name="photos_gallery_title" msgid="6914406246471015448">"Galeria"</string>
-    <string name="pick_photos_gallery_title" msgid="8356086704733473321">"Escolher fotografia"</string>
+    <string name="pick_photos_gallery_title" msgid="8356086704733473321">"Escolher foto"</string>
     <string name="videos_gallery_title" msgid="6150354029982749479">"Galeria"</string>
     <string name="pick_videos_gallery_title" msgid="568436323607491495">"Escolher vídeo"</string>
     <string name="sendImage" msgid="7279510542799399570">"Partilhar a imagem através de"</string>

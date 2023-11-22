@@ -28,6 +28,6 @@ LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/include $(LOCAL_PATH)
 
 LOCAL_CFLAGS += \
-	 -O -Wno-unused-parameter -Werror
+	 -O -Wno-unused-parameter -Wall -Werror
 
 include $(BUILD_SHARED_LIBRARY)

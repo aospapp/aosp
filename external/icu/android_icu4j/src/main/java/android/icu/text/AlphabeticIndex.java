@@ -504,7 +504,8 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
      */
     private void addIndexExemplars(ULocale locale) {
         UnicodeSet exemplars = LocaleData.getExemplarSet(locale, 0, LocaleData.ES_INDEX);
-        if (exemplars != null) {
+        // Android-changed: check for empty exemplar sets (http://b/64953401).
+        if (exemplars != null && !exemplars.isEmpty()) {
             initialLabels.addAll(exemplars);
             return;
         }

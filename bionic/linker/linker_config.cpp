@@ -33,6 +33,7 @@
 #include "linker_utils.h"
 
 #include <android-base/file.h>
+#include <android-base/properties.h>
 #include <android-base/scopeguard.h>
 #include <android-base/strings.h>
 
@@ -43,10 +44,14 @@
 #include <string>
 #include <unordered_map>
 
+#define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_
+#include <sys/_system_properties.h>
+
 class ConfigParser {
  public:
   enum {
-    kProperty,
+    kPropertyAssign,
+    kPropertyAppend,
     kSection,
     kEndOfFile,
     kError,
@@ -57,7 +62,8 @@ class ConfigParser {
 
   /*
    * Possible return values
-   * kProperty: name is set to property name and value is set to property value
+   * kPropertyAssign: name is set to property name and value is set to property value
+   * kPropertyAppend: same as kPropertyAssign, but the value should be appended
    * kSection: name is set to section name.
    * kEndOfFile: reached end of file.
    * kError: error_msg is set.
@@ -77,17 +83,24 @@ class ConfigParser {
         return kSection;
       }
 
-      found = line.find('=');
-      if (found == std::string::npos) {
-        *error_msg = std::string("invalid format: ") +
-                    line +
-                    ", expected \"name = property\" or \"[section]\"";
-        return kError;
+      size_t found_assign = line.find('=');
+      size_t found_append = line.find("+=");
+      if (found_assign != std::string::npos && found_append == std::string::npos) {
+        *name = android::base::Trim(line.substr(0, found_assign));
+        *value = android::base::Trim(line.substr(found_assign + 1));
+        return kPropertyAssign;
       }
 
-      *name = android::base::Trim(line.substr(0, found));
-      *value = android::base::Trim(line.substr(found + 1));
-      return kProperty;
+      if (found_append != std::string::npos) {
+        *name = android::base::Trim(line.substr(0, found_append));
+        *value = android::base::Trim(line.substr(found_append + 2));
+        return kPropertyAppend;
+      }
+
+      *error_msg = std::string("invalid format: ") +
+                   line +
+                   ", expected \"name = property\", \"name += property\", or \"[section]\"";
+      return kError;
     }
 
     // to avoid infinite cycles when programmer makes a mistake
@@ -138,6 +151,14 @@ class PropertyValue {
     return value_;
   }
 
+  void append_value(std::string&& value) {
+    value_ = value_ + value;
+    // lineno isn't updated as we might have cases like this:
+    // property.x = blah
+    // property.y = blah
+    // property.x += blah
+  }
+
   size_t lineno() const {
     return lineno_;
   }
@@ -173,14 +194,14 @@ static bool parse_config_file(const char* ld_config_file_path,
 
   std::string section_name;
 
-  while(true) {
+  while (true) {
     std::string name;
     std::string value;
     std::string error;
 
     int result = cp.next_token(&name, &value, &error);
     if (result == ConfigParser::kError) {
-      DL_WARN("error parsing %s:%zd: %s (ignoring this line)",
+      DL_WARN("%s:%zd: warning: couldn't parse %s (ignoring this line)",
               ld_config_file_path,
               cp.lineno(),
               error.c_str());
@@ -191,9 +212,9 @@ static bool parse_config_file(const char* ld_config_file_path,
       return false;
     }
 
-    if (result == ConfigParser::kProperty) {
+    if (result == ConfigParser::kPropertyAssign) {
       if (!android::base::StartsWith(name, "dir.")) {
-        DL_WARN("error parsing %s:%zd: unexpected property name \"%s\", "
+        DL_WARN("%s:%zd: warning: unexpected property name \"%s\", "
                 "expected format dir.<section_name> (ignoring this line)",
                 ld_config_file_path,
                 cp.lineno(),
@@ -207,7 +228,7 @@ static bool parse_config_file(const char* ld_config_file_path,
       }
 
       if (value.empty()) {
-        DL_WARN("error parsing %s:%zd: property value is empty (ignoring this line)",
+        DL_WARN("%s:%zd: warning: property value is empty (ignoring this line)",
                 ld_config_file_path,
                 cp.lineno());
         continue;
@@ -252,19 +273,42 @@ static bool parse_config_file(const char* ld_config_file_path,
       break;
     }
 
-    if (result == ConfigParser::kProperty) {
+    if (result == ConfigParser::kPropertyAssign) {
       if (properties->find(name) != properties->end()) {
-        DL_WARN("%s:%zd: warning: property \"%s\" redefinition",
+        DL_WARN("%s:%zd: warning: redefining property \"%s\" (overriding previous value)",
                 ld_config_file_path,
                 cp.lineno(),
                 name.c_str());
       }
 
       (*properties)[name] = PropertyValue(std::move(value), cp.lineno());
+    } else if (result == ConfigParser::kPropertyAppend) {
+      if (properties->find(name) == properties->end()) {
+        DL_WARN("%s:%zd: warning: appending to undefined property \"%s\" (treating as assignment)",
+                ld_config_file_path,
+                cp.lineno(),
+                name.c_str());
+        (*properties)[name] = PropertyValue(std::move(value), cp.lineno());
+      } else {
+        if (android::base::EndsWith(name, ".links") ||
+            android::base::EndsWith(name, ".namespaces")) {
+          value = "," + value;
+          (*properties)[name].append_value(std::move(value));
+        } else if (android::base::EndsWith(name, ".paths") ||
+                   android::base::EndsWith(name, ".shared_libs")) {
+          value = ":" + value;
+          (*properties)[name].append_value(std::move(value));
+        } else {
+          DL_WARN("%s:%zd: warning: += isn't allowed for property \"%s\" (ignoring)",
+                  ld_config_file_path,
+                  cp.lineno(),
+                  name.c_str());
+        }
+      }
     }
 
     if (result == ConfigParser::kError) {
-      DL_WARN("error parsing %s:%zd: %s (ignoring this line)",
+      DL_WARN("%s:%zd: warning: couldn't parse %s (ignoring this line)",
               ld_config_file_path,
               cp.lineno(),
               error.c_str());
@@ -333,6 +377,9 @@ class Properties {
       async_safe_format_buffer(buf, sizeof(buf), "%d", target_sdk_version_);
       params.push_back({ "SDK_VER", buf });
     }
+
+    static std::string vndk = Config::get_vndk_version_string('-');
+    params.push_back({ "VNDK_VER", vndk });
 
     for (auto&& path : paths) {
       format_string(&path, params);
@@ -442,12 +489,15 @@ bool Config::read_binary_config(const char* ld_config_file_path,
         return false;
       }
 
+      bool allow_all_shared_libs = properties.get_bool(property_name_prefix + ".link." +
+                                                       linked_ns_name + ".allow_all_shared_libs");
+
       std::string shared_libs = properties.get_string(property_name_prefix +
                                                       ".link." +
                                                       linked_ns_name +
                                                       ".shared_libs", &lineno);
 
-      if (shared_libs.empty()) {
+      if (!allow_all_shared_libs && shared_libs.empty()) {
         *error_msg = create_error_msg(ld_config_file_path,
                                       lineno,
                                       std::string("list of shared_libs for ") +
@@ -458,7 +508,15 @@ bool Config::read_binary_config(const char* ld_config_file_path,
         return false;
       }
 
-      ns_config->add_namespace_link(linked_ns_name, shared_libs);
+      if (allow_all_shared_libs && !shared_libs.empty()) {
+        *error_msg = create_error_msg(ld_config_file_path, lineno,
+                                      std::string("both shared_libs and allow_all_shared_libs "
+                                                  "are set for ") +
+                                      name + "->" + linked_ns_name + " link.");
+        return false;
+      }
+
+      ns_config->add_namespace_link(linked_ns_name, shared_libs, allow_all_shared_libs);
     }
 
     ns_config->set_isolated(properties.get_bool(property_name_prefix + ".isolated"));
@@ -486,6 +544,15 @@ bool Config::read_binary_config(const char* ld_config_file_path,
   failure_guard.Disable();
   *config = &g_config;
   return true;
+}
+
+std::string Config::get_vndk_version_string(const char delimiter) {
+  std::string version = android::base::GetProperty("ro.vndk.version", "");
+  if (version != "" && version != "current") {
+    //add the delimiter char in front of the string and return it.
+    return version.insert(0, 1, delimiter);
+  }
+  return "";
 }
 
 NamespaceConfig* Config::create_namespace_config(const std::string& name) {

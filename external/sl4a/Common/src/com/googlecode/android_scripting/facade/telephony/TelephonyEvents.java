@@ -266,10 +266,10 @@ public class TelephonyEvents {
                     mServiceState.isEmergencyOnly());
             serviceState.put(
                     TelephonyConstants.ServiceStateContainer.NETWORK_ID,
-                    mServiceState.getNetworkId());
+                    mServiceState.getCdmaNetworkId());
             serviceState.put(
                     TelephonyConstants.ServiceStateContainer.SYSTEM_ID,
-                    mServiceState.getSystemId());
+                    mServiceState.getCdmaSystemId());
             serviceState.put(
                     TelephonyConstants.ServiceStateContainer.SERVICE_STATE,
                     mServiceStateString);

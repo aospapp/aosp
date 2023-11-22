@@ -15,15 +15,16 @@
  */
 package com.android.app.tests;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.build.IAppBuildInfo;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.VersionedFile;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
@@ -34,7 +35,7 @@ import com.android.tradefed.util.FileUtil;
 import org.junit.Assert;
 
 import java.io.File;
-import java.util.Collections;
+import java.util.HashMap;
 
 /**
  * A harness that installs and launches an app on device and verifies it doesn't crash.
@@ -106,22 +107,24 @@ public class AppLaunchTest implements IDeviceTest, IRemoteTest, IBuildReceiver {
         } catch (AssertionError e) {
             listener.testRunFailed(e.toString());
         } finally {
-            listener.testRunEnded(System.currentTimeMillis() - startTime,
-                    Collections.<String, String> emptyMap());
+            listener.testRunEnded(
+                    System.currentTimeMillis() - startTime, new HashMap<String, Metric>());
         }
 
     }
 
     private void performInstallTest(File apkFile, ITestInvocationListener listener)
             throws DeviceNotAvailableException {
-        TestIdentifier installTest = new TestIdentifier("com.android.app.tests.InstallTest",
-                FileUtil.getBaseName(apkFile.getName()));
+        TestDescription installTest =
+                new TestDescription(
+                        "com.android.app.tests.InstallTest",
+                        FileUtil.getBaseName(apkFile.getName()));
         listener.testStarted(installTest);
         String result = getDevice().installPackage(apkFile, true);
         if (result != null) {
             listener.testFailed(installTest, result);
         }
-        listener.testEnded(installTest, Collections.<String, String> emptyMap());
+        listener.testEnded(installTest, new HashMap<String, Metric>());
     }
 
     private void performLaunchTest(String packageName, ITestInvocationListener listener)

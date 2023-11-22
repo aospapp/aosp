@@ -28,6 +28,7 @@ from acts.controllers import monsoon
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.bt_test_utils import bluetooth_enabled_check
 from acts.test_utils.tel.tel_test_utils import set_phone_screen_on
+from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
 from acts.test_utils.wifi import wifi_test_utils as wutils
 from acts.utils import create_dir
 from acts.utils import force_airplane_mode
@@ -62,6 +63,28 @@ class PowerBaseTest(BluetoothBaseTest):
             a.ed.clear_all_events()
             a.droid.setScreenTimeout(20)
             self.ad.go_to_sleep()
+        return True
+
+    def disable_location_scanning(self):
+        """Utility to disable location services from scanning.
+
+        Unless the device is in airplane mode, even if WiFi is disabled
+        the DUT will still perform occasional scans. This will greatly impact
+        the power numbers.
+
+        Returns:
+            True if airplane mode is disabled and Bluetooth is enabled;
+            False otherwise.
+        """
+        self.ad.log.info("DUT phone Airplane is ON")
+        if not toggle_airplane_mode_by_adb(self.log, self.android_devices[0],
+                                           True):
+            self.log.error("FAILED to toggle Airplane on")
+            return False
+        self.ad.log.info("DUT phone Bluetooth is ON")
+        if not bluetooth_enabled_check(self.android_devices[0]):
+            self.log.error("FAILED to enable Bluetooth on")
+            return False
         return True
 
     def teardown_test(self):
@@ -195,7 +218,7 @@ class PowerBaseTest(BluetoothBaseTest):
                           Otherwise they are arrays of time values
 
         Returns:
-            None
+            BtMonsoonData for Current Average and Std Deviation
         """
         current_time = get_current_human_time()
         file_name = "{}_{}".format(self.current_test_name, current_time)
@@ -213,6 +236,31 @@ class PowerBaseTest(BluetoothBaseTest):
                                                 file_name))
 
         self.ad.take_bug_report(self.current_test_name, current_time)
+        return (bt_monsoon_result.average_cur, bt_monsoon_result.stdev)
+
+    def check_test_pass(self, average_current, watermark_value):
+        """Compare watermark numbers for pass/fail criteria.
+
+        b/67960377 = for BT codec runs
+        b/67959834 = for BLE scan+GATT runs
+
+        Args:
+            average_current: the numbers calculated from Monsoon box
+            watermark_value: the reference numbers from config file
+
+        Returns:
+            True if the current is within 10%; False otherwise
+
+        """
+        watermark_value = float(watermark_value)
+        variance_plus = watermark_value + (watermark_value * 0.1)
+        variance_minus = watermark_value - (watermark_value * 0.1)
+        if (average_current > variance_plus) or (average_current <
+                                                 variance_minus):
+            self.log.error('==> FAILED criteria from check_test_pass method')
+            return False
+        self.log.info('==> PASS criteria from check_test_pass method')
+        return True
 
 
 class BtMonsoonData(monsoon.MonsoonData):
@@ -260,6 +308,8 @@ class BtMonsoonData(monsoon.MonsoonData):
         self.measure_time = measure_time
         self.idle_time = idle_time
         self.log = log
+        self.average_cur = None
+        self.stdev = None
 
     def _calculate_average_current_n_std_dev(self):
         """Utility function to calculate average current and standard deviation
@@ -358,6 +408,9 @@ class BtMonsoonData(monsoon.MonsoonData):
             strs.append("\t\tMonsoon Measurement Data")
         average_cur, stdev = self._calculate_average_current_n_std_dev()
         total_power = round(average_cur * self.voltage, self.ACCURACY)
+
+        self.average_cur = average_cur
+        self.stdev = stdev
 
         strs.append("\t\tAverage Current: {} mA.".format(average_cur))
         strs.append("\t\tSTD DEV Current: {} mA.".format(stdev))

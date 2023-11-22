@@ -8,11 +8,13 @@ Unit tests for functions in `assign_stable_images`.
 
 
 import json
+import mock
 import os
 import sys
 import unittest
 
 import common
+from autotest_lib.server import frontend
 from autotest_lib.site_utils.stable_images import assign_stable_images
 
 
@@ -89,6 +91,142 @@ class KeyPathTests(unittest.TestCase):
     def test_two_element_invalid(self):
         """Test a two-element key path with an invalid key."""
         self._check_path_invalid(['level1_a', 'absent'])
+
+
+class GetFirmwareUpgradesTests(unittest.TestCase):
+    """Tests for _get_firmware_upgrades."""
+
+
+    def setUp(self):
+        self.version_map = frontend._CrosVersionMap(mock.Mock())
+
+
+    @mock.patch.object(assign_stable_images, 'get_firmware_versions')
+    def test_get_firmware_upgrades(self, mock_get_firmware_versions):
+        """Test _get_firmware_upgrades."""
+        mock_get_firmware_versions.side_effect = [
+                {'auron_paine': 'fw_version'},
+                {'blue': 'fw_version',
+                 'robo360': 'fw_version',
+                 'porbeagle': 'fw_version'}
+        ]
+        cros_versions = {
+                'coral': 'R64-10176.65.0',
+                'auron_paine': 'R64-10176.65.0'
+        }
+        boards = ['auron_paine', 'coral']
+
+        firmware_upgrades = assign_stable_images._get_firmware_upgrades(
+            self.version_map, cros_versions)
+        expected_firmware_upgrades = {
+                'auron_paine': 'fw_version',
+                'blue': 'fw_version',
+                'robo360': 'fw_version',
+                'porbeagle': 'fw_version'
+        }
+        self.assertEqual(firmware_upgrades, expected_firmware_upgrades)
+
+
+class GetFirmwareVersionsTests(unittest.TestCase):
+    """Tests for get_firmware_versions."""
+
+
+    def setUp(self):
+        self.version_map = frontend._CrosVersionMap(mock.Mock())
+        self.cros_version = 'R64-10176.65.0'
+
+
+    @mock.patch.object(assign_stable_images, '_read_gs_json_data')
+    def test_get_firmware_versions_on_normal_build(self, mock_read_gs):
+        """Test get_firmware_versions on normal build."""
+        metadata_json = """
+{
+    "unibuild": false,
+    "board-metadata":{
+        "auron_paine":{
+             "main-firmware-version":"Google_Auron_paine.6301.58.98"
+        }
+   }
+}
+        """
+        mock_read_gs.return_value = json.loads(metadata_json)
+        board = 'auron_paine'
+
+        fw_version = assign_stable_images.get_firmware_versions(
+                self.version_map, board, self.cros_version)
+        expected_version = {board: "Google_Auron_paine.6301.58.98"}
+        self.assertEqual(fw_version, expected_version)
+
+
+    @mock.patch.object(assign_stable_images, '_read_gs_json_data',
+                       side_effect = Exception('GS ERROR'))
+    def test_get_firmware_versions_with_exceptions(self, mock_read_gs):
+        """Test get_firmware_versions on normal build with exceptions."""
+        afe_mock = mock.Mock()
+        version_map = frontend._CrosVersionMap(afe_mock)
+
+        fw_version = assign_stable_images.get_firmware_versions(
+                self.version_map, 'auron_paine', self.cros_version)
+        self.assertEqual(fw_version, {'auron_paine': None})
+
+
+    @mock.patch.object(assign_stable_images, '_read_gs_json_data')
+    def test_get_firmware_versions_on_unibuild(self, mock_read_gs):
+        """Test get_firmware_version on uni-build."""
+        metadata_json = """
+{
+    "unibuild": true,
+    "board-metadata":{
+        "coral":{
+            "kernel-version":"4.4.114-r1354",
+            "models":{
+                "blue":{
+                    "main-readonly-firmware-version":"Google_Coral.10068.37.0",
+                    "main-readwrite-firmware-version":"Google_Coral.10068.39.0"
+                },
+                "robo360":{
+                    "main-readonly-firmware-version":"Google_Coral.10068.34.0",
+                    "main-readwrite-firmware-version":null
+                },
+                "porbeagle":{
+                    "main-readonly-firmware-version":null,
+                    "main-readwrite-firmware-version":null
+                }
+            }
+        }
+    }
+}
+"""
+        mock_read_gs.return_value = json.loads(metadata_json)
+
+        fw_version = assign_stable_images.get_firmware_versions(
+                self.version_map, 'coral', self.cros_version)
+        expected_version = {
+                'blue': 'Google_Coral.10068.39.0',
+                'robo360': 'Google_Coral.10068.34.0',
+                'porbeagle': None
+        }
+        self.assertEqual(fw_version, expected_version)
+
+
+    @mock.patch.object(assign_stable_images, '_read_gs_json_data')
+    def test_get_firmware_versions_on_unibuild_no_models(self, mock_read_gs):
+        """Test get_firmware_versions on uni-build without models dict."""
+        metadata_json = """
+{
+    "unibuild": true,
+    "board-metadata":{
+        "coral":{
+            "kernel-version":"4.4.114-r1354"
+        }
+    }
+}
+"""
+        mock_read_gs.return_value = json.loads(metadata_json)
+
+        fw_version = assign_stable_images.get_firmware_versions(
+                self.version_map, 'coral', self.cros_version)
+        self.assertEqual(fw_version, {'coral': None})
 
 
 class GetUpgradeTests(unittest.TestCase):
@@ -363,6 +501,7 @@ class _TestUpdater(assign_stable_images._VersionUpdater):
                                    self._expected_mappings)
 
     def report(self, message):
+        """Report message."""
         pass
 
     def report_default_changed(self, old_default, new_default):

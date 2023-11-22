@@ -10,9 +10,14 @@ import os
 import socket
 import subprocess
 import sys
+import time
 import traceback
 
 import common
+from autotest_lib.client.bin.result_tools import utils as result_utils
+from autotest_lib.client.bin.result_tools import utils_lib as result_utils_lib
+from autotest_lib.client.bin.result_tools import runner as result_runner
+from autotest_lib.client.common_lib import control_data
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import mail, pidfile
 from autotest_lib.client.common_lib import utils
@@ -61,6 +66,11 @@ def parse_args():
                       action="store")
     parser.add_option("--dry-run", help="Do not actually commit any results.",
                       dest="dry_run", action="store_true", default=False)
+    parser.add_option(
+            "--detach", action="store_true",
+            help="Detach parsing process from the caller process. Used by "
+                 "monitor_db to safely restart without affecting parsing.",
+            default=False)
     parser.add_option("--write-pidfile",
                       help="write pidfile (.parser_execute)",
                       dest="write_pidfile", action="store_true",
@@ -237,6 +247,63 @@ def _invalidate_original_tests(orig_job_idx, retry_job_idx):
     tko_utils.dprint('DEBUG: Invalidated tests associated to job: ' + msg)
 
 
+def _throttle_result_size(path):
+    """Limit the total size of test results for the given path.
+
+    @param path: Path of the result directory.
+    """
+    if not result_runner.ENABLE_RESULT_THROTTLING:
+        tko_utils.dprint(
+                'Result throttling is not enabled. Skipping throttling %s' %
+                path)
+        return
+
+    max_result_size_KB = control_data.DEFAULT_MAX_RESULT_SIZE_KB
+    # Client side test saves the test control to file `control`, while server
+    # side test saves the test control to file `control.srv`
+    for control_file in ['control', 'control.srv']:
+        control = os.path.join(path, control_file)
+        try:
+            max_result_size_KB = control_data.parse_control(
+                    control, raise_warnings=False).max_result_size_KB
+            # Any value different from the default is considered to be the one
+            # set in the test control file.
+            if max_result_size_KB != control_data.DEFAULT_MAX_RESULT_SIZE_KB:
+                break
+        except IOError as e:
+            tko_utils.dprint(
+                    'Failed to access %s. Error: %s\nDetails %s' %
+                    (control, e, traceback.format_exc()))
+        except control_data.ControlVariableException as e:
+            tko_utils.dprint(
+                    'Failed to parse %s. Error: %s\nDetails %s' %
+                    (control, e, traceback.format_exc()))
+
+    try:
+        result_utils.execute(path, max_result_size_KB)
+    except:
+        tko_utils.dprint(
+                'Failed to throttle result size of %s.\nDetails %s' %
+                (path, traceback.format_exc()))
+
+
+def export_tko_job_to_file(job, jobname, filename):
+    """Exports the tko job to disk file.
+
+    @param job: database object.
+    @param jobname: the job name as string.
+    @param filename: The path to the results to be parsed.
+    """
+    try:
+        from autotest_lib.tko import job_serializer
+
+        serializer = job_serializer.JobSerializer()
+        serializer.serialize_to_binary(job, jobname, filename)
+    except ImportError:
+        tko_utils.dprint("WARNING: tko_pb2.py doesn't exist. Create by "
+                         "compiling tko/tko.proto.")
+
+
 def parse_one(db, jobname, path, parse_options):
     """Parse a single job. Optionally send email on failure.
 
@@ -330,16 +397,16 @@ def parse_one(db, jobname, path, parse_options):
             job.board = label_info.get('board', None)
             job.suite = label_info.get('suite', None)
 
+    result_utils_lib.LOG =  tko_utils.dprint
+    _throttle_result_size(path)
+
     # Record test result size to job_keyvals
+    start_time = time.time()
     result_size_info = site_utils.collect_result_sizes(
             path, log=tko_utils.dprint)
+    tko_utils.dprint('Finished collecting result sizes after %s seconds' %
+                     (time.time()-start_time))
     job.keyval_dict.update(result_size_info.__dict__)
-
-    # Upload job details to Sponge.
-    if not dry_run:
-        sponge_url = sponge_utils.upload_results(job, log=tko_utils.dprint)
-        if sponge_url:
-            job.keyval_dict['sponge_url'] = sponge_url
 
     # TODO(dshi): Update sizes with sponge_invocation.xml and throttle it.
 
@@ -349,8 +416,9 @@ def parse_one(db, jobname, path, parse_options):
     for test in job.tests:
         if not test.subdir:
             continue
-        tko_utils.dprint("* testname, status, reason: %s %s %s"
-                         % (test.subdir, test.status, test.reason))
+        tko_utils.dprint("* testname, subdir, status, reason: %s %s %s %s"
+                         % (test.testname, test.subdir, test.status,
+                            test.reason))
         if test.status != 'GOOD':
             job_successful = False
             message_lines.append(format_failure_message(
@@ -365,6 +433,15 @@ def parse_one(db, jobname, path, parse_options):
                 tko_utils.dprint("Sending email report of failure on %s to %s"
                                  % (jobname, job.user))
                 mailfailure(jobname, job, message)
+
+            # Upload perf values to the perf dashboard, if applicable.
+            for test in job.tests:
+                perf_uploader.upload_test(job, test, jobname)
+
+            # Upload job details to Sponge.
+            sponge_url = sponge_utils.upload_results(job, log=tko_utils.dprint)
+            if sponge_url:
+                job.keyval_dict['sponge_url'] = sponge_url
 
             # write the job into the database.
             job_data = db.insert_job(
@@ -386,10 +463,6 @@ def parse_one(db, jobname, path, parse_options):
                             description='The number of times parse failed to '
                             'save job to TKO database.').increment()
 
-            # Upload perf values to the perf dashboard, if applicable.
-            for test in job.tests:
-                perf_uploader.upload_test(job, test, jobname)
-
             # Although the cursor has autocommit, we still need to force it to
             # commit existing changes before we can use django models, otherwise
             # it will go into deadlock when django models try to start a new
@@ -409,25 +482,20 @@ def parse_one(db, jobname, path, parse_options):
         raise e
 
     # Serializing job into a binary file
-    try:
-        from autotest_lib.tko import tko_pb2
-        from autotest_lib.tko import job_serializer
+    export_tko_to_file = global_config.global_config.get_config_value(
+            'AUTOSERV', 'export_tko_job_to_file', type=bool, default=False)
 
-        serializer = job_serializer.JobSerializer()
-        binary_file_name = os.path.join(path, "job.serialize")
-        serializer.serialize_to_binary(job, jobname, binary_file_name)
+    binary_file_name = os.path.join(path, "job.serialize")
+    if export_tko_to_file:
+        export_tko_job_to_file(job, jobname, binary_file_name)
 
-        if reparse:
-            site_export_file = "autotest_lib.tko.site_export"
-            site_export = utils.import_site_function(__file__,
-                                                     site_export_file,
-                                                     "site_export",
-                                                     _site_export_dummy)
-            site_export(binary_file_name)
-
-    except ImportError:
-        tko_utils.dprint("DEBUG: tko_pb2.py doesn't exist. Create by "
-                         "compiling tko/tko.proto.")
+    if reparse:
+        site_export_file = "autotest_lib.tko.site_export"
+        site_export = utils.import_site_function(__file__,
+                                                 site_export_file,
+                                                 "site_export",
+                                                 _site_export_dummy)
+        site_export(binary_file_name)
 
     if not dry_run:
         db.commit()
@@ -588,6 +656,14 @@ def record_parsing(processed_jobs, duration_secs):
                     job_id, hostname, job_overhead.STATUS.PARSING,
                     duration_secs)
 
+def _detach_from_parent_process():
+    """Allow reparenting the parse process away from caller.
+
+    When monitor_db is run via upstart, restarting the job sends SIGTERM to
+    the whole process group. This makes us immune from that.
+    """
+    if os.getpid() != os.getpgid(0):
+        os.setsid()
 
 def main():
     """Main entrance."""
@@ -597,12 +673,19 @@ def main():
     processed_jobs = set()
 
     options, args = parse_args()
+
+    if options.detach:
+        _detach_from_parent_process()
+
     parse_options = _ParseOptions(options.reparse, options.mailit,
                                   options.dry_run, options.suite_report,
                                   options.datastore_creds,
                                   options.export_to_gcloud_path)
     results_dir = os.path.abspath(args[0])
     assert os.path.exists(results_dir)
+
+    site_utils.SetupTsMonGlobalState('tko_parse', indirect=False,
+                                     short_lived=True)
 
     pid_file_manager = pidfile.PidFileManager("parser", results_dir)
 
@@ -650,6 +733,8 @@ def main():
         raise
     else:
         pid_file_manager.close_file(0)
+    finally:
+        metrics.Flush()
     duration_secs = (datetime.datetime.now() - start_time).total_seconds()
     if options.record_duration:
         record_parsing(processed_jobs, duration_secs)

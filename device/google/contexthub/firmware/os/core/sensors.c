@@ -587,15 +587,13 @@ static bool sensorAddRequestor(uint32_t sensorHandle, uint32_t clientTid, uint32
     return true;
 }
 
-static bool sensorGetCurRequestorRate(uint32_t sensorHandle, uint32_t clientTid, uint32_t *rateP, uint64_t *latencyP)
+static bool sensorGetCurRequestorRate(uint32_t sensorHandle, uint32_t clientTid, uint32_t *rateP)
 {
     struct SensorsClientRequest *req = sensorClientRequestFind(sensorHandle, clientTid);
 
     if (req) {
         if (rateP)
             *rateP = req->rate;
-        if (*latencyP)
-            *latencyP = req->latency;
         return true;
     } else {
         return false;
@@ -673,7 +671,7 @@ bool sensorRequestRateChange(uint32_t unusedTid, uint32_t sensorHandle, uint32_t
 {
     struct Sensor* s = sensorFindByHandle(sensorHandle);
     uint32_t oldRate, newSensorRate;
-    uint64_t oldLatency, samplingPeriod;
+    uint64_t samplingPeriod;
     uint32_t clientTid;
 
     (void)unusedTid;
@@ -683,7 +681,7 @@ bool sensorRequestRateChange(uint32_t unusedTid, uint32_t sensorHandle, uint32_t
 
     clientTid = osGetCurrentTid();
     /* get current rate */
-    if (!sensorGetCurRequestorRate(sensorHandle, clientTid, &oldRate, &oldLatency))
+    if (!sensorGetCurRequestorRate(sensorHandle, clientTid, &oldRate))
         return false;
 
     /* verify the new rate is possible given all other ongoing requests */
@@ -815,6 +813,20 @@ uint64_t sensorGetCurLatency(uint32_t sensorHandle)
     struct Sensor* s = sensorFindByHandle(sensorHandle);
 
     return s ? s->currentLatency : SENSOR_LATENCY_INVALID;
+}
+
+uint32_t sensorGetHwRate(uint32_t sensorHandle)
+{
+    struct Sensor* s = sensorFindByHandle(sensorHandle);
+
+    return s ? sensorCalcHwRate(s, 0, 0) : SENSOR_RATE_OFF;
+}
+
+uint64_t sensorGetHwLatency(uint32_t sensorHandle)
+{
+    struct Sensor* s = sensorFindByHandle(sensorHandle);
+
+    return s ? sensorCalcHwLatency(s) : SENSOR_LATENCY_INVALID;
 }
 
 uint32_t sensorGetReqRate(uint32_t sensorHandle)

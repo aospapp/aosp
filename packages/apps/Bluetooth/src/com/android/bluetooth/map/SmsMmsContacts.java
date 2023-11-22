@@ -15,10 +15,6 @@
 
 package com.android.bluetooth.map;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.regex.Pattern;
-
 import android.annotation.TargetApi;
 import android.content.ContentResolver;
 import android.database.Cursor;
@@ -30,6 +26,10 @@ import android.provider.Telephony.CanonicalAddressesColumns;
 import android.provider.Telephony.MmsSms;
 import android.util.Log;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.regex.Pattern;
+
 /**
  * Use these functions when extracting data for listings. It caches frequently used data to
  * speed up building large listings - e.g. before applying filtering.
@@ -39,14 +39,15 @@ public class SmsMmsContacts {
 
     private static final String TAG = "SmsMmsContacts";
 
-    private HashMap<Long,String> mPhoneNumbers = null;
-    private final HashMap<String,MapContact> mNames = new HashMap<String, MapContact>(10);
+    private HashMap<Long, String> mPhoneNumbers = null;
+    private final HashMap<String, MapContact> mNames = new HashMap<String, MapContact>(10);
 
     private static final Uri ADDRESS_URI =
             MmsSms.CONTENT_URI.buildUpon().appendPath("canonical-addresses").build();
 
-    private static final String[] ADDRESS_PROJECTION = { CanonicalAddressesColumns._ID,
-                    CanonicalAddressesColumns.ADDRESS };
+    private static final String[] ADDRESS_PROJECTION = {
+            CanonicalAddressesColumns._ID, CanonicalAddressesColumns.ADDRESS
+    };
     private static final int COL_ADDR_ID =
             Arrays.asList(ADDRESS_PROJECTION).indexOf(CanonicalAddressesColumns._ID);
     private static final int COL_ADDR_ADDR =
@@ -68,7 +69,7 @@ public class SmsMmsContacts {
      */
     public String getPhoneNumber(ContentResolver resolver, long id) {
         String number;
-        if(mPhoneNumbers != null && (number = mPhoneNumbers.get(id)) != null) {
+        if (mPhoneNumbers != null && (number = mPhoneNumbers.get(id)) != null) {
             return number;
         }
         fillPhoneCache(resolver);
@@ -80,13 +81,15 @@ public class SmsMmsContacts {
         Cursor c = resolver.query(ADDRESS_URI, ADDRESS_PROJECTION, where, null, null);
         try {
             if (c != null) {
-                if(c.moveToPosition(0)) {
+                if (c.moveToPosition(0)) {
                     return c.getString(COL_ADDR_ADDR);
                 }
             }
             Log.e(TAG, "query failed");
         } finally {
-            if(c != null) c.close();
+            if (c != null) {
+                c.close();
+            }
         }
         return null;
     }
@@ -95,8 +98,12 @@ public class SmsMmsContacts {
      * Clears the local cache. Call after a listing is complete, to avoid using invalid data.
      */
     public void clearCache() {
-        if(mPhoneNumbers != null) mPhoneNumbers.clear();
-        if(mNames != null) mNames.clear();
+        if (mPhoneNumbers != null) {
+            mPhoneNumbers.clear();
+        }
+        if (mNames != null) {
+            mNames.clear();
+        }
     }
 
     /**
@@ -104,12 +111,11 @@ public class SmsMmsContacts {
      * a new query.
      * @param resolver the ContantResolver to be used.
      */
-    private void fillPhoneCache(ContentResolver resolver){
+    private void fillPhoneCache(ContentResolver resolver) {
         Cursor c = resolver.query(ADDRESS_URI, ADDRESS_PROJECTION, null, null, null);
-        if(mPhoneNumbers == null) {
+        if (mPhoneNumbers == null) {
             int size = 0;
-            if(c != null)
-            {
+            if (c != null) {
                 size = c.getCount();
             }
             mPhoneNumbers = new HashMap<Long, String>(size);
@@ -130,13 +136,16 @@ public class SmsMmsContacts {
                 Log.e(TAG, "query failed");
             }
         } finally {
-            if(c != null) c.close();
+            if (c != null) {
+                c.close();
+            }
         }
     }
 
     public MapContact getContactNameFromPhone(String phone, ContentResolver resolver) {
         return getContactNameFromPhone(phone, resolver, null);
     }
+
     /**
      * Lookup a contacts name in the Android Contacts database.
      * @param phone the phone number of the contact
@@ -147,18 +156,18 @@ public class SmsMmsContacts {
             String contactNameFilter) {
         MapContact contact = mNames.get(phone);
 
-        if(contact != null){
-            if(contact.getId() < 0) {
+        if (contact != null) {
+            if (contact.getId() < 0) {
                 return null;
             }
-            if(contactNameFilter == null) {
+            if (contactNameFilter == null) {
                 return contact;
             }
             // Validate filter
             String searchString = contactNameFilter.replace("*", ".*");
             searchString = ".*" + searchString + ".*";
             Pattern p = Pattern.compile(Pattern.quote(searchString), Pattern.CASE_INSENSITIVE);
-            if(p.matcher(contact.getName()).find()) {
+            if (p.matcher(contact.getName()).find()) {
                 return contact;
             }
             return null;
@@ -166,11 +175,11 @@ public class SmsMmsContacts {
 
         // TODO: Should we change to extract both formatted name, and display name?
 
-        Uri uri = Uri.withAppendedPath(PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI,
-                Uri.encode(phone));
+        Uri uri =
+                Uri.withAppendedPath(PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI, Uri.encode(phone));
         String selection = CONTACT_SEL_VISIBLE;
         String[] selectionArgs = null;
-        if(contactNameFilter != null) {
+        if (contactNameFilter != null) {
             selection += "AND " + ContactsContract.Contacts.DISPLAY_NAME + " like ?";
             selectionArgs = new String[]{"%" + contactNameFilter.replace("*", "%") + "%"};
         }
@@ -189,7 +198,9 @@ public class SmsMmsContacts {
                 contact = null;
             }
         } finally {
-            if (c != null) c.close();
+            if (c != null) {
+                c.close();
+            }
         }
         return contact;
     }

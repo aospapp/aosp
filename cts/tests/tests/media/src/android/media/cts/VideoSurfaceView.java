@@ -18,6 +18,7 @@ package android.media.cts;
 
 import android.media.cts.R;
 
+import android.platform.test.annotations.AppModeFull;
 import java.io.IOException;
 
 import javax.microedition.khronos.egl.EGLConfig;
@@ -31,6 +32,7 @@ import android.opengl.Matrix;
 import android.util.Log;
 import android.view.Surface;
 
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 class VideoSurfaceView extends GLSurfaceView {
     private static final String TAG = "VideoSurfaceView";
     private static final int SLEEP_TIME_MS = 1000;

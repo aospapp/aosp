@@ -38,6 +38,28 @@ using namespace android::automotive::evs::V1_0::implementation;
 using namespace android;
 
 
+static void startService(const char *hardwareServiceName, const char * managerServiceName) {
+    ALOGI("EVS managed service connecting to hardware service at %s", hardwareServiceName);
+    android::sp<Enumerator> service = new Enumerator();
+    if (!service->init(hardwareServiceName)) {
+        ALOGE("Failed to connect to hardware service - quitting from registrationThread");
+        exit(1);
+    }
+
+    // Register our service -- if somebody is already registered by our name,
+    // they will be killed (their thread pool will throw an exception).
+    ALOGI("EVS managed service is starting as %s", managerServiceName);
+    status_t status = service->registerAsService(managerServiceName);
+    if (status != OK) {
+        ALOGE("Could not register service %s (%d) - quitting from registrationThread",
+              managerServiceName, status);
+        exit(2);
+    }
+
+    ALOGD("Registration complete");
+}
+
+
 int main(int argc, char** argv) {
     ALOGI("EVS manager starting\n");
 
@@ -72,26 +94,14 @@ int main(int argc, char** argv) {
     // threads beyond the main thread which will "join" the pool below.
     configureRpcThreadpool(1, true /* callerWillJoin */);
 
-    ALOGI("EVS managed service connecting to hardware service at %s", evsHardwareServiceName);
-    android::sp<Enumerator> service = new Enumerator();
-    if (!service->init(evsHardwareServiceName)) {
-        ALOGE("Failed to initialize");
-        return 1;
-    }
+    // The connection to the underlying hardware service must happen on a dedicated thread to ensure
+    // that the hwbinder response can be processed by the thread pool without blocking.
+    std::thread registrationThread(startService, evsHardwareServiceName, kManagedEnumeratorName);
 
-    // Register our service -- if somebody is already registered by our name,
-    // they will be killed (their thread pool will throw an exception).
-    ALOGI("EVS managed service is starting as %s", kManagedEnumeratorName);
-    status_t status = service->registerAsService(kManagedEnumeratorName);
-    if (status == OK) {
-        ALOGD("Registration complete");
-
-        // Send this main thread to become a permanent part of the thread pool.
-        // This is not expected to return.
-        joinRpcThreadpool();
-    } else {
-        ALOGE("Could not register service %s (%d).", kManagedEnumeratorName, status);
-    }
+    // Send this main thread to become a permanent part of the thread pool.
+    // This is not expected to return.
+    ALOGD("Main thread entering thread pool");
+    joinRpcThreadpool();
 
     // In normal operation, we don't expect the thread pool to exit
     ALOGE("EVS Hardware Enumerator is shutting down");

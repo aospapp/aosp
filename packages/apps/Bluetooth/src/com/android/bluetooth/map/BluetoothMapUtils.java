@@ -45,52 +45,52 @@ public class BluetoothMapUtils {
      *       in stead of a bit to indicate the message type. Then 4
      *       bit can be use for 16 different message types.
      */
-    private static final long HANDLE_TYPE_MASK            = (((long)0xff)<<56);
-    private static final long HANDLE_TYPE_MMS_MASK        = (((long)0x01)<<56);
-    private static final long HANDLE_TYPE_EMAIL_MASK      = (((long)0x02)<<56);
-    private static final long HANDLE_TYPE_SMS_GSM_MASK    = (((long)0x04)<<56);
-    private static final long HANDLE_TYPE_SMS_CDMA_MASK   = (((long)0x08)<<56);
-    private static final long HANDLE_TYPE_IM_MASK         = (((long)0x10)<<56);
+    private static final long HANDLE_TYPE_MASK = (((long) 0xff) << 56);
+    private static final long HANDLE_TYPE_MMS_MASK = (((long) 0x01) << 56);
+    private static final long HANDLE_TYPE_EMAIL_MASK = (((long) 0x02) << 56);
+    private static final long HANDLE_TYPE_SMS_GSM_MASK = (((long) 0x04) << 56);
+    private static final long HANDLE_TYPE_SMS_CDMA_MASK = (((long) 0x08) << 56);
+    private static final long HANDLE_TYPE_IM_MASK = (((long) 0x10) << 56);
 
     public static final long CONVO_ID_TYPE_SMS_MMS = 1;
-    public static final long CONVO_ID_TYPE_EMAIL_IM= 2;
+    public static final long CONVO_ID_TYPE_EMAIL_IM = 2;
 
     // MAP supported feature bit - included from MAP Spec 1.2
-    static final int MAP_FEATURE_DEFAULT_BITMASK                    = 0x0000001F;
+    static final int MAP_FEATURE_DEFAULT_BITMASK = 0x0000001F;
 
-    static final int MAP_FEATURE_NOTIFICATION_REGISTRATION_BIT      = 1 << 0;
-    static final int MAP_FEATURE_NOTIFICATION_BIT                   = 1 << 1;
-    static final int MAP_FEATURE_BROWSING_BIT                       = 1 << 2;
-    static final int MAP_FEATURE_UPLOADING_BIT                      = 1 << 3;
-    static final int MAP_FEATURE_DELETE_BIT                         = 1 << 4;
-    static final int MAP_FEATURE_INSTANCE_INFORMATION_BIT           = 1 << 5;
-    static final int MAP_FEATURE_EXTENDED_EVENT_REPORT_11_BIT       = 1 << 6;
-    static final int MAP_FEATURE_EVENT_REPORT_V12_BIT               = 1 << 7;
-    static final int MAP_FEATURE_MESSAGE_FORMAT_V11_BIT             = 1 << 8;
-    static final int MAP_FEATURE_MESSAGE_LISTING_FORMAT_V11_BIT     = 1 << 9;
-    static final int MAP_FEATURE_PERSISTENT_MESSAGE_HANDLE_BIT      = 1 << 10;
-    static final int MAP_FEATURE_DATABASE_INDENTIFIER_BIT           = 1 << 11;
-    static final int MAP_FEATURE_FOLDER_VERSION_COUNTER_BIT         = 1 << 12;
-    static final int MAP_FEATURE_CONVERSATION_VERSION_COUNTER_BIT   = 1 << 13;
-    static final int MAP_FEATURE_PARTICIPANT_PRESENCE_CHANGE_BIT    = 1 << 14;
-    static final int MAP_FEATURE_PARTICIPANT_CHAT_STATE_CHANGE_BIT  = 1 << 15;
+    static final int MAP_FEATURE_NOTIFICATION_REGISTRATION_BIT = 1 << 0;
+    static final int MAP_FEATURE_NOTIFICATION_BIT = 1 << 1;
+    static final int MAP_FEATURE_BROWSING_BIT = 1 << 2;
+    static final int MAP_FEATURE_UPLOADING_BIT = 1 << 3;
+    static final int MAP_FEATURE_DELETE_BIT = 1 << 4;
+    static final int MAP_FEATURE_INSTANCE_INFORMATION_BIT = 1 << 5;
+    static final int MAP_FEATURE_EXTENDED_EVENT_REPORT_11_BIT = 1 << 6;
+    static final int MAP_FEATURE_EVENT_REPORT_V12_BIT = 1 << 7;
+    static final int MAP_FEATURE_MESSAGE_FORMAT_V11_BIT = 1 << 8;
+    static final int MAP_FEATURE_MESSAGE_LISTING_FORMAT_V11_BIT = 1 << 9;
+    static final int MAP_FEATURE_PERSISTENT_MESSAGE_HANDLE_BIT = 1 << 10;
+    static final int MAP_FEATURE_DATABASE_INDENTIFIER_BIT = 1 << 11;
+    static final int MAP_FEATURE_FOLDER_VERSION_COUNTER_BIT = 1 << 12;
+    static final int MAP_FEATURE_CONVERSATION_VERSION_COUNTER_BIT = 1 << 13;
+    static final int MAP_FEATURE_PARTICIPANT_PRESENCE_CHANGE_BIT = 1 << 14;
+    static final int MAP_FEATURE_PARTICIPANT_CHAT_STATE_CHANGE_BIT = 1 << 15;
 
-    static final int MAP_FEATURE_PBAP_CONTACT_CROSS_REFERENCE_BIT   = 1 << 16;
-    static final int MAP_FEATURE_NOTIFICATION_FILTERING_BIT         = 1 << 17;
-    static final int MAP_FEATURE_DEFINED_TIMESTAMP_FORMAT_BIT       = 1 << 18;
+    static final int MAP_FEATURE_PBAP_CONTACT_CROSS_REFERENCE_BIT = 1 << 16;
+    static final int MAP_FEATURE_NOTIFICATION_FILTERING_BIT = 1 << 17;
+    static final int MAP_FEATURE_DEFINED_TIMESTAMP_FORMAT_BIT = 1 << 18;
 
     static final String MAP_V10_STR = "1.0";
     static final String MAP_V11_STR = "1.1";
     static final String MAP_V12_STR = "1.2";
 
     // Event Report versions
-    static final int MAP_EVENT_REPORT_V10           = 10; // MAP spec 1.1
-    static final int MAP_EVENT_REPORT_V11           = 11; // MAP spec 1.2
-    static final int MAP_EVENT_REPORT_V12           = 12; // MAP spec 1.3 'to be' incl. IM
+    static final int MAP_EVENT_REPORT_V10 = 10; // MAP spec 1.1
+    static final int MAP_EVENT_REPORT_V11 = 11; // MAP spec 1.2
+    static final int MAP_EVENT_REPORT_V12 = 12; // MAP spec 1.3 'to be' incl. IM
 
     // Message Format versions
-    static final int MAP_MESSAGE_FORMAT_V10         = 10; // MAP spec below 1.3
-    static final int MAP_MESSAGE_FORMAT_V11         = 11; // MAP spec 1.3
+    static final int MAP_MESSAGE_FORMAT_V10 = 10; // MAP spec below 1.3
+    static final int MAP_MESSAGE_FORMAT_V11 = 11; // MAP spec 1.3
 
     // Message Listing Format versions
     static final int MAP_MESSAGE_LISTING_FORMAT_V10 = 10; // MAP spec below 1.3
@@ -100,22 +100,19 @@ public class BluetoothMapUtils {
      * This enum is used to convert from the bMessage type property to a type safe
      * type. Hence do not change the names of the enum values.
      */
-    public enum TYPE{
-        NONE,
-        EMAIL,
-        SMS_GSM,
-        SMS_CDMA,
-        MMS,
-        IM;
-        private static TYPE[] allValues = values();
+    public enum TYPE {
+        NONE, EMAIL, SMS_GSM, SMS_CDMA, MMS, IM;
+        private static TYPE[] sAllValues = values();
+
         public static TYPE fromOrdinal(int n) {
-            if(n < allValues.length)
-               return allValues[n];
+            if (n < sAllValues.length) {
+                return sAllValues[n];
+            }
             return NONE;
         }
     }
 
-    static public String getDateTimeString(long timestamp) {
+    public static String getDateTimeString(long timestamp) {
         SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd'T'HHmmss");
         Date date = new Date(timestamp);
         return format.format(date); // Format to YYYYMMDDTHHMMSS local time
@@ -126,17 +123,25 @@ public class BluetoothMapUtils {
         if (D) {
             StringBuilder sb = new StringBuilder();
             sb.append("\nprintCursor:\n");
-            for(int i = 0; i < c.getColumnCount(); i++) {
-                if(c.getColumnName(i).equals(BluetoothMapContract.MessageColumns.DATE) ||
-                   c.getColumnName(i).equals(
-                           BluetoothMapContract.ConversationColumns.LAST_THREAD_ACTIVITY) ||
-                   c.getColumnName(i).equals(BluetoothMapContract.ChatStatusColumns.LAST_ACTIVE) ||
-                   c.getColumnName(i).equals(BluetoothMapContract.PresenceColumns.LAST_ONLINE) ){
-                    sb.append("  ").append(c.getColumnName(i)).append(" : ").append(
-                            getDateTimeString(c.getLong(i))).append("\n");
+            for (int i = 0; i < c.getColumnCount(); i++) {
+                if (c.getColumnName(i).equals(BluetoothMapContract.MessageColumns.DATE)
+                        || c.getColumnName(i)
+                        .equals(BluetoothMapContract.ConversationColumns.LAST_THREAD_ACTIVITY)
+                        || c.getColumnName(i)
+                        .equals(BluetoothMapContract.ChatStatusColumns.LAST_ACTIVE)
+                        || c.getColumnName(i)
+                        .equals(BluetoothMapContract.PresenceColumns.LAST_ONLINE)) {
+                    sb.append("  ")
+                            .append(c.getColumnName(i))
+                            .append(" : ")
+                            .append(getDateTimeString(c.getLong(i)))
+                            .append("\n");
                 } else {
-                    sb.append("  ").append(c.getColumnName(i)).append(" : ").append(
-                            c.getString(i)).append("\n");
+                    sb.append("  ")
+                            .append(c.getColumnName(i))
+                            .append(" : ")
+                            .append(c.getString(i))
+                            .append("\n");
                 }
             }
             Log.d(TAG, sb.toString());
@@ -146,16 +151,16 @@ public class BluetoothMapUtils {
     public static String getLongAsString(long v) {
         char[] result = new char[16];
         int v1 = (int) (v & 0xffffffff);
-        int v2 = (int) ((v>>32) & 0xffffffff);
+        int v2 = (int) ((v >> 32) & 0xffffffff);
         int c;
         for (int i = 0; i < 8; i++) {
             c = v2 & 0x0f;
-            c += (c < 10) ? '0' : ('A'-10);
+            c += (c < 10) ? '0' : ('A' - 10);
             result[7 - i] = (char) c;
             v2 >>= 4;
             c = v1 & 0x0f;
-            c += (c < 10) ? '0' : ('A'-10);
-            result[15 - i] = (char)c;
+            c += (c < 10) ? '0' : ('A' - 10);
+            result[15 - i] = (char) c;
             v1 >>= 4;
         }
         return new String(result);
@@ -174,26 +179,34 @@ public class BluetoothMapUtils {
      *
      */
     public static long getLongFromString(String valueStr) throws UnsupportedEncodingException {
-        if(valueStr == null) throw new NullPointerException();
-        if(V) Log.i(TAG, "getLongFromString(): converting: " + valueStr);
+        if (valueStr == null) {
+            throw new NullPointerException();
+        }
+        if (V) {
+            Log.i(TAG, "getLongFromString(): converting: " + valueStr);
+        }
         byte[] nibbles;
         nibbles = valueStr.getBytes("US-ASCII");
-        if(V) Log.i(TAG, "  byte values: " + Arrays.toString(nibbles));
+        if (V) {
+            Log.i(TAG, "  byte values: " + Arrays.toString(nibbles));
+        }
         byte c;
         int count = 0;
         int length = nibbles.length;
         long value = 0;
-        for(int i = 0; i != length; i++) {
+        for (int i = 0; i != length; i++) {
             c = nibbles[i];
-            if(c >= '0' && c <= '9') {
+            if (c >= '0' && c <= '9') {
                 c -= '0';
-            } else if(c >= 'A' && c <= 'F') {
-                c -= ('A'-10);
-            } else if(c >= 'a' && c <= 'f') {
-                c -= ('a'-10);
-            } else if(c <= ' ' || c == '-') {
-                if(V)Log.v(TAG, "Skipping c = '" + new String(new byte[]{ (byte)c }, "US-ASCII")
-                        + "'");
+            } else if (c >= 'A' && c <= 'F') {
+                c -= ('A' - 10);
+            } else if (c >= 'a' && c <= 'f') {
+                c -= ('a' - 10);
+            } else if (c <= ' ' || c == '-') {
+                if (V) {
+                    Log.v(TAG,
+                            "Skipping c = '" + new String(new byte[]{(byte) c}, "US-ASCII") + "'");
+                }
                 continue; // Skip any whitespace and '-' (which is used for UUIDs)
             } else {
                 throw new NumberFormatException("Invalid character:" + c);
@@ -201,45 +214,51 @@ public class BluetoothMapUtils {
             value = value << 4; // The last nibble shall not be shifted
             value += c;
             count++;
-            if(count > 16) throw new NullPointerException("String to large - count: " + count);
+            if (count > 16) {
+                throw new NullPointerException("String to large - count: " + count);
+            }
         }
-        if(V) Log.i(TAG, "  length: " + count);
+        if (V) {
+            Log.i(TAG, "  length: " + count);
+        }
         return value;
     }
+
     private static final int LONG_LONG_LENGTH = 32;
+
     public static String getLongLongAsString(long vLow, long vHigh) {
         char[] result = new char[LONG_LONG_LENGTH];
         int v1 = (int) (vLow & 0xffffffff);
-        int v2 = (int) ((vLow>>32) & 0xffffffff);
+        int v2 = (int) ((vLow >> 32) & 0xffffffff);
         int v3 = (int) (vHigh & 0xffffffff);
-        int v4 = (int) ((vHigh>>32) & 0xffffffff);
-        int c,d,i;
+        int v4 = (int) ((vHigh >> 32) & 0xffffffff);
+        int c, d, i;
         // Handle the lower bytes
         for (i = 0; i < 8; i++) {
             c = v2 & 0x0f;
-            c += (c < 10) ? '0' : ('A'-10);
+            c += (c < 10) ? '0' : ('A' - 10);
             d = v4 & 0x0f;
-            d += (d < 10) ? '0' : ('A'-10);
+            d += (d < 10) ? '0' : ('A' - 10);
             result[23 - i] = (char) c;
             result[7 - i] = (char) d;
             v2 >>= 4;
             v4 >>= 4;
             c = v1 & 0x0f;
-            c += (c < 10) ? '0' : ('A'-10);
+            c += (c < 10) ? '0' : ('A' - 10);
             d = v3 & 0x0f;
-            d += (d < 10) ? '0' : ('A'-10);
-            result[31 - i] = (char)c;
-            result[15 - i] = (char)d;
+            d += (d < 10) ? '0' : ('A' - 10);
+            result[31 - i] = (char) c;
+            result[15 - i] = (char) d;
             v1 >>= 4;
             v3 >>= 4;
         }
         // Remove any leading 0's
-        for(i = 0; i < LONG_LONG_LENGTH; i++) {
-            if(result[i] != '0') {
+        for (i = 0; i < LONG_LONG_LENGTH; i++) {
+            if (result[i] != '0') {
                 break;
             }
         }
-        return new String(result, i, LONG_LONG_LENGTH-i);
+        return new String(result, i, LONG_LONG_LENGTH - i);
     }
 
 
@@ -249,12 +268,11 @@ public class BluetoothMapUtils {
      * @param messageType message type (TYPE_MMS/TYPE_SMS_GSM/TYPE_SMS_CDMA/TYPE_EMAIL)
      * @return String Formatted Map Handle
      */
-    public static String getMapHandle(long cpHandle, TYPE messageType){
+    public static String getMapHandle(long cpHandle, TYPE messageType) {
         String mapHandle = "-1";
         /* Avoid NPE for possible "null" value of messageType */
-        if(messageType != null) {
-            switch(messageType)
-            {
+        if (messageType != null) {
+            switch (messageType) {
                 case MMS:
                     mapHandle = getLongAsString(cpHandle | HANDLE_TYPE_MMS_MASK);
                     break;
@@ -276,7 +294,9 @@ public class BluetoothMapUtils {
                     throw new IllegalArgumentException("Message type not supported");
             }
         } else {
-            if(D)Log.e(TAG," Invalid messageType input");
+            if (D) {
+                Log.e(TAG, " Invalid messageType input");
+            }
         }
         return mapHandle;
 
@@ -288,10 +308,9 @@ public class BluetoothMapUtils {
      * @param messageType message type (TYPE_MMS/TYPE_SMS_GSM/TYPE_SMS_CDMA/TYPE_EMAIL)
      * @return String Formatted Map Handle
      */
-    public static String getMapConvoHandle(long cpHandle, TYPE messageType){
+    public static String getMapConvoHandle(long cpHandle, TYPE messageType) {
         String mapHandle = "-1";
-        switch(messageType)
-        {
+        switch (messageType) {
             case MMS:
             case SMS_GSM:
             case SMS_CDMA:
@@ -313,21 +332,25 @@ public class BluetoothMapUtils {
      * @param mapHandle the handle string
      * @return the handle value
      */
-    static public long getMsgHandleAsLong(String mapHandle){
+    public static long getMsgHandleAsLong(String mapHandle) {
         return Long.parseLong(mapHandle, 16);
     }
+
     /**
      * Convert a Map Handle into a content provider Handle
      * @param mapHandle handle to convert from
      * @return content provider handle without message type mask
      */
-    static public long getCpHandle(String mapHandle)
-    {
+    public static long getCpHandle(String mapHandle) {
         long cpHandle = getMsgHandleAsLong(mapHandle);
-        if(D)Log.d(TAG,"-> MAP handle:"+mapHandle);
+        if (D) {
+            Log.d(TAG, "-> MAP handle:" + mapHandle);
+        }
         /* remove masks as the call should already know what type of message this handle is for */
         cpHandle &= ~HANDLE_TYPE_MASK;
-        if(D)Log.d(TAG,"->CP handle:"+cpHandle);
+        if (D) {
+            Log.d(TAG, "->CP handle:" + cpHandle);
+        }
 
         return cpHandle;
     }
@@ -337,19 +360,24 @@ public class BluetoothMapUtils {
      * @param mapHandle
      * @return
      */
-    static public TYPE getMsgTypeFromHandle(String mapHandle) {
+    public static TYPE getMsgTypeFromHandle(String mapHandle) {
         long cpHandle = getMsgHandleAsLong(mapHandle);
 
-        if((cpHandle & HANDLE_TYPE_MMS_MASK) != 0)
+        if ((cpHandle & HANDLE_TYPE_MMS_MASK) != 0) {
             return TYPE.MMS;
-        if((cpHandle & HANDLE_TYPE_EMAIL_MASK) != 0)
+        }
+        if ((cpHandle & HANDLE_TYPE_EMAIL_MASK) != 0) {
             return TYPE.EMAIL;
-        if((cpHandle & HANDLE_TYPE_SMS_GSM_MASK) != 0)
+        }
+        if ((cpHandle & HANDLE_TYPE_SMS_GSM_MASK) != 0) {
             return TYPE.SMS_GSM;
-        if((cpHandle & HANDLE_TYPE_SMS_CDMA_MASK) != 0)
+        }
+        if ((cpHandle & HANDLE_TYPE_SMS_CDMA_MASK) != 0) {
             return TYPE.SMS_CDMA;
-        if((cpHandle & HANDLE_TYPE_IM_MASK) != 0)
+        }
+        if ((cpHandle & HANDLE_TYPE_IM_MASK) != 0) {
             return TYPE.IM;
+        }
 
         throw new IllegalArgumentException("Message type not found in handle string.");
     }
@@ -364,54 +392,53 @@ public class BluetoothMapUtils {
      * @return the same string if valid, otherwise a new String stripped for
      * any illegal characters. If a null pointer is passed an empty string will be returned.
      */
-    static public String stripInvalidChars(String text) {
-        if(text == null) {
+    public static String stripInvalidChars(String text) {
+        if (text == null) {
             return "";
         }
-        char out[] = new char[text.length()];
+        char[] out = new char[text.length()];
         int i, o, l;
-        for(i=0, o=0, l=text.length(); i<l; i++){
+        for (i = 0, o = 0, l = text.length(); i < l; i++) {
             char c = text.charAt(i);
-            if((c >= 0x20 && c <= 0xd7ff) || (c >= 0xe000 && c <= 0xfffd)) {
+            if ((c >= 0x20 && c <= 0xd7ff) || (c >= 0xe000 && c <= 0xfffd)) {
                 out[o++] = c;
             } // Else we skip the character
         }
 
-        if(i==o) {
+        if (i == o) {
             return text;
         } else { // We removed some characters, create the new string
-            return new String(out,0,o);
+            return new String(out, 0, o);
         }
     }
 
     /**
      * Truncate UTF-8 string encoded byte array to desired length
      * @param utf8String String to convert to bytes array h
-     * @param length Max length of byte array returned including null termination
+     * @param maxLength Max length of byte array returned including null termination
      * @return byte array containing valid utf8 characters with max length
      * @throws UnsupportedEncodingException
      */
-    static public byte[] truncateUtf8StringToBytearray(String utf8String, int maxLength)
+    public static byte[] truncateUtf8StringToBytearray(String utf8String, int maxLength)
             throws UnsupportedEncodingException {
 
         byte[] utf8Bytes = new byte[utf8String.length() + 1];
         try {
-            System.arraycopy(utf8String.getBytes("UTF-8"), 0,
-                             utf8Bytes, 0, utf8String.length());
+            System.arraycopy(utf8String.getBytes("UTF-8"), 0, utf8Bytes, 0, utf8String.length());
         } catch (UnsupportedEncodingException e) {
-            Log.e(TAG,"truncateUtf8StringToBytearray: getBytes exception ", e);
+            Log.e(TAG, "truncateUtf8StringToBytearray: getBytes exception ", e);
             throw e;
         }
 
         if (utf8Bytes.length > maxLength) {
             /* if 'continuation' byte is in place 200,
              * then strip previous bytes until utf-8 start byte is found */
-            if ( (utf8Bytes[maxLength - 1] & 0xC0) == 0x80 ) {
+            if ((utf8Bytes[maxLength - 1] & 0xC0) == 0x80) {
                 for (int i = maxLength - 2; i >= 0; i--) {
                     if ((utf8Bytes[i] & 0xC0) == 0xC0) {
                         /* first byte in utf-8 character found,
                          * now copy i - 1 bytes to outBytes and add null termination */
-                        utf8Bytes = Arrays.copyOf(utf8Bytes, i+1);
+                        utf8Bytes = Arrays.copyOf(utf8Bytes, i + 1);
                         utf8Bytes[i] = 0;
                         break;
                     }
@@ -424,49 +451,52 @@ public class BluetoothMapUtils {
         }
         return utf8Bytes;
     }
-    private static Pattern p = Pattern.compile("=\\?(.+?)\\?(.)\\?(.+?(?=\\?=))\\?=");
+
+    private static final Pattern PATTERN = Pattern.compile("=\\?(.+?)\\?(.)\\?(.+?(?=\\?=))\\?=");
 
     /**
      * Method for converting quoted printable og base64 encoded string from headers.
      * @param in the string with encoding
      * @return decoded string if success - else the same string as was as input.
      */
-    static public String stripEncoding(String in){
+    public static String stripEncoding(String in) {
         String str = null;
-        if(in.contains("=?") && in.contains("?=")){
+        if (in.contains("=?") && in.contains("?=")) {
             String encoding;
             String charset;
             String encodedText;
             String match;
-            Matcher m = p.matcher(in);
-            while(m.find()){
+            Matcher m = PATTERN.matcher(in);
+            while (m.find()) {
                 match = m.group(0);
                 charset = m.group(1);
                 encoding = m.group(2);
                 encodedText = m.group(3);
-                Log.v(TAG, "Matching:" + match +"\nCharset: "+charset +"\nEncoding : " +encoding
-                        + "\nText: " + encodedText);
-                if(encoding.equalsIgnoreCase("Q")){
+                Log.v(TAG,
+                        "Matching:" + match + "\nCharset: " + charset + "\nEncoding : " + encoding
+                                + "\nText: " + encodedText);
+                if (encoding.equalsIgnoreCase("Q")) {
                     //quoted printable
-                    Log.d(TAG,"StripEncoding: Quoted Printable string : " + encodedText);
-                    str = new String(quotedPrintableToUtf8(encodedText,charset));
+                    Log.d(TAG, "StripEncoding: Quoted Printable string : " + encodedText);
+                    str = new String(quotedPrintableToUtf8(encodedText, charset));
                     in = in.replace(match, str);
-                }else if(encoding.equalsIgnoreCase("B")){
+                } else if (encoding.equalsIgnoreCase("B")) {
                     // base64
-                    try{
+                    try {
 
-                        Log.d(TAG,"StripEncoding: base64 string : " + encodedText);
-                        str = new String(Base64.decode(encodedText.getBytes(charset),
-                                Base64.DEFAULT), charset);
-                        Log.d(TAG,"StripEncoding: decoded string : " + str);
+                        Log.d(TAG, "StripEncoding: base64 string : " + encodedText);
+                        str = new String(
+                                Base64.decode(encodedText.getBytes(charset), Base64.DEFAULT),
+                                charset);
+                        Log.d(TAG, "StripEncoding: decoded string : " + str);
                         in = in.replace(match, str);
-                    }catch(UnsupportedEncodingException e){
+                    } catch (UnsupportedEncodingException e) {
                         Log.e(TAG, "stripEncoding: Unsupported charset: " + charset);
-                    }catch (IllegalArgumentException e){
-                        Log.e(TAG,"stripEncoding: string not encoded as base64: " +encodedText);
+                    } catch (IllegalArgumentException e) {
+                        Log.e(TAG, "stripEncoding: string not encoded as base64: " + encodedText);
                     }
-                }else{
-                    Log.e(TAG, "stripEncoding: Hit unknown encoding: "+encoding);
+                } else {
+                    Log.e(TAG, "stripEncoding: Hit unknown encoding: " + encoding);
                 }
             }
         }
@@ -487,47 +517,61 @@ public class BluetoothMapUtils {
         try {
             input = text.getBytes("US-ASCII");
         } catch (UnsupportedEncodingException e) {
-            /* This cannot happen as "US-ASCII" is supported for all Java implementations */ }
+            /* This cannot happen as "US-ASCII" is supported for all Java implementations */
+        }
 
-        if(input == null){
+        if (input == null) {
             return "".getBytes();
         }
 
-        int in, out, stopCnt = input.length-2; // Leave room for peaking the next two bytes
+        int in, out, stopCnt = input.length - 2; // Leave room for peaking the next two bytes
 
         /* Algorithm:
          *  - Search for token, copying all non token chars
          * */
-        for(in=0, out=0; in < stopCnt; in++){
+        for (in = 0, out = 0; in < stopCnt; in++) {
             byte b0 = input[in];
-            if(b0 == '=') {
+            if (b0 == '=') {
                 byte b1 = input[++in];
                 byte b2 = input[++in];
-                if(b1 == '\r' && b2 == '\n') {
+                if (b1 == '\r' && b2 == '\n') {
                     continue; // soft line break, remove all tree;
                 }
-                if(((b1 >= '0' && b1 <= '9') || (b1 >= 'A' && b1 <= 'F')
-                        || (b1 >= 'a' && b1 <= 'f'))
-                        && ((b2 >= '0' && b2 <= '9') || (b2 >= 'A' && b2 <= 'F')
-                        || (b2 >= 'a' && b2 <= 'f'))) {
-                    if(V)Log.v(TAG, "Found hex number: " + String.format("%c%c", b1, b2));
-                    if(b1 <= '9')       b1 = (byte) (b1 - '0');
-                    else if (b1 <= 'F') b1 = (byte) (b1 - 'A' + 10);
-                    else if (b1 <= 'f') b1 = (byte) (b1 - 'a' + 10);
+                if (((b1 >= '0' && b1 <= '9') || (b1 >= 'A' && b1 <= 'F') || (b1 >= 'a'
+                        && b1 <= 'f')) && ((b2 >= '0' && b2 <= '9') || (b2 >= 'A' && b2 <= 'F') || (
+                        b2 >= 'a' && b2 <= 'f'))) {
+                    if (V) {
+                        Log.v(TAG, "Found hex number: " + String.format("%c%c", b1, b2));
+                    }
+                    if (b1 <= '9') {
+                        b1 = (byte) (b1 - '0');
+                    } else if (b1 <= 'F') {
+                        b1 = (byte) (b1 - 'A' + 10);
+                    } else if (b1 <= 'f') {
+                        b1 = (byte) (b1 - 'a' + 10);
+                    }
 
-                    if(b2 <= '9')       b2 = (byte) (b2 - '0');
-                    else if (b2 <= 'F') b2 = (byte) (b2 - 'A' + 10);
-                    else if (b2 <= 'f') b2 = (byte) (b2 - 'a' + 10);
+                    if (b2 <= '9') {
+                        b2 = (byte) (b2 - '0');
+                    } else if (b2 <= 'F') {
+                        b2 = (byte) (b2 - 'A' + 10);
+                    } else if (b2 <= 'f') {
+                        b2 = (byte) (b2 - 'a' + 10);
+                    }
 
-                    if(V)Log.v(TAG, "Resulting nibble values: " +
-                            String.format("b1=%x b2=%x", b1, b2));
+                    if (V) {
+                        Log.v(TAG,
+                                "Resulting nibble values: " + String.format("b1=%x b2=%x", b1, b2));
+                    }
 
-                    output[out++] = (byte)(b1<<4 | b2); // valid hex char, append
-                    if(V)Log.v(TAG, "Resulting value: "  + String.format("0x%2x", output[out-1]));
+                    output[out++] = (byte) (b1 << 4 | b2); // valid hex char, append
+                    if (V) {
+                        Log.v(TAG, "Resulting value: " + String.format("0x%2x", output[out - 1]));
+                    }
                     continue;
                 }
-                Log.w(TAG, "Received wrongly quoted printable encoded text. " +
-                        "Continuing at best effort...");
+                Log.w(TAG, "Received wrongly quoted printable encoded text. "
+                        + "Continuing at best effort...");
                 /* If we get a '=' without either a hex value or CRLF following, just add it and
                  * rewind the in counter. */
                 output[out++] = b0;
@@ -548,12 +592,12 @@ public class BluetoothMapUtils {
         String result = null;
         // Figure out if we support the charset, else fall back to UTF-8, as this is what
         // the MAP specification suggest to use, and is compatible with US-ASCII.
-        if(charset == null){
+        if (charset == null) {
             charset = "UTF-8";
         } else {
             charset = charset.toUpperCase();
             try {
-                if(Charset.isSupported(charset) == false) {
+                if (!Charset.isSupported(charset)) {
                     charset = "UTF-8";
                 }
             } catch (IllegalCharsetNameException e) {
@@ -561,13 +605,15 @@ public class BluetoothMapUtils {
                 charset = "UTF-8";
             }
         }
-        try{
+        try {
             result = new String(output, 0, out, charset);
         } catch (UnsupportedEncodingException e) {
             /* This cannot happen unless Charset.isSupported() is out of sync with String */
-            try{
+            try {
                 result = new String(output, 0, out, "UTF-8");
-            } catch (UnsupportedEncodingException e2) {/* This cannot happen */}
+            } catch (UnsupportedEncodingException e2) {
+                Log.e(TAG, "quotedPrintableToUtf8: " + e);
+            }
         }
         return result.getBytes(); /* return the result as "UTF-8" bytes */
     }
@@ -582,9 +628,9 @@ public class BluetoothMapUtils {
      * @return UTF-8 string containing quoted-printable characters
      */
 
-    private static byte ESCAPE_CHAR = '=';
-    private static byte TAB = 9;
-    private static byte SPACE = 32;
+    private static final byte ESCAPE_CHAR = '=';
+    private static final byte TAB = 9;
+    private static final byte SPACE = 32;
 
     public static final String encodeQuotedPrintable(byte[] bytes) {
         if (bytes == null) {

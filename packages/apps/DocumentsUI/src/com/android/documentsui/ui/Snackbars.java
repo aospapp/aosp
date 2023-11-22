@@ -76,7 +76,7 @@ public final class Snackbars {
 
         //Document Inspector uses a different view from other files app activities.
         final View view = activity.findViewById(R.id.fragment_container);
-        Snackbar.make(view, R.string.file_inspector_load_error, Snackbar.LENGTH_INDEFINITE).show();
+        Snackbar.make(view, R.string.inspector_load_error, Snackbar.LENGTH_INDEFINITE).show();
     }
 
     public static final void showCustomTextWithImage(Activity activity, String text, int imageRes) {

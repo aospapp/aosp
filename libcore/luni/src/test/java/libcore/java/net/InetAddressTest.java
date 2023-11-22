@@ -35,7 +35,7 @@ import java.util.HashSet;
 import java.util.Set;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
-import libcore.util.SerializationTester;
+import libcore.libcore.util.SerializationTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 

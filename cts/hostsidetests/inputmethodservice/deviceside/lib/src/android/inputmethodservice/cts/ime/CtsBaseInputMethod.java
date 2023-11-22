@@ -16,21 +16,24 @@
 
 package android.inputmethodservice.cts.ime;
 
-import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.HIDE_SOFT_INPUT;
+import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType
+        .ON_BIND_INPUT;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_CREATE;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_DESTROY;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_FINISH_INPUT;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_FINISH_INPUT_VIEW;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_START_INPUT;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_START_INPUT_VIEW;
-import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.SHOW_SOFT_INPUT;
 
+
+import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType
+        .ON_UNBIND_INPUT;
+
+import android.content.Intent;
 import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.cts.DeviceEvent;
-import android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventTypeParam;
+import android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType;
 import android.inputmethodservice.cts.ime.ImeCommandReceiver.ImeCommandCallbacks;
-
-import android.os.ResultReceiver;
 import android.util.Log;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
@@ -45,37 +48,26 @@ public abstract class CtsBaseInputMethod extends InputMethodService implements I
             new ImeCommandReceiver<>();
     private String mLogTag;
 
-    private class CtsInputMethodImpl extends InputMethodImpl {
-        @Override
-        public void showSoftInput(int flags, ResultReceiver resultReceiver) {
-            sendEvent(DeviceEvent.builder().setType(SHOW_SOFT_INPUT));
-            if (DEBUG) {
-                Log.d(mLogTag, "showSoftInput called");
-            }
-            super.showSoftInput(flags, resultReceiver);
-        }
-
-        @Override
-        public void hideSoftInput(int flags, ResultReceiver resultReceiver) {
-            sendEvent(DeviceEvent.builder().setType(HIDE_SOFT_INPUT));
-            if (DEBUG) {
-                Log.d(mLogTag, "hideSoftInput called");
-            }
-            super.hideSoftInput(flags, resultReceiver);
-        }
-    }
-
     @Override
     public void onCreate() {
         mLogTag = getClass().getSimpleName();
         if (DEBUG) {
             Log.d(mLogTag, "onCreate:");
         }
-        sendEvent(DeviceEvent.builder().setType(ON_CREATE));
+        sendEvent(ON_CREATE);
 
         super.onCreate();
 
         mImeCommandReceiver.register(this /* ime */);
+    }
+
+    @Override
+    public void onBindInput() {
+        if (DEBUG) {
+            Log.d(mLogTag, "onBindInput");
+        }
+        sendEvent(ON_BIND_INPUT);
+        super.onBindInput();
     }
 
     @Override
@@ -85,10 +77,8 @@ public abstract class CtsBaseInputMethod extends InputMethodService implements I
                     + " editorInfo=" + editorInfo
                     + " restarting=" + restarting);
         }
+        sendEvent(ON_START_INPUT, editorInfo, restarting);
 
-        sendEvent(DeviceEvent.builder()
-                .setType(ON_START_INPUT)
-                .with(DeviceEventTypeParam.ON_START_INPUT_RESTARTING, restarting));
         super.onStartInput(editorInfo, restarting);
     }
 
@@ -99,10 +89,18 @@ public abstract class CtsBaseInputMethod extends InputMethodService implements I
                     + " editorInfo=" + editorInfo
                     + " restarting=" + restarting);
         }
-
-        sendEvent(DeviceEvent.builder().setType(ON_START_INPUT_VIEW));
+        sendEvent(ON_START_INPUT_VIEW, editorInfo, restarting);
 
         super.onStartInputView(editorInfo, restarting);
+    }
+
+    @Override
+    public void onUnbindInput() {
+        super.onUnbindInput();
+        if (DEBUG) {
+            Log.d(mLogTag, "onUnbindInput");
+        }
+        sendEvent(ON_UNBIND_INPUT);
     }
 
     @Override
@@ -110,7 +108,7 @@ public abstract class CtsBaseInputMethod extends InputMethodService implements I
         if (DEBUG) {
             Log.d(mLogTag, "onFinishInputView: finishingInput=" + finishingInput);
         }
-        sendEvent(DeviceEvent.builder().setType(ON_FINISH_INPUT_VIEW));
+        sendEvent(ON_FINISH_INPUT_VIEW, finishingInput);
 
         super.onFinishInputView(finishingInput);
     }
@@ -120,7 +118,7 @@ public abstract class CtsBaseInputMethod extends InputMethodService implements I
         if (DEBUG) {
             Log.d(mLogTag, "onFinishInput:");
         }
-        sendEvent(DeviceEvent.builder().setType(ON_FINISH_INPUT));
+        sendEvent(ON_FINISH_INPUT);
 
         super.onFinishInput();
     }
@@ -130,21 +128,11 @@ public abstract class CtsBaseInputMethod extends InputMethodService implements I
         if (DEBUG) {
             Log.d(mLogTag, "onDestroy:");
         }
-        sendEvent(DeviceEvent.builder().setType(ON_DESTROY));
+        sendEvent(ON_DESTROY);
 
         super.onDestroy();
 
         unregisterReceiver(mImeCommandReceiver);
-    }
-
-    @Override
-    public AbstractInputMethodImpl onCreateInputMethodInterface() {
-        final CtsInputMethodImpl inputMethod = new CtsInputMethodImpl();
-        if (DEBUG) {
-            Log.d(mLogTag, "onCreateInputMethodInterface");
-        }
-
-        return inputMethod;
     }
 
     //
@@ -178,8 +166,10 @@ public abstract class CtsBaseInputMethod extends InputMethodService implements I
         }
     }
 
-   private void sendEvent(final DeviceEvent.IntentBuilder intentBuilder) {
-        intentBuilder.setSender(getClass().getName());
-        sendBroadcast(intentBuilder.build());
+    private void sendEvent(final DeviceEventType type, final Object... args) {
+        final String sender = getClass().getName();
+        final Intent intent = DeviceEvent.newDeviceEventIntent(sender, type);
+        // TODO: Send arbitrary {@code args} in {@code intent}.
+        sendBroadcast(intent);
     }
 }

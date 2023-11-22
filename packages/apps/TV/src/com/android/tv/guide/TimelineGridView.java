@@ -34,14 +34,15 @@ public class TimelineGridView extends RecyclerView {
     public TimelineGridView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
 
-        setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false) {
-            @Override
-            public boolean onRequestChildFocus(RecyclerView parent, State state, View child,
-                    View focused) {
-                 // This disables the default scroll behavior for focus movement.
-                return true;
-            }
-        });
+        setLayoutManager(
+                new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false) {
+                    @Override
+                    public boolean onRequestChildFocus(
+                            RecyclerView parent, State state, View child, View focused) {
+                        // This disables the default scroll behavior for focus movement.
+                        return true;
+                    }
+                });
 
         // RecyclerView is always focusable, however this is not desirable for us, so disable.
         // See b/18863217 (ag/634046) for reasons to why RecyclerView is focusable.

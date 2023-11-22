@@ -35,6 +35,8 @@
         </target_preparer>
     </device>
 
+    <template-include name="preparers" default="empty" />
+
     <logger class="com.android.tradefed.log.FileLogger" />
     <test class="com.android.tradefed.config.StubOptionTest">
         <option name="option" value="valueFromTestConfig" />

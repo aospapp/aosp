@@ -33,8 +33,14 @@ class SetupBTPairingTest(base_test.BaseTestClass):
     def __init__(self, controllers):
         base_test.BaseTestClass.__init__(self, controllers)
 
+    def select_device_by_mac_address(self, mac_address):
+        for device in self.relay_devices:
+            if device.mac_address == mac_address:
+                return device
+        return self.relay_devices[0]
+
     def setup_test(self):
-        self.bt_device = self.relay_devices[0]
+        self.bt_device = self.select_device_by_mac_address(self.user_params["mac_address"])
 
     def wait_for_test_completion(self):
         port = int(self.user_params["socket_port"])
@@ -67,7 +73,7 @@ class SetupBTPairingTest(base_test.BaseTestClass):
         self.bt_device.setup()
         self.bt_device.power_on()
         # Wait for a moment between pushing buttons
-        time.sleep(0.25)
+        time.sleep(2)
         self.bt_device.enter_pairing_mode()
 
     def test_bt_pairing(self):

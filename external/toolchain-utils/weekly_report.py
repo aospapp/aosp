@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 # Copyright Google Inc. 2014
 """Module to generate the 7-day crosperf reports."""
@@ -55,8 +55,8 @@ benchmark: all_toolchain_perf {
   chromeos_root: %s
   chromeos_image: %s
 }
-""" % (test_name, chromeos_root, os.path.join(test_path,
-                                              'chromiumos_test_image.bin'))
+""" % (test_name, chromeos_root,
+       os.path.join(test_path, 'chromiumos_test_image.bin'))
       f.write(test_image)
 
   return filename
@@ -109,8 +109,8 @@ benchmark: all_toolchain_perf {
   chromeos_root: %s
   chromeos_image: %s
 }
-""" % (test_name, chromeos_root, os.path.join(test_path,
-                                              'chromiumos_test_image.bin'))
+""" % (test_name, chromeos_root,
+       os.path.join(test_path, 'chromiumos_test_image.bin'))
       f.write(test_image)
 
   return filename
@@ -121,13 +121,14 @@ def Main(argv):
   parser = argparse.ArgumentParser()
   parser.add_argument('-b', '--board', dest='board', help='Target board.')
   parser.add_argument('-r', '--remote', dest='remote', help='Target device.')
-  parser.add_argument('-v',
-                      '--vanilla_only',
-                      dest='vanilla_only',
-                      action='store_true',
-                      default=False,
-                      help='Generate a report comparing only the vanilla '
-                      'images.')
+  parser.add_argument(
+      '-v',
+      '--vanilla_only',
+      dest='vanilla_only',
+      action='store_true',
+      default=False,
+      help='Generate a report comparing only the vanilla '
+      'images.')
 
   options = parser.parse_args(argv[1:])
 
@@ -200,8 +201,8 @@ def Main(argv):
   timestamp = datetime.datetime.strftime(datetime.datetime.now(),
                                          '%Y-%m-%d_%H:%M:%S')
   results_dir = os.path.join(
-      os.path.expanduser('~/nightly_test_reports'), '%s.%s' % (
-          timestamp, options.board), 'weekly_tests')
+      os.path.expanduser('~/nightly_test_reports'),
+      '%s.%s' % (timestamp, options.board), 'weekly_tests')
 
   for day in WEEKDAYS:
     startdir = os.path.join(constants.CROSTC_WORKSPACE, day)
@@ -232,8 +233,8 @@ def Main(argv):
 
   # Run Crosperf on the file to generate the weekly report.
   cmd = ('%s/toolchain-utils/crosperf/crosperf '
-         '%s --no_email=True --results_dir=%s' %
-         (constants.CROSTC_WORKSPACE, filename, results_dir))
+         '%s --no_email=True --results_dir=%s' % (constants.CROSTC_WORKSPACE,
+                                                  filename, results_dir))
   retv = cmd_executer.RunCommand(cmd)
   if retv == 0:
     # Send the email, if the crosperf command worked.

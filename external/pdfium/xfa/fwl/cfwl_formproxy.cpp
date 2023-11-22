@@ -24,16 +24,16 @@ FWL_Type CFWL_FormProxy::GetClassID() const {
   return FWL_Type::FormProxy;
 }
 
-bool CFWL_FormProxy::IsInstance(const CFX_WideStringC& wsClass) const {
-  if (wsClass == CFX_WideStringC(FWL_CLASS_FormProxy))
+bool CFWL_FormProxy::IsInstance(const WideStringView& wsClass) const {
+  if (wsClass == WideStringView(FWL_CLASS_FormProxy))
     return true;
   return CFWL_Form::IsInstance(wsClass);
 }
 
 void CFWL_FormProxy::Update() {}
 
-void CFWL_FormProxy::DrawWidget(CFX_Graphics* pGraphics,
-                                const CFX_Matrix* pMatrix) {}
+void CFWL_FormProxy::DrawWidget(CXFA_Graphics* pGraphics,
+                                const CFX_Matrix& matrix) {}
 
 void CFWL_FormProxy::OnProcessMessage(CFWL_Message* pMessage) {
   m_pOuter->GetDelegate()->OnProcessMessage(pMessage);

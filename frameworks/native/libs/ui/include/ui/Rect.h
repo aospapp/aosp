@@ -69,6 +69,15 @@ public:
         bottom = rb.y;
     }
 
+    inline explicit Rect(const FloatRect& floatRect) {
+        // Ideally we would use std::round, but we don't want to add an STL
+        // dependency here, so we use an approximation
+        left = static_cast<int32_t>(floatRect.left + 0.5f);
+        top = static_cast<int32_t>(floatRect.top + 0.5f);
+        right = static_cast<int32_t>(floatRect.right + 0.5f);
+        bottom = static_cast<int32_t>(floatRect.bottom + 0.5f);
+    }
+
     void makeInvalid();
 
     inline void clear() {
@@ -86,15 +95,18 @@ public:
     }
 
     // rectangle's width
+    __attribute__((no_sanitize("signed-integer-overflow")))
     inline int32_t getWidth() const {
         return right - left;
     }
 
     // rectangle's height
+    __attribute__((no_sanitize("signed-integer-overflow")))
     inline int32_t getHeight() const {
         return bottom - top;
     }
 
+    __attribute__((no_sanitize("signed-integer-overflow")))
     inline Rect getBounds() const {
         return Rect(right - left, bottom - top);
     }

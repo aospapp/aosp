@@ -22,6 +22,18 @@ class firmware_LockedME(test.test):
         extra = ['-p', 'host'] + list(args)
         return utils.run('flashrom', ignore_status=ignore_status, args=extra)
 
+    def determine_sw_wp_status(self):
+        """Determine software write-protect status."""
+        logging.info('Check that SW WP is enabled or not...')
+        flashrom_result = self.flashrom(args=('--wp-status',))
+        logging.info('The above flashrom command returns.... %s',
+                flashrom_result.stdout)
+        if (("disabled" in flashrom_result.stdout) and
+                ("start=0x00000000, len=0x0000000" in flashrom_result.stdout)):
+            return False
+        else:
+            return True
+
     def has_ME(self):
         """See if we can detect an ME.
         FREG* is printed only when HSFS_FDV is set, which means the descriptor
@@ -87,6 +99,16 @@ class firmware_LockedME(test.test):
 
         @param expect_me_present: False means the system has no ME.
         """
+        cpu_arch = utils.get_cpu_arch()
+        if cpu_arch == "arm":
+            raise error.TestNAError('This test is not applicable, '
+                    'because an ARM device has been detected. '
+                    'ARM devices do not have an ME (Management Engine)')
+        # If sw wp is on, and the ME regions are unlocked, they won't be
+        # writable so will appear locked.
+        if self.determine_sw_wp_status():
+            raise error.TestFail('Software wp is enabled. Please disable '
+                'software wp prior to running this test.')
 
         # See if the system even has an ME, and whether we expected that.
         if self.has_ME():

@@ -20,6 +20,7 @@ import static com.android.internal.util.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
 
@@ -41,6 +42,7 @@ public class AddWifiNetworkTask extends AbstractProvisioningTask
     private static final int RETRY_SLEEP_MULTIPLIER = 2;
     private static final int MAX_RETRIES = 6;
     private static final int RECONNECT_TIMEOUT_MS = 60000;
+    @VisibleForTesting  static final int ADD_NETWORK_FAIL = -1;
 
     private final WifiConfigurationProvider mWifiConfigurationProvider;
     private final WifiManager mWifiManager;
@@ -49,8 +51,9 @@ public class AddWifiNetworkTask extends AbstractProvisioningTask
     private Handler mHandler;
     private boolean mTaskDone = false;
 
-    private final Utils mUtils = new Utils();
+    private final Utils mUtils;
     private Runnable mTimeoutRunnable;
+    private Injector mInjector;
 
     public AddWifiNetworkTask(
             Context context,
@@ -59,7 +62,7 @@ public class AddWifiNetworkTask extends AbstractProvisioningTask
         this(
                 new NetworkMonitor(context),
                 new WifiConfigurationProvider(),
-                context, provisioningParams, callback);
+                context, provisioningParams, callback, new Utils(), new Injector());
     }
 
     @VisibleForTesting
@@ -68,12 +71,16 @@ public class AddWifiNetworkTask extends AbstractProvisioningTask
             WifiConfigurationProvider wifiConfigurationProvider,
             Context context,
             ProvisioningParams provisioningParams,
-            Callback callback) {
+            Callback callback,
+            Utils utils,
+            Injector injector) {
         super(context, provisioningParams, callback);
 
         mNetworkMonitor = checkNotNull(networkMonitor);
         mWifiConfigurationProvider = checkNotNull(wifiConfigurationProvider);
         mWifiManager  = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+        mUtils = checkNotNull(utils);
+        mInjector = checkNotNull(injector);
     }
 
     @Override
@@ -116,7 +123,8 @@ public class AddWifiNetworkTask extends AbstractProvisioningTask
         }
 
         int netId = tryAddingNetwork(wifiConf);
-        if (netId == -1) {
+
+        if (netId == ADD_NETWORK_FAIL) {
             ProvisionLogger.loge("Unable to add network after trying " +  MAX_RETRIES + " times.");
             error(0);
             return;
@@ -147,7 +155,7 @@ public class AddWifiNetworkTask extends AbstractProvisioningTask
         while(netId == -1 && retriesLeft > 0) {
             ProvisionLogger.loge("Retrying in " + durationNextSleep + " ms.");
             try {
-                Thread.sleep(durationNextSleep);
+                mInjector.threadSleep(durationNextSleep);
             } catch (InterruptedException e) {
                 ProvisionLogger.loge("Retry interrupted.");
             }
@@ -164,6 +172,7 @@ public class AddWifiNetworkTask extends AbstractProvisioningTask
 
     @Override
     public void onNetworkConnected() {
+        ProvisionLogger.logd("onNetworkConnected");
         if (isConnectedToSpecifiedWifi()) {
             ProvisionLogger.logd("Connected to the correct network");
             finishTask(true);
@@ -187,9 +196,28 @@ public class AddWifiNetworkTask extends AbstractProvisioningTask
     }
 
     private boolean isConnectedToSpecifiedWifi() {
-        return mUtils.isConnectedToWifi(mContext)
-                && mWifiManager.getConnectionInfo() != null
-                && mProvisioningParams.wifiInfo.ssid.equals(
-                        mWifiManager.getConnectionInfo().getSSID());
+        if (!mUtils.isConnectedToWifi(mContext)) {
+            ProvisionLogger.logd("Not connected to WIFI");
+            return false;
+        }
+        WifiInfo connectionInfo = mWifiManager.getConnectionInfo();
+        if (connectionInfo == null) {
+            ProvisionLogger.logd("connection info is null");
+            return false;
+        }
+        String connectedSSID = mWifiManager.getConnectionInfo().getSSID();
+        if (!mProvisioningParams.wifiInfo.ssid.equals(connectedSSID)) {
+            ProvisionLogger.logd("Wanted to connect SSID " + mProvisioningParams.wifiInfo.ssid
+                    + ", but it is now connected to " + connectedSSID);
+            return false;
+        }
+        return true;
+    }
+
+    @VisibleForTesting
+    static class Injector {
+        public void threadSleep(long milliseconds) throws InterruptedException {
+            Thread.sleep(milliseconds);
+        }
     }
 }

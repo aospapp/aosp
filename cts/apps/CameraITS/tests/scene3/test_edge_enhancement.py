@@ -88,12 +88,13 @@ def main():
                              its.caps.per_frame_control(props) and
                              its.caps.edge_mode(props, 0))
 
+        mono_camera = its.caps.mono_camera(props)
         test_fmt = "yuv"
         size = its.objects.get_available_output_sizes(test_fmt, props)[0]
         out_surface = {"width":size[0], "height":size[1], "format":test_fmt}
 
         # Get proper sensitivity, exposure time, and focus distance.
-        s,e,_,_,fd = cam.do_3a(get_results=True)
+        s,e,_,_,fd = cam.do_3a(get_results=True, mono_camera=mono_camera)
 
         # Get the sharpness for each edge mode for regular requests
         sharpness_regular = []

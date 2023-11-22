@@ -19,38 +19,61 @@ package android.autofillservice.cts;
 import static android.autofillservice.cts.Helper.getContext;
 import static android.autofillservice.cts.Helper.getLoggingLevel;
 import static android.autofillservice.cts.Helper.hasAutofillFeature;
-import static android.autofillservice.cts.Helper.runShellCommand;
 import static android.autofillservice.cts.Helper.setLoggingLevel;
 import static android.autofillservice.cts.InstrumentedAutoFillService.SERVICE_NAME;
-import static android.provider.Settings.Secure.AUTOFILL_SERVICE;
+import static android.autofillservice.cts.common.ShellHelper.runShellCommand;
 
 import android.autofillservice.cts.InstrumentedAutoFillService.Replier;
+import android.autofillservice.cts.common.SettingsStateKeeperRule;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.provider.Settings;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 import android.widget.RemoteViews;
 
+import com.android.compatibility.common.util.RequiredFeatureRule;
+
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Rule;
+import org.junit.rules.TestWatcher;
+import org.junit.runner.Description;
 import org.junit.runner.RunWith;
-
-import java.util.List;
 
 /**
  * Base class for all other tests.
  */
 @RunWith(AndroidJUnit4.class)
-abstract class AutoFillServiceTestCase {
+// NOTE: @ClassRule requires it to be public
+public abstract class AutoFillServiceTestCase {
     private static final String TAG = "AutoFillServiceTestCase";
 
-    protected static UiBot sUiBot;
+    static final UiBot sDefaultUiBot = new UiBot();
 
     protected static final Replier sReplier = InstrumentedAutoFillService.getReplier();
+
+    private static final Context sContext = InstrumentationRegistry.getTargetContext();
+
+    @ClassRule
+    public static final SettingsStateKeeperRule mServiceSettingsKeeper =
+            new SettingsStateKeeperRule(sContext, Settings.Secure.AUTOFILL_SERVICE);
+
+    @Rule
+    public final TestWatcher watcher = new TestWatcher() {
+        @Override
+        protected void starting(Description description) {
+            JUnitHelper.setCurrentTestName(description.getDisplayName());
+        }
+
+        @Override
+        protected void finished(Description description) {
+            JUnitHelper.setCurrentTestName(null);
+        }
+    };
 
     @Rule
     public final RetryRule mRetryRule = new RetryRule(2);
@@ -62,20 +85,34 @@ abstract class AutoFillServiceTestCase {
     public final RequiredFeatureRule mRequiredFeatureRule =
             new RequiredFeatureRule(PackageManager.FEATURE_AUTOFILL);
 
-    protected final Context mContext;
+    @Rule
+    public final SafeCleanerRule mSafeCleanerRule = new SafeCleanerRule()
+            .setDumper(mLoggingRule)
+            .run(() -> sReplier.assertNoUnhandledFillRequests())
+            .run(() -> sReplier.assertNoUnhandledSaveRequests())
+            .add(() -> { return sReplier.getExceptions(); });
+
+    protected final Context mContext = sContext;
     protected final String mPackageName;
+    protected final UiBot mUiBot;
+
     /**
      * Stores the previous logging level so it's restored after the test.
      */
     private String mLoggingLevel;
 
     protected AutoFillServiceTestCase() {
-        mContext = InstrumentationRegistry.getTargetContext();
+        this(sDefaultUiBot);
+    }
+
+    protected AutoFillServiceTestCase(UiBot uiBot) {
         mPackageName = mContext.getPackageName();
+        mUiBot = uiBot;
+        mUiBot.reset();
     }
 
     @BeforeClass
-    public static void prepareScreen() {
+    public static void prepareScreen() throws Exception {
         if (!hasAutofillFeature()) return;
 
         // Unlock screen.
@@ -83,26 +120,15 @@ abstract class AutoFillServiceTestCase {
 
         // Collapse notifications.
         runShellCommand("cmd statusbar collapse");
-    }
 
-    @BeforeClass
-    public static void setUiBot() throws Exception {
-        if (!hasAutofillFeature()) return;
-
-        sUiBot = new UiBot(InstrumentationRegistry.getInstrumentation());
-    }
-
-    @AfterClass
-    public static void resetSettings() {
-        if (!hasAutofillFeature()) return;
-
-        // Clean up only - no need to call disableService() because it doesn't need to fail if
-        // it's not reset.
-        runShellCommand("settings delete secure %s", AUTOFILL_SERVICE);
+        // Set orientation as portrait, otherwise some tests might fail due to elements not fitting
+        // in, IME orientation, etc...
+        sDefaultUiBot.setScreenOrientation(UiBot.PORTRAIT);
     }
 
     @Before
-    public void reset() {
+    public void cleanupStaticState() {
+        Helper.preTestCleanup();
         sReplier.reset();
     }
 
@@ -121,6 +147,15 @@ abstract class AutoFillServiceTestCase {
         }
     }
 
+    /**
+     * Cleans up activities that might have been left over.
+     */
+    @Before
+    @After
+    public void finishActivities() {
+        WelcomeActivity.finishIt(mUiBot);
+    }
+
     @After
     public void resetVerboseLogging() {
         try {
@@ -128,24 +163,6 @@ abstract class AutoFillServiceTestCase {
         } catch (Exception e) {
             Log.w(TAG, "Could not restore logging level to " + mLoggingLevel + ": " + e);
         }
-    }
-
-    // TODO: we shouldn't throw exceptions on @After / @AfterClass because if the test failed, these
-    // exceptions would mask the real cause. A better approach might be using a @Rule or some other
-    // visitor pattern.
-    @After
-    public void assertNothingIsPending() throws Throwable {
-        final MultipleExceptionsCatcher catcher = new MultipleExceptionsCatcher()
-            .run(() -> sReplier.assertNumberUnhandledFillRequests(0))
-            .run(() -> sReplier.assertNumberUnhandledSaveRequests(0));
-
-        final List<Exception> replierExceptions = sReplier.getExceptions();
-        if (replierExceptions != null) {
-            for (Exception e : replierExceptions) {
-                catcher.add(e);
-            }
-        }
-        catcher.throwIfAny();
     }
 
     @After

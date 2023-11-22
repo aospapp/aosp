@@ -9,6 +9,7 @@ COMMON_CFLAGS += -Iutil/include
 
 # Common Source Files ##########################################################
 
+COMMON_SRCS += util/nanoapp/audio.cc
 COMMON_SRCS += util/nanoapp/debug.cc
 COMMON_SRCS += util/nanoapp/sensor.cc
 COMMON_SRCS += util/nanoapp/wifi.cc

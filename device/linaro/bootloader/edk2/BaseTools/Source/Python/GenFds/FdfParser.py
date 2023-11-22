@@ -1,7 +1,7 @@
 ## @file
 # parse FDF file
 #
-#  Copyright (c) 2007 - 2015, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 #  Copyright (c) 2015, Hewlett Packard Enterprise Development, L.P.<BR>
 #
 #  This program and the accompanying materials
@@ -52,12 +52,13 @@ import Common.GlobalData as GlobalData
 from Common.Expression import *
 from Common import GlobalData
 from Common.String import ReplaceMacro
-
+import uuid
 from Common.Misc import tdict
-
-import re
+from Common.MultipleWorkspace import MultipleWorkspace as mws
 import Common.LongFilePathOs as os
 from Common.LongFilePathSupport import OpenLongFilePath as open
+from Capsule import EFI_CERT_TYPE_PKCS7_GUID
+from Capsule import EFI_CERT_TYPE_RSA2048_SHA256_GUID
 
 ##define T_CHAR_SPACE                ' '
 ##define T_CHAR_NULL                 '\0'
@@ -106,7 +107,7 @@ def GetRealFileLine (File, Line):
         if Profile.IsLineInFile(Line):
             return Profile.GetLineInFile(Line)
         elif Line >= Profile.InsertStartLineNumber and Profile.Level == 1:
-           InsertedLines += Profile.GetTotalLines()
+            InsertedLines += Profile.GetTotalLines()
 
     return (File, Line - InsertedLines)
 
@@ -181,7 +182,7 @@ class IncludeFileProfile :
         TotalLines = self.InsertAdjust + len(self.FileLinesList)
 
         for Profile in self.IncludeFileList:
-          TotalLines += Profile.GetTotalLines()
+            TotalLines += Profile.GetTotalLines()
 
         return TotalLines
 
@@ -232,6 +233,7 @@ class FileProfile :
 
         self.PcdDict = {}
         self.InfList = []
+        self.InfDict = {'ArchTBD':[]}
         # ECC will use this Dict and List information
         self.PcdFileLineDict = {}
         self.InfFileLineList = []
@@ -1124,6 +1126,26 @@ class FdfParser:
             self.__UndoToken()
             return False
 
+    def __Verify(self, Name, Value, Scope):
+        if Scope in ['UINT64', 'UINT8']:
+            ValueNumber = 0
+            try:
+                if Value.upper().startswith('0X'):
+                    ValueNumber = int (Value, 16)
+                else:
+                    ValueNumber = int (Value)
+            except:
+                EdkLogger.error("FdfParser", FORMAT_INVALID, "The value is not valid dec or hex number for %s." % Name)
+            if ValueNumber < 0:
+                EdkLogger.error("FdfParser", FORMAT_INVALID, "The value can't be set to negative value for %s." % Name)
+            if Scope == 'UINT64':
+                if ValueNumber >= 0x10000000000000000:
+                    EdkLogger.error("FdfParser", FORMAT_INVALID, "Too large value for %s." % Name)
+            if Scope == 'UINT8':
+                if ValueNumber >= 0x100:
+                    EdkLogger.error("FdfParser", FORMAT_INVALID, "Too large value for %s." % Name)
+            return True
+
     ## __UndoToken() method
     #
     #   Go back one token unit in file buffer
@@ -1363,25 +1385,10 @@ class FdfParser:
 
         try:
             self.Preprocess()
-            while self.__GetFd():
-                pass
-
-            while self.__GetFv():
-                pass
-
-            while self.__GetFmp():
-                pass
-
-            while self.__GetCapsule():
-                pass
-
-            while self.__GetVtf():
-                pass
-
-            while self.__GetRule():
-                pass
-            
-            while self.__GetOptionRom():
+            #
+            # Keep processing sections of the FDF until no new sections or a syntax error is found
+            #
+            while self.__GetFd() or self.__GetFv() or self.__GetFmp() or self.__GetCapsule() or self.__GetVtf() or self.__GetRule() or self.__GetOptionRom():
                 pass
 
         except Warning, X:
@@ -1398,6 +1405,20 @@ class FdfParser:
                 % (FileLineTuple[1], self.CurrentOffsetWithinLine + 1, self.Profile.FileLinesList[self.CurrentLineNumber - 1][self.CurrentOffsetWithinLine :].rstrip('\n').rstrip('\r'))
             raise
 
+    ## SectionParser() method
+    #
+    #   Parse the file section info
+    #   Exception will be raised if syntax error found
+    #
+    #   @param  self          The object pointer
+    #   @param  section       The section string
+
+    def SectionParser(self, section):
+        S = section.upper()
+        if not S.startswith("[DEFINES") and not S.startswith("[FD.") and not S.startswith("[FV.") and not S.startswith("[CAPSULE.") \
+            and not S.startswith("[VTF.") and not S.startswith("[RULE.") and not S.startswith("[OPTIONROM.") and not S.startswith('[FMPPAYLOAD.'):
+            raise Warning("Unknown section or section appear sequence error (The correct sequence should be [DEFINES], [FD.], [FV.], [Capsule.], [VTF.], [Rule.], [OptionRom.], [FMPPAYLOAD.])", self.FileName, self.CurrentLineNumber)
+
     ## __GetDefines() method
     #
     #   Get Defines section contents and store its data into AllMacrosList
@@ -1413,9 +1434,7 @@ class FdfParser:
 
         S = self.__Token.upper()
         if S.startswith("[") and not S.startswith("[DEFINES"):
-            if not S.startswith("[FD.") and not S.startswith("[FV.") and not S.startswith("[CAPSULE.") \
-                and not S.startswith("[VTF.") and not S.startswith("[RULE.") and not S.startswith("[OPTIONROM."):
-                raise Warning("Unknown section or section appear sequence error (The correct sequence should be [DEFINES], [FD.], [FV.], [Capsule.], [VTF.], [Rule.], [OptionRom.])", self.FileName, self.CurrentLineNumber)
+            self.SectionParser(S)
             self.__UndoToken()
             return False
 
@@ -1931,7 +1950,7 @@ class FdfParser:
             raise Warning("expected FV name", self.FileName, self.CurrentLineNumber)
 
         RegionObj.RegionType = "FV"
-        RegionObj.RegionDataList.append(self.__Token)
+        RegionObj.RegionDataList.append((self.__Token).upper())
 
         while self.__IsKeyword( "FV"):
 
@@ -1941,7 +1960,7 @@ class FdfParser:
             if not self.__GetNextToken():
                 raise Warning("expected FV name", self.FileName, self.CurrentLineNumber)
 
-            RegionObj.RegionDataList.append(self.__Token)
+            RegionObj.RegionDataList.append((self.__Token).upper())
 
     ## __GetRegionCapType() method
     #
@@ -2108,9 +2127,7 @@ class FdfParser:
 
         S = self.__Token.upper()
         if S.startswith("[") and not S.startswith("[FV."):
-            if not S.startswith('[FMPPAYLOAD.') and not S.startswith("[CAPSULE.") \
-                and not S.startswith("[VTF.") and not S.startswith("[RULE.") and not S.startswith("[OPTIONROM."):
-                raise Warning("Unknown section or section appear sequence error (The correct sequence should be [FD.], [FV.], [Capsule.], [VTF.], [Rule.], [OptionRom.])", self.FileName, self.CurrentLineNumber)
+            self.SectionParser(S)
             self.__UndoToken()
             return False
 
@@ -2463,6 +2480,13 @@ class FdfParser:
             self.Profile.InfList.append(ffsInf.InfFileName)
             FileLineTuple = GetRealFileLine(self.FileName, self.CurrentLineNumber)
             self.Profile.InfFileLineList.append(FileLineTuple)
+            if ffsInf.UseArch:
+                if ffsInf.UseArch not in self.Profile.InfDict:
+                    self.Profile.InfDict[ffsInf.UseArch] = [ffsInf.InfFileName]
+                else:
+                    self.Profile.InfDict[ffsInf.UseArch].append(ffsInf.InfFileName)
+            else:
+                self.Profile.InfDict['ArchTBD'].append(ffsInf.InfFileName)
 
         if self.__IsToken('|'):
             if self.__IsKeyword('RELOCS_STRIPPED'):
@@ -2692,6 +2716,11 @@ class FdfParser:
         elif self.__Token in ("DEFINE", "APRIORI", "SECTION"):
             self.__UndoToken()
             self.__GetSectionData( FfsFileObj, MacroDict)
+
+        elif hasattr(FfsFileObj, 'FvFileType') and FfsFileObj.FvFileType == 'RAW':
+            self.__UndoToken()
+            self.__GetRAWData(FfsFileObj, MacroDict)
+
         else:
             FfsFileObj.CurrentLineNum = self.CurrentLineNumber
             FfsFileObj.CurrentLineContent = self.__CurrentLine()
@@ -2700,6 +2729,47 @@ class FdfParser:
 
         if not self.__IsToken( "}"):
             raise Warning("expected '}'", self.FileName, self.CurrentLineNumber)
+
+    ## __GetRAWData() method
+    #
+    #   Get RAW data for FILE statement
+    #
+    #   @param  self         The object pointer
+    #   @param  FfsFileObj   for whom section is got
+    #   @param  MacroDict    dictionary used to replace macro
+    #
+    def __GetRAWData(self, FfsFileObj, MacroDict = {}):
+        FfsFileObj.FileName = []
+        FfsFileObj.SubAlignment = []
+        while True:
+            AlignValue = None
+            if self.__GetAlignment():
+                if self.__Token not in ("Auto", "8", "16", "32", "64", "128", "512", "1K", "4K", "32K" ,"64K"):
+                    raise Warning("Incorrect alignment '%s'" % self.__Token, self.FileName, self.CurrentLineNumber)
+                #For FFS, Auto is default option same to ""
+                if not self.__Token == "Auto":
+                    AlignValue = self.__Token
+            if not self.__GetNextToken():
+                raise Warning("expected Filename value", self.FileName, self.CurrentLineNumber)
+
+            FileName = self.__Token.replace('$(SPACE)', ' ')
+            if FileName == '}':
+                self.__UndoToken()
+                raise Warning("expected Filename value", self.FileName, self.CurrentLineNumber)
+
+            self.__VerifyFile(FileName)
+            File = PathClass(NormPath(FileName), GenFdsGlobalVariable.WorkSpaceDir)
+            FfsFileObj.FileName.append(File.Path)
+            FfsFileObj.SubAlignment.append(AlignValue)
+
+            if self.__IsToken( "}"):
+                self.__UndoToken()
+                break
+
+        if len(FfsFileObj.SubAlignment) == 1:
+            FfsFileObj.SubAlignment = FfsFileObj.SubAlignment[0]
+        if len(FfsFileObj.FileName) == 1:
+            FfsFileObj.FileName = FfsFileObj.FileName[0]
 
     ## __GetFileOpts() method
     #
@@ -3107,9 +3177,8 @@ class FdfParser:
         if not self.__GetNextToken():
             return False
         S = self.__Token.upper()
-        if not S.startswith("[FMPPAYLOAD."):
-            if not S.startswith("[CAPSULE.") and not S.startswith("[VTF.") and not S.startswith("[RULE.") and not S.startswith("[OPTIONROM."):
-                raise Warning("Unknown section or section appear sequence error (The correct sequence should be [FD.], [FV.], [FmpPayload.], [Capsule.], [VTF.], [Rule.], [OptionRom.])", self.FileName, self.CurrentLineNumber)
+        if S.startswith("[") and not S.startswith("[FMPPAYLOAD."):
+            self.SectionParser(S)
             self.__UndoToken()
             return False
 
@@ -3127,7 +3196,7 @@ class FdfParser:
 
         if not self.__GetNextToken():
             raise Warning("The FMP payload section is empty!", self.FileName, self.CurrentLineNumber)
-        FmpKeyList = ['IMAGE_HEADER_INIT_VERSION', 'IMAGE_TYPE_ID', 'IMAGE_INDEX', 'HARDWARE_INSTANCE']
+        FmpKeyList = ['IMAGE_HEADER_INIT_VERSION', 'IMAGE_TYPE_ID', 'IMAGE_INDEX', 'HARDWARE_INSTANCE', 'CERTIFICATE_GUID', 'MONOTONIC_COUNT']
         while self.__Token in FmpKeyList:
             Name = self.__Token
             FmpKeyList.remove(Name)
@@ -3135,32 +3204,55 @@ class FdfParser:
                 raise Warning("expected '='", self.FileName, self.CurrentLineNumber)
             if Name == 'IMAGE_TYPE_ID':
                 if not self.__GetNextGuid():
-                    raise Warning("expected GUID value for IMAGE_TYPE_ID", self.FileName, self.CurrentLineNumber)
+                    raise Warning("expected GUID value for IMAGE_TYPE_ID.", self.FileName, self.CurrentLineNumber)
                 FmpData.ImageTypeId = self.__Token
+            elif Name == 'CERTIFICATE_GUID':
+                if not self.__GetNextGuid():
+                    raise Warning("expected GUID value for CERTIFICATE_GUID.", self.FileName, self.CurrentLineNumber)
+                FmpData.Certificate_Guid = self.__Token
+                if uuid.UUID(FmpData.Certificate_Guid) != EFI_CERT_TYPE_RSA2048_SHA256_GUID and uuid.UUID(FmpData.Certificate_Guid) != EFI_CERT_TYPE_PKCS7_GUID:
+                    raise Warning("Only support EFI_CERT_TYPE_RSA2048_SHA256_GUID or EFI_CERT_TYPE_PKCS7_GUID for CERTIFICATE_GUID.", self.FileName, self.CurrentLineNumber)
             else:
                 if not self.__GetNextToken():
                     raise Warning("expected value of %s" % Name, self.FileName, self.CurrentLineNumber)
                 Value = self.__Token
                 if Name == 'IMAGE_HEADER_INIT_VERSION':
-                    FmpData.Version = Value
+                    if self.__Verify(Name, Value, 'UINT8'):
+                        FmpData.Version = Value
                 elif Name == 'IMAGE_INDEX':
-                    FmpData.ImageIndex = Value
+                    if self.__Verify(Name, Value, 'UINT8'):
+                        FmpData.ImageIndex = Value
                 elif Name == 'HARDWARE_INSTANCE':
-                    FmpData.HardwareInstance = Value
+                    if self.__Verify(Name, Value, 'UINT8'):
+                        FmpData.HardwareInstance = Value
+                elif Name == 'MONOTONIC_COUNT':
+                    if self.__Verify(Name, Value, 'UINT64'):
+                        FmpData.MonotonicCount = Value
+                        if FmpData.MonotonicCount.upper().startswith('0X'):
+                            FmpData.MonotonicCount = (long)(FmpData.MonotonicCount, 16)
+                        else:
+                            FmpData.MonotonicCount = (long)(FmpData.MonotonicCount)
             if not self.__GetNextToken():
                 break
         else:
             self.__UndoToken()
 
+        if (FmpData.MonotonicCount and not FmpData.Certificate_Guid) or (not FmpData.MonotonicCount and FmpData.Certificate_Guid):
+            EdkLogger.error("FdfParser", FORMAT_INVALID, "CERTIFICATE_GUID and MONOTONIC_COUNT must be work as a pair.")
+        # remove CERTIFICATE_GUID and MONOTONIC_COUNT from FmpKeyList, since these keys are optional
+        if 'CERTIFICATE_GUID' in FmpKeyList:
+            FmpKeyList.remove('CERTIFICATE_GUID')
+        if 'MONOTONIC_COUNT' in FmpKeyList:
+            FmpKeyList.remove('MONOTONIC_COUNT')
         if FmpKeyList:
-            raise Warning("Missing keywords %s in FMP payload section" % ', '.join(FmpKeyList), self.FileName, self.CurrentLineNumber)
-        ImageFile = self.__ParseRawFileStatement()
-        if not ImageFile:
-            raise Warning("Missing image file in FMP payload section", self.FileName, self.CurrentLineNumber)
-        FmpData.ImageFile = ImageFile
-        VendorCodeFile = self.__ParseRawFileStatement()
-        if VendorCodeFile:
-            FmpData.VendorCodeFile = VendorCodeFile
+            raise Warning("Missing keywords %s in FMP payload section." % ', '.join(FmpKeyList), self.FileName, self.CurrentLineNumber)
+        # get the Image file and Vendor code file
+        self.__GetFMPCapsuleData(FmpData)
+        if not FmpData.ImageFile:
+            raise Warning("Missing image file in FMP payload section.", self.FileName, self.CurrentLineNumber)
+        # check whether more than one Vendor code file
+        if len(FmpData.VendorCodeFile) > 1:
+            raise Warning("At most one Image file and one Vendor code file are allowed in FMP payload section.", self.FileName, self.CurrentLineNumber)
         self.Profile.FmpPayloadDict[FmpUiName] = FmpData
         return True
 
@@ -3179,8 +3271,7 @@ class FdfParser:
 
         S = self.__Token.upper()
         if S.startswith("[") and not S.startswith("[CAPSULE."):
-            if not S.startswith("[VTF.") and not S.startswith("[RULE.") and not S.startswith("[OPTIONROM."):
-                raise Warning("Unknown section or section appear sequence error (The correct sequence should be [FD.], [FV.], [Capsule.], [VTF.], [Rule.], [OptionRom.])", self.FileName, self.CurrentLineNumber)
+            self.SectionParser(S)
             self.__UndoToken()
             return False
 
@@ -3293,6 +3384,22 @@ class FdfParser:
             if not (IsInf or IsFile or IsFv or IsFd or IsAnyFile or IsAfile or IsFmp):
                 break
 
+    ## __GetFMPCapsuleData() method
+    #
+    #   Get capsule data for FMP capsule
+    #
+    #   @param  self        The object pointer
+    #   @param  Obj         for whom capsule data are got
+    #
+    def __GetFMPCapsuleData(self, Obj):
+
+        while True:
+            IsFv = self.__GetFvStatement(Obj, True)
+            IsFd = self.__GetFdStatement(Obj, True)
+            IsAnyFile = self.__GetAnyFileStatement(Obj, True)
+            if not (IsFv or IsFd or IsAnyFile):
+                break
+
     ## __GetFvStatement() method
     #
     #   Get FV for capsule
@@ -3302,7 +3409,7 @@ class FdfParser:
     #   @retval True        Successfully find a FV statement
     #   @retval False       Not able to find a FV statement
     #
-    def __GetFvStatement(self, CapsuleObj):
+    def __GetFvStatement(self, CapsuleObj, FMPCapsule = False):
 
         if not self.__IsKeyword("FV"):
             return False
@@ -3318,7 +3425,13 @@ class FdfParser:
 
         CapsuleFv = CapsuleData.CapsuleFv()
         CapsuleFv.FvName = self.__Token
-        CapsuleObj.CapsuleDataList.append(CapsuleFv)
+        if FMPCapsule:
+            if not CapsuleObj.ImageFile:
+                CapsuleObj.ImageFile.append(CapsuleFv)
+            else:
+                CapsuleObj.VendorCodeFile.append(CapsuleFv)
+        else:
+            CapsuleObj.CapsuleDataList.append(CapsuleFv)
         return True
 
     ## __GetFdStatement() method
@@ -3330,7 +3443,7 @@ class FdfParser:
     #   @retval True        Successfully find a FD statement
     #   @retval False       Not able to find a FD statement
     #
-    def __GetFdStatement(self, CapsuleObj):
+    def __GetFdStatement(self, CapsuleObj, FMPCapsule = False):
 
         if not self.__IsKeyword("FD"):
             return False
@@ -3346,22 +3459,29 @@ class FdfParser:
 
         CapsuleFd = CapsuleData.CapsuleFd()
         CapsuleFd.FdName = self.__Token
-        CapsuleObj.CapsuleDataList.append(CapsuleFd)
+        if FMPCapsule:
+            if not CapsuleObj.ImageFile:
+                CapsuleObj.ImageFile.append(CapsuleFd)
+            else:
+                CapsuleObj.VendorCodeFile.append(CapsuleFd)
+        else:
+            CapsuleObj.CapsuleDataList.append(CapsuleFd)
         return True
 
     def __GetFmpStatement(self, CapsuleObj):
-        if not self.__IsKeyword("FMP"):
-            return False
+        if not self.__IsKeyword("FMP_PAYLOAD"):
+            if not self.__IsKeyword("FMP"):
+                return False
 
-        if not self.__IsKeyword("PAYLOAD"):
-            self.__UndoToken()
-            return False
+            if not self.__IsKeyword("PAYLOAD"):
+                self.__UndoToken()
+                return False
 
         if not self.__IsToken("="):
             raise Warning("expected '='", self.FileName, self.CurrentLineNumber)
 
         if not self.__GetNextToken():
-            raise Warning("expected payload name after FMP PAYLOAD =", self.FileName, self.CurrentLineNumber)
+            raise Warning("expected payload name after FMP_PAYLOAD =", self.FileName, self.CurrentLineNumber)
         Payload = self.__Token.upper()
         if Payload not in self.Profile.FmpPayloadDict:
             raise Warning("This FMP Payload does not exist: %s" % self.__Token, self.FileName, self.CurrentLineNumber)
@@ -3383,9 +3503,11 @@ class FdfParser:
             raise Warning("expected File name", self.FileName, self.CurrentLineNumber)
         
         AnyFileName = self.__Token
-        AnyFileName = GenFdsGlobalVariable.ReplaceWorkspaceMacro(AnyFileName)
-        if not os.path.exists(AnyFileName):
-            raise Warning("File %s not exists"%AnyFileName, self.FileName, self.CurrentLineNumber)
+        self.__VerifyFile(AnyFileName)
+
+        if not os.path.isabs(AnyFileName):
+            AnyFileName = mws.join(GenFdsGlobalVariable.WorkSpaceDir, AnyFileName)
+
         return AnyFileName
 
     ## __GetAnyFileStatement() method
@@ -3397,14 +3519,20 @@ class FdfParser:
     #   @retval True        Successfully find a Anyfile statement
     #   @retval False       Not able to find a AnyFile statement
     #
-    def __GetAnyFileStatement(self, CapsuleObj):
+    def __GetAnyFileStatement(self, CapsuleObj, FMPCapsule = False):
         AnyFileName = self.__ParseRawFileStatement()
         if not AnyFileName:
             return False
 
         CapsuleAnyFile = CapsuleData.CapsuleAnyFile()
         CapsuleAnyFile.FileName = AnyFileName
-        CapsuleObj.CapsuleDataList.append(CapsuleAnyFile)
+        if FMPCapsule:
+            if not CapsuleObj.ImageFile:
+                CapsuleObj.ImageFile.append(CapsuleAnyFile)
+            else:
+                CapsuleObj.VendorCodeFile.append(CapsuleAnyFile)
+        else:
+            CapsuleObj.CapsuleDataList.append(CapsuleAnyFile)
         return True
     
     ## __GetAfileStatement() method
@@ -3463,8 +3591,7 @@ class FdfParser:
 
         S = self.__Token.upper()
         if S.startswith("[") and not S.startswith("[RULE."):
-            if not S.startswith("[OPTIONROM."):
-                raise Warning("Unknown section or section appear sequence error (The correct sequence should be [FD.], [FV.], [Capsule.], [VTF.], [Rule.], [OptionRom.])", self.FileName, self.CurrentLineNumber)
+            self.SectionParser(S)
             self.__UndoToken()
             return False
         self.__UndoToken()
@@ -3542,7 +3669,7 @@ class FdfParser:
     #
     def __GetFileExtension(self):
         if not self.__IsToken("."):
-                raise Warning("expected '.'", self.FileName, self.CurrentLineNumber)
+            raise Warning("expected '.'", self.FileName, self.CurrentLineNumber)
 
         Ext = ""
         if self.__GetNextToken():
@@ -4040,8 +4167,7 @@ class FdfParser:
 
         S = self.__Token.upper()
         if S.startswith("[") and not S.startswith("[VTF."):
-            if not S.startswith("[RULE.") and not S.startswith("[OPTIONROM."):
-                raise Warning("Unknown section or section appear sequence error (The correct sequence should be [FD.], [FV.], [Capsule.], [VTF.], [Rule.], [OptionRom.])", self.FileName, self.CurrentLineNumber)
+            self.SectionParser(S)
             self.__UndoToken()
             return False
 
@@ -4247,7 +4373,9 @@ class FdfParser:
 
         S = self.__Token.upper()
         if S.startswith("[") and not S.startswith("[OPTIONROM."):
-            raise Warning("Unknown section or section appear sequence error (The correct sequence should be [FD.], [FV.], [Capsule.], [VTF.], [Rule.], [OptionRom.])", self.FileName, self.CurrentLineNumber)
+            self.SectionParser(S)
+            self.__UndoToken()
+            return False
         
         self.__UndoToken()
         if not self.__IsToken("[OptionRom.", True):
@@ -4300,6 +4428,13 @@ class FdfParser:
             self.Profile.InfList.append(ffsInf.InfFileName)
             FileLineTuple = GetRealFileLine(self.FileName, self.CurrentLineNumber)
             self.Profile.InfFileLineList.append(FileLineTuple)
+            if ffsInf.UseArch:
+                if ffsInf.UseArch not in self.Profile.InfDict:
+                    self.Profile.InfDict[ffsInf.UseArch] = [ffsInf.InfFileName]
+                else:
+                    self.Profile.InfDict[ffsInf.UseArch].append(ffsInf.InfFileName)
+            else:
+                self.Profile.InfDict['ArchTBD'].append(ffsInf.InfFileName)
 
         
         self.__GetOptRomOverrides (ffsInf)

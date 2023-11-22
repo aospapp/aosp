@@ -21,6 +21,7 @@ Shield box one: Two Android Devices and Monsoon tool box
 
 import json
 import os
+import sys
 
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
@@ -37,11 +38,11 @@ class GattPowerTest(PowerBaseTest):
     # Time to start GATT write
     START_TIME = 30
     # Repetitions
-    REPETITIONS_40 = 40
+    REPETITIONS_40 = 7
     REPETITIONS_1 = 1
     # Time for GATT writing
     WRITE_TIME_60 = 60
-    WRITE_TIME_3600 = 3600
+    WRITE_TIME_3600 = 600
     # Time for idle
     IDLE_TIME_30 = 30
     IDLE_TIME_0 = 0
@@ -66,7 +67,7 @@ class GattPowerTest(PowerBaseTest):
         self.per_ad.adb.shell(self.PMC_VERBOSE_CMD)
 
     def _measure_power_for_gatt_n_log_data(self, write_time, idle_time,
-                                           repetitions):
+                                           repetitions, test_case):
         """Utility function for power test with GATT write.
 
         Steps:
@@ -87,8 +88,18 @@ class GattPowerTest(PowerBaseTest):
             repetitions: number of repetitions of writing cycles
 
         Returns:
-            None
+            True if the average current is within the allowed tolerance;
+            False otherwise.
         """
+
+        if not self.disable_location_scanning():
+            return False
+
+        # Verify Bluetooth is enabled on the companion phone.
+        if not bluetooth_enabled_check(self.android_devices[1]):
+            self.log.error("FAILED to enable Bluetooth on companion phone")
+            return False
+
         # Send message to Gatt Server
         self.per_ad.log.info("Send broadcast message to GATT Server: %s",
                              self.GATT_SERVER_MSG)
@@ -106,16 +117,23 @@ class GattPowerTest(PowerBaseTest):
         sample_time = (write_time + idle_time) * repetitions
         # Start the power measurement
         result = self.mon.measure_power(self.POWER_SAMPLING_RATE, sample_time,
-                                        self.current_test_name,
-                                        self.START_TIME)
+                               self.current_test_name, self.START_TIME)
+
         # Calculate average and save power data into a file
-        self.save_logs_for_power_test(result, write_time, idle_time)
+        (current_avg, stdev) = self.save_logs_for_power_test(
+            result, write_time, idle_time)
         # Take bug report for peripheral device
         current_time = get_current_human_time()
         self.per_ad.take_bug_report(self.current_test_name, current_time)
 
+        # perform watermark comparison numbers
+        self.log.info("==> CURRENT AVG from PMC Monsoon app: %s" % current_avg)
+        self.log.info(
+            "==> WATERMARK from config file: %s" % self.user_params[test_case])
+        return self.check_test_pass(current_avg, self.user_params[test_case])
+
     @BluetoothBaseTest.bt_test_wrap
-    @test_tracker_info(uuid='8c5213fc-ffe8-4c32-bb63-1d2b7394dc0c')
+    @test_tracker_info(uuid='f14cc28b-54f2-4a87-9fa9-68f39bf96701')
     def test_power_for_60_sec_n_30_sec_idle_gatt_write(self):
         """Test power usage when do 60 sec GATT write & 30 sec idle
 
@@ -144,11 +162,13 @@ class GattPowerTest(PowerBaseTest):
         TAGS: LE, GATT, Power
         Priority: 3
         """
-        self._measure_power_for_gatt_n_log_data(
-            self.WRITE_TIME_60, self.IDLE_TIME_30, self.REPETITIONS_40)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._measure_power_for_gatt_n_log_data(
+            self.WRITE_TIME_60, self.IDLE_TIME_30, self.REPETITIONS_40,
+            current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
-    @test_tracker_info(uuid='fd682d46-89db-432d-aaa6-35ed63d6d764')
+    @test_tracker_info(uuid='41ca217e-161b-4899-a5b7-2d59d8dc7973')
     def test_power_for_60_min_non_stop_gatt_write(self):
         """Test power usage when do a single GATT write.
 
@@ -178,5 +198,7 @@ class GattPowerTest(PowerBaseTest):
         TAGS: LE, GATT, Power
         Priority: 3
         """
-        self._measure_power_for_gatt_n_log_data(
-            self.WRITE_TIME_3600, self.IDLE_TIME_0, self.REPETITIONS_1)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._measure_power_for_gatt_n_log_data(
+            self.WRITE_TIME_3600, self.IDLE_TIME_0, self.REPETITIONS_1,
+            current_test_case)

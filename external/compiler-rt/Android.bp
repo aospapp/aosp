@@ -22,9 +22,9 @@
 cc_library_static {
     name: "libcompiler_rt-extras",
     host_supported: true,
+    static_ndk_lib: true,
     vendor_available: true,
-    clang: true,
-    sdk_version: "9",
+    sdk_version: "minimum",
     // The following list contains functions that are not available in libgcc.a, so
     // we potentially need them when using a Clang-built component (e.g., -ftrapv
     // with 64-bit integer multiplies. See http://llvm.org/bugs/show_bug.cgi?id=14469.)
@@ -36,6 +36,8 @@ cc_library_static {
 
     cflags: [
         "-Wno-unused-parameter",
+        "-Wno-visibility",
+        "-Wno-incompatible-pointer-types",
         "-Werror",
     ],
 
@@ -73,7 +75,7 @@ cc_library_static {
 
 cc_library {
     name: "libcompiler_rt",
-    vendor_available: true,
+    vendor_available: false,
     vndk: {
         enabled: true,
         support_system_process: true,
@@ -234,6 +236,8 @@ cc_library {
 
     cflags: [
         "-Wno-unused-parameter",
+        "-Wno-visibility",
+        "-Wno-incompatible-pointer-types",
         "-Werror",
     ],
 
@@ -365,15 +369,8 @@ cc_library {
 
     sdk_version: "21",
     target: {
-        not_windows: {
-            host_ldlibs: [
-                "-lpthread",
-                "-lc",
-                "-lm",
-            ],
-        },
         android: {
-            shared_libs: ["libdl", "liblog"],
+            shared_libs: ["liblog"],
             static_libs: ["liblzma"],
         },
         android_arm: {
@@ -381,39 +378,38 @@ cc_library {
             ldflags: ["-Wl,--exclude-libs,libunwind_llvm.a"],
         },
         android_arm64: {
-            static_libs: ["libunwindbacktrace"],
-            ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a"],
+            static_libs: ["libunwindbacktrace", "libunwind"],
+            ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a:libunwind.a"],
         },
         android_mips: {
-            static_libs: ["libunwindbacktrace"],
-            ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a"],
+            static_libs: ["libunwindbacktrace", "libunwind"],
+            ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a:libunwind.a"],
         },
         android_mips64: {
-            static_libs: ["libunwindbacktrace"],
-            ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a"],
+            static_libs: ["libunwindbacktrace", "libunwind"],
+            ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a:libunwind.a"],
         },
         android_x86: {
-            static_libs: ["libunwindbacktrace"],
-            ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a"],
+            static_libs: ["libunwindbacktrace", "libunwind"],
+            ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a:libunwind.a"],
         },
         android_x86_64: {
             srcs: ["lib/builtins/ppc/floatditf.c"],
-            static_libs: ["libunwindbacktrace"],
-            ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a"],
+            static_libs: ["libunwindbacktrace", "libunwind"],
+            ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a:libunwind.a"],
         },
-        linux: {
-            static_libs: ["libunwindbacktrace"],
+        linux_glibc: {
+            static_libs: ["libunwindbacktrace", "libunwind"],
             shared_libs: ["liblzma"],
         },
         windows: {
-            static_libs: ["libunwindbacktrace"],
+            static_libs: ["libunwindbacktrace", "libunwind"],
             // Only build enable_execute_stack.c on non-Windows hosts.
             exclude_srcs: ["lib/builtins/enable_execute_stack.c"],
         },
     },
 
     asflags: ["-integrated-as"],
-    clang: true,
     no_libgcc: true,
 
     sanitize: {
@@ -443,7 +439,10 @@ cc_defaults {
         android_x86: {
             enabled: true,
         },
-        linux: {
+        android_x86_64: {
+            enabled: true,
+        },
+        linux_glibc: {
             enabled: true,
         },
     },

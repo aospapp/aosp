@@ -136,12 +136,12 @@ def process_packages(pkgmgr, pkg_type, pkg_names, src_dir,
 
         pkg_name = pkgmgr.get_tarball_name(name, pkg_type)
 
+        exclude_string_tar = ((
+            ' --exclude="**%s" --exclude="**%s.checksum" ' %
+            (pkg_name, pkg_name)) + exclude_string)
         if action == ACTION_TAR_ONLY:
             # We don't want any pre-existing tarballs and checksums to
             # be repackaged, so we should purge these.
-            exclude_string_tar = ((
-                ' --exclude="**%s" --exclude="**%s.checksum" ' %
-                (pkg_name, pkg_name)) + exclude_string)
             build_dir = get_build_dir(name, dest_dir, pkg_type)
             try:
                 packages.check_diskspace(build_dir)
@@ -169,17 +169,23 @@ def process_packages(pkgmgr, pkg_type, pkg_names, src_dir,
                            "enough space available: %s" % (temp_dir, e))
                     raise error.RepoDiskFullError(msg)
 
-                # Check if tarball already exists. If it does, and the checksum
-                # is the same as what is in the checksum dictionary, then don't
+                # Check if tarball already exists. If it does, then don't
                 # create a tarball again.
                 tarball_path = os.path.join(pkg_dir, pkg_name);
-                if os.path.exists(tarball_path) and pkgmgr.compare_checksum(tarball_path):
+                if os.path.exists(tarball_path):
                     print("process_packages: Tarball %s already exists" %
                           tarball_path)
                 else:
                     tarball_path = pkgmgr.tar_package(pkg_name, pkg_dir,
-                                                      temp_dir, exclude_string)
-                pkgmgr.upload_pkg(tarball_path, update_checksum=True)
+                                                      temp_dir,
+                                                      exclude_string_tar)
+                # Compare the checksum with what packages.checksum has. If they
+                # match then we don't need to perform the upload.
+                if not pkgmgr.compare_checksum(tarball_path):
+                    pkgmgr.upload_pkg(tarball_path, update_checksum=True)
+                else:
+                    logging.warning('Checksum not changed for %s, not copied '
+                                    'in packages/ directory.', tarball_path)
             finally:
                 # remove the temporary directory
                 shutil.rmtree(temp_dir)

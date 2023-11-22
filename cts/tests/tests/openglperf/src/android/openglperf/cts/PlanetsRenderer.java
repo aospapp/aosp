@@ -88,6 +88,7 @@ public class PlanetsRenderer implements GLSurfaceViewCustom.Renderer {
     private int mTexCoord0Handle;
     private int mTextureHandle;
     private int mTextureId;
+    private String mRendererName;
 
     /**
      * @param numSlices
@@ -142,6 +143,7 @@ public class PlanetsRenderer implements GLSurfaceViewCustom.Renderer {
         mPositionHandle = GLES20.glGetAttribLocation(mProgram, "vPosition");
         mTexCoord0Handle = GLES20.glGetAttribLocation(mProgram, "vTexCoord0");
         mTextureHandle = GLES20.glGetUniformLocation(mProgram, "sTexture");
+        mRendererName = GLES20.glGetString(GLES20.GL_RENDERER);
 
         // Load the texture
         mTextureId = createTexture2D();
@@ -245,7 +247,7 @@ public class PlanetsRenderer implements GLSurfaceViewCustom.Renderer {
             Log.i(TAG, "Final FPS " + fps + " Num triangles " + numTriangles + " start time " +
                     mRenderingStartTime + " finish time " + currentTime);
             if (mListener != null) {
-                mListener.onRenderCompletion(fps, numTriangles, mFrameInterval);
+                mListener.onRenderCompletion(fps, numTriangles, mFrameInterval, mRendererName);
                 mFrameCount++; // to prevent entering here again
                 return;
             }
@@ -438,7 +440,7 @@ public class PlanetsRenderer implements GLSurfaceViewCustom.Renderer {
     private void printGlInfos() {
         Log.i(TAG, "Vendor " + GLES20.glGetString(GLES20.GL_VENDOR));
         Log.i(TAG, "Version " + GLES20.glGetString(GLES20.GL_VERSION));
-        Log.i(TAG, "Renderer " + GLES20.glGetString(GLES20.GL_RENDERER));
+        Log.i(TAG, "Renderer " + mRendererName);
         Log.i(TAG, "Extensions " + GLES20.glGetString(GLES20.GL_EXTENSIONS));
     }
     private void printParams() {

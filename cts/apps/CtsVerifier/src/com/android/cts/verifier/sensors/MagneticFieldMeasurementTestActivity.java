@@ -170,23 +170,23 @@ public class MagneticFieldMeasurementTestActivity extends SensorCtsVerifierTestA
                 Sensor.TYPE_MAGNETIC_FIELD,
                 SensorManager.SENSOR_DELAY_NORMAL);
 
+        SensorTestLogger logger = getTestLogger();
+        logger.logInstructions(R.string.snsr_mag_calibration_description);
+        logger.logInstructions(R.string.snsr_mag_calibration_complete);
+        waitForUserToContinue();
+
         TestSensorEventListener listener = new TestSensorEventListener(environment) {
             @Override
             public void onSensorChanged(SensorEvent event) {
                 clearText();
 
                 float values[] = event.values;
-                SensorTestLogger logger = getTestLogger();
-                logger.logInstructions(R.string.snsr_mag_calibration_description);
                 logger.logMessage(
                         R.string.snsr_mag_measurement,
                         values[0],
                         values[1],
                         values[2],
                         SensorCtsHelper.getMagnitude(values));
-
-                // TODO: automate finding out when the magnetometer is calibrated
-                logger.logInstructions(R.string.snsr_mag_calibration_complete);
             }
         };
 

@@ -27,10 +27,12 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraDevice.StateCallback;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.cts.CameraTestUtils.HandlerExecutor;
 import android.hardware.camera2.cts.CameraTestUtils.MockStateCallback;
 import android.hardware.camera2.cts.helpers.CameraErrorCollector;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
@@ -43,11 +45,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * <p>Basic test for CameraManager class.</p>
  */
+@AppModeFull
 public class CameraManagerTest extends AndroidTestCase {
     private static final String TAG = "CameraManagerTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -142,6 +146,7 @@ public class CameraManagerTest extends AndroidTestCase {
          * Test: that if the device has front or rear facing cameras, then there
          * must be matched system features.
          */
+        boolean externalCameraConnected = false;
         for (int i = 0; i < ids.length; i++) {
             CameraCharacteristics props = mCameraManager.getCameraCharacteristics(ids[i]);
             assertNotNull("Can't get camera characteristics for camera " + ids[i], props);
@@ -154,11 +159,18 @@ public class CameraManagerTest extends AndroidTestCase {
                 assertTrue("System doesn't have back camera feature",
                         mPackageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA));
             } else if (lensFacing == CameraCharacteristics.LENS_FACING_EXTERNAL) {
+                externalCameraConnected = true;
                 assertTrue("System doesn't have external camera feature",
                         mPackageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_EXTERNAL));
             } else {
                 fail("Unknown camera lens facing " + lensFacing.toString());
             }
+        }
+
+        // Test an external camera is connected if FEATURE_CAMERA_EXTERNAL is advertised
+        if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_EXTERNAL)) {
+            assertTrue("External camera is not connected on device with FEATURE_CAMERA_EXTERNAL",
+                    externalCameraConnected);
         }
 
         /**
@@ -206,6 +218,12 @@ public class CameraManagerTest extends AndroidTestCase {
 
     // Test: that each camera device can be opened one at a time, several times.
     public void testCameraManagerOpenCamerasSerially() throws Exception {
+        testCameraManagerOpenCamerasSerially(/*useExecutor*/ false);
+        testCameraManagerOpenCamerasSerially(/*useExecutor*/ true);
+    }
+
+    private void testCameraManagerOpenCamerasSerially(boolean useExecutor) throws Exception {
+        final Executor executor = useExecutor ? new HandlerExecutor(mHandler) : null;
         String[] ids = mCameraManager.getCameraIdList();
         for (int i = 0; i < ids.length; i++) {
             for (int j = 0; j < NUM_CAMERA_REOPENS; j++) {
@@ -214,7 +232,11 @@ public class CameraManagerTest extends AndroidTestCase {
                     MockStateCallback mockListener = MockStateCallback.mock();
                     mCameraListener = new BlockingStateCallback(mockListener);
 
-                    mCameraManager.openCamera(ids[i], mCameraListener, mHandler);
+                    if (useExecutor) {
+                        mCameraManager.openCamera(ids[i], executor, mCameraListener);
+                    } else {
+                        mCameraManager.openCamera(ids[i], mCameraListener, mHandler);
+                    }
 
                     // Block until unConfigured
                     mCameraListener.waitForState(BlockingStateCallback.STATE_OPENED,
@@ -238,6 +260,11 @@ public class CameraManagerTest extends AndroidTestCase {
      * is set if this can't be done.
      */
     public void testCameraManagerOpenAllCameras() throws Exception {
+        testCameraManagerOpenAllCameras(/*useExecutor*/ false);
+        testCameraManagerOpenAllCameras(/*useExecutor*/ true);
+    }
+
+    private void testCameraManagerOpenAllCameras(boolean useExecutor) throws Exception {
         String[] ids = mCameraManager.getCameraIdList();
         assertNotNull("Camera ids shouldn't be null", ids);
 
@@ -246,6 +273,7 @@ public class CameraManagerTest extends AndroidTestCase {
             return;
         }
 
+        final Executor executor = useExecutor ? new HandlerExecutor(mHandler) : null;
         List<CameraDevice> cameraList = new ArrayList<CameraDevice>();
         List<MockStateCallback> listenerList = new ArrayList<MockStateCallback>();
         List<BlockingStateCallback> blockingListenerList = new ArrayList<BlockingStateCallback>();
@@ -265,8 +293,11 @@ public class CameraManagerTest extends AndroidTestCase {
 
                 String cameraId = ids[i];
                 try {
-                    mCameraManager.openCamera(cameraId, mCameraListener,
-                            mHandler);
+                    if (useExecutor) {
+                        mCameraManager.openCamera(cameraId, executor, mCameraListener);
+                    } else {
+                        mCameraManager.openCamera(cameraId, mCameraListener, mHandler);
+                    }
                 } catch (CameraAccessException e) {
                     if (checkCameraAccessExceptionReason(e) == CameraAccessException.CAMERA_ERROR) {
                         expectingError = true;
@@ -337,8 +368,11 @@ public class CameraManagerTest extends AndroidTestCase {
                 blockingListenerList.add(mCameraListener);
             }
         } finally {
-            for (CameraDevice camera : cameraList) {
-                camera.close();
+            for (int i = 0; i < cameraList.size(); i++) {
+                // With conflicting devices, opening of one camera could result in the other camera
+                // being disconnected. To handle such case, reset the mock before close.
+                reset(listenerList.get(i));
+                cameraList.get(i).close();
             }
             for (BlockingStateCallback blockingListener : blockingListenerList) {
                 blockingListener.waitForState(
@@ -409,7 +443,13 @@ public class CameraManagerTest extends AndroidTestCase {
      * error state is set.
      */
     public void testCameraManagerOpenCameraTwice() throws Exception {
+        testCameraManagerOpenCameraTwice(/*useExecutor*/ false);
+        testCameraManagerOpenCameraTwice(/*useExecutor*/ true);
+    }
+
+    private void testCameraManagerOpenCameraTwice(boolean useExecutor) throws Exception {
         String[] ids = mCameraManager.getCameraIdList();
+        final Executor executor = useExecutor ? new HandlerExecutor(mHandler) : null;
 
         // Test across every camera device.
         for (int i = 0; i < ids.length; ++i) {
@@ -425,9 +465,13 @@ public class CameraManagerTest extends AndroidTestCase {
                 BlockingStateCallback failListener =
                         new BlockingStateCallback(mockFailListener);
 
-                mCameraManager.openCamera(ids[i], successListener, mHandler);
-                mCameraManager.openCamera(ids[i], failListener,
-                        mHandler);
+                if (useExecutor) {
+                    mCameraManager.openCamera(ids[i], executor, successListener);
+                    mCameraManager.openCamera(ids[i], executor, failListener);
+                } else {
+                    mCameraManager.openCamera(ids[i], successListener, mHandler);
+                    mCameraManager.openCamera(ids[i], failListener, mHandler);
+                }
 
                 successListener.waitForState(BlockingStateCallback.STATE_OPENED,
                         CameraTestUtils.CAMERA_IDLE_TIMEOUT_MS);
@@ -472,8 +516,15 @@ public class CameraManagerTest extends AndroidTestCase {
      */
     public void testCameraManagerListener() throws Exception {
         mCameraManager.unregisterAvailabilityCallback(mListener);
+        // Test Handler API
         mCameraManager.registerAvailabilityCallback(mListener, mHandler);
         mCameraManager.registerAvailabilityCallback(mListener, mHandler);
+        mCameraManager.unregisterAvailabilityCallback(mListener);
+        mCameraManager.unregisterAvailabilityCallback(mListener);
+        // Test Executor API
+        Executor executor = new HandlerExecutor(mHandler);
+        mCameraManager.registerAvailabilityCallback(executor, mListener);
+        mCameraManager.registerAvailabilityCallback(executor, mListener);
         mCameraManager.unregisterAvailabilityCallback(mListener);
         mCameraManager.unregisterAvailabilityCallback(mListener);
     }
@@ -482,10 +533,16 @@ public class CameraManagerTest extends AndroidTestCase {
      * Test that the availability callbacks fire when expected
      */
     public void testCameraManagerListenerCallbacks() throws Exception {
+        testCameraManagerListenerCallbacks(/*useExecutor*/ false);
+        testCameraManagerListenerCallbacks(/*useExecutor*/ true);
+    }
+
+    private void testCameraManagerListenerCallbacks(boolean useExecutor) throws Exception {
         final int AVAILABILITY_TIMEOUT_MS = 10;
 
         final LinkedBlockingQueue<String> availableEventQueue = new LinkedBlockingQueue<>();
         final LinkedBlockingQueue<String> unavailableEventQueue = new LinkedBlockingQueue<>();
+        final Executor executor = useExecutor ? new HandlerExecutor(mHandler) : null;
 
         CameraManager.AvailabilityCallback ac = new CameraManager.AvailabilityCallback() {
             @Override
@@ -499,7 +556,11 @@ public class CameraManagerTest extends AndroidTestCase {
             }
         };
 
-        mCameraManager.registerAvailabilityCallback(ac, mHandler);
+        if (useExecutor) {
+            mCameraManager.registerAvailabilityCallback(executor, ac);
+        } else {
+            mCameraManager.registerAvailabilityCallback(ac, mHandler);
+        }
         String[] cameras = mCameraManager.getCameraIdList();
 
         if (cameras.length == 0) {
@@ -525,7 +586,11 @@ public class CameraManagerTest extends AndroidTestCase {
             MockStateCallback mockListener = MockStateCallback.mock();
             mCameraListener = new BlockingStateCallback(mockListener);
 
-            mCameraManager.openCamera(id, mCameraListener, mHandler);
+            if (useExecutor) {
+                mCameraManager.openCamera(id, executor, mCameraListener);
+            } else {
+                mCameraManager.openCamera(id, mCameraListener, mHandler);
+            }
 
             // Block until opened
             mCameraListener.waitForState(BlockingStateCallback.STATE_OPENED,
@@ -573,7 +638,11 @@ public class CameraManagerTest extends AndroidTestCase {
             MockStateCallback mockListener = MockStateCallback.mock();
             mCameraListener = new BlockingStateCallback(mockListener);
 
-            mCameraManager.openCamera(cameras[0], mCameraListener, mHandler);
+            if (useExecutor) {
+                mCameraManager.openCamera(cameras[0], executor, mCameraListener);
+            } else {
+                mCameraManager.openCamera(cameras[0], mCameraListener, mHandler);
+            }
 
             // Block until opened
             mCameraListener.waitForState(BlockingStateCallback.STATE_OPENED,

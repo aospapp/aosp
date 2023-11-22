@@ -24,12 +24,11 @@ import android.support.annotation.IntDef;
 import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.widget.Toast;
-import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.configprovider.ConfigProviderBindings;
 import com.android.dialer.logging.DialerImpression.Type;
 import com.android.dialer.logging.Logger;
-import com.android.dialer.util.DialerUtils;
+import com.android.dialer.storage.StorageComponent;
 import java.util.Random;
 
 /**
@@ -59,7 +58,9 @@ public class PawSecretCodeListener extends BroadcastReceiver {
   @Override
   public void onReceive(Context context, Intent intent) {
     String host = intent.getData().getHost();
-    Assert.checkState(!TextUtils.isEmpty(host));
+    if (TextUtils.isEmpty(host)) {
+      return;
+    }
     String secretCode =
         ConfigProviderBindings.get(context).getString(CONFIG_PAW_SECRET_CODE, "729");
     if (secretCode == null) {
@@ -68,8 +69,7 @@ public class PawSecretCodeListener extends BroadcastReceiver {
     if (!TextUtils.equals(secretCode, host)) {
       return;
     }
-    SharedPreferences preferences =
-        DialerUtils.getDefaultSharedPreferenceForDeviceProtectedStorageContext(context);
+    SharedPreferences preferences = StorageComponent.get(context).unencryptedSharedPrefs();
     boolean wasEnabled = preferences.getBoolean(PAW_ENABLED_WITH_SECRET_CODE_KEY, false);
     if (wasEnabled) {
       preferences.edit().putBoolean(PAW_ENABLED_WITH_SECRET_CODE_KEY, false).apply();

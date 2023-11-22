@@ -14,6 +14,17 @@
 
 package android.accessibilityservice.cts;
 
+import static android.accessibilityservice.cts.utils.AsyncUtils.await;
+import static android.accessibilityservice.cts.utils.AsyncUtils.awaitCancellation;
+import static android.accessibilityservice.cts.utils.GestureUtils.add;
+import static android.accessibilityservice.cts.utils.GestureUtils.ceil;
+import static android.accessibilityservice.cts.utils.GestureUtils.click;
+import static android.accessibilityservice.cts.utils.GestureUtils.diff;
+import static android.accessibilityservice.cts.utils.GestureUtils.dispatchGesture;
+import static android.accessibilityservice.cts.utils.GestureUtils.longClick;
+import static android.accessibilityservice.cts.utils.GestureUtils.path;
+import static android.accessibilityservice.cts.utils.GestureUtils.times;
+
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.any;
 import static org.hamcrest.CoreMatchers.both;
@@ -21,24 +32,29 @@ import static org.hamcrest.CoreMatchers.everyItem;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
 import android.accessibilityservice.GestureDescription.StrokeDescription;
+import android.accessibilityservice.cts.activities.AccessibilityTestActivity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Matrix;
 import android.graphics.Path;
-import android.graphics.Point;
 import android.graphics.PointF;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
-import android.util.DisplayMetrics;
+import android.util.Log;
+import android.view.Display;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.WindowManager;
 import android.widget.TextView;
+
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
@@ -50,8 +66,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Verify that gestures dispatched from an accessibility service show up in the current UI
  */
+@AppModeFull
 public class AccessibilityGestureDispatchTest extends
         ActivityInstrumentationTestCase2<AccessibilityGestureDispatchTest.GestureDispatchActivity> {
+    private static final String TAG = AccessibilityGestureDispatchTest.class.getSimpleName();
+
     private static final int GESTURE_COMPLETION_TIMEOUT = 5000; // millis
     private static final int MOTION_EVENT_TIMEOUT = 1000; // millis
 
@@ -72,7 +91,6 @@ public class AccessibilityGestureDispatchTest extends
     final List<MotionEvent> mMotionEvents = new ArrayList<>();
     StubGestureAccessibilityService mService;
     MyTouchListener mMyTouchListener = new MyTouchListener();
-    MyGestureCallback mCallback;
     TextView mFullScreenTextView;
     int[] mViewLocation = new int[2];
     boolean mGotUpEvent;
@@ -107,7 +125,6 @@ public class AccessibilityGestureDispatchTest extends
         mService = StubGestureAccessibilityService.enableSelf(getInstrumentation());
 
         mMotionEvents.clear();
-        mCallback = new MyGestureCallback();
         mGotUpEvent = false;
     }
 
@@ -126,10 +143,8 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        Point clickPoint = new Point(10, 20);
-        GestureDescription click = createClickInViewBounds(clickPoint);
-        mService.runOnServiceSync(() -> mService.doDispatchGesture(click, mCallback, null));
-        mCallback.assertGestureCompletes(GESTURE_COMPLETION_TIMEOUT);
+        PointF clickPoint = new PointF(10, 20);
+        dispatch(clickWithinView(clickPoint), GESTURE_COMPLETION_TIMEOUT);
         waitForMotionEvents(any(MotionEvent.class), 2);
 
         assertEquals(2, mMotionEvents.size());
@@ -161,10 +176,8 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        Point clickPoint = new Point(10, 20);
-        GestureDescription longClick = createLongClickInViewBounds(clickPoint);
-        mService.runOnServiceSync(() -> mService.doDispatchGesture(longClick, mCallback, null));
-        mCallback.assertGestureCompletes(
+        PointF clickPoint = new PointF(10, 20);
+        dispatch(longClickWithinView(clickPoint),
                 ViewConfiguration.getLongPressTimeout() + GESTURE_COMPLETION_TIMEOUT);
 
         waitForMotionEvents(any(MotionEvent.class), 2);
@@ -183,13 +196,12 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        Point startPoint = new Point(10, 20);
-        Point endPoint = new Point(20, 40);
+        PointF startPoint = new PointF(10, 20);
+        PointF endPoint = new PointF(20, 40);
         int gestureTime = 500;
 
-        GestureDescription swipe = createSwipeInViewBounds(startPoint, endPoint, gestureTime);
-        mService.runOnServiceSync(() -> mService.doDispatchGesture(swipe, mCallback, null));
-        mCallback.assertGestureCompletes(gestureTime + GESTURE_COMPLETION_TIMEOUT);
+        dispatch(swipeWithinView(startPoint, endPoint, gestureTime),
+                gestureTime + GESTURE_COMPLETION_TIMEOUT);
         waitForMotionEvents(IS_ACTION_UP, 1);
 
         int numEvents = mMotionEvents.size();
@@ -206,13 +218,15 @@ public class AccessibilityGestureDispatchTest extends
             assertTrue(moveEvent.getEventTime() >= lastEventTime);
             float fractionOfSwipe =
                     ((float) (moveEvent.getEventTime() - downEvent.getEventTime())) / gestureTime;
-            float fractionX = ((float) (endPoint.x - startPoint.x)) * fractionOfSwipe + 0.5f;
-            float fractionY = ((float) (endPoint.y - startPoint.y)) * fractionOfSwipe + 0.5f;
-            Point intermediatePoint = new Point(startPoint);
-            intermediatePoint.offset((int) fractionX, (int) fractionY);
+            PointF intermediatePoint = add(startPoint,
+                    ceil(times(fractionOfSwipe, diff(endPoint, startPoint))));
             assertThat(moveEvent, both(IS_ACTION_MOVE).and(isAtPoint(intermediatePoint)));
             lastEventTime = moveEvent.getEventTime();
         }
+    }
+
+    public void dispatch(GestureDescription gesture, int timeoutMs) {
+        await(dispatchGesture(mService, gesture), timeoutMs, MILLISECONDS);
     }
 
     public void testSlowSwipe_shouldNotContainMovesForTinyMovement() throws InterruptedException {
@@ -220,16 +234,15 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        Point startPoint = new Point(10, 20);
-        Point intermediatePoint1 = new Point(10, 21);
-        Point intermediatePoint2 = new Point(11, 21);
-        Point intermediatePoint3 = new Point(11, 22);
-        Point endPoint = new Point(11, 22);
+        PointF startPoint = new PointF(10, 20);
+        PointF intermediatePoint1 = new PointF(10, 21);
+        PointF intermediatePoint2 = new PointF(11, 21);
+        PointF intermediatePoint3 = new PointF(11, 22);
+        PointF endPoint = new PointF(11, 22);
         int gestureTime = 1000;
 
-        GestureDescription swipe = createSwipeInViewBounds(startPoint, endPoint, gestureTime);
-        mService.runOnServiceSync(() -> mService.doDispatchGesture(swipe, mCallback, null));
-        mCallback.assertGestureCompletes(gestureTime + GESTURE_COMPLETION_TIMEOUT);
+        dispatch(swipeWithinView(startPoint, endPoint, gestureTime),
+                gestureTime + GESTURE_COMPLETION_TIMEOUT);
         waitForMotionEvents(IS_ACTION_UP, 1);
 
         assertEquals(5, mMotionEvents.size());
@@ -245,16 +258,14 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        Point centerPoint = new Point(50, 60);
+        PointF centerPoint = new PointF(50, 60);
         int startSpacing = 100;
         int endSpacing = 50;
         int gestureTime = 500;
         float pinchTolerance = 2.0f;
 
-        GestureDescription pinch = createPinchInViewBounds(centerPoint, startSpacing,
-                endSpacing, 45.0F, gestureTime);
-        mService.runOnServiceSync(() -> mService.doDispatchGesture(pinch, mCallback, null));
-        mCallback.assertGestureCompletes(gestureTime + GESTURE_COMPLETION_TIMEOUT);
+        dispatch(pinchWithinView(centerPoint, startSpacing, endSpacing, 45.0F, gestureTime),
+                gestureTime + GESTURE_COMPLETION_TIMEOUT);
         waitForMotionEvents(IS_ACTION_UP, 1);
         int numEvents = mMotionEvents.size();
 
@@ -300,6 +311,12 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
+        int displayId = getActivity().getWindow().getDecorView().getDisplay().getDisplayId();
+        if (displayId != Display.DEFAULT_DISPLAY) {
+            Log.i(TAG, "Magnification is not supported on virtual displays.");
+            return;
+        }
+
         final WindowManager wm = (WindowManager) getInstrumentation().getContext().getSystemService(
                 Context.WINDOW_SERVICE);
         final StubMagnificationAccessibilityService magnificationService =
@@ -313,13 +330,10 @@ public class AccessibilityGestureDispatchTest extends
             magRegionCenterPoint.set(magnificationController.getCenterX(),
                     magnificationController.getCenterY());
         });
-        final PointF magRegionOffsetPoint = new PointF();
-        magRegionOffsetPoint.set(magRegionCenterPoint);
-        magRegionOffsetPoint.offset(CLICK_OFFSET_X, CLICK_OFFSET_Y);
+        final PointF magRegionOffsetPoint
+                = add(magRegionCenterPoint, CLICK_OFFSET_X, CLICK_OFFSET_Y);
 
-        final PointF magRegionOffsetClickPoint = new PointF();
-        magRegionOffsetClickPoint.set(magRegionCenterPoint);
-        magRegionOffsetClickPoint.offset(
+        final PointF magRegionOffsetClickPoint = add(magRegionCenterPoint,
                 CLICK_OFFSET_X * MAGNIFICATION_FACTOR, CLICK_OFFSET_Y * MAGNIFICATION_FACTOR);
 
         try {
@@ -331,16 +345,16 @@ public class AccessibilityGestureDispatchTest extends
             assertTrue("Failed to set scale", setScale.get());
 
             // Click in the center of the magnification region
-            GestureDescription magRegionCenterClick = createClick(magRegionCenterPoint);
-            mService.runOnServiceSync(() -> mService.doDispatchGesture(
-                    magRegionCenterClick, mCallback, null));
-            mCallback.assertGestureCompletes(GESTURE_COMPLETION_TIMEOUT);
+            dispatch(new GestureDescription.Builder()
+                    .addStroke(click(magRegionCenterPoint))
+                    .build(),
+                    GESTURE_COMPLETION_TIMEOUT);
 
             // Click at a slightly offset point
-            GestureDescription magRegionOffsetClick = createClick(magRegionOffsetClickPoint);
-            mService.runOnServiceSync(() -> mService.doDispatchGesture(
-                    magRegionOffsetClick, mCallback, null));
-            mCallback.assertGestureCompletes(GESTURE_COMPLETION_TIMEOUT);
+            dispatch(new GestureDescription.Builder()
+                    .addStroke(click(magRegionOffsetClickPoint))
+                    .build(),
+                    GESTURE_COMPLETION_TIMEOUT);
             waitForMotionEvents(any(MotionEvent.class), 4);
         } finally {
             // Reset magnification
@@ -376,30 +390,25 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        Point start = new Point(10, 20);
-        Point mid1 = new Point(20, 20);
-        Point mid2 = new Point(20, 25);
-        Point end = new Point(20, 30);
+        PointF start = new PointF(10, 20);
+        PointF mid1 = new PointF(20, 20);
+        PointF mid2 = new PointF(20, 25);
+        PointF end = new PointF(20, 30);
         int gestureTime = 500;
 
         StrokeDescription s1 = new StrokeDescription(
-                linePathInViewBounds(start, mid1), 0, gestureTime, true);
+                lineWithinView(start, mid1), 0, gestureTime, true);
         StrokeDescription s2 = s1.continueStroke(
-                linePathInViewBounds(mid1, mid2), 0, gestureTime, true);
+                lineWithinView(mid1, mid2), 0, gestureTime, true);
         StrokeDescription s3 = s2.continueStroke(
-                linePathInViewBounds(mid2, end), 0, gestureTime, false);
+                lineWithinView(mid2, end), 0, gestureTime, false);
+
         GestureDescription gesture1 = new GestureDescription.Builder().addStroke(s1).build();
         GestureDescription gesture2 = new GestureDescription.Builder().addStroke(s2).build();
         GestureDescription gesture3 = new GestureDescription.Builder().addStroke(s3).build();
-
-        mService.runOnServiceSync(() -> mService.doDispatchGesture(gesture1, mCallback, null));
-        mCallback.assertGestureCompletes(gestureTime + GESTURE_COMPLETION_TIMEOUT);
-        mCallback.reset();
-        mService.runOnServiceSync(() -> mService.doDispatchGesture(gesture2, mCallback, null));
-        mCallback.assertGestureCompletes(gestureTime + GESTURE_COMPLETION_TIMEOUT);
-        mCallback.reset();
-        mService.runOnServiceSync(() -> mService.doDispatchGesture(gesture3, mCallback, null));
-        mCallback.assertGestureCompletes(gestureTime + GESTURE_COMPLETION_TIMEOUT);
+        dispatch(gesture1, gestureTime + GESTURE_COMPLETION_TIMEOUT);
+        dispatch(gesture2, gestureTime + GESTURE_COMPLETION_TIMEOUT);
+        dispatch(gesture3, gestureTime + GESTURE_COMPLETION_TIMEOUT);
         waitForMotionEvents(IS_ACTION_UP, 1);
 
         assertThat(mMotionEvents.get(0), allOf(IS_ACTION_DOWN, isAtPoint(start)));
@@ -415,25 +424,24 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        Point startPoint = new Point(10, 20);
-        Point midPoint = new Point(20, 20);
-        Point endPoint = new Point(20, 30);
+        PointF startPoint = new PointF(10, 20);
+        PointF midPoint = new PointF(20, 20);
+        PointF endPoint = new PointF(20, 30);
         int gestureTime = 500;
 
-        StrokeDescription stroke1 = new StrokeDescription(
-                linePathInViewBounds(startPoint, midPoint), 0, gestureTime, true);
-        GestureDescription gesture1 = new GestureDescription.Builder().addStroke(stroke1).build();
-        mService.runOnServiceSync(() -> mService.doDispatchGesture(gesture1, mCallback, null));
-        mCallback.assertGestureCompletes(gestureTime + GESTURE_COMPLETION_TIMEOUT);
+        StrokeDescription stroke1 =
+                new StrokeDescription(lineWithinView(startPoint, midPoint), 0, gestureTime, true);
+        dispatch(new GestureDescription.Builder().addStroke(stroke1).build(),
+                gestureTime + GESTURE_COMPLETION_TIMEOUT);
         waitForMotionEvents(both(IS_ACTION_MOVE).and(isAtPoint(midPoint)), 1);
 
-        StrokeDescription stroke2 = stroke1.continueStroke(
-                linePathInViewBounds(endPoint, midPoint), 0, gestureTime, false);
-        GestureDescription gesture2 = new GestureDescription.Builder().addStroke(stroke2).build();
-        mCallback.reset();
+        StrokeDescription stroke2 =
+                stroke1.continueStroke(lineWithinView(endPoint, midPoint), 0, gestureTime, false);
         mMotionEvents.clear();
-        mService.runOnServiceSync(() -> mService.doDispatchGesture(gesture2, mCallback, null));
-        mCallback.assertGestureCancels(gestureTime + GESTURE_COMPLETION_TIMEOUT);
+        awaitCancellation(
+                dispatchGesture(mService,
+                        new GestureDescription.Builder().addStroke(stroke2).build()),
+                gestureTime + GESTURE_COMPLETION_TIMEOUT, MILLISECONDS);
 
         waitForMotionEvents(IS_ACTION_CANCEL, 1);
         assertEquals(1, mMotionEvents.size());
@@ -444,23 +452,20 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        Point startPoint = new Point(10, 20);
-        Point midPoint = new Point(20, 20);
-        Point endPoint = new Point(20, 30);
+        PointF startPoint = new PointF(10, 20);
+        PointF midPoint = new PointF(20, 20);
+        PointF endPoint = new PointF(20, 30);
         int gestureTime = 500;
 
-        StrokeDescription stroke1 = new StrokeDescription(
-                linePathInViewBounds(startPoint, midPoint), 0, gestureTime, true);
-        GestureDescription gesture1 = new GestureDescription.Builder().addStroke(stroke1).build();
-        mService.runOnServiceSync(() -> mService.doDispatchGesture(gesture1, mCallback, null));
-        mCallback.assertGestureCompletes(gestureTime + GESTURE_COMPLETION_TIMEOUT);
+        StrokeDescription stroke1 =
+                new StrokeDescription(lineWithinView(startPoint, midPoint), 0, gestureTime, true);
+        dispatch(new GestureDescription.Builder().addStroke(stroke1).build(),
+                gestureTime + GESTURE_COMPLETION_TIMEOUT);
 
-        StrokeDescription stroke2 = new StrokeDescription(
-                linePathInViewBounds(midPoint, endPoint), 0, gestureTime, false);
-        GestureDescription gesture2 = new GestureDescription.Builder().addStroke(stroke2).build();
-        mCallback.reset();
-        mService.runOnServiceSync(() -> mService.doDispatchGesture(gesture2, mCallback, null));
-        mCallback.assertGestureCompletes(gestureTime + GESTURE_COMPLETION_TIMEOUT);
+        StrokeDescription stroke2 =
+                new StrokeDescription(lineWithinView(midPoint, endPoint), 0, gestureTime, false);
+        dispatch(new GestureDescription.Builder().addStroke(stroke2).build(),
+                gestureTime + GESTURE_COMPLETION_TIMEOUT);
 
         waitForMotionEvents(IS_ACTION_UP, 1);
 
@@ -479,20 +484,20 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        Point startPoint = new Point(10, 20);
-        Point midPoint = new Point(20, 20);
-        Point endPoint = new Point(20, 30);
+        PointF startPoint = new PointF(10, 20);
+        PointF midPoint = new PointF(20, 20);
+        PointF endPoint = new PointF(20, 30);
         int gestureTime = 500;
 
-        StrokeDescription stroke1 = new StrokeDescription(
-                linePathInViewBounds(startPoint, midPoint), 0, gestureTime, true);
+        StrokeDescription stroke1 =
+                new StrokeDescription(lineWithinView(startPoint, midPoint), 0, gestureTime, true);
 
-        StrokeDescription stroke2 = stroke1.continueStroke(
-                linePathInViewBounds(midPoint, endPoint), 0, gestureTime, false);
-        GestureDescription gesture = new GestureDescription.Builder().addStroke(stroke2).build();
-        mCallback.reset();
-        mService.runOnServiceSync(() -> mService.doDispatchGesture(gesture, mCallback, null));
-        mCallback.assertGestureCancels(gestureTime + GESTURE_COMPLETION_TIMEOUT);
+        StrokeDescription stroke2 =
+                stroke1.continueStroke(lineWithinView(midPoint, endPoint), 0, gestureTime, false);
+        awaitCancellation(
+                dispatchGesture(mService,
+                        new GestureDescription.Builder().addStroke(stroke2).build()),
+                gestureTime + GESTURE_COMPLETION_TIMEOUT, MILLISECONDS);
     }
 
     public static class GestureDispatchActivity extends AccessibilityTestActivity {
@@ -504,52 +509,6 @@ public class AccessibilityGestureDispatchTest extends
         public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
             setContentView(R.layout.full_screen_frame_layout);
-        }
-    }
-
-    public static class MyGestureCallback extends AccessibilityService.GestureResultCallback {
-        private boolean mCompleted;
-        private boolean mCancelled;
-
-        @Override
-        public synchronized void onCompleted(GestureDescription gestureDescription) {
-            mCompleted = true;
-            notifyAll();
-        }
-
-        @Override
-        public synchronized void onCancelled(GestureDescription gestureDescription) {
-            mCancelled = true;
-            notifyAll();
-        }
-
-        public synchronized void assertGestureCompletes(long timeout) {
-            if (mCompleted) {
-                return;
-            }
-            try {
-                wait(timeout);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            assertTrue("Gesture did not complete. Canceled = " + mCancelled, mCompleted);
-        }
-
-        public synchronized void assertGestureCancels(long timeout) {
-            if (mCancelled) {
-                return;
-            }
-            try {
-                wait(timeout);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            assertTrue("Gesture did not cancel. Completed = " + mCompleted, mCancelled);
-        }
-
-        public synchronized void reset() {
-            mCancelled = false;
-            mCompleted = false;
         }
     }
 
@@ -597,53 +556,38 @@ public class AccessibilityGestureDispatchTest extends
         }
     }
 
-    private GestureDescription createClickInViewBounds(Point clickPoint) {
-        Point offsetClick = new Point(clickPoint);
-        offsetClick.offset(mViewLocation[0], mViewLocation[1]);
-        return createClick(offsetClick);
-    }
-
-    private GestureDescription createClick(Point clickPoint) {
-        return createClick(new PointF(clickPoint.x, clickPoint.y));
-    }
-
-    private GestureDescription createClick(PointF clickPoint) {
-        Path clickPath = new Path();
-        clickPath.moveTo(clickPoint.x, clickPoint.y);
-        StrokeDescription clickStroke =
-                new StrokeDescription(clickPath, 0, ViewConfiguration.getTapTimeout());
-        GestureDescription.Builder clickBuilder = new GestureDescription.Builder();
-        clickBuilder.addStroke(clickStroke);
-        return clickBuilder.build();
-    }
-
-    private GestureDescription createLongClickInViewBounds(Point clickPoint) {
-        Point offsetPoint = new Point(clickPoint);
-        offsetPoint.offset(mViewLocation[0], mViewLocation[1]);
-        Path clickPath = new Path();
-        clickPath.moveTo(offsetPoint.x, offsetPoint.y);
-        int longPressTime = ViewConfiguration.getLongPressTimeout();
-
-        StrokeDescription longClickStroke =
-                new StrokeDescription(clickPath, 0, longPressTime + (longPressTime / 2));
-        GestureDescription.Builder longClickBuilder = new GestureDescription.Builder();
-        longClickBuilder.addStroke(longClickStroke);
-        return longClickBuilder.build();
-    }
-
-    private GestureDescription createSwipeInViewBounds(Point start, Point end, long duration) {
-        return new GestureDescription.Builder().addStroke(
-                new StrokeDescription(linePathInViewBounds(start, end), 0, duration, false))
+    private GestureDescription clickWithinView(PointF clickPoint) {
+        return new GestureDescription.Builder()
+                .addStroke(click(withinView(clickPoint)))
                 .build();
     }
 
-    private GestureDescription createPinchInViewBounds(Point centerPoint, int startSpacing,
+    private GestureDescription longClickWithinView(PointF clickPoint) {
+        return new GestureDescription.Builder()
+                .addStroke(longClick(withinView(clickPoint)))
+                .build();
+    }
+
+    private PointF withinView(PointF clickPoint) {
+        return add(clickPoint, mViewLocation[0], mViewLocation[1]);
+    }
+
+    private GestureDescription swipeWithinView(PointF start, PointF end, long duration) {
+        return new GestureDescription.Builder()
+                .addStroke(new StrokeDescription(lineWithinView(start, end), 0, duration))
+                .build();
+    }
+
+    private Path lineWithinView(PointF startPoint, PointF endPoint) {
+        return path(withinView(startPoint), withinView(endPoint));
+    }
+
+    private GestureDescription pinchWithinView(PointF centerPoint, int startSpacing,
             int endSpacing, float orientation, long duration) {
         if ((startSpacing < 0) || (endSpacing < 0)) {
             throw new IllegalArgumentException("Pinch spacing cannot be negative");
         }
-        Point offsetCenter = new Point(centerPoint);
-        offsetCenter.offset(mViewLocation[0], mViewLocation[1]);
+        PointF offsetCenter = withinView(centerPoint);
         float[] startPoint1 = new float[2];
         float[] endPoint1 = new float[2];
         float[] startPoint2 = new float[2];
@@ -675,19 +619,10 @@ public class AccessibilityGestureDispatchTest extends
         path2.moveTo(startPoint2[0], startPoint2[1]);
         path2.lineTo(endPoint2[0], endPoint2[1]);
 
-        StrokeDescription path1Stroke = new StrokeDescription(path1, 0, duration);
-        StrokeDescription path2Stroke = new StrokeDescription(path2, 0, duration);
-        GestureDescription.Builder swipeBuilder = new GestureDescription.Builder();
-        swipeBuilder.addStroke(path1Stroke);
-        swipeBuilder.addStroke(path2Stroke);
-        return swipeBuilder.build();
-    }
-
-    Path linePathInViewBounds(Point startPoint, Point endPoint) {
-        Path path = new Path();
-        path.moveTo(startPoint.x + mViewLocation[0], startPoint.y + mViewLocation[1]);
-        path.lineTo(endPoint.x + mViewLocation[0], endPoint.y + mViewLocation[1]);
-        return path;
+        return new GestureDescription.Builder()
+                .addStroke(new StrokeDescription(path1, 0, duration))
+                .addStroke(new StrokeDescription(path2, 0, duration))
+                .build();
     }
 
     private static class MotionEventActionMatcher extends TypeSafeMatcher<MotionEvent> {
@@ -705,13 +640,13 @@ public class AccessibilityGestureDispatchTest extends
 
         @Override
         public void describeTo(Description description) {
-            description.appendText("Matching to action " + mAction);
+            description.appendText("Matching to action " + MotionEvent.actionToString(mAction));
         }
     }
 
 
-    Matcher<MotionEvent> isAtPoint(final Point point) {
-        return isAtPoint(new PointF(point.x, point.y), 0.01f);
+    Matcher<MotionEvent> isAtPoint(final PointF point) {
+        return isAtPoint(point, 0.01f);
     }
 
     Matcher<MotionEvent> isAtPoint(final PointF point, final float tol) {

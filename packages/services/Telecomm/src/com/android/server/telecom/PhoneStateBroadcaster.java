@@ -106,7 +106,9 @@ final class PhoneStateBroadcaster extends CallsManagerListenerBase {
         mCurrentState = phoneState;
 
         String callHandle = null;
-        if (call.getHandle() != null) {
+        // Only report phone numbers in phone state broadcast for regular mobile calls; do not
+        // include numbers from 3rd party apps.
+        if (!call.isSelfManaged() && call.getHandle() != null) {
             callHandle = call.getHandle().getSchemeSpecificPart();
         }
 

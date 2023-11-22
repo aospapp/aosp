@@ -1,4 +1,4 @@
-// Copyright 2016, VIXL authors
+// Copyright 2017, VIXL authors
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -24,14 +24,14 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <string>
-#include <map>
 #include <iostream>
+#include <map>
+#include <string>
 
 #include "aarch32/constants-aarch32.h"
+#include "aarch32/disasm-aarch32.h"
 #include "aarch32/instructions-aarch32.h"
 #include "aarch32/macro-assembler-aarch32.h"
-#include "aarch32/disasm-aarch32.h"
 
 #define __ masm.
 
@@ -41,15 +41,15 @@ namespace aarch32 {
 // Example of disassembly customization.
 
 class CustomStream : public Disassembler::DisassemblerStream {
-  std::map<Label::Offset, const char*> symbols_;
+  std::map<Location::Offset, const char*> symbols_;
 
  public:
   CustomStream() : Disassembler::DisassemblerStream(std::cout) {}
-  std::map<Label::Offset, const char*>& GetSymbols() { return symbols_; }
+  std::map<Location::Offset, const char*>& GetSymbols() { return symbols_; }
   virtual DisassemblerStream& operator<<(const Disassembler::PrintLabel& label)
       VIXL_OVERRIDE {
-    std::map<Label::Offset, const char*>::iterator symbol =
-        symbols_.find(label.GetLabel()->GetLocation() + label.GetPosition());
+    std::map<Location::Offset, const char*>::iterator symbol =
+        symbols_.find(label.GetLocation());
     // If the label was named, print the name instead of the address.
     if (symbol != symbols_.end()) {
       os() << symbol->second;
@@ -76,7 +76,7 @@ class CustomDisassembler : public PrintDisassembler {
   virtual void PrintCodeAddress(uint32_t pc) VIXL_OVERRIDE {
     // If the address matches a label, then print the label. Otherwise, print
     // nothing.
-    std::map<Label::Offset, const char*>::iterator symbol =
+    std::map<Location::Offset, const char*>::iterator symbol =
         GetStream()->GetSymbols().find(pc);
     if (symbol != GetStream()->GetSymbols().end()) {
       os().os() << symbol->second << ":" << std::endl;
@@ -101,10 +101,10 @@ class NamedLabel : public Label {
  public:
   NamedLabel(CustomStream* stream, const char* name)
       : stream_(stream), name_(name) {}
-  ~NamedLabel() {
+  ~NamedLabel() VIXL_THROW_IN_NEGATIVE_TESTING_MODE(std::runtime_error) {
     if (IsBound()) {
       stream_->GetSymbols().insert(
-          std::pair<Label::Offset, const char*>(GetLocation(), name_));
+          std::pair<Location::Offset, const char*>(GetLocation(), name_));
     }
   }
 };

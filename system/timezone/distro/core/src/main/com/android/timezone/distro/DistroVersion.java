@@ -32,7 +32,7 @@ public class DistroVersion {
      * version to 1 when doing so.
      * This constant must match the one in system/core/tzdatacheck/tzdatacheck.cpp.
      */
-    public static final int CURRENT_FORMAT_MAJOR_VERSION = 1;
+    public static final int CURRENT_FORMAT_MAJOR_VERSION = 2;
 
     /**
      * The minor distro format version supported by this device. Increment this for

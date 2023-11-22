@@ -154,7 +154,7 @@ FvbGetVolumeAttributes (
 {
   EFI_FW_VOL_INSTANCE *    FwInstance = NULL;
   FwInstance = GetFvbInstance(Instance);
-  ASSERT_EFI_ERROR (FwInstance != NULL);
+  ASSERT (FwInstance != NULL);
 
   if ( FwInstance != NULL ) {
     return FwInstance->VolumeHeader.Attributes;
@@ -208,7 +208,7 @@ FvbGetLbaAddress (
   StartLba  = 0;
   Offset    = 0;
   BlockMap  = &(FwhInstance->VolumeHeader.BlockMap[0]);
-  ASSERT_EFI_ERROR (BlockMap != NULL);
+  ASSERT (BlockMap != NULL);
 
   //
   // Parse the blockmap of the FV to find which map entry the Lba belongs to.
@@ -356,11 +356,8 @@ FvbWriteBlock (
   EFI_FVB_ATTRIBUTES_2                    Attributes;
   UINTN                                   LbaAddress;
   UINTN                                   LbaLength;
-  EFI_FW_VOL_INSTANCE                     *FwhInstance;
   EFI_STATUS                              Status;
   EFI_STATUS                              Status1;
-
-  FwhInstance = GetFvbInstance (Instance);
 
   if ( (NumBytes == NULL) || (Buffer == NULL)) {
     return (EFI_INVALID_PARAMETER);
@@ -436,14 +433,8 @@ FvbEraseBlock (
 {
   EFI_FVB_ATTRIBUTES_2                    Attributes;
   UINTN                                   LbaAddress;
-  EFI_FW_VOL_INSTANCE                     *FwhInstance;
   UINTN                                   LbaLength;
   EFI_STATUS                              Status;
-
-  //
-  // Find the right instance of the FVB private data.
-  //
-  FwhInstance = GetFvbInstance (Instance);
 
   //
   // Check if the FV is write enabled.
@@ -512,7 +503,7 @@ FvbSetVolumeAttributes (
   FwhInstance = GetFvbInstance (Instance);
 
   AttribPtr     = (EFI_FVB_ATTRIBUTES_2 *) & (FwhInstance->VolumeHeader.Attributes);
-  ASSERT_EFI_ERROR (AttribPtr != NULL);
+  ASSERT (AttribPtr != NULL);
 
   if ( AttribPtr != NULL) {
     OldAttributes = *AttribPtr;
@@ -1016,7 +1007,6 @@ FvbInitialize (
   UINTN                                 TmpHeaderLength;
   UINTN                                 Idx;
   UINT32                                MaxLbaSize;
-  BOOLEAN                               FvHeaderValid;
 
   //
   // Calculate the total size for all firmware volume block instances.
@@ -1043,7 +1033,6 @@ FvbInitialize (
     FwVolHeader = (EFI_FIRMWARE_VOLUME_HEADER *) (UINTN) BaseAddress;
 
     if (!IsFvHeaderValid (BaseAddress, FwVolHeader)) {
-      FvHeaderValid = FALSE;
       //
       // If not valid, get FvbInfo from the information carried in
       // FVB driver.

@@ -15,56 +15,64 @@
  */
 package com.android.tv.tests.ui;
 
-import static com.android.tv.testing.uihelper.UiDeviceAsserts.assertWaitForCondition;
-
-import android.support.test.filters.LargeTest;
+import android.support.test.filters.MediumTest;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Until;
-
 import com.android.tv.R;
 import com.android.tv.testing.uihelper.ByResource;
-import com.android.tv.testing.uihelper.UiDeviceUtils;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * Tests for channel sources.
- */
-@LargeTest
-public class ChannelSourcesTest extends LiveChannelsTestCase {
+/** Tests for channel sources. */
+@MediumTest
+@RunWith(JUnit4.class)
+public class ChannelSourcesTest {
+    @Rule public final LiveChannelsTestController controller = new LiveChannelsTestController();
     private BySelector mBySettingsSidePanel;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mBySettingsSidePanel = mSidePanelHelper.bySidePanelTitled(
-                R.string.side_panel_title_settings);
+    @Before
+    public void before() throws Exception {
+        mBySettingsSidePanel =
+                controller.sidePanelHelper.bySidePanelTitled(R.string.side_panel_title_settings);
     }
 
-    //TODO: create a cancelable test channel setup.
+    // TODO: create a cancelable test channel setup.
 
+    @Test
     public void testSetup_cancel() {
-        mLiveChannelsHelper.assertAppStarted();
-        mMenuHelper.assertPressOptionsSettings();
-        assertWaitForCondition(mDevice, Until.hasObject(mBySettingsSidePanel));
+        controller.liveChannelsHelper.assertAppStarted();
+        controller.menuHelper.assertPressOptionsSettings();
+        controller.assertWaitForCondition(Until.hasObject(mBySettingsSidePanel));
 
-        mSidePanelHelper.assertNavigateToItem(R.string.settings_channel_source_item_setup);
-        mDevice.pressDPadCenter();
+        controller.sidePanelHelper.assertNavigateToItem(
+                R.string.settings_channel_source_item_setup);
+        controller.pressDPadCenter();
 
-        assertWaitForCondition(mDevice,
-                Until.hasObject(ByResource.text(mTargetResources, R.string.setup_sources_text)));
-        mDevice.pressBack();
+        controller.assertWaitForCondition(
+                Until.hasObject(
+                        ByResource.text(
+                                controller.getTargetResources(), R.string.setup_sources_text)));
+        controller.pressBack();
     }
 
     // SetupSourcesFragment should have no errors if side fragment item is clicked multiple times.
+    @Test
     public void testSetupTwice_cancel() {
-        mLiveChannelsHelper.assertAppStarted();
-        mMenuHelper.assertPressOptionsSettings();
-        assertWaitForCondition(mDevice, Until.hasObject(mBySettingsSidePanel));
+        controller.liveChannelsHelper.assertAppStarted();
+        controller.menuHelper.assertPressOptionsSettings();
+        controller.assertWaitForCondition(Until.hasObject(mBySettingsSidePanel));
 
-        mSidePanelHelper.assertNavigateToItem(R.string.settings_channel_source_item_setup);
-        UiDeviceUtils.pressDPadCenter(getInstrumentation(), 2);
+        controller.sidePanelHelper.assertNavigateToItem(
+                R.string.settings_channel_source_item_setup);
+        controller.pressDPadCenter(2);
 
-        assertWaitForCondition(mDevice,
-                Until.hasObject(ByResource.text(mTargetResources, R.string.setup_sources_text)));
-        mDevice.pressBack();
+        controller.assertWaitForCondition(
+                Until.hasObject(
+                        ByResource.text(
+                                controller.getTargetResources(), R.string.setup_sources_text)));
+        controller.pressBack();
     }
 }

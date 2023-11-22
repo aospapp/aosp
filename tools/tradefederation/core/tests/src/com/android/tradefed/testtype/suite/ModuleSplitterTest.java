@@ -20,6 +20,7 @@ import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
 
 import com.android.tradefed.config.Configuration;
+import com.android.tradefed.config.ConfigurationDef;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -38,6 +39,8 @@ import java.util.List;
 /** Unit tests for {@link ModuleSplitter}. */
 @RunWith(JUnit4.class)
 public class ModuleSplitterTest {
+
+    private static final String DEFAULT_DEVICE = ConfigurationDef.DEFAULT_DEVICE_NAME;
 
     /**
      * Tests that {@link ModuleSplitter#splitConfiguration(LinkedHashMap, int, boolean)} on a non
@@ -63,7 +66,9 @@ public class ModuleSplitterTest {
         // matching 1 for 1, config to ModuleDefinition since not shardable
         assertEquals(1, res.size());
         // The original target preparer is changed since we split multiple <test> tags.
-        assertNotSame(config.getTargetPreparers().get(0), res.get(0).getTargetPreparers().get(0));
+        assertNotSame(
+                config.getTargetPreparers().get(0),
+                res.get(0).getTargetPreparerForDevice(DEFAULT_DEVICE).get(0));
         // The original IRemoteTest is still there because we use a pool.
         assertSame(config.getTests().get(0), res.get(0).getTests().get(0));
     }
@@ -92,7 +97,9 @@ public class ModuleSplitterTest {
         // We are sharding since even if we are not-strict-shardable, we are in dynamic context
         assertEquals(10, res.size());
         // The original target preparer is changed since we split multiple <test> tags.
-        assertNotSame(config.getTargetPreparers().get(0), res.get(0).getTargetPreparers().get(0));
+        assertNotSame(
+                config.getTargetPreparers().get(0),
+                res.get(0).getTargetPreparerForDevice(DEFAULT_DEVICE).get(0));
         // The original IRemoteTest is changed since it was sharded
         assertNotSame(config.getTests().get(0), res.get(0).getTests().get(0));
     }
@@ -121,7 +128,9 @@ public class ModuleSplitterTest {
         // matching 1 for 1, config to ModuleDefinition since not shardable
         assertEquals(1, res.size());
         // The original target preparer is changed since we split multiple <test> tags.
-        assertNotSame(config.getTargetPreparers().get(0), res.get(0).getTargetPreparers().get(0));
+        assertNotSame(
+                config.getTargetPreparers().get(0),
+                res.get(0).getTargetPreparerForDevice(DEFAULT_DEVICE).get(0));
         // The original IRemoteTest is still there because we use a pool.
         assertSame(config.getTests().get(0), res.get(0).getTests().get(0));
     }
@@ -151,10 +160,12 @@ public class ModuleSplitterTest {
         // matching 1 for 1, config to ModuleDefinition since not shardable
         assertEquals(1, res.size());
         // The original target preparer is not there, it has been copied
-        assertNotSame(config.getTargetPreparers().get(0), res.get(0).getTargetPreparers().get(0));
+        assertNotSame(
+                config.getTargetPreparers().get(0),
+                res.get(0).getTargetPreparerForDevice(DEFAULT_DEVICE).get(0));
         assertEquals(
                 config.getTargetPreparers().get(0).getClass(),
-                res.get(0).getTargetPreparers().get(0).getClass());
+                res.get(0).getTargetPreparerForDevice(DEFAULT_DEVICE).get(0).getClass());
         // The original IRemoteTest is still there
         assertSame(config.getTests().get(0), res.get(0).getTests().get(0));
     }
@@ -177,10 +188,12 @@ public class ModuleSplitterTest {
         // matching 1 for 1, config to ModuleDefinition since did not shard
         assertEquals(1, res.size());
         // The original target preparer is not there, it has been copied
-        assertNotSame(config.getTargetPreparers().get(0), res.get(0).getTargetPreparers().get(0));
+        assertNotSame(
+                config.getTargetPreparers().get(0),
+                res.get(0).getTargetPreparerForDevice(DEFAULT_DEVICE).get(0));
         assertEquals(
                 config.getTargetPreparers().get(0).getClass(),
-                res.get(0).getTargetPreparers().get(0).getClass());
+                res.get(0).getTargetPreparerForDevice(DEFAULT_DEVICE).get(0).getClass());
         // The original IRemoteTest is still there
         assertSame(config.getTests().get(0), res.get(0).getTests().get(0));
     }

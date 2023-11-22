@@ -13,33 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 // Definitions internal to Minikin
-#define LOG_TAG "Minikin"
 
-#include "MinikinInternal.h"
-#include "HbFontCache.h"
+#define LOG_TAG "Minikin"
 
 #include <log/log.h>
 
+#include "MinikinInternal.h"
+
 namespace minikin {
-
-android::Mutex gMinikinLock;
-
-void assertMinikinLocked() {
-#ifdef ENABLE_RACE_DETECTION
-    LOG_ALWAYS_FATAL_IF(gMinikinLock.tryLock() == 0);
-#endif
-}
-
-hb_blob_t* getFontTable(const MinikinFont* minikinFont, uint32_t tag) {
-    assertMinikinLocked();
-    hb_font_t* font = getHbFontLocked(minikinFont);
-    hb_face_t* face = hb_font_get_face(font);
-    hb_blob_t* blob = hb_face_reference_table(face, tag);
-    hb_font_destroy(font);
-    return blob;
-}
 
 inline static bool isBMPVariationSelector(uint32_t codePoint) {
     return VS1 <= codePoint && codePoint <= VS16;

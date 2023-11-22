@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Tüm bilgiler ve kişiler temizlensin mi?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Tıbbi bilgileri ve acil durumda aranacak kişileri eklemek, acil durumda ilk müdahaleyi yapanlara yardımcı olabilir.\n\nKilit ekranınızdaki bu bilgileri okuyan herhangi biri, ekrandaki adlara dokunarak telefonunuzun kilidini açmadan bu kişilere telefon edebilir."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Acil durum bilgisi ekleyin"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"İlk müdahalede bulunanların önemli bilgileri bulmasına yardımcı olun"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"İlk yanıt verenlerin bilgilerinizi görmesine izin verin"</string>
 </resources>

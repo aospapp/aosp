@@ -84,9 +84,7 @@ crypto_sources := \
   src/crypto/cpu-intel.c\
   src/crypto/cpu-ppc64le.c\
   src/crypto/crypto.c\
-  src/crypto/curve25519/curve25519.c\
   src/crypto/curve25519/spake25519.c\
-  src/crypto/curve25519/x25519-x86_64.c\
   src/crypto/dh/check.c\
   src/crypto/dh/dh.c\
   src/crypto/dh/dh_asn1.c\
@@ -234,6 +232,7 @@ crypto_sources := \
   src/crypto/x509v3/v3_skey.c\
   src/crypto/x509v3/v3_sxnet.c\
   src/crypto/x509v3/v3_utl.c\
+  src/third_party/fiat/curve25519.c\
 
 linux_aarch64_sources := \
   linux-aarch64/crypto/chacha/chacha-armv8.S\
@@ -295,5 +294,4 @@ linux_x86_64_sources := \
   linux-x86_64/crypto/fipsmodule/vpaes-x86_64.S\
   linux-x86_64/crypto/fipsmodule/x86_64-mont.S\
   linux-x86_64/crypto/fipsmodule/x86_64-mont5.S\
-  src/crypto/curve25519/asm/x25519-asm-x86_64.S\
 

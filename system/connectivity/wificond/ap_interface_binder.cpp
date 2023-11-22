@@ -21,24 +21,69 @@
 
 #include "wificond/ap_interface_impl.h"
 
-using android::wifi_system::HostapdManager;
+using android::net::wifi::IApInterfaceEventCallback;
 
 namespace android {
 namespace wificond {
 
-ApInterfaceBinder::ApInterfaceBinder(ApInterfaceImpl* impl) : impl_{impl} {
-}
+ApInterfaceBinder::ApInterfaceBinder(ApInterfaceImpl* impl)
+    : impl_{impl}, ap_interface_event_callback_(nullptr) {}
 
 ApInterfaceBinder::~ApInterfaceBinder() {
 }
 
-binder::Status ApInterfaceBinder::startHostapd(bool* out_success) {
+void ApInterfaceBinder::NotifyNumAssociatedStationsChanged(int num_stations) {
+  if (ap_interface_event_callback_ != nullptr) {
+    ap_interface_event_callback_->onNumAssociatedStationsChanged(num_stations);
+  }
+}
+
+void ApInterfaceBinder::NotifySoftApChannelSwitched(
+    int frequency, ChannelBandwidth channel_bandwidth) {
+  if (ap_interface_event_callback_ == nullptr) {
+    return;
+  }
+
+  int bandwidth;
+  switch (channel_bandwidth) {
+    case ChannelBandwidth::BW_INVALID:
+      bandwidth = IApInterfaceEventCallback::BANDWIDTH_INVALID;
+      break;
+    case ChannelBandwidth::BW_20_NOHT:
+      bandwidth = IApInterfaceEventCallback::BANDWIDTH_20_NOHT;
+      break;
+    case ChannelBandwidth::BW_20:
+      bandwidth = IApInterfaceEventCallback::BANDWIDTH_20;
+      break;
+    case ChannelBandwidth::BW_40:
+      bandwidth = IApInterfaceEventCallback::BANDWIDTH_40;
+      break;
+    case ChannelBandwidth::BW_80:
+      bandwidth = IApInterfaceEventCallback::BANDWIDTH_80;
+      break;
+    case ChannelBandwidth::BW_80P80:
+      bandwidth = IApInterfaceEventCallback::BANDWIDTH_80P80;
+      break;
+    case ChannelBandwidth::BW_160:
+      bandwidth = IApInterfaceEventCallback::BANDWIDTH_160;
+      break;
+    default:
+      bandwidth = IApInterfaceEventCallback::BANDWIDTH_INVALID;
+  }
+  ap_interface_event_callback_->onSoftApChannelSwitched(frequency, bandwidth);
+}
+
+binder::Status ApInterfaceBinder::startHostapd(
+    const sp<IApInterfaceEventCallback>& callback, bool* out_success) {
   *out_success = false;
   if (!impl_) {
     LOG(WARNING) << "Cannot start hostapd on dead ApInterface.";
     return binder::Status::ok();
   }
   *out_success = impl_->StartHostapd();
+  if (*out_success) {
+    ap_interface_event_callback_ = callback;
+  }
   return binder::Status::ok();
 }
 
@@ -49,41 +94,7 @@ binder::Status ApInterfaceBinder::stopHostapd(bool* out_success) {
     return binder::Status::ok();
   }
   *out_success = impl_->StopHostapd();
-  return binder::Status::ok();
-}
-
-binder::Status ApInterfaceBinder::writeHostapdConfig(
-    const std::vector<uint8_t>& ssid,
-    bool is_hidden,
-    int32_t channel,
-    int32_t binder_encryption_type,
-    const std::vector<uint8_t>& passphrase,
-    bool* out_success) {
-  *out_success = false;
-  if (!impl_) {
-    LOG(WARNING) << "Cannot set config on dead ApInterface.";
-    return binder::Status::ok();
-  }
-
-  HostapdManager::EncryptionType encryption_type;
-  switch (binder_encryption_type) {
-    case IApInterface::ENCRYPTION_TYPE_NONE:
-      encryption_type = HostapdManager::EncryptionType::kOpen;
-      break;
-    case IApInterface::ENCRYPTION_TYPE_WPA:
-      encryption_type = HostapdManager::EncryptionType::kWpa;
-      break;
-    case IApInterface::ENCRYPTION_TYPE_WPA2:
-      encryption_type = HostapdManager::EncryptionType::kWpa2;
-      break;
-    default:
-      LOG(ERROR) << "Unknown encryption type: " << binder_encryption_type;
-      return binder::Status::ok();
-  }
-
-  *out_success = impl_->WriteHostapdConfig(
-      ssid, is_hidden, channel, encryption_type, passphrase);
-
+  ap_interface_event_callback_.clear();
   return binder::Status::ok();
 }
 

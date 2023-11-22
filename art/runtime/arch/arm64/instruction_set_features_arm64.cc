@@ -19,10 +19,10 @@
 #include <fstream>
 #include <sstream>
 
-#include "android-base/stringprintf.h"
-#include "android-base/strings.h"
+#include <android-base/logging.h>
+#include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 
-#include "base/logging.h"
 #include "base/stl_util.h"
 
 namespace art {
@@ -52,8 +52,11 @@ Arm64FeaturesUniquePtr Arm64InstructionSetFeatures::FromVariant(
     // Check to see if this is an expected variant.
     static const char* arm64_known_variants[] = {
         "cortex-a35",
+        "cortex-a55",
+        "cortex-a75",
         "exynos-m1",
         "exynos-m2",
+        "exynos-m3",
         "denver64",
         "kryo"
     };
@@ -98,7 +101,7 @@ Arm64FeaturesUniquePtr Arm64InstructionSetFeatures::FromAssembly() {
 }
 
 bool Arm64InstructionSetFeatures::Equals(const InstructionSetFeatures* other) const {
-  if (kArm64 != other->GetInstructionSet()) {
+  if (InstructionSet::kArm64 != other->GetInstructionSet()) {
     return false;
   }
   const Arm64InstructionSetFeatures* other_as_arm64 = other->AsArm64InstructionSetFeatures();

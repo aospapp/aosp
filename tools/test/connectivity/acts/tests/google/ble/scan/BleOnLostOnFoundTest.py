@@ -18,6 +18,7 @@ This test script exercises different onLost/onFound scenarios.
 """
 
 from queue import Empty
+from acts import utils
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.bt_constants import ble_advertise_settings_modes
@@ -35,7 +36,6 @@ from acts.test_utils.bt.bt_constants import scan_result
 
 class BleOnLostOnFoundTest(BluetoothBaseTest):
     default_timeout = 10
-    max_scan_instances = 28
     active_scan_callback_list = []
     active_adv_callback_list = []
 
@@ -43,6 +43,12 @@ class BleOnLostOnFoundTest(BluetoothBaseTest):
         BluetoothBaseTest.__init__(self, controllers)
         self.scn_ad = self.android_devices[0]
         self.adv_ad = self.android_devices[1]
+
+    def setup_class(self):
+        super(BluetoothBaseTest, self).setup_class()
+        utils.set_location_service(self.scn_ad, True)
+        utils.set_location_service(self.adv_ad, True)
+        return True
 
     def teardown_test(self):
         cleanup_scanners_and_advertisers(

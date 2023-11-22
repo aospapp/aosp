@@ -42,8 +42,10 @@ import android.provider.Settings;
 import com.android.settingslib.deviceinfo.StorageVolumeProvider;
 import com.android.storagemanager.overlay.FeatureFactory;
 import com.android.storagemanager.overlay.StorageManagementJobProvider;
+import com.android.storagemanager.testing.StorageManagerShadowSystemProperties;
 import com.android.storagemanager.testing.TestingConstants;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -69,7 +71,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest=TestingConstants.MANIFEST, sdk=TestingConstants.SDK_VERSION)
+@Config(
+    manifest = TestingConstants.MANIFEST,
+    sdk = TestingConstants.SDK_VERSION,
+    shadows = {StorageManagerShadowSystemProperties.class}
+)
 public class AutomaticStorageManagementJobServiceTest {
     @Mock private BatteryManager mBatteryManager;
     @Mock private NotificationManager mNotificationManager;
@@ -95,12 +101,15 @@ public class AutomaticStorageManagementJobServiceTest {
         // 2. We have a completely full device.
         // 3. ASM is disabled.
         when(mBatteryManager.isCharging()).thenReturn(true);
-        mVolumes = new ArrayList<>();
+
         when(mVolumeInfo.getPath()).thenReturn(mFile);
         when(mVolumeInfo.getType()).thenReturn(VolumeInfo.TYPE_PRIVATE);
         when(mVolumeInfo.getFsUuid()).thenReturn(StorageManager.UUID_PRIMARY_PHYSICAL);
         when(mVolumeInfo.isMountedReadable()).thenReturn(true);
+
+        mVolumes = new ArrayList<>();
         mVolumes.add(mVolumeInfo);
+
         when(mStorageVolumeProvider.getPrimaryStorageSize()).thenReturn(100L);
         when(mStorageVolumeProvider.getVolumes()).thenReturn(mVolumes);
         when(mStorageVolumeProvider.getFreeBytes(
@@ -139,6 +148,11 @@ public class AutomaticStorageManagementJobServiceTest {
         when(mJobService.getResources()).thenReturn(fakeResources);
     }
 
+    @After
+    public void tearDown() {
+        StorageManagerShadowSystemProperties.clear();
+    }
+
     @Test
     public void testJobRequiresCharging() {
         when(mBatteryManager.isCharging()).thenReturn(false);
@@ -172,6 +186,13 @@ public class AutomaticStorageManagementJobServiceTest {
     @Test
     public void testASMJobRunsWithValidConditions() {
         activateASM();
+        assertThat(mJobService.onStartJob(mJobParameters)).isFalse();
+        assertStorageManagerJobRan();
+    }
+
+    @Test
+    public void testASMJobRunsWithValidConditionsIfOptInNotShownButUnactivated() {
+        StorageManagerShadowSystemProperties.put("ro.storage_manager.show_opt_in", "false");
         assertThat(mJobService.onStartJob(mJobParameters)).isFalse();
         assertStorageManagerJobRan();
     }
@@ -266,10 +287,10 @@ public class AutomaticStorageManagementJobServiceTest {
         AutomaticStorageManagementJobService.Clock fakeClock =
                 mock(AutomaticStorageManagementJobService.Clock.class);
         when(fakeClock.currentTimeMillis()).thenReturn(1001L);
-        when(mStorageManagementJobProvider.getDisableThresholdMillis(any(ContentResolver.class)))
+        when(mStorageManagementJobProvider.getDisableThresholdMillis(any(Context.class)))
                 .thenReturn(1000L);
         AutomaticStorageManagementJobService.maybeDisableDueToPolicy(
-                mStorageManagementJobProvider, resolver, fakeClock);
+                mStorageManagementJobProvider, mApplication.getApplicationContext(), fakeClock);
 
         assertThat(
                         Settings.Secure.getInt(
@@ -287,10 +308,10 @@ public class AutomaticStorageManagementJobServiceTest {
         AutomaticStorageManagementJobService.Clock fakeClock =
                 mock(AutomaticStorageManagementJobService.Clock.class);
         when(fakeClock.currentTimeMillis()).thenReturn(1001L);
-        when(mStorageManagementJobProvider.getDisableThresholdMillis(any(ContentResolver.class)))
+        when(mStorageManagementJobProvider.getDisableThresholdMillis(any(Context.class)))
                 .thenReturn(1000L);
         AutomaticStorageManagementJobService.maybeDisableDueToPolicy(
-                mStorageManagementJobProvider, resolver, fakeClock);
+                mStorageManagementJobProvider, mApplication.getApplicationContext(), fakeClock);
 
         assertThat(
                         Settings.Secure.getInt(
@@ -306,10 +327,10 @@ public class AutomaticStorageManagementJobServiceTest {
         AutomaticStorageManagementJobService.Clock fakeClock =
                 mock(AutomaticStorageManagementJobService.Clock.class);
         when(fakeClock.currentTimeMillis()).thenReturn(1001L);
-        when(mStorageManagementJobProvider.getDisableThresholdMillis(any(ContentResolver.class)))
+        when(mStorageManagementJobProvider.getDisableThresholdMillis(any(Context.class)))
                 .thenReturn(1000L);
         AutomaticStorageManagementJobService.maybeDisableDueToPolicy(
-                mStorageManagementJobProvider, resolver, fakeClock);
+                mStorageManagementJobProvider, mApplication.getApplicationContext(), fakeClock);
 
         assertThat(
                         Settings.Secure.getInt(
@@ -326,10 +347,10 @@ public class AutomaticStorageManagementJobServiceTest {
         AutomaticStorageManagementJobService.Clock fakeClock =
                 mock(AutomaticStorageManagementJobService.Clock.class);
         when(fakeClock.currentTimeMillis()).thenReturn(999L);
-        when(mStorageManagementJobProvider.getDisableThresholdMillis(any(ContentResolver.class)))
+        when(mStorageManagementJobProvider.getDisableThresholdMillis(any(Context.class)))
                 .thenReturn(1000L);
         AutomaticStorageManagementJobService.maybeDisableDueToPolicy(
-                mStorageManagementJobProvider, resolver, fakeClock);
+                mStorageManagementJobProvider, mApplication.getApplicationContext(), fakeClock);
 
         assertThat(
                         Settings.Secure.getInt(

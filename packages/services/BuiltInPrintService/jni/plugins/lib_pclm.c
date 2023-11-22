@@ -210,8 +210,8 @@ static int _start_page(pcl_job_info_t *job_info, int pixel_width, int pixel_heig
     job_info->pclm_scan_line_width =
             job_info->pclm_page_info.mediaWidthInPixels * job_info->num_components;
 
-    LOGD("PCLmGetMediaDimensions(%d), mediaSizeName=%s, mediaheight=%f, mediawidth=%f, "
-            "mheightpixels=%d, mwidthpixels=%d", res1, job_info->pclm_page_info.mediaSizeName,
+    LOGD("PCLmGetMediaDimensions(%d), mediaSizeName=%s, mediaWidth=%f, mediaHeight=%f, "
+            "widthPixels=%d, heightPixels=%d", res1, job_info->pclm_page_info.mediaSizeName,
             job_info->pclm_page_info.mediaWidth, job_info->pclm_page_info.mediaHeight,
             job_info->pclm_page_info.mediaWidthInPixels,
             job_info->pclm_page_info.mediaHeightInPixels);

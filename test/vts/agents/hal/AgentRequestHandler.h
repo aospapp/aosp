@@ -18,16 +18,10 @@
 #define __VTS_AGENT_REQUEST_HANDLER_H__
 
 #include <string>
-#include <vector>
-
-#include <VtsDriverCommUtil.h>
 
 #include "SocketClientToDriver.h"
 #include "test/vts/proto/AndroidSystemControlMessage.pb.h"
 #include "test/vts/proto/VtsDriverControlMessage.pb.h"
-
-using namespace std;
-using namespace google::protobuf;
 
 namespace android {
 namespace vts {
@@ -53,8 +47,7 @@ class AgentRequestHandler : public VtsDriverCommUtil {
 
  protected:
   // for the LIST_HAL command
-  bool ListHals(
-      const ::google::protobuf::RepeatedPtrField<::std::string>& base_paths);
+  bool ListHals(const ::google::protobuf::RepeatedPtrField<string>& base_paths);
 
   // for the SET_HOST_INFO command.
   bool SetHostInfo(const int callback_port);

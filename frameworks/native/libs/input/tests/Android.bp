@@ -6,6 +6,13 @@ cc_test {
         "InputChannel_test.cpp",
         "InputEvent_test.cpp",
         "InputPublisherAndConsumer_test.cpp",
+        "VelocityTracker_test.cpp",
+    ],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wno-unused-variable",
     ],
     shared_libs: [
         "libinput",
@@ -13,6 +20,7 @@ cc_test {
         "libutils",
         "libbinder",
         "libui",
+        "libbase",
     ]
 }
 
@@ -24,5 +32,7 @@ cc_library_static {
     srcs: ["StructLayout_test.cpp"],
     cflags: [
         "-O0",
+        "-Wall",
+        "-Werror",
     ],
 }

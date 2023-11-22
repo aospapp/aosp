@@ -17,6 +17,8 @@
 cc_defaults {
     name: "libprotobuf-c-nano-defaults",
     cflags: [
+        "-Wall",
+        "-Werror",
         "-Wno-sign-compare",
         "-Wno-unused-parameter",
     ],

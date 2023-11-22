@@ -20,41 +20,40 @@ import static junit.framework.Assert.assertTrue;
 import android.support.test.uiautomator.SearchCondition;
 import android.support.test.uiautomator.UiObject2;
 
-/**
- * Asserts for {@link UiObject2}s.
- */
+/** Asserts for {@link UiObject2}s. */
 public final class UiObject2Asserts {
 
     /**
-     * Assert that {@code searchCondition} becomes true within
-     * {@value Constants#MAX_SHOW_DELAY_MILLIS} milliseconds.
+     * Assert that {@code searchCondition} becomes true within {@value
+     * Constants#MAX_SHOW_DELAY_MILLIS} milliseconds.
      *
-     * @param uiObject        the device under test.
+     * @param uiObject the device under test.
      * @param searchCondition the condition to wait for.
      */
-    public static void assertWaitForCondition(UiObject2 uiObject,
-            SearchCondition<Boolean> searchCondition) {
+    public static void assertWaitForCondition(
+            UiObject2 uiObject, SearchCondition<Boolean> searchCondition) {
         assertWaitForCondition(uiObject, searchCondition, Constants.MAX_SHOW_DELAY_MILLIS);
     }
 
     /**
      * Assert that {@code searchCondition} becomes true within {@code timeout} milliseconds.
      *
-     * @param uiObject        the device under test.
+     * @param uiObject the device under test.
      * @param searchCondition the condition to wait for.
      */
-    public static void assertWaitForCondition(UiObject2 uiObject,
-            SearchCondition<Boolean> searchCondition, long timeout) {
+    public static void assertWaitForCondition(
+            UiObject2 uiObject, SearchCondition<Boolean> searchCondition, long timeout) {
         long adjustedTimeout = getAdjustedTimeout(timeout);
         boolean result = uiObject.wait(searchCondition, adjustedTimeout);
         assertTrue(searchCondition + " not true after " + timeout / 1000.0 + " seconds.", result);
     }
 
     public static long getAdjustedTimeout(long timeout) {
-        return timeout + Math.max(
-                Constants.MIN_EXTRA_TIMEOUT, (long) (timeout * Constants.EXTRA_TIMEOUT_PERCENT));
+        return timeout
+                + Math.max(
+                        Constants.MIN_EXTRA_TIMEOUT,
+                        (long) (timeout * Constants.EXTRA_TIMEOUT_PERCENT));
     }
 
-    private UiObject2Asserts() {
-    }
+    private UiObject2Asserts() {}
 }

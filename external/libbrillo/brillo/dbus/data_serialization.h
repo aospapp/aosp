@@ -36,7 +36,7 @@
 //               |     (UVW...)    |  std::tuple<U,V,W,...>
 //   DICT        |       a{KV}     |  std::map<K,V>
 //   VARIANT     |        v        |  brillo::Any
-//   UNIX_FD     |        h        |  dbus::FileDescriptor
+//   UNIX_FD     |        h        |  base::ScopedFD
 //   SIGNATURE   |        g        |  (unsupported)
 //
 // Additional overloads/specialization can be provided for custom types.
@@ -58,6 +58,7 @@
 #include <vector>
 
 #include <base/logging.h>
+#include <base/files/scoped_file.h>
 #include <brillo/brillo_export.h>
 #include <brillo/type_name_undecorate.h>
 #include <dbus/message.h>
@@ -411,23 +412,23 @@ struct DBusType<dbus::ObjectPath> {
   }
 };
 
-// dbus::FileDescriptor -------------------------------------------------------
+// base::ScopedFD -------------------------------------------------------------
 BRILLO_EXPORT void AppendValueToWriter(dbus::MessageWriter* writer,
-                                         const dbus::FileDescriptor& value);
+                                         const base::ScopedFD& value);
 BRILLO_EXPORT bool PopValueFromReader(dbus::MessageReader* reader,
-                                        dbus::FileDescriptor* value);
+                                        base::ScopedFD* value);
 
 template<>
-struct DBusType<dbus::FileDescriptor> {
+struct DBusType<base::ScopedFD> {
   inline static std::string GetSignature() {
     return DBUS_TYPE_UNIX_FD_AS_STRING;
   }
   inline static void Write(dbus::MessageWriter* writer,
-                           const dbus::FileDescriptor& value) {
+                           const base::ScopedFD& value) {
     AppendValueToWriter(writer, value);
   }
   inline static bool Read(dbus::MessageReader* reader,
-                          dbus::FileDescriptor* value) {
+                          base::ScopedFD* value) {
     return PopValueFromReader(reader, value);
   }
 };

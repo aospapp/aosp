@@ -1,2 +1,0 @@
-# required for voice command remote control
-allow audioserver remote_control_service:service_manager find;

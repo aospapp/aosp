@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
             perror("Failed to set gpio to 1");
         close(gpio);
         ts.tv_sec = 0;
-        ts.tv_nsec = 5000000;
+        ts.tv_nsec = 200000000;
         nanosleep(&ts, NULL);
     }
 
@@ -191,8 +191,10 @@ int main(int argc, char *argv[])
         val = i2c_init(handle);
     }
 
-    if (val < 0)
+    if (val < 0) {
+        printf("Init failed\n");
         return val;
+    }
 
     if (sector >= 0) {
         printf("Erasing sector %d\n", sector);

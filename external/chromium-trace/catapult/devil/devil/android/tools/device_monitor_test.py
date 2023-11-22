@@ -25,7 +25,8 @@ class DeviceMonitorTest(unittest.TestCase):
 
   def setUp(self):
     self.device = mock.Mock(spec=device_utils.DeviceUtils,
-        serial='device_cereal', build_id='abc123', build_product='clownfish')
+        serial='device_cereal', build_id='abc123', build_product='clownfish',
+        GetIMEI=lambda: '123456789')
     self.file_contents = {
         '/proc/meminfo': """
                          MemTotal:        1234567 kB
@@ -39,8 +40,9 @@ class DeviceMonitorTest(unittest.TestCase):
     self.device.ReadFile = mock.MagicMock(
         side_effect=lambda file_name: self.file_contents[file_name])
 
+    self.device.ListProcesses.return_value = ['p1', 'p2', 'p3', 'p4', 'p5']
+
     self.cmd_outputs = {
-        'ps': ['headers', 'p1', 'p2', 'p3', 'p4', 'p5'],
         'grep': ['/sys/class/thermal/thermal_zone0/type'],
     }
 
@@ -76,6 +78,7 @@ class DeviceMonitorTest(unittest.TestCase):
            'build.id': 'abc123',
            'product.device': 'clownfish',
          },
+         'imei': '123456789',
          'state': 'available',
       }
     }
@@ -111,7 +114,9 @@ class DeviceMonitorTest(unittest.TestCase):
   def test_getStatsNoPs(self, get_devices, get_battery):
     get_devices.return_value = [self.device]
     get_battery.return_value = self.battery
-    del self.cmd_outputs['ps']  # Throw exception on run shell ps command.
+    # Throw exception when listing processes.
+    self.device.ListProcesses.side_effect = device_errors.AdbCommandFailedError(
+        ['ps'], 'something failed', 1)
 
     # Should be same status dict but without process stats.
     expected_status_no_ps = self.expected_status.copy()

@@ -4,9 +4,18 @@
 /dev/ttyFIQ0           u:object_r:console_device:s0
 /dev/mali              u:object_r:gpu_device:s0
 /dev/mali0             u:object_r:gpu_device:s0
+/dev/nanohub           u:object_r:sensors_device:s0
+/dev/nanohub_comms     u:object_r:sensors_device:s0
 /dev/dri/card0         u:object_r:gpu_device:s0
 /dev/hci_tty           u:object_r:hci_attach_dev:s0
 /dev/ttyAMA1           u:object_r:hci_attach_dev:s0
 /dev/ttyAMA4           u:object_r:hci_attach_dev:s0
-/system/vendor/bin/uim u:object_r:hci_attach_exec:s0
-/system/vendor/bin/hw/android\.hardware\.bluetooth@1\.0-service\.hikey      u:object_r:hal_bluetooth_hikey_exec:s0
+/dev/hifi_misc         u:object_r:audio_device:s0
+
+# files in /vendor
+/(vendor|system/vendor)/bin/uim  u:object_r:hci_attach_exec:s0
+/(vendor|system/vendor)/bin/hw/android\.hardware\.bluetooth@1\.0-service\.hikey      u:object_r:hal_bluetooth_hikey_exec:s0
+/(vendor|system/vendor)/bin/nanoapp_cmd  u:object_r:nanoapp_cmd_exec:s0
+
+# /data
+/data/vendor/sensor(/.*)?        u:object_r:sensor_vendor_data_file:s0

@@ -23,6 +23,9 @@ LOCAL_SRC_FILES += \
 LOCAL_CFLAGS += \
      -fno-short-enums \
      -D_ANDROID_ \
+     -Wall \
+     -Werror \
+     -Wno-macro-redefined \
      -std=c++11
 
 ## Includes

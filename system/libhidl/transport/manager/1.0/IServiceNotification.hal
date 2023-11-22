@@ -21,7 +21,7 @@ interface IServiceNotification {
     /**
      * Must be called when a service is registered.
      *
-     * @param fqInstanceName Fully-qualified instance name (see IServiceManager)
+     * @param fqName         Fully-qualified instance name (see IServiceManager)
      * @param preexisting    If true, this means the registration was
      *                       pre-existing at the time this IServiceNotification
      *                       object is itself registered. Otherwise, this means

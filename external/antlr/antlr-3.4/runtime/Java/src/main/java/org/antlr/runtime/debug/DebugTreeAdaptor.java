@@ -203,7 +203,7 @@ public class DebugTreeAdaptor implements TreeAdaptor {
 	}
 
 	public Object deleteChild(Object t, int i) {
-		return deleteChild(t, i);
+		return adaptor.deleteChild(t, i);
 	}
 
 	public int getChildCount(Object t) {

@@ -58,6 +58,8 @@ import android.view.ViewGroup.LayoutParams;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.TableLayout;
+import android.widget.TableRow;
 import android.widget.TextView;
 
 import android.media.cts.R;
@@ -67,7 +69,9 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -89,8 +93,8 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
     private static final long DEFAULT_WAIT_TIMEOUT_US = 3000000;
 
     private static final int COLOR_RED =  makeColor(100, 0, 0);
-    private static final int COLOR_BLUE =  makeColor(0, 100, 0);
-    private static final int COLOR_GREEN =  makeColor(0, 0, 100);
+    private static final int COLOR_GREEN =  makeColor(0, 100, 0);
+    private static final int COLOR_BLUE =  makeColor(0, 0, 100);
     private static final int COLOR_GREY =  makeColor(100, 100, 100);
 
     private static final int BITRATE_1080p = 20000000;
@@ -148,6 +152,31 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
             runTestRenderingInSeparateThread(800, 480, false, false);
         } else {
             Log.i(TAG, "SKIPPING testRendering800x480Locally(): codec not supported");
+        }
+    }
+
+    public void testRendering800x480Rotated90() throws Throwable {
+        testRendering800x480Rotated(90);
+    }
+
+    public void testRendering800x480Rotated180() throws Throwable {
+        testRendering800x480Rotated(180);
+    }
+
+    public void testRendering800x480Rotated270() throws Throwable {
+        testRendering800x480Rotated(270);
+    }
+
+    public void testRendering800x480Rotated360() throws Throwable {
+        testRendering800x480Rotated(360);
+    }
+
+    private void testRendering800x480Rotated(int degrees) throws Throwable {
+        Log.i(TAG, "testRendering800x480Rotated " + degrees);
+        if (isConcurrentEncodingDecodingSupported(800, 480, BITRATE_800x480)) {
+            runTestRenderingInSeparateThread(800, 480, false, false, degrees);
+        } else {
+            Log.i(TAG, "SKIPPING testRendering800x480Rotated" + degrees + ":codec not supported");
         }
     }
 
@@ -209,11 +238,17 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
      */
     private void runTestRenderingInSeparateThread(final int w, final int h,
             final boolean runRemotely, final boolean multipleWindows) throws Throwable {
+        runTestRenderingInSeparateThread(w, h, runRemotely, multipleWindows, /* degrees */ 0);
+    }
+
+    private void runTestRenderingInSeparateThread(final int w, final int h,
+            final boolean runRemotely, final boolean multipleWindows, final int degrees)
+            throws Throwable {
         mTestException = null;
         Thread renderingThread = new Thread(new Runnable() {
             public void run() {
                 try {
-                    doTestRenderingOutput(w, h, runRemotely, multipleWindows);
+                    doTestRenderingOutput(w, h, runRemotely, multipleWindows, degrees);
                 } catch (Throwable t) {
                     t.printStackTrace();
                     mTestException = t;
@@ -228,8 +263,8 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
         }
     }
 
-    private void doTestRenderingOutput(int w, int h, boolean runRemotely, boolean multipleWindows)
-            throws Throwable {
+    private void doTestRenderingOutput(int w, int h, boolean runRemotely, boolean multipleWindows,
+            int degrees) throws Throwable {
         if (DBG) {
             Log.i(TAG, "doTestRenderingOutput for w:" + w + " h:" + h);
         }
@@ -237,6 +272,9 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
             mIsQuitting = false;
             mDecoder = MediaCodec.createDecoderByType(MIME_TYPE);
             MediaFormat decoderFormat = MediaFormat.createVideoFormat(MIME_TYPE, w, h);
+            if (degrees != 0) {
+                decoderFormat.setInteger(MediaFormat.KEY_ROTATION, degrees);
+            }
             mDecodingSurface = new OutputSurface(w, h);
             mDecoder.configure(decoderFormat, mDecodingSurface.getSurface(), null, 0);
             mDecoder.start();
@@ -299,15 +337,18 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
             }
 
             Renderer renderer = null;
+            Context context = getContext();
+            Surface windowSurface = compositor.getWindowSurface(multipleWindows? 1 : 0);
             if (runRemotely) {
-                mRemotePresentation = new RemoteVirtualDisplayPresentation(getContext(),
-                        compositor.getWindowSurface(multipleWindows? 1 : 0), w, h);
+                mRemotePresentation =
+                        new RemoteVirtualDisplayPresentation(context, windowSurface, w, h);
                 mRemotePresentation.connect();
                 mRemotePresentation.start();
                 renderer = mRemotePresentation;
             } else {
-                mLocalPresentation = new VirtualDisplayPresentation(getContext(),
-                        compositor.getWindowSurface(multipleWindows? 1 : 0), w, h);
+                mLocalPresentation = (degrees == 0)
+                        ? new VirtualDisplayPresentation(context, windowSurface, w, h)
+                        : new RotateVirtualDisplayPresentation(context, windowSurface, w, h);
                 mLocalPresentation.createVirtualDisplay();
                 mLocalPresentation.createPresentation();
                 renderer = mLocalPresentation;
@@ -316,10 +357,14 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
             if (DBG) {
                 Log.i(TAG, "start rendering and check");
             }
-            renderColorAndCheckResult(renderer, w, h, COLOR_RED);
-            renderColorAndCheckResult(renderer, w, h, COLOR_BLUE);
-            renderColorAndCheckResult(renderer, w, h, COLOR_GREEN);
-            renderColorAndCheckResult(renderer, w, h, COLOR_GREY);
+            if (degrees == 0) {
+                renderColorAndCheckResult(renderer, w, h, COLOR_RED);
+                renderColorAndCheckResult(renderer, w, h, COLOR_BLUE);
+                renderColorAndCheckResult(renderer, w, h, COLOR_GREEN);
+                renderColorAndCheckResult(renderer, w, h, COLOR_GREY);
+            } else {
+                renderRotationAndCheckResult(renderer, w, h, degrees);
+            }
 
             mIsQuitting = true;
             if (runRemotely) {
@@ -374,6 +419,67 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
             }
         }
         fail("Color did not match");
+    }
+
+    private void renderRotationAndCheckResult(Renderer renderer, int w, int h,
+            int degrees) throws Exception {
+        BufferInfo info = new BufferInfo();
+        for (int i = 0; i < NUM_MAX_RETRY; i++) {
+            renderer.doRendering(-1);
+            int bufferIndex = mDecoder.dequeueOutputBuffer(info,  DEFAULT_WAIT_TIMEOUT_US);
+            if (DBG) {
+                Log.i(TAG, "decoder dequeueOutputBuffer returned " + bufferIndex);
+            }
+            if (bufferIndex < 0) {
+                continue;
+            }
+            mDecoder.releaseOutputBuffer(bufferIndex, true);
+            if (mDecodingSurface.checkForNewImage(IMAGE_WAIT_TIMEOUT_MS)) {
+                mDecodingSurface.drawImage();
+                if (checkRotatedFrameQuadrants(w, h, degrees)) {
+                    Log.i(TAG, "output rotated " + degrees + " degrees");
+                    return;
+                }
+            } else if(DBG) {
+                Log.i(TAG, "no rendering yet");
+            }
+        }
+        fail("Frame not properly rotated");
+    }
+
+    private boolean checkRotatedFrameQuadrants(int w, int h, int degrees) {
+        // Read a pixel from each quadrant of the surface.
+        int ww = w / 4;
+        int hh = h / 4;
+        // coords is ordered counter clockwise (note, gl 0,0 is bottom left)
+        int[][] coords = new int[][] {{ww, hh}, {ww * 3, hh}, {ww * 3, hh * 3}, {ww, hh * 3}};
+        List<Integer> expected = new ArrayList<>();
+        List<Integer> colors = Arrays.asList(
+                new Integer[] {COLOR_GREEN, COLOR_BLUE, COLOR_RED, COLOR_GREY});
+        expected.addAll(colors);
+        expected.addAll(colors);
+        int offset = (degrees / 90) % 4;
+        for (int i = 0; i < coords.length; i++) {
+            int[] c = coords[i];
+            int x = c[0];
+            int y = c[1];
+            GLES20.glReadPixels(x, y, 1, 1, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, mPixelBuf);
+            int r = mPixelBuf.get(0) & 0xff;
+            int g = mPixelBuf.get(1) & 0xff;
+            int b = mPixelBuf.get(2) & 0xff;
+            // adding the offset to rotate expected colors clockwise
+            int color = expected.get(offset + i);
+            int redExpected = (color >> 16) & 0xff;
+            int greenExpected = (color >> 8) & 0xff;
+            int blueExpected = color & 0xff;
+            Log.i(TAG, String.format("(%d,%d) expecting %d,%d,%d saw %d,%d,%d",
+                    x, y, redExpected, greenExpected, blueExpected, r, g, b));
+            if (!approxEquals(redExpected, r) || !approxEquals(greenExpected, g)
+                    || !approxEquals(blueExpected, b)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean checkSurfaceFrameColor(int w, int h, int color) {
@@ -1079,6 +1185,19 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
         void doRendering(final int color) throws Exception;
     }
 
+    private static class RotateVirtualDisplayPresentation extends VirtualDisplayPresentation {
+
+        RotateVirtualDisplayPresentation(Context context, Surface surface, int w, int h) {
+            super(context, surface, w, h);
+        }
+
+        @Override
+        protected TestPresentationBase doCreatePresentation() {
+            return new TestRotatePresentation(mContext, mVirtualDisplay.getDisplay());
+        }
+
+    }
+
     private static class VirtualDisplayPresentation implements Renderer {
         protected final Context mContext;
         protected final Surface mSurface;
@@ -1194,6 +1313,50 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
             }
             mImageView.setImageDrawable(new ColorDrawable(color));
         }
+    }
+
+    private static class TestRotatePresentation extends TestPresentationBase {
+        static final int[] kColors = new int[] {COLOR_GREY, COLOR_RED, COLOR_GREEN, COLOR_BLUE};
+        private final ImageView[] mQuadrants = new ImageView[4];
+
+        public TestRotatePresentation(Context outerContext, Display display) {
+            super(outerContext, display);
+        }
+
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            Context ctx = getContext();
+            TableLayout table = new TableLayout(ctx);
+            ViewGroup.LayoutParams fill = new ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+            TableLayout.LayoutParams fillTable = new TableLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
+            TableRow.LayoutParams fillRow = new TableRow.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
+            table.setLayoutParams(fill);
+            table.setStretchAllColumns(true);
+            TableRow rows[] = new TableRow[] {new TableRow(ctx), new TableRow(ctx)};
+            for (int i = 0; i < mQuadrants.length; i++) {
+                mQuadrants[i] = new ImageView(ctx);
+                mQuadrants[i].setImageDrawable(new ColorDrawable(kColors[i]));
+                rows[i / 2].addView(mQuadrants[i], fillRow);
+            }
+            for (TableRow row: rows) {
+                table.addView(row, fillTable);
+            }
+            setContentView(table);
+            Log.v(TAG, "setContentView(table)");
+        }
+
+        @Override
+        public void doRendering(int color) {
+            Log.v(TAG, "doRendering: ignoring color: " + Integer.toHexString(color));
+            for (int i = 0; i < mQuadrants.length; i++) {
+                mQuadrants[i].setImageDrawable(new ColorDrawable(kColors[i]));
+            }
+        }
+
     }
 
     private static class TopWindowPresentation extends TestPresentationBase {

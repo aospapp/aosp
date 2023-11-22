@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 # Copyright 2010 Google Inc. All Rights Reserved.
 """Script to wrap test_that script.
@@ -26,14 +26,13 @@ def Usage(parser, message):
 
 def Main(argv):
   parser = argparse.ArgumentParser()
-  parser.add_argument('-c',
-                      '--chromeos_root',
-                      dest='chromeos_root',
-                      help='ChromeOS root checkout directory')
-  parser.add_argument('-r',
-                      '--remote',
-                      dest='remote',
-                      help='Remote chromeos device.')
+  parser.add_argument(
+      '-c',
+      '--chromeos_root',
+      dest='chromeos_root',
+      help='ChromeOS root checkout directory')
+  parser.add_argument(
+      '-r', '--remote', dest='remote', help='Remote chromeos device.')
 
   _ = parser.parse_args(argv)
   ce = command_executer.GetCommandExecuter()

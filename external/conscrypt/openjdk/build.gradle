@@ -7,9 +7,6 @@ ext {
     // Build the list of classifiers that will be used in the build.
     arch32Name = 'x86'
     arch64Name = 'x86_64'
-    // Allow the java executable to be specified via env/property for each architecture.
-    javaExecutable32 = properties['javaExecutable32'] ?: System.env.CONSCRYPT_JAVA_EXECUTABLE_32
-    javaExecutable64 = properties['javaExecutable64'] ?: System.env.CONSCRYPT_JAVA_EXECUTABLE_64
     nativeClassifiers = []
     nativeClassifier64Bit = null
     nativeClassifier32Bit = null
@@ -97,6 +94,59 @@ sourceSets {
 
 task platformJar(type: Jar) {
     from sourceSets.platform.output
+}
+
+if (isExecutableOnPath('cpplint')) {
+    task cpplint(type: Exec) {
+        executable = 'cpplint'
+
+        // TODO(nmittler): Is there a better way of getting the JNI sources?
+        def pattern = ['**/*.cc', '**/*.h']
+        def sourceFiles = fileTree(dir: jniSourceDir, includes: pattern).asPath.tokenize(':')
+        // Adding roots so that class #ifdefs don't require full path from the project root.
+        args = sourceFiles
+
+        // Capture stderr from the process
+        errorOutput = new ByteArrayOutputStream();
+
+        // Need to ignore exit value so that doLast will execute.
+        ignoreExitValue = true
+
+        doLast {
+            // Create the report file.
+            def reportDir = file("${buildDir}/cpplint")
+            reportDir.mkdirs();
+            def reportFile = new File(reportDir, "report.txt")
+            def reportStream = new FileOutputStream(reportFile)
+
+            try {
+                // Check for failure
+                if (execResult != null) {
+                    execResult.assertNormalExitValue()
+                }
+            } catch (Exception e) {
+                // The process failed - get the error report from the stderr.
+                String report = errorOutput.toString();
+
+                // Write the report to the console.
+                System.err.println(report)
+
+                // Also write the report file.
+                reportStream.write(report.bytes);
+
+                // Extension method cpplint.output() can be used to obtain the report
+                ext.output = {
+                    return report
+                }
+
+                // Rethrow the exception to terminate the build.
+                throw e;
+            } finally {
+                reportStream.close();
+            }
+        }
+    }
+    check.dependsOn cpplint
 }
 
 configurations {
@@ -200,6 +250,7 @@ def addNativeTest(nativeClassifier) {
     // Execute the java executable to see if it supports the architecture flag.
     def javaError = new ByteArrayOutputStream()
     exec {
+        System.out.println("Running tests with java executable: " + javaExecutable + ".")
         executable javaExecutable
         args = ["$javaArchFlag", '-version']
         ignoreExitValue true
@@ -214,6 +265,19 @@ def addNativeTest(nativeClassifier) {
             jvmArgs javaArchFlag
             executable = javaExecutable
             testClassesDir = testSourceSet.output.classesDir
+
+            // TODO(nmittler): Is there a way to copy all properties of the test task?
+
+            // Copy the logging configuration from the test task.
+            org.codehaus.groovy.runtime.InvokerHelper.setProperties(testLogging,
+                    test.testLogging.properties)
+
+            // Copy heap settings.
+            minHeapSize = test.minHeapSize
+            maxHeapSize = test.maxHeapSize
+
+            // Copy system properties
+            systemProperties = test.systemProperties
 
             // Set the classpath just before we run the test so that the runtime classpath
             // is fully resolved.
@@ -258,7 +322,7 @@ model {
                 cpp {
                     source {
                         srcDirs "$jniSourceDir/main/cpp"
-                        include "**/*.cpp"
+                        include "**/*.cc"
                     }
                 }
             }
@@ -293,6 +357,10 @@ model {
                                 "-I$jdkIncludeDir/linux",
                                 "-I$jdkIncludeDir/darwin",
                                 "-I$jdkIncludeDir/win32"
+                        if (rootProject.hasProperty('checkErrorQueue')) {
+                            System.out.println("Compiling with error queue checking enabled")
+                            cppCompiler.define "CONSCRYPT_CHECK_ERROR_QUEUE"
+                        }
 
                         // Static link to BoringSSL
                         linker.args "-O3",
@@ -303,6 +371,7 @@ model {
                     } else if (toolChain in VisualCpp) {
                         cppCompiler.define "DLL_EXPORT"
                         cppCompiler.define "WIN32_LEAN_AND_MEAN"
+                        cppCompiler.define "NOMINMAX"
                         if (building64Bit) {
                             cppCompiler.define "WIN64"
                         }
@@ -377,18 +446,33 @@ model {
             compileJava.dependsOn "$copyTaskName"
 
             // Now define a task to strip the release binary (linux only)
-            def stripTask = binary.tasks.taskName("strip")
-            t.create(stripTask) {
-                dependsOn binary.tasks.link
-                doFirst {
-                    if (osName == 'linux') {
-                        ["strip", binary.tasks.link.outputFile].execute().waitForOrKill(1000)
+            if (osName == 'linux' && (!rootProject.hasProperty('nostrip') ||
+                    !rootProject.nostrip.toBoolean())) {
+                def stripTask = binary.tasks.taskName("strip")
+                    task "$stripTask"(type: Exec) {
+                        dependsOn binary.tasks.link
+                        commandLine "strip", "${binary.tasks.link.outputFile}"
                     }
-                }
+                binary.tasks.build.dependsOn stripTask
             }
-            binary.tasks.build.dependsOn stripTask
         }
     }
+}
+
+boolean isExecutableOnPath(executable) {
+    FilenameFilter filter = new FilenameFilter() {
+        @Override
+        boolean accept(File dir, String name) {
+            return executable.equals(name);
+        }
+    }
+    for(String folder : System.getenv('PATH').split("" + File.pathSeparatorChar)) {
+        File[] files = file(folder).listFiles(filter)
+        if (files != null && files.size() > 0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 String nativeResourcesDir(nativeClassifier) {

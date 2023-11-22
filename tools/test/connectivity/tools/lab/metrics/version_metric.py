@@ -22,7 +22,7 @@ class FastbootVersionMetric(Metric):
     FASTBOOT_COMMAND = 'fastboot --version'
     FASTBOOT_VERSION = 'fastboot_version'
 
-    # String to return if Fastboot version is too old
+    # String to return if fastboot version is too old
     FASTBOOT_ERROR_MESSAGE = ('this version is older than versions that'
                               'return versions properly')
 
@@ -34,10 +34,10 @@ class FastbootVersionMetric(Metric):
               fastboot_version: string representing version of fastboot
                   Older versions of fastboot do not have a version flag. On an
                   older version, this metric will print 'this version is older
-                  than versions that return veresions properly'
+                  than versions that return versions properly'
 
         """
-        result = self._shell.run(self.FASTBOOT_COMMAND)
+        result = self._shell.run(self.FASTBOOT_COMMAND, ignore_status=True)
         # If '--version' flag isn't recognized, will print to stderr
         if result.stderr:
             version = self.FASTBOOT_ERROR_MESSAGE
@@ -67,8 +67,10 @@ class AdbVersionMetric(Metric):
         result = self._shell.run(self.ADB_COMMAND)
         stdout = result.stdout.splitlines()
         adb_version = stdout[0].split()[-1]
-        # Revision information will always be in next line
-        adb_revision = stdout[1].split()[1]
+        adb_revision = ""
+        # Old versions of ADB do not have revision numbers.
+        if len(stdout) > 1:
+            adb_revision = stdout[1].split()[1]
 
         response = {
             self.ADB_VERSION: adb_version,

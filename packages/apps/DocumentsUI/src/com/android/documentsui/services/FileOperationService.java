@@ -16,7 +16,7 @@
 
 package com.android.documentsui.services;
 
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
 import android.annotation.IntDef;
 import android.app.Notification;
@@ -354,7 +354,7 @@ public class FileOperationService extends Service implements Job.Listener {
                 job.id, NOTIFICATION_ID_PROGRESS, notification);
 
         // Set up related monitor
-        JobMonitor monitor = new JobMonitor(job, notificationManager, handler);
+        JobMonitor monitor = new JobMonitor(job, notificationManager, handler, mJobs);
         monitor.start();
     }
 
@@ -458,11 +458,14 @@ public class FileOperationService extends Service implements Job.Listener {
         private final Job mJob;
         private final NotificationManager mNotificationManager;
         private final Handler mHandler;
+        private final Object mJobsLock;
 
-        private JobMonitor(Job job, NotificationManager notificationManager, Handler handler) {
+        private JobMonitor(Job job, NotificationManager notificationManager, Handler handler,
+                Object jobsLock) {
             mJob = job;
             mNotificationManager = notificationManager;
             mHandler = handler;
+            mJobsLock = jobsLock;
         }
 
         private void start() {
@@ -471,19 +474,21 @@ public class FileOperationService extends Service implements Job.Listener {
 
         @Override
         public void run() {
-            if (mJob.isFinished()) {
-                // Finish notification is already shown. Progress notification is removed.
-                // Just finish itself.
-                return;
-            }
+            synchronized (mJobsLock) {
+                if (mJob.isFinished()) {
+                    // Finish notification is already shown. Progress notification is removed.
+                    // Just finish itself.
+                    return;
+                }
 
-            // Only job in set up state has progress bar
-            if (mJob.getState() == Job.STATE_SET_UP) {
-                mNotificationManager.notify(
-                        mJob.id, NOTIFICATION_ID_PROGRESS, mJob.getProgressNotification());
-            }
+                // Only job in set up state has progress bar
+                if (mJob.getState() == Job.STATE_SET_UP) {
+                    mNotificationManager.notify(
+                            mJob.id, NOTIFICATION_ID_PROGRESS, mJob.getProgressNotification());
+                }
 
-            mHandler.postDelayed(this, PROGRESS_INTERVAL_MILLIS);
+                mHandler.postDelayed(this, PROGRESS_INTERVAL_MILLIS);
+            }
         }
     }
 

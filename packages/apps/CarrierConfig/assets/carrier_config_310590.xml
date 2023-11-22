@@ -1,6 +1,7 @@
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <carrier_config_list>
     <carrier_config>
+        <boolean name="rtt_supported_bool" value="true" />
         <boolean name="carrier_volte_available_bool" value="true"/>
         <boolean name="carrier_volte_tty_supported_bool" value="false"/>
         <boolean name="carrier_wfc_ims_available_bool" value="true"/>
@@ -14,5 +15,7 @@
         <int name="maxImageWidth" value="2592"/>
         <int name="maxImageHeight" value="1944"/>
         <boolean name="mmsCloseConnection" value="true"/>
+        <boolean name="carrier_name_override_bool" value="true" />
+        <string name="carrier_name_string">T-Mobile</string>
     </carrier_config>
 </carrier_config_list>

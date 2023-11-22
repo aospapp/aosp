@@ -6,7 +6,6 @@
 import collections
 import json
 import os
-import shutil
 import tempfile
 import unittest
 from contextlib import contextmanager
@@ -28,14 +27,21 @@ class DeployConfigTest(unittest.TestCase):
         with open(global_deploy_config_file) as f:
             deploy_configs = json.load(f)
         for config in deploy_configs:
-            lxc_config.DeployConfigManager.validate(config)
+            if 'append' in config:
+                lxc_config.DeployConfigManager.validate(config)
+            elif 'mount' in config:
+                # validate_mount checks that the path exists, so we can't call
+                # it from tests.
+                pass
+            else:
+                self.fail('Non-deploy/mount config %s' % config)
 
 
     def testPreStart(self):
         """Verifies that pre-start works correctly.
         Checks that mounts are correctly created in the container.
         """
-        with TempDir() as tmpdir:
+        with lxc_utils.TempDir() as tmpdir:
             config = [
                 {
                     'mount': True,
@@ -66,7 +72,7 @@ class DeployConfigTest(unittest.TestCase):
         Checks that missing mount points are created when force_create is
         enabled.
         """
-        with TempDir() as tmpdir:
+        with lxc_utils.TempDir() as tmpdir:
             src_dir = os.path.join(tmpdir, 'foobar')
             config = [{
                 'mount': True,
@@ -160,19 +166,6 @@ def ConfigFile(config):
         json.dump(config, tmp)
         tmp.flush()
         yield tmp.name
-
-
-@contextmanager
-def TempDir():
-    """Context manager for creating a temporary directory.
-
-    We have to mount something.  Make temporary directories to mount.
-    """
-    tmpdir = tempfile.mkdtemp()
-    try:
-        yield tmpdir
-    finally:
-        shutil.rmtree(tmpdir)
 
 
 if __name__ == '__main__':

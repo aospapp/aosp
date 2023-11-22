@@ -21,6 +21,8 @@ import android.security.keystore.KeyInfo;
 import android.security.keystore.KeyProperties;
 import android.test.MoreAsserts;
 
+import com.google.common.collect.ObjectArrays;
+
 import junit.framework.TestCase;
 
 import java.security.InvalidAlgorithmParameterException;
@@ -46,7 +48,7 @@ import javax.crypto.SecretKey;
 public class KeyGeneratorTest extends TestCase {
     private static final String EXPECTED_PROVIDER_NAME = TestUtils.EXPECTED_PROVIDER_NAME;
 
-    static final String[] EXPECTED_ALGORITHMS = {
+    static String[] EXPECTED_ALGORITHMS = {
         "AES",
         "HmacSHA1",
         "HmacSHA224",
@@ -55,10 +57,17 @@ public class KeyGeneratorTest extends TestCase {
         "HmacSHA512",
     };
 
+    {
+        if (TestUtils.supports3DES()) {
+            EXPECTED_ALGORITHMS = ObjectArrays.concat(EXPECTED_ALGORITHMS, "DESede");
+        }
+    }
+
     private static final Map<String, Integer> DEFAULT_KEY_SIZES =
             new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     static {
         DEFAULT_KEY_SIZES.put("AES", 128);
+        DEFAULT_KEY_SIZES.put("DESede", 168);
         DEFAULT_KEY_SIZES.put("HmacSHA1", 160);
         DEFAULT_KEY_SIZES.put("HmacSHA224", 224);
         DEFAULT_KEY_SIZES.put("HmacSHA256", 256);

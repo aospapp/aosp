@@ -17,8 +17,11 @@
 #include "gtest/gtest.h"
 
 #include "chre/util/fixed_size_blocking_queue.h"
+#include "chre/util/unique_ptr.h"
 
 using chre::FixedSizeBlockingQueue;
+using chre::MakeUnique;
+using chre::UniquePtr;
 
 TEST(FixedSizeBlockingQueue, IsEmptyByDefault) {
   FixedSizeBlockingQueue<int, 16> blockingQueue;
@@ -33,4 +36,16 @@ TEST(FixedSizeBlockingQueue, PushPopVerifyOrder) {
 
   ASSERT_EQ(blockingQueue.pop(), 0x1337);
   ASSERT_EQ(blockingQueue.pop(), 0xcafe);
+}
+
+TEST(FixedSizeBlockingQueue, PushPopMove) {
+  static constexpr int kVal = 0xbeef;
+  UniquePtr<int> ptr = MakeUnique<int>();
+  *ptr = kVal;
+
+  FixedSizeBlockingQueue<UniquePtr<int>, 16> blockingQueue;
+
+  ASSERT_TRUE(blockingQueue.push(std::move(ptr)));
+  ASSERT_TRUE(ptr.isNull());
+  ASSERT_EQ(*(blockingQueue.pop()), kVal);
 }

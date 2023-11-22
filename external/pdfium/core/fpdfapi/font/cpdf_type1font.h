@@ -29,8 +29,8 @@ class CPDF_Type1Font : public CPDF_SimpleFont {
   // CPDF_SimpleFont:
   void LoadGlyphMap() override;
 
-#if _FXM_PLATFORM_ == _FXM_PLATFORM_APPLE_
-  void SetExtGID(const FX_CHAR* name, int charcode);
+#if _FX_PLATFORM_ == _FX_PLATFORM_APPLE_
+  void SetExtGID(const char* name, int charcode);
   void CalcExtGID(int charcode);
 #endif
 

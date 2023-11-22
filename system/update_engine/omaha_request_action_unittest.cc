@@ -18,18 +18,19 @@
 
 #include <stdint.h>
 
+#include <memory>
 #include <string>
 #include <vector>
 
 #include <base/bind.h>
 #include <base/files/file_util.h>
 #include <base/files/scoped_temp_dir.h>
+#include <base/memory/ptr_util.h>
 #include <base/strings/string_number_conversions.h>
 #include <base/strings/string_util.h>
 #include <base/strings/stringprintf.h>
 #include <base/time/time.h>
 #include <brillo/bind_lambda.h>
-#include <brillo/make_unique_ptr.h>
 #include <brillo/message_loops/fake_message_loop.h>
 #include <brillo/message_loops/message_loop.h>
 #include <brillo/message_loops/message_loop_utils.h>
@@ -44,7 +45,7 @@
 #include "update_engine/common/prefs.h"
 #include "update_engine/common/test_utils.h"
 #include "update_engine/fake_system_state.h"
-#include "update_engine/metrics.h"
+#include "update_engine/metrics_reporter_interface.h"
 #include "update_engine/mock_connection_manager.h"
 #include "update_engine/mock_payload_state.h"
 #include "update_engine/omaha_request_params.h"
@@ -62,12 +63,13 @@ using testing::NiceMock;
 using testing::Return;
 using testing::ReturnPointee;
 using testing::SaveArg;
-using testing::SetArgumentPointee;
+using testing::SetArgPointee;
 using testing::_;
 
 namespace {
 
 const char kTestAppId[] = "test-app-id";
+const char kTestAppId2[] = "test-app2-id";
 
 // This is a helper struct to allow unit tests build an update response with the
 // values they care about.
@@ -89,7 +91,8 @@ struct FakeUpdateResponse {
            "<ping status=\"ok\"/>"
            "<updatecheck status=\"noupdate\"/></app>" +
            (multi_app_no_update
-                ? "<app><updatecheck status=\"noupdate\"/></app>"
+                ? "<app appid=\"" + app_id2 +
+                      "\"><updatecheck status=\"noupdate\"/></app>"
                 : "") +
            "</response>";
   }
@@ -142,9 +145,11 @@ struct FakeUpdateResponse {
            (disable_p2p_for_sharing ? "DisableP2PForSharing=\"true\" " : "") +
            "/></actions></manifest></updatecheck></app>" +
            (multi_app
-                ? "<app><updatecheck status=\"ok\"><urls><url codebase=\"" +
-                      codebase2 +
-                      "\"/></urls><manifest><packages>"
+                ? "<app appid=\"" + app_id2 + "\"" +
+                      (include_cohorts ? " cohort=\"cohort2\"" : "") +
+                      "><updatecheck status=\"ok\"><urls><url codebase=\"" +
+                      codebase2 + "\"/></urls><manifest version=\"" + version2 +
+                      "\"><packages>"
                       "<package name=\"package3\" size=\"333\" "
                       "hash_sha256=\"hash3\"/></packages>"
                       "<actions><action event=\"postinstall\" " +
@@ -166,7 +171,9 @@ struct FakeUpdateResponse {
   }
 
   string app_id = kTestAppId;
+  string app_id2 = kTestAppId2;
   string version = "1.2.3.4";
+  string version2 = "2.3.4.5";
   string more_info_url = "http://more/info";
   string prompt = "true";
   string codebase = "http://code/base/";
@@ -372,7 +379,7 @@ bool OmahaRequestActionTest::TestUpdateCheck(
     fake_system_state_.set_request_params(request_params);
   OmahaRequestAction action(&fake_system_state_,
                             nullptr,
-                            brillo::make_unique_ptr(fetcher),
+                            base::WrapUnique(fetcher),
                             ping_only);
   OmahaRequestActionTestProcessorDelegate delegate;
   delegate.expected_code_ = expected_code;
@@ -385,23 +392,16 @@ bool OmahaRequestActionTest::TestUpdateCheck(
   BondActions(&action, &collector_action);
   processor.EnqueueAction(&collector_action);
 
-  EXPECT_CALL(*fake_system_state_.mock_metrics_lib(), SendEnumToUMA(_, _, _))
+  EXPECT_CALL(*fake_system_state_.mock_metrics_reporter(),
+              ReportUpdateCheckMetrics(_, _, _, _))
       .Times(AnyNumber());
-  EXPECT_CALL(*fake_system_state_.mock_metrics_lib(),
-      SendEnumToUMA(metrics::kMetricCheckResult,
-          static_cast<int>(expected_check_result),
-          static_cast<int>(metrics::CheckResult::kNumConstants) - 1))
-      .Times(expected_check_result == metrics::CheckResult::kUnset ? 0 : 1);
-  EXPECT_CALL(*fake_system_state_.mock_metrics_lib(),
-      SendEnumToUMA(metrics::kMetricCheckReaction,
-          static_cast<int>(expected_check_reaction),
-          static_cast<int>(metrics::CheckReaction::kNumConstants) - 1))
-      .Times(expected_check_reaction == metrics::CheckReaction::kUnset ? 0 : 1);
-  EXPECT_CALL(*fake_system_state_.mock_metrics_lib(),
-      SendSparseToUMA(metrics::kMetricCheckDownloadErrorCode,
-          static_cast<int>(expected_download_error_code)))
-      .Times(expected_download_error_code == metrics::DownloadErrorCode::kUnset
-             ? 0 : 1);
+
+  EXPECT_CALL(*fake_system_state_.mock_metrics_reporter(),
+              ReportUpdateCheckMetrics(_,
+                                       expected_check_result,
+                                       expected_check_reaction,
+                                       expected_download_error_code))
+      .Times(ping_only ? 0 : 1);
 
   loop.PostTask(base::Bind(
       [](ActionProcessor* processor) { processor->StartProcessing(); },
@@ -431,7 +431,7 @@ void TestEvent(OmahaRequestParams params,
   fake_system_state.set_request_params(&params);
   OmahaRequestAction action(&fake_system_state,
                             event,
-                            brillo::make_unique_ptr(fetcher),
+                            base::WrapUnique(fetcher),
                             false);
   OmahaRequestActionTestProcessorDelegate delegate;
   ActionProcessor processor;
@@ -549,6 +549,7 @@ TEST_F(OmahaRequestActionTest, ValidUpdateTest) {
                       nullptr));
   EXPECT_TRUE(response.update_exists);
   EXPECT_EQ(fake_update_response_.version, response.version);
+  EXPECT_EQ("", response.system_version);
   EXPECT_EQ(fake_update_response_.GetPayloadUrl(),
             response.packages[0].payload_urls[0]);
   EXPECT_EQ(fake_update_response_.more_info_url, response.more_info_url);
@@ -557,7 +558,7 @@ TEST_F(OmahaRequestActionTest, ValidUpdateTest) {
   EXPECT_EQ(true, response.packages[0].is_delta);
   EXPECT_EQ(fake_update_response_.prompt == "true", response.prompt);
   EXPECT_EQ(fake_update_response_.deadline, response.deadline);
-  // Omaha cohort attribets are not set in the response, so they should not be
+  // Omaha cohort attributes are not set in the response, so they should not be
   // persisted.
   EXPECT_FALSE(fake_prefs_.Exists(kPrefsOmahaCohort));
   EXPECT_FALSE(fake_prefs_.Exists(kPrefsOmahaCohortHint));
@@ -624,6 +625,40 @@ TEST_F(OmahaRequestActionTest, MultiAppUpdateTest) {
   EXPECT_EQ(false, response.packages[1].is_delta);
 }
 
+TEST_F(OmahaRequestActionTest, MultiAppAndSystemUpdateTest) {
+  OmahaResponse response;
+  fake_update_response_.multi_app = true;
+  // trigger the lining up of the app and system versions
+  request_params_.set_system_app_id(fake_update_response_.app_id2);
+
+  ASSERT_TRUE(TestUpdateCheck(nullptr,  // request_params
+                              fake_update_response_.GetUpdateResponse(),
+                              -1,
+                              false,  // ping_only
+                              ErrorCode::kSuccess,
+                              metrics::CheckResult::kUpdateAvailable,
+                              metrics::CheckReaction::kUpdating,
+                              metrics::DownloadErrorCode::kUnset,
+                              &response,
+                              nullptr));
+  EXPECT_TRUE(response.update_exists);
+  EXPECT_EQ(fake_update_response_.version, response.version);
+  EXPECT_EQ(fake_update_response_.version2, response.system_version);
+  EXPECT_EQ(fake_update_response_.GetPayloadUrl(),
+            response.packages[0].payload_urls[0]);
+  EXPECT_EQ(fake_update_response_.codebase2 + "package3",
+            response.packages[1].payload_urls[0]);
+  EXPECT_EQ(fake_update_response_.hash, response.packages[0].hash);
+  EXPECT_EQ(fake_update_response_.size, response.packages[0].size);
+  EXPECT_EQ(11u, response.packages[0].metadata_size);
+  EXPECT_EQ(true, response.packages[0].is_delta);
+  ASSERT_EQ(2u, response.packages.size());
+  EXPECT_EQ(string("hash3"), response.packages[1].hash);
+  EXPECT_EQ(333u, response.packages[1].size);
+  EXPECT_EQ(33u, response.packages[1].metadata_size);
+  EXPECT_EQ(false, response.packages[1].is_delta);
+}
+
 TEST_F(OmahaRequestActionTest, MultiAppPartialUpdateTest) {
   OmahaResponse response;
   fake_update_response_.multi_app = true;
@@ -640,6 +675,7 @@ TEST_F(OmahaRequestActionTest, MultiAppPartialUpdateTest) {
                               nullptr));
   EXPECT_TRUE(response.update_exists);
   EXPECT_EQ(fake_update_response_.version, response.version);
+  EXPECT_EQ("", response.system_version);
   EXPECT_EQ(fake_update_response_.GetPayloadUrl(),
             response.packages[0].payload_urls[0]);
   EXPECT_EQ(fake_update_response_.hash, response.packages[0].hash);
@@ -668,6 +704,7 @@ TEST_F(OmahaRequestActionTest, MultiAppMultiPackageUpdateTest) {
                               nullptr));
   EXPECT_TRUE(response.update_exists);
   EXPECT_EQ(fake_update_response_.version, response.version);
+  EXPECT_EQ("", response.system_version);
   EXPECT_EQ(fake_update_response_.GetPayloadUrl(),
             response.packages[0].payload_urls[0]);
   EXPECT_EQ(fake_update_response_.codebase + "package2",
@@ -698,8 +735,8 @@ TEST_F(OmahaRequestActionTest, ExtraHeadersSentTest) {
 
   MockHttpFetcher* fetcher =
       new MockHttpFetcher(http_response.data(), http_response.size(), nullptr);
-  OmahaRequestAction action(
-      &fake_system_state_, nullptr, brillo::make_unique_ptr(fetcher), false);
+  OmahaRequestAction action(&fake_system_state_, nullptr,
+                            base::WrapUnique(fetcher), false);
   ActionProcessor processor;
   processor.EnqueueAction(&action);
 
@@ -725,8 +762,8 @@ TEST_F(OmahaRequestActionTest, ValidUpdateBlockedByConnection) {
 
   EXPECT_CALL(mock_cm, GetConnectionProperties(_, _))
       .WillRepeatedly(
-          DoAll(SetArgumentPointee<0>(ConnectionType::kEthernet),
-                SetArgumentPointee<1>(ConnectionTethering::kUnknown),
+          DoAll(SetArgPointee<0>(ConnectionType::kEthernet),
+                SetArgPointee<1>(ConnectionTethering::kUnknown),
                 Return(true)));
   EXPECT_CALL(mock_cm, IsUpdateAllowedOver(ConnectionType::kEthernet, _))
       .WillRepeatedly(Return(false));
@@ -775,18 +812,19 @@ TEST_F(OmahaRequestActionTest, ValidUpdateBlockedByRollback) {
 TEST_F(OmahaRequestActionTest, SkipNonCriticalUpdatesBeforeOOBE) {
   OmahaResponse response;
 
+  // TODO(senj): set better default value for metrics::checkresult in
+  // OmahaRequestAction::ActionCompleted.
   fake_system_state_.fake_hardware()->UnsetIsOOBEComplete();
-  ASSERT_FALSE(
-      TestUpdateCheck(nullptr,  // request_params
-                      fake_update_response_.GetUpdateResponse(),
-                      -1,
-                      false,  // ping_only
-                      ErrorCode::kNonCriticalUpdateInOOBE,
-                      metrics::CheckResult::kUnset,
-                      metrics::CheckReaction::kUnset,
-                      metrics::DownloadErrorCode::kUnset,
-                      &response,
-                      nullptr));
+  ASSERT_FALSE(TestUpdateCheck(nullptr,  // request_params
+                               fake_update_response_.GetUpdateResponse(),
+                               -1,
+                               false,  // ping_only
+                               ErrorCode::kNonCriticalUpdateInOOBE,
+                               metrics::CheckResult::kParsingError,
+                               metrics::CheckReaction::kUnset,
+                               metrics::DownloadErrorCode::kUnset,
+                               &response,
+                               nullptr));
   EXPECT_FALSE(response.update_exists);
 
   // The IsOOBEComplete() value is ignored when the OOBE flow is not enabled.
@@ -1140,6 +1178,37 @@ TEST_F(OmahaRequestActionTest, CohortsArePersistedWhenNoUpdate) {
   EXPECT_EQ(fake_update_response_.cohortname, value);
 }
 
+TEST_F(OmahaRequestActionTest, MultiAppCohortTest) {
+  OmahaResponse response;
+  OmahaRequestParams params = request_params_;
+  fake_update_response_.multi_app = true;
+  fake_update_response_.include_cohorts = true;
+  fake_update_response_.cohort = "s/154454/8479665";
+  fake_update_response_.cohorthint = "please-put-me-on-beta";
+  fake_update_response_.cohortname = "stable";
+
+  ASSERT_TRUE(TestUpdateCheck(&params,
+                              fake_update_response_.GetUpdateResponse(),
+                              -1,
+                              false,  // ping_only
+                              ErrorCode::kSuccess,
+                              metrics::CheckResult::kUpdateAvailable,
+                              metrics::CheckReaction::kUpdating,
+                              metrics::DownloadErrorCode::kUnset,
+                              &response,
+                              nullptr));
+
+  string value;
+  EXPECT_TRUE(fake_prefs_.GetString(kPrefsOmahaCohort, &value));
+  EXPECT_EQ(fake_update_response_.cohort, value);
+
+  EXPECT_TRUE(fake_prefs_.GetString(kPrefsOmahaCohortHint, &value));
+  EXPECT_EQ(fake_update_response_.cohorthint, value);
+
+  EXPECT_TRUE(fake_prefs_.GetString(kPrefsOmahaCohortName, &value));
+  EXPECT_EQ(fake_update_response_.cohortname, value);
+}
+
 TEST_F(OmahaRequestActionTest, NoOutputPipeTest) {
   const string http_response(fake_update_response_.GetNoUpdateResponse());
 
@@ -1148,12 +1217,13 @@ TEST_F(OmahaRequestActionTest, NoOutputPipeTest) {
 
   OmahaRequestParams params = request_params_;
   fake_system_state_.set_request_params(&params);
-  OmahaRequestAction action(&fake_system_state_, nullptr,
-                            brillo::make_unique_ptr(
-                                new MockHttpFetcher(http_response.data(),
-                                                    http_response.size(),
-                                                    nullptr)),
-                            false);
+  OmahaRequestAction action(
+      &fake_system_state_,
+      nullptr,
+      std::make_unique<MockHttpFetcher>(http_response.data(),
+                                        http_response.size(),
+                                        nullptr),
+      false);
   OmahaRequestActionTestProcessorDelegate delegate;
   ActionProcessor processor;
   processor.set_delegate(&delegate);
@@ -1263,7 +1333,10 @@ TEST_F(OmahaRequestActionTest, MissingFieldTest) {
   string input_response =
       "<?xml version=\"1.0\" encoding=\"UTF-8\"?><response protocol=\"3.0\">"
       "<daystart elapsed_seconds=\"100\"/>"
-      "<app appid=\"xyz\" status=\"ok\">"
+      // the appid needs to match that in the request params
+      "<app appid=\"" +
+      fake_update_response_.app_id +
+      "\" status=\"ok\">"
       "<updatecheck status=\"ok\">"
       "<urls><url codebase=\"http://missing/field/test/\"/></urls>"
       "<manifest version=\"10.2.3.4\">"
@@ -1321,12 +1394,13 @@ TEST_F(OmahaRequestActionTest, TerminateTransferTest) {
   loop.SetAsCurrent();
 
   string http_response("doesn't matter");
-  OmahaRequestAction action(&fake_system_state_, nullptr,
-                            brillo::make_unique_ptr(
-                                new MockHttpFetcher(http_response.data(),
-                                                    http_response.size(),
-                                                    nullptr)),
-                            false);
+  OmahaRequestAction action(
+      &fake_system_state_,
+      nullptr,
+      std::make_unique<MockHttpFetcher>(http_response.data(),
+                                        http_response.size(),
+                                        nullptr),
+      false);
   TerminateEarlyTestProcessorDelegate delegate;
   ActionProcessor processor;
   processor.set_delegate(&delegate);
@@ -1461,7 +1535,7 @@ TEST_F(OmahaRequestActionTest, FormatUpdateCheckOutputTest) {
   fake_system_state_.set_prefs(&prefs);
 
   EXPECT_CALL(prefs, GetString(kPrefsPreviousVersion, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(string("")), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(string("")), Return(true)));
   // An existing but empty previous version means that we didn't reboot to a new
   // update, therefore, no need to update the previous version.
   EXPECT_CALL(prefs, SetString(kPrefsPreviousVersion, _)).Times(0);
@@ -1537,10 +1611,9 @@ TEST_F(OmahaRequestActionTest, IsEventTest) {
   OmahaRequestAction update_check_action(
       &fake_system_state_,
       nullptr,
-      brillo::make_unique_ptr(
-          new MockHttpFetcher(http_response.data(),
-                              http_response.size(),
-                              nullptr)),
+      std::make_unique<MockHttpFetcher>(http_response.data(),
+                                        http_response.size(),
+                                        nullptr),
       false);
   EXPECT_FALSE(update_check_action.IsEvent());
 
@@ -1549,10 +1622,9 @@ TEST_F(OmahaRequestActionTest, IsEventTest) {
   OmahaRequestAction event_action(
       &fake_system_state_,
       new OmahaEvent(OmahaEvent::kTypeUpdateComplete),
-      brillo::make_unique_ptr(
-          new MockHttpFetcher(http_response.data(),
-                              http_response.size(),
-                              nullptr)),
+      std::make_unique<MockHttpFetcher>(http_response.data(),
+                                        http_response.size(),
+                                        nullptr),
       false);
   EXPECT_TRUE(event_action.IsEvent());
 }
@@ -1669,23 +1741,22 @@ void OmahaRequestActionTest::PingTest(bool ping_only) {
   int64_t six_days_ago =
       (Time::Now() - TimeDelta::FromHours(6 * 24 + 11)).ToInternalValue();
   EXPECT_CALL(prefs, GetInt64(kPrefsInstallDateDays, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(0), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(0), Return(true)));
   EXPECT_CALL(prefs, GetInt64(kPrefsLastActivePingDay, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(six_days_ago), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(six_days_ago), Return(true)));
   EXPECT_CALL(prefs, GetInt64(kPrefsLastRollCallPingDay, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(five_days_ago), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(five_days_ago), Return(true)));
   brillo::Blob post_data;
-  ASSERT_TRUE(
-      TestUpdateCheck(nullptr,  // request_params
-                      fake_update_response_.GetNoUpdateResponse(),
-                      -1,
-                      ping_only,
-                      ErrorCode::kSuccess,
-                      metrics::CheckResult::kUnset,
-                      metrics::CheckReaction::kUnset,
-                      metrics::DownloadErrorCode::kUnset,
-                      nullptr,
-                      &post_data));
+  ASSERT_TRUE(TestUpdateCheck(nullptr,  // request_params
+                              fake_update_response_.GetNoUpdateResponse(),
+                              -1,
+                              ping_only,
+                              ErrorCode::kSuccess,
+                              metrics::CheckResult::kNoUpdateAvailable,
+                              metrics::CheckReaction::kUnset,
+                              metrics::DownloadErrorCode::kUnset,
+                              nullptr,
+                              &post_data));
   string post_str(post_data.begin(), post_data.end());
   EXPECT_NE(post_str.find("<ping active=\"1\" a=\"6\" r=\"5\"></ping>"),
             string::npos);
@@ -1716,11 +1787,11 @@ TEST_F(OmahaRequestActionTest, ActivePingTest) {
       (Time::Now() - TimeDelta::FromHours(3 * 24 + 12)).ToInternalValue();
   int64_t now = Time::Now().ToInternalValue();
   EXPECT_CALL(prefs, GetInt64(kPrefsInstallDateDays, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(0), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(0), Return(true)));
   EXPECT_CALL(prefs, GetInt64(kPrefsLastActivePingDay, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(three_days_ago), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(three_days_ago), Return(true)));
   EXPECT_CALL(prefs, GetInt64(kPrefsLastRollCallPingDay, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(now), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(now), Return(true)));
   brillo::Blob post_data;
   ASSERT_TRUE(
       TestUpdateCheck(nullptr,  // request_params
@@ -1748,11 +1819,11 @@ TEST_F(OmahaRequestActionTest, RollCallPingTest) {
       (Time::Now() - TimeDelta::FromHours(4 * 24)).ToInternalValue();
   int64_t now = Time::Now().ToInternalValue();
   EXPECT_CALL(prefs, GetInt64(kPrefsInstallDateDays, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(0), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(0), Return(true)));
   EXPECT_CALL(prefs, GetInt64(kPrefsLastActivePingDay, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(now), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(now), Return(true)));
   EXPECT_CALL(prefs, GetInt64(kPrefsLastRollCallPingDay, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(four_days_ago), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(four_days_ago), Return(true)));
   brillo::Blob post_data;
   ASSERT_TRUE(
       TestUpdateCheck(nullptr,  // request_params
@@ -1779,11 +1850,11 @@ TEST_F(OmahaRequestActionTest, NoPingTest) {
   int64_t one_hour_ago =
       (Time::Now() - TimeDelta::FromHours(1)).ToInternalValue();
   EXPECT_CALL(prefs, GetInt64(kPrefsInstallDateDays, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(0), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(0), Return(true)));
   EXPECT_CALL(prefs, GetInt64(kPrefsLastActivePingDay, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(one_hour_ago), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(one_hour_ago), Return(true)));
   EXPECT_CALL(prefs, GetInt64(kPrefsLastRollCallPingDay, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(one_hour_ago), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(one_hour_ago), Return(true)));
   // LastActivePingDay and PrefsLastRollCallPingDay are set even if we didn't
   // send a ping.
   EXPECT_CALL(prefs, SetInt64(kPrefsLastActivePingDay, _))
@@ -1812,9 +1883,9 @@ TEST_F(OmahaRequestActionTest, IgnoreEmptyPingTest) {
   fake_system_state_.set_prefs(&prefs);
   int64_t now = Time::Now().ToInternalValue();
   EXPECT_CALL(prefs, GetInt64(kPrefsLastActivePingDay, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(now), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(now), Return(true)));
   EXPECT_CALL(prefs, GetInt64(kPrefsLastRollCallPingDay, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(now), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(now), Return(true)));
   EXPECT_CALL(prefs, SetInt64(kPrefsLastActivePingDay, _)).Times(0);
   EXPECT_CALL(prefs, SetInt64(kPrefsLastRollCallPingDay, _)).Times(0);
   brillo::Blob post_data;
@@ -1841,11 +1912,11 @@ TEST_F(OmahaRequestActionTest, BackInTimePingTest) {
   int64_t future =
       (Time::Now() + TimeDelta::FromHours(3 * 24 + 4)).ToInternalValue();
   EXPECT_CALL(prefs, GetInt64(kPrefsInstallDateDays, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(0), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(0), Return(true)));
   EXPECT_CALL(prefs, GetInt64(kPrefsLastActivePingDay, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(future), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(future), Return(true)));
   EXPECT_CALL(prefs, GetInt64(kPrefsLastRollCallPingDay, _))
-      .WillOnce(DoAll(SetArgumentPointee<1>(future), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<1>(future), Return(true)));
   EXPECT_CALL(prefs, SetInt64(kPrefsLastActivePingDay, _))
       .WillOnce(Return(true));
   EXPECT_CALL(prefs, SetInt64(kPrefsLastRollCallPingDay, _))
@@ -2038,7 +2109,7 @@ TEST_F(OmahaRequestActionTest, TestUpdateFirstSeenAtGetsPersistedFirstTime) {
   params.set_update_check_count_wait_enabled(false);
 
   Time arbitrary_date;
-  Time::FromString("6/4/1989", &arbitrary_date);
+  ASSERT_TRUE(Time::FromString("6/4/1989", &arbitrary_date));
   fake_system_state_.fake_clock()->SetWallclockTime(arbitrary_date);
   ASSERT_FALSE(TestUpdateCheck(&params,
                                fake_update_response_.GetUpdateResponse(),
@@ -2079,8 +2150,8 @@ TEST_F(OmahaRequestActionTest, TestUpdateFirstSeenAtGetsUsedIfAlreadyPresent) {
   params.set_update_check_count_wait_enabled(false);
 
   Time t1, t2;
-  Time::FromString("1/1/2012", &t1);
-  Time::FromString("1/3/2012", &t2);
+  ASSERT_TRUE(Time::FromString("1/1/2012", &t1));
+  ASSERT_TRUE(Time::FromString("1/3/2012", &t2));
   ASSERT_TRUE(
       fake_prefs_.SetInt64(kPrefsUpdateFirstSeenAt, t1.ToInternalValue()));
   fake_system_state_.fake_clock()->SetWallclockTime(t2);
@@ -2110,14 +2181,14 @@ TEST_F(OmahaRequestActionTest, TestChangingToMoreStableChannel) {
 
   brillo::Blob post_data;
   OmahaRequestParams params(&fake_system_state_);
-  params.set_root(tempdir.path().value());
+  params.set_root(tempdir.GetPath().value());
   params.set_app_id("{22222222-2222-2222-2222-222222222222}");
   params.set_app_version("1.2.3.4");
+  params.set_product_components("o.bundle=1");
   params.set_current_channel("canary-channel");
   EXPECT_TRUE(params.SetTargetChannel("stable-channel", true, nullptr));
   params.UpdateDownloadChannel();
-  EXPECT_TRUE(params.to_more_stable_channel());
-  EXPECT_TRUE(params.is_powerwash_allowed());
+  EXPECT_TRUE(params.ShouldPowerwash());
   ASSERT_FALSE(TestUpdateCheck(&params,
                                "invalid xml>",
                                -1,
@@ -2134,6 +2205,7 @@ TEST_F(OmahaRequestActionTest, TestChangingToMoreStableChannel) {
       "appid=\"{22222222-2222-2222-2222-222222222222}\" "
       "version=\"0.0.0.0\" from_version=\"1.2.3.4\" "
       "track=\"stable-channel\" from_track=\"canary-channel\" "));
+  EXPECT_EQ(string::npos, post_str.find("o.bundle"));
 }
 
 TEST_F(OmahaRequestActionTest, TestChangingToLessStableChannel) {
@@ -2143,14 +2215,14 @@ TEST_F(OmahaRequestActionTest, TestChangingToLessStableChannel) {
 
   brillo::Blob post_data;
   OmahaRequestParams params(&fake_system_state_);
-  params.set_root(tempdir.path().value());
+  params.set_root(tempdir.GetPath().value());
   params.set_app_id("{11111111-1111-1111-1111-111111111111}");
   params.set_app_version("5.6.7.8");
+  params.set_product_components("o.bundle=1");
   params.set_current_channel("stable-channel");
   EXPECT_TRUE(params.SetTargetChannel("canary-channel", false, nullptr));
   params.UpdateDownloadChannel();
-  EXPECT_FALSE(params.to_more_stable_channel());
-  EXPECT_FALSE(params.is_powerwash_allowed());
+  EXPECT_FALSE(params.ShouldPowerwash());
   ASSERT_FALSE(TestUpdateCheck(&params,
                                "invalid xml>",
                                -1,
@@ -2168,6 +2240,7 @@ TEST_F(OmahaRequestActionTest, TestChangingToLessStableChannel) {
       "version=\"5.6.7.8\" "
       "track=\"canary-channel\" from_track=\"stable-channel\""));
   EXPECT_EQ(string::npos, post_str.find("from_version"));
+  EXPECT_NE(string::npos, post_str.find("o.bundle.version=\"1\""));
 }
 
 // Checks that the initial ping with a=-1 r=-1 is not send when the device
@@ -2191,6 +2264,35 @@ TEST_F(OmahaRequestActionTest, PingWhenPowerwashed) {
                       nullptr,
                       &post_data));
   // We shouldn't send a ping in this case since powerwash > 0.
+  string post_str(post_data.begin(), post_data.end());
+  EXPECT_EQ(string::npos, post_str.find("<ping"));
+}
+
+// Checks that the initial ping with a=-1 r=-1 is not send when the device
+// first_active_omaha_ping_sent is set.
+TEST_F(OmahaRequestActionTest, PingWhenFirstActiveOmahaPingIsSent) {
+  fake_prefs_.SetString(kPrefsPreviousVersion, "");
+
+  // Flag that the device was not powerwashed in the past.
+  fake_system_state_.fake_hardware()->SetPowerwashCount(0);
+
+  // Flag that the device has sent first active ping in the past.
+  fake_system_state_.fake_hardware()->SetFirstActiveOmahaPingSent();
+
+  brillo::Blob post_data;
+  ASSERT_TRUE(
+      TestUpdateCheck(nullptr,  // request_params
+                      fake_update_response_.GetNoUpdateResponse(),
+                      -1,
+                      false,  // ping_only
+                      ErrorCode::kSuccess,
+                      metrics::CheckResult::kNoUpdateAvailable,
+                      metrics::CheckReaction::kUnset,
+                      metrics::DownloadErrorCode::kUnset,
+                      nullptr,
+                      &post_data));
+  // We shouldn't send a ping in this case since
+  // first_active_omaha_ping_sent=true
   string post_str(post_data.begin(), post_data.end());
   EXPECT_EQ(string::npos, post_str.find("<ping"));
 }

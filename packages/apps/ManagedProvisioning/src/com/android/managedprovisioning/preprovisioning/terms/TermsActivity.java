@@ -15,14 +15,15 @@
  */
 package com.android.managedprovisioning.preprovisioning.terms;
 
-import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_TERMS_ACTIVITY_TIME_MS;
+import static com.android.internal.logging.nano.MetricsProto.MetricsEvent
+        .PROVISIONING_TERMS_ACTIVITY_TIME_MS;
 import static com.android.internal.util.Preconditions.checkNotNull;
 
-import android.graphics.Color;
 import android.os.Bundle;
 import android.support.annotation.VisibleForTesting;
 import android.util.ArraySet;
 import android.view.ContextMenu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.ExpandableListView;
 import android.widget.TextView;
@@ -30,8 +31,8 @@ import android.widget.Toolbar;
 
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
-import com.android.managedprovisioning.common.ClickableSpanFactory;
 import com.android.managedprovisioning.common.AccessibilityContextMenuMaker;
+import com.android.managedprovisioning.common.ClickableSpanFactory;
 import com.android.managedprovisioning.common.HtmlToSpannedParser;
 import com.android.managedprovisioning.common.SetupLayoutActivity;
 import com.android.managedprovisioning.common.StoreUtils;
@@ -71,13 +72,13 @@ public class TermsActivity extends SetupLayoutActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.terms_screen);
         setTitle(R.string.terms);
-        setMainColor(Color.BLACK);
+        setStatusBarColor(getColor(R.color.term_status_bar));
 
         ProvisioningParams params = checkNotNull(
                 getIntent().getParcelableExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS));
         List<TermsDocument> terms = mTermsProvider.getTerms(params, 0);
 
-        ExpandableListView container = (ExpandableListView) findViewById(R.id.terms_container);
+        ExpandableListView container = findViewById(R.id.terms_container);
         container.setAdapter(
                 new TermsListAdapter(terms,
                         getLayoutInflater(),
@@ -104,7 +105,7 @@ public class TermsActivity extends SetupLayoutActivity {
             }
         });
 
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        Toolbar toolbar = findViewById(R.id.toolbar);
         toolbar.setNavigationOnClickListener(v -> TermsActivity.this.finish());
 
         mProvisioningAnalyticsTracker.logNumberOfTermsDisplayed(this, terms.size());
@@ -117,6 +118,15 @@ public class TermsActivity extends SetupLayoutActivity {
         if (v instanceof TextView) {
             mContextMenuMaker.populateMenuContent(menu, (TextView) v);
         }
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            onBackPressed();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override

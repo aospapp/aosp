@@ -48,7 +48,7 @@ public class PreferenceActivityLegacyFlowTest {
 
     @Rule
     public ActivityTestRule<PreferencesFromXml> mActivityRule =
-            new ActivityTestRule<>(PreferencesFromXml.class);
+            new ActivityTestRule<>(PreferencesFromXml.class, true);
 
     @Before
     public void setup() {

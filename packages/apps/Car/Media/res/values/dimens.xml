@@ -23,13 +23,43 @@
     <!-- Music now playing screen -->
     <dimen name="music_action_icon_inset">0dp</dimen>
     <dimen name="music_action_ripple_inset">32dp</dimen>
-    <dimen name="now_playing_metadata_top_margin">0dp</dimen>
 
-    <dimen name="missing_permission_icon_size">208dp</dimen>
+    <dimen name="missing_permission_icon_size">128dp</dimen>
 
     <dimen name="controls_tap_target_width">64dp</dimen>
     <dimen name="controls_tap_target_height">64dp</dimen>
     <dimen name="controls_margin">46dp</dimen>
     <dimen name="controls_spacing_inner">16dp</dimen>
     <dimen name="controls_spacing_outer">81dp</dimen>
+
+    <!-- Playback seekbar height -->
+    <dimen name="playback_seekbar_height">8dp</dimen>
+    <!-- Size of the thumb in the playback seekbar -->
+    <dimen name="playback_seekbar_thumb_width">6dp</dimen>
+    <!-- Image size used to generate the background -->
+    <dimen name="playback_background_raw_image_size">300px</dimen>
+    <!-- Blurring radius used to blur background images -->
+    <item name="playback_background_blur_radius" format="float" type="dimen">25</item>
+    <!-- Scale to apply to images before blurring them to create the playback background -->
+    <item name="playback_background_blur_scale" format="float" type="dimen">1</item>
+    <!-- Size of the album art thumbnail -->
+    <dimen name="playback_album_art_size_normal">156dp</dimen>
+    <!-- Size of the album art thumbnail when large -->
+    <dimen name="playback_album_art_size_large">574dp</dimen>
+    <!-- Bottom marging for the playback queue -->
+    <dimen name="playback_controls_margin">192dp</dimen>
+
+    <!-- Tab height -->
+    <dimen name="browse_tab_height">76dp</dimen>
+    <!-- Tab max width -->
+    <dimen name="browse_tab_width">134dp</dimen>
+    <!-- Browse playback controls size -->
+    <dimen name="browse_playback_controls_height">192dp</dimen>
+    <!-- Selected tab alpha -->
+    <item name="browse_tab_alpha_selected" format="float" type="dimen">1</item>
+    <!-- Unselected tab alpha -->
+    <item name="browse_tab_alpha_unselected" format="float" type="dimen">0.5</item>
+
+    <!-- App bar -->
+    <dimen name="appbar_height">116dp</dimen>
 </resources>

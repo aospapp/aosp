@@ -84,6 +84,23 @@ typedef std::function<void(
 typedef std::function<void(
     std::string& country_code)> OnRegDomainChangedHandler;
 
+// Enum used for identifying channel bandwidth.
+// This is used by function |OnChannelSwitchEventHandler|.
+enum ChannelBandwidth {
+    BW_INVALID,
+    BW_20_NOHT,
+    BW_20,
+    BW_40,
+    BW_80,
+    BW_80P80,
+    BW_160,
+};
+
+// This describes a type of function handling channel switch notification.
+// |frequency| represents the frequence of the channel in MHz.
+typedef std::function<void(
+    uint32_t frequency, ChannelBandwidth bandwidth)> OnChannelSwitchEventHandler;
+
 // Enum used for identifying the type of a station event.
 // This is used by function |OnStationEventHandler|.
 enum StationEvent {
@@ -217,7 +234,7 @@ class NetlinkManager {
   // from wiphy with index |wiphy_index|.
   virtual void UnsubscribeRegDomainChange(uint32_t wiphy_index);
 
-  // Sign up to be notified when there is an station event.
+  // Sign up to be notified when there is a station event.
   // Only one handler can be registered per interface index.
   // New handler will replace the registered handler if they are for the
   // same interface index.
@@ -226,6 +243,17 @@ class NetlinkManager {
 
   // Cancel the sign-up of receiving station events.
   virtual void UnsubscribeStationEvent(uint32_t interface_index);
+
+  // Sign up to be notified when there is a channel switch event.
+  // Only one handler can be registered per interface index.
+  // New handler will replace the registered handler if they are for the
+  // same interface index.
+  virtual void SubscribeChannelSwitchEvent(
+      uint32_t interface_index,
+      OnChannelSwitchEventHandler handler);
+
+  // Cancel the sign-up of receiving channel events.
+  virtual void UnsubscribeChannelSwitchEvent(uint32_t interface_index);
 
  private:
   bool SetupSocket(android::base::unique_fd* netlink_fd);
@@ -238,6 +266,7 @@ class NetlinkManager {
   void OnMlmeEvent(std::unique_ptr<const NL80211Packet> packet);
   void OnScanResultsReady(std::unique_ptr<const NL80211Packet> packet);
   void OnSchedScanResultsReady(std::unique_ptr<const NL80211Packet> packet);
+  void OnChannelSwitchEvent(std::unique_ptr<const NL80211Packet> packet);
 
   // This handler revceives mapping from NL80211 family name to family id,
   // as well as mapping from group name to group id.
@@ -271,8 +300,8 @@ class NetlinkManager {
   // A mapping from wiphy index to the handler registered to receive
   // regulatory domain change notifications.
   std::map<uint32_t, OnRegDomainChangedHandler> on_reg_domain_changed_handler_;
-
   std::map<uint32_t, OnStationEventHandler> on_station_event_handler_;
+  std::map<uint32_t, OnChannelSwitchEventHandler> on_channel_switch_event_handler_;
 
   // Mapping from family name to family id, and group name to group id.
   std::map<std::string, MessageType> message_types_;

@@ -181,13 +181,16 @@ SERIAL_DEVICE_PATH mSerialDevicePath = {
 // Template used to initialize the Serial IO protocols.
 //
 EFI_SERIAL_IO_MODE mSerialIoMode = {
-  0, // ControlMask
-  0, // Timeout
-  0, // BaudRate
-  1, // ReceiveFifoDepth
-  0, // DataBits
-  0, // Parity
-  0  // StopBits
+  //
+  //    value  field                set in SerialDxeInitialize()?
+  //---------  -------------------  -----------------------------
+            0, // ControlMask
+  1000 * 1000, // Timeout
+            0, // BaudRate          yes
+            1, // ReceiveFifoDepth
+            0, // DataBits          yes
+            0, // Parity            yes
+            0  // StopBits          yes
 };
 
 EFI_SERIAL_IO_PROTOCOL mSerialIoTemplate = {
@@ -233,8 +236,8 @@ SerialReset (
   //
   // Set the Serial I/O mode
   //
-  This->Mode->ReceiveFifoDepth  = 1;
-  This->Mode->Timeout           = 0;
+  This->Mode->ReceiveFifoDepth  = PcdGet16 (PcdUartDefaultReceiveFifoDepth);
+  This->Mode->Timeout           = 1000 * 1000;
   This->Mode->BaudRate          = PcdGet64 (PcdUartDefaultBaudRate);
   This->Mode->DataBits          = (UINT32) PcdGet8 (PcdUartDefaultDataBits);
   This->Mode->Parity            = (UINT32) PcdGet8 (PcdUartDefaultParity);
@@ -505,6 +508,7 @@ SerialDxeInitialize (
   mSerialIoMode.DataBits = (UINT32) PcdGet8 (PcdUartDefaultDataBits);
   mSerialIoMode.Parity   = (UINT32) PcdGet8 (PcdUartDefaultParity);
   mSerialIoMode.StopBits = (UINT32) PcdGet8 (PcdUartDefaultStopBits);
+  mSerialIoMode.ReceiveFifoDepth = PcdGet16 (PcdUartDefaultReceiveFifoDepth);
   mSerialDevicePath.Uart.BaudRate = PcdGet64 (PcdUartDefaultBaudRate);
   mSerialDevicePath.Uart.DataBits = PcdGet8 (PcdUartDefaultDataBits);
   mSerialDevicePath.Uart.Parity   = PcdGet8 (PcdUartDefaultParity);

@@ -56,31 +56,33 @@
 //
 // word   name            description
 // 0      sigflag/cookie  setjmp cookie in top 31 bits, signal mask flag in low bit
-// 1      sigmask         signal mask (not used with _setjmp / _longjmp)
-// 2      float_base      base of float registers (d8 to d15)
-// 18     float_state     floating-point status and control register
-// 19     core_base       base of core registers (r4-r11, r13-r14)
-// 29     checksum        checksum of all of the core registers, to give better error messages.
-// 30     reserved        reserved entries (room to grow)
-// 64
-//
-// NOTE: float_base must be at an even word index, since the
-//       FP registers will be loaded/stored with instructions
-//       that expect 8-byte alignment.
+// 1      sigmask         64-bit signal mask (not used with _setjmp / _longjmp)
+// 2      "               "
+// 3      reserved        (unused to allow float_base to be maximally aligned;
+//                        this avoids software emulation of unaligned loads/stores)
+// 4      float_base      base of float registers (d8 to d15)
+// 20     float_state     floating-point status and control register
+// 21     core_base       base of core registers (r4-r11, r13-r14)
+// 31     checksum        checksum of all of the core registers, to give better error messages
+// 32     reserved        reserved entries (room to grow)
+// ...
+// 63     "               "
 
 #define _JB_SIGFLAG     0
-#define _JB_SIGMASK     (_JB_SIGFLAG+1)
-#define _JB_FLOAT_BASE  (_JB_SIGMASK+1)
+#define _JB_SIGMASK     (_JB_SIGFLAG + 1)
+#define _JB_FLOAT_BASE  (_JB_SIGMASK + 3)
 #define _JB_FLOAT_STATE (_JB_FLOAT_BASE + (15-8+1)*2)
 #define _JB_CORE_BASE   (_JB_FLOAT_STATE+1)
 #define _JB_CHECKSUM    (_JB_CORE_BASE+10)
 
 ENTRY(setjmp)
+__BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(setjmp)
   mov r1, #1
   b sigsetjmp
 END(setjmp)
 
 ENTRY(_setjmp)
+__BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(_setjmp)
   mov r1, #0
   b sigsetjmp
 END(_setjmp)
@@ -117,6 +119,7 @@ END(_setjmp)
 
 // int sigsetjmp(sigjmp_buf env, int save_signal_mask);
 ENTRY(sigsetjmp)
+__BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(sigsetjmp)
   stmfd sp!, {r0, lr}
   .cfi_def_cfa_offset 8
   .cfi_rel_offset r0, 0
@@ -148,7 +151,7 @@ ENTRY(sigsetjmp)
   add r2, r0, #(_JB_SIGMASK * 4)
   mov r0, #2 // SIG_SETMASK
   mov r1, #0
-  bl sigprocmask
+  bl sigprocmask64
 
   // Unalign the stack.
   add sp, #4
@@ -191,6 +194,7 @@ END(sigsetjmp)
 
 // void siglongjmp(sigjmp_buf env, int value);
 ENTRY(siglongjmp)
+__BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(siglongjmp)
   stmfd sp!, {r0, r1, lr}
   .cfi_def_cfa_offset 12
   .cfi_rel_offset r0, 0
@@ -214,8 +218,10 @@ ENTRY(siglongjmp)
   beq 1f
 
   // Restore the signal mask.
-  ldr r0, [r0, #(_JB_SIGMASK * 4)]
-  bl sigsetmask
+  mov r2, #0
+  add r1, r0, #(_JB_SIGMASK * 4)
+  mov r0, #2 // SIG_SETMASK
+  bl sigprocmask64
 
 1:
   ldmfd sp!, {r0, r1, lr}
@@ -262,4 +268,6 @@ ENTRY(siglongjmp)
 END(siglongjmp)
 
 ALIAS_SYMBOL(longjmp, siglongjmp)
+__BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(longjmp)
 ALIAS_SYMBOL(_longjmp, siglongjmp)
+__BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(_longjmp)

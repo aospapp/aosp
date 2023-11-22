@@ -14,12 +14,12 @@
      limitations under the License.
 -->
 <configuration description="Config for VTS Sensor Module HIDL Audio Loopback test case">
+    <option name="config-descriptor:metadata" key="plan" value="vts-misc" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="push-group" value="HostDrivenTest.push" />
         <option name="cleanup" value="true" />
         <option name="push" value="DATA/performance/res/Loopback.apk->/data/local/tmp/Loopback.apk" />
     </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer" />
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-case-path" value="vts/testcases/performance/audio_loopback_test/AudioLoopbackTest" />
         <option name="test-timeout" value="10m"/>

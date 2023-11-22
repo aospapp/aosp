@@ -36,6 +36,8 @@
 #include "thread_tree.h"
 
 // RecordFileWriter writes to a perf record file, like perf.data.
+// User should call RecordFileWriter::Close() to finish writing the file, otherwise the file will
+// be removed in RecordFileWriter::~RecordFileWriter().
 class RecordFileWriter {
  public:
   static std::unique_ptr<RecordFileWriter> CreateInstance(const std::string& filename);
@@ -52,16 +54,15 @@ class RecordFileWriter {
   bool WriteFeatureString(int feature, const std::string& s);
   bool WriteCmdlineFeature(const std::vector<std::string>& cmdline);
   bool WriteBranchStackFeature();
+  bool WriteFileFeatures(const std::vector<Dso*>& files);
   bool WriteFileFeature(const std::string& file_path,
                         uint32_t file_type,
                         uint64_t min_vaddr,
                         const std::vector<const Symbol*>& symbols);
   bool WriteMetaInfoFeature(const std::unordered_map<std::string, std::string>& info_map);
+  bool WriteFeature(int feature, const std::vector<char>& data);
   bool EndWriteFeatures();
 
-  // Normally, Close() should be called after writing. But if something
-  // wrong happens and we need to finish in advance, the destructor
-  // will take care of calling Close().
   bool Close();
 
  private:

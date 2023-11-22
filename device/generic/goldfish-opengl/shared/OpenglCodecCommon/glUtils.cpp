@@ -125,6 +125,8 @@ size_t glUtilsParamSize(GLenum param)
     case GL_DEPTH_FUNC:
     case GL_DEPTH_BITS:
     case GL_MAX_CLIP_PLANES:
+    case GL_MAX_COLOR_ATTACHMENTS:
+    case GL_MAX_DRAW_BUFFERS:
     case GL_GREEN_BITS:
     case GL_MAX_MODELVIEW_STACK_DEPTH:
     case GL_MAX_PROJECTION_STACK_DEPTH:
@@ -243,14 +245,18 @@ size_t glUtilsParamSize(GLenum param)
     case GL_STENCIL_BACK_PASS_DEPTH_PASS:
     case GL_STENCIL_BACK_WRITEMASK:
     case GL_TEXTURE_2D:
+    case GL_TEXTURE_BASE_LEVEL:
     case GL_TEXTURE_BINDING_2D:
     case GL_TEXTURE_BINDING_CUBE_MAP:
     case GL_TEXTURE_BINDING_EXTERNAL_OES:
+    case GL_TEXTURE_COMPARE_FUNC:
+    case GL_TEXTURE_COMPARE_MODE:
     case GL_TEXTURE_COORD_ARRAY:
     case GL_TEXTURE_COORD_ARRAY_BUFFER_BINDING:
     case GL_TEXTURE_COORD_ARRAY_SIZE:
     case GL_TEXTURE_COORD_ARRAY_STRIDE:
     case GL_TEXTURE_COORD_ARRAY_TYPE:
+    case GL_TEXTURE_IMMUTABLE_FORMAT:
     case GL_UNPACK_ALIGNMENT:
     case GL_VERTEX_ARRAY:
     case GL_VERTEX_ARRAY_BUFFER_BINDING:
@@ -260,8 +266,15 @@ size_t glUtilsParamSize(GLenum param)
     case GL_SPOT_CUTOFF:
     case GL_TEXTURE_MIN_FILTER:
     case GL_TEXTURE_MAG_FILTER:
+    case GL_TEXTURE_MAX_LOD:
+    case GL_TEXTURE_MIN_LOD:
     case GL_TEXTURE_WRAP_S:
     case GL_TEXTURE_WRAP_T:
+    case GL_TEXTURE_WRAP_R:
+    case GL_TEXTURE_SWIZZLE_R:
+    case GL_TEXTURE_SWIZZLE_G:
+    case GL_TEXTURE_SWIZZLE_B:
+    case GL_TEXTURE_SWIZZLE_A:
     case GL_GENERATE_MIPMAP:
     case GL_GENERATE_MIPMAP_HINT:
     case GL_RENDERBUFFER_WIDTH_OES:
@@ -303,6 +316,8 @@ size_t glUtilsParamSize(GLenum param)
     case GL_SHADER_SOURCE_LENGTH:
     case GL_CURRENT_PROGRAM:
     case GL_SUBPIXEL_BITS:
+    case GL_MAX_3D_TEXTURE_SIZE:
+    case GL_MAX_ARRAY_TEXTURE_LAYERS:
     case GL_MAX_CUBE_MAP_TEXTURE_SIZE:
     case GL_NUM_SHADER_BINARY_FORMATS:
     case GL_SHADER_COMPILER:
@@ -327,10 +342,13 @@ size_t glUtilsParamSize(GLenum param)
     case GL_UNIFORM_BLOCK_ACTIVE_UNIFORMS:
     case GL_UNIFORM_BLOCK_REFERENCED_BY_VERTEX_SHADER:
     case GL_UNIFORM_BLOCK_REFERENCED_BY_FRAGMENT_SHADER:
+    case GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT:
     case GL_CURRENT_QUERY:
     case GL_QUERY_RESULT:
     case GL_QUERY_RESULT_AVAILABLE:
     case GL_READ_BUFFER:
+    case GL_NUM_PROGRAM_BINARY_FORMATS:
+    case GL_PROGRAM_BINARY_FORMATS:
 
     case GL_ACTIVE_ATOMIC_COUNTER_BUFFERS:
     case GL_ACTIVE_ATTRIBUTES:
@@ -343,6 +361,7 @@ size_t glUtilsParamSize(GLenum param)
     case GL_DELETE_STATUS:
     case GL_INFO_LOG_LENGTH:
     case GL_LINK_STATUS:
+    case GL_PROGRAM_BINARY_LENGTH:
     case GL_PROGRAM_BINARY_RETRIEVABLE_HINT:
     case GL_PROGRAM_SEPARABLE:
     case GL_TRANSFORM_FEEDBACK_BUFFER_MODE:
@@ -444,6 +463,10 @@ void glUtilsWritePackPointerData(void* _stream, unsigned char *src,
     }
 }
 
+#ifndef GL_RGBA16F
+#define GL_RGBA16F                        0x881A
+#endif // GL_RGBA16F
+
 int glUtilsPixelBitSize(GLenum format, GLenum type)
 {
     int components = 0;
@@ -455,7 +478,16 @@ int glUtilsPixelBitSize(GLenum format, GLenum type)
         componentsize = 8;
         break;
     case GL_SHORT:
+    case GL_HALF_FLOAT:
     case GL_UNSIGNED_SHORT:
+        componentsize = 16;
+        break;
+    case GL_INT:
+    case GL_UNSIGNED_INT:
+    case GL_FLOAT:
+    case GL_FIXED:
+        componentsize = 32;
+        break;
     case GL_UNSIGNED_SHORT_5_6_5:
     case GL_UNSIGNED_SHORT_4_4_4_4:
     case GL_UNSIGNED_SHORT_5_5_5_1:
@@ -464,15 +496,12 @@ int glUtilsPixelBitSize(GLenum format, GLenum type)
     case GL_RGBA4_OES:
         pixelsize = 16;
         break;
-    case GL_INT:
-    case GL_UNSIGNED_INT:
-    case GL_FLOAT:
-    case GL_FIXED:
+    case GL_UNSIGNED_INT_2_10_10_10_REV:
     case GL_UNSIGNED_INT_24_8_OES:
         pixelsize = 32;
         break;
     default:
-        ERR("glUtilsPixelBitSize: unknown pixel type - assuming pixel data 0\n");
+        ERR("glUtilsPixelBitSize: unknown pixel type %d - assuming pixel data 0\n", type);
         componentsize = 0;
     }
 
@@ -502,11 +531,16 @@ int glUtilsPixelBitSize(GLenum format, GLenum type)
         case GL_BGRA_EXT:
             components = 4;
             break;
+        case GL_RGBA16F:
+            pixelsize = 64;
+            break;
         default:
-            ERR("glUtilsPixelBitSize: unknown pixel format...\n");
+            ERR("glUtilsPixelBitSize: unknown pixel format %d\n", format);
             components = 0;
         }
-        pixelsize = components * componentsize;
+        if (pixelsize == 0) {
+            pixelsize = components * componentsize;
+        }
     }
 
     return pixelsize;

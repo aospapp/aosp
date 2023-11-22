@@ -15,11 +15,17 @@
 -->
 <configuration description="Config for AutoFill Framework CTS tests.">
   <option name="test-suite-tag" value="cts" />
-  <option name="config-descriptor:metadata" key="component" value="framework" />
+  <option name="config-descriptor:metadata" key="component" value="autofill" />
 
   <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
     <option name="cleanup-apks" value="true" />
     <option name="test-file-name" value="CtsAutoFillServiceTestCases.apk" />
+  </target_preparer>
+
+  <!--  TODO: preparer below should be enabled only when running as cts-instant -->
+  <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+    <option name="run-command" value="cmd autofill set bind-instant-service-allowed true" />
+    <option name="teardown-command" value="cmd autofill set bind-instant-service-allowed false" />
   </target_preparer>
 
   <test class="com.android.tradefed.testtype.AndroidJUnitTest">

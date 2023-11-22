@@ -14,8 +14,15 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS net host test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="networking" />
     <target_preparer class="com.android.cts.net.NetPolicyTestsPreparer" />
+
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="teardown-command" value="cmd power set-mode 0" />
+        <option name="teardown-command" value="cmd battery reset" />
+    </target_preparer>
+
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsHostsideNetworkTests.jar" />
         <option name="runtime-hint" value="3m56s" />

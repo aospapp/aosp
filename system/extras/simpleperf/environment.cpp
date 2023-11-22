@@ -20,6 +20,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/resource.h>
 #include <sys/utsname.h>
 
 #include <limits>
@@ -35,7 +36,7 @@
 #include <procinfo/process.h>
 
 #if defined(__ANDROID__)
-#include <sys/system_properties.h>
+#include <android-base/properties.h>
 #endif
 
 #include "event_type.h"
@@ -131,10 +132,12 @@ static std::vector<KernelMmap> GetLoadedModules() {
     // Parse line like: nf_defrag_ipv6 34768 1 nf_conntrack_ipv6, Live 0xffffffffa0fe5000
     char name[reader.MaxLineSize()];
     uint64_t addr;
-    if (sscanf(line, "%s%*lu%*u%*s%*s 0x%" PRIx64, name, &addr) == 2) {
+    uint64_t len;
+    if (sscanf(line, "%s%" PRIu64 "%*u%*s%*s 0x%" PRIx64, name, &len, &addr) == 3) {
       KernelMmap map;
       map.name = name;
       map.start_addr = addr;
+      map.len = len;
       result.push_back(map);
     }
   }
@@ -166,6 +169,18 @@ static void GetAllModuleFiles(const std::string& path,
 }
 
 static std::vector<KernelMmap> GetModulesInUse() {
+  std::vector<KernelMmap> module_mmaps = GetLoadedModules();
+  if (module_mmaps.empty()) {
+    return std::vector<KernelMmap>();
+  }
+  std::unordered_map<std::string, std::string> module_file_map;
+#if defined(__ANDROID__)
+  // Search directories listed in "File locations" section in
+  // https://source.android.com/devices/architecture/kernel/modular-kernels.
+  for (const auto& path : {"/vendor/lib/modules", "/odm/lib/modules", "/lib/modules"}) {
+    GetAllModuleFiles(path, &module_file_map);
+  }
+#else
   utsname uname_buf;
   if (TEMP_FAILURE_RETRY(uname(&uname_buf)) != 0) {
     PLOG(ERROR) << "uname() failed";
@@ -173,10 +188,8 @@ static std::vector<KernelMmap> GetModulesInUse() {
   }
   std::string linux_version = uname_buf.release;
   std::string module_dirpath = "/lib/modules/" + linux_version + "/kernel";
-  std::unordered_map<std::string, std::string> module_file_map;
   GetAllModuleFiles(module_dirpath, &module_file_map);
-  // TODO: There is no /proc/modules or /lib/modules on Android, find methods work on it.
-  std::vector<KernelMmap> module_mmaps = GetLoadedModules();
+#endif
   for (auto& module : module_mmaps) {
     auto it = module_file_map.find(module.name);
     if (it != module_file_map.end()) {
@@ -189,36 +202,13 @@ static std::vector<KernelMmap> GetModulesInUse() {
 void GetKernelAndModuleMmaps(KernelMmap* kernel_mmap, std::vector<KernelMmap>* module_mmaps) {
   kernel_mmap->name = DEFAULT_KERNEL_MMAP_NAME;
   kernel_mmap->start_addr = 0;
+  kernel_mmap->len = std::numeric_limits<uint64_t>::max();
   kernel_mmap->filepath = kernel_mmap->name;
   *module_mmaps = GetModulesInUse();
   for (auto& map : *module_mmaps) {
     if (map.filepath.empty()) {
       map.filepath = "[" + map.name + "]";
     }
-  }
-
-  if (module_mmaps->size() == 0) {
-    kernel_mmap->len = std::numeric_limits<uint64_t>::max() - kernel_mmap->start_addr;
-  } else {
-    std::sort(
-        module_mmaps->begin(), module_mmaps->end(),
-        [](const KernelMmap& m1, const KernelMmap& m2) { return m1.start_addr < m2.start_addr; });
-    // When not having enough privilege, all addresses are read as 0.
-    if (kernel_mmap->start_addr == (*module_mmaps)[0].start_addr) {
-      kernel_mmap->len = 0;
-    } else {
-      kernel_mmap->len = (*module_mmaps)[0].start_addr - kernel_mmap->start_addr - 1;
-    }
-    for (size_t i = 0; i + 1 < module_mmaps->size(); ++i) {
-      if ((*module_mmaps)[i].start_addr == (*module_mmaps)[i + 1].start_addr) {
-        (*module_mmaps)[i].len = 0;
-      } else {
-        (*module_mmaps)[i].len =
-            (*module_mmaps)[i + 1].start_addr - (*module_mmaps)[i].start_addr - 1;
-      }
-    }
-    module_mmaps->back().len =
-        std::numeric_limits<uint64_t>::max() - module_mmaps->back().start_addr;
   }
 }
 
@@ -383,22 +373,22 @@ bool CheckPerfEventLimit() {
     return true;
   }
 #if defined(__ANDROID__)
-  const char* prop_name = "security.perf_harden";
-  char prop_value[PROP_VALUE_MAX];
-  if (__system_property_get(prop_name, prop_value) <= 0) {
+  const std::string prop_name = "security.perf_harden";
+  std::string prop_value = android::base::GetProperty(prop_name, "");
+  if (prop_value.empty()) {
     // can't do anything if there is no such property.
     return true;
   }
-  if (strcmp(prop_value, "0") == 0) {
+  if (prop_value == "0") {
     return true;
   }
   // Try to enable perf_event_paranoid by setprop security.perf_harden=0.
-  if (__system_property_set(prop_name, "0") == 0) {
+  if (android::base::SetProperty(prop_name, "0")) {
     sleep(1);
     if (can_read_paranoid && ReadPerfEventParanoid(&limit_level) && limit_level <= 1) {
       return true;
     }
-    if (__system_property_get(prop_name, prop_value) > 0 && strcmp(prop_value, "0") == 0) {
+    if (android::base::GetProperty(prop_name, "") == "0") {
       return true;
     }
   }
@@ -427,24 +417,6 @@ bool GetMaxSampleFrequency(uint64_t* max_sample_freq) {
   s = android::base::Trim(s);
   if (!android::base::ParseUint(s.c_str(), max_sample_freq)) {
     LOG(ERROR) << "failed to parse /proc/sys/kernel/perf_event_max_sample_rate: " << s;
-    return false;
-  }
-  return true;
-}
-
-bool CheckSampleFrequency(uint64_t sample_freq) {
-  if (sample_freq == 0) {
-    LOG(ERROR) << "Sample frequency can't be zero.";
-    return false;
-  }
-  uint64_t max_sample_freq;
-  if (!GetMaxSampleFrequency(&max_sample_freq)) {
-    // Omit the check if can't read perf_event_max_sample_rate.
-    return true;
-  }
-  if (sample_freq > max_sample_freq) {
-    LOG(ERROR) << "Sample frequency " << sample_freq << " is out of range [1, "
-        << max_sample_freq << "]";
     return false;
   }
   return true;
@@ -515,14 +487,30 @@ void PrepareVdsoFile() {
   std::string s(vdso_map->len, '\0');
   memcpy(&s[0], reinterpret_cast<void*>(static_cast<uintptr_t>(vdso_map->start_addr)),
          vdso_map->len);
-  std::unique_ptr<TemporaryFile> tmpfile(new TemporaryFile);
-  if (!android::base::WriteStringToFile(s, tmpfile->path)) {
+  std::unique_ptr<TemporaryFile> tmpfile = ScopedTempFiles::CreateTempFile();
+  if (!android::base::WriteStringToFd(s, tmpfile->release())) {
     return;
   }
-  Dso::SetVdsoFile(std::move(tmpfile), sizeof(size_t) == sizeof(uint64_t));
+  Dso::SetVdsoFile(tmpfile->path, sizeof(size_t) == sizeof(uint64_t));
 }
 
-int WaitForAppProcess(const std::string& package_name) {
+static bool HasOpenedAppApkFile(int pid) {
+  std::string fd_path = "/proc/" + std::to_string(pid) + "/fd/";
+  std::vector<std::string> files = GetEntriesInDir(fd_path);
+  for (const auto& file : files) {
+    std::string real_path;
+    if (!android::base::Readlink(fd_path + file, &real_path)) {
+      continue;
+    }
+    if (real_path.find("app") != std::string::npos && real_path.find(".apk") != std::string::npos) {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::set<pid_t> WaitForAppProcesses(const std::string& package_name) {
+  std::set<pid_t> result;
   size_t loop_count = 0;
   while (true) {
     std::vector<pid_t> pids = GetAllProcesses();
@@ -532,13 +520,36 @@ int WaitForAppProcess(const std::string& package_name) {
         // Maybe we don't have permission to read it.
         continue;
       }
-      cmdline = android::base::Basename(cmdline);
-      if (cmdline == package_name) {
-        if (loop_count > 0u) {
-          LOG(INFO) << "Got process " << pid << " for package " << package_name;
-        }
-        return pid;
+      std::string process_name = android::base::Basename(cmdline);
+      // The app may have multiple processes, with process name like
+      // com.google.android.googlequicksearchbox:search.
+      size_t split_pos = process_name.find(':');
+      if (split_pos != std::string::npos) {
+        process_name = process_name.substr(0, split_pos);
       }
+      if (process_name != package_name) {
+        continue;
+      }
+      // If a debuggable app with wrap.sh runs on Android O, the app will be started with
+      // logwrapper as below:
+      // 1. Zygote forks a child process, rename it to package_name.
+      // 2. The child process execute sh, which starts a child process running
+      //    /system/bin/logwrapper.
+      // 3. logwrapper starts a child process running sh, which interprets wrap.sh.
+      // 4. wrap.sh starts a child process running the app.
+      // The problem here is we want to profile the process started in step 4, but sometimes we
+      // run into the process started in step 1. To solve it, we can check if the process has
+      // opened an apk file in some app dirs.
+      if (!HasOpenedAppApkFile(pid)) {
+        continue;
+      }
+      if (loop_count > 0u) {
+        LOG(INFO) << "Got process " << pid << " for package " << package_name;
+      }
+      result.insert(pid);
+    }
+    if (!result.empty()) {
+      return result;
     }
     if (++loop_count == 1u) {
       LOG(INFO) << "Waiting for process of app " << package_name;
@@ -549,7 +560,7 @@ int WaitForAppProcess(const std::string& package_name) {
 
 class ScopedFile {
  public:
-  ScopedFile(const std::string& filepath, std::string app_package_name = "")
+  ScopedFile(const std::string& filepath, const std::string& app_package_name = "")
       : filepath_(filepath), app_package_name_(app_package_name) {}
 
   ~ScopedFile() {
@@ -570,7 +581,7 @@ bool RunInAppContext(const std::string& app_package_name, const std::string& cmd
                      const std::string& output_filepath, bool need_tracepoint_events) {
   // 1. Test if the package exists.
   if (!Workload::RunCmd({"run-as", app_package_name, "echo", ">/dev/null"}, false)) {
-    LOG(ERROR) << "Package " << app_package_name << "doesn't exist or isn't debuggable.";
+    LOG(ERROR) << "Package " << app_package_name << " doesn't exist or isn't debuggable.";
     return false;
   }
 
@@ -601,7 +612,7 @@ bool RunInAppContext(const std::string& app_package_name, const std::string& cmd
   std::string output_basename = output_filepath.empty() ? "" :
                                     android::base::Basename(output_filepath);
   std::vector<std::string> new_args =
-      {"run-as", app_package_name, "./simpleperf", cmd, "--in-app"};
+      {"run-as", app_package_name, "./simpleperf", cmd, "--in-app", "--log", GetLogSeverityName()};
   if (need_tracepoint_events) {
     new_args.push_back("--tracepoint-events");
     new_args.push_back(tracepoint_file);
@@ -666,4 +677,53 @@ void SetDefaultAppPackageName(const std::string& package_name) {
 
 const std::string& GetDefaultAppPackageName() {
   return default_package_name;
+}
+
+void AllowMoreOpenedFiles() {
+  // On Android <= O, the hard limit is 4096, and the soft limit is 1024.
+  // On Android >= P, both the hard and soft limit are 32768.
+  rlimit limit;
+  if (getrlimit(RLIMIT_NOFILE, &limit) == 0) {
+    limit.rlim_cur = limit.rlim_max;
+    setrlimit(RLIMIT_NOFILE, &limit);
+  }
+}
+
+std::string ScopedTempFiles::tmp_dir_;
+std::vector<std::string> ScopedTempFiles::files_to_delete_;
+
+ScopedTempFiles::ScopedTempFiles(const std::string& tmp_dir) {
+  CHECK(tmp_dir_.empty());  // No other ScopedTempFiles.
+  tmp_dir_ = tmp_dir;
+}
+
+ScopedTempFiles::~ScopedTempFiles() {
+  tmp_dir_.clear();
+  for (auto& file : files_to_delete_) {
+    unlink(file.c_str());
+  }
+  files_to_delete_.clear();
+}
+
+std::unique_ptr<TemporaryFile> ScopedTempFiles::CreateTempFile(bool delete_in_destructor) {
+  CHECK(!tmp_dir_.empty());
+  std::unique_ptr<TemporaryFile> tmp_file(new TemporaryFile(tmp_dir_));
+  CHECK_NE(tmp_file->fd, -1);
+  if (delete_in_destructor) {
+    files_to_delete_.push_back(tmp_file->path);
+  }
+  return tmp_file;
+}
+
+bool SignalIsIgnored(int signo) {
+  struct sigaction act;
+  if (sigaction(signo, nullptr, &act) != 0) {
+    PLOG(FATAL) << "failed to query signal handler for signal " << signo;
+  }
+
+  if ((act.sa_flags & SA_SIGINFO)) {
+    return false;
+  }
+
+  return act.sa_handler == SIG_IGN;
 }

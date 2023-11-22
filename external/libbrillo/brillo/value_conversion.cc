@@ -38,23 +38,23 @@ bool FromValue(const base::Value& in_value,
 }
 
 std::unique_ptr<base::Value> ToValue(int value) {
-  return std::unique_ptr<base::Value>{new base::FundamentalValue{value}};
+  return std::unique_ptr<base::Value>(new base::Value(value));
 }
 
 std::unique_ptr<base::Value> ToValue(bool value) {
-  return std::unique_ptr<base::Value>{new base::FundamentalValue{value}};
+  return std::unique_ptr<base::Value>(new base::Value(value));
 }
 
 std::unique_ptr<base::Value> ToValue(double value) {
-  return std::unique_ptr<base::Value>{new base::FundamentalValue{value}};
+  return std::unique_ptr<base::Value>(new base::Value(value));
 }
 
 std::unique_ptr<base::Value> ToValue(const char* value) {
-  return std::unique_ptr<base::Value>{new base::StringValue{value}};
+  return std::unique_ptr<base::Value>(new base::Value(value));
 }
 
 std::unique_ptr<base::Value> ToValue(const std::string& value) {
-  return std::unique_ptr<base::Value>{new base::StringValue{value}};
+  return std::unique_ptr<base::Value>(new base::Value(value));
 }
 
 }  // namespace brillo

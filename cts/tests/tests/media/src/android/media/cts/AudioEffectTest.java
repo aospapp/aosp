@@ -31,10 +31,12 @@ import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 
 import android.os.Looper;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
 import java.util.UUID;
 
+@AppModeFull(reason = "Dynamic congic not supported")
 public class AudioEffectTest extends PostProcTestBase {
 
     private String TAG = "AudioEffectTest";

@@ -21,7 +21,8 @@
 #include <base/logging.h>
 #include <base/stl_util.h>
 #include <crypto/openssl_util.h>
-#include <crypto/scoped_openssl_types.h>
+#include <openssl/bio.h>
+#include <openssl/bn.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #if defined(OPENSSL_IS_BORINGSSL)
@@ -82,7 +83,7 @@ TPM_RC SessionManagerImpl::StartSession(
 
   std::string salt(SHA256_DIGEST_SIZE, 0);
   unsigned char* salt_buffer =
-      reinterpret_cast<unsigned char*>(string_as_array(&salt));
+      reinterpret_cast<unsigned char*>(base::string_as_array(&salt));
   CHECK_EQ(RAND_bytes(salt_buffer, salt.size()), 1)
       << "Error generating a cryptographically random salt.";
   // First we encrypt the cryptographically secure salt using PKCS1_OAEP
@@ -160,7 +161,7 @@ TPM_RC SessionManagerImpl::EncryptSalt(const std::string& salt,
     LOG(ERROR) << "Invalid salting key attributes.";
     return TRUNKS_RC_SESSION_SETUP_ERROR;
   }
-  crypto::ScopedRSA salting_key_rsa(RSA_new());
+  bssl::UniquePtr<RSA> salting_key_rsa(RSA_new());
   salting_key_rsa->e = BN_new();
   if (!salting_key_rsa->e) {
     LOG(ERROR) << "Error creating exponent for RSA: " << GetOpenSSLError();
@@ -174,7 +175,7 @@ TPM_RC SessionManagerImpl::EncryptSalt(const std::string& salt,
     LOG(ERROR) << "Error setting public area of rsa key: " << GetOpenSSLError();
     return TRUNKS_RC_SESSION_SETUP_ERROR;
   }
-  crypto::ScopedEVP_PKEY salting_key(EVP_PKEY_new());
+  bssl::UniquePtr<EVP_PKEY> salting_key(EVP_PKEY_new());
   if (!EVP_PKEY_set1_RSA(salting_key.get(), salting_key_rsa.get())) {
     LOG(ERROR) << "Error setting up EVP_PKEY: " << GetOpenSSLError();
     return TRUNKS_RC_SESSION_SETUP_ERROR;
@@ -186,7 +187,7 @@ TPM_RC SessionManagerImpl::EncryptSalt(const std::string& salt,
   // EVP_PKEY_CTX_set0_rsa_oaep_label takes ownership so we need to malloc.
   uint8_t* oaep_label = static_cast<uint8_t*>(OPENSSL_malloc(kOaepLabelSize));
   memcpy(oaep_label, kOaepLabelValue, kOaepLabelSize);
-  crypto::ScopedEVP_PKEY_CTX salt_encrypt_context(
+  bssl::UniquePtr<EVP_PKEY_CTX> salt_encrypt_context(
       EVP_PKEY_CTX_new(salting_key.get(), nullptr));
   if (!EVP_PKEY_encrypt_init(salt_encrypt_context.get()) ||
       !EVP_PKEY_CTX_set_rsa_padding(salt_encrypt_context.get(),
@@ -203,7 +204,7 @@ TPM_RC SessionManagerImpl::EncryptSalt(const std::string& salt,
   encrypted_salt->resize(out_length);
   if (!EVP_PKEY_encrypt(
           salt_encrypt_context.get(),
-          reinterpret_cast<uint8_t*>(string_as_array(encrypted_salt)),
+          reinterpret_cast<uint8_t*>(base::string_as_array(encrypted_salt)),
           &out_length, reinterpret_cast<const uint8_t*>(salt.data()),
           salt.size())) {
     LOG(ERROR) << "Error encrypting salt: " << GetOpenSSLError();

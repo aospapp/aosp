@@ -17,6 +17,7 @@
 #ifndef NETUTILS_STATUS_H
 #define NETUTILS_STATUS_H
 
+#include "binder/Status.h"
 #include <cassert>
 #include <ostream>
 
@@ -31,7 +32,7 @@ class Status {
   public:
     Status() = default;
 
-    Status(int code) : mCode(code) {}
+    explicit Status(int code) : mCode(code) {}
 
     Status(int code, const std::string& msg) : mCode(code), mMsg(msg) { assert(!ok()); }
 
@@ -80,12 +81,18 @@ Status statusFromErrno(int err, const std::string& msg);
 // value in the errno space.
 bool equalToErrno(const Status& status, int err);
 
+// Converts netdutils Status into binder Status.
+binder::Status asBinderStatus(const netdutils::Status& status);
+
 // Helper that converts Status-like object (notably StatusOr) to a
 // message.
 std::string toString(const Status& status);
 
 std::ostream& operator<<(std::ostream& os, const Status& s);
 
+// Evaluate 'stmt' to a Status object and if it results in an error, return that
+// error.  Use 'tmp' as a variable name to avoid shadowing any variables named
+// tmp.
 #define RETURN_IF_NOT_OK_IMPL(tmp, stmt)           \
     do {                                           \
         ::android::netdutils::Status tmp = (stmt); \
@@ -94,6 +101,7 @@ std::ostream& operator<<(std::ostream& os, const Status& s);
         }                                          \
     } while (false)
 
+// Create a unique variable name to avoid shadowing local variables.
 #define RETURN_IF_NOT_OK_CONCAT(line, stmt) RETURN_IF_NOT_OK_IMPL(__CONCAT(_status_, line), stmt)
 
 // Macro to allow exception-like handling of error return values.

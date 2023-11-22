@@ -10,11 +10,13 @@
 package android.icu.dev.util;
 
 import java.util.Map;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author markdavis
  *
  */
+@MainTestShard
 public class ImmutableEntry<K,V> implements Map.Entry<K,V> {
     final K k;
     final V v;

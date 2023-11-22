@@ -22,6 +22,7 @@ import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
@@ -29,6 +30,7 @@ import com.android.tradefed.testtype.IResumableTest;
 import com.android.tradefed.testtype.IShardableTest;
 import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 import com.android.tradefed.util.xml.AbstractXmlParser.ParseException;
 
 import java.io.File;
@@ -40,7 +42,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
 
 /**
@@ -299,8 +300,8 @@ public class XmlDefsTest implements IDeviceTest, IResumableTest,
      */
     private void sendCoverage(String packageName, String coverageTarget,
             ITestInvocationListener listener) {
-        Map<String, String> coverageMetric = new HashMap<String, String>(1);
-        coverageMetric.put(COVERAGE_TARGET_KEY, coverageTarget);
+        HashMap<String, Metric> coverageMetric = new HashMap<>(1);
+        coverageMetric.put(COVERAGE_TARGET_KEY, TfMetricProtoUtil.stringToMetric(coverageTarget));
         listener.testRunStarted(packageName, 0);
         listener.testRunEnded(0, coverageMetric);
     }

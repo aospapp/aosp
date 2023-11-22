@@ -19,7 +19,8 @@
 
 #include <iosfwd>
 
-#include "base/logging.h"
+#include <android-base/logging.h>
+
 #include "base/macros.h"
 #include "globals.h"
 
@@ -101,7 +102,8 @@ enum FpuRegister {
   F29 = 29,
   F30 = 30,
   F31 = 31,
-  FTMP = F8,  // scratch register
+  FTMP = F8,   // scratch register
+  FTMP2 = F9,  // scratch register (in addition to FTMP, reserved for MSA instructions)
   kNumberOfFpuRegisters = 32,
   kNoFpuRegister = -1,
 };

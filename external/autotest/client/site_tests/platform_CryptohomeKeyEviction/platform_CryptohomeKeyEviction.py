@@ -3,8 +3,8 @@
 # found in the LICENSE file.
 
 from autotest_lib.client.bin import test
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import cryptohome, pkcs11
+
 
 class platform_CryptohomeKeyEviction(test.test):
     """Ensure that the cryptohome properly manages key eviction from the tpm.
@@ -16,11 +16,6 @@ class platform_CryptohomeKeyEviction(test.test):
     version = 1
 
 
-    def initialize(self):
-        super(platform_CryptohomeKeyEviction, self).initialize()
-        self._cryptohome_proxy = cryptohome.CryptohomeProxy()
-
-
     def run_once(self):
         # Make sure that the tpm is owned.
         status = cryptohome.get_tpm_status()
@@ -29,7 +24,8 @@ class platform_CryptohomeKeyEviction(test.test):
 
         self.user = 'first_user@nowhere.com'
         password = 'test_password'
-        self._cryptohome_proxy.ensure_clean_cryptohome_for(self.user, password)
+        cryptohome.ensure_clean_cryptohome_for(self.user, password)
+
 
         # First we inject 30 tokens into chaps. This forces the cryptohome
         # key to get evicted.
@@ -39,10 +35,10 @@ class platform_CryptohomeKeyEviction(test.test):
         # Then we get a user to remount his cryptohome. This process uses
         # the cryptohome key, and if the user was able to login, the
         # cryptohome key was correctly reloaded.
-        self._cryptohome_proxy.unmount(self.user)
-        if not self._cryptohome_proxy.mount(self.user, password, create=True):
-          raise error.TestFail('Failed to remount user\'s cryptohome')
+        cryptohome.unmount_vault(self.user)
+        cryptohome.mount_vault(self.user, password, create=True)
 
 
     def cleanup(self):
-        self._cryptohome_proxy.remove(self.user)
+        cryptohome.unmount_vault(self.user)
+        cryptohome.remove_vault(self.user)

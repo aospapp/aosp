@@ -379,7 +379,7 @@ class CarSensorsProxy {
         }
         int present = 0;
         present |= (0x1 << CarSensorEvent.INDEX_LOCATION_LONGITUDE);
-        event.intValues[CarSensorEvent.INDEX_LOCATION_LATITUDE_INTS] =
+        event.intValues[CarSensorEvent.INDEX_LOCATION_LONGITUDE_INTS] =
                 (int) (location.getLongitude() * 1E7);
 
         present |= (0x1 << CarSensorEvent.INDEX_LOCATION_LATITUDE);

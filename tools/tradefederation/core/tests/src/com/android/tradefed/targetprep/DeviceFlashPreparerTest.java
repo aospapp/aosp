@@ -17,7 +17,6 @@
 package com.android.tradefed.targetprep;
 
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -28,13 +27,14 @@ import com.android.tradefed.command.remote.DeviceDescriptor;
 import com.android.tradefed.device.DeviceAllocationState;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceUnresponsiveException;
+import com.android.tradefed.device.IDeviceManager;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.ITestDevice.RecoveryMode;
 import com.android.tradefed.device.TestDeviceOptions;
 import com.android.tradefed.host.IHostOptions;
 import com.android.tradefed.targetprep.IDeviceFlasher.UserDataFlashOption;
+import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
-import com.android.tradefed.util.RunUtil;
 
 import org.easymock.EasyMock;
 import org.junit.After;
@@ -45,21 +45,23 @@ import org.junit.runners.JUnit4;
 
 import java.io.File;
 import java.util.Arrays;
-import java.util.concurrent.Semaphore;
 
 /** Unit tests for {@link DeviceFlashPreparer}. */
 @RunWith(JUnit4.class)
 public class DeviceFlashPreparerTest {
 
+    private IDeviceManager mMockDeviceManager;
     private IDeviceFlasher mMockFlasher;
     private DeviceFlashPreparer mDeviceFlashPreparer;
     private ITestDevice mMockDevice;
     private IDeviceBuildInfo mMockBuildInfo;
     private IHostOptions mMockHostOptions;
     private File mTmpDir;
+    private boolean mFlashingMetricsReported;
 
     @Before
     public void setUp() throws Exception {
+        mMockDeviceManager = EasyMock.createMock(IDeviceManager.class);
         mMockFlasher = EasyMock.createMock(IDeviceFlasher.class);
         mMockDevice = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mMockDevice.getSerialNumber()).andReturn("foo").anyTimes();
@@ -68,6 +70,7 @@ public class DeviceFlashPreparerTest {
         mMockBuildInfo.setDeviceImageFile(new File("foo"), "0");
         mMockBuildInfo.setBuildFlavor("flavor");
         mMockHostOptions = EasyMock.createMock(IHostOptions.class);
+        mFlashingMetricsReported = false;
         mDeviceFlashPreparer = new DeviceFlashPreparer() {
             @Override
             protected IDeviceFlasher createFlasher(ITestDevice device) {
@@ -80,12 +83,23 @@ public class DeviceFlashPreparerTest {
             }
 
             @Override
-            IHostOptions getHostOptions() {
+            IDeviceManager getDeviceManager() {
+                return mMockDeviceManager;
+            }
+
+            @Override
+            protected IHostOptions getHostOptions() {
                 return mMockHostOptions;
+            }
+
+            @Override
+            protected void reportFlashMetrics(String branch, String buildFlavor, String buildId,
+                    String serial, long queueTime, long flashingTime,
+                    CommandStatus flashingStatus) {
+                mFlashingMetricsReported = true;
             }
         };
         // Reset default settings
-        mDeviceFlashPreparer.setConcurrentFlashSettings(null, null, true);
         mDeviceFlashPreparer.setDeviceBootTime(100);
         // expect this call
         mMockFlasher.setUserDataFlashOption(UserDataFlashOption.FLASH);
@@ -101,9 +115,13 @@ public class DeviceFlashPreparerTest {
     @Test
     public void testSetup() throws Exception {
         doSetupExpectations();
+        // report flashing success in normal case
+        EasyMock.expect(mMockFlasher.getSystemFlashingStatus())
+            .andReturn(CommandStatus.SUCCESS).anyTimes();
         EasyMock.replay(mMockFlasher, mMockDevice);
         mDeviceFlashPreparer.setUp(mMockDevice, mMockBuildInfo);
         EasyMock.verify(mMockFlasher, mMockDevice);
+        assertTrue("should report flashing metrics in normal case", mFlashingMetricsReported);
     }
 
     /**
@@ -166,6 +184,9 @@ public class DeviceFlashPreparerTest {
         EasyMock.expect(mMockDevice.getDeviceDescriptor()).andReturn(
                 new DeviceDescriptor("SERIAL", false, DeviceAllocationState.Available, "unknown",
                         "unknown", "unknown", "unknown", "unknown"));
+        // report SUCCESS since device was flashed successfully (but didn't boot up)
+        EasyMock.expect(mMockFlasher.getSystemFlashingStatus())
+            .andReturn(CommandStatus.SUCCESS).anyTimes();
         EasyMock.replay(mMockFlasher, mMockDevice);
         try {
             mDeviceFlashPreparer.setUp(mMockDevice, mMockBuildInfo);
@@ -176,115 +197,50 @@ public class DeviceFlashPreparerTest {
             assertTrue(e instanceof DeviceFailedToBootError);
         }
         EasyMock.verify(mMockFlasher, mMockDevice);
+        assertTrue("should report flashing metrics with device boot failure",
+                mFlashingMetricsReported);
     }
 
-    /** Ensure that the flasher instance limiting machinery is working as expected. */
+    /**
+     * Test {@link DeviceFlashPreparer#setUp(ITestDevice, IBuildInfo)} when flashing step hits
+     * device failure.
+     **/
     @Test
-    public void testFlashLimit() throws Exception {
-        final DeviceFlashPreparer dfp = mDeviceFlashPreparer;
+    public void testSetup_flashException() throws Exception {
+        mMockDevice.setRecoveryMode(RecoveryMode.ONLINE);
+        mMockFlasher.overrideDeviceOptions(mMockDevice);
+        mMockFlasher.setForceSystemFlash(false);
+        mMockFlasher.setDataWipeSkipList(Arrays.asList(new String[]{}));
+        mMockFlasher.flash(mMockDevice, mMockBuildInfo);
+        EasyMock.expectLastCall().andThrow(new DeviceNotAvailableException());
+        mMockFlasher.setWipeTimeout(EasyMock.anyLong());
+        // report exception
+        EasyMock.expect(mMockFlasher.getSystemFlashingStatus())
+            .andReturn(CommandStatus.EXCEPTION).anyTimes();
+        EasyMock.replay(mMockFlasher, mMockDevice);
         try {
-            Thread waiter = new Thread() {
-                @Override
-                public void run() {
-                    dfp.takeFlashingPermit();
-                    dfp.returnFlashingPermit();
-                }
-            };
-            EasyMock.expect(mMockHostOptions.getConcurrentFlasherLimit()).andReturn(1).anyTimes();
-            EasyMock.replay(mMockHostOptions);
-            dfp.setConcurrentFlashSettings(1, new Semaphore(1), true);
-            // take the permit; the next attempt to take the permit should block
-            dfp.takeFlashingPermit();
-            assertFalse(dfp.getConcurrentFlashLock().hasQueuedThreads());
-
-            waiter.start();
-            RunUtil.getDefault().sleep(100);  // Thread start should take <100ms
-            assertTrue("Invalid state: waiter thread is not alive", waiter.isAlive());
-            assertTrue("No queued threads", dfp.getConcurrentFlashLock().hasQueuedThreads());
-
-            dfp.returnFlashingPermit();
-            RunUtil.getDefault().sleep(100);  // Thread start should take <100ms
-            assertFalse("Unexpected queued threads",
-                    dfp.getConcurrentFlashLock().hasQueuedThreads());
-
-            waiter.join(1000);
-            assertFalse("waiter thread has not returned", waiter.isAlive());
-        } finally {
-            // Attempt to reset concurrent flash settings to defaults
-            dfp.setConcurrentFlashSettings(null, null, true);
+            mDeviceFlashPreparer.setUp(mMockDevice, mMockBuildInfo);
+            fail("DeviceNotAvailableException not thrown");
+        } catch (DeviceNotAvailableException e) {
+            // expected
         }
+        EasyMock.verify(mMockFlasher, mMockDevice);
+        assertTrue("should report flashing metrics with device flash failure",
+                mFlashingMetricsReported);
     }
 
-    /** Ensure that the flasher limiting respects {@link IHostOptions}. */
+    /**
+     * Test {@link DeviceFlashPreparer#setUp(ITestDevice, IBuildInfo)} when flashing of system
+     * partitions are skipped.
+     **/
     @Test
-    public void testFlashLimit_withHostOptions() throws Exception {
-        final DeviceFlashPreparer dfp = mDeviceFlashPreparer;
-        try {
-            Thread waiter = new Thread() {
-                @Override
-                public void run() {
-                    dfp.takeFlashingPermit();
-                    dfp.returnFlashingPermit();
-                }
-            };
-            EasyMock.expect(mMockHostOptions.getConcurrentFlasherLimit()).andReturn(1).anyTimes();
-            EasyMock.replay(mMockHostOptions);
-            // take the permit; the next attempt to take the permit should block
-            dfp.takeFlashingPermit();
-            assertFalse(dfp.getConcurrentFlashLock().hasQueuedThreads());
-
-            waiter.start();
-            RunUtil.getDefault().sleep(100);  // Thread start should take <100ms
-            assertTrue("Invalid state: waiter thread is not alive", waiter.isAlive());
-            assertTrue("No queued threads", dfp.getConcurrentFlashLock().hasQueuedThreads());
-
-            dfp.returnFlashingPermit();
-            RunUtil.getDefault().sleep(100);  // Thread start should take <100ms
-            assertFalse("Unexpected queued threads",
-                    dfp.getConcurrentFlashLock().hasQueuedThreads());
-
-            waiter.join(1000);
-            assertFalse("waiter thread has not returned", waiter.isAlive());
-            EasyMock.verify(mMockHostOptions);
-        } finally {
-            // Attempt to reset concurrent flash settings to defaults
-            dfp.setConcurrentFlashSettings(null, null, true);
-        }
-    }
-
-    /** Ensure that the flasher instance limiting machinery is working as expected. */
-    @Test
-    public void testUnlimitedFlashLimit() throws Exception {
-        final DeviceFlashPreparer dfp = mDeviceFlashPreparer;
-        try {
-            Thread waiter = new Thread() {
-                @Override
-                public void run() {
-                    dfp.takeFlashingPermit();
-                    dfp.returnFlashingPermit();
-                }
-            };
-            dfp.setConcurrentFlashSettings(null, null, true);
-            // take a permit; the next attempt to take the permit should proceed without blocking
-            dfp.takeFlashingPermit();
-            assertNull("Flash lock is non-null", dfp.getConcurrentFlashLock());
-
-            waiter.start();
-            RunUtil.getDefault().sleep(100);  // Thread start should take <100ms
-            Thread.State waiterState = waiter.getState();
-            assertTrue("Invalid state: waiter thread hasn't started",
-                    waiter.isAlive() || Thread.State.TERMINATED.equals(waiterState));
-            assertNull("Flash lock is non-null", dfp.getConcurrentFlashLock());
-
-            dfp.returnFlashingPermit();
-            RunUtil.getDefault().sleep(100);  // Thread start should take <100ms
-            assertNull("Flash lock is non-null", dfp.getConcurrentFlashLock());
-
-            waiter.join(1000);
-            assertFalse("waiter thread has not returned", waiter.isAlive());
-        } finally {
-            // Attempt to reset concurrent flash settings to defaults
-            dfp.setConcurrentFlashSettings(null, null, true);
-        }
+    public void testSetup_flashSkipped() throws Exception {
+        doSetupExpectations();
+        // report flashing status as null (for not flashing system partitions)
+        EasyMock.expect(mMockFlasher.getSystemFlashingStatus()).andReturn(null).anyTimes();
+        EasyMock.replay(mMockFlasher, mMockDevice);
+        mDeviceFlashPreparer.setUp(mMockDevice, mMockBuildInfo);
+        EasyMock.verify(mMockFlasher, mMockDevice);
+        assertFalse("should not report flashing metrics in normal case", mFlashingMetricsReported);
     }
 }

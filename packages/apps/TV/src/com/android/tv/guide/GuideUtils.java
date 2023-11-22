@@ -17,11 +17,9 @@
 package com.android.tv.guide;
 
 import android.graphics.Rect;
-import android.support.annotation.NonNull;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
-
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
@@ -30,8 +28,8 @@ class GuideUtils {
     private static int sWidthPerHour = 0;
 
     /**
-     * Sets the width in pixels that corresponds to an hour in program guide.
-     * Assume that this is called from main thread only, so, no synchronization.
+     * Sets the width in pixels that corresponds to an hour in program guide. Assume that this is
+     * called from main thread only, so, no synchronization.
      */
     static void setWidthPerHour(int widthPerHour) {
         sWidthPerHour = widthPerHour;
@@ -44,30 +42,29 @@ class GuideUtils {
         return (int) (millis * sWidthPerHour / TimeUnit.HOURS.toMillis(1));
     }
 
-    /**
-     * Gets the number of pixels in program guide table that corresponds to the given range.
-     */
+    /** Gets the number of pixels in program guide table that corresponds to the given range. */
     static int convertMillisToPixel(long startMillis, long endMillis) {
         // Convert to pixels first to avoid accumulation of rounding errors.
         return GuideUtils.convertMillisToPixel(endMillis)
                 - GuideUtils.convertMillisToPixel(startMillis);
     }
 
-    /**
-     * Gets the time in millis that corresponds to the given pixels in the program guide.
-     */
+    /** Gets the time in millis that corresponds to the given pixels in the program guide. */
     static long convertPixelToMillis(int pixel) {
         return pixel * TimeUnit.HOURS.toMillis(1) / sWidthPerHour;
     }
 
     /**
      * Return the view should be focused in the given program row according to the focus range.
-
+     *
      * @param keepCurrentProgramFocused If {@code true}, focuses on the current program if possible,
-     *                                  else falls back the general logic.
+     *     else falls back the general logic.
      */
-    static View findNextFocusedProgram(View programRow, int focusRangeLeft,
-            int focusRangeRight, boolean keepCurrentProgramFocused) {
+    static View findNextFocusedProgram(
+            View programRow,
+            int focusRangeLeft,
+            int focusRangeRight,
+            boolean keepCurrentProgramFocused) {
         ArrayList<View> focusables = new ArrayList<>();
         findFocusables(programRow, focusables);
 
@@ -102,9 +99,10 @@ class GuideUtils {
                     maxFullyOverlappedWidth = width;
                 }
             } else if (maxFullyOverlappedWidth == Integer.MIN_VALUE) {
-                int overlappedWidth = (focusRangeLeft <= focusableRect.left) ?
-                        focusRangeRight - focusableRect.left
-                        : focusableRect.right - focusRangeLeft;
+                int overlappedWidth =
+                        (focusRangeLeft <= focusableRect.left)
+                                ? focusRangeRight - focusableRect.left
+                                : focusableRect.right - focusRangeLeft;
                 if (overlappedWidth > maxPartiallyOverlappedWidth) {
                     nextFocusIndex = i;
                     maxPartiallyOverlappedWidth = overlappedWidth;
@@ -118,16 +116,14 @@ class GuideUtils {
     }
 
     /**
-     *  Returns {@code true} if the program displayed in the give
-     *  {@link com.android.tv.guide.ProgramItemView} is a current program.
+     * Returns {@code true} if the program displayed in the give {@link
+     * com.android.tv.guide.ProgramItemView} is a current program.
      */
     static boolean isCurrentProgram(ProgramItemView view) {
         return view.getTableEntry().isCurrentProgram();
     }
 
-    /**
-     * Returns {@code true} if the given view is a descendant of the give container.
-     */
+    /** Returns {@code true} if the given view is a descendant of the give container. */
     static boolean isDescendant(ViewGroup container, View view) {
         if (view == null) {
             return false;
@@ -152,5 +148,5 @@ class GuideUtils {
         }
     }
 
-    private GuideUtils() { }
+    private GuideUtils() {}
 }

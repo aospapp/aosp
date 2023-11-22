@@ -35,6 +35,7 @@ TEST_F(SliceTest, smoke) {
     Slice s1 = makeSlice(mRaw);
     Slice s2 = makeSlice(mRaw);
     auto p = split(s1, 14);
+    s2 = p.first; // avoid warn-unused error
     std::stringstream ss;
     ss << Slice();
     EXPECT_EQ("Slice[base: 0x0, limit: 0x0, size: 0x0]", ss.str());
@@ -74,6 +75,60 @@ TEST_F(SliceTest, constructor) {
     EXPECT_TRUE(Slice().empty());
     EXPECT_TRUE(Slice(nullptr, static_cast<size_t>(0)).empty());
     EXPECT_TRUE(Slice(nullptr, nullptr).empty());
+}
+
+TEST_F(SliceTest, extract) {
+    struct A {
+        int a, b;
+        bool operator==(const A& other) const { return a == other.a && b == other.b; }
+    };
+    struct B {
+        char str[12];
+        bool b;
+        int i;
+        bool operator==(const B& other) const {
+            return b == other.b && i == other.i && 0 == strncmp(str, other.str, 12);
+        }
+    };
+
+    A origA1 = {1, 2};
+    A origA2 = {3, 4};
+    B origB = {"hello world", true, 1234};
+
+    // Populate buffer for extracting.
+    Slice buffer = makeSlice(mRaw);
+    copy(buffer, makeSlice(origA1));
+    copy(drop(buffer, sizeof(origA1)), makeSlice(origB));
+    copy(drop(buffer, sizeof(origA1) + sizeof(origB)), makeSlice(origA2));
+
+    {
+        // Non-variadic extract
+        A a1{};
+        size_t len = extract(buffer, a1);
+        EXPECT_EQ(sizeof(A), len);
+        EXPECT_EQ(origA1, a1);
+    }
+
+    {
+        // Variadic extract, 2 destinations
+        A a1{};
+        B b{};
+        size_t len = extract(buffer, a1, b);
+        EXPECT_EQ(sizeof(A) + sizeof(B), len);
+        EXPECT_EQ(origA1, a1);
+        EXPECT_EQ(origB, b);
+    }
+
+    {
+        // Variadic extract, 3 destinations
+        A a1{}, a2{};
+        B b{};
+        size_t len = extract(buffer, a1, b, a2);
+        EXPECT_EQ(2 * sizeof(A) + sizeof(B), len);
+        EXPECT_EQ(origA1, a1);
+        EXPECT_EQ(origB, b);
+        EXPECT_EQ(origA2, a2);
+    }
 }
 
 }  // namespace netdutils

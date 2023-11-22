@@ -35,19 +35,18 @@ var (
 
 	hidlGen = pctx.HostBinToolVariable("hidlGen", "hidl-gen")
 
-	hidlGenCmd = "${hidlGen}  -o ${genDir} -L vts " +
-		"-r android.hardware:hardware/interfaces " +
-		"-r android.hidl:system/libhidl/transport " +
+	hidlGenCmd = "${hidlGen} -o ${genDir} -L vts ${args} " +
 		"${pckg}@${ver}::${halFile}"
 
 	hal2vtsRule = pctx.StaticRule("hal2vtsRule", blueprint.RuleParams{
 		Command:     hidlGenCmd,
 		CommandDeps: []string{"${hidlGen}"},
 		Description: "hidl-gen -l vts $in => $out",
-	}, "genDir", "pckg", "ver", "halFile")
+	}, "genDir", "args", "pckg", "ver", "halFile")
 )
 
 type hal2vtsProperties struct {
+	Hidl_gen_args string
 	Srcs []string
 	Out  []string
 }
@@ -75,6 +74,8 @@ func (h *hal2vts) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		ctx.ModuleErrorf("Number of inputs must be equal to number of outputs.")
 	}
 
+	args := h.properties.Hidl_gen_args
+
 	genDir := android.PathForModuleGen(ctx, "").String()
 
 	vtsList := vtsList(ctx.AConfig())
@@ -88,18 +89,17 @@ func (h *hal2vts) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 			ctx.ModuleErrorf("Source file has to be a .hal file.")
 		}
 
-		relSrc, err := filepath.Rel("hardware/interfaces/", src.String())
+		relOut, err := filepath.Rel(genDir, out.String())
 		if err != nil {
-			ctx.ModuleErrorf("Source file has to be from hardware/interfaces")
+			ctx.ModuleErrorf("Cannot get relative output path.")
 		}
-		halDir := filepath.Dir(relSrc)
+		halDir := filepath.Dir(relOut)
 		halFile := strings.TrimSuffix(src.Base(), ".hal")
 
 		ver := filepath.Base(halDir)
 		// Need this to transform directory path to hal name.
 		// For example, audio/effect -> audio.effect
 		pckg := strings.Replace(filepath.Dir(halDir), "/", ".", -1)
-		pckg = "android.hardware." + pckg
 
 		ctx.ModuleBuild(pctx, android.ModuleBuildParams{
 			Rule:   hal2vtsRule,
@@ -107,6 +107,7 @@ func (h *hal2vts) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 			Output: out,
 			Args: map[string]string{
 				"genDir":  genDir,
+				"args":    args,
 				"pckg":    pckg,
 				"ver":     ver,
 				"halFile": halFile,
@@ -127,6 +128,10 @@ func (h *hal2vts) GeneratedHeaderDirs() android.Paths {
 }
 
 func (h *hal2vts) GeneratedSourceFiles() android.Paths {
+	return nil
+}
+
+func (h *hal2vts) GeneratedDeps() android.Paths {
 	return h.generatedHeaders
 }
 

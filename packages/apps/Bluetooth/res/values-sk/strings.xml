@@ -136,4 +136,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"Rozhranie Bluetooth Audio je pripojené"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Rozhranie Bluetooth Audio je odpojené"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth Audio"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Súbory väčšie ako 4 GB sa nedajú preniesť"</string>
 </resources>

@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 # Copyright 2013 Google Inc. All Rights Reserved.
 """Script to find list of common images (first beta releases) in Chromeos.
@@ -63,11 +63,12 @@ def Main(argv):
   """Get ChromeOS first betas list from history URL."""
 
   parser = argparse.ArgumentParser()
-  parser.add_argument('--serialize',
-                      dest='serialize',
-                      default=None,
-                      help='Save list of common images into the specified '
-                      'file.')
+  parser.add_argument(
+      '--serialize',
+      dest='serialize',
+      default=None,
+      help='Save list of common images into the specified '
+      'file.')
   options = parser.parse_args(argv)
 
   try:

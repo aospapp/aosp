@@ -32,13 +32,13 @@
 
 package com.android.bluetooth.opp;
 
-import java.util.HashMap;
-
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.util.Log;
+
+import java.util.HashMap;
 
 /**
  * This class cache Bluetooth device name and channel locally. Its a temp
@@ -48,10 +48,10 @@ public class BluetoothOppPreference {
     private static final String TAG = "BluetoothOppPreference";
     private static final boolean V = Constants.VERBOSE;
 
-    private static BluetoothOppPreference INSTANCE;
+    private static BluetoothOppPreference sInstance;
 
     /* Used when obtaining a reference to the singleton instance. */
-    private static Object INSTANCE_LOCK = new Object();
+    private static final Object INSTANCE_LOCK = new Object();
 
     private boolean mInitialized;
 
@@ -67,27 +67,29 @@ public class BluetoothOppPreference {
 
     public static BluetoothOppPreference getInstance(Context context) {
         synchronized (INSTANCE_LOCK) {
-            if (INSTANCE == null) {
-                INSTANCE = new BluetoothOppPreference();
+            if (sInstance == null) {
+                sInstance = new BluetoothOppPreference();
             }
-            if (!INSTANCE.init(context)) {
+            if (!sInstance.init(context)) {
                 return null;
             }
-            return INSTANCE;
+            return sInstance;
         }
     }
 
     private boolean init(Context context) {
-        if (mInitialized)
+        if (mInitialized) {
             return true;
+        }
         mInitialized = true;
 
         mContext = context;
 
         mNamePreference = mContext.getSharedPreferences(Constants.BLUETOOTHOPP_NAME_PREFERENCE,
                 Context.MODE_PRIVATE);
-        mChannelPreference = mContext.getSharedPreferences(
-                Constants.BLUETOOTHOPP_CHANNEL_PREFERENCE, Context.MODE_PRIVATE);
+        mChannelPreference =
+                mContext.getSharedPreferences(Constants.BLUETOOTHOPP_CHANNEL_PREFERENCE,
+                        Context.MODE_PRIVATE);
 
         mNames = (HashMap<String, String>) mNamePreference.getAll();
         mChannels = (HashMap<String, Integer>) mChannelPreference.getAll();
@@ -114,18 +116,25 @@ public class BluetoothOppPreference {
 
     public int getChannel(BluetoothDevice remoteDevice, int uuid) {
         String key = getChannelKey(remoteDevice, uuid);
-        if (V) Log.v(TAG, "getChannel " + key);
+        if (V) {
+            Log.v(TAG, "getChannel " + key);
+        }
         Integer channel = null;
         if (mChannels != null) {
             channel = mChannels.get(key);
-            if (V) Log.v(TAG, "getChannel for " + remoteDevice + "_" + Integer.toHexString(uuid) +
-                        " as " + channel);
+            if (V) {
+                Log.v(TAG,
+                        "getChannel for " + remoteDevice + "_" + Integer.toHexString(uuid) + " as "
+                                + channel);
+            }
         }
         return (channel != null) ? channel : -1;
     }
 
     public void setName(BluetoothDevice remoteDevice, String name) {
-        if (V) Log.v(TAG, "Setname for " + remoteDevice + " to " + name);
+        if (V) {
+            Log.v(TAG, "Setname for " + remoteDevice + " to " + name);
+        }
         if (name != null && !name.equals(getName(remoteDevice))) {
             Editor ed = mNamePreference.edit();
             ed.putString(remoteDevice.getAddress(), name);
@@ -135,8 +144,10 @@ public class BluetoothOppPreference {
     }
 
     public void setChannel(BluetoothDevice remoteDevice, int uuid, int channel) {
-        if (V) Log.v(TAG, "Setchannel for " + remoteDevice + "_" + Integer.toHexString(uuid) + " to "
+        if (V) {
+            Log.v(TAG, "Setchannel for " + remoteDevice + "_" + Integer.toHexString(uuid) + " to "
                     + channel);
+        }
         if (channel != getChannel(remoteDevice, uuid)) {
             String key = getChannelKey(remoteDevice, uuid);
             Editor ed = mChannelPreference.edit();

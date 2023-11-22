@@ -6,6 +6,7 @@ LOCAL_SRC_FILES := micro_bench.cpp
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 LOCAL_MODULE_TAGS := debug
 LOCAL_MODULE := micro_bench
+LOCAL_CFLAGS := -Wall -Werror -Wno-error=unused-variable
 
 LOCAL_MULTILIB := both
 LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)
@@ -19,6 +20,7 @@ LOCAL_SRC_FILES := micro_bench.cpp
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 LOCAL_MODULE_TAGS := debug
 LOCAL_MODULE := micro_bench_static
+LOCAL_CFLAGS := -Wall -Werror -Wno-error=unused-variable
 LOCAL_STATIC_LIBRARIES = libc libm
 LOCAL_FORCE_STATIC_EXECUTABLE := true
 

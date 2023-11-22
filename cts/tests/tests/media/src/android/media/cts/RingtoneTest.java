@@ -16,17 +16,21 @@
 
 package android.media.cts;
 
+import android.app.ActivityManager;
 import android.app.UiAutomation;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class RingtoneTest extends InstrumentationTestCase {
     private static final String TAG = "RingtoneTest";
 
@@ -52,17 +56,26 @@ public class RingtoneTest extends InstrumentationTestCase {
 
         int maxVolume = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_RING);
 
-        try {
-            Utils.toggleNotificationPolicyAccess(
-                    mContext.getPackageName(), getInstrumentation(), true);
-            // set ringer to a reasonable volume
+        if (mAudioManager.getRingerMode() == AudioManager.RINGER_MODE_VIBRATE) {
+            mAudioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
             mAudioManager.setStreamVolume(AudioManager.STREAM_RING, maxVolume / 2,
                     AudioManager.FLAG_ALLOW_RINGER_MODES);
-            // make sure that we are not in silent mode
-            mAudioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
-        } finally {
-            Utils.toggleNotificationPolicyAccess(
-                    mContext.getPackageName(), getInstrumentation(), false);
+        } else if (mAudioManager.getRingerMode() == AudioManager.RINGER_MODE_NORMAL) {
+            mAudioManager.setStreamVolume(AudioManager.STREAM_RING, maxVolume / 2,
+                    AudioManager.FLAG_ALLOW_RINGER_MODES);
+        } else if (!ActivityManager.isLowRamDeviceStatic()) {
+            try {
+                Utils.toggleNotificationPolicyAccess(
+                        mContext.getPackageName(), getInstrumentation(), true);
+                // set ringer to a reasonable volume
+                mAudioManager.setStreamVolume(AudioManager.STREAM_RING, maxVolume / 2,
+                        AudioManager.FLAG_ALLOW_RINGER_MODES);
+                // make sure that we are not in silent mode
+                mAudioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
+            } finally {
+                Utils.toggleNotificationPolicyAccess(
+                        mContext.getPackageName(), getInstrumentation(), false);
+            }
         }
 
         mDefaultRingUri = RingtoneManager.getActualDefaultRingtoneUri(mContext,
@@ -88,7 +101,7 @@ public class RingtoneTest extends InstrumentationTestCase {
             if (mRingtone.isPlaying()) mRingtone.stop();
             mRingtone.setStreamType(mOriginalStreamType);
         }
-        if (mAudioManager != null) {
+        if (mAudioManager != null && !ActivityManager.isLowRamDeviceStatic()) {
             try {
                 Utils.toggleNotificationPolicyAccess(
                         mContext.getPackageName(), getInstrumentation(), true);
@@ -149,6 +162,34 @@ public class RingtoneTest extends InstrumentationTestCase {
         assertTrue(mRingtone.getStreamType() == AudioManager.STREAM_RING);
         mRingtone.play();
         assertTrue("couldn't play ringtone " + uri, mRingtone.isPlaying());
+        mRingtone.stop();
+        assertFalse(mRingtone.isPlaying());
+    }
+
+    public void testLoopingVolume() {
+        if (isTV()) {
+            return;
+        }
+        if (!hasAudioOutput()) {
+            Log.i(TAG, "Skipping testRingtone(): device doesn't have audio output.");
+            return;
+        }
+
+        Uri uri = RingtoneManager.getValidRingtoneUri(mContext);
+        assertNotNull("ringtone was unexpectedly null", uri);
+        RingtoneManager.setActualDefaultRingtoneUri(mContext, RingtoneManager.TYPE_RINGTONE, uri);
+        assertNotNull(mRingtone.getTitle(mContext));
+        final AudioAttributes ringtoneAa = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).
+                build();
+        mRingtone.setAudioAttributes(ringtoneAa);
+        assertEquals(ringtoneAa, mRingtone.getAudioAttributes());
+        mRingtone.setLooping(true);
+        mRingtone.setVolume(0.5f);
+        mRingtone.play();
+        assertTrue("couldn't play ringtone " + uri, mRingtone.isPlaying());
+        assertTrue(mRingtone.isLooping());
+        assertEquals("invalid ringtone player volume", 0.5f, mRingtone.getVolume());
         mRingtone.stop();
         assertFalse(mRingtone.isPlaying());
     }

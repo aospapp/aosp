@@ -55,7 +55,8 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
             PIN_DIALOG_TYPE_UNLOCK_PROGRAM,
             PIN_DIALOG_TYPE_ENTER_PIN,
             PIN_DIALOG_TYPE_NEW_PIN,
-            PIN_DIALOG_TYPE_OLD_PIN})
+            PIN_DIALOG_TYPE_OLD_PIN,
+            PIN_DIALOG_TYPE_DELETE_PIN})
     public @interface PinDialogType {}
     /**
      * PIN code dialog for unlock channel
@@ -81,6 +82,11 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
     // PIN code dialog for checking old PIN. This is intenal only.
     private static final int PIN_DIALOG_TYPE_OLD_PIN = 4;
 
+    /**
+     * PIN code dialog for deleting the PIN
+     */
+    public static final int PIN_DIALOG_TYPE_DELETE_PIN = 5;
+
     private static final int PIN_DIALOG_RESULT_SUCCESS = 0;
     private static final int PIN_DIALOG_RESULT_FAIL = 1;
 
@@ -103,15 +109,47 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
     private View mEnterPinView;
     private TextView mTitleView;
     private PinNumberPicker[] mPickers;
+    private String mOriginalPin;
     private String mPrevPin;
     private int mWrongPinCount;
     private long mDisablePinUntil;
     private final Handler mHandler = new Handler();
 
+    /**
+     * Get the bad PIN retry time
+     * @return Retry time
+     */
     public abstract long getPinDisabledUntil();
+
+    /**
+     * Set the bad PIN retry time
+     * @param retryDisableTimeout Retry time
+     */
     public abstract void setPinDisabledUntil(long retryDisableTimeout);
-    public abstract void setPin(String pin);
+
+    /**
+     * Set PIN password for the profile
+     * @param pin New PIN password
+     */
+    public abstract void setPin(String pin, String originalPin);
+
+    /**
+     * Delete PIN password for the profile
+     * @param oldPin Old PIN password (required)
+     */
+    public abstract void deletePin(String oldPin);
+
+    /**
+     * Validate PIN password for the profile
+     * @param pin Password to check
+     * @return {@code True} if password is correct
+     */
     public abstract boolean isPinCorrect(String pin);
+
+    /**
+     * Check if there is a PIN password set on the profile
+     * @return {@code True} if password is set
+     */
     public abstract boolean isPinSet();
 
     public PinDialogFragment() {
@@ -162,6 +200,7 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
                 mTitleView.setText(R.string.pin_enter_unlock_program);
                 break;
             case PIN_DIALOG_TYPE_ENTER_PIN:
+            case PIN_DIALOG_TYPE_DELETE_PIN:
                 mTitleView.setText(R.string.pin_enter_pin);
                 break;
             case PIN_DIALOG_TYPE_NEW_PIN:
@@ -258,8 +297,12 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
             case PIN_DIALOG_TYPE_UNLOCK_CHANNEL:
             case PIN_DIALOG_TYPE_UNLOCK_PROGRAM:
             case PIN_DIALOG_TYPE_ENTER_PIN:
+            case PIN_DIALOG_TYPE_DELETE_PIN:
                 // TODO: Implement limited number of retrials and timeout logic.
                 if (!isPinSet() || isPinCorrect(pin)) {
+                    if (mType == PIN_DIALOG_TYPE_DELETE_PIN) {
+                        deletePin(pin);
+                    }
                     exit(PIN_DIALOG_RESULT_SUCCESS);
                 } else {
                     resetPinInput();
@@ -273,7 +316,7 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
                     mTitleView.setText(R.string.pin_enter_again);
                 } else {
                     if (pin.equals(mPrevPin)) {
-                        setPin(pin);
+                        setPin(pin, mOriginalPin);
                         exit(PIN_DIALOG_RESULT_SUCCESS);
                     } else {
                         mTitleView.setText(R.string.pin_enter_new_pin);
@@ -285,6 +328,7 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
             case PIN_DIALOG_TYPE_OLD_PIN:
                 resetPinInput();
                 if (isPinCorrect(pin)) {
+                    mOriginalPin = pin;
                     mType = PIN_DIALOG_TYPE_NEW_PIN;
                     mTitleView.setText(R.string.pin_enter_new_pin);
                 } else {

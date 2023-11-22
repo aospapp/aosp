@@ -56,12 +56,13 @@ class policy_ForceGoogleSafeSearch(enterprise_policy_base.EnterprisePolicyTest):
             if is_safe_search_active:
                 raise error.TestFail('Safe search should not be active.')
 
-    def run_test_case(self, case):
+    def run_once(self, case):
         """Setup and run the test configured for the specified test case.
 
         @param case: Name of the test case to run.
 
         """
         case_value = self.TEST_CASES[case]
-        self.setup_case(self.POLICY_NAME, case_value, self.SUPPORTING_POLICIES)
+        self.SUPPORTING_POLICIES[self.POLICY_NAME] = case_value
+        self.setup_case(user_policies=self.SUPPORTING_POLICIES)
         self._test_force_safe_search(case_value)

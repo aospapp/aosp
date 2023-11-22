@@ -19,8 +19,8 @@
 #include "builder.h"
 #include "code_generator.h"
 #include "code_generator_x86.h"
-#include "dex_file.h"
-#include "dex_instruction.h"
+#include "dex/dex_file.h"
+#include "dex/dex_instruction.h"
 #include "driver/compiler_options.h"
 #include "nodes.h"
 #include "optimizing_unit_test.h"
@@ -29,10 +29,13 @@
 
 namespace art {
 
-class LiveRangesTest : public CommonCompilerTest {};
+class LiveRangesTest : public OptimizingUnitTest {
+ public:
+  HGraph* BuildGraph(const std::vector<uint16_t>& data);
+};
 
-static HGraph* BuildGraph(const uint16_t* data, ArenaAllocator* allocator) {
-  HGraph* graph = CreateCFG(allocator, data);
+HGraph* LiveRangesTest::BuildGraph(const std::vector<uint16_t>& data) {
+  HGraph* graph = CreateCFG(data);
   // Suspend checks implementation may change in the future, and this test relies
   // on how instructions are ordered.
   RemoveSuspendChecks(graph);
@@ -54,18 +57,16 @@ TEST_F(LiveRangesTest, CFG1) {
    *           |
    *       12: exit
    */
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::RETURN);
 
-  ArenaPool pool;
-  ArenaAllocator allocator(&pool);
-  HGraph* graph = BuildGraph(data, &allocator);
+  HGraph* graph = BuildGraph(data);
 
   std::unique_ptr<const X86InstructionSetFeatures> features_x86(
       X86InstructionSetFeatures::FromCppDefines());
   x86::CodeGeneratorX86 codegen(graph, *features_x86.get(), CompilerOptions());
-  SsaLivenessAnalysis liveness(graph, &codegen);
+  SsaLivenessAnalysis liveness(graph, &codegen, GetScopedAllocator());
   liveness.Analyze();
 
   LiveInterval* interval = liveness.GetInstructionFromSsaIndex(0)->GetLiveInterval();
@@ -101,19 +102,17 @@ TEST_F(LiveRangesTest, CFG2) {
    *         |
    *       26: exit
    */
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 3,
     Instruction::GOTO | 0x100,
     Instruction::RETURN | 0 << 8);
 
-  ArenaPool pool;
-  ArenaAllocator allocator(&pool);
-  HGraph* graph = BuildGraph(data, &allocator);
+  HGraph* graph = BuildGraph(data);
   std::unique_ptr<const X86InstructionSetFeatures> features_x86(
       X86InstructionSetFeatures::FromCppDefines());
   x86::CodeGeneratorX86 codegen(graph, *features_x86.get(), CompilerOptions());
-  SsaLivenessAnalysis liveness(graph, &codegen);
+  SsaLivenessAnalysis liveness(graph, &codegen, GetScopedAllocator());
   liveness.Analyze();
 
   LiveInterval* interval = liveness.GetInstructionFromSsaIndex(0)->GetLiveInterval();
@@ -152,19 +151,17 @@ TEST_F(LiveRangesTest, CFG3) {
    *         |
    *       28: exit
    */
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 3,
     Instruction::CONST_4 | 4 << 12 | 0,
     Instruction::RETURN | 0 << 8);
 
-  ArenaPool pool;
-  ArenaAllocator allocator(&pool);
-  HGraph* graph = BuildGraph(data, &allocator);
+  HGraph* graph = BuildGraph(data);
   std::unique_ptr<const X86InstructionSetFeatures> features_x86(
       X86InstructionSetFeatures::FromCppDefines());
   x86::CodeGeneratorX86 codegen(graph, *features_x86.get(), CompilerOptions());
-  SsaLivenessAnalysis liveness(graph, &codegen);
+  SsaLivenessAnalysis liveness(graph, &codegen, GetScopedAllocator());
   liveness.Analyze();
 
   // Test for the 4 constant.
@@ -228,7 +225,7 @@ TEST_F(LiveRangesTest, Loop1) {
    *       30: exit
    */
 
-  const uint16_t data[] = TWO_REGISTERS_CODE_ITEM(
+  const std::vector<uint16_t> data = TWO_REGISTERS_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 4,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -236,14 +233,12 @@ TEST_F(LiveRangesTest, Loop1) {
     Instruction::CONST_4 | 5 << 12 | 1 << 8,
     Instruction::RETURN | 1 << 8);
 
-  ArenaPool pool;
-  ArenaAllocator allocator(&pool);
-  HGraph* graph = BuildGraph(data, &allocator);
+  HGraph* graph = BuildGraph(data);
   RemoveSuspendChecks(graph);
   std::unique_ptr<const X86InstructionSetFeatures> features_x86(
       X86InstructionSetFeatures::FromCppDefines());
   x86::CodeGeneratorX86 codegen(graph, *features_x86.get(), CompilerOptions());
-  SsaLivenessAnalysis liveness(graph, &codegen);
+  SsaLivenessAnalysis liveness(graph, &codegen, GetScopedAllocator());
   liveness.Analyze();
 
   // Test for the 0 constant.
@@ -309,20 +304,18 @@ TEST_F(LiveRangesTest, Loop2) {
    * We want to make sure the phi at 10 has a lifetime hole after the add at 20.
    */
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 6,
     Instruction::ADD_INT, 0, 0,
     Instruction::GOTO | 0xFB00,
     Instruction::RETURN | 0 << 8);
 
-  ArenaPool pool;
-  ArenaAllocator allocator(&pool);
-  HGraph* graph = BuildGraph(data, &allocator);
+  HGraph* graph = BuildGraph(data);
   std::unique_ptr<const X86InstructionSetFeatures> features_x86(
       X86InstructionSetFeatures::FromCppDefines());
   x86::CodeGeneratorX86 codegen(graph, *features_x86.get(), CompilerOptions());
-  SsaLivenessAnalysis liveness(graph, &codegen);
+  SsaLivenessAnalysis liveness(graph, &codegen, GetScopedAllocator());
   liveness.Analyze();
 
   // Test for the 0 constant.
@@ -385,7 +378,7 @@ TEST_F(LiveRangesTest, CFG4) {
    *
    * We want to make sure the constant0 has a lifetime hole after the 16: add.
    */
-  const uint16_t data[] = TWO_REGISTERS_CODE_ITEM(
+  const std::vector<uint16_t> data = TWO_REGISTERS_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::CONST_4 | 4 << 12 | 1 << 8,
     Instruction::IF_EQ, 5,
@@ -394,13 +387,11 @@ TEST_F(LiveRangesTest, CFG4) {
     Instruction::ADD_INT, 1 << 8,
     Instruction::RETURN);
 
-  ArenaPool pool;
-  ArenaAllocator allocator(&pool);
-  HGraph* graph = BuildGraph(data, &allocator);
+  HGraph* graph = BuildGraph(data);
   std::unique_ptr<const X86InstructionSetFeatures> features_x86(
       X86InstructionSetFeatures::FromCppDefines());
   x86::CodeGeneratorX86 codegen(graph, *features_x86.get(), CompilerOptions());
-  SsaLivenessAnalysis liveness(graph, &codegen);
+  SsaLivenessAnalysis liveness(graph, &codegen, GetScopedAllocator());
   liveness.Analyze();
 
   // Test for the 0 constant.

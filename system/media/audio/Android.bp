@@ -15,5 +15,8 @@ cc_library_headers {
         windows: {
             enabled: true,
         },
+        vendor: {
+            cflags: ["AUDIO_NO_SYSTEM_DECLARATIONS"],
+        },
     }
 }

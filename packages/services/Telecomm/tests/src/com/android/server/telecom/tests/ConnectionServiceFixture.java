@@ -26,6 +26,7 @@ import junit.framework.TestCase;
 import org.mockito.Mockito;
 
 import android.content.ComponentName;
+import android.content.Context;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -75,6 +76,10 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         int mVideoState = INVALID_VIDEO_STATE;
         int mCapabilities = NOT_SPECIFIED;
         int mProperties = NOT_SPECIFIED;
+
+        public FakeConnectionServiceDelegate(Context base) {
+            attachBaseContext(base);
+        }
 
         @Override
         public Connection onCreateUnknownConnection(
@@ -271,6 +276,10 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         public void answer(String callId, Session.Info info) throws RemoteException { }
 
         @Override
+        public void deflect(String callId, Uri address, Session.Info info)
+                throws RemoteException { }
+
+        @Override
         public void reject(String callId, Session.Info info) throws RemoteException {
             rejectedCallIds.add(callId);
         }
@@ -355,6 +364,14 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         }
 
         @Override
+        public void connectionServiceFocusLost(Session.Info sessionInfo) throws RemoteException {
+        }
+
+        @Override
+        public void connectionServiceFocusGained(Session.Info sessionInfo) throws RemoteException {
+        }
+
+        @Override
         public IBinder asBinder() {
             return this;
         }
@@ -363,12 +380,17 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         public IInterface queryLocalInterface(String descriptor) {
             return this;
         }
+
+        @Override
+        public void handoverFailed(String callId, ConnectionRequest request,
+                                   int error, Session.Info sessionInfo) {}
+
+        @Override
+        public void handoverComplete(String callId, Session.Info sessionInfo) {}
     }
 
-    FakeConnectionServiceDelegate mConnectionServiceDelegate =
-            new FakeConnectionServiceDelegate();
-    private IConnectionService mConnectionServiceDelegateAdapter =
-            IConnectionService.Stub.asInterface(mConnectionServiceDelegate.onBind(null));
+    FakeConnectionServiceDelegate mConnectionServiceDelegate;
+    private IConnectionService mConnectionServiceDelegateAdapter;
 
     FakeConnectionService mConnectionService = new FakeConnectionService();
     private IConnectionService.Stub mConnectionServiceSpy = Mockito.spy(mConnectionService);
@@ -423,7 +445,11 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
     public final List<ComponentName> mRemoteConnectionServiceNames = new ArrayList<>();
     public final List<IBinder> mRemoteConnectionServices = new ArrayList<>();
 
-    public ConnectionServiceFixture() throws Exception { }
+    public ConnectionServiceFixture(Context context) throws Exception {
+        mConnectionServiceDelegate = new FakeConnectionServiceDelegate(context);
+        mConnectionServiceDelegateAdapter = IConnectionService.Stub.asInterface(
+                mConnectionServiceDelegate.onBind(null));
+    }
 
     @Override
     public IConnectionService getTestDouble() {

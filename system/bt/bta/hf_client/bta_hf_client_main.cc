@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  *  Copyright (c) 2016 The Android Open Source Project
- *  Copyright (C) 2003-2012 Broadcom Corporation
+ *  Copyright 2003-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -363,8 +363,8 @@ static void bta_hf_client_collision_timer_cback(void* data) {
  ******************************************************************************/
 void bta_hf_client_collision_cback(UNUSED_ATTR tBTA_SYS_CONN_STATUS status,
                                    uint8_t id, UNUSED_ATTR uint8_t app_id,
-                                   const RawAddress* peer_addr) {
-  tBTA_HF_CLIENT_CB* client_cb = bta_hf_client_find_cb_by_bda(*peer_addr);
+                                   const RawAddress& peer_addr) {
+  tBTA_HF_CLIENT_CB* client_cb = bta_hf_client_find_cb_by_bda(peer_addr);
   if (client_cb != NULL && client_cb->state == BTA_HF_CLIENT_OPENING_ST) {
     if (id == BTA_ID_SYS) /* ACL collision */
     {
@@ -381,7 +381,7 @@ void bta_hf_client_collision_cback(UNUSED_ATTR tBTA_SYS_CONN_STATUS status,
     /* Cancel SDP if it had been started. */
     if (client_cb->p_disc_db) {
       (void)SDP_CancelServiceSearch(client_cb->p_disc_db);
-      bta_hf_client_free_db(NULL);
+      osi_free_and_reset((void**)&client_cb->p_disc_db);
     }
 
     /* reopen registered server */

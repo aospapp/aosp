@@ -14,4 +14,4 @@ if [ -z "$1" ]; then
 fi
 
 make -j48 vogar dx
-vogar --mode=activity --toolchain=jdk --multidex=false libcore/tools/docs/crypto/src/java/libcore/java/security/ListProviders.java | libcore/tools/docs/crypto/update_crypto_support.py --api_level=$1 --rewrite_file libcore/tools/docs/crypto/data/crypto_support.json
+vogar --mode=activity --multidex=false libcore/tools/docs/crypto/src/java/libcore/java/security/ListProviders.java | libcore/tools/docs/crypto/update_crypto_support.py --api_level=$1 --rewrite_file libcore/tools/docs/crypto/data/crypto_support.json

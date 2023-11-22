@@ -29,7 +29,18 @@ from vts.runners.host import test_runner
 
 
 class CameraITSTest(base_test.BaseTestClass):
-    """Running CameraITS tests in VTS"""
+    """Running CameraITS tests in VTS.
+
+    Attributes:
+        _TABLET_TYPES: a list of strings, known tablet product types.
+        dut1: AndroidDevice instance, for 1st device whose front-facing camera
+              is tested.
+        dut2: AndroidDevice instance, for 2nd device whose back-facing camera
+              is tested.
+        display_device: AndroidDevice instance, for a tablet device used as
+                        a display screen.
+    """
+    _TABLET_TYPES = ["dragon"]
 
     # TODO: use config file to pass in:
     #          - serial for dut and screen
@@ -38,9 +49,32 @@ class CameraITSTest(base_test.BaseTestClass):
     def setUpClass(self):
         """Setup ITS running python environment and check for required python modules
         """
-        self.dut = self.android_devices[0]
-        self.device_arg = "device=%s" % (self.dut.serial)
-        # data_file_path is unicode so convert it to ascii
+        # When VTS lab infra is used, the provided device order is:
+        #   DUT (front-facing camera),
+        #   DUT (back-facing camera),
+        #   Tablet (display).
+        # This order shall be preserved when a custom test serving infra is
+        # used.
+        self.dut1 = self.android_devices[0]
+        self.dut2 = self.android_devices[1]
+        self.display_device = self.android_devices[2]
+        # In a local run (e.g., using a VTS test harness), the device order
+        # can be arbitrary. So tablet is detected and chosen as a display
+        # device. Similarly, we need a mechanism to detect DUT which uses
+        # front-facing camera (that can be done here or inside another layer).
+
+        if self.dut1.product_type in self._TABLET_TYPES:
+            temp_device = self.dut1
+            self.dut1 = self.dut2
+            self.dut2 = self.dut3
+            self.display_device = temp_device
+        elif self.dut2.product_type in self._TABLET_TYPES:
+            temp_device = self.dut2
+            self.dut2 = self.display_device
+            self.display_device = temp_device
+
+        self.device_arg = "device=%s" % self.dut1.serial
+        self.display_device_arg = "chart=%s" % self.display_device.serial
         self.its_path = str(
             os.path.abspath(os.path.join(self.data_file_path, 'CameraITS')))
         logging.info("cwd: %s", os.getcwd())
@@ -58,7 +92,8 @@ class CameraITSTest(base_test.BaseTestClass):
         logging.info("Python path is: %s" % (sys.executable))
         logging.info("PYTHONPATH env is: " + os.environ["PYTHONPATH"])
         import PIL
-        logging.info("PIL version is " + PIL.__version__)
+        if hasattr(PIL, "__version__"):
+            logging.info("PIL version is %s", PIL.__version__)
         logging.info("PIL path is " + inspect.getfile(PIL))
         from PIL import Image
         logging.info("Image path is " + inspect.getfile(Image))
@@ -107,7 +142,8 @@ class CameraITSTest(base_test.BaseTestClass):
         """
         testname = re.split("/|\.", testpath)[-2]
         cmd = [
-            'python', os.path.join(self.its_path, testpath), self.device_arg
+            'python', os.path.join(self.its_path, testpath), self.device_arg,
+            self.display_device_arg
         ]
         outdir = self.out_path
         outpath = os.path.join(outdir, testname + "_stdout.txt")
@@ -143,12 +179,27 @@ class CameraITSTest(base_test.BaseTestClass):
         paths.sort()
         return paths
 
-    def generateScene0Test(self):
-        testpaths = self.FetchTestPaths("scene0")
-        self.runGeneratedTests(
-            test_func=self.RunTestcase,
-            settings=testpaths,
-            name_func=lambda path: "%s_%s" % (re.split("/|\.", path)[-3], re.split("/|\.", path)[-2]))
+    def generateAllTestCases(self):
+        # Unused packages:
+        # * No plan to support in the near future
+        #   - "dng_noise_model"
+        #   - "inprog"
+        #   - "rolling_shutter_skew"
+        # * Not for ITS box (but for diffuser plate)
+        #   - "scene5"
+        # * Not for ITS box (but for sensor_fusion rotation rig, high-end only)
+        #   - "sensor_fusion"
+        # * Add those scenes to the below list after scene swapping is ported:
+        #     "scene1"
+        #     "scene2"
+        #     "scene3"
+        #     "scene4"
+        for test_package_name in ["scene0"]:
+            testpaths = self.FetchTestPaths(test_package_name)
+            self.runGeneratedTests(
+                test_func=self.RunTestcase,
+                settings=testpaths,
+                name_func=lambda path: "%s_%s" % (re.split("/|\.", path)[-3], re.split("/|\.", path)[-2]))
 
 
 if __name__ == "__main__":

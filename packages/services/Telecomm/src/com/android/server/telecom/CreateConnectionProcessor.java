@@ -213,8 +213,24 @@ public class CreateConnectionProcessor implements CreateConnectionResponse {
                 mCall.setTargetPhoneAccount(attempt.targetPhoneAccount);
                 mCall.setConnectionService(mService);
                 setTimeoutIfNeeded(mService, attempt);
+                if (mCall.isIncoming()) {
+                    mService.createConnection(mCall, CreateConnectionProcessor.this);
+                } else {
+                    // Start to create the connection for outgoing call after the ConnectionService
+                    // of the call has gained the focus.
+                    mCall.getConnectionServiceFocusManager().requestFocus(
+                            mCall,
+                            new CallsManager.RequestCallback(new CallsManager.PendingAction() {
+                                @Override
+                                public void performAction() {
+                                    Log.d(this, "perform create connection");
+                                    mService.createConnection(
+                                            mCall,
+                                            CreateConnectionProcessor.this);
+                                }
+                            }));
 
-                mService.createConnection(mCall, this);
+                }
             }
         } else {
             Log.v(this, "attemptNextPhoneAccount, no more accounts, failing");
@@ -329,15 +345,20 @@ public class CreateConnectionProcessor implements CreateConnectionResponse {
 
             // Next, add all SIM phone accounts which can place emergency calls.
             TelephonyUtil.sortSimPhoneAccounts(mContext, allAccounts);
-            for (PhoneAccount phoneAccount : allAccounts) {
-                if (phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS) &&
-                        phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)) {
-                    PhoneAccountHandle phoneAccountHandle = phoneAccount.getAccountHandle();
-                    // Don't add the preferred account since it has already been added previously.
-                    if (!phoneAccountHandle.equals(preferredPAH)) {
+
+            // If preferredPA already has an emergency PhoneAccount, do not add others since the
+            // emergency call be redialed in Telephony.
+            if (mAttemptRecords.isEmpty()) {
+                for (PhoneAccount phoneAccount : allAccounts) {
+                    if (phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS)
+                            && phoneAccount.hasCapabilities(
+                            PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)) {
+                        PhoneAccountHandle phoneAccountHandle = phoneAccount.getAccountHandle();
                         Log.i(this, "Will try PSTN account %s for emergency", phoneAccountHandle);
                         mAttemptRecords.add(new CallAttemptRecord(phoneAccountHandle,
                                 phoneAccountHandle));
+                        // Add only one emergency SIM PhoneAccount to the attempt list.
+                        break;
                     }
                 }
             }
@@ -353,7 +374,8 @@ public class CreateConnectionProcessor implements CreateConnectionResponse {
                         PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS)) {
                     CallAttemptRecord callAttemptRecord = new CallAttemptRecord(callManagerHandle,
                             mPhoneAccountRegistrar.getOutgoingPhoneAccountForSchemeOfCurrentUser(
-                                    mCall.getHandle().getScheme()));
+                                    mCall.getHandle() == null
+                                            ? null : mCall.getHandle().getScheme()));
                     if (!mAttemptRecords.contains(callAttemptRecord)) {
                         Log.i(this, "Will try Connection Manager account %s for emergency",
                                 callManager);

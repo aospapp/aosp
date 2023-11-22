@@ -1,6 +1,7 @@
 // Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: f06caa0
 
 #include "vp9_uncompressed_header_parser.h"
 
@@ -789,7 +790,7 @@ void Vp9UncompressedHeaderParser::ReadLoopFilterParams() {
       for (size_t i = 0; i < Vp9LoopFilterParams::kNumModeDeltas; i++) {
         loop_filter.update_mode_deltas[i] = reader_.ReadBool();
         if (loop_filter.update_mode_deltas[i])
-          loop_filter.mode_deltas[i] = reader_.ReadLiteral(6);
+          loop_filter.mode_deltas[i] = reader_.ReadSignedLiteral(6);
       }
     }
   }

@@ -105,7 +105,6 @@ list<string> expandTypedefs(const string type, unsigned int apiLevel, int intSiz
             i++;
         } else {
             // Split the replacement string in tokens.
-            istringstream stream(substitute);
 
             /* Get the new vector size. This is for the case of the type being for example
              * rs_quaternion* == float4*, where we need the vector size to be 4 for the
@@ -126,14 +125,16 @@ list<string> expandTypedefs(const string type, unsigned int apiLevel, int intSiz
             if (newVectorSizeVal > vectorSizeVal)
                 vectorSize = newVectorSize;
 
+            istringstream stream(substitute);
             list<string> newTokens{istream_iterator<string>{stream}, istream_iterator<string>{}};
             // Replace the token with the substitution. Don't advance, as the new substitution
             // might itself be replaced.
+            // hold previous node
             auto prev = i;
-            --prev;
-            tokens.insert(i, newTokens.begin(), newTokens.end());
-            tokens.erase(i);
-            advance(i, -newTokens.size());
+            // insert new nodes after node i
+            tokens.splice(++i, std::move(newTokens));
+            // remove previous node and set i to beginning of inserted nodes
+            i = tokens.erase(prev);
         }
     }
     return tokens;
@@ -322,9 +323,9 @@ static bool writeParameters(ostringstream* stream, const std::vector<ParameterDe
 /* Add the mangling for this permutation of the function.  apiLevel and intSize is used
  * to select the correct type when expanding complex type.
  */
-static bool addFunctionManglingToSet(const Function& function,
-                                     const FunctionPermutation& permutation, bool overloadable,
-                                     unsigned int apiLevel, int intSize, set<string>* allManglings) {
+static bool addFunctionManglingToSet(const FunctionPermutation& permutation,
+                                     bool overloadable, unsigned int apiLevel,
+                                     int intSize, set<string>* allManglings) {
     const string& functionName = permutation.getName();
     string mangling;
     if (overloadable) {
@@ -347,8 +348,8 @@ static bool addFunctionManglingToSet(const Function& function,
  * for each API level because the implementation of a type may have changed in the range
  * of API levels covered.
  */
-static bool addManglingsForSpecification(const Function& function,
-                                         const FunctionSpecification& spec, unsigned int lastApiLevel,
+static bool addManglingsForSpecification(const FunctionSpecification& spec,
+                                         unsigned int lastApiLevel,
                                          set<string>* allManglings) {
     // If the function is inlined, we won't generate an unresolved external for that.
     if (spec.hasInline()) {
@@ -369,14 +370,14 @@ static bool addManglingsForSpecification(const Function& function,
     for (int64_t apiLevel = minApiLevel; apiLevel <= maxApiLevel; ++apiLevel) {
         for (auto permutation : spec.getPermutations()) {
             if (info.intSize == 0 || info.intSize == 32) {
-                if (!addFunctionManglingToSet(function, *permutation, overloadable, apiLevel, 32,
-                                              allManglings)) {
+                if (!addFunctionManglingToSet(*permutation, overloadable,
+                                              apiLevel, 32, allManglings)) {
                     success = false;
                 }
             }
             if (apiLevel >= kApiLevelWithFirst64Bit && (info.intSize == 0 || info.intSize == 64)) {
-                if (!addFunctionManglingToSet(function, *permutation, overloadable, apiLevel, 64,
-                                              allManglings)) {
+                if (!addFunctionManglingToSet(*permutation, overloadable,
+                                              apiLevel, 64, allManglings)) {
                     success = false;
                 }
             }
@@ -400,7 +401,8 @@ static bool generateWhiteListFile(unsigned int lastApiLevel) {
             if (spec->isIntrinsic()) {
                 continue;
             }
-            if (!addManglingsForSpecification(*function, *spec, lastApiLevel, &allManglings)) {
+            if (!addManglingsForSpecification(*spec, lastApiLevel,
+                                              &allManglings)) {
                 success = false;  // We continue so we can generate all errors.
             }
         }
@@ -438,7 +440,7 @@ static const string addVariable(GeneratedFile* file, unsigned int* variableNumbe
  * before the function definition.
  */
 static void generateTestCall(GeneratedFile* file, ostringstream* calls,
-                             unsigned int* variableNumber, const Function& function,
+                             unsigned int* variableNumber,
                              const FunctionPermutation& permutation) {
     *calls << "    ";
 
@@ -523,7 +525,7 @@ static bool generateApiTesterFile(const string& slangTestDirectory, unsigned int
                 // http://b/27358969 Do not test rsForEach in the all-api test.
                 if (apiLevel >= 24 && permutation->getName().compare(0, 9, "rsForEach") == 0)
                   continue;
-                generateTestCall(&file, &calls, &variableNumber, *function, *permutation);
+                generateTestCall(&file, &calls, &variableNumber, *permutation);
             }
             if (info.intSize != 0) {
                 calls << "#endif\n";

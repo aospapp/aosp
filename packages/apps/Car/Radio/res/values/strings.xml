@@ -17,9 +17,6 @@ limitations under the License.
     <!-- The main application name for the radio. -->
     <string name="app_name">Radio</string>
 
-    <!-- The name for the service that is responsible for connecting to the radio API. -->
-    <string name="service_name">RadioService</string>
-
     <!-- Text to denote the AM radio band. -->
     <string name="radio_am_text">AM</string>
 
@@ -38,6 +35,10 @@ limitations under the License.
 
     <!-- Text indicating to the user that there was an error loading the error. -->
     <string name="radio_problem_text">Radio not available</string>
+
+    <!-- Error message after invalid MediaSession API selection (mainly by other apps,
+         like assistant). -->
+    <string name="invalid_selection">Invalid selection</string>
 
     <!-- Default metadata text if a preset has no metadata. This text should indicate to the user
          that the station is favorited followed by the number of the favorite. -->

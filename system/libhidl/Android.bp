@@ -12,23 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-subdirs = [
-    "base",           // libhidlbase
-    "libhidlmemory",  // libhidlmemory
-    "transport",      // libhidltransport
-]
-
-libhidl_flags = [
-    "-Wall",
-    "-Werror",
-]
+cc_defaults {
+    name: "libhidl-defaults",
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+}
 
 cc_test {
     name: "libhidl_test",
+    defaults: ["libhidl-defaults"],
     gtest: false,
     srcs: ["test_main.cpp"],
 
     shared_libs: [
+        "android.hardware.tests.inheritance@1.0",
         "libbase",
         "libhidlbase",
         "libhidltransport",
@@ -39,8 +38,12 @@ cc_test {
     ],
     static_libs: ["libgtest", "libgmock"],
 
+    required: [
+        "android.hardware.tests.inheritance@1.0-impl",
+    ],
+
     cflags: [
         "-O0",
         "-g",
-    ] + libhidl_flags,
+    ],
 }

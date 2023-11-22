@@ -37,7 +37,7 @@
             android:required="false" />
 
         <!--
-        Important Note: When you have a local/native Android Wear app that creates it's own
+        Important Note: When you have a local/native Wear app that creates it's own
         notifications, you will want to disable the bridge to the phone.
         -->
         <meta-data

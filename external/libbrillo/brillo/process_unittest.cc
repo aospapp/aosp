@@ -107,7 +107,7 @@ class ProcessTest : public ::testing::Test {
  public:
   void SetUp() {
     CHECK(temp_dir_.CreateUniqueTempDir());
-    output_file_ = temp_dir_.path().Append("fork_out").value();
+    output_file_ = temp_dir_.GetPath().Append("fork_out").value();
     process_.RedirectOutput(output_file_);
     ClearLog();
   }
@@ -324,7 +324,7 @@ TEST_F(ProcessTest, ProcessExists) {
 }
 
 TEST_F(ProcessTest, ResetPidByFile) {
-  FilePath pid_path = temp_dir_.path().Append("pid");
+  FilePath pid_path = temp_dir_.GetPath().Append("pid");
   EXPECT_FALSE(process_.ResetPidByFile(pid_path.value()));
   EXPECT_TRUE(base::WriteFile(pid_path, "456\n", 4));
   EXPECT_TRUE(process_.ResetPidByFile(pid_path.value()));

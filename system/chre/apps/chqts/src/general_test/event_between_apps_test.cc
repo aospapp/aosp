@@ -65,7 +65,7 @@ void EventBetweenApps0::handleEvent(uint32_t senderInstanceId,
 
   mContinueCount++;
   nanoapp_testing::memcpy(&app1InstanceId, message, sizeof(app1InstanceId));
-  nanoapp_testing::littleEndianToHost(&app1InstanceId);
+  app1InstanceId = nanoapp_testing::littleEndianToHost(app1InstanceId);
   // It's safe to strip the 'const' because we're using nullptr for our
   // free callback.
   uint32_t *sendData = const_cast<uint32_t*>(&kMagic);
@@ -107,7 +107,7 @@ void EventBetweenApps1::handleEvent(uint32_t senderInstanceId,
     }
     nanoapp_testing::memcpy(&mApp0InstanceId, message,
                             sizeof(mApp0InstanceId));
-    nanoapp_testing::littleEndianToHost(&mApp0InstanceId);
+    mApp0InstanceId = nanoapp_testing::littleEndianToHost(mApp0InstanceId);
 
   } else if (eventType == EventBetweenApps0::kEventType) {
     if (mReceivedInstanceId != CHRE_INSTANCE_ID) {

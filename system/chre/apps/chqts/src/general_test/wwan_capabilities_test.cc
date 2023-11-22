@@ -42,7 +42,7 @@ void WwanCapabilitiesTest::setUp(uint32_t messageSize,
 
     // Clear out known capabilities, any remaining are unknown
     if ((capabilities & ~allCapabilities) != 0) {
-      if (mApiVersion > CHRE_API_VERSION_1_1) {
+      if (mApiVersion > CHRE_API_VERSION_1_2) {
         nanoapp_testing::sendFatalFailureToHost(
             "New version with unknown capabilities encountered:",
             &capabilities);

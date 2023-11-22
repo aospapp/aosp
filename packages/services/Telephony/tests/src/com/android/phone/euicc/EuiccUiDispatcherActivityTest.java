@@ -15,6 +15,7 @@
  */
 package com.android.phone.euicc;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.when;
@@ -47,7 +48,6 @@ public class EuiccUiDispatcherActivityTest {
 
     @Mock private Context mMockContext;
     @Mock private EuiccManager mMockEuiccManager;
-    private boolean mIsProvisioned = true;
     private ActivityInfo mActivityInfo = ACTIVITY_INFO;
     private Intent mIntent = MANAGE_INTENT;
     private EuiccUiDispatcherActivity mActivity;
@@ -80,12 +80,6 @@ public class EuiccUiDispatcherActivityTest {
     }
 
     @Test
-    public void testResolveEuiccUiIntent_alreadyProvisioned() {
-        mIntent = PROVISION_INTENT;
-        assertNull(mActivity.resolveEuiccUiIntent());
-    }
-
-    @Test
     public void testResolveEuiccUiIntent_noImplementation() {
         mActivityInfo = null;
         assertNull(mActivity.resolveEuiccUiIntent());
@@ -98,8 +92,16 @@ public class EuiccUiDispatcherActivityTest {
 
     @Test
     public void testResolveEuiccUiIntent_validProvision() {
-        mIsProvisioned = false;
         assertNotNull(mActivity.resolveEuiccUiIntent());
+    }
+
+    @Test
+    public void testExtrasPropagated() {
+        mIntent.putExtra("foo", "bar");
+
+        Intent euiccUiIntent = mActivity.resolveEuiccUiIntent();
+        assertNotNull(euiccUiIntent);
+        assertEquals("bar", euiccUiIntent.getStringExtra("foo"));
     }
 
     class TestEuiccUiDispatcherActivity extends EuiccUiDispatcherActivity {
@@ -113,13 +115,14 @@ public class EuiccUiDispatcherActivityTest {
         }
 
         @Override
-        boolean isDeviceProvisioned() {
-            return mIsProvisioned;
-        }
-
-        @Override
         ActivityInfo findBestActivity(Intent euiccUiIntent) {
             return mActivityInfo;
         }
+
+        @Override
+        protected void grantDefaultPermissionsToActiveLuiApp(ActivityInfo activityInfo) {}
+
+        @Override
+        protected void revokePermissionFromLuiApps(Intent intent) {}
     }
 }

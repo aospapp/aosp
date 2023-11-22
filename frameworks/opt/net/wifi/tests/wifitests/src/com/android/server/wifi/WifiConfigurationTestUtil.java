@@ -283,7 +283,6 @@ public class WifiConfigurationTestUtil {
         return configuration;
     }
 
-
     public static WifiConfiguration createWepNetworkWithSingleKey() {
         WifiConfiguration configuration =
                 generateWifiConfig(TEST_NETWORK_ID, TEST_UID, createNewSSID(), true, true, null,
@@ -508,6 +507,7 @@ public class WifiConfigurationTestUtil {
         assertEquals(expected.lastConnectUid, actual.lastConnectUid);
         assertEquals(expected.updateTime, actual.updateTime);
         assertEquals(expected.isLegacyPasspointConfig, actual.isLegacyPasspointConfig);
+        assertEquals(expected.getRandomizedMacAddress(), actual.getRandomizedMacAddress());
         assertNetworkSelectionStatusEqualForConfigStore(
                 expected.getNetworkSelectionStatus(), actual.getNetworkSelectionStatus());
         assertWifiEnterpriseConfigEqualForConfigStore(

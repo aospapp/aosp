@@ -94,7 +94,7 @@ class TasksAnalysis(AnalysisModule):
 
         # Add task name column
         big_tasks_stats['comm'] = big_tasks_stats.index.map(
-            lambda pid: ', '.join(self._trace.getTaskByPid(pid)))
+            lambda pid: self._trace.getTaskByPid(pid))
 
         # Filter columns of interest
         big_tasks_stats = big_tasks_stats[['count', 'comm']]
@@ -132,7 +132,7 @@ class TasksAnalysis(AnalysisModule):
 
         # Add task name column
         wkp_tasks_stats['comm'] = wkp_tasks_stats.index.map(
-            lambda pid: ', '.join(self._trace.getTaskByPid(pid)))
+            lambda pid: self._trace.getTaskByPid(pid))
 
         # Filter columns of interest
         wkp_tasks_stats = wkp_tasks_stats[['count', 'comm']]
@@ -178,7 +178,7 @@ class TasksAnalysis(AnalysisModule):
 
         # Add task name column
         rt_tasks['comm'] = rt_tasks.index.map(
-            lambda pid: ', '.join(self._trace.getTaskByPid(pid)))
+            lambda pid: self._trace.getTaskByPid(pid))
 
         return rt_tasks
 
@@ -187,7 +187,7 @@ class TasksAnalysis(AnalysisModule):
 # Plotting Methods
 ###############################################################################
 
-    def plotTasks(self, tasks=None, signals=None):
+    def plotTasks(self, tasks, signals=None):
         """
         Generate a common set of useful plots for each of the specified tasks
 
@@ -215,8 +215,6 @@ class TasksAnalysis(AnalysisModule):
         :param tasks: the list of task names and/or PIDs to plot.
                       Numerical PIDs and string task names can be mixed
                       in the same list.
-                      default: all tasks defined in Trace
-                      creation time are plotted
         :type tasks: list(str) or list(int)
 
         :param signals: list of signals (and thus plots) to generate
@@ -244,8 +242,6 @@ class TasksAnalysis(AnalysisModule):
 
         if tasks:
             tasks_to_plot = listify(tasks)
-        elif self._tasks:
-            tasks_to_plot = sorted(self._tasks)
         else:
             raise ValueError('No tasks to plot specified')
 
@@ -287,11 +283,7 @@ class TasksAnalysis(AnalysisModule):
             savefig = False
 
             task_name = self._trace.getTaskByPid(tid)
-            if len(task_name) == 1:
-                task_name = task_name[0]
-                self._log.info('Plotting %5d: %s...', tid, task_name)
-            else:
-                self._log.info('Plotting %5d: %s...', tid, ', '.join(task_name))
+            self._log.info('Plotting [%d:%s]...', tid, task_name)
             plot_id = 0
 
             # For each task create a figure with plots_count plots
@@ -396,8 +388,7 @@ class TasksAnalysis(AnalysisModule):
         for pid, group in big_frequent_tasks_events.groupby('pid'):
 
             # # Build task names (there could be multiple, during the task lifetime)
-            task_name = 'PID: {} | {}'.format(
-                pid, ' | '.join(self._trace.getTaskByPid(pid)))
+            task_name = 'Task [%d:%s]'.format(pid, self._trace.getTaskByPid(pid))
 
             # Plot title
             if big_frequent_tasks_count == 1:
@@ -459,14 +450,10 @@ class TasksAnalysis(AnalysisModule):
 
             # Get per cluster wakeup events
             df = self._dfg_trace_event('sched_wakeup_new')
-            big_frequent = (
-                    (df.target_cpu.isin(self._big_cpus))
-                    )
+            big_frequent = df.target_cpu.isin(self._big_cpus)
             ntbc = df[big_frequent]
             ntbc_count = len(ntbc)
-            little_frequent = (
-                    (df.target_cpu.isin(self._little_cpus))
-                    )
+            little_frequent = df.target_cpu.isin(self._little_cpus)
             ntlc = df[little_frequent];
             ntlc_count = len(ntlc)
 
@@ -576,14 +563,11 @@ class TasksAnalysis(AnalysisModule):
         # Add column of expected cluster depending on:
         # a) task utilization value
         # b) capacity of the selected cluster
-        bu_bc = ( \
-                (df['util_avg'] > self._little_cap) & \
-                (df['cpu'].isin(self._big_cpus))
-            )
-        su_lc = ( \
-                (df['util_avg'] <= self._little_cap) & \
-                (df['cpu'].isin(self._little_cpus))
-            )
+        bu_bc = ((df['util_avg'] > self._little_cap) &
+                 (df['cpu'].isin(self._big_cpus)))
+        su_lc = ((df['util_avg'] <= self._little_cap) &
+                 (df['cpu'].isin(self._little_cpus)))
+
         # The Cluster CAPacity Matches the UTILization (ccap_mutil) iff:
         # - tasks with util_avg  > little_cap are running on a BIG cpu
         # - tasks with util_avg <= little_cap are running on a LITTLe cpu
@@ -708,16 +692,19 @@ class TasksAnalysis(AnalysisModule):
         :type is_last: bool
         """
         util_df = self._dfg_trace_event('sched_load_avg_task')
-        data = util_df[util_df.pid == tid][['cluster', 'cpu']]
-        for ccolor, clabel in zip('gr', ['LITTLE', 'big']):
-            cdata = data[data.cluster == clabel]
-            if len(cdata) > 0:
-                cdata.plot(ax=axes, style=[ccolor+'+'], legend=False)
+
+        if 'cluster' in util_df:
+            data = util_df[util_df.pid == tid][['cluster', 'cpu']]
+            for ccolor, clabel in zip('gr', ['LITTLE', 'big']):
+                cdata = data[data.cluster == clabel]
+                if len(cdata) > 0:
+                    cdata.plot(ax=axes, style=[ccolor+'+'], legend=False)
+
         # Y Axis - placeholders for legend, acutal CPUs. topmost empty lane
         cpus = [str(n) for n in range(self._platform['cpus_count'])]
         ylabels = [''] + cpus
         axes.set_yticklabels(ylabels)
-        axes.set_ylim(-1, self._platform['cpus_count'])
+        axes.set_ylim(-1, len(cpus))
         axes.set_ylabel('CPUs')
         # X Axis
         axes.set_xlim(self._trace.x_min, self._trace.x_max)

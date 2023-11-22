@@ -310,8 +310,20 @@ static AppSecErr appSecProcessIncomingHdr(struct AppSecState *state, uint32_t *n
         .fwFlags = image->layout.flags,
         .appVer  = aosp->app_version,
         .payInfoType = image->layout.payload,
-        .rfu = { 0xFF, 0xFF },
+        .chreApiMajor = 0xFF,
+        .chreApiMinor = 0xFF,
     };
+
+    if (image->layout.flags & FL_APP_HDR_CHRE) {
+        if (aosp->chre_api_major || aosp->chre_api_minor) {
+            common.chreApiMajor = aosp->chre_api_major;
+            common.chreApiMinor = aosp->chre_api_minor;
+        } else {
+            // fields not defined prior to CHRE 1.1
+            common.chreApiMajor = 0x01;
+            common.chreApiMinor = 0x00;
+        }
+    }
 
     // check to see if this is special system types of payload
     switch(image->layout.payload) {

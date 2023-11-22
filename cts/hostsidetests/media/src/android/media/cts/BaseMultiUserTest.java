@@ -18,14 +18,14 @@ package android.media.cts;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.ddmlib.testrunner.TestResult;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.CollectingTestListener;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.TestResult;
+import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
 
@@ -150,12 +150,17 @@ public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver 
      * @param appFileName file name of the app.
      * @param userId user ID to install the app against.
      */
-    protected void installAppAsUser(String appFileName, int userId)
+    protected void installAppAsUser(String appFileName, int userId, boolean asInstantApp)
             throws FileNotFoundException, DeviceNotAvailableException {
         CLog.d("Installing app " + appFileName + " for user " + userId);
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
         String result = getDevice().installPackageForUser(
-                buildHelper.getTestFile(appFileName), true, true, userId, "-t");
+                buildHelper.getTestFile(appFileName),
+                true,
+                true,
+                userId,
+                "-t",
+                asInstantApp ? "--instant" : "");
         assertNull("Failed to install " + appFileName + " for user " + userId + ": " + result,
                 result);
     }
@@ -275,7 +280,7 @@ public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver 
         if (result.hasFailedTests()) {
             // Build a meaningful error message
             StringBuilder errorBuilder = new StringBuilder("On-device tests failed:\n");
-            for (Map.Entry<TestIdentifier, TestResult> resultEntry :
+            for (Map.Entry<TestDescription, TestResult> resultEntry :
                     result.getTestResults().entrySet()) {
                 if (!resultEntry.getValue().getStatus().equals(TestStatus.PASSED)) {
                     errorBuilder.append(resultEntry.getKey().toString());

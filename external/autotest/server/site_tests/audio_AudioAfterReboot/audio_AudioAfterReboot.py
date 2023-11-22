@@ -157,8 +157,9 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
         self.play_and_record(source_widget, recorder_widget)
 
 
-    def run_once(self, host, golden_data, audio_nodes, bind_from=None, bind_to=None,
-                 source=None, recorder=None, is_internal=False):
+    def run_once(self, host, golden_data, audio_nodes, bind_from=None,
+                 bind_to=None, source=None, recorder=None, is_internal=False,
+                 cfm_speaker=False):
         """Runs the test main workflow.
 
         @param host: A host object representing the DUT.
@@ -174,14 +175,18 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
         @param recorder: recorder widget entity
             should be defined in chameleon_audio_ids
         @param is_internal: whether internal audio is tested flag
+        @param cfm_speaker: whether cfm_speaker's audio is tested which is an
+            external USB speaker on CFM (ChromeBox For Meetings) devices.
 
         """
         if (recorder == chameleon_audio_ids.CrosIds.INTERNAL_MIC and
-            not audio_test_utils.has_internal_microphone(host)):
+            (not cfm_speaker and
+            not audio_test_utils.has_internal_microphone(host))):
             return
 
         if (source == chameleon_audio_ids.CrosIds.SPEAKER and
-            not audio_test_utils.has_internal_speaker(host)):
+            (not cfm_speaker and
+            not audio_test_utils.has_internal_speaker(host))):
             return
 
         self.host = host

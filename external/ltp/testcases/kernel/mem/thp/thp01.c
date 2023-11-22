@@ -1,4 +1,19 @@
 /*
+ * Copyright (C) 2011-2017  Red Hat, Inc.
+ *
+ * This program is free software;  you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY;  without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+ * the GNU General Public License for more details.
+ */
+
+/* Description:
+ *
  * This is a reproducer of CVE-2011-0999, which fixed by mainline commit
  * a7d6e4ecdb7648478ddec76d30d87d03d6e22b31:
  *
@@ -14,106 +29,122 @@
  * last sysfs file: /sys/devices/system/cpu/cpu23/cache/index2/shared_cpu_map
  * ....
  *
- * Copyright (C) 2011  Red Hat, Inc.
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it would be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- * Further, this software is distributed without any warranty that it
- * is free of the rightful claim of any third person regarding
- * infringement or the like.  Any license provided herein, whether
- * implied or otherwise, applies only to this software file.  Patent
- * licenses, if any, provided herein do not apply to combinations of
- * this program with other software, or any other product whatsoever.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
+ * Due to commit da029c11e6b1 which reduced the stack size considerably, we
+ * now perform a binary search to find the largest possible argument we can
+ * use. Only the first iteration of the test performs the search; subsequent
+ * iterations use the result of the search which is stored in some shared
+ * memory.
  */
 
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
-#include "test.h"
+#include "tst_test.h"
+#include "mem.h"
+#include "tst_minmax.h"
 
-char *TCID = "thp01";
-int TST_TOTAL = 1;
+#define ARGS_SZ	(256 * 32)
 
-#define ARRAY_SZ	256
+static struct bisection {
+	long left;
+	long right;
+	long mid;
+} *bst;
 
-static int ps;
-static long length;
-static char *array[ARRAY_SZ];
+static char *args[ARGS_SZ];
 static char *arg;
-static struct rlimit rl = {
-	.rlim_cur = RLIM_INFINITY,
-	.rlim_max = RLIM_INFINITY,
-};
 
-static void setup(void);
-static void cleanup(void);
-
-int main(int argc, char **argv)
+static void thp_test(void)
 {
-	int i, lc, st;
-	pid_t pid;
+	long prev_left;
+	int pid;
 
-	tst_parse_opts(argc, argv, NULL, NULL);
+	while (bst->right - bst->left > 1) {
+		pid_t pid = SAFE_FORK();
 
-	setup();
+		if (!pid) {
+			/* We set mid to left assuming exec will succeed. If
+			 * exec fails with E2BIG (and thus returns) then we
+			 * restore left and set right to mid instead.
+			 */
+			prev_left = bst->left;
+			bst->mid = (bst->left + bst->right) / 2;
+			bst->left = bst->mid;
+			args[bst->mid] = NULL;
 
-	for (lc = 0; TEST_LOOPING(lc); lc++) {
-		switch (pid = fork()) {
-		case -1:
-			tst_brkm(TBROK | TERRNO, cleanup, "fork");
-		case 0:
-			memset(arg, 'c', length - 1);
-			arg[length - 1] = '\0';
-			array[0] = "true";
-			for (i = 1; i < ARRAY_SZ - 1; i++)
-				array[i] = arg;
-			array[ARRAY_SZ - 1] = NULL;
-			if (setrlimit(RLIMIT_STACK, &rl) == -1) {
-				perror("setrlimit");
-				exit(1);
-			}
-			if (execvp("true", array) == -1) {
-				perror("execvp");
-				exit(1);
-			}
-		default:
-			if (waitpid(pid, &st, 0) == -1)
-				tst_brkm(TBROK | TERRNO, cleanup, "waitpid");
-			if (!WIFEXITED(st) || WEXITSTATUS(st) != 0)
-				tst_brkm(TBROK, cleanup,
-					 "child exited abnormally");
+			TEST(execvp("true", args));
+			if (TEST_ERRNO != E2BIG)
+				tst_brk(TBROK | TTERRNO, "execvp(\"true\", ...)");
+			bst->left = prev_left;
+			bst->right = bst->mid;
+			exit(0);
 		}
+
+		tst_reap_children();
+		tst_res(TINFO, "left: %ld, right: %ld, mid: %ld",
+			bst->left, bst->right, bst->mid);
 	}
-	tst_resm(TPASS, "system didn't crash, pass.");
-	cleanup();
-	tst_exit();
+
+	/* We end with mid == right or mid == left where right - left =
+	 * 1. Regardless we must use left because right is only set to values
+	 * which are too large.
+	 */
+	pid = SAFE_FORK();
+	if (pid == 0) {
+		args[bst->left] = NULL;
+		TEST(execvp("true", args));
+		if (TEST_ERRNO != E2BIG)
+			tst_brk(TBROK | TTERRNO, "execvp(\"true\", ...)");
+		exit(0);
+	}
+	tst_reap_children();
+
+	tst_res(TPASS, "system didn't crash.");
 }
 
 static void setup(void)
 {
-	ps = sysconf(_SC_PAGESIZE);
-	length = 32 * ps;
-	arg = malloc(length);
-	if (arg == NULL)
-		tst_brkm(TBROK | TERRNO, NULL, "malloc");
+	struct rlimit rl = {
+		.rlim_cur = RLIM_INFINITY,
+		.rlim_max = RLIM_INFINITY,
+	};
+	int i;
+	long arg_len, arg_count;
 
-	tst_sig(FORK, DEF_HANDLER, cleanup);
-	TEST_PAUSE;
+	bst = SAFE_MMAP(NULL, sizeof(*bst),
+			   PROT_READ | PROT_WRITE,
+			   MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	bst->left = 0;
+	bst->right = ARGS_SZ;
+
+	arg_len = sysconf(_SC_PAGESIZE);
+	arg = SAFE_MALLOC(arg_len);
+	memset(arg, 'c', arg_len - 1);
+	arg[arg_len - 1] = '\0';
+
+	args[0] = "true";
+	arg_count = ARGS_SZ;
+	tst_res(TINFO, "Using %ld args of size %ld", arg_count, arg_len);
+	for (i = 1; i < arg_count; i++)
+		args[i] = arg;
+
+	SAFE_SETRLIMIT(RLIMIT_STACK, &rl);
 }
 
 static void cleanup(void)
 {
+	free(arg);
 }
+
+static struct tst_test test = {
+	.needs_root = 1,
+	.forks_child = 1,
+	.setup = setup,
+	.cleanup = cleanup,
+	.test_all = thp_test,
+};

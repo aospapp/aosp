@@ -43,4 +43,8 @@
     <string name="beam_requires_nfc_enabled" msgid="2800366967218600534">"Android Beam requires NFC to be enabled. Do you want to enable it?"</string>
     <string name="android_beam" msgid="1666446406999492763">"Android Beam"</string>
     <string name="beam_requires_external_storage_permission" msgid="8798337545702206901">"Application does not have External Storage Permission. This is required to Beam this file"</string>
+    <string name="title_confirm_url_open" msgid="8069968913244794478">"Open link?"</string>
+    <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"Your tablet received a link through NFC:"</string>
+    <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"Your phone received a link through NFC:"</string>
+    <string name="action_confirm_url_open" msgid="3458322738812921189">"Open link"</string>
 </resources>

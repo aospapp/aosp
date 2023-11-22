@@ -41,6 +41,9 @@ struct ImageProperties {
   // The system version of this image.
   std::string system_version;
 
+  // The version of all product components in key values pairs.
+  std::string product_components;
+
   // A unique string that identifies this build. Normally a combination of the
   // the version, signing keys and build target.
   std::string build_fingerprint;
@@ -54,6 +57,10 @@ struct ImageProperties {
 
   // The release channel this image was obtained from.
   std::string current_channel;
+
+  // Whether we allow arbitrary channels instead of just the ones listed in
+  // kChannelsByStability.
+  bool allow_arbitrary_channels = false;
 
   // The Omaha URL this image should get updates from.
   std::string omaha_url;
@@ -76,14 +83,17 @@ struct MutableImageProperties {
 // value may be returned instead.
 ImageProperties LoadImageProperties(SystemState* system_state);
 
-// Loads the mutable image properties from the stateful partition if found or the
-// system image otherwise.
+// Loads the mutable image properties from the stateful partition if found or
+// the system image otherwise.
 MutableImageProperties LoadMutableImageProperties(SystemState* system_state);
 
 // Stores the mutable image properties in the stateful partition. Returns
 // whether the operation succeeded.
 bool StoreMutableImageProperties(SystemState* system_state,
                                  const MutableImageProperties& properties);
+
+// Logs the image properties.
+void LogImageProperties();
 
 // Sets the root_prefix used to load files from during unittests to
 // |test_root_prefix|. Passing a nullptr value resets it to the default.

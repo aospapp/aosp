@@ -18,10 +18,13 @@ package com.android.managedprovisioning.common;
 
 import android.annotation.Nullable;
 import android.content.res.ColorStateList;
+import android.os.Bundle;
+import android.os.SystemProperties;
 import android.support.annotation.VisibleForTesting;
 
 import com.android.managedprovisioning.R;
 import com.android.setupwizardlib.GlifLayout;
+import com.android.setupwizardlib.util.WizardManagerHelper;
 
 /**
  * Base class for setting up the layout.
@@ -31,27 +34,37 @@ public abstract class SetupGlifLayoutActivity extends SetupLayoutActivity {
         super();
     }
 
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setDefaultTheme();
+    }
+
     @VisibleForTesting
     protected SetupGlifLayoutActivity(Utils utils) {
         super(utils);
     }
 
     protected void initializeLayoutParams(int layoutResourceId, @Nullable Integer headerResourceId,
-            boolean showProgressBar, int mainColor) {
+            int mainColor, int statusBarColor) {
         setContentView(layoutResourceId);
-        GlifLayout layout = (GlifLayout) findViewById(R.id.setup_wizard_layout);
+        GlifLayout layout = findViewById(R.id.setup_wizard_layout);
 
-        setMainColor(mainColor);
+        setStatusBarColor(statusBarColor);
         layout.setPrimaryColor(ColorStateList.valueOf(mainColor));
 
         if (headerResourceId != null) {
             layout.setHeaderText(headerResourceId);
         }
 
-        if (showProgressBar) {
-            layout.setProgressBarShown(true);
-        }
-
         layout.setIcon(LogoUtils.getOrganisationLogo(this, mainColor));
     }
+
+    private void setDefaultTheme() {
+        // Take Glif light as default theme like
+        // com.google.android.setupwizard.util.ThemeHelper.getDefaultTheme
+        setTheme(WizardManagerHelper.getThemeRes(SystemProperties.get("setupwizard.theme"),
+                R.style.SuwThemeGlif_Light));
+    }
+
 }

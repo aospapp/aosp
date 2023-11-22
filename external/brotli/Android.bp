@@ -5,27 +5,25 @@ cc_library {
         "-Werror",
         "-O2",
     ],
-    export_include_dirs: ["include/"],
-    local_include_dirs: ["include/"],
+    export_include_dirs: ["c/include"],
     srcs: [
-        "common/*.c",
-        "dec/*.c",
-        "enc/*.c",
+        "c/common/*.c",
+        "c/dec/*.c",
+        "c/enc/*.c",
     ],
     target: {
         linux_bionic: {
             enabled: true,
         },
     },
-    host_ldlibs: ["-lm"],
     stl: "none",
 }
 
 cc_binary {
-    name: "bro",
+    name: "brotli",
     host_supported: true,
     cflags: ["-Werror"],
-    srcs: ["tools/bro.c"],
+    srcs: ["c/tools/brotli.c"],
     target: {
         linux_bionic: {
             enabled: true,

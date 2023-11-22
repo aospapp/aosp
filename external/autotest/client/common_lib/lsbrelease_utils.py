@@ -15,7 +15,6 @@ from autotest_lib.client.cros import constants
 
 JETSTREAM_BOARDS = frozenset(['arkham', 'gale', 'whirlwind'])
 
-
 def _lsbrelease_search(regex, group_id=0, lsb_release_content=None):
     """Searches /etc/lsb-release for a regex match.
 
@@ -52,6 +51,19 @@ def get_current_board(lsb_release_content=None):
                               lsb_release_content=lsb_release_content)
 
 
+def get_chromeos_channel(lsb_release_content=None):
+    """Get chromeos channel in device under test as string. None on fail.
+
+    @param lsb_release_content: A string represents the content of lsb-release.
+            If the caller is from drone, it can pass in the file content here.
+
+    @return chromeos channel in device under test as string. None on fail.
+    """
+    return _lsbrelease_search(
+        r'^CHROMEOS_RELEASE_DESCRIPTION=.+ (.+)-channel.*$',
+        group_id=1, lsb_release_content=lsb_release_content)
+
+
 def get_chromeos_release_version(lsb_release_content=None):
     """Get chromeos version in device under test as string. None on fail.
 
@@ -61,6 +73,20 @@ def get_chromeos_release_version(lsb_release_content=None):
     @return chromeos version in device under test as string. None on fail.
     """
     return _lsbrelease_search(r'^CHROMEOS_RELEASE_VERSION=(.+)$', group_id=1,
+                              lsb_release_content=lsb_release_content)
+
+
+def get_chromeos_release_builder_path(lsb_release_content=None):
+    """Get chromeos builder path from device under test as string.
+
+    @param lsb_release_content: A string representing the content of
+            lsb-release. If the caller is from drone, it can pass in the file
+            content here.
+
+    @return chromeos builder path in device under test as string. None on fail.
+    """
+    return _lsbrelease_search(r'^CHROMEOS_RELEASE_BUILDER_PATH=(.+)$',
+                              group_id=1,
                               lsb_release_content=lsb_release_content)
 
 
@@ -112,6 +138,28 @@ def is_jetstream(lsb_release_content=None):
     board = get_current_board(lsb_release_content=lsb_release_content)
     return board in JETSTREAM_BOARDS
 
+def is_gce_board(lsb_release_content=None):
+    """Parses lsb_contents to determine if host is a GCE board.
+
+    @param lsb_release_content: The string contents of lsb-release.
+            If None, the local lsb-release is used.
+
+    @return True if the host is a GCE board otherwise False.
+    """
+    return is_lakitu(lsb_release_content=lsb_release_content)
+
+def is_lakitu(lsb_release_content=None):
+    """Parses lsb_contents to determine if host is lakitu.
+
+    @param lsb_release_content: The string contents of lsb-release.
+            If None, the local lsb-release is used.
+
+    @return True if the host is lakitu otherwise False.
+    """
+    board = get_current_board(lsb_release_content=lsb_release_content)
+    if board is not None:
+        return board.startswith('lakitu')
+    return False
 
 def get_chrome_milestone(lsb_release_content=None):
     """Get the value for the Chrome milestone.

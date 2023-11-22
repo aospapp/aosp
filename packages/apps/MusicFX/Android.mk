@@ -8,6 +8,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_JAVA_LIBRARIES := framework
 
 LOCAL_PACKAGE_NAME := MusicFX
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_PRIVILEGED_MODULE := true
 

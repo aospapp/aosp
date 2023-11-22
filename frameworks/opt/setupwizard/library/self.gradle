@@ -5,6 +5,18 @@ apply from: 'standalone-rules.gradle'
 apply from: '../tools/gradle/dist-library-instrumentation-tests.gradle'
 apply from: '../tools/gradle/dist-unit-tests.gradle'
 
+apply plugin: 'net.ltgt.errorprone'
+
+buildscript {
+    repositories {
+        maven { url "$rootDir/prebuilts/tools/common/m2/repository" }
+    }
+
+    dependencies {
+        classpath "net.ltgt.gradle:gradle-errorprone-plugin:0.0.13"
+    }
+}
+
 // Add targets for tests
 android.sourceSets {
     androidTest {
@@ -13,16 +25,17 @@ android.sourceSets {
         res.srcDirs = ['test/instrumentation/res']
 
         dependencies {
-            androidTestCompile 'com.android.support.test:rules:0.5'
-            androidTestCompile 'com.android.support.test:runner:0.5'
-            androidTestCompile 'com.google.dexmaker:dexmaker:1.2'
-            androidTestCompile 'com.google.dexmaker:dexmaker-mockito:1.2'
-            androidTestCompile 'junit:junit:4.+'
-            androidTestCompile 'org.mockito:mockito-core:1.9.5'
+            androidTestImplementation 'com.android.support.test:rules:1.0.0'
+            androidTestImplementation 'com.android.support.test:runner:1.0.0'
+            androidTestImplementation 'com.google.dexmaker:dexmaker:1.2'
+            androidTestImplementation 'com.google.dexmaker:dexmaker-mockito:1.2'
+            androidTestImplementation 'com.google.truth:truth:0.31'
+            androidTestImplementation 'junit:junit:4.+'
+            androidTestImplementation 'org.mockito:mockito-core:1.9.5'
         }
     }
 
-    androidTestPlatform {
+    androidTestPlatformDeprecated {
         java.srcDirs = ['platform/test/src']
     }
 
@@ -38,12 +51,13 @@ android.sourceSets {
         java.srcDirs = ['test/robotest/src']
 
         dependencies {
-            testCompile 'org.robolectric:robolectric:3.+'
-            testCompile 'org.robolectric:shadows-core:3.+'
-            testCompile 'junit:junit:4.+'
-            testCompile 'org.mockito:mockito-core:1.9.5'
+            testImplementation 'org.robolectric:robolectric:3.6.1'
+            testImplementation 'org.robolectric:shadows-framework:3.6.1'
+            testImplementation 'junit:junit:4.+'
+            testImplementation 'com.google.truth:truth:0.31'
+            testImplementation 'org.mockito:mockito-core:1.9.5'
             // Workaround for https://github.com/robolectric/robolectric/issues/2566
-            testCompile 'org.khronos:opengl-api:gl1.1-android-2.1_r1'
+            testImplementation 'org.khronos:opengl-api:gl1.1-android-2.1_r1'
         }
     }
 
@@ -51,6 +65,9 @@ android.sourceSets {
         java.srcDirs = ['gingerbread/test/robotest/src', 'recyclerview/test/robotest/src']
     }
 }
+
+android.testOptions.unitTests.includeAndroidResources = true
+
 android.defaultConfig.testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 android.lintOptions {
     abortOnError true
@@ -64,14 +81,3 @@ android.lintOptions {
 android.libraryVariants.all { variant ->
     variant.assemble.dependsOn(tasks.findByName('lint'))
 }
-
-// For compatibility with existing continuous test configurations, copy the file to
-// setup-wizard-libTest.apk
-// TODO: Remove this once continuous test configurations are updated to handle the new file name
-task createLegacyTestApk(type: Copy) {
-    from "${project.ext.distDir}/setup-wizard-lib-gingerbreadCompat-debug-androidTest.apk"
-    into "${project.ext.distDir}"
-    rename ('setup-wizard-lib-gingerbreadCompat-debug-androidTest.apk', 'setup-wizard-libTest.apk')
-}
-
-tasks.dist.finalizedBy createLegacyTestApk

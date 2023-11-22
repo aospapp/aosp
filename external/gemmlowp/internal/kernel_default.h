@@ -18,18 +18,13 @@
 #ifndef GEMMLOWP_INTERNAL_KERNEL_DEFAULT_H_
 #define GEMMLOWP_INTERNAL_KERNEL_DEFAULT_H_
 
-#ifndef GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK
-#define GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK
-#endif
-
 #include "../public/bit_depth.h"
 #include "common.h"
 #include "kernel_reference.h"
 
 namespace gemmlowp {
 
-template <bool MaxProductIsLessThan4096,
-          bool LhsAlwaysNonzero>
+template <bool MaxProductIsLessThan4096, bool LhsAlwaysNonzero>
 struct DefaultKernelImpl {};
 
 // Partial specialization implementing the logic that if we want to use
@@ -56,12 +51,12 @@ struct DefaultKernel
 
 }  // end namespace gemmlowp
 
-#define GEMMLOWP_SET_DEFAULT_KERNEL(MaxProductIsLessThan4096, \
-                                    LhsAlwaysNonzero, Kernel) \
-  namespace gemmlowp {                                        \
-  template <>                                                 \
-  struct DefaultKernelImpl<MaxProductIsLessThan4096,          \
-                           LhsAlwaysNonzero> : Kernel {};     \
+#define GEMMLOWP_SET_DEFAULT_KERNEL(MaxProductIsLessThan4096,          \
+                                    LhsAlwaysNonzero, Kernel)          \
+  namespace gemmlowp {                                                 \
+  template <>                                                          \
+  struct DefaultKernelImpl<MaxProductIsLessThan4096, LhsAlwaysNonzero> \
+      : Kernel {};                                                     \
   }
 
 #if defined GEMMLOWP_NEON_32
@@ -76,6 +71,9 @@ GEMMLOWP_SET_DEFAULT_KERNEL(false, true,
 GEMMLOWP_SET_DEFAULT_KERNEL(false, false, NEON_64_Kernel12x8Depth2)
 GEMMLOWP_SET_DEFAULT_KERNEL(false, true,
                             NEON_64bit_GEMM_Int8Operands_LhsNonzero)
+#elif defined(GEMMLOWP_MSA)
+#include "kernel_msa.h"
+GEMMLOWP_SET_DEFAULT_KERNEL(false, false, MSA_Kernel12x8Depth2)
 #elif defined GEMMLOWP_SSE4_32
 #include "kernel_sse.h"
 GEMMLOWP_SET_DEFAULT_KERNEL(false, false, SSE4_32_Kernel4x4Depth2)
@@ -83,19 +81,6 @@ GEMMLOWP_SET_DEFAULT_KERNEL(false, false, SSE4_32_Kernel4x4Depth2)
 #include "kernel_sse.h"
 GEMMLOWP_SET_DEFAULT_KERNEL(false, false, SSE4_64_Kernel12x4Depth2)
 #else
-#ifndef GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK
-#if defined __ARM_ARCH_5TE__
-// SIMD is not available on this platform. The slow fallback will be used.
-// Don't require GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK because there's nothing
-// the user can do about it.
-#else
-#error \
-    "SIMD not enabled, you'd be getting a slow software fallback. Consider \
-enabling SIMD extensions (for example using -msse4 if you're on modern x86). \
-If that's not an option, and you would like to continue with the \
-slow fallback, define GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK."
-#endif
-#endif
 #include "kernel_reference.h"
 namespace gemmlowp {
 typedef ReferenceKernel<KernelFormat<

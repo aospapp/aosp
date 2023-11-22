@@ -39,6 +39,11 @@
         android:layout_width="240dp"
         android:layout_height="180dp" />
 
+    <SurfaceView
+        android:id="@+id/preview_view2"
+        android:layout_width="240dp"
+        android:layout_height="180dp" />
+
   </GridLayout>
 
   <ScrollView
@@ -53,6 +58,14 @@
         android:layout_height="wrap_content"
         android:layout_marginLeft="5dp"
         android:orientation="vertical" >
+
+        <Spinner
+            android:id="@+id/camera_id_spinner"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:spinnerMode="dropdown"
+            android:prompt="@string/camera_id_spinner_prompt"
+            />
 
         <Button
             android:id="@+id/info_button"

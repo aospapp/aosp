@@ -26,7 +26,9 @@
 #include <sys/statvfs.h>
 
 #include <android-base/logging.h>
+#include <android-base/strings.h>
 #include <android-base/stringprintf.h>
+#include <android-base/unique_fd.h>
 #include <cutils/fs.h>
 #include <cutils/properties.h>
 #include <log/log.h>
@@ -40,7 +42,9 @@
 
 #define DEBUG_XATTRS 0
 
+using android::base::EndsWith;
 using android::base::StringPrintf;
+using android::base::unique_fd;
 
 namespace android {
 namespace installd {
@@ -87,6 +91,20 @@ std::string create_data_user_ce_package_path(const char* volume_uuid,
             create_data_user_ce_path(volume_uuid, user).c_str(), package_name);
 }
 
+/**
+ * Create the path name where package data should be stored for the given
+ * volume UUID, package name, and user ID. An empty UUID is assumed to be
+ * internal storage.
+ * Compared to create_data_user_ce_package_path this method always return the
+ * ".../user/..." directory.
+ */
+std::string create_data_user_ce_package_path_as_user_link(
+        const char* volume_uuid, userid_t userid, const char* package_name) {
+    check_package_name(package_name);
+    std::string data(create_data_path(volume_uuid));
+    return StringPrintf("%s/user/%u/%s", data.c_str(), userid, package_name);
+}
+
 std::string create_data_user_ce_package_path(const char* volume_uuid, userid_t user,
         const char* package_name, ino_t ce_data_inode) {
     // For testing purposes, rely on the inode when defined; this could be
@@ -127,24 +145,6 @@ std::string create_data_user_de_package_path(const char* volume_uuid,
     check_package_name(package_name);
     return StringPrintf("%s/%s",
             create_data_user_de_path(volume_uuid, user).c_str(), package_name);
-}
-
-int create_pkg_path(char path[PKG_PATH_MAX], const char *pkgname,
-        const char *postfix, userid_t userid) {
-    if (!is_valid_package_name(pkgname)) {
-        path[0] = '\0';
-        return -1;
-    }
-
-    std::string _tmp(create_data_user_ce_package_path(nullptr, userid, pkgname) + postfix);
-    const char* tmp = _tmp.c_str();
-    if (strlen(tmp) >= PKG_PATH_MAX) {
-        path[0] = '\0';
-        return -1;
-    } else {
-        strcpy(path, tmp);
-        return 0;
-    }
 }
 
 std::string create_data_path(const char* volume_uuid) {
@@ -213,7 +213,7 @@ std::string create_data_misc_legacy_path(userid_t userid) {
 }
 
 std::string create_primary_cur_profile_dir_path(userid_t userid) {
-    return StringPrintf("%s/cur/%u", android_profiles_dir.path, userid);
+    return StringPrintf("%s/cur/%u", android_profiles_dir.c_str(), userid);
 }
 
 std::string create_primary_current_profile_package_dir_path(userid_t user,
@@ -224,12 +224,12 @@ std::string create_primary_current_profile_package_dir_path(userid_t user,
 }
 
 std::string create_primary_ref_profile_dir_path() {
-    return StringPrintf("%s/ref", android_profiles_dir.path);
+    return StringPrintf("%s/ref", android_profiles_dir.c_str());
 }
 
 std::string create_primary_reference_profile_package_dir_path(const std::string& package_name) {
     check_package_name(package_name.c_str());
-    return StringPrintf("%s/ref/%s", android_profiles_dir.path, package_name.c_str());
+    return StringPrintf("%s/ref/%s", android_profiles_dir.c_str(), package_name.c_str());
 }
 
 std::string create_data_dalvik_cache_path() {
@@ -239,7 +239,7 @@ std::string create_data_dalvik_cache_path() {
 // Keep profile paths in sync with ActivityThread and LoadedApk.
 const std::string PROFILE_EXT = ".prof";
 const std::string CURRENT_PROFILE_EXT = ".cur";
-const std::string PRIMARY_PROFILE_NAME = "primary" + PROFILE_EXT;
+const std::string SNAPSHOT_PROFILE_EXT = ".snapshot";
 
 // Gets the parent directory and the file name for the given secondary dex path.
 // Returns true on success, false on failure (if the dex_path does not have the expected
@@ -259,8 +259,8 @@ static bool get_secondary_dex_location(const std::string& dex_path,
    return true;
 }
 
-std::string create_current_profile_path(userid_t user, const std::string& location,
-        bool is_secondary_dex) {
+std::string create_current_profile_path(userid_t user, const std::string& package_name,
+        const std::string& location, bool is_secondary_dex) {
     if (is_secondary_dex) {
         // Secondary dex current profiles are stored next to the dex files under the oat folder.
         std::string dex_dir;
@@ -272,12 +272,14 @@ std::string create_current_profile_path(userid_t user, const std::string& locati
                 PROFILE_EXT.c_str());
     } else {
         // Profiles for primary apks are under /data/misc/profiles/cur.
-        std::string profile_dir = create_primary_current_profile_package_dir_path(user, location);
-        return StringPrintf("%s/%s", profile_dir.c_str(), PRIMARY_PROFILE_NAME.c_str());
+        std::string profile_dir = create_primary_current_profile_package_dir_path(
+                user, package_name);
+        return StringPrintf("%s/%s", profile_dir.c_str(), location.c_str());
     }
 }
 
-std::string create_reference_profile_path(const std::string& location, bool is_secondary_dex) {
+std::string create_reference_profile_path(const std::string& package_name,
+        const std::string& location, bool is_secondary_dex) {
     if (is_secondary_dex) {
         // Secondary dex reference profiles are stored next to the dex files under the oat folder.
         std::string dex_dir;
@@ -288,9 +290,16 @@ std::string create_reference_profile_path(const std::string& location, bool is_s
                 dex_dir.c_str(), dex_name.c_str(), PROFILE_EXT.c_str());
     } else {
         // Reference profiles for primary apks are stored in /data/misc/profile/ref.
-        std::string profile_dir = create_primary_reference_profile_package_dir_path(location);
-        return StringPrintf("%s/%s", profile_dir.c_str(), PRIMARY_PROFILE_NAME.c_str());
+        std::string profile_dir = create_primary_reference_profile_package_dir_path(package_name);
+        return StringPrintf("%s/%s", profile_dir.c_str(), location.c_str());
     }
+}
+
+std::string create_snapshot_profile_path(const std::string& package,
+        const std::string& profile_name) {
+    std::string ref_profile = create_reference_profile_path(package, profile_name,
+            /*is_secondary_dex*/ false);
+    return ref_profile + SNAPSHOT_PROFILE_EXT;
 }
 
 std::vector<userid_t> get_known_users(const char* volume_uuid) {
@@ -375,20 +384,6 @@ int calculate_tree_size(const std::string& path, int64_t* size,
     }
 #endif
     *size += matchedSize;
-    return 0;
-}
-
-int create_move_path(char path[PKG_PATH_MAX],
-    const char* pkgname,
-    const char* leaf,
-    userid_t userid ATTRIBUTE_UNUSED)
-{
-    if ((android_data_dir.len + strlen(PRIMARY_USER_PREFIX) + strlen(pkgname) + strlen(leaf) + 1)
-            >= PKG_PATH_MAX) {
-        return -1;
-    }
-
-    sprintf(path, "%s%s%s/%s", android_data_dir.path, PRIMARY_USER_PREFIX, pkgname, leaf);
     return 0;
 }
 
@@ -756,27 +751,47 @@ std::string read_path_inode(const std::string& parent, const char* name, const c
     }
 }
 
+void remove_path_xattr(const std::string& path, const char* inode_xattr) {
+    if (removexattr(path.c_str(), inode_xattr) && errno != ENODATA) {
+        PLOG(ERROR) << "Failed to remove xattr " << inode_xattr << " at " << path;
+    }
+}
+
 /**
  * Validate that the path is valid in the context of the provided directory.
  * The path is allowed to have at most one subdirectory and no indirections
  * to top level directories (i.e. have "..").
  */
-static int validate_path(const dir_rec_t* dir, const char* path, int maxSubdirs) {
-    size_t dir_len = dir->len;
-    const char* subdir = strchr(path + dir_len, '/');
-
-    // Only allow the path to have at most one subdirectory.
-    if (subdir != NULL) {
-        ++subdir;
-        if ((--maxSubdirs == 0) && strchr(subdir, '/') != NULL) {
-            ALOGE("invalid apk path '%s' (subdir?)\n", path);
-            return -1;
-        }
+static int validate_path(const std::string& dir, const std::string& path, int maxSubdirs) {
+    // Argument sanity checking
+    if (dir.find('/') != 0 || dir.rfind('/') != dir.size() - 1
+            || dir.find("..") != std::string::npos) {
+        LOG(ERROR) << "Invalid directory " << dir;
+        return -1;
+    }
+    if (path.find("..") != std::string::npos) {
+        LOG(ERROR) << "Invalid path " << path;
+        return -1;
     }
 
-    // Directories can't have a period directly after the directory markers to prevent "..".
-    if ((path[dir_len] == '.') || ((subdir != NULL) && (*subdir == '.'))) {
-        ALOGE("invalid apk path '%s' (trickery)\n", path);
+    if (path.compare(0, dir.size(), dir) != 0) {
+        // Common case, path isn't under directory
+        return -1;
+    }
+
+    // Count number of subdirectories
+    auto pos = path.find('/', dir.size());
+    int count = 0;
+    while (pos != std::string::npos) {
+        auto next = path.find('/', pos + 1);
+        if (next > pos + 1) {
+            count++;
+        }
+        pos = next;
+    }
+
+    if (count > maxSubdirs) {
+        LOG(ERROR) << "Invalid path depth " << path << " when tested against " << dir;
         return -1;
     }
 
@@ -788,20 +803,17 @@ static int validate_path(const dir_rec_t* dir, const char* path, int maxSubdirs)
  * if it is a system app or -1 if it is not.
  */
 int validate_system_app_path(const char* path) {
-    size_t i;
-
-    for (i = 0; i < android_system_dirs.count; i++) {
-        const size_t dir_len = android_system_dirs.dirs[i].len;
-        if (!strncmp(path, android_system_dirs.dirs[i].path, dir_len)) {
-            return validate_path(android_system_dirs.dirs + i, path, 1);
+    std::string path_ = path;
+    for (const auto& dir : android_system_dirs) {
+        if (validate_path(dir, path, 1) == 0) {
+            return 0;
         }
     }
-
     return -1;
 }
 
 bool validate_secondary_dex_path(const std::string& pkgname, const std::string& dex_path,
-        const char* volume_uuid, int uid, int storage_flag, bool validate_package_path) {
+        const char* volume_uuid, int uid, int storage_flag) {
     CHECK(storage_flag == FLAG_STORAGE_CE || storage_flag == FLAG_STORAGE_DE);
 
     // Empty paths are not allowed.
@@ -815,16 +827,20 @@ bool validate_secondary_dex_path(const std::string& pkgname, const std::string& 
     // The path should be at most PKG_PATH_MAX long.
     if (dex_path.size() > PKG_PATH_MAX) { return false; }
 
-    if (validate_package_path) {
-        // If we are asked to validate the package path check that
-        // the dex_path is under the app data directory.
-        std::string app_private_dir = storage_flag == FLAG_STORAGE_CE
+    // The dex_path should be under the app data directory.
+    std::string app_private_dir = storage_flag == FLAG_STORAGE_CE
             ? create_data_user_ce_package_path(
                     volume_uuid, multiuser_get_user_id(uid), pkgname.c_str())
             : create_data_user_de_package_path(
                     volume_uuid, multiuser_get_user_id(uid), pkgname.c_str());
 
-        if (strncmp(dex_path.c_str(), app_private_dir.c_str(), app_private_dir.size()) != 0) {
+    if (strncmp(dex_path.c_str(), app_private_dir.c_str(), app_private_dir.size()) != 0) {
+        // The check above might fail if the dex file is accessed via the /data/user/0 symlink.
+        // If that's the case, attempt to validate against the user data link.
+        std::string app_private_dir_symlink = create_data_user_ce_package_path_as_user_link(
+                volume_uuid, multiuser_get_user_id(uid), pkgname.c_str());
+        if (strncmp(dex_path.c_str(), app_private_dir_symlink.c_str(),
+                app_private_dir_symlink.size()) != 0) {
             return false;
         }
     }
@@ -834,116 +850,30 @@ bool validate_secondary_dex_path(const std::string& pkgname, const std::string& 
 }
 
 /**
- * Get the contents of a environment variable that contains a path. Caller
- * owns the string that is inserted into the directory record. Returns
- * 0 on success and -1 on error.
- */
-int get_path_from_env(dir_rec_t* rec, const char* var) {
-    const char* path = getenv(var);
-    int ret = get_path_from_string(rec, path);
-    if (ret < 0) {
-        ALOGW("Problem finding value for environment variable %s\n", var);
-    }
-    return ret;
-}
-
-/**
- * Puts the string into the record as a directory. Appends '/' to the end
- * of all paths. Caller owns the string that is inserted into the directory
- * record. A null value will result in an error.
- *
- * Returns 0 on success and -1 on error.
- */
-int get_path_from_string(dir_rec_t* rec, const char* path) {
-    if (path == NULL) {
-        return -1;
-    } else {
-        const size_t path_len = strlen(path);
-        if (path_len <= 0) {
-            return -1;
-        }
-
-        // Make sure path is absolute.
-        if (path[0] != '/') {
-            return -1;
-        }
-
-        if (path[path_len - 1] == '/') {
-            // Path ends with a forward slash. Make our own copy.
-
-            rec->path = strdup(path);
-            if (rec->path == NULL) {
-                return -1;
-            }
-
-            rec->len = path_len;
-        } else {
-            // Path does not end with a slash. Generate a new string.
-            char *dst;
-
-            // Add space for slash and terminating null.
-            size_t dst_size = path_len + 2;
-
-            rec->path = (char*) malloc(dst_size);
-            if (rec->path == NULL) {
-                return -1;
-            }
-
-            dst = rec->path;
-
-            if (append_and_increment(&dst, path, &dst_size) < 0
-                    || append_and_increment(&dst, "/", &dst_size)) {
-                ALOGE("Error canonicalizing path");
-                return -1;
-            }
-
-            rec->len = dst - rec->path;
-        }
-    }
-    return 0;
-}
-
-int copy_and_append(dir_rec_t* dst, const dir_rec_t* src, const char* suffix) {
-    dst->len = src->len + strlen(suffix);
-    const size_t dstSize = dst->len + 1;
-    dst->path = (char*) malloc(dstSize);
-
-    if (dst->path == NULL
-            || snprintf(dst->path, dstSize, "%s%s", src->path, suffix)
-                    != (ssize_t) dst->len) {
-        ALOGE("Could not allocate memory to hold appended path; aborting\n");
-        return -1;
-    }
-
-    return 0;
-}
-
-/**
  * Check whether path points to a valid path for an APK file. The path must
  * begin with a whitelisted prefix path and must be no deeper than |maxSubdirs| within
  * that path. Returns -1 when an invalid path is encountered and 0 when a valid path
  * is encountered.
  */
-static int validate_apk_path_internal(const char *path, int maxSubdirs) {
-    const dir_rec_t* dir = NULL;
-    if (!strncmp(path, android_app_dir.path, android_app_dir.len)) {
-        dir = &android_app_dir;
-    } else if (!strncmp(path, android_app_private_dir.path, android_app_private_dir.len)) {
-        dir = &android_app_private_dir;
-    } else if (!strncmp(path, android_app_ephemeral_dir.path, android_app_ephemeral_dir.len)) {
-        dir = &android_app_ephemeral_dir;
-    } else if (!strncmp(path, android_asec_dir.path, android_asec_dir.len)) {
-        dir = &android_asec_dir;
-    } else if (!strncmp(path, android_mnt_expand_dir.path, android_mnt_expand_dir.len)) {
-        dir = &android_mnt_expand_dir;
-        if (maxSubdirs < 2) {
-            maxSubdirs = 2;
+static int validate_apk_path_internal(const std::string& path, int maxSubdirs) {
+    if (validate_path(android_app_dir, path, maxSubdirs) == 0) {
+        return 0;
+    } else if (validate_path(android_app_private_dir, path, maxSubdirs) == 0) {
+        return 0;
+    } else if (validate_path(android_app_ephemeral_dir, path, maxSubdirs) == 0) {
+        return 0;
+    } else if (validate_path(android_asec_dir, path, maxSubdirs) == 0) {
+        return 0;
+    } else if (android::base::StartsWith(path, android_mnt_expand_dir)) {
+        // Rewrite the path as if it were on internal storage, and test that
+        size_t end = path.find('/', android_mnt_expand_dir.size() + 1);
+        if (end != std::string::npos) {
+            auto modified = path;
+            modified.replace(0, end + 1, android_data_dir);
+            return validate_apk_path_internal(modified, maxSubdirs);
         }
-    } else {
-        return -1;
     }
-
-    return validate_path(dir, path, maxSubdirs);
+    return -1;
 }
 
 int validate_apk_path(const char* path) {
@@ -952,48 +882,6 @@ int validate_apk_path(const char* path) {
 
 int validate_apk_path_subdirs(const char* path) {
     return validate_apk_path_internal(path, 3 /* maxSubdirs */);
-}
-
-int append_and_increment(char** dst, const char* src, size_t* dst_size) {
-    ssize_t ret = strlcpy(*dst, src, *dst_size);
-    if (ret < 0 || (size_t) ret >= *dst_size) {
-        return -1;
-    }
-    *dst += ret;
-    *dst_size -= ret;
-    return 0;
-}
-
-char *build_string2(const char *s1, const char *s2) {
-    if (s1 == NULL || s2 == NULL) return NULL;
-
-    int len_s1 = strlen(s1);
-    int len_s2 = strlen(s2);
-    int len = len_s1 + len_s2 + 1;
-    char *result = (char *) malloc(len);
-    if (result == NULL) return NULL;
-
-    strcpy(result, s1);
-    strcpy(result + len_s1, s2);
-
-    return result;
-}
-
-char *build_string3(const char *s1, const char *s2, const char *s3) {
-    if (s1 == NULL || s2 == NULL || s3 == NULL) return NULL;
-
-    int len_s1 = strlen(s1);
-    int len_s2 = strlen(s2);
-    int len_s3 = strlen(s3);
-    int len = len_s1 + len_s2 + len_s3 + 1;
-    char *result = (char *) malloc(len);
-    if (result == NULL) return NULL;
-
-    strcpy(result, s1);
-    strcpy(result + len_s1, s2);
-    strcpy(result + len_s1 + len_s2, s3);
-
-    return result;
 }
 
 int ensure_config_user_dirs(userid_t userid) {
@@ -1068,7 +956,7 @@ int prepare_app_cache_dir(const std::string& parent, const char* name, mode_t ta
     } else {
         // Mismatched GID/mode is recoverable; fall through to update
         LOG(DEBUG) << "Mismatched cache GID/mode at " << path << ": found " << st.st_gid
-                << " but expected " << gid;
+                << "/" << actual_mode << " but expected " << gid << "/" << target_mode;
     }
 
     // Directory is owned correctly, but GID or mode mismatch means it's
@@ -1102,6 +990,76 @@ int prepare_app_cache_dir(const std::string& parent, const char* name, mode_t ta
     }
     fts_close(fts);
     return 0;
+}
+
+// Collect all non empty profiles from the given directory and puts then into profile_paths.
+// The profiles are identified based on PROFILE_EXT extension.
+// If a subdirectory or profile file cannot be opened the method logs a warning and moves on.
+// It returns true if there were no errors at all, and false otherwise.
+static bool collect_profiles(DIR* d,
+                             const std::string& current_path,
+                             std::vector<std::string>* profiles_paths) {
+    int32_t dir_fd = dirfd(d);
+    if (dir_fd < 0) {
+        return false;
+    }
+
+    bool result = true;
+    struct dirent* dir_entry;
+    while ((dir_entry = readdir(d))) {
+        std::string name = dir_entry->d_name;
+        std::string local_path = current_path + "/" + name;
+
+        if (dir_entry->d_type == DT_REG) {
+            // Check if this is a non empty profile file.
+            if (EndsWith(name, PROFILE_EXT)) {
+                struct stat st;
+                if (stat(local_path.c_str(), &st) != 0) {
+                    PLOG(WARNING) << "Cannot stat local path " << local_path;
+                    result = false;
+                    continue;
+                } else if (st.st_size > 0) {
+                    profiles_paths->push_back(local_path);
+                }
+            }
+        } else if (dir_entry->d_type == DT_DIR) {
+            // always skip "." and ".."
+            if (name == "." || name == "..") {
+                continue;
+            }
+
+            unique_fd subdir_fd(openat(dir_fd, name.c_str(),
+                    O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+            if (subdir_fd < 0) {
+                PLOG(WARNING) << "Could not open dir path " << local_path;
+                result = false;
+                continue;
+            }
+
+            DIR* subdir = fdopendir(subdir_fd);
+            if (subdir == NULL) {
+                PLOG(WARNING) << "Could not open dir path " << local_path;
+                result = false;
+                continue;
+            }
+            bool new_result = collect_profiles(subdir, local_path, profiles_paths);
+            result = result && new_result;
+            if (closedir(subdir) != 0) {
+                PLOG(WARNING) << "Could not close dir path " << local_path;
+            }
+        }
+    }
+
+    return result;
+}
+
+bool collect_profiles(std::vector<std::string>* profiles_paths) {
+    DIR* d = opendir(android_profiles_dir.c_str());
+    if (d == NULL) {
+        return false;
+    } else {
+        return collect_profiles(d, android_profiles_dir, profiles_paths);
+    }
 }
 
 }  // namespace installd

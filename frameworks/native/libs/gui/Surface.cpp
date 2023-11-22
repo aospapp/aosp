@@ -44,6 +44,9 @@
 
 namespace android {
 
+using ui::ColorMode;
+using ui::Dataspace;
+
 Surface::Surface(const sp<IGraphicBufferProducer>& bufferProducer, bool controlledByApp)
       : mGraphicBufferProducer(bufferProducer),
         mCrop(Rect::EMPTY_RECT),
@@ -78,7 +81,7 @@ Surface::Surface(const sp<IGraphicBufferProducer>& bufferProducer, bool controll
     mReqFormat = 0;
     mReqUsage = 0;
     mTimestamp = NATIVE_WINDOW_TIMESTAMP_AUTO;
-    mDataSpace = HAL_DATASPACE_UNKNOWN;
+    mDataSpace = Dataspace::UNKNOWN;
     mScalingMode = NATIVE_WINDOW_SCALING_MODE_FREEZE;
     mTransform = 0;
     mStickyTransform = 0;
@@ -153,7 +156,10 @@ status_t Surface::getDisplayRefreshCycleDuration(nsecs_t* outRefreshDuration) {
     ATRACE_CALL();
 
     DisplayStatInfo stats;
-    status_t err = composerService()->getDisplayStats(NULL, &stats);
+    status_t result = composerService()->getDisplayStats(NULL, &stats);
+    if (result != NO_ERROR) {
+        return result;
+    }
 
     *outRefreshDuration = stats.vsyncPeriod;
 
@@ -323,7 +329,7 @@ status_t Surface::getWideColorSupport(bool* supported) {
 
     sp<IBinder> display(
         composerService()->getBuiltInDisplay(ISurfaceComposer::eDisplayIdMain));
-    Vector<android_color_mode_t> colorModes;
+    Vector<ColorMode> colorModes;
     status_t err =
         composerService()->getDisplayColorModes(display, &colorModes);
 
@@ -335,11 +341,11 @@ status_t Surface::getWideColorSupport(bool* supported) {
                 &ISurfaceFlingerConfigs::hasWideColorDisplay>(false);
 
     *supported = false;
-    for (android_color_mode_t colorMode : colorModes) {
+    for (ColorMode colorMode : colorModes) {
         switch (colorMode) {
-            case HAL_COLOR_MODE_DISPLAY_P3:
-            case HAL_COLOR_MODE_ADOBE_RGB:
-            case HAL_COLOR_MODE_DCI_P3:
+            case ColorMode::DISPLAY_P3:
+            case ColorMode::ADOBE_RGB:
+            case ColorMode::DCI_P3:
                 if (wideColorBoardConfig) {
                     *supported = true;
                 }
@@ -661,8 +667,12 @@ int Surface::queueBuffer(android_native_buffer_t* buffer, int fenceFd) {
     sp<Fence> fence(fenceFd >= 0 ? new Fence(fenceFd) : Fence::NO_FENCE);
     IGraphicBufferProducer::QueueBufferOutput output;
     IGraphicBufferProducer::QueueBufferInput input(timestamp, isAutoTimestamp,
-            mDataSpace, crop, mScalingMode, mTransform ^ mStickyTransform,
-            fence, mStickyTransform, mEnableFrameTimestamps);
+            static_cast<android_dataspace>(mDataSpace), crop, mScalingMode,
+            mTransform ^ mStickyTransform, fence, mStickyTransform,
+            mEnableFrameTimestamps);
+
+    // we should send HDR metadata as needed if this becomes a bottleneck
+    input.setHdrMetadata(mHdrMetadata);
 
     if (mConnectedToCpu || mDirtyRegion.bounds() == Rect::INVALID_RECT) {
         input.setSurfaceDamage(Region::INVALID_REGION);
@@ -875,6 +885,10 @@ int Surface::query(int what, int* value) const {
                 *value = mGraphicBufferProducer != nullptr ? 1 : 0;
                 return NO_ERROR;
             }
+            case NATIVE_WINDOW_DATASPACE: {
+                *value = static_cast<int>(mDataSpace);
+                return NO_ERROR;
+            }
         }
     }
     return mGraphicBufferProducer->query(what, value);
@@ -940,6 +954,12 @@ int Surface::perform(int operation, va_list args)
         break;
     case NATIVE_WINDOW_SET_BUFFERS_DATASPACE:
         res = dispatchSetBuffersDataSpace(args);
+        break;
+    case NATIVE_WINDOW_SET_BUFFERS_SMPTE2086_METADATA:
+        res = dispatchSetBuffersSmpte2086Metadata(args);
+        break;
+    case NATIVE_WINDOW_SET_BUFFERS_CTA861_3_METADATA:
+        res = dispatchSetBuffersCta8613Metadata(args);
         break;
     case NATIVE_WINDOW_SET_SURFACE_DAMAGE:
         res = dispatchSetSurfaceDamage(args);
@@ -1080,9 +1100,20 @@ int Surface::dispatchSetSidebandStream(va_list args) {
 }
 
 int Surface::dispatchSetBuffersDataSpace(va_list args) {
-    android_dataspace dataspace =
-            static_cast<android_dataspace>(va_arg(args, int));
+    Dataspace dataspace = static_cast<Dataspace>(va_arg(args, int));
     return setBuffersDataSpace(dataspace);
+}
+
+int Surface::dispatchSetBuffersSmpte2086Metadata(va_list args) {
+    const android_smpte2086_metadata* metadata =
+        va_arg(args, const android_smpte2086_metadata*);
+    return setBuffersSmpte2086Metadata(metadata);
+}
+
+int Surface::dispatchSetBuffersCta8613Metadata(va_list args) {
+    const android_cta861_3_metadata* metadata =
+        va_arg(args, const android_cta861_3_metadata*);
+    return setBuffersCta8613Metadata(metadata);
 }
 
 int Surface::dispatchSetSurfaceDamage(va_list args) {
@@ -1501,12 +1532,42 @@ int Surface::setBuffersTimestamp(int64_t timestamp)
     return NO_ERROR;
 }
 
-int Surface::setBuffersDataSpace(android_dataspace dataSpace)
+int Surface::setBuffersDataSpace(Dataspace dataSpace)
 {
     ALOGV("Surface::setBuffersDataSpace");
     Mutex::Autolock lock(mMutex);
     mDataSpace = dataSpace;
     return NO_ERROR;
+}
+
+int Surface::setBuffersSmpte2086Metadata(const android_smpte2086_metadata* metadata) {
+    ALOGV("Surface::setBuffersSmpte2086Metadata");
+    Mutex::Autolock lock(mMutex);
+    if (metadata) {
+        mHdrMetadata.smpte2086 = *metadata;
+        mHdrMetadata.validTypes |= HdrMetadata::SMPTE2086;
+    } else {
+        mHdrMetadata.validTypes &= ~HdrMetadata::SMPTE2086;
+    }
+    return NO_ERROR;
+}
+
+int Surface::setBuffersCta8613Metadata(const android_cta861_3_metadata* metadata) {
+    ALOGV("Surface::setBuffersCta8613Metadata");
+    Mutex::Autolock lock(mMutex);
+    if (metadata) {
+        mHdrMetadata.cta8613 = *metadata;
+        mHdrMetadata.validTypes |= HdrMetadata::CTA861_3;
+    } else {
+        mHdrMetadata.validTypes &= ~HdrMetadata::CTA861_3;
+    }
+    return NO_ERROR;
+}
+
+Dataspace Surface::getBuffersDataSpace() {
+    ALOGV("Surface::getBuffersDataSpace");
+    Mutex::Autolock lock(mMutex);
+    return mDataSpace;
 }
 
 void Surface::freeAllBuffers() {
@@ -1749,6 +1810,27 @@ status_t Surface::getAndFlushRemovedBuffers(std::vector<sp<GraphicBuffer>>* out)
     *out = mRemovedBuffers;
     mRemovedBuffers.clear();
     return OK;
+}
+
+status_t Surface::attachAndQueueBuffer(Surface* surface, sp<GraphicBuffer> buffer) {
+    if (buffer == nullptr) {
+        return BAD_VALUE;
+    }
+    int err = static_cast<ANativeWindow*>(surface)->perform(surface, NATIVE_WINDOW_API_CONNECT,
+                                                            NATIVE_WINDOW_API_CPU);
+    if (err != OK) {
+        return err;
+    }
+    err = surface->attachBuffer(buffer->getNativeBuffer());
+    if (err != OK) {
+        return err;
+    }
+    err = static_cast<ANativeWindow*>(surface)->queueBuffer(surface, buffer->getNativeBuffer(), -1);
+    if (err != OK) {
+        return err;
+    }
+    err = surface->disconnect(NATIVE_WINDOW_API_CPU);
+    return err;
 }
 
 }; // namespace android

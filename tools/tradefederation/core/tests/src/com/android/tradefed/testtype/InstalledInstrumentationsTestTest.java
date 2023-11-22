@@ -18,6 +18,7 @@ package com.android.tradefed.testtype;
 import com.android.tradefed.config.ArgsOptionParser;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 
 import junit.framework.TestCase;
@@ -27,12 +28,10 @@ import org.easymock.EasyMock;
 import org.easymock.IAnswer;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-/**
- * Unit tests for {@link InstalledInstrumentationsTestTest}.
- */
+/** Unit tests for {@link InstalledInstrumentationsTest}. */
 public class InstalledInstrumentationsTestTest extends TestCase {
 
     private static final String TEST_PKG = "com.example.tests";
@@ -70,7 +69,7 @@ public class InstalledInstrumentationsTestTest extends TestCase {
                 TEST_COVERAGE_TARGET), 1);
 
         mMockListener.testRunStarted(TEST_PKG, 0);
-        Capture<Map<String, String>> captureMetrics = new Capture<Map<String, String>>();
+        Capture<HashMap<String, Metric>> captureMetrics = new Capture<>();
         mMockListener.testRunEnded(EasyMock.anyLong(), EasyMock.capture(captureMetrics));
         ArgsOptionParser p = new ArgsOptionParser(mInstalledInstrTest);
         p.parse("--size", "small", "--force-abi", ABI);
@@ -82,8 +81,13 @@ public class InstalledInstrumentationsTestTest extends TestCase {
         assertEquals(mMockListener, mockInstrumentationTest.getListener());
         assertEquals(TEST_PKG, mockInstrumentationTest.getPackageName());
         assertEquals(TEST_RUNNER, mockInstrumentationTest.getRunnerName());
-        assertEquals(TEST_COVERAGE_TARGET, captureMetrics.getValue().get(
-                InstalledInstrumentationsTest.COVERAGE_TARGET_KEY));
+        assertEquals(
+                TEST_COVERAGE_TARGET,
+                captureMetrics
+                        .getValue()
+                        .get(InstalledInstrumentationsTest.COVERAGE_TARGET_KEY)
+                        .getMeasurements()
+                        .getSingleString());
         assertEquals("small", mockInstrumentationTest.getTestSize());
         assertEquals(ABI, mockInstrumentationTest.getForceAbi());
 

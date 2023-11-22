@@ -221,6 +221,18 @@ EFI_STATUS
   IN OUT VOID                                      *Buffer
   );
 
+typedef
+EFI_STATUS
+(EFIAPI *EDKII_UFS_HC_PHY_INIT)(
+  IN     EDKII_UFS_HOST_CONTROLLER_PROTOCOL        *This
+  );
+
+typedef
+EFI_STATUS
+(EFIAPI *EDKII_UFS_HC_PHY_SET_POWER_MODE)(
+  IN     EDKII_UFS_HOST_CONTROLLER_PROTOCOL        *This
+  );
+
 ///
 ///  UFS Host Controller Protocol structure.
 ///
@@ -233,6 +245,8 @@ struct _EDKII_UFS_HOST_CONTROLLER_PROTOCOL {
   EDKII_UFS_HC_FLUSH                  Flush;
   EDKII_UFS_HC_MMIO_READ_WRITE        Read;
   EDKII_UFS_HC_MMIO_READ_WRITE        Write;
+  EDKII_UFS_HC_PHY_INIT               PhyInit;
+  EDKII_UFS_HC_PHY_SET_POWER_MODE     PhySetPowerMode;
 };
 
 ///

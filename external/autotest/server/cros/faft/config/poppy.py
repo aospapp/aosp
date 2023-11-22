@@ -11,10 +11,13 @@ class Values(object):
     mode_switcher_type = 'tablet_detachable_switcher'
     fw_bypasser_type = 'tablet_detachable_bypasser'
 
-    confirm_screen = 4
+    confirm_screen = 1
 
-    has_lid = False
+    has_lid = True
+
+    usb_image_boot_timeout = 60
+
     has_keyboard = False
 
     chrome_ec = True
-    ec_capability = ['x86', 'battery', 'charging']
+    ec_capability = ['x86', 'battery', 'charging', 'lid']

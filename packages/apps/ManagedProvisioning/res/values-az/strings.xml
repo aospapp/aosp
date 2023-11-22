@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"İş cihazı quraşdırılır…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Quraşdırma datası prosesdən keçirilir..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Wi-Fi\'a qoşulur..."</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Mobil şəbəkəyə qoşulur…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Admin tətbiqi endirilir..."</string>
     <string name="progress_install" msgid="2258045670385866183">"Admin tətbiqi quraşdırılır..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Tələb olunmayan sistem tətbiqləri silinir..."</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Təşkilatınız tərəfindən idarə və nəzarət ediləcək iş profili yaratmaq üzrəsiniz. <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> şərtləri tətbiq ediləcək."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"Profil iş tətbiqləri üçün yaradılacaq. Bu profil və cihazın geri qalan hissəsi təşkilatınız tərəfindən idarə və nəzarət ediləcək. Şərtlər tətbiq ediləcək."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"Profil iş tətbiqləri üçün yaradılacaq. Bu profil və cihazın geri qalan hissəsi təşkilatınız tərəfindən idarə və nəarət ediləcək. <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> şərtləri tətbiq ediləcək."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"Bu cihaz <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> tərəfindən təhlükəsiz şəkildə idarə ediləcək və saxlanacaq. Şərtlər tətbiq ediləcək. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"Bu cihaz <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> tərəfindən təhlükəsiz şəkildə idarə ediləcək və saxlanacaq. <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> şərtləri tətbiq ediləcək. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"Bu cihaz <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> tərəfindən idarə ediləcək, nəzarət ediləcək və qorunacaq. Şərtlər tətbiq olunacaq. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Bu cihaz <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> tərəfindən idarə ediləcək, nəzarət ediləcək və qorunacaq. <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> şərtləri tətbiq olunacaq. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Bu link təhlükəsiz deyil və cihaz quraşdırması başa çatana qədər açıla bilməz: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"Sualınız varsa, <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> ilə əlaqə saxlayın."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"Sualınız varsa, təşkilatın admini ilə əlaqə saxlayın"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> və <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"Bu, bir neçə dəqiqə çəkə bilər"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"İş tətbiqləriniz bu profildə saxlanılacaq və təşkilat tərəfindən idarə ediləcək"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"Təşkilatınız bu cihazı təhlükəsiz saxlayaraq idarə edəcək"</string>
 </resources>

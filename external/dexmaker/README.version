@@ -1,5 +1,5 @@
-URL: https://github.com/crittercism/dexmaker/
-Version: 2.2.0
+URL: https://github.com/linkedin/dexmaker/
+Version: master (5fb49bba98647d7a0aeea0cbf91fd670c3ff552a)
 License: Apache 2.0
 Description:
 Dexmaker is a Java-language API for doing compile time or runtime code generation targeting the Dalvik VM. Unlike cglib or ASM, this library creates Dalvik .dex files instead of Java .class files.
@@ -9,6 +9,6 @@ It has a small, close-to-the-metal API. This API mirrors the Dalvik bytecode spe
 It includes a stock code generator for class proxies. If you just want to do AOP or class mocking, you don't need to mess around with bytecodes.
 
 Local Modifications:
-        Support mocking of package private classes using dexmaker.share_classloader
-        Scan for methods in extra interface hierarchy
-        Update stack trace cleaner to use new dex package name
+        Allow to share classloader via dexmaker.share_classloader system property (I8c2490c3ec8e8582dc41c486f8f7a406bd635ebb)
+	Allow 'Q' until we can replace the version check with a number based check
+        Mark mocks as trusted (needs upstreaming)

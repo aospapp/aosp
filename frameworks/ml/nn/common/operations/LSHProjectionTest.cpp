@@ -36,7 +36,8 @@ using ::testing::ElementsAre;
   ACTION(Weight, float)
 
 // For all output and intermediate states
-#define FOR_ALL_OUTPUT_TENSORS(ACTION) ACTION(Output)
+#define FOR_ALL_OUTPUT_TENSORS(ACTION) \
+  ACTION(Output, int)
 
 class LSHProjectionOpModel {
  public:
@@ -49,7 +50,7 @@ class LSHProjectionOpModel {
 
     OperandType HashTy(Type::TENSOR_FLOAT32, hash_shape);
     inputs.push_back(model_.addOperand(&HashTy));
-    OperandType InputTy(Type::TENSOR_FLOAT32, input_shape);
+    OperandType InputTy(Type::TENSOR_INT32, input_shape);
     inputs.push_back(model_.addOperand(&InputTy));
     OperandType WeightTy(Type::TENSOR_FLOAT32, weight_shape);
     inputs.push_back(model_.addOperand(&WeightTy));
@@ -59,9 +60,6 @@ class LSHProjectionOpModel {
 
     std::vector<uint32_t> outputs;
 
-    OperandType OutputTy(Type::TENSOR_FLOAT32, input_shape);
-    outputs.push_back(model_.addOperand(&OutputTy));
-
     auto multiAll = [](const std::vector<uint32_t> &dims) -> uint32_t {
       uint32_t sz = 1;
       for (uint32_t d : dims) {
@@ -70,12 +68,18 @@ class LSHProjectionOpModel {
       return sz;
     };
 
+    uint32_t outShapeDimension = 0;
     if (type == LSHProjectionType_SPARSE) {
       auto it = hash_shape.begin();
       Output_.insert(Output_.end(), *it, 0.f);
+      outShapeDimension = *it;
     } else {
       Output_.insert(Output_.end(), multiAll(hash_shape), 0.f);
+      outShapeDimension = multiAll(hash_shape);
     }
+
+    OperandType OutputTy(Type::TENSOR_INT32, {outShapeDimension});
+    outputs.push_back(model_.addOperand(&OutputTy));
 
     model_.addOperation(ANEURALNETWORKS_LSH_PROJECTION, inputs, outputs);
     model_.identifyInputsAndOutputs(inputs, outputs);
@@ -103,16 +107,16 @@ class LSHProjectionOpModel {
 
 #define SetInputOrWeight(X, T)                                             \
     ASSERT_EQ(execution.setInput(LSHProjection::k##X##Tensor, X##_.data(), \
-                                 sizeof(X##_)),                            \
+                                 sizeof(T) * X##_.size()),                 \
               Result::NO_ERROR);
 
     FOR_ALL_INPUT_AND_WEIGHT_TENSORS(SetInputOrWeight);
 
 #undef SetInputOrWeight
 
-#define SetOutput(X)                                                      \
+#define SetOutput(X, T)                                                   \
   ASSERT_EQ(execution.setOutput(LSHProjection::k##X##Tensor, X##_.data(), \
-                                sizeof(X##_)),                            \
+                                sizeof(T) * X##_.size()),                 \
             Result::NO_ERROR);
 
     FOR_ALL_OUTPUT_TENSORS(SetOutput);

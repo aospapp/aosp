@@ -32,6 +32,7 @@ import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.junit.Assert;
 
@@ -214,7 +215,7 @@ public class UiPerformanceTest implements IDeviceTest, IRemoteTest {
         // Create an empty testRun to report the parsed runMetrics
         CLog.d("About to report metrics to %s: %s", metricsName, metrics);
         listener.testRunStarted(metricsName, 0);
-        listener.testRunEnded(0, metrics);
+        listener.testRunEnded(0, TfMetricProtoUtil.upgradeConvert(metrics));
     }
 
     // clean up output file

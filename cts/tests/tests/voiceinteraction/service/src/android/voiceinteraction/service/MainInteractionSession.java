@@ -20,6 +20,7 @@ import android.app.VoiceInteractor;
 import android.app.VoiceInteractor.Prompt;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.LauncherApps;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.service.voice.VoiceInteractionSession;
@@ -46,6 +47,10 @@ public class MainInteractionSession extends VoiceInteractionSession {
     public void onCreate() {
         super.onCreate();
         Intent sessionStarted = new Intent();
+        sessionStarted.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+        if (!getContext().getSystemService(LauncherApps.class).hasShortcutHostPermission()) {
+            sessionStarted.putExtra("error", "Does not have shortcut permission");
+        }
         sessionStarted.setClassName("android.voiceinteraction.cts",
                 "android.voiceinteraction.cts.VoiceInteractionTestReceiver");
         getContext().sendBroadcast(sessionStarted);

@@ -83,6 +83,8 @@ public:
         return readFully(buf, len);
     }
 
+    void readbackPixels(void* context, int width, int height, unsigned int format, unsigned int type, void* pixels);
+
 
 private:
     unsigned char *m_buf;

@@ -38,7 +38,8 @@ NativeScanResult::NativeScanResult(std::vector<uint8_t>& ssid_,
                                    int32_t signal_mbm_,
                                    uint64_t tsf_,
                                    uint16_t capability_,
-                                   bool associated_)
+                                   bool associated_,
+                                   std::vector<RadioChainInfo>& radio_chain_infos_)
     : ssid(ssid_),
       bssid(bssid_),
       info_element(info_element_),
@@ -46,7 +47,8 @@ NativeScanResult::NativeScanResult(std::vector<uint8_t>& ssid_,
       signal_mbm(signal_mbm_),
       tsf(tsf_),
       capability(capability_),
-      associated(associated_) {
+      associated(associated_),
+      radio_chain_infos(radio_chain_infos_) {
 }
 
 status_t NativeScanResult::writeToParcel(::android::Parcel* parcel) const {
@@ -60,6 +62,13 @@ status_t NativeScanResult::writeToParcel(::android::Parcel* parcel) const {
   // Use writeUint32() instead.
   RETURN_IF_FAILED(parcel->writeUint32(capability));
   RETURN_IF_FAILED(parcel->writeInt32(associated ? 1 : 0));
+  RETURN_IF_FAILED(parcel->writeInt32(radio_chain_infos.size()));
+  for (const auto& radio_chain_info : radio_chain_infos) {
+    // For Java readTypedList():
+    // A leading number 1 means this object is not null.
+    RETURN_IF_FAILED(parcel->writeInt32(1));
+    RETURN_IF_FAILED(radio_chain_info.writeToParcel(parcel));
+  }
   return ::android::OK;
 }
 
@@ -74,6 +83,23 @@ status_t NativeScanResult::readFromParcel(const ::android::Parcel* parcel) {
   // Use readUint32() instead.
   capability = static_cast<uint16_t>(parcel->readUint32());
   associated = (parcel->readInt32() != 0);
+  int32_t num_radio_chain_infos = 0;
+  RETURN_IF_FAILED(parcel->readInt32(&num_radio_chain_infos));
+  for (int i = 0; i < num_radio_chain_infos; i++) {
+    RadioChainInfo radio_chain_info;
+    // From Java writeTypedList():
+    // A leading number 1 means this object is not null.
+    // We never expect a 0 or other values here.
+    int32_t leading_number = 0;
+    RETURN_IF_FAILED(parcel->readInt32(&leading_number));
+    if (leading_number != 1) {
+      LOG(ERROR) << "Unexpected leading number before an object: "
+                 << leading_number;
+      return ::android::BAD_VALUE;
+    }
+    RETURN_IF_FAILED(radio_chain_info.readFromParcel(parcel));
+    radio_chain_infos.push_back(radio_chain_info);
+  }
   return ::android::OK;
 }
 
@@ -90,6 +116,10 @@ void NativeScanResult::DebugLog() {
   LOG(INFO) << "TSF: " << tsf;
   LOG(INFO) << "CAPABILITY: " << capability;
   LOG(INFO) << "ASSOCIATED: " << associated;
+  for (const auto& radio_chain_info : radio_chain_infos) {
+    LOG(INFO) << "RADIO CHAIN ID: " << radio_chain_info.chain_id;
+    LOG(INFO) << "RADIO CHAIN LEVEL: " << radio_chain_info.level;
+  }
 
 }
 

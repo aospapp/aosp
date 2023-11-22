@@ -18,9 +18,11 @@ import importlib
 import logging
 
 from acts.keys import Config
+from acts.libs.proc import job
 
 ACTS_CONTROLLER_CONFIG_NAME = "Attenuator"
 ACTS_CONTROLLER_REFERENCE_NAME = "attenuators"
+_ATTENUATOR_OPEN_RETRIES = 3
 
 
 def create(configs):
@@ -35,8 +37,23 @@ def create(configs):
         inst_cnt = c["InstrumentCount"]
         attn_inst = module.AttenuatorInstrument(inst_cnt)
         attn_inst.model = attn_model
-        insts = attn_inst.open(c[Config.key_address.value],
-                               c[Config.key_port.value])
+        for attempt_number in range(1, _ATTENUATOR_OPEN_RETRIES + 1):
+            try:
+                insts = attn_inst.open(c[Config.key_address.value],
+                                       c[Config.key_port.value])
+            except Exception as e:
+                logging.error('Attempt %s to open connection to attenuator '
+                              'failed: %s' % (attempt_number, e))
+                if attempt_number == _ATTENUATOR_OPEN_RETRIES:
+                    ping_output = job.run(
+                        'ping %s -c 1 -w 1' % c[Config.key_address.value])
+                    if ping_output.exit_status == 1:
+                        logging.error('Unable to ping attenuator at %s' %
+                                      c[Config.key_address.value])
+                    else:
+                        logging.error('Able to ping attenuator at %s' %
+                                      c[Config.key_address.value])
+                    raise
         for i in range(inst_cnt):
             attn = Attenuator(attn_inst, idx=i)
             if "Paths" in c:
@@ -50,7 +67,8 @@ def create(configs):
 
 
 def destroy(objs):
-    return
+    for attn in objs:
+        attn.instrument.close()
 
 
 r"""

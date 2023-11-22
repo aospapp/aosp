@@ -23,7 +23,6 @@
 #include "http.h"
 #include "thread-private.h"
 #include <openssl/err.h>
-#include <openssl/rand.h>
 #include <openssl/ssl.h>
 
 #include <sys/stat.h>
@@ -37,8 +36,6 @@ static int		tls_options = -1;/* Options for TLS connections */
  * Local functions...
  */
 
-static const char	*http_bssl_default_path(char *buffer, size_t bufsize);
-static const char	*http_bssl_make_path(char *buffer, size_t bufsize, const char *dirname, const char *filename, const char *ext);
 static BIO_METHOD *     _httpBIOMethods(void);
 static int              http_bio_write(BIO *h, const char *buf, int num);
 static int              http_bio_read(BIO *h, char *buf, int size);
@@ -119,88 +116,6 @@ _httpFreeCredentials(
     http_tls_credentials_t credentials)	/* I - Internal credentials */
 {
   (void)credentials;
-}
-
-
-/*
- * 'http_gnutls_default_path()' - Get the default credential store path.
- */
-
-static const char *			/* O - Path or NULL on error */
-http_bssl_default_path(char   *buffer,/* I - Path buffer */
-                         size_t bufsize)/* I - Size of path buffer */
-{
-  const char *home = getenv("HOME");	/* HOME environment variable */
-
-
-  if (getuid() && home)
-  {
-    snprintf(buffer, bufsize, "%s/.cups", home);
-    if (access(buffer, 0))
-    {
-      DEBUG_printf(("1http_gnutls_default_path: Making directory \"%s\".", buffer));
-      if (mkdir(buffer, 0700))
-      {
-        DEBUG_printf(("1http_gnutls_default_path: Failed to make directory: %s", strerror(errno)));
-        return (NULL);
-      }
-    }
-
-    snprintf(buffer, bufsize, "%s/.cups/ssl", home);
-    if (access(buffer, 0))
-    {
-      DEBUG_printf(("1http_gnutls_default_path: Making directory \"%s\".", buffer));
-      if (mkdir(buffer, 0700))
-      {
-        DEBUG_printf(("1http_gnutls_default_path: Failed to make directory: %s", strerror(errno)));
-        return (NULL);
-      }
-    }
-  }
-  else
-    strlcpy(buffer, CUPS_SERVERROOT "/ssl", bufsize);
-
-  DEBUG_printf(("1http_gnutls_default_path: Using default path \"%s\".", buffer));
-
-  return (buffer);
-}
-
-
-/*
- * 'http_gnutls_make_path()' - Format a filename for a certificate or key file.
- */
-
-static const char *			/* O - Filename */
-http_bssl_make_path(
-    char       *buffer,			/* I - Filename buffer */
-    size_t     bufsize,			/* I - Size of buffer */
-    const char *dirname,		/* I - Directory */
-    const char *filename,		/* I - Filename (usually hostname) */
-    const char *ext)			/* I - Extension */
-{
-  char	*bufptr,			/* Pointer into buffer */
-	*bufend = buffer + bufsize - 1;	/* End of buffer */
-
-
-  snprintf(buffer, bufsize, "%s/", dirname);
-  bufptr = buffer + strlen(buffer);
-
-  while (*filename && bufptr < bufend)
-  {
-    if (_cups_isalnum(*filename) || *filename == '-' || *filename == '.')
-      *bufptr++ = *filename;
-    else
-      *bufptr++ = '_';
-
-    filename ++;
-  }
-
-  if (bufptr < bufend)
-    *bufptr++ = '.';
-
-  strlcpy(bufptr, ext, (size_t)(bufend - bufptr + 1));
-
-  return (buffer);
 }
 
 
@@ -361,27 +276,7 @@ http_bio_write(BIO        *h,		/* I - BIO data */
 void
 _httpTLSInitialize(void)
 {
-  int           i;                      /* Looping var */
-  unsigned char data[1024];             /* Seed data */
-
- /*
-  * Initialize OpenSSL...
-  */
-
-  SSL_load_error_strings();
   SSL_library_init();
-
- /*
-  * Using the current time is a dubious random seed, but on some systems
-  * it is the best we can do (on others, this seed isn't even used...)
-  */
-
-  CUPS_SRAND(time(NULL));
-
-  for (i = 0; i < sizeof(data); i ++)
-    data[i] = CUPS_RAND();
-
-  RAND_seed(data, sizeof(data));
 }
 
 
@@ -453,12 +348,9 @@ _httpTLSStart(http_t *http)		/* I - Connection to server */
     return (-1);
   }
 
+  context = SSL_CTX_new(TLS_method());
   if (tls_options & _HTTP_TLS_DENY_TLS10)
-    context = SSL_CTX_new(http->mode == _HTTP_MODE_CLIENT ? TLSv1_1_client_method() : TLSv1_1_server_method());
-  else if (tls_options & _HTTP_TLS_ALLOW_SSL3)
-    context = SSL_CTX_new(http->mode == _HTTP_MODE_CLIENT ? SSLv3_client_method() : SSLv3_server_method());
-  else
-    context = SSL_CTX_new(http->mode == _HTTP_MODE_CLIENT ? TLSv1_client_method() : TLSv1_server_method());
+    SSL_CTX_set_min_proto_version(context, TLS1_1_VERSION);
 
   bio = BIO_new(_httpBIOMethods());
   BIO_ctrl(bio, BIO_C_SET_FILE_PTR, 0, (char *)http);
@@ -466,8 +358,13 @@ _httpTLSStart(http_t *http)		/* I - Connection to server */
   http->tls = SSL_new(context);
   SSL_set_bio(http->tls, bio, bio);
 
+  /* http->tls retains an internal reference to the SSL_CTX. */
+  SSL_CTX_free(context);
+
   if (http->mode == _HTTP_MODE_CLIENT)
   {
+    SSL_set_connect_state(http->tls);
+
    /*
     * Client: get the hostname to use for TLS...
     */
@@ -487,30 +384,26 @@ _httpTLSStart(http_t *http)		/* I - Connection to server */
 	  *hostptr == '.')
 	*hostptr = '\0';
     }
-#   ifdef HAVE_SSL_SET_TLSEXT_HOST_NAME
     SSL_set_tlsext_host_name(http->tls, hostname);
-#   endif /* HAVE_SSL_SET_TLSEXT_HOST_NAME */
-
   }
   else
   {
 /* @@@ TODO @@@ */
-//    SSL_CTX_use_PrivateKey_file(context, ServerKey, SSL_FILETYPE_PEM);
-//    SSL_CTX_use_certificate_chain_file(context, ServerCertificate);
+    _cupsSetError(IPP_STATUS_ERROR_INTERNAL, "Server not supported", 0);
   }
 
 
-  if (http->mode == _HTTP_MODE_CLIENT ? SSL_connect(http->tls) != 1 :SSL_connect(http->tls) != 1)
+  if (SSL_do_handshake(http->tls) != 1)
   {
     unsigned long	error;	/* Error code */
+    char		buf[256];
 
     while ((error = ERR_get_error()) != 0)
     {
-      message = ERR_error_string(error, NULL);
-      DEBUG_printf(("8http_setup_ssl: %s", message));
+      ERR_error_string_n(error, buf, sizeof(buf));
+      DEBUG_printf(("8http_setup_ssl: %s", buf));
     }
 
-    SSL_CTX_free(context);
     SSL_free(http->tls);
     http->tls = NULL;
 
@@ -536,10 +429,7 @@ _httpTLSStart(http_t *http)		/* I - Connection to server */
 void
 _httpTLSStop(http_t *http)		/* I - Connection to server */
 {
-  SSL_CTX	*context;		/* Context for encryption */
   unsigned long	error;			/* Error code */
-
-  context = SSL_get_SSL_CTX(http->tls);
 
   switch (SSL_shutdown(http->tls))
   {
@@ -551,12 +441,14 @@ _httpTLSStop(http_t *http)		/* I - Connection to server */
 			"Fatal error during SSL shutdown!", 0);
     default :
 	while ((error = ERR_get_error()) != 0)
-    	  _cupsSetError(IPP_STATUS_ERROR_INTERNAL,
-			ERR_error_string(error, NULL), 0);
+        {
+	  char	buf[256];
+	  ERR_error_string_n(error, buf, sizeof(buf));
+	  _cupsSetError(IPP_STATUS_ERROR_INTERNAL, buf, 0);
+        }
 	break;
   }
 
-  SSL_CTX_free(context);
   SSL_free(http->tls);
   http->tls = NULL;
 }
@@ -570,14 +462,14 @@ _httpTLSWrite(http_t     *http,		/* I - Connection to server */
 	      const char *buf,		/* I - Buffer holding data */
 	      int        len)		/* I - Length of buffer */
 {
-  ssize_t	result;			/* Return value */
+  int	result;			/* Return value */
 
 
   DEBUG_printf(("2http_write_ssl(http=%p, buf=%p, len=%d)", http, buf, len));
 
   result = SSL_write((SSL *)(http->tls), buf, len);
 
-  DEBUG_printf(("3http_write_ssl: Returning %d.", (int)result));
+  DEBUG_printf(("3http_write_ssl: Returning %d.", result));
 
-  return ((int)result);
+  return result;
 }

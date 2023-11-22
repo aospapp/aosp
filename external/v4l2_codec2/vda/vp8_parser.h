@@ -4,6 +4,7 @@
 //
 // This file contains an implementation of a VP8 raw stream parser,
 // as defined in RFC 6386.
+// Note: ported from Chromium commit head: 1323b9c
 
 #ifndef VP8_PARSER_H_
 #define VP8_PARSER_H_

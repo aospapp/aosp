@@ -278,7 +278,7 @@ class parser(base.parser):
 
     @staticmethod
     def put_back_line_and_abort(
-        line_buffer, line, indent, subdir, timestamp, reason):
+        line_buffer, line, indent, subdir, testname, timestamp, reason):
         """
         Appends a line to the line buffer and aborts.
 
@@ -286,6 +286,7 @@ class parser(base.parser):
         @param line: A line to append to the line buffer.
         @param indent: The number of indentation levels.
         @param subdir: The subdirectory name.
+        @param testname: The test name.
         @param timestamp: The timestamp value.
         @param reason: The reason string.
 
@@ -293,11 +294,17 @@ class parser(base.parser):
         tko_utils.dprint('Unexpected indent: aborting log parse')
         line_buffer.put_back(line)
         abort = parser.make_dummy_abort(
-            indent, subdir, subdir, timestamp, reason)
+            indent, subdir, testname, timestamp, reason)
         line_buffer.put_back(abort)
 
 
     def state_iterator(self, buffer):
+        """
+        Yields a list of tests out of the buffer.
+
+        @param buffer: a buffer object
+
+        """
         line = None
         new_tests = []
         job_count, boot_count = 0, 0
@@ -308,12 +315,16 @@ class parser(base.parser):
         current_reason = None
         started_time_stack = [None]
         subdir_stack = [None]
+        testname_stack = [None]
         running_test = None
         running_reasons = set()
         ignored_lines = []
         yield []   # We're ready to start running.
 
         def print_ignored_lines():
+            """
+            Prints the ignored_lines using tko_utils.dprint method.
+            """
             tko_utils.dprint('The following lines were ignored:')
             for line in ignored_lines:
                 tko_utils.dprint(line)
@@ -382,7 +393,8 @@ class parser(base.parser):
                 # ABORT the current level if indentation was unexpectedly low.
                 self.put_back_line_and_abort(
                     buffer, raw_line, stack.size() - 1, subdir_stack[-1],
-                    line.optional_fields.get('timestamp'), line.reason)
+                    testname_stack[-1], line.optional_fields.get('timestamp'),
+                    line.reason)
                 continue
             elif line.indent > expected_indent:
                 # Ignore the log if the indent was unexpectedly high.
@@ -393,6 +405,7 @@ class parser(base.parser):
             if line.type == 'START':
                 stack.start()
                 started_time = line.get_timestamp()
+                testname = None
                 if (line.testname is None and line.subdir is None
                     and not running_test):
                     # We just started a client; all tests are relative to here.
@@ -407,6 +420,7 @@ class parser(base.parser):
                     msg %= (running_client.status, running_client.testname)
                     tko_utils.dprint(msg)
                     new_tests.append(running_client)
+                    testname = running_client.testname
                 elif stack.size() == min_stack_size + 1 and not running_test:
                     # We just started a new test; insert a running record.
                     running_reasons = set()
@@ -423,8 +437,10 @@ class parser(base.parser):
                             running_test.testname, running_test.reason)
                     tko_utils.dprint(msg)
                     new_tests.append(running_test)
+                    testname = running_test.testname
                 started_time_stack.append(started_time)
                 subdir_stack.append(line.subdir)
+                testname_stack.append(testname)
                 continue
             elif line.type == 'INFO':
                 fields = line.optional_fields
@@ -440,6 +456,7 @@ class parser(base.parser):
                 # Update the stacks.
                 if line.subdir and stack.size() > min_stack_size:
                     subdir_stack[-1] = line.subdir
+                    testname_stack[-1] = line.testname
                 # Update the status, start and finished times.
                 stack.update(line.status)
                 if status_lib.is_worse_than_or_equal_to(line.status,
@@ -471,8 +488,10 @@ class parser(base.parser):
                     and not running_test):
                     min_stack_size = stack.size() - 1
                     subdir_stack.pop()
+                    testname_stack.pop()
                 else:
                     line.subdir = subdir_stack.pop()
+                    testname_stack.pop()
                     if not subdir_stack[-1] and stack.size() > min_stack_size:
                         subdir_stack[-1] = line.subdir
                 # Update the status, start and finished times.

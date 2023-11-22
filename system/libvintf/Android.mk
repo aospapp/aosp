@@ -23,5 +23,11 @@ LOCAL_CFLAGS := -Wall -Werror
 LOCAL_STATIC_LIBRARIES := \
     libbase \
     libvintf \
+    libhidl-gen-utils \
     libfs_mgr
+
+LOCAL_EXPORT_STATIC_LIBRARY_HEADERS := libhidl-gen-utils
+
 include $(BUILD_STATIC_LIBRARY)
+
+$(call dist-for-goals,dist_files,$(HOST_OUT_EXECUTABLES)/checkvintf)

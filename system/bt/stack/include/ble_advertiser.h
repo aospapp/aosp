@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2016 The Android Open Source Project
+ *  Copyright 2016 The Android Open Source Project
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #define BLE_ADVERTISER_H
 
 #include <base/bind.h>
+#include <base/memory/weak_ptr.h>
 #include <vector>
 #include "btm_ble_api.h"
 
@@ -72,7 +73,7 @@ class BleAdvertisingManager {
   static void Initialize(BleAdvertiserHciInterface* interface);
   static void CleanUp();
   static bool IsInitialized();
-  static BleAdvertisingManager* Get();
+  static base::WeakPtr<BleAdvertisingManager> Get();
 
   /* Register an advertising instance, status will be returned in |cb|
    * callback, with assigned id, if operation succeeds. Instance is freed when

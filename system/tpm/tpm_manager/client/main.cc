@@ -293,7 +293,7 @@ class ClientLoop : public ClientLoopBase {
       // Command line arguments did not match any valid commands.
       return EX_USAGE;
     }
-    base::MessageLoop::current()->PostTask(FROM_HERE, task);
+    base::MessageLoop::current()->task_runner()->PostTask(FROM_HERE, task);
     return EX_OK;
   }
 

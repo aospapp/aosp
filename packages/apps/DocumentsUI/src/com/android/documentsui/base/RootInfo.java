@@ -19,7 +19,7 @@ package com.android.documentsui.base;
 import static com.android.documentsui.base.DocumentInfo.getCursorInt;
 import static com.android.documentsui.base.DocumentInfo.getCursorLong;
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
-import static com.android.documentsui.base.Shared.VERBOSE;
+import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 import static com.android.documentsui.base.Shared.compareToIgnoreCaseNullable;
 
 import android.annotation.IntDef;
@@ -54,7 +54,7 @@ import java.util.Objects;
 public class RootInfo implements Durable, Parcelable, Comparable<RootInfo> {
 
     private static final String TAG = "RootInfo";
-    private static final int VERSION_INIT = 1;
+    // private static final int VERSION_INIT = 1; // Not used anymore
     private static final int VERSION_DROP_TYPE = 2;
 
     // The values of these constants determine the sort order of various roots in the RootsFragment.

@@ -16,12 +16,15 @@
 
 package android.os.cts;
 
+import static android.os.Build.VERSION.CODENAME;
+import static android.os.Build.VERSION_CODES.CUR_DEVELOPMENT;
 
 import android.os.Build;
-import android.os.SystemProperties;
 import android.platform.test.annotations.RestrictedBuildTest;
 
 import dalvik.system.VMRuntime;
+
+import junit.framework.TestCase;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -30,11 +33,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 import java.util.regex.Pattern;
-
-import junit.framework.TestCase;
-
-import static android.os.Build.VERSION.CODENAME;
-import static android.os.Build.VERSION_CODES.CUR_DEVELOPMENT;
 
 public class BuildTest extends TestCase {
 
@@ -252,6 +250,25 @@ public class BuildTest extends TestCase {
                 }
             }
         }
+    }
+
+    /**
+     * Verify that SDK versions are bounded by both high and low expected
+     * values.
+     */
+    public void testSdkInt() {
+        assertTrue(
+                "Current SDK version " + Build.VERSION.SDK_INT
+                        + " is invalid; must be at least VERSION_CODES.BASE",
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.BASE);
+        assertTrue(
+                "First SDK version " + Build.VERSION.FIRST_SDK_INT
+                        + " is invalid; must be at least VERSION_CODES.BASE",
+                Build.VERSION.FIRST_SDK_INT >= Build.VERSION_CODES.BASE);
+        assertTrue(
+                "Current SDK version " + Build.VERSION.SDK_INT
+                        + " must be at least first SDK version " + Build.VERSION.FIRST_SDK_INT,
+                Build.VERSION.SDK_INT >= Build.VERSION.FIRST_SDK_INT);
     }
 
     static final String RO_DEBUGGABLE = "ro.debuggable";

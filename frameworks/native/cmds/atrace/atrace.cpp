@@ -56,9 +56,9 @@ using pdx::default_transport::ServiceUtility;
 using std::string;
 
 #define MAX_SYS_FILES 10
-#define MAX_PACKAGES 16
 
 const char* k_traceTagsProperty = "debug.atrace.tags.enableflags";
+const char* k_userInitiatedTraceProperty = "debug.atrace.user_initiated";
 
 const char* k_traceAppsNumberProperty = "debug.atrace.app_number";
 const char* k_traceAppsPropertyTemplate = "debug.atrace.app_%d";
@@ -94,6 +94,7 @@ struct TracingCategory {
 static const TracingCategory k_categories[] = {
     { "gfx",        "Graphics",         ATRACE_TAG_GRAPHICS, {
         { OPT,      "events/mdss/enable" },
+        { OPT,      "events/sde/enable" },
     } },
     { "input",      "Input",            ATRACE_TAG_INPUT, { } },
     { "view",       "View System",      ATRACE_TAG_VIEW, { } },
@@ -105,7 +106,6 @@ static const TracingCategory k_categories[] = {
     { "video",      "Video",            ATRACE_TAG_VIDEO, { } },
     { "camera",     "Camera",           ATRACE_TAG_CAMERA, { } },
     { "hal",        "Hardware Modules", ATRACE_TAG_HAL, { } },
-    { "app",        "Application",      ATRACE_TAG_APP, { } },
     { "res",        "Resource Loading", ATRACE_TAG_RESOURCES, { } },
     { "dalvik",     "Dalvik VM",        ATRACE_TAG_DALVIK, { } },
     { "rs",         "RenderScript",     ATRACE_TAG_RS, { } },
@@ -116,6 +116,8 @@ static const TracingCategory k_categories[] = {
     { "database",   "Database",         ATRACE_TAG_DATABASE, { } },
     { "network",    "Network",          ATRACE_TAG_NETWORK, { } },
     { "adb",        "ADB",              ATRACE_TAG_ADB, { } },
+    { "vibrator",   "Vibrator",         ATRACE_TAG_VIBRATOR, { } },
+    { "aidl",       "AIDL calls",       ATRACE_TAG_AIDL, { } },
     { k_coreServiceCategory, "Core services", 0, { } },
     { k_pdxServiceCategory, "PDX services", 0, { } },
     { "sched",      "CPU Scheduling",   0, {
@@ -124,11 +126,20 @@ static const TracingCategory k_categories[] = {
         { OPT,      "events/sched/sched_waking/enable" },
         { OPT,      "events/sched/sched_blocked_reason/enable" },
         { OPT,      "events/sched/sched_cpu_hotplug/enable" },
+        { OPT,      "events/sched/sched_pi_setprio/enable" },
         { OPT,      "events/cgroup/enable" },
     } },
     { "irq",        "IRQ Events",   0, {
         { REQ,      "events/irq/enable" },
         { OPT,      "events/ipi/enable" },
+    } },
+    { "irqoff",     "IRQ-disabled code section tracing", 0, {
+        { REQ,      "events/preemptirq/irq_enable/enable" },
+        { REQ,      "events/preemptirq/irq_disable/enable" },
+    } },
+    { "preemptoff", "Preempt-disabled code section tracing", 0, {
+        { REQ,      "events/preemptirq/preempt_enable/enable" },
+        { REQ,      "events/preemptirq/preempt_disable/enable" },
     } },
     { "i2c",        "I2C Events",   0, {
         { REQ,      "events/i2c/enable" },
@@ -144,6 +155,11 @@ static const TracingCategory k_categories[] = {
     { "freq",       "CPU Frequency",    0, {
         { REQ,      "events/power/cpu_frequency/enable" },
         { OPT,      "events/power/clock_set_rate/enable" },
+        { OPT,      "events/power/clock_disable/enable" },
+        { OPT,      "events/power/clock_enable/enable" },
+        { OPT,      "events/clk/clk_set_rate/enable" },
+        { OPT,      "events/clk/clk_disable/enable" },
+        { OPT,      "events/clk/clk_enable/enable" },
         { OPT,      "events/power/cpu_frequency_limits/enable" },
     } },
     { "membus",     "Memory Bus Utilization", 0, {
@@ -171,7 +187,10 @@ static const TracingCategory k_categories[] = {
         { REQ,      "events/cpufreq_interactive/enable" },
     } },
     { "sync",       "Synchronization",  0, {
-        { REQ,      "events/sync/enable" },
+        // before linux kernel 4.9
+        { OPT,      "events/sync/enable" },
+        // starting in linux kernel 4.9
+        { OPT,      "events/fence/enable" },
     } },
     { "workq",      "Kernel Workqueues", 0, {
         { REQ,      "events/workqueue/enable" },
@@ -226,8 +245,11 @@ static const char* k_traceClockPath =
 static const char* k_traceBufferSizePath =
     "buffer_size_kb";
 
+#if 0
+// TODO: Re-enable after stabilization
 static const char* k_traceCmdlineSizePath =
     "saved_cmdlines_size";
+#endif
 
 static const char* k_tracingOverwriteEnablePath =
     "options/overwrite";
@@ -249,9 +271,6 @@ static const char* k_funcgraphProcPath =
 
 static const char* k_funcgraphFlatPath =
     "options/funcgraph-flat";
-
-static const char* k_funcgraphDurationPath =
-    "options/funcgraph-duration";
 
 static const char* k_ftraceFilterPath =
     "set_ftrace_filter";
@@ -429,6 +448,16 @@ static bool setTraceOverwriteEnable(bool enable)
     return setKernelOptionEnable(k_tracingOverwriteEnablePath, enable);
 }
 
+// Set the user initiated trace property
+static bool setUserInitiatedTraceProperty(bool enable)
+{
+    if (!android::base::SetProperty(k_userInitiatedTraceProperty, enable ? "1" : "")) {
+        fprintf(stderr, "error setting user initiated strace system property\n");
+        return false;
+    }
+    return true;
+}
+
 // Enable or disable kernel tracing.
 static bool setTracingEnabled(bool enable)
 {
@@ -445,7 +474,6 @@ static bool clearTrace()
 static bool setTraceBufferSizeKB(int size)
 {
     char str[32] = "1";
-    int len;
     if (size < 1) {
         size = 1;
     }
@@ -453,6 +481,8 @@ static bool setTraceBufferSizeKB(int size)
     return writeStr(k_traceBufferSizePath, str);
 }
 
+#if 0
+// TODO: Re-enable after stabilization
 // Set the default size of cmdline hashtable
 static bool setCmdlineSize()
 {
@@ -461,6 +491,7 @@ static bool setCmdlineSize()
     }
     return true;
 }
+#endif
 
 // Set the clock to the best available option while tracing. Use 'boot' if it's
 // available; otherwise, use 'mono'. If neither are available use 'global'.
@@ -481,8 +512,8 @@ static bool setClock()
         newClock = "global";
     }
 
-    size_t begin = clockStr.find("[") + 1;
-    size_t end = clockStr.find("]");
+    size_t begin = clockStr.find('[') + 1;
+    size_t end = clockStr.find(']');
     if (newClock.compare(0, std::string::npos, clockStr, begin, end-begin) == 0) {
         return true;
     }
@@ -543,7 +574,7 @@ static void pokeHalServices()
     auto listRet = sm->list([&](const auto &interfaces) {
         for (size_t i = 0; i < interfaces.size(); i++) {
             string fqInstanceName = interfaces[i];
-            string::size_type n = fqInstanceName.find("/");
+            string::size_type n = fqInstanceName.find('/');
             if (n == std::string::npos || interfaces[i].size() == n+1)
                 continue;
             hidl_string fqInterfaceName = fqInstanceName.substr(0, n);
@@ -586,12 +617,6 @@ static bool setTagsProperty(uint64_t tags)
 
 static void clearAppProperties()
 {
-    for (int i = 0; i < MAX_PACKAGES; i++) {
-        std::string key = android::base::StringPrintf(k_traceAppsPropertyTemplate, i);
-        if (!android::base::SetProperty(key, "")) {
-            fprintf(stderr, "failed to clear system property: %s\n", key.c_str());
-        }
-    }
     if (!android::base::SetProperty(k_traceAppsNumberProperty, "")) {
         fprintf(stderr, "failed to clear system property: %s",
               k_traceAppsNumberProperty);
@@ -605,11 +630,6 @@ static bool setAppCmdlineProperty(char* cmdline)
     int i = 0;
     char* start = cmdline;
     while (start != NULL) {
-        if (i == MAX_PACKAGES) {
-            fprintf(stderr, "error: only 16 packages could be traced at once\n");
-            clearAppProperties();
-            return false;
-        }
         char* end = strchr(start, ',');
         if (end != NULL) {
             *end = '\0';
@@ -769,21 +789,9 @@ static bool setCategoriesEnableFromFile(const char* categories_file)
     return ok;
 }
 
-// Set all the kernel tracing settings to the desired state for this trace
-// capture.
-static bool setUpTrace()
+static bool setUpUserspaceTracing()
 {
     bool ok = true;
-
-    // Set up the tracing options.
-    ok &= setCategoriesEnableFromFile(g_categoriesFile);
-    ok &= setTraceOverwriteEnable(g_traceOverwrite);
-    ok &= setTraceBufferSizeKB(g_traceBufferSizeKB);
-    // TODO: Re-enable after stabilization
-    //ok &= setCmdlineSize();
-    ok &= setClock();
-    ok &= setPrintTgidEnableIfPresent(true);
-    ok &= setKernelTraceFuncs(g_kernelTraceFuncs);
 
     // Set up the tags property.
     uint64_t tags = 0;
@@ -822,6 +830,39 @@ static bool setUpTrace()
         ok &= ServiceUtility::PokeServices();
     }
 
+    return ok;
+}
+
+static void cleanUpUserspaceTracing()
+{
+    setTagsProperty(0);
+    clearAppProperties();
+    pokeBinderServices();
+
+    if (g_tracePdx) {
+        ServiceUtility::PokeServices();
+    }
+}
+
+
+// Set all the kernel tracing settings to the desired state for this trace
+// capture.
+static bool setUpKernelTracing()
+{
+    bool ok = true;
+
+    ok &= setUserInitiatedTraceProperty(true);
+
+    // Set up the tracing options.
+    ok &= setCategoriesEnableFromFile(g_categoriesFile);
+    ok &= setTraceOverwriteEnable(g_traceOverwrite);
+    ok &= setTraceBufferSizeKB(g_traceBufferSizeKB);
+    // TODO: Re-enable after stabilization
+    //ok &= setCmdlineSize();
+    ok &= setClock();
+    ok &= setPrintTgidEnableIfPresent(true);
+    ok &= setKernelTraceFuncs(g_kernelTraceFuncs);
+
     // Disable all the sysfs enables.  This is done as a separate loop from
     // the enables to allow the same enable to exist in multiple categories.
     ok &= disableKernelTraceEvents();
@@ -849,27 +890,18 @@ static bool setUpTrace()
 }
 
 // Reset all the kernel tracing settings to their default state.
-static void cleanUpTrace()
+static void cleanUpKernelTracing()
 {
     // Disable all tracing that we're able to.
     disableKernelTraceEvents();
-
-    // Reset the system properties.
-    setTagsProperty(0);
-    clearAppProperties();
-    pokeBinderServices();
-
-    if (g_tracePdx) {
-        ServiceUtility::PokeServices();
-    }
 
     // Set the options back to their defaults.
     setTraceOverwriteEnable(true);
     setTraceBufferSizeKB(1);
     setPrintTgidEnableIfPresent(false);
     setKernelTraceFuncs(NULL);
+    setUserInitiatedTraceProperty(false);
 }
-
 
 // Enable tracing in the kernel.
 static bool startTrace()
@@ -1047,7 +1079,7 @@ static void showHelp(const char *cmd)
     fprintf(stderr, "usage: %s [options] [categories...]\n", cmd);
     fprintf(stderr, "options include:\n"
                     "  -a appname      enable app-level tracing for a comma "
-                        "separated list of cmdlines\n"
+                        "separated list of cmdlines; * is a wildcard matching any process\n"
                     "  -b N            use a trace buffer size of N KB\n"
                     "  -c              trace into a circular buffer\n"
                     "  -f filename     use the categories written in a file as space-separated\n"
@@ -1102,6 +1134,7 @@ int main(int argc, char **argv)
     bool traceStop = true;
     bool traceDump = true;
     bool traceStream = false;
+    bool onlyUserspace = false;
 
     if (argc == 2 && 0 == strcmp(argv[1], "--help")) {
         showHelp(argv[0]);
@@ -1117,12 +1150,13 @@ int main(int argc, char **argv)
         int ret;
         int option_index = 0;
         static struct option long_options[] = {
-            {"async_start",     no_argument, 0,  0 },
-            {"async_stop",      no_argument, 0,  0 },
-            {"async_dump",      no_argument, 0,  0 },
-            {"list_categories", no_argument, 0,  0 },
-            {"stream",          no_argument, 0,  0 },
-            {           0,                0, 0,  0 }
+            {"async_start",       no_argument, 0,  0 },
+            {"async_stop",        no_argument, 0,  0 },
+            {"async_dump",        no_argument, 0,  0 },
+            {"only_userspace",    no_argument, 0,  0 },
+            {"list_categories",   no_argument, 0,  0 },
+            {"stream",            no_argument, 0,  0 },
+            {           0,                  0, 0,  0 }
         };
 
         ret = getopt_long(argc, argv, "a:b:cf:k:ns:t:zo:",
@@ -1192,6 +1226,8 @@ int main(int argc, char **argv)
                     async = true;
                     traceStart = false;
                     traceStop = false;
+                } else if (!strcmp(long_options[option_index].name, "only_userspace")) {
+                    onlyUserspace = true;
                 } else if (!strcmp(long_options[option_index].name, "stream")) {
                     traceStream = true;
                     traceDump = false;
@@ -1209,6 +1245,14 @@ int main(int argc, char **argv)
         }
     }
 
+    if (onlyUserspace) {
+        if (!async || !(traceStart || traceStop)) {
+            fprintf(stderr, "--only_userspace can only be used with "
+                    "--async_start or --async_stop\n");
+            exit(1);
+        }
+    }
+
     registerSigHandler();
 
     if (g_initialSleepSecs > 0) {
@@ -1216,11 +1260,19 @@ int main(int argc, char **argv)
     }
 
     bool ok = true;
-    ok &= setUpTrace();
-    ok &= startTrace();
+
+    if (traceStart) {
+        ok &= setUpUserspaceTracing();
+    }
+
+    if (ok && traceStart && !onlyUserspace) {
+        ok &= setUpKernelTracing();
+        ok &= startTrace();
+    }
 
     if (ok && traceStart) {
-        if (!traceStream) {
+
+        if (!traceStream && !onlyUserspace) {
             printf("capturing trace...");
             fflush(stdout);
         }
@@ -1230,9 +1282,12 @@ int main(int argc, char **argv)
         // contain entries from only one CPU can cause "begin" entries without a
         // matching "end" entry to show up if a task gets migrated from one CPU to
         // another.
-        ok = clearTrace();
+        if (!onlyUserspace)
+            ok = clearTrace();
 
-        writeClockSyncMarker();
+        if (!onlyUserspace)
+            writeClockSyncMarker();
+
         if (ok && !async && !traceStream) {
             // Sleep to allow the trace to be captured.
             struct timespec timeLeft;
@@ -1251,10 +1306,10 @@ int main(int argc, char **argv)
     }
 
     // Stop the trace and restore the default settings.
-    if (traceStop)
+    if (traceStop && !onlyUserspace)
         stopTrace();
 
-    if (ok && traceDump) {
+    if (ok && traceDump && !onlyUserspace) {
         if (!g_traceAborted) {
             printf(" done\n");
             fflush(stdout);
@@ -1281,8 +1336,11 @@ int main(int argc, char **argv)
     }
 
     // Reset the trace buffer size to 1.
-    if (traceStop)
-        cleanUpTrace();
+    if (traceStop) {
+        cleanUpUserspaceTracing();
+        if (!onlyUserspace)
+            cleanUpKernelTracing();
+    }
 
     return g_traceAborted ? 1 : 0;
 }

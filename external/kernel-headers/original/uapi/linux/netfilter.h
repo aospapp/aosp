@@ -1,9 +1,9 @@
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 #ifndef _UAPI__LINUX_NETFILTER_H
 #define _UAPI__LINUX_NETFILTER_H
 
 #include <linux/types.h>
 #include <linux/compiler.h>
-#include <linux/sysctl.h>
 #include <linux/in.h>
 #include <linux/in6.h>
 

@@ -59,6 +59,8 @@ LOCAL_STATIC_LIBRARIES += \
 # Tag this module as a vts test artifact
 LOCAL_COMPATIBILITY_SUITE := vts
 
+# May need more in CFLAGS.
+LOCAL_CFLAGS += -Wall -Wextra -Werror
 include $(BUILD_EXECUTABLE)
 
 # VTS testcase isn't designed to be run on host due to its dependencies to

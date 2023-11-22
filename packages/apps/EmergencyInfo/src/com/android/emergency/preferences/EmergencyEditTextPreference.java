@@ -22,6 +22,7 @@ import android.support.v7.preference.PreferenceViewHolder;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.TextView;
 
 import com.android.emergency.R;
@@ -80,6 +81,7 @@ public class EmergencyEditTextPreference extends CustomEditTextPreference
     @Override
     protected void onBindDialogView(View view) {
         super.onBindDialogView(view);
-        getEditText().setSelection(getEditText().getText().length());
+        final EditText editText = view.findViewById(android.R.id.edit);
+        editText.setSelection(editText.getText().length());
     }
 }

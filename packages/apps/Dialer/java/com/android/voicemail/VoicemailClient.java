@@ -17,7 +17,6 @@
 package com.android.voicemail;
 
 import android.content.Context;
-import android.content.Intent;
 import android.os.PersistableBundle;
 import android.provider.VoicemailContract.Voicemails;
 import android.support.annotation.MainThread;
@@ -55,10 +54,22 @@ public interface VoicemailClient {
       "com.android.voicemail.VoicemailClient.ACTION_SHOW_LEGACY_VOICEMAIL";
 
   /**
+   * Boolean extra send with {@link #ACTION_SHOW_LEGACY_VOICEMAIL}, indicating that the notification
+   * is sent by legacy mode and should not be suppressed even when VVM is activated
+   */
+  String EXTRA_IS_LEGACY_MODE = "is_legacy_mode";
+
+  /**
    * Secret code to launch the voicemail config activity intended for OEMs and Carriers. {@code
    * *#*#VVMCONFIG#*#*}
    */
   String VOICEMAIL_SECRET_CODE = "886266344";
+
+  /**
+   * Whether visual voicemail is supported by the carrier for the {@code phoneAccountHandle}. This
+   * is purely based on the MCCMNC, and a single account might still be disabled by the carrier.
+   */
+  boolean hasCarrierSupport(Context context, PhoneAccountHandle phoneAccountHandle);
 
   /**
    * Whether the visual voicemail service is enabled for the {@code phoneAccountHandle}. "Enable"
@@ -98,14 +109,6 @@ public interface VoicemailClient {
   void appendOmtpVoicemailStatusSelectionClause(
       Context context, StringBuilder where, List<String> selectionArgs);
 
-  /**
-   * @return the class name of the {@link android.preference.PreferenceFragment} for voicemail
-   *     settings, or {@code null} if dialer cannot control voicemail settings. Always return {@code
-   *     null} before OC.
-   */
-  @Nullable
-  String getSettingsFragment();
-
   boolean isVoicemailArchiveEnabled(Context context, PhoneAccountHandle phoneAccountHandle);
 
   /**
@@ -119,10 +122,20 @@ public interface VoicemailClient {
       Context context, PhoneAccountHandle phoneAccountHandle, boolean value);
 
   /**
-   * @return an intent that will launch the activity to change the voicemail PIN. The PIN is used
-   *     when calling into the mailbox.
+   * @return if the voicemail transcription feature is available on the current device. This depends
+   *     on whether the server side flag is turned on for the feature, and if the OS meets the
+   *     requirement for this feature.
    */
-  Intent getSetPinIntent(Context context, PhoneAccountHandle phoneAccountHandle);
+  boolean isVoicemailTranscriptionAvailable(Context context);
+
+  /** @return if the voicemail donation feature is available. */
+  boolean isVoicemailDonationAvailable(Context context);
+
+  /** @return if the voicemail donation setting has been enabled by the user. */
+  boolean isVoicemailDonationEnabled(Context context, PhoneAccountHandle account);
+
+  void setVoicemailDonationEnabled(
+      Context context, PhoneAccountHandle phoneAccountHandle, boolean enabled);
 
   /**
    * Whether the client is activated and handling visual voicemail for the {@code
@@ -148,4 +161,30 @@ public interface VoicemailClient {
 
   @MainThread
   void onShutdown(@NonNull Context context);
+
+  /** Listener for changes in {@link #isActivated(Context, PhoneAccountHandle)} */
+  interface ActivationStateListener {
+    @MainThread
+    void onActivationStateChanged(PhoneAccountHandle phoneAccountHandle, boolean isActivated);
+  }
+
+  @MainThread
+  void addActivationStateListener(ActivationStateListener listener);
+
+  @MainThread
+  void removeActivationStateListener(ActivationStateListener listener);
+
+  /** Provides interface to change the PIN used to access the mailbox by calling. */
+  PinChanger createPinChanger(Context context, PhoneAccountHandle phoneAccountHandle);
+
+  void onTosAccepted(Context context, PhoneAccountHandle phoneAccountHandle);
+
+  boolean hasAcceptedTos(Context context, PhoneAccountHandle phoneAccountHandle);
+
+  /**
+   * @return arbitrary carrier configuration String value associate with the indicated key. See
+   *     {@code CarrierConfigKeys.java}
+   */
+  @Nullable
+  String getCarrierConfigString(Context context, PhoneAccountHandle phoneAccountHandle, String key);
 }

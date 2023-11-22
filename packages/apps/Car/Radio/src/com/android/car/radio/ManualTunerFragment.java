@@ -15,15 +15,14 @@
  */
 package com.android.car.radio;
 
+import android.annotation.Nullable;
+import android.hardware.radio.ProgramSelector;
 import android.hardware.radio.RadioManager;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-
-import com.android.car.radio.service.RadioStation;
 
 /**
  * A fragment that allows the user to manually input a radio station to tune to.
@@ -46,10 +45,10 @@ public class ManualTunerFragment extends Fragment implements
          * user exits the manual tuner without a station being selected, then {@code null} will
          * be passed to this method.
          *
-         * @param station The {@link RadioStation} that was selected or {@code null} if the user
+         * @param station The {@link ProgramSelector} that was selected or {@code null} if the user
          *                exits before selecting one.
          */
-        void onStationSelected(@Nullable RadioStation station);
+        void onStationSelected(@Nullable ProgramSelector sel);
     }
 
     @Override
@@ -80,9 +79,9 @@ public class ManualTunerFragment extends Fragment implements
     }
 
     @Override
-    public void onDone(RadioStation station) {
+    public void onDone(ProgramSelector sel) {
         if (mListener != null) {
-            mListener.onStationSelected(station);
+            mListener.onStationSelected(sel);
         }
     }
 

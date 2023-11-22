@@ -5,6 +5,7 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES:= rand_emmc_perf.c
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_MODULE:= rand_emmc_perf
 LOCAL_MULTILIB := both
 LOCAL_MODULE_STEM_32:= rand_emmc_perf

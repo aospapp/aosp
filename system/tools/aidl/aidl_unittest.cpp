@@ -80,6 +80,7 @@ class AidlTest : public ::testing::Test {
         preprocessed_files_,
         import_paths_,
         path,
+        false, /* generate_traces */
         io_delegate_,
         types,
         &ret,

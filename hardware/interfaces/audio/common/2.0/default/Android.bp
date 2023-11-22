@@ -15,22 +15,29 @@
 
 cc_library_shared {
     name: "android.hardware.audio.common@2.0-util",
+    defaults: ["hidl_defaults"],
     vendor_available: true,
     vndk: {
         enabled: true,
     },
     srcs: [
-        "EffectMap.cpp",
         "HidlUtils.cpp",
     ],
 
     export_include_dirs: ["."],
 
+    static_libs: [
+    ],
+
     shared_libs: [
         "liblog",
         "libutils",
         "libhidlbase",
+        "android.hardware.audio.common-util",
         "android.hardware.audio.common@2.0",
+    ],
+    export_shared_lib_headers: [
+        "android.hardware.audio.common-util"
     ],
 
     header_libs: [

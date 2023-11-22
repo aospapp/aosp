@@ -100,13 +100,13 @@
     <string name="status_connection_error" msgid="947681831523219891">"ਕਨੈਕਸ਼ਨ ਅਸਫਲ।"</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"ਬੇਨਤੀ ਨੂੰ ਸਹੀ ਢੰਗ ਨਾਲ ਸੰਭਾਲਿਆ ਨਹੀਂ ਜਾ ਸਕਦਾ।"</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"ਅਗਿਆਤ ਅਸ਼ੁੱਧੀ।"</string>
-    <string name="btopp_live_folder" msgid="7967791481444474554">"Bluetooth ਪ੍ਰਾਪਤ ਕੀਤੀ"</string>
+    <string name="btopp_live_folder" msgid="7967791481444474554">"ਬਲੂਟੁੱਥ ਰਾਹੀਂ ਪ੍ਰਾਪਤ"</string>
     <string name="opp_notification_group" msgid="3486303082135789982">"ਬਲੂਟੁੱਥ ਸਾਂਝਾਕਰਨ"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> ਪੂਰਾ ਪ੍ਰਾਪਤ ਕੀਤਾ।"</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> ਪੂਰਾ ਭੇਜਿਆ ਗਿਆ।"</string>
     <string name="inbound_history_title" msgid="6940914942271327563">"ਇਨਬਾਊਂਡ ਟ੍ਰਾਂਸਫਰ"</string>
     <string name="outbound_history_title" msgid="4279418703178140526">"ਆਊਟਬਾਊਂਡ ਟ੍ਰਾਂਸਫਰ"</string>
-    <string name="no_transfers" msgid="3482965619151865672">"ਟ੍ਰਾਂਸਫਰ ਇਤਿਹਾਸ ਖਾਲੀ ਹੈ।"</string>
+    <string name="no_transfers" msgid="3482965619151865672">"ਟ੍ਰਾਂਸਫ਼ਰ ਇਤਿਹਾਸ ਵਿੱਚ ਕੁਝ ਵੀ ਨਹੀਂ ਹੈ।"</string>
     <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"ਸਾਰੀਆਂ ਆਈਟਮਾਂ ਸੂਚੀ ਵਿੱਚੋਂ ਹਟਾਈਆਂ ਜਾਣਗੀਆਂ।"</string>
     <string name="outbound_noti_title" msgid="8051906709452260849">"Bluetooth ਸ਼ੇਅਰ: ਭੇਜੀਆਂ ਗਈਆਂ ਫਾਈਲਾਂ"</string>
     <string name="inbound_noti_title" msgid="4143352641953027595">"Bluetooth ਸ਼ੇਅਰ: ਪ੍ਰਾਪਤ ਕੀਤੀਆਂ ਫਾਈਲਾਂ"</string>
@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"ਬਲੂਟੁੱਥ  ਆਡੀਓ  ਕਨੈਕਟ ਕੀਤੀ ਗਈ"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"ਬਲੂਟੁੱਥ  ਆਡੀਓ  ਡਿਸਕਨੈਕਟ ਕੀਤੀ ਗਈ"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"ਬਲੂਟੁੱਥ  ਆਡੀਓ"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4GB ਤੋਂ ਵਧੇਰੇ ਵੱਡੀਆਂ ਫ਼ਾਈਲਾਂ ਨੂੰ ਟ੍ਰਾਂਸਫ਼ਰ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ"</string>
 </resources>

@@ -50,6 +50,8 @@ public class ConfigurationChecker
     {
         ClassPath programJars = configuration.programJars;
         ClassPath libraryJars = configuration.libraryJars;
+        // Android-added: Get the systemJars list to check.
+        ClassPath systemJars = configuration.systemJars;
 
         // Check that the input isn't empty.
         if (programJars == null)
@@ -79,9 +81,18 @@ public class ConfigurationChecker
         }
 
         // Check for conflicts between input/output entries of the class paths.
+        ClassPath systemAndLibraryJars = new ClassPath();
+        // Android-added: Merge the system and library jars into one list.
+        if (libraryJars != null) {
+            systemAndLibraryJars.addAll(libraryJars);
+        }
+        if (systemJars != null) {
+            systemAndLibraryJars.addAll(systemJars);
+        }
         checkConflicts(programJars, programJars);
-        checkConflicts(programJars, libraryJars);
-        checkConflicts(libraryJars, libraryJars);
+        // Android-changed: Check for conflicts with the system/library jars.
+        checkConflicts(programJars, systemAndLibraryJars);
+        checkConflicts(systemAndLibraryJars, systemAndLibraryJars);
 
         // Print out some general notes if necessary.
         if ((configuration.note == null ||

@@ -34,6 +34,7 @@ public class CrossProfileIntentFilterTest {
 
     private static final int TEST_FLAGS = PackageManager.SKIP_CURRENT_PROFILE;
     private static final int TEST_DIRECTION = Direction.TO_PARENT;
+    private static final boolean TEST_LETSDATAINTOPROFILE = true;
     private static final String ACTION_1 = "action1";
     private static final String ACTION_2 = "action2";
     private static final String CATEGORY_1 = "category1";
@@ -46,7 +47,8 @@ public class CrossProfileIntentFilterTest {
     @Test
     public void testBuilder() {
         CrossProfileIntentFilter filter =
-                new CrossProfileIntentFilter.Builder(TEST_DIRECTION, TEST_FLAGS)
+                new CrossProfileIntentFilter.Builder(TEST_DIRECTION, TEST_FLAGS,
+                        TEST_LETSDATAINTOPROFILE)
                         .addAction(ACTION_1)
                         .addAction(ACTION_2)
                         .addCategory(CATEGORY_1)
@@ -59,6 +61,7 @@ public class CrossProfileIntentFilterTest {
 
         assertEquals(TEST_DIRECTION, filter.direction);
         assertEquals(TEST_FLAGS, filter.flags);
+        assertEquals(TEST_LETSDATAINTOPROFILE, filter.letsPersonalDataIntoProfile);
 
         assertEquals(ACTION_1, filter.filter.getAction(0));
         assertEquals(ACTION_2, filter.filter.getAction(1));

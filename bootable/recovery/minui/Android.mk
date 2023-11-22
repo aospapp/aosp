@@ -13,6 +13,9 @@
 # limitations under the License.
 
 LOCAL_PATH := $(call my-dir)
+
+# libminui (static library)
+# ===============================
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
@@ -25,14 +28,14 @@ LOCAL_SRC_FILES := \
 
 LOCAL_WHOLE_STATIC_LIBRARIES := \
     libadf \
-    libdrm_platform \
+    libdrm \
     libsync_recovery
 
 LOCAL_STATIC_LIBRARIES := \
     libpng \
     libbase
 
-LOCAL_CFLAGS := -Werror
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 
@@ -58,8 +61,16 @@ else
   LOCAL_CFLAGS += -DOVERSCAN_PERCENT=0
 endif
 
+ifneq ($(TARGET_RECOVERY_DEFAULT_ROTATION),)
+  LOCAL_CFLAGS += -DDEFAULT_ROTATION=$(TARGET_RECOVERY_DEFAULT_ROTATION)
+else
+  LOCAL_CFLAGS += -DDEFAULT_ROTATION=ROTATION_NONE
+endif
+
 include $(BUILD_STATIC_LIBRARY)
 
+# libminui (shared library)
+# ===============================
 # Used by OEMs for factory test images.
 include $(CLEAR_VARS)
 LOCAL_MODULE := libminui
@@ -68,7 +79,7 @@ LOCAL_SHARED_LIBRARIES := \
     libpng \
     libbase
 
-LOCAL_CFLAGS := -Werror
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 include $(BUILD_SHARED_LIBRARY)

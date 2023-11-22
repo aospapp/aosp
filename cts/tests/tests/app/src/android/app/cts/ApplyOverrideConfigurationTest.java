@@ -84,6 +84,18 @@ public class ApplyOverrideConfigurationTest extends
     public static boolean isRotationSupported(Context context) {
         PackageManager pm = context.getPackageManager();
         return pm.hasSystemFeature(PackageManager.FEATURE_SCREEN_PORTRAIT)
-                && pm.hasSystemFeature(PackageManager.FEATURE_SCREEN_LANDSCAPE);
+                && pm.hasSystemFeature(PackageManager.FEATURE_SCREEN_LANDSCAPE)
+                && !isVrHeadset(context);
+    }
+
+    /**
+     * Gets whether the DUT is a vr headset.
+     *
+     * @param context Context for accessing system resources.
+     * @return Whether the device is a vr headset.
+     */
+    public static boolean isVrHeadset(Context context) {
+        return (context.getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_VR_HEADSET;
     }
 }

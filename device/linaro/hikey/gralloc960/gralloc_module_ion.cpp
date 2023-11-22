@@ -18,6 +18,7 @@
 
 #include <errno.h>
 #include <pthread.h>
+#include <string.h>
 
 #include <cutils/log.h>
 #include <cutils/atomic.h>
@@ -27,6 +28,7 @@
 #include "gralloc_priv.h"
 #include "alloc_device.h"
 #include "framebuffer_device.h"
+#include "ion_4.12.h"
 
 #include <linux/ion.h>
 #include <ion/ion.h>
@@ -110,13 +112,15 @@ void gralloc_backend_sync(private_handle_t* hnd)
 	{
 	case private_handle_t::PRIV_FLAGS_USES_ION:
 		hw_module_t * pmodule = NULL;
-		private_module_t *m=NULL;
 		if (hw_get_module(GRALLOC_HARDWARE_MODULE_ID, (const hw_module_t **)&pmodule) == 0)
 		{
-			if(!(hnd->flags & private_handle_t::PRIV_FLAGS_USES_ION_DMA_HEAP))
+			private_module_t *m = reinterpret_cast<private_module_t *>(pmodule);
+			if (m->gralloc_legacy_ion)
 			{
-				m = reinterpret_cast<private_module_t *>(pmodule);
-				ion_sync_fd(m->ion_client, hnd->share_fd);
+				if(!(hnd->flags & private_handle_t::PRIV_FLAGS_USES_ION_DMA_HEAP))
+				{
+					ion_sync_fd(m->ion_client, hnd->share_fd);
+				}
 			}
 		}
 		else

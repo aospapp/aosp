@@ -23,7 +23,7 @@
                 android:radius="@dimen/seekbar_track_corner"/>
             <stroke
                 android:width="@dimen/seekbar_track_height"
-                android:color="@color/car_grey_300" />
+                android:color="@color/seekbar_track" />
         </shape>
     </item>
     <item android:id="@android:id/progress">
@@ -31,7 +31,7 @@
             <shape android:shape="line">
                 <stroke
                     android:width="@dimen/seekbar_track_height"
-                    android:color="@color/car_teal_700" />
+                    android:color="@color/car_accent" />
             </shape>
         </clip>
     </item>

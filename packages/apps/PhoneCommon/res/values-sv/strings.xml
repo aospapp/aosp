@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Inget SIM-kort eller SIM-kortsfel"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Det finns inget mobilnät tillgängligt"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Utgående samtal begränsas av FDN."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL-begäran har ändrats till en USSD-begäran."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL-begäran har ändrats till en SS-begäran."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL-begäran har ändrats till en DIAL-begäran med ett annat nummer."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Samtalet har ändrats till en USSD-förfrågan"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Samtalet har ändrats till en SS-förfrågan"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Har ändrats till ett annat nummer"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Har ändrats till videosamtal"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Videosamtalet har ändrats till en SS-förfrågan"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Videosamtalet har ändrats till en USSD-förfrågan"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Har ändrats till standardsamtal"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Har ändrats till annat nummer"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Det går inte att ringa utgående samtal när samtalsspärren är aktiverad."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Samtalen begränsas av åtkomstkontroll."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Nödsamtal begränsas av åtkomstkontroll."</string>

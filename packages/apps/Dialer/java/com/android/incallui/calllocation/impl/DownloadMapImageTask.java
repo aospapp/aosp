@@ -31,15 +31,15 @@ class DownloadMapImageTask extends AsyncTask<Location, Void, Drawable> {
 
   private static final String STATIC_MAP_SRC_NAME = "src";
 
-  private final WeakReference<LocationUi> mUiReference;
+  private final WeakReference<LocationUi> uiReference;
 
   public DownloadMapImageTask(WeakReference<LocationUi> uiReference) {
-    mUiReference = uiReference;
+    this.uiReference = uiReference;
   }
 
   @Override
   protected Drawable doInBackground(Location... locations) {
-    LocationUi ui = mUiReference.get();
+    LocationUi ui = uiReference.get();
     if (ui == null) {
       return null;
     }
@@ -50,9 +50,9 @@ class DownloadMapImageTask extends AsyncTask<Location, Void, Drawable> {
 
     try {
       URL mapUrl = new URL(LocationUrlBuilder.getStaticMapUrl(ui.getContext(), locations[0]));
+      TrafficStats.setThreadStatsTag(TrafficStatsTags.DOWNLOAD_LOCATION_MAP_TAG);
       InputStream content = (InputStream) mapUrl.getContent();
 
-      TrafficStats.setThreadStatsTag(TrafficStatsTags.DOWNLOAD_LOCATION_MAP_TAG);
       return Drawable.createFromStream(content, STATIC_MAP_SRC_NAME);
     } catch (Exception ex) {
       LogUtil.e("DownloadMapImageTask.doInBackground", "Exception!!!", ex);
@@ -64,7 +64,7 @@ class DownloadMapImageTask extends AsyncTask<Location, Void, Drawable> {
 
   @Override
   protected void onPostExecute(Drawable mapImage) {
-    LocationUi ui = mUiReference.get();
+    LocationUi ui = uiReference.get();
     if (ui == null) {
       return;
     }

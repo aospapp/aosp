@@ -63,8 +63,29 @@ public final class OpenSSLX509Certificate extends X509Certificate {
     private transient final long mContext;
     private transient Integer mHashCode;
 
-    OpenSSLX509Certificate(long ctx) {
+    private final Date notBefore;
+    private final Date notAfter;
+
+    OpenSSLX509Certificate(long ctx) throws ParsingException {
         mContext = ctx;
+        // The legacy X509 OpenSSL APIs don't validate ASN1_TIME structures until access, so
+        // parse them here because this is the only time we're allowed to throw ParsingException
+        notBefore = toDate(NativeCrypto.X509_get_notBefore(mContext, this));
+        notAfter = toDate(NativeCrypto.X509_get_notAfter(mContext, this));
+    }
+
+    // A non-throwing constructor used when we have already parsed the dates
+    private OpenSSLX509Certificate(long ctx, Date notBefore, Date notAfter) {
+        mContext = ctx;
+        this.notBefore = notBefore;
+        this.notAfter = notAfter;
+    }
+
+    private static Date toDate(long asn1time) throws ParsingException {
+        Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        calendar.set(Calendar.MILLISECOND, 0);
+        NativeCrypto.ASN1_TIME_to_Calendar(asn1time, calendar);
+        return calendar.getTime();
     }
 
     public static OpenSSLX509Certificate fromX509DerInputStream(InputStream is)
@@ -181,7 +202,7 @@ public final class OpenSSLX509Certificate extends X509Certificate {
     @Override
     public Set<String> getCriticalExtensionOIDs() {
         String[] critOids =
-                NativeCrypto.get_X509_ext_oids(mContext, NativeCrypto.EXTENSION_TYPE_CRITICAL);
+                NativeCrypto.get_X509_ext_oids(mContext, this, NativeCrypto.EXTENSION_TYPE_CRITICAL);
 
         /*
          * This API has a special case that if there are no extensions, we
@@ -189,7 +210,7 @@ public final class OpenSSLX509Certificate extends X509Certificate {
          * non-critical extensions.
          */
         if ((critOids.length == 0)
-                && (NativeCrypto.get_X509_ext_oids(mContext,
+                && (NativeCrypto.get_X509_ext_oids(mContext, this,
                         NativeCrypto.EXTENSION_TYPE_NON_CRITICAL).length == 0)) {
             return null;
         }
@@ -199,13 +220,13 @@ public final class OpenSSLX509Certificate extends X509Certificate {
 
     @Override
     public byte[] getExtensionValue(String oid) {
-        return NativeCrypto.X509_get_ext_oid(mContext, oid);
+        return NativeCrypto.X509_get_ext_oid(mContext, this, oid);
     }
 
     @Override
     public Set<String> getNonCriticalExtensionOIDs() {
         String[] nonCritOids =
-                NativeCrypto.get_X509_ext_oids(mContext, NativeCrypto.EXTENSION_TYPE_NON_CRITICAL);
+                NativeCrypto.get_X509_ext_oids(mContext, this, NativeCrypto.EXTENSION_TYPE_NON_CRITICAL);
 
         /*
          * This API has a special case that if there are no extensions, we
@@ -213,7 +234,7 @@ public final class OpenSSLX509Certificate extends X509Certificate {
          * check critical extensions.
          */
         if ((nonCritOids.length == 0)
-                && (NativeCrypto.get_X509_ext_oids(mContext,
+                && (NativeCrypto.get_X509_ext_oids(mContext, this,
                         NativeCrypto.EXTENSION_TYPE_CRITICAL).length == 0)) {
             return null;
         }
@@ -223,7 +244,7 @@ public final class OpenSSLX509Certificate extends X509Certificate {
 
     @Override
     public boolean hasUnsupportedCriticalExtension() {
-        return (NativeCrypto.get_X509_ex_flags(mContext) & NativeConstants.EXFLAG_CRITICAL) != 0;
+        return (NativeCrypto.get_X509_ex_flags(mContext, this) & NativeConstants.EXFLAG_CRITICAL) != 0;
     }
 
     @Override
@@ -248,12 +269,12 @@ public final class OpenSSLX509Certificate extends X509Certificate {
 
     @Override
     public int getVersion() {
-        return (int) NativeCrypto.X509_get_version(mContext) + 1;
+        return (int) NativeCrypto.X509_get_version(mContext, this) + 1;
     }
 
     @Override
     public BigInteger getSerialNumber() {
-        return new BigInteger(NativeCrypto.X509_get_serialNumber(mContext));
+        return new BigInteger(NativeCrypto.X509_get_serialNumber(mContext, this));
     }
 
     @Override
@@ -268,28 +289,22 @@ public final class OpenSSLX509Certificate extends X509Certificate {
 
     @Override
     public Date getNotBefore() {
-        Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-        calendar.set(Calendar.MILLISECOND, 0);
-        NativeCrypto.ASN1_TIME_to_Calendar(NativeCrypto.X509_get_notBefore(mContext), calendar);
-        return calendar.getTime();
+        return (Date) notBefore.clone();
     }
 
     @Override
     public Date getNotAfter() {
-        Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-        calendar.set(Calendar.MILLISECOND, 0);
-        NativeCrypto.ASN1_TIME_to_Calendar(NativeCrypto.X509_get_notAfter(mContext), calendar);
-        return calendar.getTime();
+        return (Date) notAfter.clone();
     }
 
     @Override
     public byte[] getTBSCertificate() throws CertificateEncodingException {
-        return NativeCrypto.get_X509_cert_info_enc(mContext);
+        return NativeCrypto.get_X509_cert_info_enc(mContext, this);
     }
 
     @Override
     public byte[] getSignature() {
-        return NativeCrypto.get_X509_signature(mContext);
+        return NativeCrypto.get_X509_signature(mContext, this);
     }
 
     @Override
@@ -304,27 +319,27 @@ public final class OpenSSLX509Certificate extends X509Certificate {
 
     @Override
     public String getSigAlgOID() {
-        return NativeCrypto.get_X509_sig_alg_oid(mContext);
+        return NativeCrypto.get_X509_sig_alg_oid(mContext, this);
     }
 
     @Override
     public byte[] getSigAlgParams() {
-        return NativeCrypto.get_X509_sig_alg_parameter(mContext);
+        return NativeCrypto.get_X509_sig_alg_parameter(mContext, this);
     }
 
     @Override
     public boolean[] getIssuerUniqueID() {
-        return NativeCrypto.get_X509_issuerUID(mContext);
+        return NativeCrypto.get_X509_issuerUID(mContext, this);
     }
 
     @Override
     public boolean[] getSubjectUniqueID() {
-        return NativeCrypto.get_X509_subjectUID(mContext);
+        return NativeCrypto.get_X509_subjectUID(mContext, this);
     }
 
     @Override
     public boolean[] getKeyUsage() {
-        final boolean[] kusage = NativeCrypto.get_X509_ex_kusage(mContext);
+        final boolean[] kusage = NativeCrypto.get_X509_ex_kusage(mContext, this);
         if (kusage == null) {
             return null;
         }
@@ -340,11 +355,11 @@ public final class OpenSSLX509Certificate extends X509Certificate {
 
     @Override
     public int getBasicConstraints() {
-        if ((NativeCrypto.get_X509_ex_flags(mContext) & NativeConstants.EXFLAG_CA) == 0) {
+        if ((NativeCrypto.get_X509_ex_flags(mContext, this) & NativeConstants.EXFLAG_CA) == 0) {
             return -1;
         }
 
-        final int pathLen = NativeCrypto.get_X509_ex_pathlen(mContext);
+        final int pathLen = NativeCrypto.get_X509_ex_pathlen(mContext, this);
         if (pathLen == -1) {
             return Integer.MAX_VALUE;
         }
@@ -354,14 +369,14 @@ public final class OpenSSLX509Certificate extends X509Certificate {
 
     @Override
     public byte[] getEncoded() throws CertificateEncodingException {
-        return NativeCrypto.i2d_X509(mContext);
+        return NativeCrypto.i2d_X509(mContext, this);
     }
 
     private void verifyOpenSSL(OpenSSLKey pkey) throws CertificateException,
                                                        NoSuchAlgorithmException,
                                                        InvalidKeyException, SignatureException {
         try {
-            NativeCrypto.X509_verify(mContext, pkey.getNativeRef());
+            NativeCrypto.X509_verify(mContext, this, pkey.getNativeRef());
         } catch (RuntimeException e) {
             throw new CertificateException(e);
         } catch (BadPaddingException e) {
@@ -407,6 +422,7 @@ public final class OpenSSLX509Certificate extends X509Certificate {
 
     /* @Override */
     @SuppressWarnings("MissingOverride")  // For compilation with Java 7.
+    // noinspection Override
     public void verify(PublicKey key, Provider sigProvider)
             throws CertificateException, NoSuchAlgorithmException, InvalidKeyException,
                    SignatureException {
@@ -435,7 +451,7 @@ public final class OpenSSLX509Certificate extends X509Certificate {
         ByteArrayOutputStream os = new ByteArrayOutputStream();
         long bioCtx = NativeCrypto.create_BIO_OutputStream(os);
         try {
-            NativeCrypto.X509_print_ex(bioCtx, mContext, 0, 0);
+            NativeCrypto.X509_print_ex(bioCtx, mContext, this, 0, 0);
             return os.toString();
         } finally {
             NativeCrypto.BIO_free_all(bioCtx);
@@ -446,18 +462,20 @@ public final class OpenSSLX509Certificate extends X509Certificate {
     public PublicKey getPublicKey() {
         /* First try to generate the key from supported OpenSSL key types. */
         try {
-            OpenSSLKey pkey = new OpenSSLKey(NativeCrypto.X509_get_pubkey(mContext));
+            OpenSSLKey pkey = new OpenSSLKey(NativeCrypto.X509_get_pubkey(mContext, this));
             return pkey.getPublicKey();
-        } catch (NoSuchAlgorithmException | InvalidKeyException ignored) {
+        } catch (NoSuchAlgorithmException ignored) {
+        } catch (InvalidKeyException ignored) {
         }
 
         /* Try generating the key using other Java providers. */
-        String oid = NativeCrypto.get_X509_pubkey_oid(mContext);
-        byte[] encoded = NativeCrypto.i2d_X509_PUBKEY(mContext);
+        String oid = NativeCrypto.get_X509_pubkey_oid(mContext, this);
+        byte[] encoded = NativeCrypto.i2d_X509_PUBKEY(mContext, this);
         try {
             KeyFactory kf = KeyFactory.getInstance(oid);
             return kf.generatePublic(new X509EncodedKeySpec(encoded));
-        } catch (NoSuchAlgorithmException | InvalidKeySpecException ignored) {
+        } catch (NoSuchAlgorithmException ignored) {
+        } catch (InvalidKeySpecException ignored) {
         }
 
         /*
@@ -469,19 +487,19 @@ public final class OpenSSLX509Certificate extends X509Certificate {
 
     @Override
     public X500Principal getIssuerX500Principal() {
-        final byte[] issuer = NativeCrypto.X509_get_issuer_name(mContext);
+        final byte[] issuer = NativeCrypto.X509_get_issuer_name(mContext, this);
         return new X500Principal(issuer);
     }
 
     @Override
     public X500Principal getSubjectX500Principal() {
-        final byte[] subject = NativeCrypto.X509_get_subject_name(mContext);
+        final byte[] subject = NativeCrypto.X509_get_subject_name(mContext, this);
         return new X500Principal(subject);
     }
 
     @Override
     public List<String> getExtendedKeyUsage() throws CertificateParsingException {
-        String[] extUsage = NativeCrypto.get_X509_ex_xkusage(mContext);
+        String[] extUsage = NativeCrypto.get_X509_ex_xkusage(mContext, this);
         if (extUsage == null) {
             return null;
         }
@@ -504,13 +522,13 @@ public final class OpenSSLX509Certificate extends X509Certificate {
 
     @Override
     public Collection<List<?>> getSubjectAlternativeNames() throws CertificateParsingException {
-        return alternativeNameArrayToList(NativeCrypto.get_X509_GENERAL_NAME_stack(mContext,
+        return alternativeNameArrayToList(NativeCrypto.get_X509_GENERAL_NAME_stack(mContext, this,
                 NativeCrypto.GN_STACK_SUBJECT_ALT_NAME));
     }
 
     @Override
     public Collection<List<?>> getIssuerAlternativeNames() throws CertificateParsingException {
-        return alternativeNameArrayToList(NativeCrypto.get_X509_GENERAL_NAME_stack(mContext,
+        return alternativeNameArrayToList(NativeCrypto.get_X509_GENERAL_NAME_stack(mContext, this,
                 NativeCrypto.GN_STACK_ISSUER_ALT_NAME));
     }
 
@@ -519,7 +537,7 @@ public final class OpenSSLX509Certificate extends X509Certificate {
         if (other instanceof OpenSSLX509Certificate) {
             OpenSSLX509Certificate o = (OpenSSLX509Certificate) other;
 
-            return NativeCrypto.X509_cmp(mContext, o.mContext) == 0;
+            return NativeCrypto.X509_cmp(mContext, this, o.mContext, o) == 0;
         }
 
         return super.equals(other);
@@ -552,8 +570,8 @@ public final class OpenSSLX509Certificate extends X509Certificate {
      * If the extension is not present, an unmodified copy is returned.
      */
     public OpenSSLX509Certificate withDeletedExtension(String oid) {
-        OpenSSLX509Certificate copy = new OpenSSLX509Certificate(NativeCrypto.X509_dup(mContext));
-        NativeCrypto.X509_delete_ext(copy.getContext(), oid);
+        OpenSSLX509Certificate copy = new OpenSSLX509Certificate(NativeCrypto.X509_dup(mContext, this), notBefore, notAfter);
+        NativeCrypto.X509_delete_ext(copy.getContext(), copy, oid);
         return copy;
     }
 
@@ -561,25 +579,10 @@ public final class OpenSSLX509Certificate extends X509Certificate {
     protected void finalize() throws Throwable {
         try {
             if (mContext != 0) {
-                NativeCrypto.X509_free(mContext);
+                NativeCrypto.X509_free(mContext, this);
             }
         } finally {
             super.finalize();
         }
-    }
-
-    /**
-     * Return a possibly null array of X509Certificates given the possibly null
-     * array of DER encoded bytes.
-     */
-    static OpenSSLX509Certificate[] createCertChain(long[] certificateRefs) {
-        if (certificateRefs == null) {
-            return null;
-        }
-        OpenSSLX509Certificate[] certificates = new OpenSSLX509Certificate[certificateRefs.length];
-        for (int i = 0; i < certificateRefs.length; i++) {
-            certificates[i] = new OpenSSLX509Certificate(certificateRefs[i]);
-        }
-        return certificates;
     }
 }

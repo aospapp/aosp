@@ -418,7 +418,8 @@ class barrier(object):
                 pass
             except socket.error, err:
                 (code, str) = err
-                if (code != errno.ECONNREFUSED):
+                if (code != errno.ECONNREFUSED and
+                    code != errno.ETIMEDOUT):
                     raise
                 sleep(10)
 

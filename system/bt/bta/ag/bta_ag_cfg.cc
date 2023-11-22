@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2012 Broadcom Corporation
+ *  Copyright 2003-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@
 #include "bt_common.h"
 #include "bta_ag_api.h"
 #include "bta_ag_int.h"
-#include "bta_api.h"
 
 #ifndef BTA_AG_CIND_INFO
 #define BTA_AG_CIND_INFO                                                       \
@@ -62,11 +61,11 @@
 const tBTA_AG_HF_IND bta_ag_local_hf_ind_cfg[] = {
     /* The first row contains the number of indicators. Need to be updated
        accordingly */
-    {BTA_AG_NUM_LOCAL_HF_IND, 0, 0, 0, 0},
+    {BTA_AG_NUM_LOCAL_HF_IND, false, false, 0, 0},
 
-    {1, 1, 1, 0,
+    {1, true, true, 0,
      1}, /* Enhanced Driver Status, supported, enabled, range 0 ~ 1 */
-    {2, 1, 1, 0,
+    {2, true, true, 0,
      100} /* Battery Level Status, supported, enabled, range 0 ~ 100 */
 };
 
@@ -75,4 +74,4 @@ const tBTA_AG_CFG bta_ag_cfg = {BTA_AG_CIND_INFO,        BTA_AG_BIND_INFO,
                                 BTA_AG_SCO_PKT_TYPES,    BTA_AG_CHLD_VAL_ECC,
                                 BTA_AG_CHLD_VAL};
 
-tBTA_AG_CFG* p_bta_ag_cfg = (tBTA_AG_CFG*)&bta_ag_cfg;
+const tBTA_AG_CFG* p_bta_ag_cfg = &bta_ag_cfg;

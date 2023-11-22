@@ -26,4 +26,7 @@
         <item>never</item>
     </string-array>
 
+    <string name="username_string">Username</string>
+    <string name="password_string">Password</string>
+
 </resources>

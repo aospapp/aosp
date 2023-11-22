@@ -18,10 +18,8 @@ package com.android.managedprovisioning.ota;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
-import static org.mockito.Matchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 import android.app.admin.DevicePolicyManager;
@@ -41,15 +39,16 @@ import com.android.managedprovisioning.task.DeleteNonRequiredAppsTask;
 import com.android.managedprovisioning.task.DisableInstallShortcutListenersTask;
 import com.android.managedprovisioning.task.DisallowAddUserTask;
 import com.android.managedprovisioning.task.InstallExistingPackageTask;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import com.android.managedprovisioning.task.MigrateSystemAppsSnapshotTask;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Unit tests for {@link OtaController}.
@@ -58,6 +57,7 @@ import org.mockito.MockitoAnnotations;
 public class OtaControllerTest {
     private static final int DEVICE_OWNER_USER_ID = 12;
     private static final int MANAGED_PROFILE_USER_ID = 15;
+    private static final int MANAGED_USER_USER_ID = 18;
 
     private static final ComponentName ADMIN_COMPONENT = new ComponentName("com.test.admin",
             ".AdminReceiver");
@@ -71,8 +71,7 @@ public class OtaControllerTest {
     private TaskExecutor mTaskExecutor;
     private OtaController mController;
 
-    private List<Pair<Integer, AbstractProvisioningTask>> mTasks
-            = new ArrayList<>();
+    private List<Pair<Integer, AbstractProvisioningTask>> mTasks = new ArrayList<>();
     private List<UserInfo> mUsers = new ArrayList<>();
     private List<UserInfo> mProfiles = new ArrayList<>();
 
@@ -104,8 +103,9 @@ public class OtaControllerTest {
         // WHEN running the OtaController
         mController.run();
 
-        // THEN the task list should contain DeleteNonRequiredAppsTask and DisallowAddUserTask
+        // THEN the task list should contain these tasks.
         assertTaskList(
+                Pair.create(UserHandle.USER_SYSTEM, MigrateSystemAppsSnapshotTask.class),
                 Pair.create(UserHandle.USER_SYSTEM, DeleteNonRequiredAppsTask.class),
                 Pair.create(UserHandle.USER_SYSTEM, DisallowAddUserTask.class));
 
@@ -124,6 +124,7 @@ public class OtaControllerTest {
 
         // THEN the task list should contain DeleteNonRequiredAppsTask and DisallowAddUserTask
         assertTaskList(
+                Pair.create(UserHandle.USER_SYSTEM, MigrateSystemAppsSnapshotTask.class),
                 Pair.create(DEVICE_OWNER_USER_ID, DeleteNonRequiredAppsTask.class),
                 Pair.create(DEVICE_OWNER_USER_ID, DisallowAddUserTask.class));
 
@@ -140,9 +141,9 @@ public class OtaControllerTest {
         // WHEN running the OtaController
         mController.run();
 
-        // THEN the task list should contain InstallExistingPackageTask,
-        // DisableInstallShortcutListenersTask and DeleteNonRequiredAppsTask
+        // THEN the task list should contain these tasks.
         assertTaskList(
+                Pair.create(UserHandle.USER_SYSTEM, MigrateSystemAppsSnapshotTask.class),
                 Pair.create(MANAGED_PROFILE_USER_ID, InstallExistingPackageTask.class),
                 Pair.create(MANAGED_PROFILE_USER_ID, DisableInstallShortcutListenersTask.class),
                 Pair.create(MANAGED_PROFILE_USER_ID, DeleteNonRequiredAppsTask.class));
@@ -154,6 +155,20 @@ public class OtaControllerTest {
         // THEN the DISALLOW_WALLPAPER restriction should be set
         verify(mUserManager).setUserRestriction(UserManager.DISALLOW_WALLPAPER, true,
                 UserHandle.of(MANAGED_PROFILE_USER_ID));
+    }
+
+    @Test
+    public void testManagedUser() {
+        // GIVEN that there is a managed profile
+        addManagedUser(MANAGED_USER_USER_ID, ADMIN_COMPONENT);
+
+        // WHEN running the OtaController
+        mController.run();
+
+        // THEN the task list should contain these tasks.
+        assertTaskList(
+                Pair.create(UserHandle.USER_SYSTEM, MigrateSystemAppsSnapshotTask.class),
+                Pair.create(MANAGED_USER_USER_ID, DeleteNonRequiredAppsTask.class));
     }
 
     private class FakeTaskExecutor extends TaskExecutor {
@@ -185,6 +200,12 @@ public class OtaControllerTest {
         when(mDevicePolicyManager.getProfileOwnerAsUser(userId)).thenReturn(admin);
         when(mUserManager.getProfiles(userId)).thenReturn(Collections.singletonList(ui));
         mProfiles.add(ui);
+    }
+
+    private void addManagedUser(int userId, ComponentName admin) {
+        UserInfo ui = new UserInfo(userId, null, 0);
+        mUsers.add(ui);
+        when(mDevicePolicyManager.getProfileOwnerAsUser(userId)).thenReturn(admin);
     }
 
     private void addSystemUser() {

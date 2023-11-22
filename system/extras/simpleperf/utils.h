@@ -113,6 +113,13 @@ void MoveFromBinaryFormat(T& data, const char*& p) {
 }
 
 template <class T>
+void MoveFromBinaryFormat(T& data, char*& p) {
+  static_assert(std::is_standard_layout<T>::value, "not standard layout");
+  memcpy(&data, p, sizeof(T));
+  p += sizeof(T);
+}
+
+template <class T>
 void MoveFromBinaryFormat(T* data_p, size_t n, const char*& p) {
   static_assert(std::is_standard_layout<T>::value, "not standard layout");
   size_t size = n * sizeof(T);
@@ -150,6 +157,7 @@ bool MkdirWithParents(const std::string& path);
 bool XzDecompress(const std::string& compressed_data, std::string* decompressed_data);
 
 bool GetLogSeverity(const std::string& name, android::base::LogSeverity* severity);
+std::string GetLogSeverityName();
 
 bool IsRoot();
 

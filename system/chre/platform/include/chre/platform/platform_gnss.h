@@ -47,23 +47,43 @@ class PlatformGnss : public PlatformGnssBase {
   /**
    * Starts/stops/modifies the GNSS location session. This is an asynchronous
    * request and the result is delivered through an async call into the
-   * GnssRequestManager.
+   * GNSS manager.
    *
    * @param enable Whether to enable/disable the location session.
    * @param minInterval The minimum reporting interval.
    * @param minTimeToNextFix The minimum time to the next fix.
+   *
    * @return true if the request was accepted.
    */
   bool controlLocationSession(bool enable, Milliseconds minInterval,
                               Milliseconds minTimeToNextFix);
 
   /**
-   * Releases a location event that was previously provided to the GNSS request
-   * manager.
+   * Releases a location event that was previously provided to the GNSS manager.
    *
    * @param event the event to release.
    */
   void releaseLocationEvent(chreGnssLocationEvent *event);
+
+  /**
+   * Starts/stops/modifies the GNSS measurement session. This is an asynchronous
+   * request and the result is delivered through an async call into the
+   * GNSS manager.
+   *
+   * @param enable Whether to enable/disable the measurement session.
+   * @param minInterval The minimum reporting interval.
+   *
+   * @return true if the request was accepted.
+   */
+  bool controlMeasurementSession(bool enable, Milliseconds minInterval);
+
+  /**
+   * Releases a measurement data event that was previously provided to the GNSS
+   * manager.
+   *
+   * @param event the event to release.
+   */
+  void releaseMeasurementDataEvent(chreGnssDataEvent *event);
 };
 
 }  // namespace chre

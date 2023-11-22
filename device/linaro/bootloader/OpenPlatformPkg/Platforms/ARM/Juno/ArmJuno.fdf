@@ -86,10 +86,6 @@ READ_LOCK_CAP      = TRUE
 READ_LOCK_STATUS   = TRUE
 FvNameGuid         = B73FE497-B92E-416e-8326-45AD0D270092
 
-  APRIORI DXE {
-    INF MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
-  }
-
   INF MdeModulePkg/Core/Dxe/DxeMain.inf
   INF MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
 
@@ -152,7 +148,9 @@ FvNameGuid         = B73FE497-B92E-416e-8326-45AD0D270092
   #
   # Usb Support
   #
+  INF  MdeModulePkg/Bus/Pci/UhciDxe/UhciDxe.inf
   INF MdeModulePkg/Bus/Pci/EhciDxe/EhciDxe.inf
+  INF  MdeModulePkg/Bus/Pci/XhciDxe/XhciDxe.inf
   INF MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe.inf
   INF MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe.inf
   INF MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
@@ -171,6 +169,11 @@ FvNameGuid         = B73FE497-B92E-416e-8326-45AD0D270092
   INF EmbeddedPkg/Drivers/SataSiI3132Dxe/SataSiI3132Dxe.inf
 
   #
+  # NVMe boot devices
+  #
+  INF  MdeModulePkg/Bus/Pci/NvmExpressDxe/NvmExpressDxe.inf
+
+  #
   # Networking stack
   #
   INF MdeModulePkg/Universal/Network/DpcDxe/DpcDxe.inf
@@ -185,11 +188,13 @@ FvNameGuid         = B73FE497-B92E-416e-8326-45AD0D270092
   INF MdeModulePkg/Universal/Network/UefiPxeBcDxe/UefiPxeBcDxe.inf
   INF MdeModulePkg/Universal/Network/IScsiDxe/IScsiDxe.inf
   INF EmbeddedPkg/Drivers/Lan9118Dxe/Lan9118Dxe.inf
+  INF OpenPlatformPkg/Drivers/Net/MarvellYukonDxe/MarvellYukonDxe.inf
 
   #
   # UEFI applications
   #
-  INF ShellBinPkg/UefiShell/UefiShell.inf
+  INF ShellPkg/Application/Shell/Shell.inf
+
 
   #
   # Juno platform driver
@@ -197,12 +202,19 @@ FvNameGuid         = B73FE497-B92E-416e-8326-45AD0D270092
   INF ArmPlatformPkg/ArmJunoPkg/Drivers/ArmJunoDxe/ArmJunoDxe.inf
 
   #
+  # SMBIOS/DMI
+  #
+  INF MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
+  INF OpenPlatformPkg/Platforms/ARM/Juno/SmbiosPlatformDxe/SmbiosPlatformDxe.inf
+
+  #
   # Bds
   #
   INF MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
   INF MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
   INF MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe.inf
-  INF IntelFrameworkModulePkg/Universal/BdsDxe/BdsDxe.inf
+  INF MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
+  INF MdeModulePkg/Application/UiApp/UiApp.inf
 
   #
   # FDT installation
@@ -210,6 +222,15 @@ FvNameGuid         = B73FE497-B92E-416e-8326-45AD0D270092
   # The UEFI driver is at the end of the list of the driver to be dispatched
   # after the device drivers (eg: Ethernet) to ensure we have support for them.
   INF EmbeddedPkg/Drivers/FdtPlatformDxe/FdtPlatformDxe.inf
+
+!if $(ARCH) == AARCH64
+  #
+  # EBC
+  #
+  INF MdeModulePkg/Universal/EbcDxe/EbcDxe.inf
+
+  INF SecurityPkg/RandomNumberGenerator/RngDxe/RngDxe.inf
+!endif
 
 [FV.FVMAIN_COMPACT]
 FvAlignment        = 8
@@ -229,7 +250,7 @@ READ_STATUS        = TRUE
 READ_LOCK_CAP      = TRUE
 READ_LOCK_STATUS   = TRUE
 
-  INF ArmPlatformPkg/PrePi/PeiMPCore.inf
+  INF ArmPlatformPkg/PrePi/PeiUniCore.inf
 
   FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
     SECTION GUIDED EE4E5898-3914-4259-9D6E-DC7BD79403CF PROCESSING_REQUIRED = TRUE {

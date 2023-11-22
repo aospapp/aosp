@@ -16,10 +16,10 @@
 package com.android.car.hal;
 
 import static com.android.car.CarServiceUtils.toByteArray;
+
 import static java.lang.Integer.toHexString;
 
 import android.car.VehicleAreaType;
-import android.car.VehicleZoneUtil;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.hardware.automotive.vehicle.V2_0.VehicleArea;
@@ -44,20 +44,33 @@ import java.util.List;
             VehiclePropValue halValue, int propertyId) {
         Class<?> clazz = getJavaClass(halValue.prop & VehiclePropertyType.MASK);
         int areaId = halValue.areaId;
+        int status = halValue.status;
+        long timestamp = halValue.timestamp;
         VehiclePropValue.RawValue v = halValue.value;
 
         if (Boolean.class == clazz) {
-            return new CarPropertyValue<>(propertyId, areaId, v.int32Values.get(0) == 1);
+            return new CarPropertyValue<>(propertyId, areaId, status, timestamp,
+                                          v.int32Values.get(0) == 1);
+        } else if (Boolean[].class == clazz) {
+            Boolean[] values = new Boolean[v.int32Values.size()];
+            for (int i = 0; i < values.length; i++) {
+                values[i] = v.int32Values.get(i) == 1;
+            }
+            return new CarPropertyValue<>(propertyId, areaId, status, timestamp, values);
         } else if (String.class == clazz) {
-            return new CarPropertyValue<>(propertyId, areaId, v.stringValue);
-        } else if (Long.class == clazz) {
-            return new CarPropertyValue<>(propertyId, areaId, v.int64Values.get(0));
+            return new CarPropertyValue<>(propertyId, areaId, status, timestamp, v.stringValue);
         } else if (byte[].class == clazz) {
             byte[] halData = toByteArray(v.bytes);
-            return new CarPropertyValue<>(propertyId, areaId, halData);
+            return new CarPropertyValue<>(propertyId, areaId, status, timestamp, halData);
+        } else if (Long[].class == clazz) {
+            Long[] values = new Long[v.int64Values.size()];
+            for (int i = 0; i < values.length; i++) {
+                values[i] = v.int64Values.get(i);
+            }
+            return new CarPropertyValue<>(propertyId, areaId, status, timestamp, values);
         } else /* All list properties */ {
             Object[] values = getRawValueList(clazz, v).toArray();
-            return new CarPropertyValue<>(propertyId, areaId,
+            return new CarPropertyValue<>(propertyId, areaId, status, timestamp,
                     values.length == 1 ? values[0] : values);
         }
     }
@@ -72,15 +85,23 @@ import java.util.List;
         Object o = carProp.getValue();
 
         if (o instanceof Boolean) {
-            v.int32Values.add(((Boolean )o) ? 1 : 0);
+            v.int32Values.add(((Boolean) o) ? 1 : 0);
+        } else if (o instanceof Boolean[]) {
+            for (Boolean b : (Boolean[]) o) {
+                v.int32Values.add(((Boolean) o) ? 1 : 0);
+            }
         } else if (o instanceof Integer) {
             v.int32Values.add((Integer) o);
-        } else if (o instanceof Float) {
-            v.floatValues.add((Float) o);
         } else if (o instanceof Integer[]) {
             Collections.addAll(v.int32Values, (Integer[]) o);
+        } else if (o instanceof Float) {
+            v.floatValues.add((Float) o);
         } else if (o instanceof Float[]) {
             Collections.addAll(v.floatValues, (Float[]) o);
+        } else if (o instanceof Long) {
+            v.int64Values.add((Long) o);
+        } else if (o instanceof Long[]) {
+            Collections.addAll(v.int64Values, (Long[]) o);
         } else if (o instanceof String) {
             v.stringValue = (String) o;
         } else if (o instanceof byte[]) {
@@ -98,19 +119,34 @@ import java.util.List;
      * Converts {@link VehiclePropConfig} to {@link CarPropertyConfig}.
      */
     static CarPropertyConfig<?> toCarPropertyConfig(VehiclePropConfig p, int propertyId) {
-        int[] areas = VehicleZoneUtil.listAllZones(p.supportedAreas);
-
         int areaType = getVehicleAreaType(p.prop & VehicleArea.MASK);
+        // Create list of areaIds for this property
+        int[] areas = new int[p.areaConfigs.size()];
+        for (int i=0; i<p.areaConfigs.size(); i++) {
+            areas[i] = p.areaConfigs.get(i).areaId;
+        }
 
         Class<?> clazz = getJavaClass(p.prop & VehiclePropertyType.MASK);
         if (p.areaConfigs.isEmpty()) {
             return CarPropertyConfig
                     .newBuilder(clazz, propertyId, areaType, /* capacity */ 1)
                     .addAreas(areas)
+                    .setAccess(p.access)
+                    .setChangeMode(p.changeMode)
+                    .setConfigArray(p.configArray)
+                    .setConfigString(p.configString)
+                    .setMaxSampleRate(p.maxSampleRate)
+                    .setMinSampleRate(p.minSampleRate)
                     .build();
         } else {
             CarPropertyConfig.Builder builder = CarPropertyConfig
-                    .newBuilder(clazz, propertyId, areaType, /* capacity */  p.areaConfigs.size());
+                    .newBuilder(clazz, propertyId, areaType, /* capacity */ p.areaConfigs.size())
+                    .setAccess(p.access)
+                    .setChangeMode(p.changeMode)
+                    .setConfigArray(p.configArray)
+                    .setConfigString(p.configString)
+                    .setMaxSampleRate(p.maxSampleRate)
+                    .setMinSampleRate(p.minSampleRate);
 
             for (VehicleAreaConfig area : p.areaConfigs) {
                 if (classMatched(Integer.class, clazz)) {
@@ -119,10 +155,20 @@ import java.util.List;
                     builder.addAreaConfig(area.areaId, area.minFloatValue, area.maxFloatValue);
                 } else if (classMatched(Long.class, clazz)) {
                     builder.addAreaConfig(area.areaId, area.minInt64Value, area.maxInt64Value);
+                } else if (classMatched(Boolean.class, clazz) ||
+                           classMatched(Float[].class, clazz) ||
+                           classMatched(Integer[].class, clazz) ||
+                           classMatched(Long[].class, clazz) ||
+                           classMatched(String.class, clazz) ||
+                           classMatched(byte[].class, clazz) ||
+                           classMatched(Object.class, clazz)) {
+                    // These property types do not have min/max values
+                    builder.addArea(area.areaId);
                 } else {
                     throw new IllegalArgumentException("Unexpected type: " + clazz);
                 }
             }
+
             return builder.build();
         }
     }
@@ -130,9 +176,7 @@ import java.util.List;
     private static @VehicleAreaType.VehicleAreaTypeValue int getVehicleAreaType(int halArea) {
         switch (halArea) {
             case VehicleArea.GLOBAL:
-                return VehicleAreaType.VEHICLE_AREA_TYPE_NONE;
-            case VehicleArea.ZONE:
-                return VehicleAreaType.VEHICLE_AREA_TYPE_ZONE;
+                return VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL;
             case VehicleArea.SEAT:
                 return VehicleAreaType.VEHICLE_AREA_TYPE_SEAT;
             case VehicleArea.DOOR:
@@ -141,6 +185,8 @@ import java.util.List;
                 return VehicleAreaType.VEHICLE_AREA_TYPE_WINDOW;
             case VehicleArea.MIRROR:
                 return VehicleAreaType.VEHICLE_AREA_TYPE_MIRROR;
+            case VehicleArea.WHEEL:
+                return VehicleAreaType.VEHICLE_AREA_TYPE_WHEEL;
             default:
                 throw new RuntimeException("Unsupported area type " + halArea);
         }
@@ -154,15 +200,19 @@ import java.util.List;
                 return Float.class;
             case VehiclePropertyType.INT32:
                 return Integer.class;
-            case VehiclePropertyType.INT32_VEC:
-                return Integer[].class;
+            case VehiclePropertyType.INT64:
+                return Long.class;
             case VehiclePropertyType.FLOAT_VEC:
                 return Float[].class;
+            case VehiclePropertyType.INT32_VEC:
+                return Integer[].class;
+            case VehiclePropertyType.INT64_VEC:
+                return Long[].class;
             case VehiclePropertyType.STRING:
                 return String.class;
             case VehiclePropertyType.BYTES:
                 return byte[].class;
-            case VehiclePropertyType.COMPLEX:
+            case VehiclePropertyType.MIXED:
                 return Object.class;
             default:
                 throw new IllegalArgumentException("Unexpected type: " + toHexString(halType));
@@ -170,10 +220,12 @@ import java.util.List;
     }
 
     private static List getRawValueList(Class<?> clazz, VehiclePropValue.RawValue value) {
-        if (classMatched(Float.class, clazz)) {
+        if (classMatched(Float.class, clazz) || classMatched(Float[].class, clazz)) {
             return value.floatValues;
-        } else if (classMatched(Integer.class, clazz)) {
+        } else if (classMatched(Integer.class, clazz) || classMatched(Integer[].class, clazz)) {
             return value.int32Values;
+        } else if (classMatched(Long.class, clazz) || classMatched(Long[].class, clazz)) {
+            return value.int64Values;
         } else {
             throw new IllegalArgumentException("Unexpected type: " + clazz);
         }

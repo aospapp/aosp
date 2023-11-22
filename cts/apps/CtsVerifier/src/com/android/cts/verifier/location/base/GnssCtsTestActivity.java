@@ -59,6 +59,18 @@ public class GnssCtsTestActivity extends BaseGnssTestActivity {
         super(testClass);
     }
 
+    /**
+     * Constructor to be used by subclasses. It allows to provide a custom layout for the test UI.
+     *
+     * @param testClass The class that contains the tests. It is dependant on test executor
+     *                  implemented by subclasses.
+     * @param layoutId The Id of the layout to use for the test UI. The layout must contain all the
+     *                 elements in the base layout {@code R.layout.gnss_test}.
+     */
+    protected GnssCtsTestActivity(Class<? extends GnssTestCase> testClass, int layoutId) {
+        super(testClass, layoutId);
+    }
+
     @Override
     protected void activitySetUp() throws InterruptedException {
         waitForUserToBegin();

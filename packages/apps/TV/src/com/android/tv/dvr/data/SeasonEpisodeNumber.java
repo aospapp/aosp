@@ -17,20 +17,15 @@
 package com.android.tv.dvr.data;
 
 import android.text.TextUtils;
-
 import java.util.Objects;
 
-/**
- * A plain java object which includes the season/episode number for the series recording.
- */
+/** A plain java object which includes the season/episode number for the series recording. */
 public class SeasonEpisodeNumber {
     public final long seriesRecordingId;
     public final String seasonNumber;
     public final String episodeNumber;
 
-    /**
-     * Creates a new Builder with the values set from an existing {@link ScheduledRecording}.
-     */
+    /** Creates a new Builder with the values set from an existing {@link ScheduledRecording}. */
     public SeasonEpisodeNumber(ScheduledRecording r) {
         this(r.getSeriesRecordingId(), r.getSeasonNumber(), r.getEpisodeNumber());
     }
@@ -47,7 +42,8 @@ public class SeasonEpisodeNumber {
             return true;
         }
         if (!(o instanceof SeasonEpisodeNumber)
-                || TextUtils.isEmpty(seasonNumber) || TextUtils.isEmpty(episodeNumber)) {
+                || TextUtils.isEmpty(seasonNumber)
+                || TextUtils.isEmpty(episodeNumber)) {
             return false;
         }
         SeasonEpisodeNumber that = (SeasonEpisodeNumber) o;
@@ -63,10 +59,13 @@ public class SeasonEpisodeNumber {
 
     @Override
     public String toString() {
-        return "SeasonEpisodeNumber{" +
-                "seriesRecordingId=" + seriesRecordingId +
-                ", seasonNumber='" + seasonNumber +
-                ", episodeNumber=" + episodeNumber +
-                '}';
+        return "SeasonEpisodeNumber{"
+                + "seriesRecordingId="
+                + seriesRecordingId
+                + ", seasonNumber='"
+                + seasonNumber
+                + ", episodeNumber="
+                + episodeNumber
+                + '}';
     }
 }

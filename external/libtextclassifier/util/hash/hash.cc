@@ -18,7 +18,7 @@
 
 #include "util/base/macros.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 namespace {
 // Lower-level versions of Get... that read directly from a character buffer
@@ -76,4 +76,4 @@ uint32 Hash32(const char *data, size_t n, uint32 seed) {
   return h;
 }
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2

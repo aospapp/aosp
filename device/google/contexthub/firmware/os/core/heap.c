@@ -229,3 +229,50 @@ int heapFreeAll(uint32_t tid)
 
     return count;
 }
+
+int heapGetFreeSize(int *numChunks, int *largestChunk)
+{
+    struct HeapNode *node;
+    bool haveLock;
+    int bytes = 0;
+    *numChunks = *largestChunk = 0;
+
+    // this can only fail if called from interrupt
+    haveLock = trylockTryTake(&gHeapLock);
+    if (!haveLock)
+        return -1;
+
+    for (node = gHeapHead; node; node = heapPrvGetNext(node)) {
+        if (!node->used) {
+            if (node->size > *largestChunk)
+                *largestChunk = node->size;
+            bytes += node->size + sizeof(struct HeapNode);
+            (*numChunks)++;
+        }
+    }
+    trylockRelease(&gHeapLock);
+
+    return bytes;
+}
+
+int heapGetTaskSize(uint32_t tid)
+{
+    struct HeapNode *node;
+    bool haveLock;
+    int bytes = 0;
+
+    // this can only fail if called from interrupt
+    haveLock = trylockTryTake(&gHeapLock);
+    if (!haveLock)
+        return -1;
+
+    tid &= TIDX_MASK;
+    for (node = gHeapHead; node; node = heapPrvGetNext(node)) {
+        if (node->used && node->tidx == tid) {
+            bytes += node->size + sizeof(struct HeapNode);
+        }
+    }
+    trylockRelease(&gHeapLock);
+
+    return bytes;
+}

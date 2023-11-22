@@ -1,7 +1,7 @@
 /** @file
 Head file for front page.
 
-Copyright (c) 2004 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -26,7 +26,6 @@ extern UINT8  FrontPageVfrBin[];
 
 extern EFI_FORM_BROWSER2_PROTOCOL      *gFormBrowser2;
 
-extern BOOLEAN  gConnectAllHappened;
 
 #define SMBIOS_TYPE4_CPU_SOCKET_POPULATED BIT6
 
@@ -41,12 +40,7 @@ extern BOOLEAN  gConnectAllHappened;
 //
 #define FRONT_PAGE_FORM_ID             0x1000
 
-#define FRONT_PAGE_KEY_OFFSET          0x4000
-#define FRONT_PAGE_KEY_CONTINUE        0x1000
-#define FRONT_PAGE_KEY_LANGUAGE        0x1234
-
-#define LABEL_SELECT_LANGUAGE          0x1000
-#define LABEL_PLATFORM_INFORMATION     0x1001
+#define LABEL_FRANTPAGE_INFORMATION    0x1000
 #define LABEL_END                      0xffff
 
 #define FRONT_PAGE_FORMSET_GUID \

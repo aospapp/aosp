@@ -1,7 +1,7 @@
 /** @file
   Functions implementation related with DHCPv4 for HTTP boot driver.
 
-Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2015 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials are licensed and made available under 
 the terms and conditions of the BSD License that accompanies this distribution.  
 The full text of the license may be found at
@@ -18,13 +18,13 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 // This is a map from the interested DHCP4 option tags' index to the tag value.
 //
 UINT8 mInterestedDhcp4Tags[HTTP_BOOT_DHCP4_TAG_INDEX_MAX] = {
-  HTTP_BOOT_DHCP4_TAG_BOOTFILE_LEN,
-  HTTP_BOOT_DHCP4_TAG_OVERLOAD,
-  HTTP_BOOT_DHCP4_TAG_MSG_TYPE,
-  HTTP_BOOT_DHCP4_TAG_SERVER_ID,
-  HTTP_BOOT_DHCP4_TAG_CLASS_ID,
-  HTTP_BOOT_DHCP4_TAG_BOOTFILE,
-  HTTP_BOOT_DHCP4_TAG_DNS_SERVER
+  DHCP4_TAG_BOOTFILE_LEN,
+  DHCP4_TAG_OVERLOAD,
+  DHCP4_TAG_MSG_TYPE,
+  DHCP4_TAG_SERVER_ID,
+  DHCP4_TAG_VENDOR_CLASS_ID,
+  DHCP4_TAG_BOOTFILE,
+  DHCP4_TAG_DNS_SERVER
 };
 
 //
@@ -59,42 +59,42 @@ HttpBootBuildDhcp4Options (
   //
   // Append parameter request list option.
   //
-  OptList[Index]->OpCode    = HTTP_BOOT_DHCP4_TAG_PARA_LIST;
+  OptList[Index]->OpCode    = DHCP4_TAG_PARA_LIST;
   OptList[Index]->Length    = 27;
   OptEnt.Para               = (HTTP_BOOT_DHCP4_OPTION_PARA *) OptList[Index]->Data;
-  OptEnt.Para->ParaList[0]  = HTTP_BOOT_DHCP4_TAG_NETMASK;
-  OptEnt.Para->ParaList[1]  = HTTP_BOOT_DHCP4_TAG_TIME_OFFSET;
-  OptEnt.Para->ParaList[2]  = HTTP_BOOT_DHCP4_TAG_ROUTER;
-  OptEnt.Para->ParaList[3]  = HTTP_BOOT_DHCP4_TAG_TIME_SERVER;
-  OptEnt.Para->ParaList[4]  = HTTP_BOOT_DHCP4_TAG_NAME_SERVER;
-  OptEnt.Para->ParaList[5]  = HTTP_BOOT_DHCP4_TAG_DNS_SERVER;
-  OptEnt.Para->ParaList[6]  = HTTP_BOOT_DHCP4_TAG_HOSTNAME;
-  OptEnt.Para->ParaList[7]  = HTTP_BOOT_DHCP4_TAG_BOOTFILE_LEN;
-  OptEnt.Para->ParaList[8]  = HTTP_BOOT_DHCP4_TAG_DOMAINNAME;
-  OptEnt.Para->ParaList[9]  = HTTP_BOOT_DHCP4_TAG_ROOTPATH;
-  OptEnt.Para->ParaList[10] = HTTP_BOOT_DHCP4_TAG_EXTEND_PATH;
-  OptEnt.Para->ParaList[11] = HTTP_BOOT_DHCP4_TAG_EMTU;
-  OptEnt.Para->ParaList[12] = HTTP_BOOT_DHCP4_TAG_TTL;
-  OptEnt.Para->ParaList[13] = HTTP_BOOT_DHCP4_TAG_BROADCAST;
-  OptEnt.Para->ParaList[14] = HTTP_BOOT_DHCP4_TAG_NIS_DOMAIN;
-  OptEnt.Para->ParaList[15] = HTTP_BOOT_DHCP4_TAG_NIS_SERVER;
-  OptEnt.Para->ParaList[16] = HTTP_BOOT_DHCP4_TAG_NTP_SERVER;
-  OptEnt.Para->ParaList[17] = HTTP_BOOT_DHCP4_TAG_VENDOR;
-  OptEnt.Para->ParaList[18] = HTTP_BOOT_DHCP4_TAG_REQUEST_IP;
-  OptEnt.Para->ParaList[19] = HTTP_BOOT_DHCP4_TAG_LEASE;
-  OptEnt.Para->ParaList[20] = HTTP_BOOT_DHCP4_TAG_SERVER_ID;
-  OptEnt.Para->ParaList[21] = HTTP_BOOT_DHCP4_TAG_T1;
-  OptEnt.Para->ParaList[22] = HTTP_BOOT_DHCP4_TAG_T2;
-  OptEnt.Para->ParaList[23] = HTTP_BOOT_DHCP4_TAG_CLASS_ID;
-  OptEnt.Para->ParaList[25] = HTTP_BOOT_DHCP4_TAG_BOOTFILE;
-  OptEnt.Para->ParaList[26] = HTTP_BOOT_DHCP4_TAG_UUID;
+  OptEnt.Para->ParaList[0]  = DHCP4_TAG_NETMASK;
+  OptEnt.Para->ParaList[1]  = DHCP4_TAG_TIME_OFFSET;
+  OptEnt.Para->ParaList[2]  = DHCP4_TAG_ROUTER;
+  OptEnt.Para->ParaList[3]  = DHCP4_TAG_TIME_SERVER;
+  OptEnt.Para->ParaList[4]  = DHCP4_TAG_NAME_SERVER;
+  OptEnt.Para->ParaList[5]  = DHCP4_TAG_DNS_SERVER;
+  OptEnt.Para->ParaList[6]  = DHCP4_TAG_HOSTNAME;
+  OptEnt.Para->ParaList[7]  = DHCP4_TAG_BOOTFILE_LEN;
+  OptEnt.Para->ParaList[8]  = DHCP4_TAG_DOMAINNAME;
+  OptEnt.Para->ParaList[9]  = DHCP4_TAG_ROOTPATH;
+  OptEnt.Para->ParaList[10] = DHCP4_TAG_EXTEND_PATH;
+  OptEnt.Para->ParaList[11] = DHCP4_TAG_EMTU;
+  OptEnt.Para->ParaList[12] = DHCP4_TAG_TTL;
+  OptEnt.Para->ParaList[13] = DHCP4_TAG_BROADCAST;
+  OptEnt.Para->ParaList[14] = DHCP4_TAG_NIS_DOMAIN;
+  OptEnt.Para->ParaList[15] = DHCP4_TAG_NIS_SERVER;
+  OptEnt.Para->ParaList[16] = DHCP4_TAG_NTP_SERVER;
+  OptEnt.Para->ParaList[17] = DHCP4_TAG_VENDOR;
+  OptEnt.Para->ParaList[18] = DHCP4_TAG_REQUEST_IP;
+  OptEnt.Para->ParaList[19] = DHCP4_TAG_LEASE;
+  OptEnt.Para->ParaList[20] = DHCP4_TAG_SERVER_ID;
+  OptEnt.Para->ParaList[21] = DHCP4_TAG_T1;
+  OptEnt.Para->ParaList[22] = DHCP4_TAG_T2;
+  OptEnt.Para->ParaList[23] = DHCP4_TAG_VENDOR_CLASS_ID;
+  OptEnt.Para->ParaList[25] = DHCP4_TAG_BOOTFILE;
+  OptEnt.Para->ParaList[26] = DHCP4_TAG_UUID;
   Index++;
   OptList[Index]            = GET_NEXT_DHCP_OPTION (OptList[Index - 1]);
 
   //
   // Append UUID/Guid-based client identifier option
   //
-  OptList[Index]->OpCode  = HTTP_BOOT_DHCP4_TAG_UUID;
+  OptList[Index]->OpCode  = DHCP4_TAG_UUID;
   OptList[Index]->Length  = (UINT8) sizeof (HTTP_BOOT_DHCP4_OPTION_UUID);
   OptEnt.Uuid             = (HTTP_BOOT_DHCP4_OPTION_UUID *) OptList[Index]->Data;
   OptEnt.Uuid->Type       = 0;
@@ -110,7 +110,7 @@ HttpBootBuildDhcp4Options (
   //
   // Append client network device interface option
   //
-  OptList[Index]->OpCode  = HTTP_BOOT_DHCP4_TAG_UNDI;
+  OptList[Index]->OpCode  = DHCP4_TAG_UNDI;
   OptList[Index]->Length  = (UINT8) sizeof (HTTP_BOOT_DHCP4_OPTION_UNDI);
   OptEnt.Undi             = (HTTP_BOOT_DHCP4_OPTION_UNDI *) OptList[Index]->Data;
 
@@ -130,7 +130,7 @@ HttpBootBuildDhcp4Options (
   //
   // Append client system architecture option
   //
-  OptList[Index]->OpCode  = HTTP_BOOT_DHCP4_TAG_ARCH;
+  OptList[Index]->OpCode  = DHCP4_TAG_ARCH;
   OptList[Index]->Length  = (UINT8) sizeof (HTTP_BOOT_DHCP4_OPTION_ARCH);
   OptEnt.Arch             = (HTTP_BOOT_DHCP4_OPTION_ARCH *) OptList[Index]->Data;
   Value                   = HTONS (EFI_HTTP_BOOT_CLIENT_SYSTEM_ARCHITECTURE);
@@ -141,7 +141,7 @@ HttpBootBuildDhcp4Options (
   //
   // Append vendor class identify option
   //
-  OptList[Index]->OpCode  = HTTP_BOOT_DHCP4_TAG_CLASS_ID;
+  OptList[Index]->OpCode  = DHCP4_TAG_VENDOR_CLASS_ID;
   OptList[Index]->Length  = (UINT8) sizeof (HTTP_BOOT_DHCP4_OPTION_CLID);
   OptEnt.Clid             = (HTTP_BOOT_DHCP4_OPTION_CLID *) OptList[Index]->Data;
   CopyMem (
@@ -190,7 +190,7 @@ HttpBootParseDhcp4Options (
   Option  = (EFI_DHCP4_PACKET_OPTION *) Buffer;
   Offset  = 0;
 
-  while (Offset < Length && Option->OpCode != HTTP_BOOT_DHCP4_TAG_EOP) {
+  while (Offset < Length && Option->OpCode != DHCP4_TAG_EOP) {
 
     if (Option->OpCode == OptTag) {
       //
@@ -202,7 +202,7 @@ HttpBootParseDhcp4Options (
     //
     // Skip the current option to the next.
     //
-    if (Option->OpCode == HTTP_BOOT_DHCP4_TAG_PAD) {
+    if (Option->OpCode == DHCP4_TAG_PAD) {
       Offset++;
     } else {
       Offset += Option->Length + 2;
@@ -220,17 +220,24 @@ HttpBootParseDhcp4Options (
   @param[in]  Dst          Pointer to the cache buffer for DHCPv4 packet.
   @param[in]  Src          Pointer to the DHCPv4 packet to be cached.
 
+  @retval     EFI_SUCCESS                Packet is copied.
+  @retval     EFI_BUFFER_TOO_SMALL       Cache buffer is not big enough to hold the packet.
+
 **/
-VOID
+EFI_STATUS
 HttpBootCacheDhcp4Packet (
   IN EFI_DHCP4_PACKET     *Dst,
   IN EFI_DHCP4_PACKET     *Src
   )
 {
-  ASSERT (Dst->Size >= Src->Length);
+  if (Dst->Size < Src->Length) {
+    return EFI_BUFFER_TOO_SMALL;
+  }
 
   CopyMem (&Dst->Dhcp4, &Src->Dhcp4, Src->Length);
   Dst->Length = Src->Length;
+
+  return EFI_SUCCESS;
 }
 
 /**
@@ -259,11 +266,13 @@ HttpBootParseDhcp4Packet (
   EFI_STATUS                     Status;
   HTTP_BOOT_OFFER_TYPE           OfferType;
   EFI_IPv4_ADDRESS               IpAddr;
+  BOOLEAN                        FileFieldOverloaded;
   
   IsDnsOffer     = FALSE;
   IpExpressedUri = FALSE;
   IsProxyOffer   = FALSE;
   IsHttpOffer    = FALSE;
+  FileFieldOverloaded = FALSE;
 
   ZeroMem (Cache4->OptList, sizeof (Cache4->OptList));
 
@@ -288,6 +297,7 @@ HttpBootParseDhcp4Packet (
   Option = Options[HTTP_BOOT_DHCP4_TAG_INDEX_OVERLOAD];
   if (Option != NULL) {
     if ((Option->Data[0] & HTTP_BOOT_DHCP4_OVERLOAD_FILE) != 0) {
+      FileFieldOverloaded = TRUE;
       for (Index = 0; Index < HTTP_BOOT_DHCP4_TAG_INDEX_MAX; Index++) {
         if (Options[Index] == NULL) {
           Options[Index] = HttpBootParseDhcp4Options (
@@ -351,7 +361,7 @@ HttpBootParseDhcp4Packet (
     if (*(Ptr8 - 1) != '\0') {
       *Ptr8 = '\0';
     }
-  } else if (Offer->Dhcp4.Header.BootFileName[0] != 0) {
+  } else if (!FileFieldOverloaded && Offer->Dhcp4.Header.BootFileName[0] != 0) {
     //
     // If the bootfile is not present and bootfilename is present in DHCPv4 packet, just parse it.
     // Do not count dhcp option header here, or else will destroy the serverhostname.
@@ -395,7 +405,11 @@ HttpBootParseDhcp4Packet (
   //
   if (IsHttpOffer) {
     if (IpExpressedUri) {
-      OfferType = IsProxyOffer ? HttpOfferTypeProxyIpUri : HttpOfferTypeDhcpIpUri;
+      if (IsProxyOffer) {
+        OfferType = HttpOfferTypeProxyIpUri;
+      } else {
+        OfferType = IsDnsOffer ? HttpOfferTypeDhcpIpUriDns : HttpOfferTypeDhcpIpUri;
+      }
     } else {
       if (!IsProxyOffer) {
         OfferType = IsDnsOffer ? HttpOfferTypeDhcpNameUriDns : HttpOfferTypeDhcpNameUri;
@@ -422,8 +436,10 @@ HttpBootParseDhcp4Packet (
   @param[in]  Private               Pointer to HTTP boot driver private data.
   @param[in]  RcvdOffer             Pointer to the received offer packet.
 
+  @retval     EFI_SUCCESS      Cache and parse the packet successfully.
+  @retval     Others           Operation failed.
 **/
-VOID
+EFI_STATUS
 HttpBootCacheDhcp4Offer (
   IN HTTP_BOOT_PRIVATE_DATA  *Private,
   IN EFI_DHCP4_PACKET        *RcvdOffer
@@ -432,6 +448,7 @@ HttpBootCacheDhcp4Offer (
   HTTP_BOOT_DHCP4_PACKET_CACHE  *Cache4;
   EFI_DHCP4_PACKET              *Offer;
   HTTP_BOOT_OFFER_TYPE          OfferType;
+  EFI_STATUS                    Status;
 
   ASSERT (Private->OfferNum < HTTP_BOOT_OFFER_MAX_NUM);
   Cache4 = &Private->OfferBuffer[Private->OfferNum].Dhcp4;
@@ -440,13 +457,16 @@ HttpBootCacheDhcp4Offer (
   //
   // Cache the content of DHCPv4 packet firstly.
   //
-  HttpBootCacheDhcp4Packet (Offer, RcvdOffer);
+  Status = HttpBootCacheDhcp4Packet (Offer, RcvdOffer);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
 
   //
   // Validate the DHCPv4 packet, and parse the options and offer type.
   //
   if (EFI_ERROR (HttpBootParseDhcp4Packet (Cache4))) {
-    return;
+    return EFI_ABORTED;
   }
 
   //
@@ -458,6 +478,8 @@ HttpBootCacheDhcp4Offer (
   Private->OfferIndex[OfferType][Private->OfferCount[OfferType]] = Private->OfferNum;
   Private->OfferCount[OfferType]++;
   Private->OfferNum++;
+
+  return EFI_SUCCESS;
 }
 
 /**
@@ -473,46 +495,81 @@ HttpBootSelectDhcpOffer (
 {
   Private->SelectIndex = 0;
   Private->SelectProxyType = HttpOfferTypeMax;
-  
-  //
-  // Priority1: HttpOfferTypeDhcpIpUri                           
-  // Priority2: HttpOfferTypeDhcpNameUriDns                      
-  // Priority3: HttpOfferTypeDhcpOnly + HttpOfferTypeProxyIpUri  
-  // Priority4: HttpOfferTypeDhcpDns  + HttpOfferTypeProxyIpUri  
-  // Priority5: HttpOfferTypeDhcpDns  + HttpOfferTypeProxyNameUri
-  // Priority6: HttpOfferTypeDhcpDns  + HttpOfferTypeDhcpNameUri 
-  //    
-  if (Private->OfferCount[HttpOfferTypeDhcpIpUri] > 0) {
+
+  if (Private->FilePathUri != NULL) {
+    //
+    // We are in home environment, the URI is already specified.
+    // Just need to choose a DHCP offer.
+    // The offer with DNS server address takes priority here.
+    //
+    if (Private->OfferCount[HttpOfferTypeDhcpDns] > 0) {
+      
+      Private->SelectIndex = Private->OfferIndex[HttpOfferTypeDhcpDns][0] + 1;
+      
+    } else if (Private->OfferCount[HttpOfferTypeDhcpIpUriDns] > 0) {
     
-    Private->SelectIndex = Private->OfferIndex[HttpOfferTypeDhcpIpUri][0] + 1;
+      Private->SelectIndex = Private->OfferIndex[HttpOfferTypeDhcpIpUriDns][0] + 1;
+      
+    } else if (Private->OfferCount[HttpOfferTypeDhcpNameUriDns] > 0) {
     
-  } else if (Private->OfferCount[HttpOfferTypeDhcpNameUriDns] > 0) {
-  
-    Private->SelectIndex = Private->OfferIndex[HttpOfferTypeDhcpNameUriDns][0] + 1;
+      Private->SelectIndex = Private->OfferIndex[HttpOfferTypeDhcpNameUriDns][0] + 1;
+      
+    }  else if (Private->OfferCount[HttpOfferTypeDhcpOnly] > 0) {
     
-  } else if (Private->OfferCount[HttpOfferTypeDhcpOnly] > 0 &&
-             Private->OfferCount[HttpOfferTypeProxyIpUri] > 0) {
-             
-    Private->SelectIndex     = Private->OfferIndex[HttpOfferTypeDhcpOnly][0] + 1;
-    Private->SelectProxyType = HttpOfferTypeProxyIpUri;
+      Private->SelectIndex = Private->OfferIndex[HttpOfferTypeDhcpOnly][0] + 1;
+      
+    }  else if (Private->OfferCount[HttpOfferTypeDhcpIpUri] > 0) {
     
-  } else if (Private->OfferCount[HttpOfferTypeDhcpDns] > 0 &&
-             Private->OfferCount[HttpOfferTypeProxyIpUri] > 0) {
-             
-    Private->SelectIndex     = Private->OfferIndex[HttpOfferTypeDhcpDns][0] + 1;
-    Private->SelectProxyType = HttpOfferTypeProxyIpUri;
+      Private->SelectIndex = Private->OfferIndex[HttpOfferTypeDhcpIpUri][0] + 1;
+    }
     
-  } else if (Private->OfferCount[HttpOfferTypeDhcpDns] > 0 &&
-             Private->OfferCount[HttpOfferTypeProxyNameUri] > 0) {
-             
-    Private->SelectIndex     = Private->OfferIndex[HttpOfferTypeDhcpDns][0] + 1;
-    Private->SelectProxyType = HttpOfferTypeProxyNameUri;
+  } else {
+    //
+    // We are in corporate environment.
+    //
+    // Priority1: HttpOfferTypeDhcpIpUri or HttpOfferTypeDhcpIpUriDns
+    // Priority2: HttpOfferTypeDhcpNameUriDns                      
+    // Priority3: HttpOfferTypeDhcpOnly + HttpOfferTypeProxyIpUri  
+    // Priority4: HttpOfferTypeDhcpDns  + HttpOfferTypeProxyIpUri  
+    // Priority5: HttpOfferTypeDhcpDns  + HttpOfferTypeProxyNameUri
+    // Priority6: HttpOfferTypeDhcpDns  + HttpOfferTypeDhcpNameUri 
+    //    
+    if (Private->OfferCount[HttpOfferTypeDhcpIpUri] > 0) {
+      
+      Private->SelectIndex = Private->OfferIndex[HttpOfferTypeDhcpIpUri][0] + 1;
+      
+    } else if (Private->OfferCount[HttpOfferTypeDhcpIpUriDns] > 0) {
+      
+      Private->SelectIndex = Private->OfferIndex[HttpOfferTypeDhcpIpUriDns][0] + 1;
+      
+    }else if (Private->OfferCount[HttpOfferTypeDhcpNameUriDns] > 0) {
     
-  } else if (Private->OfferCount[HttpOfferTypeDhcpDns] > 0 &&
-             Private->OfferCount[HttpOfferTypeDhcpNameUri] > 0) {
-             
-    Private->SelectIndex     = Private->OfferIndex[HttpOfferTypeDhcpDns][0] + 1;
-    Private->SelectProxyType = HttpOfferTypeDhcpNameUri;
+      Private->SelectIndex = Private->OfferIndex[HttpOfferTypeDhcpNameUriDns][0] + 1;
+      
+    } else if (Private->OfferCount[HttpOfferTypeDhcpOnly] > 0 &&
+               Private->OfferCount[HttpOfferTypeProxyIpUri] > 0) {
+               
+      Private->SelectIndex     = Private->OfferIndex[HttpOfferTypeDhcpOnly][0] + 1;
+      Private->SelectProxyType = HttpOfferTypeProxyIpUri;
+      
+    } else if (Private->OfferCount[HttpOfferTypeDhcpDns] > 0 &&
+               Private->OfferCount[HttpOfferTypeProxyIpUri] > 0) {
+               
+      Private->SelectIndex     = Private->OfferIndex[HttpOfferTypeDhcpDns][0] + 1;
+      Private->SelectProxyType = HttpOfferTypeProxyIpUri;
+      
+    } else if (Private->OfferCount[HttpOfferTypeDhcpDns] > 0 &&
+               Private->OfferCount[HttpOfferTypeProxyNameUri] > 0) {
+               
+      Private->SelectIndex     = Private->OfferIndex[HttpOfferTypeDhcpDns][0] + 1;
+      Private->SelectProxyType = HttpOfferTypeProxyNameUri;
+      
+    } else if (Private->OfferCount[HttpOfferTypeDhcpDns] > 0 &&
+               Private->OfferCount[HttpOfferTypeDhcpNameUri] > 0) {
+               
+      Private->SelectIndex     = Private->OfferIndex[HttpOfferTypeDhcpDns][0] + 1;
+      Private->SelectProxyType = HttpOfferTypeDhcpNameUri;
+    }
   }
 }
 
@@ -565,7 +622,7 @@ HttpBootDhcp4CallBack (
   MaxMsgSize = HttpBootParseDhcp4Options (
                  Packet->Dhcp4.Option,
                  GET_OPTION_BUFFER_LEN (Packet),
-                 HTTP_BOOT_DHCP4_TAG_MAXMSG
+                 DHCP4_TAG_MAXMSG
                  );
   if (MaxMsgSize != NULL) {
     Value = HTONS (HTTP_BOOT_DHCP4_PACKET_MAX_SIZE);
@@ -576,10 +633,17 @@ HttpBootDhcp4CallBack (
   switch (Dhcp4Event) {
   case Dhcp4RcvdOffer:
     Status = EFI_NOT_READY;
+    if (Packet->Length > HTTP_BOOT_DHCP4_PACKET_MAX_SIZE) {
+      //
+      // Ignore the incoming packets which exceed the maximum length.
+      //
+      break;
+    }
     if (Private->OfferNum < HTTP_BOOT_OFFER_MAX_NUM) {
       //
       // Cache the DHCPv4 offers to OfferBuffer[] for select later, and record
       // the OfferIndex and OfferCount.
+      // If error happens, just ignore this packet and continue to wait more offer.
       //
       HttpBootCacheDhcp4Offer (Private, Packet);
     }

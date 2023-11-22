@@ -9,7 +9,7 @@ CRITERIA = """
     Fails if any of the doctests in the main test fail.
 """
 TIME = "SHORT"
-ATTRIBUTES = "suite:kernel_per-build_regression"
+ATTRIBUTES = "suite:kernel_daily_regression"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "kernel"
 TEST_TYPE = "client"

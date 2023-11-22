@@ -18,9 +18,8 @@ package android.uirendering.cts.testclasses;
 
 import static org.junit.Assert.assertEquals;
 
-import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
-import android.graphics.Canvas;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
@@ -30,23 +29,27 @@ import android.graphics.Point;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
-import android.graphics.Region.Op;
-import android.support.annotation.ColorInt;
 import android.support.test.filters.LargeTest;
 import android.support.test.filters.MediumTest;
 import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.R;
+import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.bitmapverifiers.ColorCountVerifier;
 import android.uirendering.cts.bitmapverifiers.ColorVerifier;
 import android.uirendering.cts.bitmapverifiers.RectVerifier;
 import android.uirendering.cts.bitmapverifiers.SamplePointVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.ViewInitializer;
+import android.uirendering.cts.util.WebViewReadyHelper;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewTreeObserver;
+import android.webkit.WebView;
 import android.widget.FrameLayout;
 
+import androidx.annotation.ColorInt;
+
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -103,6 +106,51 @@ public class LayerTests extends ActivityTestBase {
     }
 
     @Test
+    public void testLayerPaintXfermodeWithSoftware() {
+        createTest()
+                .addLayout(R.layout.simple_red_layout, (ViewInitializer) view -> {
+                    Paint paint = new Paint();
+                    paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
+                    view.setLayerType(View.LAYER_TYPE_SOFTWARE, paint);
+                }, true)
+                .runWithVerifier(new ColorVerifier(Color.TRANSPARENT));
+    }
+
+    @Test
+    public void testLayerPaintAlphaChanged() {
+        final CountDownLatch fence = new CountDownLatch(1);
+        createTest()
+            .addLayout(R.layout.frame_layout, view -> {
+                FrameLayout root = (FrameLayout) view.findViewById(R.id.frame_layout);
+                View child = new View(view.getContext());
+                child.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+                child.setAlpha(0.0f);
+                // add rendering content
+                child.setBackgroundColor(Color.RED);
+                root.addView(child, new FrameLayout.LayoutParams(TEST_WIDTH, TEST_HEIGHT,
+                        Gravity.TOP | Gravity.LEFT));
+
+                // Post non-zero alpha a few frames in, so that the initial layer draw completes.
+                root.getViewTreeObserver().addOnPreDrawListener(
+                        new ViewTreeObserver.OnPreDrawListener() {
+                            int mDrawCount = 0;
+                            @Override
+                            public boolean onPreDraw() {
+                                if (mDrawCount++ == 5) {
+                                    root.getChildAt(0).setAlpha(1.00f);
+                                    root.getViewTreeObserver().removeOnPreDrawListener(this);
+                                    root.post(fence::countDown);
+                                } else {
+                                    root.postInvalidate();
+                                }
+                                return true;
+                            }
+                        });
+            }, true, fence)
+            .runWithVerifier(new ColorVerifier(Color.RED));
+    }
+
+    @Test
     public void testLayerPaintColorFilter() {
         // Red, fully desaturated. Note that it's not 255/3 in each channel.
         // See ColorMatrix#setSaturation()
@@ -145,25 +193,30 @@ public class LayerTests extends ActivityTestBase {
     @Test
     public void testLayerClear() {
         ViewInitializer initializer = new ViewInitializer() {
-            ObjectAnimator mAnimator;
+            ValueAnimator mAnimator;
             @Override
             public void initializeView(View view) {
                 FrameLayout root = (FrameLayout) view.findViewById(R.id.frame_layout);
                 root.setAlpha(0.5f);
 
-                View child = new View(view.getContext());
+                final View child = new View(view.getContext());
                 child.setBackgroundColor(Color.BLUE);
                 child.setTranslationX(10);
-                child.setTranslationY(10);
                 child.setLayoutParams(
                         new FrameLayout.LayoutParams(50, 50));
                 child.setLayerType(View.LAYER_TYPE_HARDWARE, null);
                 root.addView(child);
 
-                mAnimator = ObjectAnimator.ofInt(child, "translationY", 0, 20);
+                mAnimator = ValueAnimator.ofInt(0, 20);
                 mAnimator.setRepeatMode(ValueAnimator.REVERSE);
                 mAnimator.setRepeatCount(ValueAnimator.INFINITE);
                 mAnimator.setDuration(200);
+                mAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                    @Override
+                    public void onAnimationUpdate(ValueAnimator animation) {
+                        child.setTranslationY((Integer) mAnimator.getAnimatedValue());
+                    }
+                });
                 mAnimator.start();
             }
             @Override
@@ -267,7 +320,7 @@ public class LayerTests extends ActivityTestBase {
     }
 
     @Test
-    public void testSaveLayerClippedWithColorFilter() {
+    public void testSaveLayerWithColorFilter() {
         // verify that renderer can draw nested clipped layers with chained color filters
         createTest()
             .addCanvasClient((canvas, width, height) -> {
@@ -285,8 +338,8 @@ public class LayerTests extends ActivityTestBase {
                 secondLayerPaint.setColorFilter(redToBlueFilter);
                 // The color filters are applied starting first with the inner layer and then the
                 // outer layer.
-                canvas.saveLayer(40, 5, 80, 70, firstLayerPaint, Canvas.CLIP_TO_LAYER_SAVE_FLAG);
-                canvas.saveLayer(5, 40, 70, 80, secondLayerPaint, Canvas.CLIP_TO_LAYER_SAVE_FLAG);
+                canvas.saveLayer(40, 5, 80, 70, firstLayerPaint);
+                canvas.saveLayer(5, 40, 70, 80, secondLayerPaint);
                 canvas.drawRect(10, 10, 70, 70, redPaint);
                 canvas.restore();
                 canvas.restore();
@@ -294,95 +347,15 @@ public class LayerTests extends ActivityTestBase {
             .runWithVerifier(new RectVerifier(Color.WHITE, Color.GREEN, new Rect(40, 40, 70, 70)));
     }
 
-    // Note: This test will fail for Skia pipeline, but that is OK.
-    // TODO: delete this test when Skia pipeline is default and modify next test
-    // testSaveLayerUnclippedWithColorFilterSW to run for both HW and SW
     @Test
-    public void testSaveLayerUnclippedWithColorFilterHW() {
-        // verify that HW can draw nested unclipped layers with chained color filters
-        createTest()
-            .addCanvasClient((canvas, width, height) -> {
-                Paint redPaint = new Paint();
-                redPaint.setColor(0xffff0000);
-                Paint firstLayerPaint = new Paint();
-                float[] blueToGreenMatrix = new float[20];
-                blueToGreenMatrix[7] = blueToGreenMatrix[18] = 1.0f;
-                ColorMatrixColorFilter blueToGreenFilter =
-                      new ColorMatrixColorFilter(blueToGreenMatrix);
-                firstLayerPaint.setColorFilter(blueToGreenFilter);
-                Paint secondLayerPaint = new Paint();
-                float[] redToBlueMatrix = new float[20];
-                redToBlueMatrix[10] = redToBlueMatrix[18] = 1.0f;
-                ColorMatrixColorFilter redToBlueFilter =
-                      new ColorMatrixColorFilter(redToBlueMatrix);
-                secondLayerPaint.setColorFilter(redToBlueFilter);
-                canvas.saveLayer(40, 5, 80, 70, firstLayerPaint, 0);
-                canvas.saveLayer(5, 40, 70, 80, secondLayerPaint, 0);
-                canvas.drawRect(10, 10, 70, 70, redPaint);
-                canvas.restore();
-                canvas.restore();
-            }, true)
-            // HWUI pipeline does not support a color filter for unclipped save layer and draws
-            // as if the filter is not set.
-            .runWithVerifier(new RectVerifier(Color.WHITE, Color.RED, new Rect(10, 10, 70, 70)));
-    }
-
-    @Test
-    public void testSaveLayerUnclippedWithColorFilterSW() {
-        // verify that SW can draw nested unclipped layers with chained color filters
-        createTest()
-            .addCanvasClient((canvas, width, height) -> {
-                Paint redPaint = new Paint();
-                redPaint.setColor(0xffff0000);
-                Paint firstLayerPaint = new Paint();
-                float[] blueToGreenMatrix = new float[20];
-                blueToGreenMatrix[7] = blueToGreenMatrix[18] = 1.0f;
-                ColorMatrixColorFilter blueToGreenFilter =
-                    new ColorMatrixColorFilter(blueToGreenMatrix);
-                firstLayerPaint.setColorFilter(blueToGreenFilter);
-                Paint secondLayerPaint = new Paint();
-                float[] redToBlueMatrix = new float[20];
-                redToBlueMatrix[10] = redToBlueMatrix[18] = 1.0f;
-                ColorMatrixColorFilter redToBlueFilter =
-                    new ColorMatrixColorFilter(redToBlueMatrix);
-                secondLayerPaint.setColorFilter(redToBlueFilter);
-                canvas.saveLayer(40, 5, 80, 70, firstLayerPaint, 0);
-                canvas.saveLayer(5, 40, 70, 80, secondLayerPaint, 0);
-                canvas.drawRect(10, 10, 70, 70, redPaint);
-                canvas.restore();
-                canvas.restore();
-            }, false)
-            .runWithVerifier(new SamplePointVerifier(
-                new Point[] {
-                    // just outside of rect
-                    new Point(9, 9), new Point(70, 10), new Point(10, 70), new Point(70, 70),
-                    // red rect
-                    new Point(10, 10), new Point(39, 39),
-                    // black rect
-                    new Point(40, 10), new Point(69, 39),
-                    // blue rect
-                    new Point(10, 40), new Point(39, 69),
-                    // green rect
-                    new Point(40, 40), new Point(69, 69),
-                },
-                new int[] {
-                    Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
-                    Color.RED, Color.RED,
-                    Color.BLACK, Color.BLACK,
-                    Color.BLUE, Color.BLUE,
-                    Color.GREEN, Color.GREEN,
-                }));
-    }
-
-    @Test
-    public void testSaveLayerClippedWithAlpha() {
+    public void testSaveLayerWithAlpha() {
         // verify that renderer can draw nested clipped layers with different alpha
         createTest() // picture mode is disable due to bug:34871089
             .addCanvasClient((canvas, width, height) -> {
                 Paint redPaint = new Paint();
                 redPaint.setColor(0xffff0000);
-                canvas.saveLayerAlpha(40, 5, 80, 70, 0x7f, Canvas.CLIP_TO_LAYER_SAVE_FLAG);
-                canvas.saveLayerAlpha(5, 40, 70, 80, 0x3f, Canvas.CLIP_TO_LAYER_SAVE_FLAG);
+                canvas.saveLayerAlpha(40, 5, 80, 70, 0x7f);
+                canvas.saveLayerAlpha(5, 40, 70, 80, 0x3f);
                 canvas.drawRect(10, 10, 70, 70, redPaint);
                 canvas.restore();
                 canvas.restore();
@@ -391,42 +364,7 @@ public class LayerTests extends ActivityTestBase {
     }
 
     @Test
-    public void testSaveLayerUnclippedWithAlpha() {
-        // verify that renderer can draw nested unclipped layers with different alpha
-        createTest() // picture mode is disable due to bug:34871089
-            .addCanvasClient((canvas, width, height) -> {
-                Paint redPaint = new Paint();
-                redPaint.setColor(0xffff0000);
-                canvas.saveLayerAlpha(40, 5, 80, 70, 0x7f, 0);
-                canvas.saveLayerAlpha(5, 40, 70, 80, 0x3f, 0);
-                canvas.drawRect(10, 10, 70, 70, redPaint);
-                canvas.restore();
-                canvas.restore();
-            })
-            .runWithVerifier(new SamplePointVerifier(
-                new Point[]{
-                    // just outside of rect
-                    new Point(9, 9), new Point(70, 10), new Point(10, 70), new Point(70, 70),
-                    // red rect outside both layers
-                    new Point(10, 10), new Point(39, 39),
-                    // pink rect overlapping one of the layers
-                    new Point(40, 10), new Point(69, 39),
-                    // pink rect overlapping one of the layers
-                    new Point(10, 40), new Point(39, 69),
-                    // pink rect overlapping both layers
-                    new Point(40, 40), new Point(69, 69),
-                },
-                new int[]{
-                    Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
-                    Color.RED, Color.RED,
-                    0xffff8080, 0xffff8080,
-                    0xffffC0C0, 0xffffC0C0,
-                    0xffffE0E0, 0xffffE0E0,
-                }));
-    }
-
-    @Test
-    public void testSaveLayerUnclipped_restoreBehavior() {
+    public void testSaveLayerRestoreBehavior() {
         createTest()
                 .addCanvasClient((canvas, width, height) -> {
                     //set identity matrix
@@ -434,10 +372,10 @@ public class LayerTests extends ActivityTestBase {
                     canvas.setMatrix(identity);
                     final Paint p = new Paint();
 
-                    canvas.saveLayer(0, 0, width, height, p, 0);
+                    canvas.saveLayer(0, 0, width, height, p);
 
                     //change matrix and clip to something different
-                    canvas.clipRect(0, 0, width >> 1, height >> 1, Op.INTERSECT);
+                    canvas.clipRect(0, 0, width >> 1, height >> 1);
                     Matrix scaledMatrix = new Matrix();
                     scaledMatrix.setScale(4, 5);
                     canvas.setMatrix(scaledMatrix);
@@ -455,33 +393,247 @@ public class LayerTests extends ActivityTestBase {
                 .runWithVerifier(new ColorVerifier(Color.RED));
     }
 
+    @LargeTest
     @Test
-    public void testSaveLayerClipped_restoreBehavior() {
+    public void testWebViewWithLayer() {
+        if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
+            return; // no WebView to run test on
+        }
+        CountDownLatch hwFence = new CountDownLatch(1);
         createTest()
+                .addLayout(R.layout.test_content_webview, (ViewInitializer) view -> {
+                    WebView webview = view.requireViewById(R.id.webview);
+                    WebViewReadyHelper helper = new WebViewReadyHelper(webview, hwFence);
+                    helper.loadData("<body style=\"background-color:blue\">");
+                    webview.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+                }, true, hwFence)
+                .runWithVerifier(new ColorVerifier(Color.BLUE));
+    }
+
+    @LargeTest
+    @Test
+    public void testWebViewWithOffsetLayer() {
+        if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
+            return; // no WebView to run test on
+        }
+        CountDownLatch hwFence = new CountDownLatch(1);
+        createTest()
+                .addLayout(R.layout.frame_layout_webview, (ViewInitializer) view -> {
+                    FrameLayout layout = view.requireViewById(R.id.frame_layout);
+                    layout.setBackgroundColor(Color.RED);
+
+                    WebView webview = view.requireViewById(R.id.webview);
+                    WebViewReadyHelper helper = new WebViewReadyHelper(webview, hwFence);
+                    helper.loadData("<body style=\"background-color:blue\">");
+
+                    webview.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+                    webview.setTranslationX(10);
+                    webview.setTranslationY(10);
+                    webview.getLayoutParams().width = TEST_WIDTH - 20;
+                    webview.getLayoutParams().height = TEST_HEIGHT - 20;
+                }, true, hwFence)
+                .runWithVerifier(new RectVerifier(Color.RED, Color.BLUE,
+                        new Rect(10, 10, TEST_WIDTH - 10, TEST_HEIGHT - 10)));
+    }
+
+    @LargeTest
+    @Test
+    public void testWebViewWithParentLayer() {
+        if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
+            return; // no WebView to run test on
+        }
+        CountDownLatch hwFence = new CountDownLatch(1);
+        createTest()
+                .addLayout(R.layout.frame_layout_webview, (ViewInitializer) view -> {
+                    FrameLayout layout = view.requireViewById(R.id.frame_layout);
+                    layout.setBackgroundColor(Color.RED);
+                    layout.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+
+                    WebView webview = view.requireViewById(R.id.webview);
+                    WebViewReadyHelper helper = new WebViewReadyHelper(webview, hwFence);
+                    helper.loadData("<body style=\"background-color:blue\">");
+
+                    webview.setTranslationX(10);
+                    webview.setTranslationY(10);
+                    webview.getLayoutParams().width = TEST_WIDTH - 20;
+                    webview.getLayoutParams().height = TEST_HEIGHT - 20;
+
+                }, true, hwFence)
+                .runWithVerifier(new RectVerifier(Color.RED, Color.BLUE,
+                        new Rect(10, 10, TEST_WIDTH - 10, TEST_HEIGHT - 10)));
+    }
+
+    @LargeTest
+    @Test
+    public void testWebViewScaledWithParentLayer() {
+        if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
+            return; // no WebView to run test on
+        }
+        CountDownLatch hwFence = new CountDownLatch(1);
+        createTest()
+                .addLayout(R.layout.frame_layout_webview, (ViewInitializer) view -> {
+                    FrameLayout layout = view.requireViewById(R.id.frame_layout);
+                    layout.setBackgroundColor(Color.RED);
+                    layout.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+
+                    WebView webview = view.requireViewById(R.id.webview);
+                    WebViewReadyHelper helper = new WebViewReadyHelper(webview, hwFence);
+                    helper.loadData("<body style=\"background-color:blue\">");
+
+                    webview.setTranslationX(10);
+                    webview.setTranslationY(10);
+                    webview.setScaleX(0.5f);
+                    webview.getLayoutParams().width = 40;
+                    webview.getLayoutParams().height = 40;
+
+                }, true, hwFence)
+                .runWithVerifier(new RectVerifier(Color.RED, Color.BLUE,
+                        new Rect(20, 10, 40, 50)));
+    }
+
+    @LargeTest
+    @Test
+    public void testWebViewWithAlpha() {
+        if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
+            return; // no WebView to run test on
+        }
+        CountDownLatch hwFence = new CountDownLatch(1);
+        createTest()
+                .addLayout(R.layout.test_content_webview, (ViewInitializer) view -> {
+                    WebView webview = view.requireViewById(R.id.webview);
+                    WebViewReadyHelper helper = new WebViewReadyHelper(webview, hwFence);
+                    helper.loadData("<body style=\"background-color:blue\">");
+
+                    // reduce alpha by 50%
+                    webview.setAlpha(0.5f);
+
+                }, true, hwFence)
+                .runWithVerifier(new ColorVerifier(Color.rgb(128, 128, 255)));
+    }
+
+    @LargeTest
+    @Test
+    public void testWebViewWithAlphaLayer() {
+        if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
+            return; // no WebView to run test on
+        }
+        CountDownLatch hwFence = new CountDownLatch(1);
+        createTest()
+                .addLayout(R.layout.test_content_webview, (ViewInitializer) view -> {
+                    WebView webview = view.requireViewById(R.id.webview);
+                    WebViewReadyHelper helper = new WebViewReadyHelper(webview, hwFence);
+                    helper.loadData("<body style=\"background-color:blue\">");
+
+                    // reduce alpha by 50%
+                    Paint paint = new Paint();
+                    paint.setAlpha(128);
+                    webview.setLayerType(View.LAYER_TYPE_HARDWARE, paint);
+
+                    // reduce alpha by another 50% (ensuring two alphas combine correctly)
+                    webview.setAlpha(0.5f);
+
+                }, true, hwFence)
+                .runWithVerifier(new ColorVerifier(Color.rgb(191, 191, 255)));
+    }
+
+    @LargeTest
+    @Test
+    @Ignore // b/109839751
+    public void testWebViewWithUnclippedLayer() {
+        if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
+            return; // no WebView to run test on
+        }
+        CountDownLatch hwFence = new CountDownLatch(1);
+        createTest()
+                .addLayout(R.layout.test_content_webview, (ViewInitializer) view -> {
+                    WebView webview = view.requireViewById(R.id.webview);
+                    WebViewReadyHelper helper = new WebViewReadyHelper(webview, hwFence);
+                    helper.loadData("<body style=\"min-height: 120vh; background-color:blue\">");
+                    webview.setVerticalFadingEdgeEnabled(true);
+                    webview.setVerticalScrollBarEnabled(false);
+                    webview.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+
+                }, true, hwFence)
+                .runWithVerifier(new SamplePointVerifier(
+                        new Point[] {
+                                // solid area
+                                new Point(0, 0),
+                                new Point(0, TEST_HEIGHT - 1),
+                                // fade area
+                                new Point(0, TEST_HEIGHT - 10),
+                                new Point(0, TEST_HEIGHT - 5)
+                        },
+                        new int[] {
+                                Color.BLUE,
+                                Color.WHITE,
+                                0xffb3b3ff, // white blended with blue
+                                0xffdbdbff  // white blended with blue
+                        }));
+    }
+
+    @LargeTest
+    @Test
+    @Ignore // b/109839751
+    public void testWebViewWithUnclippedLayerAndComplexClip() {
+        if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
+            return; // no WebView to run test on
+        }
+        CountDownLatch hwFence = new CountDownLatch(1);
+        createTest()
+                .addLayout(R.layout.circle_clipped_webview, (ViewInitializer) view -> {
+                    WebView webview = view.requireViewById(R.id.webview);
+                    WebViewReadyHelper helper = new WebViewReadyHelper(webview, hwFence);
+                    helper.loadData("<body style=\"min-height: 120vh; background-color:blue\">");
+                    webview.setVerticalFadingEdgeEnabled(true);
+                    webview.setVerticalScrollBarEnabled(false);
+                    webview.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+
+                }, true, hwFence)
+                .runWithVerifier(new SamplePointVerifier(
+                        new Point[] {
+                                // solid white area
+                                new Point(0, 0),
+                                new Point(0, TEST_HEIGHT - 1),
+                                // solid blue area
+                                new Point(TEST_WIDTH / 2 , 5),
+                                // fade area
+                                new Point(TEST_WIDTH / 2, TEST_HEIGHT - 10),
+                                new Point(TEST_WIDTH / 2, TEST_HEIGHT - 5)
+                        },
+                        new int[] {
+                                Color.WHITE,
+                                Color.WHITE,
+                                Color.BLUE,
+                                0xffb3b3ff, // white blended with blue
+                                0xffdbdbff  // white blended with blue
+                        }));
+    }
+
+    @LargeTest
+    @Test
+    public void testWebViewWithLayerAndComplexClip() {
+        if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
+            return; // no WebView to run test on
+        }
+        CountDownLatch hwFence = new CountDownLatch(1);
+        createTest()
+                // golden client - draw a simple non-AA circle
                 .addCanvasClient((canvas, width, height) -> {
-                    //set identity matrix
-                    Matrix identity = new Matrix();
-                    canvas.setMatrix(identity);
-                    final Paint p = new Paint();
+                    Paint paint = new Paint();
+                    paint.setAntiAlias(false);
+                    paint.setColor(Color.BLUE);
+                    canvas.drawOval(0, 0, width, height, paint);
+                }, false)
+                // verify against solid color webview, clipped to its parent oval
+                .addLayout(R.layout.circle_clipped_webview, (ViewInitializer) view -> {
+                    FrameLayout layout = view.requireViewById(R.id.circle_clip_frame_layout);
+                    layout.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
-                    canvas.saveLayer(0, 0, width, height, p, Canvas.CLIP_TO_LAYER_SAVE_FLAG);
+                    WebView webview = view.requireViewById(R.id.webview);
+                    WebViewReadyHelper helper = new WebViewReadyHelper(webview, hwFence);
+                    helper.loadData("<body style=\"background-color:blue\">");
 
-                    //change matrix and clip to something different
-                    canvas.clipRect(0, 0, width >> 1, height >> 1, Op.INTERSECT);
-                    Matrix scaledMatrix = new Matrix();
-                    scaledMatrix.setScale(4, 5);
-                    canvas.setMatrix(scaledMatrix);
-                    assertEquals(scaledMatrix, canvas.getMatrix());
-
-                    canvas.drawColor(Color.BLUE);
-                    canvas.restore();
-
-                    //check if identity matrix is restored
-                    assertEquals(identity, canvas.getMatrix());
-
-                    //should draw to the entire canvas, because clip has been removed
-                    canvas.drawColor(Color.RED);
-                })
-                .runWithVerifier(new ColorVerifier(Color.RED));
+                }, true, hwFence)
+                .runWithComparer(new MSSIMComparer(0.95));
     }
 }

@@ -92,6 +92,9 @@
 @   mode
 @   pi1_coeff
 
+.equ    nt_offset,      40
+.equ    mode_offset,    44
+
 .text
 .align 4
 
@@ -107,8 +110,8 @@ ihevc_intra_pred_luma_mode_18_34_a9q:
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
 
 
-    ldr         r4,[sp,#40]
-    ldr         r5,[sp,#44]
+    ldr         r4,[sp,#nt_offset]
+    ldr         r5,[sp,#mode_offset]
 
     cmp         r4,#4
     beq         mode2_4

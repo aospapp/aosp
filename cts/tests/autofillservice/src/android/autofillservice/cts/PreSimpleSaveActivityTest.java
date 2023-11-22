@@ -15,6 +15,7 @@
  */
 package android.autofillservice.cts;
 
+import static android.autofillservice.cts.Helper.ID_STATIC_TEXT;
 import static android.autofillservice.cts.Helper.assertTextAndValue;
 import static android.autofillservice.cts.Helper.findNodeByResourceId;
 import static android.autofillservice.cts.LoginActivity.ID_USERNAME_CONTAINER;
@@ -24,12 +25,23 @@ import static android.autofillservice.cts.SimpleSaveActivity.ID_LABEL;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_EMAIL_ADDRESS;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PASSWORD;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
 import android.content.Intent;
+import android.service.autofill.BatchUpdates;
+import android.service.autofill.CustomDescription;
+import android.service.autofill.RegexValidator;
+import android.service.autofill.Validator;
+import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiObject2;
 import android.view.View;
+import android.widget.RemoteViews;
 
+import org.junit.After;
 import org.junit.Rule;
+
+import java.util.regex.Pattern;
 
 public class PreSimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
 
@@ -43,9 +55,14 @@ public class PreSimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase
         final Intent intent = new Intent(mContext, PreSimpleSaveActivity.class);
         if (remainOnRecents) {
             intent.setFlags(
-                    Intent.FLAG_ACTIVITY_RETAIN_IN_RECENTS | Intent.FLAG_ACTIVITY_NEW_DOCUMENT);
+                    Intent.FLAG_ACTIVITY_RETAIN_IN_RECENTS | Intent.FLAG_ACTIVITY_NEW_TASK);
         }
         mActivity = mActivityRule.launchActivity(intent);
+    }
+
+    @After
+    public void finishSimpleSaveActivity() {
+        SimpleSaveActivity.finishIt(mUiBot);
     }
 
     @Override
@@ -72,27 +89,28 @@ public class PreSimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase
             mActivity.mSubmit.performClick();
         });
         // Make sure post-save activity is shown...
-        sUiBot.assertShownByRelativeId(ID_INPUT);
+        mUiBot.assertShownByRelativeId(ID_INPUT);
 
         // Tap the link.
         final UiObject2 saveUi = assertSaveUiWithLinkIsShown(SAVE_DATA_TYPE_PASSWORD);
         tapSaveUiLink(saveUi);
 
         // Make sure new activity is shown...
-        WelcomeActivity.assertShowingDefaultMessage(sUiBot);
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD);
+        WelcomeActivity.assertShowingDefaultMessage(mUiBot);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD);
 
         // .. then do something to return to previous activity...
         switch (type) {
             case ROTATE_THEN_TAP_BACK_BUTTON:
-                sUiBot.setScreenOrientation(UiBot.LANDSCAPE);
+                mUiBot.setScreenOrientation(UiBot.LANDSCAPE);
+                WelcomeActivity.assertShowingDefaultMessage(mUiBot);
                 // not breaking on purpose
             case TAP_BACK_BUTTON:
-                sUiBot.pressBack();
+                mUiBot.pressBack();
                 break;
             case FINISH_ACTIVITY:
                 // ..then finishes it.
-                WelcomeActivity.finishIt();
+                WelcomeActivity.finishIt(mUiBot);
                 break;
             default:
                 throw new IllegalArgumentException("invalid type: " + type);
@@ -100,7 +118,7 @@ public class PreSimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase
 
         // ... and tap save.
         final UiObject2 newSaveUi = assertSaveUiWithLinkIsShown(SAVE_DATA_TYPE_PASSWORD);
-        sUiBot.saveForAutofill(newSaveUi, true);
+        mUiBot.saveForAutofill(newSaveUi, true);
 
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
         assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_PRE_INPUT), "108");
@@ -130,45 +148,43 @@ public class PreSimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase
             mActivity.mSubmit.performClick();
         });
         // Make sure post-save activity is shown...
-        sUiBot.assertShownByRelativeId(ID_INPUT);
+        mUiBot.assertShownByRelativeId(ID_INPUT);
 
         // Tap the link.
         final UiObject2 saveUi = assertSaveUiWithLinkIsShown(SAVE_DATA_TYPE_PASSWORD);
         tapSaveUiLink(saveUi);
 
         // Make sure new activity is shown...
-        WelcomeActivity.assertShowingDefaultMessage(sUiBot);
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD);
+        WelcomeActivity.assertShowingDefaultMessage(mUiBot);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD);
 
         // Tap back to restore the Save UI...
-        sUiBot.pressBack();
+        mUiBot.pressBack();
 
         // ...but don't tap it...
-        final UiObject2 saveUi2 = sUiBot.assertSaveShowing(SAVE_DATA_TYPE_PASSWORD);
+        final UiObject2 saveUi2 = mUiBot.assertSaveShowing(SAVE_DATA_TYPE_PASSWORD);
 
         // ...instead, do something to dismiss it:
         switch (action) {
             case TOUCH_OUTSIDE:
-                sUiBot.assertShownByRelativeId(ID_LABEL).longClick();
+                mUiBot.assertShownByRelativeId(ID_LABEL).longClick();
                 break;
             case TAP_NO_ON_SAVE_UI:
-                sUiBot.saveForAutofill(saveUi2, false);
+                mUiBot.saveForAutofill(saveUi2, false);
                 break;
             case TAP_YES_ON_SAVE_UI:
-                sUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
+                mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
 
                 final SaveRequest saveRequest = sReplier.getNextSaveRequest();
                 assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_PRE_INPUT),
                         "108");
-                Helper.assertNoDanglingSessions();
                 break;
             default:
                 throw new IllegalArgumentException("invalid action: " + action);
         }
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD);
 
         // Make sure previous session was finished.
-        Helper.assertNoDanglingSessions();
 
         // Now triggers a new session in the new activity (SaveActivity) and do business as usual...
         sReplier.addResponse(new CannedFillResponse.Builder()
@@ -192,10 +208,10 @@ public class PreSimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase
             newActivty.mCommit.performClick();
         });
         // Make sure post-save activity is shown...
-        sUiBot.assertShownByRelativeId(ID_INPUT);
+        mUiBot.assertShownByRelativeId(ID_INPUT);
 
         // Save it...
-        sUiBot.saveForAutofill(true, SAVE_DATA_TYPE_EMAIL_ADDRESS);
+        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_EMAIL_ADDRESS);
 
         // ... and assert results
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
@@ -205,7 +221,7 @@ public class PreSimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase
     @Override
     protected void saveUiCancelledAfterTappingLinkTest(PostSaveLinkTappedAction type)
             throws Exception {
-        startActivity(type == PostSaveLinkTappedAction.TAP_RECENTS);
+        startActivity(false);
         // Set service.
         enableService();
 
@@ -226,39 +242,34 @@ public class PreSimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase
             mActivity.mSubmit.performClick();
         });
         // Make sure post-save activity is shown...
-        sUiBot.assertShownByRelativeId(ID_INPUT);
+        mUiBot.assertShownByRelativeId(ID_INPUT);
 
         // Tap the link.
         final UiObject2 saveUi = assertSaveUiWithLinkIsShown(SAVE_DATA_TYPE_PASSWORD);
         tapSaveUiLink(saveUi);
 
         // Make sure linked activity is shown...
-        WelcomeActivity.assertShowingDefaultMessage(sUiBot);
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD);
+        WelcomeActivity.assertShowingDefaultMessage(mUiBot);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD);
 
         switch (type) {
-            case TAP_RECENTS:
-                sUiBot.switchAppsUsingRecents();
-                // Make sure right activity is showing.
-                sUiBot.assertShownByRelativeId(ID_INPUT);
-                break;
             case LAUNCH_PREVIOUS_ACTIVITY:
-                startActivity(PreSimpleSaveActivity.class);
-                sUiBot.assertShownByRelativeId(ID_INPUT);
+                startActivityOnNewTask(PreSimpleSaveActivity.class);
+                mUiBot.assertShownByRelativeId(ID_INPUT);
                 break;
             case LAUNCH_NEW_ACTIVITY:
                 // Launch a 3rd activity...
-                startActivity(LoginActivity.class);
-                sUiBot.assertShownByRelativeId(ID_USERNAME_CONTAINER);
+                startActivityOnNewTask(LoginActivity.class);
+                mUiBot.assertShownByRelativeId(ID_USERNAME_CONTAINER);
                 // ...then go back
-                sUiBot.pressBack();
-                sUiBot.assertShownByRelativeId(ID_INPUT);
+                mUiBot.pressBack();
+                mUiBot.assertShownByRelativeId(ID_INPUT);
                 break;
             default:
                 throw new IllegalArgumentException("invalid type: " + type);
         }
 
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD);
     }
 
     @Override
@@ -294,14 +305,17 @@ public class PreSimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase
         tapSaveUiLink(saveUi);
 
         // Make sure new activity is shown...
-        WelcomeActivity.assertShowingDefaultMessage(sUiBot);
+        WelcomeActivity.assertShowingDefaultMessage(mUiBot);
 
         // Save UI should be showing as well, since Trampoline finished.
-        sUiBot.assertSaveShowing(SAVE_DATA_TYPE_PASSWORD);
+        mUiBot.assertSaveShowing(SAVE_DATA_TYPE_PASSWORD);
 
         // Go back and make sure it's showing the right activity.
-        sUiBot.pressBack();
-        sUiBot.assertShownByRelativeId(ID_INPUT);
+        // first BACK cancels save dialog
+        mUiBot.pressBack();
+        // second BACK cancel WelcomeActivity
+        mUiBot.pressBack();
+        mUiBot.assertShownByRelativeId(ID_INPUT);
 
         // Now triggers a new session in the new activity (SaveActivity) and do business as usual...
         sReplier.addResponse(new CannedFillResponse.Builder()
@@ -321,13 +335,67 @@ public class PreSimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase
             newActivty.mCommit.performClick();
         });
         // Make sure post-save activity is shown...
-        sUiBot.assertShownByRelativeId(ID_INPUT);
+        mUiBot.assertShownByRelativeId(ID_INPUT);
 
         // Save it...
-        sUiBot.saveForAutofill(true, SAVE_DATA_TYPE_EMAIL_ADDRESS);
+        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_EMAIL_ADDRESS);
 
         // ... and assert results
         final SaveRequest saveRequest1 = sReplier.getNextSaveRequest();
         assertTextAndValue(findNodeByResourceId(saveRequest1.structure, ID_INPUT), "42");
+    }
+
+    @Override
+    protected void tapLinkAfterUpdateAppliedTest(boolean updateLinkView) throws Exception {
+        startActivity(false);
+        // Set service.
+        enableService();
+
+        final CustomDescription.Builder customDescription =
+                newCustomDescriptionBuilder(WelcomeActivity.class);
+        final RemoteViews update = newTemplate();
+        if (updateLinkView) {
+            update.setCharSequence(R.id.link, "setText", "TAP ME IF YOU CAN");
+        } else {
+            update.setCharSequence(R.id.static_text, "setText", "ME!");
+        }
+        Validator validCondition = new RegexValidator(mActivity.mPreInput.getAutofillId(),
+                Pattern.compile(".*"));
+        customDescription.batchUpdate(validCondition,
+                new BatchUpdates.Builder().updateTemplate(update).build());
+
+        // Set expectations.
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setCustomDescription(customDescription.build())
+                .setRequiredSavableIds(SAVE_DATA_TYPE_PASSWORD, ID_PRE_INPUT)
+                .build());
+
+        // Trigger autofill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mPreInput.requestFocus());
+        sReplier.getNextFillRequest();
+        Helper.assertHasSessions(mPackageName);
+
+        // Trigger save.
+        mActivity.syncRunOnUiThread(() -> {
+            mActivity.mPreInput.setText("108");
+            mActivity.mSubmit.performClick();
+        });
+        // Make sure post-save activity is shown...
+        mUiBot.assertShownByRelativeId(ID_INPUT);
+
+        // Tap the link.
+        final UiObject2 saveUi;
+        if (updateLinkView) {
+            saveUi = assertSaveUiWithLinkIsShown(SAVE_DATA_TYPE_PASSWORD, "TAP ME IF YOU CAN");
+        } else {
+            saveUi = assertSaveUiWithLinkIsShown(SAVE_DATA_TYPE_PASSWORD);
+            final UiObject2 changed = saveUi.findObject(By.res(mPackageName, ID_STATIC_TEXT));
+            assertThat(changed.getText()).isEqualTo("ME!");
+        }
+        tapSaveUiLink(saveUi);
+
+        // Make sure new activity is shown...
+        WelcomeActivity.assertShowingDefaultMessage(mUiBot);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD);
     }
 }

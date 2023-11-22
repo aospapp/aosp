@@ -16,19 +16,21 @@
 
 package android.sustainedPerformance.cts;
 
-import com.android.ddmlib.MultiLineReceiver;
+import com.android.compatibility.common.util.CddTest;
 import com.android.ddmlib.IShellOutputReceiver;
+import com.android.ddmlib.Log;
+import com.android.ddmlib.MultiLineReceiver;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.ddmlib.Log;
-import java.util.Scanner;
+import java.util.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
-import java.util.*;
 /**
  * Test to check if device implements Sustained Performance Mode
  */
+@CddTest(requirement="8.5/C-0-1,C-1-1,C-1-2")
 public class SustainedPerformanceHostTest extends DeviceTestCase {
 
     ITestDevice device;

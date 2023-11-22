@@ -16,6 +16,7 @@
 
 package android.car.cluster;
 
+import android.annotation.SystemApi;
 import android.car.CarManagerBase;
 import android.car.CarNotConnectedException;
 import android.content.Intent;
@@ -40,10 +41,12 @@ import java.util.Set;
  *
  * @hide
  */
+@SystemApi
 public class CarInstrumentClusterManager implements CarManagerBase {
     private static final String TAG = CarInstrumentClusterManager.class.getSimpleName();
 
     /** @hide */
+    @SystemApi
     public static final String CATEGORY_NAVIGATION = "android.car.cluster.NAVIGATION";
 
     /**
@@ -53,6 +56,7 @@ public class CarInstrumentClusterManager implements CarManagerBase {
      *
      * @hide
      */
+    @SystemApi
     public static final String KEY_EXTRA_ACTIVITY_STATE =
             "android.car.cluster.ClusterActivityState";
 
@@ -70,6 +74,7 @@ public class CarInstrumentClusterManager implements CarManagerBase {
      *
      * @hide
      */
+    @SystemApi
     public void startActivity(Intent intent) throws CarNotConnectedException {
         try {
             mService.startClusterActivity(intent);
@@ -88,6 +93,7 @@ public class CarInstrumentClusterManager implements CarManagerBase {
      *
      * @hide
      */
+    @SystemApi
     public void registerCallback(String category, Callback callback)
             throws CarNotConnectedException {
         Log.i(TAG, "registerCallback, category: " + category + ", callback: " + callback);
@@ -130,6 +136,7 @@ public class CarInstrumentClusterManager implements CarManagerBase {
      *
      * @hide
      */
+    @SystemApi
     public void unregisterCallback(Callback callback) throws CarNotConnectedException {
         List<String> keysToRemove = new ArrayList<>(1);
         synchronized (mLock) {
@@ -164,6 +171,7 @@ public class CarInstrumentClusterManager implements CarManagerBase {
     }
 
     /** @hide */
+    @SystemApi
     public interface Callback {
 
         /**

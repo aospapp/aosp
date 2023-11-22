@@ -25,6 +25,7 @@ import android.media.JetPlayer.OnJetEventListener;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import java.io.File;
@@ -66,6 +67,7 @@ public class JetPlayerTest extends AndroidTestCase {
         super.tearDown();
     }
 
+    @AppModeFull(reason = "Instant apps cannot access the SD card")
     public void testLoadJetFromPath() throws Throwable {
         assertTrue(mJetPlayer.clearQueue());
         prepareFile();

@@ -9,14 +9,17 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
+LOCAL_USE_AAPT2 := true
+
 LOCAL_PACKAGE_NAME := ManagedProvisioning
+LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_CERTIFICATE := platform
 LOCAL_PRIVILEGED_MODULE := true
 
 # Packages to be included in code coverage runs. This does not affect production builds.
 LOCAL_JACK_COVERAGE_INCLUDE_FILTER := com.android.managedprovisioning.*
 
-include frameworks/opt/setupwizard/library/common.mk
+include frameworks/opt/setupwizard/library/common-gingerbread.mk
 
 include $(BUILD_PACKAGE)
 

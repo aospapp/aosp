@@ -23,16 +23,14 @@ import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-
 import com.android.tv.R;
 import com.android.tv.util.CaptionSettings;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 public class ClosedCaptionFragment extends SideFragment {
-    private static final String TRACKER_LABEL ="closed caption" ;
+    private static final String TRACKER_LABEL = "closed caption";
     private boolean mResetClosedCaption;
     private int mClosedCaptionOption;
     private String mClosedCaptionLanguage;
@@ -66,8 +64,10 @@ public class ClosedCaptionFragment extends SideFragment {
 
         List<TvTrackInfo> tracks = getMainActivity().getTracks(TvTrackInfo.TYPE_SUBTITLE);
         if (tracks != null && !tracks.isEmpty()) {
-            String selectedTrackId = captionSettings.isEnabled() ?
-                    getMainActivity().getSelectedTrack(TvTrackInfo.TYPE_SUBTITLE) : null;
+            String selectedTrackId =
+                    captionSettings.isEnabled()
+                            ? getMainActivity().getSelectedTrack(TvTrackInfo.TYPE_SUBTITLE)
+                            : null;
             ClosedCaptionOptionItem item = new ClosedCaptionOptionItem(null, null);
             items.add(item);
             if (selectedTrackId == null) {
@@ -86,37 +86,41 @@ public class ClosedCaptionFragment extends SideFragment {
             }
         }
         if (getMainActivity().hasCaptioningSettingsActivity()) {
-            items.add(new ActionItem(getString(R.string.closed_caption_system_settings),
-                    getString(R.string.closed_caption_system_settings_description)) {
-                @Override
-                protected void onSelected() {
-                    getMainActivity().startSystemCaptioningSettingsActivity();
-                }
+            items.add(
+                    new ActionItem(
+                            getString(R.string.closed_caption_system_settings),
+                            getString(R.string.closed_caption_system_settings_description)) {
+                        @Override
+                        protected void onSelected() {
+                            getMainActivity().startSystemCaptioningSettingsActivity();
+                        }
 
-                @Override
-                protected void onFocused() {
-                    super.onFocused();
-                    if (mSelectedItem != null) {
-                        getMainActivity().selectSubtitleTrack(
-                                mSelectedItem.mOption, mSelectedItem.mTrackId);
-                    }
-                }
-            });
+                        @Override
+                        protected void onFocused() {
+                            super.onFocused();
+                            if (mSelectedItem != null) {
+                                getMainActivity()
+                                        .selectSubtitleTrack(
+                                                mSelectedItem.mOption, mSelectedItem.mTrackId);
+                            }
+                        }
+                    });
         }
         return items;
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
+    public View onCreateView(
+            LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         return super.onCreateView(inflater, container, savedInstanceState);
     }
 
     @Override
     public void onDestroyView() {
         if (mResetClosedCaption) {
-            getMainActivity().selectSubtitleLanguage(mClosedCaptionOption, mClosedCaptionLanguage,
-                    mClosedCaptionTrackId);
+            getMainActivity()
+                    .selectSubtitleLanguage(
+                            mClosedCaptionOption, mClosedCaptionLanguage, mClosedCaptionTrackId);
         }
         super.onDestroyView();
     }

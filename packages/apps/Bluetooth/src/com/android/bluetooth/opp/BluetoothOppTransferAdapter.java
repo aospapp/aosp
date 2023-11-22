@@ -32,20 +32,20 @@
 
 package com.android.bluetooth.opp;
 
-import com.android.bluetooth.R;
-
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.res.Resources;
 import android.database.Cursor;
-import android.text.format.DateUtils;
 import android.text.format.DateFormat;
+import android.text.format.DateUtils;
 import android.text.format.Formatter;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.ResourceCursorAdapter;
 import android.widget.TextView;
+
+import com.android.bluetooth.R;
 
 import java.util.Date;
 
@@ -67,7 +67,7 @@ public class BluetoothOppTransferAdapter extends ResourceCursorAdapter {
         Resources r = context.getResources();
 
         // Retrieve the icon for this transfer
-        ImageView iv = (ImageView)view.findViewById(R.id.transfer_icon);
+        ImageView iv = (ImageView) view.findViewById(R.id.transfer_icon);
         int status = cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare.STATUS));
         int dir = cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare.DIRECTION));
         if (BluetoothShare.isStatusError(status)) {
@@ -81,38 +81,37 @@ public class BluetoothOppTransferAdapter extends ResourceCursorAdapter {
         }
 
         // Set title
-        TextView tv = (TextView)view.findViewById(R.id.transfer_title);
-        String title = cursor.getString(
-                cursor.getColumnIndexOrThrow(BluetoothShare.FILENAME_HINT));
+        TextView tv = (TextView) view.findViewById(R.id.transfer_title);
+        String title = cursor.getString(cursor.getColumnIndexOrThrow(BluetoothShare.FILENAME_HINT));
         if (title == null) {
             title = mContext.getString(R.string.unknown_file);
         }
         tv.setText(title);
 
         // target device
-        tv = (TextView)view.findViewById(R.id.targetdevice);
+        tv = (TextView) view.findViewById(R.id.targetdevice);
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         int destinationColumnId = cursor.getColumnIndexOrThrow(BluetoothShare.DESTINATION);
-        BluetoothDevice remoteDevice = adapter.getRemoteDevice(cursor
-                .getString(destinationColumnId));
+        BluetoothDevice remoteDevice =
+                adapter.getRemoteDevice(cursor.getString(destinationColumnId));
         String deviceName = BluetoothOppManager.getInstance(context).getDeviceName(remoteDevice);
         tv.setText(deviceName);
 
         // complete text and complete date
         long totalBytes = cursor.getLong(cursor.getColumnIndexOrThrow(BluetoothShare.TOTAL_BYTES));
         if (BluetoothShare.isStatusCompleted(status)) {
-            tv = (TextView)view.findViewById(R.id.complete_text);
+            tv = (TextView) view.findViewById(R.id.complete_text);
             tv.setVisibility(View.VISIBLE);
             if (BluetoothShare.isStatusError(status)) {
                 tv.setText(BluetoothOppUtility.getStatusDescription(mContext, status, deviceName));
             } else {
                 String completeText;
                 if (dir == BluetoothShare.DIRECTION_INBOUND) {
-                    completeText = r.getString(R.string.download_success, Formatter.formatFileSize(
-                            mContext, totalBytes));
+                    completeText = r.getString(R.string.download_success,
+                            Formatter.formatFileSize(mContext, totalBytes));
                 } else {
-                    completeText = r.getString(R.string.upload_success, Formatter.formatFileSize(
-                            mContext, totalBytes));
+                    completeText = r.getString(R.string.upload_success,
+                            Formatter.formatFileSize(mContext, totalBytes));
                 }
                 tv.setText(completeText);
             }
@@ -120,9 +119,10 @@ public class BluetoothOppTransferAdapter extends ResourceCursorAdapter {
             int dateColumnId = cursor.getColumnIndexOrThrow(BluetoothShare.TIMESTAMP);
             long time = cursor.getLong(dateColumnId);
             Date d = new Date(time);
-            CharSequence str = DateUtils.isToday(time) ? DateFormat.getTimeFormat(mContext).format(
-                    d) : DateFormat.getDateFormat(mContext).format(d);
-            tv = (TextView)view.findViewById(R.id.complete_date);
+            CharSequence str =
+                    DateUtils.isToday(time) ? DateFormat.getTimeFormat(mContext).format(d)
+                            : DateFormat.getDateFormat(mContext).format(d);
+            tv = (TextView) view.findViewById(R.id.complete_date);
             tv.setVisibility(View.VISIBLE);
             tv.setText(str);
         }

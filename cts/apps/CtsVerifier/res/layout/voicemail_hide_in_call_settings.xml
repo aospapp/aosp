@@ -46,6 +46,12 @@
     </LinearLayout>
 
     <Button
+        android:id="@+id/call_settings_check_not_applicable"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/visual_voicemail_service_remove_sim_not_applicable"/>
+
+      <Button
         android:id="@+id/set_default_dialer"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

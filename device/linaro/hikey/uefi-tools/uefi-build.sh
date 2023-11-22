@@ -12,6 +12,7 @@
 unset WORKSPACE EDK_TOOLS_DIR MAKEFLAGS
 
 TOOLS_DIR="`dirname $0`"
+export TOOLS_DIR
 . "$TOOLS_DIR"/common-functions
 PLATFORM_CONFIG=""
 VERBOSE=0
@@ -23,7 +24,7 @@ OPENSSL_CONFIGURED=FALSE
 # Number of threads to use for build
 export NUM_THREADS=$((`getconf _NPROCESSORS_ONLN` + 1))
 
-function build_platform
+function do_build
 {
 	PLATFORM_NAME="`$TOOLS_DIR/parse-platforms.py $PLATFORM_CONFIG -p $board get -o longname`"
 	PLATFORM_PREBUILD_CMDS="`$TOOLS_DIR/parse-platforms.py $PLATFORM_CONFIG -p $board get -o prebuild_cmds`"
@@ -31,9 +32,23 @@ function build_platform
 	PLATFORM_BUILDFLAGS="$PLATFORM_BUILDFLAGS ${EXTRA_OPTIONS[@]}"
 	PLATFORM_BUILDCMD="`$TOOLS_DIR/parse-platforms.py $PLATFORM_CONFIG -p $board get -o buildcmd`"
 	PLATFORM_DSC="`$TOOLS_DIR/parse-platforms.py $PLATFORM_CONFIG -p $board get -o dsc`"
-	PLATFORM_ARCH="`$TOOLS_DIR/parse-platforms.py $PLATFORM_CONFIG -p $board get -o arch`"
 	PLATFORM_PACKAGES_PATH="$PWD"
+	COMPONENT_INF="`$TOOLS_DIR/parse-platforms.py $PLATFORM_CONFIG -p $board get -o inf`"
 
+	PLATFORM_ARCH="`$TOOLS_DIR/parse-platforms.py $PLATFORM_CONFIG -p $board get -o arch`"
+	if [ -n "$PLATFORM_ARCH" ]; then
+		if [ -n "$DEFAULT_PLATFORM_ARCH" -a "$DEFAULT_PLATFORM_ARCH" != "$PLATFORM_ARCH" ]; then
+			echo "Command line specified architecture '$DEFAULT_PLATFORM_ARCH'" >&2
+			echo "differs from config file specified '$PLATFORM_ARCH'" >&2
+			return 1
+		fi
+	else
+		if [ ! -n "$DEFAULT_PLATFORM_ARCH" ]; then
+			echo "Unknown target architecture - aborting!" >&2
+			return 1
+		fi
+		PLATFORM_ARCH="$DEFAULT_PLATFORM_ARCH"
+	fi
 	TEMP_PACKAGES_PATH="`$TOOLS_DIR/parse-platforms.py $PLATFORM_CONFIG -p $board get -o packages_path`"
 	if [ -n "$TEMP_PACKAGES_PATH" ]; then
 		IFS=:
@@ -60,7 +75,18 @@ function build_platform
 		echo "PLATFORM_PACKAGES_PATH=$PLATFORM_PACKAGES_PATH"
 	fi
 
-	set_cross_compile
+	if [[ "${PLATFORM_BUILDFLAGS}" =~ "SECURE_BOOT_ENABLE=TRUE" ]]; then
+	    import_openssl
+	fi
+
+	if [ -n "$CROSS_COMPILE_64" -a "$PLATFORM_ARCH" == "AARCH64" ]; then
+		TEMP_CROSS_COMPILE="$CROSS_COMPILE_64"
+	elif [ -n "$CROSS_COMPILE_32" -a "$PLATFORM_ARCH" == "ARM" ]; then
+		TEMP_CROSS_COMPILE="$CROSS_COMPILE_32"
+	else
+		set_cross_compile
+	fi
+
 	CROSS_COMPILE="$TEMP_CROSS_COMPILE"
 
 	echo "Building $PLATFORM_NAME - $PLATFORM_ARCH"
@@ -73,12 +99,20 @@ function build_platform
 
 	case $TOOLCHAIN in
 		"gcc")
-			export TOOLCHAIN=`get_gcc_version "$CROSS_COMPILE"gcc`
+			TOOLCHAIN=`get_gcc_version "$CROSS_COMPILE"gcc`
+			if [ $? -ne 0 ]; then
+				echo "${CROSS_COMPILE}gcc not found!" >&2
+				return 1
+			fi
 			;;
 		"clang")
-			export TOOLCHAIN=`get_clang_version clang`
+			TOOLCHAIN=`get_clang_version clang`
+			if [ $? -ne 0 ]; then
+				return 1
+			fi
 			;;
 	esac
+	export TOOLCHAIN
 	echo "TOOLCHAIN is ${TOOLCHAIN}"
 
 	export ${TOOLCHAIN}_${PLATFORM_ARCH}_PREFIX=$CROSS_COMPILE
@@ -90,14 +124,17 @@ function build_platform
 			echo "Run pre build commands"
 			eval ${PLATFORM_PREBUILD_CMDS}
 		fi
-		if [ X"$PLATFORM_BUILDCMD" == X"" ]; then
-			echo  ${TOOLCHAIN}_${PLATFORM_ARCH}_PREFIX=$CROSS_COMPILE build -n $NUM_THREADS -a "$PLATFORM_ARCH" -t ${TOOLCHAIN} -p "$PLATFORM_DSC" -b "$target" \
-				${PLATFORM_BUILDFLAGS}
-			build -n $NUM_THREADS -a "$PLATFORM_ARCH" -t ${TOOLCHAIN} -p "$PLATFORM_DSC" -b "$target" \
-				${PLATFORM_BUILDFLAGS}
+
+		if [ -n "$COMPONENT_INF" ]; then
+			# Build a standalone component
+			build -n $NUM_THREADS -a "$PLATFORM_ARCH" -t ${TOOLCHAIN} -p "$PLATFORM_DSC" \
+				-m "$COMPONENT_INF" -b "$target" ${PLATFORM_BUILDFLAGS}
 		else
-			${PLATFORM_BUILDCMD} -b "$target" ${PLATFORM_BUILDFLAGS}
+			# Build a platform
+			build -n $NUM_THREADS -a "$PLATFORM_ARCH" -t ${TOOLCHAIN} -p "$PLATFORM_DSC" \
+				-b "$target" ${PLATFORM_BUILDFLAGS}
 		fi
+
 		RESULT=$?
 		if [ $RESULT -eq 0 ]; then
 			if [ X"$TOS_DIR" != X"" ]; then
@@ -127,6 +164,31 @@ function build_platform
 }
 
 
+function clearcache
+{
+  CONF_FILES="build_rule target tools_def"
+  if [ -z "$EDK_TOOLS_PATH" ]
+  then
+    TEMPLATE_PATH=./BaseTools/Conf/
+  else
+    TEMPLATE_PATH="$EDK_TOOLS_PATH/Conf/"
+  fi
+
+  for File in $CONF_FILES
+  do
+    TEMPLATE_FILE="$TEMPLATE_PATH/$File.template"
+    CACHE_FILE="Conf/$File.txt"
+    if [ -e "$CACHE_FILE" -a "$TEMPLATE_FILE" -nt "$CACHE_FILE" ]
+    then
+      echo "Removing outdated '$CACHE_FILE'."
+      rm "$CACHE_FILE"
+    fi
+  done
+
+  unset TEMPLATE_PATH TEMPLATE_FILE CACHE_FILE
+}
+
+
 function uefishell
 {
 	BUILD_ARCH=`uname -m`
@@ -142,11 +204,12 @@ function uefishell
 			;;
 	esac
 	export ARCH
+	export EDK_TOOLS_PATH=`pwd`/BaseTools
+	clearcache
+	. edksetup.sh BaseTools
 	if [ $VERBOSE -eq 1 ]; then
 		echo "Building BaseTools"
 	fi
-	export EDK_TOOLS_PATH=`pwd`/BaseTools
-	. edksetup.sh BaseTools
 	make -C $EDK_TOOLS_PATH
 	if [ $? -ne 0 ]; then
 		echo " !!! UEFI BaseTools failed to build !!! " >&2
@@ -187,7 +250,7 @@ do
 		fi
 		case "$FILE_ARG" in
 			/*)
-				PLATFORM_CONFIG="-c \"$FILE_ARG\""
+				PLATFORM_CONFIG="-c $FILE_ARG"
 			;;
 			*)
 				PLATFORM_CONFIG="-c `readlink -f \"$FILE_ARG\"`"
@@ -224,6 +287,10 @@ while [ "$1" != "" ]; do
 		"-a" )
 			shift
 			ATF_DIR="$1"
+			;;
+		"-A" )
+			shift
+			DEFAULT_PLATFORM_ARCH="$1"
 			;;
 		"-c" )
 			# Already parsed above - skip this + option
@@ -325,7 +392,7 @@ if [ X"$TOOLCHAIN" = X"" ]; then
 fi
 
 for board in "${builds[@]}" ; do
-	build_platform
+	do_build
 done
 
 result_print

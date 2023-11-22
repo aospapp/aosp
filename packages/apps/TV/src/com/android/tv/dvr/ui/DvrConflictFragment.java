@@ -27,18 +27,16 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-
 import com.android.tv.MainActivity;
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
-import com.android.tv.data.Channel;
 import com.android.tv.data.Program;
+import com.android.tv.data.api.Channel;
+import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.recorder.ConflictChecker;
 import com.android.tv.dvr.recorder.ConflictChecker.OnUpcomingConflictChangeListener;
-import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.util.Utils;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -72,15 +70,16 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
     }
 
     @Override
-    public void onCreateActions(@NonNull List<GuidedAction> actions,
-            Bundle savedInstanceState) {
-        actions.add(new GuidedAction.Builder(getContext())
-                .clickAction(GuidedAction.ACTION_ID_OK)
-                .build());
-        actions.add(new GuidedAction.Builder(getContext())
-                .id(ACTION_VIEW_SCHEDULES)
-                .title(R.string.dvr_action_view_schedules)
-                .build());
+    public void onCreateActions(@NonNull List<GuidedAction> actions, Bundle savedInstanceState) {
+        actions.add(
+                new GuidedAction.Builder(getContext())
+                        .clickAction(GuidedAction.ACTION_ID_OK)
+                        .build());
+        actions.add(
+                new GuidedAction.Builder(getContext())
+                        .id(ACTION_VIEW_SCHEDULES)
+                        .title(R.string.dvr_action_view_schedules)
+                        .build());
     }
 
     @Override
@@ -114,33 +113,45 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
         }
         switch (titles.size()) {
             case 0:
-                Log.i(TAG, "Conflict has been resolved by any reason. Maybe input might have"
-                        + " been deleted.");
+                Log.i(
+                        TAG,
+                        "Conflict has been resolved by any reason. Maybe input might have"
+                                + " been deleted.");
                 return null;
             case 1:
-                return getResources().getString(
-                        R.string.dvr_program_conflict_dialog_description_1, titles.get(0));
+                return getResources()
+                        .getString(
+                                R.string.dvr_program_conflict_dialog_description_1, titles.get(0));
             case 2:
-                return getResources().getString(
-                        R.string.dvr_program_conflict_dialog_description_2, titles.get(0),
-                        titles.get(1));
+                return getResources()
+                        .getString(
+                                R.string.dvr_program_conflict_dialog_description_2,
+                                titles.get(0),
+                                titles.get(1));
             case 3:
-                return getResources().getString(
-                        R.string.dvr_program_conflict_dialog_description_3, titles.get(0),
-                        titles.get(1));
+                return getResources()
+                        .getString(
+                                R.string.dvr_program_conflict_dialog_description_3,
+                                titles.get(0),
+                                titles.get(1));
             default:
-                return getResources().getQuantityString(
-                        R.plurals.dvr_program_conflict_dialog_description_many,
-                        titles.size() - LISTED_PROGRAM_COUNT, titles.get(0), titles.get(1),
-                        titles.size() - LISTED_PROGRAM_COUNT);
+                return getResources()
+                        .getQuantityString(
+                                R.plurals.dvr_program_conflict_dialog_description_many,
+                                titles.size() - LISTED_PROGRAM_COUNT,
+                                titles.get(0),
+                                titles.get(1),
+                                titles.size() - LISTED_PROGRAM_COUNT);
         }
     }
 
     @Nullable
     private String getScheduleTitle(ScheduledRecording schedule) {
         if (schedule.getType() == ScheduledRecording.TYPE_TIMED) {
-            Channel channel = TvApplication.getSingletons(getContext()).getChannelDataManager()
-                    .getChannel(schedule.getChannelId());
+            Channel channel =
+                    TvSingletons.getSingletons(getContext())
+                            .getChannelDataManager()
+                            .getChannel(schedule.getChannelId());
             if (channel != null) {
                 return channel.getDisplayName();
             } else {
@@ -151,14 +162,13 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
         }
     }
 
-    /**
-     * A fragment to show the program conflict.
-     */
+    /** A fragment to show the program conflict. */
     public static class DvrProgramConflictFragment extends DvrConflictFragment {
         private Program mProgram;
+
         @Override
-        public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                Bundle savedInstanceState) {
+        public View onCreateView(
+                LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
             Bundle args = getArguments();
             if (args != null) {
                 mProgram = args.getParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM);
@@ -168,8 +178,10 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
             SoftPreconditions.checkNotNull(input);
             List<ScheduledRecording> conflicts = null;
             if (input != null) {
-                conflicts = TvApplication.getSingletons(getContext()).getDvrManager()
-                        .getConflictingSchedules(mProgram);
+                conflicts =
+                        TvSingletons.getSingletons(getContext())
+                                .getDvrManager()
+                                .getConflictingSchedules(mProgram);
             }
             if (conflicts == null) {
                 conflicts = Collections.emptyList();
@@ -185,8 +197,10 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
         @Override
         public Guidance onCreateGuidance(Bundle savedInstanceState) {
             String title = getResources().getString(R.string.dvr_program_conflict_dialog_title);
-            String descriptionPrefix = getString(
-                    R.string.dvr_program_conflict_dialog_description_prefix, mProgram.getTitle());
+            String descriptionPrefix =
+                    getString(
+                            R.string.dvr_program_conflict_dialog_description_prefix,
+                            mProgram.getTitle());
             String description = getConflictDescription();
             if (description == null) {
                 dismissDialog();
@@ -201,21 +215,21 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
         }
     }
 
-    /**
-     * A fragment to show the channel recording conflict.
-     */
+    /** A fragment to show the channel recording conflict. */
     public static class DvrChannelRecordConflictFragment extends DvrConflictFragment {
         private Channel mChannel;
         private long mStartTimeMs;
         private long mEndTimeMs;
 
         @Override
-        public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                Bundle savedInstanceState) {
+        public View onCreateView(
+                LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
             Bundle args = getArguments();
             long channelId = args.getLong(DvrHalfSizedDialogFragment.KEY_CHANNEL_ID);
-            mChannel = TvApplication.getSingletons(getContext()).getChannelDataManager()
-                    .getChannel(channelId);
+            mChannel =
+                    TvSingletons.getSingletons(getContext())
+                            .getChannelDataManager()
+                            .getChannel(channelId);
             SoftPreconditions.checkArgument(mChannel != null);
             TvInputInfo input = Utils.getTvInputInfoForChannelId(getContext(), mChannel.getId());
             SoftPreconditions.checkNotNull(input);
@@ -223,8 +237,11 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
             if (input != null) {
                 mStartTimeMs = args.getLong(DvrHalfSizedDialogFragment.KEY_START_TIME_MS);
                 mEndTimeMs = args.getLong(DvrHalfSizedDialogFragment.KEY_END_TIME_MS);
-                conflicts = TvApplication.getSingletons(getContext()).getDvrManager()
-                        .getConflictingSchedules(mChannel.getId(), mStartTimeMs, mEndTimeMs);
+                conflicts =
+                        TvSingletons.getSingletons(getContext())
+                                .getDvrManager()
+                                .getConflictingSchedules(
+                                        mChannel.getId(), mStartTimeMs, mEndTimeMs);
             }
             if (conflicts == null) {
                 conflicts = Collections.emptyList();
@@ -240,9 +257,10 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
         @Override
         public Guidance onCreateGuidance(Bundle savedInstanceState) {
             String title = getResources().getString(R.string.dvr_channel_conflict_dialog_title);
-            String descriptionPrefix = getString(
-                    R.string.dvr_channel_conflict_dialog_description_prefix,
-                    mChannel.getDisplayName());
+            String descriptionPrefix =
+                    getString(
+                            R.string.dvr_channel_conflict_dialog_description_prefix,
+                            mChannel.getDisplayName());
             String description = getConflictDescription();
             if (description == null) {
                 dismissDialog();
@@ -259,16 +277,16 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
 
     /**
      * A fragment to show the channel watching conflict.
-     * <p>
-     * This fragment is automatically closed when there are no upcoming conflicts.
+     *
+     * <p>This fragment is automatically closed when there are no upcoming conflicts.
      */
     public static class DvrChannelWatchConflictFragment extends DvrConflictFragment
             implements OnUpcomingConflictChangeListener {
         private long mChannelId;
 
         @Override
-        public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                Bundle savedInstanceState) {
+        public View onCreateView(
+                LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
             Bundle args = getArguments();
             if (args != null) {
                 mChannelId = args.getLong(DvrHalfSizedDialogFragment.KEY_CHANNEL_ID);
@@ -298,24 +316,27 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
         @NonNull
         @Override
         public Guidance onCreateGuidance(Bundle savedInstanceState) {
-            String title = getResources().getString(
-                    R.string.dvr_epg_channel_watch_conflict_dialog_title);
-            String description = getResources().getString(
-                    R.string.dvr_epg_channel_watch_conflict_dialog_description);
+            String title =
+                    getResources().getString(R.string.dvr_epg_channel_watch_conflict_dialog_title);
+            String description =
+                    getResources()
+                            .getString(R.string.dvr_epg_channel_watch_conflict_dialog_description);
             return new Guidance(title, description, null, null);
         }
 
         @Override
-        public void onCreateActions(@NonNull List<GuidedAction> actions,
-                Bundle savedInstanceState) {
-            actions.add(new GuidedAction.Builder(getContext())
-                    .id(ACTION_DELETE_CONFLICT)
-                    .title(R.string.dvr_action_delete_schedule)
-                    .build());
-            actions.add(new GuidedAction.Builder(getContext())
-                    .id(ACTION_CANCEL)
-                    .title(R.string.dvr_action_record_program)
-                    .build());
+        public void onCreateActions(
+                @NonNull List<GuidedAction> actions, Bundle savedInstanceState) {
+            actions.add(
+                    new GuidedAction.Builder(getContext())
+                            .id(ACTION_DELETE_CONFLICT)
+                            .title(R.string.dvr_action_delete_schedule)
+                            .build());
+            actions.add(
+                    new GuidedAction.Builder(getContext())
+                            .id(ACTION_CANCEL)
+                            .title(R.string.dvr_action_record_program)
+                            .build());
         }
 
         @Override

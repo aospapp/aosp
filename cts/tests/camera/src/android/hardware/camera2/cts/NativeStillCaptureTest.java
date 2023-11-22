@@ -17,6 +17,7 @@
 package android.hardware.camera2.cts;
 
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
@@ -24,6 +25,7 @@ import android.view.Surface;
 /**
  * <p>Basic test for CameraManager class.</p>
  */
+@AppModeFull
 public class NativeStillCaptureTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "NativeStillCaptureTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);

@@ -23,6 +23,7 @@
 #include <libgen.h>
 #include <limits.h>
 #include <signal.h>
+#include <spawn.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -34,6 +35,10 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+
+#include <android-base/file.h>
+#include <android-base/strings.h>
+#include <android-base/unique_fd.h>
 
 #ifndef TEMP_FAILURE_RETRY
 
@@ -85,7 +90,6 @@ void ColoredPrintf(GTestColor color, const char* fmt, ...);
 }  // namespace testing
 
 using testing::internal::GTestColor;
-using testing::internal::COLOR_DEFAULT;
 using testing::internal::COLOR_RED;
 using testing::internal::COLOR_GREEN;
 using testing::internal::COLOR_YELLOW;
@@ -269,49 +273,60 @@ static int64_t NanoTime() {
 }
 
 static bool EnumerateTests(int argc, char** argv, std::vector<TestCase>& testcase_list) {
-  std::string command;
-  for (int i = 0; i < argc; ++i) {
-    command += argv[i];
-    command += " ";
-  }
-  command += "--gtest_list_tests";
-  FILE* fp = popen(command.c_str(), "r");
-  if (fp == NULL) {
-    perror("popen");
+  std::vector<const char*> args(argv, argv + argc);
+  args.push_back("--gtest_list_tests");
+  args.push_back(nullptr);
+
+  // We use posix_spawn(3) rather than the simpler popen(3) because we don't want an intervening
+  // surprise shell invocation making quoting interesting for --gtest_filter (http://b/68949647).
+
+  android::base::unique_fd read_fd;
+  android::base::unique_fd write_fd;
+  if (!android::base::Pipe(&read_fd, &write_fd)) {
+    perror("pipe");
     return false;
   }
 
-  char buf[200];
-  while (fgets(buf, sizeof(buf), fp) != NULL) {
-    char* p = buf;
+  posix_spawn_file_actions_t fa;
+  posix_spawn_file_actions_init(&fa);
+  posix_spawn_file_actions_addclose(&fa, read_fd);
+  posix_spawn_file_actions_adddup2(&fa, write_fd, 1);
+  posix_spawn_file_actions_adddup2(&fa, write_fd, 2);
+  posix_spawn_file_actions_addclose(&fa, write_fd);
 
-    while (*p != '\0' && isspace(*p)) {
-      ++p;
-    }
-    if (*p == '\0') continue;
-    char* start = p;
-    while (*p != '\0' && !isspace(*p)) {
-      ++p;
-    }
-    char* end = p;
-    while (*p != '\0' && isspace(*p)) {
-      ++p;
-    }
-    if (*p != '\0' && *p != '#') {
-      // This is not we want, gtest must meet with some error when parsing the arguments.
-      fprintf(stderr, "argument error, check with --help\n");
-      return false;
-    }
-    *end = '\0';
-    if (*(end - 1) == '.') {
-      *(end - 1) = '\0';
-      testcase_list.push_back(TestCase(start));
+  pid_t pid;
+  int result = posix_spawnp(&pid, argv[0], &fa, nullptr, const_cast<char**>(args.data()), nullptr);
+  posix_spawn_file_actions_destroy(&fa);
+  if (result == -1) {
+    perror("posix_spawn");
+    return false;
+  }
+  write_fd.reset();
+
+  std::string content;
+  if (!android::base::ReadFdToString(read_fd, &content)) {
+    perror("ReadFdToString");
+    return false;
+  }
+
+  for (auto& line : android::base::Split(content, "\n")) {
+    line = android::base::Split(line, "#")[0];
+    line = android::base::Trim(line);
+    if (line.empty()) continue;
+    if (android::base::EndsWith(line, ".")) {
+      line.pop_back();
+      testcase_list.push_back(TestCase(line.c_str()));
     } else {
-      testcase_list.back().AppendTest(start);
+      testcase_list.back().AppendTest(line.c_str());
     }
   }
-  int result = pclose(fp);
-  return (result != -1 && WEXITSTATUS(result) == 0);
+
+  int status;
+  if (TEMP_FAILURE_RETRY(waitpid(pid, &status, 0)) != pid) {
+    perror("waitpid");
+    return false;
+  }
+  return (WIFEXITED(status) && WEXITSTATUS(status) == 0);
 }
 
 // Part of the following *Print functions are copied from external/gtest/src/gtest.cc:
@@ -526,7 +541,7 @@ void OnTestIterationEndXmlPrint(const std::string& xml_output_filename,
                                 const std::vector<TestCase>& testcase_list,
                                 time_t epoch_iteration_start_time,
                                 int64_t elapsed_time_ns) {
-  FILE* fp = fopen(xml_output_filename.c_str(), "w");
+  FILE* fp = fopen(xml_output_filename.c_str(), "we");
   if (fp == NULL) {
     fprintf(stderr, "failed to open '%s': %s\n", xml_output_filename.c_str(), strerror(errno));
     exit(1);
@@ -1168,10 +1183,7 @@ int main(int argc, char** argv, char** envp) {
   g_argc = argc;
   g_argv = argv;
   g_envp = envp;
-  std::vector<char*> arg_list;
-  for (int i = 0; i < argc; ++i) {
-    arg_list.push_back(argv[i]);
-  }
+  std::vector<char*> arg_list(argv, argv + argc);
 
   IsolationTestOptions options;
   if (PickOptions(arg_list, options) == false) {
@@ -1248,4 +1260,25 @@ static void deathtest_helper_fail() {
 
 TEST_F(bionic_selftest_DeathTest, fail) {
   ASSERT_EXIT(deathtest_helper_fail(), ::testing::ExitedWithCode(0), "");
+}
+
+class BionicSelfTest : public ::testing::TestWithParam<bool> {
+};
+
+TEST_P(BionicSelfTest, test_success) {
+  ASSERT_EQ(GetParam(), GetParam());
+}
+
+INSTANTIATE_TEST_CASE_P(bionic_selftest, BionicSelfTest, ::testing::Values(true, false));
+
+template <typename T>
+class bionic_selftest_TestT : public ::testing::Test {
+};
+
+typedef ::testing::Types<char, int> MyTypes;
+
+TYPED_TEST_CASE(bionic_selftest_TestT, MyTypes);
+
+TYPED_TEST(bionic_selftest_TestT, test_success) {
+  ASSERT_EQ(true, true);
 }

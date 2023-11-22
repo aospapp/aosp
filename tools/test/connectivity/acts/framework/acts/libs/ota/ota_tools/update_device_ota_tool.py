@@ -50,7 +50,7 @@ class UpdateDeviceOtaTool(ota_tool.OtaTool):
         logging.info('Output: %s' % result.stdout)
 
         logging.info('Rebooting device for update to go live.')
-        ota_runner.android_device.adb.reboot()
+        ota_runner.android_device.reboot(stop_at_lock_screen=True)
         logging.info('Reboot sent.')
 
     def __del__(self):

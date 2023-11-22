@@ -21,6 +21,9 @@ en_XA{
         "Asia:Saigon"{
             ec{"[Ĥö Çĥî Ṁîñĥ Çîţý one two]"}
         }
+        "Etc:UTC"{
+            ls{"[Çööŕðîñåţéð Ûñîṽéŕšåļ Ţîɱé one two three]"}
+        }
         "Etc:Unknown"{
             ec{"[Ûñķñöŵñ Çîţý one two]"}
         }
@@ -431,7 +434,7 @@ en_XA{
             ls{"[Ķŕåšñöýåŕšķ Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Kyrgystan"{
-            ls{"[Ķýŕĝýšţåñ Ţîɱé one two]"}
+            ls{"[Ķýŕĝýžšţåñ Ţîɱé one two]"}
         }
         "meta:Lanka"{
             ls{"[Ļåñķå Ţîɱé one two]"}
@@ -488,9 +491,9 @@ en_XA{
             ls{"[Ṁéẋîçåñ Þåçîƒîç Šţåñðåŕð Ţîɱé one two three four]"}
         }
         "meta:Mongolia"{
-            ld{"[Ûļåñ Ɓåţöŕ Šûɱɱéŕ Ţîɱé one two three]"}
-            lg{"[Ûļåñ Ɓåţöŕ Ţîɱé one two]"}
-            ls{"[Ûļåñ Ɓåţöŕ Šţåñðåŕð Ţîɱé one two three]"}
+            ld{"[Ûļååñƀååţåŕ Šûɱɱéŕ Ţîɱé one two three]"}
+            lg{"[Ûļååñƀååţåŕ Ţîɱé one two]"}
+            ls{"[Ûļååñƀååţåŕ Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Moscow"{
             ld{"[Ṁöšçöŵ Šûɱɱéŕ Ţîɱé one two three]"}

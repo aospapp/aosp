@@ -2,12 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import datetime, logging, time
+import datetime
+import logging
+import time
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros import tpm_utils
-from autotest_lib.server import test
-from autotest_lib.server.cros.multimedia import remote_facade_factory
+from autotest_lib.server.cros.cfm import cfm_base_test
 
 
 LONG_TIMEOUT = 10
@@ -15,7 +15,7 @@ SHORT_TIMEOUT = 5
 FAILED_TEST_LIST = list()
 
 
-class enterprise_CFM_Sanity(test.test):
+class enterprise_CFM_Sanity(cfm_base_test.CfmBaseTest):
     """Tests the following fuctionality works on CFM enrolled devices:
            1. Is able to reach the oobe screen
            2. Is able to start a hangout session
@@ -29,7 +29,6 @@ class enterprise_CFM_Sanity(test.test):
     """
     version = 1
 
-
     def _hangouts_sanity_test(self):
         """Execute a series of test actions and perform verifications.
 
@@ -37,14 +36,6 @@ class enterprise_CFM_Sanity(test.test):
         """
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         hangout_name = 'auto-hangout-' + current_time
-
-        self.cfm_facade.wait_for_telemetry_commands()
-        self.cfm_facade.wait_for_oobe_start_page()
-
-        if not self.cfm_facade.is_oobe_start_page():
-            raise error.TestFail('CFM did not reach oobe screen.')
-
-        self.cfm_facade.skip_oobe_screen()
 
         if self.cfm_facade.is_ready_to_start_hangout_session():
             self.cfm_facade.start_new_hangout_session(hangout_name)
@@ -126,34 +117,12 @@ class enterprise_CFM_Sanity(test.test):
             FAILED_TEST_LIST.append('Diagnostics failed')
 
 
-    def run_once(self, host=None):
+    def run_once(self):
         """Runs the test."""
-        self.client = host
-
-        factory = remote_facade_factory.RemoteFacadeFactory(
-                host, no_chrome=True)
-        self.cfm_facade = factory.create_cfm_facade()
-
-        tpm_utils.ClearTPMOwnerRequest(self.client)
-
-        if self.client.servo:
-            self.client.servo.switch_usbkey('dut')
-            self.client.servo.set('usb_mux_sel3', 'dut_sees_usbkey')
-            time.sleep(SHORT_TIMEOUT)
-            self.client.servo.set('dut_hub1_rst1', 'off')
-            time.sleep(SHORT_TIMEOUT)
-
-        try:
-            self.cfm_facade.enroll_device()
-            self.cfm_facade.restart_chrome_for_cfm()
-
-            self._hangouts_sanity_test()
-            self._peripherals_sanity_test()
-            self._diagnostics_sanity_test()
-        except Exception as e:
-            raise error.TestFail(str(e))
-
-        tpm_utils.ClearTPMOwnerRequest(self.client)
+        self.cfm_facade.wait_for_hangouts_telemetry_commands()
+        self._hangouts_sanity_test()
+        self._peripherals_sanity_test()
+        self._diagnostics_sanity_test()
 
         if FAILED_TEST_LIST:
             raise error.TestFail('Test failed because of following reasons: %s'

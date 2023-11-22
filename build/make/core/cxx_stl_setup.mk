@@ -74,6 +74,16 @@ my_cxx_ldlibs :=
 ifneq ($(filter $(my_cxx_stl),libc++ libc++_static),)
     my_cflags += -D_USING_LIBCXX
 
+    ifeq ($($(my_prefix)OS),darwin)
+        # libc++'s headers are annotated with availability macros that indicate
+        # which version of Mac OS was the first to ship with a libc++ feature
+        # available in its *system's* libc++.dylib. We do not use the system's
+        # library, but rather ship our own. As such, these availability
+        # attributes are meaningless for us but cause build breaks when we try
+        # to use code that would not be available in the system's dylib.
+        my_cppflags += -D_LIBCPP_DISABLE_AVAILABILITY
+    endif
+
     # Note that the structure of this means that LOCAL_CXX_STL := libc++ will
     # use the static libc++ for static executables.
     ifeq ($(my_link_type),dynamic)
@@ -89,7 +99,6 @@ ifneq ($(filter $(my_cxx_stl),libc++ libc++_static),)
     ifdef LOCAL_IS_HOST_MODULE
         my_cppflags += -nostdinc++
         my_ldflags += -nodefaultlibs
-        my_ldlibs += -lpthread -lm
         my_cxx_ldlibs += $($($(my_prefix)OS)_$(my_link_type)_gcclibs)
     else
         ifeq (arm,$($(my_prefix)$(LOCAL_2ND_ARCH_VAR_PREFIX)ARCH))

@@ -73,6 +73,7 @@ GL2Encoder::GL2Encoder(IOStream *stream, ChecksumCalculator *protocol)
     m_currMajorVersion = 2;
     m_currMinorVersion = 0;
     m_initialized = false;
+    m_noHostError = false;
     m_state = NULL;
     m_error = GL_NO_ERROR;
     m_num_compressedTextureFormats = 0;
@@ -195,6 +196,8 @@ GL2Encoder::GL2Encoder(IOStream *stream, ChecksumCalculator *protocol)
     OVERRIDEOES(glDeleteVertexArrays);
     OVERRIDEOES(glBindVertexArray);
 
+    OVERRIDE_CUSTOM(glMapBufferOES);
+    OVERRIDE_CUSTOM(glUnmapBufferOES);
     OVERRIDE_CUSTOM(glMapBufferRange);
     OVERRIDE_CUSTOM(glUnmapBuffer);
     OVERRIDE_CUSTOM(glFlushMappedBufferRange);
@@ -363,7 +366,11 @@ GLenum GL2Encoder::s_glGetError(void * self)
         return err;
     }
 
-    return ctx->m_glGetError_enc(self);
+    if (ctx->m_noHostError) {
+        return GL_NO_ERROR;
+    } else {
+        return ctx->m_glGetError_enc(self);
+    }
 }
 
 class GL2Encoder::ErrorUpdater {
@@ -629,6 +636,9 @@ void GL2Encoder::s_glGetIntegerv(void *self, GLenum param, GLint *ptr)
     GLClientState* state = ctx->m_state;
 
     switch (param) {
+    case GL_NUM_EXTENSIONS:
+        *ptr = (int)ctx->m_currExtensionsArray.size();
+        break;
     case GL_MAJOR_VERSION:
         *ptr = ctx->m_deviceMajorVersion;
         break;
@@ -1321,42 +1331,73 @@ GLint * GL2Encoder::getCompressedTextureFormats()
 //      #define SAMPLER(TYPE, NAME) uniform sampler#TYPE NAME
 //      SAMPLER(ExternalOES, mySampler);
 //
-static bool replaceSamplerExternalWith2D(char* const str, ShaderData* const data)
-{
-    static const char STR_HASH_EXTENSION[] = "#extension";
-    static const char STR_GL_OES_EGL_IMAGE_EXTERNAL[] = "GL_OES_EGL_image_external";
-    static const char STR_SAMPLER_EXTERNAL_OES[] = "samplerExternalOES";
-    static const char STR_SAMPLER2D_SPACE[]      = "sampler2D         ";
 
-    // -- overwrite all "#extension GL_OES_EGL_image_external : xxx" statements
+static const char STR_SAMPLER_EXTERNAL_OES[] = "samplerExternalOES";
+static const char STR_SAMPLER2D_SPACE[]      = "sampler2D         ";
+static const char STR_DEFINE[] = "#define";
+
+static std::vector<std::string> getSamplerExternalAliases(char* str) {
+    std::vector<std::string> res;
+
+    res.push_back(STR_SAMPLER_EXTERNAL_OES);
+
+    // -- capture #define x samplerExternalOES
     char* c = str;
-    while ((c = strstr(c, STR_HASH_EXTENSION))) {
-        char* start = c;
-        c += sizeof(STR_HASH_EXTENSION)-1;
-        while (isspace(*c) && *c != '\0') {
-            c++;
-        }
-        if (strncmp(c, STR_GL_OES_EGL_IMAGE_EXTERNAL,
-                sizeof(STR_GL_OES_EGL_IMAGE_EXTERNAL)-1) == 0)
-        {
-            // #extension statements are terminated by end of line
-            c = start;
-            while (*c != '\0' && *c != '\r' && *c != '\n') {
-                *c++ = ' ';
+    while ((c = strstr(c, STR_DEFINE))) {
+        // Don't push it if samplerExternalOES is not even there.
+        char* samplerExternalOES_next = strstr(c, STR_SAMPLER_EXTERNAL_OES);
+        if (!samplerExternalOES_next) break;
+
+        bool prevIdent = false;
+
+        std::vector<std::string> idents;
+        std::string curr;
+
+        while (*c != '\0') {
+
+            if (isspace(*c)) {
+                if (prevIdent) {
+                    idents.push_back(curr);
+                    curr = "";
+                }
             }
+
+            if (*c == '\n' || idents.size() == 3) break;
+
+            if (isalpha(*c) || *c == '_') {
+                curr.push_back(*c);
+                prevIdent = true;
+            }
+
+            ++c;
         }
+
+        if (idents.size() != 3) continue;
+
+        const std::string& defineLhs = idents[1];
+        const std::string& defineRhs = idents[2];
+
+        if (defineRhs == STR_SAMPLER_EXTERNAL_OES) {
+            res.push_back(defineLhs);
+        }
+
+        if (*c == '\0') break;
     }
 
+    return res;
+}
+
+static bool replaceExternalSamplerUniformDefinition(char* str, const std::string& samplerExternalType, ShaderData* data) {
     // -- replace "samplerExternalOES" with "sampler2D" and record name
-    c = str;
-    while ((c = strstr(c, STR_SAMPLER_EXTERNAL_OES))) {
+    char* c = str;
+    while ((c = strstr(c, samplerExternalType.c_str()))) {
         // Make sure "samplerExternalOES" isn't a substring of a larger token
         if (c == str || !isspace(*(c-1))) {
             c++;
             continue;
         }
         char* sampler_start = c;
-        c += sizeof(STR_SAMPLER_EXTERNAL_OES)-1;
+        c += samplerExternalType.size();
         if (!isspace(*c) && *c != '\0') {
             continue;
         }
@@ -1376,8 +1417,58 @@ static bool replaceSamplerExternalWith2D(char* const str, ShaderData* const data
         data->samplerExternalNames.push_back(
                 android::String8(name_start, c - name_start));
 
-        // memcpy instead of strcpy since we don't want the NUL terminator
-        memcpy(sampler_start, STR_SAMPLER2D_SPACE, sizeof(STR_SAMPLER2D_SPACE)-1);
+        // We only need to perform a string replacement for the original
+        // occurrence of samplerExternalOES if a #define was used.
+        //
+        // The important part was to record the name in
+        // |data->samplerExternalNames|.
+        if (samplerExternalType == STR_SAMPLER_EXTERNAL_OES) {
+            memcpy(sampler_start, STR_SAMPLER2D_SPACE, sizeof(STR_SAMPLER2D_SPACE)-1);
+        }
+    }
+
+    return true;
+}
+
+static bool replaceSamplerExternalWith2D(char* const str, ShaderData* const data)
+{
+    static const char STR_HASH_EXTENSION[] = "#extension";
+    static const char STR_GL_OES_EGL_IMAGE_EXTERNAL[] = "GL_OES_EGL_image_external";
+    static const char STR_GL_OES_EGL_IMAGE_EXTERNAL_ESSL3[] = "GL_OES_EGL_image_external_essl3";
+
+    // -- overwrite all "#extension GL_OES_EGL_image_external : xxx" statements
+    char* c = str;
+    while ((c = strstr(c, STR_HASH_EXTENSION))) {
+        char* start = c;
+        c += sizeof(STR_HASH_EXTENSION)-1;
+        while (isspace(*c) && *c != '\0') {
+            c++;
+        }
+
+        bool hasBaseImageExternal =
+            !strncmp(c, STR_GL_OES_EGL_IMAGE_EXTERNAL,
+                     sizeof(STR_GL_OES_EGL_IMAGE_EXTERNAL) - 1);
+        bool hasEssl3ImageExternal =
+            !strncmp(c, STR_GL_OES_EGL_IMAGE_EXTERNAL_ESSL3,
+                     sizeof(STR_GL_OES_EGL_IMAGE_EXTERNAL_ESSL3) - 1);
+
+        if (hasBaseImageExternal || hasEssl3ImageExternal)
+        {
+            // #extension statements are terminated by end of line
+            c = start;
+            while (*c != '\0' && *c != '\r' && *c != '\n') {
+                *c++ = ' ';
+            }
+        }
+    }
+
+    std::vector<std::string> samplerExternalAliases =
+        getSamplerExternalAliases(str);
+
+    for (size_t i = 0; i < samplerExternalAliases.size(); i++) {
+        if (!replaceExternalSamplerUniformDefinition(
+                str, samplerExternalAliases[i], data))
+            return false;
     }
 
     return true;
@@ -2579,6 +2670,27 @@ void GL2Encoder::s_glBindVertexArray(void* self, GLuint array) {
     state->setVertexArrayObject(array);
 }
 
+void* GL2Encoder::s_glMapBufferOES(void* self, GLenum target, GLenum access) {
+    GL2Encoder* ctx = (GL2Encoder*)self;
+
+    RET_AND_SET_ERROR_IF(!GLESv2Validation::bufferTarget(ctx, target), GL_INVALID_ENUM, NULL);
+
+    GLuint boundBuffer = ctx->m_state->getBuffer(target);
+
+    RET_AND_SET_ERROR_IF(boundBuffer == 0, GL_INVALID_OPERATION, NULL);
+
+    BufferData* buf = ctx->m_shared->getBufferData(boundBuffer);
+    RET_AND_SET_ERROR_IF(!buf, GL_INVALID_VALUE, NULL);
+
+    return ctx->glMapBufferRange(ctx, target, 0, buf->m_size, access);
+}
+
+GLboolean GL2Encoder::s_glUnmapBufferOES(void* self, GLenum target) {
+    GL2Encoder* ctx = (GL2Encoder*)self;
+
+    return ctx->glUnmapBuffer(ctx, target);
+}
+
 void* GL2Encoder::s_glMapBufferRange(void* self, GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access) {
     GL2Encoder* ctx = (GL2Encoder*)self;
     GLClientState* state = ctx->m_state;
@@ -2739,6 +2851,10 @@ void GL2Encoder::s_glCompressedTexImage2D(void* self, GLenum target, GLint level
     state->setBoundTextureInternalFormat(stateTarget, (GLint)internalformat);
     state->setBoundTextureDims(stateTarget, level, width, height, 1);
 
+    if (target == GL_TEXTURE_2D || target == GL_TEXTURE_EXTERNAL_OES) {
+        ctx->override2DTextureTarget(target);
+    }
+
     if (ctx->boundBuffer(GL_PIXEL_UNPACK_BUFFER)) {
         ctx->glCompressedTexImage2DOffsetAEMU(
                 ctx, target, level, internalformat,
@@ -2749,6 +2865,10 @@ void GL2Encoder::s_glCompressedTexImage2D(void* self, GLenum target, GLint level
                 ctx, target, level, internalformat,
                 width, height, border,
                 imageSize, data);
+    }
+
+    if (target == GL_TEXTURE_2D || target == GL_TEXTURE_EXTERNAL_OES) {
+        ctx->restore2DTextureTarget(target);
     }
 }
 
@@ -2774,6 +2894,10 @@ void GL2Encoder::s_glCompressedTexSubImage2D(void* self, GLenum target, GLint le
                  GL_INVALID_OPERATION);
     SET_ERROR_IF(xoffset < 0 || yoffset < 0, GL_INVALID_VALUE);
 
+    if (target == GL_TEXTURE_2D || target == GL_TEXTURE_EXTERNAL_OES) {
+        ctx->override2DTextureTarget(target);
+    }
+
     if (ctx->boundBuffer(GL_PIXEL_UNPACK_BUFFER)) {
         ctx->glCompressedTexSubImage2DOffsetAEMU(
                 ctx, target, level,
@@ -2786,6 +2910,10 @@ void GL2Encoder::s_glCompressedTexSubImage2D(void* self, GLenum target, GLint le
                 xoffset, yoffset,
                 width, height, format,
                 imageSize, data);
+    }
+
+    if (target == GL_TEXTURE_2D || target == GL_TEXTURE_EXTERNAL_OES) {
+        ctx->restore2DTextureTarget(target);
     }
 }
 
@@ -3383,7 +3511,16 @@ void GL2Encoder::s_glTexStorage2D(void* self, GLenum target, GLsizei levels, GLe
     state->setBoundTextureInternalFormat(target, internalformat);
     state->setBoundTextureDims(target, -1, width, height, 1);
     state->setBoundTextureImmutableFormat(target);
+
+    if (target == GL_TEXTURE_2D) {
+        ctx->override2DTextureTarget(target);
+    }
+
     ctx->m_glTexStorage2D_enc(ctx, target, levels, internalformat, width, height);
+
+    if (target == GL_TEXTURE_2D) {
+        ctx->restore2DTextureTarget(target);
+    }
 }
 
 void GL2Encoder::s_glTransformFeedbackVaryings(void* self, GLuint program, GLsizei count, const char** varyings, GLenum bufferMode) {
@@ -3873,7 +4010,7 @@ void GL2Encoder::s_glDrawRangeElements(void* self, GLenum mode, GLuint start, GL
 
 const GLubyte* GL2Encoder::s_glGetStringi(void* self, GLenum name, GLuint index) {
     GL2Encoder *ctx = (GL2Encoder *)self;
-    GLubyte *retval =  (GLubyte *) "";
+    const GLubyte *retval =  (GLubyte *) "";
 
     RET_AND_SET_ERROR_IF(
         name != GL_VENDOR &&
@@ -3887,8 +4024,13 @@ const GLubyte* GL2Encoder::s_glGetStringi(void* self, GLenum name, GLuint index)
         name == GL_VENDOR ||
         name == GL_RENDERER ||
         name == GL_VERSION ||
-        name == GL_EXTENSIONS &&
         index != 0,
+        GL_INVALID_VALUE,
+        retval);
+
+    RET_AND_SET_ERROR_IF(
+        name == GL_EXTENSIONS &&
+        index >= ctx->m_currExtensionsArray.size(),
         GL_INVALID_VALUE,
         retval);
 
@@ -3903,7 +4045,7 @@ const GLubyte* GL2Encoder::s_glGetStringi(void* self, GLenum name, GLuint index)
         retval = gVersionString;
         break;
     case GL_EXTENSIONS:
-        retval = gExtensionsString;
+        retval = (const GLubyte*)(ctx->m_currExtensionsArray[index].c_str());
         break;
     }
 
@@ -4148,7 +4290,8 @@ void GL2Encoder::s_glGenerateMipmap(void* self, GLenum target) {
 
     SET_ERROR_IF(target != GL_TEXTURE_2D &&
                  target != GL_TEXTURE_3D &&
-                 target != GL_TEXTURE_CUBE_MAP,
+                 target != GL_TEXTURE_CUBE_MAP &&
+                 target != GL_TEXTURE_2D_ARRAY,
                  GL_INVALID_ENUM);
 
     GLuint tex = state->getBoundTexture(target);
@@ -4163,7 +4306,15 @@ void GL2Encoder::s_glGenerateMipmap(void* self, GLenum target) {
                    GLESv2Validation::filterableTexFormat(ctx, internalformat)),
                  GL_INVALID_OPERATION);
 
+    if (target == GL_TEXTURE_2D) {
+        ctx->override2DTextureTarget(target);
+    }
+
     ctx->m_glGenerateMipmap_enc(ctx, target);
+
+    if (target == GL_TEXTURE_2D) {
+        ctx->restore2DTextureTarget(target);
+    }
 }
 
 void GL2Encoder::s_glBindSampler(void* self, GLuint unit, GLuint sampler) {

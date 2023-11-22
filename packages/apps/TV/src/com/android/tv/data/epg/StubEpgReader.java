@@ -17,23 +17,20 @@
 package com.android.tv.data.epg;
 
 import android.content.Context;
-
 import android.support.annotation.NonNull;
-import com.android.tv.data.Channel;
 import com.android.tv.data.Lineup;
 import com.android.tv.data.Program;
+import com.android.tv.data.api.Channel;
 import com.android.tv.dvr.data.SeriesInfo;
-
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-/**
- * A stub class to read EPG.
- */
-public class StubEpgReader implements EpgReader{
-    public StubEpgReader(@SuppressWarnings("unused") Context context) {
-    }
+/** A stub class to read EPG. */
+public class StubEpgReader implements EpgReader {
+    public StubEpgReader(@SuppressWarnings("unused") Context context) {}
 
     @Override
     public boolean isAvailable() {
@@ -61,8 +58,8 @@ public class StubEpgReader implements EpgReader{
     }
 
     @Override
-    public List<Channel> getChannels(@NonNull String lineupId) {
-        return Collections.emptyList();
+    public Set<EpgChannel> getChannels(Set<Channel> inputChannels, @NonNull String lineupId) {
+        return Collections.emptySet();
     }
 
     @Override
@@ -76,12 +73,13 @@ public class StubEpgReader implements EpgReader{
     }
 
     @Override
-    public List<Program> getPrograms(long channelId) {
+    public List<Program> getPrograms(EpgChannel epgChannel) {
         return Collections.emptyList();
     }
 
     @Override
-    public Map<Long, List<Program>> getPrograms(@NonNull List<Long> channelIds, long duration) {
+    public Map<EpgChannel, Collection<Program>> getPrograms(
+            @NonNull Set<EpgChannel> channels, long duration) {
         return Collections.emptyMap();
     }
 

@@ -605,10 +605,6 @@ UfsPassThruGetNextTarget (
   IN OUT UINT8                           **Target
   )
 {
-  UFS_PASS_THRU_PRIVATE_DATA      *Private;
-
-  Private = UFS_PASS_THRU_PRIVATE_DATA_FROM_THIS (This);
-
   if (Target == NULL || *Target == NULL) {
     return EFI_INVALID_PARAMETER;
   }
@@ -856,6 +852,8 @@ UfsPassThruDriverBindingStart (
     DEBUG ((EFI_D_ERROR, "Ufs Set fDeviceInit Flag Error, Status = %r\n", Status));
     goto Error;
   }
+
+  MicroSecondDelay (100000);
 
   //
   // Get Ufs Device's Lun Info by reading Configuration Descriptor.

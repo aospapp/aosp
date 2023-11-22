@@ -504,5 +504,7 @@ public class RectFTest {
         assertNotNull(rectIn.toString());
 
         assertEquals(0, rectIn.describeContents());
+
+        out.recycle();
     }
 }

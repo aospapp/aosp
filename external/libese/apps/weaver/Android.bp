@@ -18,6 +18,11 @@ cc_library {
     name: "libese-app-weaver",
     defaults: ["libese-app-defaults"],
     srcs: ["weaver.c"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-error=unused-variable",
+    ],
     shared_libs: ["liblog", "libese", "libese-sysdeps"],
 }
 
@@ -25,6 +30,7 @@ cc_test {
     name: "libese-app-weaver-test",
     defaults: ["libese-app-defaults"],
     srcs: ["tests/weaver_test.cpp"],
+    cflags: ["-Wall", "-Werror"],
     shared_libs: [
         "libese",
         "libese-app-weaver",

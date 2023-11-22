@@ -87,13 +87,21 @@ class LibcxxTestFormat(object):
         name_root, name_ext = os.path.splitext(name)
         is_libcxx_test = test.path_in_suite[0] == 'libcxx'
         is_sh_test = name_root.endswith('.sh')
-        is_pass_test = name.endswith('.pass.cpp')
-        is_fail_test = name.endswith('.fail.cpp')
-        assert is_sh_test or name_ext == '.cpp', 'non-cpp file must be sh test'
+        is_pass_test = name.endswith('.pass.cpp') or name.endswith('.pass.mm')
+        is_fail_test = name.endswith('.fail.cpp') or name.endswith('.fail.mm')
+        is_objcxx_test = name.endswith('.mm')
+        is_objcxx_arc_test = name.endswith('.arc.pass.mm') or \
+                             name.endswith('.arc.fail.mm')
+        assert is_sh_test or name_ext == '.cpp' or name_ext == '.mm', \
+            'non-cpp file must be sh test'
 
         if test.config.unsupported:
             return (lit.Test.UNSUPPORTED,
                     "A lit.local.cfg marked this unsupported")
+
+        if is_objcxx_test and not \
+           'objective-c++' in test.config.available_features:
+            return (lit.Test.UNSUPPORTED, "Objective-C++ is not supported")
 
         parsers = self._make_custom_parsers()
         script = lit.TestRunner.parseIntegratedTestScript(
@@ -133,13 +141,21 @@ class LibcxxTestFormat(object):
                 if '#define _LIBCPP_ASSERT' in contents:
                     test_cxx.useModules(False)
 
+        if is_objcxx_test:
+            test_cxx.source_lang = 'objective-c++'
+            if is_objcxx_arc_test:
+                test_cxx.compile_flags += ['-fobjc-arc']
+            else:
+                test_cxx.compile_flags += ['-fno-objc-arc']
+            test_cxx.link_flags += ['-framework', 'Foundation']
+
         # Dispatch the test based on its suffix.
         if is_sh_test:
             if not isinstance(self.executor, LocalExecutor):
                 # We can't run ShTest tests with a executor yet.
                 # For now, bail on trying to run them
                 return lit.Test.UNSUPPORTED, 'ShTest format not yet supported'
-            test.config.enviroment = dict(self.exec_env)
+            test.config.environment = dict(self.exec_env)
             return lit.TestRunner._runShTest(test, lit_config,
                                              self.execute_external, script,
                                              tmpBase)
@@ -226,7 +242,18 @@ class LibcxxTestFormat(object):
             test_cxx.useWarnings()
             if '-Wuser-defined-warnings' in test_cxx.warning_flags:
                 test_cxx.warning_flags += ['-Wno-error=user-defined-warnings']
-
+        else:
+            # We still need to enable certain warnings on .fail.cpp test when
+            # -verify isn't enabled. Such as -Werror=unused-result. However,
+            # we don't want it enabled too liberally, which might incorrectly
+            # allow unrelated failure tests to 'pass'.
+            #
+            # Therefore, we check if the test was expected to fail because of
+            # nodiscard before enabling it
+            test_str = "ignoring return value of function declared with " \
+              + "'nodiscard' attribute"
+            if test_str in contents:
+                test_cxx.flags += ['-Werror=unused-result']
         cmd, out, err, rc = test_cxx.compile(source_path, out=os.devnull)
         expected_rc = 0 if use_verify else 1
         if rc == expected_rc:

@@ -32,7 +32,7 @@
 
 #include <sys/resource.h>
 #include "lapi/getrandom.h"
-#include "linux_syscall_numbers.h"
+#include "lapi/syscalls.h"
 #include "tst_test.h"
 
 static void verify_getrandom(void)
@@ -55,6 +55,5 @@ static void verify_getrandom(void)
 }
 
 static struct tst_test test = {
-	.tid = "getrandom04",
 	.test_all = verify_getrandom,
 };

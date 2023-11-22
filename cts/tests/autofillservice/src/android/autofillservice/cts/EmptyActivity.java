@@ -18,16 +18,26 @@ package android.autofillservice.cts;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
+import android.view.View;
 
 /**
  * Empty activity
  */
 public class EmptyActivity extends Activity {
+
+    private View mEmptyView;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.empty);
+        mEmptyView = findViewById(R.id.empty);
     }
+
+    public View getEmptyView() {
+        return mEmptyView;
+    }
+
 }

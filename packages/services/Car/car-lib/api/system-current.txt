@@ -1,82 +1,42 @@
 package android.car {
 
   public final class Car {
-    method public void connect() throws java.lang.IllegalStateException;
-    method public static android.car.Car createCar(android.content.Context, android.content.ServiceConnection, android.os.Handler);
-    method public static android.car.Car createCar(android.content.Context, android.content.ServiceConnection);
-    method public void disconnect();
-    method public int getCarConnectionType();
-    method public java.lang.Object getCarManager(java.lang.String) throws android.car.CarNotConnectedException;
-    method public boolean isConnected();
-    method public boolean isConnecting();
-    field public static final java.lang.String APP_FOCUS_SERVICE = "app_focus";
-    field public static final java.lang.String AUDIO_SERVICE = "audio";
     field public static final java.lang.String CABIN_SERVICE = "cabin";
-    field public static final java.lang.String CAR_EXTRA_MEDIA_PACKAGE = "android.car.intent.extra.MEDIA_PACKAGE";
-    field public static final java.lang.String CAR_INTENT_ACTION_MEDIA_TEMPLATE = "android.car.intent.action.MEDIA_TEMPLATE";
-    field public static final int CONNECTION_TYPE_EMBEDDED = 5; // 0x5
+    field public static final java.lang.String CAR_DRIVING_STATE_SERVICE = "drivingstate";
     field public static final java.lang.String DIAGNOSTIC_SERVICE = "diagnostic";
     field public static final java.lang.String HVAC_SERVICE = "hvac";
-    field public static final java.lang.String INFO_SERVICE = "info";
-    field public static final java.lang.String PACKAGE_SERVICE = "package";
-    field public static final java.lang.String PERMISSION_CAR_CABIN = "android.car.permission.CAR_CABIN";
-    field public static final java.lang.String PERMISSION_CAR_CONTROL_AUDIO_VOLUME = "android.car.permission.CAR_CONTROL_AUDIO_VOLUME";
-    field public static final java.lang.String PERMISSION_CAR_DIAGNOSTIC_CLEAR = "android.car.permission.DIAGNOSTIC_CLEAR";
-    field public static final java.lang.String PERMISSION_CAR_DIAGNOSTIC_READ_ALL = "android.car.permission.DIAGNOSTIC_READ_ALL";
-    field public static final java.lang.String PERMISSION_CAR_HVAC = "android.car.permission.CAR_HVAC";
+    field public static final java.lang.String PERMISSION_ADJUST_CAR_CABIN = "android.car.permission.ADJUST_CAR_CABIN";
+    field public static final java.lang.String PERMISSION_CAR_DIAGNOSTIC_CLEAR = "android.car.permission.CLEAR_CAR_DIAGNOSTICS";
+    field public static final java.lang.String PERMISSION_CAR_DIAGNOSTIC_READ_ALL = "android.car.permission.CAR_DIAGNOSTICS";
+    field public static final java.lang.String PERMISSION_CAR_DRIVING_STATE = "android.car.permission.CAR_DRIVING_STATE";
+    field public static final java.lang.String PERMISSION_CAR_DYNAMICS_STATE = "android.car.permission.CAR_DYNAMICS_STATE";
+    field public static final java.lang.String PERMISSION_CAR_ENGINE_DETAILED = "android.car.permission.CAR_ENGINE_DETAILED";
+    field public static final java.lang.String PERMISSION_CAR_INSTRUMENT_CLUSTER_CONTROL = "android.car.permission.CAR_INSTRUMENT_CLUSTER_CONTROL";
+    field public static final java.lang.String PERMISSION_CAR_POWER = "android.car.permission.CAR_POWER";
     field public static final java.lang.String PERMISSION_CAR_PROJECTION = "android.car.permission.CAR_PROJECTION";
-    field public static final java.lang.String PERMISSION_CAR_RADIO = "android.car.permission.CAR_RADIO";
     field public static final java.lang.String PERMISSION_CAR_TEST_SERVICE = "android.car.permission.CAR_TEST_SERVICE";
     field public static final java.lang.String PERMISSION_CONTROL_APP_BLOCKING = "android.car.permission.CONTROL_APP_BLOCKING";
-    field public static final java.lang.String PERMISSION_FUEL = "android.car.permission.CAR_FUEL";
+    field public static final java.lang.String PERMISSION_CONTROL_CAR_CLIMATE = "android.car.permission.CONTROL_CAR_CLIMATE";
+    field public static final java.lang.String PERMISSION_CONTROL_CAR_DOORS = "android.car.permission.CONTROL_CAR_DOORS";
+    field public static final java.lang.String PERMISSION_CONTROL_CAR_MIRRORS = "android.car.permission.CONTROL_CAR_MIRRORS";
+    field public static final java.lang.String PERMISSION_CONTROL_CAR_SEATS = "android.car.permission.CONTROL_CAR_SEATS";
+    field public static final java.lang.String PERMISSION_CONTROL_CAR_WINDOWS = "android.car.permission.CONTROL_CAR_WINDOWS";
+    field public static final java.lang.String PERMISSION_CONTROL_EXTERIOR_LIGHTS = "android.car.permission.CONTROL_CAR_EXTERIOR_LIGHTS";
+    field public static final java.lang.String PERMISSION_EXTERIOR_LIGHTS = "android.car.permission.CAR_EXTERIOR_LIGHTS";
     field public static final java.lang.String PERMISSION_MILEAGE = "android.car.permission.CAR_MILEAGE";
     field public static final deprecated java.lang.String PERMISSION_MOCK_VEHICLE_HAL = "android.car.permission.CAR_MOCK_VEHICLE_HAL";
-    field public static final java.lang.String PERMISSION_SPEED = "android.car.permission.CAR_SPEED";
-    field public static final java.lang.String PERMISSION_VEHICLE_DYNAMICS_STATE = "android.car.permission.VEHICLE_DYNAMICS_STATE";
+    field public static final java.lang.String PERMISSION_STORAGE_MONITORING = "android.car.permission.STORAGE_MONITORING";
+    field public static final java.lang.String PERMISSION_TIRES = "android.car.permission.CAR_TIRES";
     field public static final java.lang.String PERMISSION_VENDOR_EXTENSION = "android.car.permission.CAR_VENDOR_EXTENSION";
+    field public static final java.lang.String PERMISSION_VMS_PUBLISHER = "android.car.permission.VMS_PUBLISHER";
+    field public static final java.lang.String PERMISSION_VMS_SUBSCRIBER = "android.car.permission.VMS_SUBSCRIBER";
+    field public static final java.lang.String POWER_SERVICE = "power";
     field public static final java.lang.String PROJECTION_SERVICE = "projection";
-    field public static final java.lang.String RADIO_SERVICE = "radio";
-    field public static final java.lang.String SENSOR_SERVICE = "sensor";
+    field public static final java.lang.String PROPERTY_SERVICE = "property";
+    field public static final java.lang.String STORAGE_MONITORING_SERVICE = "storage_monitoring";
     field public static final java.lang.String TEST_SERVICE = "car-service-test";
     field public static final java.lang.String VENDOR_EXTENSION_SERVICE = "vendor_extension";
-    field public static final int VERSION = 3; // 0x3
-  }
-
-  public final class CarAppFocusManager {
-    method public void abandonAppFocus(android.car.CarAppFocusManager.OnAppFocusOwnershipCallback, int);
-    method public void abandonAppFocus(android.car.CarAppFocusManager.OnAppFocusOwnershipCallback);
-    method public void addFocusListener(android.car.CarAppFocusManager.OnAppFocusChangedListener, int) throws android.car.CarNotConnectedException;
-    method public boolean isOwningFocus(android.car.CarAppFocusManager.OnAppFocusOwnershipCallback, int) throws android.car.CarNotConnectedException;
-    method public void removeFocusListener(android.car.CarAppFocusManager.OnAppFocusChangedListener, int);
-    method public void removeFocusListener(android.car.CarAppFocusManager.OnAppFocusChangedListener);
-    method public int requestAppFocus(int, android.car.CarAppFocusManager.OnAppFocusOwnershipCallback) throws android.car.CarNotConnectedException, java.lang.SecurityException;
-    field public static final int APP_FOCUS_REQUEST_FAILED = 0; // 0x0
-    field public static final int APP_FOCUS_REQUEST_SUCCEEDED = 1; // 0x1
-    field public static final int APP_FOCUS_TYPE_NAVIGATION = 1; // 0x1
-    field public static final int APP_FOCUS_TYPE_VOICE_COMMAND = 2; // 0x2
-  }
-
-  public static abstract interface CarAppFocusManager.OnAppFocusChangedListener {
-    method public abstract void onAppFocusChanged(int, boolean);
-  }
-
-  public static abstract interface CarAppFocusManager.OnAppFocusOwnershipCallback {
-    method public abstract void onAppFocusOwnershipGranted(int);
-    method public abstract void onAppFocusOwnershipLost(int);
-  }
-
-  public final class CarInfoManager {
-    method public java.lang.String getManufacturer() throws android.car.CarNotConnectedException;
-    method public java.lang.String getModel() throws android.car.CarNotConnectedException;
-    method public java.lang.String getModelYear() throws android.car.CarNotConnectedException;
-    method public java.lang.String getVehicleId() throws android.car.CarNotConnectedException;
-  }
-
-  public class CarNotConnectedException extends java.lang.Exception {
-    ctor public CarNotConnectedException();
-    ctor public CarNotConnectedException(java.lang.String);
-    ctor public CarNotConnectedException(java.lang.String, java.lang.Throwable);
-    ctor public CarNotConnectedException(java.lang.Exception);
+    field public static final java.lang.String VMS_SUBSCRIBER_SERVICE = "vehicle_map_subscriber_service";
   }
 
   public final class CarProjectionManager {
@@ -93,16 +53,7 @@ package android.car {
     method public abstract void onVoiceAssistantRequest(boolean);
   }
 
-  public final class VehicleAreaType {
-    field public static final int VEHICLE_AREA_TYPE_DOOR = 4; // 0x4
-    field public static final int VEHICLE_AREA_TYPE_MIRROR = 5; // 0x5
-    field public static final int VEHICLE_AREA_TYPE_NONE = 0; // 0x0
-    field public static final int VEHICLE_AREA_TYPE_SEAT = 3; // 0x3
-    field public static final int VEHICLE_AREA_TYPE_WINDOW = 2; // 0x2
-    field public static final int VEHICLE_AREA_TYPE_ZONE = 1; // 0x1
-  }
-
-  public final class VehicleDoor {
+  public final class VehicleAreaDoor {
     field public static final int DOOR_HOOD = 268435456; // 0x10000000
     field public static final int DOOR_REAR = 536870912; // 0x20000000
     field public static final int DOOR_ROW_1_LEFT = 1; // 0x1
@@ -113,13 +64,13 @@ package android.car {
     field public static final int DOOR_ROW_3_RIGHT = 1024; // 0x400
   }
 
-  public final class VehicleMirror {
+  public final class VehicleAreaMirror {
     field public static final int MIRROR_DRIVER_CENTER = 4; // 0x4
     field public static final int MIRROR_DRIVER_LEFT = 1; // 0x1
     field public static final int MIRROR_DRIVER_RIGHT = 2; // 0x2
   }
 
-  public final class VehicleSeat {
+  public final class VehicleAreaSeat {
     field public static final int SEAT_ROW_1_CENTER = 2; // 0x2
     field public static final int SEAT_ROW_1_LEFT = 1; // 0x1
     field public static final int SEAT_ROW_1_RIGHT = 4; // 0x4
@@ -131,149 +82,50 @@ package android.car {
     field public static final int SEAT_ROW_3_RIGHT = 1024; // 0x400
   }
 
-  public final class VehicleWindow {
+  public final class VehicleAreaType {
+    field public static final int VEHICLE_AREA_TYPE_DOOR = 4; // 0x4
+    field public static final int VEHICLE_AREA_TYPE_GLOBAL = 0; // 0x0
+    field public static final int VEHICLE_AREA_TYPE_MIRROR = 5; // 0x5
+    field public static final int VEHICLE_AREA_TYPE_SEAT = 3; // 0x3
+    field public static final int VEHICLE_AREA_TYPE_WHEEL = 6; // 0x6
+    field public static final int VEHICLE_AREA_TYPE_WINDOW = 2; // 0x2
+  }
+
+  public final class VehicleAreaWheel {
+    field public static final int WHEEL_LEFT_FRONT = 1; // 0x1
+    field public static final int WHEEL_LEFT_REAR = 4; // 0x4
+    field public static final int WHEEL_RIGHT_FRONT = 2; // 0x2
+    field public static final int WHEEL_RIGHT_REAR = 8; // 0x8
+    field public static final int WHEEL_UNKNOWN = 0; // 0x0
+  }
+
+  public final class VehicleAreaWindow {
     field public static final int WINDOW_FRONT_WINDSHIELD = 1; // 0x1
     field public static final int WINDOW_REAR_WINDSHIELD = 2; // 0x2
-    field public static final int WINDOW_ROOF_TOP = 4; // 0x4
+    field public static final int WINDOW_ROOF_TOP_1 = 65536; // 0x10000
+    field public static final int WINDOW_ROOF_TOP_2 = 131072; // 0x20000
     field public static final int WINDOW_ROW_1_LEFT = 16; // 0x10
-    field public static final int WINDOW_ROW_1_RIGHT = 32; // 0x20
+    field public static final int WINDOW_ROW_1_RIGHT = 64; // 0x40
     field public static final int WINDOW_ROW_2_LEFT = 256; // 0x100
-    field public static final int WINDOW_ROW_2_RIGHT = 512; // 0x200
+    field public static final int WINDOW_ROW_2_RIGHT = 1024; // 0x400
     field public static final int WINDOW_ROW_3_LEFT = 4096; // 0x1000
-    field public static final int WINDOW_ROW_3_RIGHT = 8192; // 0x2000
-  }
-
-  public final class VehicleZone {
-    field public static final int ZONE_ALL = -2147483648; // 0x80000000
-    field public static final int ZONE_ROW_1_ALL = 8; // 0x8
-    field public static final int ZONE_ROW_1_CENTER = 2; // 0x2
-    field public static final int ZONE_ROW_1_LEFT = 1; // 0x1
-    field public static final int ZONE_ROW_1_RIGHT = 4; // 0x4
-    field public static final int ZONE_ROW_2_ALL = 128; // 0x80
-    field public static final int ZONE_ROW_2_CENTER = 32; // 0x20
-    field public static final int ZONE_ROW_2_LEFT = 16; // 0x10
-    field public static final int ZONE_ROW_2_RIGHT = 64; // 0x40
-    field public static final int ZONE_ROW_3_ALL = 2048; // 0x800
-    field public static final int ZONE_ROW_3_CENTER = 512; // 0x200
-    field public static final int ZONE_ROW_3_LEFT = 256; // 0x100
-    field public static final int ZONE_ROW_3_RIGHT = 1024; // 0x400
-    field public static final int ZONE_ROW_4_ALL = 32768; // 0x8000
-    field public static final int ZONE_ROW_4_CENTER = 8192; // 0x2000
-    field public static final int ZONE_ROW_4_LEFT = 4096; // 0x1000
-    field public static final int ZONE_ROW_4_RIGHT = 16384; // 0x4000
-  }
-
-  public final class VehicleZoneUtil {
-    method public static int getFirstZone(int);
-    method public static int getNextZone(int, int) throws java.lang.IllegalArgumentException;
-    method public static int getNumberOfZones(int);
-    method public static int[] listAllZones(int);
-    method public static int zoneToIndex(int, int) throws java.lang.IllegalArgumentException;
+    field public static final int WINDOW_ROW_3_RIGHT = 16384; // 0x4000
   }
 
 }
 
-package android.car.app.menu {
+package android.car.cluster {
 
-  public abstract class CarMenuCallbacks {
-    ctor public CarMenuCallbacks();
-    method public abstract android.car.app.menu.RootMenu getRootMenu(android.os.Bundle);
-    method public abstract void onCarMenuClosed();
-    method public abstract void onCarMenuClosing();
-    method public abstract void onCarMenuOpened();
-    method public abstract void onCarMenuOpening();
-    method public abstract void onItemClicked(java.lang.String);
-    method public abstract boolean onItemLongClicked(java.lang.String);
-    method public abstract boolean onMenuClicked();
-    method public abstract void subscribe(java.lang.String, android.car.app.menu.SubscriptionCallbacks);
-    method public abstract void unsubscribe(java.lang.String, android.car.app.menu.SubscriptionCallbacks);
+  public class CarInstrumentClusterManager {
+    method public void registerCallback(java.lang.String, android.car.cluster.CarInstrumentClusterManager.Callback) throws android.car.CarNotConnectedException;
+    method public void startActivity(android.content.Intent) throws android.car.CarNotConnectedException;
+    method public void unregisterCallback(android.car.cluster.CarInstrumentClusterManager.Callback) throws android.car.CarNotConnectedException;
+    field public static final java.lang.String CATEGORY_NAVIGATION = "android.car.cluster.NAVIGATION";
+    field public static final java.lang.String KEY_EXTRA_ACTIVITY_STATE = "android.car.cluster.ClusterActivityState";
   }
 
-  public class CarMenuConstants {
-    ctor public CarMenuConstants();
-  }
-
-  public static class CarMenuConstants.MenuItemConstants {
-    ctor public CarMenuConstants.MenuItemConstants();
-    field public static final int FLAG_BROWSABLE = 1; // 0x1
-    field public static final int FLAG_FIRSTITEM = 2; // 0x2
-    field public static final java.lang.String KEY_EMPTY_PLACEHOLDER = "android.car.app.menu.empty_placeholder";
-    field public static final java.lang.String KEY_FLAGS = "android.car.app.menu.flags";
-    field public static final java.lang.String KEY_ID = "android.car.app.menu.id";
-    field public static final java.lang.String KEY_LEFTICON = "android.car.app.menu.leftIcon";
-    field public static final java.lang.String KEY_REMOTEVIEWS = "android.car.app.menu.remoteViews";
-    field public static final java.lang.String KEY_RIGHTICON = "android.car.app.menu.rightIcon";
-    field public static final java.lang.String KEY_RIGHTTEXT = "android.car.app.menu.rightText";
-    field public static final java.lang.String KEY_TEXT = "android.car.app.menu.text";
-    field public static final java.lang.String KEY_TITLE = "android.car.app.menu.title";
-    field public static final java.lang.String KEY_WIDGET = "android.car.app.menu.widget";
-    field public static final java.lang.String KEY_WIDGET_STATE = "android.car.app.menu.widget_state";
-    field public static final int WIDGET_CHECKBOX = 1; // 0x1
-    field public static final int WIDGET_TEXT_VIEW = 2; // 0x2
-  }
-
-  public static abstract class CarMenuConstants.MenuItemConstants.MenuItemFlags implements java.lang.annotation.Annotation {
-  }
-
-  public static abstract class CarMenuConstants.MenuItemConstants.WidgetTypes implements java.lang.annotation.Annotation {
-  }
-
-  public abstract class CarUiEntry {
-    ctor public CarUiEntry(android.content.Context, android.content.Context);
-    method public abstract void closeDrawer();
-    method public abstract android.view.View getContentView();
-    method public abstract int getFragmentContainerId();
-    method public abstract java.lang.CharSequence getSearchBoxText();
-    method public abstract void hideMenuButton();
-    method public abstract void hideTitle();
-    method public abstract void onPause();
-    method public abstract void onRestoreInstanceState(android.os.Bundle);
-    method public abstract void onResume();
-    method public abstract void onSaveInstanceState(android.os.Bundle);
-    method public abstract void onStart();
-    method public abstract void onStop();
-    method public abstract void openDrawer();
-    method public abstract void restoreMenuDrawable();
-    method public abstract void setAutoLightDarkMode();
-    method public abstract void setBackground(android.graphics.Bitmap);
-    method public abstract void setCarMenuCallbacks(android.car.app.menu.CarMenuCallbacks);
-    method public abstract void setDarkMode();
-    method public abstract void setLightMode();
-    method public abstract void setMenuButtonBitmap(android.graphics.Bitmap);
-    method public abstract void setMenuButtonColor(int);
-    method public abstract void setScrimColor(int);
-    method public abstract void setSearchBoxColors(int, int, int, int);
-    method public abstract void setSearchBoxEditListener(android.car.app.menu.SearchBoxEditListener);
-    method public abstract void setSearchBoxEndView(android.view.View);
-    method public abstract void setTitle(java.lang.CharSequence);
-    method public abstract void showMenu(java.lang.String, java.lang.String);
-    method public abstract void showSearchBox(android.view.View.OnClickListener);
-    method public abstract void showTitle();
-    method public abstract void showToast(java.lang.String, long);
-    method public abstract android.widget.EditText startInput(java.lang.String, android.view.View.OnClickListener);
-    method public abstract void stopInput();
-    field protected final android.content.Context mAppContext;
-    field protected final android.content.Context mUiLibContext;
-  }
-
-  public class RootMenu {
-    ctor public RootMenu(java.lang.String);
-    ctor public RootMenu(java.lang.String, android.os.Bundle);
-    method public android.os.Bundle getBundle();
-    method public java.lang.String getId();
-  }
-
-  public abstract class SearchBoxEditListener {
-    ctor public SearchBoxEditListener();
-    method public abstract void onEdit(java.lang.String);
-    method public abstract void onSearch(java.lang.String);
-  }
-
-  public abstract class SubscriptionCallbacks {
-    ctor public SubscriptionCallbacks();
-    method public abstract void onChildChanged(java.lang.String, android.os.Bundle);
-    method public abstract void onChildrenLoaded(java.lang.String, java.util.List<android.os.Bundle>);
-    method public abstract void onError(java.lang.String);
+  public static abstract interface CarInstrumentClusterManager.Callback {
+    method public abstract void onClusterActivityStateChanged(java.lang.String, android.os.Bundle);
   }
 
 }
@@ -300,10 +152,7 @@ package android.car.cluster.renderer {
   public abstract class NavigationRenderer {
     ctor public NavigationRenderer();
     method public abstract android.car.navigation.CarNavigationInstrumentCluster getNavigationProperties();
-    method public abstract void onNextTurnChanged(int, java.lang.CharSequence, int, int, android.graphics.Bitmap, int);
-    method public abstract void onNextTurnDistanceChanged(int, int, int, int);
-    method public abstract void onStartNavigation();
-    method public abstract void onStopNavigation();
+    method public abstract void onEvent(int, android.os.Bundle);
   }
 
 }
@@ -344,9 +193,7 @@ package android.car.content.pm {
   }
 
   public final class CarPackageManager {
-    method public boolean isActivityAllowedWhileDriving(java.lang.String, java.lang.String) throws android.car.CarNotConnectedException;
     method public boolean isActivityBackedBySafeActivity(android.content.ComponentName) throws android.car.CarNotConnectedException;
-    method public boolean isServiceAllowedWhileDriving(java.lang.String, java.lang.String) throws android.car.CarNotConnectedException;
     method public void setAppBlockingPolicy(java.lang.String, android.car.content.pm.CarAppBlockingPolicy, int) throws android.car.CarNotConnectedException, java.lang.IllegalArgumentException, java.lang.SecurityException;
     field public static final int FLAG_SET_POLICY_ADD = 2; // 0x2
     field public static final int FLAG_SET_POLICY_REMOVE = 4; // 0x4
@@ -485,6 +332,7 @@ package android.car.diagnostic {
     method public boolean isFreezeFrameNotificationSupported() throws android.car.CarNotConnectedException;
     method public boolean isGetFreezeFrameSupported() throws android.car.CarNotConnectedException;
     method public boolean isLiveFrameSupported() throws android.car.CarNotConnectedException;
+    method public boolean isSelectiveClearFreezeFramesSupported() throws android.car.CarNotConnectedException;
     method public void onCarDisconnected();
     method public boolean registerListener(android.car.diagnostic.CarDiagnosticManager.OnDiagnosticEventListener, int, int) throws android.car.CarNotConnectedException, java.lang.IllegalArgumentException;
     method public void unregisterListener(android.car.diagnostic.CarDiagnosticManager.OnDiagnosticEventListener);
@@ -614,16 +462,49 @@ package android.car.diagnostic {
 
 }
 
+package android.car.drivingstate {
+
+  public class CarDrivingStateEvent implements android.os.Parcelable {
+    ctor public CarDrivingStateEvent(int, long);
+    method public int describeContents();
+    method public void writeToParcel(android.os.Parcel, int);
+    field public static final android.os.Parcelable.Creator<android.car.drivingstate.CarDrivingStateEvent> CREATOR;
+    field public static final int DRIVING_STATE_IDLING = 1; // 0x1
+    field public static final int DRIVING_STATE_MOVING = 2; // 0x2
+    field public static final int DRIVING_STATE_PARKED = 0; // 0x0
+    field public static final int DRIVING_STATE_UNKNOWN = -1; // 0xffffffff
+    field public final int eventValue;
+    field public final long timeStamp;
+  }
+
+  public final class CarDrivingStateManager {
+    method public android.car.drivingstate.CarDrivingStateEvent getCurrentCarDrivingState() throws android.car.CarNotConnectedException;
+    method public synchronized void registerListener(android.car.drivingstate.CarDrivingStateManager.CarDrivingStateEventListener) throws android.car.CarNotConnectedException, java.lang.IllegalArgumentException;
+    method public synchronized void unregisterListener() throws android.car.CarNotConnectedException;
+  }
+
+  public static abstract interface CarDrivingStateManager.CarDrivingStateEventListener {
+    method public abstract void onDrivingStateChanged(android.car.drivingstate.CarDrivingStateEvent);
+  }
+
+}
+
 package android.car.hardware {
 
   public class CarPropertyConfig<T> implements android.os.Parcelable {
     method public int describeContents();
+    method public int getAccess();
     method public int getAreaCount();
     method public int[] getAreaIds();
     method public int getAreaType();
+    method public int getChangeMode();
+    method public java.util.List<java.lang.Integer> getConfigArray();
+    method public java.lang.String getConfigString();
     method public int getFirstAndOnlyAreaId();
+    method public float getMaxSampleRate();
     method public T getMaxValue(int);
     method public T getMaxValue();
+    method public float getMinSampleRate();
     method public T getMinValue(int);
     method public T getMinValue();
     method public int getPropertyId();
@@ -649,114 +530,37 @@ package android.car.hardware {
     method public android.car.hardware.CarPropertyConfig.Builder<T> addAreaConfig(int, T, T);
     method public android.car.hardware.CarPropertyConfig.Builder<T> addAreas(int[]);
     method public android.car.hardware.CarPropertyConfig<T> build();
+    method public android.car.hardware.CarPropertyConfig.Builder<T> setAccess(int);
+    method public android.car.hardware.CarPropertyConfig.Builder<T> setChangeMode(int);
+    method public android.car.hardware.CarPropertyConfig.Builder<T> setConfigArray(java.util.ArrayList<java.lang.Integer>);
+    method public android.car.hardware.CarPropertyConfig.Builder<T> setConfigString(java.lang.String);
+    method public android.car.hardware.CarPropertyConfig.Builder<T> setMaxSampleRate(float);
+    method public android.car.hardware.CarPropertyConfig.Builder<T> setMinSampleRate(float);
   }
 
   public class CarPropertyValue<T> implements android.os.Parcelable {
-    ctor public CarPropertyValue(int, T);
     ctor public CarPropertyValue(int, int, T);
+    ctor public CarPropertyValue(int, int, int, long, T);
     ctor public CarPropertyValue(android.os.Parcel);
     method public int describeContents();
     method public int getAreaId();
     method public int getPropertyId();
+    method public int getStatus();
+    method public long getTimestamp();
     method public T getValue();
     method public void writeToParcel(android.os.Parcel, int);
     field public static final android.os.Parcelable.Creator<android.car.hardware.CarPropertyValue> CREATOR;
-  }
-
-  public class CarSensorEvent implements android.os.Parcelable {
-    method public int describeContents();
-    method public void writeToParcel(android.os.Parcel, int);
-    field public static final android.os.Parcelable.Creator<android.car.hardware.CarSensorEvent> CREATOR;
-    field public static final int DRIVE_STATUS_FULLY_RESTRICTED = 31; // 0x1f
-    field public static final int DRIVE_STATUS_LIMIT_MESSAGE_LEN = 16; // 0x10
-    field public static final int DRIVE_STATUS_NO_CONFIG = 8; // 0x8
-    field public static final int DRIVE_STATUS_NO_KEYBOARD_INPUT = 2; // 0x2
-    field public static final int DRIVE_STATUS_NO_VIDEO = 1; // 0x1
-    field public static final int DRIVE_STATUS_NO_VOICE_INPUT = 4; // 0x4
-    field public static final int DRIVE_STATUS_UNRESTRICTED = 0; // 0x0
-    field public static final int GEAR_DRIVE = 100; // 0x64
-    field public static final int GEAR_EIGHTH = 8; // 0x8
-    field public static final int GEAR_FIFTH = 5; // 0x5
-    field public static final int GEAR_FIRST = 1; // 0x1
-    field public static final int GEAR_FOURTH = 4; // 0x4
-    field public static final int GEAR_NEUTRAL = 0; // 0x0
-    field public static final int GEAR_NINTH = 9; // 0x9
-    field public static final int GEAR_PARK = 101; // 0x65
-    field public static final int GEAR_REVERSE = 102; // 0x66
-    field public static final int GEAR_SECOND = 2; // 0x2
-    field public static final int GEAR_SEVENTH = 7; // 0x7
-    field public static final int GEAR_SIXTH = 6; // 0x6
-    field public static final int GEAR_TENTH = 10; // 0xa
-    field public static final int GEAR_THIRD = 3; // 0x3
-    field public static final int IGNITION_STATE_ACC = 3; // 0x3
-    field public static final int IGNITION_STATE_LOCK = 1; // 0x1
-    field public static final int IGNITION_STATE_OFF = 2; // 0x2
-    field public static final int IGNITION_STATE_ON = 4; // 0x4
-    field public static final int IGNITION_STATE_START = 5; // 0x5
-    field public static final int IGNITION_STATE_UNDEFINED = 0; // 0x0
-    field public static final int INDEX_ENVIRONMENT_PRESSURE = 1; // 0x1
-    field public static final int INDEX_ENVIRONMENT_TEMPERATURE = 0; // 0x0
-    field public static final int INDEX_FUEL_LEVEL_IN_DISTANCE = 1; // 0x1
-    field public static final int INDEX_FUEL_LEVEL_IN_PERCENTILE = 0; // 0x0
-    field public static final int INDEX_FUEL_LOW_WARNING = 0; // 0x0
-    field public static final int INDEX_WHEEL_DISTANCE_FRONT_LEFT = 1; // 0x1
-    field public static final int INDEX_WHEEL_DISTANCE_FRONT_RIGHT = 2; // 0x2
-    field public static final int INDEX_WHEEL_DISTANCE_REAR_LEFT = 4; // 0x4
-    field public static final int INDEX_WHEEL_DISTANCE_REAR_RIGHT = 3; // 0x3
-    field public static final int INDEX_WHEEL_DISTANCE_RESET_COUNT = 0; // 0x0
-    field public final float[] floatValues;
-    field public final int[] intValues;
-    field public final long[] longValues;
-    field public int sensorType;
-    field public long timestamp;
-  }
-
-  public static class CarSensorEvent.EnvironmentData {
-    field public float pressure;
-    field public float temperature;
-    field public long timestamp;
-  }
-
-  public final class CarSensorManager {
-    method public android.car.hardware.CarSensorEvent getLatestSensorEvent(int) throws android.car.CarNotConnectedException;
-    method public int[] getSupportedSensors() throws android.car.CarNotConnectedException;
-    method public boolean isSensorSupported(int) throws android.car.CarNotConnectedException;
-    method public static boolean isSensorSupported(int[], int);
-    method public boolean registerListener(android.car.hardware.CarSensorManager.OnSensorChangedListener, int, int) throws android.car.CarNotConnectedException, java.lang.IllegalArgumentException;
-    method public void unregisterListener(android.car.hardware.CarSensorManager.OnSensorChangedListener);
-    method public void unregisterListener(android.car.hardware.CarSensorManager.OnSensorChangedListener, int);
-    field public static final int SENSOR_RATE_FAST = 1; // 0x1
-    field public static final int SENSOR_RATE_FASTEST = 0; // 0x0
-    field public static final int SENSOR_RATE_NORMAL = 3; // 0x3
-    field public static final int SENSOR_RATE_UI = 2; // 0x2
-    field public static final int SENSOR_TYPE_ABS_ACTIVE = 24; // 0x18
-    field public static final int SENSOR_TYPE_CAR_SPEED = 2; // 0x2
-    field public static final int SENSOR_TYPE_DRIVING_STATUS = 11; // 0xb
-    field public static final int SENSOR_TYPE_ENVIRONMENT = 12; // 0xc
-    field public static final int SENSOR_TYPE_FUEL_LEVEL = 5; // 0x5
-    field public static final int SENSOR_TYPE_GEAR = 7; // 0x7
-    field public static final int SENSOR_TYPE_IGNITION_STATE = 22; // 0x16
-    field public static final int SENSOR_TYPE_NIGHT = 9; // 0x9
-    field public static final int SENSOR_TYPE_ODOMETER = 4; // 0x4
-    field public static final int SENSOR_TYPE_PARKING_BRAKE = 6; // 0x6
-    field public static final int SENSOR_TYPE_RPM = 3; // 0x3
-    field public static final int SENSOR_TYPE_TRACTION_CONTROL_ACTIVE = 25; // 0x19
-    field public static final int SENSOR_TYPE_VENDOR_EXTENSION_END = 1879048191; // 0x6fffffff
-    field public static final int SENSOR_TYPE_WHEEL_TICK_DISTANCE = 23; // 0x17
-  }
-
-  public static abstract interface CarSensorManager.OnSensorChangedListener {
-    method public abstract void onSensorChanged(android.car.hardware.CarSensorEvent);
   }
 
   public final class CarVendorExtensionManager {
     method public <E> E getGlobalProperty(java.lang.Class<E>, int) throws android.car.CarNotConnectedException;
     method public java.util.List<android.car.hardware.CarPropertyConfig> getProperties() throws android.car.CarNotConnectedException;
     method public <E> E getProperty(java.lang.Class<E>, int, int) throws android.car.CarNotConnectedException;
+    method public boolean isPropertyAvailable(int, int) throws android.car.CarNotConnectedException;
     method public void registerCallback(android.car.hardware.CarVendorExtensionManager.CarVendorExtensionCallback) throws android.car.CarNotConnectedException;
     method public <E> void setGlobalProperty(java.lang.Class<E>, int, E) throws android.car.CarNotConnectedException;
     method public <E> void setProperty(java.lang.Class<E>, int, int, E) throws android.car.CarNotConnectedException;
-    method public void unregisterCallback(android.car.hardware.CarVendorExtensionManager.CarVendorExtensionCallback);
+    method public void unregisterCallback(android.car.hardware.CarVendorExtensionManager.CarVendorExtensionCallback) throws android.car.CarNotConnectedException;
   }
 
   public static abstract interface CarVendorExtensionManager.CarVendorExtensionCallback {
@@ -778,48 +582,46 @@ package android.car.hardware.cabin {
     method public void setBooleanProperty(int, int, boolean) throws android.car.CarNotConnectedException;
     method public void setFloatProperty(int, int, float) throws android.car.CarNotConnectedException;
     method public void setIntProperty(int, int, int) throws android.car.CarNotConnectedException;
-    method public synchronized void unregisterCallback(android.car.hardware.cabin.CarCabinManager.CarCabinEventCallback);
-    field public static final int ID_DOOR_LOCK = 3; // 0x3
-    field public static final int ID_DOOR_MOVE = 2; // 0x2
-    field public static final int ID_DOOR_POS = 1; // 0x1
-    field public static final int ID_MIRROR_FOLD = 4102; // 0x1006
-    field public static final int ID_MIRROR_LOCK = 4101; // 0x1005
-    field public static final int ID_MIRROR_Y_MOVE = 4100; // 0x1004
-    field public static final int ID_MIRROR_Y_POS = 4099; // 0x1003
-    field public static final int ID_MIRROR_Z_MOVE = 4098; // 0x1002
-    field public static final int ID_MIRROR_Z_POS = 4097; // 0x1001
-    field public static final int ID_SEAT_BACKREST_ANGLE_1_MOVE = 8201; // 0x2009
-    field public static final int ID_SEAT_BACKREST_ANGLE_1_POS = 8200; // 0x2008
-    field public static final int ID_SEAT_BACKREST_ANGLE_2_MOVE = 8203; // 0x200b
-    field public static final int ID_SEAT_BACKREST_ANGLE_2_POS = 8202; // 0x200a
-    field public static final int ID_SEAT_BELT_BUCKLED = 8195; // 0x2003
-    field public static final int ID_SEAT_BELT_HEIGHT_MOVE = 8197; // 0x2005
-    field public static final int ID_SEAT_BELT_HEIGHT_POS = 8196; // 0x2004
-    field public static final int ID_SEAT_DEPTH_MOVE = 8207; // 0x200f
-    field public static final int ID_SEAT_DEPTH_POS = 8206; // 0x200e
-    field public static final int ID_SEAT_FORE_AFT_MOVE = 8199; // 0x2007
-    field public static final int ID_SEAT_FORE_AFT_POS = 8198; // 0x2006
-    field public static final int ID_SEAT_HEADREST_ANGLE_MOVE = 8217; // 0x2019
-    field public static final int ID_SEAT_HEADREST_ANGLE_POS = 8216; // 0x2018
-    field public static final int ID_SEAT_HEADREST_FORE_AFT_MOVE = 8219; // 0x201b
-    field public static final int ID_SEAT_HEADREST_FORE_AFT_POS = 8218; // 0x201a
-    field public static final int ID_SEAT_HEADREST_HEIGHT_MOVE = 8215; // 0x2017
-    field public static final int ID_SEAT_HEADREST_HEIGHT_POS = 8214; // 0x2016
-    field public static final int ID_SEAT_HEIGHT_MOVE = 8205; // 0x200d
-    field public static final int ID_SEAT_HEIGHT_POS = 8204; // 0x200c
-    field public static final int ID_SEAT_LUMBAR_FORE_AFT_MOVE = 8211; // 0x2013
-    field public static final int ID_SEAT_LUMBAR_FORE_AFT_POS = 8210; // 0x2012
-    field public static final int ID_SEAT_LUMBAR_SIDE_SUPPORT_MOVE = 8213; // 0x2015
-    field public static final int ID_SEAT_LUMBAR_SIDE_SUPPORT_POS = 8212; // 0x2014
-    field public static final int ID_SEAT_MEMORY_SELECT = 8193; // 0x2001
-    field public static final int ID_SEAT_MEMORY_SET = 8194; // 0x2002
-    field public static final int ID_SEAT_TILT_MOVE = 8209; // 0x2011
-    field public static final int ID_SEAT_TILT_POS = 8208; // 0x2010
-    field public static final int ID_WINDOW_LOCK = 12293; // 0x3005
-    field public static final int ID_WINDOW_MOVE = 12290; // 0x3002
-    field public static final int ID_WINDOW_POS = 12289; // 0x3001
-    field public static final int ID_WINDOW_VENT_MOVE = 12292; // 0x3004
-    field public static final int ID_WINDOW_VENT_POS = 12291; // 0x3003
+    method public synchronized void unregisterCallback(android.car.hardware.cabin.CarCabinManager.CarCabinEventCallback) throws android.car.CarNotConnectedException;
+    field public static final int ID_DOOR_LOCK = 371198722; // 0x16200b02
+    field public static final int ID_DOOR_MOVE = 373295873; // 0x16400b01
+    field public static final int ID_DOOR_POS = 373295872; // 0x16400b00
+    field public static final int ID_MIRROR_FOLD = 287312709; // 0x11200b45
+    field public static final int ID_MIRROR_LOCK = 287312708; // 0x11200b44
+    field public static final int ID_MIRROR_Y_MOVE = 339741507; // 0x14400b43
+    field public static final int ID_MIRROR_Y_POS = 339741506; // 0x14400b42
+    field public static final int ID_MIRROR_Z_MOVE = 339741505; // 0x14400b41
+    field public static final int ID_MIRROR_Z_POS = 339741504; // 0x14400b40
+    field public static final int ID_SEAT_BACKREST_ANGLE_1_MOVE = 356518792; // 0x15400b88
+    field public static final int ID_SEAT_BACKREST_ANGLE_1_POS = 356518791; // 0x15400b87
+    field public static final int ID_SEAT_BACKREST_ANGLE_2_MOVE = 356518794; // 0x15400b8a
+    field public static final int ID_SEAT_BACKREST_ANGLE_2_POS = 356518793; // 0x15400b89
+    field public static final int ID_SEAT_BELT_BUCKLED = 354421634; // 0x15200b82
+    field public static final int ID_SEAT_BELT_HEIGHT_MOVE = 356518788; // 0x15400b84
+    field public static final int ID_SEAT_BELT_HEIGHT_POS = 356518787; // 0x15400b83
+    field public static final int ID_SEAT_DEPTH_MOVE = 356518798; // 0x15400b8e
+    field public static final int ID_SEAT_DEPTH_POS = 356518797; // 0x15400b8d
+    field public static final int ID_SEAT_FORE_AFT_MOVE = 356518790; // 0x15400b86
+    field public static final int ID_SEAT_FORE_AFT_POS = 356518789; // 0x15400b85
+    field public static final int ID_SEAT_HEADREST_ANGLE_MOVE = 356518808; // 0x15400b98
+    field public static final int ID_SEAT_HEADREST_ANGLE_POS = 356518807; // 0x15400b97
+    field public static final int ID_SEAT_HEADREST_FORE_AFT_MOVE = 356518810; // 0x15400b9a
+    field public static final int ID_SEAT_HEADREST_FORE_AFT_POS = 356518809; // 0x15400b99
+    field public static final int ID_SEAT_HEADREST_HEIGHT_MOVE = 356518806; // 0x15400b96
+    field public static final int ID_SEAT_HEADREST_HEIGHT_POS = 356518805; // 0x15400b95
+    field public static final int ID_SEAT_HEIGHT_MOVE = 356518796; // 0x15400b8c
+    field public static final int ID_SEAT_HEIGHT_POS = 356518795; // 0x15400b8b
+    field public static final int ID_SEAT_LUMBAR_FORE_AFT_MOVE = 356518802; // 0x15400b92
+    field public static final int ID_SEAT_LUMBAR_FORE_AFT_POS = 356518801; // 0x15400b91
+    field public static final int ID_SEAT_LUMBAR_SIDE_SUPPORT_MOVE = 356518804; // 0x15400b94
+    field public static final int ID_SEAT_LUMBAR_SIDE_SUPPORT_POS = 356518803; // 0x15400b93
+    field public static final int ID_SEAT_MEMORY_SELECT = 356518784; // 0x15400b80
+    field public static final int ID_SEAT_MEMORY_SET = 356518785; // 0x15400b81
+    field public static final int ID_SEAT_TILT_MOVE = 356518800; // 0x15400b90
+    field public static final int ID_SEAT_TILT_POS = 356518799; // 0x15400b8f
+    field public static final int ID_WINDOW_LOCK = 322964420; // 0x13400bc4
+    field public static final int ID_WINDOW_MOVE = 322964417; // 0x13400bc1
+    field public static final int ID_WINDOW_POS = 322964416; // 0x13400bc0
   }
 
   public static abstract interface CarCabinManager.CarCabinEventCallback {
@@ -836,37 +638,35 @@ package android.car.hardware.hvac {
     method public float getFloatProperty(int, int) throws android.car.CarNotConnectedException;
     method public int getIntProperty(int, int) throws android.car.CarNotConnectedException;
     method public java.util.List<android.car.hardware.CarPropertyConfig> getPropertyList() throws android.car.CarNotConnectedException;
-    method public static boolean isZonedProperty(int);
+    method public boolean isPropertyAvailable(int, int) throws android.car.CarNotConnectedException;
     method public synchronized void registerCallback(android.car.hardware.hvac.CarHvacManager.CarHvacEventCallback) throws android.car.CarNotConnectedException;
     method public void setBooleanProperty(int, int, boolean) throws android.car.CarNotConnectedException;
     method public void setFloatProperty(int, int, float) throws android.car.CarNotConnectedException;
     method public void setIntProperty(int, int, int) throws android.car.CarNotConnectedException;
     method public synchronized void unregisterCallback(android.car.hardware.hvac.CarHvacManager.CarHvacEventCallback);
-    field public static final int FAN_POSITION_DEFROST = 4; // 0x4
-    field public static final int FAN_POSITION_DEFROST_AND_FLOOR = 5; // 0x5
-    field public static final int FAN_POSITION_FACE = 1; // 0x1
-    field public static final int FAN_POSITION_FACE_AND_FLOOR = 3; // 0x3
-    field public static final int FAN_POSITION_FLOOR = 2; // 0x2
-    field public static final int ID_MIRROR_DEFROSTER_ON = 1; // 0x1
-    field public static final int ID_OUTSIDE_AIR_TEMP = 3; // 0x3
-    field public static final int ID_STEERING_WHEEL_TEMP = 2; // 0x2
-    field public static final int ID_TEMPERATURE_UNITS = 4; // 0x4
-    field public static final int ID_WINDOW_DEFROSTER_ON = 20481; // 0x5001
-    field public static final int ID_ZONED_AC_ON = 16393; // 0x4009
-    field public static final int ID_ZONED_AIR_RECIRCULATION_ON = 16395; // 0x400b
-    field public static final int ID_ZONED_AUTOMATIC_MODE_ON = 16394; // 0x400a
-    field public static final int ID_ZONED_DUAL_ZONE_ON = 16397; // 0x400d
-    field public static final int ID_ZONED_FAN_POSITION = 16391; // 0x4007
-    field public static final int ID_ZONED_FAN_POSITION_AVAILABLE = 16390; // 0x4006
-    field public static final int ID_ZONED_FAN_SPEED_RPM = 16389; // 0x4005
-    field public static final int ID_ZONED_FAN_SPEED_SETPOINT = 16388; // 0x4004
-    field public static final int ID_ZONED_HVAC_AUTO_RECIRC_ON = 16399; // 0x400f
-    field public static final int ID_ZONED_HVAC_POWER_ON = 16387; // 0x4003
-    field public static final int ID_ZONED_MAX_AC_ON = 16396; // 0x400c
-    field public static final int ID_ZONED_MAX_DEFROST_ON = 16398; // 0x400e
-    field public static final int ID_ZONED_SEAT_TEMP = 16392; // 0x4008
-    field public static final int ID_ZONED_TEMP_ACTUAL = 16386; // 0x4002
-    field public static final int ID_ZONED_TEMP_SETPOINT = 16385; // 0x4001
+    field public static final int FAN_DIRECTION_DEFROST = 4; // 0x4
+    field public static final int FAN_DIRECTION_FACE = 1; // 0x1
+    field public static final int FAN_DIRECTION_FLOOR = 2; // 0x2
+    field public static final int ID_MIRROR_DEFROSTER_ON = 339739916; // 0x1440050c
+    field public static final int ID_OUTSIDE_AIR_TEMP = 291505923; // 0x11600703
+    field public static final int ID_STEERING_WHEEL_HEAT = 289408269; // 0x1140050d
+    field public static final int ID_TEMPERATURE_DISPLAY_UNITS = 289408270; // 0x1140050e
+    field public static final int ID_WINDOW_DEFROSTER_ON = 320865540; // 0x13200504
+    field public static final int ID_ZONED_AC_ON = 354419973; // 0x15200505
+    field public static final int ID_ZONED_AIR_RECIRCULATION_ON = 354419976; // 0x15200508
+    field public static final int ID_ZONED_AUTOMATIC_MODE_ON = 354419978; // 0x1520050a
+    field public static final int ID_ZONED_DUAL_ZONE_ON = 354419977; // 0x15200509
+    field public static final int ID_ZONED_FAN_DIRECTION = 356517121; // 0x15400501
+    field public static final int ID_ZONED_FAN_DIRECTION_AVAILABLE = 356582673; // 0x15410511
+    field public static final int ID_ZONED_FAN_SPEED_RPM = 356517135; // 0x1540050f
+    field public static final int ID_ZONED_FAN_SPEED_SETPOINT = 356517120; // 0x15400500
+    field public static final int ID_ZONED_HVAC_AUTO_RECIRC_ON = 354419986; // 0x15200512
+    field public static final int ID_ZONED_HVAC_POWER_ON = 354419984; // 0x15200510
+    field public static final int ID_ZONED_MAX_AC_ON = 354419974; // 0x15200506
+    field public static final int ID_ZONED_MAX_DEFROST_ON = 354419975; // 0x15200507
+    field public static final int ID_ZONED_SEAT_TEMP = 356517131; // 0x1540050b
+    field public static final int ID_ZONED_TEMP_ACTUAL = 358614274; // 0x15600502
+    field public static final int ID_ZONED_TEMP_SETPOINT = 358614275; // 0x15600503
   }
 
   public static abstract interface CarHvacManager.CarHvacEventCallback {
@@ -876,39 +676,22 @@ package android.car.hardware.hvac {
 
 }
 
-package android.car.hardware.radio {
+package android.car.hardware.power {
 
-  public class CarRadioEvent implements android.os.Parcelable {
-    ctor public CarRadioEvent(int, android.car.hardware.radio.CarRadioPreset);
-    method public int describeContents();
-    method public int getEventType();
-    method public android.car.hardware.radio.CarRadioPreset getPreset();
-    method public void writeToParcel(android.os.Parcel, int);
-    field public static final android.os.Parcelable.Creator<android.car.hardware.radio.CarRadioEvent> CREATOR;
-    field public static final int RADIO_PRESET = 0; // 0x0
+  public class CarPowerManager {
+    field public static final int BOOT_REASON_DOOR_OPEN = 4; // 0x4
+    field public static final int BOOT_REASON_DOOR_UNLOCK = 2; // 0x2
+    field public static final int BOOT_REASON_REMOTE_START = 5; // 0x5
+    field public static final int BOOT_REASON_TIMER = 3; // 0x3
+    field public static final int BOOT_REASON_USER_POWER_ON = 1; // 0x1
   }
 
-  public final class CarRadioManager {
-    method public android.car.hardware.radio.CarRadioPreset getPreset(int) throws android.car.CarNotConnectedException;
-    method public int getPresetCount() throws android.car.CarNotConnectedException;
-    method public synchronized void registerListener(android.car.hardware.radio.CarRadioManager.CarRadioEventListener) throws android.car.CarNotConnectedException;
-    method public boolean setPreset(android.car.hardware.radio.CarRadioPreset) throws android.car.CarNotConnectedException, java.lang.IllegalArgumentException;
-    method public synchronized void unregisterListener();
-  }
-
-  public static abstract interface CarRadioManager.CarRadioEventListener {
-    method public abstract void onEvent(android.car.hardware.radio.CarRadioEvent);
-  }
-
-  public class CarRadioPreset implements android.os.Parcelable {
-    ctor public CarRadioPreset(int, int, int, int);
-    method public int describeContents();
-    method public int getBand();
-    method public int getChannel();
-    method public int getPresetNumber();
-    method public int getSubChannel();
-    method public void writeToParcel(android.os.Parcel, int);
-    field public static final android.os.Parcelable.Creator<android.car.hardware.radio.CarRadioPreset> CREATOR;
+  public static abstract interface CarPowerManager.CarPowerStateListener {
+    method public abstract void onStateChanged(int);
+    field public static final int SHUTDOWN_CANCELLED = 0; // 0x0
+    field public static final int SHUTDOWN_ENTER = 1; // 0x1
+    field public static final int SUSPEND_ENTER = 2; // 0x2
+    field public static final int SUSPEND_EXIT = 3; // 0x3
   }
 
 }
@@ -937,27 +720,22 @@ package android.car.input {
 package android.car.media {
 
   public final class CarAudioManager {
-    method public void abandonAudioFocus(android.media.AudioManager.OnAudioFocusChangeListener, android.media.AudioAttributes);
-    method public android.media.AudioAttributes getAudioAttributesForCarUsage(int) throws android.car.CarNotConnectedException;
-    method public int getStreamMaxVolume(int) throws android.car.CarNotConnectedException;
-    method public int getStreamMinVolume(int) throws android.car.CarNotConnectedException;
-    method public int getStreamVolume(int) throws android.car.CarNotConnectedException;
-    method public boolean isMediaMuted() throws android.car.CarNotConnectedException;
-    method public int requestAudioFocus(android.media.AudioManager.OnAudioFocusChangeListener, android.media.AudioAttributes, int, int) throws android.car.CarNotConnectedException, java.lang.IllegalArgumentException;
-    method public boolean setMediaMute(boolean) throws android.car.CarNotConnectedException;
-    method public void setStreamVolume(int, int, int) throws android.car.CarNotConnectedException;
-    method public void setVolumeController(android.media.IVolumeController) throws android.car.CarNotConnectedException;
-    field public static final int CAR_AUDIO_USAGE_ALARM = 6; // 0x6
-    field public static final int CAR_AUDIO_USAGE_DEFAULT = 0; // 0x0
-    field public static final int CAR_AUDIO_USAGE_MUSIC = 1; // 0x1
-    field public static final int CAR_AUDIO_USAGE_NAVIGATION_GUIDANCE = 3; // 0x3
-    field public static final int CAR_AUDIO_USAGE_NOTIFICATION = 7; // 0x7
-    field public static final int CAR_AUDIO_USAGE_RADIO = 2; // 0x2
-    field public static final int CAR_AUDIO_USAGE_RINGTONE = 10; // 0xa
-    field public static final int CAR_AUDIO_USAGE_SYSTEM_SAFETY_ALERT = 9; // 0x9
-    field public static final int CAR_AUDIO_USAGE_SYSTEM_SOUND = 8; // 0x8
-    field public static final int CAR_AUDIO_USAGE_VOICE_CALL = 4; // 0x4
-    field public static final int CAR_AUDIO_USAGE_VOICE_COMMAND = 5; // 0x5
+    method public android.car.media.CarAudioPatchHandle createAudioPatch(java.lang.String, int, int) throws android.car.CarNotConnectedException;
+    method public java.lang.String[] getExternalSources() throws android.car.CarNotConnectedException;
+    method public int getGroupMaxVolume(int) throws android.car.CarNotConnectedException;
+    method public int getGroupMinVolume(int) throws android.car.CarNotConnectedException;
+    method public int getGroupVolume(int) throws android.car.CarNotConnectedException;
+    method public int[] getUsagesForVolumeGroupId(int) throws android.car.CarNotConnectedException;
+    method public int getVolumeGroupCount() throws android.car.CarNotConnectedException;
+    method public int getVolumeGroupIdForUsage(int) throws android.car.CarNotConnectedException;
+    method public void registerVolumeCallback(android.os.IBinder) throws android.car.CarNotConnectedException;
+    method public void registerVolumeChangeObserver(android.database.ContentObserver);
+    method public void releaseAudioPatch(android.car.media.CarAudioPatchHandle) throws android.car.CarNotConnectedException;
+    method public void setBalanceTowardRight(float) throws android.car.CarNotConnectedException;
+    method public void setFadeTowardFront(float) throws android.car.CarNotConnectedException;
+    method public void setGroupVolume(int, int, int) throws android.car.CarNotConnectedException;
+    method public void unregisterVolumeCallback(android.os.IBinder) throws android.car.CarNotConnectedException;
+    method public void unregisterVolumeChangeObserver(android.database.ContentObserver);
   }
 
 }
@@ -983,17 +761,128 @@ package android.car.navigation {
 
 }
 
-package android.car.settings {
+package android.car.storagemonitoring {
 
-  public class CarSettings {
-    ctor public CarSettings();
+  public final class CarStorageMonitoringManager {
+    method public java.util.List<android.car.storagemonitoring.IoStatsEntry> getAggregateIoStats() throws android.car.CarNotConnectedException;
+    method public java.util.List<android.car.storagemonitoring.IoStatsEntry> getBootIoStats() throws android.car.CarNotConnectedException;
+    method public java.util.List<android.car.storagemonitoring.IoStats> getIoStatsDeltas() throws android.car.CarNotConnectedException;
+    method public int getPreEolIndicatorStatus() throws android.car.CarNotConnectedException;
+    method public long getShutdownDiskWriteAmount() throws android.car.CarNotConnectedException;
+    method public android.car.storagemonitoring.WearEstimate getWearEstimate() throws android.car.CarNotConnectedException;
+    method public java.util.List<android.car.storagemonitoring.WearEstimateChange> getWearEstimateHistory() throws android.car.CarNotConnectedException;
+    method public void registerListener(android.car.storagemonitoring.CarStorageMonitoringManager.IoStatsListener) throws android.car.CarNotConnectedException;
+    method public void unregisterListener(android.car.storagemonitoring.CarStorageMonitoringManager.IoStatsListener) throws android.car.CarNotConnectedException;
+    field public static final java.lang.String INTENT_EXCESSIVE_IO = "android.car.storagemonitoring.EXCESSIVE_IO";
+    field public static final int PRE_EOL_INFO_NORMAL = 1; // 0x1
+    field public static final int PRE_EOL_INFO_UNKNOWN = 0; // 0x0
+    field public static final int PRE_EOL_INFO_URGENT = 3; // 0x3
+    field public static final int PRE_EOL_INFO_WARNING = 2; // 0x2
+    field public static final long SHUTDOWN_COST_INFO_MISSING = -1L; // 0xffffffffffffffffL
   }
 
-  public static final class CarSettings.Global {
-    ctor public CarSettings.Global();
-    field public static final java.lang.String KEY_GARAGE_MODE_ENABLED = "android.car.GARAGE_MODE_ENABLED";
-    field public static final java.lang.String KEY_GARAGE_MODE_MAINTENANCE_WINDOW = "android.car.GARAGE_MODE_MAINTENANCE_WINDOW";
-    field public static final java.lang.String KEY_GARAGE_MODE_WAKE_UP_TIME = "android.car.GARAGE_MODE_WAKE_UP_TIME";
+  public static abstract interface CarStorageMonitoringManager.IoStatsListener {
+    method public abstract void onSnapshot(android.car.storagemonitoring.IoStats);
+  }
+
+  public class IoStats implements android.os.Parcelable {
+    ctor public IoStats(java.util.List<android.car.storagemonitoring.IoStatsEntry>, long);
+    ctor public IoStats(android.os.Parcel);
+    ctor public IoStats(org.json.JSONObject) throws org.json.JSONException;
+    method public int describeContents();
+    method public android.car.storagemonitoring.IoStatsEntry.Metrics getBackgroundTotals();
+    method public android.car.storagemonitoring.IoStatsEntry.Metrics getForegroundTotals();
+    method public java.util.List<android.car.storagemonitoring.IoStatsEntry> getStats();
+    method public long getTimestamp();
+    method public android.car.storagemonitoring.IoStatsEntry.Metrics getTotals();
+    method public android.car.storagemonitoring.IoStatsEntry getUserIdStats(int);
+    method public void writeToJson(android.util.JsonWriter) throws java.io.IOException;
+    method public void writeToParcel(android.os.Parcel, int);
+    field public static final android.os.Parcelable.Creator<android.car.storagemonitoring.IoStats> CREATOR;
+  }
+
+  public final class IoStatsEntry implements android.os.Parcelable {
+    ctor public IoStatsEntry(int, long, android.car.storagemonitoring.IoStatsEntry.Metrics, android.car.storagemonitoring.IoStatsEntry.Metrics);
+    ctor public IoStatsEntry(android.os.Parcel);
+    ctor public IoStatsEntry(android.car.storagemonitoring.UidIoRecord, long);
+    ctor public IoStatsEntry(org.json.JSONObject) throws org.json.JSONException;
+    method public int describeContents();
+    method public void writeToJson(android.util.JsonWriter) throws java.io.IOException;
+    method public void writeToParcel(android.os.Parcel, int);
+    field public static final android.os.Parcelable.Creator<android.car.storagemonitoring.IoStatsEntry> CREATOR;
+    field public final android.car.storagemonitoring.IoStatsEntry.Metrics background;
+    field public final android.car.storagemonitoring.IoStatsEntry.Metrics foreground;
+    field public final long runtimeMillis;
+    field public final int uid;
+  }
+
+  public static final class IoStatsEntry.Metrics implements android.os.Parcelable {
+    ctor public IoStatsEntry.Metrics(long, long, long, long, long);
+    ctor public IoStatsEntry.Metrics(android.os.Parcel);
+    ctor public IoStatsEntry.Metrics(org.json.JSONObject) throws org.json.JSONException;
+    method public int describeContents();
+    method public void writeToJson(android.util.JsonWriter) throws java.io.IOException;
+    method public void writeToParcel(android.os.Parcel, int);
+    field public static final android.os.Parcelable.Creator<android.car.storagemonitoring.IoStatsEntry.Metrics> CREATOR;
+    field public final long bytesRead;
+    field public final long bytesReadFromStorage;
+    field public final long bytesWritten;
+    field public final long bytesWrittenToStorage;
+    field public final long fsyncCalls;
+  }
+
+  public class LifetimeWriteInfo implements android.os.Parcelable {
+    ctor public LifetimeWriteInfo(java.lang.String, java.lang.String, long);
+    ctor public LifetimeWriteInfo(android.os.Parcel);
+    ctor public LifetimeWriteInfo(org.json.JSONObject) throws org.json.JSONException;
+    method public int describeContents();
+    method public void writeToJson(android.util.JsonWriter) throws java.io.IOException;
+    method public void writeToParcel(android.os.Parcel, int);
+    field public static final android.os.Parcelable.Creator<android.car.storagemonitoring.IoStats> CREATOR;
+    field public final java.lang.String fstype;
+    field public final java.lang.String partition;
+    field public final long writtenBytes;
+  }
+
+  public final class UidIoRecord {
+    ctor public UidIoRecord(int, long, long, long, long, long, long, long, long, long, long);
+    field public final long background_fsync;
+    field public final long background_rchar;
+    field public final long background_read_bytes;
+    field public final long background_wchar;
+    field public final long background_write_bytes;
+    field public final long foreground_fsync;
+    field public final long foreground_rchar;
+    field public final long foreground_read_bytes;
+    field public final long foreground_wchar;
+    field public final long foreground_write_bytes;
+    field public final int uid;
+  }
+
+  public class WearEstimate implements android.os.Parcelable {
+    ctor public WearEstimate(int, int);
+    ctor public WearEstimate(android.os.Parcel);
+    ctor public WearEstimate(android.util.JsonReader) throws java.io.IOException;
+    method public int describeContents();
+    method public void writeToJson(android.util.JsonWriter) throws java.io.IOException;
+    method public void writeToParcel(android.os.Parcel, int);
+    field public static final android.os.Parcelable.Creator<android.car.storagemonitoring.WearEstimate> CREATOR;
+    field public static final int UNKNOWN = -1; // 0xffffffff
+    field public final int typeA;
+    field public final int typeB;
+  }
+
+  public class WearEstimateChange implements android.os.Parcelable {
+    ctor public WearEstimateChange(android.car.storagemonitoring.WearEstimate, android.car.storagemonitoring.WearEstimate, long, java.time.Instant, boolean);
+    ctor public WearEstimateChange(android.os.Parcel);
+    method public int describeContents();
+    method public void writeToParcel(android.os.Parcel, int);
+    field public static final android.os.Parcelable.Creator<android.car.storagemonitoring.WearEstimateChange> CREATOR;
+    field public final java.time.Instant dateAtChange;
+    field public final boolean isAcceptableDegradation;
+    field public final android.car.storagemonitoring.WearEstimate newEstimate;
+    field public final android.car.storagemonitoring.WearEstimate oldEstimate;
+    field public final long uptimeAtChange;
   }
 
 }
@@ -1004,6 +893,98 @@ package android.car.test {
     ctor public CarTestManagerBinderWrapper(android.os.IBinder);
     method public void onCarDisconnected();
     field public final android.os.IBinder binder;
+  }
+
+}
+
+package android.car.vms {
+
+  public final class VmsAvailableLayers implements android.os.Parcelable {
+    ctor public VmsAvailableLayers(java.util.Set<android.car.vms.VmsAssociatedLayer>, int);
+    method public int describeContents();
+    method public java.util.Set<android.car.vms.VmsAssociatedLayer> getAssociatedLayers();
+    method public int getSequence();
+    method public void writeToParcel(android.os.Parcel, int);
+    field public static final android.os.Parcelable.Creator<android.car.vms.VmsAvailableLayers> CREATOR;
+  }
+
+  public final class VmsLayer implements android.os.Parcelable {
+    ctor public VmsLayer(int, int, int);
+    method public int describeContents();
+    method public int getSubtype();
+    method public int getType();
+    method public int getVersion();
+    method public void writeToParcel(android.os.Parcel, int);
+    field public static final android.os.Parcelable.Creator<android.car.vms.VmsLayer> CREATOR;
+  }
+
+  public final class VmsLayerDependency implements android.os.Parcelable {
+    ctor public VmsLayerDependency(android.car.vms.VmsLayer, java.util.Set<android.car.vms.VmsLayer>);
+    ctor public VmsLayerDependency(android.car.vms.VmsLayer);
+    method public int describeContents();
+    method public java.util.Set<android.car.vms.VmsLayer> getDependencies();
+    method public android.car.vms.VmsLayer getLayer();
+    method public void writeToParcel(android.os.Parcel, int);
+    field public static final android.os.Parcelable.Creator<android.car.vms.VmsLayerDependency> CREATOR;
+  }
+
+  public final class VmsLayersOffering implements android.os.Parcelable {
+    ctor public VmsLayersOffering(java.util.Set<android.car.vms.VmsLayerDependency>, int);
+    method public int describeContents();
+    method public java.util.Set<android.car.vms.VmsLayerDependency> getDependencies();
+    method public int getPublisherId();
+    method public void writeToParcel(android.os.Parcel, int);
+    field public static final android.os.Parcelable.Creator<android.car.vms.VmsLayersOffering> CREATOR;
+  }
+
+  public final class VmsOperationRecorder {
+    ctor public VmsOperationRecorder(android.car.vms.VmsOperationRecorder.Writer);
+    method public void addHalSubscription(int, android.car.vms.VmsLayer);
+    method public void addPromiscuousSubscription(int);
+    method public void addSubscription(int, android.car.vms.VmsLayer);
+    method public static android.car.vms.VmsOperationRecorder get();
+    method public void getPublisherId(int);
+    method public void removeHalSubscription(int, android.car.vms.VmsLayer);
+    method public void removePromiscuousSubscription(int);
+    method public void removeSubscription(int, android.car.vms.VmsLayer);
+    method public void setHalPublisherLayersOffering(android.car.vms.VmsLayersOffering);
+    method public void setLayersOffering(android.car.vms.VmsLayersOffering);
+    method public void setPublisherLayersOffering(android.car.vms.VmsLayersOffering);
+    method public void startMonitoring();
+    method public void stopMonitoring();
+    method public void subscribe(android.car.vms.VmsLayer);
+    method public void subscribe(android.car.vms.VmsLayer, int);
+    method public void unsubscribe(android.car.vms.VmsLayer);
+    method public void unsubscribe(android.car.vms.VmsLayer, int);
+  }
+
+  public abstract class VmsPublisherClientService extends android.app.Service {
+    ctor public VmsPublisherClientService();
+    method public final int getPublisherId(byte[]);
+    method public final android.car.vms.VmsSubscriptionState getSubscriptions();
+    method public android.os.IBinder onBind(android.content.Intent);
+    method protected abstract void onVmsPublisherServiceReady();
+    method public abstract void onVmsSubscriptionChange(android.car.vms.VmsSubscriptionState);
+    method public final void publish(android.car.vms.VmsLayer, int, byte[]);
+    method public final void setLayersOffering(android.car.vms.VmsLayersOffering);
+  }
+
+  public final class VmsSubscriberManager {
+    method public void clearVmsSubscriberClientCallback() throws android.car.CarNotConnectedException;
+    method public android.car.vms.VmsAvailableLayers getAvailableLayers() throws android.car.CarNotConnectedException, java.lang.IllegalStateException;
+    method public byte[] getPublisherInfo(int) throws android.car.CarNotConnectedException, java.lang.IllegalStateException;
+    method public void setVmsSubscriberClientCallback(java.util.concurrent.Executor, android.car.vms.VmsSubscriberManager.VmsSubscriberClientCallback) throws android.car.CarNotConnectedException;
+    method public void startMonitoring() throws android.car.CarNotConnectedException;
+    method public void stopMonitoring();
+    method public void subscribe(android.car.vms.VmsLayer) throws android.car.CarNotConnectedException;
+    method public void subscribe(android.car.vms.VmsLayer, int) throws android.car.CarNotConnectedException;
+    method public void unsubscribe(android.car.vms.VmsLayer);
+    method public void unsubscribe(android.car.vms.VmsLayer, int);
+  }
+
+  public static abstract interface VmsSubscriberManager.VmsSubscriberClientCallback {
+    method public abstract void onLayersAvailabilityChanged(android.car.vms.VmsAvailableLayers);
+    method public abstract void onVmsMessageReceived(android.car.vms.VmsLayer, byte[]);
   }
 
 }

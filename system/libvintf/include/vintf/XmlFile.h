@@ -44,6 +44,7 @@ struct MatrixXmlFile : public XmlFile {
     bool operator==(const MatrixXmlFile& other) const;
 
    private:
+    friend struct CompatibilityMatrix;
     friend struct MatrixXmlFileConverter;
     friend struct LibVintfTest;
     bool mOptional;

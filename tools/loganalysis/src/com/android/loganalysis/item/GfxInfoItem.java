@@ -38,6 +38,12 @@ public class GfxInfoItem implements IItem {
     public static final String TOTAL_FRAMES_KEY = "total_frames";
     /** Constant for JSON output */
     public static final String JANKY_FRAMES_KEY = "janky_frames";
+    /** Constant for JSON output */
+    public static final String PERCENTILE_90_KEY = "percentile_90";
+    /** Constant for JSON output */
+    public static final String PERCENTILE_95_KEY = "percentile_95";
+    /** Constant for JSON output */
+    public static final String PERCENTILE_99_KEY = "percentile_99";
 
     private Map<Integer, Row> mRows = new HashMap<Integer, Row>();
 
@@ -45,6 +51,9 @@ public class GfxInfoItem implements IItem {
         public String name;
         public long totalFrames;
         public long jankyFrames;
+        public int percentile90;
+        public int percentile95;
+        public int percentile99;
     }
 
     /**
@@ -76,7 +85,9 @@ public class GfxInfoItem implements IItem {
                 proc.put(PID_KEY, pid);
                 proc.put(NAME_KEY, getName(pid));
                 proc.put(TOTAL_FRAMES_KEY, getTotalFrames(pid));
-                proc.put(JANKY_FRAMES_KEY, getJankyFrames(pid));
+                proc.put(PERCENTILE_90_KEY, getPrecentile90(pid));
+                proc.put(PERCENTILE_95_KEY, getPrecentile95(pid));
+                proc.put(PERCENTILE_99_KEY, getPrecentile99(pid));
                 processes.put(proc);
             } catch (JSONException e) {
                 // ignore
@@ -106,11 +117,21 @@ public class GfxInfoItem implements IItem {
      * @param totalFrames The number of total frames rendered by the process
      * @param jankyFrames The number of janky frames rendered by the process
      */
-    public void addRow(int pid, String name, long totalFrames, long jankyFrames) {
+    public void addRow(
+            int pid,
+            String name,
+            long totalFrames,
+            long jankyFrames,
+            int percentile90,
+            int percentile95,
+            int percentile99) {
         Row row = new Row();
         row.name = name;
         row.totalFrames = totalFrames;
         row.jankyFrames = jankyFrames;
+        row.percentile90 = percentile90;
+        row.percentile95 = percentile95;
+        row.percentile99 = percentile99;
         mRows.put(pid, row);
     }
 
@@ -133,5 +154,20 @@ public class GfxInfoItem implements IItem {
      */
     public long getJankyFrames(int pid) {
         return mRows.get(pid).jankyFrames;
+    }
+
+    /** Get the 90th percentile value of frame times (ms) */
+    public int getPrecentile90(int pid) {
+        return mRows.get(pid).percentile90;
+    }
+
+    /** Get the 95th percentile value of frame times (ms) */
+    public int getPrecentile95(int pid) {
+        return mRows.get(pid).percentile95;
+    }
+
+    /** Get the 99th percentile value of frame times (ms) */
+    public int getPrecentile99(int pid) {
+        return mRows.get(pid).percentile99;
     }
 }

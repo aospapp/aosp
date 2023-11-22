@@ -1,0 +1,50 @@
+#/** @file
+#
+#  Copyright (c) 2015-2017, Linaro. All rights reserved.
+#
+#  This program and the accompanying materials
+#  are licensed and made available under the terms and conditions of the BSD License
+#  which accompanies this distribution. The full text of the license may be found at
+#  http://opensource.org/licenses/bsd-license.php
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x00010019
+  BASE_NAME                      = HiKey960UsbDxe
+  FILE_GUID                      = 9998be97-6fb6-40f6-a98d-d797dc7b9d32
+  MODULE_TYPE                    = UEFI_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = HiKey960UsbEntryPoint
+
+[Sources.common]
+  HiKey960UsbDxe.c
+
+[LibraryClasses]
+  DebugLib
+  IoLib
+  TimerLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UsbSerialNumberLib
+
+[Protocols]
+  gDwUsbProtocolGuid
+  gEfiBlockIoProtocolGuid
+  gEfiDriverBindingProtocolGuid
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  OpenPlatformPkg/Drivers/Usb/DwUsb3Dxe/DwUsb3Dxe.dec
+  OpenPlatformPkg/Platforms/Hisilicon/HiKey960/HiKey960.dec
+
+[Pcd]
+  gHiKey960TokenSpaceGuid.PcdAndroidFastbootNvmDevicePath
+
+[Depex]
+  TRUE

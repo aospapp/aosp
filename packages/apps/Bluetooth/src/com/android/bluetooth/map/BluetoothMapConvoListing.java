@@ -14,6 +14,16 @@
 */
 package com.android.bluetooth.map;
 
+import android.util.Log;
+import android.util.Xml;
+
+import com.android.internal.util.FastXmlSerializer;
+import com.android.internal.util.XmlUtils;
+
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlSerializer;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
@@ -23,33 +33,23 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-import org.xmlpull.v1.XmlSerializer;
-
-import android.util.Log;
-import android.util.Xml;
-
-import com.android.internal.util.FastXmlSerializer;
-import com.android.internal.util.XmlUtils;
-
 public class BluetoothMapConvoListing {
-    private boolean hasUnread = false;
+    private boolean mHasUnread = false;
     private static final String TAG = "BluetoothMapConvoListing";
     private static final boolean D = BluetoothMapService.DEBUG;
     private static final String XML_TAG = "MAP-convo-listing";
 
     private List<BluetoothMapConvoListingElement> mList;
 
-    public BluetoothMapConvoListing(){
-     mList = new ArrayList<BluetoothMapConvoListingElement>();
+    public BluetoothMapConvoListing() {
+        mList = new ArrayList<BluetoothMapConvoListingElement>();
     }
+
     public void add(BluetoothMapConvoListingElement element) {
         mList.add(element);
         /* update info regarding whether the list contains unread conversations */
-        if (element.getReadBool())
-        {
-            hasUnread = true;
+        if (element.getReadBool()) {
+            mHasUnread = true;
         }
     }
 
@@ -58,8 +58,7 @@ public class BluetoothMapConvoListing {
      * @return the number of elements in the list.
      */
     public int getCount() {
-        if(mList != null)
-        {
+        if (mList != null) {
             return mList.size();
         }
         return 0;
@@ -69,9 +68,8 @@ public class BluetoothMapConvoListing {
      * does the list contain any unread messages
      * @return true if unread messages have been added to the list, else false
      */
-    public boolean hasUnread()
-    {
-        return hasUnread;
+    public boolean hasUnread() {
+        return mHasUnread;
     }
 
 
@@ -79,7 +77,7 @@ public class BluetoothMapConvoListing {
      *  returns the entire list as a list
      * @return list
      */
-    public List<BluetoothMapConvoListingElement> getList(){
+    public List<BluetoothMapConvoListingElement> getList() {
         return mList;
     }
 
@@ -125,15 +123,15 @@ public class BluetoothMapConvoListing {
         count = Math.min(count, mList.size() - offset);
         if (count > 0) {
             mList = mList.subList(offset, offset + count);
-            if(mList == null) {
+            if (mList == null) {
                 mList = new ArrayList<BluetoothMapConvoListingElement>(); // Return an empty list
             }
         } else {
-            if(offset > mList.size()) {
-               mList = new ArrayList<BluetoothMapConvoListingElement>();
-               Log.d(TAG, "offset greater than list size. Returning empty list");
+            if (offset > mList.size()) {
+                mList = new ArrayList<BluetoothMapConvoListingElement>();
+                Log.d(TAG, "offset greater than list size. Returning empty list");
             } else {
-               mList = mList.subList(offset, mList.size());
+                mList = mList.subList(offset, mList.size());
             }
         }
     }
@@ -146,16 +144,18 @@ public class BluetoothMapConvoListing {
             parser.setInput(xmlDocument, "UTF-8");
 
             // First find the folder-listing
-            while((type=parser.next()) != XmlPullParser.END_TAG
-                    && type != XmlPullParser.END_DOCUMENT ) {
+            while ((type = parser.next()) != XmlPullParser.END_TAG
+                    && type != XmlPullParser.END_DOCUMENT) {
                 // Skip until we get a start tag
                 if (parser.getEventType() != XmlPullParser.START_TAG) {
                     continue;
                 }
                 // Skip until we get a folder-listing tag
                 String name = parser.getName();
-                if(!name.equalsIgnoreCase(XML_TAG)) {
-                    if(D) Log.i(TAG,"Unknown XML tag: " + name);
+                if (!name.equalsIgnoreCase(XML_TAG)) {
+                    if (D) {
+                        Log.i(TAG, "Unknown XML tag: " + name);
+                    }
                     XmlUtils.skipCurrentTag(parser);
                 }
                 readConversations(parser);
@@ -175,18 +175,22 @@ public class BluetoothMapConvoListing {
     private void readConversations(XmlPullParser parser)
             throws XmlPullParserException, IOException, ParseException {
         int type;
-        if(D) Log.i(TAG,"readConversations(): ");
-        while((type=parser.next()) != XmlPullParser.END_TAG
-                && type != XmlPullParser.END_DOCUMENT ) {
+        if (D) {
+            Log.i(TAG, "readConversations(): ");
+        }
+        while ((type = parser.next()) != XmlPullParser.END_TAG
+                && type != XmlPullParser.END_DOCUMENT) {
             // Skip until we get a start tag
             if (parser.getEventType() != XmlPullParser.START_TAG) {
                 continue;
             }
             // Skip until we get a folder-listing tag
             String name = parser.getName();
-            if(name.trim().equalsIgnoreCase(BluetoothMapConvoListingElement.XML_TAG_CONVERSATION)
-                    == false) {
-                if(D) Log.i(TAG,"Unknown XML tag: " + name);
+            if (!name.trim()
+                    .equalsIgnoreCase(BluetoothMapConvoListingElement.XML_TAG_CONVERSATION)) {
+                if (D) {
+                    Log.i(TAG, "Unknown XML tag: " + name);
+                }
                 XmlUtils.skipCurrentTag(parser);
                 continue;
             }
@@ -208,7 +212,7 @@ public class BluetoothMapConvoListing {
             return false;
         }
         BluetoothMapConvoListing other = (BluetoothMapConvoListing) obj;
-        if (hasUnread != other.hasUnread) {
+        if (mHasUnread != other.mHasUnread) {
             return false;
         }
         if (mList == null) {

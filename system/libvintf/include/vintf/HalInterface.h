@@ -17,19 +17,44 @@
 #ifndef ANDROID_VINTF_HAL_INTERFACE_H_
 #define ANDROID_VINTF_HAL_INTERFACE_H_
 
+#include <functional>
 #include <set>
 #include <string>
+
+#include "Regex.h"
 
 namespace android {
 namespace vintf {
 
 // manifest.hal.interface element / compatibility-matrix.hal.interface element
 struct HalInterface {
-    std::string name;
-    std::set<std::string> instances;
-};
+    HalInterface() = default;
+    HalInterface(std::string&& name, std::set<std::string>&& instances)
+        : mName(std::move(name)), mInstances(std::move(instances)) {}
+    HalInterface(const std::string& name, const std::set<std::string>& instances)
+        : mName(name), mInstances(instances) {}
 
-bool operator==(const HalInterface&, const HalInterface&);
+    bool forEachInstance(
+        const std::function<bool(const std::string& interface, const std::string& instance,
+                                 bool isRegex)>& func) const;
+    bool hasAnyInstance() const;
+
+    // Return true if inserted, false otherwise.
+    bool insertInstance(const std::string& instanceOrPattern, bool isRegex);
+
+    // Return true if removed, false otherwise.
+    bool removeInstance(const std::string& instanceOrPattern, bool isRegex);
+
+    const std::string& name() const { return mName; }
+
+   private:
+    friend bool operator==(const HalInterface&, const HalInterface&);
+    friend struct HalInterfaceConverter;
+
+    std::string mName;
+    std::set<std::string> mInstances;
+    std::set<std::string> mRegexes;
+};
 
 } // namespace vintf
 } // namespace android

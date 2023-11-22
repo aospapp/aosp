@@ -18,6 +18,7 @@ package com.android.cts.verifier.notifications;
 import android.app.Notification;
 import android.content.ComponentName;
 import android.service.notification.NotificationListenerService;
+import android.service.notification.NotificationStats;
 import android.service.notification.StatusBarNotification;
 import android.util.ArrayMap;
 import android.util.Log;
@@ -47,6 +48,7 @@ public class MockListener extends NotificationListenerService {
     public static final String JSON_AMBIENT = "ambient";
     public static final String JSON_MATCHES_ZEN_FILTER = "matches_zen_filter";
     public static final String JSON_REASON = "reason";
+    public static final String JSON_STATS = "stats";
 
     ArrayList<String> mPosted = new ArrayList<String>();
     ArrayMap<String, JSONObject> mNotifications = new ArrayMap<>();
@@ -174,13 +176,14 @@ public class MockListener extends NotificationListenerService {
 
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn, RankingMap rankingMap,
-            int reason) {
+            NotificationStats stats, int reason) {
         Log.d(TAG, "removed: " + sbn.getTag() + " for reason " + reason);
         mRemoved.add(sbn.getTag());
         JSONObject removed = new JSONObject();
         try {
             removed.put(JSON_TAG, sbn.getTag());
             removed.put(JSON_REASON, reason);
+            removed.put(JSON_STATS, stats != null);
         } catch (JSONException e) {
             Log.e(TAG, "failed to pack up notification payload", e);
         }
@@ -189,5 +192,4 @@ public class MockListener extends NotificationListenerService {
         mRemovedReason.put(sbn.getTag(), removed);
         onNotificationRankingUpdate(rankingMap);
     }
-
 }

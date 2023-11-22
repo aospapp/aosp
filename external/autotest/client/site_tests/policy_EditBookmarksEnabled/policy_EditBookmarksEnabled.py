@@ -24,22 +24,12 @@ class policy_EditBookmarksEnabled(enterprise_policy_base.EnterprisePolicyTest):
     version = 1
 
     POLICY_NAME = 'EditBookmarksEnabled'
-    BOOKMARKS = '''
-    [
-        {
-          "name": "Google",
-          "url": "https://www.google.com/"
-        },
-        {
-          "name": "CNN",
-          "url": "http://www.cnn.com/"
-        },
-        {
-          "name": "IRS",
-          "url": "http://www.irs.gov/"
-        }
-    ]
-    '''
+    BOOKMARKS = [{"name": "Google",
+                  "url": "https://www.google.com/"},
+                 {"name": "CNN",
+                  "url": "http://www.cnn.com/"},
+                 {"name": "IRS",
+                  "url": "http://www.irs.gov/"}]
     SUPPORTING_POLICIES = {
         'BookmarkBarEnabled': True,
         'ManagedBookmarks': BOOKMARKS
@@ -94,11 +84,12 @@ class policy_EditBookmarksEnabled(enterprise_policy_base.EnterprisePolicyTest):
             if not add_bookmark_is_disabled:
                 raise error.TestFail('Add Bookmark should be disabled.')
 
-    def run_test_case(self, case):
+    def run_once(self, case):
         """Setup and run the test configured for the specified test case.
 
         @param case: Name of the test case to run.
         """
         case_value = self.TEST_CASES[case]
-        self.setup_case(self.POLICY_NAME, case_value, self.SUPPORTING_POLICIES)
+        self.SUPPORTING_POLICIES[self.POLICY_NAME] = case_value
+        self.setup_case(user_policies=self.SUPPORTING_POLICIES)
         self._test_edit_bookmarks_enabled(case_value)

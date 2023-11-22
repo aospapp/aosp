@@ -28,10 +28,9 @@ class SuiteRunnerTest(unittest.TestCase):
   mock_cmd_exec = mock.Mock(spec=command_executer.CommandExecuter)
   mock_cmd_term = mock.Mock(spec=command_executer.CommandTerminator)
   mock_logger = mock.Mock(spec=logger.Logger)
-  mock_label = label.MockLabel('lumpy', 'lumpy_chromeos_image', '',
-                               '/tmp/chromeos', 'lumpy',
-                               ['lumpy1.cros', 'lumpy.cros2'], '', '', False,
-                               'average', 'gcc', '')
+  mock_label = label.MockLabel(
+      'lumpy', 'lumpy_chromeos_image', '', '/tmp/chromeos', 'lumpy',
+      ['lumpy1.cros', 'lumpy.cros2'], '', '', False, 'average', 'gcc', '')
   telemetry_crosperf_bench = Benchmark(
       'b1_test',  # name
       'octane',  # test_name
@@ -72,9 +71,8 @@ class SuiteRunnerTest(unittest.TestCase):
     self.call_telemetry_run = False
 
   def setUp(self):
-    self.runner = suite_runner.SuiteRunner(self.mock_logger, 'verbose',
-                                           self.mock_cmd_exec,
-                                           self.mock_cmd_term)
+    self.runner = suite_runner.SuiteRunner(
+        self.mock_logger, 'verbose', self.mock_cmd_exec, self.mock_cmd_term)
 
   def test_get_profiler_args(self):
     input_str = ('--profiler=custom_perf --profiler_args=\'perf_options'
@@ -136,9 +134,9 @@ class SuiteRunnerTest(unittest.TestCase):
     self.assertTrue(self.call_telemetry_run)
     self.assertFalse(self.call_test_that_run)
     self.assertFalse(self.call_telemetry_crosperf_run)
-    self.assertEqual(
-        self.telemetry_run_args,
-        ['fake_machine', self.mock_label, self.telemetry_bench, ''])
+    self.assertEqual(self.telemetry_run_args, [
+        'fake_machine', self.mock_label, self.telemetry_bench, ''
+    ])
 
     reset()
     self.runner.Run(machine, self.mock_label, self.test_that_bench, test_args,
@@ -147,9 +145,9 @@ class SuiteRunnerTest(unittest.TestCase):
     self.assertFalse(self.call_telemetry_run)
     self.assertTrue(self.call_test_that_run)
     self.assertFalse(self.call_telemetry_crosperf_run)
-    self.assertEqual(
-        self.test_that_args,
-        ['fake_machine', self.mock_label, self.test_that_bench, '', ''])
+    self.assertEqual(self.test_that_args, [
+        'fake_machine', self.mock_label, self.test_that_bench, '', ''
+    ])
 
     reset()
     self.runner.Run(machine, self.mock_label, self.telemetry_crosperf_bench,
@@ -171,21 +169,12 @@ class SuiteRunnerTest(unittest.TestCase):
     # pyformat: disable
     set_cpu_cmd = (
         'set -e && '
+        # Disable Turbo in Intel pstate driver
+        'if [[ -e /sys/devices/system/cpu/intel_pstate/no_turbo ]]; then '
+        'echo -n 1 > /sys/devices/system/cpu/intel_pstate/no_turbo; fi; '
+        # Set governor to performance for each cpu
         'for f in /sys/devices/system/cpu/cpu*/cpufreq; do '
         'cd $f; '
-        'val=0; '
-        'if [[ -e scaling_available_frequencies ]]; then '
-        # pylint: disable=line-too-long
-        '  val=`cat scaling_available_frequencies | tr " " "\\n" | sort -n -b -r`; '
-        'else '
-        '  val=`cat scaling_max_freq | tr " " "\\n" | sort -n -b -r`; fi ; '
-        'set -- $val; '
-        'highest=$1; '
-        'if [[ $# -gt 1 ]]; then '
-        '  case $highest in *1000) highest=$2;; esac; '
-        'fi ;'
-        'echo $highest > scaling_max_freq; '
-        'echo $highest > scaling_min_freq; '
         'echo performance > scaling_governor; '
         'done'
     )
@@ -338,11 +327,12 @@ class SuiteRunnerTest(unittest.TestCase):
                                     self.telemetry_bench, '')
     self.assertEqual(res, 0)
     self.assertEqual(mock_runcmd.call_count, 1)
-    self.assertEqual(mock_runcmd.call_args_list[0][0], (
-        ('cd src/tools/perf && ./run_measurement '
-         '--browser=cros-chrome --output-format=csv '
-         '--remote=lumpy1.cros --identity /tmp/chromeos/src/scripts'
-         '/mod_for_test_scripts/ssh_keys/testing_rsa octane '),))
+    self.assertEqual(
+        mock_runcmd.call_args_list[0][0],
+        (('cd src/tools/perf && ./run_measurement '
+          '--browser=cros-chrome --output-format=csv '
+          '--remote=lumpy1.cros --identity /tmp/chromeos/src/scripts'
+          '/mod_for_test_scripts/ssh_keys/testing_rsa octane '),))
 
     self.real_logger.LogMsg = save_log_msg
 

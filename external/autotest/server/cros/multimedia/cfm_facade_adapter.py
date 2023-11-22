@@ -4,6 +4,10 @@
 
 """An adapter to remotely access the CFM facade on DUT."""
 
+import os
+import tempfile
+import time
+
 
 class CFMFacadeRemoteAdapter(object):
     """CFMFacadeRemoteAdapter is an adapter to remotely control CFM on DUT.
@@ -11,6 +15,7 @@ class CFMFacadeRemoteAdapter(object):
     The Autotest host object representing the remote DUT, passed to this
     class on initialization, can be accessed from its _client property.
     """
+    _RESTART_UI_DELAY = 10
 
     def __init__(self, host, remote_facade_proxy):
         """Construct a CFMFacadeRemoteAdapter.
@@ -24,7 +29,19 @@ class CFMFacadeRemoteAdapter(object):
 
     @property
     def _cfm_proxy(self):
-        return self._proxy.cfm
+        return self._proxy.cfm_main_screen
+
+
+    @property
+    def main_screen(self):
+        """CFM main screen API."""
+        return self._proxy.cfm_main_screen
+
+
+    @property
+    def mimo_screen(self):
+        """CFM mimo screen API."""
+        return self._proxy.cfm_mimo_screen
 
 
     def enroll_device(self):
@@ -36,9 +53,14 @@ class CFMFacadeRemoteAdapter(object):
         """Restart chrome for CFM."""
         self._cfm_proxy.restart_chrome_for_cfm()
 
+    def reboot_device_with_chrome_api(self):
+        """Reboot device using Chrome runtime API."""
+        self._cfm_proxy.reboot_device_with_chrome_api()
 
     def skip_oobe_after_enrollment(self):
         """Skips oobe and goes to the app landing page after enrollment."""
+        self._client.run('restart ui', ignore_status=True)
+        time.sleep(self._RESTART_UI_DELAY)
         self._cfm_proxy.skip_oobe_after_enrollment()
 
 
@@ -100,6 +122,31 @@ class CFMFacadeRemoteAdapter(object):
         self._cfm_proxy.end_hangout_session()
 
 
+    def take_screenshot(self):
+        """
+        Takes a screenshot on the DUT.
+
+        @return The file path to the screenshot on the DUT or None.
+        """
+        # No suffix since cfm_proxy.take_screenshot() automactially appends one.
+        with tempfile.NamedTemporaryFile() as f:
+            basename = os.path.basename(f.name)
+            return self._cfm_proxy.take_screenshot(basename)
+
+    def get_latest_callgrok_file_path(self):
+        """
+        @return The path to the lastest callgrok log file, if any.
+        """
+        return self._cfm_proxy.get_latest_callgrok_file_path()
+
+
+    def get_latest_pa_logs_file_path(self):
+        """
+        @return The path to the lastest packaged app log file, if any.
+        """
+        return self._cfm_proxy.get_latest_pa_logs_file_path()
+
+
     def is_in_hangout_session(self):
         """Check if device is in hangout session.
 
@@ -132,6 +179,11 @@ class CFMFacadeRemoteAdapter(object):
     def end_meeting_session(self):
         """End current meeting session."""
         self._cfm_proxy.end_meeting_session()
+
+
+    def get_participant_count(self):
+        """Gets the total participant count in a call."""
+        return self._cfm_proxy.get_participant_count()
 
 
     # Diagnostics commands/functions
@@ -298,3 +350,26 @@ class CFMFacadeRemoteAdapter(object):
     def unmute_camera(self):
         """Turned camera on."""
         self._cfm_proxy.unmute_camera()
+
+
+    def move_camera(self, camera_motion):
+        """
+        Move camera(PTZ commands).
+
+        @param camera_motion: Set of allowed commands
+            defined in cfmApi.move_camera.
+        """
+        self._cfm_proxy.move_camera(camera_motion)
+
+    def get_media_info_data_points(self):
+        """
+        Gets media info data points containing media stats.
+
+        These are exported on the window object when the
+        ExportMediaInfo mod is enabled.
+
+        @returns A list with dictionaries of media info data points.
+        @raises RuntimeError if the data point API is not available.
+        """
+        return self._cfm_proxy.get_media_info_data_points()
+

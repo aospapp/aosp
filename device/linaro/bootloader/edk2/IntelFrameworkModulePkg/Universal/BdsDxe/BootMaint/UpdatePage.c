@@ -1,7 +1,7 @@
 /** @file
 Dynamically update the pages.
 
-Copyright (c) 2004 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -559,14 +559,30 @@ UpdateOrderPage (
   switch (UpdatePageId) { 
 
   case FORM_BOOT_CHG_ID:
-    //GetBootOrder (CallbackData);
+    //
+    // If the BootOptionOrder in the BmmFakeNvData are same with the date in the BmmOldFakeNVData,
+    // means all Boot Options has been save in BootOptionMenu, we can get the date from the menu.
+    // else means browser maintains some uncommitted date which are not saved in BootOptionMenu,
+    // so we should not get the data from BootOptionMenu to show it.
+    //
+    if (CompareMem (CallbackData->BmmFakeNvData.BootOptionOrder, CallbackData->BmmOldFakeNVData.BootOptionOrder, sizeof (CallbackData->BmmFakeNvData.BootOptionOrder)) == 0) {
+      GetBootOrder (CallbackData);
+    }
     OptionOrder = CallbackData->BmmFakeNvData.BootOptionOrder;
     QuestionId = BOOT_OPTION_ORDER_QUESTION_ID;
     VarOffset = BOOT_OPTION_ORDER_VAR_OFFSET;
     break;
 
   case FORM_DRV_CHG_ID:
-    //GetDriverOrder (CallbackData);
+    //
+    // If the DriverOptionOrder in the BmmFakeNvData are same with the date in the BmmOldFakeNVData,
+    // means all Driver Options has been save in DriverOptionMenu, we can get the DriverOptionOrder from the menu.
+    // else means browser maintains some uncommitted date which are not saved in DriverOptionMenu,
+    // so we should not get the data from DriverOptionMenu to show it.
+    //
+    if (CompareMem (CallbackData->BmmFakeNvData.DriverOptionOrder, CallbackData->BmmOldFakeNVData.DriverOptionOrder, sizeof (CallbackData->BmmFakeNvData.DriverOptionOrder)) == 0) {
+      GetDriverOrder (CallbackData);
+    }
     OptionOrder = CallbackData->BmmFakeNvData.DriverOptionOrder;
     QuestionId = DRIVER_OPTION_ORDER_QUESTION_ID;
     VarOffset = DRIVER_OPTION_ORDER_VAR_OFFSET;
@@ -830,7 +846,7 @@ UpdateConModePage (
     //
     UnicodeValueToString (ModeString, 0, Col, 0);
     PStr = &ModeString[0];
-    StrCatS (PStr, sizeof (ModeString) / sizeof (ModeString[0]), L" x ");
+    StrCatS (PStr, ARRAY_SIZE (ModeString), L" x ");
     PStr = PStr + StrLen (PStr);
     UnicodeValueToString (PStr , 0, Row, 0);
 
@@ -939,7 +955,7 @@ UpdateTerminalPage (
   OptionsOpCodeHandle = HiiAllocateOpCodeHandle ();
   ASSERT (OptionsOpCodeHandle != NULL);
 
-  for (Index = 0; Index < sizeof (DataBitsList) / sizeof (DataBitsList[0]); Index++) {
+  for (Index = 0; Index < ARRAY_SIZE (DataBitsList); Index++) {
     CheckFlags = 0;
 
     if (DataBitsList[Index].Value == 8) {
@@ -972,7 +988,7 @@ UpdateTerminalPage (
   OptionsOpCodeHandle = HiiAllocateOpCodeHandle ();
   ASSERT (OptionsOpCodeHandle != NULL);
 
-  for (Index = 0; Index < sizeof (ParityList) / sizeof (ParityList[0]); Index++) {
+  for (Index = 0; Index < ARRAY_SIZE (ParityList); Index++) {
     CheckFlags = 0;
     if (ParityList[Index].Value ==  NoParity) {
       CheckFlags |= EFI_IFR_OPTION_DEFAULT;
@@ -1004,7 +1020,7 @@ UpdateTerminalPage (
   OptionsOpCodeHandle = HiiAllocateOpCodeHandle ();
   ASSERT (OptionsOpCodeHandle != NULL);
 
-  for (Index = 0; Index < sizeof (StopBitsList) / sizeof (StopBitsList[0]); Index++) {
+  for (Index = 0; Index < ARRAY_SIZE (StopBitsList); Index++) {
     CheckFlags = 0;
     if (StopBitsList[Index].Value == OneStopBit) {
       CheckFlags |= EFI_IFR_OPTION_DEFAULT;
@@ -1068,7 +1084,7 @@ UpdateTerminalPage (
   OptionsOpCodeHandle = HiiAllocateOpCodeHandle ();
   ASSERT (OptionsOpCodeHandle != NULL);
 
-  for (Index = 0; Index < sizeof (mFlowControlType) / sizeof (mFlowControlType[0]); Index++) {
+  for (Index = 0; Index < ARRAY_SIZE (mFlowControlType); Index++) {
   CheckFlags = 0;
     if (Index == 0) {
       CheckFlags |= EFI_IFR_OPTION_DEFAULT;

@@ -23,29 +23,29 @@ from cros_utils import logger
 
 from cros_utils import buildbot_utils
 
-# CL that uses LLVM to build the peppy image.
-USE_LLVM_PATCH = '295217'
-
 CROSTC_ROOT = '/usr/local/google/crostc'
 ROLE_ACCOUNT = 'mobiletc-prebuild'
 TOOLCHAIN_DIR = os.path.dirname(os.path.realpath(__file__))
 MAIL_PROGRAM = '~/var/bin/mail-sheriff'
 VALIDATION_RESULT_DIR = os.path.join(CROSTC_ROOT, 'validation_result')
 START_DATE = datetime.date(2016, 1, 1)
-TEST_PER_DAY = 2
+TEST_PER_DAY = 3
 TEST_BOARD = [
-    'squawks',      # x86_64, rambi  (baytrail)
-    'terra',        # x86_64, strago (braswell)
-    'lulu',         # x86_64, auron  (broadwell)
-    'peach_pit',    # arm,    peach  (exynos-5420)
-    'peppy',        # x86_64, slippy (haswell celeron)
-    'link',         # x86_64, ivybridge (ivybridge)
-    'nyan_big',     # arm,    nyan   (tegra)
-    'sentry',       # x86_64, kunimitsu (skylake-u)
-    'chell',        # x86_64, glados (skylake-y)
-    'daisy',        # arm,    daisy  (exynos)
-    'caroline',     # amd64
-    'kevin',        # arm,    gru  (Rockchip)
+    'squawks',  # x86_64, rambi  (baytrail)
+    'terra',  # x86_64, strago (braswell)
+    'lulu',  # x86_64, auron  (broadwell)
+    'peach_pit',  # arm,    peach  (exynos-5420)
+    'peppy',  # x86_64, slippy (haswell celeron)
+    'link',  # x86_64, ivybridge (ivybridge)
+    'nyan_big',  # arm,    nyan   (tegra)
+    'sentry',  # x86_64, kunimitsu (skylake-u)
+    'chell',  # x86_64, glados (skylake-y)
+    'daisy',  # arm,    daisy  (exynos)
+    'caroline',  # x86_64, glados (skylake-y)
+    'kevin',  # arm,    gru  (Rockchip)
+    'reef',  # x86_64, reef  (Apollo Lake)
+    'lakitu',
+    'whirlwind',
 ]
 
 
@@ -99,6 +99,7 @@ class ToolchainVerifier(object):
 
     return 0
 
+
 def Main(argv):
   """The main function."""
 
@@ -136,13 +137,10 @@ def Main(argv):
   if not options.compiler:
     print('Please specify which compiler to test (gcc, llvm, or llvm-next).')
     return 1
-  patches = options.patches
-  if not patches and options.compiler == 'llvm':
-    patches = USE_LLVM_PATCH
 
   if options.board:
     fv = ToolchainVerifier(options.board, options.chromeos_root,
-                           options.weekday, patches, options.compiler)
+                           options.weekday, options.patches, options.compiler)
     return fv.Doall()
 
   today = datetime.date.today()
@@ -154,7 +152,7 @@ def Main(argv):
     try:
       board = TEST_BOARD[(start_board + i) % len(TEST_BOARD)]
       fv = ToolchainVerifier(board, options.chromeos_root, options.weekday,
-                             patches, options.compiler)
+                             options.patches, options.compiler)
       fv.DoAll()
     except SystemExit:
       logfile = os.path.join(VALIDATION_RESULT_DIR, options.compiler, board)

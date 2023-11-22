@@ -52,9 +52,16 @@ long sysconf(int name) {
     // Things we actually have to calculate...
     //
     case _SC_ARG_MAX:
-      // Not a constant since Linux 2.6.23; see fs/exec.c for details.
-      // At least 32 pages, otherwise a quarter of the stack limit.
-      return MAX(__sysconf_rlimit(RLIMIT_STACK) / 4, _KERNEL_ARG_MAX);
+      // https://lkml.org/lkml/2017/11/15/813...
+      //
+      // I suspect a 128kB sysconf(_SC_ARG_MAX) is the sanest bet, simply
+      // because of that "conservative is better than aggressive".
+      //
+      // Especially since _technically_ we're still limiting things to that
+      // 128kB due to the single-string limit.
+      //
+      //               Linus
+      return ARG_MAX;
 
     case _SC_AVPHYS_PAGES:      return get_avphys_pages();
     case _SC_CHILD_MAX:         return __sysconf_rlimit(RLIMIT_NPROC);
@@ -135,12 +142,12 @@ long sysconf(int name) {
     case _SC_TIMERS:            return _POSIX_TIMERS;
     case _SC_GETGR_R_SIZE_MAX:  return 1024;
     case _SC_GETPW_R_SIZE_MAX:  return 1024;
-    case _SC_LOGIN_NAME_MAX:    return 256;   // Seems default on linux.
+    case _SC_LOGIN_NAME_MAX:    return LOGIN_NAME_MAX;
     case _SC_THREAD_DESTRUCTOR_ITERATIONS: return PTHREAD_DESTRUCTOR_ITERATIONS;
     case _SC_THREAD_KEYS_MAX:   return PTHREAD_KEYS_MAX;
     case _SC_THREAD_STACK_MIN:    return PTHREAD_STACK_MIN;
     case _SC_THREAD_THREADS_MAX:  return -1; // No specific limit.
-    case _SC_TTY_NAME_MAX:        return 32; // Seems default on linux.
+    case _SC_TTY_NAME_MAX:        return TTY_NAME_MAX;
     case _SC_THREADS:             return _POSIX_THREADS;
     case _SC_THREAD_ATTR_STACKADDR:   return _POSIX_THREAD_ATTR_STACKADDR;
     case _SC_THREAD_ATTR_STACKSIZE:   return _POSIX_THREAD_ATTR_STACKSIZE;
@@ -148,7 +155,7 @@ long sysconf(int name) {
     case _SC_THREAD_PRIO_INHERIT: return _POSIX_THREAD_PRIO_INHERIT;
     case _SC_THREAD_PRIO_PROTECT: return _POSIX_THREAD_PRIO_PROTECT;
     case _SC_THREAD_SAFE_FUNCTIONS:  return _POSIX_THREAD_SAFE_FUNCTIONS;
-    case _SC_MONOTONIC_CLOCK:   return _POSIX_VERSION;
+    case _SC_MONOTONIC_CLOCK:   return _POSIX_MONOTONIC_CLOCK;
 
     case _SC_2_PBS:             return -1;     // Obsolescent in POSIX.1-2008.
     case _SC_2_PBS_ACCOUNTING:  return -1;     // Obsolescent in POSIX.1-2008.
@@ -159,7 +166,7 @@ long sysconf(int name) {
     case _SC_ADVISORY_INFO:     return _POSIX_ADVISORY_INFO;
     case _SC_BARRIERS:          return _POSIX_BARRIERS;
     case _SC_CLOCK_SELECTION:   return _POSIX_CLOCK_SELECTION;
-    case _SC_CPUTIME:           return _POSIX_VERSION;
+    case _SC_CPUTIME:           return _POSIX_CPUTIME;
 
     case _SC_HOST_NAME_MAX:     return _POSIX_HOST_NAME_MAX;    // Minimum requirement.
     case _SC_IPV6:              return _POSIX_IPV6;
@@ -172,7 +179,7 @@ long sysconf(int name) {
     case _SC_SPORADIC_SERVER:   return _POSIX_SPORADIC_SERVER;
     case _SC_SS_REPL_MAX:       return -1;
     case _SC_SYMLOOP_MAX:       return _POSIX_SYMLOOP_MAX;      // Minimum requirement.
-    case _SC_THREAD_CPUTIME:    return _POSIX_VERSION;
+    case _SC_THREAD_CPUTIME:    return _POSIX_THREAD_CPUTIME;
 
     case _SC_THREAD_PROCESS_SHARED: return _POSIX_THREAD_PROCESS_SHARED;
     case _SC_THREAD_ROBUST_PRIO_INHERIT:  return _POSIX_THREAD_ROBUST_PRIO_INHERIT;

@@ -13,6 +13,14 @@
 #include <fstream>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <unistd.h>
+
+//#define TRACE_CHILD_LIFETIME
+
+#ifdef TRACE_CHILD_LIFETIME
+#define ATRACE_TAG ATRACE_TAG_ALWAYS
+#include <utils/Trace.h>
+#endif // TRACE_CHILD_LIFETIME
 
 using namespace std;
 
@@ -101,7 +109,8 @@ public:
     }
 };
 
-void createProcess(Pipe pipe, const char *exName, const char *arg)
+pid_t createProcess(Pipe pipe, const char *exName,
+                    const char *arg, bool use_memcg)
 {
     pipe.preserveOverFork(true);
     pid_t pid = fork();
@@ -111,17 +120,25 @@ void createProcess(Pipe pipe, const char *exName, const char *arg)
         char writeFdStr[16];
         snprintf(readFdStr, sizeof(readFdStr), "%d", pipe.getReadFd());
         snprintf(writeFdStr, sizeof(writeFdStr), "%d", pipe.getWriteFd());
-        execl(exName, exName, "--worker", arg, readFdStr, writeFdStr, nullptr);
+        char exPath[PATH_MAX];
+        ssize_t exPathLen = readlink("/proc/self/exe", exPath, sizeof(exPath));
+        bool isExPathAvailable =
+            exPathLen != -1 && exPathLen < static_cast<ssize_t>(sizeof(exPath));
+        if (isExPathAvailable) {
+          exPath[exPathLen] = '\0';
+        }
+        execl(isExPathAvailable ? exPath : exName, exName, "--worker", arg, readFdStr, writeFdStr,
+            use_memcg ? "1" : "0", nullptr);
         ASSERT_TRUE(0);
     }
     // parent process
     else if (pid > 0) {
         pipe.preserveOverFork(false);
-        return;
     }
     else {
         ASSERT_TRUE(0);
     }
+    return pid;
 }
 
 
@@ -149,37 +166,55 @@ static void write_oomadj_to_lmkd(int oomadj) {
     cout << "Wrote " << written << " bytes to lmkd control socket." << endl;
 }
 
-#ifdef ENABLE_MEM_CGROUPS
 static void create_memcg() {
     char buf[256];
+    uid_t uid = getuid();
     pid_t pid = getpid();
-    snprintf(buf, sizeof(buf), "/dev/memctl/apps/%u", pid);
 
+    snprintf(buf, sizeof(buf), "/dev/memcg/apps/uid_%u", uid);
     int tasks = mkdir(buf, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-    if (tasks < 0) {
-        cout << "Failed to create memory cgroup" << endl;
+    if (tasks < 0 && errno != EEXIST) {
+        cerr << "Failed to create memory cgroup under " << buf << endl;
         return;
     }
-    snprintf(buf, sizeof(buf), "/dev/memctl/apps/%u/tasks", pid);
+
+    snprintf(buf, sizeof(buf), "/dev/memcg/apps/uid_%u/pid_%u", uid, pid);
+    tasks = mkdir(buf, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    if (tasks < 0) {
+        cerr << "Failed to create memory cgroup under " << buf << endl;
+        return;
+    }
+
+    snprintf(buf, sizeof(buf), "/dev/memcg/apps/uid_%u/pid_%u/tasks", uid, pid);
     tasks = open(buf, O_WRONLY);
     if (tasks < 0) {
-        cout << "Unable to add process to memory cgroup" << endl;
+        cerr << "Unable to add process to memory cgroup" << endl;
         return;
     }
     snprintf(buf, sizeof(buf), "%u", pid);
     write(tasks, buf, strlen(buf));
     close(tasks);
 }
-#endif
+
+void usage() {
+    cout << "Application allocates memory until it's killed." << endl
+        << "It starts at max oom_score_adj and gradually "
+        << "decreases it to 0." << endl
+        << "Usage: alloc-stress [-g | --cgroup]" << endl
+        << "\t-g | --cgroup\tcreates memory cgroup for the process" << endl;
+}
 
 size_t s = 4 * (1 << 20);
 void *gptr;
 int main(int argc, char *argv[])
 {
+    bool use_memcg = false;
+
     if ((argc > 1) && (std::string(argv[1]) == "--worker")) {
-#ifdef ENABLE_MEM_CGROUPS
-        create_memcg();
-#endif
+        if (std::string(argv[5]) == "1") {
+            create_memcg();
+        }
+
         write_oomadj_to_lmkd(atoi(argv[2]));
         Pipe p{atoi(argv[3]), atoi(argv[4])};
 
@@ -199,17 +234,39 @@ int main(int argc, char *argv[])
             allocCount += s;
         }
     } else {
-        cout << "parent:" << argc << endl;
+        if (argc == 2) {
+            if (std::string(argv[1]) == "--help" ||
+                std::string(argv[1]) == "-h") {
+                usage();
+                return 0;
+            }
+
+            if (std::string(argv[1]) == "--cgroup" ||
+                std::string(argv[1]) == "-g") {
+                use_memcg = true;
+            }
+        }
+
+        cout << "Memory cgroups are "
+             << (use_memcg ? "used" : "not used") << endl;
 
         write_oomadj_to_lmkd(-1000);
         for (int i = 1000; i >= 0; i -= 100) {
             auto pipes = Pipe::createPipePair();
             char arg[16];
+            pid_t ch_pid;
             snprintf(arg, sizeof(arg), "%d", i);
-            createProcess(std::move(std::get<1>(pipes)), argv[0], arg);
+            ch_pid = createProcess(std::move(std::get<1>(pipes)),
+                                   argv[0], arg, use_memcg);
             Pipe &p = std::get<0>(pipes);
 
             size_t t = 0;
+
+#ifdef TRACE_CHILD_LIFETIME
+            char trace_str[64];
+            snprintf(trace_str, sizeof(trace_str), "alloc-stress, adj=%d, pid=%u", i, ch_pid);
+            ATRACE_INT(trace_str, i);
+#endif
             while (1) {
                 //;cout << getpid() << ":" << "parent signal" << endl;
                 p.signal();
@@ -220,7 +277,10 @@ int main(int argc, char *argv[])
                 }
                 t += s;
             }
-            cout << "adj: " << i << " sz: " << t / (1 << 20) << endl;
+            cout << "pid: " << ch_pid << " adj: " << i << " sz: " << t / (1 << 20) << endl;
+#ifdef TRACE_CHILD_LIFETIME
+            ATRACE_INT(trace_str, 0);
+#endif
         }
     }
     return 0;

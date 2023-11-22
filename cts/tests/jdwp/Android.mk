@@ -21,10 +21,13 @@ LOCAL_MODULE := CtsJdwpTestCases
 LOCAL_STATIC_JAVA_LIBRARIES := apache-harmony-jdwp-tests
 
 # Don't include this package in any target
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_TAGS := tests
 
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+
+LOCAL_DEX_PREOPT := false
+LOCAL_PROGUARD_ENABLED := disabled
 
 include $(BUILD_JAVA_LIBRARY)
 

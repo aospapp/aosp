@@ -21,6 +21,7 @@
 
 #include "HalInterfaces.h"
 #include "Memory.h"
+#include "ModelBuilder.h"
 #include "NeuralNetworks.h"
 #include "Utils.h"
 
@@ -34,20 +35,17 @@ class Device;
 class ExecutionBuilder;
 class ExecutionPlan;
 class Memory;
-class ModelBuilder;
 class StepExecutor;
 
 class ExecutionStep {
-private:
+public:
     typedef std::vector<std::pair<uint32_t, uint32_t>> RemapVectorType;
     typedef std::set<std::pair<uint32_t, uint32_t>> SubModelOutputSetType;
 
-public:
     enum OperandKind { INPUT, OUTPUT };
 
     ExecutionStep(ExecutionPlan* plan,
                   uint32_t stepIndex,
-                  std::shared_ptr<ModelBuilder> model,
                   std::shared_ptr<Device> device);
     int addOperation(int operationIndex, const ModelBuilder& fromModel);
     int addOperand(uint32_t fromOperandIndex, uint32_t* toOperandIndex,
@@ -60,25 +58,32 @@ public:
     const RemapVectorType& getModelOutputs() const {
         return mModelOutputs;
     }
-    const RemapVectorType& getSubModelInputs() const {
-        return mSubModelInputs;
+    const RemapVectorType& getTempsAsSubModelInputs() const {
+        return mTempsAsSubModelInputs;
     }
-    const SubModelOutputSetType& getSubModelOutputs() const {
-        return mSubModelOutputs;
+    const SubModelOutputSetType& getTempsAsSubModelOutputs() const {
+        return mTempsAsSubModelOutputs;
+    }
+    const RemapVectorType& getOutputsAsSubModelInputs() const {
+        return mOutputsAsSubModelInputs;
+    }
+    const std::vector<uint32_t>& getOutputsAsSubModelInputsIndexToFromModel() const {
+        return mOutputsAsSubModelInputsIndexToFromModel;
     }
 
-    void recordSubModelOutput(uint32_t fromModelIndex) {
+    void recordTempAsSubModelOutput(uint32_t fromModelIndex) {
         const auto it = mOperandMap.find(fromModelIndex);
         nnAssert(it != mOperandMap.end());
-        mSubModelOutputs.insert(std::make_pair(fromModelIndex, it->second));
+        mTempsAsSubModelOutputs.insert(std::make_pair(fromModelIndex, it->second));
     }
 
     // If this step has a submodel output of unknown size, sets
     // *hasOutputOfUnknownSize to true; otherwise, leaves it
     // unchanged.
-    int finishSubModel(const ModelBuilder* fromModel, bool* hasOutputOfUnknownSize);
+    int finishSubModel(const ModelBuilder* fromModel, bool* hasOutputOfUnknownSize,
+                       int32_t executionPreference);
 
-    std::shared_ptr<ModelBuilder> getSubModel() const { return mSubModel; }
+    const ModelBuilder* getSubModel() const { return &mSubModel; }
     std::shared_ptr<Device> getDevice() const { return mDevice; }
 
     // only available after calling finishSubModel()
@@ -88,14 +93,17 @@ public:
     void mapInputsAndOutputs(std::shared_ptr<StepExecutor> stepExecutor) const;
 
     void dump() const;
+
 private:
+    void logSubModel() const;
+
     // TODO: Some of the data is working state information that
     // shouldn't be needed after we've constructed but not executed
     // the step.
 
     ExecutionPlan* mPlan;
     uint32_t mIndex;  // index of step within plan
-    std::shared_ptr<ModelBuilder> mSubModel;
+    ModelBuilder mSubModel;
     std::shared_ptr<Device> mDevice;  // nullptr signifies CPU
     sp<IPreparedModel> mPreparedSubModel;  // not used for CPU
 
@@ -107,22 +115,38 @@ private:
     RemapVectorType mModelOutputs;
     // Temporaries of original model that are inputs of this submodel:
     //     (fromModel index, subModel index)
-    RemapVectorType mSubModelInputs;
+    RemapVectorType mTempsAsSubModelInputs;
     // Temporaries of original model that are outputs of this submodel:
     //     (fromModel index, subModel index)
-    SubModelOutputSetType mSubModelOutputs;
+    SubModelOutputSetType mTempsAsSubModelOutputs;
+    // Outputs of original model that are inputs of this submodel:
+    //     (fromModel index, subModel index)
+    RemapVectorType mOutputsAsSubModelInputs;
     // Converts operand indexes from the main model to the submodel.
     std::unordered_map<uint32_t, uint32_t> mOperandMap;
     // Converts input indexes from the submodel to the main model
     // (these are input indexes, not operand indexes).  This vector
     // only describes inputs of the submodel that are also inputs of
-    // the main model -- that is, mModelInputs but not mSubModelInputs.
+    // the main model -- that is, mModelInputs but not mTempsAsSubModelInputs.
     std::vector<uint32_t> mInputIndexSubModelToFromModel;
     // Converts output indexes from the submodel to the main model
     // (these are output indexes, not operand indexes).  This vector
     // only describes outputs of the submodel that are also outputs of
-    // the main model -- that is, mModelOutputs but not mSubModelOutputs.
+    // the main model -- that is, mModelOutputs but not mTempsAsSubModelOutputs.
     std::vector<uint32_t> mOutputIndexSubModelToFromModel;
+    // Converts indexes into mOutputsAsSubModelInputs to indexes into
+    // main model outputs (these are input and output indexes, not
+    // operand indexes).  To be specific, if the main model outputs
+    // are mainModelOutputs,
+    //
+    //     mOutputsAsSubModelInputsIndexToFromModel.size() ==
+    //     mOutputsAsSubModelInputs.size()
+    //
+    // and when (0 <= i < mOutputsAsSubModelInputs.size()),
+    //
+    //     mainModelOutputs[mOutputsAsSubModelInputsIndexToFromModel[i]] ==
+    //     mOutputsAsSubModelInputs[i].first
+    std::vector<uint32_t> mOutputsAsSubModelInputsIndexToFromModel;
 };
 
 class ExecutionPlan {
@@ -180,7 +204,7 @@ public:
     void becomeSingleStep(const std::shared_ptr<Device> device,
                           const ModelBuilder* model);
 
-    int finish(const ModelBuilder* fromModel);
+    int finish(const ModelBuilder* fromModel, int32_t executionPreference);
 
     void recordTemporaryDef(uint32_t fromModelIndex, uint32_t stepIndex) {
         auto& temporaryToDefiningStep = compound()->mTemporaryToDefiningStep;
@@ -196,14 +220,16 @@ public:
     Kind forTest_getKind() const;
     std::shared_ptr<const Device> forTest_simpleGetDevice() const;
     const std::vector<std::shared_ptr<ExecutionStep>>& forTest_compoundGetSteps() const;
+    bool forTest_hasSubModelOutputsOfUnknownSize() const;
 
 private:
-    void findSubModelOutputs();
+    void findTempsAsSubModelOutputs();
 
     struct Body {
         virtual ~Body() {}
         virtual void dump() const = 0;
-        virtual int finish(const ModelBuilder* fromModel) = 0;
+        virtual int finish(const ModelBuilder* fromModel, int32_t executionPreference) = 0;
+        virtual bool hasSubModelOutputsOfUnknownSize() const = 0;
         bool mSuccessfulFinish = false;
     };
 
@@ -212,7 +238,8 @@ private:
                 mDevice(device), mModel(model) {}
 
         void dump() const override;
-        int finish(const ModelBuilder* fromModel) override;
+        int finish(const ModelBuilder* fromModel, int32_t executionPreference) override;
+        virtual bool hasSubModelOutputsOfUnknownSize() const override { return false; }
 
         std::shared_ptr<Device> mDevice;  // nullptr signifies CPU
         const ModelBuilder* mModel;
@@ -221,7 +248,10 @@ private:
 
     struct CompoundBody : Body {
         void dump() const override;
-        int finish(const ModelBuilder* fromModel) override;
+        int finish(const ModelBuilder* fromModel, int32_t executionPreference) override;
+        virtual bool hasSubModelOutputsOfUnknownSize() const override {
+            return mHasSubModelOutputOfUnknownSize;
+        }
 
         // TODO: Some of the data is working state information that
         // shouldn't be needed after we've constructed but not
@@ -235,7 +265,7 @@ private:
 
         bool mHasSubModelOutputOfUnknownSize = false;
     private:
-        void findSubModelOutputs();
+        void findTempsAsSubModelOutputs();
     };
 
     enum { EMPTY, SIMPLE, COMPOUND } mState = EMPTY;

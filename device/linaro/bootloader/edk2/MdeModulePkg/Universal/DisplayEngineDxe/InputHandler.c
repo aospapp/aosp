@@ -1,7 +1,7 @@
 /** @file
 Implementation for handling user input from the User Interfaces.
 
-Copyright (c) 2004 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -1070,14 +1070,14 @@ EnterCarriageReturn:
 
           if (ValidateFail) {
             UpdateStatusBar (INPUT_ERROR, TRUE);
-            ASSERT (Count < sizeof (PreviousNumber) / sizeof (PreviousNumber[0]));
+            ASSERT (Count < ARRAY_SIZE (PreviousNumber));
             EditValue = PreviousNumber[Count];
             break;
           }
         } else {
           if (EditValue > Maximum) {
             UpdateStatusBar (INPUT_ERROR, TRUE);
-            ASSERT (Count < sizeof (PreviousNumber) / sizeof (PreviousNumber[0]));
+            ASSERT (Count < ARRAY_SIZE (PreviousNumber));
             EditValue = PreviousNumber[Count];
             break;
           }
@@ -1086,7 +1086,7 @@ EnterCarriageReturn:
         UpdateStatusBar (INPUT_ERROR, FALSE);
 
         Count++;
-        ASSERT (Count < (sizeof (PreviousNumber) / sizeof (PreviousNumber[0])));
+        ASSERT (Count < (ARRAY_SIZE (PreviousNumber)));
         PreviousNumber[Count] = EditValue;
 
         gST->ConOut->SetAttribute (gST->ConOut, GetHighlightTextColor ());
@@ -1298,9 +1298,6 @@ GetSelectionInputPopUp (
   CurrentOption     = NULL;
   ShowDownArrow     = FALSE;
   ShowUpArrow       = FALSE;
-
-  StringPtr = AllocateZeroPool ((gOptionBlockWidth + 1) * 2);
-  ASSERT (StringPtr);
 
   ZeroMem (&HiiValue, sizeof (EFI_HII_VALUE));
 

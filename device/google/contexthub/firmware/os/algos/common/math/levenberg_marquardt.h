@@ -109,7 +109,7 @@ struct LmSolver {
 
 // Initializes LM solver with provided parameters and error function.
 void lmSolverInit(struct LmSolver *solver, const struct LmParams *params,
-                  ResidualAndJacobianFunction error_func);
+                  ResidualAndJacobianFunction func);
 
 void lmSolverDestroy(struct LmSolver *solver);
 
@@ -133,7 +133,7 @@ void lmSolverSetData(struct LmSolver *solver, struct LmData *data);
  */
 enum LmStatus lmSolverSolve(struct LmSolver *solver, const float *initial_state,
                             void *f_data, size_t state_dim, size_t meas_dim,
-                            float *est_state);
+                            float *state);
 
 ////////////////////////// TEST UTILITIES ////////////////////////////////////
 // This function is exposed here for testing purposes only.

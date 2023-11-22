@@ -65,10 +65,10 @@ class HashtableLookupOpModel {
     std::vector<uint32_t> inputs;
 
     // Input and weights
-    OperandType LookupTy(Type::TENSOR_FLOAT32, lookup_shape);
+    OperandType LookupTy(Type::TENSOR_INT32, lookup_shape);
     inputs.push_back(model_.addOperand(&LookupTy));
 
-    OperandType KeyTy(Type::TENSOR_FLOAT32, key_shape);
+    OperandType KeyTy(Type::TENSOR_INT32, key_shape);
     inputs.push_back(model_.addOperand(&KeyTy));
 
     OperandType ValueTy(Type::TENSOR_FLOAT32, value_shape);
@@ -83,7 +83,7 @@ class HashtableLookupOpModel {
     OperandType OutputOpndTy(Type::TENSOR_FLOAT32, out_dim);
     outputs.push_back(model_.addOperand(&OutputOpndTy));
 
-    OperandType HitsOpndTy(Type::TENSOR_FLOAT32, lookup_shape);
+    OperandType HitsOpndTy(Type::TENSOR_QUANT8_ASYMM, lookup_shape, 1.f, 0);
     outputs.push_back(model_.addOperand(&HitsOpndTy));
 
     auto multiAll = [](const std::vector<uint32_t> &dims) -> uint32_t {
@@ -109,16 +109,18 @@ class HashtableLookupOpModel {
     compilation.finish();
     Execution execution(&compilation);
 
-#define SetInputOrWeight(X, T)                                          \
-  ASSERT_EQ(execution.setInput(HashtableLookup::k##X##Tensor, X##_.data(), sizeof(X##_)), \
+#define SetInputOrWeight(X, T)                                             \
+  ASSERT_EQ(execution.setInput(HashtableLookup::k##X##Tensor, X##_.data(), \
+                               sizeof(T) * X##_.size()),                   \
             Result::NO_ERROR);
 
     FOR_ALL_INPUT_AND_WEIGHT_TENSORS(SetInputOrWeight);
 
 #undef SetInputOrWeight
 
-#define SetOutput(X, T)                                                 \
-  ASSERT_EQ(execution.setOutput(HashtableLookup::k##X##Tensor, X##_.data(), sizeof(X##_)), \
+#define SetOutput(X, T)                                                     \
+  ASSERT_EQ(execution.setOutput(HashtableLookup::k##X##Tensor, X##_.data(), \
+                               sizeof(T) * X##_.size()),                    \
             Result::NO_ERROR);
 
     FOR_ALL_OUTPUT_TENSORS(SetOutput);

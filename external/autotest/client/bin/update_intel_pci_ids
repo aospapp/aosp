@@ -5,15 +5,16 @@
 
 """Create a JSON file containing PCI ID-to-name mappings for Intel GPUs.
 
-This script uses upstream Mesa to get the latest PCI ID list.
+This script gets the latest PCI ID list from Mesa.
 The list is used by get_gpu_family() in utils.py.
-This script should be run occasionally to keep the list up-to-date.
+This script should be run whenever Mesa is updated
+to keep the list up-to-date.
 """
 
 import json
+import os
 import shutil
 import subprocess as sp
-import tempfile
 
 
 def map_gpu_name(mesa_name):
@@ -32,7 +33,10 @@ def map_gpu_name(mesa_name):
         'Braswell': 'braswell',
         'Skylake': 'skylake',
         'Broxton': 'broxton',
-        'Kabylake': 'kabylake'
+        'Kabylake': 'kabylake',
+        'Kaby Lake': 'kabylake',
+        'Geminilake': 'geminilake',
+        'Cannonlake': 'cannonlake',
     }
 
     for name in family_name_map:
@@ -42,31 +46,20 @@ def map_gpu_name(mesa_name):
 
 
 def main():
-    """Extract Intel GPU PCI IDs from upstream Mesa and write to JSON file.
+    """Extract Intel GPU PCI IDs from Mesa and write to JSON file.
     """
 
     in_files = ['i915_pci_ids.h', 'i965_pci_ids.h']
-    out_file = 'intel_pci_ids.json'
-    remote_repo = 'http://anongit.freedesktop.org/git/mesa/mesa.git'
-    local_repo = tempfile.mkdtemp()
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    out_file = os.path.join(script_dir, 'intel_pci_ids.json')
+    local_repo = os.path.join(script_dir, '../../../../mesa')
 
     pci_ids = {}
-
-    cmd = 'git clone --no-checkout --depth 1 %s %s' % (remote_repo, local_repo)
-
-    try:
-        sp.check_call(cmd, shell=True)
-    except sp.CalledProcessError as err:
-        print 'Cannot clone Mesa repo (%d)' % err.returncode
-        exit()
-
     chipsets = []
     cmd = 'cd %s; git show HEAD:include/pci_ids/' % local_repo
     for id_file in in_files:
         chipsets.extend(sp.check_output(cmd + id_file,
                                         shell=True).splitlines())
-    shutil.rmtree(local_repo)
-
     for cset in chipsets:
         cset_attr = cset[len('CHIPSET('):-2].split(',')
 

@@ -40,6 +40,16 @@ if /i "%~1"=="/l" (
     shift
     goto OptLoop
 )
+if /i "%~1"=="/y" (
+    set Build_Flags=%Build_Flags% /y
+    shift
+    goto OptLoop
+)
+if /i "%~1"=="/m" (
+    set Build_Flags=%Build_Flags% /m
+    shift
+    goto OptLoop
+)
 if /i "%~1" == "/c" (
     set Build_Flags=%Build_Flags% /c
     shift
@@ -168,6 +178,11 @@ echo        Build Targets:    Release, Debug
 echo        IFWI Suffix:      Suffix to append to end of IFWI filename (default: MM_DD_YYYY)
 echo.
 echo        See  Stitch/Stitch_Config.txt  for additional stitching settings.
+echo.
+echo        If capsule update is needed, please update CAPSULE_ENABLE = TRUE in Config.dsc.
+echo        If recovery is needed, please update RECOVERY_ENABLE = TRUE in Config.dsc.
+echo        If either of above is TRUE, please set OPENSSL_PATH in windows evironment
+echo        and put openssl.exe there, to generate final capsule image.
 echo.
 set exitCode=1
 

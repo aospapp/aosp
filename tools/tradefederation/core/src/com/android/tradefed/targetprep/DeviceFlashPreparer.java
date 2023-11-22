@@ -22,23 +22,22 @@ import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceUnresponsiveException;
+import com.android.tradefed.device.IDeviceManager;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.ITestDevice.RecoveryMode;
 import com.android.tradefed.host.IHostOptions;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.IDeviceFlasher.UserDataFlashOption;
+import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-/**
- * A {@link ITargetPreparer} that flashes an image on physical Android hardware.
- */
-public abstract class DeviceFlashPreparer implements ITargetCleaner {
+/** A {@link ITargetPreparer} that flashes an image on physical Android hardware. */
+public abstract class DeviceFlashPreparer extends BaseTargetPreparer implements ITargetCleaner {
 
     /**
      * Enum of options for handling the encryption of userdata image
@@ -81,9 +80,12 @@ public abstract class DeviceFlashPreparer implements ITargetCleaner {
         "list of /data subdirectories to NOT wipe when doing UserDataFlashOption.TESTS_ZIP")
     private Collection<String> mDataWipeSkipList = new ArrayList<>();
 
+    /**
+     * @deprecated use host-options:concurrent-flasher-limit.
+     */
+    @Deprecated
     @Option(name = "concurrent-flasher-limit", description =
-        "The maximum number of concurrent flashers (may be useful to avoid memory constraints)" +
-        "This will be overriden if one is set in the host options.")
+        "No-op, do not use. Left for backwards compatibility.")
     private Integer mConcurrentFlasherLimit = null;
 
     @Option(name = "skip-post-flashing-setup",
@@ -94,17 +96,11 @@ public abstract class DeviceFlashPreparer implements ITargetCleaner {
             description = "the timeout for the command of wiping user data.", isTimeVal = true)
     private long mWipeTimeout = 4 * 60 * 1000;
 
-    @Option(name = "disable", description = "Disable the device flasher.")
-    private boolean mDisable = false;
-
-    private static Semaphore sConcurrentFlashLock = null;
-
-    /**
-     * This serves both as an indication of whether the flash lock should be used, and as an
-     * indicator of whether or not the flash lock has been initialized -- if this is true
-     * and {@code mConcurrentFlashLock} is {@code null}, then it has not yet been initialized.
-     */
-    private static Boolean sShouldCheckFlashLock = true;
+    @Option(
+        name = "fastboot-flash-option",
+        description = "additional options to pass with fastboot flash/update command."
+    )
+    private Collection<String> mFastbootFlashOptions = new ArrayList<>();
 
     /**
      * Sets the device boot time
@@ -134,11 +130,22 @@ public abstract class DeviceFlashPreparer implements ITargetCleaner {
     }
 
     /**
+     * Getg a reference to the {@link IDeviceManager}
+     *
+     * Exposed for unit testing
+     *
+     * @return the {@link IDeviceManager} to use
+     */
+    IDeviceManager getDeviceManager() {
+        return GlobalConfiguration.getDeviceManagerInstance();
+    }
+
+    /**
      * Gets the {@link IHostOptions} instance to use.
      * <p/>
      * Exposed for unit testing
      */
-    IHostOptions getHostOptions() {
+    protected IHostOptions getHostOptions() {
         return GlobalConfiguration.getInstance().getHostOptions();
     }
 
@@ -152,94 +159,12 @@ public abstract class DeviceFlashPreparer implements ITargetCleaner {
     }
 
     /**
-     * Set the state of the concurrent flash limit implementation
-     *
-     * Exposed for unit testing
-     */
-    void setConcurrentFlashSettings(Integer limit, Semaphore flashLock, boolean shouldCheck) {
-        synchronized(sShouldCheckFlashLock) {
-            // Make a minimal attempt to avoid having things get into an inconsistent state
-            if (sConcurrentFlashLock != null && mConcurrentFlasherLimit != null) {
-                int curLimit = mConcurrentFlasherLimit;
-                int curAvail = sConcurrentFlashLock.availablePermits();
-                if (curLimit != curAvail) {
-                    throw new IllegalStateException(String.format("setConcurrentFlashSettings may " +
-                            "not be called while any permits are active.  The flasher limit is %d, " +
-                            "but there are only %d permits available.", curLimit, curAvail));
-                }
-            }
-
-            mConcurrentFlasherLimit = limit;
-            sConcurrentFlashLock = flashLock;
-            sShouldCheckFlashLock = shouldCheck;
-        }
-    }
-
-    Semaphore getConcurrentFlashLock() {
-        return sConcurrentFlashLock;
-    }
-
-    /**
-     * Request permission to flash.  If the number of concurrent flashers is limited, this will
-     * wait in line in order to remain under the flash limit count.
-     *
-     * Exposed for unit testing.
-     */
-    void takeFlashingPermit() {
-        if (!sShouldCheckFlashLock) return;
-
-        // The logic below is to avoid multi-thread race conditions while initializing
-        // mConcurrentFlashLock when we hit this condition.
-        if (sConcurrentFlashLock == null) {
-            // null with mShouldCheckFlashLock == true means initialization hasn't been done yet
-            synchronized(sShouldCheckFlashLock) {
-                // Check all state again, since another thread might have gotten here first
-                if (!sShouldCheckFlashLock) return;
-
-                Integer concurrentFlasherLimit = mConcurrentFlasherLimit;
-                IHostOptions hostOptions = getHostOptions();
-                if (hostOptions.getConcurrentFlasherLimit() != null) {
-                    CLog.i("using host-wide concurrent flasher limit %d",
-                            hostOptions.getConcurrentFlasherLimit());
-                    concurrentFlasherLimit = hostOptions.getConcurrentFlasherLimit();
-                }
-
-                if (concurrentFlasherLimit == null) {
-                    sShouldCheckFlashLock = false;
-                    return;
-                }
-
-                if (sConcurrentFlashLock == null) {
-                    sConcurrentFlashLock = new Semaphore(concurrentFlasherLimit, true /* fair */);
-                }
-            }
-        }
-        CLog.i(
-                "Requesting a flashing permit out of the host max limit of %s. Current queue "
-                        + "length: %s",
-                getHostOptions().getConcurrentFlasherLimit(),
-                sConcurrentFlashLock.getQueueLength());
-        sConcurrentFlashLock.acquireUninterruptibly();
-    }
-
-    /**
-     * Restore a flashing permit that we acquired previously
-     *
-     * Exposed for unit testing.
-     */
-    void returnFlashingPermit() {
-        if (sConcurrentFlashLock != null) {
-            sConcurrentFlashLock.release();
-        }
-    }
-
-    /**
      * {@inheritDoc}
      */
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError,
             DeviceNotAvailableException, BuildError {
-        if (mDisable) {
+        if (isDisabled()) {
             CLog.i("Skipping device flashing.");
             return;
         }
@@ -249,6 +174,10 @@ public abstract class DeviceFlashPreparer implements ITargetCleaner {
         }
         // don't allow interruptions during flashing operations.
         getRunUtil().allowInterrupt(false);
+        IDeviceManager deviceManager = getDeviceManager();
+        long queueTime = -1;
+        long flashingTime = -1;
+        long start = -1;
         try {
             IDeviceBuildInfo deviceBuild = (IDeviceBuildInfo)buildInfo;
             checkDeviceProductType(device, deviceBuild);
@@ -257,19 +186,34 @@ public abstract class DeviceFlashPreparer implements ITargetCleaner {
             flasher.setWipeTimeout(mWipeTimeout);
             // only surround fastboot related operations with flashing permit restriction
             try {
-                long start = System.currentTimeMillis();
-                takeFlashingPermit();
+                start = System.currentTimeMillis();
+                deviceManager.takeFlashingPermit();
+                queueTime = System.currentTimeMillis() - start;
                 CLog.v("Flashing permit obtained after %ds",
-                        TimeUnit.MILLISECONDS.toSeconds((System.currentTimeMillis() - start)));
+                        TimeUnit.MILLISECONDS.toSeconds((queueTime)));
 
                 flasher.overrideDeviceOptions(device);
                 flasher.setUserDataFlashOption(mUserDataFlashOption);
                 flasher.setForceSystemFlash(mForceSystemFlash);
                 flasher.setDataWipeSkipList(mDataWipeSkipList);
+                if (flasher instanceof FastbootDeviceFlasher) {
+                    ((FastbootDeviceFlasher) flasher).setFlashOptions(mFastbootFlashOptions);
+                }
                 preEncryptDevice(device, flasher);
+                start = System.currentTimeMillis();
                 flasher.flash(device, deviceBuild);
             } finally {
-                returnFlashingPermit();
+                flashingTime = System.currentTimeMillis() - start;
+                deviceManager.returnFlashingPermit();
+                // report flashing status
+                CommandStatus status = flasher.getSystemFlashingStatus();
+                if (status == null) {
+                    CLog.i("Skipped reporting metrics because system partitions were not flashed.");
+                } else {
+                    reportFlashMetrics(buildInfo.getBuildBranch(), buildInfo.getBuildFlavor(),
+                            buildInfo.getBuildId(), device.getSerialNumber(), queueTime,
+                            flashingTime, status);
+                }
             }
             // only want logcat captured for current build, delete any accumulated log data
             device.clearLogcat();
@@ -469,7 +413,7 @@ public abstract class DeviceFlashPreparer implements ITargetCleaner {
     @Override
     public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
             throws DeviceNotAvailableException {
-        if (mDisable) {
+        if (isDisabled()) {
             CLog.i("Skipping device flashing tearDown.");
             return;
         }
@@ -483,5 +427,20 @@ public abstract class DeviceFlashPreparer implements ITargetCleaner {
                 }
             }
         }
+    }
+
+    /**
+     * Reports device flashing timing data to metrics backend
+     * @param branch the branch where the device build originated from
+     * @param buildFlavor the build flavor of the device build
+     * @param buildId the build number of the device build
+     * @param serial the serial number of device
+     * @param queueTime the time spent waiting for a flashing limit to become available
+     * @param flashingTime the time spent in flashing device image zip
+     * @param flashingStatus the execution status of flashing command
+     */
+    protected void reportFlashMetrics(String branch, String buildFlavor, String buildId,
+            String serial, long queueTime, long flashingTime, CommandStatus flashingStatus) {
+        // no-op as default implementation
     }
 }

@@ -125,13 +125,13 @@ public:
     HalInterface* getBaseInterface() { return mBase.get(); }
     virtual status_t linkToDeath(
             const sp<IBinder::DeathRecipient>& recipient,
-            void* cookie = NULL,
+            void* cookie = nullptr,
             uint32_t flags = 0);
     virtual status_t unlinkToDeath(
             const wp<IBinder::DeathRecipient>& recipient,
-            void* cookie = NULL,
+            void* cookie = nullptr,
             uint32_t flags = 0,
-            wp<IBinder::DeathRecipient>* outRecipient = NULL);
+            wp<IBinder::DeathRecipient>* outRecipient = nullptr);
 
 protected:
     sp<HalInterface> mBase;
@@ -215,11 +215,11 @@ protected:
             const ::android::sp<::android::IBinder>& obj)               \
     {                                                                   \
         ::android::sp<I##INTERFACE> intr;                               \
-        if (obj != NULL) {                                              \
+        if (obj != nullptr) {                                           \
             intr = static_cast<I##INTERFACE*>(                          \
                 obj->queryLocalInterface(                               \
                         I##INTERFACE::descriptor).get());               \
-            if (intr == NULL) {                                         \
+            if (intr == nullptr) {                                      \
                 intr = new Hp##INTERFACE(obj);                          \
             }                                                           \
         }                                                               \
@@ -262,8 +262,8 @@ status_t H2BConverter<HINTERFACE, INTERFACE, BNINTERFACE, GETTOKEN>::
         linkToDeath(
         const sp<IBinder::DeathRecipient>& recipient,
         void* cookie, uint32_t flags) {
-    LOG_ALWAYS_FATAL_IF(recipient == NULL,
-            "linkToDeath(): recipient must be non-NULL");
+    LOG_ALWAYS_FATAL_IF(recipient == nullptr,
+            "linkToDeath(): recipient must be non-nullptr");
     {
         std::lock_guard<std::mutex> lock(mObituariesLock);
         mObituaries.push_back(new Obituary(recipient, cookie, flags, this));

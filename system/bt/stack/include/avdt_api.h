@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2002-2012 Broadcom Corporation
+ *  Copyright 2002-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -31,10 +31,9 @@
 /*****************************************************************************
  *  Constants
  ****************************************************************************/
-#ifndef AVDT_VERSION
-#define AVDT_VERSION 0x0102
-#endif
 #define AVDT_VERSION_1_3 0x0103
+
+#define AVDTP_VERSION_CONFIG_KEY "AvdtpVersion"
 
 /* Maximum size in bytes of the codec capabilities information element. */
 #define AVDT_CODEC_SIZE 20
@@ -236,11 +235,6 @@ typedef uint8_t AVDT_REPORT_TYPE;
 /* PSM for AVDT */
 #define AVDT_PSM 0x0019
 
-/* Nonsupported protocol command messages.  This value is used in tAVDT_CS */
-#define AVDT_NSC_SUSPEND 0x01  /* Suspend command not supported */
-#define AVDT_NSC_RECONFIG 0x02 /* Reconfigure command not supported */
-#define AVDT_NSC_SECURITY 0x04 /* Security command not supported */
-
 /*****************************************************************************
  *  Type Definitions
  ****************************************************************************/
@@ -270,14 +264,36 @@ typedef union {
   uint8_t cname[AVDT_MAX_CNAME_SIZE + 1];
 } tAVDT_REPORT_DATA;
 
-/* This structure contains parameters which are set at registration. */
-typedef struct {
+/**
+ * AVDTP Registration Control Block.
+ */
+class AvdtpRcb {
+ public:
+  AvdtpRcb()
+      : ctrl_mtu(0),
+        ret_tout(0),
+        sig_tout(0),
+        idle_tout(0),
+        sec_mask(0),
+        scb_index(0) {}
+  AvdtpRcb& operator=(const AvdtpRcb&) = default;
+
+  void Reset() {
+    ctrl_mtu = 0;
+    ret_tout = 0;
+    sig_tout = 0;
+    idle_tout = 0;
+    sec_mask = 0;
+    scb_index = 0;
+  }
+
   uint16_t ctrl_mtu; /* L2CAP MTU of the AVDTP signaling channel */
   uint8_t ret_tout;  /* AVDTP signaling retransmission timeout */
   uint8_t sig_tout;  /* AVDTP signaling message timeout */
   uint8_t idle_tout; /* AVDTP idle signaling channel timeout */
   uint8_t sec_mask;  /* Security mask for BTM_SetSecurityLevel() */
-} tAVDT_REG;
+  uint8_t scb_index; /* The Stream Control Block index */
+};
 
 /* This structure contains the SEP information.  This information is
  * transferred during the discovery procedure.
@@ -289,8 +305,35 @@ typedef struct {
   uint8_t tsep;       /* SEP type */
 } tAVDT_SEP_INFO;
 
-/* This structure contains the SEP configuration. */
-typedef struct {
+/**
+ * AVDTP SEP Configuration.
+ */
+class AvdtpSepConfig {
+ public:
+  AvdtpSepConfig()
+      : codec_info{},
+        protect_info{},
+        num_codec(0),
+        num_protect(0),
+        psc_mask(0),
+        recov_type(0),
+        recov_mrws(0),
+        recov_mnmp(0),
+        hdrcmp_mask(0) {}
+  AvdtpSepConfig& operator=(const AvdtpSepConfig&) = default;
+
+  void Reset() {
+    memset(codec_info, 0, sizeof(codec_info));
+    memset(protect_info, 0, sizeof(protect_info));
+    num_codec = 0;
+    num_protect = 0;
+    psc_mask = 0;
+    recov_type = 0;
+    recov_mrws = 0;
+    recov_mnmp = 0;
+    hdrcmp_mask = 0;
+  }
+
   uint8_t codec_info[AVDT_CODEC_SIZE];     /* Codec capabilities array */
   uint8_t protect_info[AVDT_PROTECT_SIZE]; /* Content protection capabilities */
   uint8_t num_codec;   /* Number of media codec information elements */
@@ -300,7 +343,7 @@ typedef struct {
   uint8_t recov_mrws;  /* Maximum recovery window size */
   uint8_t recov_mnmp;  /* Recovery maximum number of media packets */
   uint8_t hdrcmp_mask; /* Header compression capabilities */
-} tAVDT_CFG;
+};
 
 /* Header structure for callback event parameters. */
 typedef struct {
@@ -318,13 +361,13 @@ typedef struct {
 */
 typedef struct {
   tAVDT_EVT_HDR hdr; /* Event header */
-  tAVDT_CFG* p_cfg;  /* Pointer to configuration for this SEP */
+  AvdtpSepConfig* p_cfg; /* Pointer to configuration for this SEP */
 } tAVDT_CONFIG;
 
 /* This data structure is associated with the AVDT_CONFIG_IND_EVT. */
 typedef struct {
   tAVDT_EVT_HDR hdr; /* Event header */
-  tAVDT_CFG* p_cfg;  /* Pointer to configuration for this SEP */
+  AvdtpSepConfig* p_cfg; /* Pointer to configuration for this SEP */
   uint8_t int_seid;  /* Stream endpoint ID of stream initiating the operation */
 } tAVDT_SETCONFIG;
 
@@ -384,8 +427,9 @@ typedef union {
  * endpoints and for the AVDT_DiscoverReq() and AVDT_GetCapReq() functions.
  *
 */
-typedef void(tAVDT_CTRL_CBACK)(uint8_t handle, const RawAddress* bd_addr,
-                               uint8_t event, tAVDT_CTRL* p_data);
+typedef void(tAVDT_CTRL_CBACK)(uint8_t handle, const RawAddress& bd_addr,
+                               uint8_t event, tAVDT_CTRL* p_data,
+                               uint8_t scb_index);
 
 /* This is the data callback function.  It is executed when AVDTP has a media
  * packet ready for the application.  This function is required for SNK
@@ -394,34 +438,64 @@ typedef void(tAVDT_CTRL_CBACK)(uint8_t handle, const RawAddress* bd_addr,
 typedef void(tAVDT_SINK_DATA_CBACK)(uint8_t handle, BT_HDR* p_pkt,
                                     uint32_t time_stamp, uint8_t m_pt);
 
-#if (AVDT_REPORTING == TRUE)
 /* This is the report callback function.  It is executed when AVDTP has a
  * reporting packet ready for the application.  This function is required for
  * streams created with AVDT_PSC_REPORT.
 */
 typedef void(tAVDT_REPORT_CBACK)(uint8_t handle, AVDT_REPORT_TYPE type,
                                  tAVDT_REPORT_DATA* p_data);
-#endif
 
-typedef uint16_t(tAVDT_GETCAP_REQ)(const RawAddress& bd_addr, uint8_t seid,
-                                   tAVDT_CFG* p_cfg, tAVDT_CTRL_CBACK* p_cback);
+/**
+ * AVDTP Stream Configuration.
+ * The information is used when a stream is created.
+ */
+class AvdtpStreamConfig {
+ public:
+  //
+  // Non-supported protocol command messages
+  //
+  // Suspend command not supported
+  static constexpr int AVDT_NSC_SUSPEND = 0x01;
+  // Reconfigure command not supported
+  static constexpr int AVDT_NSC_RECONFIG = 0x02;
+  // Security command not supported
+  static constexpr int AVDT_NSC_SECURITY = 0x04;
 
-/* This structure contains information required when a stream is created.
- * It is passed to the AVDT_CreateStream() function.
-*/
-typedef struct {
-  tAVDT_CFG cfg;                            /* SEP configuration */
-  tAVDT_CTRL_CBACK* p_ctrl_cback;           /* Control callback function */
-  tAVDT_SINK_DATA_CBACK* p_sink_data_cback; /* Sink data callback function */
-#if (AVDT_REPORTING == TRUE)
-  tAVDT_REPORT_CBACK* p_report_cback; /* Report callback function. */
-#endif
-  uint16_t mtu;       /* The L2CAP MTU of the transport channel */
-  uint16_t flush_to;  /* The L2CAP flush timeout of the transport channel */
-  uint8_t tsep;       /* SEP type */
-  uint8_t media_type; /* Media type: AVDT_MEDIA_TYPE_* */
-  uint16_t nsc_mask;  /* Nonsupported protocol command messages */
-} tAVDT_CS;
+  AvdtpStreamConfig()
+      : p_avdt_ctrl_cback(nullptr),
+        scb_index(0),
+        p_sink_data_cback(nullptr),
+        p_report_cback(nullptr),
+        mtu(0),
+        flush_to(0),
+        tsep(0),
+        media_type(0),
+        nsc_mask(0) {}
+
+  void Reset() {
+    cfg.Reset();
+    p_avdt_ctrl_cback = nullptr;
+    scb_index = 0;
+    p_sink_data_cback = nullptr;
+    p_report_cback = nullptr;
+    mtu = 0;
+    flush_to = 0;
+    tsep = 0;
+    media_type = 0;
+    nsc_mask = 0;
+  }
+
+  AvdtpSepConfig cfg;                   // SEP configuration
+  tAVDT_CTRL_CBACK* p_avdt_ctrl_cback;  // Control callback function
+  uint8_t scb_index;  // The index to the bta_av_cb.p_scb[] entry
+  tAVDT_SINK_DATA_CBACK* p_sink_data_cback;  // Sink data callback function
+  tAVDT_REPORT_CBACK* p_report_cback;        // Report callback function
+  uint16_t mtu;        // The L2CAP MTU of the transport channel
+  uint16_t flush_to;   // The L2CAP flush timeout of the transport channel
+  uint8_t tsep;        // SEP type
+  uint8_t media_type;  // Media type: AVDT_MEDIA_TYPE_*
+  uint16_t nsc_mask;   // Nonsupported protocol command messages
+};
 
 /* AVDT data option mask is used in the write request */
 #define AVDT_DATA_OPT_NONE 0x00          /* No option still add RTP header */
@@ -447,7 +521,7 @@ typedef uint8_t tAVDT_DATA_OPT_MASK;
  * Returns          void
  *
  ******************************************************************************/
-extern void AVDT_Register(tAVDT_REG* p_reg, tAVDT_CTRL_CBACK* p_cback);
+extern void AVDT_Register(AvdtpRcb* p_reg, tAVDT_CTRL_CBACK* p_cback);
 
 /*******************************************************************************
  *
@@ -489,7 +563,8 @@ extern void AVDT_AbortReq(uint8_t handle);
  * Returns          AVDT_SUCCESS if successful, otherwise error.
  *
  ******************************************************************************/
-extern uint16_t AVDT_CreateStream(uint8_t* p_handle, tAVDT_CS* p_cs);
+extern uint16_t AVDT_CreateStream(uint8_t peer_id, uint8_t* p_handle,
+                                  const AvdtpStreamConfig& avdtp_stream_config);
 
 /*******************************************************************************
  *
@@ -534,6 +609,7 @@ extern uint16_t AVDT_RemoveStream(uint8_t handle);
  *
  ******************************************************************************/
 extern uint16_t AVDT_DiscoverReq(const RawAddress& bd_addr,
+                                 uint8_t channel_index,
                                  tAVDT_SEP_INFO* p_sep_info, uint8_t max_seps,
                                  tAVDT_CTRL_CBACK* p_cback);
 
@@ -561,35 +637,9 @@ extern uint16_t AVDT_DiscoverReq(const RawAddress& bd_addr,
  * Returns          AVDT_SUCCESS if successful, otherwise error.
  *
  ******************************************************************************/
-extern uint16_t AVDT_GetCapReq(const RawAddress& bd_addr, uint8_t seid,
-                               tAVDT_CFG* p_cfg, tAVDT_CTRL_CBACK* p_cback);
-
-/*******************************************************************************
- *
- * Function         AVDT_GetAllCapReq
- *
- * Description      This function initiates a connection to the AVDTP service
- *                  on the peer device, if not already present, and gets the
- *                  capabilities of a stream endpoint on the peer device.
- *                  This function can be called at any time regardless of
- *                  whether there is an AVDTP connection to the peer device.
- *
- *                  When the procedure is complete, an AVDT_GETCAP_CFM_EVT is
- *                  sent to the application via its callback function.  The
- *                  application must not call AVDT_GetCapReq() or
- *                  AVDT_DiscoverReq() again until the procedure is complete.
- *
- *                  The memory pointed to by p_cfg is allocated by the
- *                  application.  This memory is written to by AVDTP as part
- *                  of the get capabilities procedure.  This memory must
- *                  remain accessible until the application receives
- *                  the AVDT_GETCAP_CFM_EVT.
- *
- * Returns          AVDT_SUCCESS if successful, otherwise error.
- *
- ******************************************************************************/
-extern uint16_t AVDT_GetAllCapReq(const RawAddress& bd_addr, uint8_t seid,
-                                  tAVDT_CFG* p_cfg, tAVDT_CTRL_CBACK* p_cback);
+extern uint16_t AVDT_GetCapReq(const RawAddress& bd_addr, uint8_t channel_index,
+                               uint8_t seid, AvdtpSepConfig* p_cfg,
+                               tAVDT_CTRL_CBACK* p_cback, bool get_all_cap);
 
 /*******************************************************************************
  *
@@ -619,7 +669,8 @@ extern uint16_t AVDT_DelayReport(uint8_t handle, uint8_t seid, uint16_t delay);
  *
  ******************************************************************************/
 extern uint16_t AVDT_OpenReq(uint8_t handle, const RawAddress& bd_addr,
-                             uint8_t seid, tAVDT_CFG* p_cfg);
+                             uint8_t channel_index, uint8_t seid,
+                             AvdtpSepConfig* p_cfg);
 
 /*******************************************************************************
  *
@@ -703,7 +754,7 @@ extern uint16_t AVDT_CloseReq(uint8_t handle);
  * Returns          AVDT_SUCCESS if successful, otherwise error.
  *
  ******************************************************************************/
-extern uint16_t AVDT_ReconfigReq(uint8_t handle, tAVDT_CFG* p_cfg);
+extern uint16_t AVDT_ReconfigReq(uint8_t handle, AvdtpSepConfig* p_cfg);
 
 /*******************************************************************************
  *
@@ -845,7 +896,8 @@ extern uint16_t AVDT_WriteReqOpt(uint8_t handle, BT_HDR* p_pkt,
  * Returns          AVDT_SUCCESS if successful, otherwise error.
  *
  ******************************************************************************/
-extern uint16_t AVDT_ConnectReq(const RawAddress& bd_addr, uint8_t sec_mask,
+extern uint16_t AVDT_ConnectReq(const RawAddress& bd_addr,
+                                uint8_t channel_index, uint8_t sec_mask,
                                 tAVDT_CTRL_CBACK* p_cback);
 
 /*******************************************************************************
@@ -923,5 +975,13 @@ extern uint16_t AVDT_SendReport(uint8_t handle, AVDT_REPORT_TYPE type,
  *
  *****************************************************************************/
 extern uint8_t AVDT_SetTraceLevel(uint8_t new_level);
+
+/**
+ * Dump debug-related information for the Stack AVDTP module.
+ *
+ * @param fd the file descriptor to use for writing the ASCII formatted
+ * information
+ */
+void stack_debug_avdtp_api_dump(int fd);
 
 #endif /* AVDT_API_H */

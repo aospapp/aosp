@@ -6,7 +6,7 @@ AUTHOR = 'scunningham'
 NAME = 'policy_ChromeOsLockOnIdleSuspend.true_lock'
 # TODO(krishnargv): Uncomment ATTRIBUTES line to add case to suite:regression
 # when crbug.com/666430 is fixed.
-# ATTRIBUTES = 'suite:regression'
+# ATTRIBUTES = 'suite:regression, suite:policy'
 TIME = 'SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'enterprise'

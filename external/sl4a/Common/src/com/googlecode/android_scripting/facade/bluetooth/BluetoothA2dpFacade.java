@@ -140,8 +140,9 @@ public class BluetoothA2dpFacade extends RpcReceiver {
         if (sA2dpProfile == null) {
             return false;
         }
-        BluetoothDevice mDevice = BluetoothFacade.getDevice(
-                BluetoothFacade.DiscoveredDevices, deviceID);
+        BluetoothDevice mDevice =
+                BluetoothFacade.getDevice(
+                        mBluetoothAdapter.getBondedDevices(), deviceID);
         Log.d("Connecting to device " + mDevice.getAliasName());
         return a2dpConnect(mDevice);
     }
@@ -161,9 +162,11 @@ public class BluetoothA2dpFacade extends RpcReceiver {
         if (sA2dpProfile == null) {
             return false;
         }
-        List<BluetoothDevice> connectedA2dpDevices = sA2dpProfile.getConnectedDevices();
+        List<BluetoothDevice> connectedA2dpDevices =
+                sA2dpProfile.getConnectedDevices();
         Log.d("Connected a2dp devices " + connectedA2dpDevices);
-        BluetoothDevice mDevice = BluetoothFacade.getDevice(connectedA2dpDevices, deviceID);
+        BluetoothDevice mDevice = BluetoothFacade.getDevice(
+                connectedA2dpDevices, deviceID);
         return a2dpDisconnect(mDevice);
     }
 
@@ -179,10 +182,9 @@ public class BluetoothA2dpFacade extends RpcReceiver {
             continue;
         }
         return sA2dpProfile.getDevicesMatchingConnectionStates(
-                    new int[] {
-                            BluetoothProfile.STATE_CONNECTED,
-                            BluetoothProfile.STATE_CONNECTING,
-                            BluetoothProfile.STATE_DISCONNECTING});
+                new int[] { BluetoothProfile.STATE_CONNECTED,
+                    BluetoothProfile.STATE_CONNECTING,
+                    BluetoothProfile.STATE_DISCONNECTING});
     }
 
     @Override

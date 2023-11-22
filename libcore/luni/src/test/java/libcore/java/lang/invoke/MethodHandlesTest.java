@@ -697,7 +697,7 @@ public class MethodHandlesTest extends TestCase {
     }
 
     public void testUnreflectSpecial_superCalls() throws Throwable {
-        Method overridenMethod = UnreflectTester.class.getMethod("overridenMethod");
+        Method overridenMethod = UnreflectTesterBase.class.getMethod("overridenMethod");
         UnreflectTester instance = new UnreflectTester("unused");
         MethodHandle mh = UnreflectTester.lookup.unreflectSpecial(overridenMethod,
                 UnreflectTester.class);

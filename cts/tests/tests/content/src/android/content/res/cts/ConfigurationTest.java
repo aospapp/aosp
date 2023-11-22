@@ -16,14 +16,14 @@
 
 package android.content.res.cts;
 
-import java.util.Locale;
-
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.os.LocaleList;
 import android.os.Parcel;
 import android.test.AndroidTestCase;
 import android.view.View;
+
+import java.util.Locale;
 
 public class ConfigurationTest extends AndroidTestCase {
 
@@ -397,11 +397,11 @@ public class ConfigurationTest extends AndroidTestCase {
     }
 
     public void testWriteToParcel() {
-        assertWriteToParcel(createConfig((Locale) null), Parcel.obtain());
-        assertWriteToParcel(createConfig(new Locale("")), Parcel.obtain());
-        assertWriteToParcel(createConfig(Locale.JAPAN), Parcel.obtain());
-        assertWriteToParcel(createConfig(Locale.forLanguageTag("en-Shaw")), Parcel.obtain());
-        assertWriteToParcel(createConfig(LocaleList.forLanguageTags("fr,en-US")), Parcel.obtain());
+        assertWriteToParcel(createConfig((Locale) null));
+        assertWriteToParcel(createConfig(new Locale("")));
+        assertWriteToParcel(createConfig(Locale.JAPAN));
+        assertWriteToParcel(createConfig(Locale.forLanguageTag("en-Shaw")));
+        assertWriteToParcel(createConfig(LocaleList.forLanguageTags("fr,en-US")));
     }
 
     public void testSetLocale() {
@@ -732,11 +732,16 @@ public class ConfigurationTest extends AndroidTestCase {
         return config;
     }
 
-    private void assertWriteToParcel(Configuration config, Parcel parcel) {
-        config.writeToParcel(parcel, 0);
-        parcel.setDataPosition(0);
-        Configuration readConf = new Configuration();
-        readConf.readFromParcel(parcel);
-        assertEquals(config, readConf);
+    private void assertWriteToParcel(Configuration config) {
+        final Parcel parcel = Parcel.obtain();
+        try {
+            config.writeToParcel(parcel, 0);
+            parcel.setDataPosition(0);
+            Configuration readConf = new Configuration();
+            readConf.readFromParcel(parcel);
+            assertEquals(config, readConf);
+        } finally {
+            parcel.recycle();
+        }
     }
 }

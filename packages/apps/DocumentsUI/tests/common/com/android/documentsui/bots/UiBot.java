@@ -237,7 +237,7 @@ public class UiBot extends Bots.BaseBot {
         onView(withId(android.R.id.button2)).perform(click());
     }
 
-    UiObject findMenuLabelWithName(String label) {
+    public UiObject findMenuLabelWithName(String label) {
         UiSelector selector = new UiSelector().text(label);
         return mDevice.findObject(selector);
     }
@@ -250,7 +250,7 @@ public class UiBot extends Bots.BaseBot {
         while (it.hasNext()) {
             menuItem = it.next();
             UiObject2 text = menuItem.findObject(By.text(label));
-            if (text != null) {
+            if (text != null && menuItem.isClickable()) {
                 break;
             }
         }

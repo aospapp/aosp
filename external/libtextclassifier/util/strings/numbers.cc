@@ -22,7 +22,7 @@
 
 #include <stdlib.h>
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 bool ParseInt32(const char *c_str, int32 *value) {
   char *temp;
@@ -72,4 +72,4 @@ std::string IntToString(int64 input) {
 }
 #endif  // COMPILER_MSVC
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2

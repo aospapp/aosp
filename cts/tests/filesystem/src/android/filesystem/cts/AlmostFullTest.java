@@ -16,18 +16,24 @@
 
 package android.filesystem.cts;
 
-import android.util.Log;
+import static android.support.test.InstrumentationRegistry.getContext;
+import static android.support.test.InstrumentationRegistry.getInstrumentation;
 
-import com.android.compatibility.common.util.CtsAndroidTestCase;
+import android.support.test.runner.AndroidJUnit4;
+import android.util.Log;
 
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.SystemUtil;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class AlmostFullTest extends CtsAndroidTestCase {
-
+@RunWith(AndroidJUnit4.class)
+public class AlmostFullTest {
     private static final String DIR_INITIAL_FILL = "INITIAL_FILL";
     private static final String DIR_SEQ_UPDATE = "SEQ_UPDATE";
     private static final String DIR_RANDOM_WR = "RANDOM_WR";
@@ -48,9 +54,8 @@ public class AlmostFullTest extends CtsAndroidTestCase {
         Log.i(TAG, "++currentCounter: " + currentCounter);
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         if (mDiskFilled.compareAndSet(false, true)) {
             Log.i(TAG, "Filling disk");
             // initial fill done in two stage as disk can be filled by other
@@ -81,8 +86,8 @@ public class AlmostFullTest extends CtsAndroidTestCase {
         Log.i(TAG, "free disk " + SystemUtil.getFreeDiskSize(getContext()));
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         Log.i(TAG, "tearDown free disk " + SystemUtil.getFreeDiskSize(getContext()));
         int currentCounter = mRefCounter.decrementAndGet();
         Log.i(TAG, "--currentCounter: " + currentCounter);
@@ -93,9 +98,9 @@ public class AlmostFullTest extends CtsAndroidTestCase {
         FileUtil.removeFileOrDir(getContext(), DIR_RANDOM_WR);
         FileUtil.removeFileOrDir(getContext(), DIR_RANDOM_RD);
         Log.i(TAG, "tearDown free disk " + SystemUtil.getFreeDiskSize(getContext()));
-        super.tearDown();
     }
 
+    @Test
     public void testSequentialUpdate() throws Exception {
         // now about freeSpaceToLeave should be left
         // and try updating exceeding the free space size
@@ -115,6 +120,7 @@ public class AlmostFullTest extends CtsAndroidTestCase {
 
     // TODO: file size too small and caching will give wrong better result.
     // needs to flush cache by reading big files per each read.
+    @Test
     public void testRandomRead() throws Exception {
         final int BUFFER_SIZE = 4 * 1024;
         final long fileSize = 400L * 1024L * 1024L;
@@ -129,6 +135,7 @@ public class AlmostFullTest extends CtsAndroidTestCase {
         report.submit(getInstrumentation());
     }
 
+    @Test
     public void testRandomUpdate() throws Exception {
         final int BUFFER_SIZE = 4 * 1024;
         final long fileSize = 256L * 1024L * 1024L;

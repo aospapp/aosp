@@ -11,16 +11,27 @@ import org.mockito.invocation.Location;
 public class LocationImpl implements Location, Serializable {
 
     private static final long serialVersionUID = -9054861157390980624L;
+    //Limit the amount of objects being created, as this class is heavily instantiated:
+    private static final StackTraceFilter defaultStackTraceFilter = new StackTraceFilter();
+
     private final Throwable stackTraceHolder;
     private final StackTraceFilter stackTraceFilter;
 
     public LocationImpl() {
-        this(new StackTraceFilter());
+        this(defaultStackTraceFilter);
     }
 
     public LocationImpl(StackTraceFilter stackTraceFilter) {
+        this(stackTraceFilter, new Throwable());
+    }
+
+    public LocationImpl(Throwable stackTraceHolder) {
+        this(defaultStackTraceFilter, stackTraceHolder);
+    }
+
+    private LocationImpl(StackTraceFilter stackTraceFilter, Throwable stackTraceHolder) {
         this.stackTraceFilter = stackTraceFilter;
-        stackTraceHolder = new Throwable();
+        this.stackTraceHolder = stackTraceHolder;
     }
 
     @Override

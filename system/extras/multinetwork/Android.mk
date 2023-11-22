@@ -6,6 +6,7 @@ ifneq ($(TARGET_BUILD_PDK), true)
 # Sample util binaries.
 include $(CLEAR_VARS)
 LOCAL_MODULE := dnschk
+LOCAL_CFLAGS := -Wall -Werror
 
 LOCAL_C_INCLUDES += frameworks/native/include external/libcxx/include
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
@@ -18,6 +19,7 @@ include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := httpurl
+LOCAL_CFLAGS := -Wall -Werror
 
 LOCAL_C_INCLUDES += frameworks/native/include external/libcxx/include
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)

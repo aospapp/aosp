@@ -33,6 +33,7 @@ public class LogUtils {
 
     public static final class Sessions {
         public static final String ICA_ANSWER_CALL = "ICA.aC";
+        public static final String ICA_DEFLECT_CALL = "ICA.defC";
         public static final String ICA_REJECT_CALL = "ICA.rC";
         public static final String ICA_DISCONNECT_CALL = "ICA.dC";
         public static final String ICA_HOLD_CALL = "ICA.hC";
@@ -71,6 +72,7 @@ public class LogUtils {
         public static final String REQUEST_UNHOLD = "REQUEST_UNHOLD";
         public static final String REQUEST_DISCONNECT = "REQUEST_DISCONNECT";
         public static final String REQUEST_ACCEPT = "REQUEST_ACCEPT";
+        public static final String REQUEST_DEFLECT = "REQUEST_DEFLECT";
         public static final String REQUEST_REJECT = "REQUEST_REJECT";
         public static final String START_DTMF = "START_DTMF";
         public static final String STOP_DTMF = "STOP_DTMF";
@@ -132,6 +134,8 @@ public class LogUtils {
         public static final String ACCEPT_HANDOVER = "ACCEPT_HANDOVER";
         public static final String HANDOVER_COMPLETE = "HANDOVER_COMPLETE";
         public static final String HANDOVER_FAILED = "HANDOVER_FAILED";
+        public static final String START_RINBACK = "START_RINGBACK";
+        public static final String STOP_RINGBACK = "STOP_RINGBACK";
 
         public static class Timings {
             public static final String ACCEPT_TIMING = "accept";
@@ -190,7 +194,6 @@ public class LogUtils {
     public static void initLogging(Context context) {
         android.telecom.Log.setTag(TAG);
         android.telecom.Log.setSessionContext(context);
-        android.telecom.Log.initMd5Sum();
         for (EventManager.TimedEventPair p : Events.Timings.sTimedEvents) {
             android.telecom.Log.addRequestResponsePair(p);
         }

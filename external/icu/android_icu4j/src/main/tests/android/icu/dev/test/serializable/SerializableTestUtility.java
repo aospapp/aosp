@@ -31,6 +31,7 @@ import java.util.Locale;
 
 import android.icu.dev.test.format.MeasureUnitTest;
 import android.icu.dev.test.format.PluralRulesTest;
+import android.icu.dev.test.number.PropertiesTest;
 import android.icu.impl.JavaTimeZone;
 import android.icu.impl.OlsonTimeZone;
 import android.icu.impl.TimeZoneAdapter;
@@ -55,6 +56,7 @@ import android.icu.util.TimeZone;
 import android.icu.util.TimeZoneRule;
 import android.icu.util.ULocale;
 import android.icu.util.VTimeZone;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author emader
@@ -62,6 +64,7 @@ import android.icu.util.VTimeZone;
  * TODO To change the template for this generated type comment go to
  * Window - Preferences - Java - Code Style - Code Templates
  */
+@MainTestShard
 public class SerializableTestUtility {
     private static Class serializable;
     static {
@@ -827,7 +830,11 @@ public class SerializableTestUtility {
         map.put("android.icu.text.PluralRules$FixedDecimal", new PluralRulesTest.FixedDecimalHandler());
         map.put("android.icu.util.MeasureUnit", new MeasureUnitTest.MeasureUnitHandler());
         map.put("android.icu.util.TimeUnit", new MeasureUnitTest.MeasureUnitHandler());
+        map.put("android.icu.util.NoUnit", new MeasureUnitTest.MeasureUnitHandler());
         map.put("android.icu.text.MeasureFormat", new MeasureUnitTest.MeasureFormatHandler());
+        map.put("android.icu.impl.number.Properties", new PropertiesTest.ICU59PropertiesHandler());
+        map.put("android.icu.impl.number.DecimalFormatProperties", new PropertiesTest.PropertiesHandler());
+        map.put("android.icu.impl.number.CustomSymbolCurrency", new CurrencyHandler());
 
         map.put("android.icu.util.ICUException", new ICUExceptionHandler());
         map.put("android.icu.util.ICUUncheckedIOException", new ICUUncheckedIOExceptionHandler());
@@ -925,6 +932,18 @@ public class SerializableTestUtility {
                 // Known Issue: "10268", "Serializable interface is not implemented in PluralRules$FixedDecimal"
                 return;
             }
+
+            if (className.equals("android.icu.text.DecimalFormat_ICU58")) {
+                // Do not test the legacy DecimalFormat class in ICU 59
+                return;
+            }
+
+            // Android patch (b/68143370) begin.
+            if (className.equals("android.icu.text.DecimalFormat_ICU58_Android")) {
+                // Do not test the legacy DecimalFormat class in ICU 59
+                return;
+            }
+            // Android patch (b/68143370) end.
 
             if (c.isEnum() || !serializable.isAssignableFrom(c)) {
                 //System.out.println("@@@ Skipping: " + className);

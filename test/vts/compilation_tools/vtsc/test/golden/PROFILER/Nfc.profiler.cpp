@@ -7,7 +7,7 @@
 using namespace android::hardware::nfc::V1_0;
 using namespace android::hardware;
 
-#define TRACEFILEPREFIX "/data/local/tmp"
+#define TRACEFILEPREFIX "/data/local/tmp/"
 
 namespace android {
 namespace vts {
@@ -20,22 +20,22 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_nfc_V1_0_INfc(
         const char* method __attribute__((__unused__)),
         std::vector<void *> *args __attribute__((__unused__))) {
     if (strcmp(package, "android.hardware.nfc") != 0) {
-        LOG(WARNING) << "incorrect package.";
+        LOG(WARNING) << "incorrect package. Expect: android.hardware.nfc actual: " << package;
         return;
     }
-    if (strcmp(version, "1.0") != 0) {
-        LOG(WARNING) << "incorrect version.";
+    std::string version_str = std::string(version);
+    int major_version = stoi(version_str.substr(0, version_str.find('.')));
+    int minor_version = stoi(version_str.substr(version_str.find('.') + 1));
+    if (major_version != 1 || minor_version > 0) {
+        LOG(WARNING) << "incorrect version. Expect: 1.0 or lower (if version != x.0), actual: " << version;
         return;
     }
     if (strcmp(interface, "INfc") != 0) {
-        LOG(WARNING) << "incorrect interface.";
+        LOG(WARNING) << "incorrect interface. Expect: INfc actual: " << interface;
         return;
     }
 
-    char trace_file[PATH_MAX];
-    sprintf(trace_file, "%s/%s_%s", TRACEFILEPREFIX, package, version);
-    VtsProfilingInterface& profiler = VtsProfilingInterface::getInstance(trace_file);
-    profiler.Init();
+    VtsProfilingInterface& profiler = VtsProfilingInterface::getInstance(TRACEFILEPREFIX);
 
     if (strcmp(method, "open") == 0) {
         FunctionSpecificationMessage msg;
@@ -54,8 +54,12 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_nfc_V1_0_INfc(
                     }
                     auto *arg_0 __attribute__((__unused__)) = msg.add_arg();
                     sp<::android::hardware::nfc::V1_0::INfcClientCallback> *arg_val_0 __attribute__((__unused__)) = reinterpret_cast<sp<::android::hardware::nfc::V1_0::INfcClientCallback>*> ((*args)[0]);
-                    arg_0->set_type(TYPE_HIDL_CALLBACK);
-                    arg_0->set_predefined_type("::android::hardware::nfc::V1_0::INfcClientCallback");
+                    if (arg_val_0 != nullptr) {
+                        arg_0->set_type(TYPE_HIDL_CALLBACK);
+                        arg_0->set_predefined_type("::android::hardware::nfc::V1_0::INfcClientCallback");
+                    } else {
+                        LOG(WARNING) << "argument 0 is null.";
+                    }
                     break;
                 }
                 case details::HidlInstrumentor::CLIENT_API_EXIT:
@@ -68,8 +72,12 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_nfc_V1_0_INfc(
                     }
                     auto *result_0 __attribute__((__unused__)) = msg.add_return_type_hidl();
                     ::android::hardware::nfc::V1_0::NfcStatus *result_val_0 __attribute__((__unused__)) = reinterpret_cast<::android::hardware::nfc::V1_0::NfcStatus*> ((*args)[0]);
-                    result_0->set_type(TYPE_ENUM);
-                    profile____android__hardware__nfc__V1_0__NfcStatus(result_0, (*result_val_0));
+                    if (result_val_0 != nullptr) {
+                        result_0->set_type(TYPE_ENUM);
+                        profile____android__hardware__nfc__V1_0__NfcStatus(result_0, (*result_val_0));
+                    } else {
+                        LOG(WARNING) << "return value 0 is null.";
+                    }
                     break;
                 }
                 default:
@@ -98,12 +106,16 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_nfc_V1_0_INfc(
                     }
                     auto *arg_0 __attribute__((__unused__)) = msg.add_arg();
                     ::android::hardware::hidl_vec<uint8_t> *arg_val_0 __attribute__((__unused__)) = reinterpret_cast<::android::hardware::hidl_vec<uint8_t>*> ((*args)[0]);
-                    arg_0->set_type(TYPE_VECTOR);
-                    arg_0->set_vector_size((*arg_val_0).size());
-                    for (int i = 0; i < (int)(*arg_val_0).size(); i++) {
-                        auto *arg_0_vector_i __attribute__((__unused__)) = arg_0->add_vector_value();
-                        arg_0_vector_i->set_type(TYPE_SCALAR);
-                        arg_0_vector_i->mutable_scalar_value()->set_uint8_t((*arg_val_0)[i]);
+                    if (arg_val_0 != nullptr) {
+                        arg_0->set_type(TYPE_VECTOR);
+                        arg_0->set_vector_size((*arg_val_0).size());
+                        for (int arg_0_index = 0; arg_0_index < (int)(*arg_val_0).size(); arg_0_index++) {
+                            auto *arg_0_vector_arg_0_index __attribute__((__unused__)) = arg_0->add_vector_value();
+                            arg_0_vector_arg_0_index->set_type(TYPE_SCALAR);
+                            arg_0_vector_arg_0_index->mutable_scalar_value()->set_uint8_t((*arg_val_0)[arg_0_index]);
+                        }
+                    } else {
+                        LOG(WARNING) << "argument 0 is null.";
                     }
                     break;
                 }
@@ -117,8 +129,12 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_nfc_V1_0_INfc(
                     }
                     auto *result_0 __attribute__((__unused__)) = msg.add_return_type_hidl();
                     uint32_t *result_val_0 __attribute__((__unused__)) = reinterpret_cast<uint32_t*> ((*args)[0]);
-                    result_0->set_type(TYPE_SCALAR);
-                    result_0->mutable_scalar_value()->set_uint32_t((*result_val_0));
+                    if (result_val_0 != nullptr) {
+                        result_0->set_type(TYPE_SCALAR);
+                        result_0->mutable_scalar_value()->set_uint32_t((*result_val_0));
+                    } else {
+                        LOG(WARNING) << "return value 0 is null.";
+                    }
                     break;
                 }
                 default:
@@ -147,12 +163,16 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_nfc_V1_0_INfc(
                     }
                     auto *arg_0 __attribute__((__unused__)) = msg.add_arg();
                     ::android::hardware::hidl_vec<uint8_t> *arg_val_0 __attribute__((__unused__)) = reinterpret_cast<::android::hardware::hidl_vec<uint8_t>*> ((*args)[0]);
-                    arg_0->set_type(TYPE_VECTOR);
-                    arg_0->set_vector_size((*arg_val_0).size());
-                    for (int i = 0; i < (int)(*arg_val_0).size(); i++) {
-                        auto *arg_0_vector_i __attribute__((__unused__)) = arg_0->add_vector_value();
-                        arg_0_vector_i->set_type(TYPE_SCALAR);
-                        arg_0_vector_i->mutable_scalar_value()->set_uint8_t((*arg_val_0)[i]);
+                    if (arg_val_0 != nullptr) {
+                        arg_0->set_type(TYPE_VECTOR);
+                        arg_0->set_vector_size((*arg_val_0).size());
+                        for (int arg_0_index = 0; arg_0_index < (int)(*arg_val_0).size(); arg_0_index++) {
+                            auto *arg_0_vector_arg_0_index __attribute__((__unused__)) = arg_0->add_vector_value();
+                            arg_0_vector_arg_0_index->set_type(TYPE_SCALAR);
+                            arg_0_vector_arg_0_index->mutable_scalar_value()->set_uint8_t((*arg_val_0)[arg_0_index]);
+                        }
+                    } else {
+                        LOG(WARNING) << "argument 0 is null.";
                     }
                     break;
                 }
@@ -166,8 +186,12 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_nfc_V1_0_INfc(
                     }
                     auto *result_0 __attribute__((__unused__)) = msg.add_return_type_hidl();
                     ::android::hardware::nfc::V1_0::NfcStatus *result_val_0 __attribute__((__unused__)) = reinterpret_cast<::android::hardware::nfc::V1_0::NfcStatus*> ((*args)[0]);
-                    result_0->set_type(TYPE_ENUM);
-                    profile____android__hardware__nfc__V1_0__NfcStatus(result_0, (*result_val_0));
+                    if (result_val_0 != nullptr) {
+                        result_0->set_type(TYPE_ENUM);
+                        profile____android__hardware__nfc__V1_0__NfcStatus(result_0, (*result_val_0));
+                    } else {
+                        LOG(WARNING) << "return value 0 is null.";
+                    }
                     break;
                 }
                 default:
@@ -206,8 +230,12 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_nfc_V1_0_INfc(
                     }
                     auto *result_0 __attribute__((__unused__)) = msg.add_return_type_hidl();
                     ::android::hardware::nfc::V1_0::NfcStatus *result_val_0 __attribute__((__unused__)) = reinterpret_cast<::android::hardware::nfc::V1_0::NfcStatus*> ((*args)[0]);
-                    result_0->set_type(TYPE_ENUM);
-                    profile____android__hardware__nfc__V1_0__NfcStatus(result_0, (*result_val_0));
+                    if (result_val_0 != nullptr) {
+                        result_0->set_type(TYPE_ENUM);
+                        profile____android__hardware__nfc__V1_0__NfcStatus(result_0, (*result_val_0));
+                    } else {
+                        LOG(WARNING) << "return value 0 is null.";
+                    }
                     break;
                 }
                 default:
@@ -246,8 +274,12 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_nfc_V1_0_INfc(
                     }
                     auto *result_0 __attribute__((__unused__)) = msg.add_return_type_hidl();
                     ::android::hardware::nfc::V1_0::NfcStatus *result_val_0 __attribute__((__unused__)) = reinterpret_cast<::android::hardware::nfc::V1_0::NfcStatus*> ((*args)[0]);
-                    result_0->set_type(TYPE_ENUM);
-                    profile____android__hardware__nfc__V1_0__NfcStatus(result_0, (*result_val_0));
+                    if (result_val_0 != nullptr) {
+                        result_0->set_type(TYPE_ENUM);
+                        profile____android__hardware__nfc__V1_0__NfcStatus(result_0, (*result_val_0));
+                    } else {
+                        LOG(WARNING) << "return value 0 is null.";
+                    }
                     break;
                 }
                 default:
@@ -286,8 +318,12 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_nfc_V1_0_INfc(
                     }
                     auto *result_0 __attribute__((__unused__)) = msg.add_return_type_hidl();
                     ::android::hardware::nfc::V1_0::NfcStatus *result_val_0 __attribute__((__unused__)) = reinterpret_cast<::android::hardware::nfc::V1_0::NfcStatus*> ((*args)[0]);
-                    result_0->set_type(TYPE_ENUM);
-                    profile____android__hardware__nfc__V1_0__NfcStatus(result_0, (*result_val_0));
+                    if (result_val_0 != nullptr) {
+                        result_0->set_type(TYPE_ENUM);
+                        profile____android__hardware__nfc__V1_0__NfcStatus(result_0, (*result_val_0));
+                    } else {
+                        LOG(WARNING) << "return value 0 is null.";
+                    }
                     break;
                 }
                 default:
@@ -326,8 +362,12 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_nfc_V1_0_INfc(
                     }
                     auto *result_0 __attribute__((__unused__)) = msg.add_return_type_hidl();
                     ::android::hardware::nfc::V1_0::NfcStatus *result_val_0 __attribute__((__unused__)) = reinterpret_cast<::android::hardware::nfc::V1_0::NfcStatus*> ((*args)[0]);
-                    result_0->set_type(TYPE_ENUM);
-                    profile____android__hardware__nfc__V1_0__NfcStatus(result_0, (*result_val_0));
+                    if (result_val_0 != nullptr) {
+                        result_0->set_type(TYPE_ENUM);
+                        profile____android__hardware__nfc__V1_0__NfcStatus(result_0, (*result_val_0));
+                    } else {
+                        LOG(WARNING) << "return value 0 is null.";
+                    }
                     break;
                 }
                 default:

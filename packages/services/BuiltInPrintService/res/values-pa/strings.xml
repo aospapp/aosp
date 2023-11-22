@@ -29,7 +29,6 @@
     <string name="printer_offline" msgid="9196864753298645066">"ਆਫ਼ਲਾਈਨ"</string>
     <string name="printer_check" msgid="6428369671197132828">"ਪ੍ਰਿੰਟਰ ਚੈੱਕ ਕਰੋ"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"ਭੇਜਣ ਲਈ ਉਡੀਕ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ"</string>
-    <string name="wifi_not_connected" msgid="8644760246612043851">"ਵਾਈ-ਫਾਈ ਕਨੈਕਟ ਨਹੀਂ ਹੈ"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"ਦਸਤਾਵੇਜ਼ ਨੂੰ ਪੜ੍ਹਿਆ ਨਹੀਂ ਜਾ ਸਕਿਆ"</string>
     <string name="media_size_l" msgid="164416542021598181">"L"</string>
     <string name="media_size_5x7in" msgid="1275128379533195285">"5x7 ਇੰਚ"</string>
@@ -38,12 +37,24 @@
     <string name="media_size_8x10in" msgid="1872576638522812402">"8x10 ਇੰਚ"</string>
     <string name="media_size_4x6in" msgid="3093276425529958253">"4x6 ਇੰਚ"</string>
     <string name="printer_description" msgid="8580767673213837142">"%1$s – %2$s"</string>
-    <string name="title_activity_add_printer" msgid="3971541707589830268">"ਹੱਥੀਂ ਸ਼ਾਮਲ ਕੀਤੇ ਗਏ ਪ੍ਰਿੰਟਰ"</string>
-    <string name="add_manual_printer" msgid="3990455596246121671">"ਮੈਨੂਅਲ ਪ੍ਰਿੰਟਰ ਸ਼ਾਮਲ ਕਰੋ"</string>
+    <string name="title_activity_add_printer" msgid="9119216095769228566">"ਪ੍ਰਿੰਟਰ ਸ਼ਾਮਲ ਕਰੋ"</string>
+    <string name="add_printer_by_ip" msgid="562864787592910327">"IP ਪਤੇ ਰਾਹੀਂ ਪ੍ਰਿੰਟਰ ਸ਼ਾਮਲ ਕਰੋ"</string>
     <string name="hostname_or_ip" msgid="3460546103553992915">"ਹੋਸਟਨਾਮ ਜਾਂ IP ਪਤਾ"</string>
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"ਸ਼ਾਮਲ ਕਰੋ"</string>
+    <string name="add_named" msgid="9074106244018070583">"<xliff:g id="PRINTER">%1$s</xliff:g> ਸ਼ਾਮਲ ਕਰੋ"</string>
     <string name="no_printer_found" msgid="4777867380924351173">"ਇਸ ਪਤੇ \'ਤੇ ਕੋਈ ਪ੍ਰਿੰਟਰ ਨਹੀਂ ਮਿਲਿਆ"</string>
     <string name="printer_not_supported" msgid="281955849350938408">"ਪ੍ਰਿੰਟਰ ਸਮਰਥਿਤ ਨਹੀਂ ਹੈ"</string>
-    <string name="forget_printer" msgid="7287993564179837445">"ਪ੍ਰਿੰਟਰ ਛੱਡੋ"</string>
+    <string name="wifi_direct" msgid="4629404342852294985">"ਵਾਈ-ਫਾਈ ਡਾਇਰੈਕਟ"</string>
+    <string name="find_wifi_direct" msgid="5270504288829123954">"ਵਾਈ-ਫਾਈ ਡਾਇਰੈਕਟ ਪ੍ਰਿੰਟਰ ਲੱਭੋ"</string>
+    <string name="wifi_direct_printers" msgid="541168032444693191">"ਵਾਈ-ਫਾਈ ਡਾਇਰੈਕਟ ਪ੍ਰਿੰਟਰ"</string>
+    <string name="searching" msgid="2114018057619514587">"ਖੋਜਿਆ ਜਾ ਰਿਹਾ ਹੈ…"</string>
+    <string name="connect_hint_text" msgid="587112503851044234">"ਤੁਹਾਨੂੰ ਇਸ ਕਨੈਕਸ਼ਨ ਨੂੰ ਆਪਣੇ ਪ੍ਰਿੰਟਰ ਦੇ ਮੂਹਰਲੇ ਪੈਨਲ \'ਤੇ ਸਵੀਕਾਰ ਕਰਨ ਦੀ ਲੋੜ ਪੈ ਸਕਦੀ ਹੈ"</string>
+    <string name="connecting_to" msgid="2665161014972086194">"<xliff:g id="PRINTER">%1$s</xliff:g> ਨਾਲ ਕਨੈਕਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ"</string>
+    <string name="failed_printer_connection" msgid="4196305972749960362">"ਪ੍ਰਿੰਟਰ ਨਾਲ ਕਨੈਕਟ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ"</string>
+    <string name="failed_connection" msgid="8068661997318286575">"<xliff:g id="PRINTER">%1$s</xliff:g> ਨਾਲ ਕਨੈਕਟ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ"</string>
+    <string name="saved_printers" msgid="4567534965213125526">"ਰੱਖਿਅਤ ਕੀਤੇ ਪ੍ਰਿੰਟਰ"</string>
+    <string name="forget" msgid="892068061425802502">"ਛੱਡੋ"</string>
+    <string name="connects_via_wifi_direct" msgid="652300632780158437">"ਵਾਈ-ਫਾਈ ਡਾਇਰੈਕਟ ਰਾਹੀਂ ਕਨੈਕਟ ਕਰਦਾ ਹੈ"</string>
+    <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g> \'ਤੇ ਵਰਤਮਾਨ ਨੈੱਟਵਰਕ ਰਾਹੀਂ ਕਨੈਕਟ ਕਰਦਾ ਹੈ"</string>
 </resources>

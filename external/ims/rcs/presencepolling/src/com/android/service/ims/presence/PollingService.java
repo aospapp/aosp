@@ -40,6 +40,7 @@ import android.os.ServiceManager;
 import android.os.SystemProperties;
 
 import com.android.ims.internal.Logger;
+import com.android.internal.annotations.VisibleForTesting;
 
 /**
  * Manages the CapabilityPolling class. Starts capability polling when a SIM card is inserted that
@@ -51,7 +52,8 @@ public class PollingService extends Service {
 
     private CapabilityPolling mCapabilityPolling = null;
 
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+    // not final for testing
+    private BroadcastReceiver mReceiver = new BroadcastReceiver() {
 
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -92,6 +94,8 @@ public class PollingService extends Service {
             mCapabilityPolling = null;
         }
 
+        unregisterReceiver(mReceiver);
+
         super.onDestroy();
     }
 
@@ -105,6 +109,11 @@ public class PollingService extends Service {
 
         logger.debug("onBind add services here");
         return null;
+    }
+
+    @VisibleForTesting
+    public void setBroadcastReceiver(BroadcastReceiver r) {
+        mReceiver = r;
     }
 
     private void registerBroadcastReceiver() {

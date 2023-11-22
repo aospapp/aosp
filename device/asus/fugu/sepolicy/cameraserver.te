@@ -1,2 +1,0 @@
-# GPU dynamic fbc feature
-allow cameraserver surfaceflinger:fifo_file rw_file_perms;

@@ -1,7 +1,7 @@
 /** @file
 Elf32 Convert solution
 
-Copyright (c) 2010 - 2014, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved.<BR>
 Portions copyright (c) 2013, ARM Ltd. All rights reserved.<BR>
 
 This program and the accompanying materials are licensed and made available
@@ -21,6 +21,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <io.h>
 #endif
 #include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -166,6 +167,10 @@ InitializeElf32 (
   // Create COFF Section offset buffer and zero.
   //
   mCoffSectionsOffset = (UINT32 *)malloc(mEhdr->e_shnum * sizeof (UINT32));
+  if (mCoffSectionsOffset == NULL) {
+    Error (NULL, 0, 4001, "Resource", "memory cannot be allocated!");
+    return FALSE;
+  }
   memset(mCoffSectionsOffset, 0, mEhdr->e_shnum * sizeof(UINT32));
 
   //
@@ -191,8 +196,11 @@ GetShdrByIndex (
   UINT32 Num
   )
 {
-  if (Num >= mEhdr->e_shnum)
-    return NULL;
+  if (Num >= mEhdr->e_shnum) {
+    Error (NULL, 0, 3000, "Invalid", "GetShdrByIndex: Index %u is too high.", Num);
+    exit(EXIT_FAILURE);
+  }
+
   return (Elf_Shdr*)((UINT8*)mShdrBase + Num * mEhdr->e_shentsize);
 }
 
@@ -203,7 +211,8 @@ GetPhdrByIndex (
   )
 {
   if (num >= mEhdr->e_phnum) {
-    return NULL;
+    Error (NULL, 0, 3000, "Invalid", "GetPhdrByIndex: Index %u is too high.", num);
+    exit(EXIT_FAILURE);
   }
 
   return (Elf_Phdr *)((UINT8*)mPhdrBase + num * mEhdr->e_phentsize);
@@ -260,6 +269,62 @@ IsDataShdr (
     return FALSE;
   }
   return (BOOLEAN) (Shdr->sh_flags & (SHF_WRITE | SHF_ALLOC)) == (SHF_ALLOC | SHF_WRITE);
+}
+
+STATIC
+BOOLEAN
+IsStrtabShdr (
+  Elf_Shdr *Shdr
+  )
+{
+  Elf_Shdr *Namedr = GetShdrByIndex(mEhdr->e_shstrndx);
+
+  return (BOOLEAN) (strcmp((CHAR8*)mEhdr + Namedr->sh_offset + Shdr->sh_name, ELF_STRTAB_SECTION_NAME) == 0);
+}
+
+STATIC
+Elf_Shdr *
+FindStrtabShdr (
+  VOID
+  )
+{
+  UINT32 i;
+  for (i = 0; i < mEhdr->e_shnum; i++) {
+    Elf_Shdr *shdr = GetShdrByIndex(i);
+    if (IsStrtabShdr(shdr)) {
+      return shdr;
+    }
+  }
+  return NULL;
+}
+
+STATIC
+const UINT8 *
+GetSymName (
+  Elf_Sym *Sym
+  )
+{
+  if (Sym->st_name == 0) {
+    return NULL;
+  }
+
+  Elf_Shdr *StrtabShdr = FindStrtabShdr();
+  if (StrtabShdr == NULL) {
+    return NULL;
+  }
+
+  assert(Sym->st_name < StrtabShdr->sh_size);
+
+  UINT8* StrtabContents = (UINT8*)mEhdr + StrtabShdr->sh_offset;
+
+  bool foundEnd = false;
+  UINT32 i;
+  for (i = Sym->st_name; (i < StrtabShdr->sh_size) && !foundEnd; i++) {
+    foundEnd = StrtabContents[i] == 0;
+  }
+  assert(foundEnd);
+
+  return StrtabContents + Sym->st_name;
 }
 
 //
@@ -465,6 +530,10 @@ ScanSections32 (
   // Allocate base Coff file.  Will be expanded later for relocations.
   //
   mCoffFile = (UINT8 *)malloc(mCoffOffset);
+  if (mCoffFile == NULL) {
+    Error (NULL, 0, 4001, "Resource", "memory cannot be allocated!");
+  }
+  assert (mCoffFile != NULL);
   memset(mCoffFile, 0, mCoffOffset);
 
   //
@@ -488,7 +557,7 @@ ScanSections32 (
     NtHdr->Pe32.OptionalHeader.Magic = EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC;
     break;
   default:
-    VerboseMsg ("%s unknown e_machine type. Assume IA-32", (UINTN)mEhdr->e_machine);
+    VerboseMsg ("%s unknown e_machine type %hu. Assume IA-32", mInImageName, mEhdr->e_machine);
     NtHdr->Pe32.FileHeader.Machine = EFI_IMAGE_MACHINE_IA32;
     NtHdr->Pe32.OptionalHeader.Magic = EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC;
   }
@@ -667,9 +736,18 @@ WriteSections32 (
         // header location.
         //
         if (Sym->st_shndx == SHN_UNDEF
-            || Sym->st_shndx == SHN_ABS
-            || Sym->st_shndx > mEhdr->e_shnum) {
-          Error (NULL, 0, 3000, "Invalid", "%s bad symbol definition.", mInImageName);
+            || Sym->st_shndx >= mEhdr->e_shnum) {
+          const UINT8 *SymName = GetSymName(Sym);
+          if (SymName == NULL) {
+            SymName = (const UINT8 *)"<unknown>";
+          }
+
+          Error (NULL, 0, 3000, "Invalid",
+                 "%s: Bad definition for symbol '%s'@%#x or unsupported symbol type.  "
+                 "For example, absolute and undefined symbols are not supported.",
+                 mInImageName, SymName, Sym->st_value);
+
+          exit(EXIT_FAILURE);
         }
         SymShdr = GetShdrByIndex(Sym->st_shndx);
 
@@ -815,7 +893,7 @@ WriteRelocations32 (
 
         FoundRelocations = TRUE;
         for (RelIdx = 0; RelIdx < RelShdr->sh_size; RelIdx += RelShdr->sh_entsize) {
-          Elf_Rel  *Rel = (Elf_Rel *)((UINT8*)mEhdr + RelShdr->sh_offset + RelIdx);
+          Rel = (Elf_Rel *)((UINT8*)mEhdr + RelShdr->sh_offset + RelIdx);
 
           if (mEhdr->e_machine == EM_386) { 
             switch (ELF_R_TYPE(Rel->r_info)) {

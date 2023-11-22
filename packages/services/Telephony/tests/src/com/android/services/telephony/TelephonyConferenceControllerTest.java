@@ -25,7 +25,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.ArgumentCaptor;
 
@@ -53,8 +52,8 @@ public class TelephonyConferenceControllerTest {
     @Mock
     private Conference.Listener mMockListener;
 
-    private MockTelephonyConnection mMockTelephonyConnectionA;
-    private MockTelephonyConnection mMockTelephonyConnectionB;
+    private TestTelephonyConnection mTestTelephonyConnectionA;
+    private TestTelephonyConnection mTestTelephonyConnectionB;
 
     private TelephonyConferenceController mControllerTest;
 
@@ -64,8 +63,8 @@ public class TelephonyConferenceControllerTest {
         if (Looper.myLooper() == null) {
             Looper.prepare();
         }
-        mMockTelephonyConnectionA = new MockTelephonyConnection();
-        mMockTelephonyConnectionB = new MockTelephonyConnection();
+        mTestTelephonyConnectionA = new TestTelephonyConnection();
+        mTestTelephonyConnectionB = new TestTelephonyConnection();
 
         mControllerTest = new TelephonyConferenceController(mMockTelephonyConnectionServiceProxy);
     }
@@ -84,33 +83,33 @@ public class TelephonyConferenceControllerTest {
     @SmallTest
     public void testConferenceable() {
 
-        when(mMockTelephonyConnectionA.mMockRadioConnection.getCall()
+        when(mTestTelephonyConnectionA.mMockRadioConnection.getCall()
                 .isMultiparty()).thenReturn(false);
-        when(mMockTelephonyConnectionB.mMockRadioConnection.getCall()
+        when(mTestTelephonyConnectionB.mMockRadioConnection.getCall()
                 .isMultiparty()).thenReturn(false);
 
         // add telephony connection B
-        mControllerTest.add(mMockTelephonyConnectionB);
+        mControllerTest.add(mTestTelephonyConnectionB);
 
         // add telephony connection A
-        mControllerTest.add(mMockTelephonyConnectionA);
+        mControllerTest.add(mTestTelephonyConnectionA);
 
-        mMockTelephonyConnectionA.setActive();
-        mMockTelephonyConnectionB.setOnHold();
+        mTestTelephonyConnectionA.setActive();
+        mTestTelephonyConnectionB.setOnHold();
 
-        assertTrue(mMockTelephonyConnectionA.getConferenceables()
-                .contains(mMockTelephonyConnectionB));
-        assertTrue(mMockTelephonyConnectionB.getConferenceables()
-                .contains(mMockTelephonyConnectionA));
+        assertTrue(mTestTelephonyConnectionA.getConferenceables()
+                .contains(mTestTelephonyConnectionB));
+        assertTrue(mTestTelephonyConnectionB.getConferenceables()
+                .contains(mTestTelephonyConnectionA));
 
         // verify addConference method is never called
         verify(mMockTelephonyConnectionServiceProxy, never())
                 .addConference(any(TelephonyConference.class));
 
         // call A removed
-        mControllerTest.remove(mMockTelephonyConnectionA);
-        assertFalse(mMockTelephonyConnectionB.getConferenceables()
-                .contains(mMockTelephonyConnectionA));
+        mControllerTest.remove(mTestTelephonyConnectionA);
+        assertFalse(mTestTelephonyConnectionB.getConferenceables()
+                .contains(mTestTelephonyConnectionA));
     }
 
     /**
@@ -129,31 +128,31 @@ public class TelephonyConferenceControllerTest {
     public void testMergeMultiPartyCalls() {
 
         // set isMultiparty() true to create the same senario of merge behaviour
-        when(mMockTelephonyConnectionA.mMockRadioConnection.getCall()
+        when(mTestTelephonyConnectionA.mMockRadioConnection.getCall()
                 .isMultiparty()).thenReturn(true);
-        when(mMockTelephonyConnectionB.mMockRadioConnection.getCall()
+        when(mTestTelephonyConnectionB.mMockRadioConnection.getCall()
                 .isMultiparty()).thenReturn(true);
 
         // Add connections into connection Service
         Collection<Connection> allConnections = new ArrayList<Connection>();
-        allConnections.add(mMockTelephonyConnectionA);
-        allConnections.add(mMockTelephonyConnectionB);
+        allConnections.add(mTestTelephonyConnectionA);
+        allConnections.add(mTestTelephonyConnectionB);
         when(mMockTelephonyConnectionServiceProxy.getAllConnections())
                 .thenReturn(allConnections);
 
         // add telephony connection B
-        mControllerTest.add(mMockTelephonyConnectionB);
+        mControllerTest.add(mTestTelephonyConnectionB);
 
         // add telephony connection A
-        mControllerTest.add(mMockTelephonyConnectionA);
+        mControllerTest.add(mTestTelephonyConnectionA);
 
-        mMockTelephonyConnectionA.setActive();
-        mMockTelephonyConnectionB.setOnHold();
+        mTestTelephonyConnectionA.setActive();
+        mTestTelephonyConnectionB.setOnHold();
 
-        assertTrue(mMockTelephonyConnectionA.getConferenceables()
-                .contains(mMockTelephonyConnectionB));
-        assertTrue(mMockTelephonyConnectionB.getConferenceables()
-                .contains(mMockTelephonyConnectionA));
+        assertTrue(mTestTelephonyConnectionA.getConferenceables()
+                .contains(mTestTelephonyConnectionB));
+        assertTrue(mTestTelephonyConnectionB.getConferenceables()
+                .contains(mTestTelephonyConnectionA));
 
         // capture the argument in the addConference method, and verify it is called
         ArgumentCaptor<TelephonyConference> argumentCaptor = ArgumentCaptor.
@@ -166,9 +165,9 @@ public class TelephonyConferenceControllerTest {
         verify(mMockListener, never()).onDestroyed(any(Conference.class));
 
         // call A removed
-        mControllerTest.remove(mMockTelephonyConnectionA);
-        assertFalse(mMockTelephonyConnectionB.getConferenceables()
-                .contains(mMockTelephonyConnectionA));
+        mControllerTest.remove(mTestTelephonyConnectionA);
+        assertFalse(mTestTelephonyConnectionB.getConferenceables()
+                .contains(mTestTelephonyConnectionA));
 
         //onDestroy should be called during the destroy
         verify(mMockListener).onDestroyed(any(Conference.class));

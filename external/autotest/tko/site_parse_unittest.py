@@ -9,9 +9,8 @@
 
 import mox, os, shutil, tempfile, unittest
 
-from django.conf import settings
-
 import common
+from django.conf import settings
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.frontend import database_settings_helper
 from autotest_lib.frontend import setup_django_environment

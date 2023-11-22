@@ -21,6 +21,8 @@ import time
 from acts.base_test import BaseTestClass
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
+from acts.test_utils.bt.bt_constants import bluetooth_off
+from acts.test_utils.bt.bt_constants import bluetooth_on
 from acts.test_utils.bt.bt_test_utils import clear_bonded_devices
 from acts.test_utils.bt.bt_test_utils import pair_pri_to_sec
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
@@ -61,10 +63,24 @@ class BtStressTest(BluetoothBaseTest):
         TAGS: Classic, Stress
         Priority: 1
         """
+        dut = self.android_devices[0]
         for n in range(self.iterations):
             self.log.info("Toggling bluetooth iteration {}.".format(n + 1))
-            if not reset_bluetooth([self.android_devices[0]]):
-                self.log.error("Failure to reset Bluetooth")
+            dut.ed.clear_all_events()
+            try:
+                dut.droid.bluetoothToggleState(False)
+                dut.ed.pop_event(bluetooth_off, self.default_timeout)
+            except Exception as err:
+                dut.log.error(
+                    "Failed to toggle off Bluetooth with error: {}".format(
+                        err))
+                return False
+            try:
+                dut.droid.bluetoothToggleState(True)
+                dut.ed.pop_event(bluetooth_on, self.default_timeout)
+            except Exception as err:
+                dut.log.error(
+                    "Failed to toggle on Bluetooth with error: {}".format(err))
                 return False
         return True
 
@@ -115,7 +131,7 @@ class BtStressTest(BluetoothBaseTest):
                 time.sleep(2)
                 bonded_devices = ad.droid.bluetoothGetBondedDevices()
                 if len(bonded_devices) > 0:
-                    self.log.error("Failed to unbond devices: {}".format(
-                        bonded_devices))
+                    self.log.error(
+                        "Failed to unbond devices: {}".format(bonded_devices))
                     return False
         return True

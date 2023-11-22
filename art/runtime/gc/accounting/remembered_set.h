@@ -18,8 +18,9 @@
 #define ART_RUNTIME_GC_ACCOUNTING_REMEMBERED_SET_H_
 
 #include "base/allocator.h"
-#include "globals.h"
-#include "safe_map.h"
+#include "base/globals.h"
+#include "base/mutex.h"
+#include "base/safe_map.h"
 
 #include <set>
 #include <vector>
@@ -28,11 +29,11 @@ namespace art {
 namespace gc {
 
 namespace collector {
-  class GarbageCollector;
-  class MarkSweep;
+class GarbageCollector;
+class MarkSweep;
 }  // namespace collector
 namespace space {
-  class ContinuousSpace;
+class ContinuousSpace;
 }  // namespace space
 
 class Heap;

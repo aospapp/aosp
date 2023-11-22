@@ -10,97 +10,6 @@ Device implementations:
     downloading individual files of at least 100MB in size to the default
     “cache” location.
 
-Television device implementations:
-
-*   [T-0-1] MUST have at least 4GB of non-volatile storage available for
-    application private data (a.k.a. "/data" partition)
-
-Automotive device implementations:
-
-*   [A-0-1] MUST have at least 4GB of non-volatile storage available for
-    application private data (a.k.a. "/data" partition)
-
-Watch device implementations:
-
-*   [W-0-1] MUST have at least 1GB of non-volatile storage available for
-    application private data (a.k.a. "/data" partition)
-*   [W-0-2] MUST have at least 416MB memory available to the kernel and
-    userspace.
-
-Handheld device implementations:
-
-*   [H-0-1] MUST have at least 4GB of non-volatile storage available for
-    application private data (a.k.a. "/data" partition)
-*   [H-0-2] MUST return “true” for `ActivityManager.isLowRamDevice()` when there
-    is less than 1GB of memory available to the kernel and userspace.
-
-
-If Handheld device implementations are 32-bit:
-
-*   [H-1-1] The memory available to the kernel and userspace MUST
-be at least: 512MB if any of the following densities are used:
-
-   *   280dpi or lower on small/normal screens
-   *   ldpi or lower on extra large screens
-   *   mdpi or lower on large screens
-
-*   [H-2-1] The memory available to the kernel and userspace MUST
-be at least: 608MB if any of the following densities are used:
-
-   *   xhdpi or higher on small/normal screens
-   *   hdpi or higher on large screens
-   *   mdpi or higher on extra large screens
-
-*   [H-3-1] The memory available to the kernel and userspace MUST
-be at least: 896MB if any of the following densities are used:
-
-   *   400dpi or higher on small/normal screens
-   *   xhdpi or higher on large screens
-   *   tvdpi or higher on extra large screens
-
-*    [H-4-1] The memory available to the kernel and userspace MUST
-be at least: 1344MB if any of the following densities are used:
-
-   *   560dpi or higher on small/normal screens
-   *   400dpi or higher on large screens
-   *   xhdpi or higher on extra large screens
-
-If Handheld device implementations are 64-bit:
-
-*   [H-5-1] The memory available to the kernel and userspace MUST
-be at least: 816MB if any of the following densities are used:
-
-   *   280dpi or lower on small/normal screens
-   *   ldpi or lower on extra large screens
-   *   mdpi or lower on large screens
-
-
-*   [H-6-1] The memory available to the kernel and userspace MUST
-be at least: 944MB if any of the following densities are used:
-
-   *   xhdpi or higher on small/normal screens
-   *   hdpi or higher on large screens
-   *   mdpi or higher on extra large screens
-
-*   [H-7-1] The memory available to the kernel and userspace MUST
-be at least: 1280MB if any of the following densities are used:
-
-   *  400dpi or higher on small/normal screens
-   *  xhdpi or higher on large screens
-   *  tvdpi or higher on extra large screens
-
-*    [H-8-1] The memory available to the kernel and userspace MUST
-be at least: 1824MB if any of the following densities are used:
-
-   *   560dpi or higher on small/normal screens
-   *   400dpi or higher on large screens
-   *   xhdpi or higher on extra large screens
-
-Note that the "memory available to the kernel and userspace" above refers to the
-memory space provided in addition to any memory already dedicated to hardware
-components such as radio, video, and so on that are not under the kernel’s
-control on device implementations.
-
 ### 7.6.2\. Application Shared Storage
 
 Device implementations:
@@ -119,14 +28,11 @@ Device implementations:
     permission on this shared storage as documented in the SDK. Shared storage
     MUST otherwise be writable by any application that obtains that permission.
 
-Android handheld device implementations:
+Device implementations MAY meet the above requirements using either of the
+following:
 
-*   [H-0-1] MUST NOT provide an application shared storage smaller than 1GiB.
-
-Device implementations MAY meet the above requirements using either:
-
-* a user-accessible removable storage, such as a Secure Digital (SD) card slot.
-* a portion of the internal (non-removable) storage as implemented in the
+* User-accessible removable storage, such as a Secure Digital (SD) card slot.
+* A portion of the internal (non-removable) storage as implemented in the
   Android Open Source Project (AOSP).
 
 If device implementations use removable storage to satisfy the above
@@ -148,7 +54,7 @@ the above requirements, they:
 If device implementations include multiple shared storage paths (such
 as both an SD card slot and shared internal storage), they:
 
-*   [C-3-1] MUST allow only pre-installed and privileged Android
+*   [C-2-1] MUST allow only pre-installed and privileged Android
 applications with the `WRITE_EXTERNAL_STORAGE` permission to
 write to the secondary external storage, except when writing to their
 package-specific directories or within the `URI` returned by firing the

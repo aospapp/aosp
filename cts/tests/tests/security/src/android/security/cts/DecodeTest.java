@@ -38,4 +38,17 @@ public class DecodeTest extends AndroidTestCase {
         Bitmap bitmap = BitmapFactory.decodeStream(exploitImage);
         assertNull(bitmap);
     }
+
+    /**
+     * Verifies that the device fails to decode a truncated animated webp.
+     *
+     * Prior to fixing bug 67381469, decoding this file would crash. Instead, it should fail to
+     * decode.
+     */
+    @SecurityTest
+    public void test_android_bug_67381469() {
+        InputStream exploitImage = mContext.getResources().openRawResource(R.raw.bug_67381469);
+        Bitmap bitmap = BitmapFactory.decodeStream(exploitImage);
+        assertNull(bitmap);
+    }
 }

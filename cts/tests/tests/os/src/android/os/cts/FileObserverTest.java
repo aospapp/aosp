@@ -26,11 +26,6 @@ import java.util.Arrays;
 import java.util.List;
 
 public class FileObserverTest extends AndroidTestCase {
-
-    private File mTestFile;
-    private File mTestDir;
-    private File mMoveDestFile;
-    private FileOutputStream mOut;
     private static final String PATH = "/PATH";
     private static final String TEST_FILE = "file_observer_test.txt";
     private static final String TEST_DIR = "fileobserver_dir";
@@ -38,34 +33,50 @@ public class FileObserverTest extends AndroidTestCase {
     private static final int UNDEFINED = 0x8000;
     private static final long DELAY_MSECOND = 2000;
 
+    private void helpSetUp(File dir) throws Exception {
+        File testFile = new File(dir, TEST_FILE);
+        testFile.createNewFile();
+        File testDir = new File(dir, TEST_DIR);
+        testDir.mkdirs();
+    }
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         File dir = getContext().getFilesDir();
-        mTestFile = new File(dir, TEST_FILE);
-        mTestFile.createNewFile();
-        mTestDir = new File(dir, TEST_DIR);
-        mTestDir.mkdirs();
+        helpSetUp(dir);
+
+        dir = getContext().getExternalFilesDir(null);
+        helpSetUp(dir);
+    }
+
+    private void helpTearDown(File dir) throws Exception {
+        File testFile = new File(dir, TEST_FILE);
+        File testDir = new File(dir, TEST_DIR);
+        File moveDestFile = new File(testDir, TEST_FILE);
+
+        if (testFile.exists()) {
+            testFile.delete();
+        }
+
+        if (moveDestFile.exists()) {
+            moveDestFile.delete();
+        }
+
+        if (testDir.exists()) {
+            testDir.delete();
+        }
     }
 
     @Override
     protected void tearDown() throws Exception {
         super.tearDown();
-        if (mTestFile != null && mTestFile.exists()) {
-            mTestFile.delete();
-        }
 
-        if (mMoveDestFile != null && mMoveDestFile.exists()) {
-            mMoveDestFile.delete();
-        }
+        File dir = getContext().getFilesDir();
+        helpTearDown(dir);
 
-        if (mTestDir != null && mTestDir.exists()) {
-            mTestDir.delete();
-        }
-
-        if (mOut != null) {
-            mOut.close();
-        }
+        dir = getContext().getExternalFilesDir(null);
+        helpTearDown(dir);
     }
 
     public void testConstructor() {
@@ -86,84 +97,107 @@ public class FileObserverTest extends AndroidTestCase {
      * file observer should get move-self event,
      * moved from dir observer should get moved-from event,
      * moved to dir observer should get moved-to event.
+     *
+     * On emulated storage, there may be additional operations related to case insensitivity, so
+     * we just check that the expected ones are present.
      */
-    public void testFileObserver() throws Exception {
+    public void helpTestFileObserver(File dir, boolean isEmulated) throws Exception {
         MockFileObserver fileObserver = null;
         int[] expected = null;
         FileEvent[] moveEvents = null;
+        File testFile = new File(dir, TEST_FILE);
+        File testDir = new File(dir, TEST_DIR);
+        File moveDestFile;
+        FileOutputStream out = null;
 
-        fileObserver = new MockFileObserver(mTestFile.getParent());
+        fileObserver = new MockFileObserver(testFile.getParent());
         try {
             fileObserver.startWatching();
-            mOut = new FileOutputStream(mTestFile);
+            out = new FileOutputStream(testFile);
 
-            mOut.write(FILE_DATA); // modify, open, write, modify
-            mOut.close(); // close_write
+            out.write(FILE_DATA); // modify, open, write, modify
+            out.close(); // close_write
 
             expected = new int[] {FileObserver.MODIFY, FileObserver.OPEN, FileObserver.MODIFY,
                     FileObserver.CLOSE_WRITE};
             moveEvents = waitForEvent(fileObserver);
-            assertEventsEquals(expected, moveEvents);
+            if (isEmulated)
+                assertEventsContains(expected, moveEvents);
+            else
+                assertEventsEquals(expected, moveEvents);
 
             fileObserver.stopWatching();
 
             // action after observer stop watching
-            mTestFile.delete(); // delete
+            testFile.delete(); // delete
 
             // should not get any event
             expected = new int[] {UNDEFINED};
             moveEvents = waitForEvent(fileObserver);
-            assertEventsEquals(expected, moveEvents);
+            if (isEmulated)
+                assertEventsContains(expected, moveEvents);
+            else
+                assertEventsEquals(expected, moveEvents);
         } finally {
             fileObserver.stopWatching();
-            mOut.close();
-            mOut = null;
+            if (out != null)
+                out.close();
+            out = null;
         }
-
-        fileObserver = new MockFileObserver(mTestDir.getPath());
+        fileObserver = new MockFileObserver(testDir.getPath());
         try {
             fileObserver.startWatching();
-            mTestFile = new File(mTestDir, TEST_FILE);
-            assertTrue(mTestFile.createNewFile());
-            assertTrue(mTestFile.exists());
-            mTestFile.delete();
-            mTestDir.delete();
-
+            testFile = new File(testDir, TEST_FILE);
+            assertTrue(testFile.createNewFile());
+            assertTrue(testFile.exists());
+            testFile.delete();
+            testDir.delete();
             expected = new int[] {FileObserver.CREATE,
                     FileObserver.OPEN, FileObserver.CLOSE_WRITE,
                     FileObserver.DELETE, FileObserver.DELETE_SELF, UNDEFINED};
             moveEvents = waitForEvent(fileObserver);
-            assertEventsEquals(expected, moveEvents);
+            if (isEmulated)
+                assertEventsContains(expected, moveEvents);
+            else
+                assertEventsEquals(expected, moveEvents);
         } finally {
             fileObserver.stopWatching();
         }
-
-        File dir = getContext().getFilesDir();
-        mTestFile = new File(dir, TEST_FILE);
-        mTestFile.createNewFile();
-        mTestDir = new File(dir, TEST_DIR);
-        mTestDir.mkdirs();
-        mMoveDestFile = new File(mTestDir, TEST_FILE);
+        dir = getContext().getFilesDir();
+        testFile = new File(dir, TEST_FILE);
+        testFile.createNewFile();
+        testDir = new File(dir, TEST_DIR);
+        testDir.mkdirs();
+        moveDestFile = new File(testDir, TEST_FILE);
         MockFileObserver movedFrom = new MockFileObserver(dir.getPath());
-        MockFileObserver movedTo = new MockFileObserver(mTestDir.getPath());
-        fileObserver = new MockFileObserver(mTestFile.getPath());
+        MockFileObserver movedTo = new MockFileObserver(testDir.getPath());
+        fileObserver = new MockFileObserver(testFile.getPath());
         try {
             movedFrom.startWatching();
             movedTo.startWatching();
             fileObserver.startWatching();
-            mTestFile.renameTo(mMoveDestFile);
+            testFile.renameTo(moveDestFile);
 
             expected = new int[] {FileObserver.MOVE_SELF};
             moveEvents = waitForEvent(fileObserver);
-            assertEventsEquals(expected, moveEvents);
+            if (isEmulated)
+                assertEventsContains(expected, moveEvents);
+            else
+                assertEventsEquals(expected, moveEvents);
 
             expected = new int[] {FileObserver.MOVED_FROM};
             moveEvents = waitForEvent(movedFrom);
-            assertEventsEquals(expected, moveEvents);
+            if (isEmulated)
+                assertEventsContains(expected, moveEvents);
+            else
+                assertEventsEquals(expected, moveEvents);
 
             expected = new int[] {FileObserver.MOVED_TO};
             moveEvents = waitForEvent(movedTo);
-            assertEventsEquals(expected, moveEvents);
+            if (isEmulated)
+                assertEventsContains(expected, moveEvents);
+            else
+                assertEventsEquals(expected, moveEvents);
         } finally {
             fileObserver.stopWatching();
             movedTo.stopWatching();
@@ -173,6 +207,18 @@ public class FileObserverTest extends AndroidTestCase {
         // Because Javadoc didn't specify when should a event happened,
         // here ACCESS ATTRIB we found no way to test.
     }
+
+    public void testFileObserver() throws Exception {
+        helpTestFileObserver(getContext().getFilesDir(), false);
+    }
+
+    /*
+     * Same as testFileObserver, except on emulated storage
+     */
+    public void testFileObserverEmulated() throws Exception {
+        helpTestFileObserver(getContext().getExternalFilesDir(null), true);
+    }
+
 
     private void assertEventsEquals(final int[] expected, final FileEvent[] moveEvents) {
         List<Integer> expectedEvents = new ArrayList<Integer>();
@@ -184,6 +230,24 @@ public class FileObserverTest extends AndroidTestCase {
         assertEquals(message, expected.length, moveEvents.length);
         for (int i = 0; i < expected.length; i++) {
             assertEquals(message, expected[i], moveEvents[i].event);
+        }
+    }
+
+    private void assertEventsContains(final int[] expected, final FileEvent[] moveEvents) {
+        List<Integer> expectedEvents = new ArrayList<Integer>();
+        for (int i = 0; i < expected.length; i++) {
+            expectedEvents.add(expected[i]);
+        }
+        List<FileEvent> actualEvents = Arrays.asList(moveEvents);
+        String message = "Expected to contain: " + expectedEvents + " Actual: " + actualEvents;
+        int j = 0;
+        for (int i = 0; i < expected.length; i++) {
+            while (expected[i] != moveEvents[j].event) {
+                j++;
+                if (j >= moveEvents.length)
+                    fail(message);
+            }
+            j++;
         }
     }
 

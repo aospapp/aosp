@@ -25,22 +25,29 @@
 */
 package org.apache.harmony.jpda.tests.jdwp.MultiSession;
 
+import org.apache.harmony.jpda.tests.share.GcMarker;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
 public class EnableCollectionDebuggee extends SyncDebuggee {
-   
+
    static EnableCollectionObject001_01 checkedObject;
-   static boolean checkedObject_Finalized = false; 
+   static boolean checkedObject_Finalized = false;
    static EnableCollectionObject001_02 patternObject;
-   static boolean patternObject_Finalized = false; 
+   static boolean patternObject_Finalized = false;
+
+   static GcMarker marker;
 
    @Override
-public void run() {
+   public void run() {
        logWriter.println("--> Debuggee: EnableCollectionDebuggee: START");
-       
+
        checkedObject = new EnableCollectionObject001_01();
        patternObject = new EnableCollectionObject001_02();
+
+       marker = new GcMarker();
+       marker.add(checkedObject);
+       marker.add(patternObject);
 
        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
        String messageFromTest = synchronizer.receiveMessage();
@@ -48,26 +55,33 @@ public void run() {
            logWriter.println("--> Debuggee: EnableCollectionDebuggee: FINISH");
            return;
        }
-       
+
+       int numberOfExpectedFinalizations = 2;
+       if (!messageFromTest.equals(JPDADebuggeeSynchronizer.SGNL_CONTINUE)) {
+         logWriter.println("--> Unexpected message: \"" + messageFromTest + "\"");
+         return;
+       }
+
        logWriter.println("--> Debuggee: BEFORE System.gc():");
-       logWriter.println("--> Debuggee: checkedObject = " + 
+       logWriter.println("--> Debuggee: checkedObject = " +
                checkedObject);
-       logWriter.println("--> Debuggee: checkedObject_UNLOADed = " + 
+       logWriter.println("--> Debuggee: checkedObject_UNLOADed = " +
                checkedObject_Finalized);
-       logWriter.println("--> Debuggee: patternObject = " + 
+       logWriter.println("--> Debuggee: patternObject = " +
                patternObject);
-       logWriter.println("--> Debuggee: patternObject_UNLOADed = " + 
+       logWriter.println("--> Debuggee: patternObject_UNLOADed = " +
                patternObject_Finalized);
 
        checkedObject = null;
        patternObject = null;
+
        long[][] longArray;
        int i = 0;
        try {
            longArray = new long[1000000][];
            int arraysNumberLimit = 7; // max - longArray.length
            logWriter.println
-           ("--> Debuggee: memory depletion - creating 'long[1000000]' arrays (" + arraysNumberLimit + ")..."); 
+           ("--> Debuggee: memory depletion - creating 'long[1000000]' arrays (" + arraysNumberLimit + ")...");
            for (; i < arraysNumberLimit; i++) {
                longArray[i] = new long[1000000];
            }
@@ -75,15 +89,17 @@ public void run() {
            logWriter.println("--> Debuggee: OutOfMemoryError!!!");
        }
        longArray = null;
-       System.gc();
+
+       marker.waitForGc(numberOfExpectedFinalizations);
+
        logWriter.println("--> Debuggee: AFTER System.gc():");
-       logWriter.println("--> Debuggee: checkedObject = " + 
+       logWriter.println("--> Debuggee: checkedObject = " +
                checkedObject);
-       logWriter.println("--> Debuggee: checkedObject_UNLOADed = " + 
+       logWriter.println("--> Debuggee: checkedObject_UNLOADed = " +
                checkedObject_Finalized);
-       logWriter.println("--> Debuggee: patternObject = " + 
+       logWriter.println("--> Debuggee: patternObject = " +
                patternObject);
-       logWriter.println("--> Debuggee: patternObject_UNLOADed = " + 
+       logWriter.println("--> Debuggee: patternObject_UNLOADed = " +
                patternObject_Finalized);
 
        String messageForTest = null;
@@ -120,7 +136,7 @@ protected void finalize() throws Throwable {
        EnableCollectionDebuggee.checkedObject_Finalized = true;
     super.finalize();
    }
-}   
+}
 
 class EnableCollectionObject001_02 {
    @Override
@@ -128,4 +144,4 @@ protected void finalize() throws Throwable {
        EnableCollectionDebuggee.patternObject_Finalized = true;
        super.finalize();
    }
-}   
+}

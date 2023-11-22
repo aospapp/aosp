@@ -20,11 +20,33 @@
     <string name="launcher_settings_app_name" msgid="5782771766725939392">"ਸੈਟਿੰਗਾਂ"</string>
     <string name="launcher_network_app_name" msgid="5107150533945388559">"ਨੈੱਟਵਰਕ"</string>
     <string name="launcher_restricted_profile_app_name" msgid="671448012575234643">"ਮਨਾਹੀਆ ਪ੍ਰੋਫ਼ਾਈਲ"</string>
+    <string name="header_category_suggestions" msgid="6732367439328586933">"ਸੁਝਾਅ"</string>
+    <string name="header_category_quick_settings" msgid="6626141045575946920">"ਤਤਕਾਲ ਸੈਟਿੰਗਾਂ"</string>
+    <string name="header_category_general_settings" msgid="1208946854116876918">"ਸਧਾਰਨ ਸੈਟਿੰਗਾਂ"</string>
+    <string name="dismiss_suggestion" msgid="8288127823132069828">"ਸੁਝਾਅ ਖਾਰਜ ਕਰੋ"</string>
+    <string name="hotwording_title" msgid="1984130766527626626">"\"OK Google\" ਦੀ ਪਛਾਣ"</string>
+    <string name="hotwording_summary" msgid="2863751845299261441">"ਕਿਸੇ ਵੇਲੇ ਵੀ ਆਪਣੇ \'Google ਸਹਾਇਕ\' ਨਾਲ ਗੱਲ ਕਰੋ"</string>
     <string name="header_category_device" msgid="4855983928659541345">"ਡੀਵਾਈਸ"</string>
     <string name="header_category_preferences" msgid="175105555164713972">"ਤਰਜੀਹਾਂ"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"ਰਿਮੋਟ ਅਤੇ ਉਪਸਾਧਨ"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"ਨਿੱਜੀ"</string>
-    <string name="accounts_category_title" msgid="7591072907146317425">"ਖਾਤੇ"</string>
+    <string name="connect_to_network" msgid="2209125715907353369">"ਨੈੱਟਵਰਕ ਨਾਲ ਕਨੈਕਟ ਕਰੋ"</string>
+    <string name="add_an_account" msgid="1123478843971990449">"ਇੱਕ ਖਾਤਾ ਸ਼ਾਮਲ ਕਰੋ"</string>
+    <string name="accounts_category_title" msgid="7839427428921349418">"ਖਾਤੇ ਅਤੇ ਸਾਈਨ-ਇਨ"</string>
+    <string name="accounts_category_summary_no_account" msgid="5739678666463033824">"ਕੋਈ ਖਾਤੇ ਨਹੀਂ"</string>
+    <plurals name="accounts_category_summary" formatted="false" msgid="3864659911073569648">
+      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> ਖਾਤਾ</item>
+      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> ਖਾਤੇ</item>
+    </plurals>
+    <string name="connectivity_network_category_title" msgid="6005656364481347542">"ਨੈੱਟਵਰਕ ਅਤੇ ਇੰਟਰਨੈੱਟ"</string>
+    <string name="applications_category_title" msgid="3552921143969612110">"ਐਪਾਂ"</string>
+    <string name="device_pref_category_title" msgid="5264163316572335776">"ਡੀਵਾਈਸ ਤਰਜੀਹਾਂ"</string>
+    <string name="remotes_and_accessories_category_title" msgid="2729050422677319645">"ਰੀਮੋਟ ਅਤੇ ਐਕਸੈਸਰੀ"</string>
+    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3967545806275801632">"ਕੋਈ ਕਨੈਕਟ ਕੀਤੇ ਹੋਏ ਬਲੂਟੁੱਥ ਡੀਵਾਈਸ ਨਹੀਂ ਹਨ"</string>
+    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="2004733390509722820">
+      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> ਐਕਸੈਸਰੀ</item>
+      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> ਐਕਸੈਸਰੀਆਂ</item>
+    </plurals>
     <string name="add_account" msgid="4098060223200619258">"ਖਾਤਾ ਸ਼ਾਮਲ ਕਰੋ"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"ਖਾਤਾ ਹਟਾਓ"</string>
     <string name="account_sync" msgid="773808124331714965">"ਸਮਕਾਲੀਕਿਰਤ ਐਪਾਂ ਚੁਣੋ"</string>
@@ -40,27 +62,47 @@
 %1$s</xliff:g>"</string>
     <string name="sync_failed" msgid="5514824149810480551">"ਸਮਕਾਲੀਕਰਨ ਅਸਫਲ"</string>
     <string name="sync_active" msgid="6891115263481154378">"ਸਮਕਾਲੀਕਰਨ ਕਿਰਿਆਸ਼ੀਲ"</string>
-    <string name="connectivity_network" msgid="8321537111272398501">"ਨੈੱਟਵਰਕ"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"ਈਥਰਨੈੱਟ"</string>
+    <string name="connectivity_summary_ethernet_connected" msgid="2015335020646410586">"ਈਥਰਨੈੱਟ ਕਨੈਕਟ ਕੀਤਾ ਹੋਇਆ ਹੈ"</string>
+    <string name="connectivity_summary_no_network_connected" msgid="5187378791046457432">"ਕੋਈ ਨੈੱਟਵਰਕ ਕਨੈਕਟ ਨਹੀਂ ਕੀਤਾ ਹੋਇਆ ਹੈ"</string>
+    <string name="connectivity_summary_wifi_disabled" msgid="6904637079319724455">"ਵਾਈ-ਫਾਈ ਬੰਦ ਹੈ"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"ਸਕੈਨਿੰਗ ਹਮੇਸ਼ਾ ਉਪਲਬਧ"</string>
     <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Google ਦੀ ਟਿਕਾਣਾ ਸੇਵਾ ਅਤੇ ਹੋਰ ਐਪਾਂ ਨੂੰ ਨੈੱਟਵਰਕਾਂ ਲਈ ਸਕੈਨ ਕਰਨ ਦਿਓ, ਓਦੋਂ ਵੀ ਜਦ Wi-Fi ਬੰਦ ਹੋਵੇ"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
+    <string name="connectivity_hint_message" msgid="1314202316675864203">"ਨੈੱਟਵਰਕ ਨਾਲ ਕਨੈਕਟ ਕਰੋ"</string>
+    <string name="apps_recently_used_category_title" msgid="5254492409677346900">"ਹਾਲ ਹੀ ਵਿੱਚ ਖੋਲ੍ਹੀਆਂ ਐਪਾਂ"</string>
+    <string name="apps_see_all_apps" msgid="5546179088197139203">"ਸਭ ਐਪਾਂ ਦੇਖੋ"</string>
+    <string name="apps_permissions_category_title" msgid="4476837368840442313">"ਇਜਾਜ਼ਤਾਂ"</string>
+    <string name="all_apps_title" msgid="5330174847732759402">"ਸਭ ਐਪਾਂ"</string>
+    <string name="all_apps_show_system_apps" msgid="4648447904721171884">"ਸਿਸਟਮ ਐਪਾਂ ਦਿਖਾਓ"</string>
+    <string name="all_apps_installed" msgid="54800379871111518">"ਸਥਾਪਤ ਕੀਤੀਆਂ ਐਪਾਂ"</string>
+    <string name="all_apps_other" msgid="8297097642727891911">"ਸਿਸਟਮ ਐਪਾਂ"</string>
+    <string name="all_apps_disabled" msgid="2016067533586741345">"ਬੰਦ ਕੀਤੀਆਂ ਐਪਾਂ"</string>
     <string name="device_daydream" msgid="3354366974209179614">"ਸਕ੍ਰੀਨ ਸੇਵਰ"</string>
     <string name="device_display" msgid="101455384386372747">"ਡਿਸਪਲੇ"</string>
     <string name="device_sound" msgid="9214182566287657481">"ਧੁਨੀ"</string>
     <string name="device_surround_sound" msgid="6272196310566546860">"ਸਰਾਊਂਡ ਸਾਊਂਡ"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"ਸਿਸਟਮ ਧੁਨੀਆਂ"</string>
-    <string name="device_apps" msgid="9180435229638772838">"ਐਪਾਂ"</string>
-    <string name="device_storage_reset" msgid="1425978936501134425">"ਸਟੋਰੇਜ ਅਤੇ ਰੀਸੈੱਟ"</string>
+    <string name="device_apps" msgid="1971794537385509294">"ਐਪਲੀਕੇਸ਼ਨਾਂ"</string>
+    <string name="device_storage" msgid="5536683600091277826">"ਸਟੋਰੇਜ"</string>
+    <string name="device_reset" msgid="1885840356489458285">"ਰੀਸੈੱਟ ਕਰੋ"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"ਬੈਕਅੱਪ ਲਓ ਅਤੇ ਮੁੜ-ਬਹਾਲ ਕਰੋ"</string>
-    <string name="device_reset" msgid="2827002349560023125">"ਫੈਕਟਰੀ  ਡਾਟਾ  ਰੀਸੈੱਟ ਕਰੋ"</string>
+    <string name="device_factory_reset" msgid="6537106927211842545">"ਫੈਕਟਰੀ ਡਾਟਾ ਰੀਸੈੱਟ"</string>
     <string name="device_calibration" msgid="8632962533376605191">"ਕੈਲੀਬਰੇਸ਼ਨ"</string>
+    <string name="surround_sound_select_formats" msgid="6329868407147678259">"ਫਾਰਮੈਟ ਚੁਣੋ"</string>
+    <string name="surround_sound_category_title" msgid="1331285587464316534">"ਆਲੇ-ਦੁਆਲੇ ਸੰਬੰਧੀ ਧੁਨੀ"</string>
+    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
+    <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
+    <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
+    <string name="surround_sound_auto_info" msgid="4957977219847012992">"ਨੋਟ ਕਰੋ: ਡੀਵਾਈਸ \'ਤੇ ਸਹੀ ਕੰਮ ਕਰਨ ਵਾਲੇ ਫਾਰਮੈਟਾਂ ਦਾ ਪਤਾ ਨਾ ਲੱਗਣ \'ਤੇ ਸਵੈਚਲਿਤ ਵਿਕਲਪ ਸ਼ਾਇਦ ਕੰਮ ਨਾ ਕਰੇ।"</string>
+    <string name="surround_sound_auto_summary" msgid="175387511376834034">"ਸਵੈਚਲਿਤ: ਡੀਵਾਈਸ ਦੇ ਸਮਰਥਿਤ ਫਾਰਮੈਟ ਵਰਤੋ (ਸਿਫ਼ਾਰਸ਼ੀ)"</string>
+    <string name="surround_sound_none_summary" msgid="4295042972785042496">"ਕੋਈ ਨਹੀਂ: ਕਦੇ ਵੀ ਆਲੇ-ਦੁਆਲੇ ਸੰਬੰਧੀ ਧੁਨੀ ਨਾ ਵਰਤੋ"</string>
+    <string name="surround_sound_manual_summary" msgid="9208540024024014501">"ਹੱਥੀਂ: ਚੁਣੋ ਕਿਹੜੇ ਫਾਰਮੈਟ ਵਰਤਣੇ ਹਨ"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"ਕੀ ਕੈਸ਼ ਕੀਤਾ  ਡਾਟਾ  ਹਟਾਉਣਾ ਹੈ?"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"ਇਹ ਸਾਰੀਆਂ ਐਪਾਂ ਲਈ ਕੈਸ਼ ਕੀਤਾ  ਡਾਟਾ  ਕਲੀਅਰ ਕਰ ਦੇਵੇਗਾ।"</string>
-    <string name="apps_downloaded" msgid="4222190849854323480">"ਡਾਊਨਲੋਡ ਕੀਤੀਆਂ ਐਪਾਂ"</string>
-    <string name="apps_system" msgid="2499191125802829425">"ਸਿਸਟਮ ਐਪਾਂ"</string>
-    <string name="apps_running" msgid="6430310491739956228">"ਚੱਲ ਰਹੀਆਂ ਐਪਾਂ"</string>
     <string name="accessories_add" msgid="1347802656349218830">"ਉਪਸਾਧਨ ਸ਼ਾਮਲ ਕਰੋ"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"ਜੋੜਾਬੱਧ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ…"</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"ਕਨੈਕਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ…"</string>
@@ -91,12 +133,16 @@
     <string name="system_date_time" msgid="8898457978560618950">"ਮਿਤੀ ਅਤੇ ਸਮਾਂ"</string>
     <string name="system_language" msgid="2337138146114609247">"ਭਾਸ਼ਾ"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"ਕੀ-ਬੋਰਡ"</string>
+    <string name="system_keyboard_autofill" msgid="5787948036400896834">"ਕੀਬੋਰਡ ਅਤੇ ਆਟੋਫਿਲ"</string>
+    <string name="system_autofill" msgid="8647914463541617409">"ਆਟੋਫਿਲ"</string>
     <string name="system_home" msgid="2858989138172296012">"ਹੋਮ ਸਕ੍ਰੀਨ"</string>
     <string name="system_search" msgid="2837264654143247611">"ਖੋਜੋ"</string>
     <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"ਸੁਰੱਖਿਆ ਅਤੇ ਮਨਾਹੀਆਂ"</string>
     <string name="system_speech" msgid="8128688499687306982">"ਬੋਲੀ"</string>
     <string name="system_inputs" msgid="2413907183796651102">"ਇਨਪੁੱਟ"</string>
+    <string name="system_inputs_devices" msgid="8700905419497948327">"ਇਨਪੁੱਟ ਅਤੇ ਡੀਵਾਈਸਾਂ"</string>
+    <string name="system_home_theater_control" msgid="2053198603790384368">"ਹੋਮ ਥੀਏਟਰ ਕੰਟਰੋਲ"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"ਪਹੁੰਚਯੋਗਤਾ"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"ਵਿਕਾਸਕਾਰ ਚੋਣਾਂ"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"ਕੋਈ ਨਹੀਂ"</string>
@@ -139,18 +185,15 @@
     <string name="device_status_title" msgid="1629253652287243543">"ਅਵਸਥਾ"</string>
     <string name="battery_status_title" msgid="2557264957661087826">"ਬੈਟਰੀ ਅਵਸਥਾ"</string>
     <string name="battery_level_title" msgid="100046129713781009">"ਬੈਟਰੀ ਪੱਧਰ"</string>
-    <string name="sim_status_title" msgid="498929467188844611">"SIM ਅਵਸਥਾ"</string>
+    <string name="sim_status_title" msgid="498929467188844611">"ਸਿਮ ਸਥਿਤੀ"</string>
     <string name="imei_information_title" msgid="5208860549282877136">"IMEI ਜਾਣਕਾਰੀ"</string>
     <string name="status_bt_address" msgid="1571721865060122393">"Bluetooth ਪਤਾ"</string>
     <string name="status_up_time" msgid="1674116490191446110">"ਚਾਲੂ ਰਹਿਣ ਦਾ ਸਮਾਂ"</string>
-    <string name="status_wimax_mac_address" msgid="1102907383444152052">"4G MAC ਪਤਾ"</string>
     <string name="legal_information" msgid="2346024659831852038">"ਕਨੂੰਨੀ ਜਾਣਕਾਰੀ"</string>
     <string name="copyright_title" msgid="5564228453228549353">"ਕਾਪੀਰਾਈਟ"</string>
     <string name="license_title" msgid="4482927105870812604">"ਲਾਇਸੰਸ"</string>
     <string name="terms_title" msgid="8480859222932736291">"ਮਦਾਂ ਅਤੇ ਸ਼ਰਤਾਂ"</string>
     <string name="webview_license_title" msgid="8843666223583780825">"ਸਿਸਟਮ WebView ਲਾਇਸੰਸ"</string>
-    <string name="wallpaper_attributions" msgid="8622098625739634898">"ਵਾਲਪੇਪਰ"</string>
-    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"ਸੈਟੇਲਾਈਟ ਚਿਤਰਾਵਲੀ ਪ੍ਰਦਾਨਕ:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"ਕਮਜ਼ੋਰ"</item>
     <item msgid="5986166866411161790">"ਠੀਕ-ਠਾਕ"</item>
@@ -168,10 +211,8 @@
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"ਸਭ ਦੇਖੋ"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"ਘੱਟ ਵੇਖੋ"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"ਉਪਲਬਧ ਨੈੱਟਵਰਕ"</string>
-    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"WPS ਰਾਹੀਂ ਕਨੈਕਟ ਕਰੋ"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"ਨਵਾਂ ਨੈੱਟਵਰਕ ਸ਼ਾਮਲ ਕਰੋ"</string>
     <string name="security_type" msgid="524443802004143058">"ਸੁਰੱਖਿਆ ਦੀ ਕਿਸਮ"</string>
-    <string name="wps_network" msgid="1052148085426051873">"WPS ਰਾਹੀਂ ਕਨੈਕਟ ਕਰੋ"</string>
     <string name="other_network" msgid="3539704463099544488">"ਹੋਰ ਨੈੱਟਵਰਕ…"</string>
     <string name="skip_network" msgid="6380260543776712357">"ਛੱਡੋ"</string>
     <string name="wifi_security_type_none" msgid="6622722325237471927">"ਕੋਈ ਨਹੀਂ"</string>
@@ -206,6 +247,8 @@
     <string name="wifi_forget_network" msgid="7302755141573045803">"ਨੈੱਟਵਰਕ ਭੁੱਲ ਜਾਓ"</string>
     <string name="wifi_forget_network_description" msgid="3328285160018330334">"ਇਹ ਇਸ ਨੈੱਟਵਰਕ ਨਾਲ ਕਨੈਕਟ ਕਰਨ ਲਈ ਵਰਤੀ ਜਾਂਦੀ ਜਾਣਕਾਰੀ ਨੂੰ ਕਲੀਅਰ ਕਰ ਦਿੰਦਾ ਹੈ, ਜਿਸ ਵਿੱਚ ਰੱਖਿਅਤ ਕੀਤਾ ਪਾਸਵਰਡ ਵੀ ਸ਼ਾਮਲ ਹੈ"</string>
     <string name="wifi_action_ok" msgid="5932500664228395779">"ਠੀਕ ਹੈ"</string>
+    <string name="wifi_setup_action_dont_change_network" msgid="5136210803832000656">"ਜਾਰੀ ਰੱਖੋ"</string>
+    <string name="wifi_setup_action_change_network" msgid="4320731433166354508">"ਨੈੱਟਵਰਕ ਬਦਲੋ"</string>
     <string name="wifi_action_change_network" msgid="5196215981075986148">"ਬਦਲੋ"</string>
     <string name="wifi_action_dont_change_network" msgid="1449920958930251977">"ਨਾ ਬਦਲੋ"</string>
     <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"ਠੀਕ ਹੈ"</string>
@@ -234,6 +277,11 @@
     <string name="proxy_port_description" msgid="6791098212244367568">"ਕੋਈ ਵੈਧ ਪੋਰਟ ਦਾਖਲ ਕਰੋ।\nਉਦਾਹਰਨ: <xliff:g id="ID_1">8080</xliff:g>"</string>
     <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"ਅਲਹਿਦਾ ਕੀਤੀਆਂ ਡੋਮੇਨਾਂ ਦੀ ਇੱਕ ਕੌਮੇ ਨਾਲ ਵੱਖ ਕੀਤੀ ਸੂਚੀ ਦਾਖਲ ਕਰੋ ਜਾਂ ਖਾਲੀ ਛੱਡੋ।\nਉਦਾਹਰਨ: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
     <string name="proxy_hostname_description" msgid="5824391500254472447">"ਕੋਈ ਵੈਧ ਹੋਸਟਨਾਮ ਦਾਖਲ ਕਰੋ।\nਉਦਾਹਰਨ: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
+    <string name="title_wifi_eap_method" msgid="3723583936041145157">"<xliff:g id="SSID">%1$s</xliff:g> ਦੇ ਲਈ EAP ਵਿਧੀ ਚੁਣੋ"</string>
+    <string name="title_wifi_phase2_authentication" msgid="8292177518924013886">"<xliff:g id="SSID">%1$s</xliff:g> ਦੇ ਲਈ ਪੜਾਅ 2 ਪ੍ਰਮਾਣੀਕਰਨ ਚੁਣੋ"</string>
+    <string name="title_wifi_identity" msgid="6154397685951091638">"<xliff:g id="SSID">%1$s</xliff:g> ਦੇ ਲਈ ਪਛਾਣ ਦਾਖਲ ਕਰੋ"</string>
+    <string name="title_wifi_anonymous_identity" msgid="4530402657655491360">"<xliff:g id="SSID">%1$s</xliff:g> ਦੇ ਲਈ ਗੁਮਨਾਮ ਪਛਾਣ ਦਾਖਲ ਕਰੋ"</string>
+    <string name="wifi_setup_summary_title_connected" msgid="3349953509191969645">"ਤੁਸੀਂ <xliff:g id="SSID">%1$s</xliff:g> ਨਾਲ ਕਨੈਕਟ ਹੋ"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"ਨੈੱਟਵਰਕ ਕਨੈਕਟ ਹੈ"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"ਨੈੱਟਵਰਕ ਕਨੈਕਟ ਨਹੀਂ ਹੈ"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"ਪਹਿਲਾਂ ਹੀ <xliff:g id="SSID">%1$s</xliff:g> ਨਾਲ ਕਨੈਕਟ ਹੈ। ਕੀ ਕਿਸੇ ਵੱਖਰੇ ਨੈੱਟਵਰਕ ਨਾਲ ਕਨੈਕਟ ਕਰਨਾ ਹੈ?"</string>
@@ -317,30 +365,21 @@
     <string name="system_package" msgid="9200255718634512790">"ਸਿਸਟਮ ਅੱਪਡੇਟ ਬਾਹਰੀ ਮੀਡੀਆ \'ਤੇ ਸਥਾਪਤ ਨਹੀਂ ਕੀਤੇ ਜਾ ਸਕਦੇ।"</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"ਡੀਵਾਈਸ ਪ੍ਰਸ਼ਾਸਕ ਬਾਹਰੀ ਮੀਡੀਆ \'ਤੇ ਸਥਾਪਤ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ।"</string>
     <string name="learn_more_action" msgid="7015991954404958779">"ਹੋਰ ਜਾਣੋ"</string>
-    <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"ਮੁੜ-ਕੋਸ਼ਿਸ਼ ਕਰੋ"</string>
-    <string name="wifi_wps_title" msgid="1872305810119408482">"WPS ਰਾਊਟਰ ਦੀ ਖੋਜ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ…"</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"ਆਪਣੇ ਰਾਊਟਰ \'ਤੇ Wi-Fi ਸੁਰੱਖਿਅਤ ਸਥਾਪਨਾ ਬਟਨ ਨੂੰ ਦਬਾਓ।\nਇਸਨੂੰ \"WPS\" ਕਿਹਾ ਜਾ ਸਕਦਾ ਹੈ ਜਾਂ ਇਸ ਦੇ ਖੱਬੇ ਪਾਸੇ ਚਿੰਨ੍ਹ ਹੋ ਸਕਦਾ ਹੈ।"</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"ਆਪਣੇ Wi-Fi ਰਾਊਟਰ \'ਤੇ PIN <xliff:g id="NUMBER">%1$s</xliff:g> ਦਾਖਲ ਕਰੋ"</string>
-    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"ਤੁਹਾਡੇ ਵੱਲੋਂ PIN ਦਾਖਲ ਕੀਤੇ ਜਾਣ ਤੋਂ ਬਾਅਦ, ਸਥਾਪਨਾ ਨੂੰ ਪੂਰਾ ਹੋਣ ਵਿੱਚ 2 ਮਿੰਟ ਲੱਗ ਸਕਦੇ ਹਨ"</string>
-    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Wi-Fi ਰਾਊਟਰ ਨੂੰ ਨਹੀਂ ਲੱਭਿਆ ਜਾ ਸਕਿਆ"</string>
-    <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Wi-Fi ਰਾਊਟਰ ਦੀ ਸੁਰੱਖਿਆ ਸੈਟਿੰਗ (WEP) ਸਮਰਥਿਤ ਨਹੀਂ ਹੈ"</string>
-    <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Wi-Fi ਰਾਊਟਰ ਦੀ ਸੁਰੱਖਿਆ ਸੈਟਿੰਗ (TKIP) ਸਮਰਥਿਤ ਨਹੀਂ ਹੈ"</string>
-    <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"ਇੱਕ ਹੋਰ WPS ਸੈਸ਼ਨ ਚੱਲ ਰਿਹਾ ਹੈ। ਕੁਝ ਮਿੰਟਾਂ ਵਿੱਚ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।"</string>
     <string name="system_date" msgid="2767108116769558081">"ਮਿਤੀ"</string>
     <string name="system_time" msgid="6726022312605226285">"ਸਮਾਂ"</string>
     <string name="system_set_date" msgid="2437586307768561116">"ਮਿਤੀ ਸੈੱਟ ਕਰੋ"</string>
     <string name="system_set_time" msgid="4661804115501057452">"ਸਮਾਂ ਸੈੱਟ ਕਰੋ"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"ਸਮਾਂ ਜ਼ੋਨ ਸੈੱਟ ਕਰੋ"</string>
     <string name="desc_set_time_zone" msgid="2948629174438460709">"<xliff:g id="OFFSET">%1$s</xliff:g>, <xliff:g id="NAME">%2$s</xliff:g>"</string>
-    <string name="system_set_time_format" msgid="4447882066895090612">"24-ਘੰਟੇ ਵਾਲੀ ਵੰਨਗੀ ਵਰਤੋ"</string>
+    <string name="system_set_time_format" msgid="4447882066895090612">"24-ਘੰਟੇ ਵਾਲਾ ਫਾਰਮੈਟ ਵਰਤੋ"</string>
     <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
     <string name="system_auto_date_time" msgid="3629668599205033272">"ਸਵੈਚਲਿਤ ਮਿਤੀ ਅਤੇ ਸਮਾਂ"</string>
   <string-array name="auto_date_time_entries">
-    <item msgid="4590792581242018007">"ਨੈੱਟਵਰਕ ਵੱਲੋਂ-ਮੁਹੱਈਆ ਕੀਤਾ ਸਮਾਂ ਵਰਤੋ"</item>
+    <item msgid="4590792581242018007">"ਨੈੱਟਵਰਕ ਵੱਲੋਂ ਮੁਹੱਈਆ ਕਰਵਾਇਆ ਸਮਾਂ ਵਰਤੋ"</item>
     <item msgid="3807025813081244357">"ਬੰਦ"</item>
   </string-array>
   <string-array name="auto_date_time_ts_entries">
-    <item msgid="8463479794795616025">"ਨੈੱਟਵਰਕ ਵੱਲੋਂ-ਮੁਹੱਈਆ ਕੀਤਾ ਸਮਾਂ ਵਰਤੋ"</item>
+    <item msgid="8463479794795616025">"ਨੈੱਟਵਰਕ ਵੱਲੋਂ ਮੁਹੱਈਆ ਕਰਵਾਇਆ ਸਮਾਂ ਵਰਤੋ"</item>
     <item msgid="2475903014233987786">"ਟ੍ਰਾਂਸਪੋਰਟ ਸਟ੍ਰੀਮ ਵੱਲੋਂ ਮੁਹੱਈਆ ਕੀਤਾ ਸਮਾਂ ਵਰਤੋ"</item>
     <item msgid="150957081326946463">"ਬੰਦ"</item>
   </string-array>
@@ -447,7 +486,7 @@
     <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"Wi-Fi ਅਡੰਬਰਪੂਰਨ ਲੌਗਿੰਗ"</string>
     <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"Wi‑Fi ਅਡੰਬਰਪੂਰਨ ਲੌਗਿੰਗ ਨੂੰ ਯੋਗ ਬਣਾਓ"</string>
     <string name="system_show_touches" msgid="2179121368437801757">"ਸਪੱਰਸ਼ਾਂ ਨੂੰ ਦਿਖਾਓ"</string>
-    <string name="system_pointer_location" msgid="2673764026490179227">"ਪੌਇੰਟਰ ਟਿਕਾਣਾ"</string>
+    <string name="system_pointer_location" msgid="2673764026490179227">"ਪੁਆਇੰਟਰ ਟਿਕਾਣਾ"</string>
     <string name="system_show_layout_bounds" msgid="645732439882291943">"ਖਾਕਾ ਸੀਮਾਵਾਂ ਦਿਖਾਓ"</string>
     <string name="system_show_gpu_view_updates" msgid="7936280271091152459">"GPU ਦ੍ਰਿਸ਼ ਅੱਪਡੇਟ ਦਿਖਾਓ"</string>
     <string name="system_show_hardware_layer" msgid="7301942527058509453">"ਹਾਰਡਵੇਅਰ ਪਰਤ ਦਿਖਾਓ"</string>
@@ -519,9 +558,14 @@
     <string name="tts_rate_normal" msgid="362011908545519639">"ਸਧਾਰਨ"</string>
     <string name="tts_rate_fast" msgid="3792863158623953072">"ਤੇਜ਼"</string>
     <string name="tts_rate_very_fast" msgid="5876670536911919074">"ਬਹੁਤ ਤੇਜ਼"</string>
+    <string name="title_settings" msgid="5433841477518010243">"<xliff:g id="NAME">%1$s</xliff:g> ਸੈਟਿੰਗਾਂ"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"ਮੌਜੂਦਾ ਕੀ-ਬੋਰਡ"</string>
     <string name="title_configure" msgid="6929522003149212388">"ਸੰਰੂਪਣ ਕਰੋ"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"ਕੀ-ਬੋਰਡ ਚੋਣਾਂ"</string>
+    <string name="title_current_autofill_service" msgid="6055852915343152350">"ਮੌਜੂਦਾ ਆਟੋਫਿਲ ਸੇਵਾ"</string>
+    <string name="title_select_autofill_service" msgid="2515782066694197988">"ਆਟੋਫਿਲ ਸੇਵਾ ਚੁਣੋ"</string>
+    <string name="autofill_none" msgid="2426888642367790651">"ਕੋਈ ਨਹੀਂ"</string>
+    <string name="autofill_confirmation_message" msgid="9068009043054751287">"&lt;b&gt;ਪੱਕਾ ਕਰੋ ਕਿ ਤੁਸੀਂ ਇਸ ਐਪ \'ਤੇ ਭਰੋਸਾ ਕਰਦੇ ਹੋ&lt;/b&gt; &lt;br/&gt; &lt;br/&gt; &lt;xliff:g id=app_name example=Password service>%1$s&lt;/xliff:g&gt; ਐਪ ਤੁਹਾਡੀ ਸਕ੍ਰੀਨ \'ਤੇ ਮੌਜੂਦ ਆਪਣੇ-ਆਪ ਭਰੀਆਂ ਜਾ ਸਕਣ ਵਾਲੀਆਂ ਥਾਂਵਾਂ ਦਾ ਪਤਾ ਲਗਾਉਂਦੀ ਹੈ।"</string>
     <string name="computing_size" msgid="2955133568424704042">"ਹਿਸਾਬ ਲਗਾਇਆ ਜਾ ਰਿਹਾ ਹੈ…"</string>
     <string name="title_select_wifi_network" msgid="1038871400014761952">"ਆਪਣਾ Wi-Fi ਨੈੱਟਵਰਕ ਚੁਣੋ"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"ਨਾਮ ਬਦਲੋ"</string>
@@ -645,7 +689,7 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"ਕੀ ਆਪਣੀ ਸਾਰੀ ਨਿੱਜੀ ਜਾਣਕਾਰੀ ਅਤੇ ਡਾਊਨਲੋਡ ਕੀਤੀਆਂ ਐਪਾਂ ਮਿਟਾਉਣੀਆਂ ਹਨ? ਤੁਸੀਂ ਇਸ ਕਿਰਿਆ ਨੂੰ ਪਲਟ ਨਹੀਂ ਸਕਦੇ!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"ਸਭ ਕੁਝ ਮਿਟਾਓ"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"ਆਪਣੇ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> ਲਈ ਕੋਈ ਨਾਮ ਚੁਣੋ"</string>
-    <string name="select_device_name_description" msgid="6890879006777364213">"ਹੋਰ ਡੀਵਾਈਸਾਂ ਤੋਂ ਕਾਸਟ ਕੀਤੇ ਜਾਣ ਜਾਂ ਕਨੈਕਟ ਕੀਤੇ ਜਾਣ ਵੇਲੇ ਪਛਾਣ ਕਰਨ ਵਿੱਚ ਮਦਦ ਕਰਨ ਲਈ ਆਪਣੇ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> ਨੂੰ ਕੋਈ ਨਾਮ ਦਿਓ।"</string>
+    <string name="select_device_name_description" msgid="4939767901420114190">"ਹੋਰ ਡੀਵਾਈਸਾਂ ਤੋਂ ਕਾਸਟ ਜਾਂ ਕਨੈਕਟ ਕੀਤੇ ਜਾਣ ਵੇਲੇ ਆਪਣੇ ਡੀਵਾਈਸ ਦੀ ਪਛਾਣ ਕਰਨ ਵਿੱਚ ਮਦਦ ਲਈ ਇਸਦਾ ਕੋਈ ਨਾਮ ਰੱਖੋ।"</string>
   <string-array name="rooms">
     <item msgid="9056203990862307284">"Android TV"</item>
     <item msgid="7449352861592960712">"ਬੈਠਕ ਵਾਲਾ ਟੀਵੀ"</item>
@@ -655,11 +699,13 @@
     <string name="custom_room" msgid="8655516733933892458">"ਵਿਸ਼ੇਸ਼-ਵਿਉਂਤਬੱਧ ਨਾਮ ਦਾਖਲ ਕਰੋ…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"ਇਸ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> ਦਾ ਮੁੜ-ਨਾਮਕਰਨ ਕਰੋ"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"ਇਸ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> ਦਾ ਵਰਤਮਾਨ ਤੌਰ \'ਤੇ \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\" ਨਾਮ ਰੱਖਿਆ ਗਿਆ ਹੈ"</string>
+    <string name="device_name_suggestion_title" msgid="2312205155408810120">"ਆਪਣੇ ਡੀਵਾਈਸ ਦਾ ਨਾਮ ਸੈੱਟ ਕਰੋ"</string>
+    <string name="device_name_suggestion_summary" msgid="5657494684788779371">"ਆਪਣੇ ਫ਼ੋਨ ਤੋਂ ਫ਼ੋਟੋਆਂ, ਵੀਡੀਓ ਅਤੇ ਹੋਰ ਚੀਜ਼ਾਂ ਨੂੰ ਕਾਸਟ ਕਰਦੇ ਸਮੇਂ ਇਸ ਨਾਮ ਦੀ ਵਰਤੋਂ ਕਰੋ"</string>
     <string name="change_setting" msgid="2047402388786162246">"ਬਦਲੋ"</string>
     <string name="keep_settings" msgid="6798327196645732517">"ਨਾ ਬਦਲੋ"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"ਇਜਾਜ਼ਤਾਂ"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"ਐਪ ਇਜਾਜ਼ਤਾਂ"</string>
-    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_1">%d</xliff:g> ਵਿੱਚੋਂ <xliff:g id="COUNT_0">%d</xliff:g> ਐਪਾਂ ਨੂੰ ਇਜਾਜ਼ਤ ਦਿੱਤੀ"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_1">%2$d</xliff:g> ਵਿੱਚੋਂ <xliff:g id="COUNT_0">%1$d</xliff:g> ਐਪਾਂ ਨੂੰ ਇਜਾਜ਼ਤ ਦਿੱਤੀ"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"ਬਲੂਟੁੱਥ ਇਜਾਜ਼ਤ ਬੇਨਤੀ"</string>
     <string name="security_patch" msgid="2131617390189164481">"Android ਸੁਰੱਖਿਆ ਪੈਚ ਪੱਧਰ"</string>
     <string name="choose_application" msgid="5662960665577780353">"ਐਪਲੀਕੇਸ਼ਨ ਚੁਣੋ"</string>
@@ -674,4 +720,27 @@
     <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"ਇਜਾਜ਼ਤ ਨਹੀਂ"</string>
     <string name="usage_access" msgid="1914242907684452328">"ਵਰਤੋਂ ਪਹੁੰਚ"</string>
     <string name="usage_access_description" msgid="6290001769893747651">"ਵਰਤੋਂ ਪਹੁੰਚ ਕਿਸੇ ਐਪ ਨੂੰ ਤੁਹਾਡੇ ਵੱਲੋਂ ਵਰਤੀਆਂ ਜਾ ਰਹੀਆਂ ਹੋਰਾਂ ਐਪਾਂ ਅਤੇ ਉਹਨਾਂ ਨੂੰ ਵਰਤਣ ਦੇ ਸਮੇਂ ਨੂੰ ਟਰੈਕ ਕਰਨ ਦੇ ਨਾਲ-ਨਾਲ ਤੁਹਾਡੇ ਕੈਰੀਅਰ, ਭਾਸ਼ਾ ਸੈਟਿੰਗਾਂ, ਅਤੇ ਹੋਰ ਵੇਰਵਿਆਂ ਨੂੰ ਵੀ ਟਰੈਕ ਕਰਨ ਦਿੰਦੀ ਹੈ।"</string>
+    <string name="high_power_apps" msgid="7796096221999495077">"ਊਰਜਾ ਸੁਯੋਗਤਾ"</string>
+    <string name="high_power_apps_description" msgid="1990016812115792282">"ਐਪਾਂ ਦੀ ਊਰਜਾ ਵਰਤੋਂ ਨੂੰ ਸੁਯੋਗ ਬਣਾਓ"</string>
+    <string name="high_power_apps_empty" msgid="1355906551507153470">"ਕਿਸੇ ਵੀ ਐਪ ਨੂੰ ਸੁਯੋਗ ਬਣਾਉਣ ਦੀ ਲੋੜ ਹੈ"</string>
+    <string name="high_power_on" msgid="7725180078784796673">"ਸੁਯੋਗ ਨਹੀਂ ਬਣਾਇਆ ਗਿਆ"</string>
+    <string name="high_power_off" msgid="308272752152871252">"ਊਰਜਾ ਵਰਤੋਂ ਨੂੰ ਸੁਯੋਗ ਬਣਾਇਆ ਜਾ ਰਿਹਾ ਹੈ"</string>
+    <string name="high_power_system" msgid="7815843517656137656">"ਊਰਜਾ ਸੁਯੋਗਤਾ ਉਪਲਬਧ ਨਹੀਂ ਹੈ"</string>
+    <string name="manage_notification_access_title" msgid="2051765294087620434">"ਸੂਚਨਾ ਪਹੁੰਚ"</string>
+    <string name="no_notification_listeners" msgid="4583789599075326886">"ਕਿਸੇ ਵੀ ਸਥਾਪਤ ਕੀਤੀਆਂ ਐਪਾਂ ਨੇ ਸੂਚਨਾ ਪਹੁੰਚ ਦੀ ਬੇਨਤੀ ਨਹੀਂ ਕੀਤੀ ਹੈ।"</string>
+    <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"ਇਹ ਐਪਾਂ ਸੰਪਰਕਾਂ ਦੇ ਨਾਮਾਂ ਅਤੇ ਤੁਹਾਨੂੰ ਪ੍ਰਾਪਤ ਹੋਣ ਵਾਲੇ ਸੁਨੇਹਿਆਂ ਦੀਆਂ ਲਿਖਤਾਂ ਵਰਗੀ ਨਿੱਜੀ ਜਾਣਕਾਰੀ ਸਮੇਤ ਸਾਰੀਆਂ ਸੂਚਨਾਵਾਂ ਪੜ੍ਹ ਸਕਣਗੀਆਂ। ਉਹ ਸੂਚਨਾਵਾਂ ਨੂੰ ਖਾਰਜ ਵੀ ਕਰ ਸਕਣਗੀਆਂ ਜਾਂ ਉਹਨਾਂ ਵਿੱਚ ਮੌਜੂਦ ਕਾਰਵਾਈ ਬਟਨਾਂ ਨੂੰ ਦਿਖਾ ਸਕਣਗੀਆਂ।"</string>
+    <string name="system_alert_window_settings" msgid="2069031369694448339">"ਹੋਰਾਂ ਐਪਾਂ ਉੱਪਰ ਦਿਖਾਓ"</string>
+    <string name="permit_draw_overlay" msgid="2400084757761408906">"ਹੋਰਾਂ ਐਪਾਂ ਉੱਪਰ ਦਿਸਣ ਦਿਓ"</string>
+    <string name="allow_overlay_description" msgid="1946279120428813474">"ਕਿਸੇ ਐਪ ਨੂੰ ਤੁਹਾਡੇ ਵੱਲੋਂ ਵਰਤੀਆਂ ਜਾ ਰਹੀਆਂ ਹੋਰਾਂ ਐਪਾਂ ਦੇ ਉੱਪਰ ਦਿਸਣ ਦਿਓ। ਇਹ ਤੁਹਾਡੇ ਵੱਲੋਂ ਉਹਨਾਂ ਐਪਾਂ ਦੀ ਵਰਤੋਂ ਵਿੱਚ ਦਖਲ ਦੇ ਸਕਦੀ ਹੈ ਜਾਂ ਉਹਨਾਂ ਦੇ ਦਿਖਾਈ ਦੇਣ ਜਾਂ ਕੰਮ ਕਰਨ ਦੇ ਤਰੀਕੇ ਨੂੰ ਬਦਲ ਸਕਦੀ ਹੈ।"</string>
+    <string name="write_system_settings" msgid="2730923656857824907">"ਸਿਸਟਮ ਸੈਟਿੰਗਾਂ ਸੋਧੋ"</string>
+    <string name="write_settings_title" msgid="8750406725746598710">"ਸਿਸਟਮ ਸੈਟਿੰਗਾਂ ਸੋਧ ਸਕਦੀਆਂ ਹਨ"</string>
+    <string name="write_settings_description" msgid="2765037074460395437">"ਇਹ ਇਜਾਜ਼ਤ ਐਪ ਨੂੰ ਸਿਸਟਮ ਸੈਟਿੰਗਾਂ ਸੋਧਣ ਦਿੰਦੀ ਹੈ।"</string>
+    <string name="write_settings_on" msgid="3312616037931341656">"ਹਾਂ"</string>
+    <string name="write_settings_off" msgid="6219072254626503312">"ਨਹੀਂ"</string>
+    <string name="picture_in_picture_title" msgid="7738692876349058">"ਤਸਵੀਰ-ਵਿੱਚ-ਤਸਵੀਰ ਮੋਡ"</string>
+    <string name="picture_in_picture_app_detail_switch" msgid="8063965798321494391">"ਤਸਵੀਰ-ਵਿੱਚ-ਤਸਵੀਰ ਮੋਡ ਵਰਤਣ ਦਿਓ"</string>
+    <string name="picture_in_picture_empty_text" msgid="5592688180792300051">"ਸਥਾਪਤ ਕੀਤੀਆਂ ਐਪਾਂ ਵਿੱਚੋਂ ਕੋਈ ਵੀ ਐਪ ਤਸਵੀਰ-ਵਿੱਚ-ਤਸਵੀਰ ਮੋਡ ਦਾ ਸਮਰਥਨ ਨਹੀਂ ਕਰਦੀ"</string>
+    <string name="picture_in_picture_app_detail_summary" msgid="3478182415601436326">"ਐਪ ਖੁੱਲ੍ਹੇ ਹੋਣ ਜਾਂ ਤੁਹਾਡੇ ਵੱਲੋਂ ਉਸ ਤੋਂ ਬਾਹਰ ਜਾਣ ਵੇਲੇ ਐਪਾਂ ਨੂੰ ਤਸਵੀਰ-ਵਿੱਚ-ਤਸਵੀਰ ਵਿੰਡੋ ਬਣਾਉਣ ਦਿਓ (ਉਦਾਹਰਨ ਵਜੋਂ, ਕਿਸੇ ਵੀਡੀਓ ਨੂੰ ਦੇਖਣਾ ਜਾਰੀ ਰੱਖਣ ਲਈ)। ਇਹ ਵਿੰਡੋ ਤੁਹਾਡੇ ਵੱਲੋਂ ਵਰਤੀਆਂ ਜਾ ਰਹੀਆਂ ਹੋਰਾਂ ਐਪਾਂ ਉੱਤੇ ਦਿਖਾਈ ਦੇਵੇਗੀ।"</string>
+    <string name="special_access" msgid="3513811566600299998">"ਵਿਸ਼ੇਸ਼ ਐਪ ਪਹੁੰਚ"</string>
+    <string name="string_concat" msgid="5897947064488902904">"<xliff:g id="PART1">%1s</xliff:g>, <xliff:g id="PART2">%2s</xliff:g>"</string>
 </resources>

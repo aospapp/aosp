@@ -99,20 +99,6 @@ static int map_flex_formats(int req_format, uint64_t *producer_runtime_mask)
          */
         *producer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
     }
-    else if(req_format == HAL_PIXEL_FORMAT_YCbCr_422_888)
-    {
-        /* To be determined */
-
-        /* Disable AFBC until we know though */
-        *producer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
-    }
-    else if(req_format == HAL_PIXEL_FORMAT_YCbCr_444_888)
-    {
-        /* To be determined */
-
-        /* Disable AFBC until we know though */
-        *producer_runtime_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
-    }
     return req_format;
 }
 

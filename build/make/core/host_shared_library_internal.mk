@@ -20,7 +20,9 @@ ifneq ($(strip $(LOCAL_MODULE_STEM)$(LOCAL_BUILT_MODULE_STEM)),)
 $(error $(LOCAL_PATH): Cannot set module stem for a library)
 endif
 
+ifdef host-shared-library-hook
 $(call host-shared-library-hook)
+endif
 
 skip_build_from_source :=
 ifdef LOCAL_PREBUILT_MODULE_FILE
@@ -39,7 +41,7 @@ OVERRIDE_BUILT_MODULE_PATH := $($(LOCAL_2ND_ARCH_VAR_PREFIX)$(my_prefix)OUT_INTE
 include $(BUILD_SYSTEM)/binary.mk
 
 my_host_libprofile_rt := $($(LOCAL_2ND_ARCH_VAR_PREFIX)$(my_prefix)LIBPROFILE_RT)
-$(LOCAL_BUILD_MODULE): PRIVATE_HOST_LIBPROFILE_RT := $(my_host_libprofile_rt)
+$(LOCAL_BUILT_MODULE): PRIVATE_HOST_LIBPROFILE_RT := $(my_host_libprofile_rt)
 
 $(LOCAL_BUILT_MODULE): \
         $(all_objects) \

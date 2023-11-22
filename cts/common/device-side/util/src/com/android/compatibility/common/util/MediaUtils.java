@@ -195,6 +195,13 @@ public class MediaUtils {
      *  ------------------- HELPER METHODS FOR CHECKING CODEC SUPPORT -------------------
      */
 
+    public static boolean isGoogle(String codecName) {
+        codecName = codecName.toLowerCase();
+        return codecName.startsWith("omx.google.")
+                || codecName.startsWith("c2.android.")
+                || codecName.startsWith("c2.google.");
+    }
+
     // returns the list of codecs that support any one of the formats
     private static String[] getCodecNames(
             boolean isEncoder, Boolean isGoog, MediaFormat... formats) {
@@ -204,8 +211,7 @@ public class MediaUtils {
             if (info.isEncoder() != isEncoder) {
                 continue;
             }
-            if (isGoog != null
-                    && info.getName().toLowerCase().startsWith("omx.google.") != isGoog) {
+            if (isGoog != null && isGoogle(info.getName()) != isGoog) {
                 continue;
             }
 

@@ -22,7 +22,9 @@ import android.content.ComponentName;
 /** @hide */
 interface ICarPackageManager {
     void setAppBlockingPolicy(in String packageName, in CarAppBlockingPolicy policy, int flags) = 0;
-    boolean isActivityAllowedWhileDriving(in String packageName, in String className) = 1;
-    boolean isServiceAllowedWhileDriving(in String packageName, in String className) = 2;
+    boolean isActivityDistractionOptimized(in String packageName, in String className) = 1;
+    boolean isServiceDistractionOptimized(in String packageName, in String className) = 2;
     boolean isActivityBackedBySafeActivity(in ComponentName activityName) = 3;
+    void setEnableActivityBlocking(boolean enable) = 4;
+    void restartTask(int taskId) = 5;
 }

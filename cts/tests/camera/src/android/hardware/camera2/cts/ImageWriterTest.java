@@ -28,6 +28,7 @@ import android.media.Image;
 import android.media.Image.Plane;
 import android.media.ImageReader;
 import android.media.ImageWriter;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
@@ -44,6 +45,7 @@ import java.util.List;
  * interface or ImageReader.
  * </p>
  */
+@AppModeFull
 public class ImageWriterTest extends Camera2AndroidTestCase {
     private static final String TAG = "ImageWriterTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);

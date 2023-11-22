@@ -59,9 +59,32 @@ import java.util.Set;
 import javax.security.auth.x500.X500Principal;
 import junit.framework.TestCase;
 import libcore.java.security.StandardNames;
+
+import dalvik.system.VMRuntime;
+import sun.security.jca.Providers;
 import tests.support.resource.Support_Resources;
 
 public class X509CertificateTest extends TestCase {
+
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+
+        mX509Providers = Security.getProviders("CertificateFactory.X509");
+
+        // Allow access to deprecated BC algorithms in this test, so we can ensure they
+        // continue to work
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                VMRuntime.getRuntime().getTargetSdkVersion());
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
+        super.tearDown();
+    }
+
     private Provider[] mX509Providers;
 
     private static final String CERT_RSA = "x509/cert-rsa.der";
@@ -1326,12 +1349,5 @@ public class X509CertificateTest extends TestCase {
             assertEquals(3, numFixed);
         }
         return certBytes;
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        mX509Providers = Security.getProviders("CertificateFactory.X509");
     }
 }

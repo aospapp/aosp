@@ -1,7 +1,7 @@
 ## @file
 #  Check a patch for various format issues
 #
-#  Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2015 - 2016, Intel Corporation. All rights reserved.<BR>
 #
 #  This program and the accompanying materials are licensed and made
 #  available under the terms and conditions of the BSD License which
@@ -16,7 +16,7 @@
 from __future__ import print_function
 
 VersionNumber = '0.1'
-__copyright__ = "Copyright (c) 2015, Intel Corporation  All rights reserved."
+__copyright__ = "Copyright (c) 2015 - 2016, Intel Corporation  All rights reserved."
 
 import email
 import argparse
@@ -197,7 +197,7 @@ class CommitMessageCheck:
             self.error('Empty commit message!')
             return
 
-        if count >= 1 and len(lines[0]) > 76:
+        if count >= 1 and len(lines[0]) >= 72:
             self.error('First line of commit message (subject line) ' +
                        'is too long.')
 
@@ -210,7 +210,7 @@ class CommitMessageCheck:
                        'empty.')
 
         for i in range(2, count):
-            if (len(lines[i]) > 76 and
+            if (len(lines[i]) >= 76 and
                 len(lines[i].split()) > 1 and
                 not lines[i].startswith('git-svn-id:')):
                 self.error('Line %d of commit message is too long.' % (i + 1))
@@ -340,6 +340,14 @@ class GitDiffCheck:
 
         self.error(*lines)
 
+    old_debug_re = \
+        re.compile(r'''
+                        DEBUG \s* \( \s* \( \s*
+                        (?: DEBUG_[A-Z_]+ \s* \| \s*)*
+                        EFI_D_ ([A-Z_]+)
+                   ''',
+                   re.VERBOSE)
+
     def check_added_line(self, line):
         eol = ''
         for an_eol in self.line_endings:
@@ -356,6 +364,12 @@ class GitDiffCheck:
             self.added_line_error('Tab character used', line)
         if len(stripped) < len(line):
             self.added_line_error('Trailing whitespace found', line)
+
+        mo = self.old_debug_re.search(line)
+        if mo is not None:
+            self.added_line_error('EFI_D_' + mo.group(1) + ' was used, '
+                                  'but DEBUG_' + mo.group(1) +
+                                  ' is now recommended', line)
 
     split_diff_re = re.compile(r'''
                                    (?P<cmd>
@@ -436,6 +450,14 @@ class CheckOnePatch:
                    ''',
                    re.IGNORECASE | re.VERBOSE | re.MULTILINE)
 
+    subject_prefix_re = \
+        re.compile(r'''^
+                       \s* (\[
+                        [^\[\]]* # Allow all non-brackets
+                       \])* \s*
+                   ''',
+                   re.VERBOSE)
+
     def find_patch_pieces(self):
         if sys.version_info < (3, 0):
             patch = self.patch.encode('ascii', 'ignore')
@@ -472,14 +494,7 @@ class CheckOnePatch:
 
         self.commit_subject = pmail['subject'].replace('\r\n', '')
         self.commit_subject = self.commit_subject.replace('\n', '')
-
-        pfx_start = self.commit_subject.find('[')
-        if pfx_start >= 0:
-            pfx_end = self.commit_subject.find(']')
-            if pfx_end > pfx_start:
-                self.commit_prefix = self.commit_subject[pfx_start + 1 : pfx_end]
-                self.commit_subject = self.commit_subject[pfx_end + 1 :].lstrip()
-
+        self.commit_subject = self.subject_prefix_re.sub('', self.commit_subject, 1)
 
 class CheckGitCommits:
     """Reads patches from git based on the specified git revision range.

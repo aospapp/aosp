@@ -24,17 +24,15 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-
-import com.android.tv.ApplicationSingletons;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.analytics.Analytics;
 import com.android.tv.analytics.Tracker;
-import com.android.tv.common.SharedPreferencesUtils;
+import com.android.tv.common.util.SharedPreferencesUtils;
 
 /**
  * Creates HDMI plug broadcast receiver, and reports AC3 passthrough capabilities to Google
- * Analytics and listeners. Call {@link #register} to start receiving notifications, and
- * {@link #unregister} to stop.
+ * Analytics and listeners. Call {@link #register} to start receiving notifications, and {@link
+ * #unregister} to stop.
  */
 public final class AudioCapabilitiesReceiver {
     private static final String SETTINGS_KEY_AC3_PASSTHRU_REPORTED = "ac3_passthrough_reported";
@@ -50,8 +48,7 @@ public final class AudioCapabilitiesReceiver {
     private final Context mContext;
     private final Analytics mAnalytics;
     private final Tracker mTracker;
-    @Nullable
-    private final OnAc3PassthroughCapabilityChangeListener mListener;
+    @Nullable private final OnAc3PassthroughCapabilityChangeListener mListener;
     private final BroadcastReceiver mReceiver = new HdmiAudioPlugBroadcastReceiver();
 
     /**
@@ -60,12 +57,12 @@ public final class AudioCapabilitiesReceiver {
      * @param context context for registering to receive broadcasts
      * @param listener listener which receives AC3 passthrough capability change notification
      */
-    public AudioCapabilitiesReceiver(@NonNull Context context,
-            @Nullable OnAc3PassthroughCapabilityChangeListener listener) {
+    public AudioCapabilitiesReceiver(
+            @NonNull Context context, @Nullable OnAc3PassthroughCapabilityChangeListener listener) {
         mContext = context;
-        ApplicationSingletons appSingletons = TvApplication.getSingletons(context);
-        mAnalytics = appSingletons.getAnalytics();
-        mTracker = appSingletons.getTracker();
+        TvSingletons tvSingletons = TvSingletons.getSingletons(context);
+        mAnalytics = tvSingletons.getAnalytics();
+        mTracker = tvSingletons.getTracker();
         mListener = listener;
     }
 
@@ -121,8 +118,8 @@ public final class AudioCapabilitiesReceiver {
     }
 
     private SharedPreferences getSharedPreferences() {
-        return mContext.getSharedPreferences(SharedPreferencesUtils.SHARED_PREF_AUDIO_CAPABILITIES,
-                Context.MODE_PRIVATE);
+        return mContext.getSharedPreferences(
+                SharedPreferencesUtils.SHARED_PREF_AUDIO_CAPABILITIES, Context.MODE_PRIVATE);
     }
 
     private boolean getBoolean(String key, boolean def) {
@@ -141,13 +138,9 @@ public final class AudioCapabilitiesReceiver {
         getSharedPreferences().edit().putInt(key, val).apply();
     }
 
-    /**
-     * Listener notified when AC3 passthrough capability changes.
-     */
+    /** Listener notified when AC3 passthrough capability changes. */
     public interface OnAc3PassthroughCapabilityChangeListener {
-        /**
-         * Called when the AC3 passthrough capability changes.
-         */
+        /** Called when the AC3 passthrough capability changes. */
         void onAc3PassthroughCapabilityChange(boolean capability);
     }
 }

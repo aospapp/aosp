@@ -39,6 +39,7 @@ from autotest_lib.server.cros.multimedia import bluetooth_le_facade_adapter
 
 
 test_case_log = bluetooth_adapter_tests.test_case_log
+UNSUPPORTED_KERNEL = "3.8.11"
 
 
 class bluetooth_AdapterLEAdvertising(
@@ -108,6 +109,17 @@ class bluetooth_AdapterLEAdvertising(
             self.test_unregister_advertisement(advertisement,
                                                instance_id,
                                                advertising_disabled)
+
+    def get_kernel_version(self, host):
+        """Get the kernel version of the DUT.
+
+        @param host: DUT host
+
+        @returns: kernel version
+        """
+        kernel_command = "uname -r"
+        kernel_version = self.host.run(kernel_command).stdout.strip()
+        return kernel_version
 
 
     # ---------------------------------------------------------------
@@ -699,7 +711,6 @@ class bluetooth_AdapterLEAdvertising(
         self.unregister_advertisements(advertisements)
 
     # SINGLE TEST CASES
-
     @test_case_log
     def test_case_SI200_RA1_CD_UA1(self):
         """Test Case: SI(200) - RA(1) - CD - UA(1)"""
@@ -987,22 +998,31 @@ class bluetooth_AdapterLEAdvertising(
 
         self.unregister_advertisements(advertisements)
 
-
-    def run_once(self, host, advertisements, test_type):
+    def run_once(self, host, advertisements, test_type, num_iterations=1):
         """Running Bluetooth adapter LE advertising autotest.
 
         @param host: device under test host.
         @param advertisements: a list of advertisement instances.
         @param test_type: indicating one of three test types: multi-advertising,
-                          single_advertising, reboot, or suspend_resume.
+                          single-advertising, reboot (stress only), or
+                          suspend_resume (stress only).
+
+        @raises TestNAError: if DUT has low kernel version (<=3.8.11)
 
         """
         self.host = host
+        self.kernel_version = self.get_kernel_version(self.host)
+        if self.kernel_version == UNSUPPORTED_KERNEL:
+            # NOTE: Due to crbug/729648, we cannot set advertising intervals
+            # on kernels that are 3.8.11 and below, so we raise TestNAError.
+            raise error.TestNAError('Test cannnot proceed on old kernel '
+                                    ' versions.')
+
         self.advertisements = advertisements
         self.first_advertisement = advertisements[0]
-        self.five_advertisements = advertisements[0:5]
-        self.three_advertisements = advertisements[0:3]
         self.two_advertisements = advertisements[3:5]
+        self.three_advertisements = advertisements[0:3]
+        self.five_advertisements = advertisements[0:5]
         self.sixth_advertisement = advertisements[5]
 
         ble_adapter = bluetooth_le_facade_adapter.BluetoothLEFacadeRemoteAdapter
@@ -1026,6 +1046,10 @@ class bluetooth_AdapterLEAdvertising(
             self.test_case_RA3_CD_SI200_CD_SI2000_CD_UA3()
             self.test_case_RA5_CD_SI200_CD_FRA1_CD_UA5()
             self.test_case_RA3_CD_SI200_CD_FSI10_CD_FSI20000_CD_UA3()
+            self.test_case_SI200_RA3_CD_SR_CD_UA3()
+            self.test_case_RA3_CD_SI200_CD_SR_CD_UA3()
+            self.test_case_SI200_RA3_CD_PC_CD_UA3()
+            self.test_case_RA3_CD_SI200_CD_PC_CD_UA3()
 
         elif test_type == 'single_advertising':
             # Run all test cases for single advertisement.
@@ -1039,18 +1063,26 @@ class bluetooth_AdapterLEAdvertising(
             self.test_case_RA1_CD_SI200_CD_RS()
             self.test_case_RA1_CD_SI200_CD_FSI10_UA1_RA1_CD_UA1()
             self.test_case_RA1_CD_SI200_CD_FSI20000_UA1_RA1_CD_UA1()
+            self.test_case_SI200_RA1_CD_SR_CD_UA1()
+            self.test_case_RA1_CD_SI200_CD_SR_CD_UA1()
+            self.test_case_RA1_CD_SI200_CD_PC_CD_UA1()
 
         elif test_type == 'suspend_resume':
-           # Run all test cases for suspend resume testing.
-           self.test_case_SI200_RA3_CD_SR_CD_UA3()
-           self.test_case_RA3_CD_SI200_CD_SR_CD_UA3()
-           self.test_case_SI200_RA1_CD_SR_CD_UA1()
-           self.test_case_RA1_CD_SI200_CD_SR_CD_UA1()
+           # Run all test cases for suspend resume stress testing.
+            for i in xrange(num_iterations):
+               logging.info('Starting suspend resume loop #%d', i+1)
+               self.test_case_SI200_RA3_CD_SR_CD_UA3()
+               self.test_case_RA3_CD_SI200_CD_SR_CD_UA3()
+               self.test_case_SI200_RA1_CD_SR_CD_UA1()
+               self.test_case_RA1_CD_SI200_CD_SR_CD_UA1()
 
         elif test_type == 'reboot':
-            self.test_case_SI200_RA3_CD_PC_CD_UA3()
-            self.test_case_RA3_CD_SI200_CD_PC_CD_UA3()
-            self.test_case_RA1_CD_SI200_CD_PC_CD_UA1()
+            # Run all test cases for reboot stress testing.
+            for i in xrange(num_iterations):
+                logging.info('Starting reboot loop #%d', i+1)
+                self.test_case_SI200_RA3_CD_PC_CD_UA3()
+                self.test_case_RA3_CD_SI200_CD_PC_CD_UA3()
+                self.test_case_RA1_CD_SI200_CD_PC_CD_UA1()
 
         if self.fails:
             raise error.TestFail(self.fails)

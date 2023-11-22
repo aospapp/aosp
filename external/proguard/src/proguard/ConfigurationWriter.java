@@ -104,6 +104,13 @@ public class ConfigurationWriter
                         configuration.libraryJars);
         writer.println();
 
+        // Android-added: Write value of -systemjars option to configuration file.
+        // Write the system class path (output entries only).
+        writeJarOptions(ConfigurationConstants.SYSTEMJARS_OPTION,
+                        ConfigurationConstants.SYSTEMJARS_OPTION,
+                        configuration.systemJars);
+        writer.println();
+
         // Write the other options.
         writeOption(ConfigurationConstants.SKIP_NON_PUBLIC_LIBRARY_CLASSES_OPTION,            configuration.skipNonPublicLibraryClasses);
         writeOption(ConfigurationConstants.DONT_SKIP_NON_PUBLIC_LIBRARY_CLASS_MEMBERS_OPTION, !configuration.skipNonPublicLibraryClassMembers);

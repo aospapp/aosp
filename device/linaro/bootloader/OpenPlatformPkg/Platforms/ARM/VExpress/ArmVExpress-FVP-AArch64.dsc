@@ -39,13 +39,14 @@
 !include OpenPlatformPkg/Platforms/ARM/VExpress/ArmVExpress.dsc.inc
 
 [LibraryClasses.common]
-  ArmLib|ArmPkg/Library/ArmLib/AArch64/AArch64Lib.inf
+  ArmLib|ArmPkg/Library/ArmLib/ArmBaseLib.inf
   ArmCpuLib|ArmPkg/Drivers/ArmCpuLib/ArmCortexAEMv8Lib/ArmCortexAEMv8Lib.inf
   ArmPlatformLib|ArmPlatformPkg/ArmVExpressPkg/Library/ArmVExpressLibRTSM/ArmVExpressLib.inf
+  ArmMmuLib|ArmPkg/Library/ArmMmuLib/ArmMmuBaseLib.inf
 
   ArmPlatformSysConfigLib|ArmPlatformPkg/ArmVExpressPkg/Library/ArmVExpressSysConfigLib/ArmVExpressSysConfigLib.inf
   NorFlashPlatformLib|ArmPlatformPkg/ArmVExpressPkg/Library/NorFlashArmVExpressLib/NorFlashArmVExpressLib.inf
-!ifndef ARM_FOUNDATION_FVP
+!ifdef EDK2_ENABLE_PL111
   LcdPlatformLib|ArmPlatformPkg/ArmVExpressPkg/Library/PL111LcdArmVExpressLib/PL111LcdArmVExpressLib.inf
 !endif
 
@@ -54,9 +55,11 @@
   # Virtio Support
   VirtioLib|OvmfPkg/Library/VirtioLib/VirtioLib.inf
   VirtioMmioDeviceLib|OvmfPkg/Library/VirtioMmioDeviceLib/VirtioMmioDeviceLib.inf
+!if $(SECURE_BOOT_ENABLE) == TRUE
+  FileExplorerLib|MdeModulePkg/Library/FileExplorerLib/FileExplorerLib.inf
+!endif
 
 [LibraryClasses.common.SEC]
-  ArmLib|ArmPkg/Library/ArmLib/AArch64/AArch64LibSec.inf
   ArmPlatformSecLib|ArmPlatformPkg/ArmVExpressPkg/Library/ArmVExpressSecLibRTSM/ArmVExpressSecLib.inf
   ArmPlatformLib|ArmPlatformPkg/ArmVExpressPkg/Library/ArmVExpressLibRTSM/ArmVExpressLibSec.inf
 
@@ -79,24 +82,12 @@
   #  It could be set FALSE to save size.
   gEfiMdeModulePkgTokenSpaceGuid.PcdConOutGopSupport|TRUE
 
-  # Force the UEFI GIC driver to use GICv2 legacy mode. To use
-  # GICv3 without GICv2 legacy in UEFI, the ARM Trusted Firmware needs
-  # to configure the Non-Secure interrupts in the GIC Redistributors
-  # which is not supported at the moment.
-  gArmTokenSpaceGuid.PcdArmGicV3WithV2Legacy|TRUE
-
 [PcdsFixedAtBuild.common]
   gArmPlatformTokenSpaceGuid.PcdFirmwareVendor|"ARM Fixed Virtual Platform"
   gEmbeddedTokenSpaceGuid.PcdEmbeddedPrompt|"ARM-FVP"
 
-!ifndef ARM_FOUNDATION_FVP
-  # Up to 8 cores on Base models. This works fine if model happens to have less.
-  gArmPlatformTokenSpaceGuid.PcdCoreCount|8
-  gArmPlatformTokenSpaceGuid.PcdClusterCount|2
-!else
-  # Up to 4 cores on Foundation models. This works fine if model happens to have less.
-  gArmPlatformTokenSpaceGuid.PcdCoreCount|4
-!endif
+  # Only one core enters UEFI, and PSCI is implemented in EL3 by ATF
+  gArmPlatformTokenSpaceGuid.PcdCoreCount|1
 
   #
   # NV Storage PCDs. Use base of 0x0C000000 for NOR1
@@ -110,18 +101,11 @@
 
   gArmTokenSpaceGuid.PcdVFPEnabled|1
 
-  # FVP models can have 2 clusters with 4 cpus each
-  # Stacks for MPCores in Secure World
-  # Trusted SRAM (DRAM on Foundation model)
-  gArmPlatformTokenSpaceGuid.PcdCPUCoresSecStackBase|0x04000000
-  gArmPlatformTokenSpaceGuid.PcdCPUCoreSecPrimaryStackSize|0x1000
-  gArmPlatformTokenSpaceGuid.PcdCPUCoreSecSecondaryStackSize|0x800
-
   # Stacks for MPCores in Normal World
   # Non-Trusted SRAM
   gArmPlatformTokenSpaceGuid.PcdCPUCoresStackBase|0x2E000000
   gArmPlatformTokenSpaceGuid.PcdCPUCorePrimaryStackSize|0x4000
-  gArmPlatformTokenSpaceGuid.PcdCPUCoreSecondaryStackSize|0x1000
+  gArmPlatformTokenSpaceGuid.PcdCPUCoreSecondaryStackSize|0x0
 
   # System Memory (2GB - 16MB of Trusted DRAM at the top of the 32bit address space)
   gArmTokenSpaceGuid.PcdSystemMemoryBase|0x80000000
@@ -148,31 +132,27 @@
 
   ## PL011 - Serial Terminal
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x1c090000
-  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate|38400
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate|115200
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultReceiveFifoDepth|0
 
   ## PL031 RealTimeClock
   gArmPlatformTokenSpaceGuid.PcdPL031RtcBase|0x1C170000
 
-!ifndef ARM_FOUNDATION_FVP
+!ifdef EDK2_ENABLE_PL111
   ## PL111 Versatile Express Motherboard controller
   gArmPlatformTokenSpaceGuid.PcdPL111LcdBase|0x1C1F0000
+!endif
 
   ## PL180 MMC/SD card controller
   gArmPlatformTokenSpaceGuid.PcdPL180SysMciRegAddress|0x1C010048
   gArmPlatformTokenSpaceGuid.PcdPL180MciBaseAddress|0x1C050000
-!endif
 
   #
   # ARM General Interrupt Controller
   #
-!ifdef ARM_FVP_LEGACY_GICV2_LOCATION
-  gArmTokenSpaceGuid.PcdGicDistributorBase|0x2C001000
-  gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase|0x2C002000
-!else
   gArmTokenSpaceGuid.PcdGicDistributorBase|0x2f000000
   gArmTokenSpaceGuid.PcdGicRedistributorsBase|0x2f100000
   gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase|0x2C000000
-!endif
 
   #
   # ARM OS Loader
@@ -182,14 +162,21 @@
   gArmPlatformTokenSpaceGuid.PcdDefaultBootArgument|L"console=ttyAMA0 earlycon=pl011,0x1c090000 debug user_debug=31 loglevel=9"
 
   # Use the serial console (ConIn & ConOut) and the Graphic driver (ConOut)
-  gArmPlatformTokenSpaceGuid.PcdDefaultConOutPaths|L"VenHw(D3987D4B-971A-435F-8CAF-4967EB627241)/Uart(38400,8,N,1)/VenPcAnsi();VenHw(407B4008-BF5B-11DF-9547-CF16E0D72085)"
-  gArmPlatformTokenSpaceGuid.PcdDefaultConInPaths|L"VenHw(D3987D4B-971A-435F-8CAF-4967EB627241)/Uart(38400,8,N,1)/VenPcAnsi()"
+!ifdef EDK2_ENABLE_PL111
+  gArmPlatformTokenSpaceGuid.PcdDefaultConOutPaths|L"VenHw(D3987D4B-971A-435F-8CAF-4967EB627241)/Uart(115200,8,N,1)/VenMsg(7D916D80-5BB1-458C-A48F-E25FDD51EF94);VenHw(407B4008-BF5B-11DF-9547-CF16E0D72085)"
+!else
+  gArmPlatformTokenSpaceGuid.PcdDefaultConOutPaths|L"VenHw(D3987D4B-971A-435F-8CAF-4967EB627241)/Uart(115200,8,N,1)/VenMsg(7D916D80-5BB1-458C-A48F-E25FDD51EF94)"
+!endif
+  gArmPlatformTokenSpaceGuid.PcdDefaultConInPaths|L"VenHw(D3987D4B-971A-435F-8CAF-4967EB627241)/Uart(115200,8,N,1)/VenMsg(7D916D80-5BB1-458C-A48F-E25FDD51EF94)"
 
   #
   # ARM Architectural Timer Frequency
   #
   # Set tick frequency value to 100Mhz
   gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|100000000
+
+  # the entire FVP address space can be covered by 36 bit VAs
+  gEmbeddedTokenSpaceGuid.PcdPrePiCpuMemorySize|36
 
 [PcdsDynamicDefault.common]
   #
@@ -208,27 +195,17 @@
 [Components.common]
 
   #
-  # SEC
-  #
-  ArmPlatformPkg/Sec/Sec.inf {
-    <LibraryClasses>
-      # Use the implementation which set the Secure bits
-      ArmGicLib|ArmPkg/Drivers/ArmGic/ArmGicSecLib.inf
-  }
-
-  #
   # PEI Phase modules
   #
 !ifdef EDK2_SKIP_PEICORE
   # UEFI is placed in RAM by bootloader
-  ArmPlatformPkg/PrePi/PeiMPCore.inf {
+  ArmPlatformPkg/PrePi/PeiUniCore.inf {
     <LibraryClasses>
-      ArmLib|ArmPkg/Library/ArmLib/AArch64/AArch64Lib.inf
       ArmPlatformLib|ArmPlatformPkg/ArmVExpressPkg/Library/ArmVExpressLibRTSM/ArmVExpressLib.inf
   }
 !else
   # UEFI lives in FLASH and copies itself to RAM
-  ArmPlatformPkg/PrePeiCore/PrePeiCoreMPCore.inf
+  ArmPlatformPkg/PrePeiCore/PrePeiCoreUniCore.inf
   MdeModulePkg/Core/Pei/PeiMain.inf
   MdeModulePkg/Universal/PCD/Pei/Pcd.inf  {
     <LibraryClasses>
@@ -270,7 +247,10 @@
   MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
 !endif
   MdeModulePkg/Universal/CapsuleRuntimeDxe/CapsuleRuntimeDxe.inf
-  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
+  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf {
+    <LibraryClasses>
+      NULL|MdeModulePkg/Library/VarCheckUefiLib/VarCheckUefiLib.inf
+  }
   MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
   MdeModulePkg/Universal/MonotonicCounterRuntimeDxe/MonotonicCounterRuntimeDxe.inf
   EmbeddedPkg/ResetRuntimeDxe/ResetRuntimeDxe.inf
@@ -290,16 +270,12 @@
   #
   MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
   MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
-  OpenPlatformPkg/Platforms/ARM/VExpress/AcpiTables/rtsm_ve-aemv8a/AcpiTables.inf
+  OpenPlatformPkg/Platforms/ARM/VExpress/AcpiTables/AcpiTables.inf
 
   ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
-!if $(SECURE_BOOT_ENABLE) == TRUE
-  ArmPlatformPkg/Drivers/NorFlashDxe/NorFlashAuthenticatedDxe.inf
-!else
   ArmPlatformPkg/Drivers/NorFlashDxe/NorFlashDxe.inf
-!endif
   ArmPkg/Drivers/TimerDxe/TimerDxe.inf
-!ifndef ARM_FOUNDATION_FVP
+!ifdef EDK2_ENABLE_PL111
   ArmPlatformPkg/Drivers/LcdGraphicsOutputDxe/PL111LcdGraphicsOutputDxe.inf
 !endif
   ArmPlatformPkg/Drivers/SP805WatchdogDxe/SP805WatchdogDxe.inf
@@ -313,18 +289,19 @@
   #
   ArmPkg/Filesystem/SemihostFs/SemihostFs.inf
 
-!ifndef ARM_FOUNDATION_FVP
   #
   # Multimedia Card Interface
   #
   EmbeddedPkg/Universal/MmcDxe/MmcDxe.inf
   ArmPlatformPkg/Drivers/PL180MciDxe/PL180MciDxe.inf
-!endif
 
   #
   # Platform Driver
   #
-  ArmPlatformPkg/ArmVExpressPkg/ArmVExpressDxe/ArmFvpDxe.inf
+  ArmPlatformPkg/ArmVExpressPkg/ArmVExpressDxe/ArmFvpDxe.inf {
+    <LibraryClasses>
+      BdsLib|ArmPkg/Library/BdsLib/BdsLib.inf
+  }
   OvmfPkg/VirtioBlkDxe/VirtioBlk.inf
 
   #
@@ -338,10 +315,12 @@
   # Bds
   #
   MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
-!if $(USE_ARM_BDS) == TRUE
-  ArmPlatformPkg/Bds/Bds.inf
-!else
   MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
   MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe.inf
-  IntelFrameworkModulePkg/Universal/BdsDxe/BdsDxe.inf
-!endif
+  MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
+  MdeModulePkg/Application/UiApp/UiApp.inf {
+    <LibraryClasses>
+      NULL|MdeModulePkg/Library/DeviceManagerUiLib/DeviceManagerUiLib.inf
+      NULL|MdeModulePkg/Library/BootManagerUiLib/BootManagerUiLib.inf
+      NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf
+  }

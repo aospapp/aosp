@@ -22,7 +22,7 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 # Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
@@ -33,7 +33,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     ctstestrunner \
     guava \
     android-ex-camera2 \
-    legacy-android-test
+    compatibility-device-util
 
 LOCAL_JNI_SHARED_LIBRARIES := libctspermission_jni libnativehelper_compat_libc++
 
@@ -43,7 +43,9 @@ LOCAL_PACKAGE_NAME := CtsPermissionTestCases
 
 # uncomment when b/13249777 is fixed
 #LOCAL_SDK_VERSION := current
-LOCAL_JAVA_LIBRARIES += android.test.runner
+LOCAL_PRIVATE_PLATFORM_APIS := true
+LOCAL_JAVA_LIBRARIES += android.test.runner.stubs
+LOCAL_JAVA_LIBRARIES += android.test.base.stubs
 
 include $(BUILD_CTS_PACKAGE)
 

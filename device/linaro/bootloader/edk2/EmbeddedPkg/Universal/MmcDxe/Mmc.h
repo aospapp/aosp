@@ -35,6 +35,10 @@
 
 #define MMC_OCR_POWERUP             0x80000000
 
+#define MMC_OCR_ACCESS_MASK         0x3     /* bit[30-29] */
+#define MMC_OCR_ACCESS_BYTE         0x1     /* bit[29] */
+#define MMC_OCR_ACCESS_SECTOR       0x2     /* bit[30] */
+
 #define MMC_CSD_GET_CCC(Response)    (Response[2] >> 20)
 #define MMC_CSD_GET_TRANSPEED(Response)    (Response[3] & 0xFF)
 #define MMC_CSD_GET_READBLLEN(Response)    ((Response[2] >> 16) & 0xF)
@@ -56,6 +60,11 @@
 #define MMC_R0_STATE_TRAN       4
 #define MMC_R0_STATE_DATA       5
 
+#define EMMC_CMD6_ARG_ACCESS(x)             (((x) & 0x3) << 24)
+#define EMMC_CMD6_ARG_INDEX(x)              (((x) & 0xFF) << 16)
+#define EMMC_CMD6_ARG_VALUE(x)              (((x) & 0xFF) << 8)
+#define EMMC_CMD6_ARG_CMD_SET(x)            (((x) & 0x7) << 0)
+
 typedef enum {
   UNKNOWN_CARD,
   MMC_CARD,              //MMC card
@@ -76,7 +85,6 @@ typedef struct {
   UINT32  PowerUp:     1; // This bit is set to LOW if the card has not finished the power up routine
 } OCR;
 
-/* For little endian CPU */
 typedef struct {
   UINT8   SD_SPEC:               4; // SD Memory Card - Spec. Version [59:56]
   UINT8   SCR_STRUCTURE:         4; // SCR Structure [63:60]
@@ -183,7 +191,7 @@ typedef struct {
   UINT8   PERIODIC_WAKEUP;                    // Periodic wake-up [131:131]
   UINT8   TCASE_SUPPORT;                      // Package case temperature is controlled [132:132]
   UINT8   PRODUCTION_STATE_AWARENESS;         // Production state awareness [133:133]
-  UINT8   SEC_BAD_BLK_MGMNT;                  // Bad block management mode [134:134]
+  UINT8   SECTOR_BAD_BLK_MGMNT;               // Bad block management mode [134:134]
   UINT8   RESERVED_5;                         // Reserved [135:135]
   UINT8   ENH_START_ADDR[4];                  // Enhanced user data start address [139:136]
   UINT8   ENH_SIZE_MULT[3];                   // Enhanced user data area size [142:140]
@@ -243,23 +251,23 @@ typedef struct {
   UINT8   MIN_PERF_R_8_52;                    // Minimum read performance for 8bit at 52MHz [209:209]
   UINT8   MIN_PERF_W_8_52;                    // Minimum write performance for 8bit at 52MHz [210:210]
   UINT8   RESERVED_18;                        // Reserved [211:211]
-  UINT32  SEC_COUNT;                          // Sector count [215:212]
+  UINT32  SECTOR_COUNT;                       // Sector count [215:212]
   UINT8   SLEEP_NOTIFICATION_TIME;            // Sleep notification timout [216:216]
   UINT8   S_A_TIMEOUT;                        // Sleep/awake timeout [217:217]
   UINT8   PRODUCTION_STATE_AWARENESS_TIMEOUT; // Production state awareness timeout [218:218]
   UINT8   S_C_VCCQ;                           // Sleep current (VCCQ) [219:219]
   UINT8   S_C_VCC;                            // Sleep current (VCC) [220:220]
   UINT8   HC_WP_GRP_SIZE;                     // High-capacity write protect group size [221:221]
-  UINT8   REL_WR_SEC_C;                       // Reliable write sector count [222:222]
+  UINT8   REL_WR_SECTOR_C;                    // Reliable write sector count [222:222]
   UINT8   ERASE_TIMEOUT_MULT;                 // High-capacity erase timeout [223:223]
   UINT8   HC_ERASE_GRP_SIZE;                  // High-capacity erase unit size [224:224]
   UINT8   ACC_SIZE;                           // Access size [225:225]
   UINT8   BOOT_SIZE_MULTI;                    // Boot partition size [226:226]
   UINT8   RESERVED_19;                        // Reserved [227:227]
   UINT8   BOOT_INFO;                          // Boot information [228:228]
-  UINT8   SEC_TRIM_MULT;                      // Secure TRIM Multiplier [229:229]
-  UINT8   SEC_ERASE_MULT;                     // Secure Erase Multiplier [230:230]
-  UINT8   SEC_FEATURE_SUPPORT;                // Secure Feature Support [231:231]
+  UINT8   SECURE_TRIM_MULT;                   // Secure TRIM Multiplier [229:229]
+  UINT8   SECURE_ERASE_MULT;                  // Secure Erase Multiplier [230:230]
+  UINT8   SECURE_FEATURE_SUPPORT;             // Secure Feature Support [231:231]
   UINT8   TRIM_MULT;                          // TRIM Multiplier [232:232]
   UINT8   RESERVED_20;                        // Reserved [233:233]
   UINT8   MIN_PREF_DDR_R_8_52;                // Minimum read performance for 8bit at 52MHz in DDR mode [234:234]
@@ -333,6 +341,7 @@ typedef struct _MMC_HOST_INSTANCE {
 #define MMC_HOST_INSTANCE_SIGNATURE                 SIGNATURE_32('m', 'm', 'c', 'h')
 #define MMC_HOST_INSTANCE_FROM_BLOCK_IO_THIS(a)     CR (a, MMC_HOST_INSTANCE, BlockIo, MMC_HOST_INSTANCE_SIGNATURE)
 #define MMC_HOST_INSTANCE_FROM_LINK(a)              CR (a, MMC_HOST_INSTANCE, Link, MMC_HOST_INSTANCE_SIGNATURE)
+#define MMC_HOST_INSTANCE_FROM_ERASEBLK(a)          CR (a, MMC_HOST_INSTANCE, EraseBlockProtocol, MMC_HOST_INSTANCE_SIGNATURE)
 
 
 EFI_STATUS
@@ -492,7 +501,7 @@ MmcFlushBlocks (
 EFI_STATUS
 EFIAPI
 MmcEraseBlocks (
-  IN EFI_BLOCK_IO_PROTOCOL          *This,
+  IN EFI_ERASE_BLOCK_PROTOCOL       *This,
   IN UINT32                         MediaId,
   IN EFI_LBA                        Lba,
   IN OUT EFI_ERASE_BLOCK_TOKEN      *Token,

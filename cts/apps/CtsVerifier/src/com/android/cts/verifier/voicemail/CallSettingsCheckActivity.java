@@ -21,6 +21,8 @@ import android.os.Bundle;
 import android.telecom.TelecomManager;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.widget.Button;
+import android.widget.ImageView;
 
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
@@ -31,6 +33,10 @@ import com.android.cts.verifier.R;
 public class CallSettingsCheckActivity extends PassFailButtons.Activity {
 
     private DefaultDialerChanger mDefaultDialerChanger;
+
+    private Button mSetDefaultDialerButton;
+    private Button mNotApplicableButton;
+    private ImageView mRestoreDefaultDialerImage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,6 +49,22 @@ public class CallSettingsCheckActivity extends PassFailButtons.Activity {
         getPassButton().setEnabled(false);
 
         mDefaultDialerChanger = new DefaultDialerChanger(this);
+
+        mSetDefaultDialerButton = findViewById(R.id.set_default_dialer);
+        mNotApplicableButton = findViewById(R.id.call_settings_check_not_applicable);
+        mRestoreDefaultDialerImage = findViewById(R.id.restore_default_dialer_image);
+
+        mNotApplicableButton.setOnClickListener(
+                new OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        getPassButton().setEnabled(true);
+                        mSetDefaultDialerButton.setEnabled(false);
+
+                        mRestoreDefaultDialerImage.setImageDrawable(getDrawable(R.drawable.fs_warning));
+                    }
+                }
+        );
 
         findViewById(R.id.open_call_settings).setOnClickListener(
                 new OnClickListener() {

@@ -7,8 +7,8 @@
 *******************************************************************************
 -->
 <project name="icu4j" default="jar" basedir="."
-    xmlns:jacoco="antlib:org.jacoco.ant"
-    xmlns:ivy="antlib:org.apache.ivy.ant">
+    xmlns:ivy="antlib:org.apache.ivy.ant"
+    xmlns:jacoco="antlib:org.jacoco.ant">
 
     <property file="build-local.properties"/>
     <property file="build.properties"/>
@@ -56,22 +56,70 @@
     <property name="icu4j.api.doc.title" value="ICU4J ${api.doc.version} API Specification"/>
     <property name="icu4j.api.doc.window.title" value="ICU4J ${api.doc.version}"/>
     <property name="icu4j.api.doc.header" value="ICU4J ${api.doc.version}"/>
+
     <property name="icu4j.api.doc.jdk.link" value="http://docs.oracle.com/javase/8/docs/api/"/>
+    <property name="icu4j.api.doc.copyright.footer" value="&lt;font size=-1&gt;Copyright &#x00A9; 2016 Unicode, Inc. and others.&lt;/font&gt;"/>
+
+    <!-- API docs for maven repo -->
+    <property name="icu4jdocs.main.jar.versioned.file" value="icu4j-${release.file.ver}-docs.jar"/>
+    <property name="icu4j.main.api.doc.title" value="ICU4J (com.ibm.icu:icu4j) ${api.doc.version} API Specification"/>
+    <property name="icu4j.main.api.doc.window.title" value="ICU4J (com.ibm.icu:icu4j) ${api.doc.version}"/>
+    <property name="icu4j.main.api.doc.header" value="ICU4J (com.ibm.icu:icu4j) ${api.doc.version}"/>
+
+    <property name="icu4jdocs.charset.jar.versioned.file" value="icu4j-charset-${release.file.ver}-docs.jar"/>
+    <property name="icu4j.charset.api.doc.title" value="ICU4J Charset (com.ibm.icu:icu4j-charset) ${api.doc.version} API Specification"/>
+    <property name="icu4j.charset.api.doc.window.title" value="ICU4J Charset (com.ibm.icu:icu4j-charset) ${api.doc.version}"/>
+    <property name="icu4j.charset.api.doc.header" value="ICU4J Charset (com.ibm.icu:icu4j-charset) ${api.doc.version}"/>
+
+    <property name="icu4jdocs.localespi.jar.versioned.file" value="icu4j-localespi-${release.file.ver}-docs.jar"/>
+    <property name="icu4j.locspi.api.doc.title" value="ICU4J Locale SPI Provider (com.ibm.icu:icu4j-localespi) ${api.doc.version} API Specification"/>
+    <property name="icu4j.locspi.api.doc.window.title" value="ICU4J Locale SPI Provider (com.ibm.icu:icu4j-localespi) ${api.doc.version}"/>
+    <property name="icu4j.locspi.api.doc.header" value="ICU4J Locale SPI Provider (com.ibm.icu:icu4j-localespi) ${api.doc.version}"/>
+
 
     <!-- directories -->
     <property name="release.dir" value="release"/>
     <property name="doc.dir" value="doc"/>
+    <property name="maven.doc.base.dir" value="${out.dir}/mavendoc"/>
     <property name="cldr.util.out.dir" value="${out.dir}/cldr_util"/>
     <property name="cldr.release.dir" value="release_cldr"/>
     <property name="external-jars" value="lib"/>
 
     <!-- Java version check -->
+    <condition property="is.java6">
+        <matches string="${java.version}" pattern="1\.6\.\d.*"/>
+    </condition>
+
+    <condition property="is.java7">
+        <matches string="${java.version}" pattern="1\.7\.\d.*"/>
+    </condition>
+
+    <condition property="is.java8">
+        <matches string="${java.version}" pattern="1\.8\.\d.*"/>
+    </condition>
+
+    <condition property="is.java9">
+        <matches string="${java.version}" pattern="9((-.|\.\d).*)?"/>
+    </condition>
+
+    <condition property="is.java8.plus">
+        <or>
+            <isset property="is.java8"/>
+            <isset property="is.java9"/>
+        </or>
+    </condition>
+
+    <condition property="is.java7.plus">
+        <or>
+            <isset property="is.java7"/>
+            <isset property="is.java8.plus"/>
+        </or>
+    </condition>
+
     <condition property="is.java6.plus">
         <or>
-            <contains string="${java.version}" substring="1.6."/>
-            <contains string="${java.version}" substring="1.7."/>
-            <contains string="${java.version}" substring="1.8."/>
-            <contains string="${java.version}" substring="1.9."/>
+            <isset property="is.java6"/>
+            <isset property="is.java7.plus"/>
         </or>
     </condition>
     <fail message="The JDK version is too old or unknown.">
@@ -82,36 +130,6 @@
         </condition>
     </fail>
 
-    <condition property="is.java6">
-            <contains string="${java.version}" substring="1.6."/>
-    </condition>
-
-    <condition property="is.java7">
-            <contains string="${java.version}" substring="1.7."/>
-    </condition>
-
-    <condition property="is.java8">
-            <contains string="${java.version}" substring="1.8."/>
-    </condition>
-
-    <condition property="is.java9">
-            <contains string="${java.version}" substring="1.9."/>
-    </condition>
-
-    <condition property="is.java7.plus">
-        <or>
-            <isset property="is.java7"/>
-            <isset property="is.java8"/>
-            <isset property="is.java9"/>
-        </or>
-    </condition>
-
-    <condition property="is.java8.plus">
-        <or>
-            <isset property="is.java8"/>
-            <isset property="is.java9"/>
-        </or>
-    </condition>
 
     <!-- Build environment info -->
     <property name="env.COMPUTERNAME" value="${env.HOSTNAME}"/>
@@ -206,25 +224,95 @@
     </target>
 
     <target name="init" depends="test-init-junit-dependency"
-        description="Initialize the environment for build and test. May require internet access."/>
+            description="Initialize the environment for build and test. May require internet access."/>
+
+    <target name="_classifytests">
+        <condition property="testaction.run">
+            <isset property="testclass"/>
+       </condition>
+       <condition property="testaction.class">
+            <and>
+                <isset property="testclass"/>
+                <not><isset property="testnames"/></not>
+            </and>
+        </condition>
+        <condition property="testaction.tests">
+            <and>
+                <isset property="testclass"/>
+                <isset property="testnames"/>
+            </and>
+        </condition>
+        <condition property="testaction.error">
+            <and>
+                <not><isset property="testclass"/></not>
+                <isset property="testnames"/>
+            </and>
+        </condition>
+        <condition property="testaction.all">
+            <and>
+                <not><isset property="testclass"/></not>
+                <not><isset property="testnames"/></not>
+            </and>
+        </condition>
+    </target>
+
+    <target name="checkTest" depends="_classifytests, tests, runallTests, noTests" if="testaction.run" description="Run only the specified tests of the specified test class or, if no arguments are given, the standard ICU4J test suite.">
+        <sequential>
+            <delete dir="${junit.out.dir}/checkTest"/>
+            <mkdir dir="${junit.out.dir}/checkTest"/>
+
+            <junit printsummary="yes">
+                <classpath>
+                    <path refid="junit.jars"/>
+                    <path refid="junit.icu.jars"/>
+                </classpath>
+                <test name="${testclass}" todir="${junit.out.dir}/checkTest" outfile="checkTest" methods="${testnames}" if="testaction.tests">
+                    <formatter type="xml"/>
+                </test>
+                <test name="${testclass}" todir="${junit.out.dir}/checkTest" outfile="checkTest" if="testaction.class">
+                    <formatter type="xml"/>
+                </test>
+            </junit>
+
+            <junitreport todir="${junit.out.dir}/checkTest">
+                <fileset dir="${junit.out.dir}/checkTest">
+                    <include name="checkTest.xml"/>
+                </fileset>
+                <report format="frames" todir="${junit.out.dir}/checkTest/html"/>
+            </junitreport>
+
+            <fail message="test failed: @{testdir}" if="@{failure-status}" />
+        </sequential>
+    </target>
+
+     <target name="runallTests" if="testaction.all">
+        <antcall target="allTests"/>
+     </target>
+
+    <target name="allTests" depends="check"/>
+
+    <target name="noTests" if="testaction.error">
+        <echo>Execute JUnit testing using -Dtestclass='class-name' -Dtestnames='test-name1>, test-name2, ...'</echo>
+    </target>
 
     <!-- Junit Targets -->
     <macrodef name="icu-junit">
-        <attribute name="testdir"/>
-        <attribute name="output"/>
+        <attribute name="test-name"/>
         <attribute name="jvm-options" default=""/>
-        <attribute name="test-patternset" default="test-classes-patternset"/>
         <attribute name="classpath" default="junit.icu.jars"/>
         <attribute name="failure-status" default="ignore"/>
+        <element name="junit-fileset"/>
         <element name="junit-parameters" optional="true"/>
         <sequential>
+        <echo message="@{jvm-options}"/>
             <!--set the property - if it was set before it won't override-->
             <property name="user-jvm-options" value=""/>
             <property name="internal-jvm-options" value=""/>
-            <delete dir="${junit.out.dir}/@{output}"/>
-            <mkdir  dir="${junit.out.dir}/@{output}"/>
+            <delete dir="${junit.out.dir}/@{test-name}"/>
+            <mkdir  dir="${junit.out.dir}/@{test-name}"/>
 
-            <junit fork="yes" forkmode="once" printsummary="yes" haltonfailure="no" failureproperty="@{failure-status}">
+            <junit fork="yes" forkmode="once" printsummary="yes" haltonfailure="no"
+                failureproperty="@{failure-status}" tempdir="${junit.out.dir}">
                 <jvmarg value="-Xss4m"/>
                 <jvmarg value="-ea"/>
                 <jvmarg value="-Djava.awt.headless=true"/>
@@ -239,21 +327,19 @@
                 <formatter type="plain"/>
                 <formatter type="xml"/>
 
-                <batchtest todir="${junit.out.dir}/@{output}">
-                    <fileset dir="@{testdir}/${bin.dir}">
-                        <patternset refid="@{test-patternset}"/>
-                    </fileset>
+                <batchtest todir="${junit.out.dir}/@{test-name}">
+                    <junit-fileset/>
                 </batchtest>
             </junit>
 
-            <junitreport tofile="@{output}-TestSuite.xml" todir="${junit.out.dir}/@{output}">
-                <fileset dir="${junit.out.dir}/@{output}">
+            <junitreport tofile="@{test-name}-TestSuite.xml" todir="${junit.out.dir}/@{test-name}">
+                <fileset dir="${junit.out.dir}/@{test-name}">
                     <include name="*.xml"/>
                 </fileset>
-                <report format="frames" todir="${junit.out.dir}/@{output}/html"/>
+                <report format="frames" todir="${junit.out.dir}/@{test-name}/html"/>
             </junitreport>
 
-            <fail message="test failed: @{testdir}" if="@{failure-status}" />
+            <fail message="test failed: @{test-name}" if="@{failure-status}" />
 
         </sequential>
     </macrodef>
@@ -286,16 +372,29 @@
         <pathelement location="${icu4j.regiondata.jar}"/>
     </path>
 
+    <path id="junit.icu.release.jars">
+        <pathelement location="${icu4j.jar.file}"/>
+        <pathelement location="${icu4j.charset.jar}"/>
+        <pathelement location="${icu4jtests.jar.file}"/>
+    </path>
+
+    <path id="junit.icu.localespi-tests.jars">
+        <pathelement location="${icu4j.test-framework.jar}"/>
+        <pathelement location="${icu4j.localespi-tests.jar}"/>
+    </path>
+
     <!--Class names that will be included/excluded as tests-->
     <patternset id="test-classes-patternset">
         <include name="**/*Test*"/>
         <exclude name="**/*Fmwk*"/>
         <exclude name="**/*TestUtility*"/>
+        <exclude name="**/*TestHelper*"/>
         <exclude name="**/*TestCase*"/>
         <exclude name="**/*TestData*"/>
         <exclude name="**/*TestSample*"/>
         <exclude name="**/*$*.class"/>
         <exclude name="**/data/**"/>
+        <exclude name="com/ibm/icu/dev/test/*"/>
     </patternset>
 
     <!--Class names that will be included/excluded as tests for time zone check-->
@@ -329,10 +428,12 @@
     <property name="jvm_options" value="${env.JVM_OPTIONS}"/>
 
     <target name="_check">
-        <antcall target="_charsetCheck"/>
-        <antcall target="_collateCheck"/>
-        <antcall target="_coreCheck"/>
-        <antcall target="_translitCheck"/>
+    	<parallel>
+	        <antcall target="_charsetCheck"/>
+    	    <antcall target="_collateCheck"/>
+        	<antcall target="_coreCheck"/>
+        	<antcall target="_translitCheck"/>
+        </parallel>
     </target>
 
     <target name="exhaustiveCheck" description="Run the standard ICU4J test suite in exhaustive mode">
@@ -352,13 +453,47 @@
         <fail message="test failed" if="icu-junit-failure" />
     </target>
 
-    <target name="timeZoneCheck" description="Run the complete test for TimeZoneRoundTripAll">
-        <icu-junit
-            testdir="${icu4j.core-tests.dir}" output="timeZoneCheck"
-            test-patternset="timeZoneCheck-patternset"
+    <target name="releaseJarCheck" depends="jar, icu4jtestsJar" description="Run the ICU4J test suite with ICU4J release jar files">
+        <icu-junit test-name="releaseJarCheck"
+            classpath="junit.icu.release.jars"
+            failure-status="icu-junit-failure">
+            <junit-fileset>
+                <zipfileset src="${icu4jtests.jar.file}">
+                    <patternset refid="test-classes-patternset"/>
+                </zipfileset>
+            </junit-fileset>
+        </icu-junit>
+        <fail message="test failed - icu4j/icu4j-charset" if="icu-junit-failure" />
+
+        <property name="test.java.ext.dir" value="${out.dir}/localespi-ext"/>
+        <delete dir="${test.java.ext.dir}"/>
+        <mkdir dir="${test.java.ext.dir}"/>
+        <copy file="${icu4j-localespi.jar.file}" todir="${test.java.ext.dir}"/>
+        <copy file="${icu4j.jar.file}" todir="${test.java.ext.dir}"/>
+
+        <icu-junit test-name="releaseJarCheck-localespi"
+            classpath="junit.icu.localespi-tests.jars"
+            jvm-options="-Djava.ext.dirs=${test.java.ext.dir}${path.separator}${java.ext.dirs}"
+            failure-status="icu-junit-failure">
+            <junit-fileset>
+                <fileset dir="${icu4j.localespi-tests.dir}/${bin.dir}">
+                    <patternset refid="localespiCheck-patternset"/>
+                </fileset>
+            </junit-fileset>
+        </icu-junit>
+        <fail message="test failed - icu4j-localespi" if="icu-junit-failure" />
+    </target>
+
+    <target name="timeZoneCheck" depends="main, tests" description="Run the complete test for TimeZoneRoundTripAll">
+        <icu-junit test-name="timeZoneCheck"
             jvm-options="-DTimeZoneRoundTripAll=true"
-            failure-status="icu-junit-failure"
-        />
+            failure-status="icu-junit-failure">
+            <junit-fileset>
+                <fileset dir="${icu4j.core-tests.dir}/${bin.dir}">
+                    <patternset refid="timeZoneCheck-patternset"/>
+                </fileset>
+            </junit-fileset>
+        </icu-junit>
         <fail message="test failed" if="icu-junit-failure" />
     </target>
 
@@ -393,29 +528,41 @@
 
     <target name="_packagingCheckNoLangData">
         <!-- region data but no language data -->
-        <icu-junit testdir="${icu4j.packaging-tests.dir}" output="packaging/NoLangData"
-            test-patternset="packagingCheck-patternset"
+        <icu-junit test-name="packaging-NoLangData"
             classpath="junit.icu.jars.PackagingCheckNoLangData"
-            failure-status="icu-junit-failure"
-        />
+            failure-status="icu-junit-failure">
+            <junit-fileset>
+                <fileset dir="${icu4j.packaging-tests.dir}/${bin.dir}">
+                    <patternset refid="packagingCheck-patternset"/>
+                </fileset>
+            </junit-fileset>
+        </icu-junit>
     </target>
 
     <target name="_packagingCheckNoRegionData">
         <!-- language data but no region data -->
-        <icu-junit testdir="${icu4j.packaging-tests.dir}" output="packaging/NoRegionData"
-            test-patternset="packagingCheck-patternset"
+        <icu-junit test-name="packaging-NoRegionData"
             classpath="junit.icu.jars.PackagingCheckNoRegionData"
-            failure-status="icu-junit-failure"
-        />
+            failure-status="icu-junit-failure">
+            <junit-fileset>
+                <fileset dir="${icu4j.packaging-tests.dir}/${bin.dir}">
+                    <patternset refid="packagingCheck-patternset"/>
+                </fileset>
+            </junit-fileset>
+        </icu-junit>
     </target>
 
     <target name="_packagingCheckNoLangNorRegionData">
         <!-- neither region nor language data -->
-        <icu-junit testdir="${icu4j.packaging-tests.dir}" output="packaging/NoLangNorRegionData"
-            test-patternset="packagingCheck-patternset"
+        <icu-junit test-name="packaging-NoLangNorRegionData"
             classpath="junit.icu.jars.PackagingCheckNoLangNorRegionData"
-            failure-status="icu-junit-failure"
-        />
+            failure-status="icu-junit-failure">
+            <junit-fileset>
+                <fileset dir="${icu4j.packaging-tests.dir}/${bin.dir}">
+                    <patternset refid="packagingCheck-patternset"/>
+                </fileset>
+            </junit-fileset>
+        </icu-junit>
     </target>
 
     <target name="packagingCheck" depends="info, core, packaging-tests" description="Run packaging tests">
@@ -426,9 +573,13 @@
     </target>
 
     <target name="_coreCheck">
-        <icu-junit testdir="${icu4j.core-tests.dir}" output="core"
-            failure-status="icu-junit-failure"
-        />
+        <icu-junit test-name="core" failure-status="icu-junit-failure">
+            <junit-fileset>
+                <fileset dir="${icu4j.core-tests.dir}/${bin.dir}">
+                    <patternset refid="test-classes-patternset"/>
+                </fileset>
+            </junit-fileset>
+        </icu-junit>
     </target>
 
     <target name="coreCheck" depends="info, core, currdata, langdata, regiondata, core-tests" description="Run only the core tests">
@@ -437,9 +588,13 @@
     </target>
 
     <target name="_charsetCheck">
-        <icu-junit testdir="${icu4j.charset-tests.dir}" output="charset"
-            failure-status="icu-junit-failure"
-        />
+        <icu-junit test-name="charset" failure-status="icu-junit-failure">
+            <junit-fileset>
+                <fileset dir="${icu4j.charset-tests.dir}/${bin.dir}">
+                    <patternset refid="test-classes-patternset"/>
+                </fileset>
+            </junit-fileset>
+        </icu-junit>
     </target>
 
     <target name="charsetCheck" depends="info, core, charset, currdata, langdata, regiondata, core-tests, charset-tests" description="Run only the charset tests">
@@ -448,9 +603,13 @@
     </target>
 
     <target name="_collateCheck">
-        <icu-junit testdir="${icu4j.collate-tests.dir}" output="collate"
-            failure-status="icu-junit-failure"
-        />
+        <icu-junit test-name="collate" failure-status="icu-junit-failure">
+            <junit-fileset>
+                <fileset dir="${icu4j.collate-tests.dir}/${bin.dir}">
+                    <patternset refid="test-classes-patternset"/>
+                </fileset>
+            </junit-fileset>
+        </icu-junit>
     </target>
 
     <target name="collateCheck" depends="info, core, collate, currdata, langdata, regiondata, core-tests, collate-tests" description="Run only the collation tests">
@@ -459,9 +618,13 @@
     </target>
 
     <target name="_translitCheck">
-        <icu-junit testdir="${icu4j.translit-tests.dir}" output="translit"
-            failure-status="icu-junit-failure"
-        />
+        <icu-junit test-name="translit" failure-status="icu-junit-failure">
+            <junit-fileset>
+                <fileset dir="${icu4j.translit-tests.dir}/${bin.dir}">
+                    <patternset refid="test-classes-patternset"/>
+                </fileset>
+            </junit-fileset>
+        </icu-junit>
     </target>
 
     <target name="translitCheck" depends="info, core, translit, translit-tests" description="Run the ICU4J Translit test suite">
@@ -470,11 +633,16 @@
     </target>
 
     <target name="_localespiCheck">
-        <icu-junit testdir="${icu4j.localespi-tests.dir}" output="localespi"
-            test-patternset="localespiCheck-patternset"
+        <icu-junit test-name="localespi"
+            classpath="junit.icu.localespi-tests.jars"
             jvm-options="-Djava.ext.dirs=${icu4j.core.dir}/${jar.dir}${path.separator}${icu4j.localespi.dir}/${jar.dir}${path.separator}${icu4j.collate.dir}/${jar.dir}${path.separator}${icu4j.currdata.dir}/${jar.dir}${path.separator}${icu4j.langdata.dir}/${jar.dir}${path.separator}${icu4j.regiondata.dir}/${jar.dir}${path.separator}${java.ext.dirs}"
-            failure-status="icu-junit-failure"
-        />
+            failure-status="icu-junit-failure">
+            <junit-fileset>
+                <fileset dir="${icu4j.localespi-tests.dir}/${bin.dir}">
+                    <patternset refid="localespiCheck-patternset"/>
+                </fileset>
+            </junit-fileset>
+        </icu-junit>
     </target>
 
     <target name="localespiCheck" if="is.java6.plus" depends="info, localespi, localespi-tests" description="Run the ICU4J Locale SPI test suite">
@@ -482,10 +650,18 @@
         <fail message="test failed" if="icu-junit-failure" />
     </target>
 
-    <target name="secureCheck" description="Run the secure (applet-like) ICU4J test suite">
-        <antcall target="check">
-            <param name="internal-jvm-options" value="-DICU.securitypolicy=${shared.dir}/data/security.policy"/>
-        </antcall>
+    <target name="secureCheck" depends="jar, icu4jtestsJar" description="Run the ICU4J test suite with Java security manager enabled">
+        <icu-junit test-name="secureCheck"
+            classpath="junit.icu.release.jars"
+            jvm-options="-Djava.security.manager -Djava.security.policy=${user.dir}/${shared.dir}/data/security.policy"
+            failure-status="icu-junit-failure">
+            <junit-fileset>
+                <zipfileset src="${icu4jtests.jar.file}">
+                    <patternset refid="test-classes-patternset"/>
+                </zipfileset>
+            </junit-fileset>
+        </icu-junit>
+        <fail message="test failed" if="icu-junit-failure" />
     </target>
 
     <!-- jar targets -->
@@ -584,7 +760,193 @@
         <echo message="################################################################"/>
     </target>
 
-    <target name="releaseVer" depends="info, releaseBinaries, releaseSrcJars, releaseDocs, releaseSourceArchiveTgz"
+    <target name="_final_release_check" depends="_verify_config_for_release">
+        <fail message="Insufficient Build Configuration for ICU4J Release" unless="release.build.config.ok"/>
+
+        <fail message="Maven Ant Tasks are required to publish libraries. Set maven-ant-tasks.jar property. Maven Ant Tasks URL: http://maven.apache.org/ant-tasks/" unless="maven-ant-tasks.jar"/>
+        <condition property="no_maven-ant-tasks">
+            <available file="${maven-ant-tasks.jar}"/>
+        </condition>
+        <fail message="Maven Ant Tasks not found at ${maven-ant-tasks.jar}" unless="no_maven-ant-tasks"/>
+    </target>
+
+    <!--
+        The ant target releaseFinal is used for ICU official release.
+        This target builds ICU4J library jars, source jars and API document jars.
+        Also, this target publishes ICU4J artifacts to OSSRH staging repository.
+
+        Prerequisites
+
+        1) Apache Maven Ant tasks - http://maven.apache.org/ant-tasks
+
+        Note: Apache Maven Ant tasks was already deprecated. You can still
+        download the latest version from Maven Central
+        http://central.maven.org/maven2/org/apache/maven/maven-ant-tasks/2.1.3/maven-ant-tasks-2.1.3.jar
+
+        TODO: Because mavne-ant-tasks was already deprecated and no longer maintained,
+        we should look for alternative solution.
+
+        2) GnuPG
+
+        3) Put build-local.properties to specify followings
+
+            maven-ant-tasks.jar = [location of maven ant tasks jar file]
+            gpg.user = ICU Project
+
+        4) Maven configuration file ~/.m2/settings.xml
+            <settings>
+                <servers>
+                    <server>
+                        <id>icu4j-releases</id>
+                        <username>[oss.sonatype.org Nexus account ID]</username>
+                        <password>[oss.sonatype.org Nexus account password]</password>
+                    </server>
+                    <server>
+                        <id>icu4j-snapshots</id>
+                        <username>[oss.sonatype.org Nexus account ID]</username>
+                        <password>[oss.sonatype.org Nexus account password]</password>
+                    </server>
+                </servers>
+            </settings>
+    -->
+    <target name="releaseFinal" depends="info, _final_release_check, releaseVer, docsMaven"
+        description="Build all ICU4J release files for distribution and upload them to the OSSRH staging repository">
+
+        <property name="maven.pom.dir" value="maven"/>
+        <property name="maven.icu4j.release.dir" value="${release.dir}/maven/icu4j"/>
+        <property name="maven.charset.release.dir" value="${release.dir}/maven/icu4j-charset"/>
+        <property name="maven.localespi.release.dir" value="${release.dir}/maven/icu4j-localespi"/>
+
+        <property name="maven.icu4j.jar.file" value="icu4j-${maven.pom.ver}.jar"/>
+        <property name="maven.icu4j.src.jar.file" value="icu4j-${maven.pom.ver}-sources.jar"/>
+        <property name="maven.icu4j.doc.jar.file" value="icu4j-${maven.pom.ver}-javadoc.jar"/>
+
+        <property name="maven.charset.jar.file" value="icu4j-charset-${maven.pom.ver}.jar"/>
+        <property name="maven.charset.src.jar.file" value="icu4j-charset-${maven.pom.ver}-sources.jar"/>
+        <property name="maven.charset.doc.jar.file" value="icu4j-charset-${maven.pom.ver}-javadoc.jar"/>
+
+        <property name="maven.localespi.jar.file" value="icu4j-localespi-${maven.pom.ver}.jar"/>
+        <property name="maven.localespi.src.jar.file" value="icu4j-localespi-${maven.pom.ver}-sources.jar"/>
+        <property name="maven.localespi.doc.jar.file" value="icu4j-localespi-${maven.pom.ver}-javadoc.jar"/>
+
+
+        <delete dir="${release.dir}/maven"/>
+        <mkdir dir="${maven.icu4j.release.dir}"/>
+        <mkdir dir="${maven.charset.release.dir}"/>
+        <mkdir dir="${maven.localespi.release.dir}"/>
+
+
+        <!-- copy pom.xml with version -->
+        <copy file="${maven.pom.dir}/icu4j/pom.xml" todir="${maven.icu4j.release.dir}">
+            <filterset>
+                <filter token="POMVERSION" value="${maven.pom.ver}"/>
+            </filterset>
+        </copy>
+        <copy file="${maven.pom.dir}/icu4j-charset/pom.xml" todir="${maven.charset.release.dir}">
+            <filterset>
+                <filter token="POMVERSION" value="${maven.pom.ver}"/>
+            </filterset>
+        </copy>
+        <copy file="${maven.pom.dir}/icu4j-localespi/pom.xml" todir="${maven.localespi.release.dir}">
+            <filterset>
+                <filter token="POMVERSION" value="${maven.pom.ver}"/>
+            </filterset>
+        </copy>
+
+        <!-- copy ICU release binaries and source archive to the maven release directory -->
+        <copy file="${release.dir}/${icu4j.jar.versioned.file}"
+            tofile="${maven.icu4j.release.dir}/${maven.icu4j.jar.file}"/>
+        <copy file="${release.dir}/${icu4j-charset.jar.versioned.file}"
+            tofile="${maven.charset.release.dir}/${maven.charset.jar.file}"/>
+        <copy file="${release.dir}/${icu4j-localespi.jar.versioned.file}"
+            tofile="${maven.localespi.release.dir}/${maven.localespi.jar.file}"/>
+
+        <copy file="${release.dir}/${icu4j-src.jar.versioned.file}"
+            tofile="${maven.icu4j.release.dir}/${maven.icu4j.src.jar.file}"/>
+        <copy file="${release.dir}/${icu4j-charset-src.jar.versioned.file}"
+            tofile="${maven.charset.release.dir}/${maven.charset.src.jar.file}"/>
+        <copy file="${release.dir}/${icu4j-localespi-src.jar.versioned.file}"
+            tofile="${maven.localespi.release.dir}/${maven.localespi.src.jar.file}"/>
+
+        <!-- javadoc jar for maven release -->
+        <jar jarfile="${maven.icu4j.release.dir}/${maven.icu4j.doc.jar.file}"
+            compress="true"
+            basedir="${maven.doc.base.dir}/icu4j"/>
+        <jar jarfile="${maven.charset.release.dir}/${maven.charset.doc.jar.file}"
+            compress="true"
+            basedir="${maven.doc.base.dir}/charset"/>
+        <jar jarfile="${maven.localespi.release.dir}/${maven.localespi.doc.jar.file}"
+            compress="true"
+            basedir="${maven.doc.base.dir}/localespi"/>
+
+        <!-- sign release files-->
+        <macrodef name="gpg">
+            <attribute name="file"/>
+            <sequential>
+                <delete file="@{file}.asc" failonerror="false"/>
+                <exec executable="gpg">
+                    <arg value="-u"/>
+                    <arg value="${gpg.user}"/>
+                    <arg value="-ab"/>
+                    <arg value="-o"/>
+                    <arg value="@{file}.asc"/>
+                    <arg value="@{file}"/>
+                </exec>
+            </sequential>
+        </macrodef>
+
+        <gpg file="${maven.icu4j.release.dir}/pom.xml"/>
+        <gpg file="${maven.icu4j.release.dir}/${maven.icu4j.jar.file}"/>
+        <gpg file="${maven.icu4j.release.dir}/${maven.icu4j.src.jar.file}"/>
+        <gpg file="${maven.icu4j.release.dir}/${maven.icu4j.doc.jar.file}"/>
+
+        <gpg file="${maven.charset.release.dir}/pom.xml"/>
+        <gpg file="${maven.charset.release.dir}/${maven.charset.jar.file}"/>
+        <gpg file="${maven.charset.release.dir}/${maven.charset.src.jar.file}"/>
+        <gpg file="${maven.charset.release.dir}/${maven.charset.doc.jar.file}"/>
+
+        <gpg file="${maven.localespi.release.dir}/pom.xml"/>
+        <gpg file="${maven.localespi.release.dir}/${maven.localespi.jar.file}"/>
+        <gpg file="${maven.localespi.release.dir}/${maven.localespi.src.jar.file}"/>
+        <gpg file="${maven.localespi.release.dir}/${maven.localespi.doc.jar.file}"/>
+
+        <!-- deploy ICU4J artifacts to the OSSRH staging repository -->
+        <path id="maven-ant-tasks.classpath" path="${maven-ant-tasks.jar}"/>
+        <typedef resource="org/apache/maven/artifact/ant/antlib.xml" uri="urn:maven-artifact-ant"
+            classpathref="maven-ant-tasks.classpath"/>
+
+        <deploy xmlns="urn:maven-artifact-ant" file="${maven.icu4j.release.dir}/${maven.icu4j.jar.file}">
+            <pom file="${maven.icu4j.release.dir}/pom.xml"/>
+            <attach file="${maven.icu4j.release.dir}/pom.xml.asc" type="pom.asc"/>
+            <attach file="${maven.icu4j.release.dir}/${maven.icu4j.jar.file}.asc" type="jar.asc"/>
+            <attach file="${maven.icu4j.release.dir}/${maven.icu4j.src.jar.file}" classifier="sources"/>
+            <attach file="${maven.icu4j.release.dir}/${maven.icu4j.src.jar.file}.asc" classifier="sources" type="jar.asc"/>
+            <attach file="${maven.icu4j.release.dir}/${maven.icu4j.doc.jar.file}" classifier="javadoc"/>
+            <attach file="${maven.icu4j.release.dir}/${maven.icu4j.doc.jar.file}.asc" classifier="javadoc" type="jar.asc"/>
+        </deploy>
+
+        <deploy xmlns="urn:maven-artifact-ant" file="${maven.charset.release.dir}/${maven.charset.jar.file}">
+            <pom file="${maven.charset.release.dir}/pom.xml"/>
+            <attach file="${maven.charset.release.dir}/pom.xml.asc" type="pom.asc"/>
+            <attach file="${maven.charset.release.dir}/${maven.charset.jar.file}.asc" type="jar.asc"/>
+            <attach file="${maven.charset.release.dir}/${maven.charset.src.jar.file}" classifier="sources"/>
+            <attach file="${maven.charset.release.dir}/${maven.charset.src.jar.file}.asc" classifier="sources" type="jar.asc"/>
+            <attach file="${maven.charset.release.dir}/${maven.charset.doc.jar.file}" classifier="javadoc"/>
+            <attach file="${maven.charset.release.dir}/${maven.charset.doc.jar.file}.asc" classifier="javadoc" type="jar.asc"/>
+        </deploy>
+
+        <deploy xmlns="urn:maven-artifact-ant" file="${maven.localespi.release.dir}/${maven.localespi.jar.file}">
+            <pom file="${maven.localespi.release.dir}/pom.xml"/>
+            <attach file="${maven.localespi.release.dir}/pom.xml.asc" type="pom.asc"/>
+            <attach file="${maven.localespi.release.dir}/${maven.localespi.jar.file}.asc" type="jar.asc"/>
+            <attach file="${maven.localespi.release.dir}/${maven.localespi.src.jar.file}" classifier="sources"/>
+            <attach file="${maven.localespi.release.dir}/${maven.localespi.src.jar.file}.asc" classifier="sources" type="jar.asc"/>
+            <attach file="${maven.localespi.release.dir}/${maven.localespi.doc.jar.file}" classifier="javadoc"/>
+            <attach file="${maven.localespi.release.dir}/${maven.localespi.doc.jar.file}.asc" classifier="javadoc" type="jar.asc"/>
+        </deploy>
+    </target>
+
+    <target name="releaseVer" depends="info, releaseBinaries, releaseJarCheck, releaseSrcJars, releaseDocs, releaseSourceArchiveTgz"
             description="Build all ICU4J release files for distribution with versioned file names">
         <!-- binaries -->
         <move file="${release.dir}/${icu4j.jar.file}" tofile="${release.dir}/${icu4j.jar.versioned.file}"/>
@@ -954,7 +1316,7 @@
                 encoding="${java.src.encoding}"
                 docencoding="UTF-8"
                 charset="UTF-8"
-                bottom="&lt;font size=-1&gt;Copyright (c) ${current.year} IBM Corporation and others.&lt;/font&gt;"
+                bottom="${icu4j.api.doc.copyright.footer}"
                 additionalparam="${doclint.option} -breakiterator -use -tagletpath ${icu4j.build-tools.jar}${path.separator}${jcite.libs} -taglet com.ibm.icu.dev.tool.docs.ICUTaglet -taglet ch.arrenbrecht.jcite.JCiteTaglet -J-Djcitesourcepath=${jcite.addl.src} -J-Dfile.encoding=UTF-8"
                 link="${icu4j.api.doc.jdk.link}"
                 source="1.5"
@@ -963,6 +1325,7 @@
             <packageset dir="${icu4j.core.dir}/src">
                 <include name="com/ibm/icu/lang/**"/>
                 <include name="com/ibm/icu/math/**"/>
+                <include name="com/ibm/icu/number/**"/>
                 <include name="com/ibm/icu/text/**"/>
                 <include name="com/ibm/icu/util/**"/>
             </packageset>
@@ -989,7 +1352,7 @@
                 encoding="${java.src.encoding}"
                 docencoding="UTF-8"
                 charset="UTF-8"
-                bottom="&lt;font size=-1&gt;Copyright (c) ${current.year} IBM Corporation and others.&lt;/font&gt;"
+                bottom="${icu4j.api.doc.copyright.footer}"
                 additionalparam="${doclint.option} -breakiterator -use -tagletpath ${icu4j.build-tools.jar} -taglet com.ibm.icu.dev.tool.docs.ICUTaglet"
                 link="${icu4j.api.doc.jdk.link}"
                 source="1.5"
@@ -997,6 +1360,7 @@
             <packageset dir="${icu4j.core.dir}/src">
                 <include name="com/ibm/icu/lang/**"/>
                 <include name="com/ibm/icu/math/**"/>
+                <include name="com/ibm/icu/number/**"/>
                 <include name="com/ibm/icu/text/**"/>
                 <include name="com/ibm/icu/util/**"/>
             </packageset>
@@ -1011,6 +1375,107 @@
             </packageset>
         </javadoc>
     </target>
+
+    <!-- Component document targets, only used for Maven repository releases -->
+    <target name="docsMaven" depends="info, build-tools, _checkJCite, _docsStyleSheet, _docsLintOption, _mavenIcu4jDoc, _mavenCharsetDoc, _mavenLocalespiDoc"
+        description="Build API docs for each ICU4J maven artifact"/>
+
+    <target name="_mavenIcu4jDoc">
+        <fail message="JCite must be configured." unless="jcite.libs"/>
+        <delete dir="${maven.doc.base.dir}/icu4j"/>
+
+        <echo message="Javadoc lint option:            ${doclint.option}"/>
+        <echo message="JCite library path:             ${jcite.libs}"/>
+        <echo message="JCite additional source path:   ${jcite.addl.src}"/>
+        <echo message="Custom stylesheet:              ${docs.style.sheet}"/>
+        <javadoc
+                destdir="${maven.doc.base.dir}/icu4j"
+                nodeprecatedlist="true"
+                windowtitle="${icu4j.main.api.doc.window.title}"
+                doctitle="${icu4j.main.api.doc.title}"
+                header="${icu4j.main.api.doc.header}"
+                encoding="${java.src.encoding}"
+                docencoding="UTF-8"
+                charset="UTF-8"
+                bottom="${icu4j.api.doc.copyright.footer}"
+                additionalparam="${doclint.option} -breakiterator -use -tagletpath ${icu4j.build-tools.jar}${path.separator}${jcite.libs} -taglet com.ibm.icu.dev.tool.docs.ICUTaglet -taglet ch.arrenbrecht.jcite.JCiteTaglet -J-Djcitesourcepath=${jcite.addl.src} -J-Dfile.encoding=UTF-8"
+                link="${icu4j.api.doc.jdk.link}"
+                source="1.5"
+                stylesheetfile="${docs.style.sheet}"
+                failonerror="true">
+            <packageset dir="${icu4j.core.dir}/src">
+                <include name="com/ibm/icu/lang/**"/>
+                <include name="com/ibm/icu/math/**"/>
+                <include name="com/ibm/icu/number/**"/>
+                <include name="com/ibm/icu/text/**"/>
+                <include name="com/ibm/icu/util/**"/>
+            </packageset>
+            <packageset dir="${icu4j.collate.dir}/src">
+                <include name="com/ibm/icu/text/**"/>
+            </packageset>
+            <packageset dir="${icu4j.translit.dir}/src">
+                <include name="com/ibm/icu/text/**"/>
+            </packageset>
+        </javadoc>
+    </target>
+
+    <target name="_mavenCharsetDoc">
+        <fail message="JCite must be configured." unless="jcite.libs"/>
+        <delete dir="${maven.doc.base.dir}/charset"/>
+
+        <echo message="Javadoc lint option:            ${doclint.option}"/>
+        <echo message="JCite library path:             ${jcite.libs}"/>
+        <echo message="JCite additional source path:   ${jcite.addl.src}"/>
+        <echo message="Custom stylesheet:              ${docs.style.sheet}"/>
+        <javadoc
+                destdir="${maven.doc.base.dir}/charset"
+                nodeprecatedlist="true"
+                windowtitle="${icu4j.charset.api.doc.window.title}"
+                doctitle="${icu4j.charset.api.doc.title}"
+                header="${icu4j.charset.api.doc.header}"
+                encoding="${java.src.encoding}"
+                docencoding="UTF-8"
+                charset="UTF-8"
+                bottom="${icu4j.api.doc.copyright.footer}"
+                additionalparam="${doclint.option} -breakiterator -use -tagletpath ${icu4j.build-tools.jar}${path.separator}${jcite.libs} -taglet com.ibm.icu.dev.tool.docs.ICUTaglet -taglet ch.arrenbrecht.jcite.JCiteTaglet -J-Djcitesourcepath=${jcite.addl.src} -J-Dfile.encoding=UTF-8"
+                link="${icu4j.api.doc.jdk.link}"
+                source="1.5"
+                stylesheetfile="${docs.style.sheet}"
+                failonerror="true"
+                classpath="${icu4j.jar.file}">
+            <packageset dir="${icu4j.charset.dir}/src">
+                <include name="com/ibm/icu/charset/**"/>
+            </packageset>
+        </javadoc>
+    </target>
+
+    <target name="_mavenLocalespiDoc">
+        <delete dir="${maven.doc.base.dir}/localespi"/>
+
+        <echo message="Javadoc lint option:            ${doclint.option}"/>
+        <echo message="Custom stylesheet:              ${docs.style.sheet}"/>
+        <javadoc
+                destdir="${maven.doc.base.dir}/localespi"
+                nodeprecatedlist="true"
+                windowtitle="${icu4j.localespi.api.doc.window.title}"
+                doctitle="${icu4j.localespi.api.doc.title}"
+                header="${icu4j.localespi.api.doc.header}"
+                encoding="${java.src.encoding}"
+                docencoding="UTF-8"
+                charset="UTF-8"
+                bottom="${icu4j.api.doc.copyright.footer}"
+                additionalparam="${doclint.option} -breakiterator -use"
+                link="${icu4j.api.doc.jdk.link}"
+                source="1.5"
+                failonerror="true"
+                classpath="${icu4j.jar.file}">
+            <packageset dir="${icu4j.localespi.dir}/src">
+                <include name="com/ibm/icu/impl/javaspi"/>
+            </packageset>
+        </javadoc>
+
+    </target>
+
 
     <!-- JaCoCo code coverage target -->
     <taskdef uri="antlib:org.jacoco.ant" resource="org/jacoco/ant/antlib.xml" onerror="ignore">
@@ -1138,88 +1603,6 @@
 
     </target>
 
-    <!-- Clover code coverage target -->
-    <property name="clover.out.dir" value="${out.dir}/clover"/>
-    <property name="clover.jar" location="${env.CLOVER_DIR}/clover.jar"/>
-    <taskdef resource="cloverlib.xml" classpath="${clover.jar}" onerror="ignore"/>
-
-    <target name="codeCoverage" depends="clean" description="Generate code coverage report with clover">
-        <!-- Set up clover -->
-        <mkdir dir="${clover.out.dir}"/>
-        <clover-setup initstring="${clover.out.dir}/clover.db">
-            <files>
-                <exclude name="**/dev/**/*.java"/>
-            </files>
-            <methodContext name="API" regexp="(.* )?public .*"/>
-        </clover-setup>
-
-        <!-- Build components with clover instrumentation -->
-        <ant dir="${icu4j.core.dir}" inheritAll="false" inheritRefs="true">
-            <property name="build.compiler" value="${build.compiler}"/>
-        </ant>
-        <ant dir="${icu4j.collate.dir}" inheritAll="false" inheritRefs="true">
-            <property name="build.compiler" value="${build.compiler}"/>
-        </ant>
-        <ant dir="${icu4j.charset.dir}" inheritAll="false" inheritRefs="true">
-            <property name="build.compiler" value="${build.compiler}"/>
-        </ant>
-        <ant dir="${icu4j.currdata.dir}" inheritAll="false" inheritRefs="true">
-            <property name="build.compiler" value="${build.compiler}"/>
-        </ant>
-        <ant dir="${icu4j.langdata.dir}" inheritAll="false" inheritRefs="true">
-            <property name="build.compiler" value="${build.compiler}"/>
-        </ant>
-        <ant dir="${icu4j.regiondata.dir}" inheritAll="false" inheritRefs="true">
-            <property name="build.compiler" value="${build.compiler}"/>
-        </ant>
-        <ant dir="${icu4j.translit.dir}" inheritAll="false" inheritRefs="true">
-            <property name="build.compiler" value="${build.compiler}"/>
-        </ant>
-        <ant dir="${icu4j.test-framework.dir}" inheritAll="false" inheritRefs="true">
-            <property name="build.compiler" value="${build.compiler}"/>
-        </ant>
-        <ant dir="${icu4j.core-tests.dir}" inheritAll="false" inheritRefs="true">
-            <property name="build.compiler" value="${build.compiler}"/>
-        </ant>
-        <ant dir="${icu4j.collate-tests.dir}" inheritAll="false" inheritRefs="true">
-            <property name="build.compiler" value="${build.compiler}"/>
-        </ant>
-        <ant dir="${icu4j.charset-tests.dir}" inheritAll="false" inheritRefs="true">
-            <property name="build.compiler" value="${build.compiler}"/>
-        </ant>
-        <ant dir="${icu4j.translit-tests.dir}" inheritAll="false" inheritRefs="true">
-            <property name="build.compiler" value="${build.compiler}"/>
-        </ant>
-
-        <!-- Run the test suites -->
-        <java classname="com.ibm.icu.dev.test.TestAll" fork="yes" failonerror="true">
-            <classpath>
-                <pathelement location="${icu4j.core.jar}"/>
-                <pathelement location="${icu4j.collate.jar}"/>
-                <pathelement location="${icu4j.charset.jar}"/>
-                <pathelement location="${icu4j.currdata.jar}"/>
-                <pathelement location="${icu4j.langdata.jar}"/>
-                <pathelement location="${icu4j.regiondata.jar}"/>
-                <pathelement location="${icu4j.translit.jar}"/>
-                <pathelement location="${icu4j.test-framework.jar}"/>
-                <pathelement location="${icu4j.core-tests.jar}"/>
-                <pathelement location="${icu4j.collate-tests.jar}"/>
-                <pathelement location="${icu4j.charset-tests.jar}"/>
-                <pathelement location="${icu4j.translit-tests.jar}"/>
-                <pathelement location="${icu4j.testall.jar}"/>
-                <pathelement location="${clover.jar}"/>
-            </classpath>
-        </java>
-
-        <!-- Generate HTML coverage report -->
-        <!-- <clover-html-report outdir="${clover.out.dir}/html" title="ICU4J Code Coverage"/> -->
-        <clover-report>
-            <current outfile="${clover.out.dir}/html" title="ICU4J Code Coverage">
-                <format type="html" filter="assert" />
-            </current>
-        </clover-report>
-    </target>
-
     <!-- Release management targets -->
     <target name="checktags" depends="info, build-tools" description="Check API tags before release">
         <javadoc source="1.6"
@@ -1228,6 +1611,7 @@
             <packageset dir="${icu4j.core.dir}/src">
                 <include name="com/ibm/icu/lang/**"/>
                 <include name="com/ibm/icu/math/**"/>
+                <include name="com/ibm/icu/number/**"/>
                 <include name="com/ibm/icu/text/**"/>
                 <include name="com/ibm/icu/util/**"/>
             </packageset>
@@ -1249,6 +1633,7 @@
             <packageset dir="${icu4j.core.dir}/src">
                 <include name="com/ibm/icu/lang/**"/>
                 <include name="com/ibm/icu/math/**"/>
+                <include name="com/ibm/icu/number/**"/>
                 <include name="com/ibm/icu/text/**"/>
                 <include name="com/ibm/icu/util/**"/>
             </packageset>
@@ -1294,6 +1679,7 @@
             <packageset dir="${icu4j.core.dir}/src">
                 <include name="com/ibm/icu/lang/**"/>
                 <include name="com/ibm/icu/math/**"/>
+                <include name="com/ibm/icu/number/**"/>
                 <include name="com/ibm/icu/text/**"/>
                 <include name="com/ibm/icu/util/**"/>
             </packageset>
@@ -1488,11 +1874,12 @@
                 classpath="${icu4j.jar.file}">
 
             <src path="${icu4j.tools.dir}/src"/>
-            <src path="${icu4j.translit-tests.dir}/src"/>
             <src path="${icu4j.test-framework.dir}/src"/>
 
-            <include name="com/ibm/icu/dev/test/TestFmwk.java" />
-            <include name="com/ibm/icu/dev/util/*.java" />
+            <include name="com/ibm/icu/dev/util/CollectionUtilities.java" />
+            <include name="com/ibm/icu/dev/util/ElapsedTimer.java" />
+            <include name="com/ibm/icu/dev/util/UnicodeMap.java" />
+            <include name="com/ibm/icu/dev/util/UnicodeMapIterator.java" />
             <include name="com/ibm/icu/dev/tool/UOption.java" />
         </javac>
 
@@ -1500,7 +1887,6 @@
         <jar jarfile="${cldr.util.out.dir}/lib/utilities.jar"
                 compress="true"
                 basedir="${cldr.util.out.dir}/bin">
-            <include name="com/ibm/icu/dev/test/*.class"/>
             <include name="com/ibm/icu/dev/util/*.class"/>
             <include name="com/ibm/icu/dev/tool/UOption*.class"/>
         </jar>
@@ -1517,13 +1903,11 @@
         <!-- utilities-src.jar -->
         <jar jarfile="${cldr.release.dir}/utilities-src.jar" compress="true">
             <fileset dir="${icu4j.test-framework.dir}/${src.dir}">
-                <include name="com/ibm/icu/dev/test/TestFmwk.java"/>
-                <include name="com/ibm/icu/dev/test/*Log*.java"/>
-                <include name="com/ibm/icu/dev/test/TestUtil.java"/>
-                <include name="com/ibm/icu/dev/test/UTF16Util.java"/>
+                <include name="com/ibm/icu/dev/util/CollectionUtilities.java" />
+                <include name="com/ibm/icu/dev/util/ElapsedTimer.java" />
+                <include name="com/ibm/icu/dev/util/UnicodeMap.java" />
+                <include name="com/ibm/icu/dev/util/UnicodeMapIterator.java" />
             </fileset>
-            <fileset dir="${icu4j.test-framework.dir}/${src.dir}" includes="com/ibm/icu/dev/util/*.java"/>
-            <fileset dir="${icu4j.translit-tests.dir}/${src.dir}" includes="com/ibm/icu/dev/util/*.java"/>
             <fileset dir="${icu4j.tools.dir}/${src.dir}" includes="com/ibm/icu/dev/tool/UOption.java"/>
        </jar>
     </target>
@@ -1558,104 +1942,4 @@
                 basedir="${xliff.out.dir}/bin"
                 manifest="${icu4j.tools.dir}/src/com/ibm/icu/dev/tool/localeconverter/manifest.stub"/>
     </target>
-
-    <target name="publishToMavenRepo" depends="releaseVer">
-        <!--
-            Publish libraries to Maven repositories, snapshot or release depending on current
-            version in pom.xml.
-
-            Prerequisites
-
-            1) Apache Maven Ant tasks - http://maven.apache.org/ant-tasks
-            2) GnuPG
-            3) Put build-local.properties to specify followings
-
-                maven-ant-tasks.jar = [location of maven ant tasks jar file]
-                gpg.user = ICU Project
-                gpg.passphrase = [passprase for ICU Project's PGP key]
-
-            4) Maven configuration file ~/.m2/settings.xml
-                <settings>
-                    <servers>
-                        <server>
-                            <id>icu4j-releases</id>
-                            <username>[your JIRA/Nexus ID]</username>
-                            <password>[your JIRA/Nexus password]</password>
-                        </server>
-                        <server>
-                            <id>icu4j-snapshots</id>
-                            <username>[your JIRA/Nexus ID]</username>
-                            <password>[your JIRA/Nexus password]</password>
-                        </server>
-                    </servers>
-                </settings>
-
-            Note: For now, charset.jar and localespi.jar are excluded.
-        -->
-        <fail message="Maven Ant Tasks are required to publish libraries. Set maven-ant-tasks.jar property. Maven Ant Tasks URL: http://maven.apache.org/ant-tasks/" unless="maven-ant-tasks.jar"/>
-        <condition property="no_maven-ant-tasks">
-            <available file="${maven-ant-tasks.jar}"/>
-        </condition>
-        <fail message="Maven Ant Tasks not found at ${maven-ant-tasks.jar}" unless="no_maven-ant-tasks"/>
-
-        <path id="maven-ant-tasks.classpath" path="${maven-ant-tasks.jar}"/>
-        <typedef resource="org/apache/maven/artifact/ant/antlib.xml" uri="urn:maven-artifact-ant"
-            classpathref="maven-ant-tasks.classpath"/>
-
-        <xmlproperty file="pom.xml" prefix="pom.xml"/>
-
-        <!-- copy release files -->
-        <property name="maven.release.dir" value="${release.dir}/maven"/>
-
-        <property name="maven.icu4j.jar.versioned.file" value="icu4j-${pom.xml.project.version}.jar"/>
-        <property name="maven.icu4j-src.jar.versioned.file" value="icu4j-${pom.xml.project.version}-src.jar"/>
-        <property name="maven.icu4jdocs.jar.file" value="icu4j-${pom.xml.project.version}-javadoc.jar"/>
-
-        <mkdir dir="${maven.release.dir}"/>
-
-        <copy file="${release.dir}/${icu4j.jar.versioned.file}" tofile="${maven.release.dir}/${maven.icu4j.jar.versioned.file}"/>
-        <copy file="${release.dir}/${icu4j-src.jar.versioned.file}" tofile="${maven.release.dir}/${maven.icu4j-src.jar.versioned.file}"/>
-        <copy file="${release.dir}/${icu4jdocs.jar.versioned.file}" tofile="${maven.release.dir}/${maven.icu4jdocs.jar.file}"/>
-
-        <copy file="pom.xml" todir="${maven.release.dir}"/>
-
-        <!-- sign release files-->
-        <macrodef name="gpg">
-            <attribute name="file"/>
-            <sequential>
-                <delete file="@{file}.asc" failonerror="false"/>
-                <exec executable="gpg">
-                    <arg value="-u"/>
-                    <arg value="${gpg.user}"/>
-                    <arg value="-ab"/>
-                    <arg value="--passphrase"/>
-                    <arg value="${gpg.passphrase}"/>
-                    <arg value="-o"/>
-                    <arg value="@{file}.asc"/>
-                    <arg value="@{file}"/>
-                </exec>
-            </sequential>
-        </macrodef>
-
-        <gpg file="${maven.release.dir}/${maven.icu4j.jar.versioned.file}"/>
-        <gpg file="${maven.release.dir}/${maven.icu4j-src.jar.versioned.file}"/>
-        <gpg file="${maven.release.dir}/${maven.icu4jdocs.jar.file}"/>
-
-        <gpg file="${maven.release.dir}/pom.xml"/>
-
-        <!-- deploy files to the repository -->
-        <deploy xmlns="urn:maven-artifact-ant" file="${maven.release.dir}/${maven.icu4j.jar.versioned.file}">
-            <pom file="${maven.release.dir}/pom.xml"/>
-            <attach file="${maven.release.dir}/pom.xml.asc" type="pom.asc"/>
-
-            <attach file="${maven.release.dir}/${maven.icu4j.jar.versioned.file}.asc" type="jar.asc"/>
-            <attach file="${maven.release.dir}/${maven.icu4j-src.jar.versioned.file}" classifier="sources"/>
-            <attach file="${maven.release.dir}/${maven.icu4j-src.jar.versioned.file}.asc" classifier="sources" type="jar.asc"/>
-            <attach file="${maven.release.dir}/${maven.icu4jdocs.jar.file}" classifier="javadoc"/>
-            <attach file="${maven.release.dir}/${maven.icu4jdocs.jar.file}.asc" classifier="javadoc" type="jar.asc"/>
-        </deploy>
-
-        <antcall target="_verify_config_for_release"/>
-    </target>
-
 </project>

@@ -16,6 +16,8 @@
 
 package com.android.documentsui.base;
 
+import static com.android.documentsui.base.SharedMinimal.TAG;
+
 import android.annotation.PluralsRes;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -34,13 +36,12 @@ import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.text.format.Time;
 import android.util.Log;
+import android.view.View;
 import android.view.WindowManager;
 
 import com.android.documentsui.R;
 import com.android.documentsui.ui.MessageBuilder;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.text.Collator;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,14 +51,15 @@ import javax.annotation.Nullable;
 /** @hide */
 public final class Shared {
 
-    public static final String TAG = "Documents";
-
-    public static final boolean DEBUG = Build.IS_DEBUGGABLE;
-    public static final boolean VERBOSE = DEBUG && Log.isLoggable(TAG, Log.VERBOSE);
-
     /** Intent action name to pick a copy destination. */
     public static final String ACTION_PICK_COPY_DESTINATION =
             "com.android.documentsui.PICK_COPY_DESTINATION";
+
+    // These values track values declared in MediaDocumentsProvider.
+    public static final String METADATA_KEY_AUDIO = "android.media.metadata.audio";
+    public static final String METADATA_KEY_VIDEO = "android.media.metadata.video";
+    public static final String METADATA_VIDEO_LATITUDE = "android.media.metadata.video:latitude";
+    public static final String METADATA_VIDEO_LONGITUTE = "android.media.metadata.video:longitude";
 
     /**
      * Extra boolean flag for {@link #ACTION_PICK_COPY_DESTINATION}, which
@@ -261,14 +263,43 @@ public final class Shared {
         }
     }
 
+    /**
+     * This method exists solely to smooth over the fact that two different types of
+     * views cannot be bound to the same id in different layouts. "What's this crazy-pants
+     * stuff?", you say? Here's an example:
+     *
+     * The main DocumentsUI view (aka "Files app") when running on a phone has a drop-down
+     * "breadcrumb" (file path representation) in both landscape and portrait orientation.
+     * Larger format devices, like a tablet, use a horizontal "Dir1 > Dir2 > Dir3" format
+     * breadcrumb in landscape layouts, but the regular drop-down breadcrumb in portrait
+     * mode.
+     *
+     * Our initial inclination was to give each of those views the same ID (as they both
+     * implement the same "Breadcrumb" interface). But at runtime, when rotating a device
+     * from one orientation to the other, deeeeeeep within the UI toolkit a exception
+     * would happen, because one view instance (drop-down) was being inflated in place of
+     * another (horizontal). I'm writing this code comment significantly after the face,
+     * so I don't recall all of the details, but it had to do with View type-checking the
+     * Parcelable state in onRestore, or something like that. Either way, this isn't
+     * allowed (my patch to fix this was rejected).
+     *
+     * To work around this we have this cute little method that accepts multiple
+     * resource IDs, and along w/ type inference finds our view, no matter which
+     * id it is wearing, and returns it.
+     */
+    @SuppressWarnings("TypeParameterUnusedInFormals")
     public static @Nullable <T> T findView(Activity activity, int... resources) {
         for (int id : resources) {
             @SuppressWarnings("unchecked")
-            T r = (T) activity.findViewById(id);
-            if (r != null) {
-                return r;
+            View view = activity.findViewById(id);
+            if (view != null) {
+                return (T) view;
             }
         }
         return null;
+    }
+
+    private Shared() {
+        throw new UnsupportedOperationException("provides static fields only");
     }
 }

@@ -23,12 +23,19 @@ LOCAL_MODULE := CtsAppSecurityHostTestCases
 
 LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed compatibility-host-util
 
+LOCAL_STATIC_JAVA_LIBRARIES := truth-host-prebuilt
+
 LOCAL_JAVA_RESOURCE_DIRS := res
 
 LOCAL_CTS_TEST_PACKAGE := android.appsecurity
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
+
+LOCAL_REQUIRED_MODULES := \
+	CtsCorruptApkTests_b71360999 \
+	CtsCorruptApkTests_b71361168 \
+	CtsCorruptApkTests_b79488511
 
 include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 

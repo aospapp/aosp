@@ -16,6 +16,8 @@
 
 package android.graphics;
 
+import java.util.Arrays;
+
 import junit.framework.TestCase;
 
 /**
@@ -28,7 +30,7 @@ public class Matrix_DelegateTest extends TestCase {
 
         assertTrue(m1.isIdentity());
 
-        m1.setValues(new float[] { 1,0,0, 0,1,0, 0,0,1 });
+        m1.setValues(new float[]{1, 0, 0, 0, 1, 0, 0, 0, 1});
         assertTrue(m1.isIdentity());
     }
 
@@ -41,8 +43,22 @@ public class Matrix_DelegateTest extends TestCase {
         m1.getValues(v1);
         m2.getValues(v2);
 
-        for (int i = 0 ; i < 9; i++) {
+        for (int i = 0; i < 9; i++) {
             assertEquals(v1[i], v2[i]);
         }
+    }
+
+    public void testInvert() {
+        Matrix m1 = new Matrix();
+        Matrix inverse = new Matrix();
+        m1.setValues(new float[]{1, 2, 3, 4, 5, 6, 7, 8, 9});
+        m1.invert(inverse);
+
+        float[] values = new float[9];
+        inverse.getValues(values);
+
+        assertTrue(Arrays.equals(values,
+                new float[]{-1.6666666f, 0.6666667f, 1.0f, 1.3333334f, -0.33333334f, -2.0f, 0.0f,
+                        0.0f, 1.0f}));
     }
 }

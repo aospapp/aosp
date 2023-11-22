@@ -17,6 +17,7 @@ package com.android.tv.testing.uihelper;
 
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
+import com.android.tv.common.CommonConstants;
 
 public final class Constants {
 
@@ -24,7 +25,7 @@ public final class Constants {
     public static final int MIN_EXTRA_TIMEOUT = 10;
     public static final long MAX_SHOW_DELAY_MILLIS = 200;
     public static final long MAX_FOCUSED_DELAY_MILLIS = 1000;
-    public static final String TV_APP_PACKAGE = "com.android.tv";
+    public static final String TV_APP_PACKAGE = CommonConstants.BASE_PACKAGE;
     public static final BySelector TV_VIEW = By.res(TV_APP_PACKAGE, "main_tunable_tv_view");
     public static final BySelector CHANNEL_BANNER = By.res(TV_APP_PACKAGE, "channel_banner_view");
     public static final BySelector KEYPAD_CHANNEL_SWITCH = By.res(TV_APP_PACKAGE, "channel_number");
@@ -35,6 +36,5 @@ public final class Constants {
     public static final BySelector DVR_SCHEDULES = By.res(TV_APP_PACKAGE, "dvr_schedules");
     public static final BySelector FOCUSED_VIEW = By.focused(true);
 
-    private Constants() {
-    }
+    private Constants() {}
 }

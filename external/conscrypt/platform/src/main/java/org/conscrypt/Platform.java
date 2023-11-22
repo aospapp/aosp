@@ -20,11 +20,11 @@ import static android.system.OsConstants.SOL_SOCKET;
 import static android.system.OsConstants.SO_SNDTIMEO;
 
 import android.system.ErrnoException;
-import android.system.Os;
 import android.system.StructTimeval;
 import dalvik.system.BlockGuard;
 import dalvik.system.CloseGuard;
 import java.io.FileDescriptor;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -33,12 +33,14 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketImpl;
+import java.security.AlgorithmParameters;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.ECParameterSpec;
+import java.security.spec.InvalidParameterSpecException;
 import java.util.Collections;
 import java.util.List;
 import javax.crypto.spec.GCMParameterSpec;
@@ -51,6 +53,7 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.StandardConstants;
 import javax.net.ssl.X509ExtendedTrustManager;
 import javax.net.ssl.X509TrustManager;
+import libcore.io.Libcore;
 import libcore.net.NetworkSecurityPolicy;
 import sun.security.x509.AlgorithmId;
 
@@ -70,6 +73,14 @@ final class Platform {
     private void ping() {}
 
     private Platform() {}
+
+    /**
+     * Default name used in the {@link java.security.Security JCE system} by {@code OpenSSLProvider}
+     * if the default constructor is used.
+     */
+    static String getDefaultProviderName() {
+        return "AndroidOpenSSL";
+    }
 
     static FileDescriptor getFileDescriptor(Socket s) {
         return s.getFileDescriptor$();
@@ -99,7 +110,7 @@ final class Platform {
     static void setSocketWriteTimeout(Socket s, long timeoutMillis) throws SocketException {
         StructTimeval tv = StructTimeval.fromMillis(timeoutMillis);
         try {
-            Os.setsockoptTimeval(s.getFileDescriptor$(), SOL_SOCKET, SO_SNDTIMEO, tv);
+            Libcore.os.setsockoptTimeval(s.getFileDescriptor$(), SOL_SOCKET, SO_SNDTIMEO, tv);
         } catch (ErrnoException errnoException) {
             throw errnoException.rethrowAsSocketException();
         }
@@ -262,6 +273,80 @@ final class Platform {
         return InetAddress.isNumeric(hostname);
     }
 
+    static SSLEngine wrapEngine(ConscryptEngine engine) {
+        return new Java8EngineWrapper(engine);
+    }
+
+    static SSLEngine unwrapEngine(SSLEngine engine) {
+        return Java8EngineWrapper.getDelegate(engine);
+    }
+
+    static ConscryptEngineSocket createEngineSocket(SSLParametersImpl sslParameters)
+            throws IOException {
+        return new Java8EngineSocket(sslParameters);
+    }
+
+    static ConscryptEngineSocket createEngineSocket(String hostname, int port,
+            SSLParametersImpl sslParameters) throws IOException {
+        return new Java8EngineSocket(hostname, port, sslParameters);
+    }
+
+    static ConscryptEngineSocket createEngineSocket(InetAddress address, int port,
+            SSLParametersImpl sslParameters) throws IOException {
+        return new Java8EngineSocket(address, port, sslParameters);
+    }
+
+    static ConscryptEngineSocket createEngineSocket(String hostname, int port,
+            InetAddress clientAddress, int clientPort, SSLParametersImpl sslParameters)
+            throws IOException {
+        return new Java8EngineSocket(hostname, port, clientAddress, clientPort, sslParameters);
+    }
+
+    static ConscryptEngineSocket createEngineSocket(InetAddress address, int port,
+            InetAddress clientAddress, int clientPort, SSLParametersImpl sslParameters)
+            throws IOException {
+        return new Java8EngineSocket(address, port, clientAddress, clientPort, sslParameters);
+    }
+
+    static ConscryptEngineSocket createEngineSocket(Socket socket, String hostname, int port,
+            boolean autoClose, SSLParametersImpl sslParameters) throws IOException {
+        return new Java8EngineSocket(socket, hostname, port, autoClose, sslParameters);
+    }
+
+    static ConscryptFileDescriptorSocket createFileDescriptorSocket(SSLParametersImpl sslParameters)
+            throws IOException {
+        return new Java8FileDescriptorSocket(sslParameters);
+    }
+
+    static ConscryptFileDescriptorSocket createFileDescriptorSocket(String hostname, int port,
+            SSLParametersImpl sslParameters) throws IOException {
+        return new Java8FileDescriptorSocket(hostname, port, sslParameters);
+    }
+
+    static ConscryptFileDescriptorSocket createFileDescriptorSocket(InetAddress address, int port,
+            SSLParametersImpl sslParameters) throws IOException {
+        return new Java8FileDescriptorSocket(address, port, sslParameters);
+    }
+
+    static ConscryptFileDescriptorSocket createFileDescriptorSocket(String hostname, int port,
+            InetAddress clientAddress, int clientPort, SSLParametersImpl sslParameters)
+            throws IOException {
+        return new Java8FileDescriptorSocket(
+                hostname, port, clientAddress, clientPort, sslParameters);
+    }
+
+    static ConscryptFileDescriptorSocket createFileDescriptorSocket(InetAddress address, int port,
+            InetAddress clientAddress, int clientPort, SSLParametersImpl sslParameters)
+            throws IOException {
+        return new Java8FileDescriptorSocket(
+                address, port, clientAddress, clientPort, sslParameters);
+    }
+
+    static ConscryptFileDescriptorSocket createFileDescriptorSocket(Socket socket, String hostname,
+            int port, boolean autoClose, SSLParametersImpl sslParameters) throws IOException {
+        return new Java8FileDescriptorSocket(socket, hostname, port, autoClose, sslParameters);
+    }
+
     /**
      * Wrap the SocketFactory with the platform wrapper if needed for compatability.
      * For the platform-bundled library we never need to wrap.
@@ -279,6 +364,17 @@ final class Platform {
             return new GCMParameters(gcmParams.getTLen(), gcmParams.getIV());
         }
         return null;
+    }
+
+    /**
+     * Convert from an opaque AlgorithmParameters to the platform's GCMParameterSpec.
+     */
+    static AlgorithmParameterSpec fromGCMParameters(AlgorithmParameters params) {
+        try {
+            return params.getParameterSpec(GCMParameterSpec.class);
+        } catch (InvalidParameterSpecException e) {
+            return null;
+        }
     }
 
     /**
@@ -330,20 +426,35 @@ final class Platform {
         }
     }
 
-    /*
-     * Pre-Java 8 backward compatibility.
+    /**
+     * Provides extended capabilities for the session if supported by the platform.
      */
-
-    static SSLSession wrapSSLSession(ActiveSession sslSession) {
-        return new DelegatingExtendedSSLSession(sslSession);
+    static SSLSession wrapSSLSession(ConscryptSession sslSession) {
+        return new Java8ExtendedSSLSession(sslSession);
     }
 
-    static SSLSession unwrapSSLSession(SSLSession sslSession) {
-        if (sslSession instanceof DelegatingExtendedSSLSession) {
-            return ((DelegatingExtendedSSLSession) sslSession).getDelegate();
-        }
+    public static String getOriginalHostNameFromInetAddress(InetAddress addr) {
+        try {
+            Method getHolder = InetAddress.class.getDeclaredMethod("holder");
+            getHolder.setAccessible(true);
 
-        return sslSession;
+            Method getOriginalHostName = Class.forName("java.net.InetAddress$InetAddressHolder")
+                                                 .getDeclaredMethod("getOriginalHostName");
+            getOriginalHostName.setAccessible(true);
+
+            String originalHostName = (String) getOriginalHostName.invoke(getHolder.invoke(addr));
+            if (originalHostName == null) {
+                return addr.getHostAddress();
+            }
+            return originalHostName;
+        } catch (InvocationTargetException e) {
+            throw new RuntimeException("Failed to get originalHostName", e);
+        } catch (ClassNotFoundException ignore) {
+            // passthrough and return addr.getHostAddress()
+        } catch (IllegalAccessException ignore) {
+        } catch (NoSuchMethodException ignore) {
+        }
+        return addr.getHostAddress();
     }
 
     /*

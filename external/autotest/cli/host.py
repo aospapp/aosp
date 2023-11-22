@@ -257,7 +257,7 @@ class host_stat(host):
         for stats, acls, labels, attributes in results:
             print '-'*5
             self.print_fields(stats,
-                              keys=['hostname', 'platform',
+                              keys=['hostname', 'id', 'platform',
                                     'status', 'locked', 'locked_by',
                                     'lock_time', 'lock_reason', 'protection',])
             self.print_by_ids(acls, 'ACLs', line_before=True)

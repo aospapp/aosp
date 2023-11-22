@@ -18,9 +18,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.text.BreakIterator;
@@ -30,7 +34,8 @@ import com.ibm.icu.util.ULocale;
 /**
  * API Test the RuleBasedBreakIterator class
  */
-public class RBBIAPITest extends com.ibm.icu.dev.test.TestFmwk {
+@RunWith(JUnit4.class)
+public class RBBIAPITest extends TestFmwk {
     /**
      * Tests clone() and equals() methods of RuleBasedBreakIterator
      **/
@@ -142,22 +147,19 @@ public class RBBIAPITest extends com.ibm.icu.dev.test.TestFmwk {
         if (wordIter1.current() != 0)
             errln("ERROR:2 setText did not reset the iteration position to the beginning of the text, it is"
                     + wordIter1.current() + "\n");
-        //ICU4J has remove the method adoptText
-        /*
-        charIter1.adoptText(text1Clone);
-        if (wordIter1.getText() == charIter1.getText()
-            || wordIter1.getText() != text2
-            || charIter1.getText() != text1)
-            errln((UnicodeString) "ERROR:2 error is getText or setText()");
 
-        RuleBasedBreakIterator rb = (RuleBasedBreakIterator) wordIter1.clone();
-        rb.adoptText(text1);
-        if (rb.getText() != text1)
-            errln((UnicodeString) "ERROR:1 error in adoptText ");
-        rb.adoptText(text2);
-        if (rb.getText() != text2)
-            errln((UnicodeString) "ERROR:2 error in adoptText ");
-        */
+        // Test the CharSequence overload of setText() for a simple case.
+        BreakIterator lineIter = BreakIterator.getLineInstance(Locale.ENGLISH);
+        CharSequence csText = "Hello, World. ";
+        // Expected Line Brks  ^      ^      ^
+        //                     0123456789012345
+        List<Integer> expected = new ArrayList<Integer>();
+        expected.add(0); expected.add(7); expected.add(14);
+        lineIter.setText(csText);
+        for (int pos = lineIter.first(); pos != BreakIterator.DONE; pos = lineIter.next()) {
+            assertTrue("", expected.contains(pos));
+        }
+        assertEquals("", csText.length(), lineIter.current());
     }
 
     /**
@@ -296,7 +298,7 @@ public class RBBIAPITest extends com.ibm.icu.dev.test.TestFmwk {
     }
 
     /**
-     * Testing the methods lastt(), previous(), and preceding() of RuleBasedBreakIterator
+     * Testing the methods last(), previous(), and preceding() of RuleBasedBreakIterator
      **/
     @Test
     public void TestLastPreviousPreceding() {
@@ -304,11 +306,11 @@ public class RBBIAPITest extends com.ibm.icu.dev.test.TestFmwk {
         String testString = "This is a word break. Isn't it? 2.25 dollars";
         logln("Testing last(),previous(), preceding() with custom rules");
         logln("testing word iteration for string \"" + testString + "\"");
-        RuleBasedBreakIterator wordIter1 = (RuleBasedBreakIterator) BreakIterator.getWordInstance(Locale.getDefault());
+        RuleBasedBreakIterator wordIter1 = (RuleBasedBreakIterator) BreakIterator.getWordInstance(Locale.ENGLISH);
         wordIter1.setText(testString);
         p = wordIter1.last();
         if (p != testString.length()) {
-            errln("ERROR: first() returned" + p + "instead of" + testString.length());
+            errln("ERROR: last() returned" + p + "instead of" + testString.length());
         }
         q = wordIter1.previous();
         doTest(testString, p, q, 37, "dollars");
@@ -377,11 +379,11 @@ public class RBBIAPITest extends com.ibm.icu.dev.test.TestFmwk {
     @Test
     public void TestIsBoundary() {
         String testString1 = "Write here. \u092d\u0301\u0930\u0924 \u0938\u0941\u0902\u0926\u0930 a\u0301u";
-        RuleBasedBreakIterator charIter1 = (RuleBasedBreakIterator) BreakIterator.getCharacterInstance(Locale.getDefault());
+        RuleBasedBreakIterator charIter1 = (RuleBasedBreakIterator) BreakIterator.getCharacterInstance(Locale.ENGLISH);
         charIter1.setText(testString1);
         int bounds1[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 20, 21, 22, 23, 25, 26};
         doBoundaryTest(charIter1, testString1, bounds1);
-        RuleBasedBreakIterator wordIter2 = (RuleBasedBreakIterator) BreakIterator.getWordInstance(Locale.getDefault());
+        RuleBasedBreakIterator wordIter2 = (RuleBasedBreakIterator) BreakIterator.getWordInstance(Locale.ENGLISH);
         wordIter2.setText(testString1);
         int bounds2[] = {0, 5, 6, 10, 11, 12, 16, 17, 22, 23, 26};
         doBoundaryTest(wordIter2, testString1, bounds2);
@@ -458,7 +460,7 @@ public class RBBIAPITest extends com.ibm.icu.dev.test.TestFmwk {
         }
     }
 
-    /*Internal subroutine used for comparision of expected and acquired results */
+    /*Internal subroutine used for comparison of expected and acquired results */
     private void doTest(String testString, int start, int gotoffset, int expectedOffset, String expectedString) {
         String selected;
         String expected = expectedString;

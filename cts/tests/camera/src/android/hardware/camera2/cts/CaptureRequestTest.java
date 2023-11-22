@@ -22,6 +22,7 @@ import static android.hardware.camera2.CameraCharacteristics.*;
 import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.Rect;
+import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraMetadata;
@@ -37,10 +38,14 @@ import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.RggbChannelVector;
 import android.hardware.camera2.params.TonemapCurve;
 import android.media.Image;
+import android.os.Parcel;
+import android.platform.test.annotations.AppModeFull;
+import android.util.ArraySet;
 import android.util.Log;
 import android.util.Range;
 import android.util.Rational;
 import android.util.Size;
+import android.view.Surface;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -56,6 +61,7 @@ import java.util.List;
  * manual ISP control and other per-frame control and synchronization.
  * </p>
  */
+@AppModeFull
 public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "CaptureRequestTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -126,6 +132,89 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
     @Override
     protected void tearDown() throws Exception {
         super.tearDown();
+    }
+
+    /**
+     * Test CaptureRequest settings parcelling.
+     */
+    public void testSettingsBinderParcel() throws Exception {
+        SurfaceTexture outputTexture = new SurfaceTexture(/* random texture ID */ 5);
+        Surface surface = new Surface(outputTexture);
+
+        for (int i = 0; i < mCameraIds.length; i++) {
+            try {
+                openDevice(mCameraIds[i]);
+                CaptureRequest.Builder requestBuilder =
+                        mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                requestBuilder.addTarget(surface);
+
+                // Check regular/default case
+                CaptureRequest captureRequestOriginal = requestBuilder.build();
+                Parcel p;
+                p = Parcel.obtain();
+                captureRequestOriginal.writeToParcel(p, 0);
+                p.setDataPosition(0);
+                CaptureRequest captureRequestParcelled = CaptureRequest.CREATOR.createFromParcel(p);
+                assertEquals("Parcelled camera settings should match",
+                        captureRequestParcelled.get(CaptureRequest.CONTROL_CAPTURE_INTENT),
+                        new Integer(CameraMetadata.CONTROL_CAPTURE_INTENT_PREVIEW));
+                p.recycle();
+
+                // Check capture request with additional physical camera settings
+                String physicalId = new String(Integer.toString(i + 1));
+                ArraySet<String> physicalIds = new ArraySet<String> ();
+                physicalIds.add(physicalId);
+
+                requestBuilder = mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW,
+                        physicalIds);
+                requestBuilder.addTarget(surface);
+                captureRequestOriginal = requestBuilder.build();
+                p = Parcel.obtain();
+                captureRequestOriginal.writeToParcel(p, 0);
+                p.setDataPosition(0);
+                captureRequestParcelled = CaptureRequest.CREATOR.createFromParcel(p);
+                assertEquals("Parcelled camera settings should match",
+                        captureRequestParcelled.get(CaptureRequest.CONTROL_CAPTURE_INTENT),
+                        new Integer(CameraMetadata.CONTROL_CAPTURE_INTENT_PREVIEW));
+                p.recycle();
+
+                // Check various invalid cases
+                p = Parcel.obtain();
+                p.writeInt(-1);
+                p.setDataPosition(0);
+                try {
+                    captureRequestParcelled = CaptureRequest.CREATOR.createFromParcel(p);
+                    fail("should get RuntimeException due to invalid number of settings");
+                } catch (RuntimeException e) {
+                    // Expected
+                }
+                p.recycle();
+
+                p = Parcel.obtain();
+                p.writeInt(0);
+                p.setDataPosition(0);
+                try {
+                    captureRequestParcelled = CaptureRequest.CREATOR.createFromParcel(p);
+                    fail("should get RuntimeException due to invalid number of settings");
+                } catch (RuntimeException e) {
+                    // Expected
+                }
+                p.recycle();
+
+                p = Parcel.obtain();
+                p.writeInt(1);
+                p.setDataPosition(0);
+                try {
+                    captureRequestParcelled = CaptureRequest.CREATOR.createFromParcel(p);
+                    fail("should get RuntimeException due to absent settings");
+                } catch (RuntimeException e) {
+                    // Expected
+                }
+                p.recycle();
+            } finally {
+                closeDevice();
+            }
+        }
     }
 
     /**
@@ -1506,6 +1595,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             case CONTROL_AE_MODE_ON_AUTO_FLASH:
             case CONTROL_AE_MODE_ON_AUTO_FLASH_REDEYE:
             case CONTROL_AE_MODE_ON_ALWAYS_FLASH:
+            case CONTROL_AE_MODE_ON_EXTERNAL_FLASH:
                 // Test AE lock for above AUTO modes.
                 aeAutoModeTestLock(mode);
                 break;
@@ -2630,6 +2720,10 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             // Allow a larger error margin (1.5%) for timestamps
             frameDurationErrorMargin = 0.015f;
         }
+        if (mStaticInfo.isExternalCamera()) {
+            // Allow a even larger error margin (15%) for external camera timestamps
+            frameDurationErrorMargin = 0.15f;
+        }
 
         boolean antiBandingOffIsSupported = mStaticInfo.isAntiBandingOffModeSupported();
         Range<Integer> fpsRange;
@@ -2801,6 +2895,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
     private void validate3aRegion(
             CaptureResult result, int algoIdx, MeteringRectangle[] expectRegions)
     {
+        final int maxCorrectionDist = 2;
         int maxRegions;
         CaptureResult.Key<MeteringRectangle[]> key;
         MeteringRectangle[] actualRegion;
@@ -2822,13 +2917,41 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                 throw new IllegalArgumentException("Unknown 3A Algorithm!");
         }
 
+        Integer distortionCorrectionMode = result.get(CaptureResult.DISTORTION_CORRECTION_MODE);
+        boolean correctionEnabled =
+                distortionCorrectionMode != null &&
+                distortionCorrectionMode != CaptureResult.DISTORTION_CORRECTION_MODE_OFF;
+
         if (maxRegions > 0)
         {
             actualRegion = getValueNotNull(result, key);
-            mCollector.expectEquals(
+            if (correctionEnabled) {
+                for(int i = 0; i < actualRegion.length; i++) {
+                    Rect a = actualRegion[i].getRect();
+                    Rect e = expectRegions[i].getRect();
+                    if (!mCollector.expectLessOrEqual(
+                        "Expected 3A regions: " + Arrays.toString(expectRegions) +
+                        " are not close enough to the actual one: " + Arrays.toString(actualRegion),
+                        maxCorrectionDist, Math.abs(a.left - e.left))) continue;
+                    if (!mCollector.expectLessOrEqual(
+                        "Expected 3A regions: " + Arrays.toString(expectRegions) +
+                        " are not close enough to the actual one: " + Arrays.toString(actualRegion),
+                        maxCorrectionDist, Math.abs(a.right - e.right))) continue;
+                    if (!mCollector.expectLessOrEqual(
+                        "Expected 3A regions: " + Arrays.toString(expectRegions) +
+                        " are not close enough to the actual one: " + Arrays.toString(actualRegion),
+                        maxCorrectionDist, Math.abs(a.top - e.top))) continue;
+                    if (!mCollector.expectLessOrEqual(
+                        "Expected 3A regions: " + Arrays.toString(expectRegions) +
+                        " are not close enough to the actual one: " + Arrays.toString(actualRegion),
+                        maxCorrectionDist, Math.abs(a.bottom - e.bottom))) continue;
+                }
+            } else {
+                mCollector.expectEquals(
                     "Expected 3A regions: " + Arrays.toString(expectRegions) +
                     " does not match actual one: " + Arrays.toString(actualRegion),
                     expectRegions, actualRegion);
+            }
         }
     }
 }

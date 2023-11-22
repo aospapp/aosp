@@ -15,10 +15,11 @@
  */
 package com.android.tradefed.testtype;
 
-import com.android.ddmlib.testrunner.ITestRunListener;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -35,9 +36,9 @@ import java.util.Map;
 public class GoogleBenchmarkResultParser {
 
     private String mTestClassName;
-    private final ITestRunListener mTestListener;
+    private final ITestInvocationListener mTestListener;
 
-    public GoogleBenchmarkResultParser(String testClassName, ITestRunListener listener) {
+    public GoogleBenchmarkResultParser(String testClassName, ITestInvocationListener listener) {
         mTestClassName = testClassName;
         mTestListener = listener;
     }
@@ -53,6 +54,7 @@ public class GoogleBenchmarkResultParser {
         String outputLogs = output.getOutput();
         Map<String, String> results = new HashMap<String, String>();
         JSONObject res = null;
+        outputLogs = sanitizeOutput(outputLogs);
         try {
             res = new JSONObject(outputLogs);
             // Parse context first
@@ -72,7 +74,7 @@ public class GoogleBenchmarkResultParser {
                 Map<String, String> testResults = new HashMap<String, String>();
                 JSONObject testRes = (JSONObject) benchmarks.get(i);
                 String name = testRes.getString("name");
-                TestIdentifier testId = new TestIdentifier(mTestClassName, name);
+                TestDescription testId = new TestDescription(mTestClassName, name);
                 mTestListener.testStarted(testId);
                 try {
                     testResults = parseJsonToMap(testRes);
@@ -81,7 +83,7 @@ public class GoogleBenchmarkResultParser {
                     mTestListener.testFailed(testId,String.format("Test failed to generate "
                                 + "proper results: %s", e.getMessage()));
                 }
-                mTestListener.testEnded(testId, testResults);
+                mTestListener.testEnded(testId, TfMetricProtoUtil.upgradeConvert(testResults));
             }
             results.put("Pass", Integer.toString(benchmarks.length()));
         } catch (JSONException e) {
@@ -103,5 +105,26 @@ public class GoogleBenchmarkResultParser {
             testResults.put(key, j.get(key).toString());
         }
         return testResults;
+    }
+
+    /**
+     * In some cases a warning is printed before the JSON output. We remove it to avoid parsing
+     * failures.
+     */
+    private String sanitizeOutput(String output) {
+        // If it already looks like a proper JSON.
+        // TODO: Maybe parse first and if it fails sanitize. Could avoid some failures?
+        if (output.startsWith("{")) {
+            return output;
+        }
+        int indexStart = output.indexOf('{');
+        if (indexStart == -1) {
+            // Nothing we can do here, the parsing will most likely fail afterward.
+            CLog.w("Output does not look like a proper JSON.");
+            return output;
+        }
+        String newOuput = output.substring(indexStart);
+        CLog.d("We removed the following from the output: '%s'", output.subSequence(0, indexStart));
+        return newOuput;
     }
 }

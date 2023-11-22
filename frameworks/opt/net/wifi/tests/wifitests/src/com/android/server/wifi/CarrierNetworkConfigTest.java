@@ -23,13 +23,18 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.database.ContentObserver;
+import android.net.Uri;
 import android.net.wifi.EAPConstants;
 import android.net.wifi.WifiEnterpriseConfig;
 import android.os.PersistableBundle;
+import android.os.test.TestLooper;
+import android.support.test.filters.SmallTest;
 import android.telephony.CarrierConfigManager;
+import android.telephony.ImsiEncryptionInfo;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.telephony.TelephonyManager;
 import android.util.Base64;
 
 import org.junit.Before;
@@ -38,6 +43,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.security.PublicKey;
 import java.util.Arrays;
 
 /**
@@ -57,8 +63,16 @@ public class CarrierNetworkConfigTest {
     @Mock Context mContext;
     @Mock CarrierConfigManager mCarrierConfigManager;
     @Mock SubscriptionManager mSubscriptionManager;
+    @Mock TelephonyManager mTelephonyManager;
+    @Mock PublicKey mPublicKey;
+    @Mock FrameworkFacade mFrameworkFacade;
     BroadcastReceiver mBroadcastReceiver;
     CarrierNetworkConfig mCarrierNetworkConfig;
+    TestLooper mLooper;
+    ContentObserver mContentObserver;
+
+    private ImsiEncryptionInfo mImsiEncryptionInfo = new ImsiEncryptionInfo(null, null, 0, null,
+            mPublicKey, null);
 
     /**
      * Generate and return a carrier config for testing
@@ -86,15 +100,25 @@ public class CarrierNetworkConfigTest {
                 .thenReturn(mCarrierConfigManager);
         when(mContext.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE))
                 .thenReturn(mSubscriptionManager);
+        when(mContext.getSystemService(Context.TELEPHONY_SERVICE)).thenReturn(mTelephonyManager);
         when(mCarrierConfigManager.getConfigForSubId(TEST_SUBSCRIPTION_ID))
                 .thenReturn(generateTestConfig(TEST_SSID, TEST_STANDARD_EAP_TYPE));
         when(mSubscriptionManager.getActiveSubscriptionInfoList())
                 .thenReturn(Arrays.asList(new SubscriptionInfo[] {TEST_SUBSCRIPTION_INFO}));
-        mCarrierNetworkConfig = new CarrierNetworkConfig(mContext);
+        when(mTelephonyManager.getCarrierInfoForImsiEncryption(TelephonyManager.KEY_TYPE_WLAN))
+                .thenReturn(mImsiEncryptionInfo);
+        mLooper = new TestLooper();
+        mCarrierNetworkConfig = new CarrierNetworkConfig(mContext, mLooper.getLooper(),
+                mFrameworkFacade);
         ArgumentCaptor<BroadcastReceiver> receiver =
                 ArgumentCaptor.forClass(BroadcastReceiver.class);
         verify(mContext).registerReceiver(receiver.capture(), any(IntentFilter.class));
         mBroadcastReceiver = receiver.getValue();
+        ArgumentCaptor<ContentObserver> observerCaptor =
+                ArgumentCaptor.forClass(ContentObserver.class);
+        verify(mFrameworkFacade).registerContentObserver(eq(mContext), any(Uri.class), eq(false),
+                observerCaptor.capture());
+        mContentObserver = observerCaptor.getValue();
         reset(mCarrierConfigManager);
     }
 
@@ -110,6 +134,35 @@ public class CarrierNetworkConfigTest {
         assertTrue(mCarrierNetworkConfig.isCarrierNetwork(TEST_SSID));
         assertEquals(TEST_INTERNAL_EAP_TYPE, mCarrierNetworkConfig.getNetworkEapType(TEST_SSID));
         assertEquals(TEST_CARRIER_NAME, mCarrierNetworkConfig.getCarrierName(TEST_SSID));
+    }
+
+    /**
+     * Verify that {@link CarrierNetworkConfig#isCarrierEncryptionInfoAvailable} will return true
+     * when the carrier IMSI encryption info is available.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void verifyIsCarrierEncryptionInfoAvailableReturnsTrueWhenEncryptionInfoIsAvailable()
+            throws Exception {
+        assertTrue(mCarrierNetworkConfig.isCarrierEncryptionInfoAvailable());
+    }
+
+    /**
+     * Verify that {@link CarrierNetworkConfig#isCarrierEncryptionInfoAvailable} will return false
+     * when the carrier IMSI encryption info is not available.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void verifyIsCarrierEncryptionInfoAvailableReturnsFalseWhenEncryptionInfoNotAvailable()
+            throws Exception {
+        when(mTelephonyManager.getCarrierInfoForImsiEncryption(TelephonyManager.KEY_TYPE_WLAN))
+                .thenReturn(null);
+        mBroadcastReceiver.onReceive(mContext,
+                new Intent(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED));
+
+        assertFalse(mCarrierNetworkConfig.isCarrierEncryptionInfoAvailable());
     }
 
     /**
@@ -168,5 +221,23 @@ public class CarrierNetworkConfigTest {
     public void receivedNonCarrierConfigChangedIntent() throws Exception {
         mBroadcastReceiver.onReceive(mContext, new Intent("dummyIntent"));
         verify(mCarrierConfigManager, never()).getConfig();
+    }
+
+    /**
+     * Verify that updateNetworkConfig is called when carrier networks certificates are downloaded.
+     */
+    @Test
+    public void onFeatureDisable_setWifiNetworksAvailableNotificationSettingDisabled() {
+        when(mTelephonyManager.getCarrierInfoForImsiEncryption(TelephonyManager.KEY_TYPE_WLAN))
+                .thenReturn(null);
+        mBroadcastReceiver.onReceive(mContext,
+                new Intent(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED));
+        // make sure the initial value is false
+        assertFalse(mCarrierNetworkConfig.isCarrierEncryptionInfoAvailable());
+
+        when(mTelephonyManager.getCarrierInfoForImsiEncryption(TelephonyManager.KEY_TYPE_WLAN))
+                .thenReturn(mImsiEncryptionInfo);
+        mContentObserver.onChange(false);
+        assertTrue(mCarrierNetworkConfig.isCarrierEncryptionInfoAvailable());
     }
 }

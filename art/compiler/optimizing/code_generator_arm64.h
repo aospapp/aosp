@@ -20,12 +20,12 @@
 #include "arch/arm64/quick_method_frame_info_arm64.h"
 #include "code_generator.h"
 #include "common_arm64.h"
-#include "dex_file_types.h"
+#include "dex/dex_file_types.h"
+#include "dex/string_reference.h"
+#include "dex/type_reference.h"
 #include "driver/compiler_options.h"
 #include "nodes.h"
 #include "parallel_move_resolver.h"
-#include "string_reference.h"
-#include "type_reference.h"
 #include "utils/arm64/assembler_arm64.h"
 
 // TODO(VIXL): Make VIXL compile with -Wshadow.
@@ -100,7 +100,7 @@ const vixl::aarch64::CPURegList callee_saved_fp_registers(vixl::aarch64::CPURegi
                                                           vixl::aarch64::kDRegSize,
                                                           vixl::aarch64::d8.GetCode(),
                                                           vixl::aarch64::d15.GetCode());
-Location ARM64ReturnLocation(Primitive::Type return_type);
+Location ARM64ReturnLocation(DataType::Type return_type);
 
 class SlowPathCodeARM64 : public SlowPathCode {
  public:
@@ -171,7 +171,7 @@ class InvokeRuntimeCallingConvention : public CallingConvention<vixl::aarch64::R
                           kRuntimeParameterFpuRegistersLength,
                           kArm64PointerSize) {}
 
-  Location GetReturnLocation(Primitive::Type return_type);
+  Location GetReturnLocation(DataType::Type return_type);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(InvokeRuntimeCallingConvention);
@@ -187,7 +187,7 @@ class InvokeDexCallingConvention : public CallingConvention<vixl::aarch64::Regis
                           kParameterFPRegistersLength,
                           kArm64PointerSize) {}
 
-  Location GetReturnLocation(Primitive::Type return_type) const {
+  Location GetReturnLocation(DataType::Type return_type) const {
     return ARM64ReturnLocation(return_type);
   }
 
@@ -201,8 +201,8 @@ class InvokeDexCallingConventionVisitorARM64 : public InvokeDexCallingConvention
   InvokeDexCallingConventionVisitorARM64() {}
   virtual ~InvokeDexCallingConventionVisitorARM64() {}
 
-  Location GetNextLocation(Primitive::Type type) OVERRIDE;
-  Location GetReturnLocation(Primitive::Type return_type) const OVERRIDE {
+  Location GetNextLocation(DataType::Type type) OVERRIDE;
+  Location GetReturnLocation(DataType::Type return_type) const OVERRIDE {
     return calling_convention.GetReturnLocation(return_type);
   }
   Location GetMethodLocation() const OVERRIDE;
@@ -223,16 +223,16 @@ class FieldAccessCallingConventionARM64 : public FieldAccessCallingConvention {
   Location GetFieldIndexLocation() const OVERRIDE {
     return helpers::LocationFrom(vixl::aarch64::x0);
   }
-  Location GetReturnLocation(Primitive::Type type ATTRIBUTE_UNUSED) const OVERRIDE {
+  Location GetReturnLocation(DataType::Type type ATTRIBUTE_UNUSED) const OVERRIDE {
     return helpers::LocationFrom(vixl::aarch64::x0);
   }
-  Location GetSetValueLocation(Primitive::Type type ATTRIBUTE_UNUSED,
+  Location GetSetValueLocation(DataType::Type type ATTRIBUTE_UNUSED,
                                bool is_instance) const OVERRIDE {
     return is_instance
         ? helpers::LocationFrom(vixl::aarch64::x2)
         : helpers::LocationFrom(vixl::aarch64::x1);
   }
-  Location GetFpuLocation(Primitive::Type type ATTRIBUTE_UNUSED) const OVERRIDE {
+  Location GetFpuLocation(DataType::Type type ATTRIBUTE_UNUSED) const OVERRIDE {
     return helpers::LocationFrom(vixl::aarch64::d0);
   }
 
@@ -489,7 +489,7 @@ class CodeGeneratorARM64 : public CodeGenerator {
   uint32_t GetPreferredSlotsAlignment() const OVERRIDE { return vixl::aarch64::kXRegSizeInBytes; }
 
   JumpTableARM64* CreateJumpTable(HPackedSwitch* switch_instr) {
-    jump_tables_.emplace_back(new (GetGraph()->GetArena()) JumpTableARM64(switch_instr));
+    jump_tables_.emplace_back(new (GetGraph()->GetAllocator()) JumpTableARM64(switch_instr));
     return jump_tables_.back().get();
   }
 
@@ -498,13 +498,13 @@ class CodeGeneratorARM64 : public CodeGenerator {
   // Code generation helpers.
   void MoveConstant(vixl::aarch64::CPURegister destination, HConstant* constant);
   void MoveConstant(Location destination, int32_t value) OVERRIDE;
-  void MoveLocation(Location dst, Location src, Primitive::Type dst_type) OVERRIDE;
+  void MoveLocation(Location dst, Location src, DataType::Type dst_type) OVERRIDE;
   void AddLocationAsTemp(Location location, LocationSummary* locations) OVERRIDE;
 
-  void Load(Primitive::Type type,
+  void Load(DataType::Type type,
             vixl::aarch64::CPURegister dst,
             const vixl::aarch64::MemOperand& src);
-  void Store(Primitive::Type type,
+  void Store(DataType::Type type,
              vixl::aarch64::CPURegister src,
              const vixl::aarch64::MemOperand& dst);
   void LoadAcquire(HInstruction* instruction,
@@ -512,7 +512,7 @@ class CodeGeneratorARM64 : public CodeGenerator {
                    const vixl::aarch64::MemOperand& src,
                    bool needs_null_check);
   void StoreRelease(HInstruction* instruction,
-                    Primitive::Type type,
+                    DataType::Type type,
                     vixl::aarch64::CPURegister src,
                     const vixl::aarch64::MemOperand& dst,
                     bool needs_null_check);
@@ -531,7 +531,7 @@ class CodeGeneratorARM64 : public CodeGenerator {
 
   ParallelMoveResolverARM64* GetMoveResolver() OVERRIDE { return &move_resolver_; }
 
-  bool NeedsTwoRegisters(Primitive::Type type ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool NeedsTwoRegisters(DataType::Type type ATTRIBUTE_UNUSED) const OVERRIDE {
     return false;
   }
 
@@ -557,7 +557,7 @@ class CodeGeneratorARM64 : public CodeGenerator {
       HInvokeVirtual* invoke, Location temp, SlowPathCode* slow_path = nullptr) OVERRIDE;
 
   void MoveFromReturnRegister(Location trg ATTRIBUTE_UNUSED,
-                              Primitive::Type type ATTRIBUTE_UNUSED) OVERRIDE {
+                              DataType::Type type ATTRIBUTE_UNUSED) OVERRIDE {
     UNIMPLEMENTED(FATAL);
   }
 
@@ -565,8 +565,8 @@ class CodeGeneratorARM64 : public CodeGenerator {
   // to be bound before the instruction. The instruction will be either the
   // ADRP (pass `adrp_label = null`) or the ADD (pass `adrp_label` pointing
   // to the associated ADRP patch label).
-  vixl::aarch64::Label* NewPcRelativeMethodPatch(MethodReference target_method,
-                                                 vixl::aarch64::Label* adrp_label = nullptr);
+  vixl::aarch64::Label* NewBootImageMethodPatch(MethodReference target_method,
+                                                vixl::aarch64::Label* adrp_label = nullptr);
 
   // Add a new .bss entry method patch for an instruction and return
   // the label to be bound before the instruction. The instruction will be
@@ -579,9 +579,9 @@ class CodeGeneratorARM64 : public CodeGenerator {
   // to be bound before the instruction. The instruction will be either the
   // ADRP (pass `adrp_label = null`) or the ADD (pass `adrp_label` pointing
   // to the associated ADRP patch label).
-  vixl::aarch64::Label* NewPcRelativeTypePatch(const DexFile& dex_file,
-                                               dex::TypeIndex type_index,
-                                               vixl::aarch64::Label* adrp_label = nullptr);
+  vixl::aarch64::Label* NewBootImageTypePatch(const DexFile& dex_file,
+                                              dex::TypeIndex type_index,
+                                              vixl::aarch64::Label* adrp_label = nullptr);
 
   // Add a new .bss entry type patch for an instruction and return the label
   // to be bound before the instruction. The instruction will be either the
@@ -595,9 +595,17 @@ class CodeGeneratorARM64 : public CodeGenerator {
   // to be bound before the instruction. The instruction will be either the
   // ADRP (pass `adrp_label = null`) or the ADD (pass `adrp_label` pointing
   // to the associated ADRP patch label).
-  vixl::aarch64::Label* NewPcRelativeStringPatch(const DexFile& dex_file,
-                                                 dex::StringIndex string_index,
-                                                 vixl::aarch64::Label* adrp_label = nullptr);
+  vixl::aarch64::Label* NewBootImageStringPatch(const DexFile& dex_file,
+                                                dex::StringIndex string_index,
+                                                vixl::aarch64::Label* adrp_label = nullptr);
+
+  // Add a new .bss entry string patch for an instruction and return the label
+  // to be bound before the instruction. The instruction will be either the
+  // ADRP (pass `adrp_label = null`) or the ADD (pass `adrp_label` pointing
+  // to the associated ADRP patch label).
+  vixl::aarch64::Label* NewStringBssEntryPatch(const DexFile& dex_file,
+                                               dex::StringIndex string_index,
+                                               vixl::aarch64::Label* adrp_label = nullptr);
 
   // Add a new baker read barrier patch and return the label to be bound
   // before the CBNZ instruction.
@@ -619,7 +627,7 @@ class CodeGeneratorARM64 : public CodeGenerator {
                                 vixl::aarch64::Register out,
                                 vixl::aarch64::Register base);
 
-  void EmitLinkerPatches(ArenaVector<LinkerPatch>* linker_patches) OVERRIDE;
+  void EmitLinkerPatches(ArenaVector<linker::LinkerPatch>* linker_patches) OVERRIDE;
 
   void EmitJitRootPatches(uint8_t* code, const uint8_t* roots_data) OVERRIDE;
 
@@ -687,6 +695,22 @@ class CodeGeneratorARM64 : public CodeGenerator {
                                 bool needs_null_check,
                                 bool use_load_acquire);
 
+  // Emit code checking the status of the Marking Register, and
+  // aborting the program if MR does not match the value stored in the
+  // art::Thread object. Code is only emitted in debug mode and if
+  // CompilerOptions::EmitRunTimeChecksInDebugMode returns true.
+  //
+  // Argument `code` is used to identify the different occurrences of
+  // MaybeGenerateMarkingRegisterCheck in the code generator, and is
+  // passed to the BRK instruction.
+  //
+  // If `temp_loc` is a valid location, it is expected to be a
+  // register and will be used as a temporary to generate code;
+  // otherwise, a temporary will be fetched from the core register
+  // scratch pool.
+  virtual void MaybeGenerateMarkingRegisterCheck(int code,
+                                                 Location temp_loc = Location::NoLocation());
+
   // Generate a read barrier for a heap reference within `instruction`
   // using a slow path.
   //
@@ -753,17 +777,12 @@ class CodeGeneratorARM64 : public CodeGenerator {
   vixl::aarch64::Literal<uint32_t>* DeduplicateUint32Literal(uint32_t value);
   vixl::aarch64::Literal<uint64_t>* DeduplicateUint64Literal(uint64_t value);
 
-  // The PcRelativePatchInfo is used for PC-relative addressing of dex cache arrays
-  // and boot image strings/types. The only difference is the interpretation of the
-  // offset_or_index.
-  struct PcRelativePatchInfo {
-    PcRelativePatchInfo(const DexFile& dex_file, uint32_t off_or_idx)
-        : target_dex_file(dex_file), offset_or_index(off_or_idx), label(), pc_insn_label() { }
+  // The PcRelativePatchInfo is used for PC-relative addressing of methods/strings/types,
+  // whether through .data.bimg.rel.ro, .bss, or directly in the boot image.
+  struct PcRelativePatchInfo : PatchInfo<vixl::aarch64::Label> {
+    PcRelativePatchInfo(const DexFile* dex_file, uint32_t off_or_idx)
+        : PatchInfo<vixl::aarch64::Label>(dex_file, off_or_idx), pc_insn_label() { }
 
-    const DexFile& target_dex_file;
-    // Either the dex cache array element offset or the string/type index.
-    uint32_t offset_or_index;
-    vixl::aarch64::Label label;
     vixl::aarch64::Label* pc_insn_label;
   };
 
@@ -774,16 +793,16 @@ class CodeGeneratorARM64 : public CodeGenerator {
     uint32_t custom_data;
   };
 
-  vixl::aarch64::Label* NewPcRelativePatch(const DexFile& dex_file,
+  vixl::aarch64::Label* NewPcRelativePatch(const DexFile* dex_file,
                                            uint32_t offset_or_index,
                                            vixl::aarch64::Label* adrp_label,
                                            ArenaDeque<PcRelativePatchInfo>* patches);
 
   void EmitJumpTables();
 
-  template <LinkerPatch (*Factory)(size_t, const DexFile*, uint32_t, uint32_t)>
+  template <linker::LinkerPatch (*Factory)(size_t, const DexFile*, uint32_t, uint32_t)>
   static void EmitPcRelativeLinkerPatches(const ArenaDeque<PcRelativePatchInfo>& infos,
-                                          ArenaVector<LinkerPatch>* linker_patches);
+                                          ArenaVector<linker::LinkerPatch>* linker_patches);
 
   // Labels for each block that will be compiled.
   // We use a deque so that the `vixl::aarch64::Label` objects do not move in memory.
@@ -802,15 +821,17 @@ class CodeGeneratorARM64 : public CodeGenerator {
   // Deduplication map for 64-bit literals, used for non-patchable method address or method code.
   Uint64ToLiteralMap uint64_literals_;
   // PC-relative method patch info for kBootImageLinkTimePcRelative.
-  ArenaDeque<PcRelativePatchInfo> pc_relative_method_patches_;
+  ArenaDeque<PcRelativePatchInfo> boot_image_method_patches_;
   // PC-relative method patch info for kBssEntry.
   ArenaDeque<PcRelativePatchInfo> method_bss_entry_patches_;
   // PC-relative type patch info for kBootImageLinkTimePcRelative.
-  ArenaDeque<PcRelativePatchInfo> pc_relative_type_patches_;
+  ArenaDeque<PcRelativePatchInfo> boot_image_type_patches_;
   // PC-relative type patch info for kBssEntry.
   ArenaDeque<PcRelativePatchInfo> type_bss_entry_patches_;
-  // PC-relative String patch info; type depends on configuration (app .bss or boot image PIC).
-  ArenaDeque<PcRelativePatchInfo> pc_relative_string_patches_;
+  // PC-relative String patch info; type depends on configuration (intern table or boot image PIC).
+  ArenaDeque<PcRelativePatchInfo> boot_image_string_patches_;
+  // PC-relative String patch info for kBssEntry.
+  ArenaDeque<PcRelativePatchInfo> string_bss_entry_patches_;
   // Baker read barrier patch info.
   ArenaDeque<BakerReadBarrierPatchInfo> baker_read_barrier_patches_;
 

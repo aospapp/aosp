@@ -17,6 +17,6 @@
 -->
 
 <print-service xmlns:android="http://schemas.android.com/apk/res/android"
-     android:settingsActivity="android.print.cts.services.SettingsActivity"
-     android:addPrintersActivity="android.print.cts.services.AddPrintersActivity"
-     android:advancedPrintOptionsActivity="android.print.cts.services.CustomPrintOptionsActivity"/>
+     android:settingsActivity="android.print.test.services.SettingsActivity"
+     android:addPrintersActivity="android.print.test.services.AddPrintersActivity"
+     android:advancedPrintOptionsActivity="android.print.test.services.CustomPrintOptionsActivity"/>

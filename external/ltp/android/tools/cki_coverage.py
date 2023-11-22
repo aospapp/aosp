@@ -35,6 +35,11 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
+if "ANDROID_BUILD_TOP" not in os.environ:
+  print ("Please set up your Android build environment by running "
+         "\". build/envsetup.sh\" and \"lunch\".")
+  sys.exit(-1)
+
 sys.path.append(os.path.join(os.environ["ANDROID_BUILD_TOP"],
                 "bionic/libc/tools"))
 import gensyscalls
@@ -84,7 +89,7 @@ class CKI_Coverage(object):
   test_results = {}
 
   def __init__(self, arch):
-    self.arch = arch
+    self._arch = arch
 
   def load_ltp_tests(self):
     """Load the list of LTP syscall tests.
@@ -123,14 +128,23 @@ class CKI_Coverage(object):
     """
     tree = ET.parse(results)
     root = tree.getroot()
+    found = False
 
     # find LTP module
     for module in root.findall("Module"):
       if module.attrib["name"] != "VtsKernelLtp": continue
 
+      # ARM arch and ABI strings don't match exactly, x86 and mips do.
+      if self._arch == "arm":
+        if not module.attrib["abi"].startswith("armeabi-"): continue
+      elif self._arch == "arm64":
+        if not module.attrib["abi"].startswith("arm64-"): continue
+      elif self._arch != module.attrib["abi"]: continue
+
       # find LTP testcase
       for testcase in module.findall("TestCase"):
         if testcase.attrib["name"] != "KernelLtpTest": continue
+        found = True
 
         # iterate over each LTP test
         for test in testcase.findall("Test"):
@@ -148,6 +162,9 @@ class CKI_Coverage(object):
             print ("Unknown VTS LTP test result for %s is %s" %
                    (test_name, test.attrib["result"]))
             sys.exit(-1)
+    if not found:
+      print "Error: LTP test results for arch %s not found in supplied test results." % self._arch
+      sys.exit(-1)
 
   def ltp_test_special_cases(self, syscall, test):
     """Detect special cases in syscall to LTP mapping.
@@ -192,7 +209,7 @@ class CKI_Coverage(object):
         in the CKI.
     """
     for syscall in syscalls:
-      if self.arch not in syscall:
+      if self._arch not in syscall:
         continue
       self.cki_syscalls.append(syscall["name"])
       self.syscall_tests[syscall["name"]] = []
@@ -316,10 +333,15 @@ if __name__ == "__main__":
                       help="list CKI syscalls only, without coverage")
   parser.add_argument("-r", "--results", help="path to VTS test_result.xml")
   args = parser.parse_args()
+  if args.arch not in gensyscalls.all_arches:
+    print "Arch must be one of the following:"
+    print gensyscalls.all_arches
+    exit(-1)
 
   cki = gensyscalls.SysCallsTxtParser()
   cki.parse_file(os.path.join(bionic_libc_root, "SYSCALLS.TXT"))
   cki.parse_file(os.path.join(bionic_libc_root, "SECCOMP_WHITELIST.TXT"))
+  cki.parse_file(os.path.join(bionic_libc_root, "SECCOMP_WHITELIST_GLOBAL.TXT"))
   if args.l:
     for syscall in cki.syscalls:
       if args.arch in syscall:

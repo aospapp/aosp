@@ -28,18 +28,22 @@ import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ColorSpace;
+import android.graphics.ImageDecoder;
 import android.os.Parcel;
-import android.support.annotation.ColorInt;
-import android.support.annotation.NonNull;
 import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.RequiresDevice;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import androidx.annotation.ColorInt;
+import androidx.annotation.NonNull;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -739,5 +743,99 @@ public class BitmapColorSpaceTest {
         }
 
         assertTrue(pass);
+    }
+
+    @Test
+    public void testEncodeP3() {
+        Bitmap b = null;
+        ImageDecoder.Source src = ImageDecoder.createSource(mResources.getAssets(),
+                "prophoto-rgba16f.png");
+        try {
+            b = ImageDecoder.decodeBitmap(src, (decoder, info, s) -> {
+                decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+            });
+            assertNotNull(b);
+            assertEquals(Bitmap.Config.RGBA_F16, b.getConfig());
+        } catch (IOException e) {
+            fail("Failed with " + e);
+        }
+
+        for (Bitmap.CompressFormat format : new Bitmap.CompressFormat[] {
+                Bitmap.CompressFormat.JPEG,
+                Bitmap.CompressFormat.WEBP,
+                Bitmap.CompressFormat.PNG,
+        }) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            assertTrue("Failed to encode F16 to " + format, b.compress(format, 100, out));
+
+            byte[] array = out.toByteArray();
+            src = ImageDecoder.createSource(ByteBuffer.wrap(array));
+
+            try {
+                Bitmap b2 = ImageDecoder.decodeBitmap(src);
+                assertEquals("Wrong color space for " + format,
+                        ColorSpace.get(ColorSpace.Named.DISPLAY_P3), b2.getColorSpace());
+            } catch (IOException e) {
+                fail("Failed with " + e);
+            }
+        }
+    }
+
+    @Test
+    public void testEncodeP3hardware() {
+        Bitmap b = null;
+        ImageDecoder.Source src = ImageDecoder.createSource(mResources.getAssets(),
+                "green-p3.png");
+        try {
+            b = ImageDecoder.decodeBitmap(src, (decoder, info, s) -> {
+                decoder.setAllocator(ImageDecoder.ALLOCATOR_HARDWARE);
+            });
+            assertNotNull(b);
+            assertEquals(Bitmap.Config.HARDWARE, b.getConfig());
+            assertEquals(ColorSpace.get(ColorSpace.Named.DISPLAY_P3), b.getColorSpace());
+        } catch (IOException e) {
+            fail("Failed with " + e);
+        }
+
+        for (Bitmap.CompressFormat format : new Bitmap.CompressFormat[] {
+                Bitmap.CompressFormat.JPEG,
+                Bitmap.CompressFormat.WEBP,
+                Bitmap.CompressFormat.PNG,
+        }) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            assertTrue("Failed to encode 8888 to " + format, b.compress(format, 100, out));
+
+            byte[] array = out.toByteArray();
+            src = ImageDecoder.createSource(ByteBuffer.wrap(array));
+
+            try {
+                Bitmap b2 = ImageDecoder.decodeBitmap(src);
+                assertEquals("Wrong color space for " + format,
+                        ColorSpace.get(ColorSpace.Named.DISPLAY_P3), b2.getColorSpace());
+            } catch (IOException e) {
+                fail("Failed with " + e);
+            }
+        }
+    }
+
+    @Test
+    @RequiresDevice // SwiftShader does not yet have support for F16 in HARDWARE b/75778024
+    public void test16bitHardware() {
+        // Decoding to HARDWARE may use LINEAR_EXTENDED_SRGB or SRGB, depending
+        // on whether F16 is supported in HARDWARE.
+        try (InputStream in = mResources.getAssets().open("prophoto-rgba16f.png")) {
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inPreferredConfig = Bitmap.Config.HARDWARE;
+            Bitmap b = BitmapFactory.decodeStream(in, null, options);
+            assertEquals(Bitmap.Config.HARDWARE, b.getConfig());
+
+            final ColorSpace cs = b.getColorSpace();
+            if (cs != ColorSpace.get(ColorSpace.Named.LINEAR_EXTENDED_SRGB)
+                    && cs != ColorSpace.get(ColorSpace.Named.SRGB)) {
+                fail("Unexpected color space " + cs);
+            }
+        } catch (Exception e) {
+            fail("Failed with " + e);
+        }
     }
 }

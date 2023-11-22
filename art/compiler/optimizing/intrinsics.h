@@ -37,10 +37,18 @@ static constexpr uint64_t kNanDouble = 0x7ff8000000000000;
 // Recognize intrinsics from HInvoke nodes.
 class IntrinsicsRecognizer : public HOptimization {
  public:
-  IntrinsicsRecognizer(HGraph* graph, OptimizingCompilerStats* stats)
-      : HOptimization(graph, kIntrinsicsRecognizerPassName, stats) {}
+  IntrinsicsRecognizer(HGraph* graph,
+                       OptimizingCompilerStats* stats,
+                       const char* name = kIntrinsicsRecognizerPassName)
+      : HOptimization(graph, name, stats) {}
 
   void Run() OVERRIDE;
+
+  // Static helper that recognizes intrinsic call. Returns true on success.
+  // If it fails due to invoke type mismatch, wrong_invoke_type is set.
+  // Useful to recognize intrinsics on individual calls outside this full pass.
+  static bool Recognize(HInvoke* invoke, ArtMethod* method, /*out*/ bool* wrong_invoke_type)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   static constexpr const char* kIntrinsicsRecognizerPassName = "intrinsics_recognition";
 
@@ -63,7 +71,7 @@ class IntrinsicVisitor : public ValueObject {
         Visit ## Name(invoke);    \
         return;
 #include "intrinsics_list.h"
-INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
+        INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 #undef INTRINSICS_LIST
 #undef OPTIMIZING_INTRINSICS
 
@@ -77,7 +85,7 @@ INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
   virtual void Visit ## Name(HInvoke* invoke ATTRIBUTE_UNUSED) { \
   }
 #include "intrinsics_list.h"
-INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
+  INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 #undef INTRINSICS_LIST
 #undef OPTIMIZING_INTRINSICS
 
@@ -100,7 +108,7 @@ INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 
     // We're moving potentially two or more locations to locations that could overlap, so we need
     // a parallel move resolver.
-    HParallelMove parallel_move(codegen->GetGraph()->GetArena());
+    HParallelMove parallel_move(codegen->GetGraph()->GetAllocator());
 
     for (size_t i = 0; i < invoke->GetNumberOfArguments(); i++) {
       HInstruction* input = invoke->InputAt(i);
@@ -203,6 +211,7 @@ class StringEqualsOptimizations : public IntrinsicOptimizations {
 
   INTRINSIC_OPTIMIZATION(ArgumentNotNull, 0);
   INTRINSIC_OPTIMIZATION(ArgumentIsString, 1);
+  INTRINSIC_OPTIMIZATION(NoReadBarrierForStringClass, 2);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(StringEqualsOptimizations);
@@ -256,25 +265,63 @@ void IntrinsicCodeGenerator ## Arch::Visit ## Name(HInvoke* invoke) {    \
   LOG(FATAL) << "Unreachable: intrinsic " << invoke->GetIntrinsic()      \
              << " should have been converted to HIR";                    \
 }
-#define UNREACHABLE_INTRINSICS(Arch)                \
-UNREACHABLE_INTRINSIC(Arch, FloatFloatToIntBits)    \
-UNREACHABLE_INTRINSIC(Arch, DoubleDoubleToLongBits) \
-UNREACHABLE_INTRINSIC(Arch, FloatIsNaN)             \
-UNREACHABLE_INTRINSIC(Arch, DoubleIsNaN)            \
-UNREACHABLE_INTRINSIC(Arch, IntegerRotateLeft)      \
-UNREACHABLE_INTRINSIC(Arch, LongRotateLeft)         \
-UNREACHABLE_INTRINSIC(Arch, IntegerRotateRight)     \
-UNREACHABLE_INTRINSIC(Arch, LongRotateRight)        \
-UNREACHABLE_INTRINSIC(Arch, IntegerCompare)         \
-UNREACHABLE_INTRINSIC(Arch, LongCompare)            \
-UNREACHABLE_INTRINSIC(Arch, IntegerSignum)          \
-UNREACHABLE_INTRINSIC(Arch, LongSignum)             \
-UNREACHABLE_INTRINSIC(Arch, StringCharAt)           \
-UNREACHABLE_INTRINSIC(Arch, StringIsEmpty)          \
-UNREACHABLE_INTRINSIC(Arch, StringLength)           \
-UNREACHABLE_INTRINSIC(Arch, UnsafeLoadFence)        \
-UNREACHABLE_INTRINSIC(Arch, UnsafeStoreFence)       \
-UNREACHABLE_INTRINSIC(Arch, UnsafeFullFence)
+#define UNREACHABLE_INTRINSICS(Arch)                            \
+UNREACHABLE_INTRINSIC(Arch, FloatFloatToIntBits)                \
+UNREACHABLE_INTRINSIC(Arch, DoubleDoubleToLongBits)             \
+UNREACHABLE_INTRINSIC(Arch, FloatIsNaN)                         \
+UNREACHABLE_INTRINSIC(Arch, DoubleIsNaN)                        \
+UNREACHABLE_INTRINSIC(Arch, IntegerRotateLeft)                  \
+UNREACHABLE_INTRINSIC(Arch, LongRotateLeft)                     \
+UNREACHABLE_INTRINSIC(Arch, IntegerRotateRight)                 \
+UNREACHABLE_INTRINSIC(Arch, LongRotateRight)                    \
+UNREACHABLE_INTRINSIC(Arch, IntegerCompare)                     \
+UNREACHABLE_INTRINSIC(Arch, LongCompare)                        \
+UNREACHABLE_INTRINSIC(Arch, IntegerSignum)                      \
+UNREACHABLE_INTRINSIC(Arch, LongSignum)                         \
+UNREACHABLE_INTRINSIC(Arch, StringCharAt)                       \
+UNREACHABLE_INTRINSIC(Arch, StringIsEmpty)                      \
+UNREACHABLE_INTRINSIC(Arch, StringLength)                       \
+UNREACHABLE_INTRINSIC(Arch, UnsafeLoadFence)                    \
+UNREACHABLE_INTRINSIC(Arch, UnsafeStoreFence)                   \
+UNREACHABLE_INTRINSIC(Arch, UnsafeFullFence)                    \
+UNREACHABLE_INTRINSIC(Arch, VarHandleFullFence)                 \
+UNREACHABLE_INTRINSIC(Arch, VarHandleAcquireFence)              \
+UNREACHABLE_INTRINSIC(Arch, VarHandleReleaseFence)              \
+UNREACHABLE_INTRINSIC(Arch, VarHandleLoadLoadFence)             \
+UNREACHABLE_INTRINSIC(Arch, VarHandleStoreStoreFence)           \
+UNREACHABLE_INTRINSIC(Arch, MethodHandleInvokeExact)            \
+UNREACHABLE_INTRINSIC(Arch, MethodHandleInvoke)                 \
+UNREACHABLE_INTRINSIC(Arch, VarHandleCompareAndExchange)        \
+UNREACHABLE_INTRINSIC(Arch, VarHandleCompareAndExchangeAcquire) \
+UNREACHABLE_INTRINSIC(Arch, VarHandleCompareAndExchangeRelease) \
+UNREACHABLE_INTRINSIC(Arch, VarHandleCompareAndSet)             \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGet)                       \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAcquire)                \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndAdd)                 \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndAddAcquire)          \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndAddRelease)          \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseAnd)          \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseAndAcquire)   \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseAndRelease)   \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseOr)           \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseOrAcquire)    \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseOrRelease)    \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseXor)          \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseXorAcquire)   \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseXorRelease)   \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndSet)                 \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndSetAcquire)          \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndSetRelease)          \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetOpaque)                 \
+UNREACHABLE_INTRINSIC(Arch, VarHandleGetVolatile)               \
+UNREACHABLE_INTRINSIC(Arch, VarHandleSet)                       \
+UNREACHABLE_INTRINSIC(Arch, VarHandleSetOpaque)                 \
+UNREACHABLE_INTRINSIC(Arch, VarHandleSetRelease)                \
+UNREACHABLE_INTRINSIC(Arch, VarHandleSetVolatile)               \
+UNREACHABLE_INTRINSIC(Arch, VarHandleWeakCompareAndSet)         \
+UNREACHABLE_INTRINSIC(Arch, VarHandleWeakCompareAndSetAcquire)  \
+UNREACHABLE_INTRINSIC(Arch, VarHandleWeakCompareAndSetPlain)    \
+UNREACHABLE_INTRINSIC(Arch, VarHandleWeakCompareAndSetRelease)
 
 template <typename IntrinsicLocationsBuilder, typename Codegenerator>
 bool IsCallFreeIntrinsic(HInvoke* invoke, Codegenerator* codegen) {

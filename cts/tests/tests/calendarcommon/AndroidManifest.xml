@@ -30,7 +30,7 @@
             android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>
 
-    <uses-sdk android:minSdkVersion="15" android:targetSdkVersion="15"></uses-sdk>
+    <uses-sdk android:minSdkVersion="15" android:targetSdkVersion="17"></uses-sdk>
 
 </manifest>
 

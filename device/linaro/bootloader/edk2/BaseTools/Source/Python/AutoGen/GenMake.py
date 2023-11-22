@@ -1,7 +1,7 @@
 ## @file
 # Create makefile for MS nmake and GNU make
 #
-# Copyright (c) 2007 - 2014, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 # This program and the accompanying materials
 # are licensed and made available under the terms and conditions of the BSD License
 # which accompanies this distribution.  The full text of the license may be found at
@@ -233,7 +233,7 @@ PLATFORM_NAME = ${platform_name}
 PLATFORM_GUID = ${platform_guid}
 PLATFORM_VERSION = ${platform_version}
 PLATFORM_RELATIVE_DIR = ${platform_relative_directory}
-PLATFORM_DIR = $(WORKSPACE)${separator}${platform_relative_directory}
+PLATFORM_DIR = ${platform_dir}
 PLATFORM_OUTPUT_DIR = ${platform_output_directory}
 
 #
@@ -249,7 +249,7 @@ MODULE_FILE_BASE_NAME = ${module_file_base_name}
 BASE_NAME = $(MODULE_NAME)
 MODULE_RELATIVE_DIR = ${module_relative_directory}
 PACKAGE_RELATIVE_DIR = ${package_relative_directory}
-MODULE_DIR = $(WORKSPACE)${separator}${module_relative_directory}
+MODULE_DIR = ${module_dir}
 
 MODULE_ENTRY_POINT = ${module_entry_point}
 ARCH_ENTRY_POINT = ${arch_entry_point}
@@ -477,6 +477,22 @@ cleanlib:
             # EdkII modules always use "_ModuleEntryPoint" as entry point
             ImageEntryPoint = "_ModuleEntryPoint"
 
+        for k, v in self._AutoGenObject.Module.Defines.iteritems():
+            if k not in self._AutoGenObject.Macros.keys():
+                self._AutoGenObject.Macros[k] = v
+
+        if 'MODULE_ENTRY_POINT' not in self._AutoGenObject.Macros.keys():
+            self._AutoGenObject.Macros['MODULE_ENTRY_POINT'] = ModuleEntryPoint
+        if 'ARCH_ENTRY_POINT' not in self._AutoGenObject.Macros.keys():
+            self._AutoGenObject.Macros['ARCH_ENTRY_POINT'] = ArchEntryPoint
+        if 'IMAGE_ENTRY_POINT' not in self._AutoGenObject.Macros.keys():
+            self._AutoGenObject.Macros['IMAGE_ENTRY_POINT'] = ImageEntryPoint
+
+        PCI_COMPRESS_Flag = False
+        for k, v in self._AutoGenObject.Module.Defines.iteritems():
+            if 'PCI_COMPRESS' == k and 'TRUE' == v:
+                PCI_COMPRESS_Flag = True
+
         # tools definitions
         ToolsDef = []
         IncPrefix = self._INC_FLAG_[self._AutoGenObject.ToolChainFamily]
@@ -494,8 +510,42 @@ cleanlib:
                     # Remove duplicated include path, if any
                     if Attr == "FLAGS":
                         Value = RemoveDupOption(Value, IncPrefix, self._AutoGenObject.IncludePathList)
+                        if Tool == "OPTROM" and PCI_COMPRESS_Flag:
+                            ValueList = Value.split()
+                            if ValueList:
+                                for i, v in enumerate(ValueList):
+                                    if '-e' == v:
+                                        ValueList[i] = '-ec'
+                                Value = ' '.join(ValueList)
+
                     ToolsDef.append("%s_%s = %s" % (Tool, Attr, Value))
             ToolsDef.append("")
+
+        # generate the Response file and Response flag
+        RespDict = self.CommandExceedLimit()
+        RespFileList = os.path.join(self._AutoGenObject.OutputDir, 'respfilelist.txt')
+        if RespDict:
+            RespFileListContent = ''
+            for Resp in RespDict.keys():
+                RespFile = os.path.join(self._AutoGenObject.OutputDir, str(Resp).lower() + '.txt')
+                StrList = RespDict[Resp].split(' ')
+                UnexpandMacro = []
+                NewStr = []
+                for Str in StrList:
+                    if '$' in Str:
+                        UnexpandMacro.append(Str)
+                    else:
+                        NewStr.append(Str)
+                UnexpandMacroStr = ' '.join(UnexpandMacro)
+                NewRespStr = ' '.join(NewStr)
+                SaveFileOnChange(RespFile, NewRespStr, False)
+                ToolsDef.append("%s = %s" % (Resp, UnexpandMacroStr + ' @' + RespFile))
+                RespFileListContent += '@' + RespFile + os.linesep
+                RespFileListContent += NewRespStr + os.linesep
+            SaveFileOnChange(RespFileList, RespFileListContent, False)
+        else:
+            if os.path.exists(RespFileList):
+                os.remove(RespFileList)
 
         # convert source files and binary files to build targets
         self.ResultFileList = [str(T.Target) for T in self._AutoGenObject.CodaTargetList]
@@ -560,10 +610,11 @@ cleanlib:
         while not found and os.sep in package_rel_dir:
             index = package_rel_dir.index(os.sep)
             current_dir = mws.join(current_dir, package_rel_dir[:index])
-            for fl in os.listdir(current_dir):
-                if fl.endswith('.dec'):
-                    found = True
-                    break
+            if os.path.exists(current_dir):
+                for fl in os.listdir(current_dir):
+                    if fl.endswith('.dec'):
+                        found = True
+                        break
             package_rel_dir = package_rel_dir[index + 1:]
 
         MakefileTemplateDict = {
@@ -575,6 +626,7 @@ cleanlib:
             "platform_version"          : self.PlatformInfo.Version,
             "platform_relative_directory": self.PlatformInfo.SourceDir,
             "platform_output_directory" : self.PlatformInfo.OutputDir,
+            "platform_dir"              : self._AutoGenObject.Macros["PLATFORM_DIR"],
 
             "module_name"               : self._AutoGenObject.Name,
             "module_guid"               : self._AutoGenObject.Guid,
@@ -584,6 +636,7 @@ cleanlib:
             "module_file"               : self._AutoGenObject.MetaFile.Name,
             "module_file_base_name"     : self._AutoGenObject.MetaFile.BaseName,
             "module_relative_directory" : self._AutoGenObject.SourceDir,
+            "module_dir"                : mws.join (self.Macros["WORKSPACE"], self._AutoGenObject.SourceDir),
             "package_relative_directory": package_rel_dir,
             "module_extra_defines"      : ["%s = %s" % (k, v) for k, v in self._AutoGenObject.Module.Defines.iteritems()],
 
@@ -618,6 +671,113 @@ cleanlib:
         }
 
         return MakefileTemplateDict
+
+    def CommandExceedLimit(self):
+        FlagDict = {
+                    'CC'    :  { 'Macro' : '$(CC_FLAGS)',    'Value' : False},
+                    'PP'    :  { 'Macro' : '$(PP_FLAGS)',    'Value' : False},
+                    'APP'   :  { 'Macro' : '$(APP_FLAGS)',   'Value' : False},
+                    'ASLPP' :  { 'Macro' : '$(ASLPP_FLAGS)', 'Value' : False},
+                    'VFRPP' :  { 'Macro' : '$(VFRPP_FLAGS)', 'Value' : False},
+                    'ASM'   :  { 'Macro' : '$(ASM_FLAGS)',   'Value' : False},
+                    'ASLCC' :  { 'Macro' : '$(ASLCC_FLAGS)', 'Value' : False},
+                   }
+
+        RespDict = {}
+        FileTypeList = []
+        IncPrefix = self._INC_FLAG_[self._AutoGenObject.ToolChainFamily]
+
+        # base on the source files to decide the file type
+        for File in self._AutoGenObject.SourceFileList:
+            for type in self._AutoGenObject.FileTypes:
+                if File in self._AutoGenObject.FileTypes[type]:
+                    if type not in FileTypeList:
+                        FileTypeList.append(type)
+
+        # calculate the command-line length
+        if FileTypeList:
+            for type in FileTypeList:
+                BuildTargets = self._AutoGenObject.BuildRules[type].BuildTargets
+                for Target in BuildTargets:
+                    CommandList = BuildTargets[Target].Commands
+                    for SingleCommand in CommandList:
+                        Tool = ''
+                        SingleCommandLength = len(SingleCommand)
+                        SingleCommandList = SingleCommand.split()
+                        if len(SingleCommandList) > 0:
+                            for Flag in FlagDict.keys():
+                                if '$('+ Flag +')' in SingleCommandList[0]:
+                                    Tool = Flag
+                                    break
+                        if Tool:
+                            SingleCommandLength += len(self._AutoGenObject._BuildOption[Tool]['PATH'])
+                            for item in SingleCommandList[1:]:
+                                if FlagDict[Tool]['Macro'] in item:
+                                    Str = self._AutoGenObject._BuildOption[Tool]['FLAGS']
+                                    for Option in self._AutoGenObject.BuildOption.keys():
+                                        for Attr in self._AutoGenObject.BuildOption[Option]:
+                                            if Str.find(Option + '_' + Attr) != -1:
+                                                Str = Str.replace('$(' + Option + '_' + Attr + ')', self._AutoGenObject.BuildOption[Option][Attr])
+                                    while(Str.find('$(') != -1):
+                                        for macro in self._AutoGenObject.Macros.keys():
+                                            MacroName = '$('+ macro + ')'
+                                            if (Str.find(MacroName) != -1):
+                                                Str = Str.replace(MacroName, self._AutoGenObject.Macros[macro])
+                                                break
+                                        else:
+                                            break
+                                    SingleCommandLength += len(Str)
+                                elif '$(INC)' in item:
+                                    SingleCommandLength += self._AutoGenObject.IncludePathLength + len(IncPrefix) * len(self._AutoGenObject._IncludePathList)
+                                elif item.find('$(') != -1:
+                                    Str = item
+                                    for Option in self._AutoGenObject.BuildOption.keys():
+                                        for Attr in self._AutoGenObject.BuildOption[Option]:
+                                            if Str.find(Option + '_' + Attr) != -1:
+                                                Str = Str.replace('$(' + Option + '_' + Attr + ')', self._AutoGenObject.BuildOption[Option][Attr])
+                                    while(Str.find('$(') != -1):
+                                        for macro in self._AutoGenObject.Macros.keys():
+                                            MacroName = '$('+ macro + ')'
+                                            if (Str.find(MacroName) != -1):
+                                                Str = Str.replace(MacroName, self._AutoGenObject.Macros[macro])
+                                                break
+                                        else:
+                                            break
+                                    SingleCommandLength += len(Str)
+
+                            if SingleCommandLength > GlobalData.gCommandMaxLength:
+                                FlagDict[Tool]['Value'] = True
+
+                # generate the response file content by combine the FLAGS and INC
+                for Flag in FlagDict.keys():
+                    if FlagDict[Flag]['Value']:
+                        Key = Flag + '_RESP'
+                        RespMacro = FlagDict[Flag]['Macro'].replace('FLAGS', 'RESP')
+                        Value = self._AutoGenObject.BuildOption[Flag]['FLAGS']
+                        for inc in self._AutoGenObject._IncludePathList:
+                            Value += ' ' + IncPrefix + inc
+                        for Option in self._AutoGenObject.BuildOption.keys():
+                            for Attr in self._AutoGenObject.BuildOption[Option]:
+                                if Value.find(Option + '_' + Attr) != -1:
+                                    Value = Value.replace('$(' + Option + '_' + Attr + ')', self._AutoGenObject.BuildOption[Option][Attr])
+                        while (Value.find('$(') != -1):
+                            for macro in self._AutoGenObject.Macros.keys():
+                                MacroName = '$('+ macro + ')'
+                                if (Value.find(MacroName) != -1):
+                                    Value = Value.replace(MacroName, self._AutoGenObject.Macros[macro])
+                                    break
+                            else:
+                                break
+
+                        if self._AutoGenObject.ToolChainFamily == 'GCC':
+                            RespDict[Key] = Value.replace('\\', '/')
+                        else:
+                            RespDict[Key] = Value
+                        for Target in BuildTargets:
+                            for i, SingleCommand in enumerate(BuildTargets[Target].Commands):
+                                if FlagDict[Flag]['Macro'] in SingleCommand:
+                                    BuildTargets[Target].Commands[i] = SingleCommand.replace('$(INC)','').replace(FlagDict[Flag]['Macro'], RespMacro)
+        return RespDict
 
     def ProcessBuildTargetList(self):
         #
@@ -711,7 +871,8 @@ cleanlib:
     ## For creating makefile targets for dependent libraries
     def ProcessDependentLibrary(self):
         for LibraryAutoGen in self._AutoGenObject.LibraryAutoGenList:
-            self.LibraryBuildDirectoryList.append(self.PlaceMacro(LibraryAutoGen.BuildDir, self.Macros))
+            if not LibraryAutoGen.IsBinaryModule:
+                self.LibraryBuildDirectoryList.append(self.PlaceMacro(LibraryAutoGen.BuildDir, self.Macros))
 
     ## Return a list containing source file's dependencies
     #
@@ -848,7 +1009,7 @@ PLATFORM_NAME = ${platform_name}
 PLATFORM_GUID = ${platform_guid}
 PLATFORM_VERSION = ${platform_version}
 PLATFORM_RELATIVE_DIR = ${platform_relative_directory}
-PLATFORM_DIR = $(WORKSPACE)${separator}${platform_relative_directory}
+PLATFORM_DIR = ${platform_dir}
 PLATFORM_OUTPUT_DIR = ${platform_output_directory}
 
 #
@@ -863,7 +1024,7 @@ MODULE_FILE = ${module_file}
 MODULE_FILE_BASE_NAME = ${module_file_base_name}
 BASE_NAME = $(MODULE_NAME)
 MODULE_RELATIVE_DIR = ${module_relative_directory}
-MODULE_DIR = $(WORKSPACE)${separator}${module_relative_directory}
+MODULE_DIR = ${module_dir}
 
 #
 # Build Configuration Macro Definition
@@ -944,7 +1105,7 @@ ${BEGIN}\t-@${create_directory_command}\n${END}\
         if self._FileType not in self._AutoGenObject.CustomMakefile:
             EdkLogger.error('build', OPTION_NOT_SUPPORTED, "No custom makefile for %s" % self._FileType,
                             ExtraData="[%s]" % str(self._AutoGenObject))
-        MakefilePath = os.path.join(
+        MakefilePath = mws.join(
                                 self._AutoGenObject.WorkspaceDir,
                                 self._AutoGenObject.CustomMakefile[self._FileType]
                                 )
@@ -978,6 +1139,7 @@ ${BEGIN}\t-@${create_directory_command}\n${END}\
             "platform_version"          : self.PlatformInfo.Version,
             "platform_relative_directory": self.PlatformInfo.SourceDir,
             "platform_output_directory" : self.PlatformInfo.OutputDir,
+            "platform_dir"              : self._AutoGenObject.Macros["PLATFORM_DIR"],
 
             "module_name"               : self._AutoGenObject.Name,
             "module_guid"               : self._AutoGenObject.Guid,
@@ -987,6 +1149,7 @@ ${BEGIN}\t-@${create_directory_command}\n${END}\
             "module_file"               : self._AutoGenObject.MetaFile,
             "module_file_base_name"     : self._AutoGenObject.MetaFile.BaseName,
             "module_relative_directory" : self._AutoGenObject.SourceDir,
+            "module_dir"                : mws.join (self._AutoGenObject.WorkspaceDir, self._AutoGenObject.SourceDir),
 
             "architecture"              : self._AutoGenObject.Arch,
             "toolchain_tag"             : self._AutoGenObject.ToolChain,
@@ -1029,7 +1192,7 @@ PLATFORM_NAME = ${platform_name}
 PLATFORM_GUID = ${platform_guid}
 PLATFORM_VERSION = ${platform_version}
 PLATFORM_FILE = ${platform_file}
-PLATFORM_DIR = $(WORKSPACE)${separator}${platform_relative_directory}
+PLATFORM_DIR = ${platform_dir}
 PLATFORM_OUTPUT_DIR = ${platform_output_directory}
 
 #
@@ -1171,6 +1334,7 @@ cleanlib:
             "platform_relative_directory": PlatformInfo.SourceDir,
             "platform_output_directory" : PlatformInfo.OutputDir,
             "platform_build_directory"  : PlatformInfo.BuildDir,
+            "platform_dir"              : self._AutoGenObject.Macros["PLATFORM_DIR"],
 
             "toolchain_tag"             : PlatformInfo.ToolChain,
             "build_target"              : PlatformInfo.BuildTarget,
@@ -1281,6 +1445,11 @@ class TopLevelMakefile(BuildFile):
 
         if GlobalData.gIgnoreSource:
             ExtraOption += " --ignore-sources"
+
+        if GlobalData.BuildOptionPcd:
+            for index, option in enumerate(GlobalData.gCommand):
+                if "--pcd" == option and GlobalData.gCommand[index+1]:
+                    ExtraOption += " --pcd " + GlobalData.gCommand[index+1]
 
         MakefileName = self._FILE_NAME_[self._FileType]
         SubBuildCommandList = []

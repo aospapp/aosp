@@ -18,6 +18,7 @@
     android:sharedUserId="com.android.emergency.uid">
 
     <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.CALL_PRIVILEGED" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
 
@@ -32,7 +33,7 @@
             android:theme="@style/AppThemeEmergency"
             android:taskAffinity="com.android.settings"
             android:showOnLockScreen="true"
-            android:icon="@mipmap/ic_launcher_settings"
+            android:icon="@drawable/ic_launcher_settings"
             android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.telephony.action.EMERGENCY_ASSISTANCE" />
@@ -42,7 +43,7 @@
 
         <activity
             android:name=".edit.EditInfoActivity"
-            android:icon="@mipmap/ic_launcher_settings"
+            android:icon="@drawable/ic_launcher_settings"
             android:theme="@style/AppTheme"
             android:taskAffinity="com.android.settings"
             android:launchMode="singleTask">
@@ -73,7 +74,7 @@
 
         <activity
             android:name=".edit.EditMedicalInfoActivity"
-            android:icon="@mipmap/ic_launcher_settings"
+            android:icon="@drawable/ic_launcher_settings"
             android:label="@string/medical_info_title"
             android:parentActivityName="com.android.emergency.edit.EditInfoActivity"
             android:theme="@style/AppTheme"

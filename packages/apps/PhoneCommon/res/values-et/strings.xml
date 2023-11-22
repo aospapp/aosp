@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"SIM-kaart puudub või SIM-kaardi viga"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Mobiilsidevõrk ei ole saadaval"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Väljuvad kõned on piiratud FDN-iga."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL-taotlus muudeti USSD-taotluseks."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL-taotlus muudeti SS-taotluseks."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL-taotlus muudeti erineva numbriga DIAL-taotluseks."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Kõne muudeti USSD-taotluseks"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Kõne muudeti SS-taotluseks"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Muudeti teisele numbrile"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Muudeti videokõneks"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Videkõne muudeti SS-taotluseks"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Videkõne muudeti USSD-taotluseks"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Muudeti tavakõneks"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Muudeti teisele numbrile"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Välja pole võimalike helistada, kui helistamise blokeerimine on sisse lülitatud."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Kõned on piiratud juurdepääsu juhtimise abil."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Hädaabikõned on piiratud juurdepääsu juhtimise abil."</string>

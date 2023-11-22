@@ -16,7 +16,8 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.view.inputmethod.cts">
+    package="android.view.inputmethod.cts"
+    android:targetSandboxVersion="2">
 
     <application
         android:label="CtsInputMethodTestCases"
@@ -33,6 +34,50 @@
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name="android.view.inputmethod.cts.util.TestActivity"
+            android:label="TestActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="android.view.inputmethod.cts.util.StateInitializeActivity"
+            android:label="StateInitializeActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <!-- In order to test typical use cases, let this MockIME run in a separate process -->
+        <!--
+          TODO: Move this sevice definition into MockIME package and let the build system to merge
+          manifests once soong supports to build aar package.
+        -->
+        <service
+            android:name="com.android.cts.mockime.MockIme"
+            android:label="Mock IME"
+            android:permission="android.permission.BIND_INPUT_METHOD"
+            android:process=":mockime">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
+
+        <!--
+          In order to test window-focus-stealing from other process, let this service run in a
+          separate process. -->
+        <service android:name="android.view.inputmethod.cts.util.WindowFocusStealerService"
+            android:process=":focusstealer"
+            android:exported="false">
+        </service>
 
     </application>
 

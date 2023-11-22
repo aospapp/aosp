@@ -18,6 +18,7 @@ Sanity tests for voice tests in telephony
 """
 import time
 
+from acts.test_decorators import test_tracker_info
 from acts.controllers.anritsu_lib._anritsu_utils import AnritsuError
 from acts.controllers.anritsu_lib.md8475a import MD8475A
 from acts.controllers.anritsu_lib.md8475a import BtsServiceState
@@ -25,12 +26,15 @@ from acts.controllers.anritsu_lib.md8475a import BtsPacketRate
 from acts.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts.test_utils.tel.anritsu_utils import set_system_model_lte_wcdma
 from acts.test_utils.tel.anritsu_utils import set_usim_parameters
+from acts.test_utils.tel.anritsu_utils import set_post_sim_params
 from acts.test_utils.tel.tel_defines import NETWORK_MODE_LTE_GSM_WCDMA
 from acts.test_utils.tel.tel_defines import RAT_FAMILY_LTE
 from acts.test_utils.tel.tel_test_utils import ensure_network_rat
 from acts.test_utils.tel.tel_test_utils import ensure_phones_idle
 from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts.test_utils.tel.tel_test_utils import toggle_cell_data_roaming
+from acts.test_utils.tel.tel_test_utils import set_preferred_apn_by_adb
+from acts.test_utils.tel.tel_test_utils import start_qxdm_loggers
 from acts.utils import adb_shell_ping
 
 PING_DURATION = 5  # Number of packets to ping
@@ -46,6 +50,8 @@ class TelLabDataRoamingTest(TelephonyBaseTest):
         self.md8475a_ip_address = self.user_params[
             "anritsu_md8475a_ip_address"]
         self.wlan_option = self.user_params.get("anritsu_wlan_option", False)
+        if self.ad.sim_card == "VzW12349":
+            set_preferred_apn_by_adb(self.ad, "VZWINTERNET")
 
     def setup_class(self):
         try:
@@ -57,10 +63,12 @@ class TelLabDataRoamingTest(TelephonyBaseTest):
         return True
 
     def setup_test(self):
+        if getattr(self, "qxdm_log", True):
+            start_qxdm_loggers(self.log, self.android_devices)
         ensure_phones_idle(self.log, self.android_devices)
         toggle_airplane_mode(self.log, self.ad, True)
-        self.ad.adb.shell("setprop net.lte.ims.volte.provisioned 1",
-                          ignore_status=True)
+        self.ad.adb.shell(
+            "setprop net.lte.ims.volte.provisioned 1", ignore_status=True)
         return True
 
     def teardown_test(self):
@@ -73,39 +81,62 @@ class TelLabDataRoamingTest(TelephonyBaseTest):
         self.anritsu.disconnect()
         return True
 
-    def LTE_WCDMA_data_roaming(self, mcc, mnc):
+    def phone_setup_data_roaming(self):
+        return ensure_network_rat(
+            self.log,
+            self.ad,
+            NETWORK_MODE_LTE_GSM_WCDMA,
+            RAT_FAMILY_LTE,
+            toggle_apm_after_setting=True)
+
+    def LTE_WCDMA_data_roaming(self, mcc, mnc, lte_band, wcdma_band):
         try:
             [self.bts1, self.bts2] = set_system_model_lte_wcdma(
                 self.anritsu, self.user_params, self.ad.sim_card)
             set_usim_parameters(self.anritsu, self.ad.sim_card)
+            set_post_sim_params(self.anritsu, self.user_params,
+                                self.ad.sim_card)
             self.bts1.mcc = mcc
             self.bts1.mnc = mnc
             self.bts2.mcc = mcc
             self.bts2.mnc = mnc
-            self.bts2.packet_rate = BtsPacketRate.WCDMA_DLHSAUTO_REL7_ULHSAUTO
+            self.bts1.band = lte_band
+            self.bts2.band = wcdma_band
+            self.bts2.packet_rate = BtsPacketRate.WCDMA_DLHSAUTO_REL8_ULHSAUTO
             self.anritsu.start_simulation()
             self.bts2.service_state = BtsServiceState.SERVICE_STATE_OUT
             self.log.info("Toggle Mobile Data On")
             self.ad.droid.telephonyToggleDataConnection(True)
-            if not ensure_network_rat(
-                    self.log,
-                    self.ad,
-                    NETWORK_MODE_LTE_GSM_WCDMA,
-                    RAT_FAMILY_LTE,
-                    toggle_apm_after_setting=True):
-                self.log.error(
-                    "Failed to set rat family {}, preferred network:{}".format(
-                        RAT_FAMILY_LTE, NETWORK_MODE_LTE_GSM_WCDMA))
-                return False
+
+            if not self.phone_setup_data_roaming():
+                self.log.warning("phone_setup_func failed. Rebooting UE")
+                self.ad.reboot()
+                time.sleep(30)
+                if self.ad.sim_card == "VzW12349":
+                    set_preferred_apn_by_adb(self.ad, "VZWINTERNET")
+                if not self.phone_setup_data_roaming():
+                    self.log.error(
+                        "Failed to set rat family {}, preferred network:{}".
+                        format(RAT_FAMILY_LTE, NETWORK_MODE_LTE_GSM_WCDMA))
+                    return False
+
             toggle_cell_data_roaming(self.ad, True)
             self.anritsu.wait_for_registration_state(1)  # for BTS1 LTE
 
             time.sleep(TIME_TO_WAIT_BEFORE_PING)
-            if not adb_shell_ping(self.ad, PING_DURATION, PING_TARGET):
-                self.log.error(
-                    "Test Fail: Phone {} can not ping {} with Data Roaming On"
-                    .format(self.ad.serial, PING_TARGET))
-                return False
+            for i in range(3):
+                self.ad.log.info("Verify internet connection - attempt %d",
+                                 i + 1)
+                result = adb_shell_ping(self.ad, PING_DURATION, PING_TARGET)
+                if result:
+                    self.ad.log.info("PING SUCCESS")
+                    break
+                elif i == 2:
+                    self.log.error(
+                        "Test Fail: Phone {} can not ping {} with Data Roaming On"
+                        .format(self.ad.serial, PING_TARGET))
+                    return False
+
             toggle_cell_data_roaming(self.ad, False)
             time.sleep(TIME_TO_WAIT_BEFORE_PING)
             if adb_shell_ping(self.ad, PING_DURATION, PING_TARGET):
@@ -124,11 +155,19 @@ class TelLabDataRoamingTest(TelephonyBaseTest):
             self.anritsu.wait_for_registration_state(2)  # for BTS2 WCDMA
 
             time.sleep(TIME_TO_WAIT_BEFORE_PING)
-            if not adb_shell_ping(self.ad, PING_DURATION, PING_TARGET):
-                self.log.error(
-                    "Test Fail: Phone {} can not ping {} with Data Roaming On"
-                    .format(self.ad.serial, PING_TARGET))
-                return False
+            for i in range(3):
+                self.ad.log.info("Verify internet connection - attempt %d",
+                                 i + 1)
+                result = adb_shell_ping(self.ad, PING_DURATION, PING_TARGET)
+                if result:
+                    self.ad.log.info("PING SUCCESS")
+                    break
+                elif i == 2:
+                    self.log.error(
+                        "Test Fail: Phone {} can not ping {} with Data Roaming On"
+                        .format(self.ad.serial, PING_TARGET))
+                    return False
+
             toggle_cell_data_roaming(self.ad, False)
             time.sleep(TIME_TO_WAIT_BEFORE_PING)
             if adb_shell_ping(self.ad, PING_DURATION, PING_TARGET):
@@ -148,6 +187,7 @@ class TelLabDataRoamingTest(TelephonyBaseTest):
 
     """ Tests Begin """
 
+    @test_tracker_info(uuid="46d49bff-9671-4ab0-a90d-b49d870af6f0")
     @TelephonyBaseTest.tel_test_wrap
     def test_data_roaming_optus(self):
         """Data roaming test for Optus LTE and WCDMA networks
@@ -171,8 +211,10 @@ class TelLabDataRoamingTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail
         """
-        return self.LTE_WCDMA_data_roaming("505", "90F")
+        return self.LTE_WCDMA_data_roaming(
+            mcc="505", mnc="02F", lte_band="3", wcdma_band="1")
 
+    @test_tracker_info(uuid="68a6313c-d95a-4cae-8e35-2fdf3c94df56")
     @TelephonyBaseTest.tel_test_wrap
     def test_data_roaming_telus(self):
         """Data roaming test for Telus LTE and WCDMA networks
@@ -196,8 +238,10 @@ class TelLabDataRoamingTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail
         """
-        return self.LTE_WCDMA_data_roaming("302", "86F")
+        return self.LTE_WCDMA_data_roaming(
+            mcc="302", mnc="220", lte_band="4", wcdma_band="2")
 
+    @test_tracker_info(uuid="16de850a-6511-42d4-8d8f-d800477aba6b")
     @TelephonyBaseTest.tel_test_wrap
     def test_data_roaming_vodafone(self):
         """Data roaming test for Vodafone LTE and WCDMA networks
@@ -221,8 +265,10 @@ class TelLabDataRoamingTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail
         """
-        return self.LTE_WCDMA_data_roaming("234", "15F")
+        return self.LTE_WCDMA_data_roaming(
+            mcc="234", mnc="15F", lte_band="20", wcdma_band="1")
 
+    @test_tracker_info(uuid="e9050f3d-b53c-4a87-9363-b88a842a3479")
     @TelephonyBaseTest.tel_test_wrap
     def test_data_roaming_o2(self):
         """Data roaming test for O2 LTE and WCDMA networks
@@ -246,8 +292,10 @@ class TelLabDataRoamingTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail
         """
-        return self.LTE_WCDMA_data_roaming("234", "02F")
+        return self.LTE_WCDMA_data_roaming(
+            mcc="234", mnc="02F", lte_band="20", wcdma_band="1")
 
+    @test_tracker_info(uuid="a3f56da1-6a51-45b0-8016-3a492661e1f4")
     @TelephonyBaseTest.tel_test_wrap
     def test_data_roaming_orange(self):
         """Data roaming test for Orange LTE and WCDMA networks
@@ -271,8 +319,10 @@ class TelLabDataRoamingTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail
         """
-        return self.LTE_WCDMA_data_roaming("234", "33F")
+        return self.LTE_WCDMA_data_roaming(
+            mcc="234", mnc="33F", lte_band="20", wcdma_band="1")
 
+    @test_tracker_info(uuid="dcde16c1-730c-41ee-ad29-286f4962c66f")
     @TelephonyBaseTest.tel_test_wrap
     def test_data_roaming_idea(self):
         """Data roaming test for Idea LTE and WCDMA networks
@@ -296,6 +346,7 @@ class TelLabDataRoamingTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail
         """
-        return self.LTE_WCDMA_data_roaming("404", "24F")
+        return self.LTE_WCDMA_data_roaming(
+            mcc="404", mnc="24F", lte_band="3", wcdma_band="1")
 
     """ Tests End """

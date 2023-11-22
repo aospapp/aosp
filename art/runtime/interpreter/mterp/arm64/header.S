@@ -87,6 +87,7 @@ codes.
  * to expand the macros into assembler assignment statements.
  */
 #include "asm_support.h"
+#include "interpreter/cfi_asm_support.h"
 
 #define MTERP_PROFILE_BRANCHES 1
 #define MTERP_LOGGING 0
@@ -94,6 +95,8 @@ codes.
 /* During bringup, we'll use the shadow frame model instead of xFP */
 /* single-purpose registers, given names for clarity */
 #define xPC      x20
+#define CFI_DEX  20 // DWARF register number of the register holding dex-pc (xPC).
+#define CFI_TMP  0  // DWARF register number of the first argument register (r0).
 #define xFP      x21
 #define xSELF    x22
 #define xINST    x23
@@ -116,7 +119,7 @@ codes.
 #define OFF_FP_METHOD OFF_FP(SHADOWFRAME_METHOD_OFFSET)
 #define OFF_FP_RESULT_REGISTER OFF_FP(SHADOWFRAME_RESULT_REGISTER_OFFSET)
 #define OFF_FP_DEX_PC_PTR OFF_FP(SHADOWFRAME_DEX_PC_PTR_OFFSET)
-#define OFF_FP_CODE_ITEM OFF_FP(SHADOWFRAME_CODE_ITEM_OFFSET)
+#define OFF_FP_DEX_INSTRUCTIONS OFF_FP(SHADOWFRAME_DEX_INSTRUCTIONS_OFFSET)
 #define OFF_FP_SHADOWFRAME OFF_FP(0)
 
 /*
@@ -329,4 +332,21 @@ codes.
     .cfi_restore \reg1
     .cfi_restore \reg2
     .cfi_adjust_cfa_offset -(\frame_adjustment)
+.endm
+
+/*
+ * cfi support macros.
+ */
+.macro ENTRY name
+    .type \name, #function
+    .global \name
+    /* Cache alignment for function entry */
+    .balign 16
+\name:
+    .cfi_startproc
+.endm
+
+.macro END name
+    .cfi_endproc
+    .size \name, .-\name
 .endm

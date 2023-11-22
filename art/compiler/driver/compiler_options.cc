@@ -18,6 +18,15 @@
 
 #include <fstream>
 
+#include "android-base/stringprintf.h"
+
+#include "base/runtime_debug.h"
+#include "base/variant_map.h"
+#include "cmdline_parser.h"
+#include "compiler_options_map-inl.h"
+#include "runtime.h"
+#include "simple_compiler_options_map.h"
+
 namespace art {
 
 CompilerOptions::CompilerOptions()
@@ -30,6 +39,7 @@ CompilerOptions::CompilerOptions()
       inline_max_code_units_(kUnsetInlineMaxCodeUnits),
       no_inline_from_(nullptr),
       boot_image_(false),
+      core_image_(false),
       app_image_(false),
       top_k_profile_threshold_(kDefaultTopKProfileThreshold),
       debuggable_(false),
@@ -40,12 +50,17 @@ CompilerOptions::CompilerOptions()
       implicit_so_checks_(true),
       implicit_suspend_checks_(false),
       compile_pic_(false),
+      dump_timings_(false),
+      dump_stats_(false),
       verbose_methods_(),
       abort_on_hard_verifier_failure_(false),
+      abort_on_soft_verifier_failure_(false),
       init_failure_output_(nullptr),
       dump_cfg_file_name_(""),
       dump_cfg_append_(false),
       force_determinism_(false),
+      deduplicate_code_(true),
+      count_hotness_in_compiled_code_(false),
       register_allocation_strategy_(RegisterAllocator::kRegisterAllocatorDefault),
       passes_to_run_(nullptr) {
 }
@@ -55,113 +70,62 @@ CompilerOptions::~CompilerOptions() {
   // because we don't want to include the PassManagerOptions definition from the header file.
 }
 
-void CompilerOptions::ParseHugeMethodMax(const StringPiece& option, UsageFn Usage) {
-  ParseUintOption(option, "--huge-method-max", &huge_method_threshold_, Usage);
+namespace {
+
+bool kEmitRuntimeReadBarrierChecks = kIsDebugBuild &&
+    RegisterRuntimeDebugFlag(&kEmitRuntimeReadBarrierChecks);
+
+}  // namespace
+
+bool CompilerOptions::EmitRunTimeChecksInDebugMode() const {
+  // Run-time checks (e.g. Marking Register checks) are only emitted in slow-debug mode.
+  return kEmitRuntimeReadBarrierChecks;
 }
 
-void CompilerOptions::ParseLargeMethodMax(const StringPiece& option, UsageFn Usage) {
-  ParseUintOption(option, "--large-method-max", &large_method_threshold_, Usage);
-}
-
-void CompilerOptions::ParseSmallMethodMax(const StringPiece& option, UsageFn Usage) {
-  ParseUintOption(option, "--small-method-max", &small_method_threshold_, Usage);
-}
-
-void CompilerOptions::ParseTinyMethodMax(const StringPiece& option, UsageFn Usage) {
-  ParseUintOption(option, "--tiny-method-max", &tiny_method_threshold_, Usage);
-}
-
-void CompilerOptions::ParseNumDexMethods(const StringPiece& option, UsageFn Usage) {
-  ParseUintOption(option, "--num-dex-methods", &num_dex_methods_threshold_, Usage);
-}
-
-void CompilerOptions::ParseInlineMaxCodeUnits(const StringPiece& option, UsageFn Usage) {
-  ParseUintOption(option, "--inline-max-code-units", &inline_max_code_units_, Usage);
-}
-
-void CompilerOptions::ParseDumpInitFailures(const StringPiece& option,
-                                            UsageFn Usage ATTRIBUTE_UNUSED) {
-  DCHECK(option.starts_with("--dump-init-failures="));
-  std::string file_name = option.substr(strlen("--dump-init-failures=")).data();
-  init_failure_output_.reset(new std::ofstream(file_name));
+bool CompilerOptions::ParseDumpInitFailures(const std::string& option, std::string* error_msg) {
+  init_failure_output_.reset(new std::ofstream(option));
   if (init_failure_output_.get() == nullptr) {
-    LOG(ERROR) << "Failed to allocate ofstream";
+    *error_msg = "Failed to construct std::ofstream";
+    return false;
   } else if (init_failure_output_->fail()) {
-    LOG(ERROR) << "Failed to open " << file_name << " for writing the initialization "
-               << "failures.";
+    *error_msg = android::base::StringPrintf(
+        "Failed to open %s for writing the initialization failures.", option.c_str());
     init_failure_output_.reset();
-  }
-}
-
-void CompilerOptions::ParseRegisterAllocationStrategy(const StringPiece& option,
-                                                      UsageFn Usage) {
-  DCHECK(option.starts_with("--register-allocation-strategy="));
-  StringPiece choice = option.substr(strlen("--register-allocation-strategy=")).data();
-  if (choice == "linear-scan") {
-    register_allocation_strategy_ = RegisterAllocator::Strategy::kRegisterAllocatorLinearScan;
-  } else if (choice == "graph-color") {
-    register_allocation_strategy_ = RegisterAllocator::Strategy::kRegisterAllocatorGraphColor;
-  } else {
-    Usage("Unrecognized register allocation strategy. Try linear-scan, or graph-color.");
-  }
-}
-
-bool CompilerOptions::ParseCompilerOption(const StringPiece& option, UsageFn Usage) {
-  if (option.starts_with("--compiler-filter=")) {
-    const char* compiler_filter_string = option.substr(strlen("--compiler-filter=")).data();
-    if (!CompilerFilter::ParseCompilerFilter(compiler_filter_string, &compiler_filter_)) {
-      Usage("Unknown --compiler-filter value %s", compiler_filter_string);
-    }
-  } else if (option == "--compile-pic") {
-    compile_pic_ = true;
-  } else if (option.starts_with("--huge-method-max=")) {
-    ParseHugeMethodMax(option, Usage);
-  } else if (option.starts_with("--large-method-max=")) {
-    ParseLargeMethodMax(option, Usage);
-  } else if (option.starts_with("--small-method-max=")) {
-    ParseSmallMethodMax(option, Usage);
-  } else if (option.starts_with("--tiny-method-max=")) {
-    ParseTinyMethodMax(option, Usage);
-  } else if (option.starts_with("--num-dex-methods=")) {
-    ParseNumDexMethods(option, Usage);
-  } else if (option.starts_with("--inline-max-code-units=")) {
-    ParseInlineMaxCodeUnits(option, Usage);
-  } else if (option == "--generate-debug-info" || option == "-g") {
-    generate_debug_info_ = true;
-  } else if (option == "--no-generate-debug-info") {
-    generate_debug_info_ = false;
-  } else if (option == "--generate-mini-debug-info") {
-    generate_mini_debug_info_ = true;
-  } else if (option == "--no-generate-mini-debug-info") {
-    generate_mini_debug_info_ = false;
-  } else if (option == "--generate-build-id") {
-    generate_build_id_ = true;
-  } else if (option == "--no-generate-build-id") {
-    generate_build_id_ = false;
-  } else if (option == "--debuggable") {
-    debuggable_ = true;
-  } else if (option.starts_with("--top-k-profile-threshold=")) {
-    ParseDouble(option.data(), '=', 0.0, 100.0, &top_k_profile_threshold_, Usage);
-  } else if (option == "--abort-on-hard-verifier-error") {
-    abort_on_hard_verifier_failure_ = true;
-  } else if (option.starts_with("--dump-init-failures=")) {
-    ParseDumpInitFailures(option, Usage);
-  } else if (option.starts_with("--dump-cfg=")) {
-    dump_cfg_file_name_ = option.substr(strlen("--dump-cfg=")).data();
-  } else if (option == "--dump-cfg-append") {
-    dump_cfg_append_ = true;
-  } else if (option.starts_with("--register-allocation-strategy=")) {
-    ParseRegisterAllocationStrategy(option, Usage);
-  } else if (option.starts_with("--verbose-methods=")) {
-    // TODO: rather than switch off compiler logging, make all VLOG(compiler) messages
-    //       conditional on having verbose methods.
-    gLogVerbosity.compiler = false;
-    Split(option.substr(strlen("--verbose-methods=")).ToString(), ',', &verbose_methods_);
-  } else {
-    // Option not recognized.
     return false;
   }
   return true;
 }
+
+bool CompilerOptions::ParseRegisterAllocationStrategy(const std::string& option,
+                                                      std::string* error_msg) {
+  if (option == "linear-scan") {
+    register_allocation_strategy_ = RegisterAllocator::Strategy::kRegisterAllocatorLinearScan;
+  } else if (option == "graph-color") {
+    register_allocation_strategy_ = RegisterAllocator::Strategy::kRegisterAllocatorGraphColor;
+  } else {
+    *error_msg = "Unrecognized register allocation strategy. Try linear-scan, or graph-color.";
+    return false;
+  }
+  return true;
+}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wframe-larger-than="
+
+bool CompilerOptions::ParseCompilerOptions(const std::vector<std::string>& options,
+                                           bool ignore_unrecognized,
+                                           std::string* error_msg) {
+  auto parser = CreateSimpleParser(ignore_unrecognized);
+  CmdlineResult parse_result = parser.Parse(options);
+  if (!parse_result.IsSuccess()) {
+    *error_msg = parse_result.GetMessage();
+    return false;
+  }
+
+  SimpleParseArgumentMap args = parser.ReleaseArgumentsMap();
+  return ReadCompilerOptions(args, this, error_msg);
+}
+
+#pragma GCC diagnostic pop
 
 }  // namespace art

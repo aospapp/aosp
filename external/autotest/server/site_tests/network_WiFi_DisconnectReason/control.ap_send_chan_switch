@@ -6,8 +6,18 @@ AUTHOR = 'silberst, pstew, quiche'
 NAME = 'network_WiFi_DisconnectReason.ap_send_chan_switch'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:wifi_correctness_cros_core, suite:wifi_matfunc,'
-              'suite:wifi_matfunc_noservo, suite:wifi_matfunc_bcm4371')
+
+# TODO: This test seems broken, because it passes even though DUTs with Intel
+#       WiFi drivers don't support CSA: Full discussion at
+#       https://chromium-review.googlesource.com/c/604753/.
+#       Removing from all test suites for now.
+
+ATTRIBUTES = (
+#             'suite:wifi_correctness_cros_core, '
+#             'suite:wifi_matfunc, '
+#             'suite:wifi_matfunc_noservo, '
+#             'suite:wifi_matfunc_bcm4371'
+)
 DEPENDENCIES = 'wificell'
 
 DOC = """

@@ -16,7 +16,6 @@
 
 package com.android.continuous;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.config.OptionClass;
@@ -26,6 +25,7 @@ import com.android.tradefed.result.DeviceFileReporter;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.NameMangleListener;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.InstrumentationTest;
 
 import java.util.LinkedHashMap;
@@ -89,15 +89,13 @@ public class SmokeTest extends InstrumentationTest {
             super(listener);
         }
 
-        /**
-         * {@inheritDoc}
-         */
+        /** {@inheritDoc} */
         @Override
-        protected TestIdentifier mangleTestId(TestIdentifier test) {
+        protected TestDescription mangleTestId(TestDescription test) {
             final String method = test.getTestName();
             final String klass = test.getClassName().replaceFirst(
                     "com.android.smoketest.SmokeTestRunner(?:\\$\\d+)?", "SmokeFAST");
-            return new TestIdentifier(klass, method);
+            return new TestDescription(klass, method);
         }
     }
 }

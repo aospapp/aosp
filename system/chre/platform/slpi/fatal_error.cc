@@ -16,19 +16,21 @@
 
 #include "chre/target_platform/fatal_error.h"
 
-#include "qurt_timer.h"
+#include "timer.h"
 
+#include "chre/platform/slpi/power_control_util.h"
 #include "chre/target_platform/host_link_base.h"
 
 namespace chre {
 
 void preFatalError() {
+  slpiForceBigImage();  // For timer_sleep()
   HostLinkBase::flushOutboundQueue();
 
   // The flush above only covers the message leaving our queue, so give a grace
   // period for the last message to actually reach the host.
-  constexpr qurt_timer_duration_t kPostFlushDelayUsec = 500000;  // 500 ms
-  qurt_timer_sleep(kPostFlushDelayUsec);
+  constexpr time_timetick_type kPostFlushDelayUsec = 500000;  // 500 ms
+  timer_sleep(kPostFlushDelayUsec, T_USEC, true /* non_deferrable */);
 }
 
 }  // namespace chre

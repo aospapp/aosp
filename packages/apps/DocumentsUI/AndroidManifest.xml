@@ -1,9 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+/*
+ * Copyright (C) 2007-2017 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.android.documentsui">
 
     <uses-permission android:name="android.permission.GET_APP_GRANTED_URI_PERMISSIONS" />
+    <uses-permission android:name="android.permission.FORCE_PERSISTABLE_URI_PERMISSIONS" />
     <uses-permission android:name="android.permission.MANAGE_DOCUMENTS" />
     <uses-permission android:name="android.permission.REMOVE_TASKS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.CACHE_CONTENT" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -59,7 +79,7 @@
 
         <activity
             android:name=".inspector.InspectorActivity"
-            android:label="@string/menu_inspector"
+            android:label="@string/menu_inspect"
             android:icon="@drawable/launcher_icon"
             android:theme="@style/DocumentsTheme">
         </activity>
@@ -107,13 +127,20 @@
         </activity-alias>
 
         <activity
-            android:name=".OpenExternalDirectoryActivity"
+            android:name=".ScopedAccessActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="android.os.storage.action.OPEN_EXTERNAL_DIRECTORY" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <provider
+            android:name=".ScopedAccessProvider"
+            android:authorities="com.android.documentsui.scopedAccess"
+            android:permission="android.permission.MANAGE_SCOPED_ACCESS_DIRECTORY_PERMISSIONS"
+            android:exported="true">
+        </provider>
 
         <provider
             android:name=".picker.LastAccessedProvider"
@@ -153,5 +180,15 @@
             android:exported="false"
             android:process=":com.android.documentsui.services">
         </service>
+
+        <activity
+            android:name=".selection.demo.SelectionDemoActivity"
+            android:label="Selection Demo"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+
     </application>
 </manifest>

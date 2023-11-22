@@ -162,6 +162,8 @@ LOCAL_STATIC_LIBRARIES    := libOmxVidcCommon
 LOCAL_SRC_FILES   := src/omx_video_base.cpp
 LOCAL_SRC_FILES   += src/omx_swvenc_mpeg4.cpp
 
+LOCAL_CFLAGS      += -Wno-error
+
 include $(BUILD_SHARED_LIBRARY)
 endif
 

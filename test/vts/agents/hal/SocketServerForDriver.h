@@ -18,7 +18,6 @@
 #define __VTS_AGENT_SOCKET_SERVER_FOR_DRIVER_H_
 
 #include <VtsDriverCommUtil.h>
-
 #include "test/vts/proto/AndroidSystemControlMessage.pb.h"
 
 namespace android {

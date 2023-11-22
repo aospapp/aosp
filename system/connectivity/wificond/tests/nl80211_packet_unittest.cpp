@@ -18,8 +18,7 @@
 
 #include <gtest/gtest.h>
 
-#include <linux/nl80211.h>
-
+#include "wificond/net/kernel-header-latest/nl80211.h"
 #include "wificond/net/nl80211_attribute.h"
 #include "wificond/net/nl80211_packet.h"
 
@@ -171,7 +170,7 @@ TEST(NL80211PacketTest, AddNestedAttributesToNL80211Packet) {
   EXPECT_FALSE(netlink_packet.HasAttribute(3));
 }
 
-TEST(NL80211PacketTest, CanbotGetMissingAttributeFromNL80211Packet) {
+TEST(NL80211PacketTest, CannotGetMissingAttributeFromNL80211Packet) {
   NL80211Packet netlink_packet(kNLMsgType,
                                kGenNLCommand,
                                kNLMsgSequenceNumber,
@@ -182,6 +181,36 @@ TEST(NL80211PacketTest, CanbotGetMissingAttributeFromNL80211Packet) {
   EXPECT_FALSE(netlink_packet.HasAttribute(2));
   uint8_t attr_value;
   EXPECT_FALSE(netlink_packet.GetAttributeValue(2, &attr_value));
+}
+
+TEST(NL80211PacketTest, CanGetAllOfAttributeFromNL80211Packet) {
+  NL80211Packet netlink_packet(kNLMsgType,
+                               kGenNLCommand,
+                               kNLMsgSequenceNumber,
+                               kPortId);
+  NL80211Attr<uint8_t> u8_attr(1, kU8Value1);
+  NL80211Attr<uint32_t> u32_attr_1(2, kU32Value1);
+  NL80211Attr<uint32_t> u32_attr_2(4, kU32Value2);
+  netlink_packet.AddAttribute(u8_attr);
+  netlink_packet.AddAttribute(u32_attr_1);
+  netlink_packet.AddAttribute(u32_attr_2);
+  EXPECT_TRUE(netlink_packet.IsValid());
+  std::vector<BaseNL80211Attr> attributes;
+  EXPECT_TRUE(netlink_packet.GetAllAttributes(&attributes));
+
+  EXPECT_TRUE(attributes.size() == 3);
+
+  NL80211Attr<uint8_t>* u8_attr_retrieved =
+      static_cast<NL80211Attr<uint8_t>*>(&attributes[0]);
+  EXPECT_TRUE(u8_attr_retrieved->GetValue() == kU8Value1);
+
+  NL80211Attr<uint32_t>* u32_attr_1_retrieved =
+      static_cast<NL80211Attr<uint32_t>*>(&attributes[1]);
+  EXPECT_TRUE(u32_attr_1_retrieved->GetValue() == kU32Value1);
+
+  NL80211Attr<uint32_t>* u32_attr_2_retrieved =
+      static_cast<NL80211Attr<uint32_t>*>(&attributes[2]);
+  EXPECT_TRUE(u32_attr_2_retrieved->GetValue() == kU32Value2);
 }
 
 TEST(NL80211PacketTest, ParseCMDAssociateTest) {

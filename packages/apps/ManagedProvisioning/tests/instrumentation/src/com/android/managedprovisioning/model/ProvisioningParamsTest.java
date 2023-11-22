@@ -17,13 +17,25 @@ package com.android.managedprovisioning.model;
 
 import static com.android.managedprovisioning.TestUtils.createTestAdminExtras;
 
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.when;
+
 import android.accounts.Account;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.os.Parcel;
+import android.os.UserHandle;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
+import com.android.managedprovisioning.common.Utils;
+
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
 import java.io.File;
 import java.util.Locale;
 
@@ -85,6 +97,15 @@ public class ProvisioningParamsTest extends AndroidTestCase {
                     .setSignatureChecksum(TEST_SIGNATURE_CHECKSUM)
                     .setMinVersion(TEST_MIN_SUPPORT_VERSION)
                     .build();
+
+    @Mock
+    private Utils mUtils;
+
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        MockitoAnnotations.initMocks(this);
+    }
 
     @SmallTest
     public void testFailToConstructProvisioningParamsWithoutPackageNameOrComponentName() {
@@ -205,6 +226,35 @@ public class ProvisioningParamsTest extends AndroidTestCase {
 
         // THEN the same ProvisioningParams is obtained.
         assertEquals(expectedProvisioningParams, actualProvisioningParams);
+    }
+
+    @SmallTest
+    public void testInferDeviceAdminComponentName_componentNameIsGiven()
+            throws IllegalProvisioningArgumentException {
+        ProvisioningParams provisioningParams = new
+                ProvisioningParams.Builder()
+                .setDeviceAdminComponentName(TEST_COMPONENT_NAME)
+                .setProvisioningAction(DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE)
+                .build();
+
+        assertEquals(TEST_COMPONENT_NAME, provisioningParams.inferDeviceAdminComponentName(
+                mUtils, mContext, UserHandle.myUserId()));
+    }
+
+    @SmallTest
+    public void testInferDeviceAdminComponentName_componentNameIsNotGiven()
+            throws IllegalProvisioningArgumentException {
+        ProvisioningParams provisioningParams = new
+                ProvisioningParams.Builder()
+                .setDeviceAdminPackageName(TEST_PACKAGE_NAME)
+                .setProvisioningAction(DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE)
+                .build();
+
+        when(mUtils.findDeviceAdmin(eq(TEST_PACKAGE_NAME), nullable(ComponentName.class),
+                eq(mContext), eq(UserHandle.myUserId()))).thenReturn(TEST_COMPONENT_NAME);
+
+        assertEquals(TEST_COMPONENT_NAME, provisioningParams.inferDeviceAdminComponentName(
+                mUtils, mContext, UserHandle.myUserId()));
     }
 
     private ProvisioningParams getCompleteProvisioningParams() {

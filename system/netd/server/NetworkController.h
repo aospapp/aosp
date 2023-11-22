@@ -27,12 +27,16 @@
 #include <map>
 #include <set>
 #include <sys/types.h>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 struct android_net_context;
 
 namespace android {
 namespace net {
+
+constexpr uint32_t kHandleMagic = 0xcafed00d;
 
 // Utility to convert from netId to net_handle_t. Doing this here as opposed to exporting
 // from net.c as it may have NDK implications. Besides no conversion available in net.c for
@@ -42,7 +46,6 @@ static inline unsigned netHandleToNetId(net_handle_t fromNetHandle) {
     const uint32_t k32BitMask = 0xffffffff;
     // This value MUST be kept in sync with the corresponding value in
     // the android.net.Network#getNetworkHandle() implementation.
-    const uint32_t kHandleMagic = 0xfacade;
 
     // Check for minimum acceptable version of the API in the low bits.
     if (fromNetHandle != NETWORK_UNSPECIFIED &&
@@ -56,12 +59,10 @@ static inline unsigned netHandleToNetId(net_handle_t fromNetHandle) {
 // Utility to convert from nethandle to netid, keep in sync with getNetworkHandle
 // in Network.java.
 static inline net_handle_t netIdToNetHandle(unsigned fromNetId) {
-    const net_handle_t HANDLE_MAGIC = 0xfacade;
-
     if (!fromNetId) {
         return NETWORK_UNSPECIFIED;
     }
-    return (((net_handle_t)fromNetId << 32) | HANDLE_MAGIC);
+    return (((net_handle_t)fromNetId << 32) | kHandleMagic);
 }
 
 class DumpWriter;
@@ -124,6 +125,12 @@ public:
     int removeRoute(unsigned netId, const char* interface, const char* destination,
                     const char* nexthop, bool legacy, uid_t uid) WARN_UNUSED_RESULT;
 
+    // Notes that the specified address has appeared on the specified interface.
+    void addInterfaceAddress(unsigned ifIndex, const char* address);
+    // Notes that the specified address has been removed from the specified interface.
+    // Returns true if we should destroy sockets on this address.
+    bool removeInterfaceAddress(unsigned ifIndex, const char* address);
+
     bool canProtect(uid_t uid) const;
     void allowProtect(const std::vector<uid_t>& uids);
     void denyProtect(const std::vector<uid_t>& uids);
@@ -131,9 +138,15 @@ public:
     void dump(DumpWriter& dw);
 
 private:
-    bool isValidNetwork(unsigned netId) const;
     bool isValidNetworkLocked(unsigned netId) const;
     Network* getNetworkLocked(unsigned netId) const;
+    uint32_t getNetworkForDnsLocked(unsigned* netId, uid_t uid) const;
+    unsigned getNetworkForUserLocked(uid_t uid) const;
+    unsigned getNetworkForConnectLocked(uid_t uid) const;
+    unsigned getNetworkForInterfaceLocked(const char* interface) const;
+    bool canProtectLocked(uid_t uid) const;
+    bool isVirtualNetworkLocked(unsigned netId) const;
+
     VirtualNetwork* getVirtualNetworkForUserLocked(uid_t uid) const;
     Permission getPermissionForUserLocked(uid_t uid) const;
     int checkUserNetworkAccessLocked(uid_t uid, unsigned netId) const;
@@ -142,16 +155,32 @@ private:
     int modifyRoute(unsigned netId, const char* interface, const char* destination,
                     const char* nexthop, bool add, bool legacy, uid_t uid) WARN_UNUSED_RESULT;
     int modifyFallthroughLocked(unsigned vpnNetId, bool add) WARN_UNUSED_RESULT;
+    void updateTcpSocketMonitorPolling();
 
     class DelegateImpl;
     DelegateImpl* const mDelegateImpl;
 
-    // mRWLock guards all accesses to mDefaultNetId, mNetworks, mUsers and mProtectableUsers.
+    // mRWLock guards all accesses to mDefaultNetId, mNetworks, mUsers, mProtectableUsers,
+    // mIfindexToLastNetId and mAddressToIfindices.
     mutable android::RWLock mRWLock;
     unsigned mDefaultNetId;
     std::map<unsigned, Network*> mNetworks;  // Map keys are NetIds.
     std::map<uid_t, Permission> mUsers;
     std::set<uid_t> mProtectableUsers;
+    // Map interface (ifIndex) to its current NetId, or the last NetId if the interface was removed
+    // from the network and not added to another network. This state facilitates the interface to
+    // NetId lookup during RTM_DELADDR (NetworkController::removeInterfaceAddress), when the
+    // interface in question might already have been removed from the network.
+    // An interface is added to this map when it is added to a network and removed from this map
+    // when its network is destroyed.
+    std::unordered_map<unsigned, unsigned> mIfindexToLastNetId;
+    // Map IP address to the list of active interfaces (ifIndex) that have that address.
+    // Also contains IP addresses configured on interfaces that have not been added to any network.
+    // TODO: Does not track IP addresses present when netd is started or restarts after a crash.
+    // This is not a problem for its intended use (tracking IP addresses on VPN interfaces), but
+    // we should fix it.
+    std::unordered_map<std::string, std::unordered_set<unsigned>> mAddressToIfindices;
+
 };
 
 }  // namespace net

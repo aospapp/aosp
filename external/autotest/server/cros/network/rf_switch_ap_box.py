@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import common
 import ConfigParser
 import logging
 import os
@@ -25,22 +26,24 @@ class APBox(object):
     def __init__(self, ap_box_host):
         """Constructor for the AP Box.
 
-        @param ap_box_host: AP Box AFE Host object."""
+        @param ap_box_host: AP Box AFE Host object.
+
+        @raises APBoxException.
+        """
         self.ap_box_host = ap_box_host
-        labels = self.ap_box_host.labels
         self.ap_box_label = ''
         self.rf_switch_label = ''
-        for label in labels:
+        for label in ap_box_host.labels:
             if label.startswith(AP_BOX_STR):
                 self.ap_box_label = label
             elif label.startswith(RF_SWITCH_STR) and (
-                    label is not RF_SWITCH_APS):
+                    label != RF_SWITCH_APS):
                 self.rf_switch_label = label
         if not self.ap_box_label or not self.rf_switch_label:
             raise APBoxException(
                     'AP Box %s does not have ap_box and/or rf_switch labels' %
-                    self.ap_box_host.hostname)
-        self.aps = self._get_ap_list()
+                    ap_box_host.hostname)
+        self.aps = None
 
 
     def _get_ap_list(self):
@@ -70,4 +73,7 @@ class APBox(object):
 
         @returns a list of autotest_lib.server.cros.AP objects.
         """
+        if self.aps is None:
+            self.aps = self._get_ap_list()
         return self.aps
+

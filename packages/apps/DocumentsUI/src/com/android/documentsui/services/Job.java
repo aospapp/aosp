@@ -36,6 +36,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.CancellationSignal;
 import android.os.Parcelable;
 import android.os.RemoteException;
 import android.provider.DocumentsContract;
@@ -100,6 +101,8 @@ abstract public class Job implements Runnable {
     final ArrayList<Uri> failedUris = new ArrayList<>();
 
     final Notification.Builder mProgressBuilder;
+
+    final CancellationSignal mSignal = new CancellationSignal();
 
     private final Map<String, ContentProviderClient> mClients = new HashMap<>();
     private final Features mFeatures;
@@ -172,8 +175,7 @@ abstract public class Job implements Runnable {
         return true;
     }
 
-    void finish() {
-    }
+    abstract void finish();
 
     abstract void start();
     abstract Notification getSetupNotification();
@@ -217,6 +219,7 @@ abstract public class Job implements Runnable {
 
     final void cancel() {
         mState = STATE_CANCELED;
+        mSignal.cancel();
         Metrics.logFileOperationCancelled(service, operationType);
     }
 

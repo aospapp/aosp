@@ -16,13 +16,15 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := DialerJankTests
+LOCAL_SDK_VERSION := current
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     ub-uiautomator \
-    ub-janktesthelper \
-    legacy-android-test
+    ub-janktesthelper
+
+LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 
 LOCAL_COMPATIBILITY_SUITE := device-tests
 

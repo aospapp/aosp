@@ -15,6 +15,7 @@ from autotest_lib.server.hosts import emulated_adb_host
 from autotest_lib.server.hosts import host_info
 from autotest_lib.server.hosts import jetstream_host
 from autotest_lib.server.hosts import moblab_host
+from autotest_lib.server.hosts import gce_host
 from autotest_lib.server.hosts import sonic_host
 from autotest_lib.server.hosts import ssh_host
 from autotest_lib.server.hosts import testbed
@@ -39,7 +40,7 @@ _started_hostnames = set()
 # overhead in checking for less common host types.
 host_types = [cros_host.CrosHost, moblab_host.MoblabHost,
               jetstream_host.JetstreamHost, sonic_host.SonicHost,
-              adb_host.ADBHost,]
+              adb_host.ADBHost, gce_host.GceHost,]
 OS_HOST_DICT = {'android': adb_host.ADBHost,
                 'brillo': adb_host.ADBHost,
                 'cros' : cros_host.CrosHost,

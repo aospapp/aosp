@@ -24,6 +24,7 @@ import vogar.Classpath;
 import vogar.Result;
 import vogar.Run;
 import vogar.TestProperties;
+import vogar.Toolchain;
 import vogar.commands.Command;
 import vogar.tasks.Task;
 
@@ -65,11 +66,6 @@ public final class InstallApkTask extends Task {
         File dex = run.localFile(action, "classes.dex");
         Classpath classesToDex = Classpath.of(actionJar);
         classesToDex.addAll(run.classpath);
-        if (run.useJack) {
-            // TODO Implement Jack support for mode=activity.
-            throw new UnsupportedOperationException(
-                    "Jack support for --mode=activity not yet implemented");
-        }
 
         File localTempDir = run.localDir(action.getName());
 
@@ -77,7 +73,7 @@ public final class InstallApkTask extends Task {
         // because everything gets bundled into classes.dex.
         Classpath dependentCp = new Classpath();
 
-        run.androidSdk.dex(run.multidex, dex, localTempDir, classesToDex, dependentCp);
+        run.androidSdk.dex(run.multidex, dex, localTempDir, classesToDex, dependentCp, run.toolchain.getDexer());
         return dex;
     }
 

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "test_utils.h"
+#include "bsdiff/test_utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,9 +11,7 @@
 #include <unistd.h>
 
 #include <gtest/gtest.h>
-#include <vector>
 
-using std::string;
 using std::vector;
 
 namespace {
@@ -22,23 +20,24 @@ namespace {
 // leaves it as is. Otherwise, if TMPDIR is defined in the environment and is
 // non-empty, prepends it to |path|. Otherwise, prepends /tmp.  Returns the
 // resulting path.
-const string PrependTmpdir(const string& path) {
+const std::string PrependTmpdir(const std::string& path) {
   if (path[0] == '/')
     return path;
 
   const char* tmpdir = getenv("TMPDIR");
-  const string prefix = (tmpdir && *tmpdir ? tmpdir : "/tmp");
+  const std::string prefix = (tmpdir && *tmpdir ? tmpdir : "/tmp");
   return prefix + "/" + path;
 }
 
-bool MakeTempFile(const string& base_filename_template, string* filename) {
-  const string filename_template = PrependTmpdir(base_filename_template);
+bool MakeTempFile(const std::string& base_filename_template,
+                  std::string* filename) {
+  const std::string filename_template = PrependTmpdir(base_filename_template);
   vector<char> result(filename_template.size() + 1, '\0');
   memcpy(result.data(), filename_template.data(), filename_template.size());
 
   int mkstemp_fd = mkstemp(result.data());
   if (mkstemp_fd < 0) {
-    perror("mkstemp()");
+    PLOG(ERROR) << "mkstemp() Failed";
     return false;
   }
   close(mkstemp_fd);
@@ -59,10 +58,10 @@ void BsdiffTestEnvironment::SetUp() {
         mkdir(BSDIFF_TARGET_TMP_BASE, S_IRWXU | S_IRWXG | S_IROTH | S_IWOTH);
       }
       setenv("TMPDIR", BSDIFF_TARGET_TMP_BASE, 1);
-#endif // defined (BSDIFF_TARGET_UNITTEST)
+#endif  // defined (BSDIFF_TARGET_UNITTEST)
 }
 
-bool ReadFile(const string& path, vector<uint8_t>* out) {
+bool ReadFile(const std::string& path, vector<uint8_t>* out) {
   FILE* fp = fopen(path.c_str(), "r");
   if (!fp)
     return false;
@@ -80,7 +79,7 @@ bool ReadFile(const string& path, vector<uint8_t>* out) {
   return result;
 }
 
-bool WriteFile(const string& path, vector<uint8_t> contents) {
+bool WriteFile(const std::string& path, vector<uint8_t> contents) {
   FILE* fp = fopen(path.c_str(), "r");
   if (!fp)
     return false;
@@ -90,24 +89,24 @@ bool WriteFile(const string& path, vector<uint8_t> contents) {
   return result;
 }
 
-ScopedTempFile::ScopedTempFile(const string& pattern) {
+ScopedTempFile::ScopedTempFile(const std::string& pattern) {
   EXPECT_TRUE(MakeTempFile(pattern, &filename_));
 }
 
 ScopedTempFile::~ScopedTempFile() {
   if (!filename_.empty() && unlink(filename_.c_str()) < 0) {
-    perror("Unable to remove temporary file");
+    PLOG(ERROR) << "Unable to remove temporary file.";
   }
 }
 
-bool BsdiffPatchFile::LoadFromFile(const string& filename) {
+bool BsdiffPatchFile::LoadFromFile(const std::string& filename) {
   vector<uint8_t> contents;
   if (!ReadFile(filename, &contents))
     return false;
   file_size = contents.size();
   // Check that the file includes at least the header.
   TEST_AND_RETURN_FALSE(contents.size() >= kHeaderSize);
-  magic = string(contents.data(), contents.data() + 8);
+  magic = std::string(contents.data(), contents.data() + 8);
   memcpy(&ctrl_len, contents.data() + 8, sizeof(ctrl_len));
   memcpy(&diff_len, contents.data() + 16, sizeof(diff_len));
   memcpy(&new_file_len, contents.data() + 24, sizeof(new_file_len));

@@ -29,6 +29,8 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.DngCreator;
+import android.location.Location;
+import android.location.LocationManager;
 import android.media.ImageReader;
 import android.util.Pair;
 import android.util.Size;
@@ -39,6 +41,7 @@ import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
 import android.hardware.camera2.params.MeteringRectangle;
 import android.media.Image;
 import android.os.ConditionVariable;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Range;
 import android.util.Rational;
@@ -52,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+@AppModeFull
 public class StillCaptureTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "StillCaptureTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -501,6 +505,90 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
         }
 
     }
+
+    /**
+     * Test focal length controls.
+     */
+    public void testFocalLengths() throws Exception {
+        for (String id : mCameraIds) {
+            try {
+                openDevice(id);
+                if (mStaticInfo.isHardwareLevelLegacy()) {
+                    Log.i(TAG, "Camera " + id + " is legacy, skipping");
+                    continue;
+                }
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
+                focalLengthTestByCamera();
+            } finally {
+                closeDevice();
+                closeImageReader();
+            }
+        }
+    }
+
+    private void focalLengthTestByCamera() throws Exception {
+        float[] focalLengths = mStaticInfo.getAvailableFocalLengthsChecked();
+        int numStillCaptures = focalLengths.length;
+
+        Size maxStillSz = mOrderedStillSizes.get(0);
+        Size maxPreviewSz = mOrderedPreviewSizes.get(0);
+        SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+        SimpleImageReaderListener imageListener = new SimpleImageReaderListener();
+        CaptureRequest.Builder previewRequest =
+                mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+        CaptureRequest.Builder stillRequest =
+                mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+        Size thumbnailSize = new Size(0, 0);
+        Location sTestLocation = new Location(LocationManager.GPS_PROVIDER);
+        sTestLocation.setTime(1199145600000L);
+        sTestLocation.setLatitude(37.736071);
+        sTestLocation.setLongitude(-122.441983);
+        sTestLocation.setAltitude(21.0);
+        ExifTestData exifTestData = new ExifTestData(
+                /* gpsLocation */ sTestLocation,
+                /* orientation */ 0,
+                /* jpgQuality */ (byte) 80,
+                /* thumbnailQuality */ (byte) 75);
+        setJpegKeys(stillRequest, exifTestData, thumbnailSize, mCollector);
+        CaptureResult result;
+
+        // Set the max number of images to number of focal lengths supported
+        prepareStillCaptureAndStartPreview(previewRequest, stillRequest, maxPreviewSz,
+                maxStillSz, resultListener, focalLengths.length, imageListener);
+
+        for(float focalLength : focalLengths) {
+
+            previewRequest.set(CaptureRequest.LENS_FOCAL_LENGTH, focalLength);
+            mSession.setRepeatingRequest(previewRequest.build(), resultListener, mHandler);
+            waitForSettingsApplied(resultListener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
+            waitForResultValue(resultListener, CaptureResult.LENS_STATE,
+                    CaptureResult.LENS_STATE_STATIONARY, NUM_RESULTS_WAIT_TIMEOUT);
+            result = resultListener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
+            mCollector.expectEquals("Focal length in preview result and request should be the same",
+                    previewRequest.get(CaptureRequest.LENS_FOCAL_LENGTH),
+                    result.get(CaptureResult.LENS_FOCAL_LENGTH));
+
+            stillRequest.set(CaptureRequest.LENS_FOCAL_LENGTH, focalLength);
+            CaptureRequest request = stillRequest.build();
+            resultListener = new SimpleCaptureCallback();
+            mSession.capture(request, resultListener, mHandler);
+            result = resultListener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
+            mCollector.expectEquals(
+                    "Focal length in still capture result and request should be the same",
+                    stillRequest.get(CaptureRequest.LENS_FOCAL_LENGTH),
+                    result.get(CaptureResult.LENS_FOCAL_LENGTH));
+
+            Image image = imageListener.getImage(CAPTURE_IMAGE_TIMEOUT_MS);
+
+            validateJpegCapture(image, maxStillSz);
+            verifyJpegKeys(image, result, maxStillSz, thumbnailSize, exifTestData,
+                    mStaticInfo, mCollector);
+        }
+    }
+
 
     /**
      * Start preview,take a picture and test preview is still running after snapshot

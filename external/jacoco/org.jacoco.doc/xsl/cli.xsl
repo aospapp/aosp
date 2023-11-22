@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <!-- 
-   Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+   Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
    All rights reserved. This program and the accompanying materials
    are made available under the terms of the Eclipse Public License v1.0
    which accompanies this distribution, and is available at
@@ -48,8 +48,8 @@
 					  basic operations from the command line. The command line
 					  tools with all dependencies are packaged in
 					  <code>jacococli.jar</code> and are available with the
-					  JaCoCo download. A Java VM with version 1.5 or greater is
-					  required for execution.
+					  JaCoCo download. Java 1.5 or greater is required for
+					  execution.
 					</p>
 					
 					<p>
@@ -64,6 +64,18 @@
 					  list of optional and required parameters. Some parameters
 					  can be specified multiple times to provide multiple values. 
 					</p>
+					
+					<p class="hint">
+					  <b>Warning:</b> Although a <code>instrument</code> command
+					  is provided the preferred way for code coverage analysis
+					  with JaCoCo is on-the-fly instrumentation with the
+					  <a href="agent.html">JaCoCo agent</a>. Offline
+					  instrumentation has several drawbacks and should only be
+					  used if a specific scenario explicitly requires this mode.
+					  Please consult <a href="offline.html">documentation</a>
+					  about offline instrumentation before using this mode.
+					</p>
+					
 					<xsl:apply-templates select="documentation" />
 				</div>
 				<div class="footer">

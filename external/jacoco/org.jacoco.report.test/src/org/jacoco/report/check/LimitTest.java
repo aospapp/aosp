@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -262,6 +262,21 @@ public class LimitTest {
 	}
 
 	@Test
+	public void testMinPercent() {
+		limit.setMinimum("1.55%");
+		assertEquals("0.0155", limit.getMinimum());
+
+		limit.setMinimum("1.5%");
+		assertEquals("0.015", limit.getMinimum());
+
+		limit.setMinimum("1.00%");
+		assertEquals("0.0100", limit.getMinimum());
+
+		limit.setMinimum("1%");
+		assertEquals("0.01", limit.getMinimum());
+	}
+
+	@Test
 	public void testMax0() {
 		limit.setMaximum("0");
 		limit.setMaximum((String) null);
@@ -316,6 +331,21 @@ public class LimitTest {
 								999001);
 					}
 				}));
+	}
+
+	@Test
+	public void testMaxPercent() {
+		limit.setMaximum("1.55%");
+		assertEquals("0.0155", limit.getMaximum());
+
+		limit.setMaximum("1.5%");
+		assertEquals("0.015", limit.getMaximum());
+
+		limit.setMaximum("1.00%");
+		assertEquals("0.0100", limit.getMaximum());
+
+		limit.setMaximum("1%");
+		assertEquals("0.01", limit.getMaximum());
 	}
 
 	private static class TestNode extends CoverageNodeImpl {

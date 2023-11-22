@@ -88,32 +88,46 @@ public class VoicemailContractTest extends InstrumentationTestCase {
 
     public void testVoicemailsTable() throws Exception {
         final String[] VOICEMAILS_PROJECTION = new String[] {
-                Voicemails._ID, Voicemails.NUMBER, Voicemails.DATE, Voicemails.DURATION,
-                Voicemails.IS_READ, Voicemails.SOURCE_PACKAGE, Voicemails.SOURCE_DATA,
-                Voicemails.HAS_CONTENT, Voicemails.MIME_TYPE, Voicemails.TRANSCRIPTION,
+                Voicemails._ID,
+                Voicemails.NUMBER,
+                Voicemails.DATE,
+                Voicemails.DURATION,
+                Voicemails.NEW,
+                Voicemails.IS_READ,
+                Voicemails.SOURCE_PACKAGE,
+                Voicemails.SOURCE_DATA,
+                Voicemails.HAS_CONTENT,
+                Voicemails.MIME_TYPE,
+                Voicemails.TRANSCRIPTION,
                 Voicemails.PHONE_ACCOUNT_COMPONENT_NAME,
-                Voicemails.PHONE_ACCOUNT_ID, Voicemails.DIRTY, Voicemails.DELETED,
-                Voicemails.LAST_MODIFIED, Voicemails.BACKED_UP, Voicemails.RESTORED,
-                Voicemails.ARCHIVED, Voicemails.IS_OMTP_VOICEMAIL};
+                Voicemails.PHONE_ACCOUNT_ID,
+                Voicemails.DIRTY,
+                Voicemails.DELETED,
+                Voicemails.LAST_MODIFIED,
+                Voicemails.BACKED_UP,
+                Voicemails.RESTORED,
+                Voicemails.ARCHIVED,
+                Voicemails.IS_OMTP_VOICEMAIL};
         final int ID_INDEX = 0;
         final int NUMBER_INDEX = 1;
         final int DATE_INDEX = 2;
         final int DURATION_INDEX = 3;
-        final int IS_READ_INDEX = 4;
-        final int SOURCE_PACKAGE_INDEX = 5;
-        final int SOURCE_DATA_INDEX = 6;
-        final int HAS_CONTENT_INDEX = 7;
-        final int MIME_TYPE_INDEX = 8;
-        final int TRANSCRIPTION_INDEX= 9;
-        final int PHONE_ACCOUNT_COMPONENT_NAME_INDEX = 10;
-        final int PHONE_ACCOUNT_ID_INDEX = 11;
-        final int DIRTY_INDEX = 12;
-        final int DELETED_INDEX = 13;
-        final int LAST_MODIFIED_INDEX = 14;
-        final int BACKED_UP_INDEX = 15;
-        final int RESTORED_INDEX = 16;
-        final int ARCHIVED_INDEX = 17;
-        final int IS_OMTP_VOICEMAIL_INDEX = 18;
+        final int NEW_INDEX = 4;
+        final int IS_READ_INDEX = 5;
+        final int SOURCE_PACKAGE_INDEX = 6;
+        final int SOURCE_DATA_INDEX = 7;
+        final int HAS_CONTENT_INDEX = 8;
+        final int MIME_TYPE_INDEX = 9;
+        final int TRANSCRIPTION_INDEX = 10;
+        final int PHONE_ACCOUNT_COMPONENT_NAME_INDEX = 11;
+        final int PHONE_ACCOUNT_ID_INDEX = 12;
+        final int DIRTY_INDEX = 13;
+        final int DELETED_INDEX = 14;
+        final int LAST_MODIFIED_INDEX = 15;
+        final int BACKED_UP_INDEX = 16;
+        final int RESTORED_INDEX = 17;
+        final int ARCHIVED_INDEX = 18;
+        final int IS_OMTP_VOICEMAIL_INDEX = 19;
 
         String insertCallsNumber = "0123456789";
         long insertCallsDuration = 120;
@@ -131,6 +145,7 @@ public class VoicemailContractTest extends InstrumentationTestCase {
         value.put(Voicemails.NUMBER, insertCallsNumber);
         value.put(Voicemails.DATE, insertDate);
         value.put(Voicemails.DURATION, insertCallsDuration);
+        value.put(Voicemails.NEW, 0);
         // Source package is expected to be inserted by the provider, if not set.
         value.put(Voicemails.SOURCE_DATA, insertSourceData);
         value.put(Voicemails.MIME_TYPE, insertMimeType);
@@ -158,17 +173,18 @@ public class VoicemailContractTest extends InstrumentationTestCase {
         assertEquals(mSourcePackageName, cursor.getString(SOURCE_PACKAGE_INDEX));
         assertEquals(insertSourceData, cursor.getString(SOURCE_DATA_INDEX));
         assertEquals(insertMimeType, cursor.getString(MIME_TYPE_INDEX));
+        assertEquals(0, cursor.getInt(NEW_INDEX));
         assertEquals(0, cursor.getInt(IS_READ_INDEX));
         assertEquals(1, cursor.getInt(HAS_CONTENT_INDEX));
-        assertEquals("foo",cursor.getString(TRANSCRIPTION_INDEX));
-        assertEquals("com.foo",cursor.getString(PHONE_ACCOUNT_COMPONENT_NAME_INDEX));
-        assertEquals("bar",cursor.getString(PHONE_ACCOUNT_ID_INDEX));
-        assertEquals(0,cursor.getInt(DIRTY_INDEX));
-        assertEquals(0,cursor.getInt(DELETED_INDEX));
-        assertEquals(0,cursor.getInt(BACKED_UP_INDEX));
-        assertEquals(0,cursor.getInt(RESTORED_INDEX));
-        assertEquals(0,cursor.getInt(ARCHIVED_INDEX));
-        assertEquals(0,cursor.getInt(IS_OMTP_VOICEMAIL_INDEX));
+        assertEquals("foo", cursor.getString(TRANSCRIPTION_INDEX));
+        assertEquals("com.foo", cursor.getString(PHONE_ACCOUNT_COMPONENT_NAME_INDEX));
+        assertEquals("bar", cursor.getString(PHONE_ACCOUNT_ID_INDEX));
+        assertEquals(0, cursor.getInt(DIRTY_INDEX));
+        assertEquals(0, cursor.getInt(DELETED_INDEX));
+        assertEquals(0, cursor.getInt(BACKED_UP_INDEX));
+        assertEquals(0, cursor.getInt(RESTORED_INDEX));
+        assertEquals(0, cursor.getInt(ARCHIVED_INDEX));
+        assertEquals(0, cursor.getInt(IS_OMTP_VOICEMAIL_INDEX));
         int id = cursor.getInt(ID_INDEX);
         assertEquals(id, Integer.parseInt(uri.getLastPathSegment()));
         cursor.close();
@@ -179,6 +195,7 @@ public class VoicemailContractTest extends InstrumentationTestCase {
         value.put(Voicemails.DATE, updateDate);
         value.put(Voicemails.DURATION, updateCallsDuration);
         value.put(Voicemails.SOURCE_DATA, updateSourceData);
+        value.put(Voicemails.NEW, 1);
         value.put(Voicemails.DIRTY, 1);
         value.put(Voicemails.DELETED, 1);
         value.put(Voicemails.BACKED_UP, 1);
@@ -196,12 +213,13 @@ public class VoicemailContractTest extends InstrumentationTestCase {
         assertEquals(updateDate, cursor.getLong(DATE_INDEX));
         assertEquals(updateCallsDuration, cursor.getLong(DURATION_INDEX));
         assertEquals(updateSourceData, cursor.getString(SOURCE_DATA_INDEX));
-        assertEquals(1,cursor.getInt(DIRTY_INDEX));
-        assertEquals(1,cursor.getInt(DELETED_INDEX));
-        assertEquals(1,cursor.getInt(BACKED_UP_INDEX));
-        assertEquals(1,cursor.getInt(RESTORED_INDEX));
-        assertEquals(1,cursor.getInt(ARCHIVED_INDEX));
-        assertEquals(1,cursor.getInt(IS_OMTP_VOICEMAIL_INDEX));
+        assertEquals(1, cursor.getInt(NEW_INDEX));
+        assertEquals(1, cursor.getInt(DIRTY_INDEX));
+        assertEquals(1, cursor.getInt(DELETED_INDEX));
+        assertEquals(1, cursor.getInt(BACKED_UP_INDEX));
+        assertEquals(1, cursor.getInt(RESTORED_INDEX));
+        assertEquals(1, cursor.getInt(ARCHIVED_INDEX));
+        assertEquals(1, cursor.getInt(IS_OMTP_VOICEMAIL_INDEX));
         cursor.close();
 
         // Test: delete
@@ -213,7 +231,7 @@ public class VoicemailContractTest extends InstrumentationTestCase {
     }
 
     public void testForeignUpdate_dirty() throws Exception {
-        if(!hasTelephony(getInstrumentation().getContext())){
+        if (!hasTelephony(getInstrumentation().getContext())) {
             Log.d(TAG, "skipping test that requires telephony feature");
             return;
         }
@@ -225,7 +243,9 @@ public class VoicemailContractTest extends InstrumentationTestCase {
 
         Uri uri = mVoicemailProvider.insert(Voicemails.buildSourceUri(FOREIGN_SOURCE), values);
 
-        mVoicemailProvider.update(uri, new ContentValues(), null, null);
+        ContentValues updateValues = new ContentValues();
+        updateValues.put(Voicemails.IS_READ, "1");
+        mVoicemailProvider.update(uri, updateValues, null, null);
 
         try (Cursor cursor = mVoicemailProvider
                 .query(uri, new String[] {Voicemails.DIRTY}, null, null, null)) {
@@ -234,8 +254,34 @@ public class VoicemailContractTest extends InstrumentationTestCase {
         }
     }
 
+    public void testForeignUpdate_retainDirty_notDirty() throws Exception {
+        if (!hasTelephony(getInstrumentation().getContext())) {
+            Log.d(TAG, "skipping test that requires telephony feature");
+            return;
+        }
+        // only the default dialer has WRITE_VOICEMAIL permission, which can modify voicemails of
+        // a foreign source package.
+        setTestAsDefaultDialer();
+        ContentValues values = new ContentValues();
+        values.put(Voicemails.SOURCE_PACKAGE, FOREIGN_SOURCE);
+
+        Uri uri = mVoicemailProvider.insert(Voicemails.buildSourceUri(FOREIGN_SOURCE), values);
+
+        ContentValues newValues = new ContentValues();
+        newValues.put(Voicemails.TRANSCRIPTION, "foo");
+        newValues.put(Voicemails.DIRTY, Voicemails.DIRTY_RETAIN);
+
+        mVoicemailProvider.update(uri, newValues, null, null);
+
+        try (Cursor cursor = mVoicemailProvider
+                .query(uri, new String[] {Voicemails.DIRTY}, null, null, null)) {
+            cursor.moveToFirst();
+            assertEquals(0, cursor.getInt(0));
+        }
+    }
+
     public void testForeignUpdate_explicitNotDirty() throws Exception {
-        if(!hasTelephony(getInstrumentation().getContext())){
+        if (!hasTelephony(getInstrumentation().getContext())) {
             Log.d(TAG, "skipping test that requires telephony feature");
             return;
         }
@@ -246,7 +292,7 @@ public class VoicemailContractTest extends InstrumentationTestCase {
         Uri uri = mVoicemailProvider.insert(Voicemails.buildSourceUri(FOREIGN_SOURCE), values);
 
         ContentValues updateValues = new ContentValues();
-        updateValues.put(Voicemails.DIRTY,0);
+        updateValues.put(Voicemails.DIRTY, 0);
         mVoicemailProvider.update(uri, updateValues, null, null);
 
         try (Cursor cursor = mVoicemailProvider
@@ -257,7 +303,7 @@ public class VoicemailContractTest extends InstrumentationTestCase {
     }
 
     public void testForeignUpdate_null_dirty() throws Exception {
-        if(!hasTelephony(getInstrumentation().getContext())){
+        if (!hasTelephony(getInstrumentation().getContext())) {
             Log.d(TAG, "skipping test that requires telephony feature");
             return;
         }
@@ -279,7 +325,7 @@ public class VoicemailContractTest extends InstrumentationTestCase {
     }
 
     public void testForeignUpdate_NotNormalized_normalized() throws Exception {
-        if(!hasTelephony(getInstrumentation().getContext())){
+        if (!hasTelephony(getInstrumentation().getContext())) {
             Log.d(TAG, "skipping test that requires telephony feature");
             return;
         }
@@ -303,11 +349,13 @@ public class VoicemailContractTest extends InstrumentationTestCase {
     public void testLocalUpdate_notDirty() throws Exception {
 
         ContentValues values = new ContentValues();
-        values.put(Voicemails.DIRTY,1);
+        values.put(Voicemails.DIRTY, 1);
 
         Uri uri = mVoicemailProvider.insert(Voicemails.buildSourceUri(mSourcePackageName), values);
 
-        mVoicemailProvider.update(uri, new ContentValues(), null, null);
+        ContentValues updateValues = new ContentValues();
+        updateValues.put(Voicemails.IS_READ, "1");
+        mVoicemailProvider.update(uri, updateValues, null, null);
 
         try (Cursor cursor = mVoicemailProvider
                 .query(uri, new String[] {Voicemails.DIRTY}, null, null, null)) {
@@ -316,6 +364,25 @@ public class VoicemailContractTest extends InstrumentationTestCase {
         }
     }
 
+    public void testLocalUpdate_retainDirty_dirty() throws Exception {
+
+        ContentValues values = new ContentValues();
+        values.put(Voicemails.DIRTY, 1);
+
+        Uri uri = mVoicemailProvider.insert(Voicemails.buildSourceUri(mSourcePackageName), values);
+
+        ContentValues newValues = new ContentValues();
+        newValues.put(Voicemails.TRANSCRIPTION, "foo");
+        newValues.put(Voicemails.DIRTY, Voicemails.DIRTY_RETAIN);
+
+        mVoicemailProvider.update(uri, newValues, null, null);
+
+        try (Cursor cursor = mVoicemailProvider
+                .query(uri, new String[] {Voicemails.DIRTY}, null, null, null)) {
+            cursor.moveToFirst();
+            assertEquals(cursor.getInt(0), 1);
+        }
+    }
 
     // Data column should be automatically generated during insert.
     public void testInsert_doesNotUpdateDataColumn() throws Exception {
@@ -351,7 +418,7 @@ public class VoicemailContractTest extends InstrumentationTestCase {
     private void assertDataNotEquals(String newFilePath) throws RemoteException {
         // Make sure data value is not actually updated.
         final Cursor cursor = mVoicemailProvider.query(mVoicemailContentUri,
-                new String[]{Voicemails._DATA}, null, null, null);
+                new String[] {Voicemails._DATA}, null, null, null);
         cursor.moveToNext();
         final String data = cursor.getString(0);
         assertFalse(data.equals(newFilePath));
@@ -494,10 +561,10 @@ public class VoicemailContractTest extends InstrumentationTestCase {
                 packageManager.hasSystemFeature(PackageManager.FEATURE_CONNECTION_SERVICE);
     }
 
-    private void setTestAsDefaultDialer() throws Exception{
+    private void setTestAsDefaultDialer() throws Exception {
         assertTrue(mPreviousDefaultDialer == null);
         mPreviousDefaultDialer = getDefaultDialer(getInstrumentation());
-        setDefaultDialer(getInstrumentation(),PACKAGE);
+        setDefaultDialer(getInstrumentation(), PACKAGE);
     }
 
     private static String setDefaultDialer(Instrumentation instrumentation, String packageName)

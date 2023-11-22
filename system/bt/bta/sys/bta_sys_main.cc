@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2012 Broadcom Corporation
+ *  Copyright 2003-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@
 #include "osi/include/thread.h"
 #include "utl.h"
 
-#if (defined BTA_AR_INCLUDED) && (BTA_AR_INCLUDED == true)
+#if (defined BTA_AR_INCLUDED) && (BTA_AR_INCLUDED == TRUE)
 #include "bta_ar_api.h"
 #endif
 
@@ -159,8 +159,12 @@ const uint8_t bta_sys_hw_stopping[][BTA_SYS_NUM_COLS] = {
 typedef const uint8_t (*tBTA_SYS_ST_TBL)[BTA_SYS_NUM_COLS];
 
 /* state table */
-const tBTA_SYS_ST_TBL bta_sys_st_tbl[] = {bta_sys_hw_off, bta_sys_hw_starting,
-                                          bta_sys_hw_on, bta_sys_hw_stopping};
+const tBTA_SYS_ST_TBL bta_sys_st_tbl[] = {
+    bta_sys_hw_off,      /* BTA_SYS_HW_OFF */
+    bta_sys_hw_starting, /* BTA_SYS_HW_STARTING */
+    bta_sys_hw_on,       /* BTA_SYS_HW_ON */
+    bta_sys_hw_stopping  /* BTA_SYS_HW_STOPPING */
+};
 
 /*******************************************************************************
  *
@@ -181,9 +185,9 @@ void bta_sys_init(void) {
   bta_sys_register(BTA_ID_SYS, &bta_sys_hw_reg);
 
   /* register for BTM notifications */
-  BTM_RegisterForDeviceStatusNotif((tBTM_DEV_STATUS_CB*)&bta_sys_hw_btm_cback);
+  BTM_RegisterForDeviceStatusNotif(&bta_sys_hw_btm_cback);
 
-#if (defined BTA_AR_INCLUDED) && (BTA_AR_INCLUDED == true)
+#if (defined BTA_AR_INCLUDED) && (BTA_AR_INCLUDED == TRUE)
   bta_ar_init();
 #endif
 }
@@ -543,19 +547,29 @@ void bta_sys_sendmsg(void* p_msg) {
  *
  * Description      Post a closure to be ran in the bta thread
  *
- * Returns          void
+ * Returns          BT_STATUS_SUCCESS on success
  *
  ******************************************************************************/
-void do_in_bta_thread(const tracked_objects::Location& from_here,
-                      const base::Closure& task) {
+bt_status_t do_in_bta_thread(const tracked_objects::Location& from_here,
+                             const base::Closure& task) {
   base::MessageLoop* bta_message_loop = get_message_loop();
-
-  if (!bta_message_loop || !bta_message_loop->task_runner().get()) {
+  if (!bta_message_loop) {
     APPL_TRACE_ERROR("%s: MessageLooper not initialized", __func__);
-    return;
+    return BT_STATUS_FAIL;
   }
 
-  bta_message_loop->task_runner()->PostTask(from_here, task);
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner =
+      bta_message_loop->task_runner();
+  if (!task_runner.get()) {
+    APPL_TRACE_ERROR("%s: task runner is dead", __func__);
+    return BT_STATUS_FAIL;
+  }
+
+  if (!task_runner->PostTask(from_here, task)) {
+    APPL_TRACE_ERROR("%s: Post task to task runner failed!", __func__);
+    return BT_STATUS_FAIL;
+  }
+  return BT_STATUS_SUCCESS;
 }
 
 /*******************************************************************************
@@ -595,7 +609,7 @@ void bta_sys_disable(tBTA_SYS_HW_MODULE module) {
 
   switch (module) {
     case BTA_SYS_HW_BLUETOOTH:
-      bta_id = BTA_ID_DM;
+      bta_id = BTA_ID_DM_SEARCH;
       bta_id_max = BTA_ID_BLUETOOTH_MAX;
       break;
     default:
@@ -605,7 +619,7 @@ void bta_sys_disable(tBTA_SYS_HW_MODULE module) {
 
   for (; bta_id <= bta_id_max; bta_id++) {
     if (bta_sys_cb.reg[bta_id] != NULL) {
-      if (bta_sys_cb.is_reg[bta_id] == true &&
+      if (bta_sys_cb.is_reg[bta_id] &&
           bta_sys_cb.reg[bta_id]->disable != NULL) {
         (*bta_sys_cb.reg[bta_id]->disable)();
       }

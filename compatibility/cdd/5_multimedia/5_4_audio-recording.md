@@ -14,9 +14,9 @@ If device implementations declare `android.hardware.microphone`, they:
 *   [C-1-1] MUST allow capture of raw audio content with the following
 characteristics:
 
-   *   **Format**: Linear PCM, 16-bit
-   *   **Sampling rates**: 8000, 11025, 16000, 44100 Hz
-   *   **Channels**: Mono
+     *   **Format**: Linear PCM, 16-bit
+     *   **Sampling rates**: 8000, 11025, 16000, 44100 Hz
+     *   **Channels**: Mono
 
 *   [C-1-2] MUST capture at above sample rates without up-sampling.
 *   [C-1-3] MUST include an appropriate anti-aliasing filter when the
@@ -24,9 +24,9 @@ sample rates given above are captured with down-sampling.
 *   SHOULD allow AM radio and DVD quality capture of raw audio content, which
 means the following characteristics:
 
-   *   **Format**: Linear PCM, 16-bit
-   *   **Sampling rates**: 22050, 48000 Hz
-   *   **Channels**: Stereo
+     *   **Format**: Linear PCM, 16-bit
+     *   **Sampling rates**: 22050, 48000 Hz
+     *   **Channels**: Stereo
 
 If device implementations allow AM radio and DVD quality capture of raw audio
 content, they:

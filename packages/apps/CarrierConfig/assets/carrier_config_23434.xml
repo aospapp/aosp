@@ -3,7 +3,6 @@
     <carrier_config>
         <int name="vvm_port_number_int" value="20481"/>
         <string name="vvm_destination_number_string">887</string>
-        <string name="vvm_type_string">vvm_type_omtp</string>
         <string-array name="non_roaming_operator_string_array" num="6">
             <item value="23430"/>
             <item value="23431"/>

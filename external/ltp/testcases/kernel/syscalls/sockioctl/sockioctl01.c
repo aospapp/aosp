@@ -40,6 +40,7 @@
 #include <net/if.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 char *TCID = "sockioctl01";
 int testno;
@@ -204,15 +205,9 @@ static void cleanup0(void)
 
 static void setup1(void)
 {
-	s = socket(tdat[testno].domain, tdat[testno].type, tdat[testno].proto);
-	if (s < 0) {
-		tst_brkm(TBROK, cleanup, "socket setup failed: %s",
-			 strerror(errno));
-	}
-	if (bind(s, (struct sockaddr *)&sin0, sizeof(sin0)) < 0) {
-		tst_brkm(TBROK, cleanup, "socket bind failed for: %s",
-			 strerror(errno));
-	}
+	s = SAFE_SOCKET(cleanup, tdat[testno].domain, tdat[testno].type,
+			tdat[testno].proto);
+	SAFE_BIND(cleanup, s, (struct sockaddr *)&sin0, sizeof(sin0));
 	sinlen = sizeof(fsin1);
 
 	if (strncmp(tdat[testno].desc, "ATMARK on UDP", 14) == 0) {
@@ -223,11 +218,8 @@ static void setup1(void)
 
 static void setup2(void)
 {
-	s = socket(tdat[testno].domain, tdat[testno].type, tdat[testno].proto);
-	if (s < 0) {
-		tst_brkm(TBROK, cleanup, "socket setup failed: %s",
-			 strerror(errno));
-	}
+	s = SAFE_SOCKET(cleanup, tdat[testno].domain, tdat[testno].type,
+			tdat[testno].proto);
 	ifc.ifc_len = sizeof(buf);
 	ifc.ifc_buf = buf;
 }
@@ -235,10 +227,7 @@ static void setup2(void)
 static void setup3(void)
 {
 	setup2();
-	if (ioctl(s, SIOCGIFCONF, &ifc) < 0) {
-		tst_brkm(TBROK, cleanup, "socket setup failed: %s",
-			 strerror(errno));
-	}
+	SAFE_IOCTL(cleanup, s, SIOCGIFCONF, &ifc);
 	ifr = *(struct ifreq *)ifc.ifc_buf;
 }
 

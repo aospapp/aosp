@@ -37,7 +37,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <com.example.android.autofillframework.app.InfoButton
+    <com.example.android.autofill.app.InfoButton
         android:id="@+id/imageButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -49,7 +49,7 @@
         app:layout_constraintStart_toEndOf="@+id/custom_virtual_login_header"
         app:layout_constraintTop_toTopOf="@+id/custom_virtual_login_header" />
 
-    <com.example.android.autofillframework.app.CustomVirtualView
+    <com.example.android.autofill.app.CustomVirtualView
         android:id="@+id/custom_view"
         android:layout_width="match_parent"
         android:layout_height="@dimen/custom_view_height"

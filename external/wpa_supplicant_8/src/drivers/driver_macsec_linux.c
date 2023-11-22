@@ -168,6 +168,9 @@ static int try_commit(struct macsec_drv_data *drv)
 {
 	int err;
 
+	if (!drv->sk)
+		return 0;
+
 	if (!drv->link)
 		return 0;
 
@@ -231,9 +234,43 @@ static void macsec_drv_wpa_deinit(void *priv)
 }
 
 
+static int macsec_check_macsec(void)
+{
+	struct nl_sock *sk;
+	int err = -1;
+
+	sk = nl_socket_alloc();
+	if (!sk) {
+		wpa_printf(MSG_ERROR, DRV_PREFIX "failed to alloc genl socket");
+		return -1;
+	}
+
+	if (genl_connect(sk) < 0) {
+		wpa_printf(MSG_ERROR,
+			   DRV_PREFIX "connection to genl socket failed");
+		goto out_free;
+	}
+
+	if (genl_ctrl_resolve(sk, "macsec") < 0) {
+		wpa_printf(MSG_ERROR,
+			   DRV_PREFIX "genl resolve failed - macsec kernel module not present?");
+		goto out_free;
+	}
+
+	err = 0;
+
+out_free:
+	nl_socket_free(sk);
+	return err;
+}
+
+
 static void * macsec_drv_wpa_init(void *ctx, const char *ifname)
 {
 	struct macsec_drv_data *drv;
+
+	if (macsec_check_macsec() < 0)
+		return NULL;
 
 	drv = os_zalloc(sizeof(*drv));
 	if (!drv)
@@ -982,6 +1019,11 @@ static int macsec_drv_create_transmit_sc(
 
 	wpa_printf(MSG_DEBUG, "%s", __func__);
 
+	if (!drv->sk) {
+		wpa_printf(MSG_ERROR, DRV_PREFIX "NULL rtnl socket");
+		return -1;
+	}
+
 	link = rtnl_link_macsec_alloc();
 	if (!link) {
 		wpa_printf(MSG_ERROR, DRV_PREFIX "couldn't allocate link");
@@ -1047,6 +1089,9 @@ static int macsec_drv_delete_transmit_sc(void *priv, struct transmit_sc *sc)
 	int err;
 
 	wpa_printf(MSG_DEBUG, "%s", __func__);
+
+	if (!drv->sk)
+		return 0;
 
 	if (!drv->created_link) {
 		rtnl_link_put(drv->link);

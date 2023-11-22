@@ -18,6 +18,8 @@ package android.database.sqlite.cts;
 
 import android.app.ActivityManager;
 import android.content.Context;
+import android.database.Cursor;
+import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteCursor;
 import android.database.sqlite.SQLiteCursorDriver;
 import android.database.sqlite.SQLiteDatabase;
@@ -30,6 +32,9 @@ import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.UiDevice;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import java.io.File;
+import java.util.Arrays;
 
 import static android.database.sqlite.cts.DatabaseTestUtils.getDbInfoOutput;
 import static android.database.sqlite.cts.DatabaseTestUtils.waitForConnectionToClose;
@@ -55,6 +60,7 @@ public class SQLiteOpenHelperTest extends AndroidTestCase {
     @Override
     protected void tearDown() throws Exception {
         mOpenHelper.close();
+        SQLiteDatabase.deleteDatabase(mContext.getDatabasePath(TEST_DATABASE_NAME));
         super.tearDown();
     }
 
@@ -204,15 +210,110 @@ public class SQLiteOpenHelperTest extends AndroidTestCase {
                 output.contains("Connection #0:"));
     }
 
+    public void testOpenParamsConstructor() {
+        SQLiteDatabase.OpenParams params = new SQLiteDatabase.OpenParams.Builder()
+                .build();
+
+        MockOpenHelper helper = new MockOpenHelper(mContext, null, 1, params);
+        SQLiteDatabase database = helper.getWritableDatabase();
+        assertNotNull(database);
+        helper.close();
+    }
+
+    /**
+     * Test for {@link SQLiteOpenHelper#setOpenParams(SQLiteDatabase.OpenParams)}.
+     * <p>Opens the database using the helper and verifies that params have been applied</p>
+     */
+    public void testSetOpenParams() {
+        mOpenHelper.close();
+
+        SQLiteDatabase.OpenParams.Builder paramsBuilder = new SQLiteDatabase.OpenParams.Builder();
+        paramsBuilder.addOpenFlags(SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING);
+
+        MockOpenHelper helper = new MockOpenHelper(mContext, TEST_DATABASE_NAME, null, 1);
+        helper.setOpenParams(paramsBuilder.build());
+        assertTrue("database must be opened with ENABLE_WRITE_AHEAD_LOGGING flag",
+                helper.getWritableDatabase().isWriteAheadLoggingEnabled());
+    }
+
+    /**
+     * Verifies that {@link SQLiteOpenHelper#setOpenParams(SQLiteDatabase.OpenParams)} cannot be
+     * called after opening the database.
+     */
+    public void testSetOpenParamsFailsIfDbIsOpen() {
+        mOpenHelper.getWritableDatabase();
+        try {
+            mOpenHelper.setOpenParams(new SQLiteDatabase.OpenParams.Builder().build());
+            fail("setOpenParams should fail if the database is open");
+        } catch (IllegalStateException e) {
+            // Expected
+        }
+    }
+
+    /**
+     * Tests a scenario in WAL mode with multiple connections, when a connection should see schema
+     * changes made from another connection.
+     */
+    public void testWalSchemaChangeVisibilityOnUpgrade() {
+        File dbPath = mContext.getDatabasePath(TEST_DATABASE_NAME);
+        SQLiteDatabase.deleteDatabase(dbPath);
+        SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(dbPath, null);
+        db.execSQL("CREATE TABLE test_table (_id INTEGER PRIMARY KEY AUTOINCREMENT)");
+        db.setVersion(1);
+        db.close();
+        mOpenHelper = new MockOpenHelper(mContext, TEST_DATABASE_NAME, null, 2) {
+            {
+                setWriteAheadLoggingEnabled(true);
+            }
+
+            @Override
+            public void onCreate(SQLiteDatabase db) {
+            }
+
+            @Override
+            public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+                if (oldVersion == 1) {
+                    db.execSQL("ALTER TABLE test_table ADD column2 INT DEFAULT 1234");
+                    db.execSQL("CREATE TABLE test_table2 (_id INTEGER PRIMARY KEY AUTOINCREMENT)");
+                }
+            }
+        };
+        // Check if can see the new column
+        try (Cursor cursor = mOpenHelper.getReadableDatabase()
+                .rawQuery("select * from test_table", null)) {
+            assertEquals("Newly added column should be visible. Returned columns: " + Arrays
+                    .toString(cursor.getColumnNames()), 2, cursor.getColumnCount());
+        }
+        // Check if can see the new table
+        try (Cursor cursor = mOpenHelper.getReadableDatabase()
+                .rawQuery("select * from test_table2", null)) {
+            assertEquals(1, cursor.getColumnCount());
+        }
+    }
+
+    public void testSetWriteAheadLoggingDisablesCompatibilityWal() {
+        // Verify that compatibility WAL is not enabled, if an application explicitly disables WAL
+
+        mOpenHelper.setWriteAheadLoggingEnabled(false);
+        String journalMode = DatabaseUtils
+                .stringForQuery(mOpenHelper.getWritableDatabase(), "PRAGMA journal_mode", null);
+        assertFalse("Default journal mode should not be WAL", "WAL".equalsIgnoreCase(journalMode));
+    }
+
     private MockOpenHelper getOpenHelper() {
         return new MockOpenHelper(mContext, TEST_DATABASE_NAME, mFactory, TEST_VERSION);
     }
 
-    private class MockOpenHelper extends SQLiteOpenHelper {
+    private static class MockOpenHelper extends SQLiteOpenHelper {
         private boolean mHasCalledOnOpen = false;
 
-        public MockOpenHelper(Context context, String name, CursorFactory factory, int version) {
+        MockOpenHelper(Context context, String name, CursorFactory factory, int version) {
             super(context, name, factory, version);
+        }
+
+        MockOpenHelper(Context context, String name, int version,
+                SQLiteDatabase.OpenParams openParams) {
+            super(context, name, version, openParams);
         }
 
         @Override
@@ -237,8 +338,8 @@ public class SQLiteOpenHelperTest extends AndroidTestCase {
         }
     }
 
-    private class MockCursor extends SQLiteCursor {
-        public MockCursor(SQLiteDatabase db, SQLiteCursorDriver driver, String editTable,
+    private static class MockCursor extends SQLiteCursor {
+        MockCursor(SQLiteDatabase db, SQLiteCursorDriver driver, String editTable,
                 SQLiteQuery query) {
             super(db, driver, editTable, query);
         }

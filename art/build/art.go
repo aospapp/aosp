@@ -19,6 +19,8 @@ import (
 	"android/soong/cc"
 	"fmt"
 	"sync"
+
+	"github.com/google/blueprint/proptools"
 )
 
 var supportedArches = []string{"arm", "arm64", "mips", "mips64", "x86", "x86_64"}
@@ -44,10 +46,6 @@ func globalFlags(ctx android.BaseContext) ([]string, []string) {
 		cflags = append(cflags, "-DART_USE_TLAB=1")
 	}
 
-	if !envFalse(ctx, "ART_ENABLE_VDEX") {
-		cflags = append(cflags, "-DART_ENABLE_VDEX")
-	}
-
 	imtSize := envDefault(ctx, "ART_IMT_SIZE", "43")
 	cflags = append(cflags, "-DIMT_SIZE="+imtSize)
 
@@ -67,6 +65,9 @@ func globalFlags(ctx android.BaseContext) ([]string, []string) {
 			"-DART_USE_READ_BARRIER=1",
 			"-DART_READ_BARRIER_TYPE_IS_"+barrierType+"=1")
 	}
+
+  cdexLevel := envDefault(ctx, "ART_DEFAULT_COMPACT_DEX_LEVEL", "fast")
+  cflags = append(cflags, "-DART_DEFAULT_COMPACT_DEX_LEVEL="+cdexLevel)
 
 	// We need larger stack overflow guards for ASAN, as the compiled code will have
 	// larger frame sizes. For simplicity, just use global not-target-specific cflags.
@@ -95,6 +96,15 @@ func globalFlags(ctx android.BaseContext) ([]string, []string) {
 		// Used to enable full sanitization, i.e., user poisoning, under ASAN.
 		cflags = append(cflags, "-DART_ENABLE_ADDRESS_SANITIZER=1")
 		asflags = append(asflags, "-DART_ENABLE_ADDRESS_SANITIZER=1")
+	}
+
+	if envTrue(ctx, "ART_MIPS32_CHECK_ALIGNMENT") {
+		// Enable the use of MIPS32 CHECK_ALIGNMENT macro for debugging purposes
+		asflags = append(asflags, "-DART_MIPS32_CHECK_ALIGNMENT")
+	}
+
+	if envTrueOrDefault(ctx, "USE_D8_DESUGAR") {
+		cflags = append(cflags, "-DUSE_D8_DESUGAR=1")
 	}
 
 	return cflags, asflags
@@ -153,6 +163,11 @@ func hostFlags(ctx android.BaseContext) []string {
 	cflags = append(cflags, "-DART_BASE_ADDRESS_MIN_DELTA="+minDelta)
 	cflags = append(cflags, "-DART_BASE_ADDRESS_MAX_DELTA="+maxDelta)
 
+	if len(ctx.AConfig().SanitizeHost()) > 0 && !envFalse(ctx, "ART_ENABLE_ADDRESS_SANITIZER") {
+		// We enable full sanitization on the host by default.
+		cflags = append(cflags, "-DART_ENABLE_ADDRESS_SANITIZER=1")
+	}
+
 	return cflags
 }
 
@@ -200,31 +215,33 @@ func debugDefaults(ctx android.LoadHookContext) {
 
 func customLinker(ctx android.LoadHookContext) {
 	linker := envDefault(ctx, "CUSTOM_TARGET_LINKER", "")
-	if linker != "" {
-		type props struct {
-			DynamicLinker string
-		}
-
-		p := &props{}
-		p.DynamicLinker = linker
-		ctx.AppendProperties(p)
+	type props struct {
+		DynamicLinker string
 	}
+
+	p := &props{}
+	if linker != "" {
+		p.DynamicLinker = linker
+	}
+
+	ctx.AppendProperties(p)
 }
 
 func prefer32Bit(ctx android.LoadHookContext) {
-	if envTrue(ctx, "HOST_PREFER_32_BIT") {
-		type props struct {
-			Target struct {
-				Host struct {
-					Compile_multilib string
-				}
+	type props struct {
+		Target struct {
+			Host struct {
+				Compile_multilib *string
 			}
 		}
-
-		p := &props{}
-		p.Target.Host.Compile_multilib = "prefer32"
-		ctx.AppendProperties(p)
 	}
+
+	p := &props{}
+	if envTrue(ctx, "HOST_PREFER_32_BIT") {
+		p.Target.Host.Compile_multilib = proptools.StringPtr("prefer32")
+	}
+
+	ctx.AppendProperties(p)
 }
 
 func testMap(config android.Config) map[string][]string {
@@ -256,6 +273,7 @@ var artTestMutex sync.Mutex
 
 func init() {
 	android.RegisterModuleType("art_cc_library", artLibrary)
+	android.RegisterModuleType("art_cc_static_library", artStaticLibrary)
 	android.RegisterModuleType("art_cc_binary", artBinary)
 	android.RegisterModuleType("art_cc_test", artTest)
 	android.RegisterModuleType("art_cc_test_library", artTestLibrary)
@@ -287,8 +305,18 @@ func artDefaultsFactory() android.Module {
 }
 
 func artLibrary() android.Module {
-	library, _ := cc.NewLibrary(android.HostAndDeviceSupported)
-	module := library.Init()
+	m, _ := cc.NewLibrary(android.HostAndDeviceSupported)
+	module := m.Init()
+
+	installCodegenCustomizer(module, true)
+
+	return module
+}
+
+func artStaticLibrary() android.Module {
+	m, library := cc.NewLibrary(android.HostAndDeviceSupported)
+	library.BuildOnlyStatic()
+	module := m.Init()
 
 	installCodegenCustomizer(module, true)
 
@@ -341,4 +369,8 @@ func envTrue(ctx android.BaseContext, key string) bool {
 
 func envFalse(ctx android.BaseContext, key string) bool {
 	return ctx.AConfig().Getenv(key) == "false"
+}
+
+func envTrueOrDefault(ctx android.BaseContext, key string) bool {
+	return ctx.AConfig().Getenv(key) != "false"
 }

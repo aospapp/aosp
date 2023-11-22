@@ -37,14 +37,14 @@ public class RefocusTest extends RSBaseCompute {
     /**
      * Test the orignal refocus code
      */
-    public void testOriginalRefocus() {
+    public void testOriginalRefocus() throws IOException {
         refocus(RenderScriptTask.script.f32, 95);
     }
 
     /**
      * Test the new refocus code
      */
-    public void testNewRefocus() {
+    public void testNewRefocus() throws IOException {
         // The new implementation may run on a GPU using relaxed floating point
         // mathematics. Hence more relaxed precision requirement.
         refocus(RenderScriptTask.script.d1new, 45);
@@ -54,7 +54,7 @@ public class RefocusTest extends RSBaseCompute {
      * Test a refocus operator against the refocus_reference image
      * @param impl version of refocus to run
      */
-    private void refocus(RenderScriptTask.script impl, double minimumPSNR) {
+    private void refocus(RenderScriptTask.script impl, double minimumPSNR) throws IOException {
         Context ctx = getContext();
 
         RenderScript rs = RenderScript.create(ctx);
@@ -63,27 +63,26 @@ public class RefocusTest extends RSBaseCompute {
             current_rgbz = new RGBZ(getResourceRef(R.drawable.test_image),
                                     getResourceRef(R.drawable.test_depthmap),
                                     ctx.getContentResolver(), ctx);
-        } catch (IOException e) {
-            e.printStackTrace();
-            assertNull(e);
+            DepthOfFieldOptions current_depth_options = new DepthOfFieldOptions(current_rgbz);
+            RsTaskParams rsTaskParam = new RsTaskParams(rs, current_depth_options);
+
+            RenderScriptTask renderScriptTask = new RenderScriptTask(rs, impl);
+            Bitmap outputImage = renderScriptTask.applyRefocusFilter(rsTaskParam.mOptions);
+
+            Bitmap expectedImage = BitmapFactory.decodeResource(ctx.getResources(),
+                    R.drawable.expected_output);
+
+            double psnr = ImageCompare.psnr(outputImage, expectedImage);
+            android.util.Log.i("RefocusTest", "psnr = " + String.format("%.02f", psnr));
+            if (psnr < minimumPSNR) {
+                MediaStoreSaver.savePNG(outputImage, "refocus", "refocus_output" , ctx);
+                assertTrue("Required minimum psnr = " + String.format("%.02f; ", minimumPSNR) +
+                           "Actual psnr = " + String.format("%.02f", psnr),
+                           false);
+            }
+        } finally {
+            rs.destroy();
         }
-        DepthOfFieldOptions current_depth_options = new DepthOfFieldOptions(current_rgbz);
-        RsTaskParams rsTaskParam = new RsTaskParams(rs, current_depth_options);
-
-        RenderScriptTask renderScriptTask = new RenderScriptTask(rs, impl);
-        Bitmap outputImage = renderScriptTask.applyRefocusFilter(rsTaskParam.mOptions);
-
-        Bitmap expectedImage = BitmapFactory.decodeResource(ctx.getResources(), R.drawable.expected_output);
-
-        double psnr = ImageCompare.psnr(outputImage, expectedImage);
-        android.util.Log.i("RefocusTest", "psnr = " + String.format("%.02f", psnr));
-        if (psnr < minimumPSNR) {
-            MediaStoreSaver.savePNG(outputImage, "refocus", "refocus_output" , ctx);
-            assertTrue("Required minimum psnr = " + String.format("%.02f; ", minimumPSNR) +
-                       "Actual psnr = " + String.format("%.02f", psnr),
-                       false);
-        }
-        rs.destroy();
     }
 
 

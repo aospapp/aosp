@@ -21,18 +21,15 @@ import android.support.v17.leanback.widget.VerticalGridView;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
-
 import com.android.tv.common.WeakHandler;
 
-/**
- * Listener to make focus change faster over time.
- */
+/** Listener to make focus change faster over time. */
 public class OnRepeatedKeyInterceptListener implements VerticalGridView.OnKeyInterceptListener {
     private static final String TAG = "OnRepeatedKeyListener";
     private static final boolean DEBUG = false;
 
-    private static final int[] THRESHOLD_FAST_FOCUS_CHANGE_TIME_MS = { 2000, 5000 };
-    private static final int[] MAX_SKIPPED_VIEW_COUNT = { 1, 4 };
+    private static final int[] THRESHOLD_FAST_FOCUS_CHANGE_TIME_MS = {2000, 5000};
+    private static final int[] MAX_SKIPPED_VIEW_COUNT = {1, 4};
     private static final int MSG_MOVE_FOCUS = 1000;
 
     private final VerticalGridView mView;
@@ -52,21 +49,20 @@ public class OnRepeatedKeyInterceptListener implements VerticalGridView.OnKeyInt
     @Override
     public boolean onInterceptKeyEvent(KeyEvent event) {
         mHandler.removeMessages(MSG_MOVE_FOCUS);
-        if (event.getKeyCode() != KeyEvent.KEYCODE_DPAD_UP &&
-                event.getKeyCode() != KeyEvent.KEYCODE_DPAD_DOWN) {
+        if (event.getKeyCode() != KeyEvent.KEYCODE_DPAD_UP
+                && event.getKeyCode() != KeyEvent.KEYCODE_DPAD_DOWN) {
             return false;
         }
 
         long duration = event.getEventTime() - event.getDownTime();
-        if (duration < THRESHOLD_FAST_FOCUS_CHANGE_TIME_MS[0]
-                || event.isCanceled()) {
+        if (duration < THRESHOLD_FAST_FOCUS_CHANGE_TIME_MS[0] || event.isCanceled()) {
             mFocusAccelerated = false;
             return false;
         }
-        mDirection = event.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP ? View.FOCUS_UP
-                : View.FOCUS_DOWN;
+        mDirection =
+                event.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP ? View.FOCUS_UP : View.FOCUS_DOWN;
         int skippedViewCount = MAX_SKIPPED_VIEW_COUNT[0];
-        for (int i = 1 ;i < THRESHOLD_FAST_FOCUS_CHANGE_TIME_MS.length; ++i) {
+        for (int i = 1; i < THRESHOLD_FAST_FOCUS_CHANGE_TIME_MS.length; ++i) {
             if (THRESHOLD_FAST_FOCUS_CHANGE_TIME_MS[i] < duration) {
                 skippedViewCount = MAX_SKIPPED_VIEW_COUNT[i];
             } else {
@@ -83,8 +79,8 @@ public class OnRepeatedKeyInterceptListener implements VerticalGridView.OnKeyInt
             mFocusAccelerated = false;
         }
         for (int i = 0; i < skippedViewCount; ++i) {
-            mHandler.sendEmptyMessageDelayed(MSG_MOVE_FOCUS,
-                    mRepeatedKeyInterval * i / (skippedViewCount + 1));
+            mHandler.sendEmptyMessageDelayed(
+                    MSG_MOVE_FOCUS, mRepeatedKeyInterval * i / (skippedViewCount + 1));
         }
         if (DEBUG) Log.d(TAG, "onInterceptKeyEvent: focused view " + mView.findFocus());
         return false;

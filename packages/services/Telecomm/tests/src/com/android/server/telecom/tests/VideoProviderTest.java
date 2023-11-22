@@ -16,10 +16,13 @@
 
 package com.android.server.telecom.tests;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.internal.exceptions.ExceptionIncludingMockitoWarnings;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
@@ -46,7 +49,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import static android.test.MoreAsserts.assertEquals;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyLong;
@@ -56,17 +59,16 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 /**
  * Performs tests of the {@link VideoProvider} and {@link VideoCall} APIs.  Ensures that requests
  * sent from an InCallService are routed through Telecom to a VideoProvider, and that callbacks are
  * correctly routed.
  */
+@RunWith(JUnit4.class)
 public class VideoProviderTest extends TelecomSystemTest {
     private static final int ORIENTATION_0 = 0;
     private static final int ORIENTATION_90 = 90;
@@ -89,6 +91,7 @@ public class VideoProviderTest extends TelecomSystemTest {
     };
 
     @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         mContext = mComponentContextFixture.getTestDouble().getApplicationContext();
@@ -121,6 +124,7 @@ public class VideoProviderTest extends TelecomSystemTest {
     }
 
     @Override
+    @After
     public void tearDown() throws Exception {
         super.tearDown();
     }
@@ -131,6 +135,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * APIS.
      */
     @MediumTest
+    @Test
     public void testCameraChange() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback)
@@ -165,6 +170,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * change from a non-permitted caller is ignored.
      */
     @MediumTest
+    @Test
     public void testCameraChangePermissionFail() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback).onCallSessionEvent(anyInt());
@@ -193,6 +199,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * change from a non-permitted caller is ignored.
      */
     @MediumTest
+    @Test
     public void testCameraChangeAppOpsFail() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback).onCallSessionEvent(anyInt());
@@ -222,6 +229,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * of a CAMERA_PERMISSION_ERROR.
      */
     @MediumTest
+    @Test
     public void testCameraChangeAppOpsBelowNMR1Fail() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback).onCallSessionEvent(anyInt());
@@ -251,6 +259,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * change from a background user is not permitted.
      */
     @MediumTest
+    @Test
     public void testCameraChangeUserFail() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback).onCallSessionEvent(anyInt());
@@ -278,6 +287,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * caller can null out the camera, even if they do not have camera permission.
      */
     @MediumTest
+    @Test
     public void testCameraChangeNullNoPermission() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback).onCallSessionEvent(anyInt());
@@ -306,6 +316,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * {@link VideoProvider#onSetPreviewSurface(Surface)} APIs.
      */
     @MediumTest
+    @Test
     public void testSetPreviewSurface() throws Exception {
         final Surface surface = new Surface(new SurfaceTexture(1));
         mVideoCall.setPreviewSurface(surface);
@@ -332,6 +343,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * {@link VideoProvider#onSetDisplaySurface(Surface)} APIs.
      */
     @MediumTest
+    @Test
     public void testSetDisplaySurface() throws Exception {
         final Surface surface = new Surface(new SurfaceTexture(1));
         mVideoCall.setDisplaySurface(surface);
@@ -358,6 +370,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * {@link VideoProvider#onSetDeviceOrientation(int)} APIs.
      */
     @MediumTest
+    @Test
     public void testSetDeviceOrientation() throws Exception {
         mVideoCall.setDeviceOrientation(ORIENTATION_0);
 
@@ -382,6 +395,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * Tests the {@link VideoCall#setZoom(float)} and {@link VideoProvider#onSetZoom(float)} APIs.
      */
     @MediumTest
+    @Test
     public void testSetZoom() throws Exception {
         mVideoCall.setZoom(ZOOM_LEVEL);
 
@@ -404,6 +418,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * peer accepts as-is.
      */
     @MediumTest
+    @Test
     public void testSessionModifyRequest() throws Exception {
         VideoProfile requestProfile = new VideoProfile(VideoProfile.STATE_BIDIRECTIONAL);
 
@@ -442,6 +457,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * and {@link VideoProvider#onSendSessionModifyResponse(VideoProfile)} APIs.
      */
     @MediumTest
+    @Test
     public void testSessionModifyResponse() throws Exception {
         VideoProfile sessionModifyResponse = new VideoProfile(VideoProfile.STATE_TX_ENABLED);
 
@@ -463,6 +479,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * {@link VideoCall.Callback#onCameraCapabilitiesChanged(CameraCapabilities)} APIs.
      */
     @MediumTest
+    @Test
     public void testRequestCameraCapabilities() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback)
@@ -481,6 +498,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * {@link VideoProvider#onSetPauseImage(Uri)} APIs.
      */
     @MediumTest
+    @Test
     public void testSetPauseImage() throws Exception {
         final Uri testUri = Uri.fromParts("file", "test.jpg", null);
         mVideoCall.setPauseImage(testUri);
@@ -500,6 +518,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * {@link VideoCall.Callback#onCallDataUsageChanged(long)} APIs.
      */
     @MediumTest
+    @Test
     public void testRequestDataUsage() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback)
@@ -518,6 +537,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * {@link VideoCall.Callback#onSessionModifyRequestReceived(VideoProfile)} APIs.
      */
     @MediumTest
+    @Test
     public void testReceiveSessionModifyRequest() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback)
@@ -541,6 +561,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * {@link VideoCall.Callback#onCallSessionEvent(int)} APIs.
      */
     @MediumTest
+    @Test
     public void testSessionEvent() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback)
@@ -560,6 +581,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * {@link VideoCall.Callback#onPeerDimensionsChanged(int, int)} APIs.
      */
     @MediumTest
+    @Test
     public void testPeerDimensionChange() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback)
@@ -580,6 +602,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * {@link VideoCall.Callback#onVideoQualityChanged(int)} APIs.
      */
     @MediumTest
+    @Test
     public void testVideoQualityChange() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback)

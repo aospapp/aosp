@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """Test for sysroot_wrapper bisector.
 
 All files in bad_files will be determined to be bad. This test was made for
@@ -15,9 +15,9 @@ import os
 base_path = ('/var/cache/chromeos-chrome/chrome-src-internal/src/out_daisy/'
              'Release/obj/')
 bad_files = [
-    os.path.join(base_path, 'base/base.cpu.o'),
-    os.path.join(base_path, 'base/base.version.o'),
-    os.path.join(base_path, 'apps/apps.launcher.o')
+    os.path.join(base_path, 'base/base.cpu.o'), os.path.join(
+        base_path, 'base/base.version.o'), os.path.join(base_path,
+                                                        'apps/apps.launcher.o')
 ]
 
 bisect_dir = os.environ.get('BISECT_DIR', '/tmp/sysroot_bisect')

@@ -1,4 +1,4 @@
-// Copyright (C) 2016 and later: Unicode, Inc. and others.
+// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************
  * COPYRIGHT:
@@ -56,6 +56,8 @@ public:
     virtual void TestBug11049();
     virtual void TestBug11371();
     virtual void TestBug11480();
+    virtual void TestBug12884();
+    virtual void TestBug13631();
     
     // The following functions are internal to the regexp tests.
     virtual void assertUText(const char *expected, UText *actual, const char *file, int line);

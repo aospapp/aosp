@@ -37,8 +37,6 @@ class ClientInterfaceBinder : public android::net::wifi::BnClientInterface {
   // by remote processes are possible.
   void NotifyImplDead() { impl_ = nullptr; }
 
-  ::android::binder::Status enableSupplicant(bool* success) override;
-  ::android::binder::Status disableSupplicant(bool* success) override;
   ::android::binder::Status getPacketCounters(
       std::vector<int32_t>* out_packet_counters) override;
   ::android::binder::Status signalPoll(
@@ -48,11 +46,8 @@ class ClientInterfaceBinder : public android::net::wifi::BnClientInterface {
   ::android::binder::Status getInterfaceName(std::string* out_name) override;
   ::android::binder::Status getWifiScannerImpl(
       ::android::sp<::android::net::wifi::IWifiScannerImpl>* out_wifi_scanner_impl) override;
-  ::android::binder::Status requestANQP(
-      const ::std::vector<uint8_t>& bssid,
-      const ::android::sp<::android::net::wifi::IANQPDoneCallback>& callback,
-      bool* out_success) override;
-
+  ::android::binder::Status setMacAddress(
+      const ::std::vector<uint8_t>& mac, bool* success) override;
  private:
   ClientInterfaceImpl* impl_;
 

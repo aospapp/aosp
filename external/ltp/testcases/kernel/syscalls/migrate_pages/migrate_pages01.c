@@ -44,7 +44,7 @@
 #include "config.h"
 #include "test.h"
 #include "safe_macros.h"
-#include "linux_syscall_numbers.h"
+#include "lapi/syscalls.h"
 #include "numa_helper.h"
 #include "migrate_pages_common.h"
 
@@ -55,7 +55,8 @@ option_t options[] = {
 	{NULL, NULL, NULL}
 };
 
-#if defined(__NR_migrate_pages) && HAVE_NUMA_H && HAVE_NUMAIF_H
+#if defined(HAVE_NUMA_V2) && defined(__NR_migrate_pages)
+
 static unsigned long *sane_old_nodes;
 static unsigned long *sane_new_nodes;
 static int sane_nodemask_size;
@@ -117,8 +118,7 @@ static void test_invalid_mem(void)
 	check_ret(-1);
 	check_errno(EFAULT);
 
-	if (munmap(p, getpagesize()) < 0)
-		tst_brkm(TBROK | TERRNO, cleanup, "munmap");
+	SAFE_MUNMAP(cleanup, p, getpagesize());
 	tst_resm(TINFO, "test_invalid_mem unmmaped");
 	TEST(ltp_syscall(__NR_migrate_pages, 0, sane_max_node, p, p));
 	check_ret(-1);
@@ -183,17 +183,14 @@ static void test_invalid_perm(void)
 		ltpuser = getpwnam(nobody_uid);
 		if (ltpuser == NULL)
 			tst_brkm(TBROK | TERRNO, NULL, "getpwnam failed");
-		if (setuid(ltpuser->pw_uid) == -1)
-			tst_brkm(TBROK | TERRNO, NULL,
-				 "setuid(%u) failed", ltpuser->pw_uid);
+		SAFE_SETUID(NULL, ltpuser->pw_uid);
 		TEST(ltp_syscall(__NR_migrate_pages, parent_pid,
 			     sane_max_node, sane_old_nodes, sane_new_nodes));
 		ret |= check_ret(-1);
 		ret |= check_errno(EPERM);
 		exit(ret);
 	default:
-		if (waitpid(child_pid, &status, 0) == -1)
-			tst_brkm(TBROK | TERRNO, cleanup, "waitpid");
+		SAFE_WAITPID(cleanup, child_pid, &status, 0);
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
 			tst_resm(TFAIL, "child returns %d", status);
 	}
@@ -253,10 +250,10 @@ static void cleanup(void)
 	free(sane_new_nodes);
 }
 
-#else /* __NR_migrate_pages */
+#else
 int main(void)
 {
-	tst_brkm(TCONF, NULL, "System doesn't support __NR_migrate_pages"
-		 " or libnuma is not available");
+	tst_brkm(TCONF, NULL, "System doesn't support __NR_migrate_pages or "
+		 "libnuma or libnuma development packages are not available");
 }
 #endif

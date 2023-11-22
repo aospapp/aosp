@@ -150,7 +150,12 @@ LOCAL_SRC_FILES += aai.c\
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/..
 
-LOCAL_CFLAGS += -DHAVE_CONFIG_H -Wno-unused-parameter -Wno-for-loop-analysis
+LOCAL_CFLAGS += -DHAVE_CONFIG_H \
+    -Wall -Werror \
+    -Wno-for-loop-analysis \
+    -Wno-sign-compare \
+    -Wno-unused-function \
+    -Wno-unused-parameter
 
 LOCAL_STATIC_LIBRARIES += libbz
 LOCAL_SHARED_LIBRARIES += libft2 liblzma libxml2 libicuuc libpng libjpeg

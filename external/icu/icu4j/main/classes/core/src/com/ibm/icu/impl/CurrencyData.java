@@ -29,23 +29,29 @@ public class CurrencyData {
         public abstract Map<String, String> getUnitPatterns();
         public abstract CurrencyFormatInfo getFormatInfo(String isoCode);
         public abstract CurrencySpacingInfo getSpacingInfo();
+        public abstract String getNarrowSymbol(String isoCode);
     }
 
     public static final class CurrencyFormatInfo {
+        public final String isoCode;
         public final String currencyPattern;
-        public final String monetarySeparator;
+        public final String monetaryDecimalSeparator;
         public final String monetaryGroupingSeparator;
 
-        public CurrencyFormatInfo(String currencyPattern, String monetarySeparator,
+        public CurrencyFormatInfo(String isoCode, String currencyPattern, String monetarySeparator,
                 String monetaryGroupingSeparator) {
+            this.isoCode = isoCode;
             this.currencyPattern = currencyPattern;
-            this.monetarySeparator = monetarySeparator;
+            this.monetaryDecimalSeparator = monetarySeparator;
             this.monetaryGroupingSeparator = monetaryGroupingSeparator;
         }
     }
 
     public static final class CurrencySpacingInfo {
         private final String[][] symbols = new String[SpacingType.COUNT.ordinal()][SpacingPattern.COUNT.ordinal()];
+
+        public boolean hasBeforeCurrency = false;
+        public boolean hasAfterCurrency = false;
 
         public static enum SpacingType { BEFORE, AFTER, COUNT };
         public static enum SpacingPattern {
@@ -141,6 +147,11 @@ public class CurrencyData {
 
         @Override
         public String getSymbol(String isoCode) {
+            return fallback ? isoCode : null;
+        }
+
+        @Override
+        public String getNarrowSymbol(String isoCode) {
             return fallback ? isoCode : null;
         }
 

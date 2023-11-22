@@ -87,10 +87,12 @@
 @r2 => *pu1_dst
 @r3 => dst_strd
 
-@stack contents from #40
+@stack contents from #104
 @   nt
 @   mode
 @   pi1_coeff
+
+.equ    nt_offset,      104
 
 .text
 .align 4
@@ -109,8 +111,9 @@ gau1_ihevc_planar_factor_addr:
 ihevc_intra_pred_chroma_planar_a9q:
 
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
+    vpush       {d8 - d15}
 
-    ldr         r4,[sp,#40]                 @loads nt
+    ldr         r4,[sp,#nt_offset]          @loads nt
     ldr         r11, gau1_ihevc_planar_factor_addr @loads table of coeffs
 ulbl1:
     add         r11,r11,pc
@@ -353,6 +356,7 @@ loop_sz_4:
     bne         loop_sz_4
 
 end_loop:
+    vpop        {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 

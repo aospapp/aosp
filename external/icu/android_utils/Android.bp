@@ -20,6 +20,10 @@ cc_library_static {
         "libicuuc",
         "liblog",
     ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     local_include_dirs: ["include"],
     export_include_dirs: ["include"],
 }

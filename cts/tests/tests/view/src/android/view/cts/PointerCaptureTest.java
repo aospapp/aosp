@@ -234,7 +234,8 @@ public class PointerCaptureTest {
         // condition.
         CtsTouchUtils.emulateLongPressOnView(mInstrumentation, mTarget, 0, 0);
         PollingCheck.waitFor(TIMEOUT_DELTA, () -> !mOuter.hasWindowFocus());
-        assertPointerCapture(false);
+        PollingCheck.waitFor(TIMEOUT_DELTA,
+                () -> !mTarget.hasPointerCapture() && !mActivity.hasPointerCapture());
 
         mInstrumentation.sendCharacterSync(KeyEvent.KEYCODE_BACK);
         PollingCheck.waitFor(TIMEOUT_DELTA, () -> mOuter.hasWindowFocus());

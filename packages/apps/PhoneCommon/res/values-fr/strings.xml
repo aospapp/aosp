@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Aucune carte SIM ou erreur de carte SIM."</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Réseau mobile indisponible."</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Les appels sortants sont restreints par la liste de numéros autorisés."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"La requête DIAL a été remplacée par une requête USSD."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"La requête DIAL a été remplacée par une requête SS."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"La requête DIAL a été remplacée par une requête DIAL avec un numéro différent."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Appel transformé en requête USSD"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Appel transformé en requête SS"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Modification du numéro"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Remplacement par un appel vidéo"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Appel vidéo transformé en requête SS"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Appel vidéo transformé en requête USSD"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Remplacement par un appel standard"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Modification du numéro"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Impossible d\'émettre des appels sortants si le blocage d\'appels est activé."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Appels limités par un contrôle d\'accès."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Appels d\'urgence limités par un contrôle d\'accès."</string>

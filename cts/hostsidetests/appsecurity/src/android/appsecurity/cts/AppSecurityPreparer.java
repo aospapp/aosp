@@ -29,7 +29,6 @@ import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetCleaner;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
-import com.android.tradefed.util.StreamUtil;
 
 /**
  * Creates secondary and tertiary users for use during a test suite.
@@ -56,11 +55,8 @@ public class AppSecurityPreparer implements ITargetPreparer, ITargetCleaner, ITe
                         "Created secondary user " + device.createUser("CTS_" + System.nanoTime()));
             }
         } catch (IllegalStateException e) {
-            InputStreamSource logcat = device.getLogcatDump();
-            try {
+            try (InputStreamSource logcat = device.getLogcatDump()) {
                 mLogger.testLog("AppSecurityPrep_failed_create_user", LogDataType.LOGCAT, logcat);
-            } finally {
-                StreamUtil.cancel(logcat);
             }
             throw new TargetSetupError("Failed to create user.", e, device.getDeviceDescriptor());
         }

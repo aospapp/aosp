@@ -20,11 +20,33 @@
     <string name="launcher_settings_app_name" msgid="5782771766725939392">"సెట్టింగ్‌లు"</string>
     <string name="launcher_network_app_name" msgid="5107150533945388559">"నెట్‌వర్క్"</string>
     <string name="launcher_restricted_profile_app_name" msgid="671448012575234643">"నియంత్రిత ప్రొఫైల్"</string>
+    <string name="header_category_suggestions" msgid="6732367439328586933">"సూచనలు"</string>
+    <string name="header_category_quick_settings" msgid="6626141045575946920">"శీఘ్ర సెట్టింగ్‌లు"</string>
+    <string name="header_category_general_settings" msgid="1208946854116876918">"సాధారణ సెట్టింగ్‌లు"</string>
+    <string name="dismiss_suggestion" msgid="8288127823132069828">"సూచనను విస్మరించండి"</string>
+    <string name="hotwording_title" msgid="1984130766527626626">"\"Ok Google\" గుర్తింపు"</string>
+    <string name="hotwording_summary" msgid="2863751845299261441">"Google అసిస్టెంట్‌తో ఎప్పుడైనా మాట్లాడండి"</string>
     <string name="header_category_device" msgid="4855983928659541345">"పరికరం"</string>
     <string name="header_category_preferences" msgid="175105555164713972">"ప్రాధాన్యతలు"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"రిమోట్ &amp; ఉపకరణాలు"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"వ్యక్తిగతం"</string>
-    <string name="accounts_category_title" msgid="7591072907146317425">"ఖాతాలు"</string>
+    <string name="connect_to_network" msgid="2209125715907353369">"నెట్‌వర్క్‌కి కనెక్ట్ చేయండి"</string>
+    <string name="add_an_account" msgid="1123478843971990449">"ఖాతాను జోడించండి"</string>
+    <string name="accounts_category_title" msgid="7839427428921349418">"ఖాతాలు &amp; సైన్ ఇన్"</string>
+    <string name="accounts_category_summary_no_account" msgid="5739678666463033824">"ఖాతాలు లేవు"</string>
+    <plurals name="accounts_category_summary" formatted="false" msgid="3864659911073569648">
+      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> ఖాతాలు</item>
+      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> ఖాతా</item>
+    </plurals>
+    <string name="connectivity_network_category_title" msgid="6005656364481347542">"నెట్‌వర్క్ &amp; ఇంటర్నెట్"</string>
+    <string name="applications_category_title" msgid="3552921143969612110">"యాప్‌లు"</string>
+    <string name="device_pref_category_title" msgid="5264163316572335776">"పరికర ప్రాధాన్యతలు"</string>
+    <string name="remotes_and_accessories_category_title" msgid="2729050422677319645">"రిమోట్‌లు &amp; ఉపకరణాలు"</string>
+    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3967545806275801632">"కనెక్ట్ చేయబడిన బ్లూటూత్ పరికరాలు ఏవీ లేవు"</string>
+    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="2004733390509722820">
+      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> ఉపకరణాలు</item>
+      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g> ఉపకరణం</item>
+    </plurals>
     <string name="add_account" msgid="4098060223200619258">"ఖాతాను జోడించు"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"ఖాతాను తీసివేయి"</string>
     <string name="account_sync" msgid="773808124331714965">"సమకాలీకృత అనువర్తనాలను ఎంచుకోండి"</string>
@@ -40,27 +62,47 @@
 %1$s</xliff:g>"</string>
     <string name="sync_failed" msgid="5514824149810480551">"సమకాలీకరణ విఫలమైంది"</string>
     <string name="sync_active" msgid="6891115263481154378">"సమకాలీకరణ సక్రియంగా ఉంది"</string>
-    <string name="connectivity_network" msgid="8321537111272398501">"నెట్‌వర్క్"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"ఈథర్‌నెట్"</string>
+    <string name="connectivity_summary_ethernet_connected" msgid="2015335020646410586">"ఈథర్‌నెట్ కనెక్ట్ చేయబడింది"</string>
+    <string name="connectivity_summary_no_network_connected" msgid="5187378791046457432">"నెట్‌వర్క్ ఏదీ కనెక్ట్ చేయబడలేదు"</string>
+    <string name="connectivity_summary_wifi_disabled" msgid="6904637079319724455">"Wi-Fi ఆఫ్ చేయబడింది"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"స్కానింగ్ ఎల్లప్పుడూ అందుబాటులో ఉంటుంది"</string>
     <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Google యొక్క స్థాన సేవ మరియు ఇతర అనువర్తనాలను Wi-Fi ఆఫ్‌లో ఉన్నప్పటికీ నెట్‌వర్క్‌ల కోసం స్కాన్ చేయడానికి అనుమతిస్తుంది"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
+    <string name="connectivity_hint_message" msgid="1314202316675864203">"నెట్‌వర్క్‌కి కనెక్ట్ చేయండి"</string>
+    <string name="apps_recently_used_category_title" msgid="5254492409677346900">"ఇటీవల తెరిచిన యాప్‌లు"</string>
+    <string name="apps_see_all_apps" msgid="5546179088197139203">"అన్ని యాప్‌లను చూడండి"</string>
+    <string name="apps_permissions_category_title" msgid="4476837368840442313">"అనుమతులు"</string>
+    <string name="all_apps_title" msgid="5330174847732759402">"అన్ని యాప్‌లు"</string>
+    <string name="all_apps_show_system_apps" msgid="4648447904721171884">"సిస్టమ్ యాప్‌లను చూపు"</string>
+    <string name="all_apps_installed" msgid="54800379871111518">"ఇన్‌స్టాల్ చేయబడిన యాప్‌లు"</string>
+    <string name="all_apps_other" msgid="8297097642727891911">"సిస్టమ్ యాప్‌లు"</string>
+    <string name="all_apps_disabled" msgid="2016067533586741345">"నిలిపివేయబడిన యాప్‌లు"</string>
     <string name="device_daydream" msgid="3354366974209179614">"స్క్రీన్ సేవర్"</string>
     <string name="device_display" msgid="101455384386372747">"ప్రదర్శన"</string>
     <string name="device_sound" msgid="9214182566287657481">"ధ్వని"</string>
     <string name="device_surround_sound" msgid="6272196310566546860">"పరిసర ధ్వని"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"సిస్టమ్ ధ్వనులు"</string>
-    <string name="device_apps" msgid="9180435229638772838">"అనువర్తనాలు"</string>
-    <string name="device_storage_reset" msgid="1425978936501134425">"నిల్వ &amp; రీసెట్"</string>
+    <string name="device_apps" msgid="1971794537385509294">"అప్లికేషన్‌లు"</string>
+    <string name="device_storage" msgid="5536683600091277826">"నిల్వ"</string>
+    <string name="device_reset" msgid="1885840356489458285">"రీసెట్ చేయి"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"బ్యాకప్ &amp; పునరుద్ధరణ"</string>
-    <string name="device_reset" msgid="2827002349560023125">"ఫ్యాక్టరీ డేటా రీసెట్ చేయి"</string>
+    <string name="device_factory_reset" msgid="6537106927211842545">"ఫ్యాక్టరీ డేటా రీసెట్"</string>
     <string name="device_calibration" msgid="8632962533376605191">"క్రమాంకనం"</string>
+    <string name="surround_sound_select_formats" msgid="6329868407147678259">"ఫార్మాట్‌లను ఎంచుకోండి"</string>
+    <string name="surround_sound_category_title" msgid="1331285587464316534">"సరౌండ్ సౌండ్"</string>
+    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (డాల్బీ డిజిటల్)"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (డాల్బీ డిజిటల్ ప్లస్/DD+)"</string>
+    <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
+    <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
+    <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
+    <string name="surround_sound_auto_info" msgid="4957977219847012992">"గమనిక: మీ పరికరం, దానికి మద్దతు ఉన్న ఫార్మాట్‌లను సరిగ్గా నివేదించకపోతే స్వీయ ఎంపిక పని చేయకపోవచ్చు."</string>
+    <string name="surround_sound_auto_summary" msgid="175387511376834034">"స్వీయ: మీ పరికరం నివేదించిన మద్దతిచ్చే ఫార్మాట్‌లను ఉపయోగించండి (సిఫార్సు చేయబడింది)"</string>
+    <string name="surround_sound_none_summary" msgid="4295042972785042496">"ఏదీ వద్దు: సరౌండ్ సౌండ్‌ని ఎప్పటికీ ఉపయోగించవద్దు"</string>
+    <string name="surround_sound_manual_summary" msgid="9208540024024014501">"మాన్యువల్: ఏ ఫార్మాట్‌లు ఉపయోగించాలో ఎంచుకోండి"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"కాష్ చేసిన డేటాను తీసివేయాలా?"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"ఇది అన్ని అను. కాష్ చేసిన డేటాను తీసివేస్తుంది."</string>
-    <string name="apps_downloaded" msgid="4222190849854323480">"డౌన్‌లోడ్ చేసిన అనువర్తనాలు"</string>
-    <string name="apps_system" msgid="2499191125802829425">"సిస్టమ్ అనువర్తనాలు"</string>
-    <string name="apps_running" msgid="6430310491739956228">"అమలవుతున్న అనువర్తనాలు"</string>
     <string name="accessories_add" msgid="1347802656349218830">"ఉపకరణాన్ని జోడించండి"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"జత చేస్తోంది..."</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"కనెక్ట్ అవుతోంది…"</string>
@@ -91,12 +133,16 @@
     <string name="system_date_time" msgid="8898457978560618950">"తేదీ &amp; సమయం"</string>
     <string name="system_language" msgid="2337138146114609247">"భాష"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"కీబోర్డ్"</string>
+    <string name="system_keyboard_autofill" msgid="5787948036400896834">"కీబోర్డ్ &amp; స్వీయ పూరింపు"</string>
+    <string name="system_autofill" msgid="8647914463541617409">"స్వీయ పూరింపు"</string>
     <string name="system_home" msgid="2858989138172296012">"హోమ్ స్క్రీన్"</string>
     <string name="system_search" msgid="2837264654143247611">"శోధించండి"</string>
     <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"భద్రత &amp; పరిమితులు"</string>
     <string name="system_speech" msgid="8128688499687306982">"ప్రసంగం"</string>
     <string name="system_inputs" msgid="2413907183796651102">"ఇన్‌పుట్‌లు"</string>
+    <string name="system_inputs_devices" msgid="8700905419497948327">"ఇన్‌పుట్‌లు &amp; పరికరాలు"</string>
+    <string name="system_home_theater_control" msgid="2053198603790384368">"హోమ్ థియేటర్ నియంత్రణ"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"ప్రాప్యత సామర్థ్యం"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"డెవలపర్ ఎంపికలు"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"ఏదీ లేదు"</string>
@@ -143,14 +189,11 @@
     <string name="imei_information_title" msgid="5208860549282877136">"IMEI సమాచారం"</string>
     <string name="status_bt_address" msgid="1571721865060122393">"బ్లూటూత్ చిరునామా"</string>
     <string name="status_up_time" msgid="1674116490191446110">"గడిచిన సమయం"</string>
-    <string name="status_wimax_mac_address" msgid="1102907383444152052">"4G MAC చిరునామా"</string>
     <string name="legal_information" msgid="2346024659831852038">"చట్టబద్ధమైన సమాచారం"</string>
     <string name="copyright_title" msgid="5564228453228549353">"కాపీరైట్"</string>
     <string name="license_title" msgid="4482927105870812604">"లైసెన్స్"</string>
     <string name="terms_title" msgid="8480859222932736291">"నిబంధనలు మరియు షరతులు"</string>
     <string name="webview_license_title" msgid="8843666223583780825">"సిస్టమ్ వెబ్‌వ్యూ లైసెన్స్"</string>
-    <string name="wallpaper_attributions" msgid="8622098625739634898">"వాల్‌పేపర్‌లు"</string>
-    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"ఉపగ్రహ చిత్రాల ప్రదాతలు:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"బలహీనం"</item>
     <item msgid="5986166866411161790">"పర్వాలేదు"</item>
@@ -168,10 +211,8 @@
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"అన్నీ చూడండి"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"తక్కువ చూడండి"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"అందుబాటులో ఉన్న నెట్‌వర్క్‌లు"</string>
-    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"WPS ద్వారా కనెక్ట్ చేయి"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"కొత్త నెట్‌వర్క్‌ని జోడించండి"</string>
     <string name="security_type" msgid="524443802004143058">"భద్రతా రకం"</string>
-    <string name="wps_network" msgid="1052148085426051873">"WPS ద్వారా కనెక్ట్ చేయి"</string>
     <string name="other_network" msgid="3539704463099544488">"ఇతర నెట్‌వర్క్‌…"</string>
     <string name="skip_network" msgid="6380260543776712357">"దాటవేయండి"</string>
     <string name="wifi_security_type_none" msgid="6622722325237471927">"ఏదీ వద్దు"</string>
@@ -206,6 +247,8 @@
     <string name="wifi_forget_network" msgid="7302755141573045803">"నెట్‌వర్క్‌ను విస్మరించు"</string>
     <string name="wifi_forget_network_description" msgid="3328285160018330334">"ఇది సేవ్ చేసిన పాస్‌వర్డ్‌తో సహా ఈ నెట్‌వర్క్‌కి కనెక్ట్ చేయడా. ఉపయో. సమాచారాన్ని క్లియర్ చేస్తుంది"</string>
     <string name="wifi_action_ok" msgid="5932500664228395779">"సరే"</string>
+    <string name="wifi_setup_action_dont_change_network" msgid="5136210803832000656">"కొనసాగించండి"</string>
+    <string name="wifi_setup_action_change_network" msgid="4320731433166354508">"నెట్‌వర్క్‌ని మార్చండి"</string>
     <string name="wifi_action_change_network" msgid="5196215981075986148">"మార్చు"</string>
     <string name="wifi_action_dont_change_network" msgid="1449920958930251977">"మార్చవద్దు"</string>
     <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"సరే"</string>
@@ -234,6 +277,11 @@
     <string name="proxy_port_description" msgid="6791098212244367568">"చెల్లుబాటు అయ్యే పోర్ట్‌ను నమోదు చేయండి.\nఉదాహరణ: <xliff:g id="ID_1">8080</xliff:g>"</string>
     <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"మినహాయించిన డొమైన్‌లను కామాతో వేరు చేస్తూ జాబితా రూపంలో నమోదు చేయండి లేదా ఖాళీగా వదిలివేయండి.\nఉదాహరణ: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
     <string name="proxy_hostname_description" msgid="5824391500254472447">"చెల్లుబాటు అయ్యే హోస్ట్ పేరుని నమోదు చేయండి.\nఉదాహరణ: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
+    <string name="title_wifi_eap_method" msgid="3723583936041145157">"<xliff:g id="SSID">%1$s</xliff:g> కోసం EAP పద్ధతిని ఎంచుకోండి"</string>
+    <string name="title_wifi_phase2_authentication" msgid="8292177518924013886">"<xliff:g id="SSID">%1$s</xliff:g> కోసం 2వ దశ ప్రామాణీకరణను ఎంచుకోండి"</string>
+    <string name="title_wifi_identity" msgid="6154397685951091638">"<xliff:g id="SSID">%1$s</xliff:g> కోసం గుర్తింపుని నమోదు చేయండి"</string>
+    <string name="title_wifi_anonymous_identity" msgid="4530402657655491360">"<xliff:g id="SSID">%1$s</xliff:g> కోసం అనామక గుర్తింపుని నమోదు చేయండి"</string>
+    <string name="wifi_setup_summary_title_connected" msgid="3349953509191969645">"మీరు <xliff:g id="SSID">%1$s</xliff:g>కి కనెక్ట్ చేయబడ్డారు"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"నెట్‌వర్క్ కనెక్ట్ చేయబడింది"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"నెట్‌వర్క్ కనెక్ట్ కాలేదు"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"ఇప్పటికే <xliff:g id="SSID">%1$s</xliff:g>కి కనెక్ట్ చేయబడింది. వేరొక నెట్‌వర్క్‌కి కనెక్ట్ చేయాలా?"</string>
@@ -317,15 +365,6 @@
     <string name="system_package" msgid="9200255718634512790">"సిస్టమ్ నవీకరణలను బాహ్య మీడియాలో ఇన్‌స్టాల్ చేయడం సాధ్యపడదు."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"పరికర నిర్వాహకుడిని బాహ్య మీడియాలో ఇన్‌స్టాల్ చేయలేరు."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"మరింత తెలుసుకోండి"</string>
-    <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"మళ్లీ ప్రయత్నించండి"</string>
-    <string name="wifi_wps_title" msgid="1872305810119408482">"WPS రూటర్ కోసం శోధిస్తోంది…"</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"మీ రూటర్‌లో Wi-Fi సురక్షిత సెటప్ బటన్‌ను నొక్కండి.\nఇది \"WPS\" అని పిలవబడవచ్చు లేదా ఎడమవైపు గుర్తును కలిగి ఉంటుంది."</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"మీ Wi-Fi రూటర్‌లో పిన్ <xliff:g id="NUMBER">%1$s</xliff:g>ని నమోదు చేయండి"</string>
-    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"మీరు పిన్‌ను నమోదు చేసిన తర్వాత, సెటప్‌ పూర్తి కావడానికి గరిష్టంగా 2 నిమిషాలు పట్టవచ్చు"</string>
-    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Wi-Fi రూటర్‌ను కనుగొనడం సాధ్యపడలేదు"</string>
-    <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Wi-Fi రూటర్ భద్రతా సెట్టింగ్ (WEP)కి మద్దతు లేదు"</string>
-    <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Wi-Fi రూటర్ భద్రతా సెట్టింగ్ (TKIP)కి మద్దతు లేదు"</string>
-    <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"మరో WPS సెషన్ ప్రోగ్రెస్‌లో ఉంది. కొన్ని నిమిషాల్లో మళ్లీ ప్రయత్నించండి."</string>
     <string name="system_date" msgid="2767108116769558081">"తేదీ"</string>
     <string name="system_time" msgid="6726022312605226285">"సమయం"</string>
     <string name="system_set_date" msgid="2437586307768561116">"తేదీని సెట్ చేయండి"</string>
@@ -519,9 +558,14 @@
     <string name="tts_rate_normal" msgid="362011908545519639">"సాధారణం"</string>
     <string name="tts_rate_fast" msgid="3792863158623953072">"వేగవంతం"</string>
     <string name="tts_rate_very_fast" msgid="5876670536911919074">"చాలా వేగవంతం"</string>
+    <string name="title_settings" msgid="5433841477518010243">"<xliff:g id="NAME">%1$s</xliff:g> సెట్టింగ్‌లు"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"ప్రస్తుత కీబోర్డ్"</string>
     <string name="title_configure" msgid="6929522003149212388">"కాన్ఫిగర్ చేయి"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"కీబోర్డ్ ఎంపికలు"</string>
+    <string name="title_current_autofill_service" msgid="6055852915343152350">"ప్రస్తుత స్వీయ పూరింపు సేవ"</string>
+    <string name="title_select_autofill_service" msgid="2515782066694197988">"స్వీయ పూరింపు సేవను ఎంచుకోండి"</string>
+    <string name="autofill_none" msgid="2426888642367790651">"ఏదీ కాదు"</string>
+    <string name="autofill_confirmation_message" msgid="9068009043054751287">"&lt;b&gt;ఈ యాప్‌ని మీరు విశ్వసిస్తున్నట్లు నిర్ధారించండి&lt;/b&gt; &lt;br/&gt; &lt;br/&gt; &lt;xliff:g id=app_name example=Password service&gt;%1$s&lt;/xliff:g&gt; మీ స్క్రీన్‌పై ఉన్నవాటిని పరిగణనలోకి తీసుకొని వేటివేటిని స్వీయ పూరింపు చేయాలో నిశ్చయిస్తుంది."</string>
     <string name="computing_size" msgid="2955133568424704042">"గణిస్తోంది…"</string>
     <string name="title_select_wifi_network" msgid="1038871400014761952">"మీ Wi-Fi నెట్‌వర్క్‌ని ఎంచుకోండి"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"పేరు మార్చు"</string>
@@ -639,13 +683,13 @@
     <string name="backup_erase_dialog_message" msgid="2608496013975068701">"మీ Wi-Fi పాస్‌వర్డ్‌లు, బుక్‌మార్క్‌లు, ఇతర సెట్టింగ్‌లు మరియు అనువర్తన డేటాను బ్యాకప్ చేయడాన్ని ఆపివేసి, Google సర్వర్‌ల్లోని అన్ని కాపీలను తొలగించాలా?"</string>
     <string name="privacy_backup_data" msgid="1796662583830120812">"నా డేటాను బ్యాకప్ చేయి"</string>
     <string name="privacy_backup_account" msgid="9059939814827165020">"బ్యాకప్ చేయాల్సిన ఖాతా"</string>
-    <string name="privacy_automatic_restore" msgid="1409885318093199628">"స్వయంచాలక పునరుద్ధరణ"</string>
+    <string name="privacy_automatic_restore" msgid="1409885318093199628">"స్వీయ పునరుద్ధరణ"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"పరికరాన్ని రీసెట్ చేయి"</string>
     <string name="factory_reset_description" msgid="5381170999141355891">"దీని వలన మీ Google ఖాతా, సిస్టమ్ మరియు అనువర్తనం డేటా మరియు సెట్టింగ్‌లు మరియు డౌన్‌లోడ్ చేసిన అనువర్తనాలతో సహా మీ పరికరం అంతర్గత నిల్వలోని మొత్తం డేటా తొలగించబడుతుంది"</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"మీ మొత్తం వ్యక్తిగత సమాచారాన్ని మరియు అన్ని డౌన్‌లోడ్ చేయబడిన అనువర్తనాలను తొలగించాలా? మీరు ఈ చర్యను తిరిగి రద్దు చేయలేరు!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"అన్నింటినీ తొలగించు"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"మీ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> కోసం పేరుని ఎంచుకోండి"</string>
-    <string name="select_device_name_description" msgid="6890879006777364213">"ఇతర పరికరాల నుండి మీ <xliff:g id="DEVICEMODEL">%1$s</xliff:g>కి ప్రసారం చేస్తున్నప్పుడు లేదా కనెక్ట్ చేస్తున్నప్పుడు దాన్ని గుర్తించడం కోసం దానికి పేరు పెట్టండి."</string>
+    <string name="select_device_name_description" msgid="4939767901420114190">"ఇతర పరికరాల నుండి మీ పరికరానికి ప్రసారం చేస్తున్నప్పుడు లేదా కనెక్ట్ చేస్తున్నప్పుడు దాన్ని గుర్తించడం కోసం దానికి పేరు పెట్టండి."</string>
   <string-array name="rooms">
     <item msgid="9056203990862307284">"Android TV"</item>
     <item msgid="7449352861592960712">"విశ్రాంతి గది టీవీ"</item>
@@ -655,11 +699,13 @@
     <string name="custom_room" msgid="8655516733933892458">"అనుకూల పేరును నమోదు చేయండి…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"ఈ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> పేరు మార్చండి"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"ప్రస్తుతం ఈ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> పేరు \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
+    <string name="device_name_suggestion_title" msgid="2312205155408810120">"మీ పరికరానికి ఒక పేరు పెట్టండి"</string>
+    <string name="device_name_suggestion_summary" msgid="5657494684788779371">"మీ ఫోన్‌ నుండి ఫోటోలు, వీడియోలు లేదా ఇంకేమైనా ప్రసారం చేసేటప్పుడు ఈ పేరును ఉపయోగించండి"</string>
     <string name="change_setting" msgid="2047402388786162246">"మార్చు"</string>
     <string name="keep_settings" msgid="6798327196645732517">"మార్చవద్దు"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"అనుమతులు"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"అనువర్తన అనుమతులు"</string>
-    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_1">%d</xliff:g>లో <xliff:g id="COUNT_0">%d</xliff:g> అనువర్తనాలు అనుమతించబడ్డాయి"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_1">%2$d</xliff:g>లో <xliff:g id="COUNT_0">%1$d</xliff:g> అనువర్తనాలు అనుమతించబడ్డాయి"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"బ్లూటూత్ అనుమతి అభ్యర్థన"</string>
     <string name="security_patch" msgid="2131617390189164481">"Android భద్రతా అతికింపు స్థాయి"</string>
     <string name="choose_application" msgid="5662960665577780353">"అనువర్తనాన్ని ఎంచుకోండి"</string>
@@ -674,4 +720,27 @@
     <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"అనుమతించబడలేదు"</string>
     <string name="usage_access" msgid="1914242907684452328">"వినియోగ ప్రాప్యత"</string>
     <string name="usage_access_description" msgid="6290001769893747651">"వినియోగ ప్రాప్యతతో ఒక అనువర్తనం మీరు ఉపయోగించే ఇతర అనువర్తనాల గురించి మరియు వాటిని ఎంత తరచుగా ఉపయోగిస్తున్నారనే దాని గురించి అలాగే మీ క్యారియర్, భాష సెట్టింగ్‌లు మరియు ఇతర వివరాలను ట్రాక్ చేయగలదు."</string>
+    <string name="high_power_apps" msgid="7796096221999495077">"శక్తి అనుకూలీకరణ"</string>
+    <string name="high_power_apps_description" msgid="1990016812115792282">"యాప్‌ల శక్తి వినియోగాన్ని అనుకూలీకరించండి"</string>
+    <string name="high_power_apps_empty" msgid="1355906551507153470">"ఏ యాప్‌లుకు అనుకూలీకరణ అవసరం లేదు"</string>
+    <string name="high_power_on" msgid="7725180078784796673">"అనుకూలీకరించబడలేదు"</string>
+    <string name="high_power_off" msgid="308272752152871252">"శక్తి వినియోగాన్ని అనుకూలీకరిస్తోంది"</string>
+    <string name="high_power_system" msgid="7815843517656137656">"శక్తి అనుకూలీకరణ అందుబాటులో లేదు"</string>
+    <string name="manage_notification_access_title" msgid="2051765294087620434">"నోటిఫికేషన్ యాక్సెస్"</string>
+    <string name="no_notification_listeners" msgid="4583789599075326886">"ఇన్‌స్టాల్ చేసిన యాప్‌లేవీ నోటిఫికేషన్ యాక్సెస్‌ను అభ్యర్థించలేదు."</string>
+    <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"ఈ యాప్‌లు పరిచయ పేర్లు మరియు మీరు స్వీకరించే వచన సందేశాల వంటి వ్యక్తిగత సమాచారంతో సహా అన్ని నోటిఫికేషన్‌లను చదవగలవు. ఇవి నోటిఫికేషన్‌లను తీసివేయగలవు లేదా అవి కలిగి ఉండే చర్య బటన్‌లను సక్రియం చేయగలవు."</string>
+    <string name="system_alert_window_settings" msgid="2069031369694448339">"ఇతర యాప్‌ల ఎగువన ప్రదర్శన"</string>
+    <string name="permit_draw_overlay" msgid="2400084757761408906">"ఇతర యాప్‌ల ఎగువన కనిపించడానికి అనుమతించండి"</string>
+    <string name="allow_overlay_description" msgid="1946279120428813474">"మీరు ఉపయోగించే ఇతర యాప్‌లలో ఎగువ భాగంలో కనిపించడం కోసం ఒక యాప్‌ని అనుమతించండి. మీరు ఆ యాప్‌లను ఉపయోగించే సమయంలో ఇది అంతరాయం కలిగించవచ్చు లేదా అవి కనిపించే లేదా ప్రవర్తించే తీరును మార్చవచ్చు."</string>
+    <string name="write_system_settings" msgid="2730923656857824907">"సిస్టమ్ సెట్టింగ్‌ల సవరణ"</string>
+    <string name="write_settings_title" msgid="8750406725746598710">"సిస్టమ్ సెట్టింగ్‌లను సవరించగలవు"</string>
+    <string name="write_settings_description" msgid="2765037074460395437">"ఈ అనుమతి సిస్టమ్ సెట్టింగ్‌లను సవరించడానికి యాప్‌ని అనుమతిస్తుంది."</string>
+    <string name="write_settings_on" msgid="3312616037931341656">"అవును"</string>
+    <string name="write_settings_off" msgid="6219072254626503312">"లేదు"</string>
+    <string name="picture_in_picture_title" msgid="7738692876349058">"చిత్రంలో చిత్రం"</string>
+    <string name="picture_in_picture_app_detail_switch" msgid="8063965798321494391">"చిత్రంలో చిత్రాన్ని అనుమతించు"</string>
+    <string name="picture_in_picture_empty_text" msgid="5592688180792300051">"చిత్రంలో చిత్రానికి మద్దతిచ్చే యాప్‌లు ఏమీ ఇన్‌స్టాల్ చేయబడలేదు"</string>
+    <string name="picture_in_picture_app_detail_summary" msgid="3478182415601436326">"యాప్ తెరవబడి ఉన్నప్పుడు లేదా మీరు దాని నుండి నిష్క్రమించినప్పుడు (ఉదాహరణకు, వీడియోని చూడటం కొనసాగించడానికి) చిత్రంలో చిత్రం విండోని సృష్టించడానికి ఈ యాప్‌ని అనుమతించండి. మీరు ఉపయోగించే ఇతర యాప్‌‌ల ఎగువన ఈ విండో ప్రదర్శితమవుతుంది."</string>
+    <string name="special_access" msgid="3513811566600299998">"ప్రత్యేక యాప్ యాక్సెస్"</string>
+    <string name="string_concat" msgid="5897947064488902904">"<xliff:g id="PART1">%1s</xliff:g>, <xliff:g id="PART2">%2s</xliff:g>"</string>
 </resources>

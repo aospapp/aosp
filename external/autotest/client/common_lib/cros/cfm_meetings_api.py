@@ -111,6 +111,10 @@ class CfmMeetingsAPI(object):
         """Check if device is ready to start a new hangout session."""
         raise NotImplementedError
 
+    def get_participant_count(self):
+        """Returns the total number of participants in a meeting."""
+        return self._evaluate_telemetry_command('getParticipantCount()')
+
     # Diagnostics commands/functions
     def is_diagnostic_run_in_progress(self):
         """Check if hotrod diagnostics is running."""
@@ -244,3 +248,18 @@ class CfmMeetingsAPI(object):
         """Unmute (turn on) camera."""
         self._execute_telemetry_command('setCameraMuted(false)')
         logging.info('Camera unmuted.')
+
+    def move_camera(self, camera_motion):
+        """Move camera(PTZ functions).
+
+        @param camera_motion: String of the desired camera motion.
+        """
+        ptz_motions = ['panLeft','panRight','panStop',
+                       'tiltUp','tiltDown','tiltStop',
+                       'zoomIn','zoomOut','resetPosition']
+
+        if camera_motion in ptz_motions:
+            self._execute_telemetry_command('ptz.%s()' % camera_motion)
+        else:
+            raise ValueError('Unsupported PTZ camera action: "%s"'
+                             % camera_motion)

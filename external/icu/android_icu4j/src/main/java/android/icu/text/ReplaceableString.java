@@ -17,8 +17,6 @@ package android.icu.text;
  * intended for general use.  Most clients will need to implement
  * {@link Replaceable} in their text representation class.
  *
- * <p>Copyright &copy; IBM Corporation 1999.  All rights reserved.
- *
  * @see Replaceable
  * @author Alan Liu
  * @hide Only a subset of ICU is exposed in Android
@@ -57,6 +55,7 @@ public class ReplaceableString implements Replaceable {
      * Return the contents of this object as a <code>String</code>.
      * @return string contents of this object
      */
+    @Override
     public String toString() {
         return buf.toString();
     }
@@ -71,7 +70,8 @@ public class ReplaceableString implements Replaceable {
     /**
      * Return the number of characters contained in this object.
      * <code>Replaceable</code> API.
-     */ 
+     */
+    @Override
     public int length() {
         return buf.length();
     }
@@ -82,6 +82,7 @@ public class ReplaceableString implements Replaceable {
      * @param offset offset into the contents, from 0 to
      * <code>length()</code> - 1
      */
+    @Override
     public char charAt(int offset) {
         return buf.charAt(offset);
     }
@@ -96,6 +97,7 @@ public class ReplaceableString implements Replaceable {
      * inclusive
      * @return 32-bit code point of text at given offset
      */
+    @Override
     public int char32At(int offset) {
         return UTF16.charAt(buf, offset);
     }
@@ -117,6 +119,7 @@ public class ReplaceableString implements Replaceable {
      * @param dst the destination array.
      * @param dstStart the start offset in the destination array.
      */
+    @Override
     public void getChars(int srcStart, int srcLimit, char dst[], int dstStart) {
         if (srcStart != srcLimit) {
             buf.getChars(srcStart, srcLimit, dst, dstStart);
@@ -133,6 +136,7 @@ public class ReplaceableString implements Replaceable {
      * @param text new text to replace characters <code>start</code> to
      * <code>limit - 1</code>
      */
+    @Override
     public void replace(int start, int limit, String text) {
         buf.replace(start, limit, text);
     }
@@ -149,6 +153,7 @@ public class ReplaceableString implements Replaceable {
      * inclusive; <code>0 &lt;= start &lt;= limit</code>.
      * @param charsLen the number of characters of <code>chars</code>.
      */
+    @Override
     public void replace(int start, int limit, char[] chars,
                         int charsStart, int charsLen) {
         buf.delete(start, limit);
@@ -159,7 +164,7 @@ public class ReplaceableString implements Replaceable {
      * Copy a substring of this object, retaining attribute (out-of-band)
      * information.  This method is used to duplicate or reorder substrings.
      * The destination index must not overlap the source range.
-     * 
+     *
      * @param start the beginning index, inclusive; <code>0 &lt;= start &lt;=
      * limit</code>.
      * @param limit the ending index, exclusive; <code>start &lt;= limit &lt;=
@@ -169,6 +174,7 @@ public class ReplaceableString implements Replaceable {
      * Implementations of this method may assume that <code>dest &lt;= start ||
      * dest &gt;= limit</code>.
      */
+    @Override
     public void copy(int start, int limit, int dest) {
         if (start == limit && start >= 0 && start <= buf.length()) {
             return;
@@ -177,10 +183,11 @@ public class ReplaceableString implements Replaceable {
         getChars(start, limit, text, 0);
         replace(dest, dest, text, 0, limit - start);
     }
-    
+
     /**
      * Implements Replaceable
      */
+    @Override
     public boolean hasMetaData() {
         return false;
     }

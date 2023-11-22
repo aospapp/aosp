@@ -27,35 +27,11 @@ import (
 )
 
 var (
-	aaptCreateResourceJavaFile = pctx.AndroidStaticRule("aaptCreateResourceJavaFile",
-		blueprint.RuleParams{
-			Command: `rm -rf "$javaDir" && mkdir -p "$javaDir" && ` +
-				`$aaptCmd package -m $aaptFlags -P $publicResourcesFile -G $proguardOptionsFile ` +
-				`-J $javaDir || ( rm -rf "$javaDir/*"; exit 41 ) && ` +
-				`find $javaDir -name "*.java" > $javaFileList`,
-			CommandDeps: []string{"$aaptCmd"},
-		},
-		"aaptFlags", "publicResourcesFile", "proguardOptionsFile", "javaDir", "javaFileList")
-
-	aaptCreateAssetsPackage = pctx.AndroidStaticRule("aaptCreateAssetsPackage",
-		blueprint.RuleParams{
-			Command:     `rm -f $out && $aaptCmd package $aaptFlags -F $out`,
-			CommandDeps: []string{"$aaptCmd"},
-		},
-		"aaptFlags", "publicResourcesFile", "proguardOptionsFile", "javaDir", "javaFileList")
-
-	aaptAddResources = pctx.AndroidStaticRule("aaptAddResources",
-		blueprint.RuleParams{
-			// TODO: add-jni-shared-libs-to-package
-			Command:     `cp -f $in $out.tmp && $aaptCmd package -u $aaptFlags -F $out.tmp && mv $out.tmp $out`,
-			CommandDeps: []string{"$aaptCmd"},
-		},
-		"aaptFlags")
-
 	signapk = pctx.AndroidStaticRule("signapk",
 		blueprint.RuleParams{
-			Command:     `java -jar $signapkCmd $certificates $in $out`,
-			CommandDeps: []string{"$signapkCmd"},
+			Command: `${config.JavaCmd} -Djava.library.path=$$(dirname $signapkJniLibrary) ` +
+				`-jar $signapkCmd $certificates $in $out`,
+			CommandDeps: []string{"$signapkCmd", "$signapkJniLibrary"},
 		},
 		"certificates")
 
@@ -73,79 +49,86 @@ func init() {
 	pctx.SourcePathVariable("androidManifestMergerCmd", "prebuilts/devtools/tools/lib/manifest-merger.jar")
 	pctx.HostBinToolVariable("aaptCmd", "aapt")
 	pctx.HostJavaToolVariable("signapkCmd", "signapk.jar")
+	// TODO(ccross): this should come from the signapk dependencies, but we don't have any way
+	// to express host JNI dependencies yet.
+	pctx.HostJNIToolVariable("signapkJniLibrary", "libconscrypt_openjdk_jni")
 }
 
-func CreateResourceJavaFiles(ctx android.ModuleContext, flags []string,
-	deps android.Paths) (android.Path, android.Path, android.Path) {
-	javaDir := android.PathForModuleGen(ctx, "R")
-	javaFileList := android.PathForModuleOut(ctx, "R.filelist")
-	publicResourcesFile := android.PathForModuleOut(ctx, "public_resources.xml")
-	proguardOptionsFile := android.PathForModuleOut(ctx, "proguard.options")
-
-	ctx.ModuleBuild(pctx, android.ModuleBuildParams{
-		Rule:        aaptCreateResourceJavaFile,
-		Description: "aapt create R.java",
-		Outputs:     android.WritablePaths{publicResourcesFile, proguardOptionsFile, javaFileList},
-		Implicits:   deps,
-		Args: map[string]string{
-			"aaptFlags":           strings.Join(flags, " "),
-			"publicResourcesFile": publicResourcesFile.String(),
-			"proguardOptionsFile": proguardOptionsFile.String(),
-			"javaDir":             javaDir.String(),
-			"javaFileList":        javaFileList.String(),
-		},
+var combineApk = pctx.AndroidStaticRule("combineApk",
+	blueprint.RuleParams{
+		Command:     `${config.MergeZipsCmd} $out $in`,
+		CommandDeps: []string{"${config.MergeZipsCmd}"},
 	})
 
-	return publicResourcesFile, proguardOptionsFile, javaFileList
-}
+func CreateAppPackage(ctx android.ModuleContext, outputFile android.WritablePath,
+	resJarFile, dexJarFile android.Path, certificates []certificate) {
 
-func CreateExportPackage(ctx android.ModuleContext, flags []string, deps android.Paths) android.ModuleOutPath {
-	outputFile := android.PathForModuleOut(ctx, "package-export.apk")
+	// TODO(ccross): JNI libs
 
-	ctx.ModuleBuild(pctx, android.ModuleBuildParams{
-		Rule:        aaptCreateAssetsPackage,
-		Description: "aapt export package",
-		Output:      outputFile,
-		Implicits:   deps,
-		Args: map[string]string{
-			"aaptFlags": strings.Join(flags, " "),
-		},
+	unsignedApk := android.PathForModuleOut(ctx, "unsigned.apk")
+
+	inputs := android.Paths{resJarFile}
+	if dexJarFile != nil {
+		inputs = append(inputs, dexJarFile)
+	}
+
+	ctx.Build(pctx, android.BuildParams{
+		Rule:   combineApk,
+		Inputs: inputs,
+		Output: unsignedApk,
 	})
-
-	return outputFile
-}
-
-func CreateAppPackage(ctx android.ModuleContext, flags []string, jarFile android.Path,
-	certificates []string) android.Path {
-
-	resourceApk := android.PathForModuleOut(ctx, "resources.apk")
-
-	ctx.ModuleBuild(pctx, android.ModuleBuildParams{
-		Rule:        aaptAddResources,
-		Description: "aapt package",
-		Output:      resourceApk,
-		Input:       jarFile,
-		Args: map[string]string{
-			"aaptFlags": strings.Join(flags, " "),
-		},
-	})
-
-	outputFile := android.PathForModuleOut(ctx, "package.apk")
 
 	var certificateArgs []string
 	for _, c := range certificates {
-		certificateArgs = append(certificateArgs, c+".x509.pem", c+".pk8")
+		certificateArgs = append(certificateArgs, c.pem.String(), c.key.String())
 	}
 
-	ctx.ModuleBuild(pctx, android.ModuleBuildParams{
+	// TODO(ccross): sometimes uncompress dex
+	// TODO(ccross): sometimes strip dex
+
+	ctx.Build(pctx, android.BuildParams{
 		Rule:        signapk,
 		Description: "signapk",
 		Output:      outputFile,
-		Input:       resourceApk,
+		Input:       unsignedApk,
 		Args: map[string]string{
 			"certificates": strings.Join(certificateArgs, " "),
 		},
 	})
+}
 
-	return outputFile
+var buildAAR = pctx.AndroidStaticRule("buildAAR",
+	blueprint.RuleParams{
+		Command: `rm -rf ${outDir} && mkdir -p ${outDir} && ` +
+			`cp ${manifest} ${outDir}/AndroidManifest.xml && ` +
+			`cp ${classesJar} ${outDir}/classes.jar && ` +
+			`cp ${rTxt} ${outDir}/R.txt && ` +
+			`${config.SoongZipCmd} -jar -o $out -C ${outDir} -D ${outDir} ${resArgs}`,
+		CommandDeps: []string{"${config.SoongZipCmd}"},
+	},
+	"manifest", "classesJar", "rTxt", "resArgs", "outDir")
+
+func BuildAAR(ctx android.ModuleContext, outputFile android.WritablePath,
+	classesJar, manifest, rTxt android.Path, res android.Paths) {
+
+	// TODO(ccross): uniquify and copy resources with dependencies
+
+	deps := android.Paths{manifest, rTxt}
+	classesJarPath := ""
+	if classesJar != nil {
+		deps = append(deps, classesJar)
+		classesJarPath = classesJar.String()
+	}
+
+	ctx.Build(pctx, android.BuildParams{
+		Rule:      buildAAR,
+		Implicits: deps,
+		Output:    outputFile,
+		Args: map[string]string{
+			"manifest":   manifest.String(),
+			"classesJar": classesJarPath,
+			"rTxt":       rTxt.String(),
+			"outDir":     android.PathForModuleOut(ctx, "aar").String(),
+		},
+	})
 }

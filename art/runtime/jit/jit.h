@@ -23,7 +23,6 @@
 #include "base/timing_logger.h"
 #include "jit/profile_saver_options.h"
 #include "obj_ptr.h"
-#include "profile_compilation_info.h"
 #include "thread_pool.h"
 
 namespace art {
@@ -152,7 +151,7 @@ class Jit {
   bool CanInvokeCompiledCode(ArtMethod* method);
 
   // Return whether the runtime should use a priority thread weight when sampling.
-  static bool ShouldUsePriorityThreadWeight();
+  static bool ShouldUsePriorityThreadWeight(Thread* self);
 
   // If an OSR compiled version is available for `method`,
   // and `dex_pc + dex_pc_offset` is an entry point of that compiled
@@ -253,6 +252,13 @@ class JitOptions {
   void SetSaveProfilingInfo(bool save_profiling_info) {
     profile_saver_options_.SetEnabled(save_profiling_info);
   }
+  void SetWaitForJitNotificationsToSaveProfile(bool value) {
+    profile_saver_options_.SetWaitForJitNotificationsToSave(value);
+  }
+  void SetProfileAOTCode(bool value) {
+    profile_saver_options_.SetProfileAOTCode(value);
+  }
+
   void SetJitAtFirstUse() {
     use_jit_compilation_ = true;
     compile_threshold_ = 0;

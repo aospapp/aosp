@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"වෙනත් යෙදුමක ඇමතුමක් හේතුවෙන් ඇමතුම ගැනීමට නොහැකිය."</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"එන ඇමතුම්"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"මඟ හැරුණු ඇමතුම්"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"ඇමතුම් අවහිර කිරීම"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"මෙම ඇමතුම ගැනීම ඔබේ <xliff:g id="OTHER_APP">%1$s</xliff:g> ඇමතුම අවසන් කරනු ඇත."</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"ඇමතුම් අවහිර කිරීම"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"සම්බන්ධතා තුළ නොමැති අංක"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"ඔබගේ සම්බන්ධතා තුළ ලැයිස්තුගත නොකරන ලද අංක අවහිර කරන්න"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"පෞද්ගලික"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"ඔවුන්ගේ අංකය අනාවරණය නොකරන අමතන්නන් අවහිර කරන්න"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"ගෙවුම් දුරකථනය"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"ගෙවුම් දුරකථන වෙතින් වන ඇමතුම් අවහිර කරන්න"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"නොදනී"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"නොහඳුනන අමතන්නන් වෙතින් වන ඇමතුම් අවහිර කරන්න"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"ඇමතුම් අවහිර කිරීම"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"ඇමතුම් අවහිර කිරීම අබල කර ඇත"</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"හදිසි ඇමතුම් ගැනීම"</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"හදිසි අමතන්නන්ට ඔබව සම්බන්ධ කර ගැනීමට ඉඩ දීමට ඇමතුම් අවහිර කිරීම අබල කර ඇත."</string>
 </resources>

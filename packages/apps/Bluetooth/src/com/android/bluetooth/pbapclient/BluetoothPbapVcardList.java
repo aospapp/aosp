@@ -52,7 +52,7 @@ class BluetoothPbapVcardList {
         }
     }
 
-    public BluetoothPbapVcardList(Account account, InputStream in, byte format) throws IOException {
+    BluetoothPbapVcardList(Account account, InputStream in, byte format) throws IOException {
         mAccount = account;
         parse(in, format);
     }
@@ -67,7 +67,7 @@ class BluetoothPbapVcardList {
         }
 
         VCardEntryConstructor constructor =
-            new VCardEntryConstructor(VCardConfig.VCARD_TYPE_V21_GENERIC, mAccount);
+                new VCardEntryConstructor(VCardConfig.VCARD_TYPE_V21_GENERIC, mAccount);
         VCardEntryCounter counter = new VCardEntryCounter();
         CardEntryHandler handler = new CardEntryHandler();
 

@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"SIM karta yo‘q yoki SIM kartada xato"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Uyali tarmoq mavjud emas"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Chiquvchi qo‘ng‘iroqlar FDN tomonidan cheklab qo‘yilgan."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL so‘rovi USSD so‘roviga o‘zgartirildi."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL so‘rovi SS so‘roviga o‘zgartirildi."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL so‘rovi boshqa raqam bilan DIAL so‘roviga o‘zgartirildi."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Chaqiruv USSD so‘roviga o‘zgartirildi"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Chaqiruv SS so‘roviga o‘zgartirildi"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Boshqa raqamga o‘zgartirildi"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Video chaqiruvga o‘zgartirildi"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Video chaqiruv SS so‘roviga o‘zgartirildi"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Video chaqiruv USSD so‘roviga o‘zgartirildi"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Oddiy chaqiruvga o‘zgartirildi"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Boshqa raqamga o‘zgartirildi"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Qo‘ng‘iroqlarni taqiqlash funksiyasi yoniqligida chiqish qo‘ng‘iroqlarini amalga oshirib bo‘lmaydi."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Qo‘ng‘iroqlar kirish nazorati tomonidan cheklangan."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Favqulodda qo‘ng‘iroqlar kirish nazorati tomonidan cheklangan."</string>

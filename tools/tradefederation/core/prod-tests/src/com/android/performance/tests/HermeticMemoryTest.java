@@ -28,11 +28,14 @@ import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.ProcessInfo;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.junit.Assert;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Test to gather post launch memory details after launching app
@@ -42,6 +45,11 @@ public class HermeticMemoryTest implements IDeviceTest, IRemoteTest {
 
     private static final String AM_START = "am start -n %s";
     private static final String PROC_MEMINFO = "cat /proc/meminfo";
+    private static final String MEM_AVAILABLE = "cat /proc/meminfo| grep MemAvailable:";
+    private static final String CACHED_PROCESSES = "dumpsys meminfo|awk '/Total PSS by category:"
+            + "/{found=0} {if(found) print} /: Cached/{found=1}'|tr -d ' '";
+    private static final Pattern PID_PATTERN = Pattern.compile("^.*pid(?<processid>[0-9]*).*$");
+    private static final String DUMPSYS_PROCESS = "dumpsys meminfo %s |grep 'TOTAL'";
     private static final String DUMPSYS_MEMINFO = "dumpsys meminfo -a ";
     private static final String MAPS_INFO = "cat /proc/%d/maps";
     private static final String SMAPS_INFO = "cat /proc/%d/smaps";
@@ -54,6 +62,8 @@ public class HermeticMemoryTest implements IDeviceTest, IRemoteTest {
     private static final String CACHED = "Cached";
     private static final int NO_PROCESS_ID = -1;
     private static final String DROP_CACHE = "echo 3 > /proc/sys/vm/drop_caches";
+    private static final String SEPARATOR ="\\s+";
+    private static final String LINE_SEPARATOR = "\\n";
 
 
     @Option(name = "post-app-launch-delay",
@@ -80,6 +90,8 @@ public class HermeticMemoryTest implements IDeviceTest, IRemoteTest {
     @Override
     public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
         mlistener = listener;
+
+        calculateFreeMem();
 
         String preMemInfo = mTestDevice.executeShellCommand(PROC_MEMINFO);
 
@@ -185,9 +197,9 @@ public class HermeticMemoryTest implements IDeviceTest, IRemoteTest {
      * Method to parse dalvik and heap info for launched app
      */
     private void parseDumpsysInfo(String dumpInfo) {
-        String line[] = dumpInfo.split("\\n");
+        String line[] = dumpInfo.split(LINE_SEPARATOR);
         for (int lineCount = 0; lineCount < line.length; lineCount++) {
-            String dataSplit[] = line[lineCount].trim().split("\\s+");
+            String dataSplit[] = line[lineCount].trim().split(SEPARATOR);
             if ((dataSplit[0].equalsIgnoreCase(NATIVE_HEAP) && dataSplit[1]
                     .equalsIgnoreCase(HEAP)) ||
                     (dataSplit[0].equalsIgnoreCase(DALVIK_HEAP) && dataSplit[1]
@@ -213,13 +225,13 @@ public class HermeticMemoryTest implements IDeviceTest, IRemoteTest {
      * Method to parse the system memory details
      */
     private void parseProcInfo(String memInfo) {
-        String lineSplit[] = memInfo.split("\\n");
+        String lineSplit[] = memInfo.split(LINE_SEPARATOR);
         long memTotal = 0;
         long memFree = 0;
         long cached = 0;
         for (int lineCount = 0; lineCount < lineSplit.length; lineCount++) {
             String line = lineSplit[lineCount].replace(":", "").trim();
-            String dataSplit[] = line.split("\\s+");
+            String dataSplit[] = line.split(SEPARATOR);
             if (dataSplit[0].equalsIgnoreCase(MEMTOTAL) ||
                     dataSplit[0].equalsIgnoreCase(MEMFREE) ||
                     dataSplit[0].equalsIgnoreCase(CACHED)) {
@@ -240,6 +252,37 @@ public class HermeticMemoryTest implements IDeviceTest, IRemoteTest {
     }
 
     /**
+     * Method to parse the free memory based on total memory available from proc/meminfo and
+     * private dirty and private clean information of the cached processess
+     * from dumpsys meminfo.
+     */
+    private void calculateFreeMem() throws DeviceNotAvailableException {
+        String memAvailable[] = mTestDevice.executeShellCommand(MEM_AVAILABLE).split(SEPARATOR);
+        int cacheProcDirty = Integer.parseInt(memAvailable[1]);
+
+        String cachedProcesses = mTestDevice.executeShellCommand(CACHED_PROCESSES);
+        String processes[] = cachedProcesses.split(LINE_SEPARATOR);
+        for (String process : processes) {
+            Matcher match = null;
+            if (((match = matches(PID_PATTERN, process))) != null) {
+                String processId = match.group("processid");
+                String processInfoStr = mTestDevice.executeShellCommand(String.format(
+                        DUMPSYS_PROCESS, processId));
+                String processInfo[] = null;
+                if (processInfoStr != null && !processInfoStr.isEmpty()) {
+                    processInfo = processInfoStr.split(LINE_SEPARATOR);
+                }
+                if (null != processInfo && processInfo.length > 0) {
+                    String procDetails[] = processInfo[0].trim().split(SEPARATOR);
+                    cacheProcDirty = cacheProcDirty + Integer.parseInt(procDetails[2].trim())
+                            + Integer.parseInt(procDetails[3]);
+                }
+            }
+        }
+        mMetrics.put("MemAvailable_CacheProcDirty", String.valueOf(cacheProcDirty));
+    }
+
+    /**
      * Report run metrics by creating an empty test run to stick them in
      *
      * @param listener the {@link ITestInvocationListener} of test results
@@ -251,7 +294,18 @@ public class HermeticMemoryTest implements IDeviceTest, IRemoteTest {
         // Create an empty testRun to report the parsed runMetrics
         CLog.d("About to report metrics: %s", metrics);
         listener.testRunStarted(runName, 0);
-        listener.testRunEnded(0, metrics);
+        listener.testRunEnded(0, TfMetricProtoUtil.upgradeConvert(metrics));
+    }
+
+    /**
+     * Checks whether {@code line} matches the given {@link Pattern}.
+     *
+     * @return The resulting {@link Matcher} obtained by matching the {@code line} against
+     *         {@code pattern}, or null if the {@code line} does not match.
+     */
+    private static Matcher matches(Pattern pattern, String line) {
+        Matcher ret = pattern.matcher(line);
+        return ret.matches() ? ret : null;
     }
 
     @Override

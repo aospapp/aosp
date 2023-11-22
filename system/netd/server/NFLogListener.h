@@ -40,6 +40,11 @@ class NFLogListenerInterface {
     // subscribe() and join() must not be called from the stack of fn().
     virtual netdutils::Status subscribe(uint16_t nfLogGroup, const DispatchFn& fn) = 0;
 
+    // Overloaded version of subscribe which allows to specify a copyRange for obtaining packet
+    // payloads.
+    virtual netdutils::Status subscribe(
+            uint16_t nfLogGroup, uint32_t copyRange, const DispatchFn& fn) = 0;
+
     // Halt delivery of messages from a nfLogGroup previously subscribed to above.
     //
     // Threadsafe.
@@ -63,6 +68,9 @@ class NFLogListener : public NFLogListenerInterface {
     ~NFLogListener() override;
 
     netdutils::Status subscribe(uint16_t nfLogGroup, const DispatchFn& fn) override;
+
+    netdutils::Status subscribe(
+            uint16_t nfLogGroup, uint32_t copyRange, const DispatchFn& fn) override;
 
     netdutils::Status unsubscribe(uint16_t nfLogGroup) override;
 

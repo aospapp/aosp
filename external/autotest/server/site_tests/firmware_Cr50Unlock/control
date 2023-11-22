@@ -13,10 +13,8 @@ TEST_TYPE = "server"
 DEPENDENCIES = "servo"
 
 DOC = """
-Verify the console can be unlocked by pressing the power button.
-
-This must be done using servo instead of CCD, because we need to be able to
-control the power button while the console is locked.
+Verify the console can be unlocked with gsctool but not with the console command
+if the password isn't set.
 """
 
 args_dict = utils.args_to_dict(args)
@@ -26,8 +24,9 @@ def run(machine):
     host = hosts.create_host(machine, servo_args=servo_args)
 
     iterations = int(args_dict.get("iterations", 1))
+    ccd_lockout = args_dict.get("ccd_lockout", "false").lower() == "true"
 
     job.run_test("firmware_Cr50Unlock", host=host, cmdline_args=args,
-                 iterations=iterations)
+                 ccd_lockout=ccd_lockout, iterations=iterations)
 
 parallel_simple(run, machines)

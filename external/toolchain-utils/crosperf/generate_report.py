@@ -3,7 +3,6 @@
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """Given a specially-formatted JSON object, generates results report(s).
 
 The JSON object should look like:
@@ -62,10 +61,12 @@ from results_report import TextResultsReport
 
 def CountBenchmarks(benchmark_runs):
   """Counts the number of iterations for each benchmark in benchmark_runs."""
+
   # Example input for benchmark_runs:
   # {"bench": [[run1, run2, run3], [run1, run2, run3, run4]]}
   def _MaxLen(results):
     return 0 if not results else max(len(r) for r in results)
+
   return [(name, _MaxLen(results))
           for name, results in benchmark_runs.iteritems()]
 
@@ -121,8 +122,8 @@ def CutResultsInPlace(results, max_keys=50, complain_on_update=True):
           len(retained_keys) != len(removable_keys)
 
   if actually_updated and complain_on_update:
-    print("Warning: Some benchmark keyvals have been truncated.",
-          file=sys.stderr)
+    print(
+        'Warning: Some benchmark keyvals have been truncated.', file=sys.stderr)
   return results
 
 
@@ -144,7 +145,7 @@ def _ConvertToASCII(obj):
 def _PositiveInt(s):
   i = int(s)
   if i < 0:
-    raise argparse.ArgumentTypeError('%d is not a positive integer.' % (i, ))
+    raise argparse.ArgumentTypeError('%d is not a positive integer.' % (i,))
   return i
 
 
@@ -182,13 +183,13 @@ def WriteFile(output_prefix, extension, get_contents, overwrite, verbose):
   """
   if output_prefix == '-':
     if verbose:
-      print('Writing %s report to stdout' % (extension, ), file=sys.stderr)
+      print('Writing %s report to stdout' % (extension,), file=sys.stderr)
     sys.stdout.write(get_contents())
     return
 
   file_name = '%s.%s' % (output_prefix, extension)
   if not overwrite and os.path.exists(file_name):
-    raise IOError('Refusing to write %s -- it already exists' % (file_name, ))
+    raise IOError('Refusing to write %s -- it already exists' % (file_name,))
 
   with open(file_name, 'w') as out_file:
     if verbose:
@@ -200,7 +201,7 @@ def RunActions(actions, benchmark_results, output_prefix, overwrite, verbose):
   """Runs `actions`, returning True if all succeeded."""
   failed = False
 
-  report_ctor = None # Make the linter happy
+  report_ctor = None  # Make the linter happy
   for report_ctor, extension in actions:
     try:
       get_contents = lambda: report_ctor(benchmark_results).GetReport()
@@ -225,27 +226,49 @@ def _NoPerfReport(_label_name, _benchmark_name, _benchmark_iteration):
 def _ParseArgs(argv):
   parser = argparse.ArgumentParser(description='Turns JSON into results '
                                    'report(s).')
-  parser.add_argument('-v', '--verbose', action='store_true',
-                      help='Be a tiny bit more verbose.')
-  parser.add_argument('-f', '--force', action='store_true',
-                      help='Overwrite existing results files.')
-  parser.add_argument('-o', '--output', default='report', type=str,
-                      help='Prefix of the output filename (default: report). '
-                      '- means stdout.')
-  parser.add_argument('-i', '--input', required=True, type=str,
-                      help='Where to read the JSON from. - means stdin.')
-  parser.add_argument('-l', '--statistic-limit', default=0, type=_PositiveInt,
-                      help='The maximum number of benchmark statistics to '
-                      'display from a single run. 0 implies unlimited.')
-  parser.add_argument('--json', action='store_true',
-                      help='Output a JSON report.')
-  parser.add_argument('--text', action='store_true',
-                      help='Output a text report.')
-  parser.add_argument('--email', action='store_true',
-                      help='Output a text report suitable for email.')
-  parser.add_argument('--html', action='store_true',
-                      help='Output an HTML report (this is the default if no '
-                      'other output format is specified).')
+  parser.add_argument(
+      '-v',
+      '--verbose',
+      action='store_true',
+      help='Be a tiny bit more verbose.')
+  parser.add_argument(
+      '-f',
+      '--force',
+      action='store_true',
+      help='Overwrite existing results files.')
+  parser.add_argument(
+      '-o',
+      '--output',
+      default='report',
+      type=str,
+      help='Prefix of the output filename (default: report). '
+      '- means stdout.')
+  parser.add_argument(
+      '-i',
+      '--input',
+      required=True,
+      type=str,
+      help='Where to read the JSON from. - means stdin.')
+  parser.add_argument(
+      '-l',
+      '--statistic-limit',
+      default=0,
+      type=_PositiveInt,
+      help='The maximum number of benchmark statistics to '
+      'display from a single run. 0 implies unlimited.')
+  parser.add_argument(
+      '--json', action='store_true', help='Output a JSON report.')
+  parser.add_argument(
+      '--text', action='store_true', help='Output a text report.')
+  parser.add_argument(
+      '--email',
+      action='store_true',
+      help='Output a text report suitable for email.')
+  parser.add_argument(
+      '--html',
+      action='store_true',
+      help='Output an HTML report (this is the default if no '
+      'other output format is specified).')
   return parser.parse_args(argv)
 
 
@@ -263,13 +286,13 @@ def Main(argv):
   benches = CountBenchmarks(results)
   # In crosperf, a label is essentially a platform+configuration. So, a name of
   # a label and a name of a platform are equivalent for our purposes.
-  bench_results = BenchmarkResults(label_names=platform_names,
-                                   benchmark_names_and_iterations=benches,
-                                   run_keyvals=results,
-                                   read_perf_report=_NoPerfReport)
+  bench_results = BenchmarkResults(
+      label_names=platform_names,
+      benchmark_names_and_iterations=benches,
+      run_keyvals=results,
+      read_perf_report=_NoPerfReport)
   actions = _AccumulateActions(args)
-  ok = RunActions(actions, bench_results, args.output, args.force,
-                  args.verbose)
+  ok = RunActions(actions, bench_results, args.output, args.force, args.verbose)
   return 0 if ok else 1
 
 

@@ -19,8 +19,10 @@ import unittest
 import generate_report
 import results_report
 
+
 class _ContextualStringIO(StringIO):
   """StringIO that can be used in `with` statements."""
+
   def __init__(self, *args):
     StringIO.__init__(self, *args)
 
@@ -33,6 +35,7 @@ class _ContextualStringIO(StringIO):
 
 class GenerateReportTests(unittest.TestCase):
   """Tests for generate_report.py."""
+
   def testCountBenchmarks(self):
     runs = {
         'foo': [[{}, {}, {}], [{}, {}, {}, {}]],
@@ -45,16 +48,33 @@ class GenerateReportTests(unittest.TestCase):
 
   def testCutResultsInPlace(self):
     bench_data = {
-        'foo': [[{'a': 1, 'b': 2, 'c': 3}, {'a': 3, 'b': 2.5, 'c': 1}]],
-        'bar': [[{'d': 11, 'e': 12, 'f': 13}]],
-        'baz': [[{'g': 12, 'h': 13}]],
-        'qux': [[{'i': 11}]],
+        'foo': [[{
+            'a': 1,
+            'b': 2,
+            'c': 3
+        }, {
+            'a': 3,
+            'b': 2.5,
+            'c': 1
+        }]],
+        'bar': [[{
+            'd': 11,
+            'e': 12,
+            'f': 13
+        }]],
+        'baz': [[{
+            'g': 12,
+            'h': 13
+        }]],
+        'qux': [[{
+            'i': 11
+        }]],
     }
     original_bench_data = copy.deepcopy(bench_data)
 
     max_keys = 2
-    results = generate_report.CutResultsInPlace(bench_data, max_keys=max_keys,
-                                                complain_on_update=False)
+    results = generate_report.CutResultsInPlace(
+        bench_data, max_keys=max_keys, complain_on_update=False)
     # Cuts should be in-place.
     self.assertIs(results, bench_data)
     self.assertItemsEqual(original_bench_data.keys(), bench_data.keys())
@@ -68,15 +88,21 @@ class GenerateReportTests(unittest.TestCase):
           # sub_keyvals must be a subset of original_keyvals
           self.assertDictContainsSubset(sub_keyvals, original_keyvals)
 
-
   def testCutResultsInPlaceLeavesRetval(self):
     bench_data = {
-        'foo': [[{'retval': 0, 'a': 1}]],
-        'bar': [[{'retval': 1}]],
-        'baz': [[{'RETVAL': 1}]],
+        'foo': [[{
+            'retval': 0,
+            'a': 1
+        }]],
+        'bar': [[{
+            'retval': 1
+        }]],
+        'baz': [[{
+            'RETVAL': 1
+        }]],
     }
-    results = generate_report.CutResultsInPlace(bench_data, max_keys=0,
-                                                complain_on_update=False)
+    results = generate_report.CutResultsInPlace(
+        bench_data, max_keys=0, complain_on_update=False)
     # Just reach into results assuming we know it otherwise outputs things
     # sanely. If it doesn't, testCutResultsInPlace should give an indication as
     # to what, exactly, is broken.
@@ -121,12 +147,12 @@ class GenerateReportTests(unittest.TestCase):
   # We only mock print_exc so we don't have exception info printed to stdout.
   @mock.patch('generate_report.WriteFile', side_effect=ValueError('Oh noo'))
   @mock.patch('traceback.print_exc')
-  def testRunActionsRunsAllActionsRegardlessOfExceptions(self, mock_print_exc,
-                                                         mock_write_file):
+  def testRunActionsRunsAllActionsRegardlessOfExceptions(
+      self, mock_print_exc, mock_write_file):
     actions = [(None, 'json'), (None, 'html'), (None, 'text'), (None, 'email')]
     output_prefix = '-'
-    ok = generate_report.RunActions(actions, {}, output_prefix, overwrite=False,
-                                    verbose=False)
+    ok = generate_report.RunActions(
+        actions, {}, output_prefix, overwrite=False, verbose=False)
     self.assertFalse(ok)
     self.assertEqual(mock_write_file.call_count, len(actions))
     self.assertEqual(mock_print_exc.call_count, len(actions))
@@ -135,8 +161,8 @@ class GenerateReportTests(unittest.TestCase):
   def testRunActionsReturnsTrueIfAllActionsSucceed(self, mock_write_file):
     actions = [(None, 'json'), (None, 'html'), (None, 'text')]
     output_prefix = '-'
-    ok = generate_report.RunActions(actions, {}, output_prefix, overwrite=False,
-                                    verbose=False)
+    ok = generate_report.RunActions(
+        actions, {}, output_prefix, overwrite=False, verbose=False)
     self.assertEqual(mock_write_file.call_count, len(actions))
     self.assertTrue(ok)
 

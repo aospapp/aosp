@@ -1,7 +1,7 @@
 /** @file
   Var Check Hii bin generation.
 
-Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2015 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -57,7 +57,7 @@ IfrOpCodeToStr (
   )
 {
   UINTN  Index;
-  for (Index = 0; Index < sizeof (mIfrOpCodeStringTable) / sizeof (mIfrOpCodeStringTable[0]); Index++) {
+  for (Index = 0; Index < ARRAY_SIZE (mIfrOpCodeStringTable); Index++) {
     if (mIfrOpCodeStringTable[Index].HiiOpCode == IfrOpCode) {
       return mIfrOpCodeStringTable[Index].HiiOpCodeStr;
     }
@@ -96,7 +96,7 @@ HiiPackageTypeToStr (
   )
 {
   UINTN     Index;
-  for (Index = 0; Index < sizeof (mPackageTypeStringTable) / sizeof (mPackageTypeStringTable[0]); Index++) {
+  for (Index = 0; Index < ARRAY_SIZE (mPackageTypeStringTable); Index++) {
     if (mPackageTypeStringTable[Index].PackageType == PackageType) {
       return mPackageTypeStringTable[Index].PackageTypeStr;
     }
@@ -1130,13 +1130,13 @@ CreateHiiVariableNode (
   //
   // Get variable name.
   //
-  VarNameSize = AsciiStrSize ((CHAR8 *) IfrEfiVarStore->Name) * 2;
+  VarNameSize = AsciiStrSize ((CHAR8 *) IfrEfiVarStore->Name) * sizeof (CHAR16);
   if (VarNameSize > mMaxVarNameSize) {
     mVarName = InternalVarCheckReallocatePool (mMaxVarNameSize, VarNameSize, mVarName);
     ASSERT (mVarName != NULL);
     mMaxVarNameSize = VarNameSize;
   }
-  AsciiStrToUnicodeStr ((CHAR8 *) IfrEfiVarStore->Name, mVarName);
+  AsciiStrToUnicodeStrS ((CHAR8 *) IfrEfiVarStore->Name, mVarName, mMaxVarNameSize / sizeof (CHAR16));
   VarName = mVarName;
 
   HiiVariableNode = FindHiiVariableNode (
@@ -1308,7 +1308,7 @@ VarCheckParseHiiDatabase (
 
     while ((UINTN) HiiPackageHeader < ((UINTN) HiiPackageListHeader + HiiPackageListHeader->PackageLength)) {
       //
-      // Parse Hii Pacakge.
+      // Parse Hii Package.
       //
       VarCheckParseHiiPackage (HiiPackageHeader, FALSE);
 

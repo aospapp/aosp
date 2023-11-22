@@ -38,9 +38,10 @@ import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.Log;
 import android.widget.ImageView;
-import com.android.car.apps.common.CircleBitmapDrawable;
+
 import com.android.car.apps.common.LetterTileDrawable;
 import com.android.car.dialer.R;
+import com.android.car.dialer.ui.CircleBitmapDrawable;
 
 import java.io.InputStream;
 import java.util.Locale;
@@ -48,7 +49,7 @@ import java.util.Locale;
 public class TelecomUtils {
     private final static String TAG = "Em.TelecomUtils";
 
-    private static final String[] CONTACT_ID_PROJECTION = new String[] {
+    private static final String[] CONTACT_ID_PROJECTION = new String[]{
             ContactsContract.PhoneLookup.DISPLAY_NAME,
             ContactsContract.PhoneLookup.TYPE,
             ContactsContract.PhoneLookup.LABEL,
@@ -73,6 +74,7 @@ public class TelecomUtils {
 
     /**
      * Return the contact id for the given contact id
+     *
      * @param id the contact id to get the photo for
      * @return the contact photo if it is found, null otherwise.
      */
@@ -97,6 +99,7 @@ public class TelecomUtils {
 
     /**
      * Return the contact id for the given phone number.
+     *
      * @param number Caller phone number
      * @return the contact id if it is found, 0 otherwise.
      */
@@ -115,8 +118,7 @@ public class TelecomUtils {
                 int id = cursor.getInt(cursor.getColumnIndex(ContactsContract.PhoneLookup._ID));
                 return id;
             }
-        }
-        finally {
+        } finally {
             if (cursor != null) {
                 cursor.close();
             }
@@ -126,6 +128,7 @@ public class TelecomUtils {
 
     /**
      * Return the label for the given phone number.
+     *
      * @param number Caller phone number
      * @return the label if it is found, 0 otherwise.
      */
@@ -154,8 +157,7 @@ public class TelecomUtils {
                         Phone.getTypeLabel(res, type, label);
                 return typeLabel;
             }
-        }
-        finally {
+        } finally {
             if (cursor != null) {
                 cursor.close();
             }
@@ -220,7 +222,8 @@ public class TelecomUtils {
         return getDisplayName(context, number, null);
     }
 
-    private static String getDisplayName(Context context, String number, Uri gatewayOriginalAddress) {
+    private static String getDisplayName(Context context, String number,
+            Uri gatewayOriginalAddress) {
         if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "getDisplayName: " + number
                     + ", gatewayOriginalAddress: " + gatewayOriginalAddress);
@@ -257,7 +260,7 @@ public class TelecomUtils {
         String name = null;
         try {
             cursor = cr.query(uri,
-                    new String[] {ContactsContract.PhoneLookup.DISPLAY_NAME}, null, null, null);
+                    new String[]{ContactsContract.PhoneLookup.DISPLAY_NAME}, null, null, null);
             if (cursor != null && cursor.moveToFirst()) {
                 name = cursor.getString(0);
             }
@@ -306,7 +309,7 @@ public class TelecomUtils {
      */
     public static String callStateToUiString(Context context, int state) {
         Resources res = context.getResources();
-        switch(state) {
+        switch (state) {
             case Call.STATE_ACTIVE:
                 return res.getString(R.string.call_state_call_active);
             case Call.STATE_HOLDING:
@@ -348,23 +351,21 @@ public class TelecomUtils {
      * @param number A key to have a consisten color per phone number.
      * @return A worker task if a new one was needed to load the bitmap.
      */
-    @Nullable public static ContactBitmapWorker setContactBitmapAsync(Context context,
+    @Nullable
+    public static ContactBitmapWorker setContactBitmapAsync(Context context,
             final ImageView icon, final @Nullable String name, final String number) {
         return ContactBitmapWorker.loadBitmap(context.getContentResolver(), icon, number,
-                new ContactBitmapWorker.BitmapWorkerListener() {
-                    @Override
-                    public void onBitmapLoaded(@Nullable Bitmap bitmap) {
-                        Resources r = icon.getResources();
-                        if (bitmap != null) {
-                            icon.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                            icon.setImageDrawable(new CircleBitmapDrawable(r, bitmap));
-                        } else {
-                            icon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-                            LetterTileDrawable letterTileDrawable = new LetterTileDrawable(r);
-                            letterTileDrawable.setContactDetails(name, number);
-                            letterTileDrawable.setIsCircular(true);
-                            icon.setImageDrawable(letterTileDrawable);
-                        }
+                bitmap -> {
+                    Resources r = icon.getResources();
+                    if (bitmap != null) {
+                        icon.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                        icon.setImageDrawable(new CircleBitmapDrawable(r, bitmap));
+                    } else {
+                        icon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+                        LetterTileDrawable letterTileDrawable = new LetterTileDrawable(r);
+                        letterTileDrawable.setContactDetails(name, number);
+                        letterTileDrawable.setIsCircular(true);
+                        icon.setImageDrawable(letterTileDrawable);
                     }
                 });
     }

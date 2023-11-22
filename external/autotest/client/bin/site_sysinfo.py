@@ -21,21 +21,41 @@ command = base_sysinfo.command
 
 class logdir(base_sysinfo.loggable):
     """Represents a log directory."""
-    def __init__(self, directory, additional_exclude=None):
+
+    DEFAULT_EXCLUDES = ("**autoserv*",)
+
+    def __init__(self, directory, excludes=DEFAULT_EXCLUDES):
         super(logdir, self).__init__(directory, log_in_keyval=False)
         self.dir = directory
-        self.additional_exclude = additional_exclude
+        self._excludes = excludes
+        self._infer_old_attributes()
+
+
+    def __setstate__(self, state):
+        """Unpickle handler
+
+        When client tests are run without SSP, we pickle this object on the
+        server-side (using the version of the class deployed in the lab) and
+        unpickle it on the DUT (using the version of the class from the build).
+        This means that when adding a new attribute to this class, for a while
+        the server-side code does not populate that attribute. So, deal with
+        missing attributes in a sane way.
+        """
+        self.__dict__ = state
+        if '_excludes' not in state:
+            self._excludes = self.DEFAULT_EXCLUDES
+            if self.additional_exclude:
+                self._excludes += tuple(self.additional_exclude)
 
 
     def __repr__(self):
         return "site_sysinfo.logdir(%r, %s)" % (self.dir,
-                                                self.additional_exclude)
+                                                self._excludes)
 
 
     def __eq__(self, other):
         if isinstance(other, logdir):
-            return (self.dir == other.dir and
-                    self.additional_exclude == other.additional_exclude)
+            return (self.dir == other.dir and self._excludes == other._excludes)
         elif isinstance(other, base_sysinfo.loggable):
             return False
         return NotImplemented
@@ -49,7 +69,7 @@ class logdir(base_sysinfo.loggable):
 
 
     def __hash__(self):
-        return hash(self.dir) + hash(self.additional_exclude)
+        return hash(self.dir) + hash(self._excludes)
 
 
     def run(self, log_dir):
@@ -57,19 +77,45 @@ class logdir(base_sysinfo.loggable):
 
         @param log_dir: The destination log directory.
         """
-        if os.path.exists(self.dir):
-            parent_dir = os.path.dirname(self.dir)
+        from_dir = os.path.realpath(self.dir)
+        if os.path.exists(from_dir):
+            parent_dir = os.path.dirname(from_dir)
             utils.system("mkdir -p %s%s" % (log_dir, parent_dir))
+
+            excludes = [
+                    "--exclude=%s" % self._anchored_exclude_pattern(from_dir, x)
+                    for x in self._excludes]
             # Take source permissions and add ugo+r so files are accessible via
             # archive server.
-            additional_exclude_str = ""
-            if self.additional_exclude:
-                additional_exclude_str = "--exclude=" + self.additional_exclude
+            utils.system(
+                    "rsync --no-perms --chmod=ugo+r -a --safe-links %s %s %s%s"
+                    % (" ".join(excludes), from_dir, log_dir, parent_dir))
 
-            utils.system("rsync --no-perms --chmod=ugo+r -a --exclude=autoserv*"
-                         " --safe-links"
-                         " %s %s %s%s" % (additional_exclude_str, self.dir,
-                                          log_dir, parent_dir))
+
+    def _anchored_exclude_pattern(self, from_dir, pattern):
+        return '/%s/%s' % (os.path.basename(from_dir), pattern)
+
+
+    def _infer_old_attributes(self):
+        """ Backwards compatibility attributes.
+
+        YOU MUST NEVER DROP / REINTERPRET THESE.
+        A logdir object is pickled on server-side and unpickled on
+        client-side. This means that, when running aginst client-side code
+        from an older build, we need to be able to unpickle an instance of
+        logdir pickled from a newer version of the class.
+
+        Some old attributes are not sanely handled via __setstate__, so we can't
+        drop them without breaking compatibility.
+        """
+        additional_excludes = list(set(self._excludes) -
+                                   set(self.DEFAULT_EXCLUDES))
+        if additional_excludes:
+            # Old API only allowed a single additional exclude.
+            # Best effort, keep the first one, throw the rest.
+            self.additional_exclude = additional_excludes[0]
+        else:
+            self.additional_exclude = None
 
 
 class file_stat(object):
@@ -98,13 +144,13 @@ class diffable_logdir(logdir):
     method is called in after_iteration_loggables.
 
     """
-    def __init__(self, directory, additional_exclude=None,
+    def __init__(self, directory, excludes=logdir.DEFAULT_EXCLUDES,
                  keep_file_hierarchy=True, append_diff_in_name=True):
         """
         Constructor of a diffable_logdir instance.
 
         @param directory: directory to be diffed after an iteration finished.
-        @param additional_exclude: additional dir to be excluded, not used.
+        @param excludes: path patterns to exclude for rsync.
         @param keep_file_hierarchy: True if need to preserve full path, e.g.,
             sysinfo/var/log/sysstat, v.s. sysinfo/sysstat if it's False.
         @param append_diff_in_name: True if you want to append '_diff' to the
@@ -112,8 +158,7 @@ class diffable_logdir(logdir):
             keep_file_hierarchy must be True for this to take effect.
 
         """
-        super(diffable_logdir, self).__init__(directory, additional_exclude)
-        self.additional_exclude = additional_exclude
+        super(diffable_logdir, self).__init__(directory, excludes)
         self.keep_file_hierarchy = keep_file_hierarchy
         self.append_diff_in_name = append_diff_in_name
         # Init dictionary to store all file status for files in the directory.
@@ -225,9 +270,8 @@ class diffable_logdir(logdir):
 
 class purgeable_logdir(logdir):
     """Represents a log directory that will be purged."""
-    def __init__(self, directory, additional_exclude=None):
-        super(purgeable_logdir, self).__init__(directory, additional_exclude)
-        self.additional_exclude = additional_exclude
+    def __init__(self, directory, excludes=logdir.DEFAULT_EXCLUDES):
+        super(purgeable_logdir, self).__init__(directory, excludes)
 
     def run(self, log_dir):
         """Copies this log dir to the destination dir, then purges the source.
@@ -276,16 +320,17 @@ class site_sysinfo(base_sysinfo.base_sysinfo):
         self.after_iteration_loggables.add(
             purgeable_logdir(
                 os.path.join(constants.CRYPTOHOME_MOUNT_PT, "crash"),
-                additional_exclude=crash_exclude_string))
+                excludes=logdir.DEFAULT_EXCLUDES + (crash_exclude_string,)))
         self.after_iteration_loggables.add(
-            purgeable_logdir(constants.CRASH_DIR,
-                             additional_exclude=crash_exclude_string))
+            purgeable_logdir(
+                constants.CRASH_DIR,
+                excludes=logdir.DEFAULT_EXCLUDES + (crash_exclude_string,)))
         self.test_loggables.add(
             logfile(os.path.join(constants.USER_DATA_DIR,
                                  ".Google/Google Talk Plugin/gtbplugin.log")))
         self.test_loggables.add(purgeable_logdir(
                 constants.CRASH_DIR,
-                additional_exclude=crash_exclude_string))
+                excludes=logdir.DEFAULT_EXCLUDES + (crash_exclude_string,)))
         # Collect files under /tmp/crash_reporter, which contain the procfs
         # copy of those crashed processes whose core file didn't get converted
         # into minidump. We need these additional files for post-mortem analysis
@@ -390,16 +435,14 @@ class site_sysinfo(base_sysinfo.base_sysinfo):
         return keyval
 
 
-    def add_logdir(self, log_path):
+    def add_logdir(self, loggable):
         """Collect files in log_path to sysinfo folder.
 
         This method can be called from a control file for test to collect files
-        in a specified folder. autotest creates a folder
-        [test result dir]/sysinfo folder with the full path of log_path and copy
-        all files in log_path to that folder.
+        in a specified folder. autotest creates a folder [test result
+        dir]/sysinfo folder with the full path of log_path and copy all files in
+        log_path to that folder.
 
-        @param log_path: Full path of a folder that test needs to collect files
-                         from, e.g.,
-                         /mnt/stateful_partition/unencrypted/preserve/log
+        @param loggable: A logdir instance corresponding to the logs to collect.
         """
-        self.test_loggables.add(logdir(log_path))
+        self.test_loggables.add(loggable)

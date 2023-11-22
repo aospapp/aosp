@@ -36,7 +36,26 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import junit.framework.TestCase;
 
+import dalvik.system.VMRuntime;
+import sun.security.jca.Providers;
+
 public final class MessageDigestTest extends TestCase {
+
+    // Allow access to deprecated BC algorithms in this test, so we can ensure they
+    // continue to work
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                VMRuntime.getRuntime().getTargetSdkVersion());
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
+        super.tearDown();
+    }
 
     private final byte[] sha_456 = {
             -24,   9, -59, -47,  -50,  -92, 123, 69, -29,  71,

@@ -223,7 +223,7 @@ public class AllocationCache implements UncheckedCloseable {
             if (other instanceof AllocationKey){
                 AllocationKey otherKey = (AllocationKey) other;
 
-                return otherKey.mType.equals(mType) && otherKey.mUsage == otherKey.mUsage;
+                return otherKey.mType.equals(mType) && otherKey.mUsage == mUsage;
             }
 
             return false;

@@ -17,6 +17,7 @@ package com.android.tradefed.build;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -30,6 +31,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.File;
+import java.util.Arrays;
 
 /** Unit tests for {@link BuildInfo}. */
 @RunWith(JUnit4.class)
@@ -115,5 +117,31 @@ public class BuildInfoTest {
         BuildInfo test = (BuildInfo) o;
         // use the custom build info equals to check similar properties
         assertTrue(mBuildInfo.equals(test));
+    }
+
+    /**
+     * Test {@link BuildInfo#cleanUp(java.util.List)} to ensure it removes non-existing files and
+     * lives others.
+     */
+    @Test
+    public void testCleanUpWithExemption() throws Exception {
+        File testFile = FileUtil.createTempFile("fake-versioned-file", ".txt");
+        File testFile2 = FileUtil.createTempFile("fake-versioned-file2", ".txt");
+        try {
+            mBuildInfo.setFile("name", testFile, "version");
+            mBuildInfo.setFile("name2", testFile2, "version2");
+            assertNotNull(mBuildInfo.getFile("name"));
+            assertNotNull(mBuildInfo.getFile("name2"));
+            assertNotNull(mBuildInfo.getFile("name"));
+            assertNotNull(mBuildInfo.getFile("name2"));
+            // Clean up with an exception on one of the file
+            mBuildInfo.cleanUp(Arrays.asList(testFile2));
+            assertNull(mBuildInfo.getFile("name"));
+            // The second file still exists and is left untouched.
+            assertNotNull(mBuildInfo.getFile("name2"));
+        } finally {
+            FileUtil.deleteFile(testFile);
+            FileUtil.deleteFile(testFile2);
+        }
     }
 }

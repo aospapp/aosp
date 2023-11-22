@@ -3,7 +3,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE:= rstest-cppf16
 
-LOCAL_NDK_STL_VARIANT := stlport_static
+LOCAL_NDK_STL_VARIANT := c++_static
 
 LOCAL_SRC_FILES:= \
 	compute.cpp

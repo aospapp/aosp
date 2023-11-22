@@ -27,4 +27,11 @@
         <item name="android:padding">22dp</item>
     </style>
 
+    <style name="NavigationBarButton">
+        <item name="android:layout_height">56dp</item>
+        <item name="android:layout_width">76dp</item>
+        <item name="android:paddingStart">@dimen/car_padding_1</item>
+        <item name="android:paddingEnd">@dimen/car_padding_1</item>
+    </style>
+
 </resources>

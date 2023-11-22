@@ -11,15 +11,14 @@ using std::vector;
 
 namespace brillo {
 
-static base::LazyInstance<Minijail> g_minijail = LAZY_INSTANCE_INITIALIZER;
-
 Minijail::Minijail() {}
 
 Minijail::~Minijail() {}
 
 // static
 Minijail* Minijail::GetInstance() {
-  return g_minijail.Pointer();
+  static Minijail* minijail = new Minijail();
+  return minijail;
 }
 
 struct minijail* Minijail::New() {

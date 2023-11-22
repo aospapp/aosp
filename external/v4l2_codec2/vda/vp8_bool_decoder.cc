@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
+// Note: ported from Chromium commit head: 9b6f429
 
 /*
  * Copyright (c) 2010, The WebM Project authors. All rights reserved.
@@ -104,7 +105,7 @@ void Vp8BoolDecoder::FillDecoder() {
   int shift = VP8_BD_VALUE_BIT - CHAR_BIT - (count_ + CHAR_BIT);
   size_t bytes_left = user_buffer_end_ - user_buffer_;
   size_t bits_left = bytes_left * CHAR_BIT;
-  int x = static_cast<int>(shift + CHAR_BIT - bits_left);
+  int x = shift + CHAR_BIT - static_cast<int>(bits_left);
   int loop_end = 0;
 
   if (x >= 0) {
@@ -140,7 +141,7 @@ int Vp8BoolDecoder::ReadBit(int probability) {
   size_t shift = kVp8Norm[range_];
   range_ <<= shift;
   value_ <<= shift;
-  count_ -= shift;
+  count_ -= static_cast<int>(shift);
 
   DCHECK_EQ(1U, (range_ >> 7));  // In the range [128, 255].
 

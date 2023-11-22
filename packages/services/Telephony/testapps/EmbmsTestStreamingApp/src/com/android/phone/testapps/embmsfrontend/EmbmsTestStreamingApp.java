@@ -154,7 +154,7 @@ public class EmbmsTestStreamingApp extends Activity {
         Button bindButton = (Button) findViewById(R.id.bind_button);
         bindButton.setOnClickListener((view) -> {
             mStreamingManager = MbmsStreamingSession.create(
-                    EmbmsTestStreamingApp.this, mStreamingListener, mHandler);
+                    EmbmsTestStreamingApp.this, mHandler::post, mStreamingListener);
         });
 
         Button getStreamingServicesButton = (Button)

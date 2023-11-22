@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -23,7 +23,6 @@ import acts_base_class_test
 import acts_host_utils_test
 import acts_logger_test
 import acts_records_test
-import acts_sl4a_client_test
 import acts_test_runner_test
 import acts_utils_test
 
@@ -34,10 +33,8 @@ def compile_suite():
         acts_base_class_test.ActsBaseClassTest,
         acts_test_runner_test.ActsTestRunnerTest,
         acts_android_device_test.ActsAndroidDeviceTest,
-        acts_records_test.ActsRecordsTest,
-        acts_sl4a_client_test.ActsSl4aClientTest,
-        acts_utils_test.ActsUtilsTest, acts_logger_test.ActsLoggerTest,
-        acts_host_utils_test.ActsHostUtilsTest
+        acts_records_test.ActsRecordsTest, acts_utils_test.ActsUtilsTest,
+        acts_logger_test.ActsLoggerTest, acts_host_utils_test.ActsHostUtilsTest
     ]
 
     loader = unittest.TestLoader()

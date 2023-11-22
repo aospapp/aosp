@@ -81,6 +81,7 @@
 #include <pwd.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 #define LTPUSER		"nobody"
 #ifdef ANDROID
@@ -181,19 +182,11 @@ void setup(void)
 		tst_brkm(TBROK, cleanup, "getgrnam failed");
 	group1_gid = ltpgroup->gr_gid;
 
-	fd = open(TESTFILE, O_RDWR | O_CREAT, FILE_MODE);
-	if (fd == -1)
-		tst_brkm(TBROK | TERRNO, cleanup,
-			 "open(%s, O_RDWR|O_CREAT, %#o) failed",
-			 TESTFILE, FILE_MODE);
-	if (close(fd) == -1)
-		tst_brkm(TBROK, cleanup, "close(%s) failed", TESTFILE);
-	if (chown(TESTFILE, user1_uid, group1_gid) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "chown(%s) failed", TESTFILE);
+	fd = SAFE_OPEN(cleanup, TESTFILE, O_RDWR | O_CREAT, FILE_MODE);
+	SAFE_CLOSE(cleanup, fd);
+	SAFE_CHOWN(cleanup, TESTFILE, user1_uid, group1_gid);
 
-	if (setgid(group1_gid) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "setgid(%d) failed",
-			 group1_gid);
+	SAFE_SETGID(cleanup, group1_gid);
 }
 
 void cleanup(void)

@@ -19,6 +19,7 @@
 
 <resources>
     <bool name="def_lockscreen_disabled">true</bool>
+    <bool name="def_wifi_on">true</bool>
 
     <!-- Allow users to use both the on-screen keyboard, as well as a real
          keyboard -->

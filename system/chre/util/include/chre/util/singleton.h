@@ -62,11 +62,22 @@ class Singleton : public NonCopyable {
   /**
    * Returns a pointer to the underlying object. The singleton object must be
    * constructed prior to using get to interact with it. If the object is not
-   * initialized, nullptr is returned.
+   * initialized, the behavior is undefined and the returned pointer is not
+   * initialized.
    *
    * @return A pointer to the singleton instance.
    */
   static ObjectType *get();
+
+  /**
+   * Returns a pointer to the underlying object. The singleton object must be
+   * constructed prior to using get to interact with it. If the object is not
+   * initialized, nullptr is returned.
+   *
+   * @return A pointer to the singleton instance or nullptr if it is not
+   * initialized.
+   */
+  static ObjectType *safeGet();
 
  private:
   //! Static storage for the type of this singleton.

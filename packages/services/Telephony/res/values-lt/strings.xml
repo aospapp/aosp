@@ -127,9 +127,10 @@
     <string name="reverting_settings" msgid="4752151682666912828">"Grąžinami nustatymai…"</string>
     <string name="response_error" msgid="6674110501330139405">"Netikėtas atsakas iš tinklo."</string>
     <string name="exception_error" msgid="7027667130619518211">"Tinklo ar SIM kortelės klaida."</string>
-    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"SS užklausa pakeista į DIAL užklausą."</string>
-    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"SS užklausa pakeista į USSD užklausą."</string>
-    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"SS užklausa pakeista į naują SS užklausą."</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="4440038807310535377">"SS užklausa pakeista į įprastą skambutį"</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="6095812685884176176">"SS užklausa pakeista į USSD užklausą"</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="7920654012697945858">"Pakeista į naują SS užklausą"</string>
+    <string name="stk_cc_ss_to_dial_video_error" msgid="3873905132181743781">"SS užklausa pakeista į vaizdo skambutį"</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"Įjungtas jūsų telefono programos fiksuotojo rinkimo numerių nustatymas. Todėl neveikia kai kurios su skambinimu susijusios funkcijos."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"Prieš žiūrėdami šiuos nustatymus, įjunkite radiją."</string>
     <string name="close_dialog" msgid="2365884406356986917">"Gerai"</string>
@@ -158,16 +159,16 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"Naujame PIN kode yra netinkamų simbolių."</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"Nepavyko pakeisti PIN kodo"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"Nepalaikomas pranešimo tipas, paskambinkite numeriu <xliff:g id="NUMBER">%s</xliff:g> ir išklausykite."</string>
-    <string name="mobile_networks" msgid="5540397602919106177">"Mobiliojo ryšio tinklo tipas"</string>
     <string name="network_settings_title" msgid="514120489499925574">"Mobiliojo ryšio tinklas"</string>
     <string name="label_available" msgid="1181658289009300430">"Galimi tinklai"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Ieškoma…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Nerasta tinklų."</string>
-    <string name="network_query_error" msgid="6828516148953325006">"Klaida ieškant tinklų."</string>
+    <string name="network_query_error" msgid="8466081377231178298">"Nepavyko rasti tinklų. Bandykite dar kartą."</string>
     <string name="register_on_network" msgid="9055203954040805084">"Registruojama <xliff:g id="NETWORK">%s</xliff:g>..."</string>
     <string name="not_allowed" msgid="5613353860205691579">"SIM kortelė neleidžia užmegzti ryšio su šiuo tinklu."</string>
     <string name="connect_later" msgid="2308119155752343975">"Dabar prie šio tinklo prisijungti nepavyksta. Bandykite dar kartą vėliau."</string>
     <string name="registration_done" msgid="495135664535876612">"Registruota tinkle."</string>
+    <string name="already_auto" msgid="6067116884321285507">"Jau automatiškai pasirinkta."</string>
     <string name="select_automatically" msgid="1046727200631770962">"Automatiškai pasirinkti tinklą"</string>
     <string name="network_select_title" msgid="7733107364757544558">"Tinklas"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Automatinė registracija..."</string>
@@ -175,6 +176,36 @@
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"Pakeisti tinklo veikimo režimą"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Pageidaujamas tinklo tipas"</string>
     <string name="forbidden_network" msgid="4384929668343563440">"(uždrausta)"</string>
+    <string name="choose_network_title" msgid="4023911977543009350">"Pasirinkti tinklą"</string>
+    <string name="network_disconnected" msgid="2227251609006103194">"Atsijungta"</string>
+    <string name="network_connected" msgid="1288589103624338857">"Prisijungta"</string>
+    <string name="network_connecting" msgid="4927203097283533783">"Prisijungiama..."</string>
+    <string name="network_could_not_connect" msgid="8254009365807767243">"Nepavyko prisijungti"</string>
+  <string-array name="preferred_network_mode_choices">
+    <item msgid="3628460389382468528">"Pageidaujama GSM / WCDMA"</item>
+    <item msgid="8442633436636425221">"Tik GSM"</item>
+    <item msgid="2032314385791760810">"Tik WCDMA"</item>
+    <item msgid="6334554401059422303">"GSM / WCDMA automatinis"</item>
+    <item msgid="1462198368200398663">"CDMA / „EvDo“ automatinis"</item>
+    <item msgid="3611460019185359968">"CDMA be „EvDo“"</item>
+    <item msgid="545430093607698090">"Tik „EvDo“"</item>
+    <item msgid="4286774020869405140">"CDMA / „EvDo“ / GSM / WCDMA"</item>
+    <item msgid="4006002265696868538">"CDMA ir LTE / „EvDo“"</item>
+    <item msgid="8973936140318359205">"GSM / WCDMA / LTE"</item>
+    <item msgid="3471059554252610472">"Visuotinis"</item>
+    <item msgid="2882615514545171802">"LTE"</item>
+    <item msgid="8076204422288290116">"LTE / WCDMA"</item>
+    <item msgid="3982984144824159726">"Tik TDSCDMA"</item>
+    <item msgid="3686191974505922271">"TDSCDMA / WCDMA"</item>
+    <item msgid="7135671700201836475">"LTE / TDSCDMA"</item>
+    <item msgid="3736619459066330755">"TDSCDMA / GSM"</item>
+    <item msgid="4778666570887216861">"LTE / TDSCDMA / GSM"</item>
+    <item msgid="2952322596201849456">"TDSCDMA / GSM / WCDMA"</item>
+    <item msgid="115984258536697617">"LTE / TDSCDMA / WCDMA"</item>
+    <item msgid="7957991936217192636">"LTE / TDSCDMA / GSM / WCDMA"</item>
+    <item msgid="2828588917858484655">"TDSCDMA / CDMA / EVDO / GSM / WCDMA"</item>
+    <item msgid="4989979948139945854">"LTE / TDSCDMA / CDMA / EVDO / GSM / WCDMA"</item>
+  </string-array>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Pageidaujamas tinklo režimas: pageidautina WCDMA"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Pageidaujamas tinklo režimas: tik GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Pageidaujamas tinklo režimas: tik WCDMA"</string>
@@ -192,21 +223,15 @@
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"Pageidautinas tinklo režimas: LTE / GSM / UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"Pageidaujamas tinklo režimas: LTE / CDMA"</string>
     <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"Pageidaujamas tinklo režimas: TDSCDMA"</string>
-  <string-array name="preferred_network_mode_choices">
-    <item msgid="7886739962255042385">"LTE / WCDMA"</item>
-    <item msgid="577652050447385699">"LTE"</item>
-    <item msgid="6813597571293773656">"Pasaulinis"</item>
-    <item msgid="127064712132619032">"GSM / WCDMA / LTE"</item>
-    <item msgid="1126767511633425977">"CDMA ir LTE / „EvDo“"</item>
-    <item msgid="6389676313771670660">"CDMA / „EvDo“ / GSM / WCDMA"</item>
-    <item msgid="545430093607698090">"Tik „EvDo“"</item>
-    <item msgid="1508557726283094448">"CDMA be „EvDo“"</item>
-    <item msgid="4341433122263841224">"CDMA / „EvDo“ automatinis"</item>
-    <item msgid="5958053792390386668">"GSM / WCDMA automatinis"</item>
-    <item msgid="7913148405605373434">"Tik WCDMA"</item>
-    <item msgid="1524224863879435516">"Tik GSM"</item>
-    <item msgid="3817924849415716259">"Pageidaujama GSM / WCDMA"</item>
-  </string-array>
+    <string name="preferred_network_mode_tdscdma_wcdma_summary" msgid="2405154895437348623">"Pageidaujamas tinklo režimas: TDSCDMA / WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_summary" msgid="2104702896644235637">"Pageidaujamas tinklo režimas: LTE / TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_summary" msgid="4893784445338396204">"Pageidaujamas tinklo režimas: TDSCDMA / GSM"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_summary" msgid="1815169717046729757">"Pageidaujamas tinklo režimas: LTE / GSM / TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_wcdma_summary" msgid="2195358773359424099">"Pageidaujamas tinklo režimas: TDSCDMA / GSM / WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_wcdma_summary" msgid="1181424059695667803">"Pageidaujamas tinklo režimas: LTE / TDSCDMA / WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_wcdma_summary" msgid="2526539326505354382">"Pageidaujamas tinklo režimas: LTE / TDSCDMA / GSM / WCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="8195248059196614939">"Pageidaujamas tinklo režimas: TDSCDMA / CDMA / „EvDo“ / GSM / WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="5596733053095592791">"Pageidaujamas tinklo režimas: LTE / TDSCDMA / CDMA / „EvDo“ / GSM / WCDMA"</string>
     <string name="call_category" msgid="5863978196309462052">"Skambinama"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"Tinklas"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Patobulintas 4G LTE režimas"</string>
@@ -218,14 +243,16 @@
     <string name="roaming" msgid="7894878421600247140">"Tarptinklinis ryšys"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Veikiant tarptinkliniam ryšiui, prisijungti prie duomenų paslaugų"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Veikiant tarptinkliniam ryšiui, prisijungti prie duomenų paslaugų"</string>
-    <string name="roaming_reenable_message" msgid="8913735676127858115">"Ryšys su duomenimis nutrūko, nes iš pagrindinio tinklo išėjote neįjungę tarptinklinio ryšio."</string>
+    <string name="roaming_reenable_message" msgid="6843814381576397939">"Tarptinklinis duomenų ryšys išjungtas. Jei norite įjungti, palieskite."</string>
+    <string name="roaming_notification_title" msgid="4749053220884743110">"Nutrūko mobilusis duomenų ryšys"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"Galite būti apmokestinti dideliais mokesčiais."</string>
+    <string name="roaming_check_price_warning" msgid="7497570906830902550">"Daugiau kainodaros informacijos galite gauti susisiekę su tinklo paslaugų teikėju."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Leisti tarptinklinį duomenų ryšį?"</string>
-    <string name="data_usage_title" msgid="8759619109516889802">"Duomenų naudojimas"</string>
+    <string name="data_usage_title" msgid="4042209259808900283">"Programos duomenų naudojimas"</string>
     <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_2">%2$s</xliff:g> išnaudota mobiliojo ryšio duomenų: <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="8074895510265488035">"Išplėstiniai"</string>
     <string name="carrier_settings_euicc" msgid="6714062862127226405">"Operatorius"</string>
-    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"operatorius, esim kortelė, sim kortelė, euicc kortelė"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="6861505396475991277">"operatorius, „eSIM“ kortelė, SIM kortelė, „eUICC“ kortelė, perjungti operatorius, pridėti operatorių"</string>
     <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"„<xliff:g id="CARRIER_NAME">%1$s</xliff:g>“ – <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="mobile_data_settings_title" msgid="4661165467914727157">"Mobiliojo ryšio duomenys"</string>
     <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Prieiga prie duomenų naudojant mobiliojo ryšio tinklą"</string>
@@ -399,7 +426,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"Trinamas fiksuoto rinkimo numeris..."</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"Ištrintas fiksuoto rinkimo numeris."</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"FDN neatnaujintas, nes įvedėte neteisingą PIN kodą."</string>
-    <string name="fdn_invalid_number" msgid="8602417141715473998">"FDN neatnaujintas, nes numeris nenurodytas arba viršija 20 skaitmenų apribojimą."</string>
+    <string name="fdn_invalid_number" msgid="2062898833049589309">"FDN neatnaujintas, nes numeris viršija 20 skaitmenų apribojimą."</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN nebuvo atnaujintas. Įvestas PIN2 kodas buvo netinkamas arba telefono numeris buvo atmestas."</string>
     <string name="fdn_failed" msgid="540018079008319747">"Nepavyko atlikti FDN operacijos."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"Skaitoma iš SIM kortelės..."</string>
@@ -482,6 +509,7 @@
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Neįmanoma įjungti lėktuvo režimo per skambutį pagalbos numeriu."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"Nepavyko paskambinti. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> nėra pagalbos numeris."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Nepavyko paskambinti. Surinkite pagalbos numerį."</string>
+    <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"Skambučių pagalbos numeriu paslauga nepasiekiama"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Naudokite klaviatūrą ir rinkite numerius"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"Sulaikyti"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"Pabaiga"</string>
@@ -502,6 +530,9 @@
     <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"Nepavyko importuoti kontakto"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"Klausos aparatai"</string>
     <string name="hac_mode_summary" msgid="6833851160514929341">"Įjungti klausos aparato suderinamumą"</string>
+    <string name="rtt_mode_title" msgid="6954652435543570121">"Tikralaikių teksto pranešimų (RTT) skambutis"</string>
+    <string name="rtt_mode_summary" msgid="5146344277246544580">"Leisti susirašinėti dalyvaujant balso skambutyje"</string>
+    <string name="rtt_mode_more_information" msgid="6080420780730383030">"RTT padeda skambintojams, kurie yra kurti, neprigirdintys, sunkiai kalba arba kuriems reikia ne tik kalbėti.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Sužinokite daugiau&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; – RTT skambučiai išsaugomi kaip pranešimų nuorašai\n       &lt;br&gt; – RTT paslauga nepasiekiama dalyvaujant vaizdo skambučiuose"</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"TTY išjungta"</item>
     <item msgid="3971695875449640648">"TTY pilnas"</item>
@@ -617,4 +648,107 @@
     <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Jums gali reikėti pridėti duomenų per operatorių „<xliff:g id="PROVIDER_NAME">%s</xliff:g>“"</string>
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"PRIDĖTI DUOMENŲ"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ATŠAUKTI"</string>
+    <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"Skambutis užbaigtas"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"Radijas išjungtas"</string>
+    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"Nėra SIM kortelės arba SIM kortelės klaida"</string>
+    <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"Mobiliojo ryšio tinklas nepasiekiamas"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"Nepriskirtas numeris"</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"Nėra kelio į paskirties vietą"</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"Kanalas nepriimtinas"</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"Operatoriaus nustatyta nešiklio paslauga"</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"Įprastas skambučio paruošimas"</string>
+    <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"Naudotojas užsiėmęs"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"Naudotojas neatsako"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"Naudotojo įspėjimas, nėra atsakymo"</string>
+    <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"Skambutis atmestas"</string>
+    <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"Numeris pakeistas"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"Išankstinis veiksmas"</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"Nepasirinktas naudotojo paruošimas"</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"Paskirties vieta neveikia"</string>
+    <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"Netinkamas numerio formatas (neužbaigtas numeris)"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"Įranga atmesta"</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"Atsakymas į BŪSENOS UŽKLAUSĄ"</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"Įprastas, nenurodyta"</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"Linija / kanalas nepasiekiamas"</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"Tinklas neveikia"</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"Laikina triktis"</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"Perjungimo įrangos perkrova"</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"Pasiekiamumo informacija atmesta"</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"Linija / kanalas, dėl kurio pateikta užklausa, nepasiekiamas"</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"Ištekliai nepasiekiami, nenurodyta"</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"Paslaugos kokybė nepasiekiama"</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"Įranga, dėl kurios pateikta užklausa, neprenumeruojama"</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"Gaunami skambučiai neleidžiami CUG grupėje"</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"Nešiklio funkcija neįgaliota"</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"Nešiklio funkcija šiuo metu nepasiekiama"</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"Paslauga arba parinktis nepasiekiama, nenurodyta"</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"Nešiklio paslauga neįdiegta"</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM lygus arba didesnis už ACMmax"</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"Įranga, dėl kurios pateikta užklausa, neįdiegta"</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"Pasiekiama tik ribota skaitmeninės informacijos nešiklio funkcija"</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"Paslauga arba parinktis neįdiegta, nenurodyta"</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"Netinkama operacijos identifikatoriaus vertė"</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"Naudotojas nėra CUG narys"</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"Nesuderinama paskirties vieta"</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"Netinkamas ryšių tinklo pasirinkimas"</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"Semantiškai neteisingas pranešimas"</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"Netinkama privaloma informacija"</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"Pranešimo tipas neegzistuoja arba neįdiegtas"</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"Pranešimo tipas nesuderinamas su protokolo būsena"</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"Informacijos elementas neegzistuoja arba neįdiegtas"</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"Sąlyginė IE klaida"</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"Pranešimas nesuderinamas su protokolo būsena"</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"Laikmačio galiojimo pabaigos atkūrimas"</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"Protokolo klaida, nenurodyta"</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"Ryšiai, nenurodyta"</string>
+    <string name="labelCallBarring" msgid="3452870940716226978">"Skambučių blokavimas"</string>
+    <string name="sum_call_barring_enabled" msgid="6804489690436703488">"Įjungta"</string>
+    <string name="sum_call_barring_disabled" msgid="5900772179198857783">"Išjungta"</string>
+    <string name="call_barring_baoc" msgid="1199843944333106035">"Visi siunčiamieji skambučiai"</string>
+    <string name="call_barring_baoc_enabled" msgid="8112118391869380361">"Išjungti visų siunčiamųjų skambučių blokavimą?"</string>
+    <string name="call_barring_baoc_disabled" msgid="7806697133004697974">"Blokuoti visus siunčiamuosius skambučius?"</string>
+    <string name="call_barring_baoic" msgid="3162154267825211826">"Siunčiamieji tarptautiniai skambučiai"</string>
+    <string name="call_barring_baoic_enabled" msgid="2634377543147258105">"Išjungti siunčiamųjų tarptautinių skambučių blokavimą?"</string>
+    <string name="call_barring_baoic_disabled" msgid="5817895648306183464">"Blokuoti siunčiamuosius tarptautinius skambučius?"</string>
+    <string name="call_barring_baoicr" msgid="8951699885885742076">"Siunčiamieji tarptautiniai tarptinklinio ryšio skambučiai"</string>
+    <string name="call_barring_baoicr_enabled" msgid="2519630715322138317">"Išjungti siunčiamųjų tarptautinių tarptinklinio ryšio skambučių blokavimą?"</string>
+    <string name="call_barring_baoicr_disabled" msgid="5831267468931377699">"Blokuoti siunčiamuosius tarptautinius tarptinklinio ryšio skambučius?"</string>
+    <string name="call_barring_baic" msgid="5272726081458339912">"Visi gaunamieji skambučiai"</string>
+    <string name="call_barring_baic_enabled" msgid="2457134916223203380">"Išjungti visų gaunamųjų skambučių blokavimą?"</string>
+    <string name="call_barring_baic_disabled" msgid="6945604947500275636">"Blokuoti visus gaunamuosius skambučius?"</string>
+    <string name="call_barring_baicr" msgid="5728784220691481693">"Gaunamieji tarptautiniai tarptinklinio ryšio skambučiai"</string>
+    <string name="call_barring_baicr_enabled" msgid="6533336994391716127">"Išjungti visų gaunamųjų tarptautinių tarptinklinio ryšio skambučių blokavimą?"</string>
+    <string name="call_barring_baicr_disabled" msgid="6746329853943256566">"Blokuoti gaunamuosius tarptautinius tarptinklinio ryšio skambučius?"</string>
+    <string name="call_barring_deactivate_all" msgid="5269788384941003415">"Išaktyvinti viską"</string>
+    <string name="call_barring_deactivate_all_description" msgid="4972365443287257704">"Išaktyvinti visus skambučių blokavimo nustatymus"</string>
+    <string name="call_barring_deactivate_success" msgid="8014685598632000936">"Skambučių blokavimas išaktyvintas"</string>
+    <string name="call_barring_change_pwd" msgid="6887420609726284232">"Pakeisti slaptažodį"</string>
+    <string name="call_barring_change_pwd_description" msgid="5505087790260233953">"Pakeisti skambučių blokavimo slaptažodį"</string>
+    <string name="call_barring_change_pwd_description_disabled" msgid="7630770327645349957">"Nepavyko pakeisti skambučių blokavimo slaptažodžio."</string>
+    <string name="call_barring_pwd_not_match" msgid="6716711689350314525">"Slaptažodžiai neatitinka"</string>
+    <string name="call_barring_right_pwd_number" msgid="2902966502520410446">"Įveskite 4 skaičių slaptažodį"</string>
+    <string name="call_barring_change_pwd_success" msgid="3278310763742760321">"Slaptažodis pakeistas"</string>
+    <string name="call_barring_old_pwd" msgid="6080515987320238522">"Senas slaptažodis"</string>
+    <string name="call_barring_new_pwd" msgid="7048532299150269547">"Naujas slaptažodis"</string>
+    <string name="call_barring_confirm_pwd" msgid="1947167278466285411">"Patvirtinti slaptažodį"</string>
+    <string name="messageCallBarring" msgid="2412123220272136055">"Įveskite slaptažodį"</string>
+    <string name="call_barring_settings" msgid="80766145008623645">"Skambučių blokavimo nustatymai"</string>
+    <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"Išaktyvinti visus skambučių blokavimo nustatymus?"</string>
+    <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"Skambutis nukreiptas."</string>
+    <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"Skambutis peradresuojamas."</string>
+    <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"Laukiantis skambutis."</string>
+    <string name="supp_service_clir_suppression_rejected" msgid="1581851661582189045">"Numerio blokavimas atmestas."</string>
+    <string name="supp_service_closed_user_group_call" msgid="5761735840904590950">"Uždaros naudotojų grupės skambutis."</string>
+    <string name="supp_service_incoming_calls_barred" msgid="3248813207307882723">"Gaunamasis skambutis neleidžiamas."</string>
+    <string name="supp_service_outgoing_calls_barred" msgid="1962644621292054081">"Siunčiamasis skambutis neleidžiamas."</string>
+    <string name="supp_service_call_forwarding_active" msgid="1253134771682248735">"Skambučio peradresavimas aktyvus."</string>
+    <string name="supp_service_additional_call_forwarded" msgid="5228624725214727315">"Papildomas skambutis peradresuotas."</string>
+    <string name="supp_service_additional_ect_connected" msgid="6396964292513707102">"Atviras skambučio perdavimas baigtas."</string>
+    <string name="supp_service_additional_ect_connecting" msgid="5443373059716058480">"Vykdomas atviras skambučio perdavimas."</string>
+    <string name="supp_service_call_on_hold" msgid="1478976782361795422">"Skambutis sulaikytas."</string>
+    <string name="supp_service_call_resumed" msgid="1656475289958070674">"Skambutis tęsiamas."</string>
+    <string name="supp_service_deflected_call" msgid="138970419873492166">"Skambutis nukreiptas."</string>
+    <string name="supp_service_forwarded_call" msgid="4509980341645679803">"Peradresuotas skambutis."</string>
+    <string name="supp_service_conference_call" msgid="4448616364004466832">"Prisijungiama prie konferencinio skambučio."</string>
+    <string name="supp_service_held_call_released" msgid="2030677825038709779">"Sulaikytas skambutis nutrauktas."</string>
 </resources>

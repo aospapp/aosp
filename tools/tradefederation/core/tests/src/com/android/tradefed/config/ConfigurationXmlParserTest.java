@@ -15,34 +15,39 @@
  */
 package com.android.tradefed.config;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import org.easymock.EasyMock;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.Map;
 
-/**
- * Unit tests for {@link ConfigurationXmlParser}.
- */
-public class ConfigurationXmlParserTest extends TestCase {
+/** Unit tests for {@link ConfigurationXmlParser}. */
+@RunWith(JUnit4.class)
+public class ConfigurationXmlParserTest {
 
     private ConfigurationXmlParser xmlParser;
     private IConfigDefLoader mMockLoader;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mMockLoader = EasyMock.createMock(IConfigDefLoader.class);
         xmlParser = new ConfigurationXmlParser(mMockLoader, null);
     }
 
     /**
-     * Normal case test for
-     * {@link ConfigurationXmlParser#parse(ConfigurationDef, String, InputStream, Map)}.
+     * Normal case test for {@link ConfigurationXmlParser#parse(ConfigurationDef, String,
+     * InputStream, Map)}.
      */
+    @Test
     public void testParse() throws ConfigurationException {
         final String normalConfig =
             "<configuration description=\"desc\" >\n" +
@@ -62,9 +67,8 @@ public class ConfigurationXmlParserTest extends TestCase {
         assertEquals("val", configDef.getOptionList().get(0).value);
     }
 
-    /**
-     * Test parsing xml with a global option
-     */
+    /** Test parsing xml with a global option */
+    @Test
     public void testParse_globalOption() throws ConfigurationException {
         final String normalConfig =
             "<configuration description=\"desc\" >\n" +
@@ -85,9 +89,8 @@ public class ConfigurationXmlParserTest extends TestCase {
         assertEquals("val", configDef.getOptionList().get(0).value);
     }
 
-    /**
-     * Test parsing xml with repeated type/class pairs
-     */
+    /** Test parsing xml with repeated type/class pairs */
+    @Test
     public void testParse_multiple() throws ConfigurationException {
         final String normalConfig =
             "<configuration description=\"desc\" >\n" +
@@ -118,9 +121,8 @@ public class ConfigurationXmlParserTest extends TestCase {
         assertEquals("val2", configDef.getOptionList().get(1).value);
     }
 
-    /**
-     * Test parsing a object tag missing a attribute.
-     */
+    /** Test parsing a object tag missing a attribute. */
+    @Test
     public void testParse_objectMissingAttr() {
         final String config =
             "<object name=\"foo\" />";
@@ -132,9 +134,8 @@ public class ConfigurationXmlParserTest extends TestCase {
         }
     }
 
-    /**
-     * Test parsing a option tag missing a attribute.
-     */
+    /** Test parsing a option tag missing a attribute. */
+    @Test
     public void testParse_optionMissingAttr() {
         final String config =
             "<option name=\"foo\" />";
@@ -146,9 +147,8 @@ public class ConfigurationXmlParserTest extends TestCase {
         }
     }
 
-    /**
-     * Test parsing a object tag.
-     */
+    /** Test parsing a object tag. */
+    @Test
     public void testParse_object() throws ConfigurationException {
         final String config =
             "<object type=\"foo\" class=\"junit.framework.TestCase\" />";
@@ -159,9 +159,8 @@ public class ConfigurationXmlParserTest extends TestCase {
                 configDef.getObjectClassMap().get("foo").get(0).mClassName);
     }
 
-    /**
-     * Test parsing a include tag.
-     */
+    /** Test parsing a include tag. */
+    @Test
     public void testParse_include() throws ConfigurationException {
         String includedName = "includeme";
         ConfigurationDef configDef = new ConfigurationDef("foo");
@@ -176,9 +175,8 @@ public class ConfigurationXmlParserTest extends TestCase {
         xmlParser.parse(configDef, "foo", getStringAsStream(config), null);
     }
 
-    /**
-     * Test parsing a include tag where named config does not exist
-     */
+    /** Test parsing a include tag where named config does not exist */
+    @Test
     public void testParse_includeMissing() throws ConfigurationException {
         String includedName = "non-existent";
         ConfigurationDef parent = new ConfigurationDef("name");
@@ -196,9 +194,8 @@ public class ConfigurationXmlParserTest extends TestCase {
         }
     }
 
-    /**
-     * Test parsing a tag whose name is not recognized.
-     */
+    /** Test parsing a tag whose name is not recognized. */
+    @Test
     public void testParse_badTag() {
         final String config = "<blah name=\"foo\" />";
         try {
@@ -209,9 +206,8 @@ public class ConfigurationXmlParserTest extends TestCase {
         }
     }
 
-    /**
-     * Test parsing invalid xml.
-     */
+    /** Test parsing invalid xml. */
+    @Test
     public void testParse_xml() {
         final String config = "blah";
         try {
@@ -227,10 +223,10 @@ public class ConfigurationXmlParserTest extends TestCase {
     }
 
     /**
-     * Normal case test for
-     * {@link ConfigurationXmlParser#parse(ConfigurationDef, String, InputStream, Map)}. when
-     * presented a device tag.
+     * Normal case test for {@link ConfigurationXmlParser#parse(ConfigurationDef, String,
+     * InputStream, Map)}. when presented a device tag.
      */
+    @Test
     public void testParse_deviceTag() throws ConfigurationException {
         final String normalConfig =
             "<configuration description=\"desc\" >\n" +
@@ -249,10 +245,10 @@ public class ConfigurationXmlParserTest extends TestCase {
     }
 
     /**
-     * Test case for
-     * {@link ConfigurationXmlParser#parse(ConfigurationDef, String, InputStream, Map)}. when
-     * presented a device tag with no name.
+     * Test case for {@link ConfigurationXmlParser#parse(ConfigurationDef, String, InputStream,
+     * Map)}. when presented a device tag with no name.
      */
+    @Test
     public void testParse_deviceTagNoName() {
         final String normalConfig =
             "<configuration description=\"desc\" >\n" +
@@ -272,10 +268,10 @@ public class ConfigurationXmlParserTest extends TestCase {
     }
 
     /**
-     * Test case for
-     * {@link ConfigurationXmlParser#parse(ConfigurationDef, String, InputStream, Map)}. when
-     * presented a device tag with a used name, should merge them.
+     * Test case for {@link ConfigurationXmlParser#parse(ConfigurationDef, String, InputStream,
+     * Map)}. when presented a device tag with a used name, should merge them.
      */
+    @Test
     public void testParse_deviceTagSameName() {
         final String normalConfig =
             "<configuration description=\"desc\" >\n" +
@@ -303,10 +299,10 @@ public class ConfigurationXmlParserTest extends TestCase {
     }
 
     /**
-     * Test case for
-     * {@link ConfigurationXmlParser#parse(ConfigurationDef, String, InputStream, Map)}. when
-     * presented an object tag outside of the device tag but should be inside.
+     * Test case for {@link ConfigurationXmlParser#parse(ConfigurationDef, String, InputStream,
+     * Map)}. when presented an object tag outside of the device tag but should be inside.
      */
+    @Test
     public void testParse_deviceTagAndObjectOutside() {
         final String normalConfig =
             "<configuration description=\"desc\" >\n" +
@@ -319,7 +315,9 @@ public class ConfigurationXmlParserTest extends TestCase {
             "</configuration>";
         final String configName = "config";
         ConfigurationDef configDef = new ConfigurationDef(configName);
-        String expectedException = "Tags [target_preparer] should be included in a <device> tag.";
+        String expectedException =
+                "You seem to want a multi-devices configuration but you have "
+                        + "[target_preparer] tags outside the <device> tags";
         try {
             xmlParser.parse(configDef, configName, getStringAsStream(normalConfig), null);
             fail("An exception should have been thrown.");
@@ -329,10 +327,10 @@ public class ConfigurationXmlParserTest extends TestCase {
     }
 
     /**
-     * Test for
-     * {@link ConfigurationXmlParser#parse(ConfigurationDef, String, InputStream, Map)}.
+     * Test for {@link ConfigurationXmlParser#parse(ConfigurationDef, String, InputStream, Map)}.
      * with a test tag inside a device where it should not be.
      */
+    @Test
     public void testParse_withDeviceTag() {
         final String normalConfig =
             "<configuration description=\"desc\" >\n" +
@@ -354,10 +352,10 @@ public class ConfigurationXmlParserTest extends TestCase {
     }
 
     /**
-     * Test for
-     * {@link ConfigurationXmlParser#parse(ConfigurationDef, String, InputStream, Map)}.
+     * Test for {@link ConfigurationXmlParser#parse(ConfigurationDef, String, InputStream, Map)}.
      * with an invalid name
      */
+    @Test
     public void testParse_withDeviceInvalidName() {
         String expectedException = "device name cannot contain reserved character: ':'";
         final String normalConfig =
@@ -376,10 +374,10 @@ public class ConfigurationXmlParserTest extends TestCase {
     }
 
     /**
-     * Test for
-     * {@link ConfigurationXmlParser#parse(ConfigurationDef, String, InputStream, Map)}.
+     * Test for {@link ConfigurationXmlParser#parse(ConfigurationDef, String, InputStream, Map)}.
      * with a reserved name.
      */
+    @Test
     public void testParse_withDeviceReservedName() {
         String expectedException = "device name cannot be reserved name: '" +
                 ConfigurationDef.DEFAULT_DEVICE_NAME + "'";
@@ -395,6 +393,87 @@ public class ConfigurationXmlParserTest extends TestCase {
             fail("An exception should have been thrown.");
         } catch(ConfigurationException expected) {
             assertEquals(expectedException, expected.getMessage());
+        }
+    }
+
+    /**
+     * Test for {@link ConfigurationXmlParser#parse(ConfigurationDef, String, InputStream, Map)}.
+     * with a include that has extra attributes.
+     */
+    @Test
+    public void testParse_includeWithExtraAttributes() {
+        String expectedException =
+                "Failed to parse config xml 'config'. Reason: <include> tag only expect a 'name' "
+                        + "attribute.";
+        final String normalConfig =
+                "<configuration description=\"desc\" >\n"
+                        + "  <include name=\"default\" other=\"test\">\n"
+                        + "</configuration>";
+        final String configName = "config";
+        ConfigurationDef configDef = new ConfigurationDef(configName);
+        try {
+            xmlParser.parse(configDef, configName, getStringAsStream(normalConfig), null);
+            fail("An exception should have been thrown.");
+        } catch (ConfigurationException expected) {
+            assertEquals(expectedException, expected.getMessage());
+        }
+    }
+
+    /**
+     * Test that if an object is left at the root of the config but with one real and one fake
+     * device, we do not reject the xml. Object will be associated later to the real device.
+     */
+    @Test
+    public void testParse_multiDevice_fakeMulti() throws Exception {
+        final String normalConfig =
+                "<configuration description=\"desc\" >\n"
+                        + "  <device name=\"device1\">\n"
+                        + "    <option name=\"opName\" value=\"val\" />\n"
+                        + "  </device>\n"
+                        + "  <device name=\"device2\" isFake=\"true\">\n"
+                        + "    <option name=\"opName3\" value=\"val3\" />\n"
+                        + "  </device>\n"
+                        + "  <target_preparer class=\"com.targetprep.class\">\n"
+                        + "    <option name=\"opName2\" value=\"val2\" />\n"
+                        + "  </target_preparer>\n"
+                        + "</configuration>";
+        final String configName = "config";
+        ConfigurationDef configDef = new ConfigurationDef(configName);
+
+        xmlParser.parse(configDef, configName, getStringAsStream(normalConfig), null);
+        assertEquals(2, configDef.getObjectClassMap().get(Configuration.DEVICE_NAME).size());
+        assertTrue("{device1}opName".equals(configDef.getOptionList().get(0).name));
+        assertEquals("{device2}opName3", configDef.getOptionList().get(1).name);
+    }
+
+    /**
+     * Test that if we have only fake devices, an object cannot be left at the root because we only
+     * consider it properly formatted if at least one real device exists.
+     */
+    @Test
+    public void testParse_multiDevice_fakeMulti_noReal() throws Exception {
+        final String normalConfig =
+                "<configuration description=\"desc\" >\n"
+                        + "  <device name=\"device1\" isFake=\"true\">\n"
+                        + "    <option name=\"opName\" value=\"val\" />\n"
+                        + "  </device>\n"
+                        + "  <device name=\"device2\" isFake=\"true\">\n"
+                        + "    <option name=\"opName3\" value=\"val3\" />\n"
+                        + "  </device>\n"
+                        + "  <target_preparer class=\"com.targetprep.class\">\n"
+                        + "    <option name=\"opName2\" value=\"val2\" />\n"
+                        + "  </target_preparer>\n"
+                        + "</configuration>";
+        final String configName = "config";
+        ConfigurationDef configDef = new ConfigurationDef(configName);
+        try {
+            xmlParser.parse(configDef, configName, getStringAsStream(normalConfig), null);
+            fail("An exception should have been thrown.");
+        } catch (ConfigurationException expected) {
+            assertEquals(
+                    "You seem to want a multi-devices configuration but you have [target_preparer] "
+                            + "tags outside the <device> tags",
+                    expected.getMessage());
         }
     }
 }

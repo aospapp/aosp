@@ -25,10 +25,10 @@
     <item name="status_bar_icon_scale_factor" format="float" type="dimen">2.3</item>
 
     <!-- The font size for the clock in the status bar. -->
-    <dimen name="status_bar_clock_size">42sp</dimen>
+    <dimen name="status_bar_clock_size">24sp</dimen>
 
     <!-- The starting padding for the clock in the status bar. -->
-    <dimen name="status_bar_clock_starting_padding">24dp</dimen>
+    <dimen name="status_bar_clock_starting_padding">12dp</dimen>
 
     <!-- The end padding for the clock in the status bar. -->
     <dimen name="status_bar_clock_end_padding">@dimen/status_bar_clock_starting_padding</dimen>

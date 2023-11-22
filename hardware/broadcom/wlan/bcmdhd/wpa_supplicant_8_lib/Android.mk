@@ -60,6 +60,8 @@ ifeq ($(TARGET_USES_64_BIT_BCMDHD),true)
 L_CFLAGS += -DBCMDHD_64_BIT_IPC
 endif
 
+L_CFLAGS += -Wall -Werror -Wno-unused-parameter -Wno-macro-redefined
+
 ########################
 
 include $(CLEAR_VARS)
@@ -68,6 +70,7 @@ LOCAL_SHARED_LIBRARIES := libc libcutils
 LOCAL_CFLAGS := $(L_CFLAGS)
 LOCAL_SRC_FILES := $(WPA_SRC_FILE)
 LOCAL_C_INCLUDES := $(WPA_SUPPL_DIR_INCLUDE)
+LOCAL_VENDOR_MODULE := true
 include $(BUILD_STATIC_LIBRARY)
 
 ########################

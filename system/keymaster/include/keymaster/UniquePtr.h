@@ -50,9 +50,30 @@ struct DefaultDelete<T[]> {
 //   UniquePtr<C> c(new C);
 template <typename T, typename D = DefaultDelete<T> >
 class UniquePtr {
+    template<typename U, typename UD>
+    friend
+    class UniquePtr;
 public:
+    UniquePtr() : mPtr(nullptr) {}
     // Construct a new UniquePtr, taking ownership of the given raw pointer.
-    explicit UniquePtr(T* ptr = nullptr) : mPtr(ptr) {
+    explicit UniquePtr(T* ptr) : mPtr(ptr) {
+    }
+    UniquePtr(const decltype(nullptr)&) : mPtr(nullptr) {}
+
+    UniquePtr(UniquePtr && other): mPtr(other.mPtr) {
+        other.mPtr = nullptr;
+    }
+
+    template<typename U>
+    UniquePtr(UniquePtr<U> && other): mPtr(other.mPtr) {
+        other.mPtr = nullptr;
+    }
+    UniquePtr& operator=(UniquePtr && other) {
+        if (&other != this) {
+            reset();
+            mPtr = other.release();
+        }
+        return *this;
     }
 
     ~UniquePtr() {
@@ -63,6 +84,8 @@ public:
     T& operator*() const { return *mPtr; }
     T* operator->() const { return mPtr; }
     T* get() const { return mPtr; }
+
+    operator bool() const { return mPtr != nullptr; }
 
     // Returns the raw pointer and hands over ownership to the caller.
     // The pointer will not be deleted by UniquePtr.
@@ -99,7 +122,20 @@ private:
 template <typename T, typename D>
 class UniquePtr<T[], D> {
 public:
-    explicit UniquePtr(T* ptr = nullptr) : mPtr(ptr) {
+    UniquePtr() : mPtr(nullptr) {}
+    explicit UniquePtr(T* ptr) : mPtr(ptr) {
+    }
+    UniquePtr(const decltype(nullptr)&) : mPtr(nullptr) {}
+
+    UniquePtr(UniquePtr && other): mPtr(other.mPtr) {
+        other.mPtr = nullptr;
+    }
+    UniquePtr& operator=(UniquePtr && other) {
+        if (&other != this) {
+            reset();
+            mPtr = other.release();
+        }
+        return *this;
     }
 
     ~UniquePtr() {
@@ -116,6 +152,8 @@ public:
         mPtr = nullptr;
         return result;
     }
+
+    operator bool() const { return mPtr != nullptr; }
 
     void reset(T* ptr = nullptr) {
         if (ptr != mPtr) {

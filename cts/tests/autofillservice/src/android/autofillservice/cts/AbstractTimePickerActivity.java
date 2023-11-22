@@ -62,15 +62,11 @@ abstract class AbstractTimePickerActivity extends AbstractAutoFillActivity {
 
         mTimePicker = (TimePicker) findViewById(R.id.time_picker);
 
-        mTimePicker.setOnTimeChangedListener((v, m, h) -> {
-            updateOutputWithTime(m, h);
-        });
+        mTimePicker.setOnTimeChangedListener((v, m, h) -> updateOutputWithTime(m, h));
 
         mOutput = (EditText) findViewById(R.id.output);
         mOk = (Button) findViewById(R.id.ok);
-        mOk.setOnClickListener((v) -> {
-            ok();
-        });
+        mOk.setOnClickListener((v) -> ok());
     }
 
     private void updateOutputWithTime(int hour, int minute) {
@@ -116,9 +112,7 @@ abstract class AbstractTimePickerActivity extends AbstractAutoFillActivity {
      * Visits the {@code output} in the UiThread.
      */
     void onOutput(Visitor<EditText> v) {
-        syncRunOnUiThread(() -> {
-            v.visit(mOutput);
-        });
+        syncRunOnUiThread(() -> v.visit(mOutput));
     }
 
     /**
@@ -136,9 +130,7 @@ abstract class AbstractTimePickerActivity extends AbstractAutoFillActivity {
      */
     void tapOk() throws Exception {
         mOkLatch = new CountDownLatch(1);
-        syncRunOnUiThread(() -> {
-            mOk.performClick();
-        });
+        syncRunOnUiThread(() -> mOk.performClick());
         boolean called = mOkLatch.await(OK_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         assertWithMessage("Timeout (%s ms) waiting for OK action", OK_TIMEOUT_MS)
                 .that(called).isTrue();

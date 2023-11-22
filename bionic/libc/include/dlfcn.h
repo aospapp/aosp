@@ -34,11 +34,6 @@
 
 __BEGIN_DECLS
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnullability-completeness"
-#endif
-
 typedef struct {
   /* Pathname of shared object that contains address. */
   const char* dli_fname;
@@ -50,12 +45,12 @@ typedef struct {
   void* dli_saddr;
 } Dl_info;
 
-void* dlopen(const char* filename, int flag);
-int dlclose(void* _Nonnull handle);
+void* dlopen(const char* __filename, int __flag);
+int dlclose(void* __handle);
 char* dlerror(void);
-void* dlsym(void* handle, const char* _Nonnull symbol);
-void* dlvsym(void* handle, const char* _Nonnull symbol, const char* _Nonnull version) __INTRODUCED_IN(24);
-int dladdr(const void* addr, Dl_info* _Nonnull info);
+void* dlsym(void* __handle, const char* __symbol);
+void* dlvsym(void* __handle, const char* __symbol, const char* __version) __INTRODUCED_IN(24);
+int dladdr(const void* __addr, Dl_info* __info);
 
 #define RTLD_LOCAL    0
 #define RTLD_LAZY     0x00001
@@ -80,10 +75,6 @@ int dladdr(const void* addr, Dl_info* _Nonnull info);
 #define RTLD_NEXT     __BIONIC_CAST(reinterpret_cast, void*, 0xfffffffe)
 #endif
 
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
-
 __END_DECLS
 
-#endif /* __DLFCN_H */
+#endif

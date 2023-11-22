@@ -109,6 +109,17 @@ class SchedulingLatencyVisitorARM : public SchedulingLatencyVisitor {
 #undef DECLARE_VISIT_INSTRUCTION
 
  private:
+  bool CanGenerateTest(HCondition* cond);
+  void HandleGenerateConditionWithZero(IfCondition cond);
+  void HandleGenerateLongTestConstant(HCondition* cond);
+  void HandleGenerateLongTest(HCondition* cond);
+  void HandleGenerateLongComparesAndJumps();
+  void HandleGenerateTest(HCondition* cond);
+  void HandleGenerateConditionGeneric(HCondition* cond);
+  void HandleGenerateEqualLong(HCondition* cond);
+  void HandleGenerateConditionLong(HCondition* cond);
+  void HandleGenerateConditionIntegralOrNonPrimitive(HCondition* cond);
+  void HandleCondition(HCondition* instr);
   void HandleBinaryOperationLantencies(HBinaryOperation* instr);
   void HandleBitwiseOperationLantencies(HBinaryOperation* instr);
   void HandleShiftLatencies(HBinaryOperation* instr);
@@ -126,10 +137,10 @@ class SchedulingLatencyVisitorARM : public SchedulingLatencyVisitor {
 
 class HSchedulerARM : public HScheduler {
  public:
-  HSchedulerARM(ArenaAllocator* arena,
+  HSchedulerARM(ScopedArenaAllocator* allocator,
                 SchedulingNodeSelector* selector,
                 SchedulingLatencyVisitorARM* arm_latency_visitor)
-      : HScheduler(arena, arm_latency_visitor, selector) {}
+      : HScheduler(allocator, arm_latency_visitor, selector) {}
   ~HSchedulerARM() OVERRIDE {}
 
   bool IsSchedulable(const HInstruction* instruction) const OVERRIDE {

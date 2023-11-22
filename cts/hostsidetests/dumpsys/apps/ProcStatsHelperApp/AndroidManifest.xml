@@ -21,6 +21,8 @@
     <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="24"/>
 
     <application>
+        <uses-library android:name="android.test.runner" />
+
         <activity android:name=".MainActivity"
             android:exported="true" />
         <service android:name=".ProcStatsHelperServiceMain"

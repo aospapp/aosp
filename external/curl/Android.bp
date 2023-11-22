@@ -26,8 +26,25 @@ cc_defaults {
         // Bug: http://b/29823425 Disable -Wvarargs for Clang update to r271374
         "-Wno-varargs",
     ],
-    clang: true,
     local_include_dirs: ["include", "lib"],
+    multilib: {
+        lib32: {
+            cflags: [
+                "-DSIZEOF_LONG=4",
+                "-DSIZEOF_LONG_LONG=8",
+                "-DSIZEOF_SIZE_T=4",
+                "-DSIZEOF_TIME_T=4",
+            ],
+        },
+        lib64: {
+            cflags: [
+                "-DSIZEOF_LONG=8",
+                "-DSIZEOF_LONG_LONG=8",
+                "-DSIZEOF_SIZE_T=8",
+                "-DSIZEOF_TIME_T=8",
+            ],
+        },
+    },
 }
 
 cc_library {
@@ -144,6 +161,9 @@ cc_library {
         "lib/curl_endian.c",
         "lib/curl_des.c",
         "lib/system_win32.c",
+        "lib/mime.c",
+        "lib/sha256.c",
+        "lib/setopt.c",
         "lib/vauth/vauth.c",
         "lib/vauth/cleartext.c",
         "lib/vauth/cram.c",
@@ -169,37 +189,17 @@ cc_library {
         "lib/vtls/gskit.c",
         "lib/vtls/mbedtls.c",
     ],
-    shared: {
-        shared_libs: [
-            "libcrypto",
-            "libssl",
-        ],
-    },
-    static: {
-        static_libs: [
-            "libcrypto",
-            "libssl",
-            "libz",
-        ],
-    },
+    shared_libs: [
+        "libcrypto",
+        "libssl",
+        "libz",
+    ],
     target: {
         host: {
             cflags: ["-D_GNU_SOURCE=1"],
-            shared: {
-                shared_libs: [
-                    "libz-host",
-                ],
-            },
         },
-        linux: {
-            host_ldlibs: ["-lrt"],
-        },
-        android: {
-            shared: {
-                shared_libs: [
-                    "libz",
-                ],
-            },
+        darwin: {
+            enabled: false,
         },
     },
     unique_host_soname: true,
@@ -233,7 +233,6 @@ cc_binary {
         "src/tool_libinfo.c",
         "src/tool_main.c",
         "src/tool_metalink.c",
-        "src/tool_mfiles.c",
         "src/tool_msgs.c",
         "src/tool_operate.c",
         "src/tool_operhlp.c",
@@ -246,7 +245,6 @@ cc_binary {
         "src/tool_urlglob.c",
         "src/tool_util.c",
         "src/tool_vms.c",
-        "src/tool_writeenv.c",
         "src/tool_writeout.c",
         "src/tool_xattr.c",
     ],

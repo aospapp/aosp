@@ -14,11 +14,15 @@
  * limitations under the License.
  */
 
+#include "elf_fake.h"
+
 #include <stdint.h>
 
 #include <string>
 
-class Backtrace;
+namespace unwindstack {
+class Memory;
+}
 
 std::string g_build_id;
 
@@ -26,7 +30,7 @@ void elf_set_fake_build_id(const std::string& build_id) {
   g_build_id = build_id;
 }
 
-bool elf_get_build_id(Backtrace*, uintptr_t, std::string* build_id) {
+bool elf_get_build_id(unwindstack::Memory*, uintptr_t, std::string* build_id) {
   if (g_build_id != "") {
     *build_id = g_build_id;
     return true;

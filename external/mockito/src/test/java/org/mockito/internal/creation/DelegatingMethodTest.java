@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockito.internal.creation;
 
 import org.junit.Before;
@@ -6,8 +10,8 @@ import org.mockitoutil.TestBase;
 
 import java.lang.reflect.Method;
 
-import static junit.framework.TestCase.assertFalse;
-import static junit.framework.TestCase.assertTrue;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class DelegatingMethodTest extends TestBase {
 

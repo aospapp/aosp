@@ -19,9 +19,10 @@
 
 #include <vector>
 
+#include "base/array_ref.h"
 #include "base/macros.h"
 #include "base/mutex.h"
-#include "dex_file.h"
+#include "dex/dex_file.h"
 #include "handle.h"
 
 namespace art {
@@ -29,12 +30,14 @@ namespace art {
 namespace mirror {
 class Class;
 class ClassLoader;
+class Object;
 }  // namespace mirror
 
 class ArtMethod;
 class ClassLoadCallback;
 class Thread;
 class MethodCallback;
+class Monitor;
 class ThreadLifecycleCallback;
 
 // Note: RuntimeCallbacks uses the mutator lock to synchronize the callback lists. A thread must
@@ -51,6 +54,26 @@ class ThreadLifecycleCallback;
 //       The simplest way to satisfy these restrictions is to never remove a listener, and to do
 //       any state checking (is the listener enabled) in the listener itself. For an example, see
 //       Dbg.
+
+class DdmCallback {
+ public:
+  virtual ~DdmCallback() {}
+  virtual void DdmPublishChunk(uint32_t type, const ArrayRef<const uint8_t>& data)
+      REQUIRES_SHARED(Locks::mutator_lock_) = 0;
+};
+
+class DebuggerControlCallback {
+ public:
+  virtual ~DebuggerControlCallback() {}
+
+  // Begin running the debugger.
+  virtual void StartDebugger() = 0;
+  // The debugger should begin shutting down since the runtime is ending. This is just advisory
+  virtual void StopDebugger() = 0;
+
+  // This allows the debugger to tell the runtime if it is configured.
+  virtual bool IsDebuggerConfigured() = 0;
+};
 
 class RuntimeSigQuitCallback {
  public:
@@ -71,6 +94,46 @@ class RuntimePhaseCallback {
   virtual ~RuntimePhaseCallback() {}
 
   virtual void NextRuntimePhase(RuntimePhase phase) REQUIRES_SHARED(Locks::mutator_lock_) = 0;
+};
+
+class MonitorCallback {
+ public:
+  // Called just before the thread goes to sleep to wait for the monitor to become unlocked.
+  virtual void MonitorContendedLocking(Monitor* mon) REQUIRES_SHARED(Locks::mutator_lock_) = 0;
+  // Called just after the monitor has been successfully acquired when it was already locked.
+  virtual void MonitorContendedLocked(Monitor* mon) REQUIRES_SHARED(Locks::mutator_lock_) = 0;
+  // Called on entry to the Object#wait method regardless of whether or not the call is valid.
+  virtual void ObjectWaitStart(Handle<mirror::Object> obj, int64_t millis_timeout)
+      REQUIRES_SHARED(Locks::mutator_lock_) = 0;
+
+  // Called just after the monitor has woken up from going to sleep for a wait(). At this point the
+  // thread does not possess a lock on the monitor. This will only be called for threads wait calls
+  // where the thread did (or at least could have) gone to sleep.
+  virtual void MonitorWaitFinished(Monitor* m, bool timed_out)
+      REQUIRES_SHARED(Locks::mutator_lock_) = 0;
+
+  virtual ~MonitorCallback() {}
+};
+
+// A callback to let parts of the runtime note that they are currently relying on a particular
+// method remaining in it's current state. Users should not rely on always being called. If multiple
+// callbacks are added the runtime will short-circuit when the first one returns 'true'.
+class MethodInspectionCallback {
+ public:
+  virtual ~MethodInspectionCallback() {}
+
+  // Returns true if the method is being inspected currently and the runtime should not modify it in
+  // potentially dangerous ways (i.e. replace with compiled version, JIT it, etc).
+  virtual bool IsMethodBeingInspected(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_) = 0;
+
+  // Returns true if the method is safe to Jit, false otherwise.
+  // Note that '!IsMethodSafeToJit(m) implies IsMethodBeingInspected(m)'. That is that if this
+  // method returns false IsMethodBeingInspected must return true.
+  virtual bool IsMethodSafeToJit(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_) = 0;
+
+  // Returns true if we expect the method to be debuggable but are not doing anything unusual with
+  // it currently.
+  virtual bool MethodNeedsDebugVersion(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_) = 0;
 };
 
 class RuntimeCallbacks {
@@ -120,6 +183,53 @@ class RuntimeCallbacks {
                             /*out*/void** new_implementation)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
+  void MonitorContendedLocking(Monitor* m) REQUIRES_SHARED(Locks::mutator_lock_);
+  void MonitorContendedLocked(Monitor* m) REQUIRES_SHARED(Locks::mutator_lock_);
+  void ObjectWaitStart(Handle<mirror::Object> m, int64_t timeout)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  void MonitorWaitFinished(Monitor* m, bool timed_out)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  void AddMonitorCallback(MonitorCallback* cb) REQUIRES_SHARED(Locks::mutator_lock_);
+  void RemoveMonitorCallback(MonitorCallback* cb) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // Returns true if some MethodInspectionCallback indicates the method is being inspected/depended
+  // on by some code.
+  bool IsMethodBeingInspected(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // Returns false if some MethodInspectionCallback indicates the method cannot be safetly jitted
+  // (which implies that it is being Inspected). Returns true otherwise. If it returns false the
+  // entrypoint should not be changed to JITed code.
+  bool IsMethodSafeToJit(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // Returns true if some MethodInspectionCallback indicates the method needs to use a debug
+  // version. This allows later code to set breakpoints or perform other actions that could be
+  // broken by some optimizations.
+  bool MethodNeedsDebugVersion(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  void AddMethodInspectionCallback(MethodInspectionCallback* cb)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  void RemoveMethodInspectionCallback(MethodInspectionCallback* cb)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // DDMS callbacks
+  void DdmPublishChunk(uint32_t type, const ArrayRef<const uint8_t>& data)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  void AddDdmCallback(DdmCallback* cb) REQUIRES_SHARED(Locks::mutator_lock_);
+  void RemoveDdmCallback(DdmCallback* cb) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  void StartDebugger() REQUIRES_SHARED(Locks::mutator_lock_);
+  // NO_THREAD_SAFETY_ANALYSIS since this is only called when we are in the middle of shutting down
+  // and the mutator_lock_ is no longer acquirable.
+  void StopDebugger() NO_THREAD_SAFETY_ANALYSIS;
+  bool IsDebuggerConfigured() REQUIRES_SHARED(Locks::mutator_lock_);
+
+  void AddDebuggerControlCallback(DebuggerControlCallback* cb)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  void RemoveDebuggerControlCallback(DebuggerControlCallback* cb)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
  private:
   std::vector<ThreadLifecycleCallback*> thread_callbacks_
       GUARDED_BY(Locks::mutator_lock_);
@@ -130,6 +240,14 @@ class RuntimeCallbacks {
   std::vector<RuntimePhaseCallback*> phase_callbacks_
       GUARDED_BY(Locks::mutator_lock_);
   std::vector<MethodCallback*> method_callbacks_
+      GUARDED_BY(Locks::mutator_lock_);
+  std::vector<MonitorCallback*> monitor_callbacks_
+      GUARDED_BY(Locks::mutator_lock_);
+  std::vector<MethodInspectionCallback*> method_inspection_callbacks_
+      GUARDED_BY(Locks::mutator_lock_);
+  std::vector<DdmCallback*> ddm_callbacks_
+      GUARDED_BY(Locks::mutator_lock_);
+  std::vector<DebuggerControlCallback*> debugger_control_callbacks_
       GUARDED_BY(Locks::mutator_lock_);
 };
 

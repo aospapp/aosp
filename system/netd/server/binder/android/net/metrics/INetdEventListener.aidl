@@ -50,6 +50,17 @@ oneway interface INetdEventListener {
             in String[] ipAddresses, int ipAddressesCount, int uid);
 
     /**
+     * Represents a private DNS validation success or failure.
+     *
+     * @param netId the ID of the network the validation was performed on.
+     * @param ipAddress the IP address for which validation was performed.
+     * @param hostname the hostname for which validation was performed.
+     * @param validated whether or not validation was successful.
+     */
+    void onPrivateDnsValidationEvent(int netId, String ipAddress, String hostname,
+            boolean validated);
+
+    /**
      * Logs a single connect library call.
      *
      * @param netId the ID of the network the connect was performed on.
@@ -64,10 +75,38 @@ oneway interface INetdEventListener {
     /**
      * Logs a single RX packet which caused the main CPU to exit sleep state.
      * @param prefix arbitrary string provided via wakeupAddInterface()
-     * @param UID of the destination process or -1 if no UID is available.
-     * @param GID of the destination process or -1 if no GID is available.
-     * @param receive timestamp for the offending packet. In units of nanoseconds and
+     * @param uid UID of the destination process or -1 if no UID is available.
+     * @param ethertype of the RX packet encoded in an int in native order, or -1 if not available.
+     * @param ipNextHeader ip protocol of the RX packet as IPPROTO_* number,
+              or -1 if the packet was not IPv4 or IPv6.
+     * @param dstHw destination hardware address, or 0 if not available.
+     * @param srcIp source IP address, or null if not available.
+     * @param dstIp destination IP address, or null if not available.
+     * @param srcPort src port of RX packet in native order, or -1 if the packet was not UDP or TCP.
+     * @param dstPort dst port of RX packet in native order, or -1 if the packet was not UDP or TCP.
+     * @param timestampNs receive timestamp for the offending packet. In units of nanoseconds and
      *        synchronized to CLOCK_MONOTONIC.
      */
-    void onWakeupEvent(String prefix, int uid, int gid, long timestampNs);
+    void onWakeupEvent(String prefix, int uid, int ethertype, int ipNextHeader, in byte[] dstHw,
+            String srcIp, String dstIp, int srcPort, int dstPort, long timestampNs);
+
+    /**
+     * An event sent after every Netlink sock_diag poll performed by Netd. This reported batch
+     * groups TCP socket stats aggregated by network id. Per-network data are stored in a
+     * structure-of-arrays style where networkIds, sentPackets, lostPackets, rttUs, and
+     * sentAckDiffMs have the same length. Stats for the i-th network is spread across all these
+     * arrays at index i.
+     * @param networkIds an array of network ids for which there was tcp socket stats to collect in
+     *        the last sock_diag poll.
+     * @param sentPackets an array of packet sent across all TCP sockets still alive and new
+              TCP sockets since the last sock_diag poll, summed per network id.
+     * @param lostPackets, an array of packet lost across all TCP sockets still alive and new
+              TCP sockets since the last sock_diag poll, summed per network id.
+     * @param rttUs an array of smoothed round trip times in microseconds, averaged across all TCP
+              sockets since the last sock_diag poll for a given network id.
+     * @param sentAckDiffMs an array of milliseconds duration between the last packet sent and the
+              last ack received for a socket, averaged across all TCP sockets for a network id.
+     */
+    void onTcpSocketStatsEvent(in int[] networkIds, in int[] sentPackets,
+            in int[] lostPackets, in int[] rttUs, in int[] sentAckDiffMs);
 }

@@ -40,10 +40,18 @@ extern "C" {
  */
 #define CHRE_PAL_WIFI_API_V1_0  CHRE_PAL_CREATE_API_VERSION(1, 0)
 
+// v1.1 skipped to avoid confusion with CHRE API v1.1
+
+/**
+ * Introduced alongside CHRE API v1.2, adding support for RTT ranging and radio
+ * chain preference
+ */
+#define CHRE_PAL_WIFI_API_V1_2  CHRE_PAL_CREATE_API_VERSION(1, 2)
+
 /**
  * The version of the WiFi GNSS PAL defined in this header file.
  */
-#define CHRE_PAL_WIFI_API_CURRENT_VERSION  CHRE_PAL_WIFI_API_V1_0
+#define CHRE_PAL_WIFI_API_CURRENT_VERSION  CHRE_PAL_WIFI_API_V1_2
 
 struct chrePalWifiCallbacks {
     /**
@@ -63,7 +71,7 @@ struct chrePalWifiCallbacks {
      *        otherwise
      * @param errorCode An error code from enum chreError
      *
-     * @see #configureScanMonitor
+     * @see chrePalWifiApi.configureScanMonitor
      * @see #chreError
      */
     void (*scanMonitorStatusChangeCallback)(bool enabled, uint8_t errorCode);
@@ -108,10 +116,32 @@ struct chrePalWifiCallbacks {
      *        must ensure that this memory remains accessible until it is passed
      *        to the releaseScanEvent() function in struct chrePalWifiApi.
      *
-     * @see #configureScanMonitor
-     * @see #requestScan
+     * @see chrePalWifiApi.configureScanMonitor
+     * @see chrePalWifiApi.requestScan
      */
     void (*scanEventCallback)(struct chreWifiScanEvent *event);
+
+    /**
+     * Callback used to pass RTT ranging results from the WiFi module to the
+     * core CHRE system, which distributes it to clients (nanoapps).
+     *
+     * Like scanEventCallback, this function call passes ownership of the event
+     * memory to the core CHRE system.
+     *
+     * Only valid if requestedApiVersion given to chrePalWifiGetApi() is greater
+     * than or equal to CHRE_PAL_WIFI_API_V1_2.
+     *
+     * @param errorCode An error code from enum chreError, with CHRE_ERROR_NONE
+     *        indicating successful completion of the ranging operation
+     * @param event Event data to distribute to clients. Unlike with scan
+     *        events, RTT ranging results must be provided for all requested MAC
+     *        addresses in a single event. Ignored and may be NULL if errorCode
+     *        is not CHRE_ERROR_NONE.
+     *
+     * @since v1.2
+     */
+    void (*rangingEventCallback)(uint8_t errorCode,
+                                 struct chreWifiRangingEvent *event);
 };
 
 struct chrePalWifiApi {
@@ -155,6 +185,10 @@ struct chrePalWifiApi {
      * Configures whether the scanEventCallback receives unsolicited scan
      * results, i.e. the results of scans not performed at the request of CHRE.
      *
+     * While not expected, a duplicate request, e.g. one that requests to enable
+     * scan monitoring when it is already enabled, must follow the successful
+     * callback flow.
+     *
      * @param enable true to enable listening for all available scan results
      *
      * @return true if the request was accepted for processing, in which case a
@@ -194,7 +228,23 @@ struct chrePalWifiApi {
      * scanResponseCallback() must be associated with this scan request, and not
      * results delivered pursuant to an active scan monitor registration.
      *
-     * @param params See chreWifiRequestScanAsync()
+     * This function must follow the CHRE API-defined behavior regarding
+     * timeouts. In other words, if a successful scan result is not produced by
+     * the lower layers within CHRE_WIFI_SCAN_RESULT_TIMEOUT_NS,
+     * scanResponseCallback() must be invoked to indicate the failure, and any
+     * late arriving scan result from the lower layers must be dropped.
+     *
+     * At most 1 scan can be in progress from this API at any given time.
+     * In other words, the implementation should return false if another scan
+     * initiated via this function has not completed, i.e. it has not failed
+     * yet, or the final scan event has not yet been delivered via
+     * scanEventCallback(). However, this function must accept and queue a scan
+     * request made from this API while a scan requested by another client, such
+     * as the applications processor, is in progress.
+     *
+     * @param params See chreWifiRequestScanAsync(). If requestedApiVersion
+     *        supplied to chrePalWifiGetApi is at least CHRE_PAL_WIFI_API_V1_2,
+     *        then the new "radioChainPref" parameter will be included.
      *
      * @return true if the request was accepted for further processing, in which
      *         case a subsequent call to scanResponseCallback will be used to
@@ -212,6 +262,74 @@ struct chrePalWifiApi {
      * @param event Event data to release
      */
     void (*releaseScanEvent)(struct chreWifiScanEvent *event);
+
+    /**
+     * Request that the WiFi chipset perform RTT ranging against a set of access
+     * points specified in params. If this function returns true, then
+     * rangingEventCallback must be invoked once to deliver the final result of
+     * the operation, with the accompanying result structure if ranging was
+     * performed.
+     *
+     * RTT functionality in CHRE is based off the Android HAL definitions
+     * (hardware/interfaces/wifi/1.0/), but with less parameters. For
+     * example, CHRE only supports ranging against access points, and two-sided
+     * RTT. When mapping struct chreWifiRangingTarget into the equivalent fields
+     * defined in the HAL in struct RttConfig, the following default values
+     * should be used to fill the fields not specified in the CHRE structure:
+     *
+     * <pre>
+     *   type = TWO_SIDED
+     *   peer = AP
+     *   burstPeriod = 0
+     *   numBurst = 0
+     *   numFramesPerBurst = 8
+     *   numRetriesPerRttFrame = 0
+     *   numRetriesPerFtmr = 0
+     *   mustRequestLci = true
+     *   mustRequestLcr = false (can be true, but not exposed by CHRE)
+     *   burstDuration = 15
+     *   preamble = implementation-dependent**
+     *   bw = implementation-dependent**
+     * </pre>
+     *
+     * **These are used to populate the Format And Bandwidth field in the Fine
+     *   Timing Measurement Parameters element. Per the specification, proposed
+     *   values must fall within the capabilities of the requesting device, and
+     *   the configuration used is ultimately negotiated with the responding
+     *   STA. Therefore, it is up to the underlying WiFi implementation to pick
+     *   suitable values.
+     *
+     * Like {@link #requestScan}, this function must follow the CHRE API-defined
+     * behavior regarding timeouts, indicating failure via rangingEventCallback
+     * if the lower layers do not produce a result within
+     * CHRE_WIFI_RANGING_RESULT_TIMEOUT_NS.
+     *
+     * Also like {@link #requestScan}, at most 1 RTT ranging request can be in
+     * progress from this API at any given time. Implementations should return
+     * false if this condition is not met, but must queue a request made from
+     * this API while a request from another client, such as the applications
+     * processor, is in progress.
+     *
+     * @return true if the request was accepted for further processing, in which
+     *         case a subsequent call to rangingEventCallback will be used to
+     *         communicate the result of the operation
+     *
+     * @see #chreWifiRangingParams
+     * @see chreWifiRequestRangingAsync()
+     *
+     * @since v1.2
+     */
+    bool (*requestRanging)(const struct chreWifiRangingParams *params);
+
+    /**
+     * Invoked when the core CHRE system no longer needs a WiFi ranging result
+     * event structure that was provided to it via rangingEventCallback()
+     *
+     * @param event Event data to release
+     *
+     * @since v1.2
+     */
+    void (*releaseRangingEvent)(struct chreWifiRangingEvent *event);
 };
 
 /**

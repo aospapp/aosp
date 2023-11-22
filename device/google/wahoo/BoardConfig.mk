@@ -23,7 +23,7 @@ TARGET_CPU_ABI2 :=
 TARGET_CPU_VARIANT := cortex-a73
 
 TARGET_2ND_ARCH := arm
-TARGET_2ND_ARCH_VARIANT := armv7-a-neon
+TARGET_2ND_ARCH_VARIANT := armv8-a
 TARGET_2ND_CPU_ABI := armeabi-v7a
 TARGET_2ND_CPU_ABI2 := armeabi
 TARGET_2ND_CPU_VARIANT := cortex-a73
@@ -35,6 +35,7 @@ BOARD_KERNEL_CMDLINE += swiotlb=2048
 BOARD_KERNEL_CMDLINE += firmware_class.path=/vendor/firmware
 BOARD_KERNEL_CMDLINE += loop.max_part=7
 BOARD_KERNEL_CMDLINE += raid=noautodetect
+BOARD_KERNEL_CMDLINE += usbcore.autosuspend=7
 
 BOARD_KERNEL_BASE        := 0x00000000
 BOARD_KERNEL_PAGESIZE    := 4096
@@ -78,7 +79,7 @@ TARGET_COPY_OUT_VENDOR := vendor
 # Install odex files into the other system image
 BOARD_USES_SYSTEM_OTHER_ODEX := true
 
-BOARD_ROOT_EXTRA_FOLDERS := persist firmware metadata
+BOARD_ROOT_EXTRA_FOLDERS := persist firmware
 
 BOARD_SEPOLICY_DIRS += device/google/wahoo/sepolicy/vendor
 BOARD_PLAT_PUBLIC_SEPOLICY_DIR := device/google/wahoo/sepolicy/public
@@ -89,19 +90,8 @@ TARGET_ANDROID_FILESYSTEM_CONFIG_H := device/google/wahoo/android_filesystem_con
 
 QCOM_BOARD_PLATFORMS += msm8998
 BOARD_HAVE_BLUETOOTH_QCOM := true
+BOARD_USES_SDM845_BLUETOOTH_HAL := true
 BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR := device/google/wahoo/bluetooth
-
-# Enable dex pre-opt to speed up initial boot
-ifeq ($(HOST_OS),linux)
-  ifeq ($(WITH_DEXPREOPT),)
-    WITH_DEXPREOPT := true
-    WITH_DEXPREOPT_PIC := true
-    ifneq ($(TARGET_BUILD_VARIANT),user)
-      # Retain classes.dex in APK's for non-user builds
-      DEX_PREOPT_DEFAULT := nostripping
-    endif
-  endif
-endif
 
 # Camera
 TARGET_USES_AOSP := true
@@ -161,7 +151,8 @@ BOARD_CHARGER_ENABLE_SUSPEND := true
 # Vendor Interface Manifest
 DEVICE_MANIFEST_FILE := device/google/wahoo/manifest.xml
 DEVICE_MATRIX_FILE := device/google/wahoo/compatibility_matrix.xml
-
+DEVICE_FRAMEWORK_MANIFEST_FILE := device/google/wahoo/framework_manifest.xml
+DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE := device/google/wahoo/device_framework_matrix.xml
 BOARD_PROPERTY_OVERRIDES_SPLIT_ENABLED := true
 
 # Use mke2fs to create ext4 images

@@ -19,9 +19,11 @@ package com.android.car.settings.datetime;
 import android.content.Context;
 import android.provider.Settings;
 
+import androidx.car.widget.TextListItem;
+
 import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
-import com.android.car.settings.common.TextLineItem;
+import com.android.car.settings.common.BaseFragment.FragmentController;
 import com.android.settingslib.datetime.ZoneGetter;
 
 import java.util.Calendar;
@@ -29,40 +31,45 @@ import java.util.Calendar;
 /**
  * A LineItem that displays and sets time zone.
  */
-class SetTimeZoneLineItem extends TextLineItem {
+class SetTimeZoneLineItem extends TextListItem
+        implements DatetimeSettingsFragment.ListRefreshObserver {
+
     private final Context mContext;
-    private final BaseFragment.FragmentController mFragmentController;
+    private final FragmentController mFragmentController;
 
     public SetTimeZoneLineItem(Context context, BaseFragment.FragmentController fragmentController) {
-        super(context.getString(R.string.date_time_set_timezone));
+        super(context);
         mContext = context;
         mFragmentController = fragmentController;
+        setTitle(context.getString(R.string.date_time_set_timezone));
+        setBody(getDesc());
+        updateLineItemData();
     }
 
     @Override
-    public CharSequence getDesc() {
+    public void onPreRefresh() {
+        updateLineItemData();
+    }
+
+    private void updateLineItemData() {
+        if (isEnabled()) {
+            setSupplementalIcon(R.drawable.ic_chevron_right, /* showDivider= */ false);
+            setOnClickListener(v ->
+                    mFragmentController.launchFragment(TimeZonePickerFragment.getInstance()));
+        } else {
+            setSupplementalIcon(null, /* showDivider= */ false);
+            setOnClickListener(null);
+        }
+    }
+
+    private String getDesc() {
         Calendar now = Calendar.getInstance();
-        return ZoneGetter.getTimeZoneOffsetAndName(mContext, now.getTimeZone(), now.getTime());
+        return ZoneGetter.getTimeZoneOffsetAndName(mContext, now.getTimeZone(), now.getTime())
+                .toString();
     }
 
-    @Override
-    public boolean isEnabled() {
+    private boolean isEnabled() {
         return Settings.Global.getInt(mContext.getContentResolver(),
                 Settings.Global.AUTO_TIME_ZONE, 0) <= 0;
-    }
-
-    @Override
-    public boolean isExpandable() {
-        return isEnabled();
-    }
-
-    @Override
-    public boolean isClickable() {
-        return isEnabled();
-    }
-
-    @Override
-    public void onClick() {
-        mFragmentController.launchFragment(TimeZonePickerFragment.getInstance());
     }
 }

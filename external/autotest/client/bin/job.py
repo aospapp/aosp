@@ -33,7 +33,7 @@ from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import barrier
 from autotest_lib.client.common_lib import base_job
-from autotest_lib.client.common_lib import packages
+from autotest_lib.client.common_lib import control_data
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import logging_manager
@@ -210,6 +210,11 @@ class base_client_job(base_job.base_job):
         _harness_args = self.handle_persistent_option(options, 'harness_args')
 
         self.harness = harness.select(_harness, self, _harness_args)
+
+        if self.control:
+            parsed_control = control_data.parse_control(
+                    self.control, raise_warnings=False)
+            self.fast = parsed_control.fast
 
         # set up the status logger
         def client_job_record_hook(entry):

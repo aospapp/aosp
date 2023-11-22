@@ -40,15 +40,11 @@ def main():
                              its.caps.lsc_map(props) and
                              its.caps.lsc_off(props))
 
-        assert(props.has_key("android.lens.info.shadingMapSize") and
-               props["android.lens.info.shadingMapSize"] != None)
+        mono_camera = its.caps.mono_camera(props)
 
         # lsc_off devices should always support OFF(0), FAST(1), and HQ(2)
         assert(props.has_key("android.shading.availableModes") and
                set(props["android.shading.availableModes"]) == set([0, 1, 2]))
-
-        num_map_gains = props["android.lens.info.shadingMapSize"]["width"] * \
-                        props["android.lens.info.shadingMapSize"]["height"] * 4
 
         # Test 1: Switching shading modes several times and verify:
         #   1. Lens shading maps with mode OFF are all 1.0
@@ -56,19 +52,26 @@ def main():
         #      shading modes.
         #   3. Lens shading maps with mode HIGH_QUALITY are similar after
         #      switching shading modes.
-        cam.do_3a();
+        cam.do_3a(mono_camera=mono_camera);
 
         # Get the reference lens shading maps for OFF, FAST, and HIGH_QUALITY
         # in different sessions.
         # reference_maps[mode]
         reference_maps = [[] for mode in range(3)]
-        reference_maps[0] = [1.0] * num_map_gains
+        num_map_gains = 0
         for mode in range(1, 3):
             req = its.objects.auto_capture_request();
             req["android.statistics.lensShadingMapMode"] = 1
             req["android.shading.mode"] = mode
-            reference_maps[mode] = cam.do_capture(req)["metadata"] \
-                    ["android.statistics.lensShadingMap"]
+            cap_res = cam.do_capture(req)["metadata"]
+            lsc_map = cap_res["android.statistics.lensShadingCorrectionMap"]
+            assert(lsc_map.has_key("width") and
+                   lsc_map.has_key("height") and
+                   lsc_map["width"] != None and lsc_map["height"] != None)
+            if mode == 1:
+                num_map_gains = lsc_map["width"] * lsc_map["height"] * 4
+                reference_maps[0] = [1.0] * num_map_gains
+            reference_maps[mode] = lsc_map["map"]
 
         # Get the lens shading maps while switching modes in one session.
         reqs = []
@@ -88,7 +91,8 @@ def main():
         # Get the shading maps out of capture results
         for i in range(len(caps)):
             shading_maps[i % 3][i / 3] = \
-                    caps[i]["metadata"]["android.statistics.lensShadingMap"]
+                    caps[i]["metadata"] \
+                    ["android.statistics.lensShadingCorrectionMap"]["map"]
 
         # Draw the maps
         for mode in range(3):

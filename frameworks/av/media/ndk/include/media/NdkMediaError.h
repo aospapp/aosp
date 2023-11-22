@@ -30,14 +30,21 @@
 
 #include <sys/cdefs.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#if __ANDROID_API__ >= 21
+__BEGIN_DECLS
 
 typedef enum {
     AMEDIA_OK = 0,
+
+    /**
+     * This indicates required resource was not able to be allocated.
+     */
+    AMEDIACODEC_ERROR_INSUFFICIENT_RESOURCE = 1100,
+
+    /**
+     * This indicates the resource manager reclaimed the media resource used by the codec.
+     * With this error, the codec must be released, as it has moved to terminal state.
+     */
+    AMEDIACODEC_ERROR_RECLAIMED             = 1101,
 
     AMEDIA_ERROR_BASE                  = -10000,
     AMEDIA_ERROR_UNKNOWN               = AMEDIA_ERROR_BASE,
@@ -46,6 +53,8 @@ typedef enum {
     AMEDIA_ERROR_INVALID_OBJECT        = AMEDIA_ERROR_BASE - 3,
     AMEDIA_ERROR_INVALID_PARAMETER     = AMEDIA_ERROR_BASE - 4,
     AMEDIA_ERROR_INVALID_OPERATION     = AMEDIA_ERROR_BASE - 5,
+    AMEDIA_ERROR_END_OF_STREAM         = AMEDIA_ERROR_BASE - 6,
+    AMEDIA_ERROR_IO                    = AMEDIA_ERROR_BASE - 7,
 
     AMEDIA_DRM_ERROR_BASE              = -20000,
     AMEDIA_DRM_NOT_PROVISIONED         = AMEDIA_DRM_ERROR_BASE - 1,
@@ -67,10 +76,6 @@ typedef enum {
 
 } media_status_t;
 
-#endif /* __ANDROID_API__ >= 21 */
-
-#ifdef __cplusplus
-} // extern "C"
-#endif
+__END_DECLS
 
 #endif // _NDK_MEDIA_ERROR_H

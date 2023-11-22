@@ -1,18 +1,18 @@
 /*
-* Copyright (C) 2016 The Android Open Source Project
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License
-*/
+ * Copyright (C) 2016 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License
+ */
 
 package com.android.tv.dvr.ui.list;
 
@@ -23,23 +23,17 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-
-import com.android.tv.ApplicationSingletons;
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrScheduleManager;
 import com.android.tv.dvr.data.ScheduledRecording;
 
-/**
- * A  base fragment to show the list of schedule recordings.
- */
+/** A base fragment to show the list of schedule recordings. */
 public abstract class BaseDvrSchedulesFragment extends DetailsFragment
         implements DvrDataManager.ScheduledRecordingListener,
-        DvrScheduleManager.OnConflictStateChangeListener {
-    /**
-     * The key for scheduled recording which has be selected in the list.
-     */
+                DvrScheduleManager.OnConflictStateChangeListener {
+    /** The key for scheduled recording which has be selected in the list. */
     public static final String SCHEDULES_KEY_SCHEDULED_RECORDING =
             "schedules_key_scheduled_recording";
 
@@ -55,15 +49,15 @@ public abstract class BaseDvrSchedulesFragment extends DetailsFragment
         mRowsAdapter = onCreateRowsAdapter(presenterSelector);
         setAdapter(mRowsAdapter);
         mRowsAdapter.start();
-        ApplicationSingletons singletons = TvApplication.getSingletons(getContext());
+        TvSingletons singletons = TvSingletons.getSingletons(getContext());
         singletons.getDvrDataManager().addScheduledRecordingListener(this);
         singletons.getDvrScheduleManager().addOnConflictStateChangeListener(this);
         mEmptyInfoScreenView = (TextView) getActivity().findViewById(R.id.empty_info_screen);
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
+    public View onCreateView(
+            LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = super.onCreateView(inflater, container, savedInstanceState);
         int firstItemPosition = getFirstItemPosition();
         if (firstItemPosition != -1) {
@@ -72,16 +66,12 @@ public abstract class BaseDvrSchedulesFragment extends DetailsFragment
         return view;
     }
 
-    /**
-     * Returns rows adapter.
-     */
+    /** Returns rows adapter. */
     protected ScheduleRowAdapter getRowsAdapter() {
         return mRowsAdapter;
     }
 
-    /**
-     * Shows the empty message.
-     */
+    /** Shows the empty message. */
     void showEmptyMessage(int messageId) {
         mEmptyInfoScreenView.setText(messageId);
         if (mEmptyInfoScreenView.getVisibility() != View.VISIBLE) {
@@ -89,9 +79,7 @@ public abstract class BaseDvrSchedulesFragment extends DetailsFragment
         }
     }
 
-    /**
-     * Hides the empty message.
-     */
+    /** Hides the empty message. */
     void hideEmptyMessage() {
         if (mEmptyInfoScreenView.getVisibility() == View.VISIBLE) {
             mEmptyInfoScreenView.setVisibility(View.GONE);
@@ -99,39 +87,32 @@ public abstract class BaseDvrSchedulesFragment extends DetailsFragment
     }
 
     @Override
-    public View onInflateTitleView(LayoutInflater inflater, ViewGroup parent,
-            Bundle savedInstanceState) {
+    public View onInflateTitleView(
+            LayoutInflater inflater, ViewGroup parent, Bundle savedInstanceState) {
         // Workaround of b/31046014
         return null;
     }
 
     @Override
     public void onDestroy() {
-        ApplicationSingletons singletons = TvApplication.getSingletons(getContext());
+        TvSingletons singletons = TvSingletons.getSingletons(getContext());
         singletons.getDvrScheduleManager().removeOnConflictStateChangeListener(this);
         singletons.getDvrDataManager().removeScheduledRecordingListener(this);
         mRowsAdapter.stop();
         super.onDestroy();
     }
 
-    /**
-     * Creates header row presenter.
-     */
+    /** Creates header row presenter. */
     public abstract SchedulesHeaderRowPresenter onCreateHeaderRowPresenter();
 
-    /**
-     * Creates rows presenter.
-     */
+    /** Creates rows presenter. */
     public abstract ScheduleRowPresenter onCreateRowPresenter();
 
-    /**
-     * Creates rows adapter.
-     */
-    public abstract ScheduleRowAdapter onCreateRowsAdapter(ClassPresenterSelector presenterSelecor);
+    /** Creates rows adapter. */
+    public abstract ScheduleRowAdapter onCreateRowsAdapter(
+        ClassPresenterSelector presenterSelector);
 
-    /**
-     * Gets the first focus position in schedules list.
-     */
+    /** Gets the first focus position in schedules list. */
     protected int getFirstItemPosition() {
         for (int i = 0; i < mRowsAdapter.size(); i++) {
             if (mRowsAdapter.get(i) instanceof ScheduleRow) {

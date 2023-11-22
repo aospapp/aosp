@@ -36,4 +36,4 @@ loop_count = 1
 
 job.run_test('power_LoadTest', loop_time=loop_time, loop_count=loop_count,
              test_low_batt_p=6, check_network=False, ac_ok=True,
-             gaia_login=False)
+             gaia_login=False, tag=NAME.split('.')[1])

@@ -18,13 +18,18 @@
 
 #include "base/array_ref.h"
 #include "base/bit_vector-inl.h"
+#include "base/scoped_arena_allocator.h"
+#include "base/scoped_arena_containers.h"
 #include "base/stl_util.h"
 #include "ssa_phi_elimination.h"
 
 namespace art {
 
 static void MarkReachableBlocks(HGraph* graph, ArenaBitVector* visited) {
-  ArenaVector<HBasicBlock*> worklist(graph->GetArena()->Adapter(kArenaAllocDCE));
+  // Use local allocator for allocating memory.
+  ScopedArenaAllocator allocator(graph->GetArenaStack());
+
+  ScopedArenaVector<HBasicBlock*> worklist(allocator.Adapter(kArenaAllocDCE));
   constexpr size_t kDefaultWorlistSize = 8;
   worklist.reserve(kDefaultWorlistSize);
   visited->SetBit(graph->GetEntryBlock()->GetBlockId());
@@ -118,7 +123,7 @@ static bool HasEquality(IfCondition condition) {
 }
 
 static HConstant* Evaluate(HCondition* condition, HInstruction* left, HInstruction* right) {
-  if (left == right && !Primitive::IsFloatingPointType(left->GetType())) {
+  if (left == right && !DataType::IsFloatingPointType(left->GetType())) {
     return condition->GetBlock()->GetGraph()->GetIntConstant(
         HasEquality(condition->GetCondition()) ? 1 : 0);
   }
@@ -139,6 +144,141 @@ static HConstant* Evaluate(HCondition* condition, HInstruction* left, HInstructi
     DCHECK(left->IsDoubleConstant());
     return condition->Evaluate(left->AsDoubleConstant(), right->AsDoubleConstant());
   }
+}
+
+static bool RemoveNonNullControlDependences(HBasicBlock* block, HBasicBlock* throws) {
+  // Test for an if as last statement.
+  if (!block->EndsWithIf()) {
+    return false;
+  }
+  HIf* ifs = block->GetLastInstruction()->AsIf();
+  // Find either:
+  //   if obj == null
+  //     throws
+  //   else
+  //     not_throws
+  // or:
+  //   if obj != null
+  //     not_throws
+  //   else
+  //     throws
+  HInstruction* cond = ifs->InputAt(0);
+  HBasicBlock* not_throws = nullptr;
+  if (throws == ifs->IfTrueSuccessor() && cond->IsEqual()) {
+    not_throws = ifs->IfFalseSuccessor();
+  } else if (throws == ifs->IfFalseSuccessor() && cond->IsNotEqual()) {
+    not_throws = ifs->IfTrueSuccessor();
+  } else {
+    return false;
+  }
+  DCHECK(cond->IsEqual() || cond->IsNotEqual());
+  HInstruction* obj = cond->InputAt(1);
+  if (obj->IsNullConstant()) {
+    obj = cond->InputAt(0);
+  } else if (!cond->InputAt(0)->IsNullConstant()) {
+    return false;
+  }
+  // Scan all uses of obj and find null check under control dependence.
+  HBoundType* bound = nullptr;
+  const HUseList<HInstruction*>& uses = obj->GetUses();
+  for (auto it = uses.begin(), end = uses.end(); it != end;) {
+    HInstruction* user = it->GetUser();
+    ++it;  // increment before possibly replacing
+    if (user->IsNullCheck()) {
+      HBasicBlock* user_block = user->GetBlock();
+      if (user_block != block &&
+          user_block != throws &&
+          block->Dominates(user_block)) {
+        if (bound == nullptr) {
+          ReferenceTypeInfo ti = obj->GetReferenceTypeInfo();
+          bound = new (obj->GetBlock()->GetGraph()->GetAllocator()) HBoundType(obj);
+          bound->SetUpperBound(ti, /*can_be_null*/ false);
+          bound->SetReferenceTypeInfo(ti);
+          bound->SetCanBeNull(false);
+          not_throws->InsertInstructionBefore(bound, not_throws->GetFirstInstruction());
+        }
+        user->ReplaceWith(bound);
+        user_block->RemoveInstruction(user);
+      }
+    }
+  }
+  return bound != nullptr;
+}
+
+// Simplify the pattern:
+//
+//           B1
+//          /  \
+//          |   foo()  // always throws
+//          \   goto B2
+//           \ /
+//            B2
+//
+// Into:
+//
+//           B1
+//          /  \
+//          |  foo()
+//          |  goto Exit
+//          |   |
+//         B2  Exit
+//
+// Rationale:
+// Removal of the never taken edge to B2 may expose
+// other optimization opportunities, such as code sinking.
+bool HDeadCodeElimination::SimplifyAlwaysThrows() {
+  // Make sure exceptions go to exit.
+  if (graph_->HasTryCatch()) {
+    return false;
+  }
+  HBasicBlock* exit = graph_->GetExitBlock();
+  if (exit == nullptr) {
+    return false;
+  }
+
+  bool rerun_dominance_and_loop_analysis = false;
+
+  // Order does not matter, just pick one.
+  for (HBasicBlock* block : graph_->GetReversePostOrder()) {
+    HInstruction* first = block->GetFirstInstruction();
+    HInstruction* last = block->GetLastInstruction();
+    // Ensure only one throwing instruction appears before goto.
+    if (first->AlwaysThrows() &&
+        first->GetNext() == last &&
+        last->IsGoto() &&
+        block->GetPhis().IsEmpty() &&
+        block->GetPredecessors().size() == 1u) {
+      DCHECK_EQ(block->GetSuccessors().size(), 1u);
+      HBasicBlock* pred = block->GetSinglePredecessor();
+      HBasicBlock* succ = block->GetSingleSuccessor();
+      // Ensure no computations are merged through throwing block.
+      // This does not prevent the optimization per se, but would
+      // require an elaborate clean up of the SSA graph.
+      if (succ != exit &&
+          !block->Dominates(pred) &&
+          pred->Dominates(succ) &&
+          succ->GetPredecessors().size() > 1u &&
+          succ->GetPhis().IsEmpty()) {
+        block->ReplaceSuccessor(succ, exit);
+        rerun_dominance_and_loop_analysis = true;
+        MaybeRecordStat(stats_, MethodCompilationStat::kSimplifyThrowingInvoke);
+        // Perform a quick follow up optimization on object != null control dependences
+        // that is much cheaper to perform now than in a later phase.
+        if (RemoveNonNullControlDependences(pred, block)) {
+          MaybeRecordStat(stats_, MethodCompilationStat::kRemovedNullCheck);
+        }
+      }
+    }
+  }
+
+  // We need to re-analyze the graph in order to run DCE afterwards.
+  if (rerun_dominance_and_loop_analysis) {
+    graph_->ClearLoopInformation();
+    graph_->ClearDominanceInformation();
+    graph_->BuildDominatorTree();
+    return true;
+  }
+  return false;
 }
 
 // Simplify the pattern:
@@ -305,9 +445,12 @@ void HDeadCodeElimination::ConnectSuccessiveBlocks() {
 }
 
 bool HDeadCodeElimination::RemoveDeadBlocks() {
+  // Use local allocator for allocating memory.
+  ScopedArenaAllocator allocator(graph_->GetArenaStack());
+
   // Classify blocks as reachable/unreachable.
-  ArenaAllocator* allocator = graph_->GetArena();
-  ArenaBitVector live_blocks(allocator, graph_->GetBlocks().size(), false, kArenaAllocDCE);
+  ArenaBitVector live_blocks(&allocator, graph_->GetBlocks().size(), false, kArenaAllocDCE);
+  live_blocks.ClearAllBits();
 
   MarkReachableBlocks(graph_, &live_blocks);
   bool removed_one_or_more_blocks = false;
@@ -359,7 +502,7 @@ void HDeadCodeElimination::RemoveDeadInstructions() {
       DCHECK(!inst->IsControlFlow());
       if (inst->IsDeadAndRemovable()) {
         block->RemoveInstruction(inst);
-        MaybeRecordStat(MethodCompilationStat::kRemovedDeadInstruction);
+        MaybeRecordStat(stats_, MethodCompilationStat::kRemovedDeadInstruction);
       }
     }
   }
@@ -373,6 +516,7 @@ void HDeadCodeElimination::Run() {
     // Simplify graph to generate more dead block patterns.
     ConnectSuccessiveBlocks();
     bool did_any_simplification = false;
+    did_any_simplification |= SimplifyAlwaysThrows();
     did_any_simplification |= SimplifyIfs();
     did_any_simplification |= RemoveDeadBlocks();
     if (did_any_simplification) {

@@ -21,12 +21,12 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_MODULE_TAGS := tests
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 LOCAL_MODULE := CtsSampleHostTestCases
 
 LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed compatibility-host-util
 
-include $(BUILD_HOST_JAVA_LIBRARY)
+include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

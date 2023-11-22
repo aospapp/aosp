@@ -37,6 +37,14 @@ public class NumberingSystem {
     private static final String[] OTHER_NS_KEYWORDS = { "native", "traditional", "finance" };
 
     /**
+     * For convenience, an instance representing the <em>latn</em> numbering system, which
+     * corresponds to digits in the ASCII range '0' through '9'.
+     *
+     * @draft ICU 60
+     */
+    public static final NumberingSystem LATIN = lookupInstanceByName("latn");
+
+    /**
      * Default constructor.  Returns a numbering system that uses the Western decimal
      * digits 0 through 9.
      * @stable ICU 4.2
@@ -88,7 +96,7 @@ public class NumberingSystem {
         }
 
         if ( !isAlgorithmic_in ) {
-            if ( desc_in.length() != radix_in || !isValidDigitString(desc_in)) {
+            if ( desc_in.codePointCount(0, desc_in.length()) != radix_in || !isValidDigitString(desc_in)) {
                 throw new IllegalArgumentException("Invalid digit string for numbering system");
             }
         }

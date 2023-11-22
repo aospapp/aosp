@@ -6,6 +6,7 @@
 #define MOJO_EDK_SYSTEM_CORE_H_
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "base/callback.h"
@@ -39,7 +40,7 @@ namespace edk {
 // are thread-safe.
 class MOJO_SYSTEM_IMPL_EXPORT Core {
  public:
-  explicit Core();
+  Core();
   virtual ~Core();
 
   // Called exactly once, shortly after construction, and before any other
@@ -51,17 +52,27 @@ class MOJO_SYSTEM_IMPL_EXPORT Core {
 
   scoped_refptr<Dispatcher> GetDispatcher(MojoHandle handle);
 
+  void SetDefaultProcessErrorCallback(const ProcessErrorCallback& callback);
+
   // Called in the parent process any time a new child is launched.
   void AddChild(base::ProcessHandle process_handle,
-                ScopedPlatformHandle platform_handle,
+                ConnectionParams connection_params,
                 const std::string& child_token,
                 const ProcessErrorCallback& process_error_callback);
 
   // Called in the parent process when a child process fails to launch.
   void ChildLaunchFailed(const std::string& child_token);
 
+  // Called to connect to a peer process. This should be called only if there
+  // is no common ancestor for the processes involved within this mojo system.
+  // Both processes must call this function, each passing one end of a platform
+  // channel. This returns one end of a message pipe to each process.
+  ScopedMessagePipeHandle ConnectToPeerProcess(ScopedPlatformHandle pipe_handle,
+                                               const std::string& peer_token);
+  void ClosePeerConnection(const std::string& peer_token);
+
   // Called in a child process exactly once during early initialization.
-  void InitChild(ScopedPlatformHandle platform_handle);
+  void InitChild(ConnectionParams connection_params);
 
   // Creates a message pipe endpoint associated with |token|, which a child
   // holding the token can later locate and connect to.
@@ -262,7 +273,7 @@ class MOJO_SYSTEM_IMPL_EXPORT Core {
                               const MojoHandleSignals* signals,
                               uint32_t num_handles,
                               MojoDeadline deadline,
-                              uint32_t *result_index,
+                              uint32_t* result_index,
                               HandleSignalsState* signals_states);
 
   // Used to pass ownership of our NodeController over to the IO thread in the
@@ -283,6 +294,10 @@ class MOJO_SYSTEM_IMPL_EXPORT Core {
   // This is lazily initialized on first access. Always use GetNodeController()
   // to access it.
   std::unique_ptr<NodeController> node_controller_;
+
+  // The default callback to invoke, if any, when a process error is reported
+  // but cannot be associated with a specific process.
+  ProcessErrorCallback default_process_error_callback_;
 
   base::Lock handles_lock_;
   HandleTable handles_;

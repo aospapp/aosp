@@ -20,10 +20,11 @@
 #include "art_method-inl.h"
 #include "base/enums.h"
 #include "class_linker-inl.h"
-#include "dex_file-inl.h"
-#include "dex_instruction.h"
-#include "dex_instruction-inl.h"
-#include "dex_instruction_utils.h"
+#include "dex/code_item_accessors-inl.h"
+#include "dex/dex_file-inl.h"
+#include "dex/dex_instruction-inl.h"
+#include "dex/dex_instruction.h"
+#include "dex/dex_instruction_utils.h"
 #include "mirror/class-inl.h"
 #include "mirror/dex_cache-inl.h"
 
@@ -43,7 +44,7 @@ class Matcher {
   typedef bool MatchFn(Matcher* matcher);
 
   template <size_t size>
-  static bool Match(const DexFile::CodeItem* code_item, MatchFn* const (&pattern)[size]);
+  static bool Match(const CodeItemDataAccessor* code_item, MatchFn* const (&pattern)[size]);
 
   // Match and advance.
 
@@ -62,22 +63,20 @@ class Matcher {
   bool IPutOnThis();
 
  private:
-  explicit Matcher(const DexFile::CodeItem* code_item)
+  explicit Matcher(const CodeItemDataAccessor* code_item)
       : code_item_(code_item),
-        instruction_(Instruction::At(code_item->insns_)),
-        pos_(0u),
-        mark_(0u) { }
+        instruction_(code_item->begin()) {}
 
-  static bool DoMatch(const DexFile::CodeItem* code_item, MatchFn* const* pattern, size_t size);
+  static bool DoMatch(const CodeItemDataAccessor* code_item, MatchFn* const* pattern, size_t size);
 
-  const DexFile::CodeItem* const code_item_;
-  const Instruction* instruction_;
-  size_t pos_;
-  size_t mark_;
+  const CodeItemDataAccessor* const code_item_;
+  DexInstructionIterator instruction_;
+  size_t pos_ = 0u;
+  size_t mark_ = 0u;
 };
 
 template <size_t size>
-bool Matcher::Match(const DexFile::CodeItem* code_item, MatchFn* const (&pattern)[size]) {
+bool Matcher::Match(const CodeItemDataAccessor* code_item, MatchFn* const (&pattern)[size]) {
   return DoMatch(code_item, pattern, size);
 }
 
@@ -93,7 +92,7 @@ bool Matcher::Required(Matcher* matcher) {
     return false;
   }
   matcher->pos_ += 1u;
-  matcher->instruction_ = matcher->instruction_->Next();
+  ++matcher->instruction_;
   return true;
 }
 
@@ -105,7 +104,7 @@ bool Matcher::Repeated(Matcher* matcher) {
     return true;
   }
   matcher->pos_ = matcher->mark_;
-  matcher->instruction_ = matcher->instruction_->Next();
+  ++matcher->instruction_;
   return true;
 }
 
@@ -122,12 +121,12 @@ bool Matcher::Const0() {
 }
 
 bool Matcher::IPutOnThis() {
-  DCHECK_NE(code_item_->ins_size_, 0u);
+  DCHECK_NE(code_item_->InsSize(), 0u);
   return IsInstructionIPut(instruction_->Opcode()) &&
-      instruction_->VRegB_22c() == code_item_->registers_size_ - code_item_->ins_size_;
+      instruction_->VRegB_22c() == code_item_->RegistersSize() - code_item_->InsSize();
 }
 
-bool Matcher::DoMatch(const DexFile::CodeItem* code_item, MatchFn* const* pattern, size_t size) {
+bool Matcher::DoMatch(const CodeItemDataAccessor* code_item, MatchFn* const* pattern, size_t size) {
   Matcher matcher(code_item);
   while (matcher.pos_ != size) {
     if (!pattern[matcher.pos_](&matcher)) {
@@ -142,8 +141,11 @@ bool Matcher::DoMatch(const DexFile::CodeItem* code_item, MatchFn* const* patter
 ArtMethod* GetTargetConstructor(ArtMethod* method, const Instruction* invoke_direct)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   DCHECK_EQ(invoke_direct->Opcode(), Instruction::INVOKE_DIRECT);
-  DCHECK_EQ(invoke_direct->VRegC_35c(),
-            method->GetCodeItem()->registers_size_ - method->GetCodeItem()->ins_size_);
+  if (kIsDebugBuild) {
+    CodeItemDataAccessor accessor(method->DexInstructionData());
+    DCHECK_EQ(invoke_direct->VRegC_35c(),
+              accessor.RegistersSize() - accessor.InsSize());
+  }
   uint32_t method_index = invoke_direct->VRegB_35c();
   ArtMethod* target_method = Runtime::Current()->GetClassLinker()->LookupResolvedMethod(
       method_index, method->GetDexCache(), method->GetClassLoader());
@@ -158,7 +160,7 @@ ArtMethod* GetTargetConstructor(ArtMethod* method, const Instruction* invoke_dir
 
 // Return the forwarded arguments and check that all remaining arguments are zero.
 // If the check fails, return static_cast<size_t>(-1).
-size_t CountForwardedConstructorArguments(const DexFile::CodeItem* code_item,
+size_t CountForwardedConstructorArguments(const CodeItemDataAccessor* code_item,
                                           const Instruction* invoke_direct,
                                           uint16_t zero_vreg_mask) {
   DCHECK_EQ(invoke_direct->Opcode(), Instruction::INVOKE_DIRECT);
@@ -167,7 +169,7 @@ size_t CountForwardedConstructorArguments(const DexFile::CodeItem* code_item,
   uint32_t args[Instruction::kMaxVarArgRegs];
   invoke_direct->GetVarArgs(args);
   uint16_t this_vreg = args[0];
-  DCHECK_EQ(this_vreg, code_item->registers_size_ - code_item->ins_size_);  // Checked by verifier.
+  DCHECK_EQ(this_vreg, code_item->RegistersSize() - code_item->InsSize());  // Checked by verifier.
   size_t forwarded = 1u;
   while (forwarded < number_of_args &&
       args[forwarded] == this_vreg + forwarded &&
@@ -249,7 +251,7 @@ bool RecordConstructorIPut(ArtMethod* method,
   return true;
 }
 
-bool DoAnalyseConstructor(const DexFile::CodeItem* code_item,
+bool DoAnalyseConstructor(const CodeItemDataAccessor* code_item,
                           ArtMethod* method,
                           /*inout*/ ConstructorIPutData (&iputs)[kMaxConstructorIPuts])
     REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -292,42 +294,43 @@ bool DoAnalyseConstructor(const DexFile::CodeItem* code_item,
   DCHECK(method->IsConstructor());
   DCHECK(code_item != nullptr);
   if (!method->GetDeclaringClass()->IsVerified() ||
-      code_item->insns_size_in_code_units_ > kMaxCodeUnits ||
-      code_item->registers_size_ > kMaxVRegs ||
+      code_item->InsnsSizeInCodeUnits() > kMaxCodeUnits ||
+      code_item->RegistersSize() > kMaxVRegs ||
       !Matcher::Match(code_item, kConstructorPattern)) {
     return false;
   }
 
   // Verify the invoke, prevent a few odd cases and collect IPUTs.
-  uint16_t this_vreg = code_item->registers_size_ - code_item->ins_size_;
+  uint16_t this_vreg = code_item->RegistersSize() - code_item->InsSize();
   uint16_t zero_vreg_mask = 0u;
-  for (const Instruction* instruction = Instruction::At(code_item->insns_);
-      instruction->Opcode() != Instruction::RETURN_VOID;
-      instruction = instruction->Next()) {
-    if (instruction->Opcode() == Instruction::INVOKE_DIRECT) {
-      ArtMethod* target_method = GetTargetConstructor(method, instruction);
+
+  for (const DexInstructionPcPair& pair : *code_item) {
+    const Instruction& instruction = pair.Inst();
+    if (instruction.Opcode() == Instruction::RETURN_VOID) {
+      break;
+    } else if (instruction.Opcode() == Instruction::INVOKE_DIRECT) {
+      ArtMethod* target_method = GetTargetConstructor(method, &instruction);
       if (target_method == nullptr) {
         return false;
       }
       // We allow forwarding constructors only if they pass more arguments
       // to prevent infinite recursion.
       if (target_method->GetDeclaringClass() == method->GetDeclaringClass() &&
-          instruction->VRegA_35c() <= code_item->ins_size_) {
+          instruction.VRegA_35c() <= code_item->InsSize()) {
         return false;
       }
-      size_t forwarded = CountForwardedConstructorArguments(code_item, instruction, zero_vreg_mask);
+      size_t forwarded = CountForwardedConstructorArguments(code_item, &instruction, zero_vreg_mask);
       if (forwarded == static_cast<size_t>(-1)) {
         return false;
       }
       if (target_method->GetDeclaringClass()->IsObjectClass()) {
-        DCHECK_EQ(Instruction::At(target_method->GetCodeItem()->insns_)->Opcode(),
-                  Instruction::RETURN_VOID);
+        DCHECK_EQ(target_method->DexInstructionData().begin()->Opcode(), Instruction::RETURN_VOID);
       } else {
-        const DexFile::CodeItem* target_code_item = target_method->GetCodeItem();
-        if (target_code_item == nullptr) {
+        CodeItemDataAccessor target_code_item(target_method->DexInstructionData());
+        if (!target_code_item.HasCodeItem()) {
           return false;  // Native constructor?
         }
-        if (!DoAnalyseConstructor(target_code_item, target_method, iputs)) {
+        if (!DoAnalyseConstructor(&target_code_item, target_method, iputs)) {
           return false;
         }
         // Prune IPUTs with zero input.
@@ -345,15 +348,15 @@ bool DoAnalyseConstructor(const DexFile::CodeItem* code_item,
           return false;
         }
       }
-    } else if (IsInstructionDirectConst(instruction->Opcode())) {
-      zero_vreg_mask |= GetZeroVRegMask(instruction);
+    } else if (IsInstructionDirectConst(instruction.Opcode())) {
+      zero_vreg_mask |= GetZeroVRegMask(&instruction);
       if ((zero_vreg_mask & (1u << this_vreg)) != 0u) {
         return false;  // Overwriting `this` is unsupported.
       }
     } else {
-      DCHECK(IsInstructionIPut(instruction->Opcode()));
-      DCHECK_EQ(instruction->VRegB_22c(), this_vreg);
-      if (!RecordConstructorIPut(method, instruction, this_vreg, zero_vreg_mask, iputs)) {
+      DCHECK(IsInstructionIPut(instruction.Opcode()));
+      DCHECK_EQ(instruction.VRegB_22c(), this_vreg);
+      if (!RecordConstructorIPut(method, &instruction, this_vreg, zero_vreg_mask, iputs)) {
         return false;
       }
     }
@@ -363,7 +366,7 @@ bool DoAnalyseConstructor(const DexFile::CodeItem* code_item,
 
 }  // anonymous namespace
 
-bool AnalyseConstructor(const DexFile::CodeItem* code_item,
+bool AnalyseConstructor(const CodeItemDataAccessor* code_item,
                         ArtMethod* method,
                         InlineMethod* result)
     REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -427,28 +430,27 @@ static_assert(InlineMethodAnalyser::IGetVariant(Instruction::IGET_SHORT) ==
     InlineMethodAnalyser::IPutVariant(Instruction::IPUT_SHORT), "iget/iput_short variant");
 
 bool InlineMethodAnalyser::AnalyseMethodCode(ArtMethod* method, InlineMethod* result) {
-  const DexFile::CodeItem* code_item = method->GetCodeItem();
-  if (code_item == nullptr) {
+  CodeItemDataAccessor code_item(method->DexInstructionData());
+  if (!code_item.HasCodeItem()) {
     // Native or abstract.
     return false;
   }
-  return AnalyseMethodCode(code_item,
+  return AnalyseMethodCode(&code_item,
                            MethodReference(method->GetDexFile(), method->GetDexMethodIndex()),
                            method->IsStatic(),
                            method,
                            result);
 }
 
-bool InlineMethodAnalyser::AnalyseMethodCode(const DexFile::CodeItem* code_item,
+bool InlineMethodAnalyser::AnalyseMethodCode(const CodeItemDataAccessor* code_item,
                                              const MethodReference& method_ref,
                                              bool is_static,
                                              ArtMethod* method,
                                              InlineMethod* result) {
   // We currently support only plain return or 2-instruction methods.
 
-  DCHECK_NE(code_item->insns_size_in_code_units_, 0u);
-  const Instruction* instruction = Instruction::At(code_item->insns_);
-  Instruction::Code opcode = instruction->Opcode();
+  DCHECK_NE(code_item->InsnsSizeInCodeUnits(), 0u);
+  Instruction::Code opcode = code_item->begin()->Opcode();
 
   switch (opcode) {
     case Instruction::RETURN_VOID:
@@ -509,7 +511,7 @@ bool InlineMethodAnalyser::AnalyseMethodCode(const DexFile::CodeItem* code_item,
 }
 
 bool InlineMethodAnalyser::IsSyntheticAccessor(MethodReference ref) {
-  const DexFile::MethodId& method_id = ref.dex_file->GetMethodId(ref.dex_method_index);
+  const DexFile::MethodId& method_id = ref.dex_file->GetMethodId(ref.index);
   const char* method_name = ref.dex_file->GetMethodName(method_id);
   // javac names synthetic accessors "access$nnn",
   // jack names them "-getN", "-putN", "-wrapN".
@@ -517,15 +519,15 @@ bool InlineMethodAnalyser::IsSyntheticAccessor(MethodReference ref) {
       strncmp(method_name, "-", strlen("-")) == 0;
 }
 
-bool InlineMethodAnalyser::AnalyseReturnMethod(const DexFile::CodeItem* code_item,
+bool InlineMethodAnalyser::AnalyseReturnMethod(const CodeItemDataAccessor* code_item,
                                                InlineMethod* result) {
-  const Instruction* return_instruction = Instruction::At(code_item->insns_);
+  DexInstructionIterator return_instruction = code_item->begin();
   Instruction::Code return_opcode = return_instruction->Opcode();
   uint32_t reg = return_instruction->VRegA_11x();
-  uint32_t arg_start = code_item->registers_size_ - code_item->ins_size_;
+  uint32_t arg_start = code_item->RegistersSize() - code_item->InsSize();
   DCHECK_GE(reg, arg_start);
   DCHECK_LT((return_opcode == Instruction::RETURN_WIDE) ? reg + 1 : reg,
-      code_item->registers_size_);
+      code_item->RegistersSize());
 
   if (result != nullptr) {
     result->opcode = kInlineOpReturnArg;
@@ -539,9 +541,9 @@ bool InlineMethodAnalyser::AnalyseReturnMethod(const DexFile::CodeItem* code_ite
   return true;
 }
 
-bool InlineMethodAnalyser::AnalyseConstMethod(const DexFile::CodeItem* code_item,
+bool InlineMethodAnalyser::AnalyseConstMethod(const CodeItemDataAccessor* code_item,
                                               InlineMethod* result) {
-  const Instruction* instruction = Instruction::At(code_item->insns_);
+  DexInstructionIterator instruction = code_item->begin();
   const Instruction* return_instruction = instruction->Next();
   Instruction::Code return_opcode = return_instruction->Opcode();
   if (return_opcode != Instruction::RETURN &&
@@ -550,13 +552,13 @@ bool InlineMethodAnalyser::AnalyseConstMethod(const DexFile::CodeItem* code_item
   }
 
   int32_t return_reg = return_instruction->VRegA_11x();
-  DCHECK_LT(return_reg, code_item->registers_size_);
+  DCHECK_LT(return_reg, code_item->RegistersSize());
 
   int32_t const_value = instruction->VRegB();
   if (instruction->Opcode() == Instruction::CONST_HIGH16) {
     const_value <<= 16;
   }
-  DCHECK_LT(instruction->VRegA(), code_item->registers_size_);
+  DCHECK_LT(instruction->VRegA(), code_item->RegistersSize());
   if (instruction->VRegA() != return_reg) {
     return false;  // Not returning the value set by const?
   }
@@ -570,12 +572,12 @@ bool InlineMethodAnalyser::AnalyseConstMethod(const DexFile::CodeItem* code_item
   return true;
 }
 
-bool InlineMethodAnalyser::AnalyseIGetMethod(const DexFile::CodeItem* code_item,
+bool InlineMethodAnalyser::AnalyseIGetMethod(const CodeItemDataAccessor* code_item,
                                              const MethodReference& method_ref,
                                              bool is_static,
                                              ArtMethod* method,
                                              InlineMethod* result) {
-  const Instruction* instruction = Instruction::At(code_item->insns_);
+  DexInstructionIterator instruction = code_item->begin();
   Instruction::Code opcode = instruction->Opcode();
   DCHECK(IsInstructionIGet(opcode));
 
@@ -590,17 +592,17 @@ bool InlineMethodAnalyser::AnalyseIGetMethod(const DexFile::CodeItem* code_item,
 
   uint32_t return_reg = return_instruction->VRegA_11x();
   DCHECK_LT(return_opcode == Instruction::RETURN_WIDE ? return_reg + 1 : return_reg,
-            code_item->registers_size_);
+            code_item->RegistersSize());
 
   uint32_t dst_reg = instruction->VRegA_22c();
   uint32_t object_reg = instruction->VRegB_22c();
   uint32_t field_idx = instruction->VRegC_22c();
-  uint32_t arg_start = code_item->registers_size_ - code_item->ins_size_;
+  uint32_t arg_start = code_item->RegistersSize() - code_item->InsSize();
   DCHECK_GE(object_reg, arg_start);
-  DCHECK_LT(object_reg, code_item->registers_size_);
+  DCHECK_LT(object_reg, code_item->RegistersSize());
   uint32_t object_arg = object_reg - arg_start;
 
-  DCHECK_LT(opcode == Instruction::IGET_WIDE ? dst_reg + 1 : dst_reg, code_item->registers_size_);
+  DCHECK_LT(opcode == Instruction::IGET_WIDE ? dst_reg + 1 : dst_reg, code_item->RegistersSize());
   if (dst_reg != return_reg) {
     return false;  // Not returning the value retrieved by IGET?
   }
@@ -634,18 +636,18 @@ bool InlineMethodAnalyser::AnalyseIGetMethod(const DexFile::CodeItem* code_item,
   return true;
 }
 
-bool InlineMethodAnalyser::AnalyseIPutMethod(const DexFile::CodeItem* code_item,
+bool InlineMethodAnalyser::AnalyseIPutMethod(const CodeItemDataAccessor* code_item,
                                              const MethodReference& method_ref,
                                              bool is_static,
                                              ArtMethod* method,
                                              InlineMethod* result) {
-  const Instruction* instruction = Instruction::At(code_item->insns_);
+  DexInstructionIterator instruction = code_item->begin();
   Instruction::Code opcode = instruction->Opcode();
   DCHECK(IsInstructionIPut(opcode));
 
   const Instruction* return_instruction = instruction->Next();
   Instruction::Code return_opcode = return_instruction->Opcode();
-  uint32_t arg_start = code_item->registers_size_ - code_item->ins_size_;
+  uint32_t arg_start = code_item->RegistersSize() - code_item->InsSize();
   uint16_t return_arg_plus1 = 0u;
   if (return_opcode != Instruction::RETURN_VOID) {
     if (return_opcode != Instruction::RETURN &&
@@ -657,7 +659,7 @@ bool InlineMethodAnalyser::AnalyseIPutMethod(const DexFile::CodeItem* code_item,
     uint32_t return_reg = return_instruction->VRegA_11x();
     DCHECK_GE(return_reg, arg_start);
     DCHECK_LT(return_opcode == Instruction::RETURN_WIDE ? return_reg + 1u : return_reg,
-              code_item->registers_size_);
+              code_item->RegistersSize());
     return_arg_plus1 = return_reg - arg_start + 1u;
   }
 
@@ -665,9 +667,9 @@ bool InlineMethodAnalyser::AnalyseIPutMethod(const DexFile::CodeItem* code_item,
   uint32_t object_reg = instruction->VRegB_22c();
   uint32_t field_idx = instruction->VRegC_22c();
   DCHECK_GE(object_reg, arg_start);
-  DCHECK_LT(object_reg, code_item->registers_size_);
+  DCHECK_LT(object_reg, code_item->RegistersSize());
   DCHECK_GE(src_reg, arg_start);
-  DCHECK_LT(opcode == Instruction::IPUT_WIDE ? src_reg + 1 : src_reg, code_item->registers_size_);
+  DCHECK_LT(opcode == Instruction::IPUT_WIDE ? src_reg + 1 : src_reg, code_item->RegistersSize());
   uint32_t object_arg = object_reg - arg_start;
   uint32_t src_arg = src_reg - arg_start;
 

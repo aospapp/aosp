@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"Data dari teg NFC"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Maklumat kenalan untuk ^1"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Aplikasi ini perlu mengakses kebenaran Telefon untuk membuat panggilan. Anda boleh mengurus kebenaran Teg dalam Tetapan"</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Aplikasi ini perlu mengakses kebenaran Storan Luaran untuk mengakses fail. Anda boleh mengurus kebenaran Teg dalam Tetapan"</string>
 </resources>

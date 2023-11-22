@@ -31,6 +31,8 @@ import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 
+import com.android.compatibility.common.util.CddTest;
+
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -73,6 +75,7 @@ public class OpenGlEsVersionTest {
         mActivity = mActivityRule.getActivity();
     }
 
+    @CddTest(requirement="7.1.4.1/C-0-1")
     @Test
     public void testOpenGlEsVersion() throws InterruptedException {
         int detectedMajorVersion = getDetectedMajorVersion();
@@ -91,6 +94,7 @@ public class OpenGlEsVersionTest {
         }
     }
 
+    @CddTest(requirement="7.1.4.1/C-2-2")
     @Test
     public void testRequiredExtensions() throws InterruptedException {
         int reportedVersion = getVersionFromActivityManager(mActivity);
@@ -116,6 +120,7 @@ public class OpenGlEsVersionTest {
         }
     }
 
+    @CddTest(requirement="7.1.4.1/C-2-1,C-5-1,C-4-1")
     @Test
     public void testExtensionPack() throws InterruptedException {
         // Requirements:
@@ -144,7 +149,7 @@ public class OpenGlEsVersionTest {
             + (hasAepExtension ? "" : "not ") + "in the OpenGL ES extension list.",
             hasAepFeature, hasAepExtension);
     }
-
+    @CddTest(requirement="7.9.2/C-1-4")
     @Test
     public void testOpenGlEsVersionForVrHighPerformance() throws InterruptedException {
         if (!supportsVrHighPerformance())
@@ -160,6 +165,7 @@ public class OpenGlEsVersionTest {
             (major == 3 && minor >= 2) || major > 3);
     }
 
+    @CddTest(requirement="7.9.2/C-1-6,C-1-8")
     @Test
     public void testRequiredExtensionsForVrHighPerformance() throws InterruptedException {
         if (!supportsVrHighPerformance())
@@ -168,11 +174,13 @@ public class OpenGlEsVersionTest {
 
         String extensions = mActivity.getExtensionsString();
         final String requiredList[] = {
-            "EXT_protected_textures",
-            "EXT_multisampled_render_to_texture",
-            "OVR_multiview",
-            "OVR_multiview_multisampled_render_to_texture",
-            "OVR_multiview2",
+            "GL_EXT_EGL_image_array",
+            "GL_EXT_external_buffer",
+            "GL_EXT_multisampled_render_to_texture2",
+            "GL_EXT_protected_textures",
+            "GL_OVR_multiview",
+            "GL_OVR_multiview2",
+            "GL_OVR_multiview_multisampled_render_to_texture",
         };
 
         for (int i = 0; i < requiredList.length; ++i) {
@@ -184,19 +192,22 @@ public class OpenGlEsVersionTest {
         EGLDisplay display = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
         extensions = egl.eglQueryString(display, EGL10.EGL_EXTENSIONS);
         final String requiredEglList[] = {
-            "EGL_ANDROID_get_native_client_buffer",
             "EGL_ANDROID_front_buffer_auto_refresh",
+            "EGL_ANDROID_get_native_client_buffer",
+            "EGL_EXT_image_gl_colorspace",
             "EGL_EXT_protected_content",
+            "EGL_IMG_context_priority",
+            "EGL_KHR_fence_sync",
             "EGL_KHR_mutable_render_buffer",
             "EGL_KHR_wait_sync",
         };
 
-        for (int i = 0; i < requiredList.length; ++i) {
+        for (int i = 0; i < requiredEglList.length; ++i) {
             assertTrue("Required EGL extension for VR high-performance is missing: " +
                 requiredEglList[i], hasExtension(extensions, requiredEglList[i]));
         }
     }
-
+    @CddTest(requirement="7.1.4.1/C-6-1")
     @Test
     public void testRequiredEglExtensions() {
         // See CDD section 7.1.4
@@ -340,6 +351,7 @@ public class OpenGlEsVersionTest {
      * Check that the version string has the form "OpenGL ES(-CM)? (\d+)\.(\d+)", where the two
      * numbers match the major and minor parameters.
      */
+    @CddTest(requirement="7.1.4.1/C-0-1")
     private void verifyGlVersionString(int major, int minor) throws InterruptedException {
         Matcher matcher = Pattern.compile("OpenGL ES(?:-CM)? (\\d+)\\.(\\d+).*")
                                  .matcher(mActivity.getVersionString());
@@ -363,8 +375,8 @@ public class OpenGlEsVersionTest {
     }
 
     /**
-     * Return whether the system supports FEATURE_VR_MODE and
-     * FEATURE_VR_MODE_HIGH_PERFORMANCE. This is used to skip some tests.
+     * Return whether the system supports FEATURE_VR_MODE_HIGH_PERFORMANCE.
+     * This is used to skip some tests.
      */
     private boolean supportsVrHighPerformance() {
         PackageManager pm = mActivity.getPackageManager();

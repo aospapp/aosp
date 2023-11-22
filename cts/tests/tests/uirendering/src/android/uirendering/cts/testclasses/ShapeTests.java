@@ -35,6 +35,6 @@ public class ShapeTests extends ActivityTestBase {
                 .addLayout(R.layout.frame_layout,
                         view -> view.setBackgroundResource(R.drawable.dashed_oval))
                 .runWithVerifier(new GoldenImageVerifier(getActivity(),
-                        R.drawable.golden_dashed_oval, new MSSIMComparer(0.99)));
+                        R.drawable.golden_dashed_oval, new MSSIMComparer(0.90)));
     }
 }

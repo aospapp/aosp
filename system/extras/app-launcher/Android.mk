@@ -5,6 +5,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_HOST_OS := linux
 LOCAL_SRC_FILES := computestatsf.c
 LOCAL_MODULE := computestatsf
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_MODULE_TAGS := debug
 include $(BUILD_HOST_EXECUTABLE)
 
@@ -13,6 +14,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_HOST_OS := linux
 LOCAL_SRC_FILES := computestats.c
 LOCAL_MODULE := computestats
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_MODULE_TAGS := debug
 include $(BUILD_HOST_EXECUTABLE)
 

@@ -23,8 +23,10 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +41,8 @@ public class GoogleBenchmarkTest implements IDeviceTest, IRemoteTest {
     static final String DEFAULT_TEST_PATH = "/data/benchmarktest";
 
     private static final String GBENCHMARK_JSON_OUTPUT_FORMAT = "--benchmark_format=json";
+    private static final String GBENCHMARK_LIST_TESTS_OPTION = "--benchmark_list_tests=true";
+    private static final String EXECUTABLE_BUILD_ID = "BuildID=";
 
     @Option(name = "file-exclusion-filter-regex",
             description = "Regex to exclude certain files from executing. Can be repeated")
@@ -155,10 +159,17 @@ public class GoogleBenchmarkTest implements IDeviceTest, IRemoteTest {
             }
             long startTime = System.currentTimeMillis();
 
+            // Count expected number of tests
+            int numTests = countExpectedTests(testDevice, root);
+            if (numTests == 0) {
+                CLog.d("No tests to run.");
+                return;
+            }
+
             Map<String, String> metricMap = new HashMap<String, String>();
             CollectingOutputReceiver outputCollector = createOutputCollector();
             GoogleBenchmarkResultParser resultParser = createResultParser(runName, listener);
-            listener.testRunStarted(runName, 0);
+            listener.testRunStarted(runName, numTests);
             try {
                 String cmd = String.format("%s %s", root, GBENCHMARK_JSON_OUTPUT_FORMAT);
                 CLog.i(String.format("Running google benchmark test on %s: %s",
@@ -166,11 +177,29 @@ public class GoogleBenchmarkTest implements IDeviceTest, IRemoteTest {
                 testDevice.executeShellCommand(cmd, outputCollector,
                         mMaxRunTime, TimeUnit.MILLISECONDS, 0);
                 metricMap = resultParser.parse(outputCollector);
+            } catch (DeviceNotAvailableException e) {
+                listener.testRunFailed(e.getMessage());
+                throw e;
             } finally {
                 final long elapsedTime = System.currentTimeMillis() - startTime;
-                listener.testRunEnded(elapsedTime, metricMap);
+                listener.testRunEnded(elapsedTime, TfMetricProtoUtil.upgradeConvert(metricMap));
             }
         }
+    }
+
+    private int countExpectedTests(ITestDevice testDevice, String fullBinaryPath)
+            throws DeviceNotAvailableException {
+        String exec = testDevice.executeShellCommand(String.format("file %s", fullBinaryPath));
+        // When inspecting our files, only the one with the marker of an executable should be ran.
+        if (!exec.contains(EXECUTABLE_BUILD_ID)) {
+            CLog.d("%s does not look like an executable", fullBinaryPath);
+            return 0;
+        }
+        String cmd = String.format("%s %s", fullBinaryPath, GBENCHMARK_LIST_TESTS_OPTION);
+        String list_output = testDevice.executeShellCommand(cmd);
+        String[] list = list_output.trim().split("\n");
+        CLog.d("List that will be used: %s", Arrays.asList(list));
+        return list.length;
     }
 
     /**

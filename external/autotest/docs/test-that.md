@@ -105,10 +105,10 @@ Things to note about running in the lab:
 
  - This feature will only work on builds that produced autotest test artifacts.
    If your build doesn't have such artifacts, you will see a
-   [confusing error](crbug.com/354556). The easiest way today to guarantee
-   that hwtest artifacts are produced is to make sure that your tryjob
-   is launched with the --hwtest flag. Once [this bug](crbug.com/299838) is
-   fixed that will no longer be the case.
+   [confusing error](https://crbug.com/354556). The easiest way today to
+   guarantee that hwtest artifacts are produced is to make sure that your tryjob
+   is launched with the --hwtest flag. Once [this bug](https://crbug.com/299838)
+   is fixed that will no longer be the case.
  - By default, jobs will be scheduled in the `suites` machine pool. That can be
    overridden with the `-p` flag.
  - This will only work with images newer than Sept 20, 2013 (specifically, builds

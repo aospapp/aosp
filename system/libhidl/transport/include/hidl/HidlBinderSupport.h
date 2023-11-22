@@ -306,7 +306,8 @@ static status_t writeReferenceToParcel(
 // Otherwise, the smallest possible BnChild is found where IChild is a subclass of IType
 // and iface is of class IChild. BnChild will be used to wrapped the given iface.
 // Return nullptr if iface is null or any failure.
-template <typename IType>
+template <typename IType,
+          typename = std::enable_if_t<std::is_same<details::i_tag, typename IType::_hidl_tag>::value>>
 sp<IBinder> toBinder(sp<IType> iface) {
     IType *ifacePtr = iface.get();
     if (ifacePtr == nullptr) {
@@ -329,9 +330,12 @@ sp<IBinder> toBinder(sp<IType> iface) {
         sp<IBinder> sBnObj = wBnObj.promote();
 
         if (sBnObj == nullptr) {
-            auto func = details::gBnConstructorMap.get(myDescriptor, nullptr);
+            auto func = details::getBnConstructorMap().get(myDescriptor, nullptr);
             if (!func) {
-                return nullptr;
+                func = details::gBnConstructorMap.get(myDescriptor, nullptr);
+                if (!func) {
+                    return nullptr;
+                }
             }
 
             sBnObj = sp<IBinder>(func(static_cast<void*>(ifacePtr)));
@@ -367,6 +371,8 @@ sp<IType> fromBinder(const sp<IBinder>& binderIface) {
 
 void configureBinderRpcThreadpool(size_t maxThreads, bool callerWillJoin);
 void joinBinderRpcThreadpool();
+int setupBinderPolling();
+status_t handleBinderPoll();
 
 }  // namespace hardware
 }  // namespace android

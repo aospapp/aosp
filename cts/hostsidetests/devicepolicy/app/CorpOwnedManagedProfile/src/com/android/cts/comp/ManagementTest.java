@@ -19,6 +19,7 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 import java.util.List;
@@ -96,5 +97,26 @@ public class ManagementTest extends AndroidTestCase {
     public void testNoBindDeviceAdminTargetUsers() {
         MoreAsserts.assertEmpty(mDevicePolicyManager.getBindDeviceAdminTargetUsers(
                 AdminReceiver.getComponentName(mContext)));
+    }
+
+    public void testCannotStartManagedProfileInBackground() {
+        UserHandle profileUserHandle = Utils.getOtherProfile(mContext);
+        assertNotNull(profileUserHandle);
+        assertEquals(UserManager.USER_OPERATION_ERROR_MANAGED_PROFILE,
+                mDevicePolicyManager.startUserInBackground(AdminReceiver.getComponentName(mContext),
+                        profileUserHandle));
+    }
+
+    public void testCannotStopManagedProfile() {
+        UserHandle profileUserHandle = Utils.getOtherProfile(mContext);
+        assertNotNull(profileUserHandle);
+        assertEquals(UserManager.USER_OPERATION_ERROR_MANAGED_PROFILE,
+                mDevicePolicyManager.stopUser(AdminReceiver.getComponentName(mContext),
+                        profileUserHandle));
+    }
+
+    public void testCannotLogoutManagedProfile() {
+        assertEquals(UserManager.USER_OPERATION_ERROR_MANAGED_PROFILE,
+                mDevicePolicyManager.logoutUser(AdminReceiver.getComponentName(mContext)));
     }
 }

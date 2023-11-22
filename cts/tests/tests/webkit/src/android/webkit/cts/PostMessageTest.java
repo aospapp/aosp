@@ -101,12 +101,26 @@ public class PostMessageTest extends ActivityInstrumentationTestCase2<WebViewCts
 
     // Post a string message to main frame and make sure it is received.
     public void testSimpleMessageToMainFrame() throws Throwable {
+        verifyPostMessageToOrigin(Uri.parse(BASE_URI));
+    }
+
+    // Post a string message to main frame passing a wildcard as target origin
+    public void testWildcardOriginMatchesAnything() throws Throwable {
+        verifyPostMessageToOrigin(Uri.parse("*"));
+    }
+
+    // Post a string message to main frame passing an empty string as target origin
+    public void testEmptyStringOriginMatchesAnything() throws Throwable {
+        verifyPostMessageToOrigin(Uri.parse(""));
+    }
+
+    private void verifyPostMessageToOrigin(Uri origin) throws Throwable {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
         }
         loadPage(TITLE_FROM_POST_MESSAGE);
         WebMessage message = new WebMessage(WEBVIEW_MESSAGE);
-        mOnUiThread.postWebMessage(message, Uri.parse(BASE_URI));
+        mOnUiThread.postWebMessage(message, origin);
         waitForTitle(WEBVIEW_MESSAGE);
     }
 

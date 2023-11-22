@@ -104,11 +104,6 @@ interface INetworkManagementService
     void setIPv6AddrGenMode(String iface, int mode);
 
     /**
-     * Enables or enables IPv6 ND offload.
-     */
-    void setInterfaceIpv6NdOffload(String iface, boolean enable);
-
-    /**
      * Add the specified route to the interface.
      */
     void addRoute(int netId, in RouteInfo route);
@@ -273,10 +268,12 @@ interface INetworkManagementService
     NetworkStats getNetworkStatsDetail();
 
     /**
-     * Return detailed network statistics for the requested UID,
+     * Return detailed network statistics for the requested UID and interfaces,
      * including interface and tag details.
+     * @param uid UID to obtain statistics for, or {@link NetworkStats#UID_ALL}.
+     * @param ifaces Interfaces to obtain statistics for, or {@link NetworkStats#INTERFACES_ALL}.
      */
-    NetworkStats getNetworkStatsUidDetail(int uid);
+    NetworkStats getNetworkStatsUidDetail(int uid, in String[] ifaces);
 
     /**
      * Return summary of network statistics all tethering interfaces.
@@ -344,7 +341,8 @@ interface INetworkManagementService
     /**
      * Configure name servers, search paths, and resolver parameters for the given network.
      */
-    void setDnsConfigurationForNetwork(int netId, in String[] servers, String domains);
+    void setDnsConfigurationForNetwork(int netId, in String[] servers, in String[] domains,
+            in int[] params, String tlsHostname, in String[] tlsServers);
 
     void setFirewallEnabled(boolean enabled);
     boolean isFirewallEnabled();

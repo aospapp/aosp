@@ -35,7 +35,7 @@ prog="${progdir}"/`basename "${prog}"`
 cd "${oldwd}"
 
 
-jarfile=smalilib.jar
+jarfile=smali.jar
 libdir="$progdir"
 
 if [ ! -r "$libdir/$jarfile" ]; then

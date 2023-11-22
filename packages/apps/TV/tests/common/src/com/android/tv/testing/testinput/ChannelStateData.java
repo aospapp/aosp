@@ -19,25 +19,23 @@ package com.android.tv.testing.testinput;
 import android.media.tv.TvTrackInfo;
 import android.os.Parcel;
 import android.os.Parcelable;
-
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Mutable unversioned channel state.
- */
+/** Mutable unversioned channel state. */
 public final class ChannelStateData implements Parcelable {
-    public static final Creator<ChannelStateData> CREATOR = new Creator<ChannelStateData>() {
-        @Override
-        public ChannelStateData createFromParcel(Parcel in) {
-            return new ChannelStateData(in);
-        }
+    public static final Creator<ChannelStateData> CREATOR =
+            new Creator<ChannelStateData>() {
+                @Override
+                public ChannelStateData createFromParcel(Parcel in) {
+                    return new ChannelStateData(in);
+                }
 
-        @Override
-        public ChannelStateData[] newArray(int size) {
-            return new ChannelStateData[size];
-        }
-    };
+                @Override
+                public ChannelStateData[] newArray(int size) {
+                    return new ChannelStateData[size];
+                }
+            };
 
     public final List<TvTrackInfo> mTvTrackInfos = new ArrayList<>();
     public int mTuneStatus = ChannelState.TUNE_STATUS_VIDEO_AVAILABLE;
@@ -71,9 +69,6 @@ public final class ChannelStateData implements Parcelable {
 
     @Override
     public String toString() {
-        return "{"
-                + "tune=" + mTuneStatus
-                + ", tracks=" + mTvTrackInfos
-                + "}";
+        return "{" + "tune=" + mTuneStatus + ", tracks=" + mTvTrackInfos + "}";
     }
 }

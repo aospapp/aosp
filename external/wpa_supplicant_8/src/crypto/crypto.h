@@ -1,6 +1,6 @@
 /*
  * Wrapper functions for crypto libraries
- * Copyright (c) 2004-2013, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2004-2017, Jouni Malinen <j@w1.fi>
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -106,8 +106,9 @@ int sha512_vector(size_t num_elem, const u8 *addr[], const size_t *len,
  * @clear: 8 octets (in)
  * @key: 7 octets (in) (no parity bits included)
  * @cypher: 8 octets (out)
+ * Returns: 0 on success, -1 on failure
  */
-void des_encrypt(const u8 *clear, const u8 *key, u8 *cypher);
+int des_encrypt(const u8 *clear, const u8 *key, u8 *cypher);
 
 /**
  * aes_encrypt_init - Initialize AES for encryption
@@ -122,8 +123,9 @@ void * aes_encrypt_init(const u8 *key, size_t len);
  * @ctx: Context pointer from aes_encrypt_init()
  * @plain: Plaintext data to be encrypted (16 bytes)
  * @crypt: Buffer for the encrypted data (16 bytes)
+ * Returns: 0 on success, -1 on failure
  */
-void aes_encrypt(void *ctx, const u8 *plain, u8 *crypt);
+int aes_encrypt(void *ctx, const u8 *plain, u8 *crypt);
 
 /**
  * aes_encrypt_deinit - Deinitialize AES encryption
@@ -144,8 +146,9 @@ void * aes_decrypt_init(const u8 *key, size_t len);
  * @ctx: Context pointer from aes_encrypt_init()
  * @crypt: Encrypted data (16 bytes)
  * @plain: Buffer for the decrypted data (16 bytes)
+ * Returns: 0 on success, -1 on failure
  */
-void aes_decrypt(void *ctx, const u8 *crypt, u8 *plain);
+int aes_decrypt(void *ctx, const u8 *crypt, u8 *plain);
 
 /**
  * aes_decrypt_deinit - Deinitialize AES decryption
@@ -828,5 +831,13 @@ int crypto_ec_point_is_on_curve(struct crypto_ec *e,
 int crypto_ec_point_cmp(const struct crypto_ec *e,
 			const struct crypto_ec_point *a,
 			const struct crypto_ec_point *b);
+
+struct crypto_ecdh;
+
+struct crypto_ecdh * crypto_ecdh_init(int group);
+struct wpabuf * crypto_ecdh_get_pubkey(struct crypto_ecdh *ecdh, int inc_y);
+struct wpabuf * crypto_ecdh_set_peerkey(struct crypto_ecdh *ecdh, int inc_y,
+					const u8 *key, size_t len);
+void crypto_ecdh_deinit(struct crypto_ecdh *ecdh);
 
 #endif /* CRYPTO_H */

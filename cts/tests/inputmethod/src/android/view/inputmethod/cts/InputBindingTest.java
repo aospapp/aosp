@@ -59,5 +59,7 @@ public class InputBindingTest {
         assertEquals(uid, target.getUid());
         assertEquals(pid, target.getPid());
         assertSame(binder, target.getConnectionToken());
+
+        p.recycle();
     }
 }

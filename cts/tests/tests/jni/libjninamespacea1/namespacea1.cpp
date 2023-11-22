@@ -18,7 +18,7 @@
 
 #include <android/log.h>
 #include <jni.h>
-#include <JNIHelp.h>
+#include <nativehelper/JNIHelp.h>
 
 #define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,"namespacea1",__VA_ARGS__)
 

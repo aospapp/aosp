@@ -554,7 +554,7 @@ public class Packet {
         }
         reading_data_index = reading_data_index
                 + TypesLengths.getTypeLength(TypesLengths.OBJECT_ID);
-        return (int) readFromByteArray(data, reading_data_index
+        return readFromByteArray(data, reading_data_index
                 - TypesLengths.getTypeLength(TypesLengths.OBJECT_ID),
                 TypesLengths.getTypeLength(TypesLengths.OBJECT_ID));
     }
@@ -706,7 +706,16 @@ public class Packet {
      *            the ReferenceTypeID value.
      */
     public void setNextValueAsReferenceTypeID(long val) {
-        this.setNextValueAsObjectID(val);
+        final int referenceTypeIdSize = TypesLengths.getTypeLength(TypesLengths.REFERENCE_TYPE_ID);
+        if (referenceTypeIdSize < 0 || referenceTypeIdSize > 8) {
+            throw new TestErrorException(
+                    "Improper ReferenceTypeID value length = " + referenceTypeIdSize);
+        }
+        int new_data_size = data.length + referenceTypeIdSize;
+        byte data_temp[] = data;
+        data = new byte[new_data_size];
+        System.arraycopy(data_temp, 0, data, 0, new_data_size - referenceTypeIdSize);
+        this.writeAtByteArray(val, data, new_data_size - referenceTypeIdSize, referenceTypeIdSize);
     }
 
     /**
@@ -717,7 +726,14 @@ public class Packet {
      * @return the next value of the data of the Packet as VM-sensitive value.
      */
     public long getNextValueAsReferenceTypeID() {
-        return this.getNextValueAsObjectID();
+        final int referenceTypeIdSize = TypesLengths.getTypeLength(TypesLengths.REFERENCE_TYPE_ID);
+        if (referenceTypeIdSize < 0 || referenceTypeIdSize > 8) {
+            throw new TestErrorException(
+                    "Improper ReferenceTypeID value length = " + referenceTypeIdSize + "!");
+        }
+        reading_data_index = reading_data_index + referenceTypeIdSize;
+        return readFromByteArray(data, reading_data_index - referenceTypeIdSize,
+                referenceTypeIdSize);
     }
 
     /**
@@ -729,7 +745,7 @@ public class Packet {
      *            the ClassID value.
      */
     public void setNextValueAsClassID(long val) {
-        this.setNextValueAsObjectID(val);
+        this.setNextValueAsReferenceTypeID(val);
     }
 
     /**
@@ -740,7 +756,7 @@ public class Packet {
      * @return the next value of the data of the Packet as VM-sensitive value.
      */
     public long getNextValueAsClassID() {
-        return this.getNextValueAsObjectID();
+        return this.getNextValueAsReferenceTypeID();
     }
 
     /**
@@ -752,7 +768,7 @@ public class Packet {
      *            the InterfaceID value.
      */
     public void setNextValueAsInterfaceID(long val) {
-        this.setNextValueAsObjectID(val);
+        this.setNextValueAsReferenceTypeID(val);
     }
 
     /**
@@ -763,7 +779,7 @@ public class Packet {
      * @return the next value of the data of the Packet as VM-sensitive value.
      */
     public long getNextValueAsInterfaceID() {
-        return this.getNextValueAsObjectID();
+        return this.getNextValueAsReferenceTypeID();
     }
 
     /**
@@ -775,7 +791,7 @@ public class Packet {
      *            the ArrayTypeID value.
      */
     public void setNextValueAsArrayTypeID(long val) {
-        this.setNextValueAsObjectID(val);
+        this.setNextValueAsReferenceTypeID(val);
     }
 
     /**
@@ -786,7 +802,7 @@ public class Packet {
      * @return the next value of the data of the Packet as VM-sensitive value.
      */
     public long getNextValueAsArrayTypeID() {
-        return this.getNextValueAsObjectID();
+        return this.getNextValueAsReferenceTypeID();
     }
 
     /**

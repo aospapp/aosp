@@ -16,17 +16,23 @@
 
 #include "wificond/net/netlink_utils.h"
 
+#include <bitset>
+#include <map>
 #include <string>
 #include <vector>
 
 #include <linux/netlink.h>
-#include <linux/nl80211.h>
 
 #include <android-base/logging.h>
 
+#include "wificond/net/kernel-header-latest/nl80211.h"
 #include "wificond/net/mlme_event_handler.h"
 #include "wificond/net/nl80211_packet.h"
 
+using std::make_pair;
+using std::make_unique;
+using std::map;
+using std::move;
 using std::string;
 using std::unique_ptr;
 using std::vector;
@@ -39,12 +45,55 @@ namespace {
 uint32_t k2GHzFrequencyLowerBound = 2400;
 uint32_t k2GHzFrequencyUpperBound = 2500;
 
+uint32_t k5GHzFrequencyLowerBound = 5000;
+// This upper bound will exclude any 5.9Ghz channels which belong to 802.11p
+// for "vehicular communication systems".
+uint32_t k5GHzFrequencyUpperBound = 5850;
+
+bool IsExtFeatureFlagSet(
+    const std::vector<uint8_t>& ext_feature_flags_bytes,
+    enum nl80211_ext_feature_index ext_feature_flag) {
+  static_assert(NUM_NL80211_EXT_FEATURES <= SIZE_MAX,
+                "Ext feature values doesn't fit in |size_t|");
+  // TODO:This is an unsafe cast because this assumes that the values
+  // are always unsigned!
+  size_t ext_feature_flag_idx = static_cast<size_t>(ext_feature_flag);
+  size_t ext_feature_flag_byte_pos = ext_feature_flag_idx / 8;
+  size_t ext_feature_flag_bit_pos = ext_feature_flag_idx % 8;
+  if (ext_feature_flag_byte_pos >= ext_feature_flags_bytes.size()) {
+    return false;
+  }
+  uint8_t ext_feature_flag_byte =
+      ext_feature_flags_bytes[ext_feature_flag_byte_pos];
+  return (ext_feature_flag_byte & (1U << ext_feature_flag_bit_pos));
+}
 }  // namespace
+
+WiphyFeatures::WiphyFeatures(uint32_t feature_flags,
+                             const std::vector<uint8_t>& ext_feature_flags_bytes)
+    : supports_random_mac_oneshot_scan(
+            feature_flags & NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR),
+        supports_random_mac_sched_scan(
+            feature_flags & NL80211_FEATURE_SCHED_SCAN_RANDOM_MAC_ADDR) {
+  supports_low_span_oneshot_scan =
+      IsExtFeatureFlagSet(ext_feature_flags_bytes,
+                          NL80211_EXT_FEATURE_LOW_SPAN_SCAN);
+  supports_low_power_oneshot_scan =
+      IsExtFeatureFlagSet(ext_feature_flags_bytes,
+                          NL80211_EXT_FEATURE_LOW_POWER_SCAN);
+  supports_high_accuracy_oneshot_scan =
+      IsExtFeatureFlagSet(ext_feature_flags_bytes,
+                          NL80211_EXT_FEATURE_HIGH_ACCURACY_SCAN);
+}
+
 NetlinkUtils::NetlinkUtils(NetlinkManager* netlink_manager)
     : netlink_manager_(netlink_manager) {
   if (!netlink_manager_->IsStarted()) {
     netlink_manager_->Start();
   }
+  uint32_t protocol_features = 0;
+  supports_split_wiphy_dump_ = GetProtocolFeatures(&protocol_features) &&
+      (protocol_features & NL80211_PROTOCOL_FEATURE_SPLIT_WIPHY_DUMP);
 }
 
 NetlinkUtils::~NetlinkUtils() {}
@@ -192,6 +241,25 @@ bool NetlinkUtils::SetInterfaceMode(uint32_t interface_index,
   return true;
 }
 
+bool NetlinkUtils::GetProtocolFeatures(uint32_t* features) {
+  NL80211Packet get_protocol_features(
+      netlink_manager_->GetFamilyId(),
+      NL80211_CMD_GET_PROTOCOL_FEATURES,
+      netlink_manager_->GetSequenceNumber(),
+      getpid());
+  unique_ptr<const NL80211Packet> response;
+  if (!netlink_manager_->SendMessageAndGetSingleResponse(get_protocol_features,
+                                                         &response)) {
+    LOG(ERROR) << "NL80211_CMD_GET_PROTOCOL_FEATURES failed";
+    return false;
+  }
+  if (!response->GetAttributeValue(NL80211_ATTR_PROTOCOL_FEATURES, features)) {
+    LOG(ERROR) << "Failed to get NL80211_ATTR_PROTOCOL_FEATURES";
+    return false;
+  }
+  return true;
+}
+
 bool NetlinkUtils::GetWiphyInfo(
     uint32_t wiphy_index,
     BandInfo* out_band_info,
@@ -203,28 +271,72 @@ bool NetlinkUtils::GetWiphyInfo(
       netlink_manager_->GetSequenceNumber(),
       getpid());
   get_wiphy.AddAttribute(NL80211Attr<uint32_t>(NL80211_ATTR_WIPHY, wiphy_index));
-  unique_ptr<const NL80211Packet> response;
-  if (!netlink_manager_->SendMessageAndGetSingleResponse(get_wiphy,
-                                                         &response)) {
-    LOG(ERROR) << "NL80211_CMD_GET_WIPHY failed";
+  if (supports_split_wiphy_dump_) {
+    get_wiphy.AddFlagAttribute(NL80211_ATTR_SPLIT_WIPHY_DUMP);
+    get_wiphy.AddFlag(NLM_F_DUMP);
+  }
+  vector<unique_ptr<const NL80211Packet>> response;
+  if (!netlink_manager_->SendMessageAndGetResponses(get_wiphy, &response))  {
+    LOG(ERROR) << "NL80211_CMD_GET_WIPHY dump failed";
     return false;
   }
-  if (response->GetCommand() != NL80211_CMD_NEW_WIPHY) {
+
+  vector<NL80211Packet> packet_per_wiphy;
+  if (supports_split_wiphy_dump_) {
+    if (!MergePacketsForSplitWiphyDump(response, &packet_per_wiphy)) {
+      LOG(WARNING) << "Failed to merge responses from split wiphy dump";
+    }
+  } else {
+    for (auto& packet : response) {
+      packet_per_wiphy.push_back(move(*(packet.release())));
+    }
+  }
+
+  for (const auto& packet : packet_per_wiphy) {
+    uint32_t current_wiphy_index;
+    if (!packet.GetAttributeValue(NL80211_ATTR_WIPHY, &current_wiphy_index) ||
+        // Not the wihpy we requested.
+        current_wiphy_index != wiphy_index) {
+      continue;
+    }
+    if (ParseWiphyInfoFromPacket(packet, out_band_info,
+                                 out_scan_capabilities, out_wiphy_features)) {
+      return true;
+    }
+  }
+
+  LOG(ERROR) << "Failed to find expected wiphy info "
+             << "from NL80211_CMD_GET_WIPHY responses";
+  return false;
+}
+
+bool NetlinkUtils::ParseWiphyInfoFromPacket(
+    const NL80211Packet& packet,
+    BandInfo* out_band_info,
+    ScanCapabilities* out_scan_capabilities,
+    WiphyFeatures* out_wiphy_features) {
+  if (packet.GetCommand() != NL80211_CMD_NEW_WIPHY) {
     LOG(ERROR) << "Wrong command in response to a get wiphy request: "
-               << static_cast<int>(response->GetCommand());
+               << static_cast<int>(packet.GetCommand());
     return false;
   }
-  if (!ParseBandInfo(response.get(), out_band_info) ||
-      !ParseScanCapabilities(response.get(), out_scan_capabilities)) {
+  if (!ParseBandInfo(&packet, out_band_info) ||
+      !ParseScanCapabilities(&packet, out_scan_capabilities)) {
     return false;
   }
   uint32_t feature_flags;
-  if (!response->GetAttributeValue(NL80211_ATTR_FEATURE_FLAGS,
-                                   &feature_flags)) {
+  if (!packet.GetAttributeValue(NL80211_ATTR_FEATURE_FLAGS,
+                                 &feature_flags)) {
     LOG(ERROR) << "Failed to get NL80211_ATTR_FEATURE_FLAGS";
     return false;
   }
-  *out_wiphy_features = WiphyFeatures(feature_flags);
+  std::vector<uint8_t> ext_feature_flags_bytes;
+  if (!packet.GetAttributeValue(NL80211_ATTR_EXT_FEATURES,
+                                &ext_feature_flags_bytes)) {
+    LOG(WARNING) << "Failed to get NL80211_ATTR_EXT_FEATURES";
+  }
+  *out_wiphy_features = WiphyFeatures(feature_flags,
+                                      ext_feature_flags_bytes);
   return true;
 }
 
@@ -311,24 +423,33 @@ bool NetlinkUtils::ParseBandInfo(const NL80211Packet* const packet,
       if (freq.HasAttribute(NL80211_FREQUENCY_ATTR_DISABLED)) {
         continue;
       }
-      // If this is an available/usable DFS frequency, we should save it to
-      // DFS frequencies list.
-      uint32_t dfs_state;
-      if (freq.GetAttributeValue(NL80211_FREQUENCY_ATTR_DFS_STATE,
-                                 &dfs_state) &&
-          (dfs_state == NL80211_DFS_AVAILABLE ||
-               dfs_state == NL80211_DFS_USABLE)) {
-        frequencies_dfs.push_back(frequency_value);
-      } else {
-        // Since there is no guarantee for the order of band attributes,
-        // we do some math here.
-        if (frequency_value > k2GHzFrequencyLowerBound &&
+      if (frequency_value > k2GHzFrequencyLowerBound &&
             frequency_value < k2GHzFrequencyUpperBound) {
           frequencies_2g.push_back(frequency_value);
-        } else {
-          frequencies_5g.push_back(frequency_value);
+      } else if (frequency_value > k5GHzFrequencyLowerBound &&
+            frequency_value < k5GHzFrequencyUpperBound) {
+        // If this is an available/usable DFS frequency, we should save it to
+        // DFS frequencies list.
+        uint32_t dfs_state;
+        if (freq.GetAttributeValue(NL80211_FREQUENCY_ATTR_DFS_STATE,
+                                   &dfs_state) &&
+            (dfs_state == NL80211_DFS_AVAILABLE ||
+                 dfs_state == NL80211_DFS_USABLE)) {
+          frequencies_dfs.push_back(frequency_value);
+          continue;
         }
+
+        // Put non-dfs passive-only channels into the dfs category.
+        // This aligns with what framework always assumes.
+        if (freq.HasAttribute(NL80211_FREQUENCY_ATTR_NO_IR)) {
+          frequencies_dfs.push_back(frequency_value);
+          continue;
+        }
+
+        // Otherwise, this is a regular 5g frequency.
+        frequencies_5g.push_back(frequency_value);
       }
+
     }
   }
   *out_band_info = BandInfo(frequencies_2g, frequencies_5g, frequencies_dfs);
@@ -395,6 +516,80 @@ bool NetlinkUtils::GetStationInfo(uint32_t interface_index,
   return true;
 }
 
+// This is a helper function for merging split NL80211_CMD_NEW_WIPHY packets.
+// For example:
+// First NL80211_CMD_NEW_WIPHY has attribute A with payload 0x1234.
+// Second NL80211_CMD_NEW_WIPHY has attribute A with payload 0x5678.
+// The generated NL80211_CMD_NEW_WIPHY will have attribute A with
+// payload 0x12345678.
+// NL80211_ATTR_WIPHY, NL80211_ATTR_IFINDEX, and NL80211_ATTR_WDEV
+// are used for filtering packets so we know which packets should
+// be merged together.
+bool NetlinkUtils::MergePacketsForSplitWiphyDump(
+    const vector<unique_ptr<const NL80211Packet>>& split_dump_info,
+    vector<NL80211Packet>* packet_per_wiphy) {
+  map<uint32_t, map<int, BaseNL80211Attr>> attr_by_wiphy_and_id;
+
+  // Construct the map using input packets.
+  for (const auto& packet : split_dump_info) {
+    uint32_t wiphy_index;
+    if (!packet->GetAttributeValue(NL80211_ATTR_WIPHY, &wiphy_index)) {
+      LOG(ERROR) << "Failed to get NL80211_ATTR_WIPHY from wiphy split dump";
+      return false;
+    }
+    vector<BaseNL80211Attr> attributes;
+    if (!packet->GetAllAttributes(&attributes)) {
+      return false;
+    }
+    for (auto& attr : attributes) {
+      int attr_id = attr.GetAttributeId();
+      if (attr_id != NL80211_ATTR_WIPHY &&
+          attr_id != NL80211_ATTR_IFINDEX &&
+              attr_id != NL80211_ATTR_WDEV) {
+          auto attr_id_and_attr =
+              attr_by_wiphy_and_id[wiphy_index].find(attr_id);
+          if (attr_id_and_attr == attr_by_wiphy_and_id[wiphy_index].end()) {
+            attr_by_wiphy_and_id[wiphy_index].
+                insert(make_pair(attr_id, move(attr)));
+          } else {
+            attr_id_and_attr->second.Merge(attr);
+          }
+      }
+    }
+  }
+
+  // Generate output packets using the constructed map.
+  for (const auto& wiphy_and_attributes : attr_by_wiphy_and_id) {
+    NL80211Packet new_wiphy(0, NL80211_CMD_NEW_WIPHY, 0, 0);
+    new_wiphy.AddAttribute(
+        NL80211Attr<uint32_t>(NL80211_ATTR_WIPHY, wiphy_and_attributes.first));
+    for (const auto& attr : wiphy_and_attributes.second) {
+      new_wiphy.AddAttribute(attr.second);
+    }
+    packet_per_wiphy->emplace_back(move(new_wiphy));
+  }
+  return true;
+}
+
+bool NetlinkUtils::GetCountryCode(string* out_country_code) {
+  NL80211Packet get_country_code(
+      netlink_manager_->GetFamilyId(),
+      NL80211_CMD_GET_REG,
+      netlink_manager_->GetSequenceNumber(),
+      getpid());
+  unique_ptr<const NL80211Packet> response;
+  if (!netlink_manager_->SendMessageAndGetSingleResponse(get_country_code,
+                                                         &response)) {
+    LOG(ERROR) << "NL80211_CMD_GET_REG failed";
+    return false;
+  }
+  if (!response->GetAttributeValue(NL80211_ATTR_REG_ALPHA2, out_country_code)) {
+    LOG(ERROR) << "Get NL80211_ATTR_REG_ALPHA2 failed";
+    return false;
+  }
+  return true;
+}
+
 void NetlinkUtils::SubscribeMlmeEvent(uint32_t interface_index,
                                       MlmeEventHandler* handler) {
   netlink_manager_->SubscribeMlmeEvent(interface_index, handler);
@@ -422,6 +617,16 @@ void NetlinkUtils::SubscribeStationEvent(uint32_t interface_index,
 void NetlinkUtils::UnsubscribeStationEvent(uint32_t interface_index) {
   netlink_manager_->UnsubscribeStationEvent(interface_index);
 }
+
+void NetlinkUtils::SubscribeChannelSwitchEvent(uint32_t interface_index,
+                                         OnChannelSwitchEventHandler handler) {
+  netlink_manager_->SubscribeChannelSwitchEvent(interface_index, handler);
+}
+
+void NetlinkUtils::UnsubscribeChannelSwitchEvent(uint32_t interface_index) {
+  netlink_manager_->UnsubscribeChannelSwitchEvent(interface_index);
+}
+
 
 }  // namespace wificond
 }  // namespace android

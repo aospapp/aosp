@@ -32,7 +32,9 @@ public class NoKeyPermissionTest extends AndroidTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         mKeyManager = (KeyguardManager) mContext.getSystemService(Context.KEYGUARD_SERVICE);
-        mKeyLock = mKeyManager.newKeyguardLock("testTag");
+        if (mKeyManager != null) {
+            mKeyLock = mKeyManager.newKeyguardLock("testTag");
+        }
     }
 
     /**
@@ -42,6 +44,10 @@ public class NoKeyPermissionTest extends AndroidTestCase {
      */
     @SmallTest
     public void testDisableKeyguard() {
+        // KeyguardManager was not accessible, pass.
+        if (mKeyManager == null) {
+            return;
+        }
         try {
             mKeyLock.disableKeyguard();
             fail("KeyguardManager.KeyguardLock.disableKeyguard did not throw SecurityException as"
@@ -58,6 +64,10 @@ public class NoKeyPermissionTest extends AndroidTestCase {
      */
     @SmallTest
     public void testReenableKeyguard() {
+        // KeyguardManager was not accessible, pass.
+        if (mKeyManager == null) {
+            return;
+        }
         try {
             mKeyLock.reenableKeyguard();
             fail("KeyguardManager.KeyguardLock.reenableKeyguard did not throw SecurityException as"
@@ -74,6 +84,10 @@ public class NoKeyPermissionTest extends AndroidTestCase {
      */
     @SmallTest
     public void testExitKeyguardSecurely() {
+        // KeyguardManager was not accessible, pass.
+        if (mKeyManager == null) {
+            return;
+        }
         try {
             mKeyManager.exitKeyguardSecurely(null);
             fail("KeyguardManager.exitKeyguardSecurely did not throw SecurityException as"

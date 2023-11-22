@@ -15,8 +15,8 @@
  */
 package com.android.car.dialer;
 
-import android.animation.Animator;
-import android.animation.ObjectAnimator;
+import static com.android.car.dialer.ui.CallHistoryFragment.CALL_TYPE_KEY;
+
 import android.content.Intent;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
@@ -24,21 +24,23 @@ import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.annotation.StringRes;
 import android.support.v4.app.Fragment;
-import android.support.v4.view.animation.FastOutSlowInInterpolator;
 import android.telecom.Call;
 import android.telephony.PhoneNumberUtils;
 import android.util.Log;
-import android.view.View;
 
-import com.android.car.app.CarDrawerActivity;
-import com.android.car.app.CarDrawerAdapter;
-import com.android.car.app.DrawerItemViewHolder;
+import androidx.car.drawer.CarDrawerActivity;
+import androidx.car.drawer.CarDrawerAdapter;
+import androidx.car.drawer.DrawerItemViewHolder;
+
+import com.android.car.dialer.telecom.InMemoryPhoneBook;
 import com.android.car.dialer.telecom.PhoneLoader;
 import com.android.car.dialer.telecom.UiCall;
 import com.android.car.dialer.telecom.UiCallManager;
-import com.android.car.dialer.telecom.UiCallManager.CallListener;
+import com.android.car.dialer.ui.CallHistoryFragment;
+import com.android.car.dialer.ui.ContactListFragment;
+import com.android.car.dialer.ui.InCallFragment;
 
-import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Main activity for the Dialer app. Displays different fragments depending on call and
@@ -50,8 +52,7 @@ import java.util.List;
  * <li>StrequentFragment
  * </ul>
  */
-public class TelecomActivity extends CarDrawerActivity implements
-        DialerFragment.DialerBackButtonListener {
+public class TelecomActivity extends CarDrawerActivity implements CallListener {
     private static final String TAG = "TelecomActivity";
 
     private static final String ACTION_ANSWER_CALL = "com.android.car.dialer.ANSWER_CALL";
@@ -79,6 +80,7 @@ public class TelecomActivity extends CarDrawerActivity implements
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setToolbarElevation(0f);
 
         if (vdebug()) {
             Log.d(TAG, "onCreate");
@@ -86,13 +88,17 @@ public class TelecomActivity extends CarDrawerActivity implements
 
         setMainContent(R.layout.telecom_activity);
         getWindow().getDecorView().setBackgroundColor(getColor(R.color.phone_theme));
-        setTitle(getString(R.string.phone_app_name));
+        updateTitle();
 
-        mUiCallManager = new UiCallManager(this);
+        mUiCallManager = UiCallManager.init(getApplicationContext());
         mUiBluetoothMonitor = new UiBluetoothMonitor(this);
+
+        InMemoryPhoneBook.init(getApplicationContext());
 
         findViewById(R.id.search).setOnClickListener(
                 v -> startActivity(new Intent(this, ContactSearchActivity.class)));
+
+        getDrawerController().setRootAdapter(new DialerRootAdapter());
     }
 
     @Override
@@ -102,13 +108,15 @@ public class TelecomActivity extends CarDrawerActivity implements
             Log.d(TAG, "onDestroy");
         }
         mUiBluetoothMonitor.tearDown();
+        InMemoryPhoneBook.tearDown();
+        mUiCallManager.tearDown();
         mUiCallManager = null;
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        mUiCallManager.removeListener(mCarCallListener);
+        mUiCallManager.removeListener(this);
         mUiBluetoothMonitor.removeListener(mBluetoothListener);
     }
 
@@ -142,7 +150,7 @@ public class TelecomActivity extends CarDrawerActivity implements
         updateCurrentFragment();
         handleIntent();
 
-        mUiCallManager.addListener(mCarCallListener);
+        mUiCallManager.addListener(this);
         mUiBluetoothMonitor.addListener(mBluetoothListener);
     }
 
@@ -221,7 +229,7 @@ public class TelecomActivity extends CarDrawerActivity implements
                         + getCurrentFragment());
             }
 
-            if (ongoingCall == null && getCurrentFragment() instanceof OngoingCallFragment) {
+            if (ongoingCall == null && getCurrentFragment() instanceof InCallFragment) {
                 showSpeedDialFragment();
             } else if (ongoingCall != null) {
                 showOngoingCallFragment();
@@ -244,29 +252,24 @@ public class TelecomActivity extends CarDrawerActivity implements
             return;
         }
 
-        Fragment fragment = StrequentsFragment.newInstance(mUiCallManager);
-        if (getCurrentFragment() instanceof DialerFragment) {
-            setContentFragmentWithSlideAndDelayAnimation(fragment);
-        } else {
-            setContentFragmentWithFadeAnimation(fragment);
-        }
+        Fragment fragment = StrequentsFragment.newInstance();
+        setContentFragment(fragment);
     }
 
     private void showOngoingCallFragment() {
         if (vdebug()) {
             Log.d(TAG, "showOngoingCallFragment");
         }
-        if (!mAllowFragmentCommits || getCurrentFragment() instanceof OngoingCallFragment) {
+        if (!mAllowFragmentCommits || getCurrentFragment() instanceof InCallFragment) {
             // in case the dialer is still open, (e.g. when dialing the second phone during
             // a phone call), close it
             maybeHideDialer();
-            closeDrawer();
+            getDrawerController().closeDrawer();
             return;
         }
-
-        Fragment fragment = OngoingCallFragment.newInstance(mUiCallManager, mUiBluetoothMonitor);
+        Fragment fragment = InCallFragment.newInstance();
         setContentFragmentWithFadeAnimation(fragment);
-        closeDrawer();
+        getDrawerController().closeDrawer();
     }
 
     private void showDialer() {
@@ -290,24 +293,9 @@ public class TelecomActivity extends CarDrawerActivity implements
             return;
         }
 
-        Fragment fragment =
-                DialerFragment.newInstance(mUiCallManager, this /* listener */, dialNumber);
-
-        if (Log.isLoggable(TAG, Log.VERBOSE)) {
-            Log.v(TAG, "adding dialer to fragment backstack");
-        }
-
+        Fragment fragment = DialerFragment.newInstance(dialNumber);
         // Add the dialer fragment to the backstack so that it can be popped off to dismiss it.
-        getSupportFragmentManager().beginTransaction()
-                .setCustomAnimations(R.anim.telecom_slide_in, R.anim.telecom_slide_out,
-                        R.anim.telecom_slide_in, R.anim.telecom_slide_out)
-                .add(R.id.content_fragment_container, fragment, DIALER_FRAGMENT_TAG)
-                .addToBackStack(DIALER_BACKSTACK)
-                .commit();
-
-        if (Log.isLoggable(TAG, Log.VERBOSE)) {
-            Log.v(TAG, "done adding fragment to backstack");
-        }
+        setContentFragment(fragment);
     }
 
     /**
@@ -319,11 +307,6 @@ public class TelecomActivity extends CarDrawerActivity implements
         if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
             getSupportFragmentManager().popBackStack();
         }
-    }
-
-    @Override
-    public void onDialerBackClick() {
-        maybeHideDialer();
     }
 
     private void showNoHfpFragment(@StringRes int stringResId) {
@@ -363,6 +346,7 @@ public class TelecomActivity extends CarDrawerActivity implements
         }
 
         maybeHideDialer();
+
         getSupportFragmentManager().beginTransaction()
                 .setCustomAnimations(enter, exit)
                 .replace(R.id.content_fragment_container, fragment, CONTENT_FRAGMENT_TAG)
@@ -379,6 +363,7 @@ public class TelecomActivity extends CarDrawerActivity implements
         getSupportFragmentManager().beginTransaction()
                 .replace(R.id.content_fragment_container, fragment, CONTENT_FRAGMENT_TAG)
                 .commitNow();
+        updateTitle();
     }
 
     /**
@@ -392,97 +377,85 @@ public class TelecomActivity extends CarDrawerActivity implements
         return getSupportFragmentManager().findFragmentByTag(CONTENT_FRAGMENT_TAG);
     }
 
-    private final CallListener mCarCallListener = new UiCallManager.CallListener() {
-        @Override
-        public void onCallAdded(UiCall call) {
-            if (vdebug()) {
-                Log.d(TAG, "onCallAdded");
-            }
-            updateCurrentFragment();
-        }
-
-        @Override
-        public void onCallRemoved(UiCall call) {
-            if (vdebug()) {
-                Log.d(TAG, "onCallRemoved");
-            }
-            updateCurrentFragment();
-        }
-
-        @Override
-        public void onStateChanged(UiCall call, int state) {
-            if (vdebug()) {
-                Log.d(TAG, "onStateChanged");
-            }
-            updateCurrentFragment();
-        }
-
-        @Override
-        public void onCallUpdated(UiCall call) {
-            if (vdebug()) {
-                Log.d(TAG, "onCallUpdated");
-            }
-            updateCurrentFragment();
-        }
-    };
-
     private static boolean vdebug() {
         return Log.isLoggable(TAG, Log.DEBUG);
     }
 
     @Override
-    protected CarDrawerAdapter getRootAdapter() {
-        return new DialerRootAdapter();
+    public void onAudioStateChanged(boolean isMuted, int route, int supportedRouteMask) {
+        fragmentsToPropagateCallback().forEach(fragment -> ((CallListener) fragment)
+                .onAudioStateChanged(isMuted, route, supportedRouteMask));
     }
 
-    class CallLogAdapter extends CarDrawerAdapter {
-        private List<CallLogListingTask.CallLogItem> mItems;
-
-        public CallLogAdapter(int titleResId, List<CallLogListingTask.CallLogItem> items) {
-            super(TelecomActivity.this, true  /* showDisabledListOnEmpty */);
-            setTitle(getString(titleResId));
-            mItems = items;
+    @Override
+    public void onCallStateChanged(UiCall call, int state) {
+        if (vdebug()) {
+            Log.d(TAG, "onCallStateChanged");
         }
+        updateCurrentFragment();
 
-        @Override
-        protected boolean usesSmallLayout(int position) {
-            return false;
-        }
+        fragmentsToPropagateCallback().forEach(fragment -> ((CallListener) fragment)
+                .onCallStateChanged(call, state));
+    }
 
-        @Override
-        protected int getActualItemCount() {
-            return mItems.size();
+    @Override
+    public void onCallUpdated(UiCall call) {
+        if (vdebug()) {
+            Log.d(TAG, "onCallUpdated");
         }
+        updateCurrentFragment();
 
-        @Override
-        public void populateViewHolder(DrawerItemViewHolder holder, int position) {
-            CallLogListingTask.CallLogItem item = mItems.get(position);
-            holder.getTitle().setText(item.mTitle);
-            holder.getText().setText(item.mText);
-            holder.getIcon().setImageBitmap(item.mIcon);
-        }
+        fragmentsToPropagateCallback().forEach(fragment -> ((CallListener) fragment)
+                .onCallUpdated(call));
+    }
 
-        @Override
-        public void onItemClick(int position) {
-            closeDrawer();
-            mUiCallManager.safePlaceCall(mItems.get(position).mNumber, false);
+    @Override
+    public void onCallAdded(UiCall call) {
+        if (vdebug()) {
+            Log.d(TAG, "onCallAdded");
         }
+        updateCurrentFragment();
+
+        fragmentsToPropagateCallback().forEach(fragment -> ((CallListener) fragment)
+                .onCallAdded(call));
+    }
+
+    @Override
+    public void onCallRemoved(UiCall call) {
+        if (vdebug()) {
+            Log.d(TAG, "onCallRemoved");
+        }
+        updateCurrentFragment();
+
+        fragmentsToPropagateCallback().forEach(fragment -> ((CallListener) fragment)
+                .onCallRemoved(call));
+    }
+
+    private static boolean shouldPropagateCallback(Fragment fragment) {
+        return fragment instanceof CallListener && fragment.isAdded();
+    }
+
+    private Stream<Fragment> fragmentsToPropagateCallback() {
+        return getSupportFragmentManager().getFragments().stream()
+                .filter(fragment -> shouldPropagateCallback(fragment));
     }
 
     private class DialerRootAdapter extends CarDrawerAdapter {
-        private static final int ITEM_DIAL = 0;
+        private static final int ITEM_FAVORITES = 0;
         private static final int ITEM_CALLLOG_ALL = 1;
         private static final int ITEM_CALLLOG_MISSED = 2;
-        private static final int ITEM_MAX = 3;
+        private static final int ITEM_CONTACT = 3;
+        private static final int ITEM_DIAL = 4;
+
+        private static final int ITEM_COUNT = 5;
 
         DialerRootAdapter() {
             super(TelecomActivity.this, false /* showDisabledListOnEmpty */);
-            setTitle(getString(R.string.phone_app_name));
         }
 
         @Override
         protected int getActualItemCount() {
-            return ITEM_MAX;
+            return ITEM_COUNT;
         }
 
         @Override
@@ -500,7 +473,15 @@ public class TelecomActivity extends CarDrawerActivity implements
                     break;
                 case ITEM_CALLLOG_MISSED:
                     textResId = R.string.calllog_missed;
-                    iconResId = R.drawable.ic_drawer_call_missed;
+                    iconResId = R.drawable.ic_call_missed;
+                    break;
+                case ITEM_FAVORITES:
+                    textResId = R.string.calllog_favorites;
+                    iconResId = R.drawable.ic_favorite;
+                    break;
+                case ITEM_CONTACT:
+                    textResId = R.string.contact_menu_label;
+                    iconResId = R.drawable.ic_contact;
                     break;
                 default:
                     Log.wtf(TAG, "Unexpected position: " + position);
@@ -510,48 +491,69 @@ public class TelecomActivity extends CarDrawerActivity implements
             Drawable drawable = getDrawable(iconResId);
             drawable.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
             holder.getIcon().setImageDrawable(drawable);
-            if (position > 0) {
-                drawable = getDrawable(R.drawable.ic_chevron_right);
-                drawable.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
-                holder.getRightIcon().setImageDrawable(drawable);
-            }
         }
 
         @Override
         public void onItemClick(int position) {
+            getDrawerController().closeDrawer();
             switch (position) {
                 case ITEM_DIAL:
-                    closeDrawer();
                     showDialer();
                     break;
                 case ITEM_CALLLOG_ALL:
-                    loadCallHistoryAsync(PhoneLoader.CALL_TYPE_ALL, R.string.calllog_all);
+                    showCallHistory(PhoneLoader.CallType.CALL_TYPE_ALL);
                     break;
                 case ITEM_CALLLOG_MISSED:
-                    loadCallHistoryAsync(PhoneLoader.CALL_TYPE_MISSED, R.string.calllog_missed);
+                    showCallHistory(PhoneLoader.CallType.MISSED_TYPE);
+                    break;
+                case ITEM_FAVORITES:
+                    showSpeedDialFragment();
+                    break;
+                case ITEM_CONTACT:
+                    showContact();
                     break;
                 default:
                     Log.w(TAG, "Invalid position in ROOT menu! " + position);
             }
+            setTitle(getTitleString());
         }
     }
 
-    private void loadCallHistoryAsync(final int callType, final int titleResId) {
-        showLoadingProgressBar(true);
-        // Warning: much callbackiness!
-        // First load up the call log cursor using the PhoneLoader so that happens in a
-        // background thread. TODO: Why isn't PhoneLoader using a LoaderManager?
-        PhoneLoader.registerCallObserver(callType, this,
-            (loader, data) -> {
-                // This callback runs on the thread that created the loader which is
-                // the ui thread so spin off another async task because we still need
-                // to pull together all the data along with the contact photo.
-                CallLogListingTask task = new CallLogListingTask(TelecomActivity.this, data,
-                    (items) -> {
-                            showLoadingProgressBar(false);
-                            switchToAdapter(new CallLogAdapter(titleResId, items));
-                        });
-                task.execute();
-            });
+    private void showCallHistory(@PhoneLoader.CallType int callType) {
+        setContentFragment(CallHistoryFragment.newInstance(callType));
+    }
+
+    private void showContact() {
+        setContentFragment(ContactListFragment.newInstance());
+    }
+
+    private void updateTitle() {
+        setTitle(getTitleString());
+    }
+
+    private String getTitleString() {
+        Fragment currentFragment = getCurrentFragment();
+
+        int titleResId = R.string.phone_app_name;
+
+        if (currentFragment instanceof StrequentsFragment) {
+            titleResId = R.string.contacts_title;
+        } else if (currentFragment instanceof CallHistoryFragment) {
+            int callType = currentFragment.getArguments().getInt(CALL_TYPE_KEY);
+            if (callType == PhoneLoader.CallType.MISSED_TYPE) {
+                titleResId = R.string.missed_call_title;
+            } else {
+                titleResId = R.string.call_history_title;
+            }
+        } else if (currentFragment instanceof ContactListFragment) {
+            titleResId = R.string.contacts_title;
+        } else if (currentFragment instanceof DialerFragment) {
+            titleResId = R.string.dialpad_title;
+        } else if (currentFragment instanceof InCallFragment
+                || currentFragment instanceof OngoingCallFragment) {
+            titleResId = R.string.in_call_title;
+        }
+
+        return getString(titleResId);
     }
 }

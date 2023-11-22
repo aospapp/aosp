@@ -35,18 +35,25 @@ security. Device implementations:
 *   [C-0-8] MUST implement strict kernel memory protections where executable
 code is read-only, read-only data is non-executable and non-writable, and
 writable data is non-executable (e.g. `CONFIG_DEBUG_RODATA` or `CONFIG_STRICT_KERNEL_RWX`).
+*   [C-0-9] MUST implement static and dynamic object size
+bounds checking of copies between user-space and kernel-space
+(e.g. `CONFIG_HARDENED_USERCOPY`) on devices originally shipping with API level
+28 or higher.
+*   [C-0-10] MUST NOT execute user-space memory when executing
+in the kernel mode (e.g. hardware PXN, or emulated via
+`CONFIG_CPU_SW_DOMAIN_PAN` or `CONFIG_ARM64_SW_TTBR0_PAN`) on devices
+originally shipping with API level 28 or higher.
+*   [C-0-11] MUST NOT read or write user-space memory in the
+kernel outside of normal usercopy access APIs (e.g. hardware PAN, or
+emulated via `CONFIG_CPU_SW_DOMAIN_PAN` or `CONFIG_ARM64_SW_TTBR0_PAN`)
+on devices originally shipping with API level 28 or higher.
+*   [C-0-12] MUST implement kernel page table isolation on all devices with CPUs
+vulnerable to CVE-2017-5754 (Meltdown), and on all devices with kernel versions
+4.4 or higher on devices originally shipping with API level 28 or higher
+(e.g. `CONFIG_PAGE_TABLE_ISOLATION` or `CONFIG_UNMAP_KERNEL_AT_EL0).
 *   [SR] STRONGLY RECOMMENDED to keep kernel data
 which is written only during initialization marked read-only after
 initialization (e.g. `__ro_after_init`).
-*   [SR} STRONGLY RECOMMENDED to implement static and dynamic object size
-bounds checking of copies between user-space and kernel-space
-(e.g. `CONFIG_HARDENED_USERCOPY`).
-*   [SR] STRONGLY RECOMMENDED to never execute user-space memory when running
-in the kernel (e.g. hardware PXN, or emulated via
-`CONFIG_CPU_SW_DOMAIN_PAN` or `CONFIG_ARM64_SW_TTBR0_PAN`).
-*   [SR] STRONGLY RECOMMENDED to never read or write user-space memory in the
-kernel outside of normal usercopy access APIs (e.g. hardware PAN, or
-emulated via `CONFIG_CPU_SW_DOMAIN_PAN` or `CONFIG_ARM64_SW_TTBR0_PAN`).
 *   [SR] STRONGLY RECOMMENDED to randomize the layout of the kernel code and
 memory, and to avoid exposures that would compromise the randomization
 (e.g. `CONFIG_RANDOMIZE_BASE` with bootloader entropy via the
@@ -64,6 +71,9 @@ domains are allowed, including domains specific to a device/vendor.
 within the system/sepolicy folder provided in the upstream Android Open Source
 Project (AOSP) and the policy MUST compile with all neverallow rules present,
 for both AOSP SELinux domains as well as device/vendor specific domains.
+*   [C-1-5] MUST run third-party applications targeting API level 28 or higher
+in per-application SELinux sandboxes with per-app SELinux restrictions on each
+application's private data directory.
 *   SHOULD retain the default SELinux policy provided in the system/sepolicy
 folder of the upstream Android Open Source Project and only further add to this
 policy for their own device-specific configuration.

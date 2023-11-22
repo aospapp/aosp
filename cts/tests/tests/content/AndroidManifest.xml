@@ -29,6 +29,7 @@
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <uses-permission android:name="android.permission.BROADCAST_STICKY" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.content.cts.permission.TEST_GRANTED" />
 
     <!-- Used for PackageManager test, don't delete this INTERNET permission -->
@@ -119,7 +120,8 @@
                 android:maxRecents="1"
                 android:multiArch="true"
                 android:name="android.content.cts.MockApplication"
-                android:supportsRtl="true">
+                android:supportsRtl="true"
+                android:appCategory="productivity">
         <activity android:name="android.content.cts.MockActivity">
             <meta-data android:name="android.app.alias"
                 android:resource="@xml/alias" />
@@ -226,7 +228,7 @@
         <provider android:name="android.content.cts.MockRemoteContentProvider"
             android:authorities="remotectstest"
             android:process=":remoteprovider" android:multiprocess="false" />
-        <provider android:name="android.support.v4.content.FileProvider"
+        <provider android:name="androidx.core.content.FileProvider"
             android:authorities="android.content.cts.fileprovider"
             android:grantUriPermissions="true">
             <meta-data
@@ -287,6 +289,24 @@
                 android:exported="true"
                 android:process=":providerProcess">
         </provider>
+
+        <activity android:name="com.android.cts.content.StubActivity"/>
+
+        <service android:name="com.android.cts.content.NotAlwaysSyncableSyncService">
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter"/>
+            </intent-filter>
+            <meta-data android:name="android.content.SyncAdapter"
+                android:resource="@xml/not_always_syncable_account_access_adapter" />
+        </service>
+
+        <service android:name="com.android.cts.content.AlwaysSyncableSyncService">
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter"/>
+            </intent-filter>
+            <meta-data android:name="android.content.SyncAdapter"
+                android:resource="@xml/always_syncable_account_access_adapter" />
+        </service>
 
     </application>
 

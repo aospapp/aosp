@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright 2010-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -60,9 +60,9 @@ extern void bta_gatts_co_update_handle_range(
  *                  false - if the request can not be processed
  *
  ******************************************************************************/
-extern bool bta_gatts_co_srv_chg(tBTA_GATTS_SRV_CHG_CMD cmd,
-                                 tBTA_GATTS_SRV_CHG_REQ* p_req,
-                                 tBTA_GATTS_SRV_CHG_RSP* p_rsp);
+extern bool bta_gatts_co_srv_chg(tGATTS_SRV_CHG_CMD cmd,
+                                 tGATTS_SRV_CHG_REQ* p_req,
+                                 tGATTS_SRV_CHG_RSP* p_rsp);
 
 /*******************************************************************************
  *

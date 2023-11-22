@@ -19,6 +19,8 @@ ndk_headers {
     srcs: [
         "include/vulkan/vk_platform.h",
         "include/vulkan/vulkan.h",
+        "include/vulkan/vulkan_core.h",
+        "include/vulkan/vulkan_android.h",
     ],
     license: "include/vulkan/NOTICE",
 }
@@ -43,8 +45,15 @@ cc_library_headers {
     sdk_version: "24",
 }
 
+llndk_library {
+    name: "libvulkan",
+    symbol_file: "libvulkan/libvulkan.map.txt",
+    export_include_dirs: ["include"],
+}
+
 subdirs = [
     "nulldrv",
     "libvulkan",
     "tools",
+    "vkjson",
 ]

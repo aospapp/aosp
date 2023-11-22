@@ -56,37 +56,39 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
     /**
      * @return the CONTENT_URI exposed. This will be used to send out notifications.
      */
-    abstract protected Uri getContentUri();
+    protected abstract Uri getContentUri();
 
     /**
      * Implementation is provided by the parent class.
      */
     @Override
     public void attachInfo(Context context, ProviderInfo info) {
-       mAuthority = info.authority;
+        mAuthority = info.authority;
 
-       mMatcher = new UriMatcher(UriMatcher.NO_MATCH);
-       mMatcher.addURI(mAuthority, BluetoothMapContract.TABLE_ACCOUNT, MATCH_ACCOUNT);
-       mMatcher.addURI(mAuthority, "#/"+ BluetoothMapContract.TABLE_MESSAGE, MATCH_MESSAGE);
-       mMatcher.addURI(mAuthority, "#/"+ BluetoothMapContract.TABLE_CONVERSATION,
-               MATCH_CONVERSATION);
-       mMatcher.addURI(mAuthority, "#/"+ BluetoothMapContract.TABLE_CONVOCONTACT,
-               MATCH_CONVOCONTACT);
+        mMatcher = new UriMatcher(UriMatcher.NO_MATCH);
+        mMatcher.addURI(mAuthority, BluetoothMapContract.TABLE_ACCOUNT, MATCH_ACCOUNT);
+        mMatcher.addURI(mAuthority, "#/" + BluetoothMapContract.TABLE_MESSAGE, MATCH_MESSAGE);
+        mMatcher.addURI(mAuthority, "#/" + BluetoothMapContract.TABLE_CONVERSATION,
+                MATCH_CONVERSATION);
+        mMatcher.addURI(mAuthority, "#/" + BluetoothMapContract.TABLE_CONVOCONTACT,
+                MATCH_CONVOCONTACT);
 
-       // Sanity check our setup
-       if (!info.exported) {
-           throw new SecurityException("Provider must be exported");
-       }
-       // Enforce correct permissions are used
-       if (!android.Manifest.permission.BLUETOOTH_MAP.equals(info.writePermission)){
-           throw new SecurityException("Provider must be protected by " +
-                   android.Manifest.permission.BLUETOOTH_MAP);
-       }
-       if(D) Log.d(TAG,"attachInfo() mAuthority = " + mAuthority);
+        // Sanity check our setup
+        if (!info.exported) {
+            throw new SecurityException("Provider must be exported");
+        }
+        // Enforce correct permissions are used
+        if (!android.Manifest.permission.BLUETOOTH_MAP.equals(info.writePermission)) {
+            throw new SecurityException(
+                    "Provider must be protected by " + android.Manifest.permission.BLUETOOTH_MAP);
+        }
+        if (D) {
+            Log.d(TAG, "attachInfo() mAuthority = " + mAuthority);
+        }
 
-       mResolver = context.getContentResolver();
-       super.attachInfo(context, info);
-   }
+        mResolver = context.getContentResolver();
+        super.attachInfo(context, info);
+    }
 
     /**
      * This function shall be called when any Account database content have changed
@@ -97,16 +99,18 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
     protected void onAccountChanged(String accountId) {
         Uri newUri = null;
 
-        if(mAuthority == null){
+        if (mAuthority == null) {
             return;
         }
-        if(accountId == null){
+        if (accountId == null) {
             newUri = BluetoothMapContract.buildAccountUri(mAuthority);
         } else {
             newUri = BluetoothMapContract.buildAccountUriwithId(mAuthority, accountId);
         }
 
-        if(D) Log.d(TAG,"onAccountChanged() accountId = " + accountId + " URI: " + newUri);
+        if (D) {
+            Log.d(TAG, "onAccountChanged() accountId = " + accountId + " URI: " + newUri);
+        }
         mResolver.notifyChange(newUri, null);
     }
 
@@ -121,22 +125,23 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
     protected void onMessageChanged(String accountId, String messageId) {
         Uri newUri = null;
 
-        if(mAuthority == null){
+        if (mAuthority == null) {
             return;
         }
-        if(accountId == null){
+        if (accountId == null) {
             newUri = BluetoothMapContract.buildMessageUri(mAuthority);
         } else {
-            if(messageId == null)
-            {
-                newUri = BluetoothMapContract.buildMessageUri(mAuthority,accountId);
+            if (messageId == null) {
+                newUri = BluetoothMapContract.buildMessageUri(mAuthority, accountId);
             } else {
-                newUri = BluetoothMapContract.buildMessageUriWithId(mAuthority,accountId,
+                newUri = BluetoothMapContract.buildMessageUriWithId(mAuthority, accountId,
                         messageId);
             }
         }
-        if(D) Log.d(TAG,"onMessageChanged() accountId = " + accountId
-                + " messageId = " + messageId + " URI: " + newUri);
+        if (D) {
+            Log.d(TAG, "onMessageChanged() accountId = " + accountId + " messageId = " + messageId
+                    + " URI: " + newUri);
+        }
         mResolver.notifyChange(newUri, null);
     }
 
@@ -152,22 +157,23 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
     protected void onContactChanged(String accountId, String contactId) {
         Uri newUri = null;
 
-        if(mAuthority == null){
+        if (mAuthority == null) {
             return;
         }
-        if(accountId == null){
+        if (accountId == null) {
             newUri = BluetoothMapContract.buildConvoContactsUri(mAuthority);
         } else {
-            if(contactId == null)
-            {
-                newUri = BluetoothMapContract.buildConvoContactsUri(mAuthority,accountId);
+            if (contactId == null) {
+                newUri = BluetoothMapContract.buildConvoContactsUri(mAuthority, accountId);
             } else {
                 newUri = BluetoothMapContract.buildConvoContactsUriWithId(mAuthority, accountId,
                         contactId);
             }
         }
-        if(D) Log.d(TAG,"onContactChanged() accountId = " + accountId
-                + " contactId = " + contactId + " URI: " + newUri);
+        if (D) {
+            Log.d(TAG, "onContactChanged() accountId = " + accountId + " contactId = " + contactId
+                    + " URI: " + newUri);
+        }
         mResolver.notifyChange(newUri, null);
     }
 
@@ -188,27 +194,34 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
      */
     @Override
     public int delete(Uri uri, String where, String[] selectionArgs) {
-        if (D) Log.d(TAG, "delete(): uri=" + uri.toString() );
+        if (D) {
+            Log.d(TAG, "delete(): uri=" + uri.toString());
+        }
         int result = 0;
 
         String table = uri.getPathSegments().get(1);
-        if(table == null)
+        if (table == null) {
             throw new IllegalArgumentException("Table missing in URI");
+        }
         // the id of the entry to be deleted from the database
         String messageId = uri.getLastPathSegment();
-        if (messageId == null)
+        if (messageId == null) {
             throw new IllegalArgumentException("Message ID missing in update values!");
+        }
 
         String accountId = getAccountId(uri);
-        if (accountId == null)
+        if (accountId == null) {
             throw new IllegalArgumentException("Account ID missing in update values!");
+        }
 
         long callingId = Binder.clearCallingIdentity();
         try {
-            if(table.equals(BluetoothMapContract.TABLE_MESSAGE)) {
+            if (table.equals(BluetoothMapContract.TABLE_MESSAGE)) {
                 return deleteMessage(accountId, messageId);
             } else {
-                if (D) Log.w(TAG, "Unknown table name: " + table);
+                if (D) {
+                    Log.w(TAG, "Unknown table name: " + table);
+                }
                 return result;
             }
         } finally {
@@ -222,7 +235,7 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
      * @param messageId the ID of the message to delete.
      * @return the number of messages deleted - 0 if the message was not found.
      */
-    abstract protected int deleteMessage(String accountId, String messageId);
+    protected abstract int deleteMessage(String accountId, String messageId);
 
     /**
      * Insert is used to add new messages to the data base.
@@ -235,23 +248,27 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
     @Override
     public Uri insert(Uri uri, ContentValues values) {
         String table = uri.getLastPathSegment();
-        if(table == null)
+        if (table == null) {
             throw new IllegalArgumentException("Table missing in URI");
+        }
 
         String accountId = getAccountId(uri);
-        if (accountId == null)
+        if (accountId == null) {
             throw new IllegalArgumentException("Account ID missing in URI");
+        }
 
         // TODO: validate values?
 
         String id; // the id of the entry inserted into the database
         long callingId = Binder.clearCallingIdentity();
-        Log.d(TAG, "insert(): uri=" + uri.toString() + " - getLastPathSegment() = " +
-                uri.getLastPathSegment());
+        Log.d(TAG, "insert(): uri=" + uri.toString() + " - getLastPathSegment() = "
+                + uri.getLastPathSegment());
         try {
-            if(table.equals(BluetoothMapContract.TABLE_MESSAGE)) {
+            if (table.equals(BluetoothMapContract.TABLE_MESSAGE)) {
                 id = insertMessage(accountId, values);
-                if(D) Log.i(TAG, "insert() ID: " + id);
+                if (D) {
+                    Log.i(TAG, "insert() ID: " + id);
+                }
                 return Uri.parse(uri.toString() + "/" + id);
             } else {
                 Log.w(TAG, "Unknown table name: " + table);
@@ -270,9 +287,9 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
      * @param folderId the ID of the folder to create a new message in.
      * @return the message id as a string
      */
-    abstract protected String insertMessage(String accountId, ContentValues values);
+    protected abstract String insertMessage(String accountId, ContentValues values);
 
-     /**
+    /**
      * Utility function to build a projection based on a projectionMap.
      *
      *   "btColumnName" -> "imColumnName as btColumnName" for each entry.
@@ -282,9 +299,9 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
      * @param projectionMap <string, string>
      * @return the converted projection
      */
-    protected String[] convertProjection(String[] projection, Map<String,String> projectionMap) {
+    protected String[] convertProjection(String[] projection, Map<String, String> projectionMap) {
         String[] newProjection = new String[projection.length];
-        for(int i = 0; i < projection.length; i++) {
+        for (int i = 0; i < projection.length; i++) {
             newProjection[i] = projectionMap.get(projection[i]) + " as " + projection[i];
         }
         return newProjection;
@@ -300,7 +317,9 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
         long callingId = Binder.clearCallingIdentity();
         try {
             String accountId = null;
-            if(D)Log.w(TAG, "query(): uri =" + mAuthority + " uri=" + uri.toString());
+            if (D) {
+                Log.w(TAG, "query(): uri =" + mAuthority + " uri=" + uri.toString());
+            }
 
             switch (mMatcher.match(uri)) {
                 case MATCH_ACCOUNT:
@@ -316,22 +335,22 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
                             uri.getQueryParameter(BluetoothMapContract.FILTER_ORIGINATOR_SUBSTRING);
                     Long periodBegin = null;
                     value = uri.getQueryParameter(BluetoothMapContract.FILTER_PERIOD_BEGIN);
-                    if(value != null) {
+                    if (value != null) {
                         periodBegin = Long.parseLong(value);
                     }
                     Long periodEnd = null;
                     value = uri.getQueryParameter(BluetoothMapContract.FILTER_PERIOD_END);
-                    if(value != null) {
+                    if (value != null) {
                         periodEnd = Long.parseLong(value);
                     }
                     Boolean read = null;
                     value = uri.getQueryParameter(BluetoothMapContract.FILTER_READ_STATUS);
-                    if(value != null) {
+                    if (value != null) {
                         read = value.equalsIgnoreCase("true");
                     }
                     Long threadId = null;
                     value = uri.getQueryParameter(BluetoothMapContract.FILTER_THREAD_ID);
-                    if(value != null) {
+                    if (value != null) {
                         threadId = Long.parseLong(value);
                     }
                     return queryConversation(accountId, threadId, read, periodEnd, periodBegin,
@@ -339,8 +358,8 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
                 case MATCH_CONVOCONTACT:
                     accountId = getAccountId(uri);
                     long contactId = 0;
-                    return queryConvoContact(accountId, contactId, projection,
-                            selection, selectionArgs, sortOrder);
+                    return queryConvoContact(accountId, contactId, projection, selection,
+                            selectionArgs, sortOrder);
                 default:
                     throw new UnsupportedOperationException("Unsupported Uri " + uri);
             }
@@ -359,7 +378,7 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
      * @param sortOrder
      * @return a cursor to the accounts that are subject to exposure over BT.
      */
-    abstract protected Cursor queryAccount(String[] projection, String selection,
+    protected abstract Cursor queryAccount(String[] projection, String selection,
             String[] selectionArgs, String sortOrder);
 
     /**
@@ -378,7 +397,7 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
      * @param sortOrder
      * @return a cursor to query result
      */
-    abstract protected Cursor queryMessage(String accountId, String[] projection, String selection,
+    protected abstract Cursor queryMessage(String accountId, String[] projection, String selection,
             String[] selectionArgs, String sortOrder);
 
     /**
@@ -410,7 +429,7 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
      *        2 |         "" | ... |       Peter |               2 | ... |
      *        3 |         "" | ... |        Hans |               1 | ... |
      *
-    * @param accountId the ID of the account
+     * @param accountId the ID of the account
      * @param threadId filter on a single threadId - null if no filtering is needed.
      * @param read filter on a read status:
      *             null: no filtering on read is needed.
@@ -426,7 +445,7 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
      * @param sortOrder  the sort order
      * @return a Cursor representing the query result.
      */
-    abstract protected Cursor queryConversation(String accountId, Long threadId, Boolean read,
+    protected abstract Cursor queryConversation(String accountId, Long threadId, Boolean read,
             Long periodEnd, Long periodBegin, String searchString, String[] projection,
             String sortOrder);
 
@@ -450,7 +469,7 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
      * @param sortOrder
      * @return a cursor to query result
      */
-    abstract protected Cursor queryConvoContact(String accountId, Long contactId,
+    protected abstract Cursor queryConvoContact(String accountId, Long contactId,
             String[] projection, String selection, String[] selectionArgs, String sortOrder);
 
     /**
@@ -476,50 +495,54 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
     public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
 
         String table = uri.getLastPathSegment();
-        if(table == null){
+        if (table == null) {
             throw new IllegalArgumentException("Table missing in URI");
         }
-        if(selection != null) {
-            throw new IllegalArgumentException("selection shall not be used, ContentValues " +
-                    "shall contain the data");
+        if (selection != null) {
+            throw new IllegalArgumentException(
+                    "selection shall not be used, ContentValues " + "shall contain the data");
         }
 
         long callingId = Binder.clearCallingIdentity();
-        if(D)Log.w(TAG, "update(): uri=" + uri.toString() + " - getLastPathSegment() = " +
-                uri.getLastPathSegment());
+        if (D) {
+            Log.w(TAG, "update(): uri=" + uri.toString() + " - getLastPathSegment() = "
+                    + uri.getLastPathSegment());
+        }
         try {
-            if(table.equals(BluetoothMapContract.TABLE_ACCOUNT)) {
+            if (table.equals(BluetoothMapContract.TABLE_ACCOUNT)) {
                 String accountId = values.getAsString(BluetoothMapContract.AccountColumns._ID);
-                if(accountId == null) {
+                if (accountId == null) {
                     throw new IllegalArgumentException("Account ID missing in update values!");
                 }
-                Integer exposeFlag = values.getAsInteger(
-                        BluetoothMapContract.AccountColumns.FLAG_EXPOSE);
-                if(exposeFlag == null){
+                Integer exposeFlag =
+                        values.getAsInteger(BluetoothMapContract.AccountColumns.FLAG_EXPOSE);
+                if (exposeFlag == null) {
                     throw new IllegalArgumentException("Expose flag missing in update values!");
                 }
                 return updateAccount(accountId, exposeFlag);
-            } else if(table.equals(BluetoothMapContract.TABLE_FOLDER)) {
+            } else if (table.equals(BluetoothMapContract.TABLE_FOLDER)) {
                 return 0; // We do not support changing folders
-            } else if(table.equals(BluetoothMapContract.TABLE_MESSAGE)) {
+            } else if (table.equals(BluetoothMapContract.TABLE_MESSAGE)) {
                 String accountId = getAccountId(uri);
-                if(accountId == null) {
+                if (accountId == null) {
                     throw new IllegalArgumentException("Account ID missing in update values!");
                 }
                 Long messageId = values.getAsLong(BluetoothMapContract.MessageColumns._ID);
-                if(messageId == null) {
+                if (messageId == null) {
                     throw new IllegalArgumentException("Message ID missing in update values!");
                 }
                 Long folderId = values.getAsLong(BluetoothMapContract.MessageColumns.FOLDER_ID);
-                Boolean flagRead = values.getAsBoolean(
-                        BluetoothMapContract.MessageColumns.FLAG_READ);
+                Boolean flagRead =
+                        values.getAsBoolean(BluetoothMapContract.MessageColumns.FLAG_READ);
                 return updateMessage(accountId, messageId, folderId, flagRead);
-            } else if(table.equals(BluetoothMapContract.TABLE_CONVERSATION)) {
+            } else if (table.equals(BluetoothMapContract.TABLE_CONVERSATION)) {
                 return 0; // We do not support changing conversation
-            } else if(table.equals(BluetoothMapContract.TABLE_CONVOCONTACT)) {
+            } else if (table.equals(BluetoothMapContract.TABLE_CONVOCONTACT)) {
                 return 0; // We do not support changing contacts
             } else {
-                if(D)Log.w(TAG, "Unknown table name: " + table);
+                if (D) {
+                    Log.w(TAG, "Unknown table name: " + table);
+                }
                 return 0;
             }
         } finally {
@@ -534,7 +557,7 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
      * @param flagExpose the updated value.
      * @return the number of entries changed - 0 if account not found or value cannot be changed.
      */
-    abstract protected int updateAccount(String accountId, Integer flagExpose);
+    protected abstract int updateAccount(String accountId, Integer flagExpose);
 
     /**
      * Update an entry in the message table.
@@ -544,7 +567,7 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
      * @param flagRead the new flagRead value to set - ignore if null.
      * @return
      */
-    abstract protected int updateMessage(String accountId, Long messageId, Long folderId,
+    protected abstract int updateMessage(String accountId, Long messageId, Long folderId,
             Boolean flagRead);
 
     /**
@@ -556,31 +579,31 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
      * @return a new ContentValues object with the keys replaced as specified in the
      * keyMap
      */
-    protected ContentValues createContentValues(Set<Entry<String,Object>> valueSet,
+    protected ContentValues createContentValues(Set<Entry<String, Object>> valueSet,
             Map<String, String> keyMap) {
         ContentValues values = new ContentValues(valueSet.size());
-        for(Entry<String,Object> ent : valueSet) {
+        for (Entry<String, Object> ent : valueSet) {
             String key = keyMap.get(ent.getKey()); // Convert the key name
             Object value = ent.getValue();
-            if(value == null) {
+            if (value == null) {
                 values.putNull(key);
-            } else if(ent.getValue() instanceof Boolean) {
+            } else if (ent.getValue() instanceof Boolean) {
                 values.put(key, (Boolean) value);
-            } else if(ent.getValue() instanceof Byte) {
+            } else if (ent.getValue() instanceof Byte) {
                 values.put(key, (Byte) value);
-            } else if(ent.getValue() instanceof byte[]) {
+            } else if (ent.getValue() instanceof byte[]) {
                 values.put(key, (byte[]) value);
-            } else if(ent.getValue() instanceof Double) {
+            } else if (ent.getValue() instanceof Double) {
                 values.put(key, (Double) value);
-            } else if(ent.getValue() instanceof Float) {
+            } else if (ent.getValue() instanceof Float) {
                 values.put(key, (Float) value);
-            } else if(ent.getValue() instanceof Integer) {
+            } else if (ent.getValue() instanceof Integer) {
                 values.put(key, (Integer) value);
-            } else if(ent.getValue() instanceof Long) {
+            } else if (ent.getValue() instanceof Long) {
                 values.put(key, (Long) value);
-            } else if(ent.getValue() instanceof Short) {
+            } else if (ent.getValue() instanceof Short) {
                 values.put(key, (Short) value);
-            } else if(ent.getValue() instanceof String) {
+            } else if (ent.getValue() instanceof String) {
                 values.put(key, (String) value);
             } else {
                 throw new IllegalArgumentException("Unknown data type in content value");
@@ -592,40 +615,42 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
     @Override
     public Bundle call(String method, String arg, Bundle extras) {
         long callingId = Binder.clearCallingIdentity();
-        if(D)Log.w(TAG, "call(): method=" + method + " arg=" + arg + "ThreadId: "
-                + Thread.currentThread().getId());
+        if (D) {
+            Log.w(TAG, "call(): method=" + method + " arg=" + arg + "ThreadId: "
+                    + Thread.currentThread().getId());
+        }
         int ret = -1;
         try {
-            if(method.equals(BluetoothMapContract.METHOD_UPDATE_FOLDER)) {
+            if (method.equals(BluetoothMapContract.METHOD_UPDATE_FOLDER)) {
                 long accountId = extras.getLong(BluetoothMapContract.EXTRA_UPDATE_ACCOUNT_ID, -1);
-                if(accountId == -1) {
+                if (accountId == -1) {
                     Log.w(TAG, "No account ID in CALL");
                     return null;
                 }
                 long folderId = extras.getLong(BluetoothMapContract.EXTRA_UPDATE_FOLDER_ID, -1);
-                if(folderId == -1) {
+                if (folderId == -1) {
                     Log.w(TAG, "No folder ID in CALL");
                     return null;
                 }
                 ret = syncFolder(accountId, folderId);
             } else if (method.equals(BluetoothMapContract.METHOD_SET_OWNER_STATUS)) {
                 int presenceState = extras.getInt(BluetoothMapContract.EXTRA_PRESENCE_STATE);
-                String presenceStatus = extras.getString(
-                        BluetoothMapContract.EXTRA_PRESENCE_STATUS);
+                String presenceStatus =
+                        extras.getString(BluetoothMapContract.EXTRA_PRESENCE_STATUS);
                 long lastActive = extras.getLong(BluetoothMapContract.EXTRA_LAST_ACTIVE);
                 int chatState = extras.getInt(BluetoothMapContract.EXTRA_CHAT_STATE);
                 String convoId = extras.getString(BluetoothMapContract.EXTRA_CONVERSATION_ID);
                 ret = setOwnerStatus(presenceState, presenceStatus, lastActive, chatState, convoId);
 
             } else if (method.equals(BluetoothMapContract.METHOD_SET_BLUETOOTH_STATE)) {
-                boolean bluetoothState = extras.getBoolean(
-                        BluetoothMapContract.EXTRA_BLUETOOTH_STATE);
+                boolean bluetoothState =
+                        extras.getBoolean(BluetoothMapContract.EXTRA_BLUETOOTH_STATE);
                 ret = setBluetoothStatus(bluetoothState);
             }
         } finally {
             Binder.restoreCallingIdentity(callingId);
         }
-        if(ret == 0) {
+        if (ret == 0) {
             return new Bundle();
         }
         return null;
@@ -637,7 +662,7 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
      * @param folderId the ID of the folder.
      * @return 0 at success
      */
-    abstract protected int syncFolder(long accountId, long folderId);
+    protected abstract int syncFolder(long accountId, long folderId);
 
     /**
      * Set the properties that should change presence or chat state of owner
@@ -650,16 +675,15 @@ public abstract class BluetoothMapIMProvider extends ContentProvider {
      * @param convoId ID to the conversation to change
      * @return 0 at success
      */
-    abstract protected int setOwnerStatus(int presenceState, String presenceStatus,
-            long lastActive, int chatState, String convoId);
+    protected abstract int setOwnerStatus(int presenceState, String presenceStatus, long lastActive,
+            int chatState, String convoId);
 
     /**
      * Notify the application of the Bluetooth state
      * @param bluetoothState 'on' of 'off'
      * @return 0 at success
      */
-    abstract protected int setBluetoothStatus(boolean bluetoothState);
-
+    protected abstract int setBluetoothStatus(boolean bluetoothState);
 
 
     /**

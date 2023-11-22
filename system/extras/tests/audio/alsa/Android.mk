@@ -20,6 +20,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE := pcmtest
 LOCAL_SRC_FILES := pcmtest.cpp
+LOCAL_CFLAGS:= -Wall -Werror
 LOCAL_SHARED_LIBRARIES += libcutils libutils liblog libtinyalsa
 LOCAL_STATIC_LIBRARIES += libtestUtil
 LOCAL_C_INCLUDES += system/extras/tests/include external/tinyalsa/include

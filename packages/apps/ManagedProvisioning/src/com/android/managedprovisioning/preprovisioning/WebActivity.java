@@ -67,7 +67,7 @@ public class WebActivity extends SetupLayoutActivity {
 
         Bundle extras = getIntent().getExtras();
         if (extras.containsKey(EXTRA_STATUS_BAR_COLOR)) {
-            setMainColor(extras.getInt(EXTRA_STATUS_BAR_COLOR));
+            setStatusBarColor(extras.getInt(EXTRA_STATUS_BAR_COLOR));
         }
 
         mWebView = new WebView(this);

@@ -16,34 +16,65 @@
 
 package com.android.dialer.searchfragment.common;
 
+import android.content.Context;
 import android.support.annotation.NonNull;
+import android.support.v4.util.SimpleArrayMap;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
+import com.android.dialer.dialpadview.DialpadCharMappings;
 import java.util.regex.Pattern;
 
 /** Utility class for filtering, comparing and handling strings and queries. */
 public class QueryFilteringUtil {
 
+  /**
+   * The default character-digit map that will be used to find the digit associated with a given
+   * character on a T9 keyboard.
+   */
+  private static final SimpleArrayMap<Character, Character> DEFAULT_CHAR_TO_DIGIT_MAP =
+      DialpadCharMappings.getDefaultCharToKeyMap();
+
   /** Matches strings with "-", "(", ")", 2-9 of at least length one. */
-  static final Pattern T9_PATTERN = Pattern.compile("[\\-()2-9]+");
+  private static final Pattern T9_PATTERN = Pattern.compile("[\\-()2-9]+");
 
   /**
-   * @return true if the query is of T9 format and the name's T9 representation belongs to the
-   *     query; false otherwise.
+   * Returns true if the query is of T9 format and the name's T9 representation belongs to the query
+   *
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>#nameMatchesT9Query("7", "John Smith") returns true, 7 -> 'S'
+   *   <li>#nameMatchesT9Query("55", "Jessica Jones") returns true, 55 -> 'JJ'
+   *   <li>#nameMatchesT9Query("56", "Jessica Jones") returns true, 56 -> 'Jo'
+   *   <li>#nameMatchesT9Query("7", "Jessica Jones") returns false, no names start with P,Q,R or S
+   * </ul>
+   *
+   * <p>When the 1st language preference uses a non-Latin alphabet (e.g., Russian) and the character
+   * mappings for the alphabet is defined in {@link DialpadCharMappings}, the Latin alphabet will be
+   * used first to check if the name matches the query. If they don't match, the non-Latin alphabet
+   * will be used.
+   *
+   * <p>Examples (when the 1st language preference is Russian):
+   *
+   * <ul>
+   *   <li>#nameMatchesT9Query("7", "John Smith") returns true, 7 -> 'S'
+   *   <li>#nameMatchesT9Query("7", "Павел Чехов") returns true, 7 -> 'Ч'
+   *   <li>#nameMatchesT9Query("77", "Pavel Чехов") returns true, 7 -> 'P' (in the Latin alphabet),
+   *       7 -> 'Ч' (in the Russian alphabet)
+   * </ul>
    */
-  public static boolean nameMatchesT9Query(String query, String name) {
+  public static boolean nameMatchesT9Query(String query, String name, Context context) {
     if (!T9_PATTERN.matcher(query).matches()) {
       return false;
     }
 
-    // Substring
-    if (indexOfQueryNonDigitsIgnored(query, getT9Representation(name)) != -1) {
+    query = digitsOnly(query);
+    if (getIndexOfT9Substring(query, name, context) != -1) {
       return true;
     }
 
     // Check matches initials
-    // TODO investigate faster implementation
-    query = digitsOnly(query);
+    // TODO(calderwoodra) investigate faster implementation
     int queryIndex = 0;
 
     String[] names = name.toLowerCase().split("\\s");
@@ -52,12 +83,71 @@ public class QueryFilteringUtil {
         continue;
       }
 
-      if (getDigit(names[i].charAt(0)) == query.charAt(queryIndex)) {
+      if (getDigit(names[i].charAt(0), context) == query.charAt(queryIndex)) {
         queryIndex++;
       }
     }
 
     return queryIndex == query.length();
+  }
+
+  /**
+   * Returns the index where query is contained in the T9 representation of the name.
+   *
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>#getIndexOfT9Substring("76", "John Smith") returns 5, 76 -> 'Sm'
+   *   <li>#nameMatchesT9Query("2226", "AAA Mom") returns 0, 2226 -> 'AAAM'
+   *   <li>#nameMatchesT9Query("2", "Jessica Jones") returns -1, Neither 'Jessica' nor 'Jones' start
+   *       with A, B or C
+   * </ul>
+   */
+  public static int getIndexOfT9Substring(String query, String name, Context context) {
+    query = digitsOnly(query);
+    String t9Name = getT9Representation(name, context);
+    String t9NameDigitsOnly = digitsOnly(t9Name);
+    if (t9NameDigitsOnly.startsWith(query)) {
+      return 0;
+    }
+
+    int nonLetterCount = 0;
+    for (int i = 1; i < t9NameDigitsOnly.length(); i++) {
+      char cur = t9Name.charAt(i);
+      if (!Character.isDigit(cur)) {
+        nonLetterCount++;
+        continue;
+      }
+
+      // If the previous character isn't a digit and the current is, check for a match
+      char prev = t9Name.charAt(i - 1);
+      int offset = i - nonLetterCount;
+      if (!Character.isDigit(prev) && t9NameDigitsOnly.startsWith(query, offset)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Returns true if the subparts of the name (split by white space) begin with the query.
+   *
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>#nameContainsQuery("b", "Brandon") returns true
+   *   <li>#nameContainsQuery("o", "Bob") returns false
+   *   <li>#nameContainsQuery("o", "Bob Olive") returns true
+   * </ul>
+   */
+  public static boolean nameContainsQuery(String query, String name) {
+    if (TextUtils.isEmpty(name)) {
+      return false;
+    }
+
+    return Pattern.compile("(^|\\s)" + Pattern.quote(query.toLowerCase()))
+        .matcher(name.toLowerCase())
+        .find();
   }
 
   /** @return true if the number belongs to the query. */
@@ -76,11 +166,17 @@ public class QueryFilteringUtil {
     return digitsOnly(number).indexOf(digitsOnly(query));
   }
 
-  // Returns string with letters replaced with their T9 representation.
-  static String getT9Representation(String s) {
+  /**
+   * Replaces characters in the given string with their T9 representations.
+   *
+   * @param s The original string
+   * @param context The context
+   * @return The original string with characters replaced with T9 representations.
+   */
+  public static String getT9Representation(String s, Context context) {
     StringBuilder builder = new StringBuilder(s.length());
     for (char c : s.toLowerCase().toCharArray()) {
-      builder.append(getDigit(c));
+      builder.append(getDigit(c, context));
     }
     return builder.toString();
   }
@@ -97,45 +193,26 @@ public class QueryFilteringUtil {
     return sb.toString();
   }
 
-  // Returns the T9 representation of a lower case character, otherwise returns the character.
-  static char getDigit(char c) {
-    switch (c) {
-      case 'a':
-      case 'b':
-      case 'c':
-        return '2';
-      case 'd':
-      case 'e':
-      case 'f':
-        return '3';
-      case 'g':
-      case 'h':
-      case 'i':
-        return '4';
-      case 'j':
-      case 'k':
-      case 'l':
-        return '5';
-      case 'm':
-      case 'n':
-      case 'o':
-        return '6';
-      case 'p':
-      case 'q':
-      case 'r':
-      case 's':
-        return '7';
-      case 't':
-      case 'u':
-      case 'v':
-        return '8';
-      case 'w':
-      case 'x':
-      case 'y':
-      case 'z':
-        return '9';
-      default:
-        return c;
+  /**
+   * Returns the digit on a T9 keyboard which is associated with the given lower case character.
+   *
+   * <p>The default character-key mapping will be used first to find a digit. If no digit is found,
+   * try the mapping of the current default locale if it is defined in {@link DialpadCharMappings}.
+   * If the second attempt fails, return the original character.
+   */
+  static char getDigit(char c, Context context) {
+    Character digit = DEFAULT_CHAR_TO_DIGIT_MAP.get(c);
+    if (digit != null) {
+      return digit;
     }
+
+    SimpleArrayMap<Character, Character> charToKeyMap =
+        DialpadCharMappings.getCharToKeyMap(context);
+    if (charToKeyMap != null) {
+      digit = charToKeyMap.get(c);
+      return digit != null ? digit : c;
+    }
+
+    return c;
   }
 }

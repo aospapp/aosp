@@ -20,18 +20,14 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
 /**
  * Checks that the runtime representation of a class matches the API representation of a class.
  */
-public class ApiComplianceChecker {
+public class ApiComplianceChecker extends AbstractApiChecker {
 
     /** Indicates that the class is an annotation. */
     private static final int CLASS_MODIFIER_ANNOTATION = 0x00002000;
@@ -48,189 +44,56 @@ public class ApiComplianceChecker {
     /** Indicates that the method is a synthetic method. */
     private static final int METHOD_MODIFIER_SYNTHETIC = 0x00001000;
 
-    private static final Set<String> HIDDEN_INTERFACE_WHITELIST = new HashSet<>();
+    private final InterfaceChecker interfaceChecker;
 
-    static {
-        // Interfaces that define @hide or @SystemApi or @TestApi methods will by definition contain
-        // methods that do not appear in current.txt. Interfaces added to this
-        // list are probably not meant to be implemented in an application.
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract boolean android.companion.DeviceFilter.matches(D)");
-        HIDDEN_INTERFACE_WHITELIST.add("public static <D> boolean android.companion.DeviceFilter.matches(android.companion.DeviceFilter<D>,D)");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract java.lang.String android.companion.DeviceFilter.getDeviceDisplayName(D)");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract int android.companion.DeviceFilter.getMediumType()");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract void android.nfc.tech.TagTechnology.reconnect() throws java.io.IOException");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract void android.os.IBinder.shellCommand(java.io.FileDescriptor,java.io.FileDescriptor,java.io.FileDescriptor,java.lang.String[],android.os.ShellCallback,android.os.ResultReceiver) throws android.os.RemoteException");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract int android.text.ParcelableSpan.getSpanTypeIdInternal()");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract void android.text.ParcelableSpan.writeToParcelInternal(android.os.Parcel,int)");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract void android.view.WindowManager.requestAppKeyboardShortcuts(android.view.WindowManager$KeyboardShortcutsReceiver,int)");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract boolean javax.microedition.khronos.egl.EGL10.eglReleaseThread()");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract void org.w3c.dom.ls.LSSerializer.setFilter(org.w3c.dom.ls.LSSerializerFilter)");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract org.w3c.dom.ls.LSSerializerFilter org.w3c.dom.ls.LSSerializer.getFilter()");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract android.graphics.Region android.view.WindowManager.getCurrentImeTouchRegion()");
+    public ApiComplianceChecker(ResultObserver resultObserver, ClassProvider classProvider) {
+        super(classProvider, resultObserver);
+        interfaceChecker = new InterfaceChecker(resultObserver, classProvider);
     }
 
-
-    private final ResultObserver resultObserver;
-
-    public ApiComplianceChecker(ResultObserver resultObserver) {
-        this.resultObserver = resultObserver;
+    @Override
+    public void checkDeferred() {
+        interfaceChecker.checkQueued();
     }
 
-    private static void loge(String message, Exception exception) {
-        System.err.println(String.format("%s: %s", message, exception));
-    }
-
-    private void logMismatchInterfaceSignature(JDiffClassDescription.JDiffType mClassType,
-            String classFullName, String errorMessage) {
-        if (JDiffClassDescription.JDiffType.INTERFACE.equals(mClassType)) {
-            resultObserver.notifyFailure(FailureType.MISMATCH_INTERFACE,
-                    classFullName,
-                    errorMessage);
-        } else {
-            resultObserver.notifyFailure(FailureType.MISMATCH_CLASS,
-                    classFullName,
-                    errorMessage);
+    @Override
+    protected boolean checkClass(JDiffClassDescription classDescription, Class<?> runtimeClass) {
+        if (JDiffClassDescription.JDiffType.INTERFACE.equals(classDescription.getClassType())) {
+            // Queue the interface for deferred checking.
+            interfaceChecker.queueForDeferredCheck(classDescription, runtimeClass);
         }
-    }
 
-    /**
-     * Checks test class's name, modifier, fields, constructors, and
-     * methods.
-     */
-    public void checkSignatureCompliance(JDiffClassDescription classDescription) {
-        Class<?> runtimeClass = checkClassCompliance(classDescription);
-        if (runtimeClass != null) {
-            checkFieldsCompliance(classDescription, runtimeClass);
-            checkConstructorCompliance(classDescription, runtimeClass);
-            checkMethodCompliance(classDescription, runtimeClass);
-        }
-    }
-
-    /**
-     * Checks that the class found through reflection matches the
-     * specification from the API xml file.
-     *
-     * @param classDescription a description of a class in an API.
-     */
-    @SuppressWarnings("unchecked")
-    private Class<?> checkClassCompliance(JDiffClassDescription classDescription) {
-        try {
-            Class<?> runtimeClass = findRequiredClass(classDescription);
-
-            if (runtimeClass == null) {
-                // No class found, notify the observer according to the class type
-                if (JDiffClassDescription.JDiffType.INTERFACE.equals(
-                        classDescription.getClassType())) {
-                    resultObserver.notifyFailure(FailureType.MISSING_INTERFACE,
-                            classDescription.getAbsoluteClassName(),
-                            "Classloader is unable to find " + classDescription
-                                    .getAbsoluteClassName());
-                } else {
-                    resultObserver.notifyFailure(FailureType.MISSING_CLASS,
-                            classDescription.getAbsoluteClassName(),
-                            "Classloader is unable to find " + classDescription
-                                    .getAbsoluteClassName());
-                }
-
-                return null;
-            }
-
-            List<String> methods = checkInterfaceMethodCompliance(classDescription, runtimeClass);
-            if (JDiffClassDescription.JDiffType.INTERFACE.equals(classDescription.getClassType()) && methods.size() > 0) {
-                resultObserver.notifyFailure(FailureType.MISMATCH_INTERFACE_METHOD,
-                        classDescription.getAbsoluteClassName(), "Interfaces cannot be modified: "
-                                + classDescription.getAbsoluteClassName() + ": " + methods);
-                return null;
-            }
-
-            if (!checkClassModifiersCompliance(classDescription, runtimeClass)) {
-                logMismatchInterfaceSignature(classDescription.getClassType(),
-                        classDescription.getAbsoluteClassName(),
-                                "Non-compatible class found when looking for " +
-                                        classDescription.toSignatureString());
-                return null;
-            }
-
-            if (!checkClassAnnotationCompliance(classDescription, runtimeClass)) {
-                logMismatchInterfaceSignature(classDescription.getClassType(),
-                        classDescription.getAbsoluteClassName(),
-                                "Annotation mismatch");
-                return null;
-            }
-
-            if (!runtimeClass.isAnnotation()) {
-                // check father class
-                if (!checkClassExtendsCompliance(classDescription, runtimeClass)) {
-                    logMismatchInterfaceSignature(classDescription.getClassType(),
-                            classDescription.getAbsoluteClassName(),
-                                    "Extends mismatch");
-                    return null;
-                }
-
-                // check implements interface
-                if (!checkClassImplementsCompliance(classDescription, runtimeClass)) {
-                    logMismatchInterfaceSignature(classDescription.getClassType(),
-                            classDescription.getAbsoluteClassName(),
-                                    "Implements mismatch");
-                    return null;
-                }
-            }
-            return runtimeClass;
-        } catch (Exception e) {
-            loge("Got exception when checking field compliance", e);
-            resultObserver.notifyFailure(
-                    FailureType.CAUGHT_EXCEPTION,
+        String reason;
+        if ((reason = checkClassModifiersCompliance(classDescription, runtimeClass)) != null) {
+            resultObserver.notifyFailure(FailureType.mismatch(classDescription),
                     classDescription.getAbsoluteClassName(),
-                    "Exception!");
-            return null;
-        }
-    }
-
-    private Class<?> findRequiredClass(JDiffClassDescription classDescription) {
-        try {
-            return ReflectionHelper.findMatchingClass(classDescription);
-        } catch (ClassNotFoundException e) {
-            loge("ClassNotFoundException for " + classDescription.getAbsoluteClassName(), e);
-            return null;
-        }
-    }
-
-    /**
-     * Validate that an interfaces method count is as expected.
-     *
-     * @param classDescription the class's API description.
-     * @param runtimeClass the runtime class corresponding to {@code classDescription}.
-     */
-    private static List<String> checkInterfaceMethodCompliance(
-            JDiffClassDescription classDescription, Class<?> runtimeClass) {
-        List<String> unexpectedMethods = new ArrayList<>();
-        for (Method method : runtimeClass.getDeclaredMethods()) {
-            if (method.isDefault()) {
-                continue;
-            }
-            if (method.isSynthetic()) {
-                continue;
-            }
-            if (method.isBridge()) {
-                continue;
-            }
-            if (HIDDEN_INTERFACE_WHITELIST.contains(method.toGenericString())) {
-                continue;
-            }
-
-            boolean foundMatch = false;
-            for (JDiffClassDescription.JDiffMethod jdiffMethod : classDescription.getMethods()) {
-                if (ReflectionHelper.matches(jdiffMethod, method)) {
-                    foundMatch = true;
-                }
-            }
-            if (!foundMatch) {
-                unexpectedMethods.add(method.toGenericString());
-            }
+                    String.format("Non-compatible class found when looking for %s - because %s",
+                            classDescription.toSignatureString(), reason));
+            return false;
         }
 
-        return unexpectedMethods;
+        if (!checkClassAnnotationCompliance(classDescription, runtimeClass)) {
+            resultObserver.notifyFailure(FailureType.mismatch(classDescription),
+                    classDescription.getAbsoluteClassName(), "Annotation mismatch");
+            return false;
+        }
 
+        if (!runtimeClass.isAnnotation()) {
+            // check father class
+            if (!checkClassExtendsCompliance(classDescription, runtimeClass)) {
+                resultObserver.notifyFailure(FailureType.mismatch(classDescription),
+                        classDescription.getAbsoluteClassName(), "Extends mismatch");
+                return false;
+            }
+
+            // check implements interface
+            if (!checkClassImplementsCompliance(classDescription, runtimeClass)) {
+                resultObserver.notifyFailure(FailureType.mismatch(classDescription),
+                        classDescription.getAbsoluteClassName(), "Implements mismatch");
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -238,38 +101,43 @@ public class ApiComplianceChecker {
      *
      * @param classDescription a description of a class in an API.
      * @param runtimeClass the runtime class corresponding to {@code classDescription}.
-     * @return true if modifiers are compliant.
+     * @return null if modifiers are compliant otherwise a reason why they are not.
      */
-    private static boolean checkClassModifiersCompliance(JDiffClassDescription classDescription,
+    private static String checkClassModifiersCompliance(JDiffClassDescription classDescription,
             Class<?> runtimeClass) {
-        int reflectionModifier = runtimeClass.getModifiers();
-        int apiModifier = classDescription.getModifier();
+        int reflectionModifiers = runtimeClass.getModifiers();
+        int apiModifiers = classDescription.getModifier();
 
         // If the api class isn't abstract
-        if (((apiModifier & Modifier.ABSTRACT) == 0) &&
+        if (((apiModifiers & Modifier.ABSTRACT) == 0) &&
                 // but the reflected class is
-                ((reflectionModifier & Modifier.ABSTRACT) != 0) &&
+                ((reflectionModifiers & Modifier.ABSTRACT) != 0) &&
                 // and it isn't an enum
                 !classDescription.isEnumType()) {
             // that is a problem
-            return false;
+            return "description is abstract but class is not and is not an enum";
         }
         // ABSTRACT check passed, so mask off ABSTRACT
-        reflectionModifier &= ~Modifier.ABSTRACT;
-        apiModifier &= ~Modifier.ABSTRACT;
+        reflectionModifiers &= ~Modifier.ABSTRACT;
+        apiModifiers &= ~Modifier.ABSTRACT;
 
         if (classDescription.isAnnotation()) {
-            reflectionModifier &= ~CLASS_MODIFIER_ANNOTATION;
+            reflectionModifiers &= ~CLASS_MODIFIER_ANNOTATION;
         }
         if (runtimeClass.isInterface()) {
-            reflectionModifier &= ~(Modifier.INTERFACE);
+            reflectionModifiers &= ~(Modifier.INTERFACE);
         }
         if (classDescription.isEnumType() && runtimeClass.isEnum()) {
-            reflectionModifier &= ~CLASS_MODIFIER_ENUM;
+            reflectionModifiers &= ~CLASS_MODIFIER_ENUM;
         }
 
-        return ((reflectionModifier == apiModifier) &&
-                (classDescription.isEnumType() == runtimeClass.isEnum()));
+        if ((reflectionModifiers == apiModifiers)
+                && (classDescription.isEnumType() == runtimeClass.isEnum())) {
+            return null;
+        } else {
+            return String.format("modifier mismatch - description (%s), class (%s)",
+                    Modifier.toString(apiModifiers), Modifier.toString(reflectionModifiers));
+        }
     }
 
     /**
@@ -330,12 +198,9 @@ public class ApiComplianceChecker {
      */
     private static boolean checkClassImplementsCompliance(JDiffClassDescription classDescription,
             Class<?> runtimeClass) {
-        Class<?>[] interfaces = runtimeClass.getInterfaces();
         Set<String> interFaceSet = new HashSet<>();
 
-        for (Class<?> c : interfaces) {
-            interFaceSet.add(c.getCanonicalName());
-        }
+        addInterfacesToSetByName(runtimeClass, interFaceSet);
 
         for (String inter : classDescription.getImplInterfaces()) {
             if (!interFaceSet.contains(inter)) {
@@ -345,59 +210,47 @@ public class ApiComplianceChecker {
         return true;
     }
 
+    private static void addInterfacesToSetByName(Class<?> runtimeClass, Set<String> interFaceSet) {
+        Class<?>[] interfaces = runtimeClass.getInterfaces();
+        for (Class<?> c : interfaces) {
+            interFaceSet.add(c.getCanonicalName());
+        }
 
-    /**
-     * Checks all fields in test class for compliance with the API xml.
-     *
-     * @param classDescription a description of a class in an API.
-     * @param runtimeClass the runtime class corresponding to {@code classDescription}.
-     */
-    @SuppressWarnings("unchecked")
-    private void checkFieldsCompliance(JDiffClassDescription classDescription,
-            Class<?> runtimeClass) {
-        // A map of field name to field of the fields contained in runtimeClass.
-        Map<String, Field> classFieldMap = buildFieldMap(runtimeClass);
-        for (JDiffClassDescription.JDiffField field : classDescription.getFields()) {
-            try {
-                Field f = classFieldMap.get(field.mName);
-                if (f == null) {
-                    resultObserver.notifyFailure(FailureType.MISSING_FIELD,
-                            field.toReadableString(classDescription.getAbsoluteClassName()),
-                            "No field with correct signature found:" +
-                                    field.toSignatureString());
-                } else if (f.getModifiers() != field.mModifier) {
-                    resultObserver.notifyFailure(FailureType.MISMATCH_FIELD,
-                            field.toReadableString(classDescription.getAbsoluteClassName()),
-                            "Non-compatible field modifiers found when looking for " +
-                                    field.toSignatureString());
-                } else if (!checkFieldValueCompliance(field, f)) {
-                    resultObserver.notifyFailure(FailureType.MISMATCH_FIELD,
-                            field.toReadableString(classDescription.getAbsoluteClassName()),
-                            "Incorrect field value found when looking for " +
-                                    field.toSignatureString());
-                } else if (!f.getType().getCanonicalName().equals(field.mFieldType)) {
-                    // type name does not match, but this might be a generic
-                    String genericTypeName = null;
-                    Type type = f.getGenericType();
-                    if (type != null) {
-                        genericTypeName = type instanceof Class ? ((Class) type).getName() :
-                                type.toString().replace('$', '.');
-                    }
-                    if (genericTypeName == null || !genericTypeName.equals(field.mFieldType)) {
-                        resultObserver.notifyFailure(
-                                FailureType.MISMATCH_FIELD,
-                                field.toReadableString(classDescription.getAbsoluteClassName()),
-                                "Non-compatible field type found when looking for " +
-                                        field.toSignatureString());
-                    }
-                }
+        // Add the interfaces that the super class implements as well just in case the super class
+        // is hidden.
+        Class<?> superClass = runtimeClass.getSuperclass();
+        if (superClass != null) {
+            addInterfacesToSetByName(superClass, interFaceSet);
+        }
+    }
 
-            } catch (Exception e) {
-                loge("Got exception when checking field compliance", e);
+    @Override
+    protected void checkField(JDiffClassDescription classDescription, Class<?> runtimeClass,
+            JDiffClassDescription.JDiffField fieldDescription, Field field) {
+        if (field.getModifiers() != fieldDescription.mModifier) {
+            resultObserver.notifyFailure(FailureType.MISMATCH_FIELD,
+                    fieldDescription.toReadableString(classDescription.getAbsoluteClassName()),
+                    "Non-compatible field modifiers found when looking for " +
+                            fieldDescription.toSignatureString());
+        } else if (!checkFieldValueCompliance(fieldDescription, field)) {
+            resultObserver.notifyFailure(FailureType.MISMATCH_FIELD,
+                    fieldDescription.toReadableString(classDescription.getAbsoluteClassName()),
+                    "Incorrect field value found when looking for " +
+                            fieldDescription.toSignatureString());
+        } else if (!field.getType().getCanonicalName().equals(fieldDescription.mFieldType)) {
+            // type name does not match, but this might be a generic
+            String genericTypeName = null;
+            Type type = field.getGenericType();
+            if (type != null) {
+                genericTypeName = type instanceof Class ? ((Class) type).getName() :
+                        type.toString().replace('$', '.');
+            }
+            if (genericTypeName == null || !genericTypeName.equals(fieldDescription.mFieldType)) {
                 resultObserver.notifyFailure(
-                        FailureType.CAUGHT_EXCEPTION,
-                        field.toReadableString(classDescription.getAbsoluteClassName()),
-                        "Exception!");
+                        FailureType.MISMATCH_FIELD,
+                        fieldDescription.toReadableString(classDescription.getAbsoluteClassName()),
+                        "Non-compatible field type found when looking for " +
+                                fieldDescription.toSignatureString());
             }
         }
     }
@@ -408,8 +261,7 @@ public class ApiComplianceChecker {
      * @param apiField The field as defined by the platform API.
      * @param deviceField The field as defined by the device under test.
      */
-    private static boolean checkFieldValueCompliance(JDiffClassDescription.JDiffField apiField, Field deviceField)
-            throws IllegalAccessException {
+    private static boolean checkFieldValueCompliance(JDiffClassDescription.JDiffField apiField, Field deviceField) {
         if ((apiField.mModifier & Modifier.FINAL) == 0 ||
                 (apiField.mModifier & Modifier.STATIC) == 0) {
             // Only final static fields can have fixed values.
@@ -421,40 +273,44 @@ public class ApiComplianceChecker {
         }
         // Some fields may be protected or package-private
         deviceField.setAccessible(true);
-        switch (apiField.mFieldType) {
-            case "byte":
-                return Objects.equals(apiField.getValueString(),
-                        Byte.toString(deviceField.getByte(null)));
-            case "char":
-                return Objects.equals(apiField.getValueString(),
-                        Integer.toString(deviceField.getChar(null)));
-            case "short":
-                return Objects.equals(apiField.getValueString(),
-                        Short.toString(deviceField.getShort(null)));
-            case "int":
-                return Objects.equals(apiField.getValueString(),
-                        Integer.toString(deviceField.getInt(null)));
-            case "long":
-                return Objects.equals(apiField.getValueString(),
-                        Long.toString(deviceField.getLong(null)) + "L");
-            case "float":
-                return Objects.equals(apiField.getValueString(),
-                        canonicalizeFloatingPoint(
-                                Float.toString(deviceField.getFloat(null)), "f"));
-            case "double":
-                return Objects.equals(apiField.getValueString(),
-                        canonicalizeFloatingPoint(
-                                Double.toString(deviceField.getDouble(null)), ""));
-            case "boolean":
-                return Objects.equals(apiField.getValueString(),
-                        Boolean.toString(deviceField.getBoolean(null)));
-            case "java.lang.String":
-                String value = apiField.getValueString();
-                // Remove the quotes the value string is wrapped in
-                value = unescapeFieldStringValue(value.substring(1, value.length() - 1));
-                return Objects.equals(value, deviceField.get(null));
-            default:
-                return true;
+        try {
+            switch (apiField.mFieldType) {
+                case "byte":
+                    return Objects.equals(apiField.getValueString(),
+                            Byte.toString(deviceField.getByte(null)));
+                case "char":
+                    return Objects.equals(apiField.getValueString(),
+                            Integer.toString(deviceField.getChar(null)));
+                case "short":
+                    return Objects.equals(apiField.getValueString(),
+                            Short.toString(deviceField.getShort(null)));
+                case "int":
+                    return Objects.equals(apiField.getValueString(),
+                            Integer.toString(deviceField.getInt(null)));
+                case "long":
+                    return Objects.equals(apiField.getValueString(),
+                            Long.toString(deviceField.getLong(null)) + "L");
+                case "float":
+                    return Objects.equals(apiField.getValueString(),
+                            canonicalizeFloatingPoint(
+                                    Float.toString(deviceField.getFloat(null)), "f"));
+                case "double":
+                    return Objects.equals(apiField.getValueString(),
+                            canonicalizeFloatingPoint(
+                                    Double.toString(deviceField.getDouble(null)), ""));
+                case "boolean":
+                    return Objects.equals(apiField.getValueString(),
+                            Boolean.toString(deviceField.getBoolean(null)));
+                case "java.lang.String":
+                    String value = apiField.getValueString();
+                    // Remove the quotes the value string is wrapped in
+                    value = unescapeFieldStringValue(value.substring(1, value.length() - 1));
+                    return Objects.equals(value, deviceField.get(null));
+                default:
+                    return true;
+            }
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -588,117 +444,46 @@ public class ApiComplianceChecker {
         return buf.toString();
     }
 
-    /**
-     * Scan a class (an its entire inheritance chain) for fields.
-     *
-     * @return a {@link Map} of fieldName to {@link Field}
-     */
-    private static Map<String, Field> buildFieldMap(Class testClass) {
-        Map<String, Field> fieldMap = new HashMap<>();
-        // Scan the superclass
-        if (testClass.getSuperclass() != null) {
-            fieldMap.putAll(buildFieldMap(testClass.getSuperclass()));
+    @Override
+    protected void checkConstructor(JDiffClassDescription classDescription, Class<?> runtimeClass,
+            JDiffClassDescription.JDiffConstructor ctorDescription, Constructor<?> ctor) {
+        if (ctor.isVarArgs()) {// some method's parameter are variable args
+            ctorDescription.mModifier |= METHOD_MODIFIER_VAR_ARGS;
         }
-
-        // Scan the interfaces
-        for (Class interfaceClass : testClass.getInterfaces()) {
-            fieldMap.putAll(buildFieldMap(interfaceClass));
-        }
-
-        // Check the fields in the test class
-        for (Field field : testClass.getDeclaredFields()) {
-            fieldMap.put(field.getName(), field);
-        }
-
-        return fieldMap;
-    }
-
-    /**
-     * Checks whether the constructor parsed from API xml file and
-     * Java reflection are compliant.
-     *
-     * @param classDescription a description of a class in an API.
-     * @param runtimeClass the runtime class corresponding to {@code classDescription}.
-     */
-    @SuppressWarnings("unchecked")
-    private void checkConstructorCompliance(JDiffClassDescription classDescription,
-            Class<?> runtimeClass) {
-        for (JDiffClassDescription.JDiffConstructor con : classDescription.getConstructors()) {
-            try {
-                Constructor<?> c = ReflectionHelper.findMatchingConstructor(runtimeClass, con);
-                if (c == null) {
-                    resultObserver.notifyFailure(FailureType.MISSING_METHOD,
-                            con.toReadableString(classDescription.getAbsoluteClassName()),
-                            "No method with correct signature found:" +
-                                    con.toSignatureString());
-                } else {
-                    if (c.isVarArgs()) {// some method's parameter are variable args
-                        con.mModifier |= METHOD_MODIFIER_VAR_ARGS;
-                    }
-                    if (c.getModifiers() != con.mModifier) {
-                        resultObserver.notifyFailure(
-                                FailureType.MISMATCH_METHOD,
-                                con.toReadableString(classDescription.getAbsoluteClassName()),
-                                "Non-compatible method found when looking for " +
-                                        con.toSignatureString());
-                    }
-                }
-            } catch (Exception e) {
-                loge("Got exception when checking constructor compliance", e);
-                resultObserver.notifyFailure(FailureType.CAUGHT_EXCEPTION,
-                        con.toReadableString(classDescription.getAbsoluteClassName()),
-                        "Exception!");
-            }
+        if (ctor.getModifiers() != ctorDescription.mModifier) {
+            resultObserver.notifyFailure(
+                    FailureType.MISMATCH_METHOD,
+                    ctorDescription.toReadableString(classDescription.getAbsoluteClassName()),
+                    "Non-compatible method found when looking for " +
+                            ctorDescription.toSignatureString());
         }
     }
 
-    /**
-     * Checks that the method found through reflection matches the
-     * specification from the API xml file.
-     *
-     * @param classDescription a description of a class in an API.
-     * @param runtimeClass the runtime class corresponding to {@code classDescription}.
-     */
-    private void checkMethodCompliance(JDiffClassDescription classDescription,
-            Class<?> runtimeClass) {
-        for (JDiffClassDescription.JDiffMethod method : classDescription.getMethods()) {
-            try {
+    @Override
+    protected void checkMethod(JDiffClassDescription classDescription, Class<?> runtimeClass,
+            JDiffClassDescription.JDiffMethod methodDescription, Method method) {
+        if (method.isVarArgs()) {
+            methodDescription.mModifier |= METHOD_MODIFIER_VAR_ARGS;
+        }
+        if (method.isBridge()) {
+            methodDescription.mModifier |= METHOD_MODIFIER_BRIDGE;
+        }
+        if (method.isSynthetic()) {
+            methodDescription.mModifier |= METHOD_MODIFIER_SYNTHETIC;
+        }
 
-                Method m = ReflectionHelper.findMatchingMethod(runtimeClass, method);
-                if (m == null) {
-                    resultObserver.notifyFailure(FailureType.MISSING_METHOD,
-                            method.toReadableString(classDescription.getAbsoluteClassName()),
-                            "No method with correct signature found:" +
-                                    method.toSignatureString());
-                } else {
-                    if (m.isVarArgs()) {
-                        method.mModifier |= METHOD_MODIFIER_VAR_ARGS;
-                    }
-                    if (m.isBridge()) {
-                        method.mModifier |= METHOD_MODIFIER_BRIDGE;
-                    }
-                    if (m.isSynthetic()) {
-                        method.mModifier |= METHOD_MODIFIER_SYNTHETIC;
-                    }
+        // FIXME: A workaround to fix the final mismatch on enumeration
+        if (runtimeClass.isEnum() && methodDescription.mName.equals("values")) {
+            return;
+        }
 
-                    // FIXME: A workaround to fix the final mismatch on enumeration
-                    if (runtimeClass.isEnum() && method.mName.equals("values")) {
-                        return;
-                    }
-
-                    if (!areMethodsModifiedCompatible(classDescription, method, m)) {
-                        resultObserver.notifyFailure(FailureType.MISMATCH_METHOD,
-                                method.toReadableString(classDescription.getAbsoluteClassName()),
-                                "Non-compatible method found when looking for " +
-                                        method.toSignatureString());
-                    }
-                }
-            } catch (Exception e) {
-                loge("Got exception when checking method compliance", e);
-                resultObserver.notifyFailure(FailureType.CAUGHT_EXCEPTION,
-                        method.toReadableString(classDescription.getAbsoluteClassName()),
-                        "Exception!");
-            }
+        String reason;
+        if ((reason = areMethodsModifiedCompatible(
+                classDescription, methodDescription, method)) != null) {
+            resultObserver.notifyFailure(FailureType.MISMATCH_METHOD,
+                    methodDescription.toReadableString(classDescription.getAbsoluteClassName()),
+                    String.format("Non-compatible method found when looking for %s - because %s",
+                            methodDescription.toSignatureString(), reason));
         }
     }
 
@@ -713,8 +498,9 @@ public class ApiComplianceChecker {
      * @param classDescription a description of a class in an API.
      * @param apiMethod the method read from the api file.
      * @param reflectedMethod the method found via reflection.
+     * @return null if the method modifiers are compatible otherwise the reason why not.
      */
-    private static boolean areMethodsModifiedCompatible(
+    private static String areMethodsModifiedCompatible(
             JDiffClassDescription classDescription,
             JDiffClassDescription.JDiffMethod apiMethod,
             Method reflectedMethod) {
@@ -724,21 +510,39 @@ public class ApiComplianceChecker {
                 // but the reflected method is
                 ((reflectedMethod.getModifiers() & Modifier.SYNCHRONIZED) != 0)) {
             // that is a problem
-            return false;
+            return "description is synchronize but class is not";
         }
 
         // Mask off NATIVE since it is a don't care.  Also mask off
         // SYNCHRONIZED since we've already handled that check.
         int ignoredMods = (Modifier.NATIVE | Modifier.SYNCHRONIZED | Modifier.STRICT);
-        int mod1 = reflectedMethod.getModifiers() & ~ignoredMods;
-        int mod2 = apiMethod.mModifier & ~ignoredMods;
+        int reflectionModifiers = reflectedMethod.getModifiers() & ~ignoredMods;
+        int apiModifiers = apiMethod.mModifier & ~ignoredMods;
 
         // We can ignore FINAL for classes
         if ((classDescription.getModifier() & Modifier.FINAL) != 0) {
-            mod1 &= ~Modifier.FINAL;
-            mod2 &= ~Modifier.FINAL;
+            reflectionModifiers &= ~Modifier.FINAL;
+            apiModifiers &= ~Modifier.FINAL;
         }
 
-        return mod1 == mod2;
+        if (reflectionModifiers == apiModifiers) {
+            return null;
+        } else {
+            return String.format("modifier mismatch - description (%s), method (%s)",
+                    Modifier.toString(apiModifiers), Modifier.toString(reflectionModifiers));
+        }
+    }
+
+    public void addBaseClass(JDiffClassDescription classDescription) {
+        // Keep track of all the base interfaces that may by extended.
+        if (classDescription.getClassType() == JDiffClassDescription.JDiffType.INTERFACE) {
+            try {
+                Class<?> runtimeClass =
+                        ReflectionHelper.findMatchingClass(classDescription, classProvider);
+                interfaceChecker.queueForDeferredCheck(classDescription, runtimeClass);
+            } catch (ClassNotFoundException e) {
+                // Do nothing.
+            }
+        }
     }
 }

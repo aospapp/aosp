@@ -1,20 +1,19 @@
-/******************************************************************************
+/*
+ * Copyright 2017 The Android Open Source Project
  *
- *  Copyright (C) 2017 Google, Inc.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at:
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- *  http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- *
- ******************************************************************************/
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 
 #include <cmath>
@@ -24,29 +23,30 @@
 #include <vector>
 
 #include "base/macros.h"
+#include "hci_packet.h"
 #include "l2cap_sdu.h"
 
 namespace test_vendor_lib {
 
 const int kSduHeaderLength = 4;
 
-class L2capPacket {
+class L2capPacket : public HciPacket {
  public:
   // Returns an assembled L2cap object if successful, nullptr if failure.
-  static std::unique_ptr<L2capPacket> assemble(
-      const std::vector<L2capSdu>& sdu_packet);
-
-  // Construct a vector of just the L2CAP payload. This essentially
-  // will remove the L2CAP header from the private member variable.
-  // TODO: Remove this in favor of custom iterators.
-  std::vector<uint8_t> get_l2cap_payload() const;
-
-  uint16_t get_l2cap_cid() const;
+  static std::shared_ptr<L2capPacket> assemble(
+      const std::vector<std::shared_ptr<L2capSdu> >& sdu_packet);
 
   // Returns a fragmented vector of L2capSdu objects if successful
   // Returns an empty vector of L2capSdu objects if unsuccessful
-  std::vector<L2capSdu> fragment(uint16_t maximum_sdu_size, uint8_t txseq,
-                                 uint8_t reqseq) const;
+  std::vector<std::shared_ptr<L2capSdu> > fragment(uint16_t maximum_sdu_size,
+                                                   uint8_t txseq,
+                                                   uint8_t reqseq);
+
+  uint16_t get_l2cap_cid() const;
+
+  // HciPacket Functions
+  size_t get_length();
+  uint8_t& get_at_index(size_t index);
 
  private:
   L2capPacket() = default;
@@ -54,13 +54,7 @@ class L2capPacket {
   // Entire L2CAP packet: length, CID, and payload in that order.
   std::vector<uint8_t> l2cap_packet_;
 
-  // Returns an iterator to the beginning of the L2CAP payload on success.
-  std::vector<uint8_t>::const_iterator get_l2cap_payload_begin() const;
-
   DISALLOW_COPY_AND_ASSIGN(L2capPacket);
-
-  // Returns an iterator to the end of the L2CAP payload.
-  std::vector<uint8_t>::const_iterator get_l2cap_payload_end() const;
 
   // Helper functions for fragmenting.
   static void set_sdu_header_length(std::vector<uint8_t>& sdu, uint16_t length);

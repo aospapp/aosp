@@ -32,6 +32,7 @@ namespace wificond {
 
 class BaseNL80211Attr {
  public:
+  BaseNL80211Attr(int id, const std::vector<uint8_t>& raw_buffer);
   virtual ~BaseNL80211Attr() = default;
 
   const std::vector<uint8_t>& GetConstData() const;
@@ -48,6 +49,10 @@ class BaseNL80211Attr {
                               int attr_id,
                               uint8_t** attr_start,
                               uint8_t** attr_end);
+  // Merge the payload of |attr| to current attribute.
+  // This is only used for merging attribute from the response of split dump.
+  // Returns true on success.
+  bool Merge(const BaseNL80211Attr& attr);
 
  protected:
   BaseNL80211Attr() = default;
@@ -165,18 +170,11 @@ class NL80211NestedAttr : public BaseNL80211Attr {
   }
 
   // Some of the nested attribute contains a list of same type sub-attributes.
-  // This function retrieves a vector of attribute value from a nested
+  // This function retrieves a vector of attribute values from a nested
   // attribute.
-  // This is for both correctness and performance reasons:
   //
-  // Correctness reason:
-  // These sub-attributes have attribute id from '0 to n' or '1 to n'.
-  // There is no document defining what the start index should be.
-  // This function ignore all these fake attribute ids.
-  //
-  // Performance reson:
-  // Calling GetAttributeValue() from '0 to n' results a n^2 time complexity.
-  // This function get a list of attribute values in one pass.
+  // This is for both correctness and performance reasons: Refer to
+  // GetListOfAttributes().
   //
   // Returns true on success.
   template <typename T>
@@ -197,6 +195,44 @@ class NL80211NestedAttr : public BaseNL80211Attr {
         return false;
       }
       attr_list.emplace_back(attribute.GetValue());
+      ptr += NLA_ALIGN(header->nla_len);
+    }
+    *value = std::move(attr_list);
+    return true;
+  }
+
+  // Some of the nested attribute contains a list of same type sub-attributes.
+  // This function retrieves a vector of attributes from a nested
+  // attribute.
+  //
+  // This is for both correctness and performance reasons:
+  // Correctness reason:
+  // These sub-attributes have attribute id from '0 to n' or '1 to n'.
+  // There is no document defining what the start index should be.
+  //
+  // Performance reson:
+  // Calling GetAttribute() from '0 to n' results a n^2 time complexity.
+  // This function get a list of attributes in one pass.
+  //
+  // Returns true on success.
+  template <typename T>
+  bool GetListOfAttributes(std::vector<NL80211Attr<T>>* value) const {
+    const uint8_t* ptr = data_.data() + NLA_HDRLEN;
+    const uint8_t* end_ptr = data_.data() + data_.size();
+    std::vector<NL80211Attr<T>> attr_list;
+    while (ptr + NLA_HDRLEN <= end_ptr) {
+      const nlattr* header = reinterpret_cast<const nlattr*>(ptr);
+      if (ptr + NLA_ALIGN(header->nla_len) > end_ptr) {
+        LOG(ERROR) << "Failed to get list of attributes: invalid nla_len.";
+        return false;
+      }
+      NL80211Attr<T> attribute(std::vector<uint8_t>(
+          ptr,
+          ptr + NLA_ALIGN(header->nla_len)));
+      if (!attribute.IsValid()) {
+        return false;
+      }
+      attr_list.emplace_back(attribute);
       ptr += NLA_ALIGN(header->nla_len);
     }
     *value = std::move(attr_list);

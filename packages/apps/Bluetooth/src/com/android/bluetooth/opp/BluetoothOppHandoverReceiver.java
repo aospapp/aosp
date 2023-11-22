@@ -26,27 +26,31 @@ import android.util.Log;
 import java.util.ArrayList;
 
 public class BluetoothOppHandoverReceiver extends BroadcastReceiver {
-    public static final String TAG ="BluetoothOppHandoverReceiver";
+    public static final String TAG = "BluetoothOppHandoverReceiver";
     private static final boolean D = Constants.DEBUG;
 
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
 
-        if (action.equals(Constants.ACTION_HANDOVER_SEND) ||
-               action.equals(Constants.ACTION_HANDOVER_SEND_MULTIPLE)) {
+        if (action.equals(Constants.ACTION_HANDOVER_SEND) || action.equals(
+                Constants.ACTION_HANDOVER_SEND_MULTIPLE)) {
             final BluetoothDevice device =
                     (BluetoothDevice) intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
             if (device == null) {
-                if (D) Log.d(TAG, "No device attached to handover intent.");
+                if (D) {
+                    Log.d(TAG, "No device attached to handover intent.");
+                }
                 return;
             }
 
             final String mimeType = intent.getType();
             ArrayList<Uri> uris = new ArrayList<Uri>();
             if (action.equals(Constants.ACTION_HANDOVER_SEND)) {
-                Uri stream = (Uri)intent.getParcelableExtra(Intent.EXTRA_STREAM);
-                if (stream != null) uris.add(stream);
+                Uri stream = (Uri) intent.getParcelableExtra(Intent.EXTRA_STREAM);
+                if (stream != null) {
+                    uris.add(stream);
+                }
             } else if (action.equals(Constants.ACTION_HANDOVER_SEND_MULTIPLE)) {
                 uris = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
             }
@@ -55,6 +59,7 @@ public class BluetoothOppHandoverReceiver extends BroadcastReceiver {
                 final Context finalContext = context;
                 final ArrayList<Uri> finalUris = uris;
                 Thread t = new Thread(new Runnable() {
+                    @Override
                     public void run() {
                         BluetoothOppManager.getInstance(finalContext)
                                 .saveSendingFileInfo(mimeType, finalUris, true /* isHandover */,
@@ -64,25 +69,35 @@ public class BluetoothOppHandoverReceiver extends BroadcastReceiver {
                 });
                 t.start();
             } else {
-                if (D) Log.d(TAG, "No mimeType or stream attached to handover request");
+                if (D) {
+                    Log.d(TAG, "No mimeType or stream attached to handover request");
+                }
                 return;
             }
         } else if (action.equals(Constants.ACTION_WHITELIST_DEVICE)) {
             BluetoothDevice device =
-                    (BluetoothDevice)intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-            if (D) Log.d(TAG, "Adding " + device + " to whitelist");
-            if (device == null) return;
+                    (BluetoothDevice) intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+            if (D) {
+                Log.d(TAG, "Adding " + device + " to whitelist");
+            }
+            if (device == null) {
+                return;
+            }
             BluetoothOppManager.getInstance(context).addToWhitelist(device.getAddress());
         } else if (action.equals(Constants.ACTION_STOP_HANDOVER)) {
             int id = intent.getIntExtra(Constants.EXTRA_BT_OPP_TRANSFER_ID, -1);
             if (id != -1) {
                 Uri contentUri = Uri.parse(BluetoothShare.CONTENT_URI + "/" + id);
 
-                if (D) Log.d(TAG, "Stopping handover transfer with Uri " + contentUri);
+                if (D) {
+                    Log.d(TAG, "Stopping handover transfer with Uri " + contentUri);
+                }
                 context.getContentResolver().delete(contentUri, null, null);
             }
         } else {
-            if (D) Log.d(TAG, "Unknown action: " + action);
+            if (D) {
+                Log.d(TAG, "Unknown action: " + action);
+            }
         }
     }
 

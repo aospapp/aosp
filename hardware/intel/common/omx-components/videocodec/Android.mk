@@ -158,6 +158,7 @@ LOCAL_CFLAGS += -DTARGET_HAS_VPP
 endif
 LOCAL_SHARED_LIBRARIES := \
     libwrs_omxil_common \
+    libion \
     liblog \
     libva_videodecoder \
     libdl \
@@ -510,7 +511,7 @@ LOCAL_CFLAGS += -DUSE_META_DATA
 endif
 
 # TODO: Fix this.
-LOCAL_CFLAGS += -Wno-error=unused-variable
+LOCAL_CFLAGS += -Wall -Werror -Wno-error=unused-variable
 
 include $(BUILD_SHARED_LIBRARY)
 endif

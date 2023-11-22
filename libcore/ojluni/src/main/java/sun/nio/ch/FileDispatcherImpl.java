@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,12 +26,19 @@
 package sun.nio.ch;
 
 import dalvik.system.BlockGuard;
-import dalvik.system.SocketTagger;
 
-import java.io.*;
-import java.net.SocketException;
+import java.io.FileDescriptor;
+import java.io.IOException;
 
 class FileDispatcherImpl extends FileDispatcher {
+
+    // Android-removed: Code to load native libraries, doesn't make sense on Android.
+    /*
+    static {
+        IOUtil.load();
+        init();
+    }
+    */
 
     FileDispatcherImpl(boolean append) {
         /* append is ignored */
@@ -41,6 +48,7 @@ class FileDispatcherImpl extends FileDispatcher {
     }
 
     int read(FileDescriptor fd, long address, int len) throws IOException {
+        // Android-added: BlockGuard support.
         BlockGuard.getThreadPolicy().onReadFromDisk();
         return read0(fd, address, len);
     }
@@ -48,16 +56,19 @@ class FileDispatcherImpl extends FileDispatcher {
     int pread(FileDescriptor fd, long address, int len, long position)
         throws IOException
     {
+        // Android-added: BlockGuard support.
         BlockGuard.getThreadPolicy().onReadFromDisk();
         return pread0(fd, address, len, position);
     }
 
     long readv(FileDescriptor fd, long address, int len) throws IOException {
+        // Android-added: BlockGuard support.
         BlockGuard.getThreadPolicy().onReadFromDisk();
         return readv0(fd, address, len);
     }
 
     int write(FileDescriptor fd, long address, int len) throws IOException {
+        // Android-added: BlockGuard support.
         BlockGuard.getThreadPolicy().onWriteToDisk();
         return write0(fd, address, len);
     }
@@ -65,6 +76,7 @@ class FileDispatcherImpl extends FileDispatcher {
     int pwrite(FileDescriptor fd, long address, int len, long position)
         throws IOException
     {
+        // Android-added: BlockGuard support.
         BlockGuard.getThreadPolicy().onWriteToDisk();
         return pwrite0(fd, address, len, position);
     }
@@ -72,21 +84,25 @@ class FileDispatcherImpl extends FileDispatcher {
     long writev(FileDescriptor fd, long address, int len)
         throws IOException
     {
+        // Android-added: BlockGuard support.
         BlockGuard.getThreadPolicy().onWriteToDisk();
         return writev0(fd, address, len);
     }
 
     int force(FileDescriptor fd, boolean metaData) throws IOException {
+        // Android-added: BlockGuard support.
         BlockGuard.getThreadPolicy().onWriteToDisk();
         return force0(fd, metaData);
     }
 
     int truncate(FileDescriptor fd, long size) throws IOException {
+        // Android-added: BlockGuard support.
         BlockGuard.getThreadPolicy().onWriteToDisk();
         return truncate0(fd, size);
     }
 
     long size(FileDescriptor fd) throws IOException {
+        // Android-added: BlockGuard support.
         BlockGuard.getThreadPolicy().onReadFromDisk();
         return size0(fd);
     }
@@ -94,11 +110,13 @@ class FileDispatcherImpl extends FileDispatcher {
     int lock(FileDescriptor fd, boolean blocking, long pos, long size,
              boolean shared) throws IOException
     {
+        // Android-added: BlockGuard support.
         BlockGuard.getThreadPolicy().onWriteToDisk();
         return lock0(fd, blocking, pos, size, shared);
     }
 
     void release(FileDescriptor fd, long pos, long size) throws IOException {
+        // Android-added: BlockGuard support.
         BlockGuard.getThreadPolicy().onWriteToDisk();
         release0(fd, pos, size);
     }
@@ -108,19 +126,6 @@ class FileDispatcherImpl extends FileDispatcher {
     }
 
     void preClose(FileDescriptor fd) throws IOException {
-        preCloseImpl(fd);
-    }
-
-    static void preCloseImpl(FileDescriptor fd) throws IOException {
-        if (fd.isSocket$()) {
-            // Always untag sockets before the preClose. The file descriptor will describe
-            // a different file (/dev/null) after preClose0.
-            try {
-                SocketTagger.get().untag(fd);
-            } catch (SocketException ignored) {
-            }
-        }
-
         preClose0(fd);
     }
 
@@ -174,8 +179,11 @@ class FileDispatcherImpl extends FileDispatcher {
 
     static native void close0(FileDescriptor fd) throws IOException;
 
-    private static native void preClose0(FileDescriptor fd) throws IOException;
+    static native void preClose0(FileDescriptor fd) throws IOException;
 
     static native void closeIntFD(int fd) throws IOException;
+
+    // Android-removed: Code to load native libraries, doesn't make sense on Android.
+    // static native void init();
 
 }

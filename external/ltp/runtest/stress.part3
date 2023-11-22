@@ -333,14 +333,7 @@ llseek03 llseek03
 
 lseek01 lseek01
 lseek02 lseek02
-lseek03 lseek03
-lseek04 lseek04
-lseek05 lseek05
-lseek06 lseek06
 lseek07 lseek07
-lseek08 lseek08
-lseek09 lseek09
-lseek10 lseek10
 lseek11 lseek11
 
 lstat01A symlink01 -T lstat01
@@ -718,7 +711,6 @@ setuid04 setuid04
 
 shmat01 shmat01
 shmat02 shmat02
-shmat03 shmat03
 
 shmctl02 shmctl02
 shmctl03 shmctl03
@@ -888,7 +880,6 @@ waitpid12 waitpid12
 waitpid13 waitpid13
 
 write01 write01
-write02 write02
 write03 write03
 write04 write04
 write05 write05

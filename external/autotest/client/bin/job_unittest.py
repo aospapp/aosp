@@ -6,6 +6,7 @@ import os
 import shutil
 import StringIO
 import sys
+import tempfile
 import unittest
 
 import common
@@ -30,9 +31,12 @@ class job_test_case(unittest.TestCase):
         self.job = self.job_class.__new__(self.job_class)
         self.job._job_directory = base_job_unittest.stub_job_directory
 
+        _, self.control_file = tempfile.mkstemp()
+
 
     def tearDown(self):
         self.god.unstub_all()
+        os.remove(self.control_file)
 
 
 class test_find_base_directories(
@@ -59,6 +63,7 @@ class abstract_test_init(base_job_unittest.test_init.generic_tests):
 
 
 class test_init_minimal_options(abstract_test_init, job_test_case):
+
     def call_init(self):
         # TODO(jadmanski): refactor more of the __init__ code to not need to
         # stub out countless random APIs
@@ -96,7 +101,7 @@ class test_init_minimal_options(abstract_test_init, job_test_case):
         self.god.stub_function_to_return(job.utils, 'drop_caches', None)
 
         self.job._job_state = base_job_unittest.stub_job_state
-        self.job.__init__('/control', options)
+        self.job.__init__(self.control_file, options)
 
 
 class dummy(object):
@@ -123,7 +128,7 @@ class test_base_job(unittest.TestCase):
         os.environ['AUTODIR'] = self.autodir
 
         # set up some variables
-        self.control = "control"
+        _, self.control = tempfile.mkstemp()
         self.jobtag = "jobtag"
 
         # get rid of stdout and logging
@@ -169,6 +174,7 @@ class test_base_job(unittest.TestCase):
     def tearDown(self):
         sys.stdout = sys.__stdout__
         self.god.unstub_all()
+        os.remove(self.control)
 
 
     def _setup_pre_record_init(self, cont):

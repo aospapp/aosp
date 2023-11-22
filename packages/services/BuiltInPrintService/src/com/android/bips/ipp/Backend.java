@@ -77,7 +77,7 @@ public class Backend implements JobCallback {
                 BackendConstants.WPRINT_APPLICATION_ID.toLowerCase(Locale.US));
     }
 
-    /** Return the current application version or VERISON_UNKNOWN */
+    /** Return the current application version or VERSION_UNKNOWN */
     private String getApplicationVersion(Context context) {
         try {
             PackageInfo packageInfo = context.getPackageManager()
@@ -89,16 +89,18 @@ public class Backend implements JobCallback {
     }
 
     /** Asynchronously get printer capabilities, returning results or null to a callback */
-    public AsyncTask<?, ?, ?> getCapabilities(Uri uri, long timeout,
+    public GetCapabilitiesTask getCapabilities(Uri uri, long timeout, boolean highPriority,
             final Consumer<LocalPrinterCapabilities> capabilitiesConsumer) {
         if (DEBUG) Log.d(TAG, "getCapabilities()");
 
-        return new GetCapabilitiesTask(this, uri, timeout) {
+        GetCapabilitiesTask task = new GetCapabilitiesTask(this, uri, timeout, highPriority) {
             @Override
             protected void onPostExecute(LocalPrinterCapabilities result) {
                 capabilitiesConsumer.accept(result);
             }
-        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        };
+        task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        return task;
     }
 
     /**
@@ -115,13 +117,13 @@ public class Backend implements JobCallback {
         mStartTask = new StartJobTask(mContext, this, uri, printJob, capabilities) {
             @Override
             public void onCancelled(Integer result) {
-                if (DEBUG) Log.d(TAG, "StartJobTask::onCancelled " + result);
+                if (DEBUG) Log.d(TAG, "StartJobTask onCancelled " + result);
                 onPostExecute(ERROR_CANCEL);
             }
 
             @Override
             protected void onPostExecute(Integer result) {
-                if (DEBUG) Log.d(TAG, "StartJobTask::onPostExecute " + result);
+                if (DEBUG) Log.d(TAG, "StartJobTask onPostExecute " + result);
                 mStartTask = null;
                 if (result > 0) {
                     mCurrentJobStatus = new JobStatus.Builder(mCurrentJobStatus).setId(result)
@@ -296,7 +298,7 @@ public class Backend implements JobCallback {
      *
      * @param address IP address or hostname (e.g. "192.168.1.2")
      * @param port port to use (e.g. 631)
-     * @param mime_type MIME type of data being sent
+     * @param mimeType MIME type of data being sent
      * @param jobParams job parameters to use when providing the job to the printer
      * @param capabilities printer capabilities for the printer being used
      * @param fileList list of files to be provided of the given MIME type
@@ -304,8 +306,9 @@ public class Backend implements JobCallback {
      * @param scheme URI scheme (e.g. ipp/ipps)
      * @return {@link BackendConstants#STATUS_OK} or an error code.
      */
-    native int nativeStartJob(String address, int port, String mime_type, LocalJobParams jobParams,
-            LocalPrinterCapabilities capabilities, String[] fileList, String debugDir, String scheme);
+    native int nativeStartJob(String address, int port, String mimeType, LocalJobParams jobParams,
+            LocalPrinterCapabilities capabilities, String[] fileList, String debugDir,
+            String scheme);
 
     /**
      * Request cancellation of the identified job.

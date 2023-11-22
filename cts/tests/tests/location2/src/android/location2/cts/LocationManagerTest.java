@@ -31,6 +31,7 @@ import android.os.Bundle;
 import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
+import android.platform.test.annotations.AppModeFull;
 import android.test.InstrumentationTestCase;
 import android.test.UiThreadTest;
 import android.util.Log;
@@ -260,6 +261,7 @@ public class LocationManagerTest extends InstrumentationTestCase {
         }
     }
 
+    @AppModeFull
     public void testSendExtraCommand() {
         addTestProvider(LocationManager.NETWORK_PROVIDER, Criteria.ACCURACY_COARSE, true, false, true);
         addTestProvider(LocationManager.GPS_PROVIDER, Criteria.ACCURACY_FINE, false, true, false);

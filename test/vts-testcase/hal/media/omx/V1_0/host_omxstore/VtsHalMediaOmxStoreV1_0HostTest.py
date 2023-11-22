@@ -29,24 +29,18 @@ import logging
 import re
 
 from vts.runners.host import asserts
-from vts.runners.host import base_test
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
-from vts.utils.python.precondition import precondition_utils
+from vts.testcases.template.hal_hidl_host_test import hal_hidl_host_test
 
+OMXSTORE_V1_0_HAL = "android.hardware.media.omx@1.0::IOmxStore"
 
-class VtsHalMediaOmxStoreV1_0Host(base_test.BaseTestClass):
+class VtsHalMediaOmxStoreV1_0Host(hal_hidl_host_test.HalHidlHostTest):
     """Host test class to run the Media_OmxStore HAL."""
 
-    def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
+    TEST_HAL_SERVICES = {OMXSTORE_V1_0_HAL}
 
-        self.dut.shell.InvokeTerminal('one')
-        self.dut.shell.one.Execute('setenforce 0')  # SELinux permissive mode
-        if not precondition_utils.CanRunHidlHalTest(
-            self, self.dut, self.dut.shell.one):
-            self._skip_all_testcases = True
-            return
+    def setUpClass(self):
+        super(VtsHalMediaOmxStoreV1_0Host, self).setUpClass()
 
         self.dut.hal.InitHidlHal(
             target_type='media_omx',
@@ -54,14 +48,11 @@ class VtsHalMediaOmxStoreV1_0Host(base_test.BaseTestClass):
             target_version=1.0,
             target_package='android.hardware.media.omx',
             target_component_name='IOmxStore',
+            hw_binder_service_name=self.getHalServiceName(OMXSTORE_V1_0_HAL),
             bits=int(self.abi_bitness))
 
         self.omxstore = self.dut.hal.media_omx
         self.vtypes = self.omxstore.GetHidlTypeInterface('types')
-
-        if self.coverage.enabled:
-            self.coverage.LoadArtifacts()
-            self.coverage.InitializeDeviceCoverage(self._dut)
 
     def testListServiceAttributes(self):
         """Test IOmxStore::listServiceAttributes().
@@ -283,6 +274,9 @@ class VtsHalMediaOmxStoreV1_0Host(base_test.BaseTestClass):
 
         # The test code starts here.
         roles = self.omxstore.listRoles()
+        if len(roles) == 0:
+            logging.warning('IOmxStore has an empty implementation. Skipping...')
+            return
 
         # A map from a node name to a set of roles.
         node2roles = {}
@@ -439,6 +433,14 @@ class VtsHalMediaOmxStoreV1_0Host(base_test.BaseTestClass):
                     'IOmx::listNodes() for IOmx instance "' + owner + '" ' +
                     'does not report some roles for node "' + node + '": ' +
                     ', '.join(node2roles[node] - role_set))
+
+                # Try creating the node.
+                status, omxNode = omx.allocateNode(node, None)
+                asserts.assertEqual(
+                    self.vtypes.Status.OK, status,
+                    'IOmx::allocateNode() for IOmx instance "' + owner + '" ' +
+                    'fails to allocate node "' + node +'".')
+
 
             # Check that all nodes obtained from IOmxStore::listRoles() are
             # supported by the their corresponding IOmx instances.

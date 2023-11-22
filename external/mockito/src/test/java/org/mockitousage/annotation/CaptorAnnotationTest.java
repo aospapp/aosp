@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import static junit.framework.TestCase.*;
+import static org.junit.Assert.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class CaptorAnnotationTest extends TestBase {
@@ -90,7 +90,7 @@ public class CaptorAnnotationTest extends TestBase {
     }
 
     @Test
-    public void shouldScreamWhenMoreThanOneMockitoAnnotaton() {
+    public void shouldScreamWhenMoreThanOneMockitoAnnotation() {
         try {
             MockitoAnnotations.initMocks(new ToManyAnnotations());
             fail();

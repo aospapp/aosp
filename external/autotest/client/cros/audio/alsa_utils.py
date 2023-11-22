@@ -2,26 +2,27 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import logging
 import re
 import subprocess
 
+from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.cros.audio import cmd_utils
 
 
+ACONNECT_PATH = '/usr/bin/aconnect'
 ARECORD_PATH = '/usr/bin/arecord'
 APLAY_PATH = '/usr/bin/aplay'
 AMIXER_PATH = '/usr/bin/amixer'
 CARD_NUM_RE = re.compile(r'(\d+) \[.*\]:')
+CLIENT_NUM_RE = re.compile(r'client (\d+):')
 DEV_NUM_RE = re.compile(r'.* \[.*\], device (\d+):')
 CONTROL_NAME_RE = re.compile(r"name='(.*)'")
 SCONTROL_NAME_RE = re.compile(r"Simple mixer control '(.*)'")
 
 CARD_PREF_RECORD_DEV_IDX = {
     'bxtda7219max': 3,
-}
-
-CARD_PREF_RECORD_CHANNELS = {
-    'bxtda7219max': [ 4 ],
 }
 
 def _get_format_args(channels, bits, rate):
@@ -136,6 +137,19 @@ def get_first_soundcard_with_control(cname, scname):
     return None
 
 
+def get_soundcard_names():
+    '''Returns a dictionary of card names, keyed by card number.'''
+
+    cmd = "alsa_helpers -l"
+    try:
+        output = utils.system_output(command=cmd, retain_output=True)
+    except error.CmdError:
+        raise RuntimeError('alsa_helpers -l failed to return card names')
+
+    return dict((index, name) for index, name in (
+        line.split(',') for line in output.splitlines()))
+
+
 def get_default_playback_device():
     '''Gets the first playback device.
 
@@ -166,19 +180,28 @@ def get_record_card_name(card_idx):
             return match.group(1)
     return None
 
-def get_card_preferred_record_channels():
-    '''Gets the preferred record channel counts for default sound card.
 
-    Returns the preferred value for default card in CARD_PREF_RECORD_CHANNELS.
-    If preferred value doesn't exist, return None.
+def get_record_device_supported_channels(device):
+    '''Gets the supported channels for the record device.
+
+    @param device: The device to record the audio. E.g. hw:0,1
+
+    Returns the supported values in integer in a list for the device.
+    If the value doesn't exist or the command fails, return None.
     '''
-    card_id = get_first_soundcard_with_control(cname='Mic Jack', scname='Mic')
-    if card_id is None:
+    cmd = "alsa_helpers --device %s --get_capture_channels" % device
+    try:
+        output = utils.system_output(command=cmd, retain_output=True)
+    except error.CmdError:
+        logging.error("Fail to get supported channels for %s", device)
         return None
-    card_name = get_record_card_name(card_id)
-    if CARD_PREF_RECORD_CHANNELS.has_key(card_name):
-        return CARD_PREF_RECORD_CHANNELS[card_name]
-    return None
+
+    supported_channels = output.splitlines()
+    if not supported_channels:
+        logging.error("Supported channels are empty for %s", device)
+        return None
+    return [int(i) for i in supported_channels]
+
 
 def get_default_record_device():
     '''Gets the first record device.
@@ -252,7 +275,7 @@ def playback_cmd(
     @param channels: The number of channels of the input audio.
     @param bits: The number of bits of each audio sample.
     @param rate: The sampling rate.
-    @param device: The device to play the audio on.
+    @param device: The device to play the audio on. E.g. hw:0,1
     @raise RuntimeError: If no playback device is available.
     '''
     args = [APLAY_PATH]
@@ -263,6 +286,8 @@ def playback_cmd(
         device = get_default_playback_device()
         if device is None:
             raise RuntimeError('no playback device')
+    else:
+        device = "plug%s" % device
     args += ['-D', device]
     args += [input]
     return args
@@ -285,7 +310,7 @@ def record_cmd(
     @param channels: The number of channels of the recorded audio.
     @param bits: The number of bits of each audio sample.
     @param rate: The sampling rate.
-    @param device: The device used to recorded the audio from.
+    @param device: The device used to recorded the audio from. E.g. hw:0,1
     @raise RuntimeError: If no record device is available.
     '''
     args = [ARECORD_PATH]
@@ -296,6 +321,8 @@ def record_cmd(
         device = get_default_record_device()
         if device is None:
             raise RuntimeError('no record device')
+    else:
+        device = "plug%s" % device
     args += ['-D', device]
     args += [output]
     return args
@@ -321,3 +348,38 @@ def mixer_cmd(card_id, cmd):
     if p.wait() != 0:
         raise RuntimeError('amixer command failed')
     return output
+
+
+def get_num_seq_clients():
+    '''Returns the number of seq clients.
+
+    The number of clients is parsed from aconnect -io.
+    This is run as the chronos user to catch permissions problems.
+    Sample content:
+
+      client 0: 'System' [type=kernel]
+          0 'Timer           '
+          1 'Announce        '
+      client 14: 'Midi Through' [type=kernel]
+          0 'Midi Through Port-0'
+
+    @raise RuntimeError: If no seq device is available.
+    '''
+    cmd = [ACONNECT_PATH, '-io']
+    output = cmd_utils.execute(cmd, stdout=subprocess.PIPE, run_as='chronos')
+    num_clients = 0
+    for line in output.splitlines():
+        match = CLIENT_NUM_RE.match(line)
+        if match:
+            num_clients += 1
+    return num_clients
+
+def convert_device_name(cras_device_name):
+    '''Converts cras device name to alsa device name.
+
+    @returns: alsa device name that can be passed to aplay -D or arecord -D.
+              For example, if cras_device_name is "kbl_r5514_5663_max: :0,1",
+              this function will return "hw:0,1".
+    '''
+    tokens = cras_device_name.split(":")
+    return "hw:%s" % tokens[2]

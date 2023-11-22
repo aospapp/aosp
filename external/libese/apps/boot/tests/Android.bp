@@ -19,7 +19,11 @@ cc_test {
     proprietary: true,
     srcs: ["ese_app_boot_tests.cpp", "ese_operations_wrapper.cpp"],
     host_supported: true,
-    cflags: ["-Wno-unused-parameter"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-parameter",
+    ],
     shared_libs: [
         "libese-app-boot-fortest",
         "libese",

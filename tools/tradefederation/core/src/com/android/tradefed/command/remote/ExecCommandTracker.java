@@ -19,6 +19,8 @@ import com.android.tradefed.command.ICommandScheduler.IScheduledInvocationListen
 import com.android.tradefed.device.FreeDeviceState;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -32,7 +34,7 @@ class ExecCommandTracker implements IScheduledInvocationListener {
     private CommandResult.Status mStatus = CommandResult.Status.EXECUTING;
     private String mErrorDetails = null;
     private FreeDeviceState mState = null;
-    Map<String, String> mRunMetrics = new HashMap<String, String>();
+    private HashMap<String, Metric> mRunMetrics = new HashMap<>();
 
     @Override
     public void invocationFailed(Throwable cause) {
@@ -56,7 +58,7 @@ class ExecCommandTracker implements IScheduledInvocationListener {
     }
 
     @Override
-    public void testRunEnded(long elapsedTime, Map<String, String> runMetrics) {
+    public void testRunEnded(long elapsedTime, HashMap<String, Metric> runMetrics) {
         mRunMetrics.putAll(runMetrics);
     }
 
@@ -64,8 +66,12 @@ class ExecCommandTracker implements IScheduledInvocationListener {
      * Returns the current state as a {@link com.android.tradefed.command.remote.CommandResult}.
      */
     CommandResult getCommandResult() {
-        return new CommandResult(mStatus, mErrorDetails, mState,
+        return new CommandResult(
+                mStatus,
+                mErrorDetails,
+                mState,
                 new ImmutableMap.Builder<String, String>()
-                    .putAll(mRunMetrics).build());
+                        .putAll(TfMetricProtoUtil.compatibleConvert(mRunMetrics))
+                        .build());
     }
 }

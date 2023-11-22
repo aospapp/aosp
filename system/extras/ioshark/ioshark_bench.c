@@ -29,6 +29,7 @@
 #include <pthread.h>
 #include <sys/statfs.h>
 #include <sys/resource.h>
+#include <inttypes.h>
 #include "ioshark.h"
 #define IOSHARK_MAIN
 #include "ioshark_bench.h"
@@ -173,8 +174,7 @@ create_files(struct thread_state_s *state)
 
 	memset(&rw_bytes, 0, sizeof(struct rw_bytes_s));
 	for (i = 0 ; i < state->num_files ; i++) {
-		if (fread(&file_state, sizeof(struct ioshark_file_state),
-			  1, state->fp) != 1) {
+		if (ioshark_read_file_state(state->fp, &file_state) != 1) {
 			fprintf(stderr, "%s read error tracefile\n",
 				progname);
 			exit(EXIT_FAILURE);
@@ -190,7 +190,7 @@ create_files(struct thread_state_s *state)
 			assert(filename != NULL);
 		if (quick_mode == 0 ||
 		    is_readonly_mount(filename, file_state.size) == 0) {
-			sprintf(path, "file.%d.%d",
+			sprintf(path, "file.%d.%"PRIu64"",
 				(int)(state - thread_state),
 				file_state.fileno);
 			create_file(path, file_state.size,
@@ -216,9 +216,9 @@ do_one_io(void *db_node,
 	  struct rw_bytes_s *rw_bytes,
 	  char **bufp, int *buflen)
 {
-	assert(file_op->file_op < IOSHARK_MAX_FILE_OP);
-	op_counts[file_op->file_op]++;
-	switch (file_op->file_op) {
+	assert(file_op->ioshark_io_op < IOSHARK_MAX_FILE_OP);
+	op_counts[file_op->ioshark_io_op]++;
+	switch (file_op->ioshark_io_op) {
 	int ret;
 	char *p;
 	int fd;
@@ -230,7 +230,7 @@ do_one_io(void *db_node,
 			    file_op->lseek_action);
 		if (ret < 0) {
 			fprintf(stderr,
-				"%s: lseek(%s %lu %d) returned error %d\n",
+				"%s: lseek(%s %"PRIu64" %d) returned error %d\n",
 				progname, files_db_get_filename(db_node),
 				file_op->lseek_offset,
 				file_op->lseek_action, errno);
@@ -244,7 +244,7 @@ do_one_io(void *db_node,
 		rw_bytes->bytes_read += file_op->prw_len;
 		if (ret < 0) {
 			fprintf(stderr,
-				"%s: pread(%s %zu %lu) error %d\n",
+				"%s: pread(%s %"PRIu64" %"PRIu64") error %d\n",
 				progname,
 				files_db_get_filename(db_node),
 				file_op->prw_len,
@@ -259,7 +259,7 @@ do_one_io(void *db_node,
 		rw_bytes->bytes_written += file_op->prw_len;
 		if (ret < 0) {
 			fprintf(stderr,
-				"%s: pwrite(%s %zu %lu) error %d\n",
+				"%s: pwrite(%s %"PRIu64" %"PRIu64") error %d\n",
 				progname,
 				files_db_get_filename(db_node),
 				file_op->prw_len,
@@ -274,7 +274,7 @@ do_one_io(void *db_node,
 		rw_bytes->bytes_read += file_op->rw_len;
 		if (ret < 0) {
 			fprintf(stderr,
-				"%s: read(%s %zu) error %d\n",
+				"%s: read(%s %"PRIu64") error %d\n",
 				progname,
 				files_db_get_filename(db_node),
 				file_op->rw_len,
@@ -289,7 +289,7 @@ do_one_io(void *db_node,
 		rw_bytes->bytes_written += file_op->rw_len;
 		if (ret < 0) {
 			fprintf(stderr,
-				"%s: write(%s %zu) error %d\n",
+				"%s: write(%s %"PRIu64") error %d\n",
 				progname,
 				files_db_get_filename(db_node),
 				file_op->rw_len,
@@ -350,7 +350,7 @@ do_one_io(void *db_node,
 		break;
 	case IOSHARK_FSYNC:
 	case IOSHARK_FDATASYNC:
-		if (file_op->file_op == IOSHARK_FSYNC) {
+		if (file_op->ioshark_io_op == IOSHARK_FSYNC) {
 			ret = fsync(files_db_get_fd(db_node));
 			if (ret < 0) {
 				fprintf(stderr,
@@ -385,7 +385,7 @@ do_one_io(void *db_node,
 		break;
 	default:
 		fprintf(stderr, "%s: unknown FILE_OP %d\n",
-			progname, file_op->file_op);
+			progname, file_op->ioshark_io_op);
 		exit(EXIT_FAILURE);
 		break;
 	}
@@ -406,7 +406,7 @@ do_io(struct thread_state_s *state)
 	struct rw_bytes_s rw_bytes;
 
 	rewind(state->fp);
-	if (fread(&header, sizeof(struct ioshark_header), 1, state->fp) != 1) {
+	if (ioshark_read_header(state->fp, &header) != 1) {
 		fprintf(stderr, "%s read error %s\n",
 			progname, state->filename);
 		exit(EXIT_FAILURE);
@@ -424,9 +424,8 @@ do_io(struct thread_state_s *state)
 	/*
 	 * Loop over all the IOs, and launch each
 	 */
-	for (i = 0 ; i < header.num_io_operations ; i++) {
-		if (fread(&file_op, sizeof(struct ioshark_file_operation),
-			  1, state->fp) != 1) {
+	for (i = 0 ; i < (int)header.num_io_operations ; i++) {
+		if (ioshark_read_file_op(state->fp, &file_op) != 1) {
 			fprintf(stderr, "%s read error trace.outfile\n",
 				progname);
 			exit(EXIT_FAILURE);
@@ -442,11 +441,14 @@ do_io(struct thread_state_s *state)
 						   file_op.fileno);
 		if (db_node == NULL) {
 			fprintf(stderr,
-				"%s Can't lookup fileno %d, fatal error\n",
+				"%s Can't lookup fileno %"PRIu64", fatal error\n",
 				progname, file_op.fileno);
+			fprintf(stderr,
+				"%s state filename %s, i %d\n",
+				progname, state->filename, i);
 			exit(EXIT_FAILURE);
 		}
-		if (file_op.file_op != IOSHARK_OPEN &&
+		if (file_op.ioshark_io_op != IOSHARK_OPEN &&
 		    files_db_get_fd(db_node) == -1) {
 			int openflags;
 
@@ -498,7 +500,7 @@ do_create(struct thread_state_s *state)
 {
 	struct ioshark_header header;
 
-	if (fread(&header, sizeof(struct ioshark_header), 1, state->fp) != 1) {
+	if (ioshark_read_header(state->fp, &header) != 1) {
 		fprintf(stderr, "%s read error %s\n",
 			progname, state->filename);
 		exit(EXIT_FAILURE);
@@ -548,15 +550,13 @@ get_start_end(int *start_ix)
 				progname, infile);
 			exit(EXIT_FAILURE);
 		}
-		if (fread(&header, sizeof(struct ioshark_header),
-			  1, fp) != 1) {
+		if (ioshark_read_header(fp, &header) != 1) {
 			fprintf(stderr, "%s read error %s\n",
 				progname, infile);
 			exit(EXIT_FAILURE);
 		}
-		for (j = 0 ; j < header.num_files ; j++) {
-			if (fread(&file_state, sizeof(struct ioshark_file_state),
-				  1, fp) != 1) {
+		for (j = 0 ; j < (int)header.num_files ; j++) {
+			if (ioshark_read_file_state(fp, &file_state) != 1) {
 				fprintf(stderr, "%s read error tracefile\n",
 					progname);
 				exit(EXIT_FAILURE);

@@ -24,9 +24,10 @@ servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 def run(machine):
     host = hosts.create_host(machine, servo_args=servo_args)
 
-    suspend_iterations = int(args_dict.get("suspend_iterations", 1000))
+    suspend_count = int(args_dict.get("suspend_count", 1000))
+    reset_type = args_dict.get("reset_type", "mem")
 
     job.run_test("firmware_Cr50DeepSleepStress", host=host, cmdline_args=args,
-                 suspend_iterations=suspend_iterations)
+                 suspend_count=suspend_count, reset_type=reset_type)
 
 parallel_simple(run, machines)

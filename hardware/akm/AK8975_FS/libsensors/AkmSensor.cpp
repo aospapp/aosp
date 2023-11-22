@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <inttypes.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <math.h>
@@ -139,9 +140,9 @@ int AkmSensor::setDelay(int32_t handle, int64_t ns)
 	char buffer[32];
 	int bytes;
 
-    if (ns < -1 || 2147483647 < ns) {
-		ALOGE("AkmSensor: invalid delay (%lld)", ns);
-        return -EINVAL;
+	if (ns < -1 || 2147483647 < ns) {
+		ALOGE("AkmSensor: invalid delay (%" PRIi64 ")", ns);
+		return -EINVAL;
 	}
 
     switch (id) {
@@ -160,7 +161,7 @@ int AkmSensor::setDelay(int32_t handle, int64_t ns)
     }
 
 	if (ns != mDelay[id]) {
-   		bytes = sprintf(buffer, "%lld", ns);
+		bytes = sprintf(buffer, "%" PRIi64, ns);
 		err = write_sys_attribute(input_sysfs_path, buffer, bytes);
 		if (err == 0) {
 			mDelay[id] = ns;

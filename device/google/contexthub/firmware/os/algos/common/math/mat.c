@@ -32,8 +32,8 @@
 #include <stddef.h>
 #include <string.h>
 
-#define EPSILON 1E-5
-#define CHOLESKY_TOLERANCE 1E-6
+#define EPSILON 1E-5f
+#define CHOLESKY_TOLERANCE 1E-6f
 
 // Forward declarations.
 static void mat33SwapRows(struct Mat33 *A, uint32_t i, uint32_t j);
@@ -248,8 +248,8 @@ void mat33Invert(struct Mat33 *out, const struct Mat33 *A) {
       }
     }
     // divide by zero guard.
-    ASSERT(fabs(tmp.elem[i][i]) > 0);
-    if(!(fabs(tmp.elem[i][i]) > 0)) {
+    ASSERT(fabsf(tmp.elem[i][i]) > 0);
+    if(!(fabsf(tmp.elem[i][i]) > 0)) {
       return;
     }
     t = 1.0f / tmp.elem[i][i];
@@ -405,6 +405,16 @@ void mat33GetEigenbasis(struct Mat33 *S, struct Vec3 *eigenvals,
   }
 
   initVec3(eigenvals, _eigenvals[0], _eigenvals[1], _eigenvals[2]);
+}
+
+float mat33Determinant(const struct Mat33 *A) {
+  ASSERT_NOT_NULL(A);
+  return A->elem[0][0] *
+      (A->elem[1][1] * A->elem[2][2] - A->elem[1][2] * A->elem[2][1])
+      - A->elem[0][1] *
+      (A->elem[1][0] * A->elem[2][2] - A->elem[1][2] * A->elem[2][0])
+      + A->elem[0][2] *
+      (A->elem[1][0] * A->elem[2][1] - A->elem[1][1] * A->elem[2][0]);
 }
 
 // index of largest off-diagonal element in row k

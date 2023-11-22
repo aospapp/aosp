@@ -25,11 +25,9 @@
 #include "strutil.h"
 #include "var.h"
 
-Evaluable::Evaluable() {
-}
+Evaluable::Evaluable() {}
 
-Evaluable::~Evaluable() {
-}
+Evaluable::~Evaluable() {}
 
 string Evaluable::Eval(Evaluator* ev) const {
   string s;
@@ -37,11 +35,9 @@ string Evaluable::Eval(Evaluator* ev) const {
   return s;
 }
 
-Value::Value() {
-}
+Value::Value() {}
 
-Value::~Value() {
-}
+Value::~Value() {}
 
 string Value::DebugString() const {
   if (static_cast<const Value*>(this)) {
@@ -52,22 +48,19 @@ string Value::DebugString() const {
 
 class Literal : public Value {
  public:
-  explicit Literal(StringPiece s)
-      : s_(s) {
-  }
+  explicit Literal(StringPiece s) : s_(s) {}
 
   StringPiece val() const { return s_; }
 
-  virtual void Eval(Evaluator*, string* s) const override {
+  virtual void Eval(Evaluator* ev, string* s) const override {
+    ev->CheckStack();
     s->append(s_.begin(), s_.end());
   }
 
   virtual bool IsLiteral() const override { return true; }
   virtual StringPiece GetLiteralValueUnsafe() const override { return s_; }
 
-  virtual string DebugString_() const override {
-    return s_.as_string();
-  }
+  virtual string DebugString_() const override { return s_.as_string(); }
 
  private:
   StringPiece s_;
@@ -75,8 +68,7 @@ class Literal : public Value {
 
 class Expr : public Value {
  public:
-  Expr() {
-  }
+  Expr() {}
 
   virtual ~Expr() {
     for (Value* v : vals_) {
@@ -85,11 +77,10 @@ class Expr : public Value {
   }
 
   // Takes the ownership of |v|.
-  void AddValue(Value* v) {
-    vals_.push_back(v);
-  }
+  void AddValue(Value* v) { vals_.push_back(v); }
 
   virtual void Eval(Evaluator* ev, string* s) const override {
+    ev->CheckStack();
     for (Value* v : vals_) {
       v->Eval(ev, s);
     }
@@ -126,14 +117,13 @@ class Expr : public Value {
 
 class SymRef : public Value {
  public:
-  explicit SymRef(Symbol n)
-      : name_(n) {
-  }
-  virtual ~SymRef() {
-  }
+  explicit SymRef(Symbol n) : name_(n) {}
+  virtual ~SymRef() {}
 
   virtual void Eval(Evaluator* ev, string* s) const override {
+    ev->CheckStack();
     Var* v = ev->LookupVar(name_);
+    v->Used(ev, name_);
     v->Eval(ev, s);
   }
 
@@ -147,18 +137,17 @@ class SymRef : public Value {
 
 class VarRef : public Value {
  public:
-  explicit VarRef(Value* n)
-      : name_(n) {
-  }
-  virtual ~VarRef() {
-    delete name_;
-  }
+  explicit VarRef(Value* n) : name_(n) {}
+  virtual ~VarRef() { delete name_; }
 
   virtual void Eval(Evaluator* ev, string* s) const override {
+    ev->CheckStack();
     ev->IncrementEvalDepth();
     const string&& name = name_->Eval(ev);
     ev->DecrementEvalDepth();
-    Var* v = ev->LookupVar(Intern(name));
+    Symbol sym = Intern(name);
+    Var* v = ev->LookupVar(sym);
+    v->Used(ev, sym);
     v->Eval(ev, s);
   }
 
@@ -173,8 +162,7 @@ class VarRef : public Value {
 class VarSubst : public Value {
  public:
   explicit VarSubst(Value* n, Value* p, Value* s)
-      : name_(n), pat_(p), subst_(s) {
-  }
+      : name_(n), pat_(p), subst_(s) {}
   virtual ~VarSubst() {
     delete name_;
     delete pat_;
@@ -182,12 +170,15 @@ class VarSubst : public Value {
   }
 
   virtual void Eval(Evaluator* ev, string* s) const override {
+    ev->CheckStack();
     ev->IncrementEvalDepth();
     const string&& name = name_->Eval(ev);
-    Var* v = ev->LookupVar(Intern(name));
+    Symbol sym = Intern(name);
+    Var* v = ev->LookupVar(sym);
     const string&& pat_str = pat_->Eval(ev);
     const string&& subst = subst_->Eval(ev);
     ev->DecrementEvalDepth();
+    v->Used(ev, sym);
     const string&& value = v->Eval(ev);
     WordWriter ww(s);
     Pattern pat(pat_str);
@@ -198,8 +189,7 @@ class VarSubst : public Value {
   }
 
   virtual string DebugString_() const override {
-    return StringPrintf("VarSubst(%s:%s=%s)",
-                        name_->DebugString().c_str(),
+    return StringPrintf("VarSubst(%s:%s=%s)", name_->DebugString().c_str(),
                         pat_->DebugString().c_str(),
                         subst_->DebugString().c_str());
   }
@@ -212,9 +202,7 @@ class VarSubst : public Value {
 
 class Func : public Value {
  public:
-  explicit Func(FuncInfo* fi)
-      : fi_(fi) {
-  }
+  explicit Func(FuncInfo* fi) : fi_(fi) {}
 
   ~Func() {
     for (Value* a : args_)
@@ -222,6 +210,7 @@ class Func : public Value {
   }
 
   virtual void Eval(Evaluator* ev, string* s) const override {
+    ev->CheckStack();
     LOG("Invoke func %s(%s)", name(), JoinValues(args_, ",").c_str());
     ev->IncrementEvalDepth();
     fi_->func(args_, ev, s);
@@ -229,14 +218,11 @@ class Func : public Value {
   }
 
   virtual string DebugString_() const override {
-    return StringPrintf("Func(%s %s)",
-                        fi_->name,
+    return StringPrintf("Func(%s %s)", fi_->name,
                         JoinValues(args_, ",").c_str());
   }
 
-  void AddArg(Value* v) {
-    args_.push_back(v);
-  }
+  void AddArg(Value* v) { args_.push_back(v); }
 
   const char* name() const { return fi_->name; }
   int arity() const { return fi_->arity; }
@@ -280,7 +266,10 @@ bool ShouldHandleComments(ParseExprOpt opt) {
 }
 
 void ParseFunc(const Loc& loc,
-               Func* f, StringPiece s, size_t i, char* terms,
+               Func* f,
+               StringPiece s,
+               size_t i,
+               char* terms,
                size_t* index_out) {
   terms[1] = ',';
   terms[2] = '\0';
@@ -301,23 +290,24 @@ void ParseFunc(const Loc& loc,
         if (isspace(s[i]))
           continue;
         if (s[i] == '\\') {
-          char c = s.get(i+1);
+          char c = s.get(i + 1);
           if (c == '\r' || c == '\n')
             continue;
         }
         break;
       }
     }
-    const bool trim_right_space = (f->trim_space() ||
-                                   (nargs == 1 && f->trim_right_space_1st()));
+    const bool trim_right_space =
+        (f->trim_space() || (nargs == 1 && f->trim_right_space_1st()));
     size_t n;
-    Value* v = ParseExprImpl(loc, s.substr(i), terms, ParseExprOpt::FUNC,
-                             &n, trim_right_space);
+    Value* v = ParseExprImpl(loc, s.substr(i), terms, ParseExprOpt::FUNC, &n,
+                             trim_right_space);
     // TODO: concatLine???
     f->AddArg(v);
     i += n;
     if (i == s.size()) {
-      ERROR_LOC(loc, "*** unterminated call to function '%s': "
+      ERROR_LOC(loc,
+                "*** unterminated call to function '%s': "
                 "missing '%c'.",
                 f->name(), terms[0]);
     }
@@ -332,7 +322,8 @@ void ParseFunc(const Loc& loc,
   }
 
   if (nargs <= f->min_arity()) {
-    ERROR_LOC(loc, "*** insufficient number of arguments (%d) to function `%s'.",
+    ERROR_LOC(loc,
+              "*** insufficient number of arguments (%d) to function `%s'.",
               nargs - 1, f->name());
   }
 
@@ -354,8 +345,8 @@ Value* ParseDollar(const Loc& loc, StringPiece s, size_t* index_out) {
   char terms[] = {cp, ':', ' ', 0};
   for (size_t i = 2;;) {
     size_t n;
-    Value* vname = ParseExprImpl(loc, s.substr(i), terms,
-                                 ParseExprOpt::NORMAL, &n);
+    Value* vname =
+        ParseExprImpl(loc, s.substr(i), terms, ParseExprOpt::NORMAL, &n);
     i += n;
     if (s[i] == cp) {
       *index_out = i + 1;
@@ -383,7 +374,7 @@ Value* ParseDollar(const Loc& loc, StringPiece s, size_t* index_out) {
         if (FuncInfo* fi = GetFuncInfo(lit->val())) {
           delete lit;
           Func* func = new Func(fi);
-          ParseFunc(loc, func, s, i+1, terms, index_out);
+          ParseFunc(loc, func, s, i + 1, terms, index_out);
           return func;
         } else {
           KATI_WARN_LOC(loc, "*warning*: unknown make function '%.*s': %.*s",
@@ -404,8 +395,8 @@ Value* ParseDollar(const Loc& loc, StringPiece s, size_t* index_out) {
       terms[2] = '\0';
       terms[1] = '=';
       size_t n;
-      Value* pat = ParseExprImpl(loc, s.substr(i+1), terms,
-                                 ParseExprOpt::NORMAL, &n);
+      Value* pat =
+          ParseExprImpl(loc, s.substr(i + 1), terms, ParseExprOpt::NORMAL, &n);
       i += 1 + n;
       if (s[i] == cp) {
         Expr* v = new Expr;
@@ -417,8 +408,8 @@ Value* ParseDollar(const Loc& loc, StringPiece s, size_t* index_out) {
       }
 
       terms[1] = '\0';
-      Value* subst = ParseExprImpl(loc, s.substr(i+1), terms,
-                                   ParseExprOpt::NORMAL, &n);
+      Value* subst =
+          ParseExprImpl(loc, s.substr(i + 1), terms, ParseExprOpt::NORMAL, &n);
       i += 1 + n;
       *index_out = i + 1;
       return new VarSubst(vname->Compact(), pat, subst);
@@ -428,18 +419,20 @@ Value* ParseDollar(const Loc& loc, StringPiece s, size_t* index_out) {
     // for detail.
     size_t found = s.find(cp);
     if (found != string::npos) {
-      KATI_WARN_LOC(loc, "*warning*: unmatched parentheses: %.*s",
-                    SPF(s));
+      KATI_WARN_LOC(loc, "*warning*: unmatched parentheses: %.*s", SPF(s));
       *index_out = s.size();
-      return new SymRef(Intern(s.substr(2, found-2)));
+      return new SymRef(Intern(s.substr(2, found - 2)));
     }
     ERROR_LOC(loc, "*** unterminated variable reference.");
   }
 }
 
 Value* ParseExprImpl(const Loc& loc,
-                     StringPiece s, const char* terms, ParseExprOpt opt,
-                     size_t* index_out, bool trim_right_space) {
+                     StringPiece s,
+                     const char* terms,
+                     ParseExprOpt opt,
+                     size_t* index_out,
+                     bool trim_right_space) {
   if (s.get(s.size() - 1) == '\r')
     s.remove_suffix(1);
 
@@ -457,7 +450,7 @@ Value* ParseExprImpl(const Loc& loc,
     // Handle a comment.
     if (!terms && c == '#' && ShouldHandleComments(opt)) {
       if (i > b)
-        r->AddValue(new Literal(s.substr(b, i-b)));
+        r->AddValue(new Literal(s.substr(b, i - b)));
       bool was_backslash = false;
       for (; i < s.size() && !(s[i] == '\n' && !was_backslash); i++) {
         was_backslash = !was_backslash && s[i] == '\\';
@@ -472,16 +465,16 @@ Value* ParseExprImpl(const Loc& loc,
       }
 
       if (i > b)
-        r->AddValue(new Literal(s.substr(b, i-b)));
+        r->AddValue(new Literal(s.substr(b, i - b)));
 
-      if (s[i+1] == '$') {
+      if (s[i + 1] == '$') {
         r->AddValue(new Literal(StringPiece("$")));
         i += 1;
         b = i + 1;
         continue;
       }
 
-      if (terms && strchr(terms, s[i+1])) {
+      if (terms && strchr(terms, s[i + 1])) {
         *index_out = i + 1;
         return r->Compact();
       }
@@ -516,13 +509,13 @@ Value* ParseExprImpl(const Loc& loc,
     }
 
     if (c == '\\' && i + 1 < s.size() && opt != ParseExprOpt::COMMAND) {
-      char n = s[i+1];
+      char n = s[i + 1];
       if (n == '\\') {
         i++;
         continue;
       }
       if (n == '#' && ShouldHandleComments(opt)) {
-        r->AddValue(new Literal(s.substr(b, i-b)));
+        r->AddValue(new Literal(s.substr(b, i - b)));
         i++;
         b = i;
         continue;
@@ -532,7 +525,7 @@ Value* ParseExprImpl(const Loc& loc,
           break;
         }
         if (i > b) {
-          r->AddValue(new Literal(TrimRightSpace(s.substr(b, i-b))));
+          r->AddValue(new Literal(TrimRightSpace(s.substr(b, i - b))));
         }
         r->AddValue(new Literal(StringPiece(" ")));
         // Skip the current escaped newline
@@ -541,7 +534,7 @@ Value* ParseExprImpl(const Loc& loc,
           i++;
         // Then continue skipping escaped newlines, spaces, and tabs
         for (; i < s.size(); i++) {
-          if (s[i] == '\\' && (s.get(i+1) == '\r' || s.get(i+1) == '\n')) {
+          if (s[i] == '\\' && (s.get(i + 1) == '\r' || s.get(i + 1) == '\n')) {
             i++;
             continue;
           }
@@ -556,7 +549,7 @@ Value* ParseExprImpl(const Loc& loc,
   }
 
   if (i > b) {
-    StringPiece rest = s.substr(b, i-b);
+    StringPiece rest = s.substr(b, i - b);
     if (trim_right_space)
       rest = TrimRightSpace(rest);
     if (!rest.empty())

@@ -1,6 +1,7 @@
 // Copyright (c) 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 60f9667
 
 #ifndef SHARED_MEMORY_REGION_H_
 #define SHARED_MEMORY_REGION_H_

@@ -1735,6 +1735,38 @@ public class GattClientFacade extends RpcReceiver {
     }
 
     /**
+     * Request a connection parameter update for Connection Interval.
+     *
+     * @param index the bluetooth gatt index
+     * @param minConnectionInterval minimum connection interval
+     * @param maxConnectionInterval maximum connection interval
+     * @param slaveLatency maximum slave latency
+     * @param supervisionTimeout supervision timeout
+     * @return boolean True if successful False otherwise.
+     * @throws Exception
+     */
+    @Rpc(description = "Request an LE connection parameters update.")
+    public boolean gattClientRequestLeConnectionParameters(
+            @RpcParameter(name = "index") Integer index,
+            @RpcParameter(name = "minConnectionInterval") Integer minConnectionInterval,
+            @RpcParameter(name = "maxConnectionInterval") Integer maxConnectionInterval,
+            @RpcParameter(name = "slaveLatency") Integer slaveLatency,
+            @RpcParameter(name = "supervisionTimeout") Integer supervisionTimeout,
+            @RpcParameter(name = "minConnectionEventLen") Integer minConnectionEventLen,
+            @RpcParameter(name = "maxConnectionEventLen") Integer maxConnectionEventLen)
+            throws Exception {
+        boolean result = false;
+        if (mBluetoothGattList.get(index) != null) {
+            result = mBluetoothGattList.get(index).requestLeConnectionUpdate(
+                minConnectionInterval, maxConnectionInterval, slaveLatency, supervisionTimeout,
+                minConnectionEventLen, maxConnectionEventLen);
+        } else {
+            throw new Exception("Invalid index input:" + index);
+        }
+        return result;
+    }
+
+    /**
      * Sets the characteristic notification of a bluetooth gatt
      *
      * @deprecated Use {@link #gattClientSetCharacteristicNotificationByIndex(
@@ -2149,7 +2181,7 @@ public class GattClientFacade extends RpcReceiver {
 
         public void onConnectionUpdated(BluetoothGatt gatt, int interval, int latency,
                                             int timeout, int status) {
-            Log.d("gatt_connect change onConnecitonUpdated " + mEventType + " " + index
+            Log.d("gatt_connect change onConnectionUpdated " + mEventType + " " + index
                     + ", interval: " + interval + ", latency: " + latency
                     + ", timeout: " + timeout + ", status: " + status);
 

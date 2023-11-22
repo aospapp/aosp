@@ -15,13 +15,18 @@
  */
 package com.android.phone.euicc;
 
+import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.pm.IPackageManager;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.os.Bundle;
-import android.provider.Settings;
+import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.service.euicc.EuiccService;
 import android.telephony.euicc.EuiccManager;
 import android.util.Log;
@@ -29,9 +34,21 @@ import android.util.Log;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.euicc.EuiccConnector;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 /** Trampoline activity to forward eUICC intents from apps to the active UI implementation. */
 public class EuiccUiDispatcherActivity extends Activity {
     private static final String TAG = "EuiccUiDispatcher";
+
+    /** Flags to use when querying PackageManager for Euicc component implementations. */
+    private static final int EUICC_QUERY_FLAGS =
+            PackageManager.MATCH_SYSTEM_ONLY | PackageManager.MATCH_DEBUG_TRIAGED_MISSING
+                    | PackageManager.GET_RESOLVED_FILTER;
+
+    private final IPackageManager mPackageManager = IPackageManager.Stub
+            .asInterface(ServiceManager.getService("package"));
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -67,11 +84,15 @@ public class EuiccUiDispatcherActivity extends Activity {
             return null;
         }
 
+        revokePermissionFromLuiApps(euiccUiIntent);
+
         ActivityInfo activityInfo = findBestActivity(euiccUiIntent);
         if (activityInfo == null) {
             Log.w(TAG, "Could not resolve activity for intent: " + euiccUiIntent);
             return null;
         }
+
+        grantDefaultPermissionsToActiveLuiApp(activityInfo);
 
         euiccUiIntent.setComponent(activityInfo.getComponentName());
         return euiccUiIntent;
@@ -90,19 +111,13 @@ public class EuiccUiDispatcherActivity extends Activity {
         String action = getIntent().getAction();
 
         Intent intent = new Intent();
+        intent.putExtras(getIntent());
         switch (action) {
             case EuiccManager.ACTION_MANAGE_EMBEDDED_SUBSCRIPTIONS:
                 intent.setAction(EuiccService.ACTION_MANAGE_EMBEDDED_SUBSCRIPTIONS);
                 break;
             case EuiccManager.ACTION_PROVISION_EMBEDDED_SUBSCRIPTION:
-                if (isDeviceProvisioned()) {
-                    Log.w(TAG, "Cannot perform eUICC provisioning once device is provisioned");
-                    return null;
-                }
                 intent.setAction(EuiccService.ACTION_PROVISION_EMBEDDED_SUBSCRIPTION);
-                intent.putExtra(
-                        EuiccManager.EXTRA_FORCE_PROVISION,
-                        getIntent().getBooleanExtra(EuiccManager.EXTRA_FORCE_PROVISION, false));
                 break;
             default:
                 Log.w(TAG, "Unsupported action: " + action);
@@ -113,14 +128,44 @@ public class EuiccUiDispatcherActivity extends Activity {
     }
 
     @VisibleForTesting
-    boolean isDeviceProvisioned() {
-        return Settings.Global.getInt(getContentResolver(),
-                Settings.Global.DEVICE_PROVISIONED, 0) != 0;
-    }
-
-    @VisibleForTesting
     @Nullable
     ActivityInfo findBestActivity(Intent euiccUiIntent) {
         return EuiccConnector.findBestActivity(getPackageManager(), euiccUiIntent);
+    }
+
+    /** Grants default permissions to the active LUI app. */
+    @VisibleForTesting
+    protected void grantDefaultPermissionsToActiveLuiApp(ActivityInfo activityInfo) {
+        try {
+            mPackageManager.grantDefaultPermissionsToActiveLuiApp(
+                    activityInfo.packageName, getUserId());
+        } catch (RemoteException e) {
+            Log.e(TAG, "Failed to grant permissions to active LUI app.", e);
+        }
+    }
+
+    /** Cleans up all the packages that shouldn't have permission. */
+    @VisibleForTesting
+    protected void revokePermissionFromLuiApps(Intent intent) {
+        try {
+            Set<String> luiApps = getAllLuiAppPackageNames(intent);
+            String[] luiAppsArray = luiApps.toArray(new String[luiApps.size()]);
+            mPackageManager.revokeDefaultPermissionsFromLuiApps(luiAppsArray, getUserId());
+        } catch (RemoteException e) {
+            Log.e(TAG, "Failed to revoke LUI app permissions.");
+            throw e.rethrowAsRuntimeException();
+        }
+    }
+
+    @NonNull
+    private Set<String> getAllLuiAppPackageNames(Intent intent) {
+        List<ResolveInfo> luiPackages =
+                getPackageManager().queryIntentServices(intent, EUICC_QUERY_FLAGS);
+        HashSet<String> packageNames = new HashSet<>();
+        for (ResolveInfo info : luiPackages) {
+            if (info.serviceInfo == null) continue;
+            packageNames.add(info.serviceInfo.packageName);
+        }
+        return packageNames;
     }
 }

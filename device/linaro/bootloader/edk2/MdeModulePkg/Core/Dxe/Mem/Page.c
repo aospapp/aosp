@@ -1,7 +1,7 @@
 /** @file
   UEFI Memory page management functions.
 
-Copyright (c) 2007 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -204,7 +204,7 @@ CoreAddRange (
   // If we are in EFI 1.10 compatability mode no event groups will be
   // found and nothing will happen we we call this function. These events
   // will get signaled but since a lock is held around the call to this
-  // function the notificaiton events will only be called after this funciton
+  // function the notificaiton events will only be called after this function
   // returns and the lock is released.
   //
   CoreNotifySignalList (&gEfiEventMemoryMapChangeGuid);
@@ -725,7 +725,7 @@ CoreConvertPagesEx (
   ASSERT_LOCKED (&gMemoryLock);
   ASSERT ( (ChangingType == FALSE) || (ChangingAttributes == FALSE) );
 
-  if (NumberOfPages == 0 || ((Start & EFI_PAGE_MASK) != 0) || (Start > (Start + NumberOfBytes))) {
+  if (NumberOfPages == 0 || ((Start & EFI_PAGE_MASK) != 0) || (Start >= End)) {
     return EFI_INVALID_PARAMETER;
   }
 
@@ -1201,6 +1201,8 @@ CoreInternalAllocatePages (
 {
   EFI_STATUS      Status;
   UINT64          Start;
+  UINT64          NumberOfBytes;
+  UINT64          End;
   UINT64          MaxAddress;
   UINTN           Alignment;
 
@@ -1245,6 +1247,30 @@ CoreInternalAllocatePages (
   // The max address is the max natively addressable address for the processor
   //
   MaxAddress = MAX_ADDRESS;
+
+  //
+  // Check for Type AllocateAddress,
+  // if NumberOfPages is 0 or
+  // if (NumberOfPages << EFI_PAGE_SHIFT) is above MAX_ADDRESS or
+  // if (Start + NumberOfBytes) rolls over 0 or
+  // if Start is above MAX_ADDRESS or
+  // if End is above MAX_ADDRESS,
+  // return EFI_NOT_FOUND.
+  //
+  if (Type == AllocateAddress) {
+    if ((NumberOfPages == 0) ||
+        (NumberOfPages > RShiftU64 (MaxAddress, EFI_PAGE_SHIFT))) {
+      return EFI_NOT_FOUND;
+    }
+    NumberOfBytes = LShiftU64 (NumberOfPages, EFI_PAGE_SHIFT);
+    End = Start + NumberOfBytes - 1;
+
+    if ((Start >= End) ||
+        (Start > MaxAddress) || 
+        (End > MaxAddress)) {
+      return EFI_NOT_FOUND;
+    }
+  }
 
   if (Type == AllocateMaxAddress) {
     MaxAddress = Start;
@@ -1309,7 +1335,15 @@ CoreAllocatePages (
 
   Status = CoreInternalAllocatePages (Type, MemoryType, NumberOfPages, Memory);
   if (!EFI_ERROR (Status)) {
-    CoreUpdateProfile ((EFI_PHYSICAL_ADDRESS) (UINTN) RETURN_ADDRESS (0), MemoryProfileActionAllocatePages, MemoryType, EFI_PAGES_TO_SIZE (NumberOfPages), (VOID *) (UINTN) *Memory);
+    CoreUpdateProfile (
+      (EFI_PHYSICAL_ADDRESS) (UINTN) RETURN_ADDRESS (0),
+      MemoryProfileActionAllocatePages,
+      MemoryType,
+      EFI_PAGES_TO_SIZE (NumberOfPages),
+      (VOID *) (UINTN) *Memory,
+      NULL
+      );
+    InstallMemoryAttributesTableOnMemoryAllocation (MemoryType);
   }
   return Status;
 }
@@ -1319,6 +1353,7 @@ CoreAllocatePages (
 
   @param  Memory                 Base address of memory being freed
   @param  NumberOfPages          The number of pages to free
+  @param  MemoryType             Pointer to memory type
 
   @retval EFI_NOT_FOUND          Could not find the entry that covers the range
   @retval EFI_INVALID_PARAMETER  Address not aligned
@@ -1329,7 +1364,8 @@ EFI_STATUS
 EFIAPI
 CoreInternalFreePages (
   IN EFI_PHYSICAL_ADDRESS   Memory,
-  IN UINTN                  NumberOfPages
+  IN UINTN                  NumberOfPages,
+  OUT EFI_MEMORY_TYPE       *MemoryType OPTIONAL
   )
 {
   EFI_STATUS      Status;
@@ -1377,6 +1413,10 @@ CoreInternalFreePages (
   NumberOfPages += EFI_SIZE_TO_PAGES (Alignment) - 1;
   NumberOfPages &= ~(EFI_SIZE_TO_PAGES (Alignment) - 1);
 
+  if (MemoryType != NULL) {
+    *MemoryType = Entry->Type;
+  }
+
   Status = CoreConvertPages (Memory, NumberOfPages, EfiConventionalMemory);
 
   if (EFI_ERROR (Status)) {
@@ -1406,11 +1446,20 @@ CoreFreePages (
   IN UINTN                 NumberOfPages
   )
 {
-  EFI_STATUS  Status;
+  EFI_STATUS        Status;
+  EFI_MEMORY_TYPE   MemoryType;
 
-  Status = CoreInternalFreePages (Memory, NumberOfPages);
+  Status = CoreInternalFreePages (Memory, NumberOfPages, &MemoryType);
   if (!EFI_ERROR (Status)) {
-    CoreUpdateProfile ((EFI_PHYSICAL_ADDRESS) (UINTN) RETURN_ADDRESS (0), MemoryProfileActionFreePages, (EFI_MEMORY_TYPE) 0, EFI_PAGES_TO_SIZE (NumberOfPages), (VOID *) (UINTN) Memory);
+    CoreUpdateProfile (
+      (EFI_PHYSICAL_ADDRESS) (UINTN) RETURN_ADDRESS (0),
+      MemoryProfileActionFreePages,
+      MemoryType,
+      EFI_PAGES_TO_SIZE (NumberOfPages),
+      (VOID *) (UINTN) Memory,
+      NULL
+      );
+    InstallMemoryAttributesTableOnMemoryAllocation (MemoryType);
   }
   return Status;
 }

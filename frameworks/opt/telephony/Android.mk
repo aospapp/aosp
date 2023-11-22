@@ -22,20 +22,22 @@ include $(CLEAR_VARS)
 LOCAL_AIDL_INCLUDES := $(LOCAL_PATH)/src/java
 LOCAL_SRC_FILES := $(call all-java-files-under, src/java) \
 	$(call all-Iaidl-files-under, src/java) \
-	$(call all-logtags-files-under, src/java) \
-	$(call all-proto-files-under, proto)
+	$(call all-logtags-files-under, src/java)
 
 LOCAL_JAVA_LIBRARIES := voip-common ims-common services bouncycastle
-LOCAL_STATIC_JAVA_LIBRARIES := android.hardware.radio-V1.1-java-static \
-    android.hardware.radio.deprecated-V1.0-java-static
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    telephony-protos \
+    android.hardware.radio-V1.0-java \
+    android.hardware.radio-V1.1-java \
+    android.hardware.radio-V1.2-java \
+    android.hardware.radio.config-V1.0-java \
+    android.hardware.radio.deprecated-V1.0-java \
+    android.hidl.base-V1.0-java
 
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := telephony-common
-LOCAL_PROTOC_OPTIMIZE_TYPE := nano
-LOCAL_PROTO_JAVA_OUTPUT_PARAMS := store_unknown_fields=true,enum_style=java
 
-LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk $(LOCAL_PATH)/jarjar-rules.txt
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 ifeq ($(EMMA_INSTRUMENT_FRAMEWORK),true)
 LOCAL_EMMA_INSTRUMENT := true

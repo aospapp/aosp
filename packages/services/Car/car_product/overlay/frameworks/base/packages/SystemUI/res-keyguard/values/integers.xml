@@ -15,5 +15,6 @@
   limitations under the License.
 -->
 <resources>
-    <integer name="password_text_view_scale">72</integer>
+    <integer name="password_text_view_scale">40</integer>
+    <integer name="password_max_length">500</integer>
 </resources>

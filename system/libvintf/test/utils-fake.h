@@ -31,10 +31,21 @@ class MockFileFetcher : public FileFetcher {
    public:
     MockFileFetcher() {
         // By default call through to the original.
-        ON_CALL(*this, fetch(_, _)).WillByDefault(Invoke(&real_, &FileFetcher::fetch));
+        ON_CALL(*this, fetch(_, _)).WillByDefault(Invoke([this](const auto& path, auto& fetched) {
+            return real_.fetchInternal(path, fetched, nullptr);
+        }));
+        ON_CALL(*this, listFiles(_, _, _))
+            .WillByDefault(
+                Invoke([this](const std::string& path, std::vector<std::string>* out,
+                              std::string* error) { return real_.listFiles(path, out, error); }));
     }
 
     MOCK_METHOD2(fetch, status_t(const std::string& path, std::string& fetched));
+    MOCK_METHOD3(listFiles, status_t(const std::string&, std::vector<std::string>*, std::string*));
+
+    status_t fetch(const std::string& path, std::string& fetched, std::string*) override final {
+        return fetch(path, fetched);
+    }
 
    private:
     FileFetcher real_;
@@ -77,6 +88,39 @@ class MockPartitionMounter : public PartitionMounter {
     bool systemMounted_;
     bool vendorMounted_;
 };
+
+class MockRuntimeInfo : public RuntimeInfo {
+   public:
+    MockRuntimeInfo() {
+        ON_CALL(*this, fetchAllInformation(_))
+            .WillByDefault(Invoke(this, &MockRuntimeInfo::doFetch));
+    }
+    MOCK_METHOD1(fetchAllInformation, status_t(RuntimeInfo::FetchFlags));
+    status_t doFetch(RuntimeInfo::FetchFlags flags);
+    void failNextFetch() { failNextFetch_ = true; }
+
+   private:
+    bool failNextFetch_ = false;
+};
+class MockRuntimeInfoFactory : public ObjectFactory<RuntimeInfo> {
+   public:
+    MockRuntimeInfoFactory(const std::shared_ptr<MockRuntimeInfo>& info) { object_ = info; }
+    std::shared_ptr<RuntimeInfo> make_shared() const override { return object_; }
+    std::shared_ptr<MockRuntimeInfo> getInfo() const { return object_; }
+
+   private:
+    std::shared_ptr<MockRuntimeInfo> object_;
+};
+
+class MockPropertyFetcher : public PropertyFetcher {
+   public:
+    MockPropertyFetcher();
+    MOCK_CONST_METHOD2(getProperty, std::string(const std::string&, const std::string&));
+
+   private:
+    PropertyFetcher real_;
+};
+extern MockPropertyFetcher* gPropertyFetcher;
 
 }  // namespace details
 }  // namespace vintf

@@ -28,10 +28,10 @@ import java.util.List;
 
 public final class DevicePolicyUtils {
     private static boolean isBluetoothWorkContactSharingDisabled(Context context) {
-        final DevicePolicyManager dpm = (DevicePolicyManager) context
-                .getSystemService(Context.DEVICE_POLICY_SERVICE);
-        final UserManager userManager = (UserManager) context
-                .getSystemService(Context.USER_SERVICE);
+        final DevicePolicyManager dpm =
+                (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
+        final UserManager userManager =
+                (UserManager) context.getSystemService(Context.USER_SERVICE);
         final int myUserId = UserHandle.myUserId();
         final List<UserInfo> userInfoList = userManager.getProfiles(myUserId);
 

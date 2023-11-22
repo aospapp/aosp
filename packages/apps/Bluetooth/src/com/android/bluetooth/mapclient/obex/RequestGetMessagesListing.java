@@ -35,9 +35,8 @@ final class RequestGetMessagesListing extends Request {
 
     private Date mServerTime = null;
 
-    public RequestGetMessagesListing(String folderName, int parameters,
-            MessagesFilter filter, int subjectLength, int maxListCount,
-            int listStartOffset) {
+    RequestGetMessagesListing(String folderName, int parameters, MessagesFilter filter,
+            int subjectLength, int maxListCount, int listStartOffset) {
         if (subjectLength < 0 || subjectLength > 255) {
             throw new IllegalArgumentException("subjectLength should be [0..255]");
         }

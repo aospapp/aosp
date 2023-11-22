@@ -75,6 +75,7 @@ cc_defaults {
         "-DqDNGUseXMP=0",
         "-DqDNGValidateTarget=1",
         "-DqAndroid=1",
+        "-Werror",
         "-Wsign-compare",
         "-Wno-reorder",
         "-Wframe-larger-than=20000",
@@ -147,4 +148,23 @@ cc_binary {
         "libz",
         "libjpeg",
     ],
+}
+
+cc_binary_host {
+    name: "dng_validate_host",
+    defaults: ["libdng_sdk-defaults"],
+    srcs: ["source/dng_validate.cpp"],
+
+    cflags: ["-DqDNGValidate=1"],
+
+    shared_libs: [
+        "libz",
+        "libjpeg",
+    ],
+
+    target: {
+        darwin: {
+            enabled: false, // b/67474260
+        },
+    },
 }

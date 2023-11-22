@@ -10,7 +10,9 @@
 package android.icu.dev.data.resources;
 
 import java.util.ListResourceBundle;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
 public class TestDataElements_en_Latn_US extends ListResourceBundle {    
     private static Object[][] data = new Object[][] { 
         {

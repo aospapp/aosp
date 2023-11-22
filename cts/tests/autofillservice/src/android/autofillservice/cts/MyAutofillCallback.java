@@ -16,10 +16,12 @@
 
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.Helper.CONNECTION_TIMEOUT_MS;
+import static android.autofillservice.cts.Helper.callbackEventAsString;
+import static android.autofillservice.cts.Timeouts.CONNECTION_TIMEOUT;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.util.Log;
 import android.view.View;
 import android.view.autofill.AutofillManager.AutofillCallback;
 
@@ -32,15 +34,21 @@ import java.util.concurrent.TimeUnit;
  */
 final class MyAutofillCallback extends AutofillCallback {
 
+    private static final String TAG = "MyAutofillCallback";
     private final BlockingQueue<MyEvent> mEvents = new LinkedBlockingQueue<>();
+
+    public static final Timeout MY_TIMEOUT = CONNECTION_TIMEOUT;
 
     @Override
     public void onAutofillEvent(View view, int event) {
+        Log.v(TAG, "onAutofillEvent: view=" + view + ", event=" + callbackEventAsString(event));
         mEvents.offer(new MyEvent(view, event));
     }
 
     @Override
     public void onAutofillEvent(View view, int childId, int event) {
+        Log.v(TAG, "onAutofillEvent: view=" + view + ", child=" + childId
+                + ", event=" + callbackEventAsString(event));
         mEvents.offer(new MyEvent(view, childId, event));
     }
 
@@ -48,18 +56,30 @@ final class MyAutofillCallback extends AutofillCallback {
      * Gets the next available event or fail if it times out.
      */
     MyEvent getEvent() throws InterruptedException {
-        final MyEvent event = mEvents.poll(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        final MyEvent event = mEvents.poll(CONNECTION_TIMEOUT.ms(), TimeUnit.MILLISECONDS);
         if (event == null) {
-            throw new RetryableException("no event in %d ms", CONNECTION_TIMEOUT_MS);
+            throw new RetryableException(CONNECTION_TIMEOUT, "no event");
         }
         return event;
+    }
+
+    /**
+     * Assert no more events were received.
+     */
+    void assertNotCalled() throws InterruptedException {
+        final MyEvent event = mEvents.poll(CONNECTION_TIMEOUT.ms(), TimeUnit.MILLISECONDS);
+        if (event != null) {
+            // Not retryable.
+            throw new IllegalStateException("should not have received " + event);
+        }
     }
 
     /**
      * Used to assert there is no event left behind.
      */
     void assertNumberUnhandledEvents(int expected) {
-        assertWithMessage("Invalid number of events left").that(mEvents.size()).isEqualTo(expected);
+        assertWithMessage("Invalid number of events left: %s", mEvents).that(mEvents.size())
+                .isEqualTo(expected);
     }
 
     /**
@@ -153,7 +173,7 @@ final class MyAutofillCallback extends AutofillCallback {
 
         @Override
         public String toString() {
-            return event + ": " + view + " (childId: " + childId + ")";
+            return callbackEventAsString(event) + ": " + view + " (childId: " + childId + ")";
         }
     }
 }

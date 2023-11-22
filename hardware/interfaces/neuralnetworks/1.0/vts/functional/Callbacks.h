@@ -17,14 +17,6 @@ namespace neuralnetworks {
 namespace V1_0 {
 namespace implementation {
 
-using ::android::hardware::hidl_array;
-using ::android::hardware::hidl_memory;
-using ::android::hardware::hidl_string;
-using ::android::hardware::hidl_vec;
-using ::android::hardware::Return;
-using ::android::hardware::Void;
-using ::android::sp;
-
 /**
  * The CallbackBase class is used internally by the NeuralNetworks runtime to
  * synchronize between different threads. An asynchronous task is launched
@@ -37,10 +29,6 @@ using ::android::sp;
  * the function that tried to launch the asynchronous task must immediately call
  * "notify". This "notify" call awakens any client threads waiting on the
  * callback object.
- *
- * callback object. When the asynchronous task has finished its workload or has
- * failed to launch, it must immediately call "notify", awakening any client
- * threads waiting on the callback object.
  *
  * The CallbackBase class implements some of the base synchronization common to
  * both PrepareModelCallback and ExecutionCallback. For consistency, any HIDL

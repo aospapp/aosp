@@ -19,38 +19,27 @@ import logging
 import time
 
 from vts.runners.host import asserts
-from vts.runners.host import base_test
 from vts.runners.host import const
 from vts.runners.host import keys
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
-from vts.utils.python.precondition import precondition_utils
+from vts.testcases.template.hal_hidl_host_test import hal_hidl_host_test
 
+VEHICLE_V2_0_HAL = "android.hardware.automotive.vehicle@2.0::IVehicle"
 
-class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
+class VtsHalAutomotiveVehicleV2_0HostTest(hal_hidl_host_test.HalHidlHostTest):
     """A simple testcase for the VEHICLE HIDL HAL."""
+
+    TEST_HAL_SERVICES = {
+        VEHICLE_V2_0_HAL,
+    }
 
     def setUpClass(self):
         """Creates a mirror and init vehicle hal."""
-        self.dut = self.registerController(android_device)[0]
+        super(VtsHalAutomotiveVehicleV2_0HostTest, self).setUpClass()
 
-        self.dut.shell.InvokeTerminal("one")
-        self.dut.shell.one.Execute("setenforce 0")  # SELinux permissive mode
-        if not precondition_utils.CanRunHidlHalTest(
-            self, self.dut, self.dut.shell.one):
-            self._skip_all_testcases = True
-            return
-
-        results = self.dut.shell.one.Execute("id -u system")
+        results = self.shell.Execute("id -u system")
         system_uid = results[const.STDOUT][0].strip()
         logging.info("system_uid: %s", system_uid)
-
-        if self.coverage.enabled:
-            self.coverage.LoadArtifacts()
-            self.coverage.InitializeDeviceCoverage(self.dut)
-
-        if self.profiling.enabled:
-            self.profiling.EnableVTSProfiling(self.dut.shell.one)
 
         self.dut.hal.InitHidlHal(
             target_type="vehicle",
@@ -58,6 +47,7 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
             target_version=2.0,
             target_package="android.hardware.automotive.vehicle",
             target_component_name="IVehicle",
+            hw_binder_service_name=self.getHalServiceName(VEHICLE_V2_0_HAL),
             bits=int(self.abi_bitness))
 
         self.vehicle = self.dut.hal.vehicle  # shortcut
@@ -67,23 +57,8 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
         asserts.assertEqual(0x00ff0000, self.vtypes.VehiclePropertyType.MASK)
         asserts.assertEqual(0x0f000000, self.vtypes.VehicleArea.MASK)
 
-    def tearDownClass(self):
-        """Disables the profiling.
-
-        If profiling is enabled for the test, collect the profiling data
-        and disable profiling after the test is done.
-        """
-        if self._skip_all_testcases:
-            return
-
-        if self.profiling.enabled:
-            self.profiling.ProcessTraceDataForTestCase(self.dut)
-            self.profiling.ProcessAndUploadTraceData()
-
-        if self.coverage.enabled:
-            self.coverage.SetCoverageData(dut=self.dut, isGlobal=True)
-
     def setUp(self):
+        super(VtsHalAutomotiveVehicleV2_0HostTest, self).setUp()
         self.propToConfig = {}
         for config in self.vehicle.getAllPropConfigs():
             self.propToConfig[config['prop']] = config
@@ -97,17 +72,6 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
         """
         logging.info("all supported properties: %s", self.configList)
         asserts.assertLess(0, len(self.configList))
-
-    def testMandatoryProperties(self):
-        """Verifies that all mandatory properties are supported."""
-        # 1 property so far
-        mandatoryProps = set([self.vtypes.VehicleProperty.DRIVING_STATUS])
-        logging.info(self.vtypes.VehicleProperty.DRIVING_STATUS)
-
-        for config in self.configList:
-            mandatoryProps.discard(config['prop'])
-
-        asserts.assertEqual(0, len(mandatoryProps))
 
     def emptyValueProperty(self, propertyId, areaId=0):
         """Creates a property structure for use with the Vehicle HAL.
@@ -124,6 +88,7 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
             'prop' : propertyId,
             'timestamp' : 0,
             'areaId' : areaId,
+            'status' : self.vtypes.VehiclePropertyStatus.AVAILABLE,
             'value' : {
                 'int32Values' : [],
                 'floatValues' : [],
@@ -199,42 +164,21 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
         asserts.assertEqual(1, len(propValue["value"]["int32Values"]))
         asserts.assertEqual(value, propValue["value"]["int32Values"][0])
 
-    def testDrivingStatus(self):
-        """Checks that DRIVING_STATUS property returns correct result."""
-        propValue = self.readVhalProperty(
-            self.vtypes.VehicleProperty.DRIVING_STATUS)
-        asserts.assertEqual(1, len(propValue["value"]["int32Values"]))
-        drivingStatus = propValue["value"]["int32Values"][0]
-
-        allStatuses = (self.vtypes.VehicleDrivingStatus.UNRESTRICTED
-                       | self.vtypes.VehicleDrivingStatus.NO_VIDEO
-                       | self.vtypes.VehicleDrivingStatus.NO_KEYBOARD_INPUT
-                       | self.vtypes.VehicleDrivingStatus.NO_VOICE_INPUT
-                       | self.vtypes.VehicleDrivingStatus.NO_CONFIG
-                       | self.vtypes.VehicleDrivingStatus.LIMIT_MESSAGE_LEN)
-
-        asserts.assertEqual(allStatuses, allStatuses | drivingStatus)
-
     def extractZonesAsList(self, supportedAreas):
         """Converts bitwise area flags to list of zones"""
         allZones = [
             self.vtypes.VehicleAreaZone.ROW_1_LEFT,
             self.vtypes.VehicleAreaZone.ROW_1_CENTER,
             self.vtypes.VehicleAreaZone.ROW_1_RIGHT,
-            self.vtypes.VehicleAreaZone.ROW_1,
             self.vtypes.VehicleAreaZone.ROW_2_LEFT,
             self.vtypes.VehicleAreaZone.ROW_2_CENTER,
             self.vtypes.VehicleAreaZone.ROW_2_RIGHT,
-            self.vtypes.VehicleAreaZone.ROW_2,
             self.vtypes.VehicleAreaZone.ROW_3_LEFT,
             self.vtypes.VehicleAreaZone.ROW_3_CENTER,
             self.vtypes.VehicleAreaZone.ROW_3_RIGHT,
-            self.vtypes.VehicleAreaZone.ROW_3,
             self.vtypes.VehicleAreaZone.ROW_4_LEFT,
             self.vtypes.VehicleAreaZone.ROW_4_CENTER,
             self.vtypes.VehicleAreaZone.ROW_4_RIGHT,
-            self.vtypes.VehicleAreaZone.ROW_4,
-            self.vtypes.VehicleAreaZone.WHOLE_CABIN,
         ]
 
         extractedZones = []
@@ -244,7 +188,9 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
         return extractedZones
 
 
-    def testHvacPowerOn(self):
+    def disableTestHvacPowerOn(self):
+        # Disable this test for now.  HVAC Power On will no longer behave like this now that we've
+        #   added the status field in VehiclePropValue.  Need to update the test for this.
         """Test power on/off and properties associated with it.
 
         Gets the list of properties that are affected by the HVAC power state
@@ -350,8 +296,10 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
             self.vtypes.VehicleProperty.INFO_MODEL,
             self.vtypes.VehicleProperty.INFO_MODEL_YEAR,
             self.vtypes.VehicleProperty.INFO_FUEL_CAPACITY,
+            self.vtypes.VehicleProperty.INFO_FUEL_TYPE,
+            self.vtypes.VehicleProperty.INFO_EV_BATTERY_CAPACITY,
+            self.vtypes.VehicleProperty.INFO_EV_CONNECTOR_TYPE,
             self.vtypes.VehicleProperty.HVAC_FAN_DIRECTION_AVAILABLE,
-            self.vtypes.VehicleProperty.AUDIO_HW_VARIANT,
             self.vtypes.VehicleProperty.AP_POWER_BOOTUP_REASON,
         ])
         for c in self.configList:
@@ -361,7 +309,7 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
                 asserts.assertEqual(self.vtypes.VehiclePropertyChangeMode.STATIC, c["changeMode"], msg)
                 asserts.assertEqual(self.vtypes.VehiclePropertyAccess.READ, c["access"], msg)
                 propValue = self.readVhalProperty(prop)
-                asserts.assertEqual(prop, propValue['prop'])
+                asserts.assertEqual(prop, propValue["prop"])
                 self.setVhalProperty(prop, propValue["value"],
                     expectedStatus=self.vtypes.StatusCode.ACCESS_DENIED)
             else:  # Non-static property
@@ -373,6 +321,16 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
         This checks that the areas noted in the config all give valid area
         configs.  Once these are validated, the values for all these areas
         retrieved from the HIDL must be within the ranges defined."""
+
+        enumProperties = {
+            self.vtypes.VehicleProperty.ENGINE_OIL_LEVEL,
+            self.vtypes.VehicleProperty.GEAR_SELECTION,
+            self.vtypes.VehicleProperty.CURRENT_GEAR,
+            self.vtypes.VehicleProperty.TURN_SIGNAL_STATE,
+            self.vtypes.VehicleProperty.IGNITION_STATE,
+            self.vtypes.VehicleProperty.HVAC_FAN_DIRECTION,
+        }
+
         for c in self.configList:
             # Continuous properties need to have a sampling frequency.
             if c["changeMode"] & self.vtypes.VehiclePropertyChangeMode.CONTINUOUS != 0:
@@ -384,7 +342,21 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
                                     "Prop 0x%x minSampleRate > maxSampleRate" %
                                         c["prop"])
 
+            if c["prop"] & self.vtypes.VehiclePropertyType.BOOLEAN != 0:
+                # Boolean types don't have ranges
+                continue
+
+            if c["prop"] in enumProperties:
+                # This property does not use traditional min/max ranges
+                continue
+
+            asserts.assertTrue(c["areaConfigs"] != None, "Prop 0x%x must have areaConfigs" %
+                               c["prop"])
             areasFound = 0
+            if c["prop"] == self.vtypes.VehicleProperty.HVAC_TEMPERATURE_DISPLAY_UNITS:
+                # This property doesn't have sensible min/max
+                continue
+
             for a in c["areaConfigs"]:
                 # Make sure this doesn't override one of the other areas found.
                 asserts.assertEqual(0, areasFound & a["areaId"])
@@ -454,7 +426,6 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
     def testGlobalFloatProperties(self):
         """Verifies that values of global float properties are in the correct range"""
         floatProperties = {
-            self.vtypes.VehicleProperty.ENV_CABIN_TEMPERATURE: (-50, 100),  # celsius
             self.vtypes.VehicleProperty.ENV_OUTSIDE_TEMPERATURE: (-50, 100),  # celsius
             self.vtypes.VehicleProperty.ENGINE_RPM : (0, 30000),  # RPMs
             self.vtypes.VehicleProperty.ENGINE_OIL_TEMP : (-50, 150),  # celsius
@@ -477,11 +448,6 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
             self.vtypes.VehicleProperty.PARKING_BRAKE_ON,
             self.vtypes.VehicleProperty.FUEL_LEVEL_LOW,
             self.vtypes.VehicleProperty.NIGHT_MODE,
-            self.vtypes.VehicleProperty.DOOR_LOCK,
-            self.vtypes.VehicleProperty.MIRROR_LOCK,
-            self.vtypes.VehicleProperty.MIRROR_FOLD,
-            self.vtypes.VehicleProperty.SEAT_BELT_BUCKLED,
-            self.vtypes.VehicleProperty.WINDOW_LOCK,
         ])
         for prop in booleanProperties:
             self.verifyEnumPropIfSupported(prop, [0, 1])
@@ -489,6 +455,7 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
     def testGlobalEnumProperties(self):
         """Verifies that values of global enum properties are in the correct range"""
         enumProperties = {
+            self.vtypes.VehicleProperty.ENGINE_OIL_LEVEL : self.vtypes.VehicleOilLevel,
             self.vtypes.VehicleProperty.GEAR_SELECTION : self.vtypes.VehicleGear,
             self.vtypes.VehicleProperty.CURRENT_GEAR : self.vtypes.VehicleGear,
             self.vtypes.VehicleProperty.TURN_SIGNAL_STATE : self.vtypes.VehicleTurnSignal,
@@ -610,9 +577,8 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
 
             subscribeOptions = {
                 "propId" : self.vtypes.VehicleProperty.ENGINE_OIL_TEMP,
-                "vehicleAreas" : 0,
                 "sampleRate" : 10.0,  # Hz
-                "flags" : self.vtypes.SubscribeFlags.HAL_EVENT,
+                "flags" : self.vtypes.SubscribeFlags.EVENTS_FROM_CAR,
             }
             pbSubscribeOptions = self.vtypes.Py2Pb("SubscribeOptions", subscribeOptions)
 
@@ -676,6 +642,7 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
                 'prop' : self.propertyId,
                 'timestamp' : 0,
                 'areaId' : self.areaId,
+                'status' : self.test.vtypes.VehiclePropertyStatus.AVAILABLE,
                 'value' : {
                     'int32Values' : [],
                     'floatValues' : [],
@@ -732,6 +699,7 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
                 'prop' : self.propertyId,
                 'timestamp' : 0,
                 'areaId' : self.areaId,
+                'status' : self.test.vtypes.VehiclePropertyStatus.AVAILABLE,
                 'value' : {
                     'int32Values' : [],
                     'floatValues' : [],

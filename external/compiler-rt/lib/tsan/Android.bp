@@ -15,10 +15,13 @@
 //
 //
 
-tsan_rtl_cppflags = [
-    "-std=c++11",
+tsan_rtl_cflags = [
     "-Wall",
     "-Werror",
+]
+
+tsan_rtl_cppflags = [
+    "-std=c++11",
     "-Wno-unused-parameter",
     "-Wno-non-virtual-dtor",
     "-fno-rtti",
@@ -29,6 +32,7 @@ cc_library_host_static {
     name: "libtsan",
 
     include_dirs: ["external/compiler-rt/lib"],
+    cflags: tsan_rtl_cflags,
     cppflags: tsan_rtl_cppflags,
     srcs: [
         "rtl/*.cc",
@@ -55,6 +59,7 @@ cc_library_host_static {
     name: "libtsan_cxx",
 
     include_dirs: ["external/compiler-rt/lib"],
+    cflags: tsan_rtl_cflags,
     cppflags: tsan_rtl_cppflags,
     srcs: ["rtl/tsan_new_delete.cc"],
     stl: "none",
@@ -75,6 +80,7 @@ cc_test_host {
 
     include_dirs: ["external/compiler-rt/lib"],
     local_include_dirs: ["rtl"],
+    cflags: tsan_rtl_cflags,
     cppflags: tsan_rtl_cppflags,
     srcs: [
         "tests/unit/tsan_clock_test.cc",
@@ -97,10 +103,6 @@ cc_test_host {
         "libtsan",
         "libubsan",
     ],
-    host_ldlibs: [
-        "-lrt",
-        "-ldl",
-    ],
     target: {
         darwin: {
             enabled: false,
@@ -113,6 +115,7 @@ cc_test_host {
 
     include_dirs: ["external/compiler-rt/lib"],
     local_include_dirs: ["rtl"],
+    cflags: tsan_rtl_cflags,
     cppflags: tsan_rtl_cppflags,
     srcs: [
         "tests/rtl/tsan_bench.cc",
@@ -131,10 +134,6 @@ cc_test_host {
     static_libs: [
         "libtsan",
         "libubsan",
-    ],
-    host_ldlibs: [
-        "-lrt",
-        "-ldl",
     ],
     target: {
         darwin: {

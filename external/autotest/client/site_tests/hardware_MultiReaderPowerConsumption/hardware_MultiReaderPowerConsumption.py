@@ -2,8 +2,8 @@ import os, logging
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error, autotemp
-from autotest_lib.client.cros import power_status
 from autotest_lib.client.cros import storage as storage_mod
+from autotest_lib.client.cros.power import power_status
 
 
 class hardware_MultiReaderPowerConsumption(storage_mod.StorageTester):

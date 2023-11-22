@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.SocketException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -38,7 +39,8 @@ public final class ServerSocketBenchmark {
      * Provider for the benchmark configuration
      */
     interface Config {
-        SocketType socketType();
+        EndpointFactory clientFactory();
+        EndpointFactory serverFactory();
         int messageSize();
         String cipher();
         ChannelType channelType();
@@ -52,22 +54,28 @@ public final class ServerSocketBenchmark {
     private static final AtomicLong bytesCounter = new AtomicLong();
     private AtomicBoolean recording = new AtomicBoolean();
 
-    ServerSocketBenchmark(Config config) throws Exception {
+    ServerSocketBenchmark(final Config config) throws Exception {
         recording.set(false);
 
         byte[] message = newTextMessage(config.messageSize());
 
         final ChannelType channelType = config.channelType();
 
-        server = config.socketType().newServer(
+        server = config.serverFactory().newServer(
             channelType, config.messageSize(), getProtocols(), ciphers(config));
         server.setMessageProcessor(new MessageProcessor() {
             @Override
             public void processMessage(byte[] inMessage, int numBytes, OutputStream os) {
                 try {
-                    while (!stopping) {
-                        os.write(inMessage, 0, numBytes);
+                    try {
+                        while (!stopping) {
+                            os.write(inMessage, 0, numBytes);
+                        }
+                    } finally {
+                        os.flush();
                     }
+                } catch (SocketException e) {
+                    // Just ignore.
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -77,7 +85,7 @@ public final class ServerSocketBenchmark {
         Future<?> connectedFuture = server.start();
 
         // Always use the same client for consistency across the benchmarks.
-        client = SocketType.CONSCRYPT_ENGINE.newClient(
+        client = config.clientFactory().newClient(
                 ChannelType.CHANNEL, server.port(), getProtocols(), ciphers(config));
         client.start();
 
@@ -96,6 +104,9 @@ public final class ServerSocketBenchmark {
                 byte[] buffer = new byte[config.messageSize()];
                 while (!stopping && !thread.isInterrupted()) {
                     int numBytes = client.readMessage(buffer);
+                    if (numBytes < 0) {
+                        return;
+                    }
                     assertEquals(config.messageSize(), numBytes);
 
                     // Increment the message counter if we're recording.
@@ -109,11 +120,12 @@ public final class ServerSocketBenchmark {
 
     void close() throws Exception {
         stopping = true;
-        client.stop();
+        // Stop and wait for sending to complete.
         server.stop();
+        client.stop();
         executor.shutdown();
-        executor.awaitTermination(5, TimeUnit.SECONDS);
         receivingFuture.get(5, TimeUnit.SECONDS);
+        executor.awaitTermination(5, TimeUnit.SECONDS);
     }
 
     void throughput() throws Exception {
@@ -133,37 +145,5 @@ public final class ServerSocketBenchmark {
 
     private String[] ciphers(Config config) {
         return new String[] {config.cipher()};
-    }
-
-    /**
-     * A simple main for profiling.
-     */
-    public static void main(String[] args) throws Exception {
-        ServerSocketBenchmark bm = new ServerSocketBenchmark(new Config() {
-            @Override
-            public SocketType socketType() {
-                return SocketType.CONSCRYPT_ENGINE;
-            }
-
-            @Override
-            public int messageSize() {
-                return 512;
-            }
-
-            @Override
-            public String cipher() {
-                return TestUtils.TEST_CIPHER;
-            }
-
-            @Override
-            public ChannelType channelType() {
-                return ChannelType.CHANNEL;
-            }
-        });
-
-        // Just run forever for profiling.
-        while (true) {
-            bm.throughput();
-        }
     }
 }

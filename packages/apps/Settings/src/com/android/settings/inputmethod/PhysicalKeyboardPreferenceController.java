@@ -50,7 +50,7 @@ public class PhysicalKeyboardPreferenceController extends AbstractPreferenceCont
 
     @Override
     public boolean isAvailable() {
-        return true;
+        return mContext.getResources().getBoolean(R.bool.config_show_physical_keyboard_pref);
     }
 
     @Override
@@ -66,12 +66,12 @@ public class PhysicalKeyboardPreferenceController extends AbstractPreferenceCont
 
     @Override
     public void onPause() {
-        mIm.registerInputDeviceListener(this, null);
+        mIm.unregisterInputDeviceListener(this);
     }
 
     @Override
     public void onResume() {
-        mIm.unregisterInputDeviceListener(this);
+        mIm.registerInputDeviceListener(this, null);
     }
 
     @Override
@@ -94,7 +94,7 @@ public class PhysicalKeyboardPreferenceController extends AbstractPreferenceCont
             return;
         }
         final List<HardKeyboardDeviceInfo> keyboards =
-                PhysicalKeyboardFragment.getHardKeyboards();
+                PhysicalKeyboardFragment.getHardKeyboards(mContext);
         if (keyboards.isEmpty()) {
             mPreference.setSummary(R.string.disconnected);
             return;

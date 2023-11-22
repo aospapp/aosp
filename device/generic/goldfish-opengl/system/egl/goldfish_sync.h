@@ -47,6 +47,11 @@ static __inline__ int goldfish_sync_close(int sync_fd) {
     return close(sync_fd);
 }
 
+static unsigned int sQueueWorkIoctlCmd = GOLDFISH_SYNC_IOC_QUEUE_WORK;
+
+// If we are running on a 64-bit kernel.
+static unsigned int sQueueWorkIoctlCmd64Kernel = 0xc0184000;
+
 static __inline__ int goldfish_sync_queue_work(int goldfish_sync_fd,
                                                 uint64_t host_glsync,
                                                 uint64_t host_thread,
@@ -59,7 +64,15 @@ static __inline__ int goldfish_sync_queue_work(int goldfish_sync_fd,
     info.host_syncthread_handle_in = host_thread;
     info.fence_fd_out = -1;
 
-    err = ioctl(goldfish_sync_fd, GOLDFISH_SYNC_IOC_QUEUE_WORK, &info);
+    err = ioctl(goldfish_sync_fd, sQueueWorkIoctlCmd, &info);
+
+    if (err < 0 && errno == ENOTTY) {
+        sQueueWorkIoctlCmd = sQueueWorkIoctlCmd64Kernel;
+        err = ioctl(goldfish_sync_fd, sQueueWorkIoctlCmd, &info);
+        if (err < 0) {
+            sQueueWorkIoctlCmd = GOLDFISH_SYNC_IOC_QUEUE_WORK;
+        }
+    }
 
     if (fd_out) *fd_out = info.fence_fd_out;
 

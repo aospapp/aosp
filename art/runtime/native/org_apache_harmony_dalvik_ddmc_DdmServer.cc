@@ -16,12 +16,14 @@
 
 #include "org_apache_harmony_dalvik_ddmc_DdmServer.h"
 
-#include "base/logging.h"
+#include <android-base/logging.h>
+
+#include "base/array_ref.h"
 #include "debugger.h"
 #include "jni_internal.h"
 #include "native_util.h"
 #include "nativehelper/jni_macros.h"
-#include "nativehelper/ScopedPrimitiveArray.h"
+#include "nativehelper/scoped_primitive_array.h"
 #include "scoped_fast_native_object_access-inl.h"
 
 namespace art {
@@ -31,7 +33,9 @@ static void DdmServer_nativeSendChunk(JNIEnv* env, jclass, jint type,
   ScopedFastNativeObjectAccess soa(env);
   ScopedByteArrayRO data(env, javaData);
   DCHECK_LE(offset + length, static_cast<int32_t>(data.size()));
-  Dbg::DdmSendChunk(type, length, reinterpret_cast<const uint8_t*>(&data[offset]));
+  ArrayRef<const uint8_t> chunk(reinterpret_cast<const uint8_t*>(&data[offset]),
+                                static_cast<size_t>(length));
+  Runtime::Current()->GetRuntimeCallbacks()->DdmPublishChunk(static_cast<uint32_t>(type), chunk);
 }
 
 static JNINativeMethod gMethods[] = {

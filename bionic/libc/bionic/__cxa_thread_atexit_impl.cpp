@@ -15,6 +15,8 @@
  */
 #include <sys/cdefs.h>
 
+#include <private/bionic_defs.h>
+
 #include "pthread_internal.h"
 
 class thread_local_dtor {
@@ -25,7 +27,12 @@ class thread_local_dtor {
   thread_local_dtor* next;
 };
 
-extern "C" int __cxa_thread_atexit_impl(void (*func) (void *), void *arg, void *dso_handle) {
+extern "C" int __cxa_thread_atexit_impl(void (*func) (void *), void *arg, void *dso_handle);
+extern "C" void __loader_add_thread_local_dtor(void* dso_handle) __attribute__((weak));
+extern "C" void __loader_remove_thread_local_dtor(void* dso_handle) __attribute__((weak));
+
+__BIONIC_WEAK_FOR_NATIVE_BRIDGE
+int __cxa_thread_atexit_impl(void (*func) (void *), void *arg, void *dso_handle) {
   thread_local_dtor* dtor = new thread_local_dtor();
 
   dtor->func = func;
@@ -35,6 +42,9 @@ extern "C" int __cxa_thread_atexit_impl(void (*func) (void *), void *arg, void *
   pthread_internal_t* thread = __get_thread();
   dtor->next = thread->thread_local_dtors;
   thread->thread_local_dtors = dtor;
+  if (__loader_add_thread_local_dtor != nullptr) {
+    __loader_add_thread_local_dtor(dso_handle);
+  }
   return 0;
 }
 
@@ -45,6 +55,9 @@ extern "C" __LIBC_HIDDEN__ void __cxa_thread_finalize() {
     thread->thread_local_dtors = current->next;
 
     current->func(current->arg);
+    if (__loader_remove_thread_local_dtor != nullptr) {
+      __loader_remove_thread_local_dtor(current->dso_handle);
+    }
     delete current;
   }
 }

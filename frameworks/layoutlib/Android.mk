@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+ifeq (,$(PRODUCT_MINIMIZE_JAVA_DEBUG_INFO))
+
 LOCAL_PATH := $(my-dir)
 include $(CLEAR_VARS)
 
@@ -76,7 +78,17 @@ $(LOCAL_BUILT_MODULE): $(built_oj_dep) \
 	$(hide) ls -l $(built_framework_classes)
 
 
+my_link_type := java
+my_warn_types :=
+my_allowed_types :=
+my_link_deps :=
+my_2nd_arch_prefix :=
+my_common := COMMON
+include $(BUILD_SYSTEM)/link_type.mk
+
 #
 # Include the subdir makefiles.
 #
 include $(call all-makefiles-under,$(LOCAL_PATH))
+
+endif

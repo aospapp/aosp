@@ -1,7 +1,6 @@
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
-LOCAL_CLANG := true
 
 LOCAL_SRC_FILES := ss.c ssfilter.y
 
@@ -11,7 +10,7 @@ LOCAL_MODULE_TAGS := debug
 
 LOCAL_SHARED_LIBRARIES += libiprouteutil libnetlink
 
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/../include
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/../include $(UAPI_INCLUDES)
 
 ##
 # "-x c" forces the lex/yacc files to be compiled as c the build system

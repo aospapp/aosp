@@ -16,15 +16,16 @@ if __name__ == '__main__':
   sys.path.append(
       os.path.abspath(os.path.join(os.path.dirname(__file__),
                                    '..', '..', '..')))
-from devil import devil_env
 from devil.android import device_blacklist
 from devil.android import device_errors
 from devil.android import device_utils
+from devil.android.sdk import adb_wrapper
 from devil.android.tools import device_status
+from devil.android.tools import script_common
+from devil.utils import logging_common
 from devil.utils import lsusb
 # TODO(jbudorick): Resolve this after experimenting w/ disabling the USB reset.
 from devil.utils import reset_usb  # pylint: disable=unused-import
-from devil.utils import run_tests_helper
 
 logger = logging.getLogger(__name__)
 
@@ -33,23 +34,27 @@ def KillAllAdb():
   def get_all_adb():
     for p in psutil.process_iter():
       try:
-        if 'adb' in p.name:
-          yield p
+        # Note: p.as_dict is compatible with both older (v1 and under) as well
+        # as newer (v2 and over) versions of psutil.
+        # See: http://grodola.blogspot.com/2014/01/psutil-20-porting.html
+        pinfo = p.as_dict(attrs=['pid', 'name', 'cmdline'])
+        if 'adb' == pinfo['name']:
+          pinfo['cmdline'] = ' '.join(pinfo['cmdline'])
+          yield p, pinfo
       except (psutil.NoSuchProcess, psutil.AccessDenied):
         pass
 
   for sig in [signal.SIGTERM, signal.SIGQUIT, signal.SIGKILL]:
-    for p in get_all_adb():
+    for p, pinfo in get_all_adb():
       try:
-        logger.info('kill %d %d (%s [%s])', sig, p.pid, p.name,
-                    ' '.join(p.cmdline))
+        pinfo['signal'] = sig
+        logger.info('kill %(signal)s %(pid)s (%(name)s [%(cmdline)s])', pinfo)
         p.send_signal(sig)
       except (psutil.NoSuchProcess, psutil.AccessDenied):
         pass
-  for p in get_all_adb():
+  for _, pinfo in get_all_adb():
     try:
-      logger.error('Unable to kill %d (%s [%s])', p.pid, p.name,
-                   ' '.join(p.cmdline))
+      logger.error('Unable to kill %(pid)s (%(name)s [%(cmdline)s])', pinfo)
     except (psutil.NoSuchProcess, psutil.AccessDenied):
       pass
 
@@ -149,6 +154,8 @@ def RecoverDevices(devices, blacklist, enable_usb_reset=False):
 
   if should_restart_adb:
     KillAllAdb()
+    adb_wrapper.AdbWrapper.StartServer()
+
   for serial in should_restart_usb:
     try:
       # TODO(crbug.com/642194): Resetting may be causing more harm
@@ -174,26 +181,18 @@ def RecoverDevices(devices, blacklist, enable_usb_reset=False):
 
 def main():
   parser = argparse.ArgumentParser()
-  parser.add_argument('--adb-path',
-                      help='Absolute path to the adb binary to use.')
+  logging_common.AddLoggingArguments(parser)
+  script_common.AddEnvironmentArguments(parser)
   parser.add_argument('--blacklist-file', help='Device blacklist JSON file.')
   parser.add_argument('--known-devices-file', action='append', default=[],
                       dest='known_devices_files',
                       help='Path to known device lists.')
   parser.add_argument('--enable-usb-reset', action='store_true',
                       help='Reset USB if necessary.')
-  parser.add_argument('-v', '--verbose', action='count', default=1,
-                      help='Log more information.')
 
   args = parser.parse_args()
-  run_tests_helper.SetLogLevel(args.verbose)
-
-  devil_dynamic_config = devil_env.EmptyConfig()
-  if args.adb_path:
-    devil_dynamic_config['dependencies'].update(
-        devil_env.LocalConfigItem(
-            'adb', devil_env.GetPlatform(), args.adb_path))
-  devil_env.config.Initialize(configs=[devil_dynamic_config])
+  logging_common.InitializeLogging(args)
+  script_common.InitializeEnvironment(args)
 
   blacklist = (device_blacklist.Blacklist(args.blacklist_file)
                if args.blacklist_file

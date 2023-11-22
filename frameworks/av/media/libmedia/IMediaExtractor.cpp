@@ -23,6 +23,7 @@
 
 #include <binder/IPCThreadState.h>
 #include <binder/Parcel.h>
+#include <binder/PermissionCache.h>
 #include <media/IMediaExtractor.h>
 #include <media/stagefright/MetaData.h>
 
@@ -34,12 +35,9 @@ enum {
     GETTRACKMETADATA,
     GETMETADATA,
     FLAGS,
-    GETDRMTRACKINFO,
     SETMEDIACAS,
-    SETUID,
     NAME,
-    GETMETRICS,
-    RELEASE,
+    GETMETRICS
 };
 
 class BpMediaExtractor : public BpInterface<IMediaExtractor> {
@@ -112,11 +110,6 @@ public:
         return 0;
     }
 
-    virtual char* getDrmTrackInfo(size_t trackID __unused, int *len __unused) {
-        ALOGV("getDrmTrackInfo NOT IMPLEMENTED");
-        return NULL;
-    }
-
     virtual status_t setMediaCas(const HInterfaceToken &casToken) {
         ALOGV("setMediaCas");
 
@@ -131,20 +124,9 @@ public:
         return reply.readInt32();
     }
 
-    virtual void setUID(uid_t uid __unused) {
-        ALOGV("setUID NOT IMPLEMENTED");
-    }
-
     virtual const char * name() {
         ALOGV("name NOT IMPLEMENTED");
         return NULL;
-    }
-
-    virtual void release() {
-        ALOGV("release");
-        Parcel data, reply;
-        data.writeInterfaceToken(BpMediaExtractor::getInterfaceDescriptor());
-        remote()->transact(RELEASE, data, &reply);
     }
 };
 
@@ -221,12 +203,6 @@ status_t BnMediaExtractor::onTransact(
             }
 
             reply->writeInt32(setMediaCas(casToken));
-            return OK;
-        }
-        case RELEASE: {
-            ALOGV("release");
-            CHECK_INTERFACE(IMediaExtractor, data, reply);
-            release();
             return OK;
         }
         default:
@@ -323,13 +299,21 @@ void registerMediaExtractor(
 
 status_t dumpExtractors(int fd, const Vector<String16>&) {
     String8 out;
-    out.append("Recent extractors, most recent first:\n");
-    {
-        Mutex::Autolock lock(sExtractorsLock);
-        for (size_t i = 0; i < sExtractors.size(); i++) {
-            const ExtractorInstance &instance = sExtractors.itemAt(i);
-            out.append("  ");
-            out.append(instance.toString());
+    const IPCThreadState* ipc = IPCThreadState::self();
+    const int pid = ipc->getCallingPid();
+    const int uid = ipc->getCallingUid();
+    if (!PermissionCache::checkPermission(String16("android.permission.DUMP"), pid, uid)) {
+        out.appendFormat("Permission Denial: "
+                "can't dump MediaExtractor from pid=%d, uid=%d\n", pid, uid);
+    } else {
+        out.append("Recent extractors, most recent first:\n");
+        {
+            Mutex::Autolock lock(sExtractorsLock);
+            for (size_t i = 0; i < sExtractors.size(); i++) {
+                const ExtractorInstance &instance = sExtractors.itemAt(i);
+                out.append("  ");
+                out.append(instance.toString());
+            }
         }
     }
     write(fd, out.string(), out.size());

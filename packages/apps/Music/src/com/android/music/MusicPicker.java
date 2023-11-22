@@ -62,8 +62,8 @@ import java.util.Locale;
  * indexing of the content for use inside of a {@link FastScrollView}, and
  * perform filtering of the data as the user presses keys.
  */
-public class MusicPicker extends ListActivity
-        implements View.OnClickListener, MediaPlayer.OnCompletionListener, MusicUtils.Defs {
+public class MusicPicker
+        extends ListActivity implements View.OnClickListener, MediaPlayer.OnCompletionListener {
     static final boolean DBG = false;
     static final String TAG = "MusicPicker";
 
@@ -262,7 +262,8 @@ public class MusicPicker extends ListActivity
             final long id = cursor.getLong(mIdIdx);
             vh.radio.setChecked(id == mSelectedId);
             if (DBG)
-                Log.v(TAG, "Binding id=" + id + " sel=" + mSelectedId + " playing=" + mPlayingId
+                Log.v(TAG,
+                        "Binding id=" + id + " sel=" + mSelectedId + " playing=" + mPlayingId
                                 + " cursor=" + cursor);
 
             // Likewise, display the "now playing" icon if this item is
@@ -618,7 +619,8 @@ public class MusicPicker extends ListActivity
     protected void onListItemClick(ListView l, View v, int position, long id) {
         mCursor.moveToPosition(position);
         if (DBG)
-            Log.v(TAG, "Click on " + position + " (id=" + id + ", cursid="
+            Log.v(TAG,
+                    "Click on " + position + " (id=" + id + ", cursid="
                             + mCursor.getLong(mCursor.getColumnIndex(MediaStore.Audio.Media._ID))
                             + ") in cursor " + mCursor + " adapter=" + l.getAdapter());
         setSelected(mCursor);

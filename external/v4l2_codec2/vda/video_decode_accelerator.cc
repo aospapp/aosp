@@ -1,6 +1,7 @@
 // Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 85fdf90
 
 #include "base/logging.h"
 
@@ -27,7 +28,7 @@ void VideoDecodeAccelerator::Client::NotifyInitializationComplete(
   NOTREACHED() << "By default deferred initialization is not supported.";
 }
 
-VideoDecodeAccelerator::~VideoDecodeAccelerator() {}
+VideoDecodeAccelerator::~VideoDecodeAccelerator() = default;
 
 bool VideoDecodeAccelerator::TryToSetupDecodeOnSeparateThread(
     const base::WeakPtr<Client>& decode_client,
@@ -39,21 +40,22 @@ bool VideoDecodeAccelerator::TryToSetupDecodeOnSeparateThread(
 
 void VideoDecodeAccelerator::ImportBufferForPicture(
     int32_t picture_buffer_id,
-    const std::vector<base::FileDescriptor>& dmabuf_fds) {
+    VideoPixelFormat pixel_format,
+    const NativePixmapHandle& native_pixmap_handle) {
   NOTREACHED() << "Buffer import not supported.";
 }
 
 VideoDecodeAccelerator::SupportedProfile::SupportedProfile()
     : profile(VIDEO_CODEC_PROFILE_UNKNOWN), encrypted_only(false) {}
 
-VideoDecodeAccelerator::SupportedProfile::~SupportedProfile() {}
+VideoDecodeAccelerator::SupportedProfile::~SupportedProfile() = default;
 
 VideoDecodeAccelerator::Capabilities::Capabilities() : flags(NO_FLAGS) {}
 
 VideoDecodeAccelerator::Capabilities::Capabilities(const Capabilities& other) =
     default;
 
-VideoDecodeAccelerator::Capabilities::~Capabilities() {}
+VideoDecodeAccelerator::Capabilities::~Capabilities() = default;
 
 std::string VideoDecodeAccelerator::Capabilities::AsHumanReadableString()
     const {

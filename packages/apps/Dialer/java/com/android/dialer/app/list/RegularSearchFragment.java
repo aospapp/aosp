@@ -18,7 +18,10 @@ package com.android.dialer.app.list;
 import static android.Manifest.permission.READ_CONTACTS;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.support.v13.app.FragmentCompat;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
@@ -27,7 +30,11 @@ import com.android.contacts.common.list.PinnedHeaderListView;
 import com.android.dialer.app.R;
 import com.android.dialer.callintent.CallInitiationType;
 import com.android.dialer.common.LogUtil;
+import com.android.dialer.common.concurrent.DialerExecutor;
+import com.android.dialer.common.concurrent.DialerExecutor.Worker;
+import com.android.dialer.common.concurrent.DialerExecutorComponent;
 import com.android.dialer.phonenumbercache.CachedNumberLookupService;
+import com.android.dialer.phonenumbercache.CachedNumberLookupService.CachedContactInfo;
 import com.android.dialer.phonenumbercache.PhoneNumberCache;
 import com.android.dialer.util.PermissionsUtil;
 import com.android.dialer.widget.EmptyContentView;
@@ -41,7 +48,9 @@ public class RegularSearchFragment extends SearchFragment
   public static final int PERMISSION_REQUEST_CODE = 1;
 
   private static final int SEARCH_DIRECTORY_RESULT_LIMIT = 5;
-  protected String mPermissionToRequest;
+  protected String permissionToRequest;
+
+  private DialerExecutor<CachedContactInfo> addContactTask;
 
   public RegularSearchFragment() {
     configureDirectorySearch();
@@ -50,6 +59,20 @@ public class RegularSearchFragment extends SearchFragment
   public void configureDirectorySearch() {
     setDirectorySearchEnabled(true);
     setDirectoryResultLimit(SEARCH_DIRECTORY_RESULT_LIMIT);
+  }
+
+  @Override
+  public void onCreate(Bundle savedState) {
+    super.onCreate(savedState);
+
+    addContactTask =
+        DialerExecutorComponent.get(getContext())
+            .dialerExecutorFactory()
+            .createUiTaskBuilder(
+                getFragmentManager(),
+                "RegularSearchFragment.addContact",
+                new AddContactWorker(getContext().getApplicationContext()))
+            .build();
   }
 
   @Override
@@ -73,14 +96,15 @@ public class RegularSearchFragment extends SearchFragment
         PhoneNumberCache.get(getContext()).getCachedNumberLookupService();
     if (cachedNumberLookupService != null) {
       final RegularSearchListAdapter adapter = (RegularSearchListAdapter) getAdapter();
-      cachedNumberLookupService.addContact(
-          getContext(), adapter.getContactInfo(cachedNumberLookupService, position));
+      CachedContactInfo cachedContactInfo =
+          adapter.getContactInfo(cachedNumberLookupService, position);
+      addContactTask.executeSerial(cachedContactInfo);
     }
   }
 
   @Override
   protected void setupEmptyView() {
-    if (mEmptyView != null && getActivity() != null) {
+    if (emptyView != null && getActivity() != null) {
       final int imageResource;
       final int actionLabelResource;
       final int descriptionResource;
@@ -90,20 +114,20 @@ public class RegularSearchFragment extends SearchFragment
         actionLabelResource = R.string.permission_single_turn_on;
         descriptionResource = R.string.permission_no_search;
         listener = this;
-        mPermissionToRequest = READ_CONTACTS;
+        permissionToRequest = READ_CONTACTS;
       } else {
         imageResource = EmptyContentView.NO_IMAGE;
         actionLabelResource = EmptyContentView.NO_LABEL;
         descriptionResource = EmptyContentView.NO_LABEL;
         listener = null;
-        mPermissionToRequest = null;
+        permissionToRequest = null;
       }
 
-      mEmptyView.setImage(imageResource);
-      mEmptyView.setActionLabel(actionLabelResource);
-      mEmptyView.setDescription(descriptionResource);
+      emptyView.setImage(imageResource);
+      emptyView.setActionLabel(actionLabelResource);
+      emptyView.setDescription(descriptionResource);
       if (listener != null) {
-        mEmptyView.setActionClickedListener(listener);
+        emptyView.setActionClickedListener(listener);
       }
     }
   }
@@ -115,7 +139,7 @@ public class RegularSearchFragment extends SearchFragment
       return;
     }
 
-    if (READ_CONTACTS.equals(mPermissionToRequest)) {
+    if (READ_CONTACTS.equals(permissionToRequest)) {
       String[] deniedPermissions =
           PermissionsUtil.getPermissionsCurrentlyDenied(
               getContext(), PermissionsUtil.allContactsGroupPermissionsUsedInDialer);
@@ -151,5 +175,25 @@ public class RegularSearchFragment extends SearchFragment
   public interface CapabilityChecker {
 
     boolean isNearbyPlacesSearchEnabled();
+  }
+
+  private static class AddContactWorker implements Worker<CachedContactInfo, Void> {
+
+    private final Context appContext;
+
+    private AddContactWorker(Context appContext) {
+      this.appContext = appContext;
+    }
+
+    @Nullable
+    @Override
+    public Void doInBackground(@Nullable CachedContactInfo contactInfo) throws Throwable {
+      CachedNumberLookupService cachedNumberLookupService =
+          PhoneNumberCache.get(appContext).getCachedNumberLookupService();
+      if (cachedNumberLookupService != null) {
+        cachedNumberLookupService.addContact(appContext, contactInfo);
+      }
+      return null;
+    }
   }
 }

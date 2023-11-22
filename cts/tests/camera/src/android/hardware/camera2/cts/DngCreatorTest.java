@@ -41,6 +41,7 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.os.ConditionVariable;
 import android.os.SystemClock;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
@@ -65,6 +66,7 @@ import static android.hardware.camera2.cts.helpers.AssertHelpers.*;
 /**
  * Tests for the DngCreator API.
  */
+@AppModeFull
 public class DngCreatorTest extends Camera2AndroidTestCase {
     private static final String TAG = "DngCreatorTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);

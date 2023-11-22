@@ -22,10 +22,8 @@ import com.android.tradefed.log.LogUtil.CLog;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * A {@link ResultForwarder} for saving logs with the global file saver.
- */
-public class LogSaverResultForwarder extends ResultForwarder {
+/** A {@link ResultForwarder} for saving logs with the global file saver. */
+public class LogSaverResultForwarder extends ResultForwarder implements ILogSaverListener {
 
     ILogSaver mLogSaver;
 
@@ -65,7 +63,12 @@ public class LogSaverResultForwarder extends ResultForwarder {
     public void invocationEnded(long elapsedTime) {
         InvocationSummaryHelper.reportInvocationEnded(getListeners(), elapsedTime);
         // Intentionally call invocationEnded for the log saver last.
-        mLogSaver.invocationEnded(elapsedTime);
+        try {
+            mLogSaver.invocationEnded(elapsedTime);
+        } catch (RuntimeException e) {
+            CLog.e("Caught runtime exception from log saver: %s", mLogSaver.getClass().getName());
+            CLog.e(e);
+        }
     }
 
     /**
@@ -77,7 +80,7 @@ public class LogSaverResultForwarder extends ResultForwarder {
      */
     @Override
     public void testLog(String dataName, LogDataType dataType, InputStreamSource dataStream) {
-        super.testLog(dataName, dataType, dataStream);
+        testLogForward(dataName, dataType, dataStream);
         try {
             LogFile logFile = mLogSaver.saveLogData(dataName, dataType,
                     dataStream.createInputStream());
@@ -85,11 +88,62 @@ public class LogSaverResultForwarder extends ResultForwarder {
                 if (listener instanceof ILogSaverListener) {
                     ((ILogSaverListener) listener).testLogSaved(dataName, dataType,
                             dataStream, logFile);
+                    ((ILogSaverListener) listener).logAssociation(dataName, logFile);
                 }
             }
-        } catch (IOException e) {
+        } catch (RuntimeException | IOException e) {
             CLog.e("Failed to save log data");
             CLog.e(e);
         }
+    }
+
+    /** Only forward the testLog instead of saving the log first. */
+    public void testLogForward(
+            String dataName, LogDataType dataType, InputStreamSource dataStream) {
+        super.testLog(dataName, dataType, dataStream);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>If {@link LogSaverResultForwarder} is wrap in another one, ensure we forward the
+     * testLogSaved callback to the listeners under it.
+     */
+    @Override
+    public void testLogSaved(
+            String dataName, LogDataType dataType, InputStreamSource dataStream, LogFile logFile) {
+        try {
+            for (ITestInvocationListener listener : getListeners()) {
+                if (listener instanceof ILogSaverListener) {
+                    ((ILogSaverListener) listener)
+                            .testLogSaved(dataName, dataType, dataStream, logFile);
+                }
+            }
+        } catch (RuntimeException e) {
+            CLog.e("Failed to save log data");
+            CLog.e(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void logAssociation(String dataName, LogFile logFile) {
+        for (ITestInvocationListener listener : getListeners()) {
+            try {
+                // Forward the logAssociation call
+                if (listener instanceof ILogSaverListener) {
+                    ((ILogSaverListener) listener).logAssociation(dataName, logFile);
+                }
+            } catch (RuntimeException e) {
+                CLog.e("Failed to provide the log association");
+                CLog.e(e);
+            }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setLogSaver(ILogSaver logSaver) {
+        // Does not need the log saver again, already received in constructor.
     }
 }

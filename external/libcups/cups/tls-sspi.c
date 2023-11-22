@@ -2,7 +2,7 @@
  * TLS support for CUPS on Windows using the Security Support Provider
  * Interface (SSPI).
  *
- * Copyright 2010-2015 by Apple Inc.
+ * Copyright 2010-2017 by Apple Inc.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
@@ -913,7 +913,8 @@ _httpTLSRead(http_t *http,		/* I - HTTP connection */
 void
 _httpTLSSetOptions(int options)		/* I - Options */
 {
-  tls_options = options;
+  if (!(options & _HTTP_TLS_SET_DEFAULT) || tls_options < 0)
+    tls_options = options;
 }
 
 
@@ -1795,7 +1796,7 @@ http_sspi_find_credentials(
   }
 #endif /* SP_PROT_TLS1_2_SERVER */
 
-  /* TODO: Support _HTTP_TLS_ALLOW_RC4 and _HTTP_TLS_ALLOW_DH options; right now we'll rely on Windows registry to enable/disable RC4/DH... */
+  /* TODO: Support _HTTP_TLS_ALLOW_RC4, _HTTP_TLS_ALLOW_DH, and _HTTP_TLS_DENY_CBC options; right now we'll rely on Windows registry to enable/disable RC4/DH/CBC... */
 
  /*
   * Create an SSPI credential.

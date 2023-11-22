@@ -17,12 +17,14 @@
 package com.android.car.messenger.tts;
 
 import android.content.Context;
+import android.media.AudioManager;
 import android.os.Handler;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 import android.util.Pair;
+
+import androidx.annotation.VisibleForTesting;
 
 import java.util.HashMap;
 import java.util.List;
@@ -56,6 +58,12 @@ public class TTSHelper {
          *              not considered an error.
          */
         void onTTSStopped(boolean error);
+
+        /**
+         * Called when request to get audio focus failed. This happens before the requested TTS
+         * is played.
+         */
+        void onAudioFocusFailed();
     }
 
     private static final String TAG = "Messenger.TTSHelper";
@@ -66,6 +74,8 @@ public class TTSHelper {
 
     private final Handler mHandler = new Handler();
     private final Context mContext;
+    private final AudioManager mAudioManager;
+    private final AudioManager.OnAudioFocusChangeListener mNoOpAFChangeListener = (f) -> {};
     private final long mShutdownDelayMillis;
     private TTSEngine mTTSEngine;
     private int mInitStatus;
@@ -83,6 +93,7 @@ public class TTSHelper {
     @VisibleForTesting
     TTSHelper(Context context, TTSEngine ttsEngine, long shutdownDelayMillis) {
         mContext = context;
+        mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
         mTTSEngine = ttsEngine;
         mShutdownDelayMillis = shutdownDelayMillis;
         // OnInitListener will only set to SUCCESS/ERROR. So we initialize to STOPPED.
@@ -129,6 +140,7 @@ public class TTSHelper {
      * until then. Only one batch is supported at a time; If a previous batch is waiting engine
      * setup, that batch is dropped. If a previous batch is playing, the play-out is stopped and
      * next one is passed to the TTS Engine. Callbacks are issued on the provided {@code listener}.
+     * Will request audio focus first, failure will trigger onAudioFocusFailed in listener.
      *
      * NOTE: Underlying engine may have limit on length of text in each element of the batch; it
      * will reject anything longer. See {@link TextToSpeech#getMaxSpeechInputLength()}.
@@ -137,8 +149,15 @@ public class TTSHelper {
      * @param listener Observer that will receive callbacks about play-out progress.
      */
     public void requestPlay(List<CharSequence> textToSpeak, Listener listener) {
-        if (textToSpeak == null || textToSpeak.size() < 1) {
+        if (textToSpeak == null || textToSpeak.isEmpty()) {
             throw new IllegalArgumentException("Empty/null textToSpeak");
+        }
+        int result = mAudioManager.requestAudioFocus(mNoOpAFChangeListener,
+                getStream(),
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+        if (result != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            listener.onAudioFocusFailed();
+            return;
         }
         initMaybeAndKeepAlive();
 
@@ -146,7 +165,7 @@ public class TTSHelper {
         if (mInitStatus == TextToSpeech.STOPPED) {
             // Squash any already queued request.
             if (mPendingRequest != null) {
-                mPendingRequest.mListener.onTTSStopped(false /* error */);
+                onTtsStopped(mPendingRequest.mListener, false /* error */);
             }
             mPendingRequest = new SpeechRequest(textToSpeak, listener);
         } else {
@@ -163,10 +182,16 @@ public class TTSHelper {
         return mTTSEngine.isSpeaking();
     }
 
+    // wrap call back to listener.onTTSStopped with adandonAudioFocus.
+    private void onTtsStopped(Listener listener, boolean error) {
+        mAudioManager.abandonAudioFocus(mNoOpAFChangeListener);
+        mHandler.post(() -> listener.onTTSStopped(error));
+    }
+
     private void playInternal(List<CharSequence> textToSpeak, Listener listener) {
         if (mInitStatus == TextToSpeech.ERROR) {
             Log.e(TAG, "TTS setup failed!");
-            mHandler.post(() -> listener.onTTSStopped(true /* error */));
+            onTtsStopped(listener, true /* error */);
             return;
         }
 
@@ -188,7 +213,7 @@ public class TTSHelper {
                 mTTSEngine.stop();
                 currentBatchId = null;
                 Log.e(TAG, "Queuing text failed!");
-                mHandler.post(() -> listener.onTTSStopped(true /* error */));
+                onTtsStopped(listener, true /* error */);
                 return;
             }
             index--;
@@ -204,6 +229,10 @@ public class TTSHelper {
     public void cleanup() {
         mHandler.removeCallbacksAndMessages(null /* token */);
         shutdownEngine();
+    }
+
+    public int getStream() {
+        return mTTSEngine.getStream();
     }
 
     private void shutdownEngine() {
@@ -324,7 +353,7 @@ public class TTSHelper {
         // Handles terminal callbacks for the batch. We invoke stopped and remove ourselves.
         // No further callbacks will be handled for the batch.
         private void handleBatchFinished(Pair<String, Integer> parsedId, boolean error) {
-            mListener.onTTSStopped(error);
+            onTtsStopped(mListener, error);
             mListeners.remove(parsedId.first);
         }
     }

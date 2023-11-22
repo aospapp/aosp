@@ -16,7 +16,7 @@
 
 package com.android.documentsui.files;
 
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
@@ -25,7 +25,9 @@ import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.provider.DocumentsContract;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.DragEvent;
 
@@ -56,12 +58,13 @@ import com.android.documentsui.clipping.ClipStore;
 import com.android.documentsui.clipping.DocumentClipper;
 import com.android.documentsui.clipping.UrisSupplier;
 import com.android.documentsui.dirlist.AnimationView;
-import com.android.documentsui.dirlist.DocumentDetails;
 import com.android.documentsui.files.ActionHandler.Addons;
 import com.android.documentsui.inspector.InspectorActivity;
 import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.roots.ProvidersAccess;
+import com.android.documentsui.selection.MutableSelection;
 import com.android.documentsui.selection.Selection;
+import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
 import com.android.documentsui.services.FileOperation;
 import com.android.documentsui.services.FileOperationService;
 import com.android.documentsui.services.FileOperations;
@@ -187,12 +190,12 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
     }
 
     @Override
-    public boolean openDocument(DocumentDetails details, @ViewType int type,
+    public boolean openItem(ItemDetails details, @ViewType int type,
             @ViewType int fallback) {
-        DocumentInfo doc = mModel.getDocument(details.getModelId());
+        DocumentInfo doc = mModel.getDocument(details.getStableId());
         if (doc == null) {
             Log.w(TAG,
-                    "Can't view item. No Document available for modeId: " + details.getModelId());
+                    "Can't view item. No Document available for modeId: " + details.getStableId());
             return false;
         }
 
@@ -218,7 +221,7 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
     }
 
     private Selection getSelectedOrFocused() {
-        final Selection selection = this.getStableSelection();
+        final MutableSelection selection = this.getStableSelection();
         if (selection.isEmpty()) {
             String focusModelId = mFocusHandler.getFocusModelId();
             if (focusModelId != null) {
@@ -508,6 +511,14 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
             return;
         }
 
+        // For APKs, even if the type is preview, we send an ACTION_VIEW intent to allow
+        // PackageManager to install it.  This allows users to install APKs from any root.
+        // The Downloads special case is handled above in #manageDocument.
+        if (MimeTypes.isApkType(doc.mimeType)) {
+            viewDocument(doc);
+            return;
+        }
+
         switch (type) {
           case VIEW_TYPE_REGULAR:
             if (viewDocument(doc)) {
@@ -678,11 +689,26 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
     public void showInspector(DocumentInfo doc) {
         Metrics.logUserAction(mActivity, Metrics.USER_ACTION_INSPECTOR);
         Intent intent = new Intent(mActivity, InspectorActivity.class);
+        intent.setData(doc.derivedUri);
+
+        // permit the display of debug info about the file.
         intent.putExtra(
                 Shared.EXTRA_SHOW_DEBUG,
-                mFeatures.isDebugSupportEnabled()
-                        || DebugFlags.getDocumentDetailsEnabled());
-        intent.setData(doc.derivedUri);
+                mFeatures.isDebugSupportEnabled() &&
+                        (Build.IS_DEBUGGABLE || DebugFlags.getDocumentDetailsEnabled()));
+
+        // The "root document" (top level folder in a root) don't usually have a
+        // human friendly display name. That's because we've never shown the root
+        // folder's name to anyone.
+        // For that reason when the doc being inspected is the root folder,
+        // we override the displayName of the doc w/ the Root's name instead.
+        // The Root's name is shown to the user in the sidebar.
+        if (doc.isDirectory() && mState.stack.size() == 1 && mState.stack.get(0).equals(doc)) {
+            RootInfo root = mActivity.getCurrentRoot();
+            // Recents root title isn't defined, but inspector is disabled for recents root folder.
+            assert !TextUtils.isEmpty(root.title);
+            intent.putExtra(Intent.EXTRA_TITLE, root.title);
+        }
         mActivity.startActivity(intent);
     }
 

@@ -14,75 +14,118 @@
 
 #include "abi_diff_wrappers.h"
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-parameter"
-#pragma clang diagnostic ignored "-Wnested-anon-types"
-#include "proto/abi_dump.pb.h"
-#include "proto/abi_diff.pb.h"
-#pragma clang diagnostic pop
+#include <ir_representation.h>
 
-#include <memory>
-#include <fstream>
-#include <iostream>
 #include <string>
 #include <vector>
 
-
-typedef abi_diff::CompatibilityStatus CompatibilityStatus;
+using abi_util::AbiElementMap;
 
 class HeaderAbiDiff {
  public:
   HeaderAbiDiff(const std::string &lib_name, const std::string &arch,
                 const std::string &old_dump, const std::string &new_dump,
                 const std::string &compatibility_report,
-                const std::set<std::string> &ignored_symbols)
+                const std::set<std::string> &ignored_symbols,
+                bool check_all_apis, abi_util::TextFormatIR text_format_old,
+                abi_util::TextFormatIR text_format_new,
+                abi_util::TextFormatIR text_format_diff)
       : lib_name_(lib_name), arch_(arch), old_dump_(old_dump),
         new_dump_(new_dump), cr_(compatibility_report),
-      ignored_symbols_(ignored_symbols) { }
+        ignored_symbols_(ignored_symbols), check_all_apis_(check_all_apis),
+        text_format_old_(text_format_old), text_format_new_(text_format_new),
+        text_format_diff_(text_format_diff) { }
 
-  CompatibilityStatus GenerateCompatibilityReport();
+  abi_util::CompatibilityStatusIR GenerateCompatibilityReport();
 
  private:
-  CompatibilityStatus CompareTUs(const abi_dump::TranslationUnit &old_tu,
-                                 const abi_dump::TranslationUnit &new_tu);
-  // Collect* methods fill in the diff_tu.
-  template <typename T, typename TDiff>
-  static CompatibilityStatus Collect(
-      google::protobuf::RepeatedPtrField<T> *elements_added,
-      google::protobuf::RepeatedPtrField<T> *elements_removed,
-      google::protobuf::RepeatedPtrField<TDiff> *elements_diff,
-      const google::protobuf::RepeatedPtrField<T> &old_srcs,
-      const google::protobuf::RepeatedPtrField<T> &new_srcs,
-      const std::set<std::string> &ignored_symbols);
+  abi_util::CompatibilityStatusIR CompareTUs(
+      const abi_util::TextFormatToIRReader *old_tu,
+      const abi_util::TextFormatToIRReader *new_tu,
+      abi_util::IRDiffDumper *ir_diff_dumper);
+
+  template <typename T, typename ElfSymbolType>
+  bool CollectDynsymExportables(
+    const AbiElementMap<T> &old_exportables,
+    const AbiElementMap<T> &new_exportables,
+    const AbiElementMap<ElfSymbolType> &old_elf_symbols,
+    const AbiElementMap<ElfSymbolType> &new_elf_symbols,
+    const AbiElementMap<const abi_util::TypeIR *> &old_types_map,
+    const AbiElementMap<const abi_util::TypeIR *> &new_types_map,
+    abi_util::IRDiffDumper *ir_diff_dumper);
 
   template <typename T>
-  static inline void AddToMap(std::map<std::string, const T *> *dst,
-                              const google::protobuf::RepeatedPtrField<T> &src);
+  bool Collect(
+      const AbiElementMap<const T *> &old_elements_map,
+      const AbiElementMap<const T *> &new_elements_map,
+      const AbiElementMap<const abi_util::ElfSymbolIR *> *old_elf_map,
+      const AbiElementMap<const abi_util::ElfSymbolIR *> *new_elf_map,
+      abi_util::IRDiffDumper *ir_diff_dumper,
+      const AbiElementMap<const abi_util::TypeIR *> &old_types_map,
+      const AbiElementMap<const abi_util::TypeIR *> &new_types_map);
+
+  bool CollectElfSymbols(
+      const AbiElementMap<const abi_util::ElfSymbolIR *> &old_symbols,
+      const AbiElementMap<const abi_util::ElfSymbolIR *> &new_symbols,
+      abi_util::IRDiffDumper *ir_diff_dumper);
+
+  bool PopulateElfElements(
+      std::vector<const abi_util::ElfSymbolIR *> &elf_elements,
+      abi_util::IRDiffDumper *ir_diff_dumper,
+      abi_util::IRDiffDumper::DiffKind diff_kind);
 
   template <typename T>
-  static bool PopulateRemovedElements(
-      google::protobuf::RepeatedPtrField<T> *dst,
-      const std::map<std::string, const T *> &old_elements_map,
-      const std::map<std::string, const T *> &new_elements_map,
-      const std::set<std::string> &ignored_symbols);
+  bool PopulateRemovedElements(
+      const AbiElementMap<const T *> &old_elements_map,
+      const AbiElementMap<const T *> &new_elements_map,
+      const AbiElementMap<const abi_util::ElfSymbolIR *> *elf_map,
+      abi_util::IRDiffDumper *ir_diff_dumper,
+      abi_util::IRDiffDumper::DiffKind diff_kind,
+      const AbiElementMap<const abi_util::TypeIR *> &types_map);
 
-  template <typename T, typename TDiff>
-  static bool PopulateCommonElements(
-      google::protobuf::RepeatedPtrField<TDiff> *dst,
-      const std::map<std::string, const T *> &old_elements_map,
-      const std::map<std::string, const T *> &new_elements_map,
-      const std::set<std::string> &ignored_symbols);
+  template <typename T>
+  bool PopulateCommonElements(
+      const AbiElementMap<const T *> &old_elements_map,
+      const AbiElementMap<const T *> &new_elements_map,
+      const AbiElementMap<const abi_util::TypeIR *> &old_types,
+      const AbiElementMap<const abi_util::TypeIR *> &new_types,
+      abi_util::IRDiffDumper *ir_diff_dumper,
+      abi_util::IRDiffDumper::DiffKind diff_kind);
 
-  template <typename T, typename TDiff>
-  static bool DumpDiffElements(
-      google::protobuf::RepeatedPtrField<TDiff> *dst,
+  template <typename T>
+  bool DumpDiffElements(
       std::vector<std::pair<const T *, const T *>> &pairs,
-      const std::set<std::string> &ignored_symbols);
+      const AbiElementMap<const abi_util::TypeIR *> &old_types,
+      const AbiElementMap<const abi_util::TypeIR *> &new_types,
+      abi_util::IRDiffDumper *ir_diff_dumper,
+      abi_util::IRDiffDumper::DiffKind diff_kind);
 
   template <typename T>
-  static bool DumpLoneElements(google::protobuf::RepeatedPtrField<T> *dst,
-                               std::vector<const T *> &elements,
-                               const std::set<std::string> &ignored_symbols);
+  bool DumpLoneElements(
+      std::vector<const T *> &elements,
+      const AbiElementMap<const abi_util::ElfSymbolIR *> *elf_map,
+      abi_util::IRDiffDumper *ir_diff_dumper,
+      abi_util::IRDiffDumper::DiffKind diff_kind,
+      const AbiElementMap<const abi_util::TypeIR *> &old_types_map);
+
+  std::pair<AbiElementMap<const abi_util::EnumTypeIR *>,
+            AbiElementMap<const abi_util::RecordTypeIR *>>
+  ExtractUserDefinedTypes(const abi_util::TextFormatToIRReader *tu);
+
+  bool CollectUserDefinedTypes(
+      const abi_util::TextFormatToIRReader *old_tu,
+      const abi_util::TextFormatToIRReader *new_tu,
+      const AbiElementMap<const abi_util::TypeIR *> &old_types_map,
+      const AbiElementMap<const abi_util::TypeIR *> &new_types_map,
+      abi_util::IRDiffDumper *ir_diff_dumper);
+
+  template <typename T>
+  bool CollectUserDefinedTypesInternal(
+      const AbiElementMap<const T*> &old_ud_types_map,
+      const AbiElementMap<const T*> &new_ud_types_map,
+      const AbiElementMap<const abi_util::TypeIR *> &old_types_map,
+      const AbiElementMap<const abi_util::TypeIR *> &new_types_map,
+      abi_util::IRDiffDumper *ir_diff_dumper);
 
  private:
   const std::string &lib_name_;
@@ -91,27 +134,9 @@ class HeaderAbiDiff {
   const std::string &new_dump_;
   const std::string &cr_;
   const std::set<std::string> &ignored_symbols_;
+  bool check_all_apis_;
+  std::set<std::string> type_cache_;
+  abi_util::TextFormatIR text_format_old_;
+  abi_util::TextFormatIR text_format_new_;
+  abi_util::TextFormatIR text_format_diff_;
 };
-
-template <typename T>
-inline void HeaderAbiDiff::AddToMap(
-    std::map<std::string, const T *> *dst,
-    const google::protobuf::RepeatedPtrField<T> &src) {
-  for (auto &&element : src) {
-    dst->insert(std::make_pair(element.basic_abi().linker_set_key(), &element));
-  }
-}
-
-static inline CompatibilityStatus operator|(CompatibilityStatus f,
-                                            CompatibilityStatus s) {
-  return static_cast<CompatibilityStatus>(
-      static_cast<std::underlying_type<CompatibilityStatus>::type>(f) |
-      static_cast<std::underlying_type<CompatibilityStatus>::type>(s));
-}
-
-static inline CompatibilityStatus operator&(
-    CompatibilityStatus f, CompatibilityStatus s) {
-  return static_cast<CompatibilityStatus>(
-      static_cast<std::underlying_type<CompatibilityStatus>::type>(f) &
-      static_cast<std::underlying_type<CompatibilityStatus>::type>(s));
-}

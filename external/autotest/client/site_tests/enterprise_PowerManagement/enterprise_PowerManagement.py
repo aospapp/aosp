@@ -11,8 +11,8 @@ from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros import cryptohome
-from autotest_lib.client.cros import power_status
 from autotest_lib.client.cros.enterprise import enterprise_fake_dmserver
+from autotest_lib.client.cros.power import power_status
 
 
 class enterprise_PowerManagement(test.test):
@@ -20,6 +20,7 @@ class enterprise_PowerManagement(test.test):
     version = 1
 
     def setup(self):
+        """Standard autotest setup."""
         os.chdir(self.srcdir)
         utils.make('OUT_DIR=.')
 
@@ -47,6 +48,7 @@ class enterprise_PowerManagement(test.test):
         self.fake_dm_server.start(self.tmpdir, self.debugdir)
 
     def cleanup(self):
+        """Close out anything used by this test."""
         self.fake_dm_server.stop()
 
     @property
@@ -127,7 +129,8 @@ class enterprise_PowerManagement(test.test):
                 disable_gaia_services=False,
                 gaia_login=False,
                 username=self.username,
-                password=self.password)
+                password=self.password,
+                expect_policy_fetch=True)
 
     def run_once(self):
         """Run the power management policy tests."""

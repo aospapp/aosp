@@ -7,6 +7,7 @@ import os
 import time
 
 from autotest_lib.client.bin import test
+from autotest_lib.client.bin import utils as bin_utils
 from autotest_lib.client.common_lib import error, utils
 from autotest_lib.client.cros.graphics import graphics_utils
 
@@ -41,12 +42,17 @@ class graphics_GpuReset(graphics_utils.GraphicsTest):
 
   @graphics_utils.GraphicsTest.failure_report_decorator('graphics_GpuReset')
   def run_once(self, options=''):
-    exefile = os.path.join(self.srcdir, 'gpureset')
-    if not os.path.isfile(exefile):
-      raise error.TestFail('Failed: could not locate gpureset executable (' +
-                           exefile + ').')
+    gpu_family = bin_utils.get_gpu_family()
+    if gpu_family == 'stoney':
+        options = '-s 7 -t 1'
+        exefile = 'amdgpu_test'
+    else:
+        options = ''
+        exefile = os.path.join(self.srcdir, 'gpureset')
+        if not os.path.isfile(exefile):
+          raise error.TestFail('Failed: could not locate gpureset executable (' +
+                               exefile + ').')
 
-    options = ''
     cmd = '%s %s' % (exefile, options)
 
     # If UI is running, we must stop it and restore later.
@@ -98,12 +104,18 @@ class graphics_GpuReset(graphics_utils.GraphicsTest):
     # Analyze summary and count number of passes.
     pass_count = 0
     for line in results:
-      if line.strip().startswith('[       OK ] graphics_GpuReset'):
-        pass_count += 1
-      if line.strip().startswith('[  FAILED  ] graphics_GpuReset'):
-        msg = line.strip()[30:]
-        failed_msg = 'Test failed with %s' % msg
-        raise error.TestFail('Failed: %s' % failed_msg)
+      if gpu_family == 'stoney':
+        if "passed" in line:
+          pass_count += 1
+        if "failed" in line:
+          raise error.TestFail('Failed: %s' % line)
+      else:
+        if line.strip().startswith('[       OK ] graphics_GpuReset'):
+          pass_count += 1
+        if line.strip().startswith('[  FAILED  ] graphics_GpuReset'):
+          msg = line.strip()[30:]
+          failed_msg = 'Test failed with %s' % msg
+          raise error.TestFail('Failed: %s' % failed_msg)
     f.close()
 
     # Final chance to fail.

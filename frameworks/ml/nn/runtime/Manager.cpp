@@ -30,6 +30,9 @@
 namespace android {
 namespace nn {
 
+Device::Device(std::string name, const sp<V1_0::IDevice>& device) :
+      mName(std::move(name)), mInterface(device) {}
+
 // TODO: handle errors from initialize correctly
 bool Device::initialize() {
 #ifdef NN_DEBUGGABLE
@@ -39,46 +42,50 @@ bool Device::initialize() {
             (mName.substr(0, sizeof(samplePrefix) - 1)  == samplePrefix)
             ? getProp("debug.nn.sample.supported") : 0;
 #endif  // NN_DEBUGGABLE
-    bool success = false;
-    auto ret = mInterface->getCapabilities([&](ErrorStatus status,
-                                               const Capabilities& capabilities) {
-        if (status != ErrorStatus::NONE) {
-            LOG(ERROR) << "IDevice::getCapabilities returned the error " << toString(status);
-        } else {
-            VLOG(MANAGER) << "Capab " << capabilities.float32Performance.execTime;
-            VLOG(MANAGER) << "Capab " << capabilities.quantized8Performance.execTime;
-            mFloat32Performance = capabilities.float32Performance;
-            mQuantized8Performance = capabilities.quantized8Performance;
-            success = true;
-        }
-    });
-    if (!ret.isOk()) {
-        LOG(ERROR) << "IDevice::getCapabilities failed for " << getName()
-                   << ": " << ret.description();
+
+    ErrorStatus status = ErrorStatus::GENERAL_FAILURE;
+    Capabilities capabilities;
+    std::tie(status, capabilities) = mInterface.getCapabilities();
+
+    if (status != ErrorStatus::NONE) {
+        LOG(ERROR) << "IDevice::getCapabilities returned the error " << toString(status);
+    } else {
+        VLOG(MANAGER) << "Capab " << capabilities.float32Performance.execTime;
+        VLOG(MANAGER) << "Capab " << capabilities.quantized8Performance.execTime;
+        VLOG(MANAGER) << "Capab " << capabilities.relaxedFloat32toFloat16Performance.execTime;
+        mFloat32Performance = capabilities.float32Performance;
+        mQuantized8Performance = capabilities.quantized8Performance;
+        mRelaxedFloat32toFloat16Performance = capabilities.relaxedFloat32toFloat16Performance;
     }
-    return success;
+
+    return status == ErrorStatus::NONE;
 }
 
 void Device::getSupportedOperations(const Model& hidlModel,
-                                    hidl_vec<bool>* outSupportedOperations) const {
-    auto ret = mInterface->getSupportedOperations(
-        hidlModel,
-        [outSupportedOperations](ErrorStatus status, const hidl_vec<bool>& supportedOperations) {
-            if (status != ErrorStatus::NONE) {
-                LOG(ERROR)
-                        << "IDevice::getSupportedOperations returned the error "
-                        << toString(status);
-            }
-            *outSupportedOperations = supportedOperations;
-        });
+                                    hidl_vec<bool>* outSupportedOperations) {
+    // Query the driver for what it can do.
+    ErrorStatus status = ErrorStatus::GENERAL_FAILURE;
+    hidl_vec<bool> supportedOperations;
+    std::tie(status, supportedOperations) = mInterface.getSupportedOperations(hidlModel);
 
-    if (!ret.isOk()) {
-        LOG(ERROR) << "IDevice::getSupportedOperations failed for " << getName()
-                   << ": " << ret.description();
+    if (status != ErrorStatus::NONE) {
+        LOG(ERROR) << "IDevice::getSupportedOperations returned the error " << toString(status);
+        // Set the supported operation vectors to all false, so we won't use this driver.
         outSupportedOperations->resize(hidlModel.operations.size());
         std::fill(outSupportedOperations->begin(), outSupportedOperations->end(), false);
         return;
     }
+    if (supportedOperations.size() != hidlModel.operations.size()) {
+        LOG(ERROR) << "IDevice::getSupportedOperations returned a vector of length "
+                   << supportedOperations.size() << " when expecting "
+                   << hidlModel.operations.size();
+        // Set the supported operation vectors to all false, so we won't use this driver.
+        outSupportedOperations->resize(hidlModel.operations.size());
+        std::fill(outSupportedOperations->begin(), outSupportedOperations->end(), false);
+        return;
+    }
+
+    *outSupportedOperations = supportedOperations;
 
 #ifdef NN_DEBUGGABLE
     if (mSupported != 1) {
@@ -124,7 +131,6 @@ DeviceManager* DeviceManager::get() {
 }
 
 void DeviceManager::findAvailableDevices() {
-    using ::android::hardware::neuralnetworks::V1_0::IDevice;
     using ::android::hidl::manager::V1_0::IServiceManager;
     VLOG(MANAGER) << "findAvailableDevices";
 
@@ -134,10 +140,10 @@ void DeviceManager::findAvailableDevices() {
         return;
     }
 
-    manager->listByInterface(IDevice::descriptor, [this](const hidl_vec<hidl_string>& names) {
+    manager->listByInterface(V1_0::IDevice::descriptor, [this](const hidl_vec<hidl_string>& names) {
         for (const auto& name : names) {
             VLOG(MANAGER) << "Found interface " << name.c_str();
-            sp<IDevice> device = IDevice::getService(name);
+            sp<V1_0::IDevice> device = V1_0::IDevice::getService(name);
             if (device == nullptr) {
                 LOG(ERROR) << "Got a null IDEVICE for " << name.c_str();
                 continue;
@@ -147,7 +153,7 @@ void DeviceManager::findAvailableDevices() {
     });
 }
 
-void DeviceManager::registerDevice(const char* name, const sp<IDevice>& device) {
+void DeviceManager::registerDevice(const char* name, const sp<V1_0::IDevice>& device) {
     auto d = std::make_shared<Device>(name, device);
     if (d->initialize()) {
         mDevices.push_back(d);
@@ -159,6 +165,7 @@ DeviceManager::DeviceManager() {
     findAvailableDevices();
 #ifdef NN_DEBUGGABLE
     mPartitioning = getProp("debug.nn.partition", kPartitioningDefault);
+    mDebugNNCpuOnly = (getProp("debug.nn.cpuonly") != 0);
 #endif  // NN_DEBUGGABLE
 }
 

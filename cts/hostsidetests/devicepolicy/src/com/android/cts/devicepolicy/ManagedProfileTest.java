@@ -47,7 +47,6 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
     private static final String INTENT_RECEIVER_PKG = "com.android.cts.intent.receiver";
     private static final String INTENT_RECEIVER_APK = "CtsIntentReceiverApp.apk";
 
-    private static final String WIFI_CONFIG_CREATOR_PKG = "com.android.cts.wificonfigcreator";
     private static final String WIFI_CONFIG_CREATOR_APK = "CtsWifiConfigCreator.apk";
 
     private static final String WIDGET_PROVIDER_APK = "CtsWidgetProviderApp.apk";
@@ -65,8 +64,6 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
     private static final String NOTIFICATION_APK = "CtsNotificationSenderApp.apk";
     private static final String NOTIFICATION_PKG =
             "com.android.cts.managedprofiletests.notificationsender";
-    private static final String NOTIFICATION_ACTIVITY =
-            NOTIFICATION_PKG + ".SendNotification";
 
     private static final String ADMIN_RECEIVER_TEST_CLASS =
             MANAGED_PROFILE_PKG + ".BaseManagedProfileTest$BasicAdminReceiver";
@@ -78,7 +75,6 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
     private static final String FEATURE_CONNECTION_SERVICE = "android.software.connectionservice";
 
     private static final String SIMPLE_APP_APK = "CtsSimpleApp.apk";
-    private static final String SIMPLE_APP_PKG = "com.android.cts.launcherapps.simpleapp";
 
     private static final long TIMEOUT_USER_LOCKED_MILLIS = TimeUnit.SECONDS.toMillis(30);
 
@@ -87,11 +83,19 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
     // Password needs to be in sync with ResetPasswordWithTokenTest.PASSWORD1
     private static final String RESET_PASSWORD_TEST_DEFAULT_PASSWORD = "123456";
 
+    private static final String PROFILE_CREDENTIAL = "1234";
+    // This should be sufficiently larger than ProfileTimeoutTestHelper.TIMEOUT_MS
+    private static final int PROFILE_TIMEOUT_DELAY_MS = 10_000;
+
+    //The maximum time to wait for user to be unlocked.
+    private static final long USER_UNLOCK_TIMEOUT_NANO = 30_000_000_000L;
+
+    private static final String USER_UNLOCKED_SHELL_OUTPUT = "RUNNING_UNLOCKED";
+
     private int mParentUserId;
 
     // ID of the profile we'll create. This will always be a profile of the parent.
     private int mProfileUserId;
-    private String mPackageVerifier;
 
     private boolean mHasNfcFeature;
 
@@ -108,13 +112,26 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
             removeTestUsers();
             mParentUserId = mPrimaryUserId;
             mProfileUserId = createManagedProfile(mParentUserId);
+            startUser(mProfileUserId);
 
             installAppAsUser(MANAGED_PROFILE_APK, mParentUserId);
             installAppAsUser(MANAGED_PROFILE_APK, mProfileUserId);
             setProfileOwnerOrFail(MANAGED_PROFILE_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS,
                     mProfileUserId);
-            startUser(mProfileUserId);
+            waitForUserUnlock();
         }
+    }
+
+    private void  waitForUserUnlock() throws Exception {
+        final String command = String.format("am get-started-user-state %d", mProfileUserId);
+        final long deadline = System.nanoTime() + USER_UNLOCK_TIMEOUT_NANO;
+        while (System.nanoTime() <= deadline) {
+            if (getDevice().executeShellCommand(command).startsWith(USER_UNLOCKED_SHELL_OUTPUT)) {
+                return;
+            }
+            Thread.sleep(100);
+        }
+        fail("Profile user is not unlocked.");
     }
 
     @Override
@@ -138,6 +155,25 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 mProfileUserId);
     }
 
+    public void testWipeDataWithReason() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        assertTrue(listUsers().contains(mProfileUserId));
+        sendWipeProfileBroadcast("com.android.cts.managedprofile.WIPE_DATA_WITH_REASON");
+        // Note: the managed profile is removed by this test, which will make removeUserCommand in
+        // tearDown() to complain, but that should be OK since its result is not asserted.
+        assertUserGetsRemoved(mProfileUserId);
+        // testWipeDataWithReason() removes the managed profile,
+        // so it needs to separated from other tests.
+        // Check the notification is presented after work profile got removed, so profile user no
+        // longer exists, verification should be run in primary user.
+        runDeviceTestsAsUser(
+                MANAGED_PROFILE_PKG,
+                ".WipeDataWithReasonVerificationTest",
+                mParentUserId);
+    }
+
     /**
      *  wipeData() test removes the managed profile, so it needs to separated from other tests.
      */
@@ -146,11 +182,17 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
             return;
         }
         assertTrue(listUsers().contains(mProfileUserId));
-        runDeviceTestsAsUser(
-                MANAGED_PROFILE_PKG, MANAGED_PROFILE_PKG + ".WipeDataTest", mProfileUserId);
+        sendWipeProfileBroadcast("com.android.cts.managedprofile.WIPE_DATA");
         // Note: the managed profile is removed by this test, which will make removeUserCommand in
         // tearDown() to complain, but that should be OK since its result is not asserted.
         assertUserGetsRemoved(mProfileUserId);
+    }
+
+    private void sendWipeProfileBroadcast(String action) throws Exception {
+        final String cmd = "am broadcast --receiver-foreground --user " + mProfileUserId
+            + " -a " + action
+            + " com.android.cts.managedprofile/.WipeDataReceiver";
+        getDevice().executeShellCommand(cmd);
     }
 
     public void testLockNowWithKeyEviction() throws Exception {
@@ -158,8 +200,14 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
             return;
         }
         changeUserCredential("1234", null, mProfileUserId);
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, MANAGED_PROFILE_PKG + ".LockNowTest",
-                "testLockNowWithKeyEviction", mProfileUserId);
+        lockProfile();
+    }
+
+    private void lockProfile() throws Exception {
+        final String cmd = "am broadcast --receiver-foreground --user " + mProfileUserId
+                + " -a com.android.cts.managedprofile.LOCK_PROFILE"
+                + " com.android.cts.managedprofile/.LockProfileReceiver";
+        getDevice().executeShellCommand(cmd);
         waitUntilProfileLocked();
     }
 
@@ -176,6 +224,96 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 "The managed profile has not been locked after calling "
                         + "lockNow(FLAG_SECURE_USER_DATA)",
                 TIMEOUT_USER_LOCKED_MILLIS);
+    }
+
+    /** Profile should get locked if it is not in foreground no matter what. */
+    public void testWorkProfileTimeoutBackground() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        setUpWorkProfileTimeout();
+
+        startDummyActivity(mPrimaryUserId, true);
+        simulateUserInteraction(PROFILE_TIMEOUT_DELAY_MS);
+
+        verifyOnlyProfileLocked(true);
+    }
+
+    /** Profile should get locked if it is in foreground but with no user activity. */
+    public void testWorkProfileTimeoutIdleActivity() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        setUpWorkProfileTimeout();
+
+        startDummyActivity(mProfileUserId, false);
+        Thread.sleep(PROFILE_TIMEOUT_DELAY_MS);
+
+        verifyOnlyProfileLocked(true);
+    }
+
+    /** User activity in profile should prevent it from locking. */
+    public void testWorkProfileTimeoutUserActivity() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        setUpWorkProfileTimeout();
+
+        startDummyActivity(mProfileUserId, false);
+        simulateUserInteraction(PROFILE_TIMEOUT_DELAY_MS);
+
+        verifyOnlyProfileLocked(false);
+    }
+
+    /** Keep screen on window flag in the profile should prevent it from locking. */
+    public void testWorkProfileTimeoutKeepScreenOnWindow() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        setUpWorkProfileTimeout();
+
+        startDummyActivity(mProfileUserId, true);
+        Thread.sleep(PROFILE_TIMEOUT_DELAY_MS);
+
+        verifyOnlyProfileLocked(false);
+    }
+
+    private void setUpWorkProfileTimeout() throws DeviceNotAvailableException {
+        // Set separate challenge.
+        changeUserCredential(PROFILE_CREDENTIAL, null, mProfileUserId);
+
+        // Make sure the profile is not prematurely locked.
+        verifyUserCredential(PROFILE_CREDENTIAL, mProfileUserId);
+        verifyOnlyProfileLocked(false);
+        // Set profile timeout to 5 seconds.
+        runProfileTimeoutTest("testSetWorkProfileTimeout", mProfileUserId);
+    }
+
+    private void verifyOnlyProfileLocked(boolean locked) throws DeviceNotAvailableException {
+        final String expectedResultTest = locked ? "testDeviceLocked" : "testDeviceNotLocked";
+        runProfileTimeoutTest(expectedResultTest, mProfileUserId);
+        // Primary profile shouldn't be locked.
+        runProfileTimeoutTest("testDeviceNotLocked", mPrimaryUserId);
+    }
+
+    private void simulateUserInteraction(int timeMs) throws Exception {
+        final UserActivityEmulator helper = new UserActivityEmulator(getDevice());
+        for (int i = 0; i < timeMs; i += timeMs/10) {
+            Thread.sleep(timeMs/10);
+            helper.tapScreenCenter();
+        }
+    }
+
+    private void runProfileTimeoutTest(String method, int userId)
+            throws DeviceNotAvailableException {
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, MANAGED_PROFILE_PKG + ".ProfileTimeoutTestHelper",
+                method, userId);
+    }
+
+    private void startDummyActivity(int profileUserId, boolean keepScreenOn) throws Exception {
+        getDevice().executeShellCommand(String.format(
+                "am start-activity -W --user %d --ez keep_screen_on %s %s/.TimeoutActivity",
+                profileUserId, keepScreenOn, MANAGED_PROFILE_PKG));
     }
 
     public void testMaxOneManagedProfile() throws Exception {
@@ -241,6 +379,42 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         runDeviceTestsAsUser(
                 MANAGED_PROFILE_PKG, MANAGED_PROFILE_PKG + ".PrimaryUserTest", mParentUserId);
         // TODO: Test with startActivity
+    }
+
+    public void testDisallowSharingIntoProfileFromProfile() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        // Set up activities: PrimaryUserActivity will only be enabled in the personal user
+        // This activity is used to find out the ground truth about the system's cross profile
+        // intent forwarding activity.
+        disableActivityForUser("PrimaryUserActivity", mProfileUserId);
+
+        // Tests from the profile side
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG,
+                ".DisallowSharingIntoProfileTest", "testSharingFromProfile", mProfileUserId);
+    }
+
+    public void testDisallowSharingIntoProfileFromPersonal() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        // Set up activities: ManagedProfileActivity will only be enabled in the managed profile
+        // This activity is used to find out the ground truth about the system's cross profile
+        // intent forwarding activity.
+        disableActivityForUser("ManagedProfileActivity", mParentUserId);
+
+        // Tests from the personal side, which is mostly driven from host side.
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".DisallowSharingIntoProfileTest",
+                "testSetUp", mProfileUserId);
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".DisallowSharingIntoProfileTest",
+                "testDisableSharingIntoProfile", mProfileUserId);
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".DisallowSharingIntoProfileTest",
+                "testSharingFromPersonalFails", mParentUserId);
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".DisallowSharingIntoProfileTest",
+                "testEnableSharingIntoProfile", mProfileUserId);
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".DisallowSharingIntoProfileTest",
+                "testSharingFromPersonalSucceeds", mParentUserId);
     }
 
     public void testAppLinks_verificationStatus() throws Exception {
@@ -985,8 +1159,8 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         }
 
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
-                "testSetupWorkProfileAndLock", mProfileUserId);
-        waitUntilProfileLocked();
+                "testSetupWorkProfile", mProfileUserId);
+        lockProfile();
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
                 "testResetPasswordBeforeUnlock", mProfileUserId);
         // Password needs to be in sync with ResetPasswordWithTokenTest.PASSWORD1
@@ -1012,10 +1186,7 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
             changeUserCredential(devicePassword, null, mParentUserId);
             changeUserCredential(null, devicePassword, mParentUserId);
             changeUserCredential(devicePassword, null, mParentUserId);
-
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
-                    "testLockWorkProfile", mProfileUserId);
-            waitUntilProfileLocked();
+            lockProfile();
             runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
                     "testResetPasswordBeforeUnlock", mProfileUserId);
             verifyUserCredential(RESET_PASSWORD_TEST_DEFAULT_PASSWORD, mProfileUserId);
@@ -1023,9 +1194,31 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
             changeUserCredential(null, devicePassword, mParentUserId);
             // Cycle the device screen to flush stale password information from keyguard,
             // otherwise it will still ask for the non-existent password.
+            // return screen to be on for cts test runs
             executeShellCommand("input keyevent KEYCODE_WAKEUP");
             executeShellCommand("input keyevent KEYCODE_SLEEP");
+            executeShellCommand("input keyevent KEYCODE_WAKEUP");
         }
+    }
+
+    public void testIsUsingUnifiedPassword() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        // Freshly created profile profile has no separate challenge.
+        verifyUnifiedPassword(true);
+
+        // Set separate challenge and verify that the API reports it correctly.
+        changeUserCredential("1234" /* newCredential */, null /* oldCredential */, mProfileUserId);
+        verifyUnifiedPassword(false);
+    }
+
+    private void verifyUnifiedPassword(boolean unified) throws DeviceNotAvailableException {
+        final String testMethod =
+                unified ? "testUsingUnifiedPassword" : "testNotUsingUnifiedPassword";
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".IsUsingUnifiedPasswordTest",
+                testMethod, mProfileUserId);
     }
 
     private void disableActivityForUser(String activityName, int userId)

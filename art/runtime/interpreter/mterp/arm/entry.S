@@ -19,13 +19,11 @@
 
     .text
     .align  2
-    .global ExecuteMterpImpl
-    .type   ExecuteMterpImpl, %function
 
 /*
  * On entry:
  *  r0  Thread* self/
- *  r1  code_item
+ *  r1  insns_
  *  r2  ShadowFrame
  *  r3  JValue* result_register
  *
@@ -48,8 +46,8 @@ ENTRY ExecuteMterpImpl
     /* Remember the return register */
     str     r3, [r2, #SHADOWFRAME_RESULT_REGISTER_OFFSET]
 
-    /* Remember the code_item */
-    str     r1, [r2, #SHADOWFRAME_CODE_ITEM_OFFSET]
+    /* Remember the dex instruction pointer */
+    str     r1, [r2, #SHADOWFRAME_DEX_INSTRUCTIONS_OFFSET]
 
     /* set up "named" registers */
     mov     rSELF, r0
@@ -57,8 +55,8 @@ ENTRY ExecuteMterpImpl
     add     rFP, r2, #SHADOWFRAME_VREGS_OFFSET     @ point to vregs.
     VREG_INDEX_TO_ADDR rREFS, r0                   @ point to reference array in shadow frame
     ldr     r0, [r2, #SHADOWFRAME_DEX_PC_OFFSET]   @ Get starting dex_pc.
-    add     rPC, r1, #CODEITEM_INSNS_OFFSET        @ Point to base of insns[]
-    add     rPC, rPC, r0, lsl #1                   @ Create direct pointer to 1st dex opcode
+    add     rPC, r1, r0, lsl #1                    @ Create direct pointer to 1st dex opcode
+    CFI_DEFINE_DEX_PC_WITH_OFFSET(CFI_TMP, CFI_DEX, 0)
     EXPORT_PC
 
     /* Starting ibase */
@@ -67,6 +65,7 @@ ENTRY ExecuteMterpImpl
     /* Set up for backwards branches & osr profiling */
     ldr     r0, [rFP, #OFF_FP_METHOD]
     add     r1, rFP, #OFF_FP_SHADOWFRAME
+    mov     r2, rSELF
     bl      MterpSetUpHotnessCountdown
     mov     rPROFILE, r0                @ Starting hotness countdown to rPROFILE
 

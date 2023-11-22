@@ -48,4 +48,9 @@ public interface TTSEngine {
      * using this engine.
      */
     void shutdown();
+
+    /**
+     * Returns the stream used by this TTS engine.
+     */
+    int getStream();
 }

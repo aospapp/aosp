@@ -856,7 +856,6 @@ void get_kernel_version(int *version, int *patchlevel)
 		exit(1);
 	}
 
-	printf("Kernel version read as %s\n", &utsname.release);
 	ret = sscanf(utsname.release, "%d.%d.%d", version, patchlevel,
 		     &sublevel);
 	if (ret < 0) {

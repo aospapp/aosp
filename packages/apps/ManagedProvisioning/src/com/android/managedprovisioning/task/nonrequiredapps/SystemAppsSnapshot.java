@@ -18,10 +18,10 @@ package com.android.managedprovisioning.task.nonrequiredapps;
 
 import static com.android.internal.util.Preconditions.checkNotNull;
 
-import android.annotation.Nullable;
 import android.app.AppGlobals;
 import android.content.Context;
 import android.content.pm.IPackageManager;
+import android.os.UserManager;
 import android.util.Xml;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -29,17 +29,16 @@ import com.android.internal.util.FastXmlSerializer;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.Utils;
 
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlSerializer;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-import org.xmlpull.v1.XmlSerializer;
 
 /**
  * Stores and retrieves the system apps that were on the device during provisioning and on
@@ -49,6 +48,8 @@ public class SystemAppsSnapshot {
     private static final String TAG_SYSTEM_APPS = "system-apps";
     private static final String TAG_PACKAGE_LIST_ITEM = "item";
     private static final String ATTR_VALUE = "value";
+    private static final String LEGACY_FOLDER_NAME = "system_apps";
+    private static final String FOLDER_NAME = "system_apps_v2";
 
     private final Context mContext;
     private final IPackageManager mIPackageManager;
@@ -60,9 +61,7 @@ public class SystemAppsSnapshot {
 
     @VisibleForTesting
     SystemAppsSnapshot(
-            Context context,
-            IPackageManager iPackageManager,
-            Utils utils) {
+            Context context, IPackageManager iPackageManager, Utils utils) {
         mContext = checkNotNull(context);
         mIPackageManager = checkNotNull(iPackageManager);
         mUtils = checkNotNull(utils);
@@ -131,7 +130,7 @@ public class SystemAppsSnapshot {
 
             int type;
             int outerDepth = parser.getDepth();
-            while ((type=parser.next()) != XmlPullParser.END_DOCUMENT
+            while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
                     && (type != XmlPullParser.END_TAG || parser.getDepth() > outerDepth)) {
                 if (type == XmlPullParser.END_TAG || type == XmlPullParser.TEXT) {
                     continue;
@@ -152,9 +151,20 @@ public class SystemAppsSnapshot {
         return result;
     }
 
-    @VisibleForTesting
-    static File getSystemAppsFile(Context context, int userId) {
-        return new File(context.getFilesDir() + File.separator + "system_apps"
-                + File.separator + "user" + userId + ".xml");
+    public static File getSystemAppsFile(Context context, int userId) {
+        UserManager userManager = (UserManager) context.getSystemService(Context.USER_SERVICE);
+        int userSerialNumber = userManager.getUserSerialNumber(userId);
+        if (userSerialNumber == -1 ) {
+            throw new IllegalArgumentException("Invalid userId : " + userId);
+        }
+        return new File(getFolder(context), userSerialNumber + ".xml");
+    }
+
+    public static File getFolder(Context context) {
+        return new File(context.getFilesDir(), FOLDER_NAME);
+    }
+
+    public static File getLegacyFolder(Context context) {
+        return new File(context.getFilesDir(), LEGACY_FOLDER_NAME);
     }
 }

@@ -22,11 +22,12 @@
 
 namespace art {
 
-CompiledCode::CompiledCode(CompilerDriver* compiler_driver, InstructionSet instruction_set,
+CompiledCode::CompiledCode(CompilerDriver* compiler_driver,
+                           InstructionSet instruction_set,
                            const ArrayRef<const uint8_t>& quick_code)
     : compiler_driver_(compiler_driver),
-      instruction_set_(instruction_set),
-      quick_code_(compiler_driver_->GetCompiledMethodStorage()->DeduplicateCode(quick_code)) {
+      quick_code_(compiler_driver_->GetCompiledMethodStorage()->DeduplicateCode(quick_code)),
+      packed_fields_(InstructionSetField::Encode(instruction_set)) {
 }
 
 CompiledCode::~CompiledCode() {
@@ -47,7 +48,7 @@ bool CompiledCode::operator==(const CompiledCode& rhs) const {
 }
 
 size_t CompiledCode::AlignCode(size_t offset) const {
-  return AlignCode(offset, instruction_set_);
+  return AlignCode(offset, GetInstructionSet());
 }
 
 size_t CompiledCode::AlignCode(size_t offset, InstructionSet instruction_set) {
@@ -55,19 +56,19 @@ size_t CompiledCode::AlignCode(size_t offset, InstructionSet instruction_set) {
 }
 
 size_t CompiledCode::CodeDelta() const {
-  return CodeDelta(instruction_set_);
+  return CodeDelta(GetInstructionSet());
 }
 
 size_t CompiledCode::CodeDelta(InstructionSet instruction_set) {
   switch (instruction_set) {
-    case kArm:
-    case kArm64:
-    case kMips:
-    case kMips64:
-    case kX86:
-    case kX86_64:
+    case InstructionSet::kArm:
+    case InstructionSet::kArm64:
+    case InstructionSet::kMips:
+    case InstructionSet::kMips64:
+    case InstructionSet::kX86:
+    case InstructionSet::kX86_64:
       return 0;
-    case kThumb2: {
+    case InstructionSet::kThumb2: {
       // +1 to set the low-order bit so a BLX will switch to Thumb mode
       return 1;
     }
@@ -77,17 +78,16 @@ size_t CompiledCode::CodeDelta(InstructionSet instruction_set) {
   }
 }
 
-const void* CompiledCode::CodePointer(const void* code_pointer,
-                                      InstructionSet instruction_set) {
+const void* CompiledCode::CodePointer(const void* code_pointer, InstructionSet instruction_set) {
   switch (instruction_set) {
-    case kArm:
-    case kArm64:
-    case kMips:
-    case kMips64:
-    case kX86:
-    case kX86_64:
+    case InstructionSet::kArm:
+    case InstructionSet::kArm64:
+    case InstructionSet::kMips:
+    case InstructionSet::kMips64:
+    case InstructionSet::kX86:
+    case InstructionSet::kX86_64:
       return code_pointer;
-    case kThumb2: {
+    case InstructionSet::kThumb2: {
       uintptr_t address = reinterpret_cast<uintptr_t>(code_pointer);
       // Set the low-order bit so a BLX will switch to Thumb mode
       address |= 0x1;
@@ -108,7 +108,7 @@ CompiledMethod::CompiledMethod(CompilerDriver* driver,
                                const ArrayRef<const uint8_t>& method_info,
                                const ArrayRef<const uint8_t>& vmap_table,
                                const ArrayRef<const uint8_t>& cfi_info,
-                               const ArrayRef<const LinkerPatch>& patches)
+                               const ArrayRef<const linker::LinkerPatch>& patches)
     : CompiledCode(driver, instruction_set, quick_code),
       frame_size_in_bytes_(frame_size_in_bytes),
       core_spill_mask_(core_spill_mask),
@@ -129,7 +129,7 @@ CompiledMethod* CompiledMethod::SwapAllocCompiledMethod(
     const ArrayRef<const uint8_t>& method_info,
     const ArrayRef<const uint8_t>& vmap_table,
     const ArrayRef<const uint8_t>& cfi_info,
-    const ArrayRef<const LinkerPatch>& patches) {
+    const ArrayRef<const linker::LinkerPatch>& patches) {
   SwapAllocator<CompiledMethod> alloc(driver->GetCompiledMethodStorage()->GetSwapSpaceAllocator());
   CompiledMethod* ret = alloc.allocate(1);
   alloc.construct(ret,

@@ -23,6 +23,8 @@
 #define FRAME_SIZE_SAVE_REFS_ONLY 32
 #define FRAME_SIZE_SAVE_REFS_AND_ARGS 112
 #define FRAME_SIZE_SAVE_EVERYTHING 192
+#define FRAME_SIZE_SAVE_EVERYTHING_FOR_CLINIT FRAME_SIZE_SAVE_EVERYTHING
+#define FRAME_SIZE_SAVE_EVERYTHING_FOR_SUSPEND_CHECK FRAME_SIZE_SAVE_EVERYTHING
 
 // The offset from the art_quick_read_barrier_mark_introspection (used for field
 // loads with 32-bit LDR) to the entrypoint for field loads with 16-bit LDR,
@@ -53,8 +55,5 @@
 // The offset of the reference load LDR from the return address in LR for GC root loads.
 #define BAKER_MARK_INTROSPECTION_GC_ROOT_LDR_WIDE_OFFSET -8
 #define BAKER_MARK_INTROSPECTION_GC_ROOT_LDR_NARROW_OFFSET -6
-
-// Flag for enabling R4 optimization in arm runtime
-// #define ARM_R4_SUSPEND_FLAG
 
 #endif  // ART_RUNTIME_ARCH_ARM_ASM_SUPPORT_ARM_H_

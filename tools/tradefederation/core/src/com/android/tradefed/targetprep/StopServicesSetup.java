@@ -23,10 +23,8 @@ import com.android.tradefed.device.ITestDevice;
 import java.util.ArrayList;
 import java.util.Collection;
 
-/**
- * A {@link ITargetPreparer} that stops services on the device.
- */
-public class StopServicesSetup implements ITargetPreparer {
+/** A {@link ITargetPreparer} that stops services on the device. */
+public class StopServicesSetup extends BaseTargetPreparer {
 
     @Option(name = "stop-framework", description = "stop the framework. Default true.")
     private boolean mStopFramework = true;

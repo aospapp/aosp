@@ -39,6 +39,7 @@ import com.sun.javadoc.Type;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -111,12 +112,12 @@ public class Converter {
 
   private static ClassInfo[] mRootClasses;
 
-  public static ClassInfo[] rootClasses() {
-    return mRootClasses;
+  public static Collection<ClassInfo> rootClasses() {
+    return Arrays.asList(mRootClasses);
   }
 
-  public static ClassInfo[] allClasses() {
-    return (ClassInfo[]) mClasses.all();
+  public static Collection<ClassInfo> allClasses() {
+    return (Collection<ClassInfo>) mClasses.all();
   }
 
   private static final MethodDoc[] EMPTY_METHOD_DOC = new MethodDoc[0];
@@ -351,8 +352,8 @@ public class Converter {
     }
 
     @Override
-    ClassInfo[] all() {
-      return mCache.values().toArray(new ClassInfo[mCache.size()]);
+    Collection<?> all() {
+      return mCache.values();
     }
   };
 
@@ -473,15 +474,20 @@ public class Converter {
         return result;
       } else if (o instanceof MethodDoc) {
         MethodDoc m = (MethodDoc) o;
+        final ClassInfo containingClass = Converter.obtainClass(m.containingClass());
+
+        // The containing class is final, so it is implied that every method is final as well.
+        // No need to apply 'final' to each method.
+        final boolean isMethodFinal = m.isFinal() && !containingClass.isFinal();
         MethodInfo result =
             new MethodInfo(m.getRawCommentText(),
                     new ArrayList<TypeInfo>(Arrays.asList(
                             Converter.convertTypes(m.typeParameters()))), m.name(), m.signature(),
-                    Converter.obtainClass(m.containingClass()),
-                    Converter.obtainClass(m.containingClass()), m.isPublic(), m.isProtected(),
-                    m.isPackagePrivate(), m.isPrivate(), m.isFinal(), m.isStatic(), m.isSynthetic(),
-                    m.isAbstract(), m.isSynchronized(), m.isNative(), m.isDefault(), false,
-                    "method", m.flatSignature(), Converter.obtainMethod(m.overriddenMethod()),
+                    containingClass, containingClass, m.isPublic(), m.isProtected(),
+                    m.isPackagePrivate(), m.isPrivate(), isMethodFinal, m.isStatic(),
+                    m.isSynthetic(), m.isAbstract(), m.isSynchronized(), m.isNative(),
+                    m.isDefault(), false, "method", m.flatSignature(),
+                    Converter.obtainMethod(m.overriddenMethod()),
                     Converter.obtainType(m.returnType()),
                     new ArrayList<ParameterInfo>(Arrays.asList(
                             Converter.convertParameters(m.parameters(), m))),
@@ -614,7 +620,10 @@ public class Converter {
     @Override
     protected Object keyFor(Object o) {
       Type t = (Type) o;
-      String keyString = o.getClass().getName() + "/" + o.toString() + "/";
+      while (t.asAnnotatedType() != null) {
+        t = t.asAnnotatedType().underlyingType();
+      }
+      String keyString = t.getClass().getName() + "/" + t.toString() + "/";
       if (t.asParameterizedType() != null) {
         keyString += t.asParameterizedType().toString() + "/";
         if (t.asParameterizedType().typeArguments() != null) {
@@ -755,7 +764,7 @@ public class Converter {
       return o;
     }
 
-    Object[] all() {
+    Collection<?> all() {
       return null;
     }
   }

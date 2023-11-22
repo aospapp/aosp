@@ -301,7 +301,10 @@ public class ParcelableCallUtils {
         android.telecom.Call.Details.CAPABILITY_CANNOT_DOWNGRADE_VIDEO_TO_AUDIO,
 
         Connection.CAPABILITY_CAN_PULL_CALL,
-        android.telecom.Call.Details.CAPABILITY_CAN_PULL_CALL
+        android.telecom.Call.Details.CAPABILITY_CAN_PULL_CALL,
+
+        Connection.CAPABILITY_SUPPORT_DEFLECT,
+        android.telecom.Call.Details.CAPABILITY_SUPPORT_DEFLECT
     };
 
     private static int convertConnectionToCallCapabilities(int connectionCapabilities) {
@@ -336,7 +339,13 @@ public class ParcelableCallUtils {
         android.telecom.Call.Details.PROPERTY_HAS_CDMA_VOICE_PRIVACY,
 
         Connection.PROPERTY_SELF_MANAGED,
-        android.telecom.Call.Details.PROPERTY_SELF_MANAGED
+        android.telecom.Call.Details.PROPERTY_SELF_MANAGED,
+
+        Connection.PROPERTY_ASSISTED_DIALING_USED,
+        android.telecom.Call.Details.PROPERTY_ASSISTED_DIALING_USED,
+
+        Connection.PROPERTY_IS_RTT,
+        android.telecom.Call.Details.PROPERTY_RTT
     };
 
     private static int convertConnectionToCallProperties(int connectionProperties) {

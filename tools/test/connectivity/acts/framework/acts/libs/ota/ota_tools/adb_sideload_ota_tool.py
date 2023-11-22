@@ -40,10 +40,9 @@ class AdbSideloadOtaTool(OtaTool):
         logging.info('Sideloading ota package')
         package_path = ota_runner.get_ota_package()
         logging.info('Running adb sideload with package "%s"' % package_path)
-        sideload_result = ota_runner.android_device.adb.sideload(
+        ota_runner.android_device.adb.sideload(
             package_path, timeout=PUSH_TIMEOUT)
-        logging.info('Sideload output: %s' % sideload_result)
         logging.info('Sideload complete. Waiting for device to come back up.')
         ota_runner.android_device.adb.wait_for_recovery()
-        ota_runner.android_device.adb.reboot()
+        ota_runner.android_device.reboot(stop_at_lock_screen=True)
         logging.info('Device is up. Update complete.')

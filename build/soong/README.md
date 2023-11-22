@@ -61,6 +61,7 @@ Variables and properties are strongly typed, variables dynamically based on the
 first assignment, and properties statically by the module type.  The supported
 types are:
 * Bool (`true` or `false`)
+* Integers (`int`)
 * Strings (`"string"`)
 * Lists of strings (`["string1", "string2"]`)
 * Maps (`{key1: "value1", key2: ["value2"]}`)
@@ -71,8 +72,9 @@ trailing commas after the last value.
 ### Operators
 
 Strings, lists of strings, and maps can be appended using the `+` operator.
-Appending a map produces the union of keys in both maps, appending the values
-of any keys that are present in both maps.
+Integers can be summed up using the `+` operator. Appending a map produces the
+union of keys in both maps, appending the values of any keys that are present
+in both maps.
 
 ### Defaults modules
 
@@ -92,6 +94,38 @@ cc_binary {
     srcs: ["src/test/minigzip.c"],
 }
 ```
+
+### Name resolution
+
+Soong provides the ability for modules in different directories to specify
+the same name, as long as each module is declared within a separate namespace.
+A namespace can be declared like this:
+
+```
+soong_namespace {
+    imports: ["path/to/otherNamespace1", "path/to/otherNamespace2"],
+}
+```
+
+Each Soong module is assigned a namespace based on its location in the tree.
+Each Soong module is considered to be in the namespace defined by the
+soong_namespace found in an Android.bp in the current directory or closest
+ancestor directory, unless no such soong_namespace module is found, in which
+case the module is considered to be in the implicit root namespace.
+
+When Soong attempts to resolve dependency D declared my module M in namespace
+N which imports namespaces I1, I2, I3..., then if D is a fully-qualified name
+of the form "//namespace:module", only the specified namespace will be searched
+for the specified module name. Otherwise, Soong will first look for a module
+named D declared in namespace N. If that module does not exist, Soong will look
+for a module named D in namespaces I1, I2, I3... Lastly, Soong will look in the
+root namespace.
+
+Until we have fully converted from Make to Soong, it will be necessary for the
+Make product config to specify a value of PRODUCT_SOONG_NAMESPACES. Its value
+should be a space-separated list of namespaces that Soong export to Make to be
+built by the `m` command. After we have fully converted from Make to Soong, the
+details of enabling namespaces could potentially change.
 
 ### Formatter
 
@@ -135,6 +169,13 @@ The build logic is written in Go using the
 logic receives module definitions parsed into Go structures using reflection
 and produces build rules.  The build rules are collected by blueprint and
 written to a [ninja](http://ninja-build.org) build file.
+
+## Other documentation
+
+* [Best Practices](docs/best_practices.md)
+* [Build Performance](docs/perf.md)
+* [Generating CLion Projects](docs/clion.md)
+* Make-specific documentation: [build/make/README.md](https://android.googlesource.com/platform/build/+/master/README.md)
 
 ## FAQ
 

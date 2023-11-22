@@ -26,6 +26,7 @@
 package org.apache.harmony.jpda.tests.jdwp.ClassType;
 
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
+import org.apache.harmony.jpda.tests.framework.jdwp.Field;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
@@ -164,7 +165,7 @@ public class SuperClassTest extends JDWPClassTypeTestCase {
         {
             long classID = getClassIDBySignature(getDebuggeeSignature());
 
-            FieldInfo[] fields = jdwpGetFields(classID);
+            Field[] fields = jdwpGetFields(classID);
             // assert stringID is not null
             assertTrue("Invalid fields.length: 0", fields.length > 0);
             // test with the first field

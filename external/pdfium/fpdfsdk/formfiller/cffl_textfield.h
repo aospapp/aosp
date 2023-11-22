@@ -7,33 +7,32 @@
 #ifndef FPDFSDK_FORMFILLER_CFFL_TEXTFIELD_H_
 #define FPDFSDK_FORMFILLER_CFFL_TEXTFIELD_H_
 
-#include <memory>
-
-#include "fpdfsdk/formfiller/cffl_formfiller.h"
+#include "fpdfsdk/formfiller/cffl_textobject.h"
 
 #define BF_ALIGN_LEFT 0
 #define BF_ALIGN_MIDDLE 1
 #define BF_ALIGN_RIGHT 2
 
 class CBA_FontMap;
+class CPWL_Edit;
 
 struct FFL_TextFieldState {
   FFL_TextFieldState() : nStart(0), nEnd(0) {}
 
   int nStart;
   int nEnd;
-  CFX_WideString sValue;
+  WideString sValue;
 };
 
-class CFFL_TextField : public CFFL_FormFiller, public IPWL_FocusHandler {
+class CFFL_TextField : public CFFL_TextObject,
+                       public CPWL_Wnd::FocusHandlerIface {
  public:
-  CFFL_TextField(CPDFSDK_FormFillEnvironment* pApp, CPDFSDK_Annot* pAnnot);
+  CFFL_TextField(CPDFSDK_FormFillEnvironment* pApp, CPDFSDK_Widget* pWidget);
   ~CFFL_TextField() override;
 
-  // CFFL_FormFiller:
-  PWL_CREATEPARAM GetCreateParam() override;
-  CPWL_Wnd* NewPDFWindow(const PWL_CREATEPARAM& cp,
-                         CPDFSDK_PageView* pPageView) override;
+  // CFFL_TextObject:
+  CPWL_Wnd::CreateParams GetCreateParam() override;
+  CPWL_Wnd* NewPDFWindow(const CPWL_Wnd::CreateParams& cp) override;
   bool OnChar(CPDFSDK_Annot* pAnnot, uint32_t nChar, uint32_t nFlags) override;
   bool IsDataChanged(CPDFSDK_PageView* pPageView) override;
   void SaveData(CPDFSDK_PageView* pPageView) override;
@@ -48,19 +47,16 @@ class CFFL_TextField : public CFFL_FormFiller, public IPWL_FocusHandler {
                            const PDFSDK_FieldAction& faNew) override;
   void SaveState(CPDFSDK_PageView* pPageView) override;
   void RestoreState(CPDFSDK_PageView* pPageView) override;
-  CPWL_Wnd* ResetPDFWindow(CPDFSDK_PageView* pPageView,
-                           bool bRestoreValue) override;
-
-  // IPWL_FocusHandler:
-  void OnSetFocus(CPWL_Wnd* pWnd) override;
-
 #ifdef PDF_ENABLE_XFA
-  // CFFL_FormFiller:
   bool IsFieldFull(CPDFSDK_PageView* pPageView) override;
-#endif  // PDF_ENABLE_XFA
+#endif
+
+  // CPWL_Wnd::FocusHandlerIface:
+  void OnSetFocus(CPWL_Edit* pEdit) override;
 
  private:
-  std::unique_ptr<CBA_FontMap> m_pFontMap;
+  CPWL_Edit* GetEdit(CPDFSDK_PageView* pPageView, bool bNew);
+
   FFL_TextFieldState m_State;
 };
 

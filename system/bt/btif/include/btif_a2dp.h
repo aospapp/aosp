@@ -1,7 +1,7 @@
 /******************************************************************************
  *
- *  Copyright (C) 2016 The Android Open Source Project
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright 2016 The Android Open Source Project
+ *  Copyright 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -29,11 +29,13 @@ void btif_a2dp_on_idle(void);
 
 // Process 'start' request from the BTIF state machine to prepare for A2DP
 // streaming.
+// |peer_addr| is the peer address.
 // |p_av_start| is the data associated with the request - see |tBTA_AV_START|.
 // |pending_start| should be set to true if the BTIF state machine is in
 // 'pending start' state.
 // Returns true if an ACK for the local command was sent, otherwise false.
-bool btif_a2dp_on_started(tBTA_AV_START* p_av_start, bool pending_start);
+bool btif_a2dp_on_started(const RawAddress& peer_addr,
+                          tBTA_AV_START* p_av_start, bool pending_start);
 
 // Process 'stop' request from the BTIF state machine to stop A2DP streaming.
 // |p_av_suspend| is the data associated with the request - see
@@ -48,10 +50,12 @@ void btif_a2dp_on_suspended(tBTA_AV_SUSPEND* p_av_suspend);
 
 // Process 'offload start' request from the BTIF state machine to start
 // offloading of the A2DP streaming.
+// |peer_addr| is the peer address.
 // |status| is the processing status of the request prior to this call.
 // The value can be |BTA_AV_SUCCESS| if the processing has been successful
 // so far, or |BTA_AV_FAIL*| if the request has already failed.
-void btif_a2dp_on_offload_started(tBTA_AV_STATUS status);
+void btif_a2dp_on_offload_started(const RawAddress& peer_addr,
+                                  tBTA_AV_STATUS status);
 
 // Dump debug-related information for the A2DP module.
 // |fd| is the file descriptor to use for writing the ASCII formatted

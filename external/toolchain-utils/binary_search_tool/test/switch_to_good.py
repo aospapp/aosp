@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """Change portions of the object files to good.
 
 The "portion" is defined by the file (which is passed as the only argument to

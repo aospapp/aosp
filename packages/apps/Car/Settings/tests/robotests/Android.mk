@@ -4,20 +4,21 @@
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
+LOCAL_MODULE := CarSettingsRoboTests
+
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-# Include the testing libraries (JUnit4 + Robolectric libs).
-LOCAL_STATIC_JAVA_LIBRARIES := \
-    platform-system-robolectric \
+LOCAL_JAVA_RESOURCE_DIRS := config
+
+# Include the testing libraries
+LOCAL_JAVA_LIBRARIES := \
+    android.car \
+    robolectric_android-all-stub \
+    Robolectric_all-target \
+    mockito-robolectric-prebuilt \
     truth-prebuilt
 
-LOCAL_JAVA_LIBRARIES := \
-    junit \
-    platform-robolectric-prebuilt \
-    sdk_vcurrent
-
 LOCAL_INSTRUMENTATION_FOR := CarSettings
-LOCAL_MODULE := CarSettingsRoboTests
 
 LOCAL_MODULE_TAGS := optional
 
@@ -30,11 +31,16 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := RunCarSettingsRoboTests
 
-LOCAL_SDK_VERSION := current
-
-LOCAL_STATIC_JAVA_LIBRARIES := \
-    CarSettingsRoboTests
+LOCAL_JAVA_LIBRARIES := \
+    android.car \
+    CarSettingsRoboTests \
+    robolectric_android-all-stub \
+    Robolectric_all-target \
+    mockito-robolectric-prebuilt \
+    truth-prebuilt
 
 LOCAL_TEST_PACKAGE := CarSettings
 
-include prebuilts/misc/common/robolectric/run_robotests.mk
+LOCAL_INSTRUMENT_SOURCE_DIRS := $(dir $(LOCAL_PATH))../src
+
+include external/robolectric-shadows/run_robotests.mk

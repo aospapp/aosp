@@ -1,23 +1,23 @@
 /** @file
 
-  Copyright (c) 2004  - 2015, Intel Corporation. All rights reserved.<BR>
-                                                                                   
+  Copyright (c) 2004  - 2016, Intel Corporation. All rights reserved.<BR>
+
 
   This program and the accompanying materials are licensed and made available under
 
-  the terms and conditions of the BSD License that accompanies this distribution.  
+  the terms and conditions of the BSD License that accompanies this distribution.
 
-  The full text of the license may be found at                                     
+  The full text of the license may be found at
 
-  http://opensource.org/licenses/bsd-license.php.                                  
+  http://opensource.org/licenses/bsd-license.php.
 
-                                                                                   
 
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,            
 
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.    
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
 
-                                                                                   
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+
+
 
 
 
@@ -31,7 +31,7 @@ Abstract:
   ACPI Platform Driver
 
 
---*/
+**/
 
 #include <PiDxe.h>
 #include <Protocol/TcgService.h>
@@ -58,6 +58,7 @@ Abstract:
 #include <PchAccess.h>
 #include <Guid/Vlv2Variable.h>
 #include <Guid/PlatformCpuInfo.h>
+#include <IndustryStandard/WindowsSmmSecurityMitigationTable.h>
 
 
 CHAR16    EfiPlatformCpuInfoVariable[] = L"PlatformCpuInfo";
@@ -66,6 +67,7 @@ CHAR16    gACPIOSFRRefDataBlockVariableName[] = ACPI_OSFR_REF_DATA_BLOCK_VARIABL
 CHAR16    gACPIOSFRMfgStringVariableName[] = ACPI_OSFR_MFG_STRING_VARIABLE_NAME;
 
 EFI_CPU_IO_PROTOCOL                    *mCpuIo;
+EFI_GLOBAL_NVS_AREA_PROTOCOL            mGlobalNvsArea;
 #ifndef __GNUC__
 #pragma optimize("", off)
 #endif
@@ -210,8 +212,6 @@ PlatformUpdateTables (
   EFI_MP_SERVICES_PROTOCOL                                    *MpService;
   UINTN                                                       MaximumNumberOfCPUs;
   UINTN                                                       NumberOfEnabledCPUs;
-  UINTN                                                       BufferSize;
-  ACPI_APIC_STRUCTURE_PTR                                     *ProcessorLocalApicEntry;
   UINTN                                                       BspIndex;
   EFI_ACPI_1_0_ASF_DESCRIPTION_TABLE                          *AsfEntry;
   EFI_ACPI_HIGH_PRECISION_EVENT_TIMER_TABLE_HEADER            *HpetTbl;
@@ -233,18 +233,16 @@ PlatformUpdateTables (
   UINT16                                                      NumberOfHpets;
   UINT16                                                      HpetCapIdValue;
   UINT32                                                      HpetBlockID;
-  UINTN                                                       LocalApicCounter;
   EFI_PROCESSOR_INFORMATION                                   ProcessorInfoBuffer;
   UINT8                                                       TempVal;
   EFI_ACPI_3_0_IO_APIC_STRUCTURE                              *IOApicType;
   EFI_ACPI_3_0_MULTIPLE_APIC_DESCRIPTION_TABLE_HEADER         *APICTableHeader;
+  EFI_ACPI_WSMT_TABLE                                         *WsmtTable;
 
   CurrPtr                 = NULL;
   EndPtr                  = NULL;
   ApicPtr                 = NULL;
-  LocalApicCounter        = 0;
   CurrProcessor           = 0;
-  ProcessorLocalApicEntry = NULL;
 
 
  if (Table->Signature != EFI_ACPI_1_0_FIRMWARE_ACPI_CONTROL_STRUCTURE_SIGNATURE) {
@@ -372,7 +370,6 @@ PlatformUpdateTables (
               ApicPtr->AcpiLocalApic.AcpiProcessorId = (UINT8)MaximumNumberOfCPUs;
             }
 
-            BufferSize                    = 0;
             ApicPtr->AcpiLocalApic.Flags  = 0;
 
             for (CurrProcessor = 0; CurrProcessor < MaximumNumberOfCPUs; CurrProcessor++) {
@@ -599,6 +596,17 @@ PlatformUpdateTables (
       gBS->FreePool (OcurModelStringBuffer);
       gBS->FreePool (OcurRefDataBlockBuffer);
       break;
+
+
+    case EFI_ACPI_WINDOWS_SMM_SECURITY_MITIGATION_TABLE_SIGNATURE:
+      WsmtTable = (EFI_ACPI_WSMT_TABLE *) Table;
+       //
+       // Update Microsoft WSMT table Protections flags.
+       //
+      WsmtTable->ProtectionFlags = ((WsmtTable->ProtectionFlags) | (EFI_WSMT_PROTECTION_FLAGS_FIXED_COMM_BUFFERS | EFI_WSMT_PROTECTION_FLAGS_COMM_BUFFER_NESTED_PTR_PROTECTION ));
+      break;
+
+
     default:
       break;
   }
@@ -708,7 +716,7 @@ OnReadyToBoot (
               &SetupVarBuffer
               );
     ASSERT_EFI_ERROR (Status);
-  }    
+  }
 
   //
   // Find the AcpiSupport protocol.
@@ -794,7 +802,6 @@ AcpiPlatformEntryPoint (
   EFI_MP_SERVICES_PROTOCOL      *MpService;
   UINTN                         MaximumNumberOfCPUs;
   UINTN                         NumberOfEnabledCPUs;
-  UINT32                        Data32;
   PCH_STEPPING                  pchStepping;
 
   mFirstNotify      = FALSE;
@@ -803,7 +810,6 @@ AcpiPlatformEntryPoint (
   Instance          = 0;
   CurrentTable      = NULL;
   TableHandle       = 0;
-  Data32            = 0;
 
   //
   // Update HOB variable for PCI resource information.
@@ -1051,6 +1057,7 @@ AcpiPlatformEntryPoint (
   mGlobalNvsArea.Area->BatteryChargingSolution          = GLOBAL_NVS_DEVICE_DISABLE;
   mGlobalNvsArea.Area->ISPDevSel                        = mSystemConfiguration.ISPDevSel;
   mGlobalNvsArea.Area->LpeEnable                        = mSystemConfiguration.Lpe;
+  mGlobalNvsArea.Area->LpeAudioReportedByDSDT           = mSystemConfiguration.LpeAudioReportedByDSDT;
 
   if (mSystemConfiguration.ISPEn == 0) {
     mGlobalNvsArea.Area->ISPDevSel                      = GLOBAL_NVS_DEVICE_DISABLE;
@@ -1130,7 +1137,7 @@ AcpiPlatformEntryPoint (
   }
 
   mGlobalNvsArea.Area->SdCardRemovable = mSystemConfiguration.SdCardRemovable;
-  
+
   //
   // Microsoft IOT
   //
@@ -1143,7 +1150,7 @@ AcpiPlatformEntryPoint (
     mGlobalNvsArea.Area->MicrosoftIoT = GLOBAL_NVS_DEVICE_DISABLE;
     DEBUG ((EFI_D_ERROR, "JP1 is not set to be MSFT IOT configuration.\n"));
   }
-  
+
   //
   // SIO related option.
   //

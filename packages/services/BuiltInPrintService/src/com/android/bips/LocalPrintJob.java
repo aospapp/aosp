@@ -18,45 +18,51 @@
 package com.android.bips;
 
 import android.net.Uri;
-import android.os.Handler;
 import android.print.PrintJobId;
 import android.printservice.PrintJob;
 import android.util.Log;
 
+import com.android.bips.discovery.ConnectionListener;
 import com.android.bips.discovery.DiscoveredPrinter;
 import com.android.bips.discovery.MdnsDiscovery;
 import com.android.bips.ipp.Backend;
+import com.android.bips.ipp.CapabilitiesCache;
 import com.android.bips.ipp.JobStatus;
 import com.android.bips.jni.BackendConstants;
 import com.android.bips.jni.LocalPrinterCapabilities;
+import com.android.bips.p2p.P2pPrinterConnection;
+import com.android.bips.p2p.P2pUtils;
 
 import java.util.function.Consumer;
 
 /**
  * Manage the process of delivering a print job
  */
-class LocalPrintJob implements MdnsDiscovery.Listener {
+class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
+        CapabilitiesCache.OnLocalPrinterCapabilities {
     private static final String TAG = LocalPrintJob.class.getSimpleName();
     private static final boolean DEBUG = false;
 
     /** Maximum time to wait to find a printer before failing the job */
-    private static final int DISCOVERY_TIMEOUT = 30 * 1000;
+    private static final int DISCOVERY_TIMEOUT = 2 * 60 * 1000;
 
     // Internal job states
     private static final int STATE_INIT = 0;
     private static final int STATE_DISCOVERY = 1;
-    private static final int STATE_DELIVERING = 2;
-    private static final int STATE_CANCEL = 3;
-    private static final int STATE_DONE = 4;
+    private static final int STATE_CAPABILITIES = 2;
+    private static final int STATE_DELIVERING = 3;
+    private static final int STATE_CANCEL = 4;
+    private static final int STATE_DONE = 5;
 
     private final BuiltInPrintService mPrintService;
     private final PrintJob mPrintJob;
     private final Backend mBackend;
-    private final Handler mMainHandler;
 
     private int mState;
     private Consumer<LocalPrintJob> mCompleteConsumer;
     private Uri mPath;
+    private DelayedAction mDiscoveryTimeout;
+    private P2pPrinterConnection mConnection;
 
     /**
      * Construct the object; use {@link #start(Consumer)} to begin job processing.
@@ -65,7 +71,6 @@ class LocalPrintJob implements MdnsDiscovery.Listener {
         mPrintService = printService;
         mBackend = backend;
         mPrintJob = printJob;
-        mMainHandler = new Handler(printService.getMainLooper());
         mState = STATE_INIT;
 
         // Tell the job it is blocked (until start())
@@ -92,15 +97,14 @@ class LocalPrintJob implements MdnsDiscovery.Listener {
 
         mState = STATE_DISCOVERY;
         mCompleteConsumer = callback;
-        mPrintService.getDiscovery().start(this);
-
-        mMainHandler.postDelayed(() -> {
+        mDiscoveryTimeout = mPrintService.delay(DISCOVERY_TIMEOUT, () -> {
             if (DEBUG) Log.d(TAG, "Discovery timeout");
             if (mState == STATE_DISCOVERY) {
-                mPrintService.getDiscovery().stop(LocalPrintJob.this);
                 finish(false, mPrintService.getString(R.string.printer_offline));
             }
-        }, DISCOVERY_TIMEOUT);
+        });
+
+        mPrintService.getDiscovery().start(this);
     }
 
     void cancel() {
@@ -108,8 +112,8 @@ class LocalPrintJob implements MdnsDiscovery.Listener {
 
         switch (mState) {
             case STATE_DISCOVERY:
+            case STATE_CAPABILITIES:
                 // Cancel immediately
-                mPrintService.getDiscovery().stop(this);
                 mState = STATE_CANCEL;
                 finish(false, null);
                 break;
@@ -128,14 +132,31 @@ class LocalPrintJob implements MdnsDiscovery.Listener {
 
     @Override
     public void onPrinterFound(DiscoveredPrinter printer) {
-        if (mState != STATE_DISCOVERY) return;
-        if (printer.getId(mPrintService).equals(mPrintJob.getInfo().getPrinterId())) {
-            if (DEBUG) Log.d(TAG, "onPrinterFound() " + printer.name + " state=" + mState);
-            mPath = printer.path;
-            mPrintService.getCapabilitiesCache().request(printer, true,
-                    this::handleCapabilities);
-            mPrintService.getDiscovery().stop(this);
+        if (mState != STATE_DISCOVERY) {
+            return;
         }
+        if (!printer.getId(mPrintService).equals(mPrintJob.getInfo().getPrinterId())) {
+            return;
+        }
+
+        if (DEBUG) Log.d(TAG, "onPrinterFound() " + printer.name + " state=" + mState);
+
+        if (P2pUtils.isP2p(printer)) {
+            // Launch a P2P connection attempt
+            mConnection = new P2pPrinterConnection(mPrintService, printer, this);
+            return;
+        }
+
+        if (P2pUtils.isOnConnectedInterface(mPrintService, printer) && mConnection == null) {
+            // Hold the P2P connection up during printing
+            mConnection = new P2pPrinterConnection(mPrintService, printer, this);
+        }
+
+        // We have a good path so stop discovering and get capabilities
+        mPrintService.getDiscovery().stop(this);
+        mState = STATE_CAPABILITIES;
+        mPath = printer.path;
+        mPrintService.getCapabilitiesCache().request(printer, true, this);
     }
 
     @Override
@@ -143,20 +164,57 @@ class LocalPrintJob implements MdnsDiscovery.Listener {
         // Ignore (the capability request, if any, will fail)
     }
 
+    @Override
+    public void onConnectionComplete(DiscoveredPrinter printer) {
+        // Ignore late connection events
+        if (mState != STATE_DISCOVERY) {
+            return;
+        }
+
+        if (printer == null) {
+            finish(false, mPrintService.getString(R.string.failed_printer_connection));
+        } else if (mPrintJob.isBlocked()) {
+            mPrintJob.start();
+        }
+    }
+
+    @Override
+    public void onConnectionDelayed(boolean delayed) {
+        if (DEBUG) Log.d(TAG, "onConnectionDelayed " + delayed);
+
+        // Ignore late events
+        if (mState != STATE_DISCOVERY) {
+            return;
+        }
+
+        if (delayed) {
+            mPrintJob.block(mPrintService.getString(R.string.connect_hint_text));
+        } else {
+            // Remove block message
+            mPrintJob.start();
+        }
+    }
+
     PrintJob getPrintJob() {
         return mPrintJob;
     }
 
-    private void handleCapabilities(DiscoveredPrinter printer, LocalPrinterCapabilities capabilities) {
+    @Override
+    public void onCapabilities(LocalPrinterCapabilities capabilities) {
         if (DEBUG) Log.d(TAG, "Capabilities for " + mPath + " are " + capabilities);
-        if (mState != STATE_DISCOVERY) return;
+        if (mState != STATE_CAPABILITIES) {
+            return;
+        }
 
         if (capabilities == null) {
             finish(false, mPrintService.getString(R.string.printer_offline));
         } else {
             if (DEBUG) Log.d(TAG, "Starting backend print of " + mPrintJob);
-            mMainHandler.removeCallbacksAndMessages(null);
+            if (mDiscoveryTimeout != null) {
+                mDiscoveryTimeout.cancel();
+            }
             mState = STATE_DELIVERING;
+            mPrintJob.start();
             mBackend.print(mPath, mPrintJob, capabilities, this::handleJobStatus);
         }
     }
@@ -184,7 +242,9 @@ class LocalPrintJob implements MdnsDiscovery.Listener {
                 break;
 
             case BackendConstants.JOB_STATE_BLOCKED:
-                if (mState == STATE_CANCEL) return;
+                if (mState == STATE_CANCEL) {
+                    return;
+                }
                 int blockedId = jobStatus.getBlockedReasonId();
                 blockedId = (blockedId == 0) ? R.string.printer_check : blockedId;
                 String blockedReason = mPrintService.getString(blockedId);
@@ -192,7 +252,9 @@ class LocalPrintJob implements MdnsDiscovery.Listener {
                 break;
 
             case BackendConstants.JOB_STATE_RUNNING:
-                if (mState == STATE_CANCEL) return;
+                if (mState == STATE_CANCEL) {
+                    return;
+                }
                 mPrintJob.start();
                 break;
         }
@@ -205,9 +267,16 @@ class LocalPrintJob implements MdnsDiscovery.Listener {
      * @param error   reason for job failure if known
      */
     private void finish(boolean success, String error) {
+        if (DEBUG) Log.d(TAG, "finish() success=" + success + ", error=" + error);
+        mPrintService.getDiscovery().stop(this);
+        if (mDiscoveryTimeout != null) {
+            mDiscoveryTimeout.cancel();
+        }
+        if (mConnection != null) {
+            mConnection.close();
+        }
         mPrintService.unlockWifi();
         mBackend.closeDocument();
-        mMainHandler.removeCallbacksAndMessages(null);
         if (success) {
             // Job must not be blocked before completion
             mPrintJob.start();

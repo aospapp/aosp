@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
   g_width = -1;
   g_height = -1;
 
-  google::ParseCommandLineFlags(&argc, &argv, true);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   g_main_gl_interface.reset(GLInterface::Create());
   if (!g_main_gl_interface->Init()) {

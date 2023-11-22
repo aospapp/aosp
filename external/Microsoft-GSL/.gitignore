@@ -1,4 +1,6 @@
 CMakeFiles
+build
+include/catch
 tests/CMakeFiles
 tests/Debug
 *.opensdf
@@ -11,3 +13,5 @@ tests/*tests.dir
 Testing/Temporary/*.*
 CMakeCache.txt
 *.suo
+.vs/
+.vscode/

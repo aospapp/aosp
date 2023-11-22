@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-#include "base/logging.h"
 #include "calling_convention_arm64.h"
+
+#include <android-base/logging.h>
+
 #include "handle_scope-inl.h"
 #include "utils/arm64/managed_register_arm64.h"
 
@@ -109,23 +111,31 @@ static constexpr uint32_t kFpCalleeSpillMask = CalculateFpCalleeSpillMask();
 // Calling convention
 ManagedRegister Arm64ManagedRuntimeCallingConvention::InterproceduralScratchRegister() {
   // X20 is safe to use as a scratch register:
-  // - with Baker read barriers, it is reserved as Marking Register,
-  //   and thus does not actually need to be saved/restored; it is
-  //   refreshed on exit (see Arm64JNIMacroAssembler::RemoveFrame);
+  // - with Baker read barriers (in the case of a non-critical native
+  //   method), it is reserved as Marking Register, and thus does not
+  //   actually need to be saved/restored; it is refreshed on exit
+  //   (see Arm64JNIMacroAssembler::RemoveFrame);
   // - in other cases, it is saved on entry (in
   //   Arm64JNIMacroAssembler::BuildFrame) and restored on exit (in
-  //   Arm64JNIMacroAssembler::RemoveFrame).
+  //   Arm64JNIMacroAssembler::RemoveFrame). This is also expected in
+  //   the case of a critical native method in the Baker read barrier
+  //   configuration, where the value of MR must be preserved across
+  //   the JNI call (as there is no MR refresh in that case).
   return Arm64ManagedRegister::FromXRegister(X20);
 }
 
 ManagedRegister Arm64JniCallingConvention::InterproceduralScratchRegister() {
   // X20 is safe to use as a scratch register:
-  // - with Baker read barriers, it is reserved as Marking Register,
-  //   and thus does not actually need to be saved/restored; it is
-  //   refreshed on exit (see Arm64JNIMacroAssembler::RemoveFrame);
+  // - with Baker read barriers (in the case of a non-critical native
+  //   method), it is reserved as Marking Register, and thus does not
+  //   actually need to be saved/restored; it is refreshed on exit
+  //   (see Arm64JNIMacroAssembler::RemoveFrame);
   // - in other cases, it is saved on entry (in
   //   Arm64JNIMacroAssembler::BuildFrame) and restored on exit (in
-  //   Arm64JNIMacroAssembler::RemoveFrame).
+  //   Arm64JNIMacroAssembler::RemoveFrame). This is also expected in
+  //   the case of a critical native method in the Baker read barrier
+  //   configuration, where the value of MR must be preserved across
+  //   the JNI call (as there is no MR refresh in that case).
   return Arm64ManagedRegister::FromXRegister(X20);
 }
 

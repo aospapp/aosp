@@ -18,6 +18,7 @@
 
 #define A_SENSOR_MANAGER_H_
 
+#include <android-base/macros.h>
 #include <android/frameworks/sensorservice/1.0/ISensorManager.h>
 #include <android/sensor.h>
 #include <utils/Mutex.h>

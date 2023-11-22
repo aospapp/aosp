@@ -17,12 +17,13 @@
 <resources>
     <dimen name="num_pad_margin_left">112dp</dimen>
     <dimen name="num_pad_margin_right">144dp</dimen>
-    <dimen name="num_pad_key_width">160dp</dimen>
-    <dimen name="num_pad_key_height">128dp</dimen>
-    <dimen name="num_pad_key_margin">32dp</dimen>
-    <dimen name="num_pad_key_digit_size">48sp</dimen>
-    <dimen name="num_pad_key_text_size">24sp</dimen>
+    <dimen name="num_pad_key_width">120dp</dimen>
+    <dimen name="num_pad_key_height">80dp</dimen>
+    <dimen name="num_pad_key_margin">12dp</dimen>
     <dimen name="pin_entry_height">@dimen/num_pad_key_height</dimen>
     <dimen name="divider_height">1dp</dimen>
     <dimen name="key_enter_margin_top">128dp</dimen>
+    <dimen name="keyguard_pattern_dimension">350dp</dimen>
+    <dimen name="password_field_width">350dp</dimen>
+    <dimen name="pin_pattern_pad_margin_vertical">0dp</dimen>
 </resources>

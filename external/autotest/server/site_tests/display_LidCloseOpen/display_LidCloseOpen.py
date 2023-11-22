@@ -140,7 +140,7 @@ class display_LidCloseOpen(test.test):
         self.chameleon_port = chameleon_port
         self.display_facade = display_facade
         self.screen_test = chameleon_screen_test.ChameleonScreenTest(
-                chameleon_port, display_facade, self.outputdir)
+                self.host, chameleon_port, display_facade, self.outputdir)
 
         # Get connector type used (HDMI,DP,...)
         self.connector_used = self.display_facade.get_external_connector_name()
@@ -216,3 +216,8 @@ class display_LidCloseOpen(test.test):
 
             if self.errors:
                 raise error.TestFail('; '.join(set(self.errors)))
+
+    def cleanup(self):
+        """Test cleanup"""
+        # Keep device in lid open sate.
+        self.open_lid()

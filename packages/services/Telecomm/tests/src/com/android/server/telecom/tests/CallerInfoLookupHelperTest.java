@@ -21,36 +21,40 @@ import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.support.test.InstrumentationRegistry;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.telecom.Logging.Session;
 
 import com.android.internal.telephony.CallerInfo;
 import com.android.internal.telephony.CallerInfoAsyncQuery;
-import com.android.server.telecom.Call;
 import com.android.server.telecom.CallerInfoAsyncQueryFactory;
 import com.android.server.telecom.CallerInfoLookupHelper;
 import com.android.server.telecom.ContactsAsyncHelper;
 import com.android.server.telecom.TelecomSystem;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
 import java.io.FileNotFoundException;
 import java.io.InputStream;
-import java.net.URI;
 import java.util.concurrent.CountDownLatch;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.isNull;
-import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@RunWith(JUnit4.class)
 public class CallerInfoLookupHelperTest extends TelecomTestCase {
     @Mock Context mContext;
     @Mock CallerInfoAsyncQueryFactory mFactory;
@@ -72,6 +76,7 @@ public class CallerInfoLookupHelperTest extends TelecomTestCase {
     Bitmap mBitmap;
 
     @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         mCallerInfoLookupHelper = new CallerInfoLookupHelper(mContext,
@@ -85,7 +90,8 @@ public class CallerInfoLookupHelperTest extends TelecomTestCase {
         if (mBitmap == null) {
             InputStream is;
             try {
-                is = getTestContext().getContentResolver().openInputStream(CONTACTS_PHOTO_URI);
+                is = InstrumentationRegistry.getContext()
+                        .getContentResolver().openInputStream(CONTACTS_PHOTO_URI);
             } catch (FileNotFoundException e) {
                 return;
             }
@@ -96,6 +102,7 @@ public class CallerInfoLookupHelperTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testLookupWithEmptyHandle() {
         CallerInfoLookupHelper.OnQueryCompleteListener listener = mock(
                 CallerInfoLookupHelper.OnQueryCompleteListener.class);
@@ -105,6 +112,8 @@ public class CallerInfoLookupHelperTest extends TelecomTestCase {
         verifyProperCleanup();
     }
 
+    @SmallTest
+    @Test
     public void testSimpleLookup() {
         CallerInfoLookupHelper.OnQueryCompleteListener listener = mock(
                 CallerInfoLookupHelper.OnQueryCompleteListener.class);
@@ -140,6 +149,8 @@ public class CallerInfoLookupHelperTest extends TelecomTestCase {
         verifyProperCleanup();
     }
 
+    @SmallTest
+    @Test
     public void testLookupWithTwoListeners() {
         CallerInfoLookupHelper.OnQueryCompleteListener callListener = mock(
                 CallerInfoLookupHelper.OnQueryCompleteListener.class);
@@ -179,6 +190,8 @@ public class CallerInfoLookupHelperTest extends TelecomTestCase {
         verifyProperCleanup();
     }
 
+    @SmallTest
+    @Test
     public void testListenerAddedAfterCallerInfoBeforePhoto() {
         CallerInfoLookupHelper.OnQueryCompleteListener callListener = mock(
                 CallerInfoLookupHelper.OnQueryCompleteListener.class);

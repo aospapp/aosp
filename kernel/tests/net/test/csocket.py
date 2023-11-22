@@ -21,6 +21,7 @@ import socket
 import struct
 
 import cstruct
+import util
 
 
 # Data structures.
@@ -74,7 +75,8 @@ SO_ORIGIN_ICMP6 = 3
 libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
 
 
-# TODO: Move this to a utils.py or constants.py file, once we have one.
+# TODO: Unlike most of this file, these functions aren't specific to wrapping C
+# library calls. Move them to a utils.py or constants.py file, once we have one.
 def LinuxVersion():
   # Example: "3.4.67-00753-gb7a556f".
   # Get the part before the dash.
@@ -85,12 +87,19 @@ def LinuxVersion():
   return version
 
 
+def AddressVersion(addr):
+  return 6 if ":" in addr else 4
+
+
+def SetSocketTimeout(sock, ms):
+  s = ms / 1000
+  us = (ms % 1000) * 1000
+  sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO,
+                  struct.pack("LL", s, us))
+
+
 def VoidPointer(s):
   return ctypes.cast(s.CPointer(), ctypes.c_void_p)
-
-
-def PaddedLength(length):
-  return CMSG_ALIGNTO * ((length / CMSG_ALIGNTO) + (length % CMSG_ALIGNTO != 0))
 
 
 def MaybeRaiseSocketError(ret):
@@ -143,12 +152,15 @@ def _MakeMsgControl(optlist):
     msg_level, msg_type, data = opt
     if isinstance(data, int):
       data = struct.pack("=I", data)
+    elif isinstance(data, ctypes.c_uint32):
+      data = struct.pack("=I", data.value)
     elif not isinstance(data, str):
-      raise TypeError("unknown data type for opt %i: %s" % (i, type(data)))
+      raise TypeError("unknown data type for opt (%d, %d): %s" % (
+          msg_level, msg_type, type(data)))
 
     datalen = len(data)
     msg_len = len(CMsgHdr) + datalen
-    padding = "\x00" * (PaddedLength(datalen) - datalen)
+    padding = "\x00" * util.GetPadLength(CMSG_ALIGNTO, datalen)
     msg_control += CMsgHdr((msg_len, msg_level, msg_type)).Pack()
     msg_control += data + padding
 
@@ -161,7 +173,8 @@ def _ParseMsgControl(buf):
   while len(buf) > 0:
     cmsghdr, buf = cstruct.Read(buf, CMsgHdr)
     datalen = cmsghdr.len - len(CMsgHdr)
-    data, buf = buf[:datalen], buf[PaddedLength(datalen):]
+    padlen = util.GetPadLength(CMSG_ALIGNTO, datalen)
+    data, buf = buf[:datalen], buf[padlen + datalen:]
 
     if cmsghdr.level == socket.IPPROTO_IP:
       if cmsghdr.type == IP_PKTINFO:
@@ -336,3 +349,24 @@ def Recvfrom(s, size, flags=0):
   addr = _ToSocketAddress(addr.raw, alen)
 
   return data, addr
+
+
+def Setsockopt(s, level, optname, optval, optlen):
+  """Python wrapper for setsockopt.
+
+  Mostly identical to the built-in setsockopt, but allows passing in arbitrary
+  binary blobs, including NULL options, which the built-in python setsockopt does
+  not allow.
+
+  Args:
+    s: The socket object on which to set the option.
+    level: The level parameter.
+    optname: The option to set.
+    optval: A raw byte string, the value to set the option to (None for NULL).
+    optlen: An integer, the length of the option.
+
+  Raises:
+    socket.error: if setsockopt fails.
+  """
+  ret = libc.setsockopt(s.fileno(), level, optname, optval, optlen)
+  MaybeRaiseSocketError(ret)

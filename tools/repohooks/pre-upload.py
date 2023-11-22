@@ -37,6 +37,9 @@ if sys.path[0] != _path:
     sys.path.insert(0, _path)
 del _path
 
+# We have to import our local modules after the sys.path tweak.  We can't use
+# relative imports because this is an executable program, not a module.
+# pylint: disable=wrong-import-position
 import rh
 import rh.results
 import rh.config
@@ -58,6 +61,7 @@ class Output(object):
     RUNNING = COLOR.color(COLOR.YELLOW, 'RUNNING')
     PASSED = COLOR.color(COLOR.GREEN, 'PASSED')
     FAILED = COLOR.color(COLOR.RED, 'FAILED')
+    WARNING = COLOR.color(COLOR.YELLOW, 'WARNING')
 
     def __init__(self, project_name, num_hooks):
         """Create a new Output object for a specified project.
@@ -105,6 +109,17 @@ class Output(object):
         print(error, file=sys.stderr)
         self.success = False
 
+    def hook_warning(self, hook_name, warning):
+        """Print a warning.
+
+        Args:
+          hook_name: name of the hook.
+          warning: warning string.
+        """
+        status_line = '[%s] %s' % (self.WARNING, hook_name)
+        rh.terminal.print_status_line(status_line, print_newline=True)
+        print(warning, file=sys.stderr)
+
     def finish(self):
         """Print repohook summary."""
         status_line = '[%s] repohooks for %s %s' % (
@@ -122,19 +137,26 @@ def _process_hook_results(results):
 
     Returns:
       error output if an error occurred, otherwise None
+      warning output if an error occurred, otherwise None
     """
     if not results:
-        return None
+        return (None, None)
 
-    ret = ''
+    error_ret = ''
+    warning_ret = ''
     for result in results:
         if result:
+            ret = ''
             if result.files:
                 ret += '  FILES: %s' % (result.files,)
             lines = result.error.splitlines()
             ret += '\n'.join('    %s' % (x,) for x in lines)
+            if result.is_warning():
+                warning_ret += ret
+            else:
+                error_ret += ret
 
-    return ret or None
+    return (error_ret or None, warning_ret or None)
 
 
 def _get_project_config():
@@ -272,10 +294,13 @@ def _run_project_hooks(project_name, proj_dir=None,
         for name, hook in hooks:
             output.hook_start(name)
             hook_results = hook(project, commit, desc, diff)
-            error = _process_hook_results(hook_results)
-            if error:
-                ret = False
-                output.hook_error(name, error)
+            (error, warning) = _process_hook_results(hook_results)
+            if error or warning:
+                if warning:
+                    output.hook_warning(name, warning)
+                if error:
+                    ret = False
+                    output.hook_error(name, error)
                 for result in hook_results:
                     if result.fixup_func:
                         fixup_func_list.append((name, commit,

@@ -28,6 +28,7 @@
 #include "base/stl_util_identity.h"
 #include "constants_mips.h"
 #include "globals.h"
+#include "heap_poisoning.h"
 #include "managed_register_mips.h"
 #include "offsets.h"
 #include "utils/assembler.h"
@@ -73,12 +74,93 @@ enum FPClassMaskType {
   kPositiveZero      = 0x200,
 };
 
+// Instruction description in terms of input and output registers.
+// Used for instruction reordering.
+struct InOutRegMasks {
+  InOutRegMasks()
+      : gpr_outs_(0), gpr_ins_(0), fpr_outs_(0), fpr_ins_(0), cc_outs_(0), cc_ins_(0) {}
+
+  inline InOutRegMasks& GprOuts(Register reg) {
+    gpr_outs_ |= (1u << reg);
+    gpr_outs_ &= ~1u;  // Ignore register ZERO.
+    return *this;
+  }
+  template<typename T, typename... Ts>
+  inline InOutRegMasks& GprOuts(T one, Ts... more) { GprOuts(one); GprOuts(more...); return *this; }
+
+  inline InOutRegMasks& GprIns(Register reg) {
+    gpr_ins_ |= (1u << reg);
+    gpr_ins_ &= ~1u;  // Ignore register ZERO.
+    return *this;
+  }
+  template<typename T, typename... Ts>
+  inline InOutRegMasks& GprIns(T one, Ts... more) { GprIns(one); GprIns(more...); return *this; }
+
+  inline InOutRegMasks& GprInOuts(Register reg) { GprIns(reg); GprOuts(reg); return *this; }
+  template<typename T, typename... Ts>
+  inline InOutRegMasks& GprInOuts(T one, Ts... more) {
+    GprInOuts(one);
+    GprInOuts(more...);
+    return *this;
+  }
+
+  inline InOutRegMasks& FprOuts(FRegister reg) { fpr_outs_ |= (1u << reg); return *this; }
+  inline InOutRegMasks& FprOuts(VectorRegister reg) { return FprOuts(static_cast<FRegister>(reg)); }
+  template<typename T, typename... Ts>
+  inline InOutRegMasks& FprOuts(T one, Ts... more) { FprOuts(one); FprOuts(more...); return *this; }
+
+  inline InOutRegMasks& FprIns(FRegister reg) { fpr_ins_ |= (1u << reg); return *this; }
+  inline InOutRegMasks& FprIns(VectorRegister reg) { return FprIns(static_cast<FRegister>(reg)); }
+  template<typename T, typename... Ts>
+  inline InOutRegMasks& FprIns(T one, Ts... more) { FprIns(one); FprIns(more...); return *this; }
+
+  inline InOutRegMasks& FprInOuts(FRegister reg) { FprIns(reg); FprOuts(reg); return *this; }
+  inline InOutRegMasks& FprInOuts(VectorRegister reg) {
+    return FprInOuts(static_cast<FRegister>(reg));
+  }
+  template<typename T, typename... Ts>
+  inline InOutRegMasks& FprInOuts(T one, Ts... more) {
+    FprInOuts(one);
+    FprInOuts(more...);
+    return *this;
+  }
+
+  inline InOutRegMasks& CcOuts(int cc) { cc_outs_ |= (1u << cc); return *this; }
+  template<typename T, typename... Ts>
+  inline InOutRegMasks& CcOuts(T one, Ts... more) { CcOuts(one); CcOuts(more...); return *this; }
+
+  inline InOutRegMasks& CcIns(int cc) { cc_ins_ |= (1u << cc); return *this; }
+  template<typename T, typename... Ts>
+  inline InOutRegMasks& CcIns(T one, Ts... more) { CcIns(one); CcIns(more...); return *this; }
+
+  // Mask of output GPRs for the instruction.
+  uint32_t gpr_outs_;
+  // Mask of input GPRs for the instruction.
+  uint32_t gpr_ins_;
+  // Mask of output FPRs for the instruction.
+  uint32_t fpr_outs_;
+  // Mask of input FPRs for the instruction.
+  uint32_t fpr_ins_;
+  // Mask of output FPU condition code flags for the instruction.
+  uint32_t cc_outs_;
+  // Mask of input FPU condition code flags for the instruction.
+  uint32_t cc_ins_;
+
+  // TODO: add LO and HI.
+};
+
 class MipsLabel : public Label {
  public:
   MipsLabel() : prev_branch_id_plus_one_(0) {}
 
   MipsLabel(MipsLabel&& src)
       : Label(std::move(src)), prev_branch_id_plus_one_(src.prev_branch_id_plus_one_) {}
+
+  void AdjustBoundPosition(int delta) {
+    CHECK(IsBound());
+    // Bound label's position is negative, hence decrementing it.
+    position_ -= delta;
+  }
 
  private:
   uint32_t prev_branch_id_plus_one_;  // To get distance from preceding branch, if any.
@@ -185,16 +267,16 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
  public:
   using JNIBase = JNIMacroAssembler<PointerSize::k32>;
 
-  explicit MipsAssembler(ArenaAllocator* arena,
+  explicit MipsAssembler(ArenaAllocator* allocator,
                          const MipsInstructionSetFeatures* instruction_set_features = nullptr)
-      : Assembler(arena),
+      : Assembler(allocator),
         overwriting_(false),
         overwrite_location_(0),
         reordering_(true),
         ds_fsm_state_(kExpectingLabel),
         ds_fsm_target_pc_(0),
-        literals_(arena->Adapter(kArenaAllocAssembler)),
-        jump_tables_(arena->Adapter(kArenaAllocAssembler)),
+        literals_(allocator->Adapter(kArenaAllocAssembler)),
+        jump_tables_(allocator->Adapter(kArenaAllocAssembler)),
         last_position_adjustment_(0),
         last_old_position_(0),
         last_branch_id_(0),
@@ -215,6 +297,7 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
 
   // Emit Machine Instructions.
   void Addu(Register rd, Register rs, Register rt);
+  void Addiu(Register rt, Register rs, uint16_t imm16, MipsLabel* patcher_label);
   void Addiu(Register rt, Register rs, uint16_t imm16);
   void Subu(Register rd, Register rs, Register rt);
 
@@ -272,6 +355,7 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
 
   void Lb(Register rt, Register rs, uint16_t imm16);
   void Lh(Register rt, Register rs, uint16_t imm16);
+  void Lw(Register rt, Register rs, uint16_t imm16, MipsLabel* patcher_label);
   void Lw(Register rt, Register rs, uint16_t imm16);
   void Lwl(Register rt, Register rs, uint16_t imm16);
   void Lwr(Register rt, Register rs, uint16_t imm16);
@@ -280,12 +364,14 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
   void Lwpc(Register rs, uint32_t imm19);  // R6
   void Lui(Register rt, uint16_t imm16);
   void Aui(Register rt, Register rs, uint16_t imm16);  // R6
+  void AddUpper(Register rt, Register rs, uint16_t imm16, Register tmp = AT);
   void Sync(uint32_t stype);
   void Mfhi(Register rd);  // R2
   void Mflo(Register rd);  // R2
 
   void Sb(Register rt, Register rs, uint16_t imm16);
   void Sh(Register rt, Register rs, uint16_t imm16);
+  void Sw(Register rt, Register rs, uint16_t imm16, MipsLabel* patcher_label);
   void Sw(Register rt, Register rs, uint16_t imm16);
   void Swl(Register rt, Register rs, uint16_t imm16);
   void Swr(Register rt, Register rs, uint16_t imm16);
@@ -451,6 +537,16 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
   void FloorWS(FRegister fd, FRegister fs);
   void FloorWD(FRegister fd, FRegister fs);
 
+  // Note, the 32 LSBs of a 64-bit value must be loaded into an FPR before the 32 MSBs
+  // when loading the value as 32-bit halves. This applies to all 32-bit FPR loads:
+  // Mtc1(), Mthc1(), MoveToFpuHigh(), Lwc1(). Even if you need two Mtc1()'s or two
+  // Lwc1()'s to load a pair of 32-bit FPRs and these loads do not interfere with one
+  // another (unlike Mtc1() and Mthc1() with 64-bit FPRs), maintain the order:
+  // low then high.
+  //
+  // Also, prefer MoveFromFpuHigh()/MoveToFpuHigh() over Mfhc1()/Mthc1() and Mfc1()/Mtc1().
+  // This will save you some if statements.
+  FRegister GetFpuRegLow(FRegister reg);
   void Mfc1(Register rt, FRegister fs);
   void Mtc1(Register rt, FRegister fs);
   void Mfhc1(Register rt, FRegister fs);
@@ -483,6 +579,14 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
   void SubvH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
   void SubvW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
   void SubvD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Asub_sB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Asub_sH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Asub_sW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Asub_sD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Asub_uB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Asub_uH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Asub_uW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Asub_uD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
   void MulvB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
   void MulvH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
   void MulvW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
@@ -590,6 +694,14 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
   void SplatiH(VectorRegister wd, VectorRegister ws, int n3);
   void SplatiW(VectorRegister wd, VectorRegister ws, int n2);
   void SplatiD(VectorRegister wd, VectorRegister ws, int n1);
+  void Copy_sB(Register rd, VectorRegister ws, int n4);
+  void Copy_sH(Register rd, VectorRegister ws, int n3);
+  void Copy_sW(Register rd, VectorRegister ws, int n2);
+  void Copy_uB(Register rd, VectorRegister ws, int n4);
+  void Copy_uH(Register rd, VectorRegister ws, int n3);
+  void InsertB(VectorRegister wd, Register rs, int n4);
+  void InsertH(VectorRegister wd, Register rs, int n3);
+  void InsertW(VectorRegister wd, Register rs, int n2);
   void FillB(VectorRegister wd, Register rs);
   void FillH(VectorRegister wd, Register rs);
   void FillW(VectorRegister wd, Register rs);
@@ -607,10 +719,42 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
   void StW(VectorRegister wd, Register rs, int offset);
   void StD(VectorRegister wd, Register rs, int offset);
 
+  void IlvlB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void IlvlH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void IlvlW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void IlvlD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
   void IlvrB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
   void IlvrH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
   void IlvrW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
   void IlvrD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void IlvevB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void IlvevH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void IlvevW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void IlvevD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void IlvodB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void IlvodH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void IlvodW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void IlvodD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+
+  void MaddvB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void MaddvH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void MaddvW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void MaddvD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void MsubvB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void MsubvH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void MsubvW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void MsubvD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void FmaddW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void FmaddD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void FmsubW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void FmsubD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+
+  void Hadd_sH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Hadd_sW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Hadd_sD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Hadd_uH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Hadd_uW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Hadd_uD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
 
   // Helper for replicating floating point value in all destination elements.
   void ReplicateFPToVectorRegister(VectorRegister dst, FRegister src, bool is_double);
@@ -622,29 +766,69 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
   void LoadSConst32(FRegister r, int32_t value, Register temp);
   void Addiu32(Register rt, Register rs, int32_t value, Register rtmp = AT);
 
-  // These will generate R2 branches or R6 branches as appropriate and take care of
-  // the delay/forbidden slots.
   void Bind(MipsLabel* label);
-  void B(MipsLabel* label);
-  void Bal(MipsLabel* label);
-  void Beq(Register rs, Register rt, MipsLabel* label);
-  void Bne(Register rs, Register rt, MipsLabel* label);
-  void Beqz(Register rt, MipsLabel* label);
-  void Bnez(Register rt, MipsLabel* label);
-  void Bltz(Register rt, MipsLabel* label);
-  void Bgez(Register rt, MipsLabel* label);
-  void Blez(Register rt, MipsLabel* label);
-  void Bgtz(Register rt, MipsLabel* label);
-  void Blt(Register rs, Register rt, MipsLabel* label);
-  void Bge(Register rs, Register rt, MipsLabel* label);
-  void Bltu(Register rs, Register rt, MipsLabel* label);
-  void Bgeu(Register rs, Register rt, MipsLabel* label);
-  void Bc1f(MipsLabel* label);  // R2
-  void Bc1f(int cc, MipsLabel* label);  // R2
-  void Bc1t(MipsLabel* label);  // R2
-  void Bc1t(int cc, MipsLabel* label);  // R2
-  void Bc1eqz(FRegister ft, MipsLabel* label);  // R6
-  void Bc1nez(FRegister ft, MipsLabel* label);  // R6
+  // When `is_bare` is false, the branches will promote to long (if the range
+  // of the individual branch instruction is insufficient) and the delay/
+  // forbidden slots will be taken care of.
+  // Use `is_bare = false` when the branch target may be out of reach of the
+  // individual branch instruction. IOW, this is for general purpose use.
+  //
+  // When `is_bare` is true, just the branch instructions will be generated
+  // leaving delay/forbidden slot filling up to the caller and the branches
+  // won't promote to long if the range is insufficient (you'll get a
+  // compilation error when the range is exceeded).
+  // Use `is_bare = true` when the branch target is known to be within reach
+  // of the individual branch instruction. This is intended for small local
+  // optimizations around delay/forbidden slots.
+  // Also prefer using `is_bare = true` if the code near the branch is to be
+  // patched or analyzed at run time (e.g. introspection) to
+  // - show the intent and
+  // - fail during compilation rather than during patching/execution if the
+  //   bare branch range is insufficent but the code size and layout are
+  //   expected to remain unchanged
+  //
+  // R2 branches with delay slots that are also available on R6.
+  // On R6 when `is_bare` is false these convert to equivalent R6 compact
+  // branches (to reduce code size). On R2 or when `is_bare` is true they
+  // remain R2 branches with delay slots.
+  void B(MipsLabel* label, bool is_bare = false);
+  void Bal(MipsLabel* label, bool is_bare = false);
+  void Beq(Register rs, Register rt, MipsLabel* label, bool is_bare = false);
+  void Bne(Register rs, Register rt, MipsLabel* label, bool is_bare = false);
+  void Beqz(Register rt, MipsLabel* label, bool is_bare = false);
+  void Bnez(Register rt, MipsLabel* label, bool is_bare = false);
+  void Bltz(Register rt, MipsLabel* label, bool is_bare = false);
+  void Bgez(Register rt, MipsLabel* label, bool is_bare = false);
+  void Blez(Register rt, MipsLabel* label, bool is_bare = false);
+  void Bgtz(Register rt, MipsLabel* label, bool is_bare = false);
+  void Blt(Register rs, Register rt, MipsLabel* label, bool is_bare = false);
+  void Bge(Register rs, Register rt, MipsLabel* label, bool is_bare = false);
+  void Bltu(Register rs, Register rt, MipsLabel* label, bool is_bare = false);
+  void Bgeu(Register rs, Register rt, MipsLabel* label, bool is_bare = false);
+  // R2-only branches with delay slots.
+  void Bc1f(MipsLabel* label, bool is_bare = false);  // R2
+  void Bc1f(int cc, MipsLabel* label, bool is_bare = false);  // R2
+  void Bc1t(MipsLabel* label, bool is_bare = false);  // R2
+  void Bc1t(int cc, MipsLabel* label, bool is_bare = false);  // R2
+  // R6-only compact branches without delay/forbidden slots.
+  void Bc(MipsLabel* label, bool is_bare = false);  // R6
+  void Balc(MipsLabel* label, bool is_bare = false);  // R6
+  // R6-only compact branches with forbidden slots.
+  void Beqc(Register rs, Register rt, MipsLabel* label, bool is_bare = false);  // R6
+  void Bnec(Register rs, Register rt, MipsLabel* label, bool is_bare = false);  // R6
+  void Beqzc(Register rt, MipsLabel* label, bool is_bare = false);  // R6
+  void Bnezc(Register rt, MipsLabel* label, bool is_bare = false);  // R6
+  void Bltzc(Register rt, MipsLabel* label, bool is_bare = false);  // R6
+  void Bgezc(Register rt, MipsLabel* label, bool is_bare = false);  // R6
+  void Blezc(Register rt, MipsLabel* label, bool is_bare = false);  // R6
+  void Bgtzc(Register rt, MipsLabel* label, bool is_bare = false);  // R6
+  void Bltc(Register rs, Register rt, MipsLabel* label, bool is_bare = false);  // R6
+  void Bgec(Register rs, Register rt, MipsLabel* label, bool is_bare = false);  // R6
+  void Bltuc(Register rs, Register rt, MipsLabel* label, bool is_bare = false);  // R6
+  void Bgeuc(Register rs, Register rt, MipsLabel* label, bool is_bare = false);  // R6
+  // R6-only branches with delay slots.
+  void Bc1eqz(FRegister ft, MipsLabel* label, bool is_bare = false);  // R6
+  void Bc1nez(FRegister ft, MipsLabel* label, bool is_bare = false);  // R6
 
   void EmitLoad(ManagedRegister m_dst, Register src_register, int32_t src_offset, size_t size);
   void AdjustBaseAndOffset(Register& base,
@@ -997,16 +1181,36 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
     return NewLiteral(sizeof(value), reinterpret_cast<const uint8_t*>(&value));
   }
 
-  // Load label address using the base register (for R2 only) or using PC-relative loads
-  // (for R6 only; base_reg must be ZERO). To be used with data labels in the literal /
-  // jump table area only and not with regular code labels.
+  // Load label address using PC-relative addressing.
+  // To be used with data labels in the literal / jump table area only and not
+  // with regular code labels.
+  //
+  // For R6 base_reg must be ZERO.
+  //
+  // On R2 there are two possible uses w.r.t. base_reg:
+  //
+  // - base_reg = ZERO:
+  //   The NAL instruction will be generated as part of the load and it will
+  //   clobber the RA register.
+  //
+  // - base_reg != ZERO:
+  //   The RA-clobbering NAL instruction won't be generated as part of the load.
+  //   The label pc_rel_base_label_ must be bound (with BindPcRelBaseLabel())
+  //   and base_reg must hold the address of the label. Example:
+  //     __ Nal();
+  //     __ Move(S3, RA);
+  //     __ BindPcRelBaseLabel();  // S3 holds the address of pc_rel_base_label_.
+  //     __ LoadLabelAddress(A0, S3, label1);
+  //     __ LoadLabelAddress(A1, S3, label2);
+  //     __ LoadLiteral(V0, S3, literal1);
+  //     __ LoadLiteral(V1, S3, literal2);
   void LoadLabelAddress(Register dest_reg, Register base_reg, MipsLabel* label);
 
   // Create a new literal with the given data.
   Literal* NewLiteral(size_t size, const uint8_t* data);
 
-  // Load literal using the base register (for R2 only) or using PC-relative loads
-  // (for R6 only; base_reg must be ZERO).
+  // Load literal using PC-relative addressing.
+  // See the above comments for LoadLabelAddress() on the value of base_reg.
   void LoadLiteral(Register dest_reg, Register base_reg, Literal* literal);
 
   // Create a jump table for the given labels that will be emitted when finalizing.
@@ -1026,8 +1230,9 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
                   const ManagedRegisterEntrySpills& entry_spills) OVERRIDE;
 
   // Emit code that will remove an activation from the stack.
-  void RemoveFrame(size_t frame_size, ArrayRef<const ManagedRegister> callee_save_regs)
-      OVERRIDE;
+  void RemoveFrame(size_t frame_size,
+                   ArrayRef<const ManagedRegister> callee_save_regs,
+                   bool may_suspend) OVERRIDE;
 
   void IncreaseFrameSize(size_t adjust) OVERRIDE;
   void DecreaseFrameSize(size_t adjust) OVERRIDE;
@@ -1217,23 +1422,16 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
   // Used to make the decision of moving the instruction into a delay slot.
   struct DelaySlot {
     DelaySlot();
+
     // Encoded instruction that may be used to fill the delay slot or 0
     // (0 conveniently represents NOP).
     uint32_t instruction_;
-    // Mask of output GPRs for the instruction.
-    uint32_t gpr_outs_mask_;
-    // Mask of input GPRs for the instruction.
-    uint32_t gpr_ins_mask_;
-    // Mask of output FPRs for the instruction.
-    uint32_t fpr_outs_mask_;
-    // Mask of input FPRs for the instruction.
-    uint32_t fpr_ins_mask_;
-    // Mask of output FPU condition code flags for the instruction.
-    uint32_t cc_outs_mask_;
-    // Mask of input FPU condition code flags for the instruction.
-    uint32_t cc_ins_mask_;
-    // Branches never operate on the LO and HI registers, hence there's
-    // no mask for LO and HI.
+
+    // Input/output register masks.
+    InOutRegMasks masks_;
+
+    // Label for patchable instructions to allow moving them into delay slots.
+    MipsLabel* patcher_label_;
   };
 
   // Delay slot finite state machine's (DS FSM's) state. The FSM state is updated
@@ -1254,10 +1452,14 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
   class Branch {
    public:
     enum Type {
-      // R2 short branches.
+      // R2 short branches (can be promoted to long).
       kUncondBranch,
       kCondBranch,
       kCall,
+      // R2 short branches (can't be promoted to long), delay slots filled manually.
+      kBareUncondBranch,
+      kBareCondBranch,
+      kBareCall,
       // R2 near label.
       kLabel,
       // R2 near literal.
@@ -1270,10 +1472,14 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
       kFarLabel,
       // R2 far literal.
       kFarLiteral,
-      // R6 short branches.
+      // R6 short branches (can be promoted to long).
       kR6UncondBranch,
       kR6CondBranch,
       kR6Call,
+      // R6 short branches (can't be promoted to long), forbidden/delay slots filled manually.
+      kR6BareUncondBranch,
+      kR6BareCondBranch,
+      kR6BareCall,
       // R6 near label.
       kR6Label,
       // R6 near literal.
@@ -1323,7 +1529,7 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
       // instructions) from the instruction containing the offset.
       uint32_t pc_org;
       // How large (in bits) a PC-relative offset can be for a given type of branch (kR6CondBranch
-      // is an exception: use kOffset23 for beqzc/bnezc).
+      // and kR6BareCondBranch are an exception: use kOffset23 for beqzc/bnezc).
       OffsetBits offset_size;
       // Some MIPS instructions with PC-relative offsets shift the offset by 2. Encode the shift
       // count.
@@ -1332,14 +1538,15 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
     static const BranchInfo branch_info_[/* Type */];
 
     // Unconditional branch or call.
-    Branch(bool is_r6, uint32_t location, uint32_t target, bool is_call);
+    Branch(bool is_r6, uint32_t location, uint32_t target, bool is_call, bool is_bare);
     // Conditional branch.
     Branch(bool is_r6,
            uint32_t location,
            uint32_t target,
            BranchCondition condition,
            Register lhs_reg,
-           Register rhs_reg);
+           Register rhs_reg,
+           bool is_bare);
     // Label address (in literal area) or literal.
     Branch(bool is_r6,
            uint32_t location,
@@ -1371,13 +1578,15 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
     uint32_t GetOldSize() const;
     uint32_t GetEndLocation() const;
     uint32_t GetOldEndLocation() const;
+    bool IsBare() const;
     bool IsLong() const;
     bool IsResolved() const;
 
     // Various helpers for branch delay slot management.
     bool CanHaveDelayedInstruction(const DelaySlot& delay_slot) const;
-    void SetDelayedInstruction(uint32_t instruction);
+    void SetDelayedInstruction(uint32_t instruction, MipsLabel* patcher_label = nullptr);
     uint32_t GetDelayedInstruction() const;
+    MipsLabel* GetPatcherLabel() const;
     void DecrementLocations();
 
     // Returns the bit size of the signed offset that the branch instruction can handle.
@@ -1462,6 +1671,8 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
                                     // kUnfillableDelaySlot if none and unfillable
                                     // (the latter is only used for unconditional R2
                                     // branches).
+
+    MipsLabel* patcher_label_;      // Patcher label for the instruction in the delay slot.
   };
   friend std::ostream& operator<<(std::ostream& os, const Branch::Type& rhs);
   friend std::ostream& operator<<(std::ostream& os, const Branch::OffsetBits& rhs);
@@ -1499,31 +1710,19 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
                       VectorRegister wd,
                       int minor_opcode);
 
-  void Buncond(MipsLabel* label);
-  void Bcond(MipsLabel* label, BranchCondition condition, Register lhs, Register rhs = ZERO);
-  void Call(MipsLabel* label);
+  void Buncond(MipsLabel* label, bool is_r6, bool is_bare);
+  void Bcond(MipsLabel* label,
+             bool is_r6,
+             bool is_bare,
+             BranchCondition condition,
+             Register lhs,
+             Register rhs = ZERO);
+  void Call(MipsLabel* label, bool is_r6, bool is_bare);
   void FinalizeLabeledBranch(MipsLabel* label);
 
   // Various helpers for branch delay slot management.
-  void DsFsmInstr(uint32_t instruction,
-                  uint32_t gpr_outs_mask,
-                  uint32_t gpr_ins_mask,
-                  uint32_t fpr_outs_mask,
-                  uint32_t fpr_ins_mask,
-                  uint32_t cc_outs_mask,
-                  uint32_t cc_ins_mask);
+  InOutRegMasks& DsFsmInstr(uint32_t instruction, MipsLabel* patcher_label = nullptr);
   void DsFsmInstrNop(uint32_t instruction);
-  void DsFsmInstrRrr(uint32_t instruction, Register out, Register in1, Register in2);
-  void DsFsmInstrRrrr(uint32_t instruction, Register in1_out, Register in2, Register in3);
-  void DsFsmInstrFff(uint32_t instruction, FRegister out, FRegister in1, FRegister in2);
-  void DsFsmInstrFfff(uint32_t instruction, FRegister in1_out, FRegister in2, FRegister in3);
-  void DsFsmInstrFffr(uint32_t instruction, FRegister in1_out, FRegister in2, Register in3);
-  void DsFsmInstrRf(uint32_t instruction, Register out, FRegister in);
-  void DsFsmInstrFr(uint32_t instruction, FRegister out, Register in);
-  void DsFsmInstrFR(uint32_t instruction, FRegister in1, Register in2);
-  void DsFsmInstrCff(uint32_t instruction, int cc_out, FRegister in1, FRegister in2);
-  void DsFsmInstrRrrc(uint32_t instruction, Register in1_out, Register in2, int cc_in);
-  void DsFsmInstrFffc(uint32_t instruction, FRegister in1_out, FRegister in2, int cc_in);
   void DsFsmLabel();
   void DsFsmCommitLabel();
   void DsFsmDropLabel();
@@ -1536,12 +1735,15 @@ class MipsAssembler FINAL : public Assembler, public JNIMacroAssembler<PointerSi
   const Branch* GetBranch(uint32_t branch_id) const;
   uint32_t GetBranchLocationOrPcRelBase(const MipsAssembler::Branch* branch) const;
   uint32_t GetBranchOrPcRelBaseForEncoding(const MipsAssembler::Branch* branch) const;
+  void BindRelativeToPrecedingBranch(MipsLabel* label,
+                                     uint32_t prev_branch_id_plus_one,
+                                     uint32_t position);
 
   void EmitLiterals();
   void ReserveJumpTableSpace();
   void EmitJumpTables();
   void PromoteBranches();
-  void EmitBranch(Branch* branch);
+  void EmitBranch(uint32_t branch_id);
   void EmitBranches();
   void PatchCFI(size_t number_of_delayed_adjust_pcs);
 

@@ -1,7 +1,8 @@
 /** @file
   UEFI HTTP boot driver's private data structure and interfaces declaration.
 
-Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2015 - 2016, Intel Corporation. All rights reserved.<BR>
+(C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
 This program and the accompanying materials are licensed and made available under 
 the terms and conditions of the BSD License that accompanies this distribution.  
 The full text of the license may be found at
@@ -17,10 +18,15 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 #include <Uefi.h>
 
+#include <IndustryStandard/Http11.h>
+#include <IndustryStandard/Dhcp.h>
+
 //
 // Libraries
 //
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiHiiServicesLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/BaseLib.h>
 #include <Library/UefiLib.h>
@@ -28,6 +34,8 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Library/DebugLib.h>
 #include <Library/NetLib.h>
 #include <Library/HttpLib.h>
+#include <Library/HiiLib.h>
+#include <Library/PrintLib.h>
 
 //
 // UEFI Driver Model Protocols
@@ -39,6 +47,8 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 //
 // Consumed Protocols
 //
+#include <Protocol/ServiceBinding.h>
+#include <Protocol/HiiConfigAccess.h>
 #include <Protocol/NetworkInterfaceIdentifier.h>
 #include <Protocol/Dhcp4.h>
 #include <Protocol/Dhcp6.h>
@@ -46,15 +56,27 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Protocol/Http.h>
 #include <Protocol/Ip4Config2.h>
 #include <Protocol/Ip6Config.h>
+#include <Protocol/RamDisk.h>
 //
 // Produced Protocols
 //
 #include <Protocol/LoadFile.h>
 
 //
+// Consumed Guids
+//
+#include <Guid/HttpBootConfigHii.h>
+
+//
 // Driver Version
 //
 #define HTTP_BOOT_DXE_VERSION  0xa
+
+//
+// Provisional Standard Media Types defined in 
+// http://www.iana.org/assignments/provisional-standard-media-types/provisional-standard-media-types.xhtml
+//
+#define HTTP_CONTENT_TYPE_APP_EFI           "application/efi"
 
 //
 // Protocol instances
@@ -69,6 +91,13 @@ extern EFI_COMPONENT_NAME_PROTOCOL  gHttpBootDxeComponentName;
 typedef struct _HTTP_BOOT_PRIVATE_DATA      HTTP_BOOT_PRIVATE_DATA;
 typedef struct _HTTP_BOOT_VIRTUAL_NIC       HTTP_BOOT_VIRTUAL_NIC;
 
+typedef enum  {
+  ImageTypeEfi,
+  ImageTypeVirtualCd,
+  ImageTypeVirtualDisk,
+  ImageTypeMax
+} HTTP_BOOT_IMAGE_TYPE;
+
 //
 // Include files with internal function prototypes
 //
@@ -78,6 +107,7 @@ typedef struct _HTTP_BOOT_VIRTUAL_NIC       HTTP_BOOT_VIRTUAL_NIC;
 #include "HttpBootImpl.h"
 #include "HttpBootSupport.h"
 #include "HttpBootClient.h"
+#include "HttpBootConfig.h"
 
 typedef union {
   HTTP_BOOT_DHCP4_PACKET_CACHE              Dhcp4;
@@ -87,15 +117,23 @@ typedef union {
 struct _HTTP_BOOT_VIRTUAL_NIC {
   UINT32                                    Signature;
   EFI_HANDLE                                Controller;
+  EFI_HANDLE                                ImageHandle;
   EFI_LOAD_FILE_PROTOCOL                    LoadFile;
   EFI_DEVICE_PATH_PROTOCOL                  *DevicePath;
   HTTP_BOOT_PRIVATE_DATA                    *Private;
 };
 
+#define HTTP_BOOT_PRIVATE_DATA_FROM_CALLBACK_INFO(Callback) \
+  CR ( \
+  Callback, \
+  HTTP_BOOT_PRIVATE_DATA, \
+  CallbackInfo, \
+  HTTP_BOOT_PRIVATE_DATA_SIGNATURE \
+  )
+
 struct _HTTP_BOOT_PRIVATE_DATA {
   UINT32                                    Signature;
   EFI_HANDLE                                Controller;
-  EFI_HANDLE                                Image;
 
   HTTP_BOOT_VIRTUAL_NIC                     *Ip4Nic;
   HTTP_BOOT_VIRTUAL_NIC                     *Ip6Nic;
@@ -129,6 +167,11 @@ struct _HTTP_BOOT_PRIVATE_DATA {
   UINT32                                    Id;
 
   //
+  // HII callback info block
+  //
+  HTTP_BOOT_FORM_CALLBACK_INFO              CallbackInfo;
+
+  //
   // Mode data
   //
   BOOLEAN                                   UsingIpv6;
@@ -138,10 +181,22 @@ struct _HTTP_BOOT_PRIVATE_DATA {
   EFI_IP_ADDRESS                            GatewayIp;
   EFI_IP_ADDRESS                            ServerIp;
   UINT16                                    Port;
+
+  //
+  // The URI string attempt to download through HTTP, may point to
+  // the memory in cached DHCP offer, or to the memory in FilePathUri.
+  //
   CHAR8                                     *BootFileUri;
   VOID                                      *BootFileUriParser;
   UINTN                                     BootFileSize;
   BOOLEAN                                   NoGateway;
+  HTTP_BOOT_IMAGE_TYPE                      ImageType;
+
+  //
+  // URI string extracted from the input FilePath parameter.
+  //
+  CHAR8                                     *FilePathUri;
+  VOID                                      *FilePathUriParser;
 
   //
   // Cached HTTP data

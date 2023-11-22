@@ -71,6 +71,10 @@
 @   r7 =>  ht
 @   r12 => wd
 
+.equ    coeff_offset,   104
+.equ    ht_offset,      108
+.equ    wd_offset,      112
+
 .text
 .align 4
 
@@ -83,8 +87,9 @@
 
 ihevc_inter_pred_luma_copy_a9q:
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
-    ldr         r12,[sp,#48]                @loads wd
-    ldr         r7,[sp,#44]                 @loads ht
+    vpush        {d8 - d15}
+    ldr         r12,[sp,#wd_offset]                @loads wd
+    ldr         r7,[sp,#ht_offset]                 @loads ht
     cmp         r7,#0                       @checks ht == 0
     ble         end_loops
     tst         r12,#15                     @checks wd for multiples for 4 & 8
@@ -121,6 +126,7 @@ end_inner_loop_wd_4:
     bgt         outer_loop_wd_4
 
 end_loops:
+    vpop         {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 
@@ -151,6 +157,7 @@ end_inner_loop_wd_8:
     sub         r1,r6,r11                   @pu1_dst = pu1_dst_tmp
     bgt         outer_loop_wd_8
 
+    vpop         {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 core_loop_wd_16:
@@ -180,6 +187,7 @@ end_inner_loop_wd_16:
     sub         r1,r6,r11                   @pu1_dst = pu1_dst_tmp
     bgt         outer_loop_wd_16
 
+    vpop         {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 

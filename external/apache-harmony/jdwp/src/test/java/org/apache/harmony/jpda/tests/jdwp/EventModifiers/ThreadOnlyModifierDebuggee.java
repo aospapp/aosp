@@ -75,6 +75,7 @@ public class ThreadOnlyModifierDebuggee extends SyncDebuggee {
 
     static int watchedField = 0;
 
+    @SuppressWarnings("DeadException")
     @Override
     public void run() {
         TestClass obj = new TestClass();

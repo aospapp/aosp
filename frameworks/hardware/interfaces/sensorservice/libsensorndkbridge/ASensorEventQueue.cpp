@@ -30,9 +30,8 @@ using android::Mutex;
 using android::hardware::Return;
 
 ASensorEventQueue::ASensorEventQueue(
-        ALooper *looper, int ident, ALooper_callbackFunc callback, void *data)
+        ALooper *looper, ALooper_callbackFunc callback, void *data)
     : mLooper(looper),
-      mIdent(ident),
       mCallback(callback),
       mData(data) {
 }
@@ -99,7 +98,7 @@ ssize_t ASensorEventQueue::getEvents(ASensorEvent *events, size_t count) {
 }
 
 int ASensorEventQueue::hasEvents() const {
-    return mQueue.empty();
+    return !mQueue.empty();
 }
 
 Return<void> ASensorEventQueue::onEvent(const Event &event) {

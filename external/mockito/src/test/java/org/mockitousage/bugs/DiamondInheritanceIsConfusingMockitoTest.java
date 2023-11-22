@@ -1,6 +1,11 @@
+/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockitousage.bugs;
 
-import org.junit.Assert;
+import static org.junit.Assert.assertEquals;
+
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -16,7 +21,7 @@ public class DiamondInheritanceIsConfusingMockitoTest {
         // Presumably confused by the interface/superclass signatures.
         Mockito.when(mock.getFoo()).thenReturn("Hello");
 
-        Assert.assertEquals("Hello", mock.getFoo());
+        assertEquals("Hello", mock.getFoo());
     }
 
     public class Super<T> {

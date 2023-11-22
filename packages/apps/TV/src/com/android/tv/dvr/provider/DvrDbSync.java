@@ -29,8 +29,7 @@ import android.os.Looper;
 import android.support.annotation.MainThread;
 import android.support.annotation.VisibleForTesting;
 import android.util.Log;
-
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.Program;
 import com.android.tv.dvr.DvrDataManager.ScheduledRecordingListener;
@@ -41,7 +40,6 @@ import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.recorder.SeriesRecordingScheduler;
 import com.android.tv.util.AsyncDbTask.AsyncQueryProgramTask;
 import com.android.tv.util.TvUriMatcher;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -50,6 +48,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.Executor;
 
 /**
  * A class to synchronizes DVR DB with TvProvider.
@@ -70,28 +69,31 @@ public class DvrDbSync {
     private final DvrManager mDvrManager;
     private final DvrDataManagerImpl mDataManager;
     private final ChannelDataManager mChannelDataManager;
+    private final Executor mDbExecutor;
     private final Queue<Long> mProgramIdQueue = new LinkedList<>();
     private QueryProgramTask mQueryProgramTask;
     private final SeriesRecordingScheduler mSeriesRecordingScheduler;
-    private final ContentObserver mContentObserver = new ContentObserver(new Handler(
-            Looper.getMainLooper())) {
-        @SuppressLint("SwitchIntDef")
-        @Override
-        public void onChange(boolean selfChange, Uri uri) {
-            switch (TvUriMatcher.match(uri)) {
-                case TvUriMatcher.MATCH_PROGRAM:
-                    if (DEBUG) Log.d(TAG, "onProgramsUpdated");
-                    onProgramsUpdated();
-                    break;
-                case TvUriMatcher.MATCH_PROGRAM_ID:
-                    if (DEBUG) {
-                        Log.d(TAG, "onProgramUpdated: programId=" + ContentUris.parseId(uri));
+    private final ContentObserver mContentObserver =
+            new ContentObserver(new Handler(Looper.getMainLooper())) {
+                @SuppressLint("SwitchIntDef")
+                @Override
+                public void onChange(boolean selfChange, Uri uri) {
+                    switch (TvUriMatcher.match(uri)) {
+                        case TvUriMatcher.MATCH_PROGRAM:
+                            if (DEBUG) Log.d(TAG, "onProgramsUpdated");
+                            onProgramsUpdated();
+                            break;
+                        case TvUriMatcher.MATCH_PROGRAM_ID:
+                            if (DEBUG) {
+                                Log.d(
+                                        TAG,
+                                        "onProgramUpdated: programId=" + ContentUris.parseId(uri));
+                            }
+                            onProgramUpdated(ContentUris.parseId(uri));
+                            break;
                     }
-                    onProgramUpdated(ContentUris.parseId(uri));
-                    break;
-            }
-        }
-    };
+                }
+            };
 
     private final ChannelDataManager.Listener mChannelDataManagerListener =
             new ChannelDataManager.Listener() {
@@ -106,70 +108,76 @@ public class DvrDbSync {
                 }
 
                 @Override
-                public void onChannelBrowsableChanged() { }
+                public void onChannelBrowsableChanged() {}
             };
 
-    private final ScheduledRecordingListener mScheduleListener = new ScheduledRecordingListener() {
-        @Override
-        public void onScheduledRecordingAdded(ScheduledRecording... schedules) {
-            for (ScheduledRecording schedule : schedules) {
-                addProgramIdToCheckIfNeeded(schedule);
-            }
-            startNextUpdateIfNeeded();
-        }
+    private final ScheduledRecordingListener mScheduleListener =
+            new ScheduledRecordingListener() {
+                @Override
+                public void onScheduledRecordingAdded(ScheduledRecording... schedules) {
+                    for (ScheduledRecording schedule : schedules) {
+                        addProgramIdToCheckIfNeeded(schedule);
+                    }
+                    startNextUpdateIfNeeded();
+                }
 
-        @Override
-        public void onScheduledRecordingRemoved(ScheduledRecording... schedules) {
-            for (ScheduledRecording schedule : schedules) {
-                mProgramIdQueue.remove(schedule.getProgramId());
-            }
-        }
+                @Override
+                public void onScheduledRecordingRemoved(ScheduledRecording... schedules) {
+                    for (ScheduledRecording schedule : schedules) {
+                        mProgramIdQueue.remove(schedule.getProgramId());
+                    }
+                }
 
-        @Override
-        public void onScheduledRecordingStatusChanged(ScheduledRecording... schedules) {
-            for (ScheduledRecording schedule : schedules) {
-                mProgramIdQueue.remove(schedule.getProgramId());
-                addProgramIdToCheckIfNeeded(schedule);
-            }
-            startNextUpdateIfNeeded();
-        }
-    };
+                @Override
+                public void onScheduledRecordingStatusChanged(ScheduledRecording... schedules) {
+                    for (ScheduledRecording schedule : schedules) {
+                        mProgramIdQueue.remove(schedule.getProgramId());
+                        addProgramIdToCheckIfNeeded(schedule);
+                    }
+                    startNextUpdateIfNeeded();
+                }
+            };
 
     public DvrDbSync(Context context, DvrDataManagerImpl dataManager) {
-        this(context, dataManager, TvApplication.getSingletons(context).getChannelDataManager(),
-                TvApplication.getSingletons(context).getDvrManager(),
-                SeriesRecordingScheduler.getInstance(context));
+        this(
+                context,
+                dataManager,
+                TvSingletons.getSingletons(context).getChannelDataManager(),
+                TvSingletons.getSingletons(context).getDvrManager(),
+                SeriesRecordingScheduler.getInstance(context),
+                TvSingletons.getSingletons(context).getDbExecutor());
     }
 
     @VisibleForTesting
-    DvrDbSync(Context context, DvrDataManagerImpl dataManager,
-            ChannelDataManager channelDataManager, DvrManager dvrManager,
-            SeriesRecordingScheduler seriesRecordingScheduler) {
+    DvrDbSync(
+            Context context,
+            DvrDataManagerImpl dataManager,
+            ChannelDataManager channelDataManager,
+            DvrManager dvrManager,
+            SeriesRecordingScheduler seriesRecordingScheduler,
+            Executor dbExecutor) {
         mContext = context;
         mDvrManager = dvrManager;
         mDataManager = dataManager;
         mChannelDataManager = channelDataManager;
         mSeriesRecordingScheduler = seriesRecordingScheduler;
+        mDbExecutor = dbExecutor;
     }
 
-    /**
-     * Starts the DB sync.
-     */
+    /** Starts the DB sync. */
     public void start() {
         if (!mChannelDataManager.isDbLoadFinished()) {
             mChannelDataManager.addListener(mChannelDataManagerListener);
             return;
         }
-        mContext.getContentResolver().registerContentObserver(Programs.CONTENT_URI, true,
-                mContentObserver);
+        mContext.getContentResolver()
+                .registerContentObserver(Programs.CONTENT_URI, true, mContentObserver);
         mDataManager.addScheduledRecordingListener(mScheduleListener);
         onChannelsUpdated();
         onProgramsUpdated();
     }
 
-    /**
-     * Stops the DB sync.
-     */
+    /** Stops the DB sync. */
     public void stop() {
         mProgramIdQueue.clear();
         if (mQueryProgramTask != null) {
@@ -185,14 +193,15 @@ public class DvrDbSync {
         for (SeriesRecording r : mDataManager.getSeriesRecordings()) {
             if (r.getChannelOption() == SeriesRecording.OPTION_CHANNEL_ONE
                     && !mChannelDataManager.doesChannelExistInDb(r.getChannelId())) {
-                seriesRecordingsToUpdate.add(SeriesRecording.buildFrom(r)
-                        .setChannelOption(SeriesRecording.OPTION_CHANNEL_ALL)
-                        .setState(SeriesRecording.STATE_SERIES_STOPPED).build());
+                seriesRecordingsToUpdate.add(
+                        SeriesRecording.buildFrom(r)
+                                .setChannelOption(SeriesRecording.OPTION_CHANNEL_ALL)
+                                .setState(SeriesRecording.STATE_SERIES_STOPPED)
+                                .build());
             }
         }
         if (!seriesRecordingsToUpdate.isEmpty()) {
-            mDataManager.updateSeriesRecording(
-                    SeriesRecording.toArray(seriesRecordingsToUpdate));
+            mDataManager.updateSeriesRecording(SeriesRecording.toArray(seriesRecordingsToUpdate));
         }
         List<ScheduledRecording> schedulesToRemove = new ArrayList<>();
         for (ScheduledRecording r : mDataManager.getAvailableScheduledRecordings()) {
@@ -202,8 +211,7 @@ public class DvrDbSync {
             }
         }
         if (!schedulesToRemove.isEmpty()) {
-            mDataManager.removeScheduledRecording(
-                    ScheduledRecording.toArray(schedulesToRemove));
+            mDataManager.removeScheduledRecording(ScheduledRecording.toArray(schedulesToRemove));
         }
     }
 
@@ -227,7 +235,7 @@ public class DvrDbSync {
         if (programId != ScheduledRecording.ID_NOT_SET
                 && !mProgramIdQueue.contains(programId)
                 && (schedule.getState() == ScheduledRecording.STATE_RECORDING_NOT_STARTED
-                || schedule.getState() == ScheduledRecording.STATE_RECORDING_IN_PROGRESS)) {
+                        || schedule.getState() == ScheduledRecording.STATE_RECORDING_IN_PROGRESS)) {
             if (DEBUG) Log.d(TAG, "Program ID enqueued: " + programId);
             mProgramIdQueue.offer(programId);
             // There are schedules to be updated. Pause the SeriesRecordingScheduler until all the
@@ -258,7 +266,7 @@ public class DvrDbSync {
         ScheduledRecording schedule = mDataManager.getScheduledRecordingForProgramId(programId);
         if (schedule != null
                 && (schedule.getState() == ScheduledRecording.STATE_RECORDING_NOT_STARTED
-                || schedule.getState() == ScheduledRecording.STATE_RECORDING_IN_PROGRESS)) {
+                        || schedule.getState() == ScheduledRecording.STATE_RECORDING_IN_PROGRESS)) {
             if (program == null) {
                 mDataManager.removeScheduledRecording(schedule);
                 if (schedule.getSeriesRecordingId() != SeriesRecording.ID_NOT_SET) {
@@ -270,15 +278,16 @@ public class DvrDbSync {
                 }
             } else {
                 long currentTimeMs = System.currentTimeMillis();
-                ScheduledRecording.Builder builder = ScheduledRecording.buildFrom(schedule)
-                        .setEndTimeMs(program.getEndTimeUtcMillis())
-                        .setSeasonNumber(program.getSeasonNumber())
-                        .setEpisodeNumber(program.getEpisodeNumber())
-                        .setEpisodeTitle(program.getEpisodeTitle())
-                        .setProgramDescription(program.getDescription())
-                        .setProgramLongDescription(program.getLongDescription())
-                        .setProgramPosterArtUri(program.getPosterArtUri())
-                        .setProgramThumbnailUri(program.getThumbnailUri());
+                ScheduledRecording.Builder builder =
+                        ScheduledRecording.buildFrom(schedule)
+                                .setEndTimeMs(program.getEndTimeUtcMillis())
+                                .setSeasonNumber(program.getSeasonNumber())
+                                .setEpisodeNumber(program.getEpisodeNumber())
+                                .setEpisodeTitle(program.getEpisodeTitle())
+                                .setProgramDescription(program.getDescription())
+                                .setProgramLongDescription(program.getLongDescription())
+                                .setProgramPosterArtUri(program.getPosterArtUri())
+                                .setProgramThumbnailUri(program.getThumbnailUri());
                 boolean needUpdate = false;
                 // Check the series recording.
                 SeriesRecording seriesRecordingForOldSchedule =
@@ -289,9 +298,11 @@ public class DvrDbSync {
                             mDataManager.getSeriesRecording(program.getSeriesId());
                     if (seriesRecording == null) {
                         // The new program is episodic while the previous one isn't.
-                        SeriesRecording newSeriesRecording = mDvrManager.addSeriesRecording(
-                                program, Collections.singletonList(program),
-                                SeriesRecording.STATE_SERIES_STOPPED);
+                        SeriesRecording newSeriesRecording =
+                                mDvrManager.addSeriesRecording(
+                                        program,
+                                        Collections.singletonList(program),
+                                        SeriesRecording.STATE_SERIES_STOPPED);
                         builder.setSeriesRecordingId(newSeriesRecording.getId());
                         needUpdate = true;
                     } else if (seriesRecording.getId() != schedule.getSeriesRecordingId()) {
@@ -302,10 +313,10 @@ public class DvrDbSync {
                         if (seriesRecordingForOldSchedule != null) {
                             seriesRecordingsToUpdate.add(seriesRecordingForOldSchedule);
                         }
-                    } else if (!Objects.equals(schedule.getSeasonNumber(),
-                                    program.getSeasonNumber())
-                            || !Objects.equals(schedule.getEpisodeNumber(),
-                                    program.getEpisodeNumber())) {
+                    } else if (!Objects.equals(
+                                    schedule.getSeasonNumber(), program.getSeasonNumber())
+                            || !Objects.equals(
+                                    schedule.getEpisodeNumber(), program.getEpisodeNumber())) {
                         // The episode number has been changed.
                         if (seriesRecordingForOldSchedule != null) {
                             seriesRecordingsToUpdate.add(seriesRecordingForOldSchedule);
@@ -318,23 +329,24 @@ public class DvrDbSync {
                 // Change start time only when the recording is not started yet.
                 boolean needToChangeStartTime =
                         schedule.getState() != ScheduledRecording.STATE_RECORDING_IN_PROGRESS
-                        && program.getStartTimeUtcMillis() != schedule.getStartTimeMs();
+                                && program.getStartTimeUtcMillis() != schedule.getStartTimeMs();
                 if (needToChangeStartTime) {
                     builder.setStartTimeMs(program.getStartTimeUtcMillis());
                     needUpdate = true;
                 }
-                if (needUpdate || schedule.getEndTimeMs() != program.getEndTimeUtcMillis()
+                if (needUpdate
+                        || schedule.getEndTimeMs() != program.getEndTimeUtcMillis()
                         || !Objects.equals(schedule.getSeasonNumber(), program.getSeasonNumber())
                         || !Objects.equals(schedule.getEpisodeNumber(), program.getEpisodeNumber())
                         || !Objects.equals(schedule.getEpisodeTitle(), program.getEpisodeTitle())
-                        || !Objects.equals(schedule.getProgramDescription(),
-                        program.getDescription())
-                        || !Objects.equals(schedule.getProgramLongDescription(),
-                        program.getLongDescription())
-                        || !Objects.equals(schedule.getProgramPosterArtUri(),
-                        program.getPosterArtUri())
-                        || !Objects.equals(schedule.getProgramThumbnailUri(),
-                        program.getThumbnailUri())) {
+                        || !Objects.equals(
+                                schedule.getProgramDescription(), program.getDescription())
+                        || !Objects.equals(
+                                schedule.getProgramLongDescription(), program.getLongDescription())
+                        || !Objects.equals(
+                                schedule.getProgramPosterArtUri(), program.getPosterArtUri())
+                        || !Objects.equals(
+                                schedule.getProgramThumbnailUri(), program.getThumbnailUri())) {
                     mDataManager.updateScheduledRecording(builder.build());
                 }
                 if (!seriesRecordingsToUpdate.isEmpty()) {
@@ -349,7 +361,7 @@ public class DvrDbSync {
         private final long mProgramId;
 
         QueryProgramTask(long programId) {
-            super(mContext.getContentResolver(), programId);
+            super(mDbExecutor, mContext.getContentResolver(), programId);
             mProgramId = programId;
         }
 

@@ -42,3 +42,9 @@ on init && property:ro.boot.revision=MP1
 
 on boot && property:ro.build.type=userdebug
    write /sys/class/uio/uio1/device/rtel/rtel 1
+
+on property:persist.vendor.charge.stop.level=* && property:sys.all.modules.ready=1
+    write /sys/module/htc_battery/parameters/charge_stop_level ${persist.vendor.charge.stop.level}
+
+on property:persist.vendor.charge.start.level=* && property:sys.all.modules.ready=1
+    write /sys/module/htc_battery/parameters/charge_start_level ${persist.vendor.charge.start.level}

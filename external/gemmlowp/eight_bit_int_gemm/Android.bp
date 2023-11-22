@@ -15,6 +15,9 @@
 cc_defaults {
     name: "libbnnmlowp-defaults",
     cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-error=#warnings",
         "-Wno-unused-parameter",
         "-DGEMMLOWP_USE_META_FASTPATH",
     ],

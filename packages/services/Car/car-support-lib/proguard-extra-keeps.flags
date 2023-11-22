@@ -17,3 +17,7 @@
     public static ... createCluster(...);
     public static ... createCustomImageCluster(...);
 }
+
+-keep class android.support.car.CarManagerBase {
+  *;
+}

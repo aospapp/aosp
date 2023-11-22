@@ -17,9 +17,19 @@
 package android.systemui.cts;
 
 import static android.support.test.InstrumentationRegistry.getInstrumentation;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 
+import android.app.ActivityManager;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
+import android.support.test.InstrumentationRegistry;
 import android.util.Log;
+import android.view.KeyCharacterMap;
+import android.view.KeyEvent;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -57,6 +67,62 @@ public class LightBarTestBase {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+            }
+        }
+    }
+
+    private boolean hasVirtualNavigationBar() {
+        boolean hasBackKey = KeyCharacterMap.deviceHasKey(KeyEvent.KEYCODE_BACK);
+        boolean hasHomeKey = KeyCharacterMap.deviceHasKey(KeyEvent.KEYCODE_HOME);
+        return !hasBackKey || !hasHomeKey;
+    }
+
+    private boolean isRunningInVr() {
+        final Context context = InstrumentationRegistry.getContext();
+        final Configuration config = context.getResources().getConfiguration();
+        return (config.uiMode & Configuration.UI_MODE_TYPE_MASK)
+                == Configuration.UI_MODE_TYPE_VR_HEADSET;
+    }
+
+    private void assumeBasics() {
+        final PackageManager pm = getInstrumentation().getContext().getPackageManager();
+
+        // No bars on embedded devices.
+        assumeFalse(getInstrumentation().getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_EMBEDDED));
+
+        // No bars on TVs and watches.
+        assumeFalse(pm.hasSystemFeature(PackageManager.FEATURE_WATCH)
+                || pm.hasSystemFeature(PackageManager.FEATURE_TELEVISION)
+                || pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK));
+
+
+        // Non-highEndGfx devices don't do colored system bars.
+        assumeTrue(ActivityManager.isHighEndGfx());
+    }
+
+    protected void assumeHasColoredStatusBar() {
+        assumeBasics();
+
+        // No status bar when running in Vr
+        assumeFalse(isRunningInVr());
+    }
+
+    protected void assumeHasColorNavigationBar() {
+        assumeBasics();
+
+        // No virtual navigation bar, so no effect.
+        assumeTrue(hasVirtualNavigationBar());
+    }
+
+    protected void checkNavigationBarDivider(LightBarBaseActivity activity, int dividerColor) {
+        final Bitmap bitmap = takeNavigationBarScreenshot(activity);
+        int[] pixels = new int[bitmap.getHeight() * bitmap.getWidth()];
+        bitmap.getPixels(pixels, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
+        for (int col = 0; col < bitmap.getWidth(); col++) {
+            if (dividerColor != pixels[col]) {
+                dumpBitmap(bitmap);
+                fail("Invalid color exptected=" + dividerColor + " actual=" + pixels[col]);
             }
         }
     }

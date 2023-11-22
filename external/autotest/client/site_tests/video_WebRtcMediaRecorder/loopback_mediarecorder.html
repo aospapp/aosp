@@ -154,13 +154,21 @@ function testStartStopAndRecorderState() {
 // Tests that when MediaRecorder's start() function is called, some data is
 // made available by media recorder via dataavailable events, containing non
 // empty blob data.
-function testStartAndDataAvailable() {
+function testStartAndDataAvailable(type) {
   var videoSize = 0;
   var emptyBlobs = 0;
   var timeStamps = [];
+
+  if (!MediaRecorder.isTypeSupported(type)) {
+    // If the MIME type is not supported, there's nothing needed to test.
+    // Mark as success.
+    reportTestSuccess();
+    return;
+  }
+
   navigator.mediaDevices.getUserMedia(DEFAULT_CONSTRAINTS)
       .then(function(stream) {
-        return createAndStartMediaRecorder(stream, DEFAULT_RECORDER_MIME_TYPE);
+        return createAndStartMediaRecorder(stream, type);
       })
       .then(function(recorder) {
         // Save history of Blobs received via dataavailable.
@@ -183,7 +191,7 @@ function testStartAndDataAvailable() {
             ' empty blobs, there should be no such empty blobs.');
       })
       .catch(function(err) {
-        return failTest(err.toString());
+        return failTest(err.toString() + " MIME type: " + type);
       })
       .then(function() {
         reportTestSuccess();

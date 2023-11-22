@@ -20,7 +20,8 @@
 #include "field.h"
 
 #include "art_field-inl.h"
-#include "mirror/dex_cache-inl.h"
+#include "class-inl.h"
+#include "dex_cache-inl.h"
 
 namespace art {
 
@@ -30,7 +31,7 @@ template <PointerSize kPointerSize, bool kTransactionActive>
 inline mirror::Field* Field::CreateFromArtField(Thread* self, ArtField* field, bool force_resolve) {
   StackHandleScope<2> hs(self);
   // Try to resolve type before allocating since this is a thread suspension point.
-  Handle<mirror::Class> type = hs.NewHandle(field->GetType<true>());
+  Handle<mirror::Class> type = hs.NewHandle(field->ResolveType());
 
   if (type == nullptr) {
     if (force_resolve) {
@@ -85,6 +86,10 @@ inline void Field::SetDeclaringClass(ObjPtr<mirror::Class> c) {
 template<bool kTransactionActive>
 inline void Field::SetType(ObjPtr<mirror::Class> type) {
   SetFieldObject<kTransactionActive>(OFFSET_OF_OBJECT_MEMBER(Field, type_), type);
+}
+
+inline Primitive::Type Field::GetTypeAsPrimitiveType() {
+  return GetType()->GetPrimitiveType();
 }
 
 }  // namespace mirror

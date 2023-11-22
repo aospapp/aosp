@@ -23,15 +23,20 @@
 #include "arch/instruction_set_features.h"
 #include "base/array_ref.h"
 #include "base/macros.h"
-#include "method_reference.h"
+#include "dex/method_reference.h"
 
 namespace art {
 
 class CompiledMethod;
-class LinkerPatch;
-class OutputStream;
+
+namespace debug {
+struct MethodDebugInfo;
+}  // namespace debug
 
 namespace linker {
+
+class LinkerPatch;
+class OutputStream;
 
 /**
  * @class RelativePatcherTargetProvider
@@ -113,6 +118,9 @@ class RelativePatcher {
   virtual void PatchBakerReadBarrierBranch(std::vector<uint8_t>* code,
                                            const LinkerPatch& patch,
                                            uint32_t patch_offset) = 0;
+
+  virtual std::vector<debug::MethodDebugInfo> GenerateThunkDebugInfo(
+      uint32_t executable_offset) = 0;
 
  protected:
   RelativePatcher()

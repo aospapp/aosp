@@ -18,7 +18,7 @@ package com.android.documentsui;
 
 import static com.android.documentsui.base.DocumentInfo.getCursorInt;
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
 import android.app.Activity;
 import android.app.LoaderManager.LoaderCallbacks;
@@ -51,15 +51,16 @@ import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
 import com.android.documentsui.dirlist.AnimationView;
 import com.android.documentsui.dirlist.AnimationView.AnimationType;
-import com.android.documentsui.dirlist.DocumentDetails;
 import com.android.documentsui.dirlist.FocusHandler;
 import com.android.documentsui.files.LauncherActivity;
 import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.roots.GetRootDocumentTask;
 import com.android.documentsui.roots.LoadRootTask;
 import com.android.documentsui.roots.ProvidersAccess;
-import com.android.documentsui.selection.Selection;
-import com.android.documentsui.selection.SelectionManager;
+import com.android.documentsui.selection.ContentLock;
+import com.android.documentsui.selection.MutableSelection;
+import com.android.documentsui.selection.SelectionHelper;
+import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
 import com.android.documentsui.sidebar.EjectRootTask;
 import com.android.documentsui.ui.Snackbars;
 
@@ -92,7 +93,7 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
     protected final ProvidersAccess mProviders;
     protected final DocumentsAccess mDocs;
     protected final FocusHandler mFocusHandler;
-    protected final SelectionManager mSelectionMgr;
+    protected final SelectionHelper mSelectionMgr;
     protected final SearchViewManager mSearchMgr;
     protected final Lookup<String, Executor> mExecutors;
     protected final Injector<?> mInjector;
@@ -101,7 +102,7 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
 
     private Runnable mDisplayStateChangedListener;
 
-    private DirectoryReloadLock mDirectoryReloadLock;
+    private ContentLock mContentLock;
 
     @Override
     public void registerDisplayStateChangedListener(Runnable l) {
@@ -226,10 +227,11 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
     }
 
     @Override
-    public boolean openDocument(DocumentDetails doc, @ViewType int type, @ViewType int fallback) {
+    public boolean openItem(ItemDetails doc, @ViewType int type, @ViewType int fallback) {
         throw new UnsupportedOperationException("Can't open document.");
     }
 
+    @Override
     public void showInspector(DocumentInfo doc) {
         throw new UnsupportedOperationException("Can't open properties.");
     }
@@ -354,6 +356,13 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
             if (!Objects.equals(mState.stack.getRoot(), stack.getRoot())) {
                 Log.w(TAG, "Provider returns " + stack.getRoot() + " rather than expected "
                         + mState.stack.getRoot());
+            }
+
+            final DocumentInfo top = stack.peek();
+            if (top.isArchive()) {
+                // Swap the zip file in original provider and the one provided by ArchiveProvider.
+                stack.pop();
+                stack.push(mDocs.getArchiveDocument(top.derivedUri));
             }
 
             mState.stack.reset();
@@ -524,13 +533,15 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
         loadRoot(Shared.getDefaultRootUri(mActivity));
     }
 
-    protected Selection getStableSelection() {
-        return mSelectionMgr.getSelection(new Selection());
+    protected MutableSelection getStableSelection() {
+        MutableSelection selection = new MutableSelection();
+        mSelectionMgr.copySelection(selection);
+        return selection;
     }
 
     @Override
-    public ActionHandler reset(DirectoryReloadLock reloadLock) {
-        mDirectoryReloadLock = reloadLock;
+    public ActionHandler reset(ContentLock reloadLock) {
+        mContentLock = reloadLock;
         mActivity.getLoaderManager().destroyLoader(LOADER_ID);
         return this;
     }
@@ -578,7 +589,7 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
                         contentsUri,
                         mState.sortModel,
                         mInjector.fileTypeLookup,
-                        mDirectoryReloadLock,
+                        mContentLock,
                         mSearchMgr.isSearching());
             }
         }

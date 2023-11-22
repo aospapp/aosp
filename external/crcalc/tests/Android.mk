@@ -21,7 +21,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := CRTests
-LOCAL_SDK_VERSION := 8
+LOCAL_SDK_VERSION := 19
 LOCAL_MODULE_TAGS := tests
 LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-java-files-under, ../src)
 # Empirically, LOCAL_INSTRUMENTATION_FOR doesn't work, perhaps because it

@@ -16,34 +16,38 @@
 
 package com.android.tradefed.testtype;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.tradefed.config.OptionSetter;
-import com.android.tradefed.result.ITestInvocationListener;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
-import junit.framework.TestCase;
+import com.android.tradefed.config.OptionSetter;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 
 import org.easymock.EasyMock;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class FakeTestTest extends TestCase {
+@RunWith(JUnit4.class)
+public class FakeTestTest {
 
     private FakeTest mTest = null;
     private ITestInvocationListener mListener = null;
     private OptionSetter mOption = null;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
+    @Before
     public void setUp() throws Exception {
-        super.setUp();
         mTest = new FakeTest();
         mOption = new OptionSetter(mTest);
         mListener = EasyMock.createStrictMock(ITestInvocationListener.class);
     }
 
+    @Test
     public void testIntOrDefault() throws IllegalArgumentException {
         assertEquals(55, mTest.toIntOrDefault(null, 55));
         assertEquals(45, mTest.toIntOrDefault("45", 55));
@@ -56,6 +60,7 @@ public class FakeTestTest extends TestCase {
         }
     }
 
+    @Test
     public void testDecodeRle() throws IllegalArgumentException {
         // testcases: input -> output
         final Map<String, String> t = new HashMap<String, String>();
@@ -81,6 +86,7 @@ public class FakeTestTest extends TestCase {
         }
     }
 
+    @Test
     public void testDecode() throws IllegalArgumentException {
         // testcases: input -> output
         final Map<String, String> t = new HashMap<String, String>();
@@ -128,10 +134,11 @@ public class FakeTestTest extends TestCase {
         }
     }
 
+    @Test
     public void testRun_empty() throws Exception {
         final String name = "com.moo.cow";
         mListener.testRunStarted(EasyMock.eq(name), EasyMock.eq(0));
-        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<Map<String, String>>anyObject());
+        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<HashMap<String, Metric>>anyObject());
 
         EasyMock.replay(mListener);
         mOption.setOptionValue("run", name, "");
@@ -139,11 +146,12 @@ public class FakeTestTest extends TestCase {
         EasyMock.verify(mListener);
     }
 
+    @Test
     public void testRun_simplePass() throws Exception {
         final String name = "com.moo.cow";
         mListener.testRunStarted(EasyMock.eq(name), EasyMock.eq(1));
         testPassExpectations(mListener, name, 1);
-        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<Map<String, String>>anyObject());
+        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<HashMap<String, Metric>>anyObject());
 
         EasyMock.replay(mListener);
         mOption.setOptionValue("run", name, "P");
@@ -151,11 +159,12 @@ public class FakeTestTest extends TestCase {
         EasyMock.verify(mListener);
     }
 
+    @Test
     public void testRun_simpleFail() throws Exception {
         final String name = "com.moo.cow";
         mListener.testRunStarted(EasyMock.eq(name), EasyMock.eq(1));
         testFailExpectations(mListener, name, 1);
-        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<Map<String, String>>anyObject());
+        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<HashMap<String, Metric>>anyObject());
 
         EasyMock.replay(mListener);
         mOption.setOptionValue("run", name, "F");
@@ -163,6 +172,7 @@ public class FakeTestTest extends TestCase {
         EasyMock.verify(mListener);
     }
 
+    @Test
     public void testRun_basicSequence() throws Exception {
         final String name = "com.moo.cow";
         int i = 1;
@@ -170,7 +180,7 @@ public class FakeTestTest extends TestCase {
         testPassExpectations(mListener, name, i++);
         testFailExpectations(mListener, name, i++);
         testPassExpectations(mListener, name, i++);
-        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<Map<String, String>>anyObject());
+        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<HashMap<String, Metric>>anyObject());
 
         EasyMock.replay(mListener);
         mOption.setOptionValue("run", name, "PFP");
@@ -178,6 +188,7 @@ public class FakeTestTest extends TestCase {
         EasyMock.verify(mListener);
     }
 
+    @Test
     public void testRun_basicParens() throws Exception {
         final String name = "com.moo.cow";
         int i = 1;
@@ -186,7 +197,7 @@ public class FakeTestTest extends TestCase {
         testFailExpectations(mListener, name, i++);
         testPassExpectations(mListener, name, i++);
         testFailExpectations(mListener, name, i++);
-        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<Map<String, String>>anyObject());
+        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<HashMap<String, Metric>>anyObject());
 
         EasyMock.replay(mListener);
         mOption.setOptionValue("run", name, "(PF)2");
@@ -194,6 +205,7 @@ public class FakeTestTest extends TestCase {
         EasyMock.verify(mListener);
     }
 
+    @Test
     public void testRun_recursiveParens() throws Exception {
         final String name = "com.moo.cow";
         int i = 1;
@@ -210,7 +222,7 @@ public class FakeTestTest extends TestCase {
         testPassExpectations(mListener, name, i++);
         testFailExpectations(mListener, name, i++);
 
-        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<Map<String, String>>anyObject());
+        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<HashMap<String, Metric>>anyObject());
 
         EasyMock.replay(mListener);
         mOption.setOptionValue("run", name, "((PF)2)2");
@@ -218,26 +230,27 @@ public class FakeTestTest extends TestCase {
         EasyMock.verify(mListener);
     }
 
+    @Test
     public void testMultiRun() throws Exception {
         final String name1 = "com.moo.cow";
         int i = 1;
         mListener.testRunStarted(EasyMock.eq(name1), EasyMock.eq(2));
         testPassExpectations(mListener, name1, i++);
         testFailExpectations(mListener, name1, i++);
-        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<Map<String, String>>anyObject());
+        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<HashMap<String, Metric>>anyObject());
 
         final String name2 = "com.quack.duck";
         i = 1;
         mListener.testRunStarted(EasyMock.eq(name2), EasyMock.eq(2));
         testFailExpectations(mListener, name2, i++);
         testPassExpectations(mListener, name2, i++);
-        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<Map<String, String>>anyObject());
+        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<HashMap<String, Metric>>anyObject());
 
         final String name3 = "com.oink.pig";
         i = 1;
         mListener.testRunStarted(EasyMock.eq(name3), EasyMock.eq(0));
         // empty run
-        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<Map<String, String>>anyObject());
+        mListener.testRunEnded(EasyMock.eq(0l), EasyMock.<HashMap<String, Metric>>anyObject());
 
         EasyMock.replay(mListener);
         mOption.setOptionValue("run", name1, "PF");
@@ -250,18 +263,18 @@ public class FakeTestTest extends TestCase {
     private void testPassExpectations(ITestInvocationListener l, String klass,
             int idx) {
         final String name = String.format("testMethod%d", idx);
-        final TestIdentifier test = new TestIdentifier(klass, name);
+        final TestDescription test = new TestDescription(klass, name);
         l.testStarted(test);
-        l.testEnded(EasyMock.eq(test), EasyMock.<Map<String, String>>anyObject());
+        l.testEnded(EasyMock.eq(test), EasyMock.<HashMap<String, Metric>>anyObject());
     }
 
     private void testFailExpectations(ITestInvocationListener l, String klass,
             int idx) {
         final String name = String.format("testMethod%d", idx);
-        final TestIdentifier test = new TestIdentifier(klass, name);
+        final TestDescription test = new TestDescription(klass, name);
         l.testStarted(test);
         l.testFailed(EasyMock.eq(test), EasyMock.<String>anyObject());
-        l.testEnded(EasyMock.eq(test), EasyMock.<Map<String, String>>anyObject());
+        l.testEnded(EasyMock.eq(test), EasyMock.<HashMap<String, Metric>>anyObject());
     }
 }
 

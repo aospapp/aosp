@@ -17,9 +17,11 @@
 package android.system.helpers;
 
 import android.app.Instrumentation;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.os.SystemClock;
@@ -29,7 +31,6 @@ import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.Until;
-import android.system.helpers.ActivityHelper;
 import android.util.Log;
 
 import org.junit.Assert;
@@ -227,5 +228,19 @@ public class OverviewHelper {
                 mDevice.getDisplayHeight() - 120, 4);
         // Adding a sleep to allow the drag and drop animation to finish.
         Thread.sleep(TIMEOUT);
+    }
+
+    /**
+     * Returns whether recents (overview) is implemented in Launcher.
+     */
+    public static boolean isRecentsInLauncher() {
+        final PackageManager pm = InstrumentationRegistry.getInstrumentation().getTargetContext()
+                .getPackageManager();
+        final Resources res = Resources.getSystem();
+        int id = res.getIdentifier("config_recentsComponentName", "string", "android");
+        ComponentName recentsComponent = ComponentName.unflattenFromString(res.getString(id));
+        Intent intent = new Intent("android.intent.action.QUICKSTEP_SERVICE")
+                .setPackage(recentsComponent.getPackageName());
+        return pm.resolveService(intent, 0) != null;
     }
 }

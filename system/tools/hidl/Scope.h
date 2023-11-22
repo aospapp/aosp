@@ -21,19 +21,24 @@
 #include "NamedType.h"
 
 #include <map>
+#include <unordered_map>
 #include <vector>
 
 namespace android {
 
+struct Annotation;
+struct ConstantExpression;
 struct Formatter;
 struct Interface;
 struct LocalIdentifier;
 
 struct Scope : public NamedType {
-    Scope(const char* localName, const Location& location, Scope* parent);
+    Scope(const char* localName, const FQName& fullName, const Location& location, Scope* parent);
     virtual ~Scope();
 
-    bool addType(NamedType *type, std::string *errorMsg);
+    void addType(NamedType* type);
+
+    status_t validateUniqueNames() const;
 
     // lookup a type given an FQName.
     // Assume fqName.package(), fqName.version(), fqName.valueName() is empty.
@@ -48,38 +53,50 @@ struct Scope : public NamedType {
 
     bool containsInterfaces() const;
 
-    status_t emitTypeDeclarations(Formatter &out) const override;
-    status_t emitGlobalTypeDeclarations(Formatter &out) const override;
-    status_t emitGlobalHwDeclarations(Formatter &out) const override;
+    const std::vector<Annotation*>& annotations() const;
 
-    status_t emitJavaTypeDeclarations(
-            Formatter &out, bool atTopLevel) const override;
+    void setAnnotations(std::vector<Annotation*>* annotations);
 
-    status_t emitTypeDefinitions(
-            Formatter &out, const std::string prefix) const override;
+    std::vector<const Type*> getDefinedTypes() const override;
+
+    std::vector<const ConstantExpression*> getConstantExpressions() const override;
+
+    void topologicalReorder(const std::unordered_map<const Type*, size_t>& reversedOrder);
+
+    void emitTypeDeclarations(Formatter& out) const override;
+    void emitGlobalTypeDeclarations(Formatter& out) const override;
+    void emitPackageTypeDeclarations(Formatter& out) const override;
+    void emitPackageHwDeclarations(Formatter& out) const override;
+
+    void emitJavaTypeDeclarations(Formatter& out, bool atTopLevel) const override;
+
+    void emitTypeDefinitions(Formatter& out, const std::string& prefix) const override;
 
     const std::vector<NamedType *> &getSubTypes() const;
 
-    status_t emitVtsTypeDeclarations(Formatter &out) const override;
+    void emitVtsTypeDeclarations(Formatter& out) const override;
 
-    bool isJavaCompatible() const override;
-    bool containsPointer() const override;
+    bool deepIsJavaCompatible(std::unordered_set<const Type*>* visited) const override;
 
     void appendToExportedTypesVector(
             std::vector<const Type *> *exportedTypes) const override;
 
-private:
+   private:
     std::vector<NamedType *> mTypes;
     std::map<std::string, size_t> mTypeIndexByName;
+    std::vector<Annotation*> mAnnotations;
 
-    status_t forEachType(std::function<status_t(Type *)> func) const;
+    bool mTypeOrderChanged = false;
 
     DISALLOW_COPY_AND_ASSIGN(Scope);
 };
 
 struct RootScope : public Scope {
-    RootScope(const char* localName, const Location& location, Scope* parent);
+    RootScope(const char* localName, const FQName& fullName, const Location& location,
+              Scope* parent);
     virtual ~RootScope();
+
+    virtual status_t validate() const override;
 
     std::string typeName() const override;
 };
@@ -88,6 +105,11 @@ struct LocalIdentifier {
     LocalIdentifier();
     virtual ~LocalIdentifier();
     virtual bool isEnumValue() const;
+
+    const LocalIdentifier* resolve() const;
+    LocalIdentifier* resolve();
+
+    virtual ConstantExpression* constExpr() const;
 };
 
 }  // namespace android

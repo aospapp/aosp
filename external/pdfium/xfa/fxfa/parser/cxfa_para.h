@@ -1,4 +1,4 @@
-// Copyright 2016 PDFium Authors. All rights reserved.
+// Copyright 2017 PDFium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,23 +7,21 @@
 #ifndef XFA_FXFA_PARSER_CXFA_PARA_H_
 #define XFA_FXFA_PARSER_CXFA_PARA_H_
 
-#include "core/fxcrt/fx_system.h"
-#include "xfa/fxfa/parser/cxfa_data.h"
+#include "xfa/fxfa/parser/cxfa_node.h"
 
-class CXFA_Node;
-
-class CXFA_Para : public CXFA_Data {
+class CXFA_Para : public CXFA_Node {
  public:
-  explicit CXFA_Para(CXFA_Node* pNode);
+  CXFA_Para(CXFA_Document* doc, XFA_PacketType packet);
+  ~CXFA_Para() override;
 
-  int32_t GetHorizontalAlign();
-  int32_t GetVerticalAlign();
-  FX_FLOAT GetLineHeight();
-  FX_FLOAT GetMarginLeft();
-  FX_FLOAT GetMarginRight();
-  FX_FLOAT GetSpaceAbove();
-  FX_FLOAT GetSpaceBelow();
-  FX_FLOAT GetTextIndent();
+  XFA_AttributeEnum GetHorizontalAlign();
+  XFA_AttributeEnum GetVerticalAlign();
+  float GetLineHeight();
+  float GetMarginLeft();
+  float GetMarginRight();
+  float GetSpaceAbove();
+  float GetSpaceBelow();
+  float GetTextIndent();
 };
 
 #endif  // XFA_FXFA_PARSER_CXFA_PARA_H_

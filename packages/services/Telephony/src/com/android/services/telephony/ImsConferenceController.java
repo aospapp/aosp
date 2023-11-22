@@ -16,17 +16,16 @@
 
 package com.android.services.telephony;
 
-import com.android.ims.ImsReasonInfo;
-import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.PhoneConstants;
-import com.android.phone.PhoneUtils;
-
 import android.telecom.Conference;
+import android.telecom.Conferenceable;
 import android.telecom.Connection;
 import android.telecom.ConnectionService;
 import android.telecom.DisconnectCause;
-import android.telecom.Conferenceable;
 import android.telecom.PhoneAccountHandle;
+
+import com.android.internal.telephony.Phone;
+import com.android.internal.telephony.PhoneConstants;
+import com.android.phone.PhoneUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -357,6 +356,8 @@ public class ImsConferenceController {
         // from Telecom.  Instead we create a new instance and remove the old one from telecom.
         TelephonyConnection conferenceHostConnection = connection.cloneConnection();
         conferenceHostConnection.setVideoPauseSupported(connection.getVideoPauseSupported());
+        conferenceHostConnection.setManageImsConferenceCallSupported(
+                connection.isManageImsConferenceCallSupported());
 
         PhoneAccountHandle phoneAccountHandle = null;
 

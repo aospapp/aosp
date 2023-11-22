@@ -13,6 +13,7 @@ package android.icu.dev.test.bidi;
 import org.junit.Test;
 
 import android.icu.text.Bidi;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Regression test for doing transformations in context
@@ -20,6 +21,7 @@ import android.icu.text.Bidi;
  * @author Matitiahu Allouche
  */
 
+@MainTestShard
 public class TestContext extends BidiFmwk {
 
     private class ContextCase {

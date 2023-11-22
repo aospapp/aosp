@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"ບໍ່ມີ​ SIM ຫຼື SIM ຜິດພາດ"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"ບໍ່​ມີ​ເຄືອ​ຂ່າຍ​ເຊວ​ລູ​ລາ​ຢູ່"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"ການ​ໂທ​ອອກ​ຖືກ​ຈຳ​ກັດ​ໂດຍ FDN."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"ການ​ຂໍ DIAL ຖືກ​ປ່ຽນແປງ​ເປັນ​ການ​ຂໍ  USSD ແລ້ວ."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"ການ​ຂໍ DIAL ຖືກ​ປ່ຽນແປງ​ເປັນ​ການ​ຂໍ SS ແລ້ວ."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"ການ​ຂໍ DIAL ຖືກ​ປ່ຽນແປງ​ເປັນ​ການ​ຂໍ DIAL ກັບ​ເບີ​ອື່ນແລ້ວ."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"ປ່ຽນສາຍເປັນຄຳຂໍ USSD ແລ້ວ"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"ປ່ຽນສາຍເປັນຄຳຂໍ SS ແລ້ວ"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"ປ່ຽນເປັນເບີໂທອື່ນແລ້ວ"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"ປ່ຽນເປັນສາຍວິດີໂອແລ້ວ"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"ປ່ຽນການໂທວິດີໂອເປັນຄຳຂໍ SS ແລ້ວ"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"ປ່ຽນການໂທວິດີໂອເປັນຄຳຂໍ USSD ແລ້ວ"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"ປ່ຽນເປັນການໂທທຳມະດາແລ້ວ"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"ປ່ຽນເປັນເບີໂທອື່ນແລ້ວ"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"ບໍ່​ສາ​ມາດ​ໂທ​ອອກ​ໄດ້ ໃນ​ຂະ​ນະ​ທີ່​ການ​ຫ້າມ​ໂທ​ເປີດ​ຢູ່."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"ການ​ໂທ​ຖືກ​ຈຳ​ກັດ​ໂດຍ​ການ​ຄວບ​ຄຸມ​ການ​ເຂົ້າ​ຫາ."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"ການ​ໂທ​ສຸກ​ເສີນ​ຖືກ​ຈຳ​ກັດ​ໂດຍ​ການ​ຄວບ​ຄຸມ​ການ​ເຂົ້າ​ຫາ."</string>

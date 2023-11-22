@@ -78,7 +78,7 @@ TST_CLEANUP=cleanup
 shmmax_setup()
 {
 	shmmax=`cat /proc/sys/kernel/shmmax`
-	if [ $shmmax -lt $HUGEPAGESIZE ]; then
+	if [ $(echo "$shmmax < $HUGEPAGESIZE" |bc) -eq 1 ]; then
 		ROD echo "$HUGEPAGESIZE" \> /proc/sys/kernel/shmmax
 	fi
 }
@@ -506,7 +506,7 @@ setup_test()
 	# while there are distributions (RHEL7U0Beta for example) that sets
 	# it to 1.
 	orig_memory_use_hierarchy=$(cat /dev/memcg/memory.use_hierarchy)
-	if [ -z "orig_memory_use_hierarchy" ];then
+	if [ -z "$orig_memory_use_hierarchy" ];then
 		tst_resm TINFO "cat /dev/memcg/memory.use_hierarchy failed"
 	elif [ "$orig_memory_use_hierarchy" = "0" ];then
 		orig_memory_use_hierarchy=""

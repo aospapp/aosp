@@ -24,10 +24,12 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.Build.VERSION_CODES;
+import android.os.Build;
 import android.provider.CallLog.Calls;
+import android.provider.VoicemailContract.Voicemails;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.VisibleForTesting;
 import android.support.annotation.WorkerThread;
 import android.support.v4.os.UserManagerCompat;
 import android.telephony.PhoneNumberUtils;
@@ -35,30 +37,41 @@ import android.text.TextUtils;
 import com.android.dialer.app.R;
 import com.android.dialer.calllogutils.PhoneNumberDisplayUtil;
 import com.android.dialer.common.LogUtil;
+import com.android.dialer.common.database.Selection;
+import com.android.dialer.compat.android.provider.VoicemailCompat;
+import com.android.dialer.configprovider.ConfigProviderBindings;
 import com.android.dialer.location.GeoUtil;
 import com.android.dialer.phonenumbercache.ContactInfo;
 import com.android.dialer.phonenumbercache.ContactInfoHelper;
+import com.android.dialer.phonenumberutil.PhoneNumberHelper;
 import com.android.dialer.util.PermissionsUtil;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /** Helper class operating on call log notifications. */
+@TargetApi(Build.VERSION_CODES.M)
 public class CallLogNotificationsQueryHelper {
 
-  private final Context mContext;
-  private final NewCallsQuery mNewCallsQuery;
-  private final ContactInfoHelper mContactInfoHelper;
-  private final String mCurrentCountryIso;
+  @VisibleForTesting
+  static final String CONFIG_NEW_VOICEMAIL_NOTIFICATION_THRESHOLD_OFFSET =
+      "new_voicemail_notification_threshold";
+
+  private final Context context;
+  private final NewCallsQuery newCallsQuery;
+  private final ContactInfoHelper contactInfoHelper;
+  private final String currentCountryIso;
 
   CallLogNotificationsQueryHelper(
       Context context,
       NewCallsQuery newCallsQuery,
       ContactInfoHelper contactInfoHelper,
       String countryIso) {
-    mContext = context;
-    mNewCallsQuery = newCallsQuery;
-    mContactInfoHelper = contactInfoHelper;
-    mCurrentCountryIso = countryIso;
+    this.context = context;
+    this.newCallsQuery = newCallsQuery;
+    this.contactInfoHelper = contactInfoHelper;
+    currentCountryIso = countryIso;
   }
 
   /** Returns an instance of {@link CallLogNotificationsQueryHelper}. */
@@ -133,6 +146,10 @@ public class CallLogNotificationsQueryHelper {
     return new DefaultNewCallsQuery(context.getApplicationContext(), contentResolver);
   }
 
+  NewCallsQuery getNewCallsQuery() {
+    return newCallsQuery;
+  }
+
   /**
    * Get all voicemails with the "new" flag set to 1.
    *
@@ -140,7 +157,12 @@ public class CallLogNotificationsQueryHelper {
    */
   @Nullable
   public List<NewCall> getNewVoicemails() {
-    return mNewCallsQuery.query(Calls.VOICEMAIL_TYPE);
+    return newCallsQuery.query(
+        Calls.VOICEMAIL_TYPE,
+        System.currentTimeMillis()
+            - ConfigProviderBindings.get(context)
+                .getLong(
+                    CONFIG_NEW_VOICEMAIL_NOTIFICATION_THRESHOLD_OFFSET, TimeUnit.DAYS.toMillis(7)));
   }
 
   /**
@@ -150,7 +172,7 @@ public class CallLogNotificationsQueryHelper {
    */
   @Nullable
   public List<NewCall> getNewMissedCalls() {
-    return mNewCallsQuery.query(Calls.MISSED_TYPE);
+    return newCallsQuery.query(Calls.MISSED_TYPE);
   }
 
   /**
@@ -172,26 +194,26 @@ public class CallLogNotificationsQueryHelper {
   public ContactInfo getContactInfo(
       @Nullable String number, int numberPresentation, @Nullable String countryIso) {
     if (countryIso == null) {
-      countryIso = mCurrentCountryIso;
+      countryIso = currentCountryIso;
     }
 
     number = (number == null) ? "" : number;
     ContactInfo contactInfo = new ContactInfo();
     contactInfo.number = number;
-    contactInfo.formattedNumber = PhoneNumberUtils.formatNumber(number, countryIso);
+    contactInfo.formattedNumber = PhoneNumberHelper.formatNumber(context, number, countryIso);
     // contactInfo.normalizedNumber is not PhoneNumberUtils.normalizeNumber. Read ContactInfo.
     contactInfo.normalizedNumber = PhoneNumberUtils.formatNumberToE164(number, countryIso);
 
     // 1. Special number representation.
     contactInfo.name =
-        PhoneNumberDisplayUtil.getDisplayName(mContext, number, numberPresentation, false)
+        PhoneNumberDisplayUtil.getDisplayName(context, number, numberPresentation, false)
             .toString();
     if (!TextUtils.isEmpty(contactInfo.name)) {
       return contactInfo;
     }
 
     // 2. Look it up in the cache.
-    ContactInfo cachedContactInfo = mContactInfoHelper.lookupNumber(number, countryIso);
+    ContactInfo cachedContactInfo = contactInfoHelper.lookupNumber(number, countryIso);
 
     if (cachedContactInfo != null && !TextUtils.isEmpty(cachedContactInfo.name)) {
       return cachedContactInfo;
@@ -205,7 +227,7 @@ public class CallLogNotificationsQueryHelper {
       contactInfo.name = number;
     } else {
       // 5. Otherwise, it's unknown number.
-      contactInfo.name = mContext.getResources().getString(R.string.unknown);
+      contactInfo.name = context.getResources().getString(R.string.unknown);
     }
     return contactInfo;
   }
@@ -213,9 +235,24 @@ public class CallLogNotificationsQueryHelper {
   /** Allows determining the new calls for which a notification should be generated. */
   public interface NewCallsQuery {
 
+    long NO_THRESHOLD = Long.MAX_VALUE;
+
     /** Returns the new calls of a certain type for which a notification should be generated. */
     @Nullable
     List<NewCall> query(int type);
+
+    /**
+     * Returns the new calls of a certain type for which a notification should be generated.
+     *
+     * @param thresholdMillis New calls added before this timestamp will be considered old, or
+     *     {@link #NO_THRESHOLD} if threshold is not checked.
+     */
+    @Nullable
+    List<NewCall> query(int type, long thresholdMillis);
+
+    /** Returns a {@link NewCall} pointed by the {@code callsUri} */
+    @Nullable
+    NewCall query(Uri callsUri);
   }
 
   /** Information about a new voicemail. */
@@ -230,6 +267,7 @@ public class CallLogNotificationsQueryHelper {
     public final String transcription;
     public final String countryIso;
     public final long dateMs;
+    public final int transcriptionState;
 
     public NewCall(
         Uri callsUri,
@@ -240,7 +278,8 @@ public class CallLogNotificationsQueryHelper {
         String accountId,
         String transcription,
         String countryIso,
-        long dateMs) {
+        long dateMs,
+        int transcriptionState) {
       this.callsUri = callsUri;
       this.voicemailUri = voicemailUri;
       this.number = number;
@@ -250,6 +289,7 @@ public class CallLogNotificationsQueryHelper {
       this.transcription = transcription;
       this.countryIso = countryIso;
       this.dateMs = dateMs;
+      this.transcriptionState = transcriptionState;
     }
   }
 
@@ -270,6 +310,16 @@ public class CallLogNotificationsQueryHelper {
       Calls.COUNTRY_ISO,
       Calls.DATE
     };
+
+    private static final String[] PROJECTION_O;
+
+    static {
+      List<String> list = new ArrayList<>();
+      list.addAll(Arrays.asList(PROJECTION));
+      list.add(VoicemailCompat.TRANSCRIPTION_STATE);
+      PROJECTION_O = list.toArray(new String[list.size()]);
+    }
+
     private static final int ID_COLUMN_INDEX = 0;
     private static final int NUMBER_COLUMN_INDEX = 1;
     private static final int VOICEMAIL_URI_COLUMN_INDEX = 2;
@@ -279,33 +329,65 @@ public class CallLogNotificationsQueryHelper {
     private static final int TRANSCRIPTION_COLUMN_INDEX = 6;
     private static final int COUNTRY_ISO_COLUMN_INDEX = 7;
     private static final int DATE_COLUMN_INDEX = 8;
+    private static final int TRANSCRIPTION_STATE_COLUMN_INDEX = 9;
 
-    private final ContentResolver mContentResolver;
-    private final Context mContext;
+    private final ContentResolver contentResolver;
+    private final Context context;
 
     private DefaultNewCallsQuery(Context context, ContentResolver contentResolver) {
-      mContext = context;
-      mContentResolver = contentResolver;
+      this.context = context;
+      this.contentResolver = contentResolver;
     }
 
     @Override
     @Nullable
-    @TargetApi(VERSION_CODES.M)
+    @TargetApi(Build.VERSION_CODES.M)
     public List<NewCall> query(int type) {
-      if (!PermissionsUtil.hasPermission(mContext, Manifest.permission.READ_CALL_LOG)) {
+      return query(type, NO_THRESHOLD);
+    }
+
+    @Override
+    @Nullable
+    @TargetApi(Build.VERSION_CODES.M)
+    @SuppressWarnings("MissingPermission")
+    public List<NewCall> query(int type, long thresholdMillis) {
+      if (!PermissionsUtil.hasPermission(context, Manifest.permission.READ_CALL_LOG)) {
         LogUtil.w(
             "CallLogNotificationsQueryHelper.DefaultNewCallsQuery.query",
             "no READ_CALL_LOG permission, returning null for calls lookup.");
         return null;
       }
-      final String selection = String.format("%s = 1 AND %s = ?", Calls.NEW, Calls.TYPE);
-      final String[] selectionArgs = new String[] {Integer.toString(type)};
+      // A call is "new" when:
+      // NEW is 1. usually set when a new row is inserted
+      // TYPE matches the query type.
+      // IS_READ is not 1. A call might be backed up and restored, so it will be "new" to the
+      //   call log, but the user has already read it on another device.
+      Selection.Builder selectionBuilder =
+          Selection.builder()
+              .and(Selection.column(Calls.NEW).is("= 1"))
+              .and(Selection.column(Calls.TYPE).is("=", type))
+              .and(Selection.column(Calls.IS_READ).is("IS NOT 1"));
+
+      if (type == Calls.VOICEMAIL_TYPE) {
+        selectionBuilder.and(Selection.column(Voicemails.DELETED).is(" = 0"));
+      }
+
+      if (thresholdMillis != NO_THRESHOLD) {
+        selectionBuilder =
+            selectionBuilder.and(
+                Selection.column(Calls.DATE)
+                    .is("IS NULL")
+                    .buildUpon()
+                    .or(Selection.column(Calls.DATE).is(">=", thresholdMillis))
+                    .build());
+      }
+      Selection selection = selectionBuilder.build();
       try (Cursor cursor =
-          mContentResolver.query(
+          contentResolver.query(
               Calls.CONTENT_URI_WITH_VOICEMAIL,
-              PROJECTION,
-              selection,
-              selectionArgs,
+              (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ? PROJECTION_O : PROJECTION,
+              selection.getSelection(),
+              selection.getSelectionArgs(),
               Calls.DEFAULT_SORT_ORDER)) {
         if (cursor == null) {
           return null;
@@ -320,6 +402,33 @@ public class CallLogNotificationsQueryHelper {
             "CallLogNotificationsQueryHelper.DefaultNewCallsQuery.query",
             "exception when querying Contacts Provider for calls lookup");
         return null;
+      }
+    }
+
+    @Nullable
+    @Override
+    public NewCall query(Uri callsUri) {
+      if (!PermissionsUtil.hasPermission(context, Manifest.permission.READ_CALL_LOG)) {
+        LogUtil.w(
+            "CallLogNotificationsQueryHelper.DefaultNewCallsQuery.query",
+            "No READ_CALL_LOG permission, returning null for calls lookup.");
+        return null;
+      }
+      final String selection = String.format("%s = '%s'", Calls.VOICEMAIL_URI, callsUri.toString());
+      try (Cursor cursor =
+          contentResolver.query(
+              Calls.CONTENT_URI_WITH_VOICEMAIL,
+              (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ? PROJECTION_O : PROJECTION,
+              selection,
+              null,
+              null)) {
+        if (cursor == null) {
+          return null;
+        }
+        if (!cursor.moveToFirst()) {
+          return null;
+        }
+        return createNewCallsFromCursor(cursor);
       }
     }
 
@@ -339,7 +448,10 @@ public class CallLogNotificationsQueryHelper {
           cursor.getString(PHONE_ACCOUNT_ID_COLUMN_INDEX),
           cursor.getString(TRANSCRIPTION_COLUMN_INDEX),
           cursor.getString(COUNTRY_ISO_COLUMN_INDEX),
-          cursor.getLong(DATE_COLUMN_INDEX));
+          cursor.getLong(DATE_COLUMN_INDEX),
+          Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+              ? cursor.getInt(TRANSCRIPTION_STATE_COLUMN_INDEX)
+              : VoicemailCompat.TRANSCRIPTION_NOT_STARTED);
     }
   }
 }

@@ -19,14 +19,15 @@ package android.permission.cts;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Environment;
+import android.platform.test.annotations.AppModeFull;
 import android.system.ErrnoException;
-import android.util.Pair;
 import android.system.Os;
 import android.system.OsConstants;
 import android.system.StructStatVfs;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.test.suitebuilder.annotation.LargeTest;
+import android.util.Pair;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -56,6 +57,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Scanner;
 import java.util.Set;
 
 /**
@@ -64,6 +66,21 @@ import java.util.Set;
  * TODO: Combine this file with {@link android.os.cts.FileAccessPermissionTest}
  */
 public class FileSystemPermissionTest extends AndroidTestCase {
+
+    private int dumpable;
+
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        dumpable = Os.prctl(OsConstants.PR_GET_DUMPABLE, 0, 0, 0, 0);
+        Os.prctl(OsConstants.PR_SET_DUMPABLE, 1, 0, 0, 0);
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        Os.prctl(OsConstants.PR_SET_DUMPABLE, dumpable, 0, 0, 0);
+        super.tearDown();
+    }
 
     @MediumTest
     public void testCreateFileHasSanePermissions() throws Exception {
@@ -241,7 +258,7 @@ public class FileSystemPermissionTest extends AndroidTestCase {
     @MediumTest
     public void testDevQtaguidSane() throws Exception {
         File f = new File("/dev/xt_qtaguid");
-        assertTrue(f.canRead());
+        assertFalse(f.canRead());
         assertFalse(f.canWrite());
         assertFalse(f.canExecute());
 
@@ -252,8 +269,8 @@ public class FileSystemPermissionTest extends AndroidTestCase {
     @MediumTest
     public void testProcQtaguidCtrlSane() throws Exception {
         File f = new File("/proc/net/xt_qtaguid/ctrl");
-        assertTrue(f.canRead());
-        assertTrue(f.canWrite());
+        assertFalse(f.canRead());
+        assertFalse(f.canWrite());
         assertFalse(f.canExecute());
 
         assertFileOwnedBy(f, "root");
@@ -263,7 +280,7 @@ public class FileSystemPermissionTest extends AndroidTestCase {
     @MediumTest
     public void testProcQtaguidStatsSane() throws Exception {
         File f = new File("/proc/net/xt_qtaguid/stats");
-        assertTrue(f.canRead());
+        assertFalse(f.canRead());
         assertFalse(f.canWrite());
         assertFalse(f.canExecute());
 
@@ -271,18 +288,58 @@ public class FileSystemPermissionTest extends AndroidTestCase {
         assertFileOwnedByGroup(f, "net_bw_stats");
     }
 
-    @MediumTest
-    public void testProcSelfOomAdjSane() {
-        File f = new File("/proc/self/oom_adj");
-        assertFalse(f.canWrite());
-        assertFalse(f.canExecute());
+    private static int readInt(File f) throws FileNotFoundException {
+        try (Scanner s = new Scanner(f)) {
+            return s.nextInt();
+        }
+    }
+
+    private static boolean writeInt(File f, int value) throws IOException {
+        try (FileOutputStream os = new FileOutputStream(f)) {
+            try {
+                os.write(Integer.toString(value).getBytes());
+                return true;
+            } catch (IOException e) {
+                return false;
+            }
+        }
     }
 
     @MediumTest
-    public void testProcSelfOomScoreAdjSane() {
-        File f = new File("/proc/self/oom_score_adj");
-        assertFalse(f.canWrite());
+    public void testProcSelfOomAdjSane() throws IOException {
+        final int OOM_DISABLE = -17;
+
+        File f = new File("/proc/self/oom_adj");
+        assertTrue(f.canRead());
         assertFalse(f.canExecute());
+
+        int oom_adj = readInt(f);
+        assertNotSame("unprivileged processes should not be unkillable", OOM_DISABLE, oom_adj);
+        if (f.canWrite())
+            assertFalse("unprivileged processes should not be able to reduce their oom_adj value",
+                    writeInt(f, oom_adj - 1));
+    }
+
+    @MediumTest
+    public void testProcSelfOomScoreAdjSane() throws IOException {
+        final int OOM_SCORE_ADJ_MIN = -1000;
+
+        File f = new File("/proc/self/oom_score_adj");
+        assertTrue(f.canRead());
+        assertFalse(f.canExecute());
+
+        int oom_score_adj = readInt(f);
+        assertNotSame("unprivileged processes should not be unkillable", OOM_SCORE_ADJ_MIN, oom_score_adj);
+        if (f.canWrite()) {
+            assertFalse(
+                    "unprivileged processes should not be able to reduce their oom_score_adj value",
+                    writeInt(f, oom_score_adj - 1));
+            assertTrue(
+                    "unprivileged processes should be able to increase their oom_score_adj value",
+                    writeInt(f, oom_score_adj + 1));
+            assertTrue("unprivileged processes should be able to restore their oom_score_adj value",
+                    writeInt(f, oom_score_adj));
+        }
     }
 
     private static List<Pair<Long, Long>> mappedPageRanges() throws IOException {
@@ -326,7 +383,14 @@ public class FileSystemPermissionTest extends AndroidTestCase {
             byte bytes[] = new byte[SIZEOF_U64];
             ByteBuffer buf = ByteBuffer.wrap(bytes).order(ByteOrder.nativeOrder());
             int read = Os.read(pagemap, buf);
-            if (read != bytes.length)
+
+            if (read == 0)
+                // /proc/[pid]/maps may contain entries that are outside the process's VM space,
+                // like the [vectors] page on 32-bit ARM devices.  In this case, seek() succeeds but
+                // read() returns 0.  The kernel is telling us that there are no more pagemap
+                // entries to read, so we can stop here.
+                break;
+            else if (read != bytes.length)
                 throw new IOException("read(" + bytes.length + ") returned " + read);
 
             buf.position(0);
@@ -341,9 +405,6 @@ public class FileSystemPermissionTest extends AndroidTestCase {
     @MediumTest
     public void testProcSelfPagemapSane() throws ErrnoException, IOException {
         FileDescriptor pagemap = null;
-        int dumpable = Os.prctl(OsConstants.PR_GET_DUMPABLE, 0, 0, 0, 0);
-        Os.prctl(OsConstants.PR_SET_DUMPABLE, 1, 0, 0, 0);
-
         try {
             pagemap = Os.open("/proc/self/pagemap", OsConstants.O_RDONLY, 0);
 
@@ -360,11 +421,11 @@ public class FileSystemPermissionTest extends AndroidTestCase {
         } finally {
             if (pagemap != null)
                 Os.close(pagemap);
-            Os.prctl(OsConstants.PR_SET_DUMPABLE, dumpable, 0, 0, 0);
         }
     }
 
     @MediumTest
+    @AppModeFull(reason = "Instant Apps cannot access proc_net labeled files")
     public void testTcpDefaultRwndSane() throws Exception {
         File f = new File("/proc/sys/net/ipv4/tcp_default_init_rwnd");
         assertTrue(f.canRead());
@@ -805,7 +866,8 @@ public class FileSystemPermissionTest extends AndroidTestCase {
                 new File("/sys/fs/selinux/relabel"),
                 new File("/sys/fs/selinux/create"),
                 new File("/sys/fs/selinux/access"),
-                new File("/sys/fs/selinux/context")
+                new File("/sys/fs/selinux/context"),
+                new File("/sys/fs/selinux/validatetrans")
             ));
 
     @LargeTest
@@ -865,6 +927,21 @@ public class FileSystemPermissionTest extends AndroidTestCase {
     public void testRootMountedRO() throws Exception {
         StructStatVfs vfs = Os.statvfs("/");
         assertTrue("rootfs is not mounted read-only", (vfs.f_flag & OsConstants.ST_RDONLY) != 0);
+    }
+
+    public void testVendorMountedRO() throws Exception {
+        StructStatVfs vfs = Os.statvfs("/vendor");
+        assertTrue("/vendor is not mounted read-only", (vfs.f_flag & OsConstants.ST_RDONLY) != 0);
+    }
+
+    public void testOdmMountedRO() throws Exception {
+        StructStatVfs vfs = Os.statvfs("/odm");
+        assertTrue("/odm is not mounted read-only", (vfs.f_flag & OsConstants.ST_RDONLY) != 0);
+    }
+
+    public void testOemMountedRO() throws Exception {
+        StructStatVfs vfs = Os.statvfs("/oem");
+        assertTrue("/oem is not mounted read-only", (vfs.f_flag & OsConstants.ST_RDONLY) != 0);
     }
 
     public void testDataMountedNoSuidNoDev() throws Exception {

@@ -34,29 +34,18 @@
 #include "test.h"
 #include "safe_macros.h"
 #include "numa_helper.h"
-#include "linux_syscall_numbers.h"
+#include "lapi/syscalls.h"
 
 unsigned long get_max_node(void)
 {
 	unsigned long max_node = 0;
-#if HAVE_NUMA_H
-#if !defined(LIBNUMA_API_VERSION) || LIBNUMA_API_VERSION < 2
-	max_node = NUMA_NUM_NODES;
-	/*
-	 * NUMA_NUM_NODES is not reliable, libnuma >=2 is looking
-	 * at /proc/self/status to figure out correct number.
-	 * If buffer is not large enough get_mempolicy will fail with EINVAL.
-	 */
-	if (max_node < 1024)
-		max_node = 1024;
-#else
+#ifdef HAVE_NUMA_V2
 	max_node = numa_max_possible_node() + 1;
 #endif
-#endif /* HAVE_NUMA_H */
 	return max_node;
 }
 
-#if HAVE_NUMA_H
+#ifdef HAVE_NUMA_V2
 static void get_nodemask_allnodes(nodemask_t * nodemask, unsigned long max_node)
 {
 	unsigned long nodemask_size = max_node / 8;
@@ -65,7 +54,7 @@ static void get_nodemask_allnodes(nodemask_t * nodemask, unsigned long max_node)
 	struct stat st;
 
 	memset(nodemask, 0, nodemask_size);
-	for (i = 0; i < max_node; i++) {
+	for (i = 0; i < (int)max_node; i++) {
 		sprintf(fn, "/sys/devices/system/node/node%d", i);
 		if (stat(fn, &st) == 0)
 			nodemask_set(nodemask, i);
@@ -74,7 +63,7 @@ static void get_nodemask_allnodes(nodemask_t * nodemask, unsigned long max_node)
 
 static int filter_nodemask_mem(nodemask_t * nodemask, unsigned long max_node)
 {
-#if MPOL_F_MEMS_ALLOWED
+#ifdef MPOL_F_MEMS_ALLOWED
 	unsigned long nodemask_size = max_node / 8;
 	memset(nodemask, 0, nodemask_size);
 	/*
@@ -100,7 +89,7 @@ static int filter_nodemask_mem(nodemask_t * nodemask, unsigned long max_node)
 	 * old libnuma/kernel don't have MPOL_F_MEMS_ALLOWED, so let's assume
 	 * that we can use any node with memory > 0
 	 */
-	for (i = 0; i < max_node; i++) {
+	for (i = 0; i < (int)max_node; i++) {
 		if (!nodemask_isset(nodemask, i))
 			continue;
 		if (numa_node_size64(i, NULL) <= 0)
@@ -112,7 +101,7 @@ static int filter_nodemask_mem(nodemask_t * nodemask, unsigned long max_node)
 
 static int cpumask_has_cpus(char *cpumask, size_t len)
 {
-	int j;
+	unsigned int j;
 	for (j = 0; j < len; j++)
 		if (cpumask[j] == '\0')
 			return 0;
@@ -131,7 +120,7 @@ static void filter_nodemask_cpu(nodemask_t * nodemask, unsigned long max_node)
 	size_t len;
 	int i, ret;
 
-	for (i = 0; i < max_node; i++) {
+	for (i = 0; i < (int)max_node; i++) {
 		if (!nodemask_isset(nodemask, i))
 			continue;
 		sprintf(fn, "/sys/devices/system/node/node%d/cpumap", i);
@@ -145,7 +134,7 @@ static void filter_nodemask_cpu(nodemask_t * nodemask, unsigned long max_node)
 	}
 	free(cpumask);
 }
-#endif /* HAVE_NUMA_H */
+#endif /* HAVE_NUMA_V2 */
 
 /*
  * get_allowed_nodes_arr - get number and array of available nodes
@@ -163,7 +152,7 @@ static void filter_nodemask_cpu(nodemask_t * nodemask, unsigned long max_node)
 int get_allowed_nodes_arr(int flag, int *num_nodes, int **nodes)
 {
 	int ret = 0;
-#if HAVE_NUMA_H
+#ifdef HAVE_NUMA_V2
 	int i;
 	nodemask_t *nodemask = NULL;
 #endif
@@ -171,7 +160,7 @@ int get_allowed_nodes_arr(int flag, int *num_nodes, int **nodes)
 	if (nodes)
 		*nodes = NULL;
 
-#if HAVE_NUMA_H
+#ifdef HAVE_NUMA_V2
 	unsigned long max_node, nodemask_size;
 
 	if (numa_available() == -1)
@@ -200,7 +189,7 @@ int get_allowed_nodes_arr(int flag, int *num_nodes, int **nodes)
 		if ((flag & NH_CPUS) == NH_CPUS)
 			filter_nodemask_cpu(nodemask, max_node);
 
-		for (i = 0; i < max_node; i++) {
+		for (i = 0; i < (int)max_node; i++) {
 			if (nodemask_isset(nodemask, i)) {
 				if (nodes)
 					(*nodes)[*num_nodes] = i;
@@ -209,7 +198,7 @@ int get_allowed_nodes_arr(int flag, int *num_nodes, int **nodes)
 		}
 	} while (0);
 	free(nodemask);
-#endif
+#endif /* HAVE_NUMA_V2 */
 	return ret;
 }
 

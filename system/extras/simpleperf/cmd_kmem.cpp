@@ -113,7 +113,7 @@ struct SlabFormat {
 class SlabSampleTreeBuilder
     : public SampleTreeBuilder<SlabSample, SlabAccumulateInfo> {
  public:
-  SlabSampleTreeBuilder(SampleComparator<SlabSample> sample_comparator,
+  SlabSampleTreeBuilder(const SampleComparator<SlabSample>& sample_comparator,
                         ThreadTree* thread_tree)
       : SampleTreeBuilder(sample_comparator),
         thread_tree_(thread_tree),
@@ -545,8 +545,7 @@ bool KmemCommand::PrepareToBuildSampleTree() {
       slab_sample_tree_builder_.reset(
           new SlabSampleTreeBuilder(comparator, &thread_tree_));
       slab_sample_tree_builder_->SetCallChainSampleOptions(
-          accumulate_callchain_, print_callgraph_, !callgraph_show_callee_,
-          false);
+          accumulate_callchain_, print_callgraph_, !callgraph_show_callee_);
       sort_comparator.AddComparator(comparator);
       slab_sample_tree_sorter_.reset(new SlabSampleTreeSorter(sort_comparator));
       slab_sample_tree_displayer_.reset(new SlabSampleTreeDisplayer(displayer));

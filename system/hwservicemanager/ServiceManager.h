@@ -54,7 +54,9 @@ struct ServiceManager : public IServiceManager, hidl_death_recipient {
 
     virtual void serviceDied(uint64_t cookie, const wp<IBase>& who);
 private:
-    bool removeService(const wp<IBase>& who);
+    // if restrictToInstanceName is nullptr, remove all, otherwise only those services
+    // which match this instance name. Returns whether all instances were removed.
+    bool removeService(const wp<IBase>& who, const std::string* restrictToInstanceName);
     bool removePackageListener(const wp<IBase>& who);
     bool removeServiceListener(const wp<IBase>& who);
     size_t countExistingService() const;

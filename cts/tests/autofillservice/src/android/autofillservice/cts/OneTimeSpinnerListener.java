@@ -16,7 +16,7 @@
 
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.Helper.FILL_TIMEOUT_MS;
+import static android.autofillservice.cts.Timeouts.FILL_TIMEOUT;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -44,8 +44,8 @@ final class OneTimeSpinnerListener implements OnItemSelectedListener {
     }
 
     void assertAutoFilled() throws Exception {
-        final boolean set = latch.await(FILL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-        assertWithMessage("Timeout (%s ms) on Spinner %s", FILL_TIMEOUT_MS, name)
+        final boolean set = latch.await(FILL_TIMEOUT.ms(), TimeUnit.MILLISECONDS);
+        assertWithMessage("Timeout (%s ms) on Spinner %s", FILL_TIMEOUT.ms(), name)
             .that(set).isTrue();
         final int actual = spinner.getSelectedItemPosition();
         assertWithMessage("Wrong auto-fill value on Spinner %s", name)

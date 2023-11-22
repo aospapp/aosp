@@ -61,9 +61,10 @@ public class PhoneAccountUtils {
     public static final String TEST_SELF_MANAGED_PHONE_ACCOUNT2_LABEL = "CTSVerifier2";
 
     public static final PhoneAccountHandle TEST_SELF_MANAGED_PHONE_ACCOUNT_HANDLE_2 =
-            new PhoneAccountHandle(new ComponentName(
+        new PhoneAccountHandle(new ComponentName(
                     PassFailButtons.class.getPackage().getName(),
-                    CtsConnectionService.class.getName()), TEST_SELF_MAANGED_PHONE_ACCOUNT2_ID);
+                    CtsSelfManagedConnectionService.class.getName()),
+                TEST_SELF_MAANGED_PHONE_ACCOUNT2_ID);
     public static final PhoneAccount TEST_SELF_MANAGED_PHONE_ACCOUNT_2 = new PhoneAccount.Builder(
             TEST_SELF_MANAGED_PHONE_ACCOUNT_HANDLE_2, TEST_SELF_MANAGED_PHONE_ACCOUNT2_LABEL)
             .setAddress(TEST_SELF_MANAGED_PHONE_ACCOUNT_ADDRESS)

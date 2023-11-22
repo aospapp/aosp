@@ -8,5 +8,6 @@
         <int name="maxMessageSize" value="1048576" />
         <int name="maxImageWidth" value="2592" />
         <boolean name="voicemail_notification_persistent_bool" value="true" />
+        <boolean name="always_play_remote_hold_tone_bool" value="true" />
     </carrier_config>
 </carrier_config_list>

@@ -28,15 +28,11 @@
  *        an uninstantiated keyring
  */
 
-#include "config.h"
 #include <errno.h>
 #include <sys/types.h>
-#ifdef HAVE_KEYUTILS_H
-# include <keyutils.h>
-#endif
-#include "tst_test.h"
 
-#ifdef HAVE_KEYUTILS_H
+#include "tst_test.h"
+#include "lapi/keyctl.h"
 
 static void do_test(void)
 {
@@ -56,10 +52,5 @@ static void do_test(void)
 }
 
 static struct tst_test test = {
-	.tid = "keyctl03",
 	.test_all = do_test,
 };
-
-#else
-	TST_TEST_TCONF("keyutils.h does not exist");
-#endif /* HAVE_KEYUTILS_H */

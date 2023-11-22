@@ -25,7 +25,6 @@ import android.inputmethodservice.Keyboard.Key;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
-import android.view.inputmethod.cts.R;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

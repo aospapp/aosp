@@ -15,6 +15,13 @@
  */
 package com.android.settingslib.bluetooth;
 
+import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothCodecConfig;
 import android.bluetooth.BluetoothCodecStatus;
@@ -24,29 +31,16 @@ import android.content.Context;
 import android.content.res.Resources;
 
 import com.android.settingslib.R;
-import com.android.settingslib.TestConfig;
+import com.android.settingslib.wrapper.BluetoothA2dpWrapper;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
-
-import static com.google.common.truth.Truth.assertThat;
-
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION)
 public class A2dpProfileTest {
 
     @Mock Context mContext;
@@ -73,8 +67,8 @@ public class A2dpProfileTest {
         }).when(mAdapter).getProfileProxy(any(Context.class), any(), eq(BluetoothProfile.A2DP));
 
         mProfile = new A2dpProfile(mContext, mAdapter, mDeviceManager, mProfileManager);
-        mProfile.setWrapperFactory((service) -> { return mBluetoothA2dpWrapper; });
         mServiceListener.onServiceConnected(BluetoothProfile.A2DP, mBluetoothA2dp);
+        mProfile.setBluetoothA2dpWrapper(mBluetoothA2dpWrapper);
     }
 
     @Test
@@ -122,7 +116,7 @@ public class A2dpProfileTest {
         when(mBluetoothA2dp.getConnectionState(any())).thenReturn(
                 BluetoothProfile.STATE_CONNECTED);
         BluetoothCodecStatus status = mock(BluetoothCodecStatus.class);
-        when(mBluetoothA2dpWrapper.getCodecStatus()).thenReturn(status);
+        when(mBluetoothA2dpWrapper.getCodecStatus(mDevice)).thenReturn(status);
         BluetoothCodecConfig config = mock(BluetoothCodecConfig.class);
         when(status.getCodecConfig()).thenReturn(config);
         when(config.isMandatoryCodec()).thenReturn(false);
@@ -185,7 +179,7 @@ public class A2dpProfileTest {
         BluetoothCodecStatus status = mock(BluetoothCodecStatus.class);
         BluetoothCodecConfig config = mock(BluetoothCodecConfig.class);
         BluetoothCodecConfig[] configs = {config};
-        when(mBluetoothA2dpWrapper.getCodecStatus()).thenReturn(status);
+        when(mBluetoothA2dpWrapper.getCodecStatus(mDevice)).thenReturn(status);
         when(status.getCodecsSelectableCapabilities()).thenReturn(configs);
 
         when(config.isMandatoryCodec()).thenReturn(true);
@@ -200,7 +194,7 @@ public class A2dpProfileTest {
         BluetoothCodecStatus status = mock(BluetoothCodecStatus.class);
         BluetoothCodecConfig config = mock(BluetoothCodecConfig.class);
         BluetoothCodecConfig[] configs = {config};
-        when(mBluetoothA2dpWrapper.getCodecStatus()).thenReturn(status);
+        when(mBluetoothA2dpWrapper.getCodecStatus(mDevice)).thenReturn(status);
         when(status.getCodecsSelectableCapabilities()).thenReturn(configs);
 
         when(config.isMandatoryCodec()).thenReturn(false);

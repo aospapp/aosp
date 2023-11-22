@@ -60,17 +60,21 @@ public class DefaultAsynchronousChannelProvider {
      * Returns the default AsynchronousChannelProvider.
      */
     public static AsynchronousChannelProvider create() {
-        // Android-changed: Android is Linux based.
-        // String osname = AccessController
-        //    .doPrivileged(new GetPropertyAction("os.name"));
-        //
-        // if (osname.equals("SunOS"))
-        //     return new SolarisAsynchronousChannelProvider();
-        // if (osname.equals("Linux"))
+        // BEGIN Android-changed: Hardcode AsynchronousChannelProvider provider.
+        /*
+        String osname = AccessController
+            .doPrivileged(new GetPropertyAction("os.name"));
+        if (osname.equals("SunOS"))
+            return createProvider("sun.nio.ch.SolarisAsynchronousChannelProvider");
+        if (osname.equals("Linux"))
+            return createProvider("sun.nio.ch.LinuxAsynchronousChannelProvider");
+        if (osname.contains("OS X"))
+            return createProvider("sun.nio.ch.BsdAsynchronousChannelProvider");
+        if (osname.equals("AIX"))
+            return createProvider("sun.nio.ch.AixAsynchronousChannelProvider");
+        throw new InternalError("platform not recognized");
+        */
         return createProvider("sun.nio.ch.LinuxAsynchronousChannelProvider");
-        // if (osname.contains("OS X"))
-        //    return new BsdAsynchronousChannelProvider();
-        // throw new InternalError("platform not recognized");
+        // END Android-changed: Hardcode AsynchronousChannelProvider provider.
     }
-
 }

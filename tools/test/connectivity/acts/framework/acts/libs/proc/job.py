@@ -192,10 +192,13 @@ def run_async(command, env=None):
         A subprocess.Popen object representing the created subprocess.
 
     """
-    return subprocess.Popen(
+    proc = subprocess.Popen(
         command,
         env=env,
-        close_fds=True,
+        preexec_fn=os.setpgrp,
         shell=not isinstance(command, list),
         stdout=DEVNULL,
         stderr=subprocess.STDOUT)
+    logging.debug("command %s started with pid %s", command, proc.pid)
+    return proc
+

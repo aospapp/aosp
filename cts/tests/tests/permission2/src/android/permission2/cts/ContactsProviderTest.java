@@ -18,6 +18,7 @@
 package android.permission2.cts;
 
 import android.content.ContentValues;
+import android.platform.test.annotations.AppModeFull;
 import android.provider.ContactsContract;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -25,6 +26,7 @@ import android.test.suitebuilder.annotation.SmallTest;
 /**
  * Verify that deprecated contacts permissions are not enforced.
  */
+@AppModeFull(reason = "Instant apps cannot get the READ_CONTACTS/WRITE_CONTACTS permissions")
 public class ContactsProviderTest extends AndroidTestCase {
 
     /**

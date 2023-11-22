@@ -59,6 +59,7 @@
 #include <errno.h>
 #include <pwd.h>
 #include "test.h"
+#include "safe_macros.h"
 #include "move_pages_support.h"
 
 #define TEST_PAGES 2
@@ -111,7 +112,7 @@ int main(int argc, char **argv)
 
 	setup();
 
-#if HAVE_NUMA_MOVE_PAGES
+#ifdef HAVE_NUMA_V2
 	unsigned int i;
 	int lc;
 	unsigned int from_node;
@@ -185,7 +186,7 @@ err_free_pages:
 		free_shared_pages(pages, TEST_PAGES);
 	}
 #else
-	tst_resm(TCONF, "move_pages support not found.");
+	tst_resm(TCONF, "test requires libnuma >= 2 and it's development packages");
 #endif
 
 	cleanup();
@@ -210,10 +211,7 @@ void setup(void)
 		tst_brkm(TBROK, NULL, "'nobody' user not present");
 	}
 
-	if (seteuid(ltpuser->pw_uid) == -1) {
-		tst_brkm(TBROK, NULL, "setting uid to %d failed",
-			 ltpuser->pw_uid);
-	}
+	SAFE_SETEUID(NULL, ltpuser->pw_uid);
 
 	/* Pause if that option was specified
 	 * TEST_PAUSE contains the code to fork the test with the -c option.

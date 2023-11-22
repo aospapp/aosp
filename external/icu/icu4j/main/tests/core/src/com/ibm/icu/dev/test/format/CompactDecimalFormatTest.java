@@ -20,24 +20,26 @@ import java.text.AttributedCharacterIterator;
 import java.text.CharacterIterator;
 import java.text.FieldPosition;
 import java.text.ParsePosition;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import com.ibm.icu.dev.test.TestFmwk;
+import com.ibm.icu.impl.number.DecimalFormatProperties;
 import com.ibm.icu.text.CompactDecimalFormat;
 import com.ibm.icu.text.CompactDecimalFormat.CompactStyle;
-import com.ibm.icu.text.DecimalFormatSymbols;
+import com.ibm.icu.text.DecimalFormat;
+import com.ibm.icu.text.DecimalFormat.PropertySetter;
 import com.ibm.icu.text.NumberFormat;
-import com.ibm.icu.text.PluralRules;
 import com.ibm.icu.util.Currency;
 import com.ibm.icu.util.CurrencyAmount;
 import com.ibm.icu.util.ULocale;
 
+@RunWith(JUnit4.class)
 public class CompactDecimalFormatTest extends TestFmwk {
     Object[][] EnglishTestData = {
             // default is 2 digits of accuracy
@@ -61,11 +63,13 @@ public class CompactDecimalFormatTest extends TestFmwk {
             {1234567890123f, "1.2T"},
             {12345678901234f, "12T"},
             {123456789012345f, "120T"},
-            {12345678901234567890f, "12000000T"},
+            {12345678901234567890f, "12,000,000T"},
     };
 
     Object[][] SerbianTestDataShort = {
-            {1234, "1,2\u00A0\u0445\u0438\u0459."},
+            {1, "1"},
+            {12, "12"},
+            {123, "120"},
             {12345, "12\u00a0хиљ."},
             {20789, "21\u00a0хиљ."},
             {123456, "120\u00a0хиљ."},
@@ -82,6 +86,9 @@ public class CompactDecimalFormatTest extends TestFmwk {
     };
 
     Object[][] SerbianTestDataLong = {
+            {1, "1"},
+            {12, "12"},
+            {123, "120"},
             {1234, "1,2 хиљаде"},
             {12345, "12 хиљада"},
             {21789, "22 хиљаде"},
@@ -98,10 +105,13 @@ public class CompactDecimalFormatTest extends TestFmwk {
             {1234567890123f, "1,2 билиона"},
             {12345678901234f, "12 билиона"},
             {123456789012345f, "120 билиона"},
-            {1234567890123456f, "1.200 билиона"},
+            {1234567890123456f, "1200 билиона"},
     };
 
     Object[][] SerbianTestDataLongNegative = {
+            {-1, "-1"},
+            {-12, "-12"},
+            {-123, "-120"},
             {-1234, "-1,2 хиљаде"},
             {-12345, "-12 хиљада"},
             {-21789, "-22 хиљаде"},
@@ -118,10 +128,13 @@ public class CompactDecimalFormatTest extends TestFmwk {
             {-1234567890123f, "-1,2 билиона"},
             {-12345678901234f, "-12 билиона"},
             {-123456789012345f, "-120 билиона"},
-            {-1234567890123456f, "-1.200 билиона"},
+            {-1234567890123456f, "-1200 билиона"},
     };
 
     Object[][] JapaneseTestData = {
+            {1f, "1"},
+            {12f, "12"},
+            {123f, "120"},
             {1234f, "1200"},
             {12345f, "1.2万"},
             {123456f, "12万"},
@@ -136,11 +149,29 @@ public class CompactDecimalFormatTest extends TestFmwk {
             {123456789012345f, "120兆"},
     };
 
+    Object[][] ChineseTestData = {
+            {1f, "1"},
+            {12f, "12"},
+            {123f, "120"},
+            {1234f, "1200"},
+            {12345f, "1.2万"},
+            {123456f, "12万"},
+            {1234567f, "120万"},
+            {12345678f, "1200万"},
+            {123456789f, "1.2亿"},
+            {1234567890f, "12亿"},
+            {12345678901f, "120亿"},
+            {123456789012f, "1200亿"},
+            {1234567890123f, "1.2兆"},
+            {12345678901234f, "12兆"},
+            {123456789012345f, "120兆"},
+    };
+
     Object[][] ChineseCurrencyTestData = {
-            // The first one should really have a ￥ in front, but the CLDR data is
-            // incorrect.  See http://unicode.org/cldr/trac/ticket/9298 and update
-            // this test case when the CLDR ticket is fixed.
-            {new CurrencyAmount(1234f, Currency.getInstance("CNY")), "￥1.2千"},
+            {new CurrencyAmount(1f, Currency.getInstance("CNY")), "￥1"},
+            {new CurrencyAmount(12f, Currency.getInstance("CNY")), "￥12"},
+            {new CurrencyAmount(123f, Currency.getInstance("CNY")), "￥120"},
+            {new CurrencyAmount(1234f, Currency.getInstance("CNY")), "￥1200"},
             {new CurrencyAmount(12345f, Currency.getInstance("CNY")), "￥1.2万"},
             {new CurrencyAmount(123456f, Currency.getInstance("CNY")), "￥12万"},
             {new CurrencyAmount(1234567f, Currency.getInstance("CNY")), "￥120万"},
@@ -154,6 +185,9 @@ public class CompactDecimalFormatTest extends TestFmwk {
             {new CurrencyAmount(123456789012345f, Currency.getInstance("CNY")), "￥120兆"},
     };
     Object[][] GermanCurrencyTestData = {
+            {new CurrencyAmount(1f, Currency.getInstance("EUR")), "1 €"},
+            {new CurrencyAmount(12f, Currency.getInstance("EUR")), "12 €"},
+            {new CurrencyAmount(123f, Currency.getInstance("EUR")), "120 €"},
             {new CurrencyAmount(1234f, Currency.getInstance("EUR")), "1,2 Tsd. €"},
             {new CurrencyAmount(12345f, Currency.getInstance("EUR")), "12 Tsd. €"},
             {new CurrencyAmount(123456f, Currency.getInstance("EUR")), "120 Tsd. €"},
@@ -168,6 +202,9 @@ public class CompactDecimalFormatTest extends TestFmwk {
             {new CurrencyAmount(123456789012345f, Currency.getInstance("EUR")), "120 Bio. €"},
     };
     Object[][] EnglishCurrencyTestData = {
+            {new CurrencyAmount(1f, Currency.getInstance("USD")), "$1"},
+            {new CurrencyAmount(12f, Currency.getInstance("USD")), "$12"},
+            {new CurrencyAmount(123f, Currency.getInstance("USD")), "$120"},
             {new CurrencyAmount(1234f, Currency.getInstance("USD")), "$1.2K"},
             {new CurrencyAmount(12345f, Currency.getInstance("USD")), "$12K"},
             {new CurrencyAmount(123456f, Currency.getInstance("USD")), "$120K"},
@@ -183,6 +220,9 @@ public class CompactDecimalFormatTest extends TestFmwk {
     };
 
     Object[][] SwahiliTestData = {
+            {1f, "1"},
+            {12f, "12"},
+            {123f, "120"},
             {1234f, "elfu\u00a01.2"},
             {12345f, "elfu\u00a012"},
             {123456f, "elfu\u00A0120"},
@@ -194,10 +234,13 @@ public class CompactDecimalFormatTest extends TestFmwk {
             {123456789012f, "B120"},
             {1234567890123f, "T1.2"},
             {12345678901234f, "T12"},
-            {12345678901234567890f, "T12000000"},
+            {12345678901234567890f, "T12,000,000"},
     };
 
     Object[][] CsTestDataShort = {
+            {1, "1"},
+            {12, "12"},
+            {123, "120"},
             {1000, "1\u00a0tis."},
             {1500, "1,5\u00a0tis."},
             {5000, "5\u00a0tis."},
@@ -221,9 +264,12 @@ public class CompactDecimalFormatTest extends TestFmwk {
     };
 
     Object[][] SwahiliTestDataNegative = {
+            {-1f, "-1"},
+            {-12f, "-12"},
+            {-123f, "-120"},
             {-1234f, "elfu\u00a0-1.2"},
             {-12345f, "elfu\u00a0-12"},
-            {-123456f, "elfu\u00A0-120"},
+            {-123456f, "elfu\u00a0-120"},
             {-1234567f, "M-1.2"},
             {-12345678f, "M-12"},
             {-123456789f, "M-120"},
@@ -232,7 +278,7 @@ public class CompactDecimalFormatTest extends TestFmwk {
             {-123456789012f, "B-120"},
             {-1234567890123f, "T-1.2"},
             {-12345678901234f, "T-12"},
-            {-12345678901234567890f, "T-12000000"},
+            {-12345678901234567890f, "T-12,000,000"},
     };
 
     Object[][] TestACoreCompactFormatList = {
@@ -249,77 +295,81 @@ public class CompactDecimalFormatTest extends TestFmwk {
             {2000, "2Ks$s"},
     };
 
-    @Test
-    public void TestACoreCompactFormat() {
-        Map<String,String[][]> affixes = new HashMap();
-        affixes.put("one", new String[][] {
-                {"","",}, {"","",}, {"","",},
-                {"","K"}, {"","K"}, {"","K"},
-                {"","M"}, {"","M"}, {"","M"},
-                {"","B"}, {"","B"}, {"","B"},
-                {"","T"}, {"","T"}, {"","T"},
-        });
-        affixes.put("other", new String[][] {
-                {"","",}, {"","",}, {"","",},
-                {"","Ks"}, {"","Ks"}, {"","Ks"},
-                {"","Ms"}, {"","Ms"}, {"","Ms"},
-                {"","Bs"}, {"","Bs"}, {"","Bs"},
-                {"","Ts"}, {"","Ts"}, {"","Ts"},
-        });
+    // TODO(sffc): Re-write these tests for the new CompactDecimalFormat pipeline
 
-        Map<String,String[]> currencyAffixes = new HashMap();
-        currencyAffixes.put("one", new String[] {"", "$"});
-        currencyAffixes.put("other", new String[] {"", "$s"});
+//    @Test
+//    public void TestACoreCompactFormat() {
+//        Map<String,String[][]> affixes = new HashMap();
+//        affixes.put("one", new String[][] {
+//                {"","",}, {"","",}, {"","",},
+//                {"","K"}, {"","K"}, {"","K"},
+//                {"","M"}, {"","M"}, {"","M"},
+//                {"","B"}, {"","B"}, {"","B"},
+//                {"","T"}, {"","T"}, {"","T"},
+//        });
+//        affixes.put("other", new String[][] {
+//                {"","",}, {"","",}, {"","",},
+//                {"","Ks"}, {"","Ks"}, {"","Ks"},
+//                {"","Ms"}, {"","Ms"}, {"","Ms"},
+//                {"","Bs"}, {"","Bs"}, {"","Bs"},
+//                {"","Ts"}, {"","Ts"}, {"","Ts"},
+//        });
+//
+//        Map<String,String[]> currencyAffixes = new HashMap();
+//        currencyAffixes.put("one", new String[] {"", "$"});
+//        currencyAffixes.put("other", new String[] {"", "$s"});
+//
+//        long[] divisors = new long[] {
+//                0,0,0,
+//                1000, 1000, 1000,
+//                1000000, 1000000, 1000000,
+//                1000000000L, 1000000000L, 1000000000L,
+//                1000000000000L, 1000000000000L, 1000000000000L};
+//        long[] divisors_err = new long[] {
+//                0,0,0,
+//                13, 13, 13,
+//                1000000, 1000000, 1000000,
+//                1000000000L, 1000000000L, 1000000000L,
+//                1000000000000L, 1000000000000L, 1000000000000L};
+//        checkCore(affixes, null, divisors, TestACoreCompactFormatList);
+//        checkCore(affixes, currencyAffixes, divisors, TestACoreCompactFormatListCurrency);
+//        try {
+//            checkCore(affixes, null, divisors_err, TestACoreCompactFormatList);
+//        } catch(AssertionError e) {
+//            // Exception expected, thus return.
+//            return;
+//        }
+//        fail("Error expected but passed");
+//    }
 
-        long[] divisors = new long[] {
-                0,0,0,
-                1000, 1000, 1000,
-                1000000, 1000000, 1000000,
-                1000000000L, 1000000000L, 1000000000L,
-                1000000000000L, 1000000000000L, 1000000000000L};
-        long[] divisors_err = new long[] {
-                0,0,0,
-                13, 13, 13,
-                1000000, 1000000, 1000000,
-                1000000000L, 1000000000L, 1000000000L,
-                1000000000000L, 1000000000000L, 1000000000000L};
-        checkCore(affixes, null, divisors, TestACoreCompactFormatList);
-        checkCore(affixes, currencyAffixes, divisors, TestACoreCompactFormatListCurrency);
-        try {
-            checkCore(affixes, null, divisors_err, TestACoreCompactFormatList);
-        } catch(AssertionError e) {
-            // Exception expected, thus return.
-            return;
-        }
-        fail("Error expected but passed");
-    }
-
-    private void checkCore(Map<String, String[][]> affixes, Map<String, String[]> currencyAffixes, long[] divisors, Object[][] testItems) {
-        Collection<String> debugCreationErrors = new LinkedHashSet();
-        CompactDecimalFormat cdf = new CompactDecimalFormat(
-                "#,###.00",
-                DecimalFormatSymbols.getInstance(new ULocale("fr")),
-                CompactStyle.SHORT, PluralRules.createRules("one: j is 1 or f is 1"),
-                divisors, affixes, currencyAffixes,
-                debugCreationErrors
-                );
-        if (debugCreationErrors.size() != 0) {
-            for (String s : debugCreationErrors) {
-                errln("Creation error: " + s);
-            }
-        } else {
-            checkCdf("special cdf ", cdf, testItems);
-        }
-    }
+//    private void checkCore(Map<String, String[][]> affixes, Map<String, String[]> currencyAffixes, long[] divisors, Object[][] testItems) {
+//        Collection<String> debugCreationErrors = new LinkedHashSet();
+//        CompactDecimalFormat cdf = new CompactDecimalFormat(
+//                "#,###.00",
+//                DecimalFormatSymbols.getInstance(new ULocale("fr")),
+//                CompactStyle.SHORT, PluralRules.createRules("one: j is 1 or f is 1"),
+//                divisors, affixes, currencyAffixes,
+//                debugCreationErrors
+//                );
+//        if (debugCreationErrors.size() != 0) {
+//            for (String s : debugCreationErrors) {
+//                errln("Creation error: " + s);
+//            }
+//        } else {
+//            checkCdf("special cdf ", cdf, testItems);
+//        }
+//    }
 
     @Test
     public void TestDefaultSignificantDigits() {
-        // We are expecting two significant digits as default.
+        // We are expecting two significant digits for compact formats with one or two zeros,
+        // and rounded to the unit for compact formats with three or more zeros.
         CompactDecimalFormat cdf =
                 CompactDecimalFormat.getInstance(ULocale.ENGLISH, CompactStyle.SHORT);
+        assertEquals("Default significant digits", "123K", cdf.format(123456));
         assertEquals("Default significant digits", "12K", cdf.format(12345));
         assertEquals("Default significant digits", "1.2K", cdf.format(1234));
-        assertEquals("Default significant digits", "120", cdf.format(123));
+        assertEquals("Default significant digits", "123", cdf.format(123));
     }
 
     @Test
@@ -377,7 +427,12 @@ public class CompactDecimalFormatTest extends TestFmwk {
         checkLocale(ULocale.JAPANESE, CompactStyle.SHORT, JapaneseTestData);
     }
 
-    @Test
+     @Test
+    public void TestChineseShort() {
+        checkLocale(ULocale.CHINESE, CompactStyle.SHORT, ChineseTestData);
+    }
+
+   @Test
     public void TestSwahiliShort() {
         checkLocale(ULocale.forLanguageTag("sw"), CompactStyle.SHORT, SwahiliTestData);
     }
@@ -432,10 +487,11 @@ public class CompactDecimalFormatTest extends TestFmwk {
         CompactDecimalFormat cdf = CompactDecimalFormat.getInstance(
                 ULocale.ENGLISH, CompactStyle.LONG);
         BigInteger source_int = new BigInteger("31415926535897932384626433");
-        assertEquals("BigInteger format wrong: ", "31,000,000,000,000 trillion",
+        cdf.setMaximumFractionDigits(0);
+        assertEquals("BigInteger format wrong: ", "31,415,926,535,898 trillion",
                      cdf.format(source_int));
         BigDecimal source_dec = new BigDecimal(source_int);
-        assertEquals("BigDecimal format wrong: ", "31,000,000,000,000 trillion",
+        assertEquals("BigDecimal format wrong: ", "31,415,926,535,898 trillion",
                      cdf.format(source_dec));
     }
 
@@ -484,9 +540,6 @@ public class CompactDecimalFormatTest extends TestFmwk {
 
     @Test
     public void TestNordic() {
-        if (logKnownIssue("cldrbug:9465","CDF(12,000) for no_NO shouldn't be 12 (12K or similar)")) {
-            return;
-        }
         String result = CompactDecimalFormat.getInstance( new ULocale("no_NO"),
                 CompactDecimalFormat.CompactStyle.SHORT ).format(12000);
         assertNotEquals("CDF(12,000) for no_NO shouldn't be 12 (12K or similar)", "12", result);
@@ -531,6 +584,102 @@ public class CompactDecimalFormatTest extends TestFmwk {
     }
 
     @Test
+    public void TestLongShortFallback() {
+        // smn, dz have long but not short
+        // es_US, es_GT, es_419, ee have short but not long
+        // TODO: This test is out-of-date. The locales have more data as of ICU 60.
+        ULocale[] locs = new ULocale[] {
+            new ULocale("smn"),
+            new ULocale("es_US"),
+            new ULocale("es_GT"),
+            new ULocale("es_419"),
+            new ULocale("ee"),
+        };
+        double number = 12345.0;
+        // These expected values are the same in both ICU 58 and 59.
+        String[][] expectedShortLong = new String[][] {
+            { "12K", "12 tuhháát" },
+            { "12 K", "12 mil" },
+            { "12 k", "12 mil" },
+            { "12 k", "12 mil" },
+            { "12K", "akpe 12" },
+        };
+
+        for (int i=0; i<locs.length; i++) {
+            ULocale loc = locs[i];
+            String expectedShort = expectedShortLong[i][0];
+            String expectedLong = expectedShortLong[i][1];
+            CompactDecimalFormat cdfShort = CompactDecimalFormat.getInstance(loc, CompactStyle.SHORT);
+            CompactDecimalFormat cdfLong = CompactDecimalFormat.getInstance(loc, CompactStyle.LONG);
+            String actualShort = cdfShort.format(number);
+            String actualLong = cdfLong.format(number);
+            assertEquals("Short, locale " + loc, expectedShort, actualShort);
+            assertEquals("Long, locale " + loc, expectedLong, actualLong);
+        }
+    }
+
+    @Test
+    public void TestLocales() {
+        // Run a CDF over all locales to make sure there are no unexpected exceptions.
+        ULocale[] locs = ULocale.getAvailableLocales();
+        for (ULocale loc : locs) {
+            CompactDecimalFormat cdfShort = CompactDecimalFormat.getInstance(loc, CompactStyle.SHORT);
+            CompactDecimalFormat cdfLong = CompactDecimalFormat.getInstance(loc, CompactStyle.LONG);
+            for (double d = 12345.0; d > 0.01; d /= 10) {
+                String s1 = cdfShort.format(d);
+                String s2 = cdfLong.format(d);
+                assertNotNull("Short " + loc, s1);
+                assertNotNull("Long " + loc, s2);
+                assertNotEquals("Short " + loc, 0, s1.length());
+                assertNotEquals("Long " + loc, 0, s2.length());
+            }
+        }
+    }
+
+    @Test
+    public void TestDigitDisplay() {
+        CompactDecimalFormat cdf = CompactDecimalFormat.getInstance(ULocale.US, CompactStyle.SHORT);
+        cdf.setMinimumSignificantDigits(2);
+        cdf.setMaximumSignificantDigits(3);
+        String actual = cdf.format(70123.45678);
+        assertEquals("Should not display any extra fraction digits", "70.1K", actual);
+    }
+
+    @Test
+    public void TestLocaleGroupingForLargeNumbers() {
+        ULocale[] locs = {new ULocale("en"), new ULocale("it"), new ULocale("en_US_POSIX"), new ULocale("en-IN")};
+        String[] expecteds = {"5,800,000T", "5.800.000 Bln", "5800000T", "58,00,000T"};
+        for (int i=0; i<locs.length; i++) {
+            ULocale loc = locs[i];
+            String exp = expecteds[i];
+            CompactDecimalFormat cdf = CompactDecimalFormat.getInstance(loc, CompactStyle.SHORT);
+            String act = cdf.format(5.8e18);
+            assertEquals("Grouping sizes for very large numbers: " + loc, exp, act);
+        }
+    }
+
+    @Test
+    public void TestCustomData() {
+        final Map<String,Map<String,String>> customData = new HashMap<String,Map<String,String>>();
+        Map<String,String> inner = new HashMap<String,String>();
+        inner.put("one", "0 qwerty");
+        inner.put("other", "0 dvorak");
+        customData.put("1000", inner);
+        CompactDecimalFormat cdf = CompactDecimalFormat.getInstance(ULocale.ENGLISH, CompactStyle.SHORT);
+        cdf.setProperties(new PropertySetter() {
+            @Override
+            public void set(DecimalFormatProperties props) {
+                props.setCompactCustomData(customData);
+            }
+        });
+        assertEquals("Below custom range", "123", cdf.format(123));
+        assertEquals("Plural form one", "1 qwerty", cdf.format(1000));
+        assertEquals("Plural form other", "1.2 dvorak", cdf.format(1234));
+        assertEquals("Above custom range", "12 dvorak", cdf.format(12345));
+        assertEquals("Negative number", "-1 qwerty", cdf.format(-1000));
+    }
+
+    @Test
     public void TestBug12422() {
         CompactDecimalFormat cdf;
         String result;
@@ -551,7 +700,7 @@ public class CompactDecimalFormatTest extends TestFmwk {
         result = cdf.format(new CurrencyAmount(43000f, Currency.getInstance("USD")));
         assertEquals("CDF should correctly format 43000 with currency in 'ar'", "US$ ٤٣ ألف", result);
         result = cdf.format(new CurrencyAmount(-43000f, Currency.getInstance("USD")));
-        assertEquals("CDF should correctly format -43000 with currency in 'ar'", "US$ ؜-٤٣ ألف", result);
+        assertEquals("CDF should correctly format -43000 with currency in 'ar'", "؜-US$ ٤٣ ألف", result);
 
         // Extra locale with different positive/negative formats
         cdf = CompactDecimalFormat.getInstance(new ULocale("fi"), CompactDecimalFormat.CompactStyle.SHORT);
@@ -592,5 +741,52 @@ public class CompactDecimalFormatTest extends TestFmwk {
         cdf = CompactDecimalFormat.getInstance(ULocale.forLanguageTag("it"), CompactStyle.SHORT);
         result = cdf.format(new CurrencyAmount(123000, Currency.getInstance("EUR")));
         assertEquals("CDF should correctly format 123000 with currency in 'it'", "120000 €", result);
+    }
+
+    @Test
+    public void TestBug11319() {
+        if (logKnownIssue("11319", "CDF does not fall back from zh-Hant-HK to zh-Hant")) {
+            return;
+        }
+
+        CompactDecimalFormat cdf = CompactDecimalFormat.getInstance(new ULocale("zh-Hant-HK"), CompactStyle.SHORT);
+        String result = cdf.format(958000000L);
+        assertEquals("CDF should correctly format 958 million in zh-Hant-HK", "9.6億", result);
+    }
+
+    @Test
+    public void TestBug12975() {
+        ULocale locale = new ULocale("it");
+        CompactDecimalFormat cdf = CompactDecimalFormat.getInstance(locale, CompactStyle.SHORT);
+        String resultCdf = cdf.format(120000);
+        DecimalFormat df = (DecimalFormat) DecimalFormat.getInstance(locale);
+        String resultDefault = df.format(120000);
+        assertEquals("CompactDecimalFormat should use default pattern when compact pattern is unavailable",
+                     resultDefault, resultCdf);
+    }
+
+    @Test
+    public void TestBug11534() {
+        ULocale locale = new ULocale("pt_PT");
+        CompactDecimalFormat cdf = CompactDecimalFormat.getInstance(locale, CompactStyle.SHORT);
+        String result = cdf.format(1000);
+        assertEquals("pt_PT should fall back to pt", "1 mil", result);
+    }
+
+    @Test
+    public void TestBug12181() {
+        ULocale loc = ULocale.ENGLISH;
+        CompactDecimalFormat cdf = CompactDecimalFormat.getInstance(loc, CompactStyle.SHORT);
+        String s = cdf.format(-1500);
+        assertEquals("Should work with negative numbers", "-1.5K", s);
+    }
+
+    @Test
+    public void TestBug13156() {
+        ULocale loc = ULocale.ENGLISH;
+        CompactDecimalFormat cdf = CompactDecimalFormat.getInstance(loc, CompactStyle.SHORT);
+        cdf.setMaximumFractionDigits(1);
+        String result = cdf.format(0.01);
+        assertEquals("Should not throw exception on small number", "0", result);
     }
 }

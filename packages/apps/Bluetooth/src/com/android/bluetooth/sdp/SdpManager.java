@@ -19,8 +19,8 @@ import android.bluetooth.SdpMasRecord;
 import android.bluetooth.SdpMnsRecord;
 import android.bluetooth.SdpOppOpsRecord;
 import android.bluetooth.SdpPseRecord;
-import android.bluetooth.SdpSapsRecord;
 import android.bluetooth.SdpRecord;
+import android.bluetooth.SdpSapsRecord;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Message;
@@ -39,22 +39,22 @@ public class SdpManager {
 
     private static final boolean D = true;
     private static final boolean V = false;
-    private static final String TAG="SdpManager";
+    private static final String TAG = "SdpManager";
 
     // TODO: When changing PBAP to use this new API.
     //       Move the defines to the profile (PBAP already have the feature bits)
     /* PBAP repositories */
-    public static final byte PBAP_REPO_LOCAL        = 0x01<<0;
-    public static final byte PBAP_REPO_SIM          = 0x01<<1;
-    public static final byte PBAP_REPO_SPEED_DAIL   = 0x01<<2;
-    public static final byte PBAP_REPO_FAVORITES    = 0x01<<3;
+    public static final byte PBAP_REPO_LOCAL = 0x01 << 0;
+    public static final byte PBAP_REPO_SIM = 0x01 << 1;
+    public static final byte PBAP_REPO_SPEED_DAIL = 0x01 << 2;
+    public static final byte PBAP_REPO_FAVORITES = 0x01 << 3;
 
     /* Variables to keep track of ongoing and queued search requests.
      * mTrackerLock must be held, when using/changing sSdpSearchTracker
      * and mSearchInProgress. */
     static SdpSearchTracker sSdpSearchTracker;
-    static boolean mSearchInProgress = false;
-    static Object mTrackerLock = new Object();
+    static boolean sSearchInProgress = false;
+    static final Object TRACKER_LOCK = new Object();
 
     /* The timeout to wait for reply from native. Should never fire. */
     private static final int SDP_INTENT_DELAY = 11000;
@@ -71,27 +71,30 @@ public class SdpManager {
         classInitNative();
     }
 
-    private native static void classInitNative();
+    private static native void classInitNative();
+
     private native void initializeNative();
+
     private native void cleanupNative();
+
     private native boolean sdpSearchNative(byte[] address, byte[] uuid);
 
-    private native int sdpCreateMapMasRecordNative(String serviceName, int masId,
-            int rfcommChannel, int l2capPsm, int version, int msgTypes, int features);
+    private native int sdpCreateMapMasRecordNative(String serviceName, int masId, int rfcommChannel,
+            int l2capPsm, int version, int msgTypes, int features);
 
-    private native int sdpCreateMapMnsRecordNative(String serviceName,
-            int rfcommChannel, int l2capPsm, int version, int features);
+    private native int sdpCreateMapMnsRecordNative(String serviceName, int rfcommChannel,
+            int l2capPsm, int version, int features);
 
     private native int sdpCreatePbapPseRecordNative(String serviceName, int rfcommChannel,
             int l2capPsm, int version, int repositories, int features);
 
-    private native int sdpCreateOppOpsRecordNative(String serviceName,
-            int rfcommChannel, int l2capPsm, int version, byte[] formats_list);
+    private native int sdpCreateOppOpsRecordNative(String serviceName, int rfcommChannel,
+            int l2capPsm, int version, byte[] formatsList);
 
     private native int sdpCreateSapsRecordNative(String serviceName, int rfcommChannel,
             int version);
 
-    private native boolean sdpRemoveSdpRecordNative(int record_id);
+    private native boolean sdpRemoveSdpRecordNative(int recordId);
 
 
     /* Inner class used for wrapping sdp search instance data */
@@ -100,22 +103,26 @@ public class SdpManager {
         private final ParcelUuid mUuid;
         private int mStatus = 0;
         private boolean mSearching;
+
         /* TODO: If we change the API to use another mechanism than intents for
          *       delivering the results, this would be the place to keep a list
          *       of the objects to deliver the results to. */
-        public SdpSearchInstance(int status, BluetoothDevice device, ParcelUuid uuid){
+        SdpSearchInstance(int status, BluetoothDevice device, ParcelUuid uuid) {
             this.mDevice = device;
             this.mUuid = uuid;
             this.mStatus = status;
             mSearching = true;
         }
+
         public BluetoothDevice getDevice() {
             return mDevice;
         }
+
         public ParcelUuid getUuid() {
             return mUuid;
         }
-        public int getStatus(){
+
+        public int getStatus() {
             return mStatus;
         }
 
@@ -130,11 +137,12 @@ public class SdpManager {
         }
 
         public void stopSearch() {
-            if(mSearching) {
+            if (mSearching) {
                 mHandler.removeMessages(MESSAGE_SDP_INTENT, this);
             }
             mSearching = false;
         }
+
         public boolean isSearching() {
             return mSearching;
         }
@@ -146,23 +154,23 @@ public class SdpManager {
      * As we use a mix of byte[] and object instances, this is more
      * efficient than implementing comparable. */
     class SdpSearchTracker {
-        private final ArrayList<SdpSearchInstance> list = new ArrayList<SdpSearchInstance>();
+        private final ArrayList<SdpSearchInstance> mList = new ArrayList<SdpSearchInstance>();
 
         void clear() {
-            list.clear();
+            mList.clear();
         }
 
-        boolean add(SdpSearchInstance inst){
-            return list.add(inst);
+        boolean add(SdpSearchInstance inst) {
+            return mList.add(inst);
         }
 
         boolean remove(SdpSearchInstance inst) {
-            return list.remove(inst);
+            return mList.remove(inst);
         }
 
         SdpSearchInstance getNext() {
-            if(list.size() > 0) {
-                return list.get(0);
+            if (mList.size() > 0) {
+                return mList.get(0);
             }
             return null;
         }
@@ -170,9 +178,9 @@ public class SdpManager {
         SdpSearchInstance getSearchInstance(byte[] address, byte[] uuidBytes) {
             String addressString = Utils.getAddressStringFromByte(address);
             ParcelUuid uuid = Utils.byteArrayToUuid(uuidBytes)[0];
-            for (SdpSearchInstance inst : list) {
-                if (inst.getDevice().getAddress().equals(addressString)
-                        && inst.getUuid().equals(uuid)) {
+            for (SdpSearchInstance inst : mList) {
+                if (inst.getDevice().getAddress().equals(addressString) && inst.getUuid()
+                        .equals(uuid)) {
                     return inst;
                 }
             }
@@ -181,9 +189,9 @@ public class SdpManager {
 
         boolean isSearching(BluetoothDevice device, ParcelUuid uuid) {
             String addressString = device.getAddress();
-            for (SdpSearchInstance inst : list) {
-                if (inst.getDevice().getAddress().equals(addressString)
-                        && inst.getUuid().equals(uuid)) {
+            for (SdpSearchInstance inst : mList) {
+                if (inst.getDevice().getAddress().equals(addressString) && inst.getUuid()
+                        .equals(uuid)) {
                     return inst.isSearching();
                 }
             }
@@ -198,7 +206,7 @@ public class SdpManager {
         /* This is only needed until intents are no longer used */
         sAdapterService = adapterService;
         initializeNative();
-        sNativeAvailable=true;
+        sNativeAvailable = true;
     }
 
 
@@ -212,31 +220,25 @@ public class SdpManager {
     }
 
     public void cleanup() {
-        if (sSdpSearchTracker !=null) {
-            synchronized(mTrackerLock) {
+        if (sSdpSearchTracker != null) {
+            synchronized (TRACKER_LOCK) {
                 sSdpSearchTracker.clear();
             }
         }
 
         if (sNativeAvailable) {
             cleanupNative();
-            sNativeAvailable=false;
+            sNativeAvailable = false;
         }
         sSdpManager = null;
     }
 
 
-    void sdpMasRecordFoundCallback(int status, byte[] address, byte[] uuid,
-            int masInstanceId,
-            int l2capPsm,
-            int rfcommCannelNumber,
-            int profileVersion,
-            int supportedFeatures,
-            int supportedMessageTypes,
-            String serviceName,
-            boolean moreResults) {
+    void sdpMasRecordFoundCallback(int status, byte[] address, byte[] uuid, int masInstanceId,
+            int l2capPsm, int rfcommCannelNumber, int profileVersion, int supportedFeatures,
+            int supportedMessageTypes, String serviceName, boolean moreResults) {
 
-        synchronized(mTrackerLock) {
+        synchronized (TRACKER_LOCK) {
             SdpSearchInstance inst = sSdpSearchTracker.getSearchInstance(address, uuid);
             SdpMasRecord sdpRecord = null;
             if (inst == null) {
@@ -244,29 +246,24 @@ public class SdpManager {
                 return;
             }
             inst.setStatus(status);
-            if(status == AbstractionLayer.BT_STATUS_SUCCESS) {
-                sdpRecord = new SdpMasRecord(masInstanceId,
-                                             l2capPsm,
-                                             rfcommCannelNumber,
-                                             profileVersion,
-                                             supportedFeatures,
-                                             supportedMessageTypes,
-                                             serviceName);
+            if (status == AbstractionLayer.BT_STATUS_SUCCESS) {
+                sdpRecord = new SdpMasRecord(masInstanceId, l2capPsm, rfcommCannelNumber,
+                        profileVersion, supportedFeatures, supportedMessageTypes, serviceName);
             }
-            if(D) Log.d(TAG, "UUID: " + Arrays.toString(uuid));
-            if(D) Log.d(TAG, "UUID in parcel: " + ((Utils.byteArrayToUuid(uuid))[0]).toString());
+            if (D) {
+                Log.d(TAG, "UUID: " + Arrays.toString(uuid));
+            }
+            if (D) {
+                Log.d(TAG, "UUID in parcel: " + ((Utils.byteArrayToUuid(uuid))[0]).toString());
+            }
             sendSdpIntent(inst, sdpRecord, moreResults);
         }
     }
 
-    void sdpMnsRecordFoundCallback(int status, byte[] address, byte[] uuid,
-            int l2capPsm,
-            int rfcommCannelNumber,
-            int profileVersion,
-            int supportedFeatures,
-            String serviceName,
+    void sdpMnsRecordFoundCallback(int status, byte[] address, byte[] uuid, int l2capPsm,
+            int rfcommCannelNumber, int profileVersion, int supportedFeatures, String serviceName,
             boolean moreResults) {
-        synchronized(mTrackerLock) {
+        synchronized (TRACKER_LOCK) {
 
             SdpSearchInstance inst = sSdpSearchTracker.getSearchInstance(address, uuid);
             SdpMnsRecord sdpRecord = null;
@@ -275,28 +272,24 @@ public class SdpManager {
                 return;
             }
             inst.setStatus(status);
-            if(status == AbstractionLayer.BT_STATUS_SUCCESS) {
-                sdpRecord = new SdpMnsRecord(l2capPsm,
-                                             rfcommCannelNumber,
-                                             profileVersion,
-                                             supportedFeatures,
-                                             serviceName);
+            if (status == AbstractionLayer.BT_STATUS_SUCCESS) {
+                sdpRecord = new SdpMnsRecord(l2capPsm, rfcommCannelNumber, profileVersion,
+                        supportedFeatures, serviceName);
             }
-            if(D) Log.d(TAG, "UUID: " + Arrays.toString(uuid));
-            if(D) Log.d(TAG, "UUID in parcel: " + ((Utils.byteArrayToUuid(uuid))[0]).toString());
+            if (D) {
+                Log.d(TAG, "UUID: " + Arrays.toString(uuid));
+            }
+            if (D) {
+                Log.d(TAG, "UUID in parcel: " + ((Utils.byteArrayToUuid(uuid))[0]).toString());
+            }
             sendSdpIntent(inst, sdpRecord, moreResults);
         }
     }
 
-    void sdpPseRecordFoundCallback(int status, byte[] address, byte[] uuid,
-                                        int l2capPsm,
-                                        int rfcommCannelNumber,
-                                        int profileVersion,
-                                        int supportedFeatures,
-                                        int supportedRepositories,
-                                        String serviceName,
-                                        boolean moreResults) {
-        synchronized(mTrackerLock) {
+    void sdpPseRecordFoundCallback(int status, byte[] address, byte[] uuid, int l2capPsm,
+            int rfcommCannelNumber, int profileVersion, int supportedFeatures,
+            int supportedRepositories, String serviceName, boolean moreResults) {
+        synchronized (TRACKER_LOCK) {
             SdpSearchInstance inst = sSdpSearchTracker.getSearchInstance(address, uuid);
             SdpPseRecord sdpRecord = null;
             if (inst == null) {
@@ -304,29 +297,25 @@ public class SdpManager {
                 return;
             }
             inst.setStatus(status);
-            if(status == AbstractionLayer.BT_STATUS_SUCCESS) {
-                sdpRecord = new SdpPseRecord(l2capPsm,
-                                             rfcommCannelNumber,
-                                             profileVersion,
-                                             supportedFeatures,
-                                             supportedRepositories,
-                                             serviceName);
+            if (status == AbstractionLayer.BT_STATUS_SUCCESS) {
+                sdpRecord = new SdpPseRecord(l2capPsm, rfcommCannelNumber, profileVersion,
+                        supportedFeatures, supportedRepositories, serviceName);
             }
-            if(D) Log.d(TAG, "UUID: " + Arrays.toString(uuid));
-            if(D) Log.d(TAG, "UUID in parcel: " + ((Utils.byteArrayToUuid(uuid))[0]).toString());
+            if (D) {
+                Log.d(TAG, "UUID: " + Arrays.toString(uuid));
+            }
+            if (D) {
+                Log.d(TAG, "UUID in parcel: " + ((Utils.byteArrayToUuid(uuid))[0]).toString());
+            }
             sendSdpIntent(inst, sdpRecord, moreResults);
         }
     }
 
-    void sdpOppOpsRecordFoundCallback(int status, byte[] address, byte[] uuid,
-            int l2capPsm,
-            int rfcommCannelNumber,
-            int profileVersion,
-            String serviceName,
-            byte[] formatsList,
+    void sdpOppOpsRecordFoundCallback(int status, byte[] address, byte[] uuid, int l2capPsm,
+            int rfcommCannelNumber, int profileVersion, String serviceName, byte[] formatsList,
             boolean moreResults) {
 
-        synchronized(mTrackerLock) {
+        synchronized (TRACKER_LOCK) {
             SdpSearchInstance inst = sSdpSearchTracker.getSearchInstance(address, uuid);
             SdpOppOpsRecord sdpRecord = null;
 
@@ -335,26 +324,24 @@ public class SdpManager {
                 return;
             }
             inst.setStatus(status);
-            if(status == AbstractionLayer.BT_STATUS_SUCCESS) {
-                sdpRecord = new SdpOppOpsRecord(serviceName,
-                                                rfcommCannelNumber,
-                                                l2capPsm,
-                                                profileVersion,
-                                                formatsList);
+            if (status == AbstractionLayer.BT_STATUS_SUCCESS) {
+                sdpRecord = new SdpOppOpsRecord(serviceName, rfcommCannelNumber, l2capPsm,
+                        profileVersion, formatsList);
             }
-            if(D) Log.d(TAG, "UUID: " + Arrays.toString(uuid));
-            if(D) Log.d(TAG, "UUID in parcel: " + ((Utils.byteArrayToUuid(uuid))[0]).toString());
+            if (D) {
+                Log.d(TAG, "UUID: " + Arrays.toString(uuid));
+            }
+            if (D) {
+                Log.d(TAG, "UUID in parcel: " + ((Utils.byteArrayToUuid(uuid))[0]).toString());
+            }
             sendSdpIntent(inst, sdpRecord, moreResults);
         }
     }
 
-    void sdpSapsRecordFoundCallback(int status, byte[] address, byte[] uuid,
-            int rfcommCannelNumber,
-            int profileVersion,
-            String serviceName,
-            boolean moreResults) {
+    void sdpSapsRecordFoundCallback(int status, byte[] address, byte[] uuid, int rfcommCannelNumber,
+            int profileVersion, String serviceName, boolean moreResults) {
 
-        synchronized(mTrackerLock) {
+        synchronized (TRACKER_LOCK) {
             SdpSearchInstance inst = sSdpSearchTracker.getSearchInstance(address, uuid);
             SdpSapsRecord sdpRecord = null;
             if (inst == null) {
@@ -363,20 +350,22 @@ public class SdpManager {
             }
             inst.setStatus(status);
             if (status == AbstractionLayer.BT_STATUS_SUCCESS) {
-                sdpRecord = new SdpSapsRecord(rfcommCannelNumber,
-                                             profileVersion,
-                                             serviceName);
+                sdpRecord = new SdpSapsRecord(rfcommCannelNumber, profileVersion, serviceName);
             }
-            if (D) Log.d(TAG, "UUID: " + Arrays.toString(uuid));
-            if (D) Log.d(TAG, "UUID in parcel: " + ((Utils.byteArrayToUuid(uuid))[0]).toString());
+            if (D) {
+                Log.d(TAG, "UUID: " + Arrays.toString(uuid));
+            }
+            if (D) {
+                Log.d(TAG, "UUID in parcel: " + ((Utils.byteArrayToUuid(uuid))[0]).toString());
+            }
             sendSdpIntent(inst, sdpRecord, moreResults);
         }
     }
 
     /* TODO: Test or remove! */
-    void sdpRecordFoundCallback(int status, byte[] address, byte[] uuid,
-            int size_record, byte[] record) {
-        synchronized(mTrackerLock) {
+    void sdpRecordFoundCallback(int status, byte[] address, byte[] uuid, int sizeRecord,
+            byte[] record) {
+        synchronized (TRACKER_LOCK) {
 
             SdpSearchInstance inst = sSdpSearchTracker.getSearchInstance(address, uuid);
             SdpRecord sdpRecord = null;
@@ -385,24 +374,31 @@ public class SdpManager {
                 return;
             }
             inst.setStatus(status);
-            if(status == AbstractionLayer.BT_STATUS_SUCCESS) {
-                if(D) Log.d(TAG, "sdpRecordFoundCallback: found a sdp record of size "
-                        + size_record );
-                if(D) Log.d(TAG, "Record:"+ Arrays.toString(record));
-                sdpRecord = new SdpRecord(size_record, record);
+            if (status == AbstractionLayer.BT_STATUS_SUCCESS) {
+                if (D) {
+                    Log.d(TAG, "sdpRecordFoundCallback: found a sdp record of size " + sizeRecord);
+                }
+                if (D) {
+                    Log.d(TAG, "Record:" + Arrays.toString(record));
+                }
+                sdpRecord = new SdpRecord(sizeRecord, record);
             }
-            if(D) Log.d(TAG, "UUID: " + Arrays.toString(uuid));
-            if(D) Log.d(TAG, "UUID in parcel: " + ((Utils.byteArrayToUuid(uuid))[0]).toString());
+            if (D) {
+                Log.d(TAG, "UUID: " + Arrays.toString(uuid));
+            }
+            if (D) {
+                Log.d(TAG, "UUID in parcel: " + ((Utils.byteArrayToUuid(uuid))[0]).toString());
+            }
             sendSdpIntent(inst, sdpRecord, false);
         }
     }
 
     public void sdpSearch(BluetoothDevice device, ParcelUuid uuid) {
-        if (sNativeAvailable == false) {
+        if (!sNativeAvailable) {
             Log.e(TAG, "Native not initialized!");
             return;
         }
-        synchronized (mTrackerLock) {
+        synchronized (TRACKER_LOCK) {
             if (sSdpSearchTracker.isSearching(device, uuid)) {
                 /* Search already in progress */
                 return;
@@ -421,25 +417,26 @@ public class SdpManager {
 
         SdpSearchInstance inst = sSdpSearchTracker.getNext();
 
-        if((inst != null) && (mSearchInProgress == false)) {
-            if(D) Log.d(TAG, "Starting search for UUID: "+ inst.getUuid());
-            mSearchInProgress = true;
+        if ((inst != null) && (!sSearchInProgress)) {
+            if (D) {
+                Log.d(TAG, "Starting search for UUID: " + inst.getUuid());
+            }
+            sSearchInProgress = true;
 
             inst.startSearch(); // Trigger timeout message
 
             sdpSearchNative(Utils.getBytesFromAddress(inst.getDevice().getAddress()),
-                                            Utils.uuidToByteArray(inst.getUuid()));
-        } // Else queue is empty.
-        else {
-            if(D) Log.d(TAG, "startSearch(): nextInst = " + inst +
-                    " mSearchInProgress = " + mSearchInProgress
-                    + " - search busy or queue empty.");
+                    Utils.uuidToByteArray(inst.getUuid()));
+        } else { // Else queue is empty.
+            if (D) {
+                Log.d(TAG, "startSearch(): nextInst = " + inst + " mSearchInProgress = "
+                        + sSearchInProgress + " - search busy or queue empty.");
+            }
         }
     }
 
     /* Caller must hold the mTrackerLock */
-    private void sendSdpIntent(SdpSearchInstance inst,
-            Parcelable record, boolean moreResults) {
+    private void sendSdpIntent(SdpSearchInstance inst, Parcelable record, boolean moreResults) {
 
         inst.stopSearch();
 
@@ -447,7 +444,9 @@ public class SdpManager {
 
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, inst.getDevice());
         intent.putExtra(BluetoothDevice.EXTRA_SDP_SEARCH_STATUS, inst.getStatus());
-        if (record != null)  intent.putExtra(BluetoothDevice.EXTRA_SDP_RECORD, record);
+        if (record != null) {
+            intent.putExtra(BluetoothDevice.EXTRA_SDP_RECORD, record);
+        }
         intent.putExtra(BluetoothDevice.EXTRA_UUID, inst.getUuid());
         /* TODO:  BLUETOOTH_ADMIN_PERM was private... change to callback interface.
          * Keep in mind that the MAP client needs to use this as well,
@@ -455,10 +454,10 @@ public class SdpManager {
          * part of the Bluetooth APK. */
         sAdapterService.sendBroadcast(intent, AdapterService.BLUETOOTH_ADMIN_PERM);
 
-        if(moreResults == false) {
+        if (!moreResults) {
             //Remove the outstanding UUID request
             sSdpSearchTracker.remove(inst);
-            mSearchInProgress = false;
+            sSearchInProgress = false;
             startSearch();
         }
     }
@@ -467,13 +466,13 @@ public class SdpManager {
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
-            case MESSAGE_SDP_INTENT:
-                SdpSearchInstance msgObj = (SdpSearchInstance)msg.obj;
-                Log.w(TAG, "Search timedout for UUID " + msgObj.getUuid());
-                synchronized (mTrackerLock) {
-                    sendSdpIntent(msgObj, null, false);
-                }
-                break;
+                case MESSAGE_SDP_INTENT:
+                    SdpSearchInstance msgObj = (SdpSearchInstance) msg.obj;
+                    Log.w(TAG, "Search timedout for UUID " + msgObj.getUuid());
+                    synchronized (TRACKER_LOCK) {
+                        sendSdpIntent(msgObj, null, false);
+                    }
+                    break;
             }
         }
     };
@@ -501,14 +500,13 @@ public class SdpManager {
      *          creation/destruction of BluetoothSockets, hence SDP record cleanup
      *          is a separate process.
      */
-    public int createMapMasRecord(String serviceName, int masId,
-            int rfcommChannel, int l2capPsm, int version,
-            int msgTypes, int features) {
-        if(sNativeAvailable == false) {
+    public int createMapMasRecord(String serviceName, int masId, int rfcommChannel, int l2capPsm,
+            int version, int msgTypes, int features) {
+        if (!sNativeAvailable) {
             throw new RuntimeException(TAG + " sNativeAvailable == false - native not initialized");
         }
-        return sdpCreateMapMasRecordNative(serviceName, masId, rfcommChannel,
-                l2capPsm, version, msgTypes, features);
+        return sdpCreateMapMasRecordNative(serviceName, masId, rfcommChannel, l2capPsm, version,
+                msgTypes, features);
     }
 
     /**
@@ -531,13 +529,12 @@ public class SdpManager {
      *          creation/destruction of BluetoothSockets, hence SDP record cleanup
      *          is a separate process.
      */
-    public int createMapMnsRecord(String serviceName, int rfcommChannel,
-            int l2capPsm, int version, int features) {
-        if(sNativeAvailable == false) {
+    public int createMapMnsRecord(String serviceName, int rfcommChannel, int l2capPsm, int version,
+            int features) {
+        if (!sNativeAvailable) {
             throw new RuntimeException(TAG + " sNativeAvailable == false - native not initialized");
         }
-        return sdpCreateMapMnsRecordNative(serviceName, rfcommChannel,
-                l2capPsm, version, features);
+        return sdpCreateMapMnsRecordNative(serviceName, rfcommChannel, l2capPsm, version, features);
     }
 
     /**
@@ -562,13 +559,13 @@ public class SdpManager {
      *          creation/destruction of BluetoothSockets, hence SDP record cleanup
      *          is a separate process.
      */
-    public int createPbapPseRecord(String serviceName, int rfcommChannel, int l2capPsm,
-                                   int version, int repositories, int features) {
-        if(sNativeAvailable == false) {
+    public int createPbapPseRecord(String serviceName, int rfcommChannel, int l2capPsm, int version,
+            int repositories, int features) {
+        if (!sNativeAvailable) {
             throw new RuntimeException(TAG + " sNativeAvailable == false - native not initialized");
         }
-        return sdpCreatePbapPseRecordNative(serviceName, rfcommChannel,
-                l2capPsm, version, repositories, features);
+        return sdpCreatePbapPseRecordNative(serviceName, rfcommChannel, l2capPsm, version,
+                repositories, features);
     }
 
     /**
@@ -591,13 +588,13 @@ public class SdpManager {
      *          creation/destruction of BluetoothSockets, hence SDP record cleanup
      *          is a separate process.
      */
-    public int createOppOpsRecord(String serviceName, int rfcommChannel, int l2capPsm,
-                                  int version, byte[] formatsList) {
-        if(sNativeAvailable == false) {
+    public int createOppOpsRecord(String serviceName, int rfcommChannel, int l2capPsm, int version,
+            byte[] formatsList) {
+        if (!sNativeAvailable) {
             throw new RuntimeException(TAG + " sNativeAvailable == false - native not initialized");
         }
-        return sdpCreateOppOpsRecordNative(serviceName, rfcommChannel,
-                 l2capPsm, version, formatsList);
+        return sdpCreateOppOpsRecordNative(serviceName, rfcommChannel, l2capPsm, version,
+                formatsList);
     }
 
     /**
@@ -616,22 +613,22 @@ public class SdpManager {
      *          is a separate process.
      */
     public int createSapsRecord(String serviceName, int rfcommChannel, int version) {
-        if (sNativeAvailable == false) {
+        if (!sNativeAvailable) {
             throw new RuntimeException(TAG + " sNativeAvailable == false - native not initialized");
         }
         return sdpCreateSapsRecordNative(serviceName, rfcommChannel, version);
     }
 
-     /**
-      * Remove a SDP record.
-      * When Bluetooth is disabled all records will be deleted, hence there
-      * is no need to call this function when bluetooth is disabled.
-      * @param recordId The Id returned by on of the createXxxXxxRecord() functions.
-      * @return TRUE if the record removal was initiated successfully. FALSE if the record
-      *         handle is not known/have already been removed.
-      */
-    public boolean removeSdpRecord(int recordId){
-        if(sNativeAvailable == false) {
+    /**
+     * Remove a SDP record.
+     * When Bluetooth is disabled all records will be deleted, hence there
+     * is no need to call this function when bluetooth is disabled.
+     * @param recordId The Id returned by on of the createXxxXxxRecord() functions.
+     * @return TRUE if the record removal was initiated successfully. FALSE if the record
+     *         handle is not known/have already been removed.
+     */
+    public boolean removeSdpRecord(int recordId) {
+        if (!sNativeAvailable) {
             throw new RuntimeException(TAG + " sNativeAvailable == false - native not initialized");
         }
         return sdpRemoveSdpRecordNative(recordId);

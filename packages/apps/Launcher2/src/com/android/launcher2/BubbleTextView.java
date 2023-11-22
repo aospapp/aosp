@@ -306,7 +306,7 @@ public class BubbleTextView extends TextView {
         // We enhance the shadow by drawing the shadow twice
         getPaint().setShadowLayer(SHADOW_LARGE_RADIUS, 0.0f, SHADOW_Y_OFFSET, SHADOW_LARGE_COLOUR);
         super.draw(canvas);
-        canvas.save(Canvas.CLIP_SAVE_FLAG);
+        canvas.save();
         canvas.clipRect(getScrollX(), getScrollY() + getExtendedPaddingTop(),
                 getScrollX() + getWidth(),
                 getScrollY() + getHeight(), Region.Op.INTERSECT);

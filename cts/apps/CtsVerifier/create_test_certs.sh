@@ -20,11 +20,15 @@ SUBJECT=\
 '/O=Android'\
 '/CN=localhost'
 PASSWORD='androidtest'
+SAN=\
+'DNS:localhost'
 
 echo "Creating directory '$CA_DIR'..."
 mkdir -p "$tmpdir"/"$CA_DIR"/newcerts \
     && echo '01' > "$tmpdir"/"$CA_DIR"/serial \
     && touch "$tmpdir"/"$CA_DIR"/index.txt
+cat /etc/ssl/openssl.cnf <(printf "\n[SAN]\nsubjectAltName=$SAN") \
+    > "$tmpdir"/openssl.conf
 
 echo "Generating CA certificate..."
 (cd "$tmpdir" \
@@ -52,6 +56,8 @@ echo "Generating user key..."
         -days 3650 \
         -out 'userkey.req' \
         -subj "$SUBJECT" \
+        -extensions SAN \
+        -config openssl.conf \
     && openssl pkcs8 \
         -topk8 \
         -outform DER \
@@ -68,6 +74,8 @@ echo "Generating user certificate..."
         -keyfile 'cakey.pem' \
         -days 3650 \
         -passin 'pass:'"$PASSWORD" \
+        -extensions SAN \
+        -config openssl.conf \
         -batch \
     && openssl x509 \
         -outform DER \

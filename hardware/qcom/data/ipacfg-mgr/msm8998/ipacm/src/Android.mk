@@ -39,6 +39,19 @@ ifeq ($(call is-board-platform-in-list,$(BOARD_IPAv3_LIST)),true)
 LOCAL_CFLAGS += -DFEATURE_IPA_V3
 endif
 
+LOCAL_CFLAGS += \
+        -Wall \
+        -Werror \
+        -Wno-constant-logical-operand \
+        -Wno-format \
+        -Wno-missing-field-initializers \
+        -Wno-sign-compare \
+        -Wno-sometimes-uninitialized \
+        -Wno-unused-parameter \
+        -Wno-unused-value \
+        -Wno-unused-variable \
+        -Wno-writable-strings \
+
 LOCAL_SRC_FILES := IPACM_Main.cpp \
 		IPACM_EvtDispatcher.cpp \
 		IPACM_Config.cpp \

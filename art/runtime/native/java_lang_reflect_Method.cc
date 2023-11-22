@@ -20,9 +20,9 @@
 
 #include "art_method-inl.h"
 #include "base/enums.h"
-#include "class_linker.h"
 #include "class_linker-inl.h"
-#include "dex_file_annotations.h"
+#include "class_linker.h"
+#include "dex/dex_file_annotations.h"
 #include "jni_internal.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
@@ -82,7 +82,7 @@ static jobjectArray Method_getExceptionTypes(JNIEnv* env, jobject javaMethod) {
 }
 
 static jobject Method_invoke(JNIEnv* env, jobject javaMethod, jobject javaReceiver,
-                             jobject javaArgs) {
+                             jobjectArray javaArgs) {
   ScopedFastNativeObjectAccess soa(env);
   return InvokeMethod(soa, javaMethod, javaReceiver, javaArgs);
 }

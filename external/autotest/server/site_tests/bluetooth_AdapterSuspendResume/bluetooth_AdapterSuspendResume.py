@@ -24,19 +24,6 @@ class bluetooth_AdapterSuspendResume(
         bluetooth_adapter_tests.BluetoothAdapterTests):
     """Server side bluetooth adapter suspend resume test."""
 
-    SUSPEND_TIME = 10
-
-    def suspend_resume(self, suspend_time=SUSPEND_TIME):
-        """Suspend the DUT for a while and then resume.
-
-        @param suspend_time: the suspend time in seconds.
-
-        """
-        logging.info('The DUT suspends for %d seconds...', suspend_time)
-        self.host.suspend(suspend_time=suspend_time)
-        logging.info('The DUT is waken up.')
-
-
     # ---------------------------------------------------------------
     # Definitions of all test cases
     # ---------------------------------------------------------------

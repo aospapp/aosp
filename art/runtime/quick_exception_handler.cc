@@ -19,7 +19,9 @@
 #include "arch/context.h"
 #include "art_method-inl.h"
 #include "base/enums.h"
-#include "dex_instruction.h"
+#include "base/logging.h"  // For VLOG_IS_ON.
+#include "dex/dex_file_types.h"
+#include "dex/dex_instruction.h"
 #include "entrypoints/entrypoint_utils.h"
 #include "entrypoints/quick/quick_entrypoints_enum.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
@@ -98,17 +100,17 @@ class CatchBlockStackVisitor FINAL : public StackVisitor {
  private:
   bool HandleTryItems(ArtMethod* method)
       REQUIRES_SHARED(Locks::mutator_lock_) {
-    uint32_t dex_pc = DexFile::kDexNoIndex;
+    uint32_t dex_pc = dex::kDexNoIndex;
     if (!method->IsNative()) {
       dex_pc = GetDexPc();
     }
-    if (dex_pc != DexFile::kDexNoIndex) {
+    if (dex_pc != dex::kDexNoIndex) {
       bool clear_exception = false;
       StackHandleScope<1> hs(GetThread());
       Handle<mirror::Class> to_find(hs.NewHandle((*exception_)->GetClass()));
       uint32_t found_dex_pc = method->FindCatchBlock(to_find, dex_pc, &clear_exception);
       exception_handler_->SetClearException(clear_exception);
-      if (found_dex_pc != DexFile::kDexNoIndex) {
+      if (found_dex_pc != dex::kDexNoIndex) {
         exception_handler_->SetHandlerMethod(method);
         exception_handler_->SetHandlerDexPc(found_dex_pc);
         exception_handler_->SetHandlerQuickFramePc(
@@ -141,14 +143,14 @@ class CatchBlockStackVisitor FINAL : public StackVisitor {
 
 void QuickExceptionHandler::FindCatch(ObjPtr<mirror::Throwable> exception) {
   DCHECK(!is_deoptimization_);
-  if (kDebugExceptionDelivery) {
-    mirror::String* msg = exception->GetDetailMessage();
-    std::string str_msg(msg != nullptr ? msg->ToModifiedUtf8() : "");
-    self_->DumpStack(LOG_STREAM(INFO) << "Delivering exception: " << exception->PrettyTypeOf()
-                     << ": " << str_msg << "\n");
-  }
   StackHandleScope<1> hs(self_);
   Handle<mirror::Throwable> exception_ref(hs.NewHandle(exception));
+  if (kDebugExceptionDelivery) {
+    ObjPtr<mirror::String> msg = exception_ref->GetDetailMessage();
+    std::string str_msg(msg != nullptr ? msg->ToModifiedUtf8() : "");
+    self_->DumpStack(LOG_STREAM(INFO) << "Delivering exception: " << exception_ref->PrettyTypeOf()
+                     << ": " << str_msg << "\n");
+  }
 
   // Walk the stack to find catch handler.
   CatchBlockStackVisitor visitor(self_, context_, &exception_ref, this);
@@ -165,10 +167,9 @@ void QuickExceptionHandler::FindCatch(ObjPtr<mirror::Throwable> exception) {
                 << line_number << ")";
     }
   }
-  if (clear_exception_) {
-    // Exception was cleared as part of delivery.
-    DCHECK(!self_->IsExceptionPending());
-  } else {
+  // Exception was cleared as part of delivery.
+  DCHECK(!self_->IsExceptionPending());
+  if (!clear_exception_) {
     // Put exception back in root set with clear throw location.
     self_->SetException(exception_ref.Get());
   }
@@ -221,7 +222,8 @@ void QuickExceptionHandler::SetCatchEnvironmentForOptimizedHandler(StackVisitor*
     self_->DumpStack(LOG_STREAM(INFO) << "Setting catch phis: ");
   }
 
-  const size_t number_of_vregs = handler_method_->GetCodeItem()->registers_size_;
+  CodeItemDataAccessor accessor(handler_method_->DexInstructionData());
+  const size_t number_of_vregs = accessor.RegistersSize();
   CodeInfo code_info = handler_method_header_->GetOptimizedCodeInfo();
   CodeInfoEncoding encoding = code_info.ExtractEncoding();
 
@@ -358,7 +360,8 @@ class DeoptimizeStackVisitor FINAL : public StackVisitor {
       const size_t frame_id = GetFrameId();
       ShadowFrame* new_frame = GetThread()->FindDebuggerShadowFrame(frame_id);
       const bool* updated_vregs;
-      const size_t num_regs = method->GetCodeItem()->registers_size_;
+      CodeItemDataAccessor accessor(method->DexInstructionData());
+      const size_t num_regs = accessor.RegistersSize();
       if (new_frame == nullptr) {
         new_frame = ShadowFrame::CreateDeoptimizedFrame(num_regs, nullptr, method, GetDexPc());
         updated_vregs = nullptr;
@@ -405,7 +408,8 @@ class DeoptimizeStackVisitor FINAL : public StackVisitor {
     uintptr_t native_pc_offset = method_header->NativeQuickPcOffset(GetCurrentQuickFramePc());
     CodeInfoEncoding encoding = code_info.ExtractEncoding();
     StackMap stack_map = code_info.GetStackMapForNativePcOffset(native_pc_offset, encoding);
-    const size_t number_of_vregs = m->GetCodeItem()->registers_size_;
+    CodeItemDataAccessor accessor(m->DexInstructionData());
+    const size_t number_of_vregs = accessor.RegistersSize();
     uint32_t register_mask = code_info.GetRegisterMaskOf(encoding, stack_map);
     BitMemoryRegion stack_mask = code_info.GetStackMaskOf(encoding, stack_map);
     DexRegisterMap vreg_map = IsInInlinedFrame()
@@ -533,21 +537,19 @@ void QuickExceptionHandler::DeoptimizeStack() {
 void QuickExceptionHandler::DeoptimizeSingleFrame(DeoptimizationKind kind) {
   DCHECK(is_deoptimization_);
 
-  if (VLOG_IS_ON(deopt) || kDebugExceptionDelivery) {
-    LOG(INFO) << "Single-frame deopting:";
-    DumpFramesWithType(self_, true);
-  }
-
   DeoptimizeStackVisitor visitor(self_, context_, this, true);
   visitor.WalkStack(true);
 
   // Compiled code made an explicit deoptimization.
   ArtMethod* deopt_method = visitor.GetSingleFrameDeoptMethod();
   DCHECK(deopt_method != nullptr);
-  LOG(INFO) << "Deoptimizing "
-            << deopt_method->PrettyMethod()
-            << " due to "
-            << GetDeoptimizationKindName(kind);
+  if (VLOG_IS_ON(deopt) || kDebugExceptionDelivery) {
+    LOG(INFO) << "Single-frame deopting: "
+              << deopt_method->PrettyMethod()
+              << " due to "
+              << GetDeoptimizationKindName(kind);
+    DumpFramesWithType(self_, /* details */ true);
+  }
   if (Runtime::Current()->UseJitCompilation()) {
     Runtime::Current()->GetJit()->GetCodeCache()->InvalidateCompiledCodeFor(
         deopt_method, visitor.GetSingleFrameDeoptQuickMethodHeader());

@@ -84,26 +84,6 @@ def send_media_passthrough_cmd(log,
     return verifyEventReceived(log, toDevice, expctEvent, timeout)
 
 
-def is_a2dp_connected(log, sink, source):
-    """
-    Convenience Function to see if the 2 devices are connected on
-    A2dp.
-    ToDo: Move to bt_test_utils if used in more places.
-    Args:
-        sink:       Audio Sink
-        source:     Audio Source
-    Returns:
-        True if Connected
-        False if Not connected
-    """
-    devices = sink.droid.bluetoothA2dpSinkGetConnectedDevices()
-    for device in devices:
-        log.info("A2dp Connected device {}".format(device["name"]))
-        if (device["address"] == source.droid.bluetoothGetLocalAddress()):
-            return True
-    return False
-
-
 def log_metadata(log, metadata):
     """
     Log the Metadata to the console.
@@ -154,7 +134,7 @@ def compare_metadata(log, metadata1, metadata2):
         return False
 
     if not (metadata1[MEDIA_KEY_NUM_TRACKS] == metadata2[MEDIA_KEY_NUM_TRACKS]
-            ):
+    ):
         log.info("Song Num Tracks do not match")
         return False
 

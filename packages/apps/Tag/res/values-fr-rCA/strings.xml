@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"Données relatives aux tags de communication NFC"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Coordonnées de ^1"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Cette application a besoin de l\'autorisation d\'accès au téléphone pour effectuer des appels. Vous pouvez gérer les autorisations des balises dans le menu Paramètres."</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Cette application a besoin de l\'autorisation d\'accès au stockage externe pour accéder aux fichiers. Vous pouvez gérer les autorisations des balises dans le menu Paramètres."</string>
 </resources>

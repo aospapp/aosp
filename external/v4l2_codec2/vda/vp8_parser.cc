@@ -4,6 +4,8 @@
 //
 // This file contains an implementation of a VP8 raw stream parser,
 // as defined in RFC 6386.
+// Note: ported from Chromium commit head: 2de6929
+
 
 #include "base/logging.h"
 #include "vp8_parser.h"
@@ -51,8 +53,7 @@ Vp8FrameHeader::Vp8FrameHeader() {
 Vp8Parser::Vp8Parser() : stream_(nullptr), bytes_left_(0) {
 }
 
-Vp8Parser::~Vp8Parser() {
-}
+Vp8Parser::~Vp8Parser() = default;
 
 bool Vp8Parser::ParseFrame(const uint8_t* ptr,
                            size_t frame_size,

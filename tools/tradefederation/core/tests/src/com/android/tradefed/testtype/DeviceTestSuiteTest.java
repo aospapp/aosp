@@ -15,22 +15,25 @@
  */
 package com.android.tradefed.testtype;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.result.ITestInvocationListener;
+import static org.junit.Assert.fail;
 
-import junit.framework.TestCase;
+import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.easymock.EasyMock;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Unit tests for {@link DeviceTestSuite}.
- */
-public class DeviceTestSuiteTest extends TestCase {
+/** Unit tests for {@link DeviceTestSuite}. */
+@RunWith(JUnit4.class)
+public class DeviceTestSuiteTest {
 
     public static class MockTest extends DeviceTestCase {
 
@@ -51,35 +54,31 @@ public class DeviceTestSuiteTest extends TestCase {
         }
     }
 
-    /**
-     * Verify that calling run on a DeviceTestSuite will run all test methods.
-     */
-    @SuppressWarnings("unchecked")
+    /** Verify that calling run on a DeviceTestSuite will run all test methods. */
+    @Test
     public void testRun_suite() throws Exception {
         DeviceTestSuite suite = new DeviceTestSuite();
         suite.addTestSuite(MockTest.class);
 
         ITestInvocationListener listener = EasyMock.createMock(ITestInvocationListener.class);
         listener.testRunStarted(DeviceTestSuite.class.getName(), 2);
-        final TestIdentifier test1 = new TestIdentifier(MockTest.class.getName(), "test1");
-        final TestIdentifier test2 = new TestIdentifier(MockTest.class.getName(), "test2");
+        final TestDescription test1 = new TestDescription(MockTest.class.getName(), "test1");
+        final TestDescription test2 = new TestDescription(MockTest.class.getName(), "test2");
         listener.testStarted(test1);
         Map<String, String> metrics = new HashMap<>();
         metrics.put("key1", "metric1");
-        listener.testEnded(test1, metrics);
+        listener.testEnded(test1, TfMetricProtoUtil.upgradeConvert(metrics));
         listener.testStarted(test2);
-        listener.testEnded(test2, Collections.EMPTY_MAP);
-        listener.testRunEnded(EasyMock.anyLong(), (Map<String, String>) EasyMock.anyObject());
+        listener.testEnded(test2, new HashMap<String, Metric>());
+        listener.testRunEnded(EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
         EasyMock.replay(listener);
 
         suite.run(listener);
         EasyMock.verify(listener);
     }
 
-    /**
-     * Verify that a device not available exception is thrown up.
-     */
-    @SuppressWarnings("unchecked")
+    /** Verify that a device not available exception is thrown up. */
+    @Test
     public void testRun_deviceNotAvail() {
         DeviceTestSuite suite = new DeviceTestSuite();
         suite.addTestSuite(MockAbortTest.class);
@@ -87,14 +86,14 @@ public class DeviceTestSuiteTest extends TestCase {
         // create a mock ITestInvocationListener, because results are easier to verify
         ITestInvocationListener listener = EasyMock.createMock(ITestInvocationListener.class);
 
-        final TestIdentifier test1 = new TestIdentifier(MockAbortTest.class.getName(), "test1");
+        final TestDescription test1 = new TestDescription(MockAbortTest.class.getName(), "test1");
         listener.testRunStarted(DeviceTestSuite.class.getName(), 1);
         listener.testStarted(test1);
         listener.testFailed(EasyMock.eq(test1),
                 EasyMock.contains(MockAbortTest.EXCEP_MSG));
-        listener.testEnded(test1, Collections.EMPTY_MAP);
+        listener.testEnded(test1, new HashMap<String, Metric>());
         listener.testRunFailed(EasyMock.contains(MockAbortTest.EXCEP_MSG));
-        listener.testRunEnded(EasyMock.anyLong(), (Map<String, String>) EasyMock.anyObject());
+        listener.testRunEnded(EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
         EasyMock.replay(listener);
         try {
             suite.run(listener);

@@ -26,23 +26,23 @@ import android.os.Handler;
 import android.os.Looper;
 import android.support.annotation.MainThread;
 import android.util.Log;
-
 import com.android.tv.common.SoftPreconditions;
-import com.android.tv.common.TvCommonConstants;
+import com.android.tv.common.actions.InputSetupActionUtils;
+import com.android.tv.common.experiments.Experiments;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.ChannelDataManager.Listener;
 import com.android.tv.data.epg.EpgFetcher;
-import com.android.tv.experiments.Experiments;
+import com.android.tv.data.epg.EpgInputWhiteList;
 import com.android.tv.util.SetupUtils;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
-
+import com.google.android.tv.partner.support.EpgContract;
 import java.util.concurrent.TimeUnit;
 
 /**
  * An activity to launch a TV input setup activity.
  *
- * <p> After setup activity is finished, all channels will be browsable.
+ * <p>After setup activity is finished, all channels will be browsable.
  */
 public class SetupPassthroughActivity extends Activity {
     private static final String TAG = "SetupPassthroughAct";
@@ -55,35 +55,45 @@ public class SetupPassthroughActivity extends Activity {
     private TvInputInfo mTvInputInfo;
     private Intent mActivityAfterCompletion;
     private boolean mEpgFetcherDuringScan;
+    private EpgInputWhiteList mEpgInputWhiteList;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         if (DEBUG) Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
-        ApplicationSingletons appSingletons = TvApplication.getSingletons(this);
-        TvInputManagerHelper inputManager = appSingletons.getTvInputManagerHelper();
+        TvSingletons tvSingletons = TvSingletons.getSingletons(this);
+        TvInputManagerHelper inputManager = tvSingletons.getTvInputManagerHelper();
         Intent intent = getIntent();
-        String inputId = intent.getStringExtra(TvCommonConstants.EXTRA_INPUT_ID);
+        String inputId = intent.getStringExtra(InputSetupActionUtils.EXTRA_INPUT_ID);
         mTvInputInfo = inputManager.getTvInputInfo(inputId);
-        mActivityAfterCompletion = intent.getParcelableExtra(
-                TvCommonConstants.EXTRA_ACTIVITY_AFTER_COMPLETION);
-        boolean needToFetchEpg = Utils.isInternalTvInput(this, mTvInputInfo.getId())
-                && Experiments.CLOUD_EPG.get();
+        mEpgInputWhiteList = new EpgInputWhiteList(tvSingletons.getRemoteConfig());
+        mActivityAfterCompletion = InputSetupActionUtils.getExtraActivityAfter(intent);
+        boolean needToFetchEpg =
+                mTvInputInfo != null
+                        && Utils.isInternalTvInput(this, mTvInputInfo.getId())
+                        && Experiments.CLOUD_EPG.get();
         if (needToFetchEpg) {
             // In case when the activity is restored, this flag should be restored as well.
             mEpgFetcherDuringScan = true;
         }
         if (savedInstanceState == null) {
-            SoftPreconditions.checkState(
-                    intent.getAction().equals(TvCommonConstants.INTENT_ACTION_INPUT_SETUP));
+            SoftPreconditions.checkArgument(
+                    InputSetupActionUtils.hasInputSetupAction(intent),
+                    TAG,
+                    "Unsupported action %s",
+                    intent.getAction());
             if (DEBUG) Log.d(TAG, "TvInputId " + inputId + " / TvInputInfo " + mTvInputInfo);
             if (mTvInputInfo == null) {
                 Log.w(TAG, "There is no input with the ID " + inputId + ".");
                 finish();
                 return;
             }
-            Intent setupIntent =
-                    intent.getExtras().getParcelable(TvCommonConstants.EXTRA_SETUP_INTENT);
+            if (intent.getExtras() == null) {
+                Log.w(TAG, "There is no extra info in the intent");
+                finish();
+                return;
+            }
+            Intent setupIntent = InputSetupActionUtils.getExtraSetupIntent(intent);
             if (DEBUG) Log.d(TAG, "Setup activity launch intent: " + setupIntent);
             if (setupIntent == null) {
                 Log.w(TAG, "The input (" + mTvInputInfo.getId() + ") doesn't have setup.");
@@ -95,7 +105,7 @@ public class SetupPassthroughActivity extends Activity {
             // If EXTRA_SETUP_INTENT is not removed, an infinite recursion happens during
             // setupIntent.putExtras(intent.getExtras()).
             Bundle extras = intent.getExtras();
-            extras.remove(TvCommonConstants.EXTRA_SETUP_INTENT);
+            InputSetupActionUtils.removeSetupIntent(extras);
             setupIntent.putExtras(extras);
             try {
                 startActivityForResult(setupIntent, REQUEST_START_SETUP_ACTIVITY);
@@ -109,48 +119,54 @@ public class SetupPassthroughActivity extends Activity {
                     sScanTimeoutMonitor = new ScanTimeoutMonitor(this);
                 }
                 sScanTimeoutMonitor.startMonitoring();
-                EpgFetcher.getInstance(this).onChannelScanStarted();
+                TvSingletons.getSingletons(this).getEpgFetcher().onChannelScanStarted();
             }
         }
     }
 
     @Override
     public void onActivityResult(int requestCode, final int resultCode, final Intent data) {
-        if (DEBUG) Log.d(TAG, "onActivityResult");
+        if (DEBUG)
+            Log.d(TAG, "onActivityResult(" + requestCode + ",  " + resultCode + ",  " + data + ")");
         if (sScanTimeoutMonitor != null) {
             sScanTimeoutMonitor.stopMonitoring();
         }
         // Note: It's not guaranteed that this method is always called after scanning.
-        boolean setupComplete = requestCode == REQUEST_START_SETUP_ACTIVITY
-                && resultCode == Activity.RESULT_OK;
+        boolean setupComplete =
+                requestCode == REQUEST_START_SETUP_ACTIVITY && resultCode == Activity.RESULT_OK;
         // Tells EpgFetcher that channel source setup is finished.
+        EpgFetcher epgFetcher = TvSingletons.getSingletons(this).getEpgFetcher();
         if (mEpgFetcherDuringScan) {
-            EpgFetcher.getInstance(this).onChannelScanFinished();
+            epgFetcher.onChannelScanFinished();
         }
         if (!setupComplete) {
             setResult(resultCode, data);
             finish();
             return;
         }
-        SetupUtils.getInstance(this).onTvInputSetupFinished(mTvInputInfo.getId(), new Runnable() {
-            @Override
-            public void run() {
-                if (mActivityAfterCompletion != null) {
-                    try {
-                        startActivity(mActivityAfterCompletion);
-                    } catch (ActivityNotFoundException e) {
-                        Log.w(TAG, "Activity launch failed", e);
-                    }
-                }
-                setResult(resultCode, data);
-                finish();
-            }
-        });
+        TvSingletons.getSingletons(this)
+                .getSetupUtils()
+                .onTvInputSetupFinished(
+                        mTvInputInfo.getId(),
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                if (mActivityAfterCompletion != null) {
+                                    try {
+                                        startActivity(mActivityAfterCompletion);
+                                    } catch (ActivityNotFoundException e) {
+                                        Log.w(TAG, "Activity launch failed", e);
+                                    }
+                                }
+                                setResult(resultCode, data);
+                                finish();
+                            }
+                        });
     }
 
     /**
-     * Monitors the scan progress and notifies the timeout of the scanning.
-     * The purpose of this monitor is to call EpgFetcher.onChannelScanFinished() in case when
+     * Monitors the scan progress and notifies the timeout of the scanning. The purpose of this
+     * monitor is to call EpgFetcher.onChannelScanFinished() in case when
      * SetupPassthroughActivity.onActivityResult() is not called properly. b/36008534
      */
     @MainThread
@@ -161,33 +177,37 @@ public class SetupPassthroughActivity extends Activity {
         private final Context mContext;
         private final ChannelDataManager mChannelDataManager;
         private final Handler mHandler = new Handler(Looper.getMainLooper());
-        private final Runnable mScanTimeoutRunnable = new Runnable() {
-            @Override
-            public void run() {
-                Log.w(TAG, "No channels has been added for a while." +
-                        " The scan might have finished unexpectedly.");
-                onScanTimedOut();
-            }
-        };
-        private final Listener mChannelDataManagerListener = new Listener() {
-            @Override
-            public void onLoadFinished() {
-                setupTimer();
-            }
+        private final Runnable mScanTimeoutRunnable =
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        Log.w(
+                                TAG,
+                                "No channels has been added for a while."
+                                        + " The scan might have finished unexpectedly.");
+                        onScanTimedOut();
+                    }
+                };
+        private final Listener mChannelDataManagerListener =
+                new Listener() {
+                    @Override
+                    public void onLoadFinished() {
+                        setupTimer();
+                    }
 
-            @Override
-            public void onChannelListUpdated() {
-                setupTimer();
-            }
+                    @Override
+                    public void onChannelListUpdated() {
+                        setupTimer();
+                    }
 
-            @Override
-            public void onChannelBrowsableChanged() { }
-        };
+                    @Override
+                    public void onChannelBrowsableChanged() {}
+                };
         private boolean mStarted;
 
         private ScanTimeoutMonitor(Context context) {
             mContext = context.getApplicationContext();
-            mChannelDataManager = TvApplication.getSingletons(context).getChannelDataManager();
+            mChannelDataManager = TvSingletons.getSingletons(context).getChannelDataManager();
         }
 
         private void startMonitoring() {
@@ -215,7 +235,7 @@ public class SetupPassthroughActivity extends Activity {
 
         private void onScanTimedOut() {
             stopMonitoring();
-            EpgFetcher.getInstance(mContext).onChannelScanFinished();
+            TvSingletons.getSingletons(mContext).getEpgFetcher().onChannelScanFinished();
         }
     }
 }

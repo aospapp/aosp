@@ -16,13 +16,13 @@
 package com.android.tradefed.result;
 
 import com.android.ddmlib.Log.LogLevel;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 
 import junit.textui.ResultPrinter;
 
-import java.util.Map;
+import java.util.HashMap;
 
 /**
  * A test result reporter that forwards results to the JUnit text result printer.
@@ -40,26 +40,23 @@ public class TextResultReporter extends InvocationToJUnitResultForwarder
 
     /**
      * Overrides parent to explicitly print out failures. The ResultPrinter relies on the runner
-     * calling "print" at end of test run to do this.
-     * {@inheritDoc}
+     * calling "print" at end of test run to do this. {@inheritDoc}
      */
     @Override
-    public void testFailed(TestIdentifier testId, String trace) {
+    public void testFailed(TestDescription testId, String trace) {
         ResultPrinter printer = (ResultPrinter)getJUnitListener();
         printer.getWriter().format("\nTest %s: failed \n stack: %s ", testId, trace);
     }
 
     @Override
-    public void testAssumptionFailure(TestIdentifier testId, String trace) {
+    public void testAssumptionFailure(TestDescription testId, String trace) {
         ResultPrinter printer = (ResultPrinter)getJUnitListener();
         printer.getWriter().format("\nTest %s: assumption failed \n stack: %s ", testId, trace);
     }
 
-    /**
-     * Overrides parent to explicitly print out test metrics.
-     */
+    /** Overrides parent to explicitly print out test metrics. */
     @Override
-    public void testEnded(TestIdentifier testId, Map<String, String> metrics) {
+    public void testEnded(TestDescription testId, HashMap<String, Metric> metrics) {
         super.testEnded(testId, metrics);
         if (!metrics.isEmpty()) {
             ResultPrinter printer = (ResultPrinter)getJUnitListener();
@@ -67,14 +64,12 @@ public class TextResultReporter extends InvocationToJUnitResultForwarder
         }
     }
 
-    /**
-     * Overrides parent to explicitly print out metrics.
-     */
+    /** Overrides parent to explicitly print out metrics. */
     @Override
-    public void testRunEnded(long elapsedTime, Map<String, String> metrics) {
+    public void testRunEnded(long elapsedTime, HashMap<String, Metric> metrics) {
         super.testRunEnded(elapsedTime, metrics);
         if (!metrics.isEmpty()) {
-            ResultPrinter printer = (ResultPrinter)getJUnitListener();
+            ResultPrinter printer = (ResultPrinter) getJUnitListener();
             printer.getWriter().format("\nMetrics: %s\n", metrics);
         }
     }

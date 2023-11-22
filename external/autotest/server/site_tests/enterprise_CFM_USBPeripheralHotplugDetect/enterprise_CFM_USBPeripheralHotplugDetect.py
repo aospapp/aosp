@@ -2,293 +2,268 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, os, time
+import logging
+import re
+import time
 
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib.cros import crash_detector
 from autotest_lib.client.common_lib.cros import tpm_utils
+from autotest_lib.client.common_lib.cros.cfm.usb import cfm_usb_devices
+from autotest_lib.client.common_lib.cros.cfm.usb import usb_device_collector
 from autotest_lib.server import test
 from autotest_lib.server.cros.multimedia import remote_facade_factory
-from autotest_lib.client.cros.crash.crash_test import CrashTest
 
-_SHORT_TIMEOUT = 2
-_WAIT_DELAY = 15
-_USB_DIR = '/sys/bus/usb/devices'
-_CRASH_PATHS = [CrashTest._SYSTEM_CRASH_DIR.replace("/crash",""),
-                CrashTest._FALLBACK_USER_CRASH_DIR.replace("/crash",""),
-                CrashTest._USER_CRASH_DIRS.replace("/crash","")]
-CRASH_FILES = []
-CRASH_SIGNS = ['.meta' , '.kcrash']
+_SHORT_TIMEOUT = 5
+
+# Constants for Hangouts UI peripherals names. Each entry is a tuple in the form
+# of (<hangouts_name_regex>, <USB device spec>). We use regular expressions for
+# the labels since these are not constant values, i.e. they depend on which USB
+# port a device has been plugged in to.
+# TODO(dtosic): Move this out to a separate util so other tests can reuse it.
+_HANGOUTS_UI_CAMERA_NAMES = [
+    (r'HD Pro Webcam C920 \(046d:082d\)', cfm_usb_devices.HD_PRO_WEBCAM_C920),
+    (r'Logitech Webcam C930e \(046d:0843\)',
+        cfm_usb_devices.LOGITECH_WEBCAM_C930E),
+]
+
+_HANGOUTS_UI_MICROPHONE_NAMES = [
+    (r'Jabra SPEAK 410', cfm_usb_devices.JABRA_SPEAK_410),
+    # Some cameras also have integrated microphones.
+    (r'HD Pro Webcam C920: USB Audio:[0-9],[0-9]',
+        cfm_usb_devices.HD_PRO_WEBCAM_C920),
+    (r'Logitech Webcam C930e: USB Audio:[0-9],[0-9]',
+        cfm_usb_devices.LOGITECH_WEBCAM_C930E),
+]
+
+_HANGOUTS_UI_SPEAKER_NAMES = [
+    (r'Jabra SPEAK 410', cfm_usb_devices.JABRA_SPEAK_410),
+]
+
+def _get_usb_spec_for_hangouts_device_name(device_name, name_to_spec_map):
+    """Returns a USB spec (if found) for the specified name, or None."""
+    for name_regex, usb_spec in name_to_spec_map:
+        if re.match(name_regex, device_name):
+            return usb_spec
+    return None
+
+
+class _Peripherals(object):
+    """Utility class for storing peripherals names by type."""
+
+    def __init__(self):
+        self._dict = {
+            'Microphone': [],
+            'Speaker': [],
+            'Camera':[]
+        }
+
+    def add_mic(self, spec):
+        """Registers a mic name."""
+        self._add_device('Microphone', spec)
+
+    def add_speaker(self, spec):
+        """Registers a speaker name."""
+        self._add_device('Speaker', spec)
+
+    def add_camera(self, spec):
+        """Registers a camera name."""
+        self._add_device('Camera', spec)
+
+    def _add_device(self, type, spec):
+        self._dict[type].append(str(spec))
+
+    def _get_by_type(self, type):
+        return self._dict[type]
+
+    def get_diff(self, other_peripherals):
+        """Returns a diff dictonary for other_peripherals."""
+        peripherals_diff = {}
+        for type in self._dict:
+            self_devices = set(self._get_by_type(type))
+            other_devices = set(other_peripherals._get_by_type(type))
+            type_diff = other_devices.difference(self_devices)
+            if type_diff:
+                peripherals_diff[type] = type_diff
+        return peripherals_diff
+
+    def __repr__(self):
+     return str(self._dict)
 
 
 class enterprise_CFM_USBPeripheralHotplugDetect(test.test):
-    """Uses servo to hotplug and detect USB peripherals on CrOS and hotrod. It
-    compares attached audio/video peripheral names on CrOS against what hotrod
-    detects."""
+    """
+    Uses servo to hotplug and detect USB peripherals on CrOS and hotrod.
+
+    It compares attached audio/video peripheral names on CrOS against what
+    Hangouts detects.
+    """
     version = 1
 
 
-    def _set_hub_power(self, on=True):
-        """Setting USB hub power status
-
-        @param on: To power on the servo usb hub or not.
-
+    def _get_usb_device_types(self, vid_pid):
         """
-        reset = 'off'
-        if not on:
-            reset = 'on'
-        self.client.servo.set('dut_hub1_rst1', reset)
-        time.sleep(_WAIT_DELAY)
+        Returns a list of types (based on lsusb) for the specified vid:pid.
 
-
-    def _get_usb_device_dirs(self):
-        """Gets usb device dirs from _USB_DIR path.
-
-        @returns list with number of device dirs else Non
-
+        @param vid_pid: The vid:pid of the device to query.
+        @returns List of device types (string).
         """
-        usb_dir_list = list()
-        cmd = 'ls %s' % _USB_DIR
-        cmd_output = self.client.run(cmd).stdout.strip().split('\n')
-        for d in cmd_output:
-            usb_dir_list.append(os.path.join(_USB_DIR, d))
-        return usb_dir_list
-
-
-    def _get_usb_device_type(self, vendor_id):
-        """Gets usb device type info from lsusb output based on vendor id.
-
-        @vendor_id: Device vendor id.
-        @returns list of device types associated with vendor id
-
-        """
-        details_list = list()
-        cmd = 'lsusb -v -d ' + vendor_id + ': | head -150'
+        details_list = []
+        cmd = 'lsusb -v -d %s' % vid_pid
         cmd_out = self.client.run(cmd).stdout.strip().split('\n')
         for line in cmd_out:
             if (any(phrase in line for phrase in ('bInterfaceClass',
                     'wTerminalType'))):
-                details_list.append(line.split(None)[2])
+                device_type = line.split(None)[2]
+                details_list.append(device_type)
 
-        return list(set(details_list))
+        return details_list
 
 
-    def _get_product_info(self, directory, prod_string):
-        """Gets the product name from device path.
-
-        @param directory: Driver path for USB device.
-        @param prod_string: Device attribute string.
-        @returns the output of the cat command
-
+    def _get_cros_usb_peripherals(self, peripherals_to_check):
         """
-        product_file_name = os.path.join(directory, prod_string)
-        if self._file_exists_on_host(product_file_name):
-            return self.client.run('cat %s' % product_file_name).stdout.strip()
-        return None
+        Queries cros for connected USB devices.
 
-
-    def _parse_device_dir_for_info(self, dir_list, peripheral_whitelist_dict):
-        """Uses device path and vendor id to get device type attibutes.
-
-        @param dir_list: Complete list of device directories.
-        @returns cros_peripheral_dict with device names
-
+        @param peripherals_to_check: A list of peripherals to query. If a
+            connected USB device is not in this list it will be ignored.
+        @returns  A _Peripherals object
         """
-        cros_peripheral_dict = {'Camera': None, 'Microphone': None,
-                                'Speaker': None}
-
-        for d_path in dir_list:
-            file_name = os.path.join(d_path, 'idVendor')
-            if self._file_exists_on_host(file_name):
-                vendor_id = self.client.run('cat %s' % file_name).stdout.strip()
-                product_id = self._get_product_info(d_path, 'idProduct')
-                vId_pId = vendor_id + ':' + product_id
-                device_types = self._get_usb_device_type(vendor_id)
-                if vId_pId in peripheral_whitelist_dict:
-                    if 'Microphone' in device_types:
-                        cros_peripheral_dict['Microphone'] = (
-                                peripheral_whitelist_dict.get(vId_pId))
-                    if 'Speaker' in device_types:
-                        cros_peripheral_dict['Speaker'] = (
-                                peripheral_whitelist_dict.get(vId_pId))
-                    if 'Video' in device_types:
-                        cros_peripheral_dict['Camera'] = (
-                                peripheral_whitelist_dict.get(vId_pId))
-
-        for device_type, is_found in cros_peripheral_dict.iteritems():
-            if not is_found:
-                cros_peripheral_dict[device_type] = 'Not Found'
-
-        return cros_peripheral_dict
-
-
-    def _file_exists_on_host(self, path):
-        """Checks if file exists on host.
-
-        @param path: File path
-        @returns True or False
-
-        """
-        return self.client.run('ls %s' % path,
-                             ignore_status=True).exit_status == 0
+        cros_peripherals = _Peripherals()
+        device_collector = usb_device_collector.UsbDeviceCollector(self.client)
+        for device in device_collector.get_usb_devices():
+            vid_pid = device.vid_pid
+            device_types = self._get_usb_device_types(vid_pid)
+            device_spec = cfm_usb_devices.get_usb_device_spec(vid_pid)
+            if device_spec in peripherals_to_check:
+                if 'Microphone' in device_types:
+                    cros_peripherals.add_mic(device_spec)
+                if 'Speaker' in device_types:
+                    cros_peripherals.add_speaker(device_spec)
+                if 'Video' in device_types:
+                    cros_peripherals.add_camera(device_spec)
+        return cros_peripherals
 
 
     def _enroll_device_and_skip_oobe(self):
         """Enroll device into CFM and skip CFM oobe."""
         self.cfm_facade.enroll_device()
-        self.cfm_facade.restart_chrome_for_cfm()
-        self.cfm_facade.wait_for_telemetry_commands()
-        self.cfm_facade.wait_for_oobe_start_page()
-
-        if not self.cfm_facade.is_oobe_start_page():
-            raise error.TestFail('CFM did not reach oobe screen.')
-
-        self.cfm_facade.skip_oobe_screen()
-        time.sleep(_SHORT_TIMEOUT)
+        self.cfm_facade.skip_oobe_after_enrollment()
+        self.cfm_facade.wait_for_hangouts_telemetry_commands()
 
 
-    def _set_preferred_peripherals(self, cros_peripherals):
-        """Set perferred peripherals.
-
-        @param cros_peripherals: Dictionary of peripherals
+    def _get_connected_cfm_hangouts_peripherals(self, peripherals_to_check):
         """
-        avail_mics = self.cfm_facade.get_mic_devices()
-        avail_speakers = self.cfm_facade.get_speaker_devices()
-        avail_cameras = self.cfm_facade.get_camera_devices()
+        Gets peripheral information as reported by Hangouts.
 
-        if cros_peripherals.get('Microphone') in avail_mics:
-            self.cfm_facade.set_preferred_mic(
-                    cros_peripherals.get('Microphone'))
-        if cros_peripherals.get('Speaker') in avail_speakers:
-            self.cfm_facade.set_preferred_speaker(
-                    cros_peripherals.get('Speaker'))
-        if cros_peripherals.get('Camera') in avail_cameras:
-            self.cfm_facade.set_preferred_camera(
-                    cros_peripherals.get('Camera'))
-
-
-    def _peripheral_detection(self):
-        """Get attached peripheral information."""
-        cfm_peripheral_dict = {'Microphone': None, 'Speaker': None,
-                               'Camera': None}
-
-        cfm_peripheral_dict['Microphone'] = self.cfm_facade.get_preferred_mic()
-        cfm_peripheral_dict['Speaker'] = self.cfm_facade.get_preferred_speaker()
-        cfm_peripheral_dict['Camera'] = self.cfm_facade.get_preferred_camera()
-
-        for device_type, is_found in cfm_peripheral_dict.iteritems():
-            if not is_found:
-                cfm_peripheral_dict[device_type] = 'Not Found'
-
-        return cfm_peripheral_dict
-
-
-    def _check_for_crash(self, CRASH_SIGNS):
-        """Check for kernel, browser, process crashes
-
-        @param CRASH_SIGNS: crash files to consider with these names
-        @returns True if there are no crashes; False otherwise
+        @param peripherals_to_check: A list of peripherals to query. If a
+            connected USB device is not in this list it will be ignored.
+        @returns  A _Peripherals object
         """
-        result = True
-        for crash_path in _CRASH_PATHS:
-            if str(self.client.run('ls %s' % crash_path,
-                   ignore_status=True)).find('crash') != -1:
-                crash_out = self.client.run('ls %s/crash/' % crash_path,
-                                            ignore_status=True).stdout
-                crash_files = crash_out.strip().split('\n')
-                for crash_file in crash_files:
-                    if ((crash_file is not '')
-                        and (crash_file not in CRASH_FILES)):
-                        for crash_sign in CRASH_SIGNS:
-                            if crash_sign in crash_file:
-                                CRASH_FILES.append(crash_file)
-                                logging.info('CRASH DETECTED in %s/crash: %s',
-                                             crash_path, crash_file)
-                                result = False
-        return result
+        cfm_peripherals = _Peripherals()
+        for mic_name in self.cfm_facade.get_mic_devices():
+            mic_spec = _get_usb_spec_for_hangouts_device_name(
+                mic_name, _HANGOUTS_UI_MICROPHONE_NAMES)
+            if mic_spec and mic_spec in peripherals_to_check:
+                cfm_peripherals.add_mic(mic_spec)
+
+        for speaker_name in self.cfm_facade.get_speaker_devices():
+            speaker_spec = _get_usb_spec_for_hangouts_device_name(
+                speaker_name, _HANGOUTS_UI_SPEAKER_NAMES)
+            if speaker_spec and speaker_spec in peripherals_to_check:
+                cfm_peripherals.add_speaker(speaker_spec)
+
+        for camera_name in self.cfm_facade.get_camera_devices():
+            logging.info("Ccamera_name: %s", camera_name)
+            camera_spec = _get_usb_spec_for_hangouts_device_name(
+                camera_name, _HANGOUTS_UI_CAMERA_NAMES)
+            logging.info("camera_spec: %s", camera_spec)
+            if camera_spec and camera_spec in peripherals_to_check:
+                cfm_peripherals.add_camera(camera_spec)
+        return cfm_peripherals
 
 
-    def run_once(self, host, peripheral_whitelist_dict):
-        """Main function to run autotest.
+    def _upload_crash_count(self, count):
+        """Uploads crash count based on length of crash_files list."""
+        self.output_perf_value(description='number_of_crashes',
+                               value=int(count),
+                               units='count', higher_is_better=False)
+
+
+    def run_once(self, host, peripherals_to_check):
+        """
+        Main function to run autotest.
 
         @param host: Host object representing the DUT.
-
+        @param peripherals_to_check: List of USB specs to check.
         """
         self.client = host
+        self.crash_list =[]
 
         factory = remote_facade_factory.RemoteFacadeFactory(
                 host, no_chrome=True)
         self.cfm_facade = factory.create_cfm_facade()
 
+        detect_crash = crash_detector.CrashDetector(self.client)
+
         tpm_utils.ClearTPMOwnerRequest(self.client)
 
-        self.crashes_list =[]
-        self.no_of_crashes = 0
+        factory = remote_facade_factory.RemoteFacadeFactory(
+                host, no_chrome=True)
+        self.cfm_facade = factory.create_cfm_facade()
 
-        if not self._check_for_crash(CRASH_SIGNS):
-            self.no_of_crashes = len(CRASH_FILES)
-            self.crashes_list.append('New Warning or Crash Detected before ' +
-                                     'plugging in usb peripherals.')
+        if detect_crash.is_new_crash_present():
+            self.crash_list.append('New Warning or Crash Detected before ' +
+                                   'plugging in usb peripherals.')
 
+        # Turns on the USB port on the servo so that any peripheral connected to
+        # the DUT it is visible.
         if self.client.servo:
             self.client.servo.switch_usbkey('dut')
             self.client.servo.set('usb_mux_sel3', 'dut_sees_usbkey')
-            time.sleep(_WAIT_DELAY)
-            self._set_hub_power(True)
+            time.sleep(_SHORT_TIMEOUT)
+            self.client.servo.set('dut_hub1_rst1', 'off')
+            time.sleep(_SHORT_TIMEOUT)
 
-        self._check_for_crash(CRASH_SIGNS)
-        if (self.no_of_crashes < len(CRASH_FILES)):
-            self.no_of_crashes = len(CRASH_FILES)
-            self.crashes_list.append('New Warning or Crash Detected after ' +
-                                     'plugging in usb peripherals.')
+        if detect_crash.is_new_crash_present():
+            self.crash_list.append('New Warning or Crash Detected after ' +
+                                   'plugging in usb peripherals.')
 
-        usb_list_dir_on = self._get_usb_device_dirs()
-
-        cros_peripheral_dict = self._parse_device_dir_for_info(usb_list_dir_on,
-                peripheral_whitelist_dict)
-        logging.debug('Peripherals detected by CrOS: %s', cros_peripheral_dict)
+        cros_peripherals = self._get_cros_usb_peripherals(
+            peripherals_to_check)
+        logging.info('Peripherals detected by CrOS: %s', cros_peripherals)
 
         try:
             self._enroll_device_and_skip_oobe()
-            self._set_preferred_peripherals(cros_peripheral_dict)
-            cfm_peripheral_dict = self._peripheral_detection()
-            logging.debug('Peripherals detected by hotrod: %s',
-                          cfm_peripheral_dict)
+            cfm_peripherals = self._get_connected_cfm_hangouts_peripherals(
+                peripherals_to_check)
+            logging.info('Peripherals detected by hangouts: %s',
+                          cfm_peripherals)
         except Exception as e:
             exception_msg = str(e)
-            if self.crashes_list:
-                crash_identified_at = (' ').join(self.crashes_list)
+            if self.crash_list:
+                crash_identified_at = (' ').join(self.crash_list)
                 exception_msg += '. ' + crash_identified_at
+                self._upload_crash_count(len(detect_crash.get_crash_files()))
             raise error.TestFail(str(exception_msg))
 
-        self._check_for_crash(CRASH_SIGNS)
-        if (self.no_of_crashes < len(CRASH_FILES)):
-            self.no_of_crashes = len(CRASH_FILES)
-            self.crashes_list.append('New Warning or Crash detected after ' +
-                                     'device enrolled into CFM.')
+        if detect_crash.is_new_crash_present():
+            self.crash_list.append('New Warning or Crash detected after '
+                                   'device enrolled into CFM.')
 
         tpm_utils.ClearTPMOwnerRequest(self.client)
 
-        cros_peripherals = set(cros_peripheral_dict.iteritems())
-        cfm_peripherals = set(cfm_peripheral_dict.iteritems())
-
-        peripheral_diff = cros_peripherals.difference(cfm_peripherals)
-
-        if self.crashes_list:
-            crash_identified_at = (', ').join(self.crashes_list)
+        if self.crash_list:
+            crash_identified_at = (', ').join(self.crash_list)
         else:
             crash_identified_at = 'No Crash or Warning detected.'
 
-        if peripheral_diff:
-            no_match_list = list()
-            for item in peripheral_diff:
-                no_match_list.append(item[0])
-            peripherals_diff = ', '.join(no_match_list)
-            raise error.TestFail("Following peripherals do not match: {0}. "
-                                 "No of Crashes: {1}. Crashes: {2}".format
-                                 (peripherals_diff, int(self.no_of_crashes),
-                                 crash_identified_at))
+        self._upload_crash_count(len(detect_crash.get_crash_files()))
 
-        if CRASH_FILES:
-            self.output_perf_value(description='number_of_crashes',
-                                   value=int(len(CRASH_FILES)), units='count',
-                                   higher_is_better=False)
+        peripherals_diff = cfm_peripherals.get_diff(cros_peripherals)
+        if peripherals_diff:
+            raise error.TestFail(
+                'Peripherals do not match.\n'
+                'Diff: {0} \n Cros: {1} \n Hangouts: {2} \n.'
+                'No of Crashes: {3}. Crashes: {4}'.format(
+                peripherals_diff, cros_peripherals, cfm_peripherals,
+                len(detect_crash.get_crash_files()), crash_identified_at))

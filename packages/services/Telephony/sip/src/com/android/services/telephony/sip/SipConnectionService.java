@@ -37,6 +37,7 @@ import android.util.Log;
 
 import com.android.internal.telephony.CallStateException;
 import com.android.internal.telephony.PhoneFactory;
+import com.android.internal.telephony.PhoneInternalInterface;
 import com.android.internal.telephony.sip.SipPhone;
 import com.android.services.telephony.DisconnectCauseUtil;
 
@@ -258,7 +259,9 @@ public final class SipConnectionService extends ConnectionService {
 
         try {
             com.android.internal.telephony.Connection originalConnection =
-                    phone.dial(number, request.getVideoState());
+                    phone.dial(number, new PhoneInternalInterface.DialArgs.Builder<>()
+                            .setVideoState(request.getVideoState())
+                            .build());
             return originalConnection;
         } catch (CallStateException e) {
             log("startCallWithPhone, exception: " + e);

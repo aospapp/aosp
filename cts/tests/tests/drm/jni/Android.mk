@@ -30,6 +30,6 @@ LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 LOCAL_SHARED_LIBRARIES := liblog libdl
 LOCAL_SDK_VERSION := 23
 
-LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter
 
 include $(BUILD_SHARED_LIBRARY)

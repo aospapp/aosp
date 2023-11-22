@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -88,6 +88,7 @@ typedef struct {
   btif_hh_added_device_t added_devices[BTIF_HH_MAX_ADDED_DEV];
   btif_hh_device_t* p_curr_dev;
   bool service_dereg_active;
+  RawAddress pending_conn_address;
 } btif_hh_cb_t;
 
 /*******************************************************************************

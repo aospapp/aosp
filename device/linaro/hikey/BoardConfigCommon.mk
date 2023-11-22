@@ -5,13 +5,11 @@ TARGET_CPU_ABI := arm64-v8a
 
 # Secondary Arch
 TARGET_2ND_ARCH := arm
-TARGET_2ND_ARCH_VARIANT := armv7-a-neon
+TARGET_2ND_ARCH_VARIANT := armv8-a
 TARGET_2ND_CPU_ABI := armeabi-v7a
 TARGET_2ND_CPU_ABI2 := armeabi
 
 TARGET_USES_64_BIT_BINDER := true
-TARGET_SUPPORTS_32_BIT_APPS := true
-TARGET_SUPPORTS_64_BIT_APPS := true
 
 WITH_DEXPREOPT ?= true
 USE_OPENGL_RENDERER := true
@@ -34,13 +32,21 @@ TARGET_USERIMAGES_USE_EXT4 := true
 BOARD_CACHEIMAGE_FILE_SYSTEM_TYPE := ext4
 TARGET_USE_PAN_DISPLAY := true
 
+TARGET_USES_HWC2 := true
 SF_START_GRAPHICS_ALLOCATOR_SERVICE := true
+
+TARGET_AUX_OS_VARIANT_LIST := neonkey argonkey
 
 BOARD_SEPOLICY_DIRS += device/linaro/hikey/sepolicy
 BOARD_SEPOLICY_DIRS += system/bt/vendor_libs/linux/sepolicy
 
 DEVICE_MANIFEST_FILE := device/linaro/hikey/manifest.xml
 DEVICE_MATRIX_FILE := device/linaro/hikey/compatibility_matrix.xml
+
+ifneq ($(TARGET_SENSOR_MEZZANINE),)
+DEVICE_MANIFEST_FILE += device/linaro/hikey/sensorhal/manifest.xml
+DEVICE_MANIFEST_FILE += device/linaro/hikey/vr/manifest.xml
+endif
 
 ifeq ($(HOST_OS), linux)
 ifeq ($(TARGET_SYSTEMIMAGES_USE_SQUASHFS), true)

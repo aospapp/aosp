@@ -23,6 +23,7 @@
 #include "cfi_test.h"
 #include "gtest/gtest.h"
 #include "jni/quick/calling_convention.h"
+#include "read_barrier_config.h"
 #include "utils/assembler.h"
 #include "utils/jni_macro_assembler.h"
 
@@ -61,29 +62,30 @@ class JNICFITest : public CFITest {
     const char* shorty = "IIFII";
 
     ArenaPool pool;
-    ArenaAllocator arena(&pool);
+    ArenaAllocator allocator(&pool);
 
     std::unique_ptr<JniCallingConvention> jni_conv(
-        JniCallingConvention::Create(&arena,
+        JniCallingConvention::Create(&allocator,
                                      is_static,
                                      is_synchronized,
                                      /*is_critical_native*/false,
                                      shorty,
                                      isa));
     std::unique_ptr<ManagedRuntimeCallingConvention> mr_conv(
-        ManagedRuntimeCallingConvention::Create(&arena, is_static, is_synchronized, shorty, isa));
+        ManagedRuntimeCallingConvention::Create(
+            &allocator, is_static, is_synchronized, shorty, isa));
     const int frame_size(jni_conv->FrameSize());
     ArrayRef<const ManagedRegister> callee_save_regs = jni_conv->CalleeSaveRegisters();
 
     // Assemble the method.
     std::unique_ptr<JNIMacroAssembler<kPointerSize>> jni_asm(
-        JNIMacroAssembler<kPointerSize>::Create(&arena, isa));
+        JNIMacroAssembler<kPointerSize>::Create(&allocator, isa));
     jni_asm->cfi().SetEnabled(true);
     jni_asm->BuildFrame(frame_size, mr_conv->MethodRegister(),
                         callee_save_regs, mr_conv->EntrySpills());
     jni_asm->IncreaseFrameSize(32);
     jni_asm->DecreaseFrameSize(32);
-    jni_asm->RemoveFrame(frame_size, callee_save_regs);
+    jni_asm->RemoveFrame(frame_size, callee_save_regs, /* may_suspend */ true);
     jni_asm->FinalizeCode();
     std::vector<uint8_t> actual_asm(jni_asm->CodeSize());
     MemoryRegion code(&actual_asm[0], actual_asm.size());
@@ -100,13 +102,13 @@ class JNICFITest : public CFITest {
   }
 };
 
-#define TEST_ISA(isa) \
-  TEST_F(JNICFITest, isa) { \
-    std::vector<uint8_t> expected_asm(expected_asm_##isa, \
-        expected_asm_##isa + arraysize(expected_asm_##isa)); \
-    std::vector<uint8_t> expected_cfi(expected_cfi_##isa, \
-        expected_cfi_##isa + arraysize(expected_cfi_##isa)); \
-    TestImpl(isa, #isa, expected_asm, expected_cfi); \
+#define TEST_ISA(isa)                                                 \
+  TEST_F(JNICFITest, isa) {                                           \
+    std::vector<uint8_t> expected_asm(expected_asm_##isa,             \
+        expected_asm_##isa + arraysize(expected_asm_##isa));          \
+    std::vector<uint8_t> expected_cfi(expected_cfi_##isa,             \
+        expected_cfi_##isa + arraysize(expected_cfi_##isa));          \
+    TestImpl(InstructionSet::isa, #isa, expected_asm, expected_cfi);  \
   }
 
 #ifdef ART_ENABLE_CODEGEN_arm

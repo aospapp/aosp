@@ -19,7 +19,7 @@ LOCAL_C_INCLUDES +=                                     \
     $(NANOHUB_OS_PATH)/os/platform/$(AUX_ARCH)/inc      \
     $(NANOHUB_OS_PATH)/os/cpu/$(AUX_CPU)/inc            \
     $(NANOHUB_OS_PATH)/../lib/include                   \
-    $(NANOHUB_OS_PATH)/../inc                           \
+    system/chre/chre_api/include/chre_api               \
 
 LOCAL_WHOLE_STATIC_LIBRARIES_BL += libnanohub_bl_$(AUX_CPU)
 LOCAL_WHOLE_STATIC_LIBRARIES_BL += libnanohub_bl_$(AUX_ARCH)

@@ -22,6 +22,7 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 LOCAL_EXPORT_PACKAGE_RESOURCES := true
 LOCAL_PACKAGE_NAME := CtsClassloaderSplitAppFeatureA
+LOCAL_SDK_VERSION := current
 
 LOCAL_SRC_FILES := $(call all-subdir-java-files)
 

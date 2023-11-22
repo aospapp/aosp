@@ -876,6 +876,110 @@ public class Main {
     return true;
   }
 
+  /// CHECK-START: void Main.modArrayIndex1(int[]) BCE (before)
+  /// CHECK-DAG: BoundsCheck
+  /// CHECK-DAG: ArraySet
+  /// CHECK-DAG: BoundsCheck
+  /// CHECK-DAG: ArraySet
+
+  /// CHECK-START: void Main.modArrayIndex1(int[]) BCE (after)
+  /// CHECK-NOT: Deoptimize
+  /// CHECK-DAG: BoundsCheck
+  /// CHECK-DAG: ArraySet
+  /// CHECK-NOT: BoundsCheck
+  /// CHECK-DAG: ArraySet
+  public static void modArrayIndex1(int[] array) {
+    for(int i = 0; i < 100; i++) {
+      // Cannot statically eliminate, for example, when array.length == 5.
+      // Currently dynamic BCE isn't applied for this case.
+      array[i % 10] = i;
+      // Can be eliminated by BCE.
+      array[i % array.length] = i;
+    }
+  }
+
+  /// CHECK-START: void Main.modArrayIndex2(int[], int) BCE (before)
+  /// CHECK-DAG: BoundsCheck
+  /// CHECK-DAG: ArraySet
+  /// CHECK-DAG: BoundsCheck
+  /// CHECK-DAG: ArraySet
+
+  /// CHECK-START: void Main.modArrayIndex2(int[], int) BCE (after)
+  /// CHECK-NOT: Deoptimize
+  /// CHECK-DAG: BoundsCheck
+  /// CHECK-DAG: ArraySet
+  /// CHECK-DAG: BoundsCheck
+  /// CHECK-DAG: ArraySet
+  public static void modArrayIndex2(int array[], int index) {
+    for(int i = 0; i < 100; i++) {
+      // Both bounds checks cannot be statically eliminated, because index can be < 0.
+      // Currently dynamic BCE isn't applied for this case.
+      array[(index+i) % 10] = i;
+      array[(index+i) % array.length] = i;
+    }
+  }
+
+  static final int[] staticArray = new int[10];
+
+  /// CHECK-START: void Main.modArrayIndex3() BCE (before)
+  /// CHECK-DAG: BoundsCheck
+  /// CHECK-DAG: ArraySet
+  /// CHECK-DAG: BoundsCheck
+  /// CHECK-DAG: ArraySet
+
+  /// CHECK-START: void Main.modArrayIndex3() BCE (after)
+  /// CHECK-NOT: Deoptimize
+  /// CHECK-DAG: BoundsCheck
+  /// CHECK-DAG: ArraySet
+  /// CHECK-NOT: BoundsCheck
+  /// CHECK-DAG: ArraySet
+  public static void modArrayIndex3() {
+    for(int i = 0; i < 100; i++) {
+      // Currently dynamic BCE isn't applied for this case.
+      staticArray[i % 10] = i;
+      // Can be eliminated by BCE.
+      staticArray[i % staticArray.length] = i;
+    }
+  }
+
+  /// CHECK-START: void Main.modArrayIndex4() BCE (before)
+  /// CHECK-DAG: BoundsCheck
+  /// CHECK-DAG: ArraySet
+  /// CHECK-DAG: BoundsCheck
+  /// CHECK-DAG: ArraySet
+
+  /// CHECK-START: void Main.modArrayIndex4() BCE (after)
+  /// CHECK-NOT: BoundsCheck
+  /// CHECK-DAG: ArraySet
+  /// CHECK-NOT: BoundsCheck
+  /// CHECK-DAG: ArraySet
+  public static void modArrayIndex4() {
+    int[] array = new int[20];
+    for(int i = 0; i < 100; i++) {
+      // The local array length is statically know. Both can be eliminated by BCE.
+      array[i % 10] = i;
+      array[i % array.length] = i;
+    }
+  }
+
+  /// CHECK-START: void Main.modArrayIndex5(int[], int) BCE (before)
+  /// CHECK-DAG: BoundsCheck
+  /// CHECK-DAG: ArraySet
+  //
+  /// CHECK-START: void Main.modArrayIndex5(int[], int) BCE (after)
+  /// CHECK-NOT: BoundsCheck
+  /// CHECK-DAG: ArraySet
+  public static void modArrayIndex5(int[] x, int i) {
+    while (true) {
+      int xi = i % x.length;
+      if (xi < 0)
+        break;
+      if (i >= x.length)
+        break;
+      x[xi] = i;
+      i++;
+    }
+  }
 
   /// CHECK-START: void Main.bubbleSort(int[]) GVN (before)
   /// CHECK: BoundsCheck
@@ -950,6 +1054,88 @@ public class Main {
     if (a.length == 2) {
       a[0] = -1;
       a[1] = -2;
+    }
+  }
+
+  /// CHECK-START: void Main.lengthAlias1(int[], int) BCE (before)
+  /// CHECK-DAG: <<Arr:l\d+>> ParameterValue                loop:none
+  /// CHECK-DAG: <<Par:i\d+>> ParameterValue                loop:none
+  /// CHECK-DAG: <<Nul:l\d+>> NullCheck [<<Arr>>]           loop:none
+  /// CHECK-DAG: <<Len:i\d+>> ArrayLength [<<Nul>>]         loop:none
+  /// CHECK-DAG:              NotEqual [<<Par>>,<<Len>>]    loop:none
+  /// CHECK-DAG: <<Idx:i\d+>> Phi                           loop:<<Loop:B\d+>>
+  /// CHECK-DAG:              BoundsCheck [<<Idx>>,<<Len>>] loop:<<Loop>>
+  //
+  /// CHECK-START: void Main.lengthAlias1(int[], int) BCE (after)
+  /// CHECK-NOT:              BoundsCheck
+  /// CHECK-NOT:              Deoptimize
+  public static void lengthAlias1(int[] a, int len) {
+    if (len == a.length) {
+      for (int i = 0; i < len; i++) {
+        a[i] = 1;
+      }
+    }
+  }
+
+  /// CHECK-START: void Main.lengthAlias2(int[], int) BCE (before)
+  /// CHECK-DAG: <<Arr:l\d+>> ParameterValue                loop:none
+  /// CHECK-DAG: <<Par:i\d+>> ParameterValue                loop:none
+  /// CHECK-DAG: <<Nul:l\d+>> NullCheck [<<Arr>>]           loop:none
+  /// CHECK-DAG: <<Len:i\d+>> ArrayLength [<<Nul>>]         loop:none
+  /// CHECK-DAG:              Equal [<<Par>>,<<Len>>]       loop:none
+  /// CHECK-DAG: <<Idx:i\d+>> Phi                           loop:<<Loop:B\d+>>
+  /// CHECK-DAG:              BoundsCheck [<<Idx>>,<<Len>>] loop:<<Loop>>
+  //
+  /// CHECK-START: void Main.lengthAlias2(int[], int) BCE (after)
+  /// CHECK-NOT:              BoundsCheck
+  /// CHECK-NOT:              Deoptimize
+  public static void lengthAlias2(int[] a, int len) {
+    if (len != a.length) {
+      return;
+    }
+    for (int i = 0; i < len; i++) {
+      a[i] = 2;
+    }
+  }
+
+  /// CHECK-START: void Main.lengthAlias3(int[], int) BCE (before)
+  /// CHECK-DAG: <<Arr:l\d+>> ParameterValue                loop:none
+  /// CHECK-DAG: <<Par:i\d+>> ParameterValue                loop:none
+  /// CHECK-DAG: <<Nul:l\d+>> NullCheck [<<Arr>>]           loop:none
+  /// CHECK-DAG: <<Len:i\d+>> ArrayLength [<<Nul>>]         loop:none
+  /// CHECK-DAG:              NotEqual [<<Par>>,<<Len>>]    loop:none
+  /// CHECK-DAG: <<Idx:i\d+>> Phi                           loop:<<Loop:B\d+>>
+  /// CHECK-DAG:              BoundsCheck [<<Idx>>,<<Len>>] loop:<<Loop>>
+  //
+  /// CHECK-START: void Main.lengthAlias3(int[], int) BCE (after)
+  /// CHECK-NOT:              BoundsCheck
+  /// CHECK-NOT:              Deoptimize
+  public static void lengthAlias3(int[] a, int len) {
+    if (a.length == len) {
+      for (int i = 0; i < len; i++) {
+        a[i] = 3;
+      }
+    }
+  }
+
+  /// CHECK-START: void Main.lengthAlias4(int[]) BCE (before)
+  /// CHECK-DAG: <<Arr:l\d+>> ParameterValue                loop:none
+  /// CHECK-DAG: <<Val:i\d+>> IntConstant 8                 loop:none
+  /// CHECK-DAG: <<Nul:l\d+>> NullCheck [<<Arr>>]           loop:none
+  /// CHECK-DAG: <<Len:i\d+>> ArrayLength [<<Nul>>]         loop:none
+  /// CHECK-DAG:              Equal [<<Len>>,<<Val>>]       loop:none
+  /// CHECK-DAG: <<Idx:i\d+>> Phi                           loop:<<Loop:B\d+>>
+  /// CHECK-DAG:              BoundsCheck [<<Idx>>,<<Len>>] loop:<<Loop>>
+  //
+  /// CHECK-START: void Main.lengthAlias4(int[]) BCE (after)
+  /// CHECK-NOT:              BoundsCheck
+  /// CHECK-NOT:              Deoptimize
+  public static void lengthAlias4(int[] a) {
+    if (8 != a.length) {
+      return;
+    }
+    for (int i = 0; i < 8; i++) {
+      a[i] = 4;
     }
   }
 
@@ -1605,6 +1791,21 @@ public class Main {
 
     sieve(20);
 
+    int[] x1 = new int[10];
+    int[] x2 = new int[10];
+    int[] x3 = new int[10];
+    modArrayIndex5(x1, -1);
+    modArrayIndex5(x2, 0);
+    modArrayIndex5(x3, 5);
+    for (int i = 0; i < 10; i++) {
+      int e1 = 0;
+      int e2 = i;
+      int e3 = i < 5 ? 0 : i;
+      if (x1[i] != e1 || x2[i] != e2 || x3[i] != e3) {
+        System.out.println("modarray failed!");
+      }
+    }
+
     int[] array = {5, 2, 3, 7, 0, 1, 6, 4};
     bubbleSort(array);
     for (int i = 0; i < 8; i++) {
@@ -1628,10 +1829,50 @@ public class Main {
       System.out.println("nonzero length failed!");
     }
 
+    array = new int[8];
+    lengthAlias1(array, 8);
+    for (int i = 0; i < 8; i++) {
+      if (array[i] != 1) {
+        System.out.println("alias1 failed!");
+      }
+    }
+    lengthAlias2(array, 8);
+    for (int i = 0; i < 8; i++) {
+      if (array[i] != 2) {
+        System.out.println("alias2 failed!");
+      }
+    }
+    lengthAlias3(array, 8);
+    for (int i = 0; i < 8; i++) {
+      if (array[i] != 3) {
+        System.out.println("alias3 failed!");
+      }
+    }
+    lengthAlias4(array);
+    for (int i = 0; i < 8; i++) {
+      if (array[i] != 4) {
+        System.out.println("alias4 failed!");
+      }
+    }
+
+    array = new int[10];
+    lengthAlias1(array, /*mismatched value*/ 8);
+    lengthAlias2(array, /*mismatched value*/ 8);
+    lengthAlias3(array, /*mismatched value*/ 8);
+    lengthAlias4(array);  // implicit mismatch
+    for (int i = 0; i < 10; i++) {
+      if (array[i] != 0) {
+        System.out.println("mismatch failed!");
+      }
+    }
+
     // Zero length array does not break.
     array = new int[0];
     nonzeroLength(array);
     knownLength(array);
+    lengthAlias1(array, 0);
+    lengthAlias2(array, 0);
+    lengthAlias3(array, 0);
 
     mA = new int[4][4];
     for (int i = 0; i < 4; i++) {

@@ -97,8 +97,6 @@ endif
 # compiles except for arm/mips, so the HOST is whatever we are
 # running on
 
-UNAME := $(shell uname -sm)
-
 # HOST_OS
 ifneq (,$(findstring Linux,$(UNAME)))
   HOST_OS := linux
@@ -110,7 +108,15 @@ ifneq (,$(findstring Macintosh,$(UNAME)))
   HOST_OS := darwin
 endif
 
-HOST_OS_EXTRA:=$(shell python -c "import platform; print(platform.platform())")
+HOST_OS_EXTRA := $(shell uname -rsm)
+ifeq ($(HOST_OS),linux)
+  ifneq ($(wildcard /etc/os-release),)
+    HOST_OS_EXTRA += $(shell source /etc/os-release; echo $$PRETTY_NAME)
+  endif
+else ifeq ($(HOST_OS),darwin)
+  HOST_OS_EXTRA += $(shell sw_vers -productVersion)
+endif
+HOST_OS_EXTRA := $(subst $(space),-,$(HOST_OS_EXTRA))
 
 # BUILD_OS is the real host doing the build.
 BUILD_OS := $(HOST_OS)
@@ -118,10 +124,12 @@ BUILD_OS := $(HOST_OS)
 HOST_CROSS_OS :=
 # We can cross-build Windows binaries on Linux
 ifeq ($(HOST_OS),linux)
+ifeq ($(BUILD_HOST_static),)
 HOST_CROSS_OS := windows
 HOST_CROSS_ARCH := x86
 HOST_CROSS_2ND_ARCH := x86_64
 2ND_HOST_CROSS_IS_64_BIT := true
+endif
 endif
 
 ifeq ($(HOST_OS),)
@@ -171,6 +179,7 @@ TARGET_COPY_OUT_DATA := data
 TARGET_COPY_OUT_ASAN := $(TARGET_COPY_OUT_DATA)/asan
 TARGET_COPY_OUT_OEM := oem
 TARGET_COPY_OUT_ODM := odm
+TARGET_COPY_OUT_PRODUCT := product
 TARGET_COPY_OUT_ROOT := root
 TARGET_COPY_OUT_RECOVERY := recovery
 
@@ -190,10 +199,29 @@ _vendor_path_placeholder := ||VENDOR-PATH-PH||
 TARGET_COPY_OUT_VENDOR := $(_vendor_path_placeholder)
 ###########################################
 
+###########################################
+# Define TARGET_COPY_OUT_PRODUCT to a placeholder, for at this point
+# we don't know if the device wants to build a separate product.img
+# or just build product stuff into system.img.
+# A device can set up TARGET_COPY_OUT_PRODUCT to "product" in its
+# BoardConfig.mk.
+# We'll substitute with the real value after loading BoardConfig.mk.
+_product_path_placeholder := ||PRODUCT-PATH-PH||
+TARGET_COPY_OUT_PRODUCT := $(_product_path_placeholder)
+###########################################
+
 #################################################################
 # Set up minimal BOOTCLASSPATH list of jars to build/execute
 # java code with dalvikvm/art.
 TARGET_CORE_JARS := core-oj core-libart conscrypt okhttp bouncycastle apache-xml
+ifeq ($(EMMA_INSTRUMENT),true)
+  ifneq ($(EMMA_INSTRUMENT_STATIC),true)
+    # For instrumented build, if Jacoco is not being included statically
+    # in instrumented packages then include Jacoco classes into the
+    # bootclasspath.
+    TARGET_CORE_JARS += jacocoagent
+  endif # EMMA_INSTRUMENT_STATIC
+endif # EMMA_INSTRUMENT
 HOST_CORE_JARS := $(addsuffix -hostdex,$(TARGET_CORE_JARS))
 #################################################################
 
@@ -257,6 +285,29 @@ BOARD_USES_VENDORIMAGE := true
 else ifdef BOARD_USES_VENDORIMAGE
 $(error TARGET_COPY_OUT_VENDOR must be set to 'vendor' to use a vendor image)
 endif
+
+###########################################
+# Now we can substitute with the real value of TARGET_COPY_OUT_PRODUCT
+ifeq ($(TARGET_COPY_OUT_PRODUCT),$(_product_path_placeholder))
+TARGET_COPY_OUT_PRODUCT := system/product
+else ifeq ($(filter product system/product,$(TARGET_COPY_OUT_PRODUCT)),)
+$(error TARGET_COPY_OUT_PRODUCT must be either 'product' or 'system/product', seeing '$(TARGET_COPY_OUT_PRODUCT)'.)
+endif
+PRODUCT_COPY_FILES := $(subst $(_product_path_placeholder),$(TARGET_COPY_OUT_PRODUCT),$(PRODUCT_COPY_FILES))
+
+BOARD_USES_PRODUCTIMAGE :=
+ifdef BOARD_PREBUILT_PRODUCTIMAGE
+BOARD_USES_PRODUCTIMAGE := true
+endif
+ifdef BOARD_PRODUCTIMAGE_FILE_SYSTEM_TYPE
+BOARD_USES_PRODUCTIMAGE := true
+endif
+ifeq ($(TARGET_COPY_OUT_PRODUCT),product)
+BOARD_USES_PRODUCTIMAGE := true
+else ifdef BOARD_USES_PRODUCTIMAGE
+$(error TARGET_COPY_OUT_PRODUCT must be set to 'product' to use a product image)
+endif
+
 ###########################################
 # Ensure that only TARGET_RECOVERY_UPDATER_LIBS *or* AB_OTA_UPDATER is set.
 TARGET_RECOVERY_UPDATER_LIBS ?=
@@ -269,6 +320,11 @@ ifeq ($(AB_OTA_UPDATER),true)
 endif
 
 # Check BOARD_VNDK_VERSION
+define check_vndk_version
+  $(eval vndk_path := prebuilts/vndk/v$(1)) \
+  $(if $(wildcard $(vndk_path)/*/Android.bp),,$(error VNDK version $(1) not found))
+endef
+
 ifdef BOARD_VNDK_VERSION
   ifneq ($(BOARD_VNDK_VERSION),current)
     $(error BOARD_VNDK_VERSION: Only "current" is implemented)
@@ -277,6 +333,17 @@ ifdef BOARD_VNDK_VERSION
   TARGET_VENDOR_TEST_SUFFIX := /vendor
 else
   TARGET_VENDOR_TEST_SUFFIX :=
+endif
+
+ifdef PRODUCT_EXTRA_VNDK_VERSIONS
+  $(foreach v,$(PRODUCT_EXTRA_VNDK_VERSIONS),$(call check_vndk_version,$(v)))
+endif
+
+# Ensure that BOARD_SYSTEMSDK_VERSIONS are all within PLATFORM_SYSTEMSDK_VERSIONS
+_unsupported_systemsdk_versions := $(filter-out $(PLATFORM_SYSTEMSDK_VERSIONS),$(BOARD_SYSTEMSDK_VERSIONS))
+ifneq (,$(_unsupported_systemsdk_versions))
+  $(error System SDK versions '$(_unsupported_systemsdk_versions)' in BOARD_SYSTEMSDK_VERSIONS are not supported.\
+          Supported versions are $(PLATFORM_SYSTEMSDK_VERSIONS))
 endif
 
 # ---------------------------------------------------------------
@@ -309,29 +376,17 @@ endif
 
 SOONG_OUT_DIR := $(OUT_DIR)/soong
 
-DEBUG_OUT_DIR := $(OUT_DIR)/debug
+TARGET_OUT_ROOT := $(OUT_DIR)/target
 
-# Move the host or target under the debug/ directory
-# if necessary.
-TARGET_OUT_ROOT_release := $(OUT_DIR)/target
-TARGET_OUT_ROOT_debug := $(DEBUG_OUT_DIR)/target
-TARGET_OUT_ROOT := $(TARGET_OUT_ROOT_$(TARGET_BUILD_TYPE))
-
-HOST_OUT_ROOT_release := $(OUT_DIR)/host
-HOST_OUT_ROOT_debug := $(DEBUG_OUT_DIR)/host
-HOST_OUT_ROOT := $(HOST_OUT_ROOT_$(HOST_BUILD_TYPE))
+HOST_OUT_ROOT := $(OUT_DIR)/host
 
 # We want to avoid two host bin directories in multilib build.
-HOST_OUT_release := $(HOST_OUT_ROOT_release)/$(HOST_OS)-$(HOST_PREBUILT_ARCH)
-HOST_OUT_debug := $(HOST_OUT_ROOT_debug)/$(HOST_OS)-$(HOST_PREBUILT_ARCH)
-HOST_OUT := $(HOST_OUT_$(HOST_BUILD_TYPE))
+HOST_OUT := $(HOST_OUT_ROOT)/$(HOST_OS)-$(HOST_PREBUILT_ARCH)
 SOONG_HOST_OUT := $(SOONG_OUT_DIR)/host/$(HOST_OS)-$(HOST_PREBUILT_ARCH)
 # TODO: remove
 BUILD_OUT := $(HOST_OUT)
 
-HOST_CROSS_OUT_release := $(HOST_OUT_ROOT_release)/windows-$(HOST_PREBUILT_ARCH)
-HOST_CROSS_OUT_debug := $(HOST_OUT_ROOT_debug)/windows-$(HOST_PREBUILT_ARCH)
-HOST_CROSS_OUT := $(HOST_CROSS_OUT_$(HOST_BUILD_TYPE))
+HOST_CROSS_OUT := $(HOST_OUT_ROOT)/windows-$(HOST_PREBUILT_ARCH)
 
 TARGET_PRODUCT_OUT_ROOT := $(TARGET_OUT_ROOT)/product
 
@@ -341,6 +396,7 @@ HOST_COMMON_OUT_ROOT := $(HOST_OUT_ROOT)/common
 PRODUCT_OUT := $(TARGET_PRODUCT_OUT_ROOT)/$(TARGET_DEVICE)
 
 OUT_DOCS := $(TARGET_COMMON_OUT_ROOT)/docs
+OUT_NDK_DOCS := $(TARGET_COMMON_OUT_ROOT)/ndk-docs
 
 BUILD_OUT_EXECUTABLES := $(BUILD_OUT)/bin
 SOONG_HOST_OUT_EXECUTABLES := $(SOONG_HOST_OUT)/bin
@@ -352,12 +408,13 @@ HOST_OUT_JAVA_LIBRARIES := $(HOST_OUT)/framework
 HOST_OUT_SDK_ADDON := $(HOST_OUT)/sdk_addon
 HOST_OUT_NATIVE_TESTS := $(HOST_OUT)/nativetest64
 HOST_OUT_COVERAGE := $(HOST_OUT)/coverage
+HOST_OUT_TESTCASES := $(HOST_OUT)/testcases
 
 HOST_CROSS_OUT_EXECUTABLES := $(HOST_CROSS_OUT)/bin
 HOST_CROSS_OUT_SHARED_LIBRARIES := $(HOST_CROSS_OUT)/lib
 HOST_CROSS_OUT_NATIVE_TESTS := $(HOST_CROSS_OUT)/nativetest
 HOST_CROSS_OUT_COVERAGE := $(HOST_CROSS_OUT)/coverage
-HOST_OUT_TESTCASES := $(HOST_OUT)/testcases
+HOST_CROSS_OUT_TESTCASES := $(HOST_CROSS_OUT)/testcases
 
 HOST_OUT_INTERMEDIATES := $(HOST_OUT)/obj
 HOST_OUT_INTERMEDIATE_LIBRARIES := $(HOST_OUT_INTERMEDIATES)/lib
@@ -376,6 +433,8 @@ HOST_OUT_GEN := $(HOST_OUT)/gen
 HOST_OUT_COMMON_GEN := $(HOST_COMMON_OUT_ROOT)/gen
 
 HOST_CROSS_OUT_GEN := $(HOST_CROSS_OUT)/gen
+
+HOST_OUT_TEST_CONFIG := $(HOST_OUT)/test_config
 
 # Out for HOST_2ND_ARCH
 HOST_2ND_ARCH_VAR_PREFIX := 2ND_
@@ -421,8 +480,16 @@ TARGET_OUT_COMMON_GEN := $(TARGET_COMMON_OUT_ROOT)/gen
 TARGET_OUT := $(PRODUCT_OUT)/$(TARGET_COPY_OUT_SYSTEM)
 ifneq ($(filter address,$(SANITIZE_TARGET)),)
 target_out_shared_libraries_base := $(PRODUCT_OUT)/$(TARGET_COPY_OUT_ASAN)/system
+ifeq ($(SANITIZE_LITE),true)
+# When using SANITIZE_LITE, APKs must not be packaged with sanitized libraries, as they will not
+# work with unsanitized app_process. For simplicity, generate APKs into /data/asan/.
+target_out_app_base := $(PRODUCT_OUT)/$(TARGET_COPY_OUT_ASAN)/system
+else
+target_out_app_base := $(TARGET_OUT)
+endif
 else
 target_out_shared_libraries_base := $(TARGET_OUT)
+target_out_app_base := $(TARGET_OUT)
 endif
 
 TARGET_OUT_EXECUTABLES := $(TARGET_OUT)/bin
@@ -436,16 +503,23 @@ TARGET_OUT_SHARED_LIBRARIES := $(target_out_shared_libraries_base)/lib
 endif
 TARGET_OUT_RENDERSCRIPT_BITCODE := $(TARGET_OUT_SHARED_LIBRARIES)
 TARGET_OUT_JAVA_LIBRARIES := $(TARGET_OUT)/framework
-TARGET_OUT_APPS := $(TARGET_OUT)/app
-TARGET_OUT_APPS_PRIVILEGED := $(TARGET_OUT)/priv-app
+TARGET_OUT_APPS := $(target_out_app_base)/app
+TARGET_OUT_APPS_PRIVILEGED := $(target_out_app_base)/priv-app
 TARGET_OUT_KEYLAYOUT := $(TARGET_OUT)/usr/keylayout
 TARGET_OUT_KEYCHARS := $(TARGET_OUT)/usr/keychars
 TARGET_OUT_ETC := $(TARGET_OUT)/etc
 TARGET_OUT_NOTICE_FILES := $(TARGET_OUT_INTERMEDIATES)/NOTICE_FILES
 TARGET_OUT_FAKE := $(PRODUCT_OUT)/fake_packages
 TARGET_OUT_TESTCASES := $(PRODUCT_OUT)/testcases
+TARGET_OUT_TEST_CONFIG := $(PRODUCT_OUT)/test_config
 
+ifeq ($(SANITIZE_LITE),true)
+# When using SANITIZE_LITE, APKs must not be packaged with sanitized libraries, as they will not
+# work with unsanitized app_process. For simplicity, generate APKs into /data/asan/.
+TARGET_OUT_SYSTEM_OTHER := $(PRODUCT_OUT)/$(TARGET_COPY_OUT_ASAN)/$(TARGET_COPY_OUT_SYSTEM_OTHER)
+else
 TARGET_OUT_SYSTEM_OTHER := $(PRODUCT_OUT)/$(TARGET_COPY_OUT_SYSTEM_OTHER)
+endif
 
 # Out for TARGET_2ND_ARCH
 TARGET_2ND_ARCH_VAR_PREFIX := $(HOST_2ND_ARCH_VAR_PREFIX)
@@ -514,8 +588,16 @@ TARGET_OUT_CACHE := $(PRODUCT_OUT)/cache
 TARGET_OUT_VENDOR := $(PRODUCT_OUT)/$(TARGET_COPY_OUT_VENDOR)
 ifneq ($(filter address,$(SANITIZE_TARGET)),)
 target_out_vendor_shared_libraries_base := $(PRODUCT_OUT)/$(TARGET_COPY_OUT_ASAN)/vendor
+ifeq ($(SANITIZE_LITE),true)
+# When using SANITIZE_LITE, APKs must not be packaged with sanitized libraries, as they will not
+# work with unsanitized app_process. For simplicity, generate APKs into /data/asan/.
+target_out_vendor_app_base := $(PRODUCT_OUT)/$(TARGET_COPY_OUT_ASAN)/vendor
+else
+target_out_vendor_app_base := $(TARGET_OUT_VENDOR)
+endif
 else
 target_out_vendor_shared_libraries_base := $(TARGET_OUT_VENDOR)
+target_out_vendor_app_base := $(TARGET_OUT_VENDOR)
 endif
 
 TARGET_OUT_VENDOR_EXECUTABLES := $(TARGET_OUT_VENDOR)/bin
@@ -527,8 +609,8 @@ TARGET_OUT_VENDOR_SHARED_LIBRARIES := $(target_out_vendor_shared_libraries_base)
 endif
 TARGET_OUT_VENDOR_RENDERSCRIPT_BITCODE := $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)
 TARGET_OUT_VENDOR_JAVA_LIBRARIES := $(TARGET_OUT_VENDOR)/framework
-TARGET_OUT_VENDOR_APPS := $(TARGET_OUT_VENDOR)/app
-TARGET_OUT_VENDOR_APPS_PRIVILEGED := $(TARGET_OUT_VENDOR)/priv-app
+TARGET_OUT_VENDOR_APPS := $(target_out_vendor_app_base)/app
+TARGET_OUT_VENDOR_APPS_PRIVILEGED := $(target_out_vendor_app_base)/priv-app
 TARGET_OUT_VENDOR_ETC := $(TARGET_OUT_VENDOR)/etc
 
 $(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_VENDOR_EXECUTABLES := $(TARGET_OUT_VENDOR_EXECUTABLES)
@@ -579,6 +661,39 @@ $(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_ODM_SHARED_LIBRARIES := $(TARGET_OUT_ODM
 endif
 $(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_ODM_APPS := $(TARGET_OUT_ODM_APPS)
 
+TARGET_OUT_PRODUCT := $(PRODUCT_OUT)/$(TARGET_COPY_OUT_PRODUCT)
+ifneq ($(filter address,$(SANITIZE_TARGET)),)
+target_out_product_shared_libraries_base := $(PRODUCT_OUT)/$(TARGET_COPY_OUT_ASAN)/product
+ifeq ($(SANITIZE_LITE),true)
+# When using SANITIZE_LITE, APKs must not be packaged with sanitized libraries, as they will not
+# work with unsanitized app_process. For simplicity, generate APKs into /data/asan/.
+target_out_product_app_base := $(PRODUCT_OUT)/$(TARGET_COPY_OUT_ASAN)/product
+else
+target_out_product_app_base := $(TARGET_OUT_PRODUCT)
+endif
+else
+target_out_product_shared_libraries_base := $(TARGET_OUT_PRODUCT)
+target_out_product_app_base := $(TARGET_OUT_PRODUCT)
+endif
+
+ifeq ($(TARGET_IS_64_BIT),true)
+TARGET_OUT_PRODUCT_SHARED_LIBRARIES := $(target_out_product_shared_libraries_base)/lib64
+else
+TARGET_OUT_PRODUCT_SHARED_LIBRARIES := $(target_out_product_shared_libraries_base)/lib
+endif
+TARGET_OUT_PRODUCT_JAVA_LIBRARIES:= $(TARGET_OUT_PRODUCT)/framework
+TARGET_OUT_PRODUCT_APPS := $(target_out_product_app_base)/app
+TARGET_OUT_PRODUCT_APPS_PRIVILEGED := $(target_out_product_app_base)/priv-app
+TARGET_OUT_PRODUCT_ETC := $(TARGET_OUT_PRODUCT)/etc
+
+ifeq ($(TARGET_TRANSLATE_2ND_ARCH),true)
+$(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_PRODUCT_SHARED_LIBRARIES := $(target_out_product_shared_libraries_base)/lib/$(TARGET_2ND_ARCH)
+else
+$(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_PRODUCT_SHARED_LIBRARIES := $(target_out_product_shared_libraries_base)/lib
+endif
+$(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_PRODUCT_APPS := $(TARGET_OUT_PRODUCT_APPS)
+$(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_PRODUCT_APPS_PRIVILEGED := $(TARGET_OUT_PRODUCT_APPS_PRIVILEGED)
+
 TARGET_OUT_BREAKPAD := $(PRODUCT_OUT)/breakpad
 
 TARGET_OUT_UNSTRIPPED := $(PRODUCT_OUT)/symbols
@@ -615,16 +730,6 @@ ifeq (,$(strip $(DIST_DIR)))
   DIST_DIR := $(OUT_DIR)/dist
 endif
 
-ifndef KATI
+ifeq ($(CALLED_FROM_SETUP),true)
 PRINT_BUILD_CONFIG ?= true
-endif
-
-ifeq ($(USE_CLANG_PLATFORM_BUILD),)
-USE_CLANG_PLATFORM_BUILD := true
-endif
-
-ifneq ($(USE_CLANG_PLATFORM_BUILD),true)
-ifneq ($(USE_CLANG_PLATFORM_BUILD),false)
-$(error USE_CLANG_PLATFORM_BUILD must be true or false)
-endif
 endif

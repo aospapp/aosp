@@ -62,17 +62,16 @@ class BaseHostQueryManager(object):
     def find_hosts(self, deps, acls):
         """Finds valid hosts matching deps, acls.
 
-        @param deps: A list of dependencies to match.
-        @param acls: A list of acls, at least one of which must coincide with
-            an acl group the chosen host is in.
+        @param deps: A list/frozenset of dependencies (label id) to match.
+        @param acls: A list/frozenset of acls, at least one of which must
+            coincide with an acl group the chosen host is in.
 
         @return: A set of matching hosts available.
         """
         hosts_available = self.host_objects.filter(invalid=0)
-        queries = [Q(labels__id=dep) for dep in deps]
-        queries += [Q(aclgroup__id__in=acls)]
-        for query in queries:
-            hosts_available = hosts_available.filter(query)
+        hosts_available = hosts_available.filter(Q(aclgroup__id__in=acls))
+        hosts_available = models.Host.get_hosts_with_label_ids(
+                list(deps), hosts_available)
         return set(hosts_available)
 
 

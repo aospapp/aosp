@@ -39,7 +39,7 @@ public class InfrastructureTests extends ActivityTestBase {
     @Test
     public void testScreenshot() {
         for (int i = 0 ; i < 500 ; i ++) {
-            takeScreenshot(new Point());
+            takeScreenshot(new TestPositionInfo(new Point(), new Point()));
             System.gc();
         }
     }

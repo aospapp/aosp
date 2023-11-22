@@ -31,10 +31,48 @@
 
 #include "private/bionic_constants.h"
 
+TEST(time, time) {
+  // Acquire time
+  time_t p1, t1 = time(&p1);
+  // valid?
+  ASSERT_NE(static_cast<time_t>(0), t1);
+  ASSERT_NE(static_cast<time_t>(-1), t1);
+  ASSERT_EQ(p1, t1);
+
+  // Acquire time one+ second later
+  usleep(1010000);
+  time_t p2, t2 = time(&p2);
+  // valid?
+  ASSERT_NE(static_cast<time_t>(0), t2);
+  ASSERT_NE(static_cast<time_t>(-1), t2);
+  ASSERT_EQ(p2, t2);
+
+  // Expect time progression
+  ASSERT_LT(p1, p2);
+  ASSERT_LE(t2 - t1, static_cast<time_t>(2));
+
+  // Expect nullptr call to produce same results
+  ASSERT_LE(t2, time(nullptr));
+  ASSERT_LE(time(nullptr) - t2, static_cast<time_t>(1));
+}
+
 TEST(time, gmtime) {
   time_t t = 0;
   tm* broken_down = gmtime(&t);
   ASSERT_TRUE(broken_down != NULL);
+  ASSERT_EQ(0, broken_down->tm_sec);
+  ASSERT_EQ(0, broken_down->tm_min);
+  ASSERT_EQ(0, broken_down->tm_hour);
+  ASSERT_EQ(1, broken_down->tm_mday);
+  ASSERT_EQ(0, broken_down->tm_mon);
+  ASSERT_EQ(1970, broken_down->tm_year + 1900);
+}
+
+TEST(time, gmtime_r) {
+  struct tm tm = {};
+  time_t t = 0;
+  struct tm* broken_down = gmtime_r(&t, &tm);
+  ASSERT_EQ(broken_down, &tm);
   ASSERT_EQ(0, broken_down->tm_sec);
   ASSERT_EQ(0, broken_down->tm_min);
   ASSERT_EQ(0, broken_down->tm_hour);
@@ -238,6 +276,23 @@ TEST(time, strptime) {
   memset(&t, 0, sizeof(t));
   strptime("09:41:53", "%T", &t);
   strftime(buf, sizeof(buf), "%H:%M:%S", &t);
+  EXPECT_STREQ("09:41:53", buf);
+}
+
+TEST(time, strptime_l) {
+  setenv("TZ", "UTC", 1);
+
+  struct tm t;
+  char buf[64];
+
+  memset(&t, 0, sizeof(t));
+  strptime_l("11:14", "%R", &t, LC_GLOBAL_LOCALE);
+  strftime_l(buf, sizeof(buf), "%H:%M", &t, LC_GLOBAL_LOCALE);
+  EXPECT_STREQ("11:14", buf);
+
+  memset(&t, 0, sizeof(t));
+  strptime_l("09:41:53", "%T", &t, LC_GLOBAL_LOCALE);
+  strftime_l(buf, sizeof(buf), "%H:%M:%S", &t, LC_GLOBAL_LOCALE);
   EXPECT_STREQ("09:41:53", buf);
 }
 
@@ -574,6 +629,78 @@ TEST(time, clock_gettime) {
   ASSERT_LT(ts2.tv_nsec, 1000000);
 }
 
+TEST(time, clock_gettime_CLOCK_REALTIME) {
+  timespec ts;
+  ASSERT_EQ(0, clock_gettime(CLOCK_REALTIME, &ts));
+}
+
+TEST(time, clock_gettime_CLOCK_MONOTONIC) {
+  timespec ts;
+  ASSERT_EQ(0, clock_gettime(CLOCK_MONOTONIC, &ts));
+}
+
+TEST(time, clock_gettime_CLOCK_PROCESS_CPUTIME_ID) {
+  timespec ts;
+  ASSERT_EQ(0, clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts));
+}
+
+TEST(time, clock_gettime_CLOCK_THREAD_CPUTIME_ID) {
+  timespec ts;
+  ASSERT_EQ(0, clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts));
+}
+
+TEST(time, clock_gettime_CLOCK_BOOTTIME) {
+  timespec ts;
+  ASSERT_EQ(0, clock_gettime(CLOCK_BOOTTIME, &ts));
+}
+
+TEST(time, clock_gettime_unknown) {
+  errno = 0;
+  timespec ts;
+  ASSERT_EQ(-1, clock_gettime(-1, &ts));
+  ASSERT_EQ(EINVAL, errno);
+}
+
+TEST(time, clock_getres_CLOCK_REALTIME) {
+  timespec ts;
+  ASSERT_EQ(0, clock_getres(CLOCK_REALTIME, &ts));
+  ASSERT_EQ(1, ts.tv_nsec);
+  ASSERT_EQ(0, ts.tv_sec);
+}
+
+TEST(time, clock_getres_CLOCK_MONOTONIC) {
+  timespec ts;
+  ASSERT_EQ(0, clock_getres(CLOCK_MONOTONIC, &ts));
+  ASSERT_EQ(1, ts.tv_nsec);
+  ASSERT_EQ(0, ts.tv_sec);
+}
+
+TEST(time, clock_getres_CLOCK_PROCESS_CPUTIME_ID) {
+  timespec ts;
+  ASSERT_EQ(0, clock_getres(CLOCK_PROCESS_CPUTIME_ID, &ts));
+}
+
+TEST(time, clock_getres_CLOCK_THREAD_CPUTIME_ID) {
+  timespec ts;
+  ASSERT_EQ(0, clock_getres(CLOCK_THREAD_CPUTIME_ID, &ts));
+}
+
+TEST(time, clock_getres_CLOCK_BOOTTIME) {
+  timespec ts;
+  ASSERT_EQ(0, clock_getres(CLOCK_BOOTTIME, &ts));
+  ASSERT_EQ(1, ts.tv_nsec);
+  ASSERT_EQ(0, ts.tv_sec);
+}
+
+TEST(time, clock_getres_unknown) {
+  errno = 0;
+  timespec ts = { -1, -1 };
+  ASSERT_EQ(-1, clock_getres(-1, &ts));
+  ASSERT_EQ(EINVAL, errno);
+  ASSERT_EQ(-1, ts.tv_nsec);
+  ASSERT_EQ(-1, ts.tv_sec);
+}
+
 TEST(time, clock) {
   // clock(3) is hard to test, but a 1s sleep should cost less than 1ms.
   clock_t t0 = clock();
@@ -582,31 +709,38 @@ TEST(time, clock) {
   ASSERT_LT(t1 - t0, CLOCKS_PER_SEC / 1000);
 }
 
-pid_t GetInvalidPid() {
-  FILE* fp = fopen("/proc/sys/kernel/pid_max", "r");
+static pid_t GetInvalidPid() {
+  std::unique_ptr<FILE, decltype(&fclose)> fp{fopen("/proc/sys/kernel/pid_max", "r"), fclose};
   long pid_max;
-  fscanf(fp, "%ld", &pid_max);
-  pid_t invalid_pid = static_cast<pid_t>(pid_max + 1);
-  fclose(fp);
-  return invalid_pid;
+  fscanf(fp.get(), "%ld", &pid_max);
+  return static_cast<pid_t>(pid_max + 1);
 }
 
-TEST(time, clock_getcpuclockid) {
-  // For current process.
+TEST(time, clock_getcpuclockid_current) {
   clockid_t clockid;
   ASSERT_EQ(0, clock_getcpuclockid(getpid(), &clockid));
-
   timespec ts;
   ASSERT_EQ(0, clock_gettime(clockid, &ts));
+}
 
-  // For parent process.
+TEST(time, clock_getcpuclockid_parent) {
+  clockid_t clockid;
   ASSERT_EQ(0, clock_getcpuclockid(getppid(), &clockid));
+  timespec ts;
   ASSERT_EQ(0, clock_gettime(clockid, &ts));
+}
 
-  // For invalid process.
+TEST(time, clock_getcpuclockid_ESRCH) {
   // We can't use -1 for invalid pid here, because clock_getcpuclockid() can't detect it.
   errno = 0;
-  ASSERT_EQ(ESRCH, clock_getcpuclockid(GetInvalidPid(), &clockid));
+  // If this fails, your kernel needs commit e1b6b6ce to be backported.
+  clockid_t clockid;
+  ASSERT_EQ(ESRCH, clock_getcpuclockid(GetInvalidPid(), &clockid)) << "\n"
+    << "Please ensure that the following kernel patches or their replacements have been applied:\n"
+    << "* https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/"
+    << "commit/?id=e1b6b6ce55a0a25c8aa8af019095253b2133a41a\n"
+    << "* https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/"
+    << "commit/?id=c80ed088a519da53f27b798a69748eaabc66aadf\n";
   ASSERT_EQ(0, errno);
 }
 
@@ -710,4 +844,81 @@ TEST(time, bug_31339449) {
 #else
   // The BSDs agree with us, but glibc gets this wrong.
 #endif
+}
+
+TEST(time, asctime) {
+  const struct tm tm = {};
+  ASSERT_STREQ("Sun Jan  0 00:00:00 1900\n", asctime(&tm));
+}
+
+TEST(time, asctime_r) {
+  const struct tm tm = {};
+  char buf[256];
+  ASSERT_EQ(buf, asctime_r(&tm, buf));
+  ASSERT_STREQ("Sun Jan  0 00:00:00 1900\n", buf);
+}
+
+TEST(time, ctime) {
+  setenv("TZ", "UTC", 1);
+  const time_t t = 0;
+  ASSERT_STREQ("Thu Jan  1 00:00:00 1970\n", ctime(&t));
+}
+
+TEST(time, ctime_r) {
+  setenv("TZ", "UTC", 1);
+  const time_t t = 0;
+  char buf[256];
+  ASSERT_EQ(buf, ctime_r(&t, buf));
+  ASSERT_STREQ("Thu Jan  1 00:00:00 1970\n", buf);
+}
+
+// https://issuetracker.google.com/37128336
+TEST(time, strftime_strptime_s) {
+  char buf[32];
+  const struct tm tm0 = { .tm_year = 1982-1900, .tm_mon = 0, .tm_mday = 1 };
+
+  setenv("TZ", "America/Los_Angeles", 1);
+  strftime(buf, sizeof(buf), "<%s>", &tm0);
+  EXPECT_STREQ("<378720000>", buf);
+
+  setenv("TZ", "UTC", 1);
+  strftime(buf, sizeof(buf), "<%s>", &tm0);
+  EXPECT_STREQ("<378691200>", buf);
+
+  struct tm tm;
+
+  setenv("TZ", "America/Los_Angeles", 1);
+  tzset();
+  memset(&tm, 0xff, sizeof(tm));
+  char* p = strptime("378720000x", "%s", &tm);
+  ASSERT_EQ('x', *p);
+  EXPECT_EQ(0, tm.tm_sec);
+  EXPECT_EQ(0, tm.tm_min);
+  EXPECT_EQ(0, tm.tm_hour);
+  EXPECT_EQ(1, tm.tm_mday);
+  EXPECT_EQ(0, tm.tm_mon);
+  EXPECT_EQ(82, tm.tm_year);
+  EXPECT_EQ(5, tm.tm_wday);
+  EXPECT_EQ(0, tm.tm_yday);
+  EXPECT_EQ(0, tm.tm_isdst);
+
+  setenv("TZ", "UTC", 1);
+  tzset();
+  memset(&tm, 0xff, sizeof(tm));
+  p = strptime("378691200x", "%s", &tm);
+  ASSERT_EQ('x', *p);
+  EXPECT_EQ(0, tm.tm_sec);
+  EXPECT_EQ(0, tm.tm_min);
+  EXPECT_EQ(0, tm.tm_hour);
+  EXPECT_EQ(1, tm.tm_mday);
+  EXPECT_EQ(0, tm.tm_mon);
+  EXPECT_EQ(82, tm.tm_year);
+  EXPECT_EQ(5, tm.tm_wday);
+  EXPECT_EQ(0, tm.tm_yday);
+  EXPECT_EQ(0, tm.tm_isdst);
+}
+
+TEST(time, strptime_s_nothing) {
+  struct tm tm;
+  ASSERT_EQ(nullptr, strptime("x", "%s", &tm));
 }

@@ -14,7 +14,12 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Accounts test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="cmd account set-bind-instant-service-allowed true" />
+        <option name="teardown-command" value="cmd account set-bind-instant-service-allowed false" />
+    </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsUnaffiliatedAccountAuthenticators.apk" />

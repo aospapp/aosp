@@ -15,18 +15,23 @@ from autotest_lib.utils.labellib import Key
 
 ### Constants for label prefixes
 CROS_VERSION_PREFIX = Key.CROS_VERSION
-CROS_TH_VERSION_PREFIX = Key.CROS_TH_VERSION
+CROS_ANDROID_VERSION_PREFIX = Key.CROS_ANDROID_VERSION
 ANDROID_BUILD_VERSION_PREFIX = Key.ANDROID_BUILD_VERSION
 TESTBED_BUILD_VERSION_PREFIX = Key.TESTBED_VERSION
 FW_RW_VERSION_PREFIX = Key.FIRMWARE_RW_VERSION
 FW_RO_VERSION_PREFIX = Key.FIRMWARE_RO_VERSION
 
-_ANDROID_BUILD_REGEX = r'.+/.+/P?([0-9]+|LATEST)'
+# So far the word cheets is only way to distinguish between ARC and Android
+# build.
+_ANDROID_BUILD_REGEX = r'.+/(?!cheets).+/P?([0-9]+|LATEST)'
 _ANDROID_TESTBED_BUILD_REGEX = _ANDROID_BUILD_REGEX + '(,|(#[0-9]+))'
-_CROS_TH_BUILD_REGEX = r'.+-release/.+;.+/.+/P?[0-9]+$'
+_CROS_ANDROID_BUILD_REGEX = r'.+/(?=cheets).+/P?([0-9]+|LATEST)'
 
 # Special label to skip provision and run reset instead.
 SKIP_PROVISION = 'skip_provision'
+
+# Postfix -cheetsth to distinguish ChromeOS build during Cheets provisioning.
+CHEETS_SUFFIX = '-cheetsth'
 
 # Default number of provisions attempts to try if we believe the devserver is
 # flaky.
@@ -64,9 +69,8 @@ def get_version_label_prefix(image):
     Known version label prefixes are:
       * `CROS_VERSION_PREFIX` for Chrome OS version strings.
         These images have names like `cave-release/R57-9030.0.0`.
-      * `CROS_TH_VERSION_PREFIX` for Chrome OS ARC TH version strings.
-        These images have names like
-        `cyan-release/R60-9517.0.0;git_nyc-arc/cheets_x86-user/3512523`.
+      * `CROS_ANDROID_VERSION_PREFIX` for Chrome OS Android version strings.
+        These images have names like `git_nyc-arc/cheets_x86-user/3512523`.
       * `ANDROID_BUILD_VERSION_PREFIX` for Android build versions
         These images have names like
         `git_mnc-release/shamu-userdebug/2457013`.
@@ -84,8 +88,8 @@ def get_version_label_prefix(image):
         return TESTBED_BUILD_VERSION_PREFIX
     elif re.match(_ANDROID_BUILD_REGEX, image, re.I):
         return ANDROID_BUILD_VERSION_PREFIX
-    elif re.match(_CROS_TH_BUILD_REGEX, image, re.I):
-        return CROS_TH_VERSION_PREFIX
+    elif re.match(_CROS_ANDROID_BUILD_REGEX, image, re.I):
+        return CROS_ANDROID_VERSION_PREFIX
     else:
         return CROS_VERSION_PREFIX
 
@@ -297,6 +301,7 @@ class Provision(_SpecialTaskAction):
     # version label is used for firmware update to stage desired ChromeOS image
     # on to the servo USB stick.
     _priorities = [CROS_VERSION_PREFIX,
+                   CROS_ANDROID_VERSION_PREFIX,
                    FW_RO_VERSION_PREFIX,
                    FW_RW_VERSION_PREFIX]
 
@@ -311,7 +316,7 @@ class Provision(_SpecialTaskAction):
                               'disable_before_iteration_sysinfo': True,
                               'disable_after_test_sysinfo': True,
                               'disable_after_iteration_sysinfo': True}),
-        CROS_TH_VERSION_PREFIX : actionables.TestActionable(
+        CROS_ANDROID_VERSION_PREFIX : actionables.TestActionable(
                 'provision_CheetsUpdate'),
         FW_RO_VERSION_PREFIX: actionables.TestActionable(
                 'provision_FirmwareUpdate'),

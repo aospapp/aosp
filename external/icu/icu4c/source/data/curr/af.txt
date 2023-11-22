@@ -122,6 +122,10 @@ af{
             "CLP",
             "Chileense peso",
         }
+        CNH{
+            "CNH",
+            "Chinese joean",
+        }
         CNY{
             "CN¥",
             "Sjinese joean renminbi",
@@ -452,7 +456,7 @@ af{
         }
         PEN{
             "PEN",
-            "Peruaanse nuwe sol",
+            "Peruaanse sol",
         }
         PGK{
             "PGK",
@@ -742,6 +746,7 @@ af{
         PKR{"Rs"}
         PLN{"zł"}
         PYG{"₲"}
+        RON{"leu"}
         RUB{"₽"}
         RWF{"RF"}
         SBD{"$"}
@@ -891,6 +896,10 @@ af{
         CLP{
             one{"Chileense peso"}
             other{"Chileense peso"}
+        }
+        CNH{
+            one{"Chinese joean (buiteland)"}
+            other{"Chinese joean (buiteland)"}
         }
         CNY{
             one{"Sjinese joean renminbi"}
@@ -1197,8 +1206,8 @@ af{
             other{"Panamese balboa"}
         }
         PEN{
-            one{"Peruaanse nuwe sol"}
-            other{"Peruaanse nuwe sol"}
+            one{"Peruaanse sol"}
+            other{"Peruaanse sol"}
         }
         PGK{
             one{"Papoea-Nieu-Guinese kina"}
@@ -1405,5 +1414,5 @@ af{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.29.44"}
+    Version{"2.1.37.5"}
 }

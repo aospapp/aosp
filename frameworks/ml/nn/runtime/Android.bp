@@ -31,6 +31,7 @@ cc_library {
     name: "libneuralnetworks",
     defaults: ["neuralnetworks_defaults"],
     host_supported: false,
+    openmp: true,
 
     srcs: [
         "Callbacks.cpp",
@@ -41,10 +42,12 @@ cc_library {
         "Memory.cpp",
         "ModelBuilder.cpp",
         "NeuralNetworks.cpp",
+        "VersionedIDevice.cpp",
     ],
 
     target: {
         android: {
+            version_script: "libneuralnetworks.map.txt",
             shared_libs: [
                 "libbase",
                 "libcutils",
@@ -52,9 +55,9 @@ cc_library {
                 "libhidltransport",
                 "libhidlmemory",
                 "liblog",
-                "libnativehelper",
                 "libutils",
                 "android.hardware.neuralnetworks@1.0",
+                "android.hardware.neuralnetworks@1.1",
                 "android.hidl.allocator@1.0",
                 "android.hidl.memory@1.0",
             ],
@@ -97,4 +100,8 @@ ndk_library {
     first_version: "27",
 }
 
-subdirs = ["test"]
+llndk_library {
+    name: "libneuralnetworks",
+    symbol_file: "libneuralnetworks.map.txt",
+    export_include_dirs: ["include"],
+}

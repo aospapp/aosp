@@ -18,8 +18,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_JAVA_RESOURCE_DIRS := res
 LOCAL_MODULE := nist-pkix-tests
-LOCAL_JAVA_LIBRARIES := core-oj core-libart junit
-LOCAL_NO_STANDARD_LIBRARIES := true
+LOCAL_JAVA_LIBRARIES := junit
+LOCAL_SDK_VERSION := core_current
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include $(BUILD_STATIC_JAVA_LIBRARY)
 

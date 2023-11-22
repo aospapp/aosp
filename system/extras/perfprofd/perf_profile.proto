@@ -47,6 +47,9 @@ message LoadModule {
 
   // LoadModule's linker build_id.
   optional string build_id = 2;
+
+  // On-device symbolized entries.
+  repeated string symbol = 3;
 }
 
 // All samples for a load_module.
@@ -60,6 +63,11 @@ message LoadModuleSamples {
   repeated RangeSample range_samples = 3;
 }
 
+// A table of program names.
+message ProcessNames {
+  repeated string name = 1;
+}
+
 // All samples for a program.
 message ProgramSamples {
   // Name of the program.
@@ -67,6 +75,9 @@ message ProgramSamples {
 
   // Load module profiles.
   repeated LoadModuleSamples modules = 2;
+
+  // Index into ProcessNames for the name of the process.
+  optional uint32 process_name_id = 3;
 }
 
 // A compressed representation of a perf profile, which contains samples from
@@ -91,6 +102,9 @@ message AndroidPerfProfile {
 
   // List of all load modules.
   repeated LoadModule load_modules = 4;
+
+  // Table of process names.
+  optional ProcessNames process_names = 11;
 
   // is device screen on at point when profile is collected?
   optional bool display_on = 5;

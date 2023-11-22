@@ -59,10 +59,14 @@ constexpr int32_t kMaxTimersToSet = INT32_C(1030);
 
 namespace general_test {
 
-#define COOKIE(num) reinterpret_cast<const void*>(num)
+namespace {
+
+const uint32_t kCookies[] = {0, 1, 2};
+
+} // anonymous namespace
 
 void TimerStressTest::startStages() {
-  uint32_t cancelId = chreTimerSet(kDuration, COOKIE(0), true);
+  uint32_t cancelId = chreTimerSet(kDuration, &kCookies[0], true);
   if (cancelId == CHRE_TIMER_INVALID) {
     sendFatalFailureToHost("No timers available");
   }
@@ -70,7 +74,7 @@ void TimerStressTest::startStages() {
   mStage1CallbacksLeft = 0;
   // We anticipate most CHREs will not reach kMaxTimersToSet.
   while (mStage1CallbacksLeft < kMaxTimersToSet) {
-    if (chreTimerSet(kDuration, COOKIE(1), true) == CHRE_TIMER_INVALID) {
+    if (chreTimerSet(kDuration, &kCookies[1], true) == CHRE_TIMER_INVALID) {
       break;
     }
     mStage1CallbacksLeft++;
@@ -82,13 +86,11 @@ void TimerStressTest::startStages() {
     sendFatalFailureToHost("Unable to cancel timer");
   }
   markSuccess(0);
-  if (chreTimerSet(kDuration, COOKIE(2), true) == CHRE_TIMER_INVALID) {
+  if (chreTimerSet(kDuration, &kCookies[2], true) == CHRE_TIMER_INVALID) {
     sendFatalFailureToHost("Unable to set new timer after successful "
                            "cancel.");
   }
 }
-
-#undef COOKIE
 
 TimerStressTest::TimerStressTest()
   : Test(CHRE_API_VERSION_1_0),
@@ -147,7 +149,9 @@ void TimerStressTest::handleEvent(uint32_t senderInstanceId,
   if (eventType != CHRE_EVENT_TIMER) {
     unexpectedEvent(eventType);
   }
-  handleStageEvent(reinterpret_cast<uint32_t>(eventData));
+
+  const uint32_t *data = static_cast<const uint32_t *>(eventData);
+  handleStageEvent(*data);
 
   mInMethod = false;
 }

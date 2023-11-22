@@ -12,17 +12,13 @@ import common
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import backchannel
-from autotest_lib.client.cros.cellular import cell_tools
 from autotest_lib.client.cros.cellular import mm
 from autotest_lib.client.cros.cellular.pseudomodem import pseudomodem_context
 from autotest_lib.client.cros.cellular.wardmodem import wardmodem
 from autotest_lib.client.cros.networking import cellular_proxy
+from autotest_lib.client.cros.networking import shill_context
 from autotest_lib.client.cros.networking import shill_proxy
 
-# Import 'flimflam_test_path' first in order to import flimflam.
-# pylint: disable=W0611
-from autotest_lib.client.cros import flimflam_test_path
-import flimflam
 
 class CellularTestEnvironment(object):
     """Setup and verify cellular test environment.
@@ -32,7 +28,7 @@ class CellularTestEnvironment(object):
         - Shuts down other devices except cellular.
         - Shill and MM logging is enabled appropriately for cellular.
         - Initializes members that tests should use to access test environment
-          (eg. |shill|, |flimflam|, |modem_manager|, |modem|).
+          (eg. |shill|, |modem_manager|, |modem|).
 
     Then it verifies the following is valid:
         - The backchannel is using an Ethernet device.
@@ -74,7 +70,6 @@ class CellularTestEnvironment(object):
         self.bus = dbus.SystemBus(mainloop=self.mainloop)
 
         self.shill = None
-        self.flim = None  # Only use this for legacy tests.
         self.modem_manager = None
         self.modem = None
         self.modem_path = None
@@ -89,7 +84,8 @@ class CellularTestEnvironment(object):
             self._context_managers.append(self._backchannel)
         if shutdown_other_devices:
             self._context_managers.append(
-                    cell_tools.OtherDeviceShutdownContext('cellular'))
+                    shill_context.AllowedTechnologiesContext(
+                            [shill_proxy.ShillProxy.TECHNOLOGY_CELLULAR]))
 
 
     @contextlib.contextmanager
@@ -142,18 +138,17 @@ class CellularTestEnvironment(object):
         if self._nested:
             return self._nested.__exit__(exception, value, traceback)
         self.shill = None
-        self.flim = None
         self.modem_manager = None
         self.modem = None
         self.modem_path = None
 
 
     def _get_shill_cellular_device_object(self):
-        modem_device = self.shill.find_cellular_device_object()
-        if not modem_device:
-            raise error.TestError('Cannot find cellular device in shill. '
-                                  'Is the modem plugged in?')
-        return modem_device
+        return utils.poll_for_condition(
+            lambda: self.shill.find_cellular_device_object(),
+            exception=error.TestError('Cannot find cellular device in shill. '
+                                      'Is the modem plugged in?'),
+            timeout=shill_proxy.ShillProxy.DEVICE_ENUMERATION_TIMEOUT)
 
 
     def _enable_modem(self):
@@ -205,10 +200,6 @@ class CellularTestEnvironment(object):
         self.shill = cellular_proxy.CellularProxy.get_proxy(self.bus)
         if self.shill is None:
             raise error.TestError('Cannot connect to shill, is shill running?')
-
-        # Keep this around to support older tests that haven't migrated to
-        # cellular_proxy.
-        self.flim = flimflam.FlimFlam()
 
 
     def _initialize_modem_components(self):

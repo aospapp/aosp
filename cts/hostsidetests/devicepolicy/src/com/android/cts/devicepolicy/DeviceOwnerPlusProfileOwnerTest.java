@@ -185,7 +185,7 @@ public class DeviceOwnerPlusProfileOwnerTest extends BaseDevicePolicyTest {
      * time.
      */
     public void testBindDeviceAdminServiceAsUser_compPlusSecondaryUser() throws Exception {
-        if (!mHasFeature || !canCreateAdditionalUsers(1)) {
+        if (!mHasFeature || !canCreateAdditionalUsers(2)) {
             return;
         }
         int secondaryUserId = setupManagedSecondaryUser();
@@ -335,7 +335,7 @@ public class DeviceOwnerPlusProfileOwnerTest extends BaseDevicePolicyTest {
             return;
         }
 
-        if (canCreateAdditionalUsers(1)) {
+        if (canCreateAdditionalUsers(2)) {
             // If secondary users are allowed, create an affiliated one, to check that this still
             // works if having both an affiliated user and an affiliated managed profile.
             int secondaryUserId = setupManagedSecondaryUser();
@@ -388,7 +388,7 @@ public class DeviceOwnerPlusProfileOwnerTest extends BaseDevicePolicyTest {
             return;
         }
 
-        if (canCreateAdditionalUsers(1)) {
+        if (canCreateAdditionalUsers(2)) {
             // If secondary users are allowed, create an affiliated one, to check that this still
             // works if having both an affiliated user and an affiliated managed profile.
             int secondaryUserId = setupManagedSecondaryUser();
@@ -421,6 +421,46 @@ public class DeviceOwnerPlusProfileOwnerTest extends BaseDevicePolicyTest {
                 DEVICE_WIDE_LOGGING_TEST,
                 "testRequestBugreportThrowsSecurityException",
                 mPrimaryUserId);
+    }
+
+    public void testCannotStartManagedProfileInBackground() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        setupManagedProfile(COMP_DPC_APK, COMP_DPC_PKG, COMP_DPC_ADMIN);
+
+        runDeviceTestsAsUser(
+                COMP_DPC_PKG,
+                MANAGEMENT_TEST,
+                "testCannotStartManagedProfileInBackground",
+                mPrimaryUserId);
+    }
+
+    public void testCannotStopManagedProfile() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        setupManagedProfile(COMP_DPC_APK, COMP_DPC_PKG, COMP_DPC_ADMIN);
+
+        runDeviceTestsAsUser(
+                COMP_DPC_PKG,
+                MANAGEMENT_TEST,
+                "testCannotStopManagedProfile",
+                mPrimaryUserId);
+    }
+
+    public void testCannotLogoutManagedProfile() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        int profileUserId = setupManagedProfile(COMP_DPC_APK, COMP_DPC_PKG, COMP_DPC_ADMIN);
+        setSameAffiliationId(profileUserId);
+
+        runDeviceTestsAsUser(
+                COMP_DPC_PKG,
+                MANAGEMENT_TEST,
+                "testCannotLogoutManagedProfile",
+                profileUserId);
     }
 
     private void verifyBindDeviceAdminServiceAsUser(int profileOwnerUserId) throws Exception {

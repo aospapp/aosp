@@ -83,7 +83,7 @@ public class InstrumentClusterFragment extends Fragment {
         View view = inflater.inflate(R.layout.instrument_cluster, container, false);
 
         view.findViewById(R.id.cluster_start_button).setOnClickListener(v -> initCluster());
-        view.findViewById(R.id.cluster_turn_left_button).setOnClickListener(v -> turnLeft());
+        view.findViewById(R.id.cluster_turn_left_button).setOnClickListener(v -> sendTurn());
         view.findViewById(R.id.cluster_start_activity).setOnClickListener(v -> startNavActivity());
 
         return view;
@@ -121,15 +121,14 @@ public class InstrumentClusterFragment extends Fragment {
         }
     }
 
-    private void turnLeft() {
+    private void sendTurn() {
+        // TODO(deanh): Make this actually meaningful.
+        Bundle bundle = new Bundle();
+        bundle.putString("someName", "someValue time=" + System.currentTimeMillis());
         try {
-            mCarNavigationStatusManager
-                    .sendNavigationTurnEvent(CarNavigationStatusManager.TURN_TURN, "Huff Ave", 90,
-                            -1, null, CarNavigationStatusManager.TURN_SIDE_LEFT);
-            mCarNavigationStatusManager.sendNavigationTurnDistanceEvent(500, 10, 500,
-                    CarNavigationStatusManager.DISTANCE_METERS);
-        } catch (CarNotConnectedException e) {
-            e.printStackTrace();
+            mCarNavigationStatusManager.sendEvent(1, bundle);
+        } catch(CarNotConnectedException e) {
+            Log.e(TAG, "Failed to send turn information.", e);
         }
     }
 
@@ -183,12 +182,7 @@ public class InstrumentClusterFragment extends Fragment {
             Log.e(TAG, "Failed to get owned focus", e);
         }
 
-        try {
-            mCarNavigationStatusManager
-                    .sendNavigationStatus(CarNavigationStatusManager.STATUS_ACTIVE);
-        } catch (CarNotConnectedException e) {
-            Log.e(TAG, "Failed to set navigation status, reconnecting to the car", e);
-        }
+        // TODO(deanh): re-implement this using sendEvent()
     }
 
     @Override

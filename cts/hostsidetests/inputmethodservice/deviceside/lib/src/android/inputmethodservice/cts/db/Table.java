@@ -18,7 +18,7 @@ package android.inputmethodservice.cts.db;
 
 import android.content.ContentValues;
 import android.database.Cursor;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import java.util.stream.Stream;
 

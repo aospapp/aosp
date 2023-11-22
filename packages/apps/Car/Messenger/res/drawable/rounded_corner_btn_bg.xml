@@ -20,6 +20,6 @@
     <solid android:color="@color/car_blue_grey_900" />
     <corners android:radius="55dp"/>
     <size
-        android:height="@dimen/car_touch_target"
+        android:height="@dimen/car_touch_target_size"
         android:width="@dimen/big_btn_bg_width" />
 </shape>

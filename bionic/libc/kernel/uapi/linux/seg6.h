@@ -18,6 +18,8 @@
  ****************************************************************************/
 #ifndef _UAPI_LINUX_SEG6_H
 #define _UAPI_LINUX_SEG6_H
+#include <linux/types.h>
+#include <linux/in6.h>
 struct ipv6_sr_hdr {
   __u8 nexthdr;
   __u8 hdrlen;
@@ -25,7 +27,7 @@ struct ipv6_sr_hdr {
   __u8 segments_left;
   __u8 first_segment;
   __u8 flags;
-  __u16 reserved;
+  __u16 tag;
   struct in6_addr segments[0];
 };
 #define SR6_FLAG1_PROTECTED (1 << 6)

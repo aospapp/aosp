@@ -1519,7 +1519,8 @@ SupplicantStatus StaNetwork::sendNetworkEapSimGsmAuthResponseInternal(
 	enum wpa_ctrl_req_type rtype = WPA_CTRL_REQ_SIM;
 	struct wpa_supplicant *wpa_s = retrieveIfacePtr();
 	if (wpa_supplicant_ctrl_rsp_handle(
-		wpa_s, wpa_ssid, rtype, ctrl_rsp_param.c_str())) {
+		wpa_s, wpa_ssid, rtype, ctrl_rsp_param.data(),
+                ctrl_rsp_param.size())) {
 		return {SupplicantStatusCode::FAILURE_UNKNOWN, ""};
 	}
 	eapol_sm_notify_ctrl_response(wpa_s->eapol);
@@ -1535,7 +1536,8 @@ SupplicantStatus StaNetwork::sendNetworkEapSimGsmAuthFailureInternal()
 	struct wpa_supplicant *wpa_s = retrieveIfacePtr();
 	enum wpa_ctrl_req_type rtype = WPA_CTRL_REQ_SIM;
 	if (wpa_supplicant_ctrl_rsp_handle(
-		wpa_s, wpa_ssid, rtype, kNetworkEapSimGsmAuthFailure)) {
+		wpa_s, wpa_ssid, rtype, kNetworkEapSimGsmAuthFailure,
+                strlen(kNetworkEapSimGsmAuthFailure))) {
 		return {SupplicantStatusCode::FAILURE_UNKNOWN, ""};
 	}
 	eapol_sm_notify_ctrl_response(wpa_s->eapol);
@@ -1568,7 +1570,8 @@ SupplicantStatus StaNetwork::sendNetworkEapSimUmtsAuthResponseInternal(
 	enum wpa_ctrl_req_type rtype = WPA_CTRL_REQ_SIM;
 	struct wpa_supplicant *wpa_s = retrieveIfacePtr();
 	if (wpa_supplicant_ctrl_rsp_handle(
-		wpa_s, wpa_ssid, rtype, ctrl_rsp_param.c_str())) {
+		wpa_s, wpa_ssid, rtype, ctrl_rsp_param.data(),
+                ctrl_rsp_param.size())) {
 		return {SupplicantStatusCode::FAILURE_UNKNOWN, ""};
 	}
 	eapol_sm_notify_ctrl_response(wpa_s->eapol);
@@ -1592,7 +1595,8 @@ SupplicantStatus StaNetwork::sendNetworkEapSimUmtsAutsResponseInternal(
 	enum wpa_ctrl_req_type rtype = WPA_CTRL_REQ_SIM;
 	struct wpa_supplicant *wpa_s = retrieveIfacePtr();
 	if (wpa_supplicant_ctrl_rsp_handle(
-		wpa_s, wpa_ssid, rtype, ctrl_rsp_param.c_str())) {
+		wpa_s, wpa_ssid, rtype, ctrl_rsp_param.data(),
+                ctrl_rsp_param.size())) {
 		return {SupplicantStatusCode::FAILURE_UNKNOWN, ""};
 	}
 	eapol_sm_notify_ctrl_response(wpa_s->eapol);
@@ -1608,7 +1612,8 @@ SupplicantStatus StaNetwork::sendNetworkEapSimUmtsAuthFailureInternal()
 	struct wpa_supplicant *wpa_s = retrieveIfacePtr();
 	enum wpa_ctrl_req_type rtype = WPA_CTRL_REQ_SIM;
 	if (wpa_supplicant_ctrl_rsp_handle(
-		wpa_s, wpa_ssid, rtype, kNetworkEapSimUmtsAuthFailure)) {
+		wpa_s, wpa_ssid, rtype, kNetworkEapSimUmtsAuthFailure,
+                strlen(kNetworkEapSimUmtsAuthFailure))) {
 		return {SupplicantStatusCode::FAILURE_UNKNOWN, ""};
 	}
 	eapol_sm_notify_ctrl_response(wpa_s->eapol);
@@ -1623,7 +1628,8 @@ SupplicantStatus StaNetwork::sendNetworkEapIdentityResponseInternal(
 	enum wpa_ctrl_req_type rtype = WPA_CTRL_REQ_EAP_IDENTITY;
 	struct wpa_supplicant *wpa_s = retrieveIfacePtr();
 	if (wpa_supplicant_ctrl_rsp_handle(
-		wpa_s, wpa_ssid, rtype, ctrl_rsp_param.c_str())) {
+		wpa_s, wpa_ssid, rtype,  ctrl_rsp_param.data(),
+                ctrl_rsp_param.size())) {
 		return {SupplicantStatusCode::FAILURE_UNKNOWN, ""};
 	}
 	eapol_sm_notify_ctrl_response(wpa_s->eapol);

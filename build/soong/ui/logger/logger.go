@@ -38,6 +38,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"syscall"
 )
 
 type Logger interface {
@@ -84,7 +85,7 @@ func fileRotation(from, baseName, ext string, cur, max int) error {
 	}
 
 	if err := os.Rename(from, newName); err != nil {
-		return fmt.Errorf("Failed to rotate", from, "to", newName, ".", err)
+		return fmt.Errorf("Failed to rotate %s to %s. %s", from, newName, err)
 	}
 	return nil
 }
@@ -93,10 +94,19 @@ func fileRotation(from, baseName, ext string, cur, max int) error {
 // existing files to <filename>.#.<ext>, keeping up to maxCount files.
 // <filename>.1.<ext> is the most recent backup, <filename>.2.<ext> is the
 // second most recent backup, etc.
-//
-// TODO: This function is not guaranteed to be atomic, if there are multiple
-// users attempting to do the same operation, the result is undefined.
 func CreateFileWithRotation(filename string, maxCount int) (*os.File, error) {
+	lockFileName := filepath.Join(filepath.Dir(filename), ".lock_"+filepath.Base(filename))
+	lockFile, err := os.OpenFile(lockFileName, os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		return nil, err
+	}
+	defer lockFile.Close()
+
+	err = syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX)
+	if err != nil {
+		return nil, err
+	}
+
 	if _, err := os.Lstat(filename); err == nil {
 		ext := filepath.Ext(filename)
 		basename := filename[:len(filename)-len(ext)]
@@ -145,13 +155,14 @@ func New(out io.Writer) *stdLogger {
 
 // SetVerbose controls whether Verbose[f|ln] logs to stderr as well as the
 // file-backed log.
-func (s *stdLogger) SetVerbose(v bool) {
+func (s *stdLogger) SetVerbose(v bool) *stdLogger {
 	s.verbose = v
+	return s
 }
 
 // SetOutput controls where the file-backed log will be saved. It will keep
 // some number of backups of old log files.
-func (s *stdLogger) SetOutput(path string) {
+func (s *stdLogger) SetOutput(path string) *stdLogger {
 	if f, err := CreateFileWithRotation(path, 5); err == nil {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
@@ -164,6 +175,7 @@ func (s *stdLogger) SetOutput(path string) {
 	} else {
 		s.Fatal(err.Error())
 	}
+	return s
 }
 
 // Close disables logging to the file and closes the file handle.

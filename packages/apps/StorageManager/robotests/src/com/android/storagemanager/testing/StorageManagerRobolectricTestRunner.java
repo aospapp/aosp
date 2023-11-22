@@ -50,28 +50,25 @@ public class StorageManagerRobolectricTestRunner extends RobolectricTestRunner {
 
         // By adding any resources from libraries we need to the AndroidManifest, we can access
         // them from within the parallel universe's resource loader.
-        final AndroidManifest manifest = new AndroidManifest(Fs.fileFromPath(manifestPath),
-                Fs.fileFromPath(resDir), Fs.fileFromPath(assetsDir)) {
+        return new AndroidManifest(Fs.fileFromPath(manifestPath), Fs.fileFromPath(resDir),
+            Fs.fileFromPath(assetsDir), "com.android.storagemanager") {
             @Override
             public List<ResourcePath> getIncludedResourcePaths() {
                 List<ResourcePath> paths = super.getIncludedResourcePaths();
                 paths.add(new ResourcePath(
-                        getPackageName(),
-                        Fs.fileFromPath("./packages/apps/StorageManager/res"),
-                        null));
+                    null,
+                    Fs.fileFromPath("./packages/apps/StorageManager/res"),
+                    null));
                 paths.add(new ResourcePath(
-                        getPackageName(),
-                        Fs.fileFromPath("./frameworks/base/packages/SettingsLib/res"),
-                        null));
+                    null,
+                    Fs.fileFromPath("./frameworks/base/packages/SettingsLib/res"),
+                    null));
                 paths.add(new ResourcePath(
-                        getPackageName(),
-                        Fs.fileFromPath("./frameworks/base/core/res/res"),
-                        null));
+                    null,
+                    Fs.fileFromPath("./frameworks/base/core/res/res"),
+                    null));
                 return paths;
             }
         };
-
-        manifest.setPackageName("com.android.storagemanager");
-        return manifest;
     }
 }

@@ -39,6 +39,7 @@
 #include <nanohubPacket.h>
 #include <eeData.h>
 #include <seos.h>
+#include <seos_priv.h>
 #include <util.h>
 #include <mpu.h>
 #include <heap.h>
@@ -49,13 +50,20 @@
 #include <cpu.h>
 #include <cpu/cpuMath.h>
 #include <algos/ap_hub_sync.h>
+#include <sensors_priv.h>
+
+#include <chre.h>
 
 #define NANOHUB_COMMAND(_reason, _fastHandler, _handler, _minReqType, _maxReqType) \
         { .reason = _reason, .fastHandler = _fastHandler, .handler = _handler, \
           .minDataLen = sizeof(_minReqType), .maxDataLen = sizeof(_maxReqType) }
 
-#define NANOHUB_HAL_COMMAND(_msg, _handler) \
+#define NANOHUB_HAL_LEGACY_COMMAND(_msg, _handler) \
         { .msg = _msg, .handler = _handler }
+
+#define NANOHUB_HAL_COMMAND(_msg, _handler, _minReqType, _maxReqType) \
+        { .msg = _msg, .handler = _handler, \
+          .minDataLen = sizeof(_minReqType), .maxDataLen = sizeof(_maxReqType) }
 
 // maximum number of bytes to feed into appSecRxData at once
 // The bigger the number, the more time we block other event processing
@@ -89,6 +97,7 @@ struct DownloadState
 
 static struct DownloadState *mDownloadState;
 static AppSecErr mAppSecStatus;
+static struct AppHdr *mApp;
 static struct SlabAllocator *mEventSlab;
 static struct HostIntfDataBuffer mTxCurr, mTxNext;
 static uint8_t mTxCurrLength, mTxNextLength;
@@ -261,7 +270,7 @@ static void freeDownloadState()
     mDownloadState = NULL;
 }
 
-static void resetDownloadState(bool initial)
+static bool resetDownloadState(bool initial, bool erase)
 {
     bool doCreate = true;
 
@@ -278,14 +287,19 @@ static void resetDownloadState(bool initial)
         else
             doCreate = false;
     }
+    mDownloadState->dstOffset = 0;
     if (doCreate)
         mDownloadState->start = osAppSegmentCreate(mDownloadState->size);
-    if (!mDownloadState->start)
-        mDownloadState->erase = true;
-    mDownloadState->dstOffset = 0;
+    if (!mDownloadState->start) {
+        if (erase)
+            mDownloadState->erase = true;
+        else
+            return false;
+    }
+    return true;
 }
 
-static bool doStartFirmwareUpload(struct NanohubStartFirmwareUploadRequest *req)
+static bool doStartFirmwareUpload(struct NanohubStartFirmwareUploadRequest *req, bool erase)
 {
     if (!mDownloadState) {
         mDownloadState = heapAlloc(sizeof(struct DownloadState));
@@ -299,9 +313,7 @@ static bool doStartFirmwareUpload(struct NanohubStartFirmwareUploadRequest *req)
     mDownloadState->size = le32toh(req->size);
     mDownloadState->crc = le32toh(req->crc);
     mDownloadState->chunkReply = NANOHUB_FIRMWARE_CHUNK_REPLY_ACCEPTED;
-    resetDownloadState(true);
-
-    return true;
+    return resetDownloadState(true, erase);
 }
 
 static uint32_t startFirmwareUpload(void *rx, uint8_t rx_len, void *tx, uint64_t timestamp)
@@ -309,7 +321,7 @@ static uint32_t startFirmwareUpload(void *rx, uint8_t rx_len, void *tx, uint64_t
     struct NanohubStartFirmwareUploadRequest *req = rx;
     struct NanohubStartFirmwareUploadResponse *resp = tx;
 
-    resp->accepted = doStartFirmwareUpload(req);
+    resp->accepted = doStartFirmwareUpload(req, true);
 
     return sizeof(*resp);
 }
@@ -442,15 +454,18 @@ static uint32_t firmwareFinish(bool valid)
     if (!osAppSegmentClose(app, mDownloadState->dstOffset, segState)) {
         osLog(LOG_INFO, "%s: Failed to close segment\n", __func__);
         valid = false;
+        mApp = NULL;
     } else {
         segState = osAppSegmentGetState(app);
+        mApp = app;
         valid = (segState == SEG_ST_VALID);
     }
     osLog(LOG_INFO, "Loaded %s image type %" PRIu8 ": %" PRIu32
-                    " bytes @ %p; state=%02" PRIX32 "\n",
+                    " bytes @ %p; state=%02" PRIX32 "; crc=%08" PRIX32 "\n",
                     valid ? "valid" : "invalid",
                     app->hdr.payInfoType, mDownloadState->size,
-                    mDownloadState->start, segState);
+                    mDownloadState->start, segState,
+                    mApp ? osAppSegmentGetCrc(mApp) : 0xFFFFFFFF);
 
     freeDownloadState(); // no more access to mDownloadState
 
@@ -500,11 +515,30 @@ static void firmwareErase(void *cookie)
     mDownloadState->eraseScheduled = false;
 }
 
+SET_PACKED_STRUCT_MODE_ON
+struct FirmwareWriteCookie
+{
+    uint32_t evtType;
+    union {
+#ifdef LEGACY_HAL_ENABLED
+        struct NanohubHalLegacyContUploadTx respLegacy;
+#endif
+        struct NanohubHalContUploadTx resp;
+    };
+} ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+static void writeCookieFree(void *ptr)
+{
+    struct FirmwareWriteCookie *buf = container_of(ptr, struct FirmwareWriteCookie, resp);
+    heapFree(buf);
+}
+
 static void firmwareWrite(void *cookie)
 {
     bool valid;
     bool finished = false;
-    struct NanohubHalContUploadTx *resp = cookie;
+    struct FirmwareWriteCookie *resp = cookie;
     // only check crc when cookie is NULL (write came from kernel, not HAL)
     bool checkCrc = !cookie;
 
@@ -543,8 +577,15 @@ static void firmwareWrite(void *cookie)
             valid = false;
     }
     if (resp) {
-        resp->success = valid;
-        osEnqueueEvtOrFree(EVT_APP_TO_HOST, resp, heapFree);
+        if (resp->evtType == EVT_APP_TO_HOST) {
+#ifdef LEGACY_HAL_ENABLED
+            resp->respLegacy.success = valid;
+            osEnqueueEvtOrFree(EVT_APP_TO_HOST, &resp->respLegacy, writeCookieFree);
+#endif
+        } else {
+            resp->resp.ret.status = !valid;
+            osEnqueueEvtOrFree(EVT_APP_TO_HOST_CHRE, &resp->resp, writeCookieFree);
+        }
     }
 }
 
@@ -563,7 +604,7 @@ static uint32_t doFirmwareChunk(uint8_t *data, uint32_t offset, uint32_t len, vo
         if (mDownloadState->erase == true) {
             reply = NANOHUB_FIRMWARE_CHUNK_REPLY_WAIT;
             if (!mDownloadState->eraseScheduled) {
-                ret = osExtAppStopApps(APP_ID_ANY);
+                ret = osExtAppStopAppsByAppId(APP_ID_ANY);
                 osLog(LOG_INFO, "%s: unloaded apps, ret=%08lx\n", __func__, ret);
                 mDownloadState->eraseScheduled = osDefer(firmwareErase, NULL, false);
             }
@@ -573,10 +614,10 @@ static uint32_t doFirmwareChunk(uint8_t *data, uint32_t offset, uint32_t len, vo
             firmwareFinish(false);
         } else if (offset != mDownloadState->srcOffset) {
             reply = NANOHUB_FIRMWARE_CHUNK_REPLY_RESTART;
-            resetDownloadState(false);
+            resetDownloadState(false, true);
         } else {
             if (!cookie)
-                mDownloadState->srcCrc = crc32(data, len, mDownloadState->srcCrc);
+                mDownloadState->srcCrc = soft_crc32(data, len, mDownloadState->srcCrc);
             mDownloadState->srcOffset += len;
             memcpy(mDownloadState->data, data, len);
             mDownloadState->lenLeft = mDownloadState->len = len;
@@ -600,12 +641,24 @@ static uint32_t firmwareChunk(void *rx, uint8_t rx_len, void *tx, uint64_t times
     return sizeof(*resp);
 }
 
-static uint32_t doFinishFirmwareUpload()
+static uint32_t doFinishFirmwareUpload(uint32_t *addr, uint32_t *crc)
 {
     uint32_t reply;
 
     if (!mDownloadState) {
         reply = appSecErrToNanohubReply(mAppSecStatus);
+        if (addr) {
+            if (mApp)
+                *addr = (uint32_t)mApp;
+            else
+                *addr = 0xFFFFFFFF;
+        }
+        if (crc) {
+            if (mApp)
+                *crc = osAppSegmentGetCrc(mApp);
+            else
+                *crc = 0xFFFFFFFF;
+        }
     } else if (mDownloadState->srcOffset == mDownloadState->size) {
         reply = NANOHUB_FIRMWARE_UPLOAD_PROCESSING;
     } else {
@@ -618,7 +671,7 @@ static uint32_t doFinishFirmwareUpload()
 static uint32_t finishFirmwareUpload(void *rx, uint8_t rx_len, void *tx, uint64_t timestamp)
 {
     struct NanohubFinishFirmwareUploadResponse *resp = tx;
-    resp->uploadReply = doFinishFirmwareUpload();
+    resp->uploadReply = doFinishFirmwareUpload(NULL, NULL);
     if (resp->uploadReply != NANOHUB_FIRMWARE_UPLOAD_PROCESSING)
         osLog(LOG_INFO, "%s: reply=%" PRIu8 "\n", __func__, resp->uploadReply);
     return sizeof(*resp);
@@ -930,12 +983,22 @@ static uint32_t writeEvent(void *rx, uint8_t rx_len, void *tx, uint64_t timestam
         }
     } else if (event == EVT_APP_FROM_HOST_CHRE) {
         // new version of HAL; full support for CHRE apps
+        struct HostMsgHdrChreV10 *hostPacketV10 = rx;
         struct HostMsgHdrChre *hostPacket = rx;
         if (rx_len >= sizeof(struct HostMsgHdrChre) &&
             rx_len == sizeof(struct HostMsgHdrChre) + hostPacket->len &&
             osTidById(&hostPacket->appId, &tid)) {
-            if (osAppIsChre(tid)) {
+            if (osAppChreVersion(tid) >= CHRE_API_VERSION_1_1) {
                 struct NanohubMsgChreHdr hdr = {
+                    .size = hostPacket->len,
+                    .endpoint = hostPacket->endpoint,
+                    .appEvent = hostPacket->appEventId,
+                };
+                // CHRE app receives message in new format
+                resp->accepted = forwardPacket(event, hostPacket + 1, hostPacket->len,
+                                               &hdr, sizeof(hdr), tid);
+            } else if (osAppChreVersion(tid) == CHRE_API_VERSION_1_0) {
+                struct NanohubMsgChreHdrV10 hdr = {
                     .size = hostPacket->len,
                     .appEvent = hostPacket->appEventId,
                 };
@@ -946,6 +1009,31 @@ static uint32_t writeEvent(void *rx, uint8_t rx_len, void *tx, uint64_t timestam
                 // legacy app receives message in old format
                 resp->accepted = forwardPacket(EVT_APP_FROM_HOST, hostPacket + 1, hostPacket->len,
                                                &hostPacket->len, sizeof(hostPacket->len), tid);
+            }
+        } else if (rx_len >= sizeof(struct HostMsgHdrChreV10) &&
+                   rx_len == sizeof(struct HostMsgHdrChreV10) + hostPacketV10->len &&
+                   osTidById(&hostPacketV10->appId, &tid)) {
+            if (osAppChreVersion(tid) >= CHRE_API_VERSION_1_1) {
+                struct NanohubMsgChreHdr hdr = {
+                    .size = hostPacketV10->len,
+                    .endpoint = CHRE_HOST_ENDPOINT_UNSPECIFIED,
+                    .appEvent = hostPacketV10->appEventId,
+                };
+                // CHRE app receives message in new format
+                resp->accepted = forwardPacket(event, hostPacketV10 + 1, hostPacketV10->len,
+                                               &hdr, sizeof(hdr), tid);
+            } else if (osAppChreVersion(tid) == CHRE_API_VERSION_1_0) {
+                struct NanohubMsgChreHdrV10 hdr = {
+                    .size = hostPacketV10->len,
+                    .appEvent = hostPacketV10->appEventId,
+                };
+                // CHRE app receives message in new format
+                resp->accepted = forwardPacket(event, hostPacketV10 + 1, hostPacketV10->len,
+                                               &hdr, sizeof(hdr), tid);
+            } else {
+                // legacy app receives message in old format
+                resp->accepted = forwardPacket(EVT_APP_FROM_HOST, hostPacketV10 + 1, hostPacketV10->len,
+                                               &hostPacketV10->len, sizeof(hostPacketV10->len), tid);
             }
         } else {
             resp->accepted = false;
@@ -993,7 +1081,7 @@ const static struct NanohubCommand mBuiltinCommands[] = {
     NANOHUB_COMMAND(NANOHUB_REASON_GET_INTERRUPT,
                     getInterrupt,
                     getInterrupt,
-                    0,
+                    struct { },
                     struct NanohubGetInterruptRequest),
     NANOHUB_COMMAND(NANOHUB_REASON_MASK_INTERRUPT,
                     maskInterrupt,
@@ -1029,13 +1117,15 @@ const struct NanohubCommand *nanohubFindCommand(uint32_t packetReason)
     return NULL;
 }
 
-static void halSendMgmtResponse(uint32_t cmd, uint32_t status)
+#ifdef LEGACY_HAL_ENABLED
+
+static void halSendLegacyMgmtResponse(uint32_t cmd, uint32_t status)
 {
-    struct NanohubHalMgmtTx *resp;
+    struct NanohubHalLegacyMgmtTx *resp;
 
     resp = heapAlloc(sizeof(*resp));
     if (resp) {
-        resp->hdr = (struct NanohubHalHdr) {
+        resp->hdr = (struct NanohubHalLegacyHdr) {
             .appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0),
             .len = sizeof(*resp) - sizeof(resp->hdr) + sizeof(resp->hdr.msg),
             .msg = cmd,
@@ -1045,36 +1135,36 @@ static void halSendMgmtResponse(uint32_t cmd, uint32_t status)
     }
 }
 
-static void halExtAppsOn(void *rx, uint8_t rx_len)
+static void halLegacyExtAppsOn(void *rx, uint8_t rx_len)
 {
-    struct NanohubHalMgmtRx *req = rx;
+    struct NanohubHalLegacyMgmtRx *req = rx;
 
-    halSendMgmtResponse(NANOHUB_HAL_EXT_APPS_ON, osExtAppStartApps(le64toh(unaligned_u64(&req->appId))));
+    halSendLegacyMgmtResponse(NANOHUB_HAL_LEGACY_EXT_APPS_ON, osExtAppStartAppsByAppId(le64toh(unaligned_u64(&req->appId))));
 }
 
-static void halExtAppsOff(void *rx, uint8_t rx_len)
+static void halLegacyExtAppsOff(void *rx, uint8_t rx_len)
 {
-    struct NanohubHalMgmtRx *req = rx;
+    struct NanohubHalLegacyMgmtRx *req = rx;
 
-    halSendMgmtResponse(NANOHUB_HAL_EXT_APPS_OFF, osExtAppStopApps(le64toh(unaligned_u64(&req->appId))));
+    halSendLegacyMgmtResponse(NANOHUB_HAL_LEGACY_EXT_APPS_OFF, osExtAppStopAppsByAppId(le64toh(unaligned_u64(&req->appId))));
 }
 
-static void halExtAppDelete(void *rx, uint8_t rx_len)
+static void halLegacyExtAppDelete(void *rx, uint8_t rx_len)
 {
-    struct NanohubHalMgmtRx *req = rx;
+    struct NanohubHalLegacyMgmtRx *req = rx;
 
-    halSendMgmtResponse(NANOHUB_HAL_EXT_APP_DELETE, osExtAppEraseApps(le64toh(unaligned_u64(&req->appId))));
+    halSendLegacyMgmtResponse(NANOHUB_HAL_LEGACY_EXT_APP_DELETE, osExtAppEraseAppsByAppId(le64toh(unaligned_u64(&req->appId))));
 }
 
-static void halQueryMemInfo(void *rx, uint8_t rx_len)
+static void halLegacyQueryMemInfo(void *rx, uint8_t rx_len)
 {
 }
 
-static void halQueryApps(void *rx, uint8_t rx_len)
+static void halLegacyQueryApps(void *rx, uint8_t rx_len)
 {
-    struct NanohubHalQueryAppsRx *req = rx;
-    struct NanohubHalQueryAppsTx *resp;
-    struct NanohubHalHdr *hdr;
+    struct NanohubHalLegacyQueryAppsRx *req = rx;
+    struct NanohubHalLegacyQueryAppsTx *resp;
+    struct NanohubHalLegacyHdr *hdr;
     uint64_t appId;
     uint32_t appVer, appSize;
 
@@ -1082,8 +1172,8 @@ static void halQueryApps(void *rx, uint8_t rx_len)
         resp = heapAlloc(sizeof(*resp));
         if (resp) {
             resp->hdr.appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0);
-            resp->hdr.len = sizeof(*resp) - sizeof(struct NanohubHalHdr) + 1;
-            resp->hdr.msg = NANOHUB_HAL_QUERY_APPS;
+            resp->hdr.len = sizeof(*resp) - sizeof(struct NanohubHalLegacyHdr) + 1;
+            resp->hdr.msg = NANOHUB_HAL_LEGACY_QUERY_APPS;
             resp->appId = appId;
             resp->version = appVer;
             resp->flashUse = appSize;
@@ -1095,16 +1185,16 @@ static void halQueryApps(void *rx, uint8_t rx_len)
         if (hdr) {
             hdr->appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0);
             hdr->len = 1;
-            hdr->msg = NANOHUB_HAL_QUERY_APPS;
+            hdr->msg = NANOHUB_HAL_LEGACY_QUERY_APPS;
             osEnqueueEvtOrFree(EVT_APP_TO_HOST, hdr, heapFree);
         }
     }
 }
 
-static void halQueryRsaKeys(void *rx, uint8_t rx_len)
+static void halLegacyQueryRsaKeys(void *rx, uint8_t rx_len)
 {
-    struct NanohubHalQueryRsaKeysRx *req = rx;
-    struct NanohubHalQueryRsaKeysTx *resp;
+    struct NanohubHalLegacyQueryRsaKeysRx *req = rx;
+    struct NanohubHalLegacyQueryRsaKeysTx *resp;
     int len = 0;
     const uint32_t *ptr;
     uint32_t numKeys;
@@ -1121,75 +1211,77 @@ static void halQueryRsaKeys(void *rx, uint8_t rx_len)
     }
 
     resp->hdr.appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0);
-    resp->hdr.len = sizeof(*resp) - sizeof(struct NanohubHalHdr) + 1 + len;
-    resp->hdr.msg = NANOHUB_HAL_QUERY_RSA_KEYS;
+    resp->hdr.len = sizeof(*resp) - sizeof(struct NanohubHalLegacyHdr) + 1 + len;
+    resp->hdr.msg = NANOHUB_HAL_LEGACY_QUERY_RSA_KEYS;
 
     osEnqueueEvtOrFree(EVT_APP_TO_HOST, resp, heapFree);
 }
 
-static void halStartUpload(void *rx, uint8_t rx_len)
+static void halLegacyStartUpload(void *rx, uint8_t rx_len)
 {
-    struct NanohubHalStartUploadRx *req = rx;
+    struct NanohubHalLegacyStartUploadRx *req = rx;
     struct NanohubStartFirmwareUploadRequest hwReq = {
-        .size= req->length
+        .size = req->length
     };
-    struct NanohubHalStartUploadTx *resp;
+    struct NanohubHalLegacyStartUploadTx *resp;
 
     if (!(resp = heapAlloc(sizeof(*resp))))
         return;
 
     resp->hdr.appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0);
-    resp->hdr.len = sizeof(*resp) - sizeof(struct NanohubHalHdr) + 1;
-    resp->hdr.msg = NANOHUB_HAL_START_UPLOAD;
-    resp->success = doStartFirmwareUpload(&hwReq);
+    resp->hdr.len = sizeof(*resp) - sizeof(struct NanohubHalLegacyHdr) + 1;
+    resp->hdr.msg = NANOHUB_HAL_LEGACY_START_UPLOAD;
+    resp->success = doStartFirmwareUpload(&hwReq, true);
 
     osEnqueueEvtOrFree(EVT_APP_TO_HOST, resp, heapFree);
 }
 
-static void halContUpload(void *rx, uint8_t rx_len)
+static void halLegacyContUpload(void *rx, uint8_t rx_len)
 {
     uint32_t offset;
     uint32_t reply;
     uint8_t len;
-    struct NanohubHalContUploadRx *req = rx;
-    struct NanohubHalContUploadTx *resp;
+    struct NanohubHalLegacyContUploadRx *req = rx;
+    struct FirmwareWriteCookie *cookie;
 
-    if (!(resp = heapAlloc(sizeof(*resp))))
+    if (!(cookie = heapAlloc(sizeof(*cookie))))
         return;
 
-    resp->hdr.appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0);
-    resp->hdr.len = sizeof(*resp) - sizeof(struct NanohubHalHdr) + 1;
-    resp->hdr.msg = NANOHUB_HAL_CONT_UPLOAD;
+    cookie->evtType = EVT_APP_TO_HOST;
+    cookie->respLegacy.hdr = (struct NanohubHalLegacyHdr) {
+        .appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0),
+        .len = sizeof(cookie->respLegacy) - sizeof(struct NanohubHalLegacyHdr) + 1,
+        .msg = NANOHUB_HAL_LEGACY_CONT_UPLOAD,
+    };
+    cookie->respLegacy.success = false;
 
     if (!mDownloadState) {
         reply = NANOHUB_FIRMWARE_CHUNK_REPLY_CANCEL_NO_RETRY;
     } else {
         offset = le32toh(req->offset);
         len = rx_len - sizeof(req->offset);
-        reply = doFirmwareChunk(req->data, offset, len, resp);
+        reply = doFirmwareChunk(req->data, offset, len, cookie);
     }
     if (reply != NANOHUB_FIRMWARE_CHUNK_REPLY_ACCEPTED) {
         osLog(LOG_ERROR, "%s: reply=%" PRIu32 "\n", __func__, reply);
 
-        resp->success = false;
-
-        osEnqueueEvtOrFree(EVT_APP_TO_HOST, resp, heapFree);
+        osEnqueueEvtOrFree(EVT_APP_TO_HOST, &cookie->respLegacy, writeCookieFree);
     }
 }
 
-static void halFinishUpload(void *rx, uint8_t rx_len)
+static void halLegacyFinishUpload(void *rx, uint8_t rx_len)
 {
-    struct NanohubHalFinishUploadTx *resp;
+    struct NanohubHalLegacyFinishUploadTx *resp;
     uint32_t reply;
 
     if (!(resp = heapAlloc(sizeof(*resp))))
         return;
 
     resp->hdr.appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0);
-    resp->hdr.len = sizeof(*resp) - sizeof(struct NanohubHalHdr) + 1;
-    resp->hdr.msg = NANOHUB_HAL_FINISH_UPLOAD;
+    resp->hdr.len = sizeof(*resp) - sizeof(struct NanohubHalLegacyHdr) + 1;
+    resp->hdr.msg = NANOHUB_HAL_LEGACY_FINISH_UPLOAD;
 
-    reply = doFinishFirmwareUpload();
+    reply = doFinishFirmwareUpload(NULL, NULL);
 
     osLog(LOG_INFO, "%s: reply=%" PRIu32 "\n", __func__, reply);
 
@@ -1198,32 +1290,598 @@ static void halFinishUpload(void *rx, uint8_t rx_len)
     osEnqueueEvtOrFree(EVT_APP_TO_HOST, resp, heapFree);
 }
 
-static void halReboot(void *rx, uint8_t rx_len)
+static void halLegacyReboot(void *rx, uint8_t rx_len)
 {
     BL.blReboot();
 }
 
+const static struct NanohubHalLegacyCommand mBuiltinHalLegacyCommands[] = {
+    NANOHUB_HAL_LEGACY_COMMAND(NANOHUB_HAL_LEGACY_EXT_APPS_ON,
+                            halLegacyExtAppsOn),
+    NANOHUB_HAL_LEGACY_COMMAND(NANOHUB_HAL_LEGACY_EXT_APPS_OFF,
+                            halLegacyExtAppsOff),
+    NANOHUB_HAL_LEGACY_COMMAND(NANOHUB_HAL_LEGACY_EXT_APP_DELETE,
+                            halLegacyExtAppDelete),
+    NANOHUB_HAL_LEGACY_COMMAND(NANOHUB_HAL_LEGACY_QUERY_MEMINFO,
+                            halLegacyQueryMemInfo),
+    NANOHUB_HAL_LEGACY_COMMAND(NANOHUB_HAL_LEGACY_QUERY_APPS,
+                            halLegacyQueryApps),
+    NANOHUB_HAL_LEGACY_COMMAND(NANOHUB_HAL_LEGACY_QUERY_RSA_KEYS,
+                            halLegacyQueryRsaKeys),
+    NANOHUB_HAL_LEGACY_COMMAND(NANOHUB_HAL_LEGACY_START_UPLOAD,
+                            halLegacyStartUpload),
+    NANOHUB_HAL_LEGACY_COMMAND(NANOHUB_HAL_LEGACY_CONT_UPLOAD,
+                            halLegacyContUpload),
+    NANOHUB_HAL_LEGACY_COMMAND(NANOHUB_HAL_LEGACY_FINISH_UPLOAD,
+                            halLegacyFinishUpload),
+    NANOHUB_HAL_LEGACY_COMMAND(NANOHUB_HAL_LEGACY_REBOOT,
+                            halLegacyReboot),
+};
+
+const struct NanohubHalLegacyCommand *nanohubHalLegacyFindCommand(uint8_t msg)
+{
+    uint32_t i;
+
+    for (i = 0; i < ARRAY_SIZE(mBuiltinHalLegacyCommands); i++) {
+        const struct NanohubHalLegacyCommand *cmd = &mBuiltinHalLegacyCommands[i];
+        if (cmd->msg == msg)
+            return cmd;
+    }
+    return NULL;
+}
+
+#endif /* LEGACY_HAL_ENABLED */
+
+static void halSendAppMgmtResponse(struct NanohubHalAppMgmtRx *req, uint32_t status, struct MgmtStatus stat, uint32_t transactionId)
+{
+    struct NanohubHalAppMgmtTx *resp;
+
+    resp = heapAlloc(sizeof(*resp));
+    if (resp) {
+        resp->hdr = (struct NanohubHalHdr) {
+            .appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0),
+            .len = sizeof(*resp) - sizeof(resp->hdr),
+            .transactionId = transactionId,
+        };
+        resp->ret = (struct NanohubHalRet) {
+            .msg = NANOHUB_HAL_APP_MGMT,
+            .status = htole32(status),
+        };
+        resp->cmd = req->cmd;
+        resp->stat = stat;
+        osEnqueueEvtOrFree(EVT_APP_TO_HOST_CHRE, resp, heapFree);
+    }
+}
+
+static void halAppMgmt(void *rx, uint8_t rx_len, uint32_t transactionId)
+{
+    struct NanohubHalAppMgmtRx *req = rx;
+    struct MgmtStatus stat;
+    uint32_t ret;
+
+    switch (req->cmd) {
+    case NANOHUB_HAL_APP_MGMT_START:
+        stat.value= osExtAppStartAppsByAppId(le64toh(unaligned_u64(&req->appId)));
+        ret = stat.op > 0 ? 0 : -1;
+        break;
+    case NANOHUB_HAL_APP_MGMT_STOP:
+        stat.value = osExtAppStopAppsByAppId(le64toh(unaligned_u64(&req->appId)));
+        ret = stat.op > 0 ? 0 : -1;
+        break;
+    case NANOHUB_HAL_APP_MGMT_UNLOAD:
+        stat.value = osExtAppStopAppsByAppId(le64toh(unaligned_u64(&req->appId)));
+        ret = stat.op > 0 ? 0 : -1;
+        break;
+    case NANOHUB_HAL_APP_MGMT_DELETE:
+        stat.value = osExtAppEraseAppsByAppId(le64toh(unaligned_u64(&req->appId)));
+        ret = stat.erase > 0 ? 0 : -1;
+        break;
+    default:
+        return;
+    }
+
+    halSendAppMgmtResponse(req, ret, stat, transactionId);
+}
+
+static void deferHalSysMgmtErase(void *cookie)
+{
+    struct NanohubHalSysMgmtTx *resp = cookie;
+
+    bool success = osEraseShared();
+
+    if (success)
+        resp->ret.status = htole32(0);
+    else
+        resp->ret.status = htole32(-1);
+
+    osEnqueueEvtOrFree(EVT_APP_TO_HOST_CHRE, resp, heapFree);
+}
+
+static void halSysMgmt(void *rx, uint8_t rx_len, uint32_t transactionId)
+{
+    struct NanohubHalSysMgmtRx *req = rx;
+    struct NanohubHalSysMgmtTx *resp;
+    uint32_t ret = 0;
+
+    if (!(resp = heapAlloc(sizeof(*resp))))
+        return;
+
+    resp->hdr = (struct NanohubHalHdr) {
+        .appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0),
+        .len = sizeof(*resp) - sizeof(resp->hdr),
+        .transactionId = transactionId,
+    };
+    resp->ret = (struct NanohubHalRet) {
+        .msg = NANOHUB_HAL_SYS_MGMT,
+    };
+    resp->cmd = req->cmd;
+
+    switch (req->cmd) {
+    case NANOHUB_HAL_SYS_MGMT_ERASE:
+        ret = osExtAppStopAppsByAppId(APP_ID_ANY);
+        osLog(LOG_INFO, "%s: unloaded apps, ret=%08lx\n", __func__, ret);
+        // delay to make sure all apps are unloaded before erasing
+        if (osDefer(deferHalSysMgmtErase, resp, false) == false) {
+            resp->ret.status = htole32(-1);
+            osEnqueueEvtOrFree(EVT_APP_TO_HOST_CHRE, resp, heapFree);
+        }
+        break;
+    case NANOHUB_HAL_SYS_MGMT_REBOOT:
+        BL.blReboot();
+        break;
+    default:
+        resp->ret.status = htole32(-1);
+        osEnqueueEvtOrFree(EVT_APP_TO_HOST_CHRE, resp, heapFree);
+    }
+}
+
+static bool copyTLV64(uint8_t *buf, size_t *offset, size_t max_len, uint8_t tag, uint64_t val)
+{
+    if (*offset + sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint64_t) > max_len)
+        return false;
+    buf[(*offset)++] = tag;
+    buf[(*offset)++] = sizeof(uint64_t);
+    memcpy(&buf[*offset], &val, sizeof(uint64_t));
+    *offset += sizeof(uint64_t);
+    return true;
+}
+
+static bool copyTLV32(uint8_t *buf, size_t *offset, size_t max_len, uint8_t tag, uint32_t val)
+{
+    if (*offset + sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint32_t) > max_len)
+        return false;
+    buf[(*offset)++] = tag;
+    buf[(*offset)++] = sizeof(uint32_t);
+    memcpy(&buf[*offset], &val, sizeof(uint32_t));
+    *offset += sizeof(uint32_t);
+    return true;
+}
+
+static bool copyTLV8(uint8_t *buf, size_t *offset, size_t max_len, uint8_t tag, uint8_t val)
+{
+    if (*offset + sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint8_t) > max_len)
+        return false;
+    buf[(*offset)++] = tag;
+    buf[(*offset)++] = sizeof(uint8_t);
+    memcpy(&buf[*offset], &val, sizeof(uint8_t));
+    *offset += sizeof(uint8_t);
+    return true;
+}
+
+static bool copyTLVEmpty(uint8_t *buf, size_t *offset, size_t max_len, uint8_t tag)
+{
+    if (*offset + sizeof(uint8_t) + sizeof(uint8_t) > max_len)
+        return false;
+    buf[(*offset)++] = tag;
+    buf[(*offset)++] = 0;
+    return true;
+}
+
+static int processAppTags(const struct AppHdr *app, uint32_t crc, uint32_t size, uint8_t *data, uint8_t *tags, int cnt, bool req_tid)
+{
+    int i;
+    size_t offset = 0;
+    const size_t max_len = HOST_HUB_CHRE_PACKET_MAX_LEN - sizeof(struct NanohubHalRet);
+    bool success = true;
+    uint32_t tid;
+    bool tid_valid = false;
+    struct Task *task;
+
+    if (app->hdr.magic != APP_HDR_MAGIC ||
+        app->hdr.fwVer != APP_HDR_VER_CUR ||
+        (app->hdr.fwFlags & FL_APP_HDR_APPLICATION) == 0 ||
+        app->hdr.payInfoType != LAYOUT_APP) {
+        return 0;
+    }
+
+    if (osTidById(&app->hdr.appId, &tid)) {
+        tid_valid = true;
+        task = osTaskFindByTid(tid);
+        if (task) {
+            if (task->app != app)
+                tid_valid = false;
+        } else
+            tid_valid = false;
+    }
+
+    if (!tid_valid && req_tid)
+        return 0;
+
+    for (i=0; i<cnt && success; i++) {
+        switch(tags[i]) {
+        case NANOHUB_HAL_APP_INFO_APPID:
+            success = copyTLV64(data, &offset, max_len, tags[i], app->hdr.appId);
+            break;
+        case NANOHUB_HAL_APP_INFO_CRC:
+            if (size)
+                success = copyTLV32(data, &offset, max_len, tags[i], crc);
+            else
+                success = copyTLVEmpty(data, &offset, max_len, tags[i]);
+            break;
+        case NANOHUB_HAL_APP_INFO_TID:
+            if (tid_valid)
+                success = copyTLV32(data, &offset, max_len, tags[i], tid);
+            else
+                success = copyTLVEmpty(data, &offset, max_len, tags[i]);
+            break;
+        case NANOHUB_HAL_APP_INFO_VERSION:
+            success = copyTLV32(data, &offset, max_len, tags[i], app->hdr.appVer);
+            break;
+        case NANOHUB_HAL_APP_INFO_ADDR:
+            success = copyTLV32(data, &offset, max_len, tags[i], (uint32_t)app);
+            break;
+        case NANOHUB_HAL_APP_INFO_SIZE:
+            if (size)
+                success = copyTLV32(data, &offset, max_len, tags[i], size);
+            else
+                success = copyTLVEmpty(data, &offset, max_len, tags[i]);
+            break;
+        case NANOHUB_HAL_APP_INFO_HEAP:
+            if (tid_valid)
+                success = copyTLV32(data, &offset, max_len, tags[i], heapGetTaskSize(tid));
+            else
+                success = copyTLVEmpty(data, &offset, max_len, tags[i]);
+            break;
+        case NANOHUB_HAL_APP_INFO_DATA:
+            success = copyTLV32(data, &offset, max_len, tags[i], app->sect.got_end - app->sect.data_start);
+            break;
+        case NANOHUB_HAL_APP_INFO_BSS:
+            success = copyTLV32(data, &offset, max_len, tags[i], app->sect.bss_end - app->sect.bss_start);
+            break;
+        case NANOHUB_HAL_APP_INFO_CHRE_MAJOR:
+            if (app->hdr.fwFlags & FL_APP_HDR_CHRE)
+                success = copyTLV8(data, &offset, max_len, tags[i],
+                    (app->hdr.chreApiMajor == 0xFF && app->hdr.chreApiMinor == 0xFF) ? 0x01 :
+                        app->hdr.chreApiMajor);
+            else
+                success = copyTLVEmpty(data, &offset, max_len, tags[i]);
+            break;
+        case NANOHUB_HAL_APP_INFO_CHRE_MINOR:
+            if (app->hdr.fwFlags & FL_APP_HDR_CHRE)
+                success = copyTLV8(data, &offset, max_len, tags[i],
+                    (app->hdr.chreApiMajor == 0xFF && app->hdr.chreApiMinor == 0xFF) ? 0x00 :
+                        app->hdr.chreApiMinor);
+            else
+                success = copyTLVEmpty(data, &offset, max_len, tags[i]);
+            break;
+        case NANOHUB_HAL_APP_INFO_END:
+        default:
+            success = false;
+            copyTLVEmpty(data, &offset, max_len, NANOHUB_HAL_APP_INFO_END);
+            break;
+        }
+    }
+
+    return offset;
+}
+
+static void halAppInfo(void *rx, uint8_t rx_len, uint32_t transactionId)
+{
+    struct NanohubHalAppInfoRx *req = rx;
+    struct NanohubHalAppInfoTx *resp;
+    struct SegmentIterator it;
+    uint32_t state;
+    int ret, i;
+    uint32_t sharedSize, numApps;
+    const struct AppHdr *internal;
+    const uint8_t *shared;
+
+    if (!(resp = heapAlloc(sizeof(*resp))))
+        return;
+
+    resp->hdr = (struct NanohubHalHdr) {
+        .appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0),
+        .len = sizeof(*resp) - sizeof(resp->hdr) - sizeof(resp->data),
+        .transactionId = transactionId,
+    };
+    resp->ret = (struct NanohubHalRet) {
+        .msg = NANOHUB_HAL_APP_INFO,
+    };
+
+    shared = platGetSharedAreaInfo(&sharedSize);
+    internal = platGetInternalAppList(&numApps);
+
+    if ((le32toh(req->addr) >= (uint32_t)shared && le32toh(req->addr) < (uint32_t)shared + sharedSize) ||
+        (le32toh(req->addr) < (uint32_t)shared &&
+            ((uint32_t)shared < (uint32_t)internal ||
+                (numApps > 0 && le32toh(req->addr) > (uint32_t)(internal+numApps-1))))) {
+        osSegmentIteratorInit(&it);
+        while (osSegmentIteratorNext(&it)) {
+            state = osSegmentGetState(it.seg);
+            switch (state) {
+            case SEG_ST_EMPTY:
+            case SEG_ST_RESERVED:
+                 osEnqueueEvtOrFree(EVT_APP_TO_HOST_CHRE, resp, heapFree);
+                 return;
+            case SEG_ST_ERASED:
+            case SEG_ST_VALID:
+                if (le32toh(req->addr) <= (uint32_t)osSegmentGetData(it.seg)) {
+                    ret = processAppTags(osSegmentGetData(it.seg), osSegmentGetCrc(it.seg), osSegmentGetSize(it.seg), resp->data, req->tags, rx_len - 4, state == SEG_ST_ERASED);
+                    if (ret > 0) {
+                        resp->hdr.len += ret;
+                        osEnqueueEvtOrFree(EVT_APP_TO_HOST_CHRE, resp, heapFree);
+                        return;
+                    }
+                }
+                break;
+            }
+        }
+    } else {
+        for (i = 0; i < numApps; i++, internal++) {
+            if (le32toh(req->addr) <= (uint32_t)internal) {
+                ret = processAppTags(internal, 0, 0, resp->data, req->tags, rx_len - 4, false);
+                if (ret > 0) {
+                    resp->hdr.len += ret;
+                    osEnqueueEvtOrFree(EVT_APP_TO_HOST_CHRE, resp, heapFree);
+                    return;
+                }
+            }
+        }
+    }
+
+    osEnqueueEvtOrFree(EVT_APP_TO_HOST_CHRE, resp, heapFree);
+}
+
+static void halSysInfo(void *rx, uint8_t rx_len, uint32_t transactionId)
+{
+    extern uint8_t __code_start[];
+    extern uint8_t __code_end[];
+    extern uint8_t __text_end[];
+    extern uint8_t __ram_start[];
+    extern uint8_t __ram_end[];
+
+    struct NanohubHalSysInfoRx *req = rx;
+    struct NanohubHalSysInfoTx *resp;
+    int i;
+    size_t offset = 0;
+    const size_t max_len = HOST_HUB_CHRE_PACKET_MAX_LEN - sizeof(struct NanohubHalRet);
+    bool success = true;
+    int free, chunks, largest;
+    uint32_t shared_size;
+
+    free = heapGetFreeSize(&chunks, &largest);
+
+    if (!(resp = heapAlloc(sizeof(*resp))))
+        return;
+
+    resp->hdr = (struct NanohubHalHdr) {
+        .appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0),
+        .len = sizeof(*resp) - sizeof(resp->hdr) - sizeof(resp->data),
+        .transactionId = transactionId,
+    };
+    resp->ret = (struct NanohubHalRet) {
+        .msg = NANOHUB_HAL_SYS_INFO,
+    };
+
+    for (i=0; i<rx_len && success; i++) {
+        switch(req->tags[i]) {
+        case NANOHUB_HAL_SYS_INFO_HEAP_FREE:
+            if (free >= 0)
+                success = copyTLV32(resp->data, &offset, max_len, req->tags[i], free);
+            else
+                success = copyTLVEmpty(resp->data, &offset, max_len, req->tags[i]);
+            break;
+        case NANOHUB_HAL_SYS_INFO_RAM_SIZE:
+            success = copyTLV32(resp->data, &offset, max_len, req->tags[i], __ram_end - __ram_start);
+            break;
+        case NANOHUB_HAL_SYS_INFO_EEDATA_SIZE:
+            success = copyTLV32(resp->data, &offset, max_len, req->tags[i], eeDataGetSize());
+            break;
+        case NANOHUB_HAL_SYS_INFO_EEDATA_FREE:
+            success = copyTLV32(resp->data, &offset, max_len, req->tags[i], eeDataGetFree());
+            break;
+        case NANOHUB_HAL_SYS_INFO_CODE_SIZE:
+            success = copyTLV32(resp->data, &offset, max_len, req->tags[i], __code_end - __code_start);
+            break;
+        case NANOHUB_HAL_SYS_INFO_CODE_FREE:
+            success = copyTLV32(resp->data, &offset, max_len, req->tags[i], __code_end - __text_end);
+            break;
+        case NANOHUB_HAL_SYS_INFO_SHARED_SIZE:
+            platGetSharedAreaInfo(&shared_size);
+            success = copyTLV32(resp->data, &offset, max_len, req->tags[i], shared_size);
+            break;
+        case NANOHUB_HAL_SYS_INFO_SHARED_FREE:
+            success = copyTLV32(resp->data, &offset, max_len, req->tags[i], osSegmentGetFree());
+            break;
+        case NANOHUB_HAL_SYS_INFO_END:
+        default:
+            success = false;
+            copyTLVEmpty(resp->data, &offset, max_len, NANOHUB_HAL_APP_INFO_END);
+            break;
+        }
+    }
+
+    resp->hdr.len += offset;
+
+    osEnqueueEvtOrFree(EVT_APP_TO_HOST_CHRE, resp, heapFree);
+}
+
+static void halKeyInfo(void *rx, uint8_t rx_len, uint32_t transactionId)
+{
+    struct NanohubHalKeyInfoRx *req = rx;
+    struct NanohubHalKeyInfoTx *resp;
+    const uint32_t *ptr;
+    uint32_t numKeys;
+    uint32_t dataLength;
+
+    if (!(resp = heapAlloc(sizeof(*resp))))
+        return;
+
+    ptr = BL.blGetPubKeysInfo(&numKeys);
+
+    resp->hdr = (struct NanohubHalHdr) {
+        .appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0),
+        .len = sizeof(*resp) - sizeof(resp->hdr) - sizeof(resp->data),
+        .transactionId = transactionId,
+    };
+    resp->ret = (struct NanohubHalRet) {
+        .msg = NANOHUB_HAL_KEY_INFO,
+    };
+
+    resp->keyLength = 0;
+
+    if (ptr && req->keyNum < numKeys) {
+        if (req->dataOffset < RSA_BYTES) {
+            resp->keyLength = RSA_BYTES;
+            if (RSA_BYTES - req->dataOffset > NANOHUB_RSA_KEY_CHUNK_LEN)
+                dataLength = NANOHUB_RSA_KEY_CHUNK_LEN;
+            else
+                dataLength = RSA_BYTES - req->dataOffset;
+            memcpy(resp->data, (const uint8_t *)ptr + (req->keyNum * RSA_BYTES) + req->dataOffset, dataLength);
+            resp->hdr.len += dataLength;
+        }
+    }
+
+    osEnqueueEvtOrFree(EVT_APP_TO_HOST_CHRE, resp, heapFree);
+}
+
+static void halStartUpload(void *rx, uint8_t rx_len, uint32_t transactionId)
+{
+    struct NanohubHalStartUploadRx *req = rx;
+    struct NanohubStartFirmwareUploadRequest hwReq = {
+        .size = req->length
+    };
+    struct NanohubHalStartUploadTx *resp;
+
+    if (!(resp = heapAlloc(sizeof(*resp))))
+        return;
+
+    resp->hdr = (struct NanohubHalHdr) {
+        .appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0),
+        .len = sizeof(*resp) - sizeof(resp->hdr),
+        .transactionId = transactionId,
+    };
+
+    resp->ret.msg = NANOHUB_HAL_START_UPLOAD;
+    if (doStartFirmwareUpload(&hwReq, false))
+        resp->ret.status = NANOHUB_FIRMWARE_CHUNK_REPLY_ACCEPTED;
+    else
+        resp->ret.status = NANOHUB_FIRMWARE_CHUNK_REPLY_NO_SPACE;
+
+    osEnqueueEvtOrFree(EVT_APP_TO_HOST_CHRE, resp, heapFree);
+}
+
+static void halContUpload(void *rx, uint8_t rx_len, uint32_t transactionId)
+{
+    uint32_t offset;
+    uint32_t reply;
+    uint8_t len;
+    struct NanohubHalContUploadRx *req = rx;
+    struct FirmwareWriteCookie *cookie;
+
+    if (!(cookie = heapAlloc(sizeof(*cookie))))
+        return;
+
+    cookie->evtType = EVT_APP_TO_HOST_CHRE;
+    cookie->resp.hdr = (struct NanohubHalHdr) {
+        .appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0),
+        .len = sizeof(cookie->resp) - sizeof(cookie->resp.hdr),
+        .transactionId = transactionId,
+    };
+    cookie->resp.ret = (struct NanohubHalRet) {
+        .msg = NANOHUB_HAL_CONT_UPLOAD,
+    };
+
+    if (!mDownloadState) {
+        reply = NANOHUB_FIRMWARE_CHUNK_REPLY_CANCEL_NO_RETRY;
+    } else {
+        offset = le32toh(req->offset);
+        len = rx_len - sizeof(req->offset);
+        reply = doFirmwareChunk(req->data, offset, len, cookie);
+    }
+    if (reply != NANOHUB_FIRMWARE_CHUNK_REPLY_ACCEPTED) {
+        osLog(LOG_ERROR, "%s: reply=%" PRIu32 "\n", __func__, reply);
+
+        cookie->resp.ret.status = reply;
+
+        osEnqueueEvtOrFree(EVT_APP_TO_HOST_CHRE, &cookie->resp, writeCookieFree);
+    }
+}
+
+static void halFinishUpload(void *rx, uint8_t rx_len, uint32_t transactionId)
+{
+    struct NanohubHalFinishUploadTx *resp;
+    uint32_t reply;
+    uint32_t addr = 0xFFFFFFFF;
+    uint32_t crc = 0xFFFFFFFF;
+
+    if (!(resp = heapAlloc(sizeof(*resp))))
+        return;
+
+    resp->hdr = (struct NanohubHalHdr) {
+        .appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0),
+        .len = sizeof(*resp) - sizeof(resp->hdr),
+        .transactionId = transactionId,
+    };
+
+    reply = doFinishFirmwareUpload(&addr, &crc);
+
+    osLog(LOG_INFO, "%s: reply=%" PRIu32 "\n", __func__, reply);
+
+    resp->ret = (struct NanohubHalRet) {
+        .msg = NANOHUB_HAL_FINISH_UPLOAD,
+        .status = reply,
+    };
+
+    resp->addr = addr;
+    resp->crc = crc;
+
+    osEnqueueEvtOrFree(EVT_APP_TO_HOST_CHRE, resp, heapFree);
+}
+
 const static struct NanohubHalCommand mBuiltinHalCommands[] = {
-    NANOHUB_HAL_COMMAND(NANOHUB_HAL_EXT_APPS_ON,
-                        halExtAppsOn),
-    NANOHUB_HAL_COMMAND(NANOHUB_HAL_EXT_APPS_OFF,
-                        halExtAppsOff),
-    NANOHUB_HAL_COMMAND(NANOHUB_HAL_EXT_APP_DELETE,
-                        halExtAppDelete),
-    NANOHUB_HAL_COMMAND(NANOHUB_HAL_QUERY_MEMINFO,
-                        halQueryMemInfo),
-    NANOHUB_HAL_COMMAND(NANOHUB_HAL_QUERY_APPS,
-                        halQueryApps),
-    NANOHUB_HAL_COMMAND(NANOHUB_HAL_QUERY_RSA_KEYS,
-                        halQueryRsaKeys),
+    NANOHUB_HAL_COMMAND(NANOHUB_HAL_APP_MGMT,
+                            halAppMgmt,
+                            struct NanohubHalAppMgmtRx,
+                            struct NanohubHalAppMgmtRx),
+    NANOHUB_HAL_COMMAND(NANOHUB_HAL_SYS_MGMT,
+                            halSysMgmt,
+                            struct NanohubHalSysMgmtRx,
+                            struct NanohubHalSysMgmtRx),
+    NANOHUB_HAL_COMMAND(NANOHUB_HAL_APP_INFO,
+                            halAppInfo,
+                            __le32,
+                            struct NanohubHalAppInfoRx),
+    NANOHUB_HAL_COMMAND(NANOHUB_HAL_SYS_INFO,
+                            halSysInfo,
+                            struct { },
+                            struct NanohubHalSysInfoRx),
+    NANOHUB_HAL_COMMAND(NANOHUB_HAL_KEY_INFO,
+                            halKeyInfo,
+                            struct NanohubHalKeyInfoRx,
+                            struct NanohubHalKeyInfoRx),
     NANOHUB_HAL_COMMAND(NANOHUB_HAL_START_UPLOAD,
-                        halStartUpload),
+                            halStartUpload,
+                            struct NanohubHalStartUploadRx,
+                            struct NanohubHalStartUploadRx),
     NANOHUB_HAL_COMMAND(NANOHUB_HAL_CONT_UPLOAD,
-                        halContUpload),
+                            halContUpload,
+                            __le32,
+                            struct NanohubHalContUploadRx),
     NANOHUB_HAL_COMMAND(NANOHUB_HAL_FINISH_UPLOAD,
-                        halFinishUpload),
-    NANOHUB_HAL_COMMAND(NANOHUB_HAL_REBOOT,
-                        halReboot),
+                            halFinishUpload,
+                            struct { },
+                            struct { }),
 };
 
 const struct NanohubHalCommand *nanohubHalFindCommand(uint8_t msg)
@@ -1236,6 +1894,17 @@ const struct NanohubHalCommand *nanohubHalFindCommand(uint8_t msg)
             return cmd;
     }
     return NULL;
+}
+
+
+int64_t hostGetTimeDelta(void)
+{
+    int64_t delta = getAvgDelta(&mTimeSync);
+
+    if (delta == INT64_MIN)
+        return 0ULL;
+    else
+        return delta;
 }
 
 uint64_t hostGetTime(void)

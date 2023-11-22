@@ -48,7 +48,7 @@ public class SequentialSensorOperation extends SensorOperation {
      * in one operation, it is thrown and all subsequent operations will not run.
      */
     @Override
-    public void execute(ISensorTestNode parent) throws InterruptedException {
+    public void execute(ISensorTestNode parent) throws Exception {
         ISensorTestNode currentNode = asTestNode(parent);
         for (int i = 0; i < mOperations.size(); i++) {
             SensorOperation operation = mOperations.get(i);

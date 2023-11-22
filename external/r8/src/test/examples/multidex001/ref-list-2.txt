@@ -1,3 +1,0 @@
-Lmultidex001/ClassForMainDex;
-Lmultidex001/MainActivity;
-Lmultidex001/Version;

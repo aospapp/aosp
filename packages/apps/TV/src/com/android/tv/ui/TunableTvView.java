@@ -57,37 +57,37 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
-
-import com.android.tv.ApplicationSingletons;
-import com.android.tv.Features;
 import com.android.tv.InputSessionManager;
 import com.android.tv.InputSessionManager.TvViewSession;
 import com.android.tv.R;
-import com.android.tv.TvApplication;
-import com.android.tv.data.Program;
-import com.android.tv.data.ProgramDataManager;
-import com.android.tv.parental.ParentalControlSettings;
-import com.android.tv.util.DurationTimer;
-import com.android.tv.util.Debug;
+import com.android.tv.TvFeatures;
+import com.android.tv.TvSingletons;
 import com.android.tv.analytics.Tracker;
 import com.android.tv.common.BuildConfig;
+import com.android.tv.common.CommonConstants;
 import com.android.tv.common.feature.CommonFeatures;
-import com.android.tv.data.Channel;
+import com.android.tv.common.util.CommonUtils;
+import com.android.tv.common.util.Debug;
+import com.android.tv.common.util.DurationTimer;
+import com.android.tv.common.util.PermissionUtils;
+import com.android.tv.data.Program;
+import com.android.tv.data.ProgramDataManager;
 import com.android.tv.data.StreamInfo;
 import com.android.tv.data.WatchedHistoryManager;
+import com.android.tv.data.api.Channel;
 import com.android.tv.parental.ContentRatingsManager;
+import com.android.tv.parental.ParentalControlSettings;
 import com.android.tv.recommendation.NotificationService;
-import com.android.tv.util.ImageLoader;
 import com.android.tv.util.NetworkUtils;
-import com.android.tv.util.PermissionUtils;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
-
+import com.android.tv.util.images.ImageLoader;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.List;
 
-public class TunableTvView extends FrameLayout implements StreamInfo {
+/** Includes the real {@link AppLayerTvView} handling tuning, block and other display events. */
+public class TunableTvView extends FrameLayout implements StreamInfo, TunableTvViewPlayingApi {
     private static final boolean DEBUG = false;
     private static final String TAG = "TunableTvView";
 
@@ -96,20 +96,29 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
     public static final int VIDEO_UNAVAILABLE_REASON_SCREEN_BLOCKED = -3;
     public static final int VIDEO_UNAVAILABLE_REASON_NONE = -100;
 
+    private OnTalkBackDpadKeyListener mOnTalkBackDpadKeyListener;
+
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({BLOCK_SCREEN_TYPE_NO_UI, BLOCK_SCREEN_TYPE_SHRUNKEN_TV_VIEW, BLOCK_SCREEN_TYPE_NORMAL})
     public @interface BlockScreenType {}
+
     public static final int BLOCK_SCREEN_TYPE_NO_UI = 0;
     public static final int BLOCK_SCREEN_TYPE_SHRUNKEN_TV_VIEW = 1;
     public static final int BLOCK_SCREEN_TYPE_NORMAL = 2;
 
     private static final String PERMISSION_RECEIVE_INPUT_EVENT =
-            "com.android.tv.permission.RECEIVE_INPUT_EVENT";
+            CommonConstants.BASE_PACKAGE + ".permission.RECEIVE_INPUT_EVENT";
 
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef({ TIME_SHIFT_STATE_NONE, TIME_SHIFT_STATE_PLAY, TIME_SHIFT_STATE_PAUSE,
-            TIME_SHIFT_STATE_REWIND, TIME_SHIFT_STATE_FAST_FORWARD })
+    @IntDef({
+        TIME_SHIFT_STATE_NONE,
+        TIME_SHIFT_STATE_PLAY,
+        TIME_SHIFT_STATE_PAUSE,
+        TIME_SHIFT_STATE_REWIND,
+        TIME_SHIFT_STATE_FAST_FORWARD
+    })
     private @interface TimeShiftState {}
+
     private static final int TIME_SHIFT_STATE_NONE = 0;
     private static final int TIME_SHIFT_STATE_PLAY = 1;
     private static final int TIME_SHIFT_STATE_PAUSE = 2;
@@ -128,8 +137,7 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
     private ContentRatingsManager mContentRatingsManager;
     private ParentalControlSettings mParentalControlSettings;
     private ProgramDataManager mProgramDataManager;
-    @Nullable
-    private WatchedHistoryManager mWatchedHistoryManager;
+    @Nullable private WatchedHistoryManager mWatchedHistoryManager;
     private boolean mStarted;
     private String mTagetInputId;
     private TvInputInfo mInputInfo;
@@ -182,230 +190,258 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
     private final ConnectivityManager mConnectivityManager;
     private final InputSessionManager mInputSessionManager;
 
-    private final TvInputCallback mCallback = new TvInputCallback() {
-        @Override
-        public void onConnectionFailed(String inputId) {
-            Log.w(TAG, "Failed to bind an input");
-            mTracker.sendInputConnectionFailure(inputId);
-            Channel channel = mCurrentChannel;
-            mCurrentChannel = null;
-            mInputInfo = null;
-            mCanReceiveInputEvent = false;
-            if (mOnTuneListener != null) {
-                // If tune is called inside onTuneFailed, mOnTuneListener will be set to
-                // a new instance. In order to avoid to clear the new mOnTuneListener,
-                // we copy mOnTuneListener to l and clear mOnTuneListener before
-                // calling onTuneFailed.
-                OnTuneListener listener = mOnTuneListener;
-                mOnTuneListener = null;
-                listener.onTuneFailed(channel);
-            }
-        }
-
-        @Override
-        public void onDisconnected(String inputId) {
-            Log.w(TAG, "Session is released by crash");
-            mTracker.sendInputDisconnected(inputId);
-            Channel channel = mCurrentChannel;
-            mCurrentChannel = null;
-            mInputInfo = null;
-            mCanReceiveInputEvent = false;
-            if (mOnTuneListener != null) {
-                OnTuneListener listener = mOnTuneListener;
-                mOnTuneListener = null;
-                listener.onUnexpectedStop(channel);
-            }
-        }
-
-        @Override
-        public void onChannelRetuned(String inputId, Uri channelUri) {
-            if (DEBUG) {
-                Log.d(TAG, "onChannelRetuned(inputId=" + inputId + ", channelUri="
-                        + channelUri + ")");
-            }
-            if (mOnTuneListener != null) {
-                mOnTuneListener.onChannelRetuned(channelUri);
-            }
-        }
-
-        @Override
-        public void onTracksChanged(String inputId, List<TvTrackInfo> tracks) {
-            mHasClosedCaption = false;
-            for (TvTrackInfo track : tracks) {
-                if (track.getType() == TvTrackInfo.TYPE_SUBTITLE) {
-                    mHasClosedCaption = true;
-                    break;
+    private final TvInputCallback mCallback =
+            new TvInputCallback() {
+                @Override
+                public void onConnectionFailed(String inputId) {
+                    Log.w(TAG, "Failed to bind an input");
+                    mTracker.sendInputConnectionFailure(inputId);
+                    Channel channel = mCurrentChannel;
+                    mCurrentChannel = null;
+                    mInputInfo = null;
+                    mCanReceiveInputEvent = false;
+                    if (mOnTuneListener != null) {
+                        // If tune is called inside onTuneFailed, mOnTuneListener will be set to
+                        // a new instance. In order to avoid to clear the new mOnTuneListener,
+                        // we copy mOnTuneListener to l and clear mOnTuneListener before
+                        // calling onTuneFailed.
+                        OnTuneListener listener = mOnTuneListener;
+                        mOnTuneListener = null;
+                        listener.onTuneFailed(channel);
+                    }
                 }
-            }
-            if (mOnTuneListener != null) {
-                mOnTuneListener.onStreamInfoChanged(TunableTvView.this);
-            }
-        }
 
-        @Override
-        public void onTrackSelected(String inputId, int type, String trackId) {
-            if (trackId == null) {
-                // A track is unselected.
-                if (type == TvTrackInfo.TYPE_VIDEO) {
-                    mVideoWidth = 0;
-                    mVideoHeight = 0;
-                    mVideoFormat = StreamInfo.VIDEO_DEFINITION_LEVEL_UNKNOWN;
-                    mVideoFrameRate = 0f;
-                    mVideoDisplayAspectRatio = 0f;
-                } else if (type == TvTrackInfo.TYPE_AUDIO) {
-                    mAudioChannelCount = StreamInfo.AUDIO_CHANNEL_COUNT_UNKNOWN;
+                @Override
+                public void onDisconnected(String inputId) {
+                    Log.w(TAG, "Session is released by crash");
+                    mTracker.sendInputDisconnected(inputId);
+                    Channel channel = mCurrentChannel;
+                    mCurrentChannel = null;
+                    mInputInfo = null;
+                    mCanReceiveInputEvent = false;
+                    if (mOnTuneListener != null) {
+                        OnTuneListener listener = mOnTuneListener;
+                        mOnTuneListener = null;
+                        listener.onUnexpectedStop(channel);
+                    }
                 }
-            } else {
-                List<TvTrackInfo> tracks = getTracks(type);
-                boolean trackFound = false;
-                if (tracks != null) {
+
+                @Override
+                public void onChannelRetuned(String inputId, Uri channelUri) {
+                    if (DEBUG) {
+                        Log.d(
+                                TAG,
+                                "onChannelRetuned(inputId="
+                                        + inputId
+                                        + ", channelUri="
+                                        + channelUri
+                                        + ")");
+                    }
+                    if (mOnTuneListener != null) {
+                        mOnTuneListener.onChannelRetuned(channelUri);
+                    }
+                }
+
+                @Override
+                public void onTracksChanged(String inputId, List<TvTrackInfo> tracks) {
+                    mHasClosedCaption = false;
                     for (TvTrackInfo track : tracks) {
-                        if (track.getId().equals(trackId)) {
-                            if (type == TvTrackInfo.TYPE_VIDEO) {
-                                mVideoWidth = track.getVideoWidth();
-                                mVideoHeight = track.getVideoHeight();
-                                mVideoFormat = Utils.getVideoDefinitionLevelFromSize(
-                                        mVideoWidth, mVideoHeight);
-                                mVideoFrameRate = track.getVideoFrameRate();
-                                if (mVideoWidth <= 0 || mVideoHeight <= 0) {
-                                    mVideoDisplayAspectRatio = 0.0f;
-                                } else {
-                                    float VideoPixelAspectRatio =
-                                            track.getVideoPixelAspectRatio();
-                                    mVideoDisplayAspectRatio = VideoPixelAspectRatio
-                                            * mVideoWidth / mVideoHeight;
-                                }
-                            } else if (type == TvTrackInfo.TYPE_AUDIO) {
-                                mAudioChannelCount = track.getAudioChannelCount();
-                            }
-                            trackFound = true;
+                        if (track.getType() == TvTrackInfo.TYPE_SUBTITLE) {
+                            mHasClosedCaption = true;
                             break;
                         }
                     }
+                    if (mOnTuneListener != null) {
+                        mOnTuneListener.onStreamInfoChanged(TunableTvView.this);
+                    }
                 }
-                if (!trackFound) {
-                    Log.w(TAG, "Invalid track ID: " + trackId);
-                }
-            }
-            if (mOnTuneListener != null) {
-                mOnTuneListener.onStreamInfoChanged(TunableTvView.this);
-            }
-        }
 
-        @Override
-        public void onVideoAvailable(String inputId) {
-            if (DEBUG) Log.d(TAG, "onVideoAvailable: {inputId=" + inputId + "}");
-            Debug.getTimer(Debug.TAG_START_UP_TIMER).log("Start up of Live TV ends," +
-                    " TunableTvView.onVideoAvailable resets timer");
-            long startUpDurationTime = Debug.getTimer(Debug.TAG_START_UP_TIMER).reset();
-            Debug.removeTimer(Debug.TAG_START_UP_TIMER);
-            if (BuildConfig.ENG && startUpDurationTime > Debug.TIME_START_UP_DURATION_THRESHOLD) {
-                showAlertDialogForLongStartUp();
-            }
-            mVideoUnavailableReason = VIDEO_UNAVAILABLE_REASON_NONE;
-            updateBlockScreenAndMuting();
-            if (mOnTuneListener != null) {
-                mOnTuneListener.onStreamInfoChanged(TunableTvView.this);
-            }
-        }
-
-        private void showAlertDialogForLongStartUp() {
-            new AlertDialog.Builder(getContext()).setTitle(
-                    getContext().getString(R.string.settings_send_feedback))
-                    .setMessage("Because the start up time of Live channels is too long," +
-                            " please send feedback")
-                    .setPositiveButton(android.R.string.ok,
-                            new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialogInterface, int i) {
-                                    Intent intent = new Intent(Intent.ACTION_APP_ERROR);
-                                    ApplicationErrorReport report = new ApplicationErrorReport();
-                                    report.packageName = report.processName = getContext()
-                                            .getApplicationContext().getPackageName();
-                                    report.time = System.currentTimeMillis();
-                                    report.type = ApplicationErrorReport.TYPE_CRASH;
-
-                                    // Add the crash info to add title of feedback automatically.
-                                    ApplicationErrorReport.CrashInfo crash = new
-                                            ApplicationErrorReport.CrashInfo();
-                                    crash.exceptionClassName =
-                                            "Live TV start up takes long time";
-                                    crash.exceptionMessage =
-                                            "The start up time of Live TV is too long";
-                                    report.crashInfo = crash;
-
-                                    intent.putExtra(Intent.EXTRA_BUG_REPORT, report);
-                                    getContext().startActivity(intent);
+                @Override
+                public void onTrackSelected(String inputId, int type, String trackId) {
+                    if (trackId == null) {
+                        // A track is unselected.
+                        if (type == TvTrackInfo.TYPE_VIDEO) {
+                            mVideoWidth = 0;
+                            mVideoHeight = 0;
+                            mVideoFormat = StreamInfo.VIDEO_DEFINITION_LEVEL_UNKNOWN;
+                            mVideoFrameRate = 0f;
+                            mVideoDisplayAspectRatio = 0f;
+                        } else if (type == TvTrackInfo.TYPE_AUDIO) {
+                            mAudioChannelCount = StreamInfo.AUDIO_CHANNEL_COUNT_UNKNOWN;
+                        }
+                    } else {
+                        List<TvTrackInfo> tracks = getTracks(type);
+                        boolean trackFound = false;
+                        if (tracks != null) {
+                            for (TvTrackInfo track : tracks) {
+                                if (track.getId().equals(trackId)) {
+                                    if (type == TvTrackInfo.TYPE_VIDEO) {
+                                        mVideoWidth = track.getVideoWidth();
+                                        mVideoHeight = track.getVideoHeight();
+                                        mVideoFormat =
+                                                Utils.getVideoDefinitionLevelFromSize(
+                                                        mVideoWidth, mVideoHeight);
+                                        mVideoFrameRate = track.getVideoFrameRate();
+                                        if (mVideoWidth <= 0 || mVideoHeight <= 0) {
+                                            mVideoDisplayAspectRatio = 0.0f;
+                                        } else {
+                                            float VideoPixelAspectRatio =
+                                                    track.getVideoPixelAspectRatio();
+                                            mVideoDisplayAspectRatio =
+                                                    VideoPixelAspectRatio
+                                                            * mVideoWidth
+                                                            / mVideoHeight;
+                                        }
+                                    } else if (type == TvTrackInfo.TYPE_AUDIO) {
+                                        mAudioChannelCount = track.getAudioChannelCount();
+                                    }
+                                    trackFound = true;
+                                    break;
                                 }
-                            })
-                    .setNegativeButton(android.R.string.no, null)
-                    .show();
-        }
+                            }
+                        }
+                        if (!trackFound) {
+                            Log.w(TAG, "Invalid track ID: " + trackId);
+                        }
+                    }
+                    if (mOnTuneListener != null) {
+                        mOnTuneListener.onStreamInfoChanged(TunableTvView.this);
+                    }
+                }
 
-        @Override
-        public void onVideoUnavailable(String inputId, int reason) {
-            if (reason != TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING
-                    && reason != TvInputManager.VIDEO_UNAVAILABLE_REASON_BUFFERING) {
-                Debug.getTimer(Debug.TAG_START_UP_TIMER).log(
-                        "TunableTvView.onVideoUnAvailable reason = (" + reason
-                                + ") and removes timer");
-                Debug.removeTimer(Debug.TAG_START_UP_TIMER);
-            } else {
-                Debug.getTimer(Debug.TAG_START_UP_TIMER).log(
-                        "TunableTvView.onVideoUnAvailable reason = (" + reason + ")");
-            }
-            mVideoUnavailableReason = reason;
-            if (closePipIfNeeded()) {
-                return;
-            }
-            updateBlockScreenAndMuting();
-            if (mOnTuneListener != null) {
-                mOnTuneListener.onStreamInfoChanged(TunableTvView.this);
-            }
-            switch (reason) {
-                case TvInputManager.VIDEO_UNAVAILABLE_REASON_UNKNOWN:
-                case TvInputManager.VIDEO_UNAVAILABLE_REASON_BUFFERING:
-                case TvInputManager.VIDEO_UNAVAILABLE_REASON_WEAK_SIGNAL:
-                    mTracker.sendChannelVideoUnavailable(mCurrentChannel, reason);
-                default:
-                    // do nothing
-            }
-        }
+                @Override
+                public void onVideoAvailable(String inputId) {
+                    if (DEBUG) Log.d(TAG, "onVideoAvailable: {inputId=" + inputId + "}");
+                    Debug.getTimer(Debug.TAG_START_UP_TIMER)
+                            .log(
+                                    "Start up of Live TV ends,"
+                                            + " TunableTvView.onVideoAvailable resets timer");
+                    long startUpDurationTime = Debug.getTimer(Debug.TAG_START_UP_TIMER).reset();
+                    Debug.removeTimer(Debug.TAG_START_UP_TIMER);
+                    if (BuildConfig.ENG
+                            && startUpDurationTime > Debug.TIME_START_UP_DURATION_THRESHOLD) {
+                        showAlertDialogForLongStartUp();
+                    }
+                    mVideoUnavailableReason = VIDEO_UNAVAILABLE_REASON_NONE;
+                    updateBlockScreenAndMuting();
+                    if (mOnTuneListener != null) {
+                        mOnTuneListener.onStreamInfoChanged(TunableTvView.this);
+                    }
+                }
 
-        @Override
-        public void onContentAllowed(String inputId) {
-            mBlockedContentRating = null;
-            updateBlockScreenAndMuting();
-            if (mOnTuneListener != null) {
-                mOnTuneListener.onContentAllowed();
-            }
-        }
+                private void showAlertDialogForLongStartUp() {
+                    new AlertDialog.Builder(getContext())
+                            .setTitle(getContext().getString(R.string.settings_send_feedback))
+                            .setMessage(
+                                    "Because the start up time of Live channels is too long,"
+                                            + " please send feedback")
+                            .setPositiveButton(
+                                    android.R.string.ok,
+                                    new DialogInterface.OnClickListener() {
+                                        @Override
+                                        public void onClick(
+                                                DialogInterface dialogInterface, int i) {
+                                            Intent intent = new Intent(Intent.ACTION_APP_ERROR);
+                                            ApplicationErrorReport report =
+                                                    new ApplicationErrorReport();
+                                            report.packageName =
+                                                    report.processName =
+                                                            getContext()
+                                                                    .getApplicationContext()
+                                                                    .getPackageName();
+                                            report.time = System.currentTimeMillis();
+                                            report.type = ApplicationErrorReport.TYPE_CRASH;
 
-        @Override
-        public void onContentBlocked(String inputId, TvContentRating rating) {
-            if (rating != null && rating.equals(mBlockedContentRating)) {
-                return;
-            }
-            mBlockedContentRating = rating;
-            if (closePipIfNeeded()) {
-                return;
-            }
-            updateBlockScreenAndMuting();
-            if (mOnTuneListener != null) {
-                mOnTuneListener.onContentBlocked();
-            }
-        }
+                                            // Add the crash info to add title of feedback
+                                            // automatically.
+                                            ApplicationErrorReport.CrashInfo crash =
+                                                    new ApplicationErrorReport.CrashInfo();
+                                            crash.exceptionClassName =
+                                                    "Live TV start up takes long time";
+                                            crash.exceptionMessage =
+                                                    "The start up time of Live TV is too long";
+                                            report.crashInfo = crash;
 
-        @Override
-        public void onTimeShiftStatusChanged(String inputId, int status) {
-            if (DEBUG) {
-                Log.d(TAG, "onTimeShiftStatusChanged: {inputId=" + inputId + ", status=" + status +
-                        "}");
-            }
-            boolean available = status == TvInputManager.TIME_SHIFT_STATUS_AVAILABLE;
-            setTimeShiftAvailable(available);
-        }
-    };
+                                            intent.putExtra(Intent.EXTRA_BUG_REPORT, report);
+                                            getContext().startActivity(intent);
+                                        }
+                                    })
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .show();
+                }
+
+                @Override
+                public void onVideoUnavailable(String inputId, int reason) {
+                    if (reason != TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING
+                            && reason != TvInputManager.VIDEO_UNAVAILABLE_REASON_BUFFERING) {
+                        Debug.getTimer(Debug.TAG_START_UP_TIMER)
+                                .log(
+                                        "TunableTvView.onVideoUnAvailable reason = ("
+                                                + reason
+                                                + ") and removes timer");
+                        Debug.removeTimer(Debug.TAG_START_UP_TIMER);
+                    } else {
+                        Debug.getTimer(Debug.TAG_START_UP_TIMER)
+                                .log("TunableTvView.onVideoUnAvailable reason = (" + reason + ")");
+                    }
+                    mVideoUnavailableReason = reason;
+                    if (closePipIfNeeded()) {
+                        return;
+                    }
+                    updateBlockScreenAndMuting();
+                    if (mOnTuneListener != null) {
+                        mOnTuneListener.onStreamInfoChanged(TunableTvView.this);
+                    }
+                    switch (reason) {
+                        case TvInputManager.VIDEO_UNAVAILABLE_REASON_UNKNOWN:
+                        case TvInputManager.VIDEO_UNAVAILABLE_REASON_BUFFERING:
+                        case TvInputManager.VIDEO_UNAVAILABLE_REASON_WEAK_SIGNAL:
+                            mTracker.sendChannelVideoUnavailable(mCurrentChannel, reason);
+                            break;
+                        default:
+                            // do nothing
+                    }
+                }
+
+                @Override
+                public void onContentAllowed(String inputId) {
+                    mBlockedContentRating = null;
+                    updateBlockScreenAndMuting();
+                    if (mOnTuneListener != null) {
+                        mOnTuneListener.onContentAllowed();
+                    }
+                }
+
+                @Override
+                public void onContentBlocked(String inputId, TvContentRating rating) {
+                    if (rating != null && rating.equals(mBlockedContentRating)) {
+                        return;
+                    }
+                    mBlockedContentRating = rating;
+                    if (closePipIfNeeded()) {
+                        return;
+                    }
+                    updateBlockScreenAndMuting();
+                    if (mOnTuneListener != null) {
+                        mOnTuneListener.onContentBlocked();
+                    }
+                }
+
+                @Override
+                public void onTimeShiftStatusChanged(String inputId, int status) {
+                    if (DEBUG) {
+                        Log.d(
+                                TAG,
+                                "onTimeShiftStatusChanged: {inputId="
+                                        + inputId
+                                        + ", status="
+                                        + status
+                                        + "}");
+                    }
+                    boolean available = status == TvInputManager.TIME_SHIFT_STATUS_AVAILABLE;
+                    setTimeShiftAvailable(available);
+                }
+            };
 
     public TunableTvView(Context context) {
         this(context, null);
@@ -423,49 +459,77 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         super(context, attrs, defStyleAttr, defStyleRes);
         inflate(getContext(), R.layout.tunable_tv_view, this);
 
-        ApplicationSingletons appSingletons = TvApplication.getSingletons(context);
+        TvSingletons tvSingletons = TvSingletons.getSingletons(context);
         if (CommonFeatures.DVR.isEnabled(context)) {
-            mInputSessionManager = appSingletons.getInputSessionManager();
+            mInputSessionManager = tvSingletons.getInputSessionManager();
         } else {
             mInputSessionManager = null;
         }
-        mInputManager = appSingletons.getTvInputManagerHelper();
-        mConnectivityManager = (ConnectivityManager) context
-                .getSystemService(Context.CONNECTIVITY_SERVICE);
+        mInputManager = tvSingletons.getTvInputManagerHelper();
+        mConnectivityManager =
+                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         mCanModifyParentalControls = PermissionUtils.hasModifyParentalControls(context);
-        mTracker = appSingletons.getTracker();
+        mTracker = tvSingletons.getTracker();
         mBlockScreenType = BLOCK_SCREEN_TYPE_NORMAL;
         mBlockScreenView = (BlockScreenView) findViewById(R.id.block_screen);
-        mBlockScreenView.addInfoFadeInAnimationListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationStart(Animator animation) {
-                adjustBlockScreenSpacingAndText();
-            }
-        });
+        mBlockScreenView.addInfoFadeInAnimationListener(
+                new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationStart(Animator animation) {
+                        adjustBlockScreenSpacingAndText();
+                    }
+                });
 
         mBufferingSpinnerView = findViewById(R.id.buffering_spinner);
-        mTuningImageColorFilter = getResources()
-                .getColor(R.color.tvview_block_image_color_filter, null);
+        mTuningImageColorFilter =
+                getResources().getColor(R.color.tvview_block_image_color_filter, null);
         mDimScreenView = findViewById(R.id.dim_screen);
-        mDimScreenView.animate().setListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                if (mActionAfterFade != null) {
-                    mActionAfterFade.run();
-                }
-            }
+        mDimScreenView
+                .animate()
+                .setListener(
+                        new AnimatorListenerAdapter() {
+                            @Override
+                            public void onAnimationEnd(Animator animation) {
+                                if (mActionAfterFade != null) {
+                                    mActionAfterFade.run();
+                                }
+                            }
 
-            @Override
-            public void onAnimationCancel(Animator animation) {
-                if (mActionAfterFade != null) {
-                    mActionAfterFade.run();
-                }
-            }
-        });
+                            @Override
+                            public void onAnimationCancel(Animator animation) {
+                                if (mActionAfterFade != null) {
+                                    mActionAfterFade.run();
+                                }
+                            }
+                        });
+        View placeholder = findViewById(R.id.placeholder);
+        placeholder.requestFocus();
+        findViewById(R.id.channel_up)
+                .setOnFocusChangeListener(
+                        (v, hasFocus) -> {
+                            if (hasFocus) {
+                                placeholder.requestFocus();
+                                if (mOnTalkBackDpadKeyListener != null) {
+                                    mOnTalkBackDpadKeyListener.onTalkBackDpadKey(
+                                            KeyEvent.KEYCODE_DPAD_UP);
+                                }
+                            }
+                        });
+        findViewById(R.id.channel_down)
+                .setOnFocusChangeListener(
+                        (v, hasFocus) -> {
+                            if (hasFocus) {
+                                placeholder.requestFocus();
+                                if (mOnTalkBackDpadKeyListener != null) {
+                                    mOnTalkBackDpadKeyListener.onTalkBackDpadKey(
+                                            KeyEvent.KEYCODE_DPAD_DOWN);
+                                }
+                            }
+                        });
     }
 
-    public void initialize(ProgramDataManager programDataManager,
-            TvInputManagerHelper tvInputManagerHelper) {
+    public void initialize(
+            ProgramDataManager programDataManager, TvInputManagerHelper tvInputManagerHelper) {
         mTvView = (AppLayerTvView) findViewById(R.id.tv_view);
         mProgramDataManager = programDataManager;
         mInputManagerHelper = tvInputManagerHelper;
@@ -482,9 +546,7 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         mStarted = true;
     }
 
-    /**
-     * Warms up the input to reduce the start time.
-     */
+    /** Warms up the input to reduce the start time. */
     public void warmUpInput(String inputId, Uri channelUri) {
         if (!mStarted && inputId != null && channelUri != null) {
             if (mTvViewSession != null) {
@@ -506,16 +568,14 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
             long duration = mChannelViewTimer.reset();
             mTracker.sendChannelViewStop(mCurrentChannel, duration);
             if (mWatchedHistoryManager != null && !mCurrentChannel.isPassthrough()) {
-                mWatchedHistoryManager.logChannelViewStop(mCurrentChannel,
-                        System.currentTimeMillis(), duration);
+                mWatchedHistoryManager.logChannelViewStop(
+                        mCurrentChannel, System.currentTimeMillis(), duration);
             }
         }
         reset();
     }
 
-    /**
-     * Releases the resources.
-     */
+    /** Releases the resources. */
     public void release() {
         if (mInputSessionManager != null) {
             mInputSessionManager.releaseTvViewSession(mTvViewSession);
@@ -523,18 +583,14 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         }
     }
 
-    /**
-     * Resets TV view.
-     */
+    /** Resets TV view. */
     public void reset() {
         resetInternal();
         mVideoUnavailableReason = VIDEO_UNAVAILABLE_REASON_NOT_TUNED;
         updateBlockScreenAndMuting();
     }
 
-    /**
-     * Resets TV view to acquire the recording session.
-     */
+    /** Resets TV view to acquire the recording session. */
     public void resetByRecording() {
         resetInternal();
     }
@@ -560,20 +616,17 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         mWatchedHistoryManager = watchedHistoryManager;
     }
 
-    /**
-     * Sets if the TunableTvView is under shrunken.
-     */
+    /** Sets if the TunableTvView is under shrunken. */
     public void setIsUnderShrunken(boolean isUnderShrunken) {
         mIsUnderShrunken = isUnderShrunken;
     }
 
+    @Override
     public boolean isPlaying() {
         return mStarted;
     }
 
-    /**
-     * Called when parental control is changed.
-     */
+    /** Called when parental control is changed. */
     public void onParentalControlChanged(boolean enabled) {
         mParentControlEnabled = enabled;
         if (!enabled) {
@@ -586,8 +639,8 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
      * Tunes to a channel with the {@code channelId}.
      *
      * @param params extra data to send it to TIS and store the data in TIMS.
-     * @return false, if the TV input is not a proper state to tune to a channel. For example,
-     *         if the state is disconnected or channelId doesn't exist, it returns false.
+     * @return false, if the TV input is not a proper state to tune to a channel. For example, if
+     *     the state is disconnected or channelId doesn't exist, it returns false.
      */
     public boolean tuneTo(Channel channel, Bundle params, OnTuneListener listener) {
         Debug.getTimer(Debug.TAG_START_UP_TIMER).log("TunableTvView.tuneTo");
@@ -603,24 +656,34 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
             long duration = mChannelViewTimer.reset();
             mTracker.sendChannelViewStop(mCurrentChannel, duration);
             if (mWatchedHistoryManager != null && !mCurrentChannel.isPassthrough()) {
-                mWatchedHistoryManager.logChannelViewStop(mCurrentChannel,
-                        System.currentTimeMillis(), duration);
+                mWatchedHistoryManager.logChannelViewStop(
+                        mCurrentChannel, System.currentTimeMillis(), duration);
             }
         }
         mOnTuneListener = listener;
         mCurrentChannel = channel;
-        boolean tunedByRecommendation = params != null
-                && params.getString(NotificationService.TUNE_PARAMS_RECOMMENDATION_TYPE) != null;
+        boolean tunedByRecommendation =
+                params != null
+                        && params.getString(NotificationService.TUNE_PARAMS_RECOMMENDATION_TYPE)
+                                != null;
         boolean needSurfaceSizeUpdate = false;
         if (!inputInfo.equals(mInputInfo)) {
             mTagetInputId = inputInfo.getId();
             mInputInfo = inputInfo;
-            mCanReceiveInputEvent = getContext().getPackageManager().checkPermission(
-                    PERMISSION_RECEIVE_INPUT_EVENT, mInputInfo.getServiceInfo().packageName)
+            mCanReceiveInputEvent =
+                    getContext()
+                                    .getPackageManager()
+                                    .checkPermission(
+                                            PERMISSION_RECEIVE_INPUT_EVENT,
+                                            mInputInfo.getServiceInfo().packageName)
                             == PackageManager.PERMISSION_GRANTED;
             if (DEBUG) {
-                Log.d(TAG, "Input \'" + mInputInfo.getId() + "\' can receive input event: "
-                        + mCanReceiveInputEvent);
+                Log.d(
+                        TAG,
+                        "Input \'"
+                                + mInputInfo.getId()
+                                + "\' can receive input event: "
+                                + mCanReceiveInputEvent);
             }
             needSurfaceSizeUpdate = true;
         }
@@ -671,6 +734,7 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         mCurrentChannel = currentChannel;
     }
 
+    @Override
     public void setStreamVolume(float volume) {
         if (!mStarted) {
             throw new IllegalStateException("TvView isn't started");
@@ -683,13 +747,13 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
     }
 
     /**
-     * Sets fixed size for the internal {@link android.view.Surface} of
-     * {@link android.media.tv.TvView}. If either {@code width} or {@code height} is non positive,
-     * the {@link android.view.Surface}'s size will be matched to the layout.
+     * Sets fixed size for the internal {@link android.view.Surface} of {@link
+     * android.media.tv.TvView}. If either {@code width} or {@code height} is non positive, the
+     * {@link android.view.Surface}'s size will be matched to the layout.
      *
-     * Note: Once {@link android.view.SurfaceHolder#setFixedSize} is called,
-     * {@link android.view.SurfaceView} and its underlying window can be misaligned, when the size
-     * of {@link android.view.SurfaceView} is changed without changing either left position or top
+     * <p>Note: Once {@link android.view.SurfaceHolder#setFixedSize} is called, {@link
+     * android.view.SurfaceView} and its underlying window can be misaligned, when the size of
+     * {@link android.view.SurfaceView} is changed without changing either left position or top
      * position. For detail, please refer the codes of android.view.SurfaceView.updateWindow().
      */
     public void setFixedSurfaceSize(int width, int height) {
@@ -728,10 +792,15 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
 
     public interface OnTuneListener {
         void onTuneFailed(Channel channel);
+
         void onUnexpectedStop(Channel channel);
+
         void onStreamInfoChanged(StreamInfo info);
+
         void onChannelRetuned(Uri channel);
+
         void onContentBlocked();
+
         void onContentAllowed();
     }
 
@@ -759,9 +828,7 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         return mVideoFrameRate;
     }
 
-    /**
-     * Returns displayed aspect ratio (video width / video height * pixel ratio).
-     */
+    /** Returns displayed aspect ratio (video width / video height * pixel ratio). */
     @Override
     public float getVideoDisplayAspectRatio() {
         return mVideoDisplayAspectRatio;
@@ -793,15 +860,17 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         return mVideoUnavailableReason;
     }
 
-    /**
-     * Returns the {@link android.view.SurfaceView} of the {@link android.media.tv.TvView}.
-     */
+    /** Returns the {@link android.view.SurfaceView} of the {@link android.media.tv.TvView}. */
     private SurfaceView getSurfaceView() {
         return (SurfaceView) mTvView.getChildAt(0);
     }
 
     public void setOnUnhandledInputEventListener(OnUnhandledInputEventListener listener) {
         mTvView.setOnUnhandledInputEventListener(listener);
+    }
+
+    public void setOnTalkBackDpadKeyListener(OnTalkBackDpadKeyListener listener) {
+        mOnTalkBackDpadKeyListener = listener;
     }
 
     public void setClosedCaptionEnabled(boolean enabled) {
@@ -821,16 +890,16 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
     }
 
     /**
-     * Gets {@link android.view.ViewGroup.MarginLayoutParams} of the underlying
-     * {@link TvView}, which is the actual view to play live TV videos.
+     * Gets {@link android.view.ViewGroup.MarginLayoutParams} of the underlying {@link TvView},
+     * which is the actual view to play live TV videos.
      */
     public MarginLayoutParams getTvViewLayoutParams() {
         return (MarginLayoutParams) mTvView.getLayoutParams();
     }
 
     /**
-     * Sets {@link android.view.ViewGroup.MarginLayoutParams} of the underlying
-     * {@link TvView}, which is the actual view to play live TV videos.
+     * Sets {@link android.view.ViewGroup.MarginLayoutParams} of the underlying {@link TvView},
+     * which is the actual view to play live TV videos.
      */
     public void setTvViewLayoutParams(MarginLayoutParams layoutParams) {
         mTvView.setLayoutParams(layoutParams);
@@ -851,16 +920,12 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         return isScreenBlocked() || isContentBlocked();
     }
 
-    /**
-     * Returns if the screen is blocked by {@link #blockOrUnblockScreen(boolean)}.
-     */
+    /** Returns if the screen is blocked by {@link #blockOrUnblockScreen(boolean)}. */
     public boolean isScreenBlocked() {
         return mScreenBlocked;
     }
 
-    /**
-     * Returns {@code true} if the content is blocked, otherwise {@code false}.
-     */
+    /** Returns {@code true} if the content is blocked, otherwise {@code false}. */
     public boolean isContentBlocked() {
         return mBlockedContentRating != null;
     }
@@ -869,18 +934,15 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         mOnScreenBlockedListener = listener;
     }
 
-    /**
-     * Returns currently blocked content rating. {@code null} if it's not blocked.
-     */
+    /** Returns currently blocked content rating. {@code null} if it's not blocked. */
     @Override
     public TvContentRating getBlockedContentRating() {
         return mBlockedContentRating;
     }
 
     /**
-     * Blocks/unblocks current TV screen and mutes.
-     * There would be black screen with lock icon in order to show that
-     * screen block is intended and not an error.
+     * Blocks/unblocks current TV screen and mutes. There would be black screen with lock icon in
+     * order to show that screen block is intended and not an error.
      *
      * @param blockOrUnblock {@code true} to block the screen, or {@code false} to unblock.
      */
@@ -909,8 +971,8 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
     /**
      * Set the type of block screen. If {@code type} is set to {@code BLOCK_SCREEN_TYPE_NO_UI}, the
      * block screen will not show any description such as a lock icon and a text for the blocked
-     * reason, if {@code type} is set to {@code BLOCK_SCREEN_TYPE_SHRUNKEN_TV_VIEW}, the block screen
-     * will show the description for shrunken tv view (Small icon and short text), and if
+     * reason, if {@code type} is set to {@code BLOCK_SCREEN_TYPE_SHRUNKEN_TV_VIEW}, the block
+     * screen will show the description for shrunken tv view (Small icon and short text), and if
      * {@code type} is set to {@code BLOCK_SCREEN_TYPE_NORMAL}, the block screen will show the
      * description for normal tv view (Big icon and long text).
      *
@@ -925,14 +987,16 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
 
     private void updateBlockScreen(boolean animation) {
         mBlockScreenView.endAnimations();
-        int blockReason = (mScreenBlocked || mBlockedContentRating != null)
-                && mParentControlEnabled ? VIDEO_UNAVAILABLE_REASON_SCREEN_BLOCKED
+        int blockReason =
+                (mScreenBlocked || mBlockedContentRating != null) && mParentControlEnabled
+                        ? VIDEO_UNAVAILABLE_REASON_SCREEN_BLOCKED
                         : mVideoUnavailableReason;
         if (blockReason != VIDEO_UNAVAILABLE_REASON_NONE) {
             mBufferingSpinnerView.setVisibility(
                     blockReason == TvInputManager.VIDEO_UNAVAILABLE_REASON_BUFFERING
-                            || blockReason == TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING ?
-                            VISIBLE : GONE);
+                                    || blockReason == TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING
+                            ? VISIBLE
+                            : GONE);
             if (!animation) {
                 adjustBlockScreenSpacingAndText();
             }
@@ -959,7 +1023,8 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
                 if (blockReason == TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING) {
                     showImageForTuningIfNeeded();
                 } else if (blockReason == TvInputManager.VIDEO_UNAVAILABLE_REASON_UNKNOWN
-                        && mCurrentChannel != null && !mCurrentChannel.isPhysicalTunerChannel()) {
+                        && mCurrentChannel != null
+                        && !mCurrentChannel.isPhysicalTunerChannel()) {
                     mInternetCheckTask = new InternetCheckTask();
                     mInternetCheckTask.execute();
                 }
@@ -982,8 +1047,8 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
     }
 
     /**
-     * Returns the block screen text corresponding to the current status.
-     * Note that returning {@code null} value means that the current text should not be changed.
+     * Returns the block screen text corresponding to the current status. Note that returning {@code
+     * null} value means that the current text should not be changed.
      */
     private String getBlockScreenText() {
         // TODO: add a test for this method
@@ -1051,7 +1116,7 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
     }
 
     private boolean closePipIfNeeded() {
-        if (Features.PICTURE_IN_PICTURE.isEnabled(getContext())
+        if (TvFeatures.PICTURE_IN_PICTURE.isEnabled(getContext())
                 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
                 && ((Activity) getContext()).isInPictureInPictureMode()
                 && (mScreenBlocked
@@ -1071,8 +1136,13 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
 
     private boolean shouldShowImageForTuning() {
         if (mVideoUnavailableReason != TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING
-                || mScreenBlocked || mBlockedContentRating != null || mCurrentChannel == null
-                || mIsUnderShrunken || getWidth() == 0 || getWidth() == 0 || !isBundledInput()) {
+                || mScreenBlocked
+                || mBlockedContentRating != null
+                || mCurrentChannel == null
+                || mIsUnderShrunken
+                || getWidth() == 0
+                || getWidth() == 0
+                || !isBundledInput()) {
             return false;
         }
         Program currentProgram = mProgramDataManager.getCurrentProgram(mCurrentChannel.getId());
@@ -1091,7 +1161,10 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
             }
             Program currentProgram = mProgramDataManager.getCurrentProgram(mCurrentChannel.getId());
             if (currentProgram != null) {
-                currentProgram.loadPosterArt(getContext(), getWidth(), getHeight(),
+                currentProgram.loadPosterArt(
+                        getContext(),
+                        getWidth(),
+                        getHeight(),
                         createProgramPosterArtCallback(mCurrentChannel.getId()));
             }
         }
@@ -1102,16 +1175,19 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
             TvInputInfo input = mInputManager.getTvInputInfo(mTagetInputId);
             Long timeMs = mInputSessionManager.getEarliestRecordingSessionEndTimeMs(mTagetInputId);
             if (timeMs != null) {
-                return getResources().getQuantityString(R.plurals.tvview_msg_input_no_resource,
-                        input.getTunerCount(),
-                        DateUtils.formatDateTime(getContext(), timeMs, DateUtils.FORMAT_SHOW_TIME));
+                return getResources()
+                        .getQuantityString(
+                                R.plurals.tvview_msg_input_no_resource,
+                                input.getTunerCount(),
+                                DateUtils.formatDateTime(
+                                        getContext(), timeMs, DateUtils.FORMAT_SHOW_TIME));
             }
         }
         return null;
     }
 
     private void updateMuteStatus() {
-        // Workaround: TunerTvInputService uses AC3 pass-through implementation, which disables
+        // Workaround: BaseTunerTvInputService uses AC3 pass-through implementation, which disables
         // audio tracks to enforce the mute request. We don't want to send mute request if we are
         // not going to block the screen to prevent the video jankiness resulted by disabling audio
         // track before the playback is started. In other way, we should send unmute request before
@@ -1119,7 +1195,8 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         // itself right way when the playback is going to be started, which results the initial
         // jankiness, too.
         boolean isBundledInput = isBundledInput();
-        if ((isBundledInput || isVideoOrAudioAvailable()) && !mScreenBlocked
+        if ((isBundledInput || isVideoOrAudioAvailable())
+                && !mScreenBlocked
                 && mBlockedContentRating == null) {
             if (mIsMuted) {
                 mIsMuted = false;
@@ -1128,7 +1205,8 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         } else {
             if (!mIsMuted) {
                 if ((mInputInfo == null || isBundledInput)
-                        && !mScreenBlocked && mBlockedContentRating == null) {
+                        && !mScreenBlocked
+                        && mBlockedContentRating == null) {
                     return;
                 }
                 mIsMuted = true;
@@ -1138,8 +1216,9 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
     }
 
     private boolean isBundledInput() {
-        return mInputInfo != null && mInputInfo.getType() == TvInputInfo.TYPE_TUNER
-                && Utils.isBundledInput(mInputInfo.getId());
+        return mInputInfo != null
+                && mInputInfo.getType() == TvInputInfo.TYPE_TUNER
+                && CommonUtils.isBundledInput(mInputInfo.getId());
     }
 
     /** Returns true if this view is faded out. */
@@ -1148,52 +1227,58 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
     }
 
     /** Fade out this TunableTvView. Fade out by increasing the dimming. */
-    public void fadeOut(int durationMillis, TimeInterpolator interpolator,
-            final Runnable actionAfterFade) {
+    public void fadeOut(
+            int durationMillis, TimeInterpolator interpolator, final Runnable actionAfterFade) {
         mDimScreenView.setAlpha(0f);
         mDimScreenView.setVisibility(View.VISIBLE);
-        mDimScreenView.animate()
+        mDimScreenView
+                .animate()
                 .alpha(1f)
                 .setDuration(durationMillis)
                 .setInterpolator(interpolator)
-                .withStartAction(new Runnable() {
-                    @Override
-                    public void run() {
-                        mFadeState = FADING_OUT;
-                        mActionAfterFade = actionAfterFade;
-                    }
-                })
-                .withEndAction(new Runnable() {
-                    @Override
-                    public void run() {
-                        mFadeState = FADED_OUT;
-                    }
-                });
+                .withStartAction(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                mFadeState = FADING_OUT;
+                                mActionAfterFade = actionAfterFade;
+                            }
+                        })
+                .withEndAction(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                mFadeState = FADED_OUT;
+                            }
+                        });
     }
 
     /** Fade in this TunableTvView. Fade in by decreasing the dimming. */
-    public void fadeIn(int durationMillis, TimeInterpolator interpolator,
-            final Runnable actionAfterFade) {
+    public void fadeIn(
+            int durationMillis, TimeInterpolator interpolator, final Runnable actionAfterFade) {
         mDimScreenView.setAlpha(1f);
         mDimScreenView.setVisibility(View.VISIBLE);
-        mDimScreenView.animate()
+        mDimScreenView
+                .animate()
                 .alpha(0f)
                 .setDuration(durationMillis)
                 .setInterpolator(interpolator)
-                .withStartAction(new Runnable() {
-                    @Override
-                    public void run() {
-                        mFadeState = FADING_IN;
-                        mActionAfterFade = actionAfterFade;
-                    }
-                })
-                .withEndAction(new Runnable() {
-                    @Override
-                    public void run() {
-                        mFadeState = FADED_IN;
-                        mDimScreenView.setVisibility(View.GONE);
-                    }
-                });
+                .withStartAction(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                mFadeState = FADING_IN;
+                                mActionAfterFade = actionAfterFade;
+                            }
+                        })
+                .withEndAction(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                mFadeState = FADED_IN;
+                                mDimScreenView.setVisibility(View.GONE);
+                            }
+                        });
     }
 
     /** Remove the fade effect. */
@@ -1208,6 +1293,7 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
      *
      * @param listener The instance of {@link TimeShiftListener}.
      */
+    @Override
     public void setTimeShiftListener(TimeShiftListener listener) {
         mTimeShiftListener = listener;
     }
@@ -1218,20 +1304,22 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         }
         mTimeShiftAvailable = isTimeShiftAvailable;
         if (isTimeShiftAvailable) {
-            mTvView.setTimeShiftPositionCallback(new TvView.TimeShiftPositionCallback() {
-                @Override
-                public void onTimeShiftStartPositionChanged(String inputId, long timeMs) {
-                    if (mTimeShiftListener != null && mCurrentChannel != null
-                            && mCurrentChannel.getInputId().equals(inputId)) {
-                        mTimeShiftListener.onRecordStartTimeChanged(timeMs);
-                    }
-                }
+            mTvView.setTimeShiftPositionCallback(
+                    new TvView.TimeShiftPositionCallback() {
+                        @Override
+                        public void onTimeShiftStartPositionChanged(String inputId, long timeMs) {
+                            if (mTimeShiftListener != null
+                                    && mCurrentChannel != null
+                                    && mCurrentChannel.getInputId().equals(inputId)) {
+                                mTimeShiftListener.onRecordStartTimeChanged(timeMs);
+                            }
+                        }
 
-                @Override
-                public void onTimeShiftCurrentPositionChanged(String inputId, long timeMs) {
-                    mTimeShiftCurrentPositionMs = timeMs;
-                }
-            });
+                        @Override
+                        public void onTimeShiftCurrentPositionChanged(String inputId, long timeMs) {
+                            mTimeShiftCurrentPositionMs = timeMs;
+                        }
+                    });
         } else {
             mTvView.setTimeShiftPositionCallback(null);
         }
@@ -1240,16 +1328,14 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         }
     }
 
-    /**
-     * Returns if the time shift is available for the current channel.
-     */
+    /** Returns if the time shift is available for the current channel. */
+    @Override
     public boolean isTimeShiftAvailable() {
         return mTimeShiftAvailable;
     }
 
-    /**
-     * Plays the media, if the current input supports time-shifting.
-     */
+    /** Plays the media, if the current input supports time-shifting. */
+    @Override
     public void timeshiftPlay() {
         if (!isTimeShiftAvailable()) {
             throw new IllegalStateException("Time-shift is not supported for the current channel");
@@ -1260,9 +1346,8 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         mTvView.timeShiftResume();
     }
 
-    /**
-     * Pauses the media, if the current input supports time-shifting.
-     */
+    /** Pauses the media, if the current input supports time-shifting. */
+    @Override
     public void timeshiftPause() {
         if (!isTimeShiftAvailable()) {
             throw new IllegalStateException("Time-shift is not supported for the current channel");
@@ -1278,6 +1363,7 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
      *
      * @param speed The speed to rewind the media. e.g. 2 for 2x, 3 for 3x and 4 for 4x.
      */
+    @Override
     public void timeshiftRewind(int speed) {
         if (!isTimeShiftAvailable()) {
             throw new IllegalStateException("Time-shift is not supported for the current channel");
@@ -1297,6 +1383,7 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
      *
      * @param speed The speed to forward the media. e.g. 2 for 2x, 3 for 3x and 4 for 4x.
      */
+    @Override
     public void timeshiftFastForward(int speed) {
         if (!isTimeShiftAvailable()) {
             throw new IllegalStateException("Time-shift is not supported for the current channel");
@@ -1316,6 +1403,7 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
      *
      * @param timeMs The time in milliseconds to seek to.
      */
+    @Override
     public void timeshiftSeekTo(long timeMs) {
         if (!isTimeShiftAvailable()) {
             throw new IllegalStateException("Time-shift is not supported for the current channel");
@@ -1323,16 +1411,17 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         mTvView.timeShiftSeekTo(timeMs);
     }
 
-    /**
-     * Returns the current playback position in milliseconds.
-     */
+    /** Returns the current playback position in milliseconds. */
+    @Override
     public long timeshiftGetCurrentPositionMs() {
         if (!isTimeShiftAvailable()) {
             throw new IllegalStateException("Time-shift is not supported for the current channel");
         }
         if (DEBUG) {
-            Log.d(TAG, "timeshiftGetCurrentPositionMs: current position ="
-                    + Utils.toTimeString(mTimeShiftCurrentPositionMs));
+            Log.d(
+                    TAG,
+                    "timeshiftGetCurrentPositionMs: current position ="
+                            + Utils.toTimeString(mTimeShiftCurrentPositionMs));
         }
         return mTimeShiftCurrentPositionMs;
     }
@@ -1342,43 +1431,30 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         return new ImageLoader.ImageLoaderCallback<BlockScreenView>(mBlockScreenView) {
             @Override
             public void onBitmapLoaded(BlockScreenView view, @Nullable Bitmap posterArt) {
-                if (posterArt == null || getCurrentChannel() == null
+                if (posterArt == null
+                        || getCurrentChannel() == null
                         || channelId != getCurrentChannel().getId()
                         || !shouldShowImageForTuning()) {
                     return;
                 }
                 Drawable drawablePosterArt = new BitmapDrawable(view.getResources(), posterArt);
-                drawablePosterArt.mutate().setColorFilter(
-                        mTuningImageColorFilter, PorterDuff.Mode.SRC_OVER);
+                drawablePosterArt
+                        .mutate()
+                        .setColorFilter(mTuningImageColorFilter, PorterDuff.Mode.SRC_OVER);
                 view.setBackgroundImage(drawablePosterArt);
             }
         };
     }
 
-    /**
-     * Used to receive the time-shift events.
-     */
-    public static abstract class TimeShiftListener {
-        /**
-         * Called when the availability of the time-shift for the current channel has been changed.
-         * It should be guaranteed that this is called only when the availability is really changed.
-         */
-        public abstract void onAvailabilityChanged();
+    /** Listens for dpad actions that are otherwise trapped by talkback */
+    public interface OnTalkBackDpadKeyListener {
 
-        /**
-         * Called when the record start time has been changed.
-         * This is not called when the recorded programs is played.
-         */
-        public abstract void onRecordStartTimeChanged(long recordStartTimeMs);
+        void onTalkBackDpadKey(int keycode);
     }
 
-    /**
-     * A listener which receives the notification when the screen is blocked/unblocked.
-     */
-    public static abstract class OnScreenBlockingChangedListener {
-        /**
-         * Called when the screen is blocked/unblocked.
-         */
+    /** A listener which receives the notification when the screen is blocked/unblocked. */
+    public abstract static class OnScreenBlockingChangedListener {
+        /** Called when the screen is blocked/unblocked. */
         public abstract void onScreenBlockingChanged(boolean blocked);
     }
 
@@ -1391,8 +1467,10 @@ public class TunableTvView extends FrameLayout implements StreamInfo {
         @Override
         protected void onPostExecute(Boolean networkAvailable) {
             mInternetCheckTask = null;
-            if (!networkAvailable && isAttachedToWindow()
-                    && !mScreenBlocked && mBlockedContentRating == null
+            if (!networkAvailable
+                    && isAttachedToWindow()
+                    && !mScreenBlocked
+                    && mBlockedContentRating == null
                     && mVideoUnavailableReason == TvInputManager.VIDEO_UNAVAILABLE_REASON_UNKNOWN) {
                 mBlockScreenView.setIconVisibility(true);
                 mBlockScreenView.setIconImage(R.drawable.ic_sad_cloud);

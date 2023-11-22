@@ -23,7 +23,6 @@ art_cc_defaults {
     name: "libart-compiler-defaults",
     defaults: ["art_defaults"],
     host_supported: true,
-    clang: true,
     srcs: [
         "compiled_method.cc",
         "debug/elf_debug_writer.cc",
@@ -38,7 +37,6 @@ art_cc_defaults {
         "driver/dex_compilation_unit.cc",
         "linker/buffered_output_stream.cc",
         "linker/file_output_stream.cc",
-        "linker/multi_oat_relative_patcher.cc",
         "linker/output_stream.cc",
         "linker/vector_output_stream.cc",
         "linker/relative_patcher.cc",
@@ -54,6 +52,8 @@ art_cc_defaults {
         "optimizing/code_generator_utils.cc",
         "optimizing/code_sinking.cc",
         "optimizing/constant_folding.cc",
+        "optimizing/constructor_fence_redundancy_elimination.cc",
+        "optimizing/data_type.cc",
         "optimizing/dead_code_elimination.cc",
         "optimizing/escape.cc",
         "optimizing/graph_checker.cc",
@@ -89,15 +89,12 @@ art_cc_defaults {
         "optimizing/ssa_liveness_analysis.cc",
         "optimizing/ssa_phi_elimination.cc",
         "optimizing/stack_map_stream.cc",
+        "optimizing/superblock_cloner.cc",
         "trampolines/trampoline_compiler.cc",
         "utils/assembler.cc",
         "utils/jni_macro_assembler.cc",
         "utils/swap_space.cc",
         "compiler.cc",
-        "elf_writer.cc",
-        "elf_writer_quick.cc",
-        "image_writer.cc",
-        "oat_writer.cc",
     ],
 
     codegen: {
@@ -139,6 +136,7 @@ art_cc_defaults {
                 "linker/mips/relative_patcher_mips.cc",
                 "optimizing/code_generator_mips.cc",
                 "optimizing/code_generator_vector_mips.cc",
+                "optimizing/instruction_simplifier_mips.cc",
                 "optimizing/intrinsics_mips.cc",
                 "optimizing/pc_relative_fixups_mips.cc",
                 "utils/mips/assembler_mips.cc",
@@ -184,45 +182,32 @@ art_cc_defaults {
             ],
         },
     },
-    target: {
-        host: {
-            // For compiler driver TLS.
-            host_ldlibs: ["-lpthread"],
-        },
-        android: {
-            // For atrace.
-            shared_libs: ["libcutils"],
-        },
-    },
     generated_sources: ["art_compiler_operator_srcs"],
     shared_libs: [
         "libbase",
-        "liblz4",
+        "libcutils",  // for atrace.
         "liblzma",
     ],
     include_dirs: ["art/disassembler"],
-    export_include_dirs: ["."],
+    header_libs: [
+        "art_cmdlineparser_headers",  // For compiler_options.
+        "libnativehelper_header_only",
+    ],
 
-    // For SHA-1 checksumming of build ID
-    static: {
-        whole_static_libs: ["libcrypto"],
-    },
-    shared: {
-        shared_libs: ["libcrypto"],
-    },
+    export_include_dirs: ["."],
 }
 
 gensrcs {
     name: "art_compiler_operator_srcs",
-    cmd: "$(location generate-operator-out.py) art/compiler $(in) > $(out)",
-    tool_files: ["generate-operator-out.py"],
+    cmd: "$(location generate_operator_out) art/compiler $(in) > $(out)",
+    tools: ["generate_operator_out"],
     srcs: [
-        "compiled_method.h",
         "dex/dex_to_dex_compiler.h",
         "driver/compiler_driver.h",
         "driver/compiler_options.h",
-        "image_writer.h",
+        "linker/linker_patch.h",
         "optimizing/locations.h",
+        "optimizing/optimizing_compiler_stats.h",
 
         "utils/arm/constants_arm.h",
         "utils/mips/assembler_mips.h",
@@ -233,7 +218,10 @@ gensrcs {
 
 art_cc_library {
     name: "libart-compiler",
-    defaults: ["libart-compiler-defaults"],
+    defaults: [
+        "libart-compiler-defaults",
+        "dex2oat-pgo-defaults",
+    ],
     codegen: {
         arm: {
             // VIXL assembly support for ARM targets.
@@ -264,8 +252,16 @@ art_cc_library {
     },
     shared_libs: [
         "libart",
-        "libart-dexlayout",
+        "libdexfile",
     ],
+
+    target: {
+        android: {
+            lto: {
+                 thin: true,
+            },
+        },
+    },
 }
 
 art_cc_library {
@@ -304,7 +300,7 @@ art_cc_library {
     },
     shared_libs: [
         "libartd",
-        "libartd-dexlayout"
+        "libdexfiled",
     ],
 }
 
@@ -314,6 +310,7 @@ art_cc_library {
     srcs: ["common_compiler_test.cc"],
     shared_libs: [
         "libartd-compiler",
+        "libartd-disassembler",
         "libart-runtime-gtest",
         "libbase",
     ],
@@ -325,21 +322,18 @@ art_cc_test {
         "art_gtest_defaults",
     ],
     srcs: [
-        "compiled_method_test.cc",
         "debug/dwarf/dwarf_test.cc",
+        "debug/src_map_elem_test.cc",
         "dex/dex_to_dex_decompiler_test.cc",
         "driver/compiled_method_storage_test.cc",
         "driver/compiler_driver_test.cc",
-        "elf_writer_test.cc",
         "exception_test.cc",
-        "image_test.cc",
-        "image_write_read_test.cc",
         "jni/jni_compiler_test.cc",
-        "linker/method_bss_mapping_encoder_test.cc",
-        "linker/multi_oat_relative_patcher_test.cc",
+        "linker/linker_patch_test.cc",
         "linker/output_stream_test.cc",
-        "oat_test.cc",
         "optimizing/bounds_check_elimination_test.cc",
+        "optimizing/superblock_cloner_test.cc",
+        "optimizing/data_type_test.cc",
         "optimizing/dominator_test.cc",
         "optimizing/find_loops_test.cc",
         "optimizing/graph_checker_test.cc",
@@ -363,9 +357,7 @@ art_cc_test {
         "utils/atomic_dex_ref_map_test.cc",
         "utils/dedupe_set_test.cc",
         "utils/intrusive_forward_list_test.cc",
-        "utils/string_reference_test.cc",
         "utils/swap_space_test.cc",
-        "utils/test_dex_file_builder_test.cc",
         "verifier_deps_test.cc",
 
         "jni/jni_cfi_test.cc",
@@ -423,13 +415,23 @@ art_cc_test {
         },
     },
 
+    header_libs: [
+        "libart_simulator_headers",
+        "libnativehelper_header_only",
+    ],
+
     shared_libs: [
         "libartd-compiler",
+        "libartd-simulator-container",
         "libvixld-arm",
         "libvixld-arm64",
 
         "libbacktrace",
         "libnativeloader",
+    ],
+
+    include_dirs: [
+        "external/zlib",
     ],
 
     target: {

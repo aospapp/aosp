@@ -18,15 +18,18 @@
 
 #include <sstream>
 
-#include "base/logging.h"
+#include <android-base/logging.h>
+
+#include "base/file_utils.h"
+#include "base/macros.h"
 #include "base/stringpiece.h"
+#include "base/utils.h"
 #include "debugger.h"
 #include "gc/heap.h"
 #include "monitor.h"
 #include "runtime.h"
 #include "ti/agent.h"
 #include "trace.h"
-#include "utils.h"
 
 #include "cmdline_parser.h"
 #include "runtime_options.h"
@@ -89,15 +92,18 @@ std::unique_ptr<RuntimeParser> ParsedOptions::MakeParser(bool ignore_unrecognize
           .IntoKey(M::CheckJni)
       .Define("-Xjniopts:forcecopy")
           .IntoKey(M::JniOptsForceCopy)
-      .Define({"-Xrunjdwp:_", "-agentlib:jdwp=_"})
-          .WithType<JDWP::JdwpOptions>()
+      .Define("-XjdwpProvider:_")
+          .WithType<JdwpProvider>()
+          .IntoKey(M::JdwpProvider)
+      .Define({"-Xrunjdwp:_", "-agentlib:jdwp=_", "-XjdwpOptions:_"})
+          .WithType<std::string>()
           .IntoKey(M::JdwpOptions)
       // TODO Re-enable -agentlib: once I have a good way to transform the values.
       // .Define("-agentlib:_")
       //     .WithType<std::vector<ti::Agent>>().AppendValues()
       //     .IntoKey(M::AgentLib)
       .Define("-agentpath:_")
-          .WithType<std::list<ti::Agent>>().AppendValues()
+          .WithType<std::list<ti::AgentSpec>>().AppendValues()
           .IntoKey(M::AgentPath)
       .Define("-Xms_")
           .WithType<MemoryKiB>()
@@ -314,10 +320,22 @@ std::unique_ptr<RuntimeParser> ParsedOptions::MakeParser(bool ignore_unrecognize
       .Define("-XX:ThreadSuspendTimeout=_")  // in ms
           .WithType<MillisecondsToNanoseconds>()  // store as ns
           .IntoKey(M::ThreadSuspendTimeout)
+      .Define("-XX:GlobalRefAllocStackTraceLimit=_")  // Number of free slots to enable tracing.
+          .WithType<unsigned int>()
+          .IntoKey(M::GlobalRefAllocStackTraceLimit)
       .Define("-XX:SlowDebug=_")
           .WithType<bool>()
           .WithValueMap({{"false", false}, {"true", true}})
           .IntoKey(M::SlowDebug)
+      .Define("-Xtarget-sdk-version:_")
+          .WithType<int>()
+          .IntoKey(M::TargetSdkVersion)
+      .Define("-Xhidden-api-checks")
+          .IntoKey(M::HiddenApiChecks)
+      .Define("-Xuse-stderr-logger")
+          .IntoKey(M::UseStderrLogger)
+      .Define("-Xonly-use-system-oat-files")
+          .IntoKey(M::OnlyUseSystemOatFiles)
       .Ignore({
           "-ea", "-da", "-enableassertions", "-disableassertions", "--runtime-arg", "-esa",
           "-dsa", "-enablesystemassertions", "-disablesystemassertions", "-Xrs", "-Xint:_",
@@ -365,7 +383,7 @@ bool ParsedOptions::ProcessSpecialOptions(const RuntimeOptions& options,
     } else if (option == "imageinstructionset") {
       const char* isa_str = reinterpret_cast<const char*>(options[i].second);
       auto&& image_isa = GetInstructionSetFromString(isa_str);
-      if (image_isa == kNone) {
+      if (image_isa == InstructionSet::kNone) {
         Usage("%s is not a valid instruction set.", isa_str);
         return false;
       }
@@ -544,7 +562,7 @@ bool ParsedOptions::DoParse(const RuntimeOptions& options,
     // If not low memory mode, semispace otherwise.
 
     gc::CollectorType background_collector_type_;
-    gc::CollectorType collector_type_ = (XGcOption{}).collector_type_;  // NOLINT [whitespace/braces] [5]
+    gc::CollectorType collector_type_ = (XGcOption{}).collector_type_;
     bool low_memory_mode_ = args.Exists(M::LowMemoryMode);
 
     background_collector_type_ = args.GetOrDefault(M::BackgroundGc);

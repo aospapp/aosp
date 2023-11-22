@@ -16,8 +16,13 @@
 
 package android.print.cts;
 
-import static android.print.cts.Utils.*;
-import static org.junit.Assert.*;
+import static android.print.test.Utils.eventually;
+import static android.print.test.Utils.runOnMainThread;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.inOrder;
 
 import android.print.PrintAttributes;
@@ -28,15 +33,19 @@ import android.print.PrintDocumentAdapter;
 import android.print.PrinterCapabilitiesInfo;
 import android.print.PrinterId;
 import android.print.PrinterInfo;
-import android.print.cts.services.FirstPrintService;
-import android.print.cts.services.PrintServiceCallbacks;
-import android.print.cts.services.PrinterDiscoverySessionCallbacks;
-import android.print.cts.services.SecondPrintService;
-import android.print.cts.services.StubbablePrinterDiscoverySession;
+import android.print.test.BasePrintTest;
+import android.print.test.services.FirstPrintService;
+import android.print.test.services.PrintServiceCallbacks;
+import android.print.test.services.PrinterDiscoverySessionCallbacks;
+import android.print.test.services.SecondPrintService;
+import android.print.test.services.StubbablePrinterDiscoverySession;
 import android.printservice.PrintJob;
 import android.printservice.PrinterDiscoverySession;
-
+import androidx.annotation.NonNull;
 import android.support.test.runner.AndroidJUnit4;
+import android.support.test.uiautomator.UiObject;
+import android.support.test.uiautomator.UiSelector;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -53,10 +62,7 @@ import java.util.List;
  */
 @RunWith(AndroidJUnit4.class)
 public class PrinterDiscoverySessionLifecycleTest extends BasePrintTest {
-    private static final String FIRST_PRINTER_NAME = "First printer";
-    private static final String SECOND_PRINTER_NAME = "Second printer";
-
-    private static final String FIRST_PRINTER_LOCAL_ID= "first_printer";
+    private static final String FIRST_PRINTER_LOCAL_ID = "first_printer";
     private static final String SECOND_PRINTER_LOCAL_ID = "second_printer";
 
     private static StubbablePrinterDiscoverySession sSession;
@@ -64,6 +70,172 @@ public class PrinterDiscoverySessionLifecycleTest extends BasePrintTest {
     @Before
     public void clearPrintSpoolerState() throws Exception {
         clearPrintSpoolerData();
+    }
+
+    /**
+     * Add a printer to {@#sSession}.
+     *
+     * @param localId The id of the printer to add
+     * @param hasCapabilities If the printer has capabilities
+     */
+    private void addPrinter(@NonNull String localId, boolean hasCapabilities) {
+        // Add the first printer.
+        PrinterId firstPrinterId = sSession.getService().generatePrinterId(
+                localId);
+
+        PrinterInfo.Builder printer = new PrinterInfo.Builder(firstPrinterId,
+                localId, PrinterInfo.STATUS_IDLE);
+
+        if (hasCapabilities) {
+            printer.setCapabilities(new PrinterCapabilitiesInfo.Builder(firstPrinterId)
+                    .setMinMargins(new Margins(200, 200, 200, 200))
+                    .addMediaSize(MediaSize.ISO_A0, true)
+                    .addResolution(new Resolution("300x300", "300x300", 300, 300), true)
+                    .setColorModes(PrintAttributes.COLOR_MODE_COLOR,
+                            PrintAttributes.COLOR_MODE_COLOR)
+                    .build());
+        }
+
+        sSession.addPrinters(Collections.singletonList(printer.build()));
+    }
+
+    /**
+     * Make {@code localPrinterId} the default printer. This requires a full print workflow.
+     *
+     * As a side-effect also approved the print service.
+     *
+     * @param localPrinterId The printer to make default
+     */
+    private void makeDefaultPrinter(String localPrinterId) throws Throwable {
+        PrintDocumentAdapter adapter = createDefaultPrintDocumentAdapter(1);
+
+        print(adapter);
+        waitForWriteAdapterCallback(1);
+
+        runOnMainThread(() -> addPrinter(localPrinterId, true));
+        selectPrinter(localPrinterId);
+        waitForWriteAdapterCallback(2);
+
+        clickPrintButton();
+        answerPrintServicesWarning(true);
+
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
+        resetCounters();
+    }
+
+    /**
+     * Select a printer in the all printers activity
+     *
+     * @param printerName The name of the printer to select
+     */
+    private void selectInAllPrintersActivity(@NonNull String printerName) throws Exception {
+        while (true) {
+            UiObject printerItem = getUiDevice().findObject(
+                    new UiSelector().text(printerName));
+
+            if (printerItem.isEnabled()) {
+                printerItem.click();
+                break;
+            } else {
+                Thread.sleep(100);
+            }
+        }
+    }
+
+    @Test
+    public void defaultPrinterBecomesAvailableWhileInBackground() throws Throwable {
+        // Create the session callbacks that we will be checking.
+        final PrinterDiscoverySessionCallbacks firstSessionCallbacks =
+                createMockPrinterDiscoverySessionCallbacks(invocation -> {
+                    sSession =
+                            ((PrinterDiscoverySessionCallbacks) invocation.getMock()).getSession();
+
+                    onPrinterDiscoverySessionCreateCalled();
+                    return null;
+                }, null, null, null, null, null, invocation -> {
+                    onPrinterDiscoverySessionDestroyCalled();
+                    return null;
+                });
+
+        // Create the service callbacks for the first print service.
+        PrintServiceCallbacks firstServiceCallbacks = createMockPrintServiceCallbacks(
+                invocation -> firstSessionCallbacks, null, null);
+
+        // Configure the print services.
+        FirstPrintService.setCallbacks(firstServiceCallbacks);
+        SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
+
+        makeDefaultPrinter(FIRST_PRINTER_LOCAL_ID);
+
+        PrintDocumentAdapter adapter = createDefaultPrintDocumentAdapter(1);
+        print(adapter);
+        waitForPrinterDiscoverySessionCreateCallbackCalled();
+
+        waitForPrinterUnavailable();
+
+        selectPrinter("All printers…");
+        // Let all printers activity start
+        Thread.sleep(500);
+
+        // Add printer
+        runOnMainThread(() -> addPrinter(FIRST_PRINTER_LOCAL_ID, true));
+
+        // Select printer once available (this returns to main print activity)
+        selectInAllPrintersActivity(FIRST_PRINTER_LOCAL_ID);
+
+        // Wait for preview to load and finish print
+        waitForWriteAdapterCallback(1);
+        clickPrintButton();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
+    }
+
+    @Test
+    public void defaultPrinterBecomesUsableWhileInBackground() throws Throwable {
+        // Create the session callbacks that we will be checking.
+        final PrinterDiscoverySessionCallbacks firstSessionCallbacks =
+                createMockPrinterDiscoverySessionCallbacks(invocation -> {
+                    sSession =
+                            ((PrinterDiscoverySessionCallbacks) invocation.getMock()).getSession();
+
+                    onPrinterDiscoverySessionCreateCalled();
+                    return null;
+                }, null, null, null, null, null, invocation -> {
+                    onPrinterDiscoverySessionDestroyCalled();
+                    return null;
+                });
+
+        // Create the service callbacks for the first print service.
+        PrintServiceCallbacks firstServiceCallbacks = createMockPrintServiceCallbacks(
+                invocation -> firstSessionCallbacks, null, null);
+
+        // Configure the print services.
+        FirstPrintService.setCallbacks(firstServiceCallbacks);
+        SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
+
+        makeDefaultPrinter(FIRST_PRINTER_LOCAL_ID);
+
+        PrintDocumentAdapter adapter = createDefaultPrintDocumentAdapter(1);
+        print(adapter);
+        waitForPrinterDiscoverySessionCreateCallbackCalled();
+
+        // Add printer but do not enable it (capabilities == null)
+        runOnMainThread(() -> addPrinter(FIRST_PRINTER_LOCAL_ID, false));
+        waitForPrinterUnavailable();
+
+        selectPrinter("All printers…");
+        // Let all printers activity start
+        Thread.sleep(500);
+
+        // Enable printer
+        runOnMainThread(() -> addPrinter(FIRST_PRINTER_LOCAL_ID, true));
+
+        // Select printer once available (this returns to main print activity)
+        selectInAllPrintersActivity(FIRST_PRINTER_LOCAL_ID);
+
+        // Wait for preview to load and finish print
+        waitForWriteAdapterCallback(1);
+        clickPrintButton();
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
     }
 
     @Test
@@ -99,7 +271,7 @@ public class PrinterDiscoverySessionLifecycleTest extends BasePrintTest {
         runOnMainThread(() -> assertEquals(0, sSession.getTrackedPrinters().size()));
 
         // Select the first printer.
-        selectPrinter(FIRST_PRINTER_NAME);
+        selectPrinter(FIRST_PRINTER_LOCAL_ID);
 
         eventually(() -> runOnMainThread(() -> assertEquals(FIRST_PRINTER_LOCAL_ID,
                 sSession.getTrackedPrinters().get(0).getLocalId())));
@@ -111,7 +283,7 @@ public class PrinterDiscoverySessionLifecycleTest extends BasePrintTest {
 
         // Select the second printer (same capabilities as the other
         // one so no layout should happen).
-        selectPrinter(SECOND_PRINTER_NAME);
+        selectPrinter(SECOND_PRINTER_LOCAL_ID);
 
         eventually(() -> runOnMainThread(() -> assertEquals(SECOND_PRINTER_LOCAL_ID,
                 sSession.getTrackedPrinters().get(0).getLocalId())));
@@ -205,7 +377,7 @@ public class PrinterDiscoverySessionLifecycleTest extends BasePrintTest {
         runOnMainThread(() -> assertEquals(0, sSession.getTrackedPrinters().size()));
 
         // Select the first printer.
-        selectPrinter(FIRST_PRINTER_NAME);
+        selectPrinter(FIRST_PRINTER_LOCAL_ID);
 
         eventually(() -> runOnMainThread(() -> assertEquals(FIRST_PRINTER_LOCAL_ID,
                 sSession.getTrackedPrinters().get(0).getLocalId())));
@@ -295,7 +467,7 @@ public class PrinterDiscoverySessionLifecycleTest extends BasePrintTest {
         runOnMainThread(() -> assertEquals(0, sSession.getTrackedPrinters().size()));
 
         // Select the first printer.
-        selectPrinter(FIRST_PRINTER_NAME);
+        selectPrinter(FIRST_PRINTER_LOCAL_ID);
 
         eventually(() -> runOnMainThread(() -> assertEquals(FIRST_PRINTER_LOCAL_ID,
                 sSession.getTrackedPrinters().get(0).getLocalId())));
@@ -491,27 +663,9 @@ public class PrinterDiscoverySessionLifecycleTest extends BasePrintTest {
 
             assertTrue(sSession.isPrinterDiscoveryStarted());
 
-            if (sSession.getPrinters().isEmpty()) {
-                List<PrinterInfo> printers = new ArrayList<>();
+            addPrinter(FIRST_PRINTER_LOCAL_ID, false);
+            addPrinter(SECOND_PRINTER_LOCAL_ID, false);
 
-                // Add the first printer.
-                PrinterId firstPrinterId = sSession.getService().generatePrinterId(
-                        FIRST_PRINTER_LOCAL_ID);
-                PrinterInfo firstPrinter = new PrinterInfo.Builder(firstPrinterId,
-                        FIRST_PRINTER_NAME, PrinterInfo.STATUS_IDLE)
-                    .build();
-                printers.add(firstPrinter);
-
-                // Add the first printer.
-                PrinterId secondPrinterId = sSession.getService().generatePrinterId(
-                        SECOND_PRINTER_LOCAL_ID);
-                PrinterInfo secondPrinter = new PrinterInfo.Builder(secondPrinterId,
-                        SECOND_PRINTER_NAME, PrinterInfo.STATUS_IDLE)
-                    .build();
-                printers.add(secondPrinter);
-
-                sSession.addPrinters(printers);
-            }
             return null;
         }, invocation -> {
             assertFalse(sSession.isPrinterDiscoveryStarted());

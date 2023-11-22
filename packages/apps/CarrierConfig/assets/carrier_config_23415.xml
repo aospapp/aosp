@@ -6,5 +6,10 @@
         <string-array name="read_only_apn_types_string_array" num="1">
             <item value="*" />
         </string-array>
+        <string-array name="feature_access_codes_string_array" num="3">
+            <item value="153" />
+            <item value="132" />
+            <item value="45" />
+        </string-array>
     </carrier_config>
 </carrier_config_list>

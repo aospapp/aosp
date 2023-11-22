@@ -47,7 +47,12 @@
          maximum ringing calls. -->
     <bool name="silence_incoming_when_different_service_and_maximum_ringing">false</bool>
 
-    <!-- Determines if the granting temporary location permission to the default dialer
-         during an emergency call should be allowed.  The default is false. -->
+    <!-- Determines if the granting of temporary location permission to the default dialer
+         during an emergency call should be allowed. -->
     <bool name="grant_location_permission_enabled">false</bool>
+
+    <!-- When true, a simple full intensity on/off vibration pattern will be used when calls ring.
+         When false, a fancy vibration pattern which ramps up and down will be used.
+         Devices should overlay this value based on the type of vibration hardware they employ. -->
+    <bool name="use_simple_vibration_pattern">false</bool>
 </resources>

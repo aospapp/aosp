@@ -103,6 +103,11 @@
 @   r5 =>  ht
 @   r6 =>  wd
 
+
+.equ    coeff_offset,   104
+.equ    ht_offset,      108
+.equ    wd_offset,      112
+
 .text
 .align 4
 
@@ -116,15 +121,15 @@
 ihevc_inter_pred_luma_horz_a9q:
 
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
-    @str        r1,[sp,#-4]
-    @ mov       r7,#8192
+    vpush        {d8 - d15}
+
+
 start_loop_count:
-    @ ldr       r1,[sp,#-4]
 
 
-    ldr         r4,[sp,#40]                 @loads pi1_coeff
-    ldr         r8,[sp,#44]                 @loads ht
-    ldr         r10,[sp,#48]                @loads wd
+    ldr         r4,[sp,#coeff_offset]                 @loads pi1_coeff
+    ldr         r8,[sp,#ht_offset]                 @loads ht
+    ldr         r10,[sp,#wd_offset]                @loads wd
 
     vld1.8      {d0},[r4]                   @coeff = vld1_s8(pi1_coeff)
     mov         r11,#1
@@ -262,7 +267,8 @@ end_inner_loop_8:
 
 
 
-    ldr         r10,[sp,#48]                @loads wd
+    ldr         r10,[sp,#wd_offset]                @loads wd
+
     cmp         r10,#12
 
     beq         outer_loop4_residual
@@ -270,6 +276,7 @@ end_inner_loop_8:
 
 end_loops:
 
+    vpop         {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 
@@ -417,7 +424,7 @@ epilog_16:
 
     ldr         r7, [sp], #4
     ldr         r0, [sp], #4
-    ldr         r10,[sp,#48]
+    ldr         r10,[sp,#wd_offset]
     cmp         r10,#24
 
     beq         outer_loop8_residual
@@ -426,6 +433,7 @@ epilog_16:
 
 end_loops1:
 
+    vpop         {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 
@@ -527,6 +535,7 @@ end_inner_loop_4:
     @subs   r7,r7,#1
     @ bgt   start_loop_count
 
+    vpop         {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 

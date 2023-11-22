@@ -27,8 +27,7 @@ import android.view.ViewGroup;
 import android.widget.ScrollView;
 
 import com.android.documentsui.R;
-import com.android.documentsui.base.Shared;
-import com.android.documentsui.inspector.InspectorController.Loader;
+import com.android.documentsui.inspector.InspectorController.DataSupplier;
 
 /**
  * Displays the Properties view in Files.
@@ -47,12 +46,11 @@ public class InspectorFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
         Bundle savedInstanceState) {
-        final Loader loader = new DocumentLoader(getActivity(), getLoaderManager());
+        final DataSupplier loader = new RuntimeDataSupplier(getActivity(), getLoaderManager());
 
-        mView = (ScrollView) inflater.inflate(R.layout.document_inspector_fragment,
+        mView = (ScrollView) inflater.inflate(R.layout.inspector_fragment,
                 container, false);
-        boolean showDebug = (boolean) getArguments().get(Shared.EXTRA_SHOW_DEBUG);
-        mController = new InspectorController(getActivity(), loader, mView, showDebug);
+        mController = new InspectorController(getActivity(), loader, mView, getArguments());
         return mView;
     }
 
@@ -70,16 +68,17 @@ public class InspectorFragment extends Fragment {
     }
 
     /**
-     * Creates a fragment and sets a Uri as an argument.
+     * Creates a fragment with the appropriate args.
      */
     public static InspectorFragment newInstance(Intent intent) {
-        Uri uri = intent.getData();
-        boolean showDebug = intent.getBooleanExtra(Shared.EXTRA_SHOW_DEBUG, false);
 
+        Bundle extras = intent.getExtras();
+        extras = extras != null ? extras : Bundle.EMPTY;
+        Bundle args = extras.deepCopy();
+
+        Uri uri = intent.getData();
         checkArgument(uri.getScheme().equals("content"));
-        Bundle args = new Bundle();
         args.putParcelable(DOC_URI_ARG, uri);
-        args.putBoolean(Shared.EXTRA_SHOW_DEBUG, showDebug);
 
         InspectorFragment fragment = new InspectorFragment();
         fragment.setArguments(args);

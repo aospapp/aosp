@@ -137,8 +137,9 @@ struct sound_trigger_generic_sound_model {
 
 /*
  * Generic recognition event sent via recognition callback
+ * Must be aligned to transmit as raw memory through Binder.
  */
-struct sound_trigger_recognition_event {
+struct __attribute__((aligned(8))) sound_trigger_recognition_event {
     int                              status;            /* recognition status e.g.
                                                            RECOGNITION_STATUS_SUCCESS */
     sound_trigger_sound_model_type_t type;              /* event type, same as sound model type.

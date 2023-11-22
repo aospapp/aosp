@@ -19,18 +19,18 @@ package com.android.tv.data;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.view.KeyEvent;
-
-import com.android.tv.util.StringUtils;
-
+import com.android.tv.common.util.StringUtils;
+import com.android.tv.data.api.Channel;
 import java.util.Objects;
 
-/**
- * A convenience class to handle channel number.
- */
+/** A convenience class to handle channel number. */
 public final class ChannelNumber implements Comparable<ChannelNumber> {
     private static final int[] CHANNEL_DELIMITER_KEYCODES = {
-        KeyEvent.KEYCODE_MINUS, KeyEvent.KEYCODE_NUMPAD_SUBTRACT, KeyEvent.KEYCODE_PERIOD,
-        KeyEvent.KEYCODE_NUMPAD_DOT, KeyEvent.KEYCODE_SPACE
+        KeyEvent.KEYCODE_MINUS,
+        KeyEvent.KEYCODE_NUMPAD_SUBTRACT,
+        KeyEvent.KEYCODE_PERIOD,
+        KeyEvent.KEYCODE_NUMPAD_DOT,
+        KeyEvent.KEYCODE_SPACE
     };
 
     /** The major part of the channel number. */
@@ -42,6 +42,23 @@ public final class ChannelNumber implements Comparable<ChannelNumber> {
 
     public ChannelNumber() {
         reset();
+    }
+
+    /**
+     * {@code lhs} and {@code rhs} are equivalent if {@link ChannelNumber#compare(String, String)}
+     * is 0 or if only one has a delimiter and both {@link ChannelNumber#majorNumber} equals.
+     */
+    public static boolean equivalent(String lhs, String rhs) {
+        if (compare(lhs, rhs) == 0) {
+            return true;
+        }
+        // Match if only one has delimiter
+        ChannelNumber lhsNumber = parseChannelNumber(lhs);
+        ChannelNumber rhsNumber = parseChannelNumber(rhs);
+        return lhsNumber != null
+                && rhsNumber != null
+                && lhsNumber.hasDelimiter != rhsNumber.hasDelimiter
+                && lhsNumber.majorNumber.equals(rhsNumber.majorNumber);
     }
 
     public void reset() {
@@ -68,8 +85,7 @@ public final class ChannelNumber implements Comparable<ChannelNumber> {
         int minor = hasDelimiter ? Integer.parseInt(minorNumber) : 0;
 
         int opponentMajor = Integer.parseInt(another.majorNumber);
-        int opponentMinor = another.hasDelimiter
-                ? Integer.parseInt(another.minorNumber) : 0;
+        int opponentMinor = another.hasDelimiter ? Integer.parseInt(another.minorNumber) : 0;
         if (major == opponentMajor) {
             return minor - opponentMinor;
         }
@@ -103,10 +119,10 @@ public final class ChannelNumber implements Comparable<ChannelNumber> {
 
     /**
      * Returns the ChannelNumber instance.
-     * <p>
-     * Note that all the channel number argument should be normalized by
-     * {@link Channel#normalizeDisplayNumber}. The channels retrieved from
-     * {@link ChannelDataManager} are already normalized.
+     *
+     * <p>Note that all the channel number argument should be normalized by {@link
+     * ChannelImpl#normalizeDisplayNumber}. The channels retrieved from {@link ChannelDataManager}
+     * are already normalized.
      */
     public static ChannelNumber parseChannelNumber(String number) {
         if (number == null) {
@@ -134,10 +150,10 @@ public final class ChannelNumber implements Comparable<ChannelNumber> {
 
     /**
      * Compares the channel numbers.
-     * <p>
-     * Note that all the channel number arguments should be normalized by
-     * {@link Channel#normalizeDisplayNumber}. The channels retrieved from
-     * {@link ChannelDataManager} are already normalized.
+     *
+     * <p>Note that all the channel number arguments should be normalized by {@link
+     * ChannelImpl#normalizeDisplayNumber}. The channels retrieved from {@link ChannelDataManager}
+     * are already normalized.
      */
     public static int compare(String lhs, String rhs) {
         ChannelNumber lhsNumber = parseChannelNumber(lhs);
@@ -156,7 +172,7 @@ public final class ChannelNumber implements Comparable<ChannelNumber> {
     private static boolean isInteger(String string) {
         try {
             Integer.parseInt(string);
-        } catch(NumberFormatException | NullPointerException e) {
+        } catch (NumberFormatException | NullPointerException e) {
             return false;
         }
         return true;

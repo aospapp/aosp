@@ -18,8 +18,8 @@ package android.autofillservice.cts;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.platform.test.annotations.AppModeFull;
 import android.support.test.runner.AndroidJUnit4;
-import android.support.test.uiautomator.StaleObjectException;
 
 import org.junit.Test;
 import org.junit.runner.Description;
@@ -27,14 +27,13 @@ import org.junit.runner.RunWith;
 import org.junit.runners.model.Statement;
 
 @RunWith(AndroidJUnit4.class)
+@AppModeFull // Unit test
 public class RetryRuleTest {
 
     private final Description mDescription = Description.createSuiteDescription("Whatever");
 
     private static final RetryableException sRetryableException =
             new RetryableException("Y U NO RETRY?");
-
-    private static final StaleObjectException sStaleObjectException = new StaleObjectException();
 
     private static class RetryableStatement<T extends Exception> extends Statement {
         private final int mNumberFailures;
@@ -68,6 +67,17 @@ public class RetryRuleTest {
     }
 
     @Test
+    public void testPassOnRetryableExceptionWithTimeout() throws Throwable {
+        final Timeout timeout = new Timeout("YOUR TIME IS GONE", 1, 2, 10);
+        final RetryableException exception = new RetryableException(timeout, "Y U NO?");
+        final RetryRule rule = new RetryRule(2);
+        rule.apply(new RetryableStatement<RetryableException>(1, exception), mDescription)
+                .evaluate();
+        // Assert timeout was increased
+        assertThat(timeout.ms()).isEqualTo(2);
+    }
+
+    @Test
     public void testFailOnRetryableException() throws Throwable {
         final RetryRule rule = new RetryRule(2);
         try {
@@ -76,26 +86,6 @@ public class RetryRuleTest {
             throw new AssertionError("2ND CALL, Y U NO FAIL?");
         } catch (RetryableException e) {
             assertThat(e).isSameAs(sRetryableException);
-        }
-    }
-
-    @Test
-    public void testPassOnStaleObjectException() throws Throwable {
-        final RetryRule rule = new RetryRule(2);
-        rule.apply(new RetryableStatement<StaleObjectException>(1, sStaleObjectException),
-                mDescription)
-                .evaluate();
-    }
-
-    @Test
-    public void testFailOnStaleObjectException() throws Throwable {
-        final RetryRule rule = new RetryRule(2);
-        try {
-            rule.apply(new RetryableStatement<StaleObjectException>(2, sStaleObjectException),
-                    mDescription).evaluate();
-            throw new AssertionError("2ND CALL, Y U NO FAIL?");
-        } catch (StaleObjectException e) {
-            assertThat(e).isSameAs(sStaleObjectException);
         }
     }
 }

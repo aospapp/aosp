@@ -23,6 +23,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyFloat;
 import static org.mockito.Matchers.anyInt;
@@ -36,12 +37,16 @@ import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.os.LocaleList;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 import android.text.BoringLayout;
 import android.text.BoringLayout.Metrics;
 import android.text.Layout;
 import android.text.Layout.Alignment;
+import android.text.PrecomputedText;
+import android.text.TextDirectionHeuristic;
+import android.text.TextDirectionHeuristics;
 import android.text.TextPaint;
 import android.text.TextUtils;
 
@@ -343,6 +348,194 @@ public class BoringLayoutTest {
         boringLayout.draw(canvas, null, null, 0);
         verify(canvas, times(1)).drawText(sameCharSequence(DEFAULT_CHAR_SEQUENCE),
                 anyInt(), anyInt(), anyFloat(), anyFloat(), any(Paint.class));
+    }
+
+    private static Bitmap drawToBitmap(Layout l) {
+        final Bitmap bmp = Bitmap.createBitmap(l.getWidth(), l.getHeight(), Bitmap.Config.RGB_565);
+        final Canvas c = new Canvas(bmp);
+
+        c.save();
+        c.translate(0, 0);
+        l.draw(c);
+        c.restore();
+        return bmp;
+    }
+
+    private static String textPaintToString(TextPaint p) {
+        return "{"
+            + "mTextSize=" + p.getTextSize() + ", "
+            + "mTextSkewX=" + p.getTextSkewX() + ", "
+            + "mTextScaleX=" + p.getTextScaleX() + ", "
+            + "mLetterSpacing=" + p.getLetterSpacing() + ", "
+            + "mFlags=" + p.getFlags() + ", "
+            + "mTextLocales=" + p.getTextLocales() + ", "
+            + "mFontVariationSettings=" + p.getFontVariationSettings() + ", "
+            + "mTypeface=" + p.getTypeface() + ", "
+            + "mFontFeatureSettings=" + p.getFontFeatureSettings()
+            + "}";
+    }
+
+    private static String directionToString(TextDirectionHeuristic dir) {
+        if (dir == TextDirectionHeuristics.LTR) {
+            return "LTR";
+        } else if (dir == TextDirectionHeuristics.RTL) {
+            return "RTL";
+        } else if (dir == TextDirectionHeuristics.FIRSTSTRONG_LTR) {
+            return "FIRSTSTRONG_LTR";
+        } else if (dir == TextDirectionHeuristics.FIRSTSTRONG_RTL) {
+            return "FIRSTSTRONG_RTL";
+        } else if (dir == TextDirectionHeuristics.ANYRTL_LTR) {
+            return "ANYRTL_LTR";
+        } else {
+            throw new RuntimeException("Unknown Direction");
+        }
+    }
+
+    static class LayoutParam {
+        final int mStrategy;
+        final int mFrequency;
+        final TextPaint mPaint;
+        final TextDirectionHeuristic mDir;
+
+        LayoutParam(int strategy, int frequency, TextPaint paint, TextDirectionHeuristic dir) {
+            mStrategy = strategy;
+            mFrequency = frequency;
+            mPaint = new TextPaint(paint);
+            mDir = dir;
+        }
+
+        @Override
+        public String toString() {
+            return "{"
+                + "mStrategy=" + mStrategy + ", "
+                + "mFrequency=" + mFrequency + ", "
+                + "mPaint=" + textPaintToString(mPaint) + ", "
+                + "mDir=" + directionToString(mDir)
+                + "}";
+
+        }
+
+        PrecomputedText getPrecomputedText(CharSequence text) {
+            PrecomputedText.Params param = new PrecomputedText.Params.Builder(mPaint)
+                    .setBreakStrategy(mStrategy)
+                    .setHyphenationFrequency(mFrequency)
+                    .setTextDirection(mDir).build();
+            return PrecomputedText.create(text, param);
+        }
+    };
+
+    void assertSameDrawOutput(
+            CharSequence text,
+            LayoutParam measuredTextParam,
+            TextPaint layoutPaint) {
+        String msg = "BoringLayout#draw for String and PrecomputedText with " + measuredTextParam
+                + " must output the same BMP.";
+
+        final BoringLayout.Metrics metricsWithString = BoringLayout.isBoring(text, layoutPaint);
+        final Layout layoutWithString = BoringLayout.make(
+                text, layoutPaint, metricsWithString.width, Alignment.ALIGN_NORMAL,
+                SPACING_MULT_NO_SCALE, SPACING_ADD_NO_SCALE, DEFAULT_METRICS,
+                true /* include padding */);
+
+        final PrecomputedText precomputed = measuredTextParam.getPrecomputedText(text);
+        final BoringLayout.Metrics metricsWithPrecomputed = BoringLayout.isBoring(
+                precomputed, layoutPaint);
+        final Layout layoutWithPrecomputed = BoringLayout.make(
+                precomputed, layoutPaint, metricsWithPrecomputed.width, Alignment.ALIGN_NORMAL,
+                SPACING_MULT_NO_SCALE, SPACING_ADD_NO_SCALE, DEFAULT_METRICS,
+                true /* include padding */);
+
+        assertEquals(msg, layoutWithString.getHeight(), layoutWithPrecomputed.getHeight(), 0.0f);
+
+        final Bitmap expectedBMP = drawToBitmap(layoutWithString);
+        final Bitmap resultBMP = drawToBitmap(layoutWithPrecomputed);
+
+        assertTrue(msg, resultBMP.sameAs(expectedBMP));
+    }
+
+    @Test
+    public void testPrecomputedText() {
+        int[] breaks = {
+            Layout.BREAK_STRATEGY_SIMPLE,
+            Layout.BREAK_STRATEGY_HIGH_QUALITY,
+            Layout.BREAK_STRATEGY_BALANCED,
+        };
+
+        int[] frequencies = {
+            Layout.HYPHENATION_FREQUENCY_NORMAL,
+            Layout.HYPHENATION_FREQUENCY_FULL,
+            Layout.HYPHENATION_FREQUENCY_NONE,
+        };
+
+        TextDirectionHeuristic[] dirs = {
+            TextDirectionHeuristics.LTR,
+            TextDirectionHeuristics.RTL,
+            TextDirectionHeuristics.FIRSTSTRONG_LTR,
+            TextDirectionHeuristics.FIRSTSTRONG_RTL,
+            TextDirectionHeuristics.ANYRTL_LTR,
+        };
+
+        float[] textSizes = {
+            8.0f, 16.0f, 32.0f
+        };
+
+        LocaleList[] locales = {
+            LocaleList.forLanguageTags("en-US"),
+            LocaleList.forLanguageTags("ja-JP"),
+            LocaleList.forLanguageTags("en-US,ja-JP"),
+        };
+
+        String onelineText = "Hello, World.";
+
+        TextPaint paint = new TextPaint();
+
+        // If the PrecomputedText is created with the same Paint, the draw result must be the same.
+        for (int b : breaks) {
+            for (int f : frequencies) {
+                for (TextDirectionHeuristic dir : dirs) {
+                    for (float textSize : textSizes) {
+                        for (LocaleList locale : locales) {
+                            paint.setTextSize(textSize);
+                            paint.setTextLocales(locale);
+
+                            assertSameDrawOutput(onelineText, new LayoutParam(b, f, paint, dir),
+                                    paint);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Even if the parameters are different, the output of the static layout must be
+        // same bitmap.
+        for (int bi = 0; bi < breaks.length; bi++) {
+            for (int fi = 0; fi < frequencies.length; fi++) {
+                for (int diri = 0; diri < dirs.length; diri++) {
+                    for (int sizei = 0; sizei < textSizes.length; sizei++) {
+                        for (int localei = 0; localei < locales.length; localei++) {
+                            TextPaint precomputedPaint = new TextPaint();
+                            TextPaint layoutPaint = new TextPaint();
+
+                            precomputedPaint.setTextSize(textSizes[sizei]);
+                            layoutPaint.setTextSize(textSizes[(sizei + 1) % textSizes.length]);
+
+                            precomputedPaint.setTextLocales(locales[localei]);
+                            layoutPaint.setTextLocales(locales[(localei + 1) % locales.length]);
+
+                            int b = breaks[bi];
+
+                            int f = frequencies[fi];
+
+                            TextDirectionHeuristic dir = dirs[diri];
+
+                            assertSameDrawOutput(onelineText,
+                                    new LayoutParam(b, f, precomputedPaint, dir),
+                                    layoutPaint);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private static Metrics createMetrics(

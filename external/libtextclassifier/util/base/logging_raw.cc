@@ -26,7 +26,7 @@
 // Compiled as part of Android.
 #include <android/log.h>
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 namespace logging {
 
 namespace {
@@ -60,12 +60,12 @@ void LowLevelLogging(LogSeverity severity, const std::string& tag,
 }
 
 }  // namespace logging
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
 #else  // if defined(__ANDROID__)
 
 // Not on Android: implement LowLevelLogging to print to stderr (see below).
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 namespace logging {
 
 namespace {
@@ -94,6 +94,6 @@ void LowLevelLogging(LogSeverity severity, const std::string &tag,
 }
 
 }  // namespace logging
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
 #endif  // if defined(__ANDROID__)

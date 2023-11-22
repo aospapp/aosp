@@ -116,7 +116,7 @@ int tst_fs_fill_hardlinks_(void (*cleanup) (void), const char *dir);
  * If limit is hit the maximal number of subdirectories is returned and the
  * @dir is filled with subdirectories in format "testdir%i" where i belongs to
  * [0, limit - 2) interval (because each newly created dir has two links
- * allready the '.' and link from parent dir).
+ * already the '.' and link from parent dir).
  *
  * If no limit is hit or mkdir() failed with ENOSPC or EDQUOT zero is returned
  * previously created directories are removed.
@@ -146,6 +146,15 @@ int tst_get_path(const char *prog_name, char *buf, size_t buf_len);
  */
 int tst_fill_file(const char *path, char pattern, size_t bs, size_t bcount);
 
+/*
+ * Returns NULL-terminated array of kernel-supported filesystems.
+ */
+const char **tst_get_supported_fs_types(void);
+
+/*
+ * Creates and writes to files on given path until write fails with ENOSPC
+ */
+void tst_fill_fs(const char *path, int verbose);
 
 #ifdef TST_TEST_H__
 static inline long tst_fs_type(const char *path)

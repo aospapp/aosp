@@ -22,6 +22,7 @@ import subprocess
 import time
 
 from vts.runners.host import const
+from vts.utils.python.common import cmd_utils
 
 
 class AdbError(Exception):
@@ -123,7 +124,7 @@ class AdbProxy():
             self.adb_str = "adb"
         self.log = log
 
-    def _exec_cmd(self, cmd, no_except=False):
+    def _exec_cmd(self, cmd, no_except=False, timeout=None):
         """Executes adb commands in a new shell.
 
         This is specific to executing adb binary because stderr is not a good
@@ -132,6 +133,8 @@ class AdbProxy():
         Args:
             cmd: string, the adb command to execute.
             no_except: bool, controls whether exception can be thrown.
+            timeout: float, timeout in seconds. If the command times out, the
+                     exit code is not 0.
 
         Returns:
             The output of the adb command run if the exit code is 0 and if
@@ -142,12 +145,7 @@ class AdbProxy():
             AdbError if the adb command exit code is not 0 and exceptions are
             allowed.
         """
-        proc = subprocess.Popen(cmd,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                shell=True)
-        (out, err) = proc.communicate()
-        ret = proc.returncode
+        out, err, ret = cmd_utils.ExecuteOneShellCommand(cmd, timeout)
         logging.debug("cmd: %s, stdout: %s, stderr: %s, ret: %s", cmd, out,
                       err, ret)
         if no_except:
@@ -186,6 +184,6 @@ class AdbProxy():
             clean_name = name.replace('_', '-')
             arg_str = ' '.join(str(elem) for elem in args)
             return self._exec_cmd(' '.join((self.adb_str, clean_name, arg_str)),
-                                  kwargs)
+                                  **kwargs)
 
         return adb_call

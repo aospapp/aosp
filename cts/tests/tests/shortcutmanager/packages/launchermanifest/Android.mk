@@ -28,7 +28,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, ../src) \
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-test \
-    android-support-v4 \
+    androidx.legacy_legacy-support-v4 \
     mockito-target-minus-junit4 \
     compatibility-device-util \
     ctstestrunner \
@@ -58,7 +58,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, ../src) \
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-test \
-    android-support-v4 \
+    androidx.legacy_legacy-support-v4 \
     mockito-target-minus-junit4 \
     compatibility-device-util \
     ctstestrunner \
@@ -88,7 +88,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, ../src) \
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-test \
-    android-support-v4 \
+    androidx.legacy_legacy-support-v4 \
     mockito-target-minus-junit4 \
     compatibility-device-util \
     ctstestrunner \

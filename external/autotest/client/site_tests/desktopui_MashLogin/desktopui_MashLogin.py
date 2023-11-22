@@ -16,12 +16,8 @@ class desktopui_MashLogin(test.test):
     def run_once(self):
         """Entry point of this test."""
 
-        # The test is flaky on x86-* boards. Mash doesn't target hardware this
-        # old, so skip the test. http://crbug.com/679213
-        # The test is also flaky on nyan_* boards. Temporarily skip the test
-        # until this can be fixed. http://crbug.com/717275
-        boards_to_skip = ['x86-mario', 'x86-alex', 'x86-alex_he', 'x86-zgb',
-                          'x86-zgb_he', 'nyan_big', 'nyan_kitty', 'nyan_blaze']
+        # Flaky on nyan_* boards. http://crbug.com/717275
+        boards_to_skip = ['nyan_big', 'nyan_kitty', 'nyan_blaze']
         if utils.get_current_board() in boards_to_skip:
           logging.warning('Skipping test run on this board.')
           return

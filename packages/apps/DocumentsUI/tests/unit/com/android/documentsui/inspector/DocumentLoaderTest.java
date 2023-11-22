@@ -25,7 +25,7 @@ import android.support.test.InstrumentationRegistry;
 import com.android.documentsui.InspectorProvider;
 import android.test.suitebuilder.annotation.MediumTest;
 import com.android.documentsui.base.DocumentInfo;
-import com.android.documentsui.inspector.InspectorController.Loader;
+import com.android.documentsui.inspector.InspectorController.DataSupplier;
 import com.android.documentsui.testing.TestLoaderManager;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -46,7 +46,7 @@ public class DocumentLoaderTest extends TestCase {
 
     private Context mContext;
     private TestLoaderManager mLoaderManager;
-    private Loader mLoader;
+    private DataSupplier mLoader;
     private ContentResolver mResolver;
 
     @Before
@@ -55,7 +55,7 @@ public class DocumentLoaderTest extends TestCase {
         mContext = InstrumentationRegistry.getTargetContext();
         mResolver = mContext.getContentResolver();
         mLoaderManager = new TestLoaderManager();
-        mLoader = new DocumentLoader(mContext, mLoaderManager);
+        mLoader = new RuntimeDataSupplier(mContext, mLoaderManager);
 
         if (Looper.myLooper() == null) {
             Looper.prepare();

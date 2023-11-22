@@ -28,12 +28,9 @@ import android.transition.TransitionValues;
 import android.transition.Visibility;
 import android.util.AttributeSet;
 import android.view.ViewGroup;
-
 import com.android.tv.R;
 
-/**
- * This transition fades in/out of the background of the view by changing the background color.
- */
+/** This transition fades in/out of the background of the view by changing the background color. */
 public class FadeBackground extends Transition {
     private final int mMode;
 
@@ -45,22 +42,22 @@ public class FadeBackground extends Transition {
     }
 
     @Override
-    public void captureStartValues(TransitionValues transitionValues) { }
+    public void captureStartValues(TransitionValues transitionValues) {}
 
     @Override
-    public void captureEndValues(TransitionValues transitionValues) { }
+    public void captureEndValues(TransitionValues transitionValues) {}
 
     @Override
-    public Animator createAnimator(ViewGroup sceneRoot, TransitionValues startValues,
-            TransitionValues endValues) {
+    public Animator createAnimator(
+            ViewGroup sceneRoot, TransitionValues startValues, TransitionValues endValues) {
         if (startValues == null || endValues == null) {
             return null;
         }
         Drawable background = endValues.view.getBackground();
         if (background instanceof ColorDrawable) {
             int color = ((ColorDrawable) background).getColor();
-            int transparentColor = Color.argb(0, Color.red(color), Color.green(color),
-                    Color.blue(color));
+            int transparentColor =
+                    Color.argb(0, Color.red(color), Color.green(color), Color.blue(color));
             return mMode == Visibility.MODE_OUT
                     ? ObjectAnimator.ofArgb(background, "color", transparentColor)
                     : ObjectAnimator.ofArgb(background, "color", transparentColor, color);

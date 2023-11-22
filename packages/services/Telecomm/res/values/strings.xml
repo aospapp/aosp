@@ -252,8 +252,37 @@
     <string name="notification_channel_incoming_call">Incoming calls</string>
     <!-- Notification channel name for a channel containing missed call notifications. -->
     <string name="notification_channel_missed_call">Missed calls</string>
+    <!-- Notification channel name for a channel containing call blocking notifications. -->
+    <string name="notification_channel_call_blocking">Call Blocking</string>
 
     <!-- Alert dialog content used to inform the user that placing a new outgoing call will end the
          ongoing call in the app "other_app". -->
     <string name="alert_outgoing_call">Placing this call will end your <xliff:g id="other_app">%1$s</xliff:g> call.</string>
+
+    <!-- The name of a feature available under the Call settings. -->
+    <string name="phone_settings_call_blocking_txt">Call Blocking</string>
+    <!-- Call type to be blocked. See the explanatory text "phone_settings_number_not_in_contact_summary_txt". -->
+    <string name="phone_settings_number_not_in_contact_txt">Numbers not in Contacts</string>
+    <!-- Explanatory text under the call type "phone_settings_number_not_in_contact_txt". -->
+    <string name="phone_settings_number_not_in_contact_summary_txt">Block numbers that are not listed in your Contacts</string>
+    <!-- Call type to be blocked. See the explanatory text "phone_settings_private_num_summary_txt". This is also called Anonymous or Withheld depending on region. -->
+    <string name="phone_settings_private_num_txt">Private</string>
+    <!-- Explanatory text under the call type "phone_settings_payphone_summary_txt". -->
+    <string name="phone_settings_private_num_summary_txt">Block callers that do not disclose their number</string>
+    <!-- Call type to be blocked. See the explanatory text "phone_settings_private_num_summary_txt".  -->
+    <string name="phone_settings_payphone_txt">Pay phone</string>
+    <!-- Explanatory text under the call type "phone_settings_payphone_txt". -->
+    <string name="phone_settings_payphone_summary_txt">Block calls from pay phones</string>
+    <!-- Call type to be blocked. See the explanatory text "phone_settings_unknown_summary_txt".  -->
+    <string name="phone_settings_unknown_txt">Unknown</string>
+    <!-- Explanatory text under the call type "phone_settings_unknown_txt". This occurs when no caller ID information unavailable (e.g., international calls, IP phones that operators cannot identify the caller) -->
+    <string name="phone_settings_unknown_summary_txt">Block calls from unidentified callers</string>
+    <!-- Notification. Make this translation consistent with "phone_settings_call_blocking_txt". -->
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt">Call Blocking</string>
+    <!-- Notification that appears when the feature Call Blocking has been disabled. -->
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt">Call Blocking disabled</string>
+    <!-- Title of the dialog "phone_strings_emergency_call_made_dialog_text_txt". -->
+    <string name="phone_strings_emergency_call_made_dialog_title_txt">Emergency call made</string>
+    <!-- Notification details that appear when the user taps the notification "phone_strings_call_blocking_turned_off_notification_text_txt". -->
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt">Call Blocking has been disabled to allow emergency responders to contact you.</string>
 </resources>

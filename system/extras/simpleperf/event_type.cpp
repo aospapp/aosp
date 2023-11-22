@@ -51,6 +51,9 @@ bool SetTracepointEventsFilePath(const std::string& filepath) {
 std::string GetTracepointEvents() {
   std::string result;
   for (const EventType& event : GetAllEventTypes()) {
+    if (event.type != PERF_TYPE_TRACEPOINT) {
+      continue;
+    }
     if (!result.empty()) {
       result.push_back('\n');
     }
@@ -107,8 +110,37 @@ static std::vector<EventType> GetTracepointEventTypes() {
   return result;
 }
 
+static std::vector<EventType> event_type_array;
+
+std::string ScopedEventTypes::BuildString(const std::vector<const EventType*>& event_types) {
+  std::string result;
+  for (auto type : event_types) {
+    if (!result.empty()) {
+      result.push_back('\n');
+    }
+    result += android::base::StringPrintf("%s,%u,%" PRIu64, type->name.c_str(), type->type,
+                                          type->config);
+  }
+  return result;
+}
+
+ScopedEventTypes::ScopedEventTypes(const std::string& event_type_str) {
+  saved_event_types_ = std::move(event_type_array);
+  event_type_array.clear();
+  for (auto& s : android::base::Split(event_type_str, "\n")) {
+    std::string name = s.substr(0, s.find(','));
+    uint32_t type;
+    uint64_t config;
+    sscanf(s.c_str() + name.size(), ",%u,%" PRIu64, &type, &config);
+    event_type_array.emplace_back(name, type, config, "", "");
+  }
+}
+
+ScopedEventTypes::~ScopedEventTypes() {
+  event_type_array = std::move(saved_event_types_);
+}
+
 const std::vector<EventType>& GetAllEventTypes() {
-  static std::vector<EventType> event_type_array;
   if (event_type_array.empty()) {
     event_type_array.insert(event_type_array.end(), static_event_type_array.begin(),
                             static_event_type_array.end());
@@ -119,7 +151,7 @@ const std::vector<EventType>& GetAllEventTypes() {
   return event_type_array;
 }
 
-const EventType* FindEventTypeByName(const std::string& name) {
+const EventType* FindEventTypeByName(const std::string& name, bool report_error) {
   const EventType* result = nullptr;
   for (auto& event_type : GetAllEventTypes()) {
     if (android::base::EqualsIgnoreCase(event_type.name, name)) {
@@ -127,7 +159,7 @@ const EventType* FindEventTypeByName(const std::string& name) {
       break;
     }
   }
-  if (result == nullptr) {
+  if (result == nullptr && report_error) {
     LOG(ERROR) << "Unknown event_type '" << name
                << "', try `simpleperf list` to list all possible event type names";
     return nullptr;

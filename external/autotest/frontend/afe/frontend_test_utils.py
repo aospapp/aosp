@@ -37,6 +37,10 @@ class FrontendTestMixin(object):
         self.label1, self.label2, self.label3, self.label6, self.label7, _ \
             = self.labels
 
+        self.labels.append(models.Label.objects.create(name='static'))
+        self.replaced_labels = [models.ReplacedLabel.objects.create(
+                label_id=self.labels[-1].id)]
+
         self.label3.only_if_needed = True
         self.label3.save()
         self.hosts[0].labels.add(self.label1)
@@ -63,6 +67,23 @@ class FrontendTestMixin(object):
         setup_test_environment.tear_down()
         thread_local.set_user(None)
         self.god.unstub_all()
+
+
+    def _set_static_attribute(self, host, attribute, value):
+        """Set static attribute for a host.
+
+        It ensures that all static attributes have a corresponding
+        entry in afe_host_attributes.
+        """
+        # Get or create the reference object in afe_host_attributes.
+        model, args = host._get_attribute_model_and_args(attribute)
+        model.objects.get_or_create(**args)
+
+        attribute_model, get_args = host._get_static_attribute_model_and_args(
+            attribute)
+        attribute_object, _ = attribute_model.objects.get_or_create(**get_args)
+        attribute_object.value = value
+        attribute_object.save()
 
 
     def _create_job(self, hosts=[], metahosts=[], priority=0, active=False,

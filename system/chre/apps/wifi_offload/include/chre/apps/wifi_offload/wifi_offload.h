@@ -28,18 +28,10 @@
 #define LOG_TAG "[WifiOffload]"
 
 #include "chre/util/dynamic_vector.h"
+#ifndef LOGE
 #include "chre/util/nanoapp/log.h"
+#endif  // LOGE
 #include "chre/util/unique_ptr.h"
-
-#undef LOGE
-#undef LOGW
-#undef LOGI
-#undef LOGD
-// Define custom logging macros to support prefixing a LOG_TAG
-#define LOGE(fmt, ...) chreLog(CHRE_LOG_ERROR, LOG_TAG " " fmt, ##__VA_ARGS__)
-#define LOGW(fmt, ...) chreLog(CHRE_LOG_WARN, LOG_TAG " " fmt, ##__VA_ARGS__)
-#define LOGI(fmt, ...) chreLog(CHRE_LOG_INFO, LOG_TAG " " fmt, ##__VA_ARGS__)
-#define LOGD(fmt, ...) chreLog(CHRE_LOG_DEBUG, LOG_TAG " " fmt, ##__VA_ARGS__)
 
 namespace wifi_offload {
 template <typename T>

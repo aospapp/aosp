@@ -4,7 +4,7 @@
 
 NAME = "platform_KernelErrorPaths.CORRUPT_STACK"
 AUTHOR = "Chrome OS Team"
-ATTRIBUTES = "suite:kernel_per-build_regression, suite:partners, suite:cr50_stress_experimental"
+ATTRIBUTES = "suite:kernel_per-build_regression, suite:partners"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"

@@ -5,6 +5,7 @@ package android.icu.dev.test.normalizer;
 
 import java.util.HashMap;
 import java.util.Map;
+import android.icu.testsharding.MainTestShard;
 
 
 /**
@@ -17,6 +18,7 @@ import java.util.Map;
  * @author Mark Davis
  */
  
+@MainTestShard
 public class IntHashtable {
 
     public IntHashtable (int defaultValue) {

@@ -9,6 +9,7 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 
+#include "base/debug/activity_tracker.h"
 #include "base/files/scoped_file.h"
 #include "base/logging.h"
 #include "base/posix/eintr_wrapper.h"
@@ -101,12 +102,7 @@ static bool WaitForSingleNonChildProcess(base::ProcessHandle handle,
     return false;
   }
 
-#if defined(ANDROID)
-  struct kevent change;
-  memset(&change, 0, sizeof(change));
-#else
   struct kevent change = {0};
-#endif
   EV_SET(&change, handle, EVFILT_PROC, EV_ADD, NOTE_EXIT, 0, NULL);
   int result = HANDLE_EINTR(kevent(kq.get(), &change, 1, NULL, 0, NULL));
   if (result == -1) {
@@ -130,12 +126,7 @@ static bool WaitForSingleNonChildProcess(base::ProcessHandle handle,
   }
 
   result = -1;
-#if defined(ANDROID)
-  struct kevent event;
-  memset(&event, 0, sizeof(event));
-#else
   struct kevent event = {0};
-#endif
 
   while (wait_forever || remaining_delta > base::TimeDelta()) {
     struct timespec remaining_timespec;
@@ -266,12 +257,17 @@ Process Process::DeprecatedGetProcessFromHandle(ProcessHandle handle) {
   return Process(handle);
 }
 
-#if !defined(OS_LINUX)
+#if !defined(OS_LINUX) && !defined(OS_MACOSX)
 // static
 bool Process::CanBackgroundProcesses() {
   return false;
 }
-#endif  // !defined(OS_LINUX)
+#endif  // !defined(OS_LINUX) && !defined(OS_MACOSX)
+
+// static
+void Process::TerminateCurrentProcessImmediately(int exit_code) {
+  _exit(exit_code);
+}
 
 bool Process::IsValid() const {
   return process_ != kNullProcessHandle;
@@ -305,7 +301,7 @@ void Process::Close() {
 }
 
 #if !defined(OS_NACL_NONSFI)
-bool Process::Terminate(int /*exit_code*/, bool wait) const {
+bool Process::Terminate(int exit_code, bool wait) const {
   // exit_code isn't supportable.
   DCHECK(IsValid());
   CHECK_GT(process_, 0);
@@ -313,6 +309,12 @@ bool Process::Terminate(int /*exit_code*/, bool wait) const {
   bool result = kill(process_, SIGTERM) == 0;
   if (result && wait) {
     int tries = 60;
+
+    if (RunningOnValgrind()) {
+      // Wait for some extra time when running under Valgrind since the child
+      // processes may take some time doing leak checking.
+      tries *= 2;
+    }
 
     unsigned sleep_ms = 4;
 
@@ -353,29 +355,32 @@ bool Process::Terminate(int /*exit_code*/, bool wait) const {
 }
 #endif  // !defined(OS_NACL_NONSFI)
 
-bool Process::WaitForExit(int* exit_code) {
+bool Process::WaitForExit(int* exit_code) const {
   return WaitForExitWithTimeout(TimeDelta::Max(), exit_code);
 }
 
-bool Process::WaitForExitWithTimeout(TimeDelta timeout, int* exit_code) {
+bool Process::WaitForExitWithTimeout(TimeDelta timeout, int* exit_code) const {
+  // Record the event that this thread is blocking upon (for hang diagnosis).
+  base::debug::ScopedProcessWaitActivity process_activity(this);
+
   return WaitForExitWithTimeoutImpl(Handle(), exit_code, timeout);
 }
 
-#if !defined(OS_LINUX)
+#if !defined(OS_LINUX) && !defined(OS_MACOSX)
 bool Process::IsProcessBackgrounded() const {
   // See SetProcessBackgrounded().
   DCHECK(IsValid());
   return false;
 }
 
-bool Process::SetProcessBackgrounded(bool /*value*/) {
-  // Not implemented for POSIX systems other than Linux. With POSIX, if we were
-  // to lower the process priority we wouldn't be able to raise it back to its
-  // initial priority.
+bool Process::SetProcessBackgrounded(bool value) {
+  // Not implemented for POSIX systems other than Linux and Mac. With POSIX, if
+  // we were to lower the process priority we wouldn't be able to raise it back
+  // to its initial priority.
   NOTIMPLEMENTED();
   return false;
 }
-#endif  // !defined(OS_LINUX)
+#endif  // !defined(OS_LINUX) && !defined(OS_MACOSX)
 
 int Process::GetPriority() const {
   DCHECK(IsValid());

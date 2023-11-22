@@ -57,7 +57,6 @@ table:
   cell_table = tf.GetCellTable()
   tp = TablePrinter(cell_table, out_to)
   print tp.Print()
-
 """
 
 from __future__ import print_function
@@ -464,12 +463,13 @@ class KeyAwareComparisonResult(ComparisonResult):
     # --texture_upload_count--texture_upload_count--count (high is good)
     # --total_deferred_image_decode_count--count (low is good)
     # --total_tiles_analyzed--total_tiles_analyzed--count (high is good)
-    lower_is_better_keys = ['milliseconds', 'ms_', 'seconds_', 'KB', 'rdbytes',
-                            'wrbytes', 'dropped_percent', '(ms)', '(seconds)',
-                            '--ms', '--average_num_missing_tiles',
-                            '--experimental_jank', '--experimental_mean_frame',
-                            '--experimental_median_frame_time',
-                            '--total_deferred_image_decode_count', '--seconds']
+    lower_is_better_keys = [
+        'milliseconds', 'ms_', 'seconds_', 'KB', 'rdbytes', 'wrbytes',
+        'dropped_percent', '(ms)', '(seconds)', '--ms',
+        '--average_num_missing_tiles', '--experimental_jank',
+        '--experimental_mean_frame', '--experimental_median_frame_time',
+        '--total_deferred_image_decode_count', '--seconds'
+    ]
 
     return any([l in key for l in lower_is_better_keys])
 
@@ -608,12 +608,13 @@ class PValueFormat(Format):
   def _ComputeFloat(self, cell):
     cell.string_value = '%0.2f' % float(cell.value)
     if float(cell.value) < 0.05:
-      cell.bgcolor = self._GetColor(cell.value,
-                                    Color(255, 255, 0, 0),
-                                    Color(255, 255, 255, 0),
-                                    Color(255, 255, 255, 0),
-                                    mid_value=0.05,
-                                    power=1)
+      cell.bgcolor = self._GetColor(
+          cell.value,
+          Color(255, 255, 0, 0),
+          Color(255, 255, 255, 0),
+          Color(255, 255, 255, 0),
+          mid_value=0.05,
+          power=1)
 
 
 class StorageFormat(Format):
@@ -647,12 +648,13 @@ class CoeffVarFormat(Format):
 
   def _ComputeFloat(self, cell):
     cell.string_value = '%1.1f%%' % (float(cell.value) * 100)
-    cell.color = self._GetColor(cell.value,
-                                Color(0, 255, 0, 0),
-                                Color(0, 0, 0, 0),
-                                Color(255, 0, 0, 0),
-                                mid_value=0.02,
-                                power=1)
+    cell.color = self._GetColor(
+        cell.value,
+        Color(0, 255, 0, 0),
+        Color(0, 0, 0, 0),
+        Color(255, 0, 0, 0),
+        mid_value=0.02,
+        power=1)
 
 
 class PercentFormat(Format):
@@ -664,7 +666,8 @@ class PercentFormat(Format):
 
   def _ComputeFloat(self, cell):
     cell.string_value = '%+1.1f%%' % ((float(cell.value) - 1) * 100)
-    cell.color = self._GetColor(cell.value, Color(255, 0, 0, 0),
+    cell.color = self._GetColor(cell.value,
+                                Color(255, 0, 0, 0),
                                 Color(0, 0, 0, 0), Color(0, 255, 0, 0))
 
 
@@ -677,7 +680,8 @@ class RatioFormat(Format):
 
   def _ComputeFloat(self, cell):
     cell.string_value = '%+1.1f%%' % ((cell.value - 1) * 100)
-    cell.color = self._GetColor(cell.value, Color(255, 0, 0, 0),
+    cell.color = self._GetColor(cell.value,
+                                Color(255, 0, 0, 0),
                                 Color(0, 0, 0, 0), Color(0, 255, 0, 0))
 
 
@@ -693,7 +697,8 @@ class ColorBoxFormat(Format):
 
   def _ComputeFloat(self, cell):
     cell.string_value = '--'
-    bgcolor = self._GetColor(cell.value, Color(255, 0, 0, 0),
+    bgcolor = self._GetColor(cell.value,
+                             Color(255, 0, 0, 0),
                              Color(255, 255, 255, 0), Color(0, 255, 0, 0))
     cell.bgcolor = bgcolor
     cell.color = bgcolor
@@ -889,8 +894,8 @@ class TableFormatter(object):
   def AddLabelName(self):
     """Put label on the top of the table."""
     top_header = []
-    base_colspan = len([c for c in self._columns if not c.result.NeedsBaseline()
-                       ])
+    base_colspan = len(
+        [c for c in self._columns if not c.result.NeedsBaseline()])
     compare_colspan = len(self._columns)
     # Find the row with the key 'retval', if it exists.  This
     # will be used to calculate the number of iterations that passed and
@@ -1179,14 +1184,17 @@ def GetComplexTable(runs, labels, out_to=TablePrinter.CONSOLE):
   """
   tg = TableGenerator(runs, labels, TableGenerator.SORT_BY_VALUES_DESC)
   table = tg.GetTable()
-  columns = [Column(LiteralResult(), Format(), 'Literal'),
-             Column(AmeanResult(), Format()), Column(StdResult(), Format()),
-             Column(CoeffVarResult(), CoeffVarFormat()),
-             Column(NonEmptyCountResult(), Format()),
-             Column(AmeanRatioResult(), PercentFormat()),
-             Column(AmeanRatioResult(), RatioFormat()),
-             Column(GmeanRatioResult(), RatioFormat()),
-             Column(PValueResult(), PValueFormat())]
+  columns = [
+      Column(LiteralResult(), Format(), 'Literal'), Column(
+          AmeanResult(), Format()), Column(StdResult(), Format()), Column(
+              CoeffVarResult(), CoeffVarFormat()), Column(
+                  NonEmptyCountResult(), Format()),
+      Column(AmeanRatioResult(), PercentFormat()), Column(
+          AmeanRatioResult(), RatioFormat()), Column(GmeanRatioResult(),
+                                                     RatioFormat()), Column(
+                                                         PValueResult(),
+                                                         PValueFormat())
+  ]
   tf = TableFormatter(table, columns)
   cell_table = tf.GetCellTable()
   tp = TablePrinter(cell_table, out_to)
@@ -1195,38 +1203,55 @@ def GetComplexTable(runs, labels, out_to=TablePrinter.CONSOLE):
 
 if __name__ == '__main__':
   # Run a few small tests here.
-  runs = [[{'k1': '10',
-            'k2': '12',
-            'k5': '40',
-            'k6': '40',
-            'ms_1': '20',
-            'k7': 'FAIL',
-            'k8': 'PASS',
-            'k9': 'PASS',
-            'k10': '0'}, {'k1': '13',
-                          'k2': '14',
-                          'k3': '15',
-                          'ms_1': '10',
-                          'k8': 'PASS',
-                          'k9': 'FAIL',
-                          'k10': '0'}], [{'k1': '50',
-                                          'k2': '51',
-                                          'k3': '52',
-                                          'k4': '53',
-                                          'k5': '35',
-                                          'k6': '45',
-                                          'ms_1': '200',
-                                          'ms_2': '20',
-                                          'k7': 'FAIL',
-                                          'k8': 'PASS',
-                                          'k9': 'PASS'}]]
+  runs = [[{
+      'k1': '10',
+      'k2': '12',
+      'k5': '40',
+      'k6': '40',
+      'ms_1': '20',
+      'k7': 'FAIL',
+      'k8': 'PASS',
+      'k9': 'PASS',
+      'k10': '0'
+  }, {
+      'k1': '13',
+      'k2': '14',
+      'k3': '15',
+      'ms_1': '10',
+      'k8': 'PASS',
+      'k9': 'FAIL',
+      'k10': '0'
+  }], [{
+      'k1': '50',
+      'k2': '51',
+      'k3': '52',
+      'k4': '53',
+      'k5': '35',
+      'k6': '45',
+      'ms_1': '200',
+      'ms_2': '20',
+      'k7': 'FAIL',
+      'k8': 'PASS',
+      'k9': 'PASS'
+  }]]
   labels = ['vanilla', 'modified']
   t = GetComplexTable(runs, labels, TablePrinter.CONSOLE)
   print(t)
   email = GetComplexTable(runs, labels, TablePrinter.EMAIL)
 
-  runs = [[{'k1': '1'}, {'k1': '1.1'}, {'k1': '1.2'}],
-          [{'k1': '5'}, {'k1': '5.1'}, {'k1': '5.2'}]]
+  runs = [[{
+      'k1': '1'
+  }, {
+      'k1': '1.1'
+  }, {
+      'k1': '1.2'
+  }], [{
+      'k1': '5'
+  }, {
+      'k1': '5.1'
+  }, {
+      'k1': '5.2'
+  }]]
   t = GetComplexTable(runs, labels, TablePrinter.CONSOLE)
   print(t)
 

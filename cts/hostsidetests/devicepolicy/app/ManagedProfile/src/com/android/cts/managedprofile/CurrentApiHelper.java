@@ -168,6 +168,9 @@ public class CurrentApiHelper {
             typeName = typeName.substring(0, typeName.length() - 2);
         }
 
+        // Resolve inner classes
+        typeName = typeName.replaceAll("([A-Z].*)\\.", "$1\\$");
+
         // Remove type parameters, if any
         typeName = typeName.replaceAll("<.*>$", "");
 

@@ -45,18 +45,23 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
     private final MediaSession.Callback mSessionCallback = new MediaSession.Callback() {
         @Override
         public boolean onMediaButtonEvent(Intent intent) {
-            KeyEvent event = (KeyEvent) intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
-            Log.v(this, "SessionCallback.onMediaButton()...  event = %s.", event);
-            if ((event != null) && ((event.getKeyCode() == KeyEvent.KEYCODE_HEADSETHOOK) ||
-                                    (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))) {
-                synchronized (mLock) {
-                    Log.v(this, "SessionCallback: HEADSETHOOK/MEDIA_PLAY_PAUSE");
-                    boolean consumed = handleCallMediaButton(event);
-                    Log.v(this, "==> handleCallMediaButton(): consumed = %b.", consumed);
-                    return consumed;
+            try {
+                Log.startSession("HMB.oMBE");
+                KeyEvent event = (KeyEvent) intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
+                Log.v(this, "SessionCallback.onMediaButton()...  event = %s.", event);
+                if ((event != null) && ((event.getKeyCode() == KeyEvent.KEYCODE_HEADSETHOOK) ||
+                        (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))) {
+                    synchronized (mLock) {
+                        Log.v(this, "SessionCallback: HEADSETHOOK/MEDIA_PLAY_PAUSE");
+                        boolean consumed = handleCallMediaButton(event);
+                        Log.v(this, "==> handleCallMediaButton(): consumed = %b.", consumed);
+                        return consumed;
+                    }
                 }
+                return true;
+            } finally {
+                Log.endSession();
             }
-            return true;
         }
     };
 

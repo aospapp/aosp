@@ -18,11 +18,21 @@
     Bug: 36980009 android.intent.action.QUICKBOOT_POWERON
     Bug: 36977779 android.intent.action.MASTER_CLEAR
     Bug: 38182465 android.intent.action.ACTION_DEFAULT_SMS_SUBSCRIPTION_CHANGED
+    Bug: 70315695 android.intent.action.HDMI_PLUGGED
+    Bug: 78574873 android.intent.action.QUICKSTEP_SERVICE
+    Bug: 78574873 android.intent.action.INSTALL_EPHEMERAL_PACKAGE
+    Bug: 78574873 android.intent.action.RESOLVE_EPHEMERAL_PACKAGE
+    Bug: 78574873 android.intent.action.EPHEMERAL_RESOLVER_SETTINGS
 -->
 <dynamicConfig>
     <entry key ="intent_whitelist">
       <value>android.intent.action.ACTION_CARRIER_SETUP</value>
       <value>android.intent.action.QUICKBOOT_POWERON</value>
       <value>android.intent.action.ACTION_DEFAULT_SMS_SUBSCRIPTION_CHANGED</value>
+      <value>android.intent.action.HDMI_PLUGGED</value>
+      <value>android.intent.action.QUICKSTEP_SERVICE</value>
+      <value>android.intent.action.INSTALL_EPHEMERAL_PACKAGE</value>
+      <value>android.intent.action.RESOLVE_EPHEMERAL_PACKAGE</value>
+      <value>android.intent.action.EPHEMERAL_RESOLVER_SETTINGS</value>
     </entry>
 </dynamicConfig>

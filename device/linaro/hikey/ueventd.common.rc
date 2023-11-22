@@ -1,5 +1,11 @@
+subsystem usbmisc
+    devname uevent_devname
+
 /dev/hci_tty     0666 root root
 /dev/ttyAMA1     0660 bluetooth bluetooth
 /dev/ttyAMA4     0660 bluetooth bluetooth
 /dev/mali        0666 system graphics
 /dev/mali0       0666 system graphics
+/dev/nanohub              0660   system     system
+/dev/nanohub_comms        0660   system     system
+/dev/hifi_misc   0666 system audio

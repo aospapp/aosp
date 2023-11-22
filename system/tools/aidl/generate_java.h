@@ -26,16 +26,19 @@
 namespace android {
 namespace aidl {
 
+class JavaOptions;
+
 namespace java {
 
 class JavaTypeNamespace;
 
 int generate_java(const std::string& filename, const std::string& originalSrc,
                   AidlInterface* iface, java::JavaTypeNamespace* types,
-                  const IoDelegate& io_delegate);
+                  const IoDelegate& io_delegate, const JavaOptions& options);
 
 android::aidl::java::Class* generate_binder_interface_class(
-    const AidlInterface* iface, java::JavaTypeNamespace* types);
+    const AidlInterface* iface, java::JavaTypeNamespace* types,
+    const JavaOptions& options);
 
 }  // namespace java
 

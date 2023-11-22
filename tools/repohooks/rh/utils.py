@@ -31,6 +31,7 @@ if sys.path[0] != _path:
     sys.path.insert(0, _path)
 del _path
 
+# pylint: disable=wrong-import-position
 import rh.shell
 import rh.signals
 
@@ -340,6 +341,8 @@ def run_command(cmd, error_message=None, redirect_stdout=False,
     # Note that tempfiles must be unbuffered else attempts to read
     # what a separate process did to that file can result in a bad
     # view of the file.
+    # The Popen API accepts either an int or a file handle for stdout/stderr.
+    # pylint: disable=redefined-variable-type
     if log_stdout_to_file:
         stdout = open(log_stdout_to_file, 'w+')
     elif stdout_to_pipe:
@@ -351,6 +354,7 @@ def run_command(cmd, error_message=None, redirect_stdout=False,
         stderr = subprocess.STDOUT
     elif redirect_stderr:
         stderr = _get_tempfile()
+    # pylint: enable=redefined-variable-type
 
     # If subprocesses have direct access to stdout or stderr, they can bypass
     # our buffers, so we need to flush to ensure that output is not interleaved.

@@ -105,6 +105,16 @@ public class TelecomCallFacade extends RpcReceiver {
         InCallServiceImpl.unholdCall(callId);
     }
 
+    @Rpc(description = "Mute in-service call")
+    public void telecomCallMute() {
+        InCallServiceImpl.muteCall(true);
+    }
+
+    @Rpc(description = "Unmute in-service call")
+    public void telecomCallUnmute() {
+        InCallServiceImpl.muteCall(false);
+    }
+
     @Rpc(description = "Joins two calls into a conference call. "
             + "Calls are identified by their "
             + "IDs listed by telecomPhoneGetCallIds")

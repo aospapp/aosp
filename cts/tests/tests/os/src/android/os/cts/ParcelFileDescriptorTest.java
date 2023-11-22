@@ -16,6 +16,13 @@
 
 package android.os.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
@@ -24,12 +31,19 @@ import android.os.ParcelFileDescriptor;
 import android.os.ParcelFileDescriptor.AutoCloseInputStream;
 import android.os.Parcelable;
 import android.os.cts.ParcelFileDescriptorPeer.FutureCloseListener;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.runner.AndroidJUnit4;
+import android.system.ErrnoException;
+import android.system.Os;
+import android.system.OsConstants;
 import android.test.MoreAsserts;
 
 import com.google.common.util.concurrent.AbstractFuture;
 
 import junit.framework.ComparisonFailure;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.io.FileDescriptor;
@@ -43,9 +57,15 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.TimeUnit;
 
-public class ParcelFileDescriptorTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class ParcelFileDescriptorTest {
     private static final long DURATION = 100l;
 
+    private Context getContext() {
+        return InstrumentationRegistry.getContext();
+    }
+
+    @Test
     public void testConstructorAndOpen() throws Exception {
         ParcelFileDescriptor tempFile = makeParcelFileDescriptor(getContext());
 
@@ -73,6 +93,7 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testFromSocket() throws Throwable {
         final int PORT = 12222;
         final int DATA = 1;
@@ -111,6 +132,7 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         done.get(5, TimeUnit.SECONDS);
     }
 
+    @Test
     public void testFromData() throws IOException {
         assertNull(ParcelFileDescriptor.fromData(null, null));
         byte[] data = new byte[] { 0 };
@@ -143,6 +165,7 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testFromDataSkip() throws IOException {
         byte[] data = new byte[] { 40, 41, 42, 43, 44, 45, 46 };
         ParcelFileDescriptor pfd = ParcelFileDescriptor.fromData(data, null);
@@ -164,11 +187,13 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testToString() {
         ParcelFileDescriptor pfd = ParcelFileDescriptor.fromSocket(new Socket());
         assertNotNull(pfd.toString());
     }
 
+    @Test
     public void testWriteToParcel() throws Exception {
         ParcelFileDescriptor pf = makeParcelFileDescriptor(getContext());
 
@@ -188,6 +213,7 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testClose() throws Exception {
         ParcelFileDescriptor pf = makeParcelFileDescriptor(getContext());
         AutoCloseInputStream in1 = new AutoCloseInputStream(pf);
@@ -210,11 +236,13 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGetStatSize() throws Exception {
         ParcelFileDescriptor pf = makeParcelFileDescriptor(getContext());
         assertTrue(pf.getStatSize() >= 0);
     }
 
+    @Test
     public void testGetFileDescriptor() {
         ParcelFileDescriptor pfd = ParcelFileDescriptor.fromSocket(new Socket());
         assertNotNull(pfd.getFileDescriptor());
@@ -223,6 +251,7 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         assertSame(pfd.getFileDescriptor(), p.getFileDescriptor());
     }
 
+    @Test
     public void testDescribeContents() {
         ParcelFileDescriptor pfd = ParcelFileDescriptor.fromSocket(new Socket());
         assertTrue((Parcelable.CONTENTS_FILE_DESCRIPTOR & pfd.describeContents()) != 0);
@@ -247,6 +276,7 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         return new FileInputStream(pfd.getFileDescriptor()).read();
     }
 
+    @Test
     public void testPipeNormal() throws Exception {
         final ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createReliablePipe();
         final ParcelFileDescriptor red = pipe[0];
@@ -262,6 +292,7 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
 
     // Reading should be done via AutoCloseInputStream if possible, rather than
     // recreating a FileInputStream from a raw FD, what's done in read(PFD).
+    @Test
     public void testPipeError_Discouraged() throws Exception {
         final ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createReliablePipe();
         final ParcelFileDescriptor red = pipe[0];
@@ -281,6 +312,7 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testPipeError() throws Exception {
         final ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createReliablePipe();
         final ParcelFileDescriptor red = pipe[0];
@@ -298,6 +330,7 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testFileNormal() throws Exception {
         final Handler handler = new Handler(Looper.getMainLooper());
         final FutureCloseListener listener = new FutureCloseListener();
@@ -312,6 +345,7 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         assertEquals(null, listener.get());
     }
 
+    @Test
     public void testFileError() throws Exception {
         final Handler handler = new Handler(Looper.getMainLooper());
         final FutureCloseListener listener = new FutureCloseListener();
@@ -326,6 +360,7 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         assertContains("OMG BANANAS", listener.get().getMessage());
     }
 
+    @Test
     public void testFileDetach() throws Exception {
         final Handler handler = new Handler(Looper.getMainLooper());
         final FutureCloseListener listener = new FutureCloseListener();
@@ -339,6 +374,7 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         assertContains("DETACHED", listener.get().getMessage());
     }
 
+    @Test
     public void testSocketErrorAfterClose() throws Exception {
         final ParcelFileDescriptor[] pair = ParcelFileDescriptor.createReliableSocketPair();
         final ParcelFileDescriptor red = pair[0];
@@ -361,6 +397,7 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         blue.checkError();
     }
 
+    @Test
     public void testSocketMultipleCheck() throws Exception {
         final ParcelFileDescriptor[] pair = ParcelFileDescriptor.createReliableSocketPair();
         final ParcelFileDescriptor red = pair[0];
@@ -382,12 +419,64 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
     }
 
     // http://b/21578056
+    @Test
     public void testFileNamesWithNonBmpChars() throws Exception {
         final File file = File.createTempFile("treble_clef_\ud834\udd1e", ".tmp");
         final ParcelFileDescriptor pfd = ParcelFileDescriptor.open(file,
                 ParcelFileDescriptor.MODE_READ_ONLY);
         assertNotNull(pfd);
         pfd.close();
+    }
+
+    @Test
+    public void testCheckFinalizerBehavior() throws Exception {
+        final Runtime runtime = Runtime.getRuntime();
+        ParcelFileDescriptor pfd = makeParcelFileDescriptor(getContext());
+        assertTrue(checkIsValid(pfd.getFileDescriptor()));
+
+        ParcelFileDescriptor wrappedPfd = new ParcelFileDescriptor(pfd);
+        assertTrue(checkIsValid(wrappedPfd.getFileDescriptor()));
+
+        FileDescriptor fd = pfd.getFileDescriptor();
+        int rawFd = pfd.getFd();
+        pfd = null;
+        assertNull(pfd); // To keep tools happy - yes we are using the write to null
+        runtime.gc(); runtime.runFinalization();
+        assertTrue("Wrapped PFD failed to hold reference",
+                checkIsValid(wrappedPfd.getFileDescriptor()));
+        assertTrue("FileDescriptor failed to hold reference", checkIsValid(fd));
+
+        wrappedPfd = null;
+        assertNull(wrappedPfd); // To keep tools happy - yes we are using the write to null
+        runtime.gc(); runtime.runFinalization();
+        // TODO: Enable this once b/65027998 is fixed
+        //assertTrue("FileDescriptor failed to hold reference", checkIsValid(fd));
+
+        fd = null;
+        assertNull(fd); // To keep tools happy - yes we are using the write to null
+        runtime.gc(); runtime.runFinalization();
+
+        try {
+            ParcelFileDescriptor.fromFd(rawFd);
+            fail("FD leaked");
+        } catch (IOException ex) {
+            // Success
+        }
+    }
+
+    boolean checkIsValid(FileDescriptor fd) {
+        try {
+            Os.fstat(fd);
+            return true;
+        } catch (ErrnoException e) {
+            if (e.errno == OsConstants.EBADF) {
+                return false;
+            } else {
+                fail(e.getMessage());
+                // not reached
+                return false;
+            }
+        }
     }
 
     static ParcelFileDescriptor makeParcelFileDescriptor(Context con) throws Exception {

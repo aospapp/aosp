@@ -296,7 +296,8 @@ class TestResult(object):
 
             if not found:
                 requested.testBegin()
-                requested.testError()
+                requested.testError(
+                    "Unknown error: test case requested but not executed.")
                 self.error.append(requested)
 
     def removeRecord(self, record):
@@ -360,6 +361,20 @@ class TestResult(object):
         record.testFail(e)
         self.executed.append(record)
         self.failed.append(record)
+
+    def passClass(self, class_name, e=None):
+        """Add a record to indicate a test class setup has passed and no test
+        in the class was executed.
+
+        Args:
+            class_name: A string that is the name of the failed test class.
+            e: An exception object.
+        """
+        record = TestResultRecord("setup_class", class_name)
+        record.testBegin()
+        record.testPass(e)
+        self.executed.append(record)
+        self.passed.append(record)
 
     def skipClass(self, class_name, reason):
         """Add a record to indicate all test cases in the class are skipped.

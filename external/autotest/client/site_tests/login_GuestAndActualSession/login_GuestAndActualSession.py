@@ -34,16 +34,13 @@ class login_GuestAndActualSession(test.test):
                 gobject.MainLoop())
         self._listener.listen_for_new_key_and_policy()
 
-        self._cryptohome_proxy = cryptohome.CryptohomeProxy(bus_loop)
-
 
     def run_once(self):
         owner = 'first_user@nowhere.com'
 
-        # TODO(cmasone): enable CryptohomeProxy to do a guest mount, then use.
         cryptohome.mount_guest()
         self._session_manager.StartSession(constants.GUEST_USER, '')
-        self._cryptohome_proxy.ensure_clean_cryptohome_for(owner)
+        cryptohome.ensure_clean_cryptohome_for(owner)
         self._session_manager.StartSession(owner, '')
         self._listener.wait_for_signals(desc='Device ownership complete.')
 

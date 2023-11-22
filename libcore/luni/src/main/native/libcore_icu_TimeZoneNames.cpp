@@ -31,21 +31,6 @@
 #include "unicode/timezone.h"
 #include "unicode/tznames.h"
 
-static bool isUtc(const icu::UnicodeString& id) {
-  static const icu::UnicodeString kEtcUct("Etc/UCT", 7, US_INV);
-  static const icu::UnicodeString kEtcUtc("Etc/UTC", 7, US_INV);
-  static const icu::UnicodeString kEtcUniversal("Etc/Universal", 13, US_INV);
-  static const icu::UnicodeString kEtcZulu("Etc/Zulu", 8, US_INV);
-
-  static const icu::UnicodeString kUct("UCT", 3, US_INV);
-  static const icu::UnicodeString kUtc("UTC", 3, US_INV);
-  static const icu::UnicodeString kUniversal("Universal", 9, US_INV);
-  static const icu::UnicodeString kZulu("Zulu", 4, US_INV);
-
-  return id == kEtcUct || id == kEtcUtc || id == kEtcUniversal || id == kEtcZulu ||
-      id == kUct || id == kUtc || id == kUniversal || id == kZulu;
-}
-
 static bool setStringArrayElement(JNIEnv* env, jobjectArray array, int i, const icu::UnicodeString& s) {
   // Don't use "GMT" string, for backwards compatibility.
   static const icu::UnicodeString kGmt("GMT", 3, US_INV);
@@ -73,8 +58,6 @@ static void TimeZoneNames_fillZoneStrings(JNIEnv* env, jclass, jstring javaLocal
 
   const UDate now(icu::Calendar::getNow());
 
-  static const icu::UnicodeString kUtc("UTC", 3, US_INV);
-
   size_t id_count = env->GetArrayLength(result);
   for (size_t i = 0; i < id_count; ++i) {
     ScopedLocalRef<jobjectArray> java_row(env,
@@ -86,23 +69,22 @@ static void TimeZoneNames_fillZoneStrings(JNIEnv* env, jclass, jstring javaLocal
       return;
     }
 
-    icu::UnicodeString long_std;
-    names->getDisplayName(zone_id.unicodeString(), UTZNM_LONG_STANDARD, now, long_std);
-    icu::UnicodeString short_std;
-    names->getDisplayName(zone_id.unicodeString(), UTZNM_SHORT_STANDARD, now, short_std);
-    icu::UnicodeString long_dst;
-    names->getDisplayName(zone_id.unicodeString(), UTZNM_LONG_DAYLIGHT, now, long_dst);
-    icu::UnicodeString short_dst;
-    names->getDisplayName(zone_id.unicodeString(), UTZNM_SHORT_DAYLIGHT, now, short_dst);
-
-    if (isUtc(zone_id.unicodeString())) {
-      // ICU doesn't have names for the UTC zones; it just says "GMT+00:00" for both
-      // long and short names. We don't want this. The best we can do is use "UTC"
-      // for everything (since we don't know how to say "Universal Coordinated Time" in
-      // every language).
-      // TODO: check CLDR doesn't actually have this somewhere.
-      long_std = short_std = long_dst = short_dst = kUtc;
+    // Canonicalize the zone ID to the one known by ICU.
+    icu::UnicodeString lookup_id;
+    icu::TimeZone::getCanonicalID(zone_id.unicodeString(), lookup_id, status);
+    if (status != U_ZERO_ERROR) {
+      // Unknown ID - just use the zone ID we have.
+      lookup_id = zone_id.unicodeString();
     }
+
+    icu::UnicodeString long_std;
+    names->getDisplayName(lookup_id, UTZNM_LONG_STANDARD, now, long_std);
+    icu::UnicodeString short_std;
+    names->getDisplayName(lookup_id, UTZNM_SHORT_STANDARD, now, short_std);
+    icu::UnicodeString long_dst;
+    names->getDisplayName(lookup_id, UTZNM_LONG_DAYLIGHT, now, long_dst);
+    icu::UnicodeString short_dst;
+    names->getDisplayName(lookup_id, UTZNM_SHORT_DAYLIGHT, now, short_dst);
 
     bool okay =
         setStringArrayElement(env, java_row.get(), 1, long_std) &&
@@ -115,32 +97,8 @@ static void TimeZoneNames_fillZoneStrings(JNIEnv* env, jclass, jstring javaLocal
   }
 }
 
-static jstring TimeZoneNames_getExemplarLocation(JNIEnv* env, jclass, jstring javaLocaleName, jstring javaTz) {
-  ScopedIcuLocale icuLocale(env, javaLocaleName);
-  if (!icuLocale.valid()) {
-    return NULL;
-  }
-
-  UErrorCode status = U_ZERO_ERROR;
-  std::unique_ptr<icu::TimeZoneNames> names(icu::TimeZoneNames::createInstance(icuLocale.locale(), status));
-  if (maybeThrowIcuException(env, "TimeZoneNames::createInstance", status)) {
-    return NULL;
-  }
-
-  ScopedJavaUnicodeString tz(env, javaTz);
-  if (!tz.valid()) {
-    return NULL;
-  }
-
-  icu::UnicodeString s;
-  const UDate now(icu::Calendar::getNow());
-  names->getDisplayName(tz.unicodeString(), UTZNM_EXEMPLAR_LOCATION, now, s);
-  return jniCreateString(env, s.getBuffer(), s.length());
-}
-
 static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(TimeZoneNames, fillZoneStrings, "(Ljava/lang/String;[[Ljava/lang/String;)V"),
-  NATIVE_METHOD(TimeZoneNames, getExemplarLocation, "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;"),
 };
 void register_libcore_icu_TimeZoneNames(JNIEnv* env) {
   jniRegisterNativeMethods(env, "libcore/icu/TimeZoneNames", gMethods, NELEM(gMethods));

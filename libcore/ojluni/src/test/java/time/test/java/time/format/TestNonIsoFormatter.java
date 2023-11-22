@@ -81,10 +81,10 @@ public class TestNonIsoFormatter {
             // new CLDR patterns include the era. Test Arabic locale with ASCII digits below.
             { HIJRAH, ARABIC, ARABIC, HIJRAH.date(IsoDate),
               "\u0627\u0644\u0627\u062b\u0646\u064a\u0646\u060c \u0661 \u0631\u0628\u064a\u0639 "
-              + "\u0627\u0644\u0622\u062e\u0631\u060c \u0661\u0664\u0663\u0664 \u0647\u0640" }, // Hijrah AH 1434-04-01 (Mon)
+              + "\u0627\u0644\u0622\u062e\u0631 \u0661\u0664\u0663\u0664 \u0647\u0640" }, // Hijrah AH 1434-04-01 (Mon)
             { HIJRAH, ARABIC, Locale.ENGLISH, HIJRAH.date(IsoDate),
               "\u0627\u0644\u0627\u062b\u0646\u064a\u0646\u060c 1 \u0631\u0628\u064a\u0639 "
-              + "\u0627\u0644\u0622\u062e\u0631\u060c 1434 \u0647\u0640" }, // Hijrah AH 1434-04-01 (Mon)
+              + "\u0627\u0644\u0622\u062e\u0631 1434 \u0647\u0640" }, // Hijrah AH 1434-04-01 (Mon)
             { MINGUO, Locale.TAIWAN, Locale.TAIWAN, MINGUO.date(IsoDate),
               "\u6c11\u570b102\u5e742\u670811\u65e5 \u661f\u671f\u4e00" }, // Minguo ROC 102-02-11 (Mon)
             { BUDDHIST, thTH, thTH, BUDDHIST.date(IsoDate),

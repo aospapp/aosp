@@ -12,6 +12,10 @@ test11
 test12
 test13
 test14
+test15
+test16
 tst_device
 tst_safe_fileops
 tst_res_hexd
+tst_strstatus
+test17

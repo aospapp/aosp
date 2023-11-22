@@ -1,6 +1,6 @@
 /** @file
 
-Copyright (c) 2007 - 2011, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -34,10 +34,7 @@ Revision History:
 
 #pragma pack(1)
 typedef struct {
-  UINT16  WhatIsThePassword[20];
-  UINT16  WhatIsThePassword2[20];
   UINT16  MyStringData[40];
-  UINT16  PasswordClearText[20];
   UINT16  SomethingHiddenForHtml;
   UINT8   HowOldAreYouInYearsManual;
   UINT16  HowTallAreYouManual;
@@ -69,6 +66,7 @@ typedef struct {
   EFI_HII_TIME  Time;
   UINT8   RefreshGuidCount;
   UINT8   Match2;
+  UINT8   GetDefaultValueFromCallBackForOrderedList[3];
 } DRIVER_SAMPLE_CONFIGURATION;
 
 //
@@ -78,6 +76,7 @@ typedef struct {
   UINT8         Field8;
   UINT16        Field16;
   UINT8         OrderedList[3];
+  UINT16        SubmittedCallback;
 } MY_EFI_VARSTORE_DATA;
 
 //

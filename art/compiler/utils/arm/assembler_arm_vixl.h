@@ -17,8 +17,10 @@
 #ifndef ART_COMPILER_UTILS_ARM_ASSEMBLER_ARM_VIXL_H_
 #define ART_COMPILER_UTILS_ARM_ASSEMBLER_ARM_VIXL_H_
 
+#include <android-base/logging.h>
+
 #include "base/arena_containers.h"
-#include "base/logging.h"
+#include "base/macros.h"
 #include "constants_arm.h"
 #include "offsets.h"
 #include "utils/arm/assembler_arm_shared.h"
@@ -151,8 +153,8 @@ class ArmVIXLAssembler FINAL : public Assembler {
  private:
   class ArmException;
  public:
-  explicit ArmVIXLAssembler(ArenaAllocator* arena)
-      : Assembler(arena) {
+  explicit ArmVIXLAssembler(ArenaAllocator* allocator)
+      : Assembler(allocator) {
     // Use Thumb2 instruction set.
     vixl_masm_.UseT32();
   }
@@ -178,6 +180,7 @@ class ArmVIXLAssembler FINAL : public Assembler {
   //
   // Heap poisoning.
   //
+
   // Poison a heap reference contained in `reg`.
   void PoisonHeapReference(vixl32::Register reg);
   // Unpoison a heap reference contained in `reg`.
@@ -186,6 +189,15 @@ class ArmVIXLAssembler FINAL : public Assembler {
   void MaybePoisonHeapReference(vixl32::Register reg);
   // Unpoison a heap reference contained in `reg` if heap poisoning is enabled.
   void MaybeUnpoisonHeapReference(vixl32::Register reg);
+
+  // Emit code checking the status of the Marking Register, and aborting
+  // the program if MR does not match the value stored in the art::Thread
+  // object.
+  //
+  // Argument `temp` is used as a temporary register to generate code.
+  // Argument `code` is used to identify the different occurrences of
+  // MaybeGenerateMarkingRegisterCheck and is passed to the BKPT instruction.
+  void GenerateMarkingRegisterCheck(vixl32::Register temp, int code = 0);
 
   void StoreToOffset(StoreOperandType type,
                      vixl32::Register reg,
@@ -206,7 +218,9 @@ class ArmVIXLAssembler FINAL : public Assembler {
   void StoreRegisterList(RegList regs, size_t stack_offset);
 
   bool ShifterOperandCanAlwaysHold(uint32_t immediate);
-  bool ShifterOperandCanHold(Opcode opcode, uint32_t immediate, SetCc set_cc = kCcDontCare);
+  bool ShifterOperandCanHold(Opcode opcode,
+                             uint32_t immediate,
+                             vixl::aarch32::FlagsUpdate update_flags = vixl::aarch32::DontCare);
   bool CanSplitLoadStoreOffset(int32_t allowed_offset_bits,
                                int32_t offset,
                                /*out*/ int32_t* add_to_base,

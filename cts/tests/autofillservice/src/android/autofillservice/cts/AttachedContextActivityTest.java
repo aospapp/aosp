@@ -56,7 +56,7 @@ public class AttachedContextActivityTest extends AutoFillServiceTestCase {
         sReplier.getNextFillRequest();
 
         // Select dataset
-        sUiBot.selectDataset("fill me");
+        mUiBot.selectDataset("fill me");
 
         // Assert results
         fillExpectation.assertAutoFilled();

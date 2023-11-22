@@ -127,9 +127,10 @@
     <string name="reverting_settings" msgid="4752151682666912828">"Ayarlar geri alınıyor..."</string>
     <string name="response_error" msgid="6674110501330139405">"Ağdan beklenmeyen yanıt."</string>
     <string name="exception_error" msgid="7027667130619518211">"Ağ veya SIM kart hatası."</string>
-    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"SS isteği DIAL isteği olarak değiştirildi."</string>
-    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"SS isteği USSD isteği olarak değiştirildi."</string>
-    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"SS isteği yeni SS isteği olarak değiştirildi."</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="4440038807310535377">"SS isteği normal çağrı olarak değişti"</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="6095812685884176176">"SS isteği USSD isteği olarak değişti"</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="7920654012697945858">"Yeni SS isteği olarak değişti"</string>
+    <string name="stk_cc_ss_to_dial_video_error" msgid="3873905132181743781">"SS isteği görüntülü görüşme olarak değişti"</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"Telefon uygulamanızın Sabit Arama Numaraları ayarı açık. Bu nedenle çağrıyla ilgili bazı özellikler çalışmıyor."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"Bu ayarları görüntülemeden önce radyoyu açın."</string>
     <string name="close_dialog" msgid="2365884406356986917">"Tamam"</string>
@@ -158,16 +159,16 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"Yeni PIN, geçersiz karakterler içeriyor."</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"PIN değiştirilemedi"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"Desteklenmeyen mesaj türü. Dinlemek için <xliff:g id="NUMBER">%s</xliff:g> numaralı telefonu arayın."</string>
-    <string name="mobile_networks" msgid="5540397602919106177">"Mobil ağ ayarları"</string>
     <string name="network_settings_title" msgid="514120489499925574">"Mobil ağ"</string>
     <string name="label_available" msgid="1181658289009300430">"Kullanılabilir ağlar"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Aranıyor..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Hiçbir ağ bulunamadı."</string>
-    <string name="network_query_error" msgid="6828516148953325006">"Ağlar aranırken hata oluştu."</string>
+    <string name="network_query_error" msgid="8466081377231178298">"Ağlar bulunamadı. Tekrar deneyin."</string>
     <string name="register_on_network" msgid="9055203954040805084">"<xliff:g id="NETWORK">%s</xliff:g> ağına kaydediliyor..."</string>
     <string name="not_allowed" msgid="5613353860205691579">"SIM kartınız bu ağa bağlanmaya izin vermiyor."</string>
     <string name="connect_later" msgid="2308119155752343975">"Şu an bu ağa bağlanılamıyor. Daha sonra tekrar deneyin."</string>
     <string name="registration_done" msgid="495135664535876612">"Ağa kaydedildi."</string>
+    <string name="already_auto" msgid="6067116884321285507">"Zaten otomatik seçim modunda."</string>
     <string name="select_automatically" msgid="1046727200631770962">"Ağı otomatik seç"</string>
     <string name="network_select_title" msgid="7733107364757544558">"Ağ"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Otomatik kayıt..."</string>
@@ -175,6 +176,36 @@
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"Ağın çalışma modunu değiştir"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Tercih edilen ağ türü"</string>
     <string name="forbidden_network" msgid="4384929668343563440">"(yasak)"</string>
+    <string name="choose_network_title" msgid="4023911977543009350">"Ağ seç"</string>
+    <string name="network_disconnected" msgid="2227251609006103194">"Bağlı değil"</string>
+    <string name="network_connected" msgid="1288589103624338857">"Bağlanıldı"</string>
+    <string name="network_connecting" msgid="4927203097283533783">"Bağlanılıyor..."</string>
+    <string name="network_could_not_connect" msgid="8254009365807767243">"Bağlanılamadı"</string>
+  <string-array name="preferred_network_mode_choices">
+    <item msgid="3628460389382468528">"GSM/WCDMA tercih edilen"</item>
+    <item msgid="8442633436636425221">"Yalnızca GSM"</item>
+    <item msgid="2032314385791760810">"Yalnızca WCDMA"</item>
+    <item msgid="6334554401059422303">"GSM/WCDMA otomatik"</item>
+    <item msgid="1462198368200398663">"CDMA/EvDo otomatik"</item>
+    <item msgid="3611460019185359968">"EvDo olmadan CDMA"</item>
+    <item msgid="545430093607698090">"Yalnızca EvDo"</item>
+    <item msgid="4286774020869405140">"CDMA/EvDo/GSM/WCDMA"</item>
+    <item msgid="4006002265696868538">"CDMA + LTE/EvDo"</item>
+    <item msgid="8973936140318359205">"GSM/WCDMA/LTE"</item>
+    <item msgid="3471059554252610472">"Genel"</item>
+    <item msgid="2882615514545171802">"LTE"</item>
+    <item msgid="8076204422288290116">"LTE/WCDMA"</item>
+    <item msgid="3982984144824159726">"Yalnızca TDSCDMA"</item>
+    <item msgid="3686191974505922271">"TDSCDMA/WCDMA"</item>
+    <item msgid="7135671700201836475">"LTE/TDSCDMA"</item>
+    <item msgid="3736619459066330755">"TDSCDMA/GSM"</item>
+    <item msgid="4778666570887216861">"LTE/TDSCDMA/GSM"</item>
+    <item msgid="2952322596201849456">"TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="115984258536697617">"LTE/TDSCDMA/WCDMA"</item>
+    <item msgid="7957991936217192636">"LTE/TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="2828588917858484655">"TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+    <item msgid="4989979948139945854">"LTE/TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+  </string-array>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Tercih edilen ağ modu: WCDMA tercih edilir"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Tercih edilen ağ modu: Yalnızca GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Tercih edilen ağ modu: Yalnızca WCDMA"</string>
@@ -192,21 +223,15 @@
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"Tercih edilen ağ modu: LTE / GSM / UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"Tercih edilen ağ modu: LTE / CDMA"</string>
     <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"Tercih edilen ağ modu: TDSCDMA"</string>
-  <string-array name="preferred_network_mode_choices">
-    <item msgid="7886739962255042385">"LTE / WCDMA"</item>
-    <item msgid="577652050447385699">"LTE"</item>
-    <item msgid="6813597571293773656">"Dünya Genelinde"</item>
-    <item msgid="127064712132619032">"GSM/WCDMA/LTE"</item>
-    <item msgid="1126767511633425977">"CDMA + LTE/EvDo"</item>
-    <item msgid="6389676313771670660">"CDMA/EvDo/GSM/WCDMA"</item>
-    <item msgid="545430093607698090">"Yalnızca EvDo"</item>
-    <item msgid="1508557726283094448">"EvDo olmadan CDMA"</item>
-    <item msgid="4341433122263841224">"CDMA/EvDo otomatik"</item>
-    <item msgid="5958053792390386668">"GSM/WCDMA otomatik"</item>
-    <item msgid="7913148405605373434">"Yalnızca WCDMA"</item>
-    <item msgid="1524224863879435516">"Yalnızca GSM"</item>
-    <item msgid="3817924849415716259">"GSM/WCDMA tercih edilen"</item>
-  </string-array>
+    <string name="preferred_network_mode_tdscdma_wcdma_summary" msgid="2405154895437348623">"Tercih edilen ağ modu: TDSCDMA/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_summary" msgid="2104702896644235637">"Tercih edilen ağ modu: LTE/TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_summary" msgid="4893784445338396204">"Tercih edilen ağ modu: TDSCDMA/GSM"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_summary" msgid="1815169717046729757">"Tercih edilen ağ modu: LTE/GSM/TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_wcdma_summary" msgid="2195358773359424099">"Tercih edilen ağ modu: TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_wcdma_summary" msgid="1181424059695667803">"Tercih edilen ağ modu: LTE/TDSCDMA/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_wcdma_summary" msgid="2526539326505354382">"Tercih edilen ağ modu: LTE/TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="8195248059196614939">"Tercih edilen ağ modu: TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="5596733053095592791">"Tercih edilen ağ modu: LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
     <string name="call_category" msgid="5863978196309462052">"Çağrı"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"Ağ"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Geliştirilmiş 4G LTE Modu"</string>
@@ -218,14 +243,16 @@
     <string name="roaming" msgid="7894878421600247140">"Dolaşım"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Dolaşımdayken veri hizmetlerine bağlan"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Dolaşımdayken veri hizmetlerine bağlan"</string>
-    <string name="roaming_reenable_message" msgid="8913735676127858115">"Veri dolaşımı kapalıyken ev ağınızdan ayrıldığınız için veri bağlantısını kaybettiniz."</string>
+    <string name="roaming_reenable_message" msgid="6843814381576397939">"Veri dolaşımı devre dışı bırakıldı. Etkinleştirmek için dokunun."</string>
+    <string name="roaming_notification_title" msgid="4749053220884743110">"Mobil veri bağlantısı koptu"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"Kayda değer ücretler ödeyebilirsiniz."</string>
+    <string name="roaming_check_price_warning" msgid="7497570906830902550">"Fiyat bilgisi için ağ sağlayıcınıza başvurun."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Veri dolaşımına izin verilsin mi?"</string>
-    <string name="data_usage_title" msgid="8759619109516889802">"Veri kullanımı"</string>
+    <string name="data_usage_title" msgid="4042209259808900283">"Uygulama veri kullanımı"</string>
     <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_2">%2$s</xliff:g> arasında <xliff:g id="ID_1">%1$s</xliff:g> mobil veri kullanıldı"</string>
     <string name="advanced_options_title" msgid="8074895510265488035">"Gelişmiş"</string>
     <string name="carrier_settings_euicc" msgid="6714062862127226405">"Operatör"</string>
-    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"operatör, esim, sim, euicc"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="6861505396475991277">"operatör, esim, sim, euicc, operatör değiştir, operatör ekle"</string>
     <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> - <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="mobile_data_settings_title" msgid="4661165467914727157">"Mobil veri"</string>
     <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Verilere mobil ağ üzerinden erişim"</string>
@@ -399,7 +426,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"Sabit arama numarası siliniyor..."</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"Sabit arama numarası silindi."</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"Yanlış PIN girdiğiniz için FDN güncellenmedi."</string>
-    <string name="fdn_invalid_number" msgid="8602417141715473998">"Sayı boş veya 20 basamaktan uzun olduğundan FDN güncellenmedi."</string>
+    <string name="fdn_invalid_number" msgid="2062898833049589309">"Sayı 20 basamaktan uzun olduğu için FDN güncellenemedi."</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN güncellenmedi. PIN2 doğru değildi veya telefon numarası reddedildi."</string>
     <string name="fdn_failed" msgid="540018079008319747">"FDN işlemi başarısız oldu."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"SIM karttan okunuyor..."</string>
@@ -482,6 +509,7 @@
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Acil durum çağrısı sırasında uçak moduna geçilemez."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"Aranamıyor. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> bir acil durum numarası değil."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Aranamıyor. Bir acil durum numarasını arayın."</string>
+    <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"Acil durum çağrısı yapılamaz"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Çevirmek için klavyeyi kullan"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"Beklet"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"Sonlandır"</string>
@@ -502,6 +530,9 @@
     <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"Kişi içe aktarılamadı"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"İşitme cihazları"</string>
     <string name="hac_mode_summary" msgid="6833851160514929341">"İşitme cihazı uyumluluğunu aç"</string>
+    <string name="rtt_mode_title" msgid="6954652435543570121">"Gerçek zamanlı mesaj (RTT) çağrısı"</string>
+    <string name="rtt_mode_summary" msgid="5146344277246544580">"Sesli aramada mesajlaşmaya izin verilir"</string>
+    <string name="rtt_mode_more_information" msgid="6080420780730383030">"RTT; tam veya kısmi işitme engelli, konuşma engeli olan veya sesten fazlasına ihtiyaç duyan arayanlara yardımcı olur.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Daha fazla bilgi&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - RTT çağrıları, mesaj çeviri yazısı olarak kaydedilir\n       &lt;br&gt; - RTT, görüntülü görüşmelerde kullanılamaz"</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"TTY Kapalı"</item>
     <item msgid="3971695875449640648">"TTY Tam"</item>
@@ -613,4 +644,107 @@
     <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> üzerinden veri planı eklemeniz gerekebilir"</string>
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"VERİ PLANI EKLE"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"İPTAL"</string>
+    <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"Çağrı sonlandırıldı"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"Telsiz kapalı"</string>
+    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"SIM kart yok veya SIM hatası oluştu"</string>
+    <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"Mobil ağ kullanılamıyor"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"Atanmamış (ayrılmamış) numara"</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"Hedefe rota yok"</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"Kanal kabul edilebilir değil"</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"Operatör yasaklamaya karar verdi"</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"Normal çağrı temizleme"</string>
+    <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"Kullanıcı meşgul"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"Yanıt veren kullanıcı yok"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"Kullanıcı uyarısı, cevap yok"</string>
+    <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"Çağrı reddedildi"</string>
+    <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"Numara değişti"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"Ön alım"</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"Seçili olmayan kullanıcıyı temizleme"</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"Hedef hizmet dışı"</string>
+    <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"Geçersiz numara biçimi (tamamlanmamış numara)"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"Tamamlayıcı hizmet isteği reddedildi"</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"DURUM SORGUSU Yanıtı"</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"Normal, belirtilmedi"</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"Kullanılabilir devre/kanal yok"</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"Şebeke hizmet dışı"</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"Geçici hata"</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"Geçiş ekipmanında yoğunluk"</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"Erişim bilgileri silindi"</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"İstenen devre/kanal kullanılamıyor"</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"Kaynaklar kullanılamıyor, belirtilmedi"</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"Hizmet kalitesiyle ilgili bilgi yok"</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"İstenen tamamlayıcı hizmete abone olunmadı"</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"Gelen çağrılar CUG içinde yasaklandı"</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"Taşıyıcı yeteneği yetkilendirilmedi"</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"Taşıyıcı yeteneği şu anda kullanılamıyor"</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"Hizmet veya seçenek kullanılamıyor, belirtilmedi"</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"Taşıyıcı hizmeti uygulanmadı"</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM değeri, ACMmax değeriyle aynı veya bu değerden büyük"</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"İstenen tamamlayıcı hizmet uygulanmadı"</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"Yalnızca kısıtlanmış dijital bilgi taşıyıcı yeteneği kullanılabilir"</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"Hizmet veya seçenek uygulanmadı, belirtilmedi"</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"Geçersiz işlem tanımlayıcısı değeri"</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"Kullanıcı, CUG üyesi değil"</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"Uyumsuz hedef"</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"Geçersiz geçiş şebekesi seçimi"</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"Semantik olarak yanlış mesaj"</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"Geçersiz zorunlu bilgi"</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"Mesaj türü mevcut değil veya uygulanmadı"</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"Mesaj türü, protokol durumuyla uyumlu değil"</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"Bilgi öğesi mevcut değil veya uygulanmadı"</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"Koşullu IE hatası"</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"Mesaj, protokol durumuyla uyumlu değil"</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"Zamanlayıcı süresinin sonunda kurtarma"</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"Protokol hatası, belirtilmedi"</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"Birlikte çalışma, belirtilmedi"</string>
+    <string name="labelCallBarring" msgid="3452870940716226978">"Çağrı engelleme"</string>
+    <string name="sum_call_barring_enabled" msgid="6804489690436703488">"Etkin"</string>
+    <string name="sum_call_barring_disabled" msgid="5900772179198857783">"Devre dışı"</string>
+    <string name="call_barring_baoc" msgid="1199843944333106035">"Tüm giden çağrılar"</string>
+    <string name="call_barring_baoc_enabled" msgid="8112118391869380361">"Tüm giden çağrıları engelleme devre dışı bırakılsın mı?"</string>
+    <string name="call_barring_baoc_disabled" msgid="7806697133004697974">"Tüm giden çağrılar engellensin mi?"</string>
+    <string name="call_barring_baoic" msgid="3162154267825211826">"Giden uluslararası çağrılar"</string>
+    <string name="call_barring_baoic_enabled" msgid="2634377543147258105">"Giden uluslararası çağrıları engelleme devre dışı bırakılsın mı?"</string>
+    <string name="call_barring_baoic_disabled" msgid="5817895648306183464">"Giden uluslararası çağrılar engellensin mi?"</string>
+    <string name="call_barring_baoicr" msgid="8951699885885742076">"Uluslararası dolaşımda giden çağrılar"</string>
+    <string name="call_barring_baoicr_enabled" msgid="2519630715322138317">"Uluslararası dolaşımda giden çağrıları engelleme devre dışı bırakılsın mı?"</string>
+    <string name="call_barring_baoicr_disabled" msgid="5831267468931377699">"Uluslararası dolaşımda giden çağrılar engellensin mi?"</string>
+    <string name="call_barring_baic" msgid="5272726081458339912">"Tüm gelen çağrılar"</string>
+    <string name="call_barring_baic_enabled" msgid="2457134916223203380">"Tüm gelen çağrıları engelleme devre dışı bırakılsın mı?"</string>
+    <string name="call_barring_baic_disabled" msgid="6945604947500275636">"Tüm gelen çağrılar engellensin mi?"</string>
+    <string name="call_barring_baicr" msgid="5728784220691481693">"Uluslararası dolaşımda gelen çağrılar"</string>
+    <string name="call_barring_baicr_enabled" msgid="6533336994391716127">"Uluslararası dolaşımda gelen çağrıları engelleme devre dışı bırakılsın mı?"</string>
+    <string name="call_barring_baicr_disabled" msgid="6746329853943256566">"Uluslararası dolaşımda gelen çağrılar engellensin mi?"</string>
+    <string name="call_barring_deactivate_all" msgid="5269788384941003415">"Tümünü devre dışı bırak"</string>
+    <string name="call_barring_deactivate_all_description" msgid="4972365443287257704">"Tüm çağrı engelleme ayarları devre dışı bırakılır"</string>
+    <string name="call_barring_deactivate_success" msgid="8014685598632000936">"Çağrı engelleme devre dışı bırakıldı"</string>
+    <string name="call_barring_change_pwd" msgid="6887420609726284232">"Şifreyi değiştir"</string>
+    <string name="call_barring_change_pwd_description" msgid="5505087790260233953">"Çağrı engelleme şifresi değiştirilir"</string>
+    <string name="call_barring_change_pwd_description_disabled" msgid="7630770327645349957">"Çağrı engelleme şifresi değiştirilemez."</string>
+    <string name="call_barring_pwd_not_match" msgid="6716711689350314525">"Şifreler eşleşmiyor"</string>
+    <string name="call_barring_right_pwd_number" msgid="2902966502520410446">"4 rakamdan oluşan bir şifre girin"</string>
+    <string name="call_barring_change_pwd_success" msgid="3278310763742760321">"Şifre değişti"</string>
+    <string name="call_barring_old_pwd" msgid="6080515987320238522">"Eski şifre"</string>
+    <string name="call_barring_new_pwd" msgid="7048532299150269547">"Yeni şifre"</string>
+    <string name="call_barring_confirm_pwd" msgid="1947167278466285411">"Şifreyi onayla"</string>
+    <string name="messageCallBarring" msgid="2412123220272136055">"Şifreyi girin"</string>
+    <string name="call_barring_settings" msgid="80766145008623645">"Çağrı engelleme ayarları"</string>
+    <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"Tüm çağrı engelleme ayarları devre dışı bırakılsın mı?"</string>
+    <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"Çarının yönü değiştirildi."</string>
+    <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"Çağrı yönlendirildi."</string>
+    <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"Çağrı bekliyor."</string>
+    <string name="supp_service_clir_suppression_rejected" msgid="1581851661582189045">"Numara engelleme reddedildi."</string>
+    <string name="supp_service_closed_user_group_call" msgid="5761735840904590950">"Kapalı kullanıcı grubu çağrısı."</string>
+    <string name="supp_service_incoming_calls_barred" msgid="3248813207307882723">"Gelen çağrılar yasaklandı."</string>
+    <string name="supp_service_outgoing_calls_barred" msgid="1962644621292054081">"Giden çağrılar yasaklandı."</string>
+    <string name="supp_service_call_forwarding_active" msgid="1253134771682248735">"Çağrı yönlendirme etkin."</string>
+    <string name="supp_service_additional_call_forwarded" msgid="5228624725214727315">"Ek çağrı yönlendirildi."</string>
+    <string name="supp_service_additional_ect_connected" msgid="6396964292513707102">"Açık çağrı aktarımı tamamlandı."</string>
+    <string name="supp_service_additional_ect_connecting" msgid="5443373059716058480">"Açık çağrı aktarımı devam ediyor."</string>
+    <string name="supp_service_call_on_hold" msgid="1478976782361795422">"Çağrı beklemede."</string>
+    <string name="supp_service_call_resumed" msgid="1656475289958070674">"Çağrı devam ettirildi."</string>
+    <string name="supp_service_deflected_call" msgid="138970419873492166">"Çağrının yönü değiştirildi."</string>
+    <string name="supp_service_forwarded_call" msgid="4509980341645679803">"Yönlendirilmiş çağrı."</string>
+    <string name="supp_service_conference_call" msgid="4448616364004466832">"Konferans çağrısına katılınıyor."</string>
+    <string name="supp_service_held_call_released" msgid="2030677825038709779">"Beklemedeki çağrı serbest bırakıldı."</string>
 </resources>

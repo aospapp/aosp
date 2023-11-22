@@ -24,7 +24,9 @@ LOCAL_AAPT_FLAGS = -c xx_YY -c cs
 
 LOCAL_SRC_FILES := $(call all-subdir-java-files)
 
-LOCAL_STATIC_JAVA_LIBRARIES := legacy-android-test junit
+LOCAL_STATIC_JAVA_LIBRARIES := junit
+
+LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 
 LOCAL_PACKAGE_NAME := ProcessTests
 
@@ -33,6 +35,6 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_SDK_VERSION := current
 
-include $(BUILD_PACKAGE)
+include $(BUILD_CTS_PACKAGE)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

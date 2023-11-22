@@ -39,5 +39,25 @@ string LoggingUtils::GetMacString(const vector<uint8_t>& mac_address) {
   return ss.str();
 }
 
+string LoggingUtils::GetBandwidthString(ChannelBandwidth bandwidth) {
+  switch (bandwidth) {
+    case BW_20_NOHT:
+      return "20MHz no HT";
+    case BW_20:
+      return "20MHz with HT";
+    case BW_40:
+      return "40MHz";
+    case BW_80:
+      return "80MHz";
+    case BW_80P80:
+      return "80+80MHz";
+    case BW_160:
+      return "160MHz";
+    default:
+      return "Invalid";
+  }
+  return "Invalid";
+}
+
 }  // namespace wificond
 }  // namespace android

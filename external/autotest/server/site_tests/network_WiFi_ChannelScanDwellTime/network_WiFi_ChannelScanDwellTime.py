@@ -116,6 +116,8 @@ class network_WiFi_ChannelScanDwellTime(wifi_cell_test_base.WiFiCellTestBase):
         dwell_time = 0
         channel = hostap_config.HostapConfig.get_channel_for_frequency(
             self.FREQUENCY_MHZ)
+        # Configure an AP to inject beacons.
+        self.context.configure(hostap_config.HostapConfig(channel=channel))
         self.context.capture_host.start_capture(self.FREQUENCY_MHZ)
         ssid_prefix = self._build_ssid_prefix()
 
@@ -168,12 +170,8 @@ class network_WiFi_ChannelScanDwellTime(wifi_cell_test_base.WiFiCellTestBase):
 
 
     def run_once(self):
-        if self.context.router.board == "panther":
-            raise error.TestNAError('Panther router does not support manual '
-                                    'beacon frame generation')
         self.context.router.require_capabilities(
-                  [site_linux_system.LinuxSystem.
-                          CAPABILITY_SEND_MANAGEMENT_FRAME])
+            [site_linux_system.LinuxSystem.CAPABILITY_SEND_MANAGEMENT_FRAME])
         # Claim the control over the wifi interface from WiFiClient, which
         # will prevent shill and wpa_supplicant from managing that interface.
         # So this test can have the sole ownership of the interface and can

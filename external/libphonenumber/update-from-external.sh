@@ -7,7 +7,7 @@
 #
 # Does not create a GIT commit.
 
-if [ $# -eq 0 ]; then
+if [ $# -ne 1 ]; then
     echo "usage: $0 <version>"
     echo "  where <version> is the version number, e.g. 7.7.3"
     exit 1

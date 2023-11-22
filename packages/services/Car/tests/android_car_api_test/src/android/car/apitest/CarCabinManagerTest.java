@@ -16,8 +16,8 @@
 package android.car.apitest;
 
 import android.car.Car;
-import android.car.hardware.cabin.CarCabinManager;
 import android.car.hardware.CarPropertyConfig;
+import android.car.hardware.cabin.CarCabinManager;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
 
@@ -101,8 +101,6 @@ public class CarCabinManagerTest extends CarApiTestBase {
             case CarCabinManager.ID_SEAT_HEADREST_FORE_AFT_MOVE:
             case CarCabinManager.ID_WINDOW_POS:
             case CarCabinManager.ID_WINDOW_MOVE:
-            case CarCabinManager.ID_WINDOW_VENT_POS:
-            case CarCabinManager.ID_WINDOW_VENT_MOVE:
                 assertEquals(Integer.class, property.getPropertyType());
                 assertFalse(property.isGlobalProperty());
                 checkIntMinMax(property);

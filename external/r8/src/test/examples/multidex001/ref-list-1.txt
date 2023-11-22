@@ -1,2 +1,0 @@
-Lmultidex001/ClassForMainDex;
-Lmultidex001/MainActivity;

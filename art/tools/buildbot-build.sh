@@ -19,6 +19,8 @@ if [ ! -d art ]; then
   exit 1
 fi
 
+source build/envsetup.sh >&/dev/null # for get_build_var
+
 # Logic for setting out_dir from build/make/core/envsetup.mk:
 if [[ -z $OUT_DIR ]]; then
   if [[ -z $OUT_DIR_COMMON_BASE ]]; then
@@ -30,10 +32,7 @@ else
   out_dir=${OUT_DIR}
 fi
 
-using_jack=true
-if [[ $ANDROID_COMPILE_WITH_JACK == false ]]; then
-  using_jack=false
-fi
+using_jack=$(get_build_var ANDROID_COMPILE_WITH_JACK)
 
 java_libraries_dir=${out_dir}/target/common/obj/JAVA_LIBRARIES
 common_targets="vogar core-tests apache-harmony-jdwp-tests-hostdex jsr166-tests mockito-target"
@@ -63,20 +62,31 @@ while true; do
   fi
 done
 
-if $using_jack; then
+if [[ $using_jack == "true" ]]; then
   common_targets="$common_targets ${out_dir}/host/linux-x86/bin/jack"
 fi
 
+# Allow to build successfully in master-art.
+extra_args=SOONG_ALLOW_MISSING_DEPENDENCIES=true
+
 if [[ $mode == "host" ]]; then
-  make_command="make $j_arg $showcommands build-art-host-tests $common_targets dx-tests"
-  make_command+=" ${out_dir}/host/linux-x86/lib/libjavacoretests.so "
-  make_command+=" ${out_dir}/host/linux-x86/lib64/libjavacoretests.so"
+  make_command="make $j_arg $extra_args $showcommands build-art-host-tests $common_targets"
+  make_command+=" dx-tests"
+  mode_suffix="-host"
 elif [[ $mode == "target" ]]; then
-  make_command="make $j_arg $showcommands build-art-target-tests $common_targets"
-  make_command+=" libjavacrypto libjavacoretests libnetd_client linker toybox toolbox sh"
+  make_command="make $j_arg $extra_args $showcommands build-art-target-tests $common_targets"
+  make_command+=" libjavacrypto-target libnetd_client-target linker toybox toolbox sh"
   make_command+=" ${out_dir}/host/linux-x86/bin/adb libstdc++ "
   make_command+=" ${out_dir}/target/product/${TARGET_PRODUCT}/system/etc/public.libraries.txt"
+  mode_suffix="-target"
 fi
 
+mode_specific_libraries="libjavacoretests libjdwp libwrapagentproperties libwrapagentpropertiesd"
+for LIB in ${mode_specific_libraries} ; do
+  make_command+=" $LIB${mode_suffix}"
+done
+
+
+
 echo "Executing $make_command"
-$make_command
+bash -c "$make_command"

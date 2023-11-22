@@ -35,7 +35,9 @@ my_rs_path := $(TOP)/prebuilts/renderscript/host/linux-x86/25.0.2
 LOCAL_RENDERSCRIPT_CC := $(my_rs_path)/bin/llvm-rs-cc
 LOCAL_RENDERSCRIPT_INCLUDES_OVERRIDE := $(my_rs_path)/include $(my_rs_path)/clang-include
 my_rs_path :=
-LOCAL_SRC_FILES := $(call all-java-files-under,../src)\
+LOCAL_SRC_FILES :=\
+    $(call all-java-files-under,../src)\
+    $(call all-java-files-under,src)\
     $(my_rs_unit_tests_path)/UnitTest.java\
     $(my_rs_unit_tests_path)/UT_alloc.java\
     $(my_rs_unit_tests_path)/alloc.rs\
@@ -117,8 +119,6 @@ LOCAL_SRC_FILES := $(call all-java-files-under,../src)\
     $(my_rs_unit_tests_path)/reduce_backward.rs\
     $(my_rs_unit_tests_path)/UT_refcount.java\
     $(my_rs_unit_tests_path)/refcount.rs\
-    $(my_rs_unit_tests_path)/UT_reflection3264.java\
-    $(my_rs_unit_tests_path)/reflection3264.rs\
     $(my_rs_unit_tests_path)/UT_rsdebug.java\
     $(my_rs_unit_tests_path)/rsdebug.rs\
     $(my_rs_unit_tests_path)/UT_rsdebug_23.java\
@@ -156,8 +156,6 @@ LOCAL_SRC_FILES := $(call all-java-files-under,../src)\
     $(my_rs_unit_tests_path)/static_globals.rs\
     $(my_rs_unit_tests_path)/UT_struct.java\
     $(my_rs_unit_tests_path)/struct.rs\
-    $(my_rs_unit_tests_path)/UT_struct_field_simple.java\
-    $(my_rs_unit_tests_path)/struct_field_simple.rs\
     $(my_rs_unit_tests_path)/UT_unsigned.java\
     $(my_rs_unit_tests_path)/unsigned.rs\
     $(my_rs_unit_tests_path)/UT_vector.java\

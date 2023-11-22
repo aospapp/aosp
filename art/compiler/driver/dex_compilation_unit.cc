@@ -16,8 +16,10 @@
 
 #include "dex_compilation_unit.h"
 
+#include "base/utils.h"
+#include "dex/code_item_accessors-inl.h"
+#include "dex/descriptors_names.h"
 #include "mirror/dex_cache.h"
-#include "utils.h"
 
 namespace art {
 
@@ -38,8 +40,8 @@ DexCompilationUnit::DexCompilationUnit(Handle<mirror::ClassLoader> class_loader,
       dex_method_idx_(method_idx),
       access_flags_(access_flags),
       verified_method_(verified_method),
-      dex_cache_(dex_cache) {
-}
+      dex_cache_(dex_cache),
+      code_item_accessor_(dex_file, code_item) {}
 
 const std::string& DexCompilationUnit::GetSymbol() {
   if (symbol_.empty()) {

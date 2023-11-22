@@ -15,10 +15,11 @@
  */
 package com.android.tradefed.suite.checker;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.suite.checker.StatusCheckerResult.CheckStatus;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
@@ -46,8 +47,8 @@ public class SystemServerFileDescriptorCheckerTest {
         EasyMock.expect(mMockDevice.executeShellCommand(EasyMock.eq("pidof system_server")))
                 .andReturn("not found\n");
         EasyMock.replay(mMockDevice);
-        assertTrue(mChecker.preExecutionCheck(mMockDevice));
-        assertTrue(mChecker.postExecutionCheck(mMockDevice));
+        assertEquals(CheckStatus.SUCCESS, mChecker.preExecutionCheck(mMockDevice).getStatus());
+        assertEquals(CheckStatus.SUCCESS, mChecker.postExecutionCheck(mMockDevice).getStatus());
         EasyMock.verify(mMockDevice);
     }
 
@@ -62,8 +63,8 @@ public class SystemServerFileDescriptorCheckerTest {
                                 EasyMock.eq("su root ls /proc/1024/fd | wc -w")))
                 .andReturn("not found\n");
         EasyMock.replay(mMockDevice);
-        assertTrue(mChecker.preExecutionCheck(mMockDevice));
-        assertTrue(mChecker.postExecutionCheck(mMockDevice));
+        assertEquals(CheckStatus.SUCCESS, mChecker.preExecutionCheck(mMockDevice).getStatus());
+        assertEquals(CheckStatus.SUCCESS, mChecker.postExecutionCheck(mMockDevice).getStatus());
         EasyMock.verify(mMockDevice);
     }
 
@@ -78,8 +79,8 @@ public class SystemServerFileDescriptorCheckerTest {
                                 EasyMock.eq("su root ls /proc/914/fd | wc -w")))
                 .andReturn("382  \n");
         EasyMock.replay(mMockDevice);
-        assertTrue(mChecker.preExecutionCheck(mMockDevice));
-        assertTrue(mChecker.postExecutionCheck(mMockDevice));
+        assertEquals(CheckStatus.SUCCESS, mChecker.preExecutionCheck(mMockDevice).getStatus());
+        assertEquals(CheckStatus.SUCCESS, mChecker.postExecutionCheck(mMockDevice).getStatus());
         EasyMock.verify(mMockDevice);
     }
 
@@ -94,8 +95,10 @@ public class SystemServerFileDescriptorCheckerTest {
                                 EasyMock.eq("su root ls /proc/914/fd | wc -w")))
                 .andReturn("1002  \n");
         EasyMock.replay(mMockDevice);
-        assertTrue(mChecker.preExecutionCheck(mMockDevice));
-        assertFalse(mChecker.postExecutionCheck(mMockDevice));
+        assertEquals(CheckStatus.SUCCESS, mChecker.preExecutionCheck(mMockDevice).getStatus());
+        StatusCheckerResult postResult = mChecker.postExecutionCheck(mMockDevice);
+        assertEquals(CheckStatus.FAILED, postResult.getStatus());
+        assertNotNull(postResult.getErrorMessage());
         EasyMock.verify(mMockDevice);
     }
 
@@ -104,8 +107,8 @@ public class SystemServerFileDescriptorCheckerTest {
         EasyMock.expect(mMockDevice.getProperty(EasyMock.eq("ro.build.type"))).andReturn("user");
         // no further calls should happen after above
         EasyMock.replay(mMockDevice);
-        assertTrue(mChecker.preExecutionCheck(mMockDevice));
-        assertTrue(mChecker.postExecutionCheck(mMockDevice));
+        assertEquals(CheckStatus.SUCCESS, mChecker.preExecutionCheck(mMockDevice).getStatus());
+        assertEquals(CheckStatus.SUCCESS, mChecker.postExecutionCheck(mMockDevice).getStatus());
         EasyMock.verify(mMockDevice);
     }
 }

@@ -8,12 +8,12 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 # Include the testing libraries (JUnit4 + Robolectric libs).
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    platform-system-robolectric \
-    truth-prebuilt
+    truth-prebuilt \
+    mockito-robolectric-prebuilt
 
 LOCAL_JAVA_LIBRARIES := \
     junit \
-    platform-robolectric-prebuilt \
+    platform-robolectric-3.6.1-prebuilt \
     sdk_vcurrent
 
 LOCAL_INSTRUMENTATION_FOR := CarMessengerApp
@@ -37,4 +37,6 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 
 LOCAL_TEST_PACKAGE := CarMessengerApp
 
-include prebuilts/misc/common/robolectric/run_robotests.mk
+LOCAL_INSTRUMENT_SOURCE_DIRS := $(dir $(LOCAL_PATH))../src
+
+include prebuilts/misc/common/robolectric/3.6.1/run_robotests.mk

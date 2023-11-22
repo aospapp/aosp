@@ -17,6 +17,7 @@
 #ifndef ANDROID_AUDIO_PRIMITIVES_H
 #define ANDROID_AUDIO_PRIMITIVES_H
 
+#include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/cdefs.h>
@@ -34,6 +35,9 @@ __BEGIN_DECLS
  */
 
 /**
+ * Deprecated. Use memcpy_to_i16_from_q4_27() instead (double the pairs for the count).
+ * Neither this function nor memcpy_to_i16_from_q4_27() actually dither.
+ *
  * Dither and clamp pairs of 32-bit input samples (sums) to 16-bit output samples (out).
  * Each 32-bit input sample can be viewed as a signed fixed-point Q19.12 of which the
  * .12 fraction bits are dithered and the 19 integer bits are clamped to signed 16 bits.
@@ -41,15 +45,27 @@ __BEGIN_DECLS
  * is dithered and the remaining fraction is converted to the output Q.15, with clamping
  * on the 4 integer guard bits.
  *
- * For interleaved stereo, c is the number of sample pairs,
+ * For interleaved stereo, pairs is the number of sample pairs,
  * and out is an array of interleaved pairs of 16-bit samples per channel.
- * For mono, c is the number of samples / 2, and out is an array of 16-bit samples.
+ * For mono, pairs is the number of samples / 2, and out is an array of 16-bit samples.
  * The name "dither" is a misnomer; the current implementation does not actually dither
  * but uses truncation.  This may change.
  * The out and sums buffers must either be completely separate (non-overlapping), or
  * they must both start at the same address.  Partially overlapping buffers are not supported.
  */
-void ditherAndClamp(int32_t* out, const int32_t *sums, size_t c);
+void ditherAndClamp(int32_t *out, const int32_t *sums, size_t pairs);
+
+/**
+ * Copy samples from signed fixed-point 32-bit Q4.27 to 16-bit Q0.15
+ *
+ *  \param dst     Destination buffer
+ *  \param src     Source buffer
+ *  \param count   Number of samples to copy
+ *
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
+ */
+void memcpy_to_i16_from_q4_27(int16_t *dst, const int32_t *src, size_t count);
 
 /**
  * Expand and copy samples from unsigned 8-bit offset by 0x80 to signed 16-bit.
@@ -141,7 +157,8 @@ void memcpy_to_float_from_q4_27(float *dst, const int32_t *src, size_t count);
  *  \param src     Source buffer
  *  \param count   Number of samples to copy
  *
- * The destination and source buffers must be completely separate.
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
  */
 void memcpy_to_float_from_i16(float *dst, const int16_t *src, size_t count);
 
@@ -154,7 +171,8 @@ void memcpy_to_float_from_i16(float *dst, const int16_t *src, size_t count);
  *  \param src     Source buffer
  *  \param count   Number of samples to copy
  *
- * The destination and source buffers must be completely separate.
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
  */
 void memcpy_to_float_from_u8(float *dst, const uint8_t *src, size_t count);
 
@@ -168,7 +186,8 @@ void memcpy_to_float_from_u8(float *dst, const uint8_t *src, size_t count);
  *  \param src     Source buffer
  *  \param count   Number of samples to copy
  *
- * The destination and source buffers must be completely separate.
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
  */
 void memcpy_to_float_from_p24(float *dst, const uint8_t *src, size_t count);
 
@@ -195,7 +214,8 @@ void memcpy_to_i16_from_p24(int16_t *dst, const uint8_t *src, size_t count);
  *  \param src     Source buffer
  *  \param count   Number of samples to copy
  *
- * The destination and source buffers must be completely separate.
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
  */
 void memcpy_to_i32_from_p24(int32_t *dst, const uint8_t *src, size_t count);
 
@@ -209,7 +229,8 @@ void memcpy_to_i32_from_p24(int32_t *dst, const uint8_t *src, size_t count);
  *  \param src     Source buffer
  *  \param count   Number of samples to copy
  *
- * The destination and source buffers must be completely separate.
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
  */
 void memcpy_to_p24_from_i16(uint8_t *dst, const int16_t *src, size_t count);
 
@@ -237,7 +258,8 @@ void memcpy_to_p24_from_float(uint8_t *dst, const float *src, size_t count);
  *  \param src     Source buffer
  *  \param count   Number of samples to copy
  *
- * The destination and source buffers must be completely separate.
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.
  */
 void memcpy_to_p24_from_q8_23(uint8_t *dst, const int32_t *src, size_t count);
 
@@ -264,7 +286,8 @@ void memcpy_to_p24_from_i32(uint8_t *dst, const int32_t *src, size_t count);
  *  \param src     Source buffer
  *  \param count   Number of samples to copy
  *
- * The destination and source buffers must be completely separate.
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
  */
 void memcpy_to_q8_23_from_i16(int32_t *dst, const int16_t *src, size_t count);
 
@@ -291,7 +314,8 @@ void memcpy_to_q8_23_from_float_with_clamp(int32_t *dst, const float *src, size_
  *  \param src     Source buffer
  *  \param count   Number of samples to copy
  *
- * The destination and source buffers must be completely separate.
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
  */
 void memcpy_to_q8_23_from_p24(int32_t *dst, const uint8_t *src, size_t count);
 
@@ -347,7 +371,8 @@ void memcpy_to_float_from_q8_23(float *dst, const int32_t *src, size_t count);
  *  \param src     Source buffer
  *  \param count   Number of samples to copy
  *
- * The destination and source buffers must be completely separate.
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
  */
 void memcpy_to_i32_from_i16(int32_t *dst, const int16_t *src, size_t count);
 
@@ -380,6 +405,22 @@ void memcpy_to_i32_from_float(int32_t *dst, const float *src, size_t count);
 void memcpy_to_float_from_i32(float *dst, const int32_t *src, size_t count);
 
 /**
+ * Copy samples from unrestricted float to range restricted float [-absMax, absMax].
+ * Any float sample not in the range [-absMax, absMax] will be clamped in this range.
+ *
+ *  \param dst     Destination buffer
+ *  \param src     Source buffer
+ *  \param count   Number of samples to copy
+ *  \param absMax  Maximum of the absolute value of the copied samples.
+ *
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
+ * Note: NAN is clamped to absMax and not 0 for performance reason (~2xfaster).
+ */
+void memcpy_to_float_from_float_with_clamping(float *dst, const float *src, size_t count,
+                                              float absMax);
+
+/**
  * Downmix pairs of interleaved stereo input 16-bit samples to mono output 16-bit samples.
  *
  *  \param dst     Destination buffer
@@ -399,7 +440,8 @@ void downmix_to_mono_i16_from_stereo_i16(int16_t *dst, const int16_t *src, size_
  *  \param src     Source buffer
  *  \param count   Number of mono samples to upmix
  *
- * The destination and source buffers must be completely separate (non-overlapping).
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
  */
 void upmix_to_stereo_i16_from_mono_i16(int16_t *dst, const int16_t *src, size_t count);
 
@@ -424,7 +466,8 @@ void downmix_to_mono_float_from_stereo_float(float *dst, const float *src, size_
  *  \param src     Source buffer
  *  \param count   Number of mono samples to upmix
  *
- * The destination and source buffers must be completely separate (non-overlapping).
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
  */
 void upmix_to_stereo_float_from_mono_float(float *dst, const float *src, size_t count);
 
@@ -578,12 +621,94 @@ size_t memcpy_by_index_array_initialization_dst_index(int8_t *idxary, size_t idx
         uint32_t dst_mask, uint32_t src_mask);
 
 /**
+ * Add and clamp signed 16-bit samples.
+ *
+ *  \param dst     Destination buffer
+ *  \param src     Source buffer
+ *  \param count   Number of samples to add
+ *
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
+ */
+void accumulate_i16(int16_t *dst, const int16_t *src, size_t count);
+
+/**
+ * Add and clamp unsigned 8-bit samples.
+ *
+ *  \param dst     Destination buffer
+ *  \param src     Source buffer
+ *  \param count   Number of samples to add
+ *
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
+ */
+void accumulate_u8(uint8_t *dst, const uint8_t *src, size_t count);
+
+/**
+ * Add and clamp packed 24-bit Q0.23 samples.
+ *
+ *  \param dst     Destination buffer
+ *  \param src     Source buffer
+ *  \param count   Number of samples to add
+ *
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
+ */
+void accumulate_p24(uint8_t *dst, const uint8_t *src, size_t count);
+
+/**
+ * Add and clamp 32-bit Q8.23 samples.
+ *
+ *  \param dst     Destination buffer
+ *  \param src     Source buffer
+ *  \param count   Number of samples to add
+ *
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
+ */
+void accumulate_q8_23(int32_t *dst, const int32_t *src, size_t count);
+
+/**
+ * Add and clamp signed 32-bit Q0.31 samples.
+ *
+ *  \param dst     Destination buffer
+ *  \param src     Source buffer
+ *  \param count   Number of samples to add
+ *
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
+ */
+void accumulate_i32(int32_t *dst, const int32_t *src, size_t count);
+
+/**
+ * Add float samples. Result is not clamped.
+ *
+ *  \param dst     Destination buffer
+ *  \param src     Source buffer
+ *  \param count   Number of samples to add
+ *
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
+ */
+void accumulate_float(float *dst, const float *src, size_t count);
+
+/**
  * Clamp (aka hard limit or clip) a signed 32-bit sample to 16-bit range.
  */
 static inline int16_t clamp16(int32_t sample)
 {
     if ((sample>>15) ^ (sample>>31))
         sample = 0x7FFF ^ (sample>>31);
+    return sample;
+}
+
+/**
+ * Clamp (aka hard limit or clip) a signed 64-bit sample to 32-bit range.
+ */
+static inline int32_t clamp32(int64_t sample)
+{
+    if ((sample>>31) ^ (sample>>63))
+        sample = 0x7fffffff ^ (sample>>63);
     return sample;
 }
 
@@ -597,10 +722,12 @@ static inline int16_t clamp16(int32_t sample)
  * depending on the sign bit inside NaN (whose representation is not unique).
  * Nevertheless, strictly speaking, NaN behavior should be considered undefined.
  *
- * Rounding of 0.5 lsb is to even (default for IEEE 754).
+ * OLD code disabled: Rounding of 0.5 lsb is to even (default for IEEE 754).
+ * NEW code enabled: Rounding of 0.5 lsb is away from 0.
  */
 static inline int16_t clamp16_from_float(float f)
 {
+#if 0
     /* Offset is used to expand the valid range of [-1.0, 1.0) into the 16 lsbs of the
      * floating point significand. The normal shift is 3<<22, but the -15 offset
      * is used to multiply by 32768.
@@ -624,6 +751,10 @@ static inline int16_t clamp16_from_float(float f)
     else if (u.i > limpos)
         u.i = 32767;
     return u.i; /* Return lower 16 bits, the part of interest in the significand. */
+#else
+    static const float scale = 1 << 15;
+    return roundf(fmaxf(fminf(f * scale, scale - 1.f), -scale));
+#endif
 }
 
 /**
@@ -636,10 +767,12 @@ static inline int16_t clamp16_from_float(float f)
  * depending on the sign bit inside NaN (whose representation is not unique).
  * Nevertheless, strictly speaking, NaN behavior should be considered undefined.
  *
- * Rounding of 0.5 lsb is to even (default for IEEE 754).
+ * OLD code disabled: Rounding of 0.5 lsb is to even (default for IEEE 754).
+ * NEW code enabled: Rounding of 0.5 lsb is away from 0.
  */
 static inline uint8_t clamp8_from_float(float f)
 {
+#if 0
     /* Offset is used to expand the valid range of [-1.0, 1.0) into the 16 lsbs of the
      * floating point significand. The normal shift is 3<<22, but the -7 offset
      * is used to multiply by 128.
@@ -663,13 +796,17 @@ static inline uint8_t clamp8_from_float(float f)
     if (u.i > limpos)
         return 255;
     return u.i; /* Return lower 8 bits, the part of interest in the significand. */
+#else
+    return roundf(fmaxf(fminf(f * 128.f + 128.f, 255.f), 0.f));
+#endif
 }
 
 /**
  * Convert a single-precision floating point value to a Q0.23 integer value, stored in a
  * 32 bit signed integer (technically stored as Q8.23, but clamped to Q0.23).
  *
- * Rounds to nearest, ties away from 0.
+ * OLD code disabled: Rounds to nearest, ties away from 0.
+ * NEW code enabled: Rounding of 0.5 lsb is away from 0.
  *
  * Values outside the range [-1.0, 1.0) are properly clamped to -8388608 and 8388607,
  * including -Inf and +Inf. NaN values are considered undefined, and behavior may change
@@ -677,6 +814,7 @@ static inline uint8_t clamp8_from_float(float f)
  */
 static inline int32_t clamp24_from_float(float f)
 {
+#if 0
     static const float scale = (float)(1 << 23);
     static const float limpos = 0x7fffff / scale;
     static const float limneg = -0x800000 / scale;
@@ -691,6 +829,10 @@ static inline int32_t clamp24_from_float(float f)
      * ensure that we round to nearest, ties away from 0.
      */
     return f > 0 ? f + 0.5 : f - 0.5;
+#else
+    static const float scale = 1 << 23;
+    return roundf(fmaxf(fminf(f * scale, scale - 1.f), -scale));
+#endif
 }
 
 /**

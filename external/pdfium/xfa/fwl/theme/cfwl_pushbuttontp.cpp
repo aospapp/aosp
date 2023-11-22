@@ -10,8 +10,8 @@
 #include "xfa/fwl/cfwl_themebackground.h"
 #include "xfa/fwl/cfwl_widget.h"
 #include "xfa/fwl/ifwl_themeprovider.h"
-#include "xfa/fxgraphics/cfx_color.h"
-#include "xfa/fxgraphics/cfx_path.h"
+#include "xfa/fxgraphics/cxfa_gecolor.h"
+#include "xfa/fxgraphics/cxfa_gepath.h"
 
 #define PUSHBUTTON_SIZE_Corner 2
 
@@ -29,10 +29,10 @@ void CFWL_PushButtonTP::DrawBackground(CFWL_ThemeBackground* pParams) {
     }
     case CFWL_Part::Background: {
       CFX_RectF& rect = pParams->m_rtPart;
-      FX_FLOAT fRight = rect.right();
-      FX_FLOAT fBottom = rect.bottom();
+      float fRight = rect.right();
+      float fBottom = rect.bottom();
 
-      CFX_Path strokePath;
+      CXFA_GEPath strokePath;
       strokePath.MoveTo(
           CFX_PointF(rect.left + PUSHBUTTON_SIZE_Corner, rect.top));
       strokePath.LineTo(CFX_PointF(fRight - PUSHBUTTON_SIZE_Corner, rect.top));
@@ -48,10 +48,10 @@ void CFWL_PushButtonTP::DrawBackground(CFWL_ThemeBackground* pParams) {
       strokePath.LineTo(
           CFX_PointF(rect.left + PUSHBUTTON_SIZE_Corner, rect.top));
 
-      CFX_Path fillPath;
+      CXFA_GEPath fillPath;
       fillPath.AddSubpath(&strokePath);
 
-      CFX_Graphics* pGraphics = pParams->m_pGraphics;
+      CXFA_Graphics* pGraphics = pParams->m_pGraphics;
       pGraphics->SaveGraphState();
 
       CFX_RectF rtInner(rect);
@@ -67,16 +67,14 @@ void CFWL_PushButtonTP::DrawBackground(CFWL_ThemeBackground* pParams) {
                        m_pThemeData->clrEnd[iColor], &fillPath,
                        FXFILL_ALTERNATE, &pParams->m_matrix);
 
-      CFX_Color crStroke(m_pThemeData->clrBorder[iColor]);
-      pGraphics->SetStrokeColor(&crStroke);
+      pGraphics->SetStrokeColor(CXFA_GEColor(m_pThemeData->clrBorder[iColor]));
       pGraphics->StrokePath(&strokePath, &pParams->m_matrix);
 
       fillPath.Clear();
       fillPath.AddRectangle(rtInner.left, rtInner.top, rtInner.width,
                             rtInner.height);
 
-      CFX_Color crFill(m_pThemeData->clrFill[iColor]);
-      pGraphics->SetFillColor(&crFill);
+      pGraphics->SetFillColor(CXFA_GEColor(m_pThemeData->clrFill[iColor]));
       pGraphics->FillPath(&fillPath, FXFILL_WINDING, &pParams->m_matrix);
       if (pParams->m_dwStates & CFWL_PartState_Focused) {
         rtInner.Inflate(1, 1, 0, 0);

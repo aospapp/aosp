@@ -29,7 +29,6 @@
     <string name="printer_offline" msgid="9196864753298645066">"Offline"</string>
     <string name="printer_check" msgid="6428369671197132828">"Nyomtató ellenőrzése"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Várakozás a küldésre"</string>
-    <string name="wifi_not_connected" msgid="8644760246612043851">"A Wi‑Fi-hálózat nem kapcsolódik"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"A dokumentum nem olvasható"</string>
     <string name="media_size_l" msgid="164416542021598181">"L"</string>
     <string name="media_size_5x7in" msgid="1275128379533195285">"5x7 hüvelyk"</string>
@@ -38,12 +37,24 @@
     <string name="media_size_8x10in" msgid="1872576638522812402">"8x10 hüvelyk"</string>
     <string name="media_size_4x6in" msgid="3093276425529958253">"4x6 hüvelyk"</string>
     <string name="printer_description" msgid="8580767673213837142">"%1$s – %2$s"</string>
-    <string name="title_activity_add_printer" msgid="3971541707589830268">"Manuálisan hozzáadott nyomtatók"</string>
-    <string name="add_manual_printer" msgid="3990455596246121671">"Manuális nyomtató hozzáadása"</string>
+    <string name="title_activity_add_printer" msgid="9119216095769228566">"Nyomtató hozzáadása"</string>
+    <string name="add_printer_by_ip" msgid="562864787592910327">"Nyomtató hozzáadása IP-cím alapján"</string>
     <string name="hostname_or_ip" msgid="3460546103553992915">"Gazdagépnév vagy IP-cím"</string>
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"Hozzáadás"</string>
+    <string name="add_named" msgid="9074106244018070583">"<xliff:g id="PRINTER">%1$s</xliff:g> hozzáadása"</string>
     <string name="no_printer_found" msgid="4777867380924351173">"Ezen a címen nyomtató nem található"</string>
     <string name="printer_not_supported" msgid="281955849350938408">"Nem támogatott nyomtató"</string>
-    <string name="forget_printer" msgid="7287993564179837445">"Nyomtató elfelejtése"</string>
+    <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
+    <string name="find_wifi_direct" msgid="5270504288829123954">"Wi-Fi Directet használó nyomtatók keresése"</string>
+    <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi Directet használó nyomtatók"</string>
+    <string name="searching" msgid="2114018057619514587">"Keresés…"</string>
+    <string name="connect_hint_text" msgid="587112503851044234">"Előfordulhat, hogy jóvá kell hagynia ezt a kapcsolatot a nyomtató kijelzőjén"</string>
+    <string name="connecting_to" msgid="2665161014972086194">"Csatlakozás a következő nyomtatóhoz: <xliff:g id="PRINTER">%1$s</xliff:g>"</string>
+    <string name="failed_printer_connection" msgid="4196305972749960362">"Nem sikerült csatlakozni a nyomtatóhoz"</string>
+    <string name="failed_connection" msgid="8068661997318286575">"Nem sikerült csatlakozni a következő nyomtatóhoz: <xliff:g id="PRINTER">%1$s</xliff:g>"</string>
+    <string name="saved_printers" msgid="4567534965213125526">"Mentett nyomtatók"</string>
+    <string name="forget" msgid="892068061425802502">"Elfelejtés"</string>
+    <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Directen keresztül csatlakozik"</string>
+    <string name="connects_via_network" msgid="5990041581556733898">"A következő címen csatlakozik az aktuális hálózaton keresztül: <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
 </resources>

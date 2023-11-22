@@ -47,11 +47,11 @@ public class ProgressDialogFragment extends Fragment {
         final ViewGroup view =
                 (ViewGroup) inflater.inflate(R.layout.progress_fragment, container, false);
 
-        mIconView = (ImageView) view.findViewById(android.R.id.icon);
-        mTitleView = (TextView) view.findViewById(android.R.id.title);
-        mExtraTextView = (TextView) view.findViewById(R.id.extra);
-        mSummaryView = (TextView) view.findViewById(android.R.id.summary);
-        mProgressBar = (ProgressBar) view.findViewById(android.R.id.progress);
+        mIconView = view.findViewById(android.R.id.icon);
+        mTitleView = view.findViewById(android.R.id.title);
+        mExtraTextView = view.findViewById(R.id.extra);
+        mSummaryView = view.findViewById(android.R.id.summary);
+        mProgressBar = view.findViewById(android.R.id.progress);
 
         if (mWidth != -1) {
             final ViewGroup.LayoutParams params = view.getLayoutParams();

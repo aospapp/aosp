@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "file.h"
+#include "bsdiff/file.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -64,11 +64,7 @@ bool File::Seek(off_t pos) {
     errno = EBADF;
     return false;
   }
-  // fseek() uses a long value for the offset which could be smaller than off_t.
-  if (pos > std::numeric_limits<long>::max()) {
-    errno = EOVERFLOW;
-    return false;
-  }
+
   off_t newpos = lseek(fd_, pos, SEEK_SET);
   if (newpos < 0)
     return false;

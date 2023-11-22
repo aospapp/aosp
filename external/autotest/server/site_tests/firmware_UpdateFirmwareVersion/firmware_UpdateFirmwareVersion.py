@@ -41,6 +41,7 @@ class firmware_UpdateFirmwareVersion(FirmwareTest):
         shellball_path = dict_args.get('shellball', None)
         super(firmware_UpdateFirmwareVersion, self).initialize(
             host, cmdline_args)
+        self.switcher.setup_mode('normal')
         self.backup_firmware()
         self.setup_firmwareupdate_shellball(shellball_path)
 
@@ -51,7 +52,7 @@ class firmware_UpdateFirmwareVersion(FirmwareTest):
             self.switcher.mode_aware_reboot()
 
         self.setup_usbkey(usbkey=True)
-        self.switcher.setup_mode('normal')
+
         self._fwid = self.faft_client.updater.get_fwid()
 
         actual_ver = self.faft_client.bios.get_version('a')
@@ -64,9 +65,12 @@ class firmware_UpdateFirmwareVersion(FirmwareTest):
         self.faft_client.updater.repack_shellball('test')
 
     def cleanup(self):
-        self.faft_client.updater.cleanup()
-        self.restore_firmware()
-        self.invalidate_firmware_setup()
+        try:
+            self.faft_client.updater.cleanup()
+            self.restore_firmware()
+            self.invalidate_firmware_setup()
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_UpdateFirmwareVersion, self).cleanup()
 
     def run_once(self):

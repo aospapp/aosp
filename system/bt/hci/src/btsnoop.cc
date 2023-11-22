@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2014 Google, Inc.
+ *  Copyright 2014 Google, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/uio.h>
 #include <unistd.h>
 
 #include "bt_types.h"
@@ -199,7 +200,7 @@ static void open_next_snoop_file() {
   get_btsnoop_log_path(log_path);
   get_btsnoop_last_log_path(last_log_path, log_path);
 
-  if (!rename(log_path, last_log_path) && errno != ENOENT)
+  if (rename(log_path, last_log_path) != 0 && errno != ENOENT)
     LOG_ERROR(LOG_TAG, "%s unable to rename '%s' to '%s': %s", __func__,
               log_path, last_log_path, strerror(errno));
 

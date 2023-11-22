@@ -16,7 +16,10 @@
 
 package com.android.internal.telephony;
 
+import android.os.Bundle;
 import android.os.Parcel;
+import android.telephony.AccessNetworkConstants;
+import android.telephony.NetworkRegistrationState;
 import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -25,6 +28,7 @@ import android.util.Pair;
 import junit.framework.TestCase;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class ServiceStateTest extends TestCase {
 
@@ -65,6 +69,55 @@ public class ServiceStateTest extends TestCase {
 
         ss.setVoiceRegState(ServiceState.STATE_IN_SERVICE);
         assertEquals(ServiceState.STATE_IN_SERVICE, ss.getVoiceRegState());
+    }
+
+    @SmallTest
+    public void testBitmaskFromString() {
+        String networkTypeList = "4|7|5|6|12|13|14|19";
+        int networkTypeBitmask = 1 << (4 - 1) | 1 << (7 - 1) | 1 << (5 - 1) | 1 << (6 - 1)
+                | 1 << (12 - 1) | 1 << (14 - 1) | 1 << (13 - 1) | 1 << (19 - 1);
+        assertEquals(networkTypeBitmask,
+                ServiceState.getBitmaskFromString(networkTypeList));
+
+        networkTypeList = "13";
+        networkTypeBitmask = 1 << (13 - 1);
+        assertEquals(networkTypeBitmask,
+                ServiceState.getBitmaskFromString(networkTypeList));
+
+        networkTypeList = "";
+        networkTypeBitmask = 0;
+        assertEquals(networkTypeBitmask,
+                ServiceState.getBitmaskFromString(networkTypeList));
+    }
+
+    @SmallTest
+    public void testConvertNetworkTypeBitmaskToBearerBitmask() {
+        // The value was calculated by adding "4|4|7|5|6|12|14|13|19".
+        int networkTypeBitmask = 276600;
+        // The value was calculated by adding "4|5|6|7|8|12|13|14|19".
+        int bearerBitmask = 276728;
+        assertEquals(bearerBitmask,
+                ServiceState.convertNetworkTypeBitmaskToBearerBitmask(networkTypeBitmask));
+
+        networkTypeBitmask = 0;
+        bearerBitmask = 0;
+        assertEquals(bearerBitmask,
+                ServiceState.convertNetworkTypeBitmaskToBearerBitmask(networkTypeBitmask));
+    }
+
+    @SmallTest
+    public void testConvertBearerBitmaskToNetworkTypeBitmask() {
+        // The value was calculated by adding "4|4|7|5|6|12|14|13|19".
+        int networkTypeBitmask = 276600;
+        // The value was calculated by adding "4|5|6|7|8|12|13|14|19".
+        int bearerBitmask = 276728;
+        assertEquals(networkTypeBitmask,
+                ServiceState.convertBearerBitmaskToNetworkTypeBitmask(bearerBitmask));
+
+        networkTypeBitmask = 0;
+        bearerBitmask = 0;
+        assertEquals(networkTypeBitmask,
+                ServiceState.convertBearerBitmaskToNetworkTypeBitmask(bearerBitmask));
     }
 
     @SmallTest
@@ -113,6 +166,17 @@ public class ServiceStateTest extends TestCase {
             }
         }
     }
+    @SmallTest
+    public void testGetCellBandwidths() {
+        ServiceState ss = new ServiceState();
+
+        ss.setCellBandwidths(null);
+        assertTrue(Arrays.equals(ss.getCellBandwidths(), new int[0]));
+
+        int[] cellBandwidths = new int[]{5000, 10000};
+        ss.setCellBandwidths(cellBandwidths);
+        assertTrue(Arrays.equals(ss.getCellBandwidths(), cellBandwidths));
+    }
 
     @SmallTest
     public void testOperatorName() {
@@ -147,9 +211,9 @@ public class ServiceStateTest extends TestCase {
         ss.setIsManualSelection(true);
         assertTrue(ss.getIsManualSelection());
 
-        ss.setSystemAndNetworkId(123, 456);
-        assertEquals(123, ss.getSystemId());
-        assertEquals(456, ss.getNetworkId());
+        ss.setCdmaSystemAndNetworkId(123, 456);
+        assertEquals(123, ss.getCdmaSystemId());
+        assertEquals(456, ss.getCdmaNetworkId());
 
         ss.setEmergencyOnly(true);
         assertTrue(ss.isEmergencyOnly());
@@ -168,13 +232,15 @@ public class ServiceStateTest extends TestCase {
         ss.setRilVoiceRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_1xRTT);
         ss.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_EVDO_0);
         ss.setCssIndicator(1);
-        ss.setSystemAndNetworkId(2, 3);
+        ss.setCdmaSystemAndNetworkId(2, 3);
         ss.setCdmaRoamingIndicator(4);
         ss.setCdmaDefaultRoamingIndicator(5);
         ss.setCdmaEriIconIndex(6);
         ss.setCdmaEriIconMode(7);
         ss.setEmergencyOnly(true);
         ss.setDataRoamingFromRegistration(true);
+        ss.setChannelNumber(2100);
+        ss.setCellBandwidths(new int[]{1400, 5000, 10000});
 
         Parcel p = Parcel.obtain();
         ss.writeToParcel(p, 0);
@@ -182,5 +248,114 @@ public class ServiceStateTest extends TestCase {
 
         ServiceState newSs = new ServiceState(p);
         assertEquals(ss, newSs);
+    }
+
+    @SmallTest
+    public void testBundle() {
+        ServiceState ss = new ServiceState();
+        ss.setVoiceRegState(ServiceState.STATE_IN_SERVICE);
+        ss.setDataRegState(ServiceState.STATE_OUT_OF_SERVICE);
+        ss.setVoiceRoamingType(ServiceState.ROAMING_TYPE_INTERNATIONAL);
+        ss.setDataRoamingType(ServiceState.ROAMING_TYPE_UNKNOWN);
+        ss.setOperatorName("long", "short", "numeric");
+        ss.setIsManualSelection(true);
+        ss.setRilVoiceRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_1xRTT);
+        ss.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_EVDO_0);
+        ss.setCssIndicator(1);
+        ss.setCdmaSystemAndNetworkId(2, 3);
+        ss.setCdmaRoamingIndicator(4);
+        ss.setCdmaDefaultRoamingIndicator(5);
+        ss.setCdmaEriIconIndex(6);
+        ss.setCdmaEriIconMode(7);
+        ss.setEmergencyOnly(true);
+        ss.setDataRoamingFromRegistration(true);
+        ss.setChannelNumber(2100);
+        ss.setCellBandwidths(new int[]{3, 4, 10});
+
+        Bundle b = new Bundle();
+        ss.fillInNotifierBundle(b);
+        ServiceState newSs = ServiceState.newFromBundle(b);
+
+        assertEquals(ss, newSs);
+    }
+
+    @SmallTest
+    public void testNetworkRegistrationState() {
+        NetworkRegistrationState wwanVoiceRegState = new NetworkRegistrationState(
+                AccessNetworkConstants.TransportType.WWAN, NetworkRegistrationState.DOMAIN_CS,
+                0, 0, 0, false,
+                null, null, true, 0, 0, 0);
+
+
+        NetworkRegistrationState wwanDataRegState = new NetworkRegistrationState(
+                AccessNetworkConstants.TransportType.WWAN, NetworkRegistrationState.DOMAIN_PS,
+                0, 0, 0, false,
+                null, null, 0);
+
+        NetworkRegistrationState wlanRegState = new NetworkRegistrationState(
+                AccessNetworkConstants.TransportType.WLAN, NetworkRegistrationState.DOMAIN_PS,
+                0, 0, 0, false,
+                null, null);
+
+        ServiceState ss = new ServiceState();
+
+        ss.addNetworkRegistrationState(wwanVoiceRegState);
+        ss.addNetworkRegistrationState(wwanDataRegState);
+        ss.addNetworkRegistrationState(wlanRegState);
+
+        assertEquals(ss.getNetworkRegistrationStates(AccessNetworkConstants.TransportType.WWAN,
+                NetworkRegistrationState.DOMAIN_CS), wwanVoiceRegState);
+        assertEquals(ss.getNetworkRegistrationStates(AccessNetworkConstants.TransportType.WWAN,
+                NetworkRegistrationState.DOMAIN_PS), wwanDataRegState);
+        assertEquals(ss.getNetworkRegistrationStates(AccessNetworkConstants.TransportType.WLAN,
+                NetworkRegistrationState.DOMAIN_PS), wlanRegState);
+
+        wwanDataRegState = new NetworkRegistrationState(
+                AccessNetworkConstants.TransportType.WWAN, NetworkRegistrationState.DOMAIN_PS,
+                0, 0, 0, true,
+                null, null, 0);
+        ss.addNetworkRegistrationState(wwanDataRegState);
+        assertEquals(ss.getNetworkRegistrationStates(AccessNetworkConstants.TransportType.WWAN,
+                NetworkRegistrationState.DOMAIN_PS), wwanDataRegState);
+    }
+
+    @SmallTest
+    public void testDuplexMode_notLte() {
+        ServiceState ss = new ServiceState();
+        ss.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_GSM);
+        ss.setChannelNumber(2400);
+
+        assertEquals(ss.getDuplexMode(), ServiceState.DUPLEX_MODE_UNKNOWN);
+    }
+
+    @SmallTest
+    public void testDuplexMode_invalidEarfcn() {
+        ServiceState ss = new ServiceState();
+        ss.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
+        ss.setChannelNumber(-1);
+
+        assertEquals(ss.getDuplexMode(), ServiceState.DUPLEX_MODE_UNKNOWN);
+
+        ss.setChannelNumber(Integer.MAX_VALUE);
+
+        assertEquals(ss.getDuplexMode(), ServiceState.DUPLEX_MODE_UNKNOWN);
+    }
+
+    @SmallTest
+    public void testDuplexMode_FddChannel() {
+        ServiceState ss = new ServiceState();
+        ss.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
+        ss.setChannelNumber(2400); // band 5
+
+        assertEquals(ss.getDuplexMode(), ServiceState.DUPLEX_MODE_FDD);
+    }
+
+    @SmallTest
+    public void testDuplexMode_TddChannel() {
+        ServiceState ss = new ServiceState();
+        ss.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
+        ss.setChannelNumber(36000); // band 33
+
+        assertEquals(ss.getDuplexMode(), ServiceState.DUPLEX_MODE_TDD);
     }
 }

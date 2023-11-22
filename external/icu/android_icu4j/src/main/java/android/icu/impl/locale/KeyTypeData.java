@@ -413,6 +413,7 @@ keyInfo{
     }
     valueType{
         ca{"incremental"}
+        h0{"single"}
         kr{"multiple"}
         vt{"multiple"}
         x0{"any"}

@@ -19,7 +19,6 @@ cc_library_static {
     name: "libc++_static",
     host_supported: true,
     vendor_available: true,
-    clang: true,
     srcs: [
         "src/algorithm.cpp",
         "src/any.cpp",
@@ -49,9 +48,11 @@ cc_library_static {
         "src/utility.cpp",
         "src/valarray.cpp",
         "src/variant.cpp",
+        "src/vector.cpp",
     ],
     local_include_dirs: ["include"],
     export_include_dirs: ["include"],
+    cflags: ["-Wall", "-Werror", "-Wno-unused-parameter"],
     cppflags: [
         "-std=c++14",
         "-nostdinc++",
@@ -80,14 +81,10 @@ cc_library_shared {
         enabled: true,
         support_system_process: true,
     },
-    clang: true,
     whole_static_libs: ["libc++_static"],
     stl: "none",
 
     target: {
-        android: {
-            shared_libs: ["libdl"],
-        },
         android_arm: {
             static_libs: ["libunwind_llvm"],
             ldflags: ["-Wl,--exclude-libs,libunwind_llvm.a"],
@@ -102,19 +99,13 @@ cc_library_shared {
             ],
         },
 
-        linux: {
+        linux_glibc: {
             ldflags: ["-nodefaultlibs"],
-            host_ldlibs: [
-                "-lrt",
-                "-lpthread",
-                "-ldl",
-            ],
         },
         linux_bionic: {
             enabled: true,
             static_libs: ["libunwindbacktrace"],
             shared_libs: [
-                "libdl",
                 "liblzma",
             ],
         },

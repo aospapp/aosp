@@ -18,10 +18,8 @@
   <option name="compatibility:primary-abi-only" value="true" />
   <option name="plan" value="vts" />
   <option name="test-tag" value="vts-star" />
-  <option name="vts-plan-result:plan-name" value="vts-serving-staging-presubmit" />
-
-  <!-- For vts-hal-conventional -->
-  <!-- option name="compatibility:include-filter" value="SampleLightTest" / -->
+  <option name="vts-plan-result:plan-name" value="vts-staging-presubmit" />
+  <option name="vts-plan-result:default-type" value="staging" />
 
   <!-- For vts-hal-hidl -->
   <option name="compatibility:test-arg" value="com.android.tradefed.testtype.VtsMultiDeviceTest:gtest-batch-mode:true" />
@@ -43,7 +41,6 @@
   <!-- option name="compatibility:include-filter" value="KernelLtpTest" / -->
   <!-- option name="compatibility:include-filter" value="LinuxKselftestTestPresubmit" / -->
   <!-- option name="compatibility:include-filter" value="ShellBinaryCrashTest" / -->
-  <!-- option name="compatibility:include-filter" value="SampleQtaguidTest" / -->
   <!-- option name="compatibility:include-filter" value="LibcTest" / -->
   <!-- option name="compatibility:include-filter" value="SyscallExistenceTest" / -->
 

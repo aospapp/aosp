@@ -22,9 +22,15 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
+LOCAL_USE_AAPT2 := true
+
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
 LOCAL_PACKAGE_NAME := CarMapsPlaceholder
+# TODO(b/73535841): Can build against current once the car stubs exist.
+LOCAL_PRIVATE_PLATFORM_APIS := true
+
+LOCAL_STATIC_ANDROID_LIBRARIES := androidx.car_car
 
 LOCAL_CERTIFICATE := platform
 
@@ -33,8 +39,6 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_DEX_PREOPT := false
-
-include packages/apps/Car/libs/car-stream-ui-lib/car-stream-ui-lib.mk
 
 include $(BUILD_PACKAGE)
 

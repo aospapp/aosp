@@ -52,6 +52,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListPopupWindow;
 import android.widget.Toast;
@@ -100,6 +101,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -747,6 +749,9 @@ public class ContactEditorFragment extends Fragment implements
             });
         }
 
+        final MenuItem helpMenu = menu.findItem(R.id.menu_help);
+        helpMenu.setVisible(HelpUtils.isHelpAndFeedbackAvailable());
+
         int size = menu.size();
         for (int i = 0; i < size; i++) {
             menu.getItem(i).setEnabled(mEnabled);
@@ -945,8 +950,10 @@ public class ContactEditorFragment extends Fragment implements
         if (isEditingReadOnlyRawContactWithNewContact()) {
             // We created a new raw contact delta with a default display name.
             // We must test for pending changes while ignoring the default display name.
-            final ValuesDelta beforeDelta = mState.getByRawContactId(mReadOnlyDisplayNameId)
-                    .getSuperPrimaryEntry(StructuredName.CONTENT_ITEM_TYPE);
+            final RawContactDelta beforeRawContactDelta = mState
+                    .getByRawContactId(mReadOnlyDisplayNameId);
+            final ValuesDelta beforeDelta = beforeRawContactDelta == null ? null :
+                  beforeRawContactDelta.getSuperPrimaryEntry(StructuredName.CONTENT_ITEM_TYPE);
             final ValuesDelta pendingDelta = mState
                     .getSuperPrimaryEntry(StructuredName.CONTENT_ITEM_TYPE);
             if (structuredNamesAreEqual(beforeDelta, pendingDelta)) {
@@ -1276,6 +1283,13 @@ public class ContactEditorFragment extends Fragment implements
         final Uri uri = (Uri) mUpdatedPhotos.get(String.valueOf(mPhotoRawContactId));
         if (uri != null) {
             editorView.setFullSizePhoto(uri);
+        }
+        final StructuredNameEditorView nameEditor = editorView.getNameEditorView();
+        final TextFieldsEditorView phoneticNameEditor = editorView.getPhoneticEditorView();
+        final boolean useJapaneseOrder = 
+                       Locale.JAPANESE.getLanguage().equals(Locale.getDefault().getLanguage());
+        if (useJapaneseOrder && nameEditor != null && phoneticNameEditor != null) {
+            nameEditor.setPhoneticView(phoneticNameEditor);
         }
 
         // The editor is ready now so make it visible

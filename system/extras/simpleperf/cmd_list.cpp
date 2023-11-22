@@ -26,6 +26,7 @@
 #include "environment.h"
 #include "event_attr.h"
 #include "event_fd.h"
+#include "event_selection_set.h"
 #include "event_type.h"
 
 static bool IsEventTypeSupported(const EventType& event_type) {
@@ -92,11 +93,27 @@ class ListCommand : public Command {
  public:
   ListCommand()
       : Command("list", "list available event types",
-                "Usage: simpleperf list [hw|sw|cache|raw|tracepoint]\n"
-                "    List all available perf events on this machine.\n") {
+                // clang-format off
+"Usage: simpleperf list [options] [hw|sw|cache|raw|tracepoint]\n"
+"       List all available event types.\n"
+"       Filters can be used to show only event types belong to selected types:\n"
+"         hw          hardware events\n"
+"         sw          software events\n"
+"         cache       hardware cache events\n"
+"         raw         raw pmu events\n"
+"         tracepoint  tracepoint events\n"
+"Options:\n"
+"--show-features    Show features supported on the device, including:\n"
+"                     dwarf-based-call-graph\n"
+"                     trace-offcpu\n"
+                // clang-format on
+                ) {
   }
 
   bool Run(const std::vector<std::string>& args) override;
+
+ private:
+  void ShowFeatures();
 };
 
 bool ListCommand::Run(const std::vector<std::string>& args) {
@@ -122,6 +139,9 @@ bool ListCommand::Run(const std::vector<std::string>& args) {
     for (auto& arg : args) {
       if (type_map.find(arg) != type_map.end()) {
         names.push_back(arg);
+      } else if (arg == "--show-features") {
+        ShowFeatures();
+        return true;
       } else {
         LOG(ERROR) << "unknown event type category: " << arg << ", try using \"help list\"";
         return false;
@@ -136,6 +156,18 @@ bool ListCommand::Run(const std::vector<std::string>& args) {
     PrintEventTypesOfType(it->second.first, it->second.second, event_types);
   }
   return true;
+}
+
+void ListCommand::ShowFeatures() {
+  if (IsDwarfCallChainSamplingSupported()) {
+    printf("dwarf-based-call-graph\n");
+  }
+  if (IsDumpingRegsForTracepointEventsSupported()) {
+    printf("trace-offcpu\n");
+  }
+  if (IsSettingClockIdSupported()) {
+    printf("set-clockid\n");
+  }
 }
 
 void RegisterListCommand() {

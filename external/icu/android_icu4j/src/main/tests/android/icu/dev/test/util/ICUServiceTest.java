@@ -24,6 +24,8 @@ import java.util.Set;
 import java.util.SortedMap;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.ICULocaleService;
@@ -40,7 +42,10 @@ import android.icu.impl.ICUService.ServiceListener;
 import android.icu.impl.ICUService.SimpleFactory;
 import android.icu.impl.LocaleUtility;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class ICUServiceTest extends TestFmwk
 {
     private String lrmsg(String message, Object lhs, Object rhs) {
@@ -100,6 +105,7 @@ public class ICUServiceTest extends TestFmwk
             super("Test Service");
         }
 
+    @Override
     public Key createKey(String id) {
         return LocaleKey.createWithCanonicalFallback(id, null); // no fallback locale
     }
@@ -198,13 +204,16 @@ public class ICUServiceTest extends TestFmwk
     // an anonymous factory than handles all ids
     {
         Factory factory = new Factory() {
+            @Override
             public Object create(Key key, ICUService unusedService) {
                 return new ULocale(key.currentID());
             }
 
+            @Override
             public void updateVisibleIDs(Map unusedResult) {
             }
 
+            @Override
             public String getDisplayName(String id, ULocale l) {
                 return null;
             }
@@ -421,7 +430,8 @@ public class ICUServiceTest extends TestFmwk
         {
             logln("display names in reverse order: " +
                   service.getDisplayNames(ULocale.US, new Comparator() {
-                          public int compare(Object lhs, Object rhs) {
+                          @Override
+                        public int compare(Object lhs, Object rhs) {
                               return -String.CASE_INSENSITIVE_ORDER.compare((String)lhs, (String)rhs);
                           }
                       }));
@@ -479,6 +489,7 @@ public class ICUServiceTest extends TestFmwk
         ICULocaleService ls = new ICULocaleService();
         ServiceListener l1 = new ServiceListener() {
             private int n;
+            @Override
             public void serviceChanged(ICUService s) {
             logln("listener 1 report " + n++ + " service changed: " + s);
             }
@@ -486,6 +497,7 @@ public class ICUServiceTest extends TestFmwk
         ls.addListener(l1);
         ServiceListener l2 = new ServiceListener() {
             private int n;
+            @Override
             public void serviceChanged(ICUService s) {
             logln("listener 2 report " + n++ + " service changed: " + s);
             }
@@ -518,6 +530,7 @@ public class ICUServiceTest extends TestFmwk
         // since in a separate thread, we can callback and not deadlock
         ServiceListener l3 = new ServiceListener() {
             private int n;
+            @Override
             public void serviceChanged(ICUService s) {
             logln("listener 3 report " + n++ + " service changed...");
             if (s.get("en_BOINK") == null) { // don't recurse on ourselves!!!
@@ -550,10 +563,12 @@ public class ICUServiceTest extends TestFmwk
             this.factoryID = factoryID + ": ";
     }
 
+    @Override
     protected Object handleCreate(ULocale loc, int kind, ICUService service) {
             return factoryID + loc.toString();
     }
 
+    @Override
     protected Set getSupportedIDs() {
             return ids;
     }
@@ -625,10 +640,12 @@ public class ICUServiceTest extends TestFmwk
             supportedIDs = Collections.unmodifiableSet(result);
         }
 
+    @Override
     public Set getSupportedIDs() {
             return supportedIDs;
     }
 
+    @Override
     public String getDisplayName(String id, ULocale locale) {
         String prefix = "";
         String suffix = "";
@@ -771,6 +788,7 @@ public class ICUServiceTest extends TestFmwk
         {
             SortedMap map = service.getDisplayNames(ULocale.US,
                             new Comparator() {
+                                @Override
                                 public int compare(Object lhs, Object rhs) {
                                 return -String.CASE_INSENSITIVE_ORDER.compare((String)lhs, (String)rhs);
                                 }
@@ -792,6 +810,7 @@ public class ICUServiceTest extends TestFmwk
         logln("test one: " + service.get(greetingID));
 
         class WrapFactory implements Factory {
+            @Override
             public Object create(Key key, ICUService serviceArg) {
                 if (key.currentID().equals(greetingID)) {
                     Object previous = serviceArg.getKey(key, null, this);
@@ -800,10 +819,12 @@ public class ICUServiceTest extends TestFmwk
                 return null;
             }
 
+            @Override
             public void updateVisibleIDs(Map result) {
                 result.put("greeting", this);
             }
 
+            @Override
             public String getDisplayName(String id, ULocale locale) {
                 return "wrap '" + id + "'";
             }
@@ -992,11 +1013,13 @@ public class ICUServiceTest extends TestFmwk
     }
 
     static class ICUNSubclass extends ICUNotifier {
+        @Override
         public boolean acceptsListener(EventListener l) {
             return l instanceof MyListener;
         }
-    
+
         // not used, just needed to implement abstract base
+        @Override
         public void notifyListener(EventListener l) {
         }
     }
@@ -1006,6 +1029,7 @@ public class ICUServiceTest extends TestFmwk
         super(visible ? VISIBLE : INVISIBLE);
     }
 
+    @Override
     protected Set getSupportedIDs() {
             return Collections.EMPTY_SET;
     }

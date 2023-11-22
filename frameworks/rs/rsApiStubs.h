@@ -123,7 +123,7 @@ extern "C" void rsScriptGetVarV (RsContext rsc, RsScript s, uint32_t slot, void 
 extern "C" void rsScriptSetVarVE (RsContext rsc, RsScript s, uint32_t slot, const void * data, size_t data_length, RsElement e, const uint32_t * dims, size_t dims_length);
 
 // Graphics
-RsContext rsContextCreateGL(RsDevice vdev, uint32_t version, uint32_t sdkVersion, RsSurfaceConfig sc, uint32_t dpi);
+extern "C" RsContext rsContextCreateGL(RsDevice vdev, uint32_t version, uint32_t sdkVersion, RsSurfaceConfig sc, uint32_t dpi);
 extern "C" void rsContextSetSurface (RsContext rsc, uint32_t width, uint32_t height, RsNativeWindow sur);
 extern "C" void rsContextPause (RsContext rsc);
 extern "C" void rsContextResume (RsContext rsc);
@@ -145,15 +145,15 @@ extern "C" void rsProgramBindConstants (RsContext rsc, RsProgram vp, uint32_t sl
 extern "C" void rsProgramBindTexture (RsContext rsc, RsProgramFragment pf, uint32_t slot, RsAllocation a);
 extern "C" void rsProgramBindSampler (RsContext rsc, RsProgramFragment pf, uint32_t slot, RsSampler s);
 
-RsObjectBase rsaFileA3DGetEntryByIndex(RsContext con, uint32_t index, RsFile file);
-RsFile rsaFileA3DCreateFromMemory(RsContext con, const void *data, uint32_t len);
-RsFile rsaFileA3DCreateFromAsset(RsContext con, void *_asset);
-RsFile rsaFileA3DCreateFromFile(RsContext con, const char *path);
-void rsaFileA3DGetNumIndexEntries(RsContext con, int32_t *numEntries, RsFile file);
-void rsaFileA3DGetIndexEntries(RsContext con, RsFileIndexEntry *fileEntries, uint32_t numEntries, RsFile file);
-void rsaMeshGetVertexBufferCount(RsContext con, RsMesh mv, int32_t *numVtx);
-void rsaMeshGetIndexCount(RsContext con, RsMesh mv, int32_t *numIdx);
-void rsaMeshGetVertices(RsContext con, RsMesh mv, RsAllocation *vtxData, uint32_t vtxDataCount);
-void rsaMeshGetIndices(RsContext con, RsMesh mv, RsAllocation *va, uint32_t *primType, uint32_t idxDataCount);
+extern "C" RsObjectBase rsaFileA3DGetEntryByIndex(RsContext con, uint32_t index, RsFile file);
+extern "C" RsFile rsaFileA3DCreateFromMemory(RsContext con, const void *data, uint32_t len);
+extern "C" RsFile rsaFileA3DCreateFromAsset(RsContext con, void *_asset);
+extern "C" RsFile rsaFileA3DCreateFromFile(RsContext con, const char *path);
+extern "C" void rsaFileA3DGetNumIndexEntries(RsContext con, int32_t *numEntries, RsFile file);
+extern "C" void rsaFileA3DGetIndexEntries(RsContext con, RsFileIndexEntry *fileEntries, uint32_t numEntries, RsFile file);
+extern "C" void rsaMeshGetVertexBufferCount(RsContext con, RsMesh mv, int32_t *numVtx);
+extern "C" void rsaMeshGetIndexCount(RsContext con, RsMesh mv, int32_t *numIdx);
+extern "C" void rsaMeshGetVertices(RsContext con, RsMesh mv, RsAllocation *vtxData, uint32_t vtxDataCount);
+extern "C" void rsaMeshGetIndices(RsContext con, RsMesh mv, RsAllocation *va, uint32_t *primType, uint32_t idxDataCount);
 
 #endif // ANDROID_RS_API_STUBS_H

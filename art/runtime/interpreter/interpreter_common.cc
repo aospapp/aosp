@@ -20,19 +20,23 @@
 
 #include "base/enums.h"
 #include "debugger.h"
+#include "dex/dex_file_types.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
+#include "intrinsics_enum.h"
 #include "jit/jit.h"
 #include "jvalue.h"
-#include "method_handles.h"
 #include "method_handles-inl.h"
+#include "method_handles.h"
 #include "mirror/array-inl.h"
 #include "mirror/class.h"
 #include "mirror/emulated_stack_frame.h"
 #include "mirror/method_handle_impl-inl.h"
-#include "reflection.h"
+#include "mirror/var_handle.h"
 #include "reflection-inl.h"
+#include "reflection.h"
 #include "stack.h"
 #include "thread-inl.h"
+#include "transaction.h"
 #include "well_known_classes.h"
 
 namespace art {
@@ -42,7 +46,8 @@ void ThrowNullPointerExceptionFromInterpreter() {
   ThrowNullPointerExceptionFromDexPC();
 }
 
-template<FindFieldType find_type, Primitive::Type field_type, bool do_access_check>
+template<FindFieldType find_type, Primitive::Type field_type, bool do_access_check,
+         bool transaction_active>
 bool DoFieldGet(Thread* self, ShadowFrame& shadow_frame, const Instruction* inst,
                 uint16_t inst_data) {
   const bool is_static = (find_type == StaticObjectRead) || (find_type == StaticPrimitiveRead);
@@ -57,6 +62,13 @@ bool DoFieldGet(Thread* self, ShadowFrame& shadow_frame, const Instruction* inst
   ObjPtr<mirror::Object> obj;
   if (is_static) {
     obj = f->GetDeclaringClass();
+    if (transaction_active) {
+      if (Runtime::Current()->GetTransaction()->ReadConstraint(obj.Ptr(), f)) {
+        Runtime::Current()->AbortTransactionAndThrowAbortError(self, "Can't read static fields of "
+            + obj->PrettyTypeOf() + " since it does not belong to clinit's class.");
+        return false;
+      }
+    }
   } else {
     obj = shadow_frame.GetVRegReference(inst->VRegB_22c(inst_data));
     if (UNLIKELY(obj == nullptr)) {
@@ -102,15 +114,17 @@ bool DoFieldGet(Thread* self, ShadowFrame& shadow_frame, const Instruction* inst
 }
 
 // Explicitly instantiate all DoFieldGet functions.
-#define EXPLICIT_DO_FIELD_GET_TEMPLATE_DECL(_find_type, _field_type, _do_check) \
-  template bool DoFieldGet<_find_type, _field_type, _do_check>(Thread* self, \
+#define EXPLICIT_DO_FIELD_GET_TEMPLATE_DECL(_find_type, _field_type, _do_check, _transaction_active) \
+  template bool DoFieldGet<_find_type, _field_type, _do_check, _transaction_active>(Thread* self, \
                                                                ShadowFrame& shadow_frame, \
                                                                const Instruction* inst, \
                                                                uint16_t inst_data)
 
 #define EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(_find_type, _field_type)  \
-    EXPLICIT_DO_FIELD_GET_TEMPLATE_DECL(_find_type, _field_type, false);  \
-    EXPLICIT_DO_FIELD_GET_TEMPLATE_DECL(_find_type, _field_type, true);
+    EXPLICIT_DO_FIELD_GET_TEMPLATE_DECL(_find_type, _field_type, false, true);  \
+    EXPLICIT_DO_FIELD_GET_TEMPLATE_DECL(_find_type, _field_type, false, false);  \
+    EXPLICIT_DO_FIELD_GET_TEMPLATE_DECL(_find_type, _field_type, true, true);  \
+    EXPLICIT_DO_FIELD_GET_TEMPLATE_DECL(_find_type, _field_type, true, false);
 
 // iget-XXX
 EXPLICIT_DO_FIELD_GET_ALL_TEMPLATE_DECL(InstancePrimitiveRead, Primitive::kPrimBoolean)
@@ -261,6 +275,14 @@ bool DoFieldPut(Thread* self, const ShadowFrame& shadow_frame, const Instruction
   ObjPtr<mirror::Object> obj;
   if (is_static) {
     obj = f->GetDeclaringClass();
+    if (transaction_active) {
+      if (Runtime::Current()->GetTransaction()->WriteConstraint(obj.Ptr(), f)) {
+        Runtime::Current()->AbortTransactionAndThrowAbortError(
+            self, "Can't set fields of " + obj->PrettyTypeOf());
+        return false;
+      }
+    }
+
   } else {
     obj = shadow_frame.GetVRegReference(inst->VRegB_22c(inst_data));
     if (UNLIKELY(obj == nullptr)) {
@@ -397,32 +419,57 @@ EXPLICIT_DO_IPUT_QUICK_ALL_TEMPLATE_DECL(Primitive::kPrimNot)      // iput-objec
 #undef EXPLICIT_DO_IPUT_QUICK_ALL_TEMPLATE_DECL
 #undef EXPLICIT_DO_IPUT_QUICK_TEMPLATE_DECL
 
+// We execute any instrumentation events that are triggered by this exception and change the
+// shadow_frame's dex_pc to that of the exception handler if there is one in the current method.
+// Return true if we should continue executing in the current method and false if we need to go up
+// the stack to find an exception handler.
 // We accept a null Instrumentation* meaning we must not report anything to the instrumentation.
-uint32_t FindNextInstructionFollowingException(
-    Thread* self, ShadowFrame& shadow_frame, uint32_t dex_pc,
-    const instrumentation::Instrumentation* instrumentation) {
+// TODO We should have a better way to skip instrumentation reporting or possibly rethink that
+// behavior.
+bool MoveToExceptionHandler(Thread* self,
+                            ShadowFrame& shadow_frame,
+                            const instrumentation::Instrumentation* instrumentation) {
   self->VerifyStack();
   StackHandleScope<2> hs(self);
   Handle<mirror::Throwable> exception(hs.NewHandle(self->GetException()));
-  if (instrumentation != nullptr && instrumentation->HasExceptionCaughtListeners()
-      && self->IsExceptionThrownByCurrentMethod(exception.Get())) {
-    instrumentation->ExceptionCaughtEvent(self, exception.Get());
+  if (instrumentation != nullptr &&
+      instrumentation->HasExceptionThrownListeners() &&
+      self->IsExceptionThrownByCurrentMethod(exception.Get())) {
+    // See b/65049545 for why we don't need to check to see if the exception has changed.
+    instrumentation->ExceptionThrownEvent(self, exception.Get());
   }
   bool clear_exception = false;
   uint32_t found_dex_pc = shadow_frame.GetMethod()->FindCatchBlock(
-      hs.NewHandle(exception->GetClass()), dex_pc, &clear_exception);
-  if (found_dex_pc == DexFile::kDexNoIndex && instrumentation != nullptr) {
-    // Exception is not caught by the current method. We will unwind to the
-    // caller. Notify any instrumentation listener.
-    instrumentation->MethodUnwindEvent(self, shadow_frame.GetThisObject(),
-                                       shadow_frame.GetMethod(), dex_pc);
+      hs.NewHandle(exception->GetClass()), shadow_frame.GetDexPC(), &clear_exception);
+  if (found_dex_pc == dex::kDexNoIndex) {
+    if (instrumentation != nullptr) {
+      if (shadow_frame.NeedsNotifyPop()) {
+        instrumentation->WatchedFramePopped(self, shadow_frame);
+      }
+      // Exception is not caught by the current method. We will unwind to the
+      // caller. Notify any instrumentation listener.
+      instrumentation->MethodUnwindEvent(self,
+                                         shadow_frame.GetThisObject(),
+                                         shadow_frame.GetMethod(),
+                                         shadow_frame.GetDexPC());
+    }
+    return false;
   } else {
-    // Exception is caught in the current method. We will jump to the found_dex_pc.
-    if (clear_exception) {
+    shadow_frame.SetDexPC(found_dex_pc);
+    if (instrumentation != nullptr && instrumentation->HasExceptionHandledListeners()) {
+      self->ClearException();
+      instrumentation->ExceptionHandledEvent(self, exception.Get());
+      if (UNLIKELY(self->IsExceptionPending())) {
+        // Exception handled event threw an exception. Try to find the handler for this one.
+        return MoveToExceptionHandler(self, shadow_frame, instrumentation);
+      } else if (!clear_exception) {
+        self->SetException(exception.Get());
+      }
+    } else if (clear_exception) {
       self->ClearException();
     }
+    return true;
   }
-  return found_dex_pc;
 }
 
 void UnexpectedOpcode(const Instruction* inst, const ShadowFrame& shadow_frame) {
@@ -543,12 +590,17 @@ void SetStringInitValueToAllAliases(ShadowFrame* shadow_frame,
 }
 
 template<bool is_range>
-bool DoInvokePolymorphic(Thread* self,
-                         ShadowFrame& shadow_frame,
-                         const Instruction* inst,
-                         uint16_t inst_data,
-                         JValue* result)
+static bool DoMethodHandleInvokeCommon(Thread* self,
+                                       ShadowFrame& shadow_frame,
+                                       bool invoke_exact,
+                                       const Instruction* inst,
+                                       uint16_t inst_data,
+                                       JValue* result)
     REQUIRES_SHARED(Locks::mutator_lock_) {
+  // Make sure to check for async exceptions
+  if (UNLIKELY(self->ObserveAsyncException())) {
+    return false;
+  }
   // Invoke-polymorphic instructions always take a receiver. i.e, they are never static.
   const uint32_t vRegC = (is_range) ? inst->VRegC_4rcc() : inst->VRegC_45cc();
   const int invoke_method_idx = (is_range) ? inst->VRegB_4rcc() : inst->VRegB_45cc();
@@ -561,7 +613,7 @@ bool DoInvokePolymorphic(Thread* self,
   // The invoke_method_idx here is the name of the signature polymorphic method that
   // was symbolically invoked in bytecode (say MethodHandle.invoke or MethodHandle.invokeExact)
   // and not the method that we'll dispatch to in the end.
-  StackHandleScope<5> hs(self);
+  StackHandleScope<2> hs(self);
   Handle<mirror::MethodHandle> method_handle(hs.NewHandle(
       ObjPtr<mirror::MethodHandle>::DownCast(
           MakeObjPtr(shadow_frame.GetVRegReference(vRegC)))));
@@ -580,11 +632,8 @@ bool DoInvokePolymorphic(Thread* self,
   // with the callsite. This information is stored in the dex cache so it's
   // guaranteed to be fast after the first resolution.
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
-  Handle<mirror::Class> caller_class(hs.NewHandle(shadow_frame.GetMethod()->GetDeclaringClass()));
-  Handle<mirror::MethodType> callsite_type(hs.NewHandle(class_linker->ResolveMethodType(
-      caller_class->GetDexFile(), callsite_proto_id,
-      hs.NewHandle<mirror::DexCache>(caller_class->GetDexCache()),
-      hs.NewHandle<mirror::ClassLoader>(caller_class->GetClassLoader()))));
+  Handle<mirror::MethodType> callsite_type(hs.NewHandle(
+      class_linker->ResolveMethodType(self, callsite_proto_id, shadow_frame.GetMethod())));
 
   // This implies we couldn't resolve one or more types in this method handle.
   if (UNLIKELY(callsite_type == nullptr)) {
@@ -592,41 +641,262 @@ bool DoInvokePolymorphic(Thread* self,
     return false;
   }
 
-  ArtMethod* invoke_method =
-      class_linker->ResolveMethod<ClassLinker::ResolveMode::kCheckICCEAndIAE>(
-          self, invoke_method_idx, shadow_frame.GetMethod(), kVirtual);
-
   // There is a common dispatch method for method handles that takes
   // arguments either from a range or an array of arguments depending
   // on whether the DEX instruction is invoke-polymorphic/range or
   // invoke-polymorphic. The array here is for the latter.
-  uint32_t args[Instruction::kMaxVarArgRegs] = {};
-  if (is_range) {
+  if (UNLIKELY(is_range)) {
     // VRegC is the register holding the method handle. Arguments passed
     // to the method handle's target do not include the method handle.
-    uint32_t first_arg = inst->VRegC_4rcc() + 1;
-    return DoInvokePolymorphic<is_range>(self,
-                                         invoke_method,
-                                         shadow_frame,
-                                         method_handle,
-                                         callsite_type,
-                                         args /* unused */,
-                                         first_arg,
-                                         result);
+    RangeInstructionOperands operands(inst->VRegC_4rcc() + 1, inst->VRegA_4rcc() - 1);
+    if (invoke_exact) {
+      return MethodHandleInvokeExact(self,
+                                     shadow_frame,
+                                     method_handle,
+                                     callsite_type,
+                                     &operands,
+                                     result);
+    } else {
+      return MethodHandleInvoke(self,
+                                shadow_frame,
+                                method_handle,
+                                callsite_type,
+                                &operands,
+                                result);
+    }
   } else {
     // Get the register arguments for the invoke.
+    uint32_t args[Instruction::kMaxVarArgRegs] = {};
     inst->GetVarArgs(args, inst_data);
     // Drop the first register which is the method handle performing the invoke.
     memmove(args, args + 1, sizeof(args[0]) * (Instruction::kMaxVarArgRegs - 1));
     args[Instruction::kMaxVarArgRegs - 1] = 0;
-    return DoInvokePolymorphic<is_range>(self,
-                                         invoke_method,
-                                         shadow_frame,
-                                         method_handle,
-                                         callsite_type,
-                                         args,
-                                         args[0],
-                                         result);
+    VarArgsInstructionOperands operands(args, inst->VRegA_45cc() - 1);
+    if (invoke_exact) {
+      return MethodHandleInvokeExact(self,
+                                     shadow_frame,
+                                     method_handle,
+                                     callsite_type,
+                                     &operands,
+                                     result);
+    } else {
+      return MethodHandleInvoke(self,
+                                shadow_frame,
+                                method_handle,
+                                callsite_type,
+                                &operands,
+                                result);
+    }
+  }
+}
+
+bool DoMethodHandleInvokeExact(Thread* self,
+                               ShadowFrame& shadow_frame,
+                               const Instruction* inst,
+                               uint16_t inst_data,
+                               JValue* result) REQUIRES_SHARED(Locks::mutator_lock_) {
+  if (inst->Opcode() == Instruction::INVOKE_POLYMORPHIC) {
+    static const bool kIsRange = false;
+    return DoMethodHandleInvokeCommon<kIsRange>(
+        self, shadow_frame, true /* is_exact */, inst, inst_data, result);
+  } else {
+    DCHECK_EQ(inst->Opcode(), Instruction::INVOKE_POLYMORPHIC_RANGE);
+    static const bool kIsRange = true;
+    return DoMethodHandleInvokeCommon<kIsRange>(
+        self, shadow_frame, true /* is_exact */, inst, inst_data, result);
+  }
+}
+
+bool DoMethodHandleInvoke(Thread* self,
+                          ShadowFrame& shadow_frame,
+                          const Instruction* inst,
+                          uint16_t inst_data,
+                          JValue* result) REQUIRES_SHARED(Locks::mutator_lock_) {
+  if (inst->Opcode() == Instruction::INVOKE_POLYMORPHIC) {
+    static const bool kIsRange = false;
+    return DoMethodHandleInvokeCommon<kIsRange>(
+        self, shadow_frame, false /* is_exact */, inst, inst_data, result);
+  } else {
+    DCHECK_EQ(inst->Opcode(), Instruction::INVOKE_POLYMORPHIC_RANGE);
+    static const bool kIsRange = true;
+    return DoMethodHandleInvokeCommon<kIsRange>(
+        self, shadow_frame, false /* is_exact */, inst, inst_data, result);
+  }
+}
+
+static bool DoVarHandleInvokeChecked(Thread* self,
+                                     Handle<mirror::VarHandle> var_handle,
+                                     Handle<mirror::MethodType> callsite_type,
+                                     mirror::VarHandle::AccessMode access_mode,
+                                     ShadowFrame& shadow_frame,
+                                     InstructionOperands* operands,
+                                     JValue* result)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  // TODO(oth): GetMethodTypeForAccessMode() allocates a MethodType()
+  // which is only required if we need to convert argument and/or
+  // return types.
+  StackHandleScope<1> hs(self);
+  Handle<mirror::MethodType> accessor_type(hs.NewHandle(
+      var_handle->GetMethodTypeForAccessMode(self, access_mode)));
+  const size_t num_vregs = accessor_type->NumberOfVRegs();
+  const int num_params = accessor_type->GetPTypes()->GetLength();
+  ShadowFrameAllocaUniquePtr accessor_frame =
+      CREATE_SHADOW_FRAME(num_vregs, nullptr, shadow_frame.GetMethod(), shadow_frame.GetDexPC());
+  ShadowFrameGetter getter(shadow_frame, operands);
+  static const uint32_t kFirstDestinationReg = 0;
+  ShadowFrameSetter setter(accessor_frame.get(), kFirstDestinationReg);
+  if (!PerformConversions(self, callsite_type, accessor_type, &getter, &setter, num_params)) {
+    return false;
+  }
+  RangeInstructionOperands accessor_operands(kFirstDestinationReg,
+                                             kFirstDestinationReg + num_vregs);
+  if (!var_handle->Access(access_mode, accessor_frame.get(), &accessor_operands, result)) {
+    return false;
+  }
+  return ConvertReturnValue(callsite_type, accessor_type, result);
+}
+
+static bool DoVarHandleInvokeCommon(Thread* self,
+                                    ShadowFrame& shadow_frame,
+                                    const Instruction* inst,
+                                    uint16_t inst_data,
+                                    JValue* result,
+                                    mirror::VarHandle::AccessMode access_mode)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  // Make sure to check for async exceptions
+  if (UNLIKELY(self->ObserveAsyncException())) {
+    return false;
+  }
+
+  bool is_var_args = inst->HasVarArgs();
+  const uint32_t vRegC = is_var_args ? inst->VRegC_45cc() : inst->VRegC_4rcc();
+  ObjPtr<mirror::Object> receiver(shadow_frame.GetVRegReference(vRegC));
+  if (receiver.IsNull()) {
+    ThrowNullPointerExceptionFromDexPC();
+    return false;
+  }
+
+  StackHandleScope<2> hs(self);
+  Handle<mirror::VarHandle> var_handle(hs.NewHandle(down_cast<mirror::VarHandle*>(receiver.Ptr())));
+  if (!var_handle->IsAccessModeSupported(access_mode)) {
+    ThrowUnsupportedOperationException();
+    return false;
+  }
+
+  const uint32_t vRegH = is_var_args ? inst->VRegH_45cc() : inst->VRegH_4rcc();
+  ClassLinker* const class_linker = Runtime::Current()->GetClassLinker();
+  Handle<mirror::MethodType> callsite_type(hs.NewHandle(
+      class_linker->ResolveMethodType(self, vRegH, shadow_frame.GetMethod())));
+  // This implies we couldn't resolve one or more types in this VarHandle.
+  if (UNLIKELY(callsite_type == nullptr)) {
+    CHECK(self->IsExceptionPending());
+    return false;
+  }
+
+  if (!var_handle->IsMethodTypeCompatible(access_mode, callsite_type.Get())) {
+    ThrowWrongMethodTypeException(var_handle->GetMethodTypeForAccessMode(self, access_mode),
+                                  callsite_type.Get());
+    return false;
+  }
+
+  if (is_var_args) {
+    uint32_t args[Instruction::kMaxVarArgRegs];
+    inst->GetVarArgs(args, inst_data);
+    VarArgsInstructionOperands all_operands(args, inst->VRegA_45cc());
+    NoReceiverInstructionOperands operands(&all_operands);
+    return DoVarHandleInvokeChecked(self,
+                                    var_handle,
+                                    callsite_type,
+                                    access_mode,
+                                    shadow_frame,
+                                    &operands,
+                                    result);
+  } else {
+    RangeInstructionOperands all_operands(inst->VRegC_4rcc(), inst->VRegA_4rcc());
+    NoReceiverInstructionOperands operands(&all_operands);
+    return DoVarHandleInvokeChecked(self,
+                                    var_handle,
+                                    callsite_type,
+                                    access_mode,
+                                    shadow_frame,
+                                    &operands,
+                                    result);
+  }
+}
+
+#define DO_VAR_HANDLE_ACCESSOR(_access_mode)                                                \
+bool DoVarHandle ## _access_mode(Thread* self,                                              \
+                                 ShadowFrame& shadow_frame,                                 \
+                                 const Instruction* inst,                                   \
+                                 uint16_t inst_data,                                        \
+                                 JValue* result) REQUIRES_SHARED(Locks::mutator_lock_) {    \
+  const auto access_mode = mirror::VarHandle::AccessMode::k ## _access_mode;                \
+  return DoVarHandleInvokeCommon(self, shadow_frame, inst, inst_data, result, access_mode); \
+}
+
+DO_VAR_HANDLE_ACCESSOR(CompareAndExchange)
+DO_VAR_HANDLE_ACCESSOR(CompareAndExchangeAcquire)
+DO_VAR_HANDLE_ACCESSOR(CompareAndExchangeRelease)
+DO_VAR_HANDLE_ACCESSOR(CompareAndSet)
+DO_VAR_HANDLE_ACCESSOR(Get)
+DO_VAR_HANDLE_ACCESSOR(GetAcquire)
+DO_VAR_HANDLE_ACCESSOR(GetAndAdd)
+DO_VAR_HANDLE_ACCESSOR(GetAndAddAcquire)
+DO_VAR_HANDLE_ACCESSOR(GetAndAddRelease)
+DO_VAR_HANDLE_ACCESSOR(GetAndBitwiseAnd)
+DO_VAR_HANDLE_ACCESSOR(GetAndBitwiseAndAcquire)
+DO_VAR_HANDLE_ACCESSOR(GetAndBitwiseAndRelease)
+DO_VAR_HANDLE_ACCESSOR(GetAndBitwiseOr)
+DO_VAR_HANDLE_ACCESSOR(GetAndBitwiseOrAcquire)
+DO_VAR_HANDLE_ACCESSOR(GetAndBitwiseOrRelease)
+DO_VAR_HANDLE_ACCESSOR(GetAndBitwiseXor)
+DO_VAR_HANDLE_ACCESSOR(GetAndBitwiseXorAcquire)
+DO_VAR_HANDLE_ACCESSOR(GetAndBitwiseXorRelease)
+DO_VAR_HANDLE_ACCESSOR(GetAndSet)
+DO_VAR_HANDLE_ACCESSOR(GetAndSetAcquire)
+DO_VAR_HANDLE_ACCESSOR(GetAndSetRelease)
+DO_VAR_HANDLE_ACCESSOR(GetOpaque)
+DO_VAR_HANDLE_ACCESSOR(GetVolatile)
+DO_VAR_HANDLE_ACCESSOR(Set)
+DO_VAR_HANDLE_ACCESSOR(SetOpaque)
+DO_VAR_HANDLE_ACCESSOR(SetRelease)
+DO_VAR_HANDLE_ACCESSOR(SetVolatile)
+DO_VAR_HANDLE_ACCESSOR(WeakCompareAndSet)
+DO_VAR_HANDLE_ACCESSOR(WeakCompareAndSetAcquire)
+DO_VAR_HANDLE_ACCESSOR(WeakCompareAndSetPlain)
+DO_VAR_HANDLE_ACCESSOR(WeakCompareAndSetRelease)
+
+#undef DO_VAR_HANDLE_ACCESSOR
+
+template<bool is_range>
+bool DoInvokePolymorphic(Thread* self,
+                         ShadowFrame& shadow_frame,
+                         const Instruction* inst,
+                         uint16_t inst_data,
+                         JValue* result) {
+  const int invoke_method_idx = inst->VRegB();
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+  ArtMethod* invoke_method =
+      class_linker->ResolveMethod<ClassLinker::ResolveMode::kCheckICCEAndIAE>(
+          self, invoke_method_idx, shadow_frame.GetMethod(), kVirtual);
+
+  // Ensure intrinsic identifiers are initialized.
+  DCHECK(invoke_method->IsIntrinsic());
+
+  // Dispatch based on intrinsic identifier associated with method.
+  switch (static_cast<art::Intrinsics>(invoke_method->GetIntrinsic())) {
+#define CASE_SIGNATURE_POLYMORPHIC_INTRINSIC(Name, ...) \
+    case Intrinsics::k##Name:                           \
+      return Do ## Name(self, shadow_frame, inst, inst_data, result);
+#include "intrinsics_list.h"
+    SIGNATURE_POLYMORPHIC_INTRINSICS_LIST(CASE_SIGNATURE_POLYMORPHIC_INTRINSIC)
+#undef INTRINSICS_LIST
+#undef SIGNATURE_POLYMORPHIC_INTRINSICS_LIST
+#undef CASE_SIGNATURE_POLYMORPHIC_INTRINSIC
+    default:
+      LOG(FATAL) << "Unreachable: " << invoke_method->GetIntrinsic();
+      UNREACHABLE();
+      return false;
   }
 }
 
@@ -646,7 +916,7 @@ static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
   uint32_t method_handle_idx = static_cast<uint32_t>(it.GetJavaValue().i);
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
   Handle<mirror::MethodHandle>
-      bootstrap(hs.NewHandle(class_linker->ResolveMethodHandle(method_handle_idx, referrer)));
+      bootstrap(hs.NewHandle(class_linker->ResolveMethodHandle(self, method_handle_idx, referrer)));
   if (bootstrap.IsNull()) {
     DCHECK(self->IsExceptionPending());
     return nullptr;
@@ -666,7 +936,8 @@ static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
 
   // The first parameter is a MethodHandles lookup instance.
   {
-    Handle<mirror::Class> lookup_class(hs.NewHandle(bootstrap->GetTargetClass()));
+    Handle<mirror::Class> lookup_class =
+        hs.NewHandle(shadow_frame.GetMethod()->GetDeclaringClass());
     ObjPtr<mirror::MethodHandlesLookup> lookup =
         mirror::MethodHandlesLookup::Create(self, lookup_class);
     if (lookup.IsNull()) {
@@ -679,7 +950,7 @@ static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
   // The second parameter is the name to lookup.
   {
     dex::StringIndex name_idx(static_cast<uint32_t>(it.GetJavaValue().i));
-    ObjPtr<mirror::String> name = class_linker->ResolveString(*dex_file, name_idx, dex_cache);
+    ObjPtr<mirror::String> name = class_linker->ResolveString(name_idx, dex_cache);
     if (name.IsNull()) {
       DCHECK(self->IsExceptionPending());
       return nullptr;
@@ -690,11 +961,8 @@ static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
 
   // The third parameter is the method type associated with the name.
   uint32_t method_type_idx = static_cast<uint32_t>(it.GetJavaValue().i);
-  Handle<mirror::MethodType>
-      method_type(hs.NewHandle(class_linker->ResolveMethodType(*dex_file,
-                                                               method_type_idx,
-                                                               dex_cache,
-                                                               class_loader)));
+  Handle<mirror::MethodType> method_type(hs.NewHandle(
+      class_linker->ResolveMethodType(self, method_type_idx, dex_cache, class_loader)));
   if (method_type.IsNull()) {
     DCHECK(self->IsExceptionPending());
     return nullptr;
@@ -729,7 +997,7 @@ static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
       case EncodedArrayValueIterator::ValueType::kMethodType: {
         uint32_t idx = static_cast<uint32_t>(jvalue.i);
         ObjPtr<mirror::MethodType> ref =
-            class_linker->ResolveMethodType(*dex_file, idx, dex_cache, class_loader);
+            class_linker->ResolveMethodType(self, idx, dex_cache, class_loader);
         if (ref.IsNull()) {
           DCHECK(self->IsExceptionPending());
           return nullptr;
@@ -741,7 +1009,7 @@ static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
       case EncodedArrayValueIterator::ValueType::kMethodHandle: {
         uint32_t idx = static_cast<uint32_t>(jvalue.i);
         ObjPtr<mirror::MethodHandle> ref =
-            class_linker->ResolveMethodHandle(idx, referrer);
+            class_linker->ResolveMethodHandle(self, idx, referrer);
         if (ref.IsNull()) {
           DCHECK(self->IsExceptionPending());
           return nullptr;
@@ -752,7 +1020,7 @@ static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
       }
       case EncodedArrayValueIterator::ValueType::kString: {
         dex::StringIndex idx(static_cast<uint32_t>(jvalue.i));
-        ObjPtr<mirror::String> ref = class_linker->ResolveString(*dex_file, idx, dex_cache);
+        ObjPtr<mirror::String> ref = class_linker->ResolveString(idx, dex_cache);
         if (ref.IsNull()) {
           DCHECK(self->IsExceptionPending());
           return nullptr;
@@ -763,8 +1031,7 @@ static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
       }
       case EncodedArrayValueIterator::ValueType::kType: {
         dex::TypeIndex idx(static_cast<uint32_t>(jvalue.i));
-        ObjPtr<mirror::Class> ref =
-            class_linker->ResolveType(*dex_file, idx, dex_cache, class_loader);
+        ObjPtr<mirror::Class> ref = class_linker->ResolveType(idx, dex_cache, class_loader);
         if (ref.IsNull()) {
           DCHECK(self->IsExceptionPending());
           return nullptr;
@@ -791,30 +1058,22 @@ static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
 
   // Invoke the bootstrap method handle.
   JValue result;
-
-  // This array of arguments is unused. DoInvokePolymorphic() operates on either a
-  // an argument array or a range, but always takes an array argument.
-  uint32_t args_unused[Instruction::kMaxVarArgRegs];
-  ArtMethod* invoke_exact =
-      jni::DecodeArtMethod(WellKnownClasses::java_lang_invoke_MethodHandle_invokeExact);
-  bool invoke_success = DoInvokePolymorphic<true /* is_range */>(self,
-                                                                 invoke_exact,
-                                                                 *bootstrap_frame,
-                                                                 bootstrap,
-                                                                 bootstrap_method_type,
-                                                                 args_unused,
-                                                                 0,
-                                                                 &result);
+  RangeInstructionOperands operands(0, vreg);
+  bool invoke_success = MethodHandleInvokeExact(self,
+                                                *bootstrap_frame,
+                                                bootstrap,
+                                                bootstrap_method_type,
+                                                &operands,
+                                                &result);
   if (!invoke_success) {
     DCHECK(self->IsExceptionPending());
     return nullptr;
   }
 
   Handle<mirror::Object> object(hs.NewHandle(result.GetL()));
-
-  // Check the result is not null.
   if (UNLIKELY(object.IsNull())) {
-    ThrowNullPointerException("CallSite == null");
+    // This will typically be for LambdaMetafactory which is not supported.
+    ThrowClassCastException("Bootstrap method returned null");
     return nullptr;
   }
 
@@ -826,11 +1085,10 @@ static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
 
   Handle<mirror::CallSite> call_site =
       hs.NewHandle(ObjPtr<mirror::CallSite>::DownCast(ObjPtr<mirror::Object>(result.GetL())));
-
   // Check the call site target is not null as we're going to invoke it.
   Handle<mirror::MethodHandle> target = hs.NewHandle(call_site->GetTarget());
   if (UNLIKELY(target.IsNull())) {
-    ThrowNullPointerException("CallSite target == null");
+    ThrowClassCastException("Bootstrap method did not return a callsite");
     return nullptr;
   }
 
@@ -854,6 +1112,10 @@ bool DoInvokeCustom(Thread* self,
                     uint16_t inst_data,
                     JValue* result)
     REQUIRES_SHARED(Locks::mutator_lock_) {
+  // Make sure to check for async exceptions
+  if (UNLIKELY(self->ObserveAsyncException())) {
+    return false;
+  }
   // invoke-custom is not supported in transactions. In transactions
   // there is a limited set of types supported. invoke-custom allows
   // running arbitrary code and instantiating arbitrary types.
@@ -883,24 +1145,25 @@ bool DoInvokeCustom(Thread* self,
   Handle<mirror::MethodHandle> target = hs.NewHandle(call_site->GetTarget());
   Handle<mirror::MethodType> target_method_type = hs.NewHandle(target->GetMethodType());
   DCHECK_EQ(static_cast<size_t>(inst->VRegA()), target_method_type->NumberOfVRegs());
-
-  uint32_t args[Instruction::kMaxVarArgRegs];
   if (is_range) {
-    args[0] = inst->VRegC_3rc();
+    RangeInstructionOperands operands(inst->VRegC_3rc(), inst->VRegA_3rc());
+    return MethodHandleInvokeExact(self,
+                                   shadow_frame,
+                                   target,
+                                   target_method_type,
+                                   &operands,
+                                   result);
   } else {
+    uint32_t args[Instruction::kMaxVarArgRegs];
     inst->GetVarArgs(args, inst_data);
+    VarArgsInstructionOperands operands(args, inst->VRegA_35c());
+    return MethodHandleInvokeExact(self,
+                                   shadow_frame,
+                                   target,
+                                   target_method_type,
+                                   &operands,
+                                   result);
   }
-
-  ArtMethod* invoke_exact =
-      jni::DecodeArtMethod(WellKnownClasses::java_lang_invoke_MethodHandle_invokeExact);
-  return DoInvokePolymorphic<is_range>(self,
-                                       invoke_exact,
-                                       shadow_frame,
-                                       target,
-                                       target_method_type,
-                                       args,
-                                       args[0],
-                                       result);
 }
 
 template <bool is_range>
@@ -943,7 +1206,7 @@ static inline bool DoCallCommon(ArtMethod* called_method,
   }
 
   // Compute method information.
-  const DexFile::CodeItem* code_item = called_method->GetCodeItem();
+  CodeItemDataAccessor accessor(called_method->DexInstructionData());
   // Number of registers for the callee's call frame.
   uint16_t num_regs;
   // Test whether to use the interpreter or compiler entrypoint, and save that result to pass to
@@ -957,7 +1220,7 @@ static inline bool DoCallCommon(ArtMethod* called_method,
       ClassLinker::ShouldUseInterpreterEntrypoint(
           called_method,
           called_method->GetEntryPointFromQuickCompiledCode());
-  if (LIKELY(code_item != nullptr)) {
+  if (LIKELY(accessor.HasCodeItem())) {
     // When transitioning to compiled code, space only needs to be reserved for the input registers.
     // The rest of the frame gets discarded. This also prevents accessing the called method's code
     // item, saving memory by keeping code items of compiled code untouched.
@@ -965,8 +1228,8 @@ static inline bool DoCallCommon(ArtMethod* called_method,
       DCHECK(!Runtime::Current()->IsAotCompiler()) << "Compiler should use interpreter entrypoint";
       num_regs = number_of_inputs;
     } else {
-      num_regs = code_item->registers_size_;
-      DCHECK_EQ(string_init ? number_of_inputs - 1 : number_of_inputs, code_item->ins_size_);
+      num_regs = accessor.RegistersSize();
+      DCHECK_EQ(string_init ? number_of_inputs - 1 : number_of_inputs, accessor.InsSize());
     }
   } else {
     DCHECK(called_method->IsNative() || called_method->IsProxyMethod());
@@ -990,7 +1253,7 @@ static inline bool DoCallCommon(ArtMethod* called_method,
     DCHECK_GT(num_regs, 0u);  // As the method is an instance method, there should be at least 1.
 
     // The new StringFactory call is static and has one fewer argument.
-    if (code_item == nullptr) {
+    if (!accessor.HasCodeItem()) {
       DCHECK(called_method->IsNative() || called_method->IsProxyMethod());
       num_regs--;
     }  // else ... don't need to change num_regs since it comes up from the string_init's code item
@@ -1070,7 +1333,7 @@ static inline bool DoCallCommon(ArtMethod* called_method,
               // Preserve o since it is used below and GetClassFromTypeIndex may cause thread
               // suspension.
               HandleWrapperObjPtr<mirror::Object> h = hs.NewHandleWrapper(&o);
-              arg_type = method->GetClassFromTypeIndex(type_idx, true /* resolve */);
+              arg_type = method->ResolveClassFromTypeIndex(type_idx);
               if (arg_type == nullptr) {
                 CHECK(self->IsExceptionPending());
                 return false;
@@ -1122,7 +1385,7 @@ static inline bool DoCallCommon(ArtMethod* called_method,
   }
 
   PerformCall(self,
-              code_item,
+              accessor,
               shadow_frame.GetMethod(),
               first_dest_reg,
               new_shadow_frame,
@@ -1293,16 +1556,6 @@ EXPLICIT_DO_CALL_TEMPLATE_DECL(true, false);
 EXPLICIT_DO_CALL_TEMPLATE_DECL(true, true);
 #undef EXPLICIT_DO_CALL_TEMPLATE_DECL
 
-// Explicit DoInvokeCustom template function declarations.
-#define EXPLICIT_DO_INVOKE_CUSTOM_TEMPLATE_DECL(_is_range)               \
-  template REQUIRES_SHARED(Locks::mutator_lock_)                         \
-  bool DoInvokeCustom<_is_range>(                                        \
-      Thread* self, ShadowFrame& shadow_frame, const Instruction* inst,  \
-      uint16_t inst_data, JValue* result)
-EXPLICIT_DO_INVOKE_CUSTOM_TEMPLATE_DECL(false);
-EXPLICIT_DO_INVOKE_CUSTOM_TEMPLATE_DECL(true);
-#undef EXPLICIT_DO_INVOKE_CUSTOM_TEMPLATE_DECL
-
 // Explicit DoInvokePolymorphic template function declarations.
 #define EXPLICIT_DO_INVOKE_POLYMORPHIC_TEMPLATE_DECL(_is_range)          \
   template REQUIRES_SHARED(Locks::mutator_lock_)                         \
@@ -1312,6 +1565,16 @@ EXPLICIT_DO_INVOKE_CUSTOM_TEMPLATE_DECL(true);
 EXPLICIT_DO_INVOKE_POLYMORPHIC_TEMPLATE_DECL(false);
 EXPLICIT_DO_INVOKE_POLYMORPHIC_TEMPLATE_DECL(true);
 #undef EXPLICIT_DO_INVOKE_POLYMORPHIC_TEMPLATE_DECL
+
+// Explicit DoInvokeCustom template function declarations.
+#define EXPLICIT_DO_INVOKE_CUSTOM_TEMPLATE_DECL(_is_range)               \
+  template REQUIRES_SHARED(Locks::mutator_lock_)                         \
+  bool DoInvokeCustom<_is_range>(                                        \
+      Thread* self, ShadowFrame& shadow_frame, const Instruction* inst,  \
+      uint16_t inst_data, JValue* result)
+EXPLICIT_DO_INVOKE_CUSTOM_TEMPLATE_DECL(false);
+EXPLICIT_DO_INVOKE_CUSTOM_TEMPLATE_DECL(true);
+#undef EXPLICIT_DO_INVOKE_CUSTOM_TEMPLATE_DECL
 
 // Explicit DoFilledNewArray template function declarations.
 #define EXPLICIT_DO_FILLED_NEW_ARRAY_TEMPLATE_DECL(_is_range_, _check, _transaction_active)       \

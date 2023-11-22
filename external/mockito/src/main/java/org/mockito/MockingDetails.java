@@ -4,10 +4,11 @@
  */
 package org.mockito;
 
-import org.mockito.stubbing.Stubbing;
 import org.mockito.invocation.Invocation;
+import org.mockito.invocation.MockHandler;
 import org.mockito.mock.MockCreationSettings;
 import org.mockito.quality.MockitoHint;
+import org.mockito.stubbing.Stubbing;
 
 import java.util.Collection;
 
@@ -108,4 +109,26 @@ public interface MockingDetails {
      * @since 2.2.6
      */
     String printInvocations();
+
+    /**
+     * Returns the {@link MockHandler} associated with this mock object.
+     * The handler is the core of mock object method handling.
+     * This method is useful for framework integrators.
+     * For example, other frameworks may use mock handler to simulate method calls on the Mock object.
+     *
+     * @return mock handler instance of this mock
+     * @since 2.10.0
+     */
+    @Incubating
+    MockHandler getMockHandler();
+
+    /**
+     * Returns the mock object which is associated with this this instance of {@link MockingDetails}.
+     * Basically, it's the object that you have passed to {@link Mockito#mockingDetails(Object)} method.
+     *
+     * @return the mock object of this mocking details instance
+     *
+     * @since 2.11.0
+     */
+    Object getMock();
 }

@@ -24,6 +24,7 @@
 export LTP_RET_VAL=0
 export TST_COUNT=1
 export TST_LIB_LOADED=1
+export TST_TMPDIR_RHOST=0
 
 . tst_ansi_color.sh
 
@@ -103,11 +104,11 @@ tst_require_root()
 
 tst_exit()
 {
-	if [ -n "$TST_CLEANUP" -a -z "$TST_NO_CLEANUP" ]; then
+	if [ -n "${TST_CLEANUP:-}" -a -z "${TST_NO_CLEANUP:-}" ]; then
 		$TST_CLEANUP
 	fi
 
-	if [ -n "$LTP_IPC_PATH" -a -f "$LTP_IPC_PATH" ]; then
+	if [ -n "${LTP_IPC_PATH:-}" -a -f "${LTP_IPC_PATH:-}" ]; then
 		rm -f "$LTP_IPC_PATH"
 	fi
 
@@ -132,8 +133,11 @@ tst_tmpdir()
 
 tst_rmdir()
 {
-	cd "$LTPROOT"
-	rm -r "$TST_TMPDIR"
+	if [ -n "$TST_TMPDIR" ]; then
+		cd "$LTPROOT"
+		rm -r "$TST_TMPDIR"
+		[ "$TST_TMPDIR_RHOST" = 1 ] && tst_cleanup_rhost
+	fi
 }
 
 #

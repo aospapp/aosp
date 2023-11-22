@@ -31,10 +31,11 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
+import android.os.UserHandle;
 import android.provider.TimeZoneRulesDataContract;
 import android.provider.TimeZoneRulesDataContract.Operation;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -93,6 +94,14 @@ public final class TimeZoneRulesDataProvider extends ContentProvider {
     @Override
     public void attachInfo(Context context, ProviderInfo info) {
         super.attachInfo(context, info);
+
+        // The time zone update process should run as the system user exclusively as it's a
+        // system feature, not user dependent.
+        UserHandle currentUserHandle = android.os.Process.myUserHandle();
+        if (!currentUserHandle.isSystem()) {
+            throw new SecurityException("ContentProvider is supposed to run as the system user,"
+                    + " instead user=" + currentUserHandle);
+        }
 
         // Sanity check our security
         if (!TimeZoneRulesDataContract.AUTHORITY.equals(info.authority)) {

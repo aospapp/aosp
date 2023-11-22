@@ -37,7 +37,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <com.example.android.autofillframework.app.InfoButton
+    <com.example.android.autofill.app.InfoButton
         android:id="@+id/imageButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -49,7 +49,7 @@
         app:layout_constraintStart_toEndOf="@+id/multiple_partitions_header"
         app:layout_constraintTop_toTopOf="@+id/multiple_partitions_header" />
 
-    <com.example.android.autofillframework.app.ScrollableCustomVirtualView
+    <com.example.android.autofill.app.ScrollableCustomVirtualView
         android:id="@+id/custom_view"
         android:layout_width="match_parent"
         android:layout_height="@dimen/multiple_partitions_height"

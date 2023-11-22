@@ -19,6 +19,9 @@ package android.net.cts;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
+import android.net.ConnectivityManager.NetworkCallback;
+import android.net.LinkProperties;
+import android.net.Network;
 import android.net.NetworkInfo;
 import android.os.SystemClock;
 import android.test.AndroidTestCase;
@@ -29,6 +32,8 @@ import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class DnsTest extends AndroidTestCase {
 
@@ -39,6 +44,12 @@ public class DnsTest extends AndroidTestCase {
     private static final boolean DBG = false;
     private static final String TAG = "DnsTest";
     private static final String PROXY_NETWORK_TYPE = "PROXY";
+
+    private ConnectivityManager mCm;
+
+    public void setUp() {
+        mCm = getContext().getSystemService(ConnectivityManager.class);
+    }
 
     /**
      * @return true on success
@@ -57,7 +68,9 @@ public class DnsTest extends AndroidTestCase {
      * Perf - measure size of first and second tier caches and their effect
      * Assert requires network permission
      */
-    public void testDnsWorks() {
+    public void testDnsWorks() throws Exception {
+        ensureIpv6Connectivity();
+
         InetAddress addrs[] = {};
         try {
             addrs = InetAddress.getAllByName("www.google.com");
@@ -88,11 +101,14 @@ public class DnsTest extends AndroidTestCase {
         try {
             addrs = InetAddress.getAllByName("ipv6.google.com");
         } catch (UnknownHostException e) {}
-        assertTrue("[RERUN] DNS could not resolve ipv6.google.com, check the network supports IPv6",
-                addrs.length != 0);
+        String msg =
+            "[RERUN] DNS could not resolve ipv6.google.com, check the network supports IPv6. lp=" +
+            mCm.getActiveLinkProperties();
+        assertTrue(msg, addrs.length != 0);
         for (InetAddress addr : addrs) {
-            assertFalse ("[RERUN] ipv6.google.com returned IPv4 address: " + addr.getHostAddress() +
-                    ", check your network's DNS server", addr instanceof Inet4Address);
+            msg = "[RERUN] ipv6.google.com returned IPv4 address: " + addr.getHostAddress() +
+                    ", check your network's DNS server. lp=" + mCm.getActiveLinkProperties();
+            assertFalse (msg, addr instanceof Inet4Address);
             foundV6 |= (addr instanceof Inet6Address);
             if (DBG) Log.e(TAG, "ipv6.google.com gave " + addr.toString());
         }
@@ -256,13 +272,35 @@ public class DnsTest extends AndroidTestCase {
     }
 
     private boolean activeNetworkInfoIsProxy() {
-        ConnectivityManager cm = (ConnectivityManager)
-                getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo info = cm.getActiveNetworkInfo();
+        NetworkInfo info = mCm.getActiveNetworkInfo();
         if (PROXY_NETWORK_TYPE.equals(info.getTypeName())) {
             return true;
         }
 
         return false;
+    }
+
+    private void ensureIpv6Connectivity() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        final int TIMEOUT_MS = 5_000;
+
+        final NetworkCallback callback = new NetworkCallback() {
+            @Override
+            public void onLinkPropertiesChanged(Network network, LinkProperties lp) {
+                if (lp.hasGlobalIPv6Address()) {
+                    latch.countDown();
+                }
+            }
+        };
+        mCm.registerDefaultNetworkCallback(callback);
+
+        String msg = "Default network did not provide IPv6 connectivity after " + TIMEOUT_MS
+                + "ms. Please connect to an IPv6-capable network. lp="
+                + mCm.getActiveLinkProperties();
+        try {
+            assertTrue(msg, latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
+        } finally {
+            mCm.unregisterNetworkCallback(callback);
+        }
     }
 }

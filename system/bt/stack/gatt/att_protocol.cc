@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2008-2014 Broadcom Corporation
+ *  Copyright 2008-2014 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@
 #define GATT_START_END_HANDLE_SIZE 4
 
 using base::StringPrintf;
+using bluetooth::Uuid;
 /**********************************************************************
  *   ATT protocl message building utility                              *
  **********************************************************************/
@@ -124,9 +125,9 @@ BT_HDR* attp_build_err_cmd(uint8_t cmd_code, uint16_t err_handle,
  *
  ******************************************************************************/
 BT_HDR* attp_build_browse_cmd(uint8_t op_code, uint16_t s_hdl, uint16_t e_hdl,
-                              tBT_UUID uuid) {
+                              const bluetooth::Uuid& uuid) {
   const size_t payload_size =
-      (GATT_OP_CODE_SIZE) + (GATT_START_END_HANDLE_SIZE) + (LEN_UUID_128);
+      (GATT_OP_CODE_SIZE) + (GATT_START_END_HANDLE_SIZE) + (Uuid::kNumBytes128);
   BT_HDR* p_buf =
       (BT_HDR*)osi_malloc(sizeof(BT_HDR) + payload_size + L2CAP_MIN_OFFSET);
 
@@ -330,9 +331,7 @@ tGATT_STATUS attp_send_msg_to_l2cap(tGATT_TCB& tcb, BT_HDR* p_toL2CAP) {
     l2cap_ret = (uint16_t)L2CA_DataWrite(tcb.att_lcid, p_toL2CAP);
 
   if (l2cap_ret == L2CAP_DW_FAILED) {
-    LOG(ERROR) << StringPrintf(
-        "ATT   failed to pass msg:0x%0x to L2CAP",
-        *((uint8_t*)(p_toL2CAP + 1) + p_toL2CAP->offset));
+    LOG(ERROR) << __func__ << ": failed to write data to L2CAP";
     return GATT_INTERNAL_ERROR;
   } else if (l2cap_ret == L2CAP_DW_CONGESTED) {
     VLOG(1) << StringPrintf("ATT congested, message accepted");

@@ -19,13 +19,14 @@ package com.android.phone.settings;
 import android.content.Context;
 import android.media.AudioManager;
 import android.os.Bundle;
-import android.preference.SwitchPreference;
 import android.preference.Preference;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceScreen;
+import android.preference.SwitchPreference;
 import android.provider.Settings;
 import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneStateListener;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
@@ -41,6 +42,8 @@ public class AccessibilitySettingsFragment extends PreferenceFragment {
 
     private static final String BUTTON_TTY_KEY = "button_tty_mode_key";
     private static final String BUTTON_HAC_KEY = "button_hac_key";
+    private static final String BUTTON_RTT_KEY = "button_rtt_key";
+    private static final String RTT_INFO_PREF = "button_rtt_more_information_key";
 
     private final PhoneStateListener mPhoneStateListener = new PhoneStateListener() {
         /**
@@ -67,6 +70,7 @@ public class AccessibilitySettingsFragment extends PreferenceFragment {
 
     private TtyModeListPreference mButtonTty;
     private SwitchPreference mButtonHac;
+    private SwitchPreference mButtonRtt;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -80,6 +84,7 @@ public class AccessibilitySettingsFragment extends PreferenceFragment {
         mButtonTty = (TtyModeListPreference) findPreference(
                 getResources().getString(R.string.tty_mode_key));
         mButtonHac = (SwitchPreference) findPreference(BUTTON_HAC_KEY);
+        mButtonRtt = (SwitchPreference) findPreference(BUTTON_RTT_KEY);
 
         if (PhoneGlobals.getInstance().phoneMgr.isTtyModeSupported()) {
             mButtonTty.init();
@@ -95,6 +100,19 @@ public class AccessibilitySettingsFragment extends PreferenceFragment {
         } else {
             getPreferenceScreen().removePreference(mButtonHac);
             mButtonHac = null;
+        }
+
+        if (PhoneGlobals.getInstance().phoneMgr.isRttSupported()) {
+            // TODO: this is going to be a on/off switch for now. Ask UX about how to integrate
+            // this settings with TTY
+            boolean rttOn = Settings.Secure.getInt(
+                    mContext.getContentResolver(), Settings.Secure.RTT_CALLING_MODE, 0) != 0;
+            mButtonRtt.setChecked(rttOn);
+        } else {
+            getPreferenceScreen().removePreference(mButtonRtt);
+            Preference rttInfoPref = findPreference(RTT_INFO_PREF);
+            getPreferenceScreen().removePreference(rttInfoPref);
+            mButtonRtt = null;
         }
     }
 
@@ -129,7 +147,18 @@ public class AccessibilitySettingsFragment extends PreferenceFragment {
                     hac == SettingsConstants.HAC_ENABLED
                             ? SettingsConstants.HAC_VAL_ON : SettingsConstants.HAC_VAL_OFF);
             return true;
+        } else if (preference == mButtonRtt) {
+            Log.i(LOG_TAG, "RTT setting changed -- now " + mButtonRtt.isChecked());
+            int rttMode = mButtonRtt.isChecked() ? 1 : 0;
+            Settings.Secure.putInt(mContext.getContentResolver(), Settings.Secure.RTT_CALLING_MODE,
+                    rttMode);
+            // Update RTT config with IMS Manager
+            ImsManager imsManager = ImsManager.getInstance(getContext(),
+                    SubscriptionManager.getDefaultVoicePhoneId());
+            imsManager.setRttEnabled(mButtonRtt.isChecked());
+            return true;
         }
+
         return false;
     }
 

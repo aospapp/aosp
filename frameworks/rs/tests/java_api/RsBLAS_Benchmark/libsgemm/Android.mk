@@ -23,6 +23,7 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_SRC_FILES := test_data.cpp
 LOCAL_SDK_VERSION := current
 
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
 include $(BUILD_SHARED_LIBRARY)

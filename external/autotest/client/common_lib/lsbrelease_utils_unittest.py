@@ -92,18 +92,22 @@ class LsbreleaseUtilsTestCase(unittest.TestCase):
     """Validates the helper free functions in lsbrelease_utils."""
 
     def test_is_jetstream_with_link_lsbrelease(self):
+        """Test helper function."""
         self.assertFalse(lsbrelease_utils.is_jetstream(
             _LINK_LSB_RELEASE_REDACTED))
 
     def test_is_jetstream_with_moblab_lsbrelease(self):
+        """Test helper function."""
         self.assertFalse(lsbrelease_utils.is_jetstream(
             _GUADO_MOBLAB_LSB_RELEASE_REDACTED))
 
     def test_is_jestream_with_gale_lsbrelease(self):
+        """Test helper function."""
         self.assertTrue(lsbrelease_utils.is_jetstream(
             _GALE_LSB_RELEASE_REDACTED))
 
     def test_is_jestream_with_whirlwind_lsbrelease(self):
+        """Test helper function."""
         self.assertTrue(lsbrelease_utils.is_jetstream(
             _WHIRLWIND_LSB_RELEASE_REDACTED))
 
@@ -120,6 +124,13 @@ class LsbreleaseUtilsTestCase(unittest.TestCase):
         """is_moblab correctly validates the contents from a moblab device."""
         self.assertTrue(lsbrelease_utils.is_moblab(
                 _GUADO_MOBLAB_LSB_RELEASE_REDACTED))
+
+    def test_get_chromeos_release_version(self):
+        """Test helper function."""
+        result = lsbrelease_utils.get_chromeos_release_builder_path(
+                _GUADO_MOBLAB_LSB_RELEASE_REDACTED)
+
+        self.assertEqual(result, 'guado_moblab-release/R61-9641.0.0')
 
 
 if __name__ == '__main__':

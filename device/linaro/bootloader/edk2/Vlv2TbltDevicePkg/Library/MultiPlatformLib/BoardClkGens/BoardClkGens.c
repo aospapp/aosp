@@ -69,10 +69,10 @@ ConfigureClockGenerator (
   //
   // Verify input arguments
   //
-  ASSERT_EFI_ERROR (ConfigurationTableLength >= 6);
-  ASSERT_EFI_ERROR (ConfigurationTableLength <= MAX_CLOCK_GENERATOR_BUFFER_LENGTH);
-  ASSERT_EFI_ERROR (ClockType < ClockGeneratorMax);
-  ASSERT_EFI_ERROR (ConfigurationTable != NULL);
+  ASSERT (ConfigurationTableLength >= 6);
+  ASSERT (ConfigurationTableLength <= MAX_CLOCK_GENERATOR_BUFFER_LENGTH);
+  ASSERT (ClockType < ClockGeneratorMax);
+  ASSERT (ConfigurationTable != NULL);
 
   //
   // Read the clock generator
@@ -210,7 +210,6 @@ ReadClockGeneratorID (
   IN     UINT8                         ClockAddress
   )
 {
-  EFI_STATUS                    Status;
   EFI_SMBUS_DEVICE_ADDRESS      SlaveAddress;
   UINT8                         Buffer[MAX_CLOCK_GENERATOR_BUFFER_LENGTH];
   UINTN                         Length;
@@ -222,7 +221,7 @@ ReadClockGeneratorID (
   SlaveAddress.SmbusDeviceAddress = ClockAddress >> 1;
   Length = sizeof (Buffer);
   Command = 0;
-  Status = SmbusPpi->Execute (
+  SmbusPpi->Execute (
     PeiServices,
     SmbusPpi,
     SlaveAddress,
@@ -271,7 +270,6 @@ ConfigurePlatformClocks (
 
   EFI_PLATFORM_INFO_HOB         *PlatformInfoHob;
   BOOLEAN                       EnableSpreadSpectrum;
-  UINT8                         ClockGenID=0;
   SYSTEM_CONFIGURATION          SystemConfiguration;
 
   UINTN                         Length;
@@ -322,7 +320,6 @@ ConfigurePlatformClocks (
       DEBUG((EFI_D_ERROR, "Clock Generator CK505 Not Present, vendor ID on board is %x\n",(Data & 0x0F)));
       return EFI_SUCCESS;
 }
-  ClockGenID = Data & 0x0F;
 
   EnableSpreadSpectrum = FALSE;
   VariableSize = sizeof (SYSTEM_CONFIGURATION);

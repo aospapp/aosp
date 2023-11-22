@@ -26,16 +26,14 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
-
 import com.android.tv.R;
-
 import java.util.Map;
 
 /**
- * TODO: Remove this class once b/32405620 is fixed.
- * This class is for the workaround of b/32405620 and only for the shared element transition between
- * {@link com.android.tv.dvr.ui.browse.RecordingCardView} and
- * {@link com.android.tv.dvr.ui.browse.DvrDetailsActivity}.
+ * TODO: Remove this class once b/32405620 is fixed. This class is for the workaround of b/32405620
+ * and only for the shared element transition between {@link
+ * com.android.tv.dvr.ui.browse.RecordingCardView} and {@link
+ * com.android.tv.dvr.ui.browse.DvrDetailsActivity}.
  */
 public class ChangeImageTransformWithScaledParent extends ChangeImageTransform {
     private static final String PROPNAME_MATRIX = "android:changeImageTransform:matrix";
@@ -60,7 +58,8 @@ public class ChangeImageTransformWithScaledParent extends ChangeImageTransform {
         View view = transitionValues.view;
         Map<String, Object> values = transitionValues.values;
         Matrix matrix = (Matrix) values.get(PROPNAME_MATRIX);
-        if (matrix != null && view.getId() == R.id.details_overview_image
+        if (matrix != null
+                && view.getId() == R.id.details_overview_image
                 && view instanceof ImageView) {
             ImageView imageView = (ImageView) view;
             if (imageView.getScaleType() == ScaleType.CENTER_INSIDE
@@ -68,10 +67,13 @@ public class ChangeImageTransformWithScaledParent extends ChangeImageTransform {
                 Bitmap bitmap = ((BitmapDrawable) imageView.getDrawable()).getBitmap();
                 if (bitmap.getWidth() < imageView.getWidth()
                         && bitmap.getHeight() < imageView.getHeight()) {
-                    float scale = imageView.getContext().getResources().getFraction(
-                            R.fraction.lb_focus_zoom_factor_medium, 1, 1);
-                    matrix.postScale(scale, scale, imageView.getWidth() / 2,
-                            imageView.getHeight() / 2);
+                    float scale =
+                            imageView
+                                    .getContext()
+                                    .getResources()
+                                    .getFraction(R.fraction.lb_focus_zoom_factor_medium, 1, 1);
+                    matrix.postScale(
+                            scale, scale, imageView.getWidth() / 2, imageView.getHeight() / 2);
                 }
             }
         }

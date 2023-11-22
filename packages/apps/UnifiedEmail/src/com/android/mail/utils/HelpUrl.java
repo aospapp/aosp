@@ -70,7 +70,7 @@ public final class HelpUrl {
         final String packageName = context.getApplicationInfo().packageName;
         try {
             final PackageInfo pi = context.getPackageManager().getPackageInfo(packageName, 0);
-            return String.valueOf(pi.versionCode);
+            return String.valueOf(pi.getLongVersionCode());
         } catch (PackageManager.NameNotFoundException e) {
             LogUtils.e(LOG_TAG, "Error finding package name for application" + packageName);
             throw new IllegalStateException("unable to determine package name for application");

@@ -21,6 +21,7 @@ import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import java.io.File;
@@ -29,6 +30,7 @@ import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaScannerNotificationTest extends AndroidTestCase {
 
     public void testMediaScannerNotification() throws Exception {

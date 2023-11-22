@@ -33,7 +33,7 @@
 #include <iostream>
 #include <sstream>
 
-#include <cutils/properties.h>
+#include <android-base/properties.h>
 #include <selinux/selinux.h>
 #include <zlib.h>
 
@@ -45,8 +45,9 @@ namespace vintf {
 
 struct RuntimeInfoFetcher {
     RuntimeInfoFetcher(RuntimeInfo *ki) : mRuntimeInfo(ki) { }
-    status_t fetchAllInformation();
-private:
+    status_t fetchAllInformation(RuntimeInfo::FetchFlags flags);
+
+   private:
     status_t fetchVersion();
     status_t fetchKernelConfigs();
     status_t fetchCpuInfo();
@@ -147,40 +148,42 @@ status_t RuntimeInfoFetcher::parseKernelVersion() {
 }
 
 status_t RuntimeInfoFetcher::fetchAvb() {
-    char prop[PROPERTY_VALUE_MAX];
-    property_get("ro.boot.vbmeta.avb_version", prop, "0.0");
+    std::string prop = android::base::GetProperty("ro.boot.vbmeta.avb_version", "0.0");
     if (!parse(prop, &mRuntimeInfo->mBootVbmetaAvbVersion)) {
         return UNKNOWN_ERROR;
     }
-    property_get("ro.boot.avb_version", prop, "0.0");
+    prop = android::base::GetProperty("ro.boot.avb_version", "0.0");
     if (!parse(prop, &mRuntimeInfo->mBootAvbVersion)) {
         return UNKNOWN_ERROR;
     }
     return OK;
 }
 
-status_t RuntimeInfoFetcher::fetchAllInformation() {
+status_t RuntimeInfoFetcher::fetchAllInformation(RuntimeInfo::FetchFlags flags) {
+
+    using F = RuntimeInfo::FetchFlag;
+    using RF = RuntimeInfoFetcher;
+    using FetchFunction = status_t(RF::*)();
+    const static std::vector<std::tuple<F, FetchFunction, std::string>> gFetchFunctions({
+        // flag          fetch function                 description
+        {F::CPU_VERSION, &RF::fetchVersion,             "/proc/version"},
+        {F::CONFIG_GZ,   &RF::fetchKernelConfigs,       "/proc/config.gz"},
+        {F::CPU_INFO,    &RF::fetchCpuInfo,             "/proc/cpuinfo"},
+        {F::POLICYVERS,  &RF::fetchKernelSepolicyVers,  "kernel sepolicy version"},
+        {F::AVB,         &RF::fetchAvb,                 "avb version"},
+    });
+
     status_t err;
-    if ((err = fetchVersion()) != OK) {
-        LOG(WARNING) << "Cannot fetch or parse /proc/version: " << strerror(-err);
-    }
-    if ((err = fetchKernelConfigs()) != OK) {
-        LOG(WARNING) << "Cannot fetch or parse /proc/config.gz: " << strerror(-err);
-    }
-    if ((err = fetchCpuInfo()) != OK) {
-        LOG(WARNING) << "Cannot fetch /proc/cpuinfo: " << strerror(-err);
-    }
-    if ((err = fetchKernelSepolicyVers()) != OK) {
-        LOG(WARNING) << "Cannot fetch kernel sepolicy version: " << strerror(-err);
-    }
-    if ((err = fetchAvb()) != OK) {
-        LOG(WARNING) << "Cannot fetch sepolicy avb version: " << strerror(-err);
-    }
+    for (const auto& tuple : gFetchFunctions)
+        if ((flags & std::get<0>(tuple)) && (err = (*this.*std::get<1>(tuple))()) != OK)
+            LOG(WARNING) << "Cannot fetch or parse " << std::get<2>(tuple) << ": "
+                         << strerror(-err);
+
     return OK;
 }
 
-status_t RuntimeInfo::fetchAllInformation() {
-    return RuntimeInfoFetcher(this).fetchAllInformation();
+status_t RuntimeInfo::fetchAllInformation(RuntimeInfo::FetchFlags flags) {
+    return RuntimeInfoFetcher(this).fetchAllInformation(flags);
 }
 
 } // namespace vintf

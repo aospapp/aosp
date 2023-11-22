@@ -15,40 +15,54 @@
  */
 package com.android.tv.tests.ui;
 
-import static com.android.tv.testing.uihelper.UiDeviceAsserts.assertHas;
-import static com.android.tv.testing.uihelper.UiDeviceAsserts.assertWaitForCondition;
-
 import android.support.test.filters.LargeTest;
 import android.support.test.uiautomator.Until;
-
 import com.android.tv.R;
 import com.android.tv.testing.uihelper.Constants;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Test timeout events like the menu despairing after no input.
- * <p>
- * <b>WARNING</b> some of these timeouts are 60 seconds. These tests will take a long time
+ *
+ * <p><b>WARNING</b> some of these timeouts are 60 seconds. These tests will take a long time
  * complete.
  */
 @LargeTest
-public class TimeoutTest extends LiveChannelsTestCase {
+@RunWith(JUnit4.class)
+public class TimeoutTest {
 
-    public void testMenu() {
-        mLiveChannelsHelper.assertAppStarted();
-        mDevice.pressMenu();
+    @Rule public final LiveChannelsTestController controller = new LiveChannelsTestController();
 
-        assertWaitForCondition(mDevice, Until.hasObject(Constants.MENU));
-        assertWaitForCondition(mDevice, Until.gone(Constants.MENU),
-                mTargetResources.getInteger(R.integer.menu_show_duration));
+    @Test
+    public void placeholder() {
+        // There must be at least one test
     }
 
+    @Ignore("b/73727914")
+    @Test
+    public void testMenu() {
+        controller.liveChannelsHelper.assertAppStarted();
+        controller.pressMenu();
+
+        controller.assertWaitForCondition(Until.hasObject(Constants.MENU));
+        controller.assertWaitForCondition(
+                Until.gone(Constants.MENU),
+                controller.getTargetResources().getInteger(R.integer.menu_show_duration));
+    }
+
+    @Ignore("b/73727914")
+    @Test
     public void testProgramGuide() {
-        mLiveChannelsHelper.assertAppStarted();
-        mMenuHelper.assertPressProgramGuide();
-        assertWaitForCondition(mDevice,
-                Until.hasObject(Constants.PROGRAM_GUIDE));
-        assertWaitForCondition(mDevice, Until.gone(Constants.PROGRAM_GUIDE),
-                mTargetResources.getInteger(R.integer.program_guide_show_duration));
-        assertHas(mDevice, Constants.MENU, false);
+        controller.liveChannelsHelper.assertAppStarted();
+        controller.menuHelper.assertPressProgramGuide();
+        controller.assertWaitForCondition(Until.hasObject(Constants.PROGRAM_GUIDE));
+        controller.assertWaitForCondition(
+                Until.gone(Constants.PROGRAM_GUIDE),
+                controller.getTargetResources().getInteger(R.integer.program_guide_show_duration));
+        controller.assertHas(Constants.MENU, false);
     }
 }

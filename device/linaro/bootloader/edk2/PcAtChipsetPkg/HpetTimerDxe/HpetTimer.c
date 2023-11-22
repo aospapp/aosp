@@ -1,7 +1,7 @@
 /** @file
   Timer Architectural Protocol module using High Precesion Event Timer (HPET)
 
-  Copyright (c) 2011 - 2014, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2011 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -142,7 +142,7 @@ TimerDriverGetTimerPeriod (
   @param  This  The EFI_TIMER_ARCH_PROTOCOL instance.
 
   @retval  EFI_SUCCESS       The soft timer interrupt was generated.
-  @retval  EFI_UNSUPPORTEDT  The platform does not support the generation of soft 
+  @retval  EFI_UNSUPPORTED   The platform does not support the generation of soft
                              timer interrupts.
 
 **/
@@ -492,11 +492,17 @@ TimerDriverSetTimerPeriod (
   IN UINT64                   TimerPeriod
   )
 {
+  EFI_TPL                        Tpl;
   UINT64                         MainCounter;
   UINT64                         Delta;
   UINT64                         CurrentComparator;
   HPET_TIMER_MSI_ROUTE_REGISTER  HpetTimerMsiRoute;
-  
+
+  //
+  // Disable interrupts
+  //
+  Tpl = gBS->RaiseTPL (TPL_HIGH_LEVEL);
+
   //
   // Disable HPET timer when adjusting the timer period
   //
@@ -616,7 +622,12 @@ TimerDriverSetTimerPeriod (
   // is disabled.
   //
   HpetEnable (TRUE);
-  
+
+  //
+  // Restore interrupts
+  //
+  gBS->RestoreTPL (Tpl);
+
   return EFI_SUCCESS;
 }
 
@@ -662,7 +673,7 @@ TimerDriverGetTimerPeriod (
   @param  This  The EFI_TIMER_ARCH_PROTOCOL instance.
 
   @retval  EFI_SUCCESS       The soft timer interrupt was generated.
-  @retval  EFI_UNSUPPORTEDT  The platform does not support the generation of soft 
+  @retval  EFI_UNSUPPORTED   The platform does not support the generation of soft
                              timer interrupts.
 
 **/

@@ -126,8 +126,8 @@ class ImageDownloaderTestcast(unittest.TestCase):
     # 2nd arg must be exception handler
     except_handler_string = 'RunCommandExceptionHandler.HandleException'
     self.assertTrue(
-        except_handler_string in
-        repr(mock_cmd_exec.RunCommand.call_args_list[0][1]))
+        except_handler_string in repr(
+            mock_cmd_exec.RunCommand.call_args_list[0][1]))
 
     # Call 2, should have 2 arguments
     self.assertEqual(len(mock_cmd_exec.RunCommand.call_args_list[1]), 2)

@@ -7,15 +7,18 @@ cc_test {
         "InputDispatcher_test.cpp",
     ],
     test_per_src: true,
-    cflags: ["-Wno-unused-parameter"],
-    shared_libs = [
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-parameter",
+    ],
+    shared_libs: [
         "libcutils",
         "liblog",
         "libutils",
         "libhardware",
         "libhardware_legacy",
         "libui",
-        "libskia",
         "libinput",
         "libinputflinger",
         "libinputservice",

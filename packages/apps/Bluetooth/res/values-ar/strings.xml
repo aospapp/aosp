@@ -74,7 +74,7 @@
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"حسنًا"</string>
     <string name="unknown_file" msgid="6092727753965095366">"ملف غير معروف"</string>
     <string name="unknown_file_desc" msgid="480434281415453287">"ليس هناك تطبيق لمعالجة هذا النوع من الملفات. \n"</string>
-    <string name="not_exist_file" msgid="3489434189599716133">"ليست هناك أية ملفات"</string>
+    <string name="not_exist_file" msgid="3489434189599716133">"ليست هناك أي ملفات"</string>
     <string name="not_exist_file_desc" msgid="4059531573790529229">"الملف غير موجود. \n"</string>
     <string name="enabling_progress_title" msgid="436157952334723406">"يرجى الانتظار…"</string>
     <string name="enabling_progress_content" msgid="4601542238119927904">"جارٍ تشغيل البلوتوث..."</string>
@@ -100,7 +100,7 @@
     <string name="status_connection_error" msgid="947681831523219891">"لم يتم الاتصال بنجاح."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"لا يمكن معالجة الطلب بشكل صحيح."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"خطأ غير معروف."</string>
-    <string name="btopp_live_folder" msgid="7967791481444474554">"تم استلام بلوتوث"</string>
+    <string name="btopp_live_folder" msgid="7967791481444474554">"تم الاستلام عبر بلوتوث"</string>
     <string name="opp_notification_group" msgid="3486303082135789982">"مشاركة البلوتوث"</string>
     <string name="download_success" msgid="7036160438766730871">"اكتمل استلام <xliff:g id="FILE_SIZE">%1$s</xliff:g>."</string>
     <string name="upload_success" msgid="4014469387779648949">"اكتمل إرسال <xliff:g id="FILE_SIZE">%1$s</xliff:g>."</string>
@@ -140,4 +140,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"تم الاتصال بالبث الصوتي عبر البلوتوث."</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"انقطع الاتصال بالبث الصوتي عبر البلوتوث."</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"بث صوتي عبر البلوتوث"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"يتعذّر نقل الملفات التي يزيد حجمها عن 4 غيغابايت"</string>
 </resources>

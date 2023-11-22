@@ -211,11 +211,8 @@ class RPMController(object):
         """
         try:
             logging.getLogger().handlers = []
-            kwargs = {'use_log_server': True}
             is_timeout_value, result_value = retry.timeout(
-                     rpm_logging_config.set_up_logging,
-                     args=(),
-                     kwargs=kwargs,
+                     rpm_logging_config.set_up_logging_to_server,
                      timeout_sec=10)
             if is_timeout_value:
                 raise Exception('Setup local log server handler timed out.')
@@ -226,7 +223,8 @@ class RPMController(object):
             log_filename_format = LOG_FILENAME_FORMAT.replace(
                     'dispatcher', 'controller_%d' % os.getpid())
             logging.getLogger().handlers = []
-            rpm_logging_config.set_up_logging(
+            rpm_logging_config.set_up_logging_to_file(
+                    log_dir='./logs',
                     log_filename_format=log_filename_format,
                     use_log_server=False)
             logging.info('Failed to set up logging through log server: %s', e)

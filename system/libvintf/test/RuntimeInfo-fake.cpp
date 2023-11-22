@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
-#include "RuntimeInfo.h"
+#include "utils-fake.h"
 
 namespace android {
 namespace vintf {
-
-// Fake implementation used for testing.
-status_t RuntimeInfo::fetchAllInformation() {
+namespace details {
+status_t MockRuntimeInfo::doFetch(RuntimeInfo::FetchFlags) {
+    if (failNextFetch_) {
+        failNextFetch_ = false;
+        return android::UNKNOWN_ERROR;
+    }
     mOsName = "Linux";
     mNodeName = "localhost";
     mOsRelease = "3.18.31-g936f9a479d0f";
@@ -37,5 +40,6 @@ status_t RuntimeInfo::fetchAllInformation() {
     return OK;
 }
 
+}  // namespace details
 }  // namespace vintf
 }  // namespace android

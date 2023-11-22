@@ -50,6 +50,7 @@ import com.googlecode.android_scripting.R;
 import com.googlecode.android_scripting.ScriptStorageAdapter;
 import com.googlecode.android_scripting.interpreter.Interpreter;
 import com.googlecode.android_scripting.interpreter.InterpreterConfiguration;
+import com.googlecode.android_scripting.service.ScriptingLayerService;
 
 import java.io.File;
 import java.io.IOException;

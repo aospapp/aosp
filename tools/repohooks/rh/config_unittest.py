@@ -29,6 +29,9 @@ if sys.path[0] != _path:
     sys.path.insert(0, _path)
 del _path
 
+# We have to import our local modules after the sys.path tweak.  We can't use
+# relative imports because this is an executable program, not a module.
+# pylint: disable=wrong-import-position
 import rh.hooks
 import rh.config
 

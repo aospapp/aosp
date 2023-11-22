@@ -160,12 +160,14 @@ const char *  eglStrError(EGLint err)
     }
 
 #define VALIDATE_CONTEXT_RETURN(context,ret)  \
-    if (!(context)) {                         \
+    if (!(context) || !s_display.isContext((context))) {                         \
         RETURN_ERROR(ret,EGL_BAD_CONTEXT);    \
     }
 
 #define VALIDATE_SURFACE_RETURN(surface, ret)    \
     if ((surface) != EGL_NO_SURFACE) {    \
+        if (!s_display.isSurface((surface))) \
+            setErrorReturn(EGL_BAD_SURFACE, EGL_FALSE); \
         egl_surface_t* s( static_cast<egl_surface_t*>(surface) );    \
         if (s->dpy != (EGLDisplay)&s_display)    \
             setErrorReturn(EGL_BAD_DISPLAY, EGL_FALSE);    \
@@ -282,7 +284,9 @@ struct egl_surface_t {
 
     virtual     void setCollectingTimestamps(EGLint collect) { }
     virtual     EGLint isCollectingTimestamps() const { return EGL_FALSE; }
-
+    EGLint      deletePending;
+    void        setIsCurrent(bool isCurrent) { mIsCurrent = isCurrent; }
+    bool        isCurrent() const { return mIsCurrent;}
 private:
     //
     //Surface attributes
@@ -296,7 +300,7 @@ private:
     // Give it some default values.
     int nativeWidth;
     int nativeHeight;
-
+    bool mIsCurrent;
 protected:
     void        setWidth(EGLint w)  { width = w;  }
     void        setHeight(EGLint h) { height = h; }
@@ -308,7 +312,8 @@ protected:
 };
 
 egl_surface_t::egl_surface_t(EGLDisplay dpy, EGLConfig config, EGLint surfaceType)
-    : dpy(dpy), config(config), surfaceType(surfaceType), rcSurface(0)
+    : dpy(dpy), config(config), surfaceType(surfaceType), rcSurface(0),
+      deletePending(0), mIsCurrent(false)
 {
     width = 0;
     height = 0;
@@ -603,6 +608,34 @@ egl_pbuffer_surface_t::~egl_pbuffer_surface_t()
     }
 }
 
+// Destroy a pending surface and set it to NULL.
+
+static void s_destroyPendingSurfaceAndSetNull(EGLSurface* surface) {
+    if (!s_display.isSurface(surface)) {
+        *surface = NULL;
+        return;
+    }
+
+    egl_surface_t* surf = static_cast<egl_surface_t *>(*surface);
+    if (surf && surf->deletePending) {
+        delete surf;
+        *surface = NULL;
+    }
+}
+
+static void s_destroyPendingSurfacesInContext(EGLContext_t* context) {
+    if (context->read == context->draw) {
+        // If they are the same, delete it only once
+        s_destroyPendingSurfaceAndSetNull(&context->draw);
+        if (context->draw == NULL) {
+            context->read = NULL;
+        }
+    } else {
+        s_destroyPendingSurfaceAndSetNull(&context->draw);
+        s_destroyPendingSurfaceAndSetNull(&context->read);
+    }
+}
+
 EGLBoolean egl_pbuffer_surface_t::init(GLenum pixelFormat)
 {
     DEFINE_AND_VALIDATE_HOST_CONNECTION(EGL_FALSE);
@@ -636,6 +669,68 @@ egl_pbuffer_surface_t* egl_pbuffer_surface_t::create(EGLDisplay dpy,
         pb = NULL;
     }
     return pb;
+}
+
+// Required for Skia.
+static const char kOESEGLImageExternalEssl3[] = "GL_OES_EGL_image_external_essl3";
+
+static bool sWantES30OrAbove(const char* exts) {
+    if (strstr(exts, kGLESMaxVersion_3_0) ||
+        strstr(exts, kGLESMaxVersion_3_1) ||
+        strstr(exts, kGLESMaxVersion_3_2)) {
+        return true;
+    }
+    return false;
+}
+
+static std::vector<std::string> getExtStringArray() {
+    std::vector<std::string> res;
+
+    EGLThreadInfo *tInfo = getEGLThreadInfo();
+    if (!tInfo || !tInfo->currentContext) {
+        return res;
+    }
+
+#define GL_EXTENSIONS                     0x1F03
+
+    DEFINE_AND_VALIDATE_HOST_CONNECTION(res);
+
+    char *hostStr = NULL;
+    int n = rcEnc->rcGetGLString(rcEnc, GL_EXTENSIONS, NULL, 0);
+    if (n < 0) {
+        hostStr = new char[-n+1];
+        n = rcEnc->rcGetGLString(rcEnc, GL_EXTENSIONS, hostStr, -n);
+        if (n <= 0) {
+            delete [] hostStr;
+            hostStr = NULL;
+        }
+    }
+
+    if (!hostStr || !strlen(hostStr)) { return res; }
+
+    // find the number of extensions
+    int extStart = 0;
+    int extEnd = 0;
+    int currentExtIndex = 0;
+    int numExts = 0;
+
+    if (sWantES30OrAbove(hostStr) &&
+        !strstr(hostStr, kOESEGLImageExternalEssl3)) {
+        res.push_back(kOESEGLImageExternalEssl3);
+    }
+
+    while (extEnd < strlen(hostStr)) {
+        if (hostStr[extEnd] == ' ') {
+            int extSz = extEnd - extStart;
+            res.push_back(std::string(hostStr + extStart, extSz));
+            currentExtIndex++;
+            extStart = extEnd + 1;
+        }
+        extEnd++;
+    }
+
+    delete [] hostStr;
+    return res;
 }
 
 static const char *getGLString(int glEnum)
@@ -675,18 +770,42 @@ static const char *getGLString(int glEnum)
         return NULL;
     }
 
-    //
-    // first query of that string - need to query host
-    //
-    DEFINE_AND_VALIDATE_HOST_CONNECTION(NULL);
-    char *hostStr = NULL;
-    int n = rcEnc->rcGetGLString(rcEnc, glEnum, NULL, 0);
-    if (n < 0) {
-        hostStr = new char[-n+1];
-        n = rcEnc->rcGetGLString(rcEnc, glEnum, hostStr, -n);
-        if (n <= 0) {
-            delete [] hostStr;
-            hostStr = NULL;
+    char* hostStr = NULL;
+
+    if (glEnum == GL_EXTENSIONS) {
+
+        std::vector<std::string> exts = getExtStringArray();
+
+        int totalSz = 1; // null terminator
+        for (int i = 0; i < exts.size(); i++) {
+            totalSz += exts[i].size() + 1; // for space
+        }
+
+        if (totalSz == 1) return NULL;
+
+        hostStr = new char[totalSz];
+        memset(hostStr, 0, totalSz);
+
+        char* current = hostStr;
+        for (int i = 0; i < exts.size(); i++) {
+            memcpy(current, exts[i].c_str(), exts[i].size());
+            current += exts[i].size();
+            *current = ' ';
+            ++current;
+        }
+    } else {
+        //
+        // first query of that string - need to query host
+        //
+        DEFINE_AND_VALIDATE_HOST_CONNECTION(NULL);
+        int n = rcEnc->rcGetGLString(rcEnc, glEnum, NULL, 0);
+        if (n < 0) {
+            hostStr = new char[-n+1];
+            n = rcEnc->rcGetGLString(rcEnc, glEnum, hostStr, -n);
+            if (n <= 0) {
+                delete [] hostStr;
+                hostStr = NULL;
+            }
         }
     }
 
@@ -701,7 +820,7 @@ static const char *getGLString(int glEnum)
 
 static EGLClient_eglInterface s_eglIface = {
     getThreadInfo: getEGLThreadInfo,
-    getGLString: getGLString
+    getGLString: getGLString,
 };
 
 #define DBG_FUNC DBG("%s\n", __FUNCTION__)
@@ -984,8 +1103,13 @@ EGLBoolean eglDestroySurface(EGLDisplay dpy, EGLSurface eglSurface)
     VALIDATE_DISPLAY_INIT(dpy, EGL_FALSE);
     VALIDATE_SURFACE_RETURN(eglSurface, EGL_FALSE);
 
+    EGLThreadInfo* tInfo = getEGLThreadInfo();
     egl_surface_t* surface(static_cast<egl_surface_t*>(eglSurface));
-    delete surface;
+    if (surface->isCurrent()) {
+        surface->deletePending = 1;
+    } else {
+        delete surface;
+    }
 
     return EGL_TRUE;
 }
@@ -1150,7 +1274,7 @@ static EGLBoolean s_eglReleaseThreadImpl(EGLThreadInfo* tInfo) {
     tInfo->eglError = EGL_SUCCESS;
     EGLContext_t* context = tInfo->currentContext;
 
-    if (!context) return EGL_TRUE;
+    if (!context || !s_display.isContext(context)) return EGL_TRUE;
 
     // The following code is doing pretty much the same thing as
     // eglMakeCurrent(&s_display, EGL_NO_CONTEXT, EGL_NO_SURFACE, EGL_NO_SURFACE)
@@ -1160,6 +1284,9 @@ static EGLBoolean s_eglReleaseThreadImpl(EGLThreadInfo* tInfo) {
     // anyway once we are on the host, so skip rcMakeCurrent here.
     // rcEnc->rcMakeCurrent(rcEnc, 0, 0, 0);
     context->flags &= ~EGLContext_t::IS_CURRENT;
+
+    s_destroyPendingSurfacesInContext(context);
+
     if (context->deletePending) {
         if (context->rcContext) {
             rcEnc->rcDestroyContext(rcEnc, context->rcContext);
@@ -1342,17 +1469,12 @@ EGLContext eglCreateContext(EGLDisplay dpy, EGLConfig config, EGLContext share_c
                 RETURN_ERROR(EGL_NO_CONTEXT,EGL_BAD_ATTRIBUTE);
             }
             break;
-        case EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_KHR:
-            switch (attrib_val) {
-            case EGL_NO_RESET_NOTIFICATION_KHR:
-            case EGL_LOSE_CONTEXT_ON_RESET_KHR:
-                break;
-            default:
-                RETURN_ERROR(EGL_NO_CONTEXT,EGL_BAD_ATTRIBUTE);
-            }
-            reset_notification_strategy = attrib_val;
+        case EGL_CONTEXT_PRIORITY_LEVEL_IMG:
+            // According to the spec, we are allowed not to honor this hint.
+            // https://www.khronos.org/registry/EGL/extensions/IMG/EGL_IMG_context_priority.txt
             break;
         default:
+            ALOGV("eglCreateContext unsupported attrib 0x%x", attrib_list[0]);
             setErrorReturn(EGL_BAD_ATTRIBUTE, EGL_NO_CONTEXT);
         }
         attrib_list+=2;
@@ -1472,10 +1594,8 @@ EGLBoolean eglDestroyContext(EGLDisplay dpy, EGLContext ctx)
 
     EGLContext_t * context = static_cast<EGLContext_t*>(ctx);
 
-    if (!context) return EGL_TRUE;
-
-    if (getEGLThreadInfo()->currentContext == context) {
-        getEGLThreadInfo()->currentContext->deletePending = 1;
+    if (context->flags & EGLContext_t::IS_CURRENT) {
+        context->deletePending = 1;
         return EGL_TRUE;
     }
 
@@ -1518,15 +1638,24 @@ EGLBoolean eglMakeCurrent(EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGLC
 
     if (tInfo->currentContext == context &&
         (context == NULL ||
-        (context && context->draw == draw && context->read == read))) {
+        (context && (context->draw == draw) && (context->read == read)))) {
         return EGL_TRUE;
     }
 
-    if (tInfo->currentContext && tInfo->currentContext->deletePending) {
-        if (tInfo->currentContext != context) {
-            EGLContext_t * contextToDelete = tInfo->currentContext;
+    if (tInfo->currentContext) {
+        EGLContext_t* prevCtx = tInfo->currentContext;
+
+        if (prevCtx->draw) {
+            static_cast<egl_surface_t *>(prevCtx->draw)->setIsCurrent(false);
+        }
+        if (prevCtx->read) {
+            static_cast<egl_surface_t *>(prevCtx->read)->setIsCurrent(false);
+        }
+        s_destroyPendingSurfacesInContext(tInfo->currentContext);
+
+        if (prevCtx->deletePending && prevCtx != context) {
             tInfo->currentContext = 0;
-            eglDestroyContext(dpy, contextToDelete);
+            eglDestroyContext(dpy, prevCtx);
         }
     }
 
@@ -1551,6 +1680,12 @@ EGLBoolean eglMakeCurrent(EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGLC
         hostCon->setGrallocOnly(false);
         context->draw = draw;
         context->read = read;
+        if (drawSurf) {
+            drawSurf->setIsCurrent(true);
+        }
+        if (readSurf) {
+            readSurf->setIsCurrent(true);
+        }
         context->flags |= EGLContext_t::IS_CURRENT;
         GLClientState* contextState =
             context->getClientState();
@@ -1633,8 +1768,9 @@ EGLBoolean eglMakeCurrent(EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGLC
 
     }
 
-    if (tInfo->currentContext)
+    if (tInfo->currentContext && (tInfo->currentContext != context)) {
         tInfo->currentContext->flags &= ~EGLContext_t::IS_CURRENT;
+    }
 
     //Now make current
     tInfo->currentContext = context;
@@ -1649,7 +1785,7 @@ EGLBoolean eglMakeCurrent(EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGLC
             }
             const char* exts = getGLString(GL_EXTENSIONS);
             if (exts) {
-                hostCon->gl2Encoder()->setExtensions(exts);
+                hostCon->gl2Encoder()->setExtensions(exts, getExtStringArray());
             }
         }
         else {
@@ -1823,6 +1959,8 @@ EGLImageKHR eglCreateImageKHR(EGLDisplay dpy, EGLContext ctx, EGLenum target, EG
             case HAL_PIXEL_FORMAT_RGB_565:
             case HAL_PIXEL_FORMAT_YV12:
             case HAL_PIXEL_FORMAT_BGRA_8888:
+            case HAL_PIXEL_FORMAT_RGBA_FP16:
+            case HAL_PIXEL_FORMAT_RGBA_1010102:
                 break;
             default:
                 setErrorReturn(EGL_BAD_PARAMETER, EGL_NO_IMAGE_KHR);
@@ -2097,10 +2235,24 @@ int eglDupNativeFenceFDANDROID(EGLDisplay dpy, EGLSyncKHR eglsync) {
     }
 }
 
-// TODO: Implement EGL_KHR_wait_sync
 EGLint eglWaitSyncKHR(EGLDisplay dpy, EGLSyncKHR eglsync, EGLint flags) {
     (void)dpy;
-    (void)eglsync;
-    (void)flags;
+
+    if (!eglsync) {
+        ALOGE("%s: null sync object!", __FUNCTION__);
+        return EGL_FALSE;
+    }
+
+    if (flags) {
+        ALOGE("%s: flags must be 0, got 0x%x", __FUNCTION__, flags);
+        return EGL_FALSE;
+    }
+
+    DEFINE_HOST_CONNECTION;
+    if (rcEnc->hasNativeSyncV3()) {
+        EGLSync_t* sync = (EGLSync_t*)eglsync;
+        rcEnc->rcWaitSyncKHR(rcEnc, sync->handle, flags);
+    }
+
     return EGL_TRUE;
 }

@@ -29,6 +29,11 @@ from android.workload import Workload
 class CameraStartup(Workload):
     """
     Android CameraStartup workload
+
+    This workload is intended to be used to collect traces of the camera starting
+    up to debug issues related to camera startup. For this reason, the camera app
+    is started after sleeping for 3 seconds after tracingStart. For this same
+    reason, energy cannot be collected since that disconnects USB.
     """
 
     # Package required by this workload
@@ -40,7 +45,7 @@ class CameraStartup(Workload):
         self._log = logging.getLogger('CameraStartup')
         self._log.debug('Workload created')
 
-    def run(self, out_dir, duration_s=10, collect='surfaceflinger'):
+    def run(self, out_dir, duration_s=10, collect='systrace'):
         """
         Run a camera startup workload
 
@@ -57,6 +62,9 @@ class CameraStartup(Workload):
             - any combination of the above
         :type collect: list(str)
         """
+
+        if 'energy' in collect:
+            raise RuntimeError('CameraStartup cannot do energy collection as app is started after tracingStart')
 
         self._log.info("Running CameraStartup for {}s and collecting {}".format(duration_s, collect))
 

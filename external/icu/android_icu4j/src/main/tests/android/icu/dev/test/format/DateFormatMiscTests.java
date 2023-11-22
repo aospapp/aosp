@@ -8,7 +8,7 @@
  *******************************************************************************
  */
 
-/** 
+/**
  * Port From:   ICU4C v1.8.1 : format : DateFormatMiscTests
  * Source File: $ICU4CRoot/source/test/intltest/miscdtfm.cpp
  **/
@@ -21,14 +21,20 @@ import java.util.Date;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
+import android.icu.dev.test.TestFmwk;
 import android.icu.text.DateFormatSymbols;
 import android.icu.text.SimpleDateFormat;
+import android.icu.testsharding.MainTestShard;
 
-/** 
+/**
  * Performs miscellaneous tests for DateFormat, SimpleDateFormat, DateFormatSymbols
  **/
-public class DateFormatMiscTests extends android.icu.dev.test.TestFmwk {
+@MainTestShard
+@RunWith(JUnit4.class)
+public class DateFormatMiscTests extends TestFmwk {
     /*
      * @bug 4097450
      */
@@ -39,13 +45,13 @@ public class DateFormatMiscTests extends android.icu.dev.test.TestFmwk {
         //
         String dstring[] = {
             "97", "1997", "97", "1997", "01", "2001", "01", "2001",
-             "1", "1", "11", "11", "111", "111"}; 
-    
-        String dformat[] = 
+             "1", "1", "11", "11", "111", "111"};
+
+        String dformat[] =
             {
-                "yy", "yy", "yyyy", "yyyy", "yy", "yy", "yyyy", "yyyy", 
-                "yy", "yyyy", "yy", "yyyy", "yy", "yyyy"};         
-    
+                "yy", "yy", "yyyy", "yyyy", "yy", "yy", "yyyy", "yyyy",
+                "yy", "yyyy", "yy", "yyyy", "yy", "yyyy"};
+
         SimpleDateFormat formatter;
         SimpleDateFormat resultFormatter = new SimpleDateFormat("yyyy");
         logln("Format\tSource\tResult");
@@ -56,7 +62,7 @@ public class DateFormatMiscTests extends android.icu.dev.test.TestFmwk {
             try {
                 StringBuffer str = new StringBuffer("");
                 FieldPosition pos = new FieldPosition(0);
-                logln(resultFormatter.format(formatter.parse(dstring[i]), str, pos).toString()); 
+                logln(resultFormatter.format(formatter.parse(dstring[i]), str, pos).toString());
             }
             catch (ParseException exception) {
                 errln("exception --> " + exception);
@@ -64,7 +70,7 @@ public class DateFormatMiscTests extends android.icu.dev.test.TestFmwk {
             logln("");
         }
     }
-    
+
     /* @Bug 4099975
      * SimpleDateFormat constructor SimpleDateFormat(String, DateFormatSymbols)
      * should clone the DateFormatSymbols parameter
@@ -77,15 +83,15 @@ public class DateFormatMiscTests extends android.icu.dev.test.TestFmwk {
             DateFormatSymbols symbols = new DateFormatSymbols(Locale.US);
             SimpleDateFormat df = new SimpleDateFormat("E hh:mm", symbols);
             SimpleDateFormat dfClone = (SimpleDateFormat) df.clone();
-            
+
             logln(df.toLocalizedPattern());
             String s0 = df.format(d);
             String s_dfClone = dfClone.format(d);
-            
+
             symbols.setLocalPatternChars("abcdefghijklmonpqr"); // change value of field
             logln(df.toLocalizedPattern());
             String s1 = df.format(d);
-            
+
             if (!s1.equals(s0) || !s1.equals(s_dfClone)) {
                 errln("Constructor: the formats are not equal");
             }
@@ -99,15 +105,15 @@ public class DateFormatMiscTests extends android.icu.dev.test.TestFmwk {
             SimpleDateFormat df = new SimpleDateFormat("E hh:mm");
             df.setDateFormatSymbols(symbols);
             SimpleDateFormat dfClone = (SimpleDateFormat) df.clone();
-            
+
             logln(df.toLocalizedPattern());
             String s0 = df.format(d);
             String s_dfClone = dfClone.format(d);
-            
+
             symbols.setLocalPatternChars("abcdefghijklmonpqr"); // change value of field
             logln(df.toLocalizedPattern());
             String s1 = df.format(d);
-            
+
             if (!s1.equals(s0) || !s1.equals(s_dfClone)) {
                 errln("setDateFormatSymbols: the formats are not equal");
             }
@@ -116,7 +122,7 @@ public class DateFormatMiscTests extends android.icu.dev.test.TestFmwk {
             }
         }
     }
-    
+
     /*
      * @bug 4117335
      */

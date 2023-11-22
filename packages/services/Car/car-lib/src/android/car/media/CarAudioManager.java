@@ -15,467 +15,350 @@
  */
 package android.car.media;
 
-import android.annotation.IntDef;
-import android.annotation.Nullable;
+import android.annotation.NonNull;
 import android.annotation.SystemApi;
 import android.car.CarLibLog;
+import android.car.CarManagerBase;
 import android.car.CarNotConnectedException;
+import android.content.ContentResolver;
 import android.content.Context;
+import android.database.ContentObserver;
 import android.media.AudioAttributes;
-import android.media.AudioManager;
-import android.media.AudioManager.OnAudioFocusChangeListener;
-import android.media.IVolumeController;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.car.CarManagerBase;
+import android.provider.Settings;
 import android.util.Log;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.ref.WeakReference;
 
 /**
  * APIs for handling car specific audio stuff.
  */
 public final class CarAudioManager implements CarManagerBase {
 
-    /**
-     * Audio usage for unspecified type.
-     */
-    public static final int CAR_AUDIO_USAGE_DEFAULT = 0;
-    /**
-     * Audio usage for playing music.
-     */
-    public static final int CAR_AUDIO_USAGE_MUSIC = 1;
-    /**
-     * Audio usage for H/W radio.
-     */
-    public static final int CAR_AUDIO_USAGE_RADIO = 2;
-    /**
-     * Audio usage for playing navigation guidance.
-     */
-    public static final int CAR_AUDIO_USAGE_NAVIGATION_GUIDANCE = 3;
-    /**
-     * Audio usage for voice call
-     */
-    public static final int CAR_AUDIO_USAGE_VOICE_CALL = 4;
-    /**
-     * Audio usage for voice search or voice command.
-     */
-    public static final int CAR_AUDIO_USAGE_VOICE_COMMAND = 5;
-    /**
-     * Audio usage for playing alarm.
-     */
-    public static final int CAR_AUDIO_USAGE_ALARM = 6;
-    /**
-     * Audio usage for notification sound.
-     */
-    public static final int CAR_AUDIO_USAGE_NOTIFICATION = 7;
-    /**
-     * Audio usage for system sound like UI feedback.
-     */
-    public static final int CAR_AUDIO_USAGE_SYSTEM_SOUND = 8;
-    /**
-     * Audio usage for playing safety alert.
-     */
-    public static final int CAR_AUDIO_USAGE_SYSTEM_SAFETY_ALERT = 9;
-    /**
-     * Audio usage for the ringing of a phone call.
-     */
-    public static final int CAR_AUDIO_USAGE_RINGTONE = 10;
-    /**
-     * Audio usage for external audio usage.
-     * @hide
-     */
-    public static final int CAR_AUDIO_USAGE_EXTERNAL_AUDIO_SOURCE = 11;
+    // The trailing slash forms a directory-liked hierarchy and
+    // allows listening for both GROUP/MEDIA and GROUP/NAVIGATION.
+    private static final String VOLUME_SETTINGS_KEY_FOR_GROUP_PREFIX = "android.car.VOLUME_GROUP/";
 
-    /** @hide */
-    public static final int CAR_AUDIO_USAGE_MAX = CAR_AUDIO_USAGE_EXTERNAL_AUDIO_SOURCE;
+    /**
+     * @param groupId The volume group id
+     * @return Key to persist volume index for volume group in {@link Settings.Global}
+     */
+    public static String getVolumeSettingsKeyForGroup(int groupId) {
+        return VOLUME_SETTINGS_KEY_FOR_GROUP_PREFIX + groupId;
+    }
 
-    /** @hide */
-    @IntDef({CAR_AUDIO_USAGE_DEFAULT, CAR_AUDIO_USAGE_MUSIC, CAR_AUDIO_USAGE_RADIO,
-        CAR_AUDIO_USAGE_NAVIGATION_GUIDANCE, CAR_AUDIO_USAGE_VOICE_CALL,
-        CAR_AUDIO_USAGE_VOICE_COMMAND, CAR_AUDIO_USAGE_ALARM, CAR_AUDIO_USAGE_NOTIFICATION,
-        CAR_AUDIO_USAGE_SYSTEM_SOUND, CAR_AUDIO_USAGE_SYSTEM_SAFETY_ALERT,
-        CAR_AUDIO_USAGE_EXTERNAL_AUDIO_SOURCE})
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface CarAudioUsage {}
-
-    /** @hide */
-    public static final String CAR_RADIO_TYPE_AM_FM = "RADIO_AM_FM";
-    /** @hide */
-    public static final String CAR_RADIO_TYPE_AM_FM_HD = "RADIO_AM_FM_HD";
-    /** @hide */
-    public static final String CAR_RADIO_TYPE_DAB = "RADIO_DAB";
-    /** @hide */
-    public static final String CAR_RADIO_TYPE_SATELLITE = "RADIO_SATELLITE";
-
-    /** @hide */
-    public static final String CAR_EXTERNAL_SOURCE_TYPE_CD_DVD = "CD_DVD";
-    /** @hide */
-    public static final String CAR_EXTERNAL_SOURCE_TYPE_AUX_IN0 = "AUX_IN0";
-    /** @hide */
-    public static final String CAR_EXTERNAL_SOURCE_TYPE_AUX_IN1 = "AUX_IN1";
-    /** @hide */
-    public static final String CAR_EXTERNAL_SOURCE_TYPE_EXT_NAV_GUIDANCE = "EXT_NAV_GUIDANCE";
-    /** @hide */
-    public static final String CAR_EXTERNAL_SOURCE_TYPE_EXT_VOICE_CALL = "EXT_VOICE_CALL";
-    /** @hide */
-    public static final String CAR_EXTERNAL_SOURCE_TYPE_EXT_VOICE_COMMAND = "EXT_VOICE_COMMAND";
-    /** @hide */
-    public static final String CAR_EXTERNAL_SOURCE_TYPE_EXT_SAFETY_ALERT = "EXT_SAFETY_ALERT";
-
+    private final ContentResolver mContentResolver;
     private final ICarAudio mService;
-    private final AudioManager mAudioManager;
-    private final Handler mHandler;
-
-    private ParameterChangeCallback mParameterChangeCallback;
-    private OnParameterChangeListener mOnParameterChangeListener;
 
     /**
-     * Get {@link AudioAttributes} relevant for the given usage in car.
-     * @param carUsage
-     * @return
+     * Registers a {@link ContentObserver} to listen for volume group changes.
+     * Note that this observer is valid for bus based car audio stack only.
+     *
+     * {@link ContentObserver#onChange(boolean)} will be called on every group volume change.
+     *
+     * @param observer The {@link ContentObserver} instance to register, non-null
      */
-    public AudioAttributes getAudioAttributesForCarUsage(@CarAudioUsage int carUsage)
-            throws CarNotConnectedException {
-        try {
-            return mService.getAudioAttributesForCarUsage(carUsage);
-        } catch (RemoteException e) {
-            throw new CarNotConnectedException();
-        }
+    @SystemApi
+    public void registerVolumeChangeObserver(@NonNull ContentObserver observer) {
+        mContentResolver.registerContentObserver(
+                Settings.Global.getUriFor(VOLUME_SETTINGS_KEY_FOR_GROUP_PREFIX),
+                true, observer);
     }
 
     /**
-     * Get AudioAttributes for radio. This is necessary when there are multiple types of radio
-     * in system.
+     * Unregisters the {@link ContentObserver} which listens for volume group changes.
      *
-     * @param radioType String specifying the desired radio type. Should use only what is listed in
-     *        {@link #getSupportedRadioTypes()}.
-     * @return
-     * @throws IllegalArgumentException If not supported type is passed.
-     *
-     * @hide
+     * @param observer The {@link ContentObserver} instance to unregister, non-null
      */
-    public AudioAttributes getAudioAttributesForRadio(String radioType)
-            throws CarNotConnectedException, IllegalArgumentException {
-        try {
-            return mService.getAudioAttributesForRadio(radioType);
-        } catch (RemoteException e) {
-            throw new CarNotConnectedException();
-        }
+    @SystemApi
+    public void unregisterVolumeChangeObserver(@NonNull ContentObserver observer) {
+        mContentResolver.unregisterContentObserver(observer);
     }
 
     /**
-     * Get AudioAttributes for external audio source.
+     * Sets the volume index for a volume group.
      *
-     * @param externalSourceType String specifying the desired source type. Should use only what is
-     *        listed in {@link #getSupportedExternalSourceTypes()}.
-     * @return
-     * @throws IllegalArgumentException If not supported type is passed.
+     * Requires {@link android.car.Car#PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
      *
-     * @hide
-     */
-    public AudioAttributes getAudioAttributesForExternalSource(String externalSourceType)
-            throws CarNotConnectedException, IllegalArgumentException {
-        try {
-            return mService.getAudioAttributesForExternalSource(externalSourceType);
-        } catch (RemoteException e) {
-            throw new CarNotConnectedException();
-        }
-    }
-
-    /**
-     * List all supported external audio sources.
-     *
-     * @return
-     *
-     * @hide
-     */
-    public String[] getSupportedExternalSourceTypes() throws CarNotConnectedException {
-        try {
-            return mService.getSupportedExternalSourceTypes();
-        } catch (RemoteException e) {
-            throw new CarNotConnectedException();
-        }
-    }
-
-    /**
-     * List all supported radio sources.
-     *
-     * @return
-     *
-     * @hide
-     */
-    public String[] getSupportedRadioTypes() throws CarNotConnectedException {
-        try {
-            return mService.getSupportedRadioTypes();
-        } catch (RemoteException e) {
-            throw new CarNotConnectedException();
-        }
-    }
-
-    /**
-     * Request audio focus.
-     * Send a request to obtain the audio focus.
-     * @param l
-     * @param requestAttributes
-     * @param durationHint
-     * @param flags
-     */
-    public int requestAudioFocus(OnAudioFocusChangeListener l,
-                                 AudioAttributes requestAttributes,
-                                 int durationHint,
-                                 int flags)
-                                         throws CarNotConnectedException, IllegalArgumentException {
-        return mAudioManager.requestAudioFocus(l, requestAttributes, durationHint, flags);
-    }
-
-    /**
-     * Abandon audio focus. Causes the previous focus owner, if any, to receive focus.
-     * @param l
-     * @param aa
-     */
-    public void abandonAudioFocus(OnAudioFocusChangeListener l, AudioAttributes aa) {
-        mAudioManager.abandonAudioFocus(l, aa);
-    }
-
-    /**
-     * Sets the volume index for a particular stream.
-     *
-     * Requires {@link android.car.Car.PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
-     *
-     * @param streamType The stream whose volume index should be set.
+     * @param groupId The volume group id whose volume index should be set.
      * @param index The volume index to set. See
-     *            {@link #getStreamMaxVolume(int)} for the largest valid value.
+     *            {@link #getGroupMaxVolume(int)} for the largest valid value.
      * @param flags One or more flags (e.g., {@link android.media.AudioManager#FLAG_SHOW_UI},
      *              {@link android.media.AudioManager#FLAG_PLAY_SOUND})
      */
     @SystemApi
-    public void setStreamVolume(int streamType, int index, int flags)
+    public void setGroupVolume(int groupId, int index, int flags) throws CarNotConnectedException {
+        try {
+            mService.setGroupVolume(groupId, index, flags);
+        } catch (RemoteException e) {
+            Log.e(CarLibLog.TAG_CAR, "setGroupVolume failed", e);
+            throw new CarNotConnectedException(e);
+        }
+    }
+
+    /**
+     * Returns the maximum volume index for a volume group.
+     *
+     * Requires {@link android.car.Car#PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
+     *
+     * @param groupId The volume group id whose maximum volume index is returned.
+     * @return The maximum valid volume index for the given group.
+     */
+    @SystemApi
+    public int getGroupMaxVolume(int groupId) throws CarNotConnectedException {
+        try {
+            return mService.getGroupMaxVolume(groupId);
+        } catch (RemoteException e) {
+            Log.e(CarLibLog.TAG_CAR, "getUsageMaxVolume failed", e);
+            throw new CarNotConnectedException(e);
+        }
+    }
+
+    /**
+     * Returns the minimum volume index for a volume group.
+     *
+     * Requires {@link android.car.Car#PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
+     *
+     * @param groupId The volume group id whose minimum volume index is returned.
+     * @return The minimum valid volume index for the given group, non-negative
+     */
+    @SystemApi
+    public int getGroupMinVolume(int groupId) throws CarNotConnectedException {
+        try {
+            return mService.getGroupMinVolume(groupId);
+        } catch (RemoteException e) {
+            Log.e(CarLibLog.TAG_CAR, "getUsageMinVolume failed", e);
+            throw new CarNotConnectedException(e);
+        }
+    }
+
+    /**
+     * Returns the current volume index for a volume group.
+     *
+     * Requires {@link android.car.Car#PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
+     *
+     * @param groupId The volume group id whose volume index is returned.
+     * @return The current volume index for the given group.
+     *
+     * @see #getGroupMaxVolume(int)
+     * @see #setGroupVolume(int, int, int)
+     */
+    @SystemApi
+    public int getGroupVolume(int groupId) throws CarNotConnectedException {
+        try {
+            return mService.getGroupVolume(groupId);
+        } catch (RemoteException e) {
+            Log.e(CarLibLog.TAG_CAR, "getUsageVolume failed", e);
+            throw new CarNotConnectedException(e);
+        }
+    }
+
+    /**
+     * Adjust the relative volume in the front vs back of the vehicle cabin.
+     *
+     * Requires {@link android.car.Car#PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
+     *
+     * @param value in the range -1.0 to 1.0 for fully toward the back through
+     *              fully toward the front.  0.0 means evenly balanced.
+     *
+     * @see #setBalanceTowardRight(float)
+     */
+    @SystemApi
+    public void setFadeTowardFront(float value) throws CarNotConnectedException {
+        try {
+            mService.setFadeTowardFront(value);
+        } catch (RemoteException e) {
+            Log.e(CarLibLog.TAG_CAR, "setFadeTowardFront failed", e);
+            throw new CarNotConnectedException(e);
+        }
+    }
+
+    /**
+     * Adjust the relative volume on the left vs right side of the vehicle cabin.
+     *
+     * Requires {@link android.car.Car#PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
+     *
+     * @param value in the range -1.0 to 1.0 for fully toward the left through
+     *              fully toward the right.  0.0 means evenly balanced.
+     *
+     * @see #setFadeTowardFront(float)
+     */
+    @SystemApi
+    public void setBalanceTowardRight(float value) throws CarNotConnectedException {
+        try {
+            mService.setBalanceTowardRight(value);
+        } catch (RemoteException e) {
+            Log.e(CarLibLog.TAG_CAR, "setBalanceTowardRight failed", e);
+            throw new CarNotConnectedException(e);
+        }
+    }
+
+    /**
+     * Queries the system configuration in order to report the available, non-microphone audio
+     * input devices.
+     *
+     * Requires {@link android.car.Car#PERMISSION_CAR_CONTROL_AUDIO_SETTINGS} permission.
+     *
+     * @return An array of strings representing the available input ports.
+     * Each port is identified by it's "address" tag in the audioPolicyConfiguration xml file.
+     * Empty array if we find nothing.
+     *
+     * @see #createAudioPatch(String, int, int)
+     * @see #releaseAudioPatch(CarAudioPatchHandle)
+     */
+    @SystemApi
+    public @NonNull String[] getExternalSources() throws CarNotConnectedException {
+        try {
+            return mService.getExternalSources();
+        } catch (RemoteException e) {
+            Log.e(CarLibLog.TAG_CAR, "getExternalSources failed", e);
+            throw new CarNotConnectedException(e);
+        }
+    }
+
+    /**
+     * Given an input port identified by getExternalSources(), request that it's audio signal
+     * be routed below the HAL to the output port associated with the given usage.  For example,
+     * The output of a tuner might be routed directly to the output buss associated with
+     * AudioAttributes.USAGE_MEDIA while the tuner is playing.
+     *
+     * Requires {@link android.car.Car#PERMISSION_CAR_CONTROL_AUDIO_SETTINGS} permission.
+     *
+     * @param sourceAddress the input port name obtained from getExternalSources().
+     * @param usage the type of audio represented by this source (usually USAGE_MEDIA).
+     * @param gainInMillibels How many steps above the minimum value defined for the source port to
+     *                       set the gain when creating the patch.
+     *                       This may be used for source balancing without affecting the user
+     *                       controlled volumes applied to the destination ports.  A value of
+     *                       0 indicates no gain change is requested.
+     * @return A handle for the created patch which can be used to later remove it.
+     *
+     * @see #getExternalSources()
+     * @see #releaseAudioPatch(CarAudioPatchHandle)
+     */
+    @SystemApi
+    public CarAudioPatchHandle createAudioPatch(String sourceAddress,
+            @AudioAttributes.AttributeUsage int usage, int gainInMillibels)
             throws CarNotConnectedException {
         try {
-            mService.setStreamVolume(streamType, index, flags);
+            return mService.createAudioPatch(sourceAddress, usage, gainInMillibels);
         } catch (RemoteException e) {
-            Log.e(CarLibLog.TAG_CAR, "setStreamVolume failed", e);
+            Log.e(CarLibLog.TAG_CAR, "createAudioPatch failed", e);
             throw new CarNotConnectedException(e);
         }
     }
 
     /**
-     * Registers a global volume controller interface.
+     * Removes the association between an input port and an output port identified by the provided
+     * handle.
      *
-     * Requires {@link android.car.Car.PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
+     * Requires {@link android.car.Car#PERMISSION_CAR_CONTROL_AUDIO_SETTINGS} permission.
      *
-     * @hide
+     * @param patch CarAudioPatchHandle returned from createAudioPatch().
+     *
+     * @see #getExternalSources()
+     * @see #createAudioPatch(String, int, int)
      */
     @SystemApi
-    public void setVolumeController(IVolumeController controller)
+    public void releaseAudioPatch(CarAudioPatchHandle patch) throws CarNotConnectedException {
+        try {
+            mService.releaseAudioPatch(patch);
+        } catch (RemoteException e) {
+            Log.e(CarLibLog.TAG_CAR, "releaseAudioPatch failed", e);
+            throw new CarNotConnectedException(e);
+        }
+    }
+
+    /**
+     * Gets the count of available volume groups in the system.
+     *
+     * Requires {@link android.car.Car#PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
+     *
+     * @return Count of volume groups
+     */
+    @SystemApi
+    public int getVolumeGroupCount() throws CarNotConnectedException {
+        try {
+            return mService.getVolumeGroupCount();
+        } catch (RemoteException e) {
+            Log.e(CarLibLog.TAG_CAR, "getVolumeGroupCount failed", e);
+            throw new CarNotConnectedException(e);
+        }
+    }
+
+    /**
+     * Gets the volume group id for a given {@link AudioAttributes} usage.
+     *
+     * Requires {@link android.car.Car#PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
+     *
+     * @param usage The {@link AudioAttributes} usage to get a volume group from.
+     * @return The volume group id where the usage belongs to
+     */
+    @SystemApi
+    public int getVolumeGroupIdForUsage(@AudioAttributes.AttributeUsage int usage)
             throws CarNotConnectedException {
         try {
-            mService.setVolumeController(controller);
+            return mService.getVolumeGroupIdForUsage(usage);
         } catch (RemoteException e) {
-            Log.e(CarLibLog.TAG_CAR, "setVolumeController failed", e);
+            Log.e(CarLibLog.TAG_CAR, "getVolumeGroupIdForUsage failed", e);
             throw new CarNotConnectedException(e);
         }
     }
 
     /**
-     * Returns the maximum volume index for a particular stream.
+     * Gets array of {@link AudioAttributes} usages for a given volume group id.
      *
-     * Requires {@link android.car.Car.PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
+     * Requires {@link android.car.Car#PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
      *
-     * @param stream The stream type whose maximum volume index is returned.
-     * @return The maximum valid volume index for the stream.
+     * @param groupId The volume group id whose associated audio usages is returned.
+     * @return Array of {@link AudioAttributes} usages for a given volume group id
      */
     @SystemApi
-    public int getStreamMaxVolume(int stream) throws CarNotConnectedException {
+    public @NonNull int[] getUsagesForVolumeGroupId(int groupId) throws CarNotConnectedException {
         try {
-            return mService.getStreamMaxVolume(stream);
+            return mService.getUsagesForVolumeGroupId(groupId);
         } catch (RemoteException e) {
-            Log.e(CarLibLog.TAG_CAR, "getStreamMaxVolume failed", e);
+            Log.e(CarLibLog.TAG_CAR, "getUsagesForVolumeGroupId failed", e);
             throw new CarNotConnectedException(e);
         }
     }
 
     /**
-     * Returns the minimum volume index for a particular stream.
+     * Register {@link ICarVolumeCallback} to receive the volume key events
      *
-     * Requires {@link android.car.Car.PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
+     * Requires {@link android.car.Car#PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
      *
-     * @param stream The stream type whose maximum volume index is returned.
-     * @return The maximum valid volume index for the stream.
-     */
-    @SystemApi
-    public int getStreamMinVolume(int stream) throws CarNotConnectedException {
-        try {
-            return mService.getStreamMinVolume(stream);
-        } catch (RemoteException e) {
-            Log.e(CarLibLog.TAG_CAR, "getStreamMaxVolume failed", e);
-            throw new CarNotConnectedException(e);
-        }
-    }
-
-    /**
-     * Returns the current volume index for a particular stream.
-     *
-     * Requires {@link android.car.Car.PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
-     *
-     * @param stream The stream type whose volume index is returned.
-     * @return The current volume index for the stream.
-     *
-     * @see #getStreamMaxVolume(int)
-     * @see #setStreamVolume(int, int, int)
-     */
-    @SystemApi
-    public int getStreamVolume(int stream) throws CarNotConnectedException {
-        try {
-            return mService.getStreamVolume(stream);
-        } catch (RemoteException e) {
-            Log.e(CarLibLog.TAG_CAR, "getStreamVolume failed", e);
-            throw new CarNotConnectedException(e);
-        }
-    }
-
-    /**
-     * Check if media audio is muted or not. This will include music and radio. Any application
-     * taking audio focus for media stream will get it out of mute state.
-     *
-     * @return true if media is muted.
-     * @throws CarNotConnectedException if the connection to the car service has been lost.
-     * @hide
-     */
-    @SystemApi
-    public boolean isMediaMuted() throws CarNotConnectedException {
-        try {
-            return mService.isMediaMuted();
-        } catch (RemoteException e) {
-            Log.e(CarLibLog.TAG_CAR, "isMediaMuted failed", e);
-            throw new CarNotConnectedException(e);
-        }
-    }
-
-    /**
-     * Mute or unmute media stream including radio. This can involve audio focus change to stop
-     * whatever app holding audio focus now. If requester is currently holding audio focus,
-     * it will get LOSS_TRANSIENT focus loss.
-     * This API requires {@link android.car.Car.PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
-     *
-     * @param mute
-     * @return Mute state of system after the request. Note that mute request can fail if there
-     *         is higher priority audio already being played like phone call.
-     * @throws CarNotConnectedException if the connection to the car service has been lost.
-     * @hide
-     */
-    @SystemApi
-    public boolean setMediaMute(boolean mute) throws CarNotConnectedException {
-        try {
-            return mService.setMediaMute(mute);
-        } catch (RemoteException e) {
-            Log.e(CarLibLog.TAG_CAR, "setMediaMute failed", e);
-            throw new CarNotConnectedException(e);
-        }
-    }
-
-    /**
-     * Listener to monitor audio parameter changes.
-     * @hide
-     */
-    public interface OnParameterChangeListener {
-        /**
-         * Parameter changed.
-         * @param parameters Have format of key1=value1;key2=value2;...
-         */
-        void onParameterChange(String parameters);
-    }
-
-    /**
-     * Return array of keys supported in this system.
-     * Requires {@link android.car.Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS} permission.
-     * The list is static and will not change.
-     * @return null if there is no audio parameters supported.
+     * @param binder {@link IBinder} instance of {@link ICarVolumeCallback} to receive
+     *                              volume key event callbacks
      * @throws CarNotConnectedException
-     *
-     * @hide
      */
-    public @Nullable String[] getParameterKeys() throws CarNotConnectedException {
-        try {
-            return mService.getParameterKeys();
-        } catch (RemoteException e) {
-            Log.e(CarLibLog.TAG_CAR, "getParameterKeys failed", e);
-            throw new CarNotConnectedException(e);
-        }
-    }
-
-    /**
-     * Set car specific audio parameters.
-     * Requires {@link android.car.Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS} permission.
-     * Only keys listed from {@link #getParameterKeys()} should be used.
-     * @param parameters has format of key1=value1;key2=value2;...
-     * @throws CarNotConnectedException
-     *
-     * @hide
-     */
-    public void setParameters(String parameters) throws CarNotConnectedException {
-        try {
-            mService.setParameters(parameters);
-        } catch (RemoteException e) {
-            Log.e(CarLibLog.TAG_CAR, "setParameters failed", e);
-            throw new CarNotConnectedException(e);
-        }
-    }
-
-    /**
-     * Get parameters for the key passed.
-     * Requires {@link android.car.Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS} permission.
-     * Only keys listed from {@link #getParameterKeys()} should be used.
-     * @param keys Keys to get value. Format is key1;key2;...
-     * @return Parameters in format of key1=value1;key2=value2;...
-     * @throws CarNotConnectedException
-     *
-     * @hide
-     */
-    public String getParameters(String keys) throws CarNotConnectedException {
-        try {
-            return mService.getParameters(keys);
-        } catch (RemoteException e) {
-            Log.e(CarLibLog.TAG_CAR, "getParameters failed", e);
-            throw new CarNotConnectedException(e);
-        }
-    }
-
-    /**
-     * Set listener to monitor audio parameter changes.
-     * Requires {@link android.car.Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS} permission.
-     * @param listener Non-null listener will start monitoring. null listener will stop listening.
-     * @throws CarNotConnectedException
-     *
-     * @hide
-     */
-    public void setOnParameterChangeListener(OnParameterChangeListener listener)
+    @SystemApi
+    public void registerVolumeCallback(@NonNull IBinder binder)
             throws CarNotConnectedException {
-        ParameterChangeCallback oldCb = null;
-        ParameterChangeCallback newCb = null;
-        synchronized (this) {
-            if (listener != null) {
-                if (mParameterChangeCallback != null) {
-                    oldCb = mParameterChangeCallback;
-                }
-                newCb = new ParameterChangeCallback(this);
-            }
-            mParameterChangeCallback = newCb;
-            mOnParameterChangeListener = listener;
-        }
         try {
-            if (oldCb != null) {
-                mService.unregisterOnParameterChangeListener(oldCb);
-            }
-            if (newCb != null) {
-                mService.registerOnParameterChangeListener(newCb);
-            }
+            mService.registerVolumeCallback(binder);
         } catch (RemoteException e) {
-            Log.e(CarLibLog.TAG_CAR, "setOnParameterChangeListener failed", e);
+            Log.e(CarLibLog.TAG_CAR, "registerVolumeCallback failed", e);
+            throw new CarNotConnectedException(e);
+        }
+    }
+
+    /**
+     * Unregister {@link ICarVolumeCallback} from receiving volume key events
+     *
+     * Requires {@link android.car.Car#PERMISSION_CAR_CONTROL_AUDIO_VOLUME} permission.
+     *
+     * @param binder {@link IBinder} instance of {@link ICarVolumeCallback} to stop receiving
+     *                              volume key event callbacks
+     * @throws CarNotConnectedException
+     */
+    @SystemApi
+    public void unregisterVolumeCallback(@NonNull IBinder binder)
+            throws CarNotConnectedException {
+        try {
+            mService.unregisterVolumeCallback(binder);
+        } catch (RemoteException e) {
+            Log.e(CarLibLog.TAG_CAR, "unregisterVolumeCallback failed", e);
             throw new CarNotConnectedException(e);
         }
     }
@@ -487,40 +370,7 @@ public final class CarAudioManager implements CarManagerBase {
 
     /** @hide */
     public CarAudioManager(IBinder service, Context context, Handler handler) {
+        mContentResolver = context.getContentResolver();
         mService = ICarAudio.Stub.asInterface(service);
-        mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-        mHandler = handler;
-    }
-
-    private AudioAttributes createAudioAttributes(int contentType, int usage) {
-        AudioAttributes.Builder builder = new AudioAttributes.Builder();
-        return builder.setContentType(contentType).setUsage(usage).build();
-    }
-
-    private static class ParameterChangeCallback extends ICarAudioCallback.Stub {
-
-        private final WeakReference<CarAudioManager> mManager;
-
-        private ParameterChangeCallback(CarAudioManager manager) {
-            mManager = new WeakReference<>(manager);
-        }
-
-        @Override
-        public void onParameterChange(final String params) {
-            CarAudioManager manager = mManager.get();
-            if (manager == null) {
-                return;
-            }
-            final OnParameterChangeListener listener = manager.mOnParameterChangeListener;
-            if (listener == null) {
-                return;
-            }
-            manager.mHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    listener.onParameterChange(params);
-                }
-            });
-        }
     }
 }

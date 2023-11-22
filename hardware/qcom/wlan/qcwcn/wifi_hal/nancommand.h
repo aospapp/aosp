@@ -104,6 +104,7 @@ private:
     int getNanTransmitFollowupInd(NanTransmitFollowupInd *event);
     int getNanRangeRequestReceivedInd(NanRangeRequestInd *event);
     int getNanRangeReportInd(NanRangeReportInd *event);
+    int getNdpScheduleUpdate(struct nlattr **tb_vendor, NanDataPathScheduleUpdateInd *event);
 public:
     NanCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
     static NanCommand* instance(wifi_handle handle);
@@ -111,28 +112,28 @@ public:
 
     // This function implements creation of NAN specific Request
     // based on  the request type
-    virtual int create();
-    virtual int requestEvent();
+    virtual wifi_error create();
+    virtual wifi_error requestEvent();
     virtual int handleResponse(WifiEvent &reply);
     virtual int handleEvent(WifiEvent &event);
-    int setCallbackHandler(NanCallbackHandler nHandler);
+    wifi_error setCallbackHandler(NanCallbackHandler nHandler);
 
 
     //Functions to fill the vendor data appropriately
-    int putNanEnable(transaction_id id, const NanEnableRequest *pReq);
-    int putNanDisable(transaction_id id);
-    int putNanPublish(transaction_id id, const NanPublishRequest *pReq);
-    int putNanPublishCancel(transaction_id id, const NanPublishCancelRequest *pReq);
-    int putNanSubscribe(transaction_id id, const NanSubscribeRequest *pReq);
-    int putNanSubscribeCancel(transaction_id id, const NanSubscribeCancelRequest *pReq);
-    int putNanTransmitFollowup(transaction_id id, const NanTransmitFollowupRequest *pReq);
-    int putNanStats(transaction_id id, const NanStatsRequest *pReq);
-    int putNanConfig(transaction_id id, const NanConfigRequest *pReq);
-    int putNanTCA(transaction_id id, const NanTCARequest *pReq);
-    int putNanBeaconSdfPayload(transaction_id id, const NanBeaconSdfPayloadRequest *pReq);
-    int getNanStaParameter(wifi_interface_handle iface, NanStaParameter *pRsp);
-    int putNanCapabilities(transaction_id id);
-    int putNanDebugCommand(NanDebugParams debug, int debug_msg_length);
+    wifi_error putNanEnable(transaction_id id, const NanEnableRequest *pReq);
+    wifi_error putNanDisable(transaction_id id);
+    wifi_error putNanPublish(transaction_id id, const NanPublishRequest *pReq);
+    wifi_error putNanPublishCancel(transaction_id id, const NanPublishCancelRequest *pReq);
+    wifi_error putNanSubscribe(transaction_id id, const NanSubscribeRequest *pReq);
+    wifi_error putNanSubscribeCancel(transaction_id id, const NanSubscribeCancelRequest *pReq);
+    wifi_error putNanTransmitFollowup(transaction_id id, const NanTransmitFollowupRequest *pReq);
+    wifi_error putNanStats(transaction_id id, const NanStatsRequest *pReq);
+    wifi_error putNanConfig(transaction_id id, const NanConfigRequest *pReq);
+    wifi_error putNanTCA(transaction_id id, const NanTCARequest *pReq);
+    wifi_error putNanBeaconSdfPayload(transaction_id id, const NanBeaconSdfPayloadRequest *pReq);
+    wifi_error getNanStaParameter(wifi_interface_handle iface, NanStaParameter *pRsp);
+    wifi_error putNanCapabilities(transaction_id id);
+    wifi_error putNanDebugCommand(NanDebugParams debug, int debug_msg_length);
 
     /* Functions for NAN error translation
        For NanResponse, NanPublishTerminatedInd, NanSubscribeTerminatedInd,

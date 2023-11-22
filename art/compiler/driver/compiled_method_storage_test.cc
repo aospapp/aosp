@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+#include "compiled_method_storage.h"
+
 #include <gtest/gtest.h>
 
-#include "compiled_method_storage.h"
-#include "compiled_method.h"
+#include "compiled_method-inl.h"
 #include "compiler_driver.h"
 #include "compiler_options.h"
 #include "dex/verification_results.h"
@@ -30,15 +31,12 @@ TEST(CompiledMethodStorage, Deduplicate) {
   CompilerDriver driver(&compiler_options,
                         &verification_results,
                         Compiler::kOptimizing,
-                        /* instruction_set_ */ kNone,
+                        /* instruction_set_ */ InstructionSet::kNone,
                         /* instruction_set_features */ nullptr,
                         /* image_classes */ nullptr,
                         /* compiled_classes */ nullptr,
                         /* compiled_methods */ nullptr,
                         /* thread_count */ 1u,
-                        /* dump_stats */ false,
-                        /* dump_passes */ false,
-                        /* timer */ nullptr,
                         /* swap_fd */ -1,
                         /* profile_compilation_info */ nullptr);
   CompiledMethodStorage* storage = driver.GetCompiledMethodStorage();
@@ -69,17 +67,17 @@ TEST(CompiledMethodStorage, Deduplicate) {
       ArrayRef<const uint8_t>(raw_cfi_info1),
       ArrayRef<const uint8_t>(raw_cfi_info2),
   };
-  const LinkerPatch raw_patches1[] = {
-      LinkerPatch::CodePatch(0u, nullptr, 1u),
-      LinkerPatch::RelativeMethodPatch(4u, nullptr, 0u, 1u),
+  const linker::LinkerPatch raw_patches1[] = {
+      linker::LinkerPatch::CodePatch(0u, nullptr, 1u),
+      linker::LinkerPatch::RelativeMethodPatch(4u, nullptr, 0u, 1u),
   };
-  const LinkerPatch raw_patches2[] = {
-      LinkerPatch::CodePatch(0u, nullptr, 1u),
-      LinkerPatch::RelativeMethodPatch(4u, nullptr, 0u, 2u),
+  const linker::LinkerPatch raw_patches2[] = {
+      linker::LinkerPatch::CodePatch(0u, nullptr, 1u),
+      linker::LinkerPatch::RelativeMethodPatch(4u, nullptr, 0u, 2u),
   };
-  ArrayRef<const LinkerPatch> patches[] = {
-      ArrayRef<const LinkerPatch>(raw_patches1),
-      ArrayRef<const LinkerPatch>(raw_patches2),
+  ArrayRef<const linker::LinkerPatch> patches[] = {
+      ArrayRef<const linker::LinkerPatch>(raw_patches1),
+      ArrayRef<const linker::LinkerPatch>(raw_patches2),
   };
 
   std::vector<CompiledMethod*> compiled_methods;
@@ -90,7 +88,7 @@ TEST(CompiledMethodStorage, Deduplicate) {
         for (auto&& f : cfi_info) {
           for (auto&& p : patches) {
             compiled_methods.push_back(CompiledMethod::SwapAllocCompiledMethod(
-                &driver, kNone, c, 0u, 0u, 0u, s, v, f, p));
+                &driver, InstructionSet::kNone, c, 0u, 0u, 0u, s, v, f, p));
           }
         }
       }

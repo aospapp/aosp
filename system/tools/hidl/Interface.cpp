@@ -28,10 +28,11 @@
 #include <unistd.h>
 
 #include <iostream>
+#include <memory>
 #include <sstream>
+#include <unordered_map>
 
 #include <android-base/logging.h>
-#include <hidl-hash/Hash.h>
 #include <hidl-util/Formatter.h>
 #include <hidl-util/StringHelper.h>
 
@@ -67,12 +68,16 @@ enum {
     LAST_HIDL_TRANSACTION   = 0x0fffffff,
 };
 
-Interface::Interface(const char* localName, const Location& location, Scope* parent,
-                     Interface* super)
-    : Scope(localName, location, parent), mSuperType(super), mIsJavaCompatibleInProgress(false) {}
+Interface::Interface(const char* localName, const FQName& fullName, const Location& location,
+                     Scope* parent, const Reference<Type>& superType, const Hash* fileHash)
+    : Scope(localName, fullName, location, parent), mSuperType(superType), mFileHash(fileHash) {}
 
 std::string Interface::typeName() const {
     return "interface " + localName();
+}
+
+const Hash* Interface::getFileHash() const {
+    return mFileHash;
 }
 
 bool Interface::fillPingMethod(Method *method) const {
@@ -100,7 +105,6 @@ bool Interface::fillPingMethod(Method *method) const {
                     out << "return;\n";
                 }
             },
-            {IMPL_STUB, nullptr /* don't generate code */}
         } /*javaImpl*/
     );
 
@@ -211,7 +215,7 @@ bool Interface::fillSyspropsChangedMethod(Method *method) const {
                 out << "return ::android::hardware::Void();";
             } } }, /*cppImpl */
             { { IMPL_INTERFACE, [](auto &out) { /* javaImpl */
-                out << "android.os.SystemProperties.reportSyspropChanged();";
+                out << "android.os.HwBinder.enableInstrumentation();";
             } } } /*javaImpl */
     );
     return true;
@@ -284,22 +288,21 @@ bool Interface::fillDescriptorChainMethod(Method *method) const {
     return true;
 }
 
-static void emitDigestChain(
-        Formatter &out,
-        const std::string &prefix,
-        const std::vector<const Interface *> &chain,
-        std::function<std::string(const ConstantExpression &)> byteToString) {
-    out.join(chain.begin(), chain.end(), ",\n", [&] (const auto &iface) {
-        const Hash &hash = Hash::getHash(iface->location().begin().filename());
+void Interface::emitDigestChain(
+    Formatter& out, const std::string& prefix, const std::vector<const Interface*>& chain,
+    std::function<std::string(std::unique_ptr<ConstantExpression>)> byteToString) const {
+    out.join(chain.begin(), chain.end(), ",\n", [&](const auto& iface) {
         out << prefix;
         out << "{";
-        out.join(hash.raw().begin(), hash.raw().end(), ",", [&](const auto &e) {
-            // Use ConstantExpression::cppValue / javaValue
-            // because Java used signed byte for uint8_t.
-            out << byteToString(ConstantExpression::ValueOf(ScalarType::Kind::KIND_UINT8, e));
-        });
+        out.join(
+            iface->getFileHash()->raw().begin(), iface->getFileHash()->raw().end(), ",",
+            [&](const auto& e) {
+                // Use ConstantExpression::cppValue / javaValue
+                // because Java used signed byte for uint8_t.
+                out << byteToString(ConstantExpression::ValueOf(ScalarType::Kind::KIND_UINT8, e));
+            });
         out << "} /* ";
-        out << hash.hexString();
+        out << iface->getFileHash()->hexString();
         out << " */";
     });
 }
@@ -317,8 +320,8 @@ bool Interface::fillHashChainMethod(Method *method) const {
             std::vector<const Interface *> chain = typeChain();
             out << "_hidl_cb(";
             out.block([&] {
-                emitDigestChain(out, "(" + digestType->getInternalDataCppType() + ")",
-                    chain, [](const auto &e){return e.cppValue();});
+                emitDigestChain(out, "(" + digestType->getInternalDataCppType() + ")", chain,
+                                [](const auto& e) { return e->cppValue(); });
             });
             out << ");\n";
             out << "return ::android::hardware::Void();\n";
@@ -331,7 +334,7 @@ bool Interface::fillHashChainMethod(Method *method) const {
             out.indent(2, [&] {
                 // No need for dimensions when elements are explicitly provided.
                 emitDigestChain(out, "new " + digestType->getJavaType(false /* forInitializer */),
-                    chain, [](const auto &e){return e.javaValue();});
+                                chain, [](const auto& e) { return e->javaValue(); });
             });
             out << "));\n";
         } } } /* javaImpl */
@@ -389,8 +392,7 @@ bool Interface::fillGetDebugInfoMethod(Method *method) const {
                 [](auto &out) {
                     out << "_hidl_cb(";
                     out.block([&] {
-                        out << "::android::hardware::details::debuggable()"
-                            << "? getpid() : -1 /* pid */,\n"
+                        out << "::android::hardware::details::getPidIfSharable(),\n"
                             << "::android::hardware::details::debuggable()"
                             << "? reinterpret_cast<uint64_t>(this) : 0 /* ptr */,\n"
                             << sArch << "\n";
@@ -404,10 +406,9 @@ bool Interface::fillGetDebugInfoMethod(Method *method) const {
             const Type &refInfo = method->results().front()->type();
             out << refInfo.getJavaType(false /* forInitializer */) << " info = new "
                 << refInfo.getJavaType(true /* forInitializer */) << "();\n"
-                // TODO(b/34777099): PID for java.
-                << "info.pid = -1;\n"
+                << "info.pid = android.os.HidlSupport.getPidIfSharable();\n"
                 << "info.ptr = 0;\n"
-                << "info.arch = android.hidl.base.V1_0.DebugInfo.Architecture.UNKNOWN;"
+                << "info.arch = android.hidl.base.V1_0.DebugInfo.Architecture.UNKNOWN;\n"
                 << "return info;";
         } } } /* javaImpl */
     );
@@ -444,8 +445,8 @@ static std::map<std::string, Method *> gAllReservedMethods;
 bool Interface::addMethod(Method *method) {
     if (isIBase()) {
         if (!gAllReservedMethods.emplace(method->name(), method).second) {
-            LOG(ERROR) << "ERROR: hidl-gen encountered duplicated reserved method "
-                       << method->name();
+            std::cerr << "ERROR: hidl-gen encountered duplicated reserved method " << method->name()
+                      << std::endl;
             return false;
         }
         // will add it in addAllReservedMethods
@@ -453,26 +454,149 @@ bool Interface::addMethod(Method *method) {
     }
 
     CHECK(!method->isHidlReserved());
-    if (lookupMethod(method->name()) != nullptr) {
-        LOG(ERROR) << "Redefinition of method " << method->name();
-        return false;
-    }
-    size_t serial = FIRST_CALL_TRANSACTION;
-
-    serial += userDefinedMethods().size();
-
-    const Interface *ancestor = mSuperType;
-    while (ancestor != nullptr) {
-        serial += ancestor->userDefinedMethods().size();
-        ancestor = ancestor->superType();
-    }
-
-    CHECK(serial <= LAST_CALL_TRANSACTION) << "More than "
-            << LAST_CALL_TRANSACTION << " methods are not allowed.";
-    method->setSerialId(serial);
     mUserMethods.push_back(method);
 
     return true;
+}
+
+std::vector<const Reference<Type>*> Interface::getReferences() const {
+    std::vector<const Reference<Type>*> ret;
+
+    if (!isIBase()) {
+        ret.push_back(&mSuperType);
+    }
+
+    for (const auto* method : methods()) {
+        const auto& references = method->getReferences();
+        ret.insert(ret.end(), references.begin(), references.end());
+    }
+
+    return ret;
+}
+
+std::vector<const ConstantExpression*> Interface::getConstantExpressions() const {
+    std::vector<const ConstantExpression*> ret;
+    for (const auto* method : methods()) {
+        const auto& retMethod = method->getConstantExpressions();
+        ret.insert(ret.end(), retMethod.begin(), retMethod.end());
+    }
+    return ret;
+}
+
+std::vector<const Reference<Type>*> Interface::getStrongReferences() const {
+    // Interface is a special case as a reference:
+    // its definiton must be completed for extension but
+    // not necessary for other references.
+
+    std::vector<const Reference<Type>*> ret;
+    if (!isIBase()) {
+        ret.push_back(&mSuperType);
+    }
+
+    for (const auto* method : methods()) {
+        const auto& references = method->getStrongReferences();
+        ret.insert(ret.end(), references.begin(), references.end());
+    }
+
+    return ret;
+}
+
+status_t Interface::resolveInheritance() {
+    size_t serial = FIRST_CALL_TRANSACTION;
+    for (const auto* ancestor : superTypeChain()) {
+        serial += ancestor->mUserMethods.size();
+    }
+
+    for (Method* method : mUserMethods) {
+        if (serial > LAST_CALL_TRANSACTION) {
+            std::cerr << "ERROR: More than " << LAST_CALL_TRANSACTION
+                      << " methods (including super and reserved) are not allowed at " << location()
+                      << std::endl;
+            return UNKNOWN_ERROR;
+        }
+
+        method->setSerialId(serial);
+        serial++;
+    }
+
+    return Scope::resolveInheritance();
+}
+
+status_t Interface::validate() const {
+    CHECK(isIBase() == mSuperType.isEmptyReference());
+
+    if (!isIBase() && !mSuperType->isInterface()) {
+        std::cerr << "ERROR: You can only extend interfaces at " << mSuperType.location()
+                  << std::endl;
+        return UNKNOWN_ERROR;
+    }
+
+    status_t err;
+
+    err = validateUniqueNames();
+    if (err != OK) return err;
+
+    err = validateAnnotations();
+    if (err != OK) return err;
+
+    return Scope::validate();
+}
+
+void Interface::getAlignmentAndSize(size_t* align, size_t* size) const {
+    *align = 8;
+    *size = 8;
+}
+
+status_t Interface::validateUniqueNames() const {
+    std::unordered_map<std::string, const Interface*> registeredMethodNames;
+    for (auto const& tuple : allSuperMethodsFromRoot()) {
+        // No need to check super method uniqueness
+        registeredMethodNames[tuple.method()->name()] = tuple.interface();
+    }
+
+    for (const Method* method : mUserMethods) {
+        auto registered = registeredMethodNames.find(method->name());
+
+        if (registered != registeredMethodNames.end()) {
+            const Interface* definedInType = registered->second;
+
+            if (definedInType == this) {
+                // Defined in this interface
+                std::cerr << "ERROR: Redefinition of method '" << method->name() << "'";
+            } else if (definedInType->isIBase()) {
+                // Defined in IBase
+                std::cerr << "ERROR: Redefinition of reserved method '" << method->name() << "'";
+            } else {
+                // Defined in super not IBase
+                std::cerr << "ERROR: Redefinition of method '" << method->name()
+                          << "' defined in interface '" << definedInType->fullName() << "'";
+            }
+            std::cerr << " at " << method->location() << std::endl;
+            return UNKNOWN_ERROR;
+        }
+
+        registeredMethodNames[method->name()] = this;
+    }
+
+    return OK;
+}
+
+status_t Interface::validateAnnotations() const {
+    for (const Method* method : methods()) {
+        for (const Annotation* annotation : method->annotations()) {
+            const std::string name = annotation->name();
+
+            if (name == "entry" || name == "exit" || name == "callflow") {
+                continue;
+            }
+
+            std::cerr << "ERROR: Unrecognized annotation '" << name
+                      << "' for method: " << method->name() << ". An annotation should be one of: "
+                      << "entry, exit, callflow." << std::endl;
+            return UNKNOWN_ERROR;
+        }
+    }
+    return OK;
 }
 
 bool Interface::addAllReservedMethods() {
@@ -492,15 +616,14 @@ bool Interface::addAllReservedMethods() {
             || fillDebugMethod(method);
 
         if (!fillSuccess) {
-            LOG(ERROR) << "ERROR: hidl-gen does not recognize a reserved method "
-                       << method->name();
+            std::cerr << "ERROR: hidl-gen does not recognize a reserved method " << method->name()
+                      << std::endl;
             return false;
         }
         if (!reservedMethodsById.emplace(method->getSerialId(), method).second) {
-            LOG(ERROR) << "ERROR: hidl-gen uses duplicated serial id for "
-                       << method->name() << " and "
-                       << reservedMethodsById[method->getSerialId()]->name()
-                       << ", serialId = " << method->getSerialId();
+            std::cerr << "ERROR: hidl-gen uses duplicated serial id for " << method->name()
+                      << " and " << reservedMethodsById[method->getSerialId()]->name()
+                      << ", serialId = " << method->getSerialId() << std::endl;
             return false;
         }
     }
@@ -510,8 +633,14 @@ bool Interface::addAllReservedMethods() {
     return true;
 }
 
-const Interface *Interface::superType() const {
-    return mSuperType;
+const Interface* Interface::superType() const {
+    if (isIBase()) return nullptr;
+    if (!mSuperType->isInterface()) {
+        // This is actually an error
+        // that would be caught in validate
+        return nullptr;
+    }
+    return static_cast<const Interface*>(mSuperType.get());
 }
 
 std::vector<const Interface *> Interface::typeChain() const {
@@ -519,13 +648,13 @@ std::vector<const Interface *> Interface::typeChain() const {
     const Interface *iface = this;
     while (iface != nullptr) {
         v.push_back(iface);
-        iface = iface->mSuperType;
+        iface = iface->superType();
     }
     return v;
 }
 
 std::vector<const Interface *> Interface::superTypeChain() const {
-    return superType()->typeChain(); // should work even if superType is nullptr
+    return isIBase() ? std::vector<const Interface*>() : superType()->typeChain();
 }
 
 bool Interface::isElidableType() const {
@@ -571,19 +700,16 @@ std::vector<InterfaceAndMethod> Interface::allMethodsFromRoot() const {
     return v;
 }
 
-Method *Interface::lookupMethod(std::string name) const {
-    for (const auto &tuple : allMethodsFromRoot()) {
-        Method *method = tuple.method();
-        if (method->name() == name) {
-            return method;
-        }
-    }
-
-    return nullptr;
+std::vector<InterfaceAndMethod> Interface::allSuperMethodsFromRoot() const {
+    return isIBase() ? std::vector<InterfaceAndMethod>() : superType()->allMethodsFromRoot();
 }
 
 std::string Interface::getBaseName() const {
     return fqName().getInterfaceBaseName();
+}
+
+std::string Interface::getAdapterName() const {
+    return fqName().getInterfaceAdapterName();
 }
 
 std::string Interface::getProxyName() const {
@@ -658,8 +784,7 @@ void Interface::emitReaderWriter(
         out << "{\n";
         out.indent();
 
-        const std::string binderName = "_hidl_" + name + "_binder";
-
+        const std::string binderName = "_hidl_binder";
         out << "::android::sp<::android::hardware::IBinder> "
             << binderName << ";\n";
 
@@ -720,29 +845,10 @@ void Interface::emitReaderWriter(
     }
 }
 
-status_t Interface::emitGlobalTypeDeclarations(Formatter &out) const {
-    status_t status = Scope::emitGlobalTypeDeclarations(out);
-    if (status != OK) {
-        return status;
-    }
-    out << "std::string toString("
-        << getCppArgumentType()
-        << ");\n";
-    return OK;
-}
+void Interface::emitPackageTypeDeclarations(Formatter& out) const {
+    Scope::emitPackageTypeDeclarations(out);
 
-
-status_t Interface::emitTypeDefinitions(
-        Formatter &out, const std::string prefix) const {
-    std::string space = prefix.empty() ? "" : (prefix + "::");
-    status_t err = Scope::emitTypeDefinitions(out, space + localName());
-    if (err != OK) {
-        return err;
-    }
-
-    out << "std::string toString("
-        << getCppArgumentType()
-        << " o) ";
+    out << "static inline std::string toString(" << getCppArgumentType() << " o) ";
 
     out.block([&] {
         out << "std::string os = \"[class or subclass of \";\n"
@@ -751,8 +857,12 @@ status_t Interface::emitTypeDefinitions(
             << "os += o->isRemote() ? \"@remote\" : \"@local\";\n"
             << "return os;\n";
     }).endl().endl();
+}
 
-    return OK;
+void Interface::emitTypeDefinitions(Formatter& out, const std::string& prefix) const {
+    std::string space = prefix.empty() ? "" : (prefix + "::");
+
+    Scope::emitTypeDefinitions(out, space + localName());
 }
 
 void Interface::emitJavaReaderWriter(
@@ -775,7 +885,7 @@ void Interface::emitJavaReaderWriter(
     }
 }
 
-status_t Interface::emitVtsAttributeDeclaration(Formatter &out) const {
+void Interface::emitVtsAttributeDeclaration(Formatter& out) const {
     for (const auto &type : getSubTypes()) {
         // Skip for TypeDef as it is just an alias of a defined type.
         if (type->isTypeDef()) {
@@ -783,17 +893,13 @@ status_t Interface::emitVtsAttributeDeclaration(Formatter &out) const {
         }
         out << "attribute: {\n";
         out.indent();
-        status_t status = type->emitVtsTypeDeclarations(out);
-        if (status != OK) {
-            return status;
-        }
+        type->emitVtsTypeDeclarations(out);
         out.unindent();
         out << "}\n\n";
     }
-    return OK;
 }
 
-status_t Interface::emitVtsMethodDeclaration(Formatter &out) const {
+void Interface::emitVtsMethodDeclaration(Formatter& out) const {
     for (const auto &method : methods()) {
         if (method->isHidlReserved()) {
             continue;
@@ -806,10 +912,7 @@ status_t Interface::emitVtsMethodDeclaration(Formatter &out) const {
         for (const auto &result : method->results()) {
             out << "return_type_hidl: {\n";
             out.indent();
-            status_t status = result->type().emitVtsAttributeType(out);
-            if (status != OK) {
-                return status;
-            }
+            result->type().emitVtsAttributeType(out);
             out.unindent();
             out << "}\n";
         }
@@ -817,10 +920,7 @@ status_t Interface::emitVtsMethodDeclaration(Formatter &out) const {
         for (const auto &arg : method->args()) {
             out << "arg: {\n";
             out.indent();
-            status_t status = arg->type().emitVtsAttributeType(out);
-            if (status != OK) {
-                return status;
-            }
+            arg->type().emitVtsAttributeType(out);
             out.unindent();
             out << "}\n";
         }
@@ -828,7 +928,7 @@ status_t Interface::emitVtsMethodDeclaration(Formatter &out) const {
         for (const auto &annotation : method->annotations()) {
             out << "callflow: {\n";
             out.indent();
-            std::string name = annotation->name();
+            const std::string name = annotation->name();
             if (name == "entry") {
                 out << "entry: true\n";
             } else if (name == "exit") {
@@ -837,15 +937,12 @@ status_t Interface::emitVtsMethodDeclaration(Formatter &out) const {
                 const AnnotationParam *param =
                         annotation->getParam("next");
                 if (param != nullptr) {
-                    for (auto value : *param->getValues()) {
+                    for (const auto& value : param->getValues()) {
                         out << "next: " << value << "\n";
                     }
                 }
             } else {
-                std::cerr << "Unrecognized annotation '"
-                          << name << "' for method: " << method->name()
-                          << ". A VTS annotation should be one of: "
-                          << "entry, exit, callflow. \n";
+                CHECK(false);
             }
             out.unindent();
             out << "}\n";
@@ -853,15 +950,13 @@ status_t Interface::emitVtsMethodDeclaration(Formatter &out) const {
         out.unindent();
         out << "}\n\n";
     }
-    return OK;
 }
 
-status_t Interface::emitVtsAttributeType(Formatter &out) const {
+void Interface::emitVtsAttributeType(Formatter& out) const {
     out << "type: " << getVtsType() << "\n"
         << "predefined_type: \""
         << fullName()
         << "\"\n";
-    return OK;
 }
 
 bool Interface::hasOnewayMethods() const {
@@ -880,37 +975,21 @@ bool Interface::hasOnewayMethods() const {
     return false;
 }
 
-bool Interface::isJavaCompatible() const {
-    if (mIsJavaCompatibleInProgress) {
-        // We're currently trying to determine if this Interface is
-        // java-compatible and something is referencing this interface through
-        // one of its methods. Assume we'll ultimately succeed, if we were wrong
-        // the original invocation of Interface::isJavaCompatible() will then
-        // return the correct "false" result.
-        return true;
-    }
-
-    if (mSuperType != nullptr && !mSuperType->isJavaCompatible()) {
-        mIsJavaCompatibleInProgress = false;
+bool Interface::deepIsJavaCompatible(std::unordered_set<const Type*>* visited) const {
+    if (superType() != nullptr && !superType()->isJavaCompatible(visited)) {
         return false;
     }
 
-    mIsJavaCompatibleInProgress = true;
-
-    if (!Scope::isJavaCompatible()) {
-        mIsJavaCompatibleInProgress = false;
-        return false;
-    }
-
-    for (const auto &method : methods()) {
-        if (!method->isJavaCompatible()) {
-            mIsJavaCompatibleInProgress = false;
+    for (const auto* method : methods()) {
+        if (!method->deepIsJavaCompatible(visited)) {
             return false;
         }
     }
 
-    mIsJavaCompatibleInProgress = false;
+    return Scope::isJavaCompatible(visited);
+}
 
+bool Interface::isNeverStrongReference() const {
     return true;
 }
 

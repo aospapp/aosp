@@ -18,12 +18,13 @@ package com.android.server.wifi.hotspot2;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.initMocks;
 
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import com.android.server.wifi.WifiNative;
 import com.android.server.wifi.hotspot2.anqp.Constants;
@@ -73,12 +74,12 @@ public class PasspointEventHandlerTest {
         HashSet<Integer> expHs20Subtypes = new HashSet<>();
 
         // wpa_supplicant succeeded the request.
-        when(mWifiNative.requestAnqp(eq(BSSID_STR), eq(expAnqpIds), eq(expHs20Subtypes)))
+        when(mWifiNative.requestAnqp(any(), eq(BSSID_STR), eq(expAnqpIds), eq(expHs20Subtypes)))
                 .thenReturn(true);
         assertTrue(mHandler.requestANQP(BSSID, elementToRequest));
 
         // wpa_supplicant failed the request.
-        when(mWifiNative.requestAnqp(eq(BSSID_STR), eq(expAnqpIds), eq(expHs20Subtypes)))
+        when(mWifiNative.requestAnqp(any(), eq(BSSID_STR), eq(expAnqpIds), eq(expHs20Subtypes)))
                 .thenReturn(false);
         assertFalse(mHandler.requestANQP(BSSID, elementToRequest));
     }
@@ -96,12 +97,12 @@ public class PasspointEventHandlerTest {
                         Constants.ANQPElementType.HSFriendlyName)));
 
         // wpa_supplicant succeeded the request.
-        when(mWifiNative.requestAnqp(eq(BSSID_STR), eq(expAnqpIds), eq(expHs20Subtypes)))
+        when(mWifiNative.requestAnqp(any(), eq(BSSID_STR), eq(expAnqpIds), eq(expHs20Subtypes)))
                 .thenReturn(true);
         assertTrue(mHandler.requestANQP(BSSID, elementToRequest));
 
         // wpa_supplicant failed the request.
-        when(mWifiNative.requestAnqp(eq(BSSID_STR), eq(expAnqpIds), eq(expHs20Subtypes)))
+        when(mWifiNative.requestAnqp(any(), eq(BSSID_STR), eq(expAnqpIds), eq(expHs20Subtypes)))
                 .thenReturn(false);
         assertFalse(mHandler.requestANQP(BSSID, elementToRequest));
     }
@@ -122,12 +123,12 @@ public class PasspointEventHandlerTest {
                         Constants.ANQPElementType.HSFriendlyName)));
 
         // wpa_supplicant succeeded the request.
-        when(mWifiNative.requestAnqp(eq(BSSID_STR), eq(expAnqpIds), eq(expHs20Subtypes)))
+        when(mWifiNative.requestAnqp(any(), eq(BSSID_STR), eq(expAnqpIds), eq(expHs20Subtypes)))
                 .thenReturn(true);
         assertTrue(mHandler.requestANQP(BSSID, elementToRequest));
 
         // wpa_supplicant failed the request.
-        when(mWifiNative.requestAnqp(eq(BSSID_STR), eq(expAnqpIds), eq(expHs20Subtypes)))
+        when(mWifiNative.requestAnqp(any(), eq(BSSID_STR), eq(expAnqpIds), eq(expHs20Subtypes)))
                 .thenReturn(false);
         assertFalse(mHandler.requestANQP(BSSID, elementToRequest));
     }
@@ -138,11 +139,11 @@ public class PasspointEventHandlerTest {
     @Test
     public void requestIconFile() {
         // wpa_supplicant succeeded the request.
-        when(mWifiNative.requestIcon(eq(BSSID_STR), eq(ICON_FILENAME))).thenReturn(true);
+        when(mWifiNative.requestIcon(any(), eq(BSSID_STR), eq(ICON_FILENAME))).thenReturn(true);
         assertTrue(mHandler.requestIcon(BSSID, ICON_FILENAME));
 
         // wpa_supplicant failed the request.
-        when(mWifiNative.requestIcon(eq(BSSID_STR), eq(ICON_FILENAME))).thenReturn(false);
+        when(mWifiNative.requestIcon(any(), eq(BSSID_STR), eq(ICON_FILENAME))).thenReturn(false);
         assertFalse(mHandler.requestIcon(BSSID, ICON_FILENAME));
     }
 

@@ -21,12 +21,13 @@
 #include <memory>
 #include <string>
 
-#include "base/logging.h"
+#include <android-base/logging.h>
+
+#include "base/os.h"
+#include "base/safe_map.h"
 #include "base/unix_file/random_access_file.h"
 #include "globals.h"
 #include "mem_map.h"
-#include "os.h"
-#include "safe_map.h"
 
 // system/core/zip_archive definitions.
 struct ZipEntry;
@@ -54,11 +55,16 @@ class ZipEntry {
   MemMap* MapDirectlyFromFile(const char* zip_filename, /*out*/std::string* error_msg);
   virtual ~ZipEntry();
 
+  MemMap* MapDirectlyOrExtract(const char* zip_filename,
+                               const char* entry_filename,
+                               std::string* error_msg);
+
   uint32_t GetUncompressedLength();
   uint32_t GetCrc32();
 
   bool IsUncompressed();
-  bool IsAlignedTo(size_t alignment);
+  bool IsAlignedTo(size_t alignment) const;
+  bool IsAlignedToDexHeader() const;
 
  private:
   ZipEntry(ZipArchiveHandle handle,

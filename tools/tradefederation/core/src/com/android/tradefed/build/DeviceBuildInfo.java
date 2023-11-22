@@ -16,8 +16,9 @@
 
 package com.android.tradefed.build;
 
+import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
+
 import java.io.File;
-import java.io.IOException;
 
 /**
  * A {@link IBuildInfo} that represents a complete Android device build and (optionally) its tests.
@@ -25,14 +26,13 @@ import java.io.IOException;
 public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
 
     private static final long serialVersionUID = BuildSerializedVersion.VERSION;
-    private static final String DEVICE_IMAGE_NAME = "device";
-    private static final String USERDATA_IMAGE_NAME = "userdata";
-    private static final String TESTDIR_IMAGE_NAME = "testsdir";
-    private static final String BASEBAND_IMAGE_NAME = "baseband";
-    private static final String BOOTLOADER_IMAGE_NAME = "bootloader";
-    private static final String OTA_IMAGE_NAME = "ota";
-    private static final String MKBOOTIMG_IMAGE_NAME = "mkbootimg";
-    private static final String RAMDISK_IMAGE_NAME = "ramdisk";
+
+    private static final String[] FILE_NOT_TO_CLONE =
+            new String[] {
+                BuildInfoFileKey.TESTDIR_IMAGE.getFileKey(),
+                BuildInfoFileKey.HOST_LINKED_DIR.getFileKey(),
+                BuildInfoFileKey.TARGET_LINKED_DIR.getFileKey()
+            };
 
     public DeviceBuildInfo() {
         super();
@@ -82,7 +82,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public File getDeviceImageFile() {
-        return getFile(DEVICE_IMAGE_NAME);
+        return getFile(BuildInfoFileKey.DEVICE_IMAGE);
     }
 
     /**
@@ -90,7 +90,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public String getDeviceImageVersion() {
-        return getVersion(DEVICE_IMAGE_NAME);
+        return getVersion(BuildInfoFileKey.DEVICE_IMAGE);
     }
 
     /**
@@ -98,7 +98,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public void setDeviceImageFile(File deviceImageFile, String version) {
-        setFile(DEVICE_IMAGE_NAME, deviceImageFile, version);
+        setFile(BuildInfoFileKey.DEVICE_IMAGE, deviceImageFile, version);
     }
 
     /**
@@ -106,7 +106,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public File getUserDataImageFile() {
-        return getFile(USERDATA_IMAGE_NAME);
+        return getFile(BuildInfoFileKey.USERDATA_IMAGE);
     }
 
     /**
@@ -114,7 +114,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public String getUserDataImageVersion() {
-        return getVersion(USERDATA_IMAGE_NAME);
+        return getVersion(BuildInfoFileKey.USERDATA_IMAGE);
     }
 
     /**
@@ -122,7 +122,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public void setUserDataImageFile(File userDataFile, String version) {
-        setFile(USERDATA_IMAGE_NAME, userDataFile, version);
+        setFile(BuildInfoFileKey.USERDATA_IMAGE, userDataFile, version);
     }
 
     /**
@@ -130,7 +130,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public File getTestsDir() {
-        return getFile(TESTDIR_IMAGE_NAME);
+        return getFile(BuildInfoFileKey.TESTDIR_IMAGE);
     }
 
     /**
@@ -138,7 +138,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public String getTestsDirVersion() {
-        return getVersion(TESTDIR_IMAGE_NAME);
+        return getVersion(BuildInfoFileKey.TESTDIR_IMAGE);
     }
 
     /**
@@ -146,7 +146,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public void setTestsDir(File testsDir, String version) {
-        setFile(TESTDIR_IMAGE_NAME, testsDir, version);
+        setFile(BuildInfoFileKey.TESTDIR_IMAGE, testsDir, version);
     }
 
     /**
@@ -154,7 +154,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public File getBasebandImageFile() {
-        return getFile(BASEBAND_IMAGE_NAME);
+        return getFile(BuildInfoFileKey.BASEBAND_IMAGE);
     }
 
     /**
@@ -162,7 +162,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public String getBasebandVersion() {
-        return getVersion(BASEBAND_IMAGE_NAME);
+        return getVersion(BuildInfoFileKey.BASEBAND_IMAGE);
     }
 
     /**
@@ -170,7 +170,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public void setBasebandImage(File basebandFile, String version) {
-        setFile(BASEBAND_IMAGE_NAME, basebandFile, version);
+        setFile(BuildInfoFileKey.BASEBAND_IMAGE, basebandFile, version);
     }
 
     /**
@@ -178,7 +178,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public File getBootloaderImageFile() {
-        return getFile(BOOTLOADER_IMAGE_NAME);
+        return getFile(BuildInfoFileKey.BOOTLOADER_IMAGE);
     }
 
     /**
@@ -186,7 +186,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public String getBootloaderVersion() {
-        return getVersion(BOOTLOADER_IMAGE_NAME);
+        return getVersion(BuildInfoFileKey.BOOTLOADER_IMAGE);
     }
 
     /**
@@ -194,7 +194,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public void setBootloaderImageFile(File bootloaderImgFile, String version) {
-        setFile(BOOTLOADER_IMAGE_NAME, bootloaderImgFile, version);
+        setFile(BuildInfoFileKey.BOOTLOADER_IMAGE, bootloaderImgFile, version);
     }
 
     /**
@@ -202,7 +202,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public File getOtaPackageFile() {
-        return getFile(OTA_IMAGE_NAME);
+        return getFile(BuildInfoFileKey.OTA_IMAGE);
     }
 
     /**
@@ -210,7 +210,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public String getOtaPackageVersion() {
-        return getVersion(OTA_IMAGE_NAME);
+        return getVersion(BuildInfoFileKey.OTA_IMAGE);
     }
 
     /**
@@ -218,7 +218,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public void setOtaPackageFile(File otaFile, String version) {
-        setFile(OTA_IMAGE_NAME, otaFile, version);
+        setFile(BuildInfoFileKey.OTA_IMAGE, otaFile, version);
     }
 
     /**
@@ -226,7 +226,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public File getMkbootimgFile() {
-        return getFile(MKBOOTIMG_IMAGE_NAME);
+        return getFile(BuildInfoFileKey.MKBOOTIMG_IMAGE);
     }
 
     /**
@@ -234,7 +234,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public String getMkbootimgVersion() {
-        return getVersion(MKBOOTIMG_IMAGE_NAME);
+        return getVersion(BuildInfoFileKey.MKBOOTIMG_IMAGE);
     }
 
     /**
@@ -242,7 +242,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public void setMkbootimgFile(File mkbootimg, String version) {
-        setFile(MKBOOTIMG_IMAGE_NAME, mkbootimg, version);
+        setFile(BuildInfoFileKey.MKBOOTIMG_IMAGE, mkbootimg, version);
     }
 
     /**
@@ -250,7 +250,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public File getRamdiskFile() {
-        return getFile(RAMDISK_IMAGE_NAME);
+        return getFile(BuildInfoFileKey.RAMDISK_IMAGE);
     }
 
     /**
@@ -258,7 +258,7 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public String getRamdiskVersion() {
-        return getVersion(RAMDISK_IMAGE_NAME);
+        return getVersion(BuildInfoFileKey.RAMDISK_IMAGE);
     }
 
     /**
@@ -266,24 +266,24 @@ public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
      */
     @Override
     public void setRamdiskFile(File ramdisk, String version) {
-        setFile(RAMDISK_IMAGE_NAME, ramdisk, version);
+        setFile(BuildInfoFileKey.RAMDISK_IMAGE, ramdisk, version);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public IBuildInfo clone() {
-        DeviceBuildInfo copy = new DeviceBuildInfo(getBuildId(), getBuildTargetName());
-        copy.addAllBuildAttributes(this);
-        try {
-            copy.addAllFiles(this);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+    protected boolean applyBuildProperties(
+            VersionedFile origFileConsidered, IBuildInfo build, IBuildInfo receiver) {
+        // If the no copy on sharding is set, that means the tests dir will be shared and should
+        // not be copied.
+        if (getProperties().contains(BuildInfoProperties.DO_NOT_COPY_ON_SHARDING)) {
+            for (String name : FILE_NOT_TO_CLONE) {
+                if (origFileConsidered.getFile().equals(build.getFile(name))) {
+                    receiver.setFile(
+                            name, origFileConsidered.getFile(), origFileConsidered.getVersion());
+                    return true;
+                }
+            }
         }
-        copy.setBuildBranch(getBuildBranch());
-        copy.setBuildFlavor(getBuildFlavor());
-
-        return copy;
+        return false;
     }
 }

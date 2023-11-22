@@ -49,9 +49,8 @@ class LinuxKselftestTest(base_test.BaseTestClass):
         logging.info("%s: %s", keys.ConfigKeys.IKEY_DATA_FILE_PATH,
             self.data_file_path)
 
-        self._dut = self.registerController(android_device)[0]
-        self._dut.shell.InvokeTerminal("one")
-        self._shell = self._dut.shell.one
+        self._dut = self.android_devices[0]
+        self._shell = self._dut.shell
 
         if self.test_type == "presubmit":
             self._testcases = config.KSFT_CASES_PRESUBMIT
@@ -112,7 +111,7 @@ class LinuxKselftestTest(base_test.BaseTestClass):
         """Runs the given testcase and asserts the result.
 
         Args:
-            testcase: string, format testsuite/testname, specifies which
+            testcase: a LinuxKselftestTestcase object, specifies which
                 test case to run.
         """
         if not testcase:

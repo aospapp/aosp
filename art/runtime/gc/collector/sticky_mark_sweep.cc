@@ -54,7 +54,7 @@ void StickyMarkSweep::BindBitmaps() {
 
 void StickyMarkSweep::MarkReachableObjects() {
   // All reachable objects must be referenced by a root or a dirty card, so we can clear the mark
-  // stack here since all objects in the mark stack will Get scanned by the card scanning anyways.
+  // stack here since all objects in the mark stack will get scanned by the card scanning anyways.
   // TODO: Not put these objects in the mark stack in the first place.
   mark_stack_->Reset();
   RecursiveMarkDirtyObjects(false, accounting::CardTable::kCardDirty - 1);
@@ -63,7 +63,7 @@ void StickyMarkSweep::MarkReachableObjects() {
 void StickyMarkSweep::MarkConcurrentRoots(VisitRootFlags flags) {
   TimingLogger::ScopedTiming t(__FUNCTION__, GetTimings());
   // Visit all runtime roots and clear dirty flags including class loader. This is done to prevent
-  // incorrect class unloading since the GC does not card mark when storing store the class during
+  // incorrect class unloading since the GC does not card mark when storing the class during
   // object allocation. Doing this for each allocation would be slow.
   // Since the card is not dirty, it means the object may not get scanned. This can cause class
   // unloading to occur even though the class and class loader are reachable through the object's

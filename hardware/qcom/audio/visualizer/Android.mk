@@ -35,6 +35,11 @@ else
   LOCAL_CFLAGS := -DCAPTURE_DEVICE=8
 endif
 
+LOCAL_CFLAGS += \
+    -Wall \
+    -Werror \
+    -Wno-unused-variable \
+
 LOCAL_HEADER_LIBRARIES := libhardware_headers
 
 LOCAL_MODULE_RELATIVE_PATH := soundfx

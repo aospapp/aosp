@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import cgi, os, sys, urllib2
+import cgi, os, socket, sys, urllib2
 import common
 from multiprocessing import pool
 from autotest_lib.frontend import setup_django_environment
@@ -73,7 +73,12 @@ def _check_result(args):
         if utils.DEFAULT_VM_GATEWAY in host:
             normalized_host = host.replace(utils.DEFAULT_VM_GATEWAY, 'localhost')
         else:
-            normalized_host = utils.normalize_hostname(host)
+            try:
+                normalized_host = utils.normalize_hostname(host)
+            except socket.herror:
+                # Ignore error: 'socket.herror: [Errno 1] Unknown host'
+                # This can happen when reverse name lookup is not stable.
+                normalized_host = host
         return 'http', normalized_host, job_path
     except urllib2.URLError:
         return None

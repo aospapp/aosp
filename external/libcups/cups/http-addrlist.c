@@ -1,7 +1,7 @@
 /*
  * HTTP address list routines for CUPS.
  *
- * Copyright 2007-2016 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
@@ -32,7 +32,7 @@
 /*
  * 'httpAddrConnect()' - Connect to any of the addresses in the list.
  *
- * @since CUPS 1.2/macOS 10.5@
+ * @since CUPS 1.2/macOS 10.5@ @exclude all@
  */
 
 http_addrlist_t *			/* O - Connected address or NULL on failure */
@@ -65,7 +65,7 @@ httpAddrConnect2(
   int			flags;		/* Socket flags */
 #endif /* !WIN32 */
   int			remaining;	/* Remaining timeout */
-  int			i,		/* Looping var */
+  int			i, j,		/* Looping vars */
 			nfds,		/* Number of file descriptors */
 			fds[100],	/* Socket file descriptors */
 			result;		/* Result from select() or poll() */
@@ -323,6 +323,8 @@ httpAddrConnect2(
 	  if (!getpeername(fds[i], (struct sockaddr *)&peer, &len))
 	    DEBUG_printf(("1httpAddrConnect2: Connected to %s:%d...", httpAddrString(&peer, temp, sizeof(temp)), httpAddrPort(&peer)));
 #  endif /* DEBUG */
+
+          break;
 	}
 #  ifdef HAVE_POLL
 	else if (pfds[i].revents & (POLLERR | POLLHUP))
@@ -346,7 +348,20 @@ httpAddrConnect2(
       }
 
       if (connaddr)
+      {
+       /*
+        * Connected on one address, close all of the other sockets we have so
+        * far and return...
+        */
+
+        for (j = 0; j < i; j ++)
+          httpAddrClose(NULL, fds[j]);
+
+        for (j ++; j < nfds; j ++)
+          httpAddrClose(NULL, fds[j]);
+
         return (connaddr);
+      }
     }
 #endif /* O_NONBLOCK */
 

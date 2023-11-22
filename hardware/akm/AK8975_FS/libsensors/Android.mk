@@ -27,6 +27,8 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_CFLAGS := -DLOG_TAG=\"Sensors\" \
 				-Wall \
+				-Werror \
+				-Wno-unused-parameter \
 				-DSENSORHAL_ACC_ADXL346
 #				-DSENSORHAL_ACC_KXTF9
 

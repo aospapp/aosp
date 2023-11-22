@@ -45,18 +45,26 @@ import junit.framework.TestCase;
  */
 public final class DefaultHostnameVerifierTest extends TestCase {
     private static final int ALT_UNKNOWN = 0;
-    private static final int ALT_DNS_NAME = 2;
-    private static final int ALT_IPA_NAME = 7;
+    private static final int ALT_DNS_NAME = 2; // DNS name
+    private static final int ALT_IPA_NAME = 7; // IP address
 
     private final HostnameVerifier verifier = HttpsURLConnection.getDefaultHostnameVerifier();
 
-    public void testVerify() {
+    public void testVerify_wrongHost() {
+        assertFalse(verifyWithServerCertificate(
+                "imap.g.com", StubX509Certificate.dns("imap2.g.com")));
+        assertFalse(verifyWithServerCertificate(
+                "imap.g.com", StubX509Certificate.dns("sub.imap.g.com")));
+    }
+
+    public void testVerify_matchesAltNameButNotCommonName() {
         assertTrue(verifyWithServerCertificate(
-                "imap.g.com", new StubX509Certificate("cn=imap.g.com")));
+                "imap.g.com", new StubX509Certificate("Common Name")
+                        .addSubjectAlternativeName(ALT_DNS_NAME, "imap.g.com")));
+
         assertFalse(verifyWithServerCertificate(
-                "imap.g.com", new StubX509Certificate("cn=imap2.g.com")));
-        assertFalse(verifyWithServerCertificate(
-                "imap.g.com", new StubX509Certificate("cn=sub.imap.g.com")));
+                "imap.g.com", new StubX509Certificate("imap.g.com")
+                        .addSubjectAlternativeName(ALT_DNS_NAME, "example.com")));
     }
 
     /**
@@ -64,33 +72,28 @@ public final class DefaultHostnameVerifierTest extends TestCase {
      * be used as the identity and the CN should be ignored.
      */
     public void testSubjectAltNameAndCn() {
-        assertFalse(verifyWithServerCertificate("imap.g.com", new StubX509Certificate("")
+        assertFalse(verifyWithServerCertificate("imap.g.com", new StubX509Certificate()
                 .addSubjectAlternativeName(ALT_DNS_NAME, "a.y.com")));
-        assertFalse(
-                verifyWithServerCertificate("imap.g.com", new StubX509Certificate("cn=imap.g.com")
-                        .addSubjectAlternativeName(ALT_DNS_NAME, "a.y.com")));
-        assertTrue(verifyWithServerCertificate("imap.g.com", new StubX509Certificate("")
+        assertFalse(verifyWithServerCertificate("imap.g.com", new StubX509Certificate("imap.g.com")
+                .addSubjectAlternativeName(ALT_DNS_NAME, "a.y.com")));
+        assertTrue(verifyWithServerCertificate("imap.g.com", new StubX509Certificate()
                 .addSubjectAlternativeName(ALT_DNS_NAME, "imap.g.com")));
     }
 
     public void testSubjectAltNameWithWildcard() {
-        assertTrue(verifyWithServerCertificate("imap.g.com", new StubX509Certificate("")
-                .addSubjectAlternativeName(ALT_DNS_NAME, "*.g.com")));
+        assertTrue(verifyWithServerCertificate("imap.g.com", StubX509Certificate.dns("*.g.com")));
     }
 
     public void testSubjectAltNameWithIpAddress() {
-        assertTrue(verifyWithServerCertificate("1.2.3.4", new StubX509Certificate("")
-                .addSubjectAlternativeName(ALT_IPA_NAME, "1.2.3.4")));
-        assertFalse(verifyWithServerCertificate("1.2.3.5", new StubX509Certificate("")
-                .addSubjectAlternativeName(ALT_IPA_NAME, "1.2.3.4")));
-        assertTrue(verifyWithServerCertificate("192.168.100.1", new StubX509Certificate("")
-                .addSubjectAlternativeName(ALT_IPA_NAME, "1.2.3.4")
-                .addSubjectAlternativeName(ALT_IPA_NAME, "192.168.100.1")));
+        assertTrue(verifyWithServerCertificate("1.2.3.4", StubX509Certificate.ipa("1.2.3.4")));
+        assertFalse(verifyWithServerCertificate("1.2.3.5", StubX509Certificate.ipa("1.2.3.4")));
+        assertTrue(verifyWithServerCertificate("192.168.100.1",
+                StubX509Certificate.ipa("1.2.3.4", "192.168.100.1")));
     }
 
     public void testUnknownSubjectAltName() {
         // Has unknown subject alternative names
-        assertTrue(verifyWithServerCertificate("imap.g.com", new StubX509Certificate("")
+        assertTrue(verifyWithServerCertificate("imap.g.com", new StubX509Certificate()
                 .addSubjectAlternativeName(ALT_UNKNOWN, "random string 1")
                 .addSubjectAlternativeName(ALT_UNKNOWN, "random string 2")
                 .addSubjectAlternativeName(ALT_DNS_NAME, "a.b.c.d")
@@ -98,7 +101,7 @@ public final class DefaultHostnameVerifierTest extends TestCase {
                 .addSubjectAlternativeName(ALT_DNS_NAME, "imap.g.com")
                 .addSubjectAlternativeName(ALT_IPA_NAME, "2.33.44.55")
                 .addSubjectAlternativeName(ALT_UNKNOWN, "random string 3")));
-        assertTrue(verifyWithServerCertificate("2.33.44.55", new StubX509Certificate("")
+        assertTrue(verifyWithServerCertificate("2.33.44.55", new StubX509Certificate()
                 .addSubjectAlternativeName(ALT_UNKNOWN, "random string 1")
                 .addSubjectAlternativeName(ALT_UNKNOWN, "random string 2")
                 .addSubjectAlternativeName(ALT_DNS_NAME, "a.b.c.d")
@@ -106,7 +109,7 @@ public final class DefaultHostnameVerifierTest extends TestCase {
                 .addSubjectAlternativeName(ALT_DNS_NAME, "imap.g.com")
                 .addSubjectAlternativeName(ALT_IPA_NAME, "2.33.44.55")
                 .addSubjectAlternativeName(ALT_UNKNOWN, "random string 3")));
-        assertFalse(verifyWithServerCertificate("g.com", new StubX509Certificate("")
+        assertFalse(verifyWithServerCertificate("g.com", new StubX509Certificate()
                 .addSubjectAlternativeName(ALT_UNKNOWN, "random string 1")
                 .addSubjectAlternativeName(ALT_UNKNOWN, "random string 2")
                 .addSubjectAlternativeName(ALT_DNS_NAME, "a.b.c.d")
@@ -114,7 +117,7 @@ public final class DefaultHostnameVerifierTest extends TestCase {
                 .addSubjectAlternativeName(ALT_DNS_NAME, "imap.g.com")
                 .addSubjectAlternativeName(ALT_IPA_NAME, "2.33.44.55")
                 .addSubjectAlternativeName(ALT_UNKNOWN, "random string 3")));
-        assertFalse(verifyWithServerCertificate("2.33.44.1", new StubX509Certificate("")
+        assertFalse(verifyWithServerCertificate("2.33.44.1", new StubX509Certificate()
                 .addSubjectAlternativeName(ALT_UNKNOWN, "random string 1")
                 .addSubjectAlternativeName(ALT_UNKNOWN, "random string 2")
                 .addSubjectAlternativeName(ALT_DNS_NAME, "a.b.c.d")
@@ -125,14 +128,14 @@ public final class DefaultHostnameVerifierTest extends TestCase {
     }
 
     public void testWildcardsRejectedForIpAddress() {
-        assertFalse(verifyWithServerCertificate("1.2.3.4", new StubX509Certificate("cn=*.2.3.4")));
-        assertFalse(verifyWithServerCertificate("1.2.3.4", new StubX509Certificate("cn=*.2.3.4")
+        assertFalse(verifyWithServerCertificate("1.2.3.4", new StubX509Certificate("*.2.3.4")));
+        assertFalse(verifyWithServerCertificate("1.2.3.4", new StubX509Certificate("*.2.3.4")
                 .addSubjectAlternativeName(ALT_IPA_NAME, "*.2.3.4")
                 .addSubjectAlternativeName(ALT_DNS_NAME, "*.2.3.4")));
         assertFalse(verifyWithServerCertificate(
-                "2001:1234::1", new StubX509Certificate("cn=*:1234::1")));
+                "2001:1234::1", new StubX509Certificate("*:1234::1")));
         assertFalse(verifyWithServerCertificate(
-                "2001:1234::1", new StubX509Certificate("cn=*:1234::1")
+                "2001:1234::1", new StubX509Certificate("*:1234::1")
                 .addSubjectAlternativeName(ALT_IPA_NAME, "*:1234::1")
                 .addSubjectAlternativeName(ALT_DNS_NAME, "*:1234::1")));
     }
@@ -270,7 +273,7 @@ public final class DefaultHostnameVerifierTest extends TestCase {
                 + "rs2oQLwOLnuifH52ey9+tJguabo+brlYYigAuWWFEzJfBzikDkIwnE/L7wlrypIk\n"
                 + "taXDWI4=\n"
                 + "-----END CERTIFICATE-----");
-        assertTrue(verifyWithServerCertificate("www.example.com", cert));
+        assertFalse(verifyWithServerCertificate("www.example.com", cert));
         assertFalse(verifyWithServerCertificate("www2.example.com", cert));
     }
 
@@ -330,7 +333,7 @@ public final class DefaultHostnameVerifierTest extends TestCase {
     public void testSubjectWithWildAltNamesCert() throws Exception {
         // subject: C=JP, CN=www.example.com
         // subject alt names: DNS:*.example2.com
-        // * Subject should be ignored, because it has subject alt names.
+        // CN should be ignored in all cases, only subject alt names should be considered.
         X509Certificate cert = parseCertificate("-----BEGIN CERTIFICATE-----\n"
                 + "MIIC8DCCAdigAwIBAgIJAL/oWJ64VAdXMA0GCSqGSIb3DQEBBQUAMCcxCzAJBgNV\n"
                 + "BAYTAkpQMRgwFgYDVQQDEw93d3cuZXhhbXBsZS5jb20wIBcNMTAwMTEyMjEwMDAx\n"
@@ -359,6 +362,7 @@ public final class DefaultHostnameVerifierTest extends TestCase {
     public void testWildAltNameOnlyCert() throws Exception {
         // subject: C=JP
         // subject alt names: DNS:*.example.com
+        // CN should be ignored in all cases, only subject alt names should be considered.
         X509Certificate cert = parseCertificate("-----BEGIN CERTIFICATE-----\n"
                 + "MIICuzCCAaOgAwIBAgIJAP82tgcvmAGxMA0GCSqGSIb3DQEBBQUAMA0xCzAJBgNV\n"
                 + "BAYTAkpQMCAXDTEwMDExMjIxMDAyN1oYDzIwNjQxMDE1MjEwMDI3WjANMQswCQYD\n"
@@ -384,6 +388,7 @@ public final class DefaultHostnameVerifierTest extends TestCase {
     public void testAltIpOnlyCert() throws Exception {
         // subject: C=JP
         // subject alt names: IP Address:192.168.10.1
+        // CN should be ignored in all cases, only subject alt names should be considered.
         X509Certificate cert = parseCertificate("-----BEGIN CERTIFICATE-----\n"
                 + "MIICsjCCAZqgAwIBAgIJALrC37YAXFIeMA0GCSqGSIb3DQEBBQUAMA0xCzAJBgNV\n"
                 + "BAYTAkpQMCAXDTEwMDExMjIxMzk0NloYDzIwNjQxMDE1MjEzOTQ2WjANMQswCQYD\n"
@@ -416,23 +421,14 @@ public final class DefaultHostnameVerifierTest extends TestCase {
         session.peerCertificates = new Certificate[] {
                 new StubX509Certificate("cn=\"" + pattern + "\"")
         };
-        boolean resultWhenPatternInCn = verifier.verify(hostname, session);
+        assertFalse("Verifier should ignore CN.", verifier.verify(hostname, session));
 
         // Verify using a certificate where the pattern is in a DNS SubjectAltName
         session.peerCertificates = new Certificate[] {
                 new StubX509Certificate("ou=test")
                         .addSubjectAlternativeName(ALT_DNS_NAME, pattern)
         };
-        boolean resultWhenPatternInSubjectAltName = verifier.verify(hostname, session);
-
-        // Assert that in both cases the verifier gives the same result
-        if (resultWhenPatternInCn != resultWhenPatternInSubjectAltName) {
-            fail("Different results between pattern in CN and SubjectAltName."
-                    + " hostname : " + hostname + ", pattern: " + pattern
-                    + ", when pattern in CN: " + resultWhenPatternInCn
-                    + ", when pattern in SubjectAltName: " + resultWhenPatternInSubjectAltName);
-        }
-        return resultWhenPatternInCn;
+        return verifier.verify(hostname, session);
     }
 
     /**
@@ -565,12 +561,40 @@ public final class DefaultHostnameVerifierTest extends TestCase {
         private final X500Principal subjectX500Principal;
         private Collection<List<?>> subjectAlternativeNames;
 
-        public StubX509Certificate(String subjectDn) {
-            subjectX500Principal = new X500Principal(subjectDn);
+        public StubX509Certificate() {
+            subjectX500Principal = new X500Principal("");
             subjectAlternativeNames = null;
         }
 
-        public StubX509Certificate addSubjectAlternativeName(int type, String name) {
+        public StubX509Certificate(String commonName) {
+            subjectX500Principal = new X500Principal("cn=" + commonName);
+            subjectAlternativeNames = null;
+        }
+
+        public static StubX509Certificate of(int type, String... altNames) {
+            StubX509Certificate result = new StubX509Certificate();
+            for (String altName : altNames) {
+                result.addSubjectAlternativeName(type, altName);
+            }
+            return result;
+        }
+
+        /**
+         * A StubX509Certificate with {@link #ALT_DNS_NAME} subjectAlternativeNames.
+         */
+        public static StubX509Certificate dns(String... dnsNames) {
+            return of(ALT_DNS_NAME, dnsNames);
+        }
+
+        /**
+         * A StubX509Certificate with {@link #ALT_IPA_NAME} subjectAlternativeNames.
+         */
+        public static StubX509Certificate ipa(String... ipaNames) {
+            return of(ALT_IPA_NAME, ipaNames);
+        }
+
+
+        public final StubX509Certificate addSubjectAlternativeName(int type, String name) {
             if (subjectAlternativeNames == null) {
                 subjectAlternativeNames = new ArrayList<List<?>>();
             }

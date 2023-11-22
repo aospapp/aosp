@@ -23,16 +23,16 @@
 #include <map>
 
 #include "base/casts.h"
+#include "base/safe_map.h"
 #include "handle.h"
 #include "jdwp/jdwp.h"
 #include "obj_ptr.h"
-#include "safe_map.h"
 
 namespace art {
 
 namespace mirror {
-  class Object;
-  class Class;
+class Object;
+class Class;
 }  // namespace mirror
 
 struct ObjectRegistryEntry {

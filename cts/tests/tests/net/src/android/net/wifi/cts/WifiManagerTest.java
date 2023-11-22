@@ -70,7 +70,7 @@ public class WifiManagerTest extends AndroidTestCase {
     private static final int STATE_WIFI_ENABLED = 2;
     private static final int STATE_WIFI_DISABLED = 3;
     private static final int STATE_SCANNING = 4;
-    private static final int STATE_SCAN_RESULTS_AVAILABLE = 5;
+    private static final int STATE_SCAN_DONE = 5;
 
     private static final String TAG = "WifiManagerTest";
     private static final String SSID1 = "\"WifiManagerTest\"";
@@ -96,13 +96,15 @@ public class WifiManagerTest extends AndroidTestCase {
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
             if (action.equals(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)) {
+
                 synchronized (mMySync) {
-                    if (mWifiManager.getScanResults() != null) {
+                    if (intent.getBooleanExtra(WifiManager.EXTRA_RESULTS_UPDATED, false)) {
                         mScanResults = mWifiManager.getScanResults();
-                        mMySync.expectedState = STATE_SCAN_RESULTS_AVAILABLE;
-                        mScanResults = mWifiManager.getScanResults();
-                        mMySync.notifyAll();
+                    } else {
+                        mScanResults = null;
                     }
+                    mMySync.expectedState = STATE_SCAN_DONE;
+                    mMySync.notifyAll();
                 }
             } else if (action.equals(WifiManager.WIFI_STATE_CHANGED_ACTION)) {
                 int newState = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE,
@@ -201,6 +203,25 @@ public class WifiManagerTest extends AndroidTestCase {
         }
     }
 
+    // Get the current scan status from sticky broadcast.
+    private boolean isScanCurrentlyAvailable() {
+        boolean isAvailable = false;
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(WifiManager.WIFI_SCAN_AVAILABLE);
+        Intent intent = mContext.registerReceiver(null, intentFilter);
+        assertNotNull(intent);
+        if (intent.getAction().equals(WifiManager.WIFI_SCAN_AVAILABLE)) {
+            int state = intent.getIntExtra(
+                    WifiManager.EXTRA_SCAN_AVAILABLE, WifiManager.WIFI_STATE_UNKNOWN);
+            if (state == WifiManager.WIFI_STATE_ENABLED) {
+                isAvailable = true;
+            } else if (state == WifiManager.WIFI_STATE_DISABLED) {
+                isAvailable = false;
+            }
+        }
+        return isAvailable;
+    }
+
     private void startScan() throws Exception {
         synchronized (mMySync) {
             mMySync.expectedState = STATE_SCANNING;
@@ -245,8 +266,7 @@ public class WifiManagerTest extends AndroidTestCase {
      * 1.reconnect
      * 2.reassociate
      * 3.disconnect
-     * 4.pingSupplicant
-     * 5.satrtScan
+     * 4.createWifiLock
      */
     public void testWifiManagerActions() throws Exception {
         if (!WifiFeature.isWifiSupported(getContext())) {
@@ -256,10 +276,31 @@ public class WifiManagerTest extends AndroidTestCase {
         assertTrue(mWifiManager.reconnect());
         assertTrue(mWifiManager.reassociate());
         assertTrue(mWifiManager.disconnect());
+        final String TAG = "Test";
+        assertNotNull(mWifiManager.createWifiLock(TAG));
+        assertNotNull(mWifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL, TAG));
+    }
+
+    /**
+     * Test wifi scanning when location scan is turned off.
+     */
+    public void testWifiManagerScanWhenWifiOffLocationTurnedOn() throws Exception {
+        if (!WifiFeature.isWifiSupported(getContext())) {
+            // skip the test if WiFi is not supported
+            return;
+        }
+        if (!hasLocationFeature()) {
+            Log.d(TAG, "Skipping test as location is not supported");
+            return;
+        }
+        if (!isLocationEnabled()) {
+            fail("Please enable location for this test - since Marshmallow WiFi scan results are"
+                    + " empty when location is disabled!");
+        }
         setWifiEnabled(false);
-        startScan();
         Thread.sleep(DURATION);
-        if (mWifiManager.isScanAlwaysAvailable()) {
+        startScan();
+        if (mWifiManager.isScanAlwaysAvailable() && isScanCurrentlyAvailable()) {
             // Make sure at least one AP is found.
             assertNotNull("mScanResult should not be null!", mScanResults);
             assertFalse("empty scan results!", mScanResults.isEmpty());
@@ -701,6 +742,12 @@ public class WifiManagerTest extends AndroidTestCase {
      */
     private void testAddPasspointConfig(PasspointConfiguration config) throws Exception {
         try {
+
+            // obtain number of passpoint networks already present in device (preloaded)
+            List<PasspointConfiguration> preConfigList = mWifiManager.getPasspointConfigurations();
+            int numOfNetworks = preConfigList.size();
+
+            // add new (test) configuration
             mWifiManager.addOrUpdatePasspointConfiguration(config);
 
             // Certificates and keys will be set to null after it is installed to the KeyStore by
@@ -710,14 +757,23 @@ public class WifiManagerTest extends AndroidTestCase {
             config.getCredential().setClientCertificateChain(null);
             config.getCredential().setClientPrivateKey(null);
 
-            // Retrieve the configuration and verify it.
+            // retrieve the configuration and verify it. The retrieved list may not be in order -
+            // check all configs to see if any match
             List<PasspointConfiguration> configList = mWifiManager.getPasspointConfigurations();
-            assertEquals(1, configList.size());
-            assertEquals(config, configList.get(0));
+            assertEquals(numOfNetworks + 1, configList.size());
 
-            // Remove the configuration and verify no installed configuration.
+            boolean anyMatch = false;
+            for (PasspointConfiguration passpointConfiguration : configList) {
+                if (passpointConfiguration.equals(config)) {
+                    anyMatch = true;
+                    break;
+                }
+            }
+            assertTrue(anyMatch);
+
+            // remove the (test) configuration and verify number of installed configurations
             mWifiManager.removePasspointConfiguration(config.getHomeSp().getFqdn());
-            assertTrue(mWifiManager.getPasspointConfigurations().isEmpty());
+            assertEquals(mWifiManager.getPasspointConfigurations().size(), numOfNetworks);
         } catch (UnsupportedOperationException e) {
             // Passpoint build config |config_wifi_hotspot2_enabled| is disabled, so noop.
         }
@@ -818,10 +874,9 @@ public class WifiManagerTest extends AndroidTestCase {
 
         TestLocalOnlyHotspotCallback callback = startLocalOnlyHotspot();
 
-        // at this point, wifi should be off
-        assertFalse(mWifiManager.isWifiEnabled());
-
         stopLocalOnlyHotspot(callback, wifiEnabled);
+
+        // wifi should either stay on, or come back on
         assertEquals(wifiEnabled, mWifiManager.isWifiEnabled());
     }
 
@@ -833,7 +888,7 @@ public class WifiManagerTest extends AndroidTestCase {
      * tethering is started.
      * Note: Location mode must be enabled for this test.
      */
-    public void testSetWifiEnabledByAppDoesNotStopHotspot() {
+    public void testSetWifiEnabledByAppDoesNotStopHotspot() throws Exception {
         if (!WifiFeature.isWifiSupported(getContext())) {
             // skip the test if WiFi is not supported
             return;
@@ -845,15 +900,18 @@ public class WifiManagerTest extends AndroidTestCase {
 
         boolean wifiEnabled = mWifiManager.isWifiEnabled();
 
+        if (wifiEnabled) {
+            // disable wifi so we have something to turn on (some devices may be able to run
+            // simultaneous modes)
+            setWifiEnabled(false);
+        }
+
         TestLocalOnlyHotspotCallback callback = startLocalOnlyHotspot();
-        // at this point, wifi should be off
-        assertFalse(mWifiManager.isWifiEnabled());
 
         // now we should fail to turn on wifi
         assertFalse(mWifiManager.setWifiEnabled(true));
 
         stopLocalOnlyHotspot(callback, wifiEnabled);
-        assertEquals(wifiEnabled, mWifiManager.isWifiEnabled());
     }
 
     /**
@@ -877,9 +935,6 @@ public class WifiManagerTest extends AndroidTestCase {
 
         TestLocalOnlyHotspotCallback callback = startLocalOnlyHotspot();
 
-        // at this point, wifi should be off
-        assertFalse(mWifiManager.isWifiEnabled());
-
         // now make a second request - this should fail.
         TestLocalOnlyHotspotCallback callback2 = new TestLocalOnlyHotspotCallback(mLOHSLock);
         try {
@@ -888,9 +943,12 @@ public class WifiManagerTest extends AndroidTestCase {
             Log.d(TAG, "Caught the IllegalStateException we expected: called startLOHS twice");
             caughtException = true;
         }
+        if (!caughtException) {
+            // second start did not fail, should clean up the hotspot.
+            stopLocalOnlyHotspot(callback2, wifiEnabled);
+        }
         assertTrue(caughtException);
 
         stopLocalOnlyHotspot(callback, wifiEnabled);
-        assertEquals(wifiEnabled, mWifiManager.isWifiEnabled());
     }
 }

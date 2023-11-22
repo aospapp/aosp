@@ -1,3 +1,17 @@
+// Copyright 2017 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package cc
 
 import (
@@ -9,8 +23,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-
-	"github.com/google/blueprint"
 )
 
 // This singleton generates CMakeLists.txt files. It does so for each blueprint Android.bp resulting in a cc.Module
@@ -21,7 +33,7 @@ func init() {
 	android.RegisterSingletonType("cmakelists_generator", cMakeListsGeneratorSingleton)
 }
 
-func cMakeListsGeneratorSingleton() blueprint.Singleton {
+func cMakeListsGeneratorSingleton() android.Singleton {
 	return &cmakelistsGeneratorSingleton{}
 }
 
@@ -43,14 +55,14 @@ const (
 // This is done to ease investigating bug reports.
 var outputDebugInfo = false
 
-func (c *cmakelistsGeneratorSingleton) GenerateBuildActions(ctx blueprint.SingletonContext) {
+func (c *cmakelistsGeneratorSingleton) GenerateBuildActions(ctx android.SingletonContext) {
 	if getEnvVariable(envVariableGenerateCMakeLists, ctx) != envVariableTrue {
 		return
 	}
 
 	outputDebugInfo = (getEnvVariable(envVariableGenerateDebugInfo, ctx) == envVariableTrue)
 
-	ctx.VisitAllModules(func(module blueprint.Module) {
+	ctx.VisitAllModules(func(module android.Module) {
 		if ccModule, ok := module.(*Module); ok {
 			if compiledModule, ok := ccModule.compiler.(CompiledInterface); ok {
 				generateCLionProject(compiledModule, ctx, ccModule)
@@ -67,10 +79,10 @@ func (c *cmakelistsGeneratorSingleton) GenerateBuildActions(ctx blueprint.Single
 	return
 }
 
-func getEnvVariable(name string, ctx blueprint.SingletonContext) string {
+func getEnvVariable(name string, ctx android.SingletonContext) string {
 	// Using android.Config.Getenv instead of os.getEnv to guarantee soong will
 	// re-run in case this environment variable changes.
-	return ctx.Config().(android.Config).Getenv(name)
+	return ctx.Config().Getenv(name)
 }
 
 func exists(path string) bool {
@@ -102,7 +114,7 @@ func linkAggregateCMakeListsFiles(path string, info os.FileInfo, err error) erro
 	return nil
 }
 
-func generateCLionProject(compiledModule CompiledInterface, ctx blueprint.SingletonContext, ccModule *Module) {
+func generateCLionProject(compiledModule CompiledInterface, ctx android.SingletonContext, ccModule *Module) {
 	srcs := compiledModule.Srcs()
 	if len(srcs) == 0 {
 		return
@@ -273,7 +285,7 @@ func categorizeParameter(parameter string) parameterType {
 	return flag
 }
 
-func parseCompilerParameters(params []string, ctx blueprint.SingletonContext, f *os.File) compilerParameters {
+func parseCompilerParameters(params []string, ctx android.SingletonContext, f *os.File) compilerParameters {
 	var compilerParameters = makeCompilerParameters()
 
 	for i, str := range params {
@@ -374,7 +386,7 @@ func concatenateParams(c1 *compilerParameters, c2 compilerParameters) {
 	c1.flags = append(c1.flags, c2.flags...)
 }
 
-func evalVariable(ctx blueprint.SingletonContext, str string) (string, error) {
+func evalVariable(ctx android.SingletonContext, str string) (string, error) {
 	evaluated, err := ctx.Eval(pctx, str)
 	if err == nil {
 		return evaluated, nil
@@ -382,7 +394,7 @@ func evalVariable(ctx blueprint.SingletonContext, str string) (string, error) {
 	return "", err
 }
 
-func getCMakeListsForModule(module *Module, ctx blueprint.SingletonContext) string {
+func getCMakeListsForModule(module *Module, ctx android.SingletonContext) string {
 	return filepath.Join(getAndroidSrcRootDirectory(ctx),
 		cLionOutputProjectsDirectory,
 		path.Dir(ctx.BlueprintFile(module)),
@@ -392,7 +404,7 @@ func getCMakeListsForModule(module *Module, ctx blueprint.SingletonContext) stri
 		cMakeListsFilename)
 }
 
-func getAndroidSrcRootDirectory(ctx blueprint.SingletonContext) string {
+func getAndroidSrcRootDirectory(ctx android.SingletonContext) string {
 	srcPath, _ := filepath.Abs(android.PathForSource(ctx).String())
 	return srcPath
 }

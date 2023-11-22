@@ -15,6 +15,7 @@
  */
 package com.android.documentsui.inspector.actions;
 
+import android.annotation.Nullable;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
@@ -34,6 +35,7 @@ import com.android.documentsui.inspector.InspectorController;
  */
 public final class ActionView extends LinearLayout implements InspectorController.ActionDisplay {
 
+    private Context mContext;
     private final TextView mHeader;
     private final ImageView mAppIcon;
     private final TextView mAppName;
@@ -55,10 +57,16 @@ public final class ActionView extends LinearLayout implements InspectorControlle
         View view = inflater.inflate(R.layout.inspector_action_view, null);
         addView(view);
 
-        mHeader = (TextView) findViewById(R.id.action_header);
+        mContext = context;
+        mHeader = getSectionTitle();
         mAppIcon = (ImageView) findViewById(R.id.app_icon);
         mAppName = (TextView) findViewById(R.id.app_name);
         mActionButton = (ImageButton) findViewById(R.id.inspector_action_button);
+    }
+
+    public TextView getSectionTitle() {
+        LinearLayout header = (LinearLayout) findViewById(R.id.action_header);
+        return (TextView) header.findViewById(R.id.inspector_header_title);
     }
 
     @Override
@@ -68,6 +76,7 @@ public final class ActionView extends LinearLayout implements InspectorControlle
 
         setAppIcon(mAction.getAppIcon());
         setAppName(mAction.getAppName());
+        mActionButton.setContentDescription(mContext.getString(action.getButtonLabel()));
 
         mActionButton.setOnClickListener(listener);
         showAction(true);
@@ -84,8 +93,14 @@ public final class ActionView extends LinearLayout implements InspectorControlle
     }
 
     @Override
-    public void setAppIcon(Drawable icon) {
-        mAppIcon.setImageDrawable(icon);
+    public void setAppIcon(@Nullable Drawable icon) {
+
+        if (icon != null) {
+            mAppIcon.setVisibility(View.VISIBLE);
+            mAppIcon.setImageDrawable(icon);
+        } else {
+            mAppIcon.setVisibility(View.GONE);
+        }
     }
 
     @Override

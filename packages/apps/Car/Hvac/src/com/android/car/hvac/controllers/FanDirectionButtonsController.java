@@ -23,8 +23,8 @@ import com.android.car.hvac.ui.FanDirectionButtons;
 
 /**
  * A controller to handle changes in the fan direction. Also maps fan directions specified
- * in the {@link FanDirectionButtons} to the {@link CarHvacManager}{@code #FAN_POSITION_*} constants
- * in the vehicle hardware.
+ * in the {@link FanDirectionButtons} to the {@link CarHvacManager}{@code #FAN_DIRECTION_*}
+ * constants in the vehicle hardware.
  */
 public class FanDirectionButtonsController {
     private final static int FAN_DIRECTION_COUNT = 4;
@@ -43,13 +43,13 @@ public class FanDirectionButtonsController {
         // Note Car specific values are being used here, as not all cars have the floor
         // and defroster fan direction.
         mFanDirectionMap.put(FanDirectionButtons.FAN_DIRECTION_FACE,
-                CarHvacManager.FAN_POSITION_FACE);
+                CarHvacManager.FAN_DIRECTION_FACE);
         mFanDirectionMap.put(FanDirectionButtons.FAN_DIRECTION_FACE_FLOOR,
-                CarHvacManager.FAN_POSITION_FACE_AND_FLOOR);
+                (CarHvacManager.FAN_DIRECTION_FACE | CarHvacManager.FAN_DIRECTION_FLOOR));
         mFanDirectionMap.put(FanDirectionButtons.FAN_DIRECTION_FLOOR,
-                CarHvacManager.FAN_POSITION_FLOOR);
+                CarHvacManager.FAN_DIRECTION_FLOOR);
         mFanDirectionMap.put(FanDirectionButtons.FAN_DIRECTION_FLOOR_DEFROSTER,
-                CarHvacManager.FAN_POSITION_DEFROST_AND_FLOOR);
+                (CarHvacManager.FAN_DIRECTION_DEFROST | CarHvacManager.FAN_DIRECTION_FLOOR));
         mFanDirectionButtons.setFanDirectionClickListener(mListener);
     }
 

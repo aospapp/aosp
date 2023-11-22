@@ -16,10 +16,12 @@
 package android.media.cts;
 
 import android.media.MediaPlayer;
+import android.media.cts.TestUtils.Monitor;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
+import android.platform.test.annotations.AppModeFull;
 import android.webkit.cts.CtsTestServer;
 
 import com.android.compatibility.common.util.MediaUtils;
@@ -44,6 +46,7 @@ import java.util.concurrent.FutureTask;
  * Executes a range of tests on MediaPlayer while streaming a video
  * from an HTTP server over a simulated "flaky" network.
  */
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaPlayerFlakyNetworkTest extends MediaPlayerTestBase {
     private static final String PKG = "android.media.cts";
 

@@ -751,8 +751,8 @@ int drmOpen(const char *name, const char *busid)
  */
 int drmOpenWithType(const char *name, const char *busid, int type)
 {
-    if (!drmAvailable() && name != NULL && drm_server_info &&
-        drm_server_info->load_module) {
+    if (name != NULL && drm_server_info &&
+        drm_server_info->load_module && !drmAvailable()) {
         /* try to load the kernel module */
         if (!drm_server_info->load_module(name)) {
             drmMsg("[drm] failed to load kernel module \"%s\"\n", name);

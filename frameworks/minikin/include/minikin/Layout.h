@@ -17,14 +17,21 @@
 #ifndef MINIKIN_LAYOUT_H
 #define MINIKIN_LAYOUT_H
 
-#include <hb.h>
-
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
-#include <minikin/FontCollection.h>
+#include <gtest/gtest_prod.h>
+#include <utils/JenkinsHash.h>
+
+#include "minikin/FontCollection.h"
+#include "minikin/Range.h"
+#include "minikin/U16StringPiece.h"
 
 namespace minikin {
+
+class Layout;
+struct LayoutPieces;
 
 struct LayoutGlyph {
     // index into mFaces and mHbFonts vectors. We could imagine
@@ -39,45 +46,64 @@ struct LayoutGlyph {
     float y;
 };
 
-// Internal state used during layout operation
-struct LayoutContext;
-
-enum {
-    kBidi_LTR = 0,
-    kBidi_RTL = 1,
-    kBidi_Default_LTR = 2,
-    kBidi_Default_RTL = 3,
-    kBidi_Force_LTR = 4,
-    kBidi_Force_RTL = 5,
-
-    kBidi_Mask = 0x7
+// Must be the same value with Paint.java
+enum class Bidi : uint8_t {
+    LTR = 0b0000,          // Must be same with Paint.BIDI_LTR
+    RTL = 0b0001,          // Must be same with Paint.BIDI_RTL
+    DEFAULT_LTR = 0b0010,  // Must be same with Paint.BIDI_DEFAULT_LTR
+    DEFAULT_RTL = 0b0011,  // Must be same with Paint.BIDI_DEFAULT_RTL
+    FORCE_LTR = 0b0100,    // Must be same with Paint.BIDI_FORCE_LTR
+    FORCE_RTL = 0b0101,    // Must be same with Paint.BIDI_FORCE_RTL
 };
+
+inline bool isRtl(Bidi bidi) {
+    return static_cast<uint8_t>(bidi) & 0b0001;
+}
+inline bool isOverride(Bidi bidi) {
+    return static_cast<uint8_t>(bidi) & 0b0100;
+}
 
 // Lifecycle and threading assumptions for Layout:
 // The object is assumed to be owned by a single thread; multiple threads
 // may not mutate it at the same time.
 class Layout {
 public:
-
-    Layout() : mGlyphs(), mAdvances(), mFaces(), mAdvance(0), mBounds() {
+    Layout()
+            : mGlyphs(),
+              mAdvances(),
+              mExtents(),
+              mFaces(),
+              mAdvance(0),
+              mBounds() {
         mBounds.setEmpty();
     }
 
     Layout(Layout&& layout) = default;
 
-    // Forbid copying and assignment.
-    Layout(const Layout&) = delete;
-    void operator=(const Layout&) = delete;
+    Layout(const Layout&) = default;
+    Layout& operator=(const Layout&) = default;
 
     void dump() const;
 
-    void doLayout(const uint16_t* buf, size_t start, size_t count, size_t bufSize,
-        int bidiFlags, const FontStyle &style, const MinikinPaint &paint,
-        const std::shared_ptr<FontCollection>& collection);
+    void doLayout(const U16StringPiece& str, const Range& range, Bidi bidiFlags,
+                  const MinikinPaint& paint, StartHyphenEdit startHyphen, EndHyphenEdit endHyphen);
 
-    static float measureText(const uint16_t* buf, size_t start, size_t count, size_t bufSize,
-        int bidiFlags, const FontStyle &style, const MinikinPaint &paint,
-        const std::shared_ptr<FontCollection>& collection, float* advances);
+    void doLayoutWithPrecomputedPieces(const U16StringPiece& str, const Range& range,
+                                       Bidi bidiFlags, const MinikinPaint& paint,
+                                       StartHyphenEdit startHyphen, EndHyphenEdit endHyphen,
+                                       const LayoutPieces& pieces);
+    static std::pair<float, MinikinRect> getBoundsWithPrecomputedPieces(const U16StringPiece& str,
+                                                                        const Range& range,
+                                                                        Bidi bidiFlags,
+                                                                        const MinikinPaint& paint,
+                                                                        const LayoutPieces& pieces);
+
+    static float measureText(const U16StringPiece& str, const Range& range, Bidi bidiFlags,
+                             const MinikinPaint& paint, StartHyphenEdit startHyphen,
+                             EndHyphenEdit endHyphen, float* advances, MinikinExtent* extents,
+                             LayoutPieces* pieces);
+
+    inline const std::vector<float>& advances() const { return mAdvances; }
 
     // public accessors
     size_t nGlyphs() const;
@@ -91,22 +117,42 @@ public:
 
     // Get advances, copying into caller-provided buffer. The size of this
     // buffer must match the length of the string (count arg to doLayout).
-    void getAdvances(float* advances);
+    void getAdvances(float* advances) const;
+
+    // Get extents, copying into caller-provided buffer. The size of this buffer must match the
+    // length of the string (count arg to doLayout).
+    void getExtents(MinikinExtent* extents) const;
 
     // The i parameter is an offset within the buf relative to start, it is < count, where
     // start and count are the parameters to doLayout
     float getCharAdvance(size_t i) const { return mAdvances[i]; }
 
     void getBounds(MinikinRect* rect) const;
+    const MinikinRect& getBounds() const { return mBounds; }
 
     // Purge all caches, useful in low memory conditions
     static void purgeCaches();
 
+    // Dump minikin internal statistics, cache usage, cache hit ratio, etc.
+    static void dumpMinikinStats(int fd);
+
+    uint32_t getMemoryUsage() const {
+        return sizeof(LayoutGlyph) * nGlyphs() + sizeof(float) * mAdvances.size() +
+               sizeof(MinikinExtent) * mExtents.size() + sizeof(FakedFont) * mFaces.size() +
+               sizeof(float /* mAdvance */) + sizeof(MinikinRect /* mBounds */);
+    }
+
+    // Append another layout (for example, cached value) into this one
+    void appendLayout(const Layout& src, size_t start, float extraAdvance);
+
 private:
     friend class LayoutCacheKey;
+    friend class LayoutCache;
 
-    // Find a face in the mFaces vector, or create a new entry
-    int findFace(const FakedFont& face, LayoutContext* ctx);
+    FRIEND_TEST(LayoutTest, doLayoutWithPrecomputedPiecesTest);
+
+    // Find a face in the mFaces vector. If not found, push back the entry to mFaces.
+    uint8_t findOrPushBackFace(const FakedFont& face);
 
     // Clears layout, ready to be used again
     void reset();
@@ -114,24 +160,31 @@ private:
     // Lay out a single bidi run
     // When layout is not null, layout info will be stored in the object.
     // When advances is not null, measurement results will be stored in the array.
-    static float doLayoutRunCached(const uint16_t* buf, size_t runStart, size_t runLength,
-        size_t bufSize, bool isRtl, LayoutContext* ctx, size_t dstStart,
-        const std::shared_ptr<FontCollection>& collection, Layout* layout, float* advances);
+    static float doLayoutRunCached(const U16StringPiece& textBuf, const Range& range, bool isRtl,
+                                   const MinikinPaint& paint, size_t dstStart,
+                                   StartHyphenEdit startHyphen, EndHyphenEdit endHyphen,
+                                   const LayoutPieces* lpIn, Layout* layout, float* advances,
+                                   MinikinExtent* extents, MinikinRect* bounds,
+                                   LayoutPieces* lpOut);
 
     // Lay out a single word
     static float doLayoutWord(const uint16_t* buf, size_t start, size_t count, size_t bufSize,
-        bool isRtl, LayoutContext* ctx, size_t bufStart,
-        const std::shared_ptr<FontCollection>& collection, Layout* layout, float* advances);
+                              bool isRtl, const MinikinPaint& paint, size_t bufStart,
+                              StartHyphenEdit startHyphen, EndHyphenEdit endHyphen,
+                              const LayoutPieces* lpIn, Layout* layout, float* advances,
+                              MinikinExtent* extents, MinikinRect* bounds, LayoutPieces* lpOut);
 
     // Lay out a single bidi run
-    void doLayoutRun(const uint16_t* buf, size_t start, size_t count, size_t bufSize,
-        bool isRtl, LayoutContext* ctx, const std::shared_ptr<FontCollection>& collection);
-
-    // Append another layout (for example, cached value) into this one
-    void appendLayout(Layout* src, size_t start, float extraAdvance);
+    void doLayoutRun(const uint16_t* buf, size_t start, size_t count, size_t bufSize, bool isRtl,
+                     const MinikinPaint& paint, StartHyphenEdit startHyphen,
+                     EndHyphenEdit endHyphen);
 
     std::vector<LayoutGlyph> mGlyphs;
+
+    // The following three vectors are defined per code unit, so their length is identical to the
+    // input text.
     std::vector<float> mAdvances;
+    std::vector<MinikinExtent> mExtents;
 
     std::vector<FakedFont> mFaces;
     float mAdvance;

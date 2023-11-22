@@ -13,6 +13,7 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS App Widget test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -21,7 +22,28 @@
         <option name="test-file-name" value="CtsAppWidgetLauncher3.apk" />
         <option name="test-file-name" value="CtsAppWidgetTestCases.apk" />
     </target_preparer>
+
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="mkdir -p /data/local/tmp/cts/widgetprovider/" />
+        <option name="teardown-command" value="rm -rf /data/local/tmp/cts/widgetprovider"/>
+    </target_preparer>
+
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="cleanup" value="true" />
+        <option name="push" value="CtsAppWidgetProvider1.apk->/data/local/tmp/cts/widgetprovider/CtsAppWidgetProvider1.apk" />
+    </target_preparer>
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="cleanup" value="true" />
+        <option name="push" value="CtsAppWidgetProvider2.apk->/data/local/tmp/cts/widgetprovider/CtsAppWidgetProvider2.apk" />
+    </target_preparer>
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="cleanup" value="true" />
+        <option name="push" value="CtsAppWidgetProvider3.apk->/data/local/tmp/cts/widgetprovider/CtsAppWidgetProvider3.apk" />
+    </target_preparer>
+
+
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
+        <option name="hidden-api-checks" value="false" />
         <option name="package" value="android.appwidget.cts" />
         <option name="runtime-hint" value="9m30s" />
     </test>

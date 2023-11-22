@@ -13,16 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+
 #include <benchmark/benchmark.h>
-
 #include <cutils/log.h>
-
 #include <unicode/uclean.h>
 #include <unicode/udata.h>
-
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
 
 int main(int argc, char** argv) {
     const char* fn = "/system/usr/icu/" U_ICUDATA_NAME ".dat";

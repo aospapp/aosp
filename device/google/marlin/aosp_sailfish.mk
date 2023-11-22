@@ -17,9 +17,6 @@
 # Sample: This is where we'd set a backup provider if we had one
 # $(call inherit-product, device/sample/products/backup_overlay.mk)
 
-# Provide meaningful APN configuration
-PRODUCT_COPY_FILES := device/google/marlin/apns-full-conf.xml:system/etc/apns-conf.xml
-
 # Inherit from the common Open Source product configuration
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_base_telephony.mk)
@@ -37,6 +34,6 @@ $(call inherit-product, device/google/marlin/device-sailfish.mk)
 $(call inherit-product-if-exists, vendor/google_devices/marlin/device-vendor-sailfish.mk)
 
 PRODUCT_PACKAGES += \
-    Launcher3 \
+    Launcher3QuickStep \
     WallpaperPicker
 

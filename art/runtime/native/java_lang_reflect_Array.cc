@@ -20,7 +20,7 @@
 
 #include "class_linker-inl.h"
 #include "common_throws.h"
-#include "dex_file-inl.h"
+#include "dex/dex_file-inl.h"
 #include "handle_scope-inl.h"
 #include "jni_internal.h"
 #include "mirror/class-inl.h"
@@ -31,7 +31,7 @@
 namespace art {
 
 static jobject Array_createMultiArray(
-    JNIEnv* env, jclass, jclass javaElementClass, jobject javaDimArray) {
+    JNIEnv* env, jclass, jclass javaElementClass, jintArray javaDimArray) {
   ScopedFastNativeObjectAccess soa(env);
   DCHECK(javaElementClass != nullptr);
   StackHandleScope<2> hs(soa.Self());

@@ -17,6 +17,7 @@ import org.junit.Test;
 import android.icu.impl.Utility;
 import android.icu.text.Bidi;
 import android.icu.text.BidiRun;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Regression test for Bidi multiple paragraphs
@@ -24,6 +25,7 @@ import android.icu.text.BidiRun;
  * @author Lina Kemmel, Matitiahu Allouche
  */
 
+@MainTestShard
 public class TestMultipleParagraphs extends BidiFmwk {
 
     private static final String text =

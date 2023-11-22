@@ -1,7 +1,7 @@
 // /**
 //
-// (C) Copyright 2015 Hewlett Packard Enterprise Development LP<BR>
-// Copyright (c) 2010 - 2011, Intel Corporation. All rights reserved. <BR>
+// (C) Copyright 2015-2016 Hewlett Packard Enterprise Development LP<BR>
+// Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved. <BR>
 // This program and the accompanying materials
 // are licensed and made available under the terms and conditions of the BSD License
 // which accompanies this distribution. The full text of the license may be found at
@@ -50,7 +50,7 @@
 ".SH SYNOPSIS\r\n"
 " \r\n"
 "TFTP [-i interface] [-l <port>] [-r <port>] [-c <retry count>] [-t <timeout>]\r\n"
-"     host remotefilepath [localfilepath]\r\n"
+"     [-s <block size>] host remotefilepath [localfilepath]\r\n"
 ".SH OPTIONS\r\n"
 " \r\n"
 "  -i interface     - Specifies an adapter name, i.e., eth0.\r\n"
@@ -61,6 +61,8 @@
 "                     wait for a response. The default value is 6.\r\n"
 "  -t <timeout>     - The number of seconds to wait for a response after\r\n"
 "                     sending a request packet. Default value is 4s.\r\n"
+"  -s <block size>  - Specifies the TFTP blksize option as defined in RFC 2348.\r\n"
+"                     Valid range is between 8 and 65464, default value is 512.\r\n"
 "  host             - Specify TFTP Server IPv4 address.\r\n"
 "  remotefilepath   - TFTP server file path to download the file.\r\n"
 "  localfilepath    - Local destination file path.\r\n"
@@ -73,11 +75,11 @@
 "     stored locally using the provided file path. If the local file path is\r\n"
 "     not specified, the file is stored in the current directory using the file\r\n"
 "     server's name.\r\n"
-"  2. Prior to invoke the TFTP command, the network interface intended to be\r\n"
-"     used to retrieve the file as to be configured. This configuration may be\r\n"
+"  2. Before using the TFTP command, the network interface intended to be\r\n"
+"     used to retrieve the file must be configured. This configuration may be\r\n"
 "     done by means of the 'ifconfig' command.\r\n"
 "  3. If a network interface is defined with the '-i' option then only this\r\n"
-"     interface is used to access to the remote file. Otherwise, all network\r\n"
+"     interface will be used to retrieve the remote file. Otherwise, all network\r\n"
 "     interfaces are tried in the order they have been discovered during the\r\n"
 "     DXE phase.\r\n"
 ".SH EXAMPLES\r\n"

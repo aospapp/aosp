@@ -1,7 +1,7 @@
 /** @file
   Network library.
 
-Copyright (c) 2005 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2005 - 2016, Intel Corporation. All rights reserved.<BR>
 (C) Copyright 2015 Hewlett Packard Enterprise Development LP<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
@@ -301,7 +301,7 @@ ON_EXIT:
   Build a syslog packet, including the Ethernet/Ip/Udp headers
   and user's message.
 
-  @param[in]  Level     Syslog servity level
+  @param[in]  Level     Syslog severity level
   @param[in]  Module    The module that generates the log
   @param[in]  File      The file that contains the current log
   @param[in]  Line      The line of code in the File that contains the current log
@@ -475,7 +475,7 @@ NetDebugASPrint (
   This function will locate a instance of SNP then send the message through it.
   Because it isn't open the SNP BY_DRIVER, apply caution when using it.
 
-  @param Level    The servity level of the message.
+  @param Level    The severity level of the message.
   @param Module   The Moudle that generates the log.
   @param File     The file that contains the log.
   @param Line     The exact line that contains the log.
@@ -565,7 +565,7 @@ NetGetMaskLength (
 {
   INTN                      Index;
 
-  for (Index = 0; Index < IP4_MASK_NUM; Index++) {
+  for (Index = 0; Index <= IP4_MASK_MAX; Index++) {
     if (NetMask == gIp4AllMasks[Index]) {
       break;
     }
@@ -579,6 +579,11 @@ NetGetMaskLength (
 /**
   Return the class of the IP address, such as class A, B, C.
   Addr is in host byte order.
+
+  [ATTENTION]
+  Classful addressing (IP class A/B/C) has been deprecated according to RFC4632.
+  Caller of this function could only check the returned value against
+  IP4_ADDR_CLASSD (multicast) or IP4_ADDR_CLASSE (reserved) now.
 
   The address of class A  starts with 0.
   If the address belong to class A, return IP4_ADDR_CLASSA.
@@ -628,11 +633,10 @@ NetGetIpClass (
 
 /**
   Check whether the IP is a valid unicast address according to
-  the netmask. If NetMask is zero, use the IP address's class to get the default mask.
+  the netmask. 
 
-  If Ip is 0, IP is not a valid unicast address.
-  Class D address is used for multicasting and class E address is reserved for future. If Ip
-  belongs to class D or class E, IP is not a valid unicast address.
+  ASSERT if NetMask is zero.
+  
   If all bits of the host address of IP are 0 or 1, IP is also not a valid unicast address.
 
   @param[in]  Ip                    The IP to check against.
@@ -648,18 +652,12 @@ NetIp4IsUnicast (
   IN IP4_ADDR               NetMask
   )
 {
-  INTN                      Class;
-
-  Class = NetGetIpClass (Ip);
-
-  if ((Ip == 0) || (Class >= IP4_ADDR_CLASSD)) {
+  ASSERT (NetMask != 0);
+  
+  if (Ip == 0 || IP4_IS_LOCAL_BROADCAST (Ip)) {
     return FALSE;
   }
-
-  if (NetMask == 0) {
-    NetMask = gIp4AllMasks[Class << 3];
-  }
-
+  
   if (((Ip &~NetMask) == ~NetMask) || ((Ip &~NetMask) == 0)) {
     return FALSE;
   }
@@ -794,7 +792,7 @@ NetIp6IsNetEqual (
   UINT8 Bit;
   UINT8 Mask;
 
-  ASSERT ((Ip1 != NULL) && (Ip2 != NULL) && (PrefixLength < IP6_PREFIX_NUM));
+  ASSERT ((Ip1 != NULL) && (Ip2 != NULL) && (PrefixLength <= IP6_PREFIX_MAX));
 
   if (PrefixLength == 0) {
     return TRUE;
@@ -1151,7 +1149,7 @@ NetDestroyLinkList (
   @param[in]  ChildHandleBuffer  An array of child handles to be freed. May be NULL
                                  if NumberOfChildren is 0.
 
-  @retval TURE                   Found the input Handle in ChildHandleBuffer.
+  @retval TRUE                   Found the input Handle in ChildHandleBuffer.
   @retval FALSE                  Can't find the input Handle in ChildHandleBuffer.
 
 **/
@@ -1636,7 +1634,7 @@ NetMapRemoveTail (
 /**
   Iterate through the netmap and call CallBack for each item.
 
-  It will contiue the traverse if CallBack returns EFI_SUCCESS, otherwise, break
+  It will continue the traverse if CallBack returns EFI_SUCCESS, otherwise, break
   from the loop. It returns the CallBack's last return value. This function is
   delete safe for the current item.
 
@@ -2726,6 +2724,17 @@ NetLibAsciiStrToIp4 (
     TempStr = Ip4Str;
 
     while ((*Ip4Str != '\0') && (*Ip4Str != '.')) {
+      if (Index != 3 && !NET_IS_DIGIT (*Ip4Str)) {
+        return EFI_INVALID_PARAMETER;
+      }
+      
+      //
+      // Allow the IPv4 with prefix case, e.g. 192.168.10.10/24 
+      //
+      if (Index == 3 && !NET_IS_DIGIT (*Ip4Str) && *Ip4Str != '/') {
+        return EFI_INVALID_PARAMETER;
+      }
+      
       Ip4Str++;
     }
 
@@ -2762,7 +2771,7 @@ NetLibAsciiStrToIp4 (
 
 /**
   Convert one Null-terminated ASCII string to EFI_IPv6_ADDRESS. The format of the
-  string is defined in RFC 4291 - Text Pepresentation of Addresses.
+  string is defined in RFC 4291 - Text Representation of Addresses.
 
   @param[in]      String         The pointer to the Ascii string.
   @param[out]     Ip6Address     The pointer to the converted IPv6 address.
@@ -2823,6 +2832,17 @@ NetLibAsciiStrToIp6 (
     TempStr = Ip6Str;
 
     while ((*Ip6Str != '\0') && (*Ip6Str != ':')) {
+      if (Index != 14 && !NET_IS_HEX (*Ip6Str)) {
+        return EFI_INVALID_PARAMETER;
+      }
+      
+      //
+      // Allow the IPv6 with prefix case, e.g. 2000:aaaa::10/24 
+      //
+      if (Index == 14 && !NET_IS_HEX (*Ip6Str) && *Ip6Str != '/') {
+        return EFI_INVALID_PARAMETER;
+      }
+      
       Ip6Str++;
     }
 
@@ -2976,18 +2996,20 @@ NetLibStrToIp4 (
   )
 {
   CHAR8                          *Ip4Str;
+  UINTN                          StringSize;
   EFI_STATUS                     Status;
 
   if ((String == NULL) || (Ip4Address == NULL)) {
     return EFI_INVALID_PARAMETER;
   }
 
-  Ip4Str = (CHAR8 *) AllocatePool ((StrLen (String) + 1) * sizeof (CHAR8));
+  StringSize = StrLen (String) + 1;
+  Ip4Str = (CHAR8 *) AllocatePool (StringSize * sizeof (CHAR8));
   if (Ip4Str == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
 
-  UnicodeStrToAsciiStr (String, Ip4Str);
+  UnicodeStrToAsciiStrS (String, Ip4Str, StringSize);
 
   Status = NetLibAsciiStrToIp4 (Ip4Str, Ip4Address);
 
@@ -2999,7 +3021,7 @@ NetLibStrToIp4 (
 
 /**
   Convert one Null-terminated Unicode string to EFI_IPv6_ADDRESS.  The format of
-  the string is defined in RFC 4291 - Text Pepresentation of Addresses.
+  the string is defined in RFC 4291 - Text Representation of Addresses.
 
   @param[in]      String         The pointer to the Ascii string.
   @param[out]     Ip6Address     The pointer to the converted IPv6 address.
@@ -3017,18 +3039,20 @@ NetLibStrToIp6 (
   )
 {
   CHAR8                          *Ip6Str;
+  UINTN                          StringSize;
   EFI_STATUS                     Status;
 
   if ((String == NULL) || (Ip6Address == NULL)) {
     return EFI_INVALID_PARAMETER;
   }
 
-  Ip6Str = (CHAR8 *) AllocatePool ((StrLen (String) + 1) * sizeof (CHAR8));
+  StringSize = StrLen (String) + 1;
+  Ip6Str = (CHAR8 *) AllocatePool (StringSize * sizeof (CHAR8));
   if (Ip6Str == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
 
-  UnicodeStrToAsciiStr (String, Ip6Str);
+  UnicodeStrToAsciiStrS (String, Ip6Str, StringSize);
 
   Status = NetLibAsciiStrToIp6 (Ip6Str, Ip6Address);
 
@@ -3039,7 +3063,7 @@ NetLibStrToIp6 (
 
 /**
   Convert one Null-terminated Unicode string to EFI_IPv6_ADDRESS and prefix length.
-  The format of the string is defined in RFC 4291 - Text Pepresentation of Addresses
+  The format of the string is defined in RFC 4291 - Text Representation of Addresses
   Prefixes: ipv6-address/prefix-length.
 
   @param[in]      String         The pointer to the Ascii string.
@@ -3060,6 +3084,7 @@ NetLibStrToIp6andPrefix (
   )
 {
   CHAR8                          *Ip6Str;
+  UINTN                          StringSize;
   CHAR8                          *PrefixStr;
   CHAR8                          *TempStr;
   EFI_STATUS                     Status;
@@ -3069,12 +3094,13 @@ NetLibStrToIp6andPrefix (
     return EFI_INVALID_PARAMETER;
   }
 
-  Ip6Str = (CHAR8 *) AllocatePool ((StrLen (String) + 1) * sizeof (CHAR8));
+  StringSize = StrLen (String) + 1;
+  Ip6Str = (CHAR8 *) AllocatePool (StringSize * sizeof (CHAR8));
   if (Ip6Str == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
 
-  UnicodeStrToAsciiStr (String, Ip6Str);
+  UnicodeStrToAsciiStrS (String, Ip6Str, StringSize);
 
   //
   // Get the sub string describing prefix length.
@@ -3115,7 +3141,7 @@ NetLibStrToIp6andPrefix (
     while (*PrefixStr != '\0') {
       if (NET_IS_DIGIT (*PrefixStr)) {
         Length = (UINT8) (Length * 10 + (*PrefixStr - '0'));
-        if (Length >= IP6_PREFIX_NUM) {
+        if (Length > IP6_PREFIX_MAX) {
           goto Exit;
         }
       } else {
@@ -3325,4 +3351,71 @@ NetLibGetSystemGuid (
     } while (TRUE);
   } while (Smbios.Raw < SmbiosEnd.Raw);
   return EFI_NOT_FOUND;
+}
+
+/**
+  Create Dns QName according the queried domain name. 
+  QName is a domain name represented as a sequence of labels, 
+  where each label consists of a length octet followed by that 
+  number of octets. The QName terminates with the zero 
+  length octet for the null label of the root. Caller should 
+  take responsibility to free the buffer in returned pointer.
+
+  @param  DomainName    The pointer to the queried domain name string.  
+
+  @retval NULL          Failed to fill QName.
+  @return               QName filled successfully.
+  
+**/ 
+CHAR8 *
+EFIAPI
+NetLibCreateDnsQName (
+  IN  CHAR16              *DomainName
+  )
+{
+  CHAR8                 *QueryName;
+  UINTN                 QueryNameSize;
+  CHAR8                 *Header;
+  CHAR8                 *Tail;
+  UINTN                 Len;
+  UINTN                 Index;
+
+  QueryName     = NULL;
+  QueryNameSize = 0;
+  Header        = NULL;
+  Tail          = NULL;
+
+  //
+  // One byte for first label length, one byte for terminated length zero. 
+  //
+  QueryNameSize = StrLen (DomainName) + 2;
+  
+  if (QueryNameSize > DNS_MAX_NAME_SIZE) {
+    return NULL;
+  }
+
+  QueryName = AllocateZeroPool (QueryNameSize);
+  if (QueryName == NULL) {
+    return NULL;
+  }
+  
+  Header = QueryName;
+  Tail = Header + 1;
+  Len = 0;
+  for (Index = 0; DomainName[Index] != 0; Index++) {
+    *Tail = (CHAR8) DomainName[Index];
+    if (*Tail == '.') {
+      *Header = (CHAR8) Len;
+      Header = Tail;
+      Tail ++;
+      Len = 0;
+    } else {
+      Tail++;
+      Len++;
+    }
+  }
+  *Header = (CHAR8) Len;
+  *Tail = 0;
+
+  return QueryName;
 }

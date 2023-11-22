@@ -17,19 +17,19 @@
 #ifndef ART_COMPILER_COMPILER_H_
 #define ART_COMPILER_COMPILER_H_
 
-#include "dex_file.h"
 #include "base/mutex.h"
-#include "os.h"
+#include "base/os.h"
+#include "dex/dex_file.h"
 
 namespace art {
 
 namespace jit {
-  class JitCodeCache;
-  class JitLogger;
+class JitCodeCache;
+class JitLogger;
 }  // namespace jit
 namespace mirror {
-  class ClassLoader;
-  class DexCache;
+class ClassLoader;
+class DexCache;
 }  // namespace mirror
 
 class ArtMethod;
@@ -39,17 +39,17 @@ template<class T> class Handle;
 class OatWriter;
 class Thread;
 
+enum class CopyOption {
+  kNever,
+  kAlways,
+  kOnlyIfCompressed
+};
+
 class Compiler {
  public:
   enum Kind {
     kQuick,
     kOptimizing
-  };
-
-  enum JniOptimizationFlags {
-    kNone                       = 0x0,
-    kFastNative                 = 0x1,
-    kCriticalNative             = 0x2,
   };
 
   static Compiler* Create(CompilerDriver* driver, Kind kind);
@@ -72,7 +72,7 @@ class Compiler {
   virtual CompiledMethod* JniCompile(uint32_t access_flags,
                                      uint32_t method_idx,
                                      const DexFile& dex_file,
-                                     JniOptimizationFlags optimization_flags) const = 0;
+                                     Handle<mirror::DexCache> dex_cache) const = 0;
 
   virtual bool JitCompile(Thread* self ATTRIBUTE_UNUSED,
                           jit::JitCodeCache* code_cache ATTRIBUTE_UNUSED,

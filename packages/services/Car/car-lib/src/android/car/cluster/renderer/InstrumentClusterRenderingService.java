@@ -24,7 +24,6 @@ import android.car.CarLibLog;
 import android.car.CarNotConnectedException;
 import android.car.navigation.CarNavigationInstrumentCluster;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -239,34 +238,6 @@ public abstract class InstrumentClusterRenderingService extends Service {
         }
 
         @Override
-        public void onStartNavigation() throws RemoteException {
-            assertContextOwnership();
-            mNavigationRenderer.onStartNavigation();
-        }
-
-        @Override
-        public void onStopNavigation() throws RemoteException {
-            assertContextOwnership();
-            mNavigationRenderer.onStopNavigation();
-        }
-
-        @Override
-        public void onNextManeuverChanged(int event, CharSequence eventName, int turnAngle,
-                int turnNumber, Bitmap image, int turnSide) throws RemoteException {
-            assertContextOwnership();
-            mNavigationRenderer.onNextTurnChanged(event, eventName, turnAngle, turnNumber,
-                    image, turnSide);
-        }
-
-        @Override
-        public void onNextManeuverDistanceChanged(int distanceMeters, int timeSeconds,
-                int displayDistanceMillis, int displayDistanceUnit) throws RemoteException {
-            assertContextOwnership();
-            mNavigationRenderer.onNextTurnDistanceChanged(distanceMeters, timeSeconds,
-                    displayDistanceMillis, displayDistanceUnit);
-        }
-
-        @Override
         public void onEvent(int eventType, Bundle bundle) throws RemoteException {
             assertContextOwnership();
             mNavigationRenderer.onEvent(eventType, bundle);
@@ -284,7 +255,7 @@ public abstract class InstrumentClusterRenderingService extends Service {
             Pair<Integer, Integer> owner = mNavContextOwner;
             if (owner == null || owner.first != uid || owner.second != pid) {
                 throw new IllegalStateException("Client (uid:" + uid + ", pid: " + pid + ") is"
-                        + "not an owner of APP_CONTEXT_NAVIGATION");
+                        + " not an owner of APP_FOCUS_TYPE_NAVIGATION");
             }
         }
     }

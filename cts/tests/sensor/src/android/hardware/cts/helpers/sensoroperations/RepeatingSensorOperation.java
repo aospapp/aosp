@@ -49,7 +49,7 @@ public class RepeatingSensorOperation extends SensorOperation {
      * one iterations, it is thrown and all subsequent iterations will not run.
      */
     @Override
-    public void execute(ISensorTestNode parent) throws InterruptedException {
+    public void execute(ISensorTestNode parent) throws Exception {
         ISensorTestNode currentNode = asTestNode(parent);
         for(int i = 0; i < mIterations; ++i) {
             SensorOperation operation = mOperation.clone();

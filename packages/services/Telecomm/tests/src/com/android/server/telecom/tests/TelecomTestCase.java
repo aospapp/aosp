@@ -18,38 +18,51 @@ package com.android.server.telecom.tests;
 
 import org.mockito.MockitoAnnotations;
 
+import android.content.Context;
 import android.os.Handler;
+import android.support.test.InstrumentationRegistry;
 import android.telecom.Log;
-import android.test.AndroidTestCase;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-public abstract class TelecomTestCase extends AndroidTestCase {
+public abstract class TelecomTestCase {
     protected static final String TESTING_TAG = "Telecom-TEST";
+    protected Context mContext;
 
     MockitoHelper mMockitoHelper = new MockitoHelper();
     ComponentContextFixture mComponentContextFixture;
 
-    @Override
     public void setUp() throws Exception {
         Log.setTag(TESTING_TAG);
-        mMockitoHelper.setUp(getContext(), getClass());
+        mMockitoHelper.setUp(InstrumentationRegistry.getContext(), getClass());
         mComponentContextFixture = new ComponentContextFixture();
+        mContext = mComponentContextFixture.getTestDouble().getApplicationContext();
         Log.setSessionContext(mComponentContextFixture.getTestDouble().getApplicationContext());
         Log.getSessionManager().mCleanStaleSessions = null;
         MockitoAnnotations.initMocks(this);
     }
 
-    @Override
     public void tearDown() throws Exception {
         mComponentContextFixture = null;
         mMockitoHelper.tearDown();
     }
 
-    protected final void waitForHandlerAction(Handler h, long timeoutMillis) {
+    protected static void waitForHandlerAction(Handler h, long timeoutMillis) {
         final CountDownLatch lock = new CountDownLatch(1);
         h.post(lock::countDown);
+        while (lock.getCount() > 0) {
+            try {
+                lock.await(timeoutMillis, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                // do nothing
+            }
+        }
+    }
+
+    protected final void waitForHandlerActionDelayed(Handler h, long timeoutMillis, long delayMs) {
+        final CountDownLatch lock = new CountDownLatch(1);
+        h.postDelayed(lock::countDown, delayMs);
         while (lock.getCount() > 0) {
             try {
                 lock.await(timeoutMillis, TimeUnit.MILLISECONDS);

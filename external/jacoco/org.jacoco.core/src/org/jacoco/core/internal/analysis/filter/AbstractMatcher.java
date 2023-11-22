@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -25,14 +25,13 @@ abstract class AbstractMatcher {
 
 	AbstractInsnNode cursor;
 
-	final void nextIsAddSuppressed() {
+	final void nextIsInvokeVirtual(final String owner, final String name) {
 		nextIs(Opcodes.INVOKEVIRTUAL);
 		if (cursor == null) {
 			return;
 		}
 		final MethodInsnNode m = (MethodInsnNode) cursor;
-		if ("java/lang/Throwable".equals(m.owner)
-				&& "addSuppressed".equals(m.name)) {
+		if (owner.equals(m.owner) && name.equals(m.name)) {
 			return;
 		}
 		cursor = null;

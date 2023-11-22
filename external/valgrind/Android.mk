@@ -16,7 +16,8 @@ LOCAL_PATH:= $(call my-dir)
 
 ANDROID_HARDWARE := ANDROID_HARDWARE_generic
 
-ifneq ($(filter arm arm64 x86_64,$(TARGET_ARCH)),)
+# When updating this list also update the list in art/build/Android.gtest.mk
+VALGRIND_SUPPORTED_ARCH := arm arm64 x86_64
 
 vg_arch:=$(TARGET_ARCH)
 
@@ -25,12 +26,29 @@ ifneq ($(filter x86_64, $(TARGET_ARCH)),)
 endif
 
 common_cflags := \
-	-Wall -Wmissing-prototypes -Wshadow -Wpointer-arith -Wmissing-declarations \
-	-Wno-pointer-sign -Wno-sign-compare -Wno-unused-parameter -Wno-shadow \
-	-fno-strict-aliasing -fno-stack-protector -Wno-tautological-compare -Wno-self-assign \
+	-fno-strict-aliasing \
+	-fno-stack-protector \
 	-DVGO_linux=1 \
 	-DANDROID_SYMBOLS_DIR=\"/data/local/symbols\" \
-  -std=gnu99
+	-Wall \
+	-Werror \
+	-Wmissing-declarations \
+	-Wmissing-prototypes \
+	-Wpointer-arith \
+	-Wno-asm-operand-widths \
+	-Wno-cast-align \
+	-Wno-format \
+	-Wno-incompatible-library-redeclaration \
+	-Wno-incompatible-pointer-types \
+	-Wno-initializer-overrides \
+	-Wno-missing-field-initializers \
+	-Wno-pointer-sign \
+	-Wno-self-assign \
+	-Wno-shadow \
+	-Wno-sign-compare \
+	-Wno-tautological-compare \
+	-Wno-unused-parameter \
+	-std=gnu99
 
 ifeq ($(TARGET_IS_64_BIT),true)
   vg_target_module_path := /system/lib64/valgrind
@@ -97,7 +115,6 @@ vg_local_module=libvex
 vg_local_cflags := $(common_cflags) \
     -Wbad-function-cast \
     -Wcast-qual \
-    -Wcast-align \
     -fstrict-aliasing \
 
 vg_local_src_files := \
@@ -551,6 +568,27 @@ vg_local_whole_static_libraries := libreplacemalloc_toolpreload
 
 include $(LOCAL_PATH)/Android.build_all.mk
 
+# Build lackey-$(TARGET_ARCH)-linux
+vg_local_module := lackey
+vg_local_module_class := SHARED_LIBRARIES
+vg_local_target := EXECUTABLE
+vg_local_no_crt := true
+vg_local_without_system_shared_libraries := true
+vg_local_src_files := lackey/lk_main.c
+vg_local_ldflags := $(tool_ldflags)
+vg_local_cflags := $(common_cflags)
+vg_local_static_libraries := libcoregrind libvex
+include $(LOCAL_PATH)/Android.build_all.mk
+
+# Build vgpreload_lackey-$(TARGET_ARCH)-linux.so
+vg_local_module := vgpreload_lackey
+vg_local_module_class := SHARED_LIBRARIES
+vg_local_target := SHARED_LIBRARY
+vg_local_src_files :=
+vg_local_ldflags := $(preload_ldflags)
+vg_local_cflags := $(common_cflags)
+include $(LOCAL_PATH)/Android.build_all.mk
+
 # Build none-$(TARGET_ARCH)-linux
 vg_local_module := none
 vg_local_module_class := SHARED_LIBRARIES
@@ -581,6 +619,19 @@ LOCAL_CFLAGS := $(common_cflags)
 
 LOCAL_CFLAGS_$(TARGET_ARCH) = $(target_arch_cflags)
 
+include $(BUILD_EXECUTABLE)
+
+# Build standalone vgdb
+include $(CLEAR_VARS)
+LOCAL_MODULE := vgdb
+LOCAL_ARM_MODE := arm
+LOCAL_SRC_FILES := \
+	coregrind/vgdb.c \
+	coregrind/vgdb-invoker-none.c
+
+LOCAL_C_INCLUDES := $(common_includes)
+LOCAL_CFLAGS := $(common_cflags)
+LOCAL_CFLAGS_$(TARGET_ARCH) = $(target_arch_cflags)
 include $(BUILD_EXECUTABLE)
 
 # Build valgrind for linux host
@@ -637,6 +688,4 @@ LOCAL_MODULE_PATH := $(HOST_OUT_SHARED_LIBRARIES)/valgrind
 LOCAL_SRC_FILES := bionic.supp
 
 include $(BUILD_PREBUILT)
-endif
-
 endif

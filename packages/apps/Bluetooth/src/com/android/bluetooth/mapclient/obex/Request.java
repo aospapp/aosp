@@ -55,29 +55,29 @@ abstract class Request {
     protected static final byte[] FILLER_BYTE = {
             0x30
     };
-    protected static byte NOTIFICATION_ON = 0x01;
-    protected static byte NOTIFICATION_OFF = 0x00;
-    protected static byte ATTACHMENT_ON = 0x01;
-    protected static byte ATTACHMENT_OFF = 0x00;
-    protected static byte CHARSET_NATIVE = 0x00;
-    protected static byte CHARSET_UTF8 = 0x01;
-    protected static byte STATUS_INDICATOR_READ = 0x00;
-    protected static byte STATUS_INDICATOR_DELETED = 0x01;
-    protected static byte STATUS_NO = 0x00;
-    protected static byte STATUS_YES = 0x01;
-    protected static byte TRANSPARENT_OFF = 0x00;
-    protected static byte TRANSPARENT_ON = 0x01;
-    protected static byte RETRY_OFF = 0x00;
-    protected static byte RETRY_ON = 0x01;
+    protected static final byte NOTIFICATION_ON = 0x01;
+    protected static final byte NOTIFICATION_OFF = 0x00;
+    protected static final byte ATTACHMENT_ON = 0x01;
+    protected static final byte ATTACHMENT_OFF = 0x00;
+    protected static final byte CHARSET_NATIVE = 0x00;
+    protected static final byte CHARSET_UTF8 = 0x01;
+    protected static final byte STATUS_INDICATOR_READ = 0x00;
+    protected static final byte STATUS_INDICATOR_DELETED = 0x01;
+    protected static final byte STATUS_NO = 0x00;
+    protected static final byte STATUS_YES = 0x01;
+    protected static final byte TRANSPARENT_OFF = 0x00;
+    protected static final byte TRANSPARENT_ON = 0x01;
+    protected static final byte RETRY_OFF = 0x00;
+    protected static final byte RETRY_ON = 0x01;
     protected HeaderSet mHeaderSet;
 
     protected int mResponseCode;
 
-    public Request() {
+    Request() {
         mHeaderSet = new HeaderSet();
     }
 
-    abstract public void execute(ClientSession session) throws IOException;
+    public abstract void execute(ClientSession session) throws IOException;
 
     protected void executeGet(ClientSession session) throws IOException {
         ClientOperation op = null;
@@ -139,7 +139,7 @@ abstract class Request {
         }
     }
 
-    final public boolean isSuccess() {
+    public final boolean isSuccess() {
         return (mResponseCode == ResponseCodes.OBEX_HTTP_OK);
     }
 

@@ -35,7 +35,7 @@ import android.preference.PreferenceManager;
 import com.googlecode.android_scripting.Constants;
 import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.R;
-import com.googlecode.android_scripting.activity.ScriptingLayerService;
+import com.googlecode.android_scripting.service.ScriptingLayerService;
 import com.googlecode.android_scripting.exception.Sl4aException;
 import com.googlecode.android_scripting.interpreter.InterpreterProcess;
 

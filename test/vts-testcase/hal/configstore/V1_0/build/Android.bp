@@ -1,9 +1,10 @@
 // This file was auto-generated. Do not edit manually.
-// Use test/vts-testcase/hal/update_makefiles.py to generate this file.
+// Use launch_hal_test.py or update_makefiles.py in test/vts-testcase/hal/script/ to generate this file.
 
 // Generate .vts spec files.
 hal2vts {
     name: "android.hardware.configstore@1.0-vts.spec",
+    hidl_gen_args: "-r android.hardware:hardware/interfaces",
     srcs: [
         ":android.hardware.configstore@1.0_hal",
     ],
@@ -17,7 +18,7 @@ hal2vts {
 genrule {
     name: "android.hardware.configstore@1.0-vts.driver_genc++",
     tools: ["hidl-gen", "vtsc"],
-    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.configstore@1.0 && $(location vtsc) -mDRIVER -tSOURCE -b$(genDir) android/hardware/configstore/1.0/ $(genDir)/android/hardware/configstore/1.0/",
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -r android.hardware:hardware/interfaces android.hardware.configstore@1.0 && $(location vtsc) -mDRIVER -tSOURCE -b$(genDir) android/hardware/configstore/1.0/ $(genDir)/android/hardware/configstore/1.0/",
     srcs: [
         ":android.hardware.configstore@1.0_hal",
     ],
@@ -30,7 +31,7 @@ genrule {
 genrule {
     name: "android.hardware.configstore@1.0-vts.driver_genc++_headers",
     tools: ["hidl-gen", "vtsc"],
-    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.configstore@1.0 && $(location vtsc) -mDRIVER -tHEADER -b$(genDir) android/hardware/configstore/1.0/ $(genDir)/android/hardware/configstore/1.0/",
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -r android.hardware:hardware/interfaces android.hardware.configstore@1.0 && $(location vtsc) -mDRIVER -tHEADER -b$(genDir) android/hardware/configstore/1.0/ $(genDir)/android/hardware/configstore/1.0/",
     srcs: [
         ":android.hardware.configstore@1.0_hal",
     ],
@@ -45,36 +46,10 @@ cc_library_shared {
     generated_sources: ["android.hardware.configstore@1.0-vts.driver_genc++"],
     generated_headers: ["android.hardware.configstore@1.0-vts.driver_genc++_headers"],
     export_generated_headers: ["android.hardware.configstore@1.0-vts.driver_genc++_headers"],
-    shared_libs: [
-        "libcamera_metadata",
-        "libcutils",
-        "libfmq",
-        "libhidlbase",
-        "libhidltransport",
-        "libhwbinder",
-        "liblog",
-        "libprotobuf-cpp-full",
-        "libutils",
-        "libvts_common",
-        "libvts_datatype",
-        "libvts_drivercomm",
-        "libvts_measurement",
-        "libvts_multidevice_proto",
-        "android.hidl.allocator@1.0",
+    defaults: ["VtsHalDriverDefaults"],
+    shared_libs: [],
+    static_libs: [
         "android.hardware.configstore@1.0",
-        
-    ],
-    export_shared_lib_headers: [
-        
-    ],
-    cflags: [
-        "-Wall",
-        "-Werror",
-
-        // These warnings are in code generated with vtsc
-        // b/31362043
-        "-Wno-duplicate-decl-specifier",
-        "-Wno-implicitly-unsigned-literal",
     ],
 }
 
@@ -82,7 +57,7 @@ cc_library_shared {
 genrule {
     name: "android.hardware.configstore@1.0-vts.profiler_genc++",
     tools: ["hidl-gen", "vtsc"],
-    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.configstore@1.0 && $(location vtsc) -mPROFILER -tSOURCE -b$(genDir) android/hardware/configstore/1.0/ $(genDir)/android/hardware/configstore/1.0/",
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -r android.hardware:hardware/interfaces android.hardware.configstore@1.0 && $(location vtsc) -mPROFILER -tSOURCE -b$(genDir) android/hardware/configstore/1.0/ $(genDir)/android/hardware/configstore/1.0/",
     srcs: [
         ":android.hardware.configstore@1.0_hal",
     ],
@@ -95,7 +70,7 @@ genrule {
 genrule {
     name: "android.hardware.configstore@1.0-vts.profiler_genc++_headers",
     tools: ["hidl-gen", "vtsc"],
-    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.configstore@1.0 && $(location vtsc) -mPROFILER -tHEADER -b$(genDir) android/hardware/configstore/1.0/ $(genDir)/android/hardware/configstore/1.0/",
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -r android.hardware:hardware/interfaces android.hardware.configstore@1.0 && $(location vtsc) -mPROFILER -tHEADER -b$(genDir) android/hardware/configstore/1.0/ $(genDir)/android/hardware/configstore/1.0/",
     srcs: [
         ":android.hardware.configstore@1.0_hal",
     ],
@@ -110,27 +85,10 @@ cc_library_shared {
     generated_sources: ["android.hardware.configstore@1.0-vts.profiler_genc++"],
     generated_headers: ["android.hardware.configstore@1.0-vts.profiler_genc++_headers"],
     export_generated_headers: ["android.hardware.configstore@1.0-vts.profiler_genc++_headers"],
-    shared_libs: [
-        "libbase",
-        "libcutils",
-        "libfmq",
-        "libhidlbase",
-        "libhidltransport",
-        "libvts_common",
-        "libvts_profiling",
-        "libvts_multidevice_proto",
-        "libprotobuf-cpp-full",
+    defaults: ["VtsHalProfilerDefaults"],
+    shared_libs: [],
+    static_libs: [
         "android.hardware.configstore@1.0",
-        
-    ],
-    cflags: [
-        "-Wall",
-        "-Werror",
-
-        // These warnings are in code generated with vtsc
-        // b/31362043
-        "-Wno-duplicate-decl-specifier",
-        "-Wno-implicitly-unsigned-literal",
     ],
 }
 

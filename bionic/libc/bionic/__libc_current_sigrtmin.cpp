@@ -28,13 +28,8 @@
 
 #include <signal.h>
 
-// POSIX timers use __SIGRTMIN + 0.
-// libbacktrace uses __SIGRTMIN + 1.
-// libcore uses __SIGRTMIN + 2.
-// __SIGRTMIN + 3 is reserved for triggering native stack dumps.
+#include "private/sigrtmin.h"
 
-int __libc_current_sigrtmin(void) {
-  // If you change this, also change __ndk_legacy___libc_current_sigrtmin
-  // in <android/legacy_signal_inlines.h> to match.
-  return __SIGRTMIN + 4;
+int __libc_current_sigrtmin() {
+  return __SIGRTMIN + __SIGRT_RESERVED;
 }

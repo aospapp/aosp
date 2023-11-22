@@ -1,13 +1,23 @@
 cc_defaults {
-    name: "pdfium-defaults",
+    name: "pdfium-common",
     cflags: [
         "-O3",
         "-fstrict-aliasing",
         "-fprefetch-loop-arrays",
         "-fexceptions",
 
-        "-Wno-non-virtual-dtor",
+        "-Wextra",
         "-Wall",
+        "-Wno-non-virtual-dtor",
+        "-Wno-null-pointer-arithmetic",
+        "-Wno-unused-parameter",
+        "-Wno-sign-compare",
+        "-Wno-missing-field-initializers",
+        "-Werror",
+
+        "-DOPJ_STATIC",
+        "-DPNG_PREFIX",
+        "-DPNG_USE_READ_MACROS",
     ],
 
     arch: {
@@ -16,12 +26,32 @@ cc_defaults {
         },
     },
 
-    header_libs: ["pdfium-headers"],
+    header_libs: [
+        "pdfium-headers",
+        "pdfium-third-party-headers"
+    ],
 }
+
+cc_defaults {
+    name: "pdfium-core",
+    cflags: [
+        "-DV8_DEPRECATION_WARNINGS",
+    ],
+
+    defaults: [
+        "pdfium-common"
+    ]
+}
+
 
 cc_library_headers {
     name: "pdfium-headers",
     export_include_dirs: ["."],
+}
+
+cc_library_headers {
+    name: "pdfium-third-party-headers",
+    export_include_dirs: ["third_party"],
 }
 
 build = [
@@ -32,11 +62,10 @@ build = [
     "pdfiumfxcodec.bp",
     "pdfiumfxcrt.bp",
     "pdfiumfxge.bp",
-
-    "pdfiumjavascript.bp",
+    "pdfiumpwl.bp",
     "pdfiumformfiller.bp",
-    "pdfiumfxedit.bp",
-    "pdfiumpdfwindow.bp",
+
+    "pdfiumfxjs.bp",
     "pdfium.bp",
 ]
 

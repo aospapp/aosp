@@ -1,6 +1,8 @@
 cc_binary_host {
     name: "versioner",
 
+    cpp_std: "gnu++17",
+
     srcs: [
         "versioner.cpp",
         "Arch.cpp",
@@ -14,8 +16,8 @@ cc_binary_host {
     ],
 
     shared_libs: [
-        "libclang",
-        "libLLVM",
+        "libclang_android",
+        "libLLVM_android",
         "libbase",
     ],
 
@@ -29,15 +31,17 @@ cc_binary_host {
         "-Wextra",
         "-Werror",
         "-Wno-unused-parameter",
+        "-fno-omit-frame-pointer",
 
         "-D__STDC_CONSTANT_MACROS",
         "-D__STDC_LIMIT_MACROS",
+
+        "-D_LIBCPP_ENABLE_CXX17_REMOVED_BINDERS",
     ],
 
     target: {
         host: {
             cppflags: [
-                "-std=gnu++1z",
                 "-fno-rtti",
             ],
         },

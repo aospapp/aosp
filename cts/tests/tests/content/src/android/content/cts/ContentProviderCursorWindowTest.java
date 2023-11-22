@@ -16,39 +16,27 @@
 
 package android.content.cts;
 
-import android.database.Cursor;
-import android.database.sqlite.SQLiteException;
+import android.database.CursorWindowAllocationException;
 import android.net.Uri;
+import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 import android.util.Log;
-
-import java.io.IOException;
 
 /**
  * Test {@link CursorWindowContentProvider} .
  */
+@SecurityTest
 public class ContentProviderCursorWindowTest extends AndroidTestCase {
     private static final String TAG = "ContentProviderCursorWindowTest";
 
-    public void testQuery() throws IOException {
-        Cursor cursor = getContext().getContentResolver().query(
-                Uri.parse("content://cursorwindow.provider/hello"),
-                null, null, null, null
-        );
+    public void testQuery() {
         try {
-            cursor.moveToFirst();
-
-            int type = cursor.getType(0);
-            if (type != Cursor.FIELD_TYPE_BLOB) {
-                fail("Unexpected type " + type);
-            }
-            byte[] blob = cursor.getBlob(0);
-            Log.i(TAG,  "Blob length " + blob.length);
-            fail("getBlob should fail due to invalid offset used in the field slot");
-        } catch (SQLiteException expected) {
+            getContext().getContentResolver().query(
+                    Uri.parse("content://cursorwindow.provider/hello"),
+                    null, null, null, null);
+            fail("Reading from malformed Parcel should fail due to invalid offset used");
+        } catch (CursorWindowAllocationException expected) {
             Log.i(TAG, "Expected exception: " + expected);
-        } finally {
-            cursor.close();
         }
     }
 }

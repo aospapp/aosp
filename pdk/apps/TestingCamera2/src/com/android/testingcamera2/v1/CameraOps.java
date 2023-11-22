@@ -26,6 +26,7 @@ import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureRequest.Builder;
+import android.hardware.camera2.params.OutputConfiguration;
 import android.util.Size;
 import android.media.Image;
 import android.media.ImageReader;
@@ -45,6 +46,7 @@ import com.android.ex.camera2.blocking.BlockingSessionCallback;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A camera controller class that runs in its own thread, to
@@ -67,6 +69,7 @@ public class CameraOps {
     private final BlockingStateCallback mDeviceListener =
             new BlockingStateCallback();
 
+    private String mCameraId;
     private CameraDevice mCamera;
     private CameraCaptureSession mSession;
 
@@ -80,6 +83,7 @@ public class CameraOps {
     private CaptureRequest.Builder mRecordingRequestBuilder;
     List<Surface> mOutputSurfaces = new ArrayList<Surface>(2);
     private Surface mPreviewSurface;
+    private Surface mPreviewSurface2;
     // How many JPEG buffers do we want to hold on to at once
     private static final int MAX_CONCURRENT_JPEGS = 2;
 
@@ -102,6 +106,11 @@ public class CameraOps {
     CameraRecordingStream mRecordingStream;
     private final Listener mListener;
     private final Handler mListenerHandler;
+
+    // Physical camera id of the current logical multi-camera. "" if this is not a logical
+    // multi-camera.
+    private String mPhysicalCameraId1;
+    private String mPhysicalCameraId2;
 
     private void checkOk() {
         if (mStatus < STATUS_OK) {
@@ -173,18 +182,36 @@ public class CameraOps {
     }
 
     private void minimalOpenCamera() throws ApiFailureException {
-        if (mCamera == null) {
-            final String[] devices;
-            final CameraCharacteristics characteristics;
+        // Open camera if not yet opened, or the currently opened camera is not the right one.
+        if (mCamera == null || !mCameraId.equals(mCamera.getId())) {
+            closeDevice();
 
+            mPhysicalCameraId1 = "";
+            mPhysicalCameraId2 = "";
+            final CameraCharacteristics characteristics;
             try {
-                devices = mCameraManager.getCameraIdList();
-                if (devices == null || devices.length == 0) {
-                    throw new ApiFailureException("no devices");
+                CameraCharacteristics c = mCameraManager.getCameraCharacteristics(mCameraId);
+                int[] caps = c.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
+                for (int cap : caps) {
+                    if (CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA
+                            != cap) {
+                        continue;
+                    }
+
+                    Set<String> physicalIds = c.getPhysicalCameraIds();
+                    if (physicalIds.size() != 2) {
+                        throw new ApiFailureException(
+                                "3 or more physical cameras are not yet supported");
+                    }
+                    String[] physicalIdsArray = physicalIds.toArray(new String[2]);
+                    mPhysicalCameraId1 = physicalIdsArray[0];
+                    mPhysicalCameraId2 = physicalIdsArray[1];
+                    break;
                 }
-                mCamera = mBlockingCameraManager.openCamera(devices[0],
+                Log.i(TAG, "Opening " + mCameraId);
+                mCamera = mBlockingCameraManager.openCamera(mCameraId,
                         mDeviceListener, mOpsHandler);
-                mCameraCharacteristics = mCameraManager.getCameraCharacteristics(mCamera.getId());
+                mCameraCharacteristics = mCameraManager.getCameraCharacteristics(mCameraId);
                 characteristics = mCameraCharacteristics;
             } catch (CameraAccessException e) {
                 throw new ApiFailureException("open failure", e);
@@ -197,7 +224,7 @@ public class CameraOps {
                 mListenerHandler.post(new Runnable() {
                     @Override
                     public void run() {
-                        mListener.onCameraOpened(devices[0], characteristics);
+                        mListener.onCameraOpened(mCameraId, characteristics);
                     }
                 });
             }
@@ -212,11 +239,20 @@ public class CameraOps {
         mSession = sessionListener.waitAndGetSession(IDLE_WAIT_MS);
     }
 
+    private void configureOutputsByConfigs(List<OutputConfiguration> outputConfigs)
+            throws CameraAccessException {
+        BlockingSessionCallback sessionListener = new BlockingSessionCallback();
+        mCamera.createCaptureSessionByOutputConfigurations(outputConfigs, sessionListener, mOpsHandler);
+        mSession = sessionListener.waitAndGetSession(IDLE_WAIT_MS);
+    }
+
     /**
      * Set up SurfaceView dimensions for camera preview
      */
-    public void minimalPreviewConfig(SurfaceHolder previewHolder) throws ApiFailureException {
+    public void minimalPreviewConfig(String cameraId, SurfaceHolder previewHolder,
+            SurfaceHolder previewHolder2) throws ApiFailureException {
 
+        mCameraId = cameraId;
         minimalOpenCamera();
         try {
             CameraCharacteristics properties =
@@ -236,7 +272,9 @@ public class CameraOps {
             }
             Log.i(TAG, "Set preview size to " + sz.toString());
             previewHolder.setFixedSize(sz.getWidth(), sz.getHeight());
+            previewHolder2.setFixedSize(sz.getWidth(), sz.getHeight());
             mPreviewSurface = previewHolder.getSurface();
+            mPreviewSurface2 = previewHolder2.getSurface();
         }  catch (CameraAccessException e) {
             throw new ApiFailureException("Error setting up minimal preview", e);
         }
@@ -329,24 +367,40 @@ public class CameraOps {
     /**
      * Configure streams and run minimal preview
      */
-    public void minimalPreview(SurfaceHolder previewHolder, CameraControls camCtl)
-            throws ApiFailureException {
+    public void minimalPreview(SurfaceHolder previewHolder, SurfaceHolder previewHolder2,
+            CameraControls camCtl) throws ApiFailureException {
 
         minimalOpenCamera();
 
-        if (mPreviewSurface == null) {
+        if (mPreviewSurface == null || mPreviewSurface2 == null) {
             throw new ApiFailureException("Preview surface is not created");
         }
         try {
-            List<Surface> outputSurfaces = new ArrayList<Surface>(/*capacity*/1);
-            outputSurfaces.add(mPreviewSurface);
+            List<OutputConfiguration> outputConfigs =
+                    new ArrayList<OutputConfiguration>(/*capacity*/2);
+            boolean isLogicalCamera =
+                    !mPhysicalCameraId1.equals("") && !mPhysicalCameraId2.equals("");
+            if (isLogicalCamera) {
+                OutputConfiguration config1 = new OutputConfiguration(previewHolder.getSurface());
+                config1.setPhysicalCameraId(mPhysicalCameraId1);
+                outputConfigs.add(config1);
 
-            configureOutputs(outputSurfaces);
+                OutputConfiguration config2 = new OutputConfiguration(previewHolder2.getSurface());
+                config2.setPhysicalCameraId(mPhysicalCameraId2);
+                outputConfigs.add(config2);
+            } else {
+                OutputConfiguration config = new OutputConfiguration(previewHolder.getSurface());
+                outputConfigs.add(config);
+            }
+            configureOutputsByConfigs(outputConfigs);
 
             mPreviewRequestBuilder = mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             updateCaptureRequest(mPreviewRequestBuilder, camCtl);
 
             mPreviewRequestBuilder.addTarget(mPreviewSurface);
+            if (isLogicalCamera) {
+                mPreviewRequestBuilder.addTarget(mPreviewSurface2);
+            }
 
             mSession.setRepeatingRequest(mPreviewRequestBuilder.build(), null, null);
         } catch (CameraAccessException e) {

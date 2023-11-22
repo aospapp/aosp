@@ -15,15 +15,14 @@
 
 package com.android.bluetooth.map;
 
-import com.android.bluetooth.R;
-import com.android.bluetooth.map.BluetoothMapAccountItem;
-
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-
 import android.app.Activity;
 import android.os.Bundle;
 import android.widget.ExpandableListView;
+
+import com.android.bluetooth.R;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 
 
 public class BluetoothMapSettings extends Activity {
@@ -33,9 +32,8 @@ public class BluetoothMapSettings extends Activity {
     private static final boolean V = BluetoothMapService.VERBOSE;
 
 
-
     BluetoothMapAccountLoader mLoader = new BluetoothMapAccountLoader(this);
-    LinkedHashMap<BluetoothMapAccountItem,ArrayList<BluetoothMapAccountItem>> mGroups;
+    LinkedHashMap<BluetoothMapAccountItem, ArrayList<BluetoothMapAccountItem>> mGroups;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,10 +46,11 @@ public class BluetoothMapSettings extends Activity {
 
         /* update expandable listview with correct items */
         ExpandableListView listView =
-            (ExpandableListView) findViewById(R.id.bluetooth_map_settings_list_view);
+                (ExpandableListView) findViewById(R.id.bluetooth_map_settings_list_view);
 
-        BluetoothMapSettingsAdapter adapter = new BluetoothMapSettingsAdapter(this,
-                listView, mGroups, mLoader.getAccountsEnabledCount());
+        BluetoothMapSettingsAdapter adapter =
+                new BluetoothMapSettingsAdapter(this, listView, mGroups,
+                        mLoader.getAccountsEnabledCount());
         listView.setAdapter(adapter);
     }
 

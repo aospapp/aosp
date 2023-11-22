@@ -41,7 +41,7 @@
     <string name="menu_compress" msgid="37539111904724188">"បង្ហាប់"</string>
     <string name="menu_extract" msgid="8171946945982532262">"ស្រង់​ទៅ…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"ប្ដូរឈ្មោះ"</string>
-    <string name="menu_inspector" msgid="8217713416277319588">"ទទួល​ព័ត៌មាន"</string>
+    <string name="menu_inspect" msgid="7279855349299446224">"ទទួល​ព័ត៌មាន"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"មើល​នៅក្នុង <xliff:g id="SOURCE">%1$s</xliff:g>"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"ផ្ទាំងវិនដូថ្មី"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"កាត់"</string>
@@ -57,6 +57,8 @@
     <string name="button_move" msgid="8596460499325291272">"ផ្លាស់ទី"</string>
     <string name="button_dismiss" msgid="7235249361023803349">"បដិសេធ"</string>
     <string name="button_retry" msgid="4011461781916631389">"ព្យាយាម​ម្តង​ទៀត"</string>
+    <string name="button_clear" msgid="5412304437764369441">"សម្អាត"</string>
+    <string name="button_show_provider" msgid="6905880493806292753">"បង្ហាញ​នៅក្នុង​ក្រុមហ៊ុន​ផ្តល់សេវា"</string>
     <string name="not_sorted" msgid="7813496644889115530">"Not sorted"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"ឈ្មោះ"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"សេចក្តីសង្ខេប"</string>
@@ -64,14 +66,6 @@
     <string name="sort_dimension_size" msgid="2190547351159472884">"ទំហំ"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"បានកែសម្រួល"</string>
     <string name="directory_items" msgid="6645621978998614003">"ចំនួន​ធាតុ"</string>
-    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"ប្រភេទ​ឯកសារ​នេះបើក​ដោយប្រើ"</string>
-    <string name="handler_app_belongs_to" msgid="5956928604521893459">"ឯកសារ​នេះជា​កម្មសិទ្ធិ​របស់"</string>
-    <string name="handler_app_button_info_1" msgid="4271199640671067569">"កម្មវិធីផ្សេងទៀតអាចបើកប្រភេទឯកសារនេះបាន។ សម្អាត"</string>
-    <string name="handler_app_button_info_2" msgid="4299969771512815898">"ជា​លំនាំដើម។"</string>
-    <string name="handler_app_clear" msgid="206579047716445033">"សម្អាត"</string>
-    <string name="handler_app_show_in" msgid="7923573101129079048">"បង្ហាញ​នៅក្នុង​ក្រុមហ៊ុន​ផ្តល់សេវា"</string>
-    <string name="handler_app_not_selected" msgid="8178393676227130360">"មិនបាន​ជ្រើសរើស"</string>
-    <string name="handler_app_unknown" msgid="56574249066388341">"មិន​ស្គាល់"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"ឡើង"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"ចុះ"</string>
     <string name="drawer_open" msgid="8071673398187261741">"បង្ហាញ roots"</string>
@@ -90,7 +84,6 @@
     <string name="toast_no_application" msgid="7555319548595113121">"មិនអាចបើកឯកសារបានទេ"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"មិនអាចបើក​ឯកសារ​នៅក្នុងបណ្ណសារបានទេ"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"មិនអាចលុបឯកសារមួយចំនួន"</string>
-    <string name="file_inspector_load_error" msgid="1226344446677541109">"មិន​អាចផ្ទុក​លក្ខណសម្បត្តិបានទេ"</string>
     <string name="share_via" msgid="8725082736005677161">"ចែករំលែក​តាម"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"កំពុងចម្លងឯកសារ"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"កំពុង​បង្ហាប់​ឯកសារ"</string>
@@ -119,11 +112,11 @@
       <item quantity="one">កំពុង​លុបធាតុ <xliff:g id="COUNT_0">%1$d</xliff:g> ។</item>
     </plurals>
     <string name="undo" msgid="2902438994196400565">"មិនធ្វើវិញ"</string>
-    <string name="copy_preparing" msgid="5326063807006898223">"កំពុងរៀបចំចម្លង…"</string>
-    <string name="compress_preparing" msgid="6650018601382062672">"កំពុង​រៀបចំ​បង្ហាប់…"</string>
-    <string name="extract_preparing" msgid="58266275455027829">"កំពុង​រៀបចំ​ស្រង់…"</string>
-    <string name="move_preparing" msgid="8742573245485449429">"កំពុងរៀបចំផ្លាស់ទី…"</string>
-    <string name="delete_preparing" msgid="6513863752916028147">"កំពុងរៀបចំលុប…"</string>
+    <string name="copy_preparing" msgid="4759516490222449324">"កំពុងរៀបចំ..."</string>
+    <string name="compress_preparing" msgid="7401605598969019696">"កំពុងរៀបចំ..."</string>
+    <string name="extract_preparing" msgid="4796626960061745796">"កំពុងរៀបចំ..."</string>
+    <string name="move_preparing" msgid="6504239656430530761">"កំពុងរៀបចំ..."</string>
+    <string name="delete_preparing" msgid="7339349837842802508">"កំពុងរៀបចំ..."</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g> / <xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
       <item quantity="other">មិនអាច​ចម្លងធាតុ <xliff:g id="COUNT_1">%1$d</xliff:g> បានទេ</item>
@@ -213,5 +206,4 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"បណ្ណសារ<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"ចម្លងជាន់ពីលើ <xliff:g id="NAME">%1$s</xliff:g>?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"បន្ត​នៅផ្ទៃ​ខាងក្រោយ"</string>
-    <string name="inspector_debug_section" msgid="3447621501565766900">"ព័ត៌មាន​អំពីការ​ជួសជុល (dev ប៉ុណ្ណោះ)"</string>
 </resources>

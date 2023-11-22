@@ -29,7 +29,6 @@ class MockClientInterfaceImpl : public ClientInterfaceImpl {
  public:
   MockClientInterfaceImpl(
       android::wifi_system::InterfaceTool*,
-      android::wifi_system::SupplicantManager*,
       NetlinkUtils*,
       ScanUtils*);
   ~MockClientInterfaceImpl() override = default;

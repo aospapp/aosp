@@ -8,6 +8,7 @@ cc_defaults {
     include_dirs: [
         "system/bt",
     ],
+    header_libs: [ "libbluetooth_headers" ],
 }
 
 // Source variables
@@ -59,7 +60,6 @@ btserviceBaseTestSrc = [
     "test/low_energy_client_unittest.cc",
     "test/low_energy_scanner_unittest.cc",
     "test/settings_unittest.cc",
-    "test/uuid_unittest.cc",
 ]
 
 // Native system service for target
@@ -71,15 +71,16 @@ cc_binary {
     btserviceLinuxSrc +
     btserviceDaemonSrc +
     ["main.cc"],
-    required: ["bluetooth.default"],
     static_libs: [
         "libbluetooth-binder-common",
         "libbtcore",
+        "libbluetooth-types",
+        "libosi",
     ],
+
     shared_libs: [
         "libbinder",
         "libcutils",
-        "libhardware",
         "liblog",
         "libutils",
     ],
@@ -107,6 +108,7 @@ cc_test {
         "libbluetooth-common",
         "libgmock",
         "liblog",
+        "libbluetooth-types",
     ],
     host_supported: true,
     target: {
@@ -130,18 +132,15 @@ cc_test {
                 "test/stub_ipc_handler_binder.cc",
             ],
         },
-        darwin: {
-            srcs: [
-                "test/stub_ipc_handler_linux.cc",
-            ],
-        },
-        linux: {
+        linux_glibc: {
             srcs: btserviceLinuxSrc + [
                 // TODO(bcf): Fix this test.
                 //"test/ipc_linux_unittest.cc",
             ],
-            host_ldlibs: ["-lrt"],
         },
+    },
+    sanitize: {
+        cfi: false,
     },
 }
 
@@ -183,6 +182,7 @@ cc_library_static {
     name: "libbluetoothtbd_hal",
     defaults: ["fluoride_defaults"],
     include_dirs: ["system/bt"],
+    header_libs: ["libbluetooth_headers"],
     srcs: [
         "hal/bluetooth_gatt_interface.cc",
         "hal/bluetooth_interface.cc",

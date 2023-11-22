@@ -21,7 +21,7 @@ import android.database.Cursor;
 import android.os.Bundle;
 import android.util.Log;
 
-import static com.android.documentsui.base.Shared.VERBOSE;
+import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
 /**
  * Cursor wrapper that adds columns to identify which root a document came from.

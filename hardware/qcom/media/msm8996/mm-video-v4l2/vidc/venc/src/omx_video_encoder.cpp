@@ -2141,6 +2141,17 @@ OMX_ERRORTYPE  omx_venc::set_config(OMX_IN OMX_HANDLETYPE      hComp,
                VALIDATE_OMX_PARAM_DATA(configData, DescribeColorAspectsParams);
                DescribeColorAspectsParams *params = (DescribeColorAspectsParams *)configData;
                print_debug_color_aspects(&(params->sAspects), "set_config");
+
+               // WA: Android client does not set the correct color-aspects (from dataspace).
+               // Such a dataspace change is detected and set while in executing. This leads to
+               // a race condition where client is trying to set (wrong) color and component trying
+               // to set (right) color from ETB.
+               // Hence ignore this config in Executing state till the framework starts setting right color.
+               if (m_state == OMX_StateExecuting) {
+                    DEBUG_PRINT_HIGH("Ignoring ColorSpace setting in Executing state");
+                    return OMX_ErrorUnsupportedSetting;
+               }
+
                if (!handle->venc_set_config(configData, (OMX_INDEXTYPE)OMX_QTIIndexConfigDescribeColorAspects)) {
                    DEBUG_PRINT_ERROR("Failed to set OMX_QTIIndexConfigDescribeColorAspects");
                    return OMX_ErrorUnsupportedSetting;

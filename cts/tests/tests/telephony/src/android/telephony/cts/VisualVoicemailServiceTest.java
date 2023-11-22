@@ -32,7 +32,7 @@ import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.provider.Telephony.Sms;
 import android.provider.Telephony.Sms.Intents;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
@@ -678,6 +678,9 @@ public class VisualVoicemailServiceTest extends InstrumentationTestCase {
     }
 
     private boolean hasDataSms() {
+        if (mTelephonyManager.getPhoneType() == TelephonyManager.PHONE_TYPE_CDMA) {
+            return false;
+        }
         String mccmnc = mTelephonyManager.getSimOperator();
         return !CarrierCapability.UNSUPPORT_DATA_SMS_MESSAGES.contains(mccmnc);
     }

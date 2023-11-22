@@ -15,11 +15,19 @@
  * limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.autofillservice.cts" >
+    package="android.autofillservice.cts"
+    android:targetSandboxVersion="2">
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.MANAGE_ACTIVITY_STACKS"/>
+    <uses-permission android:name="android.permission.ACTIVITY_EMBEDDING"/>
+    <uses-permission android:name="android.permission.INJECT_EVENTS" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application>
+
+        <uses-library android:name="android.test.runner" />
+
         <activity android:name=".LoginActivity" >
             <intent-filter>
                 <!-- This intent filter is not really needed by CTS, but it maks easier to launch
@@ -29,18 +37,28 @@
             </intent-filter>
         </activity>
         <activity android:name=".PreFilledLoginActivity" />
-        <activity android:name=".WelcomeActivity"/>
+        <activity android:name=".LoginWithCustomHighlightActivity"
+                  android:theme="@style/MyAutofilledHighlight"/>
+        <activity android:name=".LoginWithStringsActivity" />
+        <activity android:name=".WelcomeActivity" android:taskAffinity=".WelcomeActivity"/>
         <activity android:name=".ViewAttributesTestActivity" />
         <activity android:name=".AuthenticationActivity" />
         <activity android:name=".ManualAuthenticationActivity" />
-        <activity android:name=".CheckoutActivity"/>
+        <activity android:name=".CheckoutActivity" android:taskAffinity=".CheckoutActivity"/>
         <activity android:name=".InitializedCheckoutActivity" />
         <activity android:name=".DatePickerCalendarActivity" />
         <activity android:name=".DatePickerSpinnerActivity" />
         <activity android:name=".TimePickerClockActivity" />
         <activity android:name=".TimePickerSpinnerActivity" />
         <activity android:name=".FatActivity" />
-        <activity android:name=".VirtualContainerActivity"/>
+        <activity android:name=".VirtualContainerActivity">
+            <intent-filter>
+                <!-- This intent filter is not really needed by CTS, but it maks easier to launch
+                     this app during CTS development... -->
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <activity android:name=".OptionalSaveActivity" />
         <activity android:name=".AllAutofillableViewsActivity" />
         <activity android:name=".GridActivity"/>
@@ -63,6 +81,24 @@
         <activity android:name=".WebViewActivity"/>
         <activity android:name=".TrampolineWelcomeActivity"/>
         <activity android:name=".AttachedContextActivity"/>
+        <activity android:name=".DialogLauncherActivity" >
+            <intent-filter>
+                <!-- This intent filter is not really needed by CTS, but it maks easier to launch
+                     this app during CTS development... -->
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".MultiWindowLoginActivity" />
+        <activity android:name=".MultiWindowEmptyActivity"
+            android:taskAffinity="nobody.but.EmptyActivity"
+            android:exported="true" />
+
+        <activity android:name=".TrampolineForResultActivity" />
+
+        <receiver android:name=".SelfDestructReceiver"
+            android:exported="true"
+            android:process="android.autofillservice.cts.outside"/>
 
         <service
             android:name=".InstrumentedAutoFillService"
@@ -73,9 +109,29 @@
             </intent-filter>
         </service>
         <service
+            android:name=".InstrumentedAutoFillServiceCompatMode"
+            android:label="InstrumentedAutoFillServiceCompatMode"
+            android:permission="android.permission.BIND_AUTOFILL_SERVICE" >
+            <intent-filter>
+                <action android:name="android.service.autofill.AutofillService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.autofill"
+                android:resource="@xml/autofill_service_compat_mode_config">
+            </meta-data>
+        </service>
+        <service
             android:name=".NoOpAutofillService"
             android:label="NoOpAutofillService"
             android:permission="android.permission.BIND_AUTOFILL_SERVICE" >
+            <intent-filter>
+                <action android:name="android.service.autofill.AutofillService" />
+            </intent-filter>
+        </service>
+        <!--  BadAutofillService does not declare the proper permission -->
+        <service
+            android:name=".BadAutofillService"
+            android:label="BadAutofillService">
             <intent-filter>
                 <action android:name="android.service.autofill.AutofillService" />
             </intent-filter>

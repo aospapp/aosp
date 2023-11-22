@@ -57,6 +57,10 @@ class MacRandomTest(AwareBaseTest):
     (NAN data-interface) on each enable/disable cycle"""
     dut = self.android_devices[0]
 
+    # re-enable randomization interval (since if disabled it may also disable
+    # the 'randomize on enable' feature).
+    autils.configure_mac_random_interval(dut, 1800)
+
     # DUT: attach and wait for confirmation & identity 10 times
     mac_addresses = {}
     for i in range(self.NUM_ITERATIONS):
@@ -108,9 +112,8 @@ class MacRandomTest(AwareBaseTest):
 
     dut = self.android_devices[0]
 
-    # set randomization interval to 5 seconds
-    dut.adb.shell("cmd wifiaware native_api set mac_random_interval_sec %d" %
-                  RANDOM_INTERVAL)
+    # set randomization interval to 120 seconds
+    autils.configure_mac_random_interval(dut, RANDOM_INTERVAL)
 
     # attach and wait for first identity
     id = dut.droid.wifiAwareAttach(True)

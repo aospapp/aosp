@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "Minikin"
-
 #include "LayoutUtils.h"
 
 namespace minikin {
 
-const uint16_t CHAR_NBSP = 0x00A0;
-
 /*
  * Determine whether the code unit is a word space for the purposes of justification.
+ * TODO: Support NBSP and other stretchable whitespace (b/34013491 and b/68204709).
  */
 bool isWordSpace(uint16_t code_unit) {
-    return code_unit == ' ' || code_unit == CHAR_NBSP;
+    return code_unit == ' ';
 }
 
 /**
@@ -35,7 +32,7 @@ bool isWordSpace(uint16_t code_unit) {
  * heuristic, but should be accurate most of the time.
  */
 static bool isWordBreakAfter(uint16_t c) {
-    if (isWordSpace(c) || (c >= 0x2000 && c <= 0x200a) || c == 0x3000) {
+    if (c == ' ' || (0x2000 <= c && c <= 0x200A) || c == 0x3000) {
         // spaces
         return true;
     }
@@ -45,14 +42,13 @@ static bool isWordBreakAfter(uint16_t c) {
 
 static bool isWordBreakBefore(uint16_t c) {
     // CJK ideographs (and yijing hexagram symbols)
-    return isWordBreakAfter(c) || (c >= 0x3400 && c <= 0x9fff);
+    return isWordBreakAfter(c) || (0x3400 <= c && c <= 0x9FFF);
 }
 
 /**
  * Return offset of previous word break. It is either < offset or == 0.
  */
-size_t getPrevWordBreakForCache(
-        const uint16_t* chars, size_t offset, size_t len) {
+size_t getPrevWordBreakForCache(const uint16_t* chars, size_t offset, size_t len) {
     if (offset == 0) return 0;
     if (offset > len) offset = len;
     if (isWordBreakBefore(chars[offset - 1])) {
@@ -69,8 +65,7 @@ size_t getPrevWordBreakForCache(
 /**
  * Return offset of next word break. It is either > offset or == len.
  */
-size_t getNextWordBreakForCache(
-        const uint16_t* chars, size_t offset, size_t len) {
+size_t getNextWordBreakForCache(const uint16_t* chars, size_t offset, size_t len) {
     if (offset >= len) return len;
     if (isWordBreakAfter(chars[offset])) {
         return offset + 1;

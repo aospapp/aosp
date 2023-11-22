@@ -22,7 +22,6 @@
 #include <android-base/macros.h>
 #include <utils/StrongPointer.h>
 #include <wifi_system/interface_tool.h>
-#include <wifi_system/supplicant_manager.h>
 
 #include "android/net/wifi/IClientInterface.h"
 #include "wificond/net/mlme_event_handler.h"
@@ -65,7 +64,6 @@ class ClientInterfaceImpl {
       uint32_t interface_index,
       const std::vector<uint8_t>& interface_mac_addr,
       android::wifi_system::InterfaceTool* if_tool,
-      android::wifi_system::SupplicantManager* supplicant_manager,
       NetlinkUtils* netlink_utils,
       ScanUtils* scan_utils);
   virtual ~ClientInterfaceImpl();
@@ -73,16 +71,12 @@ class ClientInterfaceImpl {
   // Get a pointer to the binder representing this ClientInterfaceImpl.
   android::sp<android::net::wifi::IClientInterface> GetBinder() const;
 
-  bool EnableSupplicant();
-  bool DisableSupplicant();
   bool GetPacketCounters(std::vector<int32_t>* out_packet_counters);
   bool SignalPoll(std::vector<int32_t>* out_signal_poll_results);
   const std::vector<uint8_t>& GetMacAddress();
   const std::string& GetInterfaceName() const { return interface_name_; }
   const android::sp<ScannerImpl> GetScanner() { return scanner_; };
-  bool requestANQP(
-      const ::std::vector<uint8_t>& bssid,
-      const ::android::sp<::android::net::wifi::IANQPDoneCallback>& callback);
+  bool SetMacAddress(const ::std::vector<uint8_t>& mac);
   virtual bool IsAssociated() const;
   void Dump(std::stringstream* ss) const;
 
@@ -94,7 +88,6 @@ class ClientInterfaceImpl {
   const uint32_t interface_index_;
   const std::vector<uint8_t> interface_mac_addr_;
   android::wifi_system::InterfaceTool* const if_tool_;
-  android::wifi_system::SupplicantManager* const supplicant_manager_;
   NetlinkUtils* const netlink_utils_;
   ScanUtils* const scan_utils_;
   const std::shared_ptr<OffloadServiceUtils> offload_service_utils_;

@@ -39,9 +39,7 @@ extern string GetCppVariableType(const string primitive_type_string);
 
 // Returns the C/C++ basic variable type name of a given argument.
 string GetCppVariableType(const VariableSpecificationMessage& arg,
-                          const ComponentSpecificationMessage* message = NULL,
-                          bool generate_const = false,
-                          int var_depth = 0);
+                          bool generate_const = false);
 
 // Get the C/C++ instance type name of an argument.
 extern string GetCppInstanceType(
@@ -81,6 +79,12 @@ string GetPackageNamespaceToken(const ComponentSpecificationMessage& message);
 std::string GetVersion(const ComponentSpecificationMessage& message,
                        bool for_macro = false);
 
+// Get component major version from the message. e.g. 1.0 -> 1
+int GetMajorVersion(const ComponentSpecificationMessage& message);
+
+// Get component minor version from the message. e.g. 1.0 -> 0
+int GetMinorVersion(const ComponentSpecificationMessage& message);
+
 // Get the base name of component from the message. e.g. typs, Foo.
 std::string GetComponentBaseName(const ComponentSpecificationMessage& message);
 
@@ -89,6 +93,11 @@ string GetComponentName(const ComponentSpecificationMessage& message);
 
 // Generate the FQName of the given message..
 FQName GetFQName(const ComponentSpecificationMessage& message);
+
+// Generate a plain string from the name of given variable, replace any special
+// character (non alphabat or digital) with '_'
+// e.g. msg.test --> msg_test, msg[test] --> msg_test_
+string GetVarString(const string& var_name);
 
 }  // namespace vts
 }  // namespace android

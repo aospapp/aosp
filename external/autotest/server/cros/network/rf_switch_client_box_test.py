@@ -1,9 +1,9 @@
 """Tests for rf_switch_client_box."""
 
+import common
 import mock
 import unittest
 
-from autotest_lib.server import frontend
 from autotest_lib.server.cros.network import rf_switch_client_box
 
 
@@ -13,45 +13,68 @@ class RfSwitchClientBoxTest(unittest.TestCase):
 
     def setUp(self):
         """Initial set up for the tests."""
-        self.patcher = mock.patch('autotest_lib.server.frontend.Host')
-        self.client_box_host = self.patcher.start()
+        rf_switch_client_box.frontend = mock.MagicMock()
+        self.client_box_host = rf_switch_client_box.frontend.Host('', '')
         self.client_box_host.hostname = 'chromeos9-clientbox1'
         self.client_box_host.labels = [
                 'rf_switch_1', 'client_box_1', 'rf_switch_client']
 
 
-    def tearDown(self):
-        """End patchers."""
-        self.patcher.stop()
-
-
-    @mock.patch('autotest_lib.server.frontend.AFE')
-    @mock.patch('autotest_lib.server.frontend.Host')
-    def testGetDevices(self, mock_host, mock_afe):
+    def testGetDevices(self):
         """Test to get all devices from a Client Box."""
-        dut_host = mock_host()
+        rf_switch_client_box.frontend = mock.MagicMock()
+        dut_host = rf_switch_client_box.frontend.Host('', '')
         dut_host.hostname = 'chromeos9-device1'
-        dut_host.labels =  ['rf_switch_1', 'client_box_1', 'rf_switch_dut']
+        dut_host.labels = ['rf_switch_1', 'client_box_1', 'rf_switch_dut']
         # Add a device to the Client Box and verify.
-        afe_instance = mock_afe()
+        afe_instance = rf_switch_client_box.frontend.AFE()
         afe_instance.get_hosts.return_value = [self.client_box_host, dut_host]
         client_box = rf_switch_client_box.ClientBox(self.client_box_host)
         devices = client_box.get_devices()
-        self.assertEquals(len(devices), 1)
+        self.assertEqual(len(devices), 1)
         device = devices[0]
-        self.assertEquals(device.hostname, 'chromeos9-device1')
+        self.assertEqual(device, 'chromeos9-device1')
 
 
-    @mock.patch('autotest_lib.server.frontend.AFE')
-    def testNoDevicesInClientbox(self, mock_afe):
+    def testNoDevicesInClientbox(self):
         """Test for no devices in the Client Box."""
-        afe_instance = mock_afe()
+        rf_switch_client_box.frontend = mock.MagicMock()
+        afe_instance =rf_switch_client_box.frontend.AFE()
         afe_instance.get_hosts.return_value = [self.client_box_host]
         client_box = rf_switch_client_box.ClientBox(self.client_box_host)
         devices = client_box.get_devices()
-        self.assertEquals(len(devices), 0)
+        self.assertEqual(len(devices), 0)
 
+
+    def testGetOtherDevices(self):
+        """Test to get stumpy from ClientBox if installed."""
+        rf_switch_client_box.frontend = mock.MagicMock()
+        stumpy_host = rf_switch_client_box.frontend.Host('', '')
+        stumpy_host.hostname = 'chromeos9-stumpy1'
+        stumpy_host.labels = ['rf_switch_1', 'client_box_1', 'stumpy']
+        afe_instance = rf_switch_client_box.frontend.AFE()
+        afe_instance.get_hosts.side_effect = [[stumpy_host]]
+        client_box = rf_switch_client_box.ClientBox(self.client_box_host)
+        self.assertEqual(
+                client_box.get_devices_using_labels(stumpy_host.labels),
+                ['chromeos9-stumpy1'])
+
+
+    def testGetOtherDeviceWithWrongLabels(self):
+        """Test to get Devices when using wrong list of labels."""
+        rf_switch_client_box.frontend = mock.MagicMock()
+        stumpy_host = rf_switch_client_box.frontend.Host('', '')
+        stumpy_host.hostname = 'chromeos9-stumpy1'
+        stumpy_host.labels = ['rf_switch_1', 'client_box_1', 'stumpy']
+        list_of_labels = ['rf_switch_1', 'client_box_1', 'packet_capture']
+        afe_instance = rf_switch_client_box.frontend.AFE()
+        afe_instance.get_hosts.side_effect = [[self.client_box_host],
+                                              [stumpy_host]]
+        client_box = rf_switch_client_box.ClientBox(self.client_box_host)
+        self.assertEqual(
+                len(client_box.get_devices_using_labels(list_of_labels)), 0)
 
 
 if __name__ == '__main__':
-  unittest.main()
+    unittest.main()
+

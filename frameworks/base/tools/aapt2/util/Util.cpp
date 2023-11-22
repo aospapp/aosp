@@ -24,6 +24,7 @@
 #include "androidfw/StringPiece.h"
 #include "utils/Unicode.h"
 
+#include "text/Unicode.h"
 #include "text/Utf8Iterator.h"
 #include "util/BigBuffer.h"
 #include "util/Maybe.h"
@@ -75,6 +76,34 @@ bool EndsWith(const StringPiece& str, const StringPiece& suffix) {
   return str.substr(str.size() - suffix.size(), suffix.size()) == suffix;
 }
 
+StringPiece TrimLeadingWhitespace(const StringPiece& str) {
+  if (str.size() == 0 || str.data() == nullptr) {
+    return str;
+  }
+
+  const char* start = str.data();
+  const char* end = start + str.length();
+
+  while (start != end && isspace(*start)) {
+    start++;
+  }
+  return StringPiece(start, end - start);
+}
+
+StringPiece TrimTrailingWhitespace(const StringPiece& str) {
+  if (str.size() == 0 || str.data() == nullptr) {
+    return str;
+  }
+
+  const char* start = str.data();
+  const char* end = start + str.length();
+
+  while (end != start && isspace(*(end - 1))) {
+    end--;
+  }
+  return StringPiece(start, end - start);
+}
+
 StringPiece TrimWhitespace(const StringPiece& str) {
   if (str.size() == 0 || str.data() == nullptr) {
     return str;
@@ -94,72 +123,55 @@ StringPiece TrimWhitespace(const StringPiece& str) {
   return StringPiece(start, end - start);
 }
 
-StringPiece::const_iterator FindNonAlphaNumericAndNotInSet(
-    const StringPiece& str, const StringPiece& allowed_chars) {
-  const auto end_iter = str.end();
-  for (auto iter = str.begin(); iter != end_iter; ++iter) {
-    char c = *iter;
-    if ((c >= u'a' && c <= u'z') || (c >= u'A' && c <= u'Z') ||
-        (c >= u'0' && c <= u'9')) {
-      continue;
-    }
-
-    bool match = false;
-    for (char i : allowed_chars) {
-      if (c == i) {
-        match = true;
-        break;
-      }
-    }
-
-    if (!match) {
-      return iter;
+static int IsJavaNameImpl(const StringPiece& str) {
+  int pieces = 0;
+  for (const StringPiece& piece : Tokenize(str, '.')) {
+    pieces++;
+    if (!text::IsJavaIdentifier(piece)) {
+      return -1;
     }
   }
-  return end_iter;
+  return pieces;
 }
 
 bool IsJavaClassName(const StringPiece& str) {
-  size_t pieces = 0;
-  for (const StringPiece& piece : Tokenize(str, '.')) {
-    pieces++;
-    if (piece.empty()) {
-      return false;
-    }
-
-    // Can't have starting or trailing $ character.
-    if (piece.data()[0] == '$' || piece.data()[piece.size() - 1] == '$') {
-      return false;
-    }
-
-    if (FindNonAlphaNumericAndNotInSet(piece, "$_") != piece.end()) {
-      return false;
-    }
-  }
-  return pieces >= 2;
+  return IsJavaNameImpl(str) >= 2;
 }
 
 bool IsJavaPackageName(const StringPiece& str) {
-  if (str.empty()) {
-    return false;
-  }
+  return IsJavaNameImpl(str) >= 1;
+}
 
-  size_t pieces = 0;
+static int IsAndroidNameImpl(const StringPiece& str) {
+  int pieces = 0;
   for (const StringPiece& piece : Tokenize(str, '.')) {
-    pieces++;
     if (piece.empty()) {
-      return false;
+      return -1;
     }
 
-    if (piece.data()[0] == '_' || piece.data()[piece.size() - 1] == '_') {
-      return false;
+    const char first_character = piece.data()[0];
+    if (!::isalpha(first_character)) {
+      return -1;
     }
 
-    if (FindNonAlphaNumericAndNotInSet(piece, "_") != piece.end()) {
-      return false;
+    bool valid = std::all_of(piece.begin() + 1, piece.end(), [](const char c) -> bool {
+      return ::isalnum(c) || c == '_';
+    });
+
+    if (!valid) {
+      return -1;
     }
+    pieces++;
   }
-  return pieces >= 1;
+  return pieces;
+}
+
+bool IsAndroidPackageName(const StringPiece& str) {
+  return IsAndroidNameImpl(str) > 1 || str == "android";
+}
+
+bool IsAndroidSplitName(const StringPiece& str) {
+  return IsAndroidNameImpl(str) > 0;
 }
 
 Maybe<std::string> GetFullyQualifiedClassName(const StringPiece& package,
@@ -176,7 +188,7 @@ Maybe<std::string> GetFullyQualifiedClassName(const StringPiece& package,
     return {};
   }
 
-  std::string result(package.data(), package.size());
+  std::string result = package.to_string();
   if (classname.data()[0] != '.') {
     result += '.';
   }
@@ -285,162 +297,6 @@ bool VerifyJavaStringFormat(const StringPiece& str) {
   return true;
 }
 
-static bool AppendCodepointToUtf8String(char32_t codepoint, std::string* output) {
-  ssize_t len = utf32_to_utf8_length(&codepoint, 1);
-  if (len < 0) {
-    return false;
-  }
-
-  const size_t start_append_pos = output->size();
-
-  // Make room for the next character.
-  output->resize(output->size() + len);
-
-  char* dst = &*(output->begin() + start_append_pos);
-  utf32_to_utf8(&codepoint, 1, dst, len + 1);
-  return true;
-}
-
-static bool AppendUnicodeCodepoint(Utf8Iterator* iter, std::string* output) {
-  char32_t code = 0;
-  for (size_t i = 0; i < 4 && iter->HasNext(); i++) {
-    char32_t codepoint = iter->Next();
-    char32_t a;
-    if (codepoint >= U'0' && codepoint <= U'9') {
-      a = codepoint - U'0';
-    } else if (codepoint >= U'a' && codepoint <= U'f') {
-      a = codepoint - U'a' + 10;
-    } else if (codepoint >= U'A' && codepoint <= U'F') {
-      a = codepoint - U'A' + 10;
-    } else {
-      return {};
-    }
-    code = (code << 4) | a;
-  }
-  return AppendCodepointToUtf8String(code, output);
-}
-
-static bool IsCodepointSpace(char32_t codepoint) {
-  if (static_cast<uint32_t>(codepoint) & 0xffffff00u) {
-    return false;
-  }
-  return isspace(static_cast<char>(codepoint));
-}
-
-StringBuilder::StringBuilder(bool preserve_spaces) : preserve_spaces_(preserve_spaces) {
-}
-
-StringBuilder& StringBuilder::Append(const StringPiece& str) {
-  if (!error_.empty()) {
-    return *this;
-  }
-
-  // Where the new data will be appended to.
-  const size_t new_data_index = str_.size();
-
-  Utf8Iterator iter(str);
-  while (iter.HasNext()) {
-    const char32_t codepoint = iter.Next();
-
-    if (last_char_was_escape_) {
-      switch (codepoint) {
-        case U't':
-          str_ += '\t';
-          break;
-
-        case U'n':
-          str_ += '\n';
-          break;
-
-        case U'#':
-        case U'@':
-        case U'?':
-        case U'"':
-        case U'\'':
-        case U'\\':
-          str_ += static_cast<char>(codepoint);
-          break;
-
-        case U'u':
-          if (!AppendUnicodeCodepoint(&iter, &str_)) {
-            error_ = "invalid unicode escape sequence";
-            return *this;
-          }
-          break;
-
-        default:
-          // Ignore the escape character and just include the codepoint.
-          AppendCodepointToUtf8String(codepoint, &str_);
-          break;
-      }
-      last_char_was_escape_ = false;
-
-    } else if (!preserve_spaces_ && codepoint == U'"') {
-      if (!quote_ && trailing_space_) {
-        // We found an opening quote, and we have trailing space, so we should append that
-        // space now.
-        if (trailing_space_) {
-          // We had trailing whitespace, so replace with a single space.
-          if (!str_.empty()) {
-            str_ += ' ';
-          }
-          trailing_space_ = false;
-        }
-      }
-      quote_ = !quote_;
-
-    } else if (!preserve_spaces_ && codepoint == U'\'' && !quote_) {
-      // This should be escaped.
-      error_ = "unescaped apostrophe";
-      return *this;
-
-    } else if (codepoint == U'\\') {
-      // This is an escape sequence, convert to the real value.
-      if (!quote_ && trailing_space_) {
-        // We had trailing whitespace, so
-        // replace with a single space.
-        if (!str_.empty()) {
-          str_ += ' ';
-        }
-        trailing_space_ = false;
-      }
-      last_char_was_escape_ = true;
-    } else {
-      if (preserve_spaces_ || quote_) {
-        // Quotes mean everything is taken, including whitespace.
-        AppendCodepointToUtf8String(codepoint, &str_);
-      } else {
-        // This is not quoted text, so we will accumulate whitespace and only emit a single
-        // character of whitespace if it is followed by a non-whitespace character.
-        if (IsCodepointSpace(codepoint)) {
-          // We found whitespace.
-          trailing_space_ = true;
-        } else {
-          if (trailing_space_) {
-            // We saw trailing space before, so replace all
-            // that trailing space with one space.
-            if (!str_.empty()) {
-              str_ += ' ';
-            }
-            trailing_space_ = false;
-          }
-          AppendCodepointToUtf8String(codepoint, &str_);
-        }
-      }
-    }
-  }
-
-  // Accumulate the added string's UTF-16 length.
-  ssize_t len = utf8_to_utf16_length(reinterpret_cast<const uint8_t*>(str_.data()) + new_data_index,
-                                     str_.size() - new_data_index);
-  if (len < 0) {
-    error_ = "invalid unicode code point";
-    return *this;
-  }
-  utf16_len_ += len;
-  return *this;
-}
-
 std::u16string Utf8ToUtf16(const StringPiece& utf8) {
   ssize_t utf16_length = utf8_to_utf16_length(
       reinterpret_cast<const uint8_t*>(utf8.data()), utf8.length());
@@ -520,11 +376,10 @@ bool Tokenizer::iterator::operator!=(const iterator& rhs) const {
   return !(*this == rhs);
 }
 
-Tokenizer::iterator::iterator(StringPiece s, char sep, StringPiece tok,
-                              bool end)
+Tokenizer::iterator::iterator(const StringPiece& s, char sep, const StringPiece& tok, bool end)
     : str_(s), separator_(sep), token_(tok), end_(end) {}
 
-Tokenizer::Tokenizer(StringPiece str, char sep)
+Tokenizer::Tokenizer(const StringPiece& str, char sep)
     : begin_(++iterator(str, sep, StringPiece(str.begin() - 1, 0), false)),
       end_(str, sep, StringPiece(str.end(), 0), true) {}
 

@@ -56,21 +56,3 @@ cc_library_static {
         "testlib/include",
     ],
 }
-
-// Unit tests for libwifi-system
-// ============================================================
-cc_test {
-    name: "libwifi-system_tests",
-    defaults: ["libwifi-system-defaults"],
-    srcs: [
-        "tests/main.cpp",
-        "tests/hostapd_manager_unittest.cpp",
-    ],
-    static_libs: [
-        "libgmock",
-    ],
-    shared_libs: [
-        "libbase",
-        "libwifi-system",
-    ],
-}

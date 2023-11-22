@@ -18,9 +18,8 @@
 
 TCID=udp_ipsec
 TST_TOTAL=3
+TST_NEEDS_TMPDIR=1
 TST_CLEANUP="tst_ipsec_cleanup"
-
-client_requests=10000
 
 . ipsec_lib.sh
 
@@ -35,11 +34,9 @@ do_setup()
 
 do_test()
 {
-	IPSEC_SIZE_ARRAY="${IPSEC_SIZE_ARRAY:-100 1000 65000}"
-
 	for p in $IPSEC_SIZE_ARRAY; do
-		tst_netload -H $(tst_ipaddr rhost) -U -n $p -N $p \
-			-r $client_requests
+		tst_netload -H $(tst_ipaddr rhost) -T udp -n $p -N $p \
+			-r $IPSEC_REQUESTS
 	done
 }
 

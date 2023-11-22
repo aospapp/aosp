@@ -661,15 +661,6 @@ public class WebViewOnUiThread {
         });
     }
 
-    public boolean savePicture(final Bundle b, final File dest) {
-        return getValue(new ValueGetter<Boolean>() {
-            @Override
-            public Boolean capture() {
-                return mWebView.savePicture(b, dest);
-            }
-        });
-    }
-
     public boolean pageUp(final boolean top) {
         return getValue(new ValueGetter<Boolean>() {
             @Override

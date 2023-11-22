@@ -14,60 +14,51 @@
  * limitations under the License.
  */
 
+#include "minikin/FontFamily.h"
+
 #include <gtest/gtest.h>
 
-#include <minikin/FontFamily.h>
+#include "minikin/LocaleList.h"
 
-#include "FontLanguageListCache.h"
-#include "ICUTestBase.h"
+#include "LocaleListCache.h"
 #include "MinikinInternal.h"
 
 namespace minikin {
 
-typedef ICUTestBase FontLanguageListCacheTest;
+TEST(LocaleListCacheTest, getId) {
+    EXPECT_NE(0UL, registerLocaleList("en"));
+    EXPECT_NE(0UL, registerLocaleList("jp"));
+    EXPECT_NE(0UL, registerLocaleList("en,zh-Hans"));
 
-TEST_F(FontLanguageListCacheTest, getId) {
-    EXPECT_NE(0UL, FontStyle::registerLanguageList("en"));
-    EXPECT_NE(0UL, FontStyle::registerLanguageList("jp"));
-    EXPECT_NE(0UL, FontStyle::registerLanguageList("en,zh-Hans"));
+    EXPECT_EQ(0UL, LocaleListCache::getId(""));
 
-    android::AutoMutex _l(gMinikinLock);
-    EXPECT_EQ(0UL, FontLanguageListCache::getId(""));
+    EXPECT_EQ(LocaleListCache::getId("en"), LocaleListCache::getId("en"));
+    EXPECT_NE(LocaleListCache::getId("en"), LocaleListCache::getId("jp"));
 
-    EXPECT_EQ(FontLanguageListCache::getId("en"), FontLanguageListCache::getId("en"));
-    EXPECT_NE(FontLanguageListCache::getId("en"), FontLanguageListCache::getId("jp"));
-
-    EXPECT_EQ(FontLanguageListCache::getId("en,zh-Hans"),
-              FontLanguageListCache::getId("en,zh-Hans"));
-    EXPECT_NE(FontLanguageListCache::getId("en,zh-Hans"),
-              FontLanguageListCache::getId("zh-Hans,en"));
-    EXPECT_NE(FontLanguageListCache::getId("en,zh-Hans"),
-              FontLanguageListCache::getId("jp"));
-    EXPECT_NE(FontLanguageListCache::getId("en,zh-Hans"),
-              FontLanguageListCache::getId("en"));
-    EXPECT_NE(FontLanguageListCache::getId("en,zh-Hans"),
-              FontLanguageListCache::getId("en,zh-Hant"));
+    EXPECT_EQ(LocaleListCache::getId("en,zh-Hans"), LocaleListCache::getId("en,zh-Hans"));
+    EXPECT_NE(LocaleListCache::getId("en,zh-Hans"), LocaleListCache::getId("zh-Hans,en"));
+    EXPECT_NE(LocaleListCache::getId("en,zh-Hans"), LocaleListCache::getId("jp"));
+    EXPECT_NE(LocaleListCache::getId("en,zh-Hans"), LocaleListCache::getId("en"));
+    EXPECT_NE(LocaleListCache::getId("en,zh-Hans"), LocaleListCache::getId("en,zh-Hant"));
 }
 
-TEST_F(FontLanguageListCacheTest, getById) {
-    android::AutoMutex _l(gMinikinLock);
-    uint32_t enLangId = FontLanguageListCache::getId("en");
-    uint32_t jpLangId = FontLanguageListCache::getId("jp");
-    FontLanguage english = FontLanguageListCache::getById(enLangId)[0];
-    FontLanguage japanese = FontLanguageListCache::getById(jpLangId)[0];
+TEST(LocaleListCacheTest, getById) {
+    uint32_t enLangId = LocaleListCache::getId("en");
+    uint32_t jpLangId = LocaleListCache::getId("jp");
+    Locale english = LocaleListCache::getById(enLangId)[0];
+    Locale japanese = LocaleListCache::getById(jpLangId)[0];
 
-    const FontLanguages& defLangs = FontLanguageListCache::getById(0);
+    const LocaleList& defLangs = LocaleListCache::getById(0);
     EXPECT_TRUE(defLangs.empty());
 
-    const FontLanguages& langs = FontLanguageListCache::getById(FontLanguageListCache::getId("en"));
-    ASSERT_EQ(1UL, langs.size());
-    EXPECT_EQ(english, langs[0]);
+    const LocaleList& locales = LocaleListCache::getById(LocaleListCache::getId("en"));
+    ASSERT_EQ(1UL, locales.size());
+    EXPECT_EQ(english, locales[0]);
 
-    const FontLanguages& langs2 =
-            FontLanguageListCache::getById(FontLanguageListCache::getId("en,jp"));
-    ASSERT_EQ(2UL, langs2.size());
-    EXPECT_EQ(english, langs2[0]);
-    EXPECT_EQ(japanese, langs2[1]);
+    const LocaleList& locales2 = LocaleListCache::getById(LocaleListCache::getId("en,jp"));
+    ASSERT_EQ(2UL, locales2.size());
+    EXPECT_EQ(english, locales2[0]);
+    EXPECT_EQ(japanese, locales2[1]);
 }
 
 }  // namespace minikin

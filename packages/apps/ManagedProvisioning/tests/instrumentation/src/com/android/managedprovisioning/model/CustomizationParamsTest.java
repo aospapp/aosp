@@ -18,14 +18,13 @@ package com.android.managedprovisioning.model;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 
-import static com.android.managedprovisioning.model.CustomizationParams.DEFAULT_COLOR_ID_BUTTON;
-import static com.android.managedprovisioning.model.CustomizationParams.DEFAULT_COLOR_ID_DO;
-import static com.android.managedprovisioning.model.CustomizationParams.DEFAULT_COLOR_ID_MP;
-import static com.android.managedprovisioning.model.CustomizationParams.DEFAULT_COLOR_ID_SWIPER;
+import static com.android.managedprovisioning.model.CustomizationParams.DEFAULT_STATUS_BAR_COLOR_ID;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 import android.content.ComponentName;
 import android.content.Context;
@@ -35,17 +34,29 @@ import android.support.test.filters.SmallTest;
 
 import com.android.managedprovisioning.common.Utils;
 
+import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
 
 @SmallTest
+@RunWith(MockitoJUnitRunner.class)
 public class CustomizationParamsTest {
     private static final Context mContext = InstrumentationRegistry.getTargetContext();
-    private static final Utils mUtils = new Utils();
-
     private static final ComponentName COMPONENT_NAME = new ComponentName("org.test", "ATestDPC");
     private static final int SAMPLE_COLOR = Color.rgb(11, 22, 33);
     private static final String SAMPLE_URL = "http://d.android.com";
     private static final String SAMPLE_ORG_NAME = "Organization Inc.";
+    private static final int DEFAULT_MAIN_COLOR = Color.rgb(99, 99, 99);
+
+    @Mock
+    private Utils mUtils;
+
+    @Before
+    public void setup() {
+        when(mUtils.getAccentColor(any())).thenReturn(DEFAULT_MAIN_COLOR);
+    }
 
     @Test
     public void defaultColorManagedProfile() {
@@ -57,9 +68,8 @@ public class CustomizationParamsTest {
         CustomizationParams instance = createInstance(params);
 
         // then
-        assertThat(instance.statusBarColor, equalTo(getColor(DEFAULT_COLOR_ID_MP)));
-        assertThat(instance.swiperColor, equalTo(getColor(DEFAULT_COLOR_ID_SWIPER)));
-        assertThat(instance.buttonColor, equalTo(getColor(DEFAULT_COLOR_ID_BUTTON)));
+        assertThat(instance.statusBarColor, equalTo(getColor(DEFAULT_STATUS_BAR_COLOR_ID)));
+        assertThat(instance.mainColor, equalTo(DEFAULT_MAIN_COLOR));
     }
 
     @Test
@@ -71,9 +81,8 @@ public class CustomizationParamsTest {
         CustomizationParams instance = createInstance(params);
 
         // then
-        assertThat(instance.statusBarColor, equalTo(getColor(DEFAULT_COLOR_ID_DO)));
-        assertThat(instance.swiperColor, equalTo(getColor(DEFAULT_COLOR_ID_SWIPER)));
-        assertThat(instance.buttonColor, equalTo(getColor(DEFAULT_COLOR_ID_BUTTON)));
+        assertThat(instance.statusBarColor, equalTo(getColor(DEFAULT_STATUS_BAR_COLOR_ID)));
+        assertThat(instance.mainColor, equalTo(DEFAULT_MAIN_COLOR));
     }
 
     @Test
@@ -86,8 +95,7 @@ public class CustomizationParamsTest {
 
         // then
         assertThat(instance.statusBarColor, equalTo(SAMPLE_COLOR));
-        assertThat(instance.swiperColor, equalTo(SAMPLE_COLOR));
-        assertThat(instance.buttonColor, equalTo(SAMPLE_COLOR));
+        assertThat(instance.mainColor, equalTo(SAMPLE_COLOR));
     }
 
     @Test
@@ -177,7 +185,7 @@ public class CustomizationParamsTest {
         return builder.build();
     }
 
-    private int getColor(int gray_status_bar) {
-        return mContext.getColor(gray_status_bar);
+    private int getColor(int colorId) {
+        return mContext.getColor(colorId);
     }
 }

@@ -22,6 +22,8 @@ import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.StrictMode;
+import android.os.StrictMode.ViolationInfo;
+import android.os.StrictMode.ViolationLogger;
 import android.preference.PreferenceManager;
 import android.test.AndroidTestCase;
 import android.util.Log;
@@ -32,6 +34,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Test {@link SharedPreferences}.
@@ -322,28 +326,27 @@ public class SharedPreferencesTest extends AndroidTestCase {
         }
     }
 
-    public void testModeMultiProcess() {
+    public void testModeMultiProcess() throws InterruptedException {
         // Pre-load it.
         mContext.getSharedPreferences("multiprocessTest", 0);
 
         final StrictMode.ThreadPolicy oldPolicy = StrictMode.getThreadPolicy();
         try {
             StrictMode.ThreadPolicy diskReadDeath =
-                    new StrictMode.ThreadPolicy.Builder().detectDiskReads().penaltyDeath().build();
+                    new StrictMode.ThreadPolicy.Builder().detectDiskReads().penaltyLog().build();
             StrictMode.setThreadPolicy(diskReadDeath);
+            final CountDownLatch latch = new CountDownLatch(1);
+            StrictMode.setViolationLogger(info -> latch.countDown());
 
             // This shouldn't hit disk.  (it was already pre-loaded above)
             mContext.getSharedPreferences("multiprocessTest", 0);
+            boolean triggered = latch.await(1, TimeUnit.SECONDS);
+            assertFalse(triggered);
 
-            boolean didRead = false;
             // This SHOULD hit disk.  (multi-process flag is set)
-            try {
-                mContext.getSharedPreferences("multiprocessTest", Context.MODE_MULTI_PROCESS);
-                fail();  // we shouldn't get here.
-            } catch (StrictMode.StrictModeViolation e) {
-                didRead = true;
-            }
-            assertTrue(didRead);
+            mContext.getSharedPreferences("multiprocessTest", Context.MODE_MULTI_PROCESS);
+            triggered = latch.await(1, TimeUnit.SECONDS);
+            assertTrue(triggered);
         } finally {
             StrictMode.setThreadPolicy(oldPolicy);
         }

@@ -17,11 +17,13 @@
 /*
  * Mterp entry point and support functions.
  */
+#include "mterp.h"
+
+#include "base/quasi_atomic.h"
+#include "debugger.h"
+#include "entrypoints/entrypoint_utils-inl.h"
 #include "interpreter/interpreter_common.h"
 #include "interpreter/interpreter_intrinsics.h"
-#include "entrypoints/entrypoint_utils-inl.h"
-#include "mterp.h"
-#include "debugger.h"
 
 namespace art {
 namespace interpreter {
@@ -145,9 +147,20 @@ extern "C" ssize_t MterpDoPackedSwitch(const uint16_t* switchData, int32_t testV
 
 extern "C" size_t MterpShouldSwitchInterpreters()
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  const instrumentation::Instrumentation* const instrumentation =
-      Runtime::Current()->GetInstrumentation();
-  return instrumentation->NonJitProfilingActive() || Dbg::IsDebuggerActive();
+  const Runtime* const runtime = Runtime::Current();
+  const instrumentation::Instrumentation* const instrumentation = runtime->GetInstrumentation();
+  return instrumentation->NonJitProfilingActive() ||
+      Dbg::IsDebuggerActive() ||
+      // An async exception has been thrown. We need to go to the switch interpreter. MTerp doesn't
+      // know how to deal with these so we could end up never dealing with it if we are in an
+      // infinite loop. Since this can be called in a tight loop and getting the current thread
+      // requires a TLS read we instead first check a short-circuit runtime flag that will only be
+      // set if something tries to set an async exception. This will make this function faster in
+      // the common case where no async exception has ever been sent. We don't need to worry about
+      // synchronization on the runtime flag since it is only set in a checkpoint which will either
+      // take place on the current thread or act as a synchronization point.
+      (UNLIKELY(runtime->AreAsyncExceptionsThrown()) &&
+       Thread::Current()->IsAsyncExceptionPending());
 }
 
 
@@ -206,6 +219,28 @@ extern "C" size_t MterpInvokeStatic(Thread* self,
       self, *shadow_frame, inst, inst_data, result_register);
 }
 
+extern "C" size_t MterpInvokeCustom(Thread* self,
+                                    ShadowFrame* shadow_frame,
+                                    uint16_t* dex_pc_ptr,
+                                    uint16_t inst_data)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  JValue* result_register = shadow_frame->GetResultRegister();
+  const Instruction* inst = Instruction::At(dex_pc_ptr);
+  return DoInvokeCustom<false /* is_range */>(
+      self, *shadow_frame, inst, inst_data, result_register);
+}
+
+extern "C" size_t MterpInvokePolymorphic(Thread* self,
+                                         ShadowFrame* shadow_frame,
+                                         uint16_t* dex_pc_ptr,
+                                         uint16_t inst_data)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  JValue* result_register = shadow_frame->GetResultRegister();
+  const Instruction* inst = Instruction::At(dex_pc_ptr);
+  return DoInvokePolymorphic<false /* is_range */>(
+      self, *shadow_frame, inst, inst_data, result_register);
+}
+
 extern "C" size_t MterpInvokeVirtualRange(Thread* self,
                                           ShadowFrame* shadow_frame,
                                           uint16_t* dex_pc_ptr,
@@ -261,6 +296,27 @@ extern "C" size_t MterpInvokeStaticRange(Thread* self,
       self, *shadow_frame, inst, inst_data, result_register);
 }
 
+extern "C" size_t MterpInvokeCustomRange(Thread* self,
+                                         ShadowFrame* shadow_frame,
+                                         uint16_t* dex_pc_ptr,
+                                         uint16_t inst_data)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  JValue* result_register = shadow_frame->GetResultRegister();
+  const Instruction* inst = Instruction::At(dex_pc_ptr);
+  return DoInvokeCustom<true /* is_range */>(self, *shadow_frame, inst, inst_data, result_register);
+}
+
+extern "C" size_t MterpInvokePolymorphicRange(Thread* self,
+                                              ShadowFrame* shadow_frame,
+                                              uint16_t* dex_pc_ptr,
+                                              uint16_t inst_data)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  JValue* result_register = shadow_frame->GetResultRegister();
+  const Instruction* inst = Instruction::At(dex_pc_ptr);
+  return DoInvokePolymorphic<true /* is_range */>(
+      self, *shadow_frame, inst, inst_data, result_register);
+}
+
 extern "C" size_t MterpInvokeVirtualQuick(Thread* self,
                                           ShadowFrame* shadow_frame,
                                           uint16_t* dex_pc_ptr,
@@ -280,7 +336,6 @@ extern "C" size_t MterpInvokeVirtualQuick(Thread* self,
         if (jit != nullptr) {
           jit->InvokeVirtualOrInterface(
               receiver, shadow_frame->GetMethod(), shadow_frame->GetDexPC(), called_method);
-          jit->AddSamples(self, shadow_frame->GetMethod(), 1, /*with_backedges*/false);
         }
         return !self->IsExceptionPending();
       }
@@ -323,15 +378,41 @@ extern "C" size_t MterpConstClass(uint32_t index,
                                   ShadowFrame* shadow_frame,
                                   Thread* self)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  mirror::Class* c = ResolveVerifyAndClinit(dex::TypeIndex(index),
-                                            shadow_frame->GetMethod(),
-                                            self,
-                                            false,
-                                            false);
+  ObjPtr<mirror::Class> c = ResolveVerifyAndClinit(dex::TypeIndex(index),
+                                                   shadow_frame->GetMethod(),
+                                                   self,
+                                                   /* can_run_clinit */ false,
+                                                   /* verify_access */ false);
   if (UNLIKELY(c == nullptr)) {
     return true;
   }
-  shadow_frame->SetVRegReference(tgt_vreg, c);
+  shadow_frame->SetVRegReference(tgt_vreg, c.Ptr());
+  return false;
+}
+
+extern "C" size_t MterpConstMethodHandle(uint32_t index,
+                                         uint32_t tgt_vreg,
+                                         ShadowFrame* shadow_frame,
+                                         Thread* self)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  ObjPtr<mirror::MethodHandle> mh = ResolveMethodHandle(self, index, shadow_frame->GetMethod());
+  if (UNLIKELY(mh == nullptr)) {
+    return true;
+  }
+  shadow_frame->SetVRegReference(tgt_vreg, mh.Ptr());
+  return false;
+}
+
+extern "C" size_t MterpConstMethodType(uint32_t index,
+                                       uint32_t tgt_vreg,
+                                       ShadowFrame* shadow_frame,
+                                       Thread* self)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  ObjPtr<mirror::MethodType> mt = ResolveMethodType(self, index, shadow_frame->GetMethod());
+  if (UNLIKELY(mt == nullptr)) {
+    return true;
+  }
+  shadow_frame->SetVRegReference(tgt_vreg, mt.Ptr());
   return false;
 }
 
@@ -384,17 +465,17 @@ extern "C" size_t MterpNewInstance(ShadowFrame* shadow_frame, Thread* self, uint
     REQUIRES_SHARED(Locks::mutator_lock_) {
   const Instruction* inst = Instruction::At(shadow_frame->GetDexPCPtr());
   mirror::Object* obj = nullptr;
-  mirror::Class* c = ResolveVerifyAndClinit(dex::TypeIndex(inst->VRegB_21c()),
-                                            shadow_frame->GetMethod(),
-                                            self,
-                                            false,
-                                            false);
+  ObjPtr<mirror::Class> c = ResolveVerifyAndClinit(dex::TypeIndex(inst->VRegB_21c()),
+                                                   shadow_frame->GetMethod(),
+                                                   self,
+                                                   /* can_run_clinit */ false,
+                                                   /* verify_access */ false);
   if (LIKELY(c != nullptr)) {
     if (UNLIKELY(c->IsStringClass())) {
       gc::AllocatorType allocator_type = Runtime::Current()->GetHeap()->GetCurrentAllocator();
       obj = mirror::String::AllocEmptyString<true>(self, allocator_type);
     } else {
-      obj = AllocObjectFromCode<true>(c,
+      obj = AllocObjectFromCode<true>(c.Ptr(),
                                       self,
                                       Runtime::Current()->GetHeap()->GetCurrentAllocator());
     }
@@ -491,15 +572,7 @@ extern "C" size_t MterpHandleException(Thread* self, ShadowFrame* shadow_frame)
   DCHECK(self->IsExceptionPending());
   const instrumentation::Instrumentation* const instrumentation =
       Runtime::Current()->GetInstrumentation();
-  uint32_t found_dex_pc = FindNextInstructionFollowingException(self, *shadow_frame,
-                                                                shadow_frame->GetDexPC(),
-                                                                instrumentation);
-  if (found_dex_pc == DexFile::kDexNoIndex) {
-    return false;
-  }
-  // OK - we can deal with it.  Update and continue.
-  shadow_frame->SetDexPC(found_dex_pc);
-  return true;
+  return MoveToExceptionHandler(self, *shadow_frame, instrumentation);
 }
 
 extern "C" void MterpCheckBefore(Thread* self, ShadowFrame* shadow_frame, uint16_t* dex_pc_ptr)
@@ -512,7 +585,7 @@ extern "C" void MterpCheckBefore(Thread* self, ShadowFrame* shadow_frame, uint16
     self->AssertNoPendingException();
   }
   if (kTraceExecutionEnabled) {
-    uint32_t dex_pc = dex_pc_ptr - shadow_frame->GetCodeItem()->insns_;
+    uint32_t dex_pc = dex_pc_ptr - shadow_frame->GetDexInstructions();
     TraceExecution(*shadow_frame, inst, dex_pc);
   }
   if (kTestExportPC) {
@@ -897,7 +970,9 @@ extern "C" mirror::Object* artIGetObjectFromMterp(mirror::Object* obj,
  * to the full instrumentation via MterpAddHotnessBatch.  Called once on entry to the method,
  * and regenerated following batch updates.
  */
-extern "C" ssize_t MterpSetUpHotnessCountdown(ArtMethod* method, ShadowFrame* shadow_frame)
+extern "C" ssize_t MterpSetUpHotnessCountdown(ArtMethod* method,
+                                              ShadowFrame* shadow_frame,
+                                              Thread* self)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   uint16_t hotness_count = method->GetCounter();
   int32_t countdown_value = jit::kJitHotnessDisabled;
@@ -915,7 +990,7 @@ extern "C" ssize_t MterpSetUpHotnessCountdown(ArtMethod* method, ShadowFrame* sh
     } else {
       countdown_value = jit::kJitCheckForOSR;
     }
-    if (jit::Jit::ShouldUsePriorityThreadWeight()) {
+    if (jit::Jit::ShouldUsePriorityThreadWeight(self)) {
       int32_t priority_thread_weight = jit->PriorityThreadWeight();
       countdown_value = std::min(countdown_value, countdown_value / priority_thread_weight);
     }
@@ -944,7 +1019,7 @@ extern "C" ssize_t MterpAddHotnessBatch(ArtMethod* method,
     int16_t count = shadow_frame->GetCachedHotnessCountdown() - shadow_frame->GetHotnessCountdown();
     jit->AddSamples(self, method, count, /*with_backedges*/ true);
   }
-  return MterpSetUpHotnessCountdown(method, shadow_frame);
+  return MterpSetUpHotnessCountdown(method, shadow_frame, self);
 }
 
 extern "C" size_t MterpMaybeDoOnStackReplacement(Thread* self,

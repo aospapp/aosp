@@ -17,6 +17,7 @@ LOCAL_32_BIT_ONLY := true
 
 LOCAL_SHARED_LIBRARIES := \
     libutils \
+    libion \
     liblog \
     libcutils \
     libdl \

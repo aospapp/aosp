@@ -19,11 +19,26 @@ import (
 	"fmt"
 )
 
+func getNdkStlFamily(ctx android.ModuleContext, m *Module) string {
+	stl := m.stl.Properties.SelectedStl
+	switch stl {
+	case "ndk_libc++_shared", "ndk_libc++_static":
+		return "libc++"
+	case "ndk_system":
+		return "system"
+	case "":
+		return "none"
+	default:
+		ctx.ModuleErrorf("stl: %q is not a valid STL", stl)
+		return ""
+	}
+}
+
 type StlProperties struct {
-	// select the STL library to use.  Possible values are "libc++", "libc++_static",
-	// "stlport", "stlport_static", "ndk", "libstdc++", or "none".  Leave blank to select the
-	// default
-	Stl *string
+	// Select the STL library to use.  Possible values are "libc++",
+	// "libc++_static", "libstdc++", or "none". Leave blank to select the
+	// default.
+	Stl *string `android:"arch_variant"`
 
 	SelectedStl string `blueprint:"mutated"`
 }
@@ -42,13 +57,11 @@ func (stl *stl) begin(ctx BaseModuleContext) {
 		if stl.Properties.Stl != nil {
 			s = *stl.Properties.Stl
 		}
-		if ctx.sdk() && ctx.Device() {
+		if ctx.useSdk() && ctx.Device() {
 			switch s {
 			case "":
 				return "ndk_system"
-			case "c++_shared", "c++_static",
-				"stlport_shared", "stlport_static",
-				"gnustl_static":
+			case "c++_shared", "c++_static":
 				return "ndk_lib" + s
 			case "libc++":
 				return "ndk_libc++_shared"
@@ -116,9 +129,9 @@ func (stl *stl) deps(ctx BaseModuleContext, deps Deps) Deps {
 		// The system STL doesn't have a prebuilt (it uses the system's libstdc++), but it does have
 		// its own includes. The includes are handled in CCBase.Flags().
 		deps.SharedLibs = append([]string{"libstdc++"}, deps.SharedLibs...)
-	case "ndk_libc++_shared", "ndk_libstlport_shared":
+	case "ndk_libc++_shared":
 		deps.SharedLibs = append(deps.SharedLibs, stl.Properties.SelectedStl)
-	case "ndk_libc++_static", "ndk_libstlport_static", "ndk_libgnustl_static":
+	case "ndk_libc++_static":
 		deps.StaticLibs = append(deps.StaticLibs, stl.Properties.SelectedStl)
 	default:
 		panic(fmt.Errorf("Unknown stl: %q", stl.Properties.SelectedStl))
@@ -131,10 +144,22 @@ func (stl *stl) flags(ctx ModuleContext, flags Flags) Flags {
 	switch stl.Properties.SelectedStl {
 	case "libc++", "libc++_static":
 		flags.CFlags = append(flags.CFlags, "-D_USING_LIBCXX")
+
+		if ctx.Darwin() {
+			// libc++'s headers are annotated with availability macros that
+			// indicate which version of Mac OS was the first to ship with a
+			// libc++ feature available in its *system's* libc++.dylib. We do
+			// not use the system's library, but rather ship our own. As such,
+			// these availability attributes are meaningless for us but cause
+			// build breaks when we try to use code that would not be available
+			// in the system's dylib.
+			flags.CppFlags = append(flags.CppFlags,
+				"-D_LIBCPP_DISABLE_AVAILABILITY")
+		}
+
 		if !ctx.toolchain().Bionic() {
 			flags.CppFlags = append(flags.CppFlags, "-nostdinc++")
 			flags.LdFlags = append(flags.LdFlags, "-nodefaultlibs")
-			flags.LdFlags = append(flags.LdFlags, "-lpthread", "-lm")
 			if ctx.staticBinary() {
 				flags.LdFlags = append(flags.LdFlags, hostStaticGccLibs[ctx.Os()]...)
 			} else {
@@ -151,10 +176,7 @@ func (stl *stl) flags(ctx ModuleContext, flags Flags) Flags {
 		ndkSrcRoot := android.PathForSource(ctx, "prebuilts/ndk/current/sources/cxx-stl/system/include")
 		flags.CFlags = append(flags.CFlags, "-isystem "+ndkSrcRoot.String())
 	case "ndk_libc++_shared", "ndk_libc++_static":
-		// TODO(danalbert): This really shouldn't be here...
-		flags.CppFlags = append(flags.CppFlags, "-std=c++11")
-	case "ndk_libstlport_shared", "ndk_libstlport_static", "ndk_libgnustl_static":
-		// Nothing
+		// Nothing.
 	case "":
 		// None or error.
 		if !ctx.toolchain().Bionic() {

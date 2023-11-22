@@ -23,6 +23,8 @@ extern "C"
 #endif
 #include <stdint.h>
 
+#define IFNAMSIZ 16
+
 /* WiFi Common definitions */
 /* channel operating width */
 typedef enum {
@@ -38,8 +40,22 @@ typedef enum {
 
 /* Pre selected Power scenarios to be applied from BDF file */
 typedef enum {
-    WIFI_POWER_SCENARIO_VOICE_CALL    = 0,
+    WIFI_POWER_SCENARIO_VOICE_CALL       = 0,
+    WIFI_POWER_SCENARIO_ON_HEAD_CELL_OFF = 1,
+    WIFI_POWER_SCENARIO_ON_HEAD_CELL_ON  = 2,
+    WIFI_POWER_SCENARIO_ON_BODY_CELL_OFF = 3,
+    WIFI_POWER_SCENARIO_ON_BODY_CELL_ON  = 4,
 } wifi_power_scenario;
+
+/*
+ * enum wlan_mac_band - Band information corresponding to the WLAN MAC.
+ */
+typedef enum {
+/* WLAN MAC Operates in 2.4 GHz Band */
+    WLAN_MAC_2_4_BAND = 1 << 0,
+/* WLAN MAC Operates in 5 GHz Band */
+    WLAN_MAC_5_0_BAND = 1 << 1
+} wlan_mac_band;
 
 typedef int wifi_radio;
 typedef int wifi_channel;
@@ -90,6 +106,17 @@ typedef struct wifi_interface_info *wifi_interface_handle;
 /* Initialize/Cleanup */
 
 wifi_error wifi_initialize(wifi_handle *handle);
+
+/**
+ * wifi_wait_for_driver
+ * Function should block until the driver is ready to proceed.
+ * Any errors from this function is considered fatal & will fail the HAL startup sequence.
+ *
+ * on success returns WIFI_SUCCESS
+ * on failure returns WIFI_ERROR_TIMED_OUT
+ */
+wifi_error wifi_wait_for_driver_ready(void);
+
 typedef void (*wifi_cleaned_up_handler) (wifi_handle handle);
 void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler);
 void wifi_event_loop(wifi_handle handle);
@@ -125,6 +152,7 @@ void wifi_get_error_info(wifi_error err, const char **msg); // return a pointer 
 #define WIFI_FEATURE_IE_WHITELIST       0x1000000   // Support Probe IE white listing
 #define WIFI_FEATURE_SCAN_RAND          0x2000000   // Support MAC & Probe Sequence Number randomization
 #define WIFI_FEATURE_SET_TX_POWER_LIMIT 0x4000000   // Support Tx Power Limit setting
+#define WIFI_FEATURE_USE_BODY_HEAD_SAR  0x8000000   // Support Using Body/Head Proximity for SAR
 // Add more features here
 
 
@@ -157,6 +185,25 @@ typedef struct {
 
     // More event handlers
 } wifi_event_handler;
+
+typedef struct {
+    char iface_name[IFNAMSIZ + 1];
+    wifi_channel channel;
+} wifi_iface_info;
+
+typedef struct {
+    u32 wlan_mac_id;
+/* BIT MASK of BIT(WLAN_MAC*) as represented by wlan_mac_band */
+    u32 mac_band;
+/* Represents the connected Wi-Fi interfaces associated with each MAC */
+    int num_iface;
+    wifi_iface_info *iface_info;
+} wifi_mac_info;
+
+typedef struct {
+        void (*on_radio_mode_change)(wifi_request_id id, unsigned num_mac,
+                                     wifi_mac_info *mac_info);
+} wifi_radio_mode_change_handler;
 
 typedef struct {
         void (*on_rssi_threshold_breached)(wifi_request_id id, u8 *cur_bssid, s8 cur_rssi);
@@ -231,6 +278,7 @@ typedef struct wlan_driver_wake_reason_cnt_t {
 //wifi HAL function pointer table
 typedef struct {
     wifi_error (* wifi_initialize) (wifi_handle *);
+    wifi_error (* wifi_wait_for_driver_ready) (void);
     void (* wifi_cleanup) (wifi_handle, wifi_cleaned_up_handler);
     void (*wifi_event_loop)(wifi_handle);
     void (* wifi_get_error_info) (wifi_error , const char **);
@@ -405,12 +453,17 @@ typedef struct {
      */
     wifi_error (*wifi_set_packet_filter)(wifi_interface_handle handle,
                                          const u8 *program, u32 len);
+    wifi_error (*wifi_read_packet_filter)(wifi_interface_handle handle,
+                                          u32 src_offset, u8 *host_dst,
+                                          u32 length);
     wifi_error (*wifi_get_roaming_capabilities)(wifi_interface_handle handle,
                                                 wifi_roaming_capabilities *caps);
     wifi_error (*wifi_enable_firmware_roaming)(wifi_interface_handle handle,
                                                fw_roaming_state_t state);
     wifi_error (*wifi_configure_roaming)(wifi_interface_handle handle,
                                          wifi_roaming_config *roaming_config);
+    wifi_error (*wifi_set_radio_mode_change_handler)(wifi_request_id id, wifi_interface_handle
+                        iface, wifi_radio_mode_change_handler eh);
 } wifi_hal_fn;
 wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn);
 #ifdef __cplusplus

@@ -31,15 +31,18 @@ import com.google.android.car.kitchensink.R;
 
 public class CarAssistantFragment extends Fragment {
 
-    private ImageView mMic;
+    private ImageView mMicIntent;
+    private ImageView mMicService;
 
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.car_assistant, container, false);
-        mMic = (ImageView) v.findViewById(R.id.voice_button);
+        mMicIntent = (ImageView) v.findViewById(R.id.voice_button_intent);
+        mMicService = (ImageView) v.findViewById(R.id.voice_button_service);
         Context context = getContext();
-        mMic.setOnClickListener(new View.OnClickListener() {
+
+        mMicIntent.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
@@ -52,6 +55,14 @@ public class CarAssistantFragment extends Fragment {
                     Toast.makeText(context,
                             "Assistant app is not available.", Toast.LENGTH_SHORT).show();
                 }
+            }
+        });
+        mMicService.setOnClickListener(v1 -> {
+            v1.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+            boolean success = getActivity().showAssist(null);
+            if (!success) {
+                Toast.makeText(context,
+                        "Assistant app is not available.", Toast.LENGTH_SHORT).show();
             }
         });
         return v;

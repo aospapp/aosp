@@ -26,10 +26,8 @@
 
 package sun.security.pkcs;
 
-// BEGIN Android-added
 import java.io.InputStream;
 import java.io.ByteArrayInputStream;
-// END Android-added
 import java.io.OutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -65,7 +63,6 @@ import sun.security.util.ObjectIdentifier;
 import sun.security.x509.AlgorithmId;
 import sun.security.x509.X500Name;
 import sun.security.x509.KeyUsageExtension;
-import sun.security.x509.PKIXExtensions;
 
 /**
  * A SignerInfo, as defined in PKCS#7's signedData type.
@@ -93,7 +90,7 @@ public class SignerInfo implements DerEncoder {
     byte[] encryptedDigest;
     Timestamp timestamp;
     private boolean hasTimestamp = true;
-    // Android-removed
+    // Android-removed: This debugging mechanism is not supported in Android.
     // private static final Debug debug = Debug.getInstance("jar");
 
     PKCS9Attributes authenticatedAttributes;
@@ -316,8 +313,7 @@ public class SignerInfo implements DerEncoder {
         return certList;
     }
 
-    // BEGIN Android-changed
-    // Originally there's no overloading for InputStream.
+// BEGIN Android-changed: Add verify() overload that takes an InputStream.
     SignerInfo verify(PKCS7 block, byte[] data)
     throws NoSuchAlgorithmException, SignatureException {
       try {
@@ -332,21 +328,28 @@ public class SignerInfo implements DerEncoder {
        verify succeeds. */
     SignerInfo verify(PKCS7 block, InputStream inputStream)
     throws NoSuchAlgorithmException, SignatureException, IOException {
+// END Android-changed: Add verify() overload that takes an InputStream.
 
        try {
 
             ContentInfo content = block.getContentInfo();
+            // BEGIN Android-changed: Our implementation uses InputStream instead of byte[].
             if (inputStream == null) {
                 inputStream = new ByteArrayInputStream(content.getContentBytes());
             }
+           // END Android-changed: Our implementation uses InputStream instead of byte[].
 
             String digestAlgname = getDigestAlgorithmId().getName();
 
+            // Android-changed: Our implementation uses InputStream instead of byte[].
+            // byte[] dataSigned;
             InputStream dataSigned;
 
             // if there are authenticate attributes, get the message
             // digest and compare it with the digest of data
             if (authenticatedAttributes == null) {
+                // Android-changed: Our implementation uses InputStream instead of byte[].
+                // dataSigned = data;
                 dataSigned = inputStream;
             } else {
 
@@ -375,12 +378,14 @@ public class SignerInfo implements DerEncoder {
 
                 MessageDigest md = MessageDigest.getInstance(digestAlgname);
 
+                // BEGIN Android-changed: Our implementation uses InputStream instead of byte[].
                 byte[] buffer = new byte[4096];
                 int read = 0;
                 while ((read = inputStream.read(buffer)) != -1) {
                   md.update(buffer, 0 , read);
                 }
                 byte[] computedMessageDigest = md.digest();
+                // END Android-changed: Our implementation uses InputStream instead of byte[].
 
                 if (messageDigest.length != computedMessageDigest.length)
                     return null;
@@ -395,6 +400,8 @@ public class SignerInfo implements DerEncoder {
                 // the data actually signed is the DER encoding of
                 // the authenticated attributes (tagged with
                 // the "SET OF" tag, not 0xA0).
+                // Android-changed: Our implementation uses InputStream instead of byte[].
+                // dataSigned = authenticatedAttributes.getDerEncoding();
                 dataSigned = new ByteArrayInputStream(authenticatedAttributes.getDerEncoding());
             }
 
@@ -469,11 +476,13 @@ public class SignerInfo implements DerEncoder {
             Signature sig = Signature.getInstance(algname);
             sig.initVerify(key);
 
+            // BEGIN Android-changed: Our implementation uses InputStream instead of byte[].
             byte[] buffer = new byte[4096];
             int read = 0;
             while ((read = dataSigned.read(buffer)) != -1) {
               sig.update(buffer, 0 , read);
             }
+            // END Android-changed: Our implementation uses InputStream instead of byte[].
             if (sig.verify(encryptedDigest)) {
                 return this;
             }
@@ -488,16 +497,13 @@ public class SignerInfo implements DerEncoder {
         }
         return null;
     }
-    // END Android-changed
 
     /* Verify the content of the pkcs7 block. */
     SignerInfo verify(PKCS7 block)
     throws NoSuchAlgorithmException, SignatureException {
-      // BEGIN Android-changed
-      // Was: return verify(block, null);
-      // As in Android the method is overloaded, we need to disambiguate with a cast
-      return verify(block, (byte[])null);
-      // END Android-changed
+      // Android-changed: Overload disambiguation.
+      // return verify(block, null);
+      return verify(block, (byte[]) null);
     }
 
 
@@ -574,7 +580,6 @@ public class SignerInfo implements DerEncoder {
         throws IOException, NoSuchAlgorithmException, SignatureException,
                CertificateException
     {
-
         if (timestamp != null || !hasTimestamp)
             return timestamp;
 
@@ -628,7 +633,7 @@ public class SignerInfo implements DerEncoder {
                 " is inapplicable");
         }
 
-        // BEGIN Android-removed
+        // BEGIN Android-removed: This debugging mechanism is not supported in Android.
         /*
         if (debug != null) {
             debug.println();
@@ -637,7 +642,7 @@ public class SignerInfo implements DerEncoder {
             debug.println();
         }
         */
-        // END Android-removed
+        // END Android-removed: This debugging mechanism is not supported in Android.
     }
 
     public String toString() {

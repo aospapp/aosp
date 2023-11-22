@@ -18,19 +18,12 @@
 # Author: Mitsuru Chinen <mitch@jp.ibm.com>
 
 TST_TOTAL=2
-TCID=if-route-addlarge
 
-. if-lib.sh
+TST_CLEANUP="netstress_cleanup"
 
-TST_CLEANUP="do_cleanup"
+. test_net_stress.sh
 
 CHECK_INTERVAL=${CHECK_INTERVAL:-$(($ROUTE_TOTAL / 20))}
-
-do_cleanup()
-{
-	cleanup
-	restore_ipaddr
-}
 
 test_body()
 {
@@ -61,8 +54,6 @@ test_body()
 		return
 	fi
 
-	make_background_tcp_traffic
-
 	local x=1
 	local y=1
 	local cnt=1
@@ -75,6 +66,7 @@ test_body()
 	fi
 
 	while [ $cnt -le $ROUTE_TOTAL ]; do
+		make_background_tcp_traffic
 
 		if [ "$TST_IPV6" ]; then
 			local hex_x=$(printf '%x' $x)
@@ -93,10 +85,7 @@ test_body()
 			return
 		fi
 
-		check_connectivity $cnt || return
-
-		# Check the background TCP traffic
-		pgrep -x netstress > /dev/null || make_background_tcp_traffic
+		check_connectivity_interval $cnt || return
 
 		cnt=$(($cnt + 1))
 		y=$(($y + 1))
@@ -112,7 +101,7 @@ test_body()
 	tst_resm TPASS "Test is finished correctly"
 }
 
-setup
+netstress_setup
 
 tst_check_cmds route
 

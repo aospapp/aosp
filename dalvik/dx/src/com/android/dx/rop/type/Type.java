@@ -16,7 +16,6 @@
 
 package com.android.dx.rop.type;
 
-import com.android.dx.command.dexer.Main;
 import com.android.dx.util.Hex;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -34,7 +33,7 @@ public final class Type implements TypeBearer, Comparable<Type> {
      * <p>The initial capacity is based on a medium-size project.
      */
     private static final ConcurrentMap<String, Type> internTable =
-            new ConcurrentHashMap<>(10_000, 0.75f, Main.CONCURRENCY_LEVEL);
+            new ConcurrentHashMap<>(10_000, 0.75f);
 
 
     /** basic type constant for {@code void} */
@@ -122,6 +121,12 @@ public final class Type implements TypeBearer, Comparable<Type> {
 
     /** {@code non-null;} instance representing {@code java.lang.invoke.MethodHandle} */
     public static final Type METHOD_HANDLE = new Type("Ljava/lang/invoke/MethodHandle;", BT_OBJECT);
+
+    /** {@code non-null;} instance representing {@code java.lang.invoke.MethodType} */
+    public static final Type METHOD_TYPE = new Type("Ljava/lang/invoke/MethodType;", BT_OBJECT);
+
+    /** {@code non-null;} instance representing {@code java.lang.invoke.VarHandle} */
+    public static final Type VAR_HANDLE = new Type("Ljava/lang/invoke/VarHandle;", BT_OBJECT);
 
     /** {@code non-null;} instance representing {@code java.lang.Object} */
     public static final Type OBJECT = new Type("Ljava/lang/Object;", BT_OBJECT);
@@ -252,6 +257,7 @@ public final class Type implements TypeBearer, Comparable<Type> {
         putIntern(CLASS);
         putIntern(CLONEABLE);
         putIntern(METHOD_HANDLE);
+        putIntern(VAR_HANDLE);
         putIntern(OBJECT);
         putIntern(SERIALIZABLE);
         putIntern(STRING);

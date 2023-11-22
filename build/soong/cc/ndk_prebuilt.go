@@ -141,7 +141,10 @@ func ndkPrebuiltSharedStlFactory() android.Module {
 	module.compiler = nil
 	module.linker = linker
 	module.installer = nil
-	module.Properties.HideFromMake = true
+	minVersionString := "minimum"
+	noStlString := "none"
+	module.Properties.Sdk_version = &minVersionString
+	module.stl.Properties.Stl = &noStlString
 	return module.Init()
 }
 
@@ -160,25 +163,10 @@ func ndkPrebuiltStaticStlFactory() android.Module {
 	return module.Init()
 }
 
-func getNdkStlLibDir(ctx android.ModuleContext, toolchain config.Toolchain, stl string) android.SourcePath {
-	gccVersion := toolchain.GccVersion()
-	var libDir string
-	switch stl {
-	case "libstlport":
-		libDir = "cxx-stl/stlport/libs"
-	case "libc++":
-		libDir = "cxx-stl/llvm-libc++/libs"
-	case "libgnustl":
-		libDir = fmt.Sprintf("cxx-stl/gnu-libstdc++/%s/libs", gccVersion)
-	}
-
-	if libDir != "" {
-		ndkSrcRoot := "prebuilts/ndk/current/sources"
-		return android.PathForSource(ctx, ndkSrcRoot).Join(ctx, libDir, ctx.Arch().Abi[0])
-	}
-
-	ctx.ModuleErrorf("Unknown NDK STL: %s", stl)
-	return android.PathForSource(ctx, "")
+func getNdkStlLibDir(ctx android.ModuleContext, stl string) android.SourcePath {
+	libDir := "cxx-stl/llvm-libc++/libs"
+	ndkSrcRoot := "prebuilts/ndk/current/sources"
+	return android.PathForSource(ctx, ndkSrcRoot).Join(ctx, libDir, ctx.Arch().Abi[0])
 }
 
 func (ndk *ndkPrebuiltStlLinker) link(ctx ModuleContext, flags Flags,
@@ -198,6 +186,6 @@ func (ndk *ndkPrebuiltStlLinker) link(ctx ModuleContext, flags Flags,
 
 	stlName := strings.TrimSuffix(libName, "_shared")
 	stlName = strings.TrimSuffix(stlName, "_static")
-	libDir := getNdkStlLibDir(ctx, flags.Toolchain, stlName)
+	libDir := getNdkStlLibDir(ctx, stlName)
 	return libDir.Join(ctx, libName+libExt)
 }

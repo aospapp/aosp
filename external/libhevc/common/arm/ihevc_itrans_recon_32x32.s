@@ -124,6 +124,14 @@
 @d5[2]= 43      d7[2]=9
 @d5[3]= 38      d7[3]=4
 
+.equ    pi2_src_offset,     64
+.equ    pi2_tmp_offset,     68
+.equ    src_strd_offset,    120
+.equ    pred_strd_offset,   124
+.equ    dst_strd_offset,    128
+.equ    zero_cols_offset,   132
+.equ    zero_rows_offset,   136
+
 .text
 .align 4
 
@@ -152,13 +160,11 @@ r9_addr: .word 0xffff0000
 ihevc_itrans_recon_32x32_a9q:
 
     stmfd       sp!,{r0-r12,lr}
+    vpush       {d8  -  d15}
 
-
-@ldr            r8,[sp,#56]     @ prediction stride
-@ldr            r7,[sp,#64]     @ destination stride
-    ldr         r6,[sp,#56]                 @ src stride
-    ldr         r12,[sp,#68]
-    ldr         r11,[sp,#72]
+    ldr         r6,[sp,#src_strd_offset]    @ src stride
+    ldr         r12,[sp,#zero_cols_offset]
+    ldr         r11,[sp,#zero_rows_offset]
     mov         r6,r6,lsl #1                @ x sizeof(word16)
     add         r10,r6,r6, lsl #1           @ 3 rows
 
@@ -1493,10 +1499,10 @@ shift4:
     bne         dct_stage1
 second_stage_dct:
 @   mov     r0,r1
-    ldr         r0,[sp]
-    ldr         r1,[sp,#4]
-    ldr         r8,[sp,#60]                 @ prediction stride
-    ldr         r7,[sp,#64]                 @ destination stride
+    ldr         r0,[sp,#pi2_src_offset]
+    ldr         r1,[sp,#pi2_tmp_offset]
+    ldr         r8,[sp,#pred_strd_offset]   @ prediction stride
+    ldr         r7,[sp,#dst_strd_offset]    @ destination stride
 
 @   add r4,r2,r8, lsl #1    @ r4 = r2 + pred_strd * 2    => r4 points to 3rd row of pred data
 @   add r5,r8,r8, lsl #1    @
@@ -2855,6 +2861,7 @@ prediction_buffer:
 
     subs        r14,r14,#1
     bne         dct_stage2
+    vpop        {d8  -  d15}
     ldmfd       sp!,{r0-r12,pc}
 
 

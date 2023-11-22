@@ -38,8 +38,10 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/syscall.h>
+#include <limits.h>
 #include "test.h"
-#include "linux_syscall_numbers.h"
+#include "safe_macros.h"
+#include "lapi/syscalls.h"
 #include "inotify.h"
 
 #if defined(HAVE_SYS_INOTIFY_H)
@@ -93,10 +95,7 @@ int main(int ac, char **av)
 		/*
 		 * generate sequence of events
 		 */
-		if (chmod(".", 0755) < 0) {
-			tst_brkm(TBROK | TERRNO, cleanup,
-				 "chmod(\".\", 0755) failed");
-		}
+		SAFE_CHMOD(cleanup, ".", 0755);
 		event_set[tst_count].mask = IN_ISDIR | IN_ATTRIB;
 		strcpy(event_set[tst_count].name, "");
 		tst_count++;
@@ -113,19 +112,12 @@ int main(int ac, char **av)
 		strcpy(event_set[tst_count].name, FILE_NAME1);
 		tst_count++;
 
-		if (close(fd) == -1) {
-			tst_brkm(TBROK | TERRNO, cleanup,
-				 "close(%s) failed", FILE_NAME1);
-		}
+		SAFE_CLOSE(cleanup, fd);
 		event_set[tst_count].mask = IN_CLOSE_WRITE;
 		strcpy(event_set[tst_count].name, FILE_NAME1);
 		tst_count++;
 
-		if (rename(FILE_NAME1, FILE_NAME2) == -1) {
-			tst_brkm(TBROK | TERRNO, cleanup,
-				 "rename(%s, %s) failed",
-				 FILE_NAME1, FILE_NAME2);
-		}
+		SAFE_RENAME(cleanup, FILE_NAME1, FILE_NAME2);
 		event_set[tst_count].mask = IN_MOVED_FROM;
 		strcpy(event_set[tst_count].name, FILE_NAME1);
 		tst_count++;
@@ -139,18 +131,12 @@ int main(int ac, char **av)
 		}
 
 		snprintf(fname2, BUF_SIZE, "%s.rename1", fname1);
-		if (rename(fname1, fname2) == -1) {
-			tst_brkm(TBROK | TERRNO, cleanup,
-				 "rename(%s, %s) failed", fname1, fname2);
-		}
+		SAFE_RENAME(cleanup, fname1, fname2);
 		event_set[tst_count].mask = IN_MOVE_SELF;
 		strcpy(event_set[tst_count].name, "");
 		tst_count++;
 
-		if (unlink(FILE_NAME2) == -1) {
-			tst_brkm(TBROK | TERRNO, cleanup,
-				 "unlink(%s) failed", FILE_NAME2);
-		}
+		SAFE_UNLINK(cleanup, FILE_NAME2);
 		event_set[tst_count].mask = IN_DELETE;
 		strcpy(event_set[tst_count].name, FILE_NAME2);
 		tst_count++;
@@ -162,15 +148,9 @@ int main(int ac, char **av)
 		 * 2.6.25. See comment below.
 		 */
 		snprintf(fname3, BUF_SIZE, "%s.rename2", fname1);
-		if (rename(fname2, fname3) == -1) {
-			tst_brkm(TBROK | TERRNO, cleanup,
-				 "rename(%s, %s) failed", fname2, fname3);
-		}
+		SAFE_RENAME(cleanup, fname2, fname3);
 
-		if (rename(fname3, fname1) == -1) {
-			tst_brkm(TBROK | TERRNO, cleanup,
-				 "rename(%s, %s) failed", fname3, fname1);
-		}
+		SAFE_RENAME(cleanup, fname3, fname1);
 		event_set[tst_count].mask = IN_MOVE_SELF;
 		strcpy(event_set[tst_count].name, "");
 		tst_count++;

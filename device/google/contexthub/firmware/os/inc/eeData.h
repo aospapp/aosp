@@ -45,6 +45,9 @@
 bool eeDataGet(uint32_t name, void *buf, uint32_t *szP);
 bool eeDataSet(uint32_t name, const void *buf, uint32_t len);
 
+uint32_t eeDataGetSize();
+uint32_t eeDataGetFree();
+
 //allow getting old "versions". Set state to NULL initially, call till you get NULL as return value
 void *eeDataGetAllVersions(uint32_t name, void *buf, uint32_t *szP, void **stateP);
 bool eeDataEraseOldVersion(uint32_t name, void *addr); // addr is non-NULL address returned by call to eeDataGetAllVersions

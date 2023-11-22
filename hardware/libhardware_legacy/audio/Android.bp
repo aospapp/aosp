@@ -13,7 +13,10 @@ cc_library_static {
     name: "libaudiohw_legacy",
     static_libs: ["libmedia_helper"],
     cflags: [
+        "-Wall",
+        "-Werror",
         "-Wno-unused-parameter",
+        "-Wno-unused-variable",
         "-Wno-gnu-designator",
     ],
 

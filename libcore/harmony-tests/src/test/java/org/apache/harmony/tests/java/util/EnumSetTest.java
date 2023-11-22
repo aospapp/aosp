@@ -474,6 +474,7 @@ public class EnumSetTest extends TestCase {
     /**
      * java.util.EnumSet#remove(Object)
      */
+    @SuppressWarnings("CollectionIncompatibleType")
     public void test_remove_LOject() {
         Set<EnumFoo> set = EnumSet.noneOf(EnumFoo.class);
         Enum[] elements = EnumFoo.class.getEnumConstants();
@@ -669,6 +670,7 @@ public class EnumSetTest extends TestCase {
     /**
      * java.util.EnumSet#contains(Object)
      */
+    @SuppressWarnings("CollectionIncompatibleType")
     public void test_contains_LObject() {
         Set<EnumFoo> set = EnumSet.noneOf(EnumFoo.class);
         Enum[] elements = EnumFoo.class.getEnumConstants();
@@ -740,7 +742,7 @@ public class EnumSetTest extends TestCase {
     /**
      * java.util.EnumSet#containsAll(Collection)
      */
-    @SuppressWarnings( { "unchecked", "boxing" })
+    @SuppressWarnings( { "unchecked", "boxing", "CollectionIncompatibleType" })
     public void test_containsAll_LCollection() {
         EnumSet<EnumFoo> set = EnumSet.noneOf(EnumFoo.class);
         Enum[] elements = EnumFoo.class.getEnumConstants();
@@ -1025,7 +1027,7 @@ public class EnumSetTest extends TestCase {
     /**
      * java.util.EnumSet#removeAll(Collection)
      */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "unchecked", "CollectionIncompatibleType" })
     public void test_removeAll_LCollection() {
         Set<EnumFoo> set = EnumSet.noneOf(EnumFoo.class);
         try {
@@ -1199,7 +1201,7 @@ public class EnumSetTest extends TestCase {
     /**
      * java.util.EnumSet#retainAll(Collection)
      */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "unchecked", "CollectionIncompatibleType" })
     public void test_retainAll_LCollection() {
         Set<EnumFoo> set = EnumSet.allOf(EnumFoo.class);
 
@@ -1396,6 +1398,7 @@ public class EnumSetTest extends TestCase {
     /**
      * java.util.EnumSet#iterator()
      */
+    @SuppressWarnings("CollectionIncompatibleType")
     public void test_iterator() {
         Set<EnumFoo> set = EnumSet.noneOf(EnumFoo.class);
         set.add(EnumFoo.a);

@@ -24,7 +24,9 @@ LOCAL_MODULE_TAGS := tests
 # and when built explicitly put it in the data partition
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner compatibility-device-util legacy-android-test
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner compatibility-device-util
+
+LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
@@ -37,7 +39,7 @@ LOCAL_JNI_SHARED_LIBRARIES := \
 	libctsdrm_jni \
 	libdrmtestplugin
 
-LOCAL_SDK_VERSION := current
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 include $(BUILD_CTS_PACKAGE)
 

@@ -184,6 +184,10 @@ std::string StringHelper::LTrim(const std::string &in, const std::string &prefix
 }
 
 std::string StringHelper::RTrimAll(const std::string &in, const std::string &suffix) {
+    if (suffix.empty()) {
+        return in;
+    }
+
     std::string copy(in);
     while (EndsWith(copy, suffix)) {
         copy = copy.substr(0, copy.size() - suffix.size());
@@ -193,6 +197,10 @@ std::string StringHelper::RTrimAll(const std::string &in, const std::string &suf
 }
 
 std::string StringHelper::LTrimAll(const std::string &in, const std::string &prefix) {
+    if (prefix.empty()) {
+        return in;
+    }
+
     std::string copy(in);
     while (StartsWith(copy, prefix)) {
         copy = copy.substr(prefix.size());

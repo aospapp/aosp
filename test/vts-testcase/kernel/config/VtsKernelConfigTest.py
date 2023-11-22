@@ -27,8 +27,11 @@ from vts.runners.host import base_test
 from vts.runners.host import const
 from vts.runners.host import keys
 from vts.runners.host import test_runner
+from vts.utils.python.android import api
 from vts.utils.python.controllers import android_device
 from vts.utils.python.file import target_file_utils
+
+from vts.testcases.kernel.lib import version
 
 
 class VtsKernelConfigTest(base_test.BaseTestClass):
@@ -40,19 +43,41 @@ class VtsKernelConfigTest(base_test.BaseTestClass):
 
     PROC_FILE_PATH = "/proc/config.gz"
     KERNEL_CONFIG_FILE_PATH = "vts/testcases/kernel/config/data"
-    SUPPORTED_KERNEL_VERSIONS = ["3.18", "4.4", "4.9"]
 
     def setUpClass(self):
         required_params = [keys.ConfigKeys.IKEY_DATA_FILE_PATH]
         self.getUserParams(required_params)
-        self.dut = self.registerController(android_device)[0]
-        self.dut.shell.InvokeTerminal(
-            "KernelConfigTest")  # creates a remote shell instance.
-        self.shell = self.dut.shell.KernelConfigTest
+        self.dut = self.android_devices[0]
+        self.shell = self.dut.shell
         self._temp_dir = tempfile.mkdtemp()
+        self.supported_kernel_versions = version.getSupportedKernels(self.dut)
+        self.release_dir = self.getReleaseDir()
+
+    def getReleaseDir(self):
+        """Return the appropriate subdirectory in kernel/configs.
+
+        Returns the directory in kernel/configs corresponding to
+        the device's first_api_level.
+
+        Returns:
+            string: a directory in kernel configs
+        """
+        api_level = self.dut.getLaunchApiLevel(strict=False)
+
+        if (api_level == 0):
+            logging.info("Cound not detect api level, using last release")
+            return "p"
+        elif api_level == api.PLATFORM_API_LEVEL_P:
+            return "p"
+        elif api_level == api.PLATFORM_API_LEVEL_O_MR1:
+            return "o-mr1"
+        elif api_level <= api.PLATFORM_API_LEVEL_O:
+            return "o"
+        else:
+            return "."
 
     def checkKernelVersion(self):
-        """Validate the kernel version of DUT is a valid O kernel version.
+        """Validate the kernel version of DUT is a valid kernel version.
 
         Returns:
             string, kernel version of device
@@ -61,18 +86,19 @@ class VtsKernelConfigTest(base_test.BaseTestClass):
         results = self.shell.Execute(cmd)
         logging.info("Shell command '%s' results: %s", cmd, results)
 
-        match = re.search(r"\d+\.\d+", results[const.STDOUT][0])
+        match = re.search(r"(\d+)\.(\d+)", results[const.STDOUT][0])
         if match is None:
             asserts.fail("Failed to detect kernel version of device.")
         else:
-            kernel_version = match.group(0)
-        logging.info("Detected kernel version: %s", kernel_version)
+            kernel_version = int(match.group(1))
+            kernel_patchlevel = int(match.group(2))
+        logging.info("Detected kernel version: %s", match.group(0))
 
-        asserts.assertTrue(kernel_version in self.SUPPORTED_KERNEL_VERSIONS,
-                           "Detected kernel version '%s' is not one of %s" %
-                           (kernel_version, self.SUPPORTED_KERNEL_VERSIONS))
-
-        return kernel_version
+        for v in self.supported_kernel_versions:
+            if (kernel_version == v[0] and kernel_patchlevel == v[1]):
+                return match.group(0)
+        asserts.fail("Detected kernel version is not one of %s" %
+                     self.supported_kernel_versions)
 
     def checkKernelArch(self, configs):
         """Find arch of the device kernel.
@@ -151,7 +177,8 @@ class VtsKernelConfigTest(base_test.BaseTestClass):
         configs = dict()
         config_file_path = os.path.join(
             self.data_file_path, self.KERNEL_CONFIG_FILE_PATH,
-            "android-" + kernel_version, "android-base.cfg")
+            self.release_dir, "android-" + kernel_version, "android-base.cfg")
+        logging.info("Pulling base cfg from %s", config_file_path)
         with open(config_file_path, 'r') as config_file:
             configs = self.parseConfigFileToDict(config_file, configs)
 
@@ -170,9 +197,11 @@ class VtsKernelConfigTest(base_test.BaseTestClass):
         if kernelArch is not "":
             config_file_path = os.path.join(self.data_file_path,
                                             self.KERNEL_CONFIG_FILE_PATH,
+                                            self.release_dir,
                                             "android-" + kernel_version,
                                             "android-base-%s.cfg" % kernelArch)
             if os.path.isfile(config_file_path):
+                logging.info("Pulling arch cfg from %s", config_file_path)
                 with open(config_file_path, 'r') as config_file:
                     configs = self.parseConfigFileToDict(config_file, configs)
 
@@ -197,6 +226,12 @@ class VtsKernelConfigTest(base_test.BaseTestClass):
         if ("CONFIG_OF" not in device_configs and
                 "CONFIG_ACPI" not in device_configs):
             should_be_enabled.append("CONFIG_OF | CONFIG_ACPI")
+
+        if ("CONFIG_ANDROID_LOW_MEMORY_KILLER" not in device_configs and
+                ("CONFIG_MEMCG" not in device_configs or
+                 "CONFIG_MEMCG_SWAP" not in device_configs)):
+            should_be_enabled.append("CONFIG_ANDROID_LOW_MEMORY_KILLER | "
+                                     "(CONFIG_MEMCG & CONFIG_MEMCG_SWAP)")
 
         asserts.assertTrue(
             len(should_be_enabled) == 0 and len(should_not_be_set) == 0 and

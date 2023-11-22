@@ -16,18 +16,9 @@
 
 package com.android.cellbroadcastreceiver;
 
-import android.content.Intent;
-
-import com.android.internal.telephony.ISms;
-
-import org.junit.After;
-import org.junit.Before;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.mockito.Mock;
-
 import static android.telephony.SmsManager.CELL_BROADCAST_RAN_TYPE_CDMA;
 import static android.telephony.SmsManager.CELL_BROADCAST_RAN_TYPE_GSM;
+
 import static com.android.internal.telephony.cdma.sms.SmsEnvelope.SERVICE_CATEGORY_CMAS_CHILD_ABDUCTION_EMERGENCY;
 import static com.android.internal.telephony.cdma.sms.SmsEnvelope.SERVICE_CATEGORY_CMAS_EXTREME_THREAT;
 import static com.android.internal.telephony.cdma.sms.SmsEnvelope.SERVICE_CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT;
@@ -47,11 +38,22 @@ import static com.android.internal.telephony.gsm.SmsCbConstants.MESSAGE_ID_CMAS_
 import static com.android.internal.telephony.gsm.SmsCbConstants.MESSAGE_ID_ETWS_EARTHQUAKE_AND_TSUNAMI_WARNING;
 import static com.android.internal.telephony.gsm.SmsCbConstants.MESSAGE_ID_ETWS_EARTHQUAKE_WARNING;
 import static com.android.internal.telephony.gsm.SmsCbConstants.MESSAGE_ID_ETWS_OTHER_EMERGENCY_TYPE;
+
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+
+import android.content.Intent;
+
+import com.android.internal.telephony.ISms;
+
+import org.junit.After;
+import org.junit.Before;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.Mock;
 
 public class CellBroadcastBootupConfigTest extends
         CellBroadcastServiceTestCase<CellBroadcastConfigService> {
@@ -81,6 +83,30 @@ public class CellBroadcastBootupConfigTest extends
         doReturn(mSmsService).when(mSmsService).queryLocalInterface(anyString());
         mMockedServiceManager = new MockedServiceManager();
         mMockedServiceManager.replaceService("isms", mSmsService);
+        putResources(R.array.cmas_presidential_alerts_channels_range_strings, new String[]{
+                "0x1112-0x1112:rat=gsm",
+                "0x1000-0x1000:rat=cdma",
+                "0x111F-0x111F:rat=gsm",
+        });
+        putResources(R.array.cmas_alert_extreme_channels_range_strings, new String[]{
+                "0x1113-0x1114:rat=gsm",
+                "0x1001-0x1001:rat=cdma",
+                "0x1120-0x1121:rat=gsm",
+        });
+        putResources(R.array.cmas_alerts_severe_range_strings, new String[]{
+                "0x1115-0x111A:rat=gsm",
+                "0x1002-0x1002:rat=cdma",
+                "0x1122-0x1127:rat=gsm",
+        });
+        putResources(R.array.cmas_amber_alerts_channels_range_strings, new String[]{
+                "0x111B-0x111B:rat=gsm",
+                "0x1003-0x1003:rat=cdma",
+                "0x1128-0x1128:rat=gsm",
+        });
+        putResources(R.array.etws_alerts_range_strings, new String[]{
+                "0x1100-0x1102:rat=gsm",
+                "0x1104-0x1104:rat=gsm",
+        });
     }
 
     @After
@@ -103,6 +129,7 @@ public class CellBroadcastBootupConfigTest extends
 
     // Test if CellbroadcastConfigService properly configure all the required channels.
     public void testConfiguration() throws Exception {
+
         Intent intent = new Intent(mContext, CellBroadcastConfigService.class);
         intent.setAction(CellBroadcastConfigService.ACTION_ENABLE_CHANNELS);
 
@@ -110,47 +137,47 @@ public class CellBroadcastBootupConfigTest extends
         waitForMs(200);
 
         CbConfig[] configs = new CbConfig[] {
+                new CbConfig(MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL,
+                        MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL,
+                        CELL_BROADCAST_RAN_TYPE_GSM),
                 new CbConfig(SERVICE_CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT,
                         SERVICE_CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT,
                         CELL_BROADCAST_RAN_TYPE_CDMA),
+                new CbConfig(MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL_LANGUAGE,
+                        MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL_LANGUAGE,
+                        CELL_BROADCAST_RAN_TYPE_GSM),
+                new CbConfig(MESSAGE_ID_CMAS_ALERT_EXTREME_IMMEDIATE_OBSERVED,
+                        MESSAGE_ID_CMAS_ALERT_EXTREME_IMMEDIATE_LIKELY,
+                        CELL_BROADCAST_RAN_TYPE_GSM),
                 new CbConfig(SERVICE_CATEGORY_CMAS_EXTREME_THREAT,
                         SERVICE_CATEGORY_CMAS_EXTREME_THREAT,
                         CELL_BROADCAST_RAN_TYPE_CDMA),
+                new CbConfig(MESSAGE_ID_CMAS_ALERT_EXTREME_IMMEDIATE_OBSERVED_LANGUAGE,
+                        MESSAGE_ID_CMAS_ALERT_EXTREME_IMMEDIATE_LIKELY_LANGUAGE,
+                        CELL_BROADCAST_RAN_TYPE_GSM),
+                new CbConfig(MESSAGE_ID_CMAS_ALERT_EXTREME_EXPECTED_OBSERVED,
+                        MESSAGE_ID_CMAS_ALERT_SEVERE_EXPECTED_LIKELY,
+                        CELL_BROADCAST_RAN_TYPE_GSM),
                 new CbConfig(SERVICE_CATEGORY_CMAS_SEVERE_THREAT,
                         SERVICE_CATEGORY_CMAS_SEVERE_THREAT,
                         CELL_BROADCAST_RAN_TYPE_CDMA),
+                new CbConfig(MESSAGE_ID_CMAS_ALERT_EXTREME_EXPECTED_OBSERVED_LANGUAGE,
+                        MESSAGE_ID_CMAS_ALERT_SEVERE_EXPECTED_LIKELY_LANGUAGE,
+                        CELL_BROADCAST_RAN_TYPE_GSM),
+                new CbConfig(MESSAGE_ID_CMAS_ALERT_CHILD_ABDUCTION_EMERGENCY,
+                        MESSAGE_ID_CMAS_ALERT_CHILD_ABDUCTION_EMERGENCY,
+                        CELL_BROADCAST_RAN_TYPE_GSM),
                 new CbConfig(SERVICE_CATEGORY_CMAS_CHILD_ABDUCTION_EMERGENCY,
                         SERVICE_CATEGORY_CMAS_CHILD_ABDUCTION_EMERGENCY,
                         CELL_BROADCAST_RAN_TYPE_CDMA),
+                new CbConfig(MESSAGE_ID_CMAS_ALERT_CHILD_ABDUCTION_EMERGENCY_LANGUAGE,
+                        MESSAGE_ID_CMAS_ALERT_CHILD_ABDUCTION_EMERGENCY_LANGUAGE,
+                        CELL_BROADCAST_RAN_TYPE_GSM),
                 new CbConfig(MESSAGE_ID_ETWS_EARTHQUAKE_WARNING,
                         MESSAGE_ID_ETWS_EARTHQUAKE_AND_TSUNAMI_WARNING,
                         CELL_BROADCAST_RAN_TYPE_GSM),
                 new CbConfig(MESSAGE_ID_ETWS_OTHER_EMERGENCY_TYPE,
                         MESSAGE_ID_ETWS_OTHER_EMERGENCY_TYPE,
-                        CELL_BROADCAST_RAN_TYPE_GSM),
-                new CbConfig(MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL,
-                        MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL,
-                        CELL_BROADCAST_RAN_TYPE_GSM),
-                new CbConfig(MESSAGE_ID_CMAS_ALERT_EXTREME_IMMEDIATE_OBSERVED,
-                        MESSAGE_ID_CMAS_ALERT_EXTREME_IMMEDIATE_LIKELY,
-                        CELL_BROADCAST_RAN_TYPE_GSM),
-                new CbConfig(MESSAGE_ID_CMAS_ALERT_EXTREME_EXPECTED_OBSERVED,
-                        MESSAGE_ID_CMAS_ALERT_SEVERE_EXPECTED_LIKELY,
-                        CELL_BROADCAST_RAN_TYPE_GSM),
-                new CbConfig(MESSAGE_ID_CMAS_ALERT_CHILD_ABDUCTION_EMERGENCY,
-                        MESSAGE_ID_CMAS_ALERT_CHILD_ABDUCTION_EMERGENCY,
-                        CELL_BROADCAST_RAN_TYPE_GSM),
-                new CbConfig(MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL_LANGUAGE,
-                        MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL_LANGUAGE,
-                        CELL_BROADCAST_RAN_TYPE_GSM),
-                new CbConfig(MESSAGE_ID_CMAS_ALERT_EXTREME_IMMEDIATE_OBSERVED_LANGUAGE,
-                        MESSAGE_ID_CMAS_ALERT_EXTREME_IMMEDIATE_LIKELY_LANGUAGE,
-                        CELL_BROADCAST_RAN_TYPE_GSM),
-                new CbConfig(MESSAGE_ID_CMAS_ALERT_EXTREME_EXPECTED_OBSERVED_LANGUAGE,
-                        MESSAGE_ID_CMAS_ALERT_SEVERE_EXPECTED_LIKELY_LANGUAGE,
-                        CELL_BROADCAST_RAN_TYPE_GSM),
-                new CbConfig(MESSAGE_ID_CMAS_ALERT_CHILD_ABDUCTION_EMERGENCY_LANGUAGE,
-                        MESSAGE_ID_CMAS_ALERT_CHILD_ABDUCTION_EMERGENCY_LANGUAGE,
                         CELL_BROADCAST_RAN_TYPE_GSM),
         };
 

@@ -23,7 +23,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
-import android.preference.PreferenceManager;
+import android.support.annotation.VisibleForTesting;
 import android.support.v4.os.BuildCompat;
 import android.support.v4.os.UserManagerCompat;
 import android.telecom.PhoneAccountHandle;
@@ -32,6 +32,9 @@ import com.android.dialer.app.calllog.LegacyVoicemailNotifier;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.common.PerAccountSharedPreferences;
+import com.android.dialer.compat.telephony.TelephonyManagerCompat;
+import com.android.dialer.storage.StorageComponent;
+import com.android.voicemail.VoicemailClient;
 import com.android.voicemail.VoicemailComponent;
 
 /**
@@ -42,19 +45,16 @@ import com.android.voicemail.VoicemailComponent;
 @TargetApi(VERSION_CODES.O)
 public class LegacyVoicemailNotificationReceiver extends BroadcastReceiver {
 
-  private static final String LEGACY_VOICEMAIL_COUNT = "legacy_voicemail_count";
-
-  /**
-   * Hidden extra for {@link TelephonyManager#ACTION_SHOW_VOICEMAIL_NOTIFICATION} for whether the
-   * notification is just a refresh or for a new voicemail. The phone should not play a ringtone or
-   * vibrate during a refresh if the notification is already showing.
-   *
-   * <p>TODO(b/62202833): make public
-   */
-  private static final String EXTRA_IS_REFRESH = "is_refresh";
+  @VisibleForTesting static final String LEGACY_VOICEMAIL_DISMISSED = "legacy_voicemail_dismissed";
 
   @Override
   public void onReceive(Context context, Intent intent) {
+
+    if (!TelephonyManager.ACTION_SHOW_VOICEMAIL_NOTIFICATION.equals(intent.getAction())
+        && !VoicemailClient.ACTION_SHOW_LEGACY_VOICEMAIL.equals(intent.getAction())) {
+      return;
+    }
+
     LogUtil.i(
         "LegacyVoicemailNotificationReceiver.onReceive", "received legacy voicemail notification");
     if (!BuildCompat.isAtLeastO()) {
@@ -73,11 +73,18 @@ public class LegacyVoicemailNotificationReceiver extends BroadcastReceiver {
         Assert.isNotNull(intent.getParcelableExtra(TelephonyManager.EXTRA_PHONE_ACCOUNT_HANDLE));
     int count = intent.getIntExtra(TelephonyManager.EXTRA_NOTIFICATION_COUNT, -1);
 
-    if (!hasVoicemailCountChanged(context, phoneAccountHandle, count)) {
-      LogUtil.i(
-          "LegacyVoicemailNotificationReceiver.onReceive",
-          "voicemail count hasn't changed, ignoring");
-      return;
+    boolean isRefresh = intent.getBooleanExtra(TelephonyManagerCompat.EXTRA_IS_REFRESH, false);
+    LogUtil.i("LegacyVoicemailNotificationReceiver.onReceive", "isRefresh: " + isRefresh);
+    PerAccountSharedPreferences preferences = getSharedPreferences(context, phoneAccountHandle);
+    if (isRefresh) {
+      if (preferences.getBoolean(LEGACY_VOICEMAIL_DISMISSED, false)) {
+        LogUtil.i(
+            "LegacyVoicemailNotificationReceiver.onReceive",
+            "notification dismissed, ignoring refresh");
+        return;
+      }
+    } else {
+      setDismissed(context, phoneAccountHandle, false);
     }
 
     if (count == -1) {
@@ -89,13 +96,15 @@ public class LegacyVoicemailNotificationReceiver extends BroadcastReceiver {
 
     if (count == 0) {
       LogUtil.i("LegacyVoicemailNotificationReceiver.onReceive", "clearing notification");
-      LegacyVoicemailNotifier.cancelNotification(context);
+      LegacyVoicemailNotifier.cancelNotification(context, phoneAccountHandle);
       return;
     }
 
-    if (VoicemailComponent.get(context)
-        .getVoicemailClient()
-        .isActivated(context, phoneAccountHandle)) {
+    if (!intent.getBooleanExtra(VoicemailClient.EXTRA_IS_LEGACY_MODE, false)
+        && UserManagerCompat.isUserUnlocked(context)
+        && VoicemailComponent.get(context)
+            .getVoicemailClient()
+            .isActivated(context, phoneAccountHandle)) {
       LogUtil.i(
           "LegacyVoicemailNotificationReceiver.onReceive",
           "visual voicemail is activated, ignoring notification");
@@ -116,32 +125,21 @@ public class LegacyVoicemailNotificationReceiver extends BroadcastReceiver {
         voicemailNumber,
         callVoicemailIntent,
         voicemailSettingIntent,
-        intent.getBooleanExtra(EXTRA_IS_REFRESH, false));
+        isRefresh);
   }
 
-  private static boolean hasVoicemailCountChanged(
-      Context context, PhoneAccountHandle phoneAccountHandle, int newCount) {
-    // Need credential encrypted storage to access preferences.
-    if (!UserManagerCompat.isUserUnlocked(context)) {
-      LogUtil.i(
-          "LegacyVoicemailNotificationReceiver.onReceive",
-          "User locked, bypassing voicemail count check");
-      return true;
-    }
+  public static void setDismissed(
+      Context context, PhoneAccountHandle phoneAccountHandle, boolean dismissed) {
+    getSharedPreferences(context, phoneAccountHandle)
+        .edit()
+        .putBoolean(LEGACY_VOICEMAIL_DISMISSED, dismissed)
+        .apply();
+  }
 
-    if (newCount == -1) {
-      // Carrier does not report voicemail count
-      return true;
-    }
-
-    PerAccountSharedPreferences preferences =
-        new PerAccountSharedPreferences(
-            context, phoneAccountHandle, PreferenceManager.getDefaultSharedPreferences(context));
-    // Carriers may send multiple notifications for the same voicemail.
-    if (newCount != 0 && newCount == preferences.getInt(LEGACY_VOICEMAIL_COUNT, -1)) {
-      return false;
-    }
-    preferences.edit().putInt(LEGACY_VOICEMAIL_COUNT, newCount).apply();
-    return true;
+  @VisibleForTesting
+  static PerAccountSharedPreferences getSharedPreferences(
+      Context context, PhoneAccountHandle phoneAccountHandle) {
+    return new PerAccountSharedPreferences(
+        context, phoneAccountHandle, StorageComponent.get(context).unencryptedSharedPrefs());
   }
 }

@@ -40,8 +40,8 @@
 #include "test-utils-aarch32.h"
 
 #include "aarch32/assembler-aarch32.h"
-#include "aarch32/macro-assembler-aarch32.h"
 #include "aarch32/disasm-aarch32.h"
+#include "aarch32/macro-assembler-aarch32.h"
 
 #define __ masm.
 #define BUF_SIZE (4096)
@@ -60,26 +60,25 @@
 // TODO: Run the tests in the simulator.
 #define RUN()
 
-#define TEARDOWN()
-
 #else  // ifdef VIXL_INCLUDE_SIMULATOR_AARCH32.
 
-#define SETUP()                                   \
-  MacroAssembler masm(BUF_SIZE);                  \
-  UseScratchRegisterScope harness_scratch(&masm); \
-  harness_scratch.ExcludeAll();
+#define SETUP()                  \
+  MacroAssembler masm(BUF_SIZE); \
+  UseScratchRegisterScope harness_scratch;
 
-#define START()              \
-  masm.GetBuffer()->Reset(); \
-  __ Push(r4);               \
-  __ Push(r5);               \
-  __ Push(r6);               \
-  __ Push(r7);               \
-  __ Push(r8);               \
-  __ Push(r9);               \
-  __ Push(r10);              \
-  __ Push(r11);              \
-  __ Push(lr);               \
+#define START()                 \
+  harness_scratch.Open(&masm);  \
+  harness_scratch.ExcludeAll(); \
+  masm.GetBuffer()->Reset();    \
+  __ Push(r4);                  \
+  __ Push(r5);                  \
+  __ Push(r6);                  \
+  __ Push(r7);                  \
+  __ Push(r8);                  \
+  __ Push(r9);                  \
+  __ Push(r10);                 \
+  __ Push(r11);                 \
+  __ Push(lr);                  \
   harness_scratch.Include(ip);
 
 #define END()                  \
@@ -94,7 +93,8 @@
   __ Pop(r5);                  \
   __ Pop(r4);                  \
   __ Bx(lr);                   \
-  __ FinalizeCode();
+  __ FinalizeCode();           \
+  harness_scratch.Close();
 
 #define RUN()                                                 \
   {                                                           \
@@ -105,8 +105,6 @@
                   pcs_offset);                                \
     masm.GetBuffer()->SetWritable();                          \
   }
-
-#define TEARDOWN() harness_scratch.Close();
 
 #endif  // ifdef VIXL_INCLUDE_SIMULATOR_AARCH32
 
@@ -186,238 +184,125 @@ static const Inputs kCondition[] = {{NFlag, 0xabababab, 0xabababab},
                                     {ZCVFlag, 0xabababab, 0xabababab},
                                     {NZCVFlag, 0xabababab, 0xabababab}};
 
-static const Inputs kRdIsRn[] = {{NoFlag, 0x00000000, 0x00000000},
-                                 {NoFlag, 0x00000001, 0x00000001},
-                                 {NoFlag, 0x00000002, 0x00000002},
-                                 {NoFlag, 0x00000020, 0x00000020},
-                                 {NoFlag, 0x0000007d, 0x0000007d},
-                                 {NoFlag, 0x0000007e, 0x0000007e},
-                                 {NoFlag, 0x0000007f, 0x0000007f},
-                                 {NoFlag, 0x00007ffd, 0x00007ffd},
-                                 {NoFlag, 0x00007ffe, 0x00007ffe},
-                                 {NoFlag, 0x00007fff, 0x00007fff},
-                                 {NoFlag, 0x33333333, 0x33333333},
-                                 {NoFlag, 0x55555555, 0x55555555},
-                                 {NoFlag, 0x7ffffffd, 0x7ffffffd},
-                                 {NoFlag, 0x7ffffffe, 0x7ffffffe},
-                                 {NoFlag, 0x7fffffff, 0x7fffffff},
-                                 {NoFlag, 0x80000000, 0x80000000},
-                                 {NoFlag, 0x80000001, 0x80000001},
-                                 {NoFlag, 0xaaaaaaaa, 0xaaaaaaaa},
-                                 {NoFlag, 0xcccccccc, 0xcccccccc},
-                                 {NoFlag, 0xffff8000, 0xffff8000},
-                                 {NoFlag, 0xffff8001, 0xffff8001},
-                                 {NoFlag, 0xffff8002, 0xffff8002},
-                                 {NoFlag, 0xffff8003, 0xffff8003},
-                                 {NoFlag, 0xffffff80, 0xffffff80},
-                                 {NoFlag, 0xffffff81, 0xffffff81},
-                                 {NoFlag, 0xffffff82, 0xffffff82},
-                                 {NoFlag, 0xffffff83, 0xffffff83},
-                                 {NoFlag, 0xffffffe0, 0xffffffe0},
-                                 {NoFlag, 0xfffffffd, 0xfffffffd},
-                                 {NoFlag, 0xfffffffe, 0xfffffffe},
-                                 {NoFlag, 0xffffffff, 0xffffffff}};
+static const Inputs kRdIsRn[] =
+    {{NoFlag, 0x00000000, 0x00000000}, {NoFlag, 0x00000001, 0x00000001},
+     {NoFlag, 0x00000002, 0x00000002}, {NoFlag, 0x00000020, 0x00000020},
+     {NoFlag, 0x0000007d, 0x0000007d}, {NoFlag, 0x0000007e, 0x0000007e},
+     {NoFlag, 0x0000007f, 0x0000007f}, {NoFlag, 0x00007ffd, 0x00007ffd},
+     {NoFlag, 0x00007ffe, 0x00007ffe}, {NoFlag, 0x00007fff, 0x00007fff},
+     {NoFlag, 0x33333333, 0x33333333}, {NoFlag, 0x55555555, 0x55555555},
+     {NoFlag, 0x7ffffffd, 0x7ffffffd}, {NoFlag, 0x7ffffffe, 0x7ffffffe},
+     {NoFlag, 0x7fffffff, 0x7fffffff}, {NoFlag, 0x80000000, 0x80000000},
+     {NoFlag, 0x80000001, 0x80000001}, {NoFlag, 0xaaaaaaaa, 0xaaaaaaaa},
+     {NoFlag, 0xcccccccc, 0xcccccccc}, {NoFlag, 0xffff8000, 0xffff8000},
+     {NoFlag, 0xffff8001, 0xffff8001}, {NoFlag, 0xffff8002, 0xffff8002},
+     {NoFlag, 0xffff8003, 0xffff8003}, {NoFlag, 0xffffff80, 0xffffff80},
+     {NoFlag, 0xffffff81, 0xffffff81}, {NoFlag, 0xffffff82, 0xffffff82},
+     {NoFlag, 0xffffff83, 0xffffff83}, {NoFlag, 0xffffffe0, 0xffffffe0},
+     {NoFlag, 0xfffffffd, 0xfffffffd}, {NoFlag, 0xfffffffe, 0xfffffffe},
+     {NoFlag, 0xffffffff, 0xffffffff}};
 
-static const Inputs kRdIsNotRn[] = {{NoFlag, 0x00000002, 0xcccccccc},
-                                    {NoFlag, 0x7ffffffd, 0x00007ffe},
-                                    {NoFlag, 0xffffff80, 0x00000020},
-                                    {NoFlag, 0xaaaaaaaa, 0xaaaaaaaa},
-                                    {NoFlag, 0x33333333, 0xffffff82},
-                                    {NoFlag, 0xffff8001, 0x7ffffffe},
-                                    {NoFlag, 0xfffffffd, 0x00007ffe},
-                                    {NoFlag, 0xffffff80, 0x80000000},
-                                    {NoFlag, 0x00000001, 0x33333333},
-                                    {NoFlag, 0xcccccccc, 0x7ffffffe},
-                                    {NoFlag, 0x00000000, 0xcccccccc},
-                                    {NoFlag, 0x00000000, 0x55555555},
-                                    {NoFlag, 0xffffffff, 0xffffffff},
-                                    {NoFlag, 0x0000007e, 0xffff8002},
-                                    {NoFlag, 0x80000000, 0x7ffffffd},
-                                    {NoFlag, 0xffffff81, 0x0000007e},
-                                    {NoFlag, 0x0000007f, 0xffff8001},
-                                    {NoFlag, 0xffffffe0, 0x00007ffd},
-                                    {NoFlag, 0xffff8003, 0x00000002},
-                                    {NoFlag, 0xffffff83, 0x55555555},
-                                    {NoFlag, 0xffffff83, 0xffffff80},
-                                    {NoFlag, 0xffffff81, 0xffff8000},
-                                    {NoFlag, 0x00000020, 0x7ffffffe},
-                                    {NoFlag, 0xffffffe0, 0x00000000},
-                                    {NoFlag, 0x7fffffff, 0x0000007e},
-                                    {NoFlag, 0x80000001, 0xffffffff},
-                                    {NoFlag, 0x00000001, 0x80000001},
-                                    {NoFlag, 0x00000002, 0x0000007f},
-                                    {NoFlag, 0x7fffffff, 0xcccccccc},
-                                    {NoFlag, 0x80000001, 0x00007ffe},
-                                    {NoFlag, 0xffff8002, 0x0000007e},
-                                    {NoFlag, 0x00007ffe, 0xcccccccc},
-                                    {NoFlag, 0x80000000, 0xffff8002},
-                                    {NoFlag, 0xffffff83, 0x7ffffffe},
-                                    {NoFlag, 0xffff8001, 0x00000001},
-                                    {NoFlag, 0xffffff81, 0x00000020},
-                                    {NoFlag, 0xfffffffe, 0xffff8001},
-                                    {NoFlag, 0xffffffff, 0xfffffffe},
-                                    {NoFlag, 0xcccccccc, 0x55555555},
-                                    {NoFlag, 0x00000020, 0xffffff83},
-                                    {NoFlag, 0xffffff83, 0xffff8001},
-                                    {NoFlag, 0xffffff83, 0xffff8000},
-                                    {NoFlag, 0x00007fff, 0x00000002},
-                                    {NoFlag, 0x55555555, 0xffff8000},
-                                    {NoFlag, 0x80000001, 0xffffff81},
-                                    {NoFlag, 0x00000002, 0x00000000},
-                                    {NoFlag, 0x33333333, 0xffffff81},
-                                    {NoFlag, 0xffff8001, 0xffffff82},
-                                    {NoFlag, 0xcccccccc, 0xffff8003},
-                                    {NoFlag, 0xffff8003, 0x7ffffffd},
-                                    {NoFlag, 0x0000007d, 0x00007ffe},
-                                    {NoFlag, 0xffffff80, 0x0000007d},
-                                    {NoFlag, 0xaaaaaaaa, 0x00007ffd},
-                                    {NoFlag, 0x80000000, 0xffffff82},
-                                    {NoFlag, 0x00000002, 0x7ffffffe},
-                                    {NoFlag, 0x00000002, 0xffffff83},
-                                    {NoFlag, 0x55555555, 0x00000002},
-                                    {NoFlag, 0xffffffff, 0xffffff82},
-                                    {NoFlag, 0xaaaaaaaa, 0x00000020},
-                                    {NoFlag, 0x00000001, 0xffffff82},
-                                    {NoFlag, 0x0000007f, 0xffffff82},
-                                    {NoFlag, 0x7ffffffd, 0xaaaaaaaa},
-                                    {NoFlag, 0x00007ffe, 0x00000001},
-                                    {NoFlag, 0xfffffffd, 0xffffffe0},
-                                    {NoFlag, 0xffffff81, 0xffffff83},
-                                    {NoFlag, 0x0000007d, 0x00000000},
-                                    {NoFlag, 0x0000007d, 0xffff8000},
-                                    {NoFlag, 0xffffff81, 0x7fffffff},
-                                    {NoFlag, 0xffffffff, 0x80000000},
-                                    {NoFlag, 0x00000000, 0x00000001},
-                                    {NoFlag, 0x55555555, 0xffffff82},
-                                    {NoFlag, 0x00007ffe, 0x00007ffe},
-                                    {NoFlag, 0x80000001, 0xfffffffd},
-                                    {NoFlag, 0x00007fff, 0x33333333},
-                                    {NoFlag, 0x00007fff, 0x80000000},
-                                    {NoFlag, 0xcccccccc, 0x00007fff},
-                                    {NoFlag, 0xfffffffe, 0xffffffe0},
-                                    {NoFlag, 0x7ffffffe, 0x0000007f},
-                                    {NoFlag, 0x00007ffd, 0xffff8001},
-                                    {NoFlag, 0x00000002, 0x00000001},
-                                    {NoFlag, 0x80000000, 0xffffffff},
-                                    {NoFlag, 0xffffff83, 0xcccccccc},
-                                    {NoFlag, 0xffff8002, 0x7ffffffe},
-                                    {NoFlag, 0xaaaaaaaa, 0x00000000},
-                                    {NoFlag, 0xffffff80, 0xcccccccc},
-                                    {NoFlag, 0x33333333, 0xffffff83},
-                                    {NoFlag, 0x0000007e, 0xffffffe0},
-                                    {NoFlag, 0x0000007e, 0x00007fff},
-                                    {NoFlag, 0x0000007f, 0x00000002},
-                                    {NoFlag, 0x7ffffffe, 0xcccccccc},
-                                    {NoFlag, 0x0000007d, 0xffffff80},
-                                    {NoFlag, 0x00007fff, 0x00000020},
-                                    {NoFlag, 0x7ffffffe, 0xfffffffe},
-                                    {NoFlag, 0xfffffffe, 0xffffff81},
-                                    {NoFlag, 0xffffffff, 0x0000007f},
-                                    {NoFlag, 0xffff8002, 0x7ffffffd},
-                                    {NoFlag, 0xffff8001, 0xfffffffe},
-                                    {NoFlag, 0x33333333, 0xffff8002},
-                                    {NoFlag, 0x00000000, 0xffffffff},
-                                    {NoFlag, 0x33333333, 0xffffff80},
-                                    {NoFlag, 0x0000007f, 0x00007fff},
-                                    {NoFlag, 0xffffffff, 0xffff8001},
-                                    {NoFlag, 0x7fffffff, 0xffff8002},
-                                    {NoFlag, 0x7ffffffd, 0xffffff83},
-                                    {NoFlag, 0x7fffffff, 0x0000007f},
-                                    {NoFlag, 0xffffff83, 0xfffffffe},
-                                    {NoFlag, 0x7ffffffe, 0xffff8003},
-                                    {NoFlag, 0xffff8002, 0xffff8002},
-                                    {NoFlag, 0x80000001, 0x0000007f},
-                                    {NoFlag, 0x00000020, 0x00000002},
-                                    {NoFlag, 0xffffff82, 0xffff8001},
-                                    {NoFlag, 0xffffffff, 0x00000001},
-                                    {NoFlag, 0xffffff80, 0xffff8002},
-                                    {NoFlag, 0xffff8003, 0x7fffffff},
-                                    {NoFlag, 0xffffffff, 0xffff8000},
-                                    {NoFlag, 0xffff8002, 0x00007ffd},
-                                    {NoFlag, 0x00000020, 0xffffff81},
-                                    {NoFlag, 0x00000001, 0x55555555},
-                                    {NoFlag, 0x7ffffffe, 0x00000020},
-                                    {NoFlag, 0x80000000, 0x00000001},
-                                    {NoFlag, 0x00007ffd, 0xffff8002},
-                                    {NoFlag, 0x7fffffff, 0xfffffffe},
-                                    {NoFlag, 0xcccccccc, 0x00007ffd},
-                                    {NoFlag, 0x00000000, 0xfffffffd},
-                                    {NoFlag, 0xffff8003, 0xffffff80},
-                                    {NoFlag, 0x80000001, 0xffffff80},
-                                    {NoFlag, 0xffffffff, 0xffff8002},
-                                    {NoFlag, 0x00007ffe, 0xffff8002},
-                                    {NoFlag, 0xffffff80, 0x00007ffe},
-                                    {NoFlag, 0x80000001, 0xffff8001},
-                                    {NoFlag, 0x0000007f, 0xffffff80},
-                                    {NoFlag, 0xffffff81, 0x80000000},
-                                    {NoFlag, 0x00007fff, 0x00007ffe},
-                                    {NoFlag, 0x33333333, 0xffff8000},
-                                    {NoFlag, 0x33333333, 0x00007fff},
-                                    {NoFlag, 0x00000000, 0x0000007d},
-                                    {NoFlag, 0x80000001, 0x00000000},
-                                    {NoFlag, 0xffffffff, 0x55555555},
-                                    {NoFlag, 0x80000001, 0x80000000},
-                                    {NoFlag, 0xffffffff, 0xffffff80},
-                                    {NoFlag, 0xffffff81, 0xffff8003},
-                                    {NoFlag, 0x55555555, 0x80000001},
-                                    {NoFlag, 0x7fffffff, 0xffff8001},
-                                    {NoFlag, 0xffffff83, 0x00000002},
-                                    {NoFlag, 0x0000007e, 0xffffff81},
-                                    {NoFlag, 0x80000000, 0xffff8001},
-                                    {NoFlag, 0xffffff80, 0xfffffffe},
-                                    {NoFlag, 0x0000007e, 0xfffffffd},
-                                    {NoFlag, 0xffffffe0, 0xffffffff},
-                                    {NoFlag, 0x55555555, 0x80000000},
-                                    {NoFlag, 0x0000007d, 0x80000001},
-                                    {NoFlag, 0xffffffe0, 0x7ffffffd},
-                                    {NoFlag, 0x00000000, 0x00000000},
-                                    {NoFlag, 0x55555555, 0x00000001},
-                                    {NoFlag, 0x00007ffd, 0x7fffffff},
-                                    {NoFlag, 0x55555555, 0xffffffff},
-                                    {NoFlag, 0xffff8003, 0x00007fff},
-                                    {NoFlag, 0xffffff82, 0x00007fff},
-                                    {NoFlag, 0x33333333, 0x55555555},
-                                    {NoFlag, 0x00000020, 0x33333333},
-                                    {NoFlag, 0x7ffffffe, 0xfffffffd},
-                                    {NoFlag, 0x7ffffffe, 0x00000001},
-                                    {NoFlag, 0xffffff83, 0xffffffe0},
-                                    {NoFlag, 0xfffffffe, 0xaaaaaaaa},
-                                    {NoFlag, 0xffff8002, 0x33333333},
-                                    {NoFlag, 0xffff8002, 0xffff8003},
-                                    {NoFlag, 0x33333333, 0x7fffffff},
-                                    {NoFlag, 0xfffffffd, 0xffffff83},
-                                    {NoFlag, 0x00000000, 0xffff8000},
-                                    {NoFlag, 0xffffff82, 0x55555555},
-                                    {NoFlag, 0xffffff82, 0xffffff81},
-                                    {NoFlag, 0xcccccccc, 0xfffffffe},
-                                    {NoFlag, 0xfffffffd, 0x7fffffff},
-                                    {NoFlag, 0x00007fff, 0x7fffffff},
-                                    {NoFlag, 0xffffff83, 0xffff8003},
-                                    {NoFlag, 0xfffffffe, 0xffffffff},
-                                    {NoFlag, 0x7ffffffd, 0x00007ffd},
-                                    {NoFlag, 0x7ffffffd, 0x00007fff},
-                                    {NoFlag, 0x00007ffd, 0xffffffff},
-                                    {NoFlag, 0x00000001, 0xffff8003},
-                                    {NoFlag, 0xffffff80, 0xfffffffd},
-                                    {NoFlag, 0x33333333, 0x80000000},
-                                    {NoFlag, 0xffff8001, 0x00000020},
-                                    {NoFlag, 0xcccccccc, 0x00000002},
-                                    {NoFlag, 0x00000000, 0x00000002},
-                                    {NoFlag, 0x0000007d, 0x00007fff},
-                                    {NoFlag, 0xcccccccc, 0x00000001},
-                                    {NoFlag, 0xffffff83, 0x00007fff},
-                                    {NoFlag, 0x80000001, 0x00000020},
-                                    {NoFlag, 0xffff8003, 0xffffffe0},
-                                    {NoFlag, 0x00007ffd, 0xaaaaaaaa},
-                                    {NoFlag, 0x33333333, 0xffff8001},
-                                    {NoFlag, 0xffffff83, 0x80000001},
-                                    {NoFlag, 0xffff8000, 0xffff8000},
-                                    {NoFlag, 0x00007ffe, 0xffff8001},
-                                    {NoFlag, 0x7ffffffd, 0x00000000},
-                                    {NoFlag, 0x00007ffe, 0x33333333},
-                                    {NoFlag, 0xffff8001, 0xffffff80},
-                                    {NoFlag, 0xfffffffe, 0x55555555},
-                                    {NoFlag, 0xffffff82, 0xffffffff}};
+static const Inputs kRdIsNotRn[] =
+    {{NoFlag, 0x00000002, 0xcccccccc}, {NoFlag, 0x7ffffffd, 0x00007ffe},
+     {NoFlag, 0xffffff80, 0x00000020}, {NoFlag, 0xaaaaaaaa, 0xaaaaaaaa},
+     {NoFlag, 0x33333333, 0xffffff82}, {NoFlag, 0xffff8001, 0x7ffffffe},
+     {NoFlag, 0xfffffffd, 0x00007ffe}, {NoFlag, 0xffffff80, 0x80000000},
+     {NoFlag, 0x00000001, 0x33333333}, {NoFlag, 0xcccccccc, 0x7ffffffe},
+     {NoFlag, 0x00000000, 0xcccccccc}, {NoFlag, 0x00000000, 0x55555555},
+     {NoFlag, 0xffffffff, 0xffffffff}, {NoFlag, 0x0000007e, 0xffff8002},
+     {NoFlag, 0x80000000, 0x7ffffffd}, {NoFlag, 0xffffff81, 0x0000007e},
+     {NoFlag, 0x0000007f, 0xffff8001}, {NoFlag, 0xffffffe0, 0x00007ffd},
+     {NoFlag, 0xffff8003, 0x00000002}, {NoFlag, 0xffffff83, 0x55555555},
+     {NoFlag, 0xffffff83, 0xffffff80}, {NoFlag, 0xffffff81, 0xffff8000},
+     {NoFlag, 0x00000020, 0x7ffffffe}, {NoFlag, 0xffffffe0, 0x00000000},
+     {NoFlag, 0x7fffffff, 0x0000007e}, {NoFlag, 0x80000001, 0xffffffff},
+     {NoFlag, 0x00000001, 0x80000001}, {NoFlag, 0x00000002, 0x0000007f},
+     {NoFlag, 0x7fffffff, 0xcccccccc}, {NoFlag, 0x80000001, 0x00007ffe},
+     {NoFlag, 0xffff8002, 0x0000007e}, {NoFlag, 0x00007ffe, 0xcccccccc},
+     {NoFlag, 0x80000000, 0xffff8002}, {NoFlag, 0xffffff83, 0x7ffffffe},
+     {NoFlag, 0xffff8001, 0x00000001}, {NoFlag, 0xffffff81, 0x00000020},
+     {NoFlag, 0xfffffffe, 0xffff8001}, {NoFlag, 0xffffffff, 0xfffffffe},
+     {NoFlag, 0xcccccccc, 0x55555555}, {NoFlag, 0x00000020, 0xffffff83},
+     {NoFlag, 0xffffff83, 0xffff8001}, {NoFlag, 0xffffff83, 0xffff8000},
+     {NoFlag, 0x00007fff, 0x00000002}, {NoFlag, 0x55555555, 0xffff8000},
+     {NoFlag, 0x80000001, 0xffffff81}, {NoFlag, 0x00000002, 0x00000000},
+     {NoFlag, 0x33333333, 0xffffff81}, {NoFlag, 0xffff8001, 0xffffff82},
+     {NoFlag, 0xcccccccc, 0xffff8003}, {NoFlag, 0xffff8003, 0x7ffffffd},
+     {NoFlag, 0x0000007d, 0x00007ffe}, {NoFlag, 0xffffff80, 0x0000007d},
+     {NoFlag, 0xaaaaaaaa, 0x00007ffd}, {NoFlag, 0x80000000, 0xffffff82},
+     {NoFlag, 0x00000002, 0x7ffffffe}, {NoFlag, 0x00000002, 0xffffff83},
+     {NoFlag, 0x55555555, 0x00000002}, {NoFlag, 0xffffffff, 0xffffff82},
+     {NoFlag, 0xaaaaaaaa, 0x00000020}, {NoFlag, 0x00000001, 0xffffff82},
+     {NoFlag, 0x0000007f, 0xffffff82}, {NoFlag, 0x7ffffffd, 0xaaaaaaaa},
+     {NoFlag, 0x00007ffe, 0x00000001}, {NoFlag, 0xfffffffd, 0xffffffe0},
+     {NoFlag, 0xffffff81, 0xffffff83}, {NoFlag, 0x0000007d, 0x00000000},
+     {NoFlag, 0x0000007d, 0xffff8000}, {NoFlag, 0xffffff81, 0x7fffffff},
+     {NoFlag, 0xffffffff, 0x80000000}, {NoFlag, 0x00000000, 0x00000001},
+     {NoFlag, 0x55555555, 0xffffff82}, {NoFlag, 0x00007ffe, 0x00007ffe},
+     {NoFlag, 0x80000001, 0xfffffffd}, {NoFlag, 0x00007fff, 0x33333333},
+     {NoFlag, 0x00007fff, 0x80000000}, {NoFlag, 0xcccccccc, 0x00007fff},
+     {NoFlag, 0xfffffffe, 0xffffffe0}, {NoFlag, 0x7ffffffe, 0x0000007f},
+     {NoFlag, 0x00007ffd, 0xffff8001}, {NoFlag, 0x00000002, 0x00000001},
+     {NoFlag, 0x80000000, 0xffffffff}, {NoFlag, 0xffffff83, 0xcccccccc},
+     {NoFlag, 0xffff8002, 0x7ffffffe}, {NoFlag, 0xaaaaaaaa, 0x00000000},
+     {NoFlag, 0xffffff80, 0xcccccccc}, {NoFlag, 0x33333333, 0xffffff83},
+     {NoFlag, 0x0000007e, 0xffffffe0}, {NoFlag, 0x0000007e, 0x00007fff},
+     {NoFlag, 0x0000007f, 0x00000002}, {NoFlag, 0x7ffffffe, 0xcccccccc},
+     {NoFlag, 0x0000007d, 0xffffff80}, {NoFlag, 0x00007fff, 0x00000020},
+     {NoFlag, 0x7ffffffe, 0xfffffffe}, {NoFlag, 0xfffffffe, 0xffffff81},
+     {NoFlag, 0xffffffff, 0x0000007f}, {NoFlag, 0xffff8002, 0x7ffffffd},
+     {NoFlag, 0xffff8001, 0xfffffffe}, {NoFlag, 0x33333333, 0xffff8002},
+     {NoFlag, 0x00000000, 0xffffffff}, {NoFlag, 0x33333333, 0xffffff80},
+     {NoFlag, 0x0000007f, 0x00007fff}, {NoFlag, 0xffffffff, 0xffff8001},
+     {NoFlag, 0x7fffffff, 0xffff8002}, {NoFlag, 0x7ffffffd, 0xffffff83},
+     {NoFlag, 0x7fffffff, 0x0000007f}, {NoFlag, 0xffffff83, 0xfffffffe},
+     {NoFlag, 0x7ffffffe, 0xffff8003}, {NoFlag, 0xffff8002, 0xffff8002},
+     {NoFlag, 0x80000001, 0x0000007f}, {NoFlag, 0x00000020, 0x00000002},
+     {NoFlag, 0xffffff82, 0xffff8001}, {NoFlag, 0xffffffff, 0x00000001},
+     {NoFlag, 0xffffff80, 0xffff8002}, {NoFlag, 0xffff8003, 0x7fffffff},
+     {NoFlag, 0xffffffff, 0xffff8000}, {NoFlag, 0xffff8002, 0x00007ffd},
+     {NoFlag, 0x00000020, 0xffffff81}, {NoFlag, 0x00000001, 0x55555555},
+     {NoFlag, 0x7ffffffe, 0x00000020}, {NoFlag, 0x80000000, 0x00000001},
+     {NoFlag, 0x00007ffd, 0xffff8002}, {NoFlag, 0x7fffffff, 0xfffffffe},
+     {NoFlag, 0xcccccccc, 0x00007ffd}, {NoFlag, 0x00000000, 0xfffffffd},
+     {NoFlag, 0xffff8003, 0xffffff80}, {NoFlag, 0x80000001, 0xffffff80},
+     {NoFlag, 0xffffffff, 0xffff8002}, {NoFlag, 0x00007ffe, 0xffff8002},
+     {NoFlag, 0xffffff80, 0x00007ffe}, {NoFlag, 0x80000001, 0xffff8001},
+     {NoFlag, 0x0000007f, 0xffffff80}, {NoFlag, 0xffffff81, 0x80000000},
+     {NoFlag, 0x00007fff, 0x00007ffe}, {NoFlag, 0x33333333, 0xffff8000},
+     {NoFlag, 0x33333333, 0x00007fff}, {NoFlag, 0x00000000, 0x0000007d},
+     {NoFlag, 0x80000001, 0x00000000}, {NoFlag, 0xffffffff, 0x55555555},
+     {NoFlag, 0x80000001, 0x80000000}, {NoFlag, 0xffffffff, 0xffffff80},
+     {NoFlag, 0xffffff81, 0xffff8003}, {NoFlag, 0x55555555, 0x80000001},
+     {NoFlag, 0x7fffffff, 0xffff8001}, {NoFlag, 0xffffff83, 0x00000002},
+     {NoFlag, 0x0000007e, 0xffffff81}, {NoFlag, 0x80000000, 0xffff8001},
+     {NoFlag, 0xffffff80, 0xfffffffe}, {NoFlag, 0x0000007e, 0xfffffffd},
+     {NoFlag, 0xffffffe0, 0xffffffff}, {NoFlag, 0x55555555, 0x80000000},
+     {NoFlag, 0x0000007d, 0x80000001}, {NoFlag, 0xffffffe0, 0x7ffffffd},
+     {NoFlag, 0x00000000, 0x00000000}, {NoFlag, 0x55555555, 0x00000001},
+     {NoFlag, 0x00007ffd, 0x7fffffff}, {NoFlag, 0x55555555, 0xffffffff},
+     {NoFlag, 0xffff8003, 0x00007fff}, {NoFlag, 0xffffff82, 0x00007fff},
+     {NoFlag, 0x33333333, 0x55555555}, {NoFlag, 0x00000020, 0x33333333},
+     {NoFlag, 0x7ffffffe, 0xfffffffd}, {NoFlag, 0x7ffffffe, 0x00000001},
+     {NoFlag, 0xffffff83, 0xffffffe0}, {NoFlag, 0xfffffffe, 0xaaaaaaaa},
+     {NoFlag, 0xffff8002, 0x33333333}, {NoFlag, 0xffff8002, 0xffff8003},
+     {NoFlag, 0x33333333, 0x7fffffff}, {NoFlag, 0xfffffffd, 0xffffff83},
+     {NoFlag, 0x00000000, 0xffff8000}, {NoFlag, 0xffffff82, 0x55555555},
+     {NoFlag, 0xffffff82, 0xffffff81}, {NoFlag, 0xcccccccc, 0xfffffffe},
+     {NoFlag, 0xfffffffd, 0x7fffffff}, {NoFlag, 0x00007fff, 0x7fffffff},
+     {NoFlag, 0xffffff83, 0xffff8003}, {NoFlag, 0xfffffffe, 0xffffffff},
+     {NoFlag, 0x7ffffffd, 0x00007ffd}, {NoFlag, 0x7ffffffd, 0x00007fff},
+     {NoFlag, 0x00007ffd, 0xffffffff}, {NoFlag, 0x00000001, 0xffff8003},
+     {NoFlag, 0xffffff80, 0xfffffffd}, {NoFlag, 0x33333333, 0x80000000},
+     {NoFlag, 0xffff8001, 0x00000020}, {NoFlag, 0xcccccccc, 0x00000002},
+     {NoFlag, 0x00000000, 0x00000002}, {NoFlag, 0x0000007d, 0x00007fff},
+     {NoFlag, 0xcccccccc, 0x00000001}, {NoFlag, 0xffffff83, 0x00007fff},
+     {NoFlag, 0x80000001, 0x00000020}, {NoFlag, 0xffff8003, 0xffffffe0},
+     {NoFlag, 0x00007ffd, 0xaaaaaaaa}, {NoFlag, 0x33333333, 0xffff8001},
+     {NoFlag, 0xffffff83, 0x80000001}, {NoFlag, 0xffff8000, 0xffff8000},
+     {NoFlag, 0x00007ffe, 0xffff8001}, {NoFlag, 0x7ffffffd, 0x00000000},
+     {NoFlag, 0x00007ffe, 0x33333333}, {NoFlag, 0xffff8001, 0xffffff80},
+     {NoFlag, 0xfffffffe, 0x55555555}, {NoFlag, 0xffffff82, 0xffffffff}};
 
 
 // A loop will be generated for each element of this array.
@@ -587,20 +472,20 @@ struct TestResult {
 
 // These headers each contain an array of `TestResult` with the reference output
 // values. The reference arrays are names `kReference{mnemonic}`.
-#include "aarch32/traces/simulator-cond-rd-operand-rn-a32-cmn.h"
-#include "aarch32/traces/simulator-cond-rd-operand-rn-a32-cmp.h"
-#include "aarch32/traces/simulator-cond-rd-operand-rn-a32-mov.h"
-#include "aarch32/traces/simulator-cond-rd-operand-rn-a32-movs.h"
-#include "aarch32/traces/simulator-cond-rd-operand-rn-a32-mvn.h"
-#include "aarch32/traces/simulator-cond-rd-operand-rn-a32-mvns.h"
-#include "aarch32/traces/simulator-cond-rd-operand-rn-a32-teq.h"
-#include "aarch32/traces/simulator-cond-rd-operand-rn-a32-tst.h"
-#include "aarch32/traces/simulator-cond-rd-operand-rn-a32-sxtb.h"
-#include "aarch32/traces/simulator-cond-rd-operand-rn-a32-sxtb16.h"
-#include "aarch32/traces/simulator-cond-rd-operand-rn-a32-sxth.h"
-#include "aarch32/traces/simulator-cond-rd-operand-rn-a32-uxtb.h"
-#include "aarch32/traces/simulator-cond-rd-operand-rn-a32-uxtb16.h"
-#include "aarch32/traces/simulator-cond-rd-operand-rn-a32-uxth.h"
+#include "aarch32/traces/simulator-cond-rd-operand-rn-cmn-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-rn-cmp-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-rn-mov-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-rn-movs-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-rn-mvn-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-rn-mvns-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-rn-sxtb-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-rn-sxtb16-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-rn-sxth-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-rn-teq-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-rn-tst-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-rn-uxtb-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-rn-uxtb16-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-rn-uxth-a32.h"
 
 
 // The maximum number of errors to report in detail for each test.
@@ -794,26 +679,26 @@ void TestHelper(Fn instruction,
     delete results[i];
     delete[] scratch_memory_buffers[i];
   }
-
-  TEARDOWN();
 }
 
 // Instantiate tests for each instruction in the list.
 // TODO: Remove this limitation by having a sandboxing mechanism.
 #if defined(VIXL_HOST_POINTER_32)
-#define TEST(mnemonic)                                                        \
-  void Test_##mnemonic() {                                                    \
-    TestHelper(&MacroAssembler::mnemonic, #mnemonic, kReference##mnemonic);   \
-  }                                                                           \
-  Test test_##mnemonic("AARCH32_SIMULATOR_COND_RD_OPERAND_RN_A32_" #mnemonic, \
+#define TEST(mnemonic)                                                      \
+  void Test_##mnemonic() {                                                  \
+    TestHelper(&MacroAssembler::mnemonic, #mnemonic, kReference##mnemonic); \
+  }                                                                         \
+  Test test_##mnemonic("AARCH32_SIMULATOR_COND_RD_OPERAND_RN_" #mnemonic    \
+                       "_A32",                                              \
                        &Test_##mnemonic);
 #else
-#define TEST(mnemonic)                                                        \
-  void Test_##mnemonic() {                                                    \
-    VIXL_WARNING("This test can only run on a 32-bit host.\n");               \
-    USE(TestHelper);                                                          \
-  }                                                                           \
-  Test test_##mnemonic("AARCH32_SIMULATOR_COND_RD_OPERAND_RN_A32_" #mnemonic, \
+#define TEST(mnemonic)                                                   \
+  void Test_##mnemonic() {                                               \
+    VIXL_WARNING("This test can only run on a 32-bit host.\n");          \
+    USE(TestHelper);                                                     \
+  }                                                                      \
+  Test test_##mnemonic("AARCH32_SIMULATOR_COND_RD_OPERAND_RN_" #mnemonic \
+                       "_A32",                                           \
                        &Test_##mnemonic);
 #endif
 

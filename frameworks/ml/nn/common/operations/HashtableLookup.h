@@ -22,7 +22,7 @@
 namespace android {
 namespace hardware {
 namespace neuralnetworks {
-namespace V1_0 {
+namespace V1_1 {
 struct Operation;
 }
 }  // namespace neuralnetworks
@@ -37,7 +37,7 @@ struct RunTimeOperandInfo;
 class HashtableLookup {
  public:
   HashtableLookup(
-      const android::hardware::neuralnetworks::V1_0::Operation &operation,
+      const android::hardware::neuralnetworks::V1_1::Operation &operation,
       std::vector<RunTimeOperandInfo> &operands);
 
   bool Eval();

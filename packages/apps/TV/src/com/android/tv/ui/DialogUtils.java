@@ -20,7 +20,6 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.res.Resources;
-
 import com.android.tv.common.SoftPreconditions;
 
 public final class DialogUtils {
@@ -31,31 +30,28 @@ public final class DialogUtils {
      * @param itemResIds String resource id for each item
      * @param runnables Runnable for each item
      */
-    public static void showListDialog(Context context, int[] itemResIds,
-            final Runnable[] runnables) {
+    public static void showListDialog(
+            Context context, int[] itemResIds, final Runnable[] runnables) {
         int size = itemResIds.length;
         SoftPreconditions.checkState(size == runnables.length);
-        DialogInterface.OnClickListener onClickListener
-                = new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(final DialogInterface dialog, int which) {
-                Runnable runnable = runnables[which];
-                if (runnable != null) {
-                    runnable.run();
-                }
-                dialog.dismiss();
-            }
-        };
+        DialogInterface.OnClickListener onClickListener =
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(final DialogInterface dialog, int which) {
+                        Runnable runnable = runnables[which];
+                        if (runnable != null) {
+                            runnable.run();
+                        }
+                        dialog.dismiss();
+                    }
+                };
         CharSequence[] items = new CharSequence[itemResIds.length];
         Resources res = context.getResources();
         for (int i = 0; i < size; ++i) {
             items[i] = res.getString(itemResIds[i]);
         }
-        new AlertDialog.Builder(context)
-                .setItems(items, onClickListener)
-                .create()
-                .show();
+        new AlertDialog.Builder(context).setItems(items, onClickListener).create().show();
     }
 
-    private DialogUtils() { }
+    private DialogUtils() {}
 }

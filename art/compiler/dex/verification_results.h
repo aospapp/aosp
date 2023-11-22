@@ -23,9 +23,9 @@
 #include "base/dchecked_vector.h"
 #include "base/macros.h"
 #include "base/mutex.h"
-#include "class_reference.h"
-#include "method_reference.h"
-#include "safe_map.h"
+#include "base/safe_map.h"
+#include "dex/class_reference.h"
+#include "dex/method_reference.h"
 #include "utils/atomic_dex_ref_map.h"
 
 namespace art {
@@ -64,10 +64,8 @@ class VerificationResults {
 
  private:
   // Verified methods. The method array is fixed to avoid needing a lock to extend it.
-  using AtomicMap = AtomicDexRefMap<const VerifiedMethod*>;
-  using VerifiedMethodMap = SafeMap<MethodReference,
-                                    const VerifiedMethod*,
-                                    MethodReferenceComparator>;
+  using AtomicMap = AtomicDexRefMap<MethodReference, const VerifiedMethod*>;
+  using VerifiedMethodMap = SafeMap<MethodReference, const VerifiedMethod*>;
 
   VerifiedMethodMap verified_methods_ GUARDED_BY(verified_methods_lock_);
   const CompilerOptions* const compiler_options_;

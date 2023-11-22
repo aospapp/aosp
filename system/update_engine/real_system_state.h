@@ -22,13 +22,11 @@
 #include <memory>
 #include <set>
 
-#include <metrics/metrics_library.h>
 #include <policy/device_policy.h>
 
-#if USE_LIBCROS
+#if USE_CHROME_KIOSK_APP
 #include <libcros/dbus-proxies.h>
-#include <network_proxy/dbus-proxies.h>
-#endif  // USE_LIBCROS
+#endif  // USE_CHROME_KIOSK_APP
 
 #include "update_engine/certificate_checker.h"
 #include "update_engine/common/boot_control_interface.h"
@@ -37,6 +35,8 @@
 #include "update_engine/common/prefs.h"
 #include "update_engine/connection_manager_interface.h"
 #include "update_engine/daemon_state_interface.h"
+#include "update_engine/metrics_reporter_interface.h"
+#include "update_engine/metrics_reporter_omaha.h"
 #include "update_engine/p2p_manager.h"
 #include "update_engine/payload_state.h"
 #include "update_engine/power_manager_interface.h"
@@ -92,8 +92,8 @@ class RealSystemState : public SystemState, public DaemonStateInterface {
 
   inline HardwareInterface* hardware() override { return hardware_.get(); }
 
-  inline MetricsLibraryInterface* metrics_lib() override {
-    return &metrics_lib_;
+  inline MetricsReporterInterface* metrics_reporter() override {
+    return &metrics_reporter_;
   }
 
   inline PrefsInterface* prefs() override { return prefs_.get(); }
@@ -127,12 +127,10 @@ class RealSystemState : public SystemState, public DaemonStateInterface {
   inline bool system_rebooted() override { return system_rebooted_; }
 
  private:
-#if USE_LIBCROS
   // Real DBus proxies using the DBus connection.
+#if USE_CHROME_KIOSK_APP
   std::unique_ptr<org::chromium::LibCrosServiceInterfaceProxy> libcros_proxy_;
-  std::unique_ptr<org::chromium::NetworkProxyServiceInterfaceProxy>
-      network_proxy_service_proxy_;
-#endif  // USE_LIBCROS
+#endif  // USE_CHROME_KIOSK_APP
 
   // Interface for the power manager.
   std::unique_ptr<PowerManagerInterface> power_manager_;
@@ -153,8 +151,8 @@ class RealSystemState : public SystemState, public DaemonStateInterface {
   // Interface for the hardware functions.
   std::unique_ptr<HardwareInterface> hardware_;
 
-  // The Metrics Library interface for reporting UMA stats.
-  MetricsLibrary metrics_lib_;
+  // The Metrics reporter for reporting UMA stats.
+  MetricsReporterOmaha metrics_reporter_;
 
   // Interface for persisted store.
   std::unique_ptr<PrefsInterface> prefs_;

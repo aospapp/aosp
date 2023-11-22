@@ -19,7 +19,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.android.setupwizardlib.test">
 
-    <uses-sdk tools:overrideLibrary="android.support.test,android.app,android.support.test.rule" />
+    <uses-sdk tools:overrideLibrary="android.support.test.rules,android.support.test.runner" />
 
     <application>
         <activity android:name=".util.DrawingTestActivity" />

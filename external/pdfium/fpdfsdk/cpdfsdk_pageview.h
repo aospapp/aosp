@@ -12,7 +12,9 @@
 
 #include "core/fpdfapi/page/cpdf_page.h"
 #include "core/fxcrt/fx_system.h"
+#include "core/fxcrt/unowned_ptr.h"
 #include "fpdfsdk/cpdfsdk_annot.h"
+#include "fpdfsdk/cpdfsdk_annothandlermgr.h"
 
 class CFX_RenderDevice;
 class CPDF_AnnotList;
@@ -55,7 +57,14 @@ class CPDFSDK_PageView final : public CPDF_Page::View {
 
   CPDF_Page* GetPDFPage() const;
   CPDF_Document* GetPDFDocument();
-  CPDFSDK_FormFillEnvironment* GetFormFillEnv() const { return m_pFormFillEnv; }
+  CPDFSDK_FormFillEnvironment* GetFormFillEnv() const {
+    return m_pFormFillEnv.Get();
+  }
+
+  WideString GetSelectedText();
+  void ReplaceSelection(const WideString& text);
+
+  bool OnFocus(const CFX_PointF& point, uint32_t nFlag);
   bool OnLButtonDown(const CFX_PointF& point, uint32_t nFlag);
   bool OnLButtonUp(const CFX_PointF& point, uint32_t nFlag);
 #ifdef PDF_ENABLE_XFA
@@ -81,7 +90,6 @@ class CPDFSDK_PageView final : public CPDF_Page::View {
   void SetValid(bool bValid) { m_bValid = bValid; }
   bool IsValid() { return m_bValid; }
 
-  void SetLock(bool bLocked) { m_bLocked = bLocked; }
   bool IsLocked() { return m_bLocked; }
 
   void SetBeingDestroyed() { m_bBeingDestroyed = true; }
@@ -98,17 +106,22 @@ class CPDFSDK_PageView final : public CPDF_Page::View {
 
   int GetPageIndexForStaticPDF() const;
 
+  void EnterWidget(CPDFSDK_AnnotHandlerMgr* pAnnotHandlerMgr,
+                   CPDFSDK_Annot::ObservedPtr* pAnnot,
+                   uint32_t nFlag);
+  void ExitWidget(CPDFSDK_AnnotHandlerMgr* pAnnotHandlerMgr,
+                  bool callExitCallback,
+                  uint32_t nFlag);
+
   CFX_Matrix m_curMatrix;
   UnderlyingPageType* const m_page;
   std::unique_ptr<CPDF_AnnotList> m_pAnnotList;
   std::vector<CPDFSDK_Annot*> m_SDKAnnotArray;
-  CPDFSDK_FormFillEnvironment* const m_pFormFillEnv;  // Not owned.
+  UnownedPtr<CPDFSDK_FormFillEnvironment> const m_pFormFillEnv;
   CPDFSDK_Annot::ObservedPtr m_pCaptureWidget;
 #ifndef PDF_ENABLE_XFA
   bool m_bOwnsPage;
 #endif  // PDF_ENABLE_XFA
-  bool m_bEnterWidget;
-  bool m_bExitWidget;
   bool m_bOnWidget;
   bool m_bValid;
   bool m_bLocked;

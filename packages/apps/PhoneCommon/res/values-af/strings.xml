@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Geen SIM of SIM-fout"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Sellulêre netwerk nie beskikbaar nie"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Uitgaande oproepe word beperk deur FDN."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL-versoek is gewysig tot USSD-versoek."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL-versoek is gewysig tot SS-versoek."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL-versoek is gewysig tot DIAL met \'n ander nommer."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Oproep is na USSD-versoek verander"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Oproep is na SS-versoek verander"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Na ander nommer verander"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Na video-oproep verander"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Video-oproep is na SS-versoek verander"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Video-oproep is na USSD-versoek verander"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Is na gewone oproep verander"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Na ander nommer verander"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Kan nie uitgaande oproepe maak terwyl oproepversperring aan is nie."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Oproepe beperk deur toegangbeheer."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Noodoproepe beperk deur toegangbeheer."</string>

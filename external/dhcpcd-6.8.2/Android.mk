@@ -44,7 +44,7 @@ LOCAL_SRC_FILES := \
     compat/posix_spawn.c
 
 # Always support IPv4.
-LOCAL_CFLAGS += -DINET
+LOCAL_CFLAGS += -DINET -Wall -Werror -Wno-unused-variable
 
 ifeq ($(DHCPCD_USE_SCRIPT), yes)
 LOCAL_SRC_FILES += script.c
@@ -78,6 +78,8 @@ LOCAL_CFLAGS += -Wno-sign-compare
 LOCAL_CFLAGS += -Wno-unused-parameter
 # Compiler complains about possibly uninitialized variables in rpc-dbus.c.
 LOCAL_CFLAGS += -Wno-maybe-uninitialized
+# Compiler complains about incorrect format placeholders in dhcpcd.c.
+LOCAL_CFLAGS += -Wno-format
 
 LOCAL_SHARED_LIBRARIES += libc libcutils libnetutils
 include $(BUILD_EXECUTABLE)

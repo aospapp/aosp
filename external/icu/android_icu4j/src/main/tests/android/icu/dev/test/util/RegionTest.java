@@ -18,16 +18,21 @@ import java.util.List;
 import java.util.Set;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.util.Region;
 import android.icu.util.Region.RegionType;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @test
  * @summary General test of Regions
  */
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class RegionTest extends TestFmwk {
     String[][] knownRegions = {
             //   Code  , Numeric , Parent, Type, Containing Continent
@@ -333,7 +338,7 @@ public class RegionTest extends TestFmwk {
 
     /**
      * Test for known regions.
-     */    
+     */
     @Test
     public void TestKnownRegions() {
 
@@ -436,7 +441,7 @@ public class RegionTest extends TestFmwk {
     }
 
     @Test
-    public void TestGetContainedRegions() {        
+    public void TestGetContainedRegions() {
         for (String [] rd : knownRegions ) {
             try {
                 Region r = Region.getInstance(rd[0]);
@@ -446,7 +451,7 @@ public class RegionTest extends TestFmwk {
                 Set<Region> containedRegions = r.getContainedRegions();
                 for (Region cr : containedRegions ) {
                     if ( cr.getContainingRegion() != r) {
-                        errln("Region: " + r.toString() + " contains region: " + cr.toString() + ". Expected containing region of this region to be the original region, but got: " + 
+                        errln("Region: " + r.toString() + " contains region: " + cr.toString() + ". Expected containing region of this region to be the original region, but got: " +
                                 ( cr.getContainingRegion() == null ? "NULL" : cr.getContainingRegion().toString()));
                     }
                 }
@@ -457,7 +462,7 @@ public class RegionTest extends TestFmwk {
     }
 
     @Test
-    public void TestGetContainedRegionsWithType() {        
+    public void TestGetContainedRegionsWithType() {
         for (String [] rd : knownRegions ) {
             try {
                 Region r = Region.getInstance(rd[0]);
@@ -467,7 +472,7 @@ public class RegionTest extends TestFmwk {
                 Set<Region> containedRegions = r.getContainedRegions(Region.RegionType.TERRITORY);
                 for (Region cr : containedRegions ) {
                     if ( cr.getContainingRegion(Region.RegionType.CONTINENT) != r) {
-                        errln("Continent: " + r.toString() + " contains territory: " + cr.toString() + ". Expected containing continent of this region to be the original continent, but got: " + 
+                        errln("Continent: " + r.toString() + " contains territory: " + cr.toString() + ". Expected containing continent of this region to be the original continent, but got: " +
                                 ( cr.getContainingRegion() == null ? "NULL" : cr.getContainingRegion().toString()));
                     }
                 }
@@ -478,17 +483,17 @@ public class RegionTest extends TestFmwk {
     }
 
     @Test
-    public void TestGetContainingRegionWithType() {        
+    public void TestGetContainingRegionWithType() {
         for (String [] rd : knownRegions ) {
             try {
                 Region r = Region.getInstance(rd[0]);
                 Region c = r.getContainingRegion(Region.RegionType.CONTINENT);
-                if (rd[4] == null) {                   
+                if (rd[4] == null) {
                     if ( c != null) {
                         errln("Containing continent for " + r.toString() + " should have been NULL.  Got: " + c.toString());
                     }
                 } else {
-                    Region p = Region.getInstance(rd[4]);                   
+                    Region p = Region.getInstance(rd[4]);
                     if ( !p.equals(c)) {
                         errln("Expected containing continent of region " + r.toString() + " to be " + p.toString() + ". Got: " + ( c == null ? "NULL" : c.toString()) );
                     }
@@ -500,17 +505,17 @@ public class RegionTest extends TestFmwk {
     }
 
     @Test
-    public void TestGetContainingRegion() {        
+    public void TestGetContainingRegion() {
         for (String [] rd : knownRegions ) {
             try {
                 Region r = Region.getInstance(rd[0]);
                 Region c = r.getContainingRegion();
-                if (rd[2] == null) {                   
+                if (rd[2] == null) {
                     if ( c != null) {
                         errln("Containing region for " + r.toString() + " should have been NULL.  Got: " + c.toString());
                     }
                 } else {
-                    Region p = Region.getInstance(rd[2]);                   
+                    Region p = Region.getInstance(rd[2]);
                     if ( !p.equals(c)) {
                         errln("Expected containing region of region " + r.toString() + " to be " + p.toString() + ". Got: " + ( c == null ? "NULL" : c.toString()) );
                     }
@@ -546,7 +551,7 @@ public class RegionTest extends TestFmwk {
                         }
                     } catch (IllegalArgumentException ex ) {
                         errln("Known region " + data[i] + " was not recognized.");
-                    }                    
+                    }
                 }
             } catch (IllegalArgumentException ex ) {
                 errln("Known region " + inputID + " was not recognized.");
@@ -555,7 +560,7 @@ public class RegionTest extends TestFmwk {
     }
 
     @Test
-    public void TestContains() {        
+    public void TestContains() {
         for (String [] rd : knownRegions ) {
             try {
                 Region r = Region.getInstance(rd[0]);

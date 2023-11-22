@@ -15,24 +15,25 @@
  */
 package com.android.tradefed.result;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.BugreportCollector.Filter;
 import com.android.tradefed.result.BugreportCollector.Freq;
 import com.android.tradefed.result.BugreportCollector.Noun;
 import com.android.tradefed.result.BugreportCollector.Predicate;
 import com.android.tradefed.result.BugreportCollector.Relation;
 import com.android.tradefed.result.BugreportCollector.SubPredicate;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import junit.framework.TestCase;
+
+import org.easymock.Capture;
+import org.easymock.EasyMock;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
-
-import org.easymock.Capture;
-import org.easymock.EasyMock;
 
 /** Unit tests for {@link BugreportCollector} */
 public class BugreportCollectorTest extends TestCase {
@@ -40,8 +41,8 @@ public class BugreportCollectorTest extends TestCase {
     private ITestDevice mMockDevice = null;
     private ITestInvocationListener mMockListener = null;
     private InputStreamSource mBugreportISS = null;
-    private Capture<Map<String, String>> mTestCapture = new Capture<>();
-    private Capture<Map<String, String>> mRunCapture = new Capture<>();
+    private Capture<HashMap<String, Metric>> mTestCapture = new Capture<>();
+    private Capture<HashMap<String, Metric>> mRunCapture = new Capture<>();
 
     private static final String TEST_KEY = "key";
     private static final String RUN_KEY = "key2";
@@ -158,8 +159,10 @@ public class BugreportCollectorTest extends TestCase {
         replayMocks();
         injectTestRun("runName", "testName", "value");
         verifyMocks();
-        assertEquals("value", mTestCapture.getValue().get("key"));
-        assertEquals("value", mRunCapture.getValue().get("key2"));
+        assertEquals(
+                "value", mTestCapture.getValue().get("key").getMeasurements().getSingleString());
+        assertEquals(
+                "value", mRunCapture.getValue().get("key2").getMeasurements().getSingleString());
     }
 
     public void testTestFailed() throws Exception {
@@ -177,8 +180,10 @@ public class BugreportCollectorTest extends TestCase {
         injectTestRun("runName1", "testName1", "value", true /*failed*/);
         injectTestRun("runName2", "testName2", "value", true /*failed*/);
         verifyMocks();
-        assertEquals("value", mTestCapture.getValue().get("key"));
-        assertEquals("value", mRunCapture.getValue().get("key2"));
+        assertEquals(
+                "value", mTestCapture.getValue().get("key").getMeasurements().getSingleString());
+        assertEquals(
+                "value", mRunCapture.getValue().get("key2").getMeasurements().getSingleString());
     }
 
     public void testTestEnded() throws Exception {
@@ -196,8 +201,10 @@ public class BugreportCollectorTest extends TestCase {
         injectTestRun("runName1", "testName1", "value");
         injectTestRun("runName2", "testName2", "value");
         verifyMocks();
-        assertEquals("value", mTestCapture.getValue().get("key"));
-        assertEquals("value", mRunCapture.getValue().get("key2"));
+        assertEquals(
+                "value", mTestCapture.getValue().get("key").getMeasurements().getSingleString());
+        assertEquals(
+                "value", mRunCapture.getValue().get("key2").getMeasurements().getSingleString());
     }
 
     public void testWaitForDevice() throws Exception {
@@ -217,8 +224,10 @@ public class BugreportCollectorTest extends TestCase {
         injectTestRun("runName1", "testName1", "value");
         injectTestRun("runName2", "testName2", "value");
         verifyMocks();
-        assertEquals("value", mTestCapture.getValue().get("key"));
-        assertEquals("value", mRunCapture.getValue().get("key2"));
+        assertEquals(
+                "value", mTestCapture.getValue().get("key").getMeasurements().getSingleString());
+        assertEquals(
+                "value", mRunCapture.getValue().get("key2").getMeasurements().getSingleString());
     }
 
     public void testTestEnded_firstCase() throws Exception {
@@ -236,8 +245,10 @@ public class BugreportCollectorTest extends TestCase {
         injectTestRun("runName1", "testName1", "value");
         injectTestRun("runName2", "testName2", "value");
         verifyMocks();
-        assertEquals("value", mTestCapture.getValue().get("key"));
-        assertEquals("value", mRunCapture.getValue().get("key2"));
+        assertEquals(
+                "value", mTestCapture.getValue().get("key").getMeasurements().getSingleString());
+        assertEquals(
+                "value", mRunCapture.getValue().get("key2").getMeasurements().getSingleString());
     }
 
     public void testTestEnded_firstRun() throws Exception {
@@ -253,8 +264,10 @@ public class BugreportCollectorTest extends TestCase {
         injectTestRun("runName", "testName", "value");
         injectTestRun("runName2", "testName2", "value");
         verifyMocks();
-        assertEquals("value", mTestCapture.getValue().get("key"));
-        assertEquals("value", mRunCapture.getValue().get("key2"));
+        assertEquals(
+                "value", mTestCapture.getValue().get("key").getMeasurements().getSingleString());
+        assertEquals(
+                "value", mRunCapture.getValue().get("key2").getMeasurements().getSingleString());
     }
 
     public void testTestRunEnded() throws Exception {
@@ -267,8 +280,10 @@ public class BugreportCollectorTest extends TestCase {
         replayMocks();
         injectTestRun("runName", "testName", "value");
         verifyMocks();
-        assertEquals("value", mTestCapture.getValue().get("key"));
-        assertEquals("value", mRunCapture.getValue().get("key2"));
+        assertEquals(
+                "value", mTestCapture.getValue().get("key").getMeasurements().getSingleString());
+        assertEquals(
+                "value", mRunCapture.getValue().get("key2").getMeasurements().getSingleString());
     }
 
     public void testDescriptiveName() throws Exception {
@@ -290,32 +305,34 @@ public class BugreportCollectorTest extends TestCase {
     /**
      * Injects a single test run with 1 passed test into the {@link CollectingTestListener} under
      * test
-     * @return the {@link TestIdentifier} of added test
+     *
+     * @return the {@link TestDescription} of added test
      */
-    private TestIdentifier injectTestRun(String runName, String testName, String metricValue) {
+    private TestDescription injectTestRun(String runName, String testName, String metricValue) {
         return injectTestRun(runName, testName, metricValue, false);
     }
 
     /**
      * Injects a single test run with 1 passed test into the {@link CollectingTestListener} under
      * test
-     * @return the {@link TestIdentifier} of added test
+     *
+     * @return the {@link TestDescription} of added test
      */
-    private TestIdentifier injectTestRun(String runName, String testName, String metricValue,
-            boolean shouldFail) {
+    private TestDescription injectTestRun(
+            String runName, String testName, String metricValue, boolean shouldFail) {
         Map<String, String> runMetrics = new HashMap<String, String>(1);
         runMetrics.put(RUN_KEY, metricValue);
         Map<String, String> testMetrics = new HashMap<String, String>(1);
         testMetrics.put(TEST_KEY, metricValue);
 
         mCollector.testRunStarted(runName, 1);
-        final TestIdentifier test = new TestIdentifier("FooTest", testName);
+        final TestDescription test = new TestDescription("FooTest", testName);
         mCollector.testStarted(test);
         if (shouldFail) {
             mCollector.testFailed(test, STACK_TRACE);
         }
-        mCollector.testEnded(test, testMetrics);
-        mCollector.testRunEnded(0, runMetrics);
+        mCollector.testEnded(test, TfMetricProtoUtil.upgradeConvert(testMetrics));
+        mCollector.testRunEnded(0, TfMetricProtoUtil.upgradeConvert(runMetrics));
         return test;
     }
 
@@ -328,7 +345,7 @@ public class BugreportCollectorTest extends TestCase {
     private void setListenerTestRunExpectations(
             ITestInvocationListener listener, String runName, String testName, boolean shouldFail) {
         listener.testRunStarted(EasyMock.eq(runName), EasyMock.eq(1));
-        final TestIdentifier test = new TestIdentifier("FooTest", testName);
+        final TestDescription test = new TestDescription("FooTest", testName);
         listener.testStarted(EasyMock.eq(test));
         if (shouldFail) {
             listener.testFailed(EasyMock.eq(test), EasyMock.eq(STACK_TRACE));

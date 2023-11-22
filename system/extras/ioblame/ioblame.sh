@@ -41,7 +41,7 @@ getmodel() {
     echo Found $model Device
 
     case $model in
-	aosp_gobo | gobo)
+	aosp_gobo | gobo | gobo_512)
 	    get_go_devnames
             ;;
 	marlin | sailfish)

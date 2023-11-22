@@ -2,7 +2,7 @@
   This PEIM will parse coreboot table in memory and report resource information into pei core.
   This file contains the main entrypoint of the PEIM.
 
-Copyright (c) 2014 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2014 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -18,11 +18,11 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #define LEGACY_8259_MASK_REGISTER_SLAVE   0xA1
 
 EFI_MEMORY_TYPE_INFORMATION mDefaultMemoryTypeInformation[] = {
-  { EfiACPIReclaimMemory,   0x008 },
-  { EfiACPIMemoryNVS,       0x004 },
-  { EfiReservedMemoryType,  0x004 },
-  { EfiRuntimeServicesData, 0x080 },
-  { EfiRuntimeServicesCode, 0x080 },
+  { EfiACPIReclaimMemory,   FixedPcdGet32 (PcdMemoryTypeEfiACPIReclaimMemory) },
+  { EfiACPIMemoryNVS,       FixedPcdGet32 (PcdMemoryTypeEfiACPIMemoryNVS) },
+  { EfiReservedMemoryType,  FixedPcdGet32 (PcdMemoryTypeEfiReservedMemoryType) },
+  { EfiRuntimeServicesData, FixedPcdGet32 (PcdMemoryTypeEfiRuntimeServicesData) },
+  { EfiRuntimeServicesCode, FixedPcdGet32 (PcdMemoryTypeEfiRuntimeServicesCode) },
   { EfiMaxMemoryType,       0     }
 };
 
@@ -141,6 +141,77 @@ CbPeiReportRemainedFvs (
 }
 
 /**
+  Based on memory base, size and type, build resource descripter HOB.
+
+  @param  Base    Memory base address.
+  @param  Size    Memory size.
+  @param  Type    Memory type.
+  @param  Param   A pointer to CB_MEM_INFO.
+
+  @retval EFI_SUCCESS if it completed successfully.
+**/
+EFI_STATUS
+CbMemInfoCallback (
+  UINT64                  Base,
+  UINT64                  Size,
+  UINT32                  Type,
+  VOID                    *Param
+  )
+{
+  CB_MEM_INFO             *MemInfo;
+  UINTN                   Attribue;
+
+  Attribue = EFI_RESOURCE_ATTRIBUTE_PRESENT |
+             EFI_RESOURCE_ATTRIBUTE_INITIALIZED |
+             EFI_RESOURCE_ATTRIBUTE_TESTED |
+             EFI_RESOURCE_ATTRIBUTE_UNCACHEABLE |
+             EFI_RESOURCE_ATTRIBUTE_WRITE_COMBINEABLE |
+             EFI_RESOURCE_ATTRIBUTE_WRITE_THROUGH_CACHEABLE |
+             EFI_RESOURCE_ATTRIBUTE_WRITE_BACK_CACHEABLE;
+
+  if ((Base  < 0x100000) && ((Base + Size) > 0x100000)) {
+         Size -= (0x100000 - Base);
+         Base  = 0x100000;
+  }
+
+  MemInfo = (CB_MEM_INFO *)Param;
+  if (Base >= 0x100000) {
+    if (Type == CB_MEM_RAM) {
+      if (Base < 0x100000000ULL) {
+        MemInfo->UsableLowMemTop = (UINT32)(Base + Size);
+      } else {
+        Attribue &= ~EFI_RESOURCE_ATTRIBUTE_TESTED;
+      }
+      BuildResourceDescriptorHob (
+        EFI_RESOURCE_SYSTEM_MEMORY,
+        Attribue,
+        (EFI_PHYSICAL_ADDRESS)Base,
+        Size
+        );
+    } else if (Type == CB_MEM_TABLE) {
+      BuildResourceDescriptorHob (
+        EFI_RESOURCE_MEMORY_RESERVED,
+        Attribue,
+        (EFI_PHYSICAL_ADDRESS)Base,
+        Size
+        );
+      MemInfo->SystemLowMemTop = ((UINT32)(Base + Size) + 0x0FFFFFFF) & 0xF0000000;
+    } else if (Type == CB_MEM_RESERVED) {
+      if ((MemInfo->SystemLowMemTop == 0) || (Base < MemInfo->SystemLowMemTop)) {
+        BuildResourceDescriptorHob (
+          EFI_RESOURCE_MEMORY_RESERVED,
+          Attribue,
+          (EFI_PHYSICAL_ADDRESS)Base,
+          Size
+          ); 
+      }
+    }
+  }
+  
+  return EFI_SUCCESS;
+}
+
+/**
   This is the entrypoint of PEIM
 
   @param  FileHandle  Handle of the file being invoked.
@@ -155,9 +226,9 @@ CbPeiEntryPoint (
   IN CONST EFI_PEI_SERVICES     **PeiServices
   )
 {
-  EFI_STATUS Status;
-  UINT64 LowMemorySize, HighMemorySize;
-  UINT64 PeiMemSize = SIZE_64MB;   // 64 MB
+  EFI_STATUS           Status;
+  UINT64               LowMemorySize;
+  UINT64               PeiMemSize = SIZE_64MB;   // 64 MB
   EFI_PHYSICAL_ADDRESS PeiMemBase = 0;
   UINT32               RegEax;
   UINT8                PhysicalAddressBits;
@@ -173,23 +244,12 @@ CbPeiEntryPoint (
   UINTN                PmCtrlRegBase, PmTimerRegBase, ResetRegAddress, ResetValue;
   UINTN                PmEvtBase;
   UINTN                PmGpeEnBase;
-
-  LowMemorySize = 0;
-  HighMemorySize = 0;
-
-  Status = CbParseMemoryInfo (&LowMemorySize, &HighMemorySize);
-  if (EFI_ERROR(Status))
-    return Status;
-
-  DEBUG((EFI_D_ERROR, "LowMemorySize: 0x%lx.\n", LowMemorySize));
-  DEBUG((EFI_D_ERROR, "HighMemorySize: 0x%lx.\n", HighMemorySize));
-
-  ASSERT (LowMemorySize > 0);
+  CB_MEM_INFO          CbMemInfo;
 
   //
   // Report lower 640KB of RAM. Attribute EFI_RESOURCE_ATTRIBUTE_TESTED  
- // is intentionally omitted to prevent erasing of the coreboot header  
- // record before it is processed by CbParseMemoryInfo.
+  // is intentionally omitted to prevent erasing of the coreboot header  
+  // record before it is processed by CbParseMemoryInfo.
   //
   BuildResourceDescriptorHob (
     EFI_RESOURCE_SYSTEM_MEMORY,
@@ -221,36 +281,15 @@ CbPeiEntryPoint (
     (UINT64)(0x60000)
     );
 
-   BuildResourceDescriptorHob (
-    EFI_RESOURCE_SYSTEM_MEMORY,
-    (
-       EFI_RESOURCE_ATTRIBUTE_PRESENT |
-       EFI_RESOURCE_ATTRIBUTE_INITIALIZED |
-       EFI_RESOURCE_ATTRIBUTE_TESTED |
-       EFI_RESOURCE_ATTRIBUTE_UNCACHEABLE |
-       EFI_RESOURCE_ATTRIBUTE_WRITE_COMBINEABLE |
-       EFI_RESOURCE_ATTRIBUTE_WRITE_THROUGH_CACHEABLE |
-       EFI_RESOURCE_ATTRIBUTE_WRITE_BACK_CACHEABLE
-    ),
-    (EFI_PHYSICAL_ADDRESS)(0x100000),
-    (UINT64) (LowMemorySize - 0x100000)
-    );
-
-  if (HighMemorySize > 0) {
-    BuildResourceDescriptorHob (
-    EFI_RESOURCE_SYSTEM_MEMORY,
-    (
-       EFI_RESOURCE_ATTRIBUTE_PRESENT |
-       EFI_RESOURCE_ATTRIBUTE_INITIALIZED |
-       EFI_RESOURCE_ATTRIBUTE_UNCACHEABLE |
-       EFI_RESOURCE_ATTRIBUTE_WRITE_COMBINEABLE |
-       EFI_RESOURCE_ATTRIBUTE_WRITE_THROUGH_CACHEABLE |
-       EFI_RESOURCE_ATTRIBUTE_WRITE_BACK_CACHEABLE
-    ),
-    (EFI_PHYSICAL_ADDRESS)(0x100000000ULL),
-    HighMemorySize
-    );
+  ZeroMem (&CbMemInfo, sizeof(CbMemInfo));
+  Status = CbParseMemoryInfo (CbMemInfoCallback, (VOID *)&CbMemInfo);
+  if (EFI_ERROR(Status)) {
+    return Status;
   }
+
+  LowMemorySize = CbMemInfo.UsableLowMemTop;
+  DEBUG ((EFI_D_INFO, "Low memory 0x%lx\n", LowMemorySize));
+  DEBUG ((EFI_D_INFO, "SystemLowMemTop 0x%x\n", CbMemInfo.SystemLowMemTop));
 
   //
   // Should be 64k aligned
@@ -329,7 +368,8 @@ CbPeiEntryPoint (
   if ((CbParseGetCbHeader (1, &pCbHeader) == RETURN_SUCCESS)
     && ((UINTN)pCbHeader > BASE_4KB)) {
     DEBUG((EFI_D_ERROR, "Actual Coreboot header: %p.\n", pCbHeader));
-    PcdSet32 (PcdCbHeaderPointer, (UINT32)(UINTN)pCbHeader);
+    Status = PcdSet32S (PcdCbHeaderPointer, (UINT32)(UINTN)pCbHeader);
+    ASSERT_EFI_ERROR (Status);
   }
 
   //
@@ -384,6 +424,15 @@ CbPeiEntryPoint (
     ASSERT (pSystemTableInfo != NULL);
     CopyMem (pFbInfo, &FbInfo, sizeof (FRAME_BUFFER_INFO));
     DEBUG ((EFI_D_ERROR, "Create frame buffer info guid hob\n"));
+  }
+
+  //
+  // Parse platform specific information from coreboot. 
+  //
+  Status = CbParsePlatformInfo ();
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "Error when parsing platform info, Status = %r\n", Status));
+    return Status;
   }
 
   //

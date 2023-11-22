@@ -21,9 +21,11 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.audiofx.EnvironmentalReverb;
 import android.os.Looper;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+@AppModeFull(reason = "Fails in instant mode")
 public class EnvReverbTest extends PostProcTestBase {
 
     private String TAG = "EnvReverbTest";

@@ -25,7 +25,6 @@ import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
-
 import com.android.tv.R;
 
 public class PlayControlsButton extends FrameLayout {
@@ -54,8 +53,8 @@ public class PlayControlsButton extends FrameLayout {
         this(context, attrs, defStyleAttr, 0);
     }
 
-    public PlayControlsButton(Context context, AttributeSet attrs, int defStyleAttr,
-            int defStyleRes) {
+    public PlayControlsButton(
+            Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
         inflate(context, R.layout.play_controls_button, this);
         mButton = (ImageView) findViewById(R.id.button);
@@ -66,9 +65,7 @@ public class PlayControlsButton extends FrameLayout {
         mIconFocusedColor = mIconColor;
     }
 
-    /**
-     * Sets the resource ID of the image to be displayed in the center of this control.
-     */
+    /** Sets the resource ID of the image to be displayed in the center of this control. */
     public void setImageResId(int imageResId) {
         int newTintColor = hasFocus() ? mIconFocusedColor : mIconColor;
         if (mImageResourceId != imageResId) {
@@ -87,40 +84,39 @@ public class PlayControlsButton extends FrameLayout {
         mIcon.getDrawable().setTint(tintColor);
     }
 
-    /**
-     * Sets an action which is to be run when the button is clicked.
-     */
+    /** Sets an action which is to be run when the button is clicked. */
     public void setAction(final Runnable clickAction) {
-        mButton.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                clickAction.run();
-            }
-        });
+        mButton.setOnClickListener(
+                new OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        clickAction.run();
+                    }
+                });
     }
 
-    /**
-     * Sets the icon's color should change to when the button is on focus.
-     */
+    /** Sets the icon's color should change to when the button is on focus. */
     public void setFocusedIconColor(int color) {
         final ValueAnimator valueAnimator = ValueAnimator.ofArgb(mIconColor, color);
-        valueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(final ValueAnimator animator) {
-                mIcon.getDrawable().setTint((int) animator.getAnimatedValue());
-            }
-        });
+        valueAnimator.addUpdateListener(
+                new ValueAnimator.AnimatorUpdateListener() {
+                    @Override
+                    public void onAnimationUpdate(final ValueAnimator animator) {
+                        mIcon.getDrawable().setTint((int) animator.getAnimatedValue());
+                    }
+                });
         valueAnimator.setDuration(mFocusAnimationTimeMs);
-        mButton.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-            @Override
-            public void onFocusChange(View v, boolean hasFocus) {
-                if (hasFocus) {
-                    valueAnimator.start();
-                } else {
-                    valueAnimator.reverse();
-                }
-            }
-        });
+        mButton.setOnFocusChangeListener(
+                new View.OnFocusChangeListener() {
+                    @Override
+                    public void onFocusChange(View v, boolean hasFocus) {
+                        if (hasFocus) {
+                            valueAnimator.start();
+                        } else {
+                            valueAnimator.reverse();
+                        }
+                    }
+                });
         mIconFocusedColor = color;
     }
 

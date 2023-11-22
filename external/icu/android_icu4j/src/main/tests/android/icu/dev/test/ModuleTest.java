@@ -17,6 +17,7 @@ import android.icu.dev.test.TestDataModule.DataMap;
 import android.icu.dev.test.TestDataModule.DataModuleFormatError;
 import android.icu.dev.test.TestDataModule.Factory;
 import android.icu.dev.test.TestDataModule.TestData;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Ray: An adapter class for TestDataMoule to make it like TestFmwk
@@ -33,6 +34,7 @@ import android.icu.dev.test.TestDataModule.TestData;
  * 
  * See CollationTest for an example.
  */
+@MainTestShard
 public class ModuleTest {
     private ModuleTest() {
         // prevent construction

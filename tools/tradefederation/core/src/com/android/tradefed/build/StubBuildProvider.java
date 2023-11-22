@@ -19,8 +19,11 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.log.LogUtil.CLog;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * No-op empty implementation of a {@link IBuildProvider}.
@@ -42,6 +45,9 @@ public class StubBuildProvider implements IBuildProvider {
     @Option(name="build-flavor", description="build flavor name to supply.")
     private String mBuildFlavor = null;
 
+    @Option(name = "build-os", description = "build os name to supply.")
+    private String mBuildOs = null;
+
     @Option(name="build-attribute", description="build attributes to supply.")
     private Map<String, String> mBuildAttributes = new HashMap<String,String>();
 
@@ -56,6 +62,10 @@ public class StubBuildProvider implements IBuildProvider {
         description = "force the stub provider to throw a BuildRetrievalError. Used for testing."
     )
     private boolean mThrowError = false;
+
+    /** Standard platforms */
+    private static final Set<String> STANDARD_PLATFORMS =
+            new HashSet<String>(Arrays.asList("linux", "mac"));
 
     /**
      * {@inheritDoc}
@@ -73,6 +83,13 @@ public class StubBuildProvider implements IBuildProvider {
         BuildInfo stubBuild = new BuildInfo(mBuildId, mBuildTargetName);
         stubBuild.setBuildBranch(mBranch);
         stubBuild.setBuildFlavor(mBuildFlavor);
+
+        String buildTarget = mBuildFlavor;
+        if (!STANDARD_PLATFORMS.contains(mBuildOs)) {
+            buildTarget += "_" + mBuildOs;
+        }
+        stubBuild.addBuildAttribute("build_target", buildTarget);
+
         for (Map.Entry<String, String> attributeEntry : mBuildAttributes.entrySet()) {
             stubBuild.addBuildAttribute(attributeEntry.getKey(), attributeEntry.getValue());
         }

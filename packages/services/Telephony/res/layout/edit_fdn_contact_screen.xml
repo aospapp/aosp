@@ -31,7 +31,8 @@
         android:singleLine="true"
         android:scrollHorizontally="true"
         android:autoText="false"
-        android:capitalize="words" />
+        android:capitalize="words"
+        android:textAlignment="viewStart" />
 
     <EditText android:id="@+id/fdn_number"
         android:hint="@string/number"
@@ -42,7 +43,8 @@
         android:singleLine="true"
         android:scrollHorizontally="true"
         android:autoText="false"
-        android:capitalize="none" />
+        android:capitalize="none"
+        android:textAlignment="viewStart" />
 
     <Button android:id="@+id/button"
         android:layout_width="wrap_content"

@@ -4,7 +4,7 @@
   This local APIC library instance supports x2APIC capable processors
   which have xAPIC and x2APIC modes.
 
-  Copyright (c) 2010 - 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -16,6 +16,7 @@
 **/
 
 #include <Register/Cpuid.h>
+#include <Register/Msr.h>
 #include <Register/LocalApic.h>
 
 #include <Library/BaseLib.h>
@@ -68,7 +69,7 @@ GetLocalApicBaseAddress (
   VOID
   )
 {
-  MSR_IA32_APIC_BASE  ApicBaseMsr;
+  MSR_IA32_APIC_BASE_REGISTER  ApicBaseMsr;
 
   if (!LocalApicBaseAddressMsrSupported ()) {
     //
@@ -78,10 +79,10 @@ GetLocalApicBaseAddress (
     return PcdGet32 (PcdCpuLocalApicBaseAddress);
   }
 
-  ApicBaseMsr.Uint64 = AsmReadMsr64 (MSR_IA32_APIC_BASE_ADDRESS);
+  ApicBaseMsr.Uint64 = AsmReadMsr64 (MSR_IA32_APIC_BASE);
   
-  return (UINTN)(LShiftU64 ((UINT64) ApicBaseMsr.Bits.ApicBaseHigh, 32)) +
-           (((UINTN)ApicBaseMsr.Bits.ApicBaseLow) << 12);
+  return (UINTN)(LShiftU64 ((UINT64) ApicBaseMsr.Bits.ApicBaseHi, 32)) +
+           (((UINTN)ApicBaseMsr.Bits.ApicBase) << 12);
 }
 
 /**
@@ -98,7 +99,7 @@ SetLocalApicBaseAddress (
   IN UINTN                BaseAddress
   )
 {
-  MSR_IA32_APIC_BASE  ApicBaseMsr;
+  MSR_IA32_APIC_BASE_REGISTER  ApicBaseMsr;
 
   ASSERT ((BaseAddress & (SIZE_4KB - 1)) == 0);
 
@@ -109,12 +110,12 @@ SetLocalApicBaseAddress (
     return;
   }
 
-  ApicBaseMsr.Uint64 = AsmReadMsr64 (MSR_IA32_APIC_BASE_ADDRESS);
+  ApicBaseMsr.Uint64 = AsmReadMsr64 (MSR_IA32_APIC_BASE);
 
-  ApicBaseMsr.Bits.ApicBaseLow  = (UINT32) (BaseAddress >> 12);
-  ApicBaseMsr.Bits.ApicBaseHigh = (UINT32) (RShiftU64((UINT64) BaseAddress, 32));
+  ApicBaseMsr.Bits.ApicBase   = (UINT32) (BaseAddress >> 12);
+  ApicBaseMsr.Bits.ApicBaseHi = (UINT32) (RShiftU64((UINT64) BaseAddress, 32));
 
-  AsmWriteMsr64 (MSR_IA32_APIC_BASE_ADDRESS, ApicBaseMsr.Uint64);
+  AsmWriteMsr64 (MSR_IA32_APIC_BASE, ApicBaseMsr.Uint64);
 }
 
 /**
@@ -301,7 +302,7 @@ GetApicMode (
   VOID
   )
 {
-  MSR_IA32_APIC_BASE  ApicBaseMsr;
+  MSR_IA32_APIC_BASE_REGISTER  ApicBaseMsr;
 
   if (!LocalApicBaseAddressMsrSupported ()) {
     //
@@ -310,12 +311,12 @@ GetApicMode (
     return LOCAL_APIC_MODE_XAPIC;
   }
 
-  ApicBaseMsr.Uint64 = AsmReadMsr64 (MSR_IA32_APIC_BASE_ADDRESS);
+  ApicBaseMsr.Uint64 = AsmReadMsr64 (MSR_IA32_APIC_BASE);
   //
   // Local APIC should have been enabled
   //
-  ASSERT (ApicBaseMsr.Bits.En != 0);
-  if (ApicBaseMsr.Bits.Extd != 0) {
+  ASSERT (ApicBaseMsr.Bits.EN != 0);
+  if (ApicBaseMsr.Bits.EXTD != 0) {
     return LOCAL_APIC_MODE_X2APIC;
   } else {
     return LOCAL_APIC_MODE_XAPIC;
@@ -339,8 +340,8 @@ SetApicMode (
   IN UINTN  ApicMode
   )
 {
-  UINTN               CurrentMode;
-  MSR_IA32_APIC_BASE  ApicBaseMsr;
+  UINTN                        CurrentMode;
+  MSR_IA32_APIC_BASE_REGISTER  ApicBaseMsr;
 
   if (!LocalApicBaseAddressMsrSupported ()) {
     //
@@ -355,9 +356,9 @@ SetApicMode (
       case LOCAL_APIC_MODE_XAPIC:
         break;
       case LOCAL_APIC_MODE_X2APIC:
-        ApicBaseMsr.Uint64 = AsmReadMsr64 (MSR_IA32_APIC_BASE_ADDRESS);
-        ApicBaseMsr.Bits.Extd = 1;
-        AsmWriteMsr64 (MSR_IA32_APIC_BASE_ADDRESS, ApicBaseMsr.Uint64);
+        ApicBaseMsr.Uint64 = AsmReadMsr64 (MSR_IA32_APIC_BASE);
+        ApicBaseMsr.Bits.EXTD = 1;
+        AsmWriteMsr64 (MSR_IA32_APIC_BASE, ApicBaseMsr.Uint64);
         break;
       default:
         ASSERT (FALSE);
@@ -369,12 +370,12 @@ SetApicMode (
         //  Transition from x2APIC mode to xAPIC mode is a two-step process:
         //    x2APIC -> Local APIC disabled -> xAPIC
         //
-        ApicBaseMsr.Uint64 = AsmReadMsr64 (MSR_IA32_APIC_BASE_ADDRESS);
-        ApicBaseMsr.Bits.Extd = 0;
-        ApicBaseMsr.Bits.En = 0;
-        AsmWriteMsr64 (MSR_IA32_APIC_BASE_ADDRESS, ApicBaseMsr.Uint64);
-        ApicBaseMsr.Bits.En = 1;
-        AsmWriteMsr64 (MSR_IA32_APIC_BASE_ADDRESS, ApicBaseMsr.Uint64);
+        ApicBaseMsr.Uint64 = AsmReadMsr64 (MSR_IA32_APIC_BASE);
+        ApicBaseMsr.Bits.EXTD = 0;
+        ApicBaseMsr.Bits.EN = 0;
+        AsmWriteMsr64 (MSR_IA32_APIC_BASE, ApicBaseMsr.Uint64);
+        ApicBaseMsr.Bits.EN = 1;
+        AsmWriteMsr64 (MSR_IA32_APIC_BASE, ApicBaseMsr.Uint64);
         break;
       case LOCAL_APIC_MODE_X2APIC:
         break;
@@ -410,12 +411,15 @@ GetInitialApicId (
     AsmCpuid (CPUID_SIGNATURE, &MaxCpuIdIndex, NULL, NULL, NULL);
     //
     // If CPUID Leaf B is supported, 
+    // And CPUID.0BH:EBX[15:0] reports a non-zero value,
     // Then the initial 32-bit APIC ID = CPUID.0BH:EDX
     // Else the initial 8-bit APIC ID = CPUID.1:EBX[31:24]
     //
     if (MaxCpuIdIndex >= CPUID_EXTENDED_TOPOLOGY) {
-      AsmCpuidEx (CPUID_EXTENDED_TOPOLOGY, 0, NULL, NULL, NULL, &ApicId);
-      return ApicId;
+      AsmCpuidEx (CPUID_EXTENDED_TOPOLOGY, 0, NULL, &RegEbx, NULL, &ApicId);
+      if ((RegEbx & (BIT16 - 1)) != 0) {
+        return ApicId;
+      }
     }
     AsmCpuid (CPUID_VERSION_INFO, NULL, &RegEbx, NULL, NULL);
     return RegEbx >> 24;
@@ -1034,4 +1038,151 @@ GetApicMsiValue (
     }
   }
   return MsiData.Uint64;
+}
+
+/**
+  Get Package ID/Core ID/Thread ID of a processor.
+
+  The algorithm assumes the target system has symmetry across physical
+  package  boundaries with respect to the number of logical processors
+  per package,  number of cores per package.
+
+  @param[in]  InitialApicId  Initial APIC ID of the target logical processor.
+  @param[out]  Package       Returns the processor package ID.
+  @param[out]  Core          Returns the processor core ID.
+  @param[out]  Thread        Returns the processor thread ID.
+**/
+VOID
+EFIAPI
+GetProcessorLocationByApicId (
+  IN  UINT32  InitialApicId,
+  OUT UINT32  *Package  OPTIONAL,
+  OUT UINT32  *Core    OPTIONAL,
+  OUT UINT32  *Thread  OPTIONAL
+  )
+{
+  BOOLEAN                       TopologyLeafSupported;
+  UINTN                         ThreadBits;
+  UINTN                         CoreBits;
+  CPUID_VERSION_INFO_EBX        VersionInfoEbx;
+  CPUID_VERSION_INFO_EDX        VersionInfoEdx;
+  CPUID_CACHE_PARAMS_EAX        CacheParamsEax;
+  CPUID_EXTENDED_TOPOLOGY_EAX   ExtendedTopologyEax;
+  CPUID_EXTENDED_TOPOLOGY_EBX   ExtendedTopologyEbx;
+  CPUID_EXTENDED_TOPOLOGY_ECX   ExtendedTopologyEcx;
+  UINT32                        MaxCpuIdIndex;
+  UINT32                        SubIndex;
+  UINTN                         LevelType;
+  UINT32                        MaxLogicProcessorsPerPackage;
+  UINT32                        MaxCoresPerPackage;
+
+  //
+  // Check if the processor is capable of supporting more than one logical processor.
+  //
+  AsmCpuid(CPUID_VERSION_INFO, NULL, NULL, NULL, &VersionInfoEdx.Uint32);
+  if (VersionInfoEdx.Bits.HTT == 0) {
+    if (Thread != NULL) {
+      *Thread  = 0;
+    }
+    if (Core != NULL) {
+      *Core    = 0;
+    }
+    if (Package != NULL) {
+      *Package = 0;
+    }
+    return;
+  }
+
+  ThreadBits = 0;
+  CoreBits = 0;
+
+  //
+  // Assume three-level mapping of APIC ID: Package:Core:SMT.
+  //
+  TopologyLeafSupported = FALSE;
+
+  //
+  // Get the max index of basic CPUID
+  //
+  AsmCpuid(CPUID_SIGNATURE, &MaxCpuIdIndex, NULL, NULL, NULL);
+
+  //
+  // If the extended topology enumeration leaf is available, it
+  // is the preferred mechanism for enumerating topology.
+  //
+  if (MaxCpuIdIndex >= CPUID_EXTENDED_TOPOLOGY) {
+    AsmCpuidEx(
+      CPUID_EXTENDED_TOPOLOGY,
+      0,
+      &ExtendedTopologyEax.Uint32,
+      &ExtendedTopologyEbx.Uint32,
+      &ExtendedTopologyEcx.Uint32,
+      NULL
+      );
+    //
+    // If CPUID.(EAX=0BH, ECX=0H):EBX returns zero and maximum input value for
+    // basic CPUID information is greater than 0BH, then CPUID.0BH leaf is not
+    // supported on that processor.
+    //
+    if (ExtendedTopologyEbx.Uint32 != 0) {
+      TopologyLeafSupported = TRUE;
+
+      //
+      // Sub-leaf index 0 (ECX= 0 as input) provides enumeration parameters to extract
+      // the SMT sub-field of x2APIC ID.
+      //
+      LevelType = ExtendedTopologyEcx.Bits.LevelType;
+      ASSERT(LevelType == CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_SMT);
+      ThreadBits = ExtendedTopologyEax.Bits.ApicIdShift;
+
+      //
+      // Software must not assume any "level type" encoding
+      // value to be related to any sub-leaf index, except sub-leaf 0.
+      //
+      SubIndex = 1;
+      do {
+        AsmCpuidEx(
+          CPUID_EXTENDED_TOPOLOGY,
+          SubIndex,
+          &ExtendedTopologyEax.Uint32,
+          NULL,
+          &ExtendedTopologyEcx.Uint32,
+          NULL
+          );
+        LevelType = ExtendedTopologyEcx.Bits.LevelType;
+        if (LevelType == CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_CORE) {
+          CoreBits = ExtendedTopologyEax.Bits.ApicIdShift - ThreadBits;
+          break;
+        }
+        SubIndex++;
+      } while (LevelType != CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_INVALID);
+    }
+  }
+
+  if (!TopologyLeafSupported) {
+    AsmCpuid(CPUID_VERSION_INFO, NULL, &VersionInfoEbx.Uint32, NULL, NULL);
+    MaxLogicProcessorsPerPackage = VersionInfoEbx.Bits.MaximumAddressableIdsForLogicalProcessors;
+    if (MaxCpuIdIndex >= CPUID_CACHE_PARAMS) {
+      AsmCpuidEx(CPUID_CACHE_PARAMS, 0, &CacheParamsEax.Uint32, NULL, NULL, NULL);
+      MaxCoresPerPackage = CacheParamsEax.Bits.MaximumAddressableIdsForLogicalProcessors + 1;
+    }
+    else {
+      //
+      // Must be a single-core processor.
+      //
+      MaxCoresPerPackage = 1;
+    }
+
+    ThreadBits = (UINTN)(HighBitSet32(MaxLogicProcessorsPerPackage / MaxCoresPerPackage - 1) + 1);
+    CoreBits = (UINTN)(HighBitSet32(MaxCoresPerPackage - 1) + 1);  }
+
+  if (Thread != NULL) {
+    *Thread  = InitialApicId & ((1 << ThreadBits) - 1);
+  }
+  if (Core != NULL) {
+    *Core    = (InitialApicId >> ThreadBits) & ((1 << CoreBits) - 1);
+  }
+  if (Package != NULL) {
+    *Package = (InitialApicId >> (ThreadBits + CoreBits));
+  }
 }

@@ -62,6 +62,14 @@ public class AfeClient implements EntryPoint {
                 "href", wmatrixUrl);
             Document.get().getElementById("wmatrix").removeClassName("hidden");
         }
+        String stainlessUrl = StaticDataRepository.getRepository().getData(
+            "stainless_url").isString().stringValue();
+        if (!stainlessUrl.equals("")) {
+            Document.get().getElementById("stainless-link").setAttribute(
+                "href", stainlessUrl);
+            Document.get().getElementById("stainless").removeClassName(
+                "hidden");
+        }
         boolean is_moblab = StaticDataRepository.getRepository().getData(
             "is_moblab").isBoolean().booleanValue();
         mainTabPanel = new CustomTabPanel(is_moblab);

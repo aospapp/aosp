@@ -14,6 +14,7 @@
 #include "core/fpdfapi/parser/cpdf_parser.h"
 #include "core/fpdfapi/parser/fpdf_parser_decode.h"
 #include "core/fxcrt/fx_string.h"
+#include "third_party/base/logging.h"
 #include "third_party/base/stl_util.h"
 
 CPDF_Object::~CPDF_Object() {}
@@ -38,15 +39,15 @@ std::unique_ptr<CPDF_Object> CPDF_Object::CloneNonCyclic(
   return Clone();
 }
 
-CFX_ByteString CPDF_Object::GetString() const {
-  return CFX_ByteString();
+ByteString CPDF_Object::GetString() const {
+  return ByteString();
 }
 
-CFX_WideString CPDF_Object::GetUnicodeText() const {
-  return CFX_WideString();
+WideString CPDF_Object::GetUnicodeText() const {
+  return WideString();
 }
 
-FX_FLOAT CPDF_Object::GetNumber() const {
+float CPDF_Object::GetNumber() const {
   return 0;
 }
 
@@ -58,8 +59,8 @@ CPDF_Dictionary* CPDF_Object::GetDict() const {
   return nullptr;
 }
 
-void CPDF_Object::SetString(const CFX_ByteString& str) {
-  ASSERT(false);
+void CPDF_Object::SetString(const ByteString& str) {
+  NOTREACHED();
 }
 
 bool CPDF_Object::IsArray() const {
@@ -91,6 +92,10 @@ bool CPDF_Object::IsStream() const {
 }
 
 bool CPDF_Object::IsString() const {
+  return false;
+}
+
+bool CPDF_Object::IsNull() const {
   return false;
 }
 

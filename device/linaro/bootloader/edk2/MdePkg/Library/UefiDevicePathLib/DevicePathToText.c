@@ -42,6 +42,7 @@ UefiDevicePathLibCatPrint (
 
   VA_START (Args, Fmt);
   Count = SPrintLength (Fmt, Args);
+  VA_END(Args);
 
   if ((Str->Count + (Count + 1)) * sizeof (CHAR16) > Str->Capacity) {
     Str->Capacity = (Str->Count + (Count + 1) * 2) * sizeof (CHAR16);
@@ -52,6 +53,7 @@ UefiDevicePathLibCatPrint (
                  );
     ASSERT (Str->Str != NULL);
   }
+  VA_START (Args, Fmt);
   UnicodeVSPrint (&Str->Str[Str->Count], Str->Capacity - Str->Count * sizeof (CHAR16), Fmt, Args);
   Str->Count += Count;
   
@@ -819,6 +821,37 @@ DevPathToTextSd (
     Str,
     L"SD(0x%x)",
     Sd->SlotNumber
+    );
+}
+
+/**
+  Converts a EMMC (Embedded MMC) device path structure to its string representative.
+
+  @param Str             The string representative of input device.
+  @param DevPath         The input device path structure.
+  @param DisplayOnly     If DisplayOnly is TRUE, then the shorter text representation
+                         of the display node is used, where applicable. If DisplayOnly
+                         is FALSE, then the longer text representation of the display node
+                         is used.
+  @param AllowShortcuts  If AllowShortcuts is TRUE, then the shortcut forms of text
+                         representation for a device node can be used, where applicable.
+
+**/
+VOID
+DevPathToTextEmmc (
+  IN OUT POOL_PRINT  *Str,
+  IN VOID            *DevPath,
+  IN BOOLEAN         DisplayOnly,
+  IN BOOLEAN         AllowShortcuts
+  )
+{
+  EMMC_DEVICE_PATH             *Emmc;
+
+  Emmc = DevPath;
+  UefiDevicePathLibCatPrint (
+    Str,
+    L"eMMC(0x%x)",
+    Emmc->SlotNumber
     );
 }
 
@@ -2139,6 +2172,7 @@ GLOBAL_REMOVE_IF_UNREFERENCED const DEVICE_PATH_TO_TEXT_TABLE mUefiDevicePathLib
   {MESSAGING_DEVICE_PATH, MSG_NVME_NAMESPACE_DP,            DevPathToTextNVMe           },
   {MESSAGING_DEVICE_PATH, MSG_UFS_DP,                       DevPathToTextUfs            },
   {MESSAGING_DEVICE_PATH, MSG_SD_DP,                        DevPathToTextSd             },
+  {MESSAGING_DEVICE_PATH, MSG_EMMC_DP,                      DevPathToTextEmmc           },
   {MESSAGING_DEVICE_PATH, MSG_1394_DP,                      DevPathToText1394           },
   {MESSAGING_DEVICE_PATH, MSG_USB_DP,                       DevPathToTextUsb            },
   {MESSAGING_DEVICE_PATH, MSG_USB_WWID_DP,                  DevPathToTextUsbWWID        },

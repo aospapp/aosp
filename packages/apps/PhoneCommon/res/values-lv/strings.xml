@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Nav SIM, vai SIM kļūda."</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Mobilo sakaru tīkls nav pieejams."</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"IZSN ierobežo izejošos zvanus."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL pieprasījums tika mainīts uz USSD pieprasījumu."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL pieprasījums tika mainīts uz SS pieprasījumu."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL pieprasījums tika mainīts uz DIAL ar citu numuru."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Zvans mainīts uz USSD pieprasījumu"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Zvans mainīts uz SS pieprasījumu"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Mainīts uz citu numuru"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Mainīts uz videozvanu"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Videozvans mainīts uz SS pieprasījumu"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Videozvans mainīts uz USSD pieprasījumu"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Mainīts uz parastu zvanu"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Mainīts uz citu numuru"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Nevar veikt izejošos zvanus, kamēr ir spēkā zvanu ierobežojumi."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Zvani ir ierobežoti piekļuves kontroles dēļ."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Ārkārtas zvani ir ierobežoti piekļuves kontroles dēļ."</string>

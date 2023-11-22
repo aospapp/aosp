@@ -43,7 +43,7 @@ public class ParameterInfo {
         mIsVarArg, mPosition, mAnnotations);
   }
 
-  TypeInfo type() {
+  public TypeInfo type() {
     return mType;
   }
 
@@ -51,7 +51,7 @@ public class ParameterInfo {
     return mName;
   }
 
-  String typeName() {
+  public String typeName() {
     return mTypeName;
   }
 

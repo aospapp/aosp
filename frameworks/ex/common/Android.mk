@@ -14,17 +14,6 @@
 
 LOCAL_PATH := $(call my-dir)
 
-# Note: the source code is in java/, not src/, because this code is also part of
-# the framework library, and build/core/pathmap.mk expects a java/ subdirectory.
-
-include $(CLEAR_VARS)
-LOCAL_MODULE := android-common
-LOCAL_SDK_VERSION := 8
-LOCAL_SRC_FILES := \
-     $(call all-java-files-under, java) \
-     $(call all-logtags-files-under, java)
-include $(BUILD_STATIC_JAVA_LIBRARY)
-
 # Build the test package
 # we can't build the test for apps only build, because android.test.runner is not unbundled yet.
 ifeq ($(TARGET_BUILD_APPS),)

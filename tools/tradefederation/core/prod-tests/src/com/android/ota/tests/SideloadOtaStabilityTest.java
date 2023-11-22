@@ -20,7 +20,6 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertThat;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.build.OtaDeviceBuildInfo;
@@ -38,6 +37,7 @@ import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
@@ -47,6 +47,7 @@ import com.android.tradefed.testtype.IResumableTest;
 import com.android.tradefed.util.DeviceRecoveryModeUtil;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.StreamUtil;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.junit.Assert;
 
@@ -242,7 +243,7 @@ public class SideloadOtaStabilityTest implements IDeviceTest, IBuildReceiver,
                 metrics.put("boot_time_available", Double.toString(lastBootTime.mAvailTime));
             }
             long endTime = System.currentTimeMillis() - startTime;
-            listener.testRunEnded(endTime, metrics);
+            listener.testRunEnded(endTime, TfMetricProtoUtil.upgradeConvert(metrics));
         }
     }
 
@@ -287,8 +288,8 @@ public class SideloadOtaStabilityTest implements IDeviceTest, IBuildReceiver,
      */
     private BootTimeInfo installOta(ITestInvocationListener listener, IDeviceBuildInfo otaBuild)
             throws DeviceNotAvailableException {
-        TestIdentifier test = new TestIdentifier(getClass().getName(),
-                String.format("apply_ota[%s]", mRunName));
+        TestDescription test =
+                new TestDescription(getClass().getName(), String.format("apply_ota[%s]", mRunName));
         Map<String, String> metrics = new HashMap<String, String>();
         listener.testStarted(test);
         try {
@@ -355,7 +356,7 @@ public class SideloadOtaStabilityTest implements IDeviceTest, IBuildReceiver,
             double availTime = (System.currentTimeMillis() - start) / 1000.0;
             return new BootTimeInfo(availTime, onlineTime);
         } finally {
-            listener.testEnded(test, metrics);
+            listener.testEnded(test, TfMetricProtoUtil.upgradeConvert(metrics));
         }
     }
 

@@ -23,6 +23,7 @@
 #include "HalInterfaces.h"
 #include "Manager.h"
 #include "ModelBuilder.h"
+#include "Utils.h"
 
 #include <mutex>
 #include <thread>
@@ -34,17 +35,25 @@ namespace nn {
 int ModelArgumentInfo::setFromPointer(const Operand& operand,
                                       const ANeuralNetworksOperandType* type, void* data,
                                       uint32_t length) {
-    int n = updateDimensionInfo(operand, type);
-    if (n != ANEURALNETWORKS_NO_ERROR) {
-        return n;
+    if ((data == nullptr) != (length == 0)) {
+        const char* dataPtrMsg = data ? "NOT_NULLPTR" : "NULLPTR";
+        LOG(ERROR) << "Data pointer must be nullptr if and only if length is zero (data = "
+                   << dataPtrMsg << ", length = " << length << ")";
+        return ANEURALNETWORKS_BAD_DATA;
     }
     if (data == nullptr) {
-        if (length) {
-            LOG(ERROR) << "Setting argument as having no value but non-zero length passed.";
-            return ANEURALNETWORKS_BAD_DATA;
-        }
         state = ModelArgumentInfo::HAS_NO_VALUE;
     } else {
+        int n = updateDimensionInfo(operand, type);
+        if (n != ANEURALNETWORKS_NO_ERROR) {
+            return n;
+        }
+        uint32_t neededLength = sizeOfData(operand.type, dimensions);
+        if (operand.type != OperandType::OEM && neededLength != length) {
+            LOG(ERROR) << "Setting argument with invalid length: " << length
+                       << ", expected length: " << neededLength;
+            return ANEURALNETWORKS_BAD_DATA;
+        }
         state = ModelArgumentInfo::POINTER;
     }
     buffer = data;
@@ -58,6 +67,13 @@ int ModelArgumentInfo::setFromMemory(const Operand& operand, const ANeuralNetwor
     if (n != ANEURALNETWORKS_NO_ERROR) {
         return n;
     }
+    uint32_t neededLength = sizeOfData(operand.type, dimensions);
+    if (operand.type != OperandType::OEM && neededLength != length) {
+        LOG(ERROR) << "Setting argument with invalid length: " << length
+                   << ", expected length: " << neededLength;
+        return ANEURALNETWORKS_BAD_DATA;
+    }
+
     state = ModelArgumentInfo::MEMORY;
     locationAndLength = {.poolIndex = poolIndex, .offset = offset, .length = length};
     buffer = nullptr;
@@ -66,7 +82,10 @@ int ModelArgumentInfo::setFromMemory(const Operand& operand, const ANeuralNetwor
 
 int ModelArgumentInfo::setFromTemporaryMemory(const Operand& operand,
                                               uint32_t poolIndex, uint32_t offset) {
-    dimensions = operand.dimensions;
+    int n = updateDimensionInfo(operand, nullptr);
+    if (n != ANEURALNETWORKS_NO_ERROR) {
+        return n;
+    }
     state = ModelArgumentInfo::MEMORY;
     locationAndLength =
             {.poolIndex = poolIndex, .offset = offset, .length = sizeOfData(operand)};
@@ -76,17 +95,31 @@ int ModelArgumentInfo::setFromTemporaryMemory(const Operand& operand,
 
 int ModelArgumentInfo::updateDimensionInfo(const Operand& operand,
                                            const ANeuralNetworksOperandType* newType) {
+    nnAssert(dimensions.empty());
     if (newType == nullptr) {
-        dimensions = hidl_vec<uint32_t>();
+        for (auto i : operand.dimensions) {
+            if (i == 0) {
+                LOG(ERROR) << "Setting input/output with unspecified dimensions";
+                return ANEURALNETWORKS_BAD_DATA;
+            }
+        }
+        dimensions = operand.dimensions;
     } else {
         uint32_t count = newType->dimensionCount;
         if (static_cast<OperandType>(newType->type) != operand.type ||
             count != operand.dimensions.size()) {
-            LOG(ERROR) << "ANeuralNetworksExecution_setInput/Output incompatible types";
+            LOG(ERROR) << "Setting input/output with incompatible types";
             return ANEURALNETWORKS_BAD_DATA;
         }
+
+        dimensions = hidl_vec<uint32_t>(count);
         for (uint32_t i = 0; i < count; i++) {
-            dimensions[i] = newType->dimensions[i];
+            if (operand.dimensions[i] != 0 && operand.dimensions[i] != newType->dimensions[i]) {
+                LOG(ERROR) << "Overriding a fully specified dimension is disallowed";
+                return ANEURALNETWORKS_BAD_DATA;
+            } else {
+                dimensions[i] = newType->dimensions[i];
+            }
         }
     }
     return ANEURALNETWORKS_NO_ERROR;
@@ -95,6 +128,7 @@ int ModelArgumentInfo::updateDimensionInfo(const Operand& operand,
 ExecutionBuilder::ExecutionBuilder(const CompilationBuilder* compilation) :
         mModel(compilation->mModel),
         mPlan(&compilation->mPlan),
+        mPartitioning(compilation->mPartitioning),
         mInputs(mModel->inputCount()),
         mOutputs(mModel->outputCount()) {
     VLOG(EXECUTION) << "ExecutionBuilder::ExecutionBuilder";
@@ -187,12 +221,13 @@ static void cpuFallbackFull(const ExecutionBuilder* executionBuilder,
                             const sp<ExecutionCallback>& executionCallback) {
     VLOG(EXECUTION) << "cpuFallbackFull";
     StepExecutor executor(executionBuilder, executionBuilder->getModel(),
-                          nullptr /* no IDevice, so CPU */,
+                          nullptr /* no VersionedIDevice, so CPU */,
                           nullptr /* no IPreparedModel */);
     executor.mapInputsAndOutputsTrivially();
     sp<ExecutionCallback> fallbackCallback;
-    if (executor.startCompute(&fallbackCallback) != ANEURALNETWORKS_NO_ERROR) {
-        executionCallback->notify(ErrorStatus::GENERAL_FAILURE);
+    int n = executor.startCompute(&fallbackCallback);
+    if (n != ANEURALNETWORKS_NO_ERROR) {
+        executionCallback->notify(convertResultCodeToErrorStatus(n));
         return;
     }
     fallbackCallback->wait();
@@ -243,7 +278,7 @@ static void asyncStartComputePartitioned(const ExecutionBuilder* executionBuilde
             if (allowFallback) {
                 cpuFallbackFull(executionBuilder, executionCallback);
             } else {
-                executionCallback->notify(ErrorStatus::GENERAL_FAILURE);
+                executionCallback->notify(convertResultCodeToErrorStatus(n));
             }
             return;
         }
@@ -265,7 +300,7 @@ static void asyncStartComputePartitioned(const ExecutionBuilder* executionBuilde
                     return;
                 }
             } else {
-                executionCallback->notify(ErrorStatus::GENERAL_FAILURE);
+                executionCallback->notify(convertResultCodeToErrorStatus(n));
                 return;
             }
         }
@@ -317,9 +352,8 @@ int ExecutionBuilder::startCompute(sp<ExecutionCallback>* synchronizationCallbac
         // TODO: Entire plan-based-path should run in an asynchronous thread --
         // take the asynchronous thread logic out of startComputeOnCpu() and use
         // it to wrap the plan-based-path.
-        const uint32_t partitioning = DeviceManager::get()->getPartitioning();
-        if (partitioning > 0) {
-            const bool allowFallback = DeviceManager::partitioningAllowsFallback(partitioning);
+        if (mPartitioning > 0) {
+            const bool allowFallback = DeviceManager::partitioningAllowsFallback(mPartitioning);
             std::shared_ptr<ExecutionPlan::Controller> controller = mPlan->makeController(this);
             if (controller == nullptr) {
                 if (!allowFallback) {
@@ -373,7 +407,7 @@ int ExecutionBuilder::startCompute(sp<ExecutionCallback>* synchronizationCallbac
     // Run on the CPU.
     VLOG(EXECUTION) << "ExecutionBuilder::startCompute (without plan) on CPU";
     StepExecutor executor(this, mModel,
-                          nullptr /* no IDevice, so CPU */,
+                          nullptr /* no VersionedIDevice, so CPU */,
                           nullptr /* no IPreparedModel */);
     executor.mapInputsAndOutputsTrivially();
     return executor.startCompute(synchronizationCallback);
@@ -423,7 +457,7 @@ static void setRequestArgumentArray(const std::vector<ModelArgumentInfo>& argume
 
 StepExecutor::StepExecutor(const ExecutionBuilder* executionBuilder,
                            const ModelBuilder* model,
-                           sp<IDevice> driver, sp<IPreparedModel> preparedModel) :
+                           VersionedIDevice* driver, sp<IPreparedModel> preparedModel) :
     mExecutionBuilder(executionBuilder), mModel(model),
     mDriver(driver), mPreparedModel(preparedModel),
     mInputs(model->inputCount()), mOutputs(model->outputCount()) {}
@@ -466,7 +500,39 @@ int StepExecutor::setInputOrOutputFromTemporaryMemory(const Operand& inputOrOutp
     return inputOrOutputInfo->setFromTemporaryMemory(inputOrOutputOperand, poolIndex, offset);
 }
 
+static void logArguments(const char* kind, const std::vector<ModelArgumentInfo> &args) {
+    for (unsigned i = 0; i < args.size(); i++) {
+        const auto& arg = args[i];
+        std::string prefix = kind + std::string("[") + std::to_string(i) + "] = ";
+        switch (arg.state) {
+            case ModelArgumentInfo::POINTER:
+                VLOG(EXECUTION) << prefix << "POINTER(" << SHOW_IF_DEBUG(arg.buffer) << ")";
+                break;
+            case ModelArgumentInfo::MEMORY:
+                VLOG(EXECUTION) << prefix << "MEMORY("
+                                << "pool=" << arg.locationAndLength.poolIndex
+                                << ", "
+                                << "off=" << arg.locationAndLength.offset
+                                << ")";
+                break;
+            case ModelArgumentInfo::HAS_NO_VALUE:
+                VLOG(EXECUTION) << prefix << "HAS_NO_VALUE";
+                break;
+            case ModelArgumentInfo::UNSPECIFIED:
+                VLOG(EXECUTION) << prefix << "UNSPECIFIED";
+                break;
+            default:
+                VLOG(EXECUTION) << prefix << "state(" << arg.state << ")";
+                break;
+        }
+    }
+}
+
 int StepExecutor::startCompute(sp<ExecutionCallback>* synchronizationCallback) {
+    if (VLOG_IS_ON(EXECUTION)) {
+        logArguments("input", mInputs);
+        logArguments("output", mOutputs);
+    }
     if (mDriver == nullptr) {
         return startComputeOnCpu(synchronizationCallback);
     } else {
@@ -487,10 +553,16 @@ int StepExecutor::startComputeOnDevice(sp<ExecutionCallback>* synchronizationCal
 
         // TODO Dangerous!  In async, the model will outlive it here. Safe for now
         sp<PreparedModelCallback> preparedModelCallback = new PreparedModelCallback();
-        Return<ErrorStatus> prepareLaunchStatus =
-                mDriver->prepareModel(model, preparedModelCallback);
-        if (!prepareLaunchStatus.isOk() || prepareLaunchStatus != ErrorStatus::NONE) {
-            return ANEURALNETWORKS_OP_FAILED;
+        // TODO(butlermichael): Propagate user preference to this point instead of
+        // using default value of ANEURALNETWORKS_PREFER_FAST_SINGLE_ANSWER, or
+        // remove this entire block of code since it is a stale path that is only
+        // encountered on an #if-removed code.
+        ExecutionPreference preference =
+            static_cast<ExecutionPreference>(ANEURALNETWORKS_PREFER_FAST_SINGLE_ANSWER);
+        ErrorStatus prepareLaunchStatus = mDriver->prepareModel(model, preference,
+                                                                preparedModelCallback);
+        if (prepareLaunchStatus != ErrorStatus::NONE) {
+            return convertErrorStatusToResultCode(prepareLaunchStatus);
         }
 
         // Immediately synchronize with callback object for now
@@ -498,7 +570,10 @@ int StepExecutor::startComputeOnDevice(sp<ExecutionCallback>* synchronizationCal
         preparedModelCallback->wait();
         ErrorStatus prepareReturnStatus = preparedModelCallback->getStatus();
         mPreparedModel = preparedModelCallback->getPreparedModel();
-        if (prepareReturnStatus != ErrorStatus::NONE || mPreparedModel == nullptr) {
+        if (prepareReturnStatus != ErrorStatus::NONE) {
+            return convertErrorStatusToResultCode(prepareReturnStatus);
+        }
+        if (mPreparedModel == nullptr) {
             return ANEURALNETWORKS_OP_FAILED;
         }
     }
@@ -555,7 +630,7 @@ int StepExecutor::startComputeOnDevice(sp<ExecutionCallback>* synchronizationCal
     // in the design document.
     sp<ExecutionCallback> executionCallback = new ExecutionCallback();
 
-    VLOG(EXECUTION) << "Before mPreparedModel->execute() " << toString(request);
+    VLOG(EXECUTION) << "Before mPreparedModel->execute() " << SHOW_IF_DEBUG(toString(request));
     // Execute.
     // TODO: What happens to the Callback if the service dies abnormally
     // -- won't that keep the Callback live forever, because the service
@@ -563,18 +638,23 @@ int StepExecutor::startComputeOnDevice(sp<ExecutionCallback>* synchronizationCal
     // maybe the HIDL infrastructure handles this magically? At worst,
     // it seems like this is a small memory leak, if the Callback stays
     // alive forever.
-    if (mPreparedModel->execute(request, executionCallback) != ErrorStatus::NONE) {
+    Return<ErrorStatus> executeStatus = mPreparedModel->execute(request, executionCallback);
+    if (!executeStatus.isOk() || executeStatus != ErrorStatus::NONE) {
         VLOG(EXECUTION) << "**Execute failed**";
-        return ANEURALNETWORKS_OP_FAILED;
+        return executeStatus.isOk()
+                ? convertErrorStatusToResultCode(executeStatus)
+                : ANEURALNETWORKS_OP_FAILED;
     }
 
     // TODO: Remove this synchronization point when the block of code below is
     // removed.
     executionCallback->wait();
-    Return<ErrorStatus> executionStatus = executionCallback->getStatus();
-    if (!executionStatus.isOk() || executionStatus != ErrorStatus::NONE) {
+    Return<ErrorStatus> callbackStatus = executionCallback->getStatus();
+    if (!callbackStatus.isOk() || callbackStatus != ErrorStatus::NONE) {
         VLOG(EXECUTION) << "**Execute async failed**";
-        return ANEURALNETWORKS_OP_FAILED;
+        return callbackStatus.isOk()
+                ? convertErrorStatusToResultCode(callbackStatus)
+                : ANEURALNETWORKS_OP_FAILED;
     }
 
     // Copy the output data from shared memory to the output buffers.
@@ -604,9 +684,7 @@ static void asyncStartComputeOnCpu(const Model& model, const Request& request,
                                    const sp<IExecutionCallback>& executionCallback) {
     CpuExecutor executor;
     int err = executor.run(model, request, modelPoolInfos, requestPoolInfos);
-    ErrorStatus status = err == ANEURALNETWORKS_NO_ERROR ?
-            ErrorStatus::NONE : ErrorStatus::GENERAL_FAILURE;
-    executionCallback->notify(status);
+    executionCallback->notify(convertResultCodeToErrorStatus(err));
 }
 
 int StepExecutor::startComputeOnCpu(sp<ExecutionCallback>* synchronizationCallback) {
@@ -628,24 +706,22 @@ int StepExecutor::startComputeOnCpu(sp<ExecutionCallback>* synchronizationCallba
     }
 
     std::vector<RunTimePoolInfo> requestPoolInfos;
-    uint32_t count = mMemories.size();
-    requestPoolInfos.resize(count);
-    for (uint32_t i = 0; i < count; i++) {
-        const Memory* mem = mMemories[i];
-        if (!requestPoolInfos[i].set(mem->getHidlMemory())) {
-            return ANEURALNETWORKS_UNMAPPABLE;
-        }
+    requestPoolInfos.reserve(mMemories.size());
+    bool fail = false;
+    for (const Memory* mem : mMemories) {
+        requestPoolInfos.emplace_back(mem->getHidlMemory(), &fail);
+    }
+    if (fail) {
+        return ANEURALNETWORKS_UNMAPPABLE;
     }
     // Create as many pools as there are input / output.
     auto fixPointerArguments = [&requestPoolInfos](std::vector<ModelArgumentInfo>& argumentInfos) {
         for (ModelArgumentInfo& argumentInfo : argumentInfos) {
             if (argumentInfo.state == ModelArgumentInfo::POINTER) {
-                RunTimePoolInfo runTimeInfo = {
-                            .buffer = static_cast<uint8_t*>(argumentInfo.buffer)};
                 argumentInfo.locationAndLength.poolIndex =
                             static_cast<uint32_t>(requestPoolInfos.size());
                 argumentInfo.locationAndLength.offset = 0;
-                requestPoolInfos.push_back(runTimeInfo);
+                requestPoolInfos.emplace_back(static_cast<uint8_t*>(argumentInfo.buffer));
             }
         }
     };

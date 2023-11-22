@@ -20,6 +20,7 @@
 #include <condition_variable>
 #include <functional>
 #include <mutex>
+#include <optional>
 
 #include <android/hardware/contexthub/1.0/IContexthub.h>
 #include <hidl/MQDescriptor.h>
@@ -27,6 +28,7 @@
 
 #include "chre_host/socket_client.h"
 #include "chre_host/host_protocol_host.h"
+#include "chre_host/fragmented_load_transaction.h"
 
 namespace android {
 namespace hardware {
@@ -34,6 +36,8 @@ namespace contexthub {
 namespace V1_0 {
 namespace implementation {
 
+using ::android::chre::FragmentedLoadRequest;
+using ::android::chre::FragmentedLoadTransaction;
 using ::android::hardware::contexthub::V1_0::ContextHub;
 using ::android::hardware::contexthub::V1_0::ContextHubMsg;
 using ::android::hardware::contexthub::V1_0::IContexthub;
@@ -76,15 +80,10 @@ class GenericContextHub : public IContexthub {
     void onDisconnected() override;
 
     void handleNanoappMessage(
-        uint64_t appId, uint32_t messageType, uint16_t hostEndpoint,
-        const void *messageData, size_t messageDataLen) override;
+        const ::chre::fbs::NanoappMessageT& message) override;
 
     void handleHubInfoResponse(
-        const char *name, const char *vendor,
-        const char *toolchain, uint32_t legacyPlatformVersion,
-        uint32_t legacyToolchainVersion, float peakMips, float stoppedPower,
-        float sleepPower, float peakPower, uint32_t maxMessageLen,
-        uint64_t platformId, uint32_t version) override;
+        const ::chre::fbs::HubInfoResponseT& response) override;
 
     void handleNanoappListResponse(
         const ::chre::fbs::NanoappListResponseT& response) override;
@@ -139,12 +138,44 @@ class GenericContextHub : public IContexthub {
   std::mutex mDebugDumpMutex;
   std::condition_variable mDebugDumpCond;
 
+  // The pending fragmented load request
+  uint32_t mCurrentFragmentId = 0;
+  std::optional<FragmentedLoadTransaction> mPendingLoadTransaction;
+  std::mutex mPendingLoadTransactionMutex;
+
+  // Use 30KB fragment size to fit within 32KB memory fragments at the kernel
+  static constexpr size_t kLoadFragmentSizeBytes = 30 * 1024;
+
   // Write a string to mDebugFd
   void writeToDebugFile(const char *str);
   void writeToDebugFile(const char *str, size_t len);
 
   // Unregisters callback when context hub service dies
   void handleServiceDeath(uint32_t hubId);
+
+  /**
+   * Checks to see if a load response matches the currently pending
+   * fragmented load transaction. mPendingLoadTransactionMutex must
+   * be acquired prior to calling this function.
+   *
+   * @param response the received load response
+   *
+   * @return true if the response matches a pending load transaction
+   *         (if any), false otherwise
+   */
+  bool isExpectedLoadResponseLocked(
+      const ::chre::fbs::LoadNanoappResponseT& response);
+
+  /**
+   * Sends a fragmented load request to CHRE. The caller must ensure that
+   * transaction.isComplete() returns false prior to invoking this method.
+   *
+   * @param transaction the FragmentedLoadTransaction object
+   *
+   * @return the result of the request
+   */
+  Result sendFragmentedLoadNanoAppRequest(
+      FragmentedLoadTransaction& transaction);
 };
 
 extern "C" IContexthub* HIDL_FETCH_IContexthub(const char* name);

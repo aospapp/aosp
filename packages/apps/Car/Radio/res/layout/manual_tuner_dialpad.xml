@@ -15,107 +15,94 @@ limitations under the License.
 -->
 <GridLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:columnCount="5">
+    android:columnCount="3">
 
     <!-- Row 1 -->
     <Button
         android:id="@+id/manual_tuner_1"
         android:layout_gravity="center"
         android:text="@string/manual_tuner_1"
+        android:layout_columnWeight="1"
+        android:layout_rowWeight="1"
         style="@style/ManualTunerText" />
-    <Space
-        android:layout_width="@dimen/manual_tuner_dialpad_horizontal_spacing"
-        android:layout_height="0dp" />
     <Button
         android:id="@+id/manual_tuner_2"
         android:layout_gravity="center"
         android:text="@string/manual_tuner_2"
+        android:layout_columnWeight="1"
+        android:layout_rowWeight="1"
         style="@style/ManualTunerText" />
-    <Space
-        android:layout_width="@dimen/manual_tuner_dialpad_horizontal_spacing"
-        android:layout_height="0dp" />
     <Button
         android:id="@+id/manual_tuner_3"
         android:layout_gravity="center"
         android:text="@string/manual_tuner_3"
+        android:layout_columnWeight="1"
+        android:layout_rowWeight="1"
         style="@style/ManualTunerText" />
-
-    <Space
-        android:layout_columnSpan="5"
-        android:layout_width="0dp"
-        android:layout_height="@dimen/manual_tuner_dialpad_vertical_spacing" />
 
     <!-- Row 2 -->
     <Button
         android:id="@+id/manual_tuner_4"
         android:layout_gravity="center"
         android:text="@string/manual_tuner_4"
+        android:layout_columnWeight="1"
+        android:layout_rowWeight="1"
         style="@style/ManualTunerText" />
-    <Space
-        android:layout_width="@dimen/manual_tuner_dialpad_horizontal_spacing"
-        android:layout_height="0dp" />
     <Button
         android:id="@+id/manual_tuner_5"
         android:layout_gravity="center"
         android:text="@string/manual_tuner_5"
+        android:layout_columnWeight="1"
+        android:layout_rowWeight="1"
         style="@style/ManualTunerText" />
-    <Space
-        android:layout_width="@dimen/manual_tuner_dialpad_horizontal_spacing"
-        android:layout_height="0dp" />
     <Button
         android:id="@+id/manual_tuner_6"
         android:layout_gravity="center"
         android:text="@string/manual_tuner_6"
+        android:layout_columnWeight="1"
+        android:layout_rowWeight="1"
         style="@style/ManualTunerText" />
-
-    <Space
-        android:layout_columnSpan="5"
-        android:layout_width="0dp"
-        android:layout_height="@dimen/manual_tuner_dialpad_vertical_spacing" />
 
     <!-- Row 3 -->
     <Button
         android:id="@+id/manual_tuner_7"
         android:layout_gravity="center"
         android:text="@string/manual_tuner_7"
+        android:layout_columnWeight="1"
+        android:layout_rowWeight="1"
         style="@style/ManualTunerText" />
-    <Space
-        android:layout_width="@dimen/manual_tuner_dialpad_horizontal_spacing"
-        android:layout_height="0dp" />
     <Button
         android:id="@+id/manual_tuner_8"
         android:layout_gravity="center"
         android:text="@string/manual_tuner_8"
+        android:layout_columnWeight="1"
+        android:layout_rowWeight="1"
         style="@style/ManualTunerText" />
-    <Space
-        android:layout_width="@dimen/manual_tuner_dialpad_horizontal_spacing"
-        android:layout_height="0dp" />
     <Button
         android:id="@+id/manual_tuner_9"
         android:layout_gravity="center"
         android:text="@string/manual_tuner_9"
+        android:layout_columnWeight="1"
+        android:layout_rowWeight="1"
         style="@style/ManualTunerText" />
-
-    <Space
-        android:layout_columnSpan="5"
-        android:layout_width="0dp"
-        android:layout_height="@dimen/manual_tuner_dialpad_vertical_spacing" />
 
     <!-- Row 4 -->
     <Space
-        android:layout_columnSpan="2"
         android:layout_width="0dp"
-        android:layout_height="0dp" />
+        android:layout_height="0dp"
+        android:layout_columnWeight="1"
+        android:layout_rowWeight="1"/>
     <Button
         android:id="@+id/manual_tuner_0"
         android:layout_gravity="center"
         android:text="@string/manual_tuner_0"
+        android:layout_columnWeight="1"
+        android:layout_rowWeight="1"
         style="@style/ManualTunerText" />
     <Space
-        android:layout_columnSpan="2"
         android:layout_width="0dp"
-        android:layout_height="0dp" />
+        android:layout_height="0dp"
+        android:layout_columnWeight="1"
+        android:layout_rowWeight="1"/>
 
 </GridLayout>

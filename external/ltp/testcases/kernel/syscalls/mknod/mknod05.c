@@ -80,6 +80,7 @@
 #include <sys/stat.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 #define LTPUSER		"nobody"
 #define MODE_RWX	S_IFIFO | S_IRWXU | S_IRWXG | S_IRWXO
@@ -227,23 +228,15 @@ void setup(void)
 	 * specified mode permissions, with uid/gid set to that of guest
 	 * user and the test process.
 	 */
-	if (mkdir(DIR_TEMP, MODE_RWX) < 0) {
-		tst_brkm(TBROK, cleanup, "mkdir(2) of %s failed", DIR_TEMP);
-	}
-	if (chown(DIR_TEMP, user1_uid, group2_gid) < 0) {
-		tst_brkm(TBROK, cleanup, "chown(2) of %s failed", DIR_TEMP);
-	}
-	if (chmod(DIR_TEMP, MODE_SGID) < 0) {
-		tst_brkm(TBROK, cleanup, "chmod(2) of %s failed", DIR_TEMP);
-	}
+	SAFE_MKDIR(cleanup, DIR_TEMP, MODE_RWX);
+	SAFE_CHOWN(cleanup, DIR_TEMP, user1_uid, group2_gid);
+	SAFE_CHMOD(cleanup, DIR_TEMP, MODE_SGID);
 
 	/*
 	 * Verify that test directory created with expected permission modes
 	 * and ownerships.
 	 */
-	if (stat(DIR_TEMP, &buf) < 0) {
-		tst_brkm(TBROK, cleanup, "stat(2) of %s failed", DIR_TEMP);
-	}
+	SAFE_STAT(cleanup, DIR_TEMP, &buf);
 	/* Verify modes of test directory */
 	if (!(buf.st_mode & S_ISGID)) {
 		tst_brkm(TBROK, cleanup,
@@ -256,10 +249,7 @@ void setup(void)
 	}
 
 	/* Change directory to DIR_TEMP */
-	if (chdir(DIR_TEMP) < 0) {
-		tst_brkm(TBROK, cleanup,
-			 "Unable to change to %s directory", DIR_TEMP);
-	}
+	SAFE_CHDIR(cleanup, DIR_TEMP);
 }
 
 /*

@@ -30,41 +30,30 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-
-import com.android.tv.ApplicationSingletons;
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.ui.setup.SetupGuidedStepFragment;
 import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.TvInputNewComparator;
-import com.android.tv.tuner.TunerInputController;
 import com.android.tv.ui.GuidedActionsStylistWithDivider;
 import com.android.tv.util.SetupUtils;
 import com.android.tv.util.TvInputManagerHelper;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * A fragment for channel source info/setup.
- */
+/** A fragment for channel source info/setup. */
 public class SetupSourcesFragment extends SetupMultiPaneFragment {
-    /**
-     * The action category for the actions which is fired from this fragment.
-     */
-    public static final String ACTION_CATEGORY =
-            "com.android.tv.onboarding.SetupSourcesFragment";
-    /**
-     * An action to open the merchant collection.
-     */
+    /** The action category for the actions which is fired from this fragment. */
+    public static final String ACTION_CATEGORY = "com.android.tv.onboarding.SetupSourcesFragment";
+    /** An action to open the merchant collection. */
     public static final int ACTION_ONLINE_STORE = 1;
     /**
      * An action to show the setup activity of TV input.
-     * <p>
-     * This action is not added to the action list. This is sent outside of the fragment.
-     * Use {@link #ACTION_PARAM_KEY_INPUT_ID} to get the input ID from the parameter.
+     *
+     * <p>This action is not added to the action list. This is sent outside of the fragment. Use
+     * {@link #ACTION_PARAM_KEY_INPUT_ID} to get the input ID from the parameter.
      */
     public static final int ACTION_SETUP_INPUT = 2;
 
@@ -77,10 +66,10 @@ public class SetupSourcesFragment extends SetupMultiPaneFragment {
     private static final String SETUP_TRACKER_LABEL = "Setup fragment";
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
+    public View onCreateView(
+            LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = super.onCreateView(inflater, container, savedInstanceState);
-        TvApplication.getSingletons(getActivity()).getTracker().sendScreenView(SETUP_TRACKER_LABEL);
+        TvSingletons.getSingletons(getActivity()).getTracker().sendScreenView(SETUP_TRACKER_LABEL);
         return view;
     }
 
@@ -130,82 +119,87 @@ public class SetupSourcesFragment extends SetupMultiPaneFragment {
 
         private int mPendingAction = PENDING_ACTION_NONE;
 
-        private final TvInputCallback mInputCallback = new TvInputCallback() {
-            @Override
-            public void onInputAdded(String inputId) {
-                handleInputChanged();
-            }
-
-            @Override
-            public void onInputRemoved(String inputId) {
-                handleInputChanged();
-            }
-
-            @Override
-            public void onInputUpdated(String inputId) {
-                handleInputChanged();
-            }
-
-            @Override
-            public void onTvInputInfoUpdated(TvInputInfo inputInfo) {
-                handleInputChanged();
-            }
-
-            private void handleInputChanged() {
-                // The actions created while enter transition is running will not be included in the
-                // fragment transition.
-                if (mParentFragment.isEnterTransitionRunning()) {
-                    mPendingAction = PENDING_ACTION_INPUT_CHANGED;
-                    return;
-                }
-                buildInputs();
-                updateActions();
-            }
-        };
-
-        private final ChannelDataManager.Listener mChannelDataManagerListener
-                = new ChannelDataManager.Listener() {
-            @Override
-            public void onLoadFinished() {
-                handleChannelChanged();
-            }
-
-            @Override
-            public void onChannelListUpdated() {
-                handleChannelChanged();
-            }
-
-            @Override
-            public void onChannelBrowsableChanged() {
-                handleChannelChanged();
-            }
-
-            private void handleChannelChanged() {
-                // The actions created while enter transition is running will not be included in the
-                // fragment transition.
-                if (mParentFragment.isEnterTransitionRunning()) {
-                    if (mPendingAction != PENDING_ACTION_INPUT_CHANGED) {
-                        mPendingAction = PENDING_ACTION_CHANNEL_CHANGED;
+        private final TvInputCallback mInputCallback =
+                new TvInputCallback() {
+                    @Override
+                    public void onInputAdded(String inputId) {
+                        handleInputChanged();
                     }
-                    return;
-                }
-                updateActions();
-            }
-        };
+
+                    @Override
+                    public void onInputRemoved(String inputId) {
+                        handleInputChanged();
+                    }
+
+                    @Override
+                    public void onInputUpdated(String inputId) {
+                        handleInputChanged();
+                    }
+
+                    @Override
+                    public void onTvInputInfoUpdated(TvInputInfo inputInfo) {
+                        handleInputChanged();
+                    }
+
+                    private void handleInputChanged() {
+                        // The actions created while enter transition is running will not be
+                        // included in the
+                        // fragment transition.
+                        if (mParentFragment.isEnterTransitionRunning()) {
+                            mPendingAction = PENDING_ACTION_INPUT_CHANGED;
+                            return;
+                        }
+                        buildInputs();
+                        updateActions();
+                    }
+                };
+
+        private final ChannelDataManager.Listener mChannelDataManagerListener =
+                new ChannelDataManager.Listener() {
+                    @Override
+                    public void onLoadFinished() {
+                        handleChannelChanged();
+                    }
+
+                    @Override
+                    public void onChannelListUpdated() {
+                        handleChannelChanged();
+                    }
+
+                    @Override
+                    public void onChannelBrowsableChanged() {
+                        handleChannelChanged();
+                    }
+
+                    private void handleChannelChanged() {
+                        // The actions created while enter transition is running will not be
+                        // included in the
+                        // fragment transition.
+                        if (mParentFragment.isEnterTransitionRunning()) {
+                            if (mPendingAction != PENDING_ACTION_INPUT_CHANGED) {
+                                mPendingAction = PENDING_ACTION_CHANNEL_CHANGED;
+                            }
+                            return;
+                        }
+                        updateActions();
+                    }
+                };
 
         @Override
         public void onCreate(Bundle savedInstanceState) {
             Context context = getActivity();
-            ApplicationSingletons app = TvApplication.getSingletons(context);
-            mInputManager = app.getTvInputManagerHelper();
-            mChannelDataManager = app.getChannelDataManager();
-            mSetupUtils = SetupUtils.getInstance(context);
+            TvSingletons singletons = TvSingletons.getSingletons(context);
+            mInputManager = singletons.getTvInputManagerHelper();
+            mChannelDataManager = singletons.getChannelDataManager();
+            mSetupUtils = singletons.getSetupUtils();
             buildInputs();
             mInputManager.addCallback(mInputCallback);
             mChannelDataManager.addListener(mChannelDataManagerListener);
             super.onCreate(savedInstanceState);
             mParentFragment = (SetupSourcesFragment) getParentFragment();
-            TunerInputController.executeNetworkTunerDiscoveryAsyncTask(getContext());
+            singletons
+                    .getTunerInputController()
+                    .executeNetworkTunerDiscoveryAsyncTask(getContext());
         }
 
         @Override
@@ -229,8 +223,8 @@ public class SetupSourcesFragment extends SetupMultiPaneFragment {
         }
 
         @Override
-        public void onCreateActions(@NonNull List<GuidedAction> actions,
-                Bundle savedInstanceState) {
+        public void onCreateActions(
+                @NonNull List<GuidedAction> actions, Bundle savedInstanceState) {
             createActionsInternal(actions);
         }
 
@@ -274,24 +268,26 @@ public class SetupSourcesFragment extends SetupMultiPaneFragment {
             int position = 0;
             if (mDoneInputStartIndex > 0) {
                 // Need a "New" category
-                actions.add(new GuidedAction.Builder(getActivity())
-                        .id(ACTION_HEADER)
-                        .title(null)
-                        .description(getString(R.string.setup_category_new))
-                        .focusable(false)
-                        .infoOnly(true)
-                        .build());
+                actions.add(
+                        new GuidedAction.Builder(getActivity())
+                                .id(ACTION_HEADER)
+                                .title(null)
+                                .description(getString(R.string.setup_category_new))
+                                .focusable(false)
+                                .infoOnly(true)
+                                .build());
             }
             for (int i = 0; i < mInputs.size(); ++i) {
                 if (i == mDoneInputStartIndex) {
                     ++position;
-                    actions.add(new GuidedAction.Builder(getActivity())
-                            .id(ACTION_HEADER)
-                            .title(null)
-                            .description(getString(R.string.setup_category_done))
-                            .focusable(false)
-                            .infoOnly(true)
-                            .build());
+                    actions.add(
+                            new GuidedAction.Builder(getActivity())
+                                    .id(ACTION_HEADER)
+                                    .title(null)
+                                    .description(getString(R.string.setup_category_done))
+                                    .focusable(false)
+                                    .infoOnly(true)
+                                    .build());
                 }
                 TvInputInfo input = mInputs.get(i);
                 String inputId = input.getId();
@@ -301,8 +297,12 @@ public class SetupSourcesFragment extends SetupMultiPaneFragment {
                     if (channelCount == 0) {
                         description = getString(R.string.setup_input_no_channels);
                     } else {
-                        description = getResources().getQuantityString(
-                                R.plurals.setup_input_channels, channelCount, channelCount);
+                        description =
+                                getResources()
+                                        .getQuantityString(
+                                                R.plurals.setup_input_channels,
+                                                channelCount,
+                                                channelCount);
                     }
                 } else if (i >= mKnownInputStartIndex) {
                     description = getString(R.string.setup_input_setup_now);
@@ -313,11 +313,12 @@ public class SetupSourcesFragment extends SetupMultiPaneFragment {
                 if (input.getId().equals(mNewlyAddedInputId)) {
                     newPosition = position;
                 }
-                actions.add(new GuidedAction.Builder(getActivity())
-                        .id(ACTION_INPUT_START + i)
-                        .title(input.loadLabel(getActivity()).toString())
-                        .description(description)
-                        .build());
+                actions.add(
+                        new GuidedAction.Builder(getActivity())
+                                .id(ACTION_INPUT_START + i)
+                                .title(input.loadLabel(getActivity()).toString())
+                                .description(description)
+                                .build());
             }
             if (mInputs.size() > 0) {
                 // Divider
@@ -326,12 +327,13 @@ public class SetupSourcesFragment extends SetupMultiPaneFragment {
             }
             // online store action
             ++position;
-            actions.add(new GuidedAction.Builder(getActivity())
-                    .id(ACTION_ONLINE_STORE)
-                    .title(getString(R.string.setup_store_action_title))
-                    .description(getString(R.string.setup_store_action_description))
-                    .icon(R.drawable.ic_store)
-                    .build());
+            actions.add(
+                    new GuidedAction.Builder(getActivity())
+                            .id(ACTION_ONLINE_STORE)
+                            .title(getString(R.string.setup_store_action_title))
+                            .description(getString(R.string.setup_store_action_description))
+                            .icon(R.drawable.ic_store)
+                            .build());
 
             if (newPosition != -1) {
                 VerticalGridView gridView = getGuidedActionsStylist().getActionsGridView();
@@ -367,6 +369,7 @@ public class SetupSourcesFragment extends SetupMultiPaneFragment {
                 case PENDING_ACTION_CHANNEL_CHANGED:
                     updateActions();
                     break;
+                default: // fall out
             }
             mPendingAction = PENDING_ACTION_NONE;
         }
@@ -382,17 +385,19 @@ public class SetupSourcesFragment extends SetupMultiPaneFragment {
                 if (descriptionView != null) {
                     if (action.getId() == ACTION_HEADER) {
                         descriptionView.setAlpha(ALPHA_CATEGORY);
-                        descriptionView.setTextColor(getResources().getColor(R.color.setup_category,
-                                null));
-                        descriptionView.setTypeface(Typeface.create(
-                                getString(R.string.condensed_font), 0));
+                        descriptionView.setTextColor(
+                                getResources().getColor(R.color.setup_category, null));
+                        descriptionView.setTypeface(
+                                Typeface.create(getString(R.string.condensed_font), 0));
                     } else {
                         descriptionView.setAlpha(ALPHA_INPUT_DESCRIPTION);
-                        descriptionView.setTextColor(getResources().getColor(
-                                R.color.common_setup_input_description, null));
+                        descriptionView.setTextColor(
+                                getResources()
+                                        .getColor(R.color.common_setup_input_description, null));
                         descriptionView.setTypeface(Typeface.create(getString(R.string.font), 0));
                     }
                 }
+                setAccessibilityDelegate(vh, action);
             }
         }
     }

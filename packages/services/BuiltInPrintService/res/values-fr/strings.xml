@@ -29,7 +29,6 @@
     <string name="printer_offline" msgid="9196864753298645066">"Hors connexion"</string>
     <string name="printer_check" msgid="6428369671197132828">"Vérifier l\'imprimante"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Envoi en attente"</string>
-    <string name="wifi_not_connected" msgid="8644760246612043851">"Wi-Fi non connecté"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Impossible de lire le document"</string>
     <string name="media_size_l" msgid="164416542021598181">"G"</string>
     <string name="media_size_5x7in" msgid="1275128379533195285">"12 x 18 cm"</string>
@@ -38,12 +37,24 @@
     <string name="media_size_8x10in" msgid="1872576638522812402">"20 x 25 cm"</string>
     <string name="media_size_4x6in" msgid="3093276425529958253">"10 x 15 cm"</string>
     <string name="printer_description" msgid="8580767673213837142">"%1$s – %2$s"</string>
-    <string name="title_activity_add_printer" msgid="3971541707589830268">"Imprimantes ajoutées manuellement"</string>
-    <string name="add_manual_printer" msgid="3990455596246121671">"Ajouter une imprimante manuellement"</string>
+    <string name="title_activity_add_printer" msgid="9119216095769228566">"Ajouter une imprimante"</string>
+    <string name="add_printer_by_ip" msgid="562864787592910327">"Ajouter une imprimante au moyen de l\'adresse IP"</string>
     <string name="hostname_or_ip" msgid="3460546103553992915">"Nom d\'hôte ou adresse IP"</string>
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"Ajouter"</string>
+    <string name="add_named" msgid="9074106244018070583">"Ajouter l\'imprimante <xliff:g id="PRINTER">%1$s</xliff:g>"</string>
     <string name="no_printer_found" msgid="4777867380924351173">"Aucune imprimante trouvée à cette adresse"</string>
     <string name="printer_not_supported" msgid="281955849350938408">"Imprimante non compatible"</string>
-    <string name="forget_printer" msgid="7287993564179837445">"Supprimer l\'imprimante"</string>
+    <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
+    <string name="find_wifi_direct" msgid="5270504288829123954">"Rechercher des imprimantes Wi-Fi Direct"</string>
+    <string name="wifi_direct_printers" msgid="541168032444693191">"Imprimantes Wi-Fi Direct"</string>
+    <string name="searching" msgid="2114018057619514587">"Recherche…"</string>
+    <string name="connect_hint_text" msgid="587112503851044234">"Vous devrez peut-être approuver cette connexion sur le panneau avant de votre imprimante"</string>
+    <string name="connecting_to" msgid="2665161014972086194">"Connexion à l\'imprimante <xliff:g id="PRINTER">%1$s</xliff:g>"</string>
+    <string name="failed_printer_connection" msgid="4196305972749960362">"Impossible de se connecter à l\'imprimante"</string>
+    <string name="failed_connection" msgid="8068661997318286575">"Impossible de se connecter à l\'imprimante <xliff:g id="PRINTER">%1$s</xliff:g>"</string>
+    <string name="saved_printers" msgid="4567534965213125526">"Imprimantes enregistrées"</string>
+    <string name="forget" msgid="892068061425802502">"Supprimer"</string>
+    <string name="connects_via_wifi_direct" msgid="652300632780158437">"Se connecte via Wi-Fi Direct"</string>
+    <string name="connects_via_network" msgid="5990041581556733898">"Se connecte via le réseau actuel à l\'adresse <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
 </resources>

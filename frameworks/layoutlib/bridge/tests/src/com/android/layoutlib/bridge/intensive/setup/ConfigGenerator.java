@@ -163,8 +163,7 @@ public class ConfigGenerator {
     private Navigation mNavigation = Navigation.NONAV;
 
     public FolderConfiguration getFolderConfig() {
-        FolderConfiguration config = new FolderConfiguration();
-        config.createDefault();
+        FolderConfiguration config = FolderConfiguration.createDefault();
         config.setDensityQualifier(new DensityQualifier(mDensity));
         config.setNavigationMethodQualifier(new NavigationMethodQualifier(mNavigation));
         if (mScreenWidth > mScreenHeight) {

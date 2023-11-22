@@ -15,18 +15,20 @@
 -->
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:key="edit_medical_info_settings">
 
     <com.android.emergency.preferences.NameAutoCompletePreference
-        android:icon="@drawable/ic_account_circle"
+        android:icon="@drawable/ic_account_circle_filled_24dp"
         android:inputType="textCapWords|textPersonName"
         android:key="name"
         android:singleLine="true"
         android:title="@string/name"
-        app:summary="@string/unknown_name" />
+        app:summary="@string/unknown_name"
+        style="@style/NameAutoCompletePreference" />
 
     <com.android.emergency.preferences.EmergencyEditTextPreference
-        android:icon="@drawable/ic_address_black_24dp"
+        android:icon="@drawable/ic_home_24dp"
         android:inputType="textCapWords|textPostalAddress|textMultiLine"
         android:key="address"
         android:singleLine="false"
@@ -38,7 +40,7 @@
         android:defaultValue=""
         android:entries="@array/blood_type_entries"
         android:entryValues="@array/blood_type_values"
-        android:icon="@drawable/ic_bloodtype_black_24dp"
+        android:icon="@drawable/ic_bloodtype_24dp"
         android:key="blood_type"
         android:negativeButtonText="@null"
         android:positiveButtonText="@null"
@@ -71,7 +73,7 @@
     <com.android.emergency.preferences.EmergencyListPreference
         android:entries="@array/organ_donor_entries"
         android:entryValues="@array/organ_donor_values"
-        android:icon="@drawable/ic_heart_black_24dp"
+        android:icon="@drawable/ic_favorite_border_24dp"
         android:key="organ_donor"
         android:defaultValue=""
         android:negativeButtonText="@null"
@@ -83,7 +85,7 @@
         android:capitalize="sentences"
         android:hint="@string/medical_conditions_hint"
         android:textColorHint="@color/hint_text_color"
-        android:icon="@drawable/ic_notes_black_24dp"
+        android:icon="@drawable/ic_note_alt_24dp"
         android:inputType="textMultiLine"
         android:key="medical_conditions"
         android:singleLine="false"

@@ -2,7 +2,7 @@
   The internal header file includes the common header files, defines
   internal structure and functions used by SmmCore module.
 
-  Copyright (c) 2009 - 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2009 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials are licensed and made available 
   under the terms and conditions of the BSD License which accompanies this 
   distribution.  The full text of the license may be found at        
@@ -36,12 +36,13 @@
 #include <Guid/Apriori.h>
 #include <Guid/EventGroup.h>
 #include <Guid/EventLegacyBios.h>
-#include <Guid/ZeroGuid.h>
 #include <Guid/MemoryProfile.h>
+#include <Guid/LoadModuleAtFixedAddress.h>
 
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/PeCoffLib.h>
+#include <Library/PeCoffGetEntryPointLib.h>
 #include <Library/CacheMaintenanceLib.h>
 #include <Library/DebugLib.h>
 #include <Library/ReportStatusCodeLib.h>
@@ -110,6 +111,8 @@ typedef struct {
   // Image Page Number
   //
   UINTN                           NumberOfPage;
+  EFI_HANDLE                      SmmImageHandle;
+  EFI_LOADED_IMAGE_PROTOCOL       SmmLoadedImage;
 } EFI_SMM_DRIVER_ENTRY;
 
 #define EFI_HANDLE_SIGNATURE            SIGNATURE_32('h','n','d','l')
@@ -310,7 +313,7 @@ SmmInternalAllocatePages (
   @param  NumberOfPages          The number of pages to free
 
   @retval EFI_NOT_FOUND          Could not find the entry that covers the range
-  @retval EFI_INVALID_PARAMETER  Address not aligned
+  @retval EFI_INVALID_PARAMETER  Address not aligned, Address is zero or NumberOfPages is zero.
   @return EFI_SUCCESS            Pages successfully freed.
 
 **/
@@ -328,7 +331,7 @@ SmmFreePages (
   @param  NumberOfPages          The number of pages to free
 
   @retval EFI_NOT_FOUND          Could not find the entry that covers the range
-  @retval EFI_INVALID_PARAMETER  Address not aligned
+  @retval EFI_INVALID_PARAMETER  Address not aligned, Address is zero or NumberOfPages is zero.
   @return EFI_SUCCESS            Pages successfully freed.
 
 **/
@@ -548,6 +551,38 @@ SmmLocateProtocol (
   IN  EFI_GUID  *Protocol,
   IN  VOID      *Registration OPTIONAL,
   OUT VOID      **Interface
+  );
+
+/**
+  Function returns an array of handles that support the requested protocol
+  in a buffer allocated from pool. This is a version of SmmLocateHandle()
+  that allocates a buffer for the caller.
+
+  @param  SearchType             Specifies which handle(s) are to be returned.
+  @param  Protocol               Provides the protocol to search by.    This
+                                 parameter is only valid for SearchType
+                                 ByProtocol.
+  @param  SearchKey              Supplies the search key depending on the
+                                 SearchType.
+  @param  NumberHandles          The number of handles returned in Buffer.
+  @param  Buffer                 A pointer to the buffer to return the requested
+                                 array of  handles that support Protocol.
+
+  @retval EFI_SUCCESS            The result array of handles was returned.
+  @retval EFI_NOT_FOUND          No handles match the search.
+  @retval EFI_OUT_OF_RESOURCES   There is not enough pool memory to store the
+                                 matching results.
+  @retval EFI_INVALID_PARAMETER  One or more paramters are not valid.
+
+**/
+EFI_STATUS
+EFIAPI
+SmmLocateHandleBuffer (
+  IN     EFI_LOCATE_SEARCH_TYPE  SearchType,
+  IN     EFI_GUID                *Protocol OPTIONAL,
+  IN     VOID                    *SearchKey OPTIONAL,
+  IN OUT UINTN                   *NumberHandles,
+  OUT    EFI_HANDLE              **Buffer
   );
 
 /**
@@ -885,16 +920,27 @@ SmramProfileInit (
   );
 
 /**
+  Install SMRAM profile protocol.
+
+**/
+VOID
+SmramProfileInstallProtocol (
+  VOID
+  );
+
+/**
   Register SMM image to SMRAM profile.
 
   @param DriverEntry    SMM image info.
   @param RegisterToDxe  Register image to DXE.
 
-  @retval TRUE          Register success.
-  @retval FALSE         Register fail.
+  @return EFI_SUCCESS           Register successfully.
+  @return EFI_UNSUPPORTED       Memory profile unsupported,
+                                or memory profile for the image is not required.
+  @return EFI_OUT_OF_RESOURCES  No enough resource for this register.
 
 **/
-BOOLEAN
+EFI_STATUS
 RegisterSmramProfileImage (
   IN EFI_SMM_DRIVER_ENTRY   *DriverEntry,
   IN BOOLEAN                RegisterToDxe
@@ -906,11 +952,13 @@ RegisterSmramProfileImage (
   @param DriverEntry        SMM image info.
   @param UnregisterToDxe    Unregister image from DXE.
 
-  @retval TRUE              Unregister success.
-  @retval FALSE             Unregister fail.
+  @return EFI_SUCCESS           Unregister successfully.
+  @return EFI_UNSUPPORTED       Memory profile unsupported,
+                                or memory profile for the image is not required.
+  @return EFI_NOT_FOUND         The image is not found.
 
 **/
-BOOLEAN
+EFI_STATUS
 UnregisterSmramProfileImage (
   IN EFI_SMM_DRIVER_ENTRY   *DriverEntry,
   IN BOOLEAN                UnregisterToDxe
@@ -922,20 +970,31 @@ UnregisterSmramProfileImage (
   @param CallerAddress  Address of caller who call Allocate or Free.
   @param Action         This Allocate or Free action.
   @param MemoryType     Memory type.
+                        EfiMaxMemoryType means the MemoryType is unknown.
   @param Size           Buffer size.
   @param Buffer         Buffer address.
+  @param ActionString   String for memory profile action.
+                        Only needed for user defined allocate action.
 
-  @retval TRUE          Profile udpate success.
-  @retval FALSE         Profile update fail.
+  @return EFI_SUCCESS           Memory profile is updated.
+  @return EFI_UNSUPPORTED       Memory profile is unsupported,
+                                or memory profile for the image is not required,
+                                or memory profile for the memory type is not required.
+  @return EFI_ACCESS_DENIED     It is during memory profile data getting.
+  @return EFI_ABORTED           Memory profile recording is not enabled.
+  @return EFI_OUT_OF_RESOURCES  No enough resource to update memory profile for allocate action.
+  @return EFI_NOT_FOUND         No matched allocate info found for free action.
 
 **/
-BOOLEAN
+EFI_STATUS
+EFIAPI
 SmmCoreUpdateProfile (
-  IN EFI_PHYSICAL_ADDRESS CallerAddress,
-  IN MEMORY_PROFILE_ACTION Action,
-  IN EFI_MEMORY_TYPE      MemoryType, // Valid for AllocatePages/AllocatePool
-  IN UINTN                Size,       // Valid for AllocatePages/FreePages/AllocatePool
-  IN VOID                 *Buffer
+  IN PHYSICAL_ADDRESS       CallerAddress,
+  IN MEMORY_PROFILE_ACTION  Action,
+  IN EFI_MEMORY_TYPE        MemoryType, // Valid for AllocatePages/AllocatePool
+  IN UINTN                  Size,       // Valid for AllocatePages/FreePages/AllocatePool
+  IN VOID                   *Buffer,
+  IN CHAR8                  *ActionString OPTIONAL
   );
 
 /**
@@ -956,8 +1015,65 @@ SmramProfileReadyToLock (
   VOID
   );
 
+/**
+  Initialize MemoryAttributes support.
+**/
+VOID
+EFIAPI
+SmmCoreInitializeMemoryAttributesTable (
+  VOID
+  );
+
+/**
+  This function returns a copy of the current memory map. The map is an array of
+  memory descriptors, each of which describes a contiguous block of memory.
+
+  @param[in, out]  MemoryMapSize          A pointer to the size, in bytes, of the
+                                          MemoryMap buffer. On input, this is the size of
+                                          the buffer allocated by the caller.  On output,
+                                          it is the size of the buffer returned by the
+                                          firmware  if the buffer was large enough, or the
+                                          size of the buffer needed  to contain the map if
+                                          the buffer was too small.
+  @param[in, out]  MemoryMap              A pointer to the buffer in which firmware places
+                                          the current memory map.
+  @param[out]      MapKey                 A pointer to the location in which firmware
+                                          returns the key for the current memory map.
+  @param[out]      DescriptorSize         A pointer to the location in which firmware
+                                          returns the size, in bytes, of an individual
+                                          EFI_MEMORY_DESCRIPTOR.
+  @param[out]      DescriptorVersion      A pointer to the location in which firmware
+                                          returns the version number associated with the
+                                          EFI_MEMORY_DESCRIPTOR.
+
+  @retval EFI_SUCCESS            The memory map was returned in the MemoryMap
+                                 buffer.
+  @retval EFI_BUFFER_TOO_SMALL   The MemoryMap buffer was too small. The current
+                                 buffer size needed to hold the memory map is
+                                 returned in MemoryMapSize.
+  @retval EFI_INVALID_PARAMETER  One of the parameters has an invalid value.
+
+**/
+EFI_STATUS
+EFIAPI
+SmmCoreGetMemoryMap (
+  IN OUT UINTN                  *MemoryMapSize,
+  IN OUT EFI_MEMORY_DESCRIPTOR  *MemoryMap,
+  OUT UINTN                     *MapKey,
+  OUT UINTN                     *DescriptorSize,
+  OUT UINT32                    *DescriptorVersion
+  );
+
+///
+/// For generic EFI machines make the default allocations 4K aligned
+///
+#define EFI_ACPI_RUNTIME_PAGE_ALLOCATION_ALIGNMENT  (EFI_PAGE_SIZE)
+#define DEFAULT_PAGE_ALLOCATION                     (EFI_PAGE_SIZE)
+
 extern UINTN                    mFullSmramRangeCount;
 extern EFI_SMRAM_DESCRIPTOR     *mFullSmramRanges;
+
+extern EFI_SMM_DRIVER_ENTRY       *mSmmCoreDriverEntry;
 
 extern EFI_LOADED_IMAGE_PROTOCOL  *mSmmCoreLoadedImage;
 
@@ -994,8 +1110,9 @@ extern LIST_ENTRY  mSmmMemoryMap;
 #define MAX_POOL_INDEX  (MAX_POOL_SHIFT - MIN_POOL_SHIFT + 1)
 
 typedef struct {
-  UINTN        Size;
-  BOOLEAN      Available;
+  UINTN           Size;
+  BOOLEAN         Available;
+  EFI_MEMORY_TYPE Type;
 } POOL_HEADER;
 
 typedef struct {
@@ -1003,6 +1120,12 @@ typedef struct {
   LIST_ENTRY   Link;
 } FREE_POOL_HEADER;
 
-extern LIST_ENTRY  mSmmPoolLists[MAX_POOL_INDEX];
+typedef enum {
+  SmmPoolTypeCode,
+  SmmPoolTypeData,
+  SmmPoolTypeMax,
+} SMM_POOL_TYPE;
+
+extern LIST_ENTRY  mSmmPoolLists[SmmPoolTypeMax][MAX_POOL_INDEX];
 
 #endif

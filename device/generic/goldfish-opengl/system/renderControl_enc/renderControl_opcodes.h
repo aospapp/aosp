@@ -39,7 +39,8 @@
 #define OP_rcSetPuid 					10033
 #define OP_rcUpdateColorBufferDMA 					10034
 #define OP_rcCreateColorBufferDMA 					10035
-#define OP_last 					10036
+#define OP_rcWaitSyncKHR 					10036
+#define OP_last 					10037
 
 
 #endif

@@ -27,21 +27,19 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.ArraySet;
 import android.util.Log;
-
-import com.android.tv.ApplicationSingletons;
 import com.android.tv.InputSessionManager;
 import com.android.tv.InputSessionManager.OnTvViewChannelChangeListener;
 import com.android.tv.MainActivity;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.WeakHandler;
-import com.android.tv.data.Channel;
 import com.android.tv.data.ChannelDataManager;
+import com.android.tv.data.api.Channel;
 import com.android.tv.dvr.DvrDataManager.ScheduledRecordingListener;
 import com.android.tv.dvr.DvrScheduleManager;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.ui.DvrUiHelper;
-
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,8 +48,9 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Checking the runtime conflict of DVR recording.
- * <p>
- * This class runs only while the {@link MainActivity} is resumed and holds the upcoming conflicts.
+ *
+ * <p>This class runs only while the {@link MainActivity} is resumed and holds the upcoming
+ * conflicts.
  */
 @TargetApi(Build.VERSION_CODES.N)
 @MainThread
@@ -87,24 +86,40 @@ public class ConflictChecker {
 
     private final ScheduledRecordingListener mScheduledRecordingListener =
             new ScheduledRecordingListener() {
-        @Override
-        public void onScheduledRecordingAdded(ScheduledRecording... scheduledRecordings) {
-            if (DEBUG) Log.d(TAG, "onScheduledRecordingAdded: " + scheduledRecordings);
-            mHandler.sendEmptyMessage(MSG_CHECK_CONFLICT);
-        }
+                @Override
+                public void onScheduledRecordingAdded(ScheduledRecording... scheduledRecordings) {
+                    if (DEBUG) {
+                        Log.d(
+                                TAG,
+                                "onScheduledRecordingAdded: "
+                                        + Arrays.toString(scheduledRecordings));
+                    }
+                    mHandler.sendEmptyMessage(MSG_CHECK_CONFLICT);
+                }
 
-        @Override
-        public void onScheduledRecordingRemoved(ScheduledRecording... scheduledRecordings) {
-            if (DEBUG) Log.d(TAG, "onScheduledRecordingRemoved: " + scheduledRecordings);
-            mHandler.sendEmptyMessage(MSG_CHECK_CONFLICT);
-        }
+                @Override
+                public void onScheduledRecordingRemoved(ScheduledRecording... scheduledRecordings) {
+                    if (DEBUG) {
+                        Log.d(
+                                TAG,
+                                "onScheduledRecordingRemoved: "
+                                        + Arrays.toString(scheduledRecordings));
+                    }
+                    mHandler.sendEmptyMessage(MSG_CHECK_CONFLICT);
+                }
 
-        @Override
-        public void onScheduledRecordingStatusChanged(ScheduledRecording... scheduledRecordings) {
-            if (DEBUG) Log.d(TAG, "onScheduledRecordingStatusChanged: " + scheduledRecordings);
-            mHandler.sendEmptyMessage(MSG_CHECK_CONFLICT);
-        }
-    };
+                @Override
+                public void onScheduledRecordingStatusChanged(
+                        ScheduledRecording... scheduledRecordings) {
+                    if (DEBUG) {
+                        Log.d(
+                                TAG,
+                                "onScheduledRecordingStatusChanged: "
+                                        + Arrays.toString(scheduledRecordings));
+                    }
+                    mHandler.sendEmptyMessage(MSG_CHECK_CONFLICT);
+                }
+            };
 
     private final OnTvViewChannelChangeListener mOnTvViewChannelChangeListener =
             new OnTvViewChannelChangeListener() {
@@ -118,15 +133,13 @@ public class ConflictChecker {
 
     public ConflictChecker(MainActivity mainActivity) {
         mMainActivity = mainActivity;
-        ApplicationSingletons appSingletons = TvApplication.getSingletons(mainActivity);
-        mChannelDataManager = appSingletons.getChannelDataManager();
-        mScheduleManager = appSingletons.getDvrScheduleManager();
-        mSessionManager = appSingletons.getInputSessionManager();
+        TvSingletons tvSingletons = TvSingletons.getSingletons(mainActivity);
+        mChannelDataManager = tvSingletons.getChannelDataManager();
+        mScheduleManager = tvSingletons.getDvrScheduleManager();
+        mSessionManager = tvSingletons.getInputSessionManager();
     }
 
-    /**
-     * Starts checking the conflict.
-     */
+    /** Starts checking the conflict. */
     public void start() {
         if (mStarted) {
             return;
@@ -137,9 +150,7 @@ public class ConflictChecker {
         mSessionManager.addOnTvViewChannelChangeListener(mOnTvViewChannelChangeListener);
     }
 
-    /**
-     * Stops checking the conflict.
-     */
+    /** Stops checking the conflict. */
     public void stop() {
         if (!mStarted) {
             return;
@@ -150,23 +161,17 @@ public class ConflictChecker {
         mHandler.removeCallbacksAndMessages(null);
     }
 
-    /**
-     * Returns the upcoming conflicts.
-     */
+    /** Returns the upcoming conflicts. */
     public List<ScheduledRecording> getUpcomingConflicts() {
         return new ArrayList<>(mUpcomingConflicts);
     }
 
-    /**
-     * Adds a {@link OnUpcomingConflictChangeListener}.
-     */
+    /** Adds a {@link OnUpcomingConflictChangeListener}. */
     public void addOnUpcomingConflictChangeListener(OnUpcomingConflictChangeListener listener) {
         mOnUpcomingConflictChangeListeners.add(listener);
     }
 
-    /**
-     * Removes the {@link OnUpcomingConflictChangeListener}.
-     */
+    /** Removes the {@link OnUpcomingConflictChangeListener}. */
     public void removeOnUpcomingConflictChangeListener(OnUpcomingConflictChangeListener listener) {
         mOnUpcomingConflictChangeListeners.remove(listener);
     }
@@ -177,9 +182,7 @@ public class ConflictChecker {
         }
     }
 
-    /**
-     * Remembers the user's decision to record while watching the channel.
-     */
+    /** Remembers the user's decision to record while watching the channel. */
     public void setCheckedConflictsForChannel(long mChannelId, List<ScheduledRecording> conflicts) {
         mCheckedConflictsMap.put(mChannelId, new ArrayList<>(conflicts));
     }
@@ -190,8 +193,7 @@ public class ConflictChecker {
         if (DEBUG) Log.d(TAG, "Handling MSG_CHECK_CONFLICT");
         mHandler.removeMessages(MSG_CHECK_CONFLICT);
         mUpcomingConflicts.clear();
-        if (!mScheduleManager.isInitialized()
-                || !mChannelDataManager.isDbLoadFinished()) {
+        if (!mScheduleManager.isInitialized() || !mChannelDataManager.isDbLoadFinished()) {
             mHandler.sendEmptyMessageDelayed(MSG_CHECK_CONFLICT, CHECK_RETRY_PERIOD_MS);
             notifyUpcomingConflictChanged();
             return;
@@ -209,8 +211,8 @@ public class ConflictChecker {
         long channelId = ContentUris.parseId(channelUri);
         Channel channel = mChannelDataManager.getChannel(channelId);
         // The conflicts caused by watching the channel.
-        List<ScheduledRecording> conflicts = mScheduleManager
-                .getConflictingSchedulesForWatching(channel.getId());
+        List<ScheduledRecording> conflicts =
+                mScheduleManager.getConflictingSchedulesForWatching(channel.getId());
         long earliestToCheck = Long.MAX_VALUE;
         long currentTimeMs = System.currentTimeMillis();
         for (ScheduledRecording schedule : conflicts) {
@@ -239,18 +241,15 @@ public class ConflictChecker {
             }
         }
         if (earliestToCheck != Long.MAX_VALUE) {
-            mHandler.sendEmptyMessageDelayed(MSG_CHECK_CONFLICT,
-                    earliestToCheck - currentTimeMs);
+            mHandler.sendEmptyMessageDelayed(MSG_CHECK_CONFLICT, earliestToCheck - currentTimeMs);
         }
         if (DEBUG) Log.d(TAG, "upcoming conflicts: " + mUpcomingConflicts);
         notifyUpcomingConflictChanged();
         if (!mUpcomingConflicts.isEmpty()
                 && !DvrUiHelper.isChannelWatchConflictDialogShown(mMainActivity)) {
             // Don't show the conflict dialog if the user already knows.
-            List<ScheduledRecording> checkedConflicts = mCheckedConflictsMap.get(
-                    channel.getId());
-            if (checkedConflicts == null
-                    || !checkedConflicts.containsAll(mUpcomingConflicts)) {
+            List<ScheduledRecording> checkedConflicts = mCheckedConflictsMap.get(channel.getId());
+            if (checkedConflicts == null || !checkedConflicts.containsAll(mUpcomingConflicts)) {
                 DvrUiHelper.showChannelWatchConflictDialog(mMainActivity, channel);
             }
         }
@@ -271,9 +270,7 @@ public class ConflictChecker {
         }
     }
 
-    /**
-     * A listener for the change of upcoming conflicts.
-     */
+    /** A listener for the change of upcoming conflicts. */
     public interface OnUpcomingConflictChangeListener {
         void onUpcomingConflictChange();
     }

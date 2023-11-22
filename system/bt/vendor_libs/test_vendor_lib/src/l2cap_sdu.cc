@@ -1,20 +1,19 @@
-/******************************************************************************
+/*
+ * Copyright 2017 The Android Open Source Project
  *
- *  Copyright (C) 2017 Google, Inc.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at:
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- *  http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- *
- ******************************************************************************/
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include "l2cap_sdu.h"
 
 #include <base/logging.h>
@@ -57,11 +56,19 @@ const uint16_t L2capSdu::lfsr_table_[256] = {
     0x4100, 0x81c1, 0x8081, 0x4040,
 };  // lfsr_table
 
-L2capSdu::L2capSdu(std::vector<uint8_t> create_from) {
-  sdu_data_ = std::move(create_from);
+L2capSdu::L2capSdu(std::vector<uint8_t>&& create_from) {
+  sdu_data_ = create_from;
 }
 
-L2capSdu L2capSdu::L2capSduBuilder(std::vector<uint8_t> create_from) {
+std::shared_ptr<L2capSdu> L2capSdu::L2capSduConstructor(
+    std::vector<uint8_t> create_from) {
+  L2capSdu packet(std::move(create_from));
+
+  return std::make_shared<L2capSdu>(packet);
+}
+
+std::shared_ptr<L2capSdu> L2capSdu::L2capSduBuilder(
+    std::vector<uint8_t> create_from) {
   L2capSdu packet(std::move(create_from));
 
   packet.sdu_data_.resize(packet.sdu_data_.size() + 2, 0x00);
@@ -71,16 +78,7 @@ L2capSdu L2capSdu::L2capSduBuilder(std::vector<uint8_t> create_from) {
   packet.sdu_data_[packet.sdu_data_.size() - 2] = fcs & 0xFF;
   packet.sdu_data_[packet.sdu_data_.size() - 1] = (fcs & 0xFF00) >> 8;
 
-  return packet;
-}
-
-std::vector<uint8_t>::const_iterator L2capSdu::get_payload_begin(
-    const unsigned int offset) const {
-  return std::next(sdu_data_.begin(), offset);
-}
-
-std::vector<uint8_t>::const_iterator L2capSdu::get_payload_end() const {
-  return std::prev(sdu_data_.end(), 2);
+  return std::make_shared<L2capSdu>(packet);
 }
 
 uint16_t L2capSdu::convert_from_little_endian(
@@ -143,5 +141,9 @@ bool L2capSdu::is_ending_sdu(const L2capSdu& sdu) {
 
   return (sar_bits == 0x8000);
 }
+
+// HciPacket functions.
+size_t L2capSdu::get_length() { return sdu_data_.size(); }
+uint8_t& L2capSdu::get_at_index(size_t index) { return sdu_data_[index]; }
 
 }  // namespace test_vendor_lib

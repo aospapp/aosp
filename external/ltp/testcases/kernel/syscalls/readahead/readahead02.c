@@ -45,7 +45,7 @@
 #include "config.h"
 #include "test.h"
 #include "safe_macros.h"
-#include "linux_syscall_numbers.h"
+#include "lapi/syscalls.h"
 
 char *TCID = "readahead02";
 int TST_TOTAL = 1;
@@ -59,7 +59,7 @@ static int opt_fsize;
 static char *opt_fsizestr;
 static int pagesize;
 
-#define MIN_SANE_READAHEAD (4 * 1024)
+#define MIN_SANE_READAHEAD (4u * 1024u)
 
 option_t options[] = {
 	{"s:", &opt_fsize, &opt_fsizestr},
@@ -161,7 +161,7 @@ static void create_testfile(void)
 	char *tmp;
 	size_t i;
 
-	tst_resm(TINFO, "creating test file of size: %ld", testfile_size);
+	tst_resm(TINFO, "creating test file of size: %zu", testfile_size);
 	tmp = SAFE_MALLOC(cleanup, pagesize);
 
 	/* round to page size */
@@ -211,9 +211,7 @@ static void read_testfile(int do_readahead, const char *fname, size_t fsize,
 	off_t offset = 0;
 	struct timeval now;
 
-	fd = open(fname, O_RDONLY);
-	if (fd < 0)
-		tst_brkm(TBROK | TERRNO, cleanup, "Failed to open %s", fname);
+	fd = SAFE_OPEN(cleanup, fname, O_RDONLY);
 
 	if (do_readahead) {
 		cached_start = get_cached_size();
@@ -273,8 +271,7 @@ static void read_testfile(int do_readahead, const char *fname, size_t fsize,
 	if (!do_readahead)
 		*cached = get_cached_size();
 
-	if (munmap(p, fsize) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "munmap failed");
+	SAFE_MUNMAP(cleanup, p, fsize);
 
 	*read_bytes = get_bytes_read() - read_bytes_start;
 	if (gettimeofday(&now, NULL) == -1)
@@ -282,8 +279,7 @@ static void read_testfile(int do_readahead, const char *fname, size_t fsize,
 	time_end_usec = now.tv_sec * 1000000 + now.tv_usec;
 	*usec = time_end_usec - time_start_usec;
 
-	if (close(fd) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "close failed");
+	SAFE_CLOSE(cleanup, fd);
 }
 
 static void test_readahead(void)

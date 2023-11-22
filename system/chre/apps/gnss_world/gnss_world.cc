@@ -28,14 +28,19 @@ namespace chre {
 namespace {
 #endif  // CHRE_NANOAPP_INTERNAL
 
-//! A dummy cookie to pass into the location session async request.
+//! Control which test(s) to run
+constexpr bool kEnableLocationTest = true;
+constexpr bool kEnableMeasurementTest = true;
+
+//! A dummy cookie to pass into the session async and timer request.
 const uint32_t kLocationSessionCookie = 0x1337;
+const uint32_t kMeasurementSessionCookie = 0xdaad;
 
 //! The minimum time to the next fix for a location.
 constexpr Milliseconds kLocationMinTimeToNextFix(0);
 
-//! The interval in seconds between location updates.
-const uint32_t kLocationIntervals[] = {
+//! The interval in seconds between updates.
+const uint32_t kReportIntervals[] = {
   30,
   15,
   30,
@@ -44,17 +49,22 @@ const uint32_t kLocationIntervals[] = {
   10,
 };
 
-//! Whether Gnss Location capability is supported by the platform
+//! Whether a specific Gnss capability is supported by the platform
 bool gLocationSupported = false;
+bool gMeasurementSupported = false;
 
-uint32_t gTimerHandle;
-uint32_t gTimerCount = 0;
+uint32_t gLocationTimerHandle;
+uint32_t gLocationTimerCount = 0;
+
+uint32_t gMeasurementTimerHandle;
+uint32_t gMeasurementTimerCount = 0;
 
 //! Whether an async result has been received.
-bool gAsyncResultReceived = false;
+bool gLocationAsyncResultReceived = false;
+bool gMeasurementAsyncResultReceived = false;
 
 void makeLocationRequest() {
-  uint32_t interval = kLocationIntervals[gTimerCount++];
+  uint32_t interval = kReportIntervals[gLocationTimerCount++];
   LOGI("Modifying location update interval to %" PRIu32 " sec", interval);
 
   if (interval > 0) {
@@ -76,51 +86,127 @@ void makeLocationRequest() {
   }
 
   // set a timer to verify reception of async result.
-  gTimerHandle = chreTimerSet(
+  gLocationTimerHandle = chreTimerSet(
       CHRE_GNSS_ASYNC_RESULT_TIMEOUT_NS, /* 5 sec in CHRE 1.1 */
-      nullptr /* data */, true /* oneShot */);
+      &kLocationSessionCookie, true /* oneShot */);
+}
+
+void makeMeasurementRequest() {
+  uint32_t interval = kReportIntervals[gMeasurementTimerCount++];
+  LOGI("Modifying measurement update interval to %" PRIu32 " sec", interval);
+
+  if (interval > 0) {
+    if (chreGnssMeasurementSessionStartAsync(
+          interval * 1000, &kMeasurementSessionCookie)) {
+      LOGI("Measurement session start request sent");
+    } else {
+      LOGE("Error sending measurement session start request");
+    }
+  } else {
+    if (chreGnssMeasurementSessionStopAsync(
+          &kMeasurementSessionCookie)) {
+      LOGI("Measurement session stop request sent");
+    } else {
+      LOGE("Error sending measurement session stop request");
+    }
+  }
+
+  // set a timer to verify reception of async result.
+  gMeasurementTimerHandle = chreTimerSet(
+      CHRE_GNSS_ASYNC_RESULT_TIMEOUT_NS, /* 5 sec in CHRE 1.1 */
+      &kMeasurementSessionCookie, true /* oneShot */);
 }
 
 void handleTimerEvent(const void *eventData) {
-  LOGI("Timer event received, count %d", gTimerCount);
-  if (!gAsyncResultReceived) {
-    LOGE("Async result not received!");
-  }
-  gAsyncResultReceived = false;
+  bool validData = true;
 
-  if (gLocationSupported && gTimerCount < ARRAY_SIZE(kLocationIntervals)) {
-    makeLocationRequest();
+  bool supported;
+  const char *name;
+  uint32_t timerCount;
+  bool *asyncResultReceived;
+  void (*makeRequest)();
+
+  if (eventData == &kLocationSessionCookie) {
+    supported = gLocationSupported;
+    name = "location";
+    timerCount = gLocationTimerCount;
+    asyncResultReceived = &gLocationAsyncResultReceived;
+    makeRequest = makeLocationRequest;
+  } else if (eventData == &kMeasurementSessionCookie) {
+    supported = gMeasurementSupported;
+    name = "measurement";
+    timerCount = gMeasurementTimerCount;
+    asyncResultReceived = &gMeasurementAsyncResultReceived;
+    makeRequest = makeMeasurementRequest;
+  } else {
+    validData = false;
+    LOGE("Invalid timer cookie");
+  }
+
+  if (validData) {
+    LOGI("%s timer event received, count %" PRIu32, name, timerCount);
+    if (!*asyncResultReceived) {
+      LOGE("%s async result not received!", name);
+    }
+    *asyncResultReceived = false;
+
+    if (supported && timerCount < ARRAY_SIZE(kReportIntervals)) {
+      makeRequest();
+    }
   }
 }
 
 void handleGnssAsyncResult(const chreAsyncResult *result) {
-  if (result->requestType == CHRE_GNSS_REQUEST_TYPE_LOCATION_SESSION_START) {
+  bool validResult = true;
+  const char *action = nullptr;
+  const char *name;
+  bool *received;
+  const uint32_t *cookie;
+
+  switch (result->requestType) {
+    case CHRE_GNSS_REQUEST_TYPE_LOCATION_SESSION_START:
+      action = "start";
+      // fall through to CHRE_GNSS_REQUEST_TYPE_LOCATION_SESSION_STOP
+
+    case CHRE_GNSS_REQUEST_TYPE_LOCATION_SESSION_STOP:
+      if (action == nullptr) {
+        action = "stop";
+      }
+      name = "location";
+      received = &gLocationAsyncResultReceived;
+      cookie = &kLocationSessionCookie;
+      break;
+
+    case CHRE_GNSS_REQUEST_TYPE_MEASUREMENT_SESSION_START:
+      action = "start";
+      // fall through to CHRE_GNSS_REQUEST_TYPE_MEASUREMENT_SESSION_STOP
+
+    case CHRE_GNSS_REQUEST_TYPE_MEASUREMENT_SESSION_STOP:
+      if (action == nullptr) {
+        action = "stop";
+      }
+      name = "measurement";
+      received = &gMeasurementAsyncResultReceived;
+      cookie = &kMeasurementSessionCookie;
+      break;
+
+    default:
+      LOGE("Received invalid async result %" PRIu8, result->requestType);
+      validResult = false;
+      break;
+  }
+
+  if (validResult) {
+    *received = true;
     if (result->success) {
-      LOGI("Successfully requested a GNSS location session");
-      gAsyncResultReceived = true;
+      LOGI("GNSS %s %s success", name, action);
     } else {
-      LOGE("Error requesting GNSS scan monitoring with %" PRIu8,
-           result->errorCode);
+      LOGE("GNSS %s %s failure: %" PRIu8, name, action, result->errorCode);
     }
 
-    if (result->cookie != &kLocationSessionCookie) {
-      LOGE("Location session start request cookie mismatch");
+    if (result->cookie != cookie) {
+      LOGE("GNSS %s session %s request cookie mismatch", name, action);
     }
-  } else if (result->requestType
-             == CHRE_GNSS_REQUEST_TYPE_LOCATION_SESSION_STOP) {
-    if (result->success) {
-      LOGI("Successfully stopped a GNSS location session");
-      gAsyncResultReceived = true;
-    } else {
-      LOGE("Error stoppinging GNSS scan monitoring with %" PRIu8,
-           result->errorCode);
-    }
-
-    if (result->cookie != &kLocationSessionCookie) {
-      LOGE("Location session stop request cookie mismatch");
-    }
-  } else {
-    LOGE("Received invalid async result %" PRIu8, result->requestType);
   }
 }
 
@@ -135,6 +221,17 @@ void handleGnssLocationEvent(const chreGnssLocationEvent *event) {
   LOGI("  flags: %" PRIx16, event->flags);
 }
 
+void handleGnssDataEvent(const chreGnssDataEvent *event) {
+  LOGI("Received data: %" PRIu8 " measurements", event->measurement_count);
+
+  const struct chreGnssMeasurement *measurement = event->measurements;
+  for (uint8_t i = 0; i < event->measurement_count; i++) {
+    LOGI("%" PRIu8 ": const %" PRIu8 ", cn0 %f",
+         i, measurement->constellation, measurement->c_n0_dbhz);
+    measurement++;
+  }
+}
+
 bool nanoappStart() {
   LOGI("App started as instance %" PRIu32, chreGetInstanceId());
 
@@ -145,6 +242,7 @@ bool nanoappStart() {
         | CHRE_GNSS_CAPABILITIES_MEASUREMENTS:
       gnssCapabilitiesStr = "LOCATION | MEASUREMENTS";
       gLocationSupported = true;
+      gMeasurementSupported = true;
       break;
     case CHRE_GNSS_CAPABILITIES_LOCATION:
       gnssCapabilitiesStr = "LOCATION";
@@ -152,6 +250,7 @@ bool nanoappStart() {
       break;
     case CHRE_GNSS_CAPABILITIES_MEASUREMENTS:
       gnssCapabilitiesStr = "MEASUREMENTS";
+      gMeasurementSupported = true;
       break;
     case CHRE_GNSS_CAPABILITIES_NONE:
       gnssCapabilitiesStr = "NONE";
@@ -163,8 +262,12 @@ bool nanoappStart() {
   LOGI("Detected GNSS support as: %s (%" PRIu32 ")",
        gnssCapabilitiesStr, gnssCapabilities);
 
-  if (gLocationSupported) {
+  if (gLocationSupported && kEnableLocationTest) {
     makeLocationRequest();
+  }
+
+  if (gMeasurementSupported && kEnableMeasurementTest) {
+    makeMeasurementRequest();
   }
 
   return true;
@@ -180,6 +283,9 @@ void nanoappHandleEvent(uint32_t senderInstanceId,
     case CHRE_EVENT_GNSS_LOCATION:
       handleGnssLocationEvent(
           static_cast<const chreGnssLocationEvent *>(eventData));
+      break;
+    case CHRE_EVENT_GNSS_DATA:
+      handleGnssDataEvent(static_cast<const chreGnssDataEvent *>(eventData));
       break;
     case CHRE_EVENT_TIMER:
       handleTimerEvent(eventData);

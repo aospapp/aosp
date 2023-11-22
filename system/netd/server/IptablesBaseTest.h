@@ -36,7 +36,23 @@ public:
     static FILE *fake_popen(const char *cmd, const char *type);
     void expectIptablesRestoreCommands(const std::vector<std::string>& expectedCmds);
     void expectIptablesRestoreCommands(const ExpectedIptablesCommands& expectedCmds);
-    void setReturnValues(const std::deque<int>& returnValues);
+
+    static void setReturnValues(const std::deque<int>& returnValues) {
+        sReturnValues = returnValues;
+    }
+
+    static void addIptablesRestoreOutput(std::string contents) {
+        sIptablesRestoreOutput.push_back(contents);
+    }
+
+    static void addIptablesRestoreOutput(std::string contents1, std::string contents2) {
+        addIptablesRestoreOutput(contents1);
+        addIptablesRestoreOutput(contents2);
+    }
+
+    static void clearIptablesRestoreOutput() {
+        sIptablesRestoreOutput.clear();
+    }
 
 protected:
     static std::vector<std::string> sCmds;

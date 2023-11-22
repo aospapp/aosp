@@ -241,9 +241,11 @@ void CallbackNotifier::onNextFrameAvailable(nsecs_t timestamp,
         const size_t frameSize = camera_dev->getVideoFrameBufferSize();
         camera_memory_t* cam_buff = mGetMemoryCB(-1, frameSize, 1, mCBOpaque);
         if (NULL != cam_buff && NULL != cam_buff->data) {
-            camera_dev->getCurrentFrame(cam_buff->data, V4L2_PIX_FMT_YUV420);
-            mDataCBTimestamp(timestamp, CAMERA_MSG_VIDEO_FRAME,
-                               cam_buff, 0, mCBOpaque);
+            int64_t frame_timestamp = 0L;
+            camera_dev->getCurrentFrame(cam_buff->data, V4L2_PIX_FMT_YUV420,
+                                        &frame_timestamp);
+            mDataCBTimestamp(frame_timestamp != 0L ? frame_timestamp : timestamp,
+                             CAMERA_MSG_VIDEO_FRAME, cam_buff, 0, mCBOpaque);
             mCameraMemoryTs.push_back( cam_buff );
         } else {
             ALOGE("%s: Memory failure in CAMERA_MSG_VIDEO_FRAME", __FUNCTION__);
@@ -254,8 +256,10 @@ void CallbackNotifier::onNextFrameAvailable(nsecs_t timestamp,
         camera_memory_t* cam_buff =
             mGetMemoryCB(-1, camera_dev->getFrameBufferSize(), 1, mCBOpaque);
         if (NULL != cam_buff && NULL != cam_buff->data) {
+            int64_t frame_timestamp = 0L;
             camera_dev->getCurrentFrame(cam_buff->data,
-                                        camera_dev->getOriginalPixelFormat());
+                                        camera_dev->getOriginalPixelFormat(),
+                                        &frame_timestamp);
             mDataCB(CAMERA_MSG_PREVIEW_FRAME, cam_buff, 0, NULL, mCBOpaque);
             cam_buff->release(cam_buff);
         } else {

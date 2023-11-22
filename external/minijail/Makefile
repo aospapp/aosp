@@ -18,18 +18,30 @@ ifeq ($(USE_seccomp),no)
 CPPFLAGS += -DUSE_SECCOMP_SOFTFAIL
 endif
 
-CFLAGS += -Wextra -Wno-missing-field-initializers
-CXXFLAGS += -Wextra -Wno-missing-field-initializers
+ifeq ($(USE_ASAN),yes)
+CPPFLAGS += -fsanitize=address
+LDFLAGS += -fsanitize=address
+USE_EXIT_ON_DIE = yes
+endif
+
+# Setting this flag can be useful for both AddressSanitizer builds and running
+# fuzzing tools, which do not expect crashes on gracefully-handled malformed
+# inputs.
+ifeq ($(USE_EXIT_ON_DIE),yes)
+CPPFLAGS += -DUSE_EXIT_ON_DIE
+endif
+
+MJ_COMMON_FLAGS = -Wunused-parameter -Wextra -Wno-missing-field-initializers
+CFLAGS += $(MJ_COMMON_FLAGS)
+CXXFLAGS += $(MJ_COMMON_FLAGS)
 
 USE_SYSTEM_GTEST ?= no
 ifeq ($(USE_SYSTEM_GTEST),no)
-GTEST_CXXFLAGS := -std=gnu++11
-GTEST_MAIN := gtest_main.a
+GTEST_CXXFLAGS := -std=gnu++14
 GTEST_LIBS := gtest.a
 else
-GTEST_CXXFLAGS := $(gtest-config --cxxflags)
-GTEST_MAIN := -lgtest -lgtest_main
-GTEST_LIBS := $(gtest-config --libs)
+GTEST_CXXFLAGS := $(shell gtest-config --cxxflags)
+GTEST_LIBS := $(shell gtest-config --libs)
 endif
 
 CORE_OBJECT_FILES := libminijail.o syscall_filter.o signal_handler.o \
@@ -42,11 +54,15 @@ all: CC_BINARY(minijail0) CC_LIBRARY(libminijail.so) \
 parse_seccomp_policy: CXX_BINARY(parse_seccomp_policy)
 
 tests: TEST(CXX_BINARY(libminijail_unittest)) \
-	TEST(CXX_BINARY(syscall_filter_unittest))
+	TEST(CXX_BINARY(minijail0_cli_unittest)) \
+	TEST(CXX_BINARY(syscall_filter_unittest)) \
+	TEST(CXX_BINARY(system_unittest)) \
+	TEST(CXX_BINARY(util_unittest)) \
 
 
 CC_BINARY(minijail0): LDLIBS += -lcap -ldl
-CC_BINARY(minijail0): $(CORE_OBJECT_FILES) elfparse.o minijail0.o
+CC_BINARY(minijail0): $(CORE_OBJECT_FILES) \
+	elfparse.o minijail0.o minijail0_cli.o
 clean: CLEAN(minijail0)
 
 
@@ -57,11 +73,12 @@ clean: CLEAN(libminijail.so)
 
 CXX_BINARY(libminijail_unittest): CXXFLAGS += -Wno-write-strings \
 						$(GTEST_CXXFLAGS)
-CXX_BINARY(libminijail_unittest): LDLIBS += -lcap $(GTEST_MAIN)
+CXX_BINARY(libminijail_unittest): LDLIBS += -lcap $(GTEST_LIBS)
 ifeq ($(USE_SYSTEM_GTEST),no)
-CXX_BINARY(libminijail_unittest): $(GTEST_MAIN)
+CXX_BINARY(libminijail_unittest): $(GTEST_LIBS)
 endif
-CXX_BINARY(libminijail_unittest): libminijail_unittest.o $(CORE_OBJECT_FILES)
+CXX_BINARY(libminijail_unittest): libminijail_unittest.o $(CORE_OBJECT_FILES) \
+		testrunner.o
 clean: CLEAN(libminijail_unittest)
 
 
@@ -70,21 +87,50 @@ CC_LIBRARY(libminijailpreload.so): libminijailpreload.o $(CORE_OBJECT_FILES)
 clean: CLEAN(libminijailpreload.so)
 
 
+CXX_BINARY(minijail0_cli_unittest): CXXFLAGS += $(GTEST_CXXFLAGS)
+CXX_BINARY(minijail0_cli_unittest): LDLIBS += -lcap $(GTEST_LIBS)
+ifeq ($(USE_SYSTEM_GTEST),no)
+CXX_BINARY(minijail0_cli_unittest): $(GTEST_LIBS)
+endif
+CXX_BINARY(minijail0_cli_unittest): minijail0_cli_unittest.o \
+		$(CORE_OBJECT_FILES) minijail0_cli.o elfparse.o testrunner.o
+clean: CLEAN(minijail0_cli_unittest)
+
+
 CXX_BINARY(syscall_filter_unittest): CXXFLAGS += -Wno-write-strings \
 						$(GTEST_CXXFLAGS)
-CXX_BINARY(syscall_filter_unittest): LDLIBS += -lcap $(GTEST_MAIN)
+CXX_BINARY(syscall_filter_unittest): LDLIBS += -lcap $(GTEST_LIBS)
 ifeq ($(USE_SYSTEM_GTEST),no)
-CXX_BINARY(syscall_filter_unittest): $(GTEST_MAIN)
+CXX_BINARY(syscall_filter_unittest): $(GTEST_LIBS)
 endif
 CXX_BINARY(syscall_filter_unittest): syscall_filter_unittest.o \
-		syscall_filter.o bpf.o util.o libconstants.gen.o \
-		libsyscalls.gen.o
+		$(CORE_OBJECT_FILES) testrunner.o
 clean: CLEAN(syscall_filter_unittest)
+
+
+CXX_BINARY(system_unittest): CXXFLAGS += $(GTEST_CXXFLAGS)
+CXX_BINARY(system_unittest): LDLIBS += -lcap $(GTEST_LIBS)
+ifeq ($(USE_SYSTEM_GTEST),no)
+CXX_BINARY(system_unittest): $(GTEST_LIBS)
+endif
+CXX_BINARY(system_unittest): system_unittest.o \
+		$(CORE_OBJECT_FILES) testrunner.o
+clean: CLEAN(system_unittest)
+
+
+CXX_BINARY(util_unittest): CXXFLAGS += $(GTEST_CXXFLAGS)
+CXX_BINARY(util_unittest): LDLIBS += -lcap $(GTEST_LIBS)
+ifeq ($(USE_SYSTEM_GTEST),no)
+CXX_BINARY(util_unittest): $(GTEST_LIBS)
+endif
+CXX_BINARY(util_unittest): util_unittest.o \
+		$(CORE_OBJECT_FILES) testrunner.o
+clean: CLEAN(util_unittest)
 
 
 CXX_BINARY(parse_seccomp_policy): parse_seccomp_policy.o syscall_filter.o \
 		bpf.o util.o libconstants.gen.o libsyscalls.gen.o
-clean: CLEAN(parse_policy)
+clean: CLEAN(parse_seccomp_policy)
 
 
 libsyscalls.gen.o: CPPFLAGS += -I$(SRC)
@@ -95,7 +141,7 @@ libsyscalls.gen.o.depends: libsyscalls.gen.c
 # NOTE! This will not detect if the file is not appropriate for the target.
 libsyscalls.gen.c: $(SRC)/Makefile $(SRC)/libsyscalls.h
 	@printf "Generating target-arch specific $@...\n"
-	$(QUIET)$(SRC)/gen_syscalls.sh "$(CC)" "$@"
+	$(QUIET)CC="$(CC)" $(SRC)/gen_syscalls.sh "$@"
 	@printf "$@ done.\n"
 clean: CLEAN(libsyscalls.gen.c)
 
@@ -109,7 +155,7 @@ libconstants.gen.o.depends: libconstants.gen.c
 # NOTE! This will not detect if the file is not appropriate for the target.
 libconstants.gen.c: $(SRC)/Makefile $(SRC)/libconstants.h
 	@printf "Generating target-arch specific $@...\n"
-	$(QUIET)$(SRC)/gen_constants.sh "$(CC)" "$@"
+	$(QUIET)CC="$(CC)" $(SRC)/gen_constants.sh "$@"
 	@printf "$@ done.\n"
 clean: CLEAN(libconstants.gen.c)
 

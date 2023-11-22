@@ -23,28 +23,17 @@ import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.ui.setup.SetupActionHelper;
-import com.android.tv.util.SetupUtils;
 
-/**
- * A fragment for new channel source info/setup.
- */
+/** A fragment for new channel source info/setup. */
 public class NewSourcesFragment extends Fragment {
-    /**
-     * The action category.
-     */
-    public static final String ACTION_CATEOGRY =
-            "com.android.tv.onboarding.NewSourcesFragment";
-    /**
-     * An action to show the setup screen.
-     */
+    /** The action category. */
+    public static final String ACTION_CATEOGRY = "com.android.tv.onboarding.NewSourcesFragment";
+    /** An action to show the setup screen. */
     public static final int ACTION_SETUP = 1;
-    /**
-     * An action to close this fragment.
-     */
+    /** An action to close this fragment. */
     public static final int ACTION_SKIP = 2;
 
     public NewSourcesFragment() {
@@ -57,19 +46,20 @@ public class NewSourcesFragment extends Fragment {
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
+    public View onCreateView(
+            LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_new_sources, container, false);
         initializeButton(view.findViewById(R.id.setup), ACTION_SETUP);
         initializeButton(view.findViewById(R.id.skip), ACTION_SKIP);
-        SetupUtils.getInstance(getActivity()).markAllInputsRecognized(TvApplication
-                .getSingletons(getActivity()).getTvInputManagerHelper());
+        TvSingletons singletons = TvSingletons.getSingletons(getActivity());
+        singletons.getSetupUtils().markAllInputsRecognized(singletons.getTvInputManagerHelper());
         view.requestFocus();
         return view;
     }
 
     private void initializeButton(View view, int actionId) {
-        view.setOnClickListener(SetupActionHelper.createOnClickListenerForAction(this,
-                ACTION_CATEOGRY, actionId, null));
+        view.setOnClickListener(
+                SetupActionHelper.createOnClickListenerForAction(
+                        this, ACTION_CATEOGRY, actionId, null));
     }
 }

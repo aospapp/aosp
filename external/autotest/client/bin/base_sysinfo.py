@@ -34,9 +34,10 @@ _DEFAULT_FILES_TO_LOG_PER_BOOT = [
     '/proc/modules',
     '/proc/interrupts',
     '/proc/partitions',
-    constants.LOG_CONSOLE_RAMOOPS,
-    '/var/log/',
-]
+    '/var/log/bios_info.txt',
+    '/var/log/messages',
+    '/var/log/storage_info.txt',
+] + list(constants.LOG_PSTORE_DIRS)
 _DEFAULT_FILES_TO_LOG_BEFORE_ITERATION = [
     '/proc/schedstat', '/proc/meminfo', '/proc/slabinfo', '/proc/interrupts'
 ]
@@ -120,6 +121,7 @@ class logfile(loggable):
             else:
                 dst = os.path.join(logdir, self.logf)
                 shutil.copyfile(self.path, dst)
+            logging.debug('Loggable saves logs to %s', dst)
 
 
 class command(loggable):
@@ -170,6 +172,7 @@ class command(loggable):
         stderr = open(os.devnull, "w")
         stdout = open(logf_path, "w")
         try:
+            logging.debug('Loggable runs cmd: %s', self.cmd)
             subprocess.call(self.cmd,
                             stdin=stdin,
                             stdout=stdout,

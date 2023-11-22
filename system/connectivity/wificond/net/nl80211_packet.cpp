@@ -18,6 +18,8 @@
 
 #include <android-base/logging.h>
 
+using std::make_unique;
+using std::unique_ptr;
 using std::vector;
 
 namespace android {
@@ -211,6 +213,25 @@ bool NL80211Packet::GetAttribute(int id,
   *attribute = NL80211NestedAttr(vector<uint8_t>(start, end));
   if (!attribute->IsValid()) {
     return false;
+  }
+  return true;
+}
+
+bool NL80211Packet::GetAllAttributes(
+    vector<BaseNL80211Attr>* attributes) const {
+  const uint8_t* ptr = data_.data() + NLMSG_HDRLEN + GENL_HDRLEN;
+  const uint8_t* end_ptr = data_.data() + data_.size();
+  while (ptr + NLA_HDRLEN <= end_ptr) {
+    auto header = reinterpret_cast<const nlattr*>(ptr);
+    if (ptr + NLA_ALIGN(header->nla_len) > end_ptr ||
+      header->nla_len == 0) {
+      LOG(ERROR) << "broken nl80211 atrribute.";
+      return false;
+    }
+    attributes->emplace_back(
+        header->nla_type,
+        vector<uint8_t>(ptr + NLA_HDRLEN, ptr + header->nla_len));
+    ptr += NLA_ALIGN(header->nla_len);
   }
   return true;
 }

@@ -23,14 +23,26 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_STATIC_JAVA_LIBRARIES := \
     compatibility-device-util \
     android-support-test \
-    junit \
-    legacy-android-test
+    junit
+
+LOCAL_JAVA_LIBRARIES := \
+    android.test.base.stubs \
+    framework-stub-for-compatibility-device-info
 
 LOCAL_MODULE := compatibility-device-info
 
-# uncomment when b/13282254 is fixed
-#LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := current
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
+
+include $(CLEAR_VARS)
+# This stub library provides some internal APIs (SystemProperties, VintfObject, etc.)
+# to compatibility-device-info library.
+LOCAL_MODULE := framework-stub-for-compatibility-device-info
+LOCAL_SRC_FILES := $(call all-java-files-under, src_stub)
+LOCAL_MODULE_TAGS := optional
+LOCAL_SDK_VERSION := current
+LOCAL_UNINSTALLABLE_MODULE := true
+include $(BUILD_JAVA_LIBRARY)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

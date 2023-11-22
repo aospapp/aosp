@@ -150,6 +150,24 @@ public class AdbUtils {
         }
     }
 
+    /**
+     * Extracts a resource and pushes it to the device
+     *
+     * @param fullResourceName a string path to resource from the res folder
+     * @param deviceFilePath the remote destination absolute file path
+     * @param device device to be ran on
+     */
+    public static void pushResource(String fullResourceName, String deviceFilePath,
+                                    ITestDevice device) throws Exception {
+        File resFile = File.createTempFile("CTSResource", "");
+        try {
+            resFile = extractResource(fullResourceName, resFile);
+            device.pushFile(resFile, deviceFilePath);
+        } finally {
+            resFile.delete();
+        }
+    }
+
    /**
      * Extracts the binary data from a resource and writes it to a temp file
      */
@@ -167,5 +185,46 @@ public class AdbUtils {
             return file;
         }
 
+    }
+    /**
+     * Utility function to help check the exit code of a shell command
+     */
+    public static int runCommandGetExitCode(String cmd, ITestDevice device) throws Exception {
+      return Integer.parseInt(
+          AdbUtils.runCommandLine( "(" + cmd + ") > /dev/null 2>&1; echo $?",
+            device).replaceAll("[^0-9]", ""));
+    }
+
+    /**
+     * Pushes and runs a binary to the selected device and checks exit code
+     * Return code 113 is used to indicate the vulnerability
+     *
+     * @param pocName a string path to poc from the /res folder
+     * @param device device to be ran on
+     * @param timeout time to wait for output in seconds
+     */
+    public static boolean runPocCheckExitCode(String pocName, ITestDevice device,
+                                              int timeout) throws Exception {
+      device.executeShellCommand("chmod +x /data/local/tmp/" + pocName);
+      CollectingOutputReceiver receiver = new CollectingOutputReceiver();
+      device.executeShellCommand("/data/local/tmp/" + pocName + " > /dev/null 2>&1; echo $?",
+                                 receiver, timeout, TimeUnit.SECONDS, 0);
+
+      String returnStr = null;
+      int returnNum = 0;
+
+      try{
+           returnStr = receiver.getOutput().replaceAll("[^0-9]", "");
+       }catch(NullPointerException e){
+          return false;
+       }
+       try{
+         returnNum = Integer.parseInt(returnStr);
+       }catch(NumberFormatException e){
+          return false;
+       }
+
+       //Refer to go/asdl-sts-guide Test section for knowing the significance of 113 code
+       return returnNum == 113;
     }
 }

@@ -40,6 +40,8 @@
 #include <hardware/audio_alsaops.h>
 #include <audio_effects/effect_aec.h>
 
+#include <sys/ioctl.h>
+#include <linux/audio_hifi.h>
 
 #define CARD_OUT 0
 #define PORT_CODEC 0
@@ -69,6 +71,7 @@ struct alsa_audio_device {
     struct alsa_stream_in *active_input;
     struct alsa_stream_out *active_output;
     bool mic_mute;
+    int hifi_dsp_fd;
 };
 
 struct alsa_stream_out {
@@ -129,7 +132,6 @@ static int out_set_sample_rate(struct audio_stream *stream, uint32_t rate)
 static size_t out_get_buffer_size(const struct audio_stream *stream)
 {
     ALOGV("out_get_buffer_size: %d", 4096);
-    struct alsa_stream_out *out = (struct alsa_stream_out *)stream;
 
     /* return the closest majoring multiple of 16 frames, as
      * audioflinger expects audio buffers to be a multiple of 16 frames */
@@ -197,7 +199,6 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
     struct alsa_stream_out *out = (struct alsa_stream_out *)stream;
     struct alsa_audio_device *adev = out->dev;
     struct str_parms *parms;
-    char *str;
     char value[32];
     int ret, val = 0;
 
@@ -248,7 +249,7 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
     struct alsa_audio_device *adev = out->dev;
     size_t frame_size = audio_stream_out_frame_size(stream);
     size_t out_frames = bytes / frame_size;
-    int kernel_frames;
+    struct misc_io_pcm_buf_param pcmbuf;
 
     /* acquiring hw device mutex systematically is useful if a low priority thread is waiting
      * on the output stream mutex - e.g. executing select_mode() while holding the hw device
@@ -266,6 +267,15 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
     }
 
     pthread_mutex_unlock(&adev->lock);
+
+    if (adev->hifi_dsp_fd >= 0) {
+        pcmbuf.buf = (uint64_t)buffer;
+        pcmbuf.buf_size = bytes;
+        ret = ioctl(adev->hifi_dsp_fd, HIFI_MISC_IOCTL_PCM_GAIN, &pcmbuf);
+        if (ret) {
+            ALOGV("hifi_dsp: Error buffer processing: %d", errno);
+        }
+    }
 
     ret = pcm_mmap_write(out->pcm, buffer, out_frames * frame_size);
     if (ret == 0) {
@@ -576,7 +586,7 @@ static size_t adev_get_input_buffer_size(const struct audio_hw_device *dev,
     return 320;
 }
 
-static int adev_open_input_stream(struct audio_hw_device *dev,
+static int adev_open_input_stream(struct audio_hw_device __unused *dev,
         audio_io_handle_t handle,
         audio_devices_t devices,
         struct audio_config *config,
@@ -585,11 +595,9 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         const char *address __unused,
         audio_source_t source __unused)
 {
-    ALOGV("adev_open_input_stream...");
-
-    struct stub_audio_device *ladev = (struct stub_audio_device *)dev;
     struct stub_stream_in *in;
-    int ret;
+
+    ALOGV("adev_open_input_stream...");
 
     in = (struct stub_stream_in *)calloc(1, sizeof(struct stub_stream_in));
     if (!in)
@@ -630,7 +638,11 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
 
 static int adev_close(hw_device_t *device)
 {
+    struct alsa_audio_device *adev = (struct alsa_audio_device *)device;
+
     ALOGV("adev_close");
+    if (adev->hifi_dsp_fd >= 0)
+        close(adev->hifi_dsp_fd);
     free(device);
     return 0;
 }
@@ -638,10 +650,9 @@ static int adev_close(hw_device_t *device)
 static int adev_open(const hw_module_t* module, const char* name,
         hw_device_t** device)
 {
-    ALOGV("adev_open: %s", name);
-
     struct alsa_audio_device *adev;
-    int ret;
+
+    ALOGV("adev_open: %s", name);
 
     if (strcmp(name, AUDIO_HARDWARE_INTERFACE) != 0)
         return -EINVAL;
@@ -676,6 +687,12 @@ static int adev_open(const hw_module_t* module, const char* name,
 
     *device = &adev->hw_device.common;
 
+    adev->hifi_dsp_fd = open(HIFI_DSP_MISC_DRIVER, O_WRONLY, 0);
+    if (adev->hifi_dsp_fd < 0) {
+        ALOGW("hifi_dsp: Error opening device %d", errno);
+    } else {
+        ALOGI("hifi_dsp: Open device");
+    }
     return 0;
 }
 

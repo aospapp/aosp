@@ -28,17 +28,16 @@ import android.os.RemoteException;
 import android.support.annotation.MainThread;
 import android.text.TextUtils;
 import android.util.Log;
-
-import com.android.tv.common.SharedPreferencesUtils;
-import com.android.tv.util.BitmapUtils;
-import com.android.tv.util.BitmapUtils.ScaledBitmapInfo;
-import com.android.tv.util.PermissionUtils;
-
+import com.android.tv.common.util.PermissionUtils;
+import com.android.tv.common.util.SharedPreferencesUtils;
+import com.android.tv.data.api.Channel;
+import com.android.tv.util.images.BitmapUtils;
+import com.android.tv.util.images.BitmapUtils.ScaledBitmapInfo;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Fetches channel logos from the cloud into the database. It's for the channels which have no logos
@@ -54,12 +53,11 @@ public class ChannelLogoFetcher {
     private static FetchLogoTask sFetchTask;
 
     /**
-     * Fetches the channel logos from the cloud data and insert them into TvProvider.
-     * The previous task is canceled and a new task starts.
+     * Fetches the channel logos from the cloud data and insert them into TvProvider. The previous
+     * task is canceled and a new task starts.
      */
     @MainThread
-    public static void startFetchingChannelLogos(
-            Context context, List<Channel> channels) {
+    public static void startFetchingChannelLogos(Context context, List<Channel> channels) {
         if (!PermissionUtils.hasAccessAllEpg(context)) {
             // TODO: support this feature for non-system LC app. b/23939816
             return;
@@ -76,8 +74,7 @@ public class ChannelLogoFetcher {
         sFetchTask.execute();
     }
 
-    private ChannelLogoFetcher() {
-    }
+    private ChannelLogoFetcher() {}
 
     private static final class FetchLogoTask extends AsyncTask<Void, Void, Void> {
         private final Context mContext;
@@ -105,8 +102,8 @@ public class ChannelLogoFetcher {
                             Context.MODE_PRIVATE);
             SharedPreferences.Editor sharedPreferencesEditor = sharedPreferences.edit();
             Map<String, ?> uncheckedChannels = sharedPreferences.getAll();
-            boolean isFirstTimeFetchChannelLogo = sharedPreferences.getBoolean(
-                    PREF_KEY_IS_FIRST_TIME_FETCH_CHANNEL_LOGO, true);
+            boolean isFirstTimeFetchChannelLogo =
+                    sharedPreferences.getBoolean(PREF_KEY_IS_FIRST_TIME_FETCH_CHANNEL_LOGO, true);
             // Iterating channels.
             for (Channel channel : mChannels) {
                 String channelIdString = Long.toString(channel.getId());
@@ -117,7 +114,7 @@ public class ChannelLogoFetcher {
                     sharedPreferencesEditor.putString(channelIdString, channel.getLogoUri());
                 } else if (TextUtils.isEmpty(channel.getLogoUri())
                         && (!TextUtils.isEmpty(storedChannelLogoUri)
-                        || isFirstTimeFetchChannelLogo)) {
+                                || isFirstTimeFetchChannelLogo)) {
                     channelsToRemove.add(channel);
                     sharedPreferencesEditor.remove(channelIdString);
                 }
@@ -136,11 +133,18 @@ public class ChannelLogoFetcher {
                 }
                 // Downloads the channel logo.
                 String logoUri = channel.getLogoUri();
-                ScaledBitmapInfo bitmapInfo = BitmapUtils.decodeSampledBitmapFromUriString(
-                        mContext, logoUri, Integer.MAX_VALUE, Integer.MAX_VALUE);
+                ScaledBitmapInfo bitmapInfo =
+                        BitmapUtils.decodeSampledBitmapFromUriString(
+                                mContext, logoUri, Integer.MAX_VALUE, Integer.MAX_VALUE);
                 if (bitmapInfo == null) {
-                    Log.e(TAG, "Failed to load bitmap. {channelName=" + channel.getDisplayName()
-                            + ", " + "logoUri=" + logoUri + "}");
+                    Log.e(
+                            TAG,
+                            "Failed to load bitmap. {channelName="
+                                    + channel.getDisplayName()
+                                    + ", "
+                                    + "logoUri="
+                                    + logoUri
+                                    + "}");
                     continue;
                 }
                 if (isCancelled()) {
@@ -160,8 +164,13 @@ public class ChannelLogoFetcher {
                     continue;
                 }
                 if (DEBUG) {
-                    Log.d(TAG, "Inserting logo file to DB succeeded. {from=" + logoUri + ", to="
-                            + dstLogoUri + "}");
+                    Log.d(
+                            TAG,
+                            "Inserting logo file to DB succeeded. {from="
+                                    + logoUri
+                                    + ", to="
+                                    + dstLogoUri
+                                    + "}");
                 }
             }
 
@@ -171,8 +180,10 @@ public class ChannelLogoFetcher {
             if (!channelsToRemove.isEmpty()) {
                 ArrayList<ContentProviderOperation> ops = new ArrayList<>();
                 for (Channel channel : channelsToRemove) {
-                    ops.add(ContentProviderOperation.newDelete(
-                        TvContract.buildChannelLogoUri(channel.getId())).build());
+                    ops.add(
+                            ContentProviderOperation.newDelete(
+                                            TvContract.buildChannelLogoUri(channel.getId()))
+                                    .build());
                 }
                 try {
                     mContext.getContentResolver().applyBatch(TvContract.AUTHORITY, ops);

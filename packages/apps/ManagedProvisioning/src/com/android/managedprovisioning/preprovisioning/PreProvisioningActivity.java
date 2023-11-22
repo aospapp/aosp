@@ -29,6 +29,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.provider.Settings;
+import android.support.annotation.VisibleForTesting;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.Spanned;
@@ -41,7 +42,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
-import com.android.internal.annotations.VisibleForTesting;
+
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.AccessibilityContextMenuMaker;
 import com.android.managedprovisioning.common.ClickableSpanFactory;
@@ -51,6 +52,7 @@ import com.android.managedprovisioning.common.SetupGlifLayoutActivity;
 import com.android.managedprovisioning.common.SimpleDialog;
 import com.android.managedprovisioning.common.StringConcatenator;
 import com.android.managedprovisioning.common.TouchTargetEnforcer;
+import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.preprovisioning.anim.BenefitsAnimation;
@@ -58,6 +60,7 @@ import com.android.managedprovisioning.preprovisioning.anim.ColorMatcher;
 import com.android.managedprovisioning.preprovisioning.anim.SwiperThemeMatcher;
 import com.android.managedprovisioning.preprovisioning.terms.TermsActivity;
 import com.android.managedprovisioning.provisioning.ProvisioningActivity;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -96,12 +99,14 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
     private TouchTargetEnforcer mTouchTargetEnforcer;
 
     public PreProvisioningActivity() {
-        this(activity -> new PreProvisioningController(activity, activity), null);
+        this(activity -> new PreProvisioningController(activity, activity), null, new Utils());
     }
 
     @VisibleForTesting
     public PreProvisioningActivity(ControllerProvider controllerProvider,
-            AccessibilityContextMenuMaker contextMenuMaker) {
+            AccessibilityContextMenuMaker contextMenuMaker,
+            Utils utils) {
+        super(utils);
         mControllerProvider = controllerProvider;
         mContextMenuMaker =
                 contextMenuMaker != null ? contextMenuMaker : new AccessibilityContextMenuMaker(
@@ -268,18 +273,10 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
     public void initiateUi(int layoutId, int titleId, String packageLabel, Drawable packageIcon,
             boolean isProfileOwnerProvisioning, boolean isComp, List<String> termsHeaders,
             CustomizationParams customization) {
-        if (isProfileOwnerProvisioning) {
-            // setting a theme so that the animation swiper matches the mainColor
-            // needs to happen before {@link Activity#setContentView}
-            setTheme(new SwiperThemeMatcher(this,
-                    new ColorMatcher()) // TODO: introduce DI framework
-                    .findTheme(customization.swiperColor));
-        }
-
         initializeLayoutParams(
                 layoutId,
                 isProfileOwnerProvisioning ? null : R.string.set_up_your_device,
-                false /* progress bar */,
+                customization.mainColor,
                 customization.statusBarColor);
 
         // set up the 'accept and continue' button
@@ -288,8 +285,8 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
             ProvisionLogger.logi("Next button (next_button) is clicked.");
             mController.continueProvisioningAfterUserConsent();
         });
-        nextButton.setBackgroundTintList(ColorStateList.valueOf(customization.buttonColor));
-        if (mUtils.isBrightColor(customization.buttonColor)) {
+        nextButton.setBackgroundTintList(ColorStateList.valueOf(customization.mainColor));
+        if (mUtils.isBrightColor(customization.mainColor)) {
             nextButton.setTextColor(getColor(R.color.gray_button_text));
         }
 
@@ -301,13 +298,14 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
 
         // initiate UI for MP / DO
         if (isProfileOwnerProvisioning) {
-            initiateUIProfileOwner(headers, isComp);
+            initiateUIProfileOwner(headers, isComp, customization);
         } else {
             initiateUIDeviceOwner(packageLabel, packageIcon, headers, customization);
         }
     }
 
-    private void initiateUIProfileOwner(@NonNull String termsHeaders, boolean isComp) {
+    private void initiateUIProfileOwner(
+            @NonNull String termsHeaders, boolean isComp, CustomizationParams customizationParams) {
         // set up the cancel button
         Button cancelButton = (Button) findViewById(R.id.close_button);
         cancelButton.setOnClickListener(v -> {
@@ -338,7 +336,8 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
                         : SLIDE_CAPTIONS,
                 isComp
                         ? R.string.comp_profile_benefits_description
-                        : R.string.profile_benefits_description);
+                        : R.string.profile_benefits_description,
+                customizationParams);
     }
 
     private void initiateUIDeviceOwner(String packageName, Drawable packageIcon,

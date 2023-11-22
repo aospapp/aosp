@@ -65,7 +65,7 @@ import java.util.Map;
  * connection and is responsible for managing the conference participant connections which represent
  * the participants.
  */
-public class ImsConference extends Conference {
+public class ImsConference extends Conference implements Holdable {
 
     /**
      * Listener used to respond to changes to conference participants.  At the conference level we
@@ -240,6 +240,8 @@ public class ImsConference extends Conference {
      */
     private final Object mUpdateSyncRoot = new Object();
 
+    private boolean mIsHoldable;
+
     public void updateConferenceParticipantsAfterCreation() {
         if (mConferenceHost != null) {
             Log.v(this, "updateConferenceStateAfterCreation :: process participant update");
@@ -271,10 +273,10 @@ public class ImsConference extends Conference {
         long connectTime = conferenceHost.getOriginalConnection().getConnectTime();
         long connectElapsedTime = conferenceHost.getOriginalConnection().getConnectTimeReal();
         setConnectionTime(connectTime);
-        setConnectionElapsedTime(connectElapsedTime);
+        setConnectionStartElapsedRealTime(connectElapsedTime);
         // Set the connectTime in the connection as well.
         conferenceHost.setConnectTimeMillis(connectTime);
-        conferenceHost.setConnectElapsedTimeMillis(connectElapsedTime);
+        conferenceHost.setConnectionStartElapsedRealTime(connectElapsedTime);
 
         mTelephonyConnectionService = telephonyConnectionService;
         setConferenceHost(conferenceHost);
@@ -283,6 +285,7 @@ public class ImsConference extends Conference {
                 Connection.CAPABILITY_CONFERENCE_HAS_NO_CHILDREN;
         if (canHoldImsCalls()) {
             capabilities |= Connection.CAPABILITY_SUPPORT_HOLD | Connection.CAPABILITY_HOLD;
+            mIsHoldable = true;
         }
         capabilities = applyHostCapabilities(capabilities,
                 mConferenceHost.getConnectionCapabilities(),
@@ -508,6 +511,22 @@ public class ImsConference extends Conference {
         // No-op
     }
 
+    @Override
+    public void setHoldable(boolean isHoldable) {
+        mIsHoldable = isHoldable;
+        if (!mIsHoldable) {
+            removeCapability(Connection.CAPABILITY_HOLD);
+        } else {
+            addCapability(Connection.CAPABILITY_HOLD);
+        }
+    }
+
+    @Override
+    public boolean isChildHoldable() {
+        // The conference should not be a child of other conference.
+        return false;
+    }
+
     /**
      * Changes a bit-mask to add or remove a bit-field.
      *
@@ -633,6 +652,11 @@ public class ImsConference extends Conference {
             TelephonyConnection parent, List<ConferenceParticipant> participants) {
 
         if (participants == null) {
+            return;
+        }
+
+        if (parent != null && !parent.isManageImsConferenceCallSupported()) {
+            Log.i(this, "handleConferenceParticipantsUpdate: manage conference is disallowed");
             return;
         }
 
@@ -886,7 +910,6 @@ public class ImsConference extends Conference {
                         mConferenceHost.isOutgoingCall());
                 // This is a newly created conference connection as a result of SRVCC
                 c.setConferenceSupported(true);
-                c.addCapability(Connection.CAPABILITY_CONFERENCE_HAS_NO_CHILDREN);
                 c.setConnectionProperties(
                         c.getConnectionProperties() | Connection.PROPERTY_IS_DOWNGRADED_CONFERENCE);
                 c.updateState();

@@ -44,8 +44,8 @@ import com.android.tv.util.TimeShiftUtils;
 import java.util.ArrayList;
 
 /**
- * A helper class to assist {@link DvrPlaybackOverlayFragment} to manage its controls row and
- * send command to the media controller. It also helps to update playback states displayed in the
+ * A helper class to assist {@link DvrPlaybackOverlayFragment} to manage its controls row and send
+ * command to the media controller. It also helps to update playback states displayed in the
  * fragment according to information the media session provides.
  */
 class DvrPlaybackControlHelper extends PlaybackControlGlue {
@@ -74,8 +74,9 @@ class DvrPlaybackControlHelper extends PlaybackControlGlue {
         mMediaController = activity.getMediaController();
         mMediaController.registerCallback(mMediaControllerCallback);
         mTransportControls = mMediaController.getTransportControls();
-        mExtraPaddingTopForNoDescription = activity.getResources()
-                .getDimensionPixelOffset(R.dimen.dvr_playback_controls_extra_padding_top);
+        mExtraPaddingTopForNoDescription =
+                activity.getResources()
+                        .getDimensionPixelOffset(R.dimen.dvr_playback_controls_extra_padding_top);
         mClosedCaptioningAction = new ClosedCaptioningAction(activity);
         mMultiAudioAction = new MultiAudioAction(activity);
         createControlsRowPresenter();
@@ -90,42 +91,47 @@ class DvrPlaybackControlHelper extends PlaybackControlGlue {
     private void createControlsRowPresenter() {
         AbstractDetailsDescriptionPresenter detailsPresenter =
                 new AbstractDetailsDescriptionPresenter() {
-            @Override
-            protected void onBindDescription(
-                    AbstractDetailsDescriptionPresenter.ViewHolder viewHolder, Object object) {
-                PlaybackControlGlue glue = (PlaybackControlGlue) object;
-                if (glue.hasValidMedia()) {
-                    viewHolder.getTitle().setText(glue.getMediaTitle());
-                    viewHolder.getSubtitle().setText(glue.getMediaSubtitle());
-                } else {
-                    viewHolder.getTitle().setText("");
-                    viewHolder.getSubtitle().setText("");
-                }
-                if (TextUtils.isEmpty(viewHolder.getSubtitle().getText())) {
-                    viewHolder.view.setPadding(viewHolder.view.getPaddingLeft(),
-                            mExtraPaddingTopForNoDescription,
-                            viewHolder.view.getPaddingRight(), viewHolder.view.getPaddingBottom());
-                }
-            }
-        };
+                    @Override
+                    protected void onBindDescription(
+                            AbstractDetailsDescriptionPresenter.ViewHolder viewHolder,
+                            Object object) {
+                        PlaybackControlGlue glue = (PlaybackControlGlue) object;
+                        if (glue.hasValidMedia()) {
+                            viewHolder.getTitle().setText(glue.getMediaTitle());
+                            viewHolder.getSubtitle().setText(glue.getMediaSubtitle());
+                        } else {
+                            viewHolder.getTitle().setText("");
+                            viewHolder.getSubtitle().setText("");
+                        }
+                        if (TextUtils.isEmpty(viewHolder.getSubtitle().getText())) {
+                            viewHolder.view.setPadding(
+                                    viewHolder.view.getPaddingLeft(),
+                                    mExtraPaddingTopForNoDescription,
+                                    viewHolder.view.getPaddingRight(),
+                                    viewHolder.view.getPaddingBottom());
+                        }
+                    }
+                };
         PlaybackControlsRowPresenter presenter =
                 new PlaybackControlsRowPresenter(detailsPresenter) {
-            @Override
-            protected void onBindRowViewHolder(RowPresenter.ViewHolder vh, Object item) {
-                super.onBindRowViewHolder(vh, item);
-                vh.setOnKeyListener(DvrPlaybackControlHelper.this);
-            }
+                    @Override
+                    protected void onBindRowViewHolder(RowPresenter.ViewHolder vh, Object item) {
+                        super.onBindRowViewHolder(vh, item);
+                        vh.setOnKeyListener(DvrPlaybackControlHelper.this);
+                    }
 
-            @Override
-            protected void onUnbindRowViewHolder(RowPresenter.ViewHolder vh) {
-                super.onUnbindRowViewHolder(vh);
-                vh.setOnKeyListener(null);
-            }
-        };
-        presenter.setProgressColor(getContext().getResources()
-                .getColor(R.color.play_controls_progress_bar_watched));
-        presenter.setBackgroundColor(getContext().getResources()
-                .getColor(R.color.play_controls_body_background_enabled));
+                    @Override
+                    protected void onUnbindRowViewHolder(RowPresenter.ViewHolder vh) {
+                        super.onUnbindRowViewHolder(vh);
+                        vh.setOnKeyListener(null);
+                    }
+                };
+        presenter.setProgressColor(
+                getContext().getResources().getColor(R.color.play_controls_progress_bar_watched));
+        presenter.setBackgroundColor(
+                getContext()
+                        .getResources()
+                        .getColor(R.color.play_controls_body_background_enabled));
         setControlsRowPresenter(presenter);
     }
 
@@ -166,37 +172,40 @@ class DvrPlaybackControlHelper extends PlaybackControlGlue {
             return false;
         }
         int state = playbackState.getState();
-        return state != PlaybackState.STATE_NONE && state != PlaybackState.STATE_CONNECTING
+        return state != PlaybackState.STATE_NONE
+                && state != PlaybackState.STATE_CONNECTING
                 && state != PlaybackState.STATE_PAUSED;
     }
 
-    /**
-     * Returns the ID of the media under playback.
-     */
+    /** Returns the ID of the media under playback. */
     public String getMediaId() {
         MediaMetadata mediaMetadata = mMediaController.getMetadata();
-        return mediaMetadata == null ? null
+        return mediaMetadata == null
+                ? null
                 : mediaMetadata.getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
     }
 
     @Override
     public CharSequence getMediaTitle() {
         MediaMetadata mediaMetadata = mMediaController.getMetadata();
-        return mediaMetadata == null ? ""
+        return mediaMetadata == null
+                ? ""
                 : mediaMetadata.getString(MediaMetadata.METADATA_KEY_TITLE);
     }
 
     @Override
     public CharSequence getMediaSubtitle() {
         MediaMetadata mediaMetadata = mMediaController.getMetadata();
-        return mediaMetadata == null ? ""
+        return mediaMetadata == null
+                ? ""
                 : mediaMetadata.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE);
     }
 
     @Override
     public int getMediaDuration() {
         MediaMetadata mediaMetadata = mMediaController.getMetadata();
-        return mediaMetadata == null ? 0
+        return mediaMetadata == null
+                ? 0
                 : (int) mediaMetadata.getLong(MediaMetadata.METADATA_KEY_DURATION);
     }
 
@@ -225,19 +234,18 @@ class DvrPlaybackControlHelper extends PlaybackControlGlue {
         return (int) playbackState.getPosition();
     }
 
-    /**
-     * Unregister media controller's callback.
-     */
+    /** Unregister media controller's callback. */
     void unregisterCallback() {
         mMediaController.unregisterCallback(mMediaControllerCallback);
     }
 
     /**
      * Update the secondary controls row.
-     * @param hasClosedCaption {@code true} to show the closed caption selection button,
-     *                         {@code false} to hide it.
-     * @param hasMultiAudio {@code true} to show the audio track selection button,
-     *                      {@code false} to hide it.
+     *
+     * @param hasClosedCaption {@code true} to show the closed caption selection button, {@code
+     *     false} to hide it.
+     * @param hasMultiAudio {@code true} to show the audio track selection button, {@code false} to
+     *     hide it.
      */
     void updateSecondaryRow(boolean hasClosedCaption, boolean hasMultiAudio) {
         if (hasClosedCaption) {
@@ -274,7 +282,7 @@ class DvrPlaybackControlHelper extends PlaybackControlGlue {
             mTransportControls.play();
         } else if (speedId <= -PLAYBACK_SPEED_FAST_L0) {
             mTransportControls.rewind();
-        } else if (speedId >= PLAYBACK_SPEED_FAST_L0){
+        } else if (speedId >= PLAYBACK_SPEED_FAST_L0) {
             mTransportControls.fastForward();
         }
     }
@@ -284,12 +292,10 @@ class DvrPlaybackControlHelper extends PlaybackControlGlue {
         mTransportControls.pause();
     }
 
-    /**
-     * Notifies closed caption being enabled/disabled to update related UI.
-     */
+    /** Notifies closed caption being enabled/disabled to update related UI. */
     void onSubtitleTrackStateChanged(boolean enabled) {
-        mClosedCaptioningAction.setIndex(enabled ?
-                ClosedCaptioningAction.ON : ClosedCaptioningAction.OFF);
+        mClosedCaptioningAction.setIndex(
+                enabled ? ClosedCaptioningAction.ON : ClosedCaptioningAction.OFF);
     }
 
     private void onStateChanged(int state, long positionMs, int speedLevel) {
@@ -344,7 +350,9 @@ class DvrPlaybackControlHelper extends PlaybackControlGlue {
         args.putString(DvrPlaybackSideFragment.SELECTED_TRACK_ID, selectedTrackId);
         DvrPlaybackSideFragment sideFragment = new DvrPlaybackSideFragment();
         sideFragment.setArguments(args);
-        mFragment.getFragmentManager().beginTransaction()
+        mFragment
+                .getFragmentManager()
+                .beginTransaction()
                 .hide(mFragment)
                 .replace(R.id.dvr_playback_side_fragment, sideFragment)
                 .addToBackStack(null)
@@ -367,7 +375,7 @@ class DvrPlaybackControlHelper extends PlaybackControlGlue {
     private static class MultiAudioAction extends MultiAction {
         MultiAudioAction(Context context) {
             super(AUDIO_ACTION_ID);
-            setDrawables(new Drawable[]{context.getDrawable(R.drawable.ic_tvoption_multi_track)});
+            setDrawables(new Drawable[] {context.getDrawable(R.drawable.ic_tvoption_multi_track)});
         }
     }
 }

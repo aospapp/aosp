@@ -8,7 +8,6 @@ import logging
 import os
 import time
 
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.audio import audio_test_data
 from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_helper
@@ -60,8 +59,14 @@ class audio_AudioWebRTCLoopback(audio_test.AudioTest):
             logging.info('Skip the test because there is no headphone')
             return
 
-        golden_file = audio_test_data.SIMPLE_FREQUENCY_LOUD_WAVE_FILE
-        golden_file.generate_file()
+        golden_file = audio_test_data.GenerateAudioTestData(
+                data_format=dict(file_type='wav',
+                                 sample_format='S16_LE',
+                                 channel=2,
+                                 rate=48000),
+                path=os.path.join(self.bindir, 'fix_660_16.wav'),
+                duration_secs=60,
+                frequencies=[660, 660])
 
         chameleon_board = host.chameleon
 

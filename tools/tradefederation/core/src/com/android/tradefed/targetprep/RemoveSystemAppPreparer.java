@@ -26,11 +26,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A {@link ITargetPreparer} for removing an apk from the system partition before a test run.
- * Note that the device is rebooted before actual test execution, so the system partition remains
+ * A {@link ITargetPreparer} for removing an apk from the system partition before a test run. Note
+ * that the device is rebooted before actual test execution, so the system partition remains
  * read-only during the test run.
  */
-public class RemoveSystemAppPreparer implements ITargetPreparer {
+public class RemoveSystemAppPreparer extends BaseTargetPreparer {
     @Option(name = "uninstall-system-app",
             description = "the name of the file to remove (extension included)")
     private List<String> mFiles= new ArrayList<String>();

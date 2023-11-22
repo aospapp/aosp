@@ -19,14 +19,15 @@ package android.media.cts;
 import android.media.MediaDescription;
 import android.media.browse.MediaBrowser.MediaItem;
 import android.media.session.MediaSession;
+import android.media.session.MediaSessionManager;
 import android.os.Bundle;
 import android.service.media.MediaBrowserService;
+
+import junit.framework.Assert;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import junit.framework.Assert;
 
 /**
  * Stub implementation of (@link android.service.media.MediaBrowserService}.
@@ -47,11 +48,17 @@ public class StubMediaBrowserService extends MediaBrowserService {
 
     static StubMediaBrowserService sInstance;
 
-    /* package private */ static MediaSession sSession;
+    static MediaSession sSession;
+    static MediaSessionManager.RemoteUserInfo sBrowserInfo;
+
     private Bundle mExtras;
     private Result<List<MediaItem>> mPendingLoadChildrenResult;
     private Result<MediaItem> mPendingLoadItemResult;
     private Bundle mPendingRootHints;
+
+    public static void clearBrowserInfo() {
+        sBrowserInfo = null;
+    }
 
     @Override
     public void onCreate() {
@@ -71,6 +78,7 @@ public class StubMediaBrowserService extends MediaBrowserService {
 
     @Override
     public BrowserRoot onGetRoot(String clientPackageName, int clientUid, Bundle rootHints) {
+        sBrowserInfo = getCurrentBrowserInfo();
         mExtras = new Bundle();
         mExtras.putString(EXTRAS_KEY, EXTRAS_VALUE);
         return new BrowserRoot(MEDIA_ID_ROOT, mExtras);
@@ -85,13 +93,14 @@ public class StubMediaBrowserService extends MediaBrowserService {
                 mediaItems.add(new MediaItem(new MediaDescription.Builder()
                         .setMediaId(id).setExtras(rootHints).build(), MediaItem.FLAG_BROWSABLE));
             }
+            sBrowserInfo = getCurrentBrowserInfo();
             result.sendResult(mediaItems);
         } else if (MEDIA_ID_CHILDREN_DELAYED.equals(parentMediaId)) {
             Assert.assertNull(mPendingLoadChildrenResult);
             mPendingLoadChildrenResult = result;
             mPendingRootHints = getBrowserRootHints();
             result.detach();
-        } else if (MEDIA_ID_INVALID.equals(parentMediaId)){
+        } else if (MEDIA_ID_INVALID.equals(parentMediaId)) {
             result.sendResult(null);
         }
     }
@@ -110,6 +119,7 @@ public class StubMediaBrowserService extends MediaBrowserService {
                 result.sendResult(new MediaItem(new MediaDescription.Builder()
                         .setMediaId(id).setExtras(getBrowserRootHints()).build(),
                                 MediaItem.FLAG_BROWSABLE));
+                sBrowserInfo = getCurrentBrowserInfo();
                 return;
             }
         }

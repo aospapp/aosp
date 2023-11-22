@@ -17,6 +17,7 @@
 package android.view.accessibility;
 
 import android.accessibilityservice.AccessibilityServiceInfo;
+import android.accessibilityservice.AccessibilityServiceInfo.FeedbackType;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
@@ -24,6 +25,7 @@ import android.content.pm.ServiceInfo;
 import android.os.Handler;
 import android.view.IWindow;
 import android.view.View;
+import android.view.accessibility.AccessibilityEvent.EventType;
 
 import java.util.Collections;
 import java.util.List;
@@ -88,6 +90,60 @@ public final class AccessibilityManager {
          * @param enabled Whether high text contrast is enabled.
          */
         public void onHighTextContrastStateChanged(boolean enabled);
+    }
+
+    /**
+     * Policy to inject behavior into the accessibility manager.
+     *
+     * @hide
+     */
+    public interface AccessibilityPolicy {
+        /**
+         * Checks whether accessibility is enabled.
+         *
+         * @param accessibilityEnabled Whether the accessibility layer is enabled.
+         * @return whether accessibility is enabled.
+         */
+        boolean isEnabled(boolean accessibilityEnabled);
+
+        /**
+         * Notifies the policy for an accessibility event.
+         *
+         * @param event The event.
+         * @param accessibilityEnabled Whether the accessibility layer is enabled.
+         * @param relevantEventTypes The events relevant events.
+         * @return The event to dispatch or null.
+         */
+        @Nullable AccessibilityEvent onAccessibilityEvent(@NonNull AccessibilityEvent event,
+                boolean accessibilityEnabled, @EventType int relevantEventTypes);
+
+        /**
+         * Gets the list of relevant events.
+         *
+         * @param relevantEventTypes The relevant events.
+         * @return The relevant events to report.
+         */
+        @EventType int getRelevantEventTypes(@EventType int relevantEventTypes);
+
+        /**
+         * Gets the list of installed services to report.
+         *
+         * @param installedService The installed services.
+         * @return The services to report.
+         */
+        @NonNull List<AccessibilityServiceInfo> getInstalledAccessibilityServiceList(
+                @Nullable List<AccessibilityServiceInfo> installedService);
+
+        /**
+         * Gets the list of enabled accessibility services.
+         *
+         * @param feedbackTypeFlags The feedback type to query for.
+         * @param enabledService The enabled services.
+         * @return The services to report.
+         */
+        @Nullable List<AccessibilityServiceInfo> getEnabledAccessibilityServiceList(
+                @FeedbackType int feedbackTypeFlags,
+                @Nullable List<AccessibilityServiceInfo> enabledService);
     }
 
     private final IAccessibilityManagerClient.Stub mClient =
@@ -156,6 +212,18 @@ public final class AccessibilityManager {
      * Sends an {@link AccessibilityEvent}.
      */
     public void sendAccessibilityEvent(AccessibilityEvent event) {
+    }
+
+    /**
+     * Returns whether there are observers registered for this event type. If
+     * this method returns false you shuold not generate events of this type
+     * to conserve resources.
+     *
+     * @param type The event type.
+     * @return Whether the event is being observed.
+     */
+    public boolean isObservedEventType(@AccessibilityEvent.EventType int type) {
+        return false;
     }
 
     /**

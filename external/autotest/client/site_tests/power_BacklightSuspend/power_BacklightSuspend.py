@@ -4,7 +4,7 @@
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import power_utils, sys_power
+from autotest_lib.client.cros.power import power_utils, sys_power
 
 
 class power_BacklightSuspend(test.test):
@@ -26,7 +26,7 @@ class power_BacklightSuspend(test.test):
             resume_level = max_level - resume_level
         backlight.set_resume_level(resume_level)
 
-        sys_power.kernel_suspend(seconds=5, state=suspend_state)
+        sys_power.kernel_suspend(seconds=10, state=suspend_state)
 
         final_level = backlight.get_level()
         if final_level != resume_level:

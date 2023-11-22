@@ -16,6 +16,9 @@
 
 package com.android.tv.settings.device.display.daydream;
 
+import static android.provider.Settings.Secure.SLEEP_TIMEOUT;
+import static android.provider.Settings.System.SCREEN_OFF_TIMEOUT;
+
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -23,27 +26,25 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.support.annotation.Keep;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.ListPreference;
 import android.support.v7.preference.Preference;
-import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.ArrayMap;
-import android.util.AttributeSet;
 import android.util.Log;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.dream.DreamBackend;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static android.provider.Settings.Secure.SLEEP_TIMEOUT;
-import static android.provider.Settings.System.SCREEN_OFF_TIMEOUT;
-
-public class DaydreamFragment extends LeanbackPreferenceFragment
+/**
+ * The screen saver screen in TV settings.
+ */
+public class DaydreamFragment extends SettingsPreferenceFragment
         implements Preference.OnPreferenceChangeListener {
 
     private static final String TAG = "DaydreamFragment";
@@ -234,6 +235,11 @@ public class DaydreamFragment extends LeanbackPreferenceFragment
         if (dreamNowPref != null) {
             dreamNowPref.setEnabled(mBackend.isEnabled());
         }
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.DREAM;
     }
 
     private class PackageReceiver extends BroadcastReceiver {

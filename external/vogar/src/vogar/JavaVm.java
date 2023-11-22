@@ -44,9 +44,14 @@ final class JavaVm implements Mode {
         List<String> vmCommand = new ArrayList<String>();
         Iterables.addAll(vmCommand, run.invokeWith());
         vmCommand.add(run.javaPath(run.vmCommand));
-        return new VmCommandBuilder(run.log)
+        VmCommandBuilder vmCommandBuilder = new VmCommandBuilder(run.log)
                 .userDir(workingDirectory)
                 .vmCommand(vmCommand);
+        if (run.debugPort != null) {
+            vmCommandBuilder.vmArgs("-Xrunjdwp:transport=dt_socket,address="
+                    + run.debugPort + ",server=y,suspend=y");
+        }
+        return vmCommandBuilder;
     }
 
     @Override public Task executeActionTask(Action action, boolean useLargeTimeout) {

@@ -11,7 +11,7 @@ ip-tunnel - tunnel configuration
 .ti -8
 .BR "ip "
 .RI "[ " OPTIONS " ]"
-.BR "tunnel" " { " add " | " change " | " del " | " show " | " prl " }"
+.BR "tunnel" " { " add " | " change " | " del " | " show " | " prl " | " 6rd " }"
 .RI "[ " NAME " ]"
 .br
 .RB "[ " mode
@@ -42,7 +42,14 @@ ip-tunnel - tunnel configuration
 .B prl-delete
 .IR ADDR " ]"
 .br
+.RB "[ " 6rd-prefix
+.IR ADDR " ] ["
+.B 6rd-relay_prefix
+.IR ADDR " ] [
+.BR 6rd-reset " ]"
+.br
 .RB "[ [" no "]" pmtudisc " ]"
+.RB "[ [" no "]" ignore-df " ]"
 .RB "[ " dev
 .IR PHYS_DEV " ]"
 
@@ -74,9 +81,6 @@ ip-tunnel - tunnel configuration
 
 .ti -8
 .IR KEY " := { " DOTTED_QUAD " | " NUMBER " }"
-
-.ti -8
-.IR TIME " := " NUMBER "[s|ms]"
 
 .SH DESCRIPTION
 .B tunnel
@@ -171,6 +175,14 @@ disable Path MTU Discovery on this tunnel.
 It is enabled by default. Note that a fixed ttl is incompatible
 with this option: tunneling with a fixed ttl always makes pmtu
 discovery.
+
+.TP
+.B ignore-df
+enable IPv4 DF suppression on this tunnel.
+Normally datagrams that exceed the MTU will be fragmented; the presence
+of the DF flag inhibits this, resulting instead in an ICMP Unreachable
+(Fragmentation Required) message.  Enabling this attribute casues the
+DF flag to be ignored.
 
 .TP
 .BI key " K"

@@ -60,6 +60,7 @@ public class AppSmokeTest {
     private static final String TAG = AppSmokeTest.class.getSimpleName();
     private static final String EXCLUDE_LIST = "exclude_apps";
     private static final String DEBUG_LIST = "debug_apps";
+    private static final String SUPPRESS_APP_CRASHES = "suppress_app_crashes";
     private static final long WAIT_FOR_ANR = 6000;
 
     @Parameter
@@ -68,6 +69,7 @@ public class AppSmokeTest {
     private boolean mAppHasError = false;
     private boolean mLaunchIntentDetected = false;
     private boolean mHasLeanback = false;
+    private boolean mSuppressAppCrashes = false;
     private ILauncherStrategy mLauncherStrategy = null;
     private static UiDevice sDevice = null;
 
@@ -207,6 +209,11 @@ public class AppSmokeTest {
         ActivityManager.getService().setActivityController(mActivityController, false);
         LauncherStrategyFactory factory = LauncherStrategyFactory.getInstance(sDevice);
         mLauncherStrategy = factory.getLauncherStrategy();
+        // parse option for suppressing app crashes
+        Bundle args = InstrumentationRegistry.getArguments();
+        if (args.containsKey(SUPPRESS_APP_CRASHES)) {
+            mSuppressAppCrashes = Boolean.parseBoolean(args.getString(SUPPRESS_APP_CRASHES));
+        }
         // Inject an instance of instrumentation only if leanback. This enables to launch any app
         // in the Apps and Games row on leanback launcher.
         Instrumentation instr = InstrumentationRegistry.getInstrumentation();
@@ -248,7 +255,11 @@ public class AppSmokeTest {
             SystemClock.sleep(WAIT_FOR_ANR);
         }
         if (mAppHasError) {
-            Assert.fail("app crash or ANR detected");
+            if (mSuppressAppCrashes) {
+                Log.w(TAG, "Suppressed app crash.");
+            } else {
+                Assert.fail("app crash or ANR detected");
+            }
         }
         if (!launchResult && !mLaunchIntentDetected) {
             Assert.fail("no app crash or ANR detected, but failed to launch via UI");

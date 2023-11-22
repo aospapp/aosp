@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.database.Cursor;
 import android.provider.SearchIndexablesContract;
-import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.emergency.R;
 import com.android.emergency.TestConfig;
@@ -34,7 +33,6 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link EmergencySearchIndexablesProvider}. */
-@SmallTest
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION)
 public final class EmergencySearchIndexablesProviderTest {

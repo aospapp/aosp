@@ -98,9 +98,14 @@ public class NativeAllocationRegistry {
      * <code>referent</code> becomes unreachable. The runnable will have no
      * effect if the native allocation has already been freed by the runtime
      * or by using the runnable.
+     * <p>
+     * WARNING: This unconditionally takes ownership, i.e. deallocation
+     * responsibility of nativePtr. nativePtr will be DEALLOCATED IMMEDIATELY
+     * if the registration attempt throws an exception (other than one reporting
+     * a programming error).
      *
-     * @param referent      java object to associate the native allocation with
-     * @param nativePtr     address of the native allocation
+     * @param referent      Non-null java object to associate the native allocation with
+     * @param nativePtr     Non-zero address of the native allocation
      * @return runnable to explicitly free native allocation
      * @throws IllegalArgumentException if either referent or nativePtr is null.
      * @throws OutOfMemoryError  if there is not enough space on the Java heap
@@ -118,15 +123,20 @@ public class NativeAllocationRegistry {
             throw new IllegalArgumentException("nativePtr is null");
         }
 
+        CleanerThunk thunk;
+        CleanerRunner result;
         try {
+            thunk = new CleanerThunk();
+            Cleaner cleaner = Cleaner.create(referent, thunk);
+            result = new CleanerRunner(cleaner);
             registerNativeAllocation(this.size);
-        } catch (OutOfMemoryError oome) {
+        } catch (VirtualMachineError vme /* probably OutOfMemoryError */) {
             applyFreeFunction(freeFunction, nativePtr);
-            throw oome;
-        }
-
-        Cleaner cleaner = Cleaner.create(referent, new CleanerThunk(nativePtr));
-        return new CleanerRunner(cleaner);
+            throw vme;
+        } // Other exceptions are impossible.
+        // Enable the cleaner only after we can no longer throw anything, including OOME.
+        thunk.setNativePtr(nativePtr);
+        return result;
     }
 
     /**
@@ -150,7 +160,7 @@ public class NativeAllocationRegistry {
      * If the allocator returns null, the allocation is not registered and a
      * null Runnable is returned.
      *
-     * @param referent      java object to associate the native allocation with
+     * @param referent      Non-null java object to associate the native allocation with
      * @param allocator     used to perform the underlying native allocation.
      * @return runnable to explicitly free native allocation
      * @throws IllegalArgumentException if referent is null.
@@ -162,20 +172,21 @@ public class NativeAllocationRegistry {
         if (referent == null) {
             throw new IllegalArgumentException("referent is null");
         }
-        registerNativeAllocation(this.size);
 
         // Create the cleaner before running the allocator so that
         // VMRuntime.registerNativeFree is eventually called if the allocate
         // method throws an exception.
         CleanerThunk thunk = new CleanerThunk();
         Cleaner cleaner = Cleaner.create(referent, thunk);
+        CleanerRunner result = new CleanerRunner(cleaner);
         long nativePtr = allocator.allocate();
         if (nativePtr == 0) {
             cleaner.clean();
             return null;
         }
+        registerNativeAllocation(this.size);
         thunk.setNativePtr(nativePtr);
-        return new CleanerRunner(cleaner);
+        return result;
     }
 
     private class CleanerThunk implements Runnable {
@@ -185,15 +196,11 @@ public class NativeAllocationRegistry {
             this.nativePtr = 0;
         }
 
-        public CleanerThunk(long nativePtr) {
-            this.nativePtr = nativePtr;
-        }
-
         public void run() {
             if (nativePtr != 0) {
                 applyFreeFunction(freeFunction, nativePtr);
+                registerNativeFree(size);
             }
-            registerNativeFree(size);
         }
 
         public void setNativePtr(long nativePtr) {

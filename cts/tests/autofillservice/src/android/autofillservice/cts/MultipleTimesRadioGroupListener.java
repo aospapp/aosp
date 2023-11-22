@@ -16,7 +16,7 @@
 
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.Helper.FILL_TIMEOUT_MS;
+import static android.autofillservice.cts.Timeouts.FILL_TIMEOUT;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -26,7 +26,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Custom {@link RadioGroup.OnCheckedChangeListener} used to assert an
+ * Custom {@link android.widget.RadioGroup.OnCheckedChangeListener} used to assert an
  * {@link RadioGroup} was auto-filled properly.
  */
 final class MultipleTimesRadioGroupListener implements RadioGroup.OnCheckedChangeListener {
@@ -49,8 +49,8 @@ final class MultipleTimesRadioGroupListener implements RadioGroup.OnCheckedChang
     }
 
     void assertAutoFilled() throws Exception {
-        final boolean set = mLatch.await(FILL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-        assertWithMessage("Timeout (%s ms) on RadioGroup %s", FILL_TIMEOUT_MS, mName)
+        final boolean set = mLatch.await(FILL_TIMEOUT.ms(), TimeUnit.MILLISECONDS);
+        assertWithMessage("Timeout (%s ms) on RadioGroup %s", FILL_TIMEOUT.ms(), mName)
             .that(set).isTrue();
         final int actual = mRadioGroup.getAutofillValue().getListValue();
         assertWithMessage("Wrong auto-fill value on RadioGroup %s", mName)

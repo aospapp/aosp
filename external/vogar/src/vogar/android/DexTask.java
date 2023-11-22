@@ -19,10 +19,14 @@ package vogar.android;
 import java.io.File;
 import vogar.Action;
 import vogar.Classpath;
+import vogar.Dexer;
 import vogar.Result;
+import vogar.Run;
 import vogar.tasks.Task;
+import vogar.Toolchain;
 
 public final class DexTask extends Task {
+    private final Dexer dexer;
     private final AndroidSdk androidSdk;
     private final Classpath classpath;
     private final boolean benchmark;
@@ -32,9 +36,10 @@ public final class DexTask extends Task {
     private final File localTempDir;
     private final boolean multidex;
 
-    public DexTask(AndroidSdk androidSdk, Classpath classpath, boolean benchmark, String name,
+    public DexTask(Dexer dexer, AndroidSdk androidSdk, Classpath classpath, boolean benchmark, String name,
             File jar, Action action, File localDex, File localTempDir, boolean multidex) {
         super("dex " + name);
+        this.dexer = dexer;
         this.androidSdk = androidSdk;
         this.classpath = classpath;
         this.benchmark = benchmark;
@@ -54,7 +59,7 @@ public final class DexTask extends Task {
             // Everything is already in 'cp' so the dependent classpath becomes empty.
             dependentCp = new Classpath();
         }
-        androidSdk.dex(multidex, localDex, localTempDir, cp, dependentCp);
+        androidSdk.dex(multidex, localDex, localTempDir, cp, dependentCp, dexer);
         return Result.SUCCESS;
     }
 }

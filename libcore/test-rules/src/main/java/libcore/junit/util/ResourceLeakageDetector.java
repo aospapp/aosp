@@ -60,7 +60,8 @@ public class ResourceLeakageDetector {
 
             // Access the underlying support class using reflection in order to prevent any compile
             // time dependencies on it so as to allow this to compile on OpenJDK.
-            Class<?> closeGuardSupportClass = Class.forName("dalvik.system.CloseGuardSupport");
+            Class<?> closeGuardSupportClass = Class.forName(
+                    "libcore.dalvik.system.CloseGuardSupport");
             Method method = closeGuardSupportClass.getMethod("getRule");
             leakageDetectorRule = new LeakageDetectorRule((TestRule) method.invoke(null));
 

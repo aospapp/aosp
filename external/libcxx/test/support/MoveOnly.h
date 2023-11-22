@@ -12,14 +12,13 @@
 
 #include "test_macros.h"
 
-#ifndef _LIBCPP_HAS_NO_RVALUE_REFERENCES
+#if TEST_STD_VER >= 11
 
 #include <cstddef>
 #include <functional>
 
 class MoveOnly
 {
-    friend class MoveOnly2;
     MoveOnly(const MoveOnly&);
     MoveOnly& operator=(const MoveOnly&);
 
@@ -35,6 +34,8 @@ public:
 
     bool operator==(const MoveOnly& x) const {return data_ == x.data_;}
     bool operator< (const MoveOnly& x) const {return data_ <  x.data_;}
+    MoveOnly operator+(const MoveOnly& x) const { return MoveOnly{data_ + x.data_}; }
+    MoveOnly operator*(const MoveOnly& x) const { return MoveOnly{data_ * x.data_}; }
 };
 
 namespace std {
@@ -49,6 +50,6 @@ struct hash<MoveOnly>
 
 }
 
-#endif  // _LIBCPP_HAS_NO_RVALUE_REFERENCES
+#endif  // TEST_STD_VER >= 11
 
 #endif  // MOVEONLY_H

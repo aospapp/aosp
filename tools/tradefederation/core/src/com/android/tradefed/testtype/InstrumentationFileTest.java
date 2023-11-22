@@ -16,7 +16,6 @@
 
 package com.android.tradefed.testtype;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -24,13 +23,18 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.ResultForwarder;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.FileUtil;
+
+import com.google.common.annotations.VisibleForTesting;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Runs a set of instrumentation tests by specifying a list of line separated test classes and
@@ -44,13 +48,11 @@ class InstrumentationFileTest implements IRemoteTest {
 
     // on device test folder location where the test file should be saved
     private static final String ON_DEVICE_TEST_DIR_LOCATION = "/data/local/tmp/";
-    // used to separate fully-qualified test case class name, and one of its methods
-    private static final char METHOD_SEPARATOR = '#';
 
     private InstrumentationTest mInstrumentationTest = null;
 
     /** the set of tests to run */
-    private final Collection<TestIdentifier> mTests;
+    private final Collection<TestDescription> mTests;
 
     private String mFilePathOnDevice = null;
 
@@ -63,13 +65,16 @@ class InstrumentationFileTest implements IRemoteTest {
     /**
      * Creates a {@link InstrumentationFileTest}.
      *
-     * @param instrumentationTest  {@link InstrumentationTest} used to configure this class
-     * @param testsToRun  a {@link Collection} of tests to run. Note this {@link Collection} will be
-     * used as is (ie a reference to the testsToRun object will be kept).
+     * @param instrumentationTest {@link InstrumentationTest} used to configure this class
+     * @param testsToRun a {@link Collection} of tests to run. Note this {@link Collection} will be
+     *     used as is (ie a reference to the testsToRun object will be kept).
      */
-    InstrumentationFileTest(InstrumentationTest instrumentationTest,
-            Collection<TestIdentifier> testsToRun, boolean retrySerially, int maxAttempts)
-                    throws ConfigurationException {
+    InstrumentationFileTest(
+            InstrumentationTest instrumentationTest,
+            Collection<TestDescription> testsToRun,
+            boolean retrySerially,
+            int maxAttempts)
+            throws ConfigurationException {
         // reuse the InstrumentationTest class to perform actual test run
         mInstrumentationTest = createInstrumentationTest();
         // copy all options from the original InstrumentationTest
@@ -101,15 +106,16 @@ class InstrumentationFileTest implements IRemoteTest {
 
     /**
      * Creates a file based on the {@link Collection} of tests to run. Upon successful file creation
-     * will push the file onto the test device and attempt to run them via
-     * {@link InstrumentationTest}. If something goes wrong, will default to serial test execution.
+     * will push the file onto the test device and attempt to run them via {@link
+     * InstrumentationTest}. If something goes wrong, will default to serial test execution.
      *
-     * @param tests  a {@link Collection} of tests to run
+     * @param tests a {@link Collection} of tests to run
      * @param listener the test result listener
      * @throws DeviceNotAvailableException
      */
-    private void writeTestsToFileAndRun(Collection<TestIdentifier> tests,
-            final ITestInvocationListener listener) throws DeviceNotAvailableException {
+    private void writeTestsToFileAndRun(
+            Collection<TestDescription> tests, final ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
         mAttemps += 1;
         if (mMaxAttemps > 0 && mAttemps <= mMaxAttemps) {
             CLog.d("Try to run tests from file for the %d/%d attempts",
@@ -130,8 +136,17 @@ class InstrumentationFileTest implements IRemoteTest {
             testFile = FileUtil.createTempFile(
                     "tf_testFile_" + InstrumentationFileTest.class.getCanonicalName(), ".txt");
             try (BufferedWriter bw = new BufferedWriter(new FileWriter(testFile))) {
-                for (TestIdentifier testToRun : tests) {
-                    bw.write(testToRun.getClassName() + METHOD_SEPARATOR + testToRun.getTestName());
+                // Remove parameterized tests to only re-run their base method.
+                Collection<TestDescription> uniqueMethods = createRerunSet(tests);
+
+                for (TestDescription testToRun : uniqueMethods) {
+                    // We use getTestNameNoParams to avoid attempting re-running individual
+                    // parameterized tests. Instead ask the base method to re-run them all.
+                    bw.write(
+                            String.format(
+                                    "%s#%s",
+                                    testToRun.getClassName(),
+                                    testToRun.getTestNameWithoutParams()));
                     bw.newLine();
                 }
                 CLog.d("Test file %s was successfully created", testFile.getAbsolutePath());
@@ -176,7 +191,7 @@ class InstrumentationFileTest implements IRemoteTest {
             runner.run(new ResultForwarder(listener, testTracker));
         } finally {
             deleteTestFileFromDevice(mFilePathOnDevice);
-            Collection<TestIdentifier> completedTests =
+            Collection<TestDescription> completedTests =
                     testTracker.getCurrentRunResults().getCompletedTests();
             if (mTests.removeAll(completedTests) && !mTests.isEmpty()) {
                 // re-run remaining tests from file
@@ -207,11 +222,25 @@ class InstrumentationFileTest implements IRemoteTest {
     }
 
     /**
+     * Returns a new collection of {@link TestDescription} where only one instance of each
+     * parameterized method is in the list.
+     */
+    private Collection<TestDescription> createRerunSet(Collection<TestDescription> tests) {
+        Map<String, TestDescription> uniqueMethods = new LinkedHashMap<>();
+        for (TestDescription test : tests) {
+            uniqueMethods.put(test.getTestNameWithoutParams(), test);
+        }
+        return uniqueMethods.values();
+    }
+
+    /**
      * Util method to push file to a device. Exposed for unit testing.
+     *
      * @return if file was pushed to the device successfully
      * @throws DeviceNotAvailableException
      */
-    boolean pushFileToTestDevice(File file, String destinationPath) throws DeviceNotAvailableException {
+    boolean pushFileToTestDevice(File file, String destinationPath)
+            throws DeviceNotAvailableException {
         return mInstrumentationTest.getDevice().pushFile(file, destinationPath);
     }
 
@@ -226,9 +255,8 @@ class InstrumentationFileTest implements IRemoteTest {
         }
     }
 
-    /**
-     * @return the {@link InstrumentationTest} to use. Exposed for unit testing.
-     */
+    /** @return the {@link InstrumentationTest} to use. Exposed for unit testing. */
+    @VisibleForTesting
     InstrumentationTest createInstrumentationTest() {
         return new InstrumentationTest();
     }

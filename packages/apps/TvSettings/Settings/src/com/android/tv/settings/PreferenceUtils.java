@@ -21,7 +21,6 @@ import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.provider.Settings;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceGroup;
 
@@ -66,11 +65,5 @@ public final class PreferenceUtils {
 
         // Did not find a matching activity, so remove the preference
         parent.removePreference(preference);
-    }
-
-    public static boolean isDeveloperEnabled(Context context) {
-        return Settings.Global.getInt(context.getContentResolver(),
-                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED,
-                android.os.Build.TYPE.equals("eng") ? 1 : 0) == 1;
     }
 }

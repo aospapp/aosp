@@ -18,6 +18,7 @@
  ****************************************************************************/
 #ifndef _UAPI_LINUX_SEG6_IPTUNNEL_H
 #define _UAPI_LINUX_SEG6_IPTUNNEL_H
+#include <linux/seg6.h>
 enum {
   SEG6_IPTUNNEL_UNSPEC,
   SEG6_IPTUNNEL_SRH,
@@ -32,5 +33,6 @@ struct seg6_iptunnel_encap {
 enum {
   SEG6_IPTUN_MODE_INLINE,
   SEG6_IPTUN_MODE_ENCAP,
+  SEG6_IPTUN_MODE_L2ENCAP,
 };
 #endif

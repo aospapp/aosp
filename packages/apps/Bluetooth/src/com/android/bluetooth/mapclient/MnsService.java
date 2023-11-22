@@ -31,7 +31,10 @@ import java.io.IOException;
 
 import javax.obex.ServerSession;
 
-class MnsService {
+/**
+ * Message Notification Server implementation
+ */
+public class MnsService {
     static final int MSG_EVENT = 1;
     /* for Client */
     static final int EVENT_REPORT = 1001;
@@ -40,39 +43,42 @@ class MnsService {
     private static final Boolean VDBG = MapClientService.VDBG;
     /* MAP version 1.1 */
     private static final int MNS_VERSION = 0x0101;
-    /* MNS features: Notification Feature */
-    private static final int MNS_FEATURE_BITS = 0x0002;
     /* these are shared across instances */
-    static private SocketAcceptor mAcceptThread = null;
-    static private Handler mSessionHandler = null;
-    static private BluetoothServerSocket mServerSocket = null;
-    static private ObexServerSockets mServerSockets = null;
+    private static SocketAcceptor sAcceptThread = null;
+    private static Handler sSessionHandler = null;
+    private static BluetoothServerSocket sServerSocket = null;
+    private static ObexServerSockets sServerSockets = null;
 
-    static private MapClientService mContext;
+    private static MapClientService sContext;
     private volatile boolean mShutdown = false;         // Used to interrupt socket accept thread
     private int mSdpHandle = -1;
 
     MnsService(MapClientService context) {
-        if (VDBG) Log.v(TAG, "MnsService()");
-        mContext = context;
-        mAcceptThread = new SocketAcceptor();
-        mServerSockets = ObexServerSockets.create(mAcceptThread);
+        if (VDBG) {
+            Log.v(TAG, "MnsService()");
+        }
+        sContext = context;
+        sAcceptThread = new SocketAcceptor();
+        sServerSockets = ObexServerSockets.create(sAcceptThread);
         SdpManager sdpManager = SdpManager.getDefaultManager();
         if (sdpManager == null) {
             Log.e(TAG, "SdpManager is null");
             return;
         }
         mSdpHandle = sdpManager.createMapMnsRecord("MAP Message Notification Service",
-                mServerSockets.getRfcommChannel(), -1, MNS_VERSION, MNS_FEATURE_BITS);
+                sServerSockets.getRfcommChannel(), -1, MNS_VERSION,
+                MasClient.MAP_SUPPORTED_FEATURES);
     }
 
     void stop() {
-        if (VDBG) Log.v(TAG, "stop()");
+        if (VDBG) {
+            Log.v(TAG, "stop()");
+        }
         mShutdown = true;
         cleanUpSdpRecord();
-        if (mServerSockets != null) {
-            mServerSockets.shutdown(false);
-            mServerSockets = null;
+        if (sServerSockets != null) {
+            sServerSockets.shutdown(false);
+            sServerSockets = null;
         }
     }
 
@@ -106,7 +112,7 @@ class MnsService {
         @Override
         public synchronized void onAcceptFailed() {
             Log.e(TAG, "OnAcceptFailed");
-            mServerSockets = null; // Will cause a new to be created when calling start.
+            sServerSockets = null; // Will cause a new to be created when calling start.
             if (mShutdown) {
                 Log.e(TAG, "Failed to accept incomming connection - " + "shutdown");
             }
@@ -114,10 +120,17 @@ class MnsService {
 
         @Override
         public synchronized boolean onConnect(BluetoothDevice device, BluetoothSocket socket) {
-            if (DBG) Log.d(TAG, "onConnect" + device + " SOCKET: " + socket);
+            if (DBG) {
+                Log.d(TAG, "onConnect" + device + " SOCKET: " + socket);
+            }
             /* Signal to the service that we have received an incoming connection.*/
-            MnsObexServer srv = new MnsObexServer(
-                    mContext.mMceStateMachine, mServerSockets);
+            MceStateMachine stateMachine = sContext.getMceStateMachineForDevice(device);
+            if (stateMachine == null) {
+                Log.e(TAG, "Error: NO statemachine for device: " + device.getAddress()
+                        + " (name: " + device.getName());
+                return false;
+            }
+            MnsObexServer srv = new MnsObexServer(stateMachine, sServerSockets);
             BluetoothObexTransport transport = new BluetoothObexTransport(socket);
             try {
                 new ServerSession(transport, srv, null);

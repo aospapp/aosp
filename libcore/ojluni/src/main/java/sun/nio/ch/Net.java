@@ -95,10 +95,10 @@ public class Net {
 
     public static InetSocketAddress checkAddress(SocketAddress sa) {
         if (sa == null)
-            // BEGIN Android-changed
+            // BEGIN Android-changed: Throw IllegalArgumentException not NullPointerException.
             //throw new NullPointerException();
             throw new IllegalArgumentException("sa == null");
-            // END Android-changed
+            // END Android-changed: Throw IllegalArgumentException not NullPointerException.
 
         if (!(sa instanceof InetSocketAddress))
             throw new UnsupportedAddressTypeException(); // ## needs arg
@@ -135,8 +135,8 @@ public class Net {
             nx = new SocketException("Unsupported address type");
         else if (x instanceof UnresolvedAddressException) {
             nx = new SocketException("Unresolved address");
+        // Android-added: Handling for AlreadyConnectedException.
         } else if (x instanceof AlreadyConnectedException) {
-            // Android-added.
             nx = new SocketException("Already connected");
         }
         if (nx != x)
@@ -458,6 +458,7 @@ public class Net {
     static int connect(ProtocolFamily family, FileDescriptor fd, InetAddress remote, int remotePort)
         throws IOException
     {
+        // Android-added: BlockGuard support.
         BlockGuard.getThreadPolicy().onNetwork();
 
         boolean preferIPv6 = isIPv6Available() &&
@@ -609,6 +610,9 @@ public class Net {
 
     static native int getInterface6(FileDescriptor fd) throws IOException;
 
+    // Android-removed: Code to load native libraries, doesn't make sense on Android.
+    // private static native void initIDs();
+
     /**
      * Event masks for the various poll system calls.
      * They will be set platform dependant in the static initializer below.
@@ -628,6 +632,11 @@ public class Net {
     static native short pollconnValue();
 
     static {
+        // Android-removed: Code to load native libraries, doesn't make sense on Android.
+        /*
+        IOUtil.load();
+        initIDs();
+        */
 
         POLLIN     = pollinValue();
         POLLOUT    = polloutValue();

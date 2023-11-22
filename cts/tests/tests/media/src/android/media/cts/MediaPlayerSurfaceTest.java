@@ -17,6 +17,7 @@
 package android.media.cts;
 
 import android.os.Bundle;
+import android.platform.test.annotations.AppModeFull;
 import android.support.test.filters.SmallTest;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.ActivityInstrumentationTestCase2;
@@ -25,6 +26,7 @@ import android.test.ActivityInstrumentationTestCase2;
  */
 @SmallTest
 @RequiresDevice
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaPlayerSurfaceTest extends ActivityInstrumentationTestCase2<MediaPlayerSurfaceStubActivity> {
 
     public MediaPlayerSurfaceTest() {

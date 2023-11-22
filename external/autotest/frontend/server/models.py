@@ -24,7 +24,7 @@ class Server(dbmodels.Model, model_logic.ModelExtensions):
                   'Date Modified: %(date_modified)s\n'
                   'Note         : %(note)s\n')
 
-    STATUS_LIST = ['primary', 'backup', 'repair_required']
+    STATUS_LIST = ['primary', 'repair_required']
     STATUS = enum.Enum(*STATUS_LIST, string_values=True)
 
     hostname = dbmodels.CharField(unique=True, max_length=128)
@@ -72,7 +72,7 @@ class Server(dbmodels.Model, model_logic.ModelExtensions):
         For example:
         {
             'hostname': 'server1',
-            'status': 'backup',
+            'status': 'primary',
             'roles': ['drone', 'scheduler'],
             'attributes': {'max_processes': 300}
         }
@@ -96,20 +96,14 @@ class ServerRole(dbmodels.Model, model_logic.ModelExtensions):
     """Role associated with hosts."""
     # Valid roles for a server.
     ROLE_LIST = ['afe', 'scheduler', 'host_scheduler', 'drone', 'devserver',
-                 'database', 'database_slave', 'suite_scheduler',
-                 'crash_server', 'shard', 'golo_proxy', 'sentinel', 'reserve']
+                 'database', 'database_slave', 'crash_server', 'shard',
+                 'golo_proxy', 'sentinel', 'reserve']
     ROLE = enum.Enum(*ROLE_LIST, string_values=True)
-    # When deleting any of following roles from a primary server, a working
-    # backup must be available if user_server_db is enabled in global config.
-    ROLES_REQUIRE_BACKUP = [ROLE.SCHEDULER, ROLE.HOST_SCHEDULER,
-                            ROLE.DATABASE, ROLE.SUITE_SCHEDULER,
-                            ROLE.DRONE]
     # Roles that must be assigned to a single primary server in an Autotest
     # instance
     ROLES_REQUIRE_UNIQUE_INSTANCE = [ROLE.SCHEDULER,
                                      ROLE.HOST_SCHEDULER,
-                                     ROLE.DATABASE,
-                                     ROLE.SUITE_SCHEDULER]
+                                     ROLE.DATABASE]
 
     server = dbmodels.ForeignKey(Server, related_name='roles')
     role = dbmodels.CharField(max_length=128, choices=ROLE.choices())
@@ -148,7 +142,7 @@ def validate(**kwargs):
     2. hostname. The code will try to resolve given hostname. If the hostname
        does not exist in the network, InvalidDataError will be raised.
     Sample usage of this function:
-    validate(role='drone', status='backup', hostname='server1')
+    validate(role='drone', status='repair_required', hostname='server1')
 
     @param kwargs: command line arguments, e.g., `status='primary'`
     @raise InvalidDataError: If any argument value is invalid.

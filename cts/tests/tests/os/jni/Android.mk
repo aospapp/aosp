@@ -29,7 +29,8 @@ LOCAL_SRC_FILES := \
 		android_os_cts_OSFeatures.cpp \
 		android_os_cts_NoExecutePermissionTest.cpp \
 		android_os_cts_SeccompTest.cpp \
-		android_os_cts_SharedMemory.cpp
+		android_os_cts_SharedMemory.cpp \
+		android_os_cts_SPMITest.cpp
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
@@ -56,7 +57,16 @@ ifeq ($(ARCH_SUPPORTS_SECCOMP),1)
 	LOCAL_CFLAGS += -DARCH_SUPPORTS_SECCOMP
 endif
 
-LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter
+LOCAL_CFLAGS += -Wno-inline-asm -Wno-unused-const-variable
+
+# Let's overwrite -mcpu in case it's set to some ARMv8 core by
+# TARGET_2ND_CPU_VARIANT and causes clang to ignore the -march below.
 LOCAL_CPPFLAGS_arm := -mcpu=generic
+
+# The ARM version of this library must be built using ARMv7 ISA (even if it
+# can be run on armv8 cores) since one of the tested instruction, swp, is
+# only supported in ARMv7 (and older) cores, and obsolete in ARMv8.
+LOCAL_CPPFLAGS_arm += -march=armv7-a
 
 include $(BUILD_SHARED_LIBRARY)

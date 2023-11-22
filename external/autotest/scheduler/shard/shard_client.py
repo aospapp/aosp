@@ -94,6 +94,7 @@ On the client side, this will happen:
 
 
 HEARTBEAT_AFE_ENDPOINT = 'shard_heartbeat'
+_METRICS_PREFIX  = 'chromeos/autotest/shard_client/heartbeat/'
 
 RPC_TIMEOUT_MIN = 5
 RPC_DELAY_SEC = 5
@@ -114,7 +115,7 @@ class ShardClient(object):
                                                  delay_sec=RPC_DELAY_SEC)
         self.hostname = shard_hostname
         self.tick_pause_sec = tick_pause_sec
-        self._shutdown = False
+        self._shutdown_requested = False
         self._shard = None
 
 
@@ -309,6 +310,16 @@ class ShardClient(object):
                 'jobs': jobs, 'hqes': hqes}
 
 
+    def _report_packet_metrics(self, packet):
+        """Report stats about outgoing packet to monarch."""
+        metrics.Gauge(_METRICS_PREFIX + 'known_job_ids_count').set(
+            len(packet['known_job_ids']))
+        metrics.Gauge(_METRICS_PREFIX + 'jobs_upload_count').set(
+            len(packet['jobs']))
+        metrics.Gauge(_METRICS_PREFIX + 'known_host_ids_count').set(
+            len(packet['known_host_ids']))
+
+
     def _heartbeat_failure(self, log_message, failure_type_str=''):
         logging.error("Heartbeat failed. %s", log_message)
         metrics.Counter('chromeos/autotest/shard_client/heartbeat_failure'
@@ -323,12 +334,14 @@ class ShardClient(object):
         This function executes a `shard_heartbeat` RPC. It retrieves the
         response of this call and processes the response by storing the returned
         objects in the local database.
+
+        Returns: True if the heartbeat ran successfully, False otherwise.
         """
-        heartbeat_metrics_prefix  = 'chromeos/autotest/shard_client/heartbeat/'
 
         logging.info("Performing heartbeat.")
         packet = self._heartbeat_packet()
-        metrics.Gauge(heartbeat_metrics_prefix + 'request_size').set(
+        self._report_packet_metrics(packet)
+        metrics.Gauge(_METRICS_PREFIX + 'request_size').set(
             len(str(packet)))
 
         try:
@@ -336,40 +349,46 @@ class ShardClient(object):
         except urllib2.HTTPError as e:
             self._heartbeat_failure('HTTPError %d: %s' % (e.code, e.reason),
                                     'HTTPError')
-            return
+            return False
         except urllib2.URLError as e:
             self._heartbeat_failure('URLError: %s' % e.reason,
                                     'URLError')
-            return
+            return False
         except httplib.HTTPException as e:
             self._heartbeat_failure('HTTPException: %s' % e,
                                     'HTTPException')
-            return
+            return False
         except timeout_util.TimeoutError as e:
             self._heartbeat_failure('TimeoutError: %s' % e,
                                     'TimeoutError')
-            return
+            return False
         except proxy.JSONRPCException as e:
             self._heartbeat_failure('JSONRPCException: %s' % e,
                                     'JSONRPCException')
-            return
+            return False
 
-        metrics.Gauge(heartbeat_metrics_prefix + 'response_size').set(
+        metrics.Gauge(_METRICS_PREFIX + 'response_size').set(
             len(str(response)))
         self._mark_jobs_as_uploaded([job['id'] for job in packet['jobs']])
         self.process_heartbeat_response(response)
         logging.info("Heartbeat completed.")
+        return True
 
 
     def tick(self):
         """Performs all tasks the shard clients needs to do periodically."""
-        self.do_heartbeat()
-        metrics.Counter('chromeos/autotest/shard_client/tick').increment()
+        success = self.do_heartbeat()
+        if success:
+            metrics.Counter('chromeos/autotest/shard_client/tick').increment()
 
 
-    def loop(self):
-        """Calls tick() until shutdown() is called."""
-        while not self._shutdown:
+    def loop(self, lifetime_hours):
+        """Calls tick() until shutdown() is called or lifetime expires.
+
+        @param lifetime_hours: (int) hours to loop for.
+        """
+        loop_start_time = time.time()
+        while self._continue_looping(lifetime_hours, loop_start_time):
             self.tick()
             # Sleep with +/- 10% fuzzing to avoid phaselock of shards.
             tick_fuzz = self.tick_pause_sec * 0.2 * (random.random() - 0.5)
@@ -379,7 +398,26 @@ class ShardClient(object):
     def shutdown(self):
         """Stops the shard client after the current tick."""
         logging.info("Shutdown request received.")
-        self._shutdown = True
+        self._shutdown_requested = True
+
+
+    def _continue_looping(self, lifetime_hours, loop_start_time):
+        """Determines if we should continue with the next mainloop iteration.
+
+        @param lifetime_hours: (float) number of hours to loop for. None
+                implies no deadline.
+        @param process_start_time: Time when we started looping.
+        @returns True if we should continue looping, False otherwise.
+        """
+        if self._shutdown_requested:
+            return False
+
+        if (lifetime_hours is None
+            or time.time() - loop_start_time < lifetime_hours * 3600):
+            return True
+        logging.info('Process lifetime %0.3f hours exceeded. Shutting down.',
+                     lifetime_hours)
+        return False
 
 
 def handle_signal(signum, frame):
@@ -424,26 +462,44 @@ def get_shard_client():
 
 
 def main():
-    ts_mon_config.SetupTsMonGlobalState('shard_client')
-
-    try:
-        metrics.Counter('chromeos/autotest/shard_client/start').increment()
-        main_without_exception_handling()
-    except Exception as e:
-        metrics.Counter('chromeos/autotest/shard_client/uncaught_exception'
-                        ).increment()
-        message = 'Uncaught exception. Terminating shard_client.'
-        email_manager.manager.log_stacktrace(message)
-        logging.exception(message)
-        raise
-    finally:
-        email_manager.manager.send_queued_emails()
-
-
-def main_without_exception_handling():
     parser = argparse.ArgumentParser(description='Shard client.')
+    parser.add_argument(
+            '--lifetime-hours',
+            type=float,
+            default=None,
+            help='If provided, number of hours we should run for. '
+                 'At the expiry of this time, the process will exit '
+                 'gracefully.',
+    )
+    parser.add_argument(
+            '--metrics-file',
+            help='If provided, drop metrics to this local file instead of '
+                 'reporting to ts_mon',
+            type=str,
+            default=None,
+    )
     options = parser.parse_args()
 
+    with ts_mon_config.SetupTsMonGlobalState(
+          'shard_client',
+          indirect=True,
+          debug_file=options.metrics_file,
+    ):
+        try:
+            metrics.Counter('chromeos/autotest/shard_client/start').increment()
+            main_without_exception_handling(options)
+        except Exception as e:
+            metrics.Counter('chromeos/autotest/shard_client/uncaught_exception'
+                            ).increment()
+            message = 'Uncaught exception. Terminating shard_client.'
+            email_manager.manager.log_stacktrace(message)
+            logging.exception(message)
+            raise
+        finally:
+            email_manager.manager.send_queued_emails()
+
+
+def main_without_exception_handling(options):
     scheduler_lib.setup_logging(
             os.environ.get('AUTOTEST_SCHEDULER_LOG_DIR', None),
             None, timestamped_logfile_prefix='shard_client')
@@ -455,7 +511,7 @@ def main_without_exception_handling():
     logging.info("Starting shard client.")
     global _heartbeat_client
     _heartbeat_client = get_shard_client()
-    _heartbeat_client.loop()
+    _heartbeat_client.loop(options.lifetime_hours)
 
 
 if __name__ == '__main__':

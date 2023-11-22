@@ -415,6 +415,5 @@ public class ThemeDeviceActivity extends Activity {
                     new TimePickerModifier()),
             new Layout(R.layout.togglebutton_checked, "togglebutton_checked"),
             new Layout(R.layout.togglebutton, "togglebutton"),
-            new Layout(R.layout.zoomcontrols, "zoomcontrols"),
     };
 }

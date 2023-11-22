@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 # Copyright 2010 Google Inc. All Rights Reserved.
 """Module for transferring files between various types of repositories."""
@@ -22,6 +22,7 @@ from cros_utils import logger
 from cros_utils import misc
 
 # pylint: disable=anomalous-backslash-in-string
+
 
 def GetCanonicalMappings(mappings):
   canonical_mappings = []
@@ -101,8 +102,8 @@ class Repo(object):
     return self._ce.RunCommand(command)
 
   def __str__(self):
-    return '\n'.join(str(s)
-                     for s in [self.repo_type, self.address, self.mappings])
+    return '\n'.join(
+        str(s) for s in [self.repo_type, self.address, self.mappings])
 
 
 # Note - this type of repo is used only for "readonly", in other words, this
@@ -130,7 +131,6 @@ class FileRepo(Repo):
 class P4Repo(Repo):
   """Class for P4 repositories."""
 
-
   def __init__(self, address, mappings, revision=None):
     Repo.__init__(self)
     self.repo_type = 'p4'
@@ -143,9 +143,8 @@ class P4Repo(Repo):
     client_name += tempfile.mkstemp()[1].replace('/', '-')
     mappings = self.mappings
     p4view = perforce.View('depot2', GetCanonicalMappings(mappings))
-    p4client = perforce.CommandsFactory(self._root_dir,
-                                        p4view,
-                                        name=client_name)
+    p4client = perforce.CommandsFactory(
+        self._root_dir, p4view, name=client_name)
     command = p4client.SetupAndDo(p4client.Sync(self.revision))
     ret = self._ce.RunCommand(command)
     assert ret == 0, 'Could not setup client.'
@@ -225,16 +224,16 @@ class GitRepo(Repo):
   def SetupForPush(self):
     with misc.WorkingDirectory(self._root_dir):
       ret = self._CloneSources()
-      logger.GetLogger().LogFatalIf(ret, 'Could not clone git repo %s.' %
-                                    self.address)
+      logger.GetLogger().LogFatalIf(
+          ret, 'Could not clone git repo %s.' % self.address)
 
       command = 'git branch -a | grep -wq %s' % self.branch
       ret = self._ce.RunCommand(command)
 
       if ret == 0:
         if self.branch != 'master':
-          command = ('git branch --track %s remotes/origin/%s' %
-                     (self.branch, self.branch))
+          command = ('git branch --track %s remotes/origin/%s' % (self.branch,
+                                                                  self.branch))
         else:
           command = 'pwd'
         command += '&& git checkout %s' % self.branch
@@ -270,8 +269,8 @@ class GitRepo(Repo):
       if self.gerrit:
         label = 'somelabel'
         command = 'git remote add %s %s' % (label, self.address)
-        command += ('&& git push %s %s HEAD:refs/for/master' %
-                    (push_args, label))
+        command += ('&& git push %s %s HEAD:refs/for/master' % (push_args,
+                                                                label))
       else:
         command = 'git push -v %s origin %s:%s' % (push_args, self.branch,
                                                    self.branch)
@@ -334,11 +333,12 @@ class RepoReader(object):
     elif repo_type == 'svn':
       repo = SvnRepo(repo_address, repo_mappings)
     elif repo_type == 'git':
-      repo = GitRepo(repo_address,
-                     repo_branch,
-                     mappings=repo_mappings,
-                     ignores=repo_ignores,
-                     gerrit=gerrit)
+      repo = GitRepo(
+          repo_address,
+          repo_branch,
+          mappings=repo_mappings,
+          ignores=repo_ignores,
+          gerrit=gerrit)
     elif repo_type == 'file':
       repo = FileRepo(repo_address)
     else:
@@ -349,24 +349,27 @@ class RepoReader(object):
 @logger.HandleUncaughtExceptions
 def Main(argv):
   parser = argparse.ArgumentParser()
-  parser.add_argument('-i',
-                      '--input_file',
-                      dest='input_file',
-                      help='The input file that contains repo descriptions.')
+  parser.add_argument(
+      '-i',
+      '--input_file',
+      dest='input_file',
+      help='The input file that contains repo descriptions.')
 
-  parser.add_argument('-n',
-                      '--dry_run',
-                      dest='dry_run',
-                      action='store_true',
-                      default=False,
-                      help='Do a dry run of the push.')
+  parser.add_argument(
+      '-n',
+      '--dry_run',
+      dest='dry_run',
+      action='store_true',
+      default=False,
+      help='Do a dry run of the push.')
 
-  parser.add_argument('-F',
-                      '--message_file',
-                      dest='message_file',
-                      default=None,
-                      help=('Use contents of the log file as the commit '
-                            'message.'))
+  parser.add_argument(
+      '-F',
+      '--message_file',
+      dest='message_file',
+      default=None,
+      help=('Use contents of the log file as the commit '
+            'message.'))
 
   options = parser.parse_args(argv)
   if not options.input_file:
@@ -401,9 +404,10 @@ def Main(argv):
 
   commit_message = 'Synced repos to: %s' % ','.join(input_revisions)
   for output_repo in output_repos:
-    ret = output_repo.PushSources(commit_message=commit_message,
-                                  dry_run=options.dry_run,
-                                  message_file=options.message_file)
+    ret = output_repo.PushSources(
+        commit_message=commit_message,
+        dry_run=options.dry_run,
+        message_file=options.message_file)
     if ret:
       return ret
 

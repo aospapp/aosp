@@ -852,7 +852,7 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
                 return null;
             }
         }
-        Log.i(LOG_TAG, String.format("conditional select: selected", focus));
+        Log.i(LOG_TAG, String.format("conditional select: selected, %s", focus));
         return focus;
     }
 

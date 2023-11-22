@@ -39,3 +39,7 @@ TEST_F(ListCommandTest, one_option) {
 TEST_F(ListCommandTest, multiple_options) {
   ASSERT_TRUE(list_cmd->Run({"hw", "tracepoint"}));
 }
+
+TEST_F(ListCommandTest, show_features_option) {
+  ASSERT_TRUE(list_cmd->Run({"--show-features"}));
+}

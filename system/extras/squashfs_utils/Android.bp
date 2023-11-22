@@ -2,6 +2,7 @@
 
 cc_library_static {
     name: "libsquashfs_utils",
+    defaults: ["system-extras-cflags-defaults"],
     host_supported: true,
     srcs: [
         "squashfs_utils.c",

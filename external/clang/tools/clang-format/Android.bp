@@ -2,6 +2,7 @@
 // =====================================================
 clang_binary_host {
     name: "clang-format",
+    enabled: false,
     defaults: ["clang-defaults"],
     srcs: ["ClangFormat.cpp"],
 
@@ -86,20 +87,6 @@ clang_binary_host {
             host_ldlibs: [
                 "-limagehlp",
                 "-lversion",
-            ],
-        },
-        darwin: {
-            host_ldlibs: [
-                "-lm",
-                "-lpthread",
-                "-ldl",
-            ],
-        },
-        linux: {
-            host_ldlibs: [
-                "-lm",
-                "-lpthread",
-                "-ldl",
             ],
         },
     },

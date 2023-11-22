@@ -51,6 +51,8 @@ asan_rtl_cflags = [
     "-DASAN_NEEDS_SEGV=" + ASAN_NEEDS_SEGV,
     "-DASAN_HAS_EXCEPTIONS=" + ASAN_HAS_EXCEPTIONS,
     "-DASAN_FLEXIBLE_MAPPING_AND_OFFSET=" + ASAN_FLEXIBLE_MAPPING_AND_OFFSET,
+    "-Wall",
+    "-Werror",
     "-Wno-covered-switch-default",
     "-Wno-non-virtual-dtor",
     "-Wno-sign-compare",
@@ -84,7 +86,6 @@ cc_library_static {
         },
     },
 
-    clang: true,
     sdk_version: "19",
     stl: "none",
 
@@ -102,7 +103,6 @@ cc_library_host_static {
     cflags: asan_rtl_cflags,
     srcs: asan_rtl_cxx_files,
 
-    clang: true,
     compile_multilib: "both",
 
     sanitize: {
@@ -145,7 +145,6 @@ cc_defaults {
         "liblog",
         "libdl",
     ],
-    clang: true,
     sanitize: {
         never: true,
     },
@@ -213,6 +212,7 @@ cc_binary {
 
     srcs: ["asanwrapper.cc"],
 
+    cflags: ["-Wall", "-Werror"],
     cppflags: ["-std=c++11"],
     sanitize: {
         never: true,
@@ -236,6 +236,8 @@ cc_library_static {
         "external/compiler-rt/lib/sanitizer_common/tests",
     ],
     cflags: [
+        "-Wall",
+        "-Werror",
         "-Wno-non-virtual-dtor",
         "-Wno-unused-parameter",
         "-Wno-sign-compare",
@@ -252,7 +254,6 @@ cc_library_static {
 
     static_libs: ["libgtest"],
 
-    clang: true,
     sanitize: {
         never: true,
     },
@@ -277,6 +278,8 @@ cc_test {
         "-DASAN_NEEDS_SEGV=" + ASAN_NEEDS_SEGV,
         "-DASAN_HAS_EXCEPTIONS=" + ASAN_HAS_EXCEPTIONS,
         "-DASAN_HAS_BLACKLIST=1",
+        "-Wall",
+        "-Werror",
         "-Wno-covered-switch-default",
         "-Wno-non-virtual-dtor",
         "-Wno-sign-compare",
@@ -296,14 +299,8 @@ cc_test {
         address: true,
         blacklist: "tests/asan_test.ignore",
     },
-    clang: true,
 
     stl: "libc++",
-    target: {
-        host: {
-            host_ldlibs: ["-lrt"],
-        },
-    },
 }
 
 // ANDROIDMK TRANSLATION ERROR: endif from unsupported contitional

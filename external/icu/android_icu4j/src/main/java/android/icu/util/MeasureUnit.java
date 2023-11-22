@@ -184,6 +184,8 @@ public class MeasureUnit implements Serializable {
             factory = CURRENCY_FACTORY;
         } else if ("duration".equals(type)) {
             factory = TIMEUNIT_FACTORY;
+        } else if ("none".equals(type)) {
+            factory = NOUNIT_FACTORY;
         } else {
             factory = UNIT_FACTORY;
         }
@@ -241,6 +243,13 @@ public class MeasureUnit implements Serializable {
         }
     };
 
+    static Factory NOUNIT_FACTORY = new Factory() {
+        @Override
+        public MeasureUnit create(String type, String subType) {
+           return new NoUnit(subType);
+        }
+    };
+
     /**
      * Sink for enumerating the available measure units.
      */
@@ -249,8 +258,8 @@ public class MeasureUnit implements Serializable {
         public void put(UResource.Key key, UResource.Value value, boolean noFallback) {
             UResource.Table unitTypesTable = value.getTable();
             for (int i2 = 0; unitTypesTable.getKeyAndValue(i2, key, value); ++i2) {
-                // Skip "compound" since it is treated differently from the other units
-                if (key.contentEquals("compound")) {
+                // Skip "compound" and "coordinate" since they are treated differently from the other units
+                if (key.contentEquals("compound") || key.contentEquals("coordinate")) {
                     continue;
                 }
 
@@ -442,19 +451,16 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Constant for unit of concentr: milligram-per-deciliter
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final MeasureUnit MILLIGRAM_PER_DECILITER = MeasureUnit.internalGetInstance("concentr", "milligram-per-deciliter");
 
     /**
      * Constant for unit of concentr: millimole-per-liter
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final MeasureUnit MILLIMOLE_PER_LITER = MeasureUnit.internalGetInstance("concentr", "millimole-per-liter");
 
     /**
      * Constant for unit of concentr: part-per-million
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final MeasureUnit PART_PER_MILLION = MeasureUnit.internalGetInstance("concentr", "part-per-million");
 
@@ -475,33 +481,16 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Constant for unit of consumption: mile-per-gallon-imperial
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final MeasureUnit MILE_PER_GALLON_IMPERIAL = MeasureUnit.internalGetInstance("consumption", "mile-per-gallon-imperial");
 
-    /**
-     * Constant for unit of coordinate: east
-     * @hide draft / provisional / internal are hidden on Android
+    /*
+     * at-draft ICU 58, withdrawn
+     * public static final MeasureUnit EAST = MeasureUnit.internalGetInstance("coordinate", "east");
+     * public static final MeasureUnit NORTH = MeasureUnit.internalGetInstance("coordinate", "north");
+     * public static final MeasureUnit SOUTH = MeasureUnit.internalGetInstance("coordinate", "south");
+     * public static final MeasureUnit WEST = MeasureUnit.internalGetInstance("coordinate", "west");
      */
-    public static final MeasureUnit EAST = MeasureUnit.internalGetInstance("coordinate", "east");
-
-    /**
-     * Constant for unit of coordinate: north
-     * @hide draft / provisional / internal are hidden on Android
-     */
-    public static final MeasureUnit NORTH = MeasureUnit.internalGetInstance("coordinate", "north");
-
-    /**
-     * Constant for unit of coordinate: south
-     * @hide draft / provisional / internal are hidden on Android
-     */
-    public static final MeasureUnit SOUTH = MeasureUnit.internalGetInstance("coordinate", "south");
-
-    /**
-     * Constant for unit of coordinate: west
-     * @hide draft / provisional / internal are hidden on Android
-     */
-    public static final MeasureUnit WEST = MeasureUnit.internalGetInstance("coordinate", "west");
 
     /**
      * Constant for unit of digital: bit
@@ -769,6 +758,12 @@ public class MeasureUnit implements Serializable {
     public static final MeasureUnit PICOMETER = MeasureUnit.internalGetInstance("length", "picometer");
 
     /**
+     * Constant for unit of length: point
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public static final MeasureUnit POINT = MeasureUnit.internalGetInstance("length", "point");
+
+    /**
      * Constant for unit of length: yard
      */
     public static final MeasureUnit YARD = MeasureUnit.internalGetInstance("length", "yard");
@@ -1005,7 +1000,6 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Constant for unit of volume: gallon-imperial
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final MeasureUnit GALLON_IMPERIAL = MeasureUnit.internalGetInstance("volume", "gallon-imperial");
 

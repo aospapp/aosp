@@ -20,7 +20,9 @@
 #include "heap.h"
 
 #include "allocation_listener.h"
+#include "base/quasi_atomic.h"
 #include "base/time_utils.h"
+#include "base/utils.h"
 #include "gc/accounting/atomic_stack.h"
 #include "gc/accounting/card_table-inl.h"
 #include "gc/allocation_record.h"
@@ -30,11 +32,10 @@
 #include "gc/space/large_object_space.h"
 #include "gc/space/region_space-inl.h"
 #include "gc/space/rosalloc_space-inl.h"
+#include "handle_scope-inl.h"
 #include "obj_ptr-inl.h"
 #include "runtime.h"
-#include "handle_scope-inl.h"
 #include "thread-inl.h"
-#include "utils.h"
 #include "verify_object.h"
 
 namespace art {
@@ -106,8 +107,8 @@ inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self,
     pre_fence_visitor(obj, usable_size);
     QuasiAtomic::ThreadFenceForConstructor();
   } else {
-    // bytes allocated that takes bulk thread-local buffer allocations into account.
-    size_t bytes_tl_bulk_allocated = 0;
+    // Bytes allocated that takes bulk thread-local buffer allocations into account.
+    size_t bytes_tl_bulk_allocated = 0u;
     obj = TryToAllocate<kInstrumented, false>(self, allocator, byte_count, &bytes_allocated,
                                               &usable_size, &bytes_tl_bulk_allocated);
     if (UNLIKELY(obj == nullptr)) {
@@ -154,12 +155,13 @@ inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self,
     }
     pre_fence_visitor(obj, usable_size);
     QuasiAtomic::ThreadFenceForConstructor();
-    new_num_bytes_allocated = num_bytes_allocated_.FetchAndAddRelaxed(bytes_tl_bulk_allocated) +
-        bytes_tl_bulk_allocated;
+    size_t num_bytes_allocated_before =
+        num_bytes_allocated_.FetchAndAddRelaxed(bytes_tl_bulk_allocated);
+    new_num_bytes_allocated = num_bytes_allocated_before + bytes_tl_bulk_allocated;
     if (bytes_tl_bulk_allocated > 0) {
       // Only trace when we get an increase in the number of bytes allocated. This happens when
       // obtaining a new TLAB and isn't often enough to hurt performance according to golem.
-      TraceHeapSize(new_num_bytes_allocated + bytes_tl_bulk_allocated);
+      TraceHeapSize(new_num_bytes_allocated);
     }
   }
   if (kIsDebugBuild && Runtime::Current()->IsStarted()) {
@@ -401,8 +403,7 @@ inline bool Heap::IsOutOfMemoryOnAllocation(AllocatorType allocator_type,
         return true;
       }
       // TODO: Grow for allocation is racy, fix it.
-      VLOG(heap) << "Growing heap from " << PrettySize(max_allowed_footprint_) << " to "
-          << PrettySize(new_footprint) << " for a " << PrettySize(alloc_size) << " allocation";
+      VlogHeapGrowth(max_allowed_footprint_, new_footprint, alloc_size);
       max_allowed_footprint_ = new_footprint;
     }
   }

@@ -18,6 +18,8 @@
 
 extern "C" {
 
+#include "HAP_farf.h"
+#include "timer.h"
 #include "qurt.h"
 
 }  // extern "C"
@@ -32,11 +34,14 @@ extern "C" {
 #include "chre/platform/log.h"
 #include "chre/platform/memory.h"
 #include "chre/platform/mutex.h"
-#include "chre/platform/shared/platform_log.h"
 #include "chre/platform/slpi/fastrpc.h"
 #include "chre/platform/slpi/preloaded_nanoapps.h"
 #include "chre/platform/slpi/uimg_util.h"
 #include "chre/util/lock_guard.h"
+
+#ifdef CHRE_SLPI_SEE
+#include "chre/platform/slpi/see/island_vote_client.h"
+#endif
 
 using chre::EventLoop;
 using chre::EventLoopManagerSingleton;
@@ -70,7 +75,7 @@ constexpr unsigned short kThreadPriority = 192;
 
 //! How long we wait (in microseconds) between checks on whether the CHRE thread
 //! has exited after we invoked stop().
-constexpr qurt_timer_duration_t kThreadStatusPollingIntervalUsec = 5000;  // 5ms
+constexpr time_timetick_type kThreadStatusPollingIntervalUsec = 5000;  // 5ms
 
 //! Buffer to use for the CHRE thread's stack.
 typename std::aligned_storage<kStackSize>::type gStack;
@@ -90,18 +95,6 @@ bool gThreadRunning;
 int gTlsKey;
 bool gTlsKeyValid;
 
-__attribute__((constructor))
-void onLoad(void) {
-  // Initialize the platform logging as early as possible.
-  chre::PlatformLogSingleton::init();
-}
-
-__attribute__((destructor))
-void onUnload(void) {
-  // Defer platform logging deinitialization to as late as possible.
-  chre::PlatformLogSingleton::deinit();
-}
-
 void performDebugDumpCallback(uint16_t /*eventType*/, void *data) {
   auto *handle = static_cast<const uint32_t *>(data);
   UniquePtr<char> dump = chre::EventLoopManagerSingleton::get()->debugDump();
@@ -112,11 +105,9 @@ void onDebugDumpRequested(void * /*cookie*/, uint32_t handle) {
   static uint32_t debugDumpHandle;
 
   debugDumpHandle = handle;
-  if (!chre::EventLoopManagerSingleton::get()->deferCallback(
-          chre::SystemCallbackType::PerformDebugDump, &debugDumpHandle,
-          performDebugDumpCallback)) {
-    LOGW("Failed to post event to get debug dump");
-  }
+  chre::EventLoopManagerSingleton::get()->deferCallback(
+      chre::SystemCallbackType::PerformDebugDump, &debugDumpHandle,
+      performDebugDumpCallback);
 }
 
 /**
@@ -126,14 +117,16 @@ void onDebugDumpRequested(void * /*cookie*/, uint32_t handle) {
  */
 void chreThreadEntry(void * /*data*/) {
   EventLoopManagerSingleton::get()->lateInit();
-  EventLoop *eventLoop = &EventLoopManagerSingleton::get()->getEventLoop();
   chre::loadStaticNanoapps();
-  loadPreloadedNanoapps(eventLoop);
+  chre::loadPreloadedNanoapps();
   ashRegisterDebugDumpCallback("CHRE", onDebugDumpRequested, nullptr);
-  eventLoop->run();
+  EventLoopManagerSingleton::get()->getEventLoop().run();
 
   ashUnregisterDebugDumpCallback(onDebugDumpRequested);
   chre::deinit();
+#ifdef CHRE_SLPI_SEE
+  chre::IslandVoteClientSingleton::deinit();
+#endif
   gThreadRunning = false;
   LOGD("CHRE thread exiting");
 }
@@ -166,6 +159,10 @@ extern "C" int chre_slpi_start_thread(void) {
   if (gThreadRunning) {
     LOGE("CHRE thread already running");
   } else {
+#ifdef CHRE_SLPI_SEE
+    chre::IslandVoteClientSingleton::init("CHRE" /* clientName */);
+#endif
+
     // This must complete before we can receive messages that might result in
     // posting an event
     chre::init();
@@ -251,7 +248,8 @@ extern "C" int chre_slpi_stop_thread(void) {
     // is invalid. Technically, we could use a condition variable, but this is
     // simpler and we don't care too much about being notified right away.
     while (gThreadRunning) {
-      qurt_timer_sleep(kThreadStatusPollingIntervalUsec);
+      timer_sleep(kThreadStatusPollingIntervalUsec, T_USEC,
+                  true /* non_deferrable */);
     }
     gThreadHandle = 0;
 

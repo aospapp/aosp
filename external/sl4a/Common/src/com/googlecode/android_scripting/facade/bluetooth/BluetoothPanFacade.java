@@ -16,8 +16,6 @@
 
 package com.googlecode.android_scripting.facade.bluetooth;
 
-import java.util.List;
-
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -30,6 +28,8 @@ import com.googlecode.android_scripting.facade.FacadeManager;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
 import com.googlecode.android_scripting.rpc.RpcParameter;
+
+import java.util.List;
 
 public class BluetoothPanFacade extends RpcReceiver {
 
@@ -49,7 +49,7 @@ public class BluetoothPanFacade extends RpcReceiver {
         mService = manager.getService();
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         mBluetoothAdapter.getProfileProxy(mService, new PanServiceListener(),
-            BluetoothProfile.PAN);
+                BluetoothProfile.PAN);
     }
 
     class PanServiceListener implements BluetoothProfile.ServiceListener {

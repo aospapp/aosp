@@ -16,14 +16,11 @@
 
 #include "code_gen/driver/LibSharedCodeGen.h"
 
-#include <fstream>
 #include <iostream>
-#include <sstream>
 #include <string>
 
-#include "test/vts/proto/ComponentSpecificationMessage.pb.h"
-
 #include "VtsCompilerUtils.h"
+#include "test/vts/proto/ComponentSpecificationMessage.pb.h"
 
 using namespace std;
 using namespace android;
@@ -41,7 +38,7 @@ void LibSharedCodeGen::GenerateCppBodyFuzzFunction(
   out << "    void** result, const string& callback_socket_name) {" << "\n";
   out.indent();
   out << "const char* func_name = func_msg->name().c_str();" << "\n";
-  out << "cout << \"Function: \" << func_name << endl;" << "\n";
+  out << "LOG(INFO) << \"Function: \" << func_name;\n";
 
   for (auto const& api : message.interface().api()) {
     std::stringstream ss;
@@ -105,8 +102,8 @@ void LibSharedCodeGen::GenerateCppBodyFuzzFunction(
         out << GetCppInstanceType(arg);
       }
       out << ";" << "\n";
-      out << "    cout << \"arg" << arg_count << " = \" << arg" << arg_count
-          << " << endl;" << "\n";
+      out << "LOG(INFO) << \"arg" << arg_count << " = \" << arg" << arg_count
+          << ";\n";
       arg_count++;
     }
 
@@ -157,9 +154,8 @@ void LibSharedCodeGen::GenerateCppBodyGetAttributeFunction(
   out << "    void** result) {" << "\n";
   out.indent();
   out << "const char* func_name = func_msg->name().c_str();" << "\n";
-  out << "cout << \"Function: \" << __func__ << \" '\" << func_name << \"'\" << endl;"
-      << "\n";
-  out << "cerr << \"attribute not supported for shared lib yet\" << endl;"
+  out << "LOG(INFO) << \" '\" << func_name << \"'\";\n";
+  out << "LOG(ERROR) << \"attribute not supported for shared lib yet.\";"
       << "\n";
   out << "return false;" << "\n";
   out.unindent();

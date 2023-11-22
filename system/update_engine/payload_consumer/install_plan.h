@@ -54,6 +54,8 @@ struct InstallPlan {
   bool is_resume{false};
   std::string download_url;  // url to download from
   std::string version;       // version we are installing.
+  // system version, if present and separate from version
+  std::string system_version;
 
   struct Payload {
     uint64_t size = 0;               // size of the payload
@@ -116,6 +118,14 @@ struct InstallPlan {
   // True if Powerwash is required on reboot after applying the payload.
   // False otherwise.
   bool powerwash_required{false};
+
+  // True if the updated slot should be marked active on success.
+  // False otherwise.
+  bool switch_slot_on_reboot{true};
+
+  // True if the update should run its post-install step.
+  // False otherwise.
+  bool run_post_install{true};
 
   // If not blank, a base-64 encoded representation of the PEM-encoded
   // public key in the response.

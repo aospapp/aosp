@@ -61,5 +61,29 @@ class HealthyIfEqualsTest(unittest.TestCase):
         self.assertFalse(analyzer.is_healthy(sample_metric))
 
 
+class HealthIfStartsWithTest(unittest.TestCase):
+    def test_starts_with_true_str(self):
+        sample_metric = {'kernel_release': "3.19-generic-random-12"}
+        analyzer = ha.HealthyIfStartsWith(
+            key='kernel_release', constant="3.19")
+        self.assertTrue(analyzer.is_healthy(sample_metric))
+
+    def test_starts_with_false_str(self):
+        sample_metric = {'kernel_release': "3.19-generic-random-12"}
+        analyzer = ha.HealthyIfStartsWith(
+            key='kernel_release', constant="4.04")
+        self.assertFalse(analyzer.is_healthy(sample_metric))
+
+    def test_starts_with_true_non_str(self):
+        sample_metric = {'kernel_release': "3.19-generic-random-12"}
+        analyzer = ha.HealthyIfStartsWith(key='kernel_release', constant=3.19)
+        self.assertTrue(analyzer.is_healthy(sample_metric))
+
+    def test_starts_with_false_non_str(self):
+        sample_metric = {'kernel_release': "3.19-generic-random-12"}
+        analyzer = ha.HealthyIfStartsWith(key='kernel_release', constant=4.04)
+        self.assertFalse(analyzer.is_healthy(sample_metric))
+
+
 if __name__ == '__main__':
     unittest.main()

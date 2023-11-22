@@ -37,6 +37,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Process;
+import android.platform.test.annotations.AppModeFull;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
@@ -73,6 +74,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Test {@link RemoteViews} that expect to operate within a {@link AppWidgetHostView} root.
  */
 @LargeTest
+@AppModeFull
 @RunWith(AndroidJUnit4.class)
 public class RemoteViewsWidgetTest {
     public static final String[] COUNTRY_LIST = new String[] {

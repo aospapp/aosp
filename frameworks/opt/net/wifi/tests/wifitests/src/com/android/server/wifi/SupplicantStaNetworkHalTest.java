@@ -71,11 +71,31 @@ public class SupplicantStaNetworkHalTest {
     private SupplicantStatus mStatusSuccess;
     private SupplicantStatus mStatusFailure;
     @Mock private ISupplicantStaNetwork mISupplicantStaNetworkMock;
+    @Mock
+    private android.hardware.wifi.supplicant.V1_1.ISupplicantStaNetwork mISupplicantStaNetworkV11;
     @Mock private Context mContext;
     @Mock private WifiMonitor mWifiMonitor;
+
     private SupplicantNetworkVariables mSupplicantVariables;
     private MockResources mResources;
     private ISupplicantStaNetworkCallback mISupplicantStaNetworkCallback;
+
+    /**
+     * Spy used to return the V1_1 ISupplicantStaNetwork mock object to simulate the 1.1 HAL running
+     * on the device.
+     */
+    private class SupplicantStaNetworkHalSpyV1_1 extends SupplicantStaNetworkHal {
+        SupplicantStaNetworkHalSpyV1_1(ISupplicantStaNetwork iSupplicantStaNetwork,
+                String ifaceName,
+                Context context, WifiMonitor monitor) {
+            super(iSupplicantStaNetwork, ifaceName, context, monitor);
+        }
+        @Override
+        protected android.hardware.wifi.supplicant.V1_1.ISupplicantStaNetwork
+        getSupplicantStaNetworkForV1_1Mockable() {
+            return mISupplicantStaNetworkV11;
+        }
+    }
 
     @Before
     public void setUp() throws Exception {
@@ -598,7 +618,7 @@ public class SupplicantStaNetworkHalTest {
     @Test
     public void testSendNetworkEapIdentityResponse() throws Exception {
         final String identityStr = "test@test.com";
-
+        final String encryptedIdentityStr = "test2@test.com";
         doAnswer(new AnswerWithArguments() {
             public SupplicantStatus answer(ArrayList<Byte> identity)
                     throws RemoteException {
@@ -607,7 +627,27 @@ public class SupplicantStaNetworkHalTest {
             }
         }).when(mISupplicantStaNetworkMock).sendNetworkEapIdentityResponse(any(ArrayList.class));
 
-        assertTrue(mSupplicantNetwork.sendNetworkEapIdentityResponse(identityStr));
+        assertTrue(mSupplicantNetwork.sendNetworkEapIdentityResponse(identityStr,
+                encryptedIdentityStr));
+        verify(mISupplicantStaNetworkV11, never()).sendNetworkEapIdentityResponse_1_1(
+                any(ArrayList.class), any(ArrayList.class));
+
+        // Now expose the V1.1 ISupplicantStaNetwork
+        mSupplicantNetwork = new SupplicantStaNetworkHalSpyV1_1(mISupplicantStaNetworkMock,
+                IFACE_NAME, mContext, mWifiMonitor);
+        doAnswer(new AnswerWithArguments() {
+            public SupplicantStatus answer(ArrayList<Byte> identity,
+                    ArrayList<Byte> encryptedIdentity)
+                    throws RemoteException {
+                assertEquals(identityStr, NativeUtil.stringFromByteArrayList(identity));
+                assertEquals(encryptedIdentityStr,
+                        NativeUtil.stringFromByteArrayList(encryptedIdentity));
+                return mStatusSuccess;
+            }
+        }).when(mISupplicantStaNetworkV11).sendNetworkEapIdentityResponse_1_1(any(ArrayList.class),
+                any(ArrayList.class));
+        assertTrue(mSupplicantNetwork.sendNetworkEapIdentityResponse(identityStr,
+                encryptedIdentityStr));
     }
 
     /**
@@ -1285,8 +1325,8 @@ public class SupplicantStaNetworkHalTest {
      */
     private void createSupplicantStaNetwork() {
         mSupplicantNetwork =
-                new SupplicantStaNetworkHal(
-                        mISupplicantStaNetworkMock, IFACE_NAME, mContext, mWifiMonitor);
+                new SupplicantStaNetworkHal(mISupplicantStaNetworkMock, IFACE_NAME, mContext,
+                        mWifiMonitor);
     }
 
     // Private class to to store/inspect values set via the HIDL mock.

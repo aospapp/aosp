@@ -15,6 +15,7 @@
 #   limitations under the License.
 
 from acts import asserts
+from acts import utils
 from acts.base_test import BaseTestClass
 from acts.test_utils.wifi import wifi_test_utils as wutils
 from acts.test_utils.wifi.aware import aware_const as aconsts
@@ -23,7 +24,7 @@ from acts.test_utils.wifi.aware import aware_test_utils as autils
 
 class AwareBaseTest(BaseTestClass):
   def __init__(self, controllers):
-    BaseTestClass.__init__(self, controllers)
+    super(AwareBaseTest, self).__init__(controllers)
 
   # message ID counter to make sure all uses are unique
   msg_id = 0
@@ -43,6 +44,7 @@ class AwareBaseTest(BaseTestClass):
           "Device under test does not support Wi-Fi Aware - skipping test")
       wutils.wifi_toggle_state(ad, True)
       ad.droid.wifiP2pClose()
+      utils.set_location_service(ad, True)
       aware_avail = ad.droid.wifiIsAwareAvailable()
       if not aware_avail:
         self.log.info('Aware not available. Waiting ...')
@@ -52,7 +54,11 @@ class AwareBaseTest(BaseTestClass):
       self.reset_device_parameters(ad)
       self.reset_device_statistics(ad)
       self.set_power_mode_parameters(ad)
-
+      ad.droid.wifiSetCountryCode(wutils.WifiEnums.CountryCode.US)
+      autils.configure_ndp_allow_any_override(ad, True)
+      # set randomization interval to 0 (disable) to reduce likelihood of
+      # interference in tests
+      autils.configure_mac_random_interval(ad, 0)
 
   def teardown_test(self):
     for ad in self.android_devices:
@@ -85,9 +91,9 @@ class AwareBaseTest(BaseTestClass):
     """Set the power configuration DW parameters for the device based on any
     configuration overrides (if provided)"""
     if self.aware_default_power_mode == "INTERACTIVE":
-      autils.config_dw_high_power(ad)
+      autils.config_settings_high_power(ad)
     elif self.aware_default_power_mode == "NON_INTERACTIVE":
-      autils.config_dw_low_power(ad)
+      autils.config_settings_low_power(ad)
     else:
       asserts.assert_false(
           "The 'aware_default_power_mode' configuration must be INTERACTIVE or "
@@ -102,3 +108,8 @@ class AwareBaseTest(BaseTestClass):
     """
     self.msg_id = self.msg_id + 1
     return self.msg_id
+
+  def on_fail(self, test_name, begin_time):
+    for ad in self.android_devices:
+      ad.take_bug_report(test_name, begin_time)
+      ad.cat_adb_log(test_name, begin_time)

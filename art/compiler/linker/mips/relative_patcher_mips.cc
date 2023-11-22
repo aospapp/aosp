@@ -17,6 +17,8 @@
 #include "linker/mips/relative_patcher_mips.h"
 
 #include "compiled_method.h"
+#include "debug/method_debug_info.h"
+#include "linker/linker_patch.h"
 
 namespace art {
 namespace linker {
@@ -61,10 +63,6 @@ void MipsRelativePatcher::PatchPcRelativeReference(std::vector<uint8_t>* code,
       // lui reg, offset_high
       DCHECK_EQ(((*code)[literal_offset + 2] & 0xE0), 0x00);
       DCHECK_EQ((*code)[literal_offset + 3], 0x3C);
-      // addu reg, reg, reg2
-      DCHECK_EQ((*code)[literal_offset + 4], 0x21);
-      DCHECK_EQ(((*code)[literal_offset + 5] & 0x07), 0x00);
-      DCHECK_EQ(((*code)[literal_offset + 7] & 0xFC), 0x00);
     }
   } else {
     // instr reg(s), offset_low
@@ -92,6 +90,11 @@ void MipsRelativePatcher::PatchBakerReadBarrierBranch(std::vector<uint8_t>* code
                                                       const LinkerPatch& patch ATTRIBUTE_UNUSED,
                                                       uint32_t patch_offset ATTRIBUTE_UNUSED) {
   LOG(FATAL) << "UNIMPLEMENTED";
+}
+
+std::vector<debug::MethodDebugInfo> MipsRelativePatcher::GenerateThunkDebugInfo(
+    uint32_t executable_offset ATTRIBUTE_UNUSED) {
+  return std::vector<debug::MethodDebugInfo>();  // No thunks added.
 }
 
 }  // namespace linker

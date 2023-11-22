@@ -19,10 +19,10 @@ public final class Edits {
     private static final int MAX_UNCHANGED_LENGTH = 0x1000;
     private static final int MAX_UNCHANGED = MAX_UNCHANGED_LENGTH - 1;
 
-    // 0wwwcccccccccccc with w=1..6 records ccc+1 replacements of w:w text units.
-    // No length change.
-    private static final int MAX_SHORT_WIDTH = 6;
-    private static final int MAX_SHORT_CHANGE_LENGTH = 0xfff;
+    // 0mmmnnnccccccccc with m=1..6 records ccc+1 replacements of m:n text units.
+    private static final int MAX_SHORT_CHANGE_OLD_LENGTH = 6;
+    private static final int MAX_SHORT_CHANGE_NEW_LENGTH = 7;
+    private static final int SHORT_CHANGE_NUM_MASK = 0x1ff;
     private static final int MAX_SHORT_CHANGE = 0x6fff;
 
     // 0111mmmmmmnnnnnn records a replacement of m text units with n.
@@ -37,6 +37,7 @@ public final class Edits {
     private char[] array;
     private int length;
     private int delta;
+    private int numChanges;
 
     /**
      * Constructs an empty object.
@@ -51,7 +52,7 @@ public final class Edits {
      * @hide draft / provisional / internal are hidden on Android
      */
     public void reset() {
-        length = delta = 0;
+        length = delta = numChanges = 0;
     }
 
     private void setLastUnit(int last) {
@@ -99,19 +100,6 @@ public final class Edits {
      * @hide draft / provisional / internal are hidden on Android
      */
     public void addReplace(int oldLength, int newLength) {
-        if(oldLength == newLength && 0 < oldLength && oldLength <= MAX_SHORT_WIDTH) {
-            // Replacement of short oldLength text units by same-length new text.
-            // Merge into previous short-replacement record, if any.
-            int last = lastUnit();
-            if(MAX_UNCHANGED < last && last < MAX_SHORT_CHANGE &&
-                    (last >> 12) == oldLength && (last & 0xfff) < MAX_SHORT_CHANGE_LENGTH) {
-                setLastUnit(last + 1);
-                return;
-            }
-            append(oldLength << 12);
-            return;
-        }
-
         if(oldLength < 0 || newLength < 0) {
             throw new IllegalArgumentException(
                     "addReplace(" + oldLength + ", " + newLength +
@@ -120,6 +108,7 @@ public final class Edits {
         if (oldLength == 0 && newLength == 0) {
             return;
         }
+        ++numChanges;
         int newDelta = newLength - oldLength;
         if (newDelta != 0) {
             if ((newDelta > 0 && delta >= 0 && newDelta > (Integer.MAX_VALUE - delta)) ||
@@ -128,6 +117,21 @@ public final class Edits {
                 throw new IndexOutOfBoundsException();
             }
             delta += newDelta;
+        }
+
+        if(0 < oldLength && oldLength <= MAX_SHORT_CHANGE_OLD_LENGTH &&
+                newLength <= MAX_SHORT_CHANGE_NEW_LENGTH) {
+            // Merge into previous same-lengths short-replacement record, if any.
+            int u = (oldLength << 12) | (newLength << 9);
+            int last = lastUnit();
+            if(MAX_UNCHANGED < last && last < MAX_SHORT_CHANGE &&
+                    (last & ~SHORT_CHANGE_NUM_MASK) == u &&
+                    (last & SHORT_CHANGE_NUM_MASK) < SHORT_CHANGE_NUM_MASK) {
+                setLastUnit(last + 1);
+                return;
+            }
+            append(u);
+            return;
         }
 
         int head = 0x7000;
@@ -197,17 +201,13 @@ public final class Edits {
      * @return true if there are any change edits
      * @hide draft / provisional / internal are hidden on Android
      */
-    public boolean hasChanges()  {
-        if (delta != 0) {
-            return true;
-        }
-        for (int i = 0; i < length; ++i) {
-            if (array[i] > MAX_UNCHANGED) {
-                return true;
-            }
-        }
-        return false;
-    }
+    public boolean hasChanges()  { return numChanges != 0; }
+
+    /**
+     * @return the number of change edits
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public int numberOfChanges() { return numChanges; }
 
     /**
      * Access to the list of edits.
@@ -219,9 +219,14 @@ public final class Edits {
         private final char[] array;
         private int index;
         private final int length;
+        /**
+         * 0 if we are not within compressed equal-length changes.
+         * Otherwise the number of remaining changes, including the current one.
+         */
         private int remaining;
         private final boolean onlyChanges_, coarse;
 
+        private int dir;  // iteration direction: back(<0), initial(0), forward(>0)
         private boolean changed;
         private int oldLength_, newLength_;
         private int srcIndex, replIndex, destIndex;
@@ -252,7 +257,7 @@ public final class Edits {
             }
         }
 
-        private void updateIndexes() {
+        private void updateNextIndexes() {
             srcIndex += oldLength_;
             if (changed) {
                 replIndex += newLength_;
@@ -260,8 +265,17 @@ public final class Edits {
             destIndex += newLength_;
         }
 
+        private void updatePreviousIndexes() {
+            srcIndex -= oldLength_;
+            if (changed) {
+                replIndex -= newLength_;
+            }
+            destIndex -= newLength_;
+        }
+
         private boolean noNext() {
-            // No change beyond the string.
+            // No change before or beyond the string.
+            dir = 0;
             changed = false;
             oldLength_ = newLength_ = 0;
             return false;
@@ -277,13 +291,32 @@ public final class Edits {
         }
 
         private boolean next(boolean onlyChanges) {
-            // We have an errorCode in case we need to start guarding against integer overflows.
-            // It is also convenient for caller loops if we bail out when an error was set elsewhere.
-            updateIndexes();
-            if (remaining > 0) {
-                // Fine-grained iterator: Continue a sequence of equal-length changes.
-                --remaining;
-                return true;
+            // Forward iteration: Update the string indexes to the limit of the current span,
+            // and post-increment-read array units to assemble a new span.
+            // Leaves the array index one after the last unit of that span.
+            if (dir > 0) {
+                updateNextIndexes();
+            } else {
+                if (dir < 0) {
+                    // Turn around from previous() to next().
+                    // Post-increment-read the same span again.
+                    if (remaining > 0) {
+                        // Fine-grained iterator:
+                        // Stay on the current one of a sequence of compressed changes.
+                        ++index;  // next() rests on the index after the sequence unit.
+                        dir = 1;
+                        return true;
+                    }
+                }
+                dir = 1;
+            }
+            if (remaining >= 1) {
+                // Fine-grained iterator: Continue a sequence of compressed changes.
+                if (remaining > 1) {
+                    --remaining;
+                    return true;
+                }
+                remaining = 0;
             }
             if (index >= length) {
                 return noNext();
@@ -299,7 +332,7 @@ public final class Edits {
                 }
                 newLength_ = oldLength_;
                 if (onlyChanges) {
-                    updateIndexes();
+                    updateNextIndexes();
                     if (index >= length) {
                         return noNext();
                     }
@@ -311,14 +344,19 @@ public final class Edits {
             }
             changed = true;
             if (u <= MAX_SHORT_CHANGE) {
+                int oldLen = u >> 12;
+                int newLen = (u >> 9) & MAX_SHORT_CHANGE_NEW_LENGTH;
+                int num = (u & SHORT_CHANGE_NUM_MASK) + 1;
                 if (coarse) {
-                    int w = u >> 12;
-                    int len = (u & 0xfff) + 1;
-                    oldLength_ = newLength_ = len * w;
+                    oldLength_ = num * oldLen;
+                    newLength_ = num * newLen;
                 } else {
-                    // Split a sequence of equal-length changes that was compressed into one unit.
-                    oldLength_ = newLength_ = u >> 12;
-                    remaining = u & 0xfff;
+                    // Split a sequence of changes that was compressed into one unit.
+                    oldLength_ = oldLen;
+                    newLength_ = newLen;
+                    if (num > 1) {
+                        remaining = num;  // This is the first of two or more changes.
+                    }
                     return true;
                 }
             } else {
@@ -333,19 +371,121 @@ public final class Edits {
             while (index < length && (u = array[index]) > MAX_UNCHANGED) {
                 ++index;
                 if (u <= MAX_SHORT_CHANGE) {
-                    int w = u >> 12;
-                    int len = (u & 0xfff) + 1;
-                    len = len * w;
-                    oldLength_ += len;
-                    newLength_ += len;
+                    int num = (u & SHORT_CHANGE_NUM_MASK) + 1;
+                    oldLength_ += (u >> 12) * num;
+                    newLength_ += ((u >> 9) & MAX_SHORT_CHANGE_NEW_LENGTH) * num;
                 } else {
                     assert(u <= 0x7fff);
-                    int oldLen = readLength((u >> 6) & 0x3f);
-                    int newLen = readLength(u & 0x3f);
-                    oldLength_ += oldLen;
-                    newLength_ += newLen;
+                    oldLength_ += readLength((u >> 6) & 0x3f);
+                    newLength_ += readLength(u & 0x3f);
                 }
             }
+            return true;
+        }
+
+        private boolean previous() {
+            // Backward iteration: Pre-decrement-read array units to assemble a new span,
+            // then update the string indexes to the start of that span.
+            // Leaves the array index on the head unit of that span.
+            if (dir >= 0) {
+                if (dir > 0) {
+                    // Turn around from next() to previous().
+                    // Set the string indexes to the span limit and
+                    // pre-decrement-read the same span again.
+                    if (remaining > 0) {
+                        // Fine-grained iterator:
+                        // Stay on the current one of a sequence of compressed changes.
+                        --index;  // previous() rests on the sequence unit.
+                        dir = -1;
+                        return true;
+                    }
+                    updateNextIndexes();
+                }
+                dir = -1;
+            }
+            if (remaining > 0) {
+                // Fine-grained iterator: Continue a sequence of compressed changes.
+                int u = array[index];
+                assert(MAX_UNCHANGED < u && u <= MAX_SHORT_CHANGE);
+                if (remaining <= (u & SHORT_CHANGE_NUM_MASK)) {
+                    ++remaining;
+                    updatePreviousIndexes();
+                    return true;
+                }
+                remaining = 0;
+            }
+            if (index <= 0) {
+                return noNext();
+            }
+            int u = array[--index];
+            if (u <= MAX_UNCHANGED) {
+                // Combine adjacent unchanged ranges.
+                changed = false;
+                oldLength_ = u + 1;
+                while (index > 0 && (u = array[index - 1]) <= MAX_UNCHANGED) {
+                    --index;
+                    oldLength_ += u + 1;
+                }
+                newLength_ = oldLength_;
+                // No need to handle onlyChanges as long as previous() is called only from findIndex().
+                updatePreviousIndexes();
+                return true;
+            }
+            changed = true;
+            if (u <= MAX_SHORT_CHANGE) {
+                int oldLen = u >> 12;
+                int newLen = (u >> 9) & MAX_SHORT_CHANGE_NEW_LENGTH;
+                int num = (u & SHORT_CHANGE_NUM_MASK) + 1;
+                if (coarse) {
+                    oldLength_ = num * oldLen;
+                    newLength_ = num * newLen;
+                } else {
+                    // Split a sequence of changes that was compressed into one unit.
+                    oldLength_ = oldLen;
+                    newLength_ = newLen;
+                    if (num > 1) {
+                        remaining = 1;  // This is the last of two or more changes.
+                    }
+                    updatePreviousIndexes();
+                    return true;
+                }
+            } else {
+                if (u <= 0x7fff) {
+                    // The change is encoded in u alone.
+                    oldLength_ = readLength((u >> 6) & 0x3f);
+                    newLength_ = readLength(u & 0x3f);
+                } else {
+                    // Back up to the head of the change, read the lengths,
+                    // and reset the index to the head again.
+                    assert(index > 0);
+                    while ((u = array[--index]) > 0x7fff) {}
+                    assert(u > MAX_SHORT_CHANGE);
+                    int headIndex = index++;
+                    oldLength_ = readLength((u >> 6) & 0x3f);
+                    newLength_ = readLength(u & 0x3f);
+                    index = headIndex;
+                }
+                if (!coarse) {
+                    updatePreviousIndexes();
+                    return true;
+                }
+            }
+            // Combine adjacent changes.
+            while (index > 0 && (u = array[index - 1]) > MAX_UNCHANGED) {
+                --index;
+                if (u <= MAX_SHORT_CHANGE) {
+                    int num = (u & SHORT_CHANGE_NUM_MASK) + 1;
+                    oldLength_ += (u >> 12) * num;
+                    newLength_ += ((u >> 9) & MAX_SHORT_CHANGE_NEW_LENGTH) * num;
+                } else if (u <= 0x7fff) {
+                    // Read the lengths, and reset the index to the head again.
+                    int headIndex = index++;
+                    oldLength_ += readLength((u >> 6) & 0x3f);
+                    newLength_ += readLength(u & 0x3f);
+                    index = headIndex;
+                }
+            }
+            updatePreviousIndexes();
             return true;
         }
 
@@ -366,38 +506,190 @@ public final class Edits {
          * @hide draft / provisional / internal are hidden on Android
          */
         public boolean findSourceIndex(int i) {
-            if (i < 0) { return false; }
-            if (i < srcIndex) {
+            return findIndex(i, true) == 0;
+        }
+
+        /**
+         * Finds the edit that contains the destination index.
+         * The destination index may be found in a non-change
+         * even if normal iteration would skip non-changes.
+         * Normal iteration can continue from a found edit.
+         *
+         * <p>The iterator state before this search logically does not matter.
+         * (It may affect the performance of the search.)
+         *
+         * <p>The iterator state after this search is undefined
+         * if the source index is out of bounds for the source string.
+         *
+         * @param i destination index
+         * @return true if the edit for the destination index was found
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        public boolean findDestinationIndex(int i) {
+            return findIndex(i, false) == 0;
+        }
+
+        /** @return -1: error or i<0; 0: found; 1: i>=string length */
+        private int findIndex(int i, boolean findSource) {
+            if (i < 0) { return -1; }
+            int spanStart, spanLength;
+            if (findSource) {  // find source index
+                spanStart = srcIndex;
+                spanLength = oldLength_;
+            } else {  // find destination index
+                spanStart = destIndex;
+                spanLength = newLength_;
+            }
+            if (i < spanStart) {
+                if (i >= (spanStart / 2)) {
+                    // Search backwards.
+                    for (;;) {
+                        boolean hasPrevious = previous();
+                        assert(hasPrevious);  // because i>=0 and the first span starts at 0
+                        spanStart = findSource ? srcIndex : destIndex;
+                        if (i >= spanStart) {
+                            // The index is in the current span.
+                            return 0;
+                        }
+                        if (remaining > 0) {
+                            // Is the index in one of the remaining compressed edits?
+                            // spanStart is the start of the current span, first of the remaining ones.
+                            spanLength = findSource ? oldLength_ : newLength_;
+                            int u = array[index];
+                            assert(MAX_UNCHANGED < u && u <= MAX_SHORT_CHANGE);
+                            int num = (u & SHORT_CHANGE_NUM_MASK) + 1 - remaining;
+                            int len = num * spanLength;
+                            if (i >= (spanStart - len)) {
+                                int n = ((spanStart - i - 1) / spanLength) + 1;
+                                // 1 <= n <= num
+                                srcIndex -= n * oldLength_;
+                                replIndex -= n * newLength_;
+                                destIndex -= n * newLength_;
+                                remaining += n;
+                                return 0;
+                            }
+                            // Skip all of these edits at once.
+                            srcIndex -= num * oldLength_;
+                            replIndex -= num * newLength_;
+                            destIndex -= num * newLength_;
+                            remaining = 0;
+                        }
+                    }
+                }
                 // Reset the iterator to the start.
+                dir = 0;
                 index = remaining = oldLength_ = newLength_ = srcIndex = replIndex = destIndex = 0;
-            } else if (i < (srcIndex + oldLength_)) {
+            } else if (i < (spanStart + spanLength)) {
                 // The index is in the current span.
-                return true;
+                return 0;
             }
             while (next(false)) {
-                if (i < (srcIndex + oldLength_)) {
-                    // The index is in the current span.
-                    return true;
+                if (findSource) {
+                    spanStart = srcIndex;
+                    spanLength = oldLength_;
+                } else {
+                    spanStart = destIndex;
+                    spanLength = newLength_;
                 }
-                if (remaining > 0) {
+                if (i < (spanStart + spanLength)) {
+                    // The index is in the current span.
+                    return 0;
+                }
+                if (remaining > 1) {
                     // Is the index in one of the remaining compressed edits?
-                    // srcIndex is the start of the current span, before the remaining ones.
-                    int len = (remaining + 1) * oldLength_;
-                    if (i < (srcIndex + len)) {
-                        int n = (i - srcIndex) / oldLength_;  // 1 <= n <= remaining
-                        len = n * oldLength_;
-                        srcIndex += len;
-                        replIndex += len;
-                        destIndex += len;
+                    // spanStart is the start of the current span, first of the remaining ones.
+                    int len = remaining * spanLength;
+                    if (i < (spanStart + len)) {
+                        int n = (i - spanStart) / spanLength;  // 1 <= n <= remaining - 1
+                        srcIndex += n * oldLength_;
+                        replIndex += n * newLength_;
+                        destIndex += n * newLength_;
                         remaining -= n;
-                        return true;
+                        return 0;
                     }
                     // Make next() skip all of these edits at once.
-                    oldLength_ = newLength_ = len;
+                    oldLength_ *= remaining;
+                    newLength_ *= remaining;
                     remaining = 0;
                 }
             }
-            return false;
+            return 1;
+        }
+
+        /**
+         * Returns the destination index corresponding to the given source index.
+         * If the source index is inside a change edit (not at its start),
+         * then the destination index at the end of that edit is returned,
+         * since there is no information about index mapping inside a change edit.
+         *
+         * <p>(This means that indexes to the start and middle of an edit,
+         * for example around a grapheme cluster, are mapped to indexes
+         * encompassing the entire edit.
+         * The alternative, mapping an interior index to the start,
+         * would map such an interval to an empty one.)
+         *
+         * <p>This operation will usually but not always modify this object.
+         * The iterator state after this search is undefined.
+         *
+         * @param i source index
+         * @return destination index; undefined if i is not 0..string length
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        public int destinationIndexFromSourceIndex(int i) {
+            int where = findIndex(i, true);
+            if (where < 0) {
+                // Error or before the string.
+                return 0;
+            }
+            if (where > 0 || i == srcIndex) {
+                // At or after string length, or at start of the found span.
+                return destIndex;
+            }
+            if (changed) {
+                // In a change span, map to its end.
+                return destIndex + newLength_;
+            } else {
+                // In an unchanged span, offset 1:1 within it.
+                return destIndex + (i - srcIndex);
+            }
+        }
+
+        /**
+         * Returns the source index corresponding to the given destination index.
+         * If the destination index is inside a change edit (not at its start),
+         * then the source index at the end of that edit is returned,
+         * since there is no information about index mapping inside a change edit.
+         *
+         * <p>(This means that indexes to the start and middle of an edit,
+         * for example around a grapheme cluster, are mapped to indexes
+         * encompassing the entire edit.
+         * The alternative, mapping an interior index to the start,
+         * would map such an interval to an empty one.)
+         *
+         * <p>This operation will usually but not always modify this object.
+         * The iterator state after this search is undefined.
+         *
+         * @param i destination index
+         * @return source index; undefined if i is not 0..string length
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        public int sourceIndexFromDestinationIndex(int i) {
+            int where = findIndex(i, false);
+            if (where < 0) {
+                // Error or before the string.
+                return 0;
+            }
+            if (where > 0 || i == destIndex) {
+                // At or after string length, or at start of the found span.
+                return srcIndex;
+            }
+            if (changed) {
+                // In a change span, map to its end.
+                return srcIndex + oldLength_;
+            } else {
+                // In an unchanged span, offset within it.
+                return srcIndex + (i - destIndex);
+            }
         }
 
         /**
@@ -472,5 +764,167 @@ public final class Edits {
      */
     public Iterator getFineIterator() {
         return new Iterator(array, length, false, false);
+    }
+
+    /**
+     * Merges the two input Edits and appends the result to this object.
+     *
+     * <p>Consider two string transformations (for example, normalization and case mapping)
+     * where each records Edits in addition to writing an output string.<br>
+     * Edits ab reflect how substrings of input string a
+     * map to substrings of intermediate string b.<br>
+     * Edits bc reflect how substrings of intermediate string b
+     * map to substrings of output string c.<br>
+     * This function merges ab and bc such that the additional edits
+     * recorded in this object reflect how substrings of input string a
+     * map to substrings of output string c.
+     *
+     * <p>If unrelated Edits are passed in where the output string of the first
+     * has a different length than the input string of the second,
+     * then an IllegalArgumentException is thrown.
+     *
+     * @param ab reflects how substrings of input string a
+     *     map to substrings of intermediate string b.
+     * @param bc reflects how substrings of intermediate string b
+     *     map to substrings of output string c.
+     * @return this, with the merged edits appended
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public Edits mergeAndAppend(Edits ab, Edits bc) {
+        // Picture string a --(Edits ab)--> string b --(Edits bc)--> string c.
+        // Parallel iteration over both Edits.
+        Iterator abIter = ab.getFineIterator();
+        Iterator bcIter = bc.getFineIterator();
+        boolean abHasNext = true, bcHasNext = true;
+        // Copy iterator state into local variables, so that we can modify and subdivide spans.
+        // ab old & new length, bc old & new length
+        int aLength = 0, ab_bLength = 0, bc_bLength = 0, cLength = 0;
+        // When we have different-intermediate-length changes, we accumulate a larger change.
+        int pending_aLength = 0, pending_cLength = 0;
+        for (;;) {
+            // At this point, for each of the two iterators:
+            // Either we are done with the locally cached current edit,
+            // and its intermediate-string length has been reset,
+            // or we will continue to work with a truncated remainder of this edit.
+            //
+            // If the current edit is done, and the iterator has not yet reached the end,
+            // then we fetch the next edit. This is true for at least one of the iterators.
+            //
+            // Normally it does not matter whether we fetch from ab and then bc or vice versa.
+            // However, the result is observably different when
+            // ab deletions meet bc insertions at the same intermediate-string index.
+            // Some users expect the bc insertions to come first, so we fetch from bc first.
+            if (bc_bLength == 0) {
+                if (bcHasNext && (bcHasNext = bcIter.next())) {
+                    bc_bLength = bcIter.oldLength();
+                    cLength = bcIter.newLength();
+                    if (bc_bLength == 0) {
+                        // insertion
+                        if (ab_bLength == 0 || !abIter.hasChange()) {
+                            addReplace(pending_aLength, pending_cLength + cLength);
+                            pending_aLength = pending_cLength = 0;
+                        } else {
+                            pending_cLength += cLength;
+                        }
+                        continue;
+                    }
+                }
+                // else see if the other iterator is done, too.
+            }
+            if (ab_bLength == 0) {
+                if (abHasNext && (abHasNext = abIter.next())) {
+                    aLength = abIter.oldLength();
+                    ab_bLength = abIter.newLength();
+                    if (ab_bLength == 0) {
+                        // deletion
+                        if (bc_bLength == bcIter.oldLength() || !bcIter.hasChange()) {
+                            addReplace(pending_aLength + aLength, pending_cLength);
+                            pending_aLength = pending_cLength = 0;
+                        } else {
+                            pending_aLength += aLength;
+                        }
+                        continue;
+                    }
+                } else if (bc_bLength == 0) {
+                    // Both iterators are done at the same time:
+                    // The intermediate-string lengths match.
+                    break;
+                } else {
+                    throw new IllegalArgumentException(
+                            "The ab output string is shorter than the bc input string.");
+                }
+            }
+            if (bc_bLength == 0) {
+                throw new IllegalArgumentException(
+                        "The bc input string is shorter than the ab output string.");
+            }
+            //  Done fetching: ab_bLength > 0 && bc_bLength > 0
+
+            // The current state has two parts:
+            // - Past: We accumulate a longer ac edit in the "pending" variables.
+            // - Current: We have copies of the current ab/bc edits in local variables.
+            //   At least one side is newly fetched.
+            //   One side might be a truncated remainder of an edit we fetched earlier.
+
+            if (!abIter.hasChange() && !bcIter.hasChange()) {
+                // An unchanged span all the way from string a to string c.
+                if (pending_aLength != 0 || pending_cLength != 0) {
+                    addReplace(pending_aLength, pending_cLength);
+                    pending_aLength = pending_cLength = 0;
+                }
+                int unchangedLength = aLength <= cLength ? aLength : cLength;
+                addUnchanged(unchangedLength);
+                ab_bLength = aLength -= unchangedLength;
+                bc_bLength = cLength -= unchangedLength;
+                // At least one of the unchanged spans is now empty.
+                continue;
+            }
+            if (!abIter.hasChange() && bcIter.hasChange()) {
+                // Unchanged a->b but changed b->c.
+                if (ab_bLength >= bc_bLength) {
+                    // Split the longer unchanged span into change + remainder.
+                    addReplace(pending_aLength + bc_bLength, pending_cLength + cLength);
+                    pending_aLength = pending_cLength = 0;
+                    aLength = ab_bLength -= bc_bLength;
+                    bc_bLength = 0;
+                    continue;
+                }
+                // Handle the shorter unchanged span below like a change.
+            } else if (abIter.hasChange() && !bcIter.hasChange()) {
+                // Changed a->b and then unchanged b->c.
+                if (ab_bLength <= bc_bLength) {
+                    // Split the longer unchanged span into change + remainder.
+                    addReplace(pending_aLength + aLength, pending_cLength + ab_bLength);
+                    pending_aLength = pending_cLength = 0;
+                    cLength = bc_bLength -= ab_bLength;
+                    ab_bLength = 0;
+                    continue;
+                }
+                // Handle the shorter unchanged span below like a change.
+            } else {  // both abIter.hasChange() && bcIter.hasChange()
+                if (ab_bLength == bc_bLength) {
+                    // Changes on both sides up to the same position. Emit & reset.
+                    addReplace(pending_aLength + aLength, pending_cLength + cLength);
+                    pending_aLength = pending_cLength = 0;
+                    ab_bLength = bc_bLength = 0;
+                    continue;
+                }
+            }
+            // Accumulate the a->c change, reset the shorter side,
+            // keep a remainder of the longer one.
+            pending_aLength += aLength;
+            pending_cLength += cLength;
+            if (ab_bLength < bc_bLength) {
+                bc_bLength -= ab_bLength;
+                cLength = ab_bLength = 0;
+            } else {  // ab_bLength > bc_bLength
+                ab_bLength -= bc_bLength;
+                aLength = bc_bLength = 0;
+            }
+        }
+        if (pending_aLength != 0 || pending_cLength != 0) {
+            addReplace(pending_aLength, pending_cLength);
+        }
+        return this;
     }
 }

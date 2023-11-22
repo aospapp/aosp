@@ -53,6 +53,7 @@ public class TestModel extends Model {
         reset();
     }
 
+    @Override
     public void reset() {
         mLastId = 0;
         mCursor = new MatrixCursor(COLUMNS);

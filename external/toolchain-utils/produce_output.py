@@ -1,9 +1,7 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 # Copyright 2010 Google Inc. All Rights Reserved.
-"""This simulates a real job by producing a lot of output.
-
-"""
+"""This simulates a real job by producing a lot of output."""
 
 from __future__ import print_function
 

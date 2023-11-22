@@ -21,6 +21,8 @@ import java.io.UnsupportedEncodingException;
 import java.util.MissingResourceException;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.Utility;
@@ -33,11 +35,14 @@ import android.icu.text.UnicodeSet;
 import android.icu.text.UnicodeSetIterator;
 import android.icu.util.LocaleData;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @test
  * @summary Round trip test of Transliterator
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class RoundTripTest extends TestFmwk {
 
     //TODO - revisit test cases referencing FIX_ME
@@ -89,6 +94,7 @@ public class RoundTripTest extends TestFmwk {
             abbreviated = false;
         }
 
+        @Override
         public void reset(UnicodeSet newSet) {
             reset(newSet, false);
         }
@@ -106,6 +112,7 @@ public class RoundTripTest extends TestFmwk {
             }
         }
 
+        @Override
         protected void loadRange(int myRange) {
             super.loadRange(myRange);
             if (abbreviated && (endElement > nextElement + perRange)) {
@@ -168,7 +175,7 @@ public class RoundTripTest extends TestFmwk {
     public void TestHangul() throws IOException {
         long start = System.currentTimeMillis();
         TransliterationTest t = new TransliterationTest("Latin-Hangul", 5);
-        boolean TEST_ALL = getBooleanProperty("HangulRoundTripAll", false); 
+        boolean TEST_ALL = getBooleanProperty("HangulRoundTripAll", false);
         if (TEST_ALL && TestFmwk.getExhaustiveness() == 10) {
             t.setPairLimit(Integer.MAX_VALUE); // only go to the limit if we have TEST_ALL and getInclusion
         }
@@ -345,7 +352,7 @@ public class RoundTripTest extends TestFmwk {
             logln("TestGreek needs to be updated to remove delete the section marked [:Age=4.0:] filter");
         }
 
-        return 
+        return
                 "[\u003B\u00B7[[:Greek:]&[:Letter:]]-[" +
                 "\u1D26-\u1D2A" + // L&   [5] GREEK LETTER SMALL CAPITAL GAMMA..GREEK LETTER SMALL CAPITAL PSI
                 "\u1D5D-\u1D61" + // Lm   [5] MODIFIER LETTER SMALL BETA..MODIFIER LETTER SMALL CHI
@@ -423,15 +430,15 @@ public class RoundTripTest extends TestFmwk {
         if (FIX_ME) {
             new TransliterationTest("Latin-Thai")
             .test("[a-zA-Z\u0142\u1ECD\u00E6\u0131\u0268\u02CC]",
-                    "[\u0E01-\u0E3A\u0E40-\u0E5B]", 
+                    "[\u0E01-\u0E3A\u0E40-\u0E5B]",
                     "[a-zA-Z\u0142\u1ECD\u00E6\u0131\u0268\u02B9\u02CC]",
                     null, this, new LegalThai());
         } else {
             new TransliterationTest("Latin-Thai")
             .test("[a-zA-Z\u0142\u1ECD\u00E6\u0131\u0268\u02CC]",
-                    "[\u0E01-\u0E3A\u0E40-\u0E5B]", 
+                    "[\u0E01-\u0E3A\u0E40-\u0E5B]",
                     "[a-zA-Z\u0142\u1ECD\u00E6\u0131\u0268\u02B9\u02CC]",
-                    "[\u0E4F]", this, new LegalThai());   
+                    "[\u0E4F]", this, new LegalThai());
         }
 
         showElapsed(start, "TestThai");
@@ -460,6 +467,7 @@ public class RoundTripTest extends TestFmwk {
         String virama = "\u094d\u09cd\u0a4d\u0acd\u0b4d\u0bcd\u0c4d\u0ccd\u0d4d";
         String sanskritStressSigns = "\u0951\u0952\u0953\u0954\u097d";
         String chandrabindu = "\u0901\u0981\u0A81\u0b01\u0c01";
+        @Override
         public boolean is(String sourceString){
             int cp=sourceString.charAt(0);
 
@@ -923,6 +931,7 @@ public class RoundTripTest extends TestFmwk {
         // any medial must follow an initial (or medial)
         // any final must follow a medial (or final)
 
+        @Override
         public boolean is(String sourceString) {
             try {
                 int t;
@@ -960,6 +969,7 @@ public class RoundTripTest extends TestFmwk {
     //static BreakIterator thaiBreak = BreakIterator.getWordInstance(new Locale("th", "TH"));
     // anything is legal except word ending with Logical-order-exception
     public static class LegalThai extends Legal {
+        @Override
         public boolean is(String sourceString) {
             if (sourceString.length() == 0) return true;
             char ch = sourceString.charAt(sourceString.length() - 1); // don't worry about surrogates.
@@ -986,6 +996,7 @@ public class RoundTripTest extends TestFmwk {
         static UnicodeSet FINAL = new UnicodeSet("[\u05DA\u05DD\u05DF\u05E3\u05E5]");
         static UnicodeSet NON_FINAL = new UnicodeSet("[\u05DB\u05DE\u05E0\u05E4\u05E6]");
         static UnicodeSet LETTER = new UnicodeSet("[:letter:]");
+        @Override
         public boolean is(String sourceString) {
             if (sourceString.length() == 0) return true;
             // don't worry about surrogates.
@@ -1023,6 +1034,7 @@ public class RoundTripTest extends TestFmwk {
             return "\u03C1\u03A1".indexOf(c) >= 0;
         }
 
+        @Override
         public boolean is(String sourceString) {
             try {
                 String decomp = Normalizer.normalize(sourceString, Normalizer.NFD);
@@ -1180,7 +1192,7 @@ public class RoundTripTest extends TestFmwk {
         }
 
         /**
-         * Will test 
+         * Will test
          * that everything in sourceRange maps to targetRange,
          * that everything in targetRange maps to backtoSourceRange
          * that everything roundtrips from target -> source -> target, except roundtripExceptions
@@ -1626,7 +1638,7 @@ public class RoundTripTest extends TestFmwk {
             StringBuffer result = new StringBuffer();
             result.append("\u200E").append(s).append("\u200E (").append(TestUtility.hex(s)).append("/");
             if (false) { // append age, as a check
-                int cp = 0;    
+                int cp = 0;
                 for (int i = 0; i < s.length(); i += UTF16.getCharCount(cp)) {
                     cp = UTF16.charAt(s, i);
                     if (i > 0) result.append(", ");
@@ -1637,7 +1649,7 @@ public class RoundTripTest extends TestFmwk {
             return result.toString();
         }
 
-        final void logWrongScript(String label, String from, String to, 
+        final void logWrongScript(String label, String from, String to,
                 UnicodeSet shouldContainAll, UnicodeSet shouldNotContainAny) {
             if (++errorCount > errorLimit) {
                 throw new TestTruncated("Test truncated; too many failures");

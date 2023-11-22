@@ -18,12 +18,16 @@
 #ifndef ANDROID_VINTF_MANIFEST_HAL_H
 #define ANDROID_VINTF_MANIFEST_HAL_H
 
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
-#include <map>
+
+#include <hidl-util/FqInstance.h>
 
 #include "HalFormat.h"
 #include "HalInterface.h"
+#include "ManifestInstance.h"
 #include "TransportArch.h"
 #include "Version.h"
 
@@ -32,6 +36,17 @@ namespace vintf {
 
 // A component of HalManifest.
 struct ManifestHal {
+    using InstanceType = ManifestInstance;
+
+    ManifestHal() = default;
+
+    ManifestHal(HalFormat fmt, std::string&& n, std::vector<Version>&& vs, TransportArch ta,
+                std::map<std::string, HalInterface>&& intf)
+        : format(fmt),
+          name(std::move(n)),
+          versions(std::move(vs)),
+          transportArch(ta),
+          interfaces(std::move(intf)) {}
 
     bool operator==(const ManifestHal &other) const;
 
@@ -41,15 +56,22 @@ struct ManifestHal {
     TransportArch transportArch;
     std::map<std::string, HalInterface> interfaces;
 
-    inline bool hasVersion(Version v) const {
-        return std::find(versions.begin(), versions.end(), v) != versions.end();
-    }
     inline Transport transport() const {
         return transportArch.transport;
     }
 
     inline const std::string& getName() const { return name; }
+    bool forEachInstance(const std::function<bool(const ManifestInstance&)>& func) const;
 
+    bool isOverride() const { return mIsOverride; }
+
+    // When true, the existence of this <hal> tag means the component does NOT
+    // exist on the device. This is useful for ODM manifests to specify that
+    // a HAL is disabled on certain products.
+    bool isDisabledHal() const;
+
+    // insert instance to <interface> <instance>.
+    void insertLegacyInstance(const std::string& interface, const std::string& instance);
    private:
     friend struct LibVintfTest;
     friend struct ManifestHalConverter;
@@ -59,6 +81,19 @@ struct ManifestHal {
     // Whether this hal is a valid one. Note that an empty ManifestHal
     // (constructed via ManifestHal()) is valid.
     bool isValid() const;
+
+    // Return all versions mentioned by <version>s and <fqname>s.
+    void appendAllVersions(std::set<Version>* ret) const;
+
+    bool mIsOverride = false;
+    // Additional instances to <version> x <interface> x <instance>.
+    std::set<ManifestInstance> mAdditionalInstances;
+
+    // insert instances to mAdditionalInstances.
+    // Existing instances will be ignored.
+    // Pre: all instances to be inserted must satisfy
+    // !hasPackage() && hasVersion() && hasInterface() && hasInstance()
+    bool insertInstances(const std::set<FqInstance>& fqInstances, std::string* error = nullptr);
 };
 
 } // namespace vintf

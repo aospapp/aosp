@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2016 The Android Open Source Project
+# Copyright (C) 2017 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,6 +37,8 @@ BUILD_NANOHUB_BL_EXECUTABLE := $(NANO_BUILD)/bl_executable.mk
 BUILD_NANOHUB_OS_EXECUTABLE := $(NANO_BUILD)/os_executable.mk
 BUILD_NANOHUB_OS_IMAGE := $(NANO_BUILD)/os_image.mk
 BUILD_NANOHUB_APP_EXECUTABLE := $(NANO_BUILD)/app_executable.mk
+BUILD_NANOHUB_APP_CHRE10_EXECUTABLE := $(NANO_BUILD)/app_chre10_executable.mk
+BUILD_NANOHUB_APP_CHRE11_EXECUTABLE := $(NANO_BUILD)/app_chre11_executable.mk
 BUILD_NANOHUB_APP_CHRE_EXECUTABLE := $(NANO_BUILD)/app_chre_executable.mk
 
 NANOAPP_POSTPROCESS := $(HOST_OUT_EXECUTABLES)/nanoapp_postprocess
@@ -96,6 +98,17 @@ endef
 # NOTE: ($(2), $(3) - unused; keep for argument compatibility with nano-gen-linker-script
 define nano-gen-linker-script-native
 $(eval $(call nano-gen-linker-script-from-list,$(1),$(NANOHUB_OS_PATH)/os/platform/$(5)/lkr/$(4).extra.lkr))
+endef
+
+# create linker script rule
+#
+# $(1) - target file
+# $(2) - { os | bl }
+# $(3) - full path to map file
+# $(4) - platform class
+# $(5) - platform dir
+define nano-gen-linker-script-map
+$(eval $(call nano-gen-linker-script-from-list,$(1),$(3) $(patsubst %,$(NANOHUB_OS_PATH)/os/platform/$(5)/lkr/%.lkr,$(4).$(2) $(4).common)))
 endef
 
 # variables that Android.mk or our config files may define per-cpu, per-arch etc;

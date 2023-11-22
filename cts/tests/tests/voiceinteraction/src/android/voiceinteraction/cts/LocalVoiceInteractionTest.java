@@ -71,7 +71,6 @@ public class LocalVoiceInteractionTest
         if (!mHasFeature) {
             return;
         }
-        VoiceInteractionTestReceiver.sServiceStartedLatch.await(5, TimeUnit.SECONDS);
 
         assertTrue("Doesn't support LocalVoiceInteraction",
                 mTestActivity.isLocalVoiceInteractionSupported());

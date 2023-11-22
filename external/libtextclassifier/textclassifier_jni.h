@@ -20,75 +20,115 @@
 #include <jni.h>
 #include <string>
 
-#include "smartselect/types.h"
+#include "types.h"
+
+// When we use a macro as an argument for a macro, an additional level of
+// indirection is needed, if the macro argument is used with # or ##.
+#define ADD_QUOTES_HELPER(TOKEN) #TOKEN
+#define ADD_QUOTES(TOKEN) ADD_QUOTES_HELPER(TOKEN)
+
+#ifndef TC_PACKAGE_NAME
+#define TC_PACKAGE_NAME android_view_textclassifier
+#endif
+
+#ifndef TC_CLASS_NAME
+#define TC_CLASS_NAME TextClassifierImplNative
+#endif
+#define TC_CLASS_NAME_STR ADD_QUOTES(TC_CLASS_NAME)
+
+#ifndef TC_PACKAGE_PATH
+#define TC_PACKAGE_PATH "android/view/textclassifier/"
+#endif
+
+#define JNI_METHOD_NAME_INTERNAL(package_name, class_name, method_name) \
+  Java_##package_name##_##class_name##_##method_name
+
+#define JNI_METHOD_PRIMITIVE(return_type, package_name, class_name, \
+                             method_name)                           \
+  JNIEXPORT return_type JNICALL JNI_METHOD_NAME_INTERNAL(           \
+      package_name, class_name, method_name)
+
+// The indirection is needed to correctly expand the TC_PACKAGE_NAME macro.
+// See the explanation near ADD_QUOTES macro.
+#define JNI_METHOD2(return_type, package_name, class_name, method_name) \
+  JNI_METHOD_PRIMITIVE(return_type, package_name, class_name, method_name)
+
+#define JNI_METHOD(return_type, class_name, method_name) \
+  JNI_METHOD2(return_type, TC_PACKAGE_NAME, class_name, method_name)
+
+#define JNI_METHOD_NAME2(package_name, class_name, method_name) \
+  JNI_METHOD_NAME_INTERNAL(package_name, class_name, method_name)
+
+#define JNI_METHOD_NAME(class_name, method_name) \
+  JNI_METHOD_NAME2(TC_PACKAGE_NAME, class_name, method_name)
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 // SmartSelection.
-JNIEXPORT jlong JNICALL
-Java_android_view_textclassifier_SmartSelection_nativeNew(JNIEnv* env,
-                                                          jobject thiz,
-                                                          jint fd);
+JNI_METHOD(jlong, TC_CLASS_NAME, nativeNew)
+(JNIEnv* env, jobject thiz, jint fd);
 
-JNIEXPORT jintArray JNICALL
-Java_android_view_textclassifier_SmartSelection_nativeSuggest(
-    JNIEnv* env, jobject thiz, jlong ptr, jstring context, jint selection_begin,
-    jint selection_end);
+JNI_METHOD(jlong, TC_CLASS_NAME, nativeNewFromPath)
+(JNIEnv* env, jobject thiz, jstring path);
 
-JNIEXPORT jobjectArray JNICALL
-Java_android_view_textclassifier_SmartSelection_nativeClassifyText(
-    JNIEnv* env, jobject thiz, jlong ptr, jstring context, jint selection_begin,
-    jint selection_end, jint input_flags);
+JNI_METHOD(jlong, TC_CLASS_NAME, nativeNewFromAssetFileDescriptor)
+(JNIEnv* env, jobject thiz, jobject afd, jlong offset, jlong size);
 
-JNIEXPORT void JNICALL
-Java_android_view_textclassifier_SmartSelection_nativeClose(JNIEnv* env,
-                                                            jobject thiz,
-                                                            jlong ptr);
+JNI_METHOD(jintArray, TC_CLASS_NAME, nativeSuggestSelection)
+(JNIEnv* env, jobject thiz, jlong ptr, jstring context, jint selection_begin,
+ jint selection_end, jobject options);
 
-JNIEXPORT jstring JNICALL
-Java_android_view_textclassifier_SmartSelection_nativeGetLanguage(JNIEnv* env,
-                                                                  jobject clazz,
-                                                                  jint fd);
+JNI_METHOD(jobjectArray, TC_CLASS_NAME, nativeClassifyText)
+(JNIEnv* env, jobject thiz, jlong ptr, jstring context, jint selection_begin,
+ jint selection_end, jobject options);
 
-JNIEXPORT jint JNICALL
-Java_android_view_textclassifier_SmartSelection_nativeGetVersion(JNIEnv* env,
-                                                                 jobject clazz,
-                                                                 jint fd);
+JNI_METHOD(jobjectArray, TC_CLASS_NAME, nativeAnnotate)
+(JNIEnv* env, jobject thiz, jlong ptr, jstring context, jobject options);
 
-// LangId.
-JNIEXPORT jlong JNICALL Java_android_view_textclassifier_LangId_nativeNew(
-    JNIEnv* env, jobject thiz, jint fd);
+JNI_METHOD(void, TC_CLASS_NAME, nativeClose)
+(JNIEnv* env, jobject thiz, jlong ptr);
 
-JNIEXPORT jobjectArray JNICALL
-Java_android_view_textclassifier_LangId_nativeFindLanguages(JNIEnv* env,
-                                                            jobject thiz,
-                                                            jlong ptr,
-                                                            jstring text);
+// DEPRECATED. Use nativeGetLocales instead.
+JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetLanguage)
+(JNIEnv* env, jobject clazz, jint fd);
 
-JNIEXPORT void JNICALL Java_android_view_textclassifier_LangId_nativeClose(
-    JNIEnv* env, jobject thiz, jlong ptr);
+JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetLocales)
+(JNIEnv* env, jobject clazz, jint fd);
 
-JNIEXPORT int JNICALL Java_android_view_textclassifier_LangId_nativeGetVersion(
-    JNIEnv* env, jobject clazz, jint fd);
+JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetLocalesFromAssetFileDescriptor)
+(JNIEnv* env, jobject thiz, jobject afd, jlong offset, jlong size);
+
+JNI_METHOD(jint, TC_CLASS_NAME, nativeGetVersion)
+(JNIEnv* env, jobject clazz, jint fd);
+
+JNI_METHOD(jint, TC_CLASS_NAME, nativeGetVersionFromAssetFileDescriptor)
+(JNIEnv* env, jobject thiz, jobject afd, jlong offset, jlong size);
+
+JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetName)
+(JNIEnv* env, jobject clazz, jint fd);
+
+JNI_METHOD(jstring, TC_CLASS_NAME, nativeGetNameFromAssetFileDescriptor)
+(JNIEnv* env, jobject thiz, jobject afd, jlong offset, jlong size);
 
 #ifdef __cplusplus
 }
 #endif
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 // Given a utf8 string and a span expressed in Java BMP (basic multilingual
 // plane) codepoints, converts it to a span expressed in utf8 codepoints.
-libtextclassifier::CodepointSpan ConvertIndicesBMPToUTF8(
-    const std::string& utf8_str, libtextclassifier::CodepointSpan bmp_indices);
+libtextclassifier2::CodepointSpan ConvertIndicesBMPToUTF8(
+    const std::string& utf8_str, libtextclassifier2::CodepointSpan bmp_indices);
 
 // Given a utf8 string and a span expressed in utf8 codepoints, converts it to a
 // span expressed in Java BMP (basic multilingual plane) codepoints.
-libtextclassifier::CodepointSpan ConvertIndicesUTF8ToBMP(
-    const std::string& utf8_str, libtextclassifier::CodepointSpan utf8_indices);
+libtextclassifier2::CodepointSpan ConvertIndicesUTF8ToBMP(
+    const std::string& utf8_str,
+    libtextclassifier2::CodepointSpan utf8_indices);
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
 #endif  // LIBTEXTCLASSIFIER_TEXTCLASSIFIER_JNI_H_

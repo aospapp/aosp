@@ -18,9 +18,16 @@ package android.host.multiuser;
 import static com.android.tradefed.log.LogUtil.CLog;
 
 import com.android.ddmlib.Log;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class CreateUsersPermissionTest extends BaseMultiUserTest {
 
+    @Test
     public void testCanCreateGuestUser() throws Exception {
         if (!mSupportsMultiUser) {
             return;
@@ -31,6 +38,7 @@ public class CreateUsersPermissionTest extends BaseMultiUserTest {
                 false /* ephemeral */);
     }
 
+    @Test
     public void testCanCreateEphemeralUser() throws Exception {
         if (!mSupportsMultiUser || !mIsSplitSystemUser) {
             return;
@@ -41,6 +49,7 @@ public class CreateUsersPermissionTest extends BaseMultiUserTest {
                 true /* ephemeral */);
     }
 
+    @Test
     public void testCanCreateRestrictedUser() throws Exception {
         if (!mSupportsMultiUser) {
             return;
@@ -48,6 +57,7 @@ public class CreateUsersPermissionTest extends BaseMultiUserTest {
         createRestrictedProfile(mPrimaryUserId);
     }
 
+    @Test
     public void testCantSetUserRestriction() throws Exception {
         if (getDevice().isAdbRoot()) {
             CLog.logAndDisplay(Log.LogLevel.WARN,
@@ -56,9 +66,9 @@ public class CreateUsersPermissionTest extends BaseMultiUserTest {
         }
         final String setRestriction = "pm set-user-restriction no_fun ";
         final String output = getDevice().executeShellCommand(setRestriction + "1");
-        final boolean isErrorOutput = output.startsWith("Error")
-                && output.contains("SecurityException");
-        assertTrue("Trying to set user restriction should fail with SecurityException. "
+        final boolean isErrorOutput = output.contains("SecurityException")
+            && output.contains("You need MANAGE_USERS permission");
+        Assert.assertTrue("Trying to set user restriction should fail with SecurityException. "
                 + "command output: " + output, isErrorOutput);
     }
 }

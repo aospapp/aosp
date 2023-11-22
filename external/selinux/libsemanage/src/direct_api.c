@@ -40,6 +40,8 @@
 #include "user_internal.h"
 #include "seuser_internal.h"
 #include "port_internal.h"
+#include "ibpkey_internal.h"
+#include "ibendport_internal.h"
 #include "iface_internal.h"
 #include "boolean_internal.h"
 #include "fcontext_internal.h"
@@ -208,6 +210,12 @@ int semanage_direct_connect(semanage_handle_t * sh)
 				     semanage_fcontext_dbase_local(sh)) < 0)
 		goto err;
 
+	if (fcontext_file_dbase_init(sh,
+				     semanage_path(SEMANAGE_ACTIVE, SEMANAGE_STORE_FC_HOMEDIRS),
+				     semanage_path(SEMANAGE_TMP, SEMANAGE_STORE_FC_HOMEDIRS),
+				     semanage_fcontext_dbase_homedirs(sh)) < 0)
+		goto err;
+
 	if (seuser_file_dbase_init(sh,
 				   semanage_path(SEMANAGE_ACTIVE,
 						 SEMANAGE_SEUSERS_LOCAL),
@@ -222,6 +230,22 @@ int semanage_direct_connect(semanage_handle_t * sh)
 				 semanage_path(SEMANAGE_TMP,
 					       SEMANAGE_NODES_LOCAL),
 				 semanage_node_dbase_local(sh)) < 0)
+		goto err;
+
+	if (ibpkey_file_dbase_init(sh,
+				   semanage_path(SEMANAGE_ACTIVE,
+					         SEMANAGE_IBPKEYS_LOCAL),
+				   semanage_path(SEMANAGE_TMP,
+					         SEMANAGE_IBPKEYS_LOCAL),
+				   semanage_ibpkey_dbase_local(sh)) < 0)
+		goto err;
+
+	if (ibendport_file_dbase_init(sh,
+				      semanage_path(SEMANAGE_ACTIVE,
+						    SEMANAGE_IBENDPORTS_LOCAL),
+				      semanage_path(SEMANAGE_TMP,
+						    SEMANAGE_IBENDPORTS_LOCAL),
+				      semanage_ibendport_dbase_local(sh)) < 0)
 		goto err;
 
 	/* Object databases: local modifications + policy */
@@ -246,6 +270,12 @@ int semanage_direct_connect(semanage_handle_t * sh)
 		goto err;
 
 	if (port_policydb_dbase_init(sh, semanage_port_dbase_policy(sh)) < 0)
+		goto err;
+
+	if (ibpkey_policydb_dbase_init(sh, semanage_ibpkey_dbase_policy(sh)) < 0)
+		goto err;
+
+	if (ibendport_policydb_dbase_init(sh, semanage_ibendport_dbase_policy(sh)) < 0)
 		goto err;
 
 	if (iface_policydb_dbase_init(sh, semanage_iface_dbase_policy(sh)) < 0)
@@ -320,9 +350,12 @@ static int semanage_direct_disconnect(semanage_handle_t * sh)
 	user_extra_file_dbase_release(semanage_user_extra_dbase_local(sh));
 	user_join_dbase_release(semanage_user_dbase_local(sh));
 	port_file_dbase_release(semanage_port_dbase_local(sh));
+	ibpkey_file_dbase_release(semanage_ibpkey_dbase_local(sh));
+	ibendport_file_dbase_release(semanage_ibendport_dbase_local(sh));
 	iface_file_dbase_release(semanage_iface_dbase_local(sh));
 	bool_file_dbase_release(semanage_bool_dbase_local(sh));
 	fcontext_file_dbase_release(semanage_fcontext_dbase_local(sh));
+	fcontext_file_dbase_release(semanage_fcontext_dbase_homedirs(sh));
 	seuser_file_dbase_release(semanage_seuser_dbase_local(sh));
 	node_file_dbase_release(semanage_node_dbase_local(sh));
 
@@ -331,6 +364,8 @@ static int semanage_direct_disconnect(semanage_handle_t * sh)
 	user_extra_file_dbase_release(semanage_user_extra_dbase_policy(sh));
 	user_join_dbase_release(semanage_user_dbase_policy(sh));
 	port_policydb_dbase_release(semanage_port_dbase_policy(sh));
+	ibpkey_policydb_dbase_release(semanage_ibpkey_dbase_policy(sh));
+	ibendport_policydb_dbase_release(semanage_ibendport_dbase_policy(sh));
 	iface_policydb_dbase_release(semanage_iface_dbase_policy(sh));
 	bool_policydb_dbase_release(semanage_bool_dbase_policy(sh));
 	fcontext_file_dbase_release(semanage_fcontext_dbase_policy(sh));
@@ -1144,13 +1179,18 @@ static int semanage_direct_commit(semanage_handle_t * sh)
 
 	int do_rebuild, do_write_kernel, do_install;
 	int fcontexts_modified, ports_modified, seusers_modified,
-		disable_dontaudit, preserve_tunables;
+		disable_dontaudit, preserve_tunables, ibpkeys_modified,
+		ibendports_modified;
 	dbase_config_t *users = semanage_user_dbase_local(sh);
 	dbase_config_t *users_base = semanage_user_base_dbase_local(sh);
 	dbase_config_t *pusers_base = semanage_user_base_dbase_policy(sh);
 	dbase_config_t *pusers_extra = semanage_user_extra_dbase_policy(sh);
 	dbase_config_t *ports = semanage_port_dbase_local(sh);
 	dbase_config_t *pports = semanage_port_dbase_policy(sh);
+	dbase_config_t *ibpkeys = semanage_ibpkey_dbase_local(sh);
+	dbase_config_t *pibpkeys = semanage_ibpkey_dbase_policy(sh);
+	dbase_config_t *ibendports = semanage_ibendport_dbase_local(sh);
+	dbase_config_t *pibendports = semanage_ibendport_dbase_policy(sh);
 	dbase_config_t *bools = semanage_bool_dbase_local(sh);
 	dbase_config_t *pbools = semanage_bool_dbase_policy(sh);
 	dbase_config_t *ifaces = semanage_iface_dbase_local(sh);
@@ -1164,6 +1204,8 @@ static int semanage_direct_commit(semanage_handle_t * sh)
 
 	/* Modified flags that we need to use more than once. */
 	ports_modified = ports->dtable->is_modified(ports->dbase);
+	ibpkeys_modified = ibpkeys->dtable->is_modified(ibpkeys->dbase);
+	ibendports_modified = ibendports->dtable->is_modified(ibendports->dbase);
 	seusers_modified = seusers->dtable->is_modified(seusers->dbase);
 	fcontexts_modified = fcontexts->dtable->is_modified(fcontexts->dbase);
 
@@ -1285,7 +1327,8 @@ rebuild:
 	 * that live under /etc/selinux (kernel policy, seusers, file contexts)
 	 * will be modified.
 	 */
-	do_write_kernel = do_rebuild | ports_modified |
+	do_write_kernel = do_rebuild | ports_modified | ibpkeys_modified |
+		ibendports_modified |
 		bools->dtable->is_modified(bools->dbase) |
 		ifaces->dtable->is_modified(ifaces->dbase) |
 		nodes->dtable->is_modified(nodes->dbase) |
@@ -1431,6 +1474,8 @@ rebuild:
 	/* Attach our databases to the policydb we just created or loaded. */
 	dbase_policydb_attach((dbase_policydb_t *) pusers_base->dbase, out);
 	dbase_policydb_attach((dbase_policydb_t *) pports->dbase, out);
+	dbase_policydb_attach((dbase_policydb_t *) pibpkeys->dbase, out);
+	dbase_policydb_attach((dbase_policydb_t *) pibendports->dbase, out);
 	dbase_policydb_attach((dbase_policydb_t *) pifaces->dbase, out);
 	dbase_policydb_attach((dbase_policydb_t *) pbools->dbase, out);
 	dbase_policydb_attach((dbase_policydb_t *) pnodes->dbase, out);
@@ -1479,6 +1524,19 @@ rebuild:
 			goto cleanup;
 	}
 
+	/* Validate local ibpkeys for overlap */
+	if (do_rebuild || ibpkeys_modified) {
+		retval = semanage_ibpkey_validate_local(sh);
+		if (retval < 0)
+			goto cleanup;
+	}
+
+	/* Validate local ibendports */
+	if (do_rebuild || ibendports_modified) {
+		retval = semanage_ibendport_validate_local(sh);
+		if (retval < 0)
+			goto cleanup;
+	}
 	/* ================== Write non-policydb components ========= */
 
 	/* Commit changes to components */
@@ -1526,11 +1584,20 @@ rebuild:
 	/* run genhomedircon if its enabled, this should be the last operation
 	 * which requires the out policydb */
 	if (!sh->conf->disable_genhomedircon) {
-		if (out && (retval =
-			semanage_genhomedircon(sh, out, sh->conf->usepasswd, sh->conf->ignoredirs)) != 0) {
-			ERR(sh, "semanage_genhomedircon returned error code %d.",
-			    retval);
-			goto cleanup;
+		if (out){
+			if ((retval = semanage_genhomedircon(sh, out, sh->conf->usepasswd,
+								sh->conf->ignoredirs)) != 0) {
+				ERR(sh, "semanage_genhomedircon returned error code %d.", retval);
+				goto cleanup;
+			}
+			/* file_contexts.homedirs was created in SEMANAGE_TMP store */
+			retval = semanage_copy_file(
+						semanage_path(SEMANAGE_TMP, SEMANAGE_STORE_FC_HOMEDIRS),
+						semanage_final_path(SEMANAGE_FINAL_TMP,	SEMANAGE_FC_HOMEDIRS),
+						sh->conf->file_mode);
+			if (retval < 0) {
+				goto cleanup;
+			}
 		}
 	} else {
 		WARN(sh, "WARNING: genhomedircon is disabled. \
@@ -1558,6 +1625,8 @@ cleanup:
 	/* Detach from policydb, so it can be freed */
 	dbase_policydb_detach((dbase_policydb_t *) pusers_base->dbase);
 	dbase_policydb_detach((dbase_policydb_t *) pports->dbase);
+	dbase_policydb_detach((dbase_policydb_t *) pibpkeys->dbase);
+	dbase_policydb_detach((dbase_policydb_t *) pibendports->dbase);
 	dbase_policydb_detach((dbase_policydb_t *) pifaces->dbase);
 	dbase_policydb_detach((dbase_policydb_t *) pnodes->dbase);
 	dbase_policydb_detach((dbase_policydb_t *) pbools->dbase);

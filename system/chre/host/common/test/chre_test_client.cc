@@ -36,9 +36,11 @@
  */
 
 using android::sp;
+using android::chre::getStringFromByteVector;
+using android::chre::FragmentedLoadTransaction;
+using android::chre::HostProtocolHost;
 using android::chre::IChreMessageHandlers;
 using android::chre::SocketClient;
-using android::chre::HostProtocolHost;
 using flatbuffers::FlatBufferBuilder;
 
 // Aliased for consistency with the way these symbols are referenced in
@@ -48,6 +50,9 @@ namespace fbs = ::chre::fbs;
 namespace {
 
 //! The host endpoint we use when sending; set to CHRE_HOST_ENDPOINT_UNSPECIFIED
+//! Other clients below the HAL may use a value above 0x8000 to enable unicast
+//! messaging (currently requires internal coordination to avoid conflict;
+//! in the future these should be assigned by the daemon).
 constexpr uint16_t kHostEndpoint = 0xfffe;
 
 class SocketCallbacks : public SocketClient::ICallbacks,
@@ -71,35 +76,30 @@ class SocketCallbacks : public SocketClient::ICallbacks,
     LOGI("Socket disconnected");
   }
 
-  void handleNanoappMessage(
-      uint64_t appId, uint32_t messageType, uint16_t hostEndpoint,
-      const void * /*messageData*/, size_t messageLen) override {
+  void handleNanoappMessage(const fbs::NanoappMessageT& message)
+      override {
     LOGI("Got message from nanoapp 0x%" PRIx64 " to endpoint 0x%" PRIx16
-         " with type 0x%" PRIx32 " and length %zu", appId, hostEndpoint,
-         messageType, messageLen);
+         " with type 0x%" PRIx32 " and length %zu", message.app_id,
+         message.host_endpoint, message.message_type, message.message.size());
   }
 
-  void handleHubInfoResponse(
-      const char *name, const char *vendor,
-      const char *toolchain, uint32_t legacyPlatformVersion,
-      uint32_t legacyToolchainVersion, float peakMips, float stoppedPower,
-      float sleepPower, float peakPower, uint32_t maxMessageLen,
-      uint64_t platformId, uint32_t version) override {
+  void handleHubInfoResponse(const fbs::HubInfoResponseT& rsp)
+      override {
     LOGI("Got hub info response:");
-    LOGI("  Name: '%s'", name);
-    LOGI("  Vendor: '%s'", vendor);
-    LOGI("  Toolchain: '%s'", toolchain);
+    LOGI("  Name: '%s'", getStringFromByteVector(rsp.name));
+    LOGI("  Vendor: '%s'", getStringFromByteVector(rsp.vendor));
+    LOGI("  Toolchain: '%s'", getStringFromByteVector(rsp.toolchain));
     LOGI("  Legacy versions: platform 0x%08" PRIx32 " toolchain 0x%08" PRIx32,
-         legacyPlatformVersion, legacyToolchainVersion);
+         rsp.platform_version, rsp.toolchain_version);
     LOGI("  MIPS %.2f Power (mW): stopped %.2f sleep %.2f peak %.2f",
-         peakMips, stoppedPower, sleepPower, peakPower);
-    LOGI("  Max message len: %" PRIu32, maxMessageLen);
+         rsp.peak_mips, rsp.stopped_power, rsp.sleep_power, rsp.peak_power);
+    LOGI("  Max message len: %" PRIu32, rsp.max_msg_len);
     LOGI("  Platform ID: 0x%016" PRIx64 " Version: 0x%08" PRIx32,
-         platformId, version);
+         rsp.platform_id, rsp.chre_platform_version);
   }
 
-  void handleNanoappListResponse(
-      const fbs::NanoappListResponseT& response) override {
+  void handleNanoappListResponse(const fbs::NanoappListResponseT& response)
+      override {
     LOGI("Got nanoapp list response with %zu apps:", response.nanoapps.size());
     for (const std::unique_ptr<fbs::NanoappListEntryT>& nanoapp
            : response.nanoapps) {
@@ -109,14 +109,14 @@ class SocketCallbacks : public SocketClient::ICallbacks,
     }
   }
 
-  void handleLoadNanoappResponse(
-      const ::chre::fbs::LoadNanoappResponseT& response) override {
+  void handleLoadNanoappResponse(const fbs::LoadNanoappResponseT& response)
+      override {
     LOGI("Got load nanoapp response, transaction ID 0x%" PRIx32 " result %d",
          response.transaction_id, response.success);
   }
 
-  void handleUnloadNanoappResponse(
-      const ::chre::fbs::UnloadNanoappResponseT& response) override {
+  void handleUnloadNanoappResponse(const fbs::UnloadNanoappResponseT& response)
+      override {
     LOGI("Got unload nanoapp response, transaction ID 0x%" PRIx32 " result %d",
          response.transaction_id, response.success);
   }
@@ -146,8 +146,8 @@ void sendMessageToNanoapp(SocketClient& client) {
   FlatBufferBuilder builder(64);
   uint8_t messageData[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
   HostProtocolHost::encodeNanoappMessage(
-      builder, chre::kMessageWorldAppId, kHostEndpoint,
-      1234 /* messageType */, messageData, sizeof(messageData));
+      builder, chre::kMessageWorldAppId, 1234 /* messageType */,
+      kHostEndpoint, messageData, sizeof(messageData));
 
   LOGI("Sending message to nanoapp (%" PRIu32 " bytes w/%zu bytes of payload)",
        builder.GetSize(), sizeof(messageData));
@@ -171,9 +171,14 @@ void sendLoadNanoappRequest(SocketClient& client, const char *filename) {
     return;
   }
 
+  // Perform loading with 1 fragment for simplicity
   FlatBufferBuilder builder(size + 128);
-  HostProtocolHost::encodeLoadNanoappRequest(
-      builder, 1, 0x476f6f676c00100b, 0, 0x01000000, buffer);
+  FragmentedLoadTransaction transaction = FragmentedLoadTransaction(
+      1 /* transactionId */, 0x476f6f676c00100b /* appId */, 0 /* appVersion */,
+      0x01000000 /* targetApiVersion */, buffer,
+      buffer.size() /* fragmentSize */);
+  HostProtocolHost::encodeFragmentedLoadNanoappRequest(
+      builder, transaction.getNextRequest());
 
   LOGI("Sending load nanoapp request (%" PRIu32 " bytes total w/%zu bytes of "
        "payload)", builder.GetSize(), buffer.size());
@@ -198,7 +203,6 @@ void sendUnloadNanoappRequest(SocketClient& client, uint64_t appId) {
 }  // anonymous namespace
 
 int main() {
-  int ret = -1;
   SocketClient client;
   sp<SocketCallbacks> callbacks = new SocketCallbacks();
 

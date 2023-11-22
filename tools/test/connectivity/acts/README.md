@@ -75,7 +75,8 @@ displayed. Check the "Always" box and click "Yes".
      On Ubuntu, sudo apt-get install python3.4 python3-setuptools
 2. Run "python3.4 setup.py install" with elevated permissions
 3. To verify ACTS is ready to go, at the location for README, and run:
-     cd tests/ && act.py -c acts_sanity_test_config.json -tc IntegrationTest
+     cd framework/tests/ \
+     && act.py -c acts_sanity_test_config.json -tc IntegrationTest
 
 After installation, `act.py` will be in usr/bin and can be called as command
 line utilities. Components in ACTS are importable under the package "acts."
@@ -92,7 +93,7 @@ $ python
 Above, the command `act.py -c acts_sanity_test_config.json -tc IntegrationTest`
 was run to verify ACTS was properly set up.
 Below are the components of that command:
-- `acts.py`: is the script that runs the test
+- `act.py`: is the script that runs the test
 -  -c acts_sanity_test_config: is the flag and name of the configuration file
 to be used in the test
 -  -tc IntegrationTest: is the name of the test case

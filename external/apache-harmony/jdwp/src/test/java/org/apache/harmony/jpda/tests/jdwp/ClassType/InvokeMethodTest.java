@@ -89,28 +89,7 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
                 + " status=" + status);
 
         // Get methodID
-        packet = new CommandPacket(
-                JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
-                JDWPCommands.ReferenceTypeCommandSet.MethodsCommand);
-        packet.setNextValueAsClassID(typeID);
-        reply = debuggeeWrapper.vmMirror.performCommand(packet);
-        checkReplyPacket(reply, "ReferenceType::Methods command");
-
-        int declared = reply.getNextValueAsInt();
-        logWriter.println(" ReferenceType.Methods: declared=" + declared);
-        long targetMethodID = 0;
-        for (int i = 0; i < declared; i++) {
-            long methodID = reply.getNextValueAsMethodID();
-            String name = reply.getNextValueAsString();
-            String signature = reply.getNextValueAsString();
-            int modBits = reply.getNextValueAsInt();
-            logWriter.println("  methodID=" + methodID + " name=" + name
-                    + " signature=" + signature + " modBits=" + modBits);
-            if (name.equals("testMethod2")) {
-                targetMethodID = methodID;
-            }
-        }
-        assertAllDataRead(reply);
+        long targetMethodID = getMethodID(typeID, "testMethod2");
 
         // Set EventRequest
         packet = new CommandPacket(

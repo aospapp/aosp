@@ -13,6 +13,7 @@ import re
 
 from autotest_lib.client.common_lib import enum
 from autotest_lib.client.common_lib import global_config
+from autotest_lib.client.common_lib import priorities
 
 REQUIRED_VARS = set(['author', 'doc', 'name', 'time', 'test_type'])
 OBSOLETE_VARS = set(['experimental'])
@@ -26,7 +27,8 @@ CONFIG = global_config.global_config
 
 # Default maximum test result size in kB.
 DEFAULT_MAX_RESULT_SIZE_KB = CONFIG.get_config_value(
-        'AUTOSERV', 'default_max_result_size_KB', type=int)
+        'AUTOSERV', 'default_max_result_size_KB', type=int, default=20000)
+
 
 class ControlVariableException(Exception):
     pass
@@ -102,6 +104,8 @@ class ControlData(object):
         self.require_ssp = None
         self.attributes = set()
         self.max_result_size_KB = DEFAULT_MAX_RESULT_SIZE_KB
+        self.priority = priorities.Priority.DEFAULT
+        self.fast = False
 
         _validate_control_file_fields(self.path, vars, raise_warnings)
 
@@ -288,6 +292,12 @@ class ControlData(object):
     def set_max_result_size_kb(self, val):
         self._set_int('max_result_size_KB', val)
 
+    def set_priority(self, val):
+        self._set_int('priority', val)
+
+    def set_fast(self, val):
+        self._set_bool('fast', val)
+
     def set_attributes(self, val):
         # Add subsystem:default if subsystem is not specified.
         self._set_set('attributes', val)
@@ -370,7 +380,11 @@ def parse_control_string(control, raise_warnings=False, path=''):
     """
     try:
         mod = compiler.parse(control)
-    except SyntaxError, e:
+    except SyntaxError as e:
+        logging.error('Syntax error (%s) while parsing control string:', e)
+        lines = control.split('\n')
+        for n, l in enumerate(lines):
+            logging.error('Line %d: %s', n + 1, l)
         raise ControlVariableException("Error parsing data because %s" % e)
     return finish_parse(mod, path, raise_warnings)
 
@@ -403,6 +417,7 @@ def finish_parse(mod, path, raise_warnings):
     assert(mod.node.nodes.__class__ == list)
 
     variables = {}
+    injection_variables = {}
     for n in mod.node.nodes:
         if (n.__class__ == compiler.ast.Function and
             re.match('step\d+', n.name)):
@@ -415,6 +430,7 @@ def finish_parse(mod, path, raise_warnings):
                 variables.clear()
                 variables.update(vars_in_step)
         else:
-            _try_extract_assignment(n, variables)
+            _try_extract_assignment(n, injection_variables)
 
+    variables.update(injection_variables)
     return ControlData(variables, path, raise_warnings)

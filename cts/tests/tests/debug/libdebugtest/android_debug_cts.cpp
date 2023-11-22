@@ -15,8 +15,10 @@
  */
 
 #include <jni.h>
+#include <gtest/gtest.h>
 #include <android/log.h>
 
+#include <errno.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -28,6 +30,7 @@
 
 #define LOG_TAG "Cts-DebugTest"
 
+// Used by child processes only
 #define assert_or_exit(x)                                                                         \
     do {                                                                                          \
         if(x) break;                                                                              \
@@ -35,29 +38,21 @@
                 errno, strerror(errno));                                                          \
         _exit(1);                                                                                 \
     } while (0)
-#define assert_or_return(x)                                                                       \
-    do {                                                                                          \
-        if(x) break;                                                                              \
-        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Assertion " #x " failed. errno(%d): %s", \
-                errno, strerror(errno));                                                          \
-        return false;                                                                             \
-    } while (0)
 
-static bool parent(pid_t child) {
+static void parent(pid_t child) {
     int status;
     int wpid = waitpid(child, &status, 0);
-    assert_or_return(wpid == child);
-    assert_or_return(WIFEXITED(status));
-    assert_or_return(WEXITSTATUS(status ) == 0);
-    return true;
+    ASSERT_EQ(child, wpid);
+    ASSERT_TRUE(WIFEXITED(status));
+    ASSERT_EQ(0, WEXITSTATUS(status));
 }
 
-static bool run_test(const std::function<void(pid_t)> &test) {
+static void run_test(const std::function<void(pid_t)> &test) {
     pid_t pid = fork();
-    assert_or_return(pid >= 0);
-    if (pid != 0)
-        return parent(pid);
-    else {
+    ASSERT_NE(-1, pid) << "fork() failed with " << strerror(errno);
+    if (pid != 0) {
+        parent(pid);
+    } else {
         // child
         test(getppid());
         _exit(0);
@@ -74,11 +69,9 @@ static void ptraceAttach(pid_t parent) {
     assert_or_exit(ptrace(PTRACE_DETACH, parent, nullptr, nullptr) == 0);
 }
 
-// public static native boolean ptraceAttach();
-extern "C" jboolean Java_android_debug_cts_DebugTest_ptraceAttach(JNIEnv *, jclass) {
-    return run_test(ptraceAttach);
+TEST(DebugTest, ptraceAttach) {
+    run_test(ptraceAttach);
 }
-
 
 static void processVmReadv(pid_t parent, const std::vector<long *> &addresses) {
     long destination;
@@ -98,11 +91,11 @@ static void processVmReadv(pid_t parent, const std::vector<long *> &addresses) {
 
 static long global_variable = 0x47474747;
 // public static native boolean processVmReadv();
-extern "C" jboolean Java_android_debug_cts_DebugTest_processVmReadv(JNIEnv *, jclass) {
+TEST(DebugTest, processVmReadv) {
     long stack_variable = 0x42424242;
     // This runs the test with a selection of different kinds of addresses and
     // makes sure the child process (simulating a debugger) can read them.
-    return run_test([&](pid_t parent) {
+    run_test([&](pid_t parent) {
         processVmReadv(parent, std::vector<long *>{
                                    &global_variable, &stack_variable,
                                    reinterpret_cast<long *>(&processVmReadv)});
@@ -110,9 +103,9 @@ extern "C" jboolean Java_android_debug_cts_DebugTest_processVmReadv(JNIEnv *, jc
 }
 
 // public static native boolean processVmReadvNullptr();
-extern "C" jboolean Java_android_debug_cts_DebugTest_processVmReadvNullptr(JNIEnv *, jclass) {
+TEST(DebugTest, processVmReadvNullptr) {
     // Make sure reading unallocated memory behaves reasonably.
-    return run_test([](pid_t parent) {
+    run_test([](pid_t parent) {
         long destination;
         iovec local = {&destination, sizeof destination};
         iovec remote = {nullptr, sizeof(long)};

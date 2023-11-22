@@ -17,7 +17,7 @@
 #ifndef LIBTEXTCLASSIFIER_UTIL_STRINGS_UTF8_H_
 #define LIBTEXTCLASSIFIER_UTIL_STRINGS_UTF8_H_
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 // Returns the length (number of bytes) of the Unicode code point starting at
 // src, based on inspecting just that one byte.  Preconditions: src != NULL,
@@ -44,6 +44,9 @@ static inline bool IsTrailByte(char x) {
   return static_cast<signed char>(x) < -0x40;
 }
 
-}  // namespace libtextclassifier
+// Returns true iff src points to a well-formed UTF-8 string.
+bool IsValidUTF8(const char *src, int size);
+
+}  // namespace libtextclassifier2
 
 #endif  // LIBTEXTCLASSIFIER_UTIL_STRINGS_UTF8_H_

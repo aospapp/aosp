@@ -26,6 +26,8 @@ LOCAL_MULTILIB := both
 
 LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner compatibility-device-util
 
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
+
 LOCAL_JNI_SHARED_LIBRARIES := libctsopenglperf_jni libnativehelper_compat_libc++
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)

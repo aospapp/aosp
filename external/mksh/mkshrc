@@ -6,11 +6,6 @@
 #
 # Support: https://launchpad.net/mksh
 
-: ${HOSTNAME:=$(getprop ro.product.device)}
-: ${HOSTNAME:=android}
-: ${TMPDIR:=/data/local/tmp}
-export HOSTNAME TMPDIR
-
 if (( USER_ID )); then PS1='$'; else PS1='#'; fi
 PS4='[$EPOCHREALTIME] '; PS1='${|
 	local e=$?

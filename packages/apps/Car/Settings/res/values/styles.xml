@@ -15,40 +15,25 @@
 -->
 
 <resources>
-    <style name="LineItem">
-        <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">@dimen/double_line_item_height</item>
-        <item name="android:foreground">@drawable/car_list_item_background</item>
-    </style>
-
-    <style name="LineItem.SingleItem" parent="LineItem">
-        <item name="android:layout_height">@dimen/single_line_item_height</item>
-    </style>
-
-    <style name="CarBody1.SingleLine" parent="@style/CarBody1">
-        <item name="android:maxLines">1</item>
-        <item name="android:textColor">@color/text_body_1</item>
-        <item name="android:ellipsize">marquee</item>
-    </style>
-
-    <style name="CarBody2.SingleLine" parent="@style/CarBody2">
-        <item name="android:maxLines">1</item>
-        <item name="android:textColor">@color/text_body_2</item>
-        <item name="android:ellipsize">end</item>
-    </style>
-
     <style name="Theme.SettingsBase" parent="@android:style/Theme.Material.Settings" />
 
     <attr name="WifiSignalColor" format="reference" />
 
-    <style name="CarSettingTheme" parent="@style/Theme.AppCompat.Light.NoActionBar">
+    <style name="CarSettingTheme" parent="Theme.Car.Light.NoActionBar">
         <item name="wifi_signal">@drawable/wifi_signal</item>
         <item name="WifiSignalColor">?android:attr/colorAccent</item>
-        <item name="android:background">@color/car_card</item>
+        <item name="android:windowBackground">@color/car_card</item>
+        <item name="android:windowAnimationStyle">@style/SettingAnimationStyle</item>
+        <item name="android:borderlessButtonStyle">@style/Widget.Car.Settings.ActionBar.Button.Borderless.Colored</item>
     </style>
 
-    <style name="ActionBarStyle.Car" parent="@style/Theme.AppCompat">
-        <item name="actionBarSize">@dimen/lens_header_height</item>
+    <style name="SettingAnimationStyle">
+        <item name="android:windowEnterAnimation">@anim/trans_fade_in</item>
+        <item name="android:windowExitAnimation">@anim/trans_fade_out</item>
+    </style>
+
+    <style name="ActionBarStyle.Car" parent="Widget.Car.Toolbar">
+        <item name="actionBarSize">@dimen/car_app_bar_height</item>
     </style>
 
     <style name="TrimmedHorizontalProgressBar" parent="android:Widget.Material.ProgressBar.Horizontal">
@@ -56,33 +41,51 @@
         <item name="android:minHeight">3dp</item>
         <item name="android:maxHeight">3dp</item>
     </style>
-    <style name="SettingIcon">
-        <item name="android:layout_width">@dimen/stream_button_icon_size</item>
-        <item name="android:layout_height">@dimen/stream_button_icon_size</item>
-        <item name="android:layout_centerVertical">true</item>
-        <item name="android:gravity">center_vertical</item>
-        <item name="android:scaleType">fitCenter</item>
-        <item name="android:tint">@color/car_tint</item>
-    </style>
 
-    <style name="SettingIcon.ActionBar" parent="SettingIcon">
-        <item name="android:tint">@color/car_teal_700</item>
+    <style name="ListIcon.ActionBar" parent="ListIcon">
         <item name="android:layout_gravity">center</item>
         <item name="android:src">@drawable/ic_arrow_back</item>
     </style>
 
-    <style name="SettingSwitch">
-        <item name="android:layout_width">@dimen/stream_button_icon_size</item>
-        <item name="android:layout_height">@dimen/stream_button_icon_size</item>
-        <item name="android:paddingEnd">@dimen/switch_end_padding</item>
-        <item name="android:scaleX">1.5</item>
-        <item name="android:scaleY">1.5</item>
+    <style name="SettingsListHeader" parent="TextAppearance.Car.Body2">
+        <item name="android:textColor">@color/car_accent</item>
     </style>
 
-    <style name="SettingPagedList">
-        <item name="scrollbarContainerWidth">@dimen/side_margin</item>
-        <item name="showDivider">false</item>
-        <item name="offsetScrollBar">true</item>
-        <item name="rightMargin">@dimen/side_margin</item>
+    <style name="Widget.Car.Settings.ActionBar.Button.Borderless.Colored"
+           parent="Widget.Car.Button.Borderless.Colored">
+        <item name="android:minWidth">@dimen/car_button_min_width</item>
+        <item name="android:fontFamily">roboto-regular</item>
+        <item name="android:textColor">@color/car_accent</item>
+    </style>
+
+    <style name="SetupWizardButton.Negative" parent="@style/SuwGlifButton.Secondary">
+        <!-- Negative margin to offset for padding of the button itself. We want the label to be
+             aligned with the text above it -->
+        <item name="android:layout_marginStart">-16dp</item>
+    </style>
+
+    <style name="SetupWizardButton.Positive" parent="@style/SuwGlifButton.Primary" />
+
+    <!-- Style for security lock pattern. -->
+    <style name="LockPatternStyle">
+        <item name="*android:regularColor">@color/lock_pattern_regular</item>
+        <item name="*android:successColor">@color/lock_pattern_success</item>
+        <item name="*android:errorColor">?android:attr/colorError</item>
+    </style>
+
+    <style name="PinPadKey">
+        <item name="android:layout_width">@dimen/pin_pad_key_width</item>
+        <item name="android:layout_height">@dimen/pin_pad_key_height</item>
+        <item name="android:layout_margin">@dimen/pin_pad_key_margin</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:textSize">@dimen/car_body1_size</item>
+        <item name="android:textColor">@color/car_body3</item>
+        <item name="android:clickable">true</item>
+        <item name="android:background">@drawable/car_button_ripple_background</item>
+    </style>
+
+    <style name="SettingList">
+        <item name="gutter">both</item>
     </style>
 </resources>

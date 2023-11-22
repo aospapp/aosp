@@ -35,6 +35,10 @@ GLushort g_iIndices[] = { 0, 1, 2, 3 };
 
 WarpRenderer::WarpRenderer() : Renderer()
 {
+    // suppress warnings of unused private fields
+    (void) mTexHandle;
+    (void) mTexCoordHandle;
+    (void) mTriangleVerticesHandle;
 }
 
 WarpRenderer::~WarpRenderer() {

@@ -106,9 +106,8 @@ class ExperimentRunnerTest(unittest.TestCase):
   def make_fake_experiment(self):
     test_flag.SetTestMode(True)
     experiment_file = ExperimentFile(StringIO.StringIO(EXPERIMENT_FILE_1))
-    experiment = ExperimentFactory().GetExperiment(experiment_file,
-                                                   working_directory='',
-                                                   log_dir='')
+    experiment = ExperimentFactory().GetExperiment(
+        experiment_file, working_directory='', log_dir='')
     return experiment
 
   @mock.patch.object(machine_manager.MachineManager, 'AddMachine')
@@ -120,20 +119,22 @@ class ExperimentRunnerTest(unittest.TestCase):
     self.exp = self.make_fake_experiment()
 
   def test_init(self):
-    er = experiment_runner.ExperimentRunner(self.exp,
-                                            json_report=False,
-                                            using_schedv2=False,
-                                            log=self.mock_logger,
-                                            cmd_exec=self.mock_cmd_exec)
+    er = experiment_runner.ExperimentRunner(
+        self.exp,
+        json_report=False,
+        using_schedv2=False,
+        log=self.mock_logger,
+        cmd_exec=self.mock_cmd_exec)
     self.assertFalse(er._terminated)
     self.assertEqual(er.STATUS_TIME_DELAY, 10)
 
     self.exp.log_level = 'verbose'
-    er = experiment_runner.ExperimentRunner(self.exp,
-                                            json_report=False,
-                                            using_schedv2=False,
-                                            log=self.mock_logger,
-                                            cmd_exec=self.mock_cmd_exec)
+    er = experiment_runner.ExperimentRunner(
+        self.exp,
+        json_report=False,
+        using_schedv2=False,
+        log=self.mock_logger,
+        cmd_exec=self.mock_cmd_exec)
     self.assertEqual(er.STATUS_TIME_DELAY, 30)
 
   @mock.patch.object(experiment_status.ExperimentStatus, 'GetStatusString')
@@ -164,11 +165,12 @@ class ExperimentRunnerTest(unittest.TestCase):
 
     # Test 1: log_level == "quiet"
     self.exp.log_level = 'quiet'
-    er = experiment_runner.ExperimentRunner(self.exp,
-                                            json_report=False,
-                                            using_schedv2=False,
-                                            log=self.mock_logger,
-                                            cmd_exec=self.mock_cmd_exec)
+    er = experiment_runner.ExperimentRunner(
+        self.exp,
+        json_report=False,
+        using_schedv2=False,
+        log=self.mock_logger,
+        cmd_exec=self.mock_cmd_exec)
     er.STATUS_TIME_DELAY = 2
     mock_status_string.return_value = 'Fake status string'
     er._Run(self.exp)
@@ -180,9 +182,10 @@ class ExperimentRunnerTest(unittest.TestCase):
     self.assertEqual(self.mock_logger.dot_count, 2)
     self.assertEqual(mock_progress_string.call_count, 0)
     self.assertEqual(mock_status_string.call_count, 2)
-    self.assertEqual(self.mock_logger.output_msgs,
-                     ['==============================', 'Fake status string',
-                      '=============================='])
+    self.assertEqual(self.mock_logger.output_msgs, [
+        '==============================', 'Fake status string',
+        '=============================='
+    ])
     self.assertEqual(len(self.mock_logger.error_msgs), 0)
 
     # Test 2: log_level == "average"
@@ -190,11 +193,12 @@ class ExperimentRunnerTest(unittest.TestCase):
     reset()
     self.exp.log_level = 'average'
     mock_status_string.call_count = 0
-    er = experiment_runner.ExperimentRunner(self.exp,
-                                            json_report=False,
-                                            using_schedv2=False,
-                                            log=self.mock_logger,
-                                            cmd_exec=self.mock_cmd_exec)
+    er = experiment_runner.ExperimentRunner(
+        self.exp,
+        json_report=False,
+        using_schedv2=False,
+        log=self.mock_logger,
+        cmd_exec=self.mock_cmd_exec)
     er.STATUS_TIME_DELAY = 2
     mock_status_string.return_value = 'Fake status string'
     er._Run(self.exp)
@@ -206,9 +210,10 @@ class ExperimentRunnerTest(unittest.TestCase):
     self.assertEqual(self.mock_logger.dot_count, 2)
     self.assertEqual(mock_progress_string.call_count, 0)
     self.assertEqual(mock_status_string.call_count, 2)
-    self.assertEqual(self.mock_logger.output_msgs,
-                     ['==============================', 'Fake status string',
-                      '=============================='])
+    self.assertEqual(self.mock_logger.output_msgs, [
+        '==============================', 'Fake status string',
+        '=============================='
+    ])
     self.assertEqual(len(self.mock_logger.error_msgs), 0)
 
     # Test 3: log_level == "verbose"
@@ -216,11 +221,12 @@ class ExperimentRunnerTest(unittest.TestCase):
     reset()
     self.exp.log_level = 'verbose'
     mock_status_string.call_count = 0
-    er = experiment_runner.ExperimentRunner(self.exp,
-                                            json_report=False,
-                                            using_schedv2=False,
-                                            log=self.mock_logger,
-                                            cmd_exec=self.mock_cmd_exec)
+    er = experiment_runner.ExperimentRunner(
+        self.exp,
+        json_report=False,
+        using_schedv2=False,
+        log=self.mock_logger,
+        cmd_exec=self.mock_cmd_exec)
     er.STATUS_TIME_DELAY = 2
     mock_status_string.return_value = 'Fake status string'
     mock_progress_string.return_value = 'Fake progress string'
@@ -233,22 +239,24 @@ class ExperimentRunnerTest(unittest.TestCase):
     self.assertEqual(self.mock_logger.dot_count, 0)
     self.assertEqual(mock_progress_string.call_count, 2)
     self.assertEqual(mock_status_string.call_count, 2)
-    self.assertEqual(self.mock_logger.output_msgs,
-                     ['==============================', 'Fake progress string',
-                      'Fake status string', '==============================',
-                      '==============================', 'Fake progress string',
-                      'Fake status string', '=============================='])
+    self.assertEqual(self.mock_logger.output_msgs, [
+        '==============================', 'Fake progress string',
+        'Fake status string', '==============================',
+        '==============================', 'Fake progress string',
+        'Fake status string', '=============================='
+    ])
     self.assertEqual(len(self.mock_logger.error_msgs), 0)
 
   @mock.patch.object(TextResultsReport, 'GetReport')
   def test_print_table(self, mock_report):
     self.mock_logger.Reset()
     mock_report.return_value = 'This is a fake experiment report.'
-    er = experiment_runner.ExperimentRunner(self.exp,
-                                            json_report=False,
-                                            using_schedv2=False,
-                                            log=self.mock_logger,
-                                            cmd_exec=self.mock_cmd_exec)
+    er = experiment_runner.ExperimentRunner(
+        self.exp,
+        json_report=False,
+        using_schedv2=False,
+        log=self.mock_logger,
+        cmd_exec=self.mock_cmd_exec)
     er._PrintTable(self.exp)
     self.assertEqual(mock_report.call_count, 1)
     self.assertEqual(self.mock_logger.output_msgs,
@@ -269,11 +277,12 @@ class ExperimentRunnerTest(unittest.TestCase):
     self.mock_logger.Reset()
     config.AddConfig('no_email', True)
     self.exp.email_to = ['jane.doe@google.com']
-    er = experiment_runner.ExperimentRunner(self.exp,
-                                            json_report=False,
-                                            using_schedv2=False,
-                                            log=self.mock_logger,
-                                            cmd_exec=self.mock_cmd_exec)
+    er = experiment_runner.ExperimentRunner(
+        self.exp,
+        json_report=False,
+        using_schedv2=False,
+        log=self.mock_logger,
+        cmd_exec=self.mock_cmd_exec)
     # Test 1. Config:no_email; exp.email_to set ==> no email sent
     er._Email(self.exp)
     self.assertEqual(mock_getuser.call_count, 0)
@@ -295,8 +304,8 @@ class ExperimentRunnerTest(unittest.TestCase):
     self.assertEqual(mock_html_report.call_count, 1)
     self.assertEqual(len(mock_emailer.call_args), 2)
     self.assertEqual(mock_emailer.call_args[0],
-                     (['jane.doe@google.com', 'john.smith@google.com'],
-                      ': image1 vs. image2',
+                     (['jane.doe@google.com',
+                       'john.smith@google.com'], ': image1 vs. image2',
                       "<pre style='font-size: 13px'>This is a fake text "
                       'report.\nResults are stored in _results.\n</pre>'))
     self.assertTrue(type(mock_emailer.call_args[1]) is dict)
@@ -325,8 +334,10 @@ class ExperimentRunnerTest(unittest.TestCase):
     self.assertEqual(mock_html_report.call_count, 1)
     self.assertEqual(len(mock_emailer.call_args), 2)
     self.assertEqual(mock_emailer.call_args[0],
-                     (['jane.doe@google.com', 'john.smith@google.com',
-                       'john.smith@google.com'], ': image1 vs. image2',
+                     ([
+                         'jane.doe@google.com', 'john.smith@google.com',
+                         'john.smith@google.com'
+                     ], ': image1 vs. image2',
                       "<pre style='font-size: 13px'>This is a fake text "
                       'report.\nResults are stored in _results.\n</pre>'))
     self.assertTrue(type(mock_emailer.call_args[1]) is dict)
@@ -393,15 +404,16 @@ class ExperimentRunnerTest(unittest.TestCase):
     self.mock_logger.Reset()
     self.exp.results_directory = '/usr/local/crosperf-results'
     bench_run = self.exp.benchmark_runs[5]
-    bench_path = '/usr/local/crosperf-results/' + filter(str.isalnum,
-                                                         bench_run.name)
+    bench_path = '/usr/local/crosperf-results/' + filter(
+        str.isalnum, bench_run.name)
     self.assertEqual(len(self.exp.benchmark_runs), 6)
 
-    er = experiment_runner.ExperimentRunner(self.exp,
-                                            json_report=False,
-                                            using_schedv2=False,
-                                            log=self.mock_logger,
-                                            cmd_exec=self.mock_cmd_exec)
+    er = experiment_runner.ExperimentRunner(
+        self.exp,
+        json_report=False,
+        using_schedv2=False,
+        log=self.mock_logger,
+        cmd_exec=self.mock_cmd_exec)
 
     # Test 1. Make sure nothing is done if _terminated is true.
     er._terminated = True
@@ -438,12 +450,12 @@ class ExperimentRunnerTest(unittest.TestCase):
     self.assertEqual(mock_rmdir.call_count, 1)
     mock_rmdir.called_with('/usr/local/crosperf-results')
     self.assertEqual(self.mock_logger.LogOutputCount, 4)
-    self.assertEqual(
-        self.mock_logger.output_msgs,
-        ['Storing experiment file in /usr/local/crosperf-results.',
-         'Storing results report in /usr/local/crosperf-results.',
-         'Storing email message body in /usr/local/crosperf-results.',
-         'Storing results of each benchmark run.'])
+    self.assertEqual(self.mock_logger.output_msgs, [
+        'Storing experiment file in /usr/local/crosperf-results.',
+        'Storing results report in /usr/local/crosperf-results.',
+        'Storing email message body in /usr/local/crosperf-results.',
+        'Storing results of each benchmark run.'
+    ])
 
 
 if __name__ == '__main__':

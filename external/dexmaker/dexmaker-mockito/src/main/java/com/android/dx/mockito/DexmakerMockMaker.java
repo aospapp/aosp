@@ -16,15 +16,21 @@
 
 package com.android.dx.mockito;
 
+import android.os.Build;
+import android.util.Log;
+
 import com.android.dx.stock.ProxyBuilder;
 import org.mockito.exceptions.base.MockitoException;
 import org.mockito.exceptions.stacktrace.StackTraceCleaner;
+import org.mockito.internal.util.reflection.LenientCopyTool;
 import org.mockito.invocation.MockHandler;
 import org.mockito.mock.MockCreationSettings;
 import org.mockito.plugins.MockMaker;
 import org.mockito.plugins.StackTraceCleanerProvider;
 
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
 import java.util.Set;
@@ -33,7 +39,41 @@ import java.util.Set;
  * Generates mock instances on Android's runtime.
  */
 public final class DexmakerMockMaker implements MockMaker, StackTraceCleanerProvider {
+    private static final String LOG_TAG = DexmakerMockMaker.class.getSimpleName();
+
     private final UnsafeAllocator unsafeAllocator = UnsafeAllocator.create();
+
+    public DexmakerMockMaker() {
+        if (Build.VERSION.SDK_INT >= 28) {
+            // Blacklisted APIs were introduced in Android P:
+            //
+            // https://android-developers.googleblog.com/2018/02/
+            // improving-stability-by-reducing-usage.html
+            //
+            // This feature prevents access to blacklisted fields and calling of blacklisted APIs
+            // if the calling class is not trusted.
+            Method allowHiddenApiReflectionFromMethod;
+            try {
+                Class vmDebug = Class.forName("dalvik.system.VMDebug");
+                allowHiddenApiReflectionFromMethod = vmDebug.getDeclaredMethod(
+                        "allowHiddenApiReflectionFrom", Class.class);
+            } catch (ClassNotFoundException | NoSuchMethodException e) {
+                throw new IllegalStateException(
+                        "Cannot find VMDebug#allowHiddenApiReflectionFrom. Method is needed to "
+                                + "allow spies to copy blacklisted fields.");
+            }
+
+            // The LenientCopyTool copies the fields to a spy when creating the copy from an
+            // existing object. Some of the fields might be blacklisted. Marking the LenientCopyTool
+            // as trusted allows the tool to copy all fields, including the blacklisted ones.
+            try {
+                allowHiddenApiReflectionFromMethod.invoke(null, LenientCopyTool.class);
+            } catch (InvocationTargetException | IllegalAccessException e) {
+                Log.w(LOG_TAG, "Cannot allow LenientCopyTool to copy spies of blacklisted fields. "
+                        + "This might break spying on system classes.");
+            }
+        }
+    }
 
     @Override
     public <T> T createMock(MockCreationSettings<T> settings, MockHandler handler) {
@@ -55,9 +95,15 @@ public final class DexmakerMockMaker implements MockMaker, StackTraceCleanerProv
         } else {
             // support concrete classes via dexmaker's ProxyBuilder
             try {
-                Class<? extends T> proxyClass = ProxyBuilder.forClass(typeToMock)
-                        .implementing(extraInterfaces)
-                        .buildProxyClass();
+                ProxyBuilder b = ProxyBuilder.forClass(typeToMock)
+                        .implementing(extraInterfaces);
+
+                if (Boolean.parseBoolean(
+                        System.getProperty("dexmaker.share_classloader", "false"))) {
+                    b.withSharedClassLoader();
+                }
+
+                Class<? extends T> proxyClass = b.buildProxyClass();
                 T mock = unsafeAllocator.newInstance(proxyClass);
                 ProxyBuilder.setInvocationHandler(mock, invocationHandler);
                 return mock;
@@ -109,11 +155,15 @@ public final class DexmakerMockMaker implements MockMaker, StackTraceCleanerProv
         return new StackTraceCleaner() {
             @Override
             public boolean isIn(StackTraceElement candidate) {
+                String className = candidate.getClassName();
+
                 return defaultCleaner.isIn(candidate)
-                        && !candidate.getClassName().endsWith("_Proxy") // dexmaker class proxies
-                        && !candidate.getClassName().startsWith("$Proxy") // dalvik interface proxies
-                        && !candidate.getClassName().startsWith("com.google.dexmaker.mockito.")
-                        && !candidate.getClassName().startsWith("com.android.dx.mockito.");
+                        && !className.endsWith("_Proxy") // dexmaker class proxies
+                        && !className.startsWith("$Proxy") // dalvik interface proxies
+                        && !className.startsWith("java.lang.reflect.Proxy")
+                        && !(className.startsWith("com.android.dx.mockito.")
+                             // Do not clean unit tests
+                             && !className.startsWith("com.android.dx.mockito.tests"));
             }
         };
     }

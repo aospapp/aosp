@@ -100,11 +100,21 @@
     <!-- In-call screen: call failure reason (call denied because of current FDN setting) -->
     <string name="callFailed_fdn_only">Outgoing calls are restricted by FDN.</string>
     <!-- In-call screen: call failure reason (call modified to USSD request) -->
-    <string name="callFailed_dialToUssd">DIAL request modified to USSD request.</string>
+    <string name="callFailed_dialToUssd">Call changed to USSD request</string>
     <!-- In-call screen: call failure reason (call modified to SS request) -->
-    <string name="callFailed_dialToSs">DIAL request modified to SS request.</string>
+    <string name="callFailed_dialToSs">Call changed to SS request</string>
     <!-- In-call screen: call failure reason (call modified to call with modified data) -->
-    <string name="callFailed_dialToDial">DIAL request modified to DIAL with different number.</string>
+    <string name="callFailed_dialToDial">Changed to different number</string>
+    <!-- In-call screen: call failure reason (call modified to call with modified data) -->
+    <string name="callFailed_dialToDialVideo">Changed to video call</string>
+    <!-- In-call screen: call failure reason (call modified to call with modified data) -->
+    <string name="callFailed_dialVideoToSs">Video call changed to SS request</string>
+    <!-- In-call screen: call failure reason (call modified to call with modified data) -->
+    <string name="callFailed_dialVideoToUssd">Video call changed to USSD request</string>
+    <!-- In-call screen: call failure reason (call modified to call with modified data) -->
+    <string name="callFailed_dialVideoToDial">Changed to regular call</string>
+    <!-- In-call screen: call failure reason (call modified to call with modified data) -->
+    <string name="callFailed_dialVideoToDialVideo">Changed to different number</string>
     <!-- In-call screen: call failure reason (call denied because call barring is on) -->
     <string name="callFailed_cb_enabled">Can\'t make outgoing calls while call barring is on.</string>
     <!-- In-call screen: call failure reason (call denied because domain specific access control is on) -->

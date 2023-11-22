@@ -53,6 +53,8 @@ public class SandboxConfigDump {
     private static final List<String> VERSIONED_ELEMENTS = new ArrayList<>();
 
     static {
+        VERSIONED_ELEMENTS.add(Configuration.SYSTEM_STATUS_CHECKER_TYPE_NAME);
+        VERSIONED_ELEMENTS.add(Configuration.DEVICE_METRICS_COLLECTOR_TYPE_NAME);
         VERSIONED_ELEMENTS.add(Configuration.MULTI_PREPARER_TYPE_NAME);
         VERSIONED_ELEMENTS.add(Configuration.TARGET_PREPARER_TYPE_NAME);
         VERSIONED_ELEMENTS.add(Configuration.TEST_TYPE_NAME);
@@ -76,6 +78,10 @@ public class SandboxConfigDump {
                 config.getCommandOptions().setShouldUseSandboxing(false);
                 config.getConfigurationDescription().setSandboxed(true);
                 config.setTestInvocationListener(new SubprocessResultsReporter());
+                // Turn off some of the invocation level options that would be duplicated in the
+                // parent.
+                config.getCommandOptions().setBugreportOnInvocationEnded(false);
+                config.getCommandOptions().setBugreportzOnInvocationEnded(false);
             }
             pw = new PrintWriter(resFile);
             if (DumpCmd.NON_VERSIONED_CONFIG.equals(cmd)) {

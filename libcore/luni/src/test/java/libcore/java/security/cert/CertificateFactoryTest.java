@@ -61,7 +61,26 @@ import javax.security.auth.x500.X500Principal;
 import junit.framework.TestCase;
 import libcore.java.security.StandardNames;
 
+import dalvik.system.VMRuntime;
+import sun.security.jca.Providers;
+
 public class CertificateFactoryTest extends TestCase {
+
+    // Allow access to deprecated BC algorithms in this test, so we can ensure they
+    // continue to work
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                VMRuntime.getRuntime().getTargetSdkVersion());
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
+        super.tearDown();
+    }
 
     private static final String VALID_CERTIFICATE_PEM =
             "-----BEGIN CERTIFICATE-----\n"

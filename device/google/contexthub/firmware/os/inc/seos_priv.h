@@ -19,6 +19,7 @@
 
 #include <inttypes.h>
 #include <seos.h>
+#include <chre.h>
 
 #define NO_NODE (TaskIndex)(-1)
 #define for_each_task(listHead, task) for (task = osTaskByIdx((listHead)->next); task; task = osTaskByIdx(task->list.next))
@@ -26,6 +27,7 @@
 #define TID_TO_TASK_IDX(tid) (tid & TASK_TID_IDX_MASK)
 
 #define FL_TASK_STOPPED 1
+#define FL_TASK_ABORTED 2
 
 #define EVT_SUBSCRIBE_TO_EVT         0x00000000
 #define EVT_UNSUBSCRIBE_TO_EVT       0x00000001
@@ -108,6 +110,8 @@ union SeosInternalSlabData {
     union OsApiSlabItem osApiItem;
 };
 
+typedef bool (*appMatchFunc)(const void *cookie, const struct AppHdr *);
+
 uint8_t osTaskIndex(struct Task *task);
 struct Task *osGetCurrentTask();
 struct Task *osSetCurrentTask(struct Task *task);
@@ -120,6 +124,19 @@ void osChreTaskHandle(struct Task *task, uint32_t evtType, const void *evtData);
 static inline bool osTaskIsChre(const struct Task *task)
 {
     return task->app && (task->app->hdr.fwFlags & FL_APP_HDR_CHRE) != 0;
+}
+
+static inline uint32_t osTaskChreVersion(const struct Task *task)
+{
+    if (osTaskIsChre(task)) {
+        // Apps loaded on 1.0 stored 0xFF in both rfu bytes
+        if (task->app->hdr.chreApiMajor == 0xFF && task->app->hdr.chreApiMinor == 0xFF)
+            return CHRE_API_VERSION_1_0;
+        else
+            return task->app->hdr.chreApiMajor << 24 | task->app->hdr.chreApiMinor << 16;
+    } else {
+        return 0;
+    }
 }
 
 static inline void osTaskMakeNewTid(struct Task *task)

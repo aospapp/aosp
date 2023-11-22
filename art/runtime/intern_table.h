@@ -19,12 +19,12 @@
 
 #include <unordered_set>
 
-#include "atomic.h"
+#include "base/atomic.h"
 #include "base/allocator.h"
 #include "base/hash_set.h"
 #include "base/mutex.h"
-#include "gc_root.h"
 #include "gc/weak_root_state.h"
+#include "gc_root.h"
 
 namespace art {
 
@@ -37,6 +37,10 @@ class ImageSpace;
 }  // namespace gc
 
 enum VisitRootFlags : uint8_t;
+
+namespace linker {
+class OatWriter;
+}  // namespace linker
 
 namespace mirror {
 class String;
@@ -223,6 +227,7 @@ class InternTable {
     // modifying the zygote intern table. The back of table is modified when strings are interned.
     std::vector<UnorderedSet> tables_;
 
+    friend class linker::OatWriter;  // for boot image string table slot address lookup.
     ART_FRIEND_TEST(InternTableTest, CrossHash);
   };
 
@@ -282,6 +287,7 @@ class InternTable {
   // Weak root state, used for concurrent system weak processing and more.
   gc::WeakRootState weak_root_state_ GUARDED_BY(Locks::intern_table_lock_);
 
+  friend class linker::OatWriter;  // for boot image string table slot address lookup.
   friend class Transaction;
   ART_FRIEND_TEST(InternTableTest, CrossHash);
   DISALLOW_COPY_AND_ASSIGN(InternTable);

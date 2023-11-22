@@ -20,17 +20,18 @@ import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceSelectionOptions;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.targetprep.BaseTargetPreparer;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetCleaner;
 import com.android.tradefed.targetprep.TargetSetupError;
 
 /**
  * Base class that takes care of allocating and freeing companion device
- * <p>
- * {@link #getCompanionDeviceSelectionOptions()} should be implemented to describe the criteria
+ *
+ * <p>{@link #getCompanionDeviceSelectionOptions()} should be implemented to describe the criteria
  * needed to allocate the companion device
  */
-public abstract class CompanionAllocator implements ITargetCleaner {
+public abstract class CompanionAllocator extends BaseTargetPreparer implements ITargetCleaner {
 
     /**
      * Sets up the device.

@@ -24,7 +24,7 @@ LOCAL_CPP_EXTENSION := .cc
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH) external/e2fsprogs/lib
 LOCAL_SRC_FILES := $(sgdisk_src_files)
-LOCAL_CFLAGS += -Wno-unused-parameter -Werror
+LOCAL_CFLAGS += -Wno-unused-parameter -Wno-pragma-pack -Werror
 
 LOCAL_SHARED_LIBRARIES := libext2_uuid
 
@@ -42,7 +42,7 @@ endif
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH) external/e2fsprogs/lib
 LOCAL_SRC_FILES := $(sgdisk_src_files)
-LOCAL_CFLAGS += -Wno-unused-parameter -Werror
+LOCAL_CFLAGS += -Wno-unused-parameter -Wno-pragma-pack -Werror
 
 LOCAL_SHARED_LIBRARIES := libext2_uuid
 

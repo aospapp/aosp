@@ -21,12 +21,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build.VERSION_CODES;
 import android.support.annotation.RequiresApi;
+import android.telecom.CallAudioState;
 import android.telecom.VideoProfile;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
 import com.android.incallui.call.CallList;
 import com.android.incallui.call.DialerCall;
+import com.android.incallui.call.TelecomAdapter;
 
 /**
  * Accepts broadcast Intents which will be prepared by {@link StatusBarNotifier} and thus sent from
@@ -52,6 +54,9 @@ public class NotificationBroadcastReceiver extends BroadcastReceiver {
       "com.android.incallui.ACTION_ACCEPT_VIDEO_UPGRADE_REQUEST";
   public static final String ACTION_DECLINE_VIDEO_UPGRADE_REQUEST =
       "com.android.incallui.ACTION_DECLINE_VIDEO_UPGRADE_REQUEST";
+  public static final String ACTION_TURN_ON_SPEAKER = "com.android.incallui.ACTION_TURN_ON_SPEAKER";
+  public static final String ACTION_TURN_OFF_SPEAKER =
+      "com.android.incallui.ACTION_TURN_OFF_SPEAKER";
 
   @RequiresApi(VERSION_CODES.N_MR1)
   public static final String ACTION_PULL_EXTERNAL_CALL =
@@ -67,43 +72,47 @@ public class NotificationBroadcastReceiver extends BroadcastReceiver {
 
     // TODO: Commands of this nature should exist in the CallList.
     if (action.equals(ACTION_ANSWER_VIDEO_INCOMING_CALL)) {
-      answerIncomingCall(context, VideoProfile.STATE_BIDIRECTIONAL);
+      answerIncomingCall(VideoProfile.STATE_BIDIRECTIONAL);
     } else if (action.equals(ACTION_ANSWER_VOICE_INCOMING_CALL)) {
-      answerIncomingCall(context, VideoProfile.STATE_AUDIO_ONLY);
+      answerIncomingCall(VideoProfile.STATE_AUDIO_ONLY);
     } else if (action.equals(ACTION_DECLINE_INCOMING_CALL)) {
       Logger.get(context)
           .logImpression(DialerImpression.Type.REJECT_INCOMING_CALL_FROM_NOTIFICATION);
-      declineIncomingCall(context);
+      declineIncomingCall();
     } else if (action.equals(ACTION_HANG_UP_ONGOING_CALL)) {
-      hangUpOngoingCall(context);
+      hangUpOngoingCall();
     } else if (action.equals(ACTION_ACCEPT_VIDEO_UPGRADE_REQUEST)) {
       acceptUpgradeRequest(context);
     } else if (action.equals(ACTION_DECLINE_VIDEO_UPGRADE_REQUEST)) {
-      declineUpgradeRequest(context);
+      declineUpgradeRequest();
     } else if (action.equals(ACTION_PULL_EXTERNAL_CALL)) {
       context.sendBroadcast(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS));
       int notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1);
       InCallPresenter.getInstance().getExternalCallNotifier().pullExternalCall(notificationId);
+    } else if (action.equals(ACTION_TURN_ON_SPEAKER)) {
+      TelecomAdapter.getInstance().setAudioRoute(CallAudioState.ROUTE_SPEAKER);
+    } else if (action.equals(ACTION_TURN_OFF_SPEAKER)) {
+      TelecomAdapter.getInstance().setAudioRoute(CallAudioState.ROUTE_WIRED_OR_EARPIECE);
     }
   }
 
   private void acceptUpgradeRequest(Context context) {
     CallList callList = InCallPresenter.getInstance().getCallList();
     if (callList == null) {
-      StatusBarNotifier.clearAllCallNotifications(context);
+      StatusBarNotifier.clearAllCallNotifications();
       LogUtil.e("NotificationBroadcastReceiver.acceptUpgradeRequest", "call list is empty");
     } else {
       DialerCall call = callList.getVideoUpgradeRequestCall();
       if (call != null) {
-        call.getVideoTech().acceptVideoRequest();
+        call.getVideoTech().acceptVideoRequest(context);
       }
     }
   }
 
-  private void declineUpgradeRequest(Context context) {
+  private void declineUpgradeRequest() {
     CallList callList = InCallPresenter.getInstance().getCallList();
     if (callList == null) {
-      StatusBarNotifier.clearAllCallNotifications(context);
+      StatusBarNotifier.clearAllCallNotifications();
       LogUtil.e("NotificationBroadcastReceiver.declineUpgradeRequest", "call list is empty");
     } else {
       DialerCall call = callList.getVideoUpgradeRequestCall();
@@ -113,10 +122,10 @@ public class NotificationBroadcastReceiver extends BroadcastReceiver {
     }
   }
 
-  private void hangUpOngoingCall(Context context) {
+  private void hangUpOngoingCall() {
     CallList callList = InCallPresenter.getInstance().getCallList();
     if (callList == null) {
-      StatusBarNotifier.clearAllCallNotifications(context);
+      StatusBarNotifier.clearAllCallNotifications();
       LogUtil.e("NotificationBroadcastReceiver.hangUpOngoingCall", "call list is empty");
     } else {
       DialerCall call = callList.getOutgoingCall();
@@ -131,10 +140,10 @@ public class NotificationBroadcastReceiver extends BroadcastReceiver {
     }
   }
 
-  private void answerIncomingCall(Context context, int videoState) {
+  private void answerIncomingCall(int videoState) {
     CallList callList = InCallPresenter.getInstance().getCallList();
     if (callList == null) {
-      StatusBarNotifier.clearAllCallNotifications(context);
+      StatusBarNotifier.clearAllCallNotifications();
       LogUtil.e("NotificationBroadcastReceiver.answerIncomingCall", "call list is empty");
     } else {
       DialerCall call = callList.getIncomingCall();
@@ -146,10 +155,10 @@ public class NotificationBroadcastReceiver extends BroadcastReceiver {
     }
   }
 
-  private void declineIncomingCall(Context context) {
+  private void declineIncomingCall() {
     CallList callList = InCallPresenter.getInstance().getCallList();
     if (callList == null) {
-      StatusBarNotifier.clearAllCallNotifications(context);
+      StatusBarNotifier.clearAllCallNotifications();
       LogUtil.e("NotificationBroadcastReceiver.declineIncomingCall", "call list is empty");
     } else {
       DialerCall call = callList.getIncomingCall();

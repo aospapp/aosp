@@ -134,12 +134,13 @@ class policy_ManagedBookmarks(enterprise_policy_base.EnterprisePolicyTest):
         time.sleep(1)  # Allow JS to run after function is defined.
         return tab
 
-    def run_test_case(self, case):
+    def run_once(self, case):
         """Setup and run the test configured for the specified test case.
 
         @param case: Name of the test case to run.
 
         """
         case_value = self.TEST_CASES[case]
-        self.setup_case(self.POLICY_NAME, case_value, self.SUPPORTING_POLICIES)
+        self.SUPPORTING_POLICIES[self.POLICY_NAME] = case_value
+        self.setup_case(user_policies=self.SUPPORTING_POLICIES)
         self._test_managed_bookmarks(case_value)

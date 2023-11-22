@@ -27,16 +27,13 @@ import android.view.View.OnFocusChangeListener;
 import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.TextView;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.ui.DvrUiHelper;
 import com.android.tv.dvr.ui.list.SchedulesHeaderRow.SeriesRecordingHeaderRow;
 
-/**
- * A base class for RowPresenter for {@link SchedulesHeaderRow}
- */
+/** A base class for RowPresenter for {@link SchedulesHeaderRow} */
 abstract class SchedulesHeaderRowPresenter extends RowPresenter {
     private Context mContext;
 
@@ -46,23 +43,20 @@ abstract class SchedulesHeaderRowPresenter extends RowPresenter {
         mContext = context;
     }
 
-    /**
-     * Returns the context.
-     */
+    /** Returns the context. */
     Context getContext() {
         return mContext;
     }
 
-    /**
-     * A ViewHolder for {@link SchedulesHeaderRow}.
-     */
+    /** A ViewHolder for {@link SchedulesHeaderRow}. */
     public static class SchedulesHeaderRowViewHolder extends RowPresenter.ViewHolder {
         private TextView mTitle;
         private TextView mDescription;
 
         public SchedulesHeaderRowViewHolder(Context context, ViewGroup parent) {
-            super(LayoutInflater.from(context).inflate(R.layout.dvr_schedules_header, parent,
-                    false));
+            super(
+                    LayoutInflater.from(context)
+                            .inflate(R.layout.dvr_schedules_header, parent, false));
             mTitle = (TextView) view.findViewById(R.id.header_title);
             mDescription = (TextView) view.findViewById(R.id.header_description);
         }
@@ -77,9 +71,7 @@ abstract class SchedulesHeaderRowPresenter extends RowPresenter {
         headerViewHolder.mDescription.setText(header.getDescription());
     }
 
-    /**
-     * A presenter for {@link SchedulesHeaderRow.DateHeaderRow}.
-     */
+    /** A presenter for {@link SchedulesHeaderRow.DateHeaderRow}. */
     public static class DateHeaderRowPresenter extends SchedulesHeaderRowPresenter {
         public DateHeaderRowPresenter(Context context) {
             super(context);
@@ -90,10 +82,7 @@ abstract class SchedulesHeaderRowPresenter extends RowPresenter {
             return new DateHeaderRowViewHolder(getContext(), parent);
         }
 
-        /**
-         * A ViewHolder for
-         * {@link SchedulesHeaderRow.DateHeaderRow}.
-         */
+        /** A ViewHolder for {@link SchedulesHeaderRow.DateHeaderRow}. */
         public static class DateHeaderRowViewHolder extends SchedulesHeaderRowViewHolder {
             public DateHeaderRowViewHolder(Context context, ViewGroup parent) {
                 super(context, parent);
@@ -101,9 +90,7 @@ abstract class SchedulesHeaderRowPresenter extends RowPresenter {
         }
     }
 
-    /**
-     * A presenter for {@link SeriesRecordingHeaderRow}.
-     */
+    /** A presenter for {@link SeriesRecordingHeaderRow}. */
     public static class SeriesRecordingHeaderRowPresenter extends SchedulesHeaderRowPresenter {
         private final boolean mLtr;
         private final Drawable mSettingsDrawable;
@@ -116,8 +103,9 @@ abstract class SchedulesHeaderRowPresenter extends RowPresenter {
 
         public SeriesRecordingHeaderRowPresenter(Context context) {
             super(context);
-            mLtr = context.getResources().getConfiguration().getLayoutDirection()
-                    == View.LAYOUT_DIRECTION_LTR;
+            mLtr =
+                    context.getResources().getConfiguration().getLayoutDirection()
+                            == View.LAYOUT_DIRECTION_LTR;
             mSettingsDrawable = context.getDrawable(R.drawable.ic_settings);
             mCancelDrawable = context.getDrawable(R.drawable.ic_dvr_cancel_large);
             mResumeDrawable = context.getDrawable(R.drawable.ic_record_start);
@@ -134,8 +122,7 @@ abstract class SchedulesHeaderRowPresenter extends RowPresenter {
         @Override
         protected void onBindRowViewHolder(RowPresenter.ViewHolder viewHolder, Object item) {
             super.onBindRowViewHolder(viewHolder, item);
-            SeriesHeaderRowViewHolder headerViewHolder =
-                    (SeriesHeaderRowViewHolder) viewHolder;
+            SeriesHeaderRowViewHolder headerViewHolder = (SeriesHeaderRowViewHolder) viewHolder;
             SeriesRecordingHeaderRow header = (SeriesRecordingHeaderRow) item;
             headerViewHolder.mSeriesSettingsButton.setVisibility(
                     header.getSeriesRecording().isStopped() ? View.INVISIBLE : View.VISIBLE);
@@ -148,46 +135,59 @@ abstract class SchedulesHeaderRowPresenter extends RowPresenter {
                 headerViewHolder.mToggleStartStopButton.setText(mCancelAllInfo);
                 setTextDrawable(headerViewHolder.mToggleStartStopButton, mCancelDrawable);
             }
-            headerViewHolder.mSeriesSettingsButton.setOnClickListener(new OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    DvrUiHelper.startSeriesSettingsActivity(getContext(),
-                            header.getSeriesRecording().getId(),
-                            header.getPrograms(), false, false, false, null);
-                }
-            });
-            headerViewHolder.mToggleStartStopButton.setOnClickListener(new OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    if (header.getSeriesRecording().isStopped()) {
-                        // Reset priority to the highest.
-                        SeriesRecording seriesRecording = SeriesRecording
-                                .buildFrom(header.getSeriesRecording())
-                                .setPriority(TvApplication.getSingletons(getContext())
-                                        .getDvrScheduleManager().suggestNewSeriesPriority())
-                                .build();
-                        TvApplication.getSingletons(getContext()).getDvrManager()
-                                .updateSeriesRecording(seriesRecording);
-                        DvrUiHelper.startSeriesSettingsActivity(getContext(),
-                                header.getSeriesRecording().getId(),
-                                header.getPrograms(), false, false, false, null);
-                    } else {
-                        DvrUiHelper.showCancelAllSeriesRecordingDialog(
-                                (DvrSchedulesActivity) view.getContext(),
-                                header.getSeriesRecording());
-                    }
-                }
-            });
+            headerViewHolder.mSeriesSettingsButton.setOnClickListener(
+                    new OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            DvrUiHelper.startSeriesSettingsActivity(
+                                    getContext(),
+                                    header.getSeriesRecording().getId(),
+                                    header.getPrograms(),
+                                    false,
+                                    false,
+                                    false,
+                                    null);
+                        }
+                    });
+            headerViewHolder.mToggleStartStopButton.setOnClickListener(
+                    new OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            if (header.getSeriesRecording().isStopped()) {
+                                // Reset priority to the highest.
+                                SeriesRecording seriesRecording =
+                                        SeriesRecording.buildFrom(header.getSeriesRecording())
+                                                .setPriority(
+                                                        TvSingletons.getSingletons(getContext())
+                                                                .getDvrScheduleManager()
+                                                                .suggestNewSeriesPriority())
+                                                .build();
+                                TvSingletons.getSingletons(getContext())
+                                        .getDvrManager()
+                                        .updateSeriesRecording(seriesRecording);
+                                DvrUiHelper.startSeriesSettingsActivity(
+                                        getContext(),
+                                        header.getSeriesRecording().getId(),
+                                        header.getPrograms(),
+                                        false,
+                                        false,
+                                        false,
+                                        null);
+                            } else {
+                                DvrUiHelper.showCancelAllSeriesRecordingDialog(
+                                        (DvrSchedulesActivity) view.getContext(),
+                                        header.getSeriesRecording());
+                            }
+                        }
+                    });
         }
 
         private void setTextDrawable(TextView textView, Drawable drawableStart) {
-            textView.setCompoundDrawablesRelativeWithIntrinsicBounds(drawableStart, null, null,
-                    null);
+            textView.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                    drawableStart, null, null, null);
         }
 
-        /**
-         * A ViewHolder for {@link SeriesRecordingHeaderRow}.
-         */
+        /** A ViewHolder for {@link SeriesRecordingHeaderRow}. */
         public static class SeriesHeaderRowViewHolder extends SchedulesHeaderRowViewHolder {
             private final TextView mSeriesSettingsButton;
             private final TextView mToggleStartStopButton;
@@ -196,33 +196,40 @@ abstract class SchedulesHeaderRowPresenter extends RowPresenter {
             private final View mSelector;
 
             private View mLastFocusedView;
+
             public SeriesHeaderRowViewHolder(Context context, ViewGroup parent) {
                 super(context, parent);
-                mLtr = context.getResources().getConfiguration().getLayoutDirection()
-                        == View.LAYOUT_DIRECTION_LTR;
+                mLtr =
+                        context.getResources().getConfiguration().getLayoutDirection()
+                                == View.LAYOUT_DIRECTION_LTR;
                 view.findViewById(R.id.button_container).setVisibility(View.VISIBLE);
                 mSeriesSettingsButton = (TextView) view.findViewById(R.id.series_settings);
                 mToggleStartStopButton =
                         (TextView) view.findViewById(R.id.series_toggle_start_stop);
                 mSelector = view.findViewById(R.id.selector);
-                OnFocusChangeListener onFocusChangeListener = new View.OnFocusChangeListener() {
-                    @Override
-                    public void onFocusChange(View view, boolean focused) {
-                        view.post(new Runnable() {
+                OnFocusChangeListener onFocusChangeListener =
+                        new View.OnFocusChangeListener() {
                             @Override
-                            public void run() {
-                                updateSelector(view);
+                            public void onFocusChange(View view, boolean focused) {
+                                view.post(
+                                        new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                updateSelector(view);
+                                            }
+                                        });
                             }
-                        });
-                    }
-                };
+                        };
                 mSeriesSettingsButton.setOnFocusChangeListener(onFocusChangeListener);
                 mToggleStartStopButton.setOnFocusChangeListener(onFocusChangeListener);
             }
 
             private void updateSelector(View focusedView) {
-                int animationDuration = mSelector.getContext().getResources()
-                        .getInteger(android.R.integer.config_shortAnimTime);
+                int animationDuration =
+                        mSelector
+                                .getContext()
+                                .getResources()
+                                .getInteger(android.R.integer.config_shortAnimTime);
                 DecelerateInterpolator interpolator = new DecelerateInterpolator();
 
                 if (focusedView.hasFocus()) {
@@ -246,21 +253,38 @@ abstract class SchedulesHeaderRowPresenter extends RowPresenter {
                     // animate the selector in and to the proper width and translation X.
                     final float deltaWidth = lp.width - targetWidth;
                     mSelector.animate().cancel();
-                    mSelector.animate().translationX(targetTranslationX).alpha(1f)
-                            .setUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                                @Override
-                                public void onAnimationUpdate(ValueAnimator animation) {
-                                    // Set width to the proper width for this animation step.
-                                    lp.width = targetWidth + Math.round(
-                                            deltaWidth * (1f - animation.getAnimatedFraction()));
-                                    mSelector.requestLayout();
-                                }
-                            }).setDuration(animationDuration).setInterpolator(interpolator).start();
+                    mSelector
+                            .animate()
+                            .translationX(targetTranslationX)
+                            .alpha(1f)
+                            .setUpdateListener(
+                                    new ValueAnimator.AnimatorUpdateListener() {
+                                        @Override
+                                        public void onAnimationUpdate(ValueAnimator animation) {
+                                            // Set width to the proper width for this animation
+                                            // step.
+                                            lp.width =
+                                                    targetWidth
+                                                            + Math.round(
+                                                                    deltaWidth
+                                                                            * (1f
+                                                                                    - animation
+                                                                                            .getAnimatedFraction()));
+                                            mSelector.requestLayout();
+                                        }
+                                    })
+                            .setDuration(animationDuration)
+                            .setInterpolator(interpolator)
+                            .start();
                     mLastFocusedView = focusedView;
                 } else if (mLastFocusedView == focusedView) {
                     mSelector.animate().setUpdateListener(null).cancel();
-                    mSelector.animate().alpha(0f).setDuration(animationDuration)
-                            .setInterpolator(interpolator).start();
+                    mSelector
+                            .animate()
+                            .alpha(0f)
+                            .setDuration(animationDuration)
+                            .setInterpolator(interpolator)
+                            .start();
                     mLastFocusedView = null;
                 }
             }

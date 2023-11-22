@@ -15,10 +15,10 @@ if __name__ == '__main__':
       os.path.abspath(os.path.join(os.path.dirname(__file__),
                                    '..', '..', '..')))
 
-from devil import devil_env
 from devil.android import device_utils
 from devil.android.perf import perf_control
-from devil.utils import run_tests_helper
+from devil.android.tools import script_common
+from devil.utils import logging_common
 
 
 def SetScalingGovernor(device, args):
@@ -40,15 +40,11 @@ def ListAvailableGovernors(device, _args):
 
 def main(raw_args):
   parser = argparse.ArgumentParser()
-  parser.add_argument(
-      '--adb-path',
-      help='ADB binary path.')
+  logging_common.AddLoggingArguments(parser)
+  script_common.AddEnvironmentArguments(parser)
   parser.add_argument(
       '--device', dest='devices', action='append', default=[],
       help='Devices for which the governor should be set. Defaults to all.')
-  parser.add_argument(
-      '-v', '--verbose', action='count',
-      help='Log more.')
 
   subparsers = parser.add_subparsers()
 
@@ -66,14 +62,8 @@ def main(raw_args):
 
   args = parser.parse_args(raw_args)
 
-  run_tests_helper.SetLogLevel(args.verbose)
-
-  devil_dynamic_config = devil_env.EmptyConfig()
-  if args.adb_path:
-    devil_dynamic_config['dependencies'].update(
-        devil_env.LocalConfigItem(
-            'adb', devil_env.GetPlatform(), args.adb_path))
-  devil_env.config.Initialize(configs=[devil_dynamic_config])
+  logging_common.InitializeLogging(args)
+  script_common.InitializeEnvironment(args)
 
   devices = device_utils.DeviceUtils.HealthyDevices(device_arg=args.devices)
 

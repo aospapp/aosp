@@ -57,7 +57,7 @@ class MockShellCommand(object):
         else:
             return self._fake_result
 
-    def get_pids(self, identifier):
+    def get_command_pids(self, identifier):
         """Returns a generator of fake pids
 
         Args:

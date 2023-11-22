@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Podaci za hitne slučajeve"</string>
-    <string name="medical_info_title" msgid="3000192781136934887">"Medicinske informacije"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Zdravstveni podaci"</string>
     <string name="edit_medical_info" msgid="6733720353375319476">"Uredite informacije"</string>
     <string name="edit_info" msgid="5973929805855224805">"Uređivanje podataka za hitne slučajeve"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Informacije"</string>
@@ -103,7 +103,7 @@
     <string name="clear_all" msgid="8899013032870561633">"Izbriši sve"</string>
     <string name="clear" msgid="3648880442502887163">"Izbriši"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Želite li izbrisati sve podatke i kontakte?"</string>
-    <string name="emergency_info_footer" msgid="8751758742506410146">"Dodavanje informacija o zdravstvenom stanju i podataka za kontakt u hitnim slučajevima može pomoći osobama koje u slučaju nezgode prve priskoče u pomoć.\n\nBilo tko može pročitati te informacije na zaključanom zaslonu i bez otključavanja telefona nazvati osobe za kontakt dodirom njihova imena."</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Dodavanje podataka o zdravstvenom stanju i podataka za kontakt u hitnim slučajevima može pomoći osobama koje u slučaju nezgode prve priskoče u pomoć.\n\nBilo tko može pročitati te informacije na zaključanom zaslonu i bez otključavanja telefona nazvati osobe za kontakt dodirom njihova imena."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Dodavanje podataka za hitne slučajeve"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Pomognite službama koje prve reagiraju u hitnim slučajevima da pronađu važne informacije"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Neka hitne službe vide vaše podatke"</string>
 </resources>

@@ -62,8 +62,8 @@ void AppendValueToWriter(dbus::MessageWriter* writer,
 }
 
 void AppendValueToWriter(dbus::MessageWriter* writer,
-                         const dbus::FileDescriptor& value) {
-  writer->AppendFileDescriptor(value);
+                         const base::ScopedFD& value) {
+  writer->AppendFileDescriptor(value.get());
 }
 
 void AppendValueToWriter(dbus::MessageWriter* writer,
@@ -140,12 +140,10 @@ bool PopValueFromReader(dbus::MessageReader* reader, dbus::ObjectPath* value) {
 }
 
 bool PopValueFromReader(dbus::MessageReader* reader,
-                        dbus::FileDescriptor* value) {
+                        base::ScopedFD* value) {
   dbus::MessageReader variant_reader(nullptr);
   bool ok = details::DescendIntoVariantIfPresent(&reader, &variant_reader) &&
             reader->PopFileDescriptor(value);
-  if (ok)
-    value->CheckValidity();
   return ok;
 }
 
@@ -309,7 +307,7 @@ bool PopValueFromReader(dbus::MessageReader* reader, brillo::Any* value) {
       return false;
     case dbus::Message::UNIX_FD:
       CHECK(dbus::IsDBusTypeUnixFdSupported()) << "UNIX_FD data not supported";
-      // dbus::FileDescriptor is not a copyable type. Cannot be returned via
+      // base::ScopedFD is not a copyable type. Cannot be returned via
       // brillo::Any. Fail here.
       LOG(ERROR) << "Cannot return FileDescriptor via Any";
       return false;

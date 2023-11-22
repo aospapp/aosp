@@ -2,35 +2,10 @@ language: c
 
 matrix:
     include:
-        - os: linux
-          compiler: gcc-4.6
-          addons:
-              apt:
-                  sources: ['ubuntu-toolchain-r-test']
-                  packages: ['gcc-4.6']
 
+        # normal native in-tree builds
         - os: linux
-          compiler: gcc-4.7
-          addons:
-              apt:
-                  sources: ['ubuntu-toolchain-r-test']
-                  packages: ['gcc-4.7']
-
-        - os: linux
-          compiler: gcc-4.8
-          addons:
-              apt:
-                  sources: ['ubuntu-toolchain-r-test']
-                  packages: ['gcc-4.8']
-
-        - os: linux
-          compiler: gcc-4.9
-          addons:
-              apt:
-                  sources: ['ubuntu-toolchain-r-test']
-                  packages: ['gcc-4.9']
-
-        - os: linux
+          env: BUILD="native" INSTALL_PACKAGES="$BUILD"
           compiler: gcc-5
           addons:
               apt:
@@ -38,38 +13,93 @@ matrix:
                   packages: ['gcc-5']
 
         - os: linux
+          env: BUILD="native" INSTALL_PACKAGES="$BUILD"
+          compiler: gcc-7
+          addons:
+              apt:
+                  sources: ['ubuntu-toolchain-r-test']
+                  packages: ['gcc-7']
+
+        - os: linux
+          env: BUILD="native" INSTALL_PACKAGES="$BUILD"
+          compiler: clang-4.0
+          addons:
+              apt:
+                  sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-trusty-4.0']
+                  packages: ['clang-4.0']
+
+        - os: linux
+          env: BUILD="native" INSTALL_PACKAGES="$BUILD"
+          compiler: clang-5.0
+          addons:
+              apt:
+                  sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-trusty-5.0']
+                  packages: ['clang-5.0']
+
+        # minimal build (some headers and libraries are missing)
+        - os: linux
+          env: BUILD="native"
+          compiler: clang-3.9
+          addons:
+              apt:
+                  sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-trusty-3.9']
+                  packages: ['clang-3.9']
+
+        # 32-bit in-tree cross-compile builds
+        - os: linux
+          env: BUILD="32" INSTALL_PACKAGES="$BUILD"
+          compiler: gcc-4.9
+          addons:
+              apt:
+                  sources: ['ubuntu-toolchain-r-test']
+                  packages: ['gcc-4.9', 'gcc-4.9-multilib', 'linux-libc-dev:i386']
+
+        - os: linux
+          env: BUILD="32" INSTALL_PACKAGES="$BUILD"
           compiler: gcc-6
           addons:
               apt:
                   sources: ['ubuntu-toolchain-r-test']
-                  packages: ['gcc-6']
+                  packages: ['gcc-6', 'gcc-6-multilib', 'linux-libc-dev:i386']
 
+        # out-of-tree build
         - os: linux
-          compiler: clang-3.5
+          env: BUILD="out" INSTALL_PACKAGES="native"
+          compiler: gcc-7
           addons:
               apt:
-                  sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.5']
-                  packages: ['clang-3.5']
+                  sources: ['ubuntu-toolchain-r-test']
+                  packages: ['gcc-7']
 
+        # cross-compile ARM builds
         - os: linux
-          compiler: clang-3.8
+          env: BUILD="cross" INSTALL_PACKAGES="$BUILD"
+          compiler: arm-linux-gnueabihf-gcc
           addons:
               apt:
-                  sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.8']
-                  packages: ['clang-3.8']
+                  packages: ['gcc-arm-linux-gnueabihf', 'libc6-dev-armhf-cross']
 
         - os: linux
-          compiler: clang-3.9
+          env: BUILD="cross" INSTALL_PACKAGES="$BUILD"
+          compiler: aarch64-linux-gnu-gcc
           addons:
               apt:
-                  sources:
-                      - sourceline: "deb http://apt.llvm.org/trusty/ llvm-toolchain-trusty-3.9 main"
-                        key_url: "http://apt.llvm.org/llvm-snapshot.gpg.key"
-                      - 'ubuntu-toolchain-r-test'
-                  packages: ['clang-3.9']
+                  packages: ['gcc-aarch64-linux-gnu', 'libc6-dev-arm64-cross']
 
 notifications:
     email:
         secure: "b/xcA/K5OyQvPPnd0PRahTH5LJu8lgz8goGHvhXpHo+ZPsPgTDXNFo5cX9fSOkMuFKeoW8iGl0wOgK2+ptc8mbYDw277K4RFIHRHeV/KIoE1EzjQnEFiL8J0oHCAvDj12o0AXeriTyY9gICXKbR31Br6Zh5eKViDJe2OAGeHeDU="
 
-script: make autotools && ./configure --prefix $HOME/ltp --with-open-posix-testsuite --with-realtime-testsuite && make -j$(getconf _NPROCESSORS_ONLN) && make -j$(getconf _NPROCESSORS_ONLN) install
+before_install:
+    # installing / removing dependencies
+    - if [ "$INSTALL_PACKAGES" = "" ]; then
+          sudo apt remove $(cat .travis.packages_native | grep -v -e 'libc6' -e 'libc6-dev' -e 'linux-libc-dev' -e 'libacl1')
+      ; elif [ "$INSTALL_PACKAGES" != "cross" ]; then
+          sudo apt install -qq $(cat .travis.packages_native)
+      ; fi
+
+    - if [ "$INSTALL_PACKAGES" = "32" ]; then
+          sudo apt install -qq $(cat .travis.packages_i386)
+      ; fi
+
+script: ./build.sh -t $BUILD -c $CC

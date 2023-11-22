@@ -13,44 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-apply plugin: 'com.android.application'
 
-project.ext.noDocs = true
+import static androidx.build.dependencies.DependenciesKt.*
 
-android {
-    compileSdkVersion tools.current_sdk
-    buildToolsVersion tools.build_tools_version
 
-    defaultConfig {
-        minSdkVersion flatfoot.min_sdk
-        targetSdkVersion tools.current_sdk
-        versionCode 1
-        versionName "1.0"
-    }
-    testOptions {
-        unitTests.returnDefaultValues = true
-    }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_7
-        targetCompatibility JavaVersion.VERSION_1_7
-    }
+plugins {
+    id("SupportAndroidTestAppPlugin")
 }
 
 dependencies {
-    compile project(':arch:runtime')
-    compile project(':arch:common')
-    compile project(':paging:common')
-    compile project(':lifecycle:extensions')
-    compile project(':lifecycle:runtime')
-    compile project(':lifecycle:common')
-    compile project(':paging:runtime')
-    compile 'com.android.support:multidex:1.0.1'
-
-    compile libs.support.recyclerview, libs.support_exclude_config
-    compile libs.support.app_compat, libs.support_exclude_config
+    implementation(project(":arch:core-runtime"))
+    implementation(project(":arch:core-common"))
+    implementation(project(":paging:paging-common"))
+    implementation(project(":lifecycle:lifecycle-extensions"))
+    implementation(project(":lifecycle:lifecycle-runtime"))
+    implementation(project(":lifecycle:lifecycle-common"))
+    implementation(project(":paging:paging-runtime"))
+    implementation(MULTIDEX)
+    implementation(SUPPORT_RECYCLERVIEW, libs.support_exclude_config)
+    implementation(SUPPORT_APPCOMPAT, libs.support_exclude_config)
 }
 
-createAndroidCheckstyle(project)
 tasks['check'].dependsOn(tasks['connectedCheck'])
 
 uploadArchives.enabled = false

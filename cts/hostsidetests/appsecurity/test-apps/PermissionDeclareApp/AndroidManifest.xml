@@ -31,10 +31,9 @@
     <permission android:name="com.android.cts.permissionNormal" />
 
     <application>
-        <receiver android:name="GrantUriPermission" android:exported="true">
-        </receiver>
-        <receiver android:name="SetInstallerPackage" android:exported="true">
-        </receiver>
+        <provider android:name="UtilsProvider"
+                android:authorities="com.android.cts.permissiondeclareapp"
+                android:exported="true" />
 
         <!-- Need a way for another app to try to access the permission. So create a content
         provider which is enforced by the permission -->

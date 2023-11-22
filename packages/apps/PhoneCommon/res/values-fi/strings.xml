@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Ei SIM-korttia tai SIM-korttivirhe"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Matkapuhelinverkko ei ole käytettävissä"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Sallitut numerot rajoittavat soitettavia puheluita."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL-pyyntö muutettiin USSD-pyynnöksi."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL-pyyntö muutettiin SS-pyynnöksi."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL-pyyntö muutettiin DIAL-pyynnöksi toisella numerolla."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Puhelu vaihdettu USSD-pyynnöksi"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Puhelu vaihdettu SS-pyynnöksi"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Vaihdettu toiseen numeroon"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Vaihdettu videopuheluksi"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Videopuhelu vaihdettu SS-pyynnöksi"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Videopuhelu vaihdettu USSD-pyynnöksi"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Vaihdettu tavalliseksi puheluksi"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Vaihdettu toiseen numeroon"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Puheluja ei voi soittaa eston ollessa käytössä."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Käyttörajoitus rajoittaa puheluita."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Käyttörajoitus rajoittaa hätäpuheluita."</string>

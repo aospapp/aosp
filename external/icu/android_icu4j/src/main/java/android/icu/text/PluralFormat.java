@@ -19,6 +19,7 @@ import java.util.Map;
 
 import android.icu.impl.Utility;
 import android.icu.text.PluralRules.FixedDecimal;
+import android.icu.text.PluralRules.IFixedDecimal;
 import android.icu.text.PluralRules.PluralType;
 import android.icu.util.ULocale;
 import android.icu.util.ULocale.Category;
@@ -539,8 +540,7 @@ public class PluralFormat extends UFormat {
     private final class PluralSelectorAdapter implements PluralSelector {
         @Override
         public String select(Object context, double number) {
-            FixedDecimal dec = (FixedDecimal) context;
-            assert dec.source == (dec.isNegative ? -number : number);
+            IFixedDecimal dec = (IFixedDecimal) context;
             return pluralRules.select(dec);
         }
     }
@@ -601,7 +601,7 @@ public class PluralFormat extends UFormat {
         } else {
             numberString = numberFormat.format(numberMinusOffset);
         }
-        FixedDecimal dec;
+        IFixedDecimal dec;
         if(numberFormat instanceof DecimalFormat) {
             dec = ((DecimalFormat) numberFormat).getFixedDecimal(numberMinusOffset);
         } else {

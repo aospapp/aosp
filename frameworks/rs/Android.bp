@@ -85,6 +85,14 @@ cc_binary_host {
         "rsg_generator.c",
     ],
 
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-error=unneeded-internal-declaration",
+        "-Wno-error=unused-function",
+        "-Wno-error=unused-variable",
+    ],
+
     stl: "none",
     sanitize: {
         never: true,
@@ -184,6 +192,7 @@ cc_library_shared {
 
     shared_libs: [
         "liblog",
+        "libutilscallstack",
         "libutils",
         "libEGL",
         "libGLESv1_CM",
@@ -256,6 +265,7 @@ cc_library_shared {
         "libhidlbase",
         "libhidltransport",
         "libhwbinder",
+        "libutilscallstack",
         "libutils",
         "android.hardware.renderscript@1.0",
 
@@ -303,5 +313,6 @@ build = [
 subdirs = [
     "cpp",
     "cpu_ref",
+    "script_api",
     "support",
 ]

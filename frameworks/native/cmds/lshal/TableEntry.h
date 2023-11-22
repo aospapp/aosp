@@ -23,9 +23,14 @@
 #include <vector>
 #include <iostream>
 
+#include <procpartition/procpartition.h>
+
+#include "TextTable.h"
+
 namespace android {
 namespace lshal {
 
+using android::procpartition::Partition;
 using Pids = std::vector<int32_t>;
 
 enum : unsigned int {
@@ -43,17 +48,39 @@ enum : unsigned int {
 };
 using Architecture = unsigned int;
 
+enum class TableColumnType : unsigned int {
+    INTERFACE_NAME,
+    TRANSPORT,
+    SERVER_PID,
+    SERVER_CMD,
+    SERVER_ADDR,
+    CLIENT_PIDS,
+    CLIENT_CMDS,
+    ARCH,
+    THREADS,
+    RELEASED,
+    HASH,
+};
+
+enum {
+    NO_PID = -1,
+    NO_PTR = 0
+};
+
 struct TableEntry {
-    std::string interfaceName;
-    std::string transport;
-    int32_t serverPid;
-    uint32_t threadUsage;
-    uint32_t threadCount;
-    std::string serverCmdline;
-    uint64_t serverObjectAddress;
-    Pids clientPids;
-    std::vector<std::string> clientCmdlines;
-    Architecture arch;
+    std::string interfaceName{};
+    std::string transport{};
+    int32_t serverPid{NO_PID};
+    uint32_t threadUsage{0};
+    uint32_t threadCount{0};
+    std::string serverCmdline{};
+    uint64_t serverObjectAddress{NO_PTR};
+    Pids clientPids{};
+    std::vector<std::string> clientCmdlines{};
+    Architecture arch{ARCH_UNKNOWN};
+    // empty: unknown, all zeros: unreleased, otherwise: released
+    std::string hash{};
+    Partition partition{Partition::UNKNOWN};
 
     static bool sortByInterfaceName(const TableEntry &a, const TableEntry &b) {
         return a.interfaceName < b.interfaceName;
@@ -69,36 +96,52 @@ struct TableEntry {
 
         return std::to_string(threadUsage) + "/" + std::to_string(threadCount);
     }
+
+    std::string isReleased() const;
+
+    std::string getField(TableColumnType type) const;
+
+    bool operator==(const TableEntry& other) const;
+    std::string to_string() const;
 };
 
-struct Table {
-    using Entries = std::vector<TableEntry>;
-    std::string description;
-    Entries entries;
+using SelectedColumns = std::vector<TableColumnType>;
 
-    Entries::iterator begin() { return entries.begin(); }
-    Entries::const_iterator begin() const { return entries.begin(); }
-    Entries::iterator end() { return entries.end(); }
-    Entries::const_iterator end() const { return entries.end(); }
+class Table {
+public:
+    using Entries = std::vector<TableEntry>;
+
+    Entries::iterator begin() { return mEntries.begin(); }
+    Entries::const_iterator begin() const { return mEntries.begin(); }
+    Entries::iterator end() { return mEntries.end(); }
+    Entries::const_iterator end() const { return mEntries.end(); }
+    size_t size() const { return mEntries.size(); }
+
+    void add(TableEntry&& entry) { mEntries.push_back(std::move(entry)); }
+
+    void setSelectedColumns(const SelectedColumns& s) { mSelectedColumns = s; }
+    const SelectedColumns& getSelectedColumns() const { return mSelectedColumns; }
+
+    void setDescription(std::string&& d) { mDescription = std::move(d); }
+
+    // Write table content.
+    TextTable createTextTable(bool neat = true,
+        const std::function<std::string(const std::string&)>& emitDebugInfo = nullptr) const;
+
+private:
+    std::string mDescription;
+    Entries mEntries;
+    SelectedColumns mSelectedColumns;
 };
 
 using TableEntryCompare = std::function<bool(const TableEntry &, const TableEntry &)>;
 
-enum : unsigned int {
-    ENABLE_INTERFACE_NAME = 1 << 0,
-    ENABLE_TRANSPORT      = 1 << 1,
-    ENABLE_SERVER_PID     = 1 << 2,
-    ENABLE_SERVER_ADDR    = 1 << 3,
-    ENABLE_CLIENT_PIDS    = 1 << 4,
-    ENABLE_ARCH           = 1 << 5,
-    ENABLE_THREADS        = 1 << 6,
-};
-
-using TableEntrySelect = unsigned int;
-
-enum {
-    NO_PID = -1,
-    NO_PTR = 0
+class MergedTable {
+public:
+    MergedTable(std::vector<const Table*>&& tables) : mTables(std::move(tables)) {}
+    TextTable createTextTable();
+private:
+    std::vector<const Table*> mTables;
 };
 
 }  // namespace lshal

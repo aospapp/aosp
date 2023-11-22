@@ -35,6 +35,7 @@ import android.nfc.NdefRecord;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.FileProvider;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.util.Log;
@@ -46,6 +47,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.List;
@@ -114,6 +116,13 @@ public class UriRecord extends ParsedNdefRecord implements OnClickListener {
             return;
         }
         try {
+            if (mUri.getScheme().equalsIgnoreCase("file")) {
+                Uri uri = FileProvider.getUriForFile(info.activity,
+                    "com.android.apps.tag.provider", new File(mUri.getPath()));
+                Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                info.intent = intent;
+            }
             info.activity.startActivity(info.intent);
             info.activity.finish();
         } catch (ActivityNotFoundException e) {
@@ -163,6 +172,14 @@ public class UriRecord extends ParsedNdefRecord implements OnClickListener {
                 needRequestPermission = true;
                 activity.requestPermissions(new String[]{Manifest.permission.CALL_PHONE}, 1);
             }
+        }
+
+        if (mUri != null && mUri.getScheme().equalsIgnoreCase("file") &&
+            activity.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                if (!ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.READ_EXTERNAL_STORAGE))
+                    Toast.makeText(activity.getApplicationContext(), R.string.external_storage_permission_denied, Toast.LENGTH_SHORT).show();
+                needRequestPermission = true;
+                activity.requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
         }
         return needRequestPermission;
     }

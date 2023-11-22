@@ -22,12 +22,13 @@ import os
 import re
 import sys
 
+from acts import tracelogger
 from acts.utils import create_dir
 
 log_line_format = "%(asctime)s.%(msecs).03d %(levelname)s %(message)s"
 # The micro seconds are added by the format string above,
 # so the time format does not include ms.
-log_line_time_format = "%m-%d %H:%M:%S"
+log_line_time_format = "%Y-%m-%d %H:%M:%S"
 log_line_timestamp_len = 18
 
 logline_timestamp_re = re.compile("\d\d-\d\d \d\d:\d\d:\d\d.\d\d\d")
@@ -44,10 +45,10 @@ def _parse_logline_timestamp(t):
         minute, second, microsecond.
     """
     date, time = t.split(' ')
-    month, day = date.split('-')
+    year, month, day = date.split('-')
     h, m, s = time.split(':')
     s, ms = s.split('.')
-    return (month, day, h, m, s, ms)
+    return year, month, day, h, m, s, ms
 
 
 def is_valid_logline_timestamp(timestamp):
@@ -86,7 +87,7 @@ def _get_timestamp(time_format, delta=None):
 
 def epoch_to_log_line_timestamp(epoch_time):
     """Converts an epoch timestamp in ms to log line timestamp format, which
-    is readible for humans.
+    is readable for humans.
 
     Args:
         epoch_time: integer, an epoch timestamp in ms.
@@ -97,7 +98,7 @@ def epoch_to_log_line_timestamp(epoch_time):
     """
     s, ms = divmod(epoch_time, 1000)
     d = datetime.datetime.fromtimestamp(s)
-    return d.strftime("%m-%d %H:%M:%S.") + str(ms)
+    return d.strftime("%Y-%m-%d %H:%M:%S.") + str(ms)
 
 
 def get_log_line_timestamp(delta=None):
@@ -112,7 +113,7 @@ def get_log_line_timestamp(delta=None):
     Returns:
         A timestamp in log line format with an offset.
     """
-    return _get_timestamp("%m-%d %H:%M:%S.%f", delta)
+    return _get_timestamp("%Y-%m-%d %H:%M:%S.%f", delta)
 
 
 def get_log_file_timestamp(delta=None):
@@ -125,9 +126,9 @@ def get_log_file_timestamp(delta=None):
         delta: Number of seconds to offset from current time; can be negative.
 
     Returns:
-        A timestamp in log filen name format with an offset.
+        A timestamp in log file name format with an offset.
     """
-    return _get_timestamp("%m-%d-%Y_%H-%M-%S-%f", delta)
+    return _get_timestamp("%Y-%m-%d-%Y_%H-%M-%S-%f", delta)
 
 
 def _setup_test_logger(log_path, prefix=None, filename=None):
@@ -167,7 +168,8 @@ def _setup_test_logger(log_path, prefix=None, filename=None):
     fh_info = logging.FileHandler(os.path.join(log_path, 'test_run_info.txt'))
     fh_info.setFormatter(f_formatter)
     fh_info.setLevel(logging.INFO)
-    fh_error = logging.FileHandler(os.path.join(log_path, 'test_run_error.txt'))
+    fh_error = logging.FileHandler(
+        os.path.join(log_path, 'test_run_error.txt'))
     fh_error.setFormatter(f_formatter)
     fh_error.setLevel(logging.WARNING)
     log.addHandler(ch)
@@ -233,3 +235,37 @@ def normalize_log_line_timestamp(log_line_timestamp):
     norm_tp = norm_tp.replace(':', '-')
     return norm_tp
 
+
+class LoggerAdapter(logging.LoggerAdapter):
+    """A LoggerAdapter class that takes in a lambda for transforming logs."""
+
+    def __init__(self, logging_lambda):
+        self.logging_lambda = logging_lambda
+        super(LoggerAdapter, self).__init__(logging.getLogger(), {})
+
+    def process(self, msg, kwargs):
+        return self.logging_lambda(msg), kwargs
+
+
+def create_logger(logging_lambda=lambda message: message):
+    """Returns a logger with logging defined by a given lambda.
+
+    Args:
+        logging_lambda: A lambda of the form:
+            >>> lambda log_message: return 'string'
+    """
+    return tracelogger.TraceLogger(LoggerAdapter(logging_lambda))
+
+
+def create_tagged_trace_logger(tag=''):
+    """Returns a logger that logs each line with the given prefix.
+
+    Args:
+        tag: The tag of the log line, E.g. if tag == tag123, the output
+            line would be:
+
+            <TESTBED> <TIME> <LOG_LEVEL> [tag123] logged message
+    """
+    def logging_lambda(msg):
+        return '[%s] %s' % (tag, msg)
+    return create_logger(logging_lambda)

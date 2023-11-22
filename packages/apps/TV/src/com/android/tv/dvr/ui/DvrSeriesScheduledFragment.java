@@ -22,28 +22,26 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.v17.leanback.widget.GuidanceStylist;
 import android.support.v17.leanback.widget.GuidedAction;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.data.Program;
 import com.android.tv.dvr.DvrScheduleManager;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.ui.list.DvrSchedulesActivity;
 import com.android.tv.dvr.ui.list.DvrSeriesSchedulesFragment;
-
 import java.util.List;
 
 public class DvrSeriesScheduledFragment extends DvrGuidedStepFragment {
     /**
-     * The key for program list which will be passed to {@link DvrSeriesSchedulesFragment}.
-     * Type: List<{@link Program}>
+     * The key for program list which will be passed to {@link DvrSeriesSchedulesFragment}. Type:
+     * List<{@link Program}>
      */
     public static final String SERIES_SCHEDULED_KEY_PROGRAMS = "series_scheduled_key_programs";
 
-    private final static long SERIES_RECORDING_ID_NOT_SET = -1;
+    private static final long SERIES_RECORDING_ID_NOT_SET = -1;
 
-    private final static int ACTION_VIEW_SCHEDULES = 1;
+    private static final int ACTION_VIEW_SCHEDULES = 1;
 
     private SeriesRecording mSeriesRecording;
     private boolean mShowViewScheduleOption;
@@ -57,26 +55,35 @@ public class DvrSeriesScheduledFragment extends DvrGuidedStepFragment {
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        long seriesRecordingId = getArguments().getLong(
-                DvrSeriesScheduledDialogActivity.SERIES_RECORDING_ID, SERIES_RECORDING_ID_NOT_SET);
+        long seriesRecordingId =
+                getArguments()
+                        .getLong(
+                                DvrSeriesScheduledDialogActivity.SERIES_RECORDING_ID,
+                                SERIES_RECORDING_ID_NOT_SET);
         if (seriesRecordingId == SERIES_RECORDING_ID_NOT_SET) {
             getActivity().finish();
             return;
         }
-        mShowViewScheduleOption = getArguments().getBoolean(
-                DvrSeriesScheduledDialogActivity.SHOW_VIEW_SCHEDULE_OPTION);
-        mSeriesRecording = TvApplication.getSingletons(context).getDvrDataManager()
-                .getSeriesRecording(seriesRecordingId);
+        mShowViewScheduleOption =
+                getArguments()
+                        .getBoolean(DvrSeriesScheduledDialogActivity.SHOW_VIEW_SCHEDULE_OPTION);
+        mSeriesRecording =
+                TvSingletons.getSingletons(context)
+                        .getDvrDataManager()
+                        .getSeriesRecording(seriesRecordingId);
         if (mSeriesRecording == null) {
             getActivity().finish();
             return;
         }
         mPrograms = (List<Program>) BigArguments.getArgument(SERIES_SCHEDULED_KEY_PROGRAMS);
         BigArguments.reset();
-        mSchedulesAddedCount = TvApplication.getSingletons(getContext()).getDvrManager()
-                .getAvailableScheduledRecording(mSeriesRecording.getId()).size();
+        mSchedulesAddedCount =
+                TvSingletons.getSingletons(getContext())
+                        .getDvrManager()
+                        .getAvailableScheduledRecording(mSeriesRecording.getId())
+                        .size();
         DvrScheduleManager dvrScheduleManager =
-                TvApplication.getSingletons(context).getDvrScheduleManager();
+                TvSingletons.getSingletons(context).getDvrScheduleManager();
         List<ScheduledRecording> conflictingRecordings =
                 dvrScheduleManager.getConflictingSchedules(mSeriesRecording);
         mHasConflict = !conflictingRecordings.isEmpty();
@@ -87,7 +94,7 @@ public class DvrSeriesScheduledFragment extends DvrGuidedStepFragment {
                 ++mOutThisSeriesConflictCount;
             }
         }
-     }
+    }
 
     @Override
     public GuidanceStylist.Guidance onCreateGuidance(Bundle savedInstanceState) {
@@ -104,14 +111,14 @@ public class DvrSeriesScheduledFragment extends DvrGuidedStepFragment {
     @Override
     public void onCreateActions(List<GuidedAction> actions, Bundle savedInstanceState) {
         Context context = getContext();
-        actions.add(new GuidedAction.Builder(context)
-                .clickAction(GuidedAction.ACTION_ID_OK)
-                .build());
+        actions.add(
+                new GuidedAction.Builder(context).clickAction(GuidedAction.ACTION_ID_OK).build());
         if (mShowViewScheduleOption) {
-            actions.add(new GuidedAction.Builder(context)
-                    .id(ACTION_VIEW_SCHEDULES)
-                    .title(R.string.dvr_action_view_schedules)
-                    .build());
+            actions.add(
+                    new GuidedAction.Builder(context)
+                            .id(ACTION_VIEW_SCHEDULES)
+                            .title(R.string.dvr_action_view_schedules)
+                            .build());
         }
     }
 
@@ -119,13 +126,15 @@ public class DvrSeriesScheduledFragment extends DvrGuidedStepFragment {
     public void onTrackedGuidedActionClicked(GuidedAction action) {
         if (action.getId() == ACTION_VIEW_SCHEDULES) {
             Intent intent = new Intent(getActivity(), DvrSchedulesActivity.class);
-            intent.putExtra(DvrSchedulesActivity.KEY_SCHEDULES_TYPE, DvrSchedulesActivity
-                    .TYPE_SERIES_SCHEDULE);
-            intent.putExtra(DvrSeriesSchedulesFragment.SERIES_SCHEDULES_KEY_SERIES_RECORDING,
+            intent.putExtra(
+                    DvrSchedulesActivity.KEY_SCHEDULES_TYPE,
+                    DvrSchedulesActivity.TYPE_SERIES_SCHEDULE);
+            intent.putExtra(
+                    DvrSeriesSchedulesFragment.SERIES_SCHEDULES_KEY_SERIES_RECORDING,
                     mSeriesRecording);
             BigArguments.reset();
-            BigArguments.setArgument(DvrSeriesSchedulesFragment
-                    .SERIES_SCHEDULES_KEY_SERIES_PROGRAMS, mPrograms);
+            BigArguments.setArgument(
+                    DvrSeriesSchedulesFragment.SERIES_SCHEDULES_KEY_SERIES_PROGRAMS, mPrograms);
             startActivity(intent);
         }
         getActivity().finish();
@@ -148,33 +157,47 @@ public class DvrSeriesScheduledFragment extends DvrGuidedStepFragment {
 
     private String getDescription() {
         if (!mHasConflict) {
-            return getResources().getQuantityString(
-                    R.plurals.dvr_series_scheduled_no_conflict, mSchedulesAddedCount,
-                    mSchedulesAddedCount, mSeriesRecording.getTitle());
+            return getResources()
+                    .getQuantityString(
+                            R.plurals.dvr_series_scheduled_no_conflict,
+                            mSchedulesAddedCount,
+                            mSchedulesAddedCount,
+                            mSeriesRecording.getTitle());
         } else {
             // mInThisSeriesConflictCount equals 0 and mOutThisSeriesConflictCount equals 0 means
             // mHasConflict is false. So we don't need to check that case.
             if (mInThisSeriesConflictCount != 0 && mOutThisSeriesConflictCount != 0) {
-                return getResources().getQuantityString(
-                        R.plurals.dvr_series_scheduled_this_and_other_series_conflict,
-                        mSchedulesAddedCount, mSchedulesAddedCount, mSeriesRecording.getTitle(),
-                        mInThisSeriesConflictCount + mOutThisSeriesConflictCount);
+                return getResources()
+                        .getQuantityString(
+                                R.plurals.dvr_series_scheduled_this_and_other_series_conflict,
+                                mSchedulesAddedCount,
+                                mSchedulesAddedCount,
+                                mSeriesRecording.getTitle(),
+                                mInThisSeriesConflictCount + mOutThisSeriesConflictCount);
             } else if (mInThisSeriesConflictCount != 0) {
-                return getResources().getQuantityString(
-                        R.plurals.dvr_series_recording_scheduled_only_this_series_conflict,
-                        mSchedulesAddedCount, mSchedulesAddedCount, mSeriesRecording.getTitle(),
-                        mInThisSeriesConflictCount);
+                return getResources()
+                        .getQuantityString(
+                                R.plurals.dvr_series_recording_scheduled_only_this_series_conflict,
+                                mSchedulesAddedCount,
+                                mSchedulesAddedCount,
+                                mSeriesRecording.getTitle(),
+                                mInThisSeriesConflictCount);
             } else {
                 if (mOutThisSeriesConflictCount == 1) {
-                    return getResources().getQuantityString(
-                            R.plurals.dvr_series_scheduled_only_other_series_one_conflict,
-                            mSchedulesAddedCount, mSchedulesAddedCount,
-                            mSeriesRecording.getTitle());
+                    return getResources()
+                            .getQuantityString(
+                                    R.plurals.dvr_series_scheduled_only_other_series_one_conflict,
+                                    mSchedulesAddedCount,
+                                    mSchedulesAddedCount,
+                                    mSeriesRecording.getTitle());
                 } else {
-                    return getResources().getQuantityString(
-                            R.plurals.dvr_series_scheduled_only_other_series_many_conflicts,
-                            mSchedulesAddedCount, mSchedulesAddedCount, mSeriesRecording.getTitle(),
-                            mOutThisSeriesConflictCount);
+                    return getResources()
+                            .getQuantityString(
+                                    R.plurals.dvr_series_scheduled_only_other_series_many_conflicts,
+                                    mSchedulesAddedCount,
+                                    mSchedulesAddedCount,
+                                    mSeriesRecording.getTitle(),
+                                    mOutThisSeriesConflictCount);
                 }
             }
         }

@@ -19,7 +19,7 @@ package com.android.tv.recommendation;
 import java.util.List;
 
 public class FavoriteChannelEvaluator extends Recommender.Evaluator {
-    private static final long MIN_WATCH_PERIOD_MS = 1000 * 60 * 60 * 24;  // 1 day
+    private static final long MIN_WATCH_PERIOD_MS = 1000 * 60 * 60 * 24; // 1 day
     // When there is no watch history, use the current time as a default value.
     private long mEarliestWatchStartTimeMs = System.currentTimeMillis();
 
@@ -46,7 +46,6 @@ public class FavoriteChannelEvaluator extends Recommender.Evaluator {
         }
 
         long watchPeriodMs = System.currentTimeMillis() - mEarliestWatchStartTimeMs;
-        return (double) cr.getTotalWatchDurationMs() /
-                Math.max(watchPeriodMs, MIN_WATCH_PERIOD_MS);
+        return (double) cr.getTotalWatchDurationMs() / Math.max(watchPeriodMs, MIN_WATCH_PERIOD_MS);
     }
 }

@@ -34,12 +34,12 @@ public class PackageIncidentTest extends ProtoDumpTestCase {
         super.tearDown();
     }
 
-    private void assertPositive(String name, long value) {
+    private static void assertPositive(String name, long value) {
         if (value > 0) return;
         fail(name + " expected to be positive, but was: " + value);
     }
 
-    private void assertNotNegative(String name, long value) {
+    private static void assertNotNegative(String name, long value) {
         if (value >= 0) return;
         fail(name + " expected to be zero or positive, but was: " + value);
     }
@@ -63,15 +63,6 @@ public class PackageIncidentTest extends ProtoDumpTestCase {
         final PackageServiceDumpProto dump =
                 getDump(PackageServiceDumpProto.parser(), "dumpsys package --proto");
 
-        assertNotNull(dump.getVerifierPackage().getName());
-        assertPositive("verifier_package uid", dump.getVerifierPackage().getUid());
-        assertNotNull(dump.getSharedLibraries(0).getName());
-        if (dump.getSharedLibraries(0).getIsJar()) {
-            assertNotNull(dump.getSharedLibraries(0).getPath());
-        } else {
-            assertNotNull(dump.getSharedLibraries(0).getApk());
-        }
-        assertNotNull(dump.getFeatures(0).getName());
         PackageProto testPackage = null;
         for (PackageProto pkg : dump.getPackagesList()) {
             if (pkg.getName().equals(DEVICE_SIDE_TEST_PACKAGE)) {
@@ -99,6 +90,19 @@ public class PackageIncidentTest extends ProtoDumpTestCase {
                         == PackageProto.UserInfoProto.EnabledState
                                 .COMPONENT_ENABLED_STATE_DISABLED_USER);
 
+        verifyPackageServiceDumpProto(dump, PRIVACY_NONE);
+    }
+
+    static void verifyPackageServiceDumpProto(PackageServiceDumpProto dump, final int filterLevel) throws Exception {
+        assertNotNull(dump.getVerifierPackage().getName());
+        assertNotNull(dump.getSharedLibraries(0).getName());
+        if (dump.getSharedLibraries(0).getIsJar()) {
+            assertNotNull(dump.getSharedLibraries(0).getPath());
+        } else {
+            assertNotNull(dump.getSharedLibraries(0).getApk());
+        }
+        assertNotNull(dump.getFeatures(0).getName());
+
         PackageServiceDumpProto.SharedUserProto systemUser = null;
         for (PackageServiceDumpProto.SharedUserProto user : dump.getSharedUsersList()) {
             if (user.getUserId() == 1000) {
@@ -107,6 +111,12 @@ public class PackageIncidentTest extends ProtoDumpTestCase {
             }
         }
         assertNotNull(systemUser);
-        assertEquals(systemUser.getName(), "android.uid.system");
+        assertEquals("android.uid.system", systemUser.getName());
+
+        if (filterLevel == PRIVACY_AUTO) {
+            for (String msg : dump.getMessagesList()) {
+                assertTrue(msg.isEmpty());
+            }
+        }
     }
 }

@@ -12,7 +12,7 @@
     <string name="beam_canceled" msgid="5425192751826544741">"Prijenos je otkazan."</string>
     <string name="cancel" msgid="61873902552555096">"Otkaži"</string>
     <string name="beam_tap_to_view" msgid="7430394753262448349">"Dodirnite za prikaz"</string>
-    <string name="beam_handover_not_supported" msgid="4083165921751489015">"Uređaj primaoca ne podržava prijenos velikih datoteka putem emitiranja."</string>
+    <string name="beam_handover_not_supported" msgid="4083165921751489015">"Uređaj primaoca ne podržava prijenos velikih fajlova putem emitiranja."</string>
     <string name="beam_try_again" msgid="3364677301009783455">"Opet spojite uređaje"</string>
     <string name="beam_busy" msgid="5253335587620612576">"Prijenos je trenutno zauzet. Pokušajte ponovo kada se prethodni transfer završi."</string>
     <string name="device" msgid="4459621591392478151">"uređaj"</string>
@@ -36,11 +36,15 @@
     <string name="default_pay_app_removed" msgid="4108250545457437360">"Vaša preferirana usluga za kucni i plati je uklonjena. Izabrati drugu?"</string>
     <string name="ask_nfc_tap" msgid="2925239870458286340">"Dodirnite još jedan uređaj da završite"</string>
     <string name="wifi_connect" msgid="6250727951843550671">"Poveži se"</string>
-    <string name="status_unable_to_connect" msgid="9183908200295307657">"Ne može se povezati na mrežu"</string>
+    <string name="status_unable_to_connect" msgid="9183908200295307657">"Nije se moguće povezati na mrežu"</string>
     <string name="status_wifi_connected" msgid="5893022897732105739">"Povezano"</string>
     <string name="title_connect_to_network" msgid="2474034615817280146">"Spoji se na mrežu"</string>
     <string name="prompt_connect_to_network" msgid="8511683573657516114">"Povezati se na mrežu <xliff:g id="NETWORK_SSID">%1$s</xliff:g>?"</string>
     <string name="beam_requires_nfc_enabled" msgid="2800366967218600534">"Android prenošnje zahtijeva da NFC bude omogućen. Da li ga želite omogućiti?"</string>
     <string name="android_beam" msgid="1666446406999492763">"Android Beam"</string>
     <string name="beam_requires_external_storage_permission" msgid="8798337545702206901">"Aplikacija nema odobrenje za vanjsku pohranu. Ovo je potrebno kako biste ovaj fajl mogli prenijeti koristeći funkciju Beam."</string>
+    <string name="title_confirm_url_open" msgid="8069968913244794478">"Otvoriti link?"</string>
+    <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"Vaš tablet je primio link preko NFC-a:"</string>
+    <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"Vaš telefon je primio link preko NFC-a:"</string>
+    <string name="action_confirm_url_open" msgid="3458322738812921189">"Otvori link"</string>
 </resources>

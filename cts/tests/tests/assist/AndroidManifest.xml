@@ -24,8 +24,11 @@
 
     <application>
       <uses-library android:name="android.test.runner" />
+      <!-- resizeableActivity makes the TestStartActivity run on Primary display to accommodate
+           stack behavior assumptions in this test. See b/70032125 -->
       <activity android:name="android.assist.cts.TestStartActivity"
-                android:label="Assist Test Start Activity">
+                android:label="Assist Test Start Activity"
+                android:resizeableActivity="false">
           <intent-filter>
               <action android:name="android.intent.action.TEST_START_ACTIVITY_ASSIST_STRUCTURE" />
               <action android:name="android.intent.action.TEST_START_ACTIVITY_DISABLE_CONTEXT" />

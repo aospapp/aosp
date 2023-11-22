@@ -52,7 +52,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:maxWidth="@dimen/in_call_text_max_width"
-            style="@style/CarHeadline2.Light" />
+            android:textAppearance="@style/TextAppearance.Car.Headline2"
+            android:textColor="@color/car_headline1_light" />
         <TextView
             android:id="@+id/info_secondary"
             android:layout_width="match_parent"
@@ -61,7 +62,7 @@
             android:layout_below="@id/name_secondary"
             android:maxWidth="@dimen/in_call_text_max_width"
             android:alpha="0.6"
-            style="@style/CarBody2"
+            style="@style/TextAppearance.Car.Body2"
             android:textColor="@color/car_grey_100" />
     </RelativeLayout>
 
@@ -71,7 +72,7 @@
         android:layout_width="@dimen/in_call_card_dialpad_width"
         android:layout_height="match_parent"
         android:layout_gravity="top|start"
-        android:layout_marginTop="@dimen/lens_header_height"
+        android:layout_marginTop="@dimen/car_app_bar_height"
         app:cardBackgroundColor="@color/car_card"
         app:cardCornerRadius="@dimen/in_call_card_dialpad_corner_radius"
         app:cardElevation="@dimen/in_call_card_elevation"
@@ -85,7 +86,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@drawable/in_call_card_background"
-        android:layout_marginTop="@dimen/lens_header_height"
+        android:layout_marginTop="@dimen/car_app_bar_height"
         android:layout_marginEnd="@dimen/in_call_card_margin_right"
         android:paddingStart="@dimen/in_call_content_card_margin_start" >
         <LinearLayout
@@ -104,7 +105,7 @@
                     android:ellipsize="end"
                     android:maxLines="2"
                     android:visibility="gone"
-                    style="@style/CarHeadline2" />
+                    style="@style/TextAppearance.Car.Headline2" />
                 <TextView
                     android:id="@+id/info"
                     android:layout_below="@id/name"
@@ -112,7 +113,7 @@
                     android:layout_height="wrap_content"
                     android:visibility="gone"
                     android:textColor="@color/car_caption"
-                    style="@style/CarBody1" />
+                    style="@style/TextAppearance.Car.Body1" />
             </RelativeLayout>
             <ImageView
                 android:id="@+id/small_contact_photo"
@@ -130,14 +131,14 @@
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:layout_gravity="bottom"
-            android:layout_marginBottom="@dimen/action_panel_height"
+            android:layout_marginBottom="@dimen/car_action_bar_height"
             android:background="@color/separator" />
 
         <!-- TODO: Consider flattening out this part and updating logic. -->
         <FrameLayout
             android:id="@+id/controls_container"
             android:layout_width="match_parent"
-            android:layout_height="@dimen/action_panel_height"
+            android:layout_height="@dimen/car_action_bar_height"
             android:layout_gravity="bottom" >
 
             <LinearLayout
@@ -148,16 +149,16 @@
                 android:visibility="gone" >
                 <ImageButton
                     android:id="@+id/answer_call_button"
-                    android:layout_width="@dimen/stream_fab_size"
-                    android:layout_height="@dimen/stream_fab_size"
+                    android:layout_width="@dimen/dialer_fab_size"
+                    android:layout_height="@dimen/dialer_fab_size"
                     android:layout_gravity="center_vertical"
                     android:scaleType="center"
                     android:elevation="8dp"
                     android:src="@drawable/ic_phone" />
                 <ImageButton
                     android:id="@+id/reject_call_button"
-                    android:layout_width="@dimen/stream_fab_size"
-                    android:layout_height="@dimen/stream_fab_size"
+                    android:layout_width="@dimen/dialer_fab_size"
+                    android:layout_height="@dimen/dialer_fab_size"
                     android:layout_marginStart="@dimen/in_call_button_spacing"
                     android:layout_gravity="center_vertical"
                     android:scaleType="center"
@@ -175,16 +176,16 @@
                 android:visibility="gone" >
                 <ImageButton
                     android:id="@+id/end_call"
-                    android:layout_width="@dimen/stream_fab_size"
-                    android:layout_height="@dimen/stream_fab_size"
+                    android:layout_width="@dimen/dialer_fab_size"
+                    android:layout_height="@dimen/dialer_fab_size"
                     android:layout_gravity="center_vertical"
                     android:scaleType="center"
                     android:elevation="8dp"
                     android:src="@drawable/ic_call_end" />
                 <ImageButton
                     android:id="@+id/unhold_call"
-                    android:layout_width="@dimen/stream_fab_size"
-                    android:layout_height="@dimen/stream_fab_size"
+                    android:layout_width="@dimen/dialer_fab_size"
+                    android:layout_height="@dimen/dialer_fab_size"
                     android:layout_gravity="center_vertical"
                     android:scaleType="center"
                     android:elevation="8dp"
@@ -192,8 +193,8 @@
                     android:visibility="gone" />
                 <ImageButton
                     android:id="@+id/mute"
-                    android:layout_width="@dimen/stream_fab_size"
-                    android:layout_height="@dimen/stream_fab_size"
+                    android:layout_width="@dimen/dialer_fab_size"
+                    android:layout_height="@dimen/dialer_fab_size"
                     android:layout_marginStart="@dimen/in_call_button_spacing"
                     android:scaleType="center"
                     android:src="@drawable/ic_mute"
@@ -201,8 +202,8 @@
                     android:background="@drawable/ongoing_call_action_background" />
                 <ImageButton
                     android:id="@+id/toggle_dialpad"
-                    android:layout_width="@dimen/stream_fab_size"
-                    android:layout_height="@dimen/stream_fab_size"
+                    android:layout_width="@dimen/dialer_fab_size"
+                    android:layout_height="@dimen/dialer_fab_size"
                     android:layout_marginStart="@dimen/in_call_button_spacing"
                     android:scaleType="center"
                     android:src="@drawable/ic_dialpad"
@@ -223,15 +224,15 @@
         android:visibility="gone" >
         <ImageButton
             android:id="@+id/swap"
-            android:layout_width="@dimen/stream_fab_size"
-            android:layout_height="@dimen/stream_fab_size"
+            android:layout_width="@dimen/dialer_fab_size"
+            android:layout_height="@dimen/dialer_fab_size"
             android:scaleType="center"
             android:src="@drawable/ic_swap_calls"
             android:background="@drawable/ongoing_call_secondary_action_background" />
         <ImageButton
             android:id="@+id/merge"
-            android:layout_width="@dimen/stream_fab_size"
-            android:layout_height="@dimen/stream_fab_size"
+            android:layout_width="@dimen/dialer_fab_size"
+            android:layout_height="@dimen/dialer_fab_size"
             android:scaleType="center"
             android:src="@drawable/ic_call_merge"
             android:background="@drawable/ongoing_call_secondary_action_background" />

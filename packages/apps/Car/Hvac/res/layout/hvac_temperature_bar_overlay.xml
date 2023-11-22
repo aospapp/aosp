@@ -44,7 +44,7 @@ and animate only the children -->
     <FrameLayout
             xmlns:android="http://schemas.android.com/apk/res/android"
             android:id="@+id/temperature_bar"
-            android:layout_gravity="center_horizontal"
+            android:layout_gravity="center_horizontal|bottom"
             android:layout_width="@dimen/temperature_bar_width_collapsed"
             android:layout_height="@dimen/temperature_bar_collapsed_height"
             android:background="@drawable/temperature_bar_background">

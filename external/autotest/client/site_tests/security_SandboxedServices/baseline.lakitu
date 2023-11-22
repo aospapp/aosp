@@ -1,4 +1,7 @@
 exe,euser,egroup,pidns,caps,nonewprivs,filter
+
+# See the baseline file for docs.
+
 cloud-init,root,root,No,No,No,No
 device_policy_m,root,root,No,No,No,No
 first-boot,root,root,No,No,No,No

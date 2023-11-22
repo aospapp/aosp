@@ -24,7 +24,10 @@ LOCAL_SRC_FILES += \
     Agps.cpp
 
 LOCAL_CFLAGS += \
-     -fno-short-enums \
+    -fno-short-enums \
+    -Wall \
+    -Werror \
+    -Wno-format \
 
 ifeq ($(TARGET_BUILD_VARIANT),user)
    LOCAL_CFLAGS += -DTARGET_BUILD_VARIANT_USER

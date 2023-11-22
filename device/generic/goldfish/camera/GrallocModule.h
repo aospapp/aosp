@@ -2,6 +2,7 @@
 #define EMU_CAMERA_GRALLOC_MODULE_H
 
 #include <hardware/gralloc.h>
+#include <utils/Log.h>
 
 class GrallocModule
 {

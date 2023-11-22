@@ -17,6 +17,7 @@
 cc_defaults {
     name: "bionic_tests_defaults",
     host_supported: true,
+    cpp_std: "experimental",
     target: {
         darwin: {
             enabled: false,
@@ -51,12 +52,15 @@ cc_test_library {
     name: "libBionicStandardTests",
     defaults: ["bionic_tests_defaults"],
     srcs: [
+        "alloca_test.cpp",
         "arpa_inet_test.cpp",
         "async_safe_test.cpp",
         "assert_test.cpp",
         "buffer_tests.cpp",
         "bug_26110743_test.cpp",
+        "byteswap_test.cpp",
         "complex_test.cpp",
+        "complex_force_long_double_test.cpp",
         "ctype_test.cpp",
         "dirent_test.cpp",
         "elf_test.cpp",
@@ -66,20 +70,27 @@ cc_test_library {
         "eventfd_test.cpp",
         "fcntl_test.cpp",
         "fenv_test.cpp",
+        "float_test.cpp",
         "ftw_test.cpp",
         "getauxval_test.cpp",
         "getcwd_test.cpp",
+        "glob_test.cpp",
         "grp_pwd_test.cpp",
+        "grp_pwd_file_test.cpp",
+        "iconv_test.cpp",
         "ifaddrs_test.cpp",
         "inttypes_test.cpp",
+        "iso646_test.c",
         "langinfo_test.cpp",
         "leak_test.cpp",
         "libgen_basename_test.cpp",
         "libgen_test.cpp",
+        "limits_test.cpp",
         "linux_swab_test.cpp",
         "locale_test.cpp",
         "malloc_test.cpp",
         "math_test.cpp",
+        "math_force_long_double_test.cpp",
         "mntent_test.cpp",
         "netdb_test.cpp",
         "net_if_test.cpp",
@@ -89,7 +100,6 @@ cc_test_library {
         "nl_types_test.cpp",
         "pthread_test.cpp",
         "pty_test.cpp",
-        "qsort_test.cpp",
         "regex_test.cpp",
         "resolv_test.cpp",
         "sched_test.cpp",
@@ -98,15 +108,20 @@ cc_test_library {
         "semaphore_test.cpp",
         "setjmp_test.cpp",
         "signal_test.cpp",
+        "spawn_test.cpp",
         "stack_protector_test.cpp",
         "stack_protector_test_helper.cpp",
         "stack_unwinding_test.cpp",
+        "stdalign_test.cpp",
+        "stdarg_test.cpp",
         "stdatomic_test.cpp",
+        "stdbool_test.c",
         "stdint_test.cpp",
         "stdio_nofortify_test.cpp",
         "stdio_test.cpp",
         "stdio_ext_test.cpp",
         "stdlib_test.cpp",
+        "stdnoreturn_test.cpp",
         "string_nofortify_test.cpp",
         "string_test.cpp",
         "string_posix_strerror_r_test.cpp",
@@ -121,11 +136,13 @@ cc_test_library {
         "sys_procfs_test.cpp",
         "sys_ptrace_test.cpp",
         "sys_quota_test.cpp",
+        "sys_random_test.cpp",
         "sys_resource_test.cpp",
         "sys_select_test.cpp",
         "sys_sem_test.cpp",
         "sys_sendfile_test.cpp",
         "sys_shm_test.cpp",
+        "sys_signalfd_test.cpp",
         "sys_socket_test.cpp",
         "sys_stat_test.cpp",
         "sys_statvfs_test.cpp",
@@ -141,6 +158,8 @@ cc_test_library {
         "sys_xattr_test.cpp",
         "system_properties_test.cpp",
         "system_properties_test2.cpp",
+        "termios_test.cpp",
+        "tgmath_test.c",
         "time_test.cpp",
         "uchar_test.cpp",
         "unistd_nofortify_test.cpp",
@@ -156,8 +175,11 @@ cc_test_library {
     ],
 
     target: {
-        android: {
-            whole_static_libs: ["libasync_safe"],
+        bionic: {
+            whole_static_libs: [
+                "libasync_safe",
+                "libsystemproperties",
+            ],
         },
     },
 
@@ -166,7 +188,6 @@ cc_test_library {
         "liblog",
         "libbase",
     ],
-    host_ldlibs: ["-lrt"],
     shared: {
         enabled: false,
     },
@@ -181,7 +202,6 @@ cc_test_library {
 cc_defaults {
     name: "bionic_fortify_tests_defaults",
     cflags: [
-        "-Wno-error",
         "-U_FORTIFY_SOURCE",
     ],
     srcs: ["fortify_test_main.cpp"],
@@ -192,13 +212,48 @@ cc_defaults {
     },
 }
 
+// If building this fails, then we have both FORTIFY and ASAN enabled, which
+// isn't desirable. (Ideally, we'd emit FORTIFY diagnostics even with ASAN
+// enabled, but that's not a reality today.) This is meant to be otherwise
+// unused.
+cc_test_library {
+    name: "fortify_disabled_for_asan",
+    cflags: [
+        "-Werror",
+        "-D_FORTIFY_SOURCE=2",
+        // "sanitize: address" doesn't work on platforms where libasan isn't
+        // enabled. Since the intent is just to build this, we can get away with
+        // passing this flag on its own.
+        "-fsanitize=address",
+    ],
+    // Ignore that we don't have ASAN symbols linked in.
+    allow_undefined_symbols: true,
+    srcs: ["fortify_filecheck_diagnostics_test.cpp"],
+}
+
+// Ensure we don't use FORTIFY'ed functions with the static analyzer/clang-tidy:
+// it can confuse these tools pretty easily. If this builds successfully, then
+// __clang_analyzer__ overrode FORTIFY. Otherwise, FORTIFY was incorrectly
+// enabled. The library that results from building this is meant to be unused.
+cc_test_library {
+    name: "fortify_disabled_for_tidy",
+    cflags: [
+        "-Werror",
+        "-D_FORTIFY_SOURCE=2",
+        "-D__clang_analyzer__",
+    ],
+    srcs: ["fortify_filecheck_diagnostics_test.cpp"],
+}
+
 cc_test_library {
     name: "libfortify1-tests-clang",
-    defaults: ["bionic_fortify_tests_defaults", "bionic_tests_defaults"],
-    clang: true,
+    defaults: [
+        "bionic_fortify_tests_defaults",
+        "bionic_tests_defaults",
+    ],
     cflags: [
         "-D_FORTIFY_SOURCE=1",
-        "-DTEST_NAME=Fortify1_clang"
+        "-DTEST_NAME=Fortify1_clang",
     ],
     shared: {
         enabled: false,
@@ -207,11 +262,13 @@ cc_test_library {
 
 cc_test_library {
     name: "libfortify2-tests-clang",
-    defaults: ["bionic_fortify_tests_defaults", "bionic_tests_defaults"],
-    clang: true,
+    defaults: [
+        "bionic_fortify_tests_defaults",
+        "bionic_tests_defaults",
+    ],
     cflags: [
         "-D_FORTIFY_SOURCE=2",
-        "-DTEST_NAME=Fortify2_clang"
+        "-DTEST_NAME=Fortify2_clang",
     ],
     shared: {
         enabled: false,
@@ -244,8 +301,9 @@ cc_test_library {
         "gtest_main.cpp",
         "gtest_globals.cpp",
     ],
-    static_libs: [
+    whole_static_libs: [
         "libbase",
+        "liblog",
     ],
     include_dirs: [
         "bionic/libc",
@@ -262,7 +320,10 @@ cc_test_library {
 
 cc_test_library {
     name: "libBionicLoaderTests",
-    defaults: ["bionic_tests_defaults", "llvm-defaults"],
+    defaults: [
+        "bionic_tests_defaults",
+        "llvm-defaults",
+    ],
     srcs: [
         "atexit_test.cpp",
         "dl_test.cpp",
@@ -297,7 +358,7 @@ cc_test_library {
                 "libLLVMCore",
                 "libLLVMSupport",
             ],
-        }
+        },
     },
 }
 
@@ -311,6 +372,9 @@ cc_test_library {
     srcs: [
         "gtest_main.cpp",
         "gtest_globals_cts.cpp",
+    ],
+    static_libs: [
+        "libbase",
     ],
     cppflags: ["-DUSING_GTEST_OUTPUT_FORMAT"],
     shared: {
@@ -361,6 +425,7 @@ cc_defaults {
     target: {
         android: {
             shared_libs: [
+                "ld-android",
                 "libdl",
                 "libdl_preempt_test_1",
                 "libdl_preempt_test_2",
@@ -385,13 +450,15 @@ cc_defaults {
                 "-Wl,--enable-new-dtags",
             ],
         },
-    }
+    },
 }
 
 cc_test {
     name: "bionic-unit-tests",
-    defaults: ["bionic_unit_tests_defaults", "bionic_tests_defaults"],
-    clang: true,
+    defaults: [
+        "bionic_unit_tests_defaults",
+        "bionic_tests_defaults",
+    ],
 
     target: {
         android: {
@@ -419,8 +486,10 @@ cc_test {
         "libdl_preempt_test_1",
         "libdl_preempt_test_2",
         "libdl_test_df_1_global",
+        "libelf-tls-library",
         "libgnu-hash-table-library",
         "libsysv-hash-table-library",
+        "libtestshared",
         "libtest_atexit",
         "libtest_check_order_dlsym_1_left",
         "libtest_check_order_dlsym_2_right",
@@ -445,6 +514,7 @@ cc_test {
         "libtest_check_order_reloc_siblings_f",
         "libtest_check_order_reloc_siblings",
         "libtest_check_rtld_next_from_library",
+        "libtest_dlopen_df_1_global",
         "libtest_dlopen_from_ctor_main",
         "libtest_dlopen_from_ctor",
         "libtest_dlopen_weak_undefined_func",
@@ -455,11 +525,17 @@ cc_test {
         "libtest_dlsym_weak_func",
         "libtest_dt_runpath_d",
         "libtest_empty",
+        "libtest_ifunc_variable_impl",
+        "libtest_ifunc_variable",
         "libtest_ifunc",
         "libtest_init_fini_order_child",
         "libtest_init_fini_order_grand_child",
         "libtest_init_fini_order_root2",
         "libtest_init_fini_order_root",
+        "libtest_missing_symbol_child_public",
+        "libtest_missing_symbol_child_private",
+        "libtest_missing_symbol_root",
+        "libtest_missing_symbol",
         "libtest_nodelete_1",
         "libtest_nodelete_2",
         "libtest_nodelete_dt_flags_1",
@@ -494,6 +570,7 @@ cc_test {
         "libtest_invalid-zero_shstrndx.so",
         "libtest_invalid-textrels.so",
         "libtest_invalid-textrels2.so",
+        "libtest_thread_local_dtor",
         "preinit_getauxval_test_helper",
         "preinit_syscall_test_helper",
         "libnstest_private_external",
@@ -503,6 +580,17 @@ cc_test {
         "libnstest_root",
         "libnstest_public",
         "libnstest_public_internal",
+        "libnstest_ns_a_public1",
+        "libnstest_ns_a_public1_internal",
+        "libnstest_ns_b_public2",
+        "libnstest_ns_b_public3",
+        "ld_preload_test_helper",
+        "ld_preload_test_helper_lib1",
+        "ld_preload_test_helper_lib2",
+        "ld_config_test_helper",
+        "ld_config_test_helper_lib1",
+        "ld_config_test_helper_lib2",
+        "ld_config_test_helper_lib3",
     ],
 }
 
@@ -527,7 +615,6 @@ cc_test {
     static_libs: [
         "libm",
         "libc",
-        "libc++_static",
         "libdl",
         "libtinyxml2",
         "liblog",
@@ -537,12 +624,6 @@ cc_test {
 
     static_executable: true,
     stl: "libc++_static",
-
-    // libc and libc++ both define std::nothrow. libc's is a private symbol, but this
-    // still causes issues when linking libc.a and libc++.a, since private isn't
-    // effective until it has been linked. To fix this, just allow multiple symbol
-    // definitions for the static tests.
-    ldflags: ["-Wl,--allow-multiple-definition"],
 }
 
 // -----------------------------------------------------------------------------
@@ -584,8 +665,6 @@ cc_test_host {
 
     host_ldlibs: [
         "-lresolv",
-        "-lrt",
-        "-ldl",
         "-lutil",
     ],
 
@@ -599,6 +678,12 @@ cc_test_host {
     sanitize: {
         never: false,
     },
+
+    target: {
+        linux_bionic: {
+            enabled: false,
+        },
+    },
 }
 
-subdirs = ["libs"]
+subdirs = ["*"]

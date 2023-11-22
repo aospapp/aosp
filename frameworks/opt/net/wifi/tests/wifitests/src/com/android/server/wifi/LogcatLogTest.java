@@ -16,9 +16,11 @@
 
 package com.android.server.wifi;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.Assert.assertEquals;
 
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -131,9 +133,7 @@ public class LogcatLogTest {
     @Test
     public void logMessageSilentlyIgnoresExtraneousValues() {
         WifiLog.LogMessage logMessage = mLogger.err("%");
-        logMessage.c("hello world");
-        logMessage.c("more stuff");
-        logMessage.flush();
+        logMessage.c("hello world").c("more stuff").flush();
         assertEquals("hello world", logMessage.toString());
     }
 
@@ -144,9 +144,7 @@ public class LogcatLogTest {
     @Test
     public void logMessageSilentlyIgnoresExtraneousValuesEvenForEmptyFormat() {
         WifiLog.LogMessage logMessage = mLogger.err("");
-        logMessage.c("hello world");
-        logMessage.c("more stuff");
-        logMessage.flush();
+        logMessage.c("hello world").c("more stuff").flush();
         assertEquals("", logMessage.toString());
     }
 
@@ -157,9 +155,7 @@ public class LogcatLogTest {
     @Test
     public void logMessageSilentlyIgnoresExtraneousValuesEvenForFormatWithoutPlaceholders() {
         WifiLog.LogMessage logMessage = mLogger.err("literal format");
-        logMessage.c("hello world");
-        logMessage.c("more stuff");
-        logMessage.flush();
+        logMessage.c("hello world").c("more stuff").flush();
         assertEquals("literal format", logMessage.toString());
     }
 
@@ -252,5 +248,82 @@ public class LogcatLogTest {
         WifiLog.LogMessage logMessage = mLogger.err("%%world");
         logMessage.c("hello\t").c("big\\").flush();
         assertEquals("hello\tbig\\world", logMessage.toString());
+    }
+
+    @Test
+    public void traceLogMessageIncludesCallerName() {
+        try {
+            LogcatLog.enableVerboseLogging(1);
+            WifiLog.LogMessage logMessage = mLogger.trace("%");
+            logMessage.c("says hello").flush();
+            assertEquals("traceLogMessageIncludesCallerName says hello",
+                    logMessage.toString());
+        } finally {
+            LogcatLog.enableVerboseLogging(0);
+        }
+    }
+
+    @Test
+    public void traceLogMessageRespectsNumFramesToIgnore() {
+        try {
+            LogcatLog.enableVerboseLogging(1);
+            WifiLog.LogMessage logMessage = traceHelper("%");
+            logMessage.c("says hello").flush();
+            assertEquals("traceLogMessageRespectsNumFramesToIgnore says hello",
+                    logMessage.toString());
+        } finally {
+            LogcatLog.enableVerboseLogging(0);
+        }
+    }
+
+    @Test
+    public void traceLogMessageDoesNotCrashOnOversizedNumFramesToIgnore() {
+        try {
+            LogcatLog.enableVerboseLogging(1);
+            WifiLog.LogMessage logMessage = mLogger.trace("%",
+                    (new Throwable()).getStackTrace().length);
+            logMessage.c("says hello").flush();
+            assertEquals("<unknown> says hello", logMessage.toString());
+        } finally {
+            LogcatLog.enableVerboseLogging(0);
+        }
+    }
+
+    @Test
+    public void traceLogMessageDoesNotCrashOnOverflowingNumFramesToIgnore() {
+        try {
+            LogcatLog.enableVerboseLogging(1);
+            WifiLog.LogMessage logMessage = mLogger.trace("%", Integer.MAX_VALUE);
+            logMessage.c("says hello").flush();
+            assertEquals("<unknown> says hello", logMessage.toString());
+        } finally {
+            LogcatLog.enableVerboseLogging(0);
+        }
+    }
+
+    @Test
+    public void traceLogMessageDoesNotCrashOnUndersizedNumFramesToIgnore() {
+        try {
+            LogcatLog.enableVerboseLogging(1);
+            WifiLog.LogMessage logMessage = mLogger.trace("%", Integer.MIN_VALUE);
+            logMessage.c("says hello").flush();
+            assertEquals("<unknown> says hello", logMessage.toString());
+        } finally {
+            LogcatLog.enableVerboseLogging(0);
+        }
+    }
+
+    @Test
+    public void traceLogMessageReturnsDummyLogMessageByDefault() {
+        assertThat(mLogger.trace("%"), instanceOf(DummyLogMessage.class));
+    }
+
+    @Test
+    public void dumpLogMessageReturnsDummyLogMessageByDefault() {
+        assertThat(mLogger.dump("%"), instanceOf(DummyLogMessage.class));
+    }
+
+    private WifiLog.LogMessage traceHelper(String format) {
+        return mLogger.trace(format, 1);
     }
 }

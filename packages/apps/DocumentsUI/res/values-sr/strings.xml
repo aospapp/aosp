@@ -41,7 +41,7 @@
     <string name="menu_compress" msgid="37539111904724188">"Компримуј"</string>
     <string name="menu_extract" msgid="8171946945982532262">"Издвој у…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"Преименуј"</string>
-    <string name="menu_inspector" msgid="8217713416277319588">"Прикажи информације"</string>
+    <string name="menu_inspect" msgid="7279855349299446224">"Прикажи информације"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"Прикажи у: <xliff:g id="SOURCE">%1$s</xliff:g>"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"Нови прозор"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"Исеци"</string>
@@ -57,6 +57,8 @@
     <string name="button_move" msgid="8596460499325291272">"Премести"</string>
     <string name="button_dismiss" msgid="7235249361023803349">"Одбаци"</string>
     <string name="button_retry" msgid="4011461781916631389">"Пробај поново"</string>
+    <string name="button_clear" msgid="5412304437764369441">"Обриши"</string>
+    <string name="button_show_provider" msgid="6905880493806292753">"Прикажи у апликацији добављача"</string>
     <string name="not_sorted" msgid="7813496644889115530">"Нису сортирани"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"Назив"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"Резиме"</string>
@@ -64,14 +66,6 @@
     <string name="sort_dimension_size" msgid="2190547351159472884">"Величина"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"Измењено"</string>
     <string name="directory_items" msgid="6645621978998614003">"Број ставки"</string>
-    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"Ова врста датотеке се отвара помоћу:"</string>
-    <string name="handler_app_belongs_to" msgid="5956928604521893459">"Ова датотека припада:"</string>
-    <string name="handler_app_button_info_1" msgid="4271199640671067569">"Друге апликације могу да отварају овај тип датотеке. Обришите апликацију"</string>
-    <string name="handler_app_button_info_2" msgid="4299969771512815898">"као подразумевану."</string>
-    <string name="handler_app_clear" msgid="206579047716445033">"Обриши"</string>
-    <string name="handler_app_show_in" msgid="7923573101129079048">"Прикажи у програму добављача"</string>
-    <string name="handler_app_not_selected" msgid="8178393676227130360">"Није изабрано"</string>
-    <string name="handler_app_unknown" msgid="56574249066388341">"Непознато"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"Растуће"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"Опадајуће"</string>
     <string name="drawer_open" msgid="8071673398187261741">"Прикажи основне директоријуме"</string>
@@ -90,7 +84,6 @@
     <string name="toast_no_application" msgid="7555319548595113121">"Отварање датотеке није успело"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"Не можете да отварате датотеке у архивама"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"Није могуће избрисати неке документе"</string>
-    <string name="file_inspector_load_error" msgid="1226344446677541109">"Учитавање својстава није успело"</string>
     <string name="share_via" msgid="8725082736005677161">"Дељење преко"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"Копирамо датотеке"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"Датотеке се компримују"</string>
@@ -124,11 +117,11 @@
       <item quantity="other">Брише се <xliff:g id="COUNT_1">%1$d</xliff:g> ставки.</item>
     </plurals>
     <string name="undo" msgid="2902438994196400565">"Опозови"</string>
-    <string name="copy_preparing" msgid="5326063807006898223">"Припремамо копирање…"</string>
-    <string name="compress_preparing" msgid="6650018601382062672">"Припремају се за компримовање…"</string>
-    <string name="extract_preparing" msgid="58266275455027829">"Издвајање се припрема…"</string>
-    <string name="move_preparing" msgid="8742573245485449429">"Припремамо премештање…"</string>
-    <string name="delete_preparing" msgid="6513863752916028147">"Припремамо брисање…"</string>
+    <string name="copy_preparing" msgid="4759516490222449324">"Припрема се..."</string>
+    <string name="compress_preparing" msgid="7401605598969019696">"Припрема се..."</string>
+    <string name="extract_preparing" msgid="4796626960061745796">"Припрема се..."</string>
+    <string name="move_preparing" msgid="6504239656430530761">"Припрема се..."</string>
+    <string name="delete_preparing" msgid="7339349837842802508">"Припрема се..."</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
       <item quantity="one">Копирање <xliff:g id="COUNT_1">%1$d</xliff:g> ставке није успело</item>
@@ -234,5 +227,4 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"архива<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"Желите да замените <xliff:g id="NAME">%1$s</xliff:g>?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Настави у позадини"</string>
-    <string name="inspector_debug_section" msgid="3447621501565766900">"Подаци о отклањању грешака (само за програмере)"</string>
 </resources>

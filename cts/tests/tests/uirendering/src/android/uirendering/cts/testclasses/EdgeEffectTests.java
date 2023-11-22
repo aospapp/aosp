@@ -15,38 +15,37 @@
  */
 package android.uirendering.cts.testclasses;
 
+import static android.uirendering.cts.util.MockVsyncHelper.nextFrame;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyFloat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import android.app.Activity;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.filters.Suppress;
-import android.support.test.rule.ActivityTestRule;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
-import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapverifiers.PerPixelBitmapVerifier;
-import android.uirendering.cts.testinfrastructure.MaterialActivity;
+import android.uirendering.cts.testinfrastructure.Tracer;
 import android.uirendering.cts.util.BitmapAsserter;
+import android.uirendering.cts.util.MockVsyncHelper;
+import android.view.ContextThemeWrapper;
 import android.widget.EdgeEffect;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 
-@MediumTest
+@SmallTest
 @RunWith(AndroidJUnit4.class)
 public class EdgeEffectTests {
 
@@ -54,26 +53,26 @@ public class EdgeEffectTests {
     private static final int HEIGHT = 90;
 
     @Rule
-    public TestName name = new TestName();
-
-    @Rule
-    public ActivityTestRule<MaterialActivity> mActivityRule = new ActivityTestRule<>(
-            MaterialActivity.class);
+    public Tracer name = new Tracer();
 
     private BitmapAsserter mBitmapAsserter = new BitmapAsserter(this.getClass().getSimpleName(),
             name.getMethodName());
+
+    private Context mThemeContext;
 
     interface EdgeEffectInitializer {
         void initialize(EdgeEffect edgeEffect);
     }
 
-    private Activity getActivity() {
-        return mActivityRule.getActivity();
+    private Context getContext() {
+        return mThemeContext;
     }
 
     @Before
     public void setUp() {
-        mBitmapAsserter.setUp(getActivity());
+        final Context targetContext = InstrumentationRegistry.getTargetContext();
+        mThemeContext = new ContextThemeWrapper(targetContext,
+                android.R.style.Theme_Material_Light);
     }
 
     private static class EdgeEffectValidator extends PerPixelBitmapVerifier {
@@ -100,7 +99,7 @@ public class EdgeEffectTests {
         Bitmap bitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         canvas.drawColor(Color.BLACK);
-        EdgeEffect edgeEffect = new EdgeEffect(getActivity());
+        EdgeEffect edgeEffect = new EdgeEffect(getContext());
         edgeEffect.setSize(WIDTH, HEIGHT);
         edgeEffect.setColor(Color.RED);
         assertEquals(Color.RED, edgeEffect.getColor());
@@ -150,7 +149,7 @@ public class EdgeEffectTests {
 
     @Test
     public void testIsFinished() {
-        EdgeEffect effect = new EdgeEffect(getActivity());
+        EdgeEffect effect = new EdgeEffect(getContext());
         assertTrue(effect.isFinished());
         effect.onPull(0.5f);
         assertFalse(effect.isFinished());
@@ -158,7 +157,7 @@ public class EdgeEffectTests {
 
     @Test
     public void testFinish() {
-        EdgeEffect effect = new EdgeEffect(getActivity());
+        EdgeEffect effect = new EdgeEffect(getContext());
         effect.onPull(1);
         effect.finish();
         assertTrue(effect.isFinished());
@@ -170,14 +169,14 @@ public class EdgeEffectTests {
 
     @Test
     public void testGetColor() {
-        EdgeEffect effect = new EdgeEffect(getActivity());
+        EdgeEffect effect = new EdgeEffect(getContext());
         effect.setColor(Color.GREEN);
         assertEquals(Color.GREEN, effect.getColor());
     }
 
     @Test
     public void testGetMaxHeight() {
-        EdgeEffect edgeEffect = new EdgeEffect(getActivity());
+        EdgeEffect edgeEffect = new EdgeEffect(getContext());
         edgeEffect.setSize(200, 200);
         assertTrue(edgeEffect.getMaxHeight() <= 200 * 2 + 1);
         edgeEffect.setSize(200, 0);
@@ -191,30 +190,27 @@ public class EdgeEffectTests {
     // validates changes to the alpha of draw commands produced by EdgeEffect
     // over the course of an animation
     private void verifyAlpha(EdgeEffectInitializer initializer, AlphaVerifier alphaVerifier) {
-        Canvas canvas = mock(Canvas.class);
-        ArgumentCaptor<Paint> captor = ArgumentCaptor.forClass(Paint.class);
-        EdgeEffect edgeEffect = new EdgeEffect(getActivity());
-        edgeEffect.setSize(200, 200);
-        initializer.initialize(edgeEffect);
-        edgeEffect.draw(canvas);
-        verify(canvas).drawCircle(anyFloat(), anyFloat(), anyFloat(), captor.capture());
-        int oldAlpha = captor.getValue().getAlpha();
-        for (int i = 0; i < 3; i++) {
-            try {
-                Thread.sleep(20);
-            } catch (InterruptedException e) {
-                fail();
-            }
-            canvas = mock(Canvas.class);
+        MockVsyncHelper.runOnVsyncThread(() -> {
+            Canvas canvas = mock(Canvas.class);
+            ArgumentCaptor<Paint> captor = ArgumentCaptor.forClass(Paint.class);
+            EdgeEffect edgeEffect = new EdgeEffect(getContext());
+            edgeEffect.setSize(200, 200);
+            initializer.initialize(edgeEffect);
             edgeEffect.draw(canvas);
             verify(canvas).drawCircle(anyFloat(), anyFloat(), anyFloat(), captor.capture());
-            int newAlpha = captor.getValue().getAlpha();
-            alphaVerifier.verify(oldAlpha, newAlpha);
-            oldAlpha = newAlpha;
-        }
+            int oldAlpha = captor.getValue().getAlpha();
+            for (int i = 0; i < 3; i++) {
+                nextFrame();
+                canvas = mock(Canvas.class);
+                edgeEffect.draw(canvas);
+                verify(canvas).drawCircle(anyFloat(), anyFloat(), anyFloat(), captor.capture());
+                int newAlpha = captor.getValue().getAlpha();
+                alphaVerifier.verify(oldAlpha, newAlpha);
+                oldAlpha = newAlpha;
+            }
+        });
     }
 
-    @LargeTest
     @Test
     public void testOnAbsorb() {
         verifyAlpha(edgeEffect -> {

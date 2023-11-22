@@ -34,13 +34,17 @@ class Alignment {
     DCHECK(IsPowerOfTwo(base));
   }
 
-  // Returns true if memory is "at least" aligned at the given boundary.
+  // Returns true if memory is at least aligned at the given boundary.
   // Assumes requested base is power of two.
   bool IsAlignedAt(size_t base) const {
     DCHECK_NE(0u, base);
     DCHECK(IsPowerOfTwo(base));
     return ((offset_ | base_) & (base - 1u)) == 0;
   }
+
+  size_t Base() const { return base_; }
+
+  size_t Offset() const { return offset_; }
 
   std::string ToString() const {
     return "ALIGN(" + std::to_string(base_) + "," + std::to_string(offset_) + ")";
@@ -63,15 +67,21 @@ class Alignment {
 // GetVectorLength() x GetPackedType() operations simultaneously.
 class HVecOperation : public HVariableInputSizeInstruction {
  public:
-  HVecOperation(ArenaAllocator* arena,
-                Primitive::Type packed_type,
+  // A SIMD operation looks like a FPU location.
+  // TODO: we could introduce SIMD types in HIR.
+  static constexpr DataType::Type kSIMDType = DataType::Type::kFloat64;
+
+  HVecOperation(InstructionKind kind,
+                ArenaAllocator* allocator,
+                DataType::Type packed_type,
                 SideEffects side_effects,
                 size_t number_of_inputs,
                 size_t vector_length,
                 uint32_t dex_pc)
-      : HVariableInputSizeInstruction(side_effects,
+      : HVariableInputSizeInstruction(kind,
+                                      side_effects,
                                       dex_pc,
-                                      arena,
+                                      allocator,
                                       number_of_inputs,
                                       kArenaAllocVectorNode),
         vector_length_(vector_length) {
@@ -86,22 +96,31 @@ class HVecOperation : public HVariableInputSizeInstruction {
 
   // Returns the number of bytes in a full vector.
   size_t GetVectorNumberOfBytes() const {
-    return vector_length_ * Primitive::ComponentSize(GetPackedType());
+    return vector_length_ * DataType::Size(GetPackedType());
   }
 
-  // Returns the type of the vector operation: a SIMD operation looks like a FPU location.
-  // TODO: we could introduce SIMD types in HIR.
-  Primitive::Type GetType() const OVERRIDE {
-    return Primitive::kPrimDouble;
+  // Returns the type of the vector operation.
+  DataType::Type GetType() const OVERRIDE {
+    return kSIMDType;
   }
 
   // Returns the true component type packed in a vector.
-  Primitive::Type GetPackedType() const {
+  DataType::Type GetPackedType() const {
     return GetPackedField<TypeField>();
   }
 
   // Assumes vector nodes cannot be moved by default. Each concrete implementation
   // that can be moved should override this method and return true.
+  //
+  // Note: similar approach is used for instruction scheduling (if it is turned on for the target):
+  // by default HScheduler::IsSchedulable returns false for a particular HVecOperation.
+  // HScheduler${ARCH}::IsSchedulable can be overridden to return true for an instruction (see
+  // scheduler_arm64.h for example) if it is safe to schedule it; in this case one *must* also
+  // look at/update HScheduler${ARCH}::IsSchedulingBarrier for this instruction.
+  //
+  // Note: For newly introduced vector instructions HScheduler${ARCH}::IsSchedulingBarrier must be
+  // altered to return true if the instruction might reside outside the SIMD loop body since SIMD
+  // registers are not kept alive across vector loop boundaries (yet).
   bool CanBeMoved() const OVERRIDE { return false; }
 
   // Tests if all data of a vector node (vector length and packed type) is equal.
@@ -113,32 +132,83 @@ class HVecOperation : public HVariableInputSizeInstruction {
     return GetVectorLength() == o->GetVectorLength() && GetPackedType() == o->GetPackedType();
   }
 
+  // Maps an integral type to the same-size signed type and leaves other types alone.
+  static DataType::Type ToSignedType(DataType::Type type) {
+    switch (type) {
+      case DataType::Type::kBool:  // 1-byte storage unit
+      case DataType::Type::kUint8:
+        return DataType::Type::kInt8;
+      case DataType::Type::kUint16:
+        return DataType::Type::kInt16;
+      default:
+        DCHECK(type != DataType::Type::kVoid && type != DataType::Type::kReference) << type;
+        return type;
+    }
+  }
+
+  // Maps an integral type to the same-size unsigned type and leaves other types alone.
+  static DataType::Type ToUnsignedType(DataType::Type type) {
+    switch (type) {
+      case DataType::Type::kBool:  // 1-byte storage unit
+      case DataType::Type::kInt8:
+        return DataType::Type::kUint8;
+      case DataType::Type::kInt16:
+        return DataType::Type::kUint16;
+      default:
+        DCHECK(type != DataType::Type::kVoid && type != DataType::Type::kReference) << type;
+        return type;
+    }
+  }
+
+  // Maps an integral type to the same-size (un)signed type. Leaves other types alone.
+  static DataType::Type ToProperType(DataType::Type type, bool is_unsigned) {
+    return is_unsigned ? ToUnsignedType(type) : ToSignedType(type);
+  }
+
+  // Helper method to determine if an instruction returns a SIMD value.
+  // TODO: This method is needed until we introduce SIMD as proper type.
+  static bool ReturnsSIMDValue(HInstruction* instruction) {
+    if (instruction->IsVecOperation()) {
+      return !instruction->IsVecExtractScalar();  // only scalar returning vec op
+    } else if (instruction->IsPhi()) {
+      // Vectorizer only uses Phis in reductions, so checking for a 2-way phi
+      // with a direct vector operand as second argument suffices.
+      return
+          instruction->GetType() == kSIMDType &&
+          instruction->InputCount() == 2 &&
+          instruction->InputAt(1)->IsVecOperation();
+    }
+    return false;
+  }
+
   DECLARE_ABSTRACT_INSTRUCTION(VecOperation);
 
  protected:
   // Additional packed bits.
   static constexpr size_t kFieldType = HInstruction::kNumberOfGenericPackedBits;
   static constexpr size_t kFieldTypeSize =
-      MinimumBitsToStore(static_cast<size_t>(Primitive::kPrimLast));
+      MinimumBitsToStore(static_cast<size_t>(DataType::Type::kLast));
   static constexpr size_t kNumberOfVectorOpPackedBits = kFieldType + kFieldTypeSize;
   static_assert(kNumberOfVectorOpPackedBits <= kMaxNumberOfPackedBits, "Too many packed fields.");
-  using TypeField = BitField<Primitive::Type, kFieldType, kFieldTypeSize>;
+  using TypeField = BitField<DataType::Type, kFieldType, kFieldTypeSize>;
+
+  DEFAULT_COPY_CONSTRUCTOR(VecOperation);
 
  private:
   const size_t vector_length_;
-
-  DISALLOW_COPY_AND_ASSIGN(HVecOperation);
 };
 
 // Abstraction of a unary vector operation.
 class HVecUnaryOperation : public HVecOperation {
  public:
-  HVecUnaryOperation(ArenaAllocator* arena,
+  HVecUnaryOperation(InstructionKind kind,
+                     ArenaAllocator* allocator,
                      HInstruction* input,
-                     Primitive::Type packed_type,
+                     DataType::Type packed_type,
                      size_t vector_length,
                      uint32_t dex_pc)
-      : HVecOperation(arena,
+      : HVecOperation(kind,
+                      allocator,
                       packed_type,
                       SideEffects::None(),
                       /* number_of_inputs */ 1,
@@ -151,20 +221,22 @@ class HVecUnaryOperation : public HVecOperation {
 
   DECLARE_ABSTRACT_INSTRUCTION(VecUnaryOperation);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecUnaryOperation);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecUnaryOperation);
 };
 
 // Abstraction of a binary vector operation.
 class HVecBinaryOperation : public HVecOperation {
  public:
-  HVecBinaryOperation(ArenaAllocator* arena,
+  HVecBinaryOperation(InstructionKind kind,
+                      ArenaAllocator* allocator,
                       HInstruction* left,
                       HInstruction* right,
-                      Primitive::Type packed_type,
+                      DataType::Type packed_type,
                       size_t vector_length,
                       uint32_t dex_pc)
-      : HVecOperation(arena,
+      : HVecOperation(kind,
+                      allocator,
                       packed_type,
                       SideEffects::None(),
                       /* number_of_inputs */ 2,
@@ -179,23 +251,29 @@ class HVecBinaryOperation : public HVecOperation {
 
   DECLARE_ABSTRACT_INSTRUCTION(VecBinaryOperation);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecBinaryOperation);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecBinaryOperation);
 };
 
 // Abstraction of a vector operation that references memory, with an alignment.
-// The Android runtime guarantees at least "component size" alignment for array
-// elements and, thus, vectors.
+// The Android runtime guarantees elements have at least natural alignment.
 class HVecMemoryOperation : public HVecOperation {
  public:
-  HVecMemoryOperation(ArenaAllocator* arena,
-                      Primitive::Type packed_type,
+  HVecMemoryOperation(InstructionKind kind,
+                      ArenaAllocator* allocator,
+                      DataType::Type packed_type,
                       SideEffects side_effects,
                       size_t number_of_inputs,
                       size_t vector_length,
                       uint32_t dex_pc)
-      : HVecOperation(arena, packed_type, side_effects, number_of_inputs, vector_length, dex_pc),
-        alignment_(Primitive::ComponentSize(packed_type), 0) {
+      : HVecOperation(kind,
+                      allocator,
+                      packed_type,
+                      side_effects,
+                      number_of_inputs,
+                      vector_length,
+                      dex_pc),
+        alignment_(DataType::Size(packed_type), 0) {
     DCHECK_GE(number_of_inputs, 2u);
   }
 
@@ -214,28 +292,25 @@ class HVecMemoryOperation : public HVecOperation {
 
   DECLARE_ABSTRACT_INSTRUCTION(VecMemoryOperation);
 
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecMemoryOperation);
+
  private:
   Alignment alignment_;
-
-  DISALLOW_COPY_AND_ASSIGN(HVecMemoryOperation);
 };
 
-// Packed type consistency checker (same vector length integral types may mix freely).
-inline static bool HasConsistentPackedTypes(HInstruction* input, Primitive::Type type) {
-  DCHECK(input->IsVecOperation());
-  Primitive::Type input_type = input->AsVecOperation()->GetPackedType();
-  switch (input_type) {
-    case Primitive::kPrimBoolean:
-    case Primitive::kPrimByte:
-      return type == Primitive::kPrimBoolean ||
-             type == Primitive::kPrimByte;
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
-      return type == Primitive::kPrimChar ||
-             type == Primitive::kPrimShort;
-    default:
-      return type == input_type;
+// Packed type consistency checker ("same vector length" integral types may mix freely).
+// Tests relaxed type consistency in which packed same-size integral types can co-exist,
+// but other type mixes are an error.
+inline static bool HasConsistentPackedTypes(HInstruction* input, DataType::Type type) {
+  if (input->IsPhi()) {
+    return input->GetType() == HVecOperation::kSIMDType;  // carries SIMD
   }
+  DCHECK(input->IsVecOperation());
+  DataType::Type input_type = input->AsVecOperation()->GetPackedType();
+  DCHECK_EQ(HVecOperation::ToUnsignedType(input_type) == HVecOperation::ToUnsignedType(type),
+            HVecOperation::ToSignedType(input_type) == HVecOperation::ToSignedType(type));
+  return HVecOperation::ToSignedType(input_type) == HVecOperation::ToSignedType(type);
 }
 
 //
@@ -246,13 +321,14 @@ inline static bool HasConsistentPackedTypes(HInstruction* input, Primitive::Type
 // viz. replicate(x) = [ x, .. , x ].
 class HVecReplicateScalar FINAL : public HVecUnaryOperation {
  public:
-  HVecReplicateScalar(ArenaAllocator* arena,
+  HVecReplicateScalar(ArenaAllocator* allocator,
                       HInstruction* scalar,
-                      Primitive::Type packed_type,
+                      DataType::Type packed_type,
                       size_t vector_length,
-                      uint32_t dex_pc = kNoDexPc)
-      : HVecUnaryOperation(arena, scalar, packed_type, vector_length, dex_pc) {
-    DCHECK(!scalar->IsVecOperation());
+                      uint32_t dex_pc)
+      : HVecUnaryOperation(
+            kVecReplicateScalar, allocator, scalar, packed_type, vector_length, dex_pc) {
+    DCHECK(!ReturnsSIMDValue(scalar));
   }
 
   // A replicate needs to stay in place, since SIMD registers are not
@@ -261,68 +337,120 @@ class HVecReplicateScalar FINAL : public HVecUnaryOperation {
 
   DECLARE_INSTRUCTION(VecReplicateScalar);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecReplicateScalar);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecReplicateScalar);
 };
 
-// Sum-reduces the given vector into a shorter vector (m < n) or scalar (m = 1),
-// viz. sum-reduce[ x1, .. , xn ] = [ y1, .., ym ], where yi = sum_j x_j.
-class HVecSumReduce FINAL : public HVecUnaryOperation {
-  HVecSumReduce(ArenaAllocator* arena,
-                HInstruction* input,
-                Primitive::Type packed_type,
-                size_t vector_length,
-                uint32_t dex_pc = kNoDexPc)
-      : HVecUnaryOperation(arena, input, packed_type, vector_length, dex_pc) {
+// Extracts a particular scalar from the given vector,
+// viz. extract[ x1, .. , xn ] = x_i.
+//
+// TODO: for now only i == 1 case supported.
+class HVecExtractScalar FINAL : public HVecUnaryOperation {
+ public:
+  HVecExtractScalar(ArenaAllocator* allocator,
+                    HInstruction* input,
+                    DataType::Type packed_type,
+                    size_t vector_length,
+                    size_t index,
+                    uint32_t dex_pc)
+      : HVecUnaryOperation(
+            kVecExtractScalar, allocator, input, packed_type, vector_length, dex_pc) {
+    DCHECK(HasConsistentPackedTypes(input, packed_type));
+    DCHECK_LT(index, vector_length);
+    DCHECK_EQ(index, 0u);
+  }
+
+  // Yields a single component in the vector.
+  DataType::Type GetType() const OVERRIDE {
+    return GetPackedType();
+  }
+
+  // An extract needs to stay in place, since SIMD registers are not
+  // kept alive across vector loop boundaries (yet).
+  bool CanBeMoved() const OVERRIDE { return false; }
+
+  DECLARE_INSTRUCTION(VecExtractScalar);
+
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecExtractScalar);
+};
+
+// Reduces the given vector into the first element as sum/min/max,
+// viz. sum-reduce[ x1, .. , xn ] = [ y, ---- ], where y = sum xi
+// and the "-" denotes "don't care" (implementation dependent).
+class HVecReduce FINAL : public HVecUnaryOperation {
+ public:
+  enum ReductionKind {
+    kSum = 1,
+    kMin = 2,
+    kMax = 3
+  };
+
+  HVecReduce(ArenaAllocator* allocator,
+             HInstruction* input,
+             DataType::Type packed_type,
+             size_t vector_length,
+             ReductionKind kind,
+             uint32_t dex_pc)
+      : HVecUnaryOperation(kVecReduce, allocator, input, packed_type, vector_length, dex_pc),
+        kind_(kind) {
     DCHECK(HasConsistentPackedTypes(input, packed_type));
   }
 
-  // TODO: probably integral promotion
-  Primitive::Type GetType() const OVERRIDE { return GetPackedType(); }
+  ReductionKind GetKind() const { return kind_; }
 
   bool CanBeMoved() const OVERRIDE { return true; }
 
-  DECLARE_INSTRUCTION(VecSumReduce);
+  bool InstructionDataEquals(const HInstruction* other) const OVERRIDE {
+    DCHECK(other->IsVecReduce());
+    const HVecReduce* o = other->AsVecReduce();
+    return HVecOperation::InstructionDataEquals(o) && GetKind() == o->GetKind();
+  }
+
+  DECLARE_INSTRUCTION(VecReduce);
+
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecReduce);
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(HVecSumReduce);
+  const ReductionKind kind_;
 };
 
 // Converts every component in the vector,
 // viz. cnv[ x1, .. , xn ]  = [ cnv(x1), .. , cnv(xn) ].
 class HVecCnv FINAL : public HVecUnaryOperation {
  public:
-  HVecCnv(ArenaAllocator* arena,
+  HVecCnv(ArenaAllocator* allocator,
           HInstruction* input,
-          Primitive::Type packed_type,
+          DataType::Type packed_type,
           size_t vector_length,
-          uint32_t dex_pc = kNoDexPc)
-      : HVecUnaryOperation(arena, input, packed_type, vector_length, dex_pc) {
+          uint32_t dex_pc)
+      : HVecUnaryOperation(kVecCnv, allocator, input, packed_type, vector_length, dex_pc) {
     DCHECK(input->IsVecOperation());
     DCHECK_NE(GetInputType(), GetResultType());  // actual convert
   }
 
-  Primitive::Type GetInputType() const { return InputAt(0)->AsVecOperation()->GetPackedType(); }
-  Primitive::Type GetResultType() const { return GetPackedType(); }
+  DataType::Type GetInputType() const { return InputAt(0)->AsVecOperation()->GetPackedType(); }
+  DataType::Type GetResultType() const { return GetPackedType(); }
 
   bool CanBeMoved() const OVERRIDE { return true; }
 
   DECLARE_INSTRUCTION(VecCnv);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecCnv);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecCnv);
 };
 
 // Negates every component in the vector,
 // viz. neg[ x1, .. , xn ]  = [ -x1, .. , -xn ].
 class HVecNeg FINAL : public HVecUnaryOperation {
  public:
-  HVecNeg(ArenaAllocator* arena,
+  HVecNeg(ArenaAllocator* allocator,
           HInstruction* input,
-          Primitive::Type packed_type,
+          DataType::Type packed_type,
           size_t vector_length,
-          uint32_t dex_pc = kNoDexPc)
-      : HVecUnaryOperation(arena, input, packed_type, vector_length, dex_pc) {
+          uint32_t dex_pc)
+      : HVecUnaryOperation(kVecNeg, allocator, input, packed_type, vector_length, dex_pc) {
     DCHECK(HasConsistentPackedTypes(input, packed_type));
   }
 
@@ -330,20 +458,21 @@ class HVecNeg FINAL : public HVecUnaryOperation {
 
   DECLARE_INSTRUCTION(VecNeg);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecNeg);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecNeg);
 };
 
 // Takes absolute value of every component in the vector,
-// viz. abs[ x1, .. , xn ]  = [ |x1|, .. , |xn| ].
+// viz. abs[ x1, .. , xn ]  = [ |x1|, .. , |xn| ]
+// for signed operand x.
 class HVecAbs FINAL : public HVecUnaryOperation {
  public:
-  HVecAbs(ArenaAllocator* arena,
+  HVecAbs(ArenaAllocator* allocator,
           HInstruction* input,
-          Primitive::Type packed_type,
+          DataType::Type packed_type,
           size_t vector_length,
-          uint32_t dex_pc = kNoDexPc)
-      : HVecUnaryOperation(arena, input, packed_type, vector_length, dex_pc) {
+          uint32_t dex_pc)
+      : HVecUnaryOperation(kVecAbs, allocator, input, packed_type, vector_length, dex_pc) {
     DCHECK(HasConsistentPackedTypes(input, packed_type));
   }
 
@@ -351,8 +480,8 @@ class HVecAbs FINAL : public HVecUnaryOperation {
 
   DECLARE_INSTRUCTION(VecAbs);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecAbs);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecAbs);
 };
 
 // Bitwise- or boolean-nots every component in the vector,
@@ -360,12 +489,12 @@ class HVecAbs FINAL : public HVecUnaryOperation {
 //      not[ x1, .. , xn ]  = [ !x1, .. , !xn ] for boolean.
 class HVecNot FINAL : public HVecUnaryOperation {
  public:
-  HVecNot(ArenaAllocator* arena,
+  HVecNot(ArenaAllocator* allocator,
           HInstruction* input,
-          Primitive::Type packed_type,
+          DataType::Type packed_type,
           size_t vector_length,
-          uint32_t dex_pc = kNoDexPc)
-      : HVecUnaryOperation(arena, input, packed_type, vector_length, dex_pc) {
+          uint32_t dex_pc)
+      : HVecUnaryOperation(kVecNot, allocator, input, packed_type, vector_length, dex_pc) {
     DCHECK(input->IsVecOperation());
   }
 
@@ -373,8 +502,8 @@ class HVecNot FINAL : public HVecUnaryOperation {
 
   DECLARE_INSTRUCTION(VecNot);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecNot);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecNot);
 };
 
 //
@@ -385,13 +514,13 @@ class HVecNot FINAL : public HVecUnaryOperation {
 // viz. [ x1, .. , xn ] + [ y1, .. , yn ] = [ x1 + y1, .. , xn + yn ].
 class HVecAdd FINAL : public HVecBinaryOperation {
  public:
-  HVecAdd(ArenaAllocator* arena,
+  HVecAdd(ArenaAllocator* allocator,
           HInstruction* left,
           HInstruction* right,
-          Primitive::Type packed_type,
+          DataType::Type packed_type,
           size_t vector_length,
-          uint32_t dex_pc = kNoDexPc)
-      : HVecBinaryOperation(arena, left, right, packed_type, vector_length, dex_pc) {
+          uint32_t dex_pc)
+      : HVecBinaryOperation(kVecAdd, allocator, left, right, packed_type, vector_length, dex_pc) {
     DCHECK(HasConsistentPackedTypes(left, packed_type));
     DCHECK(HasConsistentPackedTypes(right, packed_type));
   }
@@ -400,32 +529,30 @@ class HVecAdd FINAL : public HVecBinaryOperation {
 
   DECLARE_INSTRUCTION(VecAdd);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecAdd);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecAdd);
 };
 
 // Performs halving add on every component in the two vectors, viz.
-// rounded [ x1, .. , xn ] hradd [ y1, .. , yn ] = [ (x1 + y1 + 1) >> 1, .. , (xn + yn + 1) >> 1 ]
-// or      [ x1, .. , xn ] hadd  [ y1, .. , yn ] = [ (x1 + y1)     >> 1, .. , (xn + yn )    >> 1 ]
-// for signed operands x, y (sign extension) or unsigned operands x, y (zero extension).
+// rounded   [ x1, .. , xn ] hradd [ y1, .. , yn ] = [ (x1 + y1 + 1) >> 1, .. , (xn + yn + 1) >> 1 ]
+// truncated [ x1, .. , xn ] hadd  [ y1, .. , yn ] = [ (x1 + y1)     >> 1, .. , (xn + yn )    >> 1 ]
+// for either both signed or both unsigned operands x, y (reflected in packed_type).
 class HVecHalvingAdd FINAL : public HVecBinaryOperation {
  public:
-  HVecHalvingAdd(ArenaAllocator* arena,
+  HVecHalvingAdd(ArenaAllocator* allocator,
                  HInstruction* left,
                  HInstruction* right,
-                 Primitive::Type packed_type,
+                 DataType::Type packed_type,
                  size_t vector_length,
-                 bool is_unsigned,
                  bool is_rounded,
-                 uint32_t dex_pc = kNoDexPc)
-      : HVecBinaryOperation(arena, left, right, packed_type, vector_length, dex_pc) {
+                 uint32_t dex_pc)
+      : HVecBinaryOperation(
+            kVecHalvingAdd, allocator, left, right, packed_type, vector_length, dex_pc) {
     DCHECK(HasConsistentPackedTypes(left, packed_type));
     DCHECK(HasConsistentPackedTypes(right, packed_type));
-    SetPackedFlag<kFieldHAddIsUnsigned>(is_unsigned);
     SetPackedFlag<kFieldHAddIsRounded>(is_rounded);
   }
 
-  bool IsUnsigned() const { return GetPackedFlag<kFieldHAddIsUnsigned>(); }
   bool IsRounded() const { return GetPackedFlag<kFieldHAddIsRounded>(); }
 
   bool CanBeMoved() const OVERRIDE { return true; }
@@ -433,34 +560,32 @@ class HVecHalvingAdd FINAL : public HVecBinaryOperation {
   bool InstructionDataEquals(const HInstruction* other) const OVERRIDE {
     DCHECK(other->IsVecHalvingAdd());
     const HVecHalvingAdd* o = other->AsVecHalvingAdd();
-    return HVecOperation::InstructionDataEquals(o) &&
-        IsUnsigned() == o->IsUnsigned() &&
-        IsRounded() == o->IsRounded();
+    return HVecOperation::InstructionDataEquals(o) && IsRounded() == o->IsRounded();
   }
 
   DECLARE_INSTRUCTION(VecHalvingAdd);
 
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecHalvingAdd);
+
  private:
   // Additional packed bits.
-  static constexpr size_t kFieldHAddIsUnsigned = HVecOperation::kNumberOfVectorOpPackedBits;
-  static constexpr size_t kFieldHAddIsRounded = kFieldHAddIsUnsigned + 1;
+  static constexpr size_t kFieldHAddIsRounded = HVecOperation::kNumberOfVectorOpPackedBits;
   static constexpr size_t kNumberOfHAddPackedBits = kFieldHAddIsRounded + 1;
   static_assert(kNumberOfHAddPackedBits <= kMaxNumberOfPackedBits, "Too many packed fields.");
-
-  DISALLOW_COPY_AND_ASSIGN(HVecHalvingAdd);
 };
 
 // Subtracts every component in the two vectors,
 // viz. [ x1, .. , xn ] - [ y1, .. , yn ] = [ x1 - y1, .. , xn - yn ].
 class HVecSub FINAL : public HVecBinaryOperation {
  public:
-  HVecSub(ArenaAllocator* arena,
+  HVecSub(ArenaAllocator* allocator,
           HInstruction* left,
           HInstruction* right,
-          Primitive::Type packed_type,
+          DataType::Type packed_type,
           size_t vector_length,
-          uint32_t dex_pc = kNoDexPc)
-      : HVecBinaryOperation(arena, left, right, packed_type, vector_length, dex_pc) {
+          uint32_t dex_pc)
+      : HVecBinaryOperation(kVecSub, allocator, left, right, packed_type, vector_length, dex_pc) {
     DCHECK(HasConsistentPackedTypes(left, packed_type));
     DCHECK(HasConsistentPackedTypes(right, packed_type));
   }
@@ -469,21 +594,21 @@ class HVecSub FINAL : public HVecBinaryOperation {
 
   DECLARE_INSTRUCTION(VecSub);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecSub);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecSub);
 };
 
 // Multiplies every component in the two vectors,
 // viz. [ x1, .. , xn ] * [ y1, .. , yn ] = [ x1 * y1, .. , xn * yn ].
 class HVecMul FINAL : public HVecBinaryOperation {
  public:
-  HVecMul(ArenaAllocator* arena,
+  HVecMul(ArenaAllocator* allocator,
           HInstruction* left,
           HInstruction* right,
-          Primitive::Type packed_type,
+          DataType::Type packed_type,
           size_t vector_length,
-          uint32_t dex_pc = kNoDexPc)
-      : HVecBinaryOperation(arena, left, right, packed_type, vector_length, dex_pc) {
+          uint32_t dex_pc)
+      : HVecBinaryOperation(kVecMul, allocator, left, right, packed_type, vector_length, dex_pc) {
     DCHECK(HasConsistentPackedTypes(left, packed_type));
     DCHECK(HasConsistentPackedTypes(right, packed_type));
   }
@@ -492,21 +617,21 @@ class HVecMul FINAL : public HVecBinaryOperation {
 
   DECLARE_INSTRUCTION(VecMul);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecMul);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecMul);
 };
 
 // Divides every component in the two vectors,
 // viz. [ x1, .. , xn ] / [ y1, .. , yn ] = [ x1 / y1, .. , xn / yn ].
 class HVecDiv FINAL : public HVecBinaryOperation {
  public:
-  HVecDiv(ArenaAllocator* arena,
+  HVecDiv(ArenaAllocator* allocator,
           HInstruction* left,
           HInstruction* right,
-          Primitive::Type packed_type,
+          DataType::Type packed_type,
           size_t vector_length,
-          uint32_t dex_pc = kNoDexPc)
-      : HVecBinaryOperation(arena, left, right, packed_type, vector_length, dex_pc) {
+          uint32_t dex_pc)
+      : HVecBinaryOperation(kVecDiv, allocator, left, right, packed_type, vector_length, dex_pc) {
     DCHECK(HasConsistentPackedTypes(left, packed_type));
     DCHECK(HasConsistentPackedTypes(right, packed_type));
   }
@@ -515,97 +640,69 @@ class HVecDiv FINAL : public HVecBinaryOperation {
 
   DECLARE_INSTRUCTION(VecDiv);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecDiv);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecDiv);
 };
 
 // Takes minimum of every component in the two vectors,
-// viz. MIN( [ x1, .. , xn ] , [ y1, .. , yn ]) = [ min(x1, y1), .. , min(xn, yn) ].
+// viz. MIN( [ x1, .. , xn ] , [ y1, .. , yn ]) = [ min(x1, y1), .. , min(xn, yn) ]
+// for either both signed or both unsigned operands x, y (reflected in packed_type).
 class HVecMin FINAL : public HVecBinaryOperation {
  public:
-  HVecMin(ArenaAllocator* arena,
+  HVecMin(ArenaAllocator* allocator,
           HInstruction* left,
           HInstruction* right,
-          Primitive::Type packed_type,
+          DataType::Type packed_type,
           size_t vector_length,
-          bool is_unsigned,
-          uint32_t dex_pc = kNoDexPc)
-      : HVecBinaryOperation(arena, left, right, packed_type, vector_length, dex_pc) {
+          uint32_t dex_pc)
+      : HVecBinaryOperation(kVecMin, allocator, left, right, packed_type, vector_length, dex_pc) {
     DCHECK(HasConsistentPackedTypes(left, packed_type));
     DCHECK(HasConsistentPackedTypes(right, packed_type));
-    SetPackedFlag<kFieldMinOpIsUnsigned>(is_unsigned);
   }
-
-  bool IsUnsigned() const { return GetPackedFlag<kFieldMinOpIsUnsigned>(); }
 
   bool CanBeMoved() const OVERRIDE { return true; }
-
-  bool InstructionDataEquals(const HInstruction* other) const OVERRIDE {
-    DCHECK(other->IsVecMin());
-    const HVecMin* o = other->AsVecMin();
-    return HVecOperation::InstructionDataEquals(o) && IsUnsigned() == o->IsUnsigned();
-  }
 
   DECLARE_INSTRUCTION(VecMin);
 
- private:
-  // Additional packed bits.
-  static constexpr size_t kFieldMinOpIsUnsigned = HVecOperation::kNumberOfVectorOpPackedBits;
-  static constexpr size_t kNumberOfMinOpPackedBits = kFieldMinOpIsUnsigned + 1;
-  static_assert(kNumberOfMinOpPackedBits <= kMaxNumberOfPackedBits, "Too many packed fields.");
-
-  DISALLOW_COPY_AND_ASSIGN(HVecMin);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecMin);
 };
 
 // Takes maximum of every component in the two vectors,
-// viz. MAX( [ x1, .. , xn ] , [ y1, .. , yn ]) = [ max(x1, y1), .. , max(xn, yn) ].
+// viz. MAX( [ x1, .. , xn ] , [ y1, .. , yn ]) = [ max(x1, y1), .. , max(xn, yn) ]
+// for either both signed or both unsigned operands x, y (reflected in packed_type).
 class HVecMax FINAL : public HVecBinaryOperation {
  public:
-  HVecMax(ArenaAllocator* arena,
+  HVecMax(ArenaAllocator* allocator,
           HInstruction* left,
           HInstruction* right,
-          Primitive::Type packed_type,
+          DataType::Type packed_type,
           size_t vector_length,
-          bool is_unsigned,
-          uint32_t dex_pc = kNoDexPc)
-      : HVecBinaryOperation(arena, left, right, packed_type, vector_length, dex_pc) {
+          uint32_t dex_pc)
+      : HVecBinaryOperation(kVecMax, allocator, left, right, packed_type, vector_length, dex_pc) {
     DCHECK(HasConsistentPackedTypes(left, packed_type));
     DCHECK(HasConsistentPackedTypes(right, packed_type));
-    SetPackedFlag<kFieldMaxOpIsUnsigned>(is_unsigned);
   }
-
-  bool IsUnsigned() const { return GetPackedFlag<kFieldMaxOpIsUnsigned>(); }
 
   bool CanBeMoved() const OVERRIDE { return true; }
 
-  bool InstructionDataEquals(const HInstruction* other) const OVERRIDE {
-    DCHECK(other->IsVecMax());
-    const HVecMax* o = other->AsVecMax();
-    return HVecOperation::InstructionDataEquals(o) && IsUnsigned() == o->IsUnsigned();
-  }
-
   DECLARE_INSTRUCTION(VecMax);
 
- private:
-  // Additional packed bits.
-  static constexpr size_t kFieldMaxOpIsUnsigned = HVecOperation::kNumberOfVectorOpPackedBits;
-  static constexpr size_t kNumberOfMaxOpPackedBits = kFieldMaxOpIsUnsigned + 1;
-  static_assert(kNumberOfMaxOpPackedBits <= kMaxNumberOfPackedBits, "Too many packed fields.");
-
-  DISALLOW_COPY_AND_ASSIGN(HVecMax);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecMax);
 };
 
 // Bitwise-ands every component in the two vectors,
 // viz. [ x1, .. , xn ] & [ y1, .. , yn ] = [ x1 & y1, .. , xn & yn ].
 class HVecAnd FINAL : public HVecBinaryOperation {
  public:
-  HVecAnd(ArenaAllocator* arena,
+  HVecAnd(ArenaAllocator* allocator,
           HInstruction* left,
           HInstruction* right,
-          Primitive::Type packed_type,
+          DataType::Type packed_type,
           size_t vector_length,
-          uint32_t dex_pc = kNoDexPc)
-      : HVecBinaryOperation(arena, left, right, packed_type, vector_length, dex_pc) {
+          uint32_t dex_pc)
+      : HVecBinaryOperation(kVecAnd, allocator, left, right, packed_type, vector_length, dex_pc) {
     DCHECK(left->IsVecOperation() && right->IsVecOperation());
   }
 
@@ -613,21 +710,22 @@ class HVecAnd FINAL : public HVecBinaryOperation {
 
   DECLARE_INSTRUCTION(VecAnd);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecAnd);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecAnd);
 };
 
 // Bitwise-and-nots every component in the two vectors,
 // viz. [ x1, .. , xn ] and-not [ y1, .. , yn ] = [ ~x1 & y1, .. , ~xn & yn ].
 class HVecAndNot FINAL : public HVecBinaryOperation {
  public:
-  HVecAndNot(ArenaAllocator* arena,
+  HVecAndNot(ArenaAllocator* allocator,
              HInstruction* left,
              HInstruction* right,
-             Primitive::Type packed_type,
+             DataType::Type packed_type,
              size_t vector_length,
-             uint32_t dex_pc = kNoDexPc)
-         : HVecBinaryOperation(arena, left, right, packed_type, vector_length, dex_pc) {
+             uint32_t dex_pc)
+         : HVecBinaryOperation(
+               kVecAndNot, allocator, left, right, packed_type, vector_length, dex_pc) {
     DCHECK(left->IsVecOperation() && right->IsVecOperation());
   }
 
@@ -635,21 +733,21 @@ class HVecAndNot FINAL : public HVecBinaryOperation {
 
   DECLARE_INSTRUCTION(VecAndNot);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecAndNot);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecAndNot);
 };
 
 // Bitwise-ors every component in the two vectors,
 // viz. [ x1, .. , xn ] | [ y1, .. , yn ] = [ x1 | y1, .. , xn | yn ].
 class HVecOr FINAL : public HVecBinaryOperation {
  public:
-  HVecOr(ArenaAllocator* arena,
+  HVecOr(ArenaAllocator* allocator,
          HInstruction* left,
          HInstruction* right,
-         Primitive::Type packed_type,
+         DataType::Type packed_type,
          size_t vector_length,
-         uint32_t dex_pc = kNoDexPc)
-      : HVecBinaryOperation(arena, left, right, packed_type, vector_length, dex_pc) {
+         uint32_t dex_pc)
+      : HVecBinaryOperation(kVecOr, allocator, left, right, packed_type, vector_length, dex_pc) {
     DCHECK(left->IsVecOperation() && right->IsVecOperation());
   }
 
@@ -657,21 +755,21 @@ class HVecOr FINAL : public HVecBinaryOperation {
 
   DECLARE_INSTRUCTION(VecOr);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecOr);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecOr);
 };
 
 // Bitwise-xors every component in the two vectors,
 // viz. [ x1, .. , xn ] ^ [ y1, .. , yn ] = [ x1 ^ y1, .. , xn ^ yn ].
 class HVecXor FINAL : public HVecBinaryOperation {
  public:
-  HVecXor(ArenaAllocator* arena,
+  HVecXor(ArenaAllocator* allocator,
           HInstruction* left,
           HInstruction* right,
-          Primitive::Type packed_type,
+          DataType::Type packed_type,
           size_t vector_length,
-          uint32_t dex_pc = kNoDexPc)
-      : HVecBinaryOperation(arena, left, right, packed_type, vector_length, dex_pc) {
+          uint32_t dex_pc)
+      : HVecBinaryOperation(kVecXor, allocator, left, right, packed_type, vector_length, dex_pc) {
     DCHECK(left->IsVecOperation() && right->IsVecOperation());
   }
 
@@ -679,21 +777,21 @@ class HVecXor FINAL : public HVecBinaryOperation {
 
   DECLARE_INSTRUCTION(VecXor);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecXor);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecXor);
 };
 
 // Logically shifts every component in the vector left by the given distance,
 // viz. [ x1, .. , xn ] << d = [ x1 << d, .. , xn << d ].
 class HVecShl FINAL : public HVecBinaryOperation {
  public:
-  HVecShl(ArenaAllocator* arena,
+  HVecShl(ArenaAllocator* allocator,
           HInstruction* left,
           HInstruction* right,
-          Primitive::Type packed_type,
+          DataType::Type packed_type,
           size_t vector_length,
-          uint32_t dex_pc = kNoDexPc)
-      : HVecBinaryOperation(arena, left, right, packed_type, vector_length, dex_pc) {
+          uint32_t dex_pc)
+      : HVecBinaryOperation(kVecShl, allocator, left, right, packed_type, vector_length, dex_pc) {
     DCHECK(HasConsistentPackedTypes(left, packed_type));
   }
 
@@ -701,21 +799,21 @@ class HVecShl FINAL : public HVecBinaryOperation {
 
   DECLARE_INSTRUCTION(VecShl);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecShl);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecShl);
 };
 
 // Arithmetically shifts every component in the vector right by the given distance,
 // viz. [ x1, .. , xn ] >> d = [ x1 >> d, .. , xn >> d ].
 class HVecShr FINAL : public HVecBinaryOperation {
  public:
-  HVecShr(ArenaAllocator* arena,
+  HVecShr(ArenaAllocator* allocator,
           HInstruction* left,
           HInstruction* right,
-          Primitive::Type packed_type,
+          DataType::Type packed_type,
           size_t vector_length,
-          uint32_t dex_pc = kNoDexPc)
-      : HVecBinaryOperation(arena, left, right, packed_type, vector_length, dex_pc) {
+          uint32_t dex_pc)
+      : HVecBinaryOperation(kVecShr, allocator, left, right, packed_type, vector_length, dex_pc) {
     DCHECK(HasConsistentPackedTypes(left, packed_type));
   }
 
@@ -723,21 +821,21 @@ class HVecShr FINAL : public HVecBinaryOperation {
 
   DECLARE_INSTRUCTION(VecShr);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecShr);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecShr);
 };
 
 // Logically shifts every component in the vector right by the given distance,
 // viz. [ x1, .. , xn ] >>> d = [ x1 >>> d, .. , xn >>> d ].
 class HVecUShr FINAL : public HVecBinaryOperation {
  public:
-  HVecUShr(ArenaAllocator* arena,
+  HVecUShr(ArenaAllocator* allocator,
            HInstruction* left,
            HInstruction* right,
-           Primitive::Type packed_type,
+           DataType::Type packed_type,
            size_t vector_length,
-           uint32_t dex_pc = kNoDexPc)
-      : HVecBinaryOperation(arena, left, right, packed_type, vector_length, dex_pc) {
+           uint32_t dex_pc)
+      : HVecBinaryOperation(kVecUShr, allocator, left, right, packed_type, vector_length, dex_pc) {
     DCHECK(HasConsistentPackedTypes(left, packed_type));
   }
 
@@ -745,8 +843,8 @@ class HVecUShr FINAL : public HVecBinaryOperation {
 
   DECLARE_INSTRUCTION(VecUShr);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecUShr);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecUShr);
 };
 
 //
@@ -754,21 +852,25 @@ class HVecUShr FINAL : public HVecBinaryOperation {
 //
 
 // Assigns the given scalar elements to a vector,
-// viz. set( array(x1, .., xn) ) = [ x1, .. , xn ].
+// viz. set( array(x1, .. , xn) ) = [ x1, .. ,            xn ] if n == m,
+//      set( array(x1, .. , xm) ) = [ x1, .. , xm, 0, .. , 0 ] if m <  n.
 class HVecSetScalars FINAL : public HVecOperation {
-  HVecSetScalars(ArenaAllocator* arena,
-                 HInstruction** scalars,  // array
-                 Primitive::Type packed_type,
+ public:
+  HVecSetScalars(ArenaAllocator* allocator,
+                 HInstruction* scalars[],
+                 DataType::Type packed_type,
                  size_t vector_length,
-                 uint32_t dex_pc = kNoDexPc)
-      : HVecOperation(arena,
+                 size_t number_of_scalars,
+                 uint32_t dex_pc)
+      : HVecOperation(kVecSetScalars,
+                      allocator,
                       packed_type,
                       SideEffects::None(),
-                      /* number_of_inputs */ vector_length,
+                      number_of_scalars,
                       vector_length,
                       dex_pc) {
-    for (size_t i = 0; i < vector_length; i++) {
-      DCHECK(!scalars[i]->IsVecOperation());
+    for (size_t i = 0; i < number_of_scalars; i++) {
+      DCHECK(!ReturnsSIMDValue(scalars[i]));
       SetRawInputAt(0, scalars[i]);
     }
   }
@@ -779,24 +881,24 @@ class HVecSetScalars FINAL : public HVecOperation {
 
   DECLARE_INSTRUCTION(VecSetScalars);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecSetScalars);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecSetScalars);
 };
 
-// Multiplies every component in the two vectors, adds the result vector to the accumulator vector.
-// viz. [ acc1, .., accn ] + [ x1, .. , xn ] * [ y1, .. , yn ] =
-//     [ acc1 + x1 * y1, .. , accn + xn * yn ].
+// Multiplies every component in the two vectors, adds the result vector to the accumulator vector,
+// viz. [ a1, .. , an ] + [ x1, .. , xn ] * [ y1, .. , yn ] = [ a1 + x1 * y1, .. , an + xn * yn ].
 class HVecMultiplyAccumulate FINAL : public HVecOperation {
  public:
-  HVecMultiplyAccumulate(ArenaAllocator* arena,
+  HVecMultiplyAccumulate(ArenaAllocator* allocator,
                          InstructionKind op,
                          HInstruction* accumulator,
                          HInstruction* mul_left,
                          HInstruction* mul_right,
-                         Primitive::Type packed_type,
+                         DataType::Type packed_type,
                          size_t vector_length,
-                         uint32_t dex_pc = kNoDexPc)
-      : HVecOperation(arena,
+                         uint32_t dex_pc)
+      : HVecOperation(kVecMultiplyAccumulate,
+                      allocator,
                       packed_type,
                       SideEffects::None(),
                       /* number_of_inputs */ 3,
@@ -807,14 +909,10 @@ class HVecMultiplyAccumulate FINAL : public HVecOperation {
     DCHECK(HasConsistentPackedTypes(accumulator, packed_type));
     DCHECK(HasConsistentPackedTypes(mul_left, packed_type));
     DCHECK(HasConsistentPackedTypes(mul_right, packed_type));
-    SetRawInputAt(kInputAccumulatorIndex, accumulator);
-    SetRawInputAt(kInputMulLeftIndex, mul_left);
-    SetRawInputAt(kInputMulRightIndex, mul_right);
+    SetRawInputAt(0, accumulator);
+    SetRawInputAt(1, mul_left);
+    SetRawInputAt(2, mul_right);
   }
-
-  static constexpr int kInputAccumulatorIndex = 0;
-  static constexpr int kInputMulLeftIndex = 1;
-  static constexpr int kInputMulRightIndex = 2;
 
   bool CanBeMoved() const OVERRIDE { return true; }
 
@@ -828,27 +926,67 @@ class HVecMultiplyAccumulate FINAL : public HVecOperation {
 
   DECLARE_INSTRUCTION(VecMultiplyAccumulate);
 
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecMultiplyAccumulate);
+
  private:
   // Indicates if this is a MADD or MSUB.
   const InstructionKind op_kind_;
+};
 
-  DISALLOW_COPY_AND_ASSIGN(HVecMultiplyAccumulate);
+// Takes the absolute difference of two vectors, and adds the results to
+// same-precision or wider-precision components in the accumulator,
+// viz. SAD([ a1, .. , am ], [ x1, .. , xn ], [ y1, .. , yn ]) =
+//          [ a1 + sum abs(xi-yi), .. , am + sum abs(xj-yj) ],
+//      for m <= n, non-overlapping sums, and signed operands x, y.
+class HVecSADAccumulate FINAL : public HVecOperation {
+ public:
+  HVecSADAccumulate(ArenaAllocator* allocator,
+                    HInstruction* accumulator,
+                    HInstruction* sad_left,
+                    HInstruction* sad_right,
+                    DataType::Type packed_type,
+                    size_t vector_length,
+                    uint32_t dex_pc)
+      : HVecOperation(kVecSADAccumulate,
+                      allocator,
+                      packed_type,
+                      SideEffects::None(),
+                      /* number_of_inputs */ 3,
+                      vector_length,
+                      dex_pc) {
+    DCHECK(HasConsistentPackedTypes(accumulator, packed_type));
+    DCHECK(sad_left->IsVecOperation());
+    DCHECK(sad_right->IsVecOperation());
+    DCHECK_EQ(ToSignedType(sad_left->AsVecOperation()->GetPackedType()),
+              ToSignedType(sad_right->AsVecOperation()->GetPackedType()));
+    SetRawInputAt(0, accumulator);
+    SetRawInputAt(1, sad_left);
+    SetRawInputAt(2, sad_right);
+  }
+
+  DECLARE_INSTRUCTION(VecSADAccumulate);
+
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecSADAccumulate);
 };
 
 // Loads a vector from memory, viz. load(mem, 1)
 // yield the vector [ mem(1), .. , mem(n) ].
 class HVecLoad FINAL : public HVecMemoryOperation {
  public:
-  HVecLoad(ArenaAllocator* arena,
+  HVecLoad(ArenaAllocator* allocator,
            HInstruction* base,
            HInstruction* index,
-           Primitive::Type packed_type,
+           DataType::Type packed_type,
+           SideEffects side_effects,
            size_t vector_length,
            bool is_string_char_at,
-           uint32_t dex_pc = kNoDexPc)
-      : HVecMemoryOperation(arena,
+           uint32_t dex_pc)
+      : HVecMemoryOperation(kVecLoad,
+                            allocator,
                             packed_type,
-                            SideEffects::ArrayReadOfType(packed_type),
+                            side_effects,
                             /* number_of_inputs */ 2,
                             vector_length,
                             dex_pc) {
@@ -869,29 +1007,32 @@ class HVecLoad FINAL : public HVecMemoryOperation {
 
   DECLARE_INSTRUCTION(VecLoad);
 
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecLoad);
+
  private:
   // Additional packed bits.
   static constexpr size_t kFieldIsStringCharAt = HVecOperation::kNumberOfVectorOpPackedBits;
   static constexpr size_t kNumberOfVecLoadPackedBits = kFieldIsStringCharAt + 1;
   static_assert(kNumberOfVecLoadPackedBits <= kMaxNumberOfPackedBits, "Too many packed fields.");
-
-  DISALLOW_COPY_AND_ASSIGN(HVecLoad);
 };
 
 // Stores a vector to memory, viz. store(m, 1, [x1, .. , xn] )
 // sets mem(1) = x1, .. , mem(n) = xn.
 class HVecStore FINAL : public HVecMemoryOperation {
  public:
-  HVecStore(ArenaAllocator* arena,
+  HVecStore(ArenaAllocator* allocator,
             HInstruction* base,
             HInstruction* index,
             HInstruction* value,
-            Primitive::Type packed_type,
+            DataType::Type packed_type,
+            SideEffects side_effects,
             size_t vector_length,
-            uint32_t dex_pc = kNoDexPc)
-      : HVecMemoryOperation(arena,
+            uint32_t dex_pc)
+      : HVecMemoryOperation(kVecStore,
+                            allocator,
                             packed_type,
-                            SideEffects::ArrayWriteOfType(packed_type),
+                            side_effects,
                             /* number_of_inputs */ 3,
                             vector_length,
                             dex_pc) {
@@ -906,8 +1047,8 @@ class HVecStore FINAL : public HVecMemoryOperation {
 
   DECLARE_INSTRUCTION(VecStore);
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(HVecStore);
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(VecStore)
 };
 
 }  // namespace art

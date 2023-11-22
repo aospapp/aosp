@@ -20,13 +20,15 @@ import static org.junit.Assert.assertEquals;
 
 import android.os.Parcel;
 import android.support.test.filters.SmallTest;
+import android.telephony.AccessNetworkConstants.AccessNetworkType;
+import android.telephony.AccessNetworkConstants.EutranBand;
+import android.telephony.AccessNetworkConstants.GeranBand;
 import android.telephony.NetworkScanRequest;
 import android.telephony.RadioAccessSpecifier;
-import android.telephony.RadioNetworkConstants.EutranBands;
-import android.telephony.RadioNetworkConstants.GeranBands;
-import android.telephony.RadioNetworkConstants.RadioAccessNetworks;
 
 import org.junit.Test;
+
+import java.util.ArrayList;
 
 /** Unit tests for {@link NetworkScanRequest}. */
 
@@ -35,16 +37,25 @@ public class NetworkScanRequestTest {
     @Test
     @SmallTest
     public void testParcel() {
-        int ranGsm = RadioAccessNetworks.GERAN;
-        int[] gsmBands = {GeranBands.BAND_T380, GeranBands.BAND_T410};
+        int ranGsm = AccessNetworkType.GERAN;
+        int[] gsmBands = {GeranBand.BAND_T380, GeranBand.BAND_T410};
         int[] gsmChannels = {1, 2, 3, 4};
         RadioAccessSpecifier gsm = new RadioAccessSpecifier(ranGsm, gsmBands, gsmChannels);
-        int ranLte = RadioAccessNetworks.EUTRAN;
-        int[] lteBands = {EutranBands.BAND_10, EutranBands.BAND_11};
+        int ranLte = AccessNetworkType.EUTRAN;
+        int[] lteBands = {EutranBand.BAND_10, EutranBand.BAND_11};
         int[] lteChannels = {5, 6, 7, 8};
         RadioAccessSpecifier lte = new RadioAccessSpecifier(ranLte, lteBands, lteChannels);
         RadioAccessSpecifier[] ras = {gsm, lte};
-        NetworkScanRequest nsq = new NetworkScanRequest(NetworkScanRequest.SCAN_TYPE_ONE_SHOT, ras);
+        int searchPeriodicity = 70;
+        int maxSearchTime = 200;
+        boolean incrementalResults = true;
+        int incrementalResultsPeriodicity = 7;
+        ArrayList<String> mccmncs = new ArrayList<String>();
+        mccmncs.add("310480");
+        mccmncs.add("21002");
+        NetworkScanRequest nsq = new NetworkScanRequest(NetworkScanRequest.SCAN_TYPE_ONE_SHOT, ras,
+                  searchPeriodicity, maxSearchTime, incrementalResults,
+                  incrementalResultsPeriodicity, mccmncs);
 
         Parcel p = Parcel.obtain();
         nsq.writeToParcel(p, 0);

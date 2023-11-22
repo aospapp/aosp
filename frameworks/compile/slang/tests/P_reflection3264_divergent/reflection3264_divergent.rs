@@ -49,9 +49,15 @@ struct DivergentNest {
   int y;
 };
 
+#if 0
+
+// TODO: Add these variables back once http://b/65210157 is fixed
+
 struct DivergentNest dnVar;
 
 struct DivergentNest dnArray[10];
+
+#endif
 
 void intFe(const int *in, int *out, const int *data) { }
 
@@ -69,7 +75,7 @@ void dnFe(const int *in, int *out, const struct DivergentNest *data) { }
 void ndInv(int i, int j) { }
 
 // for arguments, should get a helper struct that looks like struct Divergent
-void dInv(int i, rs_allocation a, int j) { }
+void dInv(int i, rs_allocation a, int j) { (void)a; }
 
 // for arguments, should get a helper struct that looks like struct DivergentNest
-void dnInv(int x, struct Divergent d, int y) { }
+void dnInv(int x, struct Divergent d, int y) { (void)d; }

@@ -40,12 +40,11 @@ public class ResetPasswordWithTokenTest extends BaseManagedProfileTest {
     }
 
     /**
-     * Set a reset password token and work challenge on the work profile, and then lock it
-     * with CE evicted. This is the preparation step for {@link #testResetPasswordBeforeUnlock}
-     * to put the profile in RUNNING_LOCKED state, and will be called by the hostside logic before
-     * {@link #testResetPasswordBeforeUnlock} is exercised.
+     * Set a reset password token and work challenge on the work profile. This is the preparation
+     * step for {@link #testResetPasswordBeforeUnlock} and will be called by the hostside logic
+     * before it is exercised.
      */
-    public void testSetupWorkProfileAndLock() {
+    public void testSetupWorkProfile() {
         testSetResetPasswordToken();
         // Reset password on the work profile will enable separate work challenge for it.
         assertTrue(mDevicePolicyManager.resetPasswordWithToken(ADMIN_RECEIVER_COMPONENT, PASSWORD0,
@@ -54,8 +53,6 @@ public class ResetPasswordWithTokenTest extends BaseManagedProfileTest {
         mDevicePolicyManager.setPasswordQuality(ADMIN_RECEIVER_COMPONENT,
                 DevicePolicyManager.PASSWORD_QUALITY_NUMERIC);
         mDevicePolicyManager.setPasswordMinimumLength(ADMIN_RECEIVER_COMPONENT, 6);
-
-        testLockWorkProfile();
     }
 
     public void testResetPasswordBeforeUnlock() {
@@ -73,9 +70,5 @@ public class ResetPasswordWithTokenTest extends BaseManagedProfileTest {
     public void testSetResetPasswordToken() {
         assertTrue(mDevicePolicyManager.setResetPasswordToken(ADMIN_RECEIVER_COMPONENT, token));
         assertTrue(mDevicePolicyManager.isResetPasswordTokenActive(ADMIN_RECEIVER_COMPONENT));
-    }
-
-    public void testLockWorkProfile() {
-        mDevicePolicyManager.lockNow(DevicePolicyManager.FLAG_EVICT_CREDENTIAL_ENCRYPTION_KEY);
     }
 }

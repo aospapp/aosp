@@ -14,9 +14,15 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.Random;
 
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.Collator;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class CollationThreadTest extends TestFmwk {
     private static final String[] threadTestData;
     static {
@@ -196,6 +202,7 @@ public class CollationThreadTest extends TestFmwk {
             this.r = r;
         }
 
+        @Override
         public void run() {
             try {
                 synchronized (control) {

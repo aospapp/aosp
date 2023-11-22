@@ -16,11 +16,13 @@ import java.io.ObjectOutputStream;
 import java.util.Locale;
 
 import android.icu.text.NumberFormat;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @version     1.0
  * @author Ram Viswanadha
  */
+@MainTestShard
 public class WriteNumberFormatSerialTestData {
     static final String header="/*\n" +
                                " *******************************************************************************\n"+

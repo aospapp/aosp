@@ -17,13 +17,15 @@
 #include "java_lang_VMClassLoader.h"
 
 #include "class_linker.h"
+#include "dex/descriptors_names.h"
+#include "dex/dex_file_loader.h"
 #include "jni_internal.h"
 #include "mirror/class_loader.h"
 #include "mirror/object-inl.h"
 #include "native_util.h"
 #include "nativehelper/jni_macros.h"
-#include "nativehelper/ScopedLocalRef.h"
-#include "nativehelper/ScopedUtfChars.h"
+#include "nativehelper/scoped_local_ref.h"
+#include "nativehelper/scoped_utf_chars.h"
 #include "obj_ptr.h"
 #include "scoped_fast_native_object_access-inl.h"
 #include "well_known_classes.h"
@@ -135,7 +137,7 @@ static jobjectArray VMClassLoader_getBootClassPathEntries(JNIEnv* env, jclass) {
     const DexFile* dex_file = path[i];
 
     // For multidex locations, e.g., x.jar!classes2.dex, we want to look into x.jar.
-    const std::string& location(dex_file->GetBaseLocation());
+    const std::string location(DexFileLoader::GetBaseLocation(dex_file->GetLocation()));
 
     ScopedLocalRef<jstring> javaPath(env, env->NewStringUTF(location.c_str()));
     if (javaPath.get() == nullptr) {

@@ -1,6 +1,7 @@
 // Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 2de6929
 
 #include "vp9_raw_bits_reader.h"
 
@@ -13,7 +14,7 @@ namespace media {
 
 Vp9RawBitsReader::Vp9RawBitsReader() : valid_(true) {}
 
-Vp9RawBitsReader::~Vp9RawBitsReader() {}
+Vp9RawBitsReader::~Vp9RawBitsReader() = default;
 
 void Vp9RawBitsReader::Initialize(const uint8_t* data, size_t size) {
   DCHECK(data);

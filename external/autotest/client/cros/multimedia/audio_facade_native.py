@@ -86,7 +86,7 @@ class AudioFacadeNative(object):
         """Multimedia test extension handler."""
         if not self._loaded_extension_handler:
             extension = self._resource.get_extension(
-                    constants.MULTIMEDIA_TEST_EXTENSION)
+                    constants.AUDIO_TEST_EXTENSION)
             logging.debug('Loaded extension: %s', extension)
             self._loaded_extension_handler = (
                     audio_extension_handler.AudioExtensionHandler(extension))

@@ -18,16 +18,17 @@
 package com.android.tradefed.targetprep.companion;
 
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.targetprep.BaseTargetPreparer;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
 
 /**
- * An {@link ITargetPreparer} that encapsulates the logic of getting an already
- * allocated companion device.
- * <p>
- * Note: that this must be used in conjunction with a {@link CompanionAllocator}.
+ * An {@link ITargetPreparer} that encapsulates the logic of getting an already allocated companion
+ * device.
+ *
+ * <p>Note: that this must be used in conjunction with a {@link CompanionAllocator}.
  */
-public abstract class CompanionAwarePreparer implements ITargetPreparer {
+public abstract class CompanionAwarePreparer extends BaseTargetPreparer {
 
     /**
      * Retrieves the {@link ITestDevice} instance of companion device allocated for the primary

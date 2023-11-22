@@ -6,7 +6,6 @@
 """Kill slow queries in local autotest database."""
 
 import logging
-import MySQLdb
 import optparse
 import sys
 import time
@@ -15,6 +14,7 @@ import common
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.site_utils import gmail_lib
 from autotest_lib.client.common_lib import utils
+from autotest_lib.site_utils.stats import mysql_stats
 
 try:
     from chromite.lib import metrics
@@ -101,11 +101,12 @@ def kill_slow_queries(user, password, timeout):
     @returns: a tuple, first element is the string representation of all the
               killed slow queries, second element is the total number of them.
     """
-    db = MySQLdb.connect('localhost', user, password)
-    cursor = db.cursor()
+    cursor = mysql_stats.RetryingConnection('localhost', user, password)
+    cursor.Connect()
+
     # Get the processlist.
-    cursor.execute('SHOW FULL PROCESSLIST')
-    processlist = cursor.fetchall()
+    cursor.Execute('SHOW FULL PROCESSLIST')
+    processlist = cursor.Fetchall()
     # Filter out the slow queries and kill them.
     slow_queries = [p for p in processlist if p[4]=='Query' and p[5]>=timeout]
     queries_str = ''
@@ -116,7 +117,7 @@ def kill_slow_queries(user, password, timeout):
         logging.info('Start killing following slow queries\n%s', queries_str)
         for query_id in queries_ids:
             logging.info('Killing %s...', query_id)
-            cursor.execute('KILL %d' % query_id)
+            cursor.Execute('KILL %d' % query_id)
             logging.info('Done!')
             num_killed_queries += 1
     else:
@@ -126,6 +127,9 @@ def kill_slow_queries(user, password, timeout):
 
 def main():
     """Main entry."""
+    # Clear all loggers to make sure the following basicConfig take effect.
+    logging.shutdown()
+    reload(logging)
     logging.basicConfig(format='%(asctime)s %(message)s',
                         datefmt='%m/%d/%Y %H:%M:%S', level=logging.DEBUG)
 
@@ -149,13 +153,9 @@ def main():
                     metrics.Counter(m).increment_by(count)
                 time.sleep(options.timeout)
         except Exception as e:
+            m = 'chromeos/autotest/afe_db/failed_to_kill_query'
+            metrics.Counter(m).increment()
             logging.error('Failed to kill slow db queries.\n%s', e)
-            gmail_lib.send_email(
-                options.mail,
-                'Failed to kill slow autotest db queries.',
-                ('Error occurred during killing slow db queries:\n%s\n'
-                 'Detailed logs can be found in /var/log/slow_queries.log on db'
-                 ' backup server.\nTo avoid db crash, please check ASAP.') % e)
             raise
 
 

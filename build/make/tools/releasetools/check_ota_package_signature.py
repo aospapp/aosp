@@ -21,16 +21,19 @@ Verify a given OTA package with the specifed certificate.
 from __future__ import print_function
 
 import argparse
-import common
 import re
 import subprocess
 import sys
+import tempfile
+import zipfile
 
 from hashlib import sha1
 from hashlib import sha256
 
+import common
 
-def cert_uses_sha256(cert):
+
+def CertUsesSha256(cert):
   """Check if the cert uses SHA-256 hashing algorithm."""
 
   cmd = ['openssl', 'x509', '-text', '-noout', '-in', cert]
@@ -46,7 +49,7 @@ def cert_uses_sha256(cert):
   return algorithm.group(1).startswith('sha256')
 
 
-def verify_package(cert, package):
+def VerifyPackage(cert, package):
   """Verify the given package with the certificate.
 
   (Comments from bootable/recovery/verifier.cpp:)
@@ -90,17 +93,14 @@ def verify_package(cert, package):
   print('Signed data length: %d' % (signed_len,))
   print('Signature start: %d' % (signature_start,))
 
-  use_sha256 = cert_uses_sha256(cert)
+  use_sha256 = CertUsesSha256(cert)
   print('Use SHA-256: %s' % (use_sha256,))
 
-  if use_sha256:
-    h = sha256()
-  else:
-    h = sha1()
+  h = sha256() if use_sha256 else sha1()
   h.update(package_bytes[:signed_len])
   package_digest = h.hexdigest().lower()
 
-  print('Digest: %s\n' % (package_digest,))
+  print('Digest: %s' % (package_digest,))
 
   # Get the signature from the input package.
   signature = package_bytes[signature_start:-6]
@@ -141,7 +141,39 @@ def verify_package(cert, package):
   assert package_digest == digest_string, "Verification failed."
 
   # Verified successfully upon reaching here.
-  print('VERIFIED\n')
+  print('\nWhole package signature VERIFIED\n')
+
+
+def VerifyAbOtaPayload(cert, package):
+  """Verifies the payload and metadata signatures in an A/B OTA payload."""
+  package_zip = zipfile.ZipFile(package, 'r')
+  if 'payload.bin' not in package_zip.namelist():
+    common.ZipClose(package_zip)
+    return
+
+  print('Verifying A/B OTA payload signatures...')
+
+  # Dump pubkey from the certificate.
+  pubkey = common.MakeTempFile(prefix="key-", suffix=".pem")
+  with open(pubkey, 'wb') as pubkey_fp:
+    pubkey_fp.write(common.ExtractPublicKey(cert))
+
+  package_dir = common.MakeTempDir(prefix='package-')
+
+  # Signature verification with delta_generator.
+  payload_file = package_zip.extract('payload.bin', package_dir)
+  cmd = ['delta_generator',
+         '--in_file=' + payload_file,
+         '--public_key=' + pubkey]
+  proc = common.Run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+  stdoutdata, _ = proc.communicate()
+  assert proc.returncode == 0, \
+      'Failed to verify payload with delta_generator: %s\n%s' % (package,
+                                                                 stdoutdata)
+  common.ZipClose(package_zip)
+
+  # Verified successfully upon reaching here.
+  print('\nPayload signatures VERIFIED\n\n')
 
 
 def main():
@@ -150,7 +182,8 @@ def main():
   parser.add_argument('package', help='The OTA package to be verified.')
   args = parser.parse_args()
 
-  verify_package(args.certificate, args.package)
+  VerifyPackage(args.certificate, args.package)
+  VerifyAbOtaPayload(args.certificate, args.package)
 
 
 if __name__ == '__main__':
@@ -159,3 +192,5 @@ if __name__ == '__main__':
   except AssertionError as err:
     print('\n    ERROR: %s\n' % (err,))
     sys.exit(1)
+  finally:
+    common.Cleanup()

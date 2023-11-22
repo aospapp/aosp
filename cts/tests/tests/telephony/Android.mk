@@ -27,11 +27,15 @@ LOCAL_JAVA_LIBRARIES := telephony-common
 LOCAL_STATIC_JAVA_LIBRARIES := \
     ctstestrunner \
     compatibility-device-util \
-    legacy-android-test
+    truth-prebuilt
 
 LOCAL_HOST_SHARED_LIBRARIES := compatibility-device-telephony-preconditions
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_SRC_FILES := $(call all-java-files-under, src) \
+                   $(call all-java-files-under, EmbmsMiddlewareTestApp) \
+                   $(call all-Iaidl-files-under, EmbmsMiddlewareTestApp)
+
+LOCAL_AIDL_INCLUDES := EmbmsMiddlewareTestApp/aidl/
 
 LOCAL_PACKAGE_NAME := CtsTelephonyTestCases
 
@@ -40,7 +44,9 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 # uncomment when b/13250611 is fixed
 #LOCAL_SDK_VERSION := current
-LOCAL_JAVA_LIBRARIES += android.test.runner
+LOCAL_PRIVATE_PLATFORM_APIS := true
+LOCAL_JAVA_LIBRARIES += android.test.runner.stubs
+LOCAL_JAVA_LIBRARIES += android.test.base.stubs
 
 include $(BUILD_CTS_PACKAGE)
 include $(call all-makefiles-under,$(LOCAL_PATH))

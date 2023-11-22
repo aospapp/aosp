@@ -79,7 +79,7 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         final ProtoOutputStream po = new ProtoOutputStream(chunkSize);
 
         long token = po.startObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(2,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 'b');
@@ -106,7 +106,7 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         final ProtoOutputStream po = new ProtoOutputStream(chunkSize);
 
         long token = po.startObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(5000,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 '\u3110');
@@ -138,7 +138,7 @@ public class ProtoOutputStreamObjectTest extends TestCase {
                 'a');
 
         long token = po.startObject(ProtoOutputStream.makeFieldId(2,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(3,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 'b');
@@ -177,7 +177,7 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         final ProtoOutputStream po = new ProtoOutputStream(chunkSize);
 
         long token = po.startObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.endObject(token);
 
         Assert.assertArrayEquals(new byte[0], po.getBytes());
@@ -199,11 +199,11 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         final ProtoOutputStream po = new ProtoOutputStream(chunkSize);
 
         long token1 = po.startObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         long token2 = po.startObject(ProtoOutputStream.makeFieldId(2,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         long token3 = po.startObject(ProtoOutputStream.makeFieldId(3,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.endObject(token3);
         po.endObject(token2);
         po.endObject(token1);
@@ -231,7 +231,7 @@ public class ProtoOutputStreamObjectTest extends TestCase {
                 'a');
 
         long token = po.startObject(ProtoOutputStream.makeFieldId(2,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.endObject(token);
 
         po.writeUInt32(ProtoOutputStream.makeFieldId(4,
@@ -263,11 +263,11 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         long token;
 
         token = po.startRepeatedObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_REPEATED | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_REPEATED | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.endRepeatedObject(token);
 
         token = po.startRepeatedObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_REPEATED | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_REPEATED | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.endRepeatedObject(token);
 
         Assert.assertArrayEquals(new byte[] {
@@ -299,7 +299,7 @@ public class ProtoOutputStreamObjectTest extends TestCase {
                 'x');
 
         long token = po.startObject(ProtoOutputStream.makeFieldId(2,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(3,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 'y');
@@ -308,7 +308,7 @@ public class ProtoOutputStreamObjectTest extends TestCase {
                 "abcdefghijkl");
 
         long tokenEmpty = po.startObject(ProtoOutputStream.makeFieldId(500,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.endObject(tokenEmpty);
 
         po.endObject(token);
@@ -349,19 +349,19 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         final ProtoOutputStream po = new ProtoOutputStream(chunkSize);
 
         long token1 = po.startObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(2,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 'a');
 
         long token2 = po.startObject(ProtoOutputStream.makeFieldId(3,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(4,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 'b');
 
         long token3 = po.startObject(ProtoOutputStream.makeFieldId(5,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(6,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 'c');
@@ -394,13 +394,13 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         final ProtoOutputStream po = new ProtoOutputStream();
 
         long token1 = po.startObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(2,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 'a');
 
         long token2 = po.startObject(ProtoOutputStream.makeFieldId(3,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(4,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 'b');
@@ -422,10 +422,10 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         final ProtoOutputStream po = new ProtoOutputStream();
 
         long token1 = po.startObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
 
         long token2 = po.startObject(ProtoOutputStream.makeFieldId(3,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
 
         po.endObject(token2);
         try {
@@ -444,13 +444,13 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         final ProtoOutputStream po = new ProtoOutputStream();
 
         long token1 = po.startObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(2,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 'a');
 
         long token2 = po.startObject(ProtoOutputStream.makeFieldId(3,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(4,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 'b');
@@ -472,10 +472,10 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         final ProtoOutputStream po = new ProtoOutputStream();
 
         long token1 = po.startObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
 
         long token2 = po.startObject(ProtoOutputStream.makeFieldId(3,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
 
         po.endObject(token2);
         try {
@@ -494,13 +494,13 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         final ProtoOutputStream po = new ProtoOutputStream();
 
         long token1 = po.startObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(2,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 'a');
 
         long token2 = po.startObject(ProtoOutputStream.makeFieldId(3,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(4,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 'b');
@@ -521,10 +521,10 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         final ProtoOutputStream po = new ProtoOutputStream();
 
         long token1 = po.startObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
 
         long token2 = po.startObject(ProtoOutputStream.makeFieldId(3,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
 
         try {
             po.endObject(token1);
@@ -542,20 +542,20 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         final ProtoOutputStream po = new ProtoOutputStream();
 
         long token1 = po.startObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(2,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 'a');
 
         long token2 = po.startObject(ProtoOutputStream.makeFieldId(3,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(4,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 'b');
         po.endObject(token2);
 
         long token3 = po.startObject(ProtoOutputStream.makeFieldId(5,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeUInt32(ProtoOutputStream.makeFieldId(4,
                     ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_UINT32),
                 'b');
@@ -576,14 +576,14 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         final ProtoOutputStream po = new ProtoOutputStream();
 
         long token1 = po.startObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
 
         long token2 = po.startObject(ProtoOutputStream.makeFieldId(3,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.endObject(token2);
 
         long token3 = po.startObject(ProtoOutputStream.makeFieldId(5,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
 
         try {
             po.endObject(token2);
@@ -601,14 +601,14 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         final ProtoOutputStream po = new ProtoOutputStream();
 
         long token1 = po.startObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
 
         long token2 = po.startObject(ProtoOutputStream.makeFieldId(3,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.endObject(token2);
 
         long token3 = po.startObject(ProtoOutputStream.makeFieldId(5,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
 
         try {
             po.endObject(token2);
@@ -638,17 +638,17 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         all.nestedField.nested.nested.data = 3;
 
         final long token1 = po.startObject(ProtoOutputStream.makeFieldId(170,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeInt32(ProtoOutputStream.makeFieldId(10001,
                         ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_INT32),
                 1);
         final long token2 = po.startObject(ProtoOutputStream.makeFieldId(10002,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeInt32(ProtoOutputStream.makeFieldId(10001,
                         ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_INT32),
                 2);
         final long token3 = po.startObject(ProtoOutputStream.makeFieldId(10002,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         po.writeInt32(ProtoOutputStream.makeFieldId(10001,
                         ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_INT32),
                 3);
@@ -680,17 +680,17 @@ public class ProtoOutputStreamObjectTest extends TestCase {
             all.nestedFieldRepeated[i].nested.nested.data = 3;
 
             final long token1 = po.startObject(ProtoOutputStream.makeFieldId(171,
-                        ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                        ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
             po.writeInt32(ProtoOutputStream.makeFieldId(10001,
                         ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_INT32),
                     1);
             final long token2 = po.startObject(ProtoOutputStream.makeFieldId(10002,
-                        ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                        ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
             po.writeInt32(ProtoOutputStream.makeFieldId(10001,
                         ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_INT32),
                     2);
             final long token3 = po.startObject(ProtoOutputStream.makeFieldId(10002,
-                        ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                        ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
             po.writeInt32(ProtoOutputStream.makeFieldId(10001,
                         ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_INT32),
                     3);
@@ -724,7 +724,7 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         try {
             final ProtoOutputStream po = new ProtoOutputStream();
             po.startObject(ProtoOutputStream.makeFieldId(1,
-                        ProtoOutputStream.FIELD_COUNT_PACKED | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                        ProtoOutputStream.FIELD_COUNT_PACKED | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         } catch (IllegalArgumentException ex) {
             // good
         }
@@ -744,7 +744,7 @@ public class ProtoOutputStreamObjectTest extends TestCase {
         try {
             final ProtoOutputStream po = new ProtoOutputStream();
             po.startRepeatedObject(ProtoOutputStream.makeFieldId(1,
-                        ProtoOutputStream.FIELD_COUNT_PACKED | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                        ProtoOutputStream.FIELD_COUNT_PACKED | ProtoOutputStream.FIELD_TYPE_MESSAGE));
         } catch (IllegalArgumentException ex) {
             // good
         }
@@ -756,7 +756,7 @@ public class ProtoOutputStreamObjectTest extends TestCase {
     public void testMismatchedEndObject() {
         final ProtoOutputStream po = new ProtoOutputStream();
         final long token = po.startObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE));
 
         try {
             po.endRepeatedObject(token);
@@ -771,7 +771,7 @@ public class ProtoOutputStreamObjectTest extends TestCase {
     public void testMismatchedEndRepeatedObject() {
         final ProtoOutputStream po = new ProtoOutputStream();
         final long token = po.startRepeatedObject(ProtoOutputStream.makeFieldId(1,
-                    ProtoOutputStream.FIELD_COUNT_REPEATED | ProtoOutputStream.FIELD_TYPE_OBJECT));
+                    ProtoOutputStream.FIELD_COUNT_REPEATED | ProtoOutputStream.FIELD_TYPE_MESSAGE));
 
         try {
             po.endObject(token);
@@ -806,7 +806,7 @@ public class ProtoOutputStreamObjectTest extends TestCase {
 
         final ProtoOutputStream po = new ProtoOutputStream();
         po.writeObject(ProtoOutputStream.makeFieldId(10,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT),
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE),
                 innerRaw);
 
         final byte[] result = po.getBytes();
@@ -827,7 +827,7 @@ public class ProtoOutputStreamObjectTest extends TestCase {
 
         final ProtoOutputStream po = new ProtoOutputStream();
         po.writeObject(ProtoOutputStream.makeFieldId(10,
-                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_OBJECT),
+                    ProtoOutputStream.FIELD_COUNT_SINGLE | ProtoOutputStream.FIELD_TYPE_MESSAGE),
                 innerRaw);
 
         final byte[] result = po.getBytes();
@@ -861,7 +861,7 @@ public class ProtoOutputStreamObjectTest extends TestCase {
 
         final ProtoOutputStream po = new ProtoOutputStream();
         po.writeRepeatedObject(ProtoOutputStream.makeFieldId(10,
-                    ProtoOutputStream.FIELD_COUNT_REPEATED | ProtoOutputStream.FIELD_TYPE_OBJECT),
+                    ProtoOutputStream.FIELD_COUNT_REPEATED | ProtoOutputStream.FIELD_TYPE_MESSAGE),
                 innerRaw);
 
         final byte[] result = po.getBytes();
@@ -882,7 +882,7 @@ public class ProtoOutputStreamObjectTest extends TestCase {
 
         final ProtoOutputStream po = new ProtoOutputStream();
         po.writeRepeatedObject(ProtoOutputStream.makeFieldId(10,
-                    ProtoOutputStream.FIELD_COUNT_REPEATED | ProtoOutputStream.FIELD_TYPE_OBJECT),
+                    ProtoOutputStream.FIELD_COUNT_REPEATED | ProtoOutputStream.FIELD_TYPE_MESSAGE),
                 innerRaw);
 
         Assert.assertArrayEquals(new byte[] {

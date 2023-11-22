@@ -26,20 +26,40 @@
  * classifier behaviour.
  */
 
-BPF_PROG_ARRAY(jmp_tc, FOO, PIN_OBJECT_NS, MAX_JMP_SIZE);
-BPF_PROG_ARRAY(jmp_ex, BAR, PIN_OBJECT_NS, 1);
+struct bpf_elf_map __section_maps jmp_tc = {
+	.type		= BPF_MAP_TYPE_PROG_ARRAY,
+	.id		= FOO,
+	.size_key	= sizeof(uint32_t),
+	.size_value	= sizeof(uint32_t),
+	.pinning	= PIN_OBJECT_NS,
+	.max_elem	= MAX_JMP_SIZE,
+};
 
-BPF_ARRAY4(map_sh, 0, PIN_OBJECT_NS, 1);
+struct bpf_elf_map __section_maps jmp_ex = {
+	.type		= BPF_MAP_TYPE_PROG_ARRAY,
+	.id		= BAR,
+	.size_key	= sizeof(uint32_t),
+	.size_value	= sizeof(uint32_t),
+	.pinning	= PIN_OBJECT_NS,
+	.max_elem	= 1,
+};
+
+struct bpf_elf_map __section_maps map_sh = {
+	.type		= BPF_MAP_TYPE_ARRAY,
+	.size_key	= sizeof(uint32_t),
+	.size_value	= sizeof(uint32_t),
+	.pinning	= PIN_OBJECT_NS,
+	.max_elem	= 1,
+};
 
 __section_tail(FOO, ENTRY_0)
 int cls_case1(struct __sk_buff *skb)
 {
-	char fmt[] = "case1: map-val: %d from:%u\n";
 	int key = 0, *val;
 
 	val = map_lookup_elem(&map_sh, &key);
 	if (val)
-		trace_printk(fmt, sizeof(fmt), *val, skb->cb[0]);
+		printt("case1: map-val: %d from:%u\n", *val, skb->cb[0]);
 
 	skb->cb[0] = ENTRY_0;
 	tail_call(skb, &jmp_ex, ENTRY_0);
@@ -50,12 +70,11 @@ int cls_case1(struct __sk_buff *skb)
 __section_tail(FOO, ENTRY_1)
 int cls_case2(struct __sk_buff *skb)
 {
-	char fmt[] = "case2: map-val: %d from:%u\n";
 	int key = 0, *val;
 
 	val = map_lookup_elem(&map_sh, &key);
 	if (val)
-		trace_printk(fmt, sizeof(fmt), *val, skb->cb[0]);
+		printt("case2: map-val: %d from:%u\n", *val, skb->cb[0]);
 
 	skb->cb[0] = ENTRY_1;
 	tail_call(skb, &jmp_tc, ENTRY_0);
@@ -66,12 +85,11 @@ int cls_case2(struct __sk_buff *skb)
 __section_tail(BAR, ENTRY_0)
 int cls_exit(struct __sk_buff *skb)
 {
-	char fmt[] = "exit: map-val: %d from:%u\n";
 	int key = 0, *val;
 
 	val = map_lookup_elem(&map_sh, &key);
 	if (val)
-		trace_printk(fmt, sizeof(fmt), *val, skb->cb[0]);
+		printt("exit: map-val: %d from:%u\n", *val, skb->cb[0]);
 
 	/* Termination point. */
 	return BPF_H_DEFAULT;
@@ -80,7 +98,6 @@ int cls_exit(struct __sk_buff *skb)
 __section_cls_entry
 int cls_entry(struct __sk_buff *skb)
 {
-	char fmt[] = "fallthrough\n";
 	int key = 0, *val;
 
 	/* For transferring state, we can use skb->cb[0] ... skb->cb[4]. */
@@ -92,7 +109,7 @@ int cls_entry(struct __sk_buff *skb)
 		tail_call(skb, &jmp_tc, skb->hash & (MAX_JMP_SIZE - 1));
 	}
 
-	trace_printk(fmt, sizeof(fmt));
+	printt("fallthrough\n");
 	return BPF_H_DEFAULT;
 }
 

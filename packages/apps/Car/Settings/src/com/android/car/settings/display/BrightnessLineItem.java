@@ -20,44 +20,61 @@ import static android.provider.Settings.System.SCREEN_BRIGHTNESS;
 
 import android.content.Context;
 import android.provider.Settings;
-import android.util.Log;
+import android.widget.SeekBar;
+import android.widget.SeekBar.OnSeekBarChangeListener;
+
+import androidx.car.widget.SeekbarListItem;
 
 import com.android.car.settings.R;
-import com.android.car.settings.common.SeekbarLineItem;
+import com.android.car.settings.common.Logger;
 
 /**
  * A LineItem that displays and sets display brightness.
  */
-class BrightnessLineItem extends SeekbarLineItem {
-    private static final String TAG = "BrightnessLineItem";
+public class BrightnessLineItem extends SeekbarListItem {
+    private static final Logger LOG = new Logger(BrightnessLineItem.class);
     private static final int MAX_BRIGHTNESS = 255;
-
     private final Context mContext;
 
+    /**
+     * Handles brightness change from user
+     */
+    private SeekBar.OnSeekBarChangeListener mOnSeekBarChangeListener =
+            new OnSeekBarChangeListener() {
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {
+                    // no-op
+                }
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {
+                    // no-op
+                }
+
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    Settings.System.putInt(
+                            mContext.getContentResolver(), SCREEN_BRIGHTNESS, progress);
+                }
+            };
+
     public BrightnessLineItem(Context context) {
-        super(context.getText(R.string.brightness));
+        super(context);
         mContext = context;
+        setMax(MAX_BRIGHTNESS);
+        setProgress(getSeekbarValue(context));
+        setOnSeekBarChangeListener(mOnSeekBarChangeListener);
+        setText(context.getString(R.string.brightness));
     }
 
-    @Override
-    public int getSeekbarValue() {
+    private static int getSeekbarValue(Context context) {
         int currentBrightness = 0;
         try {
-            currentBrightness = Settings.System.getInt(mContext.getContentResolver(),
+            currentBrightness = Settings.System.getInt(context.getContentResolver(),
                     SCREEN_BRIGHTNESS);
         } catch (Settings.SettingNotFoundException e) {
-            Log.w(TAG, "Can't find setting for SCREEN_BRIGHTNESS.");
+            LOG.w("Can't find setting for SCREEN_BRIGHTNESS.");
         }
         return currentBrightness;
-    }
-
-    @Override
-    public int getMaxSeekbarValue() {
-        return MAX_BRIGHTNESS;
-    }
-
-    @Override
-    public void onSeekbarChanged(int progress) {
-        Settings.System.putInt(mContext.getContentResolver(), SCREEN_BRIGHTNESS, progress);
     }
 }

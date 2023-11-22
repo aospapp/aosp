@@ -88,6 +88,7 @@ function vts_multidevice_target_setup {
   hidl-gen -o ${ANDROID_BUILD_TOP}/output -L vts -r android.hardware:hardware/interfaces -r android.hidl:system/libhidl/transport android.hardware.vibrator@1.0
   hidl-gen -o ${ANDROID_BUILD_TOP}/output -L vts -r android.hardware:hardware/interfaces -r android.hidl:system/libhidl/transport android.hardware.contexthub@1.0
   adb push ${ANDROID_BUILD_TOP}/output/android/hardware /data/local/tmp/spec/android/
+  adb push ${ANDROID_BUILD_TOP}/test/vts/specification/lib/ndk/bionic/1.0/libcV1.vts /data/local/tmp/spec/lib/ndk/bionic/1.0/libcV1.vts
 
   echo "install asan packages"
   # asan

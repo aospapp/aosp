@@ -99,6 +99,29 @@ class BlockingInputAllocation implements UncheckedCloseable {
     }
 
     /**
+     * Waits for a buffer to become available, then immediately
+     * {@link Allocation#ioReceive receives} it.
+     *
+     * <p>After calling this, the next script used with this allocation will use the
+     * newer buffer.</p>
+     *
+     * @param timeoutMs timeout in milliseconds.
+     *
+     * @throws TimeoutRuntimeException If waiting for the buffer has timed out.
+     * @throws IllegalStateException If this object has already been {@link #close closed}
+     */
+    public synchronized void waitForBufferAndReceive(long timeoutMs) {
+        checkNotClosed();
+
+        if (VERBOSE) Log.v(TAG, "waitForBufferAndReceive - begin");
+
+        mListener.waitForBuffer(timeoutMs);
+        mAllocation.ioReceive();
+
+        if (VERBOSE) Log.v(TAG, "waitForBufferAndReceive - Allocation#ioReceive");
+    }
+
+    /**
      * If there are multiple pending buffers, {@link Allocation#ioReceive receive} the latest one.
      *
      * <p>Does not block if there are no currently pending buffers.</p>
@@ -175,14 +198,16 @@ class BlockingInputAllocation implements UncheckedCloseable {
         /**
          * Waits for a buffer. Caller must call ioReceive exactly once after calling this.
          *
+         * @param timeoutMs wait timeout in milliseconds
+         *
          * @throws TimeoutRuntimeException If waiting for the buffer has timed out.
          */
-        public void waitForBuffer() {
+        private void waitForBufferWithTimeout(long timeoutMs) {
             synchronized (mBufferSyncObject) {
                 while (mPendingBuffers == 0) {
                     try {
                         if (VERBOSE) Log.v(TAG, "waiting for next buffer");
-                        mBufferSyncObject.wait(TIMEOUT_MS);
+                        mBufferSyncObject.wait(timeoutMs);
                         if (mPendingBuffers == 0) {
                             throw new TimeoutRuntimeException("wait for buffer image timed out");
                         }
@@ -192,6 +217,30 @@ class BlockingInputAllocation implements UncheckedCloseable {
                 }
                 mPendingBuffers--;
             }
+        }
+
+        /**
+         * Waits for a buffer. Caller must call ioReceive exactly once after calling this.
+         *
+         * @param timeoutMs wait timeout in milliseconds.
+         *
+         * @throws TimeoutRuntimeException If waiting for the buffer has timed out.
+         */
+        public void waitForBuffer(long timeoutMs) {
+            if (timeoutMs <= TIMEOUT_MS) {
+                waitForBufferWithTimeout(TIMEOUT_MS);
+            } else {
+                waitForBufferWithTimeout(timeoutMs + TIMEOUT_MS);
+            }
+        }
+
+        /**
+         * Waits for a buffer. Caller must call ioReceive exactly once after calling this.
+         *
+         * @throws TimeoutRuntimeException If waiting for the buffer has timed out.
+         */
+        public void waitForBuffer() {
+            waitForBufferWithTimeout(TIMEOUT_MS);
         }
 
         @Override

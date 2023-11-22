@@ -1,0 +1,4 @@
+service vendor.pixelstats_system /system/bin/hw/hardware.google.pixelstats@1.0-service
+    class hal
+    user vendor_pixelstats_system
+    group vendor_pixelstats_system

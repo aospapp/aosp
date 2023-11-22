@@ -16,121 +16,180 @@
 
 package android.view.inputmethod.cts;
 
+import static android.content.Intent.ACTION_CLOSE_SYSTEM_DIALOGS;
+import static android.content.Intent.FLAG_RECEIVER_FOREGROUND;
+import static android.view.inputmethod.cts.util.TestUtils.waitOnMainUntil;
+
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.app.Instrumentation;
 import android.content.Context;
-import android.content.pm.PackageManager;
-import android.os.Handler;
-import android.os.IBinder;
-import android.os.ResultReceiver;
+import android.content.Intent;
+import androidx.annotation.NonNull;
+import android.platform.test.annotations.AppModeFull;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
-import android.view.KeyEvent;
-import android.view.Window;
-import android.view.inputmethod.BaseInputConnection;
+import android.text.TextUtils;
+import android.view.View;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
-import android.view.inputmethod.cts.R;
+import android.view.inputmethod.InputMethodSubtype;
+import android.view.inputmethod.cts.util.TestActivity;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.LinearLayout.LayoutParams;
 
-import com.android.compatibility.common.util.PollingCheck;
-
-import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class InputMethodManagerTest {
+    private static final long TIMEOUT = TimeUnit.SECONDS.toMillis(5);
     private Instrumentation mInstrumentation;
-    private InputMethodCtsActivity mActivity;
-
-    @Rule
-    public ActivityTestRule<InputMethodCtsActivity> mActivityRule =
-            new ActivityTestRule<>(InputMethodCtsActivity.class);
+    private Context mContext;
+    private InputMethodManager mImManager;
 
     @Before
     public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
-        mActivity = mActivityRule.getActivity();
-    }
-
-    @After
-    public void teardown() {
-        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
+        mContext = mInstrumentation.getTargetContext();
+        mImManager = mContext.getSystemService(InputMethodManager.class);
     }
 
     @Test
-    public void testInputMethodManager() throws Throwable {
-        if (!mActivity.getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_INPUT_METHODS)) {
-            return;
-        }
+    public void testIsActive() throws Throwable {
+        final AtomicReference<EditText> focusedEditTextRef = new AtomicReference<>();
+        final AtomicReference<EditText> nonFocusedEditTextRef = new AtomicReference<>();
+        TestActivity.startSync(activity -> {
+            final LinearLayout layout = new LinearLayout(activity);
+            layout.setOrientation(LinearLayout.VERTICAL);
 
-        Window window = mActivity.getWindow();
-        final EditText view = (EditText) window.findViewById(R.id.entry);
+            final EditText focusedEditText = new EditText(activity);
+            layout.addView(focusedEditText);
+            focusedEditTextRef.set(focusedEditText);
+            focusedEditText.requestFocus();
 
-        PollingCheck.waitFor(1000, view::hasWindowFocus);
+            final EditText nonFocusedEditText = new EditText(activity);
+            layout.addView(nonFocusedEditText);
+            nonFocusedEditTextRef.set(nonFocusedEditText);
 
-        mActivityRule.runOnUiThread(view::requestFocus);
-        mInstrumentation.waitForIdleSync();
-        assertTrue(view.isFocused());
-
-        BaseInputConnection connection = new BaseInputConnection(view, false);
-        Context context = mInstrumentation.getTargetContext();
-        final InputMethodManager imManager = (InputMethodManager) context
-                .getSystemService(Context.INPUT_METHOD_SERVICE);
-
-        PollingCheck.waitFor(imManager::isActive);
-
-        assertTrue(imManager.isAcceptingText());
-        assertTrue(imManager.isActive(view));
-
-        assertFalse(imManager.isFullscreenMode());
-        connection.reportFullscreenMode(true);
-        // Only IMEs are allowed to report full-screen mode.  Calling this method from the
-        // application should have no effect.
-        assertFalse(imManager.isFullscreenMode());
-
-        mActivityRule.runOnUiThread(() -> {
-            IBinder token = view.getWindowToken();
-
-            // Show and hide input method.
-            assertTrue(imManager.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT));
-            assertTrue(imManager.hideSoftInputFromWindow(token, 0));
-
-            Handler handler = new Handler();
-            ResultReceiver receiver = new ResultReceiver(handler);
-            assertTrue(imManager.showSoftInput(view, 0, receiver));
-            receiver = new ResultReceiver(handler);
-            assertTrue(imManager.hideSoftInputFromWindow(token, 0, receiver));
-
-            imManager.showSoftInputFromInputMethod(token, InputMethodManager.SHOW_FORCED);
-            imManager.hideSoftInputFromInputMethod(token, InputMethodManager.HIDE_NOT_ALWAYS);
-
-            // status: hide to show to hide
-            imManager.toggleSoftInputFromWindow(token, 0, InputMethodManager.HIDE_NOT_ALWAYS);
-            imManager.toggleSoftInputFromWindow(token, 0, InputMethodManager.HIDE_NOT_ALWAYS);
-
-            List<InputMethodInfo> enabledImList = imManager.getEnabledInputMethodList();
-            if (enabledImList != null && enabledImList.size() > 0) {
-                imManager.setInputMethod(token, enabledImList.get(0).getId());
-                // cannot test whether setting was successful
-            }
-
-            List<InputMethodInfo> imList = imManager.getInputMethodList();
-            if (imList != null && enabledImList != null) {
-                assertTrue(imList.size() >= enabledImList.size());
-            }
+            return layout;
         });
-        mInstrumentation.waitForIdleSync();
+        waitOnMainUntil(() -> mImManager.isActive(), TIMEOUT);
+        assertTrue(mImManager.isAcceptingText());
+        assertTrue(mImManager.isActive(focusedEditTextRef.get()));
+        assertFalse(mImManager.isActive(nonFocusedEditTextRef.get()));
+    }
+
+    @Test
+    public void testIsAcceptingText() throws Throwable {
+        final AtomicReference<EditText> focusedFakeEditTextRef = new AtomicReference<>();
+        TestActivity.startSync(activity -> {
+            final LinearLayout layout = new LinearLayout(activity);
+            layout.setOrientation(LinearLayout.VERTICAL);
+
+            final EditText focusedFakeEditText = new EditText(activity) {
+                @Override
+                public InputConnection onCreateInputConnection(EditorInfo info) {
+                    super.onCreateInputConnection(info);
+                    return null;
+                }
+            };
+            layout.addView(focusedFakeEditText);
+            focusedFakeEditTextRef.set(focusedFakeEditText);
+            focusedFakeEditText.requestFocus();
+            return layout;
+        });
+        waitOnMainUntil(() -> mImManager.isActive(), TIMEOUT);
+        assertTrue(mImManager.isActive(focusedFakeEditTextRef.get()));
+        assertFalse("InputMethodManager#isAcceptingText() must return false "
+                + "if target View returns null from onCreateInputConnection().",
+                mImManager.isAcceptingText());
+    }
+
+    @Test
+    public void testGetInputMethodList() throws Exception {
+        final List<InputMethodInfo> enabledImes = mImManager.getEnabledInputMethodList();
+        assertNotNull(enabledImes);
+        final List<InputMethodInfo> imes = mImManager.getInputMethodList();
+        assertNotNull(imes);
+
+        // Make sure that IMM#getEnabledInputMethodList() is a subset of IMM#getInputMethodList().
+        // TODO: Consider moving this to hostside test to test more realistic and useful scenario.
+        if (!imes.containsAll(enabledImes)) {
+            fail("Enabled IMEs must be a subset of all the IMEs.\n"
+                    + "all=" + dumpInputMethodInfoList(imes) + "\n"
+                    + "enabled=" + dumpInputMethodInfoList(enabledImes));
+        }
+    }
+
+    private static String dumpInputMethodInfoList(@NonNull List<InputMethodInfo> imiList) {
+        return "[" + imiList.stream().map(imi -> {
+            final StringBuilder sb = new StringBuilder();
+            final int subtypeCount = imi.getSubtypeCount();
+            sb.append("InputMethodInfo{id=").append(imi.getId())
+                    .append(", subtypeCount=").append(subtypeCount)
+                    .append(", subtypes=[");
+            for (int i = 0; i < subtypeCount; ++i) {
+                if (i != 0) {
+                    sb.append(",");
+                }
+                final InputMethodSubtype subtype = imi.getSubtypeAt(i);
+                sb.append("{id=0x").append(Integer.toHexString(subtype.hashCode()));
+                if (!TextUtils.isEmpty(subtype.getMode())) {
+                    sb.append(",mode=").append(subtype.getMode());
+                }
+                if (!TextUtils.isEmpty(subtype.getLocale())) {
+                    sb.append(",locale=").append(subtype.getLocale());
+                }
+                if (!TextUtils.isEmpty(subtype.getLanguageTag())) {
+                    sb.append(",languageTag=").append(subtype.getLanguageTag());
+                }
+                sb.append("}");
+            }
+            sb.append("]");
+            return sb.toString();
+        }).collect(Collectors.joining(", ")) + "]";
+    }
+
+    @AppModeFull(reason = "Instant apps cannot rely on ACTION_CLOSE_SYSTEM_DIALOGS")
+    @Test
+    public void testShowInputMethodPicker() throws Exception {
+        TestActivity.startSync(activity -> {
+            final View view = new View(activity);
+            view.setLayoutParams(new LayoutParams(
+                    LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+            return view;
+        });
+
+        // Make sure that InputMethodPicker is not shown in the initial state.
+        mContext.sendBroadcast(
+                new Intent(ACTION_CLOSE_SYSTEM_DIALOGS).setFlags(FLAG_RECEIVER_FOREGROUND));
+        waitOnMainUntil(() -> !mImManager.isInputMethodPickerShown(), TIMEOUT,
+                "InputMethod picker should be closed");
+
+        // Test InputMethodManager#showInputMethodPicker() works as expected.
+        mImManager.showInputMethodPicker();
+        waitOnMainUntil(() -> mImManager.isInputMethodPickerShown(), TIMEOUT,
+                "InputMethod picker should be shown");
+
+        // Make sure that InputMethodPicker can be closed with ACTION_CLOSE_SYSTEM_DIALOGS
+        mContext.sendBroadcast(
+                new Intent(ACTION_CLOSE_SYSTEM_DIALOGS).setFlags(FLAG_RECEIVER_FOREGROUND));
+        waitOnMainUntil(() -> !mImManager.isInputMethodPickerShown(), TIMEOUT,
+                "InputMethod picker should be closed");
     }
 }

@@ -37,6 +37,7 @@ public class CombinedExceptionEventsDebuggee extends SyncDebuggee {
         runDebuggee(CombinedExceptionEventsDebuggee.class);
     }
 
+    @SuppressWarnings("DeadException")
     @Override
     public void run() {
         logWriter.println("-> CombinedExceptionEventsDebuggee: Starting...");

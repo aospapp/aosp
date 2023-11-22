@@ -21,8 +21,10 @@ include $(CLEAR_VARS)
 appcompat_res_dirs := appcompat/res res
 LOCAL_MODULE := libphotoviewer_appcompat
 
+LOCAL_JAVA_LIBRARIES := \
+    android-support-annotations
+
 LOCAL_STATIC_ANDROID_LIBRARIES := \
-    android-support-annotations \
     android-support-compat \
     android-support-core-ui \
     android-support-core-utils \
@@ -47,8 +49,10 @@ include $(CLEAR_VARS)
 activity_res_dirs := activity/res res
 LOCAL_MODULE := libphotoviewer
 
+LOCAL_JAVA_LIBRARIES := \
+    android-support-annotations
+
 LOCAL_STATIC_ANDROID_LIBRARIES := \
-    android-support-annotations \
     android-support-compat \
     android-support-core-ui \
     android-support-core-utils \

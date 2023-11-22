@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2015 Google, Inc.
+//  Copyright 2015 Google, Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -30,9 +30,9 @@
 #include <android/bluetooth/IBluetoothLeAdvertiser.h>
 #include <android/bluetooth/IBluetoothLeScanner.h>
 #include <android/bluetooth/IBluetoothLowEnergy.h>
+#include <bluetooth/uuid.h>
 
 #include "service/adapter.h"
-#include "service/common/bluetooth/uuid.h"
 #include "service/ipc/binder/remote_callback_list.h"
 
 using android::String16;

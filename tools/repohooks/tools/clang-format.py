@@ -27,6 +27,9 @@ if sys.path[0] != _path:
     sys.path.insert(0, _path)
 del _path
 
+# We have to import our local modules after the sys.path tweak.  We can't use
+# relative imports because this is an executable program, not a module.
+# pylint: disable=wrong-import-position
 import rh.shell
 import rh.utils
 
@@ -78,7 +81,15 @@ def main(argv):
         cmd.extend(['%s^' % opts.commit, opts.commit])
     cmd.extend(['--'] + opts.files)
 
-    stdout = rh.utils.run_command(cmd, capture_output=True).output
+    # Fail gracefully if clang-format itself aborts/fails.
+    try:
+        result = rh.utils.run_command(cmd, capture_output=True)
+    except rh.utils.RunCommandError as e:
+        print('clang-format failed:\n%s' % (e,), file=sys.stderr)
+        print('\nPlease report this to the clang team.', file=sys.stderr)
+        return 1
+
+    stdout = result.output
     if stdout.rstrip('\n') == 'no modified files to format':
         # This is always printed when only files that clang-format does not
         # understand were modified.

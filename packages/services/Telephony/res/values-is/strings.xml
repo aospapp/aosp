@@ -127,9 +127,10 @@
     <string name="reverting_settings" msgid="4752151682666912828">"Afturkallar stillingar…"</string>
     <string name="response_error" msgid="6674110501330139405">"Óvænt svar frá símkerfi."</string>
     <string name="exception_error" msgid="7027667130619518211">"Villa í símkerfi eða á SIM-korti."</string>
-    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"SS-beiðni breytt í DIAL-beiðni."</string>
-    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"SS-beiðni breytt í USSD-beiðni."</string>
-    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"SS-beiðni breytt í nýja SS-beiðni."</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="4440038807310535377">"SS-beiðni breytt í venjulegt símtal"</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="6095812685884176176">"SS-beiðni breytt í USSD-beiðni"</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="7920654012697945858">"Breytt í nýja SS-beiðni"</string>
+    <string name="stk_cc_ss_to_dial_video_error" msgid="3873905132181743781">"SS-beiðni breytt í myndsímtal"</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"Kveikt er á föstu númeravali í símaforritinu. Þetta veldur því að sumir símtalseiginleikar virka ekki."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"Kveiktu á loftnetinu áður en þú skoðar þessar stillingar."</string>
     <string name="close_dialog" msgid="2365884406356986917">"Í lagi"</string>
@@ -158,16 +159,16 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"Nýja PIN-númerið inniheldur ógilda stafi."</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"Ekki var hægt að breyta PIN-númerinu"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"Óstudd skilaboðagerð, hringdu í <xliff:g id="NUMBER">%s</xliff:g> til að hlusta."</string>
-    <string name="mobile_networks" msgid="5540397602919106177">"Stillingar farsímakerfis"</string>
     <string name="network_settings_title" msgid="514120489499925574">"Farsímakerfi"</string>
     <string name="label_available" msgid="1181658289009300430">"Símkerfi í boði"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Leitar…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Engin símkerfi fundust."</string>
-    <string name="network_query_error" msgid="6828516148953325006">"Villa kom upp við símkerfaleit."</string>
+    <string name="network_query_error" msgid="8466081377231178298">"Símkerfi fundust ekki. Reyndu aftur."</string>
     <string name="register_on_network" msgid="9055203954040805084">"Skráning á <xliff:g id="NETWORK">%s</xliff:g>…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"SIM-kortið leyfir ekki tengingu við þetta símkerfi."</string>
     <string name="connect_later" msgid="2308119155752343975">"Ekki næst tenging við þetta kerfi á þessari stundu. Reyndu aftur síðar."</string>
     <string name="registration_done" msgid="495135664535876612">"Skráð á símkerfi."</string>
+    <string name="already_auto" msgid="6067116884321285507">"Nú þegar í sjálfvirku vali."</string>
     <string name="select_automatically" msgid="1046727200631770962">"Velja netkerfi sjálfkrafa"</string>
     <string name="network_select_title" msgid="7733107364757544558">"Netkerfi"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Sjálfvirk skráning…"</string>
@@ -175,6 +176,36 @@
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"Breyta virknihætti símkerfis"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Valin símkerfistegund"</string>
     <string name="forbidden_network" msgid="4384929668343563440">"(bannað)"</string>
+    <string name="choose_network_title" msgid="4023911977543009350">"Velja netkerfi"</string>
+    <string name="network_disconnected" msgid="2227251609006103194">"Aftengt"</string>
+    <string name="network_connected" msgid="1288589103624338857">"Tengt"</string>
+    <string name="network_connecting" msgid="4927203097283533783">"Tengist..."</string>
+    <string name="network_could_not_connect" msgid="8254009365807767243">"Ekki tókst að tengjast"</string>
+  <string-array name="preferred_network_mode_choices">
+    <item msgid="3628460389382468528">"GSM/WCDMA fyrsta val"</item>
+    <item msgid="8442633436636425221">"GSM eingöngu"</item>
+    <item msgid="2032314385791760810">"WCDMA eingöngu"</item>
+    <item msgid="6334554401059422303">"GSM/WCDMA sjálfvirkt"</item>
+    <item msgid="1462198368200398663">"CDMA/EvDo sjálfvirkt"</item>
+    <item msgid="3611460019185359968">"CDMA án EvDo"</item>
+    <item msgid="545430093607698090">"EvDo eingöngu"</item>
+    <item msgid="4286774020869405140">"CDMA/EvDo/GSM/WCDMA"</item>
+    <item msgid="4006002265696868538">"CDMA + LTE/EvDo"</item>
+    <item msgid="8973936140318359205">"GSM/WCDMA/LTE"</item>
+    <item msgid="3471059554252610472">"Alþjóðlegt"</item>
+    <item msgid="2882615514545171802">"LTE"</item>
+    <item msgid="8076204422288290116">"LTE/WCDMA"</item>
+    <item msgid="3982984144824159726">"Aðeins TDSCDMA"</item>
+    <item msgid="3686191974505922271">"TDSCDMA/WCDMA"</item>
+    <item msgid="7135671700201836475">"LTE/TDSCDMA"</item>
+    <item msgid="3736619459066330755">"TDSCDMA/GSM"</item>
+    <item msgid="4778666570887216861">"LTE/TDSCDMA/GSM"</item>
+    <item msgid="2952322596201849456">"TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="115984258536697617">"LTE/TDSCDMA/WCDMA"</item>
+    <item msgid="7957991936217192636">"LTE/TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="2828588917858484655">"TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+    <item msgid="4989979948139945854">"LTE/TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+  </string-array>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Valin símkerfisstilling: WCDMA fyrsta val"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Valin símkerfisstilling: GSM eingöngu"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Valin símkerfisstilling: WCDMA eingöngu"</string>
@@ -192,21 +223,15 @@
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"Valið símkerfi: LTE/GSM/UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"Valin símkerfisstilling: LTE/CDMA"</string>
     <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"Valin símkerfisstilling: TDSCDMA"</string>
-  <string-array name="preferred_network_mode_choices">
-    <item msgid="7886739962255042385">"LTE/WCDMA"</item>
-    <item msgid="577652050447385699">"LTE"</item>
-    <item msgid="6813597571293773656">"Alþjóðlegt"</item>
-    <item msgid="127064712132619032">"GSM/WCDMA/LTE"</item>
-    <item msgid="1126767511633425977">"CDMA + LTE/EvDo"</item>
-    <item msgid="6389676313771670660">"CDMA/EvDo/GSM/WCDMA"</item>
-    <item msgid="545430093607698090">"EvDo eingöngu"</item>
-    <item msgid="1508557726283094448">"CDMA án EvDo"</item>
-    <item msgid="4341433122263841224">"CDMA/EvDo sjálfvirkt"</item>
-    <item msgid="5958053792390386668">"GSM/WCDMA sjálfvirkt"</item>
-    <item msgid="7913148405605373434">"WCDMA eingöngu"</item>
-    <item msgid="1524224863879435516">"GSM eingöngu"</item>
-    <item msgid="3817924849415716259">"GSM/WCDMA fyrsta val"</item>
-  </string-array>
+    <string name="preferred_network_mode_tdscdma_wcdma_summary" msgid="2405154895437348623">"Valin símkerfisstilling: TDSCDMA/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_summary" msgid="2104702896644235637">"Valin símkerfisstilling: LTE/TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_summary" msgid="4893784445338396204">"Valin símkerfisstilling: TDSCDMA/GSM"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_summary" msgid="1815169717046729757">"Valin símkerfisstilling: LTE/GSM/TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_wcdma_summary" msgid="2195358773359424099">"Valin símkerfisstilling: TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_wcdma_summary" msgid="1181424059695667803">"Valin símkerfisstilling: LTE/TDSCDMA/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_wcdma_summary" msgid="2526539326505354382">"Valin símkerfisstilling: LTE/TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="8195248059196614939">"Valin símkerfisstilling: TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="5596733053095592791">"Valin símkerfisstilling: LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
     <string name="call_category" msgid="5863978196309462052">"Hringir"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"Netkerfi"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"endurbætt 4G LTE-stilling"</string>
@@ -218,14 +243,16 @@
     <string name="roaming" msgid="7894878421600247140">"Reiki"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Tengjast gagnaþjónustu í reiki"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Tengjast gagnaþjónustu í reiki"</string>
-    <string name="roaming_reenable_message" msgid="8913735676127858115">"Gagnatengingin rofnaði vegna þess að þú ert utan heimakerfis með slökkt á gagnareiki."</string>
+    <string name="roaming_reenable_message" msgid="6843814381576397939">"Slökkt er á gagnareiki. Ýttu til að kveikja."</string>
+    <string name="roaming_notification_title" msgid="4749053220884743110">"Farsímagagnatenging rofnaði"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"Þetta getur haft mikinn kostnað í för með sér."</string>
+    <string name="roaming_check_price_warning" msgid="7497570906830902550">"Upplýsingar um verð fást hjá símafyrirtækinu."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Leyfa gagnareiki?"</string>
-    <string name="data_usage_title" msgid="8759619109516889802">"Gagnanotkun"</string>
+    <string name="data_usage_title" msgid="4042209259808900283">"Gagnanotkun forrits"</string>
     <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_1">%1$s</xliff:g> af farsímagögnum notuð <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="8074895510265488035">"Ítarlegt"</string>
     <string name="carrier_settings_euicc" msgid="6714062862127226405">"Símafyrirtæki"</string>
-    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"símafyrirtæki, esim, sim, euicc"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="6861505396475991277">"símafyrirtæki, símkerfi, esim, sim, euicc, skipta milli símkerfa, bæta við símkerfi"</string>
     <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> – <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="mobile_data_settings_title" msgid="4661165467914727157">"Farsímagögn"</string>
     <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Aðgangur að gögnum um farsímakerfi"</string>
@@ -399,7 +426,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"Eyða föstu númeravali…"</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"Föstu númeravali eytt."</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"Fast númeraval var ekki uppfært því að þú slóst inn rangt PIN-númer."</string>
-    <string name="fdn_invalid_number" msgid="8602417141715473998">"Fast númeraval var ekki uppfært því að númerið er autt eða er lengra en 20 tölustafir."</string>
+    <string name="fdn_invalid_number" msgid="2062898833049589309">"Fast númeraval var ekki uppfært vegna þess að númerið er lengra en 20 tölustafir."</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"Fast númeraval var ekki uppfært. PIN2-númerið var rangt eða símanúmerinu var hafnað."</string>
     <string name="fdn_failed" msgid="540018079008319747">"Aðgerð fasts númeravals mistókst."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"Les af SIM-korti…"</string>
@@ -482,6 +509,7 @@
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Ekki er hægt að fara í flugstillingu meðan neyðarsímtal er í gangi."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"Ekki hægt að hringja. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> er ekki neyðarnúmer."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Ekki hægt að hringja. Hringdu í neyðarnúmer."</string>
+    <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"Neyðarsímtöl eru ekki í boði"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Notaðu lyklaborðið til að hringja"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"Setja í bið"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"Ljúka"</string>
@@ -502,6 +530,9 @@
     <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"Mistókst að flytja inn tengilið"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"Heyrnartæki"</string>
     <string name="hac_mode_summary" msgid="6833851160514929341">"Kveikja á samhæfi við heyrnartæki"</string>
+    <string name="rtt_mode_title" msgid="6954652435543570121">"RTT-símtal (með texta í rauntíma)"</string>
+    <string name="rtt_mode_summary" msgid="5146344277246544580">"Leyfa skilaboðasendingar í símtölum"</string>
+    <string name="rtt_mode_more_information" msgid="6080420780730383030">"RTT (símtöl með texta í rauntíma) aðstoðar heyrnarlausa og fólk með heyrnarskerðingu eða skerta talgetu og þá sem þurfa að styðja sig við meira en bara hljóð.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Frekari upplýsingar&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - RTT-símtöl eru vistuð í umrituðum skilaboðum\n       &lt;br&gt; - RTT er ekki í boði fyrir myndsímtöl"</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"Slökkt á TTY"</item>
     <item msgid="3971695875449640648">"TTY að fullu"</item>
@@ -613,4 +644,107 @@
     <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Þú gætir þurft að bæta við gögnum í gegnum <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"BÆTA VIÐ GÖGNUM"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"HÆTTA VIÐ"</string>
+    <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"Símtali lokið"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"Slökkt á loftneti"</string>
+    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"Ekkert SIM-kort eða villa í SIM-korti"</string>
+    <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"Farsímakerfi ekki tiltækt"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"Óúthlutað (óráðstafað) númer"</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"Engin leið til viðtaka"</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"Óleyfileg rás"</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"Útilokun ákvörðuð af símafyrirtæki"</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"Venjuleg símtalahreinsun"</string>
+    <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"Notandi er upptekinn"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"Enginn notandi svarar"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"Varar notanda við, ekkert svar"</string>
+    <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"Símtali hafnað"</string>
+    <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"Breytt númer"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"Fyrirbygging"</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"Hreinsun notanda sem var ekki valin"</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"Viðtaki virkar ekki"</string>
+    <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"Ógilt talnasvið (ófullgert númer)"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"Veitu hafnað"</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"Svar við STÖÐUFYRIRSPURN"</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"Venjulegt, ótilgreint"</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"Engin rás/boðleið tiltæk"</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"Kerfi í ólagi"</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"Tímabundin villa"</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"Teppa við að skipta um búnað"</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"Aðgangsupplýsingum var fleygt"</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"Umbeðin rás/boðleið er ekki tiltæk"</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"Tilföng ekki tiltæk, ótilgreint"</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"Þjónustugæði eru ekki tiltæk"</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"Umbeðin veita er ekki í áskrift"</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"Lokað á símtöl sem berast innan lokaða notendahópsins (CUG)"</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"Flutningssamhæfi ekki heimilað"</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"Flutningssamhæfi ekki tiltækt eins og stendur"</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"Þjónusta eða valkostur ekki í boði, ótilgreint"</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"Flutningssamhæfi ekki innleitt"</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM er jafnt eða stærra en ACMmax"</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"Umbeðin veita er ekki innleidd"</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"Aðeins takmarkað flutningssamhæfi fyrir stafrænar upplýsingar er í boði"</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"Þjónusta eða valkostur ekki innleiddUR, ótilgreint"</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"Ógilt gildi færsluauðkennis"</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"Notandi ekki meðlimur í lokuðum notendahópi (CUG)"</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"Ósamhæfur áfangastaður"</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"Ógilt val á flutningskerfi"</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"Merkingalega röng skilaboð"</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"Ógildar nauðsynlegar upplýsingar"</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"Skilaboðagerð ekki til staðar eða ekki innleidd"</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"Skilaboðagerð ekki samhæf við stöðu samskiptareglna"</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"Upplýsingaeining ekki til staðar eða ekki innleidd"</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"Skilyrt IE-villa"</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"Skilaboð ekki samhæf við stöðu samskiptareglna"</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"Endurheimt við lok tímamælingar"</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"Villa í samskiptareglu, ótilgreind"</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"Samvirkni, ótilgreint"</string>
+    <string name="labelCallBarring" msgid="3452870940716226978">"Útilokun símtala"</string>
+    <string name="sum_call_barring_enabled" msgid="6804489690436703488">"Kveikt"</string>
+    <string name="sum_call_barring_disabled" msgid="5900772179198857783">"Slökkt"</string>
+    <string name="call_barring_baoc" msgid="1199843944333106035">"Öll hringd símtöl"</string>
+    <string name="call_barring_baoc_enabled" msgid="8112118391869380361">"Hætta að loka á öll hringd símtöl?"</string>
+    <string name="call_barring_baoc_disabled" msgid="7806697133004697974">"Loka á öll hringd símtöl?"</string>
+    <string name="call_barring_baoic" msgid="3162154267825211826">"Símtöl til annarra landa"</string>
+    <string name="call_barring_baoic_enabled" msgid="2634377543147258105">"Hætta að loka á símtöl til annarra landa?"</string>
+    <string name="call_barring_baoic_disabled" msgid="5817895648306183464">"Loka á símtöl til annarra landa?"</string>
+    <string name="call_barring_baoicr" msgid="8951699885885742076">"Símtöl til annarra landa í reiki"</string>
+    <string name="call_barring_baoicr_enabled" msgid="2519630715322138317">"Hætta að loka á símtöl til annarra landa í reiki?"</string>
+    <string name="call_barring_baoicr_disabled" msgid="5831267468931377699">"Loka á símtöl til annarra landa í reiki?"</string>
+    <string name="call_barring_baic" msgid="5272726081458339912">"Öll móttekin símtöl"</string>
+    <string name="call_barring_baic_enabled" msgid="2457134916223203380">"Hætta að loka á öll móttekin símtöl?"</string>
+    <string name="call_barring_baic_disabled" msgid="6945604947500275636">"Loka á öll móttekin símtöl?"</string>
+    <string name="call_barring_baicr" msgid="5728784220691481693">"Móttekin símtöl í reiki"</string>
+    <string name="call_barring_baicr_enabled" msgid="6533336994391716127">"Hætta að loka á öll móttekin símtöl í reiki?"</string>
+    <string name="call_barring_baicr_disabled" msgid="6746329853943256566">"Loka á móttekin símtöl í reiki?"</string>
+    <string name="call_barring_deactivate_all" msgid="5269788384941003415">"Slökkva á öllu"</string>
+    <string name="call_barring_deactivate_all_description" msgid="4972365443287257704">"Slökkva á öllum stillingum fyrir útilokun símtala"</string>
+    <string name="call_barring_deactivate_success" msgid="8014685598632000936">"Slökkt á útilokun símtala"</string>
+    <string name="call_barring_change_pwd" msgid="6887420609726284232">"Breyta aðgangsorði"</string>
+    <string name="call_barring_change_pwd_description" msgid="5505087790260233953">"Breyta aðgangsorði fyrir útilokun símtala"</string>
+    <string name="call_barring_change_pwd_description_disabled" msgid="7630770327645349957">"Ekki var hægt að breyta aðgangsorði fyrir útilokun símtala."</string>
+    <string name="call_barring_pwd_not_match" msgid="6716711689350314525">"Aðgangsorðin stemma ekki."</string>
+    <string name="call_barring_right_pwd_number" msgid="2902966502520410446">"Sláðu inn aðgangsorð sem inniheldur fjóra tölustafi."</string>
+    <string name="call_barring_change_pwd_success" msgid="3278310763742760321">"Aðgangsorði breytt"</string>
+    <string name="call_barring_old_pwd" msgid="6080515987320238522">"Eldra aðgangsorð"</string>
+    <string name="call_barring_new_pwd" msgid="7048532299150269547">"Nýtt aðgangsorð"</string>
+    <string name="call_barring_confirm_pwd" msgid="1947167278466285411">"Staðfesta aðgangsorð"</string>
+    <string name="messageCallBarring" msgid="2412123220272136055">"Slá inn aðgangsorð"</string>
+    <string name="call_barring_settings" msgid="80766145008623645">"Stillingar fyrir útilokun símtala"</string>
+    <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"Slökkva á öllum stillingum fyrir útilokun símtala?"</string>
+    <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"Símtal flutt."</string>
+    <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"Símtal framsent."</string>
+    <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"Símtal er í bið."</string>
+    <string name="supp_service_clir_suppression_rejected" msgid="1581851661582189045">"Ekki er hægt að setja símanúmer á bannlista."</string>
+    <string name="supp_service_closed_user_group_call" msgid="5761735840904590950">"Símtal í lokuðum hópi."</string>
+    <string name="supp_service_incoming_calls_barred" msgid="3248813207307882723">"Lokað er fyrir móttekin símtöl."</string>
+    <string name="supp_service_outgoing_calls_barred" msgid="1962644621292054081">"Lokað er fyrir hringd símtöl."</string>
+    <string name="supp_service_call_forwarding_active" msgid="1253134771682248735">"Kveikt á símtalsflutningi."</string>
+    <string name="supp_service_additional_call_forwarded" msgid="5228624725214727315">"Móttekið símtal framsent."</string>
+    <string name="supp_service_additional_ect_connected" msgid="6396964292513707102">"Símtalsflutningi lokið."</string>
+    <string name="supp_service_additional_ect_connecting" msgid="5443373059716058480">"Símtalsflutningur í gangi."</string>
+    <string name="supp_service_call_on_hold" msgid="1478976782361795422">"Símtal í bið."</string>
+    <string name="supp_service_call_resumed" msgid="1656475289958070674">"Símtal heldur áfram."</string>
+    <string name="supp_service_deflected_call" msgid="138970419873492166">"Símtal var flutt."</string>
+    <string name="supp_service_forwarded_call" msgid="4509980341645679803">"Framsent símtal."</string>
+    <string name="supp_service_conference_call" msgid="4448616364004466832">"Tekur þátt í símafundi."</string>
+    <string name="supp_service_held_call_released" msgid="2030677825038709779">"Símtal í bið heldur áfram."</string>
 </resources>

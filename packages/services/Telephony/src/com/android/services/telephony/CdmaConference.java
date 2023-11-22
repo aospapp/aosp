@@ -26,16 +26,16 @@ import android.telephony.CarrierConfigManager;
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallStateException;
 import com.android.phone.PhoneGlobals;
-import com.android.phone.common.R;
 
 import java.util.List;
 
 /**
  * CDMA-based conference call.
  */
-public class CdmaConference extends Conference {
+public class CdmaConference extends Conference implements Holdable {
     private int mCapabilities;
     private int mProperties;
+    private boolean mIsHoldable;
 
     public CdmaConference(PhoneAccountHandle phoneAccount) {
         super(phoneAccount);
@@ -43,6 +43,8 @@ public class CdmaConference extends Conference {
 
         mProperties = Connection.PROPERTY_GENERIC_CONFERENCE;
         setConnectionProperties(mProperties);
+
+        mIsHoldable = false;
     }
 
     public void updateCapabilities(int capabilities) {
@@ -198,5 +200,18 @@ public class CdmaConference extends Conference {
             return null;
         }
         return (CdmaConnection) connections.get(0);
+    }
+
+    @Override
+    public void setHoldable(boolean isHoldable) {
+        // Since the CDMA-based conference can't not be held, dont update the capability when this
+        // method called.
+        mIsHoldable = isHoldable;
+    }
+
+    @Override
+    public boolean isChildHoldable() {
+        // The conference can not be a child of other conference.
+        return false;
     }
 }

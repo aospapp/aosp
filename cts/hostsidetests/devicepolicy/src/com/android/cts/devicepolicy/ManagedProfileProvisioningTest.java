@@ -111,6 +111,17 @@ public class ManagedProfileProvisioningTest extends BaseDevicePolicyTest {
                 "testAccountExist", mParentUserId);
     }
 
+    public void testWebview() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        // We start an activity containing WebView in another process and run provisioning to
+        // test that the process is not killed.
+        startActivityAsUser(mParentUserId, MANAGED_PROFILE_PKG, ".WebViewActivity");
+        provisionManagedProfile();
+    }
+
     private void provisionManagedProfile() throws Exception {
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ProvisioningTest",
                 "testProvisionManagedProfile", mParentUserId);

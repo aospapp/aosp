@@ -22,7 +22,7 @@ import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 import android.app.test.MockAnswerUtil.AnswerWithArguments;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import org.junit.After;
 import org.junit.Before;
@@ -64,16 +64,17 @@ public class WifiConnectivityHelperTest {
 
     private void setupWifiNative() {
         // Return firmware roaming feature as supported by default.
-        when(mWifiNative.getSupportedFeatureSet()).thenReturn(WIFI_FEATURE_CONTROL_ROAMING);
+        when(mWifiNative.getSupportedFeatureSet(any())).thenReturn(WIFI_FEATURE_CONTROL_ROAMING);
 
         doAnswer(new AnswerWithArguments() {
-            public boolean answer(WifiNative.RoamingCapabilities roamCap) throws Exception {
+            public boolean answer(String ifaceName, WifiNative.RoamingCapabilities roamCap)
+                    throws Exception {
                 roamCap.maxBlacklistSize = MAX_BSSID_BLACKLIST_SIZE;
                 roamCap.maxWhitelistSize = MAX_SSID_WHITELIST_SIZE;
                 return true;
-            }}).when(mWifiNative).getRoamingCapabilities(anyObject());
+            }}).when(mWifiNative).getRoamingCapabilities(any(), anyObject());
 
-        when(mWifiNative.configureRoaming(anyObject())).thenReturn(true);
+        when(mWifiNative.configureRoaming(any(), anyObject())).thenReturn(true);
     }
 
     private ArrayList<String> buildBssidBlacklist(int size) {
@@ -117,7 +118,7 @@ public class WifiConnectivityHelperTest {
      */
     @Test
     public void returnFirmwareRoamingNotSupported() {
-        when(mWifiNative.getSupportedFeatureSet()).thenReturn(~WIFI_FEATURE_CONTROL_ROAMING);
+        when(mWifiNative.getSupportedFeatureSet(any())).thenReturn(~WIFI_FEATURE_CONTROL_ROAMING);
         assertTrue(mWifiConnectivityHelper.getFirmwareRoamingInfo());
         assertFalse(mWifiConnectivityHelper.isFirmwareRoamingSupported());
     }
@@ -142,9 +143,10 @@ public class WifiConnectivityHelperTest {
     @Test
     public void verifyFirmwareRoamingCapabilityWithFailureNativeCall() {
         doAnswer(new AnswerWithArguments() {
-            public boolean answer(WifiNative.RoamingCapabilities roamCap) throws Exception {
+            public boolean answer(String ifaceName, WifiNative.RoamingCapabilities roamCap)
+                    throws Exception {
                 return false;
-            }}).when(mWifiNative).getRoamingCapabilities(anyObject());
+            }}).when(mWifiNative).getRoamingCapabilities(any(), anyObject());
         assertFalse(mWifiConnectivityHelper.getFirmwareRoamingInfo());
         assertFalse(mWifiConnectivityHelper.isFirmwareRoamingSupported());
         assertEquals(WifiConnectivityHelper.INVALID_LIST_SIZE,
@@ -161,11 +163,12 @@ public class WifiConnectivityHelperTest {
     @Test
     public void verifyFirmwareRoamingCapabilityWithInvalidMaxBssidBlacklistSize() {
         doAnswer(new AnswerWithArguments() {
-            public boolean answer(WifiNative.RoamingCapabilities roamCap) throws Exception {
+            public boolean answer(String ifaceName, WifiNative.RoamingCapabilities roamCap)
+                    throws Exception {
                 roamCap.maxBlacklistSize = -5;
                 roamCap.maxWhitelistSize = MAX_SSID_WHITELIST_SIZE;
                 return true;
-            }}).when(mWifiNative).getRoamingCapabilities(anyObject());
+            }}).when(mWifiNative).getRoamingCapabilities(any(), anyObject());
         assertFalse(mWifiConnectivityHelper.getFirmwareRoamingInfo());
         assertFalse(mWifiConnectivityHelper.isFirmwareRoamingSupported());
         assertEquals(WifiConnectivityHelper.INVALID_LIST_SIZE,
@@ -182,11 +185,12 @@ public class WifiConnectivityHelperTest {
     @Test
     public void verifyFirmwareRoamingCapabilityWithInvalidMaxSsidWhitelistSize() {
         doAnswer(new AnswerWithArguments() {
-            public boolean answer(WifiNative.RoamingCapabilities roamCap) throws Exception {
+            public boolean answer(String ifaceName, WifiNative.RoamingCapabilities roamCap)
+                    throws Exception {
                 roamCap.maxBlacklistSize = MAX_BSSID_BLACKLIST_SIZE;
                 roamCap.maxWhitelistSize = -2;
                 return true;
-            }}).when(mWifiNative).getRoamingCapabilities(anyObject());
+            }}).when(mWifiNative).getRoamingCapabilities(any(), anyObject());
         assertFalse(mWifiConnectivityHelper.getFirmwareRoamingInfo());
         assertFalse(mWifiConnectivityHelper.isFirmwareRoamingSupported());
         assertEquals(WifiConnectivityHelper.INVALID_LIST_SIZE,
@@ -254,7 +258,7 @@ public class WifiConnectivityHelperTest {
         ArrayList<String> blacklist = buildBssidBlacklist(0);
         ArrayList<String> whitelist = buildSsidWhitelist(0);
         assertTrue(mWifiConnectivityHelper.setFirmwareRoamingConfiguration(blacklist, whitelist));
-        verify(mWifiNative).configureRoaming(mRoamingConfigCaptor.capture());
+        verify(mWifiNative).configureRoaming(any(), mRoamingConfigCaptor.capture());
         assertEquals(0, mRoamingConfigCaptor.getValue().blacklistBssids.size());
         assertEquals(0, mRoamingConfigCaptor.getValue().whitelistSsids.size());
     }

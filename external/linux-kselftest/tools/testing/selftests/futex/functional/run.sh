@@ -22,6 +22,14 @@
 #
 ###############################################################################
 
+run_test()
+{
+	$@
+	if [ $? -ne 0 ]; then
+		rc=1
+	fi
+}
+
 # Test for a color capable console
 if [ -z "$USE_COLOR" ]; then
     tput setf 7 || tput setaf 7
@@ -34,46 +42,49 @@ if [ "$USE_COLOR" -eq 1 ]; then
     COLOR="-c"
 fi
 
+rc=0
 
 echo
 # requeue pi testing
 # without timeouts
-./futex_requeue_pi $COLOR
-./futex_requeue_pi $COLOR -b
-./futex_requeue_pi $COLOR -b -l
-./futex_requeue_pi $COLOR -b -o
-./futex_requeue_pi $COLOR -l
-./futex_requeue_pi $COLOR -o
+run_test ./futex_requeue_pi $COLOR
+run_test ./futex_requeue_pi $COLOR -b
+run_test ./futex_requeue_pi $COLOR -b -l
+run_test ./futex_requeue_pi $COLOR -b -o
+run_test ./futex_requeue_pi $COLOR -l
+run_test ./futex_requeue_pi $COLOR -o
 # with timeouts
-./futex_requeue_pi $COLOR -b -l -t 5000
-./futex_requeue_pi $COLOR -l -t 5000
-./futex_requeue_pi $COLOR -b -l -t 500000
-./futex_requeue_pi $COLOR -l -t 500000
-./futex_requeue_pi $COLOR -b -t 5000
-./futex_requeue_pi $COLOR -t 5000
-./futex_requeue_pi $COLOR -b -t 500000
-./futex_requeue_pi $COLOR -t 500000
-./futex_requeue_pi $COLOR -b -o -t 5000
-./futex_requeue_pi $COLOR -l -t 5000
-./futex_requeue_pi $COLOR -b -o -t 500000
-./futex_requeue_pi $COLOR -l -t 500000
+run_test ./futex_requeue_pi $COLOR -b -l -t 5000
+run_test ./futex_requeue_pi $COLOR -l -t 5000
+run_test ./futex_requeue_pi $COLOR -b -l -t 500000
+run_test ./futex_requeue_pi $COLOR -l -t 500000
+run_test ./futex_requeue_pi $COLOR -b -t 5000
+run_test ./futex_requeue_pi $COLOR -t 5000
+run_test ./futex_requeue_pi $COLOR -b -t 500000
+run_test ./futex_requeue_pi $COLOR -t 500000
+run_test ./futex_requeue_pi $COLOR -b -o -t 5000
+run_test ./futex_requeue_pi $COLOR -l -t 5000
+run_test ./futex_requeue_pi $COLOR -b -o -t 500000
+run_test ./futex_requeue_pi $COLOR -l -t 500000
 # with long timeout
-./futex_requeue_pi $COLOR -b -l -t 2000000000
-./futex_requeue_pi $COLOR -l -t 2000000000
+run_test ./futex_requeue_pi $COLOR -b -l -t 2000000000
+run_test ./futex_requeue_pi $COLOR -l -t 2000000000
 
 
 echo
-./futex_requeue_pi_mismatched_ops $COLOR
+run_test ./futex_requeue_pi_mismatched_ops $COLOR
 
 echo
-./futex_requeue_pi_signal_restart $COLOR
+run_test ./futex_requeue_pi_signal_restart $COLOR
 
 echo
-./futex_wait_timeout $COLOR
+run_test ./futex_wait_timeout $COLOR
 
 echo
-./futex_wait_wouldblock $COLOR
+run_test ./futex_wait_wouldblock $COLOR
 
 echo
-./futex_wait_uninitialized_heap $COLOR
-./futex_wait_private_mapped_file $COLOR
+run_test ./futex_wait_uninitialized_heap $COLOR
+run_test ./futex_wait_private_mapped_file $COLOR
+
+exit $rc

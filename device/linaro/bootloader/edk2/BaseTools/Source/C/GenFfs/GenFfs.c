@@ -1,7 +1,7 @@
 /** @file
 This file contains functions required to generate a Firmware File System file.
 
-Copyright (c) 2004 - 2014, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials                          
 are licensed and made available under the terms and conditions of the BSD License         
 which accompanies this distribution.  The full text of the license may be found at        
@@ -739,7 +739,7 @@ Returns:
   VerboseMsg ("%s tool start.", UTILITY_NAME);
 
   //
-  // Check the complete input paramters.
+  // Check the complete input parameters.
   //
   if (FfsFiletype == EFI_FV_FILETYPE_ALL) {
     Error (NULL, 0, 1001, "Missing option", "filetype");
@@ -845,6 +845,11 @@ Returns:
   if (EFI_ERROR (Status)) {
     goto Finish;
   }
+
+  if (FileBuffer == NULL && FileSize != 0) {
+    Error (NULL, 0, 4001, "Resource", "memory cannot be allocated!");
+    goto Finish;
+  }
   
   //
   // Create Ffs file header.
@@ -915,22 +920,26 @@ Returns:
   //
   // Open output file to write ffs data.
   //
-  remove(OutputFileName);
-  FfsFile = fopen (LongFilePath (OutputFileName), "wb");
-  if (FfsFile == NULL) {
-    Error (NULL, 0, 0001, "Error opening file", OutputFileName);
-    goto Finish;
-  }
-  //
-  // write header
-  //
-  fwrite (&FfsFileHeader, 1, HeaderSize, FfsFile);
-  //
-  // write data
-  //
-  fwrite (FileBuffer, 1, FileSize - HeaderSize, FfsFile);
+  if (OutputFileName != NULL) {
+    remove(OutputFileName);
+    FfsFile = fopen (LongFilePath (OutputFileName), "wb");
+    if (FfsFile == NULL) {
+      Error (NULL, 0, 0001, "Error opening file", OutputFileName);
+      goto Finish;
+    }
+    //
+    // write header
+    //
+    fwrite (&FfsFileHeader, 1, HeaderSize, FfsFile);
+    //
+    // write data
+    //
+    if (FileBuffer != NULL) {
+      fwrite (FileBuffer, 1, FileSize - HeaderSize, FfsFile);
+    }
 
-  fclose (FfsFile);
+    fclose (FfsFile);
+  }
 
 Finish:
   if (InputFileName != NULL) {

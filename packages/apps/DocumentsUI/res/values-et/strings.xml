@@ -41,7 +41,7 @@
     <string name="menu_compress" msgid="37539111904724188">"Tihenda"</string>
     <string name="menu_extract" msgid="8171946945982532262">"Ekstrakti …"</string>
     <string name="menu_rename" msgid="1883113442688817554">"Nimeta ümber"</string>
-    <string name="menu_inspector" msgid="8217713416277319588">"Teabe hankimine"</string>
+    <string name="menu_inspect" msgid="7279855349299446224">"Teabe hankimine"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"Kuva allikas <xliff:g id="SOURCE">%1$s</xliff:g>"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"Uus aken"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"Lõika"</string>
@@ -57,6 +57,8 @@
     <string name="button_move" msgid="8596460499325291272">"Teisalda"</string>
     <string name="button_dismiss" msgid="7235249361023803349">"Loobu"</string>
     <string name="button_retry" msgid="4011461781916631389">"Proovi uuesti"</string>
+    <string name="button_clear" msgid="5412304437764369441">"Kustuta"</string>
+    <string name="button_show_provider" msgid="6905880493806292753">"Kuva teenuses"</string>
     <string name="not_sorted" msgid="7813496644889115530">"Sortimata"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"Nimi"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"Kokkuvõte"</string>
@@ -64,14 +66,6 @@
     <string name="sort_dimension_size" msgid="2190547351159472884">"Suurus"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"Muudetud"</string>
     <string name="directory_items" msgid="6645621978998614003">"Üksuste arv"</string>
-    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"Seda tüüpi faile saab avada rakendusega"</string>
-    <string name="handler_app_belongs_to" msgid="5956928604521893459">"See fail kuulub teenusesse"</string>
-    <string name="handler_app_button_info_1" msgid="4271199640671067569">"Teised rakendused saavad seda tüüpi faile avada. Kustuta"</string>
-    <string name="handler_app_button_info_2" msgid="4299969771512815898">"vaikevalikuna."</string>
-    <string name="handler_app_clear" msgid="206579047716445033">"Kustuta"</string>
-    <string name="handler_app_show_in" msgid="7923573101129079048">"Kuva teenuses"</string>
-    <string name="handler_app_not_selected" msgid="8178393676227130360">"Pole valitud"</string>
-    <string name="handler_app_unknown" msgid="56574249066388341">"Teadmata"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"Kasvav"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"Kahanev"</string>
     <string name="drawer_open" msgid="8071673398187261741">"Kuva juured"</string>
@@ -90,7 +84,6 @@
     <string name="toast_no_application" msgid="7555319548595113121">"Faili ei saa avada"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"Arhiivides olevaid faile ei saa avada"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"Mõnda dokumenti ei saa kustutada"</string>
-    <string name="file_inspector_load_error" msgid="1226344446677541109">"Atribuute ei saanud laadida"</string>
     <string name="share_via" msgid="8725082736005677161">"Jaga rakendusega"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"Failide kopeerimine"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"Failide tihendamine"</string>
@@ -119,11 +112,11 @@
       <item quantity="one">Kustutatakse <xliff:g id="COUNT_0">%1$d</xliff:g> üksus.</item>
     </plurals>
     <string name="undo" msgid="2902438994196400565">"Võta tagasi"</string>
-    <string name="copy_preparing" msgid="5326063807006898223">"Kopeerimise ettevalmistamine …"</string>
-    <string name="compress_preparing" msgid="6650018601382062672">"Tihendamiseks ettevalmistamine …"</string>
-    <string name="extract_preparing" msgid="58266275455027829">"Ekstraktimise ettevalmistamine …"</string>
-    <string name="move_preparing" msgid="8742573245485449429">"Teisaldamise ettevalmistamine …"</string>
-    <string name="delete_preparing" msgid="6513863752916028147">"Kustutamise ettevalmistamine …"</string>
+    <string name="copy_preparing" msgid="4759516490222449324">"Ettevalmistamine …"</string>
+    <string name="compress_preparing" msgid="7401605598969019696">"Ettevalmistamine …"</string>
+    <string name="extract_preparing" msgid="4796626960061745796">"Ettevalmistamine …"</string>
+    <string name="move_preparing" msgid="6504239656430530761">"Ettevalmistamine …"</string>
+    <string name="delete_preparing" msgid="7339349837842802508">"Ettevalmistamine …"</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> üksust ei saanud kopeerida</item>
@@ -213,5 +206,4 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"arhiiv<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"Kas kirjutada üle üksus <xliff:g id="NAME">%1$s</xliff:g>?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Jätka taustal"</string>
-    <string name="inspector_debug_section" msgid="3447621501565766900">"Silumisteave (ainult arendajatele)"</string>
 </resources>

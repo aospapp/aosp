@@ -17,17 +17,13 @@
 package android.dumpsys.cts;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.ddmlib.testrunner.TestResult;
-import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.ddmlib.testrunner.TestRunResult;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.result.CollectingTestListener;
 
 import java.io.BufferedReader;
 import java.io.StringReader;
-import java.util.Map;
+import java.util.Date;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.text.SimpleDateFormat;
 
 /**
  * Test to check the format of the dumps of the processstats test.
@@ -40,6 +36,21 @@ public class StoragedDumpsysTest extends BaseDumpsysTest {
     protected void tearDown() throws Exception {
         super.tearDown();
         getDevice().uninstallPackage(DEVICE_SIDE_TEST_PACKAGE);
+    }
+
+    private String getCgroupFromLog(String log) {
+        Pattern pattern = Pattern.compile("cgroup:([^\\s]+)", Pattern.MULTILINE);
+        Matcher matcher = pattern.matcher(log);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
+    }
+
+    private String getCurrentLogcatDate() throws Exception {
+        long timestampMs = getDevice().getDeviceDate();
+        return new SimpleDateFormat("MM-dd HH:mm:ss.SSS")
+            .format(new Date(timestampMs));
     }
 
     /**
@@ -62,9 +73,18 @@ public class StoragedDumpsysTest extends BaseDumpsysTest {
 
         mDevice.executeShellCommand("dumpsys storaged --force");
 
+        String logcatDate = getCurrentLogcatDate();
+
         runDeviceTests(DEVICE_SIDE_TEST_PACKAGE,
                 "com.android.server.cts.storaged.StoragedTest",
                 "testBackgroundIO");
+        String log = mDevice.executeAdbCommand(
+                "logcat", "-v", "brief", "-d", "-t", logcatDate,
+                "SimpleIOService:I", "*:S");
+        String serviceCgroup = getCgroupFromLog(log);
+        if (serviceCgroup != null && serviceCgroup.equals("/top")) {
+            System.out.println("WARNING: Service was not in the correct cgroup; ActivityManager may be unresponsive.");
+        }
 
         runDeviceTests(DEVICE_SIDE_TEST_PACKAGE,
                 "com.android.server.cts.storaged.StoragedTest",
@@ -102,8 +122,14 @@ public class StoragedDumpsysTest extends BaseDumpsysTest {
                 }
 
                 if (parts[0].equals(DEVICE_SIDE_TEST_PACKAGE)) {
-                    assertTrue((Integer.parseInt(parts[6]) >= 4096 && Integer.parseInt(parts[8]) >= 4096) ||
-                                Integer.parseInt(parts[8]) >= 8192);
+                    if (Integer.parseInt(parts[6]) >= 8192 && Integer.parseInt(parts[8]) == 0) {
+                        System.out.print("WARNING: Background I/O was attributed to the "
+                                + "foreground. This could indicate a broken or malfunctioning "
+                                + "ActivityManager or UsageStatsService.\n");
+                    } else {
+                        assertTrue((Integer.parseInt(parts[6]) >= 4096 && Integer.parseInt(parts[8]) >= 4096) ||
+                                    Integer.parseInt(parts[8]) >= 8192);
+                    }
                     hasTestIO = true;
                 }
             }

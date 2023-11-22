@@ -15,9 +15,13 @@
  */
 package com.android.tradefed.invoker.shard;
 
+import com.android.annotations.VisibleForTesting;
+import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ConfigurationFactory;
+import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.config.IGlobalConfiguration;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.IRescheduler;
 import com.android.tradefed.invoker.ShardListener;
@@ -28,9 +32,13 @@ import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.suite.checker.ISystemStatusChecker;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IDeviceTest;
+import com.android.tradefed.testtype.IInvocationContextReceiver;
+import com.android.tradefed.testtype.IMultiDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IShardableTest;
 import com.android.tradefed.util.QuotationAwareTokenizer;
+import com.android.tradefed.util.keystore.IKeyStoreClient;
+import com.android.tradefed.util.keystore.KeyStoreException;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -40,6 +48,19 @@ import java.util.concurrent.CountDownLatch;
 
 /** Helper class that handles creating the shards and scheduling them for an invocation. */
 public class ShardHelper implements IShardHelper {
+
+    /**
+     * List of the list configuration obj that should be clone to each shard in order to avoid state
+     * issues.
+     */
+    private static final List<String> CONFIG_OBJ_TO_CLONE = new ArrayList<>();
+
+    static {
+        CONFIG_OBJ_TO_CLONE.add(Configuration.SYSTEM_STATUS_CHECKER_TYPE_NAME);
+        CONFIG_OBJ_TO_CLONE.add(Configuration.DEVICE_METRICS_COLLECTOR_TYPE_NAME);
+        CONFIG_OBJ_TO_CLONE.add(Configuration.TARGET_PREPARER_TYPE_NAME);
+        CONFIG_OBJ_TO_CLONE.add(Configuration.MULTI_PREPARER_TYPE_NAME);
+    }
 
     /**
      * Attempt to shard the configuration into sub-configurations, to be re-scheduled to run on
@@ -76,8 +97,7 @@ public class ShardHelper implements IShardHelper {
             expectedShard = Math.min(shardCount, shardableTests.size());
         }
         ShardMasterResultForwarder resultCollector =
-                new ShardMasterResultForwarder(
-                        config.getLogSaver(), buildMasterShardListeners(config), expectedShard);
+                new ShardMasterResultForwarder(buildMasterShardListeners(config), expectedShard);
 
         resultCollector.invocationStarted(context);
         synchronized (shardableTests) {
@@ -124,7 +144,7 @@ public class ShardHelper implements IShardHelper {
             IInvocationContext context,
             IRescheduler rescheduler,
             ShardMasterResultForwarder resultCollector) {
-        cloneStatusChecker(config, shardConfig);
+        cloneConfigObject(config, shardConfig);
         ShardBuildCloner.cloneBuildInfos(config, shardConfig, context);
 
         shardConfig.setTestInvocationListeners(
@@ -135,20 +155,41 @@ public class ShardHelper implements IShardHelper {
         rescheduler.scheduleConfig(shardConfig);
     }
 
+    /** Returns the current global configuration. */
+    @VisibleForTesting
+    protected IGlobalConfiguration getGlobalConfiguration() {
+        return GlobalConfiguration.getInstance();
+    }
+
     /**
      * Helper to clone {@link ISystemStatusChecker}s from the original config to the clonedConfig.
      */
-    private static void cloneStatusChecker(IConfiguration oriConfig, IConfiguration clonedConfig) {
+    private void cloneConfigObject(IConfiguration oriConfig, IConfiguration clonedConfig) {
+        IKeyStoreClient client = null;
+        try {
+            client = getGlobalConfiguration().getKeyStoreFactory().createKeyStoreClient();
+        } catch (KeyStoreException e) {
+            throw new RuntimeException(
+                    String.format(
+                            "failed to load keystore client when sharding: %s", e.getMessage()),
+                    e);
+        }
         try {
             IConfiguration deepCopy =
                     ConfigurationFactory.getInstance()
                             .createConfigurationFromArgs(
                                     QuotationAwareTokenizer.tokenizeLine(
-                                            oriConfig.getCommandLine()));
-            clonedConfig.setSystemStatusCheckers(deepCopy.getSystemStatusCheckers());
+                                            oriConfig.getCommandLine()),
+                                    null,
+                                    client);
+            for (String objType : CONFIG_OBJ_TO_CLONE) {
+                clonedConfig.setConfigurationObjectList(
+                        objType, deepCopy.getConfigurationObjectList(objType));
+            }
         } catch (ConfigurationException e) {
             // should not happen
-            throw new RuntimeException("failed to deep copy a configuration", e);
+            throw new RuntimeException(
+                    String.format("failed to deep copy a configuration: %s", e.getMessage()), e);
         }
     }
 
@@ -175,6 +216,13 @@ public class ShardHelper implements IShardHelper {
             if (test instanceof IDeviceTest) {
                 ((IDeviceTest) test).setDevice(context.getDevices().get(0));
             }
+            if (test instanceof IMultiDeviceTest) {
+                ((IMultiDeviceTest) test).setDeviceInfos(context.getDeviceBuildMap());
+            }
+            if (test instanceof IInvocationContextReceiver) {
+                ((IInvocationContextReceiver) test).setInvocationContext(context);
+            }
+
             IShardableTest shardableTest = (IShardableTest) test;
             Collection<IRemoteTest> shards = null;
             // Give the shardCount hint to tests if they need it.

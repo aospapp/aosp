@@ -18,14 +18,13 @@ package com.android.tv.ui.sidepanel;
 
 import android.view.View;
 import android.widget.TextView;
-
 import com.android.tv.R;
 
 public class DividerItem extends Item {
     private TextView mTitleView;
     private String mTitle;
 
-    public DividerItem() { }
+    public DividerItem() {}
 
     public DividerItem(String title) {
         mTitle = title;
@@ -46,8 +45,10 @@ public class DividerItem extends Item {
         } else {
             mTitleView.setVisibility(View.VISIBLE);
             mTitleView.setText(mTitle);
-            view.setMinimumHeight(view.getContext().getResources().getDimensionPixelOffset(
-                    R.dimen.option_item_height));
+            view.setMinimumHeight(
+                    view.getContext()
+                            .getResources()
+                            .getDimensionPixelOffset(R.dimen.option_item_height));
         }
     }
 
@@ -57,5 +58,5 @@ public class DividerItem extends Item {
     }
 
     @Override
-    protected void onSelected() { }
+    protected void onSelected() {}
 }

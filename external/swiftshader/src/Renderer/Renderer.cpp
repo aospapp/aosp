@@ -15,21 +15,21 @@
 #include "Renderer.hpp"
 
 #include "Clipper.hpp"
-#include "Math.hpp"
-#include "FrameBuffer.hpp"
-#include "Timer.hpp"
 #include "Surface.hpp"
-#include "Half.hpp"
 #include "Primitive.hpp"
 #include "Polygon.hpp"
-#include "SwiftConfig.hpp"
-#include "MutexLock.hpp"
-#include "CPUID.hpp"
-#include "Memory.hpp"
-#include "Resource.hpp"
-#include "Constants.hpp"
-#include "Debug.hpp"
+#include "Main/FrameBuffer.hpp"
+#include "Main/SwiftConfig.hpp"
 #include "Reactor/Reactor.hpp"
+#include "Shader/Constants.hpp"
+#include "Common/MutexLock.hpp"
+#include "Common/CPUID.hpp"
+#include "Common/Memory.hpp"
+#include "Common/Resource.hpp"
+#include "Common/Half.hpp"
+#include "Common/Math.hpp"
+#include "Common/Timer.hpp"
+#include "Common/Debug.hpp"
 
 #undef max
 
@@ -61,10 +61,10 @@ namespace sw
 	extern bool precacheSetup;
 	extern bool precachePixel;
 
-	int batchSize = 128;
-	int threadCount = 1;
-	int unitCount = 1;
-	int clusterCount = 1;
+	static const int batchSize = 128;
+	AtomicInt threadCount(1);
+	AtomicInt Renderer::unitCount(1);
+	AtomicInt Renderer::clusterCount(1);
 
 	TranscendentalPrecision logPrecision = ACCURATE;
 	TranscendentalPrecision expPrecision = ACCURATE;
@@ -281,7 +281,7 @@ namespace sw
 				setupPrimitives = &Renderer::setupPoints;
 			}
 
-			DrawCall *draw = 0;
+			DrawCall *draw = nullptr;
 
 			do
 			{
@@ -290,7 +290,7 @@ namespace sw
 					if(drawCall[i]->references == -1)
 					{
 						draw = drawCall[i];
-						drawList[nextDraw % DRAW_COUNT] = draw;
+						drawList[nextDraw & DRAW_COUNT_BITS] = draw;
 
 						break;
 					}
@@ -309,13 +309,12 @@ namespace sw
 			{
 				draw->queries = new std::list<Query*>();
 				bool includePrimitivesWrittenQueries = vertexState.transformFeedbackQueryEnabled && vertexState.transformFeedbackEnabled;
-				for(std::list<Query*>::iterator query = queries.begin(); query != queries.end(); query++)
+				for(auto &query : queries)
 				{
-					Query* q = *query;
-					if(includePrimitivesWrittenQueries || (q->type != Query::TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN))
+					if(includePrimitivesWrittenQueries || (query->type != Query::TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN))
 					{
-						atomicIncrement(&(q->reference));
-						draw->queries->push_back(q);
+						++query->reference; // Atomic
+						draw->queries->push_back(query);
 					}
 				}
 			}
@@ -402,7 +401,7 @@ namespace sw
 				}
 			}
 
-			if(context->pixelShaderVersion() <= 0x0104)
+			if(context->pixelShaderModel() <= 0x0104)
 			{
 				for(int stage = 0; stage < 8; stage++)
 				{
@@ -416,11 +415,11 @@ namespace sw
 
 			if(context->vertexShader)
 			{
-				if(context->vertexShader->getVersion() >= 0x0300)
+				if(context->vertexShader->getShaderModel() >= 0x0300)
 				{
 					for(int sampler = 0; sampler < VERTEX_TEXTURE_IMAGE_UNITS; sampler++)
 					{
-						if(vertexState.samplerState[sampler].textureType != TEXTURE_NULL)
+						if(vertexState.sampler[sampler].textureType != TEXTURE_NULL)
 						{
 							draw->texture[TEXTURE_IMAGE_UNITS + sampler] = context->texture[TEXTURE_IMAGE_UNITS + sampler];
 							draw->texture[TEXTURE_IMAGE_UNITS + sampler]->lock(PUBLIC, PRIVATE);
@@ -545,7 +544,7 @@ namespace sw
 
 				if(context->isDrawTriangle(false))
 				{
-					N += depthBias;
+					N += context->depthBias;
 				}
 
 				if(complementaryDepthBuffer)
@@ -583,7 +582,7 @@ namespace sw
 				data->halfPixelX = replicate(0.5f / W);
 				data->halfPixelY = replicate(0.5f / H);
 				data->viewportHeight = abs(viewport.height);
-				data->slopeDepthBias = slopeDepthBias;
+				data->slopeDepthBias = context->slopeDepthBias;
 				data->depthRange = Z;
 				data->depthNear = N;
 				draw->clipFlags = clipFlags;
@@ -607,7 +606,9 @@ namespace sw
 
 					if(draw->renderTarget[index])
 					{
-						data->colorBuffer[index] = (unsigned int*)context->renderTarget[index]->lockInternal(0, 0, q * ms, LOCK_READWRITE, MANAGED);
+						unsigned int layer = context->renderTargetLayer[index];
+						data->colorBuffer[index] = (unsigned int*)context->renderTarget[index]->lockInternal(0, 0, layer, LOCK_READWRITE, MANAGED);
+						data->colorBuffer[index] += q * ms * context->renderTarget[index]->getSliceB(true);
 						data->colorPitchB[index] = context->renderTarget[index]->getInternalPitchB();
 						data->colorSliceB[index] = context->renderTarget[index]->getInternalSliceB();
 					}
@@ -618,14 +619,18 @@ namespace sw
 
 				if(draw->depthBuffer)
 				{
-					data->depthBuffer = (float*)context->depthBuffer->lockInternal(0, 0, q * ms, LOCK_READWRITE, MANAGED);
+					unsigned int layer = context->depthBufferLayer;
+					data->depthBuffer = (float*)context->depthBuffer->lockInternal(0, 0, layer, LOCK_READWRITE, MANAGED);
+					data->depthBuffer += q * ms * context->depthBuffer->getSliceB(true);
 					data->depthPitchB = context->depthBuffer->getInternalPitchB();
 					data->depthSliceB = context->depthBuffer->getInternalSliceB();
 				}
 
 				if(draw->stencilBuffer)
 				{
-					data->stencilBuffer = (unsigned char*)context->stencilBuffer->lockStencil(0, 0, q * ms, MANAGED);
+					unsigned int layer = context->stencilBufferLayer;
+					data->stencilBuffer = (unsigned char*)context->stencilBuffer->lockStencil(0, 0, layer, MANAGED);
+					data->stencilBuffer += q * ms * context->stencilBuffer->getSliceB(true);
 					data->stencilPitchB = context->stencilBuffer->getStencilPitchB();
 					data->stencilSliceB = context->stencilBuffer->getStencilSliceB();
 				}
@@ -645,7 +650,7 @@ namespace sw
 			draw->references = (count + batch - 1) / batch;
 
 			schedulerMutex.lock();
-			nextDraw++;
+			++nextDraw; // Atomic
 			schedulerMutex.unlock();
 
 			#ifndef NDEBUG
@@ -674,18 +679,12 @@ namespace sw
 
 	void Renderer::clear(void *value, Format format, Surface *dest, const Rect &clearRect, unsigned int rgbaMask)
 	{
-		SliceRect rect = clearRect;
-		int samples = dest->getDepth();
-
-		for(rect.slice = 0; rect.slice < samples; rect.slice++)
-		{
-			blitter->clear(value, format, dest, rect, rgbaMask);
-		}
+		blitter->clear(value, format, dest, clearRect, rgbaMask);
 	}
 
-	void Renderer::blit(Surface *source, const SliceRect &sRect, Surface *dest, const SliceRect &dRect, bool filter, bool isStencil)
+	void Renderer::blit(Surface *source, const SliceRectF &sRect, Surface *dest, const SliceRect &dRect, bool filter, bool isStencil, bool sRGBconversion)
 	{
-		blitter->blit(source, sRect, dest, dRect, filter, isStencil);
+		blitter->blit(source, sRect, dest, dRect, {filter, isStencil, sRGBconversion});
 	}
 
 	void Renderer::blit3D(Surface *source, Surface *dest)
@@ -750,7 +749,7 @@ namespace sw
 								pixelProgress[cluster].executing = true;
 
 								// Commit to the task queue
-								qHead = (qHead + 1) % 32;
+								qHead = (qHead + 1) & TASK_COUNT_BITS;
 								qSize++;
 
 								break;
@@ -769,24 +768,27 @@ namespace sw
 
 		for(int unit = 0; unit < unitCount; unit++)
 		{
-			DrawCall *draw = drawList[currentDraw % DRAW_COUNT];
+			DrawCall *draw = drawList[currentDraw & DRAW_COUNT_BITS];
 
-			if(draw->primitive >= draw->count)
+			int primitive = draw->primitive;
+			int count = draw->count;
+
+			if(primitive >= count)
 			{
-				currentDraw++;
+				++currentDraw; // Atomic
 
 				if(currentDraw == nextDraw)
 				{
 					return;   // No more primitives to process
 				}
 
-				draw = drawList[currentDraw % DRAW_COUNT];
+				draw = drawList[currentDraw & DRAW_COUNT_BITS];
 			}
 
 			if(!primitiveProgress[unit].references)   // Task not already being executed and not still in use by a pixel unit
 			{
-				int primitive = draw->primitive;
-				int count = draw->count;
+				primitive = draw->primitive;
+				count = draw->count;
 				int batch = draw->batchSize;
 
 				primitiveProgress[unit].drawCall = currentDraw;
@@ -802,7 +804,7 @@ namespace sw
 				primitiveProgress[unit].references = -1;
 
 				// Commit to the task queue
-				qHead = (qHead + 1) % 32;
+				qHead = (qHead + 1) & TASK_COUNT_BITS;
 				qSize++;
 			}
 		}
@@ -812,19 +814,21 @@ namespace sw
 	{
 		schedulerMutex.lock();
 
-		if((int)qSize < threadCount - threadsAwake + 1)
+		int curThreadsAwake = threadsAwake;
+
+		if((int)qSize < threadCount - curThreadsAwake + 1)
 		{
 			findAvailableTasks();
 		}
 
 		if(qSize != 0)
 		{
-			task[threadIndex] = taskQueue[(qHead - qSize) % 32];
+			task[threadIndex] = taskQueue[(qHead - qSize) & TASK_COUNT_BITS];
 			qSize--;
 
-			if(threadsAwake != threadCount)
+			if(curThreadsAwake != threadCount)
 			{
-				int wakeup = qSize - threadsAwake + 1;
+				int wakeup = qSize - curThreadsAwake + 1;
 
 				for(int i = 0; i < threadCount && wakeup > 0; i++)
 				{
@@ -834,7 +838,7 @@ namespace sw
 						task[i].type = Task::RESUME;
 						resume[i]->signal();
 
-						threadsAwake++;
+						++threadsAwake; // Atomic
 						wakeup--;
 					}
 				}
@@ -844,7 +848,7 @@ namespace sw
 		{
 			task[threadIndex].type = Task::SUSPEND;
 
-			threadsAwake--;
+			--threadsAwake; // Atomic
 		}
 
 		schedulerMutex.unlock();
@@ -864,7 +868,7 @@ namespace sw
 
 				int input = primitiveProgress[unit].firstPrimitive;
 				int count = primitiveProgress[unit].primitiveCount;
-				DrawCall *draw = drawList[primitiveProgress[unit].drawCall % DRAW_COUNT];
+				DrawCall *draw = drawList[primitiveProgress[unit].drawCall & DRAW_COUNT_BITS];
 				int (Renderer::*setupPrimitives)(int batch, int count) = draw->setupPrimitives;
 
 				processPrimitiveVertices(unit, input, count, draw->count, threadIndex);
@@ -899,7 +903,7 @@ namespace sw
 				{
 					int cluster = task[threadIndex].pixelCluster;
 					Primitive *primitive = primitiveBatch[unit];
-					DrawCall *draw = drawList[pixelProgress[cluster].drawCall % DRAW_COUNT];
+					DrawCall *draw = drawList[pixelProgress[cluster].drawCall & DRAW_COUNT_BITS];
 					DrawData *data = draw->data;
 					PixelProcessor::RoutinePointer pixelRoutine = draw->pixelPointer;
 
@@ -933,7 +937,7 @@ namespace sw
 		int unit = pixelTask.primitiveUnit;
 		int cluster = pixelTask.pixelCluster;
 
-		DrawCall &draw = *drawList[primitiveProgress[unit].drawCall % DRAW_COUNT];
+		DrawCall &draw = *drawList[primitiveProgress[unit].drawCall & DRAW_COUNT_BITS];
 		DrawData &data = *draw.data;
 		int primitive = primitiveProgress[unit].firstPrimitive;
 		int count = primitiveProgress[unit].primitiveCount;
@@ -943,15 +947,15 @@ namespace sw
 
 		if(pixelProgress[cluster].processedPrimitives >= draw.count)
 		{
-			pixelProgress[cluster].drawCall++;
+			++pixelProgress[cluster].drawCall; // Atomic
 			pixelProgress[cluster].processedPrimitives = 0;
 		}
 
-		int ref = atomicDecrement(&primitiveProgress[unit].references);
+		int ref = primitiveProgress[unit].references--; // Atomic
 
 		if(ref == 0)
 		{
-			ref = atomicDecrement(&draw.references);
+			ref = draw.references--; // Atomic
 
 			if(ref == 0)
 			{
@@ -967,26 +971,24 @@ namespace sw
 
 				if(draw.queries)
 				{
-					for(std::list<Query*>::iterator q = draw.queries->begin(); q != draw.queries->end(); q++)
+					for(auto &query : *(draw.queries))
 					{
-						Query *query = *q;
-
 						switch(query->type)
 						{
 						case Query::FRAGMENTS_PASSED:
 							for(int cluster = 0; cluster < clusterCount; cluster++)
 							{
-								atomicAdd((volatile int*)&query->data, data.occlusion[cluster]);
+								query->data += data.occlusion[cluster];
 							}
 							break;
 						case Query::TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN:
-							atomicAdd((volatile int*)&query->data, processedPrimitives);
+							query->data += processedPrimitives;
 							break;
 						default:
 							break;
 						}
 
-						atomicDecrement(&query->reference);
+						--query->reference; // Atomic
 					}
 
 					delete draw.queries;
@@ -1069,17 +1071,18 @@ namespace sw
 	void Renderer::processPrimitiveVertices(int unit, unsigned int start, unsigned int triangleCount, unsigned int loop, int thread)
 	{
 		Triangle *triangle = triangleBatch[unit];
-		DrawCall *draw = drawList[primitiveProgress[unit].drawCall % DRAW_COUNT];
+		int primitiveDrawCall = primitiveProgress[unit].drawCall;
+		DrawCall *draw = drawList[primitiveDrawCall & DRAW_COUNT_BITS];
 		DrawData *data = draw->data;
 		VertexTask *task = vertexTask[thread];
 
 		const void *indices = data->indices;
 		VertexProcessor::RoutinePointer vertexRoutine = draw->vertexPointer;
 
-		if(task->vertexCache.drawCall != primitiveProgress[unit].drawCall)
+		if(task->vertexCache.drawCall != primitiveDrawCall)
 		{
 			task->vertexCache.clear();
-			task->vertexCache.drawCall = primitiveProgress[unit].drawCall;
+			task->vertexCache.drawCall = primitiveDrawCall;
 		}
 
 		unsigned int batch[128][3];   // FIXME: Adjust to dynamic batch size
@@ -1162,9 +1165,18 @@ namespace sw
 
 				for(unsigned int i = 0; i < triangleCount; i++)
 				{
-					batch[i][0] = index + 0;
-					batch[i][1] = index + (index & 1) + 1;
-					batch[i][2] = index + (~index & 1) + 1;
+					if(leadingVertexFirst)
+					{
+						batch[i][0] = index + 0;
+						batch[i][1] = index + (index & 1) + 1;
+						batch[i][2] = index + (~index & 1) + 1;
+					}
+					else
+					{
+						batch[i][0] = index + (index & 1);
+						batch[i][1] = index + (~index & 1);
+						batch[i][2] = index + 2;
+					}
 
 					index += 1;
 				}
@@ -1176,9 +1188,18 @@ namespace sw
 
 				for(unsigned int i = 0; i < triangleCount; i++)
 				{
-					batch[i][0] = index + 1;
-					batch[i][1] = index + 2;
-					batch[i][2] = 0;
+					if(leadingVertexFirst)
+					{
+						batch[i][0] = index + 1;
+						batch[i][1] = index + 2;
+						batch[i][2] = 0;
+					}
+					else
+					{
+						batch[i][0] = 0;
+						batch[i][1] = index + 1;
+						batch[i][2] = index + 2;
+					}
 
 					index += 1;
 				}
@@ -1499,7 +1520,7 @@ namespace sw
 		Triangle *triangle = triangleBatch[unit];
 		Primitive *primitive = primitiveBatch[unit];
 
-		DrawCall &draw = *drawList[primitiveProgress[unit].drawCall % DRAW_COUNT];
+		DrawCall &draw = *drawList[primitiveProgress[unit].drawCall & DRAW_COUNT_BITS];
 		SetupProcessor::State &state = draw.setupState;
 		const SetupProcessor::RoutinePointer &setupRoutine = draw.setupPointer;
 
@@ -1545,7 +1566,7 @@ namespace sw
 		Primitive *primitive = primitiveBatch[unit];
 		int visible = 0;
 
-		DrawCall &draw = *drawList[primitiveProgress[unit].drawCall % DRAW_COUNT];
+		DrawCall &draw = *drawList[primitiveProgress[unit].drawCall & DRAW_COUNT_BITS];
 		SetupProcessor::State &state = draw.setupState;
 
 		const Vertex &v0 = triangle[0].v0;
@@ -1602,7 +1623,7 @@ namespace sw
 		Primitive *primitive = primitiveBatch[unit];
 		int visible = 0;
 
-		DrawCall &draw = *drawList[primitiveProgress[unit].drawCall % DRAW_COUNT];
+		DrawCall &draw = *drawList[primitiveProgress[unit].drawCall & DRAW_COUNT_BITS];
 		SetupProcessor::State &state = draw.setupState;
 
 		const Vertex &v0 = triangle[0].v0;
@@ -1646,7 +1667,7 @@ namespace sw
 		Primitive *primitive = primitiveBatch[unit];
 		int visible = 0;
 
-		DrawCall &draw = *drawList[primitiveProgress[unit].drawCall % DRAW_COUNT];
+		DrawCall &draw = *drawList[primitiveProgress[unit].drawCall & DRAW_COUNT_BITS];
 		SetupProcessor::State &state = draw.setupState;
 
 		int ms = state.multiSample;
@@ -1671,7 +1692,7 @@ namespace sw
 		Primitive *primitive = primitiveBatch[unit];
 		int visible = 0;
 
-		DrawCall &draw = *drawList[primitiveProgress[unit].drawCall % DRAW_COUNT];
+		DrawCall &draw = *drawList[primitiveProgress[unit].drawCall & DRAW_COUNT_BITS];
 		SetupProcessor::State &state = draw.setupState;
 
 		int ms = state.multiSample;
@@ -1722,7 +1743,7 @@ namespace sw
 			return false;
 		}
 
-		if(false)   // Rectangle
+		if(state.multiSample > 1)   // Rectangle
 		{
 			float4 P[4];
 			int C[4];
@@ -1737,30 +1758,26 @@ namespace sw
 			dx *= scale;
 			dy *= scale;
 
-			float dx0w = dx * P0.w / W;
-			float dy0h = dy * P0.w / H;
 			float dx0h = dx * P0.w / H;
 			float dy0w = dy * P0.w / W;
 
-			float dx1w = dx * P1.w / W;
-			float dy1h = dy * P1.w / H;
 			float dx1h = dx * P1.w / H;
 			float dy1w = dy * P1.w / W;
 
-			P[0].x += -dy0w + -dx0w;
-			P[0].y += -dx0h + +dy0h;
+			P[0].x += -dy0w;
+			P[0].y += +dx0h;
 			C[0] = clipper->computeClipFlags(P[0]);
 
-			P[1].x += -dy1w + +dx1w;
-			P[1].y += -dx1h + +dy1h;
+			P[1].x += -dy1w;
+			P[1].y += +dx1h;
 			C[1] = clipper->computeClipFlags(P[1]);
 
-			P[2].x += +dy1w + +dx1w;
-			P[2].y += +dx1h + -dy1h;
+			P[2].x += +dy1w;
+			P[2].y += -dx1h;
 			C[2] = clipper->computeClipFlags(P[2]);
 
-			P[3].x += +dy0w + -dx0w;
-			P[3].y += +dx0h + +dy0h;
+			P[3].x += +dy0w;
+			P[3].y += -dx0h;
 			C[3] = clipper->computeClipFlags(P[3]);
 
 			if((C[0] & C[1] & C[2] & C[3]) == Clipper::CLIP_FINITE)
@@ -2382,6 +2399,18 @@ namespace sw
 		}
 	}
 
+	void Renderer::setCompareFunc(SamplerType type, int sampler, CompareFunc compFunc)
+	{
+		if(type == SAMPLER_PIXEL)
+		{
+			PixelProcessor::setCompareFunc(sampler, compFunc);
+		}
+		else
+		{
+			VertexProcessor::setCompareFunc(sampler, compFunc);
+		}
+	}
+
 	void Renderer::setBaseLevel(SamplerType type, int sampler, int baseLevel)
 	{
 		if(type == SAMPLER_PIXEL)
@@ -2447,12 +2476,12 @@ namespace sw
 
 	void Renderer::setDepthBias(float bias)
 	{
-		depthBias = bias;
+		context->depthBias = bias;
 	}
 
 	void Renderer::setSlopeDepthBias(float slopeBias)
 	{
-		slopeDepthBias = slopeBias;
+		context->slopeDepthBias = slopeBias;
 	}
 
 	void Renderer::setRasterizerDiscard(bool rasterizerDiscard)

@@ -22,15 +22,12 @@ import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Rect;
 import android.provider.DocumentsContract.Document;
+import android.view.MotionEvent;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.android.documentsui.R;
-import com.android.documentsui.base.DebugFlags;
-import com.android.documentsui.base.DocumentInfo;
-import com.android.documentsui.base.Events.InputEvent;
-import com.android.documentsui.roots.RootCursorWrapper;
 
 final class GridDirectoryHolder extends DocumentHolder {
 
@@ -62,13 +59,13 @@ final class GridDirectoryHolder extends DocumentHolder {
     }
 
     @Override
-    public boolean isInDragHotspot(InputEvent event) {
+    public boolean inDragRegion(MotionEvent event) {
         // Entire grid box should be draggable
         return true;
     }
 
     @Override
-    public boolean isOverDocIcon(InputEvent event) {
+    public boolean inSelectRegion(MotionEvent event) {
         Rect iconRect = new Rect();
         mIconMime.getGlobalVisibleRect(iconRect);
 

@@ -16,10 +16,11 @@
 
 package com.android.car.vehiclehal.test;
 
-import static java.lang.Integer.toHexString;
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.fail;
+
+import static java.lang.Integer.toHexString;
 
 import android.hardware.automotive.vehicle.V2_0.IVehicle;
 import android.hardware.automotive.vehicle.V2_0.IVehicleCallback;
@@ -48,7 +49,7 @@ public class MockedVehicleHal extends IVehicle.Stub {
     public interface VehicleHalPropertyHandler {
         default void onPropertySet(VehiclePropValue value) {}
         default VehiclePropValue onPropertyGet(VehiclePropValue value) { return null; }
-        default void onPropertySubscribe(int property, int zones, float sampleRate) {}
+        default void onPropertySubscribe(int property, float sampleRate) {}
         default void onPropertyUnsubscribe(int property) {}
 
         VehicleHalPropertyHandler NOP = new VehicleHalPropertyHandler() {};
@@ -92,11 +93,20 @@ public class MockedVehicleHal extends IVehicle.Stub {
         }
     }
 
-    public synchronized void injectEvent(VehiclePropValue value) {
+    public synchronized void injectEvent(VehiclePropValue value, boolean setProperty) {
         List<IVehicleCallback> callbacks = mSubscribers.get(value.prop);
         assertNotNull("Injecting event failed for property: " + value.prop
                         + ". No listeners found", callbacks);
-        for (IVehicleCallback callback : callbacks) {
+
+        if (setProperty) {
+            // Update property if requested
+            VehicleHalPropertyHandler handler = mPropertyHandlerMap.get(value.prop);
+            if (handler != null) {
+                handler.onPropertySet(value);
+            }
+        }
+
+        for (IVehicleCallback callback: callbacks) {
             try {
                 callback.onPropertyEvent(Lists.newArrayList(value));
             } catch (RemoteException e) {
@@ -104,6 +114,10 @@ public class MockedVehicleHal extends IVehicle.Stub {
                 fail("Remote exception while injecting events.");
             }
         }
+    }
+
+    public synchronized void injectEvent(VehiclePropValue value) {
+        injectEvent(value, false);
     }
 
     public synchronized void injectError(int errorCode, int propertyId, int areaId) {
@@ -169,12 +183,20 @@ public class MockedVehicleHal extends IVehicle.Stub {
                 return StatusCode.INVALID_ARG;
             }
 
-            handler.onPropertySubscribe(opt.propId, opt.vehicleAreas, opt.sampleRate);
+            handler.onPropertySubscribe(opt.propId, opt.sampleRate);
             List<IVehicleCallback>  subscribers = mSubscribers.get(opt.propId);
             if (subscribers == null) {
                 subscribers = new ArrayList<>();
                 mSubscribers.put(opt.propId, subscribers);
                 notifyAll();
+            } else {
+                for (IVehicleCallback s : subscribers) {
+                    if (callback.asBinder() == s.asBinder()) {
+                        // Remove callback that was registered previously for this property
+                        subscribers.remove(callback);
+                        break;
+                    }
+                }
             }
             subscribers.add(callback);
         }
@@ -217,7 +239,7 @@ public class MockedVehicleHal extends IVehicle.Stub {
         }
 
         @Override
-        public void onPropertySubscribe(int property, int zones, float sampleRate) {
+        public void onPropertySubscribe(int property, float sampleRate) {
             fail("Unexpected onPropertySubscribe call");
         }
 
@@ -265,7 +287,7 @@ public class MockedVehicleHal extends IVehicle.Stub {
         }
 
         @Override
-        public synchronized void onPropertySubscribe(int property, int zones, float sampleRate) {
+        public synchronized void onPropertySubscribe(int property, float sampleRate) {
             assertEquals(mConfig.prop, property);
             mSubscribed = true;
         }

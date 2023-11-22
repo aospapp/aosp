@@ -1,7 +1,22 @@
+// Copyright 2017 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -14,6 +29,13 @@ import (
 
 	bpparser "github.com/google/blueprint/parser"
 )
+
+var usage = func() {
+	fmt.Fprintf(os.Stderr, "usage: androidmk [flags] <inputFile>\n"+
+		"\nandroidmk parses <inputFile> as an Android.mk file and attempts to output an analogous Android.bp file (to standard out)\n")
+	flag.PrintDefaults()
+	os.Exit(1)
+}
 
 // TODO: non-expanded variables with expressions
 
@@ -48,10 +70,11 @@ func (f *bpFile) insertExtraComment(s string) {
 	f.bpPos.Line++
 }
 
-func (f *bpFile) errorf(node mkparser.Node, s string, args ...interface{}) {
-	orig := node.Dump()
-	s = fmt.Sprintf(s, args...)
-	f.insertExtraComment(fmt.Sprintf("// ANDROIDMK TRANSLATION ERROR: %s", s))
+// records that the given node failed to be converted and includes an explanatory message
+func (f *bpFile) errorf(failedNode mkparser.Node, message string, args ...interface{}) {
+	orig := failedNode.Dump()
+	message = fmt.Sprintf(message, args...)
+	f.addErrorText(fmt.Sprintf("// ANDROIDMK TRANSLATION ERROR: %s", message))
 
 	lines := strings.Split(orig, "\n")
 	for _, l := range lines {
@@ -59,12 +82,35 @@ func (f *bpFile) errorf(node mkparser.Node, s string, args ...interface{}) {
 	}
 }
 
+// records that something unexpected occurred
+func (f *bpFile) warnf(message string, args ...interface{}) {
+	message = fmt.Sprintf(message, args...)
+	f.addErrorText(fmt.Sprintf("// ANDROIDMK TRANSLATION WARNING: %s", message))
+}
+
+// adds the given error message as-is to the bottom of the (in-progress) file
+func (f *bpFile) addErrorText(message string) {
+	f.insertExtraComment(message)
+}
+
 func (f *bpFile) setMkPos(pos, end scanner.Position) {
-	if pos.Line < f.mkPos.Line {
-		panic(fmt.Errorf("out of order lines, %q after %q", pos, f.mkPos))
+	// It is unusual but not forbidden for pos.Line to be smaller than f.mkPos.Line
+	// For example:
+	//
+	// if true                       # this line is emitted 1st
+	// if true                       # this line is emitted 2nd
+	// some-target: some-file        # this line is emitted 3rd
+	//         echo doing something  # this recipe is emitted 6th
+	// endif #some comment           # this endif is emitted 4th; this comment is part of the recipe
+	//         echo doing more stuff # this is part of the recipe
+	// endif                         # this endif is emitted 5th
+	//
+	// However, if pos.Line < f.mkPos.Line, we treat it as though it were equal
+	if pos.Line >= f.mkPos.Line {
+		f.bpPos.Line += (pos.Line - f.mkPos.Line)
+		f.mkPos = end
 	}
-	f.bpPos.Line += (pos.Line - f.mkPos.Line)
-	f.mkPos = end
+
 }
 
 type conditional struct {
@@ -73,7 +119,13 @@ type conditional struct {
 }
 
 func main() {
-	b, err := ioutil.ReadFile(os.Args[1])
+	flag.Usage = usage
+	flag.Parse()
+	if len(flag.Args()) != 1 {
+		usage()
+	}
+	filePathToRead := flag.Arg(0)
+	b, err := ioutil.ReadFile(filePathToRead)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -125,6 +177,9 @@ func convertFile(filename string, buffer *bytes.Buffer) (string, []error) {
 					makeModule(file, val)
 				case val == clear_vars:
 					resetModule(file)
+				case val == include_ignored:
+					// subdirs are already automatically included in Soong
+					continue
 				default:
 					file.errorf(x, "unsupported include")
 					continue
@@ -184,12 +239,13 @@ func convertFile(filename string, buffer *bytes.Buffer) (string, []error) {
 	}
 
 	// check for common supported but undesirable structures and clean them up
-	fixed, err := bpfix.FixTree(tree, bpfix.NewFixRequest().AddAll())
+	fixer := bpfix.NewFixer(tree)
+	tree, err := fixer.Fix(bpfix.NewFixRequest().AddAll())
 	if err != nil {
 		return "", []error{err}
 	}
 
-	out, err := bpparser.Print(fixed)
+	out, err := bpparser.Print(tree)
 	if err != nil {
 		return "", []error{err}
 	}
@@ -358,6 +414,10 @@ func setVariable(file *bpFile, plusequals bool, prefix, name string, value bppar
 			*oldValue = val
 		} else {
 			names := strings.Split(name, ".")
+			if file.module == nil {
+				file.warnf("No 'include $(CLEAR_VARS)' detected before first assignment; clearing vars now")
+				resetModule(file)
+			}
 			container := &file.module.Properties
 
 			for i, n := range names[:len(names)-1] {

@@ -20,13 +20,18 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
+LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+
 LOCAL_PACKAGE_NAME := CtsNoRestartBase
+LOCAL_SDK_VERSION := current
 
 LOCAL_MODULE_TAGS := tests
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false
+
+LOCAL_SDK_VERSION := test_current
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)
 

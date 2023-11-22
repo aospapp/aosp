@@ -21,6 +21,7 @@
 #include <wifi_system_test/mock_interface_tool.h>
 #include <wifi_system_test/mock_supplicant_manager.h>
 
+#include "android/net/wifi/IWifiScannerImpl.h"
 #include "wificond/scanning/offload/offload_scan_utils.h"
 #include "wificond/scanning/scanner_impl.h"
 #include "wificond/tests/mock_client_interface_impl.h"
@@ -33,8 +34,8 @@
 #include "wificond/tests/offload_test_utils.h"
 
 using ::android::binder::Status;
+using ::android::net::wifi::IWifiScannerImpl;
 using ::android::wifi_system::MockInterfaceTool;
-using ::android::wifi_system::MockSupplicantManager;
 using ::com::android::server::wifi::wificond::SingleScanSettings;
 using ::com::android::server::wifi::wificond::PnoSettings;
 using ::com::android::server::wifi::wificond::NativeScanResult;
@@ -55,7 +56,6 @@ namespace wificond {
 namespace {
 
 constexpr uint32_t kFakeInterfaceIndex = 12;
-constexpr uint32_t kFakeWiphyIndex = 5;
 constexpr uint32_t kFakeScanIntervalMs = 10000;
 
 // This is a helper function to mock the behavior of ScanUtils::Scan()
@@ -67,6 +67,7 @@ bool ReturnErrorCodeForScanRequest(
     int mock_error_code,
     uint32_t interface_index_ignored,
     bool request_random_mac_ignored,
+    int scan_type,
     const std::vector<std::vector<uint8_t>>& ssids_ignored,
     const std::vector<uint32_t>& freqs_ignored,
     int* error_code) {
@@ -78,8 +79,10 @@ bool ReturnErrorCodeForScanRequest(
 bool CaptureSchedScanIntervalSetting(
     uint32_t /* interface_index */,
     const SchedScanIntervalSetting&  interval_setting,
-    int32_t /* rssi_threshold */,
+    int32_t /* rssi_threshold_2g */,
+    int32_t /* rssi_threshold_5g */,
     bool /* request_random_mac */,
+    bool /* request_low_power_scan */,
     const  std::vector<std::vector<uint8_t>>& /* scan_ssids */,
     const std::vector<std::vector<uint8_t>>& /* match_ssids */,
     const  std::vector<uint32_t>& /* freqs */,
@@ -123,9 +126,8 @@ class ScannerTest : public ::testing::Test {
   NiceMock<MockNetlinkUtils> netlink_utils_{&netlink_manager_};
   NiceMock<MockScanUtils> scan_utils_{&netlink_manager_};
   NiceMock<MockInterfaceTool> if_tool_;
-  NiceMock<MockSupplicantManager> supplicant_manager_;
   NiceMock<MockClientInterfaceImpl> client_interface_impl_{
-      &if_tool_, &supplicant_manager_, &netlink_utils_, &scan_utils_};
+      &if_tool_, &netlink_utils_, &scan_utils_};
   shared_ptr<NiceMock<MockOffloadServiceUtils>> offload_service_utils_{
       new NiceMock<MockOffloadServiceUtils>()};
   shared_ptr<NiceMock<MockOffloadScanCallbackInterfaceImpl>>
@@ -141,26 +143,116 @@ class ScannerTest : public ::testing::Test {
 };
 
 TEST_F(ScannerTest, TestSingleScan) {
-  EXPECT_CALL(scan_utils_, Scan(_, _, _, _, _)).WillOnce(Return(true));
+  EXPECT_CALL(scan_utils_,
+              Scan(_, _, IWifiScannerImpl::SCAN_TYPE_DEFAULT, _, _, _)).
+      WillOnce(Return(true));
   bool success = false;
-  scanner_impl_.reset(new ScannerImpl(kFakeWiphyIndex, kFakeInterfaceIndex,
+  scanner_impl_.reset(new ScannerImpl(kFakeInterfaceIndex,
                                       scan_capabilities_, wiphy_features_,
-                                      &client_interface_impl_, &netlink_utils_,
+                                      &client_interface_impl_,
                                       &scan_utils_, offload_service_utils_));
   EXPECT_TRUE(scanner_impl_->scan(SingleScanSettings(), &success).isOk());
   EXPECT_TRUE(success);
 }
 
+TEST_F(ScannerTest, TestSingleScanForLowSpanScan) {
+  EXPECT_CALL(scan_utils_,
+              Scan(_, _, IWifiScannerImpl::SCAN_TYPE_LOW_SPAN, _, _, _)).
+      WillOnce(Return(true));
+  wiphy_features_.supports_low_span_oneshot_scan = true;
+  ScannerImpl scanner_impl(kFakeInterfaceIndex, scan_capabilities_,
+                           wiphy_features_, &client_interface_impl_,
+                           &scan_utils_, offload_service_utils_);
+  SingleScanSettings settings;
+  settings.scan_type_ = IWifiScannerImpl::SCAN_TYPE_LOW_SPAN;
+  bool success = false;
+  EXPECT_TRUE(scanner_impl.scan(settings, &success).isOk());
+  EXPECT_TRUE(success);
+}
+
+TEST_F(ScannerTest, TestSingleScanForLowPowerScan) {
+  EXPECT_CALL(scan_utils_,
+              Scan(_, _, IWifiScannerImpl::SCAN_TYPE_LOW_POWER, _, _, _)).
+      WillOnce(Return(true));
+  wiphy_features_.supports_low_power_oneshot_scan = true;
+  ScannerImpl scanner_impl(kFakeInterfaceIndex, scan_capabilities_,
+                           wiphy_features_, &client_interface_impl_,
+                           &scan_utils_, offload_service_utils_);
+  SingleScanSettings settings;
+  settings.scan_type_ = IWifiScannerImpl::SCAN_TYPE_LOW_POWER;
+  bool success = false;
+  EXPECT_TRUE(scanner_impl.scan(settings, &success).isOk());
+  EXPECT_TRUE(success);
+}
+
+TEST_F(ScannerTest, TestSingleScanForHighAccuracyScan) {
+  EXPECT_CALL(scan_utils_,
+              Scan(_, _, IWifiScannerImpl::SCAN_TYPE_HIGH_ACCURACY, _, _, _)).
+      WillOnce(Return(true));
+  wiphy_features_.supports_high_accuracy_oneshot_scan = true;
+  ScannerImpl scanner_impl(kFakeInterfaceIndex, scan_capabilities_,
+                           wiphy_features_, &client_interface_impl_,
+                           &scan_utils_, offload_service_utils_);
+  SingleScanSettings settings;
+  settings.scan_type_ = IWifiScannerImpl::SCAN_TYPE_HIGH_ACCURACY;
+  bool success = false;
+  EXPECT_TRUE(scanner_impl.scan(settings, &success).isOk());
+  EXPECT_TRUE(success);
+}
+
+TEST_F(ScannerTest, TestSingleScanForLowSpanScanWithNoWiphySupport) {
+  EXPECT_CALL(scan_utils_,
+              Scan(_, _, IWifiScannerImpl::SCAN_TYPE_DEFAULT, _, _, _)).
+      WillOnce(Return(true));
+  ScannerImpl scanner_impl(kFakeInterfaceIndex, scan_capabilities_,
+                           wiphy_features_, &client_interface_impl_,
+                           &scan_utils_, offload_service_utils_);
+  SingleScanSettings settings;
+  settings.scan_type_ = IWifiScannerImpl::SCAN_TYPE_LOW_SPAN;
+  bool success = false;
+  EXPECT_TRUE(scanner_impl.scan(settings, &success).isOk());
+  EXPECT_TRUE(success);
+}
+
+TEST_F(ScannerTest, TestSingleScanForLowPowerScanWithNoWiphySupport) {
+  EXPECT_CALL(scan_utils_,
+              Scan(_, _, IWifiScannerImpl::SCAN_TYPE_DEFAULT, _, _, _)).
+      WillOnce(Return(true));
+  ScannerImpl scanner_impl(kFakeInterfaceIndex, scan_capabilities_,
+                           wiphy_features_, &client_interface_impl_,
+                           &scan_utils_, offload_service_utils_);
+  SingleScanSettings settings;
+  settings.scan_type_ = IWifiScannerImpl::SCAN_TYPE_LOW_POWER;
+  bool success = false;
+  EXPECT_TRUE(scanner_impl.scan(settings, &success).isOk());
+  EXPECT_TRUE(success);
+}
+
+TEST_F(ScannerTest, TestSingleScanForHighAccuracyScanWithNoWiphySupport) {
+  EXPECT_CALL(scan_utils_,
+              Scan(_, _, IWifiScannerImpl::SCAN_TYPE_DEFAULT, _, _, _)).
+      WillOnce(Return(true));
+  ScannerImpl scanner_impl(kFakeInterfaceIndex, scan_capabilities_,
+                           wiphy_features_, &client_interface_impl_,
+                           &scan_utils_, offload_service_utils_);
+  SingleScanSettings settings;
+  settings.scan_type_ = IWifiScannerImpl::SCAN_TYPE_HIGH_ACCURACY;
+  bool success = false;
+  EXPECT_TRUE(scanner_impl.scan(settings, &success).isOk());
+  EXPECT_TRUE(success);
+}
+
 TEST_F(ScannerTest, TestSingleScanFailure) {
-  scanner_impl_.reset(new ScannerImpl(kFakeWiphyIndex, kFakeInterfaceIndex,
+  scanner_impl_.reset(new ScannerImpl(kFakeInterfaceIndex,
                                       scan_capabilities_, wiphy_features_,
-                                      &client_interface_impl_, &netlink_utils_,
+                                      &client_interface_impl_,
                                       &scan_utils_, offload_service_utils_));
   EXPECT_CALL(
       scan_utils_,
-      Scan(_, _, _, _, _)).
+      Scan(_, _, _, _, _, _)).
           WillOnce(Invoke(bind(
-              ReturnErrorCodeForScanRequest, EBUSY, _1, _2, _3, _4, _5)));
+              ReturnErrorCodeForScanRequest, EBUSY,
+              _1, _2, _3, _4, _5, _6)));
 
   bool success = false;
   EXPECT_TRUE(scanner_impl_->scan(SingleScanSettings(), &success).isOk());
@@ -168,15 +260,16 @@ TEST_F(ScannerTest, TestSingleScanFailure) {
 }
 
 TEST_F(ScannerTest, TestProcessAbortsOnScanReturningNoDeviceError) {
-  scanner_impl_.reset(new ScannerImpl(kFakeWiphyIndex, kFakeInterfaceIndex,
+  scanner_impl_.reset(new ScannerImpl(kFakeInterfaceIndex,
                                       scan_capabilities_, wiphy_features_,
-                                      &client_interface_impl_, &netlink_utils_,
+                                      &client_interface_impl_,
                                       &scan_utils_, offload_service_utils_));
   ON_CALL(
       scan_utils_,
-      Scan(_, _, _, _, _)).
+      Scan(_, _, _, _, _, _)).
           WillByDefault(Invoke(bind(
-              ReturnErrorCodeForScanRequest, ENODEV, _1, _2, _3, _4, _5)));
+              ReturnErrorCodeForScanRequest, ENODEV,
+              _1, _2, _3, _4, _5, _6)));
 
   bool success_ignored;
   EXPECT_DEATH(scanner_impl_->scan(SingleScanSettings(), &success_ignored),
@@ -185,11 +278,12 @@ TEST_F(ScannerTest, TestProcessAbortsOnScanReturningNoDeviceError) {
 
 TEST_F(ScannerTest, TestAbortScan) {
   bool single_scan_success = false;
-  scanner_impl_.reset(new ScannerImpl(kFakeWiphyIndex, kFakeInterfaceIndex,
+  scanner_impl_.reset(new ScannerImpl(kFakeInterfaceIndex,
                                       scan_capabilities_, wiphy_features_,
-                                      &client_interface_impl_, &netlink_utils_,
+                                      &client_interface_impl_,
                                       &scan_utils_, offload_service_utils_));
-  EXPECT_CALL(scan_utils_, Scan(_, _, _, _, _)).WillOnce(Return(true));
+  EXPECT_CALL(scan_utils_, Scan(_, _, _, _, _, _))
+      .WillOnce(Return(true));
   EXPECT_TRUE(
       scanner_impl_->scan(SingleScanSettings(), &single_scan_success).isOk());
   EXPECT_TRUE(single_scan_success);
@@ -199,9 +293,9 @@ TEST_F(ScannerTest, TestAbortScan) {
 }
 
 TEST_F(ScannerTest, TestAbortScanNotIssuedIfNoOngoingScan) {
-  scanner_impl_.reset(new ScannerImpl(kFakeWiphyIndex, kFakeInterfaceIndex,
+  scanner_impl_.reset(new ScannerImpl(kFakeInterfaceIndex,
                                       scan_capabilities_, wiphy_features_,
-                                      &client_interface_impl_, &netlink_utils_,
+                                      &client_interface_impl_,
                                       &scan_utils_, offload_service_utils_));
   EXPECT_CALL(scan_utils_, AbortScan(_)).Times(0);
   EXPECT_TRUE(scanner_impl_->abortScan().isOk());
@@ -209,9 +303,9 @@ TEST_F(ScannerTest, TestAbortScanNotIssuedIfNoOngoingScan) {
 
 TEST_F(ScannerTest, TestGetScanResults) {
   vector<NativeScanResult> scan_results;
-  scanner_impl_.reset(new ScannerImpl(kFakeWiphyIndex, kFakeInterfaceIndex,
+  scanner_impl_.reset(new ScannerImpl(kFakeInterfaceIndex,
                                       scan_capabilities_, wiphy_features_,
-                                      &client_interface_impl_, &netlink_utils_,
+                                      &client_interface_impl_,
                                       &scan_utils_, offload_service_utils_));
   EXPECT_CALL(scan_utils_, GetScanResult(_, _)).WillOnce(Return(true));
   EXPECT_TRUE(scanner_impl_->getScanResults(&scan_results).isOk());
@@ -222,13 +316,31 @@ TEST_F(ScannerTest, TestStartPnoScanViaNetlink) {
   EXPECT_CALL(*offload_service_utils_, IsOffloadScanSupported())
       .Times(1)
       .WillRepeatedly(Return(false));
-  scanner_impl_.reset(new ScannerImpl(kFakeWiphyIndex, kFakeInterfaceIndex,
-                                      scan_capabilities_, wiphy_features_,
-                                      &client_interface_impl_, &netlink_utils_,
-                                      &scan_utils_, offload_service_utils_));
-  EXPECT_CALL(scan_utils_, StartScheduledScan(_, _, _, _, _, _, _, _)).
-              WillOnce(Return(true));
-  EXPECT_TRUE(scanner_impl_->startPnoScan(PnoSettings(), &success).isOk());
+  ScannerImpl scanner_impl(kFakeInterfaceIndex, scan_capabilities_,
+                           wiphy_features_, &client_interface_impl_,
+                           &scan_utils_, offload_service_utils_);
+  EXPECT_CALL(
+      scan_utils_,
+      StartScheduledScan(_, _, _, _, _, false, _, _, _, _)).
+          WillOnce(Return(true));
+  EXPECT_TRUE(scanner_impl.startPnoScan(PnoSettings(), &success).isOk());
+  EXPECT_TRUE(success);
+}
+
+TEST_F(ScannerTest, TestStartPnoScanViaNetlinkWithLowPowerScanWiphySupport) {
+  bool success = false;
+  EXPECT_CALL(*offload_service_utils_, IsOffloadScanSupported())
+      .Times(1)
+      .WillRepeatedly(Return(false));
+  wiphy_features_.supports_low_power_oneshot_scan = true;
+  ScannerImpl scanner_impl(kFakeInterfaceIndex, scan_capabilities_,
+                           wiphy_features_, &client_interface_impl_,
+                           &scan_utils_, offload_service_utils_);
+  EXPECT_CALL(
+      scan_utils_,
+      StartScheduledScan(_, _, _, _, _, true, _, _, _, _)).
+          WillOnce(Return(true));
+  EXPECT_TRUE(scanner_impl.startPnoScan(PnoSettings(), &success).isOk());
   EXPECT_TRUE(success);
 }
 
@@ -237,9 +349,9 @@ TEST_F(ScannerTest, TestStopPnoScanViaNetlink) {
   EXPECT_CALL(*offload_service_utils_, IsOffloadScanSupported())
       .Times(1)
       .WillRepeatedly(Return(false));
-  scanner_impl_.reset(new ScannerImpl(kFakeWiphyIndex, kFakeInterfaceIndex,
+  scanner_impl_.reset(new ScannerImpl(kFakeInterfaceIndex,
                                       scan_capabilities_, wiphy_features_,
-                                      &client_interface_impl_, &netlink_utils_,
+                                      &client_interface_impl_,
                                       &scan_utils_, offload_service_utils_));
   // StopScheduledScan() will be called no matter if there is an ongoing
   // scheduled scan or not. This is for making the system more robust.
@@ -259,9 +371,9 @@ TEST_F(ScannerTest, TestStartScanOverOffload) {
   EXPECT_CALL(*offload_scan_manager_, stopScan(_))
       .Times(1)
       .WillRepeatedly(Return(true));
-  scanner_impl_.reset(new ScannerImpl(kFakeWiphyIndex, kFakeInterfaceIndex,
+  scanner_impl_.reset(new ScannerImpl(kFakeInterfaceIndex,
                                       scan_capabilities_, wiphy_features_,
-                                      &client_interface_impl_, &netlink_utils_,
+                                      &client_interface_impl_,
                                       &scan_utils_, offload_service_utils_));
   scanner_impl_->startPnoScan(PnoSettings(), &success);
   EXPECT_TRUE(success);
@@ -273,14 +385,14 @@ TEST_F(ScannerTest, TestStartScanOverNetlinkFallback) {
   bool success = false;
   ON_CALL(*offload_service_utils_, IsOffloadScanSupported())
       .WillByDefault(Return(true));
-  scanner_impl_.reset(new ScannerImpl(kFakeWiphyIndex, kFakeInterfaceIndex,
+  scanner_impl_.reset(new ScannerImpl(kFakeInterfaceIndex,
                                       scan_capabilities_, wiphy_features_,
-                                      &client_interface_impl_, &netlink_utils_,
+                                      &client_interface_impl_,
                                       &scan_utils_, offload_service_utils_));
   EXPECT_CALL(*offload_scan_manager_, startScan(_, _, _, _, _, _, _))
       .WillOnce(Return(false));
   EXPECT_CALL(*offload_scan_manager_, stopScan(_)).Times(0);
-  EXPECT_CALL(scan_utils_, StartScheduledScan(_, _, _, _, _, _, _, _))
+  EXPECT_CALL(scan_utils_, StartScheduledScan(_, _, _, _, _, _, _, _, _, _))
       .WillOnce(Return(true));
   EXPECT_CALL(scan_utils_, StopScheduledScan(_)).WillOnce(Return(true));
   EXPECT_TRUE(scanner_impl_->startPnoScan(PnoSettings(), &success).isOk());
@@ -300,11 +412,11 @@ TEST_F(ScannerTest, TestAsyncErrorOverOffload) {
   EXPECT_CALL(*offload_scan_manager_, stopScan(_))
       .Times(1)
       .WillRepeatedly(Return(true));
-  scanner_impl_.reset(new ScannerImpl(kFakeWiphyIndex, kFakeInterfaceIndex,
+  scanner_impl_.reset(new ScannerImpl(kFakeInterfaceIndex,
                                       scan_capabilities_, wiphy_features_,
-                                      &client_interface_impl_, &netlink_utils_,
+                                      &client_interface_impl_,
                                       &scan_utils_, offload_service_utils_));
-  EXPECT_CALL(scan_utils_, StartScheduledScan(_, _, _, _, _, _, _, _))
+  EXPECT_CALL(scan_utils_, StartScheduledScan(_, _, _, _, _, _, _, _, _, _))
       .WillOnce(Return(true));
   EXPECT_CALL(scan_utils_, StopScheduledScan(_)).WillOnce(Return(true));
   scanner_impl_->startPnoScan(PnoSettings(), &success);
@@ -330,9 +442,9 @@ TEST_F(ScannerTest, TestGetScanResultsFromOffload) {
   EXPECT_CALL(*offload_scan_manager_, stopScan(_))
       .Times(1)
       .WillRepeatedly(Return(true));
-  scanner_impl_.reset(new ScannerImpl(kFakeWiphyIndex, kFakeInterfaceIndex,
+  scanner_impl_.reset(new ScannerImpl(kFakeInterfaceIndex,
                                       scan_capabilities_, wiphy_features_,
-                                      &client_interface_impl_, &netlink_utils_,
+                                      &client_interface_impl_,
                                       &scan_utils_, offload_service_utils_));
   scanner_impl_->startPnoScan(PnoSettings(), &success);
   EXPECT_TRUE(success);
@@ -360,11 +472,11 @@ TEST_F(ScannerTest, TestGetScanResultsWhenOffloadFails) {
       .Times(1)
       .WillOnce(
           Invoke(bind(ReturnNetlinkScanResults, _1, _2, dummy_scan_results_)));
-  scanner_impl_.reset(new ScannerImpl(kFakeWiphyIndex, kFakeInterfaceIndex,
+  scanner_impl_.reset(new ScannerImpl(kFakeInterfaceIndex,
                                       scan_capabilities_, wiphy_features_,
-                                      &client_interface_impl_, &netlink_utils_,
+                                      &client_interface_impl_,
                                       &scan_utils_, offload_service_utils_));
-  EXPECT_CALL(scan_utils_, StartScheduledScan(_, _, _, _, _, _, _, _))
+  EXPECT_CALL(scan_utils_, StartScheduledScan(_, _, _, _, _, _, _, _, _, _))
       .WillOnce(Return(true));
   EXPECT_CALL(scan_utils_, StopScheduledScan(_)).WillOnce(Return(true));
   EXPECT_TRUE(scanner_impl_->startPnoScan(PnoSettings(), &success).isOk());
@@ -388,10 +500,10 @@ TEST_F(ScannerTest, TestGenerateScanPlansIfDeviceSupports) {
       kFakeScanIntervalMs * PnoSettings::kSlowScanIntervalMultiplier / 1000,
       PnoSettings::kFastScanIterations);
   ScannerImpl scanner(
-      kFakeWiphyIndex, kFakeInterfaceIndex,
+      kFakeInterfaceIndex,
       scan_capabilities_scan_plan_supported, wiphy_features_,
       &client_interface_impl_,
-      &netlink_utils_, &scan_utils_, offload_service_utils_);
+      &scan_utils_, offload_service_utils_);
 
   PnoSettings pno_settings;
   pno_settings.interval_ms_ = kFakeScanIntervalMs;
@@ -399,10 +511,10 @@ TEST_F(ScannerTest, TestGenerateScanPlansIfDeviceSupports) {
   SchedScanIntervalSetting interval_setting;
   EXPECT_CALL(
       scan_utils_,
-      StartScheduledScan(_, _, _, _, _, _, _, _)).
+      StartScheduledScan(_, _, _, _, _, _, _, _, _, _)).
               WillOnce(Invoke(bind(
                   CaptureSchedScanIntervalSetting,
-                  _1, _2, _3, _4, _5, _6, _7, _8, &interval_setting)));
+                  _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, &interval_setting)));
 
   bool success_ignored = 0;
   EXPECT_TRUE(scanner.startPnoScan(pno_settings, &success_ignored).isOk());
@@ -422,20 +534,20 @@ TEST_F(ScannerTest, TestGenerateSingleIntervalIfDeviceDoesNotSupportScanPlan) {
       0 /* max_scan_plan_interval */,
       0 /* max_scan_plan_iterations */);
   ScannerImpl scanner(
-      kFakeWiphyIndex, kFakeInterfaceIndex,
+      kFakeInterfaceIndex,
       scan_capabilities_no_scan_plan_support, wiphy_features_,
       &client_interface_impl_,
-      &netlink_utils_, &scan_utils_, offload_service_utils_);
+      &scan_utils_, offload_service_utils_);
   PnoSettings pno_settings;
   pno_settings.interval_ms_ = kFakeScanIntervalMs;
 
   SchedScanIntervalSetting interval_setting;
   EXPECT_CALL(
       scan_utils_,
-      StartScheduledScan(_, _, _, _, _, _, _, _)).
+      StartScheduledScan(_, _, _, _, _, _, _, _, _, _)).
               WillOnce(Invoke(bind(
                   CaptureSchedScanIntervalSetting,
-                  _1, _2, _3, _4, _5, _6, _7, _8, &interval_setting)));
+                  _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, &interval_setting)));
 
   bool success_ignored = 0;
   EXPECT_TRUE(scanner.startPnoScan(pno_settings, &success_ignored).isOk());

@@ -29,6 +29,7 @@ import com.android.emergency.preferences.AutoCompleteEditTextPreference;
 import com.android.emergency.util.PreferenceUtils;
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.settingslib.CustomEditTextPreference;
 
 /**
  * Fragment that displays personal and medical information.
@@ -76,15 +77,20 @@ public class EditMedicalInfoFragment extends PreferenceFragment {
 
     @Override
     public void onDisplayPreferenceDialog(Preference preference) {
-        if (!(preference instanceof AutoCompleteEditTextPreference)) {
-            super.onDisplayPreferenceDialog(preference);
-            return;
+        DialogFragment fragment = null;
+        if (preference instanceof CustomEditTextPreference) {
+            fragment = CustomEditTextPreference.CustomPreferenceDialogFragment
+                    .newInstance(preference.getKey());
+        } else if (preference instanceof AutoCompleteEditTextPreference) {
+            fragment = AutoCompleteEditTextPreference.AutoCompleteEditTextPreferenceDialogFragment
+                    .newInstance(preference.getKey());
         }
-        DialogFragment fragment =
-                AutoCompleteEditTextPreference.AutoCompleteEditTextPreferenceDialogFragment
-                        .newInstance(preference.getKey());
-        fragment.setTargetFragment(this, 0);
-        fragment.show(getFragmentManager(), "dialog_preference");
+        if (fragment != null) {
+            fragment.setTargetFragment(this, 0);
+            fragment.show(getFragmentManager(), "dialog_preference");
+        } else {
+            super.onDisplayPreferenceDialog(preference);
+        }
     }
 
     /** Reloads all the preferences by reading the value from the shared preferences. */

@@ -15,9 +15,9 @@
  */
 
 #include "Operations.h"
-#include "OperationsUtils.h"
+#include "CpuOperationUtils.h"
 
-#include "internal/optimized/optimized_ops.h"
+#include "tensorflow/contrib/lite/kernels/internal/optimized/optimized_ops.h"
 
 namespace android {
 namespace nn {
@@ -70,7 +70,7 @@ bool logisticFloat32(const float* inputData, const Shape& inputShape,
 bool softmaxFloat32(const float* inputData, const Shape& inputShape,
                     const float beta,
                     float* outputData, const Shape& outputShape) {
-    Dims<4> dim;
+    tflite::Dims<4> dim;
     if (getNumberOfDimensions(inputShape) == 2) {
         uint32_t batch_size = getSizeOfDimension(inputShape, 0);
         uint32_t input_size = getNumberOfElements(inputShape) / batch_size;
@@ -85,8 +85,8 @@ bool softmaxFloat32(const float* inputData, const Shape& inputShape,
         return false;
     }
 
-    optimized_ops::Softmax(inputData, dim, beta,
-                           outputData, dim);
+    tflite::optimized_ops::Softmax(inputData, dim, beta,
+                                   outputData, dim);
     return true;
 }
 
@@ -149,7 +149,7 @@ bool logisticQuant8(const uint8_t* inputData, const Shape& inputShape,
     int32_t input_range_radius =
             CalculateInputRadius(kInputIntegerBits, input_left_shift);
 
-    optimized_ops::Logistic(
+    tflite::optimized_ops::Logistic(
             inputData, convertShapeToDims(inputShape),
             inputShape.offset, input_range_radius,
             input_multiplier, input_left_shift,
@@ -161,7 +161,7 @@ bool logisticQuant8(const uint8_t* inputData, const Shape& inputShape,
 bool softmaxQuant8(const uint8_t* inputData, const Shape& inputShape,
                    const float beta,
                    uint8_t* outputData, const Shape& outputShape) {
-    Dims<4> dim;
+    tflite::Dims<4> dim;
     if (getNumberOfDimensions(inputShape) == 2) {
         uint32_t batch_size = getSizeOfDimension(inputShape, 0);
         uint32_t input_size = getNumberOfElements(inputShape) / batch_size;
@@ -196,9 +196,9 @@ bool softmaxQuant8(const uint8_t* inputData, const Shape& inputShape,
     float diff_min = -1.0f * CalculateInputRadius(kScaledDiffIntegerBits,
                                                   input_left_shift);
 
-    optimized_ops::Softmax(inputData, dim, input_multiplier,
-                           input_left_shift, diff_min,
-                           outputData, dim);
+    tflite::optimized_ops::Softmax(inputData, dim, input_multiplier,
+                                   input_left_shift, diff_min,
+                                   outputData, dim);
     return true;
 }
 

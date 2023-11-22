@@ -17,27 +17,28 @@
  ************************************************************************************/
 package com.android.bluetooth.pbap;
 
-import com.android.bluetooth.R;
-
 import android.content.Context;
 import android.content.res.Resources;
 import android.util.Log;
 
+import com.android.bluetooth.R;
+
 public class BluetoothPbapConfig {
-    private static boolean sUseProfileForOwnerVcard=true;
+    private static boolean sUseProfileForOwnerVcard = true;
     private static boolean sIncludePhotosInVcard = false;
+
     public static void init(Context ctx) {
         Resources r = ctx.getResources();
         if (r != null) {
             try {
                 sUseProfileForOwnerVcard = r.getBoolean(R.bool.pbap_use_profile_for_owner_vcard);
-            } catch(Exception e) {
-                Log.e("BluetoothPbapConfig","",e);
+            } catch (Exception e) {
+                Log.e("BluetoothPbapConfig", "", e);
             }
             try {
                 sIncludePhotosInVcard = r.getBoolean(R.bool.pbap_include_photos_in_vcard);
-            } catch(Exception e) {
-                Log.e("BluetoothPbapConfig","",e);
+            } catch (Exception e) {
+                Log.e("BluetoothPbapConfig", "", e);
             }
         }
     }
@@ -46,7 +47,7 @@ public class BluetoothPbapConfig {
      * If true, owner vcard will be generated from the "Me" profile
      */
     public static boolean useProfileForOwnerVcard() {
-        return sUseProfileForOwnerVcard;        
+        return sUseProfileForOwnerVcard;
     }
 
     /**

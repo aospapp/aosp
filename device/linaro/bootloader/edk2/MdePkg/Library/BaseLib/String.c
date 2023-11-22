@@ -1,7 +1,7 @@
 /** @file
-  Unicode and ASCII string primatives.
+  Unicode and ASCII string primitives.
 
-  Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -315,6 +315,7 @@ StrnCmp (
   }
 
   while ((*FirstString != L'\0') &&
+         (*SecondString != L'\0') &&
          (*FirstString == *SecondString) &&
          (Length > 1)) {
     FirstString++;
@@ -1000,7 +1001,11 @@ InternalAsciiIsHexaDecimalDigitCharacter (
     (Char >= 'a' && Char <= 'f'));
 }
 
+#ifndef DISABLE_NEW_DEPRECATED_INTERFACES
+
 /**
+  [ATTENTION] This function is deprecated for security reason.
+
   Convert a Null-terminated Unicode string to a Null-terminated
   ASCII string and returns the ASCII string.
 
@@ -1077,8 +1082,6 @@ UnicodeStrToAsciiStr (
 
   return ReturnValue;
 }
-
-#ifndef DISABLE_NEW_DEPRECATED_INTERFACES
 
 /**
   [ATTENTION] This function will be deprecated for security reason.
@@ -1472,6 +1475,7 @@ AsciiStrnCmp (
   }
 
   while ((*FirstString != '\0') &&
+         (*SecondString != '\0') &&
          (*FirstString == *SecondString) &&
          (Length > 1)) {
     FirstString++;
@@ -1986,8 +1990,11 @@ AsciiStrHexToUint64 (
   return Result;
 }
 
+#ifndef DISABLE_NEW_DEPRECATED_INTERFACES
 
 /**
+  [ATTENTION] This function is deprecated for security reason.
+
   Convert one Null-terminated ASCII string to a Null-terminated
   Unicode string and returns the Unicode string.
 
@@ -2053,6 +2060,8 @@ AsciiStrToUnicodeStr (
 
   return ReturnValue;
 }
+
+#endif
 
 /**
   Converts an 8-bit value to an 8-bit BCD value.

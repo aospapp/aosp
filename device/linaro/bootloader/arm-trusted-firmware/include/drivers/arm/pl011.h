@@ -1,31 +1,7 @@
 /*
  * Copyright (c) 2013-2014, ARM Limited and Contributors. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this
- * list of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * Neither the name of ARM nor the names of its contributors may be used
- * to endorse or promote products derived from this software without specific
- * prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #ifndef __PL011_H__
@@ -36,17 +12,21 @@
 #define UARTRSR                   0x004
 #define UARTECR                   0x004
 #define UARTFR                    0x018
+#define UARTIMSC                  0x038
+#define UARTRIS                   0x03C
+#define UARTICR                   0x044
+
+/* PL011 registers (out of the SBSA specification) */
+#if !PL011_GENERIC_UART
 #define UARTILPR                  0x020
 #define UARTIBRD                  0x024
 #define UARTFBRD                  0x028
 #define UARTLCR_H                 0x02C
 #define UARTCR                    0x030
 #define UARTIFLS                  0x034
-#define UARTIMSC                  0x038
-#define UARTRIS                   0x03C
 #define UARTMIS                   0x040
-#define UARTICR                   0x044
 #define UARTDMACR                 0x048
+#endif /* !PL011_GENERIC_UART */
 
 /* Data status bits */
 #define UART_DATA_ERROR_MASK      0x0F00
@@ -67,8 +47,10 @@
 
 #define PL011_UARTFR_TXFF_BIT	5	/* Transmit FIFO full bit in UARTFR register */
 #define PL011_UARTFR_RXFE_BIT	4	/* Receive FIFO empty bit in UARTFR register */
+#define PL011_UARTFR_BUSY_BIT	3	/* UART busy bit in UARTFR register */
 
 /* Control reg bits */
+#if !PL011_GENERIC_UART
 #define PL011_UARTCR_CTSEN        (1 << 15)	/* CTS hardware flow control enable */
 #define PL011_UARTCR_RTSEN        (1 << 14)	/* RTS hardware flow control enable */
 #define PL011_UARTCR_RTS          (1 << 11)	/* Request to send */
@@ -94,5 +76,7 @@
 #define PL011_UARTLCR_H_EPS       (1 << 2)	/* Even parity select */
 #define PL011_UARTLCR_H_PEN       (1 << 1)	/* Parity Enable */
 #define PL011_UARTLCR_H_BRK       (1 << 0)	/* Send break */
+
+#endif /* !PL011_GENERIC_UART */
 
 #endif	/* __PL011_H__ */

@@ -42,6 +42,7 @@ import android.view.WindowManager;
 import android.view.cts.R;
 
 import org.junit.Before;
+import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -59,6 +60,7 @@ public class AnimatorInflaterTest {
     private Instrumentation mInstrumentation;
     private AnimationTestCtsActivity mActivity;
     private View mTestView;
+    private int mUserRotation;
 
     Set<Integer> identityHashes = new HashSet<>();
 
@@ -71,6 +73,12 @@ public class AnimatorInflaterTest {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mActivity = mActivityRule.getActivity();
         mTestView = mActivity.findViewById(R.id.anim_window);
+        mUserRotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
+    }
+
+    @After
+    public void tearDown() {
+        mInstrumentation.getUiAutomation().setRotation(mUserRotation);
     }
 
     private void assertUnique(Object object) {

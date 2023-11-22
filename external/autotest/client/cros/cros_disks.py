@@ -187,6 +187,10 @@ class CrosDisksClient(DBusClient):
     MOUNT_COMPLETED_SIGNAL_ARGUMENTS = (
         'status', 'source_path', 'source_type', 'mount_path'
     )
+    RENAME_COMPLETED_SIGNAL = 'RenameCompleted'
+    RENAME_COMPLETED_SIGNAL_ARGUMENTS = (
+        'status', 'path'
+    )
 
     def __init__(self, main_loop, bus):
         """Initializes the instance.
@@ -208,14 +212,9 @@ class CrosDisksClient(DBusClient):
         self.handle_signal(self.CROS_DISKS_INTERFACE,
                            self.MOUNT_COMPLETED_SIGNAL,
                            self.MOUNT_COMPLETED_SIGNAL_ARGUMENTS)
-
-    def is_alive(self):
-        """Invokes the CrosDisks IsAlive method.
-
-        Returns:
-            True if the CrosDisks server is alive or False otherwise.
-        """
-        return self.interface.IsAlive()
+        self.handle_signal(self.CROS_DISKS_INTERFACE,
+                           self.RENAME_COMPLETED_SIGNAL,
+                           self.RENAME_COMPLETED_SIGNAL_ARGUMENTS)
 
     def enumerate_auto_mountable_devices(self):
         """Invokes the CrosDisks EnumerateAutoMountableDevices method.
@@ -259,7 +258,8 @@ class CrosDisksClient(DBusClient):
         if options is None:
             options = []
         self.clear_signal_content(self.FORMAT_COMPLETED_SIGNAL)
-        self.interface.Format(path, filesystem_type, options)
+        self.interface.Format(path, filesystem_type,
+                              dbus.Array(options, signature='s'))
 
     def wait_for_format_completion(self):
         """Waits for the CrosDisks FormatCompleted signal.
@@ -289,6 +289,46 @@ class CrosDisksClient(DBusClient):
         return self.expect_signal(self.FORMAT_COMPLETED_SIGNAL,
                                   expected_content)
 
+    def rename(self, path, volume_name=None):
+        """Invokes the CrosDisks Rename method.
+
+        Args:
+            path: The device path to rename.
+            volume_name: The new name used for renaming.
+        """
+        if volume_name is None:
+            volume_name = ''
+        self.clear_signal_content(self.RENAME_COMPLETED_SIGNAL)
+        self.interface.Rename(path, volume_name)
+
+    def wait_for_rename_completion(self):
+        """Waits for the CrosDisks RenameCompleted signal.
+
+        Returns:
+            The content of the RenameCompleted signal.
+        """
+        return self.wait_for_signal(self.RENAME_COMPLETED_SIGNAL)
+
+    def expect_rename_completion(self, expected_content):
+        """Waits and verifies for the CrosDisks RenameCompleted signal.
+
+        Args:
+            expected_content: The expected content of the RenameCompleted
+                              signal, which can be partially specified.
+                              Only specified fields are compared between the
+                              actual and expected content.
+
+        Returns:
+            The actual content of the RenameCompleted signal.
+
+        Raises:
+            error.TestFail: A test failure when there is a mismatch between the
+                            actual and expected content of the RenameCompleted
+                            signal.
+        """
+        return self.expect_signal(self.RENAME_COMPLETED_SIGNAL,
+                                  expected_content)
+
     def mount(self, path, filesystem_type=None, options=None):
         """Invokes the CrosDisks Mount method.
 
@@ -302,7 +342,8 @@ class CrosDisksClient(DBusClient):
         if options is None:
             options = []
         self.clear_signal_content(self.MOUNT_COMPLETED_SIGNAL)
-        self.interface.Mount(path, filesystem_type, options)
+        self.interface.Mount(path, filesystem_type,
+                             dbus.Array(options, signature='s'))
 
     def unmount(self, path, options=None):
         """Invokes the CrosDisks Unmount method.
@@ -313,7 +354,7 @@ class CrosDisksClient(DBusClient):
         """
         if options is None:
             options = []
-        self.interface.Unmount(path, options)
+        self.interface.Unmount(path, dbus.Array(options, signature='s'))
 
     def wait_for_mount_completion(self):
         """Waits for the CrosDisks MountCompleted signal.
@@ -538,6 +579,7 @@ class VirtualFilesystemImage(object):
             self._mkfs_options = []
         self._image_file = None
         self._loop_device = None
+        self._loop_device_stat = None
         self._mount_dir = None
 
     def __del__(self):
@@ -651,6 +693,13 @@ class VirtualFilesystemImage(object):
         self._loop_device = output.split(':')[0]
         logging.debug('Attached image file "%s" to loop device "%s"',
                       self._image_file.name, self._loop_device)
+
+        self._loop_device_stat = os.stat(self._loop_device)
+        logging.debug('Loop device "%s" (uid=%d, gid=%d, permissions=%04o)',
+                      self._loop_device,
+                      self._loop_device_stat.st_uid,
+                      self._loop_device_stat.st_gid,
+                      stat.S_IMODE(self._loop_device_stat.st_mode))
         return self._loop_device
 
     def detach_from_loop_device(self):
@@ -663,6 +712,13 @@ class VirtualFilesystemImage(object):
         logging.debug('Cleaning up remaining mount points of loop device "%s"',
                       self._loop_device)
         utils.run('umount -f %s' % self._loop_device, ignore_status=True)
+
+        logging.debug('Restore ownership/permissions of loop device "%s"',
+                      self._loop_device)
+        os.chmod(self._loop_device,
+                 stat.S_IMODE(self._loop_device_stat.st_mode))
+        os.chown(self._loop_device,
+                 self._loop_device_stat.st_uid, self._loop_device_stat.st_gid)
 
         logging.debug('Detaching image file "%s" from loop device "%s"',
                       self._image_file.name, self._loop_device)
@@ -733,3 +789,22 @@ class VirtualFilesystemImage(object):
             raise RuntimeError(message)
         finally:
             self._remove_mount_dir()
+
+    def get_volume_label(self):
+        """Gets volume name information of |self._loop_device|
+
+        @return a string with volume name if it exists.
+        """
+        # This script is run as root in a normal autotest run,
+        # so this works: It doesn't have access to the necessary info
+        # when run as a non-privileged user
+        cmd = "blkid -c /dev/null -o udev %s" % self._loop_device
+        output = utils.system_output(cmd, ignore_status=True)
+
+        for line in output.splitlines():
+            udev_key, udev_val = line.split('=')
+
+            if udev_key == 'ID_FS_LABEL':
+                return udev_val
+
+        return None

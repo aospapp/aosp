@@ -43,7 +43,10 @@ public class ZipUtil2 {
             Files.setPosixFilePermissions(localFile.toPath(),
                     FileUtil.unixModeToPosix(entry.getUnixMode()));
         } else {
-            CLog.i("Entry does not contain Unix mode info: %s", entry.getName());
+            CLog.d(
+                    "Entry '%s' exists but does not contain Unix mode permission info. File will "
+                            + "have default permission.",
+                    entry.getName());
         }
     }
 

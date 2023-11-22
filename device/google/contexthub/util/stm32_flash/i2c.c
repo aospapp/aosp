@@ -73,6 +73,8 @@ int i2c_init(handle_t *handle)
     handle->cmd_read_memory = CMD_READ_MEMORY;
     handle->cmd_write_memory = CMD_WRITE_MEMORY_NS;
 
+    handle->no_extra_sync = 0;
+
     handle->write_data = i2c_write_data;
     handle->write_cmd = i2c_write_cmd;
     handle->read_data = i2c_read_data;

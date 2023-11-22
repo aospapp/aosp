@@ -17,6 +17,7 @@
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/root"
     android:layout_width="wrap_content"
     android:layout_height="match_parent"
     android:focusable="true"
@@ -135,5 +136,11 @@
         </FrameLayout>
 
     </LinearLayout>
+
+    <view class="android.autofillservice.cts.FatActivity$MyView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:autofillHints="importantAmI">
+    </view>
 
 </LinearLayout>

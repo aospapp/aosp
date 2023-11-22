@@ -35,11 +35,13 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteException;
 import android.location.Country;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.os.SystemProperties;
 import android.provider.BlockedNumberContract;
 import android.provider.BlockedNumberContract.BlockedNumbers;
 import android.provider.BlockedNumberContract.SystemContract;
+import android.telecom.TelecomManager;
 import android.telephony.CarrierConfigManager;
 import android.telephony.TelephonyManager;
 import android.test.AndroidTestCase;
@@ -267,14 +269,14 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
 
         // No emergency contact: Blocks should not be suppressed.
         assertIsBlocked(true, phoneNumber);
-        assertShouldSystemBlock(true, phoneNumber);
+        assertShouldSystemBlock(true, phoneNumber, null);
         verifyBlocksNotSuppressed();
         assertTrue(mMockContext.mIntentsBroadcasted.isEmpty());
 
         // No emergency contact yet: Ending block suppression should be a no-op.
         SystemContract.endBlockSuppression(mMockContext);
         assertIsBlocked(true, phoneNumber);
-        assertShouldSystemBlock(true, phoneNumber);
+        assertShouldSystemBlock(true, phoneNumber, null);
         verifyBlocksNotSuppressed();
         assertTrue(mMockContext.mIntentsBroadcasted.isEmpty());
 
@@ -282,7 +284,7 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
         long timestampMillisBeforeEmergencyContact = System.currentTimeMillis();
         SystemContract.notifyEmergencyContact(mMockContext);
         assertIsBlocked(true, phoneNumber);
-        assertShouldSystemBlock(false, phoneNumber);
+        assertShouldSystemBlock(false, phoneNumber, null);
         SystemContract.BlockSuppressionStatus status =
                 SystemContract.getBlockSuppressionStatus(mMockContext);
         assertTrue(status.isSuppressed);
@@ -296,7 +298,7 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
         // Ending block suppression should work.
         SystemContract.endBlockSuppression(mMockContext);
         assertIsBlocked(true, phoneNumber);
-        assertShouldSystemBlock(true, phoneNumber);
+        assertShouldSystemBlock(true, phoneNumber, null);
         verifyBlocksNotSuppressed();
         assertEquals(1, mMockContext.mIntentsBroadcasted.size());
         assertEquals(SystemContract.ACTION_BLOCK_SUPPRESSION_STATE_CHANGED,
@@ -314,12 +316,102 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
         long timestampMillisBeforeEmergencyContact = System.currentTimeMillis();
         SystemContract.notifyEmergencyContact(mMockContext);
         assertIsBlocked(true, phoneNumber);
-        assertShouldSystemBlock(false, phoneNumber);
+        assertShouldSystemBlock(false, phoneNumber, null);
         SystemContract.BlockSuppressionStatus status =
                 SystemContract.getBlockSuppressionStatus(mMockContext);
         assertTrue(status.isSuppressed);
         assertValidBlockSuppressionExpiration(timestampMillisBeforeEmergencyContact,
                 7200 /* Default value of 2 hours */, status.untilTimestampMillis);
+        assertEquals(1, mMockContext.mIntentsBroadcasted.size());
+        assertEquals(SystemContract.ACTION_BLOCK_SUPPRESSION_STATE_CHANGED,
+                mMockContext.mIntentsBroadcasted.get(0));
+    }
+
+    public void testEnhancedBlock() {
+        String phoneNumber = "5004541111";
+
+        // Check whether block numbers not in contacts setting works well
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNREGISTERED, true);
+        assertShouldSystemBlock(true, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_ALLOWED, false));
+        assertShouldSystemBlock(false, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_ALLOWED, true));
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNREGISTERED, false);
+        assertShouldSystemBlock(false, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_ALLOWED, false));
+
+        // Check whether block private number calls setting works well
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_PRIVATE, true);
+        assertShouldSystemBlock(true, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_RESTRICTED, false));
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_PRIVATE, false);
+        assertShouldSystemBlock(false, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_RESTRICTED, false));
+
+        // Check whether block payphone calls setting works well
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_PAYPHONE, true);
+        assertShouldSystemBlock(true, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_PAYPHONE, false));
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_PAYPHONE, false);
+        assertShouldSystemBlock(false, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_PAYPHONE, false));
+
+        // Check whether block unknown calls setting works well
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNKNOWN, true);
+        assertShouldSystemBlock(true, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_UNKNOWN, false));
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNKNOWN, false);
+        assertShouldSystemBlock(false, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_UNKNOWN, false));
+    }
+
+    public void testEnhancedBlockSuppressionAfterEmergencyContact() {
+        String phoneNumber = "5004541111";
+
+        int blockSuppressionSeconds = 1000;
+        when(mMockContext.mCarrierConfigManager.getConfig())
+                .thenReturn(getBundleWithInt(blockSuppressionSeconds));
+
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNREGISTERED, true);
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_PRIVATE, true);
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_PAYPHONE, true);
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNKNOWN, true);
+
+        // After emergency contact blocks should be suppressed.
+        long timestampMillisBeforeEmergencyContact = System.currentTimeMillis();
+        SystemContract.notifyEmergencyContact(mMockContext);
+
+        assertShouldSystemBlock(false, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_ALLOWED, false));
+        assertShouldSystemBlock(false, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_RESTRICTED, false));
+        assertShouldSystemBlock(false, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_PAYPHONE, false));
+        assertShouldSystemBlock(false, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_UNKNOWN, false));
+
+        SystemContract.BlockSuppressionStatus status =
+                SystemContract.getBlockSuppressionStatus(mMockContext);
+        assertTrue(status.isSuppressed);
+        assertValidBlockSuppressionExpiration(timestampMillisBeforeEmergencyContact,
+                blockSuppressionSeconds, status.untilTimestampMillis);
+        assertEquals(1, mMockContext.mIntentsBroadcasted.size());
+        assertEquals(SystemContract.ACTION_BLOCK_SUPPRESSION_STATE_CHANGED,
+                mMockContext.mIntentsBroadcasted.get(0));
+        mMockContext.mIntentsBroadcasted.clear();
+
+        // Ending block suppression should work.
+        SystemContract.endBlockSuppression(mMockContext);
+        assertShouldSystemBlock(true, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_ALLOWED, false));
+        assertShouldSystemBlock(true, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_RESTRICTED, false));
+        assertShouldSystemBlock(true, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_PAYPHONE, false));
+        assertShouldSystemBlock(true, phoneNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_UNKNOWN, false));
+
+        verifyBlocksNotSuppressed();
         assertEquals(1, mMockContext.mIntentsBroadcasted.size());
         assertEquals(SystemContract.ACTION_BLOCK_SUPPRESSION_STATE_CHANGED,
                 mMockContext.mIntentsBroadcasted.get(0));
@@ -372,7 +464,7 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
         }
 
         try {
-            SystemContract.shouldSystemBlockNumber(mMockContext, "123");
+            SystemContract.shouldSystemBlockNumber(mMockContext, "123", null);
             fail("SecurityException expected");
         } catch (SecurityException expected) {
         }
@@ -451,7 +543,7 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
         }
 
         try {
-            SystemContract.shouldSystemBlockNumber(mMockContext, "123");
+            SystemContract.shouldSystemBlockNumber(mMockContext, "123", null);
             fail("SecurityException expected");
         } catch (SecurityException expected) {
         }
@@ -519,7 +611,20 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
         insert(cv(BlockedNumbers.COLUMN_ORIGINAL_NUMBER, emergencyNumber));
 
         assertIsBlocked(true, emergencyNumber);
-        assertFalse(SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber));
+        assertFalse(SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber, null));
+
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNREGISTERED, true);
+        assertFalse(SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_ALLOWED, false)));
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_PRIVATE, true);
+        assertFalse(SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_RESTRICTED, false)));
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_PAYPHONE, true);
+        assertFalse(SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_PAYPHONE, false)));
+        setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNKNOWN, true);
+        assertFalse(SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber,
+                createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_UNKNOWN, false)));
     }
 
     public void testPrivilegedAppAccessingApisAsSecondaryUser() {
@@ -601,8 +706,20 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
         assertEquals(expected, BlockedNumberContract.isBlocked(mMockContext, phoneNumber));
     }
 
-    private void assertShouldSystemBlock(boolean expected, String phoneNumber) {
-        assertEquals(expected, SystemContract.shouldSystemBlockNumber(mMockContext, phoneNumber));
+    private void assertShouldSystemBlock(boolean expected, String phoneNumber, Bundle extras) {
+        assertEquals(expected, SystemContract.shouldSystemBlockNumber(mMockContext, phoneNumber,
+                extras));
+    }
+
+    private void setEnhancedBlockSetting(String key, boolean value) {
+        SystemContract.setEnhancedBlockSetting(mMockContext, key, value);
+    }
+
+    private Bundle createBundleForEnhancedBlocking(int presentation, boolean contactExist) {
+        Bundle extras = new Bundle();
+        extras.putInt(BlockedNumberContract.EXTRA_CALL_PRESENTATION, presentation);
+        extras.putBoolean(BlockedNumberContract.EXTRA_CONTACT_EXIST, contactExist);
+        return extras;
     }
 
     private PersistableBundle getBundleWithInt(int value) {

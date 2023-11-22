@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2016 The Android Open Source Project
+# Copyright (C) 2017 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ ifeq ($(strip $(my_variants)),)
 my_variants := $(AUX_OS_VARIANT_LIST_$(NANO_OS))
 endif
 
-# mark the app as CHRE nanoapp
-LOCAL_NANO_APP_POSTPROCESS_FLAGS += -f 0x10
+# mark the app as CHRE 1.2 nanoapp
+LOCAL_NANO_APP_POSTPROCESS_FLAGS += -c 0x0102
 
 # add app-side CHRE implementation
 LOCAL_WHOLE_STATIC_LIBRARIES += \
@@ -36,5 +36,9 @@ LOCAL_STATIC_LIBRARIES +=       \
     libnanobuiltins             \
     libnanolibc                 \
     libnanolibm                 \
+
+LOCAL_C_INCLUDES +=                                     \
+    system/chre/chre_api/include/chre_api               \
+    system/chre/util/include                            \
 
 $(call for-each-variant,$(my_variants),APP,$(BUILD_NANOHUB_EXECUTABLE))

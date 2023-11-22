@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <UnicodeUtils.h>
-
 #include "LayoutUtils.h"
+
+#include <gtest/gtest.h>
+
+#include "UnicodeUtils.h"
 
 namespace minikin {
 
@@ -28,9 +29,8 @@ void ExpectNextWordBreakForCache(size_t offset_in, const char* query_str) {
     size_t size = 0U;
 
     ParseUnicode(buf, BUF_SIZE, query_str, &size, &expected_breakpoint);
-    EXPECT_EQ(expected_breakpoint,
-              getNextWordBreakForCache(buf, offset_in, size))
-        << "Expected position is [" << query_str << "] from offset " << offset_in;
+    EXPECT_EQ(expected_breakpoint, getNextWordBreakForCache(buf, offset_in, size))
+            << "Expected position is [" << query_str << "] from offset " << offset_in;
 }
 
 void ExpectPrevWordBreakForCache(size_t offset_in, const char* query_str) {
@@ -40,9 +40,8 @@ void ExpectPrevWordBreakForCache(size_t offset_in, const char* query_str) {
     size_t size = 0U;
 
     ParseUnicode(buf, BUF_SIZE, query_str, &size, &expected_breakpoint);
-    EXPECT_EQ(expected_breakpoint,
-              getPrevWordBreakForCache(buf, offset_in, size))
-        << "Expected position is [" << query_str << "] from offset " << offset_in;
+    EXPECT_EQ(expected_breakpoint, getPrevWordBreakForCache(buf, offset_in, size))
+            << "Expected position is [" << query_str << "] from offset " << offset_in;
 }
 
 TEST(WordBreakTest, goNextWordBreakTest) {
@@ -89,8 +88,7 @@ TEST(WordBreakTest, goNextWordBreakTest) {
     ExpectNextWordBreakForCache(3, "U+4E00   U+4E00   U+4E00   U+4E00 | U+4E00");
     ExpectNextWordBreakForCache(4, "U+4E00   U+4E00   U+4E00   U+4E00   U+4E00 |");
     ExpectNextWordBreakForCache(5, "U+4E00   U+4E00   U+4E00   U+4E00   U+4E00 |");
-    ExpectNextWordBreakForCache(1000,
-                             "U+4E00   U+4E00   U+4E00   U+4E00   U+4E00 |");
+    ExpectNextWordBreakForCache(1000, "U+4E00   U+4E00   U+4E00   U+4E00   U+4E00 |");
 
     ExpectNextWordBreakForCache(0, "U+4E00 | U+4E8C   U+4E09   U+56DB   U+4E94");
     ExpectNextWordBreakForCache(1, "U+4E00   U+4E8C | U+4E09   U+56DB   U+4E94");
@@ -98,8 +96,7 @@ TEST(WordBreakTest, goNextWordBreakTest) {
     ExpectNextWordBreakForCache(3, "U+4E00   U+4E8C   U+4E09   U+56DB | U+4E94");
     ExpectNextWordBreakForCache(4, "U+4E00   U+4E8C   U+4E09   U+56DB   U+4E94 |");
     ExpectNextWordBreakForCache(5, "U+4E00   U+4E8C   U+4E09   U+56DB   U+4E94 |");
-    ExpectNextWordBreakForCache(1000,
-                             "U+4E00   U+4E8C   U+4E09   U+56DB   U+4E94 |");
+    ExpectNextWordBreakForCache(1000, "U+4E00   U+4E8C   U+4E09   U+56DB   U+4E94 |");
 
     ExpectNextWordBreakForCache(0, "U+4E00 'a' 'b' | U+2000 'c' U+4E00");
     ExpectNextWordBreakForCache(1, "U+4E00 'a' 'b' | U+2000 'c' U+4E00");
@@ -246,8 +243,7 @@ TEST(WordBreakTest, goNextWordBreakTest) {
     ExpectNextWordBreakForCache(4, "U+845B U+E0100 U+E0100 | U+845B");
     ExpectNextWordBreakForCache(5, "U+845B U+E0100 U+E0100 U+845B |");
     ExpectNextWordBreakForCache(6, "U+845B U+E0100 U+E0100 U+845B |");
-    ExpectNextWordBreakForCache(1000,
-                             "U+845B U+E0100 U+E0100 U+845B |");
+    ExpectNextWordBreakForCache(1000, "U+845B U+E0100 U+E0100 U+845B |");
 
     // CJK Ideographic char + Variation Selector(VS1) + Variation Selector(VS17)
     ExpectNextWordBreakForCache(0, "U+845B U+FE00 U+E0100 | U+845B");
@@ -477,8 +473,7 @@ TEST(WordBreakTest, goPrevWordBreakTest) {
     ExpectPrevWordBreakForCache(4, "| U+845B U+E0100 U+E0100 U+845B");
     ExpectPrevWordBreakForCache(5, "| U+845B U+E0100 U+E0100 U+845B");
     ExpectPrevWordBreakForCache(6, "U+845B U+E0100 U+E0100 | U+845B");
-    ExpectPrevWordBreakForCache(1000,
-                             "U+845B U+E0100 U+E0100 | U+845B");
+    ExpectPrevWordBreakForCache(1000, "U+845B U+E0100 U+E0100 | U+845B");
 
     // CJK Ideographic char + Variation Selector(VS1) + Variation Selector(VS17)
     ExpectPrevWordBreakForCache(0, "| U+845B U+FE00 U+E0100 U+845B");

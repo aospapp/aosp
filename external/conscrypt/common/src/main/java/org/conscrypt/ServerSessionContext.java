@@ -44,23 +44,23 @@ public final class ServerSessionContext extends AbstractSessionContext {
         // sure you don't reuse sessions externalized with i2d_SSL_SESSION
         // between apps. However our sessions are either in memory or
         // exported to a app's SSLServerSessionCache.
-        NativeCrypto.SSL_CTX_set_session_id_context(sslCtxNativePointer, new byte[] { ' ' });
+        NativeCrypto.SSL_CTX_set_session_id_context(sslCtxNativePointer, this, new byte[] { ' ' });
     }
 
     /**
      * Applications should not use this method. Instead use {@link
-     * Conscrypt.Contexts#setServerSessionCache(SSLContext, SSLServerSessionCache)}.
+     * Conscrypt#setServerSessionCache(SSLContext, SSLServerSessionCache)}.
      */
     public void setPersistentCache(SSLServerSessionCache persistentCache) {
         this.persistentCache = persistentCache;
     }
 
     @Override
-    SslSessionWrapper getSessionFromPersistentCache(byte[] sessionId) {
+    NativeSslSession getSessionFromPersistentCache(byte[] sessionId) {
         if (persistentCache != null) {
             byte[] data = persistentCache.getSessionData(sessionId);
             if (data != null) {
-                SslSessionWrapper session = SslSessionWrapper.newInstance(this, data, null, -1);
+                NativeSslSession session = NativeSslSession.newInstance(this, data, null, -1);
                 if (session != null && session.isValid()) {
                     cacheSession(session);
                     return session;
@@ -72,7 +72,7 @@ public final class ServerSessionContext extends AbstractSessionContext {
     }
 
     @Override
-    void onBeforeAddSession(SslSessionWrapper session) {
+    void onBeforeAddSession(NativeSslSession session) {
         // TODO: Do this in background thread.
         if (persistentCache != null) {
             byte[] data = session.toBytes();
@@ -83,7 +83,7 @@ public final class ServerSessionContext extends AbstractSessionContext {
     }
 
     @Override
-    void onBeforeRemoveSession(SslSessionWrapper session) {
+    void onBeforeRemoveSession(NativeSslSession session) {
         // Do nothing.
     }
 }

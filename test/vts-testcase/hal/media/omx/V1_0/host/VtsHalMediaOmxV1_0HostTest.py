@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+import copy
 import logging
 import time
 
@@ -22,7 +23,6 @@ from vts.runners.host import asserts
 from vts.runners.host import keys
 from vts.runners.host import test_runner
 from vts.testcases.template.hal_hidl_gtest import hal_hidl_gtest
-import VtsHalMediaOmxV1_0TestCase as omx_test_case
 
 
 class VtsHalMediaOmxV1_0Host(hal_hidl_gtest.HidlHalGTest):
@@ -116,12 +116,11 @@ class VtsHalMediaOmxV1_0Host(hal_hidl_gtest.HidlHalGTest):
                         continue
                     if self.VIDEO_DEC_TEST in test_suite and not "video_decoder" in role:
                         continue
-                    test_name = component + '_' + role
-                    # TODO (zhuoyao): get instance name using lshal.
-                    instance_name = "default"
-                    test_case = omx_test_case.VtsHalMediaOmxV1_0TestCase(
-                        component, role, instance_name, test_suite, test_name,
-                        path, tag)
+
+                    test_case = copy.copy(gtest_case)
+                    test_case.args += " -C " + component
+                    test_case.args += " -R " + role
+                    test_case.name_appendix = '_' + component + '_' + role + test_case.name_appendix
                     test_cases.append(test_case)
         logging.info("num of test_testcases: %s", len(test_cases))
         return test_cases

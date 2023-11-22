@@ -20,7 +20,7 @@
     <!-- the background color used for unread broadcasts -->
     <color name="unread_bgcolor">#ffffffff</color>
     <color name="read_bgcolor">#ffeeeeee</color>
-    <color name="notification_color">#FFFF9800</color><!-- Orange 800 -->
+    <color name="notification_color">#FFDB4437</color><!-- Red 500 -->
 
     <color name="cell_broadcast_color_primary">#ff263238</color>
     <color name="cell_broadcast_color_primary_dark">#ff21272b</color>

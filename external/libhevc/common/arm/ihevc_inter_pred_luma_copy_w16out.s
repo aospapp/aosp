@@ -72,6 +72,10 @@
 @   r7 =>  ht
 @   r12 => wd
 
+.equ    coeff_offset,   104
+.equ    ht_offset,      108
+.equ    wd_offset,      112
+
 .text
 .align 4
 
@@ -85,8 +89,9 @@
 ihevc_inter_pred_luma_copy_w16out_a9q:
 
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
-    ldr         r12,[sp,#48]                @loads wd
-    ldr         r7,[sp,#44]                 @loads ht
+    vpush        {d8 - d15}
+    ldr         r12,[sp,#wd_offset]                @loads wd
+    ldr         r7,[sp,#ht_offset]                 @loads ht
     cmp         r7,#0                       @ht condition(ht == 0)
     ble         end_loops                   @loop
     tst         r12,#7                      @conditional check for wd (multiples)
@@ -129,6 +134,7 @@ end_inner_loop_wd_4:
     bgt         outer_loop_wd_4
 
 end_loops:
+    vpop         {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 
@@ -242,6 +248,7 @@ epilog_end:
     vst1.16     {d6,d7},[r10],r5            @vst1q_s16(pi2_dst_tmp, tmp)
 
 
+    vpop         {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 

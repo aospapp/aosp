@@ -17,10 +17,9 @@
 package android.taskswitching.appa;
 
 import android.app.ListActivity;
-import android.content.Intent;
-
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.RemoteCallback;
 import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
@@ -30,9 +29,7 @@ import android.widget.ListView;
  * This is for measuring taskswitching time between two apps.
  */
 public class AppAActivity extends ListActivity {
-    static final String TAG = "AppAActivity";
     private static final int NUMBER_ELEMENTS = 1000;
-    private static final String TASKSWITCHING_INTENT = "android.taskswitching.appa";
     private Handler mHandler;
 
     private String[] mItems = new String[NUMBER_ELEMENTS];
@@ -53,13 +50,8 @@ public class AppAActivity extends ListActivity {
     @Override
     public void onResume() {
         super.onResume();
-        mHandler.post(new Runnable() {
-
-            @Override
-            public void run() {
-                Intent intent = new Intent(TASKSWITCHING_INTENT);
-                sendBroadcast(intent);
-            }
+        mHandler.post(() -> {
+            getIntent().<RemoteCallback>getParcelableExtra("callback").sendResult(null);
         });
     }
 }

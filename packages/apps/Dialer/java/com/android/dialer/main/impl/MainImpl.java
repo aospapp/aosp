@@ -21,13 +21,12 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import android.support.v4.content.pm.ShortcutInfoCompat;
 import android.support.v4.content.pm.ShortcutManagerCompat;
 import android.support.v4.graphics.drawable.IconCompat;
-import android.support.v4.os.BuildCompat;
-import com.android.dialer.buildtype.BuildType;
-import com.android.dialer.common.LogUtil;
+import com.android.dialer.configprovider.ConfigProviderBindings;
 import com.android.dialer.main.Main;
 import javax.inject.Inject;
 
@@ -36,17 +35,17 @@ final class MainImpl implements Main {
   private static final String SHORTCUT_KEY = "nui_launcher_shortcut";
 
   @Inject
-  public MainImpl() {}
+  MainImpl() {}
 
   @Override
   public boolean isNewUiEnabled(Context context) {
-    return BuildType.get() == BuildType.BUGFOOD || LogUtil.isDebugEnabled();
+    return ConfigProviderBindings.get(context).getBoolean("is_nui_shortcut_enabled", false);
   }
 
   @Override
   public void createNewUiLauncherShortcut(Context context) {
     enableComponent(context);
-    if (BuildCompat.isAtLeastO()) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       createLauncherShortcutO(context);
     } else {
       createLauncherShortcutPreO(context);
@@ -64,6 +63,16 @@ final class MainImpl implements Main {
         .setComponentEnabledSetting(
             new ComponentName(context, MainActivity.class),
             PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+            PackageManager.DONT_KILL_APP);
+  }
+
+  @Override
+  public void disableComponentForTesting(Context context) {
+    context
+        .getPackageManager()
+        .setComponentEnabledSetting(
+            new ComponentName(context, MainActivity.class),
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
             PackageManager.DONT_KILL_APP);
   }
 

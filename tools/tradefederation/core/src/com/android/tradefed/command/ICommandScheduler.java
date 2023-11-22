@@ -41,14 +41,21 @@ public interface ICommandScheduler {
     */
     public static interface IScheduledInvocationListener extends ITestInvocationListener {
         /**
-         * Callback when entire invocation has completed, including all
-         * {@link ITestInvocationListener#invocationEnded(long)} events.
+         * Callback when an invocation is initiated. This is called before any builds are fetched.
          *
-         * @param metadata
+         * @param context
+         */
+        public default void invocationInitiated(IInvocationContext context) {}
+
+        /**
+         * Callback when entire invocation has completed, including all {@link
+         * ITestInvocationListener#invocationEnded(long)} events.
+         *
+         * @param context
          * @param devicesStates
          */
-        public void invocationComplete(IInvocationContext metadata,
-                Map<ITestDevice, FreeDeviceState> devicesStates);
+        public void invocationComplete(
+                IInvocationContext context, Map<ITestDevice, FreeDeviceState> devicesStates);
     }
 
     /**

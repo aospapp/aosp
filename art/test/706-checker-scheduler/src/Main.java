@@ -31,6 +31,7 @@ public class Main {
   public ExampleObj my_obj;
   public static int number1;
   public static int number2;
+  public static volatile int number3;
 
   /// CHECK-START-ARM64: int Main.arrayAccess() scheduler (before)
   /// CHECK:    <<Const1:i\d+>>       IntConstant 1
@@ -275,6 +276,83 @@ public class Main {
     }
   }
 
+  // This case tests a bug found in LSA where LSA doesn't understand IntermediateAddress,
+  // and incorrectly reported no alias between ArraySet1 and ArrayGet2,
+  // thus ArrayGet2 is scheduled above ArraySet1 incorrectly.
+
+  /// CHECK-START-ARM64: void Main.CrossOverLoop(int[], int[]) scheduler (before)
+  /// CHECK:     <<ParamA:l\d+>>       ParameterValue                           loop:none
+  /// CHECK:     <<ParamB:l\d+>>       ParameterValue                           loop:none
+  /// CHECK:     <<NullB:l\d+>>        NullCheck [<<ParamB>>]                   loop:none
+  /// CHECK:     <<NullA:l\d+>>        NullCheck [<<ParamA>>]                   loop:none
+  /// CHECK:                           Phi                                      loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK:     <<ArrayGet1:i\d+>>    ArrayGet [<<NullB>>,{{i\d+}}]            loop:<<Loop>>      outer_loop:none
+  /// CHECK:                           Add                                      loop:<<Loop>>      outer_loop:none
+  /// CHECK:     <<Addr1:i\d+>>        IntermediateAddress [<<NullA>>,{{i\d+}}] loop:<<Loop>>      outer_loop:none
+  /// CHECK:     <<ArraySet1:v\d+>>    ArraySet [<<Addr1>>,{{i\d+}},{{i\d+}}]   loop:<<Loop>>      outer_loop:none
+  /// CHECK:     <<ArrayGet2:i\d+>>    ArrayGet [<<NullB>>,{{i\d+}}]            loop:<<Loop>>      outer_loop:none
+  /// CHECK:                           Add                                      loop:<<Loop>>      outer_loop:none
+  /// CHECK:     <<Addr2:i\d+>>        IntermediateAddress [<<NullA>>,{{i\d+}}] loop:<<Loop>>      outer_loop:none
+  /// CHECK:     <<ArraySet2:v\d+>>    ArraySet [<<Addr2>>,{{i\d+}},{{i\d+}}]   loop:<<Loop>>      outer_loop:none
+  /// CHECK:                           Add                                      loop:<<Loop>>      outer_loop:none
+
+  /// CHECK-START-ARM64: void Main.CrossOverLoop(int[], int[]) scheduler (after)
+  /// CHECK:     <<ParamA:l\d+>>       ParameterValue                           loop:none
+  /// CHECK:     <<ParamB:l\d+>>       ParameterValue                           loop:none
+  /// CHECK:     <<NullB:l\d+>>        NullCheck [<<ParamB>>]                   loop:none
+  /// CHECK:     <<NullA:l\d+>>        NullCheck [<<ParamA>>]                   loop:none
+  /// CHECK:                           Phi                                      loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK:     <<ArrayGet1:i\d+>>    ArrayGet [<<NullB>>,{{i\d+}}]            loop:<<Loop>>      outer_loop:none
+  /// CHECK:                           Add                                      loop:<<Loop>>      outer_loop:none
+  /// CHECK:     <<Addr1:i\d+>>        IntermediateAddress [<<NullA>>,{{i\d+}}] loop:<<Loop>>      outer_loop:none
+  /// CHECK:     <<ArraySet1:v\d+>>    ArraySet [<<Addr1>>,{{i\d+}},{{i\d+}}]   loop:<<Loop>>      outer_loop:none
+  /// CHECK:     <<ArrayGet2:i\d+>>    ArrayGet [<<NullB>>,{{i\d+}}]            loop:<<Loop>>      outer_loop:none
+  /// CHECK:                           Add                                      loop:<<Loop>>      outer_loop:none
+  /// CHECK:     <<Addr2:i\d+>>        IntermediateAddress [<<NullA>>,{{i\d+}}] loop:<<Loop>>      outer_loop:none
+  /// CHECK:     <<ArraySet2:v\d+>>    ArraySet [<<Addr2>>,{{i\d+}},{{i\d+}}]   loop:<<Loop>>      outer_loop:none
+  /// CHECK:                           Add                                      loop:<<Loop>>      outer_loop:none
+  private static void CrossOverLoop(int a[], int b[]) {
+    b[20] = 99;
+    for (int i = 0; i < a.length; i++) {
+      a[i] = b[20] - 7;
+      i++;
+      a[i] = b[20] - 7;
+    }
+  }
+
+  // This test case is similar to above cross over loop,
+  // but has more complex chains of transforming the original references:
+  // ParameterValue --> BoundType --> NullCheck --> ArrayGet.
+  // ParameterValue --> BoundType --> NullCheck --> IntermediateAddress --> ArraySet.
+  // After using LSA to analyze the orginal references, the scheduler should be able
+  // to find out that 'a' and 'b' may alias, hence unable to schedule these ArraGet/Set.
+
+  /// CHECK-START-ARM64: void Main.CrossOverLoop2(java.lang.Object, java.lang.Object) scheduler (before)
+  /// CHECK:  Phi        loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK:  ArrayGet   loop:<<Loop>>      outer_loop:none
+  /// CHECK:  Add        loop:<<Loop>>      outer_loop:none
+  /// CHECK:  ArraySet   loop:<<Loop>>      outer_loop:none
+  /// CHECK:  ArrayGet   loop:<<Loop>>      outer_loop:none
+  /// CHECK:  Add        loop:<<Loop>>      outer_loop:none
+  /// CHECK:  ArraySet   loop:<<Loop>>      outer_loop:none
+
+  /// CHECK-START-ARM64: void Main.CrossOverLoop2(java.lang.Object, java.lang.Object) scheduler (after)
+  /// CHECK:  Phi        loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK:  ArrayGet   loop:<<Loop>>      outer_loop:none
+  /// CHECK:  Add        loop:<<Loop>>      outer_loop:none
+  /// CHECK:  ArraySet   loop:<<Loop>>      outer_loop:none
+  /// CHECK:  ArrayGet   loop:<<Loop>>      outer_loop:none
+  /// CHECK:  Add        loop:<<Loop>>      outer_loop:none
+  /// CHECK:  ArraySet   loop:<<Loop>>      outer_loop:none
+  private static void CrossOverLoop2(Object a, Object b) {
+    ((int[])b)[20] = 99;
+    for (int i = 0; i < ((int[])a).length; i++) {
+      ((int[])a)[i] = ((int[])b)[20] - 7;
+      i++;
+      ((int[])a)[i] = ((int[])b)[20] - 7;
+    }
+  }
+
   /// CHECK-START-ARM: void Main.accessFields() scheduler (before)
   /// CHECK:            InstanceFieldGet
   /// CHECK:            Add
@@ -340,6 +418,87 @@ public class Main {
     }
   }
 
+  /// CHECK-START-ARM: void Main.accessFieldsVolatile() scheduler (before)
+  /// CHECK-START-ARM64: void Main.accessFieldsVolatile() scheduler (before)
+  /// CHECK:            InstanceFieldGet
+  /// CHECK:            Add
+  /// CHECK:            InstanceFieldSet
+  /// CHECK:            InstanceFieldGet
+  /// CHECK:            Add
+  /// CHECK:            InstanceFieldSet
+  /// CHECK:            StaticFieldGet
+  /// CHECK:            Add
+  /// CHECK:            StaticFieldSet
+  /// CHECK:            StaticFieldGet
+  /// CHECK:            Add
+  /// CHECK:            StaticFieldSet
+
+  /// CHECK-START-ARM: void Main.accessFieldsVolatile() scheduler (after)
+  /// CHECK-START-ARM64: void Main.accessFieldsVolatile() scheduler (after)
+  /// CHECK:            InstanceFieldGet
+  /// CHECK:            Add
+  /// CHECK:            InstanceFieldSet
+  /// CHECK:            InstanceFieldGet
+  /// CHECK:            Add
+  /// CHECK:            InstanceFieldSet
+  /// CHECK:            StaticFieldGet
+  /// CHECK:            Add
+  /// CHECK:            StaticFieldSet
+  /// CHECK:            StaticFieldGet
+  /// CHECK:            Add
+  /// CHECK:            StaticFieldSet
+
+  public void accessFieldsVolatile() {
+    my_obj = new ExampleObj(1, 2);
+    for (int i = 0; i < 10; i++) {
+      my_obj.n1++;
+      my_obj.n2++;
+      number1++;
+      number3++;
+    }
+  }
+
+  /// CHECK-START-ARM: void Main.accessFieldsUnresolved() scheduler (before)
+  /// CHECK-START-ARM64: void Main.accessFieldsUnresolved() scheduler (before)
+  /// CHECK:            InstanceFieldGet
+  /// CHECK:            Add
+  /// CHECK:            InstanceFieldSet
+  /// CHECK:            InstanceFieldGet
+  /// CHECK:            Add
+  /// CHECK:            InstanceFieldSet
+  /// CHECK:            UnresolvedInstanceFieldGet
+  /// CHECK:            Add
+  /// CHECK:            UnresolvedInstanceFieldSet
+  /// CHECK:            UnresolvedStaticFieldGet
+  /// CHECK:            Add
+  /// CHECK:            UnresolvedStaticFieldSet
+
+  /// CHECK-START-ARM: void Main.accessFieldsUnresolved() scheduler (after)
+  /// CHECK-START-ARM64: void Main.accessFieldsUnresolved() scheduler (after)
+  /// CHECK:            InstanceFieldGet
+  /// CHECK:            Add
+  /// CHECK:            InstanceFieldSet
+  /// CHECK:            InstanceFieldGet
+  /// CHECK:            Add
+  /// CHECK:            InstanceFieldSet
+  /// CHECK:            UnresolvedInstanceFieldGet
+  /// CHECK:            Add
+  /// CHECK:            UnresolvedInstanceFieldSet
+  /// CHECK:            UnresolvedStaticFieldGet
+  /// CHECK:            Add
+  /// CHECK:            UnresolvedStaticFieldSet
+
+  public void accessFieldsUnresolved() {
+    my_obj = new ExampleObj(1, 2);
+    UnresolvedClass unresolved_obj = new UnresolvedClass();
+    for (int i = 0; i < 10; i++) {
+      my_obj.n1++;
+      my_obj.n2++;
+      unresolved_obj.instanceInt++;
+      UnresolvedClass.staticInt++;
+    }
+  }
+
   /// CHECK-START-ARM64: int Main.intDiv(int) scheduler (before)
   /// CHECK:               Sub
   /// CHECK:               DivZeroCheck
@@ -364,7 +523,71 @@ public class Main {
     return res;
   }
 
+  private static void expectEquals(int expected, int result) {
+    if (expected != result) {
+      throw new Error("Expected: " + expected + ", found: " + result);
+    }
+  }
+
+  private static final int ARRAY_SIZE = 32;
+
+  // Check that VecReplicateScalar is not reordered.
+  /// CHECK-START-ARM64: void Main.testVecReplicateScalar() scheduler (before)
+  /// CHECK:     Phi                loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK:     NewArray           loop:<<Loop>>      outer_loop:none
+  /// CHECK:     VecReplicateScalar loop:<<Loop>>      outer_loop:none
+
+  /// CHECK-START-ARM64: void Main.testVecReplicateScalar() scheduler (after)
+  /// CHECK:     Phi                loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK:     NewArray           loop:<<Loop>>      outer_loop:none
+  /// CHECK:     VecReplicateScalar loop:<<Loop>>      outer_loop:none
+  private static void testVecReplicateScalar() {
+    for (int j = 0; j <= 8; j++) {
+      int[] a = new int[ARRAY_SIZE];
+      for (int i = 0; i < a.length; i++) {
+        a[i] += 1;
+      }
+      for (int i = 0; i < a.length; i++) {
+        expectEquals(1, a[i]);
+      }
+    }
+  }
+
+  // Check that VecSetScalars, VecReduce, VecExtractScalar are not reordered.
+  /// CHECK-START-ARM64: void Main.testVecSetScalars() scheduler (before)
+  /// CHECK:     Phi                  loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK:     NewArray             loop:<<Loop>>      outer_loop:none
+  /// CHECK:     VecSetScalars        loop:<<Loop>>      outer_loop:none
+  //
+  /// CHECK:     VecReduce            loop:<<Loop>>      outer_loop:none
+  /// CHECK:     VecExtractScalar     loop:<<Loop>>      outer_loop:none
+  /// CHECK:     InvokeStaticOrDirect loop:<<Loop>>      outer_loop:none
+  /// CHECK:     InvokeStaticOrDirect loop:<<Loop>>      outer_loop:none
+
+  /// CHECK-START-ARM64: void Main.testVecSetScalars() scheduler (after)
+  /// CHECK:     Phi                  loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK:     NewArray             loop:<<Loop>>      outer_loop:none
+  /// CHECK:     VecSetScalars        loop:<<Loop>>      outer_loop:none
+  //
+  /// CHECK:     VecReduce            loop:<<Loop>>      outer_loop:none
+  /// CHECK:     VecExtractScalar     loop:<<Loop>>      outer_loop:none
+  /// CHECK:     InvokeStaticOrDirect loop:<<Loop>>      outer_loop:none
+  /// CHECK:     InvokeStaticOrDirect loop:<<Loop>>      outer_loop:none
+  private static void testVecSetScalars() {
+    for (int j = 0; j <= 8; j++) {
+      int[] a = new int[ARRAY_SIZE];
+      int s = 5;
+      for (int i = 0; i < ARRAY_SIZE; i++) {
+        s+=a[i];
+      }
+      expectEquals(a[0], 0);
+      expectEquals(s, 5);
+    }
+  }
+
   public static void main(String[] args) {
+    testVecSetScalars();
+    testVecReplicateScalar();
     if ((arrayAccess() + intDiv(10)) != -35) {
       System.out.println("FAIL");
     }

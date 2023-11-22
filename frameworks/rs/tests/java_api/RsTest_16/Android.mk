@@ -21,8 +21,6 @@ LOCAL_MODULE_TAGS := tests
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-renderscript-files-under, src)
 
-LOCAL_STATIC_JAVA_LIBRARIES := legacy-android-test
-
 LOCAL_PACKAGE_NAME := RSTest_v16
 LOCAL_SDK_VERSION := 16
 

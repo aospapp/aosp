@@ -23,7 +23,7 @@ import android.util.Log;
  * It can be used for both Email Apps (group Parent item) and Accounts (Group child Item).
  *
  */
-public class BluetoothMapAccountItem implements Comparable<BluetoothMapAccountItem>{
+public class BluetoothMapAccountItem implements Comparable<BluetoothMapAccountItem> {
     private static final String TAG = "BluetoothMapAccountItem";
 
     private static final boolean D = BluetoothMapService.DEBUG;
@@ -50,25 +50,26 @@ public class BluetoothMapAccountItem implements Comparable<BluetoothMapAccountIt
         this.mProviderAuthority = authority;
         this.mType = appType;
         this.mBase_uri_no_account = "content://" + authority;
-        this.mBase_uri = mBase_uri_no_account + "/"+id;
+        this.mBase_uri = mBase_uri_no_account + "/" + id;
         this.mUci = uci;
         this.mUciPrefix = uciPrefix;
     }
 
     public static BluetoothMapAccountItem create(String id, String name, String packageName,
             String authority, Drawable icon, BluetoothMapUtils.TYPE appType) {
-        return new BluetoothMapAccountItem(id, name, packageName, authority,
-                icon, appType, null, null);
+        return new BluetoothMapAccountItem(id, name, packageName, authority, icon, appType, null,
+                null);
     }
 
     public static BluetoothMapAccountItem create(String id, String name, String packageName,
             String authority, Drawable icon, BluetoothMapUtils.TYPE appType, String uci,
             String uciPrefix) {
-        return new BluetoothMapAccountItem(id, name, packageName, authority,
-                icon, appType, uci, uciPrefix);
+        return new BluetoothMapAccountItem(id, name, packageName, authority, icon, appType, uci,
+                uciPrefix);
     }
+
     public long getAccountId() {
-        if(mId != null) {
+        if (mId != null) {
             return Long.parseLong(mId);
         }
         return -1;
@@ -78,46 +79,60 @@ public class BluetoothMapAccountItem implements Comparable<BluetoothMapAccountIt
         return mUci;
     }
 
-    public String getUciPrefix(){
+    public String getUciPrefix() {
         return mUciPrefix;
     }
 
-    public String getUciFull(){
-        if(mUci == null)
+    public String getUciFull() {
+        if (mUci == null) {
             return null;
-        if(mUciPrefix == null)
+        }
+        if (mUciPrefix == null) {
             return null;
+        }
         return new StringBuilder(mUciPrefix).append(":").append(mUci).toString();
     }
 
     @Override
     public int compareTo(BluetoothMapAccountItem other) {
 
-        if(!other.mId.equals(this.mId)){
-            if(V) Log.d(TAG, "Wrong id : " + this.mId + " vs " + other.mId);
+        if (!other.mId.equals(this.mId)) {
+            if (V) {
+                Log.d(TAG, "Wrong id : " + this.mId + " vs " + other.mId);
+            }
             return -1;
         }
-        if(!other.mName.equals(this.mName)){
-            if(V) Log.d(TAG, "Wrong name : " + this.mName + " vs " + other.mName);
+        if (!other.mName.equals(this.mName)) {
+            if (V) {
+                Log.d(TAG, "Wrong name : " + this.mName + " vs " + other.mName);
+            }
             return -1;
         }
-        if(!other.mPackageName.equals(this.mPackageName)){
-            if(V) Log.d(TAG, "Wrong packageName : " + this.mPackageName + " vs "
-                    + other.mPackageName);
-             return -1;
-        }
-        if(!other.mProviderAuthority.equals(this.mProviderAuthority)){
-            if(V) Log.d(TAG, "Wrong providerName : " + this.mProviderAuthority + " vs " 
-                    + other.mProviderAuthority);
+        if (!other.mPackageName.equals(this.mPackageName)) {
+            if (V) {
+                Log.d(TAG,
+                        "Wrong packageName : " + this.mPackageName + " vs " + other.mPackageName);
+            }
             return -1;
         }
-        if(other.mIsChecked != this.mIsChecked){
-            if(V) Log.d(TAG, "Wrong isChecked : " + this.mIsChecked + " vs " + other.mIsChecked);
+        if (!other.mProviderAuthority.equals(this.mProviderAuthority)) {
+            if (V) {
+                Log.d(TAG, "Wrong providerName : " + this.mProviderAuthority + " vs "
+                        + other.mProviderAuthority);
+            }
             return -1;
         }
-        if(!other.mType.equals(this.mType)){
-            if(V) Log.d(TAG, "Wrong appType : " + this.mType + " vs " + other.mType);
-             return -1;
+        if (other.mIsChecked != this.mIsChecked) {
+            if (V) {
+                Log.d(TAG, "Wrong isChecked : " + this.mIsChecked + " vs " + other.mIsChecked);
+            }
+            return -1;
+        }
+        if (!other.mType.equals(this.mType)) {
+            if (V) {
+                Log.d(TAG, "Wrong appType : " + this.mType + " vs " + other.mType);
+            }
+            return -1;
         }
         return 0;
     }
@@ -128,47 +143,59 @@ public class BluetoothMapAccountItem implements Comparable<BluetoothMapAccountIt
         int result = 1;
         result = prime * result + ((mId == null) ? 0 : mId.hashCode());
         result = prime * result + ((mName == null) ? 0 : mName.hashCode());
-        result = prime * result
-                + ((mPackageName == null) ? 0 : mPackageName.hashCode());
-        result = prime * result
-                + ((mProviderAuthority == null) ? 0 : mProviderAuthority.hashCode());
+        result = prime * result + ((mPackageName == null) ? 0 : mPackageName.hashCode());
+        result =
+                prime * result + ((mProviderAuthority == null) ? 0 : mProviderAuthority.hashCode());
         return result;
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         BluetoothMapAccountItem other = (BluetoothMapAccountItem) obj;
         if (mId == null) {
-            if (other.mId != null)
+            if (other.mId != null) {
                 return false;
-        } else if (!mId.equals(other.mId))
+            }
+        } else if (!mId.equals(other.mId)) {
             return false;
+        }
         if (mName == null) {
-            if (other.mName != null)
+            if (other.mName != null) {
                 return false;
-        } else if (!mName.equals(other.mName))
+            }
+        } else if (!mName.equals(other.mName)) {
             return false;
+        }
         if (mPackageName == null) {
-            if (other.mPackageName != null)
+            if (other.mPackageName != null) {
                 return false;
-        } else if (!mPackageName.equals(other.mPackageName))
+            }
+        } else if (!mPackageName.equals(other.mPackageName)) {
             return false;
+        }
         if (mProviderAuthority == null) {
-            if (other.mProviderAuthority != null)
+            if (other.mProviderAuthority != null) {
                 return false;
-        } else if (!mProviderAuthority.equals(other.mProviderAuthority))
+            }
+        } else if (!mProviderAuthority.equals(other.mProviderAuthority)) {
             return false;
+        }
         if (mType == null) {
-            if (other.mType != null)
+            if (other.mType != null) {
                 return false;
-        } else if (!mType.equals(other.mType))
+            }
+        } else if (!mType.equals(other.mType)) {
             return false;
+        }
         return true;
     }
 

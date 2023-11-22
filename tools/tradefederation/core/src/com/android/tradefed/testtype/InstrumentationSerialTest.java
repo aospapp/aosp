@@ -16,17 +16,19 @@
 
 package com.android.tradefed.testtype;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.ResultForwarder;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.TestRunResult;
 
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
+import java.util.HashMap;
 
 /**
  * A Test that runs a set of instrumentation tests by running one adb command for per test.
@@ -37,19 +39,20 @@ class InstrumentationSerialTest implements IRemoteTest {
     static final int FAILED_RUN_TEST_ATTEMPTS = 2;
 
     /** the set of tests to run */
-    private final Collection<TestIdentifier> mTests;
+    private final Collection<TestDescription> mTests;
 
-    private InstrumentationTest mInstrumentationTest = null;
+    private final InstrumentationTest mInstrumentationTest;
 
     /**
      * Creates a {@link InstrumentationSerialTest}.
      *
-     * @param instrumentationTest  {@link InstrumentationTest} used to configure this class
+     * @param instrumentationTest {@link InstrumentationTest} used to configure this class
      * @param testsToRun a {@link Collection} of tests to run. Note this {@link Collection} will be
-     * used as is (ie a reference to the testsToRun object will be kept).
+     *     used as is (ie a reference to the testsToRun object will be kept).
      */
-    InstrumentationSerialTest(InstrumentationTest instrumentationTest,
-            Collection<TestIdentifier> testsToRun) throws ConfigurationException {
+    InstrumentationSerialTest(
+            InstrumentationTest instrumentationTest, Collection<TestDescription> testsToRun)
+            throws ConfigurationException {
         // reuse the InstrumentationTest class to perform actual test run
         mInstrumentationTest = createInstrumentationTest(instrumentationTest);
         // keep local copy of tests to be run
@@ -84,13 +87,8 @@ class InstrumentationSerialTest implements IRemoteTest {
             throw new IllegalArgumentException("Device has not been set");
         }
         // reuse the InstrumentationTest class to perform actual test run
-        runTestsIndividually(listener);
-    }
-
-    private void runTestsIndividually(final ITestInvocationListener listener)
-            throws DeviceNotAvailableException {
         try {
-            for (TestIdentifier testToRun : mTests) {
+            for (TestDescription testToRun : mTests) {
                 InstrumentationTest runner = createInstrumentationTest(mInstrumentationTest);
                 runner.setClassName(testToRun.getClassName());
                 runner.setMethodName(testToRun.getTestName());
@@ -101,79 +99,39 @@ class InstrumentationSerialTest implements IRemoteTest {
         }
     }
 
-    private void runTest(InstrumentationTest runner, ITestInvocationListener listener,
-            TestIdentifier testToRun) throws DeviceNotAvailableException {
+    private void runTest(
+            InstrumentationTest runner, ITestInvocationListener listener, TestDescription testToRun)
+            throws DeviceNotAvailableException {
         // use a listener filter, to track if the test failed to run
-        TestTrackingListener trackingListener = new TestTrackingListener(listener, testToRun);
+        CollectingTestListener trackingListener = new CollectingTestListener();
         for (int i=1; i <= FAILED_RUN_TEST_ATTEMPTS; i++) {
-            runner.run(trackingListener);
-            if (trackingListener.didTestRun()) {
+            runner.run(new ResultForwarder(trackingListener, listener));
+            if (trackingListener.getCurrentRunResults().getTestResults().containsKey(testToRun)) {
                 return;
-            } else {
-                CLog.w("Expected test %s did not run on attempt %d of %d", testToRun, i,
-                        FAILED_RUN_TEST_ATTEMPTS);
             }
+            CLog.w(
+                    "Expected test %s did not run on attempt %d of %d",
+                    testToRun, i, FAILED_RUN_TEST_ATTEMPTS);
         }
-        trackingListener.markTestAsFailed();
+        markTestAsFailed(testToRun, trackingListener.getCurrentRunResults(), listener);
     }
 
-    private static class TestTrackingListener extends ResultForwarder {
+    private void markTestAsFailed(
+            TestDescription test, TestRunResult testRun, ITestInvocationListener listener) {
+        listener.testRunStarted(testRun.getName(), 1);
+        listener.testStarted(test);
 
-        private String mRunErrorMsg = null;
-        private final TestIdentifier mExpectedTest;
-        private boolean mDidTestRun = false;
-        private String mRunName;
+        String message =
+                testRun.isRunFailure()
+                        ? testRun.getRunFailureMessage()
+                        : "The test was not initialized by the test runner.";
+        listener.testFailed(
+                test, String.format("Test failed to run. Test run failed due to : %s", message));
 
-        public TestTrackingListener(ITestInvocationListener listener,
-                TestIdentifier testToRun) {
-            super(listener);
-            mExpectedTest = testToRun;
+        if (testRun.isRunFailure()) {
+            listener.testRunFailed(message);
         }
-
-        @Override
-        public void testRunStarted(String runName, int testCount) {
-            super.testRunStarted(runName, testCount);
-            mRunName = runName;
-        }
-
-
-        @Override
-        public void testRunFailed(String errorMessage) {
-            super.testRunFailed(errorMessage);
-            mRunErrorMsg  = errorMessage;
-        }
-
-        @Override
-        public void testEnded(TestIdentifier test, long endTime, Map<String, String> testMetrics) {
-            super.testEnded(test, endTime, testMetrics);
-            if (mExpectedTest.equals(test)) {
-                mDidTestRun  = true;
-            } else {
-                // weird, should never happen
-                CLog.w(String.format("Expected test %s, but got test %s", mExpectedTest, test));
-            }
-        }
-
-        public boolean didTestRun() {
-            return mDidTestRun;
-        }
-
-        @SuppressWarnings("unchecked")
-        public void markTestAsFailed() {
-            super.testRunStarted(mRunName, 1);
-            super.testStarted(mExpectedTest);
-            String message = mRunErrorMsg;
-            if (!didTestRun() && message == null) {
-                message = "Test wasn't triggered because test runner might have failed to "
-                        + "initialize it.";
-            }
-            super.testFailed(mExpectedTest,
-                    String.format("Test failed to run. Test run failed due to : %s", message));
-            if (mRunErrorMsg != null) {
-                super.testRunFailed(mRunErrorMsg);
-            }
-            super.testEnded(mExpectedTest, Collections.EMPTY_MAP);
-            super.testRunEnded(0, Collections.EMPTY_MAP);
-        }
+        listener.testEnded(test, new HashMap<String, Metric>());
+        listener.testRunEnded(0, new HashMap<String, Metric>());
     }
 }

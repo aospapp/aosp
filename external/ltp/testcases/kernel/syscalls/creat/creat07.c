@@ -38,9 +38,7 @@ static void verify_creat(void)
 
 	pid = SAFE_FORK();
 	if (pid == 0) {
-		char *av[] = {TEST_APP, NULL};
-		(void)execve(TEST_APP, av, tst_ipc_envp);
-		perror("execve failed");
+		SAFE_EXECL(TEST_APP, TEST_APP, NULL);
 		exit(1);
 	}
 
@@ -68,7 +66,6 @@ static const char *const resource_files[] = {
 };
 
 static struct tst_test test = {
-	.tid = "creat07",
 	.test_all = verify_creat,
 	.needs_checkpoints = 1,
 	.forks_child = 1,

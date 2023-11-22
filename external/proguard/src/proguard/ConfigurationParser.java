@@ -154,6 +154,8 @@ public class ConfigurationParser
             else if (ConfigurationConstants.INJARS_OPTION                                    .startsWith(nextWord)) configuration.programJars                      = parseClassPathArgument(configuration.programJars, false);
             else if (ConfigurationConstants.OUTJARS_OPTION                                   .startsWith(nextWord)) configuration.programJars                      = parseClassPathArgument(configuration.programJars, true);
             else if (ConfigurationConstants.LIBRARYJARS_OPTION                               .startsWith(nextWord)) configuration.libraryJars                      = parseClassPathArgument(configuration.libraryJars, false);
+            // Android-added: Parse -systemjars option.
+            else if (ConfigurationConstants.SYSTEMJARS_OPTION                                .startsWith(nextWord)) configuration.systemJars                       = parseClassPathArgument(configuration.systemJars, false);
             else if (ConfigurationConstants.RESOURCEJARS_OPTION                              .startsWith(nextWord)) throw new ParseException("The '-resourcejars' option is no longer supported. Please use the '-injars' option for all input");
             else if (ConfigurationConstants.SKIP_NON_PUBLIC_LIBRARY_CLASSES_OPTION           .startsWith(nextWord)) configuration.skipNonPublicLibraryClasses      = parseNoArgument(true);
             else if (ConfigurationConstants.DONT_SKIP_NON_PUBLIC_LIBRARY_CLASSES_OPTION      .startsWith(nextWord)) configuration.skipNonPublicLibraryClasses      = parseNoArgument(false);

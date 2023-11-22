@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"OK"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"Er is een time-out opgetreden bij het accepteren van een inkomend bestand van \'<xliff:g id="SENDER">%1$s</xliff:g>\'"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Inkomend bestand"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> is gereed om <xliff:g id="FILE">%2$s</xliff:g> te verzenden"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> is klaar om <xliff:g id="FILE">%2$s</xliff:g> te verzenden"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Delen via Bluetooth: <xliff:g id="FILE">%1$s</xliff:g> ontvangen"</string>
     <string name="notification_received" msgid="3324588019186687985">"Delen via Bluetooth: <xliff:g id="FILE">%1$s</xliff:g> ontvangen"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Delen via Bluetooth: bestand <xliff:g id="FILE">%1$s</xliff:g> niet ontvangen"</string>
@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"Bluetooth-audio gekoppeld"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Bluetooth-audio ontkoppeld"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth-audio"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Bestanden groter dan 4 GB kunnen niet worden overgedragen"</string>
 </resources>

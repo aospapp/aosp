@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.NavigableSet;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.SortedMap;
@@ -47,8 +48,6 @@ import java.util.concurrent.LinkedBlockingDeque;
 
 import junit.framework.AssertionFailedError;
 import junit.framework.TestCase;
-
-import libcore.util.Objects;
 
 import dalvik.system.VMRuntime;
 
@@ -905,7 +904,7 @@ public final class CollectionsTest extends TestCase {
             assertNull(floor);
             assertNull(ceiling);
         } else {
-            assertFalse(Objects.equal(floor, ceiling));
+            assertFalse(Objects.equals(floor, ceiling));
             assertTrue(floor != null || ceiling != null);
             assertEquals(ceiling, floor == null ? map.firstKey() : map.higherKey(floor));
             assertEquals(floor, ceiling == null ? map.lastKey() : map.lowerKey(ceiling));
@@ -1139,7 +1138,7 @@ public final class CollectionsTest extends TestCase {
             assertNull(floor);
             assertNull(ceiling);
         } else {
-            assertFalse(Objects.equal(floor, ceiling));
+            assertFalse(Objects.equals(floor, ceiling));
             assertTrue(floor != null || ceiling != null);
         }
     }

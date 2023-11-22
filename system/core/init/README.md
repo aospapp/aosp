@@ -10,7 +10,11 @@ whitespace into a token.  Double quotes may also be used to prevent
 whitespace from breaking text into multiple tokens.  The backslash,
 when it is the last character on a line, may be used for line-folding.
 
-Lines which start with a # (leading whitespace allowed) are comments.
+Lines which start with a `#` (leading whitespace allowed) are comments.
+
+System properties can be expanded using the syntax
+`${property.name}`. This also works in contexts where concatenation is
+required, such as `import /init.recovery.${ro.hardware}.rc`.
 
 Actions and Services implicitly declare a new section.  All commands
 or options belong to the section most recently declared.  Commands
@@ -183,6 +187,10 @@ runs the service.
   seclabel or computed based on the service executable file security context.
   For native executables see libcutils android\_get\_control\_socket().
 
+`enter_namespace <type> <path>`
+> Enters the namespace of type _type_ located at _path_. Only network namespaces are supported with
+  _type_ set to "net". Note that only one namespace of a given _type_ may be entered.
+
 `file <path> <type>`
 > Open a file path and pass its fd to the launched process. _type_ must be
   "r", "w" or "rw".  For native executables see libcutils
@@ -215,6 +223,12 @@ runs the service.
   capability without the "CAP\_" prefix, like "NET\_ADMIN" or "SETPCAP". See
   http://man7.org/linux/man-pages/man7/capabilities.7.html for a list of Linux
   capabilities.
+
+`setrlimit <resource> <cur> <max>`
+> This applies the given rlimit to the service. rlimits are inherited by child
+  processes, so this effectively applies the given rlimit to the process tree
+  started by this service.
+  It is parsed similarly to the setrlimit command specified below.
 
 `seclabel <seclabel>`
 > Change to 'seclabel' before exec'ing this service.
@@ -375,6 +389,11 @@ Commands
   within _argument_.
   Init halts executing commands until the forked process exits.
 
+`exec_background [ <seclabel> [ <user> [ <group>\* ] ] ] -- <command> [ <argument>\* ]`
+> Fork and execute command with the given arguments. This is handled similarly
+  to the `exec` command. The difference is that init does not halt executing
+  commands until the process exits for `exec_background`.
+
 `exec_start <service>`
 > Start a given service and halt the processing of additional init commands
   until it returns.  The command functions similarly to the `exec` command,
@@ -447,12 +466,20 @@ Commands
 `rmdir <path>`
 > Calls rmdir(2) on the given path.
 
+`readahead <file|dir> [--fully]`
+> Calls readahead(2) on the file or files within given directory.
+  Use option --fully to read the full file content.
+
 `setprop <name> <value>`
 > Set system property _name_ to _value_. Properties are expanded
   within _value_.
 
 `setrlimit <resource> <cur> <max>`
-> Set the rlimit for a resource.
+> Set the rlimit for a resource. This applies to all processes launched after
+  the limit is set. It is intended to be set early in init and applied globally.
+  _resource_ is best specified using its text representation ('cpu', 'rtio', etc
+  or 'RLIM_CPU', 'RLIM_RTIO', etc). It also may be specified as the int value
+  that the resource enum corresponds to.
 
 `start <service>`
 > Start a service running if it is not already running.

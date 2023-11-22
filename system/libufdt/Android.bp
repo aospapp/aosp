@@ -14,6 +14,7 @@
 
 subdirs = [
     "sysdeps",
+    "tests/libufdt_verify",
 ]
 
 cc_library_static {
@@ -26,10 +27,10 @@ cc_library_static {
         "ufdt_node_pool.c",
         "ufdt_prop_dict.c",
     ],
+    cflags: ["-Wall", "-Werror"],
     export_include_dirs: ["include"],
     static_libs: [
         "libfdt",
         "libufdt_sysdeps",
     ],
 }
-

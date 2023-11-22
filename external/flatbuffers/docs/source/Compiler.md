@@ -29,7 +29,7 @@ For any schema input files, one or more generators can be specified:
 
 -   `--python`, `-p`: Generate Python code.
 
--   `--javascript`, `-s`: Generate JavaScript code.
+-   `--js`, `-s`: Generate JavaScript code.
 
 -   `--php`: Generate PHP code.
 
@@ -122,6 +122,11 @@ Additional options:
 
 -   `--include-prefix PATH` : Prefix this path to any generated include
     statements.
+
+-   `--keep-prefix` : Keep original prefix of schema include statement.
+
+-   `--reflect-types` : Add minimal type reflection to code generation.
+-   `--reflect-names` : Add minimal type/name reflection.
 
 NOTE: short-form options for generators are deprecated, use the long form
 whenever possible.

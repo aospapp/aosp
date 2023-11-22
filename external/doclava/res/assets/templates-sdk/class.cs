@@ -14,7 +14,13 @@
 <?cs set:count = #1 ?>
 <?cs each:method = methods ?>
   <?cs # The apilevel-N class MUST BE LAST in the sequence of class names ?>
-  <tr class="api apilevel-<?cs var:method.since ?>" >
+  <tr class="api apilevel-<?cs var:method.since ?>"<?cs
+      if:method.since ?>
+      data-version-added="<?cs var:method.since ?>"<?cs
+      /if ?><?cs
+      if:method.deprecatedsince
+        ?> data-version-deprecated="<?cs var:method.deprecatedsince ?>"<?cs
+      /if ?> >
   <?cs # leave out this cell if there is no return type = if constructors ?>
   <?cs if:subcount(method.returnType) ?>
     <td><code>
@@ -45,7 +51,13 @@
 ?><?cs def:write_field_summary(fields, included) ?>
 <?cs set:count = #1 ?>
 <?cs each:field=fields ?>
-  <tr class="api apilevel-<?cs var:field.since ?>" >
+  <tr class="api apilevel-<?cs var:field.since ?>"<?cs
+      if:field.since ?>
+      data-version-added="<?cs var:field.since ?>"<?cs
+      /if ?><?cs
+      if:field.deprecatedsince
+        ?> data-version-deprecated="<?cs var:field.deprecatedsince ?>"<?cs
+      /if ?> >
     <td><code>
     <?cs var:field.scope ?>
     <?cs var:field.static ?>
@@ -66,7 +78,13 @@
 ?><?cs def:write_constant_summary(fields, included) ?>
 <?cs set:count = #1 ?>
     <?cs each:field=fields ?>
-    <tr class="api apilevel-<?cs var:field.since ?>" >
+    <tr class="api apilevel-<?cs var:field.since ?>"<?cs
+        if:field.since ?>
+        data-version-added="<?cs var:field.since ?>"<?cs
+        /if ?><?cs
+        if:field.deprecatedsince
+          ?> data-version-deprecated="<?cs var:field.deprecatedsince ?>"<?cs
+        /if ?> >
         <td><code><?cs call:type_link(field.type) ?></code></td>
         <td width="100%">
           <code><?cs call:cond_link(field.name, toroot, field.href, included) ?></code>
@@ -83,7 +101,13 @@
 ?><?cs def:write_attr_summary(attrs, included) ?>
 <?cs set:count = #1 ?>
     <?cs each:attr=attrs ?>
-    <tr class="api apilevel-<?cs var:attr.since ?>" >
+    <tr class="api apilevel-<?cs var:attr.since ?>"<?cs
+        if:attr.since ?>
+        data-version-added="<?cs var:attr.since ?>"<?cs
+        /if ?><?cs
+        if:attr.deprecatedsince
+          ?> data-version-deprecated="<?cs var:attr.deprecatedsince ?>"<?cs
+        /if ?> >
         <td><?cs if:included ?><a href="<?cs var:toroot ?><?cs var:attr.href ?>"><?cs /if
           ?><code><?cs var:attr.name ?></code><?cs if:included ?></a><?cs /if ?></td>
         <td width="100%">
@@ -100,7 +124,13 @@
 ?><?cs def:write_inners_summary(classes) ?>
 <?cs set:count = #1 ?>
   <?cs each:cl=class.inners ?>
-    <tr class="api apilevel-<?cs var:cl.since ?>" >
+    <tr class="api apilevel-<?cs var:cl.since ?>"<?cs
+        if:cl.since ?>
+        data-version-added="<?cs var:cl.since ?>"<?cs
+        /if ?><?cs
+        if:cl.deprecatedsince
+          ?> data-version-deprecated="<?cs var:cl.deprecatedsince ?>"<?cs
+        /if ?> >
       <td class="jd-typecol"><code>
         <?cs var:cl.scope ?>
         <?cs var:cl.static ?>
@@ -131,16 +161,22 @@
 <?cs # the A tag in the next line must remain where it is, so that Eclipse can parse the docs ?>
 <A NAME="<?cs var:field.anchor ?>"></A>
 <?cs # The apilevel-N class MUST BE LAST in the sequence of class names ?>
-<div class="api apilevel-<?cs var:field.since ?>">
+<div class="api apilevel-<?cs var:field.since ?>"<?cs
+     if:field.since ?>
+     data-version-added="<?cs var:field.since ?>"<?cs
+     /if ?><?cs
+     if:field.deprecatedsince
+       ?> data-version-deprecated="<?cs var:field.deprecatedsince ?>"<?cs
+     /if ?> >
     <h3 class="api-name"><?cs var:field.name ?></h3>
     <div class="api-level">
       <?cs call:since_tags(field) ?>
       <?cs call:federated_refs(field) ?>
     </div>
 <pre class="api-signature no-pretty-print">
-<?cs if:subcount(field.scope) ?><?cs var:field.scope
-?> <?cs /if ?><?cs if:subcount(field.static) ?><?cs var:field.static
-?> <?cs /if ?><?cs if:subcount(field.final) ?><?cs var:field.final
+<?cs if:string.length(field.scope) ?><?cs var:field.scope
+?> <?cs /if ?><?cs if:string.length(field.static) ?><?cs var:field.static
+?> <?cs /if ?><?cs if:string.length(field.final) ?><?cs var:field.final
 ?> <?cs /if ?><?cs if:subcount(field.type) ?><?cs call:type_link(field.type)
 ?> <?cs /if ?><?cs var:field.name ?></pre>
     <?cs call:show_annotations_list(field) ?>
@@ -163,17 +199,23 @@
 <?cs # the A tag in the next line must remain where it is, so that Eclipse can parse the docs ?>
 <A NAME="<?cs var:method.anchor ?>"></A>
 <?cs # The apilevel-N class MUST BE LAST in the sequence of class names ?>
-<div class="api apilevel-<?cs var:method.since ?>">
+<div class="api apilevel-<?cs var:method.since ?>"<?cs
+     if:method.since ?>
+     data-version-added="<?cs var:method.since ?>"<?cs
+     /if ?><?cs
+     if:method.deprecatedsince
+       ?> data-version-deprecated="<?cs var:method.deprecatedsince ?>"<?cs
+     /if ?>>
     <h3 class="api-name"><?cs var:method.name ?></h3>
     <div class="api-level">
       <div><?cs call:since_tags(method) ?></div>
       <?cs call:federated_refs(method) ?>
     </div>
 <pre class="api-signature no-pretty-print">
-<?cs if:subcount(method.scope) ?><?cs var:method.scope
-?> <?cs /if ?><?cs if:subcount(method.static) ?><?cs var:method.static
-?> <?cs /if ?><?cs if:subcount(method.final) ?><?cs var:method.final
-?> <?cs /if ?><?cs if:subcount(method.abstract) ?><?cs var:method.abstract
+<?cs if:string.length(method.scope) ?><?cs var:method.scope
+?> <?cs /if ?><?cs if:string.length(method.static) ?><?cs var:method.static
+?> <?cs /if ?><?cs if:string.length(method.final) ?><?cs var:method.final
+?> <?cs /if ?><?cs if:string.length(method.abstract) ?><?cs var:method.abstract
 ?> <?cs /if ?><?cs if:subcount(method.returnType) ?><?cs call:type_link(method.returnType)
 ?> <?cs /if ?><?cs var:method.name ?> (<?cs call:parameter_list(method.params, 1) ?>)</pre>
     <?cs call:show_annotations_list(method) ?>
@@ -193,7 +235,7 @@
   <p><b>Related methods:</b></p>
   <ul class="nolist">
   <?cs each:m=attr.methods ?>
-    <li><a href="<?cs var:toroot ?><?cs var:m.href ?>"><?cs var:m.name ?></a></li>
+    <li><code><a href="<?cs var:toroot ?><?cs var:m.href ?>"><?cs var:m.name ?></a></code></li>
   <?cs /each ?>
   </ul>
 <?cs /if ?>
@@ -209,11 +251,29 @@
 <html<?cs if:devsite ?> devsite<?cs /if ?>>
 <?cs include:"head_tag.cs" ?>
 <?cs include:"body_tag.cs" ?>
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<!-- This DIV closes at the end of the BODY -->
+  <meta itemprop="name" content="<?cs var:class.qualifiedType.label ?>" />
+  <?cs if:(dac&&class.artifact)
+    ?><meta itemprop="path" content="<?cs
+          if:class.deprecatedsince ?>Deprecated<?cs
+          else ?>Support Library<?cs /if ?>" /><?cs
+  elif:(dac&&class.since)
+    ?><meta itemprop="path" content="<?cs
+          if:class.deprecatedsince ?>Deprecated<?cs
+          else ?>API level <?cs var:class.since ?><?cs /if ?>" /><?cs
+  /if ?>
 <?cs include:"header.cs" ?>
 <?cs # Includes api-info-block DIV at top of page. Standard Devsite uses right nav. ?>
 <?cs if:dac ?><?cs include:"page_info.cs" ?><?cs /if ?>
 <?cs # This DIV spans the entire document to provide scope for some scripts ?>
-<div class="api apilevel-<?cs var:class.since ?>" id="jd-content">
+<div class="api apilevel-<?cs var:class.since ?>" id="jd-content"<?cs
+     if:class.since ?>
+     data-version-added="<?cs var:class.since ?>"<?cs
+     /if ?><?cs
+     if:class.deprecatedsince
+       ?> data-version-deprecated="<?cs var:class.deprecatedsince ?>"<?cs
+     /if ?> >
 <?cs # this next line must be exactly like this to be parsed by eclipse ?>
 <!-- ======== START OF CLASS DATA ======== -->
 <?cs
@@ -281,14 +341,11 @@
 if:subcount(class.subclasses.direct) && !class.subclasses.hidden ?>
   <table class="jd-sumtable jd-sumtable-subclasses">
     <tr>
-      <td style="border:none;margin:0;padding:0;"><?cs
-        if:enable_javascript ?>
-          <?cs call:expando_trigger("subclasses-direct", "closed") ?><span>Known Direct Subclasses</span>
-          <?cs call:expandable_class_list("subclasses-direct", class.subclasses.direct, "list") ?><?cs
-        else ?>
-          <span>Known Direct Subclasses</span>
-          <?cs call:expandable_class_list("subclasses-direct", class.subclasses.direct, "summary") ?><?cs
-        /if ?>
+      <td>
+        <div class="expandable">
+          <span class="expand-control">Known direct subclasses</span>
+          <?cs call:expandable_class_list("subclasses-direct", class.subclasses.direct, "list") ?>
+        </div>
       </td>
     </tr>
   </table>
@@ -296,14 +353,11 @@ if:subcount(class.subclasses.direct) && !class.subclasses.hidden ?>
   <?cs if:subcount(class.subclasses.indirect) && !class.subclasses.hidden ?>
   <table class="jd-sumtable jd-sumtable-subclasses">
     <tr>
-      <td colspan="2" style="border:none;margin:0;padding:0;"><?cs
-        if:enable_javascript ?>
-          <?cs call:expando_trigger("subclasses-indirect", "closed") ?><span>Known Indirect Subclasses</span>
-          <?cs call:expandable_class_list("subclasses-indirect", class.subclasses.indirect, "list") ?><?cs
-        else ?>
-          <span>Known Indirect Subclasses</span>
-          <?cs call:expandable_class_list("subclasses-indirect", class.subclasses.indirect, "summary") ?><?cs
-        /if ?>
+      <td>
+        <div class="expandable">
+          <span class="expand-control">Known indirect subclasses</span>
+          <?cs call:expandable_class_list("subclasses-indirect", class.subclasses.indirect, "list") ?>
+        </div>
       </td>
     </tr>
   </table><?cs
@@ -369,24 +423,22 @@ if:subcount(class.subclasses.direct) && !class.subclasses.hidden ?>
 <tr><th><h3>Inherited XML attributes</h3></th></tr>
 <?cs each:cl=class.inherited ?>
 <?cs if:subcount(cl.attrs) ?>
-<tr class="api apilevel-<?cs var:cl.since ?>" >
-<td colspan="2"><?cs
-  if:enable_javascript ?><?cs
-    call:expando_trigger("inherited-attrs-"+cl.qualified, "closed") ?><?cs
-  /if ?>From
-<?cs var:cl.kind ?>
-<code>
-  <?cs call:cond_link(cl.qualified, toroot, cl.link, cl.included) ?>
-</code>
-<div id="inherited-attrs-<?cs var:cl.qualified ?>">
-  <div id="inherited-attrs-<?cs var:cl.qualified ?>-list"
-        class="jd-inheritedlinks">
+<tr class="api apilevel-<?cs var:cl.since ?>"<?cs
+    if:cl.since ?>
+    data-version-added="<?cs var:cl.since ?>"<?cs
+    /if ?><?cs
+    if:cl.deprecatedsince
+      ?> data-version-deprecated="<?cs var:cl.deprecatedsince ?>"<?cs
+    /if ?> >
+<td colspan="2">
+  <div class="expandable jd-inherited-apis">
+    <span class="expand-control">From <?cs var:cl.kind ?>
+      <code><?cs call:cond_link(cl.qualified, toroot, cl.link, cl.included) ?></code>
+    </span>
+    <table class="responsive">
+      <?cs call:write_attr_summary(cl.attrs, cl.included) ?>
+    </table>
   </div>
-  <div id="inherited-attrs-<?cs var:cl.qualified ?>-summary" style="display: none;">
-    <table class="jd-sumtable-expando">
-    <?cs call:write_attr_summary(cl.attrs, cl.included) ?></table>
-  </div>
-</div>
 </td></tr>
 <?cs /if ?>
 <?cs /each ?>
@@ -400,7 +452,13 @@ if:subcount(class.subclasses.direct) && !class.subclasses.hidden ?>
   <tr><th colspan="2"><h3>Enum values</h3></th></tr>
 <?cs set:count = #1 ?>
   <?cs each:field=class.enumConstants ?>
-  <tr class="api apilevel-<?cs var:field.since ?>" >
+  <tr class="api apilevel-<?cs var:field.since ?>"<?cs
+      if:field.since ?>
+      data-version-added="<?cs var:field.since ?>"<?cs
+      /if ?><?cs
+      if:field.deprecatedsince
+        ?> data-version-deprecated="<?cs var:field.deprecatedsince ?>"<?cs
+      /if ?> >
     <td><code><?cs call:type_link(field.type) ?></code>&nbsp;</td>
     <td width="100%">
       <code><?cs call:cond_link(field.name, toroot, field.href, cl.included) ?></code>
@@ -429,24 +487,22 @@ if:subcount(class.subclasses.direct) && !class.subclasses.hidden ?>
 <tr><th><h3>Inherited constants</h3></th></tr>
 <?cs each:cl=class.inherited ?>
 <?cs if:subcount(cl.constants) ?>
-  <tr class="api apilevel-<?cs var:cl.since ?>" >
-  <td><?cs
-    if:enable_javascript ?><?cs
-      call:expando_trigger("inherited-constants-"+cl.qualified, "closed") ?><?cs
-    /if ?>From
-  <?cs var:cl.kind ?>
-  <code>
-    <?cs call:cond_link(cl.qualified, toroot, cl.link, cl.included) ?>
-  </code>
-  <div id="inherited-constants-<?cs var:cl.qualified ?>">
-    <div id="inherited-constants-<?cs var:cl.qualified ?>-list"
-          class="jd-inheritedlinks">
+  <tr class="api apilevel-<?cs var:cl.since ?>"<?cs
+      if:cl.since ?>
+      data-version-added="<?cs var:cl.since ?>"<?cs
+      /if ?><?cs
+      if:cl.deprecatedsince
+        ?> data-version-deprecated="<?cs var:cl.deprecatedsince ?>"<?cs
+      /if ?> >
+  <td>
+    <div class="expandable jd-inherited-apis">
+      <span class="expand-control">From <?cs var:cl.kind ?>
+        <code><?cs call:cond_link(cl.qualified, toroot, cl.link, cl.included) ?></code>
+      </span>
+      <table class="responsive">
+        <?cs call:write_constant_summary(cl.constants, cl.included) ?>
+      </table>
     </div>
-    <div id="inherited-constants-<?cs var:cl.qualified ?>-summary" style="display: none;">
-      <table class="jd-sumtable-expando responsive">
-      <?cs call:write_constant_summary(cl.constants, cl.included) ?></table>
-    </div>
-  </div>
   </td></tr>
 <?cs /if ?>
 <?cs /each ?>
@@ -466,28 +522,26 @@ if:subcount(class.subclasses.direct) && !class.subclasses.hidden ?>
 <?cs if:inhfields ?>
 <?cs # this next line must be exactly like this to be parsed by eclipse ?>
 <!-- =========== FIELD SUMMARY =========== -->
-<table id="inhfields" class="properties inhtable">
+<table id="inhfields" class="responsive properties inhtable">
 <tr><th><h3>Inherited fields</h3></th></tr>
 <?cs each:cl=class.inherited ?>
 <?cs if:subcount(cl.fields) ?>
-  <tr class="api apilevel-<?cs var:cl.since ?>" >
-  <td><?cs
-    if:enable_javascript ?><?cs
-      call:expando_trigger("inherited-fields-"+cl.qualified, "closed") ?><?cs
-    /if ?>From
-  <?cs var:cl.kind ?>
-  <code>
-    <?cs call:cond_link(cl.qualified, toroot, cl.link, cl.included) ?>
-  </code>
-  <div id="inherited-fields-<?cs var:cl.qualified ?>">
-    <div id="inherited-fields-<?cs var:cl.qualified ?>-list"
-          class="jd-inheritedlinks">
+  <tr class="api apilevel-<?cs var:cl.since ?>"<?cs
+      if:cl.since ?>
+      data-version-added="<?cs var:cl.since ?>"<?cs
+      /if ?><?cs
+      if:cl.deprecatedsince
+        ?> data-version-deprecated="<?cs var:cl.deprecatedsince ?>"<?cs
+      /if ?> >
+  <td>
+    <div class="expandable jd-inherited-apis">
+      <span class="expand-control">From <?cs var:cl.kind ?>
+        <code><?cs call:cond_link(cl.qualified, toroot, cl.link, cl.included) ?></code>
+      </span>
+      <table class="responsive">
+        <?cs call:write_field_summary(cl.fields, cl.included) ?>
+      </table>
     </div>
-    <div id="inherited-fields-<?cs var:cl.qualified ?>-summary" style="display: none;">
-      <table class="jd-sumtable-expando responsive">
-      <?cs call:write_field_summary(cl.fields, cl.included) ?></table>
-    </div>
-  </div>
   </td></tr>
 <?cs /if ?>
 <?cs /each ?>
@@ -534,35 +588,34 @@ if:subcount(class.subclasses.direct) && !class.subclasses.hidden ?>
 <?cs if:inhmethods ?>
 <?cs # this next line must be exactly like this to be parsed by eclipse ?>
 <!-- ========== METHOD SUMMARY =========== -->
-<table id="inhmethods" class="methods inhtable">
+<table id="inhmethods" class="responsive methods inhtable">
 <tr><th><h3>Inherited methods</h3></th></tr>
 <?cs each:cl=class.inherited ?>
 <?cs if:subcount(cl.methods) ?>
-<tr class="api apilevel-<?cs var:cl.since ?>" >
-<td colspan="2"><?cs
-  if:enable_javascript ?><?cs
-    call:expando_trigger("inherited-methods-"+cl.qualified, "closed") ?><?cs
-  /if ?>From
-<?cs var:cl.kind ?>
-<code>
-  <?cs if:cl.included ?>
-    <a href="<?cs var:toroot ?><?cs var:cl.link ?>"><?cs var:cl.qualified ?></a>
-  <?cs elif:cl.federated ?>
-    <a href="<?cs var:cl.link ?>"><?cs var:cl.qualified ?></a>
-  <?cs else ?>
-    <?cs var:cl.qualified ?>
-  <?cs /if ?>
-</code>
-<div id="inherited-methods-<?cs var:cl.qualified ?>">
-  <div id="inherited-methods-<?cs var:cl.qualified ?>-list"
-        class="jd-inheritedlinks">
-  </div>
-  <div id="inherited-methods-<?cs var:cl.qualified ?>-summary" style="display: none;">
-    <table class="jd-sumtable-expando responsive">
+<tr class="api apilevel-<?cs var:cl.since ?>"<?cs
+    if:cl.since ?>
+    data-version-added="<?cs var:cl.since ?>"<?cs
+    /if ?><?cs
+    if:cl.deprecatedsince
+      ?> data-version-deprecated="<?cs var:cl.deprecatedsince ?>"<?cs
+    /if ?> >
+<td colspan="2">
+  <div class="expandable jd-inherited-apis">
+    <span class="expand-control">From <?cs var:cl.kind ?>
+      <code>
+        <?cs if:cl.included ?>
+          <a href="<?cs var:toroot ?><?cs var:cl.link ?>"><?cs var:cl.qualified ?></a>
+        <?cs elif:cl.federated ?>
+          <a href="<?cs var:cl.link ?>"><?cs var:cl.qualified ?></a>
+        <?cs else ?>
+          <?cs var:cl.qualified ?>
+        <?cs /if ?>
+      </code>
+    </span>
+    <table class="responsive">
       <?cs call:write_method_summary(cl.methods, cl.included) ?>
     </table>
   </div>
-</div>
 </td></tr>
 <?cs /if ?>
 <?cs /each ?>
@@ -671,5 +724,6 @@ if:subcount(class.subclasses.direct) && !class.subclasses.hidden ?>
 <?cs include:"footer.cs" ?>
 <?cs include:"trailer.cs" ?>
 <?cs /if ?>
+</div><!-- end devsite ReferenceObject -->
 </body>
 </html>

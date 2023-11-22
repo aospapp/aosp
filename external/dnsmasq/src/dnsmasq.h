@@ -63,9 +63,6 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
-#if defined(HAVE_SOLARIS_NETWORK)
-#include <sys/sockio.h>
-#endif
 #include <sys/select.h>
 #include <sys/wait.h>
 #include <sys/time.h>
@@ -112,8 +109,6 @@ extern int capget(cap_user_header_t header, cap_user_data_t data);
 #define LINUX_CAPABILITY_VERSION_3  0x20080522
 
 #include <sys/prctl.h>
-#elif defined(HAVE_SOLARIS_NETWORK)
-#include <priv.h>
 #endif
 
 /* daemon is function in the C library.... */
@@ -173,7 +168,6 @@ struct event_desc {
 #define OPT_NO_NEG         (1u<<11)
 #define OPT_NODOTS_LOCAL   (1u<<12)
 #define OPT_NOWILD         (1u<<13)
-#define OPT_ETHERS         (1u<<14)
 #define OPT_RESOLV_DOMAIN  (1u<<15)
 #define OPT_NO_FORK        (1u<<16)
 #define OPT_AUTHORITATIVE  (1u<<17)
@@ -462,7 +456,6 @@ struct dhcp_config {
 #define CONFIG_ADDR             32
 #define CONFIG_NETID            64
 #define CONFIG_NOCLID          128
-#define CONFIG_FROM_ETHERS     256    /* entry created by /etc/ethers */
 #define CONFIG_ADDR_HOSTS      512    /* address added by from /etc/hosts */
 #define CONFIG_DECLINED       1024    /* address declined by client */
 #define CONFIG_BANK           2048    /* from dhcp hosts file */
@@ -644,11 +637,7 @@ extern struct daemon {
 
   /* DHCP state */
   int dhcpfd, helperfd; 
-#if defined(HAVE_LINUX_NETWORK)
   int netlinkfd;
-#elif defined(HAVE_BSD_NETWORK)
-  int dhcp_raw_fd, dhcp_icmp_fd;
-#endif
   struct iovec dhcp_packet;
   char *dhcp_buff, *dhcp_buff2;
   struct ping_result *ping_results;
@@ -783,7 +772,6 @@ struct dhcp_config *find_config(struct dhcp_config *configs,
 				unsigned char *hwaddr, int hw_len, 
 				int hw_type, char *hostname);
 void dhcp_update_configs(struct dhcp_config *configs);
-void dhcp_read_ethers(void);
 void check_dhcp_hosts(int fatal);
 struct dhcp_config *config_find_by_address(struct dhcp_config *configs, struct in_addr addr);
 char *strip_hostname(char *hostname);
@@ -831,13 +819,6 @@ void clear_cache_and_reload(time_t now);
 #ifdef HAVE_LINUX_NETWORK
 void netlink_init(void);
 void netlink_multicast(void);
-#endif
-
-/* bpf.c */
-#ifdef HAVE_BSD_NETWORK
-void init_bpf(void);
-void send_via_bpf(struct dhcp_packet *mess, size_t len,
-		  struct in_addr iface_addr, struct ifreq *ifr);
 #endif
 
 /* bpf.c or netlink.c */

@@ -608,6 +608,7 @@ public class GridViewTest {
         final AttachDetachAwareView theView = new AttachDetachAwareView(mActivity);
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView, () -> {
             mGridView.setAdapter(new DummyAdapter(1000, theView));
+            mGridView.requestFocus();
         });
         assertEquals("test sanity", 1, theView.mOnAttachCount);
         assertEquals("test sanity", 0, theView.mOnDetachCount);

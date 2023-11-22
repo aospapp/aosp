@@ -274,19 +274,15 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
         executePush(apkFile.getAbsolutePath(), targetPathApk, targetDir);
         assertTrue("Failed to push APK from ", doesFileExist(targetPathApk));
         // Run profman to create the real profile on device.
-        try {
-            String pathSpec = executeSuShellAdbCommand(1, "pm", "path", APPLICATION_PACKAGE)[0];
-            pathSpec = pathSpec.replace("package:", "");
-            assertTrue("Failed find APK " + pathSpec, doesFileExist(pathSpec));
-            executeSuShellAdbCommand(
+        String pathSpec = executeSuShellAdbCommand(1, "pm", "path", APPLICATION_PACKAGE)[0];
+        pathSpec = pathSpec.replace("package:", "");
+        assertTrue("Failed find APK " + pathSpec, doesFileExist(pathSpec));
+        executeSuShellAdbCommand(
                 "profman",
                 "--create-profile-from=" + targetPathTemp,
                 "--apk=" + pathSpec,
                 "--dex-location=" + pathSpec,
                 "--reference-profile-file=" + targetPath);
-        } catch (Exception e) {
-            assertEquals("", e.toString());
-        }
         executeSuShellAdbCommand(0, "chown", owner, targetPath);
         // Verify that the file was written successfully
         assertTrue("failed to create profile file", doesFileExist(targetPath));

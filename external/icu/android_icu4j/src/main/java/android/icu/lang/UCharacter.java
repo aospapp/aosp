@@ -29,7 +29,6 @@ import android.icu.impl.UPropertyAliases;
 import android.icu.lang.UCharacterEnums.ECharacterCategory;
 import android.icu.lang.UCharacterEnums.ECharacterDirection;
 import android.icu.text.BreakIterator;
-import android.icu.text.Edits;
 import android.icu.text.Normalizer2;
 import android.icu.util.RangeValueIterator;
 import android.icu.util.ULocale;
@@ -970,6 +969,23 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
         /***/
         public static final int TANGUT_COMPONENTS_ID = 273; /*[18800]*/
 
+        // New blocks in Unicode 10.0
+
+        /***/
+        public static final int CJK_UNIFIED_IDEOGRAPHS_EXTENSION_F_ID = 274; /*[2CEB0]*/
+        /***/
+        public static final int KANA_EXTENDED_A_ID = 275; /*[1B100]*/
+        /***/
+        public static final int MASARAM_GONDI_ID = 276; /*[11D00]*/
+        /***/
+        public static final int NUSHU_ID = 277; /*[1B170]*/
+        /***/
+        public static final int SOYOMBO_ID = 278; /*[11A50]*/
+        /***/
+        public static final int SYRIAC_SUPPLEMENT_ID = 279; /*[0860]*/
+        /***/
+        public static final int ZANABAZAR_SQUARE_ID = 280; /*[11A00]*/
+
         /**
          * One more than the highest normal UnicodeBlock value.
          * The highest value is available via UCharacter.getIntPropertyMaxValue(UProperty.BLOCK).
@@ -978,7 +994,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
          * @hide unsupported on Android
          */
         @Deprecated
-        public static final int COUNT = 274;
+        public static final int COUNT = 281;
 
         // blocks objects ---------------------------------------------------
 
@@ -2062,6 +2078,28 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
         public static final UnicodeBlock TANGUT_COMPONENTS =
                 new UnicodeBlock("TANGUT_COMPONENTS", TANGUT_COMPONENTS_ID); /*[18800]*/
 
+        // New blocks in Unicode 10.0
+
+        /***/
+        public static final UnicodeBlock CJK_UNIFIED_IDEOGRAPHS_EXTENSION_F =
+                new UnicodeBlock("CJK_UNIFIED_IDEOGRAPHS_EXTENSION_F", CJK_UNIFIED_IDEOGRAPHS_EXTENSION_F_ID); /*[2CEB0]*/
+        /***/
+        public static final UnicodeBlock KANA_EXTENDED_A =
+                new UnicodeBlock("KANA_EXTENDED_A", KANA_EXTENDED_A_ID); /*[1B100]*/
+        /***/
+        public static final UnicodeBlock MASARAM_GONDI =
+                new UnicodeBlock("MASARAM_GONDI", MASARAM_GONDI_ID); /*[11D00]*/
+        /***/
+        public static final UnicodeBlock NUSHU = new UnicodeBlock("NUSHU", NUSHU_ID); /*[1B170]*/
+        /***/
+        public static final UnicodeBlock SOYOMBO = new UnicodeBlock("SOYOMBO", SOYOMBO_ID); /*[11A50]*/
+        /***/
+        public static final UnicodeBlock SYRIAC_SUPPLEMENT =
+                new UnicodeBlock("SYRIAC_SUPPLEMENT", SYRIAC_SUPPLEMENT_ID); /*[0860]*/
+        /***/
+        public static final UnicodeBlock ZANABAZAR_SQUARE =
+                new UnicodeBlock("ZANABAZAR_SQUARE", ZANABAZAR_SQUARE_ID); /*[11A00]*/
+
         /**
          */
         public static final UnicodeBlock INVALID_CODE
@@ -2576,6 +2614,29 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
         /***/
         public static final int AFRICAN_QAF = 88;
 
+        /***/
+        public static final int MALAYALAM_BHA = 89;
+        /***/
+        public static final int MALAYALAM_JA = 90;
+        /***/
+        public static final int MALAYALAM_LLA = 91;
+        /***/
+        public static final int MALAYALAM_LLLA = 92;
+        /***/
+        public static final int MALAYALAM_NGA = 93;
+        /***/
+        public static final int MALAYALAM_NNA = 94;
+        /***/
+        public static final int MALAYALAM_NNNA = 95;
+        /***/
+        public static final int MALAYALAM_NYA = 96;
+        /***/
+        public static final int MALAYALAM_RA = 97;
+        /***/
+        public static final int MALAYALAM_SSA = 98;
+        /***/
+        public static final int MALAYALAM_TTA = 99;
+
         /**
          * One more than the highest normal JoiningGroup value.
          * The highest value is available via UCharacter.getIntPropertyMaxValue(UProperty.JoiningGroup).
@@ -2584,7 +2645,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
          * @hide unsupported on Android
          */
         @Deprecated
-        public static final int COUNT = 89;
+        public static final int COUNT = 100;
     }
 
     /**
@@ -4276,7 +4337,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      */
     public static String toUpperCase(String str)
     {
-        return toUpperCase(getDefaultCaseLocale(), str);
+        return CaseMapImpl.toUpper(getDefaultCaseLocale(), 0, str);
     }
 
     /**
@@ -4287,7 +4348,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      */
     public static String toLowerCase(String str)
     {
-        return toLowerCase(getDefaultCaseLocale(), str);
+        return CaseMapImpl.toLower(getDefaultCaseLocale(), 0, str);
     }
 
     /**
@@ -4305,7 +4366,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      * @param str source string to be performed on
      * @param breakiter break iterator to determine the positions in which
      *        the character should be title cased.
-     * @return lowercase version of the argument string
+     * @return titlecase version of the argument string
      */
     public static String toTitleCase(String str, BreakIterator breakiter)
     {
@@ -4330,75 +4391,6 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
         return UCaseProps.getCaseLocale(locale);
     }
 
-    private static String toLowerCase(int caseLocale, String str) {
-        if (str.length() <= 100) {
-            if (str.isEmpty()) {
-                return str;
-            }
-            // Collect and apply only changes.
-            // Good if no or few changes. Bad (slow) if many changes.
-            Edits edits = new Edits();
-            StringBuilder replacementChars = CaseMapImpl.toLower(
-                    caseLocale, CaseMapImpl.OMIT_UNCHANGED_TEXT, str, new StringBuilder(), edits);
-            return applyEdits(str, replacementChars, edits);
-        } else {
-            return CaseMapImpl.toLower(caseLocale, 0, str,
-                    new StringBuilder(str.length()), null).toString();
-        }
-    }
-
-    private static String toUpperCase(int caseLocale, String str) {
-        if (str.length() <= 100) {
-            if (str.isEmpty()) {
-                return str;
-            }
-            // Collect and apply only changes.
-            // Good if no or few changes. Bad (slow) if many changes.
-            Edits edits = new Edits();
-            StringBuilder replacementChars = CaseMapImpl.toUpper(
-                    caseLocale, CaseMapImpl.OMIT_UNCHANGED_TEXT, str, new StringBuilder(), edits);
-            return applyEdits(str, replacementChars, edits);
-        } else {
-            return CaseMapImpl.toUpper(caseLocale, 0, str,
-                    new StringBuilder(str.length()), null).toString();
-        }
-    }
-
-    private static String toTitleCase(int caseLocale, int options, BreakIterator titleIter, String str) {
-        if (str.length() <= 100) {
-            if (str.isEmpty()) {
-                return str;
-            }
-            // Collect and apply only changes.
-            // Good if no or few changes. Bad (slow) if many changes.
-            Edits edits = new Edits();
-            StringBuilder replacementChars = CaseMapImpl.toTitle(
-                    caseLocale, options | CaseMapImpl.OMIT_UNCHANGED_TEXT, titleIter, str,
-                    new StringBuilder(), edits);
-            return applyEdits(str, replacementChars, edits);
-        } else {
-            return CaseMapImpl.toTitle(caseLocale, options, titleIter, str,
-                    new StringBuilder(str.length()), null).toString();
-        }
-    }
-
-    private static String applyEdits(String str, StringBuilder replacementChars, Edits edits) {
-        if (!edits.hasChanges()) {
-            return str;
-        }
-        StringBuilder result = new StringBuilder(str.length() + edits.lengthDelta());
-        for (Edits.Iterator ei = edits.getCoarseIterator(); ei.next();) {
-            if (ei.hasChange()) {
-                int i = ei.replacementIndex();
-                result.append(replacementChars, i, i + ei.newLength());
-            } else {
-                int i = ei.sourceIndex();
-                result.append(str, i, i + ei.oldLength());
-            }
-        }
-        return result.toString();
-    }
-
     /**
      * Returns the uppercase version of the argument string.
      * Casing is dependent on the argument locale and context-sensitive.
@@ -4408,7 +4400,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      */
     public static String toUpperCase(Locale locale, String str)
     {
-        return toUpperCase(getCaseLocale(locale), str);
+        return CaseMapImpl.toUpper(getCaseLocale(locale), 0, str);
     }
 
     /**
@@ -4419,7 +4411,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      * @return uppercase version of the argument string
      */
     public static String toUpperCase(ULocale locale, String str) {
-        return toUpperCase(getCaseLocale(locale), str);
+        return CaseMapImpl.toUpper(getCaseLocale(locale), 0, str);
     }
 
     /**
@@ -4431,7 +4423,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      */
     public static String toLowerCase(Locale locale, String str)
     {
-        return toLowerCase(getCaseLocale(locale), str);
+        return CaseMapImpl.toLower(getCaseLocale(locale), 0, str);
     }
 
     /**
@@ -4442,7 +4434,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      * @return lowercase version of the argument string
      */
     public static String toLowerCase(ULocale locale, String str) {
-        return toLowerCase(getCaseLocale(locale), str);
+        return CaseMapImpl.toLower(getCaseLocale(locale), 0, str);
     }
 
     /**
@@ -4461,7 +4453,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      * @param str source string to be performed on
      * @param breakiter break iterator to determine the positions in which
      *        the character should be title cased.
-     * @return lowercase version of the argument string
+     * @return titlecase version of the argument string
      */
     public static String toTitleCase(Locale locale, String str,
             BreakIterator breakiter)
@@ -4485,7 +4477,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      * @param str source string to be performed on
      * @param titleIter break iterator to determine the positions in which
      *        the character should be title cased.
-     * @return lowercase version of the argument string
+     * @return titlecase version of the argument string
      */
     public static String toTitleCase(ULocale locale, String str,
             BreakIterator titleIter) {
@@ -4509,27 +4501,19 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      * @param titleIter break iterator to determine the positions in which
      *        the character should be title cased.
      * @param options bit set to modify the titlecasing operation
-     * @return lowercase version of the argument string
+     * @return titlecase version of the argument string
      * @see #TITLECASE_NO_LOWERCASE
      * @see #TITLECASE_NO_BREAK_ADJUSTMENT
      */
     public static String toTitleCase(ULocale locale, String str,
             BreakIterator titleIter, int options) {
-        if(titleIter == null) {
-            if (locale == null) {
-                locale = ULocale.getDefault();
-            }
-            titleIter = BreakIterator.getWordInstance(locale);
+        if (titleIter == null && locale == null) {
+            locale = ULocale.getDefault();
         }
+        titleIter = CaseMapImpl.getTitleBreakIterator(locale, options, titleIter);
         titleIter.setText(str);
-        return toTitleCase(getCaseLocale(locale), options, titleIter, str);
+        return CaseMapImpl.toTitle(getCaseLocale(locale), options, titleIter, str);
     }
-
-
-    private static final int BREAK_MASK =
-            (1<<UCharacterCategory.DECIMAL_DIGIT_NUMBER)
-            | (1<<UCharacterCategory.OTHER_LETTER)
-            | (1<<UCharacterCategory.MODIFIER_LETTER);
 
     /**
      * Return a string with just the first word titlecased, for menus and UI, etc. This does not affect most of the string,
@@ -4556,50 +4540,12 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      */
     @Deprecated
     public static String toTitleFirst(ULocale locale, String str) {
-        int c = 0;
-        for (int i = 0; i < str.length(); i += UCharacter.charCount(c)) {
-            c = UCharacter.codePointAt(str, i);
-            int propertyMask = UCharacter.getIntPropertyValue(c, UProperty.GENERAL_CATEGORY_MASK);
-            if ((propertyMask & BREAK_MASK) != 0) { // handle "49ers", initial CJK
-                break;
-            }
-            if (UCaseProps.INSTANCE.getType(c) == UCaseProps.NONE) {
-                continue;
-            }
-
-            // we now have the first cased character
-            // What we really want is something like:
-            // String titled = UCharacter.toTitleCase(locale, str, i, outputCharsTaken);
-            // That is, just give us the titlecased string, for the locale, at i and following,
-            // and tell us how many characters are replaced.
-            // The following won't work completely: it needs some more substantial changes to UCaseProps
-
-            String substring = str.substring(i, i+UCharacter.charCount(c));
-            String titled = UCharacter.toTitleCase(locale, substring, BreakIterator.getSentenceInstance(locale), 0);
-
-            // skip if no change
-            if (titled.codePointAt(0) == c) {
-                // Using 0 is safe, since any change in titling will not have first initial character
-                break;
-            }
-            StringBuilder result = new StringBuilder(str.length()).append(str, 0, i);
-            int startOfSuffix;
-
-            // handle dutch, but check first for 'i', since that's faster. Should be built into UCaseProps.
-
-            if (c == 'i' && locale.getLanguage().equals("nl") && i < str.length() && str.charAt(i+1) == 'j') {
-                result.append("IJ");
-                startOfSuffix = 2;
-            } else {
-                result.append(titled);
-                startOfSuffix = i + UCharacter.charCount(c);
-            }
-
-            // add the remainder, and return
-            return result.append(str, startOfSuffix, str.length()).toString();
-        }
-        return str; // no change
+        // TODO: Remove this function. Inline it where it is called in CLDR.
+        return TO_TITLE_WHOLE_STRING_NO_LOWERCASE.apply(locale.toLocale(), null, str);
     }
+
+    private static final android.icu.text.CaseMap.Title TO_TITLE_WHOLE_STRING_NO_LOWERCASE =
+            android.icu.text.CaseMap.toTitle().wholeString().noLowercase();
 
     /**
      * <strong>[icu]</strong> <p>Returns the titlecase version of the argument string.
@@ -4618,18 +4564,19 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      * @param titleIter break iterator to determine the positions in which
      *        the character should be title cased.
      * @param options bit set to modify the titlecasing operation
-     * @return lowercase version of the argument string
+     * @return titlecase version of the argument string
      * @see #TITLECASE_NO_LOWERCASE
      * @see #TITLECASE_NO_BREAK_ADJUSTMENT
      */
     public static String toTitleCase(Locale locale, String str,
             BreakIterator titleIter,
             int options) {
-        if(titleIter == null) {
-            titleIter = BreakIterator.getWordInstance(locale);
+        if (titleIter == null && locale == null) {
+            locale = Locale.getDefault();
         }
+        titleIter = CaseMapImpl.getTitleBreakIterator(locale, options, titleIter);
         titleIter.setText(str);
-        return toTitleCase(getCaseLocale(locale), options, titleIter, str);
+        return CaseMapImpl.toTitle(getCaseLocale(locale), options, titleIter, str);
     }
 
     /**
@@ -4739,19 +4686,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
      * @see #foldCase(int, boolean)
      */
     public static final String foldCase(String str, int options) {
-        if (str.length() <= 100) {
-            if (str.isEmpty()) {
-                return str;
-            }
-            // Collect and apply only changes.
-            // Good if no or few changes. Bad (slow) if many changes.
-            Edits edits = new Edits();
-            StringBuilder replacementChars = CaseMapImpl.fold(
-                    options | CaseMapImpl.OMIT_UNCHANGED_TEXT, str, new StringBuilder(), edits);
-            return applyEdits(str, replacementChars, edits);
-        } else {
-            return CaseMapImpl.fold(options, str, new StringBuilder(str.length()), null).toString();
-        }
+        return CaseMapImpl.fold(options, str);
     }
 
     /**

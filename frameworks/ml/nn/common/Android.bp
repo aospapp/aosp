@@ -21,16 +21,41 @@ cc_library_headers {
 }
 
 cc_library_static {
-    name: "libneuralnetworks_common",
+    name: "libneuralnetworks_utils",
     defaults: ["neuralnetworks_defaults"],
     host_supported: false,
     vendor_available: true,
     export_include_dirs: ["include"],
+    srcs: [
+        "Utils.cpp",
+    ],
+    header_libs: [
+        "libneuralnetworks_headers",
+    ],
+    shared_libs: [
+        "libhidltransport",
+        "libhidlmemory",
+        "android.hardware.neuralnetworks@1.0",
+        "android.hardware.neuralnetworks@1.1",
+        "android.hidl.allocator@1.0",
+        "android.hidl.memory@1.0",
+    ],
+}
+
+cc_library_static {
+    name: "libneuralnetworks_common",
+    defaults: ["neuralnetworks_defaults"],
+    host_supported: false,
+    vendor_available: true,
+    openmp: true,
+    export_include_dirs: ["include"],
 
     srcs: [
         "CpuExecutor.cpp",
+        "GraphDump.cpp",
         "OperationsUtils.cpp",
         "Utils.cpp",
+        "ValidateHal.cpp",
         "operations/Activation.cpp",
         "operations/Concatenation.cpp",
         "operations/Conv2D.cpp",
@@ -45,10 +70,8 @@ cc_library_static {
         "operations/Reshape.cpp",
         "operations/RNN.cpp",
         "operations/SimpleMath.cpp",
+        "operations/StridedSlice.cpp",
         "operations/SVDF.cpp",
-        "operations/internal/optimized/neon_tensor_utils.cc",
-        "operations/internal/reference/portable_tensor_utils.cc",
-        "operations/internal/tensor_utils.cc",
     ],
     shared_libs: [
         "libbase",
@@ -59,15 +82,19 @@ cc_library_static {
         "liblog",
         "libutils",
         "android.hardware.neuralnetworks@1.0",
+        "android.hardware.neuralnetworks@1.1",
         "android.hidl.allocator@1.0",
         "android.hidl.memory@1.0",
     ],
     header_libs: [
         "libneuralnetworks_headers",
-        "libgemmlowp",
-        "libfixedpoint",
         "libtextclassifier_hash_headers",
         "libeigen",
+        "gemmlowp_headers",
+        "tensorflow_headers",
+    ],
+    whole_static_libs: [
+        "libtflite_kernel_utils",
     ],
 
     cflags: [
@@ -75,107 +102,84 @@ cc_library_static {
         "-Werror",
         "-Wall",
         "-Wextra",
+        "-Wno-extern-c-compat",
         "-Wno-unused-parameter",
         "-Wno-unused-variable",
+        "-Wno-invalid-partial-specialization",
     ],
 
 }
 
-cc_test {
-    name: "tensor_utils_test",
-    srcs: [
-        "operations/internal/tensor_utils_test.cc",
-    ],
+cc_defaults {
+    name: "neuralnetworks_op_test_defaults",
     shared_libs: [
         "libneuralnetworks",
-    ],
-    local_include_dirs: [ "include" ],
-    header_libs: [
-        "libneuralnetworks_headers",
     ],
     static_libs: [
         "libgmock",
     ],
+    cflags: [
+        "-Wno-extern-c-compat",
+    ]
 }
 
 cc_test {
     name: "embedding_lookup_test",
+    defaults: ["neuralnetworks_op_test_defaults"],
     srcs: [
         "operations/EmbeddingLookupTest.cpp",
-    ],
-    shared_libs: [
-        "libneuralnetworks",
-    ],
-    static_libs: [
-        "libgmock",
     ],
 }
 
 cc_test {
     name: "hashtable_lookup_test",
+    defaults: ["neuralnetworks_op_test_defaults"],
     srcs: [
         "operations/HashtableLookupTest.cpp",
-    ],
-    shared_libs: [
-        "libneuralnetworks",
-    ],
-    static_libs: [
-        "libgmock",
     ],
 }
 
 cc_test {
     name: "lsh_projection_test",
+    defaults: ["neuralnetworks_op_test_defaults"],
     srcs: [
         "operations/LSHProjectionTest.cpp",
     ],
     local_include_dirs: [ "include" ],
-    shared_libs: [
-        "libneuralnetworks",
-    ],
-    static_libs: [
-        "libgmock",
+    header_libs: [
+        "tensorflow_headers",
     ],
 }
 
 cc_test {
     name: "lstm_test",
+    defaults: ["neuralnetworks_op_test_defaults"],
     srcs: [
         "operations/LSTMTest.cpp",
     ],
     local_include_dirs: [ "include" ],
-    shared_libs: [
-        "libneuralnetworks",
-    ],
-    static_libs: [
-        "libgmock",
+    header_libs: [
+        "tensorflow_headers",
     ],
 }
 
 cc_test {
     name: "rnn_test",
+    defaults: ["neuralnetworks_op_test_defaults"],
     srcs: [
         "operations/RNNTest.cpp",
     ],
     local_include_dirs: [ "include" ],
-    shared_libs: [
-        "libneuralnetworks",
-    ],
-    static_libs: [
-        "libgmock",
-    ],
 }
 
 cc_test {
     name: "svdf_test",
+    defaults: ["neuralnetworks_op_test_defaults"],
     srcs: [
         "operations/SVDFTest.cpp",
     ],
     local_include_dirs: [ "include" ],
-    shared_libs: [
-        "libneuralnetworks",
-    ],
-    static_libs: [
-        "libgmock",
+    header_libs: [
+        "tensorflow_headers",
     ],
 }

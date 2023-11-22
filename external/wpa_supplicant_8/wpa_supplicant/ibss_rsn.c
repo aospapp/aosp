@@ -259,9 +259,13 @@ static void auth_logger(void *ctx, const u8 *addr, logger_level level,
 
 
 static const u8 * auth_get_psk(void *ctx, const u8 *addr,
-			       const u8 *p2p_dev_addr, const u8 *prev_psk)
+			       const u8 *p2p_dev_addr, const u8 *prev_psk,
+			       size_t *psk_len)
 {
 	struct ibss_rsn *ibss_rsn = ctx;
+
+	if (psk_len)
+		*psk_len = PMK_LEN;
 	wpa_printf(MSG_DEBUG, "AUTH: %s (addr=" MACSTR " prev_psk=%p)",
 		   __func__, MAC2STR(addr), prev_psk);
 	if (prev_psk)
@@ -458,7 +462,7 @@ static int ibss_rsn_auth_init(struct ibss_rsn *ibss_rsn,
 				"\x00\x0f\xac\x04"
 				"\x01\x00\x00\x0f\xac\x04"
 				"\x01\x00\x00\x0f\xac\x02"
-				"\x00\x00", 22, NULL, 0) !=
+				"\x00\x00", 22, NULL, 0, NULL, 0) !=
 	    WPA_IE_OK) {
 		wpa_printf(MSG_DEBUG, "AUTH: wpa_validate_wpa_ie() failed");
 		return -1;
@@ -760,10 +764,9 @@ static int ibss_rsn_process_rx_eapol(struct ibss_rsn *ibss_rsn,
 	if (supp < 0)
 		return -1;
 
-	tmp = os_malloc(len);
+	tmp = os_memdup(buf, len);
 	if (tmp == NULL)
 		return -1;
-	os_memcpy(tmp, buf, len);
 	if (supp) {
 		peer->authentication_status |= IBSS_RSN_AUTH_EAPOL_BY_PEER;
 		wpa_printf(MSG_DEBUG, "RSN: IBSS RX EAPOL for Supplicant from "

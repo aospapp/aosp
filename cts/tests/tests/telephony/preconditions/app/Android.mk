@@ -31,6 +31,8 @@ LOCAL_STATIC_JAVA_LIBRARIES := android-support-test ctstestrunner \
                                 compatibility-device-util \
                                 compatibility-device-preconditions
 
+LOCAL_JAVA_LIBRARIES := android.test.base.stubs
+
 # tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 

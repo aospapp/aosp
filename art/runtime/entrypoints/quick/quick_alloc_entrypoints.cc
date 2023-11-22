@@ -18,12 +18,13 @@
 
 #include "art_method-inl.h"
 #include "base/enums.h"
+#include "base/quasi_atomic.h"
 #include "callee_save_frame.h"
-#include "dex_file_types.h"
+#include "dex/dex_file_types.h"
 #include "entrypoints/entrypoint_utils-inl.h"
 #include "mirror/class-inl.h"
-#include "mirror/object_array-inl.h"
 #include "mirror/object-inl.h"
+#include "mirror/object_array-inl.h"
 
 namespace art {
 

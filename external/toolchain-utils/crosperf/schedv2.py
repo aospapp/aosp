@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 """Module to optimize the scheduling of benchmark_run tasks."""
 
-
 from __future__ import print_function
 
 import sys
@@ -48,7 +47,7 @@ class DutWorker(Thread):
     """Do the "run-test->(optionally reimage)->run-test" chore.
 
         Note - 'br' below means 'benchmark_run'.
-        """
+    """
 
     # Firstly, handle benchmarkruns that have cache hit.
     br = self._sched.get_cached_benchmark_run()
@@ -93,12 +92,12 @@ class DutWorker(Thread):
   def _reimage(self, label):
     """Reimage image to label.
 
-        Args:
-          label: the label to remimage onto dut.
+    Args:
+      label: the label to remimage onto dut.
 
-        Returns:
-          0 if successful, otherwise 1.
-        """
+    Returns:
+      0 if successful, otherwise 1.
+    """
 
     # Termination could happen anywhere, check it.
     if self._terminated:
@@ -111,8 +110,7 @@ class DutWorker(Thread):
       # Note, only 1 reimage at any given time, this is guaranteed in
       # ImageMachine, so no sync needed below.
       retval = self._sched.get_experiment().machine_manager.ImageMachine(
-          self._dut,
-          label)
+          self._dut, label)
 
       if retval:
         return 1
@@ -126,7 +124,7 @@ class DutWorker(Thread):
     """Execute a single benchmark_run.
 
         Note - this function never throws exceptions.
-        """
+    """
 
     # Termination could happen anywhere, check it.
     if self._terminated:
@@ -152,7 +150,7 @@ class DutWorker(Thread):
 
         If such match is found, we just skip doing reimage and jump to execute
         some benchmark_runs.
-        """
+    """
 
     checksum_file = '/usr/local/osimage_checksum_file'
     try:
@@ -166,8 +164,8 @@ class DutWorker(Thread):
         checksum = checksum.strip()
         for l in self._sched.get_labels():
           if l.checksum == checksum:
-            self._logger.LogOutput("Dut '{}' is pre-installed with '{}'".format(
-                self._dut.name, l))
+            self._logger.LogOutput(
+                "Dut '{}' is pre-installed with '{}'".format(self._dut.name, l))
             self._dut.label = l
             return
     except RuntimeError:
@@ -196,7 +194,7 @@ class BenchmarkRunCacheReader(Thread):
 
     On creation, each instance of this class is given a br_list, which is a
     subset of experiment._benchmark_runs.
-    """
+  """
 
   def __init__(self, schedv2, br_list):
     super(BenchmarkRunCacheReader, self).__init__()
@@ -272,7 +270,7 @@ class Schedv2(object):
         We do this by firstly creating a few threads, and then assign each
         thread a segment of all brs. Each thread will check cache status for
         each br and put those with cache into '_cached_br_list'.
-        """
+    """
 
     self._cached_br_list = []
     n_benchmarkruns = len(self._experiment.benchmark_runs)
@@ -287,16 +285,16 @@ class Schedv2(object):
     # a thread. Note, we use (x+3)/4 to mimic math.ceil(x/4).
     n_threads = max(2, min(20, (n_benchmarkruns + 3) / 4))
     self._logger.LogOutput(('Starting {} threads to read cache status for '
-                            '{} benchmark runs ...').format(n_threads,
-                                                            n_benchmarkruns))
+                            '{} benchmark runs ...').format(
+                                n_threads, n_benchmarkruns))
     benchmarkruns_per_thread = (n_benchmarkruns + n_threads - 1) / n_threads
     benchmarkrun_segments = []
     for i in range(n_threads - 1):
       start = i * benchmarkruns_per_thread
       end = (i + 1) * benchmarkruns_per_thread
       benchmarkrun_segments.append(self._experiment.benchmark_runs[start:end])
-    benchmarkrun_segments.append(self._experiment.benchmark_runs[
-        (n_threads - 1) * benchmarkruns_per_thread:])
+    benchmarkrun_segments.append(self._experiment.benchmark_runs[(
+        n_threads - 1) * benchmarkruns_per_thread:])
 
     # Assert: aggregation of benchmarkrun_segments equals to benchmark_runs.
     assert sum(len(x) for x in benchmarkrun_segments) == n_benchmarkruns
@@ -314,9 +312,8 @@ class Schedv2(object):
       x.join()
 
     # Summarize.
-    self._logger.LogOutput(
-        'Total {} cache hit out of {} benchmark_runs.'.format(
-            len(self._cached_br_list), n_benchmarkruns))
+    self._logger.LogOutput('Total {} cache hit out of {} benchmark_runs.'.
+                           format(len(self._cached_br_list), n_benchmarkruns))
 
   def get_cached_run_list(self):
     return self._cached_br_list
@@ -338,9 +335,9 @@ class Schedv2(object):
   def get_cached_benchmark_run(self):
     """Get a benchmark_run with 'cache hit'.
 
-        Returns:
-          The benchmark that has cache hit, if any. Otherwise none.
-        """
+    Returns:
+      The benchmark that has cache hit, if any. Otherwise none.
+    """
 
     with self.lock_on('_cached_br_list'):
       if self._cached_br_list:
@@ -350,14 +347,14 @@ class Schedv2(object):
   def get_benchmark_run(self, dut):
     """Get a benchmark_run (br) object for a certain dut.
 
-        Args:
-          dut: the dut for which a br is returned.
+    Args:
+      dut: the dut for which a br is returned.
 
-        Returns:
-          A br with its label matching that of the dut. If no such br could be
-          found, return None (this usually means a reimage is required for the
-          dut).
-        """
+    Returns:
+      A br with its label matching that of the dut. If no such br could be
+      found, return None (this usually means a reimage is required for the
+      dut).
+    """
 
     # If terminated, stop providing any br.
     if self._terminated:
@@ -384,12 +381,12 @@ class Schedv2(object):
         The dut_worker calling this method is responsible for reimage the dut to
         this label.
 
-        Args:
-          dut: the new label that is to be reimaged onto the dut.
+    Args:
+      dut: the new label that is to be reimaged onto the dut.
 
-        Returns:
-          The label or None.
-        """
+    Returns:
+      The label or None.
+    """
 
     if self._terminated:
       return None
@@ -399,9 +396,9 @@ class Schedv2(object):
   def dut_worker_finished(self, dut_worker):
     """Notify schedv2 that the dut_worker thread finished.
 
-       Args:
-         dut_worker: the thread that is about to end.
-       """
+    Args:
+      dut_worker: the thread that is about to end.
+    """
 
     self._logger.LogOutput('{} finished.'.format(dut_worker))
     with self._workers_lock:
@@ -418,7 +415,7 @@ class Schedv2(object):
     """Mark flag so we stop providing br/reimages.
 
         Also terminate each DutWorker, so they refuse to execute br or reimage.
-        """
+    """
 
     self._terminated = True
     for dut_worker in self._active_workers:

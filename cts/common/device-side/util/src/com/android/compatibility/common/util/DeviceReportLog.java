@@ -21,10 +21,6 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
 
-import com.android.compatibility.common.util.ReportLog;
-
-import org.xmlpull.v1.XmlPullParserException;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -44,17 +40,22 @@ public class DeviceReportLog extends ReportLog {
     private ReportLogDeviceInfoStore store;
 
     public DeviceReportLog(String reportLogName, String streamName) {
+        this(reportLogName, streamName,
+                new File(Environment.getExternalStorageDirectory(), "report-log-files"));
+    }
+
+    public DeviceReportLog(String reportLogName, String streamName, File logDirectory) {
         super(reportLogName, streamName);
         try {
             // dir value must match the src-dir value configured in ReportLogCollector target
-            // preparer in cts/tools/cts-tradefed/res/config/cts-preconditions.xml
-            final File dir = new File(Environment.getExternalStorageDirectory(), "report-log-files");
+            // preparer in cts/harness/tools/cts-tradefed/res/config/cts-preconditions.xml
             if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
                 throw new IOException("External storage is not mounted");
-            } else if (!dir.mkdirs() && !dir.isDirectory()) {
+            } else if ((!logDirectory.exists() && !logDirectory.mkdirs())
+                    || (logDirectory.exists() && !logDirectory.isDirectory())) {
                 throw new IOException("Cannot create directory for device info files");
             } else {
-                File jsonFile = new File(dir, mReportLogName + ".reportlog.json");
+                File jsonFile = new File(logDirectory, mReportLogName + ".reportlog.json");
                 store = new ReportLogDeviceInfoStore(jsonFile, mStreamName);
                 store.open();
             }

@@ -1,8 +1,9 @@
 /** @file
   Main file for Pci shell Debug1 function.
 
+  Copyright (c) 2005 - 2016, Intel Corporation. All rights reserved.<BR>
   (C) Copyright 2013-2015 Hewlett-Packard Development Company, L.P.<BR>
-  Copyright (c) 2005 - 2014, Intel Corporation. All rights reserved.<BR>
+  (C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>  
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -2369,6 +2370,7 @@ PCI_CONFIG_SPACE  *mConfigSpace = NULL;
 STATIC CONST SHELL_PARAM_ITEM ParamList[] = {
   {L"-s", TypeValue},
   {L"-i", TypeFlag},
+  {L"-_e", TypeValue},
   {NULL, TypeMax}
   };
 
@@ -5030,7 +5032,6 @@ ExplainPcieRootStatus (
   @param[in] HeadersBaseAddress   The address of all the extended capability headers.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilityLinkControl (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress
@@ -5063,7 +5064,6 @@ PrintInterpretedExtendedCompatibilityLinkControl (
   @param[in] HeadersBaseAddress   The address of all the extended capability headers.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilityPowerBudgeting (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress
@@ -5096,7 +5096,6 @@ PrintInterpretedExtendedCompatibilityPowerBudgeting (
   @param[in] HeadersBaseAddress   The address of all the extended capability headers.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilityAcs (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress
@@ -5147,7 +5146,6 @@ PrintInterpretedExtendedCompatibilityAcs (
   @param[in] HeadersBaseAddress   The address of all the extended capability headers.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilityLatencyToleranceReporting (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress
@@ -5179,7 +5177,6 @@ PrintInterpretedExtendedCompatibilityLatencyToleranceReporting (
   @param[in] HeadersBaseAddress   The address of all the extended capability headers.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilitySerialNumber (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress
@@ -5210,7 +5207,6 @@ PrintInterpretedExtendedCompatibilitySerialNumber (
   @param[in] HeadersBaseAddress   The address of all the extended capability headers.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilityRcrb (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress
@@ -5244,7 +5240,6 @@ PrintInterpretedExtendedCompatibilityRcrb (
   @param[in] HeadersBaseAddress   The address of all the extended capability headers.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilityVendorSpecific (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress
@@ -5275,7 +5270,6 @@ PrintInterpretedExtendedCompatibilityVendorSpecific (
   @param[in] HeadersBaseAddress   The address of all the extended capability headers.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilityECEA (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress
@@ -5306,7 +5300,6 @@ PrintInterpretedExtendedCompatibilityECEA (
   @param[in] HeadersBaseAddress   The address of all the extended capability headers.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilityAri (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress
@@ -5338,7 +5331,6 @@ PrintInterpretedExtendedCompatibilityAri (
   @param[in] HeadersBaseAddress   The address of all the extended capability headers.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilityDynamicPowerAllocation (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress
@@ -5382,7 +5374,6 @@ PrintInterpretedExtendedCompatibilityDynamicPowerAllocation (
   @param[in] HeadersBaseAddress   The address of all the extended capability headers.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilityLinkDeclaration (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress
@@ -5424,7 +5415,6 @@ PrintInterpretedExtendedCompatibilityLinkDeclaration (
   @param[in] HeadersBaseAddress   The address of all the extended capability headers.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilityAer (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress
@@ -5443,7 +5433,10 @@ PrintInterpretedExtendedCompatibilityAer (
     Header->CorrectableErrorStatus,
     Header->CorrectableErrorMask,
     Header->AdvancedErrorCapabilitiesAndControl,
-    Header->HeaderLog,
+    Header->HeaderLog[0],
+    Header->HeaderLog[1],
+    Header->HeaderLog[2],
+    Header->HeaderLog[3],
     Header->RootErrorCommand,
     Header->RootErrorStatus,
     Header->ErrorSourceIdentification,
@@ -5470,7 +5463,6 @@ PrintInterpretedExtendedCompatibilityAer (
   @param[in] PciExpressCapPtr     The address of the PCIe capabilities structure.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilityMulticast (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress,
@@ -5510,7 +5502,6 @@ PrintInterpretedExtendedCompatibilityMulticast (
   @param[in] HeadersBaseAddress   The address of all the extended capability headers.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilityVirtualChannel (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress
@@ -5563,7 +5554,6 @@ PrintInterpretedExtendedCompatibilityVirtualChannel (
   @param[in] HeadersBaseAddress   The address of all the extended capability headers.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilityResizeableBar (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress
@@ -5601,7 +5591,6 @@ PrintInterpretedExtendedCompatibilityResizeableBar (
   @param[in] HeadersBaseAddress   The address of all the extended capability headers.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilityTph (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress
@@ -5642,7 +5631,6 @@ PrintInterpretedExtendedCompatibilityTph (
   @param[in] PciExpressCapPtr     The address of the PCIe capabilities structure.
 **/
 EFI_STATUS
-EFIAPI
 PrintInterpretedExtendedCompatibilitySecondary (
   IN CONST PCI_EXP_EXT_HDR *HeaderAddress,
   IN CONST PCI_EXP_EXT_HDR *HeadersBaseAddress,
@@ -5684,7 +5672,6 @@ PrintInterpretedExtendedCompatibilitySecondary (
   @param[in] PciExpressCapPtr     The address of the PCIe capabilities structure.
 **/
 EFI_STATUS
-EFIAPI
 PrintPciExtendedCapabilityDetails(
   IN CONST PCI_EXP_EXT_HDR    *HeadersBaseAddress, 
   IN CONST PCI_EXP_EXT_HDR    *HeaderAddress,
@@ -5909,7 +5896,7 @@ PciExplainPciExpress (
       // Advance to the next item if it exists
       //
       if (ExtHdr->NextCapabilityOffset != 0) {
-        ExtHdr = (PCI_EXP_EXT_HDR*)((UINT8*)ExRegBuffer + ExtHdr->NextCapabilityOffset);
+        ExtHdr = (PCI_EXP_EXT_HDR*)((UINT8*)ExRegBuffer + ExtHdr->NextCapabilityOffset - EFI_PCIE_CAPABILITY_BASE_OFFSET);
       } else {
         break;
       }

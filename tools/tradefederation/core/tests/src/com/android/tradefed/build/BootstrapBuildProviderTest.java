@@ -17,7 +17,9 @@ package com.android.tradefed.build;
 
 import static org.junit.Assert.*;
 
+import com.android.ddmlib.IDevice;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.device.StubDevice;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
@@ -40,6 +42,7 @@ public class BootstrapBuildProviderTest {
     @Test
     public void testGetBuild() throws Exception {
         EasyMock.expect(mMockDevice.getBuildId()).andReturn("5");
+        EasyMock.expect(mMockDevice.getIDevice()).andReturn(EasyMock.createMock(IDevice.class));
         EasyMock.expect(mMockDevice.waitForDeviceShell(EasyMock.anyLong())).andReturn(true);
         EasyMock.expect(mMockDevice.getProperty(EasyMock.anyObject())).andStubReturn("property");
         EasyMock.expect(mMockDevice.getProductVariant()).andStubReturn("variant");
@@ -52,6 +55,30 @@ public class BootstrapBuildProviderTest {
             assertTrue(res instanceof IDeviceBuildInfo);
             // Ensure tests dir is never null
             assertTrue(((IDeviceBuildInfo) res).getTestsDir() != null);
+            EasyMock.verify(mMockDevice);
+        } finally {
+            mProvider.cleanUp(res);
+        }
+    }
+
+    /**
+     * Test that when using the provider with a StubDevice information that cannot be queried are
+     * stubbed.
+     */
+    @Test
+    public void testGetBuild_stubDevice() throws Exception {
+        EasyMock.expect(mMockDevice.getBuildId()).andReturn("5");
+        EasyMock.expect(mMockDevice.getIDevice()).andReturn(new StubDevice("serial"));
+        EasyMock.expect(mMockDevice.getBuildFlavor()).andStubReturn("flavor");
+        EasyMock.expect(mMockDevice.getBuildAlias()).andStubReturn("alias");
+        EasyMock.replay(mMockDevice);
+        IBuildInfo res = mProvider.getBuild(mMockDevice);
+        assertNotNull(res);
+        try {
+            assertTrue(res instanceof IDeviceBuildInfo);
+            // Ensure tests dir is never null
+            assertTrue(((IDeviceBuildInfo) res).getTestsDir() != null);
+            assertEquals("stub", res.getBuildBranch());
             EasyMock.verify(mMockDevice);
         } finally {
             mProvider.cleanUp(res);

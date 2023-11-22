@@ -23,7 +23,7 @@
     <string name="bass_boost_strength" msgid="882301530007752270">"バスブースト"</string>
     <string name="virtualizer_strength" msgid="106561253469770096">"サラウンドサウンド"</string>
     <string name="setup" msgid="1103677904576339192">"セットアップ"</string>
-    <string name="ci_extreme" msgid="1736938429763948084">"FXブースター"</string>
+    <string name="ci_extreme" msgid="1736938429763948084">"FX ブースター"</string>
     <string name="user" msgid="3949460956502898057">"ユーザー"</string>
     <string name="picker_title" msgid="8464126693702817261">"サウンド効果コントロールパネル"</string>
 </resources>

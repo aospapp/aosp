@@ -30,6 +30,7 @@ import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.SmallTest;
 import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
+import android.text.Editable;
 import android.text.TextUtils;
 import android.text.method.ArrowKeyMovementMethod;
 import android.text.method.MovementMethod;
@@ -358,6 +359,47 @@ public class EditTextTest {
         @Override
         protected MovementMethod getDefaultMovementMethod() {
             return super.getDefaultMovementMethod();
+        }
+    }
+
+    @Test
+    public void testGetTextNonEditable() {
+        // This subclass calls getText before the object is fully constructed. This should not cause
+        // a null pointer exception.
+        GetTextEditText editText = new GetTextEditText(mActivity);
+    }
+
+    private class GetTextEditText extends EditText {
+
+        GetTextEditText(Context context) {
+            super(context);
+        }
+
+        @Override
+        public void setText(CharSequence text, BufferType type) {
+            Editable currentText = getText();
+            super.setText(text, type);
+        }
+    }
+
+    @Test
+    public void testGetTextBeforeConstructor() {
+        // This subclass calls getText before the TextView constructor. This should not cause
+        // a null pointer exception.
+        GetTextEditText2 editText = new GetTextEditText2(mActivity);
+    }
+
+    private class GetTextEditText2 extends EditText {
+
+        GetTextEditText2(Context context) {
+            super(context);
+        }
+
+        @Override
+        public void setOverScrollMode(int overScrollMode) {
+            // This method is called by the View constructor before the TextView/EditText
+            // constructors.
+            Editable text = getText();
         }
     }
 }

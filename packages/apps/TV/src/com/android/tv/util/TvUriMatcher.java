@@ -21,22 +21,25 @@ import android.content.UriMatcher;
 import android.media.tv.TvContract;
 import android.net.Uri;
 import android.support.annotation.IntDef;
-
 import com.android.tv.search.LocalSearchProvider;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
-/**
- * Utility class to aid in matching URIs in TvProvider.
- */
+/** Utility class to aid in matching URIs in TvProvider. */
 public class TvUriMatcher {
     private static final UriMatcher URI_MATCHER = new UriMatcher(UriMatcher.NO_MATCH);
 
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef({MATCH_CHANNEL, MATCH_CHANNEL_ID, MATCH_PROGRAM, MATCH_PROGRAM_ID,
-            MATCH_RECORDED_PROGRAM, MATCH_RECORDED_PROGRAM_ID, MATCH_WATCHED_PROGRAM_ID,
-            MATCH_ON_DEVICE_SEARCH})
+    @IntDef({
+        MATCH_CHANNEL,
+        MATCH_CHANNEL_ID,
+        MATCH_PROGRAM,
+        MATCH_PROGRAM_ID,
+        MATCH_RECORDED_PROGRAM,
+        MATCH_RECORDED_PROGRAM_ID,
+        MATCH_WATCHED_PROGRAM_ID,
+        MATCH_ON_DEVICE_SEARCH
+    })
     private @interface TvProviderUriMatchCode {}
     /** The code for the channels URI. */
     public static final int MATCH_CHANNEL = 1;
@@ -54,6 +57,7 @@ public class TvUriMatcher {
     public static final int MATCH_WATCHED_PROGRAM_ID = 7;
     /** The code for the on-device search URI. */
     public static final int MATCH_ON_DEVICE_SEARCH = 8;
+
     static {
         URI_MATCHER.addURI(TvContract.AUTHORITY, "channel", MATCH_CHANNEL);
         URI_MATCHER.addURI(TvContract.AUTHORITY, "channel/#", MATCH_CHANNEL_ID);
@@ -62,11 +66,13 @@ public class TvUriMatcher {
         URI_MATCHER.addURI(TvContract.AUTHORITY, "recorded_program", MATCH_RECORDED_PROGRAM);
         URI_MATCHER.addURI(TvContract.AUTHORITY, "recorded_program/#", MATCH_RECORDED_PROGRAM_ID);
         URI_MATCHER.addURI(TvContract.AUTHORITY, "watched_program/#", MATCH_WATCHED_PROGRAM_ID);
-        URI_MATCHER.addURI(LocalSearchProvider.AUTHORITY,
-                SearchManager.SUGGEST_URI_PATH_QUERY + "/*", MATCH_ON_DEVICE_SEARCH);
+        URI_MATCHER.addURI(
+                LocalSearchProvider.AUTHORITY,
+                SearchManager.SUGGEST_URI_PATH_QUERY + "/*",
+                MATCH_ON_DEVICE_SEARCH);
     }
 
-    private TvUriMatcher() { }
+    private TvUriMatcher() {}
 
     /**
      * Try to match against the path in a url.
@@ -74,7 +80,8 @@ public class TvUriMatcher {
      * @see UriMatcher#match
      */
     @SuppressWarnings("WrongConstant")
-    @TvProviderUriMatchCode public static int match(Uri uri) {
+    @TvProviderUriMatchCode
+    public static int match(Uri uri) {
         return URI_MATCHER.match(uri);
     }
 }

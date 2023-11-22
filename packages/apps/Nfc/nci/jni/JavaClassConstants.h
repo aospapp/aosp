@@ -14,27 +14,26 @@
  * limitations under the License.
  */
 #pragma once
+#include "NfcJniUtil.h"
 
+namespace android {
+extern jmethodID gCachedNfcManagerNotifyNdefMessageListeners;
+extern jmethodID gCachedNfcManagerNotifyTransactionListeners;
+extern jmethodID gCachedNfcManagerNotifyLlcpLinkActivation;
+extern jmethodID gCachedNfcManagerNotifyLlcpLinkDeactivated;
+extern jmethodID gCachedNfcManagerNotifyLlcpFirstPacketReceived;
 
-namespace android
-{
-    extern jmethodID gCachedNfcManagerNotifyNdefMessageListeners;
-    extern jmethodID gCachedNfcManagerNotifyTransactionListeners;
-    extern jmethodID gCachedNfcManagerNotifyLlcpLinkActivation;
-    extern jmethodID gCachedNfcManagerNotifyLlcpLinkDeactivated;
-    extern jmethodID gCachedNfcManagerNotifyLlcpFirstPacketReceived;
+/*
+ * host-based card emulation
+ */
+extern jmethodID gCachedNfcManagerNotifyHostEmuActivated;
+extern jmethodID gCachedNfcManagerNotifyHostEmuData;
+extern jmethodID gCachedNfcManagerNotifyHostEmuDeactivated;
 
-    /*
-     * host-based card emulation
-     */
-    extern jmethodID gCachedNfcManagerNotifyHostEmuActivated;
-    extern jmethodID gCachedNfcManagerNotifyHostEmuData;
-    extern jmethodID gCachedNfcManagerNotifyHostEmuDeactivated;
-
-    extern const char* gNativeP2pDeviceClassName;
-    extern const char* gNativeLlcpServiceSocketClassName;
-    extern const char* gNativeLlcpConnectionlessSocketClassName;
-    extern const char* gNativeLlcpSocketClassName;
-    extern const char* gNativeNfcTagClassName;
-    extern const char* gNativeNfcManagerClassName;
-}
+extern const char* gNativeP2pDeviceClassName;
+extern const char* gNativeLlcpServiceSocketClassName;
+extern const char* gNativeLlcpConnectionlessSocketClassName;
+extern const char* gNativeLlcpSocketClassName;
+extern const char* gNativeNfcTagClassName;
+extern const char* gNativeNfcManagerClassName;
+}  // namespace android

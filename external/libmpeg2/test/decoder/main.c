@@ -2246,6 +2246,7 @@ int main(WORD32 argc, CHAR *argv[])
                             u4_ip_buf_len);
                     codec_exit(ac_error_str);
                 }
+
                 s_app_ctx.num_disp_buf = s_ctl_op.u4_num_disp_bufs;
                 /* Allocate output buffer only if display buffers are not shared */
                 /* Or if shared and output is 420P */
@@ -3014,6 +3015,12 @@ int main(WORD32 argc, CHAR *argv[])
                            s_video_decode_op.u4_pic_wd,
                            s_video_decode_op.u4_pic_ht);
 
+                    break;
+                }
+                else if (IVD_DISP_FRM_ZERO_OP_BUF_SIZE ==
+                                (IMPEG2D_ERROR_CODES_T)s_video_decode_op.u4_error_code)
+                {
+                    printf("Output buffer is not large enough!\n");
                     break;
                 }
             }

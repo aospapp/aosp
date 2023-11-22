@@ -16,13 +16,15 @@
 
 #include "sun_misc_Unsafe.h"
 
-#include <atomic>
-#include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
+
+#include <cstdlib>
+#include <cstring>
+#include <atomic>
 
 #include "nativehelper/jni_macros.h"
 
+#include "base/quasi_atomic.h"
 #include "common_throws.h"
 #include "gc/accounting/card_table-inl.h"
 #include "jni_internal.h"
@@ -66,10 +68,12 @@ static jboolean Unsafe_compareAndSwapObject(JNIEnv* env, jobject, jobject javaOb
   if (kUseReadBarrier) {
     // Need to make sure the reference stored in the field is a to-space one before attempting the
     // CAS or the CAS could fail incorrectly.
+    // Note that the read barrier load does NOT need to be volatile.
     mirror::HeapReference<mirror::Object>* field_addr =
         reinterpret_cast<mirror::HeapReference<mirror::Object>*>(
             reinterpret_cast<uint8_t*>(obj.Ptr()) + static_cast<size_t>(offset));
-    ReadBarrier::Barrier<mirror::Object, kWithReadBarrier, /* kAlwaysUpdateField */ true>(
+    ReadBarrier::Barrier<mirror::Object, /* kIsVolatile */ false, kWithReadBarrier,
+        /* kAlwaysUpdateField */ true>(
         obj.Ptr(),
         MemberOffset(offset),
         field_addr);
@@ -111,6 +115,7 @@ static void Unsafe_putOrderedInt(JNIEnv* env, jobject, jobject javaObj, jlong of
                                  jint newValue) {
   ScopedFastNativeObjectAccess soa(env);
   ObjPtr<mirror::Object> obj = soa.Decode<mirror::Object>(javaObj);
+  // TODO: A release store is likely to be faster on future processors.
   QuasiAtomic::ThreadFenceRelease();
   // JNI must use non transactional mode.
   obj->SetField32<false>(MemberOffset(offset), newValue);
@@ -194,14 +199,14 @@ static void Unsafe_putOrderedObject(JNIEnv* env, jobject, jobject javaObj, jlong
   obj->SetFieldObject<false>(MemberOffset(offset), newValue);
 }
 
-static jint Unsafe_getArrayBaseOffsetForComponentType(JNIEnv* env, jclass, jobject component_class) {
+static jint Unsafe_getArrayBaseOffsetForComponentType(JNIEnv* env, jclass, jclass component_class) {
   ScopedFastNativeObjectAccess soa(env);
   ObjPtr<mirror::Class> component = soa.Decode<mirror::Class>(component_class);
   Primitive::Type primitive_type = component->GetPrimitiveType();
   return mirror::Array::DataOffset(Primitive::ComponentSize(primitive_type)).Int32Value();
 }
 
-static jint Unsafe_getArrayIndexScaleForComponentType(JNIEnv* env, jclass, jobject component_class) {
+static jint Unsafe_getArrayIndexScaleForComponentType(JNIEnv* env, jclass, jclass component_class) {
   ScopedFastNativeObjectAccess soa(env);
   ObjPtr<mirror::Class> component = soa.Decode<mirror::Class>(component_class);
   Primitive::Type primitive_type = component->GetPrimitiveType();

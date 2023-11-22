@@ -32,12 +32,16 @@
 #include <unistd.h>
 
 #include <memory>
+#include <string>
 #include <thread>
+#include <vector>
 
 #include <android-base/file.h>
 #include <android-base/properties.h>
 #include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 #include <android-base/unique_fd.h>
+#include <cutils/android_filesystem_config.h>
 #include <cutils/android_reboot.h>
 #include <cutils/partition_utils.h>
 #include <cutils/properties.h>
@@ -249,6 +253,13 @@ static ext4_fsblk_t ext4_r_blocks_count(const struct ext4_super_block* es) {
            le32_to_cpu(es->s_r_blocks_count_lo);
 }
 
+static bool is_ext4_superblock_valid(const struct ext4_super_block* es) {
+    if (es->s_magic != EXT4_SUPER_MAGIC) return false;
+    if (es->s_rev_level != EXT4_DYNAMIC_REV && es->s_rev_level != EXT4_GOOD_OLD_REV) return false;
+    if (EXT4_INODES_PER_GROUP(es) == 0) return false;
+    return true;
+}
+
 // Read the primary superblock from an ext4 filesystem.  On failure return
 // false.  If it's not an ext4 filesystem, also set FS_STAT_EXT4_INVALID_MAGIC.
 static bool read_ext4_superblock(const char* blk_device, struct ext4_super_block* sb, int* fs_stat) {
@@ -264,9 +275,8 @@ static bool read_ext4_superblock(const char* blk_device, struct ext4_super_block
         return false;
     }
 
-    if (sb->s_magic != EXT4_SUPER_MAGIC) {
-        LINFO << "Invalid ext4 magic:0x" << std::hex << sb->s_magic << " "
-              << "on '" << blk_device << "'";
+    if (!is_ext4_superblock_valid(sb)) {
+        LINFO << "Invalid ext4 superblock on '" << blk_device << "'";
         // not a valid fs, tune2fs, fsck, and mount  will all fail.
         *fs_stat |= FS_STAT_EXT4_INVALID_MAGIC;
         return false;
@@ -347,7 +357,7 @@ static void tune_reserved_size(const char* blk_device, const struct fstab_rec* r
         reserved_blocks = max_reserved_blocks;
     }
 
-    if (ext4_r_blocks_count(sb) == reserved_blocks) {
+    if ((ext4_r_blocks_count(sb) == reserved_blocks) && (sb->s_def_resgid == AID_RESERVED_DISK)) {
         return;
     }
 
@@ -357,11 +367,12 @@ static void tune_reserved_size(const char* blk_device, const struct fstab_rec* r
         return;
     }
 
-    char buf[32];
-    const char* argv[] = {TUNE2FS_BIN, "-r", buf, blk_device};
-
-    snprintf(buf, sizeof(buf), "%" PRIu64, reserved_blocks);
     LINFO << "Setting reserved block count on " << blk_device << " to " << reserved_blocks;
+
+    auto reserved_blocks_str = std::to_string(reserved_blocks);
+    auto reserved_gid_str = std::to_string(AID_RESERVED_DISK);
+    const char* argv[] = {
+        TUNE2FS_BIN, "-r", reserved_blocks_str.c_str(), "-g", reserved_gid_str.c_str(), blk_device};
     if (!run_tune2fs(argv, ARRAY_SIZE(argv))) {
         LERROR << "Failed to run " TUNE2FS_BIN " to set the number of reserved blocks on "
                << blk_device;
@@ -535,15 +546,6 @@ static int fs_match(const char *in1, const char *in2)
     free(n2);
 
     return ret;
-}
-
-static int device_is_force_encrypted() {
-    int ret = -1;
-    char value[PROP_VALUE_MAX];
-    ret = __system_property_get("ro.vold.forceencryption", value);
-    if (ret < 0)
-        return 0;
-    return strcmp(value, "1") ? 0 : 1;
 }
 
 /*
@@ -720,7 +722,9 @@ out:
 
 static bool needs_block_encryption(const struct fstab_rec* rec)
 {
-    if (device_is_force_encrypted() && fs_mgr_is_encryptable(rec)) return true;
+    if (android::base::GetBoolProperty("ro.vold.forceencryption", false) &&
+        fs_mgr_is_encryptable(rec))
+        return true;
     if (rec->fs_mgr_flags & MF_FORCECRYPT) return true;
     if (rec->fs_mgr_flags & MF_CRYPT) {
         /* Check for existence of convert_fde breadcrumb file */
@@ -774,21 +778,20 @@ static int handle_encryptable(const struct fstab_rec* rec)
     }
 }
 
-bool is_device_secure() {
-    int ret = -1;
-    char value[PROP_VALUE_MAX];
-    ret = __system_property_get("ro.secure", value);
-    if (ret == 0) {
-#ifdef ALLOW_SKIP_SECURE_CHECK
-        // Allow eng builds to skip this check if the property
-        // is not readable (happens during early mount)
-        return false;
-#else
-        // If error and not an 'eng' build, we want to fail secure.
-        return true;
-#endif
+static bool call_vdc(const std::vector<std::string>& args) {
+    std::vector<char const*> argv;
+    argv.emplace_back("/system/bin/vdc");
+    for (auto& arg : args) {
+        argv.emplace_back(arg.c_str());
     }
-    return strcmp(value, "0") ? true : false;
+    LOG(INFO) << "Calling: " << android::base::Join(argv, ' ');
+    int ret = android_fork_execvp(4, const_cast<char**>(argv.data()), nullptr, false, true);
+    if (ret != 0) {
+        LOG(ERROR) << "vdc returned error code: " << ret;
+        return false;
+    }
+    LOG(DEBUG) << "vdc finished successfully";
+    return true;
 }
 
 /* When multiple fstab records share the same mount_point, it will
@@ -863,7 +866,7 @@ int fs_mgr_mount_all(struct fstab *fstab, int mount_mode)
                 /* Skips mounting the device. */
                 continue;
             }
-        } else if ((fstab->recs[i].fs_mgr_flags & MF_VERIFY) && is_device_secure()) {
+        } else if ((fstab->recs[i].fs_mgr_flags & MF_VERIFY)) {
             int rc = fs_mgr_setup_verity(&fstab->recs[i], true);
             if (__android_log_is_debuggable() &&
                     (rc == FS_MGR_SETUP_VERITY_DISABLED ||
@@ -897,6 +900,13 @@ int fs_mgr_mount_all(struct fstab *fstab, int mount_mode)
                     LERROR << "Only one encryptable/encrypted partition supported";
                 }
                 encryptable = status;
+                if (status == FS_MGR_MNTALL_DEV_NEEDS_METADATA_ENCRYPTION) {
+                    if (!call_vdc(
+                            {"cryptfs", "encryptFstab", fstab->recs[attempted_idx].mount_point})) {
+                        LERROR << "Encryption failed";
+                        return FS_MGR_MNTALL_FAIL;
+                    }
+                }
             }
 
             /* Success!  Go get the next one */
@@ -971,7 +981,11 @@ int fs_mgr_mount_all(struct fstab *fstab, int mount_mode)
             encryptable = FS_MGR_MNTALL_DEV_MIGHT_BE_ENCRYPTED;
         } else if (mret && mount_errno != EBUSY && mount_errno != EACCES &&
                    should_use_metadata_encryption(&fstab->recs[attempted_idx])) {
+            if (!call_vdc({"cryptfs", "mountFstab", fstab->recs[attempted_idx].mount_point})) {
+                ++error_count;
+            }
             encryptable = FS_MGR_MNTALL_DEV_IS_METADATA_ENCRYPTED;
+            continue;
         } else {
             // fs_options might be null so we cannot use PERROR << directly.
             // Use StringPrintf to output "(null)" instead.
@@ -1074,7 +1088,7 @@ int fs_mgr_do_mount(struct fstab *fstab, const char *n_name, char *n_blk_device,
                 /* Skips mounting the device. */
                 continue;
             }
-        } else if ((fstab->recs[i].fs_mgr_flags & MF_VERIFY) && is_device_secure()) {
+        } else if ((fstab->recs[i].fs_mgr_flags & MF_VERIFY)) {
             int rc = fs_mgr_setup_verity(&fstab->recs[i], true);
             if (__android_log_is_debuggable() &&
                     (rc == FS_MGR_SETUP_VERITY_DISABLED ||

@@ -27,8 +27,8 @@ import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
 
+import org.mockito.ArgumentMatcher;
 import org.mockito.InOrder;
-import org.mockito.compat.ArgumentMatcher;
 
 public final class CtsMouseUtil {
 
@@ -63,7 +63,7 @@ public final class CtsMouseUtil {
         return event;
     }
 
-    public static class ActionMatcher extends ArgumentMatcher<MotionEvent> {
+    public static class ActionMatcher implements ArgumentMatcher<MotionEvent> {
         private final int mAction;
 
         public ActionMatcher(int action) {
@@ -71,8 +71,8 @@ public final class CtsMouseUtil {
         }
 
         @Override
-        public boolean matchesObject(Object actual) {
-            return (actual instanceof MotionEvent) && ((MotionEvent) actual).getAction() == mAction;
+        public boolean matches(MotionEvent actual) {
+            return actual.getAction() == mAction;
         }
 
         @Override
@@ -92,10 +92,10 @@ public final class CtsMouseUtil {
         }
 
         @Override
-        public boolean matchesObject(Object actual) {
-            return super.matchesObject(actual)
-                    && ((int) ((MotionEvent) actual).getX()) == mX
-                    && ((int) ((MotionEvent) actual).getY()) == mY;
+        public boolean matches(MotionEvent actual) {
+            return super.matches(actual)
+                    && ((int) actual.getX()) == mX
+                    && ((int) actual.getY()) == mY;
         }
 
         @Override

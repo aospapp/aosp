@@ -99,11 +99,11 @@
     <string name="ok" msgid="163967937451981024">"Oke"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Tidak ada informasi tentang pemilik ponsel"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"Jika ini ponsel Anda, ketuk ikon pensil untuk menambahkan informasi yang akan ditampilkan di sini jika terjadi keadaan darurat"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Jika ini ponsel Anda, tap ikon pensil untuk menambahkan informasi yang akan ditampilkan di sini jika terjadi keadaan darurat"</string>
     <string name="clear_all" msgid="8899013032870561633">"Hapus semua"</string>
     <string name="clear" msgid="3648880442502887163">"Hapus"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Hapus semua informasi dan kontak?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Menambahkan informasi medis dan kontak darurat dapat membantu penolong pertama dalam situasi darurat.\n\nSemua orang dapat membaca informasi ini dari layar kunci dan menelepon kontak dengan menge-tap nama, tanpa harus membuka kunci ponsel."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Menambahkan informasi darurat"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Bantu responden pertama menemukan informasi penting"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Biarkan petugas pertolongan pertama melihat informasi"</string>
 </resources>

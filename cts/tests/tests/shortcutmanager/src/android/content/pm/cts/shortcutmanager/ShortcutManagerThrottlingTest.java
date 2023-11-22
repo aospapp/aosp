@@ -33,11 +33,14 @@ import android.test.suitebuilder.annotation.SmallTest;
 import android.test.suitebuilder.annotation.Suppress;
 import android.view.KeyEvent;
 
+import com.android.compatibility.common.util.CddTest;
+
 /**
  * The actual test is implemented in the CtsShortcutManagerThrottlingTest module.
  * This class uses broadcast receivers to communicate with it, because if we just used an
  * instrumentation test, the target process would never been throttled.
  */
+@CddTest(requirement="3.8.1/C-4-1")
 @SmallTest
 public class ShortcutManagerThrottlingTest extends ShortcutManagerCtsTestsBase {
 

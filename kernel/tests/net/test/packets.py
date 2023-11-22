@@ -29,6 +29,8 @@ TCP_ACK = 16
 
 TCP_WINDOW = 14400
 
+PTB_MTU = 1280
+
 PING_IDENT = 0xff19
 PING_PAYLOAD = "foobarbaz"
 PING_SEQ = 3
@@ -42,7 +44,7 @@ def _RandomPort():
   return random.randint(1025, 65535)
 
 def _GetIpLayer(version):
-  return {4: scapy.IP, 6: scapy.IPv6}[version]
+  return {4: scapy.IP, 5: scapy.IP, 6: scapy.IPv6}[version]
 
 def _SetPacketTos(packet, tos):
   if isinstance(packet, scapy.IPv6):
@@ -61,14 +63,14 @@ def UDP(version, srcaddr, dstaddr, sport=0):
           ip(src=srcaddr, dst=dstaddr) /
           scapy.UDP(sport=sport, dport=53) / UDP_PAYLOAD)
 
-def UDPWithOptions(version, srcaddr, dstaddr, sport=0):
+def UDPWithOptions(version, srcaddr, dstaddr, sport=0, lifetime=39):
   if version == 4:
-    packet = (scapy.IP(src=srcaddr, dst=dstaddr, ttl=39, tos=0x83) /
+    packet = (scapy.IP(src=srcaddr, dst=dstaddr, ttl=lifetime, tos=0x83) /
               scapy.UDP(sport=sport, dport=53) /
               UDP_PAYLOAD)
   else:
     packet = (scapy.IPv6(src=srcaddr, dst=dstaddr,
-                         fl=0xbeef, hlim=39, tc=0x83) /
+                         fl=0xbeef, hlim=lifetime, tc=0x83) /
               scapy.UDP(sport=sport, dport=53) /
               UDP_PAYLOAD)
   return ("UDPv%d packet with options" % version, packet)
@@ -92,7 +94,8 @@ def RST(version, srcaddr, dstaddr, packet):
   return ("TCP RST",
           ip(src=srcaddr, dst=dstaddr) /
           scapy.TCP(sport=original.dport, dport=original.sport,
-                    ack=original.seq + was_syn_or_fin, seq=None,
+                    ack=original.seq + was_syn_or_fin,
+                    seq=original.ack,
                     flags=TCP_RST | TCP_ACK, window=TCP_WINDOW))
 
 def SYNACK(version, srcaddr, dstaddr, packet):
@@ -151,15 +154,20 @@ def ICMPPortUnreachable(version, srcaddr, dstaddr, packet):
 
 def ICMPPacketTooBig(version, srcaddr, dstaddr, packet):
   if version == 4:
-    return ("ICMPv4 fragmentation needed",
-            scapy.IP(src=srcaddr, dst=dstaddr, proto=1) /
-            scapy.ICMPerror(type=3, code=4, unused=1280) / str(packet)[:64])
+    desc = "ICMPv4 fragmentation needed"
+    pkt = (scapy.IP(src=srcaddr, dst=dstaddr, proto=1) /
+           scapy.ICMPerror(type=3, code=4) / str(packet)[:64])
+    # Only newer versions of scapy understand that since RFC 1191, the last two
+    # bytes of a fragmentation needed ICMP error contain the MTU.
+    if hasattr(scapy.ICMP, "nexthopmtu"):
+      pkt[scapy.ICMPerror].nexthopmtu = PTB_MTU
+    else:
+      pkt[scapy.ICMPerror].unused = PTB_MTU
+    return desc, pkt
   else:
-    udp = packet.getlayer("UDP")
-    udp.payload = str(udp.payload)[:1280-40-8]
     return ("ICMPv6 Packet Too Big",
             scapy.IPv6(src=srcaddr, dst=dstaddr) /
-            scapy.ICMPv6PacketTooBig() / str(packet)[:1232])
+            scapy.ICMPv6PacketTooBig(mtu=PTB_MTU) / str(packet)[:1232])
 
 def ICMPEcho(version, srcaddr, dstaddr):
   ip = _GetIpLayer(version)

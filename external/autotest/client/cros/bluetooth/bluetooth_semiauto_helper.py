@@ -9,7 +9,7 @@ import dbus
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import semiauto_framework
-from autotest_lib.client.cros import sys_power
+from autotest_lib.client.cros.power import sys_power
 
 _USER_TIMEOUT_TIME = 321  # Seconds a tester has to respond to prompts
 _DEVICE_TIMEOUT_TIME = 321  # Seconds a tester has to pair or connect device

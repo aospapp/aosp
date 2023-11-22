@@ -14,21 +14,6 @@
 
 LOCAL_PATH:= $(call my-dir)
 
-ifeq ($(BUILD_CTSCORE_PACKAGE),)
-    $(error BUILD_CTSCORE_PACKAGE must be defined)
-endif
-
-include $(CLEAR_VARS)
-
-# include this package in the tests target for continuous testing
-LOCAL_MODULE_TAGS := tests
-
-LOCAL_PACKAGE_NAME := android.core.tests.runner
-
-LOCAL_STATIC_JAVA_LIBRARIES := cts-test-runner
-
-include $(BUILD_CTSCORE_PACKAGE)
-
 #==========================================================
 # Build the core runner.
 #==========================================================
@@ -45,7 +30,8 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     vogarexpect \
     testng
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs
+LOCAL_SDK_VERSION := current
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 

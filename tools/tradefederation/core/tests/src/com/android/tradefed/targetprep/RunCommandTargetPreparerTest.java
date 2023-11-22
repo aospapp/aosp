@@ -27,6 +27,8 @@ import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.TestDeviceState;
+import com.android.tradefed.util.CommandResult;
+import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.RunUtil;
 
 import org.easymock.EasyMock;
@@ -48,8 +50,10 @@ public class RunCommandTargetPreparerTest {
     private IBuildInfo mMockBuildInfo = null;
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         mPreparer = new RunCommandTargetPreparer();
+        OptionSetter setter = new OptionSetter(mPreparer);
+        setter.setOptionValue("use-shell-v2", "true");
         mMockDevice = EasyMock.createMock(ITestDevice.class);
         mMockBuildInfo = EasyMock.createMock(IBuildInfo.class);
     }
@@ -64,7 +68,10 @@ public class RunCommandTargetPreparerTest {
         OptionSetter setter = new OptionSetter(mPreparer);
         setter.setOptionValue("run-command", command);
         EasyMock.expect(mMockDevice.getSerialNumber()).andReturn("SERIAL").times(2);
-        EasyMock.expect(mMockDevice.executeShellCommand(EasyMock.eq(command))).andReturn("");
+        CommandResult res = new CommandResult();
+        res.setStatus(CommandStatus.SUCCESS);
+        res.setStdout("");
+        EasyMock.expect(mMockDevice.executeShellV2Command(EasyMock.eq(command))).andReturn(res);
         EasyMock.replay(mMockDevice, mMockBuildInfo);
         mPreparer.setUp(mMockDevice, mMockBuildInfo);
         EasyMock.verify(mMockDevice, mMockBuildInfo);
@@ -81,12 +88,16 @@ public class RunCommandTargetPreparerTest {
         setter.setOptionValue("run-command", command);
         setter.setOptionValue("run-command-timeout", "100");
         EasyMock.expect(mMockDevice.getSerialNumber()).andReturn("SERIAL").times(2);
-        mMockDevice.executeShellCommand(
-                EasyMock.eq(command),
-                EasyMock.anyObject(),
-                EasyMock.eq(100l),
-                EasyMock.eq(TimeUnit.MILLISECONDS),
-                EasyMock.eq(0));
+        CommandResult res = new CommandResult();
+        res.setStatus(CommandStatus.SUCCESS);
+        res.setStdout("");
+        EasyMock.expect(
+                        mMockDevice.executeShellV2Command(
+                                EasyMock.eq(command),
+                                EasyMock.eq(100l),
+                                EasyMock.eq(TimeUnit.MILLISECONDS),
+                                EasyMock.eq(0)))
+                .andReturn(res);
         EasyMock.replay(mMockDevice, mMockBuildInfo);
         mPreparer.setUp(mMockDevice, mMockBuildInfo);
         EasyMock.verify(mMockDevice, mMockBuildInfo);

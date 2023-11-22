@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2012 Broadcom Corporation
+ *  Copyright 2003-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -25,7 +25,8 @@
  ******************************************************************************/
 
 #include "bta_ag_api.h"
-#include <string.h>
+#include <base/bind.h>
+#include <cstring>
 #include "bt_common.h"
 #include "bta_ag_int.h"
 #include "bta_api.h"
@@ -36,6 +37,7 @@
  ****************************************************************************/
 
 static const tBTA_SYS_REG bta_ag_reg = {bta_ag_hdl_event, BTA_AgDisable};
+const tBTA_AG_RES_DATA tBTA_AG_RES_DATA::kEmpty = {};
 
 /*******************************************************************************
  *
@@ -50,27 +52,16 @@ static const tBTA_SYS_REG bta_ag_reg = {bta_ag_hdl_event, BTA_AgDisable};
  * Returns          BTA_SUCCESS if OK, BTA_FAILURE otherwise.
  *
  ******************************************************************************/
-tBTA_STATUS BTA_AgEnable(tBTA_AG_PARSE_MODE parse_mode,
-                         tBTA_AG_CBACK* p_cback) {
+tBTA_STATUS BTA_AgEnable(tBTA_AG_CBACK* p_cback) {
   /* Error if AG is already enabled, or AG is in the middle of disabling. */
-  for (int idx = 0; idx < BTA_AG_NUM_SCB; idx++) {
-    if (bta_ag_cb.scb[idx].in_use) {
+  for (const tBTA_AG_SCB& scb : bta_ag_cb.scb) {
+    if (scb.in_use) {
       APPL_TRACE_ERROR("BTA_AgEnable: FAILED, AG already enabled.");
       return BTA_FAILURE;
     }
   }
-
-  /* register with BTA system manager */
   bta_sys_register(BTA_ID_AG, &bta_ag_reg);
-
-  tBTA_AG_API_ENABLE* p_buf =
-      (tBTA_AG_API_ENABLE*)osi_malloc(sizeof(tBTA_AG_API_ENABLE));
-  p_buf->hdr.event = BTA_AG_API_ENABLE_EVT;
-  p_buf->parse_mode = parse_mode;
-  p_buf->p_cback = p_cback;
-
-  bta_sys_sendmsg(p_buf);
-
+  do_in_bta_thread(FROM_HERE, base::Bind(&bta_ag_api_enable, p_cback));
   return BTA_SUCCESS;
 }
 
@@ -84,12 +75,8 @@ tBTA_STATUS BTA_AgEnable(tBTA_AG_PARSE_MODE parse_mode,
  * Returns          void
  *
  ******************************************************************************/
-void BTA_AgDisable(void) {
-  BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
-
-  p_buf->event = BTA_AG_API_DISABLE_EVT;
-
-  bta_sys_sendmsg(p_buf);
+void BTA_AgDisable() {
+  do_in_bta_thread(FROM_HERE, base::Bind(&bta_ag_api_disable));
 }
 
 /*******************************************************************************
@@ -103,24 +90,12 @@ void BTA_AgDisable(void) {
  *
  ******************************************************************************/
 void BTA_AgRegister(tBTA_SERVICE_MASK services, tBTA_SEC sec_mask,
-                    tBTA_AG_FEAT features, const char* p_service_names[],
+                    tBTA_AG_FEAT features,
+                    const std::vector<std::string>& service_names,
                     uint8_t app_id) {
-  tBTA_AG_API_REGISTER* p_buf =
-      (tBTA_AG_API_REGISTER*)osi_malloc(sizeof(tBTA_AG_API_REGISTER));
-
-  p_buf->hdr.event = BTA_AG_API_REGISTER_EVT;
-  p_buf->features = features;
-  p_buf->sec_mask = sec_mask;
-  p_buf->services = services;
-  p_buf->app_id = app_id;
-  for (int i = 0; i < BTA_AG_NUM_IDX; i++) {
-    if (p_service_names[i])
-      strlcpy(p_buf->p_name[i], p_service_names[i], BTA_SERVICE_NAME_LEN);
-    else
-      p_buf->p_name[i][0] = 0;
-  }
-
-  bta_sys_sendmsg(p_buf);
+  do_in_bta_thread(
+      FROM_HERE, base::Bind(&bta_ag_api_register, services, sec_mask, features,
+                            service_names, app_id));
 }
 
 /*******************************************************************************
@@ -134,12 +109,9 @@ void BTA_AgRegister(tBTA_SERVICE_MASK services, tBTA_SEC sec_mask,
  *
  ******************************************************************************/
 void BTA_AgDeregister(uint16_t handle) {
-  BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
-
-  p_buf->event = BTA_AG_API_DEREGISTER_EVT;
-  p_buf->layer_specific = handle;
-
-  bta_sys_sendmsg(p_buf);
+  do_in_bta_thread(FROM_HERE,
+                   base::Bind(&bta_ag_sm_execute_by_handle, handle,
+                              BTA_AG_API_DEREGISTER_EVT, tBTA_AG_DATA::kEmpty));
 }
 
 /*******************************************************************************
@@ -155,18 +127,12 @@ void BTA_AgDeregister(uint16_t handle) {
  * Returns          void
  *
  ******************************************************************************/
-void BTA_AgOpen(uint16_t handle, const RawAddress& bd_addr, tBTA_SEC sec_mask,
-                tBTA_SERVICE_MASK services) {
-  tBTA_AG_API_OPEN* p_buf =
-      (tBTA_AG_API_OPEN*)osi_malloc(sizeof(tBTA_AG_API_OPEN));
-
-  p_buf->hdr.event = BTA_AG_API_OPEN_EVT;
-  p_buf->hdr.layer_specific = handle;
-  p_buf->bd_addr = bd_addr;
-  p_buf->services = services;
-  p_buf->sec_mask = sec_mask;
-
-  bta_sys_sendmsg(p_buf);
+void BTA_AgOpen(uint16_t handle, const RawAddress& bd_addr, tBTA_SEC sec_mask) {
+  tBTA_AG_DATA data = {};
+  data.api_open.bd_addr = bd_addr;
+  data.api_open.sec_mask = sec_mask;
+  do_in_bta_thread(FROM_HERE, base::Bind(&bta_ag_sm_execute_by_handle, handle,
+                                         BTA_AG_API_OPEN_EVT, data));
 }
 
 /*******************************************************************************
@@ -181,12 +147,9 @@ void BTA_AgOpen(uint16_t handle, const RawAddress& bd_addr, tBTA_SEC sec_mask,
  *
  ******************************************************************************/
 void BTA_AgClose(uint16_t handle) {
-  BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
-
-  p_buf->event = BTA_AG_API_CLOSE_EVT;
-  p_buf->layer_specific = handle;
-
-  bta_sys_sendmsg(p_buf);
+  do_in_bta_thread(FROM_HERE,
+                   base::Bind(&bta_ag_sm_execute_by_handle, handle,
+                              BTA_AG_API_CLOSE_EVT, tBTA_AG_DATA::kEmpty));
 }
 
 /*******************************************************************************
@@ -201,12 +164,9 @@ void BTA_AgClose(uint16_t handle) {
  *
  ******************************************************************************/
 void BTA_AgAudioOpen(uint16_t handle) {
-  BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
-
-  p_buf->event = BTA_AG_API_AUDIO_OPEN_EVT;
-  p_buf->layer_specific = handle;
-
-  bta_sys_sendmsg(p_buf);
+  do_in_bta_thread(FROM_HERE,
+                   base::Bind(&bta_ag_sm_execute_by_handle, handle,
+                              BTA_AG_API_AUDIO_OPEN_EVT, tBTA_AG_DATA::kEmpty));
 }
 
 /*******************************************************************************
@@ -221,12 +181,9 @@ void BTA_AgAudioOpen(uint16_t handle) {
  *
  ******************************************************************************/
 void BTA_AgAudioClose(uint16_t handle) {
-  BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
-
-  p_buf->event = BTA_AG_API_AUDIO_CLOSE_EVT;
-  p_buf->layer_specific = handle;
-
-  bta_sys_sendmsg(p_buf);
+  do_in_bta_thread(
+      FROM_HERE, base::Bind(&bta_ag_sm_execute_by_handle, handle,
+                            BTA_AG_API_AUDIO_CLOSE_EVT, tBTA_AG_DATA::kEmpty));
 }
 
 /*******************************************************************************
@@ -242,16 +199,9 @@ void BTA_AgAudioClose(uint16_t handle) {
  *
  ******************************************************************************/
 void BTA_AgResult(uint16_t handle, tBTA_AG_RES result,
-                  tBTA_AG_RES_DATA* p_data) {
-  tBTA_AG_API_RESULT* p_buf =
-      (tBTA_AG_API_RESULT*)osi_malloc(sizeof(tBTA_AG_API_RESULT));
-
-  p_buf->hdr.event = BTA_AG_API_RESULT_EVT;
-  p_buf->hdr.layer_specific = handle;
-  p_buf->result = result;
-  if (p_data) memcpy(&p_buf->data, p_data, sizeof(p_buf->data));
-
-  bta_sys_sendmsg(p_buf);
+                  const tBTA_AG_RES_DATA& data) {
+  do_in_bta_thread(FROM_HERE,
+                   base::Bind(&bta_ag_api_result, handle, result, data));
 }
 
 /*******************************************************************************
@@ -267,22 +217,17 @@ void BTA_AgResult(uint16_t handle, tBTA_AG_RES result,
  *
  ******************************************************************************/
 void BTA_AgSetCodec(uint16_t handle, tBTA_AG_PEER_CODEC codec) {
-  tBTA_AG_API_SETCODEC* p_buf =
-      (tBTA_AG_API_SETCODEC*)osi_malloc(sizeof(tBTA_AG_API_SETCODEC));
-
-  p_buf->hdr.event = BTA_AG_API_SETCODEC_EVT;
-  p_buf->hdr.layer_specific = handle;
-  p_buf->codec = codec;
-
-  bta_sys_sendmsg(p_buf);
+  tBTA_AG_DATA data = {};
+  data.api_setcodec.codec = codec;
+  do_in_bta_thread(FROM_HERE, base::Bind(&bta_ag_sm_execute_by_handle, handle,
+                                         BTA_AG_API_SETCODEC_EVT, data));
 }
 
 void BTA_AgSetScoAllowed(bool value) {
-  tBTA_AG_API_SET_SCO_ALLOWED* p_buf = (tBTA_AG_API_SET_SCO_ALLOWED*)osi_malloc(
-      sizeof(tBTA_AG_API_SET_SCO_ALLOWED));
+  do_in_bta_thread(FROM_HERE, base::Bind(&bta_ag_set_sco_allowed, value));
+}
 
-  p_buf->hdr.event = BTA_AG_API_SET_SCO_ALLOWED_EVT;
-  p_buf->value = value;
-
-  bta_sys_sendmsg(p_buf);
+void BTA_AgSetActiveDevice(const RawAddress& active_device_addr) {
+  do_in_bta_thread(
+      FROM_HERE, base::Bind(&bta_ag_api_set_active_device, active_device_addr));
 }

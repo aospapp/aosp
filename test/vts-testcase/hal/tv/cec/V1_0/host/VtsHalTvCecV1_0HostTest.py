@@ -18,39 +18,19 @@
 import logging
 import time
 
-from vts.proto import ComponentSpecificationMessage_pb2 as CompSpecMsg
 from vts.runners.host import asserts
-from vts.runners.host import base_test
-from vts.runners.host import const
-from vts.runners.host import keys
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
-from vts.utils.python.precondition import precondition_utils
+from vts.testcases.template.hal_hidl_host_test import hal_hidl_host_test
 
+TVCEC_V1_0_HAL = "android.hardware.tv.cec@1.0::IHdmiCec"
 
-class TvCecHidlTest(base_test.BaseTestClass):
+class TvCecHidlTest(hal_hidl_host_test.HalHidlHostTest):
     """Host testcase class for the TV HDMI_CEC HIDL HAL."""
 
+    TEST_HAL_SERVICES = {TVCEC_V1_0_HAL}
     def setUpClass(self):
         """Creates a mirror and init tv hdmi cec hal service."""
-        self.dut = self.registerController(android_device)[0]
-
-        self.dut.shell.InvokeTerminal("one")
-        self.dut.shell.one.Execute("setenforce 0")  # SELinux permissive mode
-        if not precondition_utils.CanRunHidlHalTest(
-            self, self.dut, self.dut.shell.one):
-            self._skip_all_testcases = True
-            return
-
-        self.dut.shell.one.Execute(
-            "setprop vts.hal.vts.hidl.get_stub true")
-
-        if self.coverage.enabled:
-            self.coverage.LoadArtifacts()
-            self.coverage.InitializeDeviceCoverage(self.dut)
-
-        if self.profiling.enabled:
-            self.profiling.EnableVTSProfiling(self.dut.shell.one)
+        super(TvCecHidlTest, self).setUpClass()
 
         self.dut.hal.InitHidlHal(
             target_type="tv_cec",
@@ -58,36 +38,13 @@ class TvCecHidlTest(base_test.BaseTestClass):
             target_version=1.0,
             target_package="android.hardware.tv.cec",
             target_component_name="IHdmiCec",
+            hw_binder_service_name=self.getHalServiceName(TVCEC_V1_0_HAL),
             bits=int(self.abi_bitness))
 
         time.sleep(1) # Wait for hal to be ready
 
         self.vtypes = self.dut.hal.tv_cec.GetHidlTypeInterface("types")
         logging.info("tv_cec types: %s", self.vtypes)
-
-    def setUp(self):
-        """Setup function that will be called every time before executing each
-        test case in the test class."""
-        if self.profiling.enabled:
-            self.profiling.EnableVTSProfiling(self.dut.shell.one)
-
-    def tearDown(self):
-        """TearDown function that will be called every time after executing each
-        test case in the test class."""
-        if self.profiling.enabled:
-            self.profiling.ProcessTraceDataForTestCase(self.dut)
-            self.profiling.DisableVTSProfiling(self.dut.shell.one)
-
-    def tearDownClass(self):
-        """To be executed when all test cases are finished."""
-        if self._skip_all_testcases:
-            return
-
-        if self.coverage.enabled:
-            self.coverage.SetCoverageData(dut=self.dut, isGlobal=True)
-
-        if self.profiling.enabled:
-            self.profiling.ProcessAndUploadTraceData()
 
     def testClearAndAddLogicalAddress(self):
         """A simple test case which sets logical address and clears it."""

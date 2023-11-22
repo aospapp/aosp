@@ -115,22 +115,22 @@ public:
     /* This function implements creation of GSCAN specific Request
      * based on  the request type.
      */
-    virtual int create();
-    virtual int requestResponse();
+    virtual wifi_error create();
+    virtual wifi_error requestResponse();
     virtual int handleResponse(WifiEvent &reply);
     virtual void setMaxChannels(int max_channels);
     virtual void setChannels(int *channels);
     virtual void setNumChannelsPtr(int *num_channels);
-    virtual int allocRspParams(eGScanRspRarams cmd);
+    virtual wifi_error allocRspParams(eGScanRspRarams cmd);
     virtual void freeRspParams(eGScanRspRarams cmd);
     virtual wifi_error copyCachedScanResults(int *numResults,
                                              wifi_cached_scan_results *cached_results);
-    virtual int gscan_get_cached_results(wifi_cached_scan_results *results,
+    virtual wifi_error gscan_get_cached_results(wifi_cached_scan_results *results,
                                          struct nlattr **tb_vendor);
     wifi_error validateGscanConfig(wifi_scan_cmd_params params);
     wifi_error validateSignificantChangeParams(
             wifi_significant_change_params params);
-    virtual int allocCachedResultsTemp(int max,
+    virtual wifi_error allocCachedResultsTemp(int max,
                                        wifi_cached_scan_results *results);
 };
 

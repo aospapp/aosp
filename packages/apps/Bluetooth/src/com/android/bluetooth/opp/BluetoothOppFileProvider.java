@@ -25,6 +25,7 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.support.v4.content.FileProvider;
 import android.util.Log;
+
 import java.io.File;
 
 /**
@@ -66,14 +67,16 @@ public class BluetoothOppFileProvider extends FileProvider {
             if (!mRegisteredReceiver) {
                 IntentFilter userFilter = new IntentFilter();
                 userFilter.addAction(Intent.ACTION_USER_UNLOCKED);
-                mContext.registerReceiverAsUser(
-                        mBroadcastReceiver, UserHandle.CURRENT, userFilter, null, null);
+                mContext.registerReceiverAsUser(mBroadcastReceiver, UserHandle.CURRENT, userFilter,
+                        null, null);
                 mRegisteredReceiver = true;
             }
             UserManager userManager = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
             if (userManager.isUserUnlocked()) {
                 if (!mInitialized) {
-                    if (Constants.DEBUG) Log.d(TAG, "Initialized");
+                    if (Constants.DEBUG) {
+                        Log.d(TAG, "Initialized");
+                    }
                     super.attachInfo(mContext, mProviderInfo);
                     mInitialized = true;
                 }

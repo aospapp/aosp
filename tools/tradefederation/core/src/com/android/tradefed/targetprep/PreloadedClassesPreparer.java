@@ -36,7 +36,7 @@ import java.io.File;
  * <p>Note that this preparer requires a rooted, debug build to work.
  */
 @OptionClass(alias = "preloaded-classes-preparer")
-public class PreloadedClassesPreparer implements ITargetPreparer {
+public class PreloadedClassesPreparer extends BaseTargetPreparer {
     // Preload tool commands
     private static final String TOOL_CMD = "java -cp %s com.android.preload.Main --seq %s %s";
     private static final String WRITE_CMD = "write %s";

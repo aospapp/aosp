@@ -27,7 +27,6 @@ import android.support.design.widget.BottomSheetDialogFragment;
 import android.telecom.CallAudioState;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.TextView;
@@ -37,6 +36,7 @@ import com.android.dialer.common.LogUtil;
 /** Shows picker for audio routes */
 public class AudioRouteSelectorDialogFragment extends BottomSheetDialogFragment {
 
+  public static final String TAG = "AudioRouteSelectorDialogFragment";
   private static final String ARG_AUDIO_STATE = "audio_state";
 
   /** Called when an audio route is picked */
@@ -91,12 +91,14 @@ public class AudioRouteSelectorDialogFragment extends BottomSheetDialogFragment 
         (TextView) view.findViewById(R.id.audioroute_earpiece),
         CallAudioState.ROUTE_EARPIECE,
         audioState);
+
+    // TODO(a bug): set peak height correctly to fully expand it in landscape mode.
     return view;
   }
 
   @Override
-  public void onDismiss(DialogInterface dialogInterface) {
-    super.onDismiss(dialogInterface);
+  public void onCancel(DialogInterface dialogInterface) {
+    super.onCancel(dialogInterface);
     FragmentUtils.getParentUnsafe(
             AudioRouteSelectorDialogFragment.this, AudioRouteSelectorPresenter.class)
         .onAudioRouteSelectorDismiss();
@@ -112,14 +114,11 @@ public class AudioRouteSelectorDialogFragment extends BottomSheetDialogFragment 
       item.setCompoundDrawableTintMode(Mode.SRC_ATOP);
     }
     item.setOnClickListener(
-        new OnClickListener() {
-          @Override
-          public void onClick(View v) {
-            dismiss();
-            FragmentUtils.getParentUnsafe(
-                    AudioRouteSelectorDialogFragment.this, AudioRouteSelectorPresenter.class)
-                .onAudioRouteSelected(itemRoute);
-          }
+        (v) -> {
+          dismiss();
+          FragmentUtils.getParentUnsafe(
+                  AudioRouteSelectorDialogFragment.this, AudioRouteSelectorPresenter.class)
+              .onAudioRouteSelected(itemRoute);
         });
   }
 }

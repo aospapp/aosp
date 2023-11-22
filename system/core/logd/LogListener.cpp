@@ -43,9 +43,10 @@ bool LogListener::onDataAvailable(SocketClient* cli) {
         name_set = true;
     }
 
+    // + 1 to ensure null terminator if MAX_PAYLOAD buffer is received
     char buffer[sizeof_log_id_t + sizeof(uint16_t) + sizeof(log_time) +
-                LOGGER_ENTRY_MAX_PAYLOAD];
-    struct iovec iov = { buffer, sizeof(buffer) };
+                LOGGER_ENTRY_MAX_PAYLOAD + 1];
+    struct iovec iov = { buffer, sizeof(buffer) - 1 };
 
     alignas(4) char control[CMSG_SPACE(sizeof(struct ucred))];
     struct msghdr hdr = {
@@ -55,12 +56,15 @@ bool LogListener::onDataAvailable(SocketClient* cli) {
     int socket = cli->getSocket();
 
     // To clear the entire buffer is secure/safe, but this contributes to 1.68%
-    // overhead under logging load. We are safe because we check counts.
+    // overhead under logging load. We are safe because we check counts, but
+    // still need to clear null terminator
     // memset(buffer, 0, sizeof(buffer));
     ssize_t n = recvmsg(socket, &hdr, 0);
     if (n <= (ssize_t)(sizeof(android_log_header_t))) {
         return false;
     }
+
+    buffer[n] = 0;
 
     struct ucred* cred = NULL;
 
@@ -90,12 +94,13 @@ bool LogListener::onDataAvailable(SocketClient* cli) {
 
     android_log_header_t* header =
         reinterpret_cast<android_log_header_t*>(buffer);
-    if (/* header->id < LOG_ID_MIN || */ header->id >= LOG_ID_MAX ||
-        header->id == LOG_ID_KERNEL) {
+    log_id_t logId = static_cast<log_id_t>(header->id);
+    if (/* logId < LOG_ID_MIN || */ logId >= LOG_ID_MAX ||
+        logId == LOG_ID_KERNEL) {
         return false;
     }
 
-    if ((header->id == LOG_ID_SECURITY) &&
+    if ((logId == LOG_ID_SECURITY) &&
         (!__android_log_security() ||
          !clientHasLogCredentials(cred->uid, cred->gid, cred->pid))) {
         return false;
@@ -130,11 +135,10 @@ bool LogListener::onDataAvailable(SocketClient* cli) {
 
     if (logbuf != nullptr) {
         int res = logbuf->log(
-            (log_id_t)header->id, header->realtime, cred->uid, cred->pid,
-            header->tid, msg,
+            logId, header->realtime, cred->uid, cred->pid, header->tid, msg,
             ((size_t)n <= USHRT_MAX) ? (unsigned short)n : USHRT_MAX);
         if (res > 0 && reader != nullptr) {
-            reader->notifyNewLog();
+            reader->notifyNewLog(static_cast<log_mask_t>(1 << logId));
         }
     }
 

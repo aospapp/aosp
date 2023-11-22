@@ -303,10 +303,9 @@ static int wpa_tdls_tpk_send(struct wpa_sm *sm, const u8 *dest, u8 action_code,
 	peer->sm_tmr.peer_capab = peer_capab;
 	peer->sm_tmr.buf_len = msg_len;
 	os_free(peer->sm_tmr.buf);
-	peer->sm_tmr.buf = os_malloc(msg_len);
+	peer->sm_tmr.buf = os_memdup(msg, msg_len);
 	if (peer->sm_tmr.buf == NULL)
 		return -1;
-	os_memcpy(peer->sm_tmr.buf, msg, msg_len);
 
 	wpa_printf(MSG_DEBUG, "TDLS: Retry timeout registered "
 		   "(action_code=%u)", action_code);
@@ -413,8 +412,9 @@ static void wpa_tdls_generate_tpk(struct wpa_tdls_peer *peer,
 	size_t len[2];
 	u8 data[3 * ETH_ALEN];
 
-	/* IEEE Std 802.11z-2010 8.5.9.1:
-	 * TPK-Key-Input = SHA-256(min(SNonce, ANonce) || max(SNonce, ANonce))
+	/* IEEE Std 802.11-2016 12.7.9.2:
+	 * TPK-Key-Input = Hash(min(SNonce, ANonce) || max(SNonce, ANonce))
+	 * Hash = SHA-256 for TDLS
 	 */
 	len[0] = WPA_NONCE_LEN;
 	len[1] = WPA_NONCE_LEN;
@@ -432,11 +432,8 @@ static void wpa_tdls_generate_tpk(struct wpa_tdls_peer *peer,
 			key_input, SHA256_MAC_LEN);
 
 	/*
-	 * TPK-Key-Data = KDF-N_KEY(TPK-Key-Input, "TDLS PMK",
-	 *	min(MAC_I, MAC_R) || max(MAC_I, MAC_R) || BSSID || N_KEY)
-	 * TODO: is N_KEY really included in KDF Context and if so, in which
-	 * presentation format (little endian 16-bit?) is it used? It gets
-	 * added by the KDF anyway..
+	 * TPK = KDF-Hash-Length(TPK-Key-Input, "TDLS PMK",
+	 *	min(MAC_I, MAC_R) || max(MAC_I, MAC_R) || BSSID)
 	 */
 
 	if (os_memcmp(own_addr, peer->addr, ETH_ALEN) < 0) {

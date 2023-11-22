@@ -22,6 +22,7 @@ import com.android.tradefed.log.ILeveledLogOutput;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.DeviceWiper;
 import com.android.tradefed.targetprep.StubTargetPreparer;
+import com.android.tradefed.targetprep.multi.StubMultiTargetPreparer;
 import com.android.tradefed.util.FileUtil;
 
 import junit.framework.TestCase;
@@ -62,12 +63,13 @@ public class ConfigurationFactoryTest extends TestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mFactory = new ConfigurationFactory() {
-            @Override
-            String getConfigPrefix() {
-                return "testconfigs/";
-            }
-        };
+        mFactory =
+                new ConfigurationFactory() {
+                    @Override
+                    protected String getConfigPrefix() {
+                        return "testconfigs/";
+                    }
+                };
     }
 
     /**
@@ -474,6 +476,27 @@ public class ConfigurationFactoryTest extends TestCase {
         assertEquals("valueFromTemplateIncludeConfig", fromTemplateIncludeConfig.mOption);
     }
 
+    /** Test loading a config that uses template-include to include another config. */
+    public void testCreateConfigurationFromArgs_templateInclude_multiKey() throws Exception {
+        try {
+            mFactory.createConfigurationFromArgs(
+                    new String[] {
+                        "template-include-config",
+                        "--template:map",
+                        "target",
+                        "test-config",
+                        "--template:map",
+                        "target",
+                        "test-config"
+                    });
+            fail("Should have thrown an exception.");
+        } catch (ConfigurationException expected) {
+            // Expected
+            assertEquals(
+                    "More than one template specified for key 'target'", expected.getMessage());
+        }
+    }
+
     /**
      * Make sure that we throw a useful error when template-include usage is underspecified.
      */
@@ -562,15 +585,19 @@ public class ConfigurationFactoryTest extends TestCase {
         final String depTargetName = "template-include-config";
         final String targetName = "test-config";
 
-        try {
-            IConfiguration config = mFactory.createConfigurationFromArgs(new String[]{configName,
-                    "--template:map", "dep-target", depTargetName,
-                    "--template:map", "target", targetName});
-            assertTrue(config.getTests().get(0) instanceof StubOptionTest);
-            assertTrue(config.getTests().get(1) instanceof StubOptionTest);
-        } catch (ConfigurationException e) {
-            fail(e.getMessage());
-        }
+        IConfiguration config =
+                mFactory.createConfigurationFromArgs(
+                        new String[] {
+                            configName,
+                            "--template:map",
+                            "dep-target",
+                            depTargetName,
+                            "--template:map",
+                            "target",
+                            targetName
+                        });
+        assertTrue(config.getTests().get(0) instanceof StubOptionTest);
+        assertTrue(config.getTests().get(1) instanceof StubOptionTest);
     }
 
     /**
@@ -1177,7 +1204,9 @@ public class ConfigurationFactoryTest extends TestCase {
      * devices tags.
      */
     public void testCreateConfigurationFromArgs_multidevice_exception() throws Exception {
-        String expectedException = "Tags [build_provider] should be included in a <device> tag.";
+        String expectedException =
+                "You seem to want a multi-devices configuration but you have "
+                        + "[build_provider] tags outside the <device> tags";
         try {
             mFactory.createConfigurationFromArgs(new String[]{"multi-device-outside-tag"});
             fail("Should have thrown a Configuration Exception");
@@ -1206,9 +1235,12 @@ public class ConfigurationFactoryTest extends TestCase {
                 .getTargetPreparers().size());
         List<String> serials = new ArrayList<String>();
         serials.add("test");
-        assertEquals(serials, config.getDeviceRequirements().getSerials());
-        assertEquals(serials, config.getDeviceConfigByName(ConfigurationDef.DEFAULT_DEVICE_NAME)
-                .getDeviceRequirements().getSerials());
+        assertEquals(serials, config.getDeviceRequirements().getSerials(null));
+        assertEquals(
+                serials,
+                config.getDeviceConfigByName(ConfigurationDef.DEFAULT_DEVICE_NAME)
+                        .getDeviceRequirements()
+                        .getSerials(null));
     }
 
     /**
@@ -1481,6 +1513,168 @@ public class ConfigurationFactoryTest extends TestCase {
             assertTrue(res.iterator().next().contains("testconfig2"));
         } finally {
             FileUtil.recursiveDelete(tmpDir);
+        }
+    }
+
+    /**
+     * Test that if the base configuration is single device and a template attempt to make it
+     * multi-devices, it will fail and provide a clear message about which tags are not in the right
+     * place.
+     */
+    public void testCreateConfigurationFromArgs_singleDeviceTemplate_includeMulti()
+            throws Exception {
+        try {
+            mFactory.createConfigurationFromArgs(
+                    new String[] {
+                        "local-preparer-base", "--template:map", "config", "test-config-multi"
+                    });
+            fail("Should have thrown an exception");
+        } catch (ConfigurationException expected) {
+            assertEquals(
+                    "You seem to want a multi-devices configuration but you have "
+                            + "[target_preparer] tags outside the <device> tags",
+                    expected.getMessage());
+        }
+    }
+
+    /**
+     * Opposite scenario of {@link
+     * #testCreateConfigurationFromArgs_singleDeviceTemplate_includeMulti()} where the base template
+     * is multi-devices and the template included has a single device tag.
+     */
+    public void testCreateConfigurationFromArgs_multiDeviceTemplate_includeSingle()
+            throws Exception {
+        try {
+            mFactory.createConfigurationFromArgs(
+                    new String[] {
+                        "multi-device", "--template:map", "preparers", "local-preparer-base"
+                    });
+            fail("Should have thrown an exception");
+        } catch (ConfigurationException expected) {
+            assertEquals(
+                    "You seem to want a multi-devices configuration but you have "
+                            + "[target_preparer] tags outside the <device> tags",
+                    expected.getMessage());
+        }
+    }
+
+    /**
+     * Test that if we load a configuration with some unfound class, we throw an exception and
+     * report the objects that did not load.
+     */
+    public void testCreateConfigurationFromArgs_failedToLoadClass() throws Exception {
+        try {
+            mFactory.createConfigurationFromArgs(new String[] {"multi-device-incorrect"});
+            fail("Should have thrown an exception");
+        } catch (ClassNotFoundConfigurationException expected) {
+            assertTrue(
+                    expected.getMessage()
+                            .contains("Failed to load some objects in the configuration:"));
+            assertEquals(
+                    "device1:build_provider",
+                    expected.getRejectedObjects().get("com.android.tradefed.build.doesnotexists"));
+            assertEquals(
+                    "device3:target_preparer",
+                    expected.getRejectedObjects()
+                            .get("com.android.tradefed.targetprep.doesnotexistseither"));
+        }
+    }
+
+    /**
+     * Test that a configuration with one real device and one fake device (isFake=true) will be
+     * loaded like a single device config: The objects outside the <device> tags will be part of the
+     * real device.
+     */
+    public void testCreateConfiguration_multiDevice_fake() throws Exception {
+        IConfiguration config =
+                mFactory.createConfigurationFromArgs(
+                        new String[] {
+                            "test-config-multi-fake",
+                            "--{device1}no-test-boolean-option",
+                            "--{device1}test-boolean-option-false",
+                            // testing with namespace too
+                            "--{device1}stub-preparer:no-test-boolean-option",
+                            "--{device1}stub-preparer:test-boolean-option-false"
+                        });
+        assertEquals(2, config.getDeviceConfig().size());
+        IDeviceConfiguration device1 = config.getDeviceConfigByName("device1");
+        // One target preparer from inside the device tag, one from outside.
+        assertEquals(2, device1.getTargetPreparers().size());
+        StubTargetPreparer deviceSetup1 = (StubTargetPreparer) device1.getTargetPreparers().get(0);
+        // default value of test-boolean-option is true, we set it to false
+        assertFalse(deviceSetup1.getTestBooleanOption());
+        // default value of test-boolean-option-false is false, we set it to true.
+        assertTrue(deviceSetup1.getTestBooleanOptionFalse());
+
+        // Check that the second preparer, outside device1 can still receive option as {device1}.
+        StubTargetPreparer deviceSetup2 = (StubTargetPreparer) device1.getTargetPreparers().get(1);
+        // default value of test-boolean-option is true, we set it to false
+        assertFalse(deviceSetup2.getTestBooleanOption());
+        // default value of test-boolean-option-false is false, we set it to true.
+        assertTrue(deviceSetup2.getTestBooleanOptionFalse());
+
+        assertFalse(config.isDeviceConfiguredFake("device1"));
+        assertTrue(config.isDeviceConfiguredFake("device2"));
+    }
+
+    /** Test that a configuration with all the device marked as isReal=false will be rejected. */
+    public void testCreateConfiguration_multiDevice_real_notReal() throws Exception {
+        try {
+            mFactory.createConfigurationFromArgs(new String[] {"test-config-real-not-real"});
+            fail("Should have thrown an exception");
+        } catch (ConfigurationException expected) {
+            assertEquals(
+                    "Failed to parse config xml 'test-config-real-not-real'. Reason: Mismatch for "
+                            + "device 'device1'. It was defined once as isFake=false, once as "
+                            + "isFake=true",
+                    expected.getMessage());
+        }
+    }
+
+    /**
+     * Test that a configuration with two real devices and one fake one (isFake=false) will reject
+     * object that are at the root: We cannot decide where to put these objects.
+     */
+    public void testCreateConfiguration_multiDevice_twoReal_oneFake() throws Exception {
+        try {
+            mFactory.createConfigurationFromArgs(new String[] {"test-config-multi-3-fake"});
+            fail("Should have thrown an exception");
+        } catch (ConfigurationException expected) {
+            assertEquals(
+                    "You seem to want a multi-devices configuration but you have [target_preparer] "
+                            + "tags outside the <device> tags",
+                    expected.getMessage());
+        }
+    }
+
+    /**
+     * Test that even if multi_pre_target_prep and multi_target_prep share the same type, we do not
+     * mix the objects internally.
+     */
+    public void testParse_multiTargetPrep() throws Exception {
+        String normalConfig =
+                "<configuration description=\"desc\" >\n"
+                        + "  <multi_pre_target_preparer class=\""
+                        + StubMultiTargetPreparer.class.getName()
+                        + "\" />\n"
+                        + "  <multi_target_preparer class=\""
+                        + StubMultiTargetPreparer.class.getName()
+                        + "\" />\n"
+                        + "</configuration>";
+        File tmpConfig = FileUtil.createTempFile("tmp-config-tests", ".xml");
+        try {
+            FileUtil.writeToFile(normalConfig, tmpConfig);
+            IConfiguration config =
+                    mFactory.createConfigurationFromArgs(
+                            new String[] {tmpConfig.getAbsolutePath()});
+            assertEquals(1, config.getMultiPreTargetPreparers().size());
+            assertEquals(1, config.getMultiTargetPreparers().size());
+            // Different objects have been created for each.
+            assertNotSame(
+                    config.getMultiPreTargetPreparers().get(0),
+                    config.getMultiTargetPreparers().get(0));
+        } finally {
+            FileUtil.deleteFile(tmpConfig);
         }
     }
 }

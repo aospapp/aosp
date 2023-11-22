@@ -18,34 +18,57 @@ package android.autofillservice.cts;
 
 import static android.autofillservice.cts.InstrumentedAutoFillService.SERVICE_NAME;
 import static android.autofillservice.cts.UiBot.PORTRAIT;
+import static android.autofillservice.cts.common.ShellHelper.runShellCommand;
 import static android.provider.Settings.Secure.AUTOFILL_SERVICE;
 import static android.provider.Settings.Secure.USER_SETUP_COMPLETE;
+import static android.service.autofill.FillEventHistory.Event.TYPE_AUTHENTICATION_SELECTED;
+import static android.service.autofill.FillEventHistory.Event.TYPE_CONTEXT_COMMITTED;
+import static android.service.autofill.FillEventHistory.Event.TYPE_DATASET_AUTHENTICATION_SELECTED;
+import static android.service.autofill.FillEventHistory.Event.TYPE_DATASET_SELECTED;
+import static android.service.autofill.FillEventHistory.Event.TYPE_SAVE_SHOWN;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.app.Activity;
 import android.app.assist.AssistStructure;
 import android.app.assist.AssistStructure.ViewNode;
 import android.app.assist.AssistStructure.WindowNode;
+import android.autofillservice.cts.common.SettingsHelper;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.icu.util.Calendar;
+import android.os.Bundle;
+import android.os.Environment;
+import android.service.autofill.FieldClassification;
+import android.service.autofill.FieldClassification.Match;
 import android.service.autofill.FillContext;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+import android.service.autofill.FillEventHistory;
 import android.support.test.InstrumentationRegistry;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewStructure.HtmlInfo;
 import android.view.autofill.AutofillId;
+import android.view.autofill.AutofillManager.AutofillCallback;
 import android.view.autofill.AutofillValue;
 import android.webkit.WebView;
 
-import com.android.compatibility.common.util.SystemUtil;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
+import com.android.compatibility.common.util.BitmapUtils;
+import com.android.compatibility.common.util.RequiredFeatureRule;
+
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.Function;
 
 /**
@@ -53,9 +76,11 @@ import java.util.function.Function;
  */
 final class Helper {
 
-    private static final String TAG = "AutoFillCtsHelper";
+    static final String TAG = "AutoFillCtsHelper";
 
     static final boolean VERBOSE = false;
+
+    static final String MY_PACKAGE = "android.autofillservice.cts";
 
     static final String ID_USERNAME_LABEL = "username_label";
     static final String ID_USERNAME = "username";
@@ -63,142 +88,73 @@ final class Helper {
     static final String ID_PASSWORD = "password";
     static final String ID_LOGIN = "login";
     static final String ID_OUTPUT = "output";
+    static final String ID_STATIC_TEXT = "static_text";
+
+    public static final String NULL_DATASET_ID = null;
+
+    /**
+     * Can be used in cases where the autofill values is required by irrelevant (like adding a
+     * value to an authenticated dataset).
+     */
+    public static final String UNUSED_AUTOFILL_VALUE = null;
 
     private static final String CMD_LIST_SESSIONS = "cmd autofill list sessions";
 
-    /**
-     * Timeout (in milliseconds) until framework binds / unbinds from service.
-     */
-    static final long CONNECTION_TIMEOUT_MS = 2000;
-
-    /**
-     * Timeout (in milliseconds) until framework unbinds from a service.
-     */
-    static final long IDLE_UNBIND_TIMEOUT_MS = 5000;
-
-    /**
-     * Timeout (in milliseconds) for expected auto-fill requests.
-     */
-    static final long FILL_TIMEOUT_MS = 2000;
-
-    /**
-     * Timeout (in milliseconds) for expected save requests.
-     */
-    static final long SAVE_TIMEOUT_MS = 5000;
-
-    /**
-     * Time to wait if a UI change is not expected
-     */
-    static final long NOT_SHOWING_TIMEOUT_MS = 500;
-
-    /**
-     * Timeout (in milliseconds) for UI operations. Typically used by {@link UiBot}.
-     */
-    static final int UI_TIMEOUT_MS = 2000;
-
-    /**
-     * Timeout (in milliseconds) for an activity to be brought out to top.
-     */
-    static final int ACTIVITY_RESURRECTION_MS = 5000;
-
-    /**
-     * Timeout (in milliseconds) for changing the screen orientation.
-     */
-    static final int UI_SCREEN_ORIENTATION_TIMEOUT_MS = 5000;
-
-    /**
-     * Time to wait in between retries
-     */
-    static final int RETRY_MS = 100;
-
-    private final static String ACCELLEROMETER_CHANGE =
+    private static final String ACCELLEROMETER_CHANGE =
             "content insert --uri content://settings/system --bind name:s:accelerometer_rotation "
                     + "--bind value:i:%d";
 
+    private static final String LOCAL_DIRECTORY = Environment.getExternalStorageDirectory()
+            + "/CtsAutoFillServiceTestCases";
+
     /**
-     * Helper interface used to filter Assist nodes.
+     * Helper interface used to filter nodes.
+     *
+     * @param <T> node type
      */
-    interface NodeFilter {
+    interface NodeFilter<T> {
         /**
          * Returns whether the node passes the filter for such given id.
          */
-        boolean matches(ViewNode node, Object id);
+        boolean matches(T node, Object id);
     }
 
-    private static final NodeFilter RESOURCE_ID_FILTER = (node, id) -> {
+    private static final NodeFilter<ViewNode> RESOURCE_ID_FILTER = (node, id) -> {
         return id.equals(node.getIdEntry());
     };
 
-    private static final NodeFilter HTML_NAME_FILTER = (node, id) -> {
+    private static final NodeFilter<ViewNode> AUTOFILL_ID_FILTER = (node, id) -> {
+        return id.equals(node.getAutofillId());
+    };
+
+    private static final NodeFilter<ViewNode> HTML_NAME_FILTER = (node, id) -> {
         return id.equals(getHtmlName(node));
     };
 
-    private static final NodeFilter TEXT_FILTER = (node, id) -> {
+    private static final NodeFilter<ViewNode> HTML_NAME_OR_RESOURCE_ID_FILTER = (node, id) -> {
+        return id.equals(getHtmlName(node)) || id.equals(node.getIdEntry());
+    };
+
+    private static final NodeFilter<ViewNode> TEXT_FILTER = (node, id) -> {
         return id.equals(node.getText());
     };
 
-    private static final NodeFilter WEBVIEW_ROOT_FILTER = (node, id) -> {
-        // TODO(b/66953802): class name should be android.webkit.WebView, and form name should be
-        // inside HtmlInfo, but Chromium 61 does not implement that.
+    private static final NodeFilter<ViewNode> AUTOFILL_HINT_FILTER = (node, id) -> {
+        return hasHint(node.getAutofillHints(), id);
+    };
+
+    private static final NodeFilter<ViewNode> WEBVIEW_FORM_FILTER = (node, id) -> {
         final String className = node.getClassName();
-        final String formName;
-        if (className.equals("android.webkit.WebView")) {
-            final HtmlInfo htmlInfo = assertHasHtmlTag(node, "form");
-            formName = getAttributeValue(htmlInfo, "name");
-        } else {
-            formName = className;
-        }
+        if (!className.equals("android.webkit.WebView")) return false;
+
+        final HtmlInfo htmlInfo = assertHasHtmlTag(node, "form");
+        final String formName = getAttributeValue(htmlInfo, "name");
         return id.equals(formName);
     };
 
-    /**
-     * Runs a {@code r}, ignoring all {@link RuntimeException} and {@link Error} until the
-     * {@link #UI_TIMEOUT_MS} is reached.
-     */
-    static void eventually(Runnable r) throws Exception {
-        eventually(r, UI_TIMEOUT_MS);
-    }
-
-    /**
-     * Runs a {@code r}, ignoring all {@link RuntimeException} and {@link Error} until the
-     * {@code timeout} is reached.
-     */
-    static void eventually(Runnable r, int timeout) throws Exception {
-        long startTime = System.currentTimeMillis();
-
-        while (true) {
-            try {
-                r.run();
-                break;
-            } catch (RuntimeException | Error e) {
-                if (System.currentTimeMillis() - startTime < timeout) {
-                    if (VERBOSE) Log.v(TAG, "Ignoring", e);
-                    Thread.sleep(RETRY_MS);
-                } else {
-                    if (e instanceof RetryableException) {
-                        throw e;
-                    } else {
-                        throw new RetryableException(e, "Timedout out after %d ms", timeout);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Runs a Shell command, returning a trimmed response.
-     */
-    static String runShellCommand(String template, Object...args) {
-        final String command = String.format(template, args);
-        Log.d(TAG, "runShellCommand(): " + command);
-        try {
-            final String result = SystemUtil
-                    .runShellCommand(InstrumentationRegistry.getInstrumentation(), command);
-            return TextUtils.isEmpty(result) ? "" : result.trim();
-        } catch (Exception e) {
-            throw new RuntimeException("Command '" + command + "' failed: ", e);
-        }
-    }
+    private static final NodeFilter<View> AUTOFILL_HINT_VIEW_FILTER = (view, id) -> {
+        return hasHint(view.getAutofillHints(), id);
+    };
 
     /**
      * Dump the assist structure on logcat.
@@ -235,32 +191,7 @@ final class Helper {
      * Sets whether the user completed the initial setup.
      */
     static void setUserComplete(Context context, boolean complete) {
-        if (isUserComplete() == complete) return;
-
-        final OneTimeSettingsListener observer = new OneTimeSettingsListener(context,
-                USER_SETUP_COMPLETE);
-        final String newValue = complete ? "1" : null;
-        runShellCommand("settings put secure %s %s default", USER_SETUP_COMPLETE, newValue);
-        observer.assertCalled();
-
-        assertIsUserComplete(complete);
-    }
-
-    /**
-     * Gets whether the user completed the initial setup.
-     */
-    static boolean isUserComplete() {
-        final String isIt = runShellCommand("settings get secure %s", USER_SETUP_COMPLETE);
-        return "1".equals(isIt);
-    }
-
-    /**
-     * Assets that user completed (or not) the initial setup.
-     */
-    static void assertIsUserComplete(boolean expected) {
-        final boolean actual = isUserComplete();
-        assertWithMessage("Invalid value for secure setting %s", USER_SETUP_COMPLETE)
-                .that(actual).isEqualTo(expected);
+        SettingsHelper.syncSet(context, USER_SETUP_COMPLETE, complete ? "1" : null);
     }
 
     private static void dump(StringBuffer buffer, ViewNode node, String prefix, int childId) {
@@ -299,7 +230,7 @@ final class Helper {
      * Gets a node if it matches the filter criteria for the given id.
      */
     static ViewNode findNodeByFilter(@NonNull AssistStructure structure, @NonNull Object id,
-            @NonNull NodeFilter filter) {
+            @NonNull NodeFilter<ViewNode> filter) {
         Log.v(TAG, "Parsing request for activity " + structure.getActivityComponent());
         final int nodes = structure.getWindowNodeCount();
         for (int i = 0; i < nodes; i++) {
@@ -317,7 +248,7 @@ final class Helper {
      * Gets a node if it matches the filter criteria for the given id.
      */
     static ViewNode findNodeByFilter(@NonNull List<FillContext> contexts, @NonNull Object id,
-            @NonNull NodeFilter filter) {
+            @NonNull NodeFilter<ViewNode> filter) {
         for (FillContext context : contexts) {
             ViewNode node = findNodeByFilter(context.getStructure(), id, filter);
             if (node != null) {
@@ -331,7 +262,7 @@ final class Helper {
      * Gets a node if it matches the filter criteria for the given id.
      */
     static ViewNode findNodeByFilter(@NonNull ViewNode node, @NonNull Object id,
-            @NonNull NodeFilter filter) {
+            @NonNull NodeFilter<ViewNode> filter) {
         if (filter.matches(node, id)) {
             return node;
         }
@@ -390,6 +321,22 @@ final class Helper {
     }
 
     /**
+     * Gets a node given the value of its (single) autofill hint property, or {@code null} if not
+     * found.
+     */
+    static ViewNode findNodeByAutofillHint(ViewNode node, String hint) {
+        return findNodeByFilter(node, hint, AUTOFILL_HINT_FILTER);
+    }
+
+    /**
+     * Gets a node given the name of its HTML INPUT tag or Android resoirce id, or {@code null} if
+     * not found.
+     */
+    static ViewNode findNodeByHtmlNameOrResourceId(List<FillContext> contexts, String id) {
+        return findNodeByFilter(contexts, id, HTML_NAME_OR_RESOURCE_ID_FILTER);
+    }
+
+    /**
      * Gets the {@code name} attribute of a node representing an HTML input tag.
      */
     @Nullable
@@ -427,7 +374,39 @@ final class Helper {
     }
 
     /**
-     * Asserts a text-base node is sanitized.
+     * Gets a view that contains the an autofill hint, or {@code null} if not found.
+     */
+    static View findViewByAutofillHint(Activity activity, String hint) {
+        final View rootView = activity.getWindow().getDecorView().getRootView();
+        return findViewByAutofillHint(rootView, hint);
+    }
+
+    /**
+     * Gets a view (or a descendant of it) that contains the an autofill hint, or {@code null} if
+     * not found.
+     */
+    static View findViewByAutofillHint(View view, String hint) {
+        if (AUTOFILL_HINT_VIEW_FILTER.matches(view, hint)) return view;
+        if ((view instanceof ViewGroup)) {
+            final ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                final View child = findViewByAutofillHint(group.getChildAt(i), hint);
+                if (child != null) return child;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Gets a view (or a descendant of it) that has the given {@code id}, or {@code null} if
+     * not found.
+     */
+    static ViewNode findNodeByAutofillId(AssistStructure structure, AutofillId id) {
+        return findNodeByFilter(structure, id, AUTOFILL_ID_FILTER);
+    }
+
+    /**
+     * Asserts a text-based node is sanitized.
      */
     static void assertTextIsSanitized(ViewNode node) {
         final CharSequence text = node.getText();
@@ -435,7 +414,13 @@ final class Helper {
         if (!TextUtils.isEmpty(text)) {
             throw new AssertionError("text on sanitized field " + resourceId + ": " + text);
         }
+
+        assertNotFromResources(node);
         assertNodeHasNoAutofillValue(node);
+    }
+
+    private static void assertNotFromResources(ViewNode node) {
+        assertThat(node.getTextIdEntry()).isNull();
     }
 
     static void assertNodeHasNoAutofillValue(ViewNode node) {
@@ -448,22 +433,31 @@ final class Helper {
 
     /**
      * Asserts the contents of a text-based node that is also auto-fillable.
-     *
      */
     static void assertTextOnly(ViewNode node, String expectedValue) {
         assertText(node, expectedValue, false);
+        assertNotFromResources(node);
     }
 
     /**
      * Asserts the contents of a text-based node that is also auto-fillable.
-     *
      */
-    static void assertTextAndValue(ViewNode node, String expectedValue) {
-        assertText(node, expectedValue, true);
+    static void assertTextOnly(AssistStructure structure, String resourceId, String expectedValue) {
+        final ViewNode node = findNodeByResourceId(structure, resourceId);
+        assertText(node, expectedValue, false);
+        assertNotFromResources(node);
     }
 
     /**
-     * Asserts a text-base node exists and verify its values.
+     * Asserts the contents of a text-based node that is also auto-fillable.
+     */
+    static void assertTextAndValue(ViewNode node, String expectedValue) {
+        assertText(node, expectedValue, true);
+        assertNotFromResources(node);
+    }
+
+    /**
+     * Asserts a text-based node exists and verify its values.
      */
     static ViewNode assertTextAndValue(AssistStructure structure, String resourceId,
             String expectedValue) {
@@ -473,7 +467,7 @@ final class Helper {
     }
 
     /**
-     * Asserts a text-base node exists and is sanitized.
+     * Asserts a text-based node exists and is sanitized.
      */
     static ViewNode assertValue(AssistStructure structure, String resourceId,
             String expectedValue) {
@@ -482,16 +476,28 @@ final class Helper {
         return node;
     }
 
+    /**
+     * Asserts the values of a text-based node whose string come from resoruces.
+     */
+    static ViewNode assertTextFromResouces(AssistStructure structure, String resourceId,
+            String expectedValue, boolean isAutofillable, String expectedTextIdEntry) {
+        final ViewNode node = findNodeByResourceId(structure, resourceId);
+        assertText(node, expectedValue, isAutofillable);
+        assertThat(node.getTextIdEntry()).isEqualTo(expectedTextIdEntry);
+        return node;
+    }
+
     private static void assertText(ViewNode node, String expectedValue, boolean isAutofillable) {
-        assertWithMessage("wrong text on %s", node).that(node.getText().toString())
+        assertWithMessage("wrong text on %s", node.getAutofillId()).that(node.getText().toString())
                 .isEqualTo(expectedValue);
         final AutofillValue value = node.getAutofillValue();
+        final AutofillId id = node.getAutofillId();
         if (isAutofillable) {
-            assertWithMessage("null auto-fill value on %s", node).that(value).isNotNull();
-            assertWithMessage("wrong auto-fill value on %s", node)
+            assertWithMessage("null auto-fill value on %s", id).that(value).isNotNull();
+            assertWithMessage("wrong auto-fill value on %s", id)
                     .that(value.getTextValue().toString()).isEqualTo(expectedValue);
         } else {
-            assertWithMessage("node %s should not have AutofillValue", node).that(value).isNull();
+            assertWithMessage("node %s should not have AutofillValue", id).that(value).isNull();
         }
     }
 
@@ -500,9 +506,10 @@ final class Helper {
      */
     static ViewNode assertTextValue(ViewNode node, String expectedText) {
         final AutofillValue value = node.getAutofillValue();
-        assertWithMessage("null autofill value on %s", node).that(value).isNotNull();
-        assertWithMessage("wrong autofill type on %s", node).that(value.isText()).isTrue();
-        assertWithMessage("wrong autofill value on %s", node).that(value.getTextValue().toString())
+        final AutofillId id = node.getAutofillId();
+        assertWithMessage("null autofill value on %s", id).that(value).isNotNull();
+        assertWithMessage("wrong autofill type on %s", id).that(value.isText()).isTrue();
+        assertWithMessage("wrong autofill value on %s", id).that(value.getTextValue().toString())
                 .isEqualTo(expectedText);
         return node;
     }
@@ -512,9 +519,10 @@ final class Helper {
      */
     static ViewNode assertListValue(ViewNode node, int expectedIndex) {
         final AutofillValue value = node.getAutofillValue();
-        assertWithMessage("null autofill value on %s", node).that(value).isNotNull();
-        assertWithMessage("wrong autofill type on %s", node).that(value.isList()).isTrue();
-        assertWithMessage("wrong autofill value on %s", node).that(value.getListValue())
+        final AutofillId id = node.getAutofillId();
+        assertWithMessage("null autofill value on %s", id).that(value).isNotNull();
+        assertWithMessage("wrong autofill type on %s", id).that(value.isList()).isTrue();
+        assertWithMessage("wrong autofill value on %s", id).that(value.getListValue())
                 .isEqualTo(expectedIndex);
         return node;
     }
@@ -524,9 +532,10 @@ final class Helper {
      */
     static void assertToggleValue(ViewNode node, boolean expectedToggle) {
         final AutofillValue value = node.getAutofillValue();
-        assertWithMessage("null autofill value on %s", node).that(value).isNotNull();
-        assertWithMessage("wrong autofill type on %s", node).that(value.isToggle()).isTrue();
-        assertWithMessage("wrong autofill value on %s", node).that(value.getToggleValue())
+        final AutofillId id = node.getAutofillId();
+        assertWithMessage("null autofill value on %s", id).that(value).isNotNull();
+        assertWithMessage("wrong autofill type on %s", id).that(value.isToggle()).isTrue();
+        assertWithMessage("wrong autofill value on %s", id).that(value.getToggleValue())
                 .isEqualTo(expectedToggle);
     }
 
@@ -593,7 +602,7 @@ final class Helper {
     }
 
     /**
-     * Asserts a text-base node exists and is sanitized.
+     * Asserts a text-based node exists and is sanitized.
      */
     static ViewNode assertTextIsSanitized(AssistStructure structure, String resourceId) {
         final ViewNode node = findNodeByResourceId(structure, resourceId);
@@ -649,7 +658,7 @@ final class Helper {
     }
 
     /**
-     * Gets the total number of nodes in an structure, including all descendants.
+     * Gets the total number of nodes in an structure.
      */
     static int getNumberNodes(AssistStructure structure) {
         int count = 0;
@@ -665,7 +674,7 @@ final class Helper {
     /**
      * Gets the total number of nodes in an node, including all descendants and the node itself.
      */
-    private static int getNumberNodes(ViewNode node) {
+    static int getNumberNodes(ViewNode node) {
         int count = 1;
         final int childrenSize = node.getChildCount();
         if (childrenSize > 0) {
@@ -700,7 +709,7 @@ final class Helper {
     /**
      * Prevents the screen to rotate by itself
      */
-    public static void disableAutoRotation(UiBot uiBot) {
+    public static void disableAutoRotation(UiBot uiBot) throws Exception {
         runShellCommand(ACCELLEROMETER_CHANGE, 0);
         uiBot.setScreenOrientation(PORTRAIT);
     }
@@ -710,35 +719,6 @@ final class Helper {
      */
     public static void allowAutoRotation() {
         runShellCommand(ACCELLEROMETER_CHANGE, 1);
-    }
-
-    /**
-     * Wait until a process starts and returns the process ID of the process.
-     *
-     * @return The pid of the process
-     */
-    public static int getOutOfProcessPid(@NonNull String processName) {
-        long startTime = System.currentTimeMillis();
-
-        while (System.currentTimeMillis() - startTime <= UI_TIMEOUT_MS) {
-            String[] allProcessDescs = runShellCommand("ps -eo PID,ARGS=CMD").split("\n");
-
-            for (String processDesc : allProcessDescs) {
-                String[] pidAndName = processDesc.trim().split(" ");
-
-                if (pidAndName[1].equals(processName)) {
-                    return Integer.parseInt(pidAndName[0]);
-                }
-            }
-
-            try {
-                Thread.sleep(RETRY_MS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
-
-        throw new IllegalStateException("process not found");
     }
 
     /**
@@ -764,6 +744,20 @@ final class Helper {
     }
 
     /**
+     * Checks if autofill window is fullscreen, see com.android.server.autofill.ui.FillUi.
+     */
+    public static boolean isAutofillWindowFullScreen(Context context) {
+        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+    }
+
+    /**
+     * Checks if screen orientation can be changed.
+     */
+    public static boolean isRotationSupported(Context context) {
+        return !context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+    }
+
+    /**
      * Uses Shell command to get the Autofill logging level.
      */
     public static String getLoggingLevel() {
@@ -781,55 +775,40 @@ final class Helper {
      * Uses Settings to enable the given autofill service for the default user, and checks the
      * value was properly check, throwing an exception if it was not.
      */
-    public static void enableAutofillService(Context context, String serviceName) {
+    public static void enableAutofillService(@NonNull Context context,
+            @NonNull String serviceName) {
         if (isAutofillServiceEnabled(serviceName)) return;
 
-        final OneTimeSettingsListener observer = new OneTimeSettingsListener(context,
-                AUTOFILL_SERVICE);
-        runShellCommand("settings put secure %s %s default", AUTOFILL_SERVICE, serviceName);
-        observer.assertCalled();
-        assertAutofillServiceStatus(serviceName, true);
+        SettingsHelper.syncSet(context, AUTOFILL_SERVICE, serviceName);
     }
 
     /**
      * Uses Settings to disable the given autofill service for the default user, and checks the
      * value was properly check, throwing an exception if it was not.
      */
-    public static void disableAutofillService(Context context, String serviceName) {
+    public static void disableAutofillService(@NonNull Context context,
+            @NonNull String serviceName) {
         if (!isAutofillServiceEnabled(serviceName)) return;
 
-        final OneTimeSettingsListener observer = new OneTimeSettingsListener(context,
-                AUTOFILL_SERVICE);
-        runShellCommand("settings delete secure %s", AUTOFILL_SERVICE);
-        observer.assertCalled();
-        assertAutofillServiceStatus(serviceName, false);
+        SettingsHelper.syncDelete(context, AUTOFILL_SERVICE);
     }
 
     /**
      * Checks whether the given service is set as the autofill service for the default user.
      */
-    public static boolean isAutofillServiceEnabled(String serviceName) {
-        final String actualName = runShellCommand("settings get secure %s", AUTOFILL_SERVICE);
+    private static boolean isAutofillServiceEnabled(@NonNull String serviceName) {
+        final String actualName = SettingsHelper.get(AUTOFILL_SERVICE);
         return serviceName.equals(actualName);
     }
 
     /**
      * Asserts whether the given service is enabled as the autofill service for the default user.
      */
-    public static void assertAutofillServiceStatus(String serviceName, boolean enabled) {
-        final String actual = runShellCommand("settings get secure %s", AUTOFILL_SERVICE);
+    public static void assertAutofillServiceStatus(@NonNull String serviceName, boolean enabled) {
+        final String actual = SettingsHelper.get(AUTOFILL_SERVICE);
         final String expected = enabled ? serviceName : "null";
         assertWithMessage("Invalid value for secure setting %s", AUTOFILL_SERVICE)
                 .that(actual).isEqualTo(expected);
-    }
-
-    /**
-     * Asserts that there is no session left in the service.
-     */
-    public static void assertNoDanglingSessions() {
-        final String result = runShellCommand(CMD_LIST_SESSIONS);
-        assertWithMessage("Dangling sessions ('%s'): %s'", CMD_LIST_SESSIONS, result).that(result)
-                .isEmpty();
     }
 
     /**
@@ -838,14 +817,6 @@ final class Helper {
     public static void assertHasSessions(String packageName) {
         final String result = runShellCommand(CMD_LIST_SESSIONS);
         assertThat(result).contains(packageName);
-    }
-
-    /**
-     * Destroys all sessions.
-     */
-    public static void destroyAllSessions() {
-        runShellCommand("cmd autofill destroy sessions");
-        assertNoDanglingSessions();
     }
 
     /**
@@ -866,7 +837,6 @@ final class Helper {
         disableAutofillService(getContext(), SERVICE_NAME);
         InstrumentedAutoFillService.setIgnoreUnexpectedRequests(true);
 
-        destroyAllSessions();
         InstrumentedAutoFillService.resetStaticState();
         AuthenticationActivity.resetStaticState();
     }
@@ -907,17 +877,346 @@ final class Helper {
     /**
      * Finds a {@link WebView} node given its expected form name.
      */
-    public static ViewNode findWebViewNode(AssistStructure structure, String formName) {
-        return findNodeByFilter(structure, formName, WEBVIEW_ROOT_FILTER);
+    public static ViewNode findWebViewNodeByFormName(AssistStructure structure, String formName) {
+        return findNodeByFilter(structure, formName, WEBVIEW_FORM_FILTER);
+    }
+
+    private static void assertClientState(Object container, Bundle clientState,
+            String key, String value) {
+        assertWithMessage("'%s' should have client state", container)
+            .that(clientState).isNotNull();
+        assertWithMessage("Wrong number of client state extras on '%s'", container)
+            .that(clientState.keySet().size()).isEqualTo(1);
+        assertWithMessage("Wrong value for client state key (%s) on '%s'", key, container)
+            .that(clientState.getString(key)).isEqualTo(value);
     }
 
     /**
-     * Finds a {@link WebView} node given its expected form name.
+     * Asserts the content of a {@link FillEventHistory#getClientState()}.
+     *
+     * @param history event to be asserted
+     * @param key the only key expected in the client state bundle
+     * @param value the only value expected in the client state bundle
      */
-    public static ViewNode findWebViewNode(ViewNode node, String formName) {
-        return findNodeByFilter(node, formName, WEBVIEW_ROOT_FILTER);
+    @SuppressWarnings("javadoc")
+    public static void assertDeprecatedClientState(@NonNull FillEventHistory history,
+            @NonNull String key, @NonNull String value) {
+        assertThat(history).isNotNull();
+        @SuppressWarnings("deprecation")
+        final Bundle clientState = history.getClientState();
+        assertClientState(history, clientState, key, value);
+    }
+
+    /**
+     * Asserts the {@link FillEventHistory#getClientState()} is not set.
+     *
+     * @param history event to be asserted
+     */
+    @SuppressWarnings("javadoc")
+    public static void assertNoDeprecatedClientState(@NonNull FillEventHistory history) {
+        assertThat(history).isNotNull();
+        @SuppressWarnings("deprecation")
+        final Bundle clientState = history.getClientState();
+        assertWithMessage("History '%s' should not have client state", history)
+             .that(clientState).isNull();
+    }
+
+    /**
+     * Asserts the content of a {@link android.service.autofill.FillEventHistory.Event}.
+     *
+     * @param event event to be asserted
+     * @param eventType expected type
+     * @param datasetId dataset set id expected in the event
+     * @param key the only key expected in the client state bundle (or {@code null} if it shouldn't
+     * have client state)
+     * @param value the only value expected in the client state bundle (or {@code null} if it
+     * shouldn't have client state)
+     * @param fieldClassificationResults expected results when asserting field classification
+     */
+    private static void assertFillEvent(@NonNull FillEventHistory.Event event,
+            int eventType, @Nullable String datasetId,
+            @Nullable String key, @Nullable String value,
+            @Nullable FieldClassificationResult[] fieldClassificationResults) {
+        assertThat(event).isNotNull();
+        assertWithMessage("Wrong type for %s", event).that(event.getType()).isEqualTo(eventType);
+        if (datasetId == null) {
+            assertWithMessage("Event %s should not have dataset id", event)
+                .that(event.getDatasetId()).isNull();
+        } else {
+            assertWithMessage("Wrong dataset id for %s", event)
+                .that(event.getDatasetId()).isEqualTo(datasetId);
+        }
+        final Bundle clientState = event.getClientState();
+        if (key == null) {
+            assertWithMessage("Event '%s' should not have client state", event)
+                .that(clientState).isNull();
+        } else {
+            assertClientState(event, clientState, key, value);
+        }
+        assertWithMessage("Event '%s' should not have selected datasets", event)
+                .that(event.getSelectedDatasetIds()).isEmpty();
+        assertWithMessage("Event '%s' should not have ignored datasets", event)
+                .that(event.getIgnoredDatasetIds()).isEmpty();
+        assertWithMessage("Event '%s' should not have changed fields", event)
+                .that(event.getChangedFields()).isEmpty();
+        assertWithMessage("Event '%s' should not have manually-entered fields", event)
+                .that(event.getManuallyEnteredField()).isEmpty();
+        final Map<AutofillId, FieldClassification> detectedFields = event.getFieldsClassification();
+        if (fieldClassificationResults == null) {
+            assertThat(detectedFields).isEmpty();
+        } else {
+            assertThat(detectedFields).hasSize(fieldClassificationResults.length);
+            int i = 0;
+            for (Entry<AutofillId, FieldClassification> entry : detectedFields.entrySet()) {
+                assertMatches(i, entry, fieldClassificationResults[i]);
+                i++;
+            }
+        }
+    }
+
+    private static void assertMatches(int i, Entry<AutofillId, FieldClassification> actualResult,
+            FieldClassificationResult expectedResult) {
+        assertWithMessage("Wrong field id at index %s", i).that(actualResult.getKey())
+                .isEqualTo(expectedResult.id);
+        final List<Match> matches = actualResult.getValue().getMatches();
+        assertWithMessage("Wrong number of matches: " + matches).that(matches.size())
+                .isEqualTo(expectedResult.remoteIds.length);
+        for (int j = 0; j < matches.size(); j++) {
+            final Match match = matches.get(j);
+            assertWithMessage("Wrong categoryId at (%s, %s): %s", i, j, match)
+                .that(match.getCategoryId()).isEqualTo(expectedResult.remoteIds[j]);
+            assertWithMessage("Wrong score at (%s, %s): %s", i, j, match)
+                .that(match.getScore()).isWithin(0.01f).of(expectedResult.scores[j]);
+        }
+    }
+
+    /**
+     * Asserts the content of a
+     * {@link android.service.autofill.FillEventHistory.Event#TYPE_DATASET_SELECTED} event.
+     *
+     * @param event event to be asserted
+     * @param datasetId dataset set id expected in the event
+     */
+    public static void assertFillEventForDatasetSelected(@NonNull FillEventHistory.Event event,
+            @Nullable String datasetId) {
+        assertFillEvent(event, TYPE_DATASET_SELECTED, datasetId, null, null, null);
+    }
+
+    /**
+     * Asserts the content of a
+     * {@link android.service.autofill.FillEventHistory.Event#TYPE_DATASET_SELECTED} event.
+     *
+     * @param event event to be asserted
+     * @param datasetId dataset set id expected in the event
+     * @param key the only key expected in the client state bundle
+     * @param value the only value expected in the client state bundle
+     */
+    public static void assertFillEventForDatasetSelected(@NonNull FillEventHistory.Event event,
+            @Nullable String datasetId, @Nullable String key, @Nullable String value) {
+        assertFillEvent(event, TYPE_DATASET_SELECTED, datasetId, key, value, null);
+    }
+
+    /**
+     * Asserts the content of a
+     * {@link android.service.autofill.FillEventHistory.Event#TYPE_SAVE_SHOWN} event.
+     *
+     * @param event event to be asserted
+     * @param datasetId dataset set id expected in the event
+     * @param key the only key expected in the client state bundle
+     * @param value the only value expected in the client state bundle
+     */
+    public static void assertFillEventForSaveShown(@NonNull FillEventHistory.Event event,
+            @NonNull String datasetId, @NonNull String key, @NonNull String value) {
+        assertFillEvent(event, TYPE_SAVE_SHOWN, datasetId, key, value, null);
+    }
+
+    /**
+     * Asserts the content of a
+     * {@link android.service.autofill.FillEventHistory.Event#TYPE_SAVE_SHOWN} event.
+     *
+     * @param event event to be asserted
+     * @param datasetId dataset set id expected in the event
+     */
+    public static void assertFillEventForSaveShown(@NonNull FillEventHistory.Event event,
+            @NonNull String datasetId) {
+        assertFillEvent(event, TYPE_SAVE_SHOWN, datasetId, null, null, null);
+    }
+
+    /**
+     * Asserts the content of a
+     * {@link android.service.autofill.FillEventHistory.Event#TYPE_DATASET_AUTHENTICATION_SELECTED}
+     * event.
+     *
+     * @param event event to be asserted
+     * @param datasetId dataset set id expected in the event
+     * @param key the only key expected in the client state bundle
+     * @param value the only value expected in the client state bundle
+     */
+    public static void assertFillEventForDatasetAuthenticationSelected(
+            @NonNull FillEventHistory.Event event,
+            @Nullable String datasetId, @NonNull String key, @NonNull String value) {
+        assertFillEvent(event, TYPE_DATASET_AUTHENTICATION_SELECTED, datasetId, key, value, null);
+    }
+
+    /**
+     * Asserts the content of a
+     * {@link android.service.autofill.FillEventHistory.Event#TYPE_AUTHENTICATION_SELECTED} event.
+     *
+     * @param event event to be asserted
+     * @param datasetId dataset set id expected in the event
+     * @param key the only key expected in the client state bundle
+     * @param value the only value expected in the client state bundle
+     */
+    public static void assertFillEventForAuthenticationSelected(
+            @NonNull FillEventHistory.Event event,
+            @Nullable String datasetId, @NonNull String key, @NonNull String value) {
+        assertFillEvent(event, TYPE_AUTHENTICATION_SELECTED, datasetId, key, value, null);
+    }
+
+    public static void assertFillEventForFieldsClassification(@NonNull FillEventHistory.Event event,
+            @NonNull AutofillId fieldId, @NonNull String remoteId, float score) {
+        assertFillEvent(event, TYPE_CONTEXT_COMMITTED, null, null, null,
+                new FieldClassificationResult[] {
+                        new FieldClassificationResult(fieldId, remoteId, score)
+                });
+    }
+
+    public static void assertFillEventForFieldsClassification(@NonNull FillEventHistory.Event event,
+            @NonNull FieldClassificationResult[] results) {
+        assertFillEvent(event, TYPE_CONTEXT_COMMITTED, null, null, null, results);
+    }
+
+    public static void assertFillEventForContextCommitted(@NonNull FillEventHistory.Event event) {
+        assertFillEvent(event, TYPE_CONTEXT_COMMITTED, null, null, null, null);
+    }
+
+    @NonNull
+    public static String getActivityName(List<FillContext> contexts) {
+        if (contexts == null) return "N/A (null contexts)";
+
+        if (contexts.isEmpty()) return "N/A (empty contexts)";
+
+        final AssistStructure structure = contexts.get(contexts.size() - 1).getStructure();
+        if (structure == null) return "N/A (no AssistStructure)";
+
+        final ComponentName componentName = structure.getActivityComponent();
+        if (componentName == null) return "N/A (no component name)";
+
+        return componentName.flattenToShortString();
+    }
+
+    public static void assertFloat(float actualValue, float expectedValue) {
+        assertThat(actualValue).isWithin(1.0e-10f).of(expectedValue);
+    }
+
+    public static void assertHasFlags(int actualFlags, int expectedFlags) {
+        assertWithMessage("Flags %s not in %s", expectedFlags, actualFlags)
+                .that(actualFlags & expectedFlags).isEqualTo(expectedFlags);
+    }
+
+    public static String callbackEventAsString(int event) {
+        switch (event) {
+            case AutofillCallback.EVENT_INPUT_HIDDEN:
+                return "HIDDEN";
+            case AutofillCallback.EVENT_INPUT_SHOWN:
+                return "SHOWN";
+            case AutofillCallback.EVENT_INPUT_UNAVAILABLE:
+                return "UNAVAILABLE";
+            default:
+                return "UNKNOWN:" + event;
+        }
+    }
+
+    public static String importantForAutofillAsString(int mode) {
+        switch (mode) {
+            case View.IMPORTANT_FOR_AUTOFILL_AUTO:
+                return "IMPORTANT_FOR_AUTOFILL_AUTO";
+            case View.IMPORTANT_FOR_AUTOFILL_YES:
+                return "IMPORTANT_FOR_AUTOFILL_YES";
+            case View.IMPORTANT_FOR_AUTOFILL_YES_EXCLUDE_DESCENDANTS:
+                return "IMPORTANT_FOR_AUTOFILL_YES_EXCLUDE_DESCENDANTS";
+            case View.IMPORTANT_FOR_AUTOFILL_NO:
+                return "IMPORTANT_FOR_AUTOFILL_NO";
+            case View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS:
+                return "IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS";
+            default:
+                return "UNKNOWN:" + mode;
+        }
+    }
+
+    public static boolean hasHint(@Nullable String[] hints, @Nullable Object expectedHint) {
+        if (hints == null || expectedHint == null) return false;
+        for (String actualHint : hints) {
+            if (expectedHint.equals(actualHint)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Asserts that 2 bitmaps have are the same. If they aren't throws an exception and dump them
+     * locally so their can be visually inspected.
+     *
+     * @param filename base name of the files generated in case of error
+     * @param bitmap1 first bitmap to be compared
+     * @param bitmap2 second bitmap to be compared
+     */
+    public static void assertBitmapsAreSame(@NonNull String filename, @Nullable Bitmap bitmap1,
+            @Nullable Bitmap bitmap2) throws IOException {
+        assertWithMessage("1st bitmap is null").that(bitmap1).isNotNull();
+        assertWithMessage("2nd bitmap is null").that(bitmap2).isNotNull();
+        final boolean same = bitmap1.sameAs(bitmap2);
+        if (same) {
+            Log.v(TAG, "bitmap comparison passed for " + filename);
+            return;
+        }
+
+        final File dir = new File(LOCAL_DIRECTORY);
+        dir.mkdirs();
+        if (!dir.exists()) {
+            Log.e(TAG, "Could not create directory " + dir);
+            throw new AssertionError("bitmap comparison failed for " + filename
+                    + ", and bitmaps could not be dumped on " + dir);
+        }
+        final File dump1 = dumpBitmap(bitmap1, dir, filename + "-1.png");
+        final File dump2 = dumpBitmap(bitmap2, dir, filename + "-2.png");
+        throw new AssertionError(
+                "bitmap comparison failed; check contents of " + dump1 + " and " + dump2);
+    }
+
+    @Nullable
+    private static File dumpBitmap(@NonNull Bitmap bitmap, @NonNull File dir,
+            @NonNull String filename) throws IOException {
+        final File file = new File(dir, filename);
+        if (file.exists()) {
+            file.delete();
+        }
+        if (!file.createNewFile()) {
+            Log.e(TAG, "Could not create file " + file);
+            return null;
+        }
+        Log.d(TAG, "Dumping bitmap at " + file);
+        BitmapUtils.saveBitmap(bitmap, file.getParent(), file.getName());
+        return file;
     }
 
     private Helper() {
+        throw new UnsupportedOperationException("contain static methods only");
+    }
+
+    static class FieldClassificationResult {
+        public final AutofillId id;
+        public final String[] remoteIds;
+        public final float[] scores;
+
+        FieldClassificationResult(@NonNull AutofillId id, @NonNull String remoteId, float score) {
+            this(id, new String[] { remoteId }, new float[] { score });
+        }
+
+        FieldClassificationResult(@NonNull AutofillId id, @NonNull String[] remoteIds,
+                float[] scores) {
+            this.id = id;
+            this.remoteIds = remoteIds;
+            this.scores = scores;
+        }
     }
 }

@@ -87,6 +87,7 @@ libbrillo_test_sources = [
     "brillo/asynchronous_signal_handler_unittest.cc",
     "brillo/backoff_entry_unittest.cc",
     "brillo/data_encoding_unittest.cc",
+    "brillo/enum_flags_unittest.cc",
     "brillo/errors/error_codes_unittest.cc",
     "brillo/errors/error_unittest.cc",
     "brillo/file_utils_unittest.cc",
@@ -147,6 +148,9 @@ cc_library {
         android: {
             srcs: libbrillo_linux_sources,
         },
+        darwin: {
+            enabled: false
+        }
     },
 }
 
@@ -159,6 +163,23 @@ cc_library_shared {
         "libbinder",
         "libbrillo",
         "libutils",
+    ],
+    static_libs: ["libgtest_prod"],
+    cflags: libbrillo_CFLAGS,
+    export_include_dirs: ["."],
+}
+
+// Shared minijail library for target
+// ========================================================
+cc_library_shared {
+    name: "libbrillo-minijail",
+    srcs: [
+        "brillo/minijail/minijail.cc",
+    ],
+    shared_libs: [
+        "libchrome",
+        "libbrillo",
+        "libminijail",
     ],
     static_libs: ["libgtest_prod"],
     cflags: libbrillo_CFLAGS,

@@ -13,11 +13,13 @@
 package android.icu.dev.test.duration.languages;
 
 import android.icu.dev.test.duration.LanguageTestFmwk;
+import android.icu.testsharding.MainTestShard;
 
 
 /**
  * Test cases for ar_EG
  */
+@MainTestShard
 public class Test_ar_EG extends LanguageTestFmwk {
   public Test_ar_EG() {
     super("ar_EG", false);

@@ -73,7 +73,10 @@ class firmware_UpdateKernelDataKeyVersion(FirmwareTest):
         self.resign_kernel_datakey_version(host)
 
     def cleanup(self):
-        self.faft_client.updater.cleanup()
+        try:
+            self.faft_client.updater.cleanup()
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_UpdateKernelDataKeyVersion, self).cleanup()
 
     def run_once(self):

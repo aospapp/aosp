@@ -21,6 +21,7 @@
 #include "chre/platform/platform_wifi.h"
 #include "chre/util/non_copyable.h"
 #include "chre/util/time.h"
+#include "chre_api/chre/wifi.h"
 
 namespace chre {
 
@@ -62,10 +63,26 @@ class WifiRequestManager : public NonCopyable {
    *        monitoring.
    * @param cookie A cookie that is round-tripped back to the nanoapp to
    *        provide a context when making the request.
+   *
    * @return true if the request was accepted. The result is delivered
    *         asynchronously through a CHRE event.
    */
   bool configureScanMonitor(Nanoapp *nanoapp, bool enable, const void *cookie);
+
+  /**
+   * Handles a nanoapp's request for RTT ranging against a set of devices.
+   *
+   * @param nanoapp Nanoapp issuing the request.
+   * @param params Non-null pointer to parameters, supplied by the nanoapp via
+   *        chreWifiRequestRangingAsync()
+   * @param cookie Opaque pointer supplied by the nanoapp and passed back in the
+   *        async result.
+   *
+   * @return true if the request was accepted. The result is delivered
+   *         asynchronously through a CHRE event.
+   */
+  bool requestRanging(Nanoapp *nanoapp, const chreWifiRangingParams *params,
+                      const void *cookie);
 
   /**
    * Performs an active wifi scan.
@@ -75,14 +92,26 @@ class WifiRequestManager : public NonCopyable {
    * builds and a no-op in production (ie: subsequent requests are ignored).
    *
    * @param nanoapp The nanoapp that has requested an active wifi scan.
-   * @param params The parameters of the wifi scan.
+   * @param params Non-null pointer to the scan parameters structure supplied by
+   *        the nanoapp.
    * @param cookie A cookie that is round-tripped back to the nanoapp to provide
    *        a context when making the request.
+   *
    * @return true if the request was accepted. The result is delivered
    *         asynchronously through a CHRE event.
    */
   bool requestScan(Nanoapp *nanoapp, const chreWifiScanParams *params,
                    const void *cookie);
+
+  /**
+   * Passes the result of an RTT ranging request on to the requesting nanoapp.
+   *
+   * @param errorCode Value from enum chreError
+   * @param event Event containing ranging results, or null if errorCode is not
+   *        chreError
+   */
+  void handleRangingEvent(uint8_t errorCode,
+                          struct chreWifiRangingEvent *event);
 
   /**
    * Handles the result of a request to PlatformWifi to change the state of the
@@ -131,32 +160,31 @@ class WifiRequestManager : public NonCopyable {
                         size_t bufferSize) const;
 
  private:
-  /**
-   * Tracks the state of the wifi scan monitor.
-   */
-  struct ScanMonitorStateTransition {
-    //! The nanoapp instance ID that prompted the change.
-    uint32_t nanoappInstanceId;
-
-    //! The cookie provided to the CHRE API when the nanoapp requested a change
-    //! of state to the scan monitoring.
-    const void *cookie;
-
-    //! The target state of the PAL scan monitor.
-    bool enable;
+  struct PendingRequestBase {
+    uint32_t nanoappInstanceId;  //!< ID of the Nanoapp issuing this request
+    const void *cookie;          //!< User data supplied by the nanoapp
   };
 
-  //! The maximum number of scan monitor state transitions that can be queued.
-  static constexpr size_t kMaxScanMonitorStateTransitions = 8;
+  struct PendingRangingRequest : public PendingRequestBase {
+    //! If the request was queued, a variable-length list of devices to
+    //! perform ranging against (used to reconstruct chreWifiRangingParams)
+    DynamicVector<struct chreWifiRangingTarget> targetList;
+  };
 
-  //! The instance of the platform wifi interface.
+  struct PendingScanMonitorRequest : public PendingRequestBase {
+    bool enable;  //!< Requested scan monitor state
+  };
+
+  static constexpr size_t kMaxScanMonitorStateTransitions = 8;
+  static constexpr size_t kMaxPendingRangingRequests = 4;
+
   PlatformWifi mPlatformWifi;
 
   //! The queue of state transition requests for the scan monitor. Only one
   //! asynchronous scan monitor state transition can be in flight at one time.
   //! Any further requests are queued here.
-  ArrayQueue<ScanMonitorStateTransition,
-             kMaxScanMonitorStateTransitions> mScanMonitorStateTransitions;
+  ArrayQueue<PendingScanMonitorRequest, kMaxScanMonitorStateTransitions>
+      mPendingScanMonitorRequests;
 
   //! The list of nanoapps who have enabled scan monitoring. This list is
   //! maintained to ensure that nanoapps are always subscribed to wifi scan
@@ -185,6 +213,16 @@ class WifiRequestManager : public NonCopyable {
   //! in a scan event stream has been received.
   uint8_t mScanEventResultCountAccumulator = 0;
 
+  //! System time when last scan request was made.
+  Nanoseconds mLastScanRequestTime;
+
+  //! Tracks the in-flight ranging request and any others queued up behind it
+  ArrayQueue<PendingRangingRequest, kMaxPendingRangingRequests>
+      mPendingRangingRequests;
+
+  //! Helps ensure we don't get stuck if platform isn't behaving as expected
+  Nanoseconds mRangingResponseTimeout;
+
   /**
    * @return true if the scan monitor is enabled by any nanoapps.
    */
@@ -194,6 +232,7 @@ class WifiRequestManager : public NonCopyable {
    * @param instanceId the instance ID of the nanoapp.
    * @param index an optional pointer to a size_t to populate with the index of
    *        the nanoapp in the list of nanoapps.
+   *
    * @return true if the nanoapp has an active request for scan monitoring.
    */
   bool nanoappHasScanMonitorRequest(uint32_t instanceId,
@@ -202,6 +241,7 @@ class WifiRequestManager : public NonCopyable {
   /**
    * @param requestedState The requested state to compare against.
    * @param nanoappHasRequest The requesting nanoapp has an existing request.
+   *
    * @return true if the scan monitor is in the requested state.
    */
   bool scanMonitorIsInRequestedState(bool requestedState,
@@ -210,6 +250,7 @@ class WifiRequestManager : public NonCopyable {
   /**
    * @param requestedState The requested state to compare against.
    * @param nanoappHasRequest The requesting nanoapp has an existing request.
+   *
    * @return true if a state transition is required to reach the requested
    * state.
    */
@@ -224,6 +265,7 @@ class WifiRequestManager : public NonCopyable {
    * @param enable The target requested scan monitoring state.
    * @param cookie The pointer cookie passed in by the calling nanoapp to return
    *        to the nanoapp when the request completes.
+   *
    * @return true if the request is enqueued or false if the queue is full.
    */
   bool addScanMonitorRequestToQueue(Nanoapp *nanoapp, bool enable,
@@ -233,6 +275,7 @@ class WifiRequestManager : public NonCopyable {
    * Adds a nanoapp to the list of nanoapps that are monitoring for wifi scans.
    * @param enable true if enabling scan monitoring.
    * @param instanceId The instance ID of the scan monitoring nanoapp.
+   *
    * @return true if the nanoapp was added to the list.
    */
   bool updateNanoappScanMonitoringList(bool enable, uint32_t instanceId);
@@ -249,6 +292,7 @@ class WifiRequestManager : public NonCopyable {
    * @param errorCode The error code when success is set to false.
    * @param cookie The cookie to be provided to the nanoapp. This is
    *        round-tripped from the nanoapp to provide context.
+   *
    * @return true if the event was successfully posted to the event loop.
    */
   bool postScanMonitorAsyncResultEvent(
@@ -275,6 +319,7 @@ class WifiRequestManager : public NonCopyable {
    * @param errorCode The error code when success is set to false.
    * @param cookie The cookie to be provided to the nanoapp. This is
    *        round-tripped from the nanoapp to provide context.
+   *
    * @return true if the event was successfully posted to the event loop.
    */
   bool postScanRequestAsyncResultEvent(
@@ -330,13 +375,31 @@ class WifiRequestManager : public NonCopyable {
   void handleScanResponseSync(bool pending, uint8_t errorCode);
 
   /**
-   * Handles a WiFi scan event. See the handleScanEvent method with may be
-   * called from any thread. This method is intended to be invoked on the CHRE
-   * event loop thread.
+   * Sends CHRE_EVENT_WIFI_ASYNC_RESULT for the ranging request at the head of
+   * the pending queue.
    *
-   * @param event The wifi event to distribute to nanoapps.
+   * @param errorCode Indicates the overall result of the ranging operation
+   *
+   * @return true on success
    */
-  void handleScanEventSync(chreWifiScanEvent *event);
+  bool postRangingAsyncResult(uint8_t errorCode);
+
+  /**
+   * Issues the next pending ranging request to the platform.
+   *
+   * @return Result of PlatformWifi::requestRanging()
+   */
+  bool dispatchQueuedRangingRequest();
+
+  /**
+   * Processes the result of a ranging request within the context of the CHRE
+   * thread.
+   *
+   * @param errorCode Result of the ranging operation
+   * @param event On success, pointer to event data provided by platform
+   */
+  void handleRangingEventSync(uint8_t errorCode,
+                              struct chreWifiRangingEvent *event);
 
   /**
    * Handles the releasing of a WiFi scan event and unsubscribes a nanoapp who
@@ -354,9 +417,7 @@ class WifiRequestManager : public NonCopyable {
    * @param eventData a pointer to the scan event to release.
    */
   static void freeWifiScanEventCallback(uint16_t eventType, void *eventData);
-
-  //! System time when last scan request was made.
-  Nanoseconds mLastScanRequestTime;
+  static void freeWifiRangingEventCallback(uint16_t eventType, void *eventData);
 };
 
 }  // namespace chre

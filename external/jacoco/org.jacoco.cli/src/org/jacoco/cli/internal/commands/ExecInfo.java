@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -43,8 +43,12 @@ public class ExecInfo extends Command {
 	@Override
 	public int execute(final PrintWriter out, final PrintWriter err)
 			throws IOException {
-		for (final File file : execfiles) {
-			dump(file, out);
+		if (execfiles.isEmpty()) {
+			out.println("[WARN] No execution data files provided.");
+		} else {
+			for (final File file : execfiles) {
+				dump(file, out);
+			}
 		}
 		return 0;
 	}

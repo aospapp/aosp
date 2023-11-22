@@ -36,4 +36,6 @@ LOCAL_NDK_STL_VARIANT := c++_static
 
 LOCAL_CFLAGS := -Wno-unused-parameter
 
+LOCAL_VENDOR_MODULE := true
+
 include $(BUILD_SHARED_LIBRARY)

@@ -58,6 +58,8 @@ class DumpstateListenerMock : public IDumpstateListener {
   public:
     MOCK_METHOD1(onProgressUpdated, binder::Status(int32_t progress));
     MOCK_METHOD1(onMaxProgressUpdated, binder::Status(int32_t max_progress));
+    MOCK_METHOD4(onSectionComplete, binder::Status(const ::std::string& name, int32_t status,
+                                                   int32_t size, int32_t durationMs));
 
   protected:
     MOCK_METHOD0(onAsBinder, IBinder*());
@@ -477,6 +479,48 @@ TEST_F(DumpstateTest, RunCommandAsRootNonUserBuild) {
     EXPECT_THAT(err, StrEq("stderr\n"));
 }
 
+TEST_F(DumpstateTest, RunCommandAsRootIfAvailableOnUserBuild) {
+    if (!IsStandalone()) {
+        // TODO: temporarily disabled because it might cause other tests to fail after dropping
+        // to Shell - need to refactor tests to avoid this problem)
+        MYLOGE("Skipping DumpstateTest.RunCommandAsRootIfAvailableOnUserBuild() on test suite\n")
+        return;
+    }
+    if (!PropertiesHelper::IsUserBuild()) {
+        // Emulates user build if necessarily.
+        SetBuildType("user");
+    }
+
+    DropRoot();
+
+    EXPECT_EQ(0, RunCommand("", {kSimpleCommand, "--uid"},
+                            CommandOptions::WithTimeout(1).AsRootIfAvailable().Build()));
+
+    EXPECT_THAT(out, StrEq("2000\nstdout\n"));
+    EXPECT_THAT(err, StrEq("stderr\n"));
+}
+
+TEST_F(DumpstateTest, RunCommandAsRootIfAvailableOnDebugBuild) {
+    if (!IsStandalone()) {
+        // TODO: temporarily disabled because it might cause other tests to fail after dropping
+        // to Shell - need to refactor tests to avoid this problem)
+        MYLOGE("Skipping DumpstateTest.RunCommandAsRootIfAvailableOnDebugBuild() on test suite\n")
+        return;
+    }
+    if (PropertiesHelper::IsUserBuild()) {
+        ALOGI("Skipping RunCommandAsRootNonUserBuild on user builds\n");
+        return;
+    }
+
+    DropRoot();
+
+    EXPECT_EQ(0, RunCommand("", {kSimpleCommand, "--uid"},
+                            CommandOptions::WithTimeout(1).AsRootIfAvailable().Build()));
+
+    EXPECT_THAT(out, StrEq("0\nstdout\n"));
+    EXPECT_THAT(err, StrEq("stderr\n"));
+}
+
 TEST_F(DumpstateTest, DumpFileNotFoundNoTitle) {
     EXPECT_EQ(-1, DumpFile("", "/I/cant/believe/I/exist"));
     EXPECT_THAT(out,
@@ -559,27 +603,43 @@ class DumpstateServiceTest : public DumpstateBaseTest {
 TEST_F(DumpstateServiceTest, SetListenerNoName) {
     sp<DumpstateListenerMock> listener(new DumpstateListenerMock());
     sp<IDumpstateToken> token;
-    EXPECT_TRUE(dss.setListener("", listener, &token).isOk());
+    EXPECT_TRUE(dss.setListener("", listener, /* getSectionDetails = */ false, &token).isOk());
     ASSERT_THAT(token, IsNull());
 }
 
 TEST_F(DumpstateServiceTest, SetListenerNoPointer) {
     sp<IDumpstateToken> token;
-    EXPECT_TRUE(dss.setListener("whatever", nullptr, &token).isOk());
+    EXPECT_TRUE(
+        dss.setListener("whatever", nullptr, /* getSectionDetails = */ false, &token).isOk());
     ASSERT_THAT(token, IsNull());
 }
 
 TEST_F(DumpstateServiceTest, SetListenerTwice) {
     sp<DumpstateListenerMock> listener(new DumpstateListenerMock());
     sp<IDumpstateToken> token;
-    EXPECT_TRUE(dss.setListener("whatever", listener, &token).isOk());
+    EXPECT_TRUE(
+        dss.setListener("whatever", listener, /* getSectionDetails = */ false, &token).isOk());
     ASSERT_THAT(token, NotNull());
     EXPECT_THAT(Dumpstate::GetInstance().listener_name_, StrEq("whatever"));
+    EXPECT_FALSE(Dumpstate::GetInstance().report_section_);
 
     token.clear();
-    EXPECT_TRUE(dss.setListener("whatsoever", listener, &token).isOk());
+    EXPECT_TRUE(
+        dss.setListener("whatsoever", listener, /* getSectionDetails = */ false, &token).isOk());
     ASSERT_THAT(token, IsNull());
     EXPECT_THAT(Dumpstate::GetInstance().listener_name_, StrEq("whatever"));
+    EXPECT_FALSE(Dumpstate::GetInstance().report_section_);
+}
+
+TEST_F(DumpstateServiceTest, SetListenerWithSectionDetails) {
+    sp<DumpstateListenerMock> listener(new DumpstateListenerMock());
+    sp<IDumpstateToken> token;
+    Dumpstate::GetInstance().listener_ = nullptr;
+    EXPECT_TRUE(
+        dss.setListener("whatever", listener, /* getSectionDetails = */ true, &token).isOk());
+    ASSERT_THAT(token, NotNull());
+    EXPECT_THAT(Dumpstate::GetInstance().listener_name_, StrEq("whatever"));
+    EXPECT_TRUE(Dumpstate::GetInstance().report_section_);
 }
 
 class ProgressTest : public DumpstateBaseTest {
@@ -959,7 +1019,7 @@ TEST_F(DumpstateUtilTest, RunCommandCrashes) {
         err, StartsWith("stderr\n*** command '" + kSimpleCommand + " --crash' failed: exit code"));
 }
 
-TEST_F(DumpstateUtilTest, RunCommandTimesout) {
+TEST_F(DumpstateUtilTest, RunCommandTimesoutWithSec) {
     CreateFd("RunCommandTimesout.txt");
     EXPECT_EQ(-1, RunCommand("", {kSimpleCommand, "--sleep", "2"},
                              CommandOptions::WithTimeout(1).Build()));
@@ -968,6 +1028,17 @@ TEST_F(DumpstateUtilTest, RunCommandTimesout) {
     EXPECT_THAT(err, StartsWith("sleeping for 2s\n*** command '" + kSimpleCommand +
                                 " --sleep 2' timed out after 1"));
 }
+
+TEST_F(DumpstateUtilTest, RunCommandTimesoutWithMsec) {
+    CreateFd("RunCommandTimesout.txt");
+    EXPECT_EQ(-1, RunCommand("", {kSimpleCommand, "--sleep", "2"},
+                             CommandOptions::WithTimeoutInMs(1000).Build()));
+    EXPECT_THAT(out, StartsWith("stdout line1\n*** command '" + kSimpleCommand +
+                                " --sleep 2' timed out after 1"));
+    EXPECT_THAT(err, StartsWith("sleeping for 2s\n*** command '" + kSimpleCommand +
+                                " --sleep 2' timed out after 1"));
+}
+
 
 TEST_F(DumpstateUtilTest, RunCommandIsKilled) {
     CreateFd("RunCommandIsKilled.txt");
@@ -1048,6 +1119,51 @@ TEST_F(DumpstateUtilTest, RunCommandAsRootNonUserBuild) {
 
     EXPECT_EQ(0, RunCommand("", {kSimpleCommand, "--uid"},
                             CommandOptions::WithTimeout(1).AsRoot().Build()));
+
+    EXPECT_THAT(out, StrEq("0\nstdout\n"));
+    EXPECT_THAT(err, StrEq("stderr\n"));
+}
+
+
+TEST_F(DumpstateUtilTest, RunCommandAsRootIfAvailableOnUserBuild) {
+    if (!IsStandalone()) {
+        // TODO: temporarily disabled because it might cause other tests to fail after dropping
+        // to Shell - need to refactor tests to avoid this problem)
+        MYLOGE("Skipping DumpstateUtilTest.RunCommandAsRootIfAvailableOnUserBuild() on test suite\n")
+        return;
+    }
+    CreateFd("RunCommandAsRootIfAvailableOnUserBuild.txt");
+    if (!PropertiesHelper::IsUserBuild()) {
+        // Emulates user build if necessarily.
+        SetBuildType("user");
+    }
+
+    DropRoot();
+
+    EXPECT_EQ(0, RunCommand("", {kSimpleCommand, "--uid"},
+                            CommandOptions::WithTimeout(1).AsRootIfAvailable().Build()));
+
+    EXPECT_THAT(out, StrEq("2000\nstdout\n"));
+    EXPECT_THAT(err, StrEq("stderr\n"));
+}
+
+TEST_F(DumpstateUtilTest, RunCommandAsRootIfAvailableOnDebugBuild) {
+    if (!IsStandalone()) {
+        // TODO: temporarily disabled because it might cause other tests to fail after dropping
+        // to Shell - need to refactor tests to avoid this problem)
+        MYLOGE("Skipping DumpstateUtilTest.RunCommandAsRootIfAvailableOnDebugBuild() on test suite\n")
+        return;
+    }
+    CreateFd("RunCommandAsRootIfAvailableOnDebugBuild.txt");
+    if (PropertiesHelper::IsUserBuild()) {
+        ALOGI("Skipping RunCommandAsRootNonUserBuild on user builds\n");
+        return;
+    }
+
+    DropRoot();
+
+    EXPECT_EQ(0, RunCommand("", {kSimpleCommand, "--uid"},
+                            CommandOptions::WithTimeout(1).AsRootIfAvailable().Build()));
 
     EXPECT_THAT(out, StrEq("0\nstdout\n"));
     EXPECT_THAT(err, StrEq("stderr\n"));

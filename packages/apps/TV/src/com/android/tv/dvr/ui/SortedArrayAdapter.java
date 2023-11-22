@@ -19,9 +19,7 @@ package com.android.tv.dvr.ui;
 import android.support.annotation.VisibleForTesting;
 import android.support.v17.leanback.widget.ArrayObjectAdapter;
 import android.support.v17.leanback.widget.PresenterSelector;
-
 import com.android.tv.common.SoftPreconditions;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -45,8 +43,8 @@ public abstract class SortedArrayAdapter<T> extends ArrayObjectAdapter {
         this(presenterSelector, comparator, Integer.MAX_VALUE);
     }
 
-    public SortedArrayAdapter(PresenterSelector presenterSelector, Comparator<T> comparator,
-            int maxItemCount) {
+    public SortedArrayAdapter(
+            PresenterSelector presenterSelector, Comparator<T> comparator, int maxItemCount) {
         super(presenterSelector);
         mComparator = comparator;
         mMaxItemCount = maxItemCount;
@@ -88,9 +86,8 @@ public abstract class SortedArrayAdapter<T> extends ArrayObjectAdapter {
      * Adds an item in sorted order to the adapter.
      *
      * @param item The item to add in sorted order to the adapter.
-     * @param insertToEnd If items are inserted in a more or less sorted fashion,
-     *                    sets this parameter to {@code true} to search insertion position from
-     *                    the end to save search time.
+     * @param insertToEnd If items are inserted in a more or less sorted fashion, sets this
+     *     parameter to {@code true} to search insertion position from the end to save search time.
      */
     public final void add(T item, boolean insertToEnd) {
         long newItemId = getId(item);
@@ -127,9 +124,7 @@ public abstract class SortedArrayAdapter<T> extends ArrayObjectAdapter {
         return removeWithId((T) item);
     }
 
-    /**
-     * Removes an item which has the same ID as {@code item}.
-     */
+    /** Removes an item which has the same ID as {@code item}. */
     public boolean removeWithId(T item) {
         int index = indexWithId(item);
         return index >= 0 && index < size() && removeItems(index, 1) == 1;
@@ -166,6 +161,7 @@ public abstract class SortedArrayAdapter<T> extends ArrayObjectAdapter {
 
     /**
      * Changes an item in the list.
+     *
      * @param item The item to change.
      */
     public final void change(T item) {
@@ -181,9 +177,7 @@ public abstract class SortedArrayAdapter<T> extends ArrayObjectAdapter {
         add(item);
     }
 
-    /**
-     * Checks whether the item is in the list.
-     */
+    /** Checks whether the item is in the list. */
     public final boolean contains(T item) {
         return indexWithId(item) != -1;
     }
@@ -194,10 +188,10 @@ public abstract class SortedArrayAdapter<T> extends ArrayObjectAdapter {
     }
 
     /**
-     * Returns the id of the the given {@code item}, which will be used in {@link #change} to
-     * decide if the given item is already existed in the adapter.
+     * Returns the id of the the given {@code item}, which will be used in {@link #change} to decide
+     * if the given item is already existed in the adapter.
      *
-     * The id must be stable.
+     * <p>The id must be stable.
      */
     protected abstract long getId(T item);
 
@@ -212,11 +206,9 @@ public abstract class SortedArrayAdapter<T> extends ArrayObjectAdapter {
         return -1;
     }
 
-    /**
-     * Finds the position that the given item should be inserted to keep the sorted order.
-     */
+    /** Finds the position that the given item should be inserted to keep the sorted order. */
     public int findInsertPosition(T item) {
-        for (int i = size() - mExtraItemCount - 1; i >=0; i--) {
+        for (int i = size() - mExtraItemCount - 1; i >= 0; i--) {
             T r = (T) get(i);
             if (mComparator.compare(r, item) <= 0) {
                 return i + 1;

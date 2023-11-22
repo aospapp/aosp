@@ -14,15 +14,8 @@
 
 LOCAL_PATH := $(call my-dir)
 
-include $(CLEAR_VARS)
-
-LOCAL_MODULE := Magick++
-
-LOCAL_SDK_VERSION := 24
-
-LOCAL_NDK_STL_VARIANT := c++_static
-
-LOCAL_SRC_FILES := lib/Blob.cpp\
+define define-magick++-vars
+  $(eval LOCAL_SRC_FILES := lib/Blob.cpp\
     lib/BlobRef.cpp\
     lib/CoderInfo.cpp\
     lib/Color.cpp\
@@ -39,17 +32,33 @@ LOCAL_SRC_FILES := lib/Blob.cpp\
     lib/STL.cpp\
     lib/Statistic.cpp\
     lib/Thread.cpp\
-    lib/TypeMetric.cpp
-
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/.. \
-    $(LOCAL_PATH)/lib
-
-LOCAL_CFLAGS += -DHAVE_CONFIG_H -Wno-deprecated-register
-
-LOCAL_CPPFLAGS += -fexceptions
-
-LOCAL_EXPORT_C_INCLUDE_DIRS := \
+    lib/TypeMetric.cpp) \
+  $(eval LOCAL_C_INCLUDES += $(LOCAL_PATH)/.. \
+    $(LOCAL_PATH)/lib) \
+  $(eval LOCAL_CFLAGS += -DHAVE_CONFIG_H \
+    -Wall -Werror \
+    -Wno-deprecated-register \
+    -Wno-unused-private-field) \
+  $(eval LOCAL_CPPFLAGS += -fexceptions) \
+  $(eval LOCAL_EXPORT_C_INCLUDE_DIRS := \
     external/ImageMagick/Magick++/lib \
-    external/ImageMagick
+    external/ImageMagick)
+endef
+
+include $(CLEAR_VARS)
+
+$(call define-magick++-vars)
+LOCAL_MODULE := Magick++_platform
+LOCAL_CXX_STL := libc++_static
+
+include $(BUILD_STATIC_LIBRARY)
+
+
+include $(CLEAR_VARS)
+
+$(call define-magick++-vars)
+LOCAL_MODULE := Magick++
+LOCAL_SDK_VERSION := 24
+LOCAL_NDK_STL_VARIANT := c++_static
 
 include $(BUILD_STATIC_LIBRARY)

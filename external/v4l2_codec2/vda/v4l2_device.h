@@ -5,6 +5,8 @@
 // This file defines the V4L2Device interface which is used by the
 // V4L2DecodeAccelerator class to delegate/pass the device specific
 // handling of any of the functionalities.
+// Note: ported from Chromium commit head: fb70f64
+// Note: it's also merged with generic_v4l2_device.h (head: fb70f64)
 
 #ifndef V4L2_DEVICE_H_
 #define V4L2_DEVICE_H_

@@ -163,6 +163,12 @@ public class CustomContactListFilterActivity extends Activity implements
             // ContactsContract.Settings
             for (AccountInfo info : sourceAccounts) {
                 final AccountWithDataSet account = info.getAccount();
+                // Don't include the null account because it doesn't support writing to
+                // ContactsContract.Settings
+                if (account.isNullAccount()) {
+                    continue;
+                }
+
                 final AccountDisplay accountDisplay = new AccountDisplay(resolver, info);
 
                 final Uri.Builder groupsUri = Groups.CONTENT_URI.buildUpon()
@@ -171,7 +177,8 @@ public class CustomContactListFilterActivity extends Activity implements
                 if (account.dataSet != null) {
                     groupsUri.appendQueryParameter(Groups.DATA_SET, account.dataSet).build();
                 }
-                final Cursor cursor = resolver.query(groupsUri.build(), null, null, null, null);
+                final Cursor cursor = resolver.query(groupsUri.build(), null,
+                        Groups.DELETED + "=0", null, null);
                 if (cursor == null) {
                     continue;
                 }

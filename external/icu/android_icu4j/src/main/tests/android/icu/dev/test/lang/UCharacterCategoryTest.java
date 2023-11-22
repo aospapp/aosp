@@ -9,28 +9,33 @@
 */
 package android.icu.dev.test.lang;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.lang.UCharacterCategory;
+import android.icu.testsharding.MainTestShard;
 
 /**
 * Testing UCharacterCategory
 * @author Syn Wee Quek
 * @since April 02 2002
 */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class UCharacterCategoryTest extends TestFmwk
 {
     // constructor -----------------------------------------------------------
-    
+
     /**
     * Private constructor to prevent initialisation
     */
     public UCharacterCategoryTest()
     {
     }
-    
+
       // public methods --------------------------------------------------------
-      
+
     /**
     * Gets the name of the argument category
     * @returns category name
@@ -65,10 +70,10 @@ public class UCharacterCategoryTest extends TestFmwk
                            "Symbol, Math",
                            "Symbol, Currency",
                            "Symbol, Modifier",
-                           "Symbol, Other", 
+                           "Symbol, Other",
                            "Punctuation, Initial quote",
                            "Punctuation, Final quote"};
-        for (int i = UCharacterCategory.UNASSIGNED; 
+        for (int i = UCharacterCategory.UNASSIGNED;
                  i < UCharacterCategory.CHAR_CATEGORY_COUNT; i ++) {
              if (!UCharacterCategory.toString(i).equals(name[i])) {
                  errln("Error toString for category " + i + " expected " +

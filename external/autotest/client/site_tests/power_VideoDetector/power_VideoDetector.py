@@ -8,7 +8,8 @@ import time
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
-from autotest_lib.client.cros import power_utils, upstart
+from autotest_lib.client.cros import upstart
+from autotest_lib.client.cros.power import power_utils
 
 class power_VideoDetector(test.test):
     """

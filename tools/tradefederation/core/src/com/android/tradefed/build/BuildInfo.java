@@ -15,6 +15,7 @@
  */
 package com.android.tradefed.build;
 
+import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.FileUtil;
@@ -26,9 +27,14 @@ import com.google.common.base.Objects;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Hashtable;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Generic implementation of a {@link IBuildInfo} that should be associated
@@ -47,6 +53,9 @@ public class BuildInfo implements IBuildInfo {
     private String mBuildFlavor = null;
     private String mBuildBranch = null;
     private String mDeviceSerial = null;
+
+    /** File handling properties: Some files of the BuildInfo might requires special handling */
+    private final Set<BuildInfoProperties> mProperties = new HashSet<>();
 
     /**
      * Creates a {@link BuildInfo} using default attribute values.
@@ -147,6 +156,19 @@ public class BuildInfo implements IBuildInfo {
         return mBuildAttributes.getUniqueMap();
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void setProperties(BuildInfoProperties... properties) {
+        mProperties.clear();
+        mProperties.addAll(Arrays.asList(properties));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<BuildInfoProperties> getProperties() {
+        return new HashSet<>(mProperties);
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -179,16 +201,18 @@ public class BuildInfo implements IBuildInfo {
 
     /**
      * Helper method to copy all files from the other build.
-     * <p>
-     * Creates new hardlinks to the files so that each build will have a unique file path to the
-     * file.
-     * </p>
      *
-     * @throws IOException if an exception is thrown when creating the hardlinks.
+     * <p>Creates new hardlinks to the files so that each build will have a unique file path to the
+     * file.
+     *
+     * @throws IOException if an exception is thrown when creating the hardlink.
      */
     protected void addAllFiles(BuildInfo build) throws IOException {
         for (Map.Entry<String, VersionedFile> fileEntry : build.getVersionedFileMap().entrySet()) {
             File origFile = fileEntry.getValue().getFile();
+            if (applyBuildProperties(fileEntry.getValue(), build, this)) {
+                continue;
+            }
             File copyFile;
             if (origFile.isDirectory()) {
                 copyFile = FileUtil.createTempDir(fileEntry.getKey());
@@ -202,6 +226,21 @@ public class BuildInfo implements IBuildInfo {
             }
             setFile(fileEntry.getKey(), copyFile, fileEntry.getValue().getVersion());
         }
+    }
+
+    /**
+     * Allow to apply some of the {@link com.android.tradefed.build.IBuildInfo.BuildInfoProperties}
+     * and possibly do a different handling.
+     *
+     * @param origFileConsidered The currently looked at {@link VersionedFile}.
+     * @param build the original build being cloned
+     * @param receiver the build receiving the information.
+     * @return True if we applied the properties and further handling should be skipped. False
+     *     otherwise.
+     */
+    protected boolean applyBuildProperties(
+            VersionedFile origFileConsidered, IBuildInfo build, IBuildInfo receiver) {
+        return false;
     }
 
     protected Map<String, VersionedFile> getVersionedFileMap() {
@@ -218,6 +257,24 @@ public class BuildInfo implements IBuildInfo {
             return fileRecord.getFile();
         }
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public File getFile(BuildInfoFileKey key) {
+        return getFile(key.getFileKey());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public VersionedFile getVersionedFile(String name) {
+        return mVersionedFileMap.get(name);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public VersionedFile getVersionedFile(BuildInfoFileKey key) {
+        return getVersionedFile(key.getFileKey());
     }
 
     /**
@@ -240,6 +297,12 @@ public class BuildInfo implements IBuildInfo {
         return null;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public String getVersion(BuildInfoFileKey key) {
+        return getVersion(key.getFileKey());
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -253,6 +316,12 @@ public class BuildInfo implements IBuildInfo {
         mVersionedFileMap.put(name, new VersionedFile(file, version));
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void setFile(BuildInfoFileKey key, File file, String version) {
+        setFile(key.getFileKey(), file, version);
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -264,13 +333,54 @@ public class BuildInfo implements IBuildInfo {
         mVersionedFileMap.clear();
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void cleanUp(List<File> doNotClean) {
+        if (doNotClean == null) {
+            cleanUp();
+        }
+        for (VersionedFile fileRecord : mVersionedFileMap.values()) {
+            if (!doNotClean.contains(fileRecord.getFile())) {
+                FileUtil.recursiveDelete(fileRecord.getFile());
+            }
+        }
+        refreshVersionedFiles();
+    }
+
+    /**
+     * Run through all the {@link VersionedFile} and remove from the map the one that do not exists.
+     */
+    private void refreshVersionedFiles() {
+        Set<String> keys = new HashSet<>(mVersionedFileMap.keySet());
+        for (String key : keys) {
+            if (!mVersionedFileMap.get(key).getFile().exists()) {
+                mVersionedFileMap.remove(key);
+            }
+        }
+    }
+
     /**
      * {@inheritDoc}
      */
     @Override
     public IBuildInfo clone() {
-        BuildInfo copy = new BuildInfo(mBuildId, mBuildTargetName);
+        BuildInfo copy = null;
+        try {
+            copy =
+                    this.getClass()
+                            .getDeclaredConstructor(String.class, String.class)
+                            .newInstance(getBuildId(), getBuildTargetName());
+        } catch (InstantiationException
+                | IllegalAccessException
+                | IllegalArgumentException
+                | InvocationTargetException
+                | NoSuchMethodException
+                | SecurityException e) {
+            CLog.e("Failed to clone the build info.");
+            throw new RuntimeException(e);
+        }
         copy.addAllBuildAttributes(this);
+        copy.setProperties(this.getProperties().toArray(new BuildInfoProperties[0]));
         try {
             copy.addAllFiles(this);
         } catch (IOException e) {

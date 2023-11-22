@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Vill du rensa alla uppgifter och kontakter?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Om du lägger till medicinsk information och ICE-kontakter kan utryckningspersonalen använda dessa uppgifter i en nödsituation.\n\nVem som helst kan läsa informationen på låsskärmen och ringa kontakterna genom att trycka på namnen utan att låsa upp mobilen."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Lägga till krisinformation"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Hjälp utryckningspersonalen att hitta viktig information"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Tillåt att räddningspersonal ser dina uppgifter"</string>
 </resources>

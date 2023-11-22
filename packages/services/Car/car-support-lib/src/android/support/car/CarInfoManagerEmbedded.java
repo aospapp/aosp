@@ -88,6 +88,42 @@ public class CarInfoManagerEmbedded extends CarInfoManager {
         return CarInfoManager.DRIVER_SIDE_UNKNOWN; // N/A
     }
 
+    @Override
+    public float getFuelCapacity() throws CarNotConnectedException {
+        try {
+            return mManager.getFuelCapacity();
+        } catch (android.car.CarNotConnectedException e) {
+            throw new CarNotConnectedException(e);
+        }
+    }
+
+    @Override
+    public int[] getFuelTypes() throws CarNotConnectedException {
+        try {
+            return mManager.getFuelTypes();
+        } catch (android.car.CarNotConnectedException e) {
+            throw new CarNotConnectedException(e);
+        }
+    }
+
+    @Override
+    public float getEvBatteryCapacity() throws CarNotConnectedException {
+        try {
+            return mManager.getEvBatteryCapacity();
+        } catch (android.car.CarNotConnectedException e) {
+            throw new CarNotConnectedException(e);
+        }
+    }
+
+    @Override
+    public int[] getEvConnectorTypes() throws CarNotConnectedException {
+        try {
+            return mManager.getEvConnectorTypes();
+        } catch (android.car.CarNotConnectedException e) {
+            throw new CarNotConnectedException(e);
+        }
+    }
+
     /** @hide */
     @Override
     public void onCarDisconnected() {

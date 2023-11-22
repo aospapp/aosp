@@ -152,3 +152,7 @@ char *get_ro_filename(int ix);
 void init_filename_cache(void);
 void free_filename_cache(void);
 int is_readonly_mount(char *filename, size_t size);
+
+int ioshark_read_header(FILE *fp, struct ioshark_header *header);
+int ioshark_read_file_state(FILE *fp, struct ioshark_file_state *state);
+int ioshark_read_file_op(FILE *fp, struct ioshark_file_operation *file_op);

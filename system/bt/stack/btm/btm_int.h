@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -47,6 +47,7 @@ extern tBTM_CB btm_cb;
  *******************************************
 */
 extern void btm_init(void);
+extern void btm_free(void);
 
 /* Internal functions provided by btm_inq.cc
  ******************************************
@@ -184,6 +185,7 @@ extern void btm_ble_add_2_white_list_complete(uint8_t status);
 extern void btm_ble_remove_from_white_list_complete(uint8_t* p,
                                                     uint16_t evt_len);
 extern void btm_ble_clear_white_list_complete(uint8_t* p, uint16_t evt_len);
+extern void btm_ble_create_conn_cancel_complete(uint8_t* p);
 extern bool btm_ble_addr_resolvable(const RawAddress& rpa,
                                     tBTM_SEC_DEV_REC* p_dev_rec);
 extern tBTM_STATUS btm_ble_read_resolving_list_entry(
@@ -193,7 +195,7 @@ extern void btm_ble_resolving_list_remove_dev(tBTM_SEC_DEV_REC* p_dev_rec);
 
 /* Vendor Specific Command complete evt handler */
 extern void btm_vsc_complete(uint8_t* p, uint16_t cc_opcode, uint16_t evt_len,
-                             tBTM_CMPL_CB* p_vsc_cplt_cback);
+                             tBTM_VSC_CMPL_CB* p_vsc_cplt_cback);
 extern void btm_inq_db_reset(void);
 extern void btm_vendor_specific_evt(uint8_t* p, uint8_t evt_len);
 extern void btm_delete_stored_link_key_complete(uint8_t* p);
@@ -287,5 +289,6 @@ extern void btm_acl_reset_paging(void);
 extern void btm_acl_paging(BT_HDR* p, const RawAddress& dest);
 extern uint8_t btm_sec_clr_service_by_psm(uint16_t psm);
 extern void btm_sec_clr_temp_auth_service(const RawAddress& bda);
+extern tBTM_STATUS btm_sec_execute_procedure(tBTM_SEC_DEV_REC* p_dev_rec);
 
 #endif

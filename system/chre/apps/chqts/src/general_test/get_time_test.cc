@@ -45,26 +45,31 @@ void GetTimeTest::setUp(uint32_t messageSize, const void * /* message */) {
     sendFatalFailureToHost("chreGetTime() gave 0 well after system boot.");
   }
 
-  uint64_t baseTime = firstTime;
-  uint64_t nextTime;
-  for (size_t i = 0; i < 10; i++) {
-    nextTime = chreGetTime();
+  uint64_t prevTime = firstTime;
+
+  // Continuously call chreGetTime() to ensure timestamps are monotonically
+  // increasing and increases at some point after a large number of calls.
+  constexpr size_t kMaxGetTimeCount = 10000;
+  for (size_t i = 0; (prevTime == firstTime && i < kMaxGetTimeCount); i++) {
+    uint64_t nextTime = chreGetTime();
+
     // We don't require this to have increased, because maybe we're
     // on a relatively fast processor, or have a low resolution clock.
-    if (nextTime < baseTime) {
+    if (nextTime < prevTime) {
       sendFatalFailureToHost(
           "chreGetTime() is not monotonically increasing");
     }
-    baseTime = nextTime;
-  }
-  // But if after ten iterations of the loop we never incremented the
-  // time, that seems highly suspicious.
-  if (nextTime == firstTime) {
-    sendFatalFailureToHost("chreGetTime() is not increasing.");
+
+    prevTime = nextTime;
   }
 
-  nanoapp_testing::hostToLittleEndian(&nextTime);
-  sendMessageToHost(MessageType::kContinue, &nextTime, sizeof(nextTime));
+  if (prevTime == firstTime) {
+    sendFatalFailureToHost(
+        "chreGetTime() is not increasing after a large number of calls");
+  }
+
+  prevTime = nanoapp_testing::hostToLittleEndian(prevTime);
+  sendMessageToHost(MessageType::kContinue, &prevTime, sizeof(prevTime));
 
   // Now we'll wait to get a 'continue' from the host.
 }
@@ -79,8 +84,7 @@ void GetTimeTest::handleEvent(uint32_t senderInstanceId,
   }
 
   mContinueCount++;
-  uint64_t time = chreGetTime();
-  nanoapp_testing::hostToLittleEndian(&time);
+  uint64_t time = nanoapp_testing::hostToLittleEndian(chreGetTime());
   sendMessageToHost(MessageType::kContinue, &time, sizeof(time));
   // We do nothing else in the CHRE.  It's up to the Host to declare
   // if we've passed.

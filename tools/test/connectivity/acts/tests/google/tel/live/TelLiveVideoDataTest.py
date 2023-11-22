@@ -33,6 +33,7 @@ class TelLiveVideoDataTest(TelephonyBaseTest):
 
         self.stress_test_number = self.get_stress_test_number()
         self.wifi_network_ssid = self.user_params["wifi_network_ssid"]
+        self.number_of_devices = 2
 
         try:
             self.wifi_network_pass = self.user_params["wifi_network_pass"]

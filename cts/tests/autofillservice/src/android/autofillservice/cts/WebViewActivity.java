@@ -15,16 +15,25 @@
  */
 package android.autofillservice.cts;
 
+import static android.autofillservice.cts.Timeouts.WEBVIEW_TIMEOUT;
+
+import android.content.Context;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
+import android.view.KeyEvent;
+import android.view.View;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 
 import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class WebViewActivity extends AbstractAutoFillActivity {
 
@@ -33,7 +42,19 @@ public class WebViewActivity extends AbstractAutoFillActivity {
     private static final String FAKE_URL = "https://" + FAKE_DOMAIN + ":666/login.html";
     static final String ID_WEBVIEW = "webview";
 
-    WebView mWebView;
+    static final String HTML_NAME_USERNAME = "username";
+    static final String HTML_NAME_PASSWORD = "password";
+
+    static final String ID_OUTSIDE1 = "outside1";
+    static final String ID_OUTSIDE2 = "outside2";
+
+    private MyWebView mWebView;
+
+    private LinearLayout mParent;
+    private LinearLayout mOutsideContainer1;
+    private LinearLayout mOutsideContainer2;
+    EditText mOutside1;
+    EditText mOutside2;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,59 +62,103 @@ public class WebViewActivity extends AbstractAutoFillActivity {
 
         setContentView(R.layout.webview_activity);
 
-        mWebView = findViewById(R.id.webview);
-        mWebView.setWebViewClient(new WebViewClient() {
-            // WebView does not set the WebDomain on file:// requests, so we need to use an https://
-            // request and intercept it to provide the real data.
-            @Override
-            public WebResourceResponse shouldInterceptRequest(WebView view,
-                    WebResourceRequest request) {
-                final String url = request.getUrl().toString();
-                if (!url.equals(FAKE_URL)) {
-                    Log.d(TAG, "Ignoring " + url);
-                    return super.shouldInterceptRequest(view, request);
-                }
-
-                final String rawPath = request.getUrl().getPath().substring(1); // Remove leading /
-                Log.d(TAG, "Converting " + url + " to " + rawPath);
-                // NOTE: cannot use try() because it would close the stream before WebView uses it.
-                try {
-                    return new WebResourceResponse("text/html", "utf-8", getAssets().open(rawPath));
-                } catch (IOException e) {
-                    throw new IllegalArgumentException("Error opening " + rawPath, e);
-                }
-            }
-        });
-        mWebView.loadUrl(FAKE_URL);
+        mParent = findViewById(R.id.parent);
+        mOutsideContainer1 = findViewById(R.id.outsideContainer1);
+        mOutsideContainer2 = findViewById(R.id.outsideContainer2);
+        mOutside1 = findViewById(R.id.outside1);
+        mOutside2 = findViewById(R.id.outside2);
     }
 
-    public UiObject2 getUsernameLabel(UiBot uiBot) {
+    public MyWebView loadWebView(UiBot uiBot) throws Exception {
+        return loadWebView(uiBot, false);
+    }
+
+    public MyWebView loadWebView(UiBot uiBot, boolean usingAppContext) throws Exception {
+        final CountDownLatch latch = new CountDownLatch(1);
+        syncRunOnUiThread(() -> {
+            final Context context = usingAppContext ? getApplicationContext() : this;
+            mWebView = new MyWebView(context);
+            mParent.addView(mWebView);
+            mWebView.setWebViewClient(new WebViewClient() {
+                // WebView does not set the WebDomain on file:// requests, so we need to use an
+                // https:// request and intercept it to provide the real data.
+                @Override
+                public WebResourceResponse shouldInterceptRequest(WebView view,
+                        WebResourceRequest request) {
+                    final String url = request.getUrl().toString();
+                    if (!url.equals(FAKE_URL)) {
+                        Log.d(TAG, "Ignoring " + url);
+                        return super.shouldInterceptRequest(view, request);
+                    }
+
+                    final String rawPath = request.getUrl().getPath()
+                            .substring(1); // Remove leading /
+                    Log.d(TAG, "Converting " + url + " to " + rawPath);
+                    // NOTE: cannot use try-with-resources because it would close the stream before
+                    // WebView uses it.
+                    try {
+                        return new WebResourceResponse("text/html", "utf-8",
+                                getAssets().open(rawPath));
+                    } catch (IOException e) {
+                        throw new IllegalArgumentException("Error opening " + rawPath, e);
+                    }
+                }
+
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    Log.v(TAG, "onPageFinished(): " + url);
+                    latch.countDown();
+                }
+
+            });
+            mWebView.loadUrl(FAKE_URL);
+        });
+
+        // Wait until it's loaded.
+
+        if (!latch.await(WEBVIEW_TIMEOUT.ms(), TimeUnit.MILLISECONDS)) {
+            throw new RetryableException(WEBVIEW_TIMEOUT, "WebView not loaded");
+        }
+
+        // TODO(b/80317628): re-add check below
+        // NOTE: we cannot search by resourceId because WebView does not set them...
+        // uiBot.assertShownByText("Login"); // Login button
+
+        return mWebView;
+    }
+
+    public void loadOutsideViews() {
+        syncRunOnUiThread(() -> {
+            mOutsideContainer1.setVisibility(View.VISIBLE);
+            mOutsideContainer2.setVisibility(View.VISIBLE);
+        });
+    }
+
+    public UiObject2 getUsernameLabel(UiBot uiBot) throws Exception {
         return getLabel(uiBot, "Username: ");
     }
 
-    public UiObject2 getPasswordLabel(UiBot uiBot) {
+    public UiObject2 getPasswordLabel(UiBot uiBot) throws Exception {
         return getLabel(uiBot, "Password: ");
     }
 
-
-    public UiObject2 getUsernameInput(UiBot uiBot) {
+    public UiObject2 getUsernameInput(UiBot uiBot) throws Exception {
         return getInput(uiBot, "Username: ");
     }
 
-    public UiObject2 getPasswordInput(UiBot uiBot) {
+    public UiObject2 getPasswordInput(UiBot uiBot) throws Exception {
         return getInput(uiBot, "Password: ");
     }
 
-    public UiObject2 getLoginButton(UiBot uiBot) {
-        return uiBot.assertShownByContentDescription("Login");
+    public UiObject2 getLoginButton(UiBot uiBot) throws Exception {
+        return getLabel(uiBot, "Login");
     }
 
-    private UiObject2 getLabel(UiBot uiBot, String contentDescription) {
-        final UiObject2 label = uiBot.assertShownByContentDescription(contentDescription);
-        return label;
+    private UiObject2 getLabel(UiBot uiBot, String label) throws Exception {
+        return uiBot.assertShownByText(label, Timeouts.WEBVIEW_TIMEOUT);
     }
 
-    private UiObject2 getInput(UiBot uiBot, String contentDescription) {
+    private UiObject2 getInput(UiBot uiBot, String contentDescription) throws Exception {
         // First get the label..
         final UiObject2 label = getLabel(uiBot, contentDescription);
 
@@ -105,10 +170,23 @@ public class WebViewActivity extends AbstractAutoFillActivity {
                 if (child.getClassName().equals(EditText.class.getName())) {
                     return child;
                 }
+                uiBot.dumpScreen("getInput() for " + child + "failed");
                 throw new IllegalStateException("Invalid class for " + child);
             }
             previous = child;
         }
+        uiBot.dumpScreen("getInput() for label " + label + "failed");
         throw new IllegalStateException("could not find username (label=" + label + ")");
+    }
+
+    public void dispatchKeyPress(int keyCode) {
+        runOnUiThread(() -> {
+            KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, keyCode);
+            mWebView.dispatchKeyEvent(keyEvent);
+            keyEvent = new KeyEvent(KeyEvent.ACTION_UP, keyCode);
+            mWebView.dispatchKeyEvent(keyEvent);
+        });
+        // wait webview to process the key event.
+        SystemClock.sleep(300);
     }
 }

@@ -31,15 +31,6 @@ PRODUCT_FULL_TREBLE_OVERRIDE := true
 PRODUCT_PACKAGES += \
     messaging
 
-# All VNDK libraries (HAL interfaces, VNDK, VNDK-SP, LL-NDK)
-PRODUCT_PACKAGES += vndk_package
-
-# SP-NDK:
-PRODUCT_PACKAGES += \
-    libvulkan \
-
-# Audio:
-USE_XML_AUDIO_POLICY_CONF := 1
 # The following policy XML files are used as fallback for
 # vendors/devices not using XML to configure audio policy.
 PRODUCT_COPY_FILES += \
@@ -49,26 +40,29 @@ PRODUCT_COPY_FILES += \
     frameworks/av/services/audiopolicy/config/audio_policy_volumes.xml:system/etc/audio_policy_volumes.xml \
     frameworks/av/services/audiopolicy/config/default_volume_tables.xml:system/etc/default_volume_tables.xml \
 
-# Bluetooth:
-#   audio.a2dp.default is a system module. Generic system image includes
-#   audio.a2dp.default to support A2DP if board has the capability.
-PRODUCT_PACKAGES += \
-    audio.a2dp.default
+# Telephony:
+#   Provide a default APN configuration
+PRODUCT_COPY_FILES += \
+    device/generic/goldfish/data/etc/apns-conf.xml:system/etc/apns-conf.xml
 
-# Net:
-#   Vendors can use the platform-provided network configuration utilities (ip,
-#   iptable, etc.) to configure the Linux networking stack, but these utilities
-#   do not yet include a HIDL interface wrapper. This is a solution on
-#   Android O.
-PRODUCT_PACKAGES += \
-    netutils-wrapper-1.0
+# NFC:
+#   Provide default libnfc-nci.conf file for devices that does not have one in
+#   vendor/etc
+PRODUCT_COPY_FILES += \
+    device/generic/common/nfc/libnfc-nci.conf:system/etc/libnfc-nci.conf
 
-# Android Verified Boot (AVB):
-#   Builds a special vbmeta.img that disables AVB verification.
-#   Otherwise, AVB will prevent the device from booting the generic system.img.
-#   Also checks that BOARD_AVB_ENABLE is not set, to prevent adding verity
-#   metadata into system.img.
-ifeq ($(BOARD_AVB_ENABLE),true)
-$(error BOARD_AVB_ENABLE cannot be set for Treble GSI)
-endif
-BOARD_BUILD_DISABLED_VBMETAIMAGE := true
+# Support for the O-MR1 devices
+PRODUCT_COPY_FILES += \
+    build/make/target/product/vndk/init.gsi.rc:system/etc/init/init.gsi.rc \
+    build/make/target/product/vndk/init.vndk-27.rc:system/etc/init/gsi/init.vndk-27.rc
+
+# Name space configuration file for non-enforcing VNDK
+PRODUCT_PACKAGES += \
+    ld.config.vndk_lite.txt
+
+# Support addtional O-MR1 vendor interface
+PRODUCT_EXTRA_VNDK_VERSIONS := 27
+
+# TODO(b/78308559): includes vr_hwc into GSI before vr_hwc move to vendor
+PRODUCT_PACKAGES += \
+    vr_hwc

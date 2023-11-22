@@ -26,6 +26,8 @@ import java.util.ArrayList;
 
 import android.bluetooth.BluetoothProfile;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 /**
  * BluetoothDevicesInfo contains all the information pertinent to connection on a Bluetooth Profile.
  * It holds
@@ -46,7 +48,7 @@ import android.bluetooth.BluetoothProfile;
 public class BluetoothDevicesInfo {
 
     private static final String TAG = "CarBluetoothDevicesInfo";
-    private static final boolean DBG = false;
+    private static final boolean DBG = Utils.DBG;
     private final int DEVICE_NOT_FOUND = -1;
     private final int DEVICE_PRIORITY_UNDEFINED = -1;
     // The device list and the connection state information together have all the information
@@ -248,7 +250,7 @@ public class BluetoothDevicesInfo {
      * @param device - {@link BluetoothDevice} to look for
      * @return true if found, false if not found
      */
-    private boolean checkDeviceInListLocked(BluetoothDevice device) {
+    boolean checkDeviceInListLocked(BluetoothDevice device) {
         boolean isPresent = false;
         if (device == null) {
             return isPresent;
@@ -714,7 +716,9 @@ public class BluetoothDevicesInfo {
         if (DBG) {
             Log.d(TAG, "Profile: " + mConnectionInfo.mProfile + " Num of connections: "
                     + mConnectionInfo.mNumActiveConnections + " Conn Supported: "
-                    + mConnectionInfo.mNumConnectionsSupported);
+                    + mConnectionInfo.mNumConnectionsSupported
+                    + ", the flag: mDeviceAvailableToConnect = "
+                    + mConnectionInfo.mDeviceAvailableToConnect);
         }
 
         if (mConnectionInfo.mDeviceAvailableToConnect &&
@@ -723,9 +727,11 @@ public class BluetoothDevicesInfo {
         }
 
         if (DBG) {
-            Log.d(TAG, "Connected devices for profile " + mConnectionInfo.mProfile);
-            for (BluetoothDevice device : getConnectedDevicesLocked()) {
-                Log.d(TAG, device.getAddress());
+            if (mConnectionInfo.mDeviceAvailableToConnect) {
+                Log.d(TAG, "Connected devices for profile " + mConnectionInfo.mProfile);
+                for (BluetoothDevice device : getConnectedDevicesLocked()) {
+                    Log.d(TAG, device.getAddress());
+                }
             }
         }
         return false;
@@ -764,5 +770,40 @@ public class BluetoothDevicesInfo {
             mDeviceInfoList.clear();
         }
         resetConnectionInfoLocked();
+    }
+
+    @VisibleForTesting
+    String toDebugString() {
+        StringBuilder buf = new StringBuilder();
+        buf.append("\tmDeviceAvailableToConnect = " + mConnectionInfo.mDeviceAvailableToConnect);
+        buf.append("\n\t#Paired Devices = " + getNumberOfPairedDevicesLocked());
+        buf.append(", #Active Connections = " + mConnectionInfo.mNumActiveConnections);
+        buf.append(", #Connections Supported = " + mConnectionInfo.mNumConnectionsSupported);
+        if (mDeviceInfoList != null) {
+            int i = 1;
+            for (DeviceInfo devInfo : mDeviceInfoList) {
+                buf.append("\n\t\tdevice# " + i++ +
+                        " = " + Utils.getDeviceDebugInfo(devInfo.getBluetoothDevice()));
+                String s;
+                switch (devInfo.getConnectionState()) {
+                    case BluetoothProfile.STATE_CONNECTING:
+                        s = "STATE_CONNECTING";
+                        break;
+                    case BluetoothProfile.STATE_DISCONNECTED:
+                        s = "STATE_DISCONNECTED";
+                        break;
+                    case BluetoothProfile.STATE_CONNECTED:
+                        s = "STATE_CONNECTED";
+                        break;
+                    default:
+                        s = "state_UNKNOWN";
+                }
+                buf.append(", " + s);
+            }
+        } else {
+            buf.append("\n\tno devices listed");
+        }
+        buf.append("\n");
+        return buf.toString();
     }
 }

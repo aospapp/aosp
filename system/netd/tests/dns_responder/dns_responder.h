@@ -49,6 +49,7 @@ public:
     void addMapping(const char* name, ns_type type, const char* addr);
     void removeMapping(const char* name, ns_type type);
     void setResponseProbability(double response_probability);
+    void setFailOnEdns(bool fail) { fail_on_edns_ = fail; }
     bool running() const;
     bool startServer();
     bool stopServer();
@@ -112,12 +113,15 @@ private:
     // instead of returning error_rcode_.
     std::atomic<double> response_probability_;
 
+    // If true, behave like an old DNS server that doesn't support EDNS.
+    // Default false.
+    std::atomic<bool> fail_on_edns_;
+
     // Mappings from (name, type) to registered response and the
     // mutex protecting them.
     std::unordered_map<QueryKey, std::string, QueryKeyHash> mappings_
         GUARDED_BY(mappings_mutex_);
-    // TODO(imaipi): enable GUARDED_BY(mappings_mutex_);
-    std::mutex mappings_mutex_;
+    mutable std::mutex mappings_mutex_;
     // Query names received so far and the corresponding mutex.
     mutable std::vector<std::pair<std::string, ns_type>> queries_
         GUARDED_BY(queries_mutex_);
@@ -127,7 +131,7 @@ private:
     // File descriptor for epoll.
     int epoll_fd_;
     // Signal for request handler termination.
-    std::atomic<bool> terminate_ GUARDED_BY(update_mutex_);
+    std::atomic<bool> terminate_;
     // Thread for handling incoming threads.
     std::thread handler_thread_ GUARDED_BY(update_mutex_);
     std::mutex update_mutex_;

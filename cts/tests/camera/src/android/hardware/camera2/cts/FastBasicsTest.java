@@ -48,7 +48,6 @@ import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
  * May not take more than a few seconds to run, to be suitable for quick
  * testing.
  */
-@Presubmit
 public class FastBasicsTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "FastBasicsTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -58,6 +57,7 @@ public class FastBasicsTest extends Camera2SurfaceViewTestCase {
     private static final int WAIT_FOR_PICTURE_TIMEOUT_MS = 5000;
     private static final int FRAMES_TO_WAIT_FOR_CAPTURE = 100;
 
+    @Presubmit
     public void testCamera2() throws Exception {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
@@ -101,6 +101,11 @@ public class FastBasicsTest extends Camera2SurfaceViewTestCase {
         assertNotNull("Can't read a capture result 2 timestamp", timestamp2);
 
         assertTrue("Bad timestamps", timestamp2 > timestamp);
+
+        // If EnableZsl is supported, disable ZSL in order to compare preview and still timestamps.
+        if (mStaticInfo.isEnableZslSupported()) {
+            stillCaptureRequest.set(CaptureRequest.CONTROL_ENABLE_ZSL, false);
+        }
 
         CaptureRequest capture = stillCaptureRequest.build();
         mSession.capture(capture, resultListener, mHandler);
@@ -178,6 +183,7 @@ public class FastBasicsTest extends Camera2SurfaceViewTestCase {
         }
     }
 
+    @Presubmit
     public void testCamera1() throws Exception {
         for (int i = 0; i < Camera.getNumberOfCameras(); i++) {
             Camera camera = null;

@@ -14,9 +14,10 @@
 
 SECTIONS
 {
-  .text 0x0 : ALIGN(CONSTANT(COMMONPAGESIZE)) {
-    PROVIDE(__reloc_base = .);
+  PROVIDE(__reloc_base = .);
 
+  . = PECOFF_HEADER_SIZE;
+  .text : ALIGN(CONSTANT(COMMONPAGESIZE)) {
     *(.text .text*)
     *(.got .got*)
     *(.rodata .rodata*)
@@ -30,8 +31,11 @@ SECTIONS
     PROVIDE(__reloc_end = .);
   }
 
+  .note (INFO) : { *(.note.gnu.build-id) }
+
   /DISCARD/ : {
     *(.note.GNU-stack)
+    *(.gnu.hash)
     *(.gnu_debuglink)
     *(.interp)
     *(.dynamic)

@@ -16,9 +16,12 @@
 
 package android.appsecurity.cts;
 
+import android.platform.test.annotations.AppModeFull;
+
 /**
  * Set of tests that verify behavior of the Scoped Directory access API.
  */
+@AppModeFull // TODO: Needs porting to instant
 public class ScopedDirectoryAccessTest extends DocumentsTestCase {
 
     public void testInvalidPath() throws Exception {
@@ -57,5 +60,13 @@ public class ScopedDirectoryAccessTest extends DocumentsTestCase {
 
     public void testDeniesOnceForAll() throws Exception {
         runDeviceTests(CLIENT_PKG, ".ScopedDirectoryAccessClientTest", "testDeniesOnceForAll");
+    }
+
+    public void testResetDoNotAskAgain() throws Exception {
+        runDeviceTests(CLIENT_PKG, ".ScopedDirectoryAccessClientTest", "testResetDoNotAskAgain");
+    }
+
+    public void testResetGranted() throws Exception {
+        runDeviceTests(CLIENT_PKG, ".ScopedDirectoryAccessClientTest", "testResetGranted");
     }
 }

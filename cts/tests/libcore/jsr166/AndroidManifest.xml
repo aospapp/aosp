@@ -22,6 +22,9 @@
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.libcore.cts.jsr166"
-                     android:label="CTS Libcore JSR166 test cases" />
+                     android:label="CTS Libcore JSR166 test cases">
+        <meta-data android:name="listener"
+                   android:value="com.android.cts.runner.CtsTestRunListener" />
+    </instrumentation>
 
 </manifest>

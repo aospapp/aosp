@@ -16,6 +16,7 @@
 
 package com.android.documentsui.testing;
 
+import java.lang.IllegalStateException;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -28,6 +29,7 @@ import java.util.TimerTask;
  */
 public class TestTimer extends Timer {
 
+    private boolean mIsCancelled;
     private long mNow = 0;
 
     private final LinkedList<Task> mTaskList = new LinkedList<>();
@@ -64,6 +66,7 @@ public class TestTimer extends Timer {
 
     @Override
     public void cancel() {
+        mIsCancelled = true;
         mTaskList.clear();
     }
 
@@ -114,6 +117,9 @@ public class TestTimer extends Timer {
     }
 
     public void scheduleAtTime(TimerTask task, long executeTime) {
+        if (mIsCancelled) {
+            throw new IllegalStateException("Timer already cancelled.");
+        }
         Task testTimerTask = (Task) task;
         testTimerTask.mExecuteTime = executeTime;
 

@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2015 Google, Inc.
+//  Copyright 2015 Google, Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ namespace bluetooth {
 class AdvertiseData {
  public:
   // Constructs an AdvertiseData with the given parameters. |data| can only
-  // contain the "Service UUIDs", "Service Data", "Manufacturer Data",
+  // contain the "Service Uuids", "Service Data", "Manufacturer Data",
   // "Tx Power" and "Device name" fields as specified in the Core Specification
   //  Supplement. |data| must be properly formatted according to the supplement
   // and contains the data as it will be sent over the wire.

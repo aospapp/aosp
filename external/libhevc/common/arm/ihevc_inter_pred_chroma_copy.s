@@ -92,6 +92,9 @@
 @               r5 =>  ht
 @               r6 =>  wd
 
+.equ    ht_offset,      44
+.equ    wd_offset,      48
+
 .text
 .align 4
 
@@ -104,9 +107,9 @@
 
 ihevc_inter_pred_chroma_copy_a9q:
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
-    ldr         r12,[sp,#48]                @loads wd
+    ldr         r12,[sp,#wd_offset]         @loads wd
     lsl         r12,r12,#1
-    ldr         r7,[sp,#44]                 @loads ht
+    ldr         r7,[sp,#ht_offset]          @loads ht
     cmp         r7,#0                       @checks ht == 0
     ble         end_loops
     and         r8,r7,#3                    @check ht for mul of 2

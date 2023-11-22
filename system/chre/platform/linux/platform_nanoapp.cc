@@ -46,7 +46,7 @@ void PlatformNanoapp::end() {
 }
 
 uint64_t PlatformNanoapp::getAppId() const {
-  return (mAppInfo == nullptr ? 0 : mAppInfo->appId);
+  return (mAppInfo == nullptr) ? 0 : mAppInfo->appId;
 }
 
 uint32_t PlatformNanoapp::getAppVersion() const {
@@ -58,7 +58,7 @@ uint32_t PlatformNanoapp::getTargetApiVersion() const {
 }
 
 bool PlatformNanoapp::isSystemNanoapp() const {
-  return true;
+  return (mAppInfo != nullptr && mAppInfo->isSystemNanoapp);
 }
 
 bool PlatformNanoapp::logStateToBuffer(char *buffer, size_t *bufferPos,

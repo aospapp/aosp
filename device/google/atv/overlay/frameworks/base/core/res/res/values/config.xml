@@ -15,6 +15,9 @@
 -->
 
 <resources>
+    <!-- Known ATV devices do not support rotation, force no rotation by default. -->
+    <bool name="config_forceDefaultOrientation">true</bool>
+
     <!-- Flag indicating that the media framework should support playing of sounds on volume
          key usage.  This adds noticeable additional overhead to volume key processing, so
          is disableable for products for which it is irrelevant. -->
@@ -36,6 +39,9 @@
              5  UI_MODE_TYPE_APPLIANCE
          Any other values will have surprising consequences. -->
     <integer name="config_defaultUiModeType">4</integer>
+
+    <!-- default device has recents property -->
+    <bool name="config_hasRecents">false</bool>
 
     <!-- Control the behavior when the user long presses the home button.
             0 - Nothing
@@ -61,4 +67,43 @@
     <!-- Default service to enable with accessibility shortcut [DO NOT TRANSLATE] -->
     <string name="config_defaultAccessibilityService" translatable="false">com.google.android.marvin.talkback/.TalkBackService</string>
 
+    <!-- The component name, flattened to a string, for the default autofill service
+         to  enabled for an user. This service must be trusted, as it can be activated
+         without explicit consent of the user. If no autofill service with the
+          specified name exists on the device, autofill will be disabled by default.
+    -->
+    <string name="config_defaultAutofillService" translatable="false">com.google.android.gms/.autofill.service.AutofillService</string>
+
+   <!-- The list of IMEs which should be disabled until used.
+         This function suppresses update notifications for these pre-installed apps.
+         We need to set this configuration carefully that they should not have functionarities
+         other than "IME" or "Spell Checker". In InputMethodManagerService,
+         the listed IMEs are disabled until used when all of the following conditions are met.
+         1. Not selected as an enabled IME in the Settings
+         2. Not selected as a spell checker in the Settings
+         3. Installed
+         4. A pre-installed IME
+         5. Not enabled
+         And the disabled_until_used state for an IME is released by InputMethodManagerService
+         when the IME is selected as an enabled IME. -->
+    <string-array name="config_disabledUntilUsedPreinstalledImes" translatable="false">
+        <item>com.google.android.inputmethod.latin</item>
+        <item>com.google.android.apps.inputmethod.hindi</item>
+        <item>com.google.android.apps.inputmethod.zhuyin</item>
+        <item>com.google.android.inputmethod.japanese</item>
+        <item>com.google.android.inputmethod.korean</item>
+        <item>com.google.android.inputmethod.pinyin</item>
+    </string-array>
+
+    <!-- Whether to keep background restricted profiles running after exiting. If set to false,
+         restricted profiles may be put into stopped state as soon as the switch back to primary
+         happens.
+         Can be overridden with android.provider.Settings.Global.KEEP_PROFILE_IN_BACKGROUND. -->
+    <bool name="config_keepRestrictedProfilesInBackground">false</bool>
+
+
+    <!-- An array of packages which can listen for notifications on low ram devices. -->
+    <string-array translatable="false" name="config_allowedManagedServicesOnLowRamDevices">
+        <item>com.google.android.tvrecommendations</item>
+    </string-array>
 </resources>

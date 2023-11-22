@@ -171,12 +171,17 @@ static vpx_codec_err_t validate_config(vpx_codec_alg_priv_t *ctx,
   RANGE_CHECK_HI(cfg, rc_undershoot_pct, 100);
   RANGE_CHECK_HI(cfg, rc_overshoot_pct, 100);
   RANGE_CHECK_HI(cfg, rc_2pass_vbr_bias_pct, 100);
+  RANGE_CHECK(cfg, rc_2pass_vbr_corpus_complexity, 0, 10000);
   RANGE_CHECK(cfg, kf_mode, VPX_KF_DISABLED, VPX_KF_AUTO);
   RANGE_CHECK_BOOL(cfg, rc_resize_allowed);
   RANGE_CHECK_HI(cfg, rc_dropframe_thresh, 100);
   RANGE_CHECK_HI(cfg, rc_resize_up_thresh, 100);
   RANGE_CHECK_HI(cfg, rc_resize_down_thresh, 100);
+#if CONFIG_REALTIME_ONLY
+  RANGE_CHECK(cfg, g_pass, VPX_RC_ONE_PASS, VPX_RC_ONE_PASS);
+#else
   RANGE_CHECK(cfg, g_pass, VPX_RC_ONE_PASS, VPX_RC_LAST_PASS);
+#endif
   RANGE_CHECK(extra_cfg, min_gf_interval, 0, (MAX_LAG_BUFFERS - 1));
   RANGE_CHECK(extra_cfg, max_gf_interval, 0, (MAX_LAG_BUFFERS - 1));
   if (extra_cfg->max_gf_interval > 0) {
@@ -185,6 +190,13 @@ static vpx_codec_err_t validate_config(vpx_codec_alg_priv_t *ctx,
   if (extra_cfg->min_gf_interval > 0 && extra_cfg->max_gf_interval > 0) {
     RANGE_CHECK(extra_cfg, max_gf_interval, extra_cfg->min_gf_interval,
                 (MAX_LAG_BUFFERS - 1));
+  }
+
+  // For formation of valid ARF groups lag_in _frames should be 0 or greater
+  // than the max_gf_interval + 2
+  if (cfg->g_lag_in_frames > 0 && extra_cfg->max_gf_interval > 0 &&
+      cfg->g_lag_in_frames < extra_cfg->max_gf_interval + 2) {
+    ERROR("Set lag in frames to 0 (low delay) or >= (max-gf-interval + 2)");
   }
 
   if (cfg->rc_resize_allowed == 1) {
@@ -202,7 +214,7 @@ static vpx_codec_err_t validate_config(vpx_codec_alg_priv_t *ctx,
         level != LEVEL_4 && level != LEVEL_4_1 && level != LEVEL_5 &&
         level != LEVEL_5_1 && level != LEVEL_5_2 && level != LEVEL_6 &&
         level != LEVEL_6_1 && level != LEVEL_6_2 && level != LEVEL_UNKNOWN &&
-        level != LEVEL_MAX)
+        level != LEVEL_AUTO && level != LEVEL_MAX)
       ERROR("target_level is invalid");
   }
 
@@ -269,6 +281,7 @@ static vpx_codec_err_t validate_config(vpx_codec_alg_priv_t *ctx,
   if (extra_cfg->tuning == VP8_TUNE_SSIM)
     ERROR("Option --tune=ssim is not currently supported in VP9.");
 
+#if !CONFIG_REALTIME_ONLY
   if (cfg->g_pass == VPX_RC_LAST_PASS) {
     const size_t packet_sz = sizeof(FIRSTPASS_STATS);
     const int n_packets = (int)(cfg->rc_twopass_stats_in.sz / packet_sz);
@@ -320,6 +333,7 @@ static vpx_codec_err_t validate_config(vpx_codec_alg_priv_t *ctx,
         ERROR("rc_twopass_stats_in missing EOS stats packet");
     }
   }
+#endif  // !CONFIG_REALTIME_ONLY
 
 #if !CONFIG_VP9_HIGHBITDEPTH
   if (cfg->g_profile > (unsigned int)PROFILE_1) {
@@ -425,10 +439,20 @@ static void config_target_level(VP9EncoderConfig *oxcf) {
   oxcf->worst_allowed_q = vp9_quantizer_to_qindex(63);
 
   // Adjust minimum art-ref distance.
-  if (oxcf->min_gf_interval <
-      (int)vp9_level_defs[target_level_index].min_altref_distance)
+  // min_gf_interval should be no less than min_altref_distance + 1,
+  // as the encoder may produce bitstream with alt-ref distance being
+  // min_gf_interval - 1.
+  if (oxcf->min_gf_interval <=
+      (int)vp9_level_defs[target_level_index].min_altref_distance) {
     oxcf->min_gf_interval =
-        (int)vp9_level_defs[target_level_index].min_altref_distance;
+        (int)vp9_level_defs[target_level_index].min_altref_distance + 1;
+    // If oxcf->max_gf_interval == 0, it will be assigned with a default value
+    // in vp9_rc_set_gf_interval_range().
+    if (oxcf->max_gf_interval != 0) {
+      oxcf->max_gf_interval =
+          VPXMAX(oxcf->max_gf_interval, oxcf->min_gf_interval);
+    }
+  }
 
   // Adjust maximum column tiles.
   if (vp9_level_defs[target_level_index].max_col_tiles <
@@ -503,6 +527,7 @@ static vpx_codec_err_t set_encoder_config(
   oxcf->two_pass_vbrbias = cfg->rc_2pass_vbr_bias_pct;
   oxcf->two_pass_vbrmin_section = cfg->rc_2pass_vbr_minsection_pct;
   oxcf->two_pass_vbrmax_section = cfg->rc_2pass_vbr_maxsection_pct;
+  oxcf->vbr_corpus_complexity = cfg->rc_2pass_vbr_corpus_complexity;
 
   oxcf->auto_key =
       cfg->kf_mode == VPX_KF_AUTO && cfg->kf_min_dist != cfg->kf_max_dist;
@@ -613,6 +638,7 @@ static vpx_codec_err_t set_encoder_config(
   printf("two_pass_vbrbias: %d\n",  oxcf->two_pass_vbrbias);
   printf("two_pass_vbrmin_section: %d\n", oxcf->two_pass_vbrmin_section);
   printf("two_pass_vbrmax_section: %d\n", oxcf->two_pass_vbrmax_section);
+  printf("vbr_corpus_complexity: %d\n",  oxcf->vbr_corpus_complexity);
   printf("lag_in_frames: %d\n", oxcf->lag_in_frames);
   printf("enable_auto_arf: %d\n", oxcf->enable_auto_arf);
   printf("Version: %d\n", oxcf->Version);
@@ -888,12 +914,6 @@ static vpx_codec_err_t encoder_init(vpx_codec_ctx_t *ctx,
     priv->buffer_pool = (BufferPool *)vpx_calloc(1, sizeof(BufferPool));
     if (priv->buffer_pool == NULL) return VPX_CODEC_MEM_ERROR;
 
-#if CONFIG_MULTITHREAD
-    if (pthread_mutex_init(&priv->buffer_pool->pool_mutex, NULL)) {
-      return VPX_CODEC_MEM_ERROR;
-    }
-#endif
-
     if (ctx->config.enc) {
       // Update the reference to the config structure to an internal copy.
       priv->cfg = *ctx->config.enc;
@@ -925,9 +945,6 @@ static vpx_codec_err_t encoder_init(vpx_codec_ctx_t *ctx,
 static vpx_codec_err_t encoder_destroy(vpx_codec_alg_priv_t *ctx) {
   free(ctx->cx_data);
   vp9_remove_compressor(ctx->cpi);
-#if CONFIG_MULTITHREAD
-  pthread_mutex_destroy(&ctx->buffer_pool->pool_mutex);
-#endif
   vpx_free(ctx->buffer_pool);
   vpx_free(ctx);
   return VPX_CODEC_OK;
@@ -938,6 +955,10 @@ static void pick_quickcompress_mode(vpx_codec_alg_priv_t *ctx,
                                     unsigned long deadline) {
   MODE new_mode = BEST;
 
+#if CONFIG_REALTIME_ONLY
+  (void)duration;
+  deadline = VPX_DL_REALTIME;
+#else
   switch (ctx->cfg.g_pass) {
     case VPX_RC_ONE_PASS:
       if (deadline > 0) {
@@ -958,6 +979,7 @@ static void pick_quickcompress_mode(vpx_codec_alg_priv_t *ctx,
     case VPX_RC_FIRST_PASS: break;
     case VPX_RC_LAST_PASS: new_mode = deadline > 0 ? GOOD : BEST; break;
   }
+#endif  // CONFIG_REALTIME_ONLY
 
   if (deadline == VPX_DL_REALTIME) {
     ctx->oxcf.pass = 0;
@@ -1266,8 +1288,7 @@ static vpx_codec_err_t encoder_encode(vpx_codec_alg_priv_t *ctx,
 
         cx_data += size;
         cx_data_sz -= size;
-#if VPX_ENCODER_ABI_VERSION > (5 + VPX_CODEC_ABI_VERSION)
-#if CONFIG_SPATIAL_SVC
+#if CONFIG_SPATIAL_SVC && defined(VPX_TEST_SPATIAL_SVC)
         if (cpi->use_svc && !ctx->output_cx_pkt_cb.output_cx_pkt) {
           vpx_codec_cx_pkt_t pkt_sizes, pkt_psnr;
           int sl;
@@ -1287,7 +1308,6 @@ static vpx_codec_err_t encoder_encode(vpx_codec_alg_priv_t *ctx,
 
           vpx_codec_pkt_list_add(&ctx->pkt_list.head, &pkt_psnr);
         }
-#endif
 #endif
         if (is_one_pass_cbr_svc(cpi) &&
             (cpi->svc.spatial_layer_id == cpi->svc.number_spatial_layers - 1)) {
@@ -1679,6 +1699,7 @@ static vpx_codec_enc_cfg_map_t encoder_usage_cfg_map[] = {
         50,    // rc_two_pass_vbrbias
         0,     // rc_two_pass_vbrmin_section
         2000,  // rc_two_pass_vbrmax_section
+        0,     // rc_2pass_vbr_corpus_complexity (non 0 for corpus vbr)
 
         // keyframing settings (kf)
         VPX_KF_AUTO,  // g_kfmode

@@ -176,9 +176,9 @@ status_t EmulatedCamera::Initialize()
      * worker thread. */
     mParameters.set(CameraParameters::KEY_SUPPORTED_PREVIEW_FRAME_RATES,
                     "30,24,20,15,10,5");
-    mParameters.set(CameraParameters::KEY_SUPPORTED_PREVIEW_FPS_RANGE, "(24000,24000)");
-    mParameters.set(CameraParameters::KEY_PREVIEW_FPS_RANGE, "24000,24000");
-    mParameters.setPreviewFrameRate(24);
+    mParameters.set(CameraParameters::KEY_SUPPORTED_PREVIEW_FPS_RANGE, "(30000,30000)");
+    mParameters.set(CameraParameters::KEY_PREVIEW_FPS_RANGE, "30000,30000");
+    mParameters.setPreviewFrameRate(30);
 
     /* Only PIXEL_FORMAT_YUV420P is accepted by video framework in emulator! */
     mParameters.set(CameraParameters::KEY_VIDEO_FRAME_FORMAT,
@@ -545,26 +545,14 @@ status_t EmulatedCamera::takePicture()
         }
         return NO_ERROR;
     } else {
-        /* Start camera device for the picture frame. */
-        res = camera_dev->startDevice(width, height, org_fmt);
-        if (res != NO_ERROR) {
-            return res;
-        }
-
-        /* Deliver one frame only. */
-        mCallbackNotifier.setTakingPicture(true);
-        res = camera_dev->startDeliveringFrames(true);
-        if (res != NO_ERROR) {
-            mCallbackNotifier.setTakingPicture(false);
-        }
-        return res;
+        ALOGE("%s: preview has not been enabled", __FUNCTION__);
+        return EINVAL;
     }
 }
 
 status_t EmulatedCamera::cancelPicture()
 {
     ALOGV("%s", __FUNCTION__);
-
     return NO_ERROR;
 }
 

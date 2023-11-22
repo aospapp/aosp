@@ -34,7 +34,7 @@ class X86JNIMacroLabel;
 
 class X86JNIMacroAssembler FINAL : public JNIMacroAssemblerFwd<X86Assembler, PointerSize::k32> {
  public:
-  explicit X86JNIMacroAssembler(ArenaAllocator* arena) : JNIMacroAssemblerFwd(arena) {}
+  explicit X86JNIMacroAssembler(ArenaAllocator* allocator) : JNIMacroAssemblerFwd(allocator) {}
   virtual ~X86JNIMacroAssembler() {}
 
   //
@@ -48,8 +48,9 @@ class X86JNIMacroAssembler FINAL : public JNIMacroAssemblerFwd<X86Assembler, Poi
                   const ManagedRegisterEntrySpills& entry_spills) OVERRIDE;
 
   // Emit code that will remove an activation from the stack
-  void RemoveFrame(size_t frame_size, ArrayRef<const ManagedRegister> callee_save_regs)
-      OVERRIDE;
+  void RemoveFrame(size_t frame_size,
+                   ArrayRef<const ManagedRegister> callee_save_regs,
+                   bool may_suspend) OVERRIDE;
 
   void IncreaseFrameSize(size_t adjust) OVERRIDE;
   void DecreaseFrameSize(size_t adjust) OVERRIDE;
@@ -170,7 +171,7 @@ class X86JNIMacroAssembler FINAL : public JNIMacroAssemblerFwd<X86Assembler, Poi
 class X86JNIMacroLabel FINAL
     : public JNIMacroLabelCommon<X86JNIMacroLabel,
                                  art::Label,
-                                 kX86> {
+                                 InstructionSet::kX86> {
  public:
   art::Label* AsX86() {
     return AsPlatformLabel();

@@ -26,7 +26,10 @@
  * The typical format for the LOG_TAG macro is: "[AppName]"
  */
 
+#include <chre/re.h>
+
 #include "chre/util/log_common.h"
+#include "chre/util/toolchain.h"
 
 #ifndef NANOAPP_MINIMUM_LOG_LEVEL
 #error "NANOAPP_MINIMUM_LOG_LEVEL must be defined"
@@ -38,28 +41,39 @@
  * Otherwise just map into the chreLog function with the appropriate level.
  */
 
+#define CHRE_LOG(level, fmt, ...) \
+    do { \
+      CHRE_LOG_PREAMBLE \
+      chreLog(level, LOG_TAG " " fmt, ##__VA_ARGS__); \
+      CHRE_LOG_EPILOGUE \
+    } while (0)
+
 #if NANOAPP_MINIMUM_LOG_LEVEL >= CHRE_LOG_LEVEL_ERROR
-#define LOGE(fmt, ...) chreLog(CHRE_LOG_ERROR, LOG_TAG " " fmt, ##__VA_ARGS__)
+#define LOGE(fmt, ...) CHRE_LOG(CHRE_LOG_ERROR, fmt, ##__VA_ARGS__)
 #else
-#define LOGE(fmt, ...) chreLogNull(fmt, ##__VA_ARGS__)
+#define LOGE(fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
 #endif
 
-#if CHRE_MINIMUM_LOG_LEVEL >= CHRE_LOG_LEVEL_WARN
-#define LOGW(fmt, ...) chreLog(CHRE_LOG_WARN, LOG_TAG " " fmt, ##__VA_ARGS__)
+#if NANOAPP_MINIMUM_LOG_LEVEL >= CHRE_LOG_LEVEL_WARN
+#define LOGW(fmt, ...) CHRE_LOG(CHRE_LOG_WARN, fmt, ##__VA_ARGS__)
 #else
-#define LOGW(fmt, ...) chreLogNull(fmt, ##__VA_ARGS__)
+#define LOGW(fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
 #endif
 
-#if CHRE_MINIMUM_LOG_LEVEL >= CHRE_LOG_LEVEL_INFO
-#define LOGI(fmt, ...) chreLog(CHRE_LOG_INFO, LOG_TAG " " fmt, ##__VA_ARGS__)
+#if NANOAPP_MINIMUM_LOG_LEVEL >= CHRE_LOG_LEVEL_INFO
+#define LOGI(fmt, ...) CHRE_LOG(CHRE_LOG_INFO, fmt, ##__VA_ARGS__)
 #else
-#define LOGI(fmt, ...) chreLogNull(fmt, ##__VA_ARGS__)
+#define LOGI(fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
 #endif
 
-#if CHRE_MINIMUM_LOG_LEVEL >= CHRE_LOG_LEVEL_DEBUG
-#define LOGD(fmt, ...) chreLog(CHRE_LOG_DEBUG, LOG_TAG " " fmt, ##__VA_ARGS__)
+#if NANOAPP_MINIMUM_LOG_LEVEL >= CHRE_LOG_LEVEL_DEBUG
+#define LOGD(fmt, ...) CHRE_LOG(CHRE_LOG_DEBUG, fmt, ##__VA_ARGS__)
 #else
-#define LOGD(fmt, ...) chreLogNull(fmt, ##__VA_ARGS__)
+#define LOGD(fmt, ...) CHRE_LOG_NULL(fmt, ##__VA_ARGS__)
 #endif
+
+// Apply printf-style compiler warnings to chreLog calls
+CHRE_PRINTF_ATTR(2, 3)
+void chreLog(enum chreLogLevel level, const char *formatStr, ...);
 
 #endif  // CHRE_UTIL_NANOAPP_LOG_H_

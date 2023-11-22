@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "dns_responder_client"
 #include "dns_responder_client.h"
 
 #include <android-base/stringprintf.h>
+#include <utils/Log.h>
 
 // TODO: make this dynamic and stop depending on implementation details.
 #define TEST_OEM_NETWORK "oem29"
@@ -25,53 +27,7 @@
 // TODO: move this somewhere shared.
 static const char* ANDROID_DNS_MODE = "ANDROID_DNS_MODE";
 
-// The only response code used in this class. See
-// frameworks/base/services/java/com/android/server/NetworkManagementService.java
-// for others.
-static constexpr int ResponseCodeOK = 200;
-
 using android::base::StringPrintf;
-
-static int netdCommand(const char* sockname, const char* command) {
-    int sock = socket_local_client(sockname,
-                                   ANDROID_SOCKET_NAMESPACE_RESERVED,
-                                   SOCK_STREAM);
-    if (sock < 0) {
-        perror("Error connecting");
-        return -1;
-    }
-
-    // FrameworkListener expects the whole command in one read.
-    char buffer[256];
-    int nwritten = snprintf(buffer, sizeof(buffer), "0 %s", command);
-    if (write(sock, buffer, nwritten + 1) < 0) {
-        perror("Error sending netd command");
-        close(sock);
-        return -1;
-    }
-
-    int nread = read(sock, buffer, sizeof(buffer));
-    if (nread < 0) {
-        perror("Error reading response");
-        close(sock);
-        return -1;
-    }
-    close(sock);
-    return atoi(buffer);
-}
-
-static bool expectNetdResult(int expected, const char* sockname, const char* format, ...) {
-    char command[256];
-    va_list args;
-    va_start(args, format);
-    vsnprintf(command, sizeof(command), format, args);
-    va_end(args);
-    int result = netdCommand(sockname, command);
-    if (expected != result) {
-        return false;
-    }
-    return (200 <= expected && expected < 300);
-}
 
 void DnsResponderClient::SetupMappings(unsigned num_hosts, const std::vector<std::string>& domains,
         std::vector<Mapping>* mappings) {
@@ -91,38 +47,19 @@ void DnsResponderClient::SetupMappings(unsigned num_hosts, const std::vector<std
 
 bool DnsResponderClient::SetResolversForNetwork(const std::vector<std::string>& servers,
         const std::vector<std::string>& domains, const std::vector<int>& params) {
-    auto rv = mNetdSrv->setResolverConfiguration(TEST_NETID, servers, domains, params);
+    const auto rv = mNetdSrv->setResolverConfiguration(TEST_NETID, servers, domains, params,
+            "", {}, {});
     return rv.isOk();
 }
 
-bool DnsResponderClient::SetResolversForNetwork(const std::vector<std::string>& searchDomains,
-            const std::vector<std::string>& servers, const std::string& params) {
-    std::string cmd = StringPrintf("resolver setnetdns %d \"", mOemNetId);
-    if (!searchDomains.empty()) {
-        cmd += searchDomains[0].c_str();
-        for (size_t i = 1 ; i < searchDomains.size() ; ++i) {
-            cmd += " ";
-            cmd += searchDomains[i];
-        }
-    }
-    cmd += "\"";
-
-    for (const auto& str : servers) {
-        cmd += " ";
-        cmd += str;
-    }
-
-    if (!params.empty()) {
-        cmd += " --params \"";
-        cmd += params;
-        cmd += "\"";
-    }
-
-    int rv = netdCommand("netd", cmd.c_str());
-    if (rv != ResponseCodeOK) {
-        return false;
-    }
-    return true;
+bool DnsResponderClient::SetResolversWithTls(const std::vector<std::string>& servers,
+        const std::vector<std::string>& domains, const std::vector<int>& params,
+        const std::vector<std::string>& tlsServers,
+        const std::string& name, const std::vector<std::string>& fingerprints) {
+    const auto rv = mNetdSrv->setResolverConfiguration(TEST_NETID, servers, domains, params,
+            name, tlsServers, fingerprints);
+    if (!rv.isOk()) ALOGI("SetResolversWithTls() -> %s", rv.toString8().c_str());
+    return rv.isOk();
 }
 
 void DnsResponderClient::SetupDNSServers(unsigned num_servers, const std::vector<Mapping>& mappings,
@@ -153,9 +90,11 @@ void DnsResponderClient::ShutdownDNSServers(std::vector<std::unique_ptr<test::DN
 }
 
 int DnsResponderClient::SetupOemNetwork() {
-    netdCommand("netd", "network destroy " TEST_OEM_NETWORK);
-    if (!expectNetdResult(ResponseCodeOK, "netd",
-                         "network create %s", TEST_OEM_NETWORK)) {
+    mNetdSrv->networkDestroy(TEST_NETID);
+    auto ret = mNetdSrv->networkCreatePhysical(TEST_NETID, "");
+    if (!ret.isOk()) {
+        fprintf(stderr, "Creating physical network %d failed, %s\n", TEST_NETID,
+                ret.toString8().string());
         return -1;
     }
     int oemNetId = TEST_NETID;
@@ -168,19 +107,18 @@ int DnsResponderClient::SetupOemNetwork() {
 
 void DnsResponderClient::TearDownOemNetwork(int oemNetId) {
     if (oemNetId != -1) {
-        expectNetdResult(ResponseCodeOK, "netd",
-                         "network destroy %s", TEST_OEM_NETWORK);
+        mNetdSrv->networkDestroy(oemNetId);
     }
 }
 
 void DnsResponderClient::SetUp() {
-    // Ensure resolutions go via proxy.
-    setenv(ANDROID_DNS_MODE, "", 1);
-    mOemNetId = SetupOemNetwork();
-
     // binder setup
     auto binder = android::defaultServiceManager()->getService(android::String16("netd"));
     mNetdSrv = android::interface_cast<android::net::INetd>(binder);
+
+    // Ensure resolutions go via proxy.
+    setenv(ANDROID_DNS_MODE, "", 1);
+    mOemNetId = SetupOemNetwork();
 }
 
 void DnsResponderClient::TearDown() {

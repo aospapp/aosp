@@ -28,18 +28,23 @@
     <string name="callFailed_timedOut" msgid="7772951976278867294">"कोणताही प्रतिसाद नाही, कालबाह्य झाले"</string>
     <string name="callFailed_server_unreachable" msgid="4766146133909799091">"सर्व्हर पोहचण्‍यायोग्‍य नाही"</string>
     <string name="callFailed_number_unreachable" msgid="1243366438388873914">"नंबर पोहचण्‍यायोग्‍य नाही"</string>
-    <string name="callFailed_invalid_credentials" msgid="6115412108261660271">"चुकीचे वापरकर्तानाव किंवा संकेतशब्द"</string>
+    <string name="callFailed_invalid_credentials" msgid="6115412108261660271">"चुकीचे वापरकर्तानाव किंवा पासवर्ड"</string>
     <string name="callFailed_out_of_network" msgid="6970725831030399542">"नेटवर्कच्या बाहेर कॉल"</string>
-    <string name="callFailed_server_error" msgid="1391421251190688379">"सर्व्हर त्रुटी. नंतर पुन्हा प्रयत्न करा."</string>
+    <string name="callFailed_server_error" msgid="1391421251190688379">"सर्व्हर एरर. नंतर पुन्हा प्रयत्न करा."</string>
     <string name="callFailed_noSignal" msgid="1758972490451048086">"सिग्नल नाही"</string>
     <string name="callFailed_limitExceeded" msgid="8796663077702587664">"ACM मर्यादा ओलांडली"</string>
     <string name="callFailed_powerOff" msgid="9179061328562234362">"रेडिओ बंद"</string>
-    <string name="callFailed_simError" msgid="3307159523385380486">"सिम नाही किंवा सिम त्रुटी"</string>
+    <string name="callFailed_simError" msgid="3307159523385380486">"सिम नाही किंवा सिम एरर"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"सेल्युलर नेटवर्क उपलब्ध नाही"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"केले जाणारे कॉल FDN द्वारे प्रतिबंधित केले जातात."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"डायल विनंती USSD विनंतीवर सुधारित केली."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"डायल विनंती नवीन SS विनंतीवर सुधारित केली."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"डायल विनंती भिन्न नंबरसह डायल करा वर सुधारित केली."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"कॉल USSD विनंतीत बदलण्‍यात आला"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"कॉल SS विनंतीत बदलण्‍यात आला"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"वेगळ्या क्रमांकावर बदलण्‍यात आली"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"व्हिडिओ कॉलवर बदलण्‍यात आली"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"व्हिडिओ कॉल SS विनंतीत बदलण्‍यात आला"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"व्हिडिओ कॉल USSD विनंतीत बदलण्‍यात आला"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"नियमित कॉलवर बदलण्‍यात आली"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"वेगळ्या क्रमांकावर बदलण्‍यात आली"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"कॉल वगळणे चालू असताना कॉल करू शकत नाही."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"प्रवेश नियंत्रणाद्वारे कॉल प्रतिबंधित केले."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"प्रवेश नियंत्रणाद्वारे आणीबाणी कॉल प्रतिबंधित केले."</string>

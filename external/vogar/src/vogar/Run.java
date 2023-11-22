@@ -75,7 +75,6 @@ public final class Run {
     public final Integer debugPort;
     public final Language language;
     public final List<String> javacArgs;
-    public final List<String> jackArgs;
     public final boolean multidex;
     public final boolean benchmark;
     public final File runnerDir;
@@ -103,12 +102,11 @@ public final class Run {
     public final OutcomeStore outcomeStore;
     public final TaskQueue taskQueue;
     public final RunnerType runnerType;
-    public final boolean useJack;
+    public final Toolchain toolchain;
     public final boolean checkJni;
     public final boolean debugging;
-    public final Md5Cache jackCache;
 
-    public Run(Vogar vogar, boolean useJack, Console console, Mkdir mkdir, AndroidSdk androidSdk,
+    public Run(Vogar vogar, Toolchain toolchain, Console console, Mkdir mkdir, AndroidSdk androidSdk,
             Rm rm, Target target, File runnerDir)
             throws IOException {
         this.console = console;
@@ -118,8 +116,7 @@ public final class Run {
 
         this.target = target;
 
-        this.useJack = useJack;
-        this.jackCache = useJack ? new Md5Cache(log, "jack", new HostFileCache(log, mkdir)) : null;
+        this.toolchain = toolchain;
         this.vmCommand = vogar.vmCommand;
         this.dalvikCache = vogar.dalvikCache;
         this.additionalVmArgs = vogar.vmArgs;
@@ -136,7 +133,6 @@ public final class Run {
         this.invokeWith = vogar.invokeWith;
         this.language = vogar.language;
         this.javacArgs = vogar.javacArgs;
-        this.jackArgs = vogar.jackArgs;
         this.multidex = vogar.multidex;
         this.javaHome = vogar.javaHome;
         this.largeTimeoutSeconds = vogar.timeoutSeconds * Vogar.LARGE_TIMEOUT_MULTIPLIER;
@@ -253,10 +249,6 @@ public final class Run {
         return localFile(nameOrAction, nameOrAction + ".jar");
     }
 
-    public File hostJack(Object nameOrAction) {
-        return localFile(nameOrAction, nameOrAction + ".jack");
-    }
-
     /**
      * Returns a path for a Java tool such as java, javac, jar where
      * the Java home is used if present, otherwise assumes it will
@@ -285,7 +277,7 @@ public final class Run {
      * @return a recognizable base name like "core-libart_intermediates".
      */
     public String basenameOfJar(File file) {
-        String name = file.getName().replaceAll("(\\.jar|\\.jack)$", "");
+        String name = file.getName().replaceAll("(\\.jar)$", "");
         while (BANNED_NAMES.contains(name)) {
             file = file.getParentFile();
             name = file.getName();

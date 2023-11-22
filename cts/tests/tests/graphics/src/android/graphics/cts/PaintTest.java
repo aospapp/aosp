@@ -18,7 +18,6 @@ package android.graphics.cts;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -39,7 +38,6 @@ import android.graphics.Rect;
 import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.graphics.Xfermode;
-import android.graphics.fonts.FontVariationAxis;
 import android.os.LocaleList;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SmallTest;
@@ -1641,5 +1639,83 @@ public class PaintTest {
 
         p.setElegantTextHeight(false);
         assertFalse(p.isElegantTextHeight());
+    }
+
+    @Test
+    public void testEqualsForTextMeasurment() {
+        Paint p1 = new Paint();
+        Paint p2 = new Paint();
+
+        assertTrue(p1.equalsForTextMeasurement(p2));
+    }
+
+    @Test
+    public void testEqualsForTextMeasurment_textSize() {
+        Paint p1 = new Paint();
+        Paint p2 = new Paint();
+
+        p1.setTextSize(p2.getTextSize() * 2.0f);
+        assertFalse(p1.equalsForTextMeasurement(p2));
+        p1.setTextSize(p2.getTextSize());
+        assertTrue(p1.equalsForTextMeasurement(p2));
+    }
+
+    @Test
+    public void testEqualsForTextMeasurment_textSkew() {
+        Paint p1 = new Paint();
+        Paint p2 = new Paint();
+
+        p1.setTextSkewX(p2.getTextSkewX() + 2.0f);
+        assertFalse(p1.equalsForTextMeasurement(p2));
+        p1.setTextSkewX(p2.getTextSkewX());
+        assertTrue(p1.equalsForTextMeasurement(p2));
+    }
+
+    @Test
+    public void testEqualsForTextMeasurment_textScale() {
+        Paint p1 = new Paint();
+        Paint p2 = new Paint();
+
+        p1.setTextScaleX(p2.getTextScaleX() * 2.0f);
+        assertFalse(p1.equalsForTextMeasurement(p2));
+        p1.setTextScaleX(p2.getTextScaleX());
+        assertTrue(p1.equalsForTextMeasurement(p2));
+    }
+
+    @Test
+    public void testEqualsForTextMeasurment_letterSpacing() {
+        Paint p1 = new Paint();
+        Paint p2 = new Paint();
+
+        p1.setLetterSpacing(p2.getLetterSpacing() + 2.0f);
+        assertFalse(p1.equalsForTextMeasurement(p2));
+        p1.setLetterSpacing(p2.getLetterSpacing());
+        assertTrue(p1.equalsForTextMeasurement(p2));
+    }
+
+    @Test
+    public void testEqualsForTextMeasurment_localeList() {
+        Paint p1 = new Paint();
+        Paint p2 = new Paint();
+
+        LocaleList enUS = LocaleList.forLanguageTags("en-US");
+        LocaleList jaJP = LocaleList.forLanguageTags("ja-JP");
+        LocaleList differentLocale = p2.getTextLocales().equals(enUS) ? jaJP : enUS;
+        p1.setTextLocales(differentLocale);
+        assertFalse(p1.equalsForTextMeasurement(p2));
+        p1.setTextLocales(p2.getTextLocales());
+        assertTrue(p1.equalsForTextMeasurement(p2));
+    }
+
+    @Test
+    public void testEqualsForTextMeasurment_typeface() {
+        Paint p1 = new Paint();
+        Paint p2 = new Paint();
+
+        p1.setTypeface(Typeface.DEFAULT);
+        p2.setTypeface(Typeface.SERIF);
+        assertFalse(p1.equalsForTextMeasurement(p2));
+        p1.setTypeface(p2.getTypeface());
+        assertTrue(p1.equalsForTextMeasurement(p2));
     }
 }

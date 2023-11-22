@@ -31,10 +31,8 @@
 #include <base/rand_util.h>
 #include <base/strings/string_util.h>
 #include <base/strings/stringprintf.h>
-#include <brillo/bind_lambda.h>
 #include <brillo/data_encoding.h>
 #include <brillo/errors/error_codes.h>
-#include <brillo/make_unique_ptr.h>
 #include <brillo/message_loops/message_loop.h>
 #include <policy/device_policy.h>
 #include <policy/libpolicy.h>
@@ -50,7 +48,7 @@
 #include "update_engine/common/subprocess.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/libcurl_http_fetcher.h"
-#include "update_engine/metrics.h"
+#include "update_engine/metrics_reporter_interface.h"
 #include "update_engine/omaha_request_action.h"
 #include "update_engine/omaha_request_params.h"
 #include "update_engine/omaha_response_handler_action.h"
@@ -78,6 +76,8 @@ using std::set;
 using std::shared_ptr;
 using std::string;
 using std::vector;
+using update_engine::UpdateAttemptFlags;
+using update_engine::UpdateEngineStatus;
 
 namespace chromeos_update_engine {
 
@@ -119,20 +119,11 @@ ErrorCode GetErrorCodeForAction(AbstractAction* action,
   return code;
 }
 
-UpdateAttempter::UpdateAttempter(
-    SystemState* system_state,
-    CertificateChecker* cert_checker,
-    org::chromium::NetworkProxyServiceInterfaceProxyInterface*
-        network_proxy_service_proxy)
+UpdateAttempter::UpdateAttempter(SystemState* system_state,
+                                 CertificateChecker* cert_checker)
     : processor_(new ActionProcessor()),
       system_state_(system_state),
-#if USE_LIBCROS
-      cert_checker_(cert_checker),
-      chrome_proxy_resolver_(network_proxy_service_proxy) {
-#else
-      cert_checker_(cert_checker) {
-#endif  // USE_LIBCROS
-}
+      cert_checker_(cert_checker) {}
 
 UpdateAttempter::~UpdateAttempter() {
   // CertificateChecker might not be initialized in unittests.
@@ -178,9 +169,8 @@ void UpdateAttempter::ScheduleUpdates() {
 
 void UpdateAttempter::CertificateChecked(ServerToCheck server_to_check,
                                          CertificateCheckResult result) {
-  metrics::ReportCertificateCheckMetrics(system_state_,
-                                         server_to_check,
-                                         result);
+  system_state_->metrics_reporter()->ReportCertificateCheckMetrics(
+      server_to_check, result);
 }
 
 bool UpdateAttempter::CheckAndReportDailyMetrics() {
@@ -241,7 +231,7 @@ void UpdateAttempter::ReportOSAge() {
     return;
   }
 
-  metrics::ReportDailyMetrics(system_state_, age);
+  system_state_->metrics_reporter()->ReportDailyMetrics(age);
 }
 
 void UpdateAttempter::Update(const string& app_version,
@@ -269,10 +259,11 @@ void UpdateAttempter::Update(const string& app_version,
     // not performing an update check because of this.
     LOG(INFO) << "Not updating b/c we already updated and we're waiting for "
               << "reboot, we'll ping Omaha instead";
-    metrics::ReportUpdateCheckMetrics(system_state_,
-                                      metrics::CheckResult::kRebootPending,
-                                      metrics::CheckReaction::kUnset,
-                                      metrics::DownloadErrorCode::kUnset);
+    system_state_->metrics_reporter()->ReportUpdateCheckMetrics(
+        system_state_,
+        metrics::CheckResult::kRebootPending,
+        metrics::CheckReaction::kUnset,
+        metrics::DownloadErrorCode::kUnset);
     PingOmaha();
     return;
   }
@@ -328,12 +319,11 @@ void UpdateAttempter::CalculateP2PParams(bool interactive) {
   bool use_p2p_for_downloading = false;
   bool use_p2p_for_sharing = false;
 
-  // Never use p2p for downloading in interactive checks unless the
-  // developer has opted in for it via a marker file.
+  // Never use p2p for downloading in interactive checks unless the developer
+  // has opted in for it via a marker file.
   //
-  // (Why would a developer want to opt in? If he's working on the
-  // update_engine or p2p codebases so he can actually test his
-  // code.).
+  // (Why would a developer want to opt in? If they are working on the
+  // update_engine or p2p codebases so they can actually test their code.)
 
   if (system_state_ != nullptr) {
     if (!system_state_->p2p_manager()->IsP2PEnabled()) {
@@ -606,42 +596,40 @@ void UpdateAttempter::BuildUpdateActions(bool interactive) {
   shared_ptr<OmahaResponseHandlerAction> response_handler_action(
       new OmahaResponseHandlerAction(system_state_));
 
-  shared_ptr<OmahaRequestAction> download_started_action(
-      new OmahaRequestAction(system_state_,
-                             new OmahaEvent(
-                                 OmahaEvent::kTypeUpdateDownloadStarted),
-                             brillo::make_unique_ptr(new LibcurlHttpFetcher(
-                                 GetProxyResolver(),
-                                 system_state_->hardware())),
-                             false));
+  shared_ptr<OmahaRequestAction> download_started_action(new OmahaRequestAction(
+      system_state_,
+      new OmahaEvent(OmahaEvent::kTypeUpdateDownloadStarted),
+      std::make_unique<LibcurlHttpFetcher>(GetProxyResolver(),
+                                           system_state_->hardware()),
+      false));
 
   LibcurlHttpFetcher* download_fetcher =
       new LibcurlHttpFetcher(GetProxyResolver(), system_state_->hardware());
   download_fetcher->set_server_to_check(ServerToCheck::kDownload);
+  if (interactive)
+    download_fetcher->set_max_retry_count(kDownloadMaxRetryCountInteractive);
   shared_ptr<DownloadAction> download_action(
       new DownloadAction(prefs_,
                          system_state_->boot_control(),
                          system_state_->hardware(),
                          system_state_,
-                         download_fetcher));  // passes ownership
+                         download_fetcher,  // passes ownership
+                         interactive));
   shared_ptr<OmahaRequestAction> download_finished_action(
       new OmahaRequestAction(
           system_state_,
           new OmahaEvent(OmahaEvent::kTypeUpdateDownloadFinished),
-          brillo::make_unique_ptr(
-              new LibcurlHttpFetcher(GetProxyResolver(),
-                                     system_state_->hardware())),
+          std::make_unique<LibcurlHttpFetcher>(GetProxyResolver(),
+                                               system_state_->hardware()),
           false));
   shared_ptr<FilesystemVerifierAction> filesystem_verifier_action(
       new FilesystemVerifierAction());
   shared_ptr<OmahaRequestAction> update_complete_action(
-      new OmahaRequestAction(
-          system_state_,
-          new OmahaEvent(OmahaEvent::kTypeUpdateComplete),
-          brillo::make_unique_ptr(
-              new LibcurlHttpFetcher(GetProxyResolver(),
-                                     system_state_->hardware())),
-          false));
+      new OmahaRequestAction(system_state_,
+                             new OmahaEvent(OmahaEvent::kTypeUpdateComplete),
+                             std::make_unique<LibcurlHttpFetcher>(
+                                 GetProxyResolver(), system_state_->hardware()),
+                             false));
 
   download_action->set_delegate(this);
   response_handler_action_ = response_handler_action;
@@ -771,9 +759,20 @@ BootControlInterface::Slot UpdateAttempter::GetRollbackSlot() const {
   return BootControlInterface::kInvalidSlot;
 }
 
-void UpdateAttempter::CheckForUpdate(const string& app_version,
+bool UpdateAttempter::CheckForUpdate(const string& app_version,
                                      const string& omaha_url,
-                                     bool interactive) {
+                                     UpdateAttemptFlags flags) {
+  bool interactive = !(flags & UpdateAttemptFlags::kFlagNonInteractive);
+
+  if (interactive && status_ != UpdateStatus::IDLE) {
+    // An update check is either in-progress, or an update has completed and the
+    // system is in UPDATED_NEED_REBOOT.  Either way, don't do an interactive
+    // update at this time
+    LOG(INFO) << "Refusing to do an interactive update with an update already "
+                 "in progress";
+    return false;
+  }
+
   LOG(INFO) << "Forced update check requested.";
   forced_app_version_.clear();
   forced_omaha_url_.clear();
@@ -795,12 +794,22 @@ void UpdateAttempter::CheckForUpdate(const string& app_version,
     forced_omaha_url_ = constants::kOmahaDefaultAUTestURL;
   }
 
+  if (interactive) {
+    // Use the passed-in update attempt flags for this update attempt instead
+    // of the previously set ones.
+    current_update_attempt_flags_ = flags;
+    // Note: The caching for non-interactive update checks happens in
+    // OnUpdateScheduled().
+  }
+
   if (forced_update_pending_callback_.get()) {
     // Make sure that a scheduling request is made prior to calling the forced
     // update pending callback.
     ScheduleUpdates();
     forced_update_pending_callback_->Run(true, interactive);
   }
+
+  return true;
 }
 
 bool UpdateAttempter::RebootIfNeeded() {
@@ -858,6 +867,15 @@ void UpdateAttempter::OnUpdateScheduled(EvalStatus status,
               << (params.is_interactive ? "interactive" : "periodic")
               << " update.";
 
+    if (!params.is_interactive) {
+      // Cache the update attempt flags that will be used by this update attempt
+      // so that they can't be changed mid-way through.
+      current_update_attempt_flags_ = update_attempt_flags_;
+    }
+
+    LOG(INFO) << "Update attempt flags in use = 0x" << std::hex
+              << current_update_attempt_flags_;
+
     Update(forced_app_version_, forced_omaha_url_, params.target_channel,
            params.target_version_prefix, false, params.is_interactive);
     // Always clear the forced app_version and omaha_url after an update attempt
@@ -890,6 +908,9 @@ void UpdateAttempter::ProcessingDone(const ActionProcessor* processor,
 
   // Reset cpu shares back to normal.
   cpu_limiter_.StopLimiter();
+
+  // reset the state that's only valid for a single update pass
+  current_update_attempt_flags_ = UpdateAttemptFlags::kNone;
 
   if (status_ == UpdateStatus::REPORTING_ERROR_EVENT) {
     LOG(INFO) << "Error event sent.";
@@ -1011,7 +1032,28 @@ void UpdateAttempter::ActionCompleted(ActionProcessor* processor,
       server_dictated_poll_interval_ =
           std::max(0, omaha_request_action->GetOutputObject().poll_interval);
     }
+  } else if (type == OmahaResponseHandlerAction::StaticType()) {
+    // Depending on the returned error code, note that an update is available.
+    if (code == ErrorCode::kOmahaUpdateDeferredPerPolicy ||
+        code == ErrorCode::kSuccess) {
+      // Note that the status will be updated to DOWNLOADING when some bytes
+      // get actually downloaded from the server and the BytesReceived
+      // callback is invoked. This avoids notifying the user that a download
+      // has started in cases when the server and the client are unable to
+      // initiate the download.
+      CHECK(action == response_handler_action_.get());
+      auto plan = response_handler_action_->install_plan();
+      UpdateLastCheckedTime();
+      new_version_ = plan.version;
+      new_system_version_ = plan.system_version;
+      new_payload_size_ = 0;
+      for (const auto& payload : plan.payloads)
+        new_payload_size_ += payload.size;
+      cpu_limiter_.StartLimiter();
+      SetStatusAndNotify(UpdateStatus::UPDATE_AVAILABLE);
+    }
   }
+  // General failure cases.
   if (code != ErrorCode::kSuccess) {
     // If the current state is at or past the download phase, count the failure
     // in case a switch to full update becomes necessary. Ignore network
@@ -1024,23 +1066,18 @@ void UpdateAttempter::ActionCompleted(ActionProcessor* processor,
     CreatePendingErrorEvent(action, code);
     return;
   }
-  // Find out which action completed.
-  if (type == OmahaResponseHandlerAction::StaticType()) {
-    // Note that the status will be updated to DOWNLOADING when some bytes get
-    // actually downloaded from the server and the BytesReceived callback is
-    // invoked. This avoids notifying the user that a download has started in
-    // cases when the server and the client are unable to initiate the download.
-    CHECK(action == response_handler_action_.get());
-    const InstallPlan& plan = response_handler_action_->install_plan();
-    UpdateLastCheckedTime();
-    new_version_ = plan.version;
-    new_payload_size_ = 0;
-    for (const auto& payload : plan.payloads)
-      new_payload_size_ += payload.size;
-    cpu_limiter_.StartLimiter();
-    SetStatusAndNotify(UpdateStatus::UPDATE_AVAILABLE);
-  } else if (type == DownloadAction::StaticType()) {
+  // Find out which action completed (successfully).
+  if (type == DownloadAction::StaticType()) {
     SetStatusAndNotify(UpdateStatus::FINALIZING);
+  } else if (type == FilesystemVerifierAction::StaticType()) {
+    // Log the system properties before the postinst and after the file system
+    // is verified. It used to be done in the postinst itself. But postinst
+    // cannot do this anymore. On the other hand, these logs are frequently
+    // looked at and it is preferable not to scatter them in random location in
+    // the log and rather log it right before the postinst. The reason not do
+    // this in the |PostinstallRunnerAction| is to prevent dependency from
+    // libpayload_consumer to libupdate_engine.
+    LogImageProperties();
   }
 }
 
@@ -1127,16 +1164,15 @@ bool UpdateAttempter::ResetStatus() {
   }
 }
 
-bool UpdateAttempter::GetStatus(int64_t* last_checked_time,
-                                double* progress,
-                                string* current_operation,
-                                string* new_version,
-                                int64_t* new_payload_size) {
-  *last_checked_time = last_checked_time_;
-  *progress = download_progress_;
-  *current_operation = UpdateStatusToString(status_);
-  *new_version = new_version_;
-  *new_payload_size = new_payload_size_;
+bool UpdateAttempter::GetStatus(UpdateEngineStatus* out_status) {
+  out_status->last_checked_time = last_checked_time_;
+  out_status->status = status_;
+  out_status->current_version = omaha_request_params_->app_version();
+  out_status->current_system_version = omaha_request_params_->system_version();
+  out_status->progress = download_progress_;
+  out_status->new_size_bytes = new_payload_size_;
+  out_status->new_version = new_version_;
+  out_status->new_system_version = new_system_version_;
   return true;
 }
 
@@ -1173,12 +1209,12 @@ void UpdateAttempter::CompleteUpdateBootFlags(bool successful) {
 }
 
 void UpdateAttempter::BroadcastStatus() {
+  UpdateEngineStatus broadcast_status;
+  // Use common method for generating the current status.
+  GetStatus(&broadcast_status);
+
   for (const auto& observer : service_observers_) {
-    observer->SendStatusUpdate(last_checked_time_,
-                               download_progress_,
-                               status_,
-                               new_version_,
-                               new_payload_size_);
+    observer->SendStatusUpdate(broadcast_status);
   }
   last_notify_time_ = TimeTicks::Now();
 }
@@ -1283,9 +1319,8 @@ bool UpdateAttempter::ScheduleErrorEventAction() {
   shared_ptr<OmahaRequestAction> error_event_action(
       new OmahaRequestAction(system_state_,
                              error_event_.release(),  // Pass ownership.
-                             brillo::make_unique_ptr(new LibcurlHttpFetcher(
-                                 GetProxyResolver(),
-                                 system_state_->hardware())),
+                             std::make_unique<LibcurlHttpFetcher>(
+                                 GetProxyResolver(), system_state_->hardware()),
                              false));
   actions_.push_back(shared_ptr<AbstractAction>(error_event_action));
   processor_->EnqueueAction(error_event_action.get());
@@ -1329,9 +1364,8 @@ void UpdateAttempter::PingOmaha() {
     shared_ptr<OmahaRequestAction> ping_action(new OmahaRequestAction(
         system_state_,
         nullptr,
-        brillo::make_unique_ptr(new LibcurlHttpFetcher(
-            GetProxyResolver(),
-            system_state_->hardware())),
+        std::make_unique<LibcurlHttpFetcher>(GetProxyResolver(),
+                                             system_state_->hardware()),
         true));
     actions_.push_back(shared_ptr<OmahaRequestAction>(ping_action));
     processor_->set_delegate(nullptr);

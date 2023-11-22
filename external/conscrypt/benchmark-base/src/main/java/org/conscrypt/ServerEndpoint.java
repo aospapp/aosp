@@ -16,14 +16,20 @@
 
 package org.conscrypt;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
+import java.net.SocketException;
+import java.nio.channels.ClosedChannelException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
@@ -67,6 +73,7 @@ final class ServerEndpoint {
     private OutputStream outputStream;
     private volatile boolean stopping;
     private volatile MessageProcessor messageProcessor = new EchoProcessor();
+    private volatile Future<?> processFuture;
 
     ServerEndpoint(SSLSocketFactory socketFactory, SSLServerSocketFactory serverSocketFactory,
             ChannelType channelType, int messageSize, String[] protocols,
@@ -97,6 +104,11 @@ final class ServerEndpoint {
                 socket.close();
                 socket = null;
             }
+
+            if (processFuture != null) {
+                processFuture.get(5, TimeUnit.SECONDS);
+            }
+
             serverSocket.close();
 
             if (executor != null) {
@@ -104,7 +116,7 @@ final class ServerEndpoint {
                 executor.awaitTermination(5, TimeUnit.SECONDS);
                 executor = null;
             }
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException | InterruptedException | ExecutionException | TimeoutException e) {
             throw new RuntimeException(e);
         }
     }
@@ -132,7 +144,7 @@ final class ServerEndpoint {
                 if (stopping) {
                     return;
                 }
-                executor.execute(new ProcessTask());
+                processFuture = executor.submit(new ProcessTask());
             } catch (IOException e) {
                 e.printStackTrace();
                 throw new RuntimeException(e);
@@ -158,13 +170,26 @@ final class ServerEndpoint {
 
         private int readMessage() throws IOException {
             int totalBytesRead = 0;
-            while (totalBytesRead < messageSize) {
-                int remaining = messageSize - totalBytesRead;
-                int bytesRead = inputStream.read(buffer, totalBytesRead, remaining);
-                if (bytesRead == -1) {
+            while (!stopping && totalBytesRead < messageSize) {
+                try {
+                    int remaining = messageSize - totalBytesRead;
+                    int bytesRead = inputStream.read(buffer, totalBytesRead, remaining);
+                    if (bytesRead == -1) {
+                        break;
+                    }
+                    totalBytesRead += bytesRead;
+                } catch (SSLException e) {
+                    if (e.getCause() instanceof EOFException) {
+                        break;
+                    }
+                    throw e;
+                } catch (ClosedChannelException e) {
+                    // Thrown for channel-based sockets. Just treat like EOF.
+                    break;
+                } catch (SocketException e) {
+                    // The socket was broken. Just treat like EOF.
                     break;
                 }
-                totalBytesRead += bytesRead;
             }
             return totalBytesRead;
         }

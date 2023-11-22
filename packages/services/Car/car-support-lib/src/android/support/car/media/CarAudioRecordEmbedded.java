@@ -15,12 +15,13 @@
  */
 package android.support.car.media;
 
+import static androidx.annotation.RestrictTo.Scope.GROUP_ID;
+
 import android.media.AudioFormat;
 import android.media.AudioRecord;
-import android.support.annotation.RestrictTo;
 import android.support.car.CarNotConnectedException;
 
-import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
+import androidx.annotation.RestrictTo;
 
 /**
  * CarAudioRecordEmbedded allows apps to use microphone.

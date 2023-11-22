@@ -6,6 +6,8 @@ LIBSEPOL_1.0 {
 	sepol_context_*; sepol_mls_*; sepol_check_context;
 	sepol_iface_*; 
 	sepol_port_*;
+	sepol_ibpkey_*;
+	sepol_ibendport_*;
 	sepol_node_*;
 	sepol_user_*; sepol_genusers; sepol_set_delusers;
 	sepol_msg_*; sepol_debug;
@@ -47,6 +49,7 @@ LIBSEPOL_1.1 {
 	cil_set_mls;
 	cil_set_attrs_expand_generated;
 	cil_set_attrs_expand_size;
+	cil_set_multiple_decls;
 	cil_write_policy_conf;
 	sepol_ppfile_to_module_package;
 	sepol_module_package_to_cil;

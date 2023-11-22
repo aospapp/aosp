@@ -43,7 +43,6 @@ final public class Log {
         // Register Telephony with the Telecom Logger.
         android.telecom.Log.setTag(TAG);
         android.telecom.Log.setSessionContext(context);
-        android.telecom.Log.initMd5Sum();
     }
 
     // Relay log messages to Telecom

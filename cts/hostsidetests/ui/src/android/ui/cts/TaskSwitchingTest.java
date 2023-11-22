@@ -16,15 +16,18 @@
 
 package android.ui.cts;
 
+import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.AppModeInstant;
+
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.util.MetricsStore;
 import com.android.compatibility.common.util.ReportLog;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.result.CollectingTestListener;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
@@ -76,9 +79,13 @@ public class TaskSwitchingTest extends DeviceTestCase implements IAbiReceiver, I
     protected void setUp() throws Exception {
         super.setUp();
         mDevice = getDevice();
-        String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
+    }
+
+    private void installPackages(boolean instant) throws Exception {
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuild);
         for (int i = 0; i < PACKAGES.length; i++) {
+            String[] options = {AbiUtils.createAbiFlag(mAbi.getName()),
+                    instant && !PACKAGES[i].contains("control") ? "--instant" : ""};
             mDevice.uninstallPackage(PACKAGES[i]);
             File app = buildHelper.getTestFile(APKS[i]);
             mDevice.installPackage(app, false, options);
@@ -94,7 +101,19 @@ public class TaskSwitchingTest extends DeviceTestCase implements IAbiReceiver, I
         super.tearDown();
     }
 
-    public void testTaskSwitching() throws Exception {
+    @AppModeInstant
+    public void testTaskSwitchingInstant() throws Exception {
+        installPackages(true);
+        doTestTaskSwitching();
+    }
+
+    @AppModeFull
+    public void testTaskSwitchingFull() throws Exception {
+        installPackages(false);
+        doTestTaskSwitching();
+    }
+
+    private void doTestTaskSwitching() throws Exception {
         RemoteAndroidTestRunner testRunner = new RemoteAndroidTestRunner(PACKAGES[0], RUNNER,
                 mDevice.getIDevice());
         LocalListener listener = new LocalListener();
@@ -111,7 +130,7 @@ public class TaskSwitchingTest extends DeviceTestCase implements IAbiReceiver, I
 
     public class LocalListener extends CollectingTestListener {
         @Override
-        public void testEnded(TestIdentifier test, Map<String, String> testMetrics) {
+        public void testEnded(TestDescription test, Map<String, String> testMetrics) {
             // necessary as testMetrics passed from CollectingTestListerner is empty
             if (testMetrics.containsKey(RESULT_KEY)) {
                 try {

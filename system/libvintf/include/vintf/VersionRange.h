@@ -58,6 +58,15 @@ struct VersionRange {
         return majorVer == ver.majorVer && minMinor <= ver.minorVer;
     }
 
+    // If a.overlaps(b) then b.overlaps(a).
+    // 1.2-4 and 2.2-4: false
+    // 1.2-4 and 1.4-5: true
+    // 1.2-4 and 1.0-1: false
+    inline bool overlaps(const VersionRange& other) const {
+        return majorVer == other.majorVer && minMinor <= other.maxMinor &&
+               other.minMinor <= maxMinor;
+    }
+
     size_t majorVer;
     size_t minMinor;
     size_t maxMinor;

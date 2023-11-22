@@ -23,6 +23,22 @@
 //
 #define QEMU_FW_CFG_FNAME_SIZE 56
 
+//
+// If the following bit is set in the UINT32 fw_cfg revision / feature bitmap
+// -- read from key 0x0001 with the basic IO Port or MMIO method --, then the
+// DMA interface is available.
+//
+#define FW_CFG_F_DMA BIT1
+
+//
+// Macros for the FW_CFG_DMA_ACCESS.Control bitmap (in native encoding).
+//
+#define FW_CFG_DMA_CTL_ERROR  BIT0
+#define FW_CFG_DMA_CTL_READ   BIT1
+#define FW_CFG_DMA_CTL_SKIP   BIT2
+#define FW_CFG_DMA_CTL_SELECT BIT3
+#define FW_CFG_DMA_CTL_WRITE  BIT4
+
 typedef enum {
   QemuFwCfgItemSignature            = 0x0000,
   QemuFwCfgItemInterfaceVersion     = 0x0001,
@@ -59,6 +75,17 @@ typedef enum {
 
 } FIRMWARE_CONFIG_ITEM;
 
+//
+// Communication structure for the DMA access method. All fields are encoded in
+// big endian.
+//
+#pragma pack (1)
+typedef struct {
+  UINT32 Control;
+  UINT32 Length;
+  UINT64 Address;
+} FW_CFG_DMA_ACCESS;
+#pragma pack ()
 
 /**
   Returns a boolean indicating if the firmware configuration interface
@@ -202,22 +229,6 @@ QemuFwCfgFindFile (
   IN   CONST CHAR8           *Name,
   OUT  FIRMWARE_CONFIG_ITEM  *Item,
   OUT  UINTN                 *Size
-  );
-
-
-/**
-  Returns a boolean indicating if the firmware configuration interface is
-  available for library-internal purposes.
-
-  This function never changes fw_cfg state.
-
-  @retval    TRUE   The interface is available internally.
-  @retval    FALSE  The interface is not available internally.
-**/
-BOOLEAN
-EFIAPI
-InternalQemuFwCfgIsAvailable (
-  VOID
   );
 
 

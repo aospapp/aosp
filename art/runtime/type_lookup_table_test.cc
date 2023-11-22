@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
+#include "type_lookup_table.h"
 
 #include <memory>
 
 #include "common_runtime_test.h"
-#include "dex_file-inl.h"
+#include "dex/dex_file-inl.h"
+#include "dex/utf-inl.h"
 #include "scoped_thread_state_change-inl.h"
-#include "type_lookup_table.h"
-#include "utf-inl.h"
 
 namespace art {
-
-static const size_t kDexNoIndex = DexFile::kDexNoIndex;  // Make copy to prevent linking errors.
 
 using DescriptorClassDefIdxPair = std::pair<const char*, uint32_t>;
 class TypeLookupTableTest : public CommonRuntimeTestWithParam<DescriptorClassDefIdxPair> {};
@@ -56,7 +54,7 @@ INSTANTIATE_TEST_CASE_P(FindNonExistingClassWithoutCollisions,
                         testing::Values(DescriptorClassDefIdxPair("LAB;", 1U)));
 INSTANTIATE_TEST_CASE_P(FindNonExistingClassWithCollisions,
                         TypeLookupTableTest,
-                        testing::Values(DescriptorClassDefIdxPair("LDA;", kDexNoIndex)));
+                        testing::Values(DescriptorClassDefIdxPair("LDA;", dex::kDexNoIndex)));
 INSTANTIATE_TEST_CASE_P(FindClassNoCollisions,
                         TypeLookupTableTest,
                         testing::Values(DescriptorClassDefIdxPair("LC;", 2U)));

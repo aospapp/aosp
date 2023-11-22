@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN in aplikacije"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Opomba: izdajatelj tega potrdila lahko pregleda ves promet v napravo in iz nje."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Profil za Wi-Fi"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"Podrobnosti za %s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Podrobnosti"</string>

@@ -67,6 +67,10 @@ public class ListeningPortsTest extends AndroidTestCase {
         EXCEPTION_PATTERNS.add(":: 1020");          // used by remote control
         //no current patterns involve address, port and UID combinations
         //Example for when necessary: EXCEPTION_PATTERNS.add("0.0.0.0:5555 10000")
+
+        // IPv6 exceptions
+        // TODO: this is not standard notation for IPv6. Use [$addr]:$port instead as per RFC 3986.
+        EXCEPTION_PATTERNS.add(":::5555");          // emulator port for adb
     }
 
     /**

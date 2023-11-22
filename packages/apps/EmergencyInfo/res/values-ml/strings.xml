@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"അടിയന്തര വിവരം"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"മെഡിക്കൽ വിവരങ്ങൾ"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"വിവരം എഡിറ്റുചെയ്യുക"</string>
-    <string name="edit_info" msgid="5973929805855224805">"അടിയന്തര വിവരം എഡിറ്റുചെയ്യുക"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"വിവരം എഡിറ്റ് ചെയ്യുക"</string>
+    <string name="edit_info" msgid="5973929805855224805">"അടിയന്തര വിവരം എഡിറ്റ് ചെയ്യുക"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"വിവരം"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"കോൺടാക്റ്റുകൾ"</string>
     <string name="name" msgid="4286267457738861977">"പേര്"</string>
@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"എല്ലാ വിവരങ്ങളും കോൺടാക്റ്റുകളും മായ്ക്കണോ?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"മെഡിക്കൽ വിവരങ്ങളും അടിയന്തിര ഘട്ടത്തിൽ ബന്ധപ്പെടാനുള്ള വിവരങ്ങളും ചേർക്കുന്നത്, അടിയന്തിര ഘട്ടത്തിൽ ആദ്യം പ്രതികരിക്കുന്നവരെ സഹായിക്കും.\n\nനിങ്ങളുടെ ഫോൺ അൺലോക്കുചെയ്യാതെ ലോക്ക് സ്‌ക്രീനിൽ വിവരങ്ങൾ ആർക്കും വായിക്കാനാകുകയും ടാപ്പ് ചെയ്ത് കോൾ ചെയ്യാനും കഴിയുന്നു"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"അടിയന്തിര ഘട്ടത്തിൽ ബന്ധപ്പെടാനുള്ളവരുടെ വിവരങ്ങൾ ചേർക്കുക"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"പ്രധാനപ്പെട്ട വിവരങ്ങൾ കണ്ടെത്തുന്നതിന് അടിയന്തിര ഘട്ടത്തിൽ ആദ്യം പ്രതികരിക്കുന്നവരെ സഹായിക്കുക"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"ആദ്യം പ്രതികരിക്കുന്നവരെ നിങ്ങളുടെ വിവരങ്ങൾ കാണാൻ അനുവദിക്കുക"</string>
 </resources>

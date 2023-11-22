@@ -16,6 +16,8 @@
 
 package com.android.documentsui.dirlist;
 
+import static org.junit.Assert.assertEquals;
+
 import android.view.KeyEvent;
 import android.view.View;
 
@@ -79,5 +81,13 @@ public final class TestFocusHandler implements FocusHandler {
     public void clearFocus() {
         focusModelId = null;
         focusPos = 0;
+    }
+
+    public void assertHasFocus(boolean focused) {
+        assertEquals(focused, hasFocusedItem());
+    }
+
+    public void assertFocused(String modelId) {
+        assertEquals(modelId, getFocusModelId());
     }
 }

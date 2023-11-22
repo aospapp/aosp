@@ -38,12 +38,10 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-
 import com.android.tv.MainActivity;
 import com.android.tv.R;
-import com.android.tv.util.ImageLoader;
-import com.android.tv.util.PermissionUtils;
-
+import com.android.tv.common.util.PermissionUtils;
+import com.android.tv.util.images.ImageLoader;
 import java.util.List;
 
 public class ProgramGuideSearchFragment extends SearchFragment {
@@ -51,44 +49,50 @@ public class ProgramGuideSearchFragment extends SearchFragment {
     private static final boolean DEBUG = false;
     private static final int SEARCH_RESULT_MAX = 10;
 
-    private final Presenter mPresenter = new Presenter() {
-        @Override
-        public Presenter.ViewHolder onCreateViewHolder(ViewGroup viewGroup) {
-            if (DEBUG) Log.d(TAG, "onCreateViewHolder");
+    private final Presenter mPresenter =
+            new Presenter() {
+                @Override
+                public Presenter.ViewHolder onCreateViewHolder(ViewGroup viewGroup) {
+                    if (DEBUG) Log.d(TAG, "onCreateViewHolder");
 
-            ImageCardView cardView = new ImageCardView(mMainActivity);
-            cardView.setFocusable(true);
-            cardView.setFocusableInTouchMode(true);
-            cardView.setMainImageAdjustViewBounds(false);
+                    ImageCardView cardView = new ImageCardView(mMainActivity);
+                    cardView.setFocusable(true);
+                    cardView.setFocusableInTouchMode(true);
+                    cardView.setMainImageAdjustViewBounds(false);
 
-            Resources res = mMainActivity.getResources();
-            cardView.setMainImageDimensions(
-                    res.getDimensionPixelSize(R.dimen.card_image_layout_width),
-                    res.getDimensionPixelSize(R.dimen.card_image_layout_height));
+                    Resources res = mMainActivity.getResources();
+                    cardView.setMainImageDimensions(
+                            res.getDimensionPixelSize(R.dimen.card_image_layout_width),
+                            res.getDimensionPixelSize(R.dimen.card_image_layout_height));
 
-            return new Presenter.ViewHolder(cardView);
-        }
+                    return new Presenter.ViewHolder(cardView);
+                }
 
-        @Override
-        public void onBindViewHolder(ViewHolder viewHolder, Object o) {
-            ImageCardView cardView = (ImageCardView) viewHolder.view;
-            LocalSearchProvider.SearchResult result = (LocalSearchProvider.SearchResult) o;
-            if (DEBUG) Log.d(TAG, "onBindViewHolder result:" + result);
+                @Override
+                public void onBindViewHolder(ViewHolder viewHolder, Object o) {
+                    ImageCardView cardView = (ImageCardView) viewHolder.view;
+                    LocalSearchProvider.SearchResult result = (LocalSearchProvider.SearchResult) o;
+                    if (DEBUG) Log.d(TAG, "onBindViewHolder result:" + result);
 
-            cardView.setTitleText(result.title);
-            if (!TextUtils.isEmpty(result.imageUri)) {
-                ImageLoader.loadBitmap(mMainActivity, result.imageUri, mMainCardWidth,
-                        mMainCardHeight, createImageLoaderCallback(cardView));
-            } else {
-                cardView.setMainImage(mMainActivity.getDrawable(R.drawable.ic_launcher));
-            }
-        }
+                    cardView.setTitleText(result.getTitle());
+                    if (!TextUtils.isEmpty(result.getImageUri())) {
+                        ImageLoader.loadBitmap(
+                                mMainActivity,
+                                result.getImageUri(),
+                                mMainCardWidth,
+                                mMainCardHeight,
+                                createImageLoaderCallback(cardView));
+                    } else {
+                        cardView.setMainImage(
+                                mMainActivity.getDrawable(R.drawable.ic_live_channels_96x96));
+                    }
+                }
 
-        @Override
-        public void onUnbindViewHolder(ViewHolder viewHolder) {
-            // Do nothing here.
-        }
-    };
+                @Override
+                public void onUnbindViewHolder(ViewHolder viewHolder) {
+                    // Do nothing here.
+                }
+            };
 
     private static ImageLoader.ImageLoaderCallback<ImageCardView> createImageLoaderCallback(
             ImageCardView cardView) {
@@ -101,35 +105,42 @@ public class ProgramGuideSearchFragment extends SearchFragment {
         };
     }
 
-    private final SearchResultProvider mSearchResultProvider = new SearchResultProvider() {
-        @Override
-        public ObjectAdapter getResultsAdapter() {
-            return mResultAdapter;
-        }
+    private final SearchResultProvider mSearchResultProvider =
+            new SearchResultProvider() {
+                @Override
+                public ObjectAdapter getResultsAdapter() {
+                    return mResultAdapter;
+                }
 
-        @Override
-        public boolean onQueryTextChange(String query) {
-            searchAndRefresh(query);
-            return true;
-        }
+                @Override
+                public boolean onQueryTextChange(String query) {
+                    searchAndRefresh(query);
+                    return true;
+                }
 
-        @Override
-        public boolean onQueryTextSubmit(String query) {
-            searchAndRefresh(query);
-            return true;
-        }
-    };
+                @Override
+                public boolean onQueryTextSubmit(String query) {
+                    searchAndRefresh(query);
+                    return true;
+                }
+            };
 
-    private final OnItemViewClickedListener mItemClickedListener = new OnItemViewClickedListener() {
-        @Override
-        public void onItemClicked(Presenter.ViewHolder viewHolder, Object o, RowPresenter
-                .ViewHolder viewHolder1, Row row) {
-            LocalSearchProvider.SearchResult result = (LocalSearchProvider.SearchResult) o;
-            mMainActivity.getFragmentManager().popBackStack();
-            mMainActivity.tuneToChannel(
-                    mMainActivity.getChannelDataManager().getChannel(result.channelId));
-        }
-    };
+    private final OnItemViewClickedListener mItemClickedListener =
+            new OnItemViewClickedListener() {
+                @Override
+                public void onItemClicked(
+                        Presenter.ViewHolder viewHolder,
+                        Object o,
+                        RowPresenter.ViewHolder viewHolder1,
+                        Row row) {
+                    LocalSearchProvider.SearchResult result = (LocalSearchProvider.SearchResult) o;
+                    mMainActivity.getFragmentManager().popBackStack();
+                    mMainActivity.tuneToChannel(
+                            mMainActivity
+                                    .getChannelDataManager()
+                                    .getChannel(result.getChannelId()));
+                }
+            };
 
     private final ArrayObjectAdapter mResultAdapter =
             new ArrayObjectAdapter(new ListRowPresenter());
@@ -160,7 +171,7 @@ public class ProgramGuideSearchFragment extends SearchFragment {
         View v = super.onCreateView(inflater, container, savedInstanceState);
         v.setBackgroundResource(R.color.program_guide_scrim);
 
-        setBadgeDrawable(mMainActivity.getDrawable(R.drawable.ic_launcher));
+        setBadgeDrawable(mMainActivity.getDrawable(R.drawable.ic_live_channels_96x96));
         setSearchResultProvider(mSearchResultProvider);
         setOnItemViewClickedListener(mItemClickedListener);
         return v;
@@ -185,8 +196,7 @@ public class ProgramGuideSearchFragment extends SearchFragment {
         mSearchTask.execute();
     }
 
-    private class SearchTask extends
-            AsyncTask<Void, Void, List<LocalSearchProvider.SearchResult>> {
+    private class SearchTask extends AsyncTask<Void, Void, List<LocalSearchProvider.SearchResult>> {
         private final String mQuery;
 
         public SearchTask(String query) {
@@ -195,8 +205,8 @@ public class ProgramGuideSearchFragment extends SearchFragment {
 
         @Override
         protected List<LocalSearchProvider.SearchResult> doInBackground(Void... params) {
-            return mSearch.search(mQuery, SEARCH_RESULT_MAX,
-                    TvProviderSearch.ACTION_TYPE_AMBIGUOUS);
+            return mSearch.search(
+                    mQuery, SEARCH_RESULT_MAX, TvProviderSearch.ACTION_TYPE_AMBIGUOUS);
         }
 
         @Override
@@ -205,20 +215,23 @@ public class ProgramGuideSearchFragment extends SearchFragment {
             mResultAdapter.clear();
 
             if (DEBUG) {
-                Log.d(TAG, "searchAndRefresh query=" + mQuery
-                        + " results=" + ((results == null) ? 0 : results.size()));
+                Log.d(
+                        TAG,
+                        "searchAndRefresh query="
+                                + mQuery
+                                + " results="
+                                + ((results == null) ? 0 : results.size()));
             }
 
             if (results == null || results.size() == 0) {
                 HeaderItem header =
-                        new HeaderItem(0, mMainActivity.getString(R.string
-                                .search_result_no_result));
+                        new HeaderItem(
+                                0, mMainActivity.getString(R.string.search_result_no_result));
                 ArrayObjectAdapter resultsAdapter = new ArrayObjectAdapter(mPresenter);
                 mResultAdapter.add(new ListRow(header, resultsAdapter));
             } else {
                 HeaderItem header =
-                        new HeaderItem(0, mMainActivity.getString(R.string
-                                .search_result_title));
+                        new HeaderItem(0, mMainActivity.getString(R.string.search_result_title));
                 ArrayObjectAdapter resultsAdapter = new ArrayObjectAdapter(mPresenter);
                 resultsAdapter.addAll(0, results);
                 mResultAdapter.add(new ListRow(header, resultsAdapter));

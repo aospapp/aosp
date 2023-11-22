@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
+import android.database.ContentObserver;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.PorterDuff;
@@ -29,9 +30,12 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PersistableBundle;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.provider.Settings;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
@@ -82,6 +86,8 @@ final class TelecomAccountRegistry {
         private boolean mIsMergeImsCallSupported;
         private boolean mIsVideoConferencingSupported;
         private boolean mIsMergeOfWifiCallsAllowedWhenVoWifiOff;
+        private boolean mIsManageImsConferenceCallSupported;
+        private boolean mIsShowPreciseFailedCause;
 
         AccountEntry(Phone phone, boolean isEmergency, boolean isDummy) {
             mPhone = phone;
@@ -183,8 +189,8 @@ final class TelecomAccountRegistry {
             }
 
             mIsVideoCapable = mPhone.isVideoEnabled();
-            boolean isVideoEnabledByPlatform =
-                    ImsManager.isVtEnabledByPlatform(mPhone.getContext());
+            boolean isVideoEnabledByPlatform = ImsManager.getInstance(mPhone.getContext(),
+                    mPhone.getPhoneId()).isVtEnabledByPlatform();
 
             if (!mIsPrimaryUser) {
                 Log.i(this, "Disabling video calling for secondary user.");
@@ -225,6 +231,17 @@ final class TelecomAccountRegistry {
                         isHandoverFromSupported);
             }
 
+            final boolean isTelephonyAudioDeviceSupported = mContext.getResources().getBoolean(
+                    R.bool.config_support_telephony_audio_device);
+            if (isTelephonyAudioDeviceSupported && !isEmergency
+                    && isCarrierUseCallRecordingTone()) {
+                extras.putBoolean(PhoneAccount.EXTRA_PLAY_CALL_RECORDING_TONE, true);
+            }
+
+            if (PhoneGlobals.getInstance().phoneMgr.isRttEnabled()) {
+                capabilities |= PhoneAccount.CAPABILITY_RTT;
+            }
+
             extras.putBoolean(PhoneAccount.EXTRA_SUPPORTS_VIDEO_CALLING_FALLBACK,
                     mContext.getResources()
                             .getBoolean(R.bool.config_support_video_calling_fallback));
@@ -239,6 +256,8 @@ final class TelecomAccountRegistry {
             mIsVideoConferencingSupported = isCarrierVideoConferencingSupported();
             mIsMergeOfWifiCallsAllowedWhenVoWifiOff =
                     isCarrierMergeOfWifiCallsAllowedWhenVoWifiOff();
+            mIsManageImsConferenceCallSupported = isCarrierManageImsConferenceCallSupported();
+            mIsShowPreciseFailedCause = isCarrierShowPreciseFailedCause();
 
             if (isEmergency && mContext.getResources().getBoolean(
                     R.bool.config_emergency_account_emergency_calls_only)) {
@@ -403,8 +422,46 @@ final class TelecomAccountRegistry {
         }
 
         /**
+         * Determines from carrier config whether managing IMS conference calls is supported.
+         *
+         * @return {@code true} if managing IMS conference calls is supported,
+         *         {@code false} otherwise.
+         */
+        private boolean isCarrierManageImsConferenceCallSupported() {
+            PersistableBundle b =
+                    PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
+            return b.getBoolean(CarrierConfigManager.KEY_SUPPORT_MANAGE_IMS_CONFERENCE_CALL_BOOL);
+        }
+
+        /**
+         * Determines from carrier config whether showing percise call diconnect cause to user
+         * is supported.
+         *
+         * @return {@code true} if showing percise call diconnect cause to user is supported,
+         *         {@code false} otherwise.
+         */
+        private boolean isCarrierShowPreciseFailedCause() {
+            PersistableBundle b =
+                    PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
+            return b.getBoolean(CarrierConfigManager.KEY_SHOW_PRECISE_FAILED_CAUSE_BOOL);
+        }
+
+        /**
+         * Determines from carrier config whether the carrier requires the use of a call recording
+         * tone.
+         *
+         * @return {@code true} if a call recording tone should be used, {@code false} otherwise.
+         */
+        private boolean isCarrierUseCallRecordingTone() {
+            PersistableBundle b =
+                    PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
+            return b.getBoolean(CarrierConfigManager.KEY_PLAY_CALL_RECORDING_TONE_BOOL);
+        }
+
+        /**
          * Where a device supports instant lettering and call subjects, retrieves the necessary
          * PhoneAccount extras for those features.
+         *
          * @return The {@link PhoneAccount} extras associated with the current subscription.
          */
         private Bundle getPhoneAccountExtras() {
@@ -444,6 +501,13 @@ final class TelecomAccountRegistry {
             }
         }
 
+        public void updateRttCapability() {
+            boolean isRttEnabled = PhoneGlobals.getInstance().phoneMgr.isRttEnabled();
+            boolean oldRttEnabled = mAccount.hasCapabilities(PhoneAccount.CAPABILITY_RTT);
+            if (isRttEnabled != oldRttEnabled) {
+                mAccount = registerPstnPhoneAccount(mIsEmergency, mIsDummy);
+            }
+        }
         /**
          * Indicates whether this account supports pausing video calls.
          * @return {@code true} if the account supports pausing video calls, {@code false}
@@ -483,6 +547,25 @@ final class TelecomAccountRegistry {
          */
         public boolean isMergeOfWifiCallsAllowedWhenVoWifiOff() {
             return mIsMergeOfWifiCallsAllowedWhenVoWifiOff;
+        }
+
+        /**
+         * Indicates whether this account supports managing IMS conference calls
+         * @return {@code true} if the account supports managing IMS conference calls,
+         *         {@code false} otherwise.
+         */
+        public boolean isManageImsConferenceCallSupported() {
+            return mIsManageImsConferenceCallSupported;
+        }
+
+        /**
+         * Indicates whether this account supports showing the precise call disconnect cause
+         * to user (i.e. conferencing).
+         * @return {@code true} if the account supports showing the precise call disconnect cause,
+         *         {@code false} otherwise.
+         */
+        public boolean isShowPreciseFailedCause() {
+            return mIsShowPreciseFailedCause;
         }
     }
 
@@ -530,7 +613,7 @@ final class TelecomAccountRegistry {
     private final TelephonyManager mTelephonyManager;
     private final SubscriptionManager mSubscriptionManager;
     private List<AccountEntry> mAccounts = new LinkedList<AccountEntry>();
-    private Object mAccountsLock = new Object();
+    private final Object mAccountsLock = new Object();
     private int mServiceState = ServiceState.STATE_POWER_OFF;
     private boolean mIsPrimaryUser = true;
 
@@ -653,6 +736,41 @@ final class TelecomAccountRegistry {
     }
 
     /**
+     * Determines if the {@link AccountEntry} associated with a {@link PhoneAccountHandle} supports
+     * managing IMS conference calls.
+     *
+     * @param handle The {@link PhoneAccountHandle}.
+     * @return {@code True} if managing IMS conference calls is supported.
+     */
+    boolean isManageImsConferenceCallSupported(PhoneAccountHandle handle) {
+        synchronized (mAccountsLock) {
+            for (AccountEntry entry : mAccounts) {
+                if (entry.getPhoneAccountHandle().equals(handle)) {
+                    return entry.isManageImsConferenceCallSupported();
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * showing precise call disconnect cause to the user.
+     *
+     * @param handle The {@link PhoneAccountHandle}.
+     * @return {@code True} if showing precise call disconnect cause to the user is supported.
+     */
+    boolean isShowPreciseFailedCause(PhoneAccountHandle handle) {
+        synchronized (mAccountsLock) {
+            for (AccountEntry entry : mAccounts) {
+                if (entry.getPhoneAccountHandle().equals(handle)) {
+                    return entry.isShowPreciseFailedCause();
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * @return Reference to the {@code TelecomAccountRegistry}'s subscription manager.
      */
     SubscriptionManager getSubscriptionManager() {
@@ -698,6 +816,23 @@ final class TelecomAccountRegistry {
         // use is not the primary user we disable video calling.
         mContext.registerReceiver(mUserSwitchedReceiver,
                 new IntentFilter(Intent.ACTION_USER_SWITCHED));
+
+        // Listen to the RTT system setting so that we update it when the user flips it.
+        ContentObserver rttUiSettingObserver = new ContentObserver(
+                new Handler(Looper.getMainLooper())) {
+            @Override
+            public void onChange(boolean selfChange) {
+                synchronized (mAccountsLock) {
+                    for (AccountEntry account : mAccounts) {
+                        account.updateRttCapability();
+                    }
+                }
+            }
+        };
+
+        Uri rttSettingUri = Settings.Secure.getUriFor(Settings.Secure.RTT_CALLING_MODE);
+        mContext.getContentResolver().registerContentObserver(
+                rttSettingUri, false, rttUiSettingObserver);
     }
 
     /**

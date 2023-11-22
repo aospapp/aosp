@@ -8,23 +8,28 @@
  *******************************************************************************
  */
 
-/** 
+/**
  * Port From:   ICU4C v2.1 : Collate/CollationFrenchTest
  * Source File: $ICU4CRoot/source/test/intltest/frcoll.cpp
  **/
- 
+
 package android.icu.dev.test.collator;
- 
+
 import java.util.Locale;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.CollationKey;
 import android.icu.text.Collator;
 import android.icu.text.RuleBasedCollator;
- 
+import android.icu.testsharding.MainTestShard;
+
+@MainTestShard
+@RunWith(JUnit4.class)
 public class CollationFrenchTest extends TestFmwk{
     private static char[][] testSourceCases = {
         {0x0061/*'a'*/, 0x0062/*'b'*/, 0x0063/*'c'*/},
@@ -79,7 +84,7 @@ public class CollationFrenchTest extends TestFmwk{
     /*02*/    {0x0065/*'e'*/, 0x0300, 0x0301, 0x0065/*'e'*/},
     /*03*/    {0x0065/*'e'*/, 0x0300, 0x0065/*'e'*/},
     /*04*/    {0x0065/*'e'*/, 0x0301, 0x0300, 0x0065/*'e'*/},
-    /*05*/    {0x0065/*'e'*/, 0x0065/*'e'*/, 0x0301}, 
+    /*05*/    {0x0065/*'e'*/, 0x0065/*'e'*/, 0x0301},
     /*06*/    {0x0065/*'e'*/, 0x0301, 0x0065/*'e'*/, 0x0301},
     /*07*/    {0x0065/*'e'*/, 0x0300, 0x0301, 0x0065/*'e'*/, 0x0301},
     /*08*/    {0x0065/*'e'*/, 0x0300, 0x0065/*'e'*/, 0x0301},
@@ -113,29 +118,29 @@ public class CollationFrenchTest extends TestFmwk{
         {0x0065/*'e'*/, 0x0061/*'a'*/},
         {0x0078/*'x'*/}
     };
-    
-    
+
+
     private Collator myCollation = null;
-    
+
     public CollationFrenchTest() {
     }
-    
+
     @Before
     public void init()throws Exception {
         myCollation = Collator.getInstance(Locale.CANADA_FRENCH);
     }
-     
+
     // perform tests with strength TERTIARY
     @Test
     public void TestTertiary() {
         int i = 0;
         myCollation.setStrength(Collator.TERTIARY);
-        
+
         for (i = 0; i < 12 ; i++) {
             doTest(testSourceCases[i], testTargetCases[i], results[i]);
         }
     }
-    
+
     // perform tests with strength SECONDARY
     @Test
     public void TestSecondary() {
@@ -145,7 +150,7 @@ public class CollationFrenchTest extends TestFmwk{
         int expected;
 
         myCollation.setStrength(Collator.SECONDARY);
-        
+
         for (i = 0; i < testAcute.length; i++) {
             for (j = 0; j < testAcute.length; j++) {
                 if (i <  j) {
@@ -171,7 +176,7 @@ public class CollationFrenchTest extends TestFmwk{
             }
         }
     }
-    
+
     @Test
     public void TestContinuationReordering()
     {
@@ -179,7 +184,7 @@ public class CollationFrenchTest extends TestFmwk{
         try {
             RuleBasedCollator collator = new RuleBasedCollator(rule);
             collator.setFrenchCollation(true);
-            CollationKey key1 
+            CollationKey key1
                         = collator.getCollationKey("a\u0325\u2f00\u2f01b\u0325");
             CollationKey key2
                         = collator.getCollationKey("a\u0325\u2f01\u2f01b\u0325");
@@ -190,7 +195,7 @@ public class CollationFrenchTest extends TestFmwk{
             errln(e.toString());
         }
     }
-     
+
     // main test routine, test rules specific to the french locale
     private void doTest(char[] source, char[] target, int result) {
         String s = new String(source);
@@ -200,9 +205,9 @@ public class CollationFrenchTest extends TestFmwk{
         sortKey1 = myCollation.getCollationKey(s);
         sortKey2 = myCollation.getCollationKey(t);
         int keyResult = sortKey1.compareTo(sortKey2);
-        reportCResult(s, t, sortKey1, sortKey2, compareResult, keyResult, compareResult, result);  
+        reportCResult(s, t, sortKey1, sortKey2, compareResult, keyResult, compareResult, result);
     }
-    
+
     private void reportCResult( String source, String target, CollationKey sourceKey, CollationKey targetKey,
                                 int compareResult, int keyResult, int incResult, int expectedResult ) {
         if (expectedResult < -1 || expectedResult > 1) {
@@ -215,13 +220,13 @@ public class CollationFrenchTest extends TestFmwk{
         boolean ok3 = (incResult == expectedResult);
 
         if (ok1 && ok2 && ok3 && !isVerbose()) {
-            return;    
+            return;
         } else {
             String msg1 = ok1? "Ok: compare(\"" : "FAIL: compare(\"";
             String msg2 = "\", \"";
             String msg3 = "\") returned ";
             String msg4 = "; expected ";
-            
+
             String sExpect = new String("");
             String sResult = new String("");
             sResult = CollationTest.appendCompareResult(compareResult, sResult);
@@ -231,7 +236,7 @@ public class CollationFrenchTest extends TestFmwk{
             } else {
                 errln(msg1 + source + msg2 + target + msg3 + sResult + msg4 + sExpect);
             }
-            
+
             msg1 = ok2 ? "Ok: key(\"" : "FAIL: key(\"";
             msg2 = "\").compareTo(key(\"";
             msg3 = "\")) returned ";
@@ -244,7 +249,7 @@ public class CollationFrenchTest extends TestFmwk{
                 msg2 = " vs. ";
                 errln(msg1 + CollationTest.prettify(sourceKey) + msg2 + CollationTest.prettify(targetKey));
             }
-            
+
             msg1 = ok3 ? "Ok: incCompare(\"" : "FAIL: incCompare(\"";
             msg2 = "\", \"";
             msg3 = "\") returned ";
@@ -255,7 +260,7 @@ public class CollationFrenchTest extends TestFmwk{
                 logln(msg1 + source + msg2 + target + msg3 + sResult);
             } else {
                 errln(msg1 + source + msg2 + target + msg3 + sResult + msg4 + sExpect);
-            }               
+            }
         }
     }
-} 
+}

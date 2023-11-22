@@ -510,7 +510,7 @@ public class CollectAllTests extends DescriptionGenerator {
      * @return true if it is valid, false otherwise
      */
     private static boolean isValidJavaPackage(String javaPackageName) {
-        String[] strSections = javaPackageName.split(".");
+        String[] strSections = javaPackageName.split("\\.");
         for (String strSection : strSections) {
           if (!isValidJavaIdentifier(strSection)) {
               return false;

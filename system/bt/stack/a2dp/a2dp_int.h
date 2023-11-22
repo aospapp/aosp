@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2002-2012 Broadcom Corporation
+ *  Copyright 2002-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 /*****************************************************************************
  *  Constants
  ****************************************************************************/
-#define A2DP_VERSION 0x0102
+#define A2DP_VERSION 0x0103
 
 /* Number of attributes in A2DP SDP record. */
 #define A2DP_NUM_ATTR 6

@@ -32,7 +32,8 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
         ctstestrunner \
         guava \
         junit \
-        legacy-android-test
+        cts-security-test-support-library \
+        platformprotosnano
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
@@ -48,7 +49,9 @@ LOCAL_PACKAGE_NAME := CtsKeystoreTestCases
 #
 # Uncomment when b/13282254 is fixed.
 # LOCAL_SDK_VERSION := current
-LOCAL_JAVA_LIBRARIES += android.test.runner
+LOCAL_PRIVATE_PLATFORM_APIS := true
+LOCAL_JAVA_LIBRARIES += android.test.runner.stubs
+LOCAL_JAVA_LIBRARIES += android.test.base.stubs
 
 include $(BUILD_CTS_PACKAGE)
 

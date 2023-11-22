@@ -36,9 +36,9 @@ import android.platform.test.annotations.Presubmit;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+import org.mockito.ArgumentMatcher;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
-import org.mockito.compat.ArgumentMatcher;
 
 public class DeviceAdminReceiverTest extends AndroidTestCase {
 
@@ -209,13 +209,7 @@ public class DeviceAdminReceiverTest extends AndroidTestCase {
                 eq(NETWORK_LOGS_TOKEN), eq(NETWORK_LOGS_COUNT));
     }
 
-    // TODO: replace with inline argThat(x → e.equals(x.getAction())) when mockito is updated.
     private Intent actionEq(final String expected) {
-        return argThat(new ArgumentMatcher<Intent>() {
-            @Override
-            public boolean matchesObject(Object argument) {
-                return expected.equals(((Intent) argument).getAction());
-            }
-        });
+        return argThat(x -> expected.equals(x.getAction()));
     }
 }

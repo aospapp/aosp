@@ -5,28 +5,34 @@ function mtime() {
 }
 
 # Go to top of blueprint tree
-TOP=$(dirname ${BASH_SOURCE[0]})/..
-cd ${TOP}
+cd $(dirname ${BASH_SOURCE[0]})/..
+TOP=${PWD}
 
-rm -rf out.test
-mkdir out.test
+export TEMPDIR=$(mktemp -d -t blueprint.test.XXX)
 
-rm -rf src.test
-mkdir src.test
-cp -r tests/test_tree src.test/test_tree
-ln -s ../.. src.test/test_tree/blueprint
+function cleanup() {
+    cd "${TOP}"
+    echo "cleaning up ${TEMPDIR}"
+    rm -rf "${TEMPDIR}"
+}
+trap cleanup EXIT
 
-cd out.test
-export SRCDIR=../src.test/test_tree
-${SRCDIR}/blueprint/bootstrap.bash
+export OUTDIR="${TEMPDIR}/out"
+mkdir "${OUTDIR}"
+
+export SRCDIR="${TEMPDIR}/src"
+cp -r tests/test_tree "${SRCDIR}"
+cp -r "${TOP}" "${SRCDIR}/blueprint"
+
+cd "${OUTDIR}"
+export BLUEPRINTDIR=${SRCDIR}/blueprint
+#setup
+${SRCDIR}/blueprint/bootstrap.bash $@
+
+#confirm no build.ninja file is rebuilt when no change happens
 ./blueprint.bash
 
-if ! cmp -s ${SRCDIR}/build.ninja.in .minibootstrap/build.ninja.in; then
-    echo "tests/test_tree/build.ninja.in and .minibootstrap/build.ninja.in should be the same" >&2
-    echo "run regen_build_ninja_in.sh" >&2
-    exit 1
-fi
-
+OLDTIME_BOOTSTRAP=$(mtime .bootstrap/build.ninja)
 OLDTIME=$(mtime build.ninja)
 
 sleep 2
@@ -37,44 +43,74 @@ if [ ${OLDTIME} != $(mtime build.ninja) ]; then
     exit 1
 fi
 
+if [ ${OLDTIME_BOOTSTRAP} != $(mtime .bootstrap/build.ninja) ]; then
+    echo "unnecessary .bootstrap/build.ninja regeneration for null build" >&2
+    exit 1
+fi
+
+#confirm no build.ninja file is rebuilt when a new directory is created
 mkdir ${SRCDIR}/newglob
 
 sleep 2
 ./blueprint.bash
 
 if [ ${OLDTIME} != $(mtime build.ninja) ]; then
-    echo "unnecessary build.ninja regeneration for glob addition" >&2
+    echo "unnecessary build.ninja regeneration for new empty directory" >&2
+    exit 1
+fi
+if [ ${OLDTIME_BOOTSTRAP} != $(mtime .bootstrap/build.ninja) ]; then
+    echo "unnecessary .bootstrap/build.ninja regeneration for new empty directory" >&2
     exit 1
 fi
 
+#confirm that build.ninja is rebuilt when a new Blueprints file is added
 touch ${SRCDIR}/newglob/Blueprints
 
 sleep 2
 ./blueprint.bash
 
 if [ ${OLDTIME} = $(mtime build.ninja) ]; then
-    echo "Failed to rebuild for glob addition" >&2
+    echo "Failed to rebuild build.ninja for glob addition" >&2
+    exit 1
+fi
+if [ ${OLDTIME_BOOTSTRAP} = $(mtime .bootstrap/build.ninja) ]; then
+    echo "Failed to rebuild .bootstrap/build.ninja for glob addition" >&2
     exit 1
 fi
 
+#confirm that build.ninja is rebuilt when a glob match is removed
 OLDTIME=$(mtime build.ninja)
+OLDTIME_BOOTSTRAP=$(mtime .bootstrap/build.ninja)
 rm ${SRCDIR}/newglob/Blueprints
 
 sleep 2
 ./blueprint.bash
 
 if [ ${OLDTIME} = $(mtime build.ninja) ]; then
-    echo "Failed to rebuild for glob removal" >&2
+    echo "Failed to rebuild build.ninja for glob removal" >&2
+    exit 1
+fi
+if [ ${OLDTIME_BOOTSTRAP} = $(mtime .bootstrap/build.ninja) ]; then
+    echo "Failed to rebuild .bootstrap/build.ninja for glob removal" >&2
     exit 1
 fi
 
+#confirm that build.ninja is not rebuilt when a glob match is removed
 OLDTIME=$(mtime build.ninja)
+OLDTIME_BOOTSTRAP=$(mtime .bootstrap/build.ninja)
 rmdir ${SRCDIR}/newglob
 
 sleep 2
 ./blueprint.bash
 
 if [ ${OLDTIME} != $(mtime build.ninja) ]; then
-    echo "unnecessary build.ninja regeneration for glob removal" >&2
+    echo "unnecessary build.ninja regeneration for removal of empty directory" >&2
     exit 1
 fi
+
+if [ ${OLDTIME_BOOTSTRAP} != $(mtime .bootstrap/build.ninja) ]; then
+    echo "unnecessary .bootstrap/build.ninja regeneration for removal of empty directory" >&2
+    exit 1
+fi
+
+echo tests passed

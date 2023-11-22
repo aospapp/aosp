@@ -29,6 +29,7 @@ import static android.app.admin.DevicePolicyManager.CODE_NOT_SYSTEM_USER;
 import static android.app.admin.DevicePolicyManager.CODE_NOT_SYSTEM_USER_SPLIT;
 import static android.app.admin.DevicePolicyManager.CODE_OK;
 import static android.app.admin.DevicePolicyManager.CODE_SPLIT_SYSTEM_USER_DEVICE_SYSTEM_USER;
+import static android.app.admin.DevicePolicyManager.CODE_USER_SETUP_COMPLETED;
 import static android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED;
 
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_PREPROVISIONING_ACTIVITY_TIME_MS;
@@ -103,7 +104,6 @@ public class PreProvisioningController {
                 new MessageParser(context), new Utils(), new SettingsFacade(),
                 EncryptionController.getInstance(context));
     }
-
     @VisibleForTesting
     PreProvisioningController(
             @NonNull Context context,
@@ -239,7 +239,8 @@ public class PreProvisioningController {
             // TODO: make a general test based on deviceAdminDownloadInfo field
             // PO doesn't ever initialize that field, so OK as a general case
             if (!mUtils.isConnectedToNetwork(mContext) && mParams.wifiInfo == null
-                    && mParams.deviceAdminDownloadInfo != null) {
+                    && mParams.deviceAdminDownloadInfo != null
+                    && !mParams.useMobileData) {
                 // Have the user pick a wifi network if necessary.
                 // It is not possible to ask the user to pick a wifi network if
                 // the screen is locked.
@@ -273,8 +274,8 @@ public class PreProvisioningController {
             return;
         }
 
-        CustomizationParams customization = CustomizationParams.createInstance(mParams, mContext,
-                mUtils);
+        CustomizationParams customization =
+                CustomizationParams.createInstance(mParams, mContext, mUtils);
 
         // show UI so we can get user's consent to continue
         if (isProfileOwnerProvisioning()) {
@@ -738,6 +739,7 @@ public class PreProvisioningController {
     private void showDeviceOwnerErrorAndClose(int provisioningPreCondition) {
         switch (provisioningPreCondition) {
             case CODE_HAS_DEVICE_OWNER:
+            case CODE_USER_SETUP_COMPLETED:
                 mUi.showErrorAndClose(R.string.device_already_set_up,
                         R.string.if_questions_contact_admin, "Device already provisioned.");
                 return;

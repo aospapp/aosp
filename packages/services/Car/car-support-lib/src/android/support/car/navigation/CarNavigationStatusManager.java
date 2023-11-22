@@ -15,11 +15,12 @@
  */
 package android.support.car.navigation;
 
+import android.annotation.IntDef;
 import android.graphics.Bitmap;
 import android.os.Bundle;
-import android.support.annotation.IntDef;
 import android.support.car.CarManagerBase;
 import android.support.car.CarNotConnectedException;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -70,121 +71,117 @@ public abstract class CarNavigationStatusManager implements CarManagerBase {
     }
 
     /* Navigation statuses */
+    /** @hide */
     public static final int STATUS_UNAVAILABLE = 0;
+    /** @hide */
     public static final int STATUS_ACTIVE = 1;
+    /** @hide */
     public static final int STATUS_INACTIVE = 2;
 
     /** @hide */
     @IntDef({
-        STATUS_UNAVAILABLE,
-        STATUS_ACTIVE,
-        STATUS_INACTIVE
+            STATUS_UNAVAILABLE,
+            STATUS_ACTIVE,
+            STATUS_INACTIVE
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface Status {}
 
     /* Turn Types */
-    /** Turn is of an unknown type.*/
+    /** @hide */
     public static final int TURN_UNKNOWN = 0;
-    /** Starting point of the navigation. */
+    /** @hide */
     public static final int TURN_DEPART = 1;
-    /** No turn, but the street name changes. */
+    /** @hide */
     public static final int TURN_NAME_CHANGE = 2;
-    /** Slight turn. */
+    /** @hide */
     public static final int TURN_SLIGHT_TURN = 3;
-    /** Regular turn. */
+    /** @hide */
     public static final int TURN_TURN = 4;
-    /** Sharp turn. */
+    /** @hide */
     public static final int TURN_SHARP_TURN = 5;
-    /** U-turn. */
+    /** @hide */
     public static final int TURN_U_TURN = 6;
-    /** On ramp. */
+    /** @hide */
     public static final int TURN_ON_RAMP = 7;
-    /** Off ramp. */
+    /** @hide */
     public static final int TURN_OFF_RAMP = 8;
-    /** Road forks (diverges). */
+    /** @hide */
     public static final int TURN_FORK = 9;
-    /** Road merges. */
+    /** @hide */
     public static final int TURN_MERGE = 10;
-    /** Roundabout entrance on which the route ends. Instruction says "Enter roundabout". */
+    /** @hide */
     public static final int TURN_ROUNDABOUT_ENTER = 11;
-    /** Roundabout exit. */
+    /** @hide */
     public static final int TURN_ROUNDABOUT_EXIT = 12;
-    /**
-     * Roundabout entrance and exit. For example, "At the roundabout, take Nth exit." Be sure to
-     * specify the "turnNumber" parameter when using this type.
-     */
+    /** @hide */
     public static final int TURN_ROUNDABOUT_ENTER_AND_EXIT = 13;
-    /** Potentially confusing intersection where the user should steer straight. */
+    /** @hide */
     public static final int TURN_STRAIGHT = 14;
-    /** You're on a boat! */
+    /** @hide */
     public static final int TURN_FERRY_BOAT = 16;
-    /** Train ferries for vehicles. */
+    /** @hide */
     public static final int TURN_FERRY_TRAIN = 17;
-    /** You have arrived. */
+    /** @hide */
     public static final int TURN_DESTINATION = 19;
 
     /** @hide */
     @IntDef({
-        TURN_UNKNOWN,
-        TURN_DEPART,
-        TURN_NAME_CHANGE,
-        TURN_SLIGHT_TURN,
-        TURN_TURN,
-        TURN_SHARP_TURN,
-        TURN_U_TURN,
-        TURN_ON_RAMP,
-        TURN_OFF_RAMP,
-        TURN_FORK,
-        TURN_MERGE,
-        TURN_ROUNDABOUT_ENTER,
-        TURN_ROUNDABOUT_EXIT,
-        TURN_ROUNDABOUT_ENTER_AND_EXIT,
-        TURN_STRAIGHT,
-        TURN_FERRY_BOAT,
-        TURN_FERRY_TRAIN,
-        TURN_DESTINATION
+            TURN_UNKNOWN,
+            TURN_DEPART,
+            TURN_NAME_CHANGE,
+            TURN_SLIGHT_TURN,
+            TURN_TURN,
+            TURN_SHARP_TURN,
+            TURN_U_TURN,
+            TURN_ON_RAMP,
+            TURN_OFF_RAMP,
+            TURN_FORK,
+            TURN_MERGE,
+            TURN_ROUNDABOUT_ENTER,
+            TURN_ROUNDABOUT_EXIT,
+            TURN_ROUNDABOUT_ENTER_AND_EXIT,
+            TURN_STRAIGHT,
+            TURN_FERRY_BOAT,
+            TURN_FERRY_TRAIN,
+            TURN_DESTINATION
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface TurnEvent {}
 
-    /* Turn Side */
-    /** Turn is on the left side of the vehicle. */
+    /** @hide */
     public static final int TURN_SIDE_LEFT = 1;
-    /** Turn is on the right side of the vehicle. */
+    /** @hide */
     public static final int TURN_SIDE_RIGHT = 2;
-    /** Turn side is unspecified. */
+    /** @hide */
     public static final int TURN_SIDE_UNSPECIFIED = 3;
 
     /** @hide */
     @IntDef({
-        TURN_SIDE_LEFT,
-        TURN_SIDE_RIGHT,
-        TURN_SIDE_UNSPECIFIED
+            TURN_SIDE_LEFT,
+            TURN_SIDE_RIGHT,
+            TURN_SIDE_UNSPECIFIED
     })
     public @interface TurnSide {}
 
-    /*
-     * Distance units for use in {@link #sendNavigationTurnDistanceEvent(int, int, int, int)}.
-     */
-    /** Distance is specified in meters. */
+    /** @hide */
     public static final int DISTANCE_METERS = 1;
-    /** Distance is specified in kilometers. */
+    /** @hide */
     public static final int DISTANCE_KILOMETERS = 2;
-    /** Distance is specified in miles. */
+    /** @hide */
     public static final int DISTANCE_MILES = 3;
-    /** Distance is specified in feet. */
+    /** @hide */
     public static final int DISTANCE_FEET = 4;
-    /** Distance is specified in yards. */
+    /** @hide */
     public static final int DISTANCE_YARDS = 5;
 
     /** @hide */
     @IntDef({
-        DISTANCE_METERS,
-        DISTANCE_KILOMETERS,
-        DISTANCE_MILES,
-        DISTANCE_FEET,
-        DISTANCE_YARDS
+            DISTANCE_METERS,
+            DISTANCE_KILOMETERS,
+            DISTANCE_MILES,
+            DISTANCE_FEET,
+            DISTANCE_YARDS
     })
     public @interface DistanceUnit {}
 
@@ -211,7 +208,9 @@ public abstract class CarNavigationStatusManager implements CarManagerBase {
      * @throws CarNotConnectedException if the connection to the car service has been lost.
      *
      * @deprecated Use {@link #sendEvent(int, Bundle)} instead.
+     * @hide
      */
+    @Deprecated
     public abstract void sendNavigationStatus(@Status int status) throws CarNotConnectedException;
 
     /**
@@ -237,7 +236,9 @@ public abstract class CarNavigationStatusManager implements CarManagerBase {
      * @throws CarNotConnectedException if the connection to the car service has been lost.
      *
      * @deprecated Use {@link #sendEvent(int, Bundle)} instead.
+     * @hide
      */
+    @Deprecated
     public abstract void sendNavigationTurnEvent(@TurnEvent int turnEvent, CharSequence eventName,
             int turnAngle, int turnNumber, @TurnSide int turnSide) throws CarNotConnectedException;
 
@@ -254,9 +255,10 @@ public abstract class CarNavigationStatusManager implements CarManagerBase {
      * @hide only first party applications may send a custom image to the cluster.
      * @deprecated Use {@link #sendEvent(int, Bundle)} instead.
      */
+    @Deprecated
     public abstract void sendNavigationTurnEvent(@TurnEvent int turnEvent, CharSequence eventName,
             int turnAngle, int turnNumber, Bitmap image, @TurnSide int turnSide)
-                    throws CarNotConnectedException;
+            throws CarNotConnectedException;
 
     /**
      * Send a Navigation Next Step Distance event to the car.
@@ -267,11 +269,13 @@ public abstract class CarNavigationStatusManager implements CarManagerBase {
      * the calling app, in milli-units. For example, 1.25 should be supplied as 1250.
      * @param displayDistanceUnit Unit type to use on of the DISTANCE_* types defined in this
      * file.
-     * @return Returns {@code true} if successful.
+     * @returns {@code true} if successful.
      * @throws CarNotConnectedException if the connection to the car service has been lost.
      *
      * @deprecated Use {@link #sendEvent(int, Bundle)} instead.
+     * @hide
      */
+    @Deprecated
     public abstract void sendNavigationTurnDistanceEvent(int distanceMeters, int timeSeconds,
             int displayDistanceMillis, int displayDistanceUnit) throws CarNotConnectedException;
 
@@ -279,16 +283,11 @@ public abstract class CarNavigationStatusManager implements CarManagerBase {
      * Sends events from navigation app to instrument cluster.
      *
      * @param eventType event type, the value could be either
-     * {@link #EVENT_TYPE_NEXT_MANEUVER_INFO}, {@link EVENT_TYPE_NEXT_MANEUVER_COUNTDOWN}, or
+     * {@link #EVENT_TYPE_NEXT_MANEUVER_INFO}, {@link #EVENT_TYPE_NEXT_MANEUVER_COUNTDOWN}, or
      * vendor-specific code.
      *
      * @param bundle object that holds data about the event
-     * @throws android.car.CarNotConnectedException if the connection to the car service has been lost.
-     *
-     * @see #EVENT_TYPE_NEXT_MANEUVER_INFO
-     * @see #EVENT_TYPE_NEXT_MANEUVER_COUNTDOWN
-     *
-     * @hide
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
      */
     public abstract void sendEvent(int eventType, Bundle bundle)
             throws CarNotConnectedException;

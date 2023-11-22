@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <endian.h>
+#include <arpa/inet.h>
 #include <linux/netfilter.h>
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netlink.h>
@@ -25,6 +25,6 @@
 std::ostream& operator<<(std::ostream& os, const nfgenmsg& msg) {
     return os << std::hex << "nfgenmsg["
               << "family: 0x" << static_cast<int>(msg.nfgen_family) << ", version: 0x"
-              << static_cast<int>(msg.version) << ", res_id: 0x" << be16toh(msg.res_id) << "]"
+              << static_cast<int>(msg.version) << ", res_id: 0x" << ntohs(msg.res_id) << "]"
               << std::dec;
 }

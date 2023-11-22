@@ -17,29 +17,27 @@
 package com.android.tv.dvr.ui.list;
 
 import android.content.Context;
-
 import com.android.tv.data.Program;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.data.ScheduledRecording.Builder;
 import com.android.tv.dvr.ui.DvrUiHelper;
 
-/**
- * A class for the episodic program.
- */
+/** A class for the episodic program. */
 class EpisodicProgramRow extends ScheduleRow {
     private final String mInputId;
     private final Program mProgram;
 
-    public EpisodicProgramRow(String inputId, Program program, ScheduledRecording recording,
+    public EpisodicProgramRow(
+            String inputId,
+            Program program,
+            ScheduledRecording recording,
             SchedulesHeaderRow headerRow) {
         super(recording, headerRow);
         mInputId = inputId;
         mProgram = program;
     }
 
-    /**
-     * Returns the program.
-     */
+    /** Returns the program. */
     public Program getProgram() {
         return mProgram;
     }
@@ -82,9 +80,6 @@ class EpisodicProgramRow extends ScheduleRow {
 
     @Override
     public String toString() {
-        return super.toString()
-                + "(inputId=" + mInputId
-                + ",program=" + mProgram
-                + ")";
+        return super.toString() + "(inputId=" + mInputId + ",program=" + mProgram + ")";
     }
 }

@@ -42,24 +42,26 @@ public class HostnameVerifierTest extends TestCase implements
 
     // copied and modified from apache http client test suite.
     public void testVerify() throws Exception {
+        HostnameVerifier verifier = HttpsURLConnection.getDefaultHostnameVerifier();
         CertificateFactory cf = CertificateFactory.getInstance("X.509");
         InputStream in;
         X509Certificate x509;
+        // CN=foo.com, no subjectAlt
         in = new ByteArrayInputStream(X509_FOO);
         x509 = (X509Certificate) cf.generateCertificate(in);
         mySSLSession session = new mySSLSession(new X509Certificate[] {x509});
-
-        HostnameVerifier verifier = HttpsURLConnection.getDefaultHostnameVerifier();
-        assertTrue(verifier.verify("foo.com", session));
+        assertFalse(verifier.verify("foo.com", session));
         assertFalse(verifier.verify("a.foo.com", session));
         assertFalse(verifier.verify("bar.com", session));
 
+        // CN=花子.co.jp, no subjectAlt
         in = new ByteArrayInputStream(X509_HANAKO);
         x509 = (X509Certificate) cf.generateCertificate(in);
         session = new mySSLSession(new X509Certificate[] {x509});
-        assertTrue(verifier.verify("\u82b1\u5b50.co.jp", session));
+        assertFalse(verifier.verify("\u82b1\u5b50.co.jp", session));
         assertFalse(verifier.verify("a.\u82b1\u5b50.co.jp", session));
 
+        // CN=foo.com, subjectAlt=bar.com
         in = new ByteArrayInputStream(X509_FOO_BAR);
         x509 = (X509Certificate) cf.generateCertificate(in);
         session = new mySSLSession(new X509Certificate[] {x509});
@@ -68,6 +70,7 @@ public class HostnameVerifierTest extends TestCase implements
         assertTrue(verifier.verify("bar.com", session));
         assertFalse(verifier.verify("a.bar.com", session));
 
+        // CN=foo.com, subjectAlt=bar.com, subjectAlt=花子.co.jp
         in = new ByteArrayInputStream(X509_FOO_BAR_HANAKO);
         x509 = (X509Certificate) cf.generateCertificate(in);
         session = new mySSLSession(new X509Certificate[] {x509});
@@ -81,12 +84,14 @@ public class HostnameVerifierTest extends TestCase implements
         assertFalse(verifier.verify("\u82b1\u5b50.co.jp", session));
         assertFalse(verifier.verify("a.\u82b1\u5b50.co.jp", session));
 
+        // no CN, subjectAlt=foo.com
         in = new ByteArrayInputStream(X509_NO_CNS_FOO);
         x509 = (X509Certificate) cf.generateCertificate(in);
         session = new mySSLSession(new X509Certificate[] {x509});
         assertTrue(verifier.verify("foo.com", session));
         assertFalse(verifier.verify("a.foo.com", session));
 
+        // CN=foo.com, CN=bar.com, CN=花子.co.jp, no subjectAlt
         in = new ByteArrayInputStream(X509_THREE_CNS_FOO_BAR_HANAKO);
         x509 = (X509Certificate) cf.generateCertificate(in);
         session = new mySSLSession(new X509Certificate[] {x509});
@@ -94,23 +99,26 @@ public class HostnameVerifierTest extends TestCase implements
         assertFalse(verifier.verify("a.foo.com", session));
         assertFalse(verifier.verify("bar.com", session));
         assertFalse(verifier.verify("a.bar.com", session));
-        assertTrue(verifier.verify("\u82b1\u5b50.co.jp", session));
+        assertFalse(verifier.verify("\u82b1\u5b50.co.jp", session));
         assertFalse(verifier.verify("a.\u82b1\u5b50.co.jp", session));
 
+        // CN=*.foo.com, no subjectAlt
         in = new ByteArrayInputStream(X509_WILD_FOO);
         x509 = (X509Certificate) cf.generateCertificate(in);
         session = new mySSLSession(new X509Certificate[] {x509});
         assertFalse(verifier.verify("foo.com", session));
-        assertTrue(verifier.verify("www.foo.com", session));
-        assertTrue(verifier.verify("\u82b1\u5b50.foo.com", session));
+        assertFalse(verifier.verify("www.foo.com", session));
+        assertFalse(verifier.verify("\u82b1\u5b50.foo.com", session));
         assertFalse(verifier.verify("a.b.foo.com", session));
 
+        // CN=*.co.jp, no subjectAlt
         in = new ByteArrayInputStream(X509_WILD_CO_JP);
         x509 = (X509Certificate) cf.generateCertificate(in);
         session = new mySSLSession(new X509Certificate[] {x509});
-        assertTrue(verifier.verify("foo.co.jp", session));
-        assertTrue(verifier.verify("\u82b1\u5b50.co.jp", session));
+        assertFalse(verifier.verify("foo.co.jp", session));
+        assertFalse(verifier.verify("\u82b1\u5b50.co.jp", session));
 
+        // CN=*.foo.com, subjectAlt=*.bar.com, subjectAlt=花子.co.jp
         in = new ByteArrayInputStream(X509_WILD_FOO_BAR_HANAKO);
         x509 = (X509Certificate) cf.generateCertificate(in);
         session = new mySSLSession(new X509Certificate[] {x509});
@@ -184,18 +192,27 @@ public class HostnameVerifierTest extends TestCase implements
      * out certificates that match so broadly.
      */
     public void testWildcardsDoesNotNeedTwoDots() throws Exception {
-        // openssl req -x509 -nodes -days 36500 -subj '/CN=*.com' -newkey rsa:512 -out cert.pem
+        /*
+         * $ cat ./cert.cnf
+         * [req]
+         * distinguished_name=distinguished_name
+         * req_extensions=req_extensions
+         * x509_extensions=x509_extensions
+         * [distinguished_name]
+         * [req_extensions]
+         * [x509_extensions]
+         * subjectAltName=DNS:*.com
+         */
+        // openssl req -x509 -nodes -days 36500 -subj '/CN=CommonName' -config ./cert.cnf -newkey rsa:512 -out cert.pem
         String cert = "-----BEGIN CERTIFICATE-----\n"
-                + "MIIBjDCCATagAwIBAgIJAOVulXCSu6HuMA0GCSqGSIb3DQEBBQUAMBAxDjAMBgNV\n"
-                + "BAMUBSouY29tMCAXDTEwMTIyMDE2NDkzOFoYDzIxMTAxMTI2MTY0OTM4WjAQMQ4w\n"
-                + "DAYDVQQDFAUqLmNvbTBcMA0GCSqGSIb3DQEBAQUAA0sAMEgCQQDJd8xqni+h7Iaz\n"
-                + "ypItivs9kPuiJUqVz+SuJ1C05SFc3PmlRCvwSIfhyD67fHcbMdl+A/LrIjhhKZJe\n"
-                + "1joO0+pFAgMBAAGjcTBvMB0GA1UdDgQWBBS4Iuzf5w8JdCp+EtBfdFNudf6+YzBA\n"
-                + "BgNVHSMEOTA3gBS4Iuzf5w8JdCp+EtBfdFNudf6+Y6EUpBIwEDEOMAwGA1UEAxQF\n"
-                + "Ki5jb22CCQDlbpVwkruh7jAMBgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBBQUAA0EA\n"
-                + "U6LFxmZr31lFyis2/T68PpjAppc0DpNQuA2m/Y7oTHBDi55Fw6HVHCw3lucuWZ5d\n"
-                + "qUYo4ES548JdpQtcLrW2sA==\n"
-                + "-----END CERTIFICATE-----";
+                + "MIIBODCB46ADAgECAgkA5o09Q/EN/kMwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE\n"
+                + "AxMKQ29tbW9uTmFtZTAgFw0xODAxMTEwMDM1MDNaGA8yMTE3MTIxODAwMzUwM1ow\n"
+                + "FTETMBEGA1UEAxMKQ29tbW9uTmFtZTBcMA0GCSqGSIb3DQEBAQUAA0sAMEgCQQDE\n"
+                + "u2Yguj/n8mUvmEVIJeSxbtcK98yCkg07BIVPQaRBpBTjWk/lxRWlMGVAWTcls1El\n"
+                + "IvLn+/NsBLx5l4UFfkDFAgMBAAGjFDASMBAGA1UdEQQJMAeCBSouY29tMA0GCSqG\n"
+                + "SIb3DQEBCwUAA0EASyUpA60cGL8ePVO5XD4XGGIms5Dwd147+wiqKcYodnB8rlbF\n"
+                + "nxeiH6VZH3lBKJjrAXB0rOaBzb9jCuVxjYldew==\n"
+                + "-----END CERTIFICATE-----\n";
         CertificateFactory cf = CertificateFactory.getInstance("X.509");
         InputStream in = new ByteArrayInputStream(cert.getBytes("UTF-8"));
         X509Certificate x509 = (X509Certificate) cf.generateCertificate(in);

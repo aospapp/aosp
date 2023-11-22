@@ -82,10 +82,33 @@ exit:
 	return rc;
 }
 
-int cil_gen_node(__attribute__((unused)) struct cil_db *db, struct cil_tree_node *ast_node, struct cil_symtab_datum *datum, hashtab_key_t key, enum cil_sym_index sflavor, enum cil_flavor nflavor)
+/*
+ * Determine whether or not multiple declarations of the same key can share a
+ * datum, given the new datum and the one already present in a given symtab.
+ */
+int cil_is_datum_multiple_decl(__attribute__((unused)) struct cil_symtab_datum *cur,
+                               __attribute__((unused)) struct cil_symtab_datum *old,
+                               enum cil_flavor f)
+{
+	int rc = CIL_FALSE;
+
+	switch (f) {
+	case CIL_TYPE:
+	case CIL_TYPEATTRIBUTE:
+		/* type and typeattribute statements insert empty datums, ret true */
+		rc = CIL_TRUE;
+		break;
+	default:
+		break;
+	}
+	return rc;
+}
+
+int cil_gen_node(struct cil_db *db, struct cil_tree_node *ast_node, struct cil_symtab_datum *datum, hashtab_key_t key, enum cil_sym_index sflavor, enum cil_flavor nflavor)
 {
 	int rc = SEPOL_ERR;
 	symtab_t *symtab = NULL;
+	struct cil_symtab_datum *prev;
 
 	rc = __cil_verify_name((const char*)key);
 	if (rc != SEPOL_OK) {
@@ -103,15 +126,26 @@ int cil_gen_node(__attribute__((unused)) struct cil_db *db, struct cil_tree_node
 	if (symtab != NULL) {
 		rc = cil_symtab_insert(symtab, (hashtab_key_t)key, datum, ast_node);
 		if (rc == SEPOL_EEXIST) {
-			cil_log(CIL_ERR, "Re-declaration of %s %s\n", 
-				cil_node_to_string(ast_node), key);
-			if (cil_symtab_get_datum(symtab, key, &datum) == SEPOL_OK) {
-				if (sflavor == CIL_SYM_BLOCKS) {
-					struct cil_tree_node *node = datum->nodes->head->data;
-					cil_tree_log(node, CIL_ERR, "Previous declaration");
+			if (!db->multiple_decls ||
+			    cil_symtab_get_datum(symtab, (hashtab_key_t)key, &prev) != SEPOL_OK ||
+			    !cil_is_datum_multiple_decl(datum, prev, nflavor)) {
+
+				/* multiple_decls not ok, ret error */
+				cil_log(CIL_ERR, "Re-declaration of %s %s\n",
+					cil_node_to_string(ast_node), key);
+				if (cil_symtab_get_datum(symtab, key, &datum) == SEPOL_OK) {
+					if (sflavor == CIL_SYM_BLOCKS) {
+						struct cil_tree_node *node = datum->nodes->head->data;
+						cil_tree_log(node, CIL_ERR, "Previous declaration");
+					}
 				}
+				goto exit;
 			}
-			goto exit;
+			/* multiple_decls is enabled and works for this datum type, add node */
+			cil_list_append(prev->nodes, CIL_NODE, ast_node);
+			ast_node->data = prev;
+			cil_symtab_datum_destroy(datum);
+			free(datum);
 		}
 	}
 
@@ -4256,6 +4290,89 @@ void cil_destroy_filecon(struct cil_filecon *filecon)
 	free(filecon);
 }
 
+int cil_gen_ibpkeycon(__attribute__((unused)) struct cil_db *db, struct cil_tree_node *parse_current, struct cil_tree_node *ast_node)
+{
+	enum cil_syntax syntax[] = {
+		CIL_SYN_STRING,
+		CIL_SYN_STRING,
+		CIL_SYN_STRING | CIL_SYN_LIST,
+		CIL_SYN_STRING | CIL_SYN_LIST,
+		CIL_SYN_END
+	};
+	int syntax_len = sizeof(syntax) / sizeof(*syntax);
+	int rc = SEPOL_ERR;
+	struct cil_ibpkeycon *ibpkeycon = NULL;
+
+	if (!parse_current || !ast_node)
+		goto exit;
+
+	rc = __cil_verify_syntax(parse_current, syntax, syntax_len);
+	if (rc != SEPOL_OK)
+		goto exit;
+
+	cil_ibpkeycon_init(&ibpkeycon);
+
+	ibpkeycon->subnet_prefix_str = parse_current->next->data;
+
+	if (parse_current->next->next->cl_head) {
+		if (parse_current->next->next->cl_head->next &&
+		    !parse_current->next->next->cl_head->next->next) {
+			rc = cil_fill_integer(parse_current->next->next->cl_head, &ibpkeycon->pkey_low, 0);
+			if (rc != SEPOL_OK) {
+				cil_log(CIL_ERR, "Improper ibpkey specified\n");
+				goto exit;
+			}
+			rc = cil_fill_integer(parse_current->next->next->cl_head->next, &ibpkeycon->pkey_high, 0);
+			if (rc != SEPOL_OK) {
+				cil_log(CIL_ERR, "Improper ibpkey specified\n");
+				goto exit;
+			}
+		} else {
+			cil_log(CIL_ERR, "Improper ibpkey range specified\n");
+			rc = SEPOL_ERR;
+			goto exit;
+		}
+	} else {
+		rc = cil_fill_integer(parse_current->next->next, &ibpkeycon->pkey_low, 0);
+		if (rc != SEPOL_OK) {
+			cil_log(CIL_ERR, "Improper ibpkey specified\n");
+			goto exit;
+		}
+		ibpkeycon->pkey_high = ibpkeycon->pkey_low;
+	}
+
+	if (!parse_current->next->next->next->cl_head) {
+		ibpkeycon->context_str = parse_current->next->next->next->data;
+	} else {
+		cil_context_init(&ibpkeycon->context);
+
+		rc = cil_fill_context(parse_current->next->next->next->cl_head, ibpkeycon->context);
+		if (rc != SEPOL_OK)
+			goto exit;
+	}
+
+	ast_node->data = ibpkeycon;
+	ast_node->flavor = CIL_IBPKEYCON;
+	return SEPOL_OK;
+
+exit:
+	cil_tree_log(parse_current, CIL_ERR, "Bad ibpkeycon declaration");
+	cil_destroy_ibpkeycon(ibpkeycon);
+
+	return rc;
+}
+
+void cil_destroy_ibpkeycon(struct cil_ibpkeycon *ibpkeycon)
+{
+	if (!ibpkeycon)
+		return;
+
+	if (!ibpkeycon->context_str && ibpkeycon->context)
+		cil_destroy_context(ibpkeycon->context);
+
+	free(ibpkeycon);
+}
+
 int cil_gen_portcon(struct cil_db *db, struct cil_tree_node *parse_current, struct cil_tree_node *ast_node)
 {
 	enum cil_syntax syntax[] = {
@@ -4582,6 +4699,68 @@ void cil_destroy_netifcon(struct cil_netifcon *netifcon)
 	}
 
 	free(netifcon);
+}
+
+int cil_gen_ibendportcon(__attribute__((unused)) struct cil_db *db, struct cil_tree_node *parse_current, struct cil_tree_node *ast_node)
+{
+	enum cil_syntax syntax[] = {
+		CIL_SYN_STRING,
+		CIL_SYN_STRING,
+		CIL_SYN_STRING,
+		CIL_SYN_STRING | CIL_SYN_LIST,
+		CIL_SYN_END
+	};
+	int syntax_len = sizeof(syntax) / sizeof(*syntax);
+	int rc = SEPOL_ERR;
+	struct cil_ibendportcon *ibendportcon = NULL;
+
+	if (!parse_current || !ast_node)
+		goto exit;
+
+	rc = __cil_verify_syntax(parse_current, syntax, syntax_len);
+	if (rc != SEPOL_OK)
+		goto exit;
+
+	cil_ibendportcon_init(&ibendportcon);
+
+	ibendportcon->dev_name_str = parse_current->next->data;
+
+	rc = cil_fill_integer(parse_current->next->next, &ibendportcon->port, 10);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Improper ibendport port specified\n");
+		goto exit;
+	}
+
+	if (!parse_current->next->next->next->cl_head) {
+		ibendportcon->context_str = parse_current->next->next->next->data;
+	} else {
+		cil_context_init(&ibendportcon->context);
+
+		rc = cil_fill_context(parse_current->next->next->next->cl_head, ibendportcon->context);
+		if (rc != SEPOL_OK)
+			goto exit;
+	}
+
+	ast_node->data = ibendportcon;
+	ast_node->flavor = CIL_IBENDPORTCON;
+
+	return SEPOL_OK;
+
+exit:
+	cil_tree_log(parse_current, CIL_ERR, "Bad ibendportcon declaration");
+	cil_destroy_ibendportcon(ibendportcon);
+	return SEPOL_ERR;
+}
+
+void cil_destroy_ibendportcon(struct cil_ibendportcon *ibendportcon)
+{
+	if (!ibendportcon)
+		return;
+
+	if (!ibendportcon->context_str && ibendportcon->context)
+		cil_destroy_context(ibendportcon->context);
+
+	free(ibendportcon);
 }
 
 int cil_gen_pirqcon(struct cil_db *db, struct cil_tree_node *parse_current, struct cil_tree_node *ast_node)
@@ -6214,6 +6393,12 @@ int __cil_build_ast_node_helper(struct cil_tree_node *parse_current, uint32_t *f
 		*finished = CIL_TREE_SKIP_NEXT;
 	} else if (parse_current->data == CIL_KEY_FILECON) {
 		rc = cil_gen_filecon(db, parse_current, ast_node);
+		*finished = CIL_TREE_SKIP_NEXT;
+	} else if (parse_current->data == CIL_KEY_IBPKEYCON) {
+		rc = cil_gen_ibpkeycon(db, parse_current, ast_node);
+		*finished = CIL_TREE_SKIP_NEXT;
+	} else if (parse_current->data == CIL_KEY_IBENDPORTCON) {
+		rc = cil_gen_ibendportcon(db, parse_current, ast_node);
 		*finished = CIL_TREE_SKIP_NEXT;
 	} else if (parse_current->data == CIL_KEY_PORTCON) {
 		rc = cil_gen_portcon(db, parse_current, ast_node);

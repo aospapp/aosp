@@ -14,15 +14,22 @@
  * limitations under the License.
  */
 
+#include <cstdint>
+#include <string>
+#include <vector>
+
+#include "minikin/U16StringPiece.h"
+
 namespace minikin {
 
 void ParseUnicode(uint16_t* buf, size_t buf_size, const char* src, size_t* result_size,
-        size_t* offset);
+                  size_t* offset);
 
 std::vector<uint16_t> parseUnicodeStringWithOffset(const std::string& in, size_t* offset);
 std::vector<uint16_t> parseUnicodeString(const std::string& in);
 
 // Converts UTF-8 to UTF-16.
 std::vector<uint16_t> utf8ToUtf16(const std::string& text);
+std::string utf16ToUtf8(const U16StringPiece& u16String);
 
 }  // namespace minikin

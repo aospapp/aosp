@@ -348,10 +348,7 @@ template <> uint128_t DebugTweak(uint128_t x) {
   return x;
 }
 
-}  // namespace NAMESPACE_FOR_HASH_FUNCTIONS;
-
 using namespace std;
-using namespace NAMESPACE_FOR_HASH_FUNCTIONS;
 namespace farmhashna {
 #undef Fetch
 #define Fetch Fetch64
@@ -642,7 +639,7 @@ namespace farmhashsu {
 
 uint32_t Hash32(const char *s, size_t len) {
   FARMHASH_DIE_IF_MISCONFIGURED;
-  return s == NULL ? 0 : len;
+  return s == nullptr ? 0 : len;
 }
 
 uint32_t Hash32WithSeed(const char *s, size_t len, uint32_t seed) {
@@ -865,7 +862,7 @@ namespace farmhashns {
 
 uint32_t Hash32(const char *s, size_t len) {
   FARMHASH_DIE_IF_MISCONFIGURED;
-  return s == NULL ? 0 : len;
+  return s == nullptr ? 0 : len;
 }
 
 uint32_t Hash32WithSeed(const char *s, size_t len, uint32_t seed) {
@@ -894,7 +891,7 @@ namespace farmhashsa {
 
 uint32_t Hash32(const char *s, size_t len) {
   FARMHASH_DIE_IF_MISCONFIGURED;
-  return s == NULL ? 0 : len;
+  return s == nullptr ? 0 : len;
 }
 
 uint32_t Hash32WithSeed(const char *s, size_t len, uint32_t seed) {
@@ -1407,7 +1404,6 @@ uint128_t Fingerprint128(const char* s, size_t len) {
   return CityHash128(s, len);
 }
 }  // namespace farmhashcc
-namespace NAMESPACE_FOR_HASH_FUNCTIONS {
 
 // BASIC STRING HASHING
 

@@ -21,6 +21,8 @@ import android.text.SpannableStringBuilder;
 
 public final class InputConnectionTestUtils {
 
+    private static final String U1F427 = "\uD83D\uDC27";
+
     /**
      * A utility function to generate test string for input method APIs.  There are several
      * pre-defined meta characters that are useful for unit tests.
@@ -41,7 +43,6 @@ public final class InputConnectionTestUtils {
      * @return A {@link CharSequence} object with text selection specified by the meta characters.
      */
     public static CharSequence formatString(final String formatString) {
-        final String U1F427 = "\uD83D\uDC27";
         final SpannableStringBuilder builder = new SpannableStringBuilder();
         int selectionStart = -1;
         int selectionEnd = -1;

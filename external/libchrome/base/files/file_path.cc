@@ -53,8 +53,6 @@ StringPieceType::size_type FindDriveLetter(StringPieceType path) {
        (path[0] >= L'a' && path[0] <= L'z'))) {
     return 1;
   }
-#else
-  (void)path;  // Avoid an unused warning.
 #endif  // FILE_PATH_USES_DRIVE_LETTERS
   return StringType::npos;
 }
@@ -176,6 +174,7 @@ FilePath::FilePath() {
 
 FilePath::FilePath(const FilePath& that) : path_(that.path_) {
 }
+FilePath::FilePath(FilePath&& that) noexcept = default;
 
 FilePath::FilePath(StringPieceType path) {
   path.CopyToString(&path_);
@@ -191,6 +190,8 @@ FilePath& FilePath::operator=(const FilePath& that) {
   path_ = that.path_;
   return *this;
 }
+
+FilePath& FilePath::operator=(FilePath&& that) = default;
 
 bool FilePath::operator==(const FilePath& that) const {
 #if defined(FILE_PATH_USES_DRIVE_LETTERS)
@@ -562,6 +563,12 @@ FilePath FilePath::StripTrailingSeparators() const {
 }
 
 bool FilePath::ReferencesParent() const {
+  if (path_.find(kParentDirectory) == StringType::npos) {
+    // GetComponents is quite expensive, so avoid calling it in the majority
+    // of cases where there isn't a kParentDirectory anywhere in the path.
+    return false;
+  }
+
   std::vector<StringType> components;
   GetComponents(&components);
 
@@ -1325,7 +1332,6 @@ FilePath FilePath::NormalizePathSeparatorsTo(CharType separator) const {
   }
   return FilePath(copy);
 #else
-  (void)separator;  // Avoid an unused warning.
   return *this;
 #endif
 }

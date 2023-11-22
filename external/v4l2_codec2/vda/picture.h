@@ -1,6 +1,7 @@
 // Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: d264e47
 
 #ifndef PICTURE_H_
 #define PICTURE_H_

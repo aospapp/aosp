@@ -33,6 +33,7 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner android-support-test
 
 LOCAL_JNI_SHARED_LIBRARIES := \
+  libjni_test_dlclose \
   libjninamespacea1 \
   libjninamespacea2 \
   libjninamespaceb \
@@ -43,6 +44,7 @@ LOCAL_JNI_SHARED_LIBRARIES := \
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_SDK_VERSION := current
+LOCAL_NDK_STL_VARIANT := c++_shared
 
 include $(BUILD_CTS_PACKAGE)
 

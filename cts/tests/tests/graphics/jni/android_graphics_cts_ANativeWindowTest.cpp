@@ -18,9 +18,10 @@
 #define LOG_TAG "ANativeWindowTest"
 
 #include <array>
-#include <jni.h>
+
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
+#include <jni.h>
 
 namespace {
 
@@ -33,8 +34,34 @@ void pushBufferWithTransform(JNIEnv* env, jclass, jobject jSurface, jint transfo
     ANativeWindow_release(window);
 }
 
-const std::array<JNINativeMethod, 1> JNI_METHODS = {{
+jint setBuffersDataSpace(JNIEnv* env, jclass, jobject jSurface, jint dataSpace) {
+    ANativeWindow* window = nullptr;
+    if (jSurface) {
+        window = ANativeWindow_fromSurface(env, jSurface);
+    }
+    int error = ANativeWindow_setBuffersDataSpace(window, dataSpace);
+    if (error != 0) {
+        return error;
+    }
+    ANativeWindow_Buffer mappedBuffer;
+    ANativeWindow_lock(window, &mappedBuffer, nullptr);
+    ANativeWindow_unlockAndPost(window);
+    ANativeWindow_release(window);
+    return error;
+}
+
+jint getBuffersDataSpace(JNIEnv* env, jclass, jobject jSurface) {
+    ANativeWindow* window = nullptr;
+    if (jSurface) {
+        window = ANativeWindow_fromSurface(env, jSurface);
+    }
+    return ANativeWindow_getBuffersDataSpace(window);
+}
+
+const std::array<JNINativeMethod, 3> JNI_METHODS = {{
     { "nPushBufferWithTransform", "(Landroid/view/Surface;I)V", (void*)pushBufferWithTransform },
+    { "nSetBuffersDataSpace", "(Landroid/view/Surface;I)I", (void*)setBuffersDataSpace },
+    { "nGetBuffersDataSpace", "(Landroid/view/Surface;)I", (void*)getBuffersDataSpace },
 }};
 
 }

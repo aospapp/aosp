@@ -7,7 +7,7 @@
 #  protected mode, setup flat memory model, enable temporary memory and
 #  call into SecStartup().
 #
-#  Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
 #  which accompanies this distribution.  The full text of the license may be found at
@@ -37,11 +37,10 @@
   SecMain.c
   SecMain.h
   FindPeiCore.c
+  SecBist.c
 
 [Sources.IA32]
-  Ia32/ResetVec.asm16 | MSFT
-  Ia32/ResetVec.asm16 | INTEL
-  Ia32/ResetVec.nasmb | GCC
+  Ia32/ResetVec.nasmb
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -60,9 +59,17 @@
   PeCoffExtraActionLib
   CpuExceptionHandlerLib
   ReportStatusCodeLib
+  PeiServicesLib
+  PeiServicesTablePointerLib
+  HobLib
 
 [Ppis]
-  gEfiSecPlatformInformationPpiGuid                    ## PRODUCES
+  ## SOMETIMES_CONSUMES
+  ## PRODUCES
+  gEfiSecPlatformInformationPpiGuid
+  ## SOMETIMES_CONSUMES
+  ## SOMETIMES_PRODUCES
+  gEfiSecPlatformInformation2PpiGuid
   gEfiTemporaryRamDonePpiGuid                          ## PRODUCES
 
 [Pcd]

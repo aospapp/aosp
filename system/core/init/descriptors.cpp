@@ -28,7 +28,6 @@
 #include <cutils/android_get_control_file.h>
 #include <cutils/sockets.h>
 
-#include "init.h"
 #include "util.h"
 
 namespace android {
@@ -62,7 +61,7 @@ void DescriptorInfo::CreateAndPublish(const std::string& globalContext) const {
                 [] (char& c) { c = isalnum(c) ? c : '_'; });
 
   std::string val = std::to_string(fd);
-  add_environment(publishedName.c_str(), val.c_str());
+  setenv(publishedName.c_str(), val.c_str(), 1);
 
   // make sure we don't close on exec
   fcntl(fd, F_SETFD, 0);
@@ -86,8 +85,7 @@ int SocketInfo::Create(const std::string& context) const {
     int flags =
         ((types[0] == "stream" ? SOCK_STREAM : (types[0] == "dgram" ? SOCK_DGRAM : SOCK_SEQPACKET)));
     bool passcred = types.size() > 1 && types[1] == "passcred";
-    return CreateSocket(name().c_str(), flags, passcred, perm(), uid(), gid(), context.c_str(),
-                        sehandle);
+    return CreateSocket(name().c_str(), flags, passcred, perm(), uid(), gid(), context.c_str());
 }
 
 const std::string SocketInfo::key() const {

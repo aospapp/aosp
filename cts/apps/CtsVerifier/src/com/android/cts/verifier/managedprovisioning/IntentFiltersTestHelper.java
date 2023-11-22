@@ -76,10 +76,8 @@ public class IntentFiltersTestHelper {
                 new Intent(Settings.ACTION_PRIVACY_SETTINGS),
                 new Intent(Settings.ACTION_SETTINGS),
                 new Intent(Settings.ACTION_WIRELESS_SETTINGS),
-                new Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD),
                 new Intent("android.net.vpn.SETTINGS"),
                 new Intent(Settings.ACTION_VPN_SETTINGS),
-                new Intent("android.settings.ACCOUNT_SYNC_SETTINGS"),
                 new Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS),
                 new Intent("android.settings.LICENSE"),
                 new Intent("android.settings.NOTIFICATION_SETTINGS"),
@@ -87,15 +85,23 @@ public class IntentFiltersTestHelper {
                 new Intent("com.android.settings.ACCESSIBILITY_COLOR_SPACE_SETTINGS"),
                 new Intent("com.android.settings.TTS_SETTINGS"),
                 new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS),
-                new Intent(Settings.ACTION_SYNC_SETTINGS),
-                new Intent(Settings.ACTION_ADD_ACCOUNT),
                 new Intent(Intent.ACTION_GET_CONTENT).setType("*/*").addCategory(
                         Intent.CATEGORY_OPENABLE),
                 new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(
-                        Intent.CATEGORY_OPENABLE),
+                        Intent.CATEGORY_OPENABLE)
+            ));
+
+    // These are the intents which can either be handled directly in the managed profile,
+    // or be forwarded to the primary profile.
+    private static final ArrayList<Intent> forwardingOptionalIntentsFromManaged =
+            new ArrayList<>(Arrays.asList(
+                new Intent(Settings.ACTION_SYNC_SETTINGS),
+                new Intent(Settings.ACTION_ADD_ACCOUNT),
                 new Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS),
                 new Intent(Settings.ACTION_MANAGE_ALL_APPLICATIONS_SETTINGS),
-                new Intent(Settings.ACTION_APPLICATION_SETTINGS)
+                new Intent(Settings.ACTION_APPLICATION_SETTINGS),
+                new Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD),
+                new Intent("android.settings.ACCOUNT_SYNC_SETTINGS")
             ));
 
     // These are the intents which cannot be forwarded to the primary profile.
@@ -227,7 +233,7 @@ public class IntentFiltersTestHelper {
         }
 
         if (pm.hasSystemFeature(PackageManager.FEATURE_LOCATION)) {
-            forwardedIntentsFromManaged.add(
+            forwardingOptionalIntentsFromManaged.add(
                     new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
         }
 
@@ -240,7 +246,7 @@ public class IntentFiltersTestHelper {
         }
 
         if (pm.hasSystemFeature(PackageManager.FEATURE_HOME_SCREEN)) {
-            forwardedIntentsFromManaged.add(
+            forwardingOptionalIntentsFromManaged.add(
                     new Intent(Settings.ACTION_HOME_SETTINGS));
         }
 
@@ -274,9 +280,11 @@ public class IntentFiltersTestHelper {
     public boolean checkCrossProfileIntentFilters(int flag) {
         boolean crossProfileIntentFiltersSet;
         if (flag == FLAG_INTENTS_FROM_PRIMARY) {
-            crossProfileIntentFiltersSet = checkForIntentsFromPrimary();
+            crossProfileIntentFiltersSet = checkIntentForwardingFromPrimary();
         } else {
-            crossProfileIntentFiltersSet = checkForIntentsFromManaged();
+            crossProfileIntentFiltersSet =
+                    checkIntentForwardingFromManaged() &&
+                            checkIntentsWithOptionalForwardingFromManagedAreHandled();
         }
         return crossProfileIntentFiltersSet;
     }
@@ -285,7 +293,7 @@ public class IntentFiltersTestHelper {
      * Checks if required cross profile intent filters are set for the intents fired from the
      * primary profile.
      */
-    private boolean checkForIntentsFromPrimary() {
+    private boolean checkIntentForwardingFromPrimary() {
         // Get the class name of the intentForwarderActivity in the primary profile by firing an
         // intent which we know will be forwarded from primary profile to managed profile.
         ActivityInfo forwarderActivityInfo =
@@ -295,16 +303,36 @@ public class IntentFiltersTestHelper {
         }
 
         // Check for intents which can be forwarded to the managed profile.
-        return checkForIntentsNotHandled(forwardedIntentsFromPrimary,
+        return checkIntentForwarding(forwardedIntentsFromPrimary,
                 forwarderActivityInfo, "from primary profile should be forwarded to the " +
                 "managed profile but is not.", true);
+    }
+
+    /**
+     * Checks that the required intents either have cross profile intent filters set up, or are
+     * handled directly in the managed profile.
+     */
+    private boolean checkIntentsWithOptionalForwardingFromManagedAreHandled() {
+        for (Intent intent : forwardingOptionalIntentsFromManaged) {
+            List<ResolveInfo> resolveInfoList =
+                    mContext.getPackageManager().queryIntentActivities(intent,
+                            PackageManager.MATCH_DEFAULT_ONLY);
+
+            if (resolveInfoList.isEmpty()) {
+                Log.e(TAG, intent + " should be handled in or forwarded from the managed " +
+                        "profile, but it is not.");
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
      * Checks if required cross profile intent filters are set for the intents fired from the
      * managed profile.
      */
-    private boolean checkForIntentsFromManaged() {
+    private boolean checkIntentForwardingFromManaged() {
         // Get the class name of the intentForwarderActivity in the managed profile by firing an
         // intent which we know will be forwarded from managed profile to primary profile.
         ActivityInfo forwarderActivityInfo =
@@ -315,12 +343,12 @@ public class IntentFiltersTestHelper {
 
         boolean success = true;
         // Check for intents which can be forwarded to the primary profile.
-        success &= checkForIntentsNotHandled(forwardedIntentsFromManaged,
+        success &= checkIntentForwarding(forwardedIntentsFromManaged,
                 forwarderActivityInfo, " from managed profile should be forwarded to the " +
                 "primary profile but is not.", true);
 
         // Check for intents which cannot be forwarded to the primary profile.
-        success &= checkForIntentsNotHandled(notForwardedIntentsFromManaged,
+        success &= checkIntentForwarding(notForwardedIntentsFromManaged,
                 forwarderActivityInfo, "from managed profile should not be forwarded to the " +
                 "primary profile but it is.", false);
         return success;
@@ -365,7 +393,7 @@ public class IntentFiltersTestHelper {
      * Checks if the intents passed are correctly handled.
      * @return {@code false} if at least one intent is not handled correctly.
      */
-    private boolean checkForIntentsNotHandled(ArrayList<Intent> intentList,
+    private boolean checkIntentForwarding(ArrayList<Intent> intentList,
             ActivityInfo expectedForwarderActivityInfo, String errorMessage, boolean canResolve) {
         boolean success = true;
         for (Intent intent : intentList) {

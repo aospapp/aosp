@@ -9,134 +9,35 @@
 
 const $ = document.getElementById.bind(document);
 
-function logError(err) {
-  console.error(err);
-}
-
-/**
- * FeedTable stores all elements.
- */
-class FeedTable {
-  constructor() {
-    this.numCols = 5;
-    this.col = 0;
-    this.testTable = $('test-table');
-    this.row = this.testTable.insertRow(-1);
-  }
-
-  addNewCell(elementType) {
-    if (this.col == this.numCols) {
-      this.row = this.testTable.insertRow(-1);
-      this.col = 0;
-    }
-    var newCell = this.row.insertCell(-1);
-    var element = document.createElement(elementType);
-    element.autoplay = false;
-    newCell.appendChild(element);
-    this.col++;
-    return element;
-  }
-}
-
-/**
- * A simple loopback connection;
- * - localConnection is fed video/audio from source
- * - localConnection is linked to remoteConnection
- * - remoteConnection is displayed in the given videoElement
- */
-class PeerConnection {
-
-  /**
-   * @param {!HTMLMediaElement} element - And 'audio' or 'video' element.
-   * @param {!Object} constraints - The constraints for the peer connection.
-   */
-  constructor(element, constraints) {
-    this.localConnection = null;
-    this.remoteConnection = null;
-    this.remoteElement = element;
-    this.constraints = constraints;
-  }
-
-  start() {
-    return navigator.mediaDevices
-        .getUserMedia(this.constraints)
-        .then((stream) => {
-            this.onGetUserMediaSuccess(stream)
-        });
-  };
-
-  onGetUserMediaSuccess(stream) {
-    this.localConnection = new RTCPeerConnection(null);
-    this.localConnection.onicecandidate = (event) => {
-      this.onIceCandidate(this.remoteConnection, event);
-    };
-    this.localConnection.addStream(stream);
-
-    this.remoteConnection = new RTCPeerConnection(null);
-    this.remoteConnection.onicecandidate = (event) => {
-      this.onIceCandidate(this.localConnection, event);
-    };
-    this.remoteConnection.onaddstream = (e) => {
-      this.remoteElement.srcObject = e.stream;
-    };
-
-    this.localConnection
-        .createOffer({offerToReceiveAudio: 1, offerToReceiveVideo: 1})
-        .then((desc) => {this.onCreateOfferSuccess(desc)}, logError);
-  };
-
-  onCreateOfferSuccess(desc) {
-    this.localConnection.setLocalDescription(desc);
-    this.remoteConnection.setRemoteDescription(desc);
-
-    this.remoteConnection.createAnswer().then(
-        (desc) => {this.onCreateAnswerSuccess(desc)}, logError);
-  };
-
-  onCreateAnswerSuccess(desc) {
-    this.remoteConnection.setLocalDescription(desc);
-    this.localConnection.setRemoteDescription(desc);
-  };
-
-  onIceCandidate(connection, event) {
-    if (event.candidate) {
-      connection.addIceCandidate(new RTCIceCandidate(event.candidate));
-    }
-  };
-}
-
-
 class TestRunner {
   constructor(runtimeSeconds, pausePlayIterationDelayMillis) {
     this.runtimeSeconds = runtimeSeconds;
     this.pausePlayIterationDelayMillis = pausePlayIterationDelayMillis;
     this.elements = [];
     this.peerConnections = [];
-    this.feedTable = new FeedTable();
     this.iteration = 0;
     this.startTime;
-    this.lastIterationTime;
   }
 
   addPeerConnection(elementType) {
-    const element = this.feedTable.addNewCell(elementType);
-    const constraints = {audio: true};
+    const element = document.createElement(elementType);
+    element.autoplay = false;
+    $('body').appendChild(element);
+    let resolution;
     if (elementType === 'video') {
-      constraints.video = {
-        width: {exact: 300}
-      };
+      resolution = {w: 300, h: 225};
     } else if (elementType === 'audio') {
-      constraints.video = false;
+      resolution = {w: -1, h: -1};  // -1 is interpreted as disabled
     } else {
       throw new Error('elementType must be one of "audio" or "video"');
     }
     this.elements.push(element);
-    this.peerConnections.push(new PeerConnection(element, constraints));
+    this.peerConnections.push(
+        new PeerConnection(element, [resolution], cpuOveruseDetection));
   }
 
-  startTest() {
-    this.startTime = Date.now();
-    let promises = testRunner.peerConnections.map((conn) => conn.start());
+  runTest() {
+    let promises = this.peerConnections.map((conn) => conn.start());
     Promise.all(promises)
         .then(() => {
           this.startTime = Date.now();
@@ -155,7 +56,6 @@ class TestRunner {
       }
     });
     const status = this.getStatus();
-    this.lastIterationTime = Date.now();
     $('status').textContent = status
     if (status != 'ok-done') {
       setTimeout(
@@ -171,6 +71,11 @@ class TestRunner {
     if (this.iteration == 0) {
       return 'not-started';
     }
+    try {
+      this.peerConnections.forEach((conn) => conn.verifyState());
+    } catch (e) {
+      return `failure: ${e.message}`;
+    }
     const timeSpent = Date.now() - this.startTime;
     if (timeSpent >= this.runtimeSeconds * 1000) {
       return 'ok-done';
@@ -178,22 +83,26 @@ class TestRunner {
       return `running, iteration: ${this.iteration}`;
     }
   }
-
-  getResults() {
-    const runTimeMillis = this.lastIterationTime - this.startTime;
-    return {'runTimeSeconds': runTimeMillis / 1000};
-  }
 }
 
+// Declare testRunner so that the Python code can access it to query status.
+// Also allows us to access it easily in dev tools for debugging.
 let testRunner;
+// Set from the Python test runner
+let cpuOveruseDetection = null;
+let elementType;
 
 function startTest(
-    runtimeSeconds, numPeerConnections, pausePlayIterationDelayMillis,
-    elementType) {
+    runtimeSeconds, numPeerConnections, pausePlayIterationDelayMillis) {
   testRunner = new TestRunner(
       runtimeSeconds, pausePlayIterationDelayMillis);
   for (let i = 0; i < numPeerConnections; i++) {
     testRunner.addPeerConnection(elementType);
   }
-  testRunner.startTest();
+  testRunner.runTest();
 }
+
+function getStatus() {
+  return testRunner ? testRunner.getStatus() : 'not-initialized';
+}
+

@@ -1,7 +1,7 @@
 /** @file
   Diffie-Hellman Wrapper Implementation over OpenSSL.
 
-Copyright (c) 2010 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -73,7 +73,7 @@ DhFree (
   @param[in]       PrimeLength  Length in bits of prime to be generated.
   @param[out]      Prime        Pointer to the buffer to receive the generated prime number.
 
-  @retval TRUE   DH pamameter generation succeeded.
+  @retval TRUE   DH parameter generation succeeded.
   @retval FALSE  Value of Generator is not supported.
   @retval FALSE  PRNG fails to generate random prime number with PrimeLength.
 
@@ -124,7 +124,7 @@ DhGenerateParameter (
   @param[in]       PrimeLength  Length in bits of prime to be generated.
   @param[in]       Prime        Pointer to the prime number.
 
-  @retval TRUE   DH pamameter setting succeeded.
+  @retval TRUE   DH parameter setting succeeded.
   @retval FALSE  Value of Generator is not supported.
   @retval FALSE  Value of Generator is not suitable for the Prime.
   @retval FALSE  Value of Prime is not a prime number.
@@ -246,7 +246,11 @@ DhGenerateKey (
   RetVal = (BOOLEAN) DH_generate_key (DhContext);
   if (RetVal) {
     Size = BN_num_bytes (Dh->pub_key);
-    if ((Size > 0) && (*PublicKeySize < (UINTN) Size)) {
+    if (Size <= 0) {
+      *PublicKeySize = 0;
+      return FALSE;
+    }
+    if (*PublicKeySize < (UINTN) Size) {
       *PublicKeySize = Size;
       return FALSE;
     }

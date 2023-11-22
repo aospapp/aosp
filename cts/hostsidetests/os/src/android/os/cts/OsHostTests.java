@@ -16,6 +16,8 @@
 
 package android.os.cts;
 
+import android.platform.test.annotations.AppModeFull;
+
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.CollectingOutputReceiver;
@@ -26,12 +28,8 @@ import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.util.AbiUtils;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Scanner;
@@ -86,6 +84,7 @@ public class OsHostTests extends DeviceTestCase implements IBuildReceiver, IAbiR
      *
      * @throws Exception
      */
+    @AppModeFull(reason = "Error message is different for instant app (Activity does not exist)")
     public void testNonExportedActivities() throws Exception {
         // Attempt to launch the non-exported activity in the test app
         CollectingOutputReceiver outputReceiver = new CollectingOutputReceiver();

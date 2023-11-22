@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-
 #include "UnicodeUtils.h"
+
+#include <gtest/gtest.h>
 
 namespace minikin {
 
@@ -34,4 +34,4 @@ TEST(UnicodeUtils, parse) {
     EXPECT_EQ(buf[3], 'a');
 }
 
-} // namespace minikin
+}  // namespace minikin

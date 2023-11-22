@@ -17,6 +17,8 @@
 import logging
 import time
 
+import acts.signals as signals
+
 from acts import asserts
 from acts import base_test
 from acts.controllers import android_device
@@ -119,9 +121,13 @@ class WifiNetworkSelectorTest(WifiBaseTest):
         time.sleep(20)
         #verify connection
         actual_network = self.dut.droid.wifiGetConnectionInfo()
-        logging.debug("Actual network: %s", actual_network)
-        asserts.assert_equal(expected_bssid,
-                             actual_network[WifiEnums.BSSID_KEY])
+        logging.info("Actual network: %s", actual_network)
+        try:
+            asserts.assert_equal(expected_bssid,
+                                 actual_network[WifiEnums.BSSID_KEY])
+        except:
+           msg = "Device did not connect to any network."
+           raise signals.TestFailure(msg)
 
     """ Tests Begin """
 

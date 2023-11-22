@@ -22,7 +22,7 @@ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/libmdmdetect/inc
 LOCAL_SHARED_LIBRARIES += libmdmdetect
 endif #TARGET_USES_QCOM_WCNSS_QMI
 LOCAL_MODULE_TAGS := optional
-LOCAL_CFLAGS += -Wall
+LOCAL_CFLAGS += -Wall -Wno-error
 include $(BUILD_EXECUTABLE)
 endif
 endif # ifneq ($(filter msm8916 msm8909,$(TARGET_BOARD_PLATFORM)),)

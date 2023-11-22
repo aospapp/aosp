@@ -1,7 +1,7 @@
 /** @file
   PCI resouces support functions implemntation for PCI Bus module.
 
-Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -1052,50 +1052,56 @@ DegradeResource (
   IN PCI_RESOURCE_NODE *PMem64Node
   )
 {
-  PCI_IO_DEVICE        *Temp;
+  PCI_IO_DEVICE        *PciIoDevice;
   LIST_ENTRY           *ChildDeviceLink;
   LIST_ENTRY           *ChildNodeLink;
   LIST_ENTRY           *NextChildNodeLink;
-  PCI_RESOURCE_NODE    *TempNode;
+  PCI_RESOURCE_NODE    *ResourceNode;
 
-  //
-  // If any child device has both option ROM and 64-bit BAR, degrade its PMEM64/MEM64
-  // requests in case that if a legacy option ROM image can not access 64-bit resources.
-  //
-  ChildDeviceLink = Bridge->ChildList.ForwardLink;
-  while (ChildDeviceLink != NULL && ChildDeviceLink != &Bridge->ChildList) {
-    Temp = PCI_IO_DEVICE_FROM_LINK (ChildDeviceLink);
-    if (Temp->RomSize != 0) {
-      if (!IsListEmpty (&Mem64Node->ChildList)) {      
-        ChildNodeLink = Mem64Node->ChildList.ForwardLink;
-        while (ChildNodeLink != &Mem64Node->ChildList) {
-          TempNode = RESOURCE_NODE_FROM_LINK (ChildNodeLink);
-          NextChildNodeLink = ChildNodeLink->ForwardLink;
+  if (FeaturePcdGet (PcdPciDegradeResourceForOptionRom)) {
+    //
+    // If any child device has both option ROM and 64-bit BAR, degrade its PMEM64/MEM64
+    // requests in case that if a legacy option ROM image can not access 64-bit resources.
+    //
+    ChildDeviceLink = Bridge->ChildList.ForwardLink;
+    while (ChildDeviceLink != NULL && ChildDeviceLink != &Bridge->ChildList) {
+      PciIoDevice = PCI_IO_DEVICE_FROM_LINK (ChildDeviceLink);
+      if (PciIoDevice->RomSize != 0) {
+        if (!IsListEmpty (&Mem64Node->ChildList)) {
+          ChildNodeLink = Mem64Node->ChildList.ForwardLink;
+          while (ChildNodeLink != &Mem64Node->ChildList) {
+            ResourceNode = RESOURCE_NODE_FROM_LINK (ChildNodeLink);
+            NextChildNodeLink = ChildNodeLink->ForwardLink;
 
-          if (TempNode->PciDev == Temp) {
-            RemoveEntryList (ChildNodeLink);
-            InsertResourceNode (Mem32Node, TempNode);
+            if ((ResourceNode->PciDev == PciIoDevice) &&
+                (ResourceNode->Virtual || !PciIoDevice->PciBar[ResourceNode->Bar].BarTypeFixed)
+                ) {
+              RemoveEntryList (ChildNodeLink);
+              InsertResourceNode (Mem32Node, ResourceNode);
+            }
+            ChildNodeLink = NextChildNodeLink;
           }
-          ChildNodeLink = NextChildNodeLink;
-        }        
-      }
+        }
 
-      if (!IsListEmpty (&PMem64Node->ChildList)) {      
-        ChildNodeLink = PMem64Node->ChildList.ForwardLink;
-        while (ChildNodeLink != &PMem64Node->ChildList) {
-          TempNode = RESOURCE_NODE_FROM_LINK (ChildNodeLink);
-          NextChildNodeLink = ChildNodeLink->ForwardLink;
+        if (!IsListEmpty (&PMem64Node->ChildList)) {
+          ChildNodeLink = PMem64Node->ChildList.ForwardLink;
+          while (ChildNodeLink != &PMem64Node->ChildList) {
+            ResourceNode = RESOURCE_NODE_FROM_LINK (ChildNodeLink);
+            NextChildNodeLink = ChildNodeLink->ForwardLink;
 
-          if (TempNode->PciDev == Temp) {
-            RemoveEntryList (ChildNodeLink);
-            InsertResourceNode (PMem32Node, TempNode);
+            if ((ResourceNode->PciDev == PciIoDevice) &&
+                (ResourceNode->Virtual || !PciIoDevice->PciBar[ResourceNode->Bar].BarTypeFixed)
+                ) {
+              RemoveEntryList (ChildNodeLink);
+              InsertResourceNode (PMem32Node, ResourceNode);
+            }
+            ChildNodeLink = NextChildNodeLink;
           }
-          ChildNodeLink = NextChildNodeLink;
-        }        
-      }
+        }
 
+      }
+      ChildDeviceLink = ChildDeviceLink->ForwardLink;
     }
-    ChildDeviceLink = ChildDeviceLink->ForwardLink;
   }
 
   //

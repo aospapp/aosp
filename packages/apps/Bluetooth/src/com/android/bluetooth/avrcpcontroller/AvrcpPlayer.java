@@ -16,11 +16,8 @@
 
 package com.android.bluetooth.avrcpcontroller;
 
-import android.bluetooth.BluetoothAvrcpPlayerSettings;
 import android.media.session.PlaybackState;
 import android.util.Log;
-
-import java.util.ArrayList;
 
 /*
  * Contains information about remote player
@@ -32,7 +29,7 @@ class AvrcpPlayer {
     public static final int INVALID_ID = -1;
 
     private int mPlayStatus = PlaybackState.STATE_NONE;
-    private long mPlayTime   = PlaybackState.PLAYBACK_POSITION_UNKNOWN;
+    private long mPlayTime = PlaybackState.PLAYBACK_POSITION_UNKNOWN;
     private int mId;
     private String mName = "";
     private int mPlayerType;
@@ -53,7 +50,7 @@ class AvrcpPlayer {
     }
 
     public String getName() {
-      return mName;
+        return mName;
     }
 
     public void setPlayTime(int playTime) {
@@ -93,11 +90,11 @@ class AvrcpPlayer {
         return new PlaybackState.Builder().setState(mPlayStatus, position, speed).build();
     }
 
-    synchronized public void updateCurrentTrack(TrackInfo update) {
+    public synchronized void updateCurrentTrack(TrackInfo update) {
         mCurrentTrack = update;
     }
 
-    synchronized public TrackInfo getCurrentTrack() {
+    public synchronized TrackInfo getCurrentTrack() {
         return mCurrentTrack;
     }
 }

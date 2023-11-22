@@ -28,10 +28,6 @@ cc_defaults {
         },
     },
 
-    include_dirs: [
-        "art/cmdline",
-    ],
-
     shared_libs: [
         "libbase",
     ],
@@ -62,7 +58,7 @@ art_cc_test {
         "art_gtest_defaults",
     ],
     shared_libs: [
-        "libbacktrace"
+        "libbacktrace",
     ],
     srcs: ["dexoptanalyzer_test.cc"],
 }

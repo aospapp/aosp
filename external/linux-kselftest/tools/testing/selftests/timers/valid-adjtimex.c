@@ -32,18 +32,7 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
-#ifdef KTEST
 #include "../kselftest.h"
-#else
-static inline int ksft_exit_pass(void)
-{
-	exit(0);
-}
-static inline int ksft_exit_fail(void)
-{
-	exit(1);
-}
-#endif
 
 #define NSEC_PER_SEC 1000000000LL
 #define USEC_PER_SEC 1000000LL
@@ -54,7 +43,7 @@ static inline int ksft_exit_fail(void)
 #include <sys/syscall.h>
 static int clock_adjtime(clockid_t id, struct timex *tx)
 {
-	return syscall(__NR_clock_adjtime, id, tx);
+    return syscall(__NR_clock_adjtime, id, tx);
 }
 #endif
 

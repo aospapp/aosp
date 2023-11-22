@@ -18,12 +18,13 @@ package libcore.io;
 
 import android.system.ErrnoException;
 import android.system.GaiException;
+import android.system.Int32Ref;
+import android.system.Int64Ref;
 import android.system.StructAddrinfo;
 import android.system.StructCapUserData;
 import android.system.StructCapUserHeader;
 import android.system.StructFlock;
 import android.system.StructGroupReq;
-import android.system.StructGroupSourceReq;
 import android.system.StructIfaddrs;
 import android.system.StructLinger;
 import android.system.StructPasswd;
@@ -34,8 +35,7 @@ import android.system.StructStatVfs;
 import android.system.StructTimeval;
 import android.system.StructUcred;
 import android.system.StructUtsname;
-import android.util.MutableInt;
-import android.util.MutableLong;
+
 import java.io.FileDescriptor;
 import java.io.InterruptedIOException;
 import java.net.InetAddress;
@@ -107,7 +107,7 @@ public final class Linux implements Os {
     public native InetAddress inet_pton(int family, String address);
     public native int ioctlFlags(FileDescriptor fd, String interfaceName) throws ErrnoException;
     public native InetAddress ioctlInetAddress(FileDescriptor fd, int cmd, String interfaceName) throws ErrnoException;
-    public native int ioctlInt(FileDescriptor fd, int cmd, MutableInt arg) throws ErrnoException;
+    public native int ioctlInt(FileDescriptor fd, int cmd, Int32Ref arg) throws ErrnoException;
     public native int ioctlMTU(FileDescriptor fd, String interfaceName) throws ErrnoException;
     public native boolean isatty(FileDescriptor fd);
     public native void kill(int pid, int signal) throws ErrnoException;
@@ -208,7 +208,7 @@ public final class Linux implements Os {
     public native void remove(String path) throws ErrnoException;
     public native void removexattr(String path, String name) throws ErrnoException;
     public native void rename(String oldPath, String newPath) throws ErrnoException;
-    public native long sendfile(FileDescriptor outFd, FileDescriptor inFd, MutableLong inOffset, long byteCount) throws ErrnoException;
+    public native long sendfile(FileDescriptor outFd, FileDescriptor inFd, Int64Ref offset, long byteCount) throws ErrnoException;
     public int sendto(FileDescriptor fd, ByteBuffer buffer, int flags, InetAddress inetAddress, int port) throws ErrnoException, SocketException {
         final int bytesSent;
         final int position = buffer.position();
@@ -244,7 +244,6 @@ public final class Linux implements Os {
     public native void setsockoptInt(FileDescriptor fd, int level, int option, int value) throws ErrnoException;
     public native void setsockoptIpMreqn(FileDescriptor fd, int level, int option, int value) throws ErrnoException;
     public native void setsockoptGroupReq(FileDescriptor fd, int level, int option, StructGroupReq value) throws ErrnoException;
-    public native void setsockoptGroupSourceReq(FileDescriptor fd, int level, int option, StructGroupSourceReq value) throws ErrnoException;
     public native void setsockoptLinger(FileDescriptor fd, int level, int option, StructLinger value) throws ErrnoException;
     public native void setsockoptTimeval(FileDescriptor fd, int level, int option, StructTimeval value) throws ErrnoException;
     public native void setuid(int uid) throws ErrnoException;
@@ -252,6 +251,7 @@ public final class Linux implements Os {
     public native void shutdown(FileDescriptor fd, int how) throws ErrnoException;
     public native FileDescriptor socket(int domain, int type, int protocol) throws ErrnoException;
     public native void socketpair(int domain, int type, int protocol, FileDescriptor fd1, FileDescriptor fd2) throws ErrnoException;
+    public native long splice(FileDescriptor fdIn, Int64Ref offIn, FileDescriptor fdOut, Int64Ref offOut, long len, int flags) throws ErrnoException;
     public native StructStat stat(String path) throws ErrnoException;
     public native StructStatVfs statvfs(String path) throws ErrnoException;
     public native String strerror(int errno);
@@ -270,7 +270,7 @@ public final class Linux implements Os {
     public native StructUtsname uname();
     public native void unlink(String pathname) throws ErrnoException;
     public native void unsetenv(String name) throws ErrnoException;
-    public native int waitpid(int pid, MutableInt status, int options) throws ErrnoException;
+    public native int waitpid(int pid, Int32Ref status, int options) throws ErrnoException;
     public int write(FileDescriptor fd, ByteBuffer buffer) throws ErrnoException, InterruptedIOException {
         final int bytesWritten;
         final int position = buffer.position();

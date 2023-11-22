@@ -28,8 +28,8 @@ import android.util.ArraySet;
 import android.util.Log;
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
-import com.android.settingslib.applications.PackageManagerWrapperImpl;
 import com.android.settingslib.applications.StorageStatsSource;
+import com.android.settingslib.wrapper.PackageManagerWrapper;
 import com.android.storagemanager.deletionhelper.AppsAsyncLoader.AppFilter;
 import com.android.storagemanager.deletionhelper.AppsAsyncLoader.PackageInfo;
 import java.util.HashSet;
@@ -226,7 +226,7 @@ public class AppDeletionType
                 .setUid(UserHandle.myUserId())
                 .setUuid(VolumeInfo.ID_PRIVATE_INTERNAL)
                 .setStorageStatsSource(new StorageStatsSource(mContext))
-                .setPackageManager(new PackageManagerWrapperImpl(mContext.getPackageManager()))
+                .setPackageManager(new PackageManagerWrapper(mContext.getPackageManager()))
                 .setUsageStatsManager(
                         (UsageStatsManager) mContext.getSystemService(Context.USAGE_STATS_SERVICE))
                 .setFilter(

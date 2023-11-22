@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -21,9 +21,9 @@ import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 
 /**
- * This example connects to a coverage agent that run in output mode
- * <code>mbean</code> and requests execution data. The collected data is dumped
- * to a local file.
+ * This example connects to a JaCoCo agent that runs with the option
+ * <code>jmx=yes</code> and requests execution data. The collected data is
+ * dumped to a local file.
  */
 public final class MBeanClient {
 

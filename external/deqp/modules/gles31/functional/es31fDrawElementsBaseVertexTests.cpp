@@ -218,6 +218,14 @@ VertexIDCase::~VertexIDCase (void)
 
 void VertexIDCase::init (void)
 {
+	if (m_method == deqp::gls::DrawTestSpec::DRAWMETHOD_DRAWELEMENTS_BASEVERTEX ||
+		m_method == gls::DrawTestSpec::DRAWMETHOD_DRAWELEMENTS_RANGED_BASEVERTEX ||
+		m_method == gls::DrawTestSpec::DRAWMETHOD_DRAWELEMENTS_INSTANCED_BASEVERTEX)
+	{
+		const bool supportsES32 = contextSupports(m_context.getRenderContext().getType(), glu::ApiType::es(3, 2));
+		TCU_CHECK_AND_THROW(NotSupportedError, supportsES32 || m_context.getContextInfo().isExtensionSupported("GL_EXT_draw_elements_base_vertex"), "GL_EXT_draw_elements_base_vertex is not supported.");
+	}
+
 	m_testCtx.getLog()	<< TestLog::Message
 						<< "gl_VertexID should be the index of the vertex that is being passed to the shader. i.e. indices[i] + basevertex"
 						<< TestLog::EndMessage;

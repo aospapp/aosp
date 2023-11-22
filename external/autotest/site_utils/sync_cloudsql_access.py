@@ -33,7 +33,14 @@ from autotest_lib.client.common_lib import global_config
 from autotest_lib.server import frontend
 
 
-ROLES_REQUIRE_TKO_ACCESS = {'scheduler', 'drone', 'shard', 'database', 'afe'}
+ROLES_REQUIRE_TKO_ACCESS = {
+        'afe',
+        'database',
+        'drone',
+        'scheduler',
+        'sentinel',
+        'shard',
+}
 
 def gcloud_login(project):
     """Login to Google Cloud service for gcloud command to run.
@@ -75,15 +82,23 @@ def update_allowed_networks(project, instance, afe=None, extra_servers=None):
     print 'Adding servers %s to access list for projects %s' % (servers,
                                                                 instance)
     print 'Fetching their IP addresses...'
-    ips = [socket.gethostbyname(name) for name in servers]
+    ips = []
+    for name in servers:
+        try:
+            ips.append(socket.gethostbyname(name))
+        except socket.gaierror:
+            print 'Failed to resolve IP address for name %s' % name
+            raise
     print '...Done: %s' % ips
+
+    cidr_ips = [str(ip) + '/32' for ip in ips]
 
     login = False
     while True:
         try:
             utils.run('gcloud config set project %s -q' % project)
             cmd = ('gcloud sql instances patch %s --authorized-networks %s '
-                   '-q' % (instance, ','.join(ips)))
+                   '-q' % (instance, ','.join(cidr_ips)))
             print 'Running command to update whitelists: "%s"' % cmd
             utils.run(cmd, stdout_tee=sys.stdout, stderr_tee=sys.stderr)
             return

@@ -62,6 +62,7 @@ public class GnssClockTest extends GnssTestCase {
         parcel.setDataPosition(0);
         GnssClock newClock = GnssClock.CREATOR.createFromParcel(parcel);
         verifyTestValues(newClock);
+        parcel.recycle();
     }
 
     public void testSet() {

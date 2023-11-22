@@ -22,8 +22,6 @@ import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 import android.text.ClipboardManager;
 
@@ -34,19 +32,16 @@ import org.junit.runner.RunWith;
 /**
  * Test {@link ClipboardManager}.
  */
-@SmallTest
 @RunWith(AndroidJUnit4.class)
 public class ClipboardManagerTest {
     private ClipboardManager mClipboardManager;
 
-    @UiThreadTest
     @Before
     public void setup() {
         final Context context = InstrumentationRegistry.getTargetContext();
         mClipboardManager = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
     }
 
-    @UiThreadTest
     @Test
     public void testAccessText() {
         // set the expected value
@@ -55,7 +50,6 @@ public class ClipboardManagerTest {
         assertEquals(expected, mClipboardManager.getText());
     }
 
-    @UiThreadTest
     @Test
     public void testHasText() {
         mClipboardManager.setText("");

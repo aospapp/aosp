@@ -36,7 +36,7 @@ static int get_new_sb(struct f2fs_super_block *sb)
 				zone_align_start_offset) / segment_size_bytes /
 				c.segs_per_sec * c.segs_per_sec);
 
-	blocks_for_sit = ALIGN(get_sb(segment_count), SIT_ENTRY_PER_BLOCK);
+	blocks_for_sit = SIZE_ALIGN(get_sb(segment_count), SIT_ENTRY_PER_BLOCK);
 	sit_segments = SEG_ALIGN(blocks_for_sit);
 	set_sb(segment_count_sit, sit_segments * 2);
 	set_sb(nat_blkaddr, get_sb(sit_blkaddr) +
@@ -45,7 +45,8 @@ static int get_new_sb(struct f2fs_super_block *sb)
 	total_valid_blks_available = (get_sb(segment_count) -
 			(get_sb(segment_count_ckpt) +
 			get_sb(segment_count_sit))) * blks_per_seg;
-	blocks_for_nat = ALIGN(total_valid_blks_available, NAT_ENTRY_PER_BLOCK);
+	blocks_for_nat = SIZE_ALIGN(total_valid_blks_available,
+					NAT_ENTRY_PER_BLOCK);
 	set_sb(segment_count_nat, SEG_ALIGN(blocks_for_nat));
 
 	sit_bitmap_size = ((get_sb(segment_count_sit) / 2) <<
@@ -59,8 +60,7 @@ static int get_new_sb(struct f2fs_super_block *sb)
 	 * It should be reserved minimum 1 segment for nat.
 	 * When sit is too large, we should expand cp area. It requires more pages for cp.
 	 */
-	if (max_sit_bitmap_size >
-			(CHECKSUM_OFFSET - sizeof(struct f2fs_checkpoint) + 65)) {
+	if (max_sit_bitmap_size > MAX_SIT_BITMAP_SIZE_IN_CKPT) {
 		max_nat_bitmap_size = CHECKSUM_OFFSET - sizeof(struct f2fs_checkpoint) + 1;
 		set_sb(cp_payload, F2FS_BLK_ALIGN(max_sit_bitmap_size));
 	} else {

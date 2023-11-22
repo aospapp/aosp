@@ -114,8 +114,8 @@ class ExperimentFile(object):
         elif ExperimentFile._OPEN_SETTINGS_RE.match(line):
           new_settings = self._ParseSettings(reader)
           if new_settings.name in settings_names:
-            raise SyntaxError("Duplicate settings name: '%s'." %
-                              new_settings.name)
+            raise SyntaxError(
+                "Duplicate settings name: '%s'." % new_settings.name)
           settings_names[new_settings.name] = True
           self.all_settings.append(new_settings)
         elif ExperimentFile._FIELD_VALUE_RE.match(line):
@@ -160,11 +160,8 @@ class ExperimentFile(object):
               autotest_path = ''
               if autotest_field.assigned:
                 autotest_path = autotest_field.GetString()
-              image_path, autotest_path = settings.GetXbuddyPath(value,
-                                                                 autotest_path,
-                                                                 board,
-                                                                 chromeos_root,
-                                                                 'quiet')
+              image_path, autotest_path = settings.GetXbuddyPath(
+                  value, autotest_path, board, chromeos_root, 'quiet')
               res += '\t#actual_image: %s\n' % image_path
               if not autotest_field.assigned:
                 res += '\t#actual_autotest_path: %s\n' % autotest_path

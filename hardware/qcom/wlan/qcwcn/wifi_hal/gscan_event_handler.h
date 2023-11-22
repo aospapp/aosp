@@ -66,7 +66,7 @@ public:
     GScanCommandEventHandler(wifi_handle handle, int id, u32 vendor_id,
                                     u32 subcmd, GScanCallbackHandler nHandler);
     virtual ~GScanCommandEventHandler();
-    virtual int create();
+    virtual wifi_error create();
     virtual int get_request_id();
     virtual void set_request_id(int request_id);
     virtual int handleEvent(WifiEvent &event);

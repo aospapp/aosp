@@ -19,10 +19,10 @@ package com.android.car.hal;
 import static com.android.car.CarServiceUtils.toByteArray;
 import static com.android.car.CarServiceUtils.toFloatArray;
 import static com.android.car.CarServiceUtils.toIntArray;
+
 import static java.lang.Integer.toHexString;
 
 import android.annotation.CheckResult;
-import android.car.annotation.FutureFeature;
 import android.hardware.automotive.vehicle.V2_0.IVehicle;
 import android.hardware.automotive.vehicle.V2_0.IVehicleCallback;
 import android.hardware.automotive.vehicle.V2_0.SubscribeFlags;
@@ -33,6 +33,7 @@ import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyAccess;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyChangeMode;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropertyType;
 import android.os.HandlerThread;
 import android.os.RemoteException;
 import android.os.SystemClock;
@@ -40,11 +41,10 @@ import android.util.ArraySet;
 import android.util.Log;
 import android.util.SparseArray;
 
-import com.google.android.collect.Lists;
-
 import com.android.car.CarLog;
-import com.android.car.internal.FeatureConfiguration;
 import com.android.internal.annotations.VisibleForTesting;
+
+import com.google.android.collect.Lists;
 
 import java.io.PrintWriter;
 import java.lang.ref.WeakReference;
@@ -69,18 +69,11 @@ public class VehicleHal extends IVehicleCallback.Stub {
     private static final int NO_AREA = -1;
 
     private final HandlerThread mHandlerThread;
-    private final SensorHalService mSensorHal;
-    private final InfoHalService mInfoHal;
-    private final AudioHalService mAudioHal;
-    private final CabinHalService mCabinHal;
-    private final RadioHalService mRadioHal;
     private final PowerHalService mPowerHal;
-    private final HvacHalService mHvacHal;
+    private final PropertyHalService mPropertyHal;
     private final InputHalService mInputHal;
-    private final VendorExtensionHalService mVendorExtensionHal;
+    private final VmsHalService mVmsHal;
     private DiagnosticHalService mDiagnosticHal = null;
-
-
 
     /** Might be re-assigned if Vehicle HAL is reconnected. */
     private volatile HalClient mHalClient;
@@ -93,72 +86,39 @@ public class VehicleHal extends IVehicleCallback.Stub {
     private final HashMap<Integer, VehiclePropConfig> mAllProperties = new HashMap<>();
     private final HashMap<Integer, VehiclePropertyEventInfo> mEventLog = new HashMap<>();
 
+    // Used by injectVHALEvent for testing purposes.  Delimiter for an array of data
+    private static final String DATA_DELIMITER = ",";
+
     public VehicleHal(IVehicle vehicle) {
         mHandlerThread = new HandlerThread("VEHICLE-HAL");
         mHandlerThread.start();
         // passing this should be safe as long as it is just kept and not used in constructor
         mPowerHal = new PowerHalService(this);
-        mSensorHal = new SensorHalService(this);
-        mInfoHal = new InfoHalService(this);
-        mAudioHal = new AudioHalService(this);
-        mCabinHal = new CabinHalService(this);
-        mRadioHal = new RadioHalService(this);
-        mHvacHal = new HvacHalService(this);
+        mPropertyHal = new PropertyHalService(this);
         mInputHal = new InputHalService(this);
-        mVendorExtensionHal = new VendorExtensionHalService(this);
+        mVmsHal = new VmsHalService(this);
         mDiagnosticHal = new DiagnosticHalService(this);
         mAllServices.addAll(Arrays.asList(mPowerHal,
-                mSensorHal,
-                mInfoHal,
-                mAudioHal,
-                mCabinHal,
-                mRadioHal,
-                mHvacHal,
                 mInputHal,
-                mVendorExtensionHal,
-                mDiagnosticHal));
+                mPropertyHal,
+                mDiagnosticHal,
+                mVmsHal));
 
         mHalClient = new HalClient(vehicle, mHandlerThread.getLooper(), this /*IVehicleCallback*/);
     }
 
     /** Dummy version only for testing */
     @VisibleForTesting
-    public VehicleHal(PowerHalService powerHal, SensorHalService sensorHal, InfoHalService infoHal,
-            AudioHalService audioHal, CabinHalService cabinHal,
-            RadioHalService radioHal, HvacHalService hvacHal, HalClient halClient) {
+    public VehicleHal(PowerHalService powerHal, DiagnosticHalService diagnosticHal,
+            HalClient halClient, PropertyHalService propertyHal) {
         mHandlerThread = null;
         mPowerHal = powerHal;
-        mSensorHal = sensorHal;
-        mInfoHal = infoHal;
-        mAudioHal = audioHal;
-        mCabinHal = cabinHal;
-        mRadioHal = radioHal;
-        mHvacHal = hvacHal;
+        mPropertyHal = propertyHal;
+        mDiagnosticHal = diagnosticHal;
         mInputHal = null;
-        mVendorExtensionHal = null;
-        mDiagnosticHal = null;
-
+        mVmsHal = null;
         mHalClient = halClient;
-    }
-
-    /** Dummy version only for testing */
-    @VisibleForTesting
-    public VehicleHal(PowerHalService powerHal, SensorHalService sensorHal, InfoHalService infoHal,
-            AudioHalService audioHal, CabinHalService cabinHal, DiagnosticHalService diagnosticHal,
-            RadioHalService radioHal, HvacHalService hvacHal, HalClient halClient) {
-            mHandlerThread = null;
-            mPowerHal = powerHal;
-            mSensorHal = sensorHal;
-            mInfoHal = infoHal;
-            mAudioHal = audioHal;
-            mCabinHal = cabinHal;
-            mDiagnosticHal = diagnosticHal;
-            mRadioHal = radioHal;
-            mHvacHal = hvacHal;
-            mInputHal = null;
-            mVendorExtensionHal = null;
-            mHalClient = halClient;
-            mDiagnosticHal = diagnosticHal;
+        mDiagnosticHal = diagnosticHal;
     }
 
     public void vehicleHalReconnected(IVehicle vehicle) {
@@ -230,43 +190,21 @@ public class VehicleHal extends IVehicleCallback.Stub {
         // keep the looper thread as should be kept for the whole life cycle.
     }
 
-    public SensorHalService getSensorHal() {
-        return mSensorHal;
-    }
-
-    public InfoHalService getInfoHal() {
-        return mInfoHal;
-    }
-
-    public AudioHalService getAudioHal() {
-        return mAudioHal;
-    }
-
-    public CabinHalService getCabinHal() {
-        return mCabinHal;
-    }
-
     public DiagnosticHalService getDiagnosticHal() { return mDiagnosticHal; }
-
-    public RadioHalService getRadioHal() {
-        return mRadioHal;
-    }
 
     public PowerHalService getPowerHal() {
         return mPowerHal;
     }
 
-    public HvacHalService getHvacHal() {
-        return mHvacHal;
+    public PropertyHalService getPropertyHal() {
+        return mPropertyHal;
     }
 
     public InputHalService getInputHal() {
         return mInputHal;
     }
 
-    public VendorExtensionHalService getVendorExtensionHal() {
-        return mVendorExtensionHal;
-    }
+    public VmsHalService getVmsHal() { return mVmsHal; }
 
     private void assertServiceOwnerLocked(HalServiceBase service, int property) {
         if (service != mPropertyHandlers.get(property)) {
@@ -282,7 +220,7 @@ public class VehicleHal extends IVehicleCallback.Stub {
      */
     public void subscribeProperty(HalServiceBase service, int property)
             throws IllegalArgumentException {
-        subscribeProperty(service, property, 0f, SubscribeFlags.DEFAULT);
+        subscribeProperty(service, property, 0f, SubscribeFlags.EVENTS_FROM_CAR);
     }
 
     /**
@@ -292,7 +230,7 @@ public class VehicleHal extends IVehicleCallback.Stub {
      */
     public void subscribeProperty(HalServiceBase service, int property, float sampleRateHz)
             throws IllegalArgumentException {
-        subscribeProperty(service, property, sampleRateHz, SubscribeFlags.DEFAULT);
+        subscribeProperty(service, property, sampleRateHz, SubscribeFlags.EVENTS_FROM_CAR);
     }
 
     /**
@@ -432,6 +370,23 @@ public class VehicleHal extends IVehicleCallback.Stub {
         return mHalClient.getValue(requestedPropValue);
     }
 
+    /**
+     *
+     * @param propId Property ID to return the current sample rate for.
+     *
+     * @return float Returns the current sample rate of the specified propId, or -1 if the
+     *                  property is not currently subscribed.
+     */
+    public float getSampleRate(int propId) {
+        SubscribeOptions opts = mSubscribedProperties.get(propId);
+        if (opts == null) {
+            // No sample rate for this property
+            return -1;
+        } else {
+            return opts.sampleRate;
+        }
+    }
+
     void set(VehiclePropValue propValue) throws PropertyTimeoutException {
         mHalClient.setValue(propValue);
     }
@@ -522,9 +477,9 @@ public class VehicleHal extends IVehicleCallback.Stub {
         for (VehiclePropConfig config : configList) {
             StringBuilder builder = new StringBuilder()
                     .append("Property:0x").append(toHexString(config.prop))
+                    .append(",Property name:").append(VehicleProperty.toString(config.prop))
                     .append(",access:0x").append(toHexString(config.access))
                     .append(",changeMode:0x").append(toHexString(config.changeMode))
-                    .append(",areas:0x").append(toHexString(config.supportedAreas))
                     .append(",config:0x").append(Arrays.toString(config.configArray.toArray()))
                     .append(",fs min:").append(config.minSampleRate)
                     .append(",fs max:").append(config.maxSampleRate);
@@ -555,25 +510,44 @@ public class VehicleHal extends IVehicleCallback.Stub {
     }
 
     /**
-     * Inject a fake boolean HAL event - for testing purposes.
-     * @param propId - VehicleProperty ID
-     * @param areaId - Vehicle Area ID
-     * @param value - true/false to inject
+     * Inject a VHAL event
+     *
+     * @param property the Vehicle property Id as defined in the HAL
+     * @param zone     Zone that this event services
+     * @param value    Data value of the event
      */
-    public void injectBooleanEvent(int propId, int areaId, boolean value) {
-        VehiclePropValue v = createPropValue(propId, areaId);
-        v.value.int32Values.add(value? 1 : 0);
-        onPropertyEvent(Lists.newArrayList(v));
-    }
-
-    /**
-     * Inject a fake Integer HAL event - for testing purposes.
-     * @param propId - VehicleProperty ID
-     * @param value - Integer value to inject
-     */
-    public void injectIntegerEvent(int propId, int value) {
-        VehiclePropValue v = createPropValue(propId, 0);
-        v.value.int32Values.add(value);
+    public void injectVhalEvent(String property, String zone, String value)
+            throws NumberFormatException {
+        if (value == null || zone == null || property == null) {
+            return;
+        }
+        int propId = Integer.decode(property);
+        int zoneId = Integer.decode(zone);
+        VehiclePropValue v = createPropValue(propId, zoneId);
+        int propertyType = propId & VehiclePropertyType.MASK;
+        // Values can be comma separated list
+        List<String> dataList = new ArrayList<>(Arrays.asList(value.split(DATA_DELIMITER)));
+        switch (propertyType) {
+            case VehiclePropertyType.BOOLEAN:
+                boolean boolValue = Boolean.valueOf(value);
+                v.value.int32Values.add(boolValue ? 1 : 0);
+                break;
+            case VehiclePropertyType.INT32:
+            case VehiclePropertyType.INT32_VEC:
+                for (String s : dataList) {
+                    v.value.int32Values.add(Integer.decode(s));
+                }
+                break;
+            case VehiclePropertyType.FLOAT:
+            case VehiclePropertyType.FLOAT_VEC:
+                for (String s : dataList) {
+                    v.value.floatValues.add(Float.parseFloat(s));
+                }
+                break;
+            default:
+                Log.e(CarLog.TAG_HAL, "Property type unsupported:" + propertyType);
+                return;
+        }
         v.timestamp = SystemClock.elapsedRealtimeNanos();
         onPropertyEvent(Lists.newArrayList(v));
     }

@@ -1,6 +1,6 @@
 /** @file
 
-Copyright (c) 2006 - 2012, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
 
 This program and the accompanying materials
 are licensed and made available under the terms and conditions
@@ -223,11 +223,13 @@ typedef struct {
   // Buffer storing EFI_KEY_DATA
   //
   SIMPLE_QUEUE                                Queue;
+  SIMPLE_QUEUE                                QueueForNotify;
 
   //
   // Notification Function List
   //
   LIST_ENTRY                                  NotifyList;
+  EFI_EVENT                                   KeyNotifyProcessEvent;
   EFI_EVENT                                   TimerEvent;
   
 } BIOS_KEYBOARD_DEV;
@@ -447,7 +449,7 @@ BiosKeyboardComponentNameGetControllerName (
   @param  ExtendedVerification  Whether perform the extra validation of keyboard. True: perform; FALSE: skip.
 
   @retval EFI_SUCCESS           The command byte is written successfully.
-  @retval EFI_DEVICE_ERROR      Errors occurred during reseting keyboard.
+  @retval EFI_DEVICE_ERROR      Errors occurred during resetting keyboard.
 
 **/
 EFI_STATUS
@@ -552,6 +554,19 @@ EFIAPI
 BiosKeyboardTimerHandler (
   IN EFI_EVENT    Event,
   IN VOID         *Context
+  );
+
+/**
+  Process key notify.
+
+  @param  Event                 Indicates the event that invoke this function.
+  @param  Context               Indicates the calling context.
+**/
+VOID
+EFIAPI
+KeyNotifyProcessHandler (
+  IN  EFI_EVENT                 Event,
+  IN  VOID                      *Context
   );
 
 /**

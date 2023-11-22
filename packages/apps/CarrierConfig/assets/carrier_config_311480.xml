@@ -1,6 +1,7 @@
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <carrier_config_list>
     <carrier_config>
+        <boolean name="rtt_supported_bool" value="true" />
         <boolean name="carrier_volte_provisioned_bool" value="true" />
         <boolean name="allow_hold_in_ims_call" value="false" />
         <boolean name="sms_requires_destination_number_conversion_bool" value="true" />
@@ -8,6 +9,7 @@
         <boolean name="carrier_vt_available_bool" value="true" />
         <boolean name="support_downgrade_vt_to_audio_bool" value="false" />
         <boolean name="notify_handover_video_from_wifi_to_lte_bool" value="true" />
+        <boolean name="notify_handover_video_from_lte_to_wifi_bool" value="true" />
         <boolean name="carrier_allow_turnoff_ims_bool" value="false" />
         <boolean name="carrier_volte_provisioning_required_bool" value="true" />
         <boolean name="treat_downgraded_video_calls_as_video_calls_bool" value="true" />
@@ -45,10 +47,12 @@
         <boolean name="allow_adding_apns_bool" value="false" />
         <boolean name="broadcast_emergency_call_state_changes_bool" value="true" />
         <string name="carrier_eri_file_name_string">eri_311480.xml</string>
+        <boolean name="carrier_wfc_ims_available_bool" value="true" />
         <int name="carrier_default_wfc_ims_mode_int" value="1"/>
         <boolean name="treat_downgraded_video_calls_as_video_calls_bool" value="true" />
         <boolean name="drop_video_call_when_answering_audio_call_bool" value="true" />
         <boolean name="editable_wfc_mode_bool" value="false"/>
+        <boolean name="editable_wfc_roaming_mode_bool" value="true"/>
         <boolean name="allow_merge_wifi_calls_when_vowifi_off_bool" value="false" />
         <boolean name="wifi_calls_can_be_hd_audio" value="false" />
         <boolean name="video_calls_can_be_hd_audio" value="false" />
@@ -137,9 +141,19 @@
             <item value="*72" />
         </string-array>
         <boolean name="disable_voice_barring_notification_bool" value="true" />
+        <boolean name="carrier_name_override_bool" value="true" />
+        <string name="carrier_name_string">Verizon</string>
+        <int-array name="lte_rsrp_thresholds_int_array" num="4">
+            <item value="-115" />  <!-- SIGNAL_STRENGTH_POOR -->
+            <item value="-105" />  <!-- SIGNAL_STRENGTH_MODERATE -->
+            <item value="-95" />  <!-- SIGNAL_STRENGTH_GOOD -->
+            <item value="-85" />  <!-- SIGNAL_STRENGTH_GREAT -->
+        </int-array>
+        <boolean name="show_apn_setting_cdma_bool" value="true" />
     </carrier_config>
     <!-- Tracfone Vzw shows empty string as SPN -->
     <carrier_config gid1="BA01270000000000">
         <boolean name="carrier_name_override_bool" value="true" />
+        <string name="carrier_name_string"></string>
     </carrier_config>
 </carrier_config_list>

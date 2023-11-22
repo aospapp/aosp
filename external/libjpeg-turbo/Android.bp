@@ -6,6 +6,7 @@ cc_defaults {
         "-O3",
         "-fstrict-aliasing",
 
+        "-Wno-sign-compare",
         "-Wno-unused-parameter",
         "-Werror",
     ],
@@ -74,12 +75,6 @@ cc_defaults {
                 "simd/jsimd_arm_neon.S",
                 "simd/jsimd_arm.c",
             ],
-            armv7_a_neon: {
-                // If we are certain that the ARM v7 device has NEON (and there
-                // is no need for a runtime check), we can indicate that with a
-                // flag.
-                cflags: ["-D__ARM_HAVE_NEON__"],
-            },
         },
         arm64: {
             // ARM v8 64-bit NEON

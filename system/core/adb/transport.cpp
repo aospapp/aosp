@@ -34,13 +34,13 @@
 
 #include <android-base/logging.h>
 #include <android-base/parsenetaddress.h>
-#include <android-base/quick_exit.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <android-base/thread_annotations.h>
 
 #include "adb.h"
 #include "adb_auth.h"
+#include "adb_io.h"
 #include "adb_trace.h"
 #include "adb_utils.h"
 #include "diagnose_usb.h"
@@ -63,6 +63,48 @@ const char* const kFeaturePushSync = "push_sync";
 TransportId NextTransportId() {
     static std::atomic<TransportId> next(1);
     return next++;
+}
+
+bool FdConnection::Read(apacket* packet) {
+    if (!ReadFdExactly(fd_.get(), &packet->msg, sizeof(amessage))) {
+        D("remote local: read terminated (message)");
+        return false;
+    }
+
+    if (packet->msg.data_length > MAX_PAYLOAD) {
+        D("remote local: read overflow (data length = %" PRIu32 ")", packet->msg.data_length);
+        return false;
+    }
+
+    packet->payload.resize(packet->msg.data_length);
+
+    if (!ReadFdExactly(fd_.get(), &packet->payload[0], packet->payload.size())) {
+        D("remote local: terminated (data)");
+        return false;
+    }
+
+    return true;
+}
+
+bool FdConnection::Write(apacket* packet) {
+    if (!WriteFdExactly(fd_.get(), &packet->msg, sizeof(packet->msg))) {
+        D("remote local: write terminated");
+        return false;
+    }
+
+    if (packet->msg.data_length) {
+        if (!WriteFdExactly(fd_.get(), &packet->payload[0], packet->msg.data_length)) {
+            D("remote local: write terminated");
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void FdConnection::Close() {
+    adb_shutdown(fd_.get());
+    fd_.reset();
 }
 
 static std::string dump_packet(const char* name, const char* func, apacket* p) {
@@ -97,7 +139,7 @@ static std::string dump_packet(const char* name, const char* func, apacket* p) {
 
     std::string result = android::base::StringPrintf("%s: %s: [%s] arg0=%s arg1=%s (len=%d) ", name,
                                                      func, cmd, arg0, arg1, len);
-    result += dump_hex(p->data, len);
+    result += dump_hex(p->payload.data(), p->payload.size());
     return result;
 }
 
@@ -155,15 +197,21 @@ static void transport_socket_events(int fd, unsigned events, void* _t) {
         apacket* p = 0;
         if (read_packet(fd, t->serial, &p)) {
             D("%s: failed to read packet from transport socket on fd %d", t->serial, fd);
-        } else {
-            handle_packet(p, (atransport*)_t);
+            return;
         }
+
+        handle_packet(p, (atransport*)_t);
     }
 }
 
 void send_packet(apacket* p, atransport* t) {
     p->msg.magic = p->msg.command ^ 0xffffffff;
-    p->msg.data_check = calculate_apacket_checksum(p);
+    // compute a checksum for connection/auth packets for compatibility reasons
+    if (t->get_protocol_version() >= A_VERSION_SKIP_CHECKSUM) {
+        p->msg.data_check = 0;
+    } else {
+        p->msg.data_check = calculate_apacket_checksum(p);
+    }
 
     print_packet("send", p);
 
@@ -202,6 +250,7 @@ static void read_transport_thread(void* _t) {
     p->msg.arg0 = 1;
     p->msg.arg1 = ++(t->sync_token);
     p->msg.magic = A_SYNC ^ 0xffffffff;
+    D("sending SYNC packet (len = %u, payload.size() = %zu)", p->msg.data_length, p->payload.size());
     if (write_packet(t->fd, t->serial, &p)) {
         put_apacket(p);
         D("%s: failed to write SYNC packet", t->serial);
@@ -215,13 +264,21 @@ static void read_transport_thread(void* _t) {
 
         {
             ATRACE_NAME("read_transport read_remote");
-            if (t->read_from_remote(p, t) != 0) {
+            if (!t->connection->Read(p)) {
                 D("%s: remote read failed for transport", t->serial);
                 put_apacket(p);
                 break;
             }
+
+            if (!check_header(p, t)) {
+                D("%s: remote read: bad header", t->serial);
+                put_apacket(p);
+                break;
+            }
+
 #if ADB_HOST
             if (p->msg.command == 0) {
+                put_apacket(p);
                 continue;
             }
 #endif
@@ -287,6 +344,13 @@ static void write_transport_thread(void* _t) {
             if (active) {
                 D("%s: transport got packet, sending to remote", t->serial);
                 ATRACE_NAME("write_transport write_remote");
+
+                // Allow sending the payload's implicit null terminator.
+                if (p->msg.data_length != p->payload.size()) {
+                    LOG(FATAL) << "packet data length doesn't match payload: msg.data_length = "
+                               << p->msg.data_length << ", payload.size() = " << p->payload.size();
+                }
+
                 if (t->Write(p) != 0) {
                     D("%s: remote write failed for transport", t->serial);
                     put_apacket(p);
@@ -329,8 +393,9 @@ static fdevent transport_registration_fde;
  */
 struct device_tracker {
     asocket socket;
-    int update_needed;
-    device_tracker* next;
+    bool update_needed = false;
+    bool long_output = false;
+    device_tracker* next = nullptr;
 };
 
 /* linked list of all device trackers */
@@ -361,24 +426,25 @@ static void device_tracker_close(asocket* socket) {
         peer->close(peer);
     }
     device_tracker_remove(tracker);
-    free(tracker);
+    delete tracker;
 }
 
-static int device_tracker_enqueue(asocket* socket, apacket* p) {
+static int device_tracker_enqueue(asocket* socket, std::string) {
     /* you can't read from a device tracker, close immediately */
-    put_apacket(p);
     device_tracker_close(socket);
     return -1;
 }
 
 static int device_tracker_send(device_tracker* tracker, const std::string& string) {
-    apacket* p = get_apacket();
     asocket* peer = tracker->socket.peer;
 
-    snprintf(reinterpret_cast<char*>(p->data), 5, "%04x", static_cast<int>(string.size()));
-    memcpy(&p->data[4], string.data(), string.size());
-    p->len = 4 + string.size();
-    return peer->enqueue(peer, p);
+    std::string data;
+    data.resize(4 + string.size());
+    char buf[5];
+    snprintf(buf, sizeof(buf), "%04x", static_cast<int>(string.size()));
+    memcpy(&data[0], buf, 4);
+    memcpy(&data[4], string.data(), string.size());
+    return peer->enqueue(peer, std::move(data));
 }
 
 static void device_tracker_ready(asocket* socket) {
@@ -386,16 +452,16 @@ static void device_tracker_ready(asocket* socket) {
 
     // We want to send the device list when the tracker connects
     // for the first time, even if no update occurred.
-    if (tracker->update_needed > 0) {
-        tracker->update_needed = 0;
+    if (tracker->update_needed) {
+        tracker->update_needed = false;
 
-        std::string transports = list_transports(false);
+        std::string transports = list_transports(tracker->long_output);
         device_tracker_send(tracker, transports);
     }
 }
 
-asocket* create_device_tracker(void) {
-    device_tracker* tracker = reinterpret_cast<device_tracker*>(calloc(1, sizeof(*tracker)));
+asocket* create_device_tracker(bool long_output) {
+    device_tracker* tracker = new device_tracker();
     if (tracker == nullptr) fatal("cannot allocate device tracker");
 
     D("device tracker %p created", tracker);
@@ -403,7 +469,8 @@ asocket* create_device_tracker(void) {
     tracker->socket.enqueue = device_tracker_enqueue;
     tracker->socket.ready = device_tracker_ready;
     tracker->socket.close = device_tracker_close;
-    tracker->update_needed = 1;
+    tracker->update_needed = true;
+    tracker->long_output = long_output;
 
     tracker->next = device_tracker_list;
     device_tracker_list = tracker;
@@ -618,7 +685,7 @@ static void transport_unref(atransport* t) {
     t->ref_count--;
     if (t->ref_count == 0) {
         D("transport: %s unref (kicking and closing)", t->serial);
-        t->close(t);
+        t->connection->Close();
         remove_transport(t);
     } else {
         D("transport: %s unref (count=%zu)", t->serial, t->ref_count);
@@ -746,14 +813,14 @@ atransport* acquire_one_transport(TransportType type, const char* serial, Transp
 }
 
 int atransport::Write(apacket* p) {
-    return write_func_(p, this);
+    return this->connection->Write(p) ? 0 : -1;
 }
 
 void atransport::Kick() {
     if (!kicked_) {
+        D("kicking transport %s", this->serial);
         kicked_ = true;
-        CHECK(kick_func_ != nullptr);
-        kick_func_(this);
+        this->connection->Close();
     }
 }
 
@@ -945,10 +1012,18 @@ static void append_transport(const atransport* t, std::string* result, bool long
 }
 
 std::string list_transports(bool long_listing) {
-    std::string result;
-
     std::lock_guard<std::recursive_mutex> lock(transport_lock);
-    for (const auto& t : transport_list) {
+
+    auto sorted_transport_list = transport_list;
+    sorted_transport_list.sort([](atransport*& x, atransport*& y) {
+        if (x->type != y->type) {
+            return x->type < y->type;
+        }
+        return strcmp(x->serial, y->serial) < 0;
+    });
+
+    std::string result;
+    for (const auto& t : sorted_transport_list) {
         append_transport(t, &result, long_listing);
     }
     return result;
@@ -1067,8 +1142,12 @@ void register_usb_transport(usb_handle* usb, const char* serial, const char* dev
 // This should only be used for transports with connection_state == kCsNoPerm.
 void unregister_usb_transport(usb_handle* usb) {
     std::lock_guard<std::recursive_mutex> lock(transport_lock);
-    transport_list.remove_if(
-        [usb](atransport* t) { return t->usb == usb && t->GetConnectionState() == kCsNoPerm; });
+    transport_list.remove_if([usb](atransport* t) {
+        if (auto connection = dynamic_cast<UsbConnection*>(t->connection.get())) {
+            return connection->handle_ == usb && t->GetConnectionState() == kCsNoPerm;
+        }
+        return false;
+    });
 }
 
 bool check_header(apacket* p, atransport* t) {
@@ -1085,10 +1164,6 @@ bool check_header(apacket* p, atransport* t) {
     }
 
     return true;
-}
-
-bool check_data(apacket* p) {
-    return calculate_apacket_checksum(p) == p->msg.data_check;
 }
 
 #if ADB_HOST

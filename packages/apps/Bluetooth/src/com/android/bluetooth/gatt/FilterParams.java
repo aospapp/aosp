@@ -31,71 +31,69 @@ public class FilterParams {
     private int mFoundTimeOutCnt;
     private int mNumOfTrackEntries;
 
-    public FilterParams(int client_if, int filt_index,
-        int feat_seln, int list_logic_type, int filt_logic_type,
-        int rssi_high_thres, int rssi_low_thres, int dely_mode,
-        int found_timeout, int lost_timeout, int found_timeout_cnt,
-        int num_of_tracking_entries) {
+    public FilterParams(int clientIf, int filtIndex, int featSeln, int listLogicType,
+            int filtLogicType, int rssiHighThres, int rssiLowThres, int delyMode, int foundTimeout,
+            int lostTimeout, int foundTimeoutCnt, int numOfTrackingEntries) {
 
-        mClientIf = client_if;
-        mFiltIndex = filt_index;
-        mFeatSeln = feat_seln;
-        mListLogicType = list_logic_type;
-        mFiltLogicType = filt_logic_type;
-        mRssiHighValue = rssi_high_thres;
-        mRssiLowValue = rssi_low_thres;
-        mDelyMode = dely_mode;
-        mFoundTimeOut = found_timeout;
-        mLostTimeOut = lost_timeout;
-        mFoundTimeOutCnt = found_timeout_cnt;
-        mNumOfTrackEntries = num_of_tracking_entries;
+        mClientIf = clientIf;
+        mFiltIndex = filtIndex;
+        mFeatSeln = featSeln;
+        mListLogicType = listLogicType;
+        mFiltLogicType = filtLogicType;
+        mRssiHighValue = rssiHighThres;
+        mRssiLowValue = rssiLowThres;
+        mDelyMode = delyMode;
+        mFoundTimeOut = foundTimeout;
+        mLostTimeOut = lostTimeout;
+        mFoundTimeOutCnt = foundTimeoutCnt;
+        mNumOfTrackEntries = numOfTrackingEntries;
     }
 
-    public int getClientIf () {
+    public int getClientIf() {
         return mClientIf;
     }
 
-    public int getFiltIndex () {
+    public int getFiltIndex() {
         return mFiltIndex;
     }
 
-    public int getFeatSeln () {
+    public int getFeatSeln() {
         return mFeatSeln;
     }
 
-    public int getDelyMode () {
+    public int getDelyMode() {
         return mDelyMode;
     }
 
-    public int getListLogicType () {
+    public int getListLogicType() {
         return mListLogicType;
     }
 
-    public int getFiltLogicType () {
+    public int getFiltLogicType() {
         return mFiltLogicType;
     }
 
-    public int getRSSIHighValue () {
+    public int getRSSIHighValue() {
         return mRssiHighValue;
     }
 
-    public int getRSSILowValue () {
+    public int getRSSILowValue() {
         return mRssiLowValue;
     }
 
-    public int getFoundTimeout () {
+    public int getFoundTimeout() {
         return mFoundTimeOut;
     }
 
-    public int getFoundTimeOutCnt () {
+    public int getFoundTimeOutCnt() {
         return mFoundTimeOutCnt;
     }
 
-    public int getLostTimeout () {
+    public int getLostTimeout() {
         return mLostTimeOut;
     }
 
-    public int getNumOfTrackEntries () {
+    public int getNumOfTrackEntries() {
         return mNumOfTrackEntries;
     }
 

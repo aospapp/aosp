@@ -17,19 +17,30 @@
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
+LOCAL_PACKAGE_NAME := CtsIsolatedSplitAppFeatureC
+LOCAL_SDK_VERSION := current
 LOCAL_USE_AAPT2 := true
 LOCAL_MODULE_TAGS := tests
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
-LOCAL_PACKAGE_NAME := CtsIsolatedSplitAppFeatureC
+
+# Make sure our test locale polish is not stripped.
+LOCAL_AAPT_INCLUDE_ALL_RESOURCES := true
 
 LOCAL_SRC_FILES := $(call all-subdir-java-files)
 
+# Generate a locale split.
 LOCAL_PACKAGE_SPLITS := pl
 
+# Code and resource dependency on the base.
 LOCAL_APK_LIBRARIES := CtsIsolatedSplitApp
 LOCAL_RES_LIBRARIES := $(LOCAL_APK_LIBRARIES)
 
-LOCAL_AAPT_FLAGS := --custom-package com.android.cts.isolatedsplitapp.feature_c
-LOCAL_AAPT_FLAGS += --package-id 0x82
+# Although feature splits use unique resource package names, they must all
+# have the same manifest package name to be considered one app.
+LOCAL_AAPT_FLAGS := --rename-manifest-package com.android.cts.isolatedsplitapp
+
+# Use the same package ID as feature A, since this is an isolated split and
+# will not be loaded together with feature A.
+LOCAL_AAPT_FLAGS += --package-id 0x80
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

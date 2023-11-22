@@ -43,7 +43,7 @@
 #include "move_pages_support.h"
 #include "lapi/mmap.h"
 
-#if HAVE_NUMA_MOVE_PAGES
+#ifdef HAVE_NUMA_V2
 
 #define LOOPS	1000
 #define PATH_MEMINFO	"/proc/meminfo"
@@ -165,9 +165,15 @@ static void alloc_free_huge_on_node(unsigned int node, size_t size)
 		tst_brk(TBROK | TERRNO, "mbind() failed");
 	}
 
-	numa_bitmask_free(bm);
+	TEST(mlock(mem, size));
+	if (TEST_RETURN) {
+		SAFE_MUNMAP(mem, size);
+		if (TEST_ERRNO == ENOMEM || TEST_ERRNO == EAGAIN)
+			tst_brk(TCONF, "Cannot lock huge pages");
+		tst_brk(TBROK | TTERRNO, "mlock failed");
+	}
 
-	memset(mem, 0, size);
+	numa_bitmask_free(bm);
 
 	SAFE_MUNMAP(mem, size);
 }
@@ -231,8 +237,8 @@ static void setup(void)
 		SAFE_FILE_PRINTF(PATH_NR_HUGEPAGES, "%ld", orig_hugepages + 8);
 	}
 
-	alloc_free_huge_on_node(node1, 4 * hpsz);
-	alloc_free_huge_on_node(node2, 4 * hpsz);
+	alloc_free_huge_on_node(node1, 4L * hpsz);
+	alloc_free_huge_on_node(node2, 4L * hpsz);
 }
 
 static void cleanup(void)
@@ -252,7 +258,6 @@ static void cleanup(void)
 }
 
 static struct tst_test test = {
-	.tid = "move_pages12",
 	.min_kver = "2.6.32",
 	.needs_root = 1,
 	.forks_child = 1,
@@ -262,5 +267,5 @@ static struct tst_test test = {
 };
 
 #else
-	TST_TEST_TCONF("move_pages support not found");
+	TST_TEST_TCONF("test requires libnuma >= 2 and it's development packages");
 #endif

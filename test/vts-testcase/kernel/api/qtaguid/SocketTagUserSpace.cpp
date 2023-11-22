@@ -33,18 +33,30 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <string>
 
 #include <fstream>
 
 #include <android-base/stringprintf.h>
 #include <gtest/gtest.h>
+#include <qtaguid/qtaguid.h>
 #include <utils/Log.h>
 
 static const int kMaxCounterSet = 2;
 
 namespace android {
 
+#define SKIP_IF_QTAGUID_NOT_SUPPORTED()                                        \
+  do {                                                                         \
+    bool hasQtaguidSupport;                                                    \
+    EXPECT_EQ(checkKernelSupport(&hasQtaguidSupport), 0)                       \
+        << "kernel support check failed";                                      \
+    if (!hasQtaguidSupport) {                                                  \
+      GTEST_LOG_(INFO) << "skipped since kernel version is not compatible.\n"; \
+      return;                                                                  \
+    }                                                                          \
+  } while (0);
 /* A helper program to generate some traffic between two socket. */
 int server_download(SockInfo sock_server, SockInfo sock_client) {
   struct sockaddr_in server, client;
@@ -55,9 +67,7 @@ int server_download(SockInfo sock_server, SockInfo sock_client) {
     std::cerr << "bind failed" << std::endl;
     return -1;
   }
-  std::cout << "socket binded" << std::endl;
   listen(sock_server.fd, 3);
-  std::cout << "waiting for connection...." << std::endl;
   int sock_addr_length;
   sock_addr_length = sizeof(struct sockaddr_in);
   if (connect(sock_client.fd, (struct sockaddr *)&server, sizeof(server)), 0) {
@@ -88,6 +98,36 @@ int server_download(SockInfo sock_server, SockInfo sock_client) {
   return 0;
 }
 
+int checkKernelSupport(bool *qtaguidSupport) {
+  int ret;
+  struct utsname buf;
+  int kernel_version_major;
+  int kernel_version_minor;
+
+  ret = uname(&buf);
+  if (ret) {
+    ret = -errno;
+    std::cout << "Get system information failed: %s\n"
+              << strerror(errno) << std::endl;
+    return ret;
+  }
+  char dummy;
+  ret = sscanf(buf.release, "%d.%d%c", &kernel_version_major,
+               &kernel_version_minor, &dummy);
+  // For device running kernel 4.9 or above and running Android P, it should use
+  // the eBPF cgroup filter to monitoring networking stats instead. So it may
+  // not have xt_qtaguid module on device. But for devices that still have
+  // xt_qtaguid, this test is still useful to make sure it behaves properly.
+  // b/30950746
+  if (ret >= 2 && ((kernel_version_major == 4 && kernel_version_minor >= 9) ||
+                   (kernel_version_major > 4))) {
+    *qtaguidSupport = (access("/dev/xt_qtaguid", F_OK) != -1);
+  } else {
+    *qtaguidSupport = true;
+  }
+  return 0;
+}
+
 /* socket setup, initial the socket and try to validate the socket. */
 int SockInfo::setup(int tag) {
   fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -95,17 +135,13 @@ int SockInfo::setup(int tag) {
     std::cout << "socket creation failed: %s" << strerror(errno) << std::endl;
     return -1;
   }
-  if (qtaguid_tagSocket(fd, tag, getuid()) < 0) {
+  if (legacy_tagSocket(fd, tag, getuid()) < 0) {
     std::cout << "socket setup: failed to tag" << std::endl;
     close(fd);
     return -1;
   }
-  if (!checkTag(tag, getuid())) {
-    std::cout << "socket setup: Unexpected results: tag not found" << std::endl;
-    close(fd);
-    return -1;
-  }
-  if (qtaguid_untagSocket(fd) < 0) {
+
+  if (legacy_untagSocket(fd) < 0) {
     std::cout << "socket setup: Unexpected results" << std::endl;
     close(fd);
     return -1;
@@ -115,11 +151,6 @@ int SockInfo::setup(int tag) {
 
 /* Check if the socket is properly tagged by read through the proc file.*/
 bool SockInfo::checkTag(uint64_t acct_tag, uid_t uid) {
-  int res;
-  uint64_t k_tag;
-  uint32_t k_uid;
-  long dummy_count;
-  pid_t dummy_pid;
 
   std::ifstream fctrl("/proc/net/xt_qtaguid/ctrl", std::fstream::in);
   if (!fctrl.is_open()) {
@@ -130,7 +161,6 @@ bool SockInfo::checkTag(uint64_t acct_tag, uid_t uid) {
   std::string buff =
       android::base::StringPrintf(" tag=0x%" PRIx64 " (uid=%u)", full_tag, uid);
 
-  std::cout << "looking for " << buff.c_str() << std::endl;
   std::string ctrl_data;
   std::size_t pos = std::string::npos;
   while (std::getline(fctrl, ctrl_data)) {
@@ -146,10 +176,8 @@ bool SockInfo::checkTag(uint64_t acct_tag, uid_t uid) {
  */
 bool SockInfo::checkStats(uint64_t acct_tag, uid_t uid, int counterSet,
                           uint32_t *stats_result) {
-  FILE *stats_fd;
-  ssize_t read_size;
-  size_t line_size;
   uint64_t kTag = (uint64_t)acct_tag << 32;
+
   std::ifstream fstats("/proc/net/xt_qtaguid/stats", std::fstream::in);
   if (!fstats.is_open()) {
     std::cout << "qtaguid ctrl open failed!" << std::endl;
@@ -158,11 +186,9 @@ bool SockInfo::checkStats(uint64_t acct_tag, uid_t uid, int counterSet,
       android::base::StringPrintf("0x%" PRIx64 " %u %d", kTag, uid, counterSet);
   std::string stats_data;
   std::size_t pos = std::string::npos;
-  std::cout << "looking for data " << buff << std::endl;
   while (std::getline(fstats, stats_data)) {
     pos = stats_data.find(buff);
     if (pos != std::string::npos) {
-      std::cout << "match_data: " << stats_data << std::endl;
       std::string match_data = stats_data.substr(pos);
       sscanf(match_data.c_str(), "0x%" PRIx64 " %u %d %d %d", &kTag, &uid,
              &counterSet, stats_result, stats_result + 1);
@@ -197,10 +223,6 @@ class SocketTagUsrSpaceTest : public ::testing::Test {
     inet_uid = 1024;
     valid_tag1 = (my_pid << 12) | (rand());
     valid_tag2 = (my_pid << 12) | (rand());
-    std::cout << "* start: pid=" << my_pid << " uid=" << my_uid
-              << " uid1=0x" << std::hex << fake_uid << " uid2=0x"
-              << fake_uid2 << " inetuid=0x" << inet_uid << "tag1=0x%"
-              << valid_tag1 << " tag2=0x%" << valid_tag2 << std::endl;
     max_uint_tag = 0xffffffff00000000llu;
     max_uint_tag = 1llu << 63 | (((uint64_t)my_pid << 48) ^ max_uint_tag);
     // Check the node /dev/xt_qtaguid exist before start.
@@ -208,14 +230,13 @@ class SocketTagUsrSpaceTest : public ::testing::Test {
     EXPECT_GE(stat("/dev/xt_qtaguid", &nodeStat), 0)
         << "fail to check /dev/xt_qtaguid";
     // We want to clean up any previous faulty test runs.
-    EXPECT_GE(qtaguid_deleteTagData(0, fake_uid), 0)
+    EXPECT_GE(legacy_deleteTagData(0, fake_uid), 0)
         << "Failed to delete fake_uid";
-    EXPECT_GE(qtaguid_deleteTagData(0, fake_uid2), 0)
+    EXPECT_GE(legacy_deleteTagData(0, fake_uid2), 0)
         << "Failed to delete fake_uid2";
-    EXPECT_GE(qtaguid_deleteTagData(0, my_uid), 0) << "Failed to delete my_uid";
-    EXPECT_GE(qtaguid_deleteTagData(0, inet_uid), 0)
+    EXPECT_GE(legacy_deleteTagData(0, my_uid), 0) << "Failed to delete my_uid";
+    EXPECT_GE(legacy_deleteTagData(0, inet_uid), 0)
         << "Failed to delete inet_uid";
-    EXPECT_GE(qtaguid_setPacifier(0), 0) << "Turn off pacifier fail";
     ASSERT_FALSE(sock_0.setup(valid_tag1)) << "socket0 setup failed";
     ASSERT_FALSE(sock_1.setup(valid_tag1)) << "socket1 setup failed";
   }
@@ -232,12 +253,14 @@ class SocketTagUsrSpaceTest : public ::testing::Test {
 
 /* Tag to a invalid socket fd, should fail */
 TEST_F(SocketTagUsrSpaceTest, invalidSockfdFail) {
-  EXPECT_LT(qtaguid_tagSocket(-1, valid_tag1, my_uid), 0)
+  EXPECT_LT(legacy_tagSocket(-1, valid_tag1, my_uid), 0)
       << "Invalid socketfd case 1, should fail.";
 }
 
 /* Check the stats of a invalid socket, should fail. */
 TEST_F(SocketTagUsrSpaceTest, CheckStatsInvalidSocketFail) {
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
   memset(stats_result_, 0, 2);
   EXPECT_FALSE(sock_0.checkStats(valid_tag1, fake_uid, 0, stats_result_))
       << "No stats should be here";
@@ -245,8 +268,8 @@ TEST_F(SocketTagUsrSpaceTest, CheckStatsInvalidSocketFail) {
 
 /* Untag invalid socket fd, should fail */
 TEST_F(SocketTagUsrSpaceTest, UntagInvalidSocketFail) {
-  EXPECT_LT(qtaguid_untagSocket(-1), 0) << "invalid socket fd, should fail";
-  EXPECT_LT(qtaguid_untagSocket(sock_0.fd), 0)
+  EXPECT_LT(legacy_untagSocket(-1), 0) << "invalid socket fd, should fail";
+  EXPECT_LT(legacy_untagSocket(sock_0.fd), 0)
       << "no tags on sock0, should fail";
 }
 
@@ -256,13 +279,15 @@ TEST_F(SocketTagUsrSpaceTest, UntagInvalidSocketFail) {
  */
 TEST_F(SocketTagUsrSpaceTest, CounterSetNumExceedFail) {
   int wrongCounterNum = kMaxCounterSet + 1;
-  EXPECT_LT(qtaguid_setCounterSet(wrongCounterNum, my_uid), 0)
+  EXPECT_LT(legacy_setCounterSet(wrongCounterNum, my_uid), 0)
       << "Invalid counter set number, should fail.";
 }
 
 /* Tag without valid uid, should be tagged with my_uid */
 TEST_F(SocketTagUsrSpaceTest, NoUidTag) {
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, valid_tag1, 0), 0)
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag1, 0), 0)
       << "tag failed without uid";
   EXPECT_TRUE(sock_0.checkTag(valid_tag1, my_uid)) << "Tag not found";
 }
@@ -272,29 +297,37 @@ TEST_F(SocketTagUsrSpaceTest, NoUidTag) {
  * my_uid
  */
 TEST_F(SocketTagUsrSpaceTest, NoTagNoUid) {
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, 0, 0), 0)
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, 0, 0), 0)
       << "no tag and uid infomation";
   ASSERT_TRUE(sock_0.checkTag(0, my_uid)) << "Tag not found";
 }
 
 /* Untag from a tagged socket */
 TEST_F(SocketTagUsrSpaceTest, ValidUntag) {
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, valid_tag1, my_uid), 0);
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag1, my_uid), 0);
   EXPECT_TRUE(sock_0.checkTag(valid_tag1, my_uid)) << "Tag not found";
-  EXPECT_GE(qtaguid_untagSocket(sock_0.fd), 0);
+  EXPECT_GE(legacy_untagSocket(sock_0.fd), 0);
   EXPECT_FALSE(sock_0.checkTag(valid_tag1, my_uid)) << "Tag should be removed";
 }
 
 /* Tag a socket for the first time */
 TEST_F(SocketTagUsrSpaceTest, ValidFirsttag) {
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, valid_tag2, fake_uid), 0);
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag2, fake_uid), 0);
   EXPECT_TRUE(sock_0.checkTag(valid_tag2, fake_uid)) << "Tag not found.";
 }
 
 /* ReTag a already tagged socket with the same tag and uid */
 TEST_F(SocketTagUsrSpaceTest, ValidReTag) {
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, valid_tag2, fake_uid), 0);
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, valid_tag2, fake_uid), 0);
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag2, fake_uid), 0);
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag2, fake_uid), 0);
   EXPECT_TRUE(sock_0.checkTag(valid_tag2, fake_uid)) << "Tag not found.";
 }
 
@@ -303,8 +336,10 @@ TEST_F(SocketTagUsrSpaceTest, ValidReTag) {
  * Should keep the second one and untag the original one
  */
 TEST_F(SocketTagUsrSpaceTest, ValidReTagWithAcctTagChange) {
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, valid_tag2, fake_uid), 0);
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, valid_tag1, fake_uid), 0);
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag2, fake_uid), 0);
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag1, fake_uid), 0);
   EXPECT_TRUE(sock_0.checkTag(valid_tag1, fake_uid)) << "Tag not found.";
   EXPECT_FALSE(sock_0.checkTag(valid_tag2, fake_uid))
       << "Tag should not be here";
@@ -315,8 +350,8 @@ TEST_F(SocketTagUsrSpaceTest, ValidReTagWithAcctTagChange) {
  * Should keep both
  */
 TEST_F(SocketTagUsrSpaceTest, ReTagWithUidChange) {
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, valid_tag2, fake_uid), 0);
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, valid_tag1, fake_uid2), 0);
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag2, fake_uid), 0);
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag1, fake_uid2), 0);
 }
 
 /*
@@ -324,8 +359,10 @@ TEST_F(SocketTagUsrSpaceTest, ReTagWithUidChange) {
  * The original one should be replaced by the new one.
  */
 TEST_F(SocketTagUsrSpaceTest, ReTagWithUidChange2) {
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, valid_tag2, fake_uid), 0);
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, valid_tag2, fake_uid2), 0);
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag2, fake_uid), 0);
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag2, fake_uid2), 0);
   EXPECT_TRUE(sock_0.checkTag(valid_tag2, fake_uid2)) << "Tag not found.";
   EXPECT_FALSE(sock_0.checkTag(valid_tag2, fake_uid))
       << "Tag should not be here";
@@ -333,86 +370,72 @@ TEST_F(SocketTagUsrSpaceTest, ReTagWithUidChange2) {
 
 /* Tag two sockets with two uids and two tags. */
 TEST_F(SocketTagUsrSpaceTest, TagAnotherSocket) {
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, max_uint_tag, my_uid), 0);
-  EXPECT_GE(qtaguid_tagSocket(sock_1.fd, valid_tag1, fake_uid2), 0);
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, max_uint_tag, my_uid), 0);
+  EXPECT_GE(legacy_tagSocket(sock_1.fd, valid_tag1, fake_uid2), 0);
   EXPECT_TRUE(sock_1.checkTag(valid_tag1, fake_uid2)) << "Tag not found.";
-  EXPECT_GE(qtaguid_untagSocket(sock_0.fd), 0);
+  EXPECT_GE(legacy_untagSocket(sock_0.fd), 0);
   EXPECT_FALSE(sock_0.checkTag(max_uint_tag, fake_uid))
       << "Tag should not be there";
   EXPECT_TRUE(sock_1.checkTag(valid_tag1, fake_uid2)) << "Tag not found";
-  EXPECT_GE(qtaguid_untagSocket(sock_1.fd), 0);
+  EXPECT_GE(legacy_untagSocket(sock_1.fd), 0);
   EXPECT_FALSE(sock_1.checkTag(valid_tag1, fake_uid2))
       << "Tag should not be there";
 }
 
 /* Tag two sockets with the same uid but different acct_tags. */
 TEST_F(SocketTagUsrSpaceTest, SameUidTwoSocket) {
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, valid_tag1, my_uid), 0);
-  EXPECT_GE(qtaguid_tagSocket(sock_1.fd, valid_tag2, my_uid), 0);
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag1, my_uid), 0);
+  EXPECT_GE(legacy_tagSocket(sock_1.fd, valid_tag2, my_uid), 0);
   EXPECT_TRUE(sock_1.checkTag(valid_tag2, my_uid)) << "Tag not found.";
   EXPECT_TRUE(sock_0.checkTag(valid_tag1, my_uid)) << "Tag not found.";
-  EXPECT_GE(qtaguid_untagSocket(sock_0.fd), 0);
+  EXPECT_GE(legacy_untagSocket(sock_0.fd), 0);
   EXPECT_FALSE(sock_0.checkTag(valid_tag1, my_uid))
-
       << "Tag should not be there";
   EXPECT_TRUE(sock_1.checkTag(valid_tag2, my_uid)) << "Tag not found";
-  EXPECT_GE(qtaguid_untagSocket(sock_1.fd), 0);
+  EXPECT_GE(legacy_untagSocket(sock_1.fd), 0);
   EXPECT_FALSE(sock_1.checkTag(valid_tag2, my_uid))
       << "Tag should not be there";
 }
 
 /* Tag two sockets with the same acct_tag but different uids */
 TEST_F(SocketTagUsrSpaceTest, SameTagTwoSocket) {
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, valid_tag1, fake_uid), 0);
-  EXPECT_GE(qtaguid_tagSocket(sock_1.fd, valid_tag1, fake_uid2), 0);
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag1, fake_uid), 0);
+  EXPECT_GE(legacy_tagSocket(sock_1.fd, valid_tag1, fake_uid2), 0);
   EXPECT_TRUE(sock_1.checkTag(valid_tag1, fake_uid)) << "Tag not found.";
   EXPECT_TRUE(sock_0.checkTag(valid_tag1, fake_uid2)) << "Tag not found.";
-  EXPECT_GE(qtaguid_untagSocket(sock_0.fd), 0);
+  EXPECT_GE(legacy_untagSocket(sock_0.fd), 0);
   EXPECT_FALSE(sock_0.checkTag(valid_tag1, fake_uid))
       << "Tag should not be there";
   EXPECT_TRUE(sock_1.checkTag(valid_tag1, fake_uid2)) << "Tag not found";
-  EXPECT_GE(qtaguid_untagSocket(sock_1.fd), 0);
+  EXPECT_GE(legacy_untagSocket(sock_1.fd), 0);
   EXPECT_FALSE(sock_1.checkTag(valid_tag1, fake_uid2))
       << "Tag should not be there";
 }
 
 /* Tag a closed socket, should fail. */
 TEST_F(SocketTagUsrSpaceTest, TagInvalidSocketFail) {
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
   close(sock_0.fd);
-  EXPECT_LT(qtaguid_tagSocket(sock_0.fd, valid_tag1, my_uid), 0);
+  EXPECT_LT(legacy_tagSocket(sock_0.fd, valid_tag1, my_uid), 0);
   EXPECT_FALSE(sock_0.checkTag(valid_tag1, my_uid))
       << "Tag should not be there";
 }
 
 /* untag from a closed socket, should fail. */
 TEST_F(SocketTagUsrSpaceTest, UntagClosedSocketFail) {
-  EXPECT_GE(qtaguid_tagSocket(sock_1.fd, valid_tag1, my_uid), 0);
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
+  EXPECT_GE(legacy_tagSocket(sock_1.fd, valid_tag1, my_uid), 0);
   EXPECT_TRUE(sock_1.checkTag(valid_tag1, my_uid));
   close(sock_1.fd);
-  EXPECT_LT(qtaguid_untagSocket(sock_1.fd), 0)
-      << "no tag attached, should fail";
-}
-
-/*
- * set the pacifier ON and try to modify the tags, expect no change to the
- * ctrl and stats file.
- */
-TEST_F(SocketTagUsrSpaceTest, PacifierFunctionTest) {
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, max_uint_tag, my_uid), 0);
-  EXPECT_GE(qtaguid_setPacifier(1), 0);
-  EXPECT_GE(qtaguid_untagSocket(sock_0.fd), 0);
-  EXPECT_GE(qtaguid_tagSocket(sock_1.fd, valid_tag1, fake_uid2), 0);
-  EXPECT_FALSE(sock_1.checkTag(valid_tag1, fake_uid2))
-      << "Tag should not be there.";
-  EXPECT_GE(qtaguid_setPacifier(0), 0);
-  EXPECT_FALSE(sock_1.checkTag(valid_tag1, fake_uid2))
-      << "Tag should not be there.";
-  EXPECT_TRUE(sock_0.checkTag(max_uint_tag, my_uid)) << "tag not found";
-  EXPECT_GE(qtaguid_untagSocket(sock_0.fd), 0);
-  EXPECT_GE(qtaguid_tagSocket(sock_1.fd, valid_tag1, fake_uid2), 0);
-  EXPECT_FALSE(sock_0.checkTag(max_uint_tag, fake_uid))
-      << "Tag should not be there";
-  EXPECT_TRUE(sock_1.checkTag(valid_tag1, fake_uid2)) << "Tag not found";
+  EXPECT_LT(legacy_untagSocket(sock_1.fd), 0) << "no tag attached, should fail";
 }
 
 /*
@@ -421,16 +444,16 @@ TEST_F(SocketTagUsrSpaceTest, PacifierFunctionTest) {
  * be stored in the stats file and will be returned.
  */
 TEST_F(SocketTagUsrSpaceTest, dataTransmitTest) {
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
   memset(stats_result_, 0, 2);
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, valid_tag1, inet_uid), 0);
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag1, inet_uid), 0);
   EXPECT_TRUE(sock_0.checkTag(valid_tag1, inet_uid)) << "tag not found";
   EXPECT_GE(server_download(sock_0, sock_1), 0);
-  EXPECT_GE(qtaguid_untagSocket(sock_0.fd), 0);
+  EXPECT_GE(legacy_untagSocket(sock_0.fd), 0);
   close(sock_0.fd);
   EXPECT_TRUE(sock_0.checkStats(valid_tag1, inet_uid, 0, stats_result_))
       << "failed to retreive data";
-  std::cout << "the receive packet count is " << stats_result_[1]
-            << ", the byte count is " << stats_result_[0] << std::endl;
   EXPECT_GT(*stats_result_, (uint32_t)0) << "no stats found for this socket";
   EXPECT_GT(*(stats_result_ + 1), (uint32_t)0)
       << "no stats stored for this socket";
@@ -441,19 +464,19 @@ TEST_F(SocketTagUsrSpaceTest, dataTransmitTest) {
  * be deleted. checkStats() should return false.
  */
 TEST_F(SocketTagUsrSpaceTest, dataStatsDeleteTest) {
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
   memset(stats_result_, 0, 2);
-  EXPECT_GE(qtaguid_tagSocket(sock_0.fd, valid_tag1, fake_uid), 0);
+  EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag1, fake_uid), 0);
   EXPECT_TRUE(sock_0.checkTag(valid_tag1, fake_uid)) << "tag not found";
   EXPECT_GE(server_download(sock_0, sock_1), 0);
-  EXPECT_GE(qtaguid_untagSocket(sock_0.fd), 0);
+  EXPECT_GE(legacy_untagSocket(sock_0.fd), 0);
   EXPECT_TRUE(sock_0.checkStats(valid_tag1, fake_uid, 0, stats_result_))
       << "failed to retreive data";
-  std::cout << "the receive packet count is " << stats_result_[1]
-            << ", the byte count is " << stats_result_[0] << std::endl;
   EXPECT_GT(*stats_result_, (uint32_t)0) << "no stats found for this socket";
   EXPECT_GT(*(stats_result_ + 1), (uint32_t)0)
       << "no stats stored for this socket";
-  EXPECT_GE(qtaguid_deleteTagData(0, fake_uid), 0)
+  EXPECT_GE(legacy_deleteTagData(0, fake_uid), 0)
       << "Failed to delete fake_uid";
   EXPECT_FALSE(sock_0.checkStats(valid_tag1, fake_uid, 0, stats_result_))
       << "NO DATA should be stored";
@@ -465,19 +488,19 @@ TEST_F(SocketTagUsrSpaceTest, dataStatsDeleteTest) {
  * in the secound counter.
  */
 TEST_F(SocketTagUsrSpaceTest, CounterSetTest) {
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
   memset(stats_result_, 0, 2);
-  EXPECT_GE(qtaguid_tagSocket(sock_1.fd, valid_tag1, inet_uid), 0);
-  EXPECT_GE(qtaguid_setCounterSet(1, inet_uid), 0);
+  EXPECT_GE(legacy_tagSocket(sock_1.fd, valid_tag1, inet_uid), 0);
+  EXPECT_GE(legacy_setCounterSet(1, inet_uid), 0);
   EXPECT_TRUE(sock_1.checkTag(valid_tag1, inet_uid)) << "tag not found";
   EXPECT_GE(server_download(sock_0, sock_1), 0);
-  EXPECT_GE(qtaguid_untagSocket(sock_1.fd), 0);
+  EXPECT_GE(legacy_untagSocket(sock_1.fd), 0);
   close(sock_1.fd);
   EXPECT_TRUE(sock_1.checkStats(valid_tag1, inet_uid, 1, stats_result_))
       << "failed to retreive data";
   uint32_t packet_count = 1;
   uint32_t total_byte = 1024;
-  std::cout << "the receive packet count is " << stats_result_[1]
-            << ", the byte count is " << stats_result_[0] << std::endl;
   EXPECT_GT(*stats_result_, total_byte) << "no stats found for this socket";
   EXPECT_GT(*(stats_result_ + 1), packet_count)
       << "wrong stats stored for this socket";

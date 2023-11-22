@@ -38,7 +38,7 @@ import java.util.List;
  * directory is changed to the root of the virtualenv.
  */
 @OptionClass(alias = "python-venv")
-public class PythonVirtualenvPreparer implements ITargetPreparer {
+public class PythonVirtualenvPreparer extends BaseTargetPreparer {
 
     private static final String PIP = "pip";
     private static final String PATH = "PATH";
@@ -54,16 +54,13 @@ public class PythonVirtualenvPreparer implements ITargetPreparer {
     @Option(name = "dep-module", description = "modules which need to be installed by pip")
     private List<String> mDepModules = new ArrayList<>();
 
-    @Option(name = "disable", description = "disable this preparer")
-    private boolean mDisable = false;
-
     IRunUtil mRunUtil = new RunUtil();
     String mPip = PIP;
 
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
-        if (mDisable) {
+        if (isDisabled()) {
             CLog.i("Skipping PythonVirtualenvPreparer");
             return;
         }

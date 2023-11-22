@@ -1,6 +1,9 @@
+/*
+ * Copyright (c) 2018 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockito.internal.junit;
 
-import org.mockito.internal.junit.util.TestName;
 import org.mockito.internal.util.MockitoLogger;
 import org.mockito.mock.MockCreationSettings;
 
@@ -26,10 +29,9 @@ public class MismatchReportingTestListener implements MockitoTestListener {
         //TODO make it better, it's easy to forget to clean up mocks and we still create new instance of list that nobody will read, it's also duplicated
         mocks = new LinkedList<Object>();
 
-        String testName = TestName.getTestName(event);
         if (event.getFailure() != null) {
             //print unused stubbings only when test succeeds to avoid reporting multiple problems and confusing users
-            new ArgMismatchFinder().getStubbingArgMismatches(createdMocks).format(testName, logger);
+            new ArgMismatchFinder().getStubbingArgMismatches(createdMocks).format(event.getTestName(), logger);
         }
     }
 

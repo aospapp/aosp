@@ -17,7 +17,7 @@
 package android.autofillservice.cts;
 
 import android.os.Bundle;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 
 public class AllAutofillableViewsActivity extends AbstractAutoFillActivity {
     @Override

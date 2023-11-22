@@ -15,7 +15,10 @@
  */
 package android.autofillservice.cts;
 
+import static android.autofillservice.cts.AntiTrimmerTextWatcher.TRIMMER_PATTERN;
+import static android.autofillservice.cts.Helper.ID_STATIC_TEXT;
 import static android.autofillservice.cts.Helper.assertTextAndValue;
+import static android.autofillservice.cts.Helper.assertTextValue;
 import static android.autofillservice.cts.Helper.findNodeByResourceId;
 import static android.autofillservice.cts.LoginActivity.ID_USERNAME_CONTAINER;
 import static android.autofillservice.cts.SimpleSaveActivity.ID_COMMIT;
@@ -26,23 +29,45 @@ import static android.autofillservice.cts.SimpleSaveActivity.TEXT_LABEL;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PASSWORD;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+
+import static org.junit.Assume.assumeTrue;
 
 import android.autofillservice.cts.CannedFillResponse.CannedDataset;
 import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
 import android.autofillservice.cts.SimpleSaveActivity.FillExpectation;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.os.Bundle;
+import android.platform.test.annotations.AppModeFull;
+import android.service.autofill.BatchUpdates;
+import android.service.autofill.CustomDescription;
+import android.service.autofill.FillEventHistory;
+import android.service.autofill.RegexValidator;
+import android.service.autofill.SaveInfo;
+import android.service.autofill.TextValueSanitizer;
+import android.service.autofill.Validator;
+import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiObject2;
 import android.view.View;
+import android.view.autofill.AutofillId;
+import android.widget.RemoteViews;
 
 import org.junit.Rule;
 import org.junit.Test;
+
+import java.util.regex.Pattern;
 
 public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
 
     @Rule
     public final AutofillActivityTestRule<SimpleSaveActivity> mActivityRule =
             new AutofillActivityTestRule<SimpleSaveActivity>(SimpleSaveActivity.class, false);
+
+    @Rule
+    public final AutofillActivityTestRule<WelcomeActivity> mWelcomeActivityRule =
+            new AutofillActivityTestRule<WelcomeActivity>(WelcomeActivity.class, false);
 
     private SimpleSaveActivity mActivity;
 
@@ -54,7 +79,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
         final Intent intent = new Intent(mContext, SimpleSaveActivity.class);
         if (remainOnRecents) {
             intent.setFlags(
-                    Intent.FLAG_ACTIVITY_RETAIN_IN_RECENTS | Intent.FLAG_ACTIVITY_NEW_DOCUMENT);
+                    Intent.FLAG_ACTIVITY_RETAIN_IN_RECENTS | Intent.FLAG_ACTIVITY_NEW_TASK);
         }
         mActivity = mActivityRule.launchActivity(intent);
     }
@@ -63,7 +88,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
         final Intent intent = new Intent(mContext.getApplicationContext(),
                 SimpleSaveActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-        mContext.startActivity(intent);
+        mActivity.startActivity(intent);
     }
 
     @Test
@@ -89,7 +114,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
 
         // Select dataset.
         final FillExpectation autofillExpecation = mActivity.expectAutoFill("id", "pass");
-        sUiBot.selectDataset("YO");
+        mUiBot.selectDataset("YO");
         autofillExpecation.assertAutoFilled();
 
         mActivity.syncRunOnUiThread(() -> {
@@ -97,10 +122,10 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
             mActivity.mPassword.setText("PASS");
             mActivity.mCommit.performClick();
         });
-        final UiObject2 saveUi = sUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
+        final UiObject2 saveUi = mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
 
         // Save it...
-        sUiBot.saveForAutofill(saveUi, true);
+        mUiBot.saveForAutofill(saveUi, true);
 
         // ... and assert results
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
@@ -130,15 +155,15 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
                 .build());
 
         // Trigger autofill.
-        sUiBot.assertShownByRelativeId(ID_INPUT).click();
+        mUiBot.assertShownByRelativeId(ID_INPUT).click();
         sReplier.getNextFillRequest();
 
         // Select dataset...
-        sUiBot.selectDataset("YO");
+        mUiBot.selectDataset("YO");
 
         // ...and assert autofilled values.
-        final UiObject2 input = sUiBot.assertShownByRelativeId(ID_INPUT);
-        final UiObject2 password = sUiBot.assertShownByRelativeId(ID_PASSWORD);
+        final UiObject2 input = mUiBot.assertShownByRelativeId(ID_INPUT);
+        final UiObject2 password = mUiBot.assertShownByRelativeId(ID_PASSWORD);
 
         assertWithMessage("wrong value for 'input'").that(input.getText()).isEqualTo("id");
         // TODO: password field is shown as **** ; ideally we should assert it's a password
@@ -151,8 +176,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
         // Trigger save...
         input.setText("ID");
         password.setText("PASS");
-        sUiBot.assertShownByRelativeId(ID_COMMIT).click();
-        sUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
+        mUiBot.assertShownByRelativeId(ID_COMMIT).click();
+        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
 
         // ... and assert results
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
@@ -161,17 +186,20 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
     }
 
     @Test
+    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps support
     public void testSave() throws Exception {
         saveTest(false);
     }
 
     @Test
     public void testSave_afterRotation() throws Exception {
-        sUiBot.setScreenOrientation(UiBot.PORTRAIT);
+        assumeTrue("Rotation is supported", Helper.isRotationSupported(mContext));
+        mUiBot.setScreenOrientation(UiBot.PORTRAIT);
         try {
             saveTest(true);
         } finally {
-            sUiBot.setScreenOrientation(UiBot.PORTRAIT);
+            mUiBot.setScreenOrientation(UiBot.PORTRAIT);
+            cleanUpAfterScreenOrientationIsBackToPortrait();
         }
     }
 
@@ -196,19 +224,53 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
             mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
         });
-        UiObject2 saveUi = sUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
+        UiObject2 saveUi = mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
 
         if (rotate) {
-            sUiBot.setScreenOrientation(UiBot.LANDSCAPE);
-            saveUi = sUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
+            // After the device rotates, the input field get focus and generate a new session.
+            sReplier.addResponse(CannedFillResponse.NO_RESPONSE);
+
+            mUiBot.setScreenOrientation(UiBot.LANDSCAPE);
+            saveUi = mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
         }
 
         // Save it...
-        sUiBot.saveForAutofill(saveUi, true);
+        mUiBot.saveForAutofill(saveUi, true);
 
         // ... and assert results
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
         assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_INPUT), "108");
+    }
+
+    @Test
+    public void testSave_launchIntent() throws Exception {
+        startActivity();
+
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        sReplier.setOnSave(WelcomeActivity.createSender(mContext, "Saved by the bell"));
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_INPUT)
+                .build());
+
+        // Trigger autofill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
+        sReplier.getNextFillRequest();
+        Helper.assertHasSessions(mPackageName);
+
+        // Trigger save.
+        mActivity.syncRunOnUiThread(() -> {
+            mActivity.mInput.setText("108");
+            mActivity.mCommit.performClick();
+        });
+
+        // Save it...
+        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
+        sReplier.getNextSaveRequest();
+        // ... and assert activity was launched
+        WelcomeActivity.assertShowing(mUiBot, "Saved by the bell");
     }
 
     @Test
@@ -236,10 +298,62 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
         });
 
         // Make sure Save UI for 1st session was canceled....
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+    }
 
-        //... and 2nd session canceled as well.
-        Helper.assertNoDanglingSessions();
+    @Test
+    public void testSaveWithParcelableOnClientState() throws Exception {
+        startActivity();
+
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        final AutofillId id = new AutofillId(42);
+        final Bundle clientState = new Bundle();
+        clientState.putParcelable("id", id);
+        clientState.putParcelable("my_id", new MyAutofillId(id));
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_INPUT)
+                .setExtras(clientState)
+                .build());
+
+        // Trigger autofill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
+        sReplier.getNextFillRequest();
+
+        // Trigger save.
+        mActivity.syncRunOnUiThread(() -> {
+            mActivity.mInput.setText("108");
+            mActivity.mCommit.performClick();
+        });
+        UiObject2 saveUi = mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
+
+        // Save it...
+        mUiBot.saveForAutofill(saveUi, true);
+
+        // ... and assert results
+        final SaveRequest saveRequest = sReplier.getNextSaveRequest();
+        assertMyClientState(saveRequest.data);
+
+        // Also check fillevent history
+        final FillEventHistory history = InstrumentedAutoFillService.getFillEventHistory(1);
+        @SuppressWarnings("deprecation")
+        final Bundle deprecatedState = history.getClientState();
+        assertMyClientState(deprecatedState);
+        assertMyClientState(history.getEvents().get(0).getClientState());
+    }
+
+    private void assertMyClientState(Bundle data) {
+        // Must set proper classpath before reading the data, otherwise Bundle will use it's
+        // on class classloader, which is the framework's.
+        data.setClassLoader(getClass().getClassLoader());
+
+        final AutofillId expectedId = new AutofillId(42);
+        final AutofillId actualId = data.getParcelable("id");
+        assertThat(actualId).isEqualTo(expectedId);
+        final MyAutofillId actualMyId = data.getParcelable("my_id");
+        assertThat(actualMyId).isEqualTo(new MyAutofillId(expectedId));
     }
 
     @Test
@@ -261,7 +375,6 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
 
         // Cancel session.
         mActivity.getAutofillManager().cancel();
-        Helper.assertNoDanglingSessions();
 
         // Trigger save.
         mActivity.syncRunOnUiThread(() -> {
@@ -270,7 +383,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
         });
 
         // Assert it's not showing.
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
     }
 
     @Test
@@ -297,19 +410,6 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
         dismissSaveTest(DismissType.FOCUS_OUTSIDE);
     }
 
-    @Test
-    public void testDismissSave_byTappingRecents() throws Exception {
-        // Launches a different activity first.
-        startWelcomeActivityOnNewTask();
-
-        // Then launches the main activity.
-        startActivity(true);
-        sUiBot.assertShownByRelativeId(ID_INPUT);
-
-        // And finally test it..
-        dismissSaveTest(DismissType.RECENTS_BUTTON);
-    }
-
     private void dismissSaveTest(DismissType dismissType) throws Exception {
         // Set service.
         enableService();
@@ -329,31 +429,27 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
             mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
         });
-        sUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
+        mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
 
         // Then make sure it goes away when user doesn't want it..
         switch (dismissType) {
             case BACK_BUTTON:
-                sUiBot.pressBack();
+                mUiBot.pressBack();
                 break;
             case HOME_BUTTON:
-                sUiBot.pressHome();
+                mUiBot.pressHome();
                 break;
             case TOUCH_OUTSIDE:
-                sUiBot.assertShownByText(TEXT_LABEL).click();
+                mUiBot.assertShownByText(TEXT_LABEL).click();
                 break;
             case FOCUS_OUTSIDE:
                 mActivity.syncRunOnUiThread(() -> mActivity.mLabel.requestFocus());
-                sUiBot.assertShownByText(TEXT_LABEL).click();
-                break;
-            case RECENTS_BUTTON:
-                sUiBot.switchAppsUsingRecents();
-                WelcomeActivity.assertShowingDefaultMessage(sUiBot);
+                mUiBot.assertShownByText(TEXT_LABEL).click();
                 break;
             default:
                 throw new IllegalArgumentException("invalid dismiss type: " + dismissType);
         }
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
     }
 
     @Test
@@ -372,25 +468,25 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
                 .build());
 
         // Trigger autofill.
-        sUiBot.assertShownByRelativeId(ID_INPUT).click();
+        mUiBot.assertShownByRelativeId(ID_INPUT).click();
         sReplier.getNextFillRequest();
-        sUiBot.assertDatasets("YO");
+        mUiBot.assertDatasets("YO");
         callback.assertUiShownEvent(mActivity.mInput);
 
         // Go home, you are drunk!
-        sUiBot.pressHome();
-        sUiBot.assertNoDatasets();
+        mUiBot.pressHome();
+        mUiBot.assertNoDatasets();
         callback.assertUiHiddenEvent(mActivity.mInput);
 
         // Switch back to the activity.
         restartActivity();
-        sUiBot.assertShownByText(TEXT_LABEL, Helper.ACTIVITY_RESURRECTION_MS);
-        final UiObject2 datasetPicker = sUiBot.assertDatasets("YO");
+        mUiBot.assertShownByText(TEXT_LABEL, Timeouts.ACTIVITY_RESURRECTION);
+        final UiObject2 datasetPicker = mUiBot.assertDatasets("YO");
         callback.assertUiShownEvent(mActivity.mInput);
 
         // Now autofill it.
         final FillExpectation autofillExpecation = mActivity.expectAutoFill("id", "pass");
-        sUiBot.selectDataset(datasetPicker, "YO");
+        mUiBot.selectDataset(datasetPicker, "YO");
         autofillExpecation.assertAutoFilled();
     }
 
@@ -407,19 +503,18 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
         // Trigger autofill.
         mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
         sReplier.getNextFillRequest();
-        sUiBot.assertNoDatasets();
+        mUiBot.assertNoDatasetsEver();
 
         // Trigger save, but don't tap it.
         mActivity.syncRunOnUiThread(() -> {
             mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
         });
-        sUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
+        mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
 
         // Go home, you are drunk!
-        sUiBot.pressHome();
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
-        Helper.assertNoDanglingSessions();
+        mUiBot.pressHome();
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
 
         // Prepare the response for the next session, which will be automatically triggered
         // when the activity is brought back.
@@ -434,26 +529,18 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
 
         // Switch back to the activity.
         restartActivity();
-        sUiBot.assertShownByText(TEXT_LABEL, Helper.ACTIVITY_RESURRECTION_MS);
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+        mUiBot.assertShownByText(TEXT_LABEL, Timeouts.ACTIVITY_RESURRECTION);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
         sReplier.getNextFillRequest();
-        sUiBot.assertNoDatasets();
+        mUiBot.assertNoDatasetsEver();
 
         // Trigger and select UI.
         mActivity.syncRunOnUiThread(() -> mActivity.mPassword.requestFocus());
         final FillExpectation autofillExpecation = mActivity.expectAutoFill("id", "pass");
-        sUiBot.selectDataset("YO");
+        mUiBot.selectDataset("YO");
 
         // Assert it.
         autofillExpecation.assertAutoFilled();
-    }
-
-    private void startWelcomeActivityOnNewTask() throws Exception {
-        final Intent intent = new Intent(mContext, WelcomeActivity.class);
-        intent.setFlags(
-                Intent.FLAG_ACTIVITY_RETAIN_IN_RECENTS | Intent.FLAG_ACTIVITY_NEW_DOCUMENT);
-        mContext.startActivity(intent);
-        WelcomeActivity.assertShowingDefaultMessage(sUiBot);
     }
 
     @Override
@@ -485,34 +572,44 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
         tapSaveUiLink(saveUi);
 
         // Make sure new activity is shown...
-        WelcomeActivity.assertShowingDefaultMessage(sUiBot);
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+        WelcomeActivity.assertShowingDefaultMessage(mUiBot);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
 
         // .. then do something to return to previous activity...
         switch (type) {
             case ROTATE_THEN_TAP_BACK_BUTTON:
-                sUiBot.setScreenOrientation(UiBot.LANDSCAPE);
+                // After the device rotates, the input field get focus and generate a new session.
+                sReplier.addResponse(CannedFillResponse.NO_RESPONSE);
+
+                mUiBot.setScreenOrientation(UiBot.LANDSCAPE);
+                WelcomeActivity.assertShowingDefaultMessage(mUiBot);
                 // not breaking on purpose
             case TAP_BACK_BUTTON:
                 // ..then go back and save it.
-                sUiBot.pressBack();
+                mUiBot.pressBack();
                 break;
             case FINISH_ACTIVITY:
                 // ..then finishes it.
-                WelcomeActivity.finishIt();
+                WelcomeActivity.finishIt(mUiBot);
                 break;
             default:
                 throw new IllegalArgumentException("invalid type: " + type);
         }
         // Make sure previous activity is back...
-        sUiBot.assertShownByRelativeId(ID_INPUT);
+        mUiBot.assertShownByRelativeId(ID_INPUT);
 
         // ... and tap save.
         final UiObject2 newSaveUi = assertSaveUiWithLinkIsShown(SAVE_DATA_TYPE_GENERIC);
-        sUiBot.saveForAutofill(newSaveUi, true);
+        mUiBot.saveForAutofill(newSaveUi, true);
 
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
         assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_INPUT), "108");
+
+    }
+
+    @Override
+    protected void cleanUpAfterScreenOrientationIsBackToPortrait() throws Exception {
+        sReplier.getNextFillRequest();
     }
 
     @Override
@@ -544,38 +641,34 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
         tapSaveUiLink(saveUi);
 
         // Make sure new activity is shown.
-        WelcomeActivity.assertShowingDefaultMessage(sUiBot);
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+        WelcomeActivity.assertShowingDefaultMessage(mUiBot);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
 
         // Tap back to restore the Save UI...
-        sUiBot.pressBack();
+        mUiBot.pressBack();
         // Make sure previous activity is back...
-        sUiBot.assertShownByRelativeId(ID_LABEL);
+        mUiBot.assertShownByRelativeId(ID_LABEL);
 
         // ...but don't tap it...
-        final UiObject2 saveUi2 = sUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
+        final UiObject2 saveUi2 = mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
 
         // ...instead, do something to dismiss it:
         switch (action) {
             case TOUCH_OUTSIDE:
-                sUiBot.assertShownByRelativeId(ID_LABEL).longClick();
+                mUiBot.assertShownByRelativeId(ID_LABEL).longClick();
                 break;
             case TAP_NO_ON_SAVE_UI:
-                sUiBot.saveForAutofill(saveUi2, false);
+                mUiBot.saveForAutofill(saveUi2, false);
                 break;
             case TAP_YES_ON_SAVE_UI:
-                sUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
+                mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
                 final SaveRequest saveRequest = sReplier.getNextSaveRequest();
                 assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_INPUT), "108");
-                Helper.assertNoDanglingSessions();
                 break;
             default:
                 throw new IllegalArgumentException("invalid action: " + action);
         }
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
-
-        // Make sure previous session was finished.
-        Helper.assertNoDanglingSessions();
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
 
         // Now triggers a new session and do business as usual...
         sReplier.addResponse(new CannedFillResponse.Builder()
@@ -599,7 +692,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
         });
 
         // Save it...
-        sUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
+        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
 
         // ... and assert results
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
@@ -609,7 +702,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
     @Override
     protected void saveUiCancelledAfterTappingLinkTest(PostSaveLinkTappedAction type)
             throws Exception {
-        startActivity(type == PostSaveLinkTappedAction.TAP_RECENTS);
+        startActivity(false);
         // Set service.
         enableService();
 
@@ -634,30 +727,86 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
         // Tap the link.
         tapSaveUiLink(saveUi);
         // Make sure new activity is shown...
-        WelcomeActivity.assertShowingDefaultMessage(sUiBot);
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+        WelcomeActivity.assertShowingDefaultMessage(mUiBot);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
 
         switch (type) {
-            case TAP_RECENTS:
-                sUiBot.switchAppsUsingRecents();
-                break;
             case LAUNCH_PREVIOUS_ACTIVITY:
-                startActivity(SimpleSaveActivity.class);
+                startActivityOnNewTask(SimpleSaveActivity.class);
                 break;
             case LAUNCH_NEW_ACTIVITY:
                 // Launch a 3rd activity...
-                startActivity(LoginActivity.class);
-                sUiBot.assertShownByRelativeId(ID_USERNAME_CONTAINER);
+                startActivityOnNewTask(LoginActivity.class);
+                mUiBot.assertShownByRelativeId(ID_USERNAME_CONTAINER);
                 // ...then go back
-                sUiBot.pressBack();
+                mUiBot.pressBack();
                 break;
             default:
                 throw new IllegalArgumentException("invalid type: " + type);
         }
         // Make sure right activity is showing
-        sUiBot.assertShownByRelativeId(ID_INPUT);
+        mUiBot.assertShownByRelativeId(ID_INPUT, Timeouts.ACTIVITY_RESURRECTION);
 
-        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+    }
+
+    @Test
+    @AppModeFull // Service-specific test
+    public void testSelectedDatasetsAreSentOnSaveRequest() throws Exception {
+        startActivity();
+
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_INPUT, ID_PASSWORD)
+                // Added on reversed order on purpose
+                .addDataset(new CannedDataset.Builder()
+                        .setId("D2")
+                        .setField(ID_INPUT, "id again")
+                        .setField(ID_PASSWORD, "pass")
+                        .setPresentation(createPresentation("D2"))
+                        .build())
+                .addDataset(new CannedDataset.Builder()
+                        .setId("D1")
+                        .setField(ID_INPUT, "id")
+                        .setPresentation(createPresentation("D1"))
+                        .build())
+                .build());
+
+        // Trigger autofill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
+        sReplier.getNextFillRequest();
+
+        // Select 1st dataset.
+        final FillExpectation autofillExpecation1 = mActivity.expectAutoFill("id");
+        final UiObject2 picker1 = mUiBot.assertDatasets("D2", "D1");
+        mUiBot.selectDataset(picker1, "D1");
+        autofillExpecation1.assertAutoFilled();
+
+        // Select 2nd dataset.
+        mActivity.syncRunOnUiThread(() -> mActivity.mPassword.requestFocus());
+        final FillExpectation autofillExpecation2 = mActivity.expectAutoFill("id again", "pass");
+        final UiObject2 picker2 = mUiBot.assertDatasets("D2");
+        mUiBot.selectDataset(picker2, "D2");
+        autofillExpecation2.assertAutoFilled();
+
+        mActivity.syncRunOnUiThread(() -> {
+            mActivity.mInput.setText("ID");
+            mActivity.mPassword.setText("PASS");
+            mActivity.mCommit.performClick();
+        });
+        final UiObject2 saveUi = mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
+
+        // Save it...
+        mUiBot.saveForAutofill(saveUi, true);
+
+        // ... and assert results
+        final SaveRequest saveRequest = sReplier.getNextSaveRequest();
+        assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_INPUT), "ID");
+        assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_PASSWORD), "PASS");
+        assertThat(saveRequest.datasetIds).containsExactly("D1", "D2").inOrder();
     }
 
     @Override
@@ -693,14 +842,16 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
         tapSaveUiLink(saveUi);
 
         // Make sure new activity is shown...
-        WelcomeActivity.assertShowingDefaultMessage(sUiBot);
+        WelcomeActivity.assertShowingDefaultMessage(mUiBot);
 
         // Save UI should be showing as well, since Trampoline finished.
-        sUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
+        mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
 
+        // Dismiss Save Dialog
+        mUiBot.pressBack();
         // Go back and make sure it's showing the right activity.
-        sUiBot.pressBack();
-        sUiBot.assertShownByRelativeId(ID_LABEL);
+        mUiBot.pressBack();
+        mUiBot.assertShownByRelativeId(ID_LABEL);
 
         // Now start a new session.
         sReplier.addResponse(new CannedFillResponse.Builder()
@@ -712,9 +863,386 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase {
             mActivity.mPassword.setText("42");
             mActivity.mCommit.performClick();
         });
-        sUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
+        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
         assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_INPUT), "108");
         assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_PASSWORD), "42");
+    }
+
+    @Test
+    public void testSanitizeOnSaveWhenAppChangeValues() throws Exception {
+        startActivity();
+
+        // Set listeners that will change the saved value
+        new AntiTrimmerTextWatcher(mActivity.mInput);
+        new AntiTrimmerTextWatcher(mActivity.mPassword);
+
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        final AutofillId inputId = mActivity.mInput.getAutofillId();
+        final AutofillId passwordId = mActivity.mPassword.getAutofillId();
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_INPUT)
+                .addSanitizer(new TextValueSanitizer(TRIMMER_PATTERN, "$1"), inputId, passwordId)
+                .build());
+
+        // Trigger autofill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
+        sReplier.getNextFillRequest();
+        Helper.assertHasSessions(mPackageName);
+
+        // Trigger save.
+        mActivity.syncRunOnUiThread(() -> {
+            mActivity.mInput.setText("id");
+            mActivity.mPassword.setText("pass");
+            mActivity.mCommit.performClick();
+        });
+
+        // Save it...
+        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
+
+        // ... and assert results
+        final SaveRequest saveRequest = sReplier.getNextSaveRequest();
+        assertTextValue(findNodeByResourceId(saveRequest.structure, ID_INPUT), "id");
+        assertTextValue(findNodeByResourceId(saveRequest.structure, ID_PASSWORD), "pass");
+    }
+
+    @Test
+    @AppModeFull // testSanitizeOnSaveWhenAppChangeValues() is enough to test ephemeral apps support
+    public void testSanitizeOnSaveNoChange() throws Exception {
+        startActivity();
+
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        final AutofillId inputId = mActivity.mInput.getAutofillId();
+        final AutofillId passwordId = mActivity.mPassword.getAutofillId();
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_INPUT)
+                .setOptionalSavableIds(ID_PASSWORD)
+                .addSanitizer(new TextValueSanitizer(TRIMMER_PATTERN, "$1"), inputId, passwordId)
+                .build());
+
+        // Trigger autofill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
+        sReplier.getNextFillRequest();
+        mUiBot.assertNoDatasetsEver();
+
+        // Trigger save.
+        mActivity.syncRunOnUiThread(() -> {
+            mActivity.mInput.setText("#id#");
+            mActivity.mPassword.setText("#pass#");
+            mActivity.mCommit.performClick();
+        });
+
+        // Save it...
+        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
+
+        // ... and assert results
+        final SaveRequest saveRequest = sReplier.getNextSaveRequest();
+        assertTextValue(findNodeByResourceId(saveRequest.structure, ID_INPUT), "id");
+        assertTextValue(findNodeByResourceId(saveRequest.structure, ID_PASSWORD), "pass");
+    }
+
+    @Test
+    @AppModeFull // testSanitizeOnSaveWhenAppChangeValues() is enough to test ephemeral apps support
+    public void testDontSaveWhenSanitizedValueForRequiredFieldDidntChange() throws Exception {
+        startActivity();
+
+        // Set listeners that will change the saved value
+        new AntiTrimmerTextWatcher(mActivity.mInput);
+        new AntiTrimmerTextWatcher(mActivity.mPassword);
+
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        final AutofillId inputId = mActivity.mInput.getAutofillId();
+        final AutofillId passwordId = mActivity.mPassword.getAutofillId();
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_INPUT, ID_PASSWORD)
+                .addSanitizer(new TextValueSanitizer(TRIMMER_PATTERN, "$1"), inputId, passwordId)
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_INPUT, "id")
+                        .setField(ID_PASSWORD, "pass")
+                        .setPresentation(createPresentation("YO"))
+                        .build())
+                .build());
+
+        // Trigger autofill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
+        sReplier.getNextFillRequest();
+
+        mActivity.syncRunOnUiThread(() -> {
+            mActivity.mInput.setText("id");
+            mActivity.mPassword.setText("pass");
+            mActivity.mCommit.performClick();
+        });
+
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+    }
+
+    @Test
+    @AppModeFull // testSanitizeOnSaveWhenAppChangeValues() is enough to test ephemeral apps support
+    public void testDontSaveWhenSanitizedValueForOptionalFieldDidntChange() throws Exception {
+        startActivity();
+
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        final AutofillId passwordId = mActivity.mPassword.getAutofillId();
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_INPUT)
+                .setOptionalSavableIds(ID_PASSWORD)
+                .addSanitizer(new TextValueSanitizer(Pattern.compile("(pass) "), "$1"), passwordId)
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_INPUT, "id")
+                        .setField(ID_PASSWORD, "pass")
+                        .setPresentation(createPresentation("YO"))
+                        .build())
+                .build());
+
+        // Trigger autofill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
+
+        mActivity.syncRunOnUiThread(() -> {
+            mActivity.mInput.setText("id");
+            mActivity.mPassword.setText("#pass#");
+            mActivity.mCommit.performClick();
+        });
+
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+    }
+
+    @Test
+    @AppModeFull // testSanitizeOnSaveWhenAppChangeValues() is enough to test ephemeral apps support
+    public void testDontSaveWhenRequiredFieldFailedSanitization() throws Exception {
+        startActivity();
+
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        final AutofillId inputId = mActivity.mInput.getAutofillId();
+        final AutofillId passwordId = mActivity.mPassword.getAutofillId();
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_INPUT, ID_PASSWORD)
+                .addSanitizer(new TextValueSanitizer(Pattern.compile("dude"), "$1"),
+                        inputId, passwordId)
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_INPUT, "#id#")
+                        .setField(ID_PASSWORD, "#pass#")
+                        .setPresentation(createPresentation("YO"))
+                        .build())
+                .build());
+
+        // Trigger autofill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
+        sReplier.getNextFillRequest();
+
+        mActivity.syncRunOnUiThread(() -> {
+            mActivity.mInput.setText("id");
+            mActivity.mPassword.setText("pass");
+            mActivity.mCommit.performClick();
+        });
+
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+    }
+
+    @Test
+    @AppModeFull // testSanitizeOnSaveWhenAppChangeValues() is enough to test ephemeral apps support
+    public void testDontSaveWhenOptionalFieldFailedSanitization() throws Exception {
+        startActivity();
+
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        final AutofillId inputId = mActivity.mInput.getAutofillId();
+        final AutofillId passwordId = mActivity.mPassword.getAutofillId();
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_INPUT)
+                .setOptionalSavableIds(ID_PASSWORD)
+                .addSanitizer(new TextValueSanitizer(Pattern.compile("dude"), "$1"),
+                        inputId, passwordId)
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_INPUT, "id")
+                        .setField(ID_PASSWORD, "#pass#")
+                        .setPresentation(createPresentation("YO"))
+                        .build())
+                .build());
+
+        // Trigger autofill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
+        sReplier.getNextFillRequest();
+
+        mActivity.syncRunOnUiThread(() -> {
+            mActivity.mInput.setText("id");
+            mActivity.mPassword.setText("pass");
+            mActivity.mCommit.performClick();
+        });
+
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
+    }
+
+    @Test
+    @AppModeFull // testSanitizeOnSaveWhenAppChangeValues() is enough to test ephemeral apps support
+    public void testDontSaveWhenInitialValueAndNoUserInputAndServiceDatasets() throws Throwable {
+        // Prepare activitiy.
+        startActivity();
+        mActivity.syncRunOnUiThread(() -> {
+            // NOTE: input's value must be a subset of the dataset value, otherwise the dataset
+            // picker is filtered out
+            mActivity.mInput.setText("f");
+            mActivity.mPassword.setText("b");
+        });
+
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_INPUT, "foo")
+                        .setField(ID_PASSWORD, "bar")
+                        .setPresentation(createPresentation("The Dude"))
+                        .build())
+                .setRequiredSavableIds(SAVE_DATA_TYPE_PASSWORD, ID_INPUT, ID_PASSWORD).build());
+
+        // Trigger auto-fill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
+        sReplier.getNextFillRequest();
+        mUiBot.assertDatasets("The Dude");
+
+        // Trigger save.
+        mActivity.getAutofillManager().commit();
+
+        // Assert it's not showing.
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD);
+    }
+
+    @Test
+    public void testExplicitySaveButton() throws Exception {
+        explicitySaveButtonTest(false, 0);
+    }
+
+    @Test
+    public void testExplicitySaveButtonWhenAppClearFields() throws Exception {
+        explicitySaveButtonTest(true, 0);
+    }
+
+    @Test
+    public void testExplicitySaveButtonOnly() throws Exception {
+        explicitySaveButtonTest(false, SaveInfo.FLAG_DONT_SAVE_ON_FINISH);
+    }
+
+    /**
+     * Tests scenario where service explicitly indicates which button is used to save.
+     */
+    private void explicitySaveButtonTest(boolean clearFieldsOnSubmit, int flags) throws Exception {
+        final boolean testBitmap = false;
+        startActivity();
+        mActivity.setAutoCommit(false);
+        mActivity.setClearFieldsOnSubmit(clearFieldsOnSubmit);
+
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_INPUT)
+                .setSaveTriggerId(mActivity.mCommit.getAutofillId())
+                .setSaveInfoFlags(flags)
+                .build());
+
+        // Trigger autofill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
+        sReplier.getNextFillRequest();
+        Helper.assertHasSessions(mPackageName);
+
+        // Trigger save.
+        mActivity.syncRunOnUiThread(() -> mActivity.mInput.setText("108"));
+
+        // Take a screenshot to make sure button doesn't disappear.
+        final String commitBefore = mUiBot.assertShownByRelativeId(ID_COMMIT).getText();
+        assertThat(commitBefore.toUpperCase()).isEqualTo("COMMIT");
+        // Disable unnecessary screenshot tests as takeScreenshot() fails on some device.
+
+        final Bitmap screenshotBefore = testBitmap ? mActivity.takeScreenshot(mActivity.mCommit)
+                : null;
+
+        // Save it...
+        mActivity.syncRunOnUiThread(() -> mActivity.mCommit.performClick());
+        final UiObject2 saveUi = mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
+        mUiBot.saveForAutofill(saveUi, true);
+
+        // Make sure save button is showning (it was removed on earlier versions of the feature)
+        final String commitAfter = mUiBot.assertShownByRelativeId(ID_COMMIT).getText();
+        assertThat(commitAfter.toUpperCase()).isEqualTo("COMMIT");
+        final Bitmap screenshotAfter = testBitmap ? mActivity.takeScreenshot(mActivity.mCommit)
+                : null;
+
+        // ... and assert results
+        final SaveRequest saveRequest = sReplier.getNextSaveRequest();
+        assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_INPUT), "108");
+
+        if (testBitmap) {
+            Helper.assertBitmapsAreSame("commit-button", screenshotBefore, screenshotAfter);
+        }
+    }
+
+    @Override
+    protected void tapLinkAfterUpdateAppliedTest(boolean updateLinkView) throws Exception {
+        startActivity();
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        final CustomDescription.Builder customDescription =
+                newCustomDescriptionBuilder(WelcomeActivity.class);
+        final RemoteViews update = newTemplate();
+        if (updateLinkView) {
+            update.setCharSequence(R.id.link, "setText", "TAP ME IF YOU CAN");
+        } else {
+            update.setCharSequence(R.id.static_text, "setText", "ME!");
+        }
+        Validator validCondition = new RegexValidator(mActivity.mInput.getAutofillId(),
+                Pattern.compile(".*"));
+        customDescription.batchUpdate(validCondition,
+                new BatchUpdates.Builder().updateTemplate(update).build());
+
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setCustomDescription(customDescription.build())
+                .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_INPUT)
+                .build());
+
+        // Trigger autofill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
+        sReplier.getNextFillRequest();
+        Helper.assertHasSessions(mPackageName);
+        // Trigger save.
+        mActivity.syncRunOnUiThread(() -> {
+            mActivity.mInput.setText("108");
+            mActivity.mCommit.performClick();
+        });
+        final UiObject2 saveUi;
+        if (updateLinkView) {
+            saveUi = assertSaveUiWithLinkIsShown(SAVE_DATA_TYPE_GENERIC, "TAP ME IF YOU CAN");
+        } else {
+            saveUi = assertSaveUiWithLinkIsShown(SAVE_DATA_TYPE_GENERIC);
+            final UiObject2 changed = saveUi.findObject(By.res(mPackageName, ID_STATIC_TEXT));
+            assertThat(changed.getText()).isEqualTo("ME!");
+        }
+
+        // Tap the link.
+        tapSaveUiLink(saveUi);
+
+        // Make sure new activity is shown...
+        WelcomeActivity.assertShowingDefaultMessage(mUiBot);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_GENERIC);
     }
 }

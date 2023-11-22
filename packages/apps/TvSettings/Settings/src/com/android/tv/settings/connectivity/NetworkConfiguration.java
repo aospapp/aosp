@@ -18,7 +18,6 @@ package com.android.tv.settings.connectivity;
 
 import android.net.IpConfiguration;
 import android.net.wifi.WifiManager;
-import android.os.Parcelable;
 
 /**
  * Provide unified interface for network configuration that works for both Wi-Fi and Ethernet.
@@ -53,22 +52,4 @@ public interface NetworkConfiguration {
      */
     public String getPrintableName();
 
-    /**
-     * Get parcelable for this configuration
-     *
-     * @return Parcelable
-     */
-    public Parcelable toParcelable();
-
-    /**
-     * Set values from a parcelable
-     *
-     * @param Parcelable
-     */
-    public void fromParcelable(Parcelable parcelable);
-
-    /**
-     * Get network type for this configuration defined in ConnectivityManager
-     */
-    public int getNetworkType();
 }

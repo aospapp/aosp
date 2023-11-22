@@ -16,7 +16,7 @@
 
 #define LOG_TAG "AsynchronousCloseMonitor"
 
-#include "AsynchronousCloseMonitor.h"
+#include <nativehelper/AsynchronousCloseMonitor.h>
 #include "cutils/log.h"
 
 #include <errno.h>

@@ -18,18 +18,19 @@
 
 #include "art_method-inl.h"
 #include "base/enums.h"
+#include "class_linker-inl.h"
 #include "common_runtime_test.h"
 #include "common_throws.h"
-#include "class_linker-inl.h"
-#include "dex_file.h"
+#include "dex/dex_file.h"
 #include "gc/scoped_gc_critical_section.h"
 #include "handle_scope-inl.h"
 #include "jni_internal.h"
 #include "jvalue.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
-#include "thread_list.h"
+#include "interpreter/shadow_frame.h"
 #include "thread-inl.h"
+#include "thread_list.h"
 #include "well_known_classes.h"
 
 namespace art {
@@ -46,9 +47,11 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
       received_field_read_event(false),
       received_field_written_event(false),
       received_field_written_object_event(false),
-      received_exception_caught_event(false),
+      received_exception_thrown_event(false),
+      received_exception_handled_event(false),
       received_branch_event(false),
-      received_invoke_virtual_or_interface_event(false) {}
+      received_invoke_virtual_or_interface_event(false),
+      received_watched_frame_pop(false) {}
 
   virtual ~TestInstrumentationListener() {}
 
@@ -123,10 +126,16 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
     received_field_written_event = true;
   }
 
-  void ExceptionCaught(Thread* thread ATTRIBUTE_UNUSED,
+  void ExceptionThrown(Thread* thread ATTRIBUTE_UNUSED,
                        Handle<mirror::Throwable> exception_object ATTRIBUTE_UNUSED)
       OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
-    received_exception_caught_event = true;
+    received_exception_thrown_event = true;
+  }
+
+  void ExceptionHandled(Thread* self ATTRIBUTE_UNUSED,
+                        Handle<mirror::Throwable> throwable ATTRIBUTE_UNUSED)
+      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+    received_exception_handled_event = true;
   }
 
   void Branch(Thread* thread ATTRIBUTE_UNUSED,
@@ -146,6 +155,11 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
     received_invoke_virtual_or_interface_event = true;
   }
 
+  void WatchedFramePop(Thread* thread ATTRIBUTE_UNUSED, const ShadowFrame& frame ATTRIBUTE_UNUSED)
+      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+    received_watched_frame_pop  = true;
+  }
+
   void Reset() {
     received_method_enter_event = false;
     received_method_exit_event = false;
@@ -155,9 +169,11 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
     received_field_read_event = false;
     received_field_written_event = false;
     received_field_written_object_event = false;
-    received_exception_caught_event = false;
+    received_exception_thrown_event = false;
+    received_exception_handled_event = false;
     received_branch_event = false;
     received_invoke_virtual_or_interface_event = false;
+    received_watched_frame_pop = false;
   }
 
   bool received_method_enter_event;
@@ -168,9 +184,11 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
   bool received_field_read_event;
   bool received_field_written_event;
   bool received_field_written_object_event;
-  bool received_exception_caught_event;
+  bool received_exception_thrown_event;
+  bool received_exception_handled_event;
   bool received_branch_event;
   bool received_invoke_virtual_or_interface_event;
+  bool received_watched_frame_pop;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(TestInstrumentationListener);
@@ -221,6 +239,7 @@ class InstrumentationTest : public CommonRuntimeTest {
 
     mirror::Object* const event_obj = nullptr;
     const uint32_t event_dex_pc = 0;
+    ShadowFrameAllocaUniquePtr test_frame = CREATE_SHADOW_FRAME(0, nullptr, event_method, 0);
 
     // Check the listener is registered and is notified of the event.
     EXPECT_TRUE(HasEventListener(instr, instrumentation_event));
@@ -231,7 +250,8 @@ class InstrumentationTest : public CommonRuntimeTest {
                 event_method,
                 event_obj,
                 event_field,
-                event_dex_pc);
+                event_dex_pc,
+                *test_frame);
     EXPECT_TRUE(DidListenerReceiveEvent(listener, instrumentation_event, with_object));
 
     listener.Reset();
@@ -250,7 +270,8 @@ class InstrumentationTest : public CommonRuntimeTest {
                 event_method,
                 event_obj,
                 event_field,
-                event_dex_pc);
+                event_dex_pc,
+                *test_frame);
     EXPECT_FALSE(DidListenerReceiveEvent(listener, instrumentation_event, with_object));
   }
 
@@ -355,12 +376,16 @@ class InstrumentationTest : public CommonRuntimeTest {
         return instr->HasFieldReadListeners();
       case instrumentation::Instrumentation::kFieldWritten:
         return instr->HasFieldWriteListeners();
-      case instrumentation::Instrumentation::kExceptionCaught:
-        return instr->HasExceptionCaughtListeners();
+      case instrumentation::Instrumentation::kExceptionThrown:
+        return instr->HasExceptionThrownListeners();
+      case instrumentation::Instrumentation::kExceptionHandled:
+        return instr->HasExceptionHandledListeners();
       case instrumentation::Instrumentation::kBranch:
         return instr->HasBranchListeners();
       case instrumentation::Instrumentation::kInvokeVirtualOrInterface:
         return instr->HasInvokeVirtualOrInterfaceListeners();
+      case instrumentation::Instrumentation::kWatchedFramePop:
+        return instr->HasWatchedFramePopListeners();
       default:
         LOG(FATAL) << "Unknown instrumentation event " << event_type;
         UNREACHABLE();
@@ -373,7 +398,8 @@ class InstrumentationTest : public CommonRuntimeTest {
                           ArtMethod* method,
                           mirror::Object* obj,
                           ArtField* field,
-                          uint32_t dex_pc)
+                          uint32_t dex_pc,
+                          const ShadowFrame& frame)
       REQUIRES_SHARED(Locks::mutator_lock_) {
     switch (event_type) {
       case instrumentation::Instrumentation::kMethodEntered:
@@ -398,10 +424,10 @@ class InstrumentationTest : public CommonRuntimeTest {
         instr->FieldWriteEvent(self, obj, method, dex_pc, field, value);
         break;
       }
-      case instrumentation::Instrumentation::kExceptionCaught: {
+      case instrumentation::Instrumentation::kExceptionThrown: {
         ThrowArithmeticExceptionDivideByZero();
         mirror::Throwable* event_exception = self->GetException();
-        instr->ExceptionCaughtEvent(self, event_exception);
+        instr->ExceptionThrownEvent(self, event_exception);
         self->ClearException();
         break;
       }
@@ -411,6 +437,16 @@ class InstrumentationTest : public CommonRuntimeTest {
       case instrumentation::Instrumentation::kInvokeVirtualOrInterface:
         instr->InvokeVirtualOrInterface(self, obj, method, dex_pc, method);
         break;
+      case instrumentation::Instrumentation::kWatchedFramePop:
+        instr->WatchedFramePopped(self, frame);
+        break;
+      case instrumentation::Instrumentation::kExceptionHandled: {
+        ThrowArithmeticExceptionDivideByZero();
+        mirror::Throwable* event_exception = self->GetException();
+        self->ClearException();
+        instr->ExceptionHandledEvent(self, event_exception);
+        break;
+      }
       default:
         LOG(FATAL) << "Unknown instrumentation event " << event_type;
         UNREACHABLE();
@@ -435,12 +471,16 @@ class InstrumentationTest : public CommonRuntimeTest {
       case instrumentation::Instrumentation::kFieldWritten:
         return (!with_object && listener.received_field_written_event) ||
             (with_object && listener.received_field_written_object_event);
-      case instrumentation::Instrumentation::kExceptionCaught:
-        return listener.received_exception_caught_event;
+      case instrumentation::Instrumentation::kExceptionThrown:
+        return listener.received_exception_thrown_event;
+      case instrumentation::Instrumentation::kExceptionHandled:
+        return listener.received_exception_handled_event;
       case instrumentation::Instrumentation::kBranch:
         return listener.received_branch_event;
       case instrumentation::Instrumentation::kInvokeVirtualOrInterface:
         return listener.received_invoke_virtual_or_interface_event;
+      case instrumentation::Instrumentation::kWatchedFramePop:
+        return listener.received_watched_frame_pop;
       default:
         LOG(FATAL) << "Unknown instrumentation event " << event_type;
         UNREACHABLE();
@@ -463,7 +503,8 @@ TEST_F(InstrumentationTest, NoInstrumentation) {
 
   // Check there is no registered listener.
   EXPECT_FALSE(instr->HasDexPcListeners());
-  EXPECT_FALSE(instr->HasExceptionCaughtListeners());
+  EXPECT_FALSE(instr->HasExceptionThrownListeners());
+  EXPECT_FALSE(instr->HasExceptionHandledListeners());
   EXPECT_FALSE(instr->HasFieldReadListeners());
   EXPECT_FALSE(instr->HasFieldWriteListeners());
   EXPECT_FALSE(instr->HasMethodEntryListeners());
@@ -473,7 +514,23 @@ TEST_F(InstrumentationTest, NoInstrumentation) {
 
 // Test instrumentation listeners for each event.
 TEST_F(InstrumentationTest, MethodEntryEvent) {
-  TestEvent(instrumentation::Instrumentation::kMethodEntered);
+  ScopedObjectAccess soa(Thread::Current());
+  jobject class_loader = LoadDex("Instrumentation");
+  Runtime* const runtime = Runtime::Current();
+  ClassLinker* class_linker = runtime->GetClassLinker();
+  StackHandleScope<1> hs(soa.Self());
+  Handle<mirror::ClassLoader> loader(hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader)));
+  mirror::Class* klass = class_linker->FindClass(soa.Self(), "LInstrumentation;", loader);
+  ASSERT_TRUE(klass != nullptr);
+  ArtMethod* method =
+      klass->FindClassMethod("returnReference", "()Ljava/lang/Object;", kRuntimePointerSize);
+  ASSERT_TRUE(method != nullptr);
+  ASSERT_TRUE(method->IsDirect());
+  ASSERT_TRUE(method->GetDeclaringClass() == klass);
+  TestEvent(instrumentation::Instrumentation::kMethodEntered,
+            /*event_method*/ method,
+            /*event_field*/ nullptr,
+            /*with_object*/ true);
 }
 
 TEST_F(InstrumentationTest, MethodExitObjectEvent) {
@@ -527,6 +584,10 @@ TEST_F(InstrumentationTest, FieldReadEvent) {
   TestEvent(instrumentation::Instrumentation::kFieldRead);
 }
 
+TEST_F(InstrumentationTest, WatchedFramePop) {
+  TestEvent(instrumentation::Instrumentation::kWatchedFramePop);
+}
+
 TEST_F(InstrumentationTest, FieldWriteObjectEvent) {
   ScopedObjectAccess soa(Thread::Current());
   jobject class_loader = LoadDex("Instrumentation");
@@ -563,8 +624,12 @@ TEST_F(InstrumentationTest, FieldWritePrimEvent) {
             /*with_object*/ false);
 }
 
-TEST_F(InstrumentationTest, ExceptionCaughtEvent) {
-  TestEvent(instrumentation::Instrumentation::kExceptionCaught);
+TEST_F(InstrumentationTest, ExceptionHandledEvent) {
+  TestEvent(instrumentation::Instrumentation::kExceptionHandled);
+}
+
+TEST_F(InstrumentationTest, ExceptionThrownEvent) {
+  TestEvent(instrumentation::Instrumentation::kExceptionThrown);
 }
 
 TEST_F(InstrumentationTest, BranchEvent) {

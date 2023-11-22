@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"ቪ ፒ ኤን እና መተግበሪያዎች"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"ማስታወሻ፦ የዚህ እውቅና ማረጋገጫ ሰጪ ወደ መሣሪያው የሚሄድ እና ከመሣሪያው የሚመጣ ትራፊክ ሁሉ ሊመረምር ይችላል።"</string>
     <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi መገለጫ"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"ዝርዝሮች ለ%s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"ዝርዝሮች"</string>

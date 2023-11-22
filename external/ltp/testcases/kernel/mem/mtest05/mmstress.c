@@ -121,7 +121,6 @@
 #define FAILED       (-1)	/* return status for all funcs indicating failure   */
 #define SUCCESS      0		/* return status for all routines indicating success */
 
-#define MAXTEST      6		/* total number of testcase in this program          */
 #define BRKSZ        512*1024	/* program data space allocation value          */
 
 static volatile int wait_thread;	/* used to wake up sleeping threads    */
@@ -632,7 +631,8 @@ static void run_test(unsigned int i)
 int main(int argc, char **argv)
 {
 	static char *version_info = "mmstress V1.00 04/17/2001";
-	int ch, i;
+	int ch;
+	unsigned int i;
 	int test_num = 0;
 	int test_time = 0;
 	int run_once = TRUE;
@@ -706,15 +706,15 @@ int main(int argc, char **argv)
 
 	do {
 		if (!test_num) {
-			for (i = 0; i < MAXTEST; i++)
+			for (i = 0; i < ARRAY_SIZE(test_ptr); i++)
 				run_test(i);
 		} else {
-			if (test_num >= MAXTEST) {
+			if (test_num > (int)ARRAY_SIZE(test_ptr)) {
 				tst_brkm(TBROK, NULL, "Invalid test number %i",
 					 test_num);
 			}
 
-			run_test(test_num);
+			run_test(test_num-1);
 		}
 	} while (!run_once);
 

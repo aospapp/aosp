@@ -21,11 +21,12 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_JAVA_LIBRARIES := android.test.runner
 LOCAL_PACKAGE_NAME := TeleServiceTests
+LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_CERTIFICATE := platform
 
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_JAVA_LIBRARIES := telephony-common android-support-test
+LOCAL_JAVA_LIBRARIES := telephony-common android.test.base
 
 LOCAL_INSTRUMENTATION_FOR := TeleService
 
@@ -33,8 +34,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
         android-support-test \
         mockito-target-minus-junit4 \
         espresso-core \
-        truth-prebuilt \
-        legacy-android-test
+        truth-prebuilt
 
 LOCAL_COMPATIBILITY_SUITE := device-tests
 

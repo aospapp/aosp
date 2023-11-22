@@ -16,22 +16,23 @@
 """Class to fetch artifacts from internal build server.
 """
 
-import apiclient
+import googleapiclient
 import httplib2
 import io
 import json
 import logging
 import re
 import time
-from apiclient.discovery import build
+from googleapiclient.discovery import build
 from oauth2client import client as oauth2_client
 from oauth2client.service_account import ServiceAccountCredentials
-from vts.utils.python.retry import retry
 
 logger = logging.getLogger('artifact_fetcher')
 
+
 class DriverError(Exception):
     """Base Android GCE driver exception."""
+
 
 class AndroidBuildClient(object):
     """Client that manages Android Build.
@@ -46,15 +47,7 @@ class AndroidBuildClient(object):
         DEFAULT_ATTEMPT_ID: string, default attempt to request for the artifact.
         DEFAULT_CHUNK_SIZE: int, number of bytes to download at a time.
         RETRY_COUNT: int, max number of retries.
-        RETRY_BACKOFF_FACTOR: float, base of exponential determining sleep time.
-                              total_time = (backoff_factor^(attempt - 1))*sleep
-        RETRY_SLEEP_MULTIPLIER: float, multiplier for how long to sleep between
-                                attempts.
-        RETRY_HTTP_CODES: int array, HTTP codes for which a retry will be
-                          attempted.
-        RETRIABLE_AUTH_ERRORS: class tuple, list of error classes for which a
-                               retry will be attempted.
-
+        RETRY_DELAY_IN_SECS: int, time delays between retries in seconds.
     """
 
     API_NAME = "androidbuildinternal"
@@ -62,21 +55,17 @@ class AndroidBuildClient(object):
     SCOPE = "https://www.googleapis.com/auth/androidbuild.internal"
 
     # other variables.
-    DEFAULT_RESOURCE_ID = "0"
+    BUILDS_KEY = "builds"
+    BUILD_ID_KEY = "buildId"
     DEFAULT_ATTEMPT_ID = "latest"
+    DEFAULT_BUILD_ATTEMPT_STATUS = "complete"
+    DEFAULT_BUILD_TYPE = "submitted"
     DEFAULT_CHUNK_SIZE = 20 * 1024 * 1024
+    DEFAULT_RESOURCE_ID = "0"
 
     # Defaults for retry.
     RETRY_COUNT = 5
-    RETRY_BACKOFF_FACTOR = 1.5
-    RETRY_SLEEP_MULTIPLIER = 1
-    RETRY_HTTP_CODES = [
-        500,  # Internal Server Error
-        502,  # Bad Gateway
-        503,  # Service Unavailable
-    ]
-
-    RETRIABLE_AUTH_ERRORS = (oauth2_client.AccessTokenRefreshError,)
+    RETRY_DELAY_IN_SECS = 3
 
     def __init__(self, oauth2_service_json):
         """Initialize.
@@ -87,18 +76,29 @@ class AndroidBuildClient(object):
         authToken = ServiceAccountCredentials.from_json_keyfile_name(
             oauth2_service_json, [self.SCOPE])
         http_auth = authToken.authorize(httplib2.Http())
-        self.service = retry.RetryException(
-            exc_retry=self.RETRIABLE_AUTH_ERRORS,
-            max_retry=self.RETRY_COUNT,
-            functor=build,
-            sleep=self.RETRY_SLEEP_MULTIPLIER,
-            backoff_factor=self.RETRY_BACKOFF_FACTOR,
-            serviceName=self.API_NAME,
-            version=self.API_VERSION,
-            http=http_auth)
+        for _ in xrange(self.RETRY_COUNT):
+            try:
+                self.service = build(
+                    serviceName=self.API_NAME,
+                    version=self.API_VERSION,
+                    http=http_auth)
+                break
+            except oauth2_client.AccessTokenRefreshError as e:
+                # The following HTTP code typically indicates transient errors:
+                #    500  (Internal Server Error)
+                #    502  (Bad Gateway)
+                #    503  (Service Unavailable)
+                logging.exception(e)
+                logging.info("Retrying to connect to %s", self.API_NAME)
+                time.sleep(self.RETRY_DELAY_IN_SECS)
 
-    def GetArtifact(self, branch, build_target, build_id, resource_id,
-                         attempt_id=None):
+    def DownloadArtifactToFile(self,
+                               branch,
+                               build_target,
+                               build_id,
+                               resource_id,
+                               dest_filepath,
+                               attempt_id=None):
         """Get artifact from android build server.
 
         Args:
@@ -106,31 +106,67 @@ class AndroidBuildClient(object):
             build_target: Target name, e.g. "gce_x86-userdebug"
             build_id: Build id, a string, e.g. "2263051", "P2804227"
             resource_id: Name of resource to be downloaded, a string.
-            attempt_id: String, attempt id, will default to DEFAULT_ATTEMPT_ID.
-
+            attempt_id: string, attempt id, will default to DEFAULT_ATTEMPT_ID.
+            dest_filepath: string, set a file path to store to a file.
 
         Returns:
-            Contents of the requested resource as a string.
+            Contents of the requested resource as a string if dest_filepath is None;
+            None otherwise.
+        """
+        return self.GetArtifact(branch, build_target, build_id, resource_id,
+                                attempt_id=attempt_id, dest_filepath=dest_filepath)
+
+    def GetArtifact(self,
+                    branch,
+                    build_target,
+                    build_id,
+                    resource_id,
+                    attempt_id=None,
+                    dest_filepath=None):
+        """Get artifact from android build server.
+
+        Args:
+            branch: Branch from which the code was built, e.g. "master"
+            build_target: Target name, e.g. "gce_x86-userdebug"
+            build_id: Build id, a string, e.g. "2263051", "P2804227"
+            resource_id: Name of resource to be downloaded, a string.
+            attempt_id: string, attempt id, will default to DEFAULT_ATTEMPT_ID.
+            dest_filepath: string, set a file path to store to a file.
+
+        Returns:
+            Contents of the requested resource as a string if dest_filepath is None;
+            None otherwise.
         """
         attempt_id = attempt_id or self.DEFAULT_ATTEMPT_ID
         api = self.service.buildartifact().get_media(
             buildId=build_id,
-            target=build_target, attemptId=attempt_id,
+            target=build_target,
+            attemptId=attempt_id,
             resourceId=resource_id)
         logger.info("Downloading artifact: target: %s, build_id: %s, "
                     "resource_id: %s", build_target, build_id, resource_id)
+        fh = None
         try:
-            with io.BytesIO() as mem_buffer:
-                downloader = apiclient.http.MediaIoBaseDownload(
-                    mem_buffer, api, chunksize=self.DEFAULT_CHUNK_SIZE)
-                done = False
-                while not done:
-                    _, done = downloader.next_chunk()
-                logger.info("Downloaded artifact %s" % resource_id)
-                return mem_buffer.getvalue()
+            if dest_filepath:
+                fh = io.FileIO(dest_filepath, mode='wb')
+            else:
+                fh = io.BytesIO()
+
+            downloader = googleapiclient.http.MediaIoBaseDownload(
+                fh, api, chunksize=self.DEFAULT_CHUNK_SIZE)
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+            logger.info("Downloaded artifact %s" % resource_id)
+
+            if not dest_filepath:
+                return fh.getvalue()
         except OSError as e:
             logger.error("Downloading artifact failed: %s", str(e))
             raise DriverError(str(e))
+        finally:
+            if fh:
+                fh.close()
 
     def GetManifest(self, branch, build_target, build_id, attempt_id=None):
         """Get Android build manifest XML file.
@@ -149,7 +185,11 @@ class AndroidBuildClient(object):
         return self.GetArtifact(branch, build_target, build_id, resource_id,
                                 attempt_id)
 
-    def GetRepoDictionary(self, branch, build_target, build_id, attempt_id=None):
+    def GetRepoDictionary(self,
+                          branch,
+                          build_target,
+                          build_id,
+                          attempt_id=None):
         """Get dictionary of repositories and git revision IDs
 
         Args:
@@ -171,7 +211,11 @@ class AndroidBuildClient(object):
             logger.warn("Could not find repo dictionary.")
             return {}
 
-    def GetCoverage(self, branch, build_target, build_id, product,
+    def GetCoverage(self,
+                    branch,
+                    build_target,
+                    build_id,
+                    product,
                     attempt_id=None):
         """Get Android build coverage zip file.
 
@@ -189,3 +233,33 @@ class AndroidBuildClient(object):
         resource_id = ("%s-coverage-%s.zip" % (product, build_id))
         return self.GetArtifact(branch, build_target, build_id, resource_id,
                                 attempt_id)
+
+    def ListBuildIds(self,
+                     branch,
+                     build_target,
+                     limit=1,
+                     build_type=DEFAULT_BUILD_TYPE,
+                     build_attempt_status=DEFAULT_BUILD_ATTEMPT_STATUS):
+        """Get a list of most recent build IDs.
+
+        Args:
+            branch: Branch from which the code was built, e.g. "master"
+            build_target: Target name, e.g. "gce_x86-userdebug"
+            limit: (optional) an int, max number of build IDs to fetch,
+                default of 1
+            build_type: (optional) a string, the build type to filter, default
+                of "submitted"
+            build_attempt_status: (optional) a string, the build attempt status
+                to filter, default of "completed"
+
+        Returns:
+            A list of build ID strings in reverse time order.
+        """
+        builds = self.service.build().list(
+            branch=branch,
+            target=build_target,
+            maxResults=limit,
+            buildType=build_type,
+            buildAttemptStatus=build_attempt_status).execute()
+        return [str(build.get(self.BUILD_ID_KEY))
+                for build in builds.get(self.BUILDS_KEY)]

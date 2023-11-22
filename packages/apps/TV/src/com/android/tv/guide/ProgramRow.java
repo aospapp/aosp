@@ -24,12 +24,9 @@ import android.util.Log;
 import android.util.Range;
 import android.view.View;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
-
-import com.android.tv.MainActivity;
-import com.android.tv.data.Channel;
+import com.android.tv.data.api.Channel;
 import com.android.tv.guide.ProgramManager.TableEntry;
 import com.android.tv.util.Utils;
-
 import java.util.concurrent.TimeUnit;
 
 public class ProgramRow extends TimelineGridView {
@@ -47,25 +44,23 @@ public class ProgramRow extends TimelineGridView {
 
     interface ChildFocusListener {
         /**
-         * Is called after focus is moved. Caller should check if old and new focuses are
-         * listener's children.
-         * See {@code ProgramRow#setChildFocusListener(ChildFocusListener)}.
+         * Is called after focus is moved. Caller should check if old and new focuses are listener's
+         * children. See {@code ProgramRow#setChildFocusListener(ChildFocusListener)}.
          */
         void onChildFocus(View oldFocus, View newFocus);
     }
 
-    /**
-     * Used only for debugging.
-     */
+    /** Used only for debugging. */
     private Channel mChannel;
 
-    private final OnGlobalLayoutListener mLayoutListener = new OnGlobalLayoutListener() {
-        @Override
-        public void onGlobalLayout() {
-            getViewTreeObserver().removeOnGlobalLayoutListener(this);
-            updateChildVisibleArea();
-        }
-    };
+    private final OnGlobalLayoutListener mLayoutListener =
+            new OnGlobalLayoutListener() {
+                @Override
+                public void onGlobalLayout() {
+                    getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                    updateChildVisibleArea();
+                }
+            };
 
     public ProgramRow(Context context) {
         this(context, null);
@@ -79,9 +74,7 @@ public class ProgramRow extends TimelineGridView {
         super(context, attrs, defStyle);
     }
 
-    /**
-     * Registers a listener focus events occurring on children to the {@code ProgramRow}.
-     */
+    /** Registers a listener focus events occurring on children to the {@code ProgramRow}. */
     public void setChildFocusListener(ChildFocusListener childFocusListener) {
         mChildFocusListener = childFocusListener;
     }
@@ -108,9 +101,7 @@ public class ProgramRow extends TimelineGridView {
         updateChildVisibleArea();
     }
 
-    /**
-     * Moves focus to the current program.
-     */
+    /** Moves focus to the current program. */
     public void focusCurrentProgram() {
         View currentProgram = getCurrentProgramView();
         if (currentProgram == null) {
@@ -124,13 +115,15 @@ public class ProgramRow extends TimelineGridView {
     // Call this API after RTL is resolved. (i.e. View is measured.)
     private boolean isDirectionStart(int direction) {
         return getLayoutDirection() == LAYOUT_DIRECTION_LTR
-                ? direction == View.FOCUS_LEFT : direction == View.FOCUS_RIGHT;
+                ? direction == View.FOCUS_LEFT
+                : direction == View.FOCUS_RIGHT;
     }
 
     // Call this API after RTL is resolved. (i.e. View is measured.)
     private boolean isDirectionEnd(int direction) {
         return getLayoutDirection() == LAYOUT_DIRECTION_LTR
-                ? direction == View.FOCUS_RIGHT : direction == View.FOCUS_LEFT;
+                ? direction == View.FOCUS_RIGHT
+                : direction == View.FOCUS_LEFT;
     }
 
     @Override
@@ -142,8 +135,8 @@ public class ProgramRow extends TimelineGridView {
         if (isDirectionStart(direction) || direction == View.FOCUS_BACKWARD) {
             if (focusedEntry.entryStartUtcMillis < fromMillis) {
                 // The current entry starts outside of the view; Align or scroll to the left.
-                scrollByTime(Math.max(-ONE_HOUR_MILLIS,
-                        focusedEntry.entryStartUtcMillis - fromMillis));
+                scrollByTime(
+                        Math.max(-ONE_HOUR_MILLIS, focusedEntry.entryStartUtcMillis - fromMillis));
                 return focused;
             }
         } else if (isDirectionEnd(direction) || direction == View.FOCUS_FORWARD) {
@@ -169,17 +162,19 @@ public class ProgramRow extends TimelineGridView {
         TableEntry targetEntry = ((ProgramItemView) target).getTableEntry();
 
         if (isDirectionStart(direction) || direction == View.FOCUS_BACKWARD) {
-            if (targetEntry.entryStartUtcMillis < fromMillis &&
-                    targetEntry.entryEndUtcMillis < fromMillis + HALF_HOUR_MILLIS) {
+            if (targetEntry.entryStartUtcMillis < fromMillis
+                    && targetEntry.entryEndUtcMillis < fromMillis + HALF_HOUR_MILLIS) {
                 // The target entry starts outside the view; Align or scroll to the left.
-                scrollByTime(Math.max(-ONE_HOUR_MILLIS,
-                        targetEntry.entryStartUtcMillis - fromMillis));
+                scrollByTime(
+                        Math.max(-ONE_HOUR_MILLIS, targetEntry.entryStartUtcMillis - fromMillis));
             }
         } else if (isDirectionEnd(direction) || direction == View.FOCUS_FORWARD) {
             if (targetEntry.entryStartUtcMillis > fromMillis + ONE_HOUR_MILLIS + HALF_HOUR_MILLIS) {
                 // The target entry starts outside the view; Align or scroll to the right.
-                scrollByTime(Math.min(ONE_HOUR_MILLIS,
-                        targetEntry.entryStartUtcMillis - fromMillis - ONE_HOUR_MILLIS));
+                scrollByTime(
+                        Math.min(
+                                ONE_HOUR_MILLIS,
+                                targetEntry.entryStartUtcMillis - fromMillis - ONE_HOUR_MILLIS));
             }
         }
 
@@ -188,8 +183,11 @@ public class ProgramRow extends TimelineGridView {
 
     private void scrollByTime(long timeToScroll) {
         if (DEBUG) {
-            Log.d(TAG, "scrollByTime(timeToScroll="
-                    + TimeUnit.MILLISECONDS.toMinutes(timeToScroll) + "min)");
+            Log.d(
+                    TAG,
+                    "scrollByTime(timeToScroll="
+                            + TimeUnit.MILLISECONDS.toMinutes(timeToScroll)
+                            + "min)");
         }
         mProgramManager.shiftTime(timeToScroll);
     }
@@ -203,12 +201,13 @@ public class ProgramRow extends TimelineGridView {
                 // The focus is lost due to information loaded. Requests focus immediately.
                 // (Because this entry is detached after real entries attached, we can't take
                 // the below approach to resume focus on entry being attached.)
-                post(new Runnable() {
-                    @Override
-                    public void run() {
-                        requestFocus();
-                    }
-                });
+                post(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                requestFocus();
+                            }
+                        });
             } else if (entry.isCurrentProgram()) {
                 if (DEBUG) Log.d(TAG, "Keep focus to the current program");
                 // Current program is visible in the guide.
@@ -227,12 +226,13 @@ public class ProgramRow extends TimelineGridView {
             TableEntry entry = ((ProgramItemView) child).getTableEntry();
             if (entry.isCurrentProgram()) {
                 mKeepFocusToCurrentProgram = false;
-                post(new Runnable() {
-                    @Override
-                    public void run() {
-                        requestFocus();
-                    }
-                });
+                post(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                requestFocus();
+                            }
+                        });
             }
         }
     }
@@ -243,8 +243,12 @@ public class ProgramRow extends TimelineGridView {
 
         // Give focus according to the previous focused range
         Range<Integer> focusRange = programGrid.getFocusRange();
-        View nextFocus = GuideUtils.findNextFocusedProgram(this, focusRange.getLower(),
-                focusRange.getUpper(), programGrid.isKeepCurrentProgramFocused());
+        View nextFocus =
+                GuideUtils.findNextFocusedProgram(
+                        this,
+                        focusRange.getLower(),
+                        focusRange.getUpper(),
+                        programGrid.isKeepCurrentProgramFocused());
 
         if (nextFocus != null) {
             return nextFocus.requestFocus();
@@ -279,30 +283,29 @@ public class ProgramRow extends TimelineGridView {
         mChannel = channel;
     }
 
-    /**
-     * Sets the instance of {@link ProgramGuide}
-     */
+    /** Sets the instance of {@link ProgramGuide} */
     public void setProgramGuide(ProgramGuide programGuide) {
         mProgramGuide = programGuide;
         mProgramManager = programGuide.getProgramManager();
     }
 
-    /**
-     * Resets the scroll with the initial offset {@code scrollOffset}.
-     */
+    /** Resets the scroll with the initial offset {@code scrollOffset}. */
     public void resetScroll(int scrollOffset) {
-        long startTime = GuideUtils.convertPixelToMillis(scrollOffset)
-                + mProgramManager.getStartTime();
-        int position = mChannel == null ? -1 : mProgramManager.getProgramIndexAtTime(
-                mChannel.getId(), startTime);
+        long startTime =
+                GuideUtils.convertPixelToMillis(scrollOffset) + mProgramManager.getStartTime();
+        int position =
+                mChannel == null
+                        ? -1
+                        : mProgramManager.getProgramIndexAtTime(mChannel.getId(), startTime);
         if (position < 0) {
             getLayoutManager().scrollToPosition(0);
         } else {
             TableEntry entry = mProgramManager.getTableEntry(mChannel.getId(), position);
-            int offset = GuideUtils.convertMillisToPixel(
-                    mProgramManager.getStartTime(), entry.entryStartUtcMillis) - scrollOffset;
-            ((LinearLayoutManager) getLayoutManager())
-                    .scrollToPositionWithOffset(position, offset);
+            int offset =
+                    GuideUtils.convertMillisToPixel(
+                                    mProgramManager.getStartTime(), entry.entryStartUtcMillis)
+                            - scrollOffset;
+            ((LinearLayoutManager) getLayoutManager()).scrollToPositionWithOffset(position, offset);
             // Workaround to b/31598505. When a program's duration is too long,
             // RecyclerView.onScrolled() will not be called after scrollToPositionWithOffset().
             // Therefore we have to update children's visible areas by ourselves in this case.

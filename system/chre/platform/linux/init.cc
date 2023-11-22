@@ -20,7 +20,9 @@
 #include "chre/core/init.h"
 #include "chre/core/nanoapp.h"
 #include "chre/core/static_nanoapps.h"
+#include "chre/platform/platform_audio.h"
 #include "chre/platform/context.h"
+#include "chre/platform/fatal_error.h"
 #include "chre/platform/log.h"
 #include "chre/platform/shared/platform_log.h"
 #include "chre/platform/system_timer.h"
@@ -55,14 +57,37 @@ int main(int argc, char **argv) {
   try {
     // Parse command-line arguments.
     TCLAP::CmdLine cmd(kSimDescription, ' ', kSimVersion);
-    TCLAP::SwitchArg no_static_nanoapps_arg("", "no_static_nanoapps",
+    TCLAP::SwitchArg noStaticNanoappsArg("", "no_static_nanoapps",
         "disable running static nanoapps", cmd, false);
-    TCLAP::MultiArg<std::string> nanoapps_arg("", "nanoapp",
-        "a nanoapp shared object to load and execute", false, "path", cmd);
+    TCLAP::MultiArg<std::string> nanoappsArg("", "nanoapp",
+        "nanoapp shared object to load and execute", false, "path", cmd);
+#ifdef CHRE_AUDIO_SUPPORT_ENABLED
+    TCLAP::ValueArg<std::string> audioFileArg("", "audio_file",
+        "WAV file to open for audio simulation", false, "", "path", cmd);
+    TCLAP::ValueArg<double> minAudioBufSizeArg("", "min_audio_buf_size",
+        "min buffer size for audio simulation", false, 1.0, "seconds", cmd);
+    TCLAP::ValueArg<double> maxAudioBufSizeArg("", "max_audio_buf_size",
+        "max buffer size for audio simulation", false, 10.0, "seconds", cmd);
+#endif  // CHRE_AUDIO_SUPPORT_ENABLED
     cmd.parse(argc, argv);
 
-    // Initialize the system.
+    // Initialize logging.
     chre::PlatformLogSingleton::init();
+
+#ifdef CHRE_AUDIO_SUPPORT_ENABLED
+    // Initialize audio sources.
+    if (!audioFileArg.getValue().empty()) {
+      auto audioSource = chre::MakeUnique<chre::AudioSource>(
+          audioFileArg.getValue(), minAudioBufSizeArg.getValue(),
+          maxAudioBufSizeArg.getValue());
+      chre::PlatformAudio::addAudioSource(audioSource);
+    }
+
+    // TODO(P1-d24c82): Add another command line argument that takes a json
+    // configuration to support multiple sources.
+#endif  // CHRE_AUDIO_SUPPORT_ENABLED
+
+    // Initialize the system.
     chre::init();
 
     // Register a signal handler.
@@ -71,13 +96,13 @@ int main(int argc, char **argv) {
     // Load any static nanoapps and start the event loop.
     std::thread chreThread([&]() {
       // Load static nanoapps unless they are disabled by a command-line flag.
-      if (!no_static_nanoapps_arg.getValue()) {
+      if (!noStaticNanoappsArg.getValue()) {
         chre::loadStaticNanoapps();
       }
 
       // Load dynamic nanoapps specified on the command-line.
       chre::DynamicVector<chre::UniquePtr<chre::Nanoapp>> dynamicNanoapps;
-      for (const auto& nanoapp : nanoapps_arg.getValue()) {
+      for (const auto& nanoapp : nanoappsArg.getValue()) {
         dynamicNanoapps.push_back(chre::MakeUnique<chre::Nanoapp>());
         dynamicNanoapps.back()->loadFromFile(nanoapp);
         EventLoopManagerSingleton::get()->getEventLoop()

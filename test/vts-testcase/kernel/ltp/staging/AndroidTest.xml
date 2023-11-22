@@ -14,16 +14,15 @@
      limitations under the License.
 -->
 <configuration description="Config for VTS kernel LTP KernelLtpStagingTest tests">
+    <option name="config-descriptor:metadata" key="plan" value="vts-staging-kernel" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="push-group" value="HostDrivenTest.push" />
-    </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer">
     </target_preparer>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsKernelLtpStaging" />
         <option name="test-timeout" value="3h30m" />
         <option name="runtime-hint" value="1h30m" />
         <option name="test-case-path" value="vts/testcases/kernel/ltp/KernelLtpTest" />
-        <option name="test-config-path" value="vts/testcases/kernel/ltp/staging/KernelLtpTest.config" />
+        <option name="test-config-path" value="vts/testcases/kernel/ltp/staging/KernelLtpStagingTest.runner_conf" />
     </test>
 </configuration>

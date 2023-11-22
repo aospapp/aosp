@@ -36,7 +36,6 @@ public class VvmSmsReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         VisualVoicemailSms sms = intent.getExtras()
                 .getParcelable(VoicemailContract.EXTRA_VOICEMAIL_SMS);
-
         if (sms.getPhoneAccountHandle() == null) {
             // This should never happen
             VvmLog.e(TAG, "Received message for null phone account");
@@ -49,11 +48,12 @@ public class VvmSmsReceiver extends BroadcastReceiver {
             return;
         }
 
-        if (RemoteVvmTaskManager.hasRemoteService(context, subId)) {
+        String targetPackage = intent.getExtras().getString(VoicemailContract.EXTRA_TARGET_PACKAGE);
+        if (RemoteVvmTaskManager.hasRemoteService(context, subId, targetPackage)) {
             VvmLog.i(TAG, "Sending SMS received event to remote service");
-            RemoteVvmTaskManager.startSmsReceived(context, sms);
+            RemoteVvmTaskManager.startSmsReceived(context, sms, targetPackage);
         } else {
-            VvmLog.w(TAG, "Sending SMS received event to remote service");
-        };
+            VvmLog.w(TAG, "No remote service to handle SMS received event");
+        }
     }
 }

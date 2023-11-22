@@ -22,46 +22,45 @@ import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 
-/**
- * Helper class for the execution in the fragment.
- */
+/** Helper class for the execution in the fragment. */
 public class SetupActionHelper {
     private static final String TAG = "SetupActionHelper";
 
-    /**
-     * Executes the action.
-     */
+    /** Executes the action. */
     public static boolean onActionClick(Fragment fragment, String category, int actionId) {
         return onActionClick(fragment, category, actionId, null);
     }
 
-    /**
-     * Executes the action.
-     */
-    public static boolean onActionClick(Fragment fragment, String category, int actionId,
-            Bundle params) {
+    /** Executes the action. */
+    public static boolean onActionClick(
+            Fragment fragment, String category, int actionId, Bundle params) {
         if (fragment.getActivity() instanceof OnActionClickListener) {
-            return ((OnActionClickListener) fragment.getActivity()).onActionClick(category,
-                    actionId, params);
+            return ((OnActionClickListener) fragment.getActivity())
+                    .onActionClick(category, actionId, params);
         }
-        Log.e(TAG, "Activity can't handle the action: {category=" + category + ", actionId="
-                + actionId + ", params=" + params + "}");
+        Log.e(
+                TAG,
+                "Activity can't handle the action: {category="
+                        + category
+                        + ", actionId="
+                        + actionId
+                        + ", params="
+                        + params
+                        + "}");
         return false;
     }
 
-    /**
-     * Creates an {@link OnClickListener} to handle the action.
-     */
-    public static OnClickListener createOnClickListenerForAction(Fragment fragment, String category,
-            int actionId, Bundle params) {
+    /** Creates an {@link OnClickListener} to handle the action. */
+    public static OnClickListener createOnClickListenerForAction(
+            Fragment fragment, String category, int actionId, Bundle params) {
         return new OnActionClickListenerForAction(fragment, category, actionId, params);
     }
 
     /**
      * The {@link OnClickListener} for the view.
-     * <p>
-     * Note that this class should be used only for the views in the {@code mFragment} to avoid the
-     * leak of mFragment.
+     *
+     * <p>Note that this class should be used only for the views in the {@code mFragment} to avoid
+     * the leak of mFragment.
      */
     private static class OnActionClickListenerForAction implements OnClickListener {
         private final Fragment mFragment;
@@ -69,8 +68,8 @@ public class SetupActionHelper {
         private final int mActionId;
         private final Bundle mParams;
 
-        OnActionClickListenerForAction(Fragment fragment, String category, int actionId,
-                Bundle params) {
+        OnActionClickListenerForAction(
+                Fragment fragment, String category, int actionId, Bundle params) {
             mFragment = fragment;
             mCategory = category;
             mActionId = actionId;
@@ -83,5 +82,5 @@ public class SetupActionHelper {
         }
     }
 
-    private SetupActionHelper() { }
+    private SetupActionHelper() {}
 }

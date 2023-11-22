@@ -36,8 +36,10 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Binder;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.IBinder.DeathRecipient;
+import android.os.Message;
 import android.os.Process;
 import android.os.RemoteException;
 import android.text.TextUtils;
@@ -92,6 +94,10 @@ public class InstrumentClusterService implements CarServiceBase,
     @GuardedBy("mSync")
     private final HashMap<IBinder, ManagerCallbackInfo> mManagerCallbacks = new HashMap<>();
 
+    // If renderer service crashed / stopped and this class fails to rebind with it immediately,
+    // we should wait some time before next attempt. This may happen during APK update for example.
+    private DeferredRebinder mDeferredRebinder;
+
     private boolean mRendererBound = false;
 
     private final ServiceConnection mRendererServiceConnection = new ServiceConnection() {
@@ -114,11 +120,16 @@ public class InstrumentClusterService implements CarServiceBase,
         @Override
         public void onServiceDisconnected(ComponentName name) {
             Log.d(TAG, "onServiceDisconnected, name: " + name);
+            mRendererBound = false;
+
             synchronized (mSync) {
                 mRendererService = null;
             }
-            // Try to rebind with instrument cluster.
-            mRendererBound = bindInstrumentClusterRendererService();
+
+            if (mDeferredRebinder == null) {
+                mDeferredRebinder = new DeferredRebinder();
+            }
+            mDeferredRebinder.rebind();
         }
     };
 
@@ -225,7 +236,8 @@ public class InstrumentClusterService implements CarServiceBase,
                 InstrumentClusterRenderingService.EXTRA_KEY_CALLBACK_SERVICE,
                 mClusterCallback);
         intent.putExtras(extras);
-        return mContext.bindService(intent, mRendererServiceConnection, Context.BIND_AUTO_CREATE);
+        return mContext.bindService(intent, mRendererServiceConnection,
+                Context.BIND_AUTO_CREATE | Context.BIND_IMPORTANT);
     }
 
     @Nullable
@@ -458,6 +470,7 @@ public class InstrumentClusterService implements CarServiceBase,
         }
     }
 
+    @GuardedBy("mSync")
     private ClusterActivityInfo getOrCreateActivityInfoLocked(String category) {
         return mActivityInfoByCategory.computeIfAbsent(category, k -> new ClusterActivityInfo());
     }
@@ -518,6 +531,38 @@ public class InstrumentClusterService implements CarServiceBase,
                 ManagerCallbackDeathRecipient deathRecipient) {
             this.callback = callback;
             this.deathRecipient = deathRecipient;
+        }
+    }
+
+    private class DeferredRebinder extends Handler {
+        private static final long NEXT_REBIND_ATTEMPT_DELAY_MS = 1000L;
+        private static final int NUMBER_OF_ATTEMPTS = 10;
+
+        public void rebind() {
+            mRendererBound = bindInstrumentClusterRendererService();
+
+            if (!mRendererBound) {
+                removeMessages(0);
+                sendMessageDelayed(obtainMessage(0, NUMBER_OF_ATTEMPTS, 0),
+                        NEXT_REBIND_ATTEMPT_DELAY_MS);
+            }
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            mRendererBound = bindInstrumentClusterRendererService();
+
+            if (mRendererBound) {
+                Log.w(TAG, "Failed to bound to render service, next attempt in "
+                        + NEXT_REBIND_ATTEMPT_DELAY_MS + "ms.");
+
+                int attempts = msg.arg1;
+                if (--attempts >= 0) {
+                    sendMessageDelayed(obtainMessage(0, attempts, 0), NEXT_REBIND_ATTEMPT_DELAY_MS);
+                } else {
+                    Log.wtf(TAG, "Failed to rebind with cluster rendering service");
+                }
+            }
         }
     }
 }

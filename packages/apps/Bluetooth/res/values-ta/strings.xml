@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"புளூடூத் ஆடியோ இணைக்கப்பட்டது"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"புளூடூத் ஆடியோ துண்டிக்கப்பட்டது"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"புளூடூத் ஆடியோ"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4ஜி.பை.க்கு மேலிருக்கும் ஃபைல்களை இடமாற்ற முடியாது"</string>
 </resources>

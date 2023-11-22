@@ -51,6 +51,11 @@ import com.android.server.telecom.components.TelecomBroadcastReceiver;
 import com.android.server.telecom.ui.MissedCallNotifierImpl;
 import com.android.server.telecom.ui.MissedCallNotifierImpl.NotificationBuilderFactory;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -60,6 +65,8 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
@@ -74,6 +81,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@RunWith(JUnit4.class)
 public class MissedCallNotifierImplTest extends TelecomTestCase {
 
     private static class MockMissedCallCursorBuilder {
@@ -149,6 +157,7 @@ public class MissedCallNotifierImplTest extends TelecomTestCase {
     @Mock private DefaultDialerCache mDefaultDialerCache;
 
     @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         MockitoAnnotations.initMocks(this);
@@ -174,17 +183,20 @@ public class MissedCallNotifierImplTest extends TelecomTestCase {
     }
 
     @Override
+    @After
     public void tearDown() throws Exception {
         TelecomSystem.setInstance(null);
         when(mTelecomSystem.isBootComplete()).thenReturn(false);
     }
 
     @SmallTest
+    @Test
     public void testCancelNotificationInPrimaryUser() {
         cancelNotificationTestInternal(PRIMARY_USER);
     }
 
     @SmallTest
+    @Test
     public void testCancelNotificationInSecondaryUser() {
         cancelNotificationTestInternal(SECONARY_USER);
     }
@@ -217,6 +229,7 @@ public class MissedCallNotifierImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testNotifyMultipleMissedCalls() {
         Notification.Builder[] builders = new Notification.Builder[4];
 
@@ -280,18 +293,21 @@ public class MissedCallNotifierImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testNotifySingleCallInPrimaryUser() {
         PhoneAccount phoneAccount = makePhoneAccount(PRIMARY_USER, NO_CAPABILITY);
         notifySingleCallTestInternal(phoneAccount, PRIMARY_USER);
     }
 
     @SmallTest
+    @Test
     public void testNotifySingleCallInSecondaryUser() {
         PhoneAccount phoneAccount = makePhoneAccount(SECONARY_USER, NO_CAPABILITY);
         notifySingleCallTestInternal(phoneAccount, PRIMARY_USER);
     }
 
     @SmallTest
+    @Test
     public void testNotifySingleCallInSecondaryUserWithMultiUserCapability() {
         PhoneAccount phoneAccount = makePhoneAccount(PRIMARY_USER,
                 PhoneAccount.CAPABILITY_MULTI_USER);
@@ -299,12 +315,14 @@ public class MissedCallNotifierImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testNotifySingleCallWhenCurrentUserIsSecondaryUser() {
         PhoneAccount phoneAccount = makePhoneAccount(PRIMARY_USER, NO_CAPABILITY);
         notifySingleCallTestInternal(phoneAccount, SECONARY_USER);
     }
 
     @SmallTest
+    @Test
     public void testNotifySingleCall() {
         PhoneAccount phoneAccount = makePhoneAccount(PRIMARY_USER, NO_CAPABILITY);
         notifySingleCallTestInternal(phoneAccount, PRIMARY_USER);
@@ -375,6 +393,7 @@ public class MissedCallNotifierImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testNoSmsBackAfterMissedSipCall() {
         Notification.Builder builder1 = makeNotificationBuilder("builder1");
         MissedCallNotifierImpl.NotificationBuilderFactory fakeBuilderFactory =
@@ -410,6 +429,7 @@ public class MissedCallNotifierImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testLoadOneCallFromDb() throws Exception {
         CallerInfoLookupHelper mockCallerInfoLookupHelper = mock(CallerInfoLookupHelper.class);
         MissedCallNotifier.CallInfoFactory mockCallInfoFactory =
@@ -474,6 +494,7 @@ public class MissedCallNotifierImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testLoadTwoCallsFromDb() throws Exception {
         TelecomSystem.setInstance(mTelecomSystem);
         when(mTelecomSystem.isBootComplete()).thenReturn(true);

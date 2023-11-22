@@ -38,6 +38,7 @@ test_cases = [
     ('crowd/crowd1080-96f60dd6ff87ba8b129301a0f36efc58.yuv', True, 1920, 1080, 4000000, 11, 30),
     ('tulip2/tulip2-1280x720-1b95123232922fe0067869c74e19cd09.yuv', True, 1280, 720, 1200000, 11, 30),
     ('tulip2/tulip2-640x360-094bd827de18ca196a83cc6442b7b02f.yuv', True, 640, 360, 500000, 11, 30),
+    ('vidyo1/vidyo1-1280x720-b8601dd181bb2921fffce3fbb896351e.yuv', True, 1280, 720, 1200000, 11, 30),
 ]
 
 job.run_test('video_VEAPerf', test_cases=test_cases, tag='vp8')

@@ -76,7 +76,7 @@ public class AlarmOperation extends SensorOperation {
      * {@inheritDoc}
      */
     @Override
-    public void execute(ISensorTestNode parent) throws InterruptedException {
+    public void execute(ISensorTestNode parent) throws Exception {
         // Start alarm
         IntentFilter intentFilter = new IntentFilter(ACTION);
         BroadcastReceiver receiver = new BroadcastReceiver() {

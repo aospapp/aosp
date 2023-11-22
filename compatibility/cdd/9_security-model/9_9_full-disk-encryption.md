@@ -66,11 +66,13 @@ not specified lock screen credentials.
    *   [C-1-10] MUST be unique and distinct, in other words no user's CE or DE
    key matches any other user's CE or DE keys.
 
+   *    [C-1-11] MUST use the mandatorily supported ciphers, key lengths and
+   modes by default.
+
 *    SHOULD make preloaded essential apps (e.g. Alarm, Phone, Messenger)
 Direct Boot aware.
 *    MAY support alternative ciphers, key lengths and modes for file content
-and file name encryption, but MUST use the mandatorily supported ciphers, key
-lengths and modes by default.
+and file name encryption.
 
 The upstream Android Open Source project provides a preferred implementation of
 this feature based on the Linux kernel ext4 encryption feature.
@@ -86,15 +88,15 @@ designed for storage (for example, AES-XTS, AES-CBC-ESSIV).
 *   [C-1-2] MUST use a default passcode to wrap the encryption key and
 MUST NOT write the encryption key to storage at any time
 without being encrypted.
-   *   [C-1-3] MUST provide the user the possibility to AES encrypt the
-   encryption key, except when it is in active use, with the lock screen
+   *   [C-1-3] MUST AES encrypt the encryption key by default unless the user
+   explicitly opts out, except when it is in active use, with the lock screen
    credentials stretched using a slow stretching algorithm
    (e.g. PBKDF2 or scrypt).
 *   [C-1-4] The above default password stretching algorithm MUST be
 cryptographically bound to that keystore when the user has not specified a lock
 screen credentials or has disabled use of the passcode for encryption and
 the device provides a hardware-backed keystore.
-*   [C-1-5] MUST NOT send encryption key off the the device
+*   [C-1-5] MUST NOT send encryption key off the device
 (even when wrapped with the user passcode and/or hardware bound key).
 
 The upstream Android Open Source project provides a preferred implementation

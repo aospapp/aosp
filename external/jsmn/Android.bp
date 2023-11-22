@@ -18,5 +18,6 @@ cc_library_static {
     name: "libjsmn",
     vendor_available: true,
     srcs: ["jsmn.c"],
+    cflags: ["-Wall", "-Werror"],
     export_include_dirs: ["."],
 }

@@ -20,7 +20,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.support.annotation.NonNull;
-
 import java.lang.ref.WeakReference;
 
 /**
@@ -37,7 +36,7 @@ public abstract class WeakHandler<T> extends Handler {
     private final WeakReference<T> mRef;
 
     /**
-     * Constructs a new  handler with a weak reference to the given referent using the provided
+     * Constructs a new handler with a weak reference to the given referent using the provided
      * Looper instead of the default one.
      *
      * @param looper The looper, must not be null.
@@ -57,9 +56,7 @@ public abstract class WeakHandler<T> extends Handler {
         mRef = new WeakReference<>(ref);
     }
 
-    /**
-     * Calls {@link #handleMessage(Message, Object)} if the WeakReference is not cleared.
-     */
+    /** Calls {@link #handleMessage(Message, Object)} if the WeakReference is not cleared. */
     @Override
     public final void handleMessage(Message msg) {
         T referent = mRef.get();
@@ -74,7 +71,7 @@ public abstract class WeakHandler<T> extends Handler {
      *
      * <p>If the WeakReference is cleared this method will no longer be called.
      *
-     * @param msg      the message to handle
+     * @param msg the message to handle
      * @param referent the referent. Guaranteed to be non null.
      */
     protected abstract void handleMessage(Message msg, @NonNull T referent);

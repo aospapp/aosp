@@ -197,7 +197,6 @@ detect(JNIEnv *_env, jobject _this,
     btk_HDCR hdcr = (btk_HDCR)(_env->GetLongField(_this, gFaceDetectorOffsets.dcr));
     btk_HFaceFinder hfd =
         (btk_HFaceFinder)(_env->GetLongField(_this, gFaceDetectorOffsets.fd));
-    u32 maxFaces = _env->GetIntField(_this, gFaceDetectorOffsets.maxFaces);
     u32 width = _env->GetIntField(_this, gFaceDetectorOffsets.width);
     u32 height = _env->GetIntField(_this, gFaceDetectorOffsets.height);
 
@@ -257,7 +256,6 @@ get_face(JNIEnv *_env, jobject _this,
     btk_FaceFinder_getDCR(hfd, hdcr);
     getFaceData(hdcr, &faceData);
 
-    const float X2F = 1.0f / 65536.0f;
     _env->SetFloatField(face, gFaceOffsets.confidence,  faceData.confidence);
     _env->SetFloatField(face, gFaceOffsets.midpointx,   faceData.midpointx);
     _env->SetFloatField(face, gFaceOffsets.midpointy,   faceData.midpointy);

@@ -20,7 +20,9 @@ import java.util.SortedMap;
 import android.icu.impl.ICULocaleService;
 import android.icu.impl.ICUService;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
 public class ICUServiceTestSample {
     static public void main(String[] args) {
         new HelloServiceClient();

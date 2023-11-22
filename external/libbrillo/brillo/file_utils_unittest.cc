@@ -19,7 +19,7 @@ class FileUtilsTest : public testing::Test {
  public:
   FileUtilsTest() {
     CHECK(temp_dir_.CreateUniqueTempDir());
-    file_path_ = temp_dir_.path().Append("test.temp");
+    file_path_ = temp_dir_.GetPath().Append("test.temp");
   }
 
  protected:
@@ -75,7 +75,7 @@ TEST_F(FileUtilsTest, TouchFileCreateThroughUmask) {
 }
 
 TEST_F(FileUtilsTest, TouchFileCreateDirectoryStructure) {
-  file_path_ = temp_dir_.path().Append("foo/bar/baz/test.temp");
+  file_path_ = temp_dir_.GetPath().Append("foo/bar/baz/test.temp");
   EXPECT_TRUE(TouchFile(file_path_));
   ExpectFileContains("");
 }
@@ -94,7 +94,7 @@ TEST_F(FileUtilsTest, TouchFileReplaceDirectory) {
 }
 
 TEST_F(FileUtilsTest, TouchFileReplaceSymlink) {
-  base::FilePath symlink_target = temp_dir_.path().Append("target.temp");
+  base::FilePath symlink_target = temp_dir_.GetPath().Append("target.temp");
   EXPECT_TRUE(base::CreateSymbolicLink(symlink_target, file_path_));
   EXPECT_TRUE(TouchFile(file_path_));
   EXPECT_FALSE(base::IsLink(file_path_));

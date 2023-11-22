@@ -21,5 +21,6 @@ package android.autofillservice.cts;
  */
 enum IdMode {
     RESOURCE_ID,
-    HTML_NAME
+    HTML_NAME,
+    HTML_NAME_OR_RESOURCE_ID
 }

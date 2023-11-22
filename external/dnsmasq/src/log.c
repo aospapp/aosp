@@ -114,9 +114,7 @@ int log_reopen(char *log_file)
       return log_fd != -1;
     }
   else
-#if defined(HAVE_SOLARIS_NETWORK) || defined(__ANDROID__)
-    /* Solaris logging is "different", /dev/log is not unix-domain socket.
-       Just leave log_fd == -1 and use the vsyslog call for everything.... */
+#if defined(__ANDROID__)
 #   define _PATH_LOG ""  /* dummy */
     log_fd = -1;
 #else

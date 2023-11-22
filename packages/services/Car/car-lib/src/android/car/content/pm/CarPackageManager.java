@@ -18,6 +18,7 @@ package android.car.content.pm;
 
 import android.annotation.IntDef;
 import android.annotation.SystemApi;
+import android.annotation.TestApi;
 import android.car.CarApiUtil;
 import android.car.CarManagerBase;
 import android.car.CarNotConnectedException;
@@ -26,6 +27,7 @@ import android.content.Context;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
+import android.util.Log;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -34,6 +36,7 @@ import java.lang.annotation.RetentionPolicy;
  * Provides car specific API related with package management.
  */
 public final class CarPackageManager implements CarManagerBase {
+    private static final String TAG = "CarPackageManager";
 
     /**
      * Flag for {@link #setAppBlockingPolicy(String, CarAppBlockingPolicy, int)}. When this
@@ -118,7 +121,21 @@ public final class CarPackageManager implements CarManagerBase {
         } catch (IllegalStateException e) {
             CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
-            //ignore as CarApi will handle disconnection anyway.
+            // Ignore as CarApi will handle disconnection anyway.
+        }
+    }
+
+    /**
+     * Restarts the requested task. If task with {@code taskId} does not exist, do nothing.
+     *
+     * @hide
+     */
+    public void restartTask(int taskId) {
+        try {
+            mService.restartTask(taskId);
+        } catch (RemoteException e) {
+            // Ignore as CarApi will handle disconnection anyway.
+            Log.e(TAG, "Could not restart task " + taskId, e);
         }
     }
 
@@ -150,15 +167,31 @@ public final class CarPackageManager implements CarManagerBase {
     }
 
     /**
-     * Check if given activity is allowed while driving.
+     * Enable/Disable Activity Blocking.  This is to provide an option for toggling app blocking
+     * behavior for development purposes.
+     * @hide
+     */
+    @TestApi
+    public void setEnableActivityBlocking(boolean enable) {
+        try {
+            mService.setEnableActivityBlocking(enable);
+        } catch (RemoteException e) {
+            //ignore as CarApi will handle disconnection anyway.
+        }
+    }
+
+    /**
+     * Check if given activity is distraction optimized, i.e, allowed in a
+     * restricted driving state
+     *
      * @param packageName
      * @param className
      * @return
      */
-    public boolean isActivityAllowedWhileDriving(String packageName, String className)
+    public boolean isActivityDistractionOptimized(String packageName, String className)
             throws CarNotConnectedException {
         try {
-            return mService.isActivityAllowedWhileDriving(packageName, className);
+            return mService.isActivityDistractionOptimized(packageName, className);
         } catch (IllegalStateException e) {
             CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
@@ -168,15 +201,17 @@ public final class CarPackageManager implements CarManagerBase {
     }
 
     /**
-     * Check if given service is allowed while driving.
+     * Check if given service is distraction optimized, i.e, allowed in a restricted
+     * driving state.
+     *
      * @param packageName
      * @param className
      * @return
      */
-    public boolean isServiceAllowedWhileDriving(String packageName, String className)
+    public boolean isServiceDistractionOptimized(String packageName, String className)
             throws CarNotConnectedException {
         try {
-            return mService.isServiceAllowedWhileDriving(packageName, className);
+            return mService.isServiceDistractionOptimized(packageName, className);
         } catch (IllegalStateException e) {
             CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {

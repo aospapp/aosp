@@ -17,6 +17,8 @@
 #ifndef CHRE_UTIL_ARRAY_QUEUE_H_
 #define CHRE_UTIL_ARRAY_QUEUE_H_
 
+#include <cstddef>
+#include <iterator>
 #include <type_traits>
 
 #include "chre/util/non_copyable.h"
@@ -63,16 +65,16 @@ class ArrayQueue : public NonCopyable {
    * @return The front element.
    */
   ElementType& front();
+  const ElementType& front() const;
 
   /**
-   * Obtains the front element of the array queue. It is illegal to access the
-   * front element when the array queue is empty. The user of the API must check
-   * the size() or empty() function prior to accessing the front element to
-   * ensure that they will not read out of bounds.
+   * Obtains the last element in the queue. Illegal to call when empty() is
+   * true.
    *
-   * @return The front element.
+   * @return The last element in the queue.
    */
-  const ElementType& front() const;
+  ElementType& back();
+  const ElementType& back() const;
 
   /**
    * Obtains an element of the array queue given an index. It is illegal to
@@ -115,6 +117,13 @@ class ArrayQueue : public NonCopyable {
   void pop();
 
   /**
+   * Removes the back element from the array queue if the array queue is not
+   * empty. Only iterators and references to the back of the queue are
+   * invalidated.
+   */
+  void pop_back();
+
+  /**
    * Removes an element from the array queue given an index. It returns false if
    * the array queue contains fewer items than the index. All iterators and
    * references to elements before the removed one are unaffected. Iterators
@@ -142,15 +151,22 @@ class ArrayQueue : public NonCopyable {
   template<typename ValueType>
   class ArrayQueueIterator {
    public:
+    typedef ValueType value_type;
+    typedef ValueType& reference;
+    typedef ValueType* pointer;
+    typedef std::ptrdiff_t difference_type;
+    typedef std::forward_iterator_tag iterator_category;
+
+    ArrayQueueIterator() = default;
     ArrayQueueIterator(
         ValueType *pointer, ValueType *base, size_t tail)
         : mPointer(pointer), mBase(base), mTail(tail) {}
 
-    bool operator==(const ArrayQueueIterator& right) {
+    bool operator==(const ArrayQueueIterator& right) const {
       return (mPointer == right.mPointer);
     }
 
-    bool operator!=(const ArrayQueueIterator& right) {
+    bool operator!=(const ArrayQueueIterator& right) const {
       return (mPointer != right.mPointer);
     }
 
@@ -262,6 +278,12 @@ class ArrayQueue : public NonCopyable {
    * accordingly. It is illegal to call this function on an empty array queue.
    */
   void pullHead();
+
+  /*
+   * Pulls mTail to the previous element in the array queue and decrements mSize
+   * accordingly. It is illegal to call this function on an empty array queue.
+   */
+  void pullTail();
 
   /*
    * Pushes mTail to the next available storage space and increments mSize

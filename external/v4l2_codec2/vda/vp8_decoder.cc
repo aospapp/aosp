@@ -1,6 +1,7 @@
 // Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 7441087
 
 #include "vp8_decoder.h"
 
@@ -93,6 +94,7 @@ VP8Decoder::DecodeResult VP8Decoder::Decode() {
   if (!curr_pic_)
     return kRanOutOfSurfaces;
 
+  curr_pic_->visible_rect = Rect(pic_size_);
   if (!DecodeAndOutputCurrentFrame())
     return kDecodeError;
 

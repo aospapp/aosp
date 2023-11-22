@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Tyhjennetäänkö kaikki tiedot ja yhteystiedot?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Kun lisäät terveystiedot ja hätäyhteystiedot, ensihoitajien työ helpottuu hätätilanteissa.\n\nKuka tahansa voi lukea nämä tiedot lukitusnäytöltä ja soittaa yhteystiedoillesi napauttamalla heidän nimiään avaamatta puhelintasi."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Hätätilannetietojen lisääminen"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Auta ensihoitajia löytämään tärkeät tiedot."</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Anna ensivastehenkilöstön nähdä tietosi"</string>
 </resources>

@@ -19,6 +19,7 @@ package com.android.server.telecom.testapps;
 import android.content.Context;
 import android.content.Intent;
 import android.telecom.Call;
+import android.telecom.CallAudioState;
 import android.telecom.InCallService;
 import android.telecom.Phone;
 import android.util.Log;
@@ -32,6 +33,7 @@ import java.lang.String;
  */
 public class TestInCallServiceImpl extends InCallService {
     private static final String TAG = "TestInCallServiceImpl";
+    public static TestInCallServiceImpl sInstance;
 
     private Phone mPhone;
 
@@ -63,14 +65,24 @@ public class TestInCallServiceImpl extends InCallService {
     }
 
     @Override
-    public void onPhoneDestroyed(Phone phone) {
+    public boolean onUnbind(Intent intent) {
         Log.i(TAG, "onPhoneDestroyed");
         mPhone.removeListener(mPhoneListener);
         mPhone = null;
         TestCallList.getInstance().clearCalls();
+        sInstance = null;
+        return super.onUnbind(intent);
+    }
+
+    @Override
+    public void onCallAudioStateChanged(CallAudioState cas) {
+        if (TestInCallUI.sInstance != null) {
+            TestInCallUI.sInstance.updateCallAudioState(cas);
+        }
     }
 
     private void startInCallUI() {
+        sInstance = this;
         Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.setFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION | Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.setClass(this, TestInCallUI.class);

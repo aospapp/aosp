@@ -20,10 +20,11 @@ cc_library_static {
         "srvc",
     ],
     header_libs: [
-        "libhardware_headers",
+        "libbluetooth_headers",
     ],
     include_dirs: [
         "external/aac/libAACenc/include",
+        "external/aac/libAACdec/include",
         "external/aac/libSYS/include",
         "external/libldac/inc",
         "external/libldac/abr/inc",
@@ -33,7 +34,7 @@ cc_library_static {
         "system/bt/vnd/ble",
         "system/bt/btif/include",
         "system/bt/hci/include",
-        "system/bt/include",
+        "system/bt/internal_include",
         "system/bt/udrv/include",
         "system/bt/bta/include",
         "system/bt/bta/sys",
@@ -41,10 +42,12 @@ cc_library_static {
     ],
     srcs: [
         "a2dp/a2dp_aac.cc",
+        "a2dp/a2dp_aac_decoder.cc",
         "a2dp/a2dp_aac_encoder.cc",
         "a2dp/a2dp_api.cc",
         "a2dp/a2dp_codec_config.cc",
         "a2dp/a2dp_sbc.cc",
+        "a2dp/a2dp_sbc_decoder.cc",
         "a2dp/a2dp_sbc_encoder.cc",
         "a2dp/a2dp_sbc_up_sample.cc",
         "a2dp/a2dp_vendor.cc",
@@ -125,7 +128,6 @@ cc_library_static {
         "l2cap/l2c_fcr.cc",
         "l2cap/l2c_link.cc",
         "l2cap/l2c_main.cc",
-        "l2cap/l2c_ucd.cc",
         "l2cap/l2c_utils.cc",
         "l2cap/l2cap_client.cc",
         "mcap/mca_api.cc",
@@ -193,19 +195,82 @@ cc_test {
     ],
     include_dirs: [
         "system/bt",
-        "system/bt/include",
+        "system/bt/internal_include",
     ],
-    srcs: ["test/stack_a2dp_test.cc"],
+    srcs: [
+        "test/stack_a2dp_test.cc",
+    ],
     shared_libs: [
+        "libhidlbase",
         "liblog",
+        "libprotobuf-cpp-lite",
         "libcutils",
+        "libutils",
     ],
     static_libs: [
+        "libbt-bta",
         "libbt-stack",
+        "libbt-sbc-decoder",
         "libbt-sbc-encoder",
         "libFraunhoferAAC",
+        "libbtdevice",
+        "libbt-hci",
         "libosi",
+        "libbt-protos-lite",
     ],
+    whole_static_libs: [
+        "libbluetooth-for-tests",
+    ],
+}
+
+cc_test {
+  name: "net_test_stack_rfcomm",
+  defaults: ["fluoride_defaults"],
+  host_supported: true,
+  local_include_dirs: [
+      "include",
+      "btm",
+      "l2cap",
+      "smp",
+      "rfcomm",
+      "test/common",
+  ],
+  include_dirs: [
+      "system/bt",
+      "system/bt/internal_include",
+      "system/bt/btcore/include",
+      "system/bt/hci/include",
+      "system/bt/utils/include",
+  ],
+  srcs: [
+      "rfcomm/port_api.cc",
+      "rfcomm/port_rfc.cc",
+      "rfcomm/port_utils.cc",
+      "rfcomm/rfc_l2cap_if.cc",
+      "rfcomm/rfc_mx_fsm.cc",
+      "rfcomm/rfc_port_fsm.cc",
+      "rfcomm/rfc_port_if.cc",
+      "rfcomm/rfc_ts_frames.cc",
+      "rfcomm/rfc_utils.cc",
+      "test/common/mock_btm_layer.cc",
+      "test/common/mock_btu_layer.cc",
+      "test/common/mock_l2cap_layer.cc",
+      "test/common/stack_test_packet_utils.cc",
+      "test/rfcomm/stack_rfcomm_test.cc",
+      "test/rfcomm/stack_rfcomm_test_main.cc",
+      "test/rfcomm/stack_rfcomm_test_utils.cc",
+      "test/rfcomm/stack_rfcomm_test_utils_test.cc",
+  ],
+  shared_libs: [
+      "libcutils",
+      "libprotobuf-cpp-lite",
+  ],
+  static_libs: [
+      "liblog",
+      "libgmock",
+      "libosi",
+      "libbt-protos-lite",
+  ],
 }
 
 // Bluetooth stack smp unit tests for target
@@ -221,7 +286,7 @@ cc_test {
     ],
     include_dirs: [
         "system/bt",
-        "system/bt/include",
+        "system/bt/internal_include",
         "system/bt/btcore/include",
         "system/bt/hci/include",
         "system/bt/utils/include",
@@ -229,6 +294,9 @@ cc_test {
     srcs: [
         "smp/smp_keys.cc",
         "smp/aes.cc",
+        "smp/p_256_curvepara.cc",
+        "smp/p_256_ecc_pp.cc",
+        "smp/p_256_multprecision.cc",
         "smp/smp_api.cc",
         "smp/smp_main.cc",
         "smp/smp_utils.cc",
@@ -256,10 +324,10 @@ cc_test {
     ],
     include_dirs: [
         "system/bt",
-        "system/bt/include",
+        "system/bt/internal_include",
         "system/bt/btcore/include",
         "system/bt/hci/include",
-        "system/bt/include",
+        "system/bt/internal_include",
         "system/bt/utils/include",
     ],
     srcs: [
@@ -274,6 +342,9 @@ cc_test {
         "liblog",
         "libgmock",
     ],
+    sanitize: {
+        cfi: false,
+    },
 }
 
 // Bluetooth stack advertise data parsing unit tests for target
@@ -305,7 +376,7 @@ cc_test {
     ],
     include_dirs: [
         "system/bt/",
-        "system/bt/include",
+        "system/bt/internal_include",
         "system/bt/btcore/include",
         "system/bt/bta/include",
     ],
@@ -322,6 +393,9 @@ cc_test {
         "libbluetooth-types",
         "libgmock",
         "libosi",
-        "libbt-protos",
+        "libbt-protos-lite",
     ],
+    sanitize: {
+        cfi: false,
+    },
 }

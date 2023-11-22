@@ -30,3 +30,7 @@ TEST(cmd_dump, record_file_option) {
 TEST(cmd_dump, dump_data_generated_by_linux_perf) {
   ASSERT_TRUE(DumpCmd()->Run({GetTestData(PERF_DATA_GENERATED_BY_LINUX_PERF)}));
 }
+
+TEST(cmd_dump, dump_callchain_records) {
+  ASSERT_TRUE(DumpCmd()->Run({GetTestData(PERF_DATA_WITH_CALLCHAIN_RECORD)}));
+}

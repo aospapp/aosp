@@ -32,11 +32,10 @@ class MemorySystemStressTest(base_test.BaseTestClass):
     _STRESSAPPTEST = '/data/local/tmp/32/stressapptest'
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
+        self.dut = self.android_devices[0]
 
         # Set executable bit on stressapptest binary
-        self.dut.shell.InvokeTerminal("sat_setup")
-        self.shell = getattr(self.dut.shell, "sat_setup")
+        self.shell = self.dut.shell
         cmd = ['chmod +x', str(self._STRESSAPPTEST)]
         self.shell.Execute(' '.join(cmd))
 

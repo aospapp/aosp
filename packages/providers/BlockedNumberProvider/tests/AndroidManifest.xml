@@ -18,8 +18,15 @@
         package="com.android.providers.blockednumber.tests"
         android:sharedUserId="android.uid.shared">
 
-    <application>
-        <uses-library android:name="android.test.runner" />
+    <application android:name="com.android.providers.blockednumber.TestApplication">
+      <uses-library android:name="android.test.runner" />
+      <activity android:label="BlockedNumberProviderTest"
+                android:name="BlockedNumberProviderTest">
+        <intent-filter>
+          <action android:name="android.intent.action.MAIN" />
+          <category android:name="android.intent.category.LAUNCHER"/>
+        </intent-filter>
+      </activity>
     </application>
 
     <instrumentation

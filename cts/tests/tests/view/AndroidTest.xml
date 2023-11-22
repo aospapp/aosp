@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS View test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="uitoolkit" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -22,5 +23,6 @@
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.view.cts" />
         <option name="runtime-hint" value="6m47s" />
+        <option name="hidden-api-checks" value="false" />
     </test>
 </configuration>

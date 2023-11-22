@@ -80,6 +80,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "test.h"
+#include "safe_macros.h"
 #include "compat_16.h"
 
 #define EXP_RET_VAL	-1
@@ -167,10 +168,7 @@ static int test_functionality(uid_t exp_rgid, uid_t exp_egid, uid_t exp_sgid)
 	uid_t cur_rgid, cur_egid, cur_sgid;
 
 	/* Get current real, effective and saved group id */
-	if (getresgid(&cur_rgid, &cur_egid, &cur_sgid) == -1) {
-		tst_brkm(TBROK, cleanup, "getresgid() failed");
-
-	}
+	SAFE_GETRESGID(cleanup, &cur_rgid, &cur_egid, &cur_sgid);
 
 	if ((cur_rgid == exp_rgid) && (cur_egid == exp_egid)
 	    && (cur_sgid == exp_sgid)) {
@@ -217,11 +215,7 @@ void setup(void)
 			 " setting real/effective/saved gid");
 	}
 	/* Set euid to nobody */
-	if (setuid(nobody.pw_uid) == -1) {
-		tst_brkm(TBROK, NULL, "setuid failed to "
-			 "to set the effective uid to nodody");
-
-	}
+	SAFE_SETUID(NULL, nobody.pw_uid);
 	/* Pause if that option was specified
 	 * TEST_PAUSE contains the code to fork the test with the -c option.
 	 */

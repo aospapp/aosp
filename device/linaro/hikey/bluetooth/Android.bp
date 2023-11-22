@@ -25,6 +25,13 @@ cc_binary {
         "hci_protocol.cc",
         "service.cc",
     ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-error=unused-const-variable",
+        "-Wno-error=unused-function",
+        "-Wno-error=unused-lambda-capture",
+    ],
     shared_libs: [
         "android.hardware.bluetooth@1.0",
         "libbase",

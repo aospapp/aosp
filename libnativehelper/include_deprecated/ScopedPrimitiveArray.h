@@ -1,1 +1,0 @@
-../include/nativehelper/ScopedPrimitiveArray.h

@@ -18,23 +18,29 @@ package com.android.server.telecom;
 
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.app.Person;
 import android.content.Context;
 import android.os.VibrationEffect;
 import android.telecom.Log;
+import android.telecom.TelecomManager;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
+import android.media.Ringtone;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Vibrator;
 
 import com.android.internal.annotations.VisibleForTesting;
 
+import java.util.ArrayList;
+
 /**
  * Controls the ringtone player.
  */
 @VisibleForTesting
 public class Ringer {
-    VibrationEffect mVibrationEffect;
+    @VisibleForTesting
+    public VibrationEffect mDefaultVibrationEffect;
 
     private static final long[] PULSE_PATTERN = {0,12,250,12,500, // priming  + interval
             50,50,50,50,50,50,50,50,50,50,50,50,50,50, // ease-in
@@ -46,12 +52,26 @@ public class Ringer {
             255, // Peak
             0}; // pause before repetition
 
+    private static final long[] SIMPLE_VIBRATION_PATTERN = {
+            0, // No delay before starting
+            1000, // How long to vibrate
+            1000, // How long to wait before vibrating again
+    };
+
+    private static final int[] SIMPLE_VIBRATION_AMPLITUDE = {
+            0, // No delay before starting
+            255, // Vibrate full amplitude
+            0, // No amplitude while waiting
+    };
+
     /**
      * Indicates that vibration should be repeated at element 5 in the {@link #PULSE_AMPLITUDE} and
      * {@link #PULSE_PATTERN} arrays.  This means repetition will happen for the main ease-in/peak
      * pattern, but the priming + interval part will not be repeated.
      */
     private static final int REPEAT_VIBRATION_AT = 5;
+
+    private static final int REPEAT_SIMPLE_VIBRATION_AT = 1;
 
     private static final AudioAttributes VIBRATION_ATTRIBUTES = new AudioAttributes.Builder()
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -107,8 +127,13 @@ public class Ringer {
         mRingtoneFactory = ringtoneFactory;
         mInCallController = inCallController;
 
-        mVibrationEffect = VibrationEffect.createWaveform(PULSE_PATTERN, PULSE_AMPLITUDE,
-                REPEAT_VIBRATION_AT);
+        if (mContext.getResources().getBoolean(R.bool.use_simple_vibration_pattern)) {
+            mDefaultVibrationEffect = VibrationEffect.createWaveform(SIMPLE_VIBRATION_PATTERN,
+                    SIMPLE_VIBRATION_AMPLITUDE, REPEAT_SIMPLE_VIBRATION_AT);
+        } else {
+            mDefaultVibrationEffect = VibrationEffect.createWaveform(PULSE_PATTERN,
+                    PULSE_AMPLITUDE, REPEAT_VIBRATION_AT);
+        }
     }
 
     public boolean startRinging(Call foregroundCall, boolean isHfpDeviceAttached) {
@@ -125,6 +150,7 @@ public class Ringer {
         boolean isSelfManaged = foregroundCall.isSelfManaged();
 
         boolean isRingerAudible = isVolumeOverZero && shouldRingForContact && isRingtonePresent;
+        boolean hasExternalRinger = hasExternalRinger(foregroundCall);
         // Acquire audio focus under any of the following conditions:
         // 1. Should ring for contact and there's an HFP device attached
         // 2. Volume is over zero, we should ring for the contact, and there's a audible ringtone
@@ -136,19 +162,22 @@ public class Ringer {
         // Don't do call waiting operations or vibration unless these are false.
         boolean isTheaterModeOn = mSystemSettingsUtil.isTheaterModeOn(mContext);
         boolean letDialerHandleRinging = mInCallController.doesConnectedDialerSupportRinging();
-        boolean endEarly = isTheaterModeOn || letDialerHandleRinging || isSelfManaged;
+        boolean endEarly = isTheaterModeOn || letDialerHandleRinging || isSelfManaged ||
+                hasExternalRinger;
 
         if (endEarly) {
             if (letDialerHandleRinging) {
                 Log.addEvent(foregroundCall, LogUtils.Events.SKIP_RINGING);
             }
             Log.i(this, "Ending early -- isTheaterModeOn=%s, letDialerHandleRinging=%s, " +
-                    "isSelfManaged=%s", isTheaterModeOn, letDialerHandleRinging, isSelfManaged);
+                    "isSelfManaged=%s, hasExternalRinger=%s", isTheaterModeOn,
+                    letDialerHandleRinging, isSelfManaged, hasExternalRinger);
             return shouldAcquireAudioFocus;
         }
 
         stopCallWaiting();
 
+        VibrationEffect effect;
         if (isRingerAudible) {
             mRingingCall = foregroundCall;
             Log.addEvent(foregroundCall, LogUtils.Events.START_RINGER);
@@ -157,21 +186,36 @@ public class Ringer {
             // ringtones should be available by the time this code executes. We can safely
             // request the custom ringtone from the call and expect it to be current.
             mRingtonePlayer.play(mRingtoneFactory, foregroundCall);
+            effect = getVibrationEffectForCall(mRingtoneFactory, foregroundCall);
         } else {
             Log.i(this, "startRinging: skipping because ringer would not be audible. " +
                     "isVolumeOverZero=%s, shouldRingForContact=%s, isRingtonePresent=%s",
                     isVolumeOverZero, shouldRingForContact, isRingtonePresent);
+            effect = mDefaultVibrationEffect;
         }
 
         if (shouldVibrate(mContext, foregroundCall) && !mIsVibrating && shouldRingForContact) {
-            mVibratingCall = foregroundCall;
-            mVibrator.vibrate(mVibrationEffect, VIBRATION_ATTRIBUTES);
+            mVibrator.vibrate(effect, VIBRATION_ATTRIBUTES);
             mIsVibrating = true;
         } else if (mIsVibrating) {
             Log.addEvent(foregroundCall, LogUtils.Events.SKIP_VIBRATION, "already vibrating");
         }
 
         return shouldAcquireAudioFocus;
+    }
+
+    private VibrationEffect getVibrationEffectForCall(RingtoneFactory factory, Call call) {
+        VibrationEffect effect = null;
+        Ringtone ringtone = factory.getRingtone(call);
+        Uri ringtoneUri = ringtone != null ? ringtone.getUri() : null;
+        if (ringtoneUri != null) {
+            effect = VibrationEffect.get(ringtoneUri, mContext);
+        }
+
+        if (effect == null) {
+            effect = mDefaultVibrationEffect;
+        }
+        return effect;
     }
 
     public void startCallWaiting(Call call) {
@@ -234,11 +278,22 @@ public class Ringer {
     private boolean shouldRingForContact(Uri contactUri) {
         final NotificationManager manager =
                 (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
-        final Bundle extras = new Bundle();
+        final Bundle peopleExtras = new Bundle();
         if (contactUri != null) {
-            extras.putStringArray(Notification.EXTRA_PEOPLE, new String[] {contactUri.toString()});
+            ArrayList<Person> personList = new ArrayList<>();
+            personList.add(new Person.Builder().setUri(contactUri.toString()).build());
+            peopleExtras.putParcelableArrayList(Notification.EXTRA_PEOPLE_LIST, personList);
         }
-        return manager.matchesCallFilter(extras);
+        return manager.matchesCallFilter(peopleExtras);
+    }
+
+    private boolean hasExternalRinger(Call foregroundCall) {
+        Bundle intentExtras = foregroundCall.getIntentExtras();
+        if (intentExtras != null) {
+            return intentExtras.getBoolean(TelecomManager.EXTRA_CALL_EXTERNAL_RINGER, false);
+        } else {
+            return false;
+        }
     }
 
     private boolean shouldVibrate(Context context, Call call) {

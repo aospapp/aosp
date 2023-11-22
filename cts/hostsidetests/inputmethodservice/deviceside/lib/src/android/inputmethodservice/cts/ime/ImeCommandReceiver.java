@@ -86,6 +86,20 @@ final class ImeCommandReceiver<T extends InputMethodService & ImeCommandCallback
                 mIme.commandRequestHideSelf(flags);
                 return;
             }
+            case ImeCommandConstants.COMMAND_SWITCH_INPUT_METHOD_WITH_SUBTYPE: {
+                final String imeId = getString1(intent);
+                // we don't support mock imes with subtypes yet.
+                mIme.switchInputMethod(imeId, null /* subtype*/);
+                return;
+            }
+            case ImeCommandConstants.COMMAND_SWITCH_TO_NEXT_INPUT: {
+                mIme.switchToNextInputMethod(false);
+                return;
+            }
+            case ImeCommandConstants.COMMAND_SWITCH_TO_PREVIOUS_INPUT: {
+                mIme.switchToPreviousInputMethod();
+                return;
+            }
             default: {
                 throw new UnsupportedOperationException("Unknown IME command: " + command);
             }

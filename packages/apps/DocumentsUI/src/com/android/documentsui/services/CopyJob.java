@@ -25,7 +25,7 @@ import static android.provider.DocumentsContract.isChildDocument;
 import static com.android.documentsui.OperationDialogFragment.DIALOG_TYPE_CONVERTED;
 import static com.android.documentsui.base.DocumentInfo.getCursorLong;
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.services.FileOperationService.EXTRA_DIALOG_TYPE;
 import static com.android.documentsui.services.FileOperationService.EXTRA_FAILED_DOCS;
 import static com.android.documentsui.services.FileOperationService.EXTRA_OPERATION_TYPE;
@@ -44,17 +44,19 @@ import android.content.res.AssetFileDescriptor;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.CancellationSignal;
+import android.os.FileUtils;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
+import android.os.OperationCanceledException;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.os.storage.StorageManager;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.system.ErrnoException;
+import android.system.Int64Ref;
 import android.system.Os;
 import android.system.OsConstants;
 import android.text.format.DateUtils;
@@ -541,7 +543,6 @@ class CopyJob extends ResolvedResourcesJob {
      */
     private void copyFileHelper(DocumentInfo src, DocumentInfo dest, DocumentInfo destParent,
             String mimeType) throws ResourceException {
-        CancellationSignal canceller = new CancellationSignal();
         AssetFileDescriptor srcFileAsAsset = null;
         ParcelFileDescriptor srcFile = null;
         ParcelFileDescriptor dstFile = null;
@@ -555,7 +556,7 @@ class CopyJob extends ResolvedResourcesJob {
             if (src.isVirtual()) {
                 try {
                     srcFileAsAsset = getClient(src).openTypedAssetFileDescriptor(
-                                src.derivedUri, mimeType, null, canceller);
+                                src.derivedUri, mimeType, null, mSignal);
                 } catch (FileNotFoundException | RemoteException | RuntimeException e) {
                     Metrics.logFileOperationFailure(
                             appContext, Metrics.SUBFILEOP_OPEN_FILE, src.derivedUri);
@@ -576,7 +577,7 @@ class CopyJob extends ResolvedResourcesJob {
                         appContext, operationType, Metrics.OPMODE_CONVERTED);
             } else {
                 try {
-                    srcFile = getClient(src).openFile(src.derivedUri, "r", canceller);
+                    srcFile = getClient(src).openFile(src.derivedUri, "r", mSignal);
                 } catch (FileNotFoundException | RemoteException | RuntimeException e) {
                     Metrics.logFileOperationFailure(
                             appContext, Metrics.SUBFILEOP_OPEN_FILE, src.derivedUri);
@@ -590,7 +591,7 @@ class CopyJob extends ResolvedResourcesJob {
             }
 
             try {
-                dstFile = getClient(dest).openFile(dest.derivedUri, "w", canceller);
+                dstFile = getClient(dest).openFile(dest.derivedUri, "w", mSignal);
             } catch (FileNotFoundException | RemoteException | RuntimeException e) {
                 Metrics.logFileOperationFailure(
                         appContext, Metrics.SUBFILEOP_OPEN_FILE, dest.derivedUri);
@@ -599,9 +600,6 @@ class CopyJob extends ResolvedResourcesJob {
             }
             out = new ParcelFileDescriptor.AutoCloseOutputStream(dstFile);
 
-            byte[] buffer = new byte[32 * 1024];
-            int len;
-            boolean reading = true;
             try {
                 // If we know the source size, and the destination supports disk
                 // space allocation, then allocate the space we'll need. This
@@ -614,18 +612,18 @@ class CopyJob extends ResolvedResourcesJob {
                     sm.allocateBytes(dstFd, srcSize);
                 }
 
-                while ((len = in.read(buffer)) != -1) {
-                    if (isCanceled()) {
-                        if (DEBUG) Log.d(TAG, "Canceled copy mid-copy of: " + src.derivedUri);
-                        return;
-                    }
-                    reading = false;
-                    out.write(buffer, 0, len);
-                    makeCopyProgress(len);
-                    reading = true;
+                try {
+                    final Int64Ref last = new Int64Ref(0);
+                    FileUtils.copy(in, out, (long progress) -> {
+                        final long delta = progress - last.value;
+                        last.value = progress;
+                        makeCopyProgress(delta);
+                    }, mSignal);
+                } catch (OperationCanceledException e) {
+                    if (DEBUG) Log.d(TAG, "Canceled copy mid-copy of: " + src.derivedUri);
+                    return;
                 }
 
-                reading = false;
                 // Need to invoke Os#fsync to ensure the file is written to the storage device.
                 try {
                     Os.fsync(dstFile.getFileDescriptor());
@@ -643,8 +641,8 @@ class CopyJob extends ResolvedResourcesJob {
             } catch (IOException e) {
                 Metrics.logFileOperationFailure(
                         appContext,
-                        reading ? Metrics.SUBFILEOP_READ_FILE : Metrics.SUBFILEOP_WRITE_FILE,
-                        reading ? src.derivedUri: dest.derivedUri);
+                        Metrics.SUBFILEOP_WRITE_FILE,
+                        dest.derivedUri);
                 throw new ResourceException(
                         "Failed to copy bytes from %s to %s due to an IO exception.",
                         src.derivedUri, dest.derivedUri, e);
@@ -666,7 +664,7 @@ class CopyJob extends ResolvedResourcesJob {
                 }
 
                 if (DEBUG) Log.d(TAG, "Cleaning up failed operation leftovers.");
-                canceller.cancel();
+                mSignal.cancel();
                 try {
                     deleteDocument(dest, destParent);
                 } catch (ResourceException e) {
@@ -765,9 +763,7 @@ class CopyJob extends ResolvedResourcesJob {
      */
     private Cursor queryChildren(DocumentInfo srcDir, String[] queryColumns)
             throws RemoteException {
-        try (final ContentProviderClient client = getClient(srcDir)) {
-            return queryChildren(client, srcDir.derivedUri, queryColumns);
-        }
+        return queryChildren(getClient(srcDir), srcDir.derivedUri, queryColumns);
     }
 
     /**

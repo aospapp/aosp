@@ -74,17 +74,22 @@ public class ApiLevelUtil {
     }
 
     protected static int resolveVersionString(String versionString) {
+        // Attempt 1: Parse version string as an integer, e.g. "23" for M
         try {
-            return Integer.parseInt(versionString); // e.g. "24" for M
-        } catch (NumberFormatException e1) {
-            try {
-                Field versionField = Build.VERSION_CODES.class.getField(
-                        versionString.toUpperCase());
-                return versionField.getInt(null); // no instance for VERSION_CODES, use null
-            } catch (IllegalAccessException | NoSuchFieldException e2) {
-                throw new RuntimeException(
-                        String.format("Failed to parse version string %s", versionString), e2);
-            }
+            return Integer.parseInt(versionString);
+        } catch (NumberFormatException e) { /* ignore for alternate approaches below */ }
+        // Attempt 2: Find matching field in VersionCodes utility class, return value
+        try {
+            Field versionField = VersionCodes.class.getField(versionString.toUpperCase());
+            return versionField.getInt(null); // no instance for VERSION_CODES, use null
+        } catch (IllegalAccessException | NoSuchFieldException e) { /* ignore */ }
+        // Attempt 3: Find field within android.os.Build.VERSION_CODES
+        try {
+            Field versionField = Build.VERSION_CODES.class.getField(versionString.toUpperCase());
+            return versionField.getInt(null); // no instance for VERSION_CODES, use null
+        } catch (IllegalAccessException | NoSuchFieldException e) {
+            throw new RuntimeException(
+                    String.format("Failed to parse version string %s", versionString), e);
         }
     }
 }

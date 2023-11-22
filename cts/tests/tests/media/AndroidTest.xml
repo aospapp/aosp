@@ -14,7 +14,11 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Media test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="media" />
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.MediaPreparer">
+        <option name="images-only" value="true" />
+    </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsMediaTestCases.apk" />
@@ -26,8 +30,11 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.media.cts" />
+        <!-- setup can be expensive so limit the number of shards -->
+        <option name="ajur-max-shard" value="5" />
         <!-- test-timeout unit is ms, value = 30 min -->
         <option name="test-timeout" value="1800000" />
         <option name="runtime-hint" value="4h" />
+        <option name="hidden-api-checks" value="false" />
     </test>
 </configuration>

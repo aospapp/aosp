@@ -4,102 +4,76 @@
  */
 package org.mockito.internal.configuration.plugins;
 
-import org.mockito.internal.util.collections.Iterables;
 import org.mockito.plugins.PluginSwitch;
 
-import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.net.URL;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Map;
 
 class PluginLoader {
 
-    private final PluginSwitch pluginSwitch;
+    private final DefaultMockitoPlugins plugins;
+    private final PluginInitializer initializer;
 
-    private final Map<String, String> alias;
+    PluginLoader(DefaultMockitoPlugins plugins, PluginInitializer initializer) {
+        this.plugins = plugins;
+        this.initializer = initializer;
+    }
 
-    public PluginLoader(PluginSwitch pluginSwitch) {
-        this.pluginSwitch = pluginSwitch;
-        this.alias = new HashMap<String, String>();
+    PluginLoader(PluginSwitch pluginSwitch) {
+        this(new DefaultMockitoPlugins(), new PluginInitializer(pluginSwitch, null, new DefaultMockitoPlugins()));
     }
 
     /**
+     * @deprecated Let's avoid adding more aliases. It complicates the API.
+     * Instead of an alias, we can use fully qualified class name of the alternative implementation.
+     * <p>
      * Adds an alias for a class name to this plugin loader. Instead of the fully qualified type name,
      * the alias can be used as a convenience name for a known plugin.
      */
-    PluginLoader withAlias(String name, String type) {
-        alias.put(name, type);
-        return this;
+    @Deprecated
+    PluginLoader(PluginSwitch pluginSwitch, String alias) {
+        this(new DefaultMockitoPlugins(), new PluginInitializer(pluginSwitch, alias, new DefaultMockitoPlugins()));
     }
 
     /**
      * Scans the classpath for given pluginType. If not found, default class is used.
      */
     @SuppressWarnings("unchecked")
-    <T> T loadPlugin(final Class<T> pluginType, String defaultPluginClassName) {
-        try {
-            T plugin = loadImpl(pluginType);
-            if (plugin != null) {
-                return plugin;
-            }
-
-            try {
-                // Default implementation. Use our own ClassLoader instead of the context
-                // ClassLoader, as the default implementation is assumed to be part of
-                // Mockito and may not be available via the context ClassLoader.
-                return pluginType.cast(Class.forName(defaultPluginClassName).newInstance());
-            } catch (Exception e) {
-                throw new IllegalStateException("Internal problem occurred, please report it. " +
-                        "Mockito is unable to load the default implementation of class that is a part of Mockito distribution. " +
-                        "Failed to load " + pluginType, e);
-            }
-        } catch (final Throwable t) {
-            return (T) Proxy.newProxyInstance(pluginType.getClassLoader(),
-                    new Class<?>[]{pluginType},
-                    new InvocationHandler() {
-                        @Override
-                        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-                            throw new IllegalStateException("Could not initialize plugin: " + pluginType, t);
-                        }
-                    });
-        }
+    <T> T loadPlugin(final Class<T> pluginType) {
+        return (T) loadPlugin(pluginType, null);
     }
 
     /**
-     * Equivalent to {@link java.util.ServiceLoader#load} but without requiring
-     * Java 6 / Android 2.3 (Gingerbread).
+     * Scans the classpath for given {@code preferredPluginType}. If not found scan for {@code
+     * alternatePluginType}. If neither a preferred or alternate plugin is found, default to default
+     * class of {@code preferredPluginType}.
+     *
+     * @return An object of either {@code preferredPluginType} or {@code alternatePluginType}
      */
-    private <T> T loadImpl(Class<T> service) {
-        ClassLoader loader = Thread.currentThread().getContextClassLoader();
-        if (loader == null) {
-            loader = ClassLoader.getSystemClassLoader();
-        }
-        Enumeration<URL> resources;
+    @SuppressWarnings("unchecked")
+    <PreferredType, AlternateType> Object loadPlugin(final Class<PreferredType> preferredPluginType, final Class<AlternateType> alternatePluginType) {
         try {
-            resources = loader.getResources("mockito-extensions/" + service.getName());
-        } catch (IOException e) {
-            throw new IllegalStateException("Failed to load " + service, e);
-        }
-
-        try {
-            String foundPluginClass = new PluginFinder(pluginSwitch).findPluginClass(Iterables.toIterable(resources));
-            if (foundPluginClass != null) {
-                String aliasType = alias.get(foundPluginClass);
-                if (aliasType != null) {
-                    foundPluginClass = aliasType;
+            PreferredType preferredPlugin = initializer.loadImpl(preferredPluginType);
+            if (preferredPlugin != null) {
+                return preferredPlugin;
+            } else if (alternatePluginType != null) {
+                AlternateType alternatePlugin = initializer.loadImpl(alternatePluginType);
+                if (alternatePlugin != null) {
+                    return alternatePlugin;
                 }
-                Class<?> pluginClass = loader.loadClass(foundPluginClass);
-                Object plugin = pluginClass.newInstance();
-                return service.cast(plugin);
             }
-            return null;
-        } catch (Exception e) {
-            throw new IllegalStateException(
-                    "Failed to load " + service + " implementation declared in " + resources, e);
+
+            return plugins.getDefaultPlugin(preferredPluginType);
+        } catch (final Throwable t) {
+            return Proxy.newProxyInstance(preferredPluginType.getClassLoader(),
+                new Class<?>[]{preferredPluginType},
+                new InvocationHandler() {
+                    @Override
+                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                        throw new IllegalStateException("Could not initialize plugin: " + preferredPluginType + " (alternate: " + alternatePluginType + ")", t);
+                    }
+                });
         }
     }
 }

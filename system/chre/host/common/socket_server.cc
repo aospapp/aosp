@@ -188,8 +188,8 @@ void SocketServer::handleClientData(int clientSocket) {
   const ClientData& clientData = mClients[clientSocket];
   uint16_t clientId = clientData.clientId;
 
-  uint8_t buffer[kMaxPacketSize];
-  ssize_t packetSize = recv(clientSocket, buffer, sizeof(buffer), MSG_DONTWAIT);
+  ssize_t packetSize = recv(
+      clientSocket, mRecvBuffer.data(), mRecvBuffer.size(), MSG_DONTWAIT);
   if (packetSize < 0) {
     LOGE("Couldn't get packet from client %" PRIu16 ": %s", clientId,
          strerror(errno));
@@ -198,7 +198,7 @@ void SocketServer::handleClientData(int clientSocket) {
     disconnectClient(clientSocket);
   } else {
     LOGV("Got %zd byte packet from client %" PRIu16, packetSize, clientId);
-    mClientMessageCallback(clientId, buffer, packetSize);
+    mClientMessageCallback(clientId, mRecvBuffer.data(), packetSize);
   }
 }
 

@@ -21,22 +21,24 @@ import android.app.Instrumentation;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
-
-import com.android.tv.testing.Constants;
+import com.android.tv.testing.constants.Constants;
 import com.android.tv.testinput.TestTvInputService;
 import com.android.tv.testinput.TestTvInputSetupActivity;
 
 /**
- * An instrumentation utility to set up the needed inputs, channels, programs and other settings
- * for automated unit tests.
+ * An instrumentation utility to set up the needed inputs, channels, programs and other settings for
+ * automated unit tests.
  *
- * <p><pre>{@code
+ * <p>
+ *
+ * <pre>{@code
  * adb shell am instrument \
  *   -e testSetupMode {func,jank,unit} \
  *   -w com.android.tv.testinput/.instrument.TestSetupInstrumentation
  * }</pre>
  *
  * <p>Optional arguments are:
+ *
  * <pre>
  *     -e channelCount number
  * </pre>
@@ -82,23 +84,26 @@ public class TestSetupInstrumentation extends Instrumentation {
     private void setup() throws TestSetupException {
         final String testSetupMode = mArguments.getString(TEST_SETUP_MODE_ARG);
         if (TextUtils.isEmpty(testSetupMode)) {
-            Log.i(TAG, "Performing no setup actions because " + TEST_SETUP_MODE_ARG
-                    + " was not passed as an argument");
+            Log.i(
+                    TAG,
+                    "Performing no setup actions because "
+                            + TEST_SETUP_MODE_ARG
+                            + " was not passed as an argument");
         } else {
             Log.i(TAG, "Running setup for " + testSetupMode + " tests.");
             int channelCount;
             switch (testSetupMode) {
                 case "func":
-                    channelCount = getArgumentAsInt(CHANNEL_COUNT_ARG,
-                            Constants.FUNC_TEST_CHANNEL_COUNT);
+                    channelCount =
+                            getArgumentAsInt(CHANNEL_COUNT_ARG, Constants.FUNC_TEST_CHANNEL_COUNT);
                     break;
                 case "jank":
-                    channelCount = getArgumentAsInt(CHANNEL_COUNT_ARG,
-                            Constants.JANK_TEST_CHANNEL_COUNT);
+                    channelCount =
+                            getArgumentAsInt(CHANNEL_COUNT_ARG, Constants.JANK_TEST_CHANNEL_COUNT);
                     break;
                 case "unit":
-                    channelCount = getArgumentAsInt(CHANNEL_COUNT_ARG,
-                            Constants.UNIT_TEST_CHANNEL_COUNT);
+                    channelCount =
+                            getArgumentAsInt(CHANNEL_COUNT_ARG, Constants.UNIT_TEST_CHANNEL_COUNT);
                     break;
                 default:
                     throw new TestSetupException(
@@ -114,8 +119,14 @@ public class TestSetupInstrumentation extends Instrumentation {
             try {
                 return Integer.parseInt(stringValue);
             } catch (NumberFormatException e) {
-                Log.w(TAG, "Unable to parse arg " + arg + " with value " + stringValue
-                        + " to a integer.", e);
+                Log.w(
+                        TAG,
+                        "Unable to parse arg "
+                                + arg
+                                + " with value "
+                                + stringValue
+                                + " to a integer.",
+                        e);
             }
         }
         return defaultValue;

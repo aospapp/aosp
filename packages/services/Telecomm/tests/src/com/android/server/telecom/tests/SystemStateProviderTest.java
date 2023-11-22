@@ -16,6 +16,9 @@
 
 package com.android.server.telecom.tests;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,6 +34,11 @@ import android.test.suitebuilder.annotation.SmallTest;
 import com.android.server.telecom.SystemStateProvider;
 import com.android.server.telecom.SystemStateProvider.SystemStateListener;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -38,9 +46,8 @@ import org.mockito.MockitoAnnotations;
 /**
  * Unit tests for SystemStateProvider
  */
+@RunWith(JUnit4.class)
 public class SystemStateProviderTest extends TelecomTestCase {
-
-    SystemStateProvider mSystemStateProvider;
 
     @Mock Context mContext;
     @Mock SystemStateListener mSystemStateListener;
@@ -49,17 +56,20 @@ public class SystemStateProviderTest extends TelecomTestCase {
     @Mock Intent mIntentExit;
 
     @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         MockitoAnnotations.initMocks(this);
     }
 
     @Override
+    @After
     public void tearDown() throws Exception {
         super.tearDown();
     }
 
     @SmallTest
+    @Test
     public void testListeners() throws Exception {
         SystemStateProvider systemStateProvider = new SystemStateProvider(mContext);
 
@@ -70,6 +80,7 @@ public class SystemStateProviderTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testQuerySystemForCarMode_True() {
         when(mContext.getSystemService(Context.UI_MODE_SERVICE)).thenReturn(mUiModeManager);
         when(mUiModeManager.getCurrentModeType()).thenReturn(Configuration.UI_MODE_TYPE_CAR);
@@ -77,6 +88,7 @@ public class SystemStateProviderTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testQuerySystemForCarMode_False() {
         when(mContext.getSystemService(Context.UI_MODE_SERVICE)).thenReturn(mUiModeManager);
         when(mUiModeManager.getCurrentModeType()).thenReturn(Configuration.UI_MODE_TYPE_NORMAL);
@@ -84,6 +96,7 @@ public class SystemStateProviderTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testReceiverAndIntentFilter() {
         ArgumentCaptor<IntentFilter> intentFilter = ArgumentCaptor.forClass(IntentFilter.class);
         new SystemStateProvider(mContext);
@@ -95,6 +108,7 @@ public class SystemStateProviderTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testOnEnterExitCarMode() {
         ArgumentCaptor<BroadcastReceiver> receiver =
                 ArgumentCaptor.forClass(BroadcastReceiver.class);

@@ -1,25 +1,22 @@
-apply plugin: android.support.SupportAndroidLibraryPlugin
+import static androidx.build.dependencies.DependenciesKt.*
+import androidx.build.LibraryGroups
+import androidx.build.LibraryVersions
 
-dependencies {
-    api project(':support-annotations')
-
-    androidTestImplementation libs.test_runner,   { exclude module: 'support-annotations' }
+plugins {
+    id("SupportAndroidLibraryPlugin")
 }
 
-android {
-    defaultConfig {
-        minSdkVersion 14
-    }
+dependencies {
+    api(project(":annotation"))
 
-    sourceSets {
-        main.java.srcDirs = ['src']
-        main.res.srcDirs = ['res']
-    }
+    androidTestImplementation(TEST_RUNNER_TMP, libs.exclude_for_espresso)
 }
 
 supportLibrary {
-    name 'Android Support ExifInterface'
-    publish true
-    inceptionYear '2016'
-    description 'Android Support ExifInterface'
+    name = "Android Support ExifInterface"
+    publish = true
+    mavenVersion = LibraryVersions.SUPPORT_LIBRARY
+    mavenGroup = LibraryGroups.EXIFINTERFACE
+    inceptionYear = "2016"
+    description = "Android Support ExifInterface"
 }

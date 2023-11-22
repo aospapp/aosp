@@ -61,9 +61,8 @@
 
         <activity android:name="CellBroadcastListActivity"
                   android:label="@string/app_label"
-                  android:theme="@android:style/Theme.DeviceDefault.Light"
-                  android:configChanges="orientation|keyboardHidden"
-                  android:launchMode="singleTask">
+                  android:theme="@style/CellBroadcastSettingsTheme"
+                  android:configChanges="orientation|keyboardHidden" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 <!-- Uncomment this category to show the Cell Broadcasts launcher icon.

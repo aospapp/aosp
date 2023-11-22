@@ -6,7 +6,7 @@ Model createTestModel() {
             .type = OperandType::TENSOR_QUANT8_ASYMM,
             .dimensions = {1, 4, 4, 1},
             .numberOfConsumers = 1,
-            .scale = 0.0f,
+            .scale = 0.5f,
             .zeroPoint = 0,
             .lifetime = OperandLifeTime::MODEL_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
@@ -24,7 +24,7 @@ Model createTestModel() {
             .type = OperandType::TENSOR_QUANT8_ASYMM,
             .dimensions = {1, 2, 2, 4},
             .numberOfConsumers = 0,
-            .scale = 0.0f,
+            .scale = 0.5f,
             .zeroPoint = 0,
             .lifetime = OperandLifeTime::MODEL_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
@@ -55,6 +55,7 @@ Model createTestModel() {
         .pools = pools,
     };
 }
+
 
 bool is_ignored(int i) {
   static std::set<int> ignore = {};

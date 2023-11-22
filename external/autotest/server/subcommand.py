@@ -53,8 +53,8 @@ def parallel(tasklist, timeout=None, return_results=False):
         raise error.AutoservError(message)
 
 
-def parallel_simple(function, arglist, log=True, timeout=None,
-                    return_results=False):
+def parallel_simple(function, arglist, subdir_name_constructor=lambda x: str(x),
+                    log=True, timeout=None, return_results=False):
     """
     Each element in the arglist used to create a subcommand object,
     where that arg is used both as a subdir name, and a single argument
@@ -66,8 +66,12 @@ def parallel_simple(function, arglist, log=True, timeout=None,
     NOTE: As an optimization, if len(arglist) == 1 a subcommand is not used.
 
     @param function: A callable to run in parallel once per arg in arglist.
-    @param arglist: A list of single arguments to be used one per subcommand;
-            typically a list of machine names.
+    @param arglist: A list of arguments to be used one per subcommand
+    @param subdir_name_constructor: A function that returns a name for the
+            result sub-directory created per subcommand.
+            Signature is:
+                subdir_name_constructor(arg)
+            where arg is the argument passed to function.
     @param log: If True, output will be written to output in a subdirectory
             named after each subcommand's arg.
     @param timeout: Number of seconds after which the commands should timeout.
@@ -79,7 +83,8 @@ def parallel_simple(function, arglist, log=True, timeout=None,
     """
     if not arglist:
         logging.warning('parallel_simple was called with an empty arglist, '
-                     'did you forget to pass in a list of machines?')
+                        'did you forget to pass in a list of machines?')
+
     # Bypass the multithreading if only one machine.
     if len(arglist) == 1:
         arg = arglist[0]
@@ -96,10 +101,7 @@ def parallel_simple(function, arglist, log=True, timeout=None,
     subcommands = []
     for arg in arglist:
         args = [arg]
-        if log:
-            subdir = str(arg)
-        else:
-            subdir = None
+        subdir = subdir_name_constructor(arg) if log else None
         subcommands.append(subcommand(function, args, subdir))
     return parallel(subcommands, timeout, return_results=return_results)
 
@@ -123,7 +125,6 @@ class subcommand(object):
 
         self.func = func
         self.args = args
-        self.lambda_function = lambda: func(*args)
         self.pid = None
         self.returncode = None
 
@@ -176,7 +177,7 @@ class subcommand(object):
         try:
             for hook in self.fork_hooks:
                 hook(self)
-            result = self.lambda_function()
+            result = self.func(*self.args)
             os.write(w, cPickle.dumps(result, cPickle.HIGHEST_PROTOCOL))
             exit_code = 0
         except Exception, e:

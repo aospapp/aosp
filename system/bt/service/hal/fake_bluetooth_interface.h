@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2015 Google, Inc.
+//  Copyright 2015 Google, Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -63,7 +63,6 @@ class FakeBluetoothInterface : public BluetoothInterface {
   void RemoveObserver(Observer* observer) override;
   const bt_interface_t* GetHALInterface() const override;
   bt_callbacks_t* GetHALCallbacks() const override;
-  const bluetooth_device_t* GetHALAdapter() const override;
 
  private:
   base::ObserverList<Observer> observers_;

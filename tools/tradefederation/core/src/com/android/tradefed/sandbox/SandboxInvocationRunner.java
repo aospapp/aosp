@@ -22,6 +22,15 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
+import com.android.tradefed.util.SerializationUtil;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Run the tests associated with the invocation in the sandbox. */
 public class SandboxInvocationRunner {
@@ -36,15 +45,40 @@ public class SandboxInvocationRunner {
         Exception res = sandbox.prepareEnvironment(context, config, listener);
         if (res != null) {
             CLog.w("Sandbox prepareEnvironment threw an Exception.");
+            sandbox.tearDown();
             throw res;
         }
         try {
-            CommandResult result = sandbox.run(config);
+            CommandResult result = sandbox.run(config, listener);
             if (!CommandStatus.SUCCESS.equals(result.getStatus())) {
-                throw new RuntimeException(result.getStderr());
+                handleStderrException(result.getStderr());
             }
         } finally {
             sandbox.tearDown();
         }
+    }
+
+    /** Attempt to extract a proper exception from stderr, if not stick to RuntimeException. */
+    private static void handleStderrException(String stderr) throws Throwable {
+        Pattern pattern =
+                Pattern.compile(String.format(".*%s.*", TradefedSandboxRunner.EXCEPTION_KEY));
+        for (String line : stderr.split("\n")) {
+            Matcher m = pattern.matcher(line);
+            if (m.matches()) {
+                try {
+                    JSONObject json = new JSONObject(line);
+                    String filePath = json.getString(TradefedSandboxRunner.EXCEPTION_KEY);
+                    File exception = new File(filePath);
+                    Throwable obj = (Throwable) SerializationUtil.deserialize(exception, true);
+                    throw obj;
+                } catch (JSONException | IOException e) {
+                    // ignore
+                    CLog.w(
+                            "Could not parse the stderr as a particular exception. "
+                                    + "Using RuntimeException instead.");
+                }
+            }
+        }
+        throw new RuntimeException(stderr);
     }
 }

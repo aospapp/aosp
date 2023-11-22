@@ -1,7 +1,7 @@
 /** @file
   PCI emumeration support functions implementation for PCI Bus module.
 
-Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
 (C) Copyright 2015 Hewlett Packard Enterprise Development LP<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
@@ -162,6 +162,14 @@ PciPciDeviceInfoCollector (
 
           if (EFI_ERROR (Status)) {
             return Status;
+          }
+
+          //
+          // Ensure secondary bus number is greater than the primary bus number to avoid
+          // any potential dead loop when PcdPciDisableBusEnumeration is set to TRUE
+          //
+          if (SecBus <= StartBusNumber) {
+            break;
           }
 
           //
@@ -591,14 +599,14 @@ GatherPpbInfo (
 
   //
   // if PcdPciBridgeIoAlignmentProbe is TRUE, PCI bus driver probes
-  // PCI bridge supporting non-stardard I/O window alignment less than 4K.
+  // PCI bridge supporting non-standard I/O window alignment less than 4K.
   //
 
   PciIoDevice->BridgeIoAlignment = 0xFFF;
   if (FeaturePcdGet (PcdPciBridgeIoAlignmentProbe)) {
     //
     // Check any bits of bit 3-1 of I/O Base Register are writable.
-    // if so, it is assumed non-stardard I/O window alignment is supported by this bridge.
+    // if so, it is assumed non-standard I/O window alignment is supported by this bridge.
     // Per spec, bit 3-1 of I/O Base Register are reserved bits, so its content can't be assumed.
     //
     Value = (UINT8)(Temp ^ (BIT3 | BIT2 | BIT1));
@@ -1336,7 +1344,7 @@ UpdatePciInfo (
   Configuration = NULL;
   Status        = EFI_SUCCESS;
 
-  if (gEfiIncompatiblePciDeviceSupport == NULL) {
+  if (gIncompatiblePciDeviceSupport == NULL) {
     //
     // It can only be supported after the Incompatible PCI Device
     // Support Protocol has been installed
@@ -1344,7 +1352,7 @@ UpdatePciInfo (
     Status = gBS->LocateProtocol (
                     &gEfiIncompatiblePciDeviceSupportProtocolGuid,
                     NULL,
-                    (VOID **) &gEfiIncompatiblePciDeviceSupport
+                    (VOID **) &gIncompatiblePciDeviceSupport
                     );
   }
   if (Status == EFI_SUCCESS) {
@@ -1352,15 +1360,15 @@ UpdatePciInfo (
       // Check whether the device belongs to incompatible devices from protocol or not
       // If it is , then get its special requirement in the ACPI table
       //
-      Status = gEfiIncompatiblePciDeviceSupport->CheckDevice (
-                                                   gEfiIncompatiblePciDeviceSupport,
-                                                   PciIoDevice->Pci.Hdr.VendorId,
-                                                   PciIoDevice->Pci.Hdr.DeviceId,
-                                                   PciIoDevice->Pci.Hdr.RevisionID,
-                                                   PciIoDevice->Pci.Device.SubsystemVendorID,
-                                                   PciIoDevice->Pci.Device.SubsystemID,
-                                                   &Configuration
-                                                   );
+      Status = gIncompatiblePciDeviceSupport->CheckDevice (
+                                                gIncompatiblePciDeviceSupport,
+                                                PciIoDevice->Pci.Hdr.VendorId,
+                                                PciIoDevice->Pci.Hdr.DeviceId,
+                                                PciIoDevice->Pci.Hdr.RevisionID,
+                                                PciIoDevice->Pci.Device.SubsystemVendorID,
+                                                PciIoDevice->Pci.Device.SubsystemID,
+                                                &Configuration
+                                                );
 
   }
 
@@ -1408,6 +1416,38 @@ UpdatePciInfo (
         //
         if (CheckBarType (PciIoDevice, (UINT8) BarIndex, PciBarTypeMem)) {
           SetFlag = TRUE;
+
+          //
+          // Ignored if granularity is 0.
+          // Ignored if PCI BAR is I/O or 32-bit memory.
+          // If PCI BAR is 64-bit memory and granularity is 32, then
+          // the PCI BAR resource is allocated below 4GB.
+          // If PCI BAR is 64-bit memory and granularity is 64, then
+          // the PCI BAR resource is allocated above 4GB.
+          //
+          if (PciIoDevice->PciBar[BarIndex].BarType == PciBarTypeMem64) {
+            switch (Ptr->AddrSpaceGranularity) {
+            case 32:
+              PciIoDevice->PciBar[BarIndex].BarType = PciBarTypeMem32;
+            case 64:
+              PciIoDevice->PciBar[BarIndex].BarTypeFixed = TRUE;
+              break;
+            default:
+              break;
+            }
+          }
+
+          if (PciIoDevice->PciBar[BarIndex].BarType == PciBarTypePMem64) {
+            switch (Ptr->AddrSpaceGranularity) {
+            case 32:
+              PciIoDevice->PciBar[BarIndex].BarType = PciBarTypePMem32;
+            case 64:
+              PciIoDevice->PciBar[BarIndex].BarTypeFixed = TRUE;
+              break;
+            default:
+              break;
+            }
+          }
         }
         break;
 
@@ -1752,6 +1792,7 @@ PciParseBar (
     return Offset + 4;
   }
 
+  PciIoDevice->PciBar[BarIndex].BarTypeFixed = FALSE;
   PciIoDevice->PciBar[BarIndex].Offset = (UINT8) Offset;
   if ((Value & 0x01) != 0) {
     //
@@ -1784,7 +1825,6 @@ PciParseBar (
       PciIoDevice->PciBar[BarIndex].BarType = (PCI_BAR_TYPE) 0;
     }
 
-    PciIoDevice->PciBar[BarIndex].Prefetchable  = FALSE;
     PciIoDevice->PciBar[BarIndex].BaseAddress   = OriginalValue & Mask;
 
   } else {

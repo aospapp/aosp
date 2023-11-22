@@ -16,14 +16,13 @@
 
 package com.android.incallui.calllocation.impl;
 
-import static com.android.dialer.util.DialerUtils.closeQuietly;
-
 import android.content.Context;
 import android.net.Uri;
 import android.net.Uri.Builder;
 import android.os.SystemClock;
 import android.util.Pair;
 import com.android.dialer.common.LogUtil;
+import com.android.dialer.util.DialerUtils;
 import com.android.dialer.util.MoreStrings;
 import com.google.android.common.http.UrlRules;
 import java.io.ByteArrayOutputStream;
@@ -103,7 +102,7 @@ public class HttpFetcher {
       LogUtil.i("HttpFetcher.sendRequestAsByteArray", "fetch took " + (end - start) + " ms");
       return response;
     } finally {
-      closeQuietly(is);
+      DialerUtils.closeQuietly(is);
       if (conn != null) {
         conn.disconnect();
       }
@@ -223,8 +222,6 @@ public class HttpFetcher {
   /**
    * Lookup up url re-write rules from gServices and apply to the given url.
    *
-   * <p>https://wiki.corp.google.com/twiki/bin/view/Main/AndroidGservices#URL_Rewriting_Rules
-   *
    * @return The new url.
    */
   private static URL reWriteUrl(Context context, String url) {
@@ -268,21 +265,21 @@ public class HttpFetcher {
   /** Disconnect {@link HttpURLConnection} when InputStream is closed */
   private static class HttpInputStreamWrapper extends FilterInputStream {
 
-    final HttpURLConnection mHttpUrlConnection;
-    final long mStartMillis = SystemClock.uptimeMillis();
+    final HttpURLConnection httpUrlConnection;
+    final long startMillis = SystemClock.uptimeMillis();
 
     public HttpInputStreamWrapper(HttpURLConnection conn, InputStream in) {
       super(in);
-      mHttpUrlConnection = conn;
+      httpUrlConnection = conn;
     }
 
     @Override
     public void close() throws IOException {
       super.close();
-      mHttpUrlConnection.disconnect();
+      httpUrlConnection.disconnect();
       if (LogUtil.isDebugEnabled()) {
         long endMillis = SystemClock.uptimeMillis();
-        LogUtil.i("HttpFetcher.close", "fetch took " + (endMillis - mStartMillis) + " ms");
+        LogUtil.i("HttpFetcher.close", "fetch took " + (endMillis - startMillis) + " ms");
       }
     }
   }

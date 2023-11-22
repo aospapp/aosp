@@ -15,10 +15,7 @@
  */
 package com.android.tradefed.result;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.ddmlib.testrunner.TestResult;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
@@ -252,7 +249,7 @@ public class EmailResultReporter extends CollectingTestListener implements
         // with the option.
         if (hasFailedTests() && mIncludeTestFailures) {
             TestRunResult res = getCurrentRunResults();
-            for (TestIdentifier tid : res.getTestResults().keySet()) {
+            for (TestDescription tid : res.getTestResults().keySet()) {
                 TestResult tr = res.getTestResults().get(tid);
                 if (TestStatus.FAILURE.equals(tr.getStatus())) {
                     bodyBuilder.append(String.format("Test Identifier: %s\nStack: %s", tid,

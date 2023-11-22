@@ -10,7 +10,7 @@
 #include <utility>
 
 #include "third_party/base/ptr_util.h"
-#include "xfa/fde/tto/fde_textout.h"
+#include "xfa/fde/cfde_textout.h"
 #include "xfa/fwl/cfwl_event.h"
 #include "xfa/fwl/cfwl_eventmouse.h"
 #include "xfa/fwl/cfwl_messagekey.h"
@@ -22,9 +22,7 @@
 
 CFWL_PushButton::CFWL_PushButton(const CFWL_App* app)
     : CFWL_Widget(app, pdfium::MakeUnique<CFWL_WidgetProperties>(), nullptr),
-      m_bBtnDown(false),
-      m_dwTTOStyles(FDE_TTOSTYLE_SingleLine),
-      m_iTTOAlign(FDE_TTOALIGNMENT_Center) {}
+      m_bBtnDown(false) {}
 
 CFWL_PushButton::~CFWL_PushButton() {}
 
@@ -46,13 +44,12 @@ void CFWL_PushButton::Update() {
   if (!m_pProperties->m_pThemeProvider)
     m_pProperties->m_pThemeProvider = GetAvailableTheme();
 
-  UpdateTextOutStyles();
   m_rtClient = GetClientRect();
   m_rtCaption = m_rtClient;
 }
 
-void CFWL_PushButton::DrawWidget(CFX_Graphics* pGraphics,
-                                 const CFX_Matrix* pMatrix) {
+void CFWL_PushButton::DrawWidget(CXFA_Graphics* pGraphics,
+                                 const CFX_Matrix& matrix) {
   if (!pGraphics)
     return;
   if (!m_pProperties->m_pThemeProvider)
@@ -60,12 +57,12 @@ void CFWL_PushButton::DrawWidget(CFX_Graphics* pGraphics,
 
   if (HasBorder()) {
     DrawBorder(pGraphics, CFWL_Part::Border, m_pProperties->m_pThemeProvider,
-               pMatrix);
+               matrix);
   }
-  DrawBkground(pGraphics, m_pProperties->m_pThemeProvider, pMatrix);
+  DrawBkground(pGraphics, m_pProperties->m_pThemeProvider, &matrix);
 }
 
-void CFWL_PushButton::DrawBkground(CFX_Graphics* pGraphics,
+void CFWL_PushButton::DrawBkground(CXFA_Graphics* pGraphics,
                                    IFWL_ThemeProvider* pTheme,
                                    const CFX_Matrix* pMatrix) {
   CFWL_ThemeBackground param;
@@ -92,11 +89,6 @@ uint32_t CFWL_PushButton::GetPartStates() {
   else if (m_pProperties->m_dwStates & FWL_STATE_PSB_Hovered)
     dwStates |= CFWL_PartState_Hovered;
   return dwStates;
-}
-
-void CFWL_PushButton::UpdateTextOutStyles() {
-  m_iTTOAlign = FDE_TTOALIGNMENT_TopLeft;
-  m_dwTTOStyles = FDE_TTOSTYLE_SingleLine;
 }
 
 void CFWL_PushButton::OnProcessMessage(CFWL_Message* pMessage) {
@@ -144,9 +136,9 @@ void CFWL_PushButton::OnProcessMessage(CFWL_Message* pMessage) {
   CFWL_Widget::OnProcessMessage(pMessage);
 }
 
-void CFWL_PushButton::OnDrawWidget(CFX_Graphics* pGraphics,
-                                   const CFX_Matrix* pMatrix) {
-  DrawWidget(pGraphics, pMatrix);
+void CFWL_PushButton::OnDrawWidget(CXFA_Graphics* pGraphics,
+                                   const CFX_Matrix& matrix) {
+  DrawWidget(pGraphics, matrix);
 }
 
 void CFWL_PushButton::OnFocusChanged(CFWL_Message* pMsg, bool bSet) {

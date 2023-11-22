@@ -18,11 +18,11 @@ package com.android.car.settings.common;
 
 import android.os.Bundle;
 
-import android.support.annotation.LayoutRes;
-import android.support.annotation.StringRes;
+import androidx.car.widget.DayNightStyle;
+import androidx.car.widget.PagedListView;
 
+import com.android.car.list.TypedPagedListAdapter;
 import com.android.car.settings.R;
-import com.android.car.view.PagedListView;
 
 import java.util.ArrayList;
 
@@ -36,7 +36,7 @@ public abstract class ListSettingsFragment extends BaseFragment {
 
     protected static Bundle getBundle() {
         Bundle bundle = BaseFragment.getBundle();
-        bundle.putInt(EXTRA_LAYOUT, R.layout.list);
+        bundle.putInt(EXTRA_LAYOUT, R.layout.list_fragment);
         return bundle;
     }
 
@@ -45,8 +45,8 @@ public abstract class ListSettingsFragment extends BaseFragment {
         super.onActivityCreated(savedInstanceState);
 
         mListView = (PagedListView) getView().findViewById(R.id.list);
-        mListView.setDarkMode();
-        mPagedListAdapter = new TypedPagedListAdapter(getContext(), getLineItems());
+        mListView.setDayNightStyle(DayNightStyle.AUTO);
+        mPagedListAdapter = new TypedPagedListAdapter(getLineItems());
         mListView.setAdapter(mPagedListAdapter);
     }
 

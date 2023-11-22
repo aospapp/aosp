@@ -20,8 +20,14 @@ DOC = """
   L2TP/IPSec PSK VPN server runing at the other end of a virtual Ethernet
   interface.
 
+  The -evil variant simulates connecting to a VPN gateway that specifies
+  its public IP as the point-to-point (remote) PPP address.  This
+  configuration has caused routing loops in the past, so we test it
+  explicitly in order to catch regressions.
+
 """
 
 job.run_test('network_VPNConnect',
-             vpn_types=[ 'l2tpipsec-psk' ],
+             vpn_types=[ 'l2tpipsec-psk',
+                         'l2tpipsec-psk-evil' ],
              tag=NAME.split('.')[1])

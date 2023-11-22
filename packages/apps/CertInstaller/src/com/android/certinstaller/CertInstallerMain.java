@@ -29,13 +29,13 @@ import android.util.Log;
 import android.widget.Toast;
 
 import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
 import libcore.io.IoUtils;
-import libcore.io.Streams;
 
 /**
  * The main class for installing certificates to the system keystore. It reacts
@@ -120,6 +120,32 @@ public class CertInstallerMain extends PreferenceActivity {
         }
     }
 
+    // The maximum amount of data to read into memory before aborting.
+    // Without a limit, a sufficiently-large file will run us out of memory.  A
+    // typical certificate or WiFi config is under 10k, so 10MiB should be more
+    // than sufficient.  See b/32320490.
+    private static final int READ_LIMIT = 10 * 1024 * 1024;
+
+    /**
+     * Reads the given InputStream until EOF or more than READ_LIMIT bytes have
+     * been read, whichever happens first.  If the maximum limit is reached, throws
+     * IOException.
+     */
+    private static byte[] readWithLimit(InputStream in) throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        byte[] buffer = new byte[1024];
+        int bytesRead = 0;
+        int count;
+        while ((count = in.read(buffer)) != -1) {
+            bytes.write(buffer, 0, count);
+            bytesRead += count;
+            if (bytesRead > READ_LIMIT) {
+                throw new IOException("Data file exceeded maximum size.");
+            }
+        }
+        return bytes.toByteArray();
+    }
+
     private void startInstallActivity(String mimeType, Uri uri) {
         if (mimeType == null) {
             mimeType = getContentResolver().getType(uri);
@@ -138,7 +164,7 @@ public class CertInstallerMain extends PreferenceActivity {
             try {
                 in = getContentResolver().openInputStream(uri);
 
-                final byte[] raw = Streams.readFully(in);
+                final byte[] raw = readWithLimit(in);
                 startInstallActivity(target, raw);
 
             } catch (IOException e) {
@@ -161,7 +187,7 @@ public class CertInstallerMain extends PreferenceActivity {
         Intent intent = new Intent(this, WiFiInstaller.class);
         try (BufferedInputStream in =
                      new BufferedInputStream(getContentResolver().openInputStream(uri))) {
-            byte[] data = Streams.readFully(in);
+            byte[] data = readWithLimit(in);
             intent.putExtra(WIFI_CONFIG_FILE, uri.toString());
             intent.putExtra(WIFI_CONFIG_DATA, data);
             intent.putExtra(WIFI_CONFIG, mimeType);

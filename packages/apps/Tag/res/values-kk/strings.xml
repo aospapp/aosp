@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"NFC деректері"</string>
     <string name="vcard_title" msgid="7122634780732426007">"^1 үшін контакт дерегі"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Қоңырау шалу үшін бұл қолданбаға Telephone пайдалану рұқсаты қажет. \"Параметрлер\" бөлімінде тегтер рұқсатын реттей аласыз"</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Файлдарды ашу үшін қолданбаға сыртқы жадты пайдалану рұқсаты қажет. \"Параметрлер\" бөлімінде тэгтер рұқсатын реттей аласыз"</string>
 </resources>

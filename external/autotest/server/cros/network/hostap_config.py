@@ -449,6 +449,12 @@ class HostapConfig(object):
         return self._min_streams
 
 
+    @property
+    def frag_threshold(self):
+        """@return int frag threshold value, or None."""
+        return self._frag_threshold
+
+
     def __init__(self, mode=MODE_11B, channel=None, frequency=None,
                  n_capabilities=[], hide_ssid=None, beacon_interval=None,
                  dtim_period=None, frag_threshold=None, ssid=None, bssid=None,

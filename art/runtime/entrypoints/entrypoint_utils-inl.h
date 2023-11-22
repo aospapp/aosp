@@ -24,13 +24,13 @@
 #include "base/enums.h"
 #include "class_linker-inl.h"
 #include "common_throws.h"
-#include "dex_file.h"
+#include "dex/dex_file.h"
+#include "dex/invoke_type.h"
 #include "entrypoints/quick/callee_save_frame.h"
 #include "handle_scope-inl.h"
 #include "imt_conflict_table.h"
 #include "imtable-inl.h"
 #include "indirect_reference_table.h"
-#include "invoke_type.h"
 #include "jni_internal.h"
 #include "mirror/array.h"
 #include "mirror/class-inl.h"
@@ -70,45 +70,41 @@ inline ArtMethod* GetResolvedMethod(ArtMethod* outer_method,
   }
 
   // Find which method did the call in the inlining hierarchy.
-  ArtMethod* caller = outer_method;
-  if (inlining_depth != 0) {
-    caller = GetResolvedMethod(outer_method,
-                               method_info,
-                               inline_info,
-                               encoding,
-                               inlining_depth - 1);
-  }
-
-  // Lookup the declaring class of the inlined method.
-  ObjPtr<mirror::DexCache> dex_cache = caller->GetDexCache();
-  const DexFile* dex_file = dex_cache->GetDexFile();
-  const DexFile::MethodId& method_id = dex_file->GetMethodId(method_index);
-  ArtMethod* inlined_method = caller->GetDexCacheResolvedMethod(method_index, kRuntimePointerSize);
-  if (inlined_method != nullptr) {
-    DCHECK(!inlined_method->IsRuntimeMethod());
-    return inlined_method;
-  }
-  const char* descriptor = dex_file->StringByTypeIdx(method_id.class_idx_);
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
-  Thread* self = Thread::Current();
-  mirror::ClassLoader* class_loader = caller->GetDeclaringClass()->GetClassLoader();
-  mirror::Class* klass = class_linker->LookupClass(self, descriptor, class_loader);
-  if (klass == nullptr) {
-    LOG(FATAL) << "Could not find an inlined method from an .oat file: the class " << descriptor
-               << " was not found in the class loader of " << caller->PrettyMethod() << ". "
-               << "This must be due to playing wrongly with class loaders";
+  ArtMethod* method = outer_method;
+  for (uint32_t depth = 0, end = inlining_depth + 1u; depth != end; ++depth) {
+    DCHECK(!inline_info.EncodesArtMethodAtDepth(encoding, depth));
+    DCHECK_NE(inline_info.GetDexPcAtDepth(encoding, depth), static_cast<uint32_t>(-1));
+    method_index = inline_info.GetMethodIndexAtDepth(encoding, method_info, depth);
+    ArtMethod* inlined_method = class_linker->LookupResolvedMethod(method_index,
+                                                                   method->GetDexCache(),
+                                                                   method->GetClassLoader());
+    if (UNLIKELY(inlined_method == nullptr)) {
+      LOG(FATAL) << "Could not find an inlined method from an .oat file: "
+                 << method->GetDexFile()->PrettyMethod(method_index) << " . "
+                 << "This must be due to duplicate classes or playing wrongly with class loaders";
+      UNREACHABLE();
+    }
+    DCHECK(!inlined_method->IsRuntimeMethod());
+    if (UNLIKELY(inlined_method->GetDexFile() != method->GetDexFile())) {
+      // TODO: We could permit inlining within a multi-dex oat file and the boot image,
+      // even going back from boot image methods to the same oat file. However, this is
+      // not currently implemented in the compiler. Therefore crossing dex file boundary
+      // indicates that the inlined definition is not the same as the one used at runtime.
+      LOG(FATAL) << "Inlined method resolution crossed dex file boundary: from "
+                 << method->PrettyMethod()
+                 << " in " << method->GetDexFile()->GetLocation() << "/"
+                 << static_cast<const void*>(method->GetDexFile())
+                 << " to " << inlined_method->PrettyMethod()
+                 << " in " << inlined_method->GetDexFile()->GetLocation() << "/"
+                 << static_cast<const void*>(inlined_method->GetDexFile()) << ". "
+                 << "This must be due to duplicate classes or playing wrongly with class loaders";
+      UNREACHABLE();
+    }
+    method = inlined_method;
   }
 
-  inlined_method = klass->FindClassMethod(dex_cache, method_index, kRuntimePointerSize);
-  if (inlined_method == nullptr) {
-    LOG(FATAL) << "Could not find an inlined method from an .oat file: the class " << descriptor
-               << " does not have " << dex_file->GetMethodName(method_id)
-               << dex_file->GetMethodSignature(method_id) << " declared. "
-               << "This must be due to duplicate classes or playing wrongly with class loaders";
-  }
-  caller->SetDexCacheResolvedMethod(method_index, inlined_method, kRuntimePointerSize);
-
-  return inlined_method;
+  return method;
 }
 
 ALWAYS_INLINE inline mirror::Class* CheckObjectAlloc(mirror::Class* klass,
@@ -245,7 +241,7 @@ inline mirror::Class* CheckArrayAlloc(dex::TypeIndex type_idx,
     *slow_path = true;
     return nullptr;  // Failure
   }
-  mirror::Class* klass = method->GetDexCache()->GetResolvedType(type_idx);
+  ObjPtr<mirror::Class> klass = method->GetDexCache()->GetResolvedType(type_idx);
   if (UNLIKELY(klass == nullptr)) {  // Not in dex cache so try to resolve
     ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
     klass = class_linker->ResolveType(type_idx, method);
@@ -264,7 +260,7 @@ inline mirror::Class* CheckArrayAlloc(dex::TypeIndex type_idx,
       return nullptr;  // Failure
     }
   }
-  return klass;
+  return klass.Ptr();
 }
 
 // Given the context of a calling Method, use its DexCache to resolve a type to an array Class. If
@@ -349,8 +345,7 @@ inline ArtField* FindFieldFromCode(uint32_t field_idx,
     Handle<mirror::DexCache> h_dex_cache(hs.NewHandle(method->GetDexCache()));
     Handle<mirror::ClassLoader> h_class_loader(hs.NewHandle(method->GetClassLoader()));
 
-    resolved_field = class_linker->ResolveFieldJLS(*method->GetDexFile(),
-                                                   field_idx,
+    resolved_field = class_linker->ResolveFieldJLS(field_idx,
                                                    h_dex_cache,
                                                    h_class_loader);
   } else {
@@ -500,7 +495,8 @@ inline ArtMethod* FindMethodFromCode(uint32_t method_idx,
       Handle<mirror::Class> h_referring_class(hs2.NewHandle(referrer->GetDeclaringClass()));
       const dex::TypeIndex method_type_idx =
           referrer->GetDexFile()->GetMethodId(method_idx).class_idx_;
-      mirror::Class* method_reference_class = class_linker->ResolveType(method_type_idx, referrer);
+      ObjPtr<mirror::Class> method_reference_class =
+          class_linker->ResolveType(method_type_idx, referrer);
       if (UNLIKELY(method_reference_class == nullptr)) {
         // Bad type idx.
         CHECK(self->IsExceptionPending());
@@ -682,7 +678,7 @@ inline ArtMethod* FindMethodFast(uint32_t method_idx,
   } else if (type == kSuper) {
     // TODO This lookup is rather slow.
     dex::TypeIndex method_type_idx = dex_cache->GetDexFile()->GetMethodId(method_idx).class_idx_;
-    ObjPtr<mirror::Class> method_reference_class = ClassLinker::LookupResolvedType(
+    ObjPtr<mirror::Class> method_reference_class = linker->LookupResolvedType(
         method_type_idx, dex_cache, referrer->GetClassLoader());
     if (method_reference_class == nullptr) {
       // Need to do full type resolution...
@@ -711,13 +707,13 @@ inline ArtMethod* FindMethodFast(uint32_t method_idx,
   }
 }
 
-inline mirror::Class* ResolveVerifyAndClinit(dex::TypeIndex type_idx,
-                                             ArtMethod* referrer,
-                                             Thread* self,
-                                             bool can_run_clinit,
-                                             bool verify_access) {
+inline ObjPtr<mirror::Class> ResolveVerifyAndClinit(dex::TypeIndex type_idx,
+                                                    ArtMethod* referrer,
+                                                    Thread* self,
+                                                    bool can_run_clinit,
+                                                    bool verify_access) {
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
-  mirror::Class* klass = class_linker->ResolveType(type_idx, referrer);
+  ObjPtr<mirror::Class> klass = class_linker->ResolveType(type_idx, referrer);
   if (UNLIKELY(klass == nullptr)) {
     CHECK(self->IsExceptionPending());
     return nullptr;  // Failure - Indicate to caller to deliver exception
@@ -748,32 +744,31 @@ inline mirror::Class* ResolveVerifyAndClinit(dex::TypeIndex type_idx,
   return h_class.Get();
 }
 
-static inline mirror::String* ResolveString(ClassLinker* class_linker,
-                                            dex::StringIndex string_idx,
-                                            ArtMethod* referrer)
+static inline ObjPtr<mirror::String> ResolveString(ClassLinker* class_linker,
+                                                   dex::StringIndex string_idx,
+                                                   ArtMethod* referrer)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   Thread::PoisonObjectPointersIfDebug();
   ObjPtr<mirror::String> string = referrer->GetDexCache()->GetResolvedString(string_idx);
   if (UNLIKELY(string == nullptr)) {
     StackHandleScope<1> hs(Thread::Current());
     Handle<mirror::DexCache> dex_cache(hs.NewHandle(referrer->GetDexCache()));
-    const DexFile& dex_file = *dex_cache->GetDexFile();
-    string = class_linker->ResolveString(dex_file, string_idx, dex_cache);
+    string = class_linker->ResolveString(string_idx, dex_cache);
   }
-  return string.Ptr();
+  return string;
 }
 
-inline mirror::String* ResolveStringFromCode(ArtMethod* referrer, dex::StringIndex string_idx) {
+inline ObjPtr<mirror::String> ResolveStringFromCode(ArtMethod* referrer,
+                                                    dex::StringIndex string_idx) {
   Thread::PoisonObjectPointersIfDebug();
   ObjPtr<mirror::String> string = referrer->GetDexCache()->GetResolvedString(string_idx);
   if (UNLIKELY(string == nullptr)) {
     StackHandleScope<1> hs(Thread::Current());
     Handle<mirror::DexCache> dex_cache(hs.NewHandle(referrer->GetDexCache()));
-    const DexFile& dex_file = *dex_cache->GetDexFile();
     ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
-    string = class_linker->ResolveString(dex_file, string_idx, dex_cache);
+    string = class_linker->ResolveString(string_idx, dex_cache);
   }
-  return string.Ptr();
+  return string;
 }
 
 inline void UnlockJniSynchronizedMethod(jobject locked, Thread* self) {

@@ -22,6 +22,7 @@ import java.util.List;
 public abstract class PullRequest {
     public String path;
     protected List<VCardEntry> mEntries;
+
     public abstract void onPullComplete();
 
     @Override

@@ -8,7 +8,6 @@ import logging
 import os
 import time
 
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.audio import audio_test_data
 from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_helper
@@ -28,9 +27,9 @@ class audio_AudioBasicInternalSpeaker(audio_test.AudioTest):
     DELAY_BEFORE_RECORD_SECONDS = 0.5
     RECORD_SECONDS = 8
 
-    def run_once(self, host):
+    def run_once(self, host, cfm_speaker=False):
 
-        if not audio_test_utils.has_internal_speaker(host):
+        if not cfm_speaker and not audio_test_utils.has_internal_speaker(host):
             return
 
         golden_file = audio_test_data.SIMPLE_FREQUENCY_SPEAKER_TEST_FILE
@@ -56,11 +55,11 @@ class audio_AudioBasicInternalSpeaker(audio_test.AudioTest):
                 host, audio_facade, self.resultsdir, 'start')
 
         # Checks the node selected by cras is correct.
-        output_nodes, _ = audio_facade.get_selected_node_types()
-        if output_nodes != ['INTERNAL_SPEAKER']:
-            raise error.TestFail(
-                    '%s rather than internal speaker is selected on Cros '
-                    'device' % output_nodes)
+        if not cfm_speaker:
+            audio_test_utils.check_audio_nodes(audio_facade,
+                    (['INTERNAL_SPEAKER'], None))
+        else:
+            audio_test_utils.check_audio_nodes(audio_facade, (['USB'], None))
 
         audio_facade.set_selected_output_volume(80)
 

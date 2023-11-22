@@ -1,4 +1,4 @@
-// Copyright 2015, VIXL authors
+// Copyright 2017, VIXL authors
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 extern "C" {
-#include <stdint.h>
 #include <inttypes.h>
+#include <stdint.h>
 }
 
 #include <cassert>
@@ -35,6 +35,7 @@ extern "C" {
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iomanip>
 #include <iostream>
 
 #include "utils-vixl.h"
@@ -518,6 +519,7 @@ std::ostream& operator<<(std::ostream& os, const MemOperand& operand) {
   os << "[" << operand.GetBaseRegister();
   if (operand.GetAddrMode() == PostIndex) {
     os << "]";
+    if (operand.IsRegisterOnly()) return os << "!";
   }
   if (operand.IsImmediate()) {
     if ((operand.GetOffsetImmediate() != 0) || operand.GetSign().IsMinus() ||

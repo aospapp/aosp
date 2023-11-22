@@ -17,10 +17,12 @@
 #ifndef ART_RUNTIME_INDENTER_H_
 #define ART_RUNTIME_INDENTER_H_
 
-#include "base/logging.h"
-#include "base/macros.h"
 #include <ostream>
 #include <streambuf>
+
+#include <android-base/logging.h>
+
+#include "base/macros.h"
 
 namespace art {
 
@@ -31,7 +33,7 @@ class Indenter : public std::streambuf {
  public:
   Indenter(std::streambuf* out, char text, size_t count)
       : indent_next_(true), out_sbuf_(out),
-        text_{text, text, text, text, text, text, text, text},  // NOLINT(whitespace/braces)
+        text_{text, text, text, text, text, text, text, text},
         count_(count) {}
 
  private:

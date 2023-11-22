@@ -16,18 +16,16 @@
 
 package com.android.bluetooth.avrcpcontroller;
 
+import android.media.MediaDescription;
 import android.media.browse.MediaBrowser;
 import android.media.browse.MediaBrowser.MediaItem;
-import android.media.MediaDescription;
 import android.os.Bundle;
-import android.os.ResultReceiver;
 import android.service.media.MediaBrowserService.Result;
 import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Stack;
 
 // Browsing hierarchy.
 // Root:
@@ -42,7 +40,8 @@ import java.util.Stack;
 //      ....
 public class BrowseTree {
     private static final String TAG = "BrowseTree";
-    private static final boolean DBG = true;
+    private static final boolean DBG = false;
+    private static final boolean VDBG = false;
 
     public static final int DIRECTION_DOWN = 0;
     public static final int DIRECTION_UP = 1;
@@ -152,8 +151,9 @@ public class BrowseTree {
         // This may not be unique hence this combined with direction will define the
         // browsing here.
         synchronized String getFolderUID() {
-            return mItem.getDescription().getExtras().getString(
-                AvrcpControllerService.MEDIA_ITEM_UID_KEY);
+            return mItem.getDescription()
+                    .getExtras()
+                    .getString(AvrcpControllerService.MEDIA_ITEM_UID_KEY);
         }
 
         synchronized MediaItem getMediaItem() {
@@ -179,7 +179,11 @@ public class BrowseTree {
 
         @Override
         public String toString() {
-            return "ID: " + getID() + " desc: " + mItem;
+            if (VDBG) {
+                return "ID: " + getID() + " desc: " + mItem;
+            } else {
+                return "ID: " + getID();
+            }
         }
     }
 
@@ -209,7 +213,7 @@ public class BrowseTree {
 
         String parentID = parent.getID();
         // Make sure that the child list is clean.
-        if (DBG) {
+        if (VDBG) {
             Log.d(TAG, "parent " + parentID + " child list " + parent.getChildren());
         }
 
@@ -228,7 +232,7 @@ public class BrowseTree {
             Log.e(TAG, "folder " + parentID + " not found!");
             return null;
         }
-        if (DBG) {
+        if (VDBG) {
             Log.d(TAG, "Browse map: " + mBrowseMap);
         }
         return bn;
@@ -266,9 +270,7 @@ public class BrowseTree {
         } else if (fromFolder.equals(toFolder)) {
             return DIRECTION_SAME;
         } else {
-            Log.w(TAG, "from folder " + mCurrentBrowseNode + " children " +
-                fromFolder.getChildren() + "to folder " + toUID + " children " +
-                toFolder.getChildren());
+            Log.w(TAG, "from folder " + mCurrentBrowseNode + "to folder " + toUID);
             return DIRECTION_UNKNOWN;
         }
     }

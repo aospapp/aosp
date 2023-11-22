@@ -60,7 +60,6 @@ extern int NET_Poll(struct pollfd *ufds, unsigned int nfds, int timeout);
 #endif
 
 extern int tagSocket(JNIEnv* env, int fd);
-extern void untagSocket(JNIEnv* env, int fd);
 
 #else
 
@@ -79,7 +78,6 @@ extern void untagSocket(JNIEnv* env, int fd);
 #define NET_Poll        poll
 
 #define tagSocket(env,fd)    (void)0
-#define untagSocket(env,fd)  (void)0
 
 #endif
 

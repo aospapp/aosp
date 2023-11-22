@@ -49,8 +49,9 @@ def main():
                 " to frame the test scene: " + scene_name +
                 "\nThe scene setup should be: " + scene_desc )
         # Converge 3A prior to capture.
-        cam.do_3a(do_af=do_af, lock_ae=True, lock_awb=True)
         props = cam.get_camera_properties()
+        cam.do_3a(do_af=do_af, lock_ae=its.caps.ae_lock(props),
+                  lock_awb=its.caps.awb_lock(props))
         req = its.objects.fastest_auto_capture_request(props)
         if its.caps.ae_lock(props):
             req["android.control.awbLock"] = True

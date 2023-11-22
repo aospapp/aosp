@@ -13,6 +13,8 @@
 # limitations under the License.
 
 LOCAL_PATH := $(call my-dir)
+COMPATIBILITY.tradefed_tests_dir := \
+  $(COMPATIBILITY.tradefed_tests_dir) $(LOCAL_PATH)/res/config
 
 include $(CLEAR_VARS)
 
@@ -41,28 +43,6 @@ $(DEST_JAR): $(LOCAL_BUILT_MODULE)
 
 # this dependency ensure the above rule will be executed if jar is built
 $(LOCAL_INSTALLED_MODULE) : $(DEST_JAR)
-
-#######################################################
-# intentionally skipping CLEAR_VARS
-
-# Enable the build process to generate javadoc
-# We need to reference symbols in the jar built above.
-LOCAL_JAVA_LIBRARIES += tradefed
-LOCAL_IS_HOST_MODULE:=true
-LOCAL_MODULE_CLASS := JAVA_LIBRARIES
-LOCAL_ADDITIONAL_DEPENDENCIES := tradefed
-LOCAL_DROIDDOC_CUSTOM_TEMPLATE_DIR:=build/tools/droiddoc/templates-sac
-LOCAL_DROIDDOC_OPTIONS:= \
-        -package \
-        -toroot / \
-        -hdf android.whichdoc online \
-        -hdf sac true \
-        -hdf devices true \
-        -showAnnotationOverridesVisibility \
-        -showAnnotation com.android.tradefed.config.OptionClass \
-        -showAnnotation com.android.tradefed.config.Option \
-
-include $(BUILD_DROIDDOC)
 
 # Build all sub-directories
 include $(call all-makefiles-under,$(LOCAL_PATH))

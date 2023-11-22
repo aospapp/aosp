@@ -32,7 +32,7 @@ public final class HttpsHandler extends HttpHandler {
      * override the enabled ciphers or TLS versions set on the sockets it produces with a
      * list hardcoded at release time. This is deliberate.
      */
-    private static final ConnectionSpec TLS_CONNECTION_SPEC = new ConnectionSpec.Builder(true)
+    private static final ConnectionSpec TLS_CONNECTION_SPEC = ConnectionSpecs.builder(true)
             .allEnabledCipherSuites()
             .allEnabledTlsVersions()
             .supportsTlsExtensions(true)
@@ -68,7 +68,7 @@ public final class HttpsHandler extends HttpHandler {
         OkUrlFactory okUrlFactory = HttpHandler.createHttpOkUrlFactory(proxy);
 
         // All HTTPS requests are allowed.
-        okUrlFactory.setUrlFilter(null);
+        OkUrlFactories.setUrlFilter(okUrlFactory, null);
 
         OkHttpClient okHttpClient = okUrlFactory.client();
 

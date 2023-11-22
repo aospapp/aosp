@@ -42,12 +42,14 @@ public class ScanResultTest extends AndroidTestCase {
     private static final int STATE_WIFI_CHANGED = 2;
     private static final int STATE_START_SCAN = 3;
     private static final int STATE_SCAN_RESULTS_AVAILABLE = 4;
+    private static final int STATE_SCAN_FAILURE = 5;
 
     private static final String TAG = "WifiInfoTest";
     private static final int TIMEOUT_MSEC = 6000;
     private static final int WAIT_MSEC = 60;
     private static final int ENABLE_WAIT_MSEC = 10000;
     private static final int SCAN_WAIT_MSEC = 10000;
+    private static final int SCAN_MAX_RETRY_COUNT = 6;
     private IntentFilter mIntentFilter;
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
@@ -60,7 +62,11 @@ public class ScanResultTest extends AndroidTestCase {
                 }
             } else if (action.equals(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)) {
                 synchronized (mMySync) {
-                    mMySync.expectedState = STATE_SCAN_RESULTS_AVAILABLE;
+                    if (intent.getBooleanExtra(WifiManager.EXTRA_RESULTS_UPDATED, false)) {
+                        mMySync.expectedState = STATE_SCAN_RESULTS_AVAILABLE;
+                    } else {
+                        mMySync.expectedState = STATE_SCAN_FAILURE;
+                    }
                     mMySync.notify();
                 }
             }
@@ -120,11 +126,12 @@ public class ScanResultTest extends AndroidTestCase {
        }
     }
 
-    private void waitForBroadcast(long timeout, int expectedState) throws Exception {
+    private boolean waitForBroadcast(long timeout, int expectedState) throws Exception {
         long waitTime = System.currentTimeMillis() + timeout;
         while (System.currentTimeMillis() < waitTime
                 && mMySync.expectedState != expectedState)
             mMySync.wait(WAIT_MSEC);
+        return mMySync.expectedState == expectedState;
     }
 
     public void testScanResultProperties() {
@@ -140,11 +147,16 @@ public class ScanResultTest extends AndroidTestCase {
         }
     }
 
+    /* Multiple scans to ensure bssid is updated */
     private void scanAndWait() throws Exception {
         synchronized (mMySync) {
-            mMySync.expectedState = STATE_START_SCAN;
-            mWifiManager.startScan();
-            waitForBroadcast(SCAN_WAIT_MSEC, STATE_SCAN_RESULTS_AVAILABLE);
+            for (int retry  = 0; retry < SCAN_MAX_RETRY_COUNT; retry++) {
+                mMySync.expectedState = STATE_START_SCAN;
+                mWifiManager.startScan();
+                if (waitForBroadcast(SCAN_WAIT_MSEC, STATE_SCAN_RESULTS_AVAILABLE)) {
+                    break;
+                }
+            }
         }
    }
 
@@ -157,9 +169,6 @@ public class ScanResultTest extends AndroidTestCase {
         long timestamp = 0;
         String BSSID = null;
 
-        /* Multiple scans to ensure bssid is updated */
-        scanAndWait();
-        scanAndWait();
         scanAndWait();
 
         List<ScanResult> scanResults = mWifiManager.getScanResults();
@@ -170,8 +179,6 @@ public class ScanResultTest extends AndroidTestCase {
             break;
         }
 
-        scanAndWait();
-        scanAndWait();
         scanAndWait();
 
         scanResults = mWifiManager.getScanResults();

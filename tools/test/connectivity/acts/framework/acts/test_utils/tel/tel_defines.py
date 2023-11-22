@@ -18,7 +18,7 @@
 # TIMERS
 ###############################################
 # Max time to wait for phone data/network connection state update
-MAX_WAIT_TIME_CONNECTION_STATE_UPDATE = 20
+MAX_WAIT_TIME_CONNECTION_STATE_UPDATE = 60
 
 # Max time to wait for network reselection
 MAX_WAIT_TIME_NW_SELECTION = 180
@@ -29,6 +29,9 @@ MAX_WAIT_TIME_CALL_DROP = 60
 # Wait time between state check retry
 WAIT_TIME_BETWEEN_STATE_CHECK = 5
 
+# Max wait time for state change
+MAX_WAIT_TIME_FOR_STATE_CHANGE = 60
+
 # Max time to wait after caller make a call and before
 # callee start ringing
 MAX_WAIT_TIME_CALLEE_RINGING = 90
@@ -38,6 +41,9 @@ COUNTRY_CODE_LIST = [
     "+1", "+44", "+39", "+61", "+49", "+34", "+33", "+47", "+246", "+86",
     "+850", "+81"
 ]
+
+# default pin/password
+DEFAULT_DEVICE_PASSWORD = "1111"
 
 # Wait time after enterring puk code
 WAIT_TIME_SUPPLY_PUK_CODE = 30
@@ -94,7 +100,7 @@ MAX_WAIT_TIME_VIDEO_SESSION_EVENT = 10
 MAX_WAIT_TIME_USER_PLANE_DATA = 20
 
 # Max time to wait for tethering entitlement check
-MAX_WAIT_TIME_TETHERING_ENTITLEMENT_CHECK = 15
+MAX_WAIT_TIME_TETHERING_ENTITLEMENT_CHECK = 60
 
 # Max time to wait for voice mail count report correct result.
 MAX_WAIT_TIME_VOICE_MAIL_COUNT = 90
@@ -250,6 +256,7 @@ CARRIER_ESP = 'esp'
 CARRIER_ORG = 'org'
 CARRIER_TEL = 'tel'
 CARRIER_TSA = 'tsa'
+CARRIER_USCC = 'uscc'
 
 RAT_FAMILY_CDMA = 'cdma'
 RAT_FAMILY_CDMA2000 = 'cdma2000'
@@ -423,6 +430,11 @@ PHONE_TYPE_NONE = "NONE"
 PHONE_TYPE_CDMA = "CDMA"
 PHONE_TYPE_SIP = "SIP"
 
+# Constant for SIM Power State
+CARD_POWER_DOWN = 0
+CARD_POWER_UP = 1
+CARD_POWER_UP_PASS_THROUGH = 2
+
 # Constant for SIM State
 SIM_STATE_READY = "READY"
 SIM_STATE_UNKNOWN = "UNKNOWN"
@@ -433,6 +445,7 @@ SIM_STATE_NETWORK_LOCKED = "NETWORK_LOCKED"
 SIM_STATE_NOT_READY = "NOT_READY"
 SIM_STATE_PERM_DISABLED = "PERM_DISABLED"
 SIM_STATE_CARD_IO_ERROR = "CARD_IO_ERROR"
+SIM_STATE_LOADED = "LOADED"
 
 # Constant for Data Connection State
 DATA_STATE_CONNECTED = "CONNECTED"
@@ -444,6 +457,10 @@ DATA_STATE_UNKNOWN = "UNKNOWN"
 # Constant for Data Roaming State
 DATA_ROAMING_ENABLE = 1
 DATA_ROAMING_DISABLE = 0
+
+# Constant for ConnectivityManager Data Connection
+TYPE_MOBILE = 0
+TYPE_WIFI = 1
 
 # Constant for Telephony Manager Call State
 TELEPHONY_STATE_RINGING = "RINGING"
@@ -463,6 +480,15 @@ SERVICE_STATE_IN_SERVICE = "IN_SERVICE"
 SERVICE_STATE_OUT_OF_SERVICE = "OUT_OF_SERVICE"
 SERVICE_STATE_POWER_OFF = "POWER_OFF"
 SERVICE_STATE_UNKNOWN = "UNKNOWN"
+
+# Service State Mapping
+SERVICE_STATE_MAPPING = {
+    "-1": SERVICE_STATE_UNKNOWN,
+    "0": SERVICE_STATE_IN_SERVICE,
+    "1": SERVICE_STATE_OUT_OF_SERVICE,
+    "2": SERVICE_STATE_EMERGENCY_ONLY,
+    "3": SERVICE_STATE_POWER_OFF
+}
 
 # Constant for VoLTE Hand-over Service State
 VOLTE_SERVICE_STATE_HANDOVER_STARTED = "STARTED"

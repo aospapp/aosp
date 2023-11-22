@@ -30,7 +30,7 @@ import android.content.DialogInterface.OnCancelListener;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.rule.ActivityTestRule;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -317,11 +317,10 @@ public class DialogStubActivity extends Activity {
     private static final String TEST_DIALOG_NUMBER_EXTRA = "testDialogNumber";
 
     public static <T extends Activity> T startDialogActivity(
-            ActivityInstrumentationTestCase2<T> testCase, int dialogNumber) {
+            ActivityTestRule<T> rule, int dialogNumber) {
         Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.putExtra(TEST_DIALOG_NUMBER_EXTRA, dialogNumber);
-        testCase.setActivityIntent(intent);
-        return testCase.getActivity();
+        return rule.launchActivity(intent);
     }
 
     @Override

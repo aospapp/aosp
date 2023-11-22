@@ -17,7 +17,6 @@
 #define LOG_TAG "ITS-StatsImage-JNI"
 // #define LOG_NDEBUG 0
 #include <android/log.h>
-#include <utils/Log.h>
 
 #include <jni.h>
 #include <stdio.h>

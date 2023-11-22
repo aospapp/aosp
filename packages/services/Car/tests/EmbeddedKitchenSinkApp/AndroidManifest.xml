@@ -25,14 +25,15 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.car.permission.CAR_SPEED" />
     <uses-permission android:name="android.car.permission.CAR_MILEAGE" />
-    <uses-permission android:name="android.car.permission.CAR_FUEL" />
-    <uses-permission android:name="android.car.permission.CAR_HVAC" />
+    <uses-permission android:name="android.car.permission.CAR_ENERGY" />
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_CLIMATE" />
     <uses-permission android:name="android.car.permission.CAR_MOCK_VEHICLE_HAL" />
     <uses-permission android:name="android.car.permission.CAR_CAMERA" />
     <uses-permission android:name="android.car.permission.CAR_NAVIGATION_MANAGER"/>
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME"/>
     <uses-permission android:name="android.car.permission.VEHICLE_DYNAMICS_STATE"/>
     <uses-permission android:name="android.car.permission.CAR_DISPLAY_IN_CLUSTER"/>
+    <uses-permission android:name="android.car.permission.STORAGE_MONITORING" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.MANAGE_USB" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
@@ -41,12 +42,16 @@
     <uses-permission android:name="android.permission.READ_SMS"/>
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.INJECT_EVENTS" />
+
     <application android:label="@string/app_title"
         android:icon="@drawable/ic_launcher">
+        <uses-library android:name="android.test.runner" />
+
 
         <!-- This is for embedded mode. -->
         <activity android:name=".KitchenSinkActivity"
-            android:theme="@style/CarDrawerActivityTheme"
+            android:theme="@style/KitchenSinkActivityTheme"
             android:label="@string/app_title">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -89,18 +94,26 @@
                   android:theme="@android:style/Theme.Material.Light.Dialog"
                   android:launchMode="singleTop">
         </activity>
-
         <activity android:name=".cluster.FakeClusterNavigationActivity"
                   android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
                   android:launchMode="singleInstance"
                   android:resizeableActivity="true"
                   android:allowEmbedded="true"
                   android:permission="android.car.permission.CAR_INSTRUMENT_CLUSTER_CONTROL">
-            <intent-filter>
+            <intent-filter android:priority="-1">
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.car.cluster.NAVIGATION"/>
             </intent-filter>
         </activity>
+
+        <activity android:name=".activityview.ActivityViewTestFragment"/>
+
+        <!-- temporary solution until b/68882625 is fixed. -->
+        <receiver android:name=".touchsound.DisableTouchSoundOnBoot"  android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

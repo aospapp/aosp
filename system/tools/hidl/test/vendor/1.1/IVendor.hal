@@ -14,10 +14,14 @@
  * limitations under the License.
  */
 
-package tests.vendor@1.1;
+package hidl.tests.vendor@1.1;
 
-import tests.vendor@1.0::IVendor;
+import hidl.tests.vendor@1.0::IVendor;
 
-interface IVendor extends IVendor {
+// this import is unused, but it should still show up in the
+// associated Android.bp
+import android.frameworks.displayservice@1.0;
+
+interface IVendor extends @1.0::IVendor {
     doAdditionalFunctionality();
 };

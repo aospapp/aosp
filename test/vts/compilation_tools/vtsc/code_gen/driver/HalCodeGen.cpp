@@ -16,14 +16,11 @@
 
 #include "code_gen/driver/HalCodeGen.h"
 
-#include <fstream>
 #include <iostream>
-#include <sstream>
 #include <string>
 
-#include "test/vts/proto/ComponentSpecificationMessage.pb.h"
-
 #include "VtsCompilerUtils.h"
+#include "test/vts/proto/ComponentSpecificationMessage.pb.h"
 #include "utils/InterfaceSpecUtil.h"
 #include "utils/StringUtil.h"
 
@@ -279,7 +276,7 @@ void HalCodeGen::GenerateCppBodyFuzzFunction(
   out << "    void** result, const string& callback_socket_name) {" << "\n";
   out.indent();
   out << "const char* func_name = func_msg->name().c_str();" << "\n";
-  out << "cout << \"Function: \" << __func__ << \" '\" << func_name << \"'\" << endl;"
+  out << "LOG(INFO) << \" '\" << func_name << \"'\";"
       << "\n";
 
   // to call another function if it's for a sub_struct
@@ -300,15 +297,15 @@ void HalCodeGen::GenerateCppBodyFuzzFunction(
 
   out << "if (local_device == NULL) {" << "\n";
   out.indent();
-  out << "cout << \"use hmi \" << (uint64_t)hmi_ << endl;" << "\n";
+  out << "LOG(INFO) << \"use hmi \" << (uint64_t)hmi_;"
+      << "\n";
   out << "local_device = reinterpret_cast<"
-         << message.original_data_structure_name() << "*>(hmi_);" << "\n";
+      << message.original_data_structure_name() << "*>(hmi_);\n";
   out.unindent();
   out << "}" << "\n";
   out << "if (local_device == NULL) {" << "\n";
   out.indent();
-  out << "cerr << \"both device_ and hmi_ are NULL.\" << endl;"
-      << "\n";
+  out << "LOG(ERROR) << \"both device_ and hmi_ are NULL.\";\n";
   out << "return false;" << "\n";
   out.unindent();
   out << "}" << "\n";
@@ -316,7 +313,7 @@ void HalCodeGen::GenerateCppBodyFuzzFunction(
   for (auto const& api : message.interface().api()) {
     out << "if (!strcmp(func_name, \"" << api.name() << "\")) {" << "\n";
     out.indent();
-    out << "cout << \"match\" << endl;" << "\n";
+    out << "LOG(INFO) << \"match\" <<;\n";
     // args - definition;
     int arg_count = 0;
     for (auto const& arg : api.arg()) {
@@ -430,29 +427,29 @@ void HalCodeGen::GenerateCppBodyFuzzFunction(
         }
         out << ";" << "\n";
       }
-      out << "cout << \"arg" << arg_count << " = \" << arg" << arg_count
-          << " << endl;" << "\n";
+      out << "LOG(INFO) << \"arg" << arg_count << " = \" << arg" << arg_count
+          << ";\n";
       arg_count++;
     }
 
     // actual function call
     GenerateCodeToStartMeasurement(out);
-    out << "cout << \"hit2.\" << device_ << endl;" << "\n";
+    out << "LOG(INFO) << \"hit2.\" << device_;\n";
 
     // checks whether the function is actually defined.
     out << "if (reinterpret_cast<"
            << message.original_data_structure_name() << "*>(local_device)->"
            << api.name() << " == NULL" << ") {" << "\n";
     out.indent();
-    out << "cerr << \"api not set.\" << endl;" << "\n";
+    out << "LOG(ERROR) << \"api not set.\";\n";
     // todo: consider throwing an exception at least a way to tell more
     // specifically to the caller.
     out << "return false;" << "\n";
     out.unindent();
     out << "}" << "\n";
 
-    out << "cout << \"Call an API.\" << endl;" << "\n";
-    out << "cout << \"local_device = \" << local_device;" << "\n";
+    out << "LOG(INFO) << \"Call an API.\";\n";
+    out << "LOG(INFO) << \"local_device = \" << local_device;\n";
 
     if (!api.has_return_type() || api.return_type().type() == TYPE_VOID) {
       out << "*result = NULL;" << "\n";
@@ -474,7 +471,7 @@ void HalCodeGen::GenerateCppBodyFuzzFunction(
     }
     out << ");" << "\n";
     GenerateCodeToStopMeasurement(out);
-    out << "cout << \"called\" << endl;" << "\n";
+    out << "LOG(INFO) << \"called\";\n";
 
     // Copy the output (call by pointer or reference cases).
     arg_count = 0;
@@ -493,7 +490,7 @@ void HalCodeGen::GenerateCppBodyFuzzFunction(
     out << "}" << "\n";
   }
   // TODO: if there were pointers, free them.
-  out << "cerr << \"func not found\" << endl;" << "\n";
+  out << "LOG(ERROR) << \"func not found\";\n";
   out << "return false;" << "\n";
   out.unindent();
   out << "}" << "\n";
@@ -520,8 +517,7 @@ void HalCodeGen::GenerateCppBodyFuzzFunction(
   out << "void** result, const string& callback_socket_name) {" << "\n";
   out.indent();
   out << "const char* func_name = func_msg->name().c_str();" << "\n";
-  out << "cout << \"Function: \" << __func__ << \" \" << func_name << endl;"
-      << "\n";
+  out << "LOG(INFO) << func_name;\n";
 
   bool is_open;
   for (auto const& api : message.api()) {
@@ -540,15 +536,14 @@ void HalCodeGen::GenerateCppBodyFuzzFunction(
 
     out << "if (local_device == NULL) {" << "\n";
     out.indent();
-    out << "cout << \"use hmi\" << endl;" << "\n";
+    out << "LOG(INFO) << \"use hmi\";\n";
     out << "local_device = reinterpret_cast<"
            << original_data_structure_name << "*>(hmi_);" << "\n";
     out.unindent();
     out << "}" << "\n";
     out << "if (local_device == NULL) {" << "\n";
     out.indent();
-    out << "cerr << \"both device_ and hmi_ are NULL.\" << endl;"
-        << "\n";
+    out << "LOG(ERROR) << \"both device_ and hmi_ are NULL.\";\n";
     out << "return false;" << "\n";
     out.unindent();
     out << "}" << "\n";
@@ -631,29 +626,28 @@ void HalCodeGen::GenerateCppBodyFuzzFunction(
         }
       }
       out << ";" << "\n";
-      out << "cout << \"arg" << arg_count << " = \" << arg" << arg_count
-          << " << endl;" << "\n"
-          << "\n";
+      out << "LOG(INFO) << \"arg" << arg_count << " = \" << arg" << arg_count
+          << "\n\n";
       arg_count++;
     }
 
     // actual function call
     GenerateCodeToStartMeasurement(out);
-    out << "cout << \"hit2.\" << device_ << endl;" << "\n";
+    out << "LOG(INFO) << \"hit2.\" << device_;\n";
 
     out << "if (reinterpret_cast<" << original_data_structure_name
            << "*>(local_device)" << parent_path << message.name() << "->"
            << api.name() << " == NULL";
     out << ") {" << "\n";
     out.indent();
-    out << "cerr << \"api not set.\" << endl;" << "\n";
+    out << "LOG(ERROR) << \"api not set.\";\n";
     // todo: consider throwing an exception at least a way to tell more
     // specifically to the caller.
     out << "return false;" << "\n";
     out.unindent();
     out << "}" << "\n";
 
-    out << "cout << \"Call an API.\" << endl;" << "\n";
+    out << "LOG(INFO) << \"Call an API.\";\n";
     if (!api.has_return_type() || api.return_type().type() == TYPE_VOID) {
       out << "*result = NULL;" << "\n";
     } else {
@@ -674,7 +668,7 @@ void HalCodeGen::GenerateCppBodyFuzzFunction(
     }
     out << ");" << "\n";
     GenerateCodeToStopMeasurement(out);
-    out << "cout << \"called\" << endl;" << "\n";
+    out << "LOG(INFO) << \"called\";\n";
 
     // Copy the output (call by pointer or reference cases).
     arg_count = 0;
@@ -713,8 +707,7 @@ void HalCodeGen::GenerateCppBodyGetAttributeFunction(
   out << "    void** result) {" << "\n";
   out.indent();
   out << "const char* func_name = func_msg->name().c_str();" << "\n";
-  out << "cout << \"Function: \" << __func__ << \" '\" << func_name << \"'\" << endl;"
-      << "\n";
+  out << "LOG(INFO) << \" '\" << func_name << \"'\";\n";
 
   // to call another function if it's for a sub_struct
   if (message.interface().sub_struct().size() > 0) {
@@ -734,15 +727,14 @@ void HalCodeGen::GenerateCppBodyGetAttributeFunction(
 
   out << "if (local_device == NULL) {" << "\n";
   out.indent();
-  out << "cout << \"use hmi \" << (uint64_t)hmi_ << endl;" << "\n";
+  out << "LOG(INFO) << \"use hmi \" << (uint64_t)hmi_;\n";
   out << "local_device = reinterpret_cast<"
          << message.original_data_structure_name() << "*>(hmi_);" << "\n";
   out.unindent();
   out << "}" << "\n";
   out << "if (local_device == NULL) {" << "\n";
   out.indent();
-  out << "cerr << \"both device_ and hmi_ are NULL.\" << endl;"
-      << "\n";
+  out << "LOG(ERROR) << \"both device_ and hmi_ are NULL.\";\n";
   out << "return false;" << "\n";
   out.unindent();
   out << "}" << "\n";
@@ -752,17 +744,17 @@ void HalCodeGen::GenerateCppBodyGetAttributeFunction(
         attribute.type() == TYPE_SCALAR) {
       out << "if (!strcmp(func_name, \"" << attribute.name() << "\")) {" << "\n";
       out.indent();
-      out << "cout << \"match\" << endl;" << "\n";
+      out << "LOG(INFO) << \"match\";\n";
 
       // actual function call
-      out << "cout << \"hit2.\" << device_ << endl;" << "\n";
+      out << "LOG(INFO) << \"hit2.\" << device_ ;\n";
 
-      out << "cout << \"ok. let's read attribute.\" << endl;" << "\n";
+      out << "LOG(INFO) << \"ok. let's read attribute.\";\n";
       out << "*result = const_cast<void*>(reinterpret_cast<const void*>(";
       out << "local_device->" << attribute.name();
       out << "));" << "\n";
 
-      out << "cout << \"got\" << endl;" << "\n";
+      out << "LOG(INFO) << \"got\";\n";
 
       out << "return true;" << "\n";
       out.unindent();
@@ -770,7 +762,7 @@ void HalCodeGen::GenerateCppBodyGetAttributeFunction(
     }
   }
   // TODO: if there were pointers, free them.
-  out << "cerr << \"attribute not found\" << endl;" << "\n";
+  out << "LOG(ERROR) << \"attribute not found\";\n";
   out << "return false;" << "\n";
   out.unindent();
   out << "}" << "\n";
@@ -797,8 +789,7 @@ void HalCodeGen::GenerateCppBodyGetAttributeFunction(
   out << "    void** result) {" << "\n";
   out.indent();
   out << "const char* func_name = func_msg->name().c_str();" << "\n";
-  out << "cout << \"Function: \" << __func__ << \" \" << func_name << endl;"
-      << "\n";
+  out << "LOG(INFO) << func_name;\n";
 
   out << original_data_structure_name
       << "* local_device = ";
@@ -807,15 +798,14 @@ void HalCodeGen::GenerateCppBodyGetAttributeFunction(
 
   out << "if (local_device == NULL) {" << "\n";
   out.indent();
-  out << "  cout << \"use hmi \" << (uint64_t)hmi_ << endl;" << "\n";
+  out << "  LOG(INFO) << \"use hmi \" << (uint64_t)hmi_;\n";
   out << "  local_device = reinterpret_cast<"
       << original_data_structure_name << "*>(hmi_);" << "\n";
   out.unindent();
   out << "}" << "\n";
   out << "if (local_device == NULL) {" << "\n";
   out.indent();
-  out << "cerr << \"both device_ and hmi_ are NULL.\" << endl;"
-      << "\n";
+  out << "LOG(ERROR) << \"both device_ and hmi_ are NULL.\";\n";
   out << "return false;" << "\n";
   out.unindent();
   out << "}" << "\n";
@@ -825,19 +815,19 @@ void HalCodeGen::GenerateCppBodyGetAttributeFunction(
         attribute.type() == TYPE_SCALAR) {
       out << "if (!strcmp(func_name, \"" << attribute.name() << "\")) {" << "\n";
       out.indent();
-      out << "cout << \"match\" << endl;" << "\n";
+      out << "LOG(INFO) << \"match\";\n";
 
       // actual function call
-      out << "cout << \"hit2.\" << device_ << endl;" << "\n";
+      out << "LOG(INFO) << \"hit2.\" << device_;\n";
 
-      out << "cout << \"ok. let's read attribute.\" << endl;" << "\n";
+      out << "LOG(INFO) << \"ok. let's read attribute.\";\n";
       out << "*result = const_cast<void*>(reinterpret_cast<const void*>(";
       out << "local_device" << parent_path << message.name() << ".";
       // TODO: use parent's is_pointer()
       out << attribute.name();
       out << "));" << "\n";
 
-      out << "cout << \"got\" << endl;" << "\n";
+      out << "LOG(INFO) << \"got\";\n";
 
       out << "return true;" << "\n";
       out.unindent();
@@ -845,7 +835,7 @@ void HalCodeGen::GenerateCppBodyGetAttributeFunction(
     }
   }
   // TODO: if there were pointers, free them.
-  out << "cerr << \"attribute not found\" << endl;" << "\n";
+  out << "LOG(ERROR) << \"attribute not found\";\n";
   out << "return false;" << "\n";
   out.unindent();
   out << "}" << "\n";

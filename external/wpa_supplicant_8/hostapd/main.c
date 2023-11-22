@@ -28,7 +28,9 @@
 #include "config_file.h"
 #include "eap_register.h"
 #include "ctrl_iface.h"
-
+#ifdef CONFIG_CTRL_IFACE_HIDL
+#include "hidl.h"
+#endif /* CONFIG_CTRL_IFACE_HIDL */
 
 struct hapd_global {
 	void **drv_priv;
@@ -666,6 +668,9 @@ int main(int argc, char *argv[])
 	interfaces.global_iface_name = NULL;
 	interfaces.global_ctrl_sock = -1;
 	dl_list_init(&interfaces.global_ctrl_dst);
+#ifdef CONFIG_ETH_P_OUI
+	dl_list_init(&interfaces.eth_p_oui);
+#endif /* CONFIG_ETH_P_OUI */
 
 	for (;;) {
 		c = getopt(argc, argv, "b:Bde:f:hi:KP:sSTtu:vg:G:");
@@ -748,9 +753,11 @@ int main(int argc, char *argv[])
 		}
 	}
 
+#ifndef CONFIG_CTRL_IFACE_HIDL
 	if (optind == argc && interfaces.global_iface_path == NULL &&
 	    num_bss_configs == 0)
 		usage();
+#endif
 
 	wpa_msg_register_ifname_cb(hostapd_msg_ifname_cb);
 
@@ -866,11 +873,36 @@ int main(int argc, char *argv[])
 	 */
 	interfaces.terminate_on_error = interfaces.count;
 	for (i = 0; i < interfaces.count; i++) {
-		if (hostapd_driver_init(interfaces.iface[i]) ||
-		    hostapd_setup_interface(interfaces.iface[i]))
+		if (hostapd_driver_init(interfaces.iface[i]))
+			goto out;
+#ifdef CONFIG_MBO
+		for (j = 0; j < interfaces.iface[i]->num_bss; j++) {
+			struct hostapd_data *hapd = interfaces.iface[i]->bss[j];
+
+			if (hapd && (hapd->conf->oce & OCE_STA_CFON) &&
+			    (interfaces.iface[i]->drv_flags &
+			     WPA_DRIVER_FLAGS_OCE_STA_CFON))
+				hapd->enable_oce = OCE_STA_CFON;
+
+			if (hapd && (hapd->conf->oce & OCE_AP) &&
+			    (interfaces.iface[i]->drv_flags &
+			     WPA_DRIVER_FLAGS_OCE_STA_CFON)) {
+				/* TODO: Need to add OCE-AP support */
+				wpa_printf(MSG_ERROR,
+					   "OCE-AP feature is not yet supported");
+			}
+		}
+#endif /* CONFIG_MBO */
+		if (hostapd_setup_interface(interfaces.iface[i]))
 			goto out;
 	}
 
+#ifdef CONFIG_CTRL_IFACE_HIDL
+	if (hostapd_hidl_init(&interfaces)) {
+		wpa_printf(MSG_ERROR, "Failed to initialize HIDL interface");
+		goto out;
+	}
+#endif /* CONFIG_CTRL_IFACE_HIDL */
 	hostapd_global_ctrl_iface_init(&interfaces);
 
 	if (hostapd_global_run(&interfaces, daemonize, pid_file)) {
@@ -881,6 +913,9 @@ int main(int argc, char *argv[])
 	ret = 0;
 
  out:
+#ifdef CONFIG_CTRL_IFACE_HIDL
+	hostapd_hidl_deinit(&interfaces);
+#endif /* CONFIG_CTRL_IFACE_HIDL */
 	hostapd_global_ctrl_iface_deinit(&interfaces);
 	/* Deinitialize all interfaces */
 	for (i = 0; i < interfaces.count; i++) {

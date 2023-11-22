@@ -73,6 +73,11 @@ class RetryingAFE(frontend.AFE):
 
 
     def run(self, call, **dargs):
+        """Method for running RPC call.
+
+        @param call: A string RPC call.
+        @param dargs: the parameters of the RPC call.
+        """
         if retry_util is None:
             raise ImportError('Unable to import chromite. Please consider to '
                               'run build_externals to build site packages.')
@@ -80,7 +85,7 @@ class RetryingAFE(frontend.AFE):
         # blacklist: Exceptions that we raise immediately if caught.
         exc_retry = Exception
         blacklist = (ImportError, error.RPCException, proxy.JSONRPCException,
-                     timeout_util.TimeoutError)
+                     timeout_util.TimeoutError, error.ControlFileNotFound)
         backoff = 2
         max_retry = convert_timeout_to_retry(backoff, self.timeout_min,
                                              self.delay_sec)
@@ -154,6 +159,11 @@ class RetryingTKO(frontend.TKO):
 
 
     def run(self, call, **dargs):
+        """Method for running RPC call.
+
+        @param call: A string RPC call.
+        @param dargs: the parameters of the RPC call.
+        """
         @retry.retry(Exception, timeout_min=self.timeout_min,
                      delay_sec=self.delay_sec,
                      blacklist=[ImportError, error.RPCException,

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2016 The Android Open Source Project
+# Copyright (C) 2017 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,46 @@
 #
 
 LOCAL_PATH := $(call my-dir)
+
+########################################################
+# CHRE 1.0 Library
+########################################################
+
+include $(CLEAR_NANO_VARS)
+
+LOCAL_MODULE := libnanochre10
+LOCAL_MODULE_TAGS := optional
+
+LOCAL_SRC_FILES :=      \
+    chre10_app.c          \
+    chre10_app_syscalls.c \
+
+LOCAL_STATIC_LIBRARIES += libnanobuiltins
+LOCAL_STATIC_LIBRARIES += libnanolibc
+
+include $(BUILD_NANOHUB_APP_STATIC_LIBRARY)
+
+########################################################
+# CHRE 1.1 Library
+########################################################
+
+include $(CLEAR_NANO_VARS)
+
+LOCAL_MODULE := libnanochre11
+LOCAL_MODULE_TAGS := optional
+
+LOCAL_SRC_FILES :=      \
+    chre_app.c          \
+    chre11_app_syscalls.c \
+
+LOCAL_STATIC_LIBRARIES += libnanobuiltins
+LOCAL_STATIC_LIBRARIES += libnanolibc
+
+include $(BUILD_NANOHUB_APP_STATIC_LIBRARY)
+
+########################################################
+# CHRE 1.2 Library
+########################################################
 
 include $(CLEAR_NANO_VARS)
 

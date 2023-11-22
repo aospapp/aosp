@@ -22,14 +22,14 @@
 
     <View
         android:id="@+id/view1"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="50dp"
+        android:layout_height="30dp"
         android:text="@string/id_ok"/>
 
     <View
         android:id="@+id/view2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="50dp"
+        android:layout_height="30dp"
         android:layout_toRightOf="@id/view1"
         android:layout_alignTop="@id/view1"
         android:nextFocusLeft="@id/view1"
@@ -37,8 +37,8 @@
 
     <View
         android:id="@+id/view3"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="50dp"
+        android:layout_height="30dp"
         android:layout_below="@id/view1"
         android:layout_alignLeft="@id/view1"
         android:nextFocusUp="@id/view1"
@@ -46,8 +46,8 @@
 
     <View
         android:id="@+id/view4"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="50dp"
+        android:layout_height="30dp"
         android:layout_toRightOf="@id/view3"
         android:layout_alignTop="@id/view3"
         android:layout_alignRight="@id/view2"
@@ -57,8 +57,8 @@
 
     <LinearLayout
         android:id="@+id/auto_test_area"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
         android:orientation="vertical"
         android:layout_below="@id/view4"
         android:layout_alignParentLeft="true">

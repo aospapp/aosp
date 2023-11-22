@@ -46,8 +46,6 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
     private static final String MULTIPLE_FEEDBACK_TYPES_ACCESSIBILITY_SERVICE_NAME =
         "android.view.accessibility.cts.SpeakingAndVibratingAccessibilityService";
 
-    private static final long WAIT_FOR_ACCESSIBILITY_ENABLED_TIMEOUT = 3000; // 3s
-
     private AccessibilityManager mAccessibilityManager;
 
     private Context mTargetContext;
@@ -60,6 +58,9 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
                 getInstrumentation().getContext().getSystemService(Service.ACCESSIBILITY_SERVICE);
         mTargetContext = getInstrumentation().getTargetContext();
         mHandler = new Handler(mTargetContext.getMainLooper());
+        // In case the test runner started a UiAutomation, destroy it to start with a clean slate.
+        getInstrumentation().getUiAutomation().destroy();
+        ServiceControlUtils.turnAccessibilityOff(getInstrumentation());
     }
 
     @Override
@@ -334,7 +335,8 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
     private void assertAtomicBooleanBecomes(AtomicBoolean atomicBoolean,
             boolean expectedValue, Object waitObject, String message)
             throws Exception {
-        long timeoutTime = System.currentTimeMillis() + WAIT_FOR_ACCESSIBILITY_ENABLED_TIMEOUT;
+        long timeoutTime =
+                System.currentTimeMillis() + ServiceControlUtils.TIMEOUT_FOR_SERVICE_ENABLE;
         synchronized (waitObject) {
             while ((atomicBoolean.get() != expectedValue)
                     && (System.currentTimeMillis() < timeoutTime)) {
@@ -353,7 +355,8 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
             }
         };
         mAccessibilityManager.addAccessibilityStateChangeListener(listener);
-        long timeoutTime = System.currentTimeMillis() + WAIT_FOR_ACCESSIBILITY_ENABLED_TIMEOUT;
+        long timeoutTime =
+                System.currentTimeMillis() + ServiceControlUtils.TIMEOUT_FOR_SERVICE_ENABLE;
         synchronized (waitObject) {
             while (!mAccessibilityManager.isEnabled()
                     && (System.currentTimeMillis() < timeoutTime)) {

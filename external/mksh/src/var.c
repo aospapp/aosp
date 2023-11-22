@@ -2,7 +2,7 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014, 2015, 2016, 2017
+ *		 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018
  *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -28,7 +28,7 @@
 #include <sys/sysctl.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/var.c,v 1.214 2017/04/02 16:47:43 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/var.c,v 1.223 2018/01/13 23:55:15 tg Exp $");
 
 /*-
  * Variables
@@ -136,7 +136,7 @@ initvar(void)
 	struct tbl *tp;
 
 	ktinit(APERM, &specials,
-	    /* currently 18 specials: 75% of 32 = 2^5 */
+	    /* currently 21 specials: 75% of 32 = 2^5 */
 	    5);
 	while (i < V_MAX - 1) {
 		tp = ktenter(&specials, initvar_names[i],
@@ -183,7 +183,7 @@ array_index_calc(const char *n, bool *arrayp, uint32_t *valp)
 	*arrayp = false;
  redo_from_ref:
 	p = skip_varname(n, false);
-	if (innermost_refflag == SRF_NOP && (p != n) && ksh_isalphx(n[0])) {
+	if (innermost_refflag == SRF_NOP && (p != n) && ctype(n[0], C_ALPHX)) {
 		struct tbl *vp;
 		char *vn;
 
@@ -204,7 +204,7 @@ array_index_calc(const char *n, bool *arrayp, uint32_t *valp)
 	}
 	innermost_refflag = SRF_NOP;
 
-	if (p != n && *p == '[' && (len = array_ref_len(p))) {
+	if (p != n && ord(*p) == ORD('[') && (len = array_ref_len(p))) {
 		char *sub, *tmp;
 		mksh_ari_t rval;
 
@@ -249,14 +249,14 @@ isglobal(const char *n, bool docreate)
 	vn = array_index_calc(n, &array, &val);
 	h = hash(vn);
 	c = (unsigned char)vn[0];
-	if (!ksh_isalphx(c)) {
+	if (!ctype(c, C_ALPHX)) {
 		if (array)
 			errorf(Tbadsubst);
 		vp = vtemp;
 		vp->flag = DEFINED;
 		vp->type = 0;
 		vp->areap = ATEMP;
-		if (ksh_isdigit(c)) {
+		if (ctype(c, C_DIGIT)) {
 			if (getn(vn, &c)) {
 				/* main.c:main_init() says 12 */
 				shf_snprintf(vp->name, 12, Tf_d, c);
@@ -339,7 +339,7 @@ local(const char *n, bool copy)
 	 */
 	vn = array_index_calc(n, &array, &val);
 	h = hash(vn);
-	if (!ksh_isalphx(*vn)) {
+	if (!ctype(*vn, C_ALPHX)) {
 		vp = vtemp;
 		vp->flag = DEFINED|RDONLY;
 		vp->type = 0;
@@ -414,9 +414,11 @@ str_val(struct tbl *vp)
 
 			*(s = strbuf) = '1';
 			s[1] = '#';
-			if (!UTFMODE || ((n & 0xFF80) == 0xEF80))
+			if (!UTFMODE)
+				s[2] = (unsigned char)n;
+			else if ((n & 0xFF80) == 0xEF80)
 				/* OPTU-16 -> raw octet */
-				s[2] = n & 0xFF;
+				s[2] = asc2rtt(n & 0xFF);
 			else
 				sz = utf_wctomb(s + 2, n);
 			s[2 + sz] = '\0';
@@ -464,7 +466,7 @@ setstr(struct tbl *vq, const char *s, int error_ok)
 #ifndef MKSH_SMALL
 			/* debugging */
 			if (s >= vq->val.s &&
-			    s <= vq->val.s + strlen(vq->val.s)) {
+			    s <= strnul(vq->val.s)) {
 				internal_errorf(
 				    "setstr: %s=%s: assigning to self",
 				    vq->name, s);
@@ -532,7 +534,7 @@ getint(struct tbl *vp, mksh_ari_u *nump, bool arith)
 
 	do {
 		c = (unsigned char)*s++;
-	} while (ksh_isspace(c));
+	} while (ctype(c, C_SPACE));
 
 	switch (c) {
 	case '-':
@@ -549,7 +551,7 @@ getint(struct tbl *vp, mksh_ari_u *nump, bool arith)
 			base = 16;
 			++s;
 			goto getint_c_style_base;
-		} else if (Flag(FPOSIX) && ksh_isdigit(s[0]) &&
+		} else if (Flag(FPOSIX) && ctype(s[0], C_DIGIT) &&
 		    !(vp->flag & ZEROFIL)) {
 			/* interpret as octal (deprecated) */
 			base = 8;
@@ -577,7 +579,7 @@ getint(struct tbl *vp, mksh_ari_u *nump, bool arith)
 					 * the same as 1#\x80 does, thus is
 					 * not round-tripping correctly XXX)
 					 */
-					wc = 0xEF00 + *(const unsigned char *)s;
+					wc = 0xEF00 + rtt2asc(*s);
 				nump->u = (mksh_uari_t)wc;
 				return (1);
 			} else if (base > 36)
@@ -586,11 +588,11 @@ getint(struct tbl *vp, mksh_ari_u *nump, bool arith)
 			have_base = true;
 			continue;
 		}
-		if (ksh_isdigit(c))
+		if (ctype(c, C_DIGIT))
 			c = ksh_numdig(c);
-		else if (ksh_isupper(c))
+		else if (ctype(c, C_UPPER))
 			c = ksh_numuc(c) + 10;
-		else if (ksh_islower(c))
+		else if (ctype(c, C_LOWER))
 			c = ksh_numlc(c) + 10;
 		else
 			return (-1);
@@ -670,7 +672,7 @@ formatstr(struct tbl *vp, const char *s)
 			qq = utf_skipcols(s, slen, &slen);
 
 			/* strip trailing spaces (AT&T uses qq[-1] == ' ') */
-			while (qq > s && ksh_isspace(qq[-1])) {
+			while (qq > s && ctype(qq[-1], C_SPACE)) {
 				--qq;
 				--slen;
 			}
@@ -700,7 +702,7 @@ formatstr(struct tbl *vp, const char *s)
 			    "%.*s", slen, s);
 		} else {
 			/* strip leading spaces/zeros */
-			while (ksh_isspace(*s))
+			while (ctype(*s, C_SPACE))
 				s++;
 			if (vp->flag & ZEROFIL)
 				while (*s == '0')
@@ -778,7 +780,7 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 		/* no variable name given */
 		return (NULL);
 	}
-	if (*val == '[') {
+	if (ord(*val) == ORD('[')) {
 		if (new_refflag != SRF_NOP)
 			errorf(Tf_sD_s, var,
 			    "reference variable can't be an array");
@@ -796,18 +798,18 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 			size_t i;
 
 			for (i = 1; i < len - 1; i++)
-				if (!ksh_isdigit(val[i]))
+				if (!ctype(val[i], C_DIGIT))
 					return (NULL);
 		}
 		val += len;
 	}
-	if (val[0] == '=') {
+	if (ord(val[0]) == ORD('=')) {
 		strndupx(tvar, var, val - var, ATEMP);
 		++val;
 	} else if (set & IMPORT) {
 		/* environment invalid variable name or no assignment */
 		return (NULL);
-	} else if (val[0] == '+' && val[1] == '=') {
+	} else if (ord(val[0]) == ORD('+') && ord(val[1]) == ORD('=')) {
 		strndupx(tvar, var, val - var, ATEMP);
 		val += 2;
 		vappend = true;
@@ -820,8 +822,9 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 		val = NULL;
 		/* handle foo[*] => foo (whole array) mapping for R39b */
 		len = strlen(tvar);
-		if (len > 3 && tvar[len - 3] == '[' && tvar[len - 2] == '*' &&
-		    tvar[len - 1] == ']')
+		if (len > 3 && ord(tvar[len - 3]) == ORD('[') &&
+		    ord(tvar[len - 2]) == ORD('*') &&
+		    ord(tvar[len - 1]) == ORD(']'))
 			tvar[len - 3] = '\0';
 	}
 
@@ -845,7 +848,7 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 
 			if (!(c = (unsigned char)qval[0]))
 				goto nameref_empty;
-			else if (ksh_isdigit(c) && getn(qval, &c))
+			else if (ctype(c, C_DIGIT) && getn(qval, &c))
 				goto nameref_rhs_checked;
 			else if (qval[1] == '\0') switch (c) {
 			case '$':
@@ -858,7 +861,7 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
  nameref_empty:
 			errorf(Tf_sD_s, var, "empty nameref target");
 		}
-		len = (*ccp == '[') ? array_ref_len(ccp) : 0;
+		len = (ord(*ccp) == ORD('[')) ? array_ref_len(ccp) : 0;
 		if (ccp[len]) {
 			/*
 			 * works for cases "no array", "valid array with
@@ -914,12 +917,12 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 	vpbase = (vp->flag & ARRAY) ? global(arrayname(tvar)) : vp;
 
 	/*
-	 * only allow export flag to be set; AT&T ksh allows any
-	 * attribute to be changed which means it can be truncated or
-	 * modified (-L/-R/-Z/-i)
+	 * only allow export and readonly flag to be set; AT&T ksh
+	 * allows any attribute to be changed which means it can be
+	 * truncated or modified (-L/-R/-Z/-i)
 	 */
 	if ((vpbase->flag & RDONLY) &&
-	    (val || clr || (set & ~EXPORT)))
+	    (val || clr || (set & ~(EXPORT | RDONLY))))
 		/* XXX check calls - is error here ok by POSIX? */
 		errorfx(2, Tf_ro, tvar);
 	afree(tvar, ATEMP);
@@ -1064,11 +1067,11 @@ skip_varname(const char *s, bool aok)
 {
 	size_t alen;
 
-	if (s && ksh_isalphx(*s)) {
+	if (s && ctype(*s, C_ALPHX)) {
 		do {
 			++s;
-		} while (ksh_isalnux(*s));
-		if (aok && *s == '[' && (alen = array_ref_len(s)))
+		} while (ctype(*s, C_ALNUX));
+		if (aok && ord(*s) == ORD('[') && (alen = array_ref_len(s)))
 			s += alen;
 	}
 	return (s);
@@ -1080,11 +1083,11 @@ skip_wdvarname(const char *s,
     /* skip array de-reference? */
     bool aok)
 {
-	if (s[0] == CHAR && ksh_isalphx(s[1])) {
+	if (s[0] == CHAR && ctype(s[1], C_ALPHX)) {
 		do {
 			s += 2;
-		} while (s[0] == CHAR && ksh_isalnux(s[1]));
-		if (aok && s[0] == CHAR && s[1] == '[') {
+		} while (s[0] == CHAR && ctype(s[1], C_ALNUX));
+		if (aok && s[0] == CHAR && ord(s[1]) == ORD('[')) {
 			/* skip possible array de-reference */
 			const char *p = s;
 			char c;
@@ -1095,9 +1098,9 @@ skip_wdvarname(const char *s,
 					break;
 				c = p[1];
 				p += 2;
-				if (c == '[')
+				if (ord(c) == ORD('['))
 					depth++;
-				else if (c == ']' && --depth == 0) {
+				else if (ord(c) == ORD(']') && --depth == 0) {
 					s = p;
 					break;
 				}
@@ -1291,9 +1294,29 @@ setspec(struct tbl *vp)
 {
 	mksh_ari_u num;
 	char *s;
-	int st;
+	int st = special(vp->name);
 
-	switch ((st = special(vp->name))) {
+#ifdef MKSH_DOSPATH
+	switch (st) {
+	case V_PATH:
+	case V_TMPDIR:
+#ifdef __OS2__
+	case V_BEGINLIBPATH:
+	case V_ENDLIBPATH:
+#endif
+		/* convert backslashes to slashes for convenience */
+		if (!(vp->flag&INTEGER)) {
+			s = str_val(vp);
+			do {
+				if (*s == ORD('\\'))
+					*s = '/';
+			} while (*s++);
+		}
+		break;
+	}
+#endif
+
+	switch (st) {
 #ifdef __OS2__
 	case V_BEGINLIBPATH:
 	case V_ENDLIBPATH:
@@ -1307,8 +1330,7 @@ setspec(struct tbl *vp)
 		return;
 #endif
 	case V_IFS:
-		setctypes(s = str_val(vp), C_IFS);
-		ifs0 = *s;
+		set_ifs(str_val(vp));
 		return;
 	case V_PATH:
 		afree(path, APERM);
@@ -1364,6 +1386,13 @@ setspec(struct tbl *vp)
 		}
 		vp->flag |= SPECIAL;
 		break;
+#ifdef MKSH_EARLY_LOCALE_TRACKING
+	case V_LANG:
+	case V_LC_ALL:
+	case V_LC_CTYPE:
+		recheck_ctype();
+		return;
+#endif
 	default:
 		/* do nothing, do not touch vp at all */
 		return;
@@ -1436,8 +1465,7 @@ unsetspec(struct tbl *vp)
 		return;
 #endif
 	case V_IFS:
-		setctypes(TC_IFSWS, C_IFS);
-		ifs0 = ' ';
+		set_ifs(TC_IFSWS);
 		break;
 	case V_PATH:
 		afree(path, APERM);
@@ -1464,6 +1492,13 @@ unsetspec(struct tbl *vp)
 		/* AT&T ksh leaves previous value in place */
 		unspecial(vp->name);
 		break;
+#ifdef MKSH_EARLY_LOCALE_TRACKING
+	case V_LANG:
+	case V_LC_ALL:
+	case V_LC_CTYPE:
+		recheck_ctype();
+		return;
+#endif
 	}
 }
 
@@ -1527,8 +1562,8 @@ array_ref_len(const char *cp)
 	char c;
 	int depth = 0;
 
-	while ((c = *s++) && (c != ']' || --depth))
-		if (c == '[')
+	while ((c = *s++) && (ord(c) != ORD(']') || --depth))
+		if (ord(c) == ORD('['))
 			depth++;
 	if (!c)
 		return (0);
@@ -1600,17 +1635,18 @@ set_array(const char *var, bool reset, const char **vals)
 	}
 	while ((ccp = vals[i])) {
 #if 0 /* temporarily taken out due to regression */
-		if (*ccp == '[') {
+		if (ord(*ccp) == ORD('[')) {
 			int level = 0;
 
 			while (*ccp) {
-				if (*ccp == ']' && --level == 0)
+				if (ord(*ccp) == ORD(']') && --level == 0)
 					break;
-				if (*ccp == '[')
+				if (ord(*ccp) == ORD('['))
 					++level;
 				++ccp;
 			}
-			if (*ccp == ']' && level == 0 && ccp[1] == '=') {
+			if (ord(*ccp) == ORD(']') && level == 0 &&
+			    ord(ccp[1]) == ORD('=')) {
 				strndupx(cp, vals[i] + 1, ccp - (vals[i] + 1),
 				    ATEMP);
 				evaluate(substitute(cp, 0), (mksh_ari_t *)&j,

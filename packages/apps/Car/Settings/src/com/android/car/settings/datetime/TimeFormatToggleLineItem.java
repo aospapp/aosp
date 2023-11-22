@@ -21,15 +21,17 @@ import android.content.Intent;
 import android.provider.Settings;
 import android.text.format.DateFormat;
 
+import androidx.car.widget.TextListItem;
+
 import com.android.car.settings.R;
-import com.android.car.settings.common.ToggleLineItem;
 
 import java.util.Calendar;
 
 /**
  * A LineItem that displays and sets system time format.
  */
-class TimeFormatToggleLineItem extends ToggleLineItem {
+class TimeFormatToggleLineItem extends TextListItem
+        implements DatetimeSettingsFragment.ListRefreshObserver {
     private static final String HOURS_12 = "12";
     private static final String HOURS_24 = "24";
     private static final int DEMO_YEAR = 2017;
@@ -44,7 +46,8 @@ class TimeFormatToggleLineItem extends ToggleLineItem {
     private Context mContext;
 
     public TimeFormatToggleLineItem(Context context) {
-        super(context.getString(R.string.date_time_24hour));
+        super(context);
+        setTitle(context.getString(R.string.date_time_24hour));
         mContext = context;
         mTimeFormatDemoDate.set(
                 DEMO_YEAR,
@@ -53,34 +56,36 @@ class TimeFormatToggleLineItem extends ToggleLineItem {
                 DEMO_HOUR_OF_DAY,
                 DEMO_MINUTE,
                 DEMO_SECOND);
+        setBody(getDesc());
+        setSwitch(
+                isChecked(),
+                /* showDivider= */ false,
+                (button, is24Hour) -> {
+                    Settings.System.putString(mContext.getContentResolver(),
+                            Settings.System.TIME_12_24,
+                            is24Hour ? HOURS_24 : HOURS_12);
+                    Intent timeChanged = new Intent(Intent.ACTION_TIME_CHANGED);
+                    int timeFormatPreference =
+                            is24Hour ? Intent.EXTRA_TIME_PREF_VALUE_USE_24_HOUR
+                                    : Intent.EXTRA_TIME_PREF_VALUE_USE_12_HOUR;
+                    timeChanged.putExtra(Intent.EXTRA_TIME_PREF_24_HOUR_FORMAT,
+                            timeFormatPreference);
+                    mContext.sendBroadcast(timeChanged);
+                });
     }
 
     @Override
-    public void onClick(boolean is24Hour) {
-        Settings.System.putString(mContext.getContentResolver(),
-                Settings.System.TIME_12_24,
-                is24Hour ? HOURS_12 : HOURS_24);
-        Intent timeChanged = new Intent(Intent.ACTION_TIME_CHANGED);
-        int timeFormatPreference =
-                is24Hour ? Intent.EXTRA_TIME_PREF_VALUE_USE_24_HOUR
-                        : Intent.EXTRA_TIME_PREF_VALUE_USE_12_HOUR;
-        timeChanged.putExtra(Intent.EXTRA_TIME_PREF_24_HOUR_FORMAT, timeFormatPreference);
-        mContext.sendBroadcast(timeChanged);
+    public void onPreRefresh() {
+        setBody(getDesc());
+        setSwitchState(isChecked());
     }
 
-    @Override
-    public boolean isChecked() {
+    private boolean isChecked() {
         return DateFormat.is24HourFormat(mContext);
     }
 
-    @Override
-    public CharSequence getDesc() {
+    private String getDesc() {
         return DateFormat.getTimeFormat(mContext)
                 .format(mTimeFormatDemoDate.getTime());
-    }
-
-    @Override
-    public boolean isExpandable() {
-        return false;
     }
 }

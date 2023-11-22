@@ -18,16 +18,16 @@ package android.dumpsys.cts;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.ddmlib.testrunner.TestResult;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.CollectingTestListener;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.TestResult;
+import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
 
@@ -188,7 +188,7 @@ public class BaseDumpsysTest extends DeviceTestCase implements IBuildReceiver {
         if (result.hasFailedTests()) {
             // build a meaningful error message
             StringBuilder errorBuilder = new StringBuilder("On-device tests failed:\n");
-            for (Map.Entry<TestIdentifier, TestResult> resultEntry :
+            for (Map.Entry<TestDescription, TestResult> resultEntry :
                     result.getTestResults().entrySet()) {
                 if (!resultEntry.getValue().getStatus().equals(TestStatus.PASSED)) {
                     errorBuilder.append(resultEntry.getKey().toString());

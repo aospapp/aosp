@@ -19,7 +19,6 @@ package com.android.tv.ui.sidepanel;
 import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.TextView;
-
 import com.android.tv.R;
 
 public abstract class CompoundButtonItem extends Item {
@@ -44,8 +43,8 @@ public abstract class CompoundButtonItem extends Item {
         mMaxLine = 0;
     }
 
-    public CompoundButtonItem(String checkedTitle, String uncheckedTitle, String description,
-            int maxLine) {
+    public CompoundButtonItem(
+            String checkedTitle, String uncheckedTitle, String description, int maxLine) {
         mCheckedTitle = checkedTitle;
         mUncheckedTitle = uncheckedTitle;
         mDescription = description;
@@ -73,8 +72,10 @@ public abstract class CompoundButtonItem extends Item {
                 descriptionView.setMaxLines(mMaxLine);
             } else {
                 if (sDefaultMaxLine == 0) {
-                    sDefaultMaxLine = view.getContext().getResources()
-                            .getInteger(R.integer.option_item_description_max_lines);
+                    sDefaultMaxLine =
+                            view.getContext()
+                                    .getResources()
+                                    .getInteger(R.integer.option_item_description_max_lines);
                 }
                 descriptionView.setMaxLines(sDefaultMaxLine);
             }

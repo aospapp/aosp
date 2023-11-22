@@ -32,7 +32,6 @@
 #include <android-base/strings.h>
 
 #include "command.h"
-#include "dwarf_unwind.h"
 #include "event_attr.h"
 #include "event_type.h"
 #include "perf_regs.h"
@@ -105,10 +104,9 @@ struct SampleTree {
 BUILD_COMPARE_VALUE_FUNCTION(CompareVaddrInFile, vaddr_in_file);
 BUILD_DISPLAY_HEX64_FUNCTION(DisplayVaddrInFile, vaddr_in_file);
 
-class ReportCmdSampleTreeBuilder
-    : public SampleTreeBuilder<SampleEntry, uint64_t> {
+class ReportCmdSampleTreeBuilder : public SampleTreeBuilder<SampleEntry, uint64_t> {
  public:
-  ReportCmdSampleTreeBuilder(SampleComparator<SampleEntry> sample_comparator,
+  ReportCmdSampleTreeBuilder(const SampleComparator<SampleEntry>& sample_comparator,
                              ThreadTree* thread_tree)
       : SampleTreeBuilder(sample_comparator),
         thread_tree_(thread_tree),
@@ -138,7 +136,17 @@ class ReportCmdSampleTreeBuilder
     return sample_tree;
   }
 
+  virtual void ReportCmdProcessSampleRecord(std::shared_ptr<SampleRecord>& r) {
+    return ProcessSampleRecord(*r);
+  }
+
+  virtual void ReportCmdProcessSampleRecord(const SampleRecord& r) {
+    return ProcessSampleRecord(r);
+  }
+
  protected:
+  virtual uint64_t GetPeriod(const SampleRecord& r) = 0;
+
   SampleEntry* CreateSample(const SampleRecord& r, bool in_kernel,
                             uint64_t* acc_info) override {
     const ThreadEntry* thread =
@@ -148,10 +156,10 @@ class ReportCmdSampleTreeBuilder
     uint64_t vaddr_in_file;
     const Symbol* symbol =
         thread_tree_->FindSymbol(map, r.ip_data.ip, &vaddr_in_file);
-    *acc_info = r.period_data.period;
+    uint64_t period = GetPeriod(r);
+    *acc_info = period;
     return InsertSample(std::unique_ptr<SampleEntry>(
-        new SampleEntry(r.time_data.time, r.period_data.period, 0, 1, thread,
-                        map, symbol, vaddr_in_file)));
+        new SampleEntry(r.time_data.time, period, 0, 1, thread, map, symbol, vaddr_in_file)));
   }
 
   SampleEntry* CreateBranchSample(const SampleRecord& r,
@@ -253,6 +261,53 @@ class ReportCmdSampleTreeBuilder
   uint64_t total_error_callchains_;
 };
 
+// Build sample tree based on event count in each sample.
+class EventCountSampleTreeBuilder : public ReportCmdSampleTreeBuilder {
+ public:
+  EventCountSampleTreeBuilder(const SampleComparator<SampleEntry>& sample_comparator,
+                              ThreadTree* thread_tree)
+      : ReportCmdSampleTreeBuilder(sample_comparator, thread_tree) { }
+
+ protected:
+  uint64_t GetPeriod(const SampleRecord& r) override {
+    return r.period_data.period;
+  }
+};
+
+// Build sample tree based on the time difference between current sample and next sample.
+class TimestampSampleTreeBuilder : public ReportCmdSampleTreeBuilder {
+ public:
+  TimestampSampleTreeBuilder(const SampleComparator<SampleEntry>& sample_comparator,
+                             ThreadTree* thread_tree)
+      : ReportCmdSampleTreeBuilder(sample_comparator, thread_tree) { }
+
+  void ReportCmdProcessSampleRecord(std::shared_ptr<SampleRecord>& r) override {
+    pid_t tid = static_cast<pid_t>(r->tid_data.tid);
+    auto it = next_sample_cache_.find(tid);
+    if (it == next_sample_cache_.end()) {
+      next_sample_cache_[tid] = r;
+    } else {
+      std::shared_ptr<SampleRecord> cur = it->second;
+      it->second = r;
+      ProcessSampleRecord(*cur);
+    }
+  }
+
+ protected:
+  uint64_t GetPeriod(const SampleRecord& r) override {
+    auto it = next_sample_cache_.find(r.tid_data.tid);
+    CHECK(it != next_sample_cache_.end());
+    // Normally the samples are sorted by time, but check here for safety.
+    if (it->second->time_data.time > r.time_data.time) {
+      return it->second->time_data.time - r.time_data.time;
+    }
+    return 1u;
+  }
+
+ private:
+  std::unordered_map<pid_t, std::shared_ptr<SampleRecord>> next_sample_cache_;
+};
+
 struct SampleTreeBuilderOptions {
   SampleComparator<SampleEntry> comparator;
   ThreadTree* thread_tree;
@@ -265,15 +320,19 @@ struct SampleTreeBuilderOptions {
   bool accumulate_callchain;
   bool build_callchain;
   bool use_caller_as_callchain_root;
-  bool strict_unwind_arch_check;
+  bool trace_offcpu;
 
   std::unique_ptr<ReportCmdSampleTreeBuilder> CreateSampleTreeBuilder() {
-    std::unique_ptr<ReportCmdSampleTreeBuilder> builder(
-        new ReportCmdSampleTreeBuilder(comparator, thread_tree));
+    std::unique_ptr<ReportCmdSampleTreeBuilder> builder;
+    if (trace_offcpu) {
+      builder.reset(new TimestampSampleTreeBuilder(comparator, thread_tree));
+    } else {
+      builder.reset(new EventCountSampleTreeBuilder(comparator, thread_tree));
+    }
     builder->SetFilters(pid_filter, tid_filter, comm_filter, dso_filter, symbol_filter);
     builder->SetBranchSampleOption(use_branch_address);
     builder->SetCallChainSampleOptions(accumulate_callchain, build_callchain,
-                                       use_caller_as_callchain_root, strict_unwind_arch_check);
+                                       use_caller_as_callchain_root);
     return builder;
   }
 };
@@ -365,16 +424,20 @@ class ReportCommand : public Command {
         callgraph_max_stack_(UINT32_MAX),
         callgraph_percent_limit_(0),
         raw_period_(false),
-        brief_callgraph_(true) {}
+        brief_callgraph_(true),
+        trace_offcpu_(false),
+        sched_switch_attr_id_(0u) {}
 
   bool Run(const std::vector<std::string>& args);
 
  private:
   bool ParseOptions(const std::vector<std::string>& args);
+  bool ReadMetaInfoFromRecordFile();
   bool ReadEventAttrFromRecordFile();
   bool ReadFeaturesFromRecordFile();
   bool ReadSampleTreeFromRecordFile();
   bool ProcessRecord(std::unique_ptr<Record> record);
+  void ProcessSampleRecordInTraceOffCpuMode(std::unique_ptr<Record> record, size_t attr_id);
   bool ProcessTracingData(const std::vector<char>& data);
   bool PrintReport();
   void PrintReportContext(FILE* fp);
@@ -401,8 +464,12 @@ class ReportCommand : public Command {
   double callgraph_percent_limit_;
   bool raw_period_;
   bool brief_callgraph_;
+  bool trace_offcpu_;
+  size_t sched_switch_attr_id_;
 
   std::string report_filename_;
+  std::unordered_map<std::string, std::string> meta_info_;
+  std::unique_ptr<ScopedEventTypes> scoped_event_types_;
 };
 
 bool ReportCommand::Run(const std::vector<std::string>& args) {
@@ -414,6 +481,9 @@ bool ReportCommand::Run(const std::vector<std::string>& args) {
   // 2. Read record file and build SampleTree.
   record_file_reader_ = RecordFileReader::CreateInstance(record_filename_);
   if (record_file_reader_ == nullptr) {
+    return false;
+  }
+  if (!ReadMetaInfoFromRecordFile()) {
     return false;
   }
   if (!ReadEventAttrFromRecordFile()) {
@@ -676,6 +746,27 @@ bool ReportCommand::ParseOptions(const std::vector<std::string>& args) {
   return true;
 }
 
+bool ReportCommand::ReadMetaInfoFromRecordFile() {
+  if (record_file_reader_->HasFeature(PerfFileFormat::FEAT_META_INFO)) {
+    if (!record_file_reader_->ReadMetaInfoFeature(&meta_info_)) {
+      return false;
+    }
+    auto it = meta_info_.find("system_wide_collection");
+    if (it != meta_info_.end()) {
+      system_wide_collection_ = it->second == "true";
+    }
+    it = meta_info_.find("trace_offcpu");
+    if (it != meta_info_.end()) {
+      trace_offcpu_ = it->second == "true";
+    }
+    it = meta_info_.find("event_type_info");
+    if (it != meta_info_.end()) {
+      scoped_event_types_.reset(new ScopedEventTypes(it->second));
+    }
+  }
+  return true;
+}
+
 bool ReportCommand::ReadEventAttrFromRecordFile() {
   std::vector<EventAttrWithId> attrs = record_file_reader_->AttrSection();
   for (const auto& attr_with_id : attrs) {
@@ -698,6 +789,16 @@ bool ReportCommand::ReadEventAttrFromRecordFile() {
       return false;
     }
   }
+  if (trace_offcpu_) {
+    size_t i;
+    for (i = 0; i < event_attrs_.size(); ++i) {
+      if (event_attrs_[i].name == "sched:sched_switch") {
+        break;
+      }
+    }
+    CHECK_NE(i, event_attrs_.size());
+    sched_switch_attr_id_ = i;
+  }
   return true;
 }
 
@@ -716,19 +817,21 @@ bool ReportCommand::ReadFeaturesFromRecordFile() {
   std::vector<std::string> cmdline = record_file_reader_->ReadCmdlineFeature();
   if (!cmdline.empty()) {
     record_cmdline_ = android::base::Join(cmdline, ' ');
-    // TODO: the code to detect system wide collection option is fragile, remove
-    // it once we can do cross unwinding.
-    for (size_t i = 0; i < cmdline.size(); i++) {
-      std::string& s = cmdline[i];
-      if (s == "-a") {
-        system_wide_collection_ = true;
-        break;
-      } else if (s == "--call-graph" || s == "--cpu" || s == "-e" ||
-                 s == "-f" || s == "-F" || s == "-j" || s == "-m" ||
-                 s == "-o" || s == "-p" || s == "-t") {
-        i++;
-      } else if (!s.empty() && s[0] != '-') {
-        break;
+    if (meta_info_.find("system_wide_collection") == meta_info_.end()) {
+      // TODO: the code to detect system wide collection option is fragile, remove
+      // it once we can do cross unwinding.
+      for (size_t i = 0; i < cmdline.size(); i++) {
+        std::string& s = cmdline[i];
+        if (s == "-a") {
+          system_wide_collection_ = true;
+          break;
+        } else if (s == "--call-graph" || s == "--cpu" || s == "-e" ||
+                   s == "-f" || s == "-F" || s == "-j" || s == "-m" ||
+                   s == "-o" || s == "-p" || s == "-t") {
+          i++;
+        } else if (!s.empty() && s[0] != '-') {
+          break;
+        }
       }
     }
   }
@@ -747,12 +850,10 @@ bool ReportCommand::ReadFeaturesFromRecordFile() {
 
 bool ReportCommand::ReadSampleTreeFromRecordFile() {
   sample_tree_builder_options_.use_branch_address = use_branch_address_;
-  // Normally do strict arch check when unwinding stack. But allow unwinding
-  // 32-bit processes on 64-bit devices for system wide profiling.
-  sample_tree_builder_options_.strict_unwind_arch_check = !system_wide_collection_;
   sample_tree_builder_options_.accumulate_callchain = accumulate_callchain_;
   sample_tree_builder_options_.build_callchain = print_callgraph_;
   sample_tree_builder_options_.use_caller_as_callchain_root = !callgraph_show_callee_;
+  sample_tree_builder_options_.trace_offcpu = trace_offcpu_;
 
   for (size_t i = 0; i < event_attrs_.size(); ++i) {
     sample_tree_builder_.push_back(sample_tree_builder_options_.CreateSampleTreeBuilder());
@@ -775,8 +876,12 @@ bool ReportCommand::ProcessRecord(std::unique_ptr<Record> record) {
   thread_tree_.Update(*record);
   if (record->type() == PERF_RECORD_SAMPLE) {
     size_t attr_id = record_file_reader_->GetAttrIndexOfRecord(record.get());
-    sample_tree_builder_[attr_id]->ProcessSampleRecord(
-        *static_cast<const SampleRecord*>(record.get()));
+    if (!trace_offcpu_) {
+      sample_tree_builder_[attr_id]->ReportCmdProcessSampleRecord(
+          *static_cast<SampleRecord*>(record.get()));
+    } else {
+      ProcessSampleRecordInTraceOffCpuMode(std::move(record), attr_id);
+    }
   } else if (record->type() == PERF_RECORD_TRACING_DATA) {
     const auto& r = *static_cast<TracingDataRecord*>(record.get());
     if (!ProcessTracingData(std::vector<char>(r.data, r.data + r.data_size))) {
@@ -784,6 +889,24 @@ bool ReportCommand::ProcessRecord(std::unique_ptr<Record> record) {
     }
   }
   return true;
+}
+
+
+void ReportCommand::ProcessSampleRecordInTraceOffCpuMode(std::unique_ptr<Record> record,
+                                                         size_t attr_id) {
+  std::shared_ptr<SampleRecord> r(static_cast<SampleRecord*>(record.release()));
+  if (attr_id == sched_switch_attr_id_) {
+    // If this sample belongs to sched_switch event, we should broadcast the offcpu info
+    // to other event types.
+    for (size_t i = 0; i < event_attrs_.size(); ++i) {
+      if (i == sched_switch_attr_id_) {
+        continue;
+      }
+      sample_tree_builder_[i]->ReportCmdProcessSampleRecord(r);
+    }
+  } else {
+    sample_tree_builder_[attr_id]->ReportCmdProcessSampleRecord(r);
+  }
 }
 
 bool ReportCommand::ProcessTracingData(const std::vector<char>& data) {
@@ -810,6 +933,9 @@ bool ReportCommand::PrintReport() {
   }
   PrintReportContext(report_fp);
   for (size_t i = 0; i < event_attrs_.size(); ++i) {
+    if (trace_offcpu_ && i == sched_switch_attr_id_) {
+      continue;
+    }
     if (i != 0) {
       fprintf(report_fp, "\n");
     }
@@ -823,7 +949,8 @@ bool ReportCommand::PrintReport() {
               sample_tree.total_error_callchains,
               sample_tree.total_error_callchains * 100.0 / sample_tree.total_samples);
     }
-    fprintf(report_fp, "Event count: %" PRIu64 "\n\n", sample_tree.total_period);
+    const char* period_prefix = trace_offcpu_ ? "Time in ns" : "Event count";
+    fprintf(report_fp, "%s: %" PRIu64 "\n\n", period_prefix, sample_tree.total_period);
     sample_tree_displayer_->DisplaySamples(report_fp, sample_tree.samples, &sample_tree);
   }
   fflush(report_fp);

@@ -1,6 +1,7 @@
 // Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 1323b9c
 
 #include "vp9_bool_decoder.h"
 
@@ -35,9 +36,9 @@ const int kCountToShiftTo128[256] = {
 };
 }  // namespace
 
-Vp9BoolDecoder::Vp9BoolDecoder() {}
+Vp9BoolDecoder::Vp9BoolDecoder() = default;
 
-Vp9BoolDecoder::~Vp9BoolDecoder() {}
+Vp9BoolDecoder::~Vp9BoolDecoder() = default;
 
 // 9.2.1 Initialization process for Boolean decoder
 bool Vp9BoolDecoder::Initialize(const uint8_t* data, size_t size) {

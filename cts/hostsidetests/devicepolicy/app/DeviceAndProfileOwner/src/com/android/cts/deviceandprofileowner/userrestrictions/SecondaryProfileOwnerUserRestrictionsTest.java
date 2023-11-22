@@ -38,11 +38,13 @@ public class SecondaryProfileOwnerUserRestrictionsTest extends BaseUserRestricti
             UserManager.DISALLOW_UNMUTE_MICROPHONE,
             UserManager.DISALLOW_ADJUST_VOLUME,
             UserManager.DISALLOW_OUTGOING_CALLS,
+            UserManager.DISALLOW_SYSTEM_ERROR_DIALOGS,
             UserManager.DISALLOW_CROSS_PROFILE_COPY_PASTE,
             UserManager.DISALLOW_OUTGOING_BEAM,
             UserManager.ALLOW_PARENT_PROFILE_APP_LINKING,
             UserManager.DISALLOW_SET_USER_ICON,
-            UserManager.DISALLOW_AUTOFILL
+            UserManager.DISALLOW_AUTOFILL,
+            UserManager.DISALLOW_UNIFIED_PASSWORD,
     };
 
     public static final String[] DISALLOWED = new String[] {

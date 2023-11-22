@@ -106,11 +106,11 @@ public class JobStatus {
 
     @Override
     public String toString() {
-        return "JobStatus{id=" + mId +
-                ", jobState=" + mJobState +
-                ", jobResult=" + mJobResult +
-                ", blockedReasons=" + mBlockedReasons +
-                "}";
+        return "JobStatus{id=" + mId
+                + ", jobState=" + mJobState
+                + ", jobResult=" + mJobResult
+                + ", blockedReasons=" + mBlockedReasons
+                + "}";
     }
 
     static class Builder {

@@ -20,10 +20,12 @@ import android.content.Context;
 import android.net.Uri;
 import android.support.annotation.Nullable;
 import android.support.v4.util.ArrayMap;
+import android.telephony.PhoneNumberUtils;
 import android.text.BidiFormatter;
 import android.text.TextDirectionHeuristics;
 import android.text.TextUtils;
 import android.util.ArraySet;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,12 +33,11 @@ import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
-import com.android.contacts.common.ContactPhotoManager;
-import com.android.contacts.common.ContactPhotoManager.DefaultImageRequest;
-import com.android.contacts.common.compat.PhoneNumberUtilsCompat;
 import com.android.contacts.common.preference.ContactsPreferences;
 import com.android.contacts.common.util.ContactDisplayUtils;
 import com.android.dialer.common.LogUtil;
+import com.android.dialer.contactphoto.ContactPhotoManager;
+import com.android.dialer.contactphoto.ContactPhotoManager.DefaultImageRequest;
 import com.android.incallui.ContactInfoCache.ContactCacheEntry;
 import com.android.incallui.call.CallList;
 import com.android.incallui.call.DialerCall;
@@ -54,15 +55,15 @@ import java.util.Set;
 public class ConferenceParticipantListAdapter extends BaseAdapter {
 
   /** The ListView containing the participant information. */
-  private final ListView mListView;
+  private final ListView listView;
   /** Hashmap to make accessing participant info by call Id faster. */
-  private final Map<String, ParticipantInfo> mParticipantsByCallId = new ArrayMap<>();
+  private final Map<String, ParticipantInfo> participantsByCallId = new ArrayMap<>();
   /** ContactsPreferences used to lookup displayName preferences */
-  @Nullable private final ContactsPreferences mContactsPreferences;
+  @Nullable private final ContactsPreferences contactsPreferences;
   /** Contact photo manager to retrieve cached contact photo information. */
-  private final ContactPhotoManager mContactPhotoManager;
+  private final ContactPhotoManager contactPhotoManager;
   /** Listener used to handle tap of the "disconnect' button for a participant. */
-  private View.OnClickListener mDisconnectListener =
+  private View.OnClickListener disconnectListener =
       new View.OnClickListener() {
         @Override
         public void onClick(View view) {
@@ -75,7 +76,7 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
         }
       };
   /** Listener used to handle tap of the "separate' button for a participant. */
-  private View.OnClickListener mSeparateListener =
+  private View.OnClickListener separateListener =
       new View.OnClickListener() {
         @Override
         public void onClick(View view) {
@@ -87,9 +88,9 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
         }
       };
   /** The conference participants to show in the ListView. */
-  private List<ParticipantInfo> mConferenceParticipants = new ArrayList<>();
+  private List<ParticipantInfo> conferenceParticipants = new ArrayList<>();
   /** {@code True} if the conference parent supports separating calls from the conference. */
-  private boolean mParentCanSeparate;
+  private boolean parentCanSeparate;
 
   /**
    * Creates an instance of the ConferenceParticipantListAdapter.
@@ -100,9 +101,9 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
   public ConferenceParticipantListAdapter(
       ListView listView, ContactPhotoManager contactPhotoManager) {
 
-    mListView = listView;
-    mContactsPreferences = ContactsPreferencesFactory.newContactsPreferences(getContext());
-    mContactPhotoManager = contactPhotoManager;
+    this.listView = listView;
+    contactsPreferences = ContactsPreferencesFactory.newContactsPreferences(getContext());
+    this.contactPhotoManager = contactPhotoManager;
   }
 
   /**
@@ -114,11 +115,11 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
    */
   public void updateParticipants(
       List<DialerCall> conferenceParticipants, boolean parentCanSeparate) {
-    if (mContactsPreferences != null) {
-      mContactsPreferences.refreshValue(ContactsPreferences.DISPLAY_ORDER_KEY);
-      mContactsPreferences.refreshValue(ContactsPreferences.SORT_ORDER_KEY);
+    if (contactsPreferences != null) {
+      contactsPreferences.refreshValue(ContactsPreferences.DISPLAY_ORDER_KEY);
+      contactsPreferences.refreshValue(ContactsPreferences.SORT_ORDER_KEY);
     }
-    mParentCanSeparate = parentCanSeparate;
+    this.parentCanSeparate = parentCanSeparate;
     updateParticipantInfo(conferenceParticipants);
   }
 
@@ -129,7 +130,7 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
    */
   @Override
   public int getCount() {
-    return mConferenceParticipants.size();
+    return conferenceParticipants.size();
   }
 
   /**
@@ -140,7 +141,7 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
    */
   @Override
   public Object getItem(int position) {
-    return mConferenceParticipants.get(position);
+    return conferenceParticipants.get(position);
   }
 
   /**
@@ -162,15 +163,15 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
   public void refreshCall(DialerCall call) {
     String callId = call.getId();
 
-    if (mParticipantsByCallId.containsKey(callId)) {
-      ParticipantInfo participantInfo = mParticipantsByCallId.get(callId);
+    if (participantsByCallId.containsKey(callId)) {
+      ParticipantInfo participantInfo = participantsByCallId.get(callId);
       participantInfo.setCall(call);
       refreshView(callId);
     }
   }
 
   private Context getContext() {
-    return mListView.getContext();
+    return listView.getContext();
   }
 
   /**
@@ -180,14 +181,14 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
    * @param callId The call id.
    */
   private void refreshView(String callId) {
-    int first = mListView.getFirstVisiblePosition();
-    int last = mListView.getLastVisiblePosition();
+    int first = listView.getFirstVisiblePosition();
+    int last = listView.getLastVisiblePosition();
 
     for (int position = 0; position <= last - first; position++) {
-      View view = mListView.getChildAt(position);
+      View view = listView.getChildAt(position);
       String rowCallId = (String) view.getTag();
       if (rowCallId.equals(callId)) {
-        getView(position + first, view, mListView);
+        getView(position + first, view, listView);
         break;
       }
     }
@@ -211,7 +212,7 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
                 .inflate(R.layout.caller_in_conference, parent, false)
             : convertView;
 
-    ParticipantInfo participantInfo = mConferenceParticipants.get(position);
+    ParticipantInfo participantInfo = conferenceParticipants.get(position);
     DialerCall call = participantInfo.getCall();
     ContactCacheEntry contactCache = participantInfo.getContactCacheEntry();
 
@@ -227,25 +228,25 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
     }
 
     boolean thisRowCanSeparate =
-        mParentCanSeparate
+        parentCanSeparate
             && call.can(android.telecom.Call.Details.CAPABILITY_SEPARATE_FROM_CONFERENCE);
     boolean thisRowCanDisconnect =
         call.can(android.telecom.Call.Details.CAPABILITY_DISCONNECT_FROM_CONFERENCE);
 
     String name =
         ContactDisplayUtils.getPreferredDisplayName(
-            contactCache.namePrimary, contactCache.nameAlternative, mContactsPreferences);
+            contactCache.namePrimary, contactCache.nameAlternative, contactsPreferences);
 
     setCallerInfoForRow(
         result,
         contactCache.namePrimary,
         call.updateNameIfRestricted(name),
         contactCache.number,
-        contactCache.label,
         contactCache.lookupKey,
         contactCache.displayPhotoUri,
         thisRowCanSeparate,
-        thisRowCanDisconnect);
+        thisRowCanDisconnect,
+        call.getNonConferenceState());
 
     // Tag the row in the conference participant list with the call id to make it easier to
     // find calls when contact cache information is loaded.
@@ -261,8 +262,8 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
    * @param entry The new contact info.
    */
   /* package */ void updateContactInfo(String callId, ContactCacheEntry entry) {
-    if (mParticipantsByCallId.containsKey(callId)) {
-      ParticipantInfo participantInfo = mParticipantsByCallId.get(callId);
+    if (participantsByCallId.containsKey(callId)) {
+      ParticipantInfo participantInfo = participantsByCallId.get(callId);
       participantInfo.setContactCacheEntry(entry);
       participantInfo.setCacheLookupComplete(true);
       refreshView(callId);
@@ -275,7 +276,6 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
    * @param view The view to set the details on.
    * @param callerName The participant's name.
    * @param callerNumber The participant's phone number.
-   * @param callerNumberType The participant's phone number typ.e
    * @param lookupKey The lookup key for the participant (for photo lookup).
    * @param photoUri The URI of the contact photo.
    * @param thisRowCanSeparate {@code True} if this participant can separate from the conference.
@@ -286,56 +286,100 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
       String callerName,
       String preferredName,
       String callerNumber,
-      String callerNumberType,
       String lookupKey,
       Uri photoUri,
       boolean thisRowCanSeparate,
-      boolean thisRowCanDisconnect) {
+      boolean thisRowCanDisconnect,
+      int callState) {
 
     final ImageView photoView = (ImageView) view.findViewById(R.id.callerPhoto);
+    final TextView statusTextView = (TextView) view.findViewById(R.id.conferenceCallerStatus);
     final TextView nameTextView = (TextView) view.findViewById(R.id.conferenceCallerName);
     final TextView numberTextView = (TextView) view.findViewById(R.id.conferenceCallerNumber);
-    final TextView numberTypeTextView =
-        (TextView) view.findViewById(R.id.conferenceCallerNumberType);
     final View endButton = view.findViewById(R.id.conferenceCallerDisconnect);
     final View separateButton = view.findViewById(R.id.conferenceCallerSeparate);
 
+    if (callState == DialerCall.State.ONHOLD) {
+      setViewsOnHold(photoView, statusTextView, nameTextView, numberTextView);
+    } else {
+      setViewsNotOnHold(photoView, statusTextView, nameTextView, numberTextView);
+    }
+
     endButton.setVisibility(thisRowCanDisconnect ? View.VISIBLE : View.GONE);
     if (thisRowCanDisconnect) {
-      endButton.setOnClickListener(mDisconnectListener);
+      endButton.setOnClickListener(disconnectListener);
     } else {
       endButton.setOnClickListener(null);
     }
 
     separateButton.setVisibility(thisRowCanSeparate ? View.VISIBLE : View.GONE);
     if (thisRowCanSeparate) {
-      separateButton.setOnClickListener(mSeparateListener);
+      separateButton.setOnClickListener(separateListener);
     } else {
       separateButton.setOnClickListener(null);
     }
 
+    String displayNameForImage = TextUtils.isEmpty(callerName) ? callerNumber : callerName;
     DefaultImageRequest imageRequest =
         (photoUri != null)
             ? null
-            : new DefaultImageRequest(callerName, lookupKey, true /* isCircularPhoto */);
+            : new DefaultImageRequest(displayNameForImage, lookupKey, true /* isCircularPhoto */);
 
-    mContactPhotoManager.loadDirectoryPhoto(photoView, photoUri, false, true, imageRequest);
+    contactPhotoManager.loadDirectoryPhoto(photoView, photoUri, false, true, imageRequest);
 
     // set the caller name
-    nameTextView.setText(preferredName);
+    if (TextUtils.isEmpty(preferredName)) {
+      nameTextView.setVisibility(View.GONE);
+    } else {
+      nameTextView.setVisibility(View.VISIBLE);
+      nameTextView.setText(preferredName);
+    }
 
     // set the caller number in subscript, or make the field disappear.
     if (TextUtils.isEmpty(callerNumber)) {
       numberTextView.setVisibility(View.GONE);
-      numberTypeTextView.setVisibility(View.GONE);
     } else {
       numberTextView.setVisibility(View.VISIBLE);
       numberTextView.setText(
-          PhoneNumberUtilsCompat.createTtsSpannable(
+          PhoneNumberUtils.createTtsSpannable(
               BidiFormatter.getInstance().unicodeWrap(callerNumber, TextDirectionHeuristics.LTR)));
-      numberTypeTextView.setVisibility(View.VISIBLE);
-      numberTypeTextView.setText(callerNumberType);
     }
+  }
+
+  private void setViewsOnHold(
+      ImageView photoView,
+      TextView statusTextView,
+      TextView nameTextView,
+      TextView numberTextView) {
+    CharSequence onHoldText =
+        TextUtils.concat(getContext().getText(R.string.notification_on_hold).toString(), " • ");
+    statusTextView.setText(onHoldText);
+    statusTextView.setVisibility(View.VISIBLE);
+
+    int onHoldColor = getContext().getColor(R.color.dialer_secondary_text_color_hiden);
+    nameTextView.setTextColor(onHoldColor);
+    numberTextView.setTextColor(onHoldColor);
+
+    TypedValue alpha = new TypedValue();
+    getContext().getResources().getValue(R.dimen.alpha_hiden, alpha, true);
+    photoView.setAlpha(alpha.getFloat());
+  }
+
+  private void setViewsNotOnHold(
+      ImageView photoView,
+      TextView statusTextView,
+      TextView nameTextView,
+      TextView numberTextView) {
+    statusTextView.setVisibility(View.GONE);
+
+    nameTextView.setTextColor(
+        getContext().getColor(R.color.conference_call_manager_caller_name_text_color));
+    numberTextView.setTextColor(
+        getContext().getColor(R.color.conference_call_manager_secondary_text_color));
+
+    TypedValue alpha = new TypedValue();
+    getContext().getResources().getValue(R.dimen.alpha_enabled, alpha, true);
+    photoView.setAlpha(alpha.getFloat());
   }
 
   /**
@@ -360,26 +404,26 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
                 getContext(), call, call.getState() == DialerCall.State.INCOMING);
       }
 
-      if (mParticipantsByCallId.containsKey(callId)) {
-        ParticipantInfo participantInfo = mParticipantsByCallId.get(callId);
+      if (participantsByCallId.containsKey(callId)) {
+        ParticipantInfo participantInfo = participantsByCallId.get(callId);
         participantInfo.setCall(call);
         participantInfo.setContactCacheEntry(contactCache);
       } else {
         newParticipantAdded = true;
         ParticipantInfo participantInfo = new ParticipantInfo(call, contactCache);
-        mConferenceParticipants.add(participantInfo);
-        mParticipantsByCallId.put(call.getId(), participantInfo);
+        this.conferenceParticipants.add(participantInfo);
+        participantsByCallId.put(call.getId(), participantInfo);
       }
     }
 
     // Remove any participants that no longer exist.
-    Iterator<Map.Entry<String, ParticipantInfo>> it = mParticipantsByCallId.entrySet().iterator();
+    Iterator<Map.Entry<String, ParticipantInfo>> it = participantsByCallId.entrySet().iterator();
     while (it.hasNext()) {
       Map.Entry<String, ParticipantInfo> entry = it.next();
       String existingCallId = entry.getKey();
       if (!newCallIds.contains(existingCallId)) {
         ParticipantInfo existingInfo = entry.getValue();
-        mConferenceParticipants.remove(existingInfo);
+        this.conferenceParticipants.remove(existingInfo);
         it.remove();
       }
     }
@@ -394,7 +438,7 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
   /** Sorts the participant list by contact name. */
   private void sortParticipantList() {
     Collections.sort(
-        mConferenceParticipants,
+        conferenceParticipants,
         new Comparator<ParticipantInfo>() {
           @Override
           public int compare(ParticipantInfo p1, ParticipantInfo p2) {
@@ -402,13 +446,13 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
             ContactCacheEntry c1 = p1.getContactCacheEntry();
             String p1Name =
                 ContactDisplayUtils.getPreferredSortName(
-                    c1.namePrimary, c1.nameAlternative, mContactsPreferences);
+                    c1.namePrimary, c1.nameAlternative, contactsPreferences);
             p1Name = p1Name != null ? p1Name : "";
 
             ContactCacheEntry c2 = p2.getContactCacheEntry();
             String p2Name =
                 ContactDisplayUtils.getPreferredSortName(
-                    c2.namePrimary, c2.nameAlternative, mContactsPreferences);
+                    c2.namePrimary, c2.nameAlternative, contactsPreferences);
             p2Name = p2Name != null ? p2Name : "";
 
             return p1Name.compareToIgnoreCase(p2Name);
@@ -428,10 +472,10 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
    */
   public static class ContactLookupCallback implements ContactInfoCache.ContactInfoCacheCallback {
 
-    private final WeakReference<ConferenceParticipantListAdapter> mListAdapter;
+    private final WeakReference<ConferenceParticipantListAdapter> listAdapter;
 
     public ContactLookupCallback(ConferenceParticipantListAdapter listAdapter) {
-      mListAdapter = new WeakReference<>(listAdapter);
+      this.listAdapter = new WeakReference<>(listAdapter);
     }
 
     /**
@@ -463,7 +507,7 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
      * @param entry The new contact information.
      */
     private void update(String callId, ContactCacheEntry entry) {
-      ConferenceParticipantListAdapter listAdapter = mListAdapter.get();
+      ConferenceParticipantListAdapter listAdapter = this.listAdapter.get();
       if (listAdapter != null) {
         listAdapter.updateContactInfo(callId, entry);
       }
@@ -476,51 +520,51 @@ public class ConferenceParticipantListAdapter extends BaseAdapter {
    */
   private static class ParticipantInfo {
 
-    private DialerCall mCall;
-    private ContactCacheEntry mContactCacheEntry;
-    private boolean mCacheLookupComplete = false;
+    private DialerCall call;
+    private ContactCacheEntry contactCacheEntry;
+    private boolean cacheLookupComplete = false;
 
     public ParticipantInfo(DialerCall call, ContactCacheEntry contactCacheEntry) {
-      mCall = call;
-      mContactCacheEntry = contactCacheEntry;
+      this.call = call;
+      this.contactCacheEntry = contactCacheEntry;
     }
 
     public DialerCall getCall() {
-      return mCall;
+      return call;
     }
 
     public void setCall(DialerCall call) {
-      mCall = call;
+      this.call = call;
     }
 
     public ContactCacheEntry getContactCacheEntry() {
-      return mContactCacheEntry;
+      return contactCacheEntry;
     }
 
     public void setContactCacheEntry(ContactCacheEntry entry) {
-      mContactCacheEntry = entry;
+      contactCacheEntry = entry;
     }
 
     public boolean isCacheLookupComplete() {
-      return mCacheLookupComplete;
+      return cacheLookupComplete;
     }
 
     public void setCacheLookupComplete(boolean cacheLookupComplete) {
-      mCacheLookupComplete = cacheLookupComplete;
+      this.cacheLookupComplete = cacheLookupComplete;
     }
 
     @Override
     public boolean equals(Object o) {
       if (o instanceof ParticipantInfo) {
         ParticipantInfo p = (ParticipantInfo) o;
-        return Objects.equals(p.getCall().getId(), mCall.getId());
+        return Objects.equals(p.getCall().getId(), call.getId());
       }
       return false;
     }
 
     @Override
     public int hashCode() {
-      return mCall.getId().hashCode();
+      return call.getId().hashCode();
     }
   }
 }

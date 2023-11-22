@@ -23,15 +23,20 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_PROGUARD_ENABLED := disabled
 
-LOCAL_JAVA_LIBRARIES := android.test.runner telephony-common voip-common org.apache.http.legacy
+LOCAL_JAVA_LIBRARIES := \
+    android.test.runner.stubs \
+    telephony-common \
+    voip-common \
+    org.apache.http.legacy \
+    android.test.base.stubs \
+
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     compatibility-device-util \
     ctstestrunner \
     ctstestserver \
     mockito-target-minus-junit4 \
-    android-support-v4 \
-    legacy-android-test
+    androidx.legacy_legacy-support-v4
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) \
               src/android/app/stubs/ISecondary.aidl
@@ -40,5 +45,6 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_PACKAGE_NAME := CtsAppTestStubs
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

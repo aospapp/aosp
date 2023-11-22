@@ -9,6 +9,7 @@
 
 #include "core/fpdfdoc/cpvt_floatrect.h"
 #include "core/fxcrt/fx_system.h"
+#include "core/fxcrt/unowned_ptr.h"
 
 class CPDF_VariableText;
 class CSection;
@@ -18,16 +19,16 @@ class CTypeset final {
   explicit CTypeset(CSection* pSection);
   ~CTypeset();
 
-  CFX_SizeF GetEditSize(FX_FLOAT fFontSize);
+  CFX_SizeF GetEditSize(float fFontSize);
   CPVT_FloatRect Typeset();
   CPVT_FloatRect CharArray();
 
  private:
-  void SplitLines(bool bTypeset, FX_FLOAT fFontSize);
+  void SplitLines(bool bTypeset, float fFontSize);
   void OutputLines();
 
   CPVT_FloatRect m_rcRet;
-  CPDF_VariableText* const m_pVT;
+  UnownedPtr<CPDF_VariableText> const m_pVT;
   CSection* const m_pSection;
 };
 

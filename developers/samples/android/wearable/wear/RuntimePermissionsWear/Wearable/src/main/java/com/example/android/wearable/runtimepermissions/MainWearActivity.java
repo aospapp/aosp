@@ -17,6 +17,7 @@
 package com.example.android.wearable.runtimepermissions;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
@@ -25,7 +26,7 @@ import android.os.Bundle;
 import android.os.Looper;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
-import android.support.wearable.activity.WearableActivity;
+import android.support.wear.ambient.AmbientMode;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -58,7 +59,8 @@ import java.util.concurrent.TimeUnit;
  * this Activity also sends back the results of the permission request to the phone device (and
  * the sensor data if approved).
  */
-public class MainWearActivity extends WearableActivity implements
+public class MainWearActivity extends Activity implements
+        AmbientMode.AmbientCallbackProvider,
         GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener,
         CapabilityApi.CapabilityListener,
@@ -75,6 +77,12 @@ public class MainWearActivity extends WearableActivity implements
 
     public static final String EXTRA_PROMPT_PERMISSION_FROM_PHONE =
             "com.example.android.wearable.runtimepermissions.extra.PROMPT_PERMISSION_FROM_PHONE";
+
+    /**
+     * Ambient mode controller attached to this display. Used by the Activity to see if it is in
+     * ambient mode.
+     */
+    private AmbientMode.AmbientController mAmbientController;
 
     private boolean mWearBodySensorsPermissionApproved;
     private boolean mPhoneStoragePermissionApproved;
@@ -101,7 +109,9 @@ public class MainWearActivity extends WearableActivity implements
         mPhoneStoragePermissionApproved = false;
 
         setContentView(R.layout.activity_main);
-        setAmbientEnabled();
+
+        // Enables Ambient mode.
+        mAmbientController = AmbientMode.attachAmbientSupport(this);
 
         // Checks if phone app requested wear permission (permission request opens later if true).
         mPhoneRequestingWearSensorPermission =
@@ -208,49 +218,6 @@ public class MainWearActivity extends WearableActivity implements
         }
     }
 
-    @Override
-    public void onEnterAmbient(Bundle ambientDetails) {
-        Log.d(TAG, "onEnterAmbient() " + ambientDetails);
-
-        if (mWearBodySensorsPermissionApproved) {
-            mWearBodySensorsPermissionButton.setCompoundDrawablesWithIntrinsicBounds(
-                    R.drawable.ic_permission_approved_bw, 0, 0, 0);
-        } else {
-            mWearBodySensorsPermissionButton.setCompoundDrawablesWithIntrinsicBounds(
-                    R.drawable.ic_permission_denied_bw, 0, 0, 0);
-        }
-
-        if (mPhoneStoragePermissionApproved) {
-            mPhoneStoragePermissionButton.setCompoundDrawablesWithIntrinsicBounds(
-                    R.drawable.ic_permission_approved_bw, 0, 0, 0);
-        } else {
-            mPhoneStoragePermissionButton.setCompoundDrawablesWithIntrinsicBounds(
-                    R.drawable.ic_permission_denied_bw, 0, 0, 0);
-        }
-        super.onEnterAmbient(ambientDetails);
-    }
-
-    @Override
-    public void onExitAmbient() {
-        Log.d(TAG, "onExitAmbient()");
-
-        if (mWearBodySensorsPermissionApproved) {
-            mWearBodySensorsPermissionButton.setCompoundDrawablesWithIntrinsicBounds(
-                    R.drawable.ic_permission_approved, 0, 0, 0);
-        } else {
-            mWearBodySensorsPermissionButton.setCompoundDrawablesWithIntrinsicBounds(
-                    R.drawable.ic_permission_denied, 0, 0, 0);
-        }
-
-        if (mPhoneStoragePermissionApproved) {
-            mPhoneStoragePermissionButton.setCompoundDrawablesWithIntrinsicBounds(
-                    R.drawable.ic_permission_approved, 0, 0, 0);
-        } else {
-            mPhoneStoragePermissionButton.setCompoundDrawablesWithIntrinsicBounds(
-                    R.drawable.ic_permission_denied, 0, 0, 0);
-        }
-        super.onExitAmbient();
-    }
 
     @Override
     public void onConnected(Bundle bundle) {
@@ -495,7 +462,7 @@ public class MainWearActivity extends WearableActivity implements
 
                 if (mPhoneStoragePermissionApproved) {
 
-                    if (isAmbient()) {
+                    if (mAmbientController.isAmbient()) {
                         mPhoneStoragePermissionButton.setCompoundDrawablesWithIntrinsicBounds(
                                 R.drawable.ic_permission_approved_bw, 0, 0, 0);
                     } else {
@@ -505,7 +472,7 @@ public class MainWearActivity extends WearableActivity implements
 
                 } else {
 
-                    if (isAmbient()) {
+                    if (mAmbientController.isAmbient()) {
                         mPhoneStoragePermissionButton.setCompoundDrawablesWithIntrinsicBounds(
                                 R.drawable.ic_permission_denied_bw, 0, 0, 0);
                     } else {
@@ -516,6 +483,63 @@ public class MainWearActivity extends WearableActivity implements
             }
         });
     }
+
+    @Override
+    public AmbientMode.AmbientCallback getAmbientCallback() {
+        return new MyAmbientCallback();
+    }
+
+    private class MyAmbientCallback extends AmbientMode.AmbientCallback {
+        /** Prepares the UI for ambient mode. */
+        @Override
+        public void onEnterAmbient(Bundle ambientDetails) {
+            super.onEnterAmbient(ambientDetails);
+
+            Log.d(TAG, "onEnterAmbient() " + ambientDetails);
+
+            if (mWearBodySensorsPermissionApproved) {
+                mWearBodySensorsPermissionButton.setCompoundDrawablesWithIntrinsicBounds(
+                        R.drawable.ic_permission_approved_bw, 0, 0, 0);
+            } else {
+                mWearBodySensorsPermissionButton.setCompoundDrawablesWithIntrinsicBounds(
+                        R.drawable.ic_permission_denied_bw, 0, 0, 0);
+            }
+
+            if (mPhoneStoragePermissionApproved) {
+                mPhoneStoragePermissionButton.setCompoundDrawablesWithIntrinsicBounds(
+                        R.drawable.ic_permission_approved_bw, 0, 0, 0);
+            } else {
+                mPhoneStoragePermissionButton.setCompoundDrawablesWithIntrinsicBounds(
+                        R.drawable.ic_permission_denied_bw, 0, 0, 0);
+            }
+        }
+
+        /** Restores the UI to active (non-ambient) mode. */
+        @Override
+        public void onExitAmbient() {
+            super.onExitAmbient();
+
+            Log.d(TAG, "onExitAmbient()");
+
+            if (mWearBodySensorsPermissionApproved) {
+                mWearBodySensorsPermissionButton.setCompoundDrawablesWithIntrinsicBounds(
+                        R.drawable.ic_permission_approved, 0, 0, 0);
+            } else {
+                mWearBodySensorsPermissionButton.setCompoundDrawablesWithIntrinsicBounds(
+                        R.drawable.ic_permission_denied, 0, 0, 0);
+            }
+
+            if (mPhoneStoragePermissionApproved) {
+                mPhoneStoragePermissionButton.setCompoundDrawablesWithIntrinsicBounds(
+                        R.drawable.ic_permission_approved, 0, 0, 0);
+            } else {
+                mPhoneStoragePermissionButton.setCompoundDrawablesWithIntrinsicBounds(
+                        R.drawable.ic_permission_denied, 0, 0, 0);
+            }
+
+        }
+    }
+
 
     /*
      * Handles all messages for the UI coming on and off the main thread. Not all callbacks happen

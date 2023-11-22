@@ -28,9 +28,12 @@ import android.os.storage.StorageManager;
 import android.provider.AlarmClock;
 import android.provider.MediaStore;
 import android.provider.Settings;
+import android.provider.Telephony;
 import android.speech.RecognizerIntent;
 import android.telecom.TelecomManager;
 import android.test.AndroidTestCase;
+
+import com.android.compatibility.common.util.FeatureUtil;
 
 import java.util.List;
 
@@ -329,22 +332,37 @@ public class AvailableIntentsTest extends AndroidTestCase {
     public void testManageStorage() {
         assertCanBeHandled(new Intent(StorageManager.ACTION_MANAGE_STORAGE));
     }
- 
-    public void testVoiceCommand() {
+
+    public void testFingerprintEnrollStart() {
         PackageManager packageManager = mContext.getPackageManager();
-        if (packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)) {
-            Intent intent = new Intent(Intent.ACTION_VOICE_COMMAND);
-            assertCanBeHandled(intent);
-            assertDefaultHandlerValidPriority(intent);
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT)) {
+            assertCanBeHandled(new Intent(Settings.ACTION_FINGERPRINT_ENROLL));
         }
     }
 
-    public void testVoiceSearchHandsFree() {
+    public void testPictureInPictureSettings() {
         PackageManager packageManager = mContext.getPackageManager();
-        if (packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)) {
-            Intent intent = new Intent(RecognizerIntent.ACTION_VOICE_SEARCH_HANDS_FREE);
-            assertCanBeHandled(intent);
-            assertDefaultHandlerValidPriority(intent);
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
+            assertCanBeHandled(new Intent(Settings.ACTION_PICTURE_IN_PICTURE_SETTINGS));
+        }
+    }
+
+    public void testChangeDefaultSmsApplication() {
+        PackageManager packageManager = mContext.getPackageManager();
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            assertCanBeHandled(new Intent(Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT));
+        }
+    }
+
+    public void testLocationScanningSettings() {
+        PackageManager packageManager = mContext.getPackageManager();
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            // Skip the test for wearable device.
+            return;
+        }
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)
+                || packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
+            assertCanBeHandled(new Intent("android.settings.LOCATION_SCANNING_SETTINGS"));
         }
     }
 }

@@ -26,6 +26,8 @@ import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaCodecInfo.EncoderCapabilities;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
+import android.support.test.filters.SmallTest;
+import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
@@ -36,6 +38,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+@SmallTest
+@RequiresDevice
 public class MediaCodecListTest extends AndroidTestCase {
 
     private static final String TAG = "MediaCodecListTest";

@@ -17,23 +17,34 @@
 #ifndef ART_COMPILER_OPTIMIZING_INSTRUCTION_BUILDER_H_
 #define ART_COMPILER_OPTIMIZING_INSTRUCTION_BUILDER_H_
 
-#include "base/arena_containers.h"
-#include "base/arena_object.h"
-#include "block_builder.h"
-#include "dex_file_types.h"
-#include "driver/compiler_driver.h"
-#include "driver/compiler_driver-inl.h"
-#include "driver/dex_compilation_unit.h"
-#include "mirror/dex_cache.h"
+#include "base/array_ref.h"
+#include "base/scoped_arena_allocator.h"
+#include "base/scoped_arena_containers.h"
+#include "data_type.h"
+#include "dex/code_item_accessors.h"
+#include "dex/dex_file.h"
+#include "dex/dex_file_types.h"
+#include "handle.h"
 #include "nodes.h"
-#include "optimizing_compiler_stats.h"
 #include "quicken_info.h"
-#include "ssa_builder.h"
 
 namespace art {
 
+class ArenaBitVector;
+class ArtField;
+class ArtMethod;
 class CodeGenerator;
+class CompilerDriver;
+class DexCompilationUnit;
+class HBasicBlockBuilder;
 class Instruction;
+class OptimizingCompilerStats;
+class SsaBuilder;
+class VariableSizedHandleScope;
+
+namespace mirror {
+class Class;
+}  // namespace mirror
 
 class HInstructionBuilder : public ValueObject {
  public:
@@ -41,64 +52,40 @@ class HInstructionBuilder : public ValueObject {
                       HBasicBlockBuilder* block_builder,
                       SsaBuilder* ssa_builder,
                       const DexFile* dex_file,
-                      const DexFile::CodeItem& code_item,
-                      Primitive::Type return_type,
-                      DexCompilationUnit* dex_compilation_unit,
-                      const DexCompilationUnit* const outer_compilation_unit,
-                      CompilerDriver* driver,
+                      const CodeItemDebugInfoAccessor& accessor,
+                      DataType::Type return_type,
+                      const DexCompilationUnit* dex_compilation_unit,
+                      const DexCompilationUnit* outer_compilation_unit,
+                      CompilerDriver* compiler_driver,
                       CodeGenerator* code_generator,
-                      const uint8_t* interpreter_metadata,
+                      ArrayRef<const uint8_t> interpreter_metadata,
                       OptimizingCompilerStats* compiler_stats,
-                      Handle<mirror::DexCache> dex_cache,
-                      VariableSizedHandleScope* handles)
-      : arena_(graph->GetArena()),
-        graph_(graph),
-        handles_(handles),
-        dex_file_(dex_file),
-        code_item_(code_item),
-        return_type_(return_type),
-        block_builder_(block_builder),
-        ssa_builder_(ssa_builder),
-        locals_for_(arena_->Adapter(kArenaAllocGraphBuilder)),
-        current_block_(nullptr),
-        current_locals_(nullptr),
-        latest_result_(nullptr),
-        current_this_parameter_(nullptr),
-        compiler_driver_(driver),
-        code_generator_(code_generator),
-        dex_compilation_unit_(dex_compilation_unit),
-        outer_compilation_unit_(outer_compilation_unit),
-        quicken_info_(interpreter_metadata),
-        compilation_stats_(compiler_stats),
-        dex_cache_(dex_cache),
-        loop_headers_(graph->GetArena()->Adapter(kArenaAllocGraphBuilder)) {
-    loop_headers_.reserve(kDefaultNumberOfLoops);
-  }
+                      VariableSizedHandleScope* handles,
+                      ScopedArenaAllocator* local_allocator);
 
   bool Build();
+  void BuildIntrinsic(ArtMethod* method);
 
  private:
-  void MaybeRecordStat(MethodCompilationStat compilation_stat);
-
   void InitializeBlockLocals();
   void PropagateLocalsToCatchBlocks();
   void SetLoopHeaderPhiInputs();
 
   bool ProcessDexInstruction(const Instruction& instruction, uint32_t dex_pc, size_t quicken_index);
-  void FindNativeDebugInfoLocations(ArenaBitVector* locations);
+  ArenaBitVector* FindNativeDebugInfoLocations();
 
   bool CanDecodeQuickenedInfo() const;
   uint16_t LookupQuickenedInfo(uint32_t quicken_index);
 
   HBasicBlock* FindBlockStartingAt(uint32_t dex_pc) const;
 
-  ArenaVector<HInstruction*>* GetLocalsFor(HBasicBlock* block);
+  ScopedArenaVector<HInstruction*>* GetLocalsFor(HBasicBlock* block);
   // Out of line version of GetLocalsFor(), which has a fast path that is
   // beneficial to get inlined by callers.
-  ArenaVector<HInstruction*>* GetLocalsForWithAllocation(
-      HBasicBlock* block, ArenaVector<HInstruction*>* locals, const size_t vregs);
+  ScopedArenaVector<HInstruction*>* GetLocalsForWithAllocation(
+      HBasicBlock* block, ScopedArenaVector<HInstruction*>* locals, const size_t vregs);
   HInstruction* ValueOfLocalAt(HBasicBlock* block, size_t local);
-  HInstruction* LoadLocal(uint32_t register_index, Primitive::Type type) const;
+  HInstruction* LoadLocal(uint32_t register_index, DataType::Type type) const;
   HInstruction* LoadNullCheckedLocal(uint32_t register_index, uint32_t dex_pc);
   void UpdateLocal(uint32_t register_index, HInstruction* instruction);
 
@@ -114,24 +101,24 @@ class HInstructionBuilder : public ValueObject {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<typename T>
-  void Unop_12x(const Instruction& instruction, Primitive::Type type, uint32_t dex_pc);
+  void Unop_12x(const Instruction& instruction, DataType::Type type, uint32_t dex_pc);
 
   template<typename T>
-  void Binop_23x(const Instruction& instruction, Primitive::Type type, uint32_t dex_pc);
+  void Binop_23x(const Instruction& instruction, DataType::Type type, uint32_t dex_pc);
 
   template<typename T>
-  void Binop_23x_shift(const Instruction& instruction, Primitive::Type type, uint32_t dex_pc);
+  void Binop_23x_shift(const Instruction& instruction, DataType::Type type, uint32_t dex_pc);
 
   void Binop_23x_cmp(const Instruction& instruction,
-                     Primitive::Type type,
+                     DataType::Type type,
                      ComparisonBias bias,
                      uint32_t dex_pc);
 
   template<typename T>
-  void Binop_12x(const Instruction& instruction, Primitive::Type type, uint32_t dex_pc);
+  void Binop_12x(const Instruction& instruction, DataType::Type type, uint32_t dex_pc);
 
   template<typename T>
-  void Binop_12x_shift(const Instruction& instruction, Primitive::Type type, uint32_t dex_pc);
+  void Binop_12x_shift(const Instruction& instruction, DataType::Type type, uint32_t dex_pc);
 
   template<typename T>
   void Binop_22b(const Instruction& instruction, bool reverse, uint32_t dex_pc);
@@ -143,19 +130,19 @@ class HInstructionBuilder : public ValueObject {
   template<typename T> void If_22t(const Instruction& instruction, uint32_t dex_pc);
 
   void Conversion_12x(const Instruction& instruction,
-                      Primitive::Type input_type,
-                      Primitive::Type result_type,
+                      DataType::Type input_type,
+                      DataType::Type result_type,
                       uint32_t dex_pc);
 
   void BuildCheckedDivRem(uint16_t out_reg,
                           uint16_t first_reg,
                           int64_t second_reg_or_constant,
                           uint32_t dex_pc,
-                          Primitive::Type type,
+                          DataType::Type type,
                           bool second_is_lit,
                           bool is_div);
 
-  void BuildReturn(const Instruction& instruction, Primitive::Type type, uint32_t dex_pc);
+  void BuildReturn(const Instruction& instruction, DataType::Type type, uint32_t dex_pc);
 
   // Builds an instance field access node and returns whether the instruction is supported.
   bool BuildInstanceFieldAccess(const Instruction& instruction,
@@ -166,14 +153,14 @@ class HInstructionBuilder : public ValueObject {
   void BuildUnresolvedStaticFieldAccess(const Instruction& instruction,
                                         uint32_t dex_pc,
                                         bool is_put,
-                                        Primitive::Type field_type);
-  // Builds a static field access node and returns whether the instruction is supported.
-  bool BuildStaticFieldAccess(const Instruction& instruction, uint32_t dex_pc, bool is_put);
+                                        DataType::Type field_type);
+  // Builds a static field access node.
+  void BuildStaticFieldAccess(const Instruction& instruction, uint32_t dex_pc, bool is_put);
 
   void BuildArrayAccess(const Instruction& instruction,
                         uint32_t dex_pc,
                         bool is_get,
-                        Primitive::Type anticipated_type);
+                        DataType::Type anticipated_type);
 
   // Builds an invocation node and returns whether the instruction is supported.
   bool BuildInvoke(const Instruction& instruction,
@@ -212,7 +199,7 @@ class HInstructionBuilder : public ValueObject {
   void BuildFillArrayData(HInstruction* object,
                           const T* data,
                           uint32_t element_count,
-                          Primitive::Type anticipated_type,
+                          DataType::Type anticipated_type,
                           uint32_t dex_pc);
 
   // Fills the given object with data as specified in the fill-array-data
@@ -232,9 +219,10 @@ class HInstructionBuilder : public ValueObject {
   // Builds an instruction sequence for a switch statement.
   void BuildSwitch(const Instruction& instruction, uint32_t dex_pc);
 
-  // Builds a `HLoadClass` loading the given `type_index`. If `outer` is true,
-  // this method will use the outer class's dex file to lookup the type at
-  // `type_index`.
+  // Builds a `HLoadString` loading the given `string_index`.
+  void BuildLoadString(dex::StringIndex string_index, uint32_t dex_pc);
+
+  // Builds a `HLoadClass` loading the given `type_index`.
   HLoadClass* BuildLoadClass(dex::TypeIndex type_index, uint32_t dex_pc);
 
   HLoadClass* BuildLoadClass(dex::TypeIndex type_index,
@@ -245,10 +233,10 @@ class HInstructionBuilder : public ValueObject {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns the outer-most compiling method's class.
-  mirror::Class* GetOutermostCompilingClass() const;
+  ObjPtr<mirror::Class> GetOutermostCompilingClass() const;
 
   // Returns the class whose method is being compiled.
-  mirror::Class* GetCompilingClass() const;
+  ObjPtr<mirror::Class> GetCompilingClass() const;
 
   // Returns whether `type_index` points to the outer-most compiling method's class.
   bool IsOutermostCompilingClass(dex::TypeIndex type_index) const;
@@ -314,29 +302,19 @@ class HInstructionBuilder : public ValueObject {
 
   ObjPtr<mirror::Class> LookupReferrerClass() const REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ArenaAllocator* const arena_;
+  ArenaAllocator* const allocator_;
   HGraph* const graph_;
-  VariableSizedHandleScope* handles_;
+  VariableSizedHandleScope* const handles_;
 
   // The dex file where the method being compiled is, and the bytecode data.
   const DexFile* const dex_file_;
-  const DexFile::CodeItem& code_item_;
+  const CodeItemDebugInfoAccessor code_item_accessor_;  // null for intrinsic graph.
 
   // The return type of the method being compiled.
-  const Primitive::Type return_type_;
+  const DataType::Type return_type_;
 
-  HBasicBlockBuilder* block_builder_;
-  SsaBuilder* ssa_builder_;
-
-  ArenaVector<ArenaVector<HInstruction*>> locals_for_;
-  HBasicBlock* current_block_;
-  ArenaVector<HInstruction*>* current_locals_;
-  HInstruction* latest_result_;
-  // Current "this" parameter.
-  // Valid only after InitializeParameters() finishes.
-  // * Null for static methods.
-  // * Non-null for instance methods.
-  HParameterValue* current_this_parameter_;
+  HBasicBlockBuilder* const block_builder_;
+  SsaBuilder* const ssa_builder_;
 
   CompilerDriver* const compiler_driver_;
 
@@ -344,7 +322,7 @@ class HInstructionBuilder : public ValueObject {
 
   // The compilation unit of the current method being compiled. Note that
   // it can be an inlined method.
-  DexCompilationUnit* const dex_compilation_unit_;
+  const DexCompilationUnit* const dex_compilation_unit_;
 
   // The compilation unit of the outermost method being compiled. That is the
   // method being compiled (and not inlined), and potentially inlining other
@@ -354,10 +332,20 @@ class HInstructionBuilder : public ValueObject {
   // Original values kept after instruction quickening.
   QuickenInfoTable quicken_info_;
 
-  OptimizingCompilerStats* compilation_stats_;
-  Handle<mirror::DexCache> dex_cache_;
+  OptimizingCompilerStats* const compilation_stats_;
 
-  ArenaVector<HBasicBlock*> loop_headers_;
+  ScopedArenaAllocator* const local_allocator_;
+  ScopedArenaVector<ScopedArenaVector<HInstruction*>> locals_for_;
+  HBasicBlock* current_block_;
+  ScopedArenaVector<HInstruction*>* current_locals_;
+  HInstruction* latest_result_;
+  // Current "this" parameter.
+  // Valid only after InitializeParameters() finishes.
+  // * Null for static methods.
+  // * Non-null for instance methods.
+  HParameterValue* current_this_parameter_;
+
+  ScopedArenaVector<HBasicBlock*> loop_headers_;
 
   static constexpr int kDefaultNumberOfLoops = 2;
 

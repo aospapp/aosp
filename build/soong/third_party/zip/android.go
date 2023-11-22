@@ -19,6 +19,9 @@ import (
 	"io"
 )
 
+const DataDescriptorFlag = 0x8
+const ExtendedTimeStampTag = 0x5455
+
 func (w *Writer) CopyFrom(orig *File, newName string) error {
 	if w.last != nil && !w.last.closed {
 		if err := w.last.close(); err != nil {
@@ -30,13 +33,10 @@ func (w *Writer) CopyFrom(orig *File, newName string) error {
 	fileHeader := orig.FileHeader
 	fileHeader.Name = newName
 	fh := &fileHeader
-	fh.Flags |= 0x8
 
-	// The zip64 extras change between the Central Directory and Local File Header, while we use
-	// the same structure for both. The Local File Haeder is taken care of by us writing a data
-	// descriptor with the zip64 values. The Central Directory Entry is written by Close(), where
-	// the zip64 extra is automatically created and appended when necessary.
-	fh.Extra = stripZip64Extras(fh.Extra)
+	// In some cases, we need strip the extras if it change between Central Directory
+	// and Local File Header.
+	fh.Extra = stripExtras(fh.Extra)
 
 	h := &header{
 		FileHeader: fh,
@@ -47,37 +47,45 @@ func (w *Writer) CopyFrom(orig *File, newName string) error {
 	if err := writeHeader(w.cw, fh); err != nil {
 		return err
 	}
-
-	// Copy data
 	dataOffset, err := orig.DataOffset()
 	if err != nil {
 		return err
 	}
 	io.Copy(w.cw, io.NewSectionReader(orig.zipr, dataOffset, int64(orig.CompressedSize64)))
 
-	// Write data descriptor.
-	var buf []byte
-	if fh.isZip64() {
-		buf = make([]byte, dataDescriptor64Len)
-	} else {
-		buf = make([]byte, dataDescriptorLen)
+	if orig.hasDataDescriptor() {
+		// Write data descriptor.
+		var buf []byte
+		if fh.isZip64() {
+			buf = make([]byte, dataDescriptor64Len)
+		} else {
+			buf = make([]byte, dataDescriptorLen)
+		}
+		b := writeBuf(buf)
+		b.uint32(dataDescriptorSignature)
+		b.uint32(fh.CRC32)
+		if fh.isZip64() {
+			b.uint64(fh.CompressedSize64)
+			b.uint64(fh.UncompressedSize64)
+		} else {
+			b.uint32(fh.CompressedSize)
+			b.uint32(fh.UncompressedSize)
+		}
+		_, err = w.cw.Write(buf)
 	}
-	b := writeBuf(buf)
-	b.uint32(dataDescriptorSignature)
-	b.uint32(fh.CRC32)
-	if fh.isZip64() {
-		b.uint64(fh.CompressedSize64)
-		b.uint64(fh.UncompressedSize64)
-	} else {
-		b.uint32(fh.CompressedSize)
-		b.uint32(fh.UncompressedSize)
-	}
-	_, err = w.cw.Write(buf)
 	return err
 }
 
-// Strip any Zip64 extra fields
-func stripZip64Extras(input []byte) []byte {
+// The zip64 extras change between the Central Directory and Local File Header, while we use
+// the same structure for both. The Local File Haeder is taken care of by us writing a data
+// descriptor with the zip64 values. The Central Directory Entry is written by Close(), where
+// the zip64 extra is automatically created and appended when necessary.
+//
+// The extended-timestamp extra block changes between the Central Directory Header and Local
+// File Header.
+// Extended-Timestamp extra(LFH): <tag-size-flag-modtime-actime-changetime>
+// Extended-Timestamp extra(CDH): <tag-size-flag-modtime>
+func stripExtras(input []byte) []byte {
 	ret := []byte{}
 
 	for len(input) >= 4 {
@@ -87,7 +95,7 @@ func stripZip64Extras(input []byte) []byte {
 		if int(size) > len(r) {
 			break
 		}
-		if tag != zip64ExtraId {
+		if tag != zip64ExtraId && tag != ExtendedTimeStampTag {
 			ret = append(ret, input[:4+size]...)
 		}
 		input = input[4+size:]
@@ -122,7 +130,7 @@ func (w *Writer) CreateCompressedHeader(fh *FileHeader) (io.WriteCloser, error) 
 		return nil, errors.New("archive/zip: invalid duplicate FileHeader")
 	}
 
-	fh.Flags |= 0x8 // we will write a data descriptor
+	fh.Flags |= DataDescriptorFlag // we will write a data descriptor
 
 	fh.CreatorVersion = fh.CreatorVersion&0xff00 | zipVersion20 // preserve compatibility byte
 	fh.ReaderVersion = zipVersion20
@@ -147,6 +155,17 @@ func (w *Writer) CreateCompressedHeader(fh *FileHeader) (io.WriteCloser, error) 
 
 	w.last = &fw.fileWriter
 	return fw, nil
+}
+
+// Updated version of CreateHeader that doesn't enforce writing a data descriptor
+func (w *Writer) CreateHeaderAndroid(fh *FileHeader) (io.Writer, error) {
+	writeDataDescriptor := fh.Method != Store
+	if writeDataDescriptor {
+		fh.Flags &= DataDescriptorFlag
+	} else {
+		fh.Flags &= ^uint16(DataDescriptorFlag)
+	}
+	return w.createHeaderImpl(fh)
 }
 
 type compressedFileWriter struct {

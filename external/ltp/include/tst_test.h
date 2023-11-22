@@ -23,6 +23,7 @@
 #endif /* __TEST_H__ */
 
 #include <unistd.h>
+#include <limits.h>
 
 #include "tst_common.h"
 #include "tst_res_flags.h"
@@ -38,6 +39,7 @@
 #include "tst_kvercmp.h"
 #include "tst_clone.h"
 #include "tst_kernel.h"
+#include "tst_minmax.h"
 
 /*
  * Reports testcase result.
@@ -103,14 +105,15 @@ int tst_parse_long(const char *str, long *val, long min, long max);
 int tst_parse_float(const char *str, float *val, float min, float max);
 
 struct tst_test {
-	/* test id usually the same as test filename without file suffix */
-	const char *tid;
 	/* number of tests available in test() function */
 	unsigned int tcnt;
 
 	struct tst_option *options;
 
 	const char *min_kver;
+
+	/* If set the test is compiled out */
+	const char *tconf_msg;
 
 	int needs_tmpdir:1;
 	int needs_root:1;
@@ -119,6 +122,16 @@ struct tst_test {
 	int needs_checkpoints:1;
 	int format_device:1;
 	int mount_device:1;
+	int needs_rofs:1;
+	/*
+	 * If set the test function will be executed for all available
+	 * filesystems and the current filesytem type would be set in the
+	 * tst_device->fs_type.
+	 *
+	 * The test setup and cleanup are executed before/after __EACH__ call
+	 * to the test function.
+	 */
+	int all_filesystems:1;
 
 	/* Minimal device size in megabytes */
 	unsigned int dev_min_size;
@@ -135,14 +148,20 @@ struct tst_test {
 	unsigned int mnt_flags;
 	void *mnt_data;
 
-	/* override default timeout per test run */
-	unsigned int timeout;
+	/* override default timeout per test run, disabled == -1 */
+	int timeout;
 
 	void (*setup)(void);
 	void (*cleanup)(void);
 
 	void (*test)(unsigned int test_nr);
 	void (*test_all)(void);
+
+	/* Syscall name used by the timer measurement library */
+	const char *scall;
+
+	/* Sampling function for timer measurement testcases */
+	int (*sample)(int clk_id, long long usec);
 
 	/* NULL terminated array of resource file names */
 	const char *const *resource_files;
@@ -177,12 +196,18 @@ extern int TEST_ERRNO;
  */
 const char *tst_strerrno(int err);
 const char *tst_strsig(int sig);
+/*
+ * Returns string describing status as returned by wait().
+ *
+ * BEWARE: Not thread safe.
+ */
+const char *tst_strstatus(int status);
+
+void tst_set_timeout(int timeout);
 
 #ifndef TST_NO_DEFAULT_MAIN
 
 static struct tst_test test;
-
-void tst_set_timeout(unsigned int timeout);
 
 int main(int argc, char *argv[])
 {
@@ -191,9 +216,8 @@ int main(int argc, char *argv[])
 
 #endif /* TST_NO_DEFAULT_MAIN */
 
-#define TST_TEST_TCONF(message)                                              \
-        static void tst_do_test(void) { tst_brk(TCONF, "%s", message); };    \
-        static struct tst_test test = { .test_all = tst_do_test, .tid = "" } \
+#define TST_TEST_TCONF(message)                                 \
+        static struct tst_test test = { .tconf_msg = message  } \
 /*
  * This is a hack to make the testcases link without defining TCID
  */

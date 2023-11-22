@@ -105,9 +105,9 @@ public final class Md5Cache {
         // Do we have it in cache?
         String key = keyPrefix;
         for (File element : classpath.getElements()) {
-            // We only cache dexed .jar/.jack files, not directories.
+            // We only cache dexed .jar files, not directories.
             String fileName = element.getName();
-            if (!fileName.endsWith(".jar") && !fileName.endsWith(".jack")) {
+            if (!fileName.endsWith(".jar")) {
                 return null;
             }
             key += "-" + md5(element);

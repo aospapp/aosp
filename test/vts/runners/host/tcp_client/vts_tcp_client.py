@@ -54,18 +54,44 @@ class VtsTcpClient(object):
         connection: a TCP socket instance.
         channel: a file to write and read data.
         _mode: the connection mode (adb_forwarding or ssh_tunnel)
+        timeout: tcp connection timeout.
     """
 
-    def __init__(self, mode="adb_forwarding"):
+    def __init__(self,
+                 mode="adb_forwarding",
+                 timeout=_DEFAULT_SOCKET_TIMEOUT_SECS):
         self.connection = None
         self.channel = None
         self._mode = mode
+        self.timeout = timeout
+
+    @property
+    def timeout(self):
+        """Get TCP connection timeout.
+
+        This function assumes timeout property setter is in __init__before
+        any getter calls.
+
+        Returns:
+            int, timeout
+        """
+        return self._timeout
+
+    @timeout.setter
+    def timeout(self, timeout):
+        """Set TCP connection timeout.
+
+        Args:
+            timeout: int, TCP connection timeout in seconds.
+        """
+        self._timeout = timeout
 
     def Connect(self,
                 ip=TARGET_IP,
                 command_port=TARGET_PORT,
                 callback_port=None,
-                retry=_SOCKET_CONN_RETRY_NUMBER):
+                retry=_SOCKET_CONN_RETRY_NUMBER,
+                timeout=None):
         """Connects to a target device.
 
         Args:
@@ -76,6 +102,7 @@ class VtsTcpClient(object):
                            server.
             retry: int, the number of times to retry connecting before giving
                    up.
+            timeout: tcp connection timeout.
 
         Returns:
             True if success, False otherwise
@@ -89,10 +116,11 @@ class VtsTcpClient(object):
             return False
 
         for i in xrange(retry):
+            connection_timeout = self._timeout if timeout is None else timeout
             try:
                 self.connection = socket.create_connection(
-                    (ip, command_port), _SOCKET_CONN_TIMEOUT_SECS)
-                self.connection.settimeout(_DEFAULT_SOCKET_TIMEOUT_SECS)
+                    (ip, command_port), timeout=connection_timeout)
+                break
             except socket.error as e:
                 # Wait a bit and retry.
                 logging.exception("Connect failed %s", e)
@@ -371,18 +399,21 @@ class VtsTcpClient(object):
             SysMsg_pb2.VTS_AGENT_COMMAND_EXECUTE_SHELL_COMMAND,
             shell_command=command)
         resp = self.RecvResponse(retries=2)
-        logging.info("resp for VTS_AGENT_COMMAND_EXECUTE_SHELL_COMMAND: %s",
-                     resp)
+        logging.debug("resp for VTS_AGENT_COMMAND_EXECUTE_SHELL_COMMAND: %s",
+                      resp)
 
-        stdout = None
-        stderr = None
-        exit_code = None
+        stdout = []
+        stderr = []
+        exit_code = -1
 
         if not resp:
-            logging.error("resp is: %s.", resp)
+            msg = "Framework error: TCP client did not receive response from device."
+            logging.error(msg)
+            stderr = [msg]
         elif resp.response_code != SysMsg_pb2.SUCCESS:
-            logging.error("resp response code is not success: %s.",
-                          resp.response_code)
+            msg = "Framework error: TCP client received unsuccessful response code."
+            logging.error(msg)
+            stderr = [msg]
         else:
             stdout = resp.stdout
             stderr = resp.stderr

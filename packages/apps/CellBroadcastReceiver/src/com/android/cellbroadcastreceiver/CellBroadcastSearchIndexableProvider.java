@@ -91,18 +91,12 @@ public class CellBroadcastSearchIndexableProvider extends SearchIndexablesProvid
             // Remove general emergency alert preference items (not shown for CMAS builds).
             ref = new Object[1];
             ref[COLUMN_INDEX_NON_INDEXABLE_KEYS_KEY_VALUE] =
-                    CellBroadcastSettings.KEY_ENABLE_EMERGENCY_ALERTS;
+                    CellBroadcastSettings.KEY_ENABLE_ALERTS_MASTER_TOGGLE;
             cursor.addRow(ref);
 
             ref = new Object[1];
             ref[COLUMN_INDEX_NON_INDEXABLE_KEYS_KEY_VALUE] =
                     CellBroadcastSettings.KEY_ENABLE_ALERT_SPEECH;
-            cursor.addRow(ref);
-
-            // Remove ETWS preference category.
-            ref = new Object[1];
-            ref[COLUMN_INDEX_NON_INDEXABLE_KEYS_KEY_VALUE] =
-                    CellBroadcastSettings.KEY_ENABLE_ETWS_TEST_ALERTS;
             cursor.addRow(ref);
         }
 

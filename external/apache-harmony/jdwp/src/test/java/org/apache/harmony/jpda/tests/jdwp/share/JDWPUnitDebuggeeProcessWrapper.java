@@ -22,7 +22,15 @@
 
 package org.apache.harmony.jpda.tests.jdwp.share;
 
+import java.lang.reflect.Field;
+
+import java.io.*;
+import java.nio.file.*;
+
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Vector;
 
 import org.apache.harmony.jpda.tests.framework.LogWriter;
@@ -296,12 +304,123 @@ public class JDWPUnitDebuggeeProcessWrapper extends JDWPDebuggeeWrapper {
                         " but we expected code " + expectedExitCode);
             }
         } catch (IllegalThreadStateException e) {
-            logWriter.printError("Terminate debuggee process");
+            logWriter.println("Terminate debuggee process with " + e);
+            GetRemoteStackTrace(process);
             throw new TestErrorException("Debuggee process did not finish during timeout", e);
         } finally {
             // dispose any resources of the process
             process.destroy();
         }
+    }
+
+    private int GetRealPid(Process process) {
+      int initial_pid = GetInitialPid(process);
+      logWriter.println("initial pid: " + initial_pid);
+      String[] names = new String[] { "java", "dalvikvm", "dalvikvm32", "dalvikvm64" };
+      return FindPidFor(Paths.get("/proc").resolve(Integer.toString(initial_pid)), names);
+    }
+
+    private int getPid(Path proc) throws IOException {
+      try {
+        // See man 5 proc for information on stat file. All we really care about is that it is a
+        // list of various pieces of information about the process separated by ' '. The first of
+        // these is the PID.
+        return Integer.valueOf(new String(Files.readAllBytes(proc.resolve("stat"))).split(" ")[0]);
+      } catch (IOException e) {
+        return -1;
+      }
+    }
+
+    private int FindPidFor(Path cur, String[] names) {
+      try {
+        if (!cur.toFile().exists()) {
+          return -1;
+        }
+        int pid = getPid(cur);
+        if (Arrays.stream(names).anyMatch(
+            (x) -> {
+              try {
+                return cur.resolve("exe").toRealPath().endsWith(x);
+              } catch (Exception e) {
+                return false;
+              }
+            })) {
+          return pid;
+        } else {
+          Path children = cur.resolve("task").resolve(Integer.toString(pid)).resolve("children");
+          if (!children.toFile().exists()) {
+            return -1;
+          } else {
+            for (String child_pid : ReadChildPids(children.toFile())) {
+              logWriter.println("Examining pid: " + child_pid);
+              int res = FindPidFor(Paths.get("/proc").resolve(child_pid), names);
+              if (res != -1) {
+                return res;
+              }
+            }
+            return -1;
+          }
+        }
+      } catch (Exception e) {
+        return -1;
+      }
+    }
+
+    private String[] ReadChildPids(File children) throws Exception {
+      if (!children.exists()) {
+        return new String[0];
+      } else {
+        return new String(Files.readAllBytes(children.toPath())).split(" ");
+      }
+    }
+
+    private int GetInitialPid(Process process) {
+      try {
+        Class<?> unix_process_class = Class.forName("java.lang.UNIXProcess");
+        if (!process.getClass().equals(unix_process_class)) {
+          throw new TestErrorException("Process is of unexpected type. Timeout happened.");
+        }
+        Field pid = unix_process_class.getDeclaredField("pid");
+        pid.setAccessible(true);
+        return (int)pid.get(process);
+      } catch (ReflectiveOperationException e) {
+        throw new TestErrorException("Unable to get pid from process to debug timeout!", e);
+      }
+    }
+
+    private void GetRemoteStackTrace(Process process) throws IOException {
+      String pid = Integer.toString(GetRealPid(process));
+      logWriter.println("trying to dump " + pid);
+      List<String> cmd = new ArrayList<>(Arrays.asList(splitCommandLine(settings.getDumpProcessCommand())));
+      cmd.add(pid);
+      logWriter.println("command: " + cmd);
+
+      ProcessBuilder b = new ProcessBuilder(cmd).redirectErrorStream(true);
+      Process p = null;
+      StreamRedirector out = null;
+      try {
+        p = b.start();
+        out = new StreamRedirector(p.getInputStream(), logWriter, "dump-" + pid);
+        out.setDaemon(true);
+        out.start();
+        p.waitFor();
+        // Wait 5 seconds for the streams to catch up.
+        Thread.sleep(5000);
+      } catch (Exception e) {
+        throw new TestErrorException("Unable to get process dump!", e);
+      } finally {
+        if (p != null) {
+          p.destroy();
+        }
+        if (out != null) {
+          try {
+            out.exit();
+            out.join();
+          } catch (Exception e) {
+            logWriter.println("Suppressing error: " + e);
+          }
+        }
+      }
     }
 
     /**

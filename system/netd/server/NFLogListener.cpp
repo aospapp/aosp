@@ -19,7 +19,7 @@
 #include <sstream>
 #include <vector>
 
-#include <endian.h>
+#include <arpa/inet.h>
 #include <linux/netfilter/nfnetlink_log.h>
 
 #include <cutils/log.h>
@@ -46,8 +46,7 @@ using netdutils::extract;
 constexpr int kNFLogConfigMsgType = (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_CONFIG;
 constexpr int kNFLogPacketMsgType = (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_PACKET;
 constexpr int kNetlinkDoneMsgType = (NFNL_SUBSYS_NONE << 8) | NLMSG_DONE;
-constexpr size_t kPacketRange = 0;
-constexpr size_t kCopyMode = NFULNL_COPY_NONE;
+constexpr size_t kDefaultPacketRange = 0;
 
 namespace {
 
@@ -94,11 +93,11 @@ Status cfgMode(const SendFn& send, uint16_t nfLogGroup, uint32_t range, uint8_t 
     msg.nlhdr.nlmsg_type = kNFLogConfigMsgType;
     msg.nlhdr.nlmsg_flags = NLM_F_REQUEST;
     msg.nfhdr.nfgen_family = AF_UNSPEC;
-    msg.nfhdr.res_id = htobe16(nfLogGroup);
+    msg.nfhdr.res_id = htons(nfLogGroup);
     msg.attr.nfa_len = sizeof(msg.attr) + sizeof(msg.mode);
     msg.attr.nfa_type = NFULA_CFG_MODE;
     msg.mode.copy_mode = mode;
-    msg.mode.copy_range = htobe32(range);
+    msg.mode.copy_range = htonl(range);
     return send(makeSlice(msg));
 }
 
@@ -115,7 +114,7 @@ Status cfgCmdBind(const SendFn& send, uint16_t nfLogGroup) {
     msg.nlhdr.nlmsg_type = kNFLogConfigMsgType;
     msg.nlhdr.nlmsg_flags = NLM_F_REQUEST;
     msg.nfhdr.nfgen_family = AF_UNSPEC;
-    msg.nfhdr.res_id = htobe16(nfLogGroup);
+    msg.nfhdr.res_id = htons(nfLogGroup);
     msg.attr.nfa_len = sizeof(msg.attr) + sizeof(msg.cmd);
     msg.attr.nfa_type = NFULA_CFG_CMD;
     msg.cmd.command = NFULNL_CFG_CMD_BIND;
@@ -135,7 +134,7 @@ Status cfgCmdUnbind(const SendFn& send, uint16_t nfLogGroup) {
     msg.nlhdr.nlmsg_type = kNFLogConfigMsgType;
     msg.nlhdr.nlmsg_flags = NLM_F_REQUEST;
     msg.nfhdr.nfgen_family = AF_UNSPEC;
-    msg.nfhdr.res_id = htobe16(nfLogGroup);
+    msg.nfhdr.res_id = htons(nfLogGroup);
     msg.attr.nfa_len = sizeof(msg.attr) + sizeof(msg.cmd);
     msg.attr.nfa_type = NFULA_CFG_CMD;
     msg.cmd.command = NFULNL_CFG_CMD_UNBIND;
@@ -151,7 +150,7 @@ NFLogListener::NFLogListener(std::shared_ptr<NetlinkListenerInterface> listener)
         nfgenmsg nfmsg = {};
         extract(msg, nfmsg);
         std::lock_guard<std::mutex> guard(mMutex);
-        const auto& fn = findWithDefault(mDispatchMap, be16toh(nfmsg.res_id), kDefaultDispatchFn);
+        const auto& fn = findWithDefault(mDispatchMap, ntohs(nfmsg.res_id), kDefaultDispatchFn);
         fn(nlmsg, nfmsg, drop(msg, sizeof(nfmsg)));
     };
     expectOk(mListener->subscribe(kNFLogPacketMsgType, rxHandler));
@@ -176,6 +175,11 @@ NFLogListener::~NFLogListener() {
 }
 
 Status NFLogListener::subscribe(uint16_t nfLogGroup, const DispatchFn& fn) {
+    return subscribe(nfLogGroup, kDefaultPacketRange, fn);
+}
+
+Status NFLogListener::subscribe(
+        uint16_t nfLogGroup, uint32_t copyRange, const DispatchFn& fn) {
     const auto sendFn = [this](const Slice msg) { return mListener->send(msg); };
     // Install fn into the dispatch map BEFORE requesting delivery of messages
     {
@@ -185,7 +189,8 @@ Status NFLogListener::subscribe(uint16_t nfLogGroup, const DispatchFn& fn) {
     RETURN_IF_NOT_OK(cfgCmdBind(sendFn, nfLogGroup));
 
     // Mode must be set for every nfLogGroup
-    return cfgMode(sendFn, nfLogGroup, kPacketRange, kCopyMode);
+    const uint8_t copyMode = copyRange > 0 ? NFULNL_COPY_PACKET : NFULNL_COPY_NONE;
+    return cfgMode(sendFn, nfLogGroup, copyRange, copyMode);
 }
 
 Status NFLogListener::unsubscribe(uint16_t nfLogGroup) {

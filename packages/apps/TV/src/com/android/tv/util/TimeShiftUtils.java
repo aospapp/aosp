@@ -18,9 +18,7 @@ package com.android.tv.util;
 
 import java.util.concurrent.TimeUnit;
 
-/**
- * A class that includes convenience methods for time shift plays.
- */
+/** A class that includes convenience methods for time shift plays. */
 public class TimeShiftUtils {
     private static final String TAG = "TimeShiftUtils";
     private static final boolean DEBUG = false;
@@ -30,8 +28,8 @@ public class TimeShiftUtils {
     private static final int[] LONG_PROGRAM_SPEED_FACTORS = new int[] {2, 8, 32, 128};
 
     /**
-     * The maximum play speed level support by time shift play. In other words, the valid
-     * speed levels are ranged from 0 to MAX_SPEED_LEVEL (included).
+     * The maximum play speed level support by time shift play. In other words, the valid speed
+     * levels are ranged from 0 to MAX_SPEED_LEVEL (included).
      */
     public static final int MAX_SPEED_LEVEL = SHORT_PROGRAM_SPEED_FACTORS.length - 1;
 
@@ -45,17 +43,19 @@ public class TimeShiftUtils {
      */
     public static int getPlaybackSpeed(int speedLevel, long programDurationMillis)
             throws IndexOutOfBoundsException {
-        return (programDurationMillis > SHORT_PROGRAM_THRESHOLD_MILLIS) ?
-                LONG_PROGRAM_SPEED_FACTORS[speedLevel] : SHORT_PROGRAM_SPEED_FACTORS[speedLevel];
+        return (programDurationMillis > SHORT_PROGRAM_THRESHOLD_MILLIS)
+                ? LONG_PROGRAM_SPEED_FACTORS[speedLevel]
+                : SHORT_PROGRAM_SPEED_FACTORS[speedLevel];
     }
 
     /**
      * Returns the maxium possible play speed according to the program's length.
+     *
      * @param programDurationMillis the length of program under playing.
      */
     public static int getMaxPlaybackSpeed(long programDurationMillis) {
-        return (programDurationMillis > SHORT_PROGRAM_THRESHOLD_MILLIS) ?
-                LONG_PROGRAM_SPEED_FACTORS[MAX_SPEED_LEVEL]
+        return (programDurationMillis > SHORT_PROGRAM_THRESHOLD_MILLIS)
+                ? LONG_PROGRAM_SPEED_FACTORS[MAX_SPEED_LEVEL]
                 : SHORT_PROGRAM_SPEED_FACTORS[MAX_SPEED_LEVEL];
     }
 }

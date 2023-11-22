@@ -203,7 +203,7 @@ status_t EmulatedFakeCameraDevice::stopDevice()
  * Worker thread management overrides.
  ***************************************************************************/
 
-bool EmulatedFakeCameraDevice::produceFrame(void* buffer)
+bool EmulatedFakeCameraDevice::produceFrame(void* buffer, int64_t* timestamp)
 {
 #if EFCD_ROTATE_FRAME
     const int frame_type = rotateFrame();
@@ -221,6 +221,9 @@ bool EmulatedFakeCameraDevice::produceFrame(void* buffer)
 #else
     drawCheckerboard(buffer);
 #endif  // EFCD_ROTATE_FRAME
+    if (timestamp != nullptr) {
+      *timestamp = 0L;
+    }
     return true;
 }
 

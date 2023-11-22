@@ -20,7 +20,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
-    <application/>
+    <application android:debuggable="true"/>
 
     <instrumentation android:name="repackaged.android.test.InstrumentationTestRunner"
                      android:targetPackage="android.signature.cts.api.apache_http_legacy_current"

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -291,10 +291,6 @@ typedef struct {
   uint8_t state;      /* Current state that the inquiry process is in */
   uint8_t inq_active; /* Bit Mask indicating type of inquiry is active */
   bool no_inc_ssp;    /* true, to stop inquiry on incoming SSP */
-#if (BTA_HOST_INTERLEAVE_SEARCH == TRUE)
-  btm_inq_state
-      next_state; /*interleaving state to determine next mode to be inquired*/
-#endif
 } tBTM_INQUIRY_VAR_ST;
 
 /* The MSB of the clock offset field indicates whether the offset is valid. */
@@ -354,9 +350,6 @@ typedef struct {
 */
 typedef struct {
   tBTM_ESCO_INFO esco; /* Current settings             */
-#if (BTM_SCO_HCI_INCLUDED == TRUE)
-  fixed_queue_t* xmit_data_q; /* SCO data transmitting queue  */
-#endif
   tBTM_SCO_CB* p_conn_cb; /* Callback for when connected  */
   tBTM_SCO_CB* p_disc_cb; /* Callback for when disconnect */
   uint16_t state;         /* The state of the SCO link    */
@@ -369,9 +362,6 @@ typedef struct {
 /* SCO Management control block */
 typedef struct {
   tBTM_SCO_IND_CBACK* app_sco_ind_cb;
-#if (BTM_SCO_HCI_INCLUDED == TRUE)
-  tBTM_SCO_DATA_CB* p_data_cb; /* Callback for SCO data over HCI */
-#endif
   tSCO_CONN sco_db[BTM_MAX_SCO_LINKS];
   enh_esco_params_t def_esco_parms;
   uint16_t sco_disc_reason;
@@ -417,10 +407,6 @@ typedef struct {
   uint16_t psm;             /* L2CAP PSM value */
   uint16_t security_flags;  /* Bitmap of required security features */
   uint8_t service_id;       /* Passed in authorization callback */
-#if (L2CAP_UCD_INCLUDED == TRUE)
-  uint16_t
-      ucd_security_flags; /* Bitmap of required security features for UCD */
-#endif
 #if BTM_SEC_SERVICE_NAME_LEN > 0
   uint8_t orig_service_name[BTM_SEC_SERVICE_NAME_LEN + 1];
   uint8_t term_service_name[BTM_SEC_SERVICE_NAME_LEN + 1];
@@ -538,10 +524,6 @@ typedef struct {
 
   uint8_t sec_state;  /* Operating state                    */
   bool is_originator; /* true if device is originating connection */
-#if (L2CAP_UCD_INCLUDED == TRUE)
-  bool is_ucd; /* true if device is sending or receiving UCD */
-               /* if incoming security failed, received UCD will be discarded */
-#endif
   bool role_master;           /* true if current mode is master     */
   uint16_t security_required; /* Security required for connection   */
   bool link_key_not_sent; /* link key notification has not been sent waiting for
@@ -746,25 +728,9 @@ typedef struct {
   tBTM_BLE_SEC_ACT sec_act;
 } tBTM_SEC_QUEUE_ENTRY;
 
-#if (L2CAP_UCD_INCLUDED == TRUE)
-
-#define CONN_ORIENT_TERM 0x00          /* incoming connection oriented */
-#define CONN_ORIENT_ORIG 0x01          /* outgoing connection oriented */
-#define CONNLESS_TERM 0x02             /* incoming connectionless      */
-#define CONNLESS_ORIG 0x03             /* outgoing connectionless      */
-#define CONNECTION_TYPE_ORIG_MASK 0x01 /* mask for direction           */
-#define CONNECTION_TYPE_CONNLESS_MASK    \
-  0x02 /* mask for connectionless or not \
-          */
-typedef uint8_t CONNECTION_TYPE;
-
-#else
-
 #define CONN_ORIENT_TERM false
 #define CONN_ORIENT_ORIG true
 typedef bool CONNECTION_TYPE;
-
-#endif /* (L2CAP_UCD_INCLUDED == TRUE) */
 
 /* Define a structure to hold all the BTM data
 */

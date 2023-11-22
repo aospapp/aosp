@@ -68,9 +68,9 @@ public class HeadsUpNotificationTests extends InstrumentationTestCase {
 
     @MediumTest
     public void testHeadsUpNotificationInlineReply() throws Exception {
-        mHelper.sendNotificationsWithInLineReply(NOTIFICATION_ID_1, true);
+        mHelper.sendNotificationsWithInlineReply(NOTIFICATION_ID_1, true);
         Thread.sleep(SHORT_TIMEOUT);
-        mDevice.wait(Until.findObject(By.text("REPLY")), LONG_TIMEOUT).click();
+        mDevice.wait(Until.findObject(By.text("Reply")), LONG_TIMEOUT).click();
         try {
             UiObject2 replyBox = mDevice.wait(
                     Until.findObject(By.res("com.android.systemui:id/remote_input_send")),
@@ -87,7 +87,7 @@ public class HeadsUpNotificationTests extends InstrumentationTestCase {
 
     @MediumTest
     public void testHeadsUpNotificationManualDismiss() throws Exception {
-        mHelper.sendNotificationsWithInLineReply(NOTIFICATION_ID_1, true);
+        mHelper.sendNotificationsWithInlineReply(NOTIFICATION_ID_1, true);
         Thread.sleep(SHORT_TIMEOUT);
         UiObject2 obj = mDevice.wait(Until.findObject(By.text(NOTIFICATION_CONTENT_TEXT)),
                 LONG_TIMEOUT);
@@ -100,7 +100,7 @@ public class HeadsUpNotificationTests extends InstrumentationTestCase {
 
     @LargeTest
     public void testHeadsUpNotificationAutoDismiss() throws Exception {
-        mHelper.sendNotificationsWithInLineReply(NOTIFICATION_ID_1, true);
+        mHelper.sendNotificationsWithInlineReply(NOTIFICATION_ID_1, true);
         Thread.sleep(LONG_TIMEOUT * 3);
         UiObject2 obj = mDevice.wait(Until.findObject(By.text(NOTIFICATION_CONTENT_TEXT)),
                 LONG_TIMEOUT);
@@ -109,10 +109,10 @@ public class HeadsUpNotificationTests extends InstrumentationTestCase {
     }
 
     @MediumTest
-    public void testHeadsUpNotificationInlineReplyMulti() throws Exception {
-        mHelper.sendNotificationsWithInLineReply(NOTIFICATION_ID_1, true);
+    public void testMultipleHeadsUpNotificationWithInlineReply() throws Exception {
+        mHelper.sendNotificationsWithInlineReply(NOTIFICATION_ID_1, true);
         Thread.sleep(LONG_TIMEOUT);
-        mDevice.wait(Until.findObject(By.text("REPLY")), LONG_TIMEOUT).click();
+        mDevice.wait(Until.findObject(By.text("Reply")), LONG_TIMEOUT).click();
         UiObject2 replyBox = mDevice.wait(
                 Until.findObject(By.res("com.android.systemui:id/remote_input_send")),
                 LONG_TIMEOUT);
@@ -121,7 +121,7 @@ public class HeadsUpNotificationTests extends InstrumentationTestCase {
         if (!imm.isAcceptingText()) {
             assertNotNull("Keyboard for inline reply has not loaded correctly", replyBox);
         }
-        mHelper.sendNotificationsWithInLineReply(NOTIFICATION_ID_2, true);
+        mHelper.sendNotificationsWithInlineReply(NOTIFICATION_ID_2, true);
         Thread.sleep(LONG_TIMEOUT);
         UiObject2 obj = mDevice.wait(Until.findObject(By.text(NOTIFICATION_CONTENT_TEXT)),
                 LONG_TIMEOUT);
@@ -140,7 +140,7 @@ public class HeadsUpNotificationTests extends InstrumentationTestCase {
                 fail("Alarm heads up notifcation is not working");
             }
         } finally {
-            mDevice.wait(Until.findObject(By.text("DISMISS")), LONG_TIMEOUT).click();
+            mDevice.wait(Until.findObject(By.text("Dismiss")), LONG_TIMEOUT).click();
         }
     }
 

@@ -8,6 +8,13 @@ cc_library_shared {
     static_libs: ["libavcdec"],
     srcs: ["SoftAVCDec.cpp"],
 
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+
+    version_script: "exports.lds",
+
     include_dirs: [
         "external/libavc/decoder",
         "external/libavc/common",
@@ -16,7 +23,6 @@ cc_library_shared {
     ],
 
     shared_libs: [
-        "libmedia_omx",
         "libstagefright_omx",
         "libstagefright_foundation",
         "libutils",

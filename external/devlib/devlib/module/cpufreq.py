@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import json
 from devlib.module import Module
 from devlib.exception import TargetError
 from devlib.utils.misc import memoized
@@ -412,15 +413,26 @@ class CpufreqModule(Module):
         """
         return self.target._execute_util('cpufreq_trace_all_frequencies', as_root=True)
 
+    def get_affected_cpus(self, cpu):
+        """
+        Get the online CPUs that share a frequency domain with the given CPU
+        """
+        if isinstance(cpu, int):
+            cpu = 'cpu{}'.format(cpu)
+
+        sysfile = '/sys/devices/system/cpu/{}/cpufreq/affected_cpus'.format(cpu)
+
+        return [int(c) for c in self.target.read_value(sysfile).split()]
+
     @memoized
-    def get_domain_cpus(self, cpu):
+    def get_related_cpus(self, cpu):
         """
         Get the CPUs that share a frequency domain with the given CPU
         """
         if isinstance(cpu, int):
             cpu = 'cpu{}'.format(cpu)
 
-        sysfile = '/sys/devices/system/cpu/{}/cpufreq/affected_cpus'.format(cpu)
+        sysfile = '/sys/devices/system/cpu/{}/cpufreq/related_cpus'.format(cpu)
 
         return [int(c) for c in self.target.read_value(sysfile).split()]
 
@@ -431,6 +443,58 @@ class CpufreqModule(Module):
         cpus = set(range(self.target.number_of_cpus))
         while cpus:
             cpu = iter(cpus).next()
-            domain = self.target.cpufreq.get_domain_cpus(cpu)
+            domain = self.target.cpufreq.get_related_cpus(cpu)
             yield domain
             cpus = cpus.difference(domain)
+
+    def get_time_in_state(self, clusters):
+        """
+        Gets the time at each frequency on each cluster
+        :param clusters: A list of clusters on the device. Each cluster is a
+                    list of cpus on that cluster.
+        """
+        time_in_state_by_cluster = {}
+
+        for i, cluster in enumerate(clusters):
+            frequencies = self.list_frequencies(cluster[0])
+            time_in_state = dict((str(freq), 0) for freq in frequencies)
+
+            for cpu in cluster:
+                stats = self.target.execute('cat '\
+                        '/sys/devices/system/cpu/cpu{}/cpufreq/stats'
+                        '/time_in_state'.format(cpu))
+                for entry in stats.split('\n'):
+                    if len(entry) > 0:
+                        freq, time = entry.split(' ')
+                        time_in_state[freq] += int(time)
+
+            time_in_state_by_cluster[str(i)] = time_in_state
+
+        return time_in_state_by_cluster
+
+    def dump_time_in_state_delta(self, start, clusters, dump_file):
+        """
+        Dumps the time between the stop and start by cluster by frequency
+        :param start: The inital output from a call to cpufreq.get_time_in_state
+        :param clusters: A list of clusters on the device. Each cluster is a
+                    list of cpus on that cluster.
+        :param dump_file: A file to dump the delta time_in_state_delta to.
+        """
+        stop = self.get_time_in_state(clusters)
+
+        time_in_state_delta = {}
+
+        for cl in start:
+            time_in_state_delta[cl] = {}
+
+            for freq in start[cl].keys():
+                time_in_start = start[cl][freq]
+                time_in_stop = stop[cl][freq]
+                time_in_state_delta[cl][freq] = time_in_stop - time_in_start
+
+        output = {'time_delta' : time_in_state_delta,
+                'clusters' : {str(i) : [str(c) for c in cl]
+                        for i, cl in enumerate(clusters)}}
+
+        with open(dump_file, 'w') as dfile:
+            json.dump(output, dfile, indent=4, sort_keys=True)

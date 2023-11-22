@@ -171,7 +171,12 @@ public class Player extends MediaSession.Callback {
         if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "onPlay");
         }
-        requestAudioFocus(() -> resumePlayback());
+        // Check permissions every time we try to play
+        if (!Utils.hasRequiredPermissions(mContext)) {
+            Utils.startPermissionRequest(mContext);
+        } else {
+            requestAudioFocus(() -> resumePlayback());
+        }
     }
 
     @Override

@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="telecommAppLabel" product="default" msgid="382363169988504520">"គ្រប់គ្រងការហៅ"</string>
-    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"ទូរស័ព្ទ"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"ទូរសព្ទ"</string>
     <string name="unknown" msgid="6878797917991465859">"មិន​ស្គាល់"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"ខកខាន​ទទួល"</string>
     <string name="notification_missedWorkCallTitle" msgid="6242489980390803090">"បានខកខានការហៅចូលពីកន្លែងការងារ"</string>
@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"ការ​ហៅ​មិន​អាច​ធ្វើ​បាន​ទេ ដោយ​សារ​មាន​ការហៅ​មួយ​នៅ​ក្នុង​កម្មវិធី​ផ្សេង។"</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"ការ​ហៅ​ចូល"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"ការ​ហៅ​ដែល​មិន​បាន​ទទួល"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"ការទប់ស្កាត់ការហៅ"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"ការ​ហៅ​ទូរសព្ទ​នេះ នឹង​បញ្ចប់​ការហៅ <xliff:g id="OTHER_APP">%1$s</xliff:g> របស់​អ្នក។"</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"ការទប់ស្កាត់ការហៅ"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"លេខ​មិន​នៅ​ក្នុង​ទំនាក់ទំនង"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"ទប់ស្កាត់​លេខ​ដែល​មិនស្ថិត​​នៅ​ក្នុង​បញ្ជី​ទំនាក់ទំនង​របស់​អ្នក"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"ឯកជន"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"ទប់ស្កាត់​​អ្នកហៅទូរសព្ទ​​ដែល​មិន​ឲ្យ​ឃើញ​លេខ​របស់​ពួកគេ"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"ទូរសព្ទ​ដែល​បង់ប្រាក់"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"ទប់ស្កាត់​ការហៅ​ពី​ទូរសព្ទ​ដែល​បង់ប្រាក់"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"មិនស្គាល់"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"ទប់ស្កាត់​ការហៅ​ពី​អ្នក​ហៅ​ដែល​មិន​សម្គាល់​អត្តសញ្ញាណ"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"ការទប់ស្កាត់​ការហៅ"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"បាន​បិទ​ការទប់ស្កាត់​ការហៅ"</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"បាន​ធ្វើការហៅ​បន្ទាន់"</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"ការទប់ស្កាត់​ការហៅ​ត្រូវបាន​បិទ ដើម្បី​អនុញ្ញាត​ឲ្យ​អ្នក​ឆ្លើយតប​បន្ទាន់​អាច​ទាក់ទង​អ្នក​បាន។"</string>
 </resources>

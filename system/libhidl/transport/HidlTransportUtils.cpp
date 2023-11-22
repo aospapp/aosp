@@ -16,14 +16,23 @@
 
 #include <hidl/HidlTransportUtils.h>
 
+#include <android/hidl/base/1.0/IBase.h>
+
 namespace android {
 namespace hardware {
 namespace details {
 
-Return<bool> canCastInterface(::android::hidl::base::V1_0::IBase* interface,
-        const char* castTo, bool emitError) {
+using ::android::hidl::base::V1_0::IBase;
+
+Return<bool> canCastInterface(IBase* interface, const char* castTo, bool emitError) {
     if (interface == nullptr) {
         return false;
+    }
+
+    // b/68217907
+    // Every HIDL interface is a base interface.
+    if (std::string(IBase::descriptor) == castTo) {
+        return true;
     }
 
     bool canCast = false;
@@ -46,7 +55,7 @@ Return<bool> canCastInterface(::android::hidl::base::V1_0::IBase* interface,
     return canCast;
 }
 
-std::string getDescriptor(::android::hidl::base::V1_0::IBase* interface) {
+std::string getDescriptor(IBase* interface) {
     std::string myDescriptor{};
     auto ret = interface->interfaceDescriptor([&](const hidl_string &types) {
         myDescriptor = types.c_str();

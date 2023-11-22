@@ -24,18 +24,16 @@ import android.content.res.XmlResourceParser;
 import android.media.tv.TvContentRatingSystemInfo;
 import android.net.Uri;
 import android.util.Log;
-
 import com.android.tv.parental.ContentRatingSystem.Order;
 import com.android.tv.parental.ContentRatingSystem.Rating;
 import com.android.tv.parental.ContentRatingSystem.SubRating;
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
+/** Parses Content Ratings */
 public class ContentRatingsParser {
     private static final String TAG = "ContentRatingsParser";
     private static final boolean DEBUG = false;
@@ -74,8 +72,8 @@ public class ContentRatingsParser {
         try {
             String packageName = uri.getAuthority();
             int resId = (int) ContentUris.parseId(uri);
-            try (XmlResourceParser parser = mContext.getPackageManager()
-                    .getXml(packageName, resId, null)) {
+            try (XmlResourceParser parser =
+                    mContext.getPackageManager().getXml(packageName, resId, null)) {
                 if (parser == null) {
                     throw new IllegalArgumentException("Cannot get XML with URI " + uri);
                 }
@@ -90,8 +88,8 @@ public class ContentRatingsParser {
         return ratingSystems;
     }
 
-    private List<ContentRatingSystem> parse(XmlResourceParser parser, String domain,
-            boolean isCustom)
+    private List<ContentRatingSystem> parse(
+            XmlResourceParser parser, String domain, boolean isCustom)
             throws XmlPullParserException, IOException {
         try {
             mResources = mContext.getPackageManager().getResourcesForApplication(domain);
@@ -112,7 +110,9 @@ public class ContentRatingsParser {
 
         int eventType = parser.getEventType();
         assertEquals(eventType, XmlPullParser.START_TAG, "Malformed XML: Not a valid XML file");
-        assertEquals(parser.getName(), TAG_RATING_SYSTEM_DEFINITIONS,
+        assertEquals(
+                parser.getName(),
+                TAG_RATING_SYSTEM_DEFINITIONS,
                 "Malformed XML: Should start with tag " + TAG_RATING_SYSTEM_DEFINITIONS);
 
         boolean hasVersionAttr = false;
@@ -124,8 +124,10 @@ public class ContentRatingsParser {
             }
         }
         if (!hasVersionAttr) {
-            throw new XmlPullParserException("Malformed XML: Should contains a version attribute"
-                    + " in " + TAG_RATING_SYSTEM_DEFINITIONS);
+            throw new XmlPullParserException(
+                    "Malformed XML: Should contains a version attribute"
+                            + " in "
+                            + TAG_RATING_SYSTEM_DEFINITIONS);
         }
 
         List<ContentRatingSystem> ratingSystems = new ArrayList<>();
@@ -135,25 +137,29 @@ public class ContentRatingsParser {
                     if (TAG_RATING_SYSTEM_DEFINITION.equals(parser.getName())) {
                         ratingSystems.add(parseRatingSystemDefinition(parser, domain, isCustom));
                     } else {
-                        checkVersion("Malformed XML: Should contains " +
-                                TAG_RATING_SYSTEM_DEFINITION);
+                        checkVersion(
+                                "Malformed XML: Should contains " + TAG_RATING_SYSTEM_DEFINITION);
                     }
                     break;
                 case XmlPullParser.END_TAG:
                     if (TAG_RATING_SYSTEM_DEFINITIONS.equals(parser.getName())) {
                         eventType = parser.next();
-                        assertEquals(eventType, XmlPullParser.END_DOCUMENT,
-                                "Malformed XML: Should end with tag " +
-                                        TAG_RATING_SYSTEM_DEFINITIONS);
+                        assertEquals(
+                                eventType,
+                                XmlPullParser.END_DOCUMENT,
+                                "Malformed XML: Should end with tag "
+                                        + TAG_RATING_SYSTEM_DEFINITIONS);
                         return ratingSystems;
                     } else {
-                        checkVersion("Malformed XML: Should end with tag " +
-                                TAG_RATING_SYSTEM_DEFINITIONS);
+                        checkVersion(
+                                "Malformed XML: Should end with tag "
+                                        + TAG_RATING_SYSTEM_DEFINITIONS);
                     }
             }
         }
-        throw new XmlPullParserException(TAG_RATING_SYSTEM_DEFINITIONS +
-                " section is incomplete or section ending tag is missing");
+        throw new XmlPullParserException(
+                TAG_RATING_SYSTEM_DEFINITIONS
+                        + " section is incomplete or section ending tag is missing");
     }
 
     private static void assertEquals(int a, int b, String msg) throws XmlPullParserException {
@@ -174,8 +180,9 @@ public class ContentRatingsParser {
         }
     }
 
-    private ContentRatingSystem parseRatingSystemDefinition(XmlResourceParser parser, String domain,
-            boolean isCustom) throws XmlPullParserException, IOException {
+    private ContentRatingSystem parseRatingSystemDefinition(
+            XmlResourceParser parser, String domain, boolean isCustom)
+            throws XmlPullParserException, IOException {
         ContentRatingSystem.Builder builder = new ContentRatingSystem.Builder(mContext);
 
         builder.setDomain(domain);
@@ -198,13 +205,17 @@ public class ContentRatingsParser {
                             mResources.getString(parser.getAttributeResourceValue(i, 0)));
                     break;
                 default:
-                    checkVersion("Malformed XML: Unknown attribute " + attr + " in " +
-                            TAG_RATING_SYSTEM_DEFINITION);
+                    checkVersion(
+                            "Malformed XML: Unknown attribute "
+                                    + attr
+                                    + " in "
+                                    + TAG_RATING_SYSTEM_DEFINITION);
             }
         }
 
         while (parser.next() != XmlPullParser.END_DOCUMENT) {
-            switch (parser.getEventType()) {
+            int eventType = parser.getEventType();
+            switch (eventType) {
                 case XmlPullParser.START_TAG:
                     String tag = parser.getName();
                     switch (tag) {
@@ -218,8 +229,11 @@ public class ContentRatingsParser {
                             builder.addOrderBuilder(parseOrder(parser));
                             break;
                         default:
-                            checkVersion("Malformed XML: Unknown tag " + tag + " in " +
-                                    TAG_RATING_SYSTEM_DEFINITION);
+                            checkVersion(
+                                    "Malformed XML: Unknown tag "
+                                            + tag
+                                            + " in "
+                                            + TAG_RATING_SYSTEM_DEFINITION);
                     }
                     break;
                 case XmlPullParser.END_TAG:
@@ -227,13 +241,21 @@ public class ContentRatingsParser {
                         builder.setIsCustom(isCustom);
                         return builder.build();
                     } else {
-                        checkVersion("Malformed XML: Tag mismatch for " +
-                                TAG_RATING_SYSTEM_DEFINITION);
+                        checkVersion(
+                                "Malformed XML: Tag mismatch for " + TAG_RATING_SYSTEM_DEFINITION);
                     }
+                    break;
+                default:
+                    checkVersion(
+                            "Malformed XML: Unknown event type "
+                                    + eventType
+                                    + " in "
+                                    + TAG_RATING_SYSTEM_DEFINITION);
             }
         }
-        throw new XmlPullParserException(TAG_RATING_SYSTEM_DEFINITION +
-                " section is incomplete or section ending tag is missing");
+        throw new XmlPullParserException(
+                TAG_RATING_SYSTEM_DEFINITION
+                        + " section is incomplete or section ending tag is missing");
     }
 
     private Rating.Builder parseRatingDefinition(XmlResourceParser parser)
@@ -265,14 +287,19 @@ public class ContentRatingsParser {
                     }
 
                     if (contentAgeHint < 0) {
-                        throw new XmlPullParserException("Malformed XML: " + ATTR_CONTENT_AGE_HINT +
-                                " should be a non-negative number");
+                        throw new XmlPullParserException(
+                                "Malformed XML: "
+                                        + ATTR_CONTENT_AGE_HINT
+                                        + " should be a non-negative number");
                     }
                     builder.setContentAgeHint(contentAgeHint);
                     break;
                 default:
-                    checkVersion("Malformed XML: Unknown attribute " + attr + " in " +
-                            TAG_RATING_DEFINITION);
+                    checkVersion(
+                            "Malformed XML: Unknown attribute "
+                                    + attr
+                                    + " in "
+                                    + TAG_RATING_DEFINITION);
             }
         }
 
@@ -282,8 +309,11 @@ public class ContentRatingsParser {
                     if (TAG_SUB_RATING.equals(parser.getName())) {
                         builder = parseSubRating(parser, builder);
                     } else {
-                        checkVersion(("Malformed XML: Only " + TAG_SUB_RATING + " is allowed in " +
-                                TAG_RATING_DEFINITION));
+                        checkVersion(
+                                ("Malformed XML: Only "
+                                        + TAG_SUB_RATING
+                                        + " is allowed in "
+                                        + TAG_RATING_DEFINITION));
                     }
                     break;
                 case XmlPullParser.END_TAG:
@@ -294,8 +324,8 @@ public class ContentRatingsParser {
                     }
             }
         }
-        throw new XmlPullParserException(TAG_RATING_DEFINITION +
-                " section is incomplete or section ending tag is missing");
+        throw new XmlPullParserException(
+                TAG_RATING_DEFINITION + " section is incomplete or section ending tag is missing");
     }
 
     private SubRating.Builder parseSubRatingDefinition(XmlResourceParser parser)
@@ -320,8 +350,11 @@ public class ContentRatingsParser {
                             mResources.getDrawable(parser.getAttributeResourceValue(i, 0), null));
                     break;
                 default:
-                    checkVersion("Malformed XML: Unknown attribute " + attr + " in " +
-                            TAG_SUB_RATING_DEFINITION);
+                    checkVersion(
+                            "Malformed XML: Unknown attribute "
+                                    + attr
+                                    + " in "
+                                    + TAG_SUB_RATING_DEFINITION);
             }
         }
 
@@ -331,23 +364,26 @@ public class ContentRatingsParser {
                     if (TAG_SUB_RATING_DEFINITION.equals(parser.getName())) {
                         return builder;
                     } else {
-                        checkVersion("Malformed XML: " + TAG_SUB_RATING_DEFINITION +
-                                " isn't closed");
+                        checkVersion(
+                                "Malformed XML: " + TAG_SUB_RATING_DEFINITION + " isn't closed");
                     }
                     break;
                 default:
                     checkVersion("Malformed XML: " + TAG_SUB_RATING_DEFINITION + " has child");
             }
         }
-        throw new XmlPullParserException(TAG_SUB_RATING_DEFINITION +
-                " section is incomplete or section ending tag is missing");
+        throw new XmlPullParserException(
+                TAG_SUB_RATING_DEFINITION
+                        + " section is incomplete or section ending tag is missing");
     }
 
     private Order.Builder parseOrder(XmlResourceParser parser)
             throws XmlPullParserException, IOException {
         Order.Builder builder = new Order.Builder();
 
-        assertEquals(parser.getAttributeCount(), 0,
+        assertEquals(
+                parser.getAttributeCount(),
+                0,
                 "Malformed XML: Attribute isn't allowed in " + TAG_RATING_ORDER);
 
         while (parser.next() != XmlPullParser.END_DOCUMENT) {
@@ -355,19 +391,24 @@ public class ContentRatingsParser {
                 case XmlPullParser.START_TAG:
                     if (TAG_RATING.equals(parser.getName())) {
                         builder = parseRating(parser, builder);
-                    } else  {
-                        checkVersion("Malformed XML: Only " + TAG_RATING + " is allowed in " +
-                                TAG_RATING_ORDER);
+                    } else {
+                        checkVersion(
+                                "Malformed XML: Only "
+                                        + TAG_RATING
+                                        + " is allowed in "
+                                        + TAG_RATING_ORDER);
                     }
                     break;
                 case XmlPullParser.END_TAG:
-                    assertEquals(parser.getName(), TAG_RATING_ORDER,
+                    assertEquals(
+                            parser.getName(),
+                            TAG_RATING_ORDER,
                             "Malformed XML: Tag mismatch for " + TAG_RATING_ORDER);
                     return builder;
             }
         }
-        throw new XmlPullParserException(TAG_RATING_ORDER +
-                " section is incomplete or section ending tag is missing");
+        throw new XmlPullParserException(
+                TAG_RATING_ORDER + " section is incomplete or section ending tag is missing");
     }
 
     private Order.Builder parseRating(XmlResourceParser parser, Order.Builder builder)
@@ -379,8 +420,11 @@ public class ContentRatingsParser {
                     builder.addRatingName(parser.getAttributeValue(i));
                     break;
                 default:
-                    checkVersion("Malformed XML: " + TAG_RATING_ORDER + " should only contain "
-                            + ATTR_NAME);
+                    checkVersion(
+                            "Malformed XML: "
+                                    + TAG_RATING_ORDER
+                                    + " should only contain "
+                                    + ATTR_NAME);
             }
         }
 
@@ -393,8 +437,8 @@ public class ContentRatingsParser {
                 }
             }
         }
-        throw new XmlPullParserException(TAG_RATING +
-                " section is incomplete or section ending tag is missing");
+        throw new XmlPullParserException(
+                TAG_RATING + " section is incomplete or section ending tag is missing");
     }
 
     private Rating.Builder parseSubRating(XmlResourceParser parser, Rating.Builder builder)
@@ -406,8 +450,11 @@ public class ContentRatingsParser {
                     builder.addSubRatingName(parser.getAttributeValue(i));
                     break;
                 default:
-                    checkVersion("Malformed XML: " + TAG_SUB_RATING + " should only contain " +
-                            ATTR_NAME);
+                    checkVersion(
+                            "Malformed XML: "
+                                    + TAG_SUB_RATING
+                                    + " should only contain "
+                                    + ATTR_NAME);
             }
         }
 
@@ -420,8 +467,8 @@ public class ContentRatingsParser {
                 }
             }
         }
-        throw new XmlPullParserException(TAG_SUB_RATING +
-                " section is incomplete or section ending tag is missing");
+        throw new XmlPullParserException(
+                TAG_SUB_RATING + " section is incomplete or section ending tag is missing");
     }
 
     // Title might be a resource id or a string value. Try loading as an id first, then use the

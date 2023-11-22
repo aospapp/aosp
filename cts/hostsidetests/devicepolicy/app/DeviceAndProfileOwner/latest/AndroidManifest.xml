@@ -19,6 +19,9 @@
 
     <uses-sdk android:minSdkVersion="23"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.AUTHENTICATE_ACCOUNTS" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -26,6 +29,8 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Needed to read the serial number during Device ID attestation tests -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
     <!-- Add a network security config that trusts user added CAs for tests -->
     <application android:networkSecurityConfig="@xml/network_security_config"
@@ -68,6 +73,12 @@
         </activity>
 
         <activity android:name="com.android.cts.deviceandprofileowner.AutofillActivity"/>
+
+        <activity android:name=".PrintActivity"/>
+
+        <activity
+            android:name="com.android.cts.deviceandprofileowner.KeyManagementActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     </application>
 
     <instrumentation

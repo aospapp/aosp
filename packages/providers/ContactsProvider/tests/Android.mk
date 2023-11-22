@@ -7,15 +7,15 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_STATIC_JAVA_LIBRARIES := \
     ContactsProviderTestUtils \
     android-support-test \
-    mockito-target-minus-junit4 \
-    legacy-android-test
+    mockito-target-minus-junit4
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
+LOCAL_JAVA_LIBRARIES := android.test.runner android.test.base android.test.mock
 
 # Only compile source java files in this apk.
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := ContactsProviderTests
+LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_COMPATIBILITY_SUITE := device-tests
 
 LOCAL_INSTRUMENTATION_FOR := ContactsProvider

@@ -19,8 +19,7 @@ import android.app.Activity;
 import android.support.test.rule.ActivityTestRule;
 
 /**
- * Custom {@link ActivityTestRule} that cleans up the autofill state before the activity is
- * launched.
+ * Custom {@link ActivityTestRule}.
  */
 public class AutofillActivityTestRule<T extends Activity> extends ActivityTestRule<T> {
 
@@ -30,12 +29,5 @@ public class AutofillActivityTestRule<T extends Activity> extends ActivityTestRu
 
     public AutofillActivityTestRule(Class<T> activityClass, boolean launchActivity) {
         super(activityClass, false, launchActivity);
-    }
-
-    @Override
-    protected void beforeActivityLaunched() {
-        Helper.preTestCleanup();
-
-        super.beforeActivityLaunched();
     }
 }

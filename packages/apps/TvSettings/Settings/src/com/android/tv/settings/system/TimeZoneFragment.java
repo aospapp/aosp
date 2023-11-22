@@ -24,24 +24,24 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.support.annotation.Keep;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.CheckBoxPreference;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.datetime.ZoneGetter;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 
 @Keep
-public class TimeZoneFragment extends LeanbackPreferenceFragment {
+public class TimeZoneFragment extends SettingsPreferenceFragment {
 
     private BroadcastReceiver mIntentReceiver = new BroadcastReceiver() {
         @Override
@@ -66,7 +66,7 @@ public class TimeZoneFragment extends LeanbackPreferenceFragment {
         for (final Map<String, Object> zone : zoneList) {
             zonePrefs.add(new ZonePreference(themedContext, zone));
         }
-        Collections.sort(zonePrefs, new ZonePrefComparator());
+        zonePrefs.sort(new ZonePrefComparator());
         for (final Preference zonePref : zonePrefs) {
             screen.addPreference(zonePref);
         }
@@ -140,4 +140,8 @@ public class TimeZoneFragment extends LeanbackPreferenceFragment {
         }
     }
 
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.ZONE_PICKER;
+    }
 }

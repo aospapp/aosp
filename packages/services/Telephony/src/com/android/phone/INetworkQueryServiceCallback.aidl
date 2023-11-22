@@ -16,6 +16,7 @@
 
 package com.android.phone;
 
+import android.telephony.CellInfo;
 import com.android.internal.telephony.OperatorInfo;
 
 /**
@@ -26,14 +27,25 @@ import com.android.internal.telephony.OperatorInfo;
 oneway interface INetworkQueryServiceCallback {
 
     /**
-     * Called upon query completion, handing a status value and an
-     * array of OperatorInfo objects.
-     *
-     * @param networkInfoArray is the list of OperatorInfo. Can be
-     * null, indicating no results were found, or an error.
-     * @param status the status indicating if there were any
-     * problems with the request.
+     * Returns the scan results to the user, this callback will be
+     * called at least one time.
      */
-    void onQueryComplete(in List<OperatorInfo> networkInfoArray, int status);
+    void onResults(in List<CellInfo> results);
+
+    /**
+     * Informs the user that the scan has stopped.
+     *
+     * This callback will be called when the scan is finished or cancelled by the user.
+     * The related NetworkScanRequest will be deleted after this callback.
+     */
+    void onComplete();
+
+    /**
+     * Informs the user that there is some error about the scan.
+     *
+     * This callback will be called whenever there is any error about the scan,
+     * and the scan will be terminated. onComplete() will NOT be called.
+     */
+    void onError(int error);
 
 }

@@ -29,9 +29,14 @@ import android.test.suitebuilder.annotation.SmallTest;
 import com.android.server.telecom.DefaultDialerCache;
 import com.android.server.telecom.TelecomSystem;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.isNull;
@@ -39,6 +44,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@RunWith(JUnit4.class)
 public class DefaultDialerCacheTest extends TelecomTestCase {
 
     private static final String DIALER1 = "com.android.dialer";
@@ -55,6 +61,8 @@ public class DefaultDialerCacheTest extends TelecomTestCase {
 
     @Mock private DefaultDialerCache.DefaultDialerManagerAdapter mMockDefaultDialerManager;
 
+    @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         mContext = mComponentContextFixture.getTestDouble().getApplicationContext();
@@ -88,6 +96,7 @@ public class DefaultDialerCacheTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testThreeUsers() {
         assertEquals(mDefaultDialerCache.getDefaultDialerApplication(), DIALER1);
         assertEquals(mDefaultDialerCache.getDefaultDialerApplication(USER0), DIALER1);
@@ -107,6 +116,7 @@ public class DefaultDialerCacheTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testDialer1PackageChanged() {
         // Populate the caches first
         assertEquals(mDefaultDialerCache.getDefaultDialerApplication(USER0), DIALER1);
@@ -129,6 +139,7 @@ public class DefaultDialerCacheTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testRandomOtherPackageChanged() {
         assertEquals(mDefaultDialerCache.getDefaultDialerApplication(USER0), DIALER1);
         assertEquals(mDefaultDialerCache.getDefaultDialerApplication(USER1), DIALER2);
@@ -146,6 +157,7 @@ public class DefaultDialerCacheTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testUserRemoved() {
         assertEquals(mDefaultDialerCache.getDefaultDialerApplication(USER0), DIALER1);
         assertEquals(mDefaultDialerCache.getDefaultDialerApplication(USER1), DIALER2);
@@ -164,6 +176,7 @@ public class DefaultDialerCacheTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testPackageRemovedWithoutReplace() {
         assertEquals(mDefaultDialerCache.getDefaultDialerApplication(USER0), DIALER1);
         assertEquals(mDefaultDialerCache.getDefaultDialerApplication(USER1), DIALER2);
@@ -183,6 +196,7 @@ public class DefaultDialerCacheTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testPackageAdded() {
         assertEquals(mDefaultDialerCache.getDefaultDialerApplication(USER0), DIALER1);
         assertEquals(mDefaultDialerCache.getDefaultDialerApplication(USER1), DIALER2);
@@ -201,6 +215,7 @@ public class DefaultDialerCacheTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testPackageRemovedWithReplace() {
         assertEquals(mDefaultDialerCache.getDefaultDialerApplication(USER0), DIALER1);
         assertEquals(mDefaultDialerCache.getDefaultDialerApplication(USER1), DIALER2);
@@ -220,6 +235,7 @@ public class DefaultDialerCacheTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testDefaultDialerSettingChanged() {
         assertEquals(mDefaultDialerCache.getDefaultDialerApplication(USER0), DIALER1);
         assertEquals(mDefaultDialerCache.getDefaultDialerApplication(USER1), DIALER2);

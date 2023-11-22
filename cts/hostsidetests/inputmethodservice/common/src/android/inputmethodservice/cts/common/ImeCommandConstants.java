@@ -52,6 +52,24 @@ public final class ImeCommandConstants {
     public static final String COMMAND_SWITCH_INPUT_METHOD = "switchInputMethod";
 
     /**
+     * This command has the mock IME call {@link android.inputmethodservice.InputMethodService#switchInputMethod(String, InputMethodSubtype)} InputMethodService#switchInputMethod(String imeId, InputMethodSubtype subtype)}.
+     * <ul>
+     * <li>argument {@code imeId} needs to be specified by {@link #EXTRA_ARG_STRING1}.</li>
+     * </ul>
+     */
+    public static final String COMMAND_SWITCH_INPUT_METHOD_WITH_SUBTYPE = "switchInputMethodWithSubtype";
+
+    /**
+     * This command has the mock IME call {@link android.inputmethodservice.InputMethodService#switchToNextInputMethod(boolean)} InputMethodService#switchToNextInputMethod(boolean onlyCurrentIme)}.
+     */
+    public static final String COMMAND_SWITCH_TO_NEXT_INPUT = "switchToNextInput";
+
+    /**
+     * This command has the mock IME call {@link android.inputmethodservice.InputMethodService#switchToPreviousInputMethod()} InputMethodService#switchToPreviousInputMethod()}.
+     */
+    public static final String COMMAND_SWITCH_TO_PREVIOUS_INPUT = "switchToPreviousInputMethod";
+
+    /**
      * This command has the mock IME call {@link android.inputmethodservice.InputMethodService#requestHideSelf(int)} InputMethodService#requestHideSelf(int flags)}.
      * <ul>
      * <li>argument {@code flags} needs to be specified by {@link #EXTRA_ARG_INT1}.</li>

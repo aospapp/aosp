@@ -24,7 +24,7 @@ import static org.mockito.Mockito.verify;
 import android.os.Handler;
 import android.os.Message;
 import android.os.test.TestLooper;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import com.android.server.wifi.WifiInjector;
 

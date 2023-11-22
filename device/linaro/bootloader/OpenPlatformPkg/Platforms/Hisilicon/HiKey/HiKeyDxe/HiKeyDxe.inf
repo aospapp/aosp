@@ -22,25 +22,24 @@
 
 [Sources.common]
   HiKeyDxe.c
-  InitPeripherals.c
-  InstallBootMenu.c
 
 [Packages]
   ArmPkg/ArmPkg.dec
   EmbeddedPkg/EmbeddedPkg.dec
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
-  OpenPlatformPkg/Drivers/Usb/DwUsbDxe/DwUsbDxe.dec
+  OpenPlatformPkg/Drivers/Keyboard/VirtualKeyboardDxe/VirtualKeyboardDxe.dec
   OpenPlatformPkg/Platforms/Hisilicon/HiKey/HiKey.dec
 
 [LibraryClasses]
   BaseMemoryLib
-  BdsLib
   CacheMaintenanceLib
   DebugLib
   DxeServicesLib
   DxeServicesTableLib
+  FdtLib
   IoLib
+  NonDiscoverableDeviceRegistrationLib
   PcdLib
   PrintLib
   SerialPortLib
@@ -50,28 +49,18 @@
   UefiLib
   UefiDriverEntryPoint
 
+[Protocols]
+  gAbootimgProtocolGuid
+  gEfiBlockIoProtocolGuid
+  gEmbeddedGpioProtocolGuid
+  gPlatformVirtualKeyboardProtocolGuid
+
 [Guids]
   gEfiEndOfDxeEventGroupGuid
   gEfiFileInfoGuid
-  gEfiGlobalVariableGuid
-  gFdtTableGuid
-  gFdtVariableGuid
-  gHiKeyVariableGuid
 
-[Protocols]
-  gDwUsbProtocolGuid
-  gEfiBlockIoProtocolGuid
-  gEfiDevicePathFromTextProtocolGuid
-  gEfiDevicePathToTextProtocolGuid
-  gEfiDevicePathProtocolGuid
-  gEfiSimpleFileSystemProtocolGuid
-  gEmbeddedGpioProtocolGuid
-
-[FixedPcd]
-  gArmTokenSpaceGuid.PcdSystemMemoryBase
-  gArmTokenSpaceGuid.PcdSystemMemorySize
+[Pcd]
   gHiKeyTokenSpaceGuid.PcdAndroidFastbootNvmDevicePath
-  gHiKeyTokenSpaceGuid.PcdBootImagePath
 
 [Depex]
-  AFTER gFaultTolerantWriteGuid
+  TRUE

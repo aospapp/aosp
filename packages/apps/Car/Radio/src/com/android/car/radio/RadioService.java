@@ -17,34 +17,38 @@
 package com.android.car.radio;
 
 import android.app.Service;
-import android.car.hardware.radio.CarRadioManager;
-import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
+import android.hardware.radio.ProgramList;
+import android.hardware.radio.ProgramSelector;
 import android.hardware.radio.RadioManager;
-import android.hardware.radio.RadioMetadata;
+import android.hardware.radio.RadioManager.ProgramInfo;
 import android.hardware.radio.RadioTuner;
-import android.media.AudioAttributes;
-import android.media.AudioManager;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.os.SystemProperties;
-import android.support.annotation.Nullable;
-import android.support.car.Car;
-import android.support.car.CarNotConnectedException;
-import android.support.car.CarConnectionCallback;
-import android.support.car.media.CarAudioManager;
-import android.text.TextUtils;
+import android.support.v4.media.MediaBrowserCompat.MediaItem;
+import android.support.v4.media.MediaBrowserServiceCompat;
+import android.support.v4.media.session.PlaybackStateCompat;
 import android.util.Log;
-import com.android.car.radio.demo.RadioDemo;
+
+import com.android.car.broadcastradio.support.Program;
+import com.android.car.broadcastradio.support.media.BrowseTree;
+import com.android.car.broadcastradio.support.platform.ProgramSelectorExt;
+import com.android.car.radio.audio.AudioStreamController;
+import com.android.car.radio.audio.IPlaybackStateListener;
+import com.android.car.radio.media.TunerSession;
+import com.android.car.radio.platform.ImageMemoryCache;
+import com.android.car.radio.platform.RadioManagerExt;
 import com.android.car.radio.service.IRadioCallback;
 import com.android.car.radio.service.IRadioManager;
-import com.android.car.radio.service.RadioRds;
-import com.android.car.radio.service.RadioStation;
+import com.android.car.radio.storage.RadioStorage;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A persistent {@link Service} that is responsible for opening and closing a {@link RadioTuner}.
@@ -53,40 +57,39 @@ import java.util.List;
  *
  * <p>Utilize the {@link RadioBinder} to perform radio operations.
  */
-public class RadioService extends Service implements AudioManager.OnAudioFocusChangeListener {
-    private static String TAG = "Em.RadioService";
+public class RadioService extends MediaBrowserServiceCompat implements IPlaybackStateListener {
+
+    private static String TAG = "BcRadioApp.uisrv";
+
+    public static String ACTION_UI_SERVICE = "com.android.car.radio.ACTION_UI_SERVICE";
 
     /**
      * The amount of time to wait before re-trying to open the {@link #mRadioTuner}.
      */
     private static final int RADIO_TUNER_REOPEN_DELAY_MS = 5000;
 
+    private final Object mLock = new Object();
+
     private int mReOpenRadioTunerCount = 0;
     private final Handler mHandler = new Handler();
 
-    private Car mCarApi;
+    private RadioStorage mRadioStorage;
+    private final RadioStorage.PresetsChangeListener mPresetsListener = this::onPresetsChanged;
+
     private RadioTuner mRadioTuner;
 
     private boolean mRadioSuccessfullyInitialized;
-    private int mCurrentRadioBand = RadioManager.BAND_FM;
-    private int mCurrentRadioChannel = RadioStorage.INVALID_RADIO_CHANNEL;
 
-    private String mCurrentChannelInfo;
-    private String mCurrentArtist;
-    private String mCurrentSongTitle;
+    private ProgramInfo mCurrentProgram;
 
-    private RadioManager mRadioManager;
-    private RadioBackgroundScanner mBackgroundScanner;
-    private RadioManager.FmBandDescriptor mFmDescriptor;
-    private RadioManager.AmBandDescriptor mAmDescriptor;
+    private RadioManagerExt mRadioManager;
+    private ImageMemoryCache mImageCache;
 
-    private RadioManager.FmBandConfig mFmConfig;
-    private RadioManager.AmBandConfig mAmConfig;
+    private AudioStreamController mAudioStreamController;
 
-    private final List<RadioManager.ModuleProperties> mModules = new ArrayList<>();
-
-    private CarAudioManager mCarAudioManager;
-    private AudioAttributes mRadioAudioAttributes;
+    private BrowseTree mBrowseTree;
+    private TunerSession mMediaSession;
+    private ProgramList mProgramList;
 
     /**
      * Whether or not this {@link RadioService} currently has audio focus, meaning it is the
@@ -106,10 +109,10 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
 
     @Override
     public IBinder onBind(Intent intent) {
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "onBind(); Intent: " + intent);
+        if (ACTION_UI_SERVICE.equals(intent.getAction())) {
+            return mBinder;
         }
-        return mBinder;
+        return super.onBind(intent);
     }
 
     @Override
@@ -120,96 +123,23 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
             Log.d(TAG, "onCreate()");
         }
 
-        // Connection to car services does not work for non-automotive yet, so this call needs to
-        // be guarded.
-        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
-            mCarApi = Car.createCar(this /* context */, mCarConnectionCallback);
-            mCarApi.connect();
-        }
+        mRadioManager = new RadioManagerExt(this);
+        mAudioStreamController = new AudioStreamController(this, mRadioManager);
+        mRadioStorage = RadioStorage.getInstance(this);
+        mImageCache = new ImageMemoryCache(mRadioManager, 1000);
 
-        if (SystemProperties.getBoolean(RadioDemo.DEMO_MODE_PROPERTY, false)) {
-            initializeDemo();
-        } else {
-            initialze();
-        }
-    }
+        mBrowseTree = new BrowseTree(this, mImageCache);
+        mMediaSession = new TunerSession(this, mBrowseTree, mBinder, mImageCache);
+        setSessionToken(mMediaSession.getSessionToken());
+        mAudioStreamController.addPlaybackStateListener(mMediaSession);
+        mBrowseTree.setAmFmRegionConfig(mRadioManager.getAmFmRegionConfig());
 
-    /**
-     * Initializes this service to use a demo {@link IRadioManager}.
-     *
-     * @see RadioDemo
-     */
-    private void initializeDemo() {
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "initializeDemo()");
-        }
+        mRadioStorage.addPresetsChangeListener(mPresetsListener);
+        onPresetsChanged();
 
-        mBinder = RadioDemo.getInstance(this /* context */).createDemoManager();
-    }
+        mAudioStreamController.addPlaybackStateListener(this);
 
-    /**
-     * Connects to the {@link RadioManager}.
-     */
-    private void initialze() {
-        mRadioManager = (RadioManager) getSystemService(Context.RADIO_SERVICE);
-
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "initialze(); mRadioManager: " + mRadioManager);
-        }
-
-        if (mRadioManager == null) {
-            Log.w(TAG, "RadioManager could not be loaded.");
-            return;
-        }
-
-        int status = mRadioManager.listModules(mModules);
-        if (status != RadioManager.STATUS_OK) {
-            Log.w(TAG, "Load modules failed with status: " + status);
-            return;
-        }
-
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "initialze(); listModules complete: " + mModules);
-        }
-
-        if (mModules.size() == 0) {
-            Log.w(TAG, "No radio modules on device.");
-            return;
-        }
-
-        boolean isDebugLoggable = Log.isLoggable(TAG, Log.DEBUG);
-
-        // Load the possible radio bands. For now, just accept FM and AM bands.
-        for (RadioManager.BandDescriptor band : mModules.get(0).getBands()) {
-            if (isDebugLoggable) {
-                Log.d(TAG, "loading band: " + band.toString());
-            }
-
-            if (mFmDescriptor == null && band.isFmBand()) {
-                mFmDescriptor = (RadioManager.FmBandDescriptor) band;
-            }
-
-            if (mAmDescriptor == null && band.isAmBand()) {
-                mAmDescriptor = (RadioManager.AmBandDescriptor) band;
-            }
-        }
-
-        if (mFmDescriptor == null && mAmDescriptor == null) {
-            Log.w(TAG, "No AM and FM radio bands could be loaded.");
-            return;
-        }
-
-        // TODO: Make stereo configurable depending on device.
-        mFmConfig = new RadioManager.FmBandConfig.Builder(mFmDescriptor)
-                .setStereo(true)
-                .build();
-        mAmConfig = new RadioManager.AmBandConfig.Builder(mAmDescriptor)
-                .setStereo(true)
-                .build();
-
-        // If there is a second tuner on the device, then set it up as the background scanner.
-        // TODO(b/63101896): we don't know if the second tuner is for the same medium, so we don't
-        // set background scanner for now.
+        openRadioBandInternal(mRadioStorage.getStoredRadioBand());
 
         mRadioSuccessfullyInitialized = true;
     }
@@ -220,13 +150,19 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
             Log.d(TAG, "onDestroy()");
         }
 
+        mRadioStorage.removePresetsChangeListener(mPresetsListener);
+        mMediaSession.release();
+        mRadioManager.getRadioTunerExt().close();
         close();
 
-        if (mCarApi != null) {
-            mCarApi.disconnect();
-        }
-
         super.onDestroy();
+    }
+
+    private void onPresetsChanged() {
+        synchronized (mLock) {
+            mBrowseTree.setFavorites(new HashSet<>(mRadioStorage.getPresets()));
+            mMediaSession.notifyFavoritesChanged();
+        }
     }
 
     /**
@@ -238,157 +174,60 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
      * {@link RadioManager#STATUS_ERROR}.
      */
     private int openRadioBandInternal(int radioBand) {
-        if (requestAudioFocus() != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            Log.e(TAG, "openRadioBandInternal() audio focus request fail");
-            return RadioManager.STATUS_ERROR;
-        }
+        if (!mAudioStreamController.requestMuted(false)) return RadioManager.STATUS_ERROR;
 
-        mCurrentRadioBand = radioBand;
-        RadioManager.BandConfig config = getRadioConfig(radioBand);
-
-        if (config == null) {
-            Log.w(TAG, "Cannot create config for radio band: " + radioBand);
-            return RadioManager.STATUS_ERROR;
-        }
-
-        if (mRadioTuner != null) {
-            mRadioTuner.setConfiguration(config);
-        } else {
-            mRadioTuner = mRadioManager.openTuner(mModules.get(0).getId(), config, true,
-                    mInternalRadioTunerCallback, null /* handler */);
+        if (mRadioTuner == null) {
+            mRadioTuner = mRadioManager.openSession(mInternalRadioTunerCallback, null);
+            mProgramList = mRadioTuner.getDynamicProgramList(null);
+            mBrowseTree.setProgramList(mProgramList);
         }
 
         if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "openRadioBandInternal() STATUS_OK");
         }
 
-        if (mBackgroundScanner != null) {
-            mBackgroundScanner.onRadioBandChanged(radioBand);
-        }
-
         // Reset the counter for exponential backoff each time the radio tuner has been successfully
         // opened.
         mReOpenRadioTunerCount = 0;
 
+        tuneToDefault(radioBand);
+
         return RadioManager.STATUS_OK;
     }
 
-    /**
-     * Returns a {@link RadioRds} object that holds all the current radio metadata. If all the
-     * metadata is empty, then {@code null} is returned.
-     */
-    @Nullable
-    private RadioRds createCurrentRadioRds() {
-        if (TextUtils.isEmpty(mCurrentChannelInfo) && TextUtils.isEmpty(mCurrentArtist)
-                && TextUtils.isEmpty(mCurrentSongTitle)) {
-            return null;
-        }
+    private void tuneToDefault(int band) {
+        if (!mAudioStreamController.preparePlayback(Optional.empty())) return;
 
-        return new RadioRds(mCurrentChannelInfo, mCurrentArtist, mCurrentSongTitle);
-    }
+        long storedChannel = mRadioStorage.getStoredRadioChannel(band);
+        if (storedChannel != RadioStorage.INVALID_RADIO_CHANNEL) {
+            Log.i(TAG, "Restoring stored program: " + storedChannel);
+            mRadioTuner.tune(ProgramSelectorExt.createAmFmSelector(storedChannel));
+        } else {
+            Log.i(TAG, "No stored program, seeking forward to not play static");
 
-    /**
-     * Creates a {@link RadioStation} that encapsulates all the information about the current
-     * radio station.
-     */
-    private RadioStation createCurrentRadioStation() {
-        // mCurrentRadioChannel can possibly be invalid if this class never receives a callback
-        // for onProgramInfoChanged(). As a result, manually retrieve the information for the
-        // current station from RadioTuner if this is the case.
-        if (mCurrentRadioChannel == RadioStorage.INVALID_RADIO_CHANNEL && mRadioTuner != null) {
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "createCurrentRadioStation(); invalid current radio channel. "
-                        + "Calling getProgramInformation for valid station");
-            }
+            // TODO(b/80500464): don't hardcode, pull from tuner config
+            long lastChannel;
+            if (band == RadioManager.BAND_AM) lastChannel = 1620;
+            else lastChannel = 108000;
+            mRadioTuner.tune(ProgramSelectorExt.createAmFmSelector(lastChannel));
 
-            // getProgramInformation() expects an array of size 1.
-            RadioManager.ProgramInfo[] info = new RadioManager.ProgramInfo[1];
-            int status = mRadioTuner.getProgramInformation(info);
-
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "getProgramInformation() status: " + status + "; info: " + info[0]);
-            }
-
-            if (status == RadioManager.STATUS_OK && info[0] != null) {
-                mCurrentRadioChannel = info[0].getChannel();
-
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "program info channel: " + mCurrentRadioChannel);
-                }
-            }
-        }
-
-        return new RadioStation(mCurrentRadioChannel, 0 /* subChannelNumber */,
-                mCurrentRadioBand, createCurrentRadioRds());
-    }
-
-    /**
-     * Returns the proper {@link android.hardware.radio.RadioManager.BandConfig} for the given
-     * radio band. {@code null} is returned if the band is not suppored.
-     */
-    @Nullable
-    private RadioManager.BandConfig getRadioConfig(int selectedRadioBand) {
-        switch (selectedRadioBand) {
-            case RadioManager.BAND_AM:
-            case RadioManager.BAND_AM_HD:
-                return mAmConfig;
-            case RadioManager.BAND_FM:
-            case RadioManager.BAND_FM_HD:
-                return mFmConfig;
-
-            default:
-                return null;
+            mRadioTuner.scan(RadioTuner.DIRECTION_UP, true);
         }
     }
 
-    private int requestAudioFocus() {
-        int status = AudioManager.AUDIOFOCUS_REQUEST_FAILED;
-        try {
-            status = mCarAudioManager.requestAudioFocus(this, mRadioAudioAttributes,
-                    AudioManager.AUDIOFOCUS_GAIN, 0);
-        } catch (CarNotConnectedException e) {
-            Log.e(TAG, "requestAudioFocus() failed", e);
-        }
-
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "requestAudioFocus status: " + status);
-        }
-
-        if (status == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            mHasAudioFocus = true;
-
-            // Receiving audio focus means that the radio is un-muted.
+    /* TODO(b/73950974): remove onRadioMuteChanged from IRadioCallback,
+     * use IPlaybackStateListener directly.
+     */
+    @Override
+    public void onPlaybackStateChanged(@PlaybackStateCompat.State int state) {
+        boolean muted = state != PlaybackStateCompat.STATE_PLAYING;
+        synchronized (mLock) {
             for (IRadioCallback callback : mRadioTunerCallbacks) {
                 try {
-                    callback.onRadioMuteChanged(false);
+                    callback.onRadioMuteChanged(muted);
                 } catch (RemoteException e) {
-                    Log.e(TAG, "requestAudioFocus(); onRadioMuteChanged() notify failed: "
-                            + e.getMessage());
+                    Log.e(TAG, "Mute state change callback failed", e);
                 }
-            }
-        }
-
-        return status;
-    }
-
-    private void abandonAudioFocus() {
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "abandonAudioFocus()");
-        }
-
-        if (mCarAudioManager == null) {
-            return;
-        }
-
-        mCarAudioManager.abandonAudioFocus(this, mRadioAudioAttributes);
-        mHasAudioFocus = false;
-
-        for (IRadioCallback callback : mRadioTunerCallbacks) {
-            try {
-                callback.onRadioMuteChanged(true);
-            } catch (RemoteException e) {
-                Log.e(TAG, "abandonAudioFocus(); onRadioMutechanged() notify failed: "
-                        + e.getMessage());
             }
         }
     }
@@ -401,75 +240,17 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
             Log.d(TAG, "close()");
         }
 
-        abandonAudioFocus();
+        mAudioStreamController.requestMuted(true);
 
+        if (mProgramList != null) {
+            mProgramList.close();
+            mProgramList = null;
+        }
         if (mRadioTuner != null) {
             mRadioTuner.close();
             mRadioTuner = null;
         }
     }
-
-    @Override
-    public void onAudioFocusChange(int focusChange) {
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "focus change: " + focusChange);
-        }
-
-        switch (focusChange) {
-            case AudioManager.AUDIOFOCUS_GAIN:
-                mHasAudioFocus = true;
-                openRadioBandInternal(mCurrentRadioBand);
-                break;
-
-            // For a transient loss, just allow the focus to be released. The radio will stop
-            // itself automatically. There is no need for an explicit abandon audio focus call
-            // because this removes the AudioFocusChangeListener.
-            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
-            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
-                mHasAudioFocus = false;
-                break;
-
-            case AudioManager.AUDIOFOCUS_LOSS:
-                close();
-                break;
-
-            default:
-                // Do nothing for all other cases.
-        }
-    }
-
-    /**
-     * {@link CarConnectionCallback} that retrieves the {@link CarRadioManager}.
-     */
-    private final CarConnectionCallback mCarConnectionCallback =
-            new CarConnectionCallback() {
-                @Override
-                public void onConnected(Car car) {
-                    if (Log.isLoggable(TAG, Log.DEBUG)) {
-                        Log.d(TAG, "Car service connected.");
-                    }
-                    try {
-                        // The CarAudioManager only needs to be retrieved once.
-                        if (mCarAudioManager == null) {
-                            mCarAudioManager = (CarAudioManager) mCarApi.getCarManager(
-                                    android.car.Car.AUDIO_SERVICE);
-
-                            mRadioAudioAttributes = mCarAudioManager.getAudioAttributesForCarUsage(
-                                    CarAudioManager.CAR_AUDIO_USAGE_RADIO);
-                        }
-                    } catch (CarNotConnectedException e) {
-                        //TODO finish
-                        Log.e(TAG, "Car not connected");
-                    }
-                }
-
-                @Override
-                public void onDisconnected(Car car) {
-                    if (Log.isLoggable(TAG, Log.DEBUG)) {
-                        Log.d(TAG, "Car service disconnected.");
-                    }
-                }
-            };
 
     private IRadioManager.Stub mBinder = new IRadioManager.Stub() {
         /**
@@ -477,24 +258,14 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
          * as a {@link android.hardware.radio.RadioTuner.Callback}.
          */
         @Override
-        public void tune(RadioStation radioStation) {
-            if (mRadioManager == null || radioStation == null
-                    || requestAudioFocus() != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-                return;
-            }
+        public void tune(ProgramSelector sel) {
+            if (!mAudioStreamController.preparePlayback(Optional.empty())) return;
+            mRadioTuner.tune(sel);
+        }
 
-            if (mRadioTuner == null || radioStation.getRadioBand() != mCurrentRadioBand) {
-                int radioStatus = openRadioBandInternal(radioStation.getRadioBand());
-                if (radioStatus == RadioManager.STATUS_ERROR) {
-                    return;
-                }
-            }
-
-            int status = mRadioTuner.tune(radioStation.getChannelNumber(), 0 /* subChannel */);
-
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "Tuning to station: " + radioStation + "\n\tstatus: " + status);
-            }
+        @Override
+        public List<ProgramInfo> getProgramList() {
+            return mRadioTuner.getDynamicProgramList(null).toList();
         }
 
         /**
@@ -503,13 +274,10 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
          */
         @Override
         public void seekForward() {
-            if (mRadioManager == null
-                    || requestAudioFocus() != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-                return;
-            }
+            if (!mAudioStreamController.preparePlayback(Optional.of(true))) return;
 
             if (mRadioTuner == null) {
-                int radioStatus = openRadioBandInternal(mCurrentRadioBand);
+                int radioStatus = openRadioBandInternal(mRadioStorage.getStoredRadioBand());
                 if (radioStatus == RadioManager.STATUS_ERROR) {
                     return;
                 }
@@ -524,13 +292,10 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
          */
         @Override
         public void seekBackward() {
-            if (mRadioManager == null
-                    || requestAudioFocus() != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-                return;
-            }
+            if (!mAudioStreamController.preparePlayback(Optional.of(false))) return;
 
             if (mRadioTuner == null) {
-                int radioStatus = openRadioBandInternal(mCurrentRadioBand);
+                int radioStatus = openRadioBandInternal(mRadioStorage.getStoredRadioBand());
                 if (radioStatus == RadioManager.STATUS_ERROR) {
                     return;
                 }
@@ -546,51 +311,7 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
          */
         @Override
         public boolean mute() {
-            if (mRadioManager == null) {
-                return false;
-            }
-
-            if (mCarAudioManager == null) {
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "mute() called, but not connected to CarAudioManager");
-                }
-                return false;
-            }
-
-            // If the radio does not currently have focus, then no need to do anything because the
-            // radio won't be playing any sound.
-            if (!mHasAudioFocus) {
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "mute() called, but radio does not currently have audio focus; "
-                            + "ignoring.");
-                }
-                return false;
-            }
-
-            boolean muteSuccessful = false;
-
-            try {
-                muteSuccessful = mCarAudioManager.setMediaMute(true);
-
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "setMediaMute(true) status: " + muteSuccessful);
-                }
-            } catch (CarNotConnectedException e) {
-                Log.e(TAG, "mute() failed: " + e.getMessage());
-                e.printStackTrace();
-            }
-
-            if (muteSuccessful && mRadioTunerCallbacks.size() > 0) {
-                for (IRadioCallback callback : mRadioTunerCallbacks) {
-                    try {
-                        callback.onRadioMuteChanged(true);
-                    } catch (RemoteException e) {
-                        Log.e(TAG, "mute() notify failed: " + e.getMessage());
-                    }
-                }
-            }
-
-            return muteSuccessful;
+            return mAudioStreamController.requestMuted(true);
         }
 
         /**
@@ -600,19 +321,7 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
          */
         @Override
         public boolean unMute() {
-            if (mRadioManager == null) {
-                return false;
-            }
-
-            if (mCarAudioManager == null) {
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "toggleMute() called, but not connected to CarAudioManager");
-                }
-                return false;
-            }
-
-            // Requesting audio focus will automatically un-mute the radio if it had been muted.
-            return requestAudioFocus() == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+            return mAudioStreamController.requestMuted(false);
         }
 
         /**
@@ -620,52 +329,22 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
          */
         @Override
         public boolean isMuted() {
-            if (!mHasAudioFocus) {
-                return true;
-            }
-
-            if (mRadioManager == null) {
-                return true;
-            }
-
-            if (mCarAudioManager == null) {
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "isMuted() called, but not connected to CarAudioManager");
-                }
-                return true;
-            }
-
-            boolean isMuted = false;
-
-            try {
-                isMuted = mCarAudioManager.isMediaMuted();
-            } catch (CarNotConnectedException e) {
-                Log.e(TAG, "isMuted() failed: " + e.getMessage());
-                e.printStackTrace();
-            }
-
-            return isMuted;
+            return mAudioStreamController.isMuted();
         }
 
-        /**
-         * Opens the radio for the given band.
-         *
-         * @param radioBand One of {@link RadioManager#BAND_FM}, {@link RadioManager#BAND_AM},
-         *                  {@link RadioManager#BAND_FM_HD} or {@link RadioManager#BAND_AM_HD}.
-         * @return {@link RadioManager#STATUS_OK} if successful; otherwise,
-         * {@link RadioManager#STATUS_ERROR}.
-         */
         @Override
-        public int openRadioBand(int radioBand) {
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "openRadioBand() for band: " + radioBand);
-            }
+        public void addFavorite(Program program) {
+            mRadioStorage.storePreset(program);
+        }
 
-            if (mRadioManager == null) {
-                return RadioManager.STATUS_ERROR;
-            }
+        @Override
+        public void removeFavorite(ProgramSelector sel) {
+            mRadioStorage.removePreset(sel);
+        }
 
-            return openRadioBandInternal(radioBand);
+        @Override
+        public void switchBand(int radioBand) {
+            tuneToDefault(radioBand);
         }
 
         /**
@@ -694,13 +373,9 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
             mRadioTunerCallbacks.remove(callback);
         }
 
-        /**
-         * Returns a {@link RadioStation} that encapsulates the information about the current
-         * station the radio is tuned to.
-         */
         @Override
-        public RadioStation getCurrentRadioStation() {
-            return createCurrentRadioStation();
+        public ProgramInfo getCurrentProgramInfo() {
+            return mCurrentProgram;
         }
 
         /**
@@ -721,15 +396,6 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
         public boolean hasFocus() {
             return mHasAudioFocus;
         }
-
-        /**
-         * Returns {@code true} if the current radio module has dual tuners, meaning that a tuner
-         * is available to scan for stations in the background.
-         */
-        @Override
-        public boolean hasDualTuners() {
-            return mModules.size() >= 2;
-        }
     };
 
     /**
@@ -738,78 +404,22 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
      */
     private class InternalRadioCallback extends RadioTuner.Callback {
         @Override
-        public void onProgramInfoChanged(RadioManager.ProgramInfo info) {
+        public void onProgramInfoChanged(ProgramInfo info) {
             if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "onProgramInfoChanged(); info: " + info);
+                Log.d(TAG, "Program info changed: " + info);
             }
 
-            clearMetadata();
+            mCurrentProgram = Objects.requireNonNull(info);
+            mMediaSession.notifyProgramInfoChanged(info);
+            mAudioStreamController.notifyProgramInfoChanged();
+            mRadioStorage.storeRadioChannel(info.getSelector());
 
-            if (info != null) {
-                mCurrentRadioChannel = info.getChannel();
-
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "onProgramInfoChanged(); info channel: " + mCurrentRadioChannel);
+            for (IRadioCallback callback : mRadioTunerCallbacks) {
+                try {
+                    callback.onCurrentProgramInfoChanged(info);
+                } catch (RemoteException e) {
+                    Log.e(TAG, "Failed to notify about changed radio station", e);
                 }
-            }
-
-            RadioStation station = createCurrentRadioStation();
-
-            try {
-                for (IRadioCallback callback : mRadioTunerCallbacks) {
-                    callback.onRadioStationChanged(station);
-                }
-            } catch (RemoteException e) {
-                Log.e(TAG, "onProgramInfoChanged(); "
-                        + "Failed to notify IRadioCallbacks: " + e.getMessage());
-            }
-        }
-
-        @Override
-        public void onMetadataChanged(RadioMetadata metadata) {
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "onMetadataChanged(); metadata: " + metadata);
-            }
-
-            clearMetadata();
-            updateMetadata(metadata);
-
-            RadioRds radioRds = createCurrentRadioRds();
-
-            try {
-                for (IRadioCallback callback : mRadioTunerCallbacks) {
-                    callback.onRadioMetadataChanged(radioRds);
-                }
-            } catch (RemoteException e) {
-                Log.e(TAG, "onMetadataChanged(); "
-                        + "Failed to notify IRadioCallbacks: " + e.getMessage());
-            }
-        }
-
-        @Override
-        public void onConfigurationChanged(RadioManager.BandConfig config) {
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "onConfigurationChanged(): config: " + config);
-            }
-
-            clearMetadata();
-
-            if (config != null) {
-                mCurrentRadioBand = config.getType();
-
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "onConfigurationChanged(): config type: " + mCurrentRadioBand);
-                }
-
-            }
-
-            try {
-                for (IRadioCallback callback : mRadioTunerCallbacks) {
-                    callback.onRadioBandChanged(mCurrentRadioBand);
-                }
-            } catch (RemoteException e) {
-                Log.e(TAG, "onConfigurationChanged(); "
-                        + "Failed to notify IRadioCallbacks: " + e.getMessage());
             }
         }
 
@@ -821,10 +431,7 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
             // re-opening of the radio tuner.
             if (status == RadioTuner.ERROR_HARDWARE_FAILURE
                     || status == RadioTuner.ERROR_SERVER_DIED) {
-                if (mRadioTuner != null) {
-                    mRadioTuner.close();
-                    mRadioTuner = null;
-                }
+                close();
 
                 // Attempt to re-open the RadioTuner. Each time the radio tuner fails to open, the
                 // mReOpenRadioTunerCount will be incremented.
@@ -854,38 +461,41 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
             }
 
             if (mRadioTuner == null) {
-                openRadioBandInternal(mCurrentRadioBand);
-            }
-        }
-
-        /**
-         * Sets all metadata fields to {@code null}.
-         */
-        private void clearMetadata() {
-            mCurrentChannelInfo = null;
-            mCurrentArtist = null;
-            mCurrentSongTitle = null;
-        }
-
-        /**
-         * Retrieves the relevant information off the given {@link RadioMetadata} object and
-         * sets them correspondingly on {@link #mCurrentChannelInfo}, {@link #mCurrentArtist}
-         * and {@link #mCurrentSongTitle}.
-         */
-        private void updateMetadata(RadioMetadata metadata) {
-            if (metadata != null) {
-                mCurrentChannelInfo = metadata.getString(RadioMetadata.METADATA_KEY_RDS_PS);
-                mCurrentArtist = metadata.getString(RadioMetadata.METADATA_KEY_ARTIST);
-                mCurrentSongTitle = metadata.getString(RadioMetadata.METADATA_KEY_TITLE);
-
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, String.format("updateMetadata(): [channel info: %s, artist: %s, "
-                            + "song title: %s]", mCurrentChannelInfo, mCurrentArtist,
-                            mCurrentSongTitle));
-                }
+                openRadioBandInternal(mRadioStorage.getStoredRadioBand());
             }
         }
     }
 
-    private final Runnable mOpenRadioTunerRunnable = () -> openRadioBandInternal(mCurrentRadioBand);
+    private final Runnable mOpenRadioTunerRunnable =
+            () -> openRadioBandInternal(mRadioStorage.getStoredRadioBand());
+
+    @Override
+    public BrowserRoot onGetRoot(String clientPackageName, int clientUid, Bundle rootHints) {
+        /* Radio application may restrict who can read its MediaBrowser tree.
+         * Our implementation doesn't.
+         */
+        return mBrowseTree.getRoot();
+    }
+
+    @Override
+    public void onLoadChildren(final String parentMediaId, final Result<List<MediaItem>> result) {
+        mBrowseTree.loadChildren(parentMediaId, result);
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (BrowseTree.ACTION_PLAY_BROADCASTRADIO.equals(intent.getAction())) {
+            Log.i(TAG, "Executing general play radio intent");
+            mMediaSession.getController().getTransportControls().playFromMediaId(
+                    mBrowseTree.getRoot().getRootId(), null);
+            return START_NOT_STICKY;
+        }
+
+        return super.onStartCommand(intent, flags, startId);
+    }
+
+    @Override
+    public IBinder asBinder() {
+        throw new UnsupportedOperationException("Not a binder");
+    }
 }

@@ -65,14 +65,7 @@ EFI_STATUS
 EFIAPI
 VirtioMmioGetDeviceFeatures (
   IN VIRTIO_DEVICE_PROTOCOL *This,
-  OUT UINT32                *DeviceFeatures
-  );
-
-EFI_STATUS
-EFIAPI
-VirtioMmioGetQueueAddress (
-  IN  VIRTIO_DEVICE_PROTOCOL *This,
-  OUT UINT32                 *QueueAddress
+  OUT UINT64                *DeviceFeatures
   );
 
 EFI_STATUS
@@ -119,8 +112,8 @@ VirtioMmioSetQueueSel (
 
 EFI_STATUS
 VirtioMmioSetQueueAddress (
-  VIRTIO_DEVICE_PROTOCOL *This,
-  UINT32                  Address
+  IN VIRTIO_DEVICE_PROTOCOL  *This,
+  IN VRING                   *Ring
   );
 
 EFI_STATUS
@@ -141,7 +134,7 @@ EFI_STATUS
 EFIAPI
 VirtioMmioSetGuestFeatures (
   VIRTIO_DEVICE_PROTOCOL *This,
-  UINT32                  Features
+  UINT64                  Features
   );
 
 #endif // _VIRTIO_MMIO_DEVICE_INTERNAL_H_

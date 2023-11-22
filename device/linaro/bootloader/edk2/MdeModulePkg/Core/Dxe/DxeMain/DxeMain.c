@@ -1,7 +1,7 @@
 /** @file
   DXE Core Main Entry Point
 
-Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -207,6 +207,7 @@ EFI_SYSTEM_TABLE      *gDxeCoreST = NULL;
 EFI_RUNTIME_SERVICES  *gDxeCoreRT = &mEfiRuntimeServicesTableTemplate;
 EFI_HANDLE            gDxeCoreImageHandle = NULL;
 
+BOOLEAN               gMemoryMapTerminated = FALSE;
 
 //
 // EFI Decompress Protocol
@@ -247,6 +248,7 @@ DxeMain (
   EFI_HOB_GUID_TYPE             *GuidHob;
   EFI_VECTOR_HANDOFF_INFO       *VectorInfoList;
   EFI_VECTOR_HANDOFF_INFO       *VectorInfo;
+  VOID                          *EntryPoint;
 
   //
   // Setup the default exception handlers
@@ -290,14 +292,6 @@ DxeMain (
   ASSERT_EFI_ERROR (Status);
 
   //
-  // Report DXE Core image information to the PE/COFF Extra Action Library
-  //
-  ZeroMem (&ImageContext, sizeof (ImageContext));
-  ImageContext.ImageAddress = (EFI_PHYSICAL_ADDRESS)(UINTN)gDxeCoreLoadedImage->ImageBase;
-  ImageContext.PdbPointer   = PeCoffLoaderGetPdbPointer ((VOID*) (UINTN) ImageContext.ImageAddress);
-  PeCoffLoaderRelocateImageExtraAction (&ImageContext);
-
-  //
   // Initialize the Global Coherency Domain Services
   //
   Status = CoreInitializeGcdServices (&HobStart, MemoryBaseAddress, MemoryLength);
@@ -309,6 +303,21 @@ DxeMain (
   ProcessLibraryConstructorList (gDxeCoreImageHandle, gDxeCoreST);
   PERF_END   (NULL,"PEI", NULL, 0) ;
   PERF_START (NULL,"DXE", NULL, 0) ;
+
+  //
+  // Report DXE Core image information to the PE/COFF Extra Action Library
+  //
+  ZeroMem (&ImageContext, sizeof (ImageContext));
+  ImageContext.ImageAddress   = (EFI_PHYSICAL_ADDRESS)(UINTN)gDxeCoreLoadedImage->ImageBase;
+  ImageContext.PdbPointer     = PeCoffLoaderGetPdbPointer ((VOID*)(UINTN)ImageContext.ImageAddress);
+  ImageContext.SizeOfHeaders  = PeCoffGetSizeOfHeaders ((VOID*)(UINTN)ImageContext.ImageAddress);
+  Status = PeCoffLoaderGetEntryPoint ((VOID*)(UINTN)ImageContext.ImageAddress, &EntryPoint);
+  if (Status == EFI_SUCCESS) {
+    ImageContext.EntryPoint = (EFI_PHYSICAL_ADDRESS)(UINTN)EntryPoint;
+  }
+  ImageContext.Handle         = (VOID *)(UINTN)gDxeCoreLoadedImage->ImageBase;
+  ImageContext.ImageRead      = PeCoffLoaderImageReadFromMemory;
+  PeCoffLoaderRelocateImageExtraAction (&ImageContext);
 
   //
   // Install the DXE Services Table into the EFI System Tables's Configuration Table
@@ -388,6 +397,7 @@ DxeMain (
   MemoryProfileInstallProtocol ();
 
   CoreInitializePropertiesTable ();
+  CoreInitializeMemoryAttributesTable ();
 
   //
   // Get persisted vector hand-off info from GUIDeed HOB again due to HobStart may be updated,
@@ -514,6 +524,8 @@ DxeMain (
   //
   ASSERT (FALSE);
   CpuDeadLoop ();
+
+  UNREACHABLE ();
 }
 
 
@@ -743,6 +755,8 @@ CoreExitBootServices (
     CoreNotifySignalList (&gEventExitBootServicesFailedGuid);
     return Status;
   }
+
+  gMemoryMapTerminated = TRUE;
 
   //
   // Notify other drivers that we are exiting boot services.

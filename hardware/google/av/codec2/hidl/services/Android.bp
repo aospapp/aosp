@@ -1,0 +1,98 @@
+cc_binary {
+    name: "hardware.google.media.c2@1.0-service",
+    defaults: ["hidl_defaults"],
+    soc_specific: true,
+    relative_install_path: "hw",
+    srcs: [
+        "vendor.cpp",
+    ],
+
+    init_rc: ["hardware.google.media.c2@1.0-service.rc"],
+
+    shared_libs: [
+        "android.hardware.media.omx@1.0",
+        "hardware.google.media.c2@1.0",
+        "libavservices_minijail_vendor",
+        "libbinder",
+        "libcodec2_hidl_utils@1.0",
+        "libcutils",
+        "libhidlbase",
+        "libhidltransport",
+        "libhwbinder",
+        "liblog",
+        "libstagefright_codec2_vndk",
+        "libstagefright_omx",
+        "libstagefright_xmlparser",
+        "libutils",
+        "libv4l2_c2componentstore",
+    ],
+
+    arch: {
+        arm: {
+            required: ["codec2.vendor.base.policy"],
+        },
+        x86: {
+            required: ["codec2.vendor.base.policy"],
+        },
+    },
+
+    compile_multilib: "32",
+}
+
+cc_library_shared {
+    name: "libmedia_codecserviceregistrant",
+    soc_specific: true,
+    srcs: [
+        "C2SoftwareCodecServiceRegistrant.cpp",
+    ],
+
+    header_libs: [
+        "libmedia_headers",
+    ],
+
+    shared_libs: [
+        "android.hardware.media.omx@1.0",
+        "hardware.google.media.c2@1.0",
+        "liblog",
+        "libcodec2_hidl_utils@1.0",
+        "libstagefright_codec2_vndk",
+        "libstagefright_omx",
+        "libstagefright_xmlparser",
+        "libutils",
+    ],
+
+    // Codecs
+    required: [
+        "libstagefright_soft_c2avcdec.vendor",
+        "libstagefright_soft_c2avcenc.vendor",
+        "libstagefright_soft_c2aacdec.vendor",
+        "libstagefright_soft_c2aacenc.vendor",
+        "libstagefright_soft_c2amrnbdec.vendor",
+        "libstagefright_soft_c2amrnbenc.vendor",
+        "libstagefright_soft_c2amrwbdec.vendor",
+        "libstagefright_soft_c2amrwbenc.vendor",
+        "libstagefright_soft_c2hevcdec.vendor",
+        "libstagefright_soft_c2g711alawdec.vendor",
+        "libstagefright_soft_c2g711mlawdec.vendor",
+        "libstagefright_soft_c2mpeg2dec.vendor",
+        "libstagefright_soft_c2h263dec.vendor",
+        "libstagefright_soft_c2h263enc.vendor",
+        "libstagefright_soft_c2mpeg4dec.vendor",
+        "libstagefright_soft_c2mpeg4enc.vendor",
+        "libstagefright_soft_c2mp3dec.vendor",
+        "libstagefright_soft_c2vorbisdec.vendor",
+        "libstagefright_soft_c2opusdec.vendor",
+        "libstagefright_soft_c2vp8dec.vendor",
+        "libstagefright_soft_c2vp9dec.vendor",
+        "libstagefright_soft_c2vp8enc.vendor",
+        "libstagefright_soft_c2vp9enc.vendor",
+        "libstagefright_soft_c2rawdec.vendor",
+        "libstagefright_soft_c2flacdec.vendor",
+        "libstagefright_soft_c2flacenc.vendor",
+        "libstagefright_soft_c2gsmdec.vendor",
+        "libstagefright_soft_c2xaacdec.vendor",
+    ],
+
+    compile_multilib: "32",
+}
+

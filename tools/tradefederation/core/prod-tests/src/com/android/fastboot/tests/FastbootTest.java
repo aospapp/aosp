@@ -15,9 +15,7 @@
  */
 package com.android.fastboot.tests;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.build.VersionedFile;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionSetter;
@@ -27,7 +25,9 @@ import com.android.tradefed.device.IManagedTestDevice;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.ITestDevice.RecoveryMode;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.DeviceFlashPreparer;
 import com.android.tradefed.targetprep.IDeviceFlasher.UserDataFlashOption;
@@ -36,16 +36,13 @@ import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import java.io.File;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Flashes the device as part of the test, report device post-flash status as test results.
@@ -119,8 +116,8 @@ public class FastbootTest implements IRemoteTest, IDeviceTest, IBuildReceiver {
         } finally {
             // reset fastboot path
             ((IManagedTestDevice)mDevice).setFastbootPath(originalFastbootpath);
-            listener.testRunEnded(System.currentTimeMillis() - start,
-                    Collections.<String, String> emptyMap());
+            listener.testRunEnded(
+                    System.currentTimeMillis() - start, new HashMap<String, Metric>());
         }
     }
 
@@ -130,9 +127,10 @@ public class FastbootTest implements IRemoteTest, IDeviceTest, IBuildReceiver {
      * @throws DeviceNotAvailableException
      */
     private void testFastboot(ITestInvocationListener listener) throws DeviceNotAvailableException {
-        Map<String, String> result = new HashMap<>();
-        TestIdentifier firstBootTestId = new TestIdentifier(
-                String.format("%s.%s", FASTBOOT_TEST, FASTBOOT_TEST), FASTBOOT_TEST);
+        HashMap<String, Metric> result = new HashMap<>();
+        TestDescription firstBootTestId =
+                new TestDescription(
+                        String.format("%s.%s", FASTBOOT_TEST, FASTBOOT_TEST), FASTBOOT_TEST);
         listener.testStarted(firstBootTestId);
         DeviceFlashPreparer flasher = loadFlashPreparerClass();
         long bootStart = INVALID_TIME_DURATION;
@@ -243,10 +241,13 @@ public class FastbootTest implements IRemoteTest, IDeviceTest, IBuildReceiver {
         } finally {
             CLog.d("Device online time: %dms, initial boot time: %dms", onlineTime, bootTime);
             if (onlineTime != INVALID_TIME_DURATION) {
-                result.put(ONLINE_TIME, Long.toString(onlineTime));
+                result.put(
+                        ONLINE_TIME, TfMetricProtoUtil.stringToMetric(Long.toString(onlineTime)));
             }
             if (bootTime != INVALID_TIME_DURATION) {
-                result.put(INITIAL_BOOT_TIME, Long.toString(bootTime));
+                result.put(
+                        INITIAL_BOOT_TIME,
+                        TfMetricProtoUtil.stringToMetric(Long.toString(bootTime)));
             }
             listener.testEnded(firstBootTestId, result);
         }
@@ -277,14 +278,11 @@ public class FastbootTest implements IRemoteTest, IDeviceTest, IBuildReceiver {
      * Helper to find the fastboot file as part of the buildinfo file list.
      */
     private File getFastbootFile(IBuildInfo buildInfo) {
-        Pattern fastbootPattern = Pattern.compile("fastboot.*");
-        for (VersionedFile f : buildInfo.getFiles()) {
-            Matcher matcher = fastbootPattern.matcher(f.getFile().getName());
-            if (matcher.find()) {
-                FileUtil.chmodGroupRWX(f.getFile());
-                return f.getFile();
-            }
+        File fastboot = buildInfo.getFile("fastboot");
+        if (fastboot == null) {
+            return null;
         }
-        return null;
+        FileUtil.chmodGroupRWX(fastboot);
+        return fastboot;
     }
 }

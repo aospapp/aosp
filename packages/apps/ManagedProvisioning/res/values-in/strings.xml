@@ -36,7 +36,7 @@
     <string name="cancel_setup" msgid="2949928239276274745">"Batal"</string>
     <string name="ok_setup" msgid="4593707675416137504">"Oke"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"Saya setuju"</string>
-    <string name="url_error" msgid="5958494012986243186">"Tautan tak bisa ditampilkan."</string>
+    <string name="url_error" msgid="5958494012986243186">"Link tak bisa ditampilkan."</string>
     <string name="terms" msgid="8295436105384703903">"Persyaratan"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Info profil kerja"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Info perangkat yang dikelola"</string>
@@ -53,7 +53,7 @@
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"Enkripsikan perangkat ini?"</string>
     <string name="encrypt" msgid="1749320161747489212">"Enkripsikan"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"Enkripsi selesai"</string>
-    <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Ketuk untuk melanjutkan penyiapan profil kerja"</string>
+    <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Tap untuk melanjutkan penyiapan profil kerja"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Tidak dapat menyiapkan profil kerja Anda. Hubungi departemen TI atau coba lagi nanti."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Tidak dapat menambahkan profil kerja"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Tidak dapat menggantikan atau menghapus profil kerja"</string>
@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"Menyiapkan perangkat kerja…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Memproses data penyiapan..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Menyambungkan ke Wi-Fi..."</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Menghubungkan ke jaringan seluler…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Mendownload aplikasi admin..."</string>
     <string name="progress_install" msgid="2258045670385866183">"Memasang aplikasi admin..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Menghapus aplikasi sistem yang tidak diperlukan..."</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Anda akan membuat profil kerja yang dikelola dan dipantau oleh organisasi Anda. Persyaratan dari <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> akan berlaku."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"Profil akan dibuat untuk aplikasi kerja. Profil ini dan perangkat Anda akan dikelola serta dipantau oleh organisasi. Persyaratan berlaku."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"Profil akan dibuat untuk aplikasi kerja. Profil ini dan perangkat Anda akan dikelola serta dipantau oleh organisasi. Persyaratan dari <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> akan berlaku."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"Perangkat akan dikelola dan dijaga keamanannya oleh <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Persyaratan berlaku. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"Perangkat ini akan dikelola dan dijaga keamanannya oleh <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Persyaratan dari <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> akan berlaku. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"Perangkat ini akan dikelola, dipantau, dan dijaga keamanannya oleh <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Persyaratan berlaku. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Perangkat ini akan dikelola, dipantau, dan dijaga keamanannya oleh <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Persyaratan dari <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> akan berlaku. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Link ini tidak aman dan tidak dapat dibuka sampai penyiapan perangkat selesai: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"Jika ada pertanyaan, hubungi <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"Jika ada pertanyaan, hubungi admin organisasi Anda"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>, dan <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"Proses ini mungkin perlu beberapa menit"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"Aplikasi kerja Anda akan disimpan di profil ini dan dikelola oleh organisasi"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"Perangkat ini akan dijaga agar tetap aman dan dikelola oleh organisasi Anda"</string>
 </resources>

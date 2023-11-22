@@ -25,6 +25,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertThrows;
 
+import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.CharSequenceTransformation;
 import android.service.autofill.ValueFinder;
 import android.support.test.runner.AndroidJUnit4;
@@ -33,11 +34,11 @@ import android.widget.RemoteViews;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentMatcher;
 
 import java.util.regex.Pattern;
 
 @RunWith(AndroidJUnit4.class)
+@AppModeFull // Unit test
 public class CharSequenceTransformationTest {
 
     @Test
@@ -221,16 +222,26 @@ public class CharSequenceTransformationTest {
         verify(template, never()).setCharSequence(eq(0), any(), any());
     }
 
-    static class CharSequenceMatcher implements ArgumentMatcher<CharSequence> {
-        private final CharSequence mExpected;
+    @Test
+    public void testFieldsAreAppliedInOrder() throws Exception {
+        AutofillId id1 = new AutofillId(1);
+        AutofillId id2 = new AutofillId(2);
+        AutofillId id3 = new AutofillId(3);
+        CharSequenceTransformation trans = new CharSequenceTransformation
+                .Builder(id1, Pattern.compile("a"), "A")
+                .addField(id3, Pattern.compile("c"), "C")
+                .addField(id2, Pattern.compile("b"), "B")
+                .build();
 
-        public CharSequenceMatcher(CharSequence expected) {
-            mExpected = expected;
-        }
+        ValueFinder finder = mock(ValueFinder.class);
+        RemoteViews template = mock(RemoteViews.class);
 
-        @Override
-        public boolean matches(CharSequence actual) {
-            return actual.toString().equals(mExpected.toString());
-        }
+        when(finder.findByAutofillId(id1)).thenReturn("a");
+        when(finder.findByAutofillId(id2)).thenReturn("b");
+        when(finder.findByAutofillId(id3)).thenReturn("c");
+
+        trans.apply(finder, template, 0);
+
+        verify(template).setCharSequence(eq(0), any(), argThat(new CharSequenceMatcher("ACB")));
     }
 }

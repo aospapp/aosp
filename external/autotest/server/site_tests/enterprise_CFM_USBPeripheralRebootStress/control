@@ -33,10 +33,12 @@ args_dict = utils.args_to_dict(args)
 servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 
 def run_test(machine):
-    repeat = int(args_dict.get('repeat', 100))
+    repeat = int(args_dict.get('repeat', 30))
     hangout = args_dict.get('hangout', 'cfm-usb-test')
     host = hosts.create_host(machine, servo_args=servo_args)
     job.run_test('enterprise_CFM_USBPeripheralRebootStress',
-                 host=host, hangout=hangout, repeat=repeat)
+                 host=host,
+                 hangout=hangout,
+                 reboot_cycles=repeat)
 
 parallel_simple(run_test, machines)

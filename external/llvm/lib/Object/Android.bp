@@ -4,4 +4,7 @@ cc_library_static {
         "llvm-lib-defaults",
     ],
     srcs: ["*.cpp"],
+    cflags: [
+        "-Wno-unused-private-field",
+    ],
 }

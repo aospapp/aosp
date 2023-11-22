@@ -4,16 +4,15 @@
 
 import logging, threading, time
 
-from autotest_lib.client.cros.crash.crash_test import CrashTest
+from autotest_lib.client.common_lib.cros import crash_detector
 from autotest_lib.server import autotest, test
 from autotest_lib.client.common_lib import error
 
 _WAIT_DELAY = 15
 _LONG_TIMEOUT = 200
+_LOWER_USB_PORT = 'usb_mux_sel3'
 _SUSPEND_TIME = 30
-_CRASH_PATHS = [CrashTest._SYSTEM_CRASH_DIR.replace("/crash",""),
-                CrashTest._FALLBACK_USER_CRASH_DIR.replace("/crash",""),
-                CrashTest._USER_CRASH_DIRS.replace("/crash","")]
+_UPPER_USB_PORT = 'usb_mux_sel1'
 
 class platform_ExternalUsbPeripherals(test.test):
     """Uses servo to repeatedly connect/remove USB devices during boot."""
@@ -38,22 +37,20 @@ class platform_ExternalUsbPeripherals(test.test):
                 unnamed_device_count += 1
             else:
                 name = ' '.join(columns[6:]).strip()
-            #Avoid servo components
-            if not name.startswith('Standard Microsystems Corp'):
-                plugged_list.append(name)
+            plugged_list.append(name)
         return plugged_list
 
 
-    def set_hub_power(self, on=True):
-        """Setting USB hub power status
+    def plug_peripherals(self, on=True):
+        """Setting USB mux_3 plug status
 
-        @param on: To power on the servo-usb hub or not
+        @param on: Connect the servo-usb port to DUT(plug) or to servo(unplug)
 
         """
-        reset = 'off'
+        switch = 'dut_sees_usbkey'
         if not on:
-            reset = 'on'
-        self.host.servo.set('dut_hub1_rst1', reset)
+            switch = 'servo_sees_usbkey'
+        self.host.servo.set(self.plug_port, switch)
         self.pluged_status = on
 
 
@@ -144,27 +141,16 @@ class platform_ExternalUsbPeripherals(test.test):
         self.host.test_wait_for_resume(boot_id, _LONG_TIMEOUT)
         self.suspend_status = False
 
-
-    def crash_not_detected(self, crash_path):
-        """Check for kernel, browser, process crashes
-
-        @param crash_path: Crash files path
+    def crash_not_detected(self):
+        """Finds new crash files and adds to failures list if any
 
         @returns True if there were not crashes; False otherwise
         """
-        result = True
-        if str(self.host.run('ls %s' % crash_path,
-                              ignore_status=True)).find('crash') != -1:
-            crash_out = self.host.run('ls %s/crash/' % crash_path,
-                                      ignore_status=True).stdout
-            crash_files = crash_out.strip().split('\n')
-            for crash_file in crash_files:
-                if crash_file.find('.meta') != -1 and \
-                    crash_file.find('kernel_warning') == -1:
-                    self.add_failure('CRASH DETECTED in %s/crash: %s' %
-                                     (crash_path, crash_file))
-                    result = False
-        return result
+        crash_files = self.detect_crash.get_new_crash_files()
+        if crash_files:
+            self.add_failure('CRASH DETECTED: %s' % str(crash_files))
+            return False
+        return True
 
 
     def check_plugged_usb_devices(self):
@@ -232,20 +218,11 @@ class platform_ExternalUsbPeripherals(test.test):
             result = self.check_plugged_usb_devices()
             # Check for crash files
             if self.crash_check:
-                for crash_path in _CRASH_PATHS:
-                    result = result and self.crash_not_detected(crash_path)
+                result = result and self.crash_not_detected()
             if self.pluged_status and (self.usb_checks != None):
                 # Check for plugged USB devices details
                 result = result and self.check_usb_peripherals_details()
         return result
-
-
-    def remove_crash_data(self):
-        """Delete crash meta files if present"""
-        for crash_path in _CRASH_PATHS:
-            if not self.crash_not_detected(crash_path):
-                self.host.run('rm -rf %s/crash' % crash_path,
-                              ignore_status=True)
 
 
     def add_failure(self, reason):
@@ -259,11 +236,58 @@ class platform_ExternalUsbPeripherals(test.test):
                                      (self.action_step, reason))
 
 
+    def check_connected_peripherals(self):
+        """ Verifies there are connected usb devices on servo
+
+        @raise error.TestError: if no peripherals are shown
+        """
+
+        # Collect USB peripherals when unplugged
+        self.plug_peripherals(False)
+        time.sleep(_WAIT_DELAY)
+        off_list = self.getPluggedUsbDevices()
+
+        # Collect USB peripherals when plugged
+        self.plug_peripherals(True)
+        time.sleep(_WAIT_DELAY * 2)
+        on_list = self.getPluggedUsbDevices()
+
+        self.diff_list = set(on_list).difference(set(off_list))
+        if len(self.diff_list) == 0:
+            # Fail if no devices detected after
+            raise error.TestError('No connected devices were detected. Make '
+                                  'sure the devices are connected to USB_KEY '
+                                  'and DUT_HUB1_USB on the servo board.')
+        logging.debug('Connected devices list: %s', self.diff_list)
+
+
+    def prep_servo_for_test(self, stress_rack):
+        """Connects servo to DUT  and sets servo ports
+
+        @param stress_rack: either to prep servo for stress tests, where
+        usb_mux_1 port should be on. For usb peripherals on usb_mux_3,
+        the port is on, and the oe2,oe4 poers are off.
+
+        @returns port as string to plug/unplug the specific port
+        """
+        port = _LOWER_USB_PORT
+        self.host.servo.switch_usbkey('dut')
+        self.host.servo.set('dut_hub1_rst1','off')
+        if stress_rack:
+            port = _UPPER_USB_PORT
+            self.host.servo.set(port, 'dut_sees_usbkey')
+        else:
+            self.host.servo.set(_UPPER_USB_PORT, 'servo_sees_usbkey')
+            self.host.servo.set('usb_mux_oe2', 'off')
+            self.host.servo.set('usb_mux_oe4', 'off')
+        time.sleep(_WAIT_DELAY)
+        return port
+
 
     def cleanup(self):
         """Disconnect servo hub"""
-        self.set_hub_power(False)
-        self.host.servo.set('usb_mux_sel3', 'servo_sees_usbkey')
+        self.plug_peripherals(False)
+        self.host.servo.set('dut_hub1_rst1','on')
         self.host.reboot()
 
 
@@ -282,40 +306,20 @@ class platform_ExternalUsbPeripherals(test.test):
         self.fail_reasons = list()
         self.action_step = None
 
-        self.host.servo.switch_usbkey('dut')
-        self.set_hub_power(False)
-        if (stress_rack):
-            self.host.servo.set('usb_mux_sel1', 'dut_sees_usbkey')
-        else:
-            self.host.servo.set('usb_mux_sel1', 'servo_sees_usbkey')
-            self.host.servo.set('usb_mux_oe2', 'off')
-            self.host.servo.set('usb_mux_oe4', 'off')
-        self.host.servo.set('usb_mux_sel3', 'dut_sees_usbkey')
-        time.sleep(_WAIT_DELAY)
+        self.plug_port = self.prep_servo_for_test(stress_rack)
 
-        # Collect USB peripherals when unplugged
-        self.set_hub_power(False)
-        time.sleep(_WAIT_DELAY)
-        off_list = self.getPluggedUsbDevices()
+        # Unplug, plug, compare usb peripherals, and leave plugged.
+        self.check_connected_peripherals()
 
-        # Collect USB peripherals when plugged
-        self.set_hub_power(True)
-        time.sleep(_WAIT_DELAY * 2)
-        on_list = self.getPluggedUsbDevices()
-
-        self.diff_list = set(on_list).difference(set(off_list))
-        if len(self.diff_list) == 0:
-            # Fail if no devices detected after
-            raise error.TestError('No connected devices were detected. Make '
-                                  'sure the devices are connected to USB_KEY '
-                                  'and DUT_HUB1_USB on the servo board.')
-        logging.debug('Connected devices list: %s', self.diff_list)
-
-        board = host.get_board().split(':')[1]
         action_sequence = action_sequence.upper()
         actions = action_sequence.split(',')
         boot_id = 0
-        self.remove_crash_data()
+        self. detect_crash = crash_detector.CrashDetector(self.host)
+        self.detect_crash.remove_crash_files()
+
+        # Run camera client test to gather media_V4L2_test binary.
+        if 'media_v4l2_test' in str(self.usb_checks):
+            self.autotest_client.run_test("camera_V4L2")
 
         for iteration in xrange(1, repeat + 1):
             step = 0
@@ -332,9 +336,9 @@ class platform_ExternalUsbPeripherals(test.test):
                     self.open_lid(boot_id)
                     time.sleep(_WAIT_DELAY)
                 elif action == 'UNPLUG':
-                    self.set_hub_power(False)
+                    self.plug_peripherals(False)
                 elif action == 'PLUG':
-                    self.set_hub_power(True)
+                    self.plug_peripherals(True)
                 elif self.suspend_status == False:
                     if action.startswith('LOGIN'):
                         if self.login_status:
@@ -353,7 +357,6 @@ class platform_ExternalUsbPeripherals(test.test):
                         boot_id = self.close_lid()
                 else:
                     logging.info('WRONG ACTION: %s .', self.action_step)
-
                 self.check_status()
 
             if self.fail_reasons:

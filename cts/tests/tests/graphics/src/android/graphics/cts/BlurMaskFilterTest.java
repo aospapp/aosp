@@ -35,6 +35,7 @@ import org.junit.runner.RunWith;
 public class BlurMaskFilterTest {
     private static final int OFFSET = 10;
     private static final int RADIUS = 5;
+    private static final int CHECK_RADIUS = 8;
     private static final int BITMAP_WIDTH = 100;
     private static final int BITMAP_HEIGHT = 100;
     private static final int CENTER = BITMAP_HEIGHT / 2;
@@ -51,13 +52,13 @@ public class BlurMaskFilterTest {
         canvas.drawRect(CENTER - OFFSET, CENTER - OFFSET, CENTER + OFFSET, CENTER + OFFSET, paint);
         for (int x = 0; x < CENTER; x++) {
             for (int y = 0; y < CENTER; y++) {
-                if (x < CENTER - OFFSET - RADIUS || y < CENTER - OFFSET - RADIUS) {
+                if (x < CENTER - OFFSET - CHECK_RADIUS || y < CENTER - OFFSET - CHECK_RADIUS) {
                     // check that color didn't bleed (much) beyond radius
                     verifyQuadrants(Color.TRANSPARENT, b, x, y, 5);
                 } else if (x > CENTER - OFFSET + RADIUS && y > CENTER - OFFSET + RADIUS) {
                     // check that color didn't wash out (much) in the center
-                    verifyQuadrants(Color.RED, b, x, y, 5);
-                } else {
+                    verifyQuadrants(Color.RED, b, x, y, 8);
+                } else if (x > CENTER - OFFSET - RADIUS && y > CENTER - OFFSET - RADIUS) {
                     // check blur zone, color should remain, alpha varies
                     verifyQuadrants(Color.RED, b, x, y, 255);
                 }

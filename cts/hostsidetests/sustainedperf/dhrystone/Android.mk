@@ -9,6 +9,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := dhry
 LOCAL_SRC_FILES := dhry_1.c dhry_2.c
 LOCAL_CFLAGS := -O3 -fno-inline-functions -DMSC_CLOCK -DCLK_TCK=1000000
+LOCAL_CFLAGS += -Wall -Werror -Wno-incompatible-library-redeclaration
 LOCAL_CFLAGS += -Wno-return-type -Wno-implicit-function-declaration -Wno-implicit-int
 # Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both

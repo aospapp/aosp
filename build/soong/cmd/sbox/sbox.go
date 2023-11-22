@@ -15,6 +15,8 @@
 package main
 
 import (
+	"errors"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -24,7 +26,52 @@ import (
 	"strings"
 )
 
+var (
+	sandboxesRoot string
+	rawCommand    string
+	outputRoot    string
+	keepOutDir    bool
+	depfileOut    string
+)
+
+func init() {
+	flag.StringVar(&sandboxesRoot, "sandbox-path", "",
+		"root of temp directory to put the sandbox into")
+	flag.StringVar(&rawCommand, "c", "",
+		"command to run")
+	flag.StringVar(&outputRoot, "output-root", "",
+		"root of directory to copy outputs into")
+	flag.BoolVar(&keepOutDir, "keep-out-dir", false,
+		"whether to keep the sandbox directory when done")
+
+	flag.StringVar(&depfileOut, "depfile-out", "",
+		"file path of the depfile to generate. This value will replace '__SBOX_DEPFILE__' in the command and will be treated as an output but won't be added to __SBOX_OUT_FILES__")
+
+}
+
+func usageViolation(violation string) {
+	if violation != "" {
+		fmt.Fprintf(os.Stderr, "Usage error: %s.\n\n", violation)
+	}
+
+	fmt.Fprintf(os.Stderr,
+		"Usage: sbox -c <commandToRun> --sandbox-path <sandboxPath> --output-root <outputRoot> --overwrite [--depfile-out depFile] <outputFile> [<outputFile>...]\n"+
+			"\n"+
+			"Deletes <outputRoot>,"+
+			"runs <commandToRun>,"+
+			"and moves each <outputFile> out of <sandboxPath> and into <outputRoot>\n")
+
+	flag.PrintDefaults()
+
+	os.Exit(1)
+}
+
 func main() {
+	flag.Usage = func() {
+		usageViolation("")
+	}
+	flag.Parse()
+
 	error := run()
 	if error != nil {
 		fmt.Fprintln(os.Stderr, error)
@@ -32,75 +79,85 @@ func main() {
 	}
 }
 
-var usage = "Usage: sbox -c <commandToRun> --sandbox-path <sandboxPath> --output-root <outputRoot> <outputFile> [<outputFile>...]\n" +
-	"\n" +
-	"Runs <commandToRun> and moves each <outputFile> out of <sandboxPath>\n" +
-	"If any file in <outputFiles> is specified by absolute path, then <outputRoot> must be specified as well,\n" +
-	"to enable sbox to compute the relative path within the sandbox of the specified output files"
-
-func usageError(violation string) error {
-	return fmt.Errorf("Usage error: %s.\n\n%s", violation, usage)
+func findAllFilesUnder(root string) (paths []string) {
+	paths = []string{}
+	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() {
+			relPath, err := filepath.Rel(root, path)
+			if err != nil {
+				// couldn't find relative path from ancestor?
+				panic(err)
+			}
+			paths = append(paths, relPath)
+		}
+		return nil
+	})
+	return paths
 }
 
 func run() error {
-	var outFiles []string
-	args := os.Args[1:]
-
-	var rawCommand string
-	var sandboxesRoot string
-	removeTempDir := true
-	var outputRoot string
-
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if arg == "--sandbox-path" {
-			sandboxesRoot = args[i+1]
-			i++
-		} else if arg == "-c" {
-			rawCommand = args[i+1]
-			i++
-		} else if arg == "--output-root" {
-			outputRoot = args[i+1]
-			i++
-		} else if arg == "--keep-out-dir" {
-			removeTempDir = false
-		} else {
-			outFiles = append(outFiles, arg)
-		}
+	if rawCommand == "" {
+		usageViolation("-c <commandToRun> is required and must be non-empty")
 	}
-	if len(rawCommand) == 0 {
-		return usageError("-c <commandToRun> is required and must be non-empty")
-	}
-	if outFiles == nil {
-		return usageError("at least one output file must be given")
-	}
-	if len(sandboxesRoot) == 0 {
+	if sandboxesRoot == "" {
 		// In practice, the value of sandboxesRoot will mostly likely be at a fixed location relative to OUT_DIR,
 		// and the sbox executable will most likely be at a fixed location relative to OUT_DIR too, so
 		// the value of sandboxesRoot will most likely be at a fixed location relative to the sbox executable
 		// However, Soong also needs to be able to separately remove the sandbox directory on startup (if it has anything left in it)
 		// and by passing it as a parameter we don't need to duplicate its value
-		return usageError("--sandbox-path <sandboxPath> is required and must be non-empty")
+		usageViolation("--sandbox-path <sandboxPath> is required and must be non-empty")
+	}
+	if len(outputRoot) == 0 {
+		usageViolation("--output-root <outputRoot> is required and must be non-empty")
 	}
 
-	// Rewrite output file paths to be relative to output root
-	// This facilitates matching them up against the corresponding paths in the temporary directory in case they're absolute
-	for i, filePath := range outFiles {
-		if path.IsAbs(filePath) {
-			if len(outputRoot) == 0 {
-				return fmt.Errorf("Absolute path %s requires nonempty value for --output-root", filePath)
-			}
+	// the contents of the __SBOX_OUT_FILES__ variable
+	outputsVarEntries := flag.Args()
+	if len(outputsVarEntries) == 0 {
+		usageViolation("at least one output file must be given")
+	}
+
+	// all outputs
+	var allOutputs []string
+
+	// setup directories
+	err := os.MkdirAll(sandboxesRoot, 0777)
+	if err != nil {
+		return err
+	}
+	err = os.RemoveAll(outputRoot)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(outputRoot, 0777)
+	if err != nil {
+		return err
+	}
+
+	tempDir, err := ioutil.TempDir(sandboxesRoot, "sbox")
+
+	for i, filePath := range outputsVarEntries {
+		if !strings.HasPrefix(filePath, "__SBOX_OUT_DIR__/") {
+			return fmt.Errorf("output files must start with `__SBOX_OUT_DIR__/`")
 		}
-		relativePath, err := filepath.Rel(outputRoot, filePath)
+		outputsVarEntries[i] = strings.TrimPrefix(filePath, "__SBOX_OUT_DIR__/")
+	}
+
+	allOutputs = append([]string(nil), outputsVarEntries...)
+
+	if depfileOut != "" {
+		sandboxedDepfile, err := filepath.Rel(outputRoot, depfileOut)
 		if err != nil {
 			return err
 		}
-		outFiles[i] = relativePath
+		allOutputs = append(allOutputs, sandboxedDepfile)
+		if !strings.Contains(rawCommand, "__SBOX_DEPFILE__") {
+			return fmt.Errorf("the --depfile-out argument only makes sense if the command contains the text __SBOX_DEPFILE__")
+		}
+		rawCommand = strings.Replace(rawCommand, "__SBOX_DEPFILE__", filepath.Join(tempDir, sandboxedDepfile), -1)
+
 	}
 
-	os.MkdirAll(sandboxesRoot, 0777)
-
-	tempDir, err := ioutil.TempDir(sandboxesRoot, "sbox")
 	if err != nil {
 		return fmt.Errorf("Failed to create temp dir: %s", err)
 	}
@@ -110,7 +167,7 @@ func run() error {
 	// then at the beginning of the next build, Soong will retry the cleanup
 	defer func() {
 		// in some cases we decline to remove the temp dir, to facilitate debugging
-		if removeTempDir {
+		if !keepOutDir {
 			os.RemoveAll(tempDir)
 		}
 	}()
@@ -122,7 +179,7 @@ func run() error {
 	if strings.Contains(rawCommand, "__SBOX_OUT_FILES__") {
 		// expands into a space-separated list of output files to be generated into the sandbox directory
 		tempOutPaths := []string{}
-		for _, outputPath := range outFiles {
+		for _, outputPath := range outputsVarEntries {
 			tempOutPath := path.Join(tempDir, outputPath)
 			tempOutPaths = append(tempOutPaths, tempOutPath)
 		}
@@ -130,8 +187,12 @@ func run() error {
 		rawCommand = strings.Replace(rawCommand, "__SBOX_OUT_FILES__", pathsText, -1)
 	}
 
-	for _, filePath := range outFiles {
-		os.MkdirAll(path.Join(tempDir, filepath.Dir(filePath)), 0777)
+	for _, filePath := range allOutputs {
+		dir := path.Join(tempDir, filepath.Dir(filePath))
+		err = os.MkdirAll(dir, 0777)
+		if err != nil {
+			return err
+		}
 	}
 
 	commandDescription := rawCommand
@@ -149,32 +210,62 @@ func run() error {
 	}
 
 	// validate that all files are created properly
-	var outputErrors []error
-	for _, filePath := range outFiles {
+	var missingOutputErrors []string
+	for _, filePath := range allOutputs {
 		tempPath := filepath.Join(tempDir, filePath)
 		fileInfo, err := os.Stat(tempPath)
 		if err != nil {
-			outputErrors = append(outputErrors, fmt.Errorf("failed to create expected output file: %s\n", tempPath))
+			missingOutputErrors = append(missingOutputErrors, fmt.Sprintf("%s: does not exist", filePath))
 			continue
 		}
 		if fileInfo.IsDir() {
-			outputErrors = append(outputErrors, fmt.Errorf("Output path %s refers to a directory, not a file. This is not permitted because it prevents robust up-to-date checks\n", filePath))
+			missingOutputErrors = append(missingOutputErrors, fmt.Sprintf("%s: not a file", filePath))
 		}
 	}
-	if len(outputErrors) > 0 {
+	if len(missingOutputErrors) > 0 {
+		// find all created files for making a more informative error message
+		createdFiles := findAllFilesUnder(tempDir)
+
+		// build error message
+		errorMessage := "mismatch between declared and actual outputs\n"
+		errorMessage += "in sbox command(" + commandDescription + ")\n\n"
+		errorMessage += "in sandbox " + tempDir + ",\n"
+		errorMessage += fmt.Sprintf("failed to create %v files:\n", len(missingOutputErrors))
+		for _, missingOutputError := range missingOutputErrors {
+			errorMessage += "  " + missingOutputError + "\n"
+		}
+		if len(createdFiles) < 1 {
+			errorMessage += "created 0 files."
+		} else {
+			errorMessage += fmt.Sprintf("did create %v files:\n", len(createdFiles))
+			creationMessages := createdFiles
+			maxNumCreationLines := 10
+			if len(creationMessages) > maxNumCreationLines {
+				creationMessages = creationMessages[:maxNumCreationLines]
+				creationMessages = append(creationMessages, fmt.Sprintf("...%v more", len(createdFiles)-maxNumCreationLines))
+			}
+			for _, creationMessage := range creationMessages {
+				errorMessage += "  " + creationMessage + "\n"
+			}
+		}
+
 		// Keep the temporary output directory around in case a user wants to inspect it for debugging purposes.
 		// Soong will delete it later anyway.
-		removeTempDir = false
-		return fmt.Errorf("mismatch between declared and actual outputs in sbox command (%s):\n%v", commandDescription, outputErrors)
+		keepOutDir = true
+		return errors.New(errorMessage)
 	}
 	// the created files match the declared files; now move them
-	for _, filePath := range outFiles {
+	for _, filePath := range allOutputs {
 		tempPath := filepath.Join(tempDir, filePath)
 		destPath := filePath
 		if len(outputRoot) != 0 {
 			destPath = filepath.Join(outputRoot, filePath)
 		}
-		err := os.Rename(tempPath, destPath)
+		err := os.MkdirAll(filepath.Dir(destPath), 0777)
+		if err != nil {
+			return err
+		}
+		err = os.Rename(tempPath, destPath)
 		if err != nil {
 			return err
 		}

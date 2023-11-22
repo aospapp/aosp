@@ -22,6 +22,7 @@ import android.content.Context;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.Until;
+import android.system.helpers.LockscreenHelper;
 import android.test.InstrumentationTestCase;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.util.Log;
@@ -32,11 +33,12 @@ public class NotificationSecurityLargeTests extends InstrumentationTestCase {
     private static final int SHORT_TIMEOUT = 200;
     private static final int NOTIFICATION_ID_SECRET = 1;
     private static final int NOTIFICATION_ID_PUBLIC = 2;
-    private static final int PIN = 1234;
+    private static final String PIN = "1234";
     private NotificationManager mNotificationManager = null;
     private UiDevice mDevice = null;
     private Context mContext;
     private NotificationHelper mHelper;
+    private LockscreenHelper mLockscreenHelper;
 
     @Override
     public void setUp() throws Exception {
@@ -47,7 +49,8 @@ public class NotificationSecurityLargeTests extends InstrumentationTestCase {
                 .getSystemService(Context.NOTIFICATION_SERVICE);
         Log.v(LOG_TAG, "set up notification...");
         mHelper = new NotificationHelper(mDevice, getInstrumentation(), mNotificationManager);
-        mHelper.setScreenLockPin(PIN);
+        mLockscreenHelper = new LockscreenHelper();
+        mLockscreenHelper.setScreenLockViaShell(PIN, LockscreenHelper.MODE_PIN);
         mHelper.sleepAndWakeUpDevice();
     }
 
@@ -55,8 +58,7 @@ public class NotificationSecurityLargeTests extends InstrumentationTestCase {
     public void tearDown() throws Exception {
         mHelper.swipeUp();
         Thread.sleep(SHORT_TIMEOUT);
-        mHelper.unlockScreenByPin(PIN);
-        mHelper.removeScreenLock(PIN, "Swipe");
+        mLockscreenHelper.removeScreenLockViaShell(PIN);
         mNotificationManager.cancelAll();
         super.tearDown();
     }

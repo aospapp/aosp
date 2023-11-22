@@ -241,7 +241,7 @@ class PfKey(object):
     msg = self.MakeSadbMsg(SADB_ADD, satype)
     replay = 4
     extlist = [
-        (SADB_EXT_SA, SadbSa((spi, replay, SADB_SASTATE_MATURE,
+        (SADB_EXT_SA, SadbSa((htonl(spi), replay, SADB_SASTATE_MATURE,
                               auth, encryption, 0)), ""),
         self.MakeSadbExtAddr(SADB_EXT_ADDRESS_SRC, src),
         self.MakeSadbExtAddr(SADB_EXT_ADDRESS_DST, dst),
@@ -256,7 +256,8 @@ class PfKey(object):
     """Deletes a security association."""
     msg = self.MakeSadbMsg(SADB_DELETE, satype)
     extlist = [
-        (SADB_EXT_SA, SadbSa((spi, 4, SADB_SASTATE_MATURE, 0, 0, 0)), ""),
+        (SADB_EXT_SA, SadbSa((htonl(spi), 4, SADB_SASTATE_MATURE,
+                              0, 0, 0)), ""),
         self.MakeSadbExtAddr(SADB_EXT_ADDRESS_SRC, src),
         self.MakeSadbExtAddr(SADB_EXT_ADDRESS_DST, dst),
     ]

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -47,18 +47,18 @@ public class InstrumentTest extends CommandTestBase {
 			throws Exception {
 		execute("instrument");
 		assertFailure();
-		assertContains("Option \"-dest\" is required", err);
+		assertContains("Option \"--dest\" is required", err);
 		assertContains(
 				"Usage: java -jar jacococli.jar instrument [<sourcefiles> ...]",
 				err);
 	}
 
 	@Test
-	public void should_instrument_class_files_and_copy_resources()
+	public void should_instrument_class_files_and_copy_resources_when_folder_is_given()
 			throws Exception {
 		File destdir = tmp.getRoot();
 
-		execute("instrument", "-dest", destdir.getAbsolutePath(),
+		execute("instrument", "--dest", destdir.getAbsolutePath(),
 				getClassPath());
 
 		assertOk();
@@ -73,11 +73,30 @@ public class InstrumentTest extends CommandTestBase {
 	}
 
 	@Test
+	public void should_instrument_class_files_to_dest_folder_when_class_files_are_given()
+			throws Exception {
+		File destdir = tmp.getRoot();
+
+		File src = new File(getClassPath(),
+				"org/jacoco/cli/internal/commands/InstrumentTest.class");
+
+		execute("instrument", "--dest", destdir.getAbsolutePath(),
+				src.getAbsolutePath());
+
+		assertOk();
+		assertContains(
+				"[INFO] 1 classes instrumented to " + destdir.getAbsolutePath(),
+				out);
+
+		assertInstrumented(new File(destdir, "InstrumentTest.class"));
+	}
+
+	@Test
 	public void should_not_instrument_anything_when_no_source_is_given()
 			throws Exception {
 		File destdir = tmp.getRoot();
 
-		execute("instrument", "-dest", destdir.getAbsolutePath());
+		execute("instrument", "--dest", destdir.getAbsolutePath());
 
 		assertOk();
 		assertArrayEquals(new String[0], destdir.list());
@@ -104,7 +123,7 @@ public class InstrumentTest extends CommandTestBase {
 		out.close();
 
 		try {
-			execute("instrument", "-dest", destdir.getAbsolutePath(),
+			execute("instrument", "--dest", destdir.getAbsolutePath(),
 					srcdir.getAbsolutePath());
 			fail("exception expected");
 		} catch (IOException expected) {
@@ -118,7 +137,7 @@ public class InstrumentTest extends CommandTestBase {
 		ClassReader reader = new ClassReader(in);
 		in.close();
 		final Set<String> fields = new HashSet<String>();
-		reader.accept(new ClassVisitor(Opcodes.ASM5) {
+		reader.accept(new ClassVisitor(Opcodes.ASM6) {
 			@Override
 			public FieldVisitor visitField(int access, String name, String desc,
 					String signature, Object value) {

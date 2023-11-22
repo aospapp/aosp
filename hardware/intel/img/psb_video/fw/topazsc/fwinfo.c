@@ -117,7 +117,7 @@ int main()
     FILE *fp = NULL;
     topaz_fw_codec_t iter = FW_H264_NO_RC;
     //  unsigned int read_data;
-    unsigned int i, lseek;
+    unsigned int lseek;
     unsigned char system_id = 0;
     fw_table_t topaz_fw_table[FW_NUM + 1];
     struct msvdx_fw fw;

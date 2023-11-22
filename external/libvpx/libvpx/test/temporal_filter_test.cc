@@ -8,6 +8,8 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
+#include <limits>
+
 #include "third_party/googletest/src/include/gtest/gtest.h"
 
 #include "./vp9_rtcd.h"
@@ -35,6 +37,7 @@ void reference_filter(const Buffer<uint8_t> &a, const Buffer<uint8_t> &b, int w,
                       Buffer<unsigned int> *accumulator,
                       Buffer<uint16_t> *count) {
   Buffer<int> diff_sq = Buffer<int>(w, h, 0);
+  ASSERT_TRUE(diff_sq.Init());
   diff_sq.Set(0);
 
   int rounding = 0;
@@ -119,6 +122,7 @@ TEST_P(TemporalFilterTest, SizeCombinations) {
   // Depending on subsampling this function may be called with values of 8 or 16
   // for width and height, in any combination.
   Buffer<uint8_t> a = Buffer<uint8_t>(16, 16, 8);
+  ASSERT_TRUE(a.Init());
 
   const int filter_weight = 2;
   const int filter_strength = 6;
@@ -127,13 +131,20 @@ TEST_P(TemporalFilterTest, SizeCombinations) {
     for (int height = 8; height <= 16; height += 8) {
       // The second buffer must not have any border.
       Buffer<uint8_t> b = Buffer<uint8_t>(width, height, 0);
+      ASSERT_TRUE(b.Init());
       Buffer<unsigned int> accum_ref = Buffer<unsigned int>(width, height, 0);
+      ASSERT_TRUE(accum_ref.Init());
       Buffer<unsigned int> accum_chk = Buffer<unsigned int>(width, height, 0);
+      ASSERT_TRUE(accum_chk.Init());
       Buffer<uint16_t> count_ref = Buffer<uint16_t>(width, height, 0);
+      ASSERT_TRUE(count_ref.Init());
       Buffer<uint16_t> count_chk = Buffer<uint16_t>(width, height, 0);
+      ASSERT_TRUE(count_chk.Init());
 
-      a.Set(&rnd_, &ACMRandom::Rand8);
-      b.Set(&rnd_, &ACMRandom::Rand8);
+      // The difference between the buffers must be small to pass the threshold
+      // to apply the filter.
+      a.Set(&rnd_, 0, 7);
+      b.Set(&rnd_, 0, 7);
 
       accum_ref.Set(rnd_.Rand8());
       accum_chk.CopyFrom(accum_ref);
@@ -161,18 +172,32 @@ TEST_P(TemporalFilterTest, CompareReferenceRandom) {
   for (int width = 8; width <= 16; width += 8) {
     for (int height = 8; height <= 16; height += 8) {
       Buffer<uint8_t> a = Buffer<uint8_t>(width, height, 8);
+      ASSERT_TRUE(a.Init());
       // The second buffer must not have any border.
       Buffer<uint8_t> b = Buffer<uint8_t>(width, height, 0);
+      ASSERT_TRUE(b.Init());
       Buffer<unsigned int> accum_ref = Buffer<unsigned int>(width, height, 0);
+      ASSERT_TRUE(accum_ref.Init());
       Buffer<unsigned int> accum_chk = Buffer<unsigned int>(width, height, 0);
+      ASSERT_TRUE(accum_chk.Init());
       Buffer<uint16_t> count_ref = Buffer<uint16_t>(width, height, 0);
+      ASSERT_TRUE(count_ref.Init());
       Buffer<uint16_t> count_chk = Buffer<uint16_t>(width, height, 0);
+      ASSERT_TRUE(count_chk.Init());
 
       for (int filter_strength = 0; filter_strength <= 6; ++filter_strength) {
         for (int filter_weight = 0; filter_weight <= 2; ++filter_weight) {
-          for (int repeat = 0; repeat < 10; ++repeat) {
-            a.Set(&rnd_, &ACMRandom::Rand8);
-            b.Set(&rnd_, &ACMRandom::Rand8);
+          for (int repeat = 0; repeat < 100; ++repeat) {
+            if (repeat < 50) {
+              a.Set(&rnd_, 0, 7);
+              b.Set(&rnd_, 0, 7);
+            } else {
+              // Check large (but close) values as well.
+              a.Set(&rnd_, std::numeric_limits<uint8_t>::max() - 7,
+                    std::numeric_limits<uint8_t>::max());
+              b.Set(&rnd_, std::numeric_limits<uint8_t>::max() - 7,
+                    std::numeric_limits<uint8_t>::max());
+            }
 
             accum_ref.Set(rnd_.Rand8());
             accum_chk.CopyFrom(accum_ref);
@@ -202,6 +227,7 @@ TEST_P(TemporalFilterTest, CompareReferenceRandom) {
 
 TEST_P(TemporalFilterTest, DISABLED_Speed) {
   Buffer<uint8_t> a = Buffer<uint8_t>(16, 16, 8);
+  ASSERT_TRUE(a.Init());
 
   const int filter_weight = 2;
   const int filter_strength = 6;
@@ -210,13 +236,18 @@ TEST_P(TemporalFilterTest, DISABLED_Speed) {
     for (int height = 8; height <= 16; height += 8) {
       // The second buffer must not have any border.
       Buffer<uint8_t> b = Buffer<uint8_t>(width, height, 0);
+      ASSERT_TRUE(b.Init());
       Buffer<unsigned int> accum_ref = Buffer<unsigned int>(width, height, 0);
+      ASSERT_TRUE(accum_ref.Init());
       Buffer<unsigned int> accum_chk = Buffer<unsigned int>(width, height, 0);
+      ASSERT_TRUE(accum_chk.Init());
       Buffer<uint16_t> count_ref = Buffer<uint16_t>(width, height, 0);
+      ASSERT_TRUE(count_ref.Init());
       Buffer<uint16_t> count_chk = Buffer<uint16_t>(width, height, 0);
+      ASSERT_TRUE(count_chk.Init());
 
-      a.Set(&rnd_, &ACMRandom::Rand8);
-      b.Set(&rnd_, &ACMRandom::Rand8);
+      a.Set(&rnd_, 0, 7);
+      b.Set(&rnd_, 0, 7);
 
       accum_chk.Set(0);
       count_chk.Set(0);

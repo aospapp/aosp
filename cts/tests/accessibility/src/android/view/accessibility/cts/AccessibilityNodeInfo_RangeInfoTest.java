@@ -16,6 +16,7 @@
 
 package android.view.accessibility.cts;
 
+import android.platform.test.annotations.Presubmit;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -24,6 +25,7 @@ import android.view.accessibility.AccessibilityNodeInfo.RangeInfo;
 /**
  * Class for testing {@link AccessibilityNodeInfo.RangeInfo}.
  */
+@Presubmit
 public class AccessibilityNodeInfo_RangeInfoTest extends AndroidTestCase {
 
     /** Allowed tolerance for floating point equality comparisons. */

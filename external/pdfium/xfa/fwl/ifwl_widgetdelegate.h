@@ -11,7 +11,7 @@
 
 class CFWL_Event;
 class CFWL_Message;
-class CFX_Graphics;
+class CXFA_Graphics;
 class CFX_Matrix;
 
 class IFWL_WidgetDelegate {
@@ -20,8 +20,8 @@ class IFWL_WidgetDelegate {
 
   virtual void OnProcessMessage(CFWL_Message* pMessage) = 0;
   virtual void OnProcessEvent(CFWL_Event* pEvent) = 0;
-  virtual void OnDrawWidget(CFX_Graphics* pGraphics,
-                            const CFX_Matrix* pMatrix) = 0;
+  virtual void OnDrawWidget(CXFA_Graphics* pGraphics,
+                            const CFX_Matrix& matrix) = 0;
 };
 
 #endif  // XFA_FWL_IFWL_WIDGETDELEGATE_H_

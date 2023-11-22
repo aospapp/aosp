@@ -72,6 +72,7 @@
 #include <fcntl.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 #define TEMPFILE	"pread_file"
 #define K1              1024
@@ -211,10 +212,7 @@ int no_setup(void)
 int setup1(void)
 {
 	/* Create a pair of unnamed pipe */
-	if (pipe(pfd) < 0) {
-		tst_brkm(TBROK, cleanup, "pipe() failed to create pair of "
-			 "pipe, error:%d", errno);
-	}
+	SAFE_PIPE(cleanup, pfd);
 
 	/* Write known data (0's) of K1 bytes */
 	if (write(pfd[1], write_buf[0], K1) != K1) {
@@ -290,10 +288,7 @@ void cleanup(void)
 	}
 
 	/* Close the temporary file created in setup2 */
-	if (close(fd1) < 0) {
-		tst_brkm(TBROK, NULL, "close() on %s Failed, errno=%d : %s",
-			 TEMPFILE, errno, strerror(errno));
-	}
+	SAFE_CLOSE(NULL, fd1);
 
 	tst_rmdir();
 

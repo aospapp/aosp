@@ -43,13 +43,13 @@ import android.net.Uri;
  * this interface, the {@code provider} tag for the Bluetooth related content provider must
  * have an intent-filter like the following in the manifest:
  * <pre class="prettyprint">&lt;provider  android:authorities="[PROVIDER AUTHORITY]"
-              android:exported="true"
-              android:enabled="true"
-              android:permission="android.permission.BLUETOOTH_MAP"&gt;
+ *             android:exported="true"
+ *             android:enabled="true"
+ *             android:permission="android.permission.BLUETOOTH_MAP"&gt;
  *   ...
  *      &lt;intent-filter&gt;
-           &lt;action android:name="android.content.action.BLEUETOOT_MAP_PROVIDER" /&gt;
-        &lt;/intent-filter&gt;
+ *          &lt;action android:name="android.content.action.BLEUETOOT_MAP_PROVIDER" /&gt;
+ *       &lt;/intent-filter&gt;
  *   ...
  *   &lt;/provider&gt;
  * [PROVIDER AUTHORITY] shall be the providers authority value which implements this
@@ -60,7 +60,7 @@ public final class BluetoothMapContract {
     /**
      * Constructor - should not be used
      */
-    private BluetoothMapContract(){
+    private BluetoothMapContract() {
       /* class should not be instantiated */
     }
 
@@ -162,8 +162,11 @@ public final class BluetoothMapContract {
      */
     public static Uri buildAccountUri(String authority) {
         return new Uri.Builder().scheme(ContentResolver.SCHEME_CONTENT)
-                .authority(authority).appendPath(TABLE_ACCOUNT).build();
+                .authority(authority)
+                .appendPath(TABLE_ACCOUNT)
+                .build();
     }
+
     /**
      * Build URI representing the given Account data-set with specific Id in a
      * Bluetooth provider. When queried, the direct URI for the account
@@ -176,6 +179,7 @@ public final class BluetoothMapContract {
                 .appendPath(accountId)
                 .build();
     }
+
     /**
      * Build URI representing the entire Message table in a
      * Bluetooth provider.
@@ -186,6 +190,7 @@ public final class BluetoothMapContract {
                 .appendPath(TABLE_MESSAGE)
                 .build();
     }
+
     /**
      * Build URI representing the given Message data-set in a
      * Bluetooth provider. When queried, the URI for the Messages
@@ -198,12 +203,13 @@ public final class BluetoothMapContract {
                 .appendPath(TABLE_MESSAGE)
                 .build();
     }
+
     /**
      * Build URI representing the given Message data-set with specific messageId in a
      * Bluetooth provider. When queried, the direct URI for the account
      * with the given accountID is returned.
      */
-    public static Uri buildMessageUriWithId(String authority, String accountId,String messageId) {
+    public static Uri buildMessageUriWithId(String authority, String accountId, String messageId) {
         return new Uri.Builder().scheme(ContentResolver.SCHEME_CONTENT)
                 .authority(authority)
                 .appendPath(accountId)
@@ -211,6 +217,7 @@ public final class BluetoothMapContract {
                 .appendPath(messageId)
                 .build();
     }
+
     /**
      * Build URI representing the given Message data-set in a
      * Bluetooth provider. When queried, the direct URI for the folder
@@ -261,6 +268,7 @@ public final class BluetoothMapContract {
                 .appendPath(TABLE_CONVOCONTACT)
                 .build();
     }
+
     /**
      * Build URI representing the given Contact data-set in a
      * Bluetooth provider. When queried, the direct URI for the contact
@@ -275,15 +283,16 @@ public final class BluetoothMapContract {
                 .appendPath(contactId)
                 .build();
     }
+
     /**
      *  @hide
      */
-    public static final String TABLE_ACCOUNT        = "Account";
-    public static final String TABLE_MESSAGE        = "Message";
-    public static final String TABLE_MESSAGE_PART   = "Part";
-    public static final String TABLE_FOLDER         = "Folder";
-    public static final String TABLE_CONVERSATION   = "Conversation";
-    public static final String TABLE_CONVOCONTACT   = "ConvoContact";
+    public static final String TABLE_ACCOUNT = "Account";
+    public static final String TABLE_MESSAGE = "Message";
+    public static final String TABLE_MESSAGE_PART = "Part";
+    public static final String TABLE_FOLDER = "Folder";
+    public static final String TABLE_CONVERSATION = "Conversation";
+    public static final String TABLE_CONVOCONTACT = "ConvoContact";
 
 
     /**
@@ -292,22 +301,22 @@ public final class BluetoothMapContract {
      * E.g. as a mapping for them such that the naming will match the underlying
      * matching folder ID's.
      */
-    public static final String FOLDER_NAME_INBOX   = "INBOX";
-    public static final String FOLDER_NAME_SENT    = "SENT";
-    public static final String FOLDER_NAME_OUTBOX  = "OUTBOX";
-    public static final String FOLDER_NAME_DRAFT   = "DRAFT";
+    public static final String FOLDER_NAME_INBOX = "INBOX";
+    public static final String FOLDER_NAME_SENT = "SENT";
+    public static final String FOLDER_NAME_OUTBOX = "OUTBOX";
+    public static final String FOLDER_NAME_DRAFT = "DRAFT";
     public static final String FOLDER_NAME_DELETED = "DELETED";
-    public static final String FOLDER_NAME_OTHER   = "OTHER";
+    public static final String FOLDER_NAME_OTHER = "OTHER";
 
     /**
      * Folder IDs to be used with Instant Messaging virtual folders
      */
-    public static final long FOLDER_ID_OTHER      = 0;
-    public static final long FOLDER_ID_INBOX      = 1;
-    public static final long FOLDER_ID_SENT       = 2;
-    public static final long FOLDER_ID_DRAFT      = 3;
-    public static final long FOLDER_ID_OUTBOX     = 4;
-    public static final long FOLDER_ID_DELETED    = 5;
+    public static final long FOLDER_ID_OTHER = 0;
+    public static final long FOLDER_ID_INBOX = 1;
+    public static final long FOLDER_ID_SENT = 2;
+    public static final long FOLDER_ID_DRAFT = 3;
+    public static final long FOLDER_ID_OUTBOX = 4;
+    public static final long FOLDER_ID_DELETED = 5;
 
 
     /**
@@ -380,7 +389,7 @@ public final class BluetoothMapContract {
          * The unique ID for a row.
          * <P>Type: INTEGER (long)</P>
          */
-        public static final String _ID = "_id";
+        String _ID = "_id";
 
         /**
          * The account name to display to the user on the device when selecting whether
@@ -395,7 +404,7 @@ public final class BluetoothMapContract {
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String ACCOUNT_DISPLAY_NAME = "account_display_name";
+        String ACCOUNT_DISPLAY_NAME = "account_display_name";
 
         /**
          * Expose this account to other authenticated Bluetooth devices. If the expose flag
@@ -414,7 +423,7 @@ public final class BluetoothMapContract {
          *
          * <P>Type: INTEGER (boolean) hide = 0, show = 1</P>
          */
-        public static final String FLAG_EXPOSE = "flag_expose";
+        String FLAG_EXPOSE = "flag_expose";
 
 
         /**
@@ -428,7 +437,7 @@ public final class BluetoothMapContract {
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String ACCOUNT_UCI = "account_uci";
+        String ACCOUNT_UCI = "account_uci";
 
 
         /**
@@ -444,7 +453,7 @@ public final class BluetoothMapContract {
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String ACCOUNT_UCI_PREFIX = "account_uci_PREFIX";
+        String ACCOUNT_UCI_PREFIX = "account_uci_PREFIX";
 
     }
 
@@ -462,14 +471,14 @@ public final class BluetoothMapContract {
          * <P>Type: INTEGER (long)</P>
          * read-only
          */
-        public static final String _ID = "_id";
+        String _ID = "_id";
         // FIXME add message parts for IM attachments
         /**
          * is this a text part  yes/no?
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String TEXT = "text";
+        String TEXT = "text";
 
         /**
          * The charset used in the content if it is text or 8BIT if it is
@@ -478,7 +487,7 @@ public final class BluetoothMapContract {
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String CHARSET = "charset";
+        String CHARSET = "charset";
 
         /**
          * The filename representing the data file of the raw data in the database
@@ -489,7 +498,7 @@ public final class BluetoothMapContract {
          * read-only
          */
 
-        public static final String FILENAME = "filename";
+        String FILENAME = "filename";
 
         /**
          * Identifier for the content in the data. This can be used to
@@ -499,7 +508,7 @@ public final class BluetoothMapContract {
          * read-only
          */
 
-        public static final String CONTENT_ID = "cid";
+        String CONTENT_ID = "cid";
 
         /**
          * The raw data in either text format or binary format
@@ -507,9 +516,10 @@ public final class BluetoothMapContract {
          * <P>Type: BLOB</P>
          * read-only
          */
-        public static final String RAW_DATA = "raw_data";
+        String RAW_DATA = "raw_data";
 
     }
+
     /**
      * The actual message table containing all messages.
      * Content that must support filtering using WHERE clauses:
@@ -531,7 +541,7 @@ public final class BluetoothMapContract {
          * The unique ID for a row.
          * <P>Type: INTEGER (long)</P>
          */
-        public static final String _ID = "_id";
+        String _ID = "_id";
 
         /**
          * The date the message was received as a unix timestamp
@@ -540,7 +550,7 @@ public final class BluetoothMapContract {
          * <P>Type: INTEGER (long)</P>
          * read-only
          */
-        public static final String DATE = "date";
+        String DATE = "date";
 
         //TODO REMOVE WHEN Parts Table is in place
         /**
@@ -548,59 +558,59 @@ public final class BluetoothMapContract {
          * <P>Type: TEXT</P>
          * read-only.
          */
-        public static final String BODY = "body";
+        String BODY = "body";
 
         /**
          * Message subject.
          * <P>Type: TEXT</P>
          * read-only.
          */
-        public static final String SUBJECT = "subject";
+        String SUBJECT = "subject";
 
         /**
          * Message Read flag
          * <P>Type: INTEGER (boolean) unread = 0, read = 1</P>
          *  read/write
          */
-        public static final String FLAG_READ = "flag_read";
+        String FLAG_READ = "flag_read";
 
         /**
          * Message Priority flag
          * <P>Type: INTEGER (boolean) normal priority = 0, high priority = 1</P>
          * read-only
          */
-        public static final String FLAG_HIGH_PRIORITY = "high_priority";
+        String FLAG_HIGH_PRIORITY = "high_priority";
 
         /**
          * Reception state - the amount of the message that have been loaded from the server.
          * <P>Type: TEXT see RECEPTION_STATE_* constants below </P>
          * read-only
          */
-        public static final String RECEPTION_STATE = "reception_state";
+        String RECEPTION_STATE = "reception_state";
 
         /**
          * Delivery state - the amount of the message that have been loaded from the server.
          * <P>Type: TEXT see DELIVERY_STATE_* constants below </P>
          * read-only
          */
-        public static final String DEVILERY_STATE = "delivery_state";
+        String DEVILERY_STATE = "delivery_state";
 
         /** To be able to filter messages with attachments, we need this flag.
          * <P>Type: INTEGER (boolean) no attachment = 0, attachment = 1 </P>
          * read-only
          */
-        public static final String FLAG_ATTACHMENT = "flag_attachment";
+        String FLAG_ATTACHMENT = "flag_attachment";
 
         /** The overall size in bytes of the attachments of the message.
          * <P>Type: INTEGER </P>
          */
-        public static final String ATTACHMENT_SIZE = "attachment_size";
+        String ATTACHMENT_SIZE = "attachment_size";
 
         /** The mine type of the attachments for the message.
          * <P>Type: TEXT </P>
          * read-only
          */
-        public static final String ATTACHMENT_MINE_TYPES = "attachment_mime_types";
+        String ATTACHMENT_MINE_TYPES = "attachment_mime_types";
 
         /** The overall size in bytes of the message including any attachments.
          * This value is informative only and should be the size an email client
@@ -608,13 +618,13 @@ public final class BluetoothMapContract {
          * <P>Type: INTEGER </P>
          * read-only
          */
-        public static final String MESSAGE_SIZE = "message_size";
+        String MESSAGE_SIZE = "message_size";
 
         /** Indicates that the message or a part of it is protected by a DRM scheme.
          * <P>Type: INTEGER (boolean) no DRM = 0, DRM protected = 1 </P>
          * read-only
          */
-        public static final String FLAG_PROTECTED = "flag_protected";
+        String FLAG_PROTECTED = "flag_protected";
 
         /**
          * A comma-delimited list of FROM addresses in RFC2822 format.
@@ -622,7 +632,7 @@ public final class BluetoothMapContract {
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String FROM_LIST = "from_list";
+        String FROM_LIST = "from_list";
 
         /**
          * A comma-delimited list of TO addresses in RFC2822 format.
@@ -630,21 +640,21 @@ public final class BluetoothMapContract {
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String TO_LIST = "to_list";
+        String TO_LIST = "to_list";
 
         /**
          * The unique ID for a row in the folder table in which this message belongs.
          * <P>Type: INTEGER (long)</P>
          * read/write
          */
-        public static final String FOLDER_ID = "folder_id";
+        String FOLDER_ID = "folder_id";
 
         /**
          * The unique ID for a row in the account table which owns this message.
          * <P>Type: INTEGER (long)</P>
          * read-only
          */
-        public static final String ACCOUNT_ID = "account_id";
+        String ACCOUNT_ID = "account_id";
 
         /**
          * The ID identify the thread/conversation a message belongs to.
@@ -652,18 +662,17 @@ public final class BluetoothMapContract {
          * <P>Type: INTEGER (long)</P>
          * read-only
          */
-        public static final String THREAD_ID = "thread_id";
+        String THREAD_ID = "thread_id";
 
         /**
          * The Name of the thread/conversation a message belongs to.
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String THREAD_NAME = "thread_name";
+        String THREAD_NAME = "thread_name";
     }
 
     public interface EmailMessageColumns {
-
 
 
         /**
@@ -672,7 +681,7 @@ public final class BluetoothMapContract {
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String CC_LIST = "cc_list";
+        String CC_LIST = "cc_list";
 
         /**
          * A comma-delimited list of BCC addresses in RFC2822 format.
@@ -680,7 +689,7 @@ public final class BluetoothMapContract {
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String BCC_LIST = "bcc_list";
+        String BCC_LIST = "bcc_list";
 
         /**
          * A comma-delimited list of REPLY-TO addresses in RFC2822 format.
@@ -688,7 +697,7 @@ public final class BluetoothMapContract {
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String REPLY_TO_LIST = "reply_to_List";
+        String REPLY_TO_LIST = "reply_to_List";
 
 
     }
@@ -737,28 +746,28 @@ public final class BluetoothMapContract {
          * <P>Type: INTEGER (long)</P>
          * read-only
          */
-        public static final String _ID = "_id";
+        String _ID = "_id";
 
         /**
          * The folder display name to present to the user.
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String NAME = "name";
+        String NAME = "name";
 
         /**
          * The _id-key to the account this folder refers to.
          * <P>Type: INTEGER (long)</P>
          * read-only
          */
-        public static final String ACCOUNT_ID = "account_id";
+        String ACCOUNT_ID = "account_id";
 
         /**
          * The _id-key to the parent folder. -1 for root folders.
          * <P>Type: INTEGER (long)</P>
          * read-only
          */
-        public static final String PARENT_FOLDER_ID = "parent_id";
+        String PARENT_FOLDER_ID = "parent_id";
     }
 
     /**
@@ -793,7 +802,7 @@ public final class BluetoothMapContract {
          * <P>Type: INTEGER (long)</P>
          * read-only
          */
-        public static final String THREAD_ID = "thread_id";
+        String THREAD_ID = "thread_id";
 
         /**
          * The unique ID for a row.
@@ -818,7 +827,7 @@ public final class BluetoothMapContract {
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String THREAD_NAME = "thread_name";
+        String THREAD_NAME = "thread_name";
 
         /**
          * The time stamp of the last activity in the conversation as a unix timestamp
@@ -826,14 +835,14 @@ public final class BluetoothMapContract {
          * <P>Type: INTEGER (long)</P>
          * read-only
          */
-        public static final String LAST_THREAD_ACTIVITY = "last_thread_activity";
+        String LAST_THREAD_ACTIVITY = "last_thread_activity";
 
         /**
          * The status on the conversation, either 'read' or 'unread'
          *  <P>Type: INTEGER (boolean) unread = 0, read = 1</P>
          * read/write
          */
-        public static final String READ_STATUS = "read_status";
+        String READ_STATUS = "read_status";
 
         /**
          * A counter that keep tack of version of the table content, count up on ID reuse
@@ -845,7 +854,7 @@ public final class BluetoothMapContract {
         //     BT-ON
         // UPDATE: TODO: Change to the last_activity time stamp (as a long value). This will
         //         provide the information needed for BT clients - currently unused
-        public static final String VERSION_COUNTER = "version_counter";
+        String VERSION_COUNTER = "version_counter";
 
         /**
          * A short description of the latest activity on conversation - typically
@@ -853,7 +862,7 @@ public final class BluetoothMapContract {
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String SUMMARY = "convo_summary";
+        String SUMMARY = "convo_summary";
 
 
     }
@@ -874,25 +883,25 @@ public final class BluetoothMapContract {
 // Should not be needed anymore        public static final String _ID = "_id";
 
         /**
-        * The ID of the conversation the contact is part of.
-        * <P>Type: INTEGER (long)</P>
-        * read-only
-        */
-        public static final String CONVO_ID = "convo_id";
+         * The ID of the conversation the contact is part of.
+         * <P>Type: INTEGER (long)</P>
+         * read-only
+         */
+        String CONVO_ID = "convo_id";
 
         /**
          * The name of contact in instant message application
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String NAME = "name";
+        String NAME = "name";
 
         /**
          * The nickname of contact in instant message group chat conversation.
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String NICKNAME = "nickname";
+        String NICKNAME = "nickname";
 
 
         /**
@@ -900,7 +909,7 @@ public final class BluetoothMapContract {
          * <P>Type: INTEGER (long)</P>
          * read-only
          */
-        public static final String X_BT_UID = "x_bt_uid";
+        String X_BT_UID = "x_bt_uid";
 
         /**
          * The unique ID for the contact within the domain of the interfacing service.
@@ -913,7 +922,7 @@ public final class BluetoothMapContract {
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String UCI = "x_bt_uci";
+        String UCI = "x_bt_uci";
     }
 
     /**
@@ -953,12 +962,12 @@ public final class BluetoothMapContract {
 
 
     public interface ChatState {
-        int UNKNOWN     = 0;
-        int INACITVE    = 1;
-        int ACITVE      = 2;
-        int COMPOSING   = 3;
-        int PAUSED      = 4;
-        int GONE        = 5;
+        int UNKNOWN = 0;
+        int INACITVE = 1;
+        int ACITVE = 2;
+        int COMPOSING = 3;
+        int PAUSED = 4;
+        int GONE = 5;
     }
 
     /**
@@ -990,7 +999,7 @@ public final class BluetoothMapContract {
          * <P>Type: INTERGER</P>
          * read-only
          */
-        public static final String CHAT_STATE = "chat_state";
+        String CHAT_STATE = "chat_state";
 
 //        /**
 //         * The geo location of the contact
@@ -1005,18 +1014,18 @@ public final class BluetoothMapContract {
          * <P>Type: INTEGER (long)</P>
          * read-only
          */
-        public static final String LAST_ACTIVE = "last_active";
+        String LAST_ACTIVE = "last_active";
 
     }
 
     public interface PresenceState {
-        int UNKNOWN         = 0;
-        int OFFLINE         = 1;
-        int ONLINE          = 2;
-        int AWAY            = 3;
-        int DO_NOT_DISTURB  = 4;
-        int BUSY            = 5;
-        int IN_A_MEETING    = 6;
+        int UNKNOWN = 0;
+        int OFFLINE = 1;
+        int ONLINE = 2;
+        int AWAY = 3;
+        int DO_NOT_DISTURB = 4;
+        int BUSY = 5;
+        int IN_A_MEETING = 6;
     }
 
     /**
@@ -1040,7 +1049,7 @@ public final class BluetoothMapContract {
          * <P>Type: INTERGER</P>
          * read-only
          */
-        public static final String PRESENCE_STATE = "presence_state";
+        String PRESENCE_STATE = "presence_state";
 
         /**
          * The priority of contact presence
@@ -1048,21 +1057,21 @@ public final class BluetoothMapContract {
          * read-only
          */
 // TODO: IS THIS NEEDED - not in latest specification
-        public static final String PRIORITY = "priority";
+        String PRIORITY = "priority";
 
         /**
          * The last status text from contact
          * <P>Type: TEXT</P>
          * read-only
          */
-        public static final String STATUS_TEXT = "status_text";
+        String STATUS_TEXT = "status_text";
 
         /**
          * The time stamp of the last time the contact was online
          * <P>Type: INTEGER (long)</P>
          * read-only
          */
-        public static final String LAST_ONLINE = "last_online";
+        String LAST_ONLINE = "last_online";
 
     }
 
@@ -1070,149 +1079,146 @@ public final class BluetoothMapContract {
     /**
      * A projection of all the columns in the Message table
      */
-    public static final String[] BT_MESSAGE_PROJECTION = new String[] {
-        MessageColumns._ID,
-        MessageColumns.DATE,
-        MessageColumns.SUBJECT,
-        //TODO REMOVE WHEN Parts Table is in place
-        MessageColumns.BODY,
-        MessageColumns.MESSAGE_SIZE,
-        MessageColumns.FOLDER_ID,
-        MessageColumns.FLAG_READ,
-        MessageColumns.FLAG_PROTECTED,
-        MessageColumns.FLAG_HIGH_PRIORITY,
-        MessageColumns.FLAG_ATTACHMENT,
-        MessageColumns.ATTACHMENT_SIZE,
-        MessageColumns.FROM_LIST,
-        MessageColumns.TO_LIST,
-        MessageColumns.CC_LIST,
-        MessageColumns.BCC_LIST,
-        MessageColumns.REPLY_TO_LIST,
-        MessageColumns.RECEPTION_STATE,
-        MessageColumns.DEVILERY_STATE,
-        MessageColumns.THREAD_ID
+    public static final String[] BT_MESSAGE_PROJECTION = new String[]{
+            MessageColumns._ID,
+            MessageColumns.DATE,
+            MessageColumns.SUBJECT,
+            //TODO REMOVE WHEN Parts Table is in place
+            MessageColumns.BODY,
+            MessageColumns.MESSAGE_SIZE,
+            MessageColumns.FOLDER_ID,
+            MessageColumns.FLAG_READ,
+            MessageColumns.FLAG_PROTECTED,
+            MessageColumns.FLAG_HIGH_PRIORITY,
+            MessageColumns.FLAG_ATTACHMENT,
+            MessageColumns.ATTACHMENT_SIZE,
+            MessageColumns.FROM_LIST,
+            MessageColumns.TO_LIST,
+            MessageColumns.CC_LIST,
+            MessageColumns.BCC_LIST,
+            MessageColumns.REPLY_TO_LIST,
+            MessageColumns.RECEPTION_STATE,
+            MessageColumns.DEVILERY_STATE,
+            MessageColumns.THREAD_ID
     };
 
-    public static final String[] BT_INSTANT_MESSAGE_PROJECTION = new String[] {
-        MessageColumns._ID,
-        MessageColumns.DATE,
-        MessageColumns.SUBJECT,
-        MessageColumns.MESSAGE_SIZE,
-        MessageColumns.FOLDER_ID,
-        MessageColumns.FLAG_READ,
-        MessageColumns.FLAG_PROTECTED,
-        MessageColumns.FLAG_HIGH_PRIORITY,
-        MessageColumns.FLAG_ATTACHMENT,
-        MessageColumns.ATTACHMENT_SIZE,
-        MessageColumns.ATTACHMENT_MINE_TYPES,
-        MessageColumns.FROM_LIST,
-        MessageColumns.TO_LIST,
-        MessageColumns.RECEPTION_STATE,
-        MessageColumns.DEVILERY_STATE,
-        MessageColumns.THREAD_ID,
-        MessageColumns.THREAD_NAME
+    public static final String[] BT_INSTANT_MESSAGE_PROJECTION = new String[]{
+            MessageColumns._ID,
+            MessageColumns.DATE,
+            MessageColumns.SUBJECT,
+            MessageColumns.MESSAGE_SIZE,
+            MessageColumns.FOLDER_ID,
+            MessageColumns.FLAG_READ,
+            MessageColumns.FLAG_PROTECTED,
+            MessageColumns.FLAG_HIGH_PRIORITY,
+            MessageColumns.FLAG_ATTACHMENT,
+            MessageColumns.ATTACHMENT_SIZE,
+            MessageColumns.ATTACHMENT_MINE_TYPES,
+            MessageColumns.FROM_LIST,
+            MessageColumns.TO_LIST,
+            MessageColumns.RECEPTION_STATE,
+            MessageColumns.DEVILERY_STATE,
+            MessageColumns.THREAD_ID,
+            MessageColumns.THREAD_NAME
     };
 
     /**
      * A projection of all the columns in the Account table
      */
-    public static final String[] BT_ACCOUNT_PROJECTION = new String[] {
-        AccountColumns._ID,
-        AccountColumns.ACCOUNT_DISPLAY_NAME,
-        AccountColumns.FLAG_EXPOSE,
+    public static final String[] BT_ACCOUNT_PROJECTION = new String[]{
+            AccountColumns._ID, AccountColumns.ACCOUNT_DISPLAY_NAME, AccountColumns.FLAG_EXPOSE,
     };
 
     /**
      * A projection of all the columns in the Account table
      * TODO: Is this the way to differentiate
      */
-    public static final String[] BT_IM_ACCOUNT_PROJECTION = new String[] {
-        AccountColumns._ID,
-        AccountColumns.ACCOUNT_DISPLAY_NAME,
-        AccountColumns.FLAG_EXPOSE,
-        AccountColumns.ACCOUNT_UCI,
-        AccountColumns.ACCOUNT_UCI_PREFIX
+    public static final String[] BT_IM_ACCOUNT_PROJECTION = new String[]{
+            AccountColumns._ID,
+            AccountColumns.ACCOUNT_DISPLAY_NAME,
+            AccountColumns.FLAG_EXPOSE,
+            AccountColumns.ACCOUNT_UCI,
+            AccountColumns.ACCOUNT_UCI_PREFIX
     };
 
     /**
      * A projection of all the columns in the Folder table
      */
-    public static final String[] BT_FOLDER_PROJECTION = new String[] {
-        FolderColumns._ID,
-        FolderColumns.NAME,
-        FolderColumns.ACCOUNT_ID,
-        FolderColumns.PARENT_FOLDER_ID
+    public static final String[] BT_FOLDER_PROJECTION = new String[]{
+            FolderColumns._ID,
+            FolderColumns.NAME,
+            FolderColumns.ACCOUNT_ID,
+            FolderColumns.PARENT_FOLDER_ID
     };
 
 
     /**
      * A projection of all the columns in the Conversation table
      */
-    public static final String[] BT_CONVERSATION_PROJECTION = new String[] {
+    public static final String[] BT_CONVERSATION_PROJECTION = new String[]{
         /* Thread information */
-        ConversationColumns.THREAD_ID,
-        ConversationColumns.THREAD_NAME,
-        ConversationColumns.READ_STATUS,
-        ConversationColumns.LAST_THREAD_ACTIVITY,
-        ConversationColumns.VERSION_COUNTER,
-        ConversationColumns.SUMMARY,
+            ConversationColumns.THREAD_ID,
+            ConversationColumns.THREAD_NAME,
+            ConversationColumns.READ_STATUS,
+            ConversationColumns.LAST_THREAD_ACTIVITY,
+            ConversationColumns.VERSION_COUNTER,
+            ConversationColumns.SUMMARY,
         /* Contact information */
-        ConversationColumns.UCI,
-        ConversationColumns.NAME,
-        ConversationColumns.NICKNAME,
-        ConversationColumns.CHAT_STATE,
-        ConversationColumns.LAST_ACTIVE,
-        ConversationColumns.X_BT_UID,
-        ConversationColumns.PRESENCE_STATE,
-        ConversationColumns.STATUS_TEXT,
-        ConversationColumns.PRIORITY
+            ConversationColumns.UCI,
+            ConversationColumns.NAME,
+            ConversationColumns.NICKNAME,
+            ConversationColumns.CHAT_STATE,
+            ConversationColumns.LAST_ACTIVE,
+            ConversationColumns.X_BT_UID,
+            ConversationColumns.PRESENCE_STATE,
+            ConversationColumns.STATUS_TEXT,
+            ConversationColumns.PRIORITY
     };
 
     /**
      * A projection of the Contact Info and Presence columns in the Contact Info in table
      */
-    public static final String[] BT_CONTACT_CHATSTATE_PRESENCE_PROJECTION = new String[] {
-        ConvoContactColumns.UCI,
-        ConvoContactColumns.CONVO_ID,
-        ConvoContactColumns.NAME,
-        ConvoContactColumns.NICKNAME,
-        ConvoContactColumns.X_BT_UID,
-        ConvoContactColumns.CHAT_STATE,
-        ConvoContactColumns.LAST_ACTIVE,
-        ConvoContactColumns.PRESENCE_STATE,
-        ConvoContactColumns.PRIORITY,
-        ConvoContactColumns.STATUS_TEXT,
-        ConvoContactColumns.LAST_ONLINE
+    public static final String[] BT_CONTACT_CHATSTATE_PRESENCE_PROJECTION = new String[]{
+            ConvoContactColumns.UCI,
+            ConvoContactColumns.CONVO_ID,
+            ConvoContactColumns.NAME,
+            ConvoContactColumns.NICKNAME,
+            ConvoContactColumns.X_BT_UID,
+            ConvoContactColumns.CHAT_STATE,
+            ConvoContactColumns.LAST_ACTIVE,
+            ConvoContactColumns.PRESENCE_STATE,
+            ConvoContactColumns.PRIORITY,
+            ConvoContactColumns.STATUS_TEXT,
+            ConvoContactColumns.LAST_ONLINE
     };
 
     /**
      * A projection of the Contact Info the columns in Contacts Info table
      */
-    public static final String[] BT_CONTACT_PROJECTION = new String[] {
-        ConvoContactColumns.UCI,
-        ConvoContactColumns.CONVO_ID,
-        ConvoContactColumns.X_BT_UID,
-        ConvoContactColumns.NAME,
-        ConvoContactColumns.NICKNAME
+    public static final String[] BT_CONTACT_PROJECTION = new String[]{
+            ConvoContactColumns.UCI,
+            ConvoContactColumns.CONVO_ID,
+            ConvoContactColumns.X_BT_UID,
+            ConvoContactColumns.NAME,
+            ConvoContactColumns.NICKNAME
     };
 
 
     /**
      * A projection of all the columns in the Chat Status table
      */
-    public static final String[] BT_CHATSTATUS_PROJECTION = new String[] {
-        ChatStatusColumns.CHAT_STATE,
-        ChatStatusColumns.LAST_ACTIVE,
+    public static final String[] BT_CHATSTATUS_PROJECTION = new String[]{
+            ChatStatusColumns.CHAT_STATE, ChatStatusColumns.LAST_ACTIVE,
     };
 
     /**
      * A projection of all the columns in the Presence table
      */
-    public static final String[] BT_PRESENCE_PROJECTION = new String[] {
-        PresenceColumns.PRESENCE_STATE,
-        PresenceColumns.PRIORITY,
-        PresenceColumns.STATUS_TEXT,
-        PresenceColumns.LAST_ONLINE
+    public static final String[] BT_PRESENCE_PROJECTION = new String[]{
+            PresenceColumns.PRESENCE_STATE,
+            PresenceColumns.PRIORITY,
+            PresenceColumns.STATUS_TEXT,
+            PresenceColumns.LAST_ONLINE
     };
 
 }

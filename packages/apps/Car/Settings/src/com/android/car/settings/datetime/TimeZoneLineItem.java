@@ -16,13 +16,12 @@
 
 package com.android.car.settings.datetime;
 
+import android.annotation.NonNull;
 import android.app.AlarmManager;
 import android.content.Context;
-import android.provider.Settings;
 
-import android.annotation.NonNull;
-import com.android.car.settings.R;
-import com.android.car.settings.common.TextLineItem;
+import androidx.car.widget.TextListItem;
+
 import com.android.settingslib.datetime.ZoneGetter;
 
 import java.util.Map;
@@ -30,10 +29,7 @@ import java.util.Map;
 /**
  * A LineItem that displays available time zone.
  */
-class TimeZoneLineItem extends TextLineItem {
-    private final Context mContext;
-    private final TimeZoneChangeListener mListener;
-    private final Map<String, Object> mTimeZone;
+class TimeZoneLineItem extends TextListItem {
 
     public interface TimeZoneChangeListener {
         void onTimeZoneChanged();
@@ -43,37 +39,13 @@ class TimeZoneLineItem extends TextLineItem {
             Context context,
             @NonNull TimeZoneChangeListener listener,
             Map<String, Object> timeZone) {
-        super((CharSequence) timeZone.get(ZoneGetter.KEY_DISPLAYNAME));
-        mContext = context;
-        mListener = listener;
-        mTimeZone = timeZone;
-    }
-
-    @Override
-    public CharSequence getDesc() {
-        return (CharSequence) mTimeZone.get(ZoneGetter.KEY_GMT);
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return Settings.Global.getInt(mContext.getContentResolver(),
-                Settings.Global.AUTO_TIME_ZONE, 0) <= 0;
-    }
-
-    @Override
-    public boolean isExpandable() {
-        return false;
-    }
-
-    @Override
-    public boolean isClickable() {
-        return true;
-    }
-
-    @Override
-    public void onClick() {
-        AlarmManager am = (AlarmManager) mContext.getSystemService(Context.ALARM_SERVICE);
-        am.setTimeZone((String) mTimeZone.get(ZoneGetter.KEY_ID));
-        mListener.onTimeZoneChanged();
+        super(context);
+        setTitle(timeZone.get(ZoneGetter.KEY_DISPLAYNAME).toString());
+        setBody(timeZone.get(ZoneGetter.KEY_GMT).toString());
+        setOnClickListener(v -> {
+            AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+            am.setTimeZone((String) timeZone.get(ZoneGetter.KEY_ID));
+            listener.onTimeZoneChanged();
+        });
     }
 }

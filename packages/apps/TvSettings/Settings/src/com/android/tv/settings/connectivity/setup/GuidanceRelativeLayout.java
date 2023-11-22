@@ -27,8 +27,7 @@ import com.android.tv.settings.R;
 
 /**
  * Relative layout implementation that lays out child views based on provided keyline percent(
- * distance of TitleView baseline from the top). We do the similar thing in
- * {@link com.google.android.tungsten.setupwraith.ui.GuidanceRelativeLayout}
+ * distance of TitleView baseline from the top).
  */
 public class GuidanceRelativeLayout extends RelativeLayout {
     private float mTitleKeylinePercent;
@@ -58,8 +57,8 @@ public class GuidanceRelativeLayout extends RelativeLayout {
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         super.onLayout(changed, l, t, r, b);
 
-        TextView titleView = (TextView) getRootView().findViewById(R.id.guidance_title);
-        TextView descriptionView = (TextView) getRootView().findViewById(R.id.guidance_description);
+        TextView titleView = getRootView().findViewById(R.id.guidance_title);
+        TextView descriptionView = getRootView().findViewById(R.id.guidance_description);
 
         int mTitleKeylinePixels = (int) (getMeasuredHeight() * mTitleKeylinePercent / 100);
         if (titleView != null && titleView.getParent() == this) {

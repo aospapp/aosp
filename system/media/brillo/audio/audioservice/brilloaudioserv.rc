@@ -1,4 +1,0 @@
-service brilloaudioserv /system/bin/brilloaudioservice
-    class late_start
-    user audioserver
-    group input

@@ -6,6 +6,8 @@ import random
 import shutil
 import time
 
+import common
+from autotest_lib.client.bin.result_tools import runner as result_tools_runner
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.cros import constants
@@ -22,7 +24,6 @@ except ImportError:
 # 40 a quarter of the time, so that in the long run we are collecting files
 # with this max size.
 _MAX_FILESIZE = 64 * (2 ** 20)  # 64 MiB
-
 
 class _RemoteTempDir(object):
 
@@ -46,7 +47,36 @@ class _RemoteTempDir(object):
         self.host.run('rm -rf %s' % (pipes.quote(self.tmpdir),))
 
 
-def collect_log_file(host, log_path, dest_path, use_tmp=False, clean=False):
+def _collect_log_file_with_summary(host, source_path, dest_path):
+    """Collects a log file from the remote machine with directory summary.
+
+    @param host: The RemoteHost to collect logs from.
+    @param source_path: The remote path to collect the log file from.
+    @param dest_path: A path (file or directory) to write the copies logs into.
+    """
+    # Build test result directory summary
+    summary_created = result_tools_runner.run_on_client(host, source_path)
+
+    skip_summary_collection = True
+    try:
+        host.get_file(source_path, dest_path, preserve_perm=False)
+        skip_summary_collection = False
+    finally:
+        if summary_created:
+            # If dest_path is a file, use its parent folder to store the
+            # directory summary file.
+            if os.path.isfile(dest_path):
+                dest_path = os.path.dirname(dest_path)
+            # If dest_path doesn't exist, that means get_file failed, there is
+            # no need to collect directory summary file.
+            skip_summary_collection |= not os.path.exists(dest_path)
+            result_tools_runner.collect_last_summary(
+                    host, source_path, dest_path,
+                    skip_summary_collection=skip_summary_collection)
+
+
+def collect_log_file(host, log_path, dest_path, use_tmp=False, clean=False,
+                     clean_content=False):
     """Collects a log file from the remote machine.
 
     Log files are collected from the remote machine and written into the
@@ -66,12 +96,23 @@ def collect_log_file(host, log_path, dest_path, use_tmp=False, clean=False):
                     on the host and download logs from there.
     @param clean: If True, remove dest_path after upload attempt even if it
                   failed.
+    @param clean_content: If True, remove files and directories in dest_path
+            after upload attempt even if it failed.
 
     """
     logging.info('Collecting %s...', log_path)
+    if not host.check_cached_up_status():
+        logging.warning('Host %s did not answer to ping, skip collecting log '
+                        'file %s.', host.hostname, log_path)
+        return
     try:
         file_stats = _get_file_stats(host, log_path)
-        if random.random() > file_stats.collection_probability:
+        if not file_stats:
+            # Failed to get file stat, the file may not exist.
+            return
+
+        if (not result_tools_runner.ENABLE_RESULT_THROTTLING and
+            random.random() > file_stats.collection_probability):
             logging.warning('Collection of %s skipped:'
                             'size=%s, collection_probability=%s',
                             log_path, file_stats.size,
@@ -79,13 +120,17 @@ def collect_log_file(host, log_path, dest_path, use_tmp=False, clean=False):
         elif use_tmp:
             _collect_log_file_with_tmpdir(host, log_path, dest_path)
         else:
-            source_path = log_path
-            host.get_file(source_path, dest_path, preserve_perm=False)
-    except Exception, e:
-        logging.warning('Collection of %s failed: %s', log_path, e)
+            _collect_log_file_with_summary(host, log_path, dest_path)
+    except Exception as e:
+        logging.exception('Non-critical failure: collection of %s failed: %s',
+                          log_path, e)
     finally:
-        if clean:
-            host.run('rm -rf %s' % (pipes.quote(log_path),))
+        if clean_content:
+            path_to_delete = os.path.join(pipes.quote(log_path), '*')
+        elif clean:
+            path_to_delete = pipes.quote(log_path)
+        if clean or clean_content:
+            host.run('rm -rf %s' % path_to_delete, ignore_status=True)
 
 
 _FileStats = collections.namedtuple('_FileStats',
@@ -103,7 +148,8 @@ def _collect_log_file_with_tmpdir(host, log_path, dest_path):
     with _RemoteTempDir(host) as tmpdir:
         host.run('cp -rp %s %s' % (pipes.quote(log_path), pipes.quote(tmpdir)))
         source_path = os.path.join(tmpdir, os.path.basename(log_path))
-        host.get_file(source_path, dest_path, preserve_perm=False)
+
+        _collect_log_file_with_summary(host, source_path, dest_path)
 
 
 def _get_file_stats(host, path):
@@ -114,12 +160,21 @@ def _get_file_stats(host, path):
     @returns: _FileStats namedtuple with file size and collection probability.
     """
     cmd = 'ls -ld %s | cut -d" " -f5' % (pipes.quote(path),)
+    output = None
+    file_size = 0
     try:
-        file_size = int(host.run(cmd).stdout)
+        output = host.run(cmd).stdout
     except error.CmdError as e:
-        logging.warning('Getting size of file %r on host %r failed: %s',
-                        path, host, e)
-        file_size = 0
+        logging.warning('Getting size of file %r on host %r failed: %s. '
+                        'Default its size to 0', path, host, e)
+    try:
+        if output is not None:
+            file_size = int(output)
+    except ValueError:
+        logging.warning('Failed to convert size string "%s" for %s on host %r. '
+                        'File may not exist.', output, path, host)
+        return
+
     if file_size == 0:
         return _FileStats(0, 1.0)
     else:
@@ -177,11 +232,12 @@ def get_crashinfo(host, test_start_time):
         os.makedirs(log_path)
         collect_log_file(host, constants.LOG_DIR, log_path)
 
-        # Collect console-ramoops
-        log_path = os.path.join(
-                crashinfo_dir, os.path.basename(constants.LOG_CONSOLE_RAMOOPS))
-        collect_log_file(host, constants.LOG_CONSOLE_RAMOOPS, log_path,
-                         clean=True)
+        # Collect console-ramoops.  The filename has changed in linux-3.19,
+        # so collect all the files in the pstore dirs.
+        log_path = os.path.join(crashinfo_dir, 'pstore')
+        for pstore_dir in constants.LOG_PSTORE_DIRS:
+            collect_log_file(host, pstore_dir, log_path, use_tmp=True,
+                             clean_content=True)
         # Collect i915_error_state, only available on intel systems.
         # i915 contains the Intel graphics state. It might contain useful data
         # when a DUT hangs, times out or crashes.

@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import logging
+import sys
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import afe_utils
@@ -94,6 +95,6 @@ class provision_TestbedUpdate(test.test):
             afe_utils.machine_install_and_update_labels(
                     host, image=value)
         except error.InstallError as e:
-            logging.exception(e)
-            raise error.TestFail(str(e))
+            logging.error(e)
+            raise error.TestFail, str(e), sys.exc_info()[2]
         logging.debug('Finished provisioning %s to %s', host, value)

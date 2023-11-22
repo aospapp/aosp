@@ -17,21 +17,27 @@
 package android.net.util;
 
 import static android.net.util.NetworkConstants.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import android.net.MacAddress;
+import android.support.test.runner.AndroidJUnit4;
+import android.support.test.filters.SmallTest;
+
+import org.junit.runner.RunWith;
+import org.junit.Test;
 
 import libcore.util.HexEncoding;
-
-import junit.framework.TestCase;
-
 
 /**
  * Tests for ConnectivityPacketSummary.
  *
  * @hide
  */
-public class ConnectivityPacketSummaryTest extends TestCase {
-    private static final byte[] MYHWADDR = {
-        asByte(0x80), asByte(0x7a), asByte(0xbf), asByte(0x6f), asByte(0x48), asByte(0xf3)
-    };
+@RunWith(AndroidJUnit4.class)
+@SmallTest
+public class ConnectivityPacketSummaryTest {
+    private static final MacAddress MYHWADDR = MacAddress.fromString("80:7a:bf:6f:48:f3");
 
     private String getSummary(String hexBytes) {
         hexBytes = hexBytes.replaceAll("\\s+", "");
@@ -39,6 +45,7 @@ public class ConnectivityPacketSummaryTest extends TestCase {
         return ConnectivityPacketSummary.summarize(MYHWADDR, bytes);
     }
 
+    @Test
     public void testParseICMPv6DADProbe() {
         final String packet =
                 // Ethernet
@@ -60,6 +67,7 @@ public class ConnectivityPacketSummaryTest extends TestCase {
         assertEquals(expected, getSummary(packet));
     }
 
+    @Test
     public void testParseICMPv6RS() {
         final String packet =
                 // Ethernet
@@ -81,6 +89,7 @@ public class ConnectivityPacketSummaryTest extends TestCase {
         assertEquals(expected, getSummary(packet));
     }
 
+    @Test
     public void testParseICMPv6RA() {
         final String packet =
                 // Ethernet
@@ -113,6 +122,7 @@ public class ConnectivityPacketSummaryTest extends TestCase {
         assertEquals(expected, getSummary(packet));
     }
 
+    @Test
     public void testParseICMPv6NS() {
         final String packet =
                 // Ethernet
@@ -135,6 +145,7 @@ public class ConnectivityPacketSummaryTest extends TestCase {
         assertEquals(expected, getSummary(packet));
     }
 
+    @Test
     public void testInvalidICMPv6NDLength() {
         final String packet =
                 // Ethernet
@@ -159,6 +170,7 @@ public class ConnectivityPacketSummaryTest extends TestCase {
         assertEquals(expected, getSummary(packet));
     }
 
+    @Test
     public void testParseICMPv6NA() {
         final String packet =
                 // Ethernet
@@ -179,6 +191,7 @@ public class ConnectivityPacketSummaryTest extends TestCase {
         assertEquals(expected, getSummary(packet));
     }
 
+    @Test
     public void testParseARPRequest() {
         final String packet =
                 // Ethernet
@@ -197,6 +210,7 @@ public class ConnectivityPacketSummaryTest extends TestCase {
         assertEquals(expected, getSummary(packet));
     }
 
+    @Test
     public void testParseARPReply() {
         final String packet =
                 // Ethernet
@@ -217,6 +231,7 @@ public class ConnectivityPacketSummaryTest extends TestCase {
         assertEquals(expected, getSummary(packet));
     }
 
+    @Test
     public void testParseDHCPv4Discover() {
         final String packet =
                 // Ethernet
@@ -262,6 +277,7 @@ public class ConnectivityPacketSummaryTest extends TestCase {
         assertTrue(getSummary(packet).startsWith(expectedPrefix));
     }
 
+    @Test
     public void testParseDHCPv4Offer() {
         final String packet =
                 // Ethernet
@@ -307,6 +323,7 @@ public class ConnectivityPacketSummaryTest extends TestCase {
         assertTrue(getSummary(packet).startsWith(expectedPrefix));
     }
 
+    @Test
     public void testParseDHCPv4Request() {
         final String packet =
                 // Ethernet
@@ -354,6 +371,7 @@ public class ConnectivityPacketSummaryTest extends TestCase {
         assertTrue(getSummary(packet).startsWith(expectedPrefix));
     }
 
+    @Test
     public void testParseDHCPv4Ack() {
         final String packet =
                 // Ethernet

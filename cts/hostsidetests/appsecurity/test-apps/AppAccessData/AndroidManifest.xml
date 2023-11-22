@@ -22,6 +22,8 @@
     created by com.android.cts.appwithdata.
     -->
 
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application>
         <uses-library android:name="android.test.runner" />
     </application>

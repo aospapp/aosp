@@ -27,9 +27,12 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <cutils/log.h>
+#include <unistd.h>
+
 #include <algorithm>
 #include <vector>
+
+#include <log/log.h>
 
 #include "gr_utils.h"
 #include "gr_allocator.h"
@@ -521,14 +524,14 @@ bool Allocator::UseUncached(gralloc1_producer_usage_t prod_usage,
   }
 
   // CPU read rarely
-  if ((prod_usage & GRALLOC1_PRODUCER_USAGE_CPU_READ) &&
-      !(prod_usage & GRALLOC1_PRODUCER_USAGE_CPU_READ_OFTEN)) {
+  if ((prod_usage & GRALLOC1_PRODUCER_USAGE_CPU_READ_OFTEN)
+      == GRALLOC1_PRODUCER_USAGE_CPU_READ) {
     return true;
   }
 
   // CPU  write rarely
-  if ((prod_usage & GRALLOC1_PRODUCER_USAGE_CPU_WRITE) &&
-      !(prod_usage & GRALLOC1_PRODUCER_USAGE_CPU_WRITE_OFTEN)) {
+  if ((prod_usage & GRALLOC1_PRODUCER_USAGE_CPU_WRITE_OFTEN)
+      == GRALLOC1_PRODUCER_USAGE_CPU_WRITE) {
     return true;
   }
 

@@ -24,12 +24,9 @@ import android.content.res.Resources;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.Until;
-
 import com.android.tv.R;
 
-/**
- * Helper for testing {@link DialogFragment}s.
- */
+/** Helper for testing {@link DialogFragment}s. */
 public class DialogHelper extends BaseUiDeviceHelper {
     private final BySelector byPinDialog;
 
@@ -39,7 +36,9 @@ public class DialogHelper extends BaseUiDeviceHelper {
     }
 
     public void assertWaitForPinDialogOpen() {
-        assertWaitForCondition(mUiDevice, Until.hasObject(byPinDialog),
+        assertWaitForCondition(
+                mUiDevice,
+                Until.hasObject(byPinDialog),
                 Constants.MAX_SHOW_DELAY_MILLIS
                         + mTargetResources.getInteger(R.integer.pin_dialog_anim_duration));
     }

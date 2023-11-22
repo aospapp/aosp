@@ -18,6 +18,7 @@ package android.vr.cts;
 import android.content.pm.PackageManager;
 import android.os.Process;
 import android.test.ActivityInstrumentationTestCase2;
+import com.android.compatibility.common.util.CddTest;
 
 public class VrCpuTest extends ActivityInstrumentationTestCase2<CtsActivity> {
     private CtsActivity mActivity;
@@ -25,7 +26,7 @@ public class VrCpuTest extends ActivityInstrumentationTestCase2<CtsActivity> {
     public VrCpuTest() {
         super(CtsActivity.class);
     }
-
+    @CddTest(requirement="7.9.2/C-1-1")
     public void testHasAtLeastTwoCores() {
         mActivity = getActivity();
         if (mActivity.getPackageManager().hasSystemFeature(

@@ -488,7 +488,11 @@ public abstract class PreferenceActivityFlowTest {
         mTestUtils.tapOnViewWithText(INNER_FRAGMENT_PREF_BUTTON);
 
         // Only inner fragment must be shown.
-        assertHeadersHidden();
+        if (shouldRunLargeDeviceTest()) {
+            assertHeadersShown();
+        } else {
+            assertHeadersHidden();
+        }
         assertPanelPrefs1Hidden();
         assertInnerFragmentShown();
 
@@ -498,7 +502,11 @@ public abstract class PreferenceActivityFlowTest {
         recreate();
 
         // Only inner fragment must be shown.
-        assertHeadersHidden();
+        if (shouldRunLargeDeviceTest()) {
+            assertHeadersShown();
+        } else {
+            assertHeadersHidden();
+        }
         assertPanelPrefs1Hidden();
         assertInnerFragmentShown();
 

@@ -5,14 +5,14 @@
 from autotest_lib.server import utils
 
 AUTHOR = "Chrome OS Team"
-NAME = "ExternalUsbPeripherals.CRASHES"
+NAME = "platform_ExternalUsbPeripherals.crashes"
 PURPOSE = "Servo based USB boot stress test"
-CRITERIA = "This test will fail if any of the actions or checks fail."
-TIME = "LONG"
+CRITERIA = "This test will fail if crash files are present after each step."
+TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:usb_detect_stress"
+#ATTRIBUTES = "suite:usb_detect"
 DEPENDENCIES = "servo, usb_detect"
 
 DOC = """
@@ -35,13 +35,13 @@ def run(machine):
     repeat = int(args_dict.get("repeat", 1))
     default_actions = str("reboot,unplug,plug,login,unplug,plug,"
                           "suspend,resume,unplug,suspend,plug,resume,"
-                          "suspend,unplug,resume,plug,reboot")
+                          "suspend,unplug,resume,plug")
 
     action_sequence = str(args_dict.get("action_sequence", default_actions))
 
     job.run_test("platform_ExternalUsbPeripherals", host=host,
                  disable_sysinfo=True, client_autotest="desktopui_SimpleLogin",
                  action_sequence=action_sequence, repeat=repeat,
-                 crash_check=True, tag="CRASHES")
+                 crash_check=True, tag="crashes")
 
 parallel_simple(run, machines)

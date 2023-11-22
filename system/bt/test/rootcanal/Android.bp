@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2017 The Android Open Source Project
+// Copyright 2017 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,12 +22,12 @@ cc_binary {
         "service.cc",
     ],
 
+    header_libs: ["libbluetooth_headers"],
     shared_libs: [
         "android.hardware.bluetooth@1.0",
         "libbase",
         "libchrome",
         "libcutils",
-        "libhardware",
         "libhwbinder",
         "libhidlbase",
         "libhidltransport",
@@ -50,8 +50,47 @@ cc_binary {
     include_dirs: [
         "system/bt",
         "system/bt/hci/include",
-        "system/bt/include",
+        "system/bt/internal_include",
         "system/bt/stack/include",
     ],
     init_rc: ["android.hardware.bluetooth@1.0-service.sim.rc"],
+}
+
+cc_library_shared {
+    name: "android.hardware.bluetooth@1.0-impl-sim",
+    proprietary: true,
+    relative_install_path: "hw",
+    srcs: [
+        "bluetooth_hci.cc",
+    ],
+
+    header_libs: ["libbluetooth_headers"],
+    shared_libs: [
+        "android.hardware.bluetooth@1.0",
+        "libbase",
+        "libchrome",
+        "libcutils",
+        "libhidlbase",
+        "libhidltransport",
+        "liblog",
+        "libutils",
+    ],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-DHAS_NO_BDROID_BUILDCFG",
+    ],
+    static_libs: [
+        "libbluetooth-types",
+        "android.hardware.bluetooth-async",
+        "android.hardware.bluetooth-hci",
+        "libbt-rootcanal",
+    ],
+    include_dirs: [
+        "system/bt",
+        "system/bt/hci/include",
+        "system/bt/internal_include",
+        "system/bt/stack/include",
+    ],
 }

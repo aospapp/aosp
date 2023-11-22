@@ -34,21 +34,21 @@
         android:layout_height="match_parent">
         <TextView
             android:id="@+id/text_0"
-            style="@style/Provisioning2Theme.Text.Primary.Title.InfoAnimation"/>
+            style="@style/InfoAnimationTitle"/>
         <TextView
             android:id="@+id/text_1"
             android:translationX="@dimen/info_view_width_x0.5"
             android:alpha="0"
-            style="@style/Provisioning2Theme.Text.Primary.Title.InfoAnimation"/>
+            style="@style/InfoAnimationTitle"/>
         <TextView
             android:id="@+id/text_2"
             android:translationX="@dimen/info_view_width"
             android:alpha="0"
-            style="@style/Provisioning2Theme.Text.Primary.Title.InfoAnimation"/>
+            style="@style/InfoAnimationTitle"/>
         <TextView
             android:id="@+id/text_3"
             android:translationX="@dimen/info_view_width_x1.5"
             android:alpha="0"
-            style="@style/Provisioning2Theme.Text.Primary.Title.InfoAnimation"/>
+            style="@style/InfoAnimationTitle"/>
     </FrameLayout>
 </FrameLayout>

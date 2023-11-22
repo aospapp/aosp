@@ -23,6 +23,8 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_STATIC_JAVA_LIBRARIES := CtsVoiceInteractionCommon ctstestrunner compatibility-device-util
 
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
+
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsVoiceInteractionTestCases

@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """The unified package/object bisecting tool."""
 
 from __future__ import print_function
@@ -193,9 +193,9 @@ class BisectObject(Bisector):
     if options.dir:
       os.environ['BISECT_DIR'] = options.dir
     self.options.dir = os.environ.get('BISECT_DIR', '/tmp/sysroot_bisect')
-    self.setup_cmd = ('%s %s %s %s' % (self.sysroot_wrapper_setup,
-                                       self.options.board, self.options.remote,
-                                       self.options.package))
+    self.setup_cmd = ('%s %s %s %s' %
+                      (self.sysroot_wrapper_setup, self.options.board,
+                       self.options.remote, self.options.package))
 
     self.ArgOverride(self.default_kwargs, overrides)
 

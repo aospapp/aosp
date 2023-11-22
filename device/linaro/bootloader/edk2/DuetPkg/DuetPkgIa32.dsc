@@ -4,7 +4,7 @@
 #  Developer's UEFI Emulation. DUET provides an EFI/UEFI IA32/X64 environment on legacy BIOS,
 #  to help developing and debugging native EFI/UEFI drivers.
 #
-#  Copyright (c) 2010 - 2013, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved.<BR>
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -31,6 +31,11 @@
   BUILD_TARGETS                  = DEBUG
   SKUID_IDENTIFIER               = DEFAULT
   FLASH_DEFINITION               = DuetPkg/DuetPkg.fdf
+!if $(TOOL_CHAIN_TAG) == GCC47 || $(TOOL_CHAIN_TAG) == GCC48 || $(TOOL_CHAIN_TAG) == GCC49 || $(TOOL_CHAIN_TAG) == GCC5
+  POSTBUILD                      = DuetPkg/PostBuild.sh
+!else
+  POSTBUILD                      = DuetPkg/PostBuild.bat
+!endif
 
 ################################################################################
 #
@@ -105,6 +110,7 @@
   MtrrLib|UefiCpuPkg/Library/MtrrLib/MtrrLib.inf
   CpuExceptionHandlerLib|UefiCpuPkg/Library/CpuExceptionHandlerLib/DxeCpuExceptionHandlerLib.inf
   LocalApicLib|UefiCpuPkg/Library/BaseXApicLib/BaseXApicLib.inf
+  MpInitLib|UefiCpuPkg/Library/MpInitLib/DxeMpInitLib.inf
 
   #
   # To save size, use NULL library for DebugLib and ReportStatusCodeLib.
@@ -172,7 +178,7 @@
       gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2F
       gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x80000042
     <LibraryClasses>
-      DebugLib|IntelFrameworkModulePkg/Library/PeiDxeDebugLibReportStatusCode/PeiDxeDebugLibReportStatusCode.inf
+      DebugLib|MdeModulePkg/Library/PeiDxeDebugLibReportStatusCode/PeiDxeDebugLibReportStatusCode.inf
       ReportStatusCodeLib|DuetPkg/Library/DxeCoreReportStatusCodeLibFromHob/DxeCoreReportStatusCodeLibFromHob.inf
   }
 
@@ -205,7 +211,7 @@
   DuetPkg/EfiLdr/EfiLdr.inf {
     <LibraryClasses>
       DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
-      NULL|IntelFrameworkModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
+      NULL|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
   }
   IntelFrameworkModulePkg/Universal/BdsDxe/BdsDxe.inf {
     <LibraryClasses>
@@ -249,6 +255,7 @@
   MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
   MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
   MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
+  FatPkg/EnhancedFatDxe/Fat.inf
 
   # Bios Thunk
   DuetPkg/BiosVideoThunkDxe/BiosVideo.inf

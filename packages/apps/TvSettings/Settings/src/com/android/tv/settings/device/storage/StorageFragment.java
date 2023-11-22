@@ -22,20 +22,25 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.storage.StorageManager;
 import android.os.storage.VolumeInfo;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.deviceinfo.StorageMeasurement;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.device.apps.AppsFragment;
 
 import java.util.HashMap;
 import java.util.List;
 
-public class StorageFragment extends LeanbackPreferenceFragment {
+/**
+ * The screen in TV settings that lets users manage external storage devices and that shows the
+ * usage summary by data type such as apps, music, download and so on.
+ */
+public class StorageFragment extends SettingsPreferenceFragment {
     private static final String TAG = "StorageFragment";
 
     private static final String KEY_MIGRATE = "migrate";
@@ -255,5 +260,10 @@ public class StorageFragment extends LeanbackPreferenceFragment {
                 }
             }
         }
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.SETTINGS_STORAGE_CATEGORY;
     }
 }

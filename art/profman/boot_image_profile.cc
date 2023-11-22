@@ -18,9 +18,10 @@
 #include <set>
 
 #include "boot_image_profile.h"
-#include "dex_file-inl.h"
-#include "method_reference.h"
-#include "type_reference.h"
+#include "dex/dex_file-inl.h"
+#include "dex/method_reference.h"
+#include "dex/type_reference.h"
+#include "jit/profile_compilation_info.h"
 
 namespace art {
 
@@ -60,8 +61,7 @@ void GenerateBootImageProfile(
         if (hotness.IsInProfile()) {
           ++counter;
           out_profile->AddMethodHotness(ref, hotness);
-          inferred_classes.emplace(profile.get(),
-                                   dex_file->GetMethodId(ref.dex_method_index).class_idx_);
+          inferred_classes.emplace(profile.get(), ref.GetMethodId().class_idx_);
         }
       }
       // If the counter is greater or equal to the compile threshold, mark the method as hot.
@@ -91,9 +91,9 @@ void GenerateBootImageProfile(
           it.Next();
         }
         it.SkipInstanceFields();
-        while (it.HasNextDirectMethod() || it.HasNextVirtualMethod()) {
+        while (it.HasNextMethod()) {
           const uint32_t flags = it.GetMethodAccessFlags();
-          if ((flags & kAccNative) != 0 || (flags & kAccFastNative) != 0) {
+          if ((flags & kAccNative) != 0) {
             // Native method will get dirtied.
             is_clean = false;
             break;
@@ -110,9 +110,9 @@ void GenerateBootImageProfile(
       // This counter is how many profiles contain the class.
       size_t counter = 0;
       for (const std::unique_ptr<const ProfileCompilationInfo>& profile : profiles) {
-        auto it = inferred_classes.find(std::make_pair(profile.get(), ref.type_index));
+        auto it = inferred_classes.find(std::make_pair(profile.get(), ref.TypeIndex()));
         if (it != inferred_classes.end() ||
-            profile->ContainsClass(*ref.dex_file, ref.type_index)) {
+            profile->ContainsClass(*ref.dex_file, ref.TypeIndex())) {
           ++counter;
         }
       }
@@ -121,10 +121,10 @@ void GenerateBootImageProfile(
       }
       if (counter >= options.image_class_theshold) {
         ++class_count;
-        out_profile->AddClassesForDex(ref.dex_file, &ref.type_index, &ref.type_index + 1);
+        out_profile->AddClassForDex(ref);
       } else if (is_clean && counter >= options.image_class_clean_theshold) {
         ++clean_class_count;
-        out_profile->AddClassesForDex(ref.dex_file, &ref.type_index, &ref.type_index + 1);
+        out_profile->AddClassForDex(ref);
       }
     }
   }

@@ -825,8 +825,8 @@ int LogKlog::log(const char* buf, ssize_t len) {
                          (unsigned short)n);
 
     // notify readers
-    if (!rc) {
-        reader->notifyNewLog();
+    if (rc > 0) {
+        reader->notifyNewLog(static_cast<log_mask_t>(1 << LOG_ID_KERNEL));
     }
 
     return rc;

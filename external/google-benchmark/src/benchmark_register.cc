@@ -37,12 +37,11 @@
 #include "check.h"
 #include "commandlineflags.h"
 #include "complexity.h"
+#include "statistics.h"
 #include "log.h"
 #include "mutex.h"
 #include "re.h"
-#include "stat.h"
 #include "string_util.h"
-#include "sysinfo.h"
 #include "timers.h"
 
 namespace benchmark {
@@ -159,6 +158,7 @@ bool BenchmarkFamilies::FindBenchmarks(
         instance.use_manual_time = family->use_manual_time_;
         instance.complexity = family->complexity_;
         instance.complexity_lambda = family->complexity_lambda_;
+        instance.statistics = &family->statistics_;
         instance.threads = num_threads;
 
         // Add arguments to instance name
@@ -236,7 +236,11 @@ Benchmark::Benchmark(const char* name)
       use_real_time_(false),
       use_manual_time_(false),
       complexity_(oNone),
-      complexity_lambda_(nullptr) {}
+      complexity_lambda_(nullptr) {
+  ComputeStatistics("mean", StatisticsMean);
+  ComputeStatistics("median", StatisticsMedian);
+  ComputeStatistics("stddev", StatisticsStdDev);
+}
 
 Benchmark::~Benchmark() {}
 
@@ -409,6 +413,12 @@ Benchmark* Benchmark::Complexity(BigOFunc* complexity) {
   return this;
 }
 
+Benchmark* Benchmark::ComputeStatistics(std::string name,
+                                        StatisticsFunc* statistics) {
+  statistics_.emplace_back(name, statistics);
+  return this;
+}
+
 Benchmark* Benchmark::Threads(int t) {
   CHECK_GT(t, 0);
   thread_counts_.push_back(t);
@@ -437,8 +447,7 @@ Benchmark* Benchmark::DenseThreadRange(int min_threads, int max_threads,
 }
 
 Benchmark* Benchmark::ThreadPerCpu() {
-  static int num_cpus = NumCPUs();
-  thread_counts_.push_back(num_cpus);
+  thread_counts_.push_back(CPUInfo::Get().num_cpus);
   return this;
 }
 

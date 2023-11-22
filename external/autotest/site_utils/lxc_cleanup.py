@@ -20,7 +20,6 @@ import argparse
 import datetime
 import logging
 import os
-import re
 import signal
 
 import common
@@ -37,23 +36,6 @@ AFE = frontend_wrappers.RetryingAFE(timeout_min=0.1, delay_sec=10)
 # is still in the process of destroying the container it used.
 FINISHED_JOB_CUTOFF_TIME = datetime.datetime.now() - datetime.timedelta(hours=1)
 
-def get_info(container_name):
-    """Get job id and autoserv process id from container name.
-
-    @param container: Name of the container.
-
-    @return: job id and autoserv process id for the given container name.
-
-    """
-    match = re.match('test_(\d+)_(\d+)_(\d+)', container_name)
-    if not match:
-        # Container is not created for test, e.g., the base container.
-        return None, None
-    job_id = int(match.groups()[0])
-    pid = match.groups()[2]
-    return job_id, pid
-
-
 def is_container_orphaned(container):
     """Check if a container is orphaned.
 
@@ -67,10 +49,12 @@ def is_container_orphaned(container):
 
     """
     logging.debug('Checking if container is orphaned: %s', container.name)
-    job_id, pid = get_info(container.name)
-    if not job_id:
+    if container.id is None:
         logging.debug('Container %s is not created for test.', container.name)
         return False
+
+    job_id = container.id.job_id
+    pid = container.id.pid
 
     if pid and not utils.pid_is_alive(pid):
         logging.debug('Process with PID %s is not alive, container %s is '
@@ -92,7 +76,7 @@ def is_container_orphaned(container):
                           'not orphaned.', job_id, container.name)
             return False
         if (hqe.finished_on and
-            (time_utils.time_string_to_datetime(hqes.finished_on) >
+            (time_utils.time_string_to_datetime(hqe.finished_on) >
              FINISHED_JOB_CUTOFF_TIME)):
             logging.debug('Test job %s was completed less than an hour ago.',
                           job_id)
@@ -117,7 +101,9 @@ def cleanup(container, options):
         return False
 
     try:
-        _, pid = get_info(container.name)
+        # cleanup is protected by is_container_orphaned.  At this point the
+        # container may be assumed to have a valid ID.
+        pid = container.id.pid
         # Kill autoserv process
         if pid and utils.pid_is_alive(pid):
             logging.info('Stopping process %s...', pid)

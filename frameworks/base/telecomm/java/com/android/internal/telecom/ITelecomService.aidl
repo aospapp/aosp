@@ -187,7 +187,7 @@ interface ITelecomService {
     /**
      * @see TelecomServiceImpl#endCall
      */
-    boolean endCall();
+    boolean endCall(String callingPackage);
 
     /**
      * @see TelecomServiceImpl#acceptRingingCall
@@ -274,4 +274,9 @@ interface ITelecomService {
      * @see TelecomServiceImpl#waitOnHandler
      */
     void waitOnHandlers();
+
+    /**
+     * @see TelecomServiceImpl#acceptHandover
+     */
+    void acceptHandover(in Uri srcAddr, int videoState, in PhoneAccountHandle destAcct);
 }

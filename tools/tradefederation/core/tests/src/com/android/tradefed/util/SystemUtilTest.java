@@ -18,6 +18,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.util.SystemUtil.EnvVariable;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,9 +47,11 @@ public class SystemUtilTest {
             hostOutDir = FileUtil.createTempDir("host_out_dir");
 
             SystemUtil.singleton = Mockito.mock(SystemUtil.class);
-            Mockito.when(SystemUtil.singleton.getEnv(SystemUtil.ENV_ANDROID_TARGET_OUT_TESTCASES))
+            Mockito.when(
+                            SystemUtil.singleton.getEnv(
+                                    EnvVariable.ANDROID_TARGET_OUT_TESTCASES.name()))
                     .thenReturn(targetOutDir.getAbsolutePath());
-            Mockito.when(SystemUtil.singleton.getEnv(SystemUtil.ENV_ANDROID_HOST_OUT_TESTCASES))
+            Mockito.when(SystemUtil.singleton.getEnv(EnvVariable.ANDROID_HOST_OUT_TESTCASES.name()))
                     .thenReturn(hostOutDir.getAbsolutePath());
 
             List<File> testCasesDirs = new ArrayList<File>(SystemUtil.getExternalTestCasesDirs());
@@ -69,9 +72,9 @@ public class SystemUtilTest {
         File targetOutDir = new File("/path/not/exist_1");
 
         SystemUtil.singleton = Mockito.mock(SystemUtil.class);
-        Mockito.when(SystemUtil.singleton.getEnv(SystemUtil.ENV_ANDROID_TARGET_OUT_TESTCASES))
+        Mockito.when(SystemUtil.singleton.getEnv(EnvVariable.ANDROID_TARGET_OUT_TESTCASES.name()))
                 .thenReturn(targetOutDir.getAbsolutePath());
-        Mockito.when(SystemUtil.singleton.getEnv(SystemUtil.ENV_ANDROID_HOST_OUT_TESTCASES))
+        Mockito.when(SystemUtil.singleton.getEnv(EnvVariable.ANDROID_HOST_OUT_TESTCASES.name()))
                 .thenReturn(null);
         List<File> testCasesDirs = new ArrayList<File>(SystemUtil.getExternalTestCasesDirs());
         assertEquals(0, testCasesDirs.size());

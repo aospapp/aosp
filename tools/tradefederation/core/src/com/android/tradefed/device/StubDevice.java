@@ -23,6 +23,7 @@ import com.android.ddmlib.FileListingService;
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.IShellOutputReceiver;
 import com.android.ddmlib.InstallException;
+import com.android.ddmlib.InstallReceiver;
 import com.android.ddmlib.RawImage;
 import com.android.ddmlib.ScreenRecorderOptions;
 import com.android.ddmlib.ShellCommandUnresponsiveException;
@@ -229,6 +230,31 @@ public class StubDevice implements IDevice {
         throw new InstallException(new IOException("stub"));
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void installPackage(
+            String packageFilePath,
+            boolean reinstall,
+            InstallReceiver receiver,
+            String... extraArgs)
+            throws InstallException {
+        throw new InstallException(new IOException("stub"));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void installPackage(
+            String packageFilePath,
+            boolean reinstall,
+            InstallReceiver receiver,
+            long maxTimeout,
+            long maxTimeToOutputResponse,
+            TimeUnit maxTimeUnits,
+            String... extraArgs)
+            throws InstallException {
+        throw new InstallException(new IOException("stub"));
+    }
+
     /**
      * {@inheritDoc}
      **/
@@ -244,6 +270,28 @@ public class StubDevice implements IDevice {
     @Override
     public void installRemotePackage(String remoteFilePath, boolean reinstall,
             String... extraArgs) throws InstallException {
+        throw new InstallException(new IOException("stub"));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void installRemotePackage(
+            String remoteFilePath, boolean reinstall, InstallReceiver receiver, String... extraArgs)
+            throws InstallException {
+        throw new InstallException(new IOException("stub"));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void installRemotePackage(
+            String remoteFilePath,
+            boolean reinstall,
+            InstallReceiver receiver,
+            long maxTimeout,
+            long maxTimeToOutputResponse,
+            TimeUnit maxTimeUnits,
+            String... extraArgs)
+            throws InstallException {
         throw new InstallException(new IOException("stub"));
     }
 

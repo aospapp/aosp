@@ -16,21 +16,25 @@
 
 package android.uirendering.cts.testclasses;
 
+import static org.junit.Assert.assertEquals;
+
 import android.animation.Animator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Picture;
 import android.graphics.Rect;
 import android.os.Handler;
 import android.support.test.filters.LargeTest;
-import android.support.test.filters.MediumTest;
 import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.bitmapverifiers.BitmapVerifier;
 import android.uirendering.cts.bitmapverifiers.ColorCountVerifier;
+import android.uirendering.cts.bitmapverifiers.RectVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.ViewInitializer;
 import android.view.FrameMetrics;
@@ -214,5 +218,27 @@ public class BitmapTests extends ActivityTestBase {
         createTest()
                 .addLayout(R.layout.frame_layout, initializer, true)
                 .runWithAnimationVerifier(new BlueOrRedVerifier());
+    }
+
+    @Test
+    public void testCreateFromPicture() {
+        final Rect rect = new Rect(10, 10, 80, 80);
+        Picture picture = new Picture();
+        {
+            Canvas canvas = picture.beginRecording(TEST_WIDTH, TEST_HEIGHT);
+            Paint p = new Paint();
+            p.setAntiAlias(false);
+            p.setColor(Color.BLUE);
+            canvas.drawRect(rect, p);
+            picture.endRecording();
+        }
+        Bitmap bitmap = Bitmap.createBitmap(picture, picture.getWidth(),
+                picture.getHeight(), Bitmap.Config.ARGB_8888);
+        assertEquals(TEST_WIDTH, bitmap.getWidth());
+        assertEquals(TEST_HEIGHT, bitmap.getHeight());
+        assertEquals(Bitmap.Config.ARGB_8888, bitmap.getConfig());
+        createTest().addCanvasClient((canvas, width, height) -> {
+            canvas.drawBitmap(bitmap, 0, 0, null);
+        }, true).runWithVerifier(new RectVerifier(Color.WHITE, Color.BLUE, rect));
     }
 }

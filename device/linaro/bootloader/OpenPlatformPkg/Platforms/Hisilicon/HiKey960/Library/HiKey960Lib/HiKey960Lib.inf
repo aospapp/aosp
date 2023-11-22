@@ -1,0 +1,63 @@
+#
+#  Copyright (c) 2016-2017, Linaro Limited. All rights reserved.
+#
+#  This program and the accompanying materials
+#  are licensed and made available under the terms and conditions of the BSD License
+#  which accompanies this distribution.  The full text of the license may be found at
+#  http://opensource.org/licenses/bsd-license.php
+#
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = HiKey960Lib
+  FILE_GUID                      = 977ad020-e78c-4349-bda8-a3dedfd3aa47
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = ArmPlatformLib
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  ArmPkg/ArmPkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+
+[LibraryClasses]
+  IoLib
+  ArmLib
+  HobLib
+  MemoryAllocationLib
+  SerialPortLib
+
+[Sources.common]
+  HiKey960.c
+  HiKey960Mem.c
+
+[Sources.AARCH64]
+  AArch64/HiKey960Helper.S
+
+[FeaturePcd]
+  gEmbeddedTokenSpaceGuid.PcdCacheEnable
+
+[FixedPcd]
+  gArmTokenSpaceGuid.PcdSystemMemoryBase
+  gArmTokenSpaceGuid.PcdSystemMemorySize
+  gArmTokenSpaceGuid.PcdFvBaseAddress
+
+  gArmTokenSpaceGuid.PcdArmPrimaryCoreMask
+  gArmTokenSpaceGuid.PcdArmPrimaryCore
+
+  #
+  # PL011 Serial Debug UART
+  #
+  gArmPlatformTokenSpaceGuid.PcdSerialDbgRegisterBase
+  gArmPlatformTokenSpaceGuid.PcdSerialDbgUartBaudRate
+  gArmPlatformTokenSpaceGuid.PcdSerialDbgUartClkInHz
+
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultDataBits
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultParity
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultStopBits

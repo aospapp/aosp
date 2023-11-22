@@ -18,19 +18,19 @@
 
 #include <memory>
 
-#include "gc_root-inl.h"
+#include "dex/utf.h"
 #include "gc/collector/garbage_collector.h"
 #include "gc/space/image_space.h"
 #include "gc/weak_root_state.h"
+#include "gc_root-inl.h"
 #include "image-inl.h"
 #include "mirror/dex_cache-inl.h"
-#include "mirror/object_array-inl.h"
 #include "mirror/object-inl.h"
+#include "mirror/object_array-inl.h"
 #include "mirror/string-inl.h"
 #include "object_callbacks.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread.h"
-#include "utf.h"
 
 namespace art {
 
@@ -182,7 +182,7 @@ void InternTable::AddImagesStringsToTable(const std::vector<gc::space::ImageSpac
   for (gc::space::ImageSpace* image_space : image_spaces) {
     const ImageHeader* const header = &image_space->GetImageHeader();
     // Check if we have the interned strings section.
-    const ImageSection& section = header->GetImageSection(ImageHeader::kSectionInternedStrings);
+    const ImageSection& section = header->GetInternedStringsSection();
     if (section.Size() > 0) {
       AddTableFromMemoryLocked(image_space->Begin() + section.Offset());
     }
@@ -371,7 +371,7 @@ size_t InternTable::Table::AddTableFromMemory(const uint8_t* ptr) {
     return read_count;
   }
   // TODO: Disable this for app images if app images have intern tables.
-  static constexpr bool kCheckDuplicates = true;
+  static constexpr bool kCheckDuplicates = kIsDebugBuild;
   if (kCheckDuplicates) {
     for (GcRoot<mirror::String>& string : set) {
       CHECK(Find(string.Read()) == nullptr) << "Already found " << string.Read()->ToModifiedUtf8();

@@ -21,8 +21,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.testng.Assert.assertThrows;
 
 import android.icu.util.Calendar;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+import android.platform.test.annotations.AppModeFull;
 import android.view.View;
 import android.view.autofill.AutofillValue;
 import android.widget.CompoundButton;
@@ -32,6 +31,9 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.Spinner;
 import android.widget.TimePicker;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -51,6 +53,7 @@ import org.junit.Test;
  *  redundant tests and add more tests (like triggering autofill using different views) to
  *  CheckoutActivityTest.
  */
+@AppModeFull // Unit test
 public class AutofillValueTest extends AutoFillServiceTestCase {
     @Rule
     public final AutofillActivityTestRule<AllAutofillableViewsActivity> mActivityRule =
@@ -188,7 +191,7 @@ public class AutofillValueTest extends AutoFillServiceTestCase {
         startAutoFill(mEditText);
 
         // Autofill it.
-        sUiBot.selectDataset("dataset");
+        mUiBot.selectDataset("dataset");
 
         if (expectAutoFill) {
             // Check the results.
@@ -241,7 +244,7 @@ public class AutofillValueTest extends AutoFillServiceTestCase {
         startAutoFill(mCompoundButton);
 
         // Autofill it.
-        sUiBot.selectDataset("dataset");
+        mUiBot.selectDataset("dataset");
 
         if (expectAutoFill) {
             // Check the results.
@@ -294,7 +297,7 @@ public class AutofillValueTest extends AutoFillServiceTestCase {
         startAutoFill(mSpinner);
 
         // Autofill it.
-        sUiBot.selectDataset("dataset");
+        mUiBot.selectDataset("dataset");
 
         if (expectAutoFill) {
             // Check the results.
@@ -361,7 +364,7 @@ public class AutofillValueTest extends AutoFillServiceTestCase {
         startAutoFill(mEditText);
 
         // Autofill it.
-        sUiBot.selectDataset("dataset");
+        mUiBot.selectDataset("dataset");
 
         if (expectAutoFill) {
             // Check the results.
@@ -430,7 +433,7 @@ public class AutofillValueTest extends AutoFillServiceTestCase {
         startAutoFill(mEditText);
 
         // Autofill it.
-        sUiBot.selectDataset("dataset");
+        mUiBot.selectDataset("dataset");
 
         if (expectAutoFill) {
             // Check the results.
@@ -486,7 +489,7 @@ public class AutofillValueTest extends AutoFillServiceTestCase {
         startAutoFill(mEditText);
 
         // Autofill it.
-        sUiBot.selectDataset("dataset");
+        mUiBot.selectDataset("dataset");
 
         if (expectAutoFill) {
             // Check the results.

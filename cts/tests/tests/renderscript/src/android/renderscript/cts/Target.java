@@ -341,7 +341,7 @@ public class Target {
             mHasRange = false;
             mValue = values[0];
             for (double f: values) {
-                if (f != f) {
+                if (Double.isNaN(f)) {
                     mCanBeNan = true;
                     continue;
                 }
@@ -573,7 +573,7 @@ public class Target {
         public boolean couldBe(double a, double extraAllowedError) {
             //Log.w("Floaty.couldBe", "Can " + Double.toString(a) + " be " + toString() + "? ");
             // Handle the input being a NaN.
-            if (a != a) {
+            if (Double.isNaN(a)) {
                 //Log.w("couldBe", "true because is Naan");
                 return mCanBeNan;
             }

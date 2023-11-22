@@ -1,9 +1,8 @@
-
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """MachineImageManager allocates images to duts."""
+
 
 class MachineImageManager(object):
   """Management of allocating images to duts.
@@ -132,8 +131,7 @@ class MachineImageManager(object):
     * Special / common case to handle seperately
 
       We have only 1 dut or if we have only 1 label, that's simple enough.
-
-    """
+  """
 
   def __init__(self, labels, duts):
     self.labels_ = labels
@@ -158,13 +156,13 @@ class MachineImageManager(object):
   def compute_initial_allocation(self):
     """Compute the initial label-dut allocation.
 
-        This method finds the most efficient way that every label gets imaged at
-        least once.
+    This method finds the most efficient way that every label gets imaged at
+    least once.
 
-        Returns:
-          False, only if not all labels could be imaged to a certain machine,
-          otherwise True.
-        """
+    Returns:
+      False, only if not all labels could be imaged to a certain machine,
+      otherwise True.
+    """
 
     if self.n_duts_ == 1:
       for i, v in self.matrix_vertical_generator(0):
@@ -196,15 +194,15 @@ class MachineImageManager(object):
   def allocate(self, dut, schedv2=None):
     """Allocate a label for dut.
 
-        Args:
-          dut: the dut that asks for a new image.
-          schedv2: the scheduling instance, we need the benchmark run
-                   information with schedv2 for a better allocation.
+    Args:
+      dut: the dut that asks for a new image.
+      schedv2: the scheduling instance, we need the benchmark run
+               information with schedv2 for a better allocation.
 
-        Returns:
-          a label to image onto the dut or None if no more available images for
-          the dut.
-        """
+    Returns:
+      a label to image onto the dut or None if no more available images for
+      the dut.
+    """
     j = self.dut_name_ordinal_[dut.name]
     # 'can_' prefix means candidate label's.
     can_reimage_number = 999
@@ -270,16 +268,16 @@ class MachineImageManager(object):
   def matrix_vertical_generator(self, col):
     """Iterate matrix vertically at column 'col'.
 
-        Yield row number i and value at matrix_[i][col].
-        """
+    Yield row number i and value at matrix_[i][col].
+    """
     for i, _ in enumerate(self.labels_):
       yield i, self.matrix_[i][col]
 
   def matrix_horizontal_generator(self, row):
     """Iterate matrix horizontally at row 'row'.
 
-        Yield col number j and value at matrix_[row][j].
-        """
+    Yield col number j and value at matrix_[row][j].
+    """
     for j, _ in enumerate(self.duts_):
       yield j, self.matrix_[row][j]
 

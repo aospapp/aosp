@@ -58,6 +58,18 @@ struct XmlFileGroup {
         return ConstMultiMapValueIterable<std::string, T>(mXmlFiles);
     }
 
+    bool addAllXmlFiles(XmlFileGroup* other, std::string* error) {
+        for (auto& pair : other->mXmlFiles) {
+            if (!addXmlFile(std::move(pair.second))) {
+                if (error) {
+                    *error = pair.first;
+                }
+                return false;
+            }
+        }
+        return true;
+    }
+
    protected:
     map mXmlFiles;
 };

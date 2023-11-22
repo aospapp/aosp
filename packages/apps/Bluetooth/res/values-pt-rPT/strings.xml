@@ -111,12 +111,12 @@
     <string name="outbound_noti_title" msgid="8051906709452260849">"Partilha por Bluetooth: ficheiros enviados"</string>
     <string name="inbound_noti_title" msgid="4143352641953027595">"Partilha por Bluetooth: ficheiros recebidos"</string>
     <plurals name="noti_caption_unsuccessful" formatted="false" msgid="2020750076679526122">
-      <item quantity="one"><xliff:g id="UNSUCCESSFUL_NUMBER_0">%1$d</xliff:g> sem êxito.</item>
       <item quantity="other"><xliff:g id="UNSUCCESSFUL_NUMBER_1">%1$d</xliff:g> sem êxito.</item>
+      <item quantity="one"><xliff:g id="UNSUCCESSFUL_NUMBER_0">%1$d</xliff:g> sem êxito.</item>
     </plurals>
     <plurals name="noti_caption_success" formatted="false" msgid="1572472450257645181">
-      <item quantity="one"><xliff:g id="SUCCESSFUL_NUMBER_0">%1$d</xliff:g> com êxito, %2$s</item>
       <item quantity="other"><xliff:g id="SUCCESSFUL_NUMBER_1">%1$d</xliff:g> com êxito, %2$s</item>
+      <item quantity="one"><xliff:g id="SUCCESSFUL_NUMBER_0">%1$d</xliff:g> com êxito, %2$s</item>
     </plurals>
     <string name="transfer_menu_clear_all" msgid="790017462957873132">"Limpar lista"</string>
     <string name="transfer_menu_open" msgid="3368984869083107200">"Abrir"</string>
@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"Áudio Bluetooth ligado"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Áudio Bluetooth desligado"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Áudio Bluetooth"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Não é possível transferir os ficheiros com mais de 4 GB."</string>
 </resources>

@@ -257,7 +257,6 @@ TEST_P(NNCacheSerializationTest, ReinitializedCacheContainsValues) {
 }
 
 TEST_P(NNCacheSerializationTest, ReinitializedCacheContainsValuesSizeConstrained) {
-    uint8_t buf[4] = { 0xee, 0xee, 0xee, 0xee };
     mCache->setCacheFilename(&mTempFile->path[0]);
     mCache->initialize(6, 10, maxTotalSize, GetParam());
     mCache->setBlob("abcd", 4, "efgh", 4);

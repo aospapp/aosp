@@ -22,7 +22,7 @@ using chre::Singleton;
 
 TEST(Singleton, Lifecycle) {
   EXPECT_FALSE(Singleton<int>::isInitialized());
-  EXPECT_EQ(Singleton<int>::get(), nullptr);
+  EXPECT_EQ(Singleton<int>::safeGet(), nullptr);
 
   Singleton<int>::init(0x1337);
   ASSERT_NE(Singleton<int>::get(), nullptr);
@@ -34,7 +34,7 @@ TEST(Singleton, Lifecycle) {
   EXPECT_EQ(*Singleton<int>::get(), 0x1337);
 
   Singleton<int>::deinit();
-  EXPECT_EQ(Singleton<int>::get(), nullptr);
+  EXPECT_EQ(Singleton<int>::safeGet(), nullptr);
   EXPECT_FALSE(Singleton<int>::isInitialized());
 
   Singleton<int>::init(0xface);

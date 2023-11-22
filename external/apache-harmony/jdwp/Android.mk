@@ -9,6 +9,9 @@ endef
 harmony_jdwp_test_src_files := \
     $(call all-harmony-test-java-files-under,,src/test/java/)
 
+harmony_public_jdwp_test_src_files := \
+	$(filter-out $(call all-harmony-test-java-files-under,,src/test/java/org/apache/harmony/jpda/tests/jdwp/DDM/),$(harmony_jdwp_test_src_files))
+
 # Common JDWP settings
 jdwp_test_timeout_ms := 10000 # 10s.
 jdwp_test_target_runtime_common_args :=  \
@@ -27,7 +30,7 @@ cts_jdwp_test_target_runtime_args += $(jdwp_test_target_runtime_common_args)
 cts_jdwp_test_target_runtime_args += -Djpda.settings.debuggeeJavaPath='$(cts_jdwp_test_runtime_target)'
 
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(harmony_jdwp_test_src_files)
+LOCAL_SRC_FILES := $(harmony_public_jdwp_test_src_files)
 LOCAL_JAVA_LIBRARIES := junit
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := CtsJdwp
@@ -49,7 +52,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/jdwp
 include $(BUILD_JAVA_LIBRARY)
 
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(harmony_jdwp_test_src_files)
+LOCAL_SRC_FILES := $(harmony_public_jdwp_test_src_files)
 LOCAL_JAVA_LIBRARIES := junit-host
 LOCAL_MODULE := apache-harmony-jdwp-tests-host
 include $(BUILD_HOST_JAVA_LIBRARY)
@@ -61,5 +64,3 @@ LOCAL_JAVA_LIBRARIES := junit-hostdex
 LOCAL_MODULE := apache-harmony-jdwp-tests-hostdex
 include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 endif  # HOST_OS == linux
-
-include $(LOCAL_PATH)/Android_debug_config.mk

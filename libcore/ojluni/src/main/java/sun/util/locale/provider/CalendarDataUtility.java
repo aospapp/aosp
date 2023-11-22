@@ -35,6 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
+// Android-changed: remove mention of CalendarDataProvider that's not used on Android.
 /**
  * {@code CalendarDataUtility} is a utility class for getting calendar field name values.
  *
@@ -43,17 +44,32 @@ import java.util.Map;
  */
 public class CalendarDataUtility {
 
+    // Android-note: This class has been rewritten from scratch, keeping its API the same.
+    // Since Android gets its calendar related data from ICU, the implementation of this class is
+    // effectively independent of the upstream class, with the only similarity being is API in
+    // order to keep the necessary modifications outside of this class to a minimum.
+
+    // Android-added: calendar name constants for use in retrievFieldValueName.
     private static final String ISLAMIC_CALENDAR = "islamic";
     private static final String GREGORIAN_CALENDAR = "gregorian";
     private static final String BUDDHIST_CALENDAR = "buddhist";
     private static final String JAPANESE_CALENDAR = "japanese";
 
+    // Android-added: REST_OF_STYLES array for use in retrieveFieldValueNames.
+    // ALL_STYLES implies SHORT_FORMAT and all of these values.
+    private static int[] REST_OF_STYLES = {
+            SHORT_STANDALONE, LONG_FORMAT, LONG_STANDALONE,
+            NARROW_FORMAT, NARROW_STANDALONE
+    };
+
+    // Android-removed: unused FIRST_DAY_OF_WEEK and MINIMAL_DAYS_IN_FIRST_WEEK constants.
+
     // No instantiation
     private CalendarDataUtility() {
     }
 
-    // Android-changed: Removed retrieveFirstDayOfWeek and retrieveMinimalDaysInFirstWeek.
-    // use libcore.icu.LocaleData or android.icu.util.Calendar.WeekData instead
+    // Android-removed: retrieveFirstDayOfWeek and retrieveMinimalDaysInFirstWeek.
+    // Android-note: use libcore.icu.LocaleData or android.icu.util.Calendar.WeekData instead.
 
     public static String retrieveFieldValueName(String id, int field, int value, int style,
             Locale locale) {
@@ -93,12 +109,6 @@ public class CalendarDataUtility {
         return retrieveFieldValueName(id, field, value, style, locale);
     }
 
-    // ALL_STYLES implies SHORT_FORMAT and all of these values.
-    private static int[] REST_OF_STYLES = {
-            SHORT_STANDALONE, LONG_FORMAT, LONG_STANDALONE,
-            NARROW_FORMAT, NARROW_STANDALONE
-    };
-
     public static Map<String, Integer> retrieveFieldValueNames(String id, int field, int style,
             Locale locale) {
         // Android-changed: delegate to ICU.
@@ -115,6 +125,27 @@ public class CalendarDataUtility {
         return names.isEmpty() ? null : names;
     }
 
+    public static Map<String, Integer> retrieveJavaTimeFieldValueNames(String id, int field,
+            int style, Locale locale) {
+        // Android-changed: don't distinguish between retrieve* and retrieveJavaTime* methods.
+        return retrieveFieldValueNames(id, field, style, locale);
+    }
+
+    private static String normalizeCalendarType(String requestID) {
+        String type;
+        // Android-changed: normalize "gregory" to "gregorian", not the other way around.
+        // See android.icu.text.DateFormatSymbols.CALENDAR_CLASSES for reference.
+        if (requestID.equals("gregory") || requestID.equals("iso8601")) {
+            type = GREGORIAN_CALENDAR;
+        } else if (requestID.startsWith(ISLAMIC_CALENDAR)) {
+            type = ISLAMIC_CALENDAR;
+        } else {
+            type = requestID;
+        }
+        return type;
+    }
+
+    // BEGIN Android-added: various private helper methods.
     private static Map<String, Integer> retrieveFieldValueNamesImpl(String id, int field, int style,
             Locale locale) {
         String[] names = getNames(id, field, style, locale);
@@ -149,12 +180,6 @@ public class CalendarDataUtility {
             }
         }
         return result;
-    }
-
-    public static Map<String, Integer> retrieveJavaTimeFieldValueNames(String id, int field,
-            int style, Locale locale) {
-        // Android-changed: don't distinguish between retrieve* and retrieveJavaTime* methods.
-        return retrieveFieldValueNames(id, field, style, locale);
     }
 
     private static String[] getNames(String id, int field, int style, Locale locale) {
@@ -225,21 +250,8 @@ public class CalendarDataUtility {
                 throw new IllegalArgumentException("Invalid style: " + style);
         }
     }
+    // END Android-added: various private helper methods.
 
-    private static String normalizeCalendarType(String requestID) {
-        String type;
-        // Android-changed: normalize "gregory" to "gregorian", not the other way around.
-        // See android.icu.text.DateFormatSymbols.CALENDAR_CLASSES for reference.
-        if (requestID.equals("gregory") || requestID.equals("iso8601")) {
-            type = GREGORIAN_CALENDAR;
-        } else if (requestID.startsWith(ISLAMIC_CALENDAR)) {
-            type = ISLAMIC_CALENDAR;
-        } else {
-            type = requestID;
-        }
-        return type;
-    }
-
-    // Android-changed: Removed CalendarFieldValueNameGetter, CalendarFieldValueNamesMapGetter
-    // and CalendarWeekParameterGetter
+    // Android-removed: CalendarFieldValueNameGetter, CalendarFieldValueNamesMapGetter
+    // Android-removed: CalendarWeekParameterGetter
 }

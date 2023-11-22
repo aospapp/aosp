@@ -35,7 +35,7 @@ class ShellCommand(object):
         Args:
             runner: The object that will run the shell commands.
             working_dir: The directory that all commands should work in,
-                         if none then the runners enviroment default is used.
+                         if none then the runners environment default is used.
         """
         self._runner = runner
         self._working_dir = working_dir
@@ -67,7 +67,7 @@ class ShellCommand(object):
     def is_alive(self, identifier):
         """Checks to see if a program is alive.
 
-        Checks to see if a program is alive on the shells enviroment. This can
+        Checks to see if a program is alive on the shells environment. This can
         be used to check on generic programs, or a specific program using
         a pid.
 
@@ -90,6 +90,29 @@ class ShellCommand(object):
             return True
         except job.Error:
             return False
+
+    def get_command_pids(self, identifier):
+        """Gets the pids of a program, based only upon the starting command
+
+        Searches for a program with a specific name and grabs the pids for all
+        programs that match only the command that started it. The arguments of
+        the command are ignored.
+
+        Args:
+          identifier: The search term that identifies the program.
+
+        Returns:
+          An array of ints of all pids that matched the identifier.
+        """
+        result = self.run(
+            'ps -C %s --no-heading -o pid:1' % identifier, ignore_status=True)
+
+        # Output looks like pids on separate lines:
+        # 1245
+        # 5001
+
+        pids = result.stdout.splitlines()
+        return [int(pid) for pid in result.stdout.splitlines()]
 
     def get_pids(self, identifier):
         """Gets the pids of a program.
@@ -195,7 +218,7 @@ class ShellCommand(object):
         that match the identifier until either all are dead or the timeout
         finishes.
 
-        Programs are guranteed to be killed after running this command.
+        Programs are guaranteed to be killed after running this command.
 
         Args:
             identifier: A string used to identify the program.
@@ -230,7 +253,7 @@ class ShellCommand(object):
 
         Args:
             pid: The process id of the program to kill.
-            sig: The singal to send.
+            sig: The signal to send.
 
         Raises:
             job.Error: Raised when the signal fail to reach

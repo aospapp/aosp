@@ -16,34 +16,42 @@
 // Add ext.libs for library versions
 def libs = [:]
 
-// Testing dependencies
-libs.mockito_core = 'org.mockito:mockito-core:2.7.6'
-libs.dexmaker_mockito = 'com.linkedin.dexmaker:dexmaker-mockito:2.2.0'
-libs.junit = 'junit:junit:4.12'
-libs.test_runner = 'com.android.support.test:runner:1.0.1'
-libs.test_rules = 'com.android.support.test:rules:1.0.1'
-libs.espresso_core = 'com.android.support.test.espresso:espresso-core:3.0.1'
-libs.espresso_contrib = 'com.android.support.test.espresso:espresso-contrib:3.0.1'
-libs.jacoco = 'org.jacoco:org.jacoco.core:0.7.8'
-
-def androidPluginVersionOverride = System.getenv("GRADLE_PLUGIN_VERSION")
-
-if (androidPluginVersionOverride != null) {
-    libs.gradle = 'com.android.tools.build:gradle:' + androidPluginVersionOverride
-} else {
-    // Keep gradle plugin version in sync with ub_supportlib-master manifest.
-    libs.gradle = 'com.android.tools.build:gradle:3.0.0-beta6'
+libs.exclude_annotations_transitive = {
+    exclude group: 'androidx.annotation'
+    transitive = true
 }
 
-//arch components
-libs.arch_lifecycle_runtime = "android.arch.lifecycle:runtime:1.0.0"
+libs.exclude_bytebuddy = {
+    exclude group: 'net.bytebuddy'
+}
 
-// Other dependencies
-libs.xml_parser_apis = 'xerces:xmlParserAPIs:2.6.2'
-libs.xerces_impl = 'xerces:xercesImpl:2.6.2'
-libs.error_prone = 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.10'
+libs.exclude_support = {
+    exclude group: 'com.android.support'
+    exclude group: 'androidx.annotation'
+}
 
-// jarjar plugin
-libs.jarjar_gradle = 'org.anarres.jarjar:jarjar-gradle:1.0.0'
+libs.exclude_for_material = {
+    transitive = true
+    exclude group: 'androidx.annotation'
+    exclude group: 'androidx.core'
+    exclude group: 'androidx.legacy'
+    exclude group: 'androidx.fragment'
+    exclude group: 'androidx.transition'
+    exclude group: 'androidx.appcompat'
+    exclude group: 'androidx.recyclerview'
+    exclude group: 'androidx.cardview'
+}
+
+libs.exclude_for_espresso = {
+    exclude group: 'androidx.annotation'
+    exclude group: 'androidx.appcompat'
+    exclude group: 'androidx.recyclerview'
+    exclude group: 'androidx.legacy'
+}
+
+libs.support_exclude_config = {
+    exclude group: 'android.arch.core'
+    exclude group: 'androidx.lifecycle'
+}
 
 rootProject.ext['libs'] = libs

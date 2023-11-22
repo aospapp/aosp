@@ -32,10 +32,18 @@ namespace art {
 
 class OatFile;
 
+namespace linker {
+class ImageWriter;
+}  // namespace linker
+
+namespace linker {
+class OatWriter;
+}  // namespace linker
+
 namespace mirror {
-  class Class;
-  class ClassLoader;
-  class Object;
+class Class;
+class ClassLoader;
+class Object;
 }  // namespace mirror
 
 // Each loader has a ClassTable
@@ -182,11 +190,11 @@ class ClassTable {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Stops visit if the visitor returns false.
-  template <typename Visitor>
+  template <typename Visitor, ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
   bool Visit(Visitor& visitor)
       REQUIRES(!lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
-  template <typename Visitor>
+  template <typename Visitor, ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
   bool Visit(const Visitor& visitor)
       REQUIRES(!lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
@@ -286,7 +294,8 @@ class ClassTable {
   // Keep track of oat files with GC roots associated with dex caches in `strong_roots_`.
   std::vector<const OatFile*> oat_files_ GUARDED_BY(lock_);
 
-  friend class ImageWriter;  // for InsertWithoutLocks.
+  friend class linker::ImageWriter;  // for InsertWithoutLocks.
+  friend class linker::OatWriter;  // for boot class TableSlot address lookup.
 };
 
 }  // namespace art

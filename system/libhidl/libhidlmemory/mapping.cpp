@@ -24,6 +24,7 @@
 #include <android-base/logging.h>
 #include <android/hidl/memory/1.0/IMapper.h>
 #include <hidl/HidlSupport.h>
+#include <log/log.h>
 
 using android::sp;
 using android::hidl::memory::V1_0::IMemory;
@@ -60,6 +61,15 @@ sp<IMemory> mapMemory(const hidl_memory& memory) {
 
     if (mapper->isRemote()) {
         LOG(ERROR) << "IMapper must be a passthrough service.";
+        return nullptr;
+    }
+
+    // hidl_memory's size is stored in uint64_t, but mapMemory's mmap will map
+    // size in size_t. If size is over SIZE_MAX, mapMemory could succeed
+    // but the mapped memory's actual size will be smaller than the reported size.
+    if (memory.size() > SIZE_MAX) {
+        LOG(ERROR) << "Cannot map " << memory.size() << " bytes of memory because it is too large.";
+        android_errorWriteLog(0x534e4554, "79376389");
         return nullptr;
     }
 

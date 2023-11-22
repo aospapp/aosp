@@ -49,6 +49,7 @@
   BaseMemoryLib
   UefiLib
   BaseLib
+  CacheMaintenanceLib
   UefiDriverEntryPoint
   DebugLib
   DevicePathLib

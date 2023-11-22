@@ -11,13 +11,11 @@ from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros import backchannel
-# pylint: disable=W0611
-from autotest_lib.client.cros import flimflam_test_path  # Needed for flimflam
 from autotest_lib.client.cros import httpd
-from autotest_lib.client.cros import power_rapl, power_status, power_utils
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.graphics import graphics_utils
-import flimflam  # Requires flimflam_test_path to be imported first.
+from autotest_lib.client.cros.networking import wifi_proxy
+from autotest_lib.client.cros.power import power_rapl, power_status, power_utils
 
 
 class power_Consumption(test.test):
@@ -375,19 +373,17 @@ class power_Consumption(test.test):
     def _run_group_backchannel(self):
         """WiFi sub-tests."""
 
-        wifi_ap = 'GoogleGuest'
-        wifi_sec = 'none'
-        wifi_pw = ''
+        shill = wifi_proxy.WifiProxy()
+        for _ in xrange(3):
+            succeeded, _, _, _, _ = shill.connect_to_wifi_network(
+                    ssid='GoogleGuest',
+                    security='none',
+                    security_parameters={},
+                    save_credentials=False)
+            if succeeded:
+                break
 
-        flim = flimflam.FlimFlam()
-        conn = flim.ConnectService(retries=3,
-                              retry=True,
-                              service_type='wifi',
-                              ssid=wifi_ap,
-                              security=wifi_sec,
-                              passphrase=wifi_pw,
-                              mode='managed')
-        if not conn[0]:
+        if not succeeded:
             logging.error("Could not connect to WiFi")
             return
 
@@ -473,7 +469,9 @@ class power_Consumption(test.test):
         if not self._power_status.on_ac():
             measure += \
                 [power_status.SystemPower(self._power_status.battery_path)]
-        if power_utils.has_rapl_support():
+        if power_utils.has_powercap_support():
+            measure += power_rapl.create_powercap()
+        elif power_utils.has_rapl_support():
             measure += power_rapl.create_rapl()
         self._plog = power_status.PowerLogger(measure)
         self._plog.start()
@@ -516,7 +514,7 @@ class power_Consumption(test.test):
             logging.info("energy_full_design = %0.3f Wh", whrs)
 
             # Calculate expected battery life time with ChromeVer power draw
-            idle_name = 'ChromeVer_system_pwr'
+            idle_name = 'ChromeVer_system_pwr_avg'
             if idle_name in keyvals:
                 hours_life = whrs / keyvals[idle_name]
                 keyvals['hours_battery_ChromeVer'] = hours_life
@@ -525,15 +523,15 @@ class power_Consumption(test.test):
             # are intended to represent "typical" usage. Some video, some Flash
             # ... and most of the time idle. see,
             # http://www.chromium.org/chromium-os/testing/power-testing
-            weights = {'vid400p_h264_system_pwr':0.1,
-                       'BallsFlex_system_pwr':0.1,
-                       'BallsDHTML_system_pwr':0.3,
+            weights = {'vid400p_h264_system_pwr_avg':0.1,
+                       'BallsFlex_system_pwr_avg':0.1,
+                       'BallsDHTML_system_pwr_avg':0.3,
                       }
             weights[idle_name] = 1 - sum(weights.values())
 
             if set(weights).issubset(set(keyvals)):
                 p = sum(w * keyvals[k] for (k, w) in weights.items())
-                keyvals['w_Weighted_system_pwr'] = p
+                keyvals['w_Weighted_system_pwr_avg'] = p
                 keyvals['hours_battery_Weighted'] = whrs / p
 
         self.write_perf_keyval(keyvals)

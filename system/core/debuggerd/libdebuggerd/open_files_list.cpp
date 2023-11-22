@@ -16,6 +16,8 @@
 
 #define LOG_TAG "DEBUG"
 
+#include "libdebuggerd/open_files_list.h"
+
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
@@ -31,9 +33,7 @@
 #include <android-base/file.h>
 #include <log/log.h>
 
-#include "open_files_list.h"
-
-#include "utility.h"
+#include "libdebuggerd/utility.h"
 
 void populate_open_files_list(pid_t pid, OpenFilesList* list) {
   std::string fd_dir_name = "/proc/" + std::to_string(pid) + "/fd";
@@ -61,7 +61,7 @@ void populate_open_files_list(pid_t pid, OpenFilesList* list) {
   }
 }
 
-void dump_open_files_list_to_log(const OpenFilesList& files, log_t* log, const char* prefix) {
+void dump_open_files_list(log_t* log, const OpenFilesList& files, const char* prefix) {
   for (auto& file : files) {
     _LOG(log, logtype::OPEN_FILES, "%sfd %i: %s\n", prefix, file.first, file.second.c_str());
   }

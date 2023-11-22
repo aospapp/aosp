@@ -22,7 +22,7 @@
 #include <linux/string.h>
 #define AUTOFS_DEVICE_NAME "autofs"
 #define AUTOFS_DEV_IOCTL_VERSION_MAJOR 1
-#define AUTOFS_DEV_IOCTL_VERSION_MINOR 0
+#define AUTOFS_DEV_IOCTL_VERSION_MINOR 1
 #define AUTOFS_DEV_IOCTL_SIZE sizeof(struct autofs_dev_ioctl)
 struct args_protover {
   __u32 version;
@@ -103,7 +103,6 @@ enum {
   AUTOFS_DEV_IOCTL_ASKUMOUNT_CMD,
   AUTOFS_DEV_IOCTL_ISMOUNTPOINT_CMD,
 };
-#define AUTOFS_IOCTL 0x93
 #define AUTOFS_DEV_IOCTL_VERSION _IOWR(AUTOFS_IOCTL, AUTOFS_DEV_IOCTL_VERSION_CMD, struct autofs_dev_ioctl)
 #define AUTOFS_DEV_IOCTL_PROTOVER _IOWR(AUTOFS_IOCTL, AUTOFS_DEV_IOCTL_PROTOVER_CMD, struct autofs_dev_ioctl)
 #define AUTOFS_DEV_IOCTL_PROTOSUBVER _IOWR(AUTOFS_IOCTL, AUTOFS_DEV_IOCTL_PROTOSUBVER_CMD, struct autofs_dev_ioctl)

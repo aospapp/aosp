@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"ഔദ്യോഗിക ഉപകരണം സജ്ജമാക്കുന്നു…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"സജ്ജീകരണ ഡാറ്റ പ്രോസസ്സുചെയ്യുന്നു…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Wi-Fi-യിലേക്ക് ബന്ധിപ്പിക്കുന്നു…"</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"മൊബൈൽ നെറ്റ്‌വർക്കിലേക്ക് കണക്‌റ്റ് ചെയ്യുന്നു…"</string>
     <string name="progress_download" msgid="3522436271691064624">"അഡ്‌മിൻ ആപ്പ് ഡൗൺലോഡുചെയ്യുന്നു…"</string>
     <string name="progress_install" msgid="2258045670385866183">"അഡ്‌മിൻ ആപ്പ് ഇൻസ്റ്റാളുചെയ്യുന്നു…"</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"ആവശ്യമില്ലാത്ത സിസ്റ്റം ആപ്‌സ് നീക്കംചെയ്യുന്നു…"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"നിങ്ങളുടെ സ്ഥാപനത്താൽ മാനേജുചെയ്യപ്പെടുകയും നിരീക്ഷിക്കപ്പെടുകയും ചെയ്യുന്ന ഒരു ഔദ്യോഗിക പ്രൊഫൈൽ നിങ്ങൾ സൃഷ്‌ടിക്കാൻ പോകുകയാണ്. <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> എന്നതിൽ നിന്നുള്ള ‌നിബന്ധനകൾ ബാധകമാകും."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"നിങ്ങളുടെ ഔദ്യോഗിക ആപ്പുകൾക്കായി ഒരു പ്രൊഫൈൽ സൃഷ്‌ടിക്കപ്പെടും. ഈ ‌പ്രൊഫൈലും ബാക്കി ഉപകരണവും നിങ്ങളുടെ സ്ഥാപനം മാനേജുചെയ്യുകയും നിരീക്ഷിക്കുകയും ചെയ്യും. നിബന്ധനകൾ ബാധകമാണ്."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"നിങ്ങളുടെ ഔദ്യോഗിക ആപ്പുകൾക്കായി ഒരു പ്രൊഫൈൽ സൃഷ്‌ടിക്കപ്പെടും. ഈ ‌പ്രൊഫൈലും ബാക്കി ഉപകരണവും നിങ്ങളുടെ സ്ഥാപനം മാനേജുചെയ്യുകയും നിരീക്ഷിക്കുകയും ചെയ്യും. <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> എന്നതിൽ നിന്നുള്ള ‌നിബന്ധനകൾ ബാധകമാകും."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"ഈ ഉപകരണം മാനേജുചെയ്യുന്നതും സുരക്ഷിതമായി സൂക്ഷിക്കുന്നതും <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ആണ്. നിബന്ധനകൾ ബാധകമാവും. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"ഈ ഉപകരണം മാനേജുചെയ്യുന്നതും സുരക്ഷിതമായി സൂക്ഷിക്കുന്നതും <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ആണ്. <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> എന്നതിലെ നിബന്ധനകൾ ബാധകമാവും.<xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"ഈ ഉപകരണം നിയന്ത്രിക്കുന്നതും ഭദ്രമാക്കി നിലനിർത്തുന്നതും <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ആണ്. നിബന്ധനകൾ ബാധകമാവും. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"ഈ ഉപകരണം നിയന്ത്രിക്കുന്നതും ഭദ്രമാക്കി നിലനിർത്തുന്നതും <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ആണ്. <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> എന്നതിലെ നിബന്ധനകൾ ബാധകമാവും. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"ഈ ലിങ്ക് സുരക്ഷിതമല്ല, ഉപകരണ സജ്ജമാക്കൽ പൂർത്തിയാകുന്നത് വരെ തുറക്കാൻ കഴിയില്ല: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"നിങ്ങൾക്ക് ചോദ്യങ്ങൾ ഉണ്ടെങ്കിൽ, <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> എന്ന അഡ്‌മിനുമായി ബന്ധപ്പെടുക."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"നിങ്ങൾക്ക് ചോദ്യങ്ങൾ ഉണ്ടെങ്കിൽ, നിങ്ങളുടെ സ്ഥാപനത്തിന്റെ അഡ്‌മിനുമായി ബന്ധപ്പെടുക"</string>
@@ -119,7 +120,7 @@
     <string name="your_organization_middle" msgid="8288538158061644733">"നിങ്ങളുടെ ഓർഗനൈസേഷൻ"</string>
     <string name="view_terms" msgid="7230493092383341605">"നിബന്ധനകൾ കാണുക"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"സ്വീകരിക്കൂ, തുടരൂ"</string>
-    <string name="close" msgid="7208600934846389439">"അടയ്‌ക്കുക"</string>
+    <string name="close" msgid="7208600934846389439">"അവസാനിപ്പിക്കുക"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"നിങ്ങളുടെ ഉപകരണം സജ്ജീകരിക്കുക"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"നിങ്ങൾ ജോലി ചെയ്യുന്ന രീതി തന്നെ മാറ്റുക"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"ഔദ്യോഗിക വിവരങ്ങളും വ്യക്തിഗത വിവരങ്ങളും വെവ്വേറെയാക്കുക"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>, <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"ഇതിന് കുറച്ച് സമയമെടുത്തേക്കാം"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"ഔദ്യോഗിക ആപ്പുകൾ ഈ പ്രൊഫൈലിൽ സൂക്ഷിക്കപ്പെടും, നിങ്ങളുടെ സ്ഥാപനം അത് മാനേജ് ചെയ്യും"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"ഈ ഉപകരണം സുരക്ഷിതമായി സൂക്ഷിക്കപ്പെടും, ഒപ്പം നിങ്ങളുടെ ഓര്‍ഗനൈസേഷന്‍ അത് മാനേജും ചെയ്യും"</string>
 </resources>

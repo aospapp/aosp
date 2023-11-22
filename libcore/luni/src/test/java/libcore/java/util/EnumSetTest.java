@@ -19,7 +19,7 @@ package libcore.java.util;
 import java.io.InvalidObjectException;
 import java.util.EnumSet;
 import junit.framework.TestCase;
-import libcore.util.SerializationTester;
+import libcore.libcore.util.SerializationTester;
 
 public final class EnumSetTest extends TestCase {
     public void testSmallEnumSetSerialization() {

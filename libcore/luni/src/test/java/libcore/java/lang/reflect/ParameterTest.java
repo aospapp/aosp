@@ -53,30 +53,32 @@ public class ParameterTest extends TestCase {
     /**
      * A ClassLoader that can be used to load the
      * libcore.java.lang.reflect.parameter.ParameterMetadataTestClasses class and its nested
-     * classes. The loaded classes has valid metadata that could be created by a valid Android
-     * compiler.
+     * classes. The loaded classes have valid metadata that can be created by a valid Java compiler
+     * / Android dexer.
      */
     private ClassLoader classesWithMetadataClassLoader;
 
     /**
      * A ClassLoader that can be used to load the
      * libcore.java.lang.reflect.parameter.MetadataVariations class.
-     * The loaded class has invalid metadata that could not be created by a valid Android
-     * compiler.
+     * The loaded class has invalid metadata that could not be created by a valid Java compiler /
+     * Android dexer.
      */
     private ClassLoader metadataVariationsClassLoader;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        File dexDir = File.createTempFile("dexDir", "");
-        assertTrue(dexDir.delete());
-        assertTrue(dexDir.mkdirs());
+        File tempDir = File.createTempFile("tempDir", "");
+        assertTrue(tempDir.delete());
+        assertTrue(tempDir.mkdirs());
 
         classesWithMetadataClassLoader =
-                createClassLoaderForDexResource(dexDir, "parameter_metadata_test_classes.dex");
+                createClassLoaderForResource(tempDir, "parameter-metadata-test.jar");
+        String metadataVariationsResourcePath =
+                "libcore/java/lang/reflect/parameter/metadata_variations.dex";
         metadataVariationsClassLoader =
-                createClassLoaderForDexResource(dexDir, "metadata_variations.dex");
+                createClassLoaderForResource(tempDir, metadataVariationsResourcePath);
     }
 
     /**
@@ -1045,28 +1047,28 @@ public class ParameterTest extends TestCase {
         }
     }
 
-    private static ClassLoader createClassLoaderForDexResource(File dexDir, String resourceName)
+    private static ClassLoader createClassLoaderForResource(File destDir, String resourcePath)
             throws Exception {
-        File dexFile = new File(dexDir, resourceName);
-        copyResource(resourceName, dexFile);
-        return new PathClassLoader(dexFile.getAbsolutePath(), ClassLoader.getSystemClassLoader());
+        String fileName = new File(resourcePath).getName();
+        File dexOrJarFile = new File(destDir, fileName);
+        copyResource(resourcePath, dexOrJarFile);
+        return new PathClassLoader(
+                dexOrJarFile.getAbsolutePath(), ClassLoader.getSystemClassLoader());
     }
 
     /**
      * Copy a resource in the libcore/java/lang/reflect/parameter/ resource path to the indicated
      * target file.
      */
-    private static void copyResource(String resourceName, File destination) throws Exception {
+    private static void copyResource(String resourcePath, File destination) throws Exception {
         assertFalse(destination.exists());
         ClassLoader classLoader = ParameterTest.class.getClassLoader();
         assertNotNull(classLoader);
 
-        final String RESOURCE_PATH = "libcore/java/lang/reflect/parameter/";
-        String fullResourcePath = RESOURCE_PATH + resourceName;
-        try (InputStream in = classLoader.getResourceAsStream(fullResourcePath);
+        try (InputStream in = classLoader.getResourceAsStream(resourcePath);
              FileOutputStream out = new FileOutputStream(destination)) {
             if (in == null) {
-                throw new IllegalStateException("Resource not found: " + fullResourcePath);
+                throw new IllegalStateException("Resource not found: " + resourcePath);
             }
             Streams.copy(in, out);
         }

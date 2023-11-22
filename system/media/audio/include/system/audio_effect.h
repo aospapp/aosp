@@ -60,6 +60,12 @@ typedef struct effect_descriptor_s {
     char    implementor[EFFECT_STRING_LEN_MAX];    // human readable effect implementor name
 } effect_descriptor_t;
 
+#define EFFECT_CONFIG_ALL (EFFECT_CONFIG_BUFFER | \
+                           EFFECT_CONFIG_SMP_RATE | \
+                           EFFECT_CONFIG_CHANNELS | \
+                           EFFECT_CONFIG_FORMAT | \
+                           EFFECT_CONFIG_ACC_MODE)
+
 /////////////////////////////////////////////////
 //      Effect control interface
 /////////////////////////////////////////////////
@@ -429,6 +435,7 @@ typedef struct audio_buffer_s {
     size_t   frameCount;        // number of frames in buffer
     union {
         void*       raw;        // raw pointer to start of buffer
+        float*      f32;        // pointer to float 32 bit data at start of buffer
         int32_t*    s32;        // pointer to signed 32 bit data at start of buffer
         int16_t*    s16;        // pointer to signed 16 bit data at start of buffer
         uint8_t*    u8;         // pointer to unsigned 8 bit data at start of buffer

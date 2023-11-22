@@ -17,6 +17,8 @@
 #define LOG_TAG "NetlinkEvent"
 
 #include <arpa/inet.h>
+#include <limits.h>
+#include <linux/genetlink.h>
 #include <linux/if.h>
 #include <linux/if_addr.h>
 #include <linux/if_link.h>
@@ -26,12 +28,8 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <net/if.h>
-#include <netinet/in.h>
 #include <netinet/icmp6.h>
-#include <netlink/attr.h>
-#include <netlink/genl/genl.h>
-#include <netlink/handlers.h>
-#include <netlink/msg.h>
+#include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -139,6 +137,12 @@ bool NetlinkEvent::parseIfInfoMessage(const struct nlmsghdr *nh) {
         switch(rta->rta_type) {
             case IFLA_IFNAME:
                 asprintf(&mParams[0], "INTERFACE=%s", (char *) RTA_DATA(rta));
+                // We can get the interface change information from sysfs update
+                // already. But in case we missed those message when devices start.
+                // We do a update again when received a kLinkUp event. To make
+                // the message consistent, use IFINDEX here as well since sysfs
+                // uses IFINDEX.
+                asprintf(&mParams[1], "IFINDEX=%d", ifi->ifi_index);
                 mAction = (ifi->ifi_flags & IFF_LOWER_UP) ? Action::kLinkUp :
                                                             Action::kLinkDown;
                 mSubsystem = strdup("net");
@@ -235,12 +239,13 @@ bool NetlinkEvent::parseIfAddrMessage(const struct nlmsghdr *nh) {
     asprintf(&mParams[1], "INTERFACE=%s", ifname);
     asprintf(&mParams[2], "FLAGS=%u", ifaddr->ifa_flags);
     asprintf(&mParams[3], "SCOPE=%u", ifaddr->ifa_scope);
+    asprintf(&mParams[4], "IFINDEX=%u", ifaddr->ifa_index);
 
     if (cacheinfo) {
-        asprintf(&mParams[4], "PREFERRED=%u", cacheinfo->ifa_prefered);
-        asprintf(&mParams[5], "VALID=%u", cacheinfo->ifa_valid);
-        asprintf(&mParams[6], "CSTAMP=%u", cacheinfo->cstamp);
-        asprintf(&mParams[7], "TSTAMP=%u", cacheinfo->tstamp);
+        asprintf(&mParams[5], "PREFERRED=%u", cacheinfo->ifa_prefered);
+        asprintf(&mParams[6], "VALID=%u", cacheinfo->ifa_valid);
+        asprintf(&mParams[7], "CSTAMP=%u", cacheinfo->cstamp);
+        asprintf(&mParams[8], "TSTAMP=%u", cacheinfo->tstamp);
     }
 
     return true;
@@ -263,6 +268,18 @@ bool NetlinkEvent::parseUlogPacketMessage(const struct nlmsghdr *nh) {
     return true;
 }
 
+static size_t nlAttrLen(const nlattr* nla) {
+    return nla->nla_len - NLA_HDRLEN;
+}
+
+static const uint8_t* nlAttrData(const nlattr* nla) {
+    return reinterpret_cast<const uint8_t*>(nla) + NLA_HDRLEN;
+}
+
+static uint32_t nlAttrU32(const nlattr* nla) {
+    return *reinterpret_cast<const uint32_t*>(nlAttrData(nla));
+}
+
 /*
  * Parse a LOCAL_NFLOG_PACKET message.
  */
@@ -271,17 +288,17 @@ bool NetlinkEvent::parseNfPacketMessage(struct nlmsghdr *nh) {
     int len = 0;
     char* raw = NULL;
 
-    struct nlattr *uid_attr = nlmsg_find_attr(nh, sizeof(struct genlmsghdr), NFULA_UID);
+    struct nlattr* uid_attr = findNlAttr(nh, sizeof(struct genlmsghdr), NFULA_UID);
     if (uid_attr) {
-        uid = ntohl(nla_get_u32(uid_attr));
+        uid = ntohl(nlAttrU32(uid_attr));
     }
 
-    struct nlattr *payload = nlmsg_find_attr(nh, sizeof(struct genlmsghdr), NFULA_PAYLOAD);
+    struct nlattr* payload = findNlAttr(nh, sizeof(struct genlmsghdr), NFULA_PAYLOAD);
     if (payload) {
         /* First 256 bytes is plenty */
-        len = nla_len(payload);
+        len = nlAttrLen(payload);
         if (len > 256) len = 256;
-        raw = (char*) nla_data(payload);
+        raw = (char*)nlAttrData(payload);
     }
 
     char* hex = (char*) calloc(1, 5 + (len * 2));
@@ -491,6 +508,8 @@ bool NetlinkEvent::parseNdUserOptMessage(const struct nlmsghdr *nh) {
         asprintf(&mParams[0], "INTERFACE=%s", ifname);
         asprintf(&mParams[1], "LIFETIME=%u", lifetime);
         mParams[2] = buf;
+    } else if (opthdr->nd_opt_type == ND_OPT_DNSSL) {
+        // TODO: support DNSSL.
     } else {
         SLOGD("Unknown ND option type %d\n", opthdr->nd_opt_type);
         return false;
@@ -645,4 +664,27 @@ const char *NetlinkEvent::findParam(const char *paramName) {
 
     SLOGE("NetlinkEvent::FindParam(): Parameter '%s' not found", paramName);
     return NULL;
+}
+
+nlattr* NetlinkEvent::findNlAttr(const nlmsghdr* nh, size_t hdrlen, uint16_t attr) {
+    if (nh == nullptr || NLMSG_HDRLEN + NLMSG_ALIGN(hdrlen) > SSIZE_MAX) {
+        return nullptr;
+    }
+
+    // Skip header, padding, and family header.
+    const ssize_t NLA_START = NLMSG_HDRLEN + NLMSG_ALIGN(hdrlen);
+    ssize_t left = nh->nlmsg_len - NLA_START;
+    uint8_t* hdr = ((uint8_t*)nh) + NLA_START;
+
+    while (left >= NLA_HDRLEN) {
+        nlattr* nla = (nlattr*)hdr;
+        if (nla->nla_type == attr) {
+            return nla;
+        }
+
+        hdr += NLA_ALIGN(nla->nla_len);
+        left -= NLA_ALIGN(nla->nla_len);
+    }
+
+    return nullptr;
 }

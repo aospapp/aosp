@@ -41,7 +41,11 @@ endif
 ifeq ($(LOCAL_NANO_MODULE_TYPE),BL)
 ifeq ($(AUX_ARCH),stm32)
 linker_script := $(gen)/bl.lkr
+ifeq ($(NANO_VARIANT_LKR_MAP),)
 $(call nano-gen-linker-script,$(linker_script),bl,$(AUX_SUBARCH),stm32f4xx,$(AUX_ARCH))
+else
+$(call nano-gen-linker-script-map,$(linker_script),bl,$(NANO_VARIANT_LKR_MAP),stm32f4xx,$(AUX_ARCH))
+endif
 endif
 endif
 
@@ -52,7 +56,11 @@ $(call nano-gen-linker-script-native,$(linker_script),os,$(AUX_SUBARCH),native,$
 endif
 ifeq ($(AUX_ARCH),stm32)
 linker_script := $(gen)/os.lkr
+ifeq ($(NANO_VARIANT_LKR_MAP),)
 $(call nano-gen-linker-script,$(linker_script),os,$(AUX_SUBARCH),stm32f4xx,$(AUX_ARCH))
+else
+$(call nano-gen-linker-script-map,$(linker_script),os,$(NANO_VARIANT_LKR_MAP),stm32f4xx,$(AUX_ARCH))
+endif
 endif
 endif
 

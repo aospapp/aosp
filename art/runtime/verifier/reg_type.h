@@ -27,10 +27,10 @@
 #include "base/macros.h"
 #include "base/mutex.h"
 #include "base/stringpiece.h"
+#include "dex/primitive.h"
 #include "gc_root.h"
 #include "handle_scope.h"
 #include "obj_ptr.h"
-#include "primitive.h"
 
 namespace art {
 namespace mirror {
@@ -129,8 +129,12 @@ class RegType {
   virtual bool IsConstantShort() const { return false; }
   virtual bool IsOne() const { return false; }
   virtual bool IsZero() const { return false; }
+  virtual bool IsNull() const { return false; }
   bool IsReferenceTypes() const {
-    return IsNonZeroReferenceTypes() || IsZero();
+    return IsNonZeroReferenceTypes() || IsZero() || IsNull();
+  }
+  bool IsZeroOrNull() const {
+    return IsZero() || IsNull();
   }
   virtual bool IsNonZeroReferenceTypes() const { return false; }
   bool IsCategory1Types() const {
@@ -264,8 +268,8 @@ class RegType {
     return ::operator new(size);
   }
 
-  static void* operator new(size_t size, ArenaAllocator* arena) = delete;
-  static void* operator new(size_t size, ScopedArenaAllocator* arena);
+  static void* operator new(size_t size, ArenaAllocator* allocator) = delete;
+  static void* operator new(size_t size, ScopedArenaAllocator* allocator);
 
   enum class AssignmentType {
     kBoolean,
@@ -855,6 +859,46 @@ class ImpreciseConstHiType FINAL : public ConstantType {
   AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
     return AssignmentType::kNotAssignable;
   }
+};
+
+// Special "null" type that captures the semantics of null / bottom.
+class NullType FINAL : public RegType {
+ public:
+  bool IsNull() const OVERRIDE {
+    return true;
+  }
+
+  // Get the singleton Null instance.
+  static const NullType* GetInstance() PURE;
+
+  // Create the singleton instance.
+  static const NullType* CreateInstance(mirror::Class* klass,
+                                        const StringPiece& descriptor,
+                                        uint16_t cache_id)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  static void Destroy();
+
+  std::string Dump() const OVERRIDE {
+    return "null";
+  }
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kReference;
+  }
+
+  bool IsConstantTypes() const OVERRIDE {
+    return true;
+  }
+
+ private:
+  NullType(mirror::Class* klass, const StringPiece& descriptor, uint16_t cache_id)
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      : RegType(klass, descriptor, cache_id) {
+    CheckConstructorInvariants(this);
+  }
+
+  static const NullType* instance_;
 };
 
 // Common parent of all uninitialized types. Uninitialized types are created by

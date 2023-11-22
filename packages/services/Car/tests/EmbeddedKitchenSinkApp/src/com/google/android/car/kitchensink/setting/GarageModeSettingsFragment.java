@@ -15,6 +15,13 @@
  */
 package com.google.android.car.kitchensink.setting;
 
+import static android.car.settings.CarSettings.Global.KEY_GARAGE_MODE_ENABLED;
+import static android.car.settings.CarSettings.Global.KEY_GARAGE_MODE_MAINTENANCE_WINDOW;
+import static android.car.settings.CarSettings.Global.KEY_GARAGE_MODE_WAKE_UP_TIME;
+import static android.car.settings.GarageModeSettingsObserver.GARAGE_MODE_ENABLED_URI;
+import static android.car.settings.GarageModeSettingsObserver.GARAGE_MODE_MAINTENANCE_WINDOW_URI;
+import static android.car.settings.GarageModeSettingsObserver.GARAGE_MODE_WAKE_UP_TIME_URI;
+
 import android.app.TimePickerDialog;
 import android.car.CarApiUtil;
 import android.car.settings.GarageModeSettingsObserver;
@@ -32,13 +39,6 @@ import android.widget.TimePicker;
 import com.google.android.car.kitchensink.R;
 
 import java.sql.Time;
-
-import static android.car.settings.CarSettings.Global.KEY_GARAGE_MODE_MAINTENANCE_WINDOW;
-import static android.car.settings.CarSettings.Global.KEY_GARAGE_MODE_ENABLED;
-import static android.car.settings.CarSettings.Global.KEY_GARAGE_MODE_WAKE_UP_TIME;
-import static android.car.settings.GarageModeSettingsObserver.GARAGE_MODE_ENABLED_URI;
-import static android.car.settings.GarageModeSettingsObserver.GARAGE_MODE_WAKE_UP_TIME_URI;
-import static android.car.settings.GarageModeSettingsObserver.GARAGE_MODE_MAINTENANCE_WINDOW_URI;
 
 public class GarageModeSettingsFragment extends PreferenceFragment implements
         TimePickerDialog.OnTimeSetListener, Preference.OnPreferenceChangeListener {

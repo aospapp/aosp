@@ -13,14 +13,14 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Config for VTS VtsQtaguidTest.">
+<configuration description="Config for VTS VtsKernelQtaguidTest.">
+    <option name="config-descriptor:metadata" key="plan" value="vts-kernel" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="abort-on-push-failure" value="false"/>
         <option name="push-group" value="HostDrivenTest.push"/>
     </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer"/>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
-        <option name="test-module-name" value="VtsQtaguidTest"/>
+        <option name="test-module-name" value="VtsKernelQtaguidTest"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/vts_test_binary_qtaguid_module/vts_test_binary_qtaguid_module" />
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/vts_test_binary_qtaguid_module/vts_test_binary_qtaguid_module" />
         <option name="binary-test-type" value="gtest" />

@@ -22,7 +22,7 @@ LOCAL_MODULE := time_zone_distro_provider
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(call all-java-files-under, src/main)
 LOCAL_PROGUARD_FLAG_FILES := $(LOCAL_PATH)/proguard.cfg
-LOCAL_STATIC_JAVA_LIBRARIES := time_zone_distro_unbundled android-support-annotations
+LOCAL_STATIC_JAVA_LIBRARIES := time_zone_distro_unbundled androidx.annotation_annotation
 LOCAL_SDK_VERSION := system_current
 include $(BUILD_STATIC_JAVA_LIBRARY)
 

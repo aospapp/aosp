@@ -10,11 +10,13 @@
 package android.icu.dev.test.util;
 
 import android.icu.util.LocaleMatcher.LanguageMatcherData;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author markdavis
  *
  */
+@MainTestShard
 public class LocaleMatcherShim {
     public static LanguageMatcherData load() {
         // In CLDR, has different value

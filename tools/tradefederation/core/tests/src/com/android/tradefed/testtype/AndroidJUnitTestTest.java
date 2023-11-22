@@ -17,22 +17,23 @@ package com.android.tradefed.testtype;
 
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.testrunner.IRemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.ITestLifeCycleReceiver;
 import com.android.tradefed.util.FileUtil;
 
 import junit.framework.TestCase;
 
+import org.easymock.EasyMock;
+
 import java.io.File;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-
-import org.easymock.EasyMock;
 
 /**
  * Unit tests for {@link AndroidJUnitTest}
@@ -83,6 +84,8 @@ public class AndroidJUnitTestTest extends TestCase {
         mMockRemoteRunner.setMaxTimeout(0L, TimeUnit.MILLISECONDS);
         mMockRemoteRunner.addInstrumentationArg(InstrumentationTest.TEST_TIMEOUT_INST_ARGS_KEY,
                 Long.toString(SHELL_TIMEOUT));
+        mMockRemoteRunner.addInstrumentationArg(
+                AndroidJUnitTest.NEW_RUN_LISTENER_ORDER_KEY, "true");
     }
 
     /**
@@ -282,7 +285,7 @@ public class AndroidJUnitTestTest extends TestCase {
 
         mMockListener.testRunStarted(EasyMock.anyObject(), EasyMock.eq(0));
         mMockListener.testRunFailed("failed to push");
-        mMockListener.testRunEnded(0, Collections.emptyMap());
+        mMockListener.testRunEnded(0, new HashMap<String, Metric>());
 
         EasyMock.replay(mMockRemoteRunner, mMockTestDevice, mMockListener);
         File tmpFileInclude = FileUtil.createTempFile("includeFile", ".txt");
@@ -338,8 +341,11 @@ public class AndroidJUnitTestTest extends TestCase {
     }
 
     private void setRunTestExpectations() throws DeviceNotAvailableException {
-        EasyMock.expect(mMockTestDevice.runInstrumentationTests(EasyMock.eq(mMockRemoteRunner),
-                        (ITestRunListener)EasyMock.anyObject())).andReturn(Boolean.TRUE);
+        EasyMock.expect(
+                        mMockTestDevice.runInstrumentationTests(
+                                EasyMock.eq(mMockRemoteRunner),
+                                (ITestLifeCycleReceiver) EasyMock.anyObject()))
+                .andReturn(Boolean.TRUE);
     }
 
     /**

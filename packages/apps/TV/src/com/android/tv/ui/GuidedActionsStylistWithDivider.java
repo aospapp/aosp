@@ -20,17 +20,13 @@ import android.content.Context;
 import android.support.v17.leanback.app.GuidedStepFragment;
 import android.support.v17.leanback.widget.GuidedAction;
 import android.support.v17.leanback.widget.GuidedActionsStylist;
-
 import com.android.tv.R;
 
-/**
- * Extended stylist class used for {@link GuidedStepFragment} with divider support.
- */
+/** Extended stylist class used for {@link GuidedStepFragment} with divider support. */
 public class GuidedActionsStylistWithDivider extends GuidedActionsStylist {
-    /**
-     * ID used mark a divider.
-     */
+    /** ID used mark a divider. */
     public static final int ACTION_DIVIDER = -100;
+
     private static final int VIEW_TYPE_DIVIDER = 1;
 
     @Override
@@ -50,8 +46,8 @@ public class GuidedActionsStylistWithDivider extends GuidedActionsStylist {
     }
 
     /**
-     * Creates a divider for {@link GuidedStepFragment}, targeted fragments must use
-     * {@link GuidedActionsStylistWithDivider} as its actions' stylist for divider to work.
+     * Creates a divider for {@link GuidedStepFragment}, targeted fragments must use {@link
+     * GuidedActionsStylistWithDivider} as its actions' stylist for divider to work.
      */
     public static GuidedAction createDividerAction(Context context) {
         return new GuidedAction.Builder(context)

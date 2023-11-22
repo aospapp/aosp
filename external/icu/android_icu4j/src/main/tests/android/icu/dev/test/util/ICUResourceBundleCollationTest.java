@@ -12,6 +12,8 @@ package android.icu.dev.test.util;
 import java.util.MissingResourceException;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.ICUData;
@@ -19,8 +21,10 @@ import android.icu.impl.ICUResourceBundle;
 import android.icu.text.Collator;
 import android.icu.util.ULocale;
 import android.icu.util.UResourceBundle;
+import android.icu.testsharding.MainTestShard;
 
-
+@MainTestShard
+@RunWith(JUnit4.class)
 public final class ICUResourceBundleCollationTest extends TestFmwk {
     private static final String COLLATION_RESNAME = "collations";
     private static final String COLLATION_KEYWORD = "collation";
@@ -149,7 +153,7 @@ public final class ICUResourceBundleCollationTest extends TestFmwk {
 
     @Test
     public void TestOpen(){
-        UResourceBundle bundle = (UResourceBundle)UResourceBundle.getBundleInstance(ICUData.ICU_COLLATION_BASE_NAME, "en_US_POSIX");
+        UResourceBundle bundle = UResourceBundle.getBundleInstance(ICUData.ICU_COLLATION_BASE_NAME, "en_US_POSIX");
         if(bundle==null){
             errln("could not load the stream");
         }

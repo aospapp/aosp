@@ -67,9 +67,10 @@ def main():
         req = its.objects.manual_capture_request(0, e)
         req['android.blackLevel.lock'] = True
         req['android.tonemap.mode'] = 0
-        req['android.tonemap.curveRed'] = gamma_lut.tolist()
-        req['android.tonemap.curveGreen'] = gamma_lut.tolist()
-        req['android.tonemap.curveBlue'] = gamma_lut.tolist()
+        req['android.tonemap.curve'] = {
+            'red': gamma_lut.tolist(),
+            'green': gamma_lut.tolist(),
+            'blue': gamma_lut.tolist()}
 
         r_means = []
         g_means = []

@@ -66,9 +66,15 @@ SensorRequestManager::SensorRequestManager() {
     for (size_t i = 0; i < sensors.size(); i++) {
       SensorType sensorType = sensors[i].getSensorType();
       size_t sensorIndex = getSensorTypeArrayIndex(sensorType);
-      LOGD("Found sensor: %s", getSensorTypeName(sensorType));
 
-      mSensorRequests[sensorIndex].sensor = std::move(sensors[i]);
+      if (sensorType == SensorType::Unknown) {
+        LOGE("Invalid sensor type");
+      } else if (sensors[i].getMinInterval() == 0) {
+        LOGE("Invalid sensor minInterval: %s", getSensorTypeName(sensorType));
+      } else {
+        mSensorRequests[sensorIndex].sensor = std::move(sensors[i]);
+        LOGD("Found sensor: %s", getSensorTypeName(sensorType));
+      }
     }
   }
 }

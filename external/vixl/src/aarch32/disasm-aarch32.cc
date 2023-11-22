@@ -37,9 +37,9 @@ extern "C" {
 
 #include "utils-vixl.h"
 #include "aarch32/constants-aarch32.h"
+#include "aarch32/disasm-aarch32.h"
 #include "aarch32/instructions-aarch32.h"
 #include "aarch32/operands-aarch32.h"
-#include "aarch32/disasm-aarch32.h"
 
 namespace vixl {
 namespace aarch32 {
@@ -1121,7 +1121,7 @@ void Disassembler::adc(Condition cond,
   os().SetCurrentInstruction(kAdc, kArithmetic);
   os() << ToCString(kAdc) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -1135,7 +1135,7 @@ void Disassembler::adcs(Condition cond,
   os().SetCurrentInstruction(kAdcs, kArithmetic);
   os() << ToCString(kAdcs) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -1149,7 +1149,7 @@ void Disassembler::add(Condition cond,
   os().SetCurrentInstruction(kAdd, kArithmetic);
   os() << ToCString(kAdd) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -1169,7 +1169,7 @@ void Disassembler::adds(Condition cond,
   os().SetCurrentInstruction(kAdds, kArithmetic);
   os() << ToCString(kAdds) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -1187,7 +1187,7 @@ void Disassembler::addw(Condition cond,
   os().SetCurrentInstruction(kAddw, kArithmetic);
   os() << ToCString(kAddw) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -1196,10 +1196,11 @@ void Disassembler::addw(Condition cond,
 void Disassembler::adr(Condition cond,
                        EncodingSize size,
                        Register rd,
-                       Label* label) {
+                       Location* location) {
   os().SetCurrentInstruction(kAdr, kAddress);
   os() << ToCString(kAdr) << ConditionPrinter(it_block_, cond) << size << " "
-       << rd << ", " << PrintLabel(kAnyLocation, label, GetCodeAddress() & ~3);
+       << rd << ", "
+       << PrintLabel(kAnyLocation, location, GetCodeAddress() & ~3);
 }
 
 void Disassembler::and_(Condition cond,
@@ -1210,7 +1211,7 @@ void Disassembler::and_(Condition cond,
   os().SetCurrentInstruction(kAnd, kBitwise);
   os() << ToCString(kAnd) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -1224,7 +1225,7 @@ void Disassembler::ands(Condition cond,
   os().SetCurrentInstruction(kAnds, kBitwise);
   os() << ToCString(kAnds) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -1238,7 +1239,7 @@ void Disassembler::asr(Condition cond,
   os().SetCurrentInstruction(kAsr, kShift);
   os() << ToCString(kAsr) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -1252,37 +1253,33 @@ void Disassembler::asrs(Condition cond,
   os().SetCurrentInstruction(kAsrs, kShift);
   os() << ToCString(kAsrs) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
 }
 
-void Disassembler::b(Condition cond, EncodingSize size, Label* label) {
+void Disassembler::b(Condition cond, EncodingSize size, Location* location) {
   os().SetCurrentInstruction(kB, kAddress | kBranch);
   os() << ToCString(kB) << ConditionPrinter(it_block_, cond) << size << " "
-       << PrintLabel(kCodeLocation, label, GetCodeAddress());
+       << PrintLabel(kCodeLocation, location, GetCodeAddress());
 }
 
 void Disassembler::bfc(Condition cond,
                        Register rd,
                        uint32_t lsb,
-                       const Operand& operand) {
+                       uint32_t width) {
   os().SetCurrentInstruction(kBfc, kShift);
   os() << ToCString(kBfc) << ConditionPrinter(it_block_, cond) << " " << rd
-       << ", "
-       << "#" << lsb << ", " << operand;
+       << ", " << ImmediatePrinter(lsb) << ", " << ImmediatePrinter(width);
 }
 
-void Disassembler::bfi(Condition cond,
-                       Register rd,
-                       Register rn,
-                       uint32_t lsb,
-                       const Operand& operand) {
+void Disassembler::bfi(
+    Condition cond, Register rd, Register rn, uint32_t lsb, uint32_t width) {
   os().SetCurrentInstruction(kBfi, kShift);
   os() << ToCString(kBfi) << ConditionPrinter(it_block_, cond) << " " << rd
-       << ", " << rn << ", "
-       << "#" << lsb << ", " << operand;
+       << ", " << rn << ", " << ImmediatePrinter(lsb) << ", "
+       << ImmediatePrinter(width);
 }
 
 void Disassembler::bic(Condition cond,
@@ -1293,7 +1290,7 @@ void Disassembler::bic(Condition cond,
   os().SetCurrentInstruction(kBic, kBitwise);
   os() << ToCString(kBic) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -1307,7 +1304,7 @@ void Disassembler::bics(Condition cond,
   os().SetCurrentInstruction(kBics, kBitwise);
   os() << ToCString(kBics) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -1315,19 +1312,20 @@ void Disassembler::bics(Condition cond,
 
 void Disassembler::bkpt(Condition cond, uint32_t imm) {
   os().SetCurrentInstruction(kBkpt, kSystem);
-  os() << ToCString(kBkpt) << ConditionPrinter(it_block_, cond) << " " << imm;
+  os() << ToCString(kBkpt) << ConditionPrinter(it_block_, cond) << " "
+       << RawImmediatePrinter(imm);
 }
 
-void Disassembler::bl(Condition cond, Label* label) {
+void Disassembler::bl(Condition cond, Location* location) {
   os().SetCurrentInstruction(kBl, kAddress | kBranch);
   os() << ToCString(kBl) << ConditionPrinter(it_block_, cond) << " "
-       << PrintLabel(kCodeLocation, label, GetCodeAddress());
+       << PrintLabel(kCodeLocation, location, GetCodeAddress());
 }
 
-void Disassembler::blx(Condition cond, Label* label) {
+void Disassembler::blx(Condition cond, Location* location) {
   os().SetCurrentInstruction(kBlx, kAddress | kBranch);
   os() << ToCString(kBlx) << ConditionPrinter(it_block_, cond) << " "
-       << PrintLabel(kCodeLocation, label, GetCodeAddress() & ~3);
+       << PrintLabel(kCodeLocation, location, GetCodeAddress() & ~3);
 }
 
 void Disassembler::blx(Condition cond, Register rm) {
@@ -1345,16 +1343,16 @@ void Disassembler::bxj(Condition cond, Register rm) {
   os() << ToCString(kBxj) << ConditionPrinter(it_block_, cond) << " " << rm;
 }
 
-void Disassembler::cbnz(Register rn, Label* label) {
+void Disassembler::cbnz(Register rn, Location* location) {
   os().SetCurrentInstruction(kCbnz, kAddress | kBranch);
   os() << ToCString(kCbnz) << " " << rn << ", "
-       << PrintLabel(kCodeLocation, label, GetCodeAddress());
+       << PrintLabel(kCodeLocation, location, GetCodeAddress());
 }
 
-void Disassembler::cbz(Register rn, Label* label) {
+void Disassembler::cbz(Register rn, Location* location) {
   os().SetCurrentInstruction(kCbz, kAddress | kBranch);
   os() << ToCString(kCbz) << " " << rn << ", "
-       << PrintLabel(kCodeLocation, label, GetCodeAddress());
+       << PrintLabel(kCodeLocation, location, GetCodeAddress());
 }
 
 void Disassembler::clrex(Condition cond) {
@@ -1458,7 +1456,7 @@ void Disassembler::eor(Condition cond,
   os().SetCurrentInstruction(kEor, kBitwise);
   os() << ToCString(kEor) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -1472,7 +1470,7 @@ void Disassembler::eors(Condition cond,
   os().SetCurrentInstruction(kEors, kBitwise);
   os() << ToCString(kEors) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -1520,12 +1518,14 @@ void Disassembler::fstmiax(Condition cond,
 
 void Disassembler::hlt(Condition cond, uint32_t imm) {
   os().SetCurrentInstruction(kHlt, kSystem);
-  os() << ToCString(kHlt) << ConditionPrinter(it_block_, cond) << " " << imm;
+  os() << ToCString(kHlt) << ConditionPrinter(it_block_, cond) << " "
+       << RawImmediatePrinter(imm);
 }
 
 void Disassembler::hvc(Condition cond, uint32_t imm) {
   os().SetCurrentInstruction(kHvc, kSystem);
-  os() << ToCString(kHvc) << ConditionPrinter(it_block_, cond) << " " << imm;
+  os() << ToCString(kHvc) << ConditionPrinter(it_block_, cond) << " "
+       << RawImmediatePrinter(imm);
 }
 
 void Disassembler::isb(Condition cond, MemoryBarrier option) {
@@ -1702,11 +1702,11 @@ void Disassembler::ldr(Condition cond,
 void Disassembler::ldr(Condition cond,
                        EncodingSize size,
                        Register rt,
-                       Label* label) {
+                       Location* location) {
   os().SetCurrentInstruction(kLdr, kAddress | kLoadStore);
   os() << ToCString(kLdr) << ConditionPrinter(it_block_, cond) << size << " "
        << rt << ", "
-       << PrintLabel(kLoadWordLocation, label, GetCodeAddress() & ~3);
+       << PrintLabel(kLoadWordLocation, location, GetCodeAddress() & ~3);
 }
 
 void Disassembler::ldrb(Condition cond,
@@ -1718,10 +1718,11 @@ void Disassembler::ldrb(Condition cond,
        << rt << ", " << PrintMemOperand(kLoadByteLocation, operand);
 }
 
-void Disassembler::ldrb(Condition cond, Register rt, Label* label) {
+void Disassembler::ldrb(Condition cond, Register rt, Location* location) {
   os().SetCurrentInstruction(kLdrb, kAddress | kLoadStore);
   os() << ToCString(kLdrb) << ConditionPrinter(it_block_, cond) << " " << rt
-       << ", " << PrintLabel(kLoadByteLocation, label, GetCodeAddress() & ~3);
+       << ", "
+       << PrintLabel(kLoadByteLocation, location, GetCodeAddress() & ~3);
 }
 
 void Disassembler::ldrd(Condition cond,
@@ -1737,11 +1738,11 @@ void Disassembler::ldrd(Condition cond,
 void Disassembler::ldrd(Condition cond,
                         Register rt,
                         Register rt2,
-                        Label* label) {
+                        Location* location) {
   os().SetCurrentInstruction(kLdrd, kAddress | kLoadStore);
   os() << ToCString(kLdrd) << ConditionPrinter(it_block_, cond) << " " << rt
        << ", " << rt2 << ", "
-       << PrintLabel(kLoadDoubleWordLocation, label, GetCodeAddress() & ~3);
+       << PrintLabel(kLoadDoubleWordLocation, location, GetCodeAddress() & ~3);
 }
 
 void Disassembler::ldrex(Condition cond,
@@ -1787,11 +1788,11 @@ void Disassembler::ldrh(Condition cond,
        << rt << ", " << PrintMemOperand(kLoadHalfWordLocation, operand);
 }
 
-void Disassembler::ldrh(Condition cond, Register rt, Label* label) {
+void Disassembler::ldrh(Condition cond, Register rt, Location* location) {
   os().SetCurrentInstruction(kLdrh, kAddress | kLoadStore);
   os() << ToCString(kLdrh) << ConditionPrinter(it_block_, cond) << " " << rt
        << ", "
-       << PrintLabel(kLoadHalfWordLocation, label, GetCodeAddress() & ~3);
+       << PrintLabel(kLoadHalfWordLocation, location, GetCodeAddress() & ~3);
 }
 
 void Disassembler::ldrsb(Condition cond,
@@ -1803,11 +1804,11 @@ void Disassembler::ldrsb(Condition cond,
        << rt << ", " << PrintMemOperand(kLoadSignedByteLocation, operand);
 }
 
-void Disassembler::ldrsb(Condition cond, Register rt, Label* label) {
+void Disassembler::ldrsb(Condition cond, Register rt, Location* location) {
   os().SetCurrentInstruction(kLdrsb, kAddress | kLoadStore);
   os() << ToCString(kLdrsb) << ConditionPrinter(it_block_, cond) << " " << rt
        << ", "
-       << PrintLabel(kLoadSignedByteLocation, label, GetCodeAddress() & ~3);
+       << PrintLabel(kLoadSignedByteLocation, location, GetCodeAddress() & ~3);
 }
 
 void Disassembler::ldrsh(Condition cond,
@@ -1819,11 +1820,12 @@ void Disassembler::ldrsh(Condition cond,
        << rt << ", " << PrintMemOperand(kLoadSignedHalfWordLocation, operand);
 }
 
-void Disassembler::ldrsh(Condition cond, Register rt, Label* label) {
+void Disassembler::ldrsh(Condition cond, Register rt, Location* location) {
   os().SetCurrentInstruction(kLdrsh, kAddress | kLoadStore);
   os() << ToCString(kLdrsh) << ConditionPrinter(it_block_, cond) << " " << rt
-       << ", "
-       << PrintLabel(kLoadSignedHalfWordLocation, label, GetCodeAddress() & ~3);
+       << ", " << PrintLabel(kLoadSignedHalfWordLocation,
+                             location,
+                             GetCodeAddress() & ~3);
 }
 
 void Disassembler::lsl(Condition cond,
@@ -1834,7 +1836,7 @@ void Disassembler::lsl(Condition cond,
   os().SetCurrentInstruction(kLsl, kShift);
   os() << ToCString(kLsl) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -1848,7 +1850,7 @@ void Disassembler::lsls(Condition cond,
   os().SetCurrentInstruction(kLsls, kShift);
   os() << ToCString(kLsls) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -1862,7 +1864,7 @@ void Disassembler::lsr(Condition cond,
   os().SetCurrentInstruction(kLsr, kShift);
   os() << ToCString(kLsr) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -1876,7 +1878,7 @@ void Disassembler::lsrs(Condition cond,
   os().SetCurrentInstruction(kLsrs, kShift);
   os() << ToCString(kLsrs) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -1990,7 +1992,7 @@ void Disassembler::orn(Condition cond,
   os().SetCurrentInstruction(kOrn, kBitwise);
   os() << ToCString(kOrn) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -2003,7 +2005,7 @@ void Disassembler::orns(Condition cond,
   os().SetCurrentInstruction(kOrns, kBitwise);
   os() << ToCString(kOrns) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -2017,7 +2019,7 @@ void Disassembler::orr(Condition cond,
   os().SetCurrentInstruction(kOrr, kBitwise);
   os() << ToCString(kOrr) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -2031,7 +2033,7 @@ void Disassembler::orrs(Condition cond,
   os().SetCurrentInstruction(kOrrs, kBitwise);
   os() << ToCString(kOrrs) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -2044,7 +2046,7 @@ void Disassembler::pkhbt(Condition cond,
   os().SetCurrentInstruction(kPkhbt, kNoAttribute);
   os() << ToCString(kPkhbt) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -2057,16 +2059,16 @@ void Disassembler::pkhtb(Condition cond,
   os().SetCurrentInstruction(kPkhtb, kNoAttribute);
   os() << ToCString(kPkhtb) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
 }
 
-void Disassembler::pld(Condition cond, Label* label) {
+void Disassembler::pld(Condition cond, Location* location) {
   os().SetCurrentInstruction(kPld, kAddress);
   os() << ToCString(kPld) << ConditionPrinter(it_block_, cond) << " "
-       << PrintLabel(kDataLocation, label, GetCodeAddress() & ~3);
+       << PrintLabel(kDataLocation, location, GetCodeAddress() & ~3);
 }
 
 void Disassembler::pld(Condition cond, const MemOperand& operand) {
@@ -2087,10 +2089,10 @@ void Disassembler::pli(Condition cond, const MemOperand& operand) {
        << PrintMemOperand(kCodeLocation, operand);
 }
 
-void Disassembler::pli(Condition cond, Label* label) {
+void Disassembler::pli(Condition cond, Location* location) {
   os().SetCurrentInstruction(kPli, kAddress);
   os() << ToCString(kPli) << ConditionPrinter(it_block_, cond) << " "
-       << PrintLabel(kCodeLocation, label, GetCodeAddress() & ~3);
+       << PrintLabel(kCodeLocation, location, GetCodeAddress() & ~3);
 }
 
 void Disassembler::pop(Condition cond,
@@ -2125,7 +2127,7 @@ void Disassembler::qadd(Condition cond, Register rd, Register rm, Register rn) {
   os().SetCurrentInstruction(kQadd, kArithmetic);
   os() << ToCString(kQadd) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << rn;
@@ -2138,7 +2140,7 @@ void Disassembler::qadd16(Condition cond,
   os().SetCurrentInstruction(kQadd16, kArithmetic);
   os() << ToCString(kQadd16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2151,7 +2153,7 @@ void Disassembler::qadd8(Condition cond,
   os().SetCurrentInstruction(kQadd8, kArithmetic);
   os() << ToCString(kQadd8) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2161,7 +2163,7 @@ void Disassembler::qasx(Condition cond, Register rd, Register rn, Register rm) {
   os().SetCurrentInstruction(kQasx, kArithmetic);
   os() << ToCString(kQasx) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2174,7 +2176,7 @@ void Disassembler::qdadd(Condition cond,
   os().SetCurrentInstruction(kQdadd, kArithmetic);
   os() << ToCString(kQdadd) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << rn;
@@ -2187,7 +2189,7 @@ void Disassembler::qdsub(Condition cond,
   os().SetCurrentInstruction(kQdsub, kArithmetic);
   os() << ToCString(kQdsub) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << rn;
@@ -2197,7 +2199,7 @@ void Disassembler::qsax(Condition cond, Register rd, Register rn, Register rm) {
   os().SetCurrentInstruction(kQsax, kArithmetic);
   os() << ToCString(kQsax) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2207,7 +2209,7 @@ void Disassembler::qsub(Condition cond, Register rd, Register rm, Register rn) {
   os().SetCurrentInstruction(kQsub, kArithmetic);
   os() << ToCString(kQsub) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << rn;
@@ -2220,7 +2222,7 @@ void Disassembler::qsub16(Condition cond,
   os().SetCurrentInstruction(kQsub16, kArithmetic);
   os() << ToCString(kQsub16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2233,7 +2235,7 @@ void Disassembler::qsub8(Condition cond,
   os().SetCurrentInstruction(kQsub8, kArithmetic);
   os() << ToCString(kQsub8) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2280,7 +2282,7 @@ void Disassembler::ror(Condition cond,
   os().SetCurrentInstruction(kRor, kShift);
   os() << ToCString(kRor) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -2294,7 +2296,7 @@ void Disassembler::rors(Condition cond,
   os().SetCurrentInstruction(kRors, kShift);
   os() << ToCString(kRors) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -2304,7 +2306,7 @@ void Disassembler::rrx(Condition cond, Register rd, Register rm) {
   os().SetCurrentInstruction(kRrx, kShift);
   os() << ToCString(kRrx) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm;
@@ -2314,7 +2316,7 @@ void Disassembler::rrxs(Condition cond, Register rd, Register rm) {
   os().SetCurrentInstruction(kRrxs, kShift);
   os() << ToCString(kRrxs) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm;
@@ -2328,7 +2330,7 @@ void Disassembler::rsb(Condition cond,
   os().SetCurrentInstruction(kRsb, kArithmetic);
   os() << ToCString(kRsb) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -2342,7 +2344,7 @@ void Disassembler::rsbs(Condition cond,
   os().SetCurrentInstruction(kRsbs, kArithmetic);
   os() << ToCString(kRsbs) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -2355,7 +2357,7 @@ void Disassembler::rsc(Condition cond,
   os().SetCurrentInstruction(kRsc, kArithmetic);
   os() << ToCString(kRsc) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -2368,7 +2370,7 @@ void Disassembler::rscs(Condition cond,
   os().SetCurrentInstruction(kRscs, kArithmetic);
   os() << ToCString(kRscs) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -2381,7 +2383,7 @@ void Disassembler::sadd16(Condition cond,
   os().SetCurrentInstruction(kSadd16, kArithmetic);
   os() << ToCString(kSadd16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2394,7 +2396,7 @@ void Disassembler::sadd8(Condition cond,
   os().SetCurrentInstruction(kSadd8, kArithmetic);
   os() << ToCString(kSadd8) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2404,7 +2406,7 @@ void Disassembler::sasx(Condition cond, Register rd, Register rn, Register rm) {
   os().SetCurrentInstruction(kSasx, kArithmetic);
   os() << ToCString(kSasx) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2418,7 +2420,7 @@ void Disassembler::sbc(Condition cond,
   os().SetCurrentInstruction(kSbc, kArithmetic);
   os() << ToCString(kSbc) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -2432,28 +2434,25 @@ void Disassembler::sbcs(Condition cond,
   os().SetCurrentInstruction(kSbcs, kArithmetic);
   os() << ToCString(kSbcs) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
 }
 
-void Disassembler::sbfx(Condition cond,
-                        Register rd,
-                        Register rn,
-                        uint32_t lsb,
-                        const Operand& operand) {
+void Disassembler::sbfx(
+    Condition cond, Register rd, Register rn, uint32_t lsb, uint32_t width) {
   os().SetCurrentInstruction(kSbfx, kShift);
   os() << ToCString(kSbfx) << ConditionPrinter(it_block_, cond) << " " << rd
-       << ", " << rn << ", "
-       << "#" << lsb << ", " << operand;
+       << ", " << rn << ", " << ImmediatePrinter(lsb) << ", "
+       << ImmediatePrinter(width);
 }
 
 void Disassembler::sdiv(Condition cond, Register rd, Register rn, Register rm) {
   os().SetCurrentInstruction(kSdiv, kArithmetic);
   os() << ToCString(kSdiv) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2463,7 +2462,7 @@ void Disassembler::sel(Condition cond, Register rd, Register rn, Register rm) {
   os().SetCurrentInstruction(kSel, kNoAttribute);
   os() << ToCString(kSel) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2476,7 +2475,7 @@ void Disassembler::shadd16(Condition cond,
   os().SetCurrentInstruction(kShadd16, kArithmetic);
   os() << ToCString(kShadd16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2489,7 +2488,7 @@ void Disassembler::shadd8(Condition cond,
   os().SetCurrentInstruction(kShadd8, kArithmetic);
   os() << ToCString(kShadd8) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2502,7 +2501,7 @@ void Disassembler::shasx(Condition cond,
   os().SetCurrentInstruction(kShasx, kArithmetic);
   os() << ToCString(kShasx) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2515,7 +2514,7 @@ void Disassembler::shsax(Condition cond,
   os().SetCurrentInstruction(kShsax, kArithmetic);
   os() << ToCString(kShsax) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2528,7 +2527,7 @@ void Disassembler::shsub16(Condition cond,
   os().SetCurrentInstruction(kShsub16, kArithmetic);
   os() << ToCString(kShsub16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2541,7 +2540,7 @@ void Disassembler::shsub8(Condition cond,
   os().SetCurrentInstruction(kShsub8, kArithmetic);
   os() << ToCString(kShsub8) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2722,7 +2721,7 @@ void Disassembler::smmul(Condition cond,
   os().SetCurrentInstruction(kSmmul, kArithmetic);
   os() << ToCString(kSmmul) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2735,7 +2734,7 @@ void Disassembler::smmulr(Condition cond,
   os().SetCurrentInstruction(kSmmulr, kArithmetic);
   os() << ToCString(kSmmulr) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2748,7 +2747,7 @@ void Disassembler::smuad(Condition cond,
   os().SetCurrentInstruction(kSmuad, kArithmetic);
   os() << ToCString(kSmuad) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2761,7 +2760,7 @@ void Disassembler::smuadx(Condition cond,
   os().SetCurrentInstruction(kSmuadx, kArithmetic);
   os() << ToCString(kSmuadx) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2774,7 +2773,7 @@ void Disassembler::smulbb(Condition cond,
   os().SetCurrentInstruction(kSmulbb, kArithmetic);
   os() << ToCString(kSmulbb) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2787,7 +2786,7 @@ void Disassembler::smulbt(Condition cond,
   os().SetCurrentInstruction(kSmulbt, kArithmetic);
   os() << ToCString(kSmulbt) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2814,7 +2813,7 @@ void Disassembler::smultb(Condition cond,
   os().SetCurrentInstruction(kSmultb, kArithmetic);
   os() << ToCString(kSmultb) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2827,7 +2826,7 @@ void Disassembler::smultt(Condition cond,
   os().SetCurrentInstruction(kSmultt, kArithmetic);
   os() << ToCString(kSmultt) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2840,7 +2839,7 @@ void Disassembler::smulwb(Condition cond,
   os().SetCurrentInstruction(kSmulwb, kArithmetic);
   os() << ToCString(kSmulwb) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2853,7 +2852,7 @@ void Disassembler::smulwt(Condition cond,
   os().SetCurrentInstruction(kSmulwt, kArithmetic);
   os() << ToCString(kSmulwt) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2866,7 +2865,7 @@ void Disassembler::smusd(Condition cond,
   os().SetCurrentInstruction(kSmusd, kArithmetic);
   os() << ToCString(kSmusd) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2879,7 +2878,7 @@ void Disassembler::smusdx(Condition cond,
   os().SetCurrentInstruction(kSmusdx, kArithmetic);
   os() << ToCString(kSmusdx) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2891,8 +2890,7 @@ void Disassembler::ssat(Condition cond,
                         const Operand& operand) {
   os().SetCurrentInstruction(kSsat, kArithmetic);
   os() << ToCString(kSsat) << ConditionPrinter(it_block_, cond) << " " << rd
-       << ", "
-       << "#" << imm << ", " << operand;
+       << ", " << ImmediatePrinter(imm) << ", " << operand;
 }
 
 void Disassembler::ssat16(Condition cond,
@@ -2901,15 +2899,14 @@ void Disassembler::ssat16(Condition cond,
                           Register rn) {
   os().SetCurrentInstruction(kSsat16, kArithmetic);
   os() << ToCString(kSsat16) << ConditionPrinter(it_block_, cond) << " " << rd
-       << ", "
-       << "#" << imm << ", " << rn;
+       << ", " << ImmediatePrinter(imm) << ", " << rn;
 }
 
 void Disassembler::ssax(Condition cond, Register rd, Register rn, Register rm) {
   os().SetCurrentInstruction(kSsax, kArithmetic);
   os() << ToCString(kSsax) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2922,7 +2919,7 @@ void Disassembler::ssub16(Condition cond,
   os().SetCurrentInstruction(kSsub16, kArithmetic);
   os() << ToCString(kSsub16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -2935,7 +2932,7 @@ void Disassembler::ssub8(Condition cond,
   os().SetCurrentInstruction(kSsub8, kArithmetic);
   os() << ToCString(kSsub8) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3161,7 +3158,7 @@ void Disassembler::sub(Condition cond,
   os().SetCurrentInstruction(kSub, kArithmetic);
   os() << ToCString(kSub) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -3181,7 +3178,7 @@ void Disassembler::subs(Condition cond,
   os().SetCurrentInstruction(kSubs, kArithmetic);
   os() << ToCString(kSubs) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -3199,7 +3196,7 @@ void Disassembler::subw(Condition cond,
   os().SetCurrentInstruction(kSubw, kArithmetic);
   os() << ToCString(kSubw) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -3207,7 +3204,8 @@ void Disassembler::subw(Condition cond,
 
 void Disassembler::svc(Condition cond, uint32_t imm) {
   os().SetCurrentInstruction(kSvc, kSystem);
-  os() << ToCString(kSvc) << ConditionPrinter(it_block_, cond) << " " << imm;
+  os() << ToCString(kSvc) << ConditionPrinter(it_block_, cond) << " "
+       << RawImmediatePrinter(imm);
 }
 
 void Disassembler::sxtab(Condition cond,
@@ -3217,7 +3215,7 @@ void Disassembler::sxtab(Condition cond,
   os().SetCurrentInstruction(kSxtab, kArithmetic);
   os() << ToCString(kSxtab) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -3230,7 +3228,7 @@ void Disassembler::sxtab16(Condition cond,
   os().SetCurrentInstruction(kSxtab16, kArithmetic);
   os() << ToCString(kSxtab16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -3243,7 +3241,7 @@ void Disassembler::sxtah(Condition cond,
   os().SetCurrentInstruction(kSxtah, kArithmetic);
   os() << ToCString(kSxtah) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -3256,7 +3254,7 @@ void Disassembler::sxtb(Condition cond,
   os().SetCurrentInstruction(kSxtb, kArithmetic);
   os() << ToCString(kSxtb) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(operand.GetBaseRegister())) {
+  if (!rd.Is(operand.GetBaseRegister()) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << operand;
@@ -3266,7 +3264,7 @@ void Disassembler::sxtb16(Condition cond, Register rd, const Operand& operand) {
   os().SetCurrentInstruction(kSxtb16, kArithmetic);
   os() << ToCString(kSxtb16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(operand.GetBaseRegister())) {
+  if (!rd.Is(operand.GetBaseRegister()) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << operand;
@@ -3279,7 +3277,7 @@ void Disassembler::sxth(Condition cond,
   os().SetCurrentInstruction(kSxth, kArithmetic);
   os() << ToCString(kSxth) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(operand.GetBaseRegister())) {
+  if (!rd.Is(operand.GetBaseRegister()) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << operand;
@@ -3319,7 +3317,7 @@ void Disassembler::uadd16(Condition cond,
   os().SetCurrentInstruction(kUadd16, kArithmetic);
   os() << ToCString(kUadd16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3332,7 +3330,7 @@ void Disassembler::uadd8(Condition cond,
   os().SetCurrentInstruction(kUadd8, kArithmetic);
   os() << ToCString(kUadd8) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3342,34 +3340,31 @@ void Disassembler::uasx(Condition cond, Register rd, Register rn, Register rm) {
   os().SetCurrentInstruction(kUasx, kArithmetic);
   os() << ToCString(kUasx) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
 }
 
-void Disassembler::ubfx(Condition cond,
-                        Register rd,
-                        Register rn,
-                        uint32_t lsb,
-                        const Operand& operand) {
+void Disassembler::ubfx(
+    Condition cond, Register rd, Register rn, uint32_t lsb, uint32_t width) {
   os().SetCurrentInstruction(kUbfx, kShift);
   os() << ToCString(kUbfx) << ConditionPrinter(it_block_, cond) << " " << rd
-       << ", " << rn << ", "
-       << "#" << lsb << ", " << operand;
+       << ", " << rn << ", " << ImmediatePrinter(lsb) << ", "
+       << ImmediatePrinter(width);
 }
 
 void Disassembler::udf(Condition cond, EncodingSize size, uint32_t imm) {
   os().SetCurrentInstruction(kUdf, kNoAttribute);
   os() << ToCString(kUdf) << ConditionPrinter(it_block_, cond) << size << " "
-       << imm;
+       << RawImmediatePrinter(imm);
 }
 
 void Disassembler::udiv(Condition cond, Register rd, Register rn, Register rm) {
   os().SetCurrentInstruction(kUdiv, kArithmetic);
   os() << ToCString(kUdiv) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3382,7 +3377,7 @@ void Disassembler::uhadd16(Condition cond,
   os().SetCurrentInstruction(kUhadd16, kArithmetic);
   os() << ToCString(kUhadd16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3395,7 +3390,7 @@ void Disassembler::uhadd8(Condition cond,
   os().SetCurrentInstruction(kUhadd8, kArithmetic);
   os() << ToCString(kUhadd8) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3408,7 +3403,7 @@ void Disassembler::uhasx(Condition cond,
   os().SetCurrentInstruction(kUhasx, kArithmetic);
   os() << ToCString(kUhasx) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3421,7 +3416,7 @@ void Disassembler::uhsax(Condition cond,
   os().SetCurrentInstruction(kUhsax, kArithmetic);
   os() << ToCString(kUhsax) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3434,7 +3429,7 @@ void Disassembler::uhsub16(Condition cond,
   os().SetCurrentInstruction(kUhsub16, kArithmetic);
   os() << ToCString(kUhsub16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3447,7 +3442,7 @@ void Disassembler::uhsub8(Condition cond,
   os().SetCurrentInstruction(kUhsub8, kArithmetic);
   os() << ToCString(kUhsub8) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3495,7 +3490,7 @@ void Disassembler::uqadd16(Condition cond,
   os().SetCurrentInstruction(kUqadd16, kArithmetic);
   os() << ToCString(kUqadd16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3508,7 +3503,7 @@ void Disassembler::uqadd8(Condition cond,
   os().SetCurrentInstruction(kUqadd8, kArithmetic);
   os() << ToCString(kUqadd8) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3521,7 +3516,7 @@ void Disassembler::uqasx(Condition cond,
   os().SetCurrentInstruction(kUqasx, kArithmetic);
   os() << ToCString(kUqasx) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3534,7 +3529,7 @@ void Disassembler::uqsax(Condition cond,
   os().SetCurrentInstruction(kUqsax, kArithmetic);
   os() << ToCString(kUqsax) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3547,7 +3542,7 @@ void Disassembler::uqsub16(Condition cond,
   os().SetCurrentInstruction(kUqsub16, kArithmetic);
   os() << ToCString(kUqsub16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3560,7 +3555,7 @@ void Disassembler::uqsub8(Condition cond,
   os().SetCurrentInstruction(kUqsub8, kArithmetic);
   os() << ToCString(kUqsub8) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3573,7 +3568,7 @@ void Disassembler::usad8(Condition cond,
   os().SetCurrentInstruction(kUsad8, kArithmetic);
   os() << ToCString(kUsad8) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3592,8 +3587,7 @@ void Disassembler::usat(Condition cond,
                         const Operand& operand) {
   os().SetCurrentInstruction(kUsat, kArithmetic);
   os() << ToCString(kUsat) << ConditionPrinter(it_block_, cond) << " " << rd
-       << ", "
-       << "#" << imm << ", " << operand;
+       << ", " << ImmediatePrinter(imm) << ", " << operand;
 }
 
 void Disassembler::usat16(Condition cond,
@@ -3602,15 +3596,14 @@ void Disassembler::usat16(Condition cond,
                           Register rn) {
   os().SetCurrentInstruction(kUsat16, kArithmetic);
   os() << ToCString(kUsat16) << ConditionPrinter(it_block_, cond) << " " << rd
-       << ", "
-       << "#" << imm << ", " << rn;
+       << ", " << ImmediatePrinter(imm) << ", " << rn;
 }
 
 void Disassembler::usax(Condition cond, Register rd, Register rn, Register rm) {
   os().SetCurrentInstruction(kUsax, kArithmetic);
   os() << ToCString(kUsax) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3623,7 +3616,7 @@ void Disassembler::usub16(Condition cond,
   os().SetCurrentInstruction(kUsub16, kArithmetic);
   os() << ToCString(kUsub16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3636,7 +3629,7 @@ void Disassembler::usub8(Condition cond,
   os().SetCurrentInstruction(kUsub8, kArithmetic);
   os() << ToCString(kUsub8) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3649,7 +3642,7 @@ void Disassembler::uxtab(Condition cond,
   os().SetCurrentInstruction(kUxtab, kArithmetic);
   os() << ToCString(kUxtab) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -3662,7 +3655,7 @@ void Disassembler::uxtab16(Condition cond,
   os().SetCurrentInstruction(kUxtab16, kArithmetic);
   os() << ToCString(kUxtab16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -3675,7 +3668,7 @@ void Disassembler::uxtah(Condition cond,
   os().SetCurrentInstruction(kUxtah, kArithmetic);
   os() << ToCString(kUxtah) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -3688,7 +3681,7 @@ void Disassembler::uxtb(Condition cond,
   os().SetCurrentInstruction(kUxtb, kArithmetic);
   os() << ToCString(kUxtb) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(operand.GetBaseRegister())) {
+  if (!rd.Is(operand.GetBaseRegister()) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << operand;
@@ -3698,7 +3691,7 @@ void Disassembler::uxtb16(Condition cond, Register rd, const Operand& operand) {
   os().SetCurrentInstruction(kUxtb16, kArithmetic);
   os() << ToCString(kUxtb16) << ConditionPrinter(it_block_, cond);
   os() << " ";
-  if (!rd.Is(operand.GetBaseRegister())) {
+  if (!rd.Is(operand.GetBaseRegister()) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << operand;
@@ -3711,7 +3704,7 @@ void Disassembler::uxth(Condition cond,
   os().SetCurrentInstruction(kUxth, kArithmetic);
   os() << ToCString(kUxth) << ConditionPrinter(it_block_, cond) << size;
   os() << " ";
-  if (!rd.Is(operand.GetBaseRegister())) {
+  if (!rd.Is(operand.GetBaseRegister()) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << operand;
@@ -3743,7 +3736,7 @@ void Disassembler::vabd(
   os().SetCurrentInstruction(kVabd, kFpNeon);
   os() << ToCString(kVabd) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3754,7 +3747,7 @@ void Disassembler::vabd(
   os().SetCurrentInstruction(kVabd, kFpNeon);
   os() << ToCString(kVabd) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3799,7 +3792,7 @@ void Disassembler::vacge(
   os().SetCurrentInstruction(kVacge, kFpNeon);
   os() << ToCString(kVacge) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3810,7 +3803,7 @@ void Disassembler::vacge(
   os().SetCurrentInstruction(kVacge, kFpNeon);
   os() << ToCString(kVacge) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3821,7 +3814,7 @@ void Disassembler::vacgt(
   os().SetCurrentInstruction(kVacgt, kFpNeon);
   os() << ToCString(kVacgt) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3832,7 +3825,7 @@ void Disassembler::vacgt(
   os().SetCurrentInstruction(kVacgt, kFpNeon);
   os() << ToCString(kVacgt) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3843,7 +3836,7 @@ void Disassembler::vacle(
   os().SetCurrentInstruction(kVacle, kFpNeon);
   os() << ToCString(kVacle) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3854,7 +3847,7 @@ void Disassembler::vacle(
   os().SetCurrentInstruction(kVacle, kFpNeon);
   os() << ToCString(kVacle) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3865,7 +3858,7 @@ void Disassembler::vaclt(
   os().SetCurrentInstruction(kVaclt, kFpNeon);
   os() << ToCString(kVaclt) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3876,7 +3869,7 @@ void Disassembler::vaclt(
   os().SetCurrentInstruction(kVaclt, kFpNeon);
   os() << ToCString(kVaclt) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3887,7 +3880,7 @@ void Disassembler::vadd(
   os().SetCurrentInstruction(kVadd, kFpNeon);
   os() << ToCString(kVadd) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3898,7 +3891,7 @@ void Disassembler::vadd(
   os().SetCurrentInstruction(kVadd, kFpNeon);
   os() << ToCString(kVadd) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3909,7 +3902,7 @@ void Disassembler::vadd(
   os().SetCurrentInstruction(kVadd, kFpNeon);
   os() << ToCString(kVadd) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3934,7 +3927,7 @@ void Disassembler::vaddw(
   os().SetCurrentInstruction(kVaddw, kFpNeon);
   os() << ToCString(kVaddw) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -3948,7 +3941,7 @@ void Disassembler::vand(Condition cond,
   os().SetCurrentInstruction(kVand, kFpNeon);
   os() << ToCString(kVand) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -3962,7 +3955,7 @@ void Disassembler::vand(Condition cond,
   os().SetCurrentInstruction(kVand, kFpNeon);
   os() << ToCString(kVand) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -3976,7 +3969,7 @@ void Disassembler::vbic(Condition cond,
   os().SetCurrentInstruction(kVbic, kFpNeon);
   os() << ToCString(kVbic) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -3990,7 +3983,7 @@ void Disassembler::vbic(Condition cond,
   os().SetCurrentInstruction(kVbic, kFpNeon);
   os() << ToCString(kVbic) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -4001,7 +3994,7 @@ void Disassembler::vbif(
   os().SetCurrentInstruction(kVbif, kFpNeon);
   os() << ToCString(kVbif) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4012,7 +4005,7 @@ void Disassembler::vbif(
   os().SetCurrentInstruction(kVbif, kFpNeon);
   os() << ToCString(kVbif) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4023,7 +4016,7 @@ void Disassembler::vbit(
   os().SetCurrentInstruction(kVbit, kFpNeon);
   os() << ToCString(kVbit) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4034,7 +4027,7 @@ void Disassembler::vbit(
   os().SetCurrentInstruction(kVbit, kFpNeon);
   os() << ToCString(kVbit) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4045,7 +4038,7 @@ void Disassembler::vbsl(
   os().SetCurrentInstruction(kVbsl, kFpNeon);
   os() << ToCString(kVbsl) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4056,7 +4049,7 @@ void Disassembler::vbsl(
   os().SetCurrentInstruction(kVbsl, kFpNeon);
   os() << ToCString(kVbsl) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4070,7 +4063,7 @@ void Disassembler::vceq(Condition cond,
   os().SetCurrentInstruction(kVceq, kFpNeon);
   os() << ToCString(kVceq) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -4084,7 +4077,7 @@ void Disassembler::vceq(Condition cond,
   os().SetCurrentInstruction(kVceq, kFpNeon);
   os() << ToCString(kVceq) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -4095,7 +4088,7 @@ void Disassembler::vceq(
   os().SetCurrentInstruction(kVceq, kFpNeon);
   os() << ToCString(kVceq) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4106,7 +4099,7 @@ void Disassembler::vceq(
   os().SetCurrentInstruction(kVceq, kFpNeon);
   os() << ToCString(kVceq) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4120,7 +4113,7 @@ void Disassembler::vcge(Condition cond,
   os().SetCurrentInstruction(kVcge, kFpNeon);
   os() << ToCString(kVcge) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -4134,7 +4127,7 @@ void Disassembler::vcge(Condition cond,
   os().SetCurrentInstruction(kVcge, kFpNeon);
   os() << ToCString(kVcge) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -4145,7 +4138,7 @@ void Disassembler::vcge(
   os().SetCurrentInstruction(kVcge, kFpNeon);
   os() << ToCString(kVcge) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4156,7 +4149,7 @@ void Disassembler::vcge(
   os().SetCurrentInstruction(kVcge, kFpNeon);
   os() << ToCString(kVcge) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4170,7 +4163,7 @@ void Disassembler::vcgt(Condition cond,
   os().SetCurrentInstruction(kVcgt, kFpNeon);
   os() << ToCString(kVcgt) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -4184,7 +4177,7 @@ void Disassembler::vcgt(Condition cond,
   os().SetCurrentInstruction(kVcgt, kFpNeon);
   os() << ToCString(kVcgt) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -4195,7 +4188,7 @@ void Disassembler::vcgt(
   os().SetCurrentInstruction(kVcgt, kFpNeon);
   os() << ToCString(kVcgt) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4206,7 +4199,7 @@ void Disassembler::vcgt(
   os().SetCurrentInstruction(kVcgt, kFpNeon);
   os() << ToCString(kVcgt) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4220,7 +4213,7 @@ void Disassembler::vcle(Condition cond,
   os().SetCurrentInstruction(kVcle, kFpNeon);
   os() << ToCString(kVcle) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -4234,7 +4227,7 @@ void Disassembler::vcle(Condition cond,
   os().SetCurrentInstruction(kVcle, kFpNeon);
   os() << ToCString(kVcle) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -4245,7 +4238,7 @@ void Disassembler::vcle(
   os().SetCurrentInstruction(kVcle, kFpNeon);
   os() << ToCString(kVcle) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4256,7 +4249,7 @@ void Disassembler::vcle(
   os().SetCurrentInstruction(kVcle, kFpNeon);
   os() << ToCString(kVcle) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4288,7 +4281,7 @@ void Disassembler::vclt(Condition cond,
   os().SetCurrentInstruction(kVclt, kFpNeon);
   os() << ToCString(kVclt) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -4302,7 +4295,7 @@ void Disassembler::vclt(Condition cond,
   os().SetCurrentInstruction(kVclt, kFpNeon);
   os() << ToCString(kVclt) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -4313,7 +4306,7 @@ void Disassembler::vclt(
   os().SetCurrentInstruction(kVclt, kFpNeon);
   os() << ToCString(kVclt) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4324,7 +4317,7 @@ void Disassembler::vclt(
   os().SetCurrentInstruction(kVclt, kFpNeon);
   os() << ToCString(kVclt) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4351,75 +4344,37 @@ void Disassembler::vclz(Condition cond,
 void Disassembler::vcmp(Condition cond,
                         DataType dt,
                         SRegister rd,
-                        SRegister rm) {
+                        const SOperand& operand) {
   os().SetCurrentInstruction(kVcmp, kFpNeon);
   os() << ToCString(kVcmp) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", " << rm;
+       << rd << ", " << operand;
 }
 
 void Disassembler::vcmp(Condition cond,
                         DataType dt,
                         DRegister rd,
-                        DRegister rm) {
+                        const DOperand& operand) {
   os().SetCurrentInstruction(kVcmp, kFpNeon);
   os() << ToCString(kVcmp) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", " << rm;
-}
-
-void Disassembler::vcmp(Condition cond, DataType dt, SRegister rd, double imm) {
-  os().SetCurrentInstruction(kVcmp, kFpNeon);
-  os() << ToCString(kVcmp) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", "
-       << "#" << std::fixed << std::setprecision(1) << imm
-       << std::resetiosflags(std::ios_base::floatfield);
-}
-
-void Disassembler::vcmp(Condition cond, DataType dt, DRegister rd, double imm) {
-  os().SetCurrentInstruction(kVcmp, kFpNeon);
-  os() << ToCString(kVcmp) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", "
-       << "#" << std::fixed << std::setprecision(1) << imm
-       << std::resetiosflags(std::ios_base::floatfield);
+       << rd << ", " << operand;
 }
 
 void Disassembler::vcmpe(Condition cond,
                          DataType dt,
                          SRegister rd,
-                         SRegister rm) {
+                         const SOperand& operand) {
   os().SetCurrentInstruction(kVcmpe, kFpNeon);
   os() << ToCString(kVcmpe) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", " << rm;
+       << rd << ", " << operand;
 }
 
 void Disassembler::vcmpe(Condition cond,
                          DataType dt,
                          DRegister rd,
-                         DRegister rm) {
+                         const DOperand& operand) {
   os().SetCurrentInstruction(kVcmpe, kFpNeon);
   os() << ToCString(kVcmpe) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", " << rm;
-}
-
-void Disassembler::vcmpe(Condition cond,
-                         DataType dt,
-                         SRegister rd,
-                         double imm) {
-  os().SetCurrentInstruction(kVcmpe, kFpNeon);
-  os() << ToCString(kVcmpe) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", "
-       << "#" << std::fixed << std::setprecision(1) << imm
-       << std::resetiosflags(std::ios_base::floatfield);
-}
-
-void Disassembler::vcmpe(Condition cond,
-                         DataType dt,
-                         DRegister rd,
-                         double imm) {
-  os().SetCurrentInstruction(kVcmpe, kFpNeon);
-  os() << ToCString(kVcmpe) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", "
-       << "#" << std::fixed << std::setprecision(1) << imm
-       << std::resetiosflags(std::ios_base::floatfield);
+       << rd << ", " << operand;
 }
 
 void Disassembler::vcnt(Condition cond,
@@ -4462,8 +4417,7 @@ void Disassembler::vcvt(Condition cond,
                         int32_t fbits) {
   os().SetCurrentInstruction(kVcvt, kFpNeon);
   os() << ToCString(kVcvt) << ConditionPrinter(it_block_, cond) << dt1 << dt2
-       << " " << rd << ", " << rm << ", "
-       << "#" << fbits;
+       << " " << rd << ", " << rm << ", " << SignedImmediatePrinter(fbits);
 }
 
 void Disassembler::vcvt(Condition cond,
@@ -4474,8 +4428,7 @@ void Disassembler::vcvt(Condition cond,
                         int32_t fbits) {
   os().SetCurrentInstruction(kVcvt, kFpNeon);
   os() << ToCString(kVcvt) << ConditionPrinter(it_block_, cond) << dt1 << dt2
-       << " " << rd << ", " << rm << ", "
-       << "#" << fbits;
+       << " " << rd << ", " << rm << ", " << SignedImmediatePrinter(fbits);
 }
 
 void Disassembler::vcvt(Condition cond,
@@ -4486,8 +4439,7 @@ void Disassembler::vcvt(Condition cond,
                         int32_t fbits) {
   os().SetCurrentInstruction(kVcvt, kFpNeon);
   os() << ToCString(kVcvt) << ConditionPrinter(it_block_, cond) << dt1 << dt2
-       << " " << rd << ", " << rm << ", "
-       << "#" << fbits;
+       << " " << rd << ", " << rm << ", " << SignedImmediatePrinter(fbits);
 }
 
 void Disassembler::vcvt(
@@ -4714,7 +4666,7 @@ void Disassembler::vdiv(
   os().SetCurrentInstruction(kVdiv, kFpNeon);
   os() << ToCString(kVdiv) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4725,7 +4677,7 @@ void Disassembler::vdiv(
   os().SetCurrentInstruction(kVdiv, kFpNeon);
   os() << ToCString(kVdiv) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4772,7 +4724,7 @@ void Disassembler::veor(
   os().SetCurrentInstruction(kVeor, kFpNeon);
   os() << ToCString(kVeor) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4783,7 +4735,7 @@ void Disassembler::veor(
   os().SetCurrentInstruction(kVeor, kFpNeon);
   os() << ToCString(kVeor) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4798,7 +4750,7 @@ void Disassembler::vext(Condition cond,
   os().SetCurrentInstruction(kVext, kFpNeon);
   os() << ToCString(kVext) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm << ", " << operand;
@@ -4813,7 +4765,7 @@ void Disassembler::vext(Condition cond,
   os().SetCurrentInstruction(kVext, kFpNeon);
   os() << ToCString(kVext) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm << ", " << operand;
@@ -4894,7 +4846,7 @@ void Disassembler::vhadd(
   os().SetCurrentInstruction(kVhadd, kFpNeon);
   os() << ToCString(kVhadd) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4905,7 +4857,7 @@ void Disassembler::vhadd(
   os().SetCurrentInstruction(kVhadd, kFpNeon);
   os() << ToCString(kVhadd) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4916,7 +4868,7 @@ void Disassembler::vhsub(
   os().SetCurrentInstruction(kVhsub, kFpNeon);
   os() << ToCString(kVhsub) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -4927,7 +4879,7 @@ void Disassembler::vhsub(
   os().SetCurrentInstruction(kVhsub, kFpNeon);
   os() << ToCString(kVhsub) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5045,12 +4997,13 @@ void Disassembler::vldmia(Condition cond,
 void Disassembler::vldr(Condition cond,
                         DataType dt,
                         DRegister rd,
-                        Label* label) {
+                        Location* location) {
   os().SetCurrentInstruction(kVldr, kFpNeon);
-  os() << ToCString(kVldr) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", " << PrintLabel(kLoadDoublePrecisionLocation,
-                                   label,
-                                   GetCodeAddress() & ~3);
+  os() << ToCString(kVldr) << ConditionPrinter(it_block_, cond)
+       << DtPrinter(dt, Untyped64) << " " << rd << ", "
+       << PrintLabel(kLoadDoublePrecisionLocation,
+                     location,
+                     GetCodeAddress() & ~3);
 }
 
 void Disassembler::vldr(Condition cond,
@@ -5058,19 +5011,21 @@ void Disassembler::vldr(Condition cond,
                         DRegister rd,
                         const MemOperand& operand) {
   os().SetCurrentInstruction(kVldr, kFpNeon);
-  os() << ToCString(kVldr) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", " << PrintMemOperand(kLoadDoublePrecisionLocation, operand);
+  os() << ToCString(kVldr) << ConditionPrinter(it_block_, cond)
+       << DtPrinter(dt, Untyped64) << " " << rd << ", "
+       << PrintMemOperand(kLoadDoublePrecisionLocation, operand);
 }
 
 void Disassembler::vldr(Condition cond,
                         DataType dt,
                         SRegister rd,
-                        Label* label) {
+                        Location* location) {
   os().SetCurrentInstruction(kVldr, kFpNeon);
-  os() << ToCString(kVldr) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", " << PrintLabel(kLoadSinglePrecisionLocation,
-                                   label,
-                                   GetCodeAddress() & ~3);
+  os() << ToCString(kVldr) << ConditionPrinter(it_block_, cond)
+       << DtPrinter(dt, Untyped32) << " " << rd << ", "
+       << PrintLabel(kLoadSinglePrecisionLocation,
+                     location,
+                     GetCodeAddress() & ~3);
 }
 
 void Disassembler::vldr(Condition cond,
@@ -5078,8 +5033,9 @@ void Disassembler::vldr(Condition cond,
                         SRegister rd,
                         const MemOperand& operand) {
   os().SetCurrentInstruction(kVldr, kFpNeon);
-  os() << ToCString(kVldr) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", " << PrintMemOperand(kLoadSinglePrecisionLocation, operand);
+  os() << ToCString(kVldr) << ConditionPrinter(it_block_, cond)
+       << DtPrinter(dt, Untyped32) << " " << rd << ", "
+       << PrintMemOperand(kLoadSinglePrecisionLocation, operand);
 }
 
 void Disassembler::vmax(
@@ -5087,7 +5043,7 @@ void Disassembler::vmax(
   os().SetCurrentInstruction(kVmax, kFpNeon);
   os() << ToCString(kVmax) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5098,7 +5054,7 @@ void Disassembler::vmax(
   os().SetCurrentInstruction(kVmax, kFpNeon);
   os() << ToCString(kVmax) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5133,7 +5089,7 @@ void Disassembler::vmin(
   os().SetCurrentInstruction(kVmin, kFpNeon);
   os() << ToCString(kVmin) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5144,7 +5100,7 @@ void Disassembler::vmin(
   os().SetCurrentInstruction(kVmin, kFpNeon);
   os() << ToCString(kVmin) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5404,10 +5360,10 @@ void Disassembler::vmul(Condition cond,
   os().SetCurrentInstruction(kVmul, kFpNeon);
   os() << ToCString(kVmul) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
-  os() << rn << ", " << dm << "[" << index << "]";
+  os() << rn << ", " << IndexedRegisterPrinter(dm, index);
 }
 
 void Disassembler::vmul(Condition cond,
@@ -5419,10 +5375,10 @@ void Disassembler::vmul(Condition cond,
   os().SetCurrentInstruction(kVmul, kFpNeon);
   os() << ToCString(kVmul) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
-  os() << rn << ", " << dm << "[" << index << "]";
+  os() << rn << ", " << IndexedRegisterPrinter(dm, index);
 }
 
 void Disassembler::vmul(
@@ -5430,7 +5386,7 @@ void Disassembler::vmul(
   os().SetCurrentInstruction(kVmul, kFpNeon);
   os() << ToCString(kVmul) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5441,7 +5397,7 @@ void Disassembler::vmul(
   os().SetCurrentInstruction(kVmul, kFpNeon);
   os() << ToCString(kVmul) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5452,7 +5408,7 @@ void Disassembler::vmul(
   os().SetCurrentInstruction(kVmul, kFpNeon);
   os() << ToCString(kVmul) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5466,7 +5422,7 @@ void Disassembler::vmull(Condition cond,
                          unsigned index) {
   os().SetCurrentInstruction(kVmull, kFpNeon);
   os() << ToCString(kVmull) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", " << rn << ", " << dm << "[" << index << "]";
+       << rd << ", " << rn << ", " << IndexedRegisterPrinter(dm, index);
 }
 
 void Disassembler::vmull(
@@ -5554,7 +5510,7 @@ void Disassembler::vnmul(
   os().SetCurrentInstruction(kVnmul, kFpNeon);
   os() << ToCString(kVnmul) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5565,7 +5521,7 @@ void Disassembler::vnmul(
   os().SetCurrentInstruction(kVnmul, kFpNeon);
   os() << ToCString(kVnmul) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5579,7 +5535,7 @@ void Disassembler::vorn(Condition cond,
   os().SetCurrentInstruction(kVorn, kFpNeon);
   os() << ToCString(kVorn) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -5593,7 +5549,7 @@ void Disassembler::vorn(Condition cond,
   os().SetCurrentInstruction(kVorn, kFpNeon);
   os() << ToCString(kVorn) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -5607,7 +5563,7 @@ void Disassembler::vorr(Condition cond,
   os().SetCurrentInstruction(kVorr, kFpNeon);
   os() << ToCString(kVorr) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -5621,7 +5577,7 @@ void Disassembler::vorr(Condition cond,
   os().SetCurrentInstruction(kVorr, kFpNeon);
   os() << ToCString(kVorr) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << operand;
@@ -5650,7 +5606,7 @@ void Disassembler::vpadd(
   os().SetCurrentInstruction(kVpadd, kFpNeon);
   os() << ToCString(kVpadd) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5679,7 +5635,7 @@ void Disassembler::vpmax(
   os().SetCurrentInstruction(kVpmax, kFpNeon);
   os() << ToCString(kVpmax) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5690,7 +5646,7 @@ void Disassembler::vpmin(
   os().SetCurrentInstruction(kVpmin, kFpNeon);
   os() << ToCString(kVpmin) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5743,7 +5699,7 @@ void Disassembler::vqadd(
   os().SetCurrentInstruction(kVqadd, kFpNeon);
   os() << ToCString(kVqadd) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5754,7 +5710,7 @@ void Disassembler::vqadd(
   os().SetCurrentInstruction(kVqadd, kFpNeon);
   os() << ToCString(kVqadd) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5775,7 +5731,7 @@ void Disassembler::vqdmlal(Condition cond,
                            unsigned index) {
   os().SetCurrentInstruction(kVqdmlal, kFpNeon);
   os() << ToCString(kVqdmlal) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", " << rn << ", " << dm << "[" << index << "]";
+       << rd << ", " << rn << ", " << IndexedRegisterPrinter(dm, index);
 }
 
 void Disassembler::vqdmlsl(
@@ -5793,7 +5749,7 @@ void Disassembler::vqdmlsl(Condition cond,
                            unsigned index) {
   os().SetCurrentInstruction(kVqdmlsl, kFpNeon);
   os() << ToCString(kVqdmlsl) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", " << rn << ", " << dm << "[" << index << "]";
+       << rd << ", " << rn << ", " << IndexedRegisterPrinter(dm, index);
 }
 
 void Disassembler::vqdmulh(
@@ -5801,7 +5757,7 @@ void Disassembler::vqdmulh(
   os().SetCurrentInstruction(kVqdmulh, kFpNeon);
   os() << ToCString(kVqdmulh) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5812,7 +5768,7 @@ void Disassembler::vqdmulh(
   os().SetCurrentInstruction(kVqdmulh, kFpNeon);
   os() << ToCString(kVqdmulh) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5823,7 +5779,7 @@ void Disassembler::vqdmulh(
   os().SetCurrentInstruction(kVqdmulh, kFpNeon);
   os() << ToCString(kVqdmulh) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5834,7 +5790,7 @@ void Disassembler::vqdmulh(
   os().SetCurrentInstruction(kVqdmulh, kFpNeon);
   os() << ToCString(kVqdmulh) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5895,7 +5851,7 @@ void Disassembler::vqrdmulh(
   os().SetCurrentInstruction(kVqrdmulh, kFpNeon);
   os() << ToCString(kVqrdmulh) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5906,7 +5862,7 @@ void Disassembler::vqrdmulh(
   os().SetCurrentInstruction(kVqrdmulh, kFpNeon);
   os() << ToCString(kVqrdmulh) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5917,7 +5873,7 @@ void Disassembler::vqrdmulh(
   os().SetCurrentInstruction(kVqrdmulh, kFpNeon);
   os() << ToCString(kVqrdmulh) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5928,7 +5884,7 @@ void Disassembler::vqrdmulh(
   os().SetCurrentInstruction(kVqrdmulh, kFpNeon);
   os() << ToCString(kVqrdmulh) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -5939,7 +5895,7 @@ void Disassembler::vqrshl(
   os().SetCurrentInstruction(kVqrshl, kFpNeon);
   os() << ToCString(kVqrshl) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << rn;
@@ -5950,7 +5906,7 @@ void Disassembler::vqrshl(
   os().SetCurrentInstruction(kVqrshl, kFpNeon);
   os() << ToCString(kVqrshl) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << rn;
@@ -5984,7 +5940,7 @@ void Disassembler::vqshl(Condition cond,
   os().SetCurrentInstruction(kVqshl, kFpNeon);
   os() << ToCString(kVqshl) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -5998,7 +5954,7 @@ void Disassembler::vqshl(Condition cond,
   os().SetCurrentInstruction(kVqshl, kFpNeon);
   os() << ToCString(kVqshl) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6012,7 +5968,7 @@ void Disassembler::vqshlu(Condition cond,
   os().SetCurrentInstruction(kVqshlu, kFpNeon);
   os() << ToCString(kVqshlu) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6026,7 +5982,7 @@ void Disassembler::vqshlu(Condition cond,
   os().SetCurrentInstruction(kVqshlu, kFpNeon);
   os() << ToCString(kVqshlu) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6057,7 +6013,7 @@ void Disassembler::vqsub(
   os().SetCurrentInstruction(kVqsub, kFpNeon);
   os() << ToCString(kVqsub) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -6068,7 +6024,7 @@ void Disassembler::vqsub(
   os().SetCurrentInstruction(kVqsub, kFpNeon);
   os() << ToCString(kVqsub) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -6104,7 +6060,7 @@ void Disassembler::vrecps(
   os().SetCurrentInstruction(kVrecps, kFpNeon);
   os() << ToCString(kVrecps) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -6115,7 +6071,7 @@ void Disassembler::vrecps(
   os().SetCurrentInstruction(kVrecps, kFpNeon);
   os() << ToCString(kVrecps) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -6180,7 +6136,7 @@ void Disassembler::vrhadd(
   os().SetCurrentInstruction(kVrhadd, kFpNeon);
   os() << ToCString(kVrhadd) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -6191,7 +6147,7 @@ void Disassembler::vrhadd(
   os().SetCurrentInstruction(kVrhadd, kFpNeon);
   os() << ToCString(kVrhadd) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -6356,7 +6312,7 @@ void Disassembler::vrshl(
   os().SetCurrentInstruction(kVrshl, kFpNeon);
   os() << ToCString(kVrshl) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << rn;
@@ -6367,7 +6323,7 @@ void Disassembler::vrshl(
   os().SetCurrentInstruction(kVrshl, kFpNeon);
   os() << ToCString(kVrshl) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << rn;
@@ -6381,7 +6337,7 @@ void Disassembler::vrshr(Condition cond,
   os().SetCurrentInstruction(kVrshr, kFpNeon);
   os() << ToCString(kVrshr) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6395,7 +6351,7 @@ void Disassembler::vrshr(Condition cond,
   os().SetCurrentInstruction(kVrshr, kFpNeon);
   os() << ToCString(kVrshr) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6434,7 +6390,7 @@ void Disassembler::vrsqrts(
   os().SetCurrentInstruction(kVrsqrts, kFpNeon);
   os() << ToCString(kVrsqrts) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -6445,7 +6401,7 @@ void Disassembler::vrsqrts(
   os().SetCurrentInstruction(kVrsqrts, kFpNeon);
   os() << ToCString(kVrsqrts) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -6459,7 +6415,7 @@ void Disassembler::vrsra(Condition cond,
   os().SetCurrentInstruction(kVrsra, kFpNeon);
   os() << ToCString(kVrsra) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6473,7 +6429,7 @@ void Disassembler::vrsra(Condition cond,
   os().SetCurrentInstruction(kVrsra, kFpNeon);
   os() << ToCString(kVrsra) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6558,7 +6514,7 @@ void Disassembler::vshl(Condition cond,
   os().SetCurrentInstruction(kVshl, kFpNeon);
   os() << ToCString(kVshl) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6572,7 +6528,7 @@ void Disassembler::vshl(Condition cond,
   os().SetCurrentInstruction(kVshl, kFpNeon);
   os() << ToCString(kVshl) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6596,7 +6552,7 @@ void Disassembler::vshr(Condition cond,
   os().SetCurrentInstruction(kVshr, kFpNeon);
   os() << ToCString(kVshr) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6610,7 +6566,7 @@ void Disassembler::vshr(Condition cond,
   os().SetCurrentInstruction(kVshr, kFpNeon);
   os() << ToCString(kVshr) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6634,7 +6590,7 @@ void Disassembler::vsli(Condition cond,
   os().SetCurrentInstruction(kVsli, kFpNeon);
   os() << ToCString(kVsli) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6648,7 +6604,7 @@ void Disassembler::vsli(Condition cond,
   os().SetCurrentInstruction(kVsli, kFpNeon);
   os() << ToCString(kVsli) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6680,7 +6636,7 @@ void Disassembler::vsra(Condition cond,
   os().SetCurrentInstruction(kVsra, kFpNeon);
   os() << ToCString(kVsra) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6694,7 +6650,7 @@ void Disassembler::vsra(Condition cond,
   os().SetCurrentInstruction(kVsra, kFpNeon);
   os() << ToCString(kVsra) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6708,7 +6664,7 @@ void Disassembler::vsri(Condition cond,
   os().SetCurrentInstruction(kVsri, kFpNeon);
   os() << ToCString(kVsri) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6722,7 +6678,7 @@ void Disassembler::vsri(Condition cond,
   os().SetCurrentInstruction(kVsri, kFpNeon);
   os() << ToCString(kVsri) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rm)) {
+  if (!rd.Is(rm) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rm << ", " << operand;
@@ -6842,8 +6798,9 @@ void Disassembler::vstr(Condition cond,
                         DRegister rd,
                         const MemOperand& operand) {
   os().SetCurrentInstruction(kVstr, kFpNeon);
-  os() << ToCString(kVstr) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", " << PrintMemOperand(kStoreDoublePrecisionLocation, operand);
+  os() << ToCString(kVstr) << ConditionPrinter(it_block_, cond)
+       << DtPrinter(dt, Untyped64) << " " << rd << ", "
+       << PrintMemOperand(kStoreDoublePrecisionLocation, operand);
 }
 
 void Disassembler::vstr(Condition cond,
@@ -6851,8 +6808,9 @@ void Disassembler::vstr(Condition cond,
                         SRegister rd,
                         const MemOperand& operand) {
   os().SetCurrentInstruction(kVstr, kFpNeon);
-  os() << ToCString(kVstr) << ConditionPrinter(it_block_, cond) << dt << " "
-       << rd << ", " << PrintMemOperand(kStoreSinglePrecisionLocation, operand);
+  os() << ToCString(kVstr) << ConditionPrinter(it_block_, cond)
+       << DtPrinter(dt, Untyped32) << " " << rd << ", "
+       << PrintMemOperand(kStoreSinglePrecisionLocation, operand);
 }
 
 void Disassembler::vsub(
@@ -6860,7 +6818,7 @@ void Disassembler::vsub(
   os().SetCurrentInstruction(kVsub, kFpNeon);
   os() << ToCString(kVsub) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -6871,7 +6829,7 @@ void Disassembler::vsub(
   os().SetCurrentInstruction(kVsub, kFpNeon);
   os() << ToCString(kVsub) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -6882,7 +6840,7 @@ void Disassembler::vsub(
   os().SetCurrentInstruction(kVsub, kFpNeon);
   os() << ToCString(kVsub) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -6907,7 +6865,7 @@ void Disassembler::vsubw(
   os().SetCurrentInstruction(kVsubw, kFpNeon);
   os() << ToCString(kVsubw) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -6974,7 +6932,7 @@ void Disassembler::vtst(
   os().SetCurrentInstruction(kVtst, kFpNeon);
   os() << ToCString(kVtst) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -6985,7 +6943,7 @@ void Disassembler::vtst(
   os().SetCurrentInstruction(kVtst, kFpNeon);
   os() << ToCString(kVtst) << ConditionPrinter(it_block_, cond) << dt;
   os() << " ";
-  if (!rd.Is(rn)) {
+  if (!rd.Is(rn) || !use_short_hand_form_) {
     os() << rd << ", ";
   }
   os() << rn << ", " << rm;
@@ -7066,18 +7024,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
               if (InITBlock()) {
                 // ADD<c>{<q>} <Rd>, <Rn>, <Rm> ; T1
                 add(CurrentCond(),
-                    Best,
+                    Narrow,
                     Register(rd),
                     Register(rn),
                     Register(rm));
-              } else {
-                VIXL_ASSERT(OutsideITBlock());
+              } else if (OutsideITBlock()) {
                 // ADDS{<q>} {<Rd>}, <Rn>, <Rm> ; T1
                 adds(Condition::None(),
-                     Best,
+                     Narrow,
                      Register(rd),
                      Register(rn),
                      Register(rm));
+              } else {
+                UnallocatedT32(instr);
               }
               break;
             }
@@ -7089,18 +7048,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
               if (InITBlock()) {
                 // SUB<c>{<q>} <Rd>, <Rn>, <Rm> ; T1
                 sub(CurrentCond(),
-                    Best,
+                    Narrow,
                     Register(rd),
                     Register(rn),
                     Register(rm));
-              } else {
-                VIXL_ASSERT(OutsideITBlock());
+              } else if (OutsideITBlock()) {
                 // SUBS{<q>} {<Rd>}, <Rn>, <Rm> ; T1
                 subs(Condition::None(),
-                     Best,
+                     Narrow,
                      Register(rd),
                      Register(rn),
                      Register(rm));
+              } else {
+                UnallocatedT32(instr);
               }
               break;
             }
@@ -7111,11 +7071,16 @@ void Disassembler::DecodeT32(uint32_t instr) {
               uint32_t imm = (instr >> 22) & 0x7;
               if (InITBlock()) {
                 // ADD<c>{<q>} <Rd>, <Rn>, #<imm3> ; T1
-                add(CurrentCond(), Best, Register(rd), Register(rn), imm);
-              } else {
-                VIXL_ASSERT(OutsideITBlock());
+                add(CurrentCond(), Narrow, Register(rd), Register(rn), imm);
+              } else if (OutsideITBlock()) {
                 // ADDS{<q>} <Rd>, <Rn>, #<imm3> ; T1
-                adds(Condition::None(), Best, Register(rd), Register(rn), imm);
+                adds(Condition::None(),
+                     Narrow,
+                     Register(rd),
+                     Register(rn),
+                     imm);
+              } else {
+                UnallocatedT32(instr);
               }
               break;
             }
@@ -7126,11 +7091,16 @@ void Disassembler::DecodeT32(uint32_t instr) {
               uint32_t imm = (instr >> 22) & 0x7;
               if (InITBlock()) {
                 // SUB<c>{<q>} <Rd>, <Rn>, #<imm3> ; T1
-                sub(CurrentCond(), Best, Register(rd), Register(rn), imm);
-              } else {
-                VIXL_ASSERT(OutsideITBlock());
+                sub(CurrentCond(), Narrow, Register(rd), Register(rn), imm);
+              } else if (OutsideITBlock()) {
                 // SUBS{<q>} <Rd>, <Rn>, #<imm3> ; T1
-                subs(Condition::None(), Best, Register(rd), Register(rn), imm);
+                subs(Condition::None(),
+                     Narrow,
+                     Register(rd),
+                     Register(rn),
+                     imm);
+              } else {
+                UnallocatedT32(instr);
               }
               break;
             }
@@ -7149,7 +7119,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
             uint32_t amount = (instr >> 22) & 0x1f;
             if (amount == 0) amount = 32;
             // ASR<c>{<q>} {<Rd>}, <Rm>, #<imm> ; T2
-            asr(CurrentCond(), Best, Register(rd), Register(rm), amount);
+            asr(CurrentCond(), Narrow, Register(rd), Register(rm), amount);
             return;
           }
           if (((Uint32((instr >> 27)) & Uint32(0x3)) == Uint32(0x2)) &&
@@ -7159,7 +7129,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
             uint32_t amount = (instr >> 22) & 0x1f;
             if (amount == 0) amount = 32;
             // ASRS{<q>} {<Rd>}, <Rm>, #<imm> ; T2
-            asrs(Condition::None(), Best, Register(rd), Register(rm), amount);
+            asrs(Condition::None(), Narrow, Register(rd), Register(rm), amount);
             return;
           }
           if (((Uint32((instr >> 27)) & Uint32(0x3)) == Uint32(0x0)) &&
@@ -7168,7 +7138,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
             unsigned rm = (instr >> 19) & 0x7;
             uint32_t amount = (instr >> 22) & 0x1f;
             // LSL<c>{<q>} {<Rd>}, <Rm>, #<imm> ; T2
-            lsl(CurrentCond(), Best, Register(rd), Register(rm), amount);
+            lsl(CurrentCond(), Narrow, Register(rd), Register(rm), amount);
             return;
           }
           if (((Uint32((instr >> 27)) & Uint32(0x3)) == Uint32(0x0)) &&
@@ -7177,7 +7147,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
             unsigned rm = (instr >> 19) & 0x7;
             uint32_t amount = (instr >> 22) & 0x1f;
             // LSLS{<q>} {<Rd>}, <Rm>, #<imm> ; T2
-            lsls(Condition::None(), Best, Register(rd), Register(rm), amount);
+            lsls(Condition::None(), Narrow, Register(rd), Register(rm), amount);
             return;
           }
           if (((Uint32((instr >> 27)) & Uint32(0x3)) == Uint32(0x1)) &&
@@ -7187,7 +7157,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
             uint32_t amount = (instr >> 22) & 0x1f;
             if (amount == 0) amount = 32;
             // LSR<c>{<q>} {<Rd>}, <Rm>, #<imm> ; T2
-            lsr(CurrentCond(), Best, Register(rd), Register(rm), amount);
+            lsr(CurrentCond(), Narrow, Register(rd), Register(rm), amount);
             return;
           }
           if (((Uint32((instr >> 27)) & Uint32(0x3)) == Uint32(0x1)) &&
@@ -7197,7 +7167,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
             uint32_t amount = (instr >> 22) & 0x1f;
             if (amount == 0) amount = 32;
             // LSRS{<q>} {<Rd>}, <Rm>, #<imm> ; T2
-            lsrs(Condition::None(), Best, Register(rd), Register(rm), amount);
+            lsrs(Condition::None(), Narrow, Register(rd), Register(rm), amount);
             return;
           }
           unsigned rd = (instr >> 16) & 0x7;
@@ -7207,20 +7177,21 @@ void Disassembler::DecodeT32(uint32_t instr) {
           if (InITBlock()) {
             // MOV<c>{<q>} <Rd>, <Rm> {, <shift> #<amount> } ; T2
             mov(CurrentCond(),
-                Best,
+                Narrow,
                 Register(rd),
                 Operand(Register(rm),
                         shift_operand.GetType(),
                         shift_operand.GetAmount()));
-          } else {
-            VIXL_ASSERT(OutsideITBlock());
+          } else if (OutsideITBlock()) {
             // MOVS{<q>} <Rd>, <Rm> {, <shift> #<amount> } ; T2
             movs(Condition::None(),
-                 Best,
+                 Narrow,
                  Register(rd),
                  Operand(Register(rm),
                          shift_operand.GetType(),
                          shift_operand.GetAmount()));
+          } else {
+            UnallocatedT32(instr);
           }
           break;
         }
@@ -7236,11 +7207,12 @@ void Disassembler::DecodeT32(uint32_t instr) {
           uint32_t imm = (instr >> 16) & 0xff;
           if (InITBlock()) {
             // MOV<c>{<q>} <Rd>, #<imm8> ; T1
-            mov(CurrentCond(), Best, Register(rd), imm);
-          } else {
-            VIXL_ASSERT(OutsideITBlock());
+            mov(CurrentCond(), Narrow, Register(rd), imm);
+          } else if (OutsideITBlock()) {
             // MOVS{<q>} <Rd>, #<imm8> ; T1
-            movs(Condition::None(), Best, Register(rd), imm);
+            movs(Condition::None(), Narrow, Register(rd), imm);
+          } else {
+            UnallocatedT32(instr);
           }
           break;
         }
@@ -7249,7 +7221,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
           unsigned rn = (instr >> 24) & 0x7;
           uint32_t imm = (instr >> 16) & 0xff;
           // CMP{<c>}{<q>} <Rn>, #<imm8> ; T1
-          cmp(CurrentCond(), Best, Register(rn), imm);
+          cmp(CurrentCond(), Narrow, Register(rn), imm);
           break;
         }
         case 0x10000000: {
@@ -7261,14 +7233,15 @@ void Disassembler::DecodeT32(uint32_t instr) {
             add(CurrentCond(), Register(rd), imm);
           } else if (InITBlock() && ((imm > 7))) {
             // ADD<c>{<q>} {<Rdn>}, <Rdn>, #<imm8> ; T2
-            add(CurrentCond(), Best, Register(rd), Register(rd), imm);
+            add(CurrentCond(), Narrow, Register(rd), Register(rd), imm);
           } else if (OutsideITBlock() && ((imm <= 7))) {
             // ADDS{<q>} <Rdn>, #<imm8> ; T2
             adds(Register(rd), imm);
-          } else {
-            VIXL_ASSERT(OutsideITBlock() && ((imm > 7)));
+          } else if (OutsideITBlock() && ((imm > 7))) {
             // ADDS{<q>} {<Rdn>}, <Rdn>, #<imm8> ; T2
-            adds(Condition::None(), Best, Register(rd), Register(rd), imm);
+            adds(Condition::None(), Narrow, Register(rd), Register(rd), imm);
+          } else {
+            UnallocatedT32(instr);
           }
           break;
         }
@@ -7281,14 +7254,15 @@ void Disassembler::DecodeT32(uint32_t instr) {
             sub(CurrentCond(), Register(rd), imm);
           } else if (InITBlock() && ((imm > 7))) {
             // SUB<c>{<q>} {<Rdn>}, <Rdn>, #<imm8> ; T2
-            sub(CurrentCond(), Best, Register(rd), Register(rd), imm);
+            sub(CurrentCond(), Narrow, Register(rd), Register(rd), imm);
           } else if (OutsideITBlock() && ((imm <= 7))) {
             // SUBS{<q>} <Rdn>, #<imm8> ; T2
             subs(Register(rd), imm);
-          } else {
-            VIXL_ASSERT(OutsideITBlock() && ((imm > 7)));
+          } else if (OutsideITBlock() && ((imm > 7))) {
             // SUBS{<q>} {<Rdn>}, <Rdn>, #<imm8> ; T2
-            subs(Condition::None(), Best, Register(rd), Register(rd), imm);
+            subs(Condition::None(), Narrow, Register(rd), Register(rd), imm);
+          } else {
+            UnallocatedT32(instr);
           }
           break;
         }
@@ -7311,18 +7285,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   if (InITBlock()) {
                     // AND<c>{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     and_(CurrentCond(),
-                         Best,
+                         Narrow,
+                         Register(rd),
+                         Register(rd),
+                         Register(rm));
+                  } else if (OutsideITBlock()) {
+                    // ANDS{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
+                    ands(Condition::None(),
+                         Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rm));
                   } else {
-                    VIXL_ASSERT(OutsideITBlock());
-                    // ANDS{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
-                    ands(Condition::None(),
-                         Best,
-                         Register(rd),
-                         Register(rd),
-                         Register(rm));
+                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7333,18 +7308,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   if (InITBlock()) {
                     // EOR<c>{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     eor(CurrentCond(),
-                        Best,
+                        Narrow,
                         Register(rd),
                         Register(rd),
                         Register(rm));
-                  } else {
-                    VIXL_ASSERT(OutsideITBlock());
+                  } else if (OutsideITBlock()) {
                     // EORS{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     eors(Condition::None(),
-                         Best,
+                         Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rm));
+                  } else {
+                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7355,7 +7331,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                     unsigned rs = (instr >> 19) & 0x7;
                     // LSL<c>{<q>} {<Rdm>}, <Rdm>, <Rs> ; T1
                     lsl(CurrentCond(),
-                        Best,
+                        Narrow,
                         Register(rd),
                         Register(rd),
                         Register(rs));
@@ -7366,7 +7342,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                     unsigned rs = (instr >> 19) & 0x7;
                     // LSLS{<q>} {<Rdm>}, <Rdm>, <Rs> ; T1
                     lsls(Condition::None(),
-                         Best,
+                         Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rs));
@@ -7378,16 +7354,17 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   if (InITBlock()) {
                     // MOV<c>{<q>} <Rdm>, <Rdm>, LSL <Rs> ; T1
                     mov(CurrentCond(),
-                        Best,
+                        Narrow,
                         Register(rd),
                         Operand(Register(rm), LSL, Register(rs)));
-                  } else {
-                    VIXL_ASSERT(OutsideITBlock());
+                  } else if (OutsideITBlock()) {
                     // MOVS{<q>} <Rdm>, <Rdm>, LSL <Rs> ; T1
                     movs(Condition::None(),
-                         Best,
+                         Narrow,
                          Register(rd),
                          Operand(Register(rm), LSL, Register(rs)));
+                  } else {
+                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7398,7 +7375,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                     unsigned rs = (instr >> 19) & 0x7;
                     // LSR<c>{<q>} {<Rdm>}, <Rdm>, <Rs> ; T1
                     lsr(CurrentCond(),
-                        Best,
+                        Narrow,
                         Register(rd),
                         Register(rd),
                         Register(rs));
@@ -7409,7 +7386,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                     unsigned rs = (instr >> 19) & 0x7;
                     // LSRS{<q>} {<Rdm>}, <Rdm>, <Rs> ; T1
                     lsrs(Condition::None(),
-                         Best,
+                         Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rs));
@@ -7421,16 +7398,17 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   if (InITBlock()) {
                     // MOV<c>{<q>} <Rdm>, <Rdm>, LSR <Rs> ; T1
                     mov(CurrentCond(),
-                        Best,
+                        Narrow,
                         Register(rd),
                         Operand(Register(rm), LSR, Register(rs)));
-                  } else {
-                    VIXL_ASSERT(OutsideITBlock());
+                  } else if (OutsideITBlock()) {
                     // MOVS{<q>} <Rdm>, <Rdm>, LSR <Rs> ; T1
                     movs(Condition::None(),
-                         Best,
+                         Narrow,
                          Register(rd),
                          Operand(Register(rm), LSR, Register(rs)));
+                  } else {
+                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7447,7 +7425,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                     unsigned rs = (instr >> 19) & 0x7;
                     // ASR<c>{<q>} {<Rdm>}, <Rdm>, <Rs> ; T1
                     asr(CurrentCond(),
-                        Best,
+                        Narrow,
                         Register(rd),
                         Register(rd),
                         Register(rs));
@@ -7458,7 +7436,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                     unsigned rs = (instr >> 19) & 0x7;
                     // ASRS{<q>} {<Rdm>}, <Rdm>, <Rs> ; T1
                     asrs(Condition::None(),
-                         Best,
+                         Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rs));
@@ -7470,16 +7448,17 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   if (InITBlock()) {
                     // MOV<c>{<q>} <Rdm>, <Rdm>, ASR <Rs> ; T1
                     mov(CurrentCond(),
-                        Best,
+                        Narrow,
                         Register(rd),
                         Operand(Register(rm), ASR, Register(rs)));
-                  } else {
-                    VIXL_ASSERT(OutsideITBlock());
+                  } else if (OutsideITBlock()) {
                     // MOVS{<q>} <Rdm>, <Rdm>, ASR <Rs> ; T1
                     movs(Condition::None(),
-                         Best,
+                         Narrow,
                          Register(rd),
                          Operand(Register(rm), ASR, Register(rs)));
+                  } else {
+                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7490,18 +7469,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   if (InITBlock()) {
                     // ADC<c>{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     adc(CurrentCond(),
-                        Best,
+                        Narrow,
                         Register(rd),
                         Register(rd),
                         Register(rm));
-                  } else {
-                    VIXL_ASSERT(OutsideITBlock());
+                  } else if (OutsideITBlock()) {
                     // ADCS{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     adcs(Condition::None(),
-                         Best,
+                         Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rm));
+                  } else {
+                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7512,18 +7492,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   if (InITBlock()) {
                     // SBC<c>{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     sbc(CurrentCond(),
-                        Best,
+                        Narrow,
                         Register(rd),
                         Register(rd),
                         Register(rm));
-                  } else {
-                    VIXL_ASSERT(OutsideITBlock());
+                  } else if (OutsideITBlock()) {
                     // SBCS{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     sbcs(Condition::None(),
-                         Best,
+                         Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rm));
+                  } else {
+                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7534,7 +7515,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                     unsigned rs = (instr >> 19) & 0x7;
                     // ROR<c>{<q>} {<Rdm>}, <Rdm>, <Rs> ; T1
                     ror(CurrentCond(),
-                        Best,
+                        Narrow,
                         Register(rd),
                         Register(rd),
                         Register(rs));
@@ -7545,7 +7526,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                     unsigned rs = (instr >> 19) & 0x7;
                     // RORS{<q>} {<Rdm>}, <Rdm>, <Rs> ; T1
                     rors(Condition::None(),
-                         Best,
+                         Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rs));
@@ -7557,16 +7538,17 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   if (InITBlock()) {
                     // MOV<c>{<q>} <Rdm>, <Rdm>, ROR <Rs> ; T1
                     mov(CurrentCond(),
-                        Best,
+                        Narrow,
                         Register(rd),
                         Operand(Register(rm), ROR, Register(rs)));
-                  } else {
-                    VIXL_ASSERT(OutsideITBlock());
+                  } else if (OutsideITBlock()) {
                     // MOVS{<q>} <Rdm>, <Rdm>, ROR <Rs> ; T1
                     movs(Condition::None(),
-                         Best,
+                         Narrow,
                          Register(rd),
                          Operand(Register(rm), ROR, Register(rs)));
+                  } else {
+                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7581,7 +7563,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   unsigned rn = (instr >> 16) & 0x7;
                   unsigned rm = (instr >> 19) & 0x7;
                   // TST{<c>}{<q>} <Rn>, <Rm> ; T1
-                  tst(CurrentCond(), Best, Register(rn), Register(rm));
+                  tst(CurrentCond(), Narrow, Register(rn), Register(rm));
                   break;
                 }
                 case 0x00400000: {
@@ -7591,18 +7573,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   if (InITBlock()) {
                     // RSB<c>{<q>} {<Rd>}, <Rn>, #0 ; T1
                     rsb(CurrentCond(),
-                        Best,
+                        Narrow,
                         Register(rd),
                         Register(rn),
                         UINT32_C(0));
-                  } else {
-                    VIXL_ASSERT(OutsideITBlock());
+                  } else if (OutsideITBlock()) {
                     // RSBS{<q>} {<Rd>}, <Rn>, #0 ; T1
                     rsbs(Condition::None(),
-                         Best,
+                         Narrow,
                          Register(rd),
                          Register(rn),
                          UINT32_C(0));
+                  } else {
+                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7611,7 +7594,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   unsigned rn = (instr >> 16) & 0x7;
                   unsigned rm = (instr >> 19) & 0x7;
                   // CMP{<c>}{<q>} <Rn>, <Rm> ; T1
-                  cmp(CurrentCond(), Best, Register(rn), Register(rm));
+                  cmp(CurrentCond(), Narrow, Register(rn), Register(rm));
                   break;
                 }
                 case 0x00c00000: {
@@ -7619,7 +7602,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   unsigned rn = (instr >> 16) & 0x7;
                   unsigned rm = (instr >> 19) & 0x7;
                   // CMN{<c>}{<q>} <Rn>, <Rm> ; T1
-                  cmn(CurrentCond(), Best, Register(rn), Register(rm));
+                  cmn(CurrentCond(), Narrow, Register(rn), Register(rm));
                   break;
                 }
               }
@@ -7635,18 +7618,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   if (InITBlock()) {
                     // ORR<c>{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     orr(CurrentCond(),
-                        Best,
+                        Narrow,
                         Register(rd),
                         Register(rd),
                         Register(rm));
-                  } else {
-                    VIXL_ASSERT(OutsideITBlock());
+                  } else if (OutsideITBlock()) {
                     // ORRS{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     orrs(Condition::None(),
-                         Best,
+                         Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rm));
+                  } else {
+                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7657,17 +7641,18 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   if (InITBlock()) {
                     // MUL<c>{<q>} <Rdm>, <Rn>, {<Rdm>} ; T1
                     mul(CurrentCond(),
-                        Best,
+                        Narrow,
                         Register(rd),
                         Register(rn),
                         Register(rd));
-                  } else {
-                    VIXL_ASSERT(OutsideITBlock());
+                  } else if (OutsideITBlock()) {
                     // MULS{<q>} <Rdm>, <Rn>, {<Rdm>} ; T1
                     muls(Condition::None(),
                          Register(rd),
                          Register(rn),
                          Register(rd));
+                  } else {
+                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7678,18 +7663,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   if (InITBlock()) {
                     // BIC<c>{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     bic(CurrentCond(),
-                        Best,
+                        Narrow,
                         Register(rd),
                         Register(rd),
                         Register(rm));
-                  } else {
-                    VIXL_ASSERT(OutsideITBlock());
+                  } else if (OutsideITBlock()) {
                     // BICS{<q>} {<Rdn>}, <Rdn>, <Rm> ; T1
                     bics(Condition::None(),
-                         Best,
+                         Narrow,
                          Register(rd),
                          Register(rd),
                          Register(rm));
+                  } else {
+                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7699,11 +7685,12 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   unsigned rm = (instr >> 19) & 0x7;
                   if (InITBlock()) {
                     // MVN<c>{<q>} <Rd>, <Rm> ; T1
-                    mvn(CurrentCond(), Best, Register(rd), Register(rm));
-                  } else {
-                    VIXL_ASSERT(OutsideITBlock());
+                    mvn(CurrentCond(), Narrow, Register(rd), Register(rm));
+                  } else if (OutsideITBlock()) {
                     // MVNS{<q>} <Rd>, <Rm> ; T1
-                    mvns(Condition::None(), Best, Register(rd), Register(rm));
+                    mvns(Condition::None(), Narrow, Register(rd), Register(rm));
+                  } else {
+                    UnallocatedT32(instr);
                   }
                   break;
                 }
@@ -7717,7 +7704,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   // 0x44680000
                   unsigned rd = ((instr >> 16) & 0x7) | ((instr >> 20) & 0x8);
                   // ADD{<c>}{<q>} {<Rdm>}, SP, <Rdm> ; T1
-                  add(CurrentCond(), Best, Register(rd), sp, Register(rd));
+                  add(CurrentCond(), Narrow, Register(rd), sp, Register(rd));
                   break;
                 }
                 default: {
@@ -7730,7 +7717,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                       }
                       unsigned rm = (instr >> 19) & 0xf;
                       // ADD{<c>}{<q>} {SP}, SP, <Rm> ; T2
-                      add(CurrentCond(), Best, sp, sp, Register(rm));
+                      add(CurrentCond(), Narrow, sp, sp, Register(rm));
                       break;
                     }
                     default: {
@@ -7748,7 +7735,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                       } else {
                         // ADD{<c>}{<q>} {<Rdn>}, <Rdn>, <Rm> ; T2
                         add(CurrentCond(),
-                            Best,
+                            Narrow,
                             Register(rd),
                             Register(rd),
                             Register(rm));
@@ -7766,7 +7753,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
               unsigned rn = ((instr >> 16) & 0x7) | ((instr >> 20) & 0x8);
               unsigned rm = (instr >> 19) & 0xf;
               // CMP{<c>}{<q>} <Rn>, <Rm> ; T2
-              cmp(CurrentCond(), Best, Register(rn), Register(rm));
+              cmp(CurrentCond(), Narrow, Register(rn), Register(rm));
               break;
             }
             case 0x06000000: {
@@ -7774,7 +7761,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
               unsigned rd = ((instr >> 16) & 0x7) | ((instr >> 20) & 0x8);
               unsigned rm = (instr >> 19) & 0xf;
               // MOV{<c>}{<q>} <Rd>, <Rm> ; T1
-              mov(CurrentCond(), Best, Register(rd), Register(rm));
+              mov(CurrentCond(), Narrow, Register(rd), Register(rm));
               break;
             }
             case 0x07000000: {
@@ -7810,9 +7797,9 @@ void Disassembler::DecodeT32(uint32_t instr) {
           // 0x48000000
           unsigned rt = (instr >> 24) & 0x7;
           int32_t imm = ((instr >> 16) & 0xff) << 2;
-          Label label(imm, kT32PcDelta);
+          Location location(imm, kT32PcDelta);
           // LDR{<c>}{<q>} <Rt>, <label> ; T1
-          ldr(CurrentCond(), Best, Register(rt), &label);
+          ldr(CurrentCond(), Narrow, Register(rt), &location);
           break;
         }
         case 0x10000000: {
@@ -7827,7 +7814,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
               AddrMode addrmode = Offset;
               // STR{<c>}{<q>} <Rt>, [<Rn>, #{+}<Rm>] ; T1
               str(CurrentCond(),
-                  Best,
+                  Narrow,
                   Register(rt),
                   MemOperand(Register(rn), sign, Register(rm), addrmode));
               break;
@@ -7841,7 +7828,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
               AddrMode addrmode = Offset;
               // STRH{<c>}{<q>} <Rt>, [<Rn>, #{+}<Rm>] ; T1
               strh(CurrentCond(),
-                   Best,
+                   Narrow,
                    Register(rt),
                    MemOperand(Register(rn), sign, Register(rm), addrmode));
               break;
@@ -7855,7 +7842,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
               AddrMode addrmode = Offset;
               // STRB{<c>}{<q>} <Rt>, [<Rn>, #{+}<Rm>] ; T1
               strb(CurrentCond(),
-                   Best,
+                   Narrow,
                    Register(rt),
                    MemOperand(Register(rn), sign, Register(rm), addrmode));
               break;
@@ -7869,7 +7856,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
               AddrMode addrmode = Offset;
               // LDRSB{<c>}{<q>} <Rt>, [<Rn>, #{+}<Rm>] ; T1
               ldrsb(CurrentCond(),
-                    Best,
+                    Narrow,
                     Register(rt),
                     MemOperand(Register(rn), sign, Register(rm), addrmode));
               break;
@@ -7889,7 +7876,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
               AddrMode addrmode = Offset;
               // LDR{<c>}{<q>} <Rt>, [<Rn>, #{+}<Rm>] ; T1
               ldr(CurrentCond(),
-                  Best,
+                  Narrow,
                   Register(rt),
                   MemOperand(Register(rn), sign, Register(rm), addrmode));
               break;
@@ -7903,7 +7890,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
               AddrMode addrmode = Offset;
               // LDRH{<c>}{<q>} <Rt>, [<Rn>, #{+}<Rm>] ; T1
               ldrh(CurrentCond(),
-                   Best,
+                   Narrow,
                    Register(rt),
                    MemOperand(Register(rn), sign, Register(rm), addrmode));
               break;
@@ -7917,7 +7904,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
               AddrMode addrmode = Offset;
               // LDRB{<c>}{<q>} <Rt>, [<Rn>, #{+}<Rm>] ; T1
               ldrb(CurrentCond(),
-                   Best,
+                   Narrow,
                    Register(rt),
                    MemOperand(Register(rn), sign, Register(rm), addrmode));
               break;
@@ -7931,7 +7918,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
               AddrMode addrmode = Offset;
               // LDRSH{<c>}{<q>} <Rt>, [<Rn>, #{+}<Rm>] ; T1
               ldrsh(CurrentCond(),
-                    Best,
+                    Narrow,
                     Register(rt),
                     MemOperand(Register(rn), sign, Register(rm), addrmode));
               break;
@@ -7952,7 +7939,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
           int32_t offset = ((instr >> 22) & 0x1f) << 2;
           // STR{<c>}{<q>} <Rt>, [<Rn>{, #{+}<imm>}] ; T1
           str(CurrentCond(),
-              Best,
+              Narrow,
               Register(rt),
               MemOperand(Register(rn), plus, offset, Offset));
           break;
@@ -7964,7 +7951,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
           int32_t offset = ((instr >> 22) & 0x1f) << 2;
           // LDR{<c>}{<q>} <Rt>, [<Rn>{, #{+}<imm>}] ; T1
           ldr(CurrentCond(),
-              Best,
+              Narrow,
               Register(rt),
               MemOperand(Register(rn), plus, offset, Offset));
           break;
@@ -7976,7 +7963,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
           int32_t offset = (instr >> 22) & 0x1f;
           // STRB{<c>}{<q>} <Rt>, [<Rn>{, #{+}<imm>}] ; T1
           strb(CurrentCond(),
-               Best,
+               Narrow,
                Register(rt),
                MemOperand(Register(rn), plus, offset, Offset));
           break;
@@ -7988,7 +7975,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
           int32_t offset = (instr >> 22) & 0x1f;
           // LDRB{<c>}{<q>} <Rt>, [<Rn>{, #{+}<imm>}] ; T1
           ldrb(CurrentCond(),
-               Best,
+               Narrow,
                Register(rt),
                MemOperand(Register(rn), plus, offset, Offset));
           break;
@@ -8006,7 +7993,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
           int32_t offset = ((instr >> 22) & 0x1f) << 1;
           // STRH{<c>}{<q>} <Rt>, [<Rn>{, #{+}<imm>}] ; T1
           strh(CurrentCond(),
-               Best,
+               Narrow,
                Register(rt),
                MemOperand(Register(rn), plus, offset, Offset));
           break;
@@ -8018,7 +8005,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
           int32_t offset = ((instr >> 22) & 0x1f) << 1;
           // LDRH{<c>}{<q>} <Rt>, [<Rn>{, #{+}<imm>}] ; T1
           ldrh(CurrentCond(),
-               Best,
+               Narrow,
                Register(rt),
                MemOperand(Register(rn), plus, offset, Offset));
           break;
@@ -8029,7 +8016,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
           int32_t offset = ((instr >> 16) & 0xff) << 2;
           // STR{<c>}{<q>} <Rt>, [SP{, #{+}<imm>}] ; T2
           str(CurrentCond(),
-              Best,
+              Narrow,
               Register(rt),
               MemOperand(sp, plus, offset, Offset));
           break;
@@ -8040,7 +8027,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
           int32_t offset = ((instr >> 16) & 0xff) << 2;
           // LDR{<c>}{<q>} <Rt>, [SP{, #{+}<imm>}] ; T2
           ldr(CurrentCond(),
-              Best,
+              Narrow,
               Register(rt),
               MemOperand(sp, plus, offset, Offset));
           break;
@@ -8055,9 +8042,9 @@ void Disassembler::DecodeT32(uint32_t instr) {
           // 0xa0000000
           unsigned rd = (instr >> 24) & 0x7;
           int32_t imm = ((instr >> 16) & 0xff) << 2;
-          Label label(imm, kT32PcDelta);
+          Location location(imm, kT32PcDelta);
           // ADR{<c>}{<q>} <Rd>, <label> ; T1
-          adr(CurrentCond(), Best, Register(rd), &label);
+          adr(CurrentCond(), Narrow, Register(rd), &location);
           break;
         }
         case 0x08000000: {
@@ -8065,7 +8052,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
           unsigned rd = (instr >> 24) & 0x7;
           uint32_t imm = ((instr >> 16) & 0xff) << 2;
           // ADD{<c>}{<q>} <Rd>, SP, #<imm8> ; T1
-          add(CurrentCond(), Best, Register(rd), sp, imm);
+          add(CurrentCond(), Narrow, Register(rd), sp, imm);
           break;
         }
         case 0x10000000: {
@@ -8081,14 +8068,14 @@ void Disassembler::DecodeT32(uint32_t instr) {
                       // 0xb0000000
                       uint32_t imm = ((instr >> 16) & 0x7f) << 2;
                       // ADD{<c>}{<q>} {SP}, SP, #<imm7> ; T2
-                      add(CurrentCond(), Best, sp, sp, imm);
+                      add(CurrentCond(), Narrow, sp, sp, imm);
                       break;
                     }
                     case 0x00800000: {
                       // 0xb0800000
                       uint32_t imm = ((instr >> 16) & 0x7f) << 2;
                       // SUB{<c>}{<q>} {SP}, SP, #<imm7> ; T1
-                      sub(CurrentCond(), Best, sp, sp, imm);
+                      sub(CurrentCond(), Narrow, sp, sp, imm);
                       break;
                     }
                     case 0x02000000: {
@@ -8099,7 +8086,10 @@ void Disassembler::DecodeT32(uint32_t instr) {
                           unsigned rd = (instr >> 16) & 0x7;
                           unsigned rm = (instr >> 19) & 0x7;
                           // SXTH{<c>}{<q>} {<Rd>}, <Rm> ; T1
-                          sxth(CurrentCond(), Best, Register(rd), Register(rm));
+                          sxth(CurrentCond(),
+                               Narrow,
+                               Register(rd),
+                               Register(rm));
                           break;
                         }
                         case 0x00400000: {
@@ -8107,7 +8097,10 @@ void Disassembler::DecodeT32(uint32_t instr) {
                           unsigned rd = (instr >> 16) & 0x7;
                           unsigned rm = (instr >> 19) & 0x7;
                           // SXTB{<c>}{<q>} {<Rd>}, <Rm> ; T1
-                          sxtb(CurrentCond(), Best, Register(rd), Register(rm));
+                          sxtb(CurrentCond(),
+                               Narrow,
+                               Register(rd),
+                               Register(rm));
                           break;
                         }
                       }
@@ -8121,7 +8114,10 @@ void Disassembler::DecodeT32(uint32_t instr) {
                           unsigned rd = (instr >> 16) & 0x7;
                           unsigned rm = (instr >> 19) & 0x7;
                           // UXTH{<c>}{<q>} {<Rd>}, <Rm> ; T1
-                          uxth(CurrentCond(), Best, Register(rd), Register(rm));
+                          uxth(CurrentCond(),
+                               Narrow,
+                               Register(rd),
+                               Register(rm));
                           break;
                         }
                         case 0x00400000: {
@@ -8129,7 +8125,10 @@ void Disassembler::DecodeT32(uint32_t instr) {
                           unsigned rd = (instr >> 16) & 0x7;
                           unsigned rm = (instr >> 19) & 0x7;
                           // UXTB{<c>}{<q>} {<Rd>}, <Rm> ; T1
-                          uxtb(CurrentCond(), Best, Register(rd), Register(rm));
+                          uxtb(CurrentCond(),
+                               Narrow,
+                               Register(rd),
+                               Register(rm));
                           break;
                         }
                       }
@@ -8143,9 +8142,9 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   unsigned rn = (instr >> 16) & 0x7;
                   int32_t imm =
                       (((instr >> 19) & 0x1f) | ((instr >> 20) & 0x20)) << 1;
-                  Label label(imm, kT32PcDelta);
+                  Location location(imm, kT32PcDelta);
                   // CBZ{<q>} <Rn>, <label> ; T1
-                  cbz(Register(rn), &label);
+                  cbz(Register(rn), &location);
                   break;
                 }
               }
@@ -8159,7 +8158,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   RegisterList registers((((instr >> 24) & 0x1) << kLRRegNum) |
                                          ((instr >> 16) & 0xff));
                   // PUSH{<c>}{<q>} <registers> ; T1
-                  push(CurrentCond(), Best, registers);
+                  push(CurrentCond(), Narrow, registers);
                   break;
                 }
                 case 0x02000000: {
@@ -8212,7 +8211,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                       unsigned rd = (instr >> 16) & 0x7;
                       unsigned rm = (instr >> 19) & 0x7;
                       // REV{<c>}{<q>} <Rd>, <Rm> ; T1
-                      rev(CurrentCond(), Best, Register(rd), Register(rm));
+                      rev(CurrentCond(), Narrow, Register(rd), Register(rm));
                       break;
                     }
                     case 0x02400000: {
@@ -8220,7 +8219,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                       unsigned rd = (instr >> 16) & 0x7;
                       unsigned rm = (instr >> 19) & 0x7;
                       // REV16{<c>}{<q>} <Rd>, <Rm> ; T1
-                      rev16(CurrentCond(), Best, Register(rd), Register(rm));
+                      rev16(CurrentCond(), Narrow, Register(rd), Register(rm));
                       break;
                     }
                     case 0x02800000: {
@@ -8235,7 +8234,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                       unsigned rd = (instr >> 16) & 0x7;
                       unsigned rm = (instr >> 19) & 0x7;
                       // REVSH{<c>}{<q>} <Rd>, <Rm> ; T1
-                      revsh(CurrentCond(), Best, Register(rd), Register(rm));
+                      revsh(CurrentCond(), Narrow, Register(rd), Register(rm));
                       break;
                     }
                     default:
@@ -8249,9 +8248,9 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   unsigned rn = (instr >> 16) & 0x7;
                   int32_t imm =
                       (((instr >> 19) & 0x1f) | ((instr >> 20) & 0x20)) << 1;
-                  Label label(imm, kT32PcDelta);
+                  Location location(imm, kT32PcDelta);
                   // CBNZ{<q>} <Rn>, <label> ; T1
-                  cbnz(Register(rn), &label);
+                  cbnz(Register(rn), &location);
                   break;
                 }
               }
@@ -8265,7 +8264,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   RegisterList registers((((instr >> 24) & 0x1) << kPCRegNum) |
                                          ((instr >> 16) & 0xff));
                   // POP{<c>}{<q>} <registers> ; T1
-                  pop(CurrentCond(), Best, registers);
+                  pop(CurrentCond(), Narrow, registers);
                   break;
                 }
                 case 0x02000000: {
@@ -8287,13 +8286,13 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             case 0x00000000: {
                               // 0xbf000000
                               // NOP{<c>}{<q>} ; T1
-                              nop(CurrentCond(), Best);
+                              nop(CurrentCond(), Narrow);
                               break;
                             }
                             case 0x00100000: {
                               // 0xbf100000
                               // YIELD{<c>}{<q>} ; T1
-                              yield(CurrentCond(), Best);
+                              yield(CurrentCond(), Narrow);
                               break;
                             }
                             case 0x00200000: {
@@ -8366,7 +8365,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
               RegisterList registers(((instr >> 16) & 0xff));
               // STM{<c>}{<q>} <Rn>!, <registers> ; T1
               stm(CurrentCond(),
-                  Best,
+                  Narrow,
                   Register(rn),
                   WriteBack(WRITE_BACK),
                   registers);
@@ -8378,7 +8377,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
               RegisterList registers(((instr >> 16) & 0xff));
               // LDM{<c>}{<q>} <Rn>{!}, <registers> ; T1
               ldm(CurrentCond(),
-                  Best,
+                  Narrow,
                   Register(rn),
                   WriteBack(!registers.Includes(Register(rn))),
                   registers);
@@ -8397,7 +8396,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                   // 0xde000000
                   uint32_t imm = (instr >> 16) & 0xff;
                   // UDF{<c>}{<q>} {#}<imm> ; T1
-                  udf(CurrentCond(), Best, imm);
+                  udf(CurrentCond(), Narrow, imm);
                   break;
                 }
                 case 0x01000000: {
@@ -8417,9 +8416,9 @@ void Disassembler::DecodeT32(uint32_t instr) {
               }
               Condition condition((instr >> 24) & 0xf);
               int32_t imm = SignExtend<int32_t>((instr >> 16) & 0xff, 8) << 1;
-              Label label(imm, kT32PcDelta);
+              Location location(imm, kT32PcDelta);
               // B<c>{<q>} <label> ; T1
-              b(condition, Best, &label);
+              b(condition, Narrow, &location);
               break;
             }
           }
@@ -8437,9 +8436,9 @@ void Disassembler::DecodeT32(uint32_t instr) {
             case 0x00000000: {
               // 0xe0000000
               int32_t imm = SignExtend<int32_t>((instr >> 16) & 0x7ff, 11) << 1;
-              Label label(imm, kT32PcDelta);
+              Location location(imm, kT32PcDelta);
               // B{<c>}{<q>} <label> ; T2
-              b(CurrentCond(), Best, &label);
+              b(CurrentCond(), Narrow, &location);
               break;
             }
             case 0x10000000: {
@@ -8538,10 +8537,11 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                (imm <= 255))) {
                             // MOV<c>.W <Rd>, #<const> ; T2
                             mov(CurrentCond(), Wide, Register(rd), imm);
-                          } else {
-                            VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                          } else if ((instr & 0x00100000) == 0x00000000) {
                             // MOV{<c>}{<q>} <Rd>, #<const> ; T2
                             mov(CurrentCond(), Best, Register(rd), imm);
+                          } else {
+                            UnallocatedT32(instr);
                           }
                           break;
                         }
@@ -8581,10 +8581,11 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                (imm <= 255))) {
                             // MOVS.W <Rd>, #<const> ; T2
                             movs(Condition::None(), Wide, Register(rd), imm);
-                          } else {
-                            VIXL_ASSERT((instr & 0x00100000) == 0x00100000);
+                          } else if ((instr & 0x00100000) == 0x00100000) {
                             // MOVS{<c>}{<q>} <Rd>, #<const> ; T2
                             movs(CurrentCond(), Best, Register(rd), imm);
+                          } else {
+                            UnallocatedT32(instr);
                           }
                           break;
                         }
@@ -8730,10 +8731,11 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 ((imm <= 508) && ((imm & 3) == 0))))) {
                             // ADD{<c>}.W {<Rd>}, SP, #<const> ; T3
                             add(CurrentCond(), Wide, Register(rd), sp, imm);
-                          } else {
-                            VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                          } else if ((instr & 0x00100000) == 0x00000000) {
                             // ADD{<c>}{<q>} {<Rd>}, SP, #<const> ; T3
                             add(CurrentCond(), Best, Register(rd), sp, imm);
+                          } else {
+                            UnallocatedT32(instr);
                           }
                           break;
                         }
@@ -8760,14 +8762,15 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 Register(rd),
                                 Register(rn),
                                 imm);
-                          } else {
-                            VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                          } else if ((instr & 0x00100000) == 0x00000000) {
                             // ADD{<c>}{<q>} {<Rd>}, <Rn>, #<const> ; T3
                             add(CurrentCond(),
                                 Best,
                                 Register(rd),
                                 Register(rn),
                                 imm);
+                          } else {
+                            UnallocatedT32(instr);
                           }
                           break;
                         }
@@ -8828,14 +8831,15 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                      Register(rd),
                                      Register(rn),
                                      imm);
-                              } else {
-                                VIXL_ASSERT((instr & 0x00100000) == 0x00100000);
+                              } else if ((instr & 0x00100000) == 0x00100000) {
                                 // ADDS{<c>}{<q>} {<Rd>}, <Rn>, #<const> ; T3
                                 adds(CurrentCond(),
                                      Best,
                                      Register(rd),
                                      Register(rn),
                                      imm);
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -8911,10 +8915,11 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                ((imm <= 508) && ((imm & 3) == 0)))) {
                             // SUB{<c>}.W {<Rd>}, SP, #<const> ; T2
                             sub(CurrentCond(), Wide, Register(rd), sp, imm);
-                          } else {
-                            VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                          } else if ((instr & 0x00100000) == 0x00000000) {
                             // SUB{<c>}{<q>} {<Rd>}, SP, #<const> ; T2
                             sub(CurrentCond(), Best, Register(rd), sp, imm);
+                          } else {
+                            UnallocatedT32(instr);
                           }
                           break;
                         }
@@ -8941,14 +8946,15 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 Register(rd),
                                 Register(rn),
                                 imm);
-                          } else {
-                            VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                          } else if ((instr & 0x00100000) == 0x00000000) {
                             // SUB{<c>}{<q>} {<Rd>}, <Rn>, #<const> ; T3
                             sub(CurrentCond(),
                                 Best,
                                 Register(rd),
                                 Register(rn),
                                 imm);
+                          } else {
+                            UnallocatedT32(instr);
                           }
                           break;
                         }
@@ -9014,14 +9020,15 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                      Register(rd),
                                      Register(rn),
                                      imm);
-                              } else {
-                                VIXL_ASSERT((instr & 0x00100000) == 0x00100000);
+                              } else if ((instr & 0x00100000) == 0x00100000) {
                                 // SUBS{<c>}{<q>} {<Rd>}, <Rn>, #<const> ; T3
                                 subs(CurrentCond(),
                                      Best,
                                      Register(rd),
                                      Register(rn),
                                      imm);
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -9048,14 +9055,15 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             Register(rd),
                             Register(rn),
                             UINT32_C(0));
-                      } else {
-                        VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                      } else if ((instr & 0x00100000) == 0x00000000) {
                         // RSB{<c>}{<q>} {<Rd>}, <Rn>, #<const> ; T2
                         rsb(CurrentCond(),
                             Best,
                             Register(rd),
                             Register(rn),
                             imm);
+                      } else {
+                        UnallocatedT32(instr);
                       }
                       break;
                     }
@@ -9076,14 +9084,15 @@ void Disassembler::DecodeT32(uint32_t instr) {
                              Register(rd),
                              Register(rn),
                              UINT32_C(0));
-                      } else {
-                        VIXL_ASSERT((instr & 0x00100000) == 0x00100000);
+                      } else if ((instr & 0x00100000) == 0x00100000) {
                         // RSBS{<c>}{<q>} {<Rd>}, <Rn>, #<const> ; T2
                         rsbs(CurrentCond(),
                              Best,
                              Register(rd),
                              Register(rn),
                              imm);
+                      } else {
+                        UnallocatedT32(instr);
                       }
                       break;
                     }
@@ -9118,16 +9127,24 @@ void Disassembler::DecodeT32(uint32_t instr) {
                               int32_t imm = (instr & 0xff) |
                                             ((instr >> 4) & 0x700) |
                                             ((instr >> 15) & 0x800);
-                              Label label(imm, kT32PcDelta);
+                              Location location(imm, kT32PcDelta);
                               if ((imm >= 0) && (imm <= 4095) &&
                                   ((rd < kNumberOfT32LowRegisters) &&
                                    (imm >= 0) && (imm <= 1020) &&
                                    ((imm & 3) == 0))) {
                                 // ADR{<c>}.W <Rd>, <label> ; T3
-                                adr(CurrentCond(), Wide, Register(rd), &label);
-                              } else {
+                                adr(CurrentCond(),
+                                    Wide,
+                                    Register(rd),
+                                    &location);
+                              } else if ((imm >= 0) && (imm <= 4095)) {
                                 // ADR{<c>}{<q>} <Rd>, <label> ; T3
-                                adr(CurrentCond(), Best, Register(rd), &label);
+                                adr(CurrentCond(),
+                                    Best,
+                                    Register(rd),
+                                    &location);
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -9229,9 +9246,9 @@ void Disassembler::DecodeT32(uint32_t instr) {
                               int32_t imm = (instr & 0xff) |
                                             ((instr >> 4) & 0x700) |
                                             ((instr >> 15) & 0x800);
-                              Label label(-imm, kT32PcDelta);
+                              Location location(-imm, kT32PcDelta);
                               // ADR{<c>}{<q>} <Rd>, <label> ; T2
-                              adr(CurrentCond(), Best, Register(rd), &label);
+                              adr(CurrentCond(), Best, Register(rd), &location);
                               break;
                             }
                           }
@@ -9834,18 +9851,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                                       ((instr >> 7) & 0x80000),
                                                   20)
                               << 1;
-                          Label label(imm, kT32PcDelta);
+                          Location location(imm, kT32PcDelta);
                           if (OutsideITBlock() && (imm >= -1048576) &&
                               (imm <= 1048574) && ((imm & 1) == 0) &&
                               ((imm >= -256) && (imm <= 254) &&
                                ((imm & 1) == 0))) {
                             // B<c>.W <label> ; T3
-                            b(condition, Wide, &label);
-                          } else {
-                            VIXL_ASSERT(OutsideITBlock() && (imm >= -1048576) &&
-                                        (imm <= 1048574) && ((imm & 1) == 0));
+                            b(condition, Wide, &location);
+                          } else if (OutsideITBlock() && (imm >= -1048576) &&
+                                     (imm <= 1048574) && ((imm & 1) == 0)) {
                             // B<c>{<q>} <label> ; T3
-                            b(condition, Best, &label);
+                            b(condition, Best, &location);
+                          } else {
+                            UnallocatedT32(instr);
                           }
                           break;
                         }
@@ -9861,19 +9879,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
                       uint32_t S = encoded_imm & (1 << 23);
                       encoded_imm ^= ((S >> 1) | (S >> 2)) ^ (3 << 21);
                       int32_t imm = SignExtend<int32_t>(encoded_imm << 1, 25);
-                      Label label(imm, kT32PcDelta);
+                      Location location(imm, kT32PcDelta);
                       if ((imm >= -16777216) && (imm <= 16777214) &&
                           ((imm & 1) == 0) &&
                           (OutsideITBlockOrLast() && (imm >= -2048) &&
                            (imm <= 2046) && ((imm & 1) == 0))) {
                         // B{<c>}.W <label> ; T4
-                        b(CurrentCond(), Wide, &label);
-                      } else {
-                        VIXL_ASSERT(OutsideITBlockOrLast() &&
-                                    (imm >= -16777216) && (imm <= 16777214) &&
-                                    ((imm & 1) == 0));
+                        b(CurrentCond(), Wide, &location);
+                      } else if (OutsideITBlockOrLast() && (imm >= -16777216) &&
+                                 (imm <= 16777214) && ((imm & 1) == 0)) {
                         // B{<c>}{<q>} <label> ; T4
-                        b(CurrentCond(), Best, &label);
+                        b(CurrentCond(), Best, &location);
+                      } else {
+                        UnallocatedT32(instr);
                       }
                       break;
                     }
@@ -9888,9 +9906,9 @@ void Disassembler::DecodeT32(uint32_t instr) {
                         uint32_t S = encoded_imm & (1 << 22);
                         encoded_imm ^= ((S >> 1) | (S >> 2)) ^ (3 << 20);
                         int32_t imm = SignExtend<int32_t>(encoded_imm << 2, 25);
-                        Label label(imm, kT32PcDelta);
+                        Location location(imm, kT32PcDelta);
                         // BLX{<c>}{<q>} <label> ; T2
-                        blx(CurrentCond(), &label);
+                        blx(CurrentCond(), &location);
                       } else {
                         UnallocatedT32(instr);
                       }
@@ -9905,9 +9923,9 @@ void Disassembler::DecodeT32(uint32_t instr) {
                       uint32_t S = encoded_imm & (1 << 23);
                       encoded_imm ^= ((S >> 1) | (S >> 2)) ^ (3 << 21);
                       int32_t imm = SignExtend<int32_t>(encoded_imm << 1, 25);
-                      Label label(imm, kT32PcDelta);
+                      Location location(imm, kT32PcDelta);
                       // BL{<c>}{<q>} <label> ; T1
-                      bl(CurrentCond(), &label);
+                      bl(CurrentCond(), &location);
                       break;
                     }
                   }
@@ -10588,12 +10606,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
                               imm <<= 2;
                               if (U == 0) imm = -imm;
                               bool minus_zero = (imm == 0) && (U == 0);
-                              Label label(imm, kT32PcDelta, minus_zero);
+                              Location location(imm, kT32PcDelta);
                               // LDRD{<c>}{<q>} <Rt>, <Rt2>, <label> ; T1
-                              ldrd(CurrentCond(),
-                                   Register(rt),
-                                   Register(rt2),
-                                   &label);
+                              if (minus_zero) {
+                                ldrd(CurrentCond(),
+                                     Register(rt),
+                                     Register(rt2),
+                                     MemOperand(pc, minus, 0));
+                              } else {
+                                ldrd(CurrentCond(),
+                                     Register(rt),
+                                     Register(rt2),
+                                     &location);
+                              }
                               if (((instr & 0xff7f0000) != 0xe95f0000)) {
                                 UnpredictableT32(instr);
                               }
@@ -10639,12 +10664,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
                               imm <<= 2;
                               if (U == 0) imm = -imm;
                               bool minus_zero = (imm == 0) && (U == 0);
-                              Label label(imm, kT32PcDelta, minus_zero);
+                              Location location(imm, kT32PcDelta);
                               // LDRD{<c>}{<q>} <Rt>, <Rt2>, <label> ; T1
-                              ldrd(CurrentCond(),
-                                   Register(rt),
-                                   Register(rt2),
-                                   &label);
+                              if (minus_zero) {
+                                ldrd(CurrentCond(),
+                                     Register(rt),
+                                     Register(rt2),
+                                     MemOperand(pc, minus, 0));
+                              } else {
+                                ldrd(CurrentCond(),
+                                     Register(rt),
+                                     Register(rt2),
+                                     &location);
+                              }
                               if (((instr & 0xff7f0000) != 0xe95f0000)) {
                                 UnpredictableT32(instr);
                               }
@@ -10690,12 +10722,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
                               imm <<= 2;
                               if (U == 0) imm = -imm;
                               bool minus_zero = (imm == 0) && (U == 0);
-                              Label label(imm, kT32PcDelta, minus_zero);
+                              Location location(imm, kT32PcDelta);
                               // LDRD{<c>}{<q>} <Rt>, <Rt2>, <label> ; T1
-                              ldrd(CurrentCond(),
-                                   Register(rt),
-                                   Register(rt2),
-                                   &label);
+                              if (minus_zero) {
+                                ldrd(CurrentCond(),
+                                     Register(rt),
+                                     Register(rt2),
+                                     MemOperand(pc, minus, 0));
+                              } else {
+                                ldrd(CurrentCond(),
+                                     Register(rt),
+                                     Register(rt2),
+                                     &location);
+                              }
                               if (((instr & 0xff7f0000) != 0xe95f0000)) {
                                 UnpredictableT32(instr);
                               }
@@ -15302,7 +15341,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                                             DRegister(last),
                                                             spacing,
                                                             lane),
-                                           MemOperand(Register(rn), PreIndex));
+                                           MemOperand(Register(rn), PostIndex));
                                       break;
                                     }
                                     case 0x00000002: {
@@ -16235,7 +16274,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                                                 spacing,
                                                                 transfer),
                                                MemOperand(Register(rn),
-                                                          PreIndex));
+                                                          PostIndex));
                                           break;
                                         }
                                         case 0x00000002: {
@@ -16382,7 +16421,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                                             DRegister(last),
                                                             spacing,
                                                             lane),
-                                           MemOperand(Register(rn), PreIndex));
+                                           MemOperand(Register(rn), PostIndex));
                                       break;
                                     }
                                     case 0x00000002: {
@@ -16822,9 +16861,13 @@ void Disassembler::DecodeT32(uint32_t instr) {
                               int32_t imm = instr & 0xfff;
                               if (U == 0) imm = -imm;
                               bool minus_zero = (imm == 0) && (U == 0);
-                              Label label(imm, kT32PcDelta, minus_zero);
+                              Location location(imm, kT32PcDelta);
                               // PLD{<c>}{<q>} <label> ; T1
-                              pld(CurrentCond(), &label);
+                              if (minus_zero) {
+                                pld(CurrentCond(), MemOperand(pc, minus, 0));
+                              } else {
+                                pld(CurrentCond(), &location);
+                              }
                               if (((instr & 0xff7ff000) != 0xf81ff000)) {
                                 UnpredictableT32(instr);
                               }
@@ -16843,9 +16886,18 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                   int32_t imm = instr & 0xfff;
                                   if (U == 0) imm = -imm;
                                   bool minus_zero = (imm == 0) && (U == 0);
-                                  Label label(imm, kT32PcDelta, minus_zero);
+                                  Location location(imm, kT32PcDelta);
                                   // LDRB{<c>}{<q>} <Rt>, <label> ; T1
-                                  ldrb(CurrentCond(), Register(rt), &label);
+                                  if (minus_zero) {
+                                    ldrb(CurrentCond(),
+                                         Best,
+                                         Register(rt),
+                                         MemOperand(pc, minus, 0));
+                                  } else {
+                                    ldrb(CurrentCond(),
+                                         Register(rt),
+                                         &location);
+                                  }
                                   break;
                                 }
                                 case 0x00200000: {
@@ -16859,9 +16911,18 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                   int32_t imm = instr & 0xfff;
                                   if (U == 0) imm = -imm;
                                   bool minus_zero = (imm == 0) && (U == 0);
-                                  Label label(imm, kT32PcDelta, minus_zero);
+                                  Location location(imm, kT32PcDelta);
                                   // LDRH{<c>}{<q>} <Rt>, <label> ; T1
-                                  ldrh(CurrentCond(), Register(rt), &label);
+                                  if (minus_zero) {
+                                    ldrh(CurrentCond(),
+                                         Best,
+                                         Register(rt),
+                                         MemOperand(pc, minus, 0));
+                                  } else {
+                                    ldrh(CurrentCond(),
+                                         Register(rt),
+                                         &location);
+                                  }
                                   break;
                                 }
                               }
@@ -17368,16 +17429,38 @@ void Disassembler::DecodeT32(uint32_t instr) {
                               int32_t imm = instr & 0xfff;
                               if (U == 0) imm = -imm;
                               bool minus_zero = (imm == 0) && (U == 0);
-                              Label label(imm, kT32PcDelta, minus_zero);
+                              Location location(imm, kT32PcDelta);
                               if ((imm >= -4095) && (imm <= 4095) &&
                                   ((rt < kNumberOfT32LowRegisters) &&
                                    (imm >= 0) && (imm <= 1020) &&
                                    ((imm & 3) == 0))) {
                                 // LDR{<c>}.W <Rt>, <label> ; T2
-                                ldr(CurrentCond(), Wide, Register(rt), &label);
-                              } else {
+                                if (minus_zero) {
+                                  ldr(CurrentCond(),
+                                      Wide,
+                                      Register(rt),
+                                      MemOperand(pc, minus, 0));
+                                } else {
+                                  ldr(CurrentCond(),
+                                      Wide,
+                                      Register(rt),
+                                      &location);
+                                }
+                              } else if ((imm >= -4095) && (imm <= 4095)) {
                                 // LDR{<c>}{<q>} <Rt>, <label> ; T2
-                                ldr(CurrentCond(), Best, Register(rt), &label);
+                                if (minus_zero) {
+                                  ldr(CurrentCond(),
+                                      Best,
+                                      Register(rt),
+                                      MemOperand(pc, minus, 0));
+                                } else {
+                                  ldr(CurrentCond(),
+                                      Best,
+                                      Register(rt),
+                                      &location);
+                                }
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -17598,9 +17681,14 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                   int32_t imm = instr & 0xfff;
                                   if (U == 0) imm = -imm;
                                   bool minus_zero = (imm == 0) && (U == 0);
-                                  Label label(imm, kT32PcDelta, minus_zero);
+                                  Location location(imm, kT32PcDelta);
                                   // PLI{<c>}{<q>} <label> ; T3
-                                  pli(CurrentCond(), &label);
+                                  if (minus_zero) {
+                                    pli(CurrentCond(),
+                                        MemOperand(pc, minus, 0));
+                                  } else {
+                                    pli(CurrentCond(), &location);
+                                  }
                                   break;
                                 }
                                 default: {
@@ -17613,9 +17701,18 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                   int32_t imm = instr & 0xfff;
                                   if (U == 0) imm = -imm;
                                   bool minus_zero = (imm == 0) && (U == 0);
-                                  Label label(imm, kT32PcDelta, minus_zero);
+                                  Location location(imm, kT32PcDelta);
                                   // LDRSB{<c>}{<q>} <Rt>, <label> ; T1
-                                  ldrsb(CurrentCond(), Register(rt), &label);
+                                  if (minus_zero) {
+                                    ldrsb(CurrentCond(),
+                                          Best,
+                                          Register(rt),
+                                          MemOperand(pc, minus, 0));
+                                  } else {
+                                    ldrsb(CurrentCond(),
+                                          Register(rt),
+                                          &location);
+                                  }
                                   break;
                                 }
                               }
@@ -17882,9 +17979,16 @@ void Disassembler::DecodeT32(uint32_t instr) {
                               int32_t imm = instr & 0xfff;
                               if (U == 0) imm = -imm;
                               bool minus_zero = (imm == 0) && (U == 0);
-                              Label label(imm, kT32PcDelta, minus_zero);
+                              Location location(imm, kT32PcDelta);
                               // LDRSH{<c>}{<q>} <Rt>, <label> ; T1
-                              ldrsh(CurrentCond(), Register(rt), &label);
+                              if (minus_zero) {
+                                ldrsh(CurrentCond(),
+                                      Best,
+                                      Register(rt),
+                                      MemOperand(pc, minus, 0));
+                              } else {
+                                ldrsh(CurrentCond(), Register(rt), &location);
+                              }
                               break;
                             }
                             default: {
@@ -18112,8 +18216,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xea000000)) {
                               UnpredictableT32(instr);
                             }
-                          } else {
-                            VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                          } else if ((instr & 0x00100000) == 0x00000000) {
                             // AND{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                             and_(CurrentCond(),
                                  Best,
@@ -18125,6 +18228,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xea000000)) {
                               UnpredictableT32(instr);
                             }
+                          } else {
+                            UnallocatedT32(instr);
                           }
                           break;
                         }
@@ -18177,8 +18282,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xea200000)) {
                               UnpredictableT32(instr);
                             }
-                          } else {
-                            VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                          } else if ((instr & 0x00100000) == 0x00000000) {
                             // BIC{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                             bic(CurrentCond(),
                                 Best,
@@ -18190,6 +18294,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xea200000)) {
                               UnpredictableT32(instr);
                             }
+                          } else {
+                            UnallocatedT32(instr);
                           }
                           break;
                         }
@@ -18368,8 +18474,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xffff8000) != 0xea4f0000)) {
                                   UnpredictableT32(instr);
                                 }
-                              } else {
-                                VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                              } else if ((instr & 0x00100000) == 0x00000000) {
                                 // MOV{<c>}{<q>} <Rd>, <Rm> {, <shift> #<amount> } ; T3 NOLINT(whitespace/line_length)
                                 mov(CurrentCond(),
                                     Best,
@@ -18380,6 +18485,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xffff8000) != 0xea4f0000)) {
                                   UnpredictableT32(instr);
                                 }
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -18437,8 +18544,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xfff08000) != 0xea400000)) {
                                   UnpredictableT32(instr);
                                 }
-                              } else {
-                                VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                              } else if ((instr & 0x00100000) == 0x00000000) {
                                 // ORR{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                                 orr(CurrentCond(),
                                     Best,
@@ -18450,6 +18556,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xfff08000) != 0xea400000)) {
                                   UnpredictableT32(instr);
                                 }
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -18504,8 +18612,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xffff8000) != 0xea6f0000)) {
                                   UnpredictableT32(instr);
                                 }
-                              } else {
-                                VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                              } else if ((instr & 0x00100000) == 0x00000000) {
                                 // MVN{<c>}{<q>} <Rd>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                                 mvn(CurrentCond(),
                                     Best,
@@ -18516,6 +18623,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xffff8000) != 0xea6f0000)) {
                                   UnpredictableT32(instr);
                                 }
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -18691,8 +18800,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xfff08000) != 0xea100000)) {
                                   UnpredictableT32(instr);
                                 }
-                              } else {
-                                VIXL_ASSERT((instr & 0x00100000) == 0x00100000);
+                              } else if ((instr & 0x00100000) == 0x00100000) {
                                 // ANDS{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                                 ands(CurrentCond(),
                                      Best,
@@ -18704,6 +18812,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xfff08000) != 0xea100000)) {
                                   UnpredictableT32(instr);
                                 }
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -18759,8 +18869,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xea300000)) {
                               UnpredictableT32(instr);
                             }
-                          } else {
-                            VIXL_ASSERT((instr & 0x00100000) == 0x00100000);
+                          } else if ((instr & 0x00100000) == 0x00100000) {
                             // BICS{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                             bics(CurrentCond(),
                                  Best,
@@ -18772,6 +18881,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xea300000)) {
                               UnpredictableT32(instr);
                             }
+                          } else {
+                            UnallocatedT32(instr);
                           }
                           break;
                         }
@@ -18937,8 +19048,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xffff8000) != 0xea5f0000)) {
                                   UnpredictableT32(instr);
                                 }
-                              } else {
-                                VIXL_ASSERT((instr & 0x00100000) == 0x00100000);
+                              } else if ((instr & 0x00100000) == 0x00100000) {
                                 // MOVS{<c>}{<q>} <Rd>, <Rm> {, <shift> #<amount> } ; T3 NOLINT(whitespace/line_length)
                                 movs(CurrentCond(),
                                      Best,
@@ -18949,6 +19059,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xffff8000) != 0xea5f0000)) {
                                   UnpredictableT32(instr);
                                 }
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -19006,8 +19118,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xfff08000) != 0xea500000)) {
                                   UnpredictableT32(instr);
                                 }
-                              } else {
-                                VIXL_ASSERT((instr & 0x00100000) == 0x00100000);
+                              } else if ((instr & 0x00100000) == 0x00100000) {
                                 // ORRS{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                                 orrs(CurrentCond(),
                                      Best,
@@ -19019,6 +19130,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xfff08000) != 0xea500000)) {
                                   UnpredictableT32(instr);
                                 }
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -19073,8 +19186,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xffff8000) != 0xea7f0000)) {
                                   UnpredictableT32(instr);
                                 }
-                              } else {
-                                VIXL_ASSERT((instr & 0x00100000) == 0x00100000);
+                              } else if ((instr & 0x00100000) == 0x00100000) {
                                 // MVNS{<c>}{<q>} <Rd>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                                 mvns(CurrentCond(),
                                      Best,
@@ -19085,6 +19197,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xffff8000) != 0xea7f0000)) {
                                   UnpredictableT32(instr);
                                 }
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -19195,8 +19309,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xea800000)) {
                               UnpredictableT32(instr);
                             }
-                          } else {
-                            VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                          } else if ((instr & 0x00100000) == 0x00000000) {
                             // EOR{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                             eor(CurrentCond(),
                                 Best,
@@ -19208,6 +19321,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xea800000)) {
                               UnpredictableT32(instr);
                             }
+                          } else {
+                            UnallocatedT32(instr);
                           }
                           break;
                         }
@@ -19362,8 +19477,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xfff08000) != 0xea900000)) {
                                   UnpredictableT32(instr);
                                 }
-                              } else {
-                                VIXL_ASSERT((instr & 0x00100000) == 0x00100000);
+                              } else if ((instr & 0x00100000) == 0x00100000) {
                                 // EORS{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                                 eors(CurrentCond(),
                                      Best,
@@ -19375,6 +19489,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xfff08000) != 0xea900000)) {
                                   UnpredictableT32(instr);
                                 }
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -19438,8 +19554,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xffff8000) != 0xeb0d0000)) {
                                   UnpredictableT32(instr);
                                 }
-                              } else {
-                                VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                              } else if ((instr & 0x00100000) == 0x00000000) {
                                 // ADD{<c>}{<q>} {<Rd>}, SP, <Rm> {, <shift> #<amount> } ; T3 NOLINT(whitespace/line_length)
                                 add(CurrentCond(),
                                     Best,
@@ -19451,6 +19566,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xffff8000) != 0xeb0d0000)) {
                                   UnpredictableT32(instr);
                                 }
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -19521,8 +19638,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xfff08000) != 0xeb000000)) {
                                   UnpredictableT32(instr);
                                 }
-                              } else {
-                                VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                              } else if ((instr & 0x00100000) == 0x00000000) {
                                 // ADD{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T3 NOLINT(whitespace/line_length)
                                 add(CurrentCond(),
                                     Best,
@@ -19534,6 +19650,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xfff08000) != 0xeb000000)) {
                                   UnpredictableT32(instr);
                                 }
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -19589,8 +19707,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xeb400000)) {
                               UnpredictableT32(instr);
                             }
-                          } else {
-                            VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                          } else if ((instr & 0x00100000) == 0x00000000) {
                             // ADC{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                             adc(CurrentCond(),
                                 Best,
@@ -19602,6 +19719,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xeb400000)) {
                               UnpredictableT32(instr);
                             }
+                          } else {
+                            UnallocatedT32(instr);
                           }
                           break;
                         }
@@ -19654,8 +19773,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xeb600000)) {
                               UnpredictableT32(instr);
                             }
-                          } else {
-                            VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                          } else if ((instr & 0x00100000) == 0x00000000) {
                             // SBC{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                             sbc(CurrentCond(),
                                 Best,
@@ -19667,6 +19785,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xeb600000)) {
                               UnpredictableT32(instr);
                             }
+                          } else {
+                            UnallocatedT32(instr);
                           }
                           break;
                         }
@@ -19847,9 +19967,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                     if (((instr & 0xfff08000) != 0xeb100000)) {
                                       UnpredictableT32(instr);
                                     }
-                                  } else {
-                                    VIXL_ASSERT((instr & 0x00100000) ==
-                                                0x00100000);
+                                  } else if ((instr & 0x00100000) ==
+                                             0x00100000) {
                                     // ADDS{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T3 NOLINT(whitespace/line_length)
                                     adds(CurrentCond(),
                                          Best,
@@ -19861,6 +19980,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                     if (((instr & 0xfff08000) != 0xeb100000)) {
                                       UnpredictableT32(instr);
                                     }
+                                  } else {
+                                    UnallocatedT32(instr);
                                   }
                                   break;
                                 }
@@ -19919,8 +20040,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xeb500000)) {
                               UnpredictableT32(instr);
                             }
-                          } else {
-                            VIXL_ASSERT((instr & 0x00100000) == 0x00100000);
+                          } else if ((instr & 0x00100000) == 0x00100000) {
                             // ADCS{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                             adcs(CurrentCond(),
                                  Best,
@@ -19932,6 +20052,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xeb500000)) {
                               UnpredictableT32(instr);
                             }
+                          } else {
+                            UnallocatedT32(instr);
                           }
                           break;
                         }
@@ -19984,8 +20106,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xeb700000)) {
                               UnpredictableT32(instr);
                             }
-                          } else {
-                            VIXL_ASSERT((instr & 0x00100000) == 0x00100000);
+                          } else if ((instr & 0x00100000) == 0x00100000) {
                             // SBCS{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                             sbcs(CurrentCond(),
                                  Best,
@@ -19997,6 +20118,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                             if (((instr & 0xfff08000) != 0xeb700000)) {
                               UnpredictableT32(instr);
                             }
+                          } else {
+                            UnallocatedT32(instr);
                           }
                           break;
                         }
@@ -20056,8 +20179,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xffff8000) != 0xebad0000)) {
                                   UnpredictableT32(instr);
                                 }
-                              } else {
-                                VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                              } else if ((instr & 0x00100000) == 0x00000000) {
                                 // SUB{<c>}{<q>} {<Rd>}, SP, <Rm> {, <shift> #<amount> } ; T1 NOLINT(whitespace/line_length)
                                 sub(CurrentCond(),
                                     Best,
@@ -20069,6 +20191,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xffff8000) != 0xebad0000)) {
                                   UnpredictableT32(instr);
                                 }
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -20126,8 +20250,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xfff08000) != 0xeba00000)) {
                                   UnpredictableT32(instr);
                                 }
-                              } else {
-                                VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                              } else if ((instr & 0x00100000) == 0x00000000) {
                                 // SUB{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                                 sub(CurrentCond(),
                                     Best,
@@ -20139,6 +20262,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                 if (((instr & 0xfff08000) != 0xeba00000)) {
                                   UnpredictableT32(instr);
                                 }
+                              } else {
+                                UnallocatedT32(instr);
                               }
                               break;
                             }
@@ -20367,9 +20492,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                     if (((instr & 0xfff08000) != 0xebb00000)) {
                                       UnpredictableT32(instr);
                                     }
-                                  } else {
-                                    VIXL_ASSERT((instr & 0x00100000) ==
-                                                0x00100000);
+                                  } else if ((instr & 0x00100000) ==
+                                             0x00100000) {
                                     // SUBS{<c>}{<q>} {<Rd>}, <Rn>, <Rm> {, <shift> #<amount> } ; T2 NOLINT(whitespace/line_length)
                                     subs(CurrentCond(),
                                          Best,
@@ -20381,6 +20505,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                     if (((instr & 0xfff08000) != 0xebb00000)) {
                                       UnpredictableT32(instr);
                                     }
+                                  } else {
+                                    UnallocatedT32(instr);
                                   }
                                   break;
                                 }
@@ -20563,8 +20689,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                               Operand(Register(rm),
                                       shift.GetType(),
                                       Register(rs)));
-                        } else {
-                          VIXL_ASSERT((instr & 0x00100000) == 0x00000000);
+                        } else if ((instr & 0x00100000) == 0x00000000) {
                           // MOV{<c>}{<q>} <Rd>, <Rm>, <shift> <Rs> ; T2
                           mov(CurrentCond(),
                               Best,
@@ -20572,6 +20697,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                               Operand(Register(rm),
                                       shift.GetType(),
                                       Register(rs)));
+                        } else {
+                          UnallocatedT32(instr);
                         }
                       } else {
                         UnallocatedT32(instr);
@@ -20856,8 +20983,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                Operand(Register(rm),
                                        shift.GetType(),
                                        Register(rs)));
-                        } else {
-                          VIXL_ASSERT((instr & 0x00100000) == 0x00100000);
+                        } else if ((instr & 0x00100000) == 0x00100000) {
                           // MOVS{<c>}{<q>} <Rd>, <Rm>, <shift> <Rs> ; T2
                           movs(CurrentCond(),
                                Best,
@@ -20865,6 +20991,8 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                Operand(Register(rm),
                                        shift.GetType(),
                                        Register(rs)));
+                        } else {
+                          UnallocatedT32(instr);
                         }
                       } else {
                         UnallocatedT32(instr);
@@ -22854,7 +22982,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                               int32_t offset = (instr & 0xff) << 2;
                               // VSTR{<c>}{<q>}{.32} <Sd>, [<Rn>{, #{+/-}<imm>}] ; T2 NOLINT(whitespace/line_length)
                               vstr(CurrentCond(),
-                                   kDataTypeValueNone,
+                                   Untyped32,
                                    SRegister(rd),
                                    MemOperand(Register(rn),
                                               sign,
@@ -22871,7 +22999,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                               int32_t offset = (instr & 0xff) << 2;
                               // VSTR{<c>}{<q>}{.64} <Dd>, [<Rn>{, #{+/-}<imm>}] ; T1 NOLINT(whitespace/line_length)
                               vstr(CurrentCond(),
-                                   kDataTypeValueNone,
+                                   Untyped64,
                                    DRegister(rd),
                                    MemOperand(Register(rn),
                                               sign,
@@ -23032,12 +23160,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                   imm <<= 2;
                                   if (U == 0) imm = -imm;
                                   bool minus_zero = (imm == 0) && (U == 0);
-                                  Label label(imm, kT32PcDelta, minus_zero);
+                                  Location location(imm, kT32PcDelta);
                                   // VLDR{<c>}{<q>}{.32} <Sd>, <label> ; T2
-                                  vldr(CurrentCond(),
-                                       kDataTypeValueNone,
-                                       SRegister(rd),
-                                       &label);
+                                  if (minus_zero) {
+                                    vldr(CurrentCond(),
+                                         Untyped32,
+                                         SRegister(rd),
+                                         MemOperand(pc, minus, 0));
+                                  } else {
+                                    vldr(CurrentCond(),
+                                         Untyped32,
+                                         SRegister(rd),
+                                         &location);
+                                  }
                                   break;
                                 }
                                 case 0x00000100: {
@@ -23048,12 +23183,19 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                   imm <<= 2;
                                   if (U == 0) imm = -imm;
                                   bool minus_zero = (imm == 0) && (U == 0);
-                                  Label label(imm, kT32PcDelta, minus_zero);
+                                  Location location(imm, kT32PcDelta);
                                   // VLDR{<c>}{<q>}{.64} <Dd>, <label> ; T1
-                                  vldr(CurrentCond(),
-                                       kDataTypeValueNone,
-                                       DRegister(rd),
-                                       &label);
+                                  if (minus_zero) {
+                                    vldr(CurrentCond(),
+                                         Untyped64,
+                                         DRegister(rd),
+                                         MemOperand(pc, minus, 0));
+                                  } else {
+                                    vldr(CurrentCond(),
+                                         Untyped64,
+                                         DRegister(rd),
+                                         &location);
+                                  }
                                   break;
                                 }
                               }
@@ -23089,7 +23231,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                   int32_t offset = (instr & 0xff) << 2;
                                   // VLDR{<c>}{<q>}{.32} <Sd>, [<Rn>{, #{+/-}<imm>}] ; T2 NOLINT(whitespace/line_length)
                                   vldr(CurrentCond(),
-                                       kDataTypeValueNone,
+                                       Untyped32,
                                        SRegister(rd),
                                        MemOperand(Register(rn),
                                                   sign,
@@ -23111,7 +23253,7 @@ void Disassembler::DecodeT32(uint32_t instr) {
                                   int32_t offset = (instr & 0xff) << 2;
                                   // VLDR{<c>}{<q>}{.64} <Dd>, [<Rn>{, #{+/-}<imm>}] ; T1 NOLINT(whitespace/line_length)
                                   vldr(CurrentCond(),
-                                       kDataTypeValueNone,
+                                       Untyped64,
                                        DRegister(rd),
                                        MemOperand(Register(rn),
                                                   sign,
@@ -51966,7 +52108,7 @@ void Disassembler::DecodeA32(uint32_t instr) {
                                                       DRegister(last),
                                                       spacing,
                                                       lane),
-                                     MemOperand(Register(rn), PreIndex));
+                                     MemOperand(Register(rn), PostIndex));
                                 break;
                               }
                               case 0x00000002: {
@@ -52228,9 +52370,13 @@ void Disassembler::DecodeA32(uint32_t instr) {
                     int32_t imm = instr & 0xfff;
                     if (U == 0) imm = -imm;
                     bool minus_zero = (imm == 0) && (U == 0);
-                    Label label(imm, kA32PcDelta, minus_zero);
+                    Location location(imm, kA32PcDelta);
                     // PLI{<c>}{<q>} <label> ; A1
-                    pli(al, &label);
+                    if (minus_zero) {
+                      pli(al, MemOperand(pc, minus, 0));
+                    } else {
+                      pli(al, &location);
+                    }
                     if (((instr & 0xff7ff000) != 0xf45ff000)) {
                       UnpredictableA32(instr);
                     }
@@ -54649,7 +54795,7 @@ void Disassembler::DecodeA32(uint32_t instr) {
                                                           DRegister(last),
                                                           spacing,
                                                           transfer),
-                                         MemOperand(Register(rn), PreIndex));
+                                         MemOperand(Register(rn), PostIndex));
                                     break;
                                   }
                                   case 0x00000002: {
@@ -54790,7 +54936,7 @@ void Disassembler::DecodeA32(uint32_t instr) {
                                                       DRegister(last),
                                                       spacing,
                                                       lane),
-                                     MemOperand(Register(rn), PreIndex));
+                                     MemOperand(Register(rn), PostIndex));
                                 break;
                               }
                               case 0x00000002: {
@@ -55201,9 +55347,13 @@ void Disassembler::DecodeA32(uint32_t instr) {
                 int32_t imm = instr & 0xfff;
                 if (U == 0) imm = -imm;
                 bool minus_zero = (imm == 0) && (U == 0);
-                Label label(imm, kA32PcDelta, minus_zero);
+                Location location(imm, kA32PcDelta);
                 // PLD{<c>}{<q>} <label> ; A1
-                pld(al, &label);
+                if (minus_zero) {
+                  pld(al, MemOperand(pc, minus, 0));
+                } else {
+                  pld(al, &location);
+                }
                 if (((instr & 0xff7ff000) != 0xf55ff000)) {
                   UnpredictableA32(instr);
                 }
@@ -55526,9 +55676,9 @@ void Disassembler::DecodeA32(uint32_t instr) {
                                               ((instr << 1) & 0x1fffffe),
                                           25)
                       << 1;
-        Label label(imm, kA32PcDelta);
+        Location location(imm, kA32PcDelta);
         // BLX{<c>}{<q>} <label> ; A2
-        blx(al, &label);
+        blx(al, &location);
         break;
       }
       case 0x0c000000: {
@@ -58748,9 +58898,19 @@ void Disassembler::DecodeA32(uint32_t instr) {
                         int32_t imm = (instr & 0xf) | ((instr >> 4) & 0xf0);
                         if (U == 0) imm = -imm;
                         bool minus_zero = (imm == 0) && (U == 0);
-                        Label label(imm, kA32PcDelta, minus_zero);
+                        Location location(imm, kA32PcDelta);
                         // LDRD{<c>}{<q>} <Rt>, <Rt2>, <label> ; A1
-                        ldrd(condition, Register(rt), Register(rt + 1), &label);
+                        if (minus_zero) {
+                          ldrd(condition,
+                               Register(rt),
+                               Register(rt + 1),
+                               MemOperand(pc, minus, 0));
+                        } else {
+                          ldrd(condition,
+                               Register(rt),
+                               Register(rt + 1),
+                               &location);
+                        }
                         if (((instr & 0xf7f00f0) != 0x14f00d0)) {
                           UnpredictableA32(instr);
                         }
@@ -60885,9 +61045,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                             int32_t imm = (instr & 0xf) | ((instr >> 4) & 0xf0);
                             if (U == 0) imm = -imm;
                             bool minus_zero = (imm == 0) && (U == 0);
-                            Label label(imm, kA32PcDelta, minus_zero);
+                            Location location(imm, kA32PcDelta);
                             // LDRH{<c>}{<q>} <Rt>, <label> ; A1
-                            ldrh(condition, Register(rt), &label);
+                            if (minus_zero) {
+                              ldrh(condition,
+                                   Best,
+                                   Register(rt),
+                                   MemOperand(pc, minus, 0));
+                            } else {
+                              ldrh(condition, Register(rt), &location);
+                            }
                             if (((instr & 0xf7f00f0) != 0x15f00b0)) {
                               UnpredictableA32(instr);
                             }
@@ -60944,9 +61111,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                             int32_t imm = (instr & 0xf) | ((instr >> 4) & 0xf0);
                             if (U == 0) imm = -imm;
                             bool minus_zero = (imm == 0) && (U == 0);
-                            Label label(imm, kA32PcDelta, minus_zero);
+                            Location location(imm, kA32PcDelta);
                             // LDRH{<c>}{<q>} <Rt>, <label> ; A1
-                            ldrh(condition, Register(rt), &label);
+                            if (minus_zero) {
+                              ldrh(condition,
+                                   Best,
+                                   Register(rt),
+                                   MemOperand(pc, minus, 0));
+                            } else {
+                              ldrh(condition, Register(rt), &location);
+                            }
                             if (((instr & 0xf7f00f0) != 0x15f00b0)) {
                               UnpredictableA32(instr);
                             }
@@ -60994,9 +61168,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                             int32_t imm = (instr & 0xf) | ((instr >> 4) & 0xf0);
                             if (U == 0) imm = -imm;
                             bool minus_zero = (imm == 0) && (U == 0);
-                            Label label(imm, kA32PcDelta, minus_zero);
+                            Location location(imm, kA32PcDelta);
                             // LDRH{<c>}{<q>} <Rt>, <label> ; A1
-                            ldrh(condition, Register(rt), &label);
+                            if (minus_zero) {
+                              ldrh(condition,
+                                   Best,
+                                   Register(rt),
+                                   MemOperand(pc, minus, 0));
+                            } else {
+                              ldrh(condition, Register(rt), &location);
+                            }
                             if (((instr & 0xf7f00f0) != 0x15f00b0)) {
                               UnpredictableA32(instr);
                             }
@@ -61050,9 +61231,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                             int32_t imm = (instr & 0xf) | ((instr >> 4) & 0xf0);
                             if (U == 0) imm = -imm;
                             bool minus_zero = (imm == 0) && (U == 0);
-                            Label label(imm, kA32PcDelta, minus_zero);
+                            Location location(imm, kA32PcDelta);
                             // LDRSB{<c>}{<q>} <Rt>, <label> ; A1
-                            ldrsb(condition, Register(rt), &label);
+                            if (minus_zero) {
+                              ldrsb(condition,
+                                    Best,
+                                    Register(rt),
+                                    MemOperand(pc, minus, 0));
+                            } else {
+                              ldrsb(condition, Register(rt), &location);
+                            }
                             if (((instr & 0xf7f00f0) != 0x15f00d0)) {
                               UnpredictableA32(instr);
                             }
@@ -61109,9 +61297,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                             int32_t imm = (instr & 0xf) | ((instr >> 4) & 0xf0);
                             if (U == 0) imm = -imm;
                             bool minus_zero = (imm == 0) && (U == 0);
-                            Label label(imm, kA32PcDelta, minus_zero);
+                            Location location(imm, kA32PcDelta);
                             // LDRSB{<c>}{<q>} <Rt>, <label> ; A1
-                            ldrsb(condition, Register(rt), &label);
+                            if (minus_zero) {
+                              ldrsb(condition,
+                                    Best,
+                                    Register(rt),
+                                    MemOperand(pc, minus, 0));
+                            } else {
+                              ldrsb(condition, Register(rt), &location);
+                            }
                             if (((instr & 0xf7f00f0) != 0x15f00d0)) {
                               UnpredictableA32(instr);
                             }
@@ -61159,9 +61354,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                             int32_t imm = (instr & 0xf) | ((instr >> 4) & 0xf0);
                             if (U == 0) imm = -imm;
                             bool minus_zero = (imm == 0) && (U == 0);
-                            Label label(imm, kA32PcDelta, minus_zero);
+                            Location location(imm, kA32PcDelta);
                             // LDRSB{<c>}{<q>} <Rt>, <label> ; A1
-                            ldrsb(condition, Register(rt), &label);
+                            if (minus_zero) {
+                              ldrsb(condition,
+                                    Best,
+                                    Register(rt),
+                                    MemOperand(pc, minus, 0));
+                            } else {
+                              ldrsb(condition, Register(rt), &location);
+                            }
                             if (((instr & 0xf7f00f0) != 0x15f00d0)) {
                               UnpredictableA32(instr);
                             }
@@ -61215,9 +61417,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                             int32_t imm = (instr & 0xf) | ((instr >> 4) & 0xf0);
                             if (U == 0) imm = -imm;
                             bool minus_zero = (imm == 0) && (U == 0);
-                            Label label(imm, kA32PcDelta, minus_zero);
+                            Location location(imm, kA32PcDelta);
                             // LDRSH{<c>}{<q>} <Rt>, <label> ; A1
-                            ldrsh(condition, Register(rt), &label);
+                            if (minus_zero) {
+                              ldrsh(condition,
+                                    Best,
+                                    Register(rt),
+                                    MemOperand(pc, minus, 0));
+                            } else {
+                              ldrsh(condition, Register(rt), &location);
+                            }
                             if (((instr & 0xf7f00f0) != 0x15f00f0)) {
                               UnpredictableA32(instr);
                             }
@@ -61274,9 +61483,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                             int32_t imm = (instr & 0xf) | ((instr >> 4) & 0xf0);
                             if (U == 0) imm = -imm;
                             bool minus_zero = (imm == 0) && (U == 0);
-                            Label label(imm, kA32PcDelta, minus_zero);
+                            Location location(imm, kA32PcDelta);
                             // LDRSH{<c>}{<q>} <Rt>, <label> ; A1
-                            ldrsh(condition, Register(rt), &label);
+                            if (minus_zero) {
+                              ldrsh(condition,
+                                    Best,
+                                    Register(rt),
+                                    MemOperand(pc, minus, 0));
+                            } else {
+                              ldrsh(condition, Register(rt), &location);
+                            }
                             if (((instr & 0xf7f00f0) != 0x15f00f0)) {
                               UnpredictableA32(instr);
                             }
@@ -61324,9 +61540,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                             int32_t imm = (instr & 0xf) | ((instr >> 4) & 0xf0);
                             if (U == 0) imm = -imm;
                             bool minus_zero = (imm == 0) && (U == 0);
-                            Label label(imm, kA32PcDelta, minus_zero);
+                            Location location(imm, kA32PcDelta);
                             // LDRSH{<c>}{<q>} <Rt>, <label> ; A1
-                            ldrsh(condition, Register(rt), &label);
+                            if (minus_zero) {
+                              ldrsh(condition,
+                                    Best,
+                                    Register(rt),
+                                    MemOperand(pc, minus, 0));
+                            } else {
+                              ldrsh(condition, Register(rt), &location);
+                            }
                             if (((instr & 0xf7f00f0) != 0x15f00f0)) {
                               UnpredictableA32(instr);
                             }
@@ -61427,9 +61650,9 @@ void Disassembler::DecodeA32(uint32_t instr) {
                         Condition condition((instr >> 28) & 0xf);
                         unsigned rd = (instr >> 12) & 0xf;
                         uint32_t imm = ImmediateA32::Decode(instr & 0xfff);
-                        Label label(-imm, kA32PcDelta);
+                        Location location(-imm, kA32PcDelta);
                         // ADR{<c>}{<q>} <Rd>, <label> ; A2
-                        adr(condition, Best, Register(rd), &label);
+                        adr(condition, Best, Register(rd), &location);
                         break;
                       }
                     }
@@ -61607,9 +61830,9 @@ void Disassembler::DecodeA32(uint32_t instr) {
                         Condition condition((instr >> 28) & 0xf);
                         unsigned rd = (instr >> 12) & 0xf;
                         uint32_t imm = ImmediateA32::Decode(instr & 0xfff);
-                        Label label(imm, kA32PcDelta);
+                        Location location(imm, kA32PcDelta);
                         // ADR{<c>}{<q>} <Rd>, <label> ; A1
-                        adr(condition, Best, Register(rd), &label);
+                        adr(condition, Best, Register(rd), &location);
                         break;
                       }
                     }
@@ -62245,9 +62468,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                     int32_t imm = instr & 0xfff;
                     if (U == 0) imm = -imm;
                     bool minus_zero = (imm == 0) && (U == 0);
-                    Label label(imm, kA32PcDelta, minus_zero);
+                    Location location(imm, kA32PcDelta);
                     // LDR{<c>}{<q>} <Rt>, <label> ; A1
-                    ldr(condition, Best, Register(rt), &label);
+                    if (minus_zero) {
+                      ldr(condition,
+                          Best,
+                          Register(rt),
+                          MemOperand(pc, minus, 0));
+                    } else {
+                      ldr(condition, Best, Register(rt), &location);
+                    }
                     if (((instr & 0xf7f0000) != 0x51f0000)) {
                       UnpredictableA32(instr);
                     }
@@ -62311,9 +62541,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                     int32_t imm = instr & 0xfff;
                     if (U == 0) imm = -imm;
                     bool minus_zero = (imm == 0) && (U == 0);
-                    Label label(imm, kA32PcDelta, minus_zero);
+                    Location location(imm, kA32PcDelta);
                     // LDR{<c>}{<q>} <Rt>, <label> ; A1
-                    ldr(condition, Best, Register(rt), &label);
+                    if (minus_zero) {
+                      ldr(condition,
+                          Best,
+                          Register(rt),
+                          MemOperand(pc, minus, 0));
+                    } else {
+                      ldr(condition, Best, Register(rt), &location);
+                    }
                     if (((instr & 0xf7f0000) != 0x51f0000)) {
                       UnpredictableA32(instr);
                     }
@@ -62356,9 +62593,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                     int32_t imm = instr & 0xfff;
                     if (U == 0) imm = -imm;
                     bool minus_zero = (imm == 0) && (U == 0);
-                    Label label(imm, kA32PcDelta, minus_zero);
+                    Location location(imm, kA32PcDelta);
                     // LDR{<c>}{<q>} <Rt>, <label> ; A1
-                    ldr(condition, Best, Register(rt), &label);
+                    if (minus_zero) {
+                      ldr(condition,
+                          Best,
+                          Register(rt),
+                          MemOperand(pc, minus, 0));
+                    } else {
+                      ldr(condition, Best, Register(rt), &location);
+                    }
                     if (((instr & 0xf7f0000) != 0x51f0000)) {
                       UnpredictableA32(instr);
                     }
@@ -62476,9 +62720,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                     int32_t imm = instr & 0xfff;
                     if (U == 0) imm = -imm;
                     bool minus_zero = (imm == 0) && (U == 0);
-                    Label label(imm, kA32PcDelta, minus_zero);
+                    Location location(imm, kA32PcDelta);
                     // LDRB{<c>}{<q>} <Rt>, <label> ; A1
-                    ldrb(condition, Register(rt), &label);
+                    if (minus_zero) {
+                      ldrb(condition,
+                           Best,
+                           Register(rt),
+                           MemOperand(pc, minus, 0));
+                    } else {
+                      ldrb(condition, Register(rt), &location);
+                    }
                     if (((instr & 0xf7f0000) != 0x55f0000)) {
                       UnpredictableA32(instr);
                     }
@@ -62530,9 +62781,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                     int32_t imm = instr & 0xfff;
                     if (U == 0) imm = -imm;
                     bool minus_zero = (imm == 0) && (U == 0);
-                    Label label(imm, kA32PcDelta, minus_zero);
+                    Location location(imm, kA32PcDelta);
                     // LDRB{<c>}{<q>} <Rt>, <label> ; A1
-                    ldrb(condition, Register(rt), &label);
+                    if (minus_zero) {
+                      ldrb(condition,
+                           Best,
+                           Register(rt),
+                           MemOperand(pc, minus, 0));
+                    } else {
+                      ldrb(condition, Register(rt), &location);
+                    }
                     if (((instr & 0xf7f0000) != 0x55f0000)) {
                       UnpredictableA32(instr);
                     }
@@ -62575,9 +62833,16 @@ void Disassembler::DecodeA32(uint32_t instr) {
                     int32_t imm = instr & 0xfff;
                     if (U == 0) imm = -imm;
                     bool minus_zero = (imm == 0) && (U == 0);
-                    Label label(imm, kA32PcDelta, minus_zero);
+                    Location location(imm, kA32PcDelta);
                     // LDRB{<c>}{<q>} <Rt>, <label> ; A1
-                    ldrb(condition, Register(rt), &label);
+                    if (minus_zero) {
+                      ldrb(condition,
+                           Best,
+                           Register(rt),
+                           MemOperand(pc, minus, 0));
+                    } else {
+                      ldrb(condition, Register(rt), &location);
+                    }
                     if (((instr & 0xf7f0000) != 0x55f0000)) {
                       UnpredictableA32(instr);
                     }
@@ -65128,9 +65393,9 @@ void Disassembler::DecodeA32(uint32_t instr) {
             }
             Condition condition((instr >> 28) & 0xf);
             int32_t imm = SignExtend<int32_t>(instr & 0xffffff, 24) << 2;
-            Label label(imm, kA32PcDelta);
+            Location location(imm, kA32PcDelta);
             // B{<c>}{<q>} <label> ; A1
-            b(condition, Best, &label);
+            b(condition, Best, &location);
             break;
           }
           case 0x01000000: {
@@ -65141,9 +65406,9 @@ void Disassembler::DecodeA32(uint32_t instr) {
             }
             Condition condition((instr >> 28) & 0xf);
             int32_t imm = SignExtend<int32_t>(instr & 0xffffff, 24) << 2;
-            Label label(imm, kA32PcDelta);
+            Location location(imm, kA32PcDelta);
             // BL{<c>}{<q>} <label> ; A1
-            bl(condition, &label);
+            bl(condition, &location);
             break;
           }
         }
@@ -65580,7 +65845,7 @@ void Disassembler::DecodeA32(uint32_t instr) {
                         int32_t offset = (instr & 0xff) << 2;
                         // VSTR{<c>}{<q>}{.32} <Sd>, [<Rn>{, #{+/-}<imm>}] ; A2
                         vstr(condition,
-                             kDataTypeValueNone,
+                             Untyped32,
                              SRegister(rd),
                              MemOperand(Register(rn), sign, offset, Offset));
                         break;
@@ -65598,7 +65863,7 @@ void Disassembler::DecodeA32(uint32_t instr) {
                         int32_t offset = (instr & 0xff) << 2;
                         // VSTR{<c>}{<q>}{.64} <Dd>, [<Rn>{, #{+/-}<imm>}] ; A1
                         vstr(condition,
-                             kDataTypeValueNone,
+                             Untyped64,
                              DRegister(rd),
                              MemOperand(Register(rn), sign, offset, Offset));
                         break;
@@ -65778,12 +66043,19 @@ void Disassembler::DecodeA32(uint32_t instr) {
                             imm <<= 2;
                             if (U == 0) imm = -imm;
                             bool minus_zero = (imm == 0) && (U == 0);
-                            Label label(imm, kA32PcDelta, minus_zero);
+                            Location location(imm, kA32PcDelta);
                             // VLDR{<c>}{<q>}{.32} <Sd>, <label> ; A2
-                            vldr(condition,
-                                 kDataTypeValueNone,
-                                 SRegister(rd),
-                                 &label);
+                            if (minus_zero) {
+                              vldr(condition,
+                                   Untyped32,
+                                   SRegister(rd),
+                                   MemOperand(pc, minus, 0));
+                            } else {
+                              vldr(condition,
+                                   Untyped32,
+                                   SRegister(rd),
+                                   &location);
+                            }
                             break;
                           }
                           case 0x00000100: {
@@ -65799,12 +66071,19 @@ void Disassembler::DecodeA32(uint32_t instr) {
                             imm <<= 2;
                             if (U == 0) imm = -imm;
                             bool minus_zero = (imm == 0) && (U == 0);
-                            Label label(imm, kA32PcDelta, minus_zero);
+                            Location location(imm, kA32PcDelta);
                             // VLDR{<c>}{<q>}{.64} <Dd>, <label> ; A1
-                            vldr(condition,
-                                 kDataTypeValueNone,
-                                 DRegister(rd),
-                                 &label);
+                            if (minus_zero) {
+                              vldr(condition,
+                                   Untyped64,
+                                   DRegister(rd),
+                                   MemOperand(pc, minus, 0));
+                            } else {
+                              vldr(condition,
+                                   Untyped64,
+                                   DRegister(rd),
+                                   &location);
+                            }
                             break;
                           }
                         }
@@ -65842,7 +66121,7 @@ void Disassembler::DecodeA32(uint32_t instr) {
                             int32_t offset = (instr & 0xff) << 2;
                             // VLDR{<c>}{<q>}{.32} <Sd>, [<Rn>{, #{+/-}<imm>}] ; A2 NOLINT(whitespace/line_length)
                             vldr(condition,
-                                 kDataTypeValueNone,
+                                 Untyped32,
                                  SRegister(rd),
                                  MemOperand(Register(rn),
                                             sign,
@@ -65865,7 +66144,7 @@ void Disassembler::DecodeA32(uint32_t instr) {
                             int32_t offset = (instr & 0xff) << 2;
                             // VLDR{<c>}{<q>}{.64} <Dd>, [<Rn>{, #{+/-}<imm>}] ; A1 NOLINT(whitespace/line_length)
                             vldr(condition,
-                                 kDataTypeValueNone,
+                                 Untyped64,
                                  DRegister(rd),
                                  MemOperand(Register(rn),
                                             sign,

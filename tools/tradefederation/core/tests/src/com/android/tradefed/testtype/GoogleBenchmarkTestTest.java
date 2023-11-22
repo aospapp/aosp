@@ -19,6 +19,7 @@ import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.MockFileUtil;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 
 import junit.framework.TestCase;
@@ -26,6 +27,7 @@ import junit.framework.TestCase;
 import org.easymock.EasyMock;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -85,7 +87,6 @@ public class GoogleBenchmarkTestTest extends TestCase {
     /**
      * Test the run method for a couple tests
      */
-    @SuppressWarnings("unchecked")
     public void testRun() throws DeviceNotAvailableException {
         final String nativeTestPath = GoogleBenchmarkTest.DEFAULT_TEST_PATH;
         final String test1 = "test1";
@@ -103,10 +104,28 @@ public class GoogleBenchmarkTestTest extends TestCase {
                 EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject(), EasyMock.anyInt());
         mMockITestDevice.executeShellCommand(EasyMock.contains(test2), EasyMock.same(mMockReceiver),
                 EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject(), EasyMock.anyInt());
-        mMockInvocationListener.testRunStarted(test1, 0);
-        mMockInvocationListener.testRunStarted(test2, 0);
-        mMockInvocationListener.testRunEnded(EasyMock.anyLong(),
-                (Map<String, String>) EasyMock.anyObject());
+        EasyMock.expect(
+                        mMockITestDevice.executeShellCommand(
+                                String.format("file %s/test1", nativeTestPath)))
+                .andReturn("ELF whatever, BuildID=blabla\n");
+        EasyMock.expect(
+                        mMockITestDevice.executeShellCommand(
+                                String.format(
+                                        "%s/test1 --benchmark_list_tests=true", nativeTestPath)))
+                .andReturn("method1\nmethod2\nmethod3");
+        EasyMock.expect(
+                        mMockITestDevice.executeShellCommand(
+                                String.format("file %s/test2", nativeTestPath)))
+                .andReturn("ELF whatever, BuildID=blabla\n");
+        EasyMock.expect(
+                        mMockITestDevice.executeShellCommand(
+                                String.format(
+                                        "%s/test2 --benchmark_list_tests=true", nativeTestPath)))
+                .andReturn("method1\nmethod2\n");
+        mMockInvocationListener.testRunStarted(test1, 3);
+        mMockInvocationListener.testRunStarted(test2, 2);
+        mMockInvocationListener.testRunEnded(
+                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
         EasyMock.expectLastCall().times(2);
         replayMocks();
 
@@ -147,7 +166,6 @@ public class GoogleBenchmarkTestTest extends TestCase {
     /**
      * Test the run method for a couple tests with a module name
      */
-    @SuppressWarnings("unchecked")
     public void testRun_withModuleName() throws DeviceNotAvailableException {
         final String moduleName = "module";
         final String nativeTestPath =
@@ -168,10 +186,28 @@ public class GoogleBenchmarkTestTest extends TestCase {
                 EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject(), EasyMock.anyInt());
         mMockITestDevice.executeShellCommand(EasyMock.contains(test2), EasyMock.same(mMockReceiver),
                 EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject(), EasyMock.anyInt());
-        mMockInvocationListener.testRunStarted(test1, 0);
-        mMockInvocationListener.testRunStarted(test2, 0);
-        mMockInvocationListener.testRunEnded(EasyMock.anyLong(),
-                (Map<String, String>) EasyMock.anyObject());
+        EasyMock.expect(
+                        mMockITestDevice.executeShellCommand(
+                                String.format("file %s/test1", nativeTestPath)))
+                .andReturn("ELF whatever, BuildID=blabla\n");
+        EasyMock.expect(
+                        mMockITestDevice.executeShellCommand(
+                                String.format(
+                                        "%s/test1 --benchmark_list_tests=true", nativeTestPath)))
+                .andReturn("\nmethod1\nmethod2\nmethod3\n\n");
+        EasyMock.expect(
+                        mMockITestDevice.executeShellCommand(
+                                String.format("file %s/test2", nativeTestPath)))
+                .andReturn("ELF whatever, BuildID=blabla\n");
+        EasyMock.expect(
+                        mMockITestDevice.executeShellCommand(
+                                String.format(
+                                        "%s/test2 --benchmark_list_tests=true", nativeTestPath)))
+                .andReturn("method1\nmethod2\n");
+        mMockInvocationListener.testRunStarted(test1, 3);
+        mMockInvocationListener.testRunStarted(test2, 2);
+        mMockInvocationListener.testRunEnded(
+                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
         EasyMock.expectLastCall().times(2);
         replayMocks();
 
@@ -182,7 +218,6 @@ public class GoogleBenchmarkTestTest extends TestCase {
     /**
      * Test the run method for a couple tests with a module name
      */
-    @SuppressWarnings("unchecked")
     public void testRun_withRunReportName() throws DeviceNotAvailableException {
         final String nativeTestPath = GoogleBenchmarkTest.DEFAULT_TEST_PATH;
         final String test1 = "test1";
@@ -198,10 +233,19 @@ public class GoogleBenchmarkTestTest extends TestCase {
                 .andReturn("");
         mMockITestDevice.executeShellCommand(EasyMock.contains(test1), EasyMock.same(mMockReceiver),
                 EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject(), EasyMock.anyInt());
+        EasyMock.expect(
+                        mMockITestDevice.executeShellCommand(
+                                String.format("file %s/test1", nativeTestPath)))
+                .andReturn("ELF whatever, BuildID=blabla\n");
+        EasyMock.expect(
+                        mMockITestDevice.executeShellCommand(
+                                String.format(
+                                        "%s/test1 --benchmark_list_tests=true", nativeTestPath)))
+                .andReturn("method1\nmethod2\nmethod3");
         // Expect reportName instead of test name
-        mMockInvocationListener.testRunStarted(reportName, 0);
-        mMockInvocationListener.testRunEnded(EasyMock.anyLong(),
-                (Map<String, String>) EasyMock.anyObject());
+        mMockInvocationListener.testRunStarted(reportName, 3);
+        mMockInvocationListener.testRunEnded(
+                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
         EasyMock.expectLastCall();
         replayMocks();
 
@@ -212,7 +256,6 @@ public class GoogleBenchmarkTestTest extends TestCase {
     /**
      * Test the run method when exec shell throw exeception.
      */
-    @SuppressWarnings("unchecked")
     public void testRun_exceptionDuringExecShell() throws DeviceNotAvailableException {
         final String nativeTestPath = GoogleBenchmarkTest.DEFAULT_TEST_PATH;
         final String test1 = "test1";
@@ -226,11 +269,21 @@ public class GoogleBenchmarkTestTest extends TestCase {
                 .andReturn("");
         mMockITestDevice.executeShellCommand(EasyMock.contains(test1), EasyMock.same(mMockReceiver),
                 EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject(), EasyMock.anyInt());
-        EasyMock.expectLastCall().andThrow(new DeviceNotAvailableException());
-        mMockInvocationListener.testRunStarted(test1, 0);
+        EasyMock.expectLastCall().andThrow(new DeviceNotAvailableException("dnae", "serial"));
+        EasyMock.expect(
+                        mMockITestDevice.executeShellCommand(
+                                String.format("file %s/test1", nativeTestPath)))
+                .andReturn("ELF whatever, BuildID=blabla\n");
+        EasyMock.expect(
+                        mMockITestDevice.executeShellCommand(
+                                String.format(
+                                        "%s/test1 --benchmark_list_tests=true", nativeTestPath)))
+                .andReturn("method1\nmethod2\nmethod3");
+        mMockInvocationListener.testRunStarted(test1, 3);
+        mMockInvocationListener.testRunFailed(EasyMock.anyObject());
         // Even with exception testrunEnded is expected.
-        mMockInvocationListener.testRunEnded(EasyMock.anyLong(),
-                (Map<String, String>) EasyMock.anyObject());
+        mMockInvocationListener.testRunEnded(
+                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
         EasyMock.expectLastCall();
         replayMocks();
 

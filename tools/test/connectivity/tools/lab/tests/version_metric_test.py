@@ -78,6 +78,19 @@ class VersionMetricTest(unittest.TestCase):
         }
         self.assertEqual(expected_result, metric_obj.gather_metric())
 
+    def test_get_adb_revision_does_not_exist(self):
+        stdout_str = ('Android Debug Bridge version 1.0.39\n')
+
+        FAKE_RESULT = fake.FakeResult(stdout=stdout_str)
+        fake_shell = fake.MockShellCommand(fake_result=FAKE_RESULT)
+        metric_obj = version_metric.AdbVersionMetric(shell=fake_shell)
+
+        expected_result = {
+            version_metric.AdbVersionMetric.ADB_VERSION: '1.0.39',
+            version_metric.AdbVersionMetric.ADB_REVISION: ''
+        }
+        self.assertEqual(expected_result, metric_obj.gather_metric())
+
     def test_get_python_version(self):
         stdout_str = 'Python 2.7.6'
         FAKE_RESULT = fake.FakeResult(stdout=stdout_str)

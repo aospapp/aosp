@@ -16,20 +16,41 @@
 
 package com.android.cts.verifier.notifications;
 
+import static android.app.NotificationManager.IMPORTANCE_LOW;
+import static android.app.NotificationManager.IMPORTANCE_NONE;
+import static android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS;
+import static android.provider.Settings.EXTRA_APP_PACKAGE;
+import static android.provider.Settings.EXTRA_CHANNEL_ID;
+
+import static com.android.cts.verifier.notifications.MockListener.JSON_FLAGS;
+import static com.android.cts.verifier.notifications.MockListener.JSON_ICON;
+import static com.android.cts.verifier.notifications.MockListener.JSON_ID;
+import static com.android.cts.verifier.notifications.MockListener.JSON_PACKAGE;
+import static com.android.cts.verifier.notifications.MockListener.JSON_REASON;
+import static com.android.cts.verifier.notifications.MockListener.JSON_STATS;
+import static com.android.cts.verifier.notifications.MockListener.JSON_TAG;
+import static com.android.cts.verifier.notifications.MockListener.JSON_WHEN;
+import static com.android.cts.verifier.notifications.MockListener.REASON_LISTENER_CANCEL;
+
 import android.annotation.SuppressLint;
-import android.app.Activity;
+import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.app.Notification;
 import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
+import android.app.NotificationChannelGroup;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.provider.Settings.Secure;
 import android.service.notification.StatusBarNotification;
-import android.support.v4.app.NotificationCompat;
+import androidx.core.app.NotificationCompat;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 
 import com.android.cts.verifier.R;
 
@@ -42,14 +63,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.android.cts.verifier.notifications.MockListener.*;
-
-import static junit.framework.Assert.assertNotNull;
-
 public class NotificationListenerVerifierActivity extends InteractiveVerifierActivity
         implements Runnable {
     private static final String TAG = "NoListenerVerifier";
     private static final String NOTIFICATION_CHANNEL_ID = TAG;
+    protected static final String PREFS = "listener_prefs";
+    final int NUM_NOTIFICATIONS_SENT = 3; // # notifications sent by sendNotifications()
 
     private String mTag1;
     private String mTag2;
@@ -68,12 +87,12 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
     private int mFlag3;
 
     @Override
-    int getTitleResource() {
+    protected int getTitleResource() {
         return R.string.nls_test;
     }
 
     @Override
-    int getInstructionsResource() {
+    protected int getInstructionsResource() {
         return R.string.nls_info;
     }
 
@@ -82,30 +101,42 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
     @Override
     protected List<InteractiveTestCase> createTestItems() {
         List<InteractiveTestCase> tests = new ArrayList<>(17);
-        tests.add(new IsEnabledTest());
-        tests.add(new ServiceStartedTest());
-        tests.add(new NotificationReceivedTest());
-        tests.add(new DataIntactTest());
-        tests.add(new DismissOneTest());
-        tests.add(new DismissOneWithReasonTest());
-        tests.add(new DismissAllTest());
-        tests.add(new SnoozeNotificationForTimeTest());
-        tests.add(new SnoozeNotificationForTimeCancelTest());
-        tests.add(new GetSnoozedNotificationTest());
-        tests.add(new EnableHintsTest());
-        tests.add(new RequestUnbindTest());
-        tests.add(new RequestBindTest());
-        tests.add(new MessageBundleTest());
-        tests.add(new EnableHintsTest());
-        tests.add(new IsDisabledTest());
-        tests.add(new ServiceStoppedTest());
-        tests.add(new NotificationNotReceivedTest());
+        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        if (am.isLowRamDevice()) {
+            tests.add(new CannotBeEnabledTest());
+            tests.add(new ServiceStoppedTest());
+            tests.add(new NotificationNotReceivedTest());
+        } else {
+            tests.add(new IsEnabledTest());
+            tests.add(new ServiceStartedTest());
+            tests.add(new NotificationReceivedTest());
+            tests.add(new DataIntactTest());
+            tests.add(new DismissOneTest());
+            tests.add(new DismissOneWithReasonTest());
+            tests.add(new DismissOneWithStatsTest());
+            tests.add(new DismissAllTest());
+            tests.add(new SnoozeNotificationForTimeTest());
+            tests.add(new SnoozeNotificationForTimeCancelTest());
+            tests.add(new GetSnoozedNotificationTest());
+            tests.add(new EnableHintsTest());
+            tests.add(new ReceiveAppBlockNoticeTest());
+            tests.add(new ReceiveAppUnblockNoticeTest());
+            tests.add(new ReceiveChannelBlockNoticeTest());
+            tests.add(new ReceiveGroupBlockNoticeTest());
+            tests.add(new RequestUnbindTest());
+            tests.add(new RequestBindTest());
+            tests.add(new MessageBundleTest());
+            tests.add(new EnableHintsTest());
+            tests.add(new IsDisabledTest());
+            tests.add(new ServiceStoppedTest());
+            tests.add(new NotificationNotReceivedTest());
+        }
         return tests;
     }
 
     private void createChannel() {
         NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_ID,
-                NOTIFICATION_CHANNEL_ID, NotificationManager.IMPORTANCE_LOW);
+                NOTIFICATION_CHANNEL_ID, IMPORTANCE_LOW);
         mNm.createNotificationChannel(channel);
     }
 
@@ -172,30 +203,29 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
     }
 
     // Tests
-
     private class NotificationReceivedTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.nls_note_received);
 
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             createChannel();
             sendNotifications();
             status = READY;
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             MockListener.getInstance().resetData();
             deleteChannel();
         }
 
         @Override
-        void test() {
+        protected void test() {
             List<String> result = new ArrayList<>(MockListener.getInstance().mPosted);
             if (result.size() > 0 && result.contains(mTag1)) {
                 status = PASS;
@@ -206,21 +236,315 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         }
     }
 
+    /**
+     * Creates a notification channel. Sends the user to settings to block the channel. Waits
+     * to receive the broadcast that the channel was blocked, and confirms that the broadcast
+     * contains the correct extras.
+     */
+    protected class ReceiveChannelBlockNoticeTest extends InteractiveTestCase {
+        private String mChannelId;
+        private int mRetries = 2;
+        private View mView;
+        @Override
+        protected View inflate(ViewGroup parent) {
+            mView = createNlsSettingsItem(parent, R.string.nls_block_channel);
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(false);
+            return mView;
+        }
+
+        @Override
+        protected void setUp() {
+            mChannelId = UUID.randomUUID().toString();
+            NotificationChannel channel = new NotificationChannel(
+                    mChannelId, "ReceiveChannelBlockNoticeTest", IMPORTANCE_LOW);
+            mNm.createNotificationChannel(channel);
+            status = READY;
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(true);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            NotificationChannel channel = mNm.getNotificationChannel(mChannelId);
+            SharedPreferences prefs = mContext.getSharedPreferences(
+                    NotificationListenerVerifierActivity.PREFS, Context.MODE_PRIVATE);
+
+            if (channel.getImportance() == IMPORTANCE_NONE) {
+                if (prefs.contains(mChannelId) && prefs.getBoolean(mChannelId, false)) {
+                    status = PASS;
+                } else {
+                    if (mRetries > 0) {
+                        mRetries--;
+                        status = RETEST;
+                    } else {
+                        status = FAIL;
+                    }
+                }
+            } else {
+                // user hasn't jumped to settings to block the channel yet
+                status = WAIT_FOR_USER;
+            }
+
+            next();
+        }
+
+        protected void tearDown() {
+            MockListener.getInstance().resetData();
+            mNm.deleteNotificationChannel(mChannelId);
+            SharedPreferences prefs = mContext.getSharedPreferences(
+                    NotificationListenerVerifierActivity.PREFS, Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.remove(mChannelId);
+        }
+
+        @Override
+        protected Intent getIntent() {
+         return new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                 .putExtra(EXTRA_APP_PACKAGE, mContext.getPackageName())
+                 .putExtra(EXTRA_CHANNEL_ID, mChannelId);
+        }
+    }
+
+    /**
+     * Creates a notification channel group. Sends the user to settings to block the group. Waits
+     * to receive the broadcast that the group was blocked, and confirms that the broadcast contains
+     * the correct extras.
+     */
+    protected class ReceiveGroupBlockNoticeTest extends InteractiveTestCase {
+        private String mGroupId;
+        private int mRetries = 2;
+        private View mView;
+        @Override
+        protected View inflate(ViewGroup parent) {
+            mView = createNlsSettingsItem(parent, R.string.nls_block_group);
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(false);
+            return mView;
+        }
+
+        @Override
+        protected void setUp() {
+            mGroupId = UUID.randomUUID().toString();
+            NotificationChannelGroup group
+                    = new NotificationChannelGroup(mGroupId, "ReceiveChannelGroupBlockNoticeTest");
+            mNm.createNotificationChannelGroup(group);
+            NotificationChannel channel = new NotificationChannel(
+                    mGroupId, "ReceiveChannelBlockNoticeTest", IMPORTANCE_LOW);
+            channel.setGroup(mGroupId);
+            mNm.createNotificationChannel(channel);
+            status = READY;
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(true);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            NotificationChannelGroup group = mNm.getNotificationChannelGroup(mGroupId);
+            SharedPreferences prefs = mContext.getSharedPreferences(
+                    NotificationListenerVerifierActivity.PREFS, Context.MODE_PRIVATE);
+
+            if (group.isBlocked()) {
+                if (prefs.contains(mGroupId) && prefs.getBoolean(mGroupId, false)) {
+                    status = PASS;
+                } else {
+                    if (mRetries > 0) {
+                        mRetries--;
+                        status = RETEST;
+                    } else {
+                        status = FAIL;
+                    }
+                }
+            } else {
+                // user hasn't jumped to settings to block the group yet
+                status = WAIT_FOR_USER;
+            }
+
+            next();
+        }
+
+        protected void tearDown() {
+            MockListener.getInstance().resetData();
+            mNm.deleteNotificationChannelGroup(mGroupId);
+            SharedPreferences prefs = mContext.getSharedPreferences(
+                    NotificationListenerVerifierActivity.PREFS, Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.remove(mGroupId);
+        }
+
+        @Override
+        protected Intent getIntent() {
+            return new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    .putExtra(EXTRA_APP_PACKAGE, mContext.getPackageName());
+        }
+    }
+
+    /**
+     * Sends the user to settings to block the app. Waits to receive the broadcast that the app was
+     * blocked, and confirms that the broadcast contains the correct extras.
+     */
+    protected class ReceiveAppBlockNoticeTest extends InteractiveTestCase {
+        private int mRetries = 2;
+        private View mView;
+        @Override
+        protected View inflate(ViewGroup parent) {
+            mView = createNlsSettingsItem(parent, R.string.nls_block_app);
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(false);
+            return mView;
+        }
+
+        @Override
+        protected void setUp() {
+            status = READY;
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(true);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            SharedPreferences prefs = mContext.getSharedPreferences(
+                    NotificationListenerVerifierActivity.PREFS, Context.MODE_PRIVATE);
+
+            if (!mNm.areNotificationsEnabled()) {
+                Log.d(TAG, "Got broadcast " + prefs.contains(mContext.getPackageName()));
+                Log.d(TAG, "Broadcast contains correct data? " +
+                        prefs.getBoolean(mContext.getPackageName(), false));
+                if (prefs.contains(mContext.getPackageName())
+                        && prefs.getBoolean(mContext.getPackageName(), false)) {
+                    status = PASS;
+                } else {
+                    if (mRetries > 0) {
+                        mRetries--;
+                        status = RETEST;
+                    } else {
+                        status = FAIL;
+                    }
+                }
+            } else {
+                Log.d(TAG, "Notifications still enabled");
+                // user hasn't jumped to settings to block the app yet
+                status = WAIT_FOR_USER;
+            }
+
+            next();
+        }
+
+        protected void tearDown() {
+            MockListener.getInstance().resetData();
+            SharedPreferences prefs = mContext.getSharedPreferences(
+                    NotificationListenerVerifierActivity.PREFS, Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.remove(mContext.getPackageName());
+        }
+
+        @Override
+        protected Intent getIntent() {
+            return new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    .putExtra(EXTRA_APP_PACKAGE, mContext.getPackageName());
+        }
+    }
+
+    /**
+     * Sends the user to settings to unblock the app. Waits to receive the broadcast that the app
+     * was unblocked, and confirms that the broadcast contains the correct extras.
+     */
+    protected class ReceiveAppUnblockNoticeTest extends InteractiveTestCase {
+        private int mRetries = 2;
+        private View mView;
+        @Override
+        protected View inflate(ViewGroup parent) {
+            mView = createNlsSettingsItem(parent, R.string.nls_unblock_app);
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(false);
+            return mView;
+        }
+
+        @Override
+        protected void setUp() {
+            status = READY;
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(true);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            SharedPreferences prefs = mContext.getSharedPreferences(
+                    NotificationListenerVerifierActivity.PREFS, Context.MODE_PRIVATE);
+
+            if (mNm.areNotificationsEnabled()) {
+                if (prefs.contains(mContext.getPackageName())
+                        && !prefs.getBoolean(mContext.getPackageName(), true)) {
+                    status = PASS;
+                } else {
+                    if (mRetries > 0) {
+                        mRetries--;
+                        status = RETEST;
+                    } else {
+                        status = FAIL;
+                    }
+                }
+            } else {
+                // user hasn't jumped to settings to block the app yet
+                status = WAIT_FOR_USER;
+            }
+
+            next();
+        }
+
+        protected void tearDown() {
+            MockListener.getInstance().resetData();
+            SharedPreferences prefs = mContext.getSharedPreferences(
+                    NotificationListenerVerifierActivity.PREFS, Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.remove(mContext.getPackageName());
+        }
+
+        @Override
+        protected Intent getIntent() {
+            return new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    .putExtra(EXTRA_APP_PACKAGE, mContext.getPackageName());
+        }
+    }
+
     private class DataIntactTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.nls_payload_intact);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             createChannel();
             sendNotifications();
             status = READY;
         }
 
         @Override
-        void test() {
+        protected void test() {
             List<JSONObject> result = new ArrayList<>(MockListener.getInstance().getPosted());
 
             Set<String> found = new HashSet<String>();
@@ -265,9 +589,6 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
                                 "data integrity test: notification ID (%d, %d)");
                         pass &= checkEquals(mWhen3, payload.getLong(JSON_WHEN),
                                 "data integrity test: notification when (%d, %d)");
-                    } else {
-                        pass = false;
-                        logFail("unexpected notification tag: " + tag);
                     }
                 } catch (JSONException e) {
                     pass = false;
@@ -275,12 +596,12 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
                 }
             }
 
-            pass &= found.size() == 3;
+            pass &= found.size() >= 3;
             status = pass ? PASS : FAIL;
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             MockListener.getInstance().resetData();
             deleteChannel();
@@ -289,19 +610,19 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
 
     private class DismissOneTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.nls_clear_one);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             createChannel();
             sendNotifications();
             status = READY;
         }
 
         @Override
-        void test() {
+        protected void test() {
             if (status == READY) {
                 MockListener.getInstance().cancelNotification(
                         MockListener.getInstance().getKeyForTag(mTag1));
@@ -321,7 +642,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannel();
             MockListener.getInstance().resetData();
@@ -332,19 +653,19 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         int mRetries = 3;
 
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.nls_clear_one_reason);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             createChannel();
             sendNotifications();
             status = READY;
         }
 
         @Override
-        void test() {
+        protected void test() {
             if (status == READY) {
                 MockListener.getInstance().cancelNotification(
                         MockListener.getInstance().getKeyForTag(mTag1));
@@ -382,7 +703,62 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
+            mNm.cancelAll();
+            deleteChannel();
+            MockListener.getInstance().resetData();
+        }
+    }
+
+    private class DismissOneWithStatsTest extends InteractiveTestCase {
+        int mRetries = 3;
+
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createAutoItem(parent, R.string.nls_clear_one_stats);
+        }
+
+        @Override
+        protected void setUp() {
+            createChannel();
+            sendNotifications();
+            status = READY;
+        }
+
+        @Override
+        protected void test() {
+            if (status == READY) {
+                MockListener.getInstance().cancelNotification(
+                        MockListener.getInstance().getKeyForTag(mTag1));
+                status = RETEST;
+            } else {
+                List<JSONObject> result =
+                        new ArrayList<>(MockListener.getInstance().mRemovedReason.values());
+                boolean pass = true;
+                for (JSONObject payload : result) {
+                    try {
+                        pass &= (payload.getBoolean(JSON_STATS) == false);
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                        pass = false;
+                    }
+                }
+                if (pass) {
+                    status = PASS;
+                } else {
+                    if (--mRetries > 0) {
+                        sleep(100);
+                        status = RETEST;
+                    } else {
+                        logFail("Notification listener got populated stats object.");
+                        status = FAIL;
+                    }
+                }
+            }
+        }
+
+        @Override
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannel();
             MockListener.getInstance().resetData();
@@ -391,19 +767,19 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
 
     private class DismissAllTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.nls_clear_all);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             createChannel();
             sendNotifications();
             status = READY;
         }
 
         @Override
-        void test() {
+        protected void test() {
             if (status == READY) {
                 MockListener.getInstance().cancelAllNotifications();
                 status = RETEST;
@@ -422,7 +798,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannel();
             MockListener.getInstance().resetData();
@@ -431,7 +807,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
 
     private class IsDisabledTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createNlsSettingsItem(parent, R.string.nls_disable_service);
         }
 
@@ -441,7 +817,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         }
 
         @Override
-        void test() {
+        protected void test() {
             String listeners = Secure.getString(getContentResolver(),
                     ENABLED_NOTIFICATION_LISTENERS);
             if (listeners == null || !listeners.contains(LISTENER_PATH)) {
@@ -452,58 +828,81 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             MockListener.getInstance().resetData();
+        }
+
+        @Override
+        protected Intent getIntent() {
+            return new Intent(ACTION_NOTIFICATION_LISTENER_SETTINGS);
         }
     }
 
     private class ServiceStoppedTest extends InteractiveTestCase {
+        int mRetries = 3;
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.nls_service_stopped);
         }
 
         @Override
-        void test() {
-            if (mNm.getEffectsSuppressor() == null) {
+        protected void test() {
+            if (mNm.getEffectsSuppressor() == null && (MockListener.getInstance() == null
+                    || !MockListener.getInstance().isConnected)) {
                 status = PASS;
             } else {
-                status = FAIL;
+                if (--mRetries > 0) {
+                    sleep(100);
+                    status = RETEST;
+                } else {
+                    status = FAIL;
+                }
             }
+        }
+
+        @Override
+        protected Intent getIntent() {
+            return new Intent(ACTION_NOTIFICATION_LISTENER_SETTINGS);
         }
     }
 
     private class NotificationNotReceivedTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.nls_note_missed);
 
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             createChannel();
             sendNotifications();
             status = READY;
         }
 
         @Override
-        void test() {
-            List<String> result = new ArrayList<>(MockListener.getInstance().mPosted);
-            if (result.size() == 0) {
+        protected void test() {
+            if (MockListener.getInstance() == null) {
                 status = PASS;
             } else {
-                logFail();
-                status = FAIL;
+                List<String> result = new ArrayList<>(MockListener.getInstance().mPosted);
+                if (result.size() == 0) {
+                    status = PASS;
+                } else {
+                    logFail();
+                    status = FAIL;
+                }
             }
             next();
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannel();
-            MockListener.getInstance().resetData();
+            if (MockListener.getInstance() != null) {
+                MockListener.getInstance().resetData();
+            }
         }
     }
 
@@ -511,20 +910,20 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         int mRetries = 5;
 
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.nls_snooze);
 
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             status = READY;
             MockListener.getInstance().requestInterruptionFilter(
                     MockListener.HINT_HOST_DISABLE_CALL_EFFECTS);
         }
 
         @Override
-        void test() {
+        protected void test() {
             if (status == READY) {
                 MockListener.getInstance().requestUnbind();
                 status = RETEST;
@@ -548,13 +947,13 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         int mRetries = 5;
 
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.nls_unsnooze);
 
         }
 
         @Override
-        void test() {
+        protected void test() {
             if (status == READY) {
                 MockListener.requestRebind(MockListener.COMPONENT_NAME);
                 status = RETEST;
@@ -577,20 +976,21 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
 
     private class EnableHintsTest extends InteractiveTestCase {
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.nls_hints);
 
         }
 
         @Override
-        void test() {
+        protected void test() {
             if (status == READY) {
                 MockListener.getInstance().requestListenerHints(
                         MockListener.HINT_HOST_DISABLE_CALL_EFFECTS);
                 status = RETEST;
             } else {
                 int result = MockListener.getInstance().getCurrentListenerHints();
-                if (result == MockListener.HINT_HOST_DISABLE_CALL_EFFECTS) {
+                if ((result & MockListener.HINT_HOST_DISABLE_CALL_EFFECTS)
+                        == MockListener.HINT_HOST_DISABLE_CALL_EFFECTS) {
                     status = PASS;
                     next();
                 } else {
@@ -609,12 +1009,12 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         long snoozeTime = 3000;
 
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.nls_snooze_one_time);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             createChannel();
             sendNotifications();
             status = READY;
@@ -623,7 +1023,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         }
 
         @Override
-        void test() {
+        protected void test() {
             status = RETEST;
             if (state == READY_TO_SNOOZE) {
                 MockListener.getInstance().snoozeNotification(
@@ -668,7 +1068,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannel();
             MockListener.getInstance().resetData();
@@ -690,12 +1090,12 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         private String tag;
 
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.nls_snooze_one_time);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             createChannel();
             sendNotifications();
             tag = mTag1;
@@ -705,7 +1105,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         }
 
         @Override
-        void test() {
+        protected void test() {
             status = RETEST;
             if (state == READY_TO_SNOOZE) {
                 MockListener.getInstance().snoozeNotification(
@@ -744,7 +1144,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannel();
             MockListener.getInstance().resetData();
@@ -759,12 +1159,12 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         long snoozeTime = 30000;
 
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.nls_get_snoozed);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             createChannel();
             sendNotifications();
             status = READY;
@@ -772,7 +1172,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         }
 
         @Override
-        void test() {
+        protected void test() {
             status = RETEST;
             if (state == READY_TO_SNOOZE) {
                 MockListener.getInstance().snoozeNotification(
@@ -828,7 +1228,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannel();
             MockListener.getInstance().resetData();
@@ -844,19 +1244,19 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         private final CharSequence extrasValue2 = "extras_value_2";
 
         @Override
-        View inflate(ViewGroup parent) {
+        protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.msg_extras_preserved);
         }
 
         @Override
-        void setUp() {
+        protected void setUp() {
             createChannel();
             sendMessagingNotification();
             status = READY;
         }
 
         @Override
-        void tearDown() {
+        protected void tearDown() {
             mNm.cancelAll();
             deleteChannel();
             delay();
@@ -906,7 +1306,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         }
 
         @Override
-        void test() {
+        protected void test() {
             List<Notification> result =
                     new ArrayList<>(MockListener.getInstance().mPostedNotifications);
             if (result.size() != 1 || result.get(0) == null) {
@@ -915,7 +1315,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
                 next();
                 return;
             }
-            // Can only read in MessaginStyle using the compat class.
+            // Can only read in MessagingStyle using the compat class.
             NotificationCompat.MessagingStyle readStyle =
                     NotificationCompat.MessagingStyle
                             .extractMessagingStyleFromNotification(

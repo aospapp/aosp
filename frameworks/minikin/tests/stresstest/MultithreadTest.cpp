@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
+#include "minikin/Layout.h"
 
 #include <condition_variable>
 #include <mutex>
@@ -22,16 +22,16 @@
 #include <thread>
 
 #include <cutils/log.h>
+#include <gtest/gtest.h>
 
-#include "MinikinInternal.h"
 #include "minikin/FontCollection.h"
-#include "minikin/Layout.h"
-#include "../util/FontTestUtils.h"
+#include "minikin/Macros.h"
+
+#include "FontTestUtils.h"
+#include "MinikinInternal.h"
+#include "PathUtils.h"
 
 namespace minikin {
-
-const char* SYSTEM_FONT_PATH = "/system/fonts/";
-const char* SYSTEM_FONT_XML = "/system/etc/fonts.xml";
 
 constexpr int LAYOUT_COUNT_PER_COLLECTION = 500;
 constexpr int COLLECTION_COUNT_PER_THREAD = 15;
@@ -39,10 +39,10 @@ constexpr int NUM_THREADS = 10;
 
 std::mutex gMutex;
 std::condition_variable gCv;
-bool gReady = false;
+bool gReady GUARDED_BY(gMutex) = false;
 
-static std::vector<uint16_t> generateTestText(
-        std::mt19937* mt, int lettersInWord, int wordsInText) {
+static std::vector<uint16_t> generateTestText(std::mt19937* mt, int lettersInWord,
+                                              int wordsInText) {
     std::uniform_int_distribution<uint16_t> dist('A', 'Z');
 
     std::vector<uint16_t> text;
@@ -66,22 +66,21 @@ static void thread_main(int tid) {
     }
 
     std::mt19937 mt(tid);
-    MinikinPaint paint;
 
     for (int i = 0; i < COLLECTION_COUNT_PER_THREAD; ++i) {
-        std::shared_ptr<FontCollection> collection(
-                getFontCollection(SYSTEM_FONT_PATH, SYSTEM_FONT_XML));
+        MinikinPaint paint(buildFontCollection("Ascii.ttf"));
+        paint.size = 10.0f;  // Make 1em = 10px
 
         for (int j = 0; j < LAYOUT_COUNT_PER_COLLECTION; ++j) {
             // Generates 10 of 3-letter words so that the word sometimes hit the cache.
             Layout layout;
             std::vector<uint16_t> text = generateTestText(&mt, 3, 10);
-            layout.doLayout(text.data(), 0, text.size(), text.size(), kBidi_LTR, FontStyle(),
-                    paint, collection);
+            layout.doLayout(text, Range(0, text.size()), Bidi::LTR, paint, StartHyphenEdit::NO_EDIT,
+                            EndHyphenEdit::NO_EDIT);
             std::vector<float> advances(text.size());
             layout.getAdvances(advances.data());
             for (size_t k = 0; k < advances.size(); ++k) {
-                // MinikinFontForTest always returns 10.0f for horizontal advance.
+                // All characters in Ascii.ttf has 1.0em horizontal advance.
                 LOG_ALWAYS_FATAL_IF(advances[k] != 10.0f, "Memory corruption detected.");
             }
         }

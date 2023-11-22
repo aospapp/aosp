@@ -2,7 +2,7 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2011,
- *		 2012, 2013, 2014, 2015, 2016
+ *		 2012, 2013, 2014, 2015, 2016, 2018
  *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -23,7 +23,7 @@
 
 #include "sh.h"
 
-__RCSID("$MirOS: src/bin/mksh/jobs.c,v 1.121 2016/07/25 00:04:44 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/jobs.c,v 1.125 2018/01/05 20:08:34 tg Exp $");
 
 #if HAVE_KILLPG
 #define mksh_killpg		killpg
@@ -39,14 +39,27 @@ __RCSID("$MirOS: src/bin/mksh/jobs.c,v 1.121 2016/07/25 00:04:44 tg Exp $");
 #define PSTOPPED	3
 
 typedef struct proc Proc;
-struct proc {
-	Proc *next;		/* next process in pipeline (if any) */
-	pid_t pid;		/* process id */
+/* to take alignment into consideration */
+struct proc_dummy {
+	Proc *next;
+	pid_t pid;
 	int state;
-	int status;		/* wait status */
+	int status;
+	char command[128];
+};
+/* real structure */
+struct proc {
+	/* next process in pipeline (if any) */
+	Proc *next;
+	/* process id of this Unix process in the job */
+	pid_t pid;
+	/* one of the four P… above */
+	int state;
+	/* wait status */
+	int status;
 	/* process command string from vistree */
-	char command[256 - (ALLOC_OVERHEAD + sizeof(Proc *) +
-	    sizeof(pid_t) + 2 * sizeof(int))];
+	char command[256 - (ALLOC_OVERHEAD +
+	    offsetof(struct proc_dummy, command[0]))];
 };
 
 /* Notify/print flag - j_print() argument */
@@ -1009,8 +1022,14 @@ j_notify(void)
 	}
 	for (j = job_list; j; j = tmp) {
 		tmp = j->next;
-		if (j->flags & JF_REMOVE)
-			remove_job(j, "notify");
+		if (j->flags & JF_REMOVE) {
+			if (j == async_job || (j->flags & JF_KNOWN)) {
+				j->flags = (j->flags & ~JF_REMOVE) | JF_ZOMBIE;
+				j->job = -1;
+				nzombie++;
+			} else
+				remove_job(j, "notify");
+		}
 	}
 	shf_flush(shl_out);
 #ifndef MKSH_NOPROSPECTOFWORK
@@ -1526,7 +1545,9 @@ j_print(Job *j, int how, struct shf *shf)
 	Proc *p;
 	int state;
 	int status;
+#ifdef WCOREDUMP
 	bool coredumped;
+#endif
 	char jobchar = ' ';
 	char buf[64];
 	const char *filler;
@@ -1550,7 +1571,9 @@ j_print(Job *j, int how, struct shf *shf)
 		jobchar = '-';
 
 	for (p = j->proc_list; p != NULL;) {
+#ifdef WCOREDUMP
 		coredumped = false;
+#endif
 		switch (p->state) {
 		case PRUNNING:
 			memcpy(buf, "Running", 8);
@@ -1584,7 +1607,10 @@ j_print(Job *j, int how, struct shf *shf)
 			 * kludge for not reporting 'normal termination
 			 * signals' (i.e. SIGINT, SIGPIPE)
 			 */
-			if (how == JP_SHORT && !coredumped &&
+			if (how == JP_SHORT &&
+#ifdef WCOREDUMP
+			    !coredumped &&
+#endif
 			    (termsig == SIGINT || termsig == SIGPIPE)) {
 				buf[0] = '\0';
 			} else
@@ -1610,14 +1636,22 @@ j_print(Job *j, int how, struct shf *shf)
 		if (how == JP_SHORT) {
 			if (buf[0]) {
 				output = 1;
+#ifdef WCOREDUMP
 				shf_fprintf(shf, "%s%s ",
 				    buf, coredumped ? " (core dumped)" : null);
+#else
+				shf_puts(buf, shf);
+				shf_putchar(' ', shf);
+#endif
 			}
 		} else {
 			output = 1;
 			shf_fprintf(shf, "%-20s %s%s%s", buf, p->command,
 			    p->next ? "|" : null,
-			    coredumped ? " (core dumped)" : null);
+#ifdef WCOREDUMP
+			    coredumped ? " (core dumped)" :
+#endif
+			     null);
 		}
 
 		state = p->state;
@@ -1651,7 +1685,7 @@ j_lookup(const char *cp, int *ecodep)
 	size_t len;
 	int job = 0;
 
-	if (ksh_isdigit(*cp) && getn(cp, &job)) {
+	if (ctype(*cp, C_DIGIT) && getn(cp, &job)) {
 		/* Look for last_proc->pid (what $! returns) first... */
 		for (j = job_list; j != NULL; j = j->next)
 			if (j->last_proc && j->last_proc->pid == job)

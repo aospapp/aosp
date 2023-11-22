@@ -241,6 +241,7 @@ public class PKCS7 {
     private void parseNetscapeCertChain(DerValue val)
     throws ParsingException, IOException {
         DerInputStream dis = new DerInputStream(val.toByteArray());
+        // Android-changed: Maintain original encoded form.
         DerValue[] contents = dis.getSequence(2, true);
         certificates = new X509Certificate[contents.length];
 
@@ -254,6 +255,7 @@ public class PKCS7 {
         for (int i=0; i < contents.length; i++) {
             ByteArrayInputStream bais = null;
             try {
+                // BEGIN Android-changed: Maintain original encoded form.
                 byte[] original = contents[i].getOriginalEncodedForm();
                 if (certfac == null)
                     certificates[i] = new X509CertImpl(contents[i], original);
@@ -265,6 +267,7 @@ public class PKCS7 {
                     bais.close();
                     bais = null;
                 }
+                // END Android-changed: Maintain original encoded form.
             } catch (CertificateException ce) {
                 ParsingException pe = new ParsingException(ce.getMessage());
                 pe.initCause(ce);
@@ -320,6 +323,7 @@ public class PKCS7 {
          * (certificates are OPTIONAL)
          */
         if ((byte)(dis.peekByte()) == (byte)0xA0) {
+            // Android-changed: Maintain original encoded form.
             DerValue[] certVals = dis.getSet(2, true, true);
 
             len = certVals.length;
@@ -333,6 +337,7 @@ public class PKCS7 {
                     // We only parse the normal certificate. Other types of
                     // CertificateChoices ignored.
                     if (tag == DerValue.tag_Sequence) {
+                        // BEGIN Android-changed: Maintain original encoded form.
                         byte[] original = certVals[i].getOriginalEncodedForm();
                         if (certfac == null) {
                             certificates[count] = new X509CertImpl(certVals[i], original);
@@ -344,6 +349,7 @@ public class PKCS7 {
                             bais.close();
                             bais = null;
                         }
+                        // END Android-changed: Maintain original encoded form.
                         count++;
                     }
                 } catch (CertificateException ce) {
@@ -443,6 +449,7 @@ public class PKCS7 {
         } catch (CertificateException ce) {
             // do nothing
         }
+        // Android-changed: Maintain original encoded form.
         DerValue[] certVals = dis.getSet(2, false, true);
         len = certVals.length;
         certificates = new X509Certificate[len];
@@ -450,6 +457,7 @@ public class PKCS7 {
         for (int i = 0; i < len; i++) {
             ByteArrayInputStream bais = null;
             try {
+                // BEGIN Android-changed: Maintain original encoded form.
                 byte[] original = certVals[i].getOriginalEncodedForm();
                 if (certfac == null)
                     certificates[i] = new X509CertImpl(certVals[i], original);
@@ -461,6 +469,7 @@ public class PKCS7 {
                     bais.close();
                     bais = null;
                 }
+                // END Android-changed: Maintain original encoded form.
             } catch (CertificateException ce) {
                 ParsingException pe = new ParsingException(ce.getMessage());
                 pe.initCause(ce);
@@ -594,6 +603,8 @@ public class PKCS7 {
         return info.verify(this, bytes);
     }
 
+    // BEGIN Android-added: Add overload that takes an InputStream.
+    // This is used by android.os.RecoverySystem
     /**
      * This verifies a given SignerInfo.
      *
@@ -607,6 +618,7 @@ public class PKCS7 {
     throws NoSuchAlgorithmException, SignatureException, IOException {
         return info.verify(this, dataInputStream);
     }
+    // END Android-added: Add overload that takes an InputStream.
 
     /**
      * Returns all signerInfos which self-verify.
@@ -802,7 +814,7 @@ public class PKCS7 {
         return this.oldStyle;
     }
 
-    // BEGIN Android-added
+    // BEGIN Android-added: Add subclass that returns the original encoded bytes.
     /**
      * For legacy reasons we need to return exactly the original encoded certificate bytes, instead
      * of letting the underlying implementation have a shot at re-encoding the data.
@@ -994,7 +1006,7 @@ public class PKCS7 {
             wrapped.verify(key, sigProvider);
         }
     }
-    // END Android-added
+    // END Android-added: Add subclass that returns the original encoded bytes.
 
     // BEGIN Android-removed: unused in Android
     /**
@@ -1022,13 +1034,13 @@ public class PKCS7 {
      *         data message.
      *
     public static byte[] generateSignedData(byte[] signature,
-            X509Certificate[] signerChain,
-            byte[] content,
-            String signatureAlgorithm,
-            URI tsaURI,
-            String tSAPolicyID,
-            String tSADigestAlg)
-            throws CertificateException, IOException, NoSuchAlgorithmException
+                                            X509Certificate[] signerChain,
+                                            byte[] content,
+                                            String signatureAlgorithm,
+                                            URI tsaURI,
+                                            String tSAPolicyID,
+                                            String tSADigestAlg)
+        throws CertificateException, IOException, NoSuchAlgorithmException
     {
 
         // Generate the timestamp token
@@ -1042,32 +1054,32 @@ public class PKCS7 {
             // Insert the timestamp token into the PKCS #7 signer info element
             // (as an unsigned attribute)
             unauthAttrs =
-                    new PKCS9Attributes(new PKCS9Attribute[]{
-                            new PKCS9Attribute(
-                                    PKCS9Attribute.SIGNATURE_TIMESTAMP_TOKEN_STR,
-                                    tsToken)});
+                new PKCS9Attributes(new PKCS9Attribute[]{
+                    new PKCS9Attribute(
+                        PKCS9Attribute.SIGNATURE_TIMESTAMP_TOKEN_STR,
+                        tsToken)});
         }
 
         // Create the SignerInfo
         X500Name issuerName =
-                X500Name.asX500Name(signerChain[0].getIssuerX500Principal());
+            X500Name.asX500Name(signerChain[0].getIssuerX500Principal());
         BigInteger serialNumber = signerChain[0].getSerialNumber();
         String encAlg = AlgorithmId.getEncAlgFromSigAlg(signatureAlgorithm);
         String digAlg = AlgorithmId.getDigAlgFromSigAlg(signatureAlgorithm);
         SignerInfo signerInfo = new SignerInfo(issuerName, serialNumber,
-                AlgorithmId.get(digAlg), null,
-                AlgorithmId.get(encAlg),
-                signature, unauthAttrs);
+                                               AlgorithmId.get(digAlg), null,
+                                               AlgorithmId.get(encAlg),
+                                               signature, unauthAttrs);
 
         // Create the PKCS #7 signed data message
         SignerInfo[] signerInfos = {signerInfo};
         AlgorithmId[] algorithms = {signerInfo.getDigestAlgorithmId()};
         // Include or exclude content
         ContentInfo contentInfo = (content == null)
-                ? new ContentInfo(ContentInfo.DATA_OID, null)
-                : new ContentInfo(content);
+            ? new ContentInfo(ContentInfo.DATA_OID, null)
+            : new ContentInfo(content);
         PKCS7 pkcs7 = new PKCS7(algorithms, contentInfo,
-                signerChain, signerInfos);
+                                signerChain, signerInfos);
         ByteArrayOutputStream p7out = new ByteArrayOutputStream();
         pkcs7.encodeSignedData(p7out);
 
@@ -1094,10 +1106,10 @@ public class PKCS7 {
      *                     certificate is not permitted for timestamping.
      *
     private static byte[] generateTimestampToken(Timestamper tsa,
-            String tSAPolicyID,
-            String tSADigestAlg,
-            byte[] toBeTimestamped)
-            throws IOException, CertificateException
+                                                 String tSAPolicyID,
+                                                 String tSADigestAlg,
+                                                 byte[] toBeTimestamped)
+        throws IOException, CertificateException
     {
         // Generate a timestamp
         MessageDigest messageDigest = null;
@@ -1122,8 +1134,8 @@ public class PKCS7 {
         // Handle TSP error
         if (status != 0 && status != 1) {
             throw new IOException("Error generating timestamp: " +
-                    tsReply.getStatusCodeAsText() + " " +
-                    tsReply.getFailureCodeAsText());
+                tsReply.getStatusCodeAsText() + " " +
+                tsReply.getFailureCodeAsText());
         }
 
         if (tSAPolicyID != null &&
@@ -1143,7 +1155,7 @@ public class PKCS7 {
             throw new IllegalArgumentException();   // should have been caught before
         }
         if (!MessageDigest.isEqual(tst.getHashedMessage(),
-                tsQuery.getHashedMessage())) {
+                                   tsQuery.getHashedMessage())) {
             throw new IOException("Digest octets changed in timestamp token");
         }
 
@@ -1161,18 +1173,18 @@ public class PKCS7 {
             if (cert == null) {
                 // Error, we've already set tsRequestCertificate = true
                 throw new CertificateException(
-                        "Certificate not included in timestamp token");
+                "Certificate not included in timestamp token");
             } else {
                 if (!cert.getCriticalExtensionOIDs().contains(
                         EXTENDED_KEY_USAGE_OID)) {
                     throw new CertificateException(
-                            "Certificate is not valid for timestamping");
+                    "Certificate is not valid for timestamping");
                 }
                 List<String> keyPurposes = cert.getExtendedKeyUsage();
                 if (keyPurposes == null ||
                         !keyPurposes.contains(KP_TIMESTAMPING_OID)) {
                     throw new CertificateException(
-                            "Certificate is not valid for timestamping");
+                    "Certificate is not valid for timestamping");
                 }
             }
         }

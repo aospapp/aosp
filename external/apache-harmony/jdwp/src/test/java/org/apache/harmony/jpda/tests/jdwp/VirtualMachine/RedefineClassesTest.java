@@ -28,6 +28,7 @@ package org.apache.harmony.jpda.tests.jdwp.VirtualMachine;
 
 
 import java.io.*;
+import java.util.Base64;
 
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
@@ -47,6 +48,7 @@ public class RedefineClassesTest extends JDWPSyncTestCase {
     static final String checkedClassSignature
         = "Lorg/apache/harmony/jpda/tests/jdwp/VirtualMachine/RedefineClass_Debuggee;";
     static final String byteCodeToRedefineFile = "RedefineByteCode_Debuggee001";
+    private static String thisTestName;
 
     @Override
     protected String getDebuggeeClassName() {
@@ -95,6 +97,126 @@ public class RedefineClassesTest extends JDWPSyncTestCase {
        return foundFile;
     }
 
+    private byte[] getNewClassBytesClass() {
+        File newClassByteCodeFile = findNewClassByteCode();
+        if ( newClassByteCodeFile == null ) {
+            logWriter.println
+            ("===> Can NOT find out byte code file for redefine:");
+            logWriter.println
+            ("===> File name = " + byteCodeToRedefineFile);
+            logWriter.println
+            ("===> Test can NOT be run!");
+            logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": FINISH");
+            return null;
+        }
+
+        logWriter.println("=> File name with new class byte code to redefine = " +
+                          byteCodeToRedefineFile);
+        FileInputStream newClassByteCodeFileInputStream = null;
+        try {
+            newClassByteCodeFileInputStream = new FileInputStream(newClassByteCodeFile);
+        } catch (Throwable thrown) {
+            logWriter.println("===> Can NOT create FileInputStream for byte code file:");
+            logWriter.println("===> File name = " + byteCodeToRedefineFile);
+            logWriter.println("===> Exception is thrown: " + thrown);
+            logWriter.println("===> Test can NOT be run!");
+            logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": FINISH");
+            return null;
+        }
+        int newClassByteCodeSize = 0;
+        try {
+            newClassByteCodeSize = (int)newClassByteCodeFileInputStream.skip(Long.MAX_VALUE);
+        } catch (Throwable thrown) {
+            logWriter.println("===> Can NOT do FileInputStream.skip() to the end of file:");
+            logWriter.println("===> File name = " + byteCodeToRedefineFile);
+            logWriter.println("===> Exception is thrown: " + thrown);
+            logWriter.println("===> Test can NOT be run!");
+            logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": FINISH");
+            return null;
+        }
+        logWriter.println("=> newClassByteCodeSize = " + newClassByteCodeSize);
+        try {
+            newClassByteCodeFileInputStream.close();
+        } catch (Throwable thrown) {
+            logWriter.println
+            ("===> WARNING: Can NOT close FileInputStream for byte code file:");
+            logWriter.println("===> File name = " + byteCodeToRedefineFile);
+            logWriter.println("===> Exception is thrown: " + thrown);
+        }
+        newClassByteCodeFileInputStream = null;
+
+        try {
+            newClassByteCodeFileInputStream = new FileInputStream(newClassByteCodeFile);
+        } catch (Throwable thrown) {
+            logWriter.println
+            ("===> Can NOT re-create FileInputStream for byte code file:");
+            logWriter.println("===> File name = " + byteCodeToRedefineFile);
+            logWriter.println("===> Exception is thrown: " + thrown);
+            logWriter.println("===> Test can NOT be run!");
+            logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": FINISH");
+            return null;
+        }
+        byte[] res = new byte[newClassByteCodeSize];
+        int totalRead = 0;
+        try {
+            totalRead = newClassByteCodeFileInputStream.read(res);
+        } catch (Throwable thrown) {
+            logWriter.println("===> Can NOT read current byte code file:");
+            logWriter.println("===> File name = " + byteCodeToRedefineFile);
+            logWriter.println("===> Exception is thrown: " + thrown);
+            logWriter.println("===> Test can NOT be run!");
+            logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": FINISH");
+            return null;
+        }
+        if ( totalRead != newClassByteCodeSize) { // EOF is reached
+            logWriter.println("===> Could not read full bytecode file:");
+            logWriter.println("===> File name = " + byteCodeToRedefineFile);
+            logWriter.println("===> expected to read: " + newClassByteCodeSize);
+            logWriter.println("===> actually read: " + totalRead);
+            logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": FINISH");
+            return null;
+        }
+        return res;
+    }
+
+    private byte[] getNewClassBytesDex() {
+      // This is a base64 dex-file for the following class
+      // package org.apache.harmony.jpda.tests.jdwp.VirtualMachine;
+      // class RedefineClass_Debuggee {
+      //   static String testMethod() {
+      //     return "testMethod_Result_After_Redefine";
+      //   }
+      // }
+      logWriter.println("===> Redefining class " + checkedClassSignature + " to:");
+      logWriter.println("====> package org.apache.harmony.jpda.tests.jdwp.VirtualMachine;");
+      logWriter.println("====> class RedefineClass_Debuggee {");
+      logWriter.println("====>   static String testMethod() {");
+      logWriter.println("====>     return \"testMethod_Result_After_Redefine\";");
+      logWriter.println("====>   }");
+      logWriter.println("====> }");
+      return Base64.getDecoder().decode(
+          "ZGV4CjAzNQAVa34RK7cHNNGCveP4LGffC0tLZFeb7KuUAgAAcAAAAHhWNBIAAAAAAAAAAAwCAAAJ" +
+          "AAAAcAAAAAQAAACUAAAAAgAAAKQAAAAAAAAAAAAAAAMAAAC8AAAAAQAAANQAAACgAQAA9AAAACQB" +
+          "AAAsAQAALwEAAEMBAABXAQAAowEAAMABAADDAQAAzwEAAAIAAAADAAAABAAAAAYAAAABAAAAAQAA" +
+          "AAAAAAAGAAAAAwAAAAAAAAAAAAEAAAAAAAIAAQAAAAAAAgAAAAcAAAACAAAAAAAAAAAAAAAAAAAA" +
+          "BQAAAAAAAAD7AQAAAAAAAAEAAQABAAAA8QEAAAQAAABwEAAAAAAOAAEAAAAAAAAA9gEAAAMAAAAa" +
+          "AAgAEQAAAAY8aW5pdD4AAUwAEkxqYXZhL2xhbmcvT2JqZWN0OwASTGphdmEvbGFuZy9TdHJpbmc7" +
+          "AEpMb3JnL2FwYWNoZS9oYXJtb255L2pwZGEvdGVzdHMvamR3cC9WaXJ0dWFsTWFjaGluZS9SZWRl" +
+          "ZmluZUNsYXNzX0RlYnVnZ2VlOwAbUmVkZWZpbmVDbGFzc19EZWJ1Z2dlZS5qYXZhAAFWAAp0ZXN0" +
+          "TWV0aG9kACB0ZXN0TWV0aG9kX1Jlc3VsdF9BZnRlcl9SZWRlZmluZQADAAcOAAYABw4AAAACAAGA" +
+          "gAT0AQEIjAIAAAALAAAAAAAAAAEAAAAAAAAAAQAAAAkAAABwAAAAAgAAAAQAAACUAAAAAwAAAAIA" +
+          "AACkAAAABQAAAAMAAAC8AAAABgAAAAEAAADUAAAAASAAAAIAAAD0AAAAAiAAAAkAAAAkAQAAAyAA" +
+          "AAIAAADxAQAAACAAAAEAAAD7AQAAABAAAAEAAAAMAgAA");
+    }
+
+    private byte[] getNewClassBytes() {
+      if (debuggeeWrapper.vmMirror.canRedefineClasses()) {
+        return getNewClassBytesClass();
+      } else {
+        return getNewClassBytesDex();
+      }
+    }
+
     /**
      * This testcase exercises VirtualMachine.RedefineClasses command.
      * <BR>At first the test starts RedefineClassesDebuggee which invokes
@@ -107,29 +229,18 @@ public class RedefineClassesTest extends JDWPSyncTestCase {
      * The test checks that this resulting string is expected string.
      */
     public void testRedefineClasses001() {
-        String thisTestName = "testClassObject001";
+        thisTestName = "testClassObject001";
 
         //check capability, relevant for this test
         logWriter.println("=> Check capability: canRedefineClasses");
-        if (!debuggeeWrapper.vmMirror.canRedefineClasses()) {
+        if (!debuggeeWrapper.vmMirror.canRedefineClasses() &&
+            !debuggeeWrapper.vmMirror.canRedefineDexClasses()) {
             logWriter.println("##WARNING: this VM doesn't possess capability: canRedefineClasses");
             return;
         }
 
         logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": START...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
-        File newClassByteCodeFile = findNewClassByteCode();
-        if ( newClassByteCodeFile == null ) {
-            logWriter.println
-            ("===> Can NOT find out byte code file for redefine:");
-            logWriter.println
-            ("===> File name = " + byteCodeToRedefineFile);
-            logWriter.println
-            ("===> Test can NOT be run!");
-            logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": FINISH");
-            return;
-        }
-
         logWriter.println
         ("\n=> Send VirtualMachine::ClassesBySignature command and and get checked class referenceTypeID...");
         logWriter.println("=> checkedClassSignature = " + checkedClassSignature);
@@ -161,53 +272,11 @@ public class RedefineClassesTest extends JDWPSyncTestCase {
         logWriter.println("=> Checked class referenceTypeID = " + refTypeID);
 
         logWriter.println("\n=> Preparing info for " + thisCommandName);
-        logWriter.println
-        ("=> File name with new class byte code to redefine = " + byteCodeToRedefineFile);
-        FileInputStream newClassByteCodeFileInputStream = null;
-        try {
-            newClassByteCodeFileInputStream = new FileInputStream(newClassByteCodeFile);
-        } catch (Throwable thrown) {
-            logWriter.println
-            ("===> Can NOT create FileInputStream for byte code file:");
-            logWriter.println("===> File name = " + byteCodeToRedefineFile);
-            logWriter.println("===> Exception is thrown: " + thrown);
-            logWriter.println("===> Test can NOT be run!");
-            logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": FINISH");
-            return;
-        }
-        int newClassByteCodeSize = 0;
-        try {
-            newClassByteCodeSize = (int)newClassByteCodeFileInputStream.skip(Long.MAX_VALUE);
-        } catch (Throwable thrown) {
-            logWriter.println
-            ("===> Can NOT do FileInputStream.skip() to the end of file:");
-            logWriter.println("===> File name = " + byteCodeToRedefineFile);
-            logWriter.println("===> Exception is thrown: " + thrown);
-            logWriter.println("===> Test can NOT be run!");
-            logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": FINISH");
-            return;
-        }
-        logWriter.println("=> newClassByteCodeSize = " + newClassByteCodeSize);
-        try {
-            newClassByteCodeFileInputStream.close();
-        } catch (Throwable thrown) {
-            logWriter.println
-            ("===> WARNING: Can NOT close FileInputStream for byte code file:");
-            logWriter.println("===> File name = " + byteCodeToRedefineFile);
-            logWriter.println("===> Exception is thrown: " + thrown);
-        }
-        newClassByteCodeFileInputStream = null;
-
-        try {
-            newClassByteCodeFileInputStream = new FileInputStream(newClassByteCodeFile);
-        } catch (Throwable thrown) {
-            logWriter.println
-            ("===> Can NOT re-create FileInputStream for byte code file:");
-            logWriter.println("===> File name = " + byteCodeToRedefineFile);
-            logWriter.println("===> Exception is thrown: " + thrown);
-            logWriter.println("===> Test can NOT be run!");
-            logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": FINISH");
-            return;
+        byte[] newClass = getNewClassBytes();
+        if (newClass == null) {
+          // Wasn't able to get new file. Just continue and return.
+          synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
+          return;
         }
 
         CommandPacket checkedCommand = new CommandPacket(
@@ -215,36 +284,11 @@ public class RedefineClassesTest extends JDWPSyncTestCase {
             JDWPCommands.VirtualMachineCommandSet.RedefineClassesCommand);
         checkedCommand.setNextValueAsInt(1); // number of classes to redefine
         checkedCommand.setNextValueAsReferenceTypeID(refTypeID);
-        checkedCommand.setNextValueAsInt(newClassByteCodeSize);
-        int writtenBytes = 0;
-        int currentByte = 0;
-        while ( true ) {
-            try {
-                currentByte = newClassByteCodeFileInputStream.read();
-            } catch (Throwable thrown) {
-                logWriter.println
-                ("===> Can NOT read current byte from byte code file:");
-                logWriter.println("===> File name = " + byteCodeToRedefineFile);
-                logWriter.println("===> Byte number = " + writtenBytes);
-                logWriter.println("===> Exception is thrown: " + thrown);
-                logWriter.println("===> Test can NOT be run!");
-                logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": FINISH");
-                return;
-            }
-            if ( currentByte == -1 ) { // EOF is reached
-               break;
-            }
-            checkedCommand.setNextValueAsByte((byte)currentByte);
-            writtenBytes++;
+        checkedCommand.setNextValueAsInt(newClass.length);
+        for (byte currentByte: newClass) {
+            checkedCommand.setNextValueAsByte(currentByte);
         }
-        logWriter.println("=> Number of written bytes as new class file = " + writtenBytes);
-        if ( newClassByteCodeSize != writtenBytes ) {
-            logWriter.println("===> WARNING: Number of written bytes != newClassByteCodeSize");
-            logWriter.println("===> Test can NOT be run!");
-            logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": FINISH");
-            return;
-        }
-
+        logWriter.println("=> Number of written bytes as new class file = " + newClass.length);
         logWriter.println("\n=> Send " + thisCommandName + " and check reply...");
 
         ReplyPacket checkedReply = debuggeeWrapper.vmMirror.performCommand(checkedCommand);
@@ -258,7 +302,6 @@ public class RedefineClassesTest extends JDWPSyncTestCase {
                 finalSyncMessage = JPDADebuggeeSynchronizer.SGNL_CONTINUE;
                 printErrorAndFail(
                     "## WARNING: A class file for redefine has a version number not supported by this VM" +
-                    "\n## File name with byte code = " + byteCodeToRedefineFile +
                     "\n## It should be re-created");
             }
             boolean expectedErr = false;

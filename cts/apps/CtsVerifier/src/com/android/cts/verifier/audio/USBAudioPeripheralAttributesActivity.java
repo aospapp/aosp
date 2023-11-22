@@ -171,6 +171,7 @@ public class USBAudioPeripheralAttributesActivity extends USBAudioPeripheralActi
             mTestStatusTx.setText("No Peripheral or No Matching Profile.");
         }
 
+        // Headset not publicly available, violates CTS Verifier additional equipment guidelines.
         getPassButton().setEnabled(outPass && inPass);
     }
 }

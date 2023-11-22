@@ -21,7 +21,7 @@
     <item name="android:colorAccent">@color/dialtacts_theme_color</item>
   </style>
 
-  <style name="DialtactsTheme" parent="DialerThemeBase">
+  <style name="DialtactsThemeBase" parent="DialerThemeBase">
 
     <!-- Styles that require AppCompat compatibility, remember to update both sets -->
     <item name="android:windowActionBarOverlay">true</item>
@@ -77,6 +77,9 @@
     <item name="dialpad_style">@style/Dialpad.Light</item>
   </style>
 
+  <style name="DialtactsTheme" parent="DialtactsThemeBase">
+  </style>
+
   <!-- Action bar overflow menu icon.  White with no shadow. -->
   <style name="DialtactsActionBarOverflowWhite"
     parent="@android:style/Widget.Material.Light.ActionButton.Overflow">
@@ -103,19 +106,6 @@
 
     <item name="android:fastScrollThumbDrawable">@drawable/fastscroll_thumb</item>
     <item name="android:fastScrollTrackDrawable">@null</item>
-  </style>
-
-  <style name="CallDetailActionItemStyle">
-    <item name="android:foreground">?android:attr/selectableItemBackground</item>
-    <item name="android:clickable">true</item>
-    <item name="android:drawablePadding">@dimen/call_detail_action_item_drawable_padding</item>
-    <item name="android:gravity">center_vertical</item>
-    <item name="android:paddingStart">@dimen/call_detail_action_item_padding_horizontal</item>
-    <item name="android:paddingEnd">@dimen/call_detail_action_item_padding_horizontal</item>
-    <item name="android:paddingTop">@dimen/call_detail_action_item_padding_vertical</item>
-    <item name="android:paddingBottom">@dimen/call_detail_action_item_padding_vertical</item>
-    <item name="android:textColor">@color/call_detail_footer_text_color</item>
-    <item name="android:textSize">@dimen/call_detail_action_item_text_size</item>
   </style>
 
   <style name="DialtactsActionBarStyle" parent="DialerActionBarBaseStyle">
@@ -203,11 +193,6 @@
     <item name="android:importantForAccessibility">no</item>
   </style>
 
-  <style name="DismissButtonStyle">
-    <item name="android:paddingLeft">@dimen/dismiss_button_padding_start</item>
-    <item name="android:paddingRight">@dimen/dismiss_button_padding_end</item>
-  </style>
-
   <!-- Style applied to the "Settings" screen.  Keep in sync with SettingsLight in Telephony. -->
   <style name="SettingsStyle" parent="DialtactsThemeWithoutActionBarOverlay">
     <!-- Setting text. -->
@@ -232,10 +217,6 @@
     <!-- Styles that require AppCompat compatibility, remember to update both sets -->
     <item name="android:height">@dimen/action_bar_height</item>
     <item name="height">@dimen/action_bar_height</item>
-  </style>
-
-  <style name="VoicemailPlaybackLayoutTextStyle">
-    <item name="android:textSize">14sp</item>
   </style>
 
   <style name="VoicemailPlaybackLayoutButtonStyle">
@@ -273,4 +254,26 @@
     <item name="android:layout_height">1dp</item>
     <item name="android:background">?android:attr/listDivider</item>
   </style>
+
+  <style name="TranscriptionQualityRating">
+    <item name="android:textColor">@color/call_log_voicemail_transcript_branding_color</item>
+    <item name="android:textSize">@dimen/call_log_voicemail_transcription_text_size</item>
+    <item name="android:textStyle">italic</item>
+    <item name="android:paddingRight">20dp</item>
+    <item name="android:minHeight">56dp</item>
+  </style>
+
+  <style name="TranscriptionQualityRatingIcon">
+    <item name="android:paddingTop">8dp</item>
+    <item name="android:paddingBottom">8dp</item>
+    <item name="android:paddingLeft">16dp</item>
+    <item name="android:paddingRight">16dp</item>
+    <item name="android:minHeight">56dp</item>
+  </style>
+
+  <style name="PromoLinkStyle">
+    <item name="android:textColor">@color/dialer_theme_color</item>
+    <item name="android:fontFamily">"sans-serif-medium"</item>
+  </style>
+
 </resources>

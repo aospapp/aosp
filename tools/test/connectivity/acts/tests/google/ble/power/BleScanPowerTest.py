@@ -21,6 +21,7 @@ Shield box one: Android Device and Monsoon tool box
 
 import json
 import os
+import sys
 
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
@@ -33,8 +34,8 @@ from acts.test_utils.bt.PowerBaseTest import PowerBaseTest
 
 class BleScanPowerTest(PowerBaseTest):
     # Repetitions for scan and idle
-    REPETITIONS_40 = 40
-    REPETITIONS_360 = 360
+    REPETITIONS_40 = 5
+    REPETITIONS_360 = 40
 
     # Power measurement start time in seconds
     SCAN_START_TIME = 60
@@ -63,7 +64,7 @@ class BleScanPowerTest(PowerBaseTest):
                     disable_bluetooth(ad.droid)
 
     def _measure_power_for_scan_n_log_data(self, scan_mode, scan_time,
-                                           idle_time, repetitions):
+                                           idle_time, repetitions, test_case):
         """utility function for power test with BLE scan.
 
         Steps:
@@ -81,8 +82,12 @@ class BleScanPowerTest(PowerBaseTest):
             repetitions:  The number of cycles of scanning/idle
 
         Returns:
-            None
+            True if the average current is within the allowed tolerance;
+            False otherwise.
         """
+
+        if not self.disable_location_scanning():
+            return False
 
         first_part_msg = "%s%s --es StartTime %d --es ScanTime %d" % (
             self.PMC_BASE_CMD, scan_mode, self.SCAN_START_TIME, scan_time)
@@ -101,8 +106,7 @@ class BleScanPowerTest(PowerBaseTest):
         # Start the power measurement
         sample_time = (scan_time + idle_time) * repetitions
         result = self.mon.measure_power(self.POWER_SAMPLING_RATE, sample_time,
-                                        self.current_test_name,
-                                        self.SCAN_START_TIME)
+                               self.current_test_name, self.SCAN_START_TIME)
 
         self.ad.log.info("Monsoon start_time: {}".format(result.timestamps[0]))
 
@@ -115,10 +119,17 @@ class BleScanPowerTest(PowerBaseTest):
 
         self.ad.log.info("Number of test cycles: {}".format(len(start_times)))
 
-        self.save_logs_for_power_test(result, start_times, end_times, False)
+        (current_avg, stdev) = self.save_logs_for_power_test(
+            result, start_times, end_times, False)
+
+        # perform watermark comparison numbers
+        self.log.info("==> CURRENT AVG from PMC Monsoon app: %s" % current_avg)
+        self.log.info(
+            "==> WATERMARK from config file: %s" % self.user_params[test_case])
+        return self.check_test_pass(current_avg, self.user_params[test_case])
 
     @BluetoothBaseTest.bt_test_wrap
-    @test_tracker_info(uuid='37556d99-c535-4fd7-a7e7-5b737379d007')
+    @test_tracker_info(uuid='1e8c793f-897d-4160-8ebf-fd1addcd9c71')
     def test_power_for_scan_w_low_latency(self):
         """Test power usage when scan with low latency.
 
@@ -140,12 +151,13 @@ class BleScanPowerTest(PowerBaseTest):
         TAGS: LE, Scanning, Power
         Priority: 3
         """
-        self._measure_power_for_scan_n_log_data(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._measure_power_for_scan_n_log_data(
             ble_scan_settings_modes['low_latency'], self.SCAN_TIME_60,
-            self.IDLE_TIME_30, self.REPETITIONS_40)
+            self.IDLE_TIME_30, self.REPETITIONS_40, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
-    @test_tracker_info(uuid='9245360a-07b8-48a5-b26a-50d3b2b6e2c0')
+    @test_tracker_info(uuid='83e37081-9f00-4b5f-ba1c-92136047fa83')
     def test_power_for_scan_w_balanced(self):
         """Test power usage when scan with balanced mode.
 
@@ -167,12 +179,13 @@ class BleScanPowerTest(PowerBaseTest):
         TAGS: LE, Scanning, Power
         Priority: 3
         """
-        self._measure_power_for_scan_n_log_data(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._measure_power_for_scan_n_log_data(
             ble_scan_settings_modes['balanced'], self.SCAN_TIME_60,
-            self.IDLE_TIME_30, self.REPETITIONS_40)
+            self.IDLE_TIME_30, self.REPETITIONS_40, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
-    @test_tracker_info(uuid='9df99e3a-8cce-497a-b3d6-4ff6262e020e')
+    @test_tracker_info(uuid='cbf16414-3468-4f60-8a62-2a88556d7a87')
     def test_power_for_scan_w_low_power(self):
         """Test power usage when scan with low power.
 
@@ -194,12 +207,13 @@ class BleScanPowerTest(PowerBaseTest):
         TAGS: LE, Scanning, Power
         Priority: 3
         """
-        self._measure_power_for_scan_n_log_data(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._measure_power_for_scan_n_log_data(
             ble_scan_settings_modes['low_power'], self.SCAN_TIME_60,
-            self.IDLE_TIME_30, self.REPETITIONS_40)
+            self.IDLE_TIME_30, self.REPETITIONS_40, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
-    @test_tracker_info(uuid='cceeaf88-0ead-43e7-a25a-97eed93d1049')
+    @test_tracker_info(uuid='0b1eaedb-4385-48ba-a175-7db79360aed8')
     def test_power_for_intervaled_scans_w_balanced(self):
         """Test power usage when intervaled scans with balanced mode
 
@@ -221,12 +235,13 @@ class BleScanPowerTest(PowerBaseTest):
         TAGS: LE, Scanning, Power
         Priority: 3
         """
-        self._measure_power_for_scan_n_log_data(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._measure_power_for_scan_n_log_data(
             ble_scan_settings_modes['balanced'], self.SCAN_TIME_5,
-            self.IDLE_TIME_5, self.REPETITIONS_360)
+            self.IDLE_TIME_5, self.REPETITIONS_360, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
-    @test_tracker_info(uuid='5d20cdc2-876a-45b7-b3cf-064a37f0bb8a')
+    @test_tracker_info(uuid='90e6b341-9b11-4740-8ec1-dc605db93ec9')
     def test_power_for_intervaled_scans_w_low_latency(self):
         """Test power usage when intervaled scans with low latency mode
 
@@ -248,12 +263,13 @@ class BleScanPowerTest(PowerBaseTest):
         TAGS: LE, Scanning, Power
         Priority: 3
         """
-        self._measure_power_for_scan_n_log_data(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._measure_power_for_scan_n_log_data(
             ble_scan_settings_modes['low_latency'], self.SCAN_TIME_5,
-            self.IDLE_TIME_5, self.REPETITIONS_360)
+            self.IDLE_TIME_5, self.REPETITIONS_360, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
-    @test_tracker_info(uuid='5e526f85-77e7-4741-b8cd-7cdffb7daa16')
+    @test_tracker_info(uuid='cbf16414-3468-4f60-8a62-2a88556d7a87')
     def test_power_for_intervaled_scans_w_low_power(self):
         """Test power usage when intervaled scans with low power mode
 
@@ -275,6 +291,7 @@ class BleScanPowerTest(PowerBaseTest):
         TAGS: LE, Scanning, Power
         Priority: 3
         """
-        self._measure_power_for_scan_n_log_data(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._measure_power_for_scan_n_log_data(
             ble_scan_settings_modes['low_power'], self.SCAN_TIME_5,
-            self.IDLE_TIME_5, self.REPETITIONS_360)
+            self.IDLE_TIME_5, self.REPETITIONS_360, current_test_case)

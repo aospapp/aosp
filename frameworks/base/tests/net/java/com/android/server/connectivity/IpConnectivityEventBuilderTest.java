@@ -198,43 +198,38 @@ public class IpConnectivityEventBuilderTest {
 
     @Test
     public void testDefaultNetworkEventSerialization() {
-        ConnectivityMetricsEvent ev = describeIpEvent(
-                aType(DefaultNetworkEvent.class),
-                anInt(102),
-                anIntArray(1, 2, 3),
-                anInt(101),
-                aBool(true),
-                aBool(false));
+        DefaultNetworkEvent ev = new DefaultNetworkEvent(1001);
+        ev.netId = 102;
+        ev.transports = 2;
+        ev.previousTransports = 4;
+        ev.ipv4 = true;
+        ev.initialScore = 20;
+        ev.finalScore = 60;
+        ev.durationMs = 54;
+        ev.validatedMs = 27;
 
         String want = String.join("\n",
                 "dropped_events: 0",
                 "events <",
                 "  if_name: \"\"",
-                "  link_layer: 0",
-                "  network_id: 0",
-                "  time_ms: 1",
-                "  transports: 0",
+                "  link_layer: 4",
+                "  network_id: 102",
+                "  time_ms: 0",
+                "  transports: 2",
                 "  default_network_event <",
-                "    default_network_duration_ms: 0",
-                "    final_score: 0",
-                "    initial_score: 0",
-                "    ip_support: 0",
-                "    network_id <",
-                "      network_id: 102",
-                "    >",
+                "    default_network_duration_ms: 54",
+                "    final_score: 60",
+                "    initial_score: 20",
+                "    ip_support: 1",
                 "    no_default_network_duration_ms: 0",
-                "    previous_network_id <",
-                "      network_id: 101",
-                "    >",
-                "    previous_network_ip_support: 1",
-                "    transport_types: 1",
-                "    transport_types: 2",
-                "    transport_types: 3",
+                "    previous_default_network_link_layer: 1",
+                "    previous_network_ip_support: 0",
+                "    validation_duration_ms: 27",
                 "  >",
                 ">",
                 "version: 2\n");
 
-        verifySerialization(want, ev);
+        verifySerialization(want, IpConnectivityEventBuilder.toProto(ev));
     }
 
     @Test
@@ -342,7 +337,6 @@ public class IpConnectivityEventBuilderTest {
     public void testNetworkEventSerialization() {
         ConnectivityMetricsEvent ev = describeIpEvent(
                 aType(NetworkEvent.class),
-                anInt(100),
                 anInt(5),
                 aLong(20410));
 
@@ -357,9 +351,6 @@ public class IpConnectivityEventBuilderTest {
                 "  network_event <",
                 "    event_type: 5",
                 "    latency_ms: 20410",
-                "    network_id <",
-                "      network_id: 100",
-                "    >",
                 "  >",
                 ">",
                 "version: 2\n");
@@ -513,6 +504,13 @@ public class IpConnectivityEventBuilderTest {
         stats.rootWakeups = 2;
         stats.systemWakeups = 3;
         stats.noUidWakeups = 3;
+        stats.l2UnicastCount = 5;
+        stats.l2MulticastCount = 1;
+        stats.l2BroadcastCount = 2;
+        stats.ethertypes.put(0x800, 3);
+        stats.ethertypes.put(0x86dd, 3);
+        stats.ipNextHeaders.put(6, 5);
+
 
         IpConnectivityEvent got = IpConnectivityEventBuilder.toProto(stats);
         String want = String.join("\n",
@@ -526,6 +524,21 @@ public class IpConnectivityEventBuilderTest {
                 "  wakeup_stats <",
                 "    application_wakeups: 5",
                 "    duration_sec: 0",
+                "    ethertype_counts <",
+                "      key: 2048",
+                "      value: 3",
+                "    >",
+                "    ethertype_counts <",
+                "      key: 34525",
+                "      value: 3",
+                "    >",
+                "    ip_next_header_counts <",
+                "      key: 6",
+                "      value: 5",
+                "    >",
+                "    l2_broadcast_count: 2",
+                "    l2_multicast_count: 1",
+                "    l2_unicast_count: 5",
                 "    no_uid_wakeups: 3",
                 "    non_application_wakeups: 1",
                 "    root_wakeups: 2",

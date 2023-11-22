@@ -33,6 +33,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 # This is the target being built. (Name of APK)
 LOCAL_PACKAGE_NAME := RcsService
+LOCAL_PRIVATE_PLATFORM_APIS := true
 # Only compile source java files in this apk.
 LOCAL_SRC_FILES := \
     $(call all-java-files-under, src)

@@ -4,6 +4,7 @@
 
 import logging
 import os
+import re
 import time
 
 from autotest_lib.client.common_lib import error
@@ -45,12 +46,19 @@ class enterprise_CFM_HuddlyUpdater(test.test):
                                          FIRMWARE_PKG_TO_TEST)
 
     def initialize(self):
+        """initialize is a stub function."""
         # Placeholder.
         pass
 
+    def ls(self):
+        """ls tracks the directories of interest."""
+        cmd = 'ls -l /lib/firmware/ | grep huddly'
+        result = self._shcmd(cmd)
+
     def cleanup(self):
         """Bring the originally bundled firmware package back."""
-        cmd = 'rm -rf {}'.format(self.DUT_FIRMWARE_SRC)
+        cmd = '[ -f {} ] && rm -rf {}'.format(self.DUT_FIRMWARE_SRC,
+                                              self.DUT_FIRMWARE_SRC)
         self._shcmd(cmd)
 
         cmd = 'mv {} {} && rm -rf {}'.format(self.DUT_FIRMWARE_SRC_BACKUP,
@@ -61,7 +69,24 @@ class enterprise_CFM_HuddlyUpdater(test.test):
     def _shcmd(self, cmd):
         """A simple wrapper for remote shell command execution."""
         logging.info('CMD: [%s]', cmd)
-        return self._client.run(cmd)
+        result = self._client.run(cmd)
+
+        # result is an object with following attributes:
+        # ['__class__', '__delattr__', '__dict__', '__doc__', '__eq__',
+        # '__format__', '__getattribute__', '__hash__', '__init__',
+        # '__module__', '__new__', '__reduce__', '__reduce_ex__',
+        # '__repr__', '__setattr__', '__sizeof__', '__str__',
+        # '__subclasshook__', '__weakref__', 'command', 'duration',
+        # 'exit_status', 'stderr', 'stdout']
+        try:
+            result = self._client.run(cmd)
+        except:
+            pass
+
+        if result.stderr:
+            logging.info('CMD ERR:\n' + result.stderr)
+        logging.info('CMD OUT:\n' + result.stdout)
+        return result
 
     def copy_firmware(self):
         """Copy test firmware package from server to the DUT."""
@@ -122,22 +147,67 @@ class enterprise_CFM_HuddlyUpdater(test.test):
         """
         self._client = host
 
+        if not self.is_filesystem_readwrite():
+            # Make the file system read-writable, reboot, and continue the test
+            logging.info('DUT root file system is not read-writable. '
+                         'Converting it read-wriable...')
+            self.convert_rootfs_writable()
+        else:
+            logging.info('DUT is read-writable')
+
+
         try:
-            # TODO(porce): How can make initialize() access host?
+            self.ls()
             cmd = 'mv {} {}'.format(self.DUT_FIRMWARE_SRC,
                                     self.DUT_FIRMWARE_SRC_BACKUP)
             self._shcmd(cmd)
 
+            self.ls()
             self.copy_firmware()
+            self.ls()
             self.update_firmware(self.FIRMWARE_PKG_TO_TEST)
+            self.ls()
             self.update_firmware(self.FIRMWARE_PKG_BACKUP)
 
             if self._failed_test_list:
               msg = 'Test failed in {}'.format(
                   ', '.join(map(str, self._failed_test_list)))
               raise error.TestFail(msg)
-        except error.AutoservRunError:
+        except:
+            pass
+        finally:
             self.cleanup()
+
+    def convert_rootfs_writable(self):
+        """Remove rootfs verification on DUT, reboot,
+        and remount the filesystem read-writable"""
+
+        logging.info('Disabling rootfs verification...')
+        self.remove_rootfs_verification()
+
+        logging.info('Rebooting...')
+        self.reboot()
+
+        logging.info('Remounting..')
+        cmd = 'mount -o remount,rw /'
+        self._shcmd(cmd)
+
+    def remove_rootfs_verification(self):
+        """Remove rootfs verification."""
+        # 2 & 4 are default partitions, and the system boots from one of them.
+        # Code from chromite/scripts/deploy_chrome.py
+        KERNEL_A_PARTITION = 2
+        KERNEL_B_PARTITION = 4
+
+        cmd_template = ('/usr/share/vboot/bin/make_dev_ssd.sh --partitions %d '
+               '--remove_rootfs_verification --force')
+        for partition in (KERNEL_A_PARTITION, KERNEL_B_PARTITION):
+            cmd = cmd_template % partition
+            self._client.run(cmd)
+
+    def reboot(self):
+        """Reboots the DUT."""
+        self._client.reboot()
 
     def get_fw_vers(self):
         """Queries the firmware versions.
@@ -180,3 +250,17 @@ class enterprise_CFM_HuddlyUpdater(test.test):
         time.sleep(POWER_RECYCLE_WAIT_TIME)
         cmd = 'echo 1 > /sys/class/gpio/gpio{}/value'.format(GUADO_GPIO)
         self._shcmd(cmd)
+
+    def is_filesystem_readwrite(self):
+        """Check if the root file system is read-writable.
+
+        Query the DUT's filesystem /dev/root, often manifested as /dev/dm-0
+        or  is mounted as read-only or not.
+
+        @returns True if the /dev/root is read-writable. False otherwise.
+        """
+
+        cmd = 'cat /proc/mounts | grep "/dev/root"'
+        result = self._shcmd(cmd).stdout
+        fields = re.split(' |,', result)
+        return True if fields.__len__() >= 4 and fields[3] == 'rw' else False

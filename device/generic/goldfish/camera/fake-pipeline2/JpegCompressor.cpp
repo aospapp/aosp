@@ -19,9 +19,13 @@
 
 #include <utils/Log.h>
 
+#include "gralloc_cb.h"
 #include "JpegCompressor.h"
 #include "../EmulatedFakeCamera2.h"
 #include "../EmulatedFakeCamera3.h"
+#include "../Exif.h"
+#include "../Thumbnail.h"
+#include "hardware/camera3.h"
 
 namespace android {
 
@@ -47,7 +51,7 @@ status_t JpegCompressor::reserve() {
     return OK;
 }
 
-status_t JpegCompressor::start(Buffers *buffers, JpegListener *listener) {
+status_t JpegCompressor::start(Buffers *buffers, JpegListener *listener, CameraMetadata* settings) {
     if (listener == NULL) {
         ALOGE("%s: NULL listener not allowed!", __FUNCTION__);
         return BAD_VALUE;
@@ -63,6 +67,9 @@ status_t JpegCompressor::start(Buffers *buffers, JpegListener *listener) {
         mSynchronous = false;
         mBuffers = buffers;
         mListener = listener;
+        if (settings) {
+              mSettings = *settings;
+        }
     }
 
     status_t res;
@@ -125,6 +132,11 @@ status_t JpegCompressor::compress() {
     // Find source and target buffers. Assumes only one buffer matches
     // each condition!
     bool foundJpeg = false, mFoundAux = false;
+    int thumbWidth = 0, thumbHeight = 0;
+    unsigned char thumbJpegQuality = 90;
+    unsigned char jpegQuality = 90;
+    camera_metadata_entry_t entry;
+
     for (size_t i = 0; i < mBuffers->size(); i++) {
         const StreamBuffer &b = (*mBuffers)[i];
         if (b.format == HAL_PIXEL_FORMAT_BLOB) {
@@ -142,64 +154,46 @@ status_t JpegCompressor::compress() {
         return BAD_VALUE;
     }
 
-    // Set up error management
-
-    mJpegErrorInfo = NULL;
-    JpegError error;
-    error.parent = this;
-
-    mCInfo.err = jpeg_std_error(&error);
-    mCInfo.err->error_exit = jpegErrorHandler;
-
-    jpeg_create_compress(&mCInfo);
-    if (checkError("Error initializing compression")) return NO_INIT;
-
-    // Route compressed data straight to output stream buffer
-
-    JpegDestination jpegDestMgr;
-    jpegDestMgr.parent = this;
-    jpegDestMgr.init_destination = jpegInitDestination;
-    jpegDestMgr.empty_output_buffer = jpegEmptyOutputBuffer;
-    jpegDestMgr.term_destination = jpegTermDestination;
-
-    mCInfo.dest = &jpegDestMgr;
-
-    // Set up compression parameters
-
-    mCInfo.image_width = mAuxBuffer.width;
-    mCInfo.image_height = mAuxBuffer.height;
-    mCInfo.input_components = 3;
-    mCInfo.in_color_space = JCS_RGB;
-
-    jpeg_set_defaults(&mCInfo);
-    if (checkError("Error configuring defaults")) return NO_INIT;
-
-    // Do compression
-
-    jpeg_start_compress(&mCInfo, TRUE);
-    if (checkError("Error starting compression")) return NO_INIT;
-
-    size_t rowStride = mAuxBuffer.stride * 3;
-    const size_t kChunkSize = 32;
-    while (mCInfo.next_scanline < mCInfo.image_height) {
-        JSAMPROW chunk[kChunkSize];
-        for (size_t i = 0 ; i < kChunkSize; i++) {
-            chunk[i] = (JSAMPROW)
-                    (mAuxBuffer.img + (i + mCInfo.next_scanline) * rowStride);
-        }
-        jpeg_write_scanlines(&mCInfo, chunk, kChunkSize);
-        if (checkError("Error while compressing")) return NO_INIT;
-        if (exitPending()) {
-            ALOGV("%s: Cancel called, exiting early", __FUNCTION__);
-            return TIMED_OUT;
-        }
+    // Create EXIF data and compress thumbnail
+    ExifData* exifData = createExifData(mSettings, mAuxBuffer.width, mAuxBuffer.height);
+    entry = mSettings.find(ANDROID_JPEG_THUMBNAIL_SIZE);
+    if (entry.count > 0) {
+        thumbWidth = entry.data.i32[0];
+        thumbHeight = entry.data.i32[1];
+    }
+    entry = mSettings.find(ANDROID_JPEG_THUMBNAIL_QUALITY);
+    if (entry.count > 0) {
+        thumbJpegQuality = entry.data.u8[0];
+    }
+    if (thumbWidth > 0 && thumbHeight > 0) {
+        createThumbnail(static_cast<const unsigned char*>(mAuxBuffer.img),
+                        mAuxBuffer.width, mAuxBuffer.height,
+                        thumbWidth, thumbHeight,
+                        thumbJpegQuality, exifData);
     }
 
-    jpeg_finish_compress(&mCInfo);
-    if (checkError("Error while finishing compression")) return NO_INIT;
+    // Compress the image
+    entry = mSettings.find(ANDROID_JPEG_QUALITY);
+    if (entry.count > 0) {
+        jpegQuality = entry.data.u8[0];
+    }
+    NV21JpegCompressor nV21JpegCompressor;
+    nV21JpegCompressor.compressRawImage((void*)mAuxBuffer.img,
+                                         mAuxBuffer.width,
+                                         mAuxBuffer.height,
+                                         jpegQuality, exifData);
+    nV21JpegCompressor.getCompressedImage((void*)mJpegBuffer.img);
 
-    // All done
+    // Refer to /hardware/libhardware/include/hardware/camera3.h
+    // Transport header for compressed JPEG buffers in output streams.
+    camera3_jpeg_blob_t jpeg_blob;
+    cb_handle_t *cb = (cb_handle_t *)(*mJpegBuffer.buffer);
+    jpeg_blob.jpeg_blob_id = CAMERA3_JPEG_BLOB_ID;
+    jpeg_blob.jpeg_size = nV21JpegCompressor.getCompressedSize();
+    memcpy(mJpegBuffer.img + cb->width - sizeof(camera3_jpeg_blob_t),
+           &jpeg_blob, sizeof(camera3_jpeg_blob_t));
 
+    freeExifData(exifData);
     return OK;
 }
 
@@ -228,21 +222,8 @@ bool JpegCompressor::waitForDone(nsecs_t timeout) {
     return true;
 }
 
-bool JpegCompressor::checkError(const char *msg) {
-    if (mJpegErrorInfo) {
-        char errBuffer[JMSG_LENGTH_MAX];
-        mJpegErrorInfo->err->format_message(mJpegErrorInfo, errBuffer);
-        ALOGE("%s: %s: %s",
-                __FUNCTION__, msg, errBuffer);
-        mJpegErrorInfo = NULL;
-        return true;
-    }
-    return false;
-}
-
 void JpegCompressor::cleanUp() {
     status_t res;
-    jpeg_destroy_compress(&mCInfo);
     Mutex::Autolock lock(mBusyMutex);
 
     if (mFoundAux) {
@@ -260,30 +241,6 @@ void JpegCompressor::cleanUp() {
 
     mIsBusy = false;
     mDone.signal();
-}
-
-void JpegCompressor::jpegErrorHandler(j_common_ptr cinfo) {
-    JpegError *error = static_cast<JpegError*>(cinfo->err);
-    error->parent->mJpegErrorInfo = cinfo;
-}
-
-void JpegCompressor::jpegInitDestination(j_compress_ptr cinfo) {
-    JpegDestination *dest= static_cast<JpegDestination*>(cinfo->dest);
-    ALOGV("%s: Setting destination to %p, size %zu",
-            __FUNCTION__, dest->parent->mJpegBuffer.img, kMaxJpegSize);
-    dest->next_output_byte = (JOCTET*)(dest->parent->mJpegBuffer.img);
-    dest->free_in_buffer = kMaxJpegSize;
-}
-
-boolean JpegCompressor::jpegEmptyOutputBuffer(j_compress_ptr cinfo) {
-    ALOGE("%s: JPEG destination buffer overflow!",
-            __FUNCTION__);
-    return true;
-}
-
-void JpegCompressor::jpegTermDestination(j_compress_ptr cinfo) {
-    ALOGV("%s: Done writing JPEG data. %zu bytes left in buffer",
-            __FUNCTION__, cinfo->dest->free_in_buffer);
 }
 
 JpegCompressor::JpegListener::~JpegListener() {

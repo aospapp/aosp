@@ -20,7 +20,7 @@ include $(CLEAR_VARS)
 # We only want this apk build for tests.
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_SDK_VERSION := 8
+LOCAL_SDK_VERSION := 9
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 

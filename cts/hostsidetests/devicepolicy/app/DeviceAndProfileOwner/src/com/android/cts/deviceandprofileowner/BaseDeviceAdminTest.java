@@ -19,8 +19,11 @@ import android.app.admin.DeviceAdminReceiver;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Process;
 import android.os.UserManager;
 import android.test.InstrumentationTestCase;
 import android.text.TextUtils;
@@ -37,6 +40,16 @@ import com.android.compatibility.common.util.SystemUtil;
 public class BaseDeviceAdminTest extends InstrumentationTestCase {
 
     public static class BasicAdminReceiver extends DeviceAdminReceiver {
+
+        @Override
+        public String onChoosePrivateKeyAlias(Context context, Intent intent, int uid, Uri uri,
+                String suggestedAlias) {
+            super.onChoosePrivateKeyAlias(context, intent, uid, uri, suggestedAlias);
+            if (uid != Process.myUid() || uri == null) {
+                return null;
+            }
+            return uri.getQueryParameter("alias");
+        }
     }
 
     public static final String PACKAGE_NAME = BasicAdminReceiver.class.getPackage().getName();
@@ -99,5 +112,9 @@ public class BaseDeviceAdminTest extends InstrumentationTestCase {
             }
         }
         assertEquals(expectPasswordSufficient, mDevicePolicyManager.isActivePasswordSufficient());
+    }
+
+    protected boolean isDeviceOwner() {
+        return mDevicePolicyManager.isDeviceOwnerApp(PACKAGE_NAME);
     }
 }

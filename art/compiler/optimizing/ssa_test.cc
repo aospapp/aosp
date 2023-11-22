@@ -18,8 +18,8 @@
 
 #include "base/arena_allocator.h"
 #include "builder.h"
-#include "dex_file.h"
-#include "dex_instruction.h"
+#include "dex/dex_file.h"
+#include "dex/dex_instruction.h"
 #include "nodes.h"
 #include "optimizing_unit_test.h"
 #include "pretty_printer.h"
@@ -29,7 +29,10 @@
 
 namespace art {
 
-class SsaTest : public CommonCompilerTest {};
+class SsaTest : public OptimizingUnitTest {
+ protected:
+  void TestCode(const std::vector<uint16_t>& data, const char* expected);
+};
 
 class SsaPrettyPrinter : public HPrettyPrinter {
  public:
@@ -77,10 +80,8 @@ static void ReNumberInstructions(HGraph* graph) {
   }
 }
 
-static void TestCode(const uint16_t* data, const char* expected) {
-  ArenaPool pool;
-  ArenaAllocator allocator(&pool);
-  HGraph* graph = CreateCFG(&allocator, data);
+void SsaTest::TestCode(const std::vector<uint16_t>& data, const char* expected) {
+  HGraph* graph = CreateCFG(data);
   // Suspend checks implementation may change in the future, and this test relies
   // on how instructions are ordered.
   RemoveSuspendChecks(graph);
@@ -89,7 +90,7 @@ static void TestCode(const uint16_t* data, const char* expected) {
   // Test that phis had their type set.
   for (HBasicBlock* block : graph->GetBlocks()) {
     for (HInstructionIterator it(block->GetPhis()); !it.Done(); it.Advance()) {
-      ASSERT_NE(it.Current()->GetType(), Primitive::kPrimVoid);
+      ASSERT_NE(it.Current()->GetType(), DataType::Type::kVoid);
     }
   }
 
@@ -118,7 +119,7 @@ TEST_F(SsaTest, CFG1) {
     "BasicBlock 5, pred: 1, succ: 3\n"
     "  7: Goto\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 3,
     Instruction::GOTO | 0x100,
@@ -149,7 +150,7 @@ TEST_F(SsaTest, CFG2) {
     "BasicBlock 5, pred: 1, succ: 3\n"
     "  9: Goto\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 3,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -180,7 +181,7 @@ TEST_F(SsaTest, CFG3) {
     "BasicBlock 5, pred: 4\n"
     "  10: Exit\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 4,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -213,7 +214,7 @@ TEST_F(SsaTest, Loop1) {
     "BasicBlock 6, pred: 5\n"
     "  10: Exit\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 4,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -244,7 +245,7 @@ TEST_F(SsaTest, Loop2) {
     "BasicBlock 5, pred: 4\n"
     "  9: Exit\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 4,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -275,7 +276,7 @@ TEST_F(SsaTest, Loop3) {
     "BasicBlock 5, pred: 4\n"
     "  10: Exit\n";
 
-  const uint16_t data[] = TWO_REGISTERS_CODE_ITEM(
+  const std::vector<uint16_t> data = TWO_REGISTERS_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 4,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -309,7 +310,7 @@ TEST_F(SsaTest, Loop4) {
     "BasicBlock 6, pred: 5\n"
     "  10: Exit\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::GOTO | 0x500,
     Instruction::IF_EQ, 5,
@@ -350,7 +351,7 @@ TEST_F(SsaTest, Loop5) {
     "  13: Phi(2, 1) [11, 8, 8]\n"
     "  14: Goto\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 4,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -389,7 +390,7 @@ TEST_F(SsaTest, Loop6) {
     "BasicBlock 7, pred: 6\n"
     "  13: Exit\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 8,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -431,7 +432,7 @@ TEST_F(SsaTest, Loop7) {
     "BasicBlock 8, pred: 2, succ: 6\n"
     "  15: Goto\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 8,
     Instruction::CONST_4 | 4 << 12 | 0,
@@ -455,7 +456,7 @@ TEST_F(SsaTest, DeadLocal) {
     "BasicBlock 2, pred: 1\n"
     "  3: Exit\n";
 
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::RETURN_VOID);
 
@@ -483,7 +484,7 @@ TEST_F(SsaTest, LocalInIf) {
     "BasicBlock 5, pred: 1, succ: 3\n"
     "  8: Goto\n";
 
-  const uint16_t data[] = TWO_REGISTERS_CODE_ITEM(
+  const std::vector<uint16_t> data = TWO_REGISTERS_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 3,
     Instruction::CONST_4 | 4 << 12 | 1 << 8,
@@ -519,7 +520,7 @@ TEST_F(SsaTest, MultiplePredecessors) {
     "BasicBlock 7, pred: 3, succ: 5\n"
     "  12: Goto\n";
 
-  const uint16_t data[] = TWO_REGISTERS_CODE_ITEM(
+  const std::vector<uint16_t> data = TWO_REGISTERS_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 5,
     Instruction::ADD_INT_LIT8 | 1 << 8, 0 << 8,

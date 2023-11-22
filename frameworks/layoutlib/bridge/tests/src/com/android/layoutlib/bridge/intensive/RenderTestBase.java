@@ -21,11 +21,9 @@ import com.android.ide.common.rendering.api.RenderSession;
 import com.android.ide.common.rendering.api.Result;
 import com.android.ide.common.rendering.api.SessionParams;
 import com.android.ide.common.rendering.api.SessionParams.RenderingMode;
-import com.android.ide.common.resources.FrameworkResources;
-import com.android.ide.common.resources.ResourceItem;
-import com.android.ide.common.resources.ResourceRepository;
-import com.android.ide.common.resources.ResourceResolver;
-import com.android.ide.common.resources.configuration.FolderConfiguration;
+import com.android.ide.common.resources.deprecated.FrameworkResources;
+import com.android.ide.common.resources.deprecated.ResourceItem;
+import com.android.ide.common.resources.deprecated.ResourceRepository;
 import com.android.io.FolderWrapper;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.android.RenderParamsFlags;
@@ -35,6 +33,7 @@ import com.android.layoutlib.bridge.intensive.setup.LayoutLibTestCallback;
 import com.android.layoutlib.bridge.intensive.setup.LayoutPullParser;
 import com.android.layoutlib.bridge.intensive.util.ImageUtils;
 import com.android.layoutlib.bridge.intensive.util.ModuleClassLoader;
+import com.android.layoutlib.bridge.intensive.util.SessionParamsBuilder;
 import com.android.layoutlib.bridge.intensive.util.TestAssetRepository;
 import com.android.layoutlib.bridge.intensive.util.TestUtils;
 import com.android.tools.layoutlib.java.System_Delegate;
@@ -50,6 +49,7 @@ import org.junit.runner.Description;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -59,6 +59,7 @@ import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import com.google.android.collect.Lists;
+import com.google.common.collect.ImmutableMap;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
@@ -91,12 +92,14 @@ public class RenderTestBase {
     private static final String PLATFORM_DIR_PROPERTY = "platform.dir";
     private static final String RESOURCE_DIR_PROPERTY = "test_res.dir";
 
-    private static final String PLATFORM_DIR;
+    protected static final String PLATFORM_DIR;
     private static final String TEST_RES_DIR;
     /** Location of the app to test inside {@link #TEST_RES_DIR} */
-    private static final String APP_TEST_DIR = "testApp/MyApplication";
+    protected static final String APP_TEST_DIR = "testApp/MyApplication";
     /** Location of the app's res dir inside {@link #TEST_RES_DIR} */
     private static final String APP_TEST_RES = APP_TEST_DIR + "/src/main/res";
+    /** Location of the app's asset dir inside {@link #TEST_RES_DIR} */
+    private static final String APP_TEST_ASSET = APP_TEST_DIR + "/src/main/assets/";
     private static final String APP_CLASSES_LOCATION =
             APP_TEST_DIR + "/build/intermediates/classes/debug/";
     protected static Bridge sBridge;
@@ -133,9 +136,8 @@ public class RenderTestBase {
             }
         }
     };
-    // Default class loader with access to the app classes
-    protected ClassLoader mDefaultClassLoader =
-            new ModuleClassLoader(APP_CLASSES_LOCATION, getClass().getClassLoader());
+
+    protected ClassLoader mDefaultClassLoader;
 
     private static String getPlatformDir() {
         String platformDir = System.getProperty(PLATFORM_DIR_PROPERTY);
@@ -163,6 +165,18 @@ public class RenderTestBase {
         if (currentDir.getName().equalsIgnoreCase("bridge")) {
             currentDir = currentDir.getParentFile();
         }
+
+        // Find frameworks/layoutlib
+        while (currentDir != null && !"layoutlib".equals(currentDir.getName())) {
+            currentDir = currentDir.getParentFile();
+        }
+
+        if (currentDir == null ||
+                currentDir.getParentFile() == null ||
+                !"frameworks".equals(currentDir.getParentFile().getName())) {
+            return null;
+        }
+
         // Test if currentDir is  platform/frameworks/layoutlib. That is, root should be
         // workingDir/../../ (2 levels up)
         for (int i = 0; i < 2; i++) {
@@ -186,7 +200,8 @@ public class RenderTestBase {
             return null;
         }
         File[] hosts = host.listFiles(path -> path.isDirectory() &&
-                (path.getName().startsWith("linux-") || path.getName().startsWith("darwin-")));
+                (path.getName().startsWith("linux-") ||
+                        path.getName().startsWith("darwin-")));
         assert hosts != null;
         for (File hostOut : hosts) {
             String platformDir = getPlatformDirFromHostOut(hostOut);
@@ -194,6 +209,7 @@ public class RenderTestBase {
                 return platformDir;
             }
         }
+
         return null;
     }
 
@@ -321,12 +337,14 @@ public class RenderTestBase {
     }
 
     @NonNull
-    protected static RenderResult render(SessionParams params, long frameTimeNanos) {
+    protected static RenderResult render(com.android.ide.common.rendering.api.Bridge bridge,
+            SessionParams params,
+            long frameTimeNanos) {
         // TODO: Set up action bar handler properly to test menu rendering.
         // Create session params.
         System_Delegate.setBootTimeNanos(TimeUnit.MILLISECONDS.toNanos(871732800000L));
         System_Delegate.setNanosTime(TimeUnit.MILLISECONDS.toNanos(871732800000L));
-        RenderSession session = sBridge.createSession(params);
+        RenderSession session = bridge.createSession(params);
 
         try {
             if (frameTimeNanos != -1) {
@@ -353,6 +371,18 @@ public class RenderTestBase {
     }
 
     /**
+     * Compares the golden image with the passed image
+     */
+    protected static void verify(@NonNull String goldenImageName, @NonNull BufferedImage image) {
+        try {
+            String goldenImagePath = APP_TEST_DIR + "/golden/" + goldenImageName;
+            ImageUtils.requireSimilar(goldenImagePath, image);
+        } catch (IOException e) {
+            getLogger().error(e, e.getMessage());
+        }
+    }
+
+    /**
      * Create a new rendering session and test that rendering the given layout doesn't throw any
      * exceptions and matches the provided image.
      * <p>
@@ -362,14 +392,9 @@ public class RenderTestBase {
     @Nullable
     protected static RenderResult renderAndVerify(SessionParams params, String goldenFileName,
             long frameTimeNanos) throws ClassNotFoundException {
-        RenderResult result = RenderTestBase.render(params, frameTimeNanos);
-        try {
-            String goldenImagePath = APP_TEST_DIR + "/golden/" + goldenFileName;
-            assertNotNull(result.getImage());
-            ImageUtils.requireSimilar(goldenImagePath, result.getImage());
-        } catch (IOException e) {
-            getLogger().error(e, e.getMessage());
-        }
+        RenderResult result = RenderTestBase.render(sBridge, params, frameTimeNanos);
+        assertNotNull(result.getImage());
+        verify(goldenFileName, result.getImage());
 
         return result;
     }
@@ -384,7 +409,7 @@ public class RenderTestBase {
         return RenderTestBase.renderAndVerify(params, goldenFileName, -1);
     }
 
-    private static LayoutLog getLayoutLog() {
+    protected static LayoutLog getLayoutLog() {
         if (sLayoutLibLog == null) {
             sLayoutLibLog = new LayoutLog() {
                 @Override
@@ -394,9 +419,8 @@ public class RenderTestBase {
                 }
 
                 @Override
-                public void fidelityWarning(@Nullable String tag, String message,
-                        Throwable throwable, Object data) {
-
+                public void fidelityWarning(String tag, String message, Throwable throwable,
+                        Object viewCookie, Object data) {
                     System.out.println("FidelityWarning " + tag + ": " + message);
                     if (throwable != null) {
                         throwable.printStackTrace();
@@ -480,6 +504,8 @@ public class RenderTestBase {
 
     @Before
     public void beforeTestCase() {
+        // Default class loader with access to the app classes
+        mDefaultClassLoader = new ModuleClassLoader(APP_CLASSES_LOCATION, getClass().getClassLoader());
         sRenderMessages.clear();
     }
 
@@ -520,28 +546,28 @@ public class RenderTestBase {
         layoutLibCallback.initResources();
         // TODO: Set up action bar handler properly to test menu rendering.
         // Create session params.
-        return getSessionParams(parser, deviceConfig, layoutLibCallback, "AppTheme", true,
-                RenderingMode.NORMAL, 22);
+        return getSessionParamsBuilder()
+                .setParser(parser)
+                .setConfigGenerator(deviceConfig)
+                .setCallback(layoutLibCallback)
+                .build();
     }
 
     /**
-     * Uses Theme.Material and Target sdk version as 22.
+     * Returns a pre-configured {@link SessionParamsBuilder} for target API 22, Normal rendering
+     * mode, AppTheme as theme and Nexus 5.
      */
-    protected SessionParams getSessionParams(LayoutPullParser layoutParser,
-            ConfigGenerator configGenerator, LayoutLibTestCallback layoutLibCallback,
-            String themeName, boolean isProjectTheme, RenderingMode renderingMode,
-            @SuppressWarnings("SameParameterValue") int targetSdk) {
-        FolderConfiguration config = configGenerator.getFolderConfig();
-        ResourceResolver resourceResolver =
-                ResourceResolver.create(sProjectResources.getConfiguredResources(config),
-                        sFrameworkRepo.getConfiguredResources(config), themeName, isProjectTheme);
-
-        SessionParams sessionParams =
-                new SessionParams(layoutParser, renderingMode, null /*used for caching*/,
-                        configGenerator.getHardwareConfig(), resourceResolver, layoutLibCallback, 0,
-                        targetSdk, getLayoutLog());
-        sessionParams.setFlag(RenderParamsFlags.FLAG_DO_NOT_RENDER_ON_CREATE, true);
-        sessionParams.setAssetRepository(new TestAssetRepository());
-        return sessionParams;
+    @NonNull
+    protected SessionParamsBuilder getSessionParamsBuilder() {
+        return new SessionParamsBuilder()
+                .setLayoutLog(getLayoutLog())
+                .setFrameworkResources(sFrameworkRepo)
+                .setConfigGenerator(ConfigGenerator.NEXUS_5)
+                .setProjectResources(sProjectResources)
+                .setTheme("AppTheme", true)
+                .setRenderingMode(RenderingMode.NORMAL)
+                .setTargetSdk(22)
+                .setFlag(RenderParamsFlags.FLAG_DO_NOT_RENDER_ON_CREATE, true)
+                .setAssetRepository(new TestAssetRepository(TEST_RES_DIR + "/" + APP_TEST_ASSET));
     }
 }

@@ -23,13 +23,13 @@
 #include "base/casts.h"
 #include "base/macros.h"
 #include "base/scoped_arena_containers.h"
+#include "dex/primitive.h"
 #include "gc_root.h"
-#include "primitive.h"
 
 namespace art {
 namespace mirror {
-  class Class;
-  class ClassLoader;
+class Class;
+class ClassLoader;
 }  // namespace mirror
 class ScopedArenaAllocator;
 class StringPiece;
@@ -48,6 +48,8 @@ class ImpreciseConstType;
 class IntegerType;
 class LongHiType;
 class LongLoType;
+class MethodVerifier;
+class NullType;
 class PreciseConstType;
 class PreciseReferenceType;
 class RegType;
@@ -60,7 +62,7 @@ static constexpr size_t kDefaultArenaBitVectorBytes = 8;
 
 class RegTypeCache {
  public:
-  explicit RegTypeCache(bool can_load_classes, ScopedArenaAllocator& arena);
+  RegTypeCache(bool can_load_classes, ScopedArenaAllocator& allocator, bool can_suspend = true);
   ~RegTypeCache();
   static void Init() REQUIRES_SHARED(Locks::mutator_lock_) {
     if (!RegTypeCache::primitive_initialized_) {
@@ -122,9 +124,12 @@ class RegTypeCache {
   const DoubleHiType& DoubleHi() REQUIRES_SHARED(Locks::mutator_lock_);
   const UndefinedType& Undefined() REQUIRES_SHARED(Locks::mutator_lock_);
   const ConflictType& Conflict();
+  const NullType& Null();
 
   const PreciseReferenceType& JavaLangClass() REQUIRES_SHARED(Locks::mutator_lock_);
   const PreciseReferenceType& JavaLangString() REQUIRES_SHARED(Locks::mutator_lock_);
+  const PreciseReferenceType& JavaLangInvokeMethodHandle() REQUIRES_SHARED(Locks::mutator_lock_);
+  const PreciseReferenceType& JavaLangInvokeMethodType() REQUIRES_SHARED(Locks::mutator_lock_);
   const RegType& JavaLangThrowable(bool precise) REQUIRES_SHARED(Locks::mutator_lock_);
   const RegType& JavaLangObject(bool precise) REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -168,9 +173,6 @@ class RegTypeCache {
   // verifier.
   StringPiece AddString(const StringPiece& string_piece);
 
-  template <class Type>
-  static const Type* CreatePrimitiveTypeInstance(const std::string& descriptor)
-      REQUIRES_SHARED(Locks::mutator_lock_);
   static void CreatePrimitiveAndSmallConstantTypes() REQUIRES_SHARED(Locks::mutator_lock_);
 
   // A quick look up for popular small constants.
@@ -180,7 +182,7 @@ class RegTypeCache {
                                                           kMinSmallConstant + 1];
 
   static constexpr size_t kNumPrimitivesAndSmallConstants =
-      12 + (kMaxSmallConstant - kMinSmallConstant + 1);
+      13 + (kMaxSmallConstant - kMinSmallConstant + 1);
 
   // Have the well known global primitives been created?
   static bool primitive_initialized_;
@@ -198,7 +200,7 @@ class RegTypeCache {
   const bool can_load_classes_;
 
   // Arena allocator.
-  ScopedArenaAllocator& arena_;
+  ScopedArenaAllocator& allocator_;
 
   DISALLOW_COPY_AND_ASSIGN(RegTypeCache);
 };

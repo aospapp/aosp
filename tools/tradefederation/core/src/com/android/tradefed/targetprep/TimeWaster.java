@@ -24,11 +24,9 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
 
-/**
- * A simple target preparer to waste time and potentially restart the device.
- */
+/** A simple target preparer to waste time and potentially restart the device. */
 @OptionClass(alias = "time-waster")
-public class TimeWaster implements ITargetPreparer {
+public class TimeWaster extends BaseTargetPreparer {
     @Option(name = "delay", description = "Time to delay, in msecs", mandatory = true)
     private long mDelayMsecs = 0;
 

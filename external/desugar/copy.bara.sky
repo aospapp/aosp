@@ -19,7 +19,7 @@ core.workflow(
         ],
     ),
     destination = git.gerrit_destination(
-        url = "rpc://android-review.googlesource.com/platform/external/desugar",
+        url = "sso://android/platform/external/desugar",
         fetch = "upstream-master",
         push_to_refs_for = "upstream-master",
     ),
@@ -28,7 +28,10 @@ core.workflow(
     transformations = [
         core.verify_match(
             regex = "Licensed under the Apache License, Version 2.0",
-            paths = glob(["**"]),
+            paths = glob(["**"], exclude = [
+                "src/test/java/com/google/devtools/build/android/desugar/**.txt",
+                "src/test/java/com/google/devtools/build/android/desugar/**.jar"
+                ]),
         ),
         core.move("src/tools/android", ""),
         core.move("src/main", ""),

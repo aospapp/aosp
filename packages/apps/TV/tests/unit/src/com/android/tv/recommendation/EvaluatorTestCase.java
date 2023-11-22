@@ -20,19 +20,15 @@ import static android.support.test.InstrumentationRegistry.getContext;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.android.tv.data.Channel;
+import com.android.tv.data.api.Channel;
 import com.android.tv.recommendation.RecommendationUtils.ChannelRecordSortedMapHelper;
 import com.android.tv.recommendation.Recommender.Evaluator;
-import com.android.tv.testing.Utils;
-
-import org.junit.Before;
-
+import com.android.tv.testing.utils.Utils;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.Before;
 
-/**
- * Base test case for Recommendation Evaluator Unit tests.
- */
+/** Base test case for Recommendation Evaluator Unit tests. */
 public abstract class EvaluatorTestCase<T extends Evaluator> {
     private static final long INVALID_CHANNEL_ID = -1;
 
@@ -46,8 +42,8 @@ public abstract class EvaluatorTestCase<T extends Evaluator> {
     @Before
     public void setUp() {
         mChannelRecordSortedMap = new ChannelRecordSortedMapHelper(getContext());
-        mDataManager = RecommendationUtils
-                .createMockRecommendationDataManager(mChannelRecordSortedMap);
+        mDataManager =
+                RecommendationUtils.createMockRecommendationDataManager(mChannelRecordSortedMap);
         Recommender mRecommender = new FakeRecommender();
         mEvaluator = createEvaluator();
         mEvaluator.setRecommender(mRecommender);
@@ -55,9 +51,7 @@ public abstract class EvaluatorTestCase<T extends Evaluator> {
         mChannelRecordSortedMap.resetRandom(Utils.createTestRandom());
     }
 
-    /**
-     * Each evaluator test has to create Evaluator in {@code mEvaluator}.
-     */
+    /** Each evaluator test has to create Evaluator in {@code mEvaluator}. */
     public abstract T createEvaluator();
 
     public void addChannels(int numberOfChannels) {
@@ -68,15 +62,16 @@ public abstract class EvaluatorTestCase<T extends Evaluator> {
         return mChannelRecordSortedMap.addChannel();
     }
 
-    public void addRandomWatchLogs(long watchStartTimeMs, long watchEndTimeMs,
-            long maxWatchDurationMs) {
-        assertTrue(mChannelRecordSortedMap.addRandomWatchLogs(watchStartTimeMs, watchEndTimeMs,
-                maxWatchDurationMs));
+    public void addRandomWatchLogs(
+            long watchStartTimeMs, long watchEndTimeMs, long maxWatchDurationMs) {
+        assertTrue(
+                mChannelRecordSortedMap.addRandomWatchLogs(
+                        watchStartTimeMs, watchEndTimeMs, maxWatchDurationMs));
     }
 
     public void addWatchLog(long channelId, long watchStartTimeMs, long durationTimeMs) {
-        assertTrue(mChannelRecordSortedMap.addWatchLog(channelId, watchStartTimeMs,
-                durationTimeMs));
+        assertTrue(
+                mChannelRecordSortedMap.addWatchLog(channelId, watchStartTimeMs, durationTimeMs));
     }
 
     public List<Long> getChannelIdListSorted() {
@@ -86,31 +81,29 @@ public abstract class EvaluatorTestCase<T extends Evaluator> {
     public long getLatestWatchEndTimeMs() {
         long latestWatchEndTimeMs = 0;
         for (ChannelRecord channelRecord : mChannelRecordSortedMap.values()) {
-            latestWatchEndTimeMs = Math.max(latestWatchEndTimeMs,
-                    channelRecord.getLastWatchEndTimeMs());
+            latestWatchEndTimeMs =
+                    Math.max(latestWatchEndTimeMs, channelRecord.getLastWatchEndTimeMs());
         }
         return latestWatchEndTimeMs;
     }
 
-    /**
-     * Check whether scores of each channels are valid.
-     */
+    /** Check whether scores of each channels are valid. */
     protected void assertChannelScoresValid() {
-        assertEqualScores(Evaluator.NOT_RECOMMENDED,
-                mEvaluator.evaluateChannel(INVALID_CHANNEL_ID));
-        assertEqualScores(Evaluator.NOT_RECOMMENDED,
+        assertEqualScores(
+                Evaluator.NOT_RECOMMENDED, mEvaluator.evaluateChannel(INVALID_CHANNEL_ID));
+        assertEqualScores(
+                Evaluator.NOT_RECOMMENDED,
                 mEvaluator.evaluateChannel(mChannelRecordSortedMap.size()));
 
         for (long channelId : mChannelRecordSortedMap.keySet()) {
             double score = mEvaluator.evaluateChannel(channelId);
-            assertTrue("Channel " + channelId + " score of " + score + "is not valid",
+            assertTrue(
+                    "Channel " + channelId + " score of " + score + "is not valid",
                     score == Evaluator.NOT_RECOMMENDED || (0.0 <= score && score <= 1.0));
         }
     }
 
-    /**
-     * Notify that loading channels and watch logs are finished.
-     */
+    /** Notify that loading channels and watch logs are finished. */
     protected void notifyChannelAndWatchLogLoaded() {
         mEvaluator.onChannelRecordListChanged(new ArrayList<>(mChannelRecordSortedMap.values()));
     }
@@ -125,15 +118,16 @@ public abstract class EvaluatorTestCase<T extends Evaluator> {
 
     private class FakeRecommender extends Recommender {
         public FakeRecommender() {
-            super(new Recommender.Listener() {
-                @Override
-                public void onRecommenderReady() {
-                }
+            super(
+                    new Recommender.Listener() {
+                        @Override
+                        public void onRecommenderReady() {}
 
-                @Override
-                public void onRecommendationChanged() {
-                }
-            }, true, mDataManager);
+                        @Override
+                        public void onRecommendationChanged() {}
+                    },
+                    true,
+                    mDataManager);
         }
 
         @Override

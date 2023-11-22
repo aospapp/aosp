@@ -66,6 +66,7 @@ import com.android.internal.telephony.CallerInfo;
 
 import java.lang.Override;
 import java.lang.String;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -134,7 +135,7 @@ public class MissedCallNotifierImpl extends CallsManagerListenerBase implements 
     // Used to track the number of missed calls.
     private ConcurrentMap<UserHandle, AtomicInteger> mMissedCallCounts;
 
-    private UserHandle userToLoadAfterBootComplete;
+    private List<UserHandle> mUsersToLoadAfterBootComplete = new ArrayList<>();
 
     public MissedCallNotifierImpl(Context context, PhoneAccountRegistrar phoneAccountRegistrar,
             DefaultDialerCache defaultDialerCache) {
@@ -271,7 +272,7 @@ public class MissedCallNotifierImpl extends CallsManagerListenerBase implements 
     }
 
     private void showMissedCallNotification(@NonNull CallInfo callInfo, UserHandle userHandle) {
-        Log.i(this, "showMissedCallNotification()");
+        Log.i(this, "showMissedCallNotification: userHandle=%d", userHandle.getIdentifier());
         mMissedCallCounts.putIfAbsent(userHandle, new AtomicInteger(0));
         int missCallCounts = mMissedCallCounts.get(userHandle).incrementAndGet();
 
@@ -517,7 +518,7 @@ public class MissedCallNotifierImpl extends CallsManagerListenerBase implements 
             UserHandle userHandle) {
         Intent intent = new Intent(action, data, mContext, TelecomBroadcastReceiver.class);
         intent.putExtra(TelecomBroadcastIntentProcessor.EXTRA_USERHANDLE, userHandle);
-        return PendingIntent.getBroadcast(mContext, 0, intent, PendingIntent.FLAG_CANCEL_CURRENT);
+        return PendingIntent.getBroadcast(mContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
     /**
@@ -537,10 +538,14 @@ public class MissedCallNotifierImpl extends CallsManagerListenerBase implements 
     @Override
     public void reloadAfterBootComplete(final CallerInfoLookupHelper callerInfoLookupHelper,
             CallInfoFactory callInfoFactory) {
-        if (userToLoadAfterBootComplete != null) {
-            reloadFromDatabase(callerInfoLookupHelper,
-                    callInfoFactory, userToLoadAfterBootComplete);
-            userToLoadAfterBootComplete = null;
+        if (!mUsersToLoadAfterBootComplete.isEmpty()) {
+            for (UserHandle handle : mUsersToLoadAfterBootComplete) {
+                Log.i(this, "reloadAfterBootComplete: user=%d", handle.getIdentifier());
+                reloadFromDatabase(callerInfoLookupHelper, callInfoFactory, handle);
+            }
+            mUsersToLoadAfterBootComplete.clear();
+        } else {
+            Log.i(this, "reloadAfterBootComplete: no user(s) to check; skipping reload.");
         }
     }
     /**
@@ -549,11 +554,12 @@ public class MissedCallNotifierImpl extends CallsManagerListenerBase implements 
     @Override
     public void reloadFromDatabase(final CallerInfoLookupHelper callerInfoLookupHelper,
             CallInfoFactory callInfoFactory, final UserHandle userHandle) {
-        Log.d(this, "reloadFromDatabase()...");
+        Log.d(this, "reloadFromDatabase: user=%d", userHandle.getIdentifier());
         if (TelecomSystem.getInstance() == null || !TelecomSystem.getInstance().isBootComplete()) {
-            Log.i(this, "Boot not yet complete -- call log db may not be available. Deferring " +
-                    "loading until boot complete.");
-            userToLoadAfterBootComplete = userHandle;
+            Log.i(this, "reloadFromDatabase: Boot not yet complete -- call log db may not be "
+                    + "available. Deferring loading until boot complete for user %d",
+                    userHandle.getIdentifier());
+            mUsersToLoadAfterBootComplete.add(userHandle);
             return;
         }
 
@@ -577,6 +583,7 @@ public class MissedCallNotifierImpl extends CallsManagerListenerBase implements 
                                     || TextUtils.isEmpty(handleString)) {
                                 handle = null;
                             } else {
+                                // TODO: Remove the assumption that numbers are SIP or TEL only.
                                 handle = Uri.fromParts(PhoneNumberUtils.isUriNumber(handleString) ?
                                         PhoneAccount.SCHEME_SIP : PhoneAccount.SCHEME_TEL,
                                                 handleString, null);

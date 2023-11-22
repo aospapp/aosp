@@ -15,7 +15,9 @@
  */
 package com.android.tradefed.sandbox;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.doReturn;
 
 import com.android.tradefed.config.ConfigurationException;
@@ -25,6 +27,7 @@ import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,15 +41,23 @@ import java.io.File;
 public class SandboxConfigUtilTest {
 
     private IRunUtil mMockRunUtil;
+    private File mTmpRootDir;
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         mMockRunUtil = Mockito.mock(IRunUtil.class);
+        mTmpRootDir = FileUtil.createTempDir("sandbox-config-util-test");
+        FileUtil.createTempFile("fakejar", ".jar", mTmpRootDir);
+    }
+
+    @After
+    public void tearDown() {
+        FileUtil.recursiveDelete(mTmpRootDir);
     }
 
     /**
      * Test {@link com.android.tradefed.sandbox.SandboxConfigUtil#dumpConfigForVersion(File,
-     * IRunUtil, String[], DumpCmd)} for a success case when the command returns a valid file.
+     * IRunUtil, String[], DumpCmd, File)} for a success case when the command returns a valid file.
      */
     @Test
     public void testDumpVersion() throws Exception {
@@ -57,7 +68,11 @@ public class SandboxConfigUtilTest {
         try {
             res =
                     SandboxConfigUtil.dumpConfigForVersion(
-                            new File(""), mMockRunUtil, new String[] {"empty"}, DumpCmd.FULL_XML);
+                            mTmpRootDir,
+                            mMockRunUtil,
+                            new String[] {"empty"},
+                            DumpCmd.FULL_XML,
+                            null);
             assertNotNull(res);
         } finally {
             FileUtil.deleteFile(res);
@@ -66,7 +81,7 @@ public class SandboxConfigUtilTest {
 
     /**
      * Test {@link com.android.tradefed.sandbox.SandboxConfigUtil#dumpConfigForVersion(File,
-     * IRunUtil, String[], DumpCmd)} for a failure case, the command throws an exception.
+     * IRunUtil, String[], DumpCmd, File)} for a failure case, the command throws an exception.
      */
     @Test
     public void testDumpVersion_failed() throws Exception {
@@ -76,10 +91,24 @@ public class SandboxConfigUtilTest {
         doReturn(result).when(mMockRunUtil).runTimedCmd(Mockito.anyLong(), Mockito.any());
         try {
             SandboxConfigUtil.dumpConfigForVersion(
-                    new File(""), mMockRunUtil, new String[] {"empty"}, DumpCmd.FULL_XML);
+                    mTmpRootDir, mMockRunUtil, new String[] {"empty"}, DumpCmd.FULL_XML, null);
             fail("Should have thrown an exception.");
         } catch (ConfigurationException expected) {
             assertEquals("Ouch I failed", expected.getMessage());
+        }
+    }
+
+    /** If the classpath is empty, expect a dedicated exception to notify it. */
+    @Test
+    public void testDumpVersion_badClasspath() throws Exception {
+        try {
+            SandboxConfigUtil.dumpConfigForVersion(
+                    "", mMockRunUtil, new String[] {"empty"}, DumpCmd.FULL_XML, null);
+            fail("Should have thrown an exception.");
+        } catch (SandboxConfigurationException expected) {
+            assertEquals(
+                    "Something went wrong with the sandbox setup, classpath was empty.",
+                    expected.getMessage());
         }
     }
 }

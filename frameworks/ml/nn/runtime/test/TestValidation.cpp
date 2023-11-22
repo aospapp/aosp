@@ -15,10 +15,12 @@
  */
 
 #include "NeuralNetworks.h"
+#include "NeuralNetworksOEM.h"
 
-//#include <android-base/logging.h>
+#include <android/sharedmem.h>
 #include <gtest/gtest.h>
 #include <string>
+#include <sys/mman.h>
 
 
 // This file tests all the validations done by the Neural Networks API.
@@ -42,6 +44,32 @@ protected:
     ANeuralNetworksModel* mModel = nullptr;
 };
 
+class ValidationTestIdentify : public ValidationTestModel {
+    virtual void SetUp() {
+        ValidationTestModel::SetUp();
+
+        uint32_t dimensions[]{1};
+        ANeuralNetworksOperandType tensorType{.type = ANEURALNETWORKS_TENSOR_FLOAT32,
+                                              .dimensionCount = 1,
+                                              .dimensions = dimensions};
+        ANeuralNetworksOperandType scalarType{.type = ANEURALNETWORKS_INT32,
+                                              .dimensionCount = 0,
+                                              .dimensions = nullptr};
+        ASSERT_EQ(ANeuralNetworksModel_addOperand(mModel, &tensorType), ANEURALNETWORKS_NO_ERROR);
+        ASSERT_EQ(ANeuralNetworksModel_addOperand(mModel, &tensorType), ANEURALNETWORKS_NO_ERROR);
+        ASSERT_EQ(ANeuralNetworksModel_addOperand(mModel, &scalarType), ANEURALNETWORKS_NO_ERROR);
+        ASSERT_EQ(ANeuralNetworksModel_addOperand(mModel, &tensorType), ANEURALNETWORKS_NO_ERROR);
+        uint32_t inList[3]{0, 1, 2};
+        uint32_t outList[1]{3};
+        ASSERT_EQ(ANeuralNetworksModel_addOperation(mModel, ANEURALNETWORKS_ADD, 3, inList, 1,
+                                                    outList),
+                  ANEURALNETWORKS_NO_ERROR);
+    }
+    virtual void TearDown() {
+        ValidationTestModel::TearDown();
+    }
+};
+
 class ValidationTestCompilation : public ValidationTestModel {
 protected:
     virtual void SetUp() {
@@ -51,13 +79,20 @@ protected:
         ANeuralNetworksOperandType tensorType{.type = ANEURALNETWORKS_TENSOR_FLOAT32,
                                               .dimensionCount = 1,
                                               .dimensions = dimensions};
+        ANeuralNetworksOperandType scalarType{.type = ANEURALNETWORKS_INT32,
+                                              .dimensionCount = 0,
+                                              .dimensions = nullptr};
+
         ASSERT_EQ(ANeuralNetworksModel_addOperand(mModel, &tensorType), ANEURALNETWORKS_NO_ERROR);
         ASSERT_EQ(ANeuralNetworksModel_addOperand(mModel, &tensorType), ANEURALNETWORKS_NO_ERROR);
+        ASSERT_EQ(ANeuralNetworksModel_addOperand(mModel, &scalarType), ANEURALNETWORKS_NO_ERROR);
         ASSERT_EQ(ANeuralNetworksModel_addOperand(mModel, &tensorType), ANEURALNETWORKS_NO_ERROR);
-        uint32_t inList[2]{0, 1};
-        uint32_t outList[1]{2};
-        ASSERT_EQ(ANeuralNetworksModel_addOperation(mModel, ANEURALNETWORKS_ADD, 2, inList, 1,
+        uint32_t inList[3]{0, 1, 2};
+        uint32_t outList[1]{3};
+        ASSERT_EQ(ANeuralNetworksModel_addOperation(mModel, ANEURALNETWORKS_ADD, 3, inList, 1,
                                                     outList),
+                  ANEURALNETWORKS_NO_ERROR);
+        ASSERT_EQ(ANeuralNetworksModel_identifyInputsAndOutputs(mModel, 3, inList, 1, outList),
                   ANEURALNETWORKS_NO_ERROR);
         ASSERT_EQ(ANeuralNetworksModel_finish(mModel), ANEURALNETWORKS_NO_ERROR);
 
@@ -98,7 +133,52 @@ TEST_F(ValidationTestModel, AddOperand) {
     EXPECT_EQ(ANeuralNetworksModel_addOperand(nullptr, &floatType),
               ANEURALNETWORKS_UNEXPECTED_NULL);
     EXPECT_EQ(ANeuralNetworksModel_addOperand(mModel, nullptr), ANEURALNETWORKS_UNEXPECTED_NULL);
-    // TODO more types,
+
+    ANeuralNetworksOperandType quant8TypeInvalidScale{
+                .type = ANEURALNETWORKS_TENSOR_QUANT8_ASYMM,
+                .dimensionCount = 0,
+                .dimensions = nullptr,
+                // Scale has to be non-negative
+                .scale = -1.0f,
+                .zeroPoint = 0,
+              };
+    EXPECT_EQ(ANeuralNetworksModel_addOperand(mModel, &quant8TypeInvalidScale),
+              ANEURALNETWORKS_BAD_DATA);
+
+    ANeuralNetworksOperandType quant8TypeInvalidZeroPoint{
+                .type = ANEURALNETWORKS_TENSOR_QUANT8_ASYMM,
+                .dimensionCount = 0,
+                .dimensions = nullptr,
+                .scale = 1.0f,
+                // zeroPoint has to be in [0, 255]
+                .zeroPoint = -1,
+              };
+    EXPECT_EQ(ANeuralNetworksModel_addOperand(mModel, &quant8TypeInvalidZeroPoint),
+              ANEURALNETWORKS_BAD_DATA);
+
+    uint32_t dim = 2;
+    ANeuralNetworksOperandType invalidScalarType{
+                .type = ANEURALNETWORKS_INT32,
+                // scalar types can only 0 dimensions.
+                .dimensionCount = 1,
+                .dimensions = &dim,
+              };
+    EXPECT_EQ(ANeuralNetworksModel_addOperand(mModel, &invalidScalarType),
+              ANEURALNETWORKS_BAD_DATA);
+
+    ANeuralNetworksModel_finish(mModel);
+    // This should fail, as the model is already finished.
+    EXPECT_EQ(ANeuralNetworksModel_addOperand(mModel, &floatType),
+              ANEURALNETWORKS_BAD_STATE);
+}
+
+TEST_F(ValidationTestModel, SetOptionalOperand) {
+    ANeuralNetworksOperandType floatType{
+                .type = ANEURALNETWORKS_FLOAT32, .dimensionCount = 0, .dimensions = nullptr};
+    EXPECT_EQ(ANeuralNetworksModel_addOperand(mModel, &floatType), ANEURALNETWORKS_NO_ERROR);
+
+    EXPECT_EQ(ANeuralNetworksModel_setOperandValue(mModel, 0, nullptr, 0),
+              ANEURALNETWORKS_NO_ERROR);
 }
 
 TEST_F(ValidationTestModel, SetOperandValue) {
@@ -116,12 +196,101 @@ TEST_F(ValidationTestModel, SetOperandValue) {
     EXPECT_EQ(ANeuralNetworksModel_setOperandValue(mModel, 0, buffer, sizeof(buffer)),
               ANEURALNETWORKS_BAD_DATA);
 
-    // This should fail, as this operand does not exist.
-    EXPECT_EQ(ANeuralNetworksModel_setOperandValue(mModel, 1, buffer, 4), ANEURALNETWORKS_BAD_DATA);
+    // This should succeed.
+    EXPECT_EQ(ANeuralNetworksModel_setOperandValue(mModel, 0, buffer, sizeof(float)),
+              ANEURALNETWORKS_NO_ERROR);
 
-    // TODO lots of validation of type
-    // EXPECT_EQ(ANeuralNetworksModel_setOperandValue(mModel, 0, buffer,
-    // sizeof(buffer)), ANEURALNETWORKS_UNEXPECTED_NULL);
+    // This should fail, as this operand does not exist.
+    EXPECT_EQ(ANeuralNetworksModel_setOperandValue(mModel, 1, buffer, sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
+
+    ANeuralNetworksModel_finish(mModel);
+    // This should fail, as the model is already finished.
+    EXPECT_EQ(ANeuralNetworksModel_setOperandValue(mModel, 0, buffer, sizeof(float)),
+              ANEURALNETWORKS_BAD_STATE);
+}
+
+TEST_F(ValidationTestModel, SetOperandValueFromMemory) {
+    uint32_t dimensions[]{1};
+    ANeuralNetworksOperandType floatType{
+                .type = ANEURALNETWORKS_TENSOR_FLOAT32,
+                .dimensionCount = 1,
+                .dimensions = dimensions};
+    EXPECT_EQ(ANeuralNetworksModel_addOperand(mModel, &floatType), ANEURALNETWORKS_NO_ERROR);
+
+    const size_t memorySize = 20;
+    int memoryFd = ASharedMemory_create("nnMemory", memorySize);
+    ASSERT_GT(memoryFd, 0);
+
+    ANeuralNetworksMemory* memory;
+    EXPECT_EQ(ANeuralNetworksMemory_createFromFd(memorySize, PROT_READ | PROT_WRITE,
+                                                 memoryFd, 0, &memory),
+              ANEURALNETWORKS_NO_ERROR);
+
+    EXPECT_EQ(ANeuralNetworksModel_setOperandValueFromMemory(nullptr, 0,
+                                                             memory, 0, sizeof(float)),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+    EXPECT_EQ(ANeuralNetworksModel_setOperandValueFromMemory(mModel, 0,
+                                                             nullptr, 0, sizeof(float)),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+
+    // This should fail, since the operand does not exist.
+    EXPECT_EQ(ANeuralNetworksModel_setOperandValueFromMemory(mModel, -1,
+                                                             memory, 0, sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, since memory is not the size of a float32.
+    EXPECT_EQ(ANeuralNetworksModel_setOperandValueFromMemory(mModel, 0,
+                                                             memory, 0, memorySize),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, as this operand does not exist.
+    EXPECT_EQ(ANeuralNetworksModel_setOperandValueFromMemory(mModel, 1,
+                                                             memory, 0, sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, since offset is larger than memorySize.
+    EXPECT_EQ(ANeuralNetworksModel_setOperandValueFromMemory(mModel, 0,
+                                                             memory, memorySize + 1,
+                                                             sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, since requested size is larger than the memory.
+    EXPECT_EQ(ANeuralNetworksModel_setOperandValueFromMemory(mModel, 0,
+                                                             memory, memorySize - 3,
+                                                             sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
+
+    ANeuralNetworksModel_finish(mModel);
+    // This should fail, as the model is already finished.
+    EXPECT_EQ(ANeuralNetworksModel_setOperandValueFromMemory(mModel, 0,
+                                                             memory, 0,
+                                                             sizeof(float)),
+              ANEURALNETWORKS_BAD_STATE);
+}
+
+
+TEST_F(ValidationTestModel, AddOEMOperand) {
+    ANeuralNetworksOperandType OEMScalarType{
+                .type = ANEURALNETWORKS_OEM_SCALAR, .dimensionCount = 0, .dimensions = nullptr};
+    EXPECT_EQ(ANeuralNetworksModel_addOperand(mModel, &OEMScalarType), ANEURALNETWORKS_NO_ERROR);
+    char buffer[20];
+    EXPECT_EQ(ANeuralNetworksModel_setOperandValue(mModel, 0, buffer, sizeof(buffer)),
+              ANEURALNETWORKS_NO_ERROR);
+
+    const size_t kByteSizeOfOEMTensor = 4;
+    uint32_t dimensions[]{kByteSizeOfOEMTensor};
+    ANeuralNetworksOperandType OEMTensorType{
+                .type = ANEURALNETWORKS_TENSOR_OEM_BYTE,
+                .dimensionCount = 1,
+                .dimensions = dimensions};
+    EXPECT_EQ(ANeuralNetworksModel_addOperand(mModel, &OEMTensorType), ANEURALNETWORKS_NO_ERROR);
+    EXPECT_EQ(ANeuralNetworksModel_setOperandValue(mModel, 1, buffer, kByteSizeOfOEMTensor),
+              ANEURALNETWORKS_NO_ERROR);
+
+    ANeuralNetworksModel_finish(mModel);
+    // This should fail, as the model is already finished.
+    EXPECT_EQ(ANeuralNetworksModel_addOperand(mModel, &OEMTensorType), ANEURALNETWORKS_BAD_STATE);
 }
 
 TEST_F(ValidationTestModel, AddOperation) {
@@ -136,13 +305,20 @@ TEST_F(ValidationTestModel, AddOperation) {
     EXPECT_EQ(ANeuralNetworksModel_addOperation(mModel, ANEURALNETWORKS_AVERAGE_POOL_2D, 1, &input,
                                                 0, nullptr),
               ANEURALNETWORKS_UNEXPECTED_NULL);
-    // EXPECT_EQ(ANeuralNetworksModel_addOperation(mModel,
-    // ANEURALNETWORKS_AVERAGE_POOL_2D, &inputs,
-    //                                            &outputs),
-    //          ANEURALNETWORKS_UNEXPECTED_NULL);
+
+    ANeuralNetworksOperationType invalidOp = -1;
+    EXPECT_EQ(ANeuralNetworksModel_addOperation(mModel, invalidOp, 1, &input,
+                                                1, &output),
+              ANEURALNETWORKS_BAD_DATA);
+
+    ANeuralNetworksModel_finish(mModel);
+    // This should fail, as the model is already finished.
+    EXPECT_EQ(ANeuralNetworksModel_addOperation(mModel, ANEURALNETWORKS_AVERAGE_POOL_2D, 1, &input,
+                                                1, &output),
+              ANEURALNETWORKS_BAD_STATE);
 }
 
-TEST_F(ValidationTestModel, SetInputsAndOutputs) {
+TEST_F(ValidationTestModel, IdentifyInputsAndOutputs) {
     uint32_t input = 0;
     uint32_t output = 0;
     EXPECT_EQ(ANeuralNetworksModel_identifyInputsAndOutputs(nullptr, 1, &input, 1, &output),
@@ -151,6 +327,23 @@ TEST_F(ValidationTestModel, SetInputsAndOutputs) {
               ANEURALNETWORKS_UNEXPECTED_NULL);
     EXPECT_EQ(ANeuralNetworksModel_identifyInputsAndOutputs(mModel, 1, &input, 0, nullptr),
               ANEURALNETWORKS_UNEXPECTED_NULL);
+
+    ANeuralNetworksModel_finish(mModel);
+    // This should fail, as the model is already finished.
+    EXPECT_EQ(ANeuralNetworksModel_identifyInputsAndOutputs(mModel, 1, &input, 1, &output),
+              ANEURALNETWORKS_BAD_STATE);
+}
+
+TEST_F(ValidationTestModel, RelaxComputationFloat32toFloat16) {
+    EXPECT_EQ(ANeuralNetworksModel_relaxComputationFloat32toFloat16(nullptr, true),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+
+    ANeuralNetworksModel_finish(mModel);
+    // This should fail, as the model is already finished.
+    EXPECT_EQ(ANeuralNetworksModel_relaxComputationFloat32toFloat16(mModel, true),
+              ANEURALNETWORKS_BAD_STATE);
+    EXPECT_EQ(ANeuralNetworksModel_relaxComputationFloat32toFloat16(mModel, false),
+              ANEURALNETWORKS_BAD_STATE);
 }
 
 TEST_F(ValidationTestModel, Finish) {
@@ -165,10 +358,48 @@ TEST_F(ValidationTestModel, CreateCompilation) {
               ANEURALNETWORKS_UNEXPECTED_NULL);
     EXPECT_EQ(ANeuralNetworksCompilation_create(mModel, nullptr), ANEURALNETWORKS_UNEXPECTED_NULL);
     EXPECT_EQ(ANeuralNetworksCompilation_create(mModel, &compilation), ANEURALNETWORKS_BAD_STATE);
+}
 
-    // EXPECT_EQ(ANeuralNetworksCompilation_create(mModel, ANeuralNetworksCompilation *
-    // *compilation),
-    //          ANEURALNETWORKS_UNEXPECTED_NULL);
+TEST_F(ValidationTestIdentify, Ok) {
+    uint32_t inList[3]{0, 1, 2};
+    uint32_t outList[1]{3};
+
+    ASSERT_EQ(ANeuralNetworksModel_identifyInputsAndOutputs(mModel, 3, inList, 1, outList),
+              ANEURALNETWORKS_NO_ERROR);
+
+    ASSERT_EQ(ANeuralNetworksModel_finish(mModel), ANEURALNETWORKS_NO_ERROR);
+}
+
+TEST_F(ValidationTestIdentify, InputIsOutput) {
+    uint32_t inList[3]{0, 1, 2};
+    uint32_t outList[2]{3, 0};
+
+    ASSERT_EQ(ANeuralNetworksModel_identifyInputsAndOutputs(mModel, 3, inList, 2, outList),
+              ANEURALNETWORKS_BAD_DATA);
+}
+
+TEST_F(ValidationTestIdentify, OutputIsInput) {
+    uint32_t inList[4]{0, 1, 2, 3};
+    uint32_t outList[1]{3};
+
+    ASSERT_EQ(ANeuralNetworksModel_identifyInputsAndOutputs(mModel, 4, inList, 1, outList),
+              ANEURALNETWORKS_BAD_DATA);
+}
+
+TEST_F(ValidationTestIdentify, DuplicateInputs) {
+    uint32_t inList[4]{0, 1, 2, 0};
+    uint32_t outList[1]{3};
+
+    ASSERT_EQ(ANeuralNetworksModel_identifyInputsAndOutputs(mModel, 4, inList, 1, outList),
+              ANEURALNETWORKS_BAD_DATA);
+}
+
+TEST_F(ValidationTestIdentify, DuplicateOutputs) {
+    uint32_t inList[3]{0, 1, 2};
+    uint32_t outList[2]{3, 3};
+
+    ASSERT_EQ(ANeuralNetworksModel_identifyInputsAndOutputs(mModel, 3, inList, 2, outList),
+              ANEURALNETWORKS_BAD_DATA);
 }
 
 TEST_F(ValidationTestCompilation, SetPreference) {
@@ -186,9 +417,6 @@ TEST_F(ValidationTestCompilation, CreateExecution) {
               ANEURALNETWORKS_UNEXPECTED_NULL);
     EXPECT_EQ(ANeuralNetworksExecution_create(mCompilation, &execution),
               ANEURALNETWORKS_BAD_STATE);
-    // EXPECT_EQ(ANeuralNetworksExecution_create(mCompilation, ANeuralNetworksExecution *
-    // *execution),
-    //          ANEURALNETWORKS_UNEXPECTED_NULL);
 }
 
 TEST_F(ValidationTestCompilation, Finish) {
@@ -200,56 +428,156 @@ TEST_F(ValidationTestCompilation, Finish) {
     EXPECT_EQ(ANeuralNetworksCompilation_finish(mCompilation), ANEURALNETWORKS_BAD_STATE);
 }
 
-#if 0
-// TODO do more..
 TEST_F(ValidationTestExecution, SetInput) {
-    EXPECT_EQ(ANeuralNetworksExecution_setInput(ANeuralNetworksExecution * execution, int32_t index,
-                                                const ANeuralNetworksOperandType* type,
-                                                const void* buffer, size_t length),
-              ANEURALNETWORKS_UNEXPECTED_NULL);
-}
+    ANeuralNetworksExecution* execution;
+    EXPECT_EQ(ANeuralNetworksExecution_create(mCompilation, &execution), ANEURALNETWORKS_NO_ERROR);
 
-TEST_F(ValidationTestExecution, SetInputFromMemory) {
-    EXPECT_EQ(ANeuralNetworksExecution_setInputFromMemory(ANeuralNetworksExecution * execution,
-                                                          int32_t index,
-                                                          const ANeuralNetworksOperandType* type,
-                                                          const ANeuralNetworksMemory* buffer,
-                                                          uint32_t offset),
+    char buffer[20];
+    EXPECT_EQ(ANeuralNetworksExecution_setInput(nullptr, 0, nullptr, buffer, sizeof(float)),
               ANEURALNETWORKS_UNEXPECTED_NULL);
+    EXPECT_EQ(ANeuralNetworksExecution_setInput(execution, 0, nullptr, nullptr, sizeof(float)),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+
+    // This should fail, since memory is not the size of a float32.
+    EXPECT_EQ(ANeuralNetworksExecution_setInput(execution, 0, nullptr, buffer, 20),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, as this operand does not exist.
+    EXPECT_EQ(ANeuralNetworksExecution_setInput(execution, 999, nullptr, buffer, sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, as this operand does not exist.
+    EXPECT_EQ(ANeuralNetworksExecution_setInput(execution, -1, nullptr, buffer, sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
 }
 
 TEST_F(ValidationTestExecution, SetOutput) {
-    EXPECT_EQ(ANeuralNetworksExecution_setOutput(ANeuralNetworksExecution * execution,
-                                                 int32_t index,
-                                                 const ANeuralNetworksOperandType* type,
-                                                 void* buffer, size_t length),
+    ANeuralNetworksExecution* execution;
+    EXPECT_EQ(ANeuralNetworksExecution_create(mCompilation, &execution), ANEURALNETWORKS_NO_ERROR);
+
+    char buffer[20];
+    EXPECT_EQ(ANeuralNetworksExecution_setOutput(nullptr, 0, nullptr, buffer, sizeof(float)),
               ANEURALNETWORKS_UNEXPECTED_NULL);
+    EXPECT_EQ(ANeuralNetworksExecution_setOutput(execution, 0, nullptr, nullptr, sizeof(float)),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+
+    // This should fail, since memory is not the size of a float32.
+    EXPECT_EQ(ANeuralNetworksExecution_setOutput(execution, 0, nullptr, buffer, 20),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, as this operand does not exist.
+    EXPECT_EQ(ANeuralNetworksExecution_setOutput(execution, 999, nullptr, buffer, sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, as this operand does not exist.
+    EXPECT_EQ(ANeuralNetworksExecution_setOutput(execution, -1, nullptr, buffer, sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
+}
+
+TEST_F(ValidationTestExecution, SetInputFromMemory) {
+    ANeuralNetworksExecution* execution;
+    EXPECT_EQ(ANeuralNetworksExecution_create(mCompilation, &execution), ANEURALNETWORKS_NO_ERROR);
+
+    const size_t memorySize = 20;
+    int memoryFd = ASharedMemory_create("nnMemory", memorySize);
+    ASSERT_GT(memoryFd, 0);
+
+    ANeuralNetworksMemory* memory;
+    EXPECT_EQ(ANeuralNetworksMemory_createFromFd(memorySize, PROT_READ | PROT_WRITE,
+                                                 memoryFd, 0, &memory),
+              ANEURALNETWORKS_NO_ERROR);
+
+    EXPECT_EQ(ANeuralNetworksExecution_setInputFromMemory(nullptr, 0, nullptr,
+                                                          memory, 0, sizeof(float)),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+    EXPECT_EQ(ANeuralNetworksExecution_setInputFromMemory(execution, 0, nullptr,
+                                                          nullptr, 0, sizeof(float)),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+
+    // This should fail, since the operand does not exist.
+    EXPECT_EQ(ANeuralNetworksExecution_setInputFromMemory(execution, 999, nullptr,
+                                                          memory, 0, sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, since the operand does not exist.
+    EXPECT_EQ(ANeuralNetworksExecution_setInputFromMemory(execution, -1, nullptr,
+                                                          memory, 0, sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, since memory is not the size of a float32.
+    EXPECT_EQ(ANeuralNetworksExecution_setInputFromMemory(execution, 0, nullptr,
+                                                          memory, 0, memorySize),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, since offset is larger than memorySize.
+    EXPECT_EQ(ANeuralNetworksExecution_setInputFromMemory(execution, 0, nullptr,
+                                                          memory, memorySize + 1, sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, since requested size is larger than the memory.
+    EXPECT_EQ(ANeuralNetworksExecution_setInputFromMemory(execution, 0, nullptr,
+                                                          memory, memorySize - 3, sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
 }
 
 TEST_F(ValidationTestExecution, SetOutputFromMemory) {
-    EXPECT_EQ(ANeuralNetworksExecution_setOutputFromMemory(ANeuralNetworksExecution * execution,
-                                                           int32_t index,
-                                                           const ANeuralNetworksOperandType* type,
-                                                           const ANeuralNetworksMemory* buffer,
-                                                           uint32_t offset),
+    ANeuralNetworksExecution* execution;
+    EXPECT_EQ(ANeuralNetworksExecution_create(mCompilation, &execution), ANEURALNETWORKS_NO_ERROR);
+
+    const size_t memorySize = 20;
+    int memoryFd = ASharedMemory_create("nnMemory", memorySize);
+    ASSERT_GT(memoryFd, 0);
+
+    ANeuralNetworksMemory* memory;
+    EXPECT_EQ(ANeuralNetworksMemory_createFromFd(memorySize, PROT_READ | PROT_WRITE,
+                                                 memoryFd, 0, &memory),
+              ANEURALNETWORKS_NO_ERROR);
+
+    EXPECT_EQ(ANeuralNetworksExecution_setOutputFromMemory(nullptr, 0, nullptr,
+                                                           memory, 0, sizeof(float)),
               ANEURALNETWORKS_UNEXPECTED_NULL);
+    EXPECT_EQ(ANeuralNetworksExecution_setOutputFromMemory(execution, 0, nullptr,
+                                                           nullptr, 0, sizeof(float)),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+
+    // This should fail, since the operand does not exist.
+    EXPECT_EQ(ANeuralNetworksExecution_setOutputFromMemory(execution, 999, nullptr,
+                                                           memory, 0, sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, since the operand does not exist.
+    EXPECT_EQ(ANeuralNetworksExecution_setOutputFromMemory(execution, -1, nullptr,
+                                                           memory, 0, sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, since memory is not the size of a float32.
+    EXPECT_EQ(ANeuralNetworksExecution_setOutputFromMemory(execution, 0, nullptr,
+                                                           memory, 0, memorySize),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, since offset is larger than memorySize.
+    EXPECT_EQ(ANeuralNetworksExecution_setOutputFromMemory(execution, 0, nullptr,
+                                                           memory, memorySize + 1, sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // This should fail, since requested size is larger than the memory.
+    EXPECT_EQ(ANeuralNetworksExecution_setOutputFromMemory(execution, 0, nullptr,
+                                                           memory, memorySize - 3, sizeof(float)),
+              ANEURALNETWORKS_BAD_DATA);
 }
 
 TEST_F(ValidationTestExecution, StartCompute) {
-    EXPECT_EQ(ANeuralNetworksExecution_startCompute(ANeuralNetworksExecution * execution,
-                                                    ANeuralNetworksEvent * *event),
+    ANeuralNetworksExecution* execution;
+    EXPECT_EQ(ANeuralNetworksExecution_create(mCompilation, &execution), ANEURALNETWORKS_NO_ERROR);
+
+    ANeuralNetworksEvent* event;
+    EXPECT_EQ(ANeuralNetworksExecution_startCompute(nullptr, &event),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+    EXPECT_EQ(ANeuralNetworksExecution_startCompute(execution, nullptr),
               ANEURALNETWORKS_UNEXPECTED_NULL);
 }
 
-TEST_F(ValidationTestEvent, Wait) {
-    EXPECT_EQ(ANeuralNetworksEvent_wait(ANeuralNetworksEvent * event),
-              ANEURALNETWORKS_UNEXPECTED_NULL);
+TEST_F(ValidationTestExecution, EventWait) {
+    EXPECT_EQ(ANeuralNetworksEvent_wait(nullptr), ANEURALNETWORKS_UNEXPECTED_NULL);
 }
-
-TEST_F(ValidationTestEvent, Free) {
-    EXPECT_EQ(d ANeuralNetworksEvent_free(ANeuralNetworksEvent * event),
-              ANEURALNETWORKS_UNEXPECTED_NULL);
-}
-#endif
-
 }  // namespace

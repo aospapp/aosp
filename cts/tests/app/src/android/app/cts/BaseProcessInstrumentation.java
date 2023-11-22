@@ -17,6 +17,7 @@
 package android.app.cts;
 
 import android.app.Activity;
+import android.app.Application;
 import android.app.Instrumentation;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -37,6 +38,11 @@ public class BaseProcessInstrumentation extends Instrumentation {
     public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
         final String proc = getProcessName();
+        final String appProc = Application.getProcessName();
+        if (!proc.equals(appProc)) {
+            throw new RuntimeException(String.format(
+                "getProcessName()s mismatch. Instr=%s App=%s", proc, appProc));
+        }
         //Log.i("xxx", "Instrumentation starting in " + proc);
         final Bundle result = new Bundle();
         result.putBoolean(proc, true);

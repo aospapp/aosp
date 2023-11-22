@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -148,10 +148,6 @@
 #ifndef ENC_VX_BUFFER_SIZE
 #define ENC_VX_BUFFER_SIZE (MINIMUM_ENC_VX_BUFFER_SIZE + 64)
 /*#define ENC_VX_BUFFER_SIZE MINIMUM_ENC_VX_BUFFER_SIZE + 1024*/
-#endif
-
-#ifndef SBC_FOR_EMBEDDED_LINUX
-#define SBC_FOR_EMBEDDED_LINUX FALSE
 #endif
 
 /*constants used for index calculation*/

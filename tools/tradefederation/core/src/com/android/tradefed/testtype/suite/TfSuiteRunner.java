@@ -22,7 +22,12 @@ import com.android.tradefed.config.ConfigurationUtil;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IConfigurationFactory;
 import com.android.tradefed.config.Option;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.targetprep.ITargetPreparer;
+import com.android.tradefed.targetprep.multi.IMultiTargetPreparer;
+import com.android.tradefed.testtype.IAbi;
+import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.DirectedGraph;
 import com.android.tradefed.util.StreamUtil;
@@ -37,6 +42,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Implementation of {@link ITestSuite} which will load tests from TF jars res/config/suite/
@@ -88,7 +94,7 @@ public class TfSuiteRunner extends ITestSuite {
         // We do not load config from environment, they should be inside the testsDir of the build
         // info.
         List<String> configs = configFactory.getConfigList(mSuitePrefix, false);
-
+        Set<IAbi> abis = null;
         if (getBuildInfo() instanceof IDeviceBuildInfo) {
             IDeviceBuildInfo deviceBuildInfo = (IDeviceBuildInfo) getBuildInfo();
             File testsDir = deviceBuildInfo.getTestsDir();
@@ -129,22 +135,47 @@ public class TfSuiteRunner extends ITestSuite {
                 IConfiguration testConfig =
                         configFactory.createConfigurationFromArgs(new String[]{configName});
                 if (testConfig.getConfigurationDescription().getSuiteTags().contains(mSuiteTag)) {
-                    // In case some sub-config are suite too, we expand them to avoid weirdness
-                    // of modules inside modules.
-                    if (parentConfig != null) {
-                        graph.addEdge(parentConfig, configName);
-                        if (!graph.isDag()) {
-                            CLog.e("%s", graph);
-                            throw new RuntimeException(
-                                    String.format(
-                                            "Circular configuration detected: %s has been included "
-                                                    + "several times.",
-                                            configName));
+                    // If this config supports running against different ABIs we need to queue up
+                    // multiple instances of this config.
+                    if (canRunMultipleAbis(testConfig)) {
+                        if (abis == null) {
+                            try {
+                                abis = getAbis(getDevice());
+                            } catch (DeviceNotAvailableException e) {
+                                throw new RuntimeException(e);
+                            }
                         }
+                        for (IAbi abi : abis) {
+                            testConfig =
+                                    configFactory.createConfigurationFromArgs(
+                                            new String[] {configName});
+                            String configNameAbi = abi.getName() + " " + configName;
+                            for (IRemoteTest test : testConfig.getTests()) {
+                                if (test instanceof IAbiReceiver) {
+                                    ((IAbiReceiver) test).setAbi(abi);
+                                }
+                            }
+                            for (ITargetPreparer preparer : testConfig.getTargetPreparers()) {
+                                if (preparer instanceof IAbiReceiver) {
+                                    ((IAbiReceiver) preparer).setAbi(abi);
+                                }
+                            }
+                            for (IMultiTargetPreparer preparer :
+                                    testConfig.getMultiTargetPreparers()) {
+                                if (preparer instanceof IAbiReceiver) {
+                                    ((IAbiReceiver) preparer).setAbi(abi);
+                                }
+                            }
+                            LinkedHashMap<String, IConfiguration> expandedConfig =
+                                    expandTestSuites(
+                                            configNameAbi, testConfig, parentConfig, graph);
+                            configMap.putAll(expandedConfig);
+                        }
+                    } else {
+                        LinkedHashMap<String, IConfiguration> expandedConfig =
+                                expandTestSuites(configName, testConfig, parentConfig, graph);
+                        configMap.putAll(expandedConfig);
                     }
-                    LinkedHashMap<String, IConfiguration> expandedConfig =
-                            expandTestSuites(configName, testConfig, graph);
-                    configMap.putAll(expandedConfig);
                 }
             } catch (ConfigurationException | NoClassDefFoundError e) {
                 // Do not print the stack it's too verbose.
@@ -154,15 +185,52 @@ public class TfSuiteRunner extends ITestSuite {
         return configMap;
     }
 
+    /** Helper to determine if a test configuration can be ran against multiple ABIs. */
+    private boolean canRunMultipleAbis(IConfiguration testConfig) {
+        for (IRemoteTest test : testConfig.getTests()) {
+            if (test instanceof IAbiReceiver) {
+                return true;
+            }
+        }
+        for (ITargetPreparer preparer : testConfig.getTargetPreparers()) {
+            if (preparer instanceof IAbiReceiver) {
+                return true;
+            }
+        }
+        for (IMultiTargetPreparer preparer : testConfig.getMultiTargetPreparers()) {
+            if (preparer instanceof IAbiReceiver) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * Helper to expand all TfSuiteRunner included in sub-configuration. Avoid having module inside
-     * module if a suite is ran as part of another suite.
+     * module if a suite is ran as part of another suite. Verifies against circular suite
+     * dependencies.
      */
     private LinkedHashMap<String, IConfiguration> expandTestSuites(
-            String configName, IConfiguration config, DirectedGraph<String> graph) {
+            String configName,
+            IConfiguration config,
+            String parentConfig,
+            DirectedGraph<String> graph) {
         LinkedHashMap<String, IConfiguration> configMap =
                 new LinkedHashMap<String, IConfiguration>();
         List<IRemoteTest> tests = new ArrayList<>(config.getTests());
+        // In case some sub-config are suite too, we expand them to avoid weirdness
+        // of modules inside modules.
+        if (parentConfig != null) {
+            graph.addEdge(parentConfig, configName);
+            if (!graph.isDag()) {
+                CLog.e("%s", graph);
+                throw new RuntimeException(
+                        String.format(
+                                "Circular configuration detected: %s has been included "
+                                        + "several times.",
+                                configName));
+            }
+        }
         for (IRemoteTest test : tests) {
             if (test instanceof TfSuiteRunner) {
                 TfSuiteRunner runner = (TfSuiteRunner) test;
@@ -181,14 +249,26 @@ public class TfSuiteRunner extends ITestSuite {
         }
         // If we have any IRemoteTests remaining in the base configuration, it will run.
         if (!config.getTests().isEmpty()) {
-            configMap.put(sanitizeModuleName(configName), config);
+            configMap.put(sanitizeConfigName(configName), config);
         }
-
         return configMap;
     }
 
     private String getSuiteTag() {
         return mSuiteTag;
+    }
+
+    /**
+     * Sanitize the config name by sanitizing the module name and reattaching the abi if it is part
+     * of the config name.
+     */
+    private String sanitizeConfigName(String originalName) {
+        String[] segments;
+        if (originalName.contains(" ")) {
+            segments = originalName.split(" ");
+            return segments[0] + " " + sanitizeModuleName(segments[1]);
+        }
+        return sanitizeModuleName(originalName);
     }
 
     /**

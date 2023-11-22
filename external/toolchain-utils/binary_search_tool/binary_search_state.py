@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """The binary search wrapper."""
 
 from __future__ import print_function
@@ -559,8 +559,8 @@ def Run(get_initial_items,
   try:
     bss.DoSearch()
     bss.RemoveState()
-    logger.GetLogger().LogOutput('Total execution time: %s' %
-                                 bss.ElapsedTimeString())
+    logger.GetLogger().LogOutput(
+        'Total execution time: %s' % bss.ElapsedTimeString())
   except Error as e:
     logger.GetLogger().LogError(e)
     return 1

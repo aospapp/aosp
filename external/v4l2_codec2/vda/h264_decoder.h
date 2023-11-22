@@ -1,6 +1,7 @@
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 77be7ae
 
 #ifndef H264_DECODER_H_
 #define H264_DECODER_H_
@@ -16,6 +17,7 @@
 #include "accelerated_video_decoder.h"
 #include "h264_dpb.h"
 #include "h264_parser.h"
+#include "rect.h"
 #include "size.h"
 
 namespace media {
@@ -266,6 +268,8 @@ class H264Decoder : public AcceleratedVideoDecoder {
 
   // Output picture size.
   Size pic_size_;
+  // Output visible cropping rect.
+  Rect visible_rect_;
 
   // PicOrderCount of the previously outputted frame.
   int last_output_poc_;

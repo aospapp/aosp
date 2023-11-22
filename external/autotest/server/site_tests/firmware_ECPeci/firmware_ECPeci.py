@@ -22,7 +22,10 @@ class firmware_ECPeci(FirmwareTest):
         self.ec.send_command("chan 0")
 
     def cleanup(self):
-        self.ec.send_command("chan 0xffffffff")
+        try:
+            self.ec.send_command("chan 0xffffffff")
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_ECPeci, self).cleanup()
 
     def _check_read(self):

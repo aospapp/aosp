@@ -1,17 +1,6 @@
-/* system.h
- * Copyright (C) 2017 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+/* Copyright 2017 The Chromium OS Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
  *
  * Wrappers for system functionality.
  */
@@ -19,6 +8,7 @@
 #ifndef _SYSTEM_H_
 #define _SYSTEM_H_
 
+#include <stdbool.h>
 #include <sys/capability.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
@@ -61,8 +51,13 @@ int setup_and_dupe_pipe_end(int fds[2], size_t index, int fd);
 int write_pid_to_path(pid_t pid, const char *path);
 int write_proc_file(pid_t pid, const char *content, const char *basename);
 
+int mkdir_p(const char *path, mode_t mode, bool isdir);
+
 int setup_mount_destination(const char *source, const char *dest, uid_t uid,
-			    uid_t gid);
+			    uid_t gid, bool bind);
+
+int lookup_user(const char *user, uid_t *uid, gid_t *gid);
+int lookup_group(const char *group, gid_t *gid);
 
 #ifdef __cplusplus
 }; /* extern "C" */

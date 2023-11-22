@@ -33,6 +33,7 @@ import static android.media.MediaFormat.MIMETYPE_VIDEO_VP8;
 import static android.media.MediaFormat.MIMETYPE_VIDEO_VP9;
 import android.media.MediaPlayer;
 import android.os.Build;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
@@ -48,6 +49,7 @@ import java.util.Vector;
 /**
  * Basic sanity test of data returned by MediaCodeCapabilities.
  */
+@AppModeFull(reason = "Dynamic config disabled.")
 public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
 
     private static final String TAG = "MediaCodecCapabilitiesTest";
@@ -186,8 +188,10 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
             return; // skip
         }
 
-        String urlString = dynamicConfig.getValue(AVC_BASELINE_12_KEY);
-        playVideoWithRetries(urlString, 256, 144, PLAY_TIME_MS);
+        if (checkDecodeWithDefaultPlayer(MIMETYPE_VIDEO_AVC, AVCProfileBaseline, AVCLevel12)) {
+            String urlString = dynamicConfig.getValue(AVC_BASELINE_12_KEY);
+            playVideoWithRetries(urlString, 256, 144, PLAY_TIME_MS);
+        }
     }
 
     public void testAvcBaseline30() throws Exception {
@@ -195,8 +199,10 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
             return; // skip
         }
 
-        String urlString = dynamicConfig.getValue(AVC_BASELINE_30_KEY);
-        playVideoWithRetries(urlString, 640, 360, PLAY_TIME_MS);
+        if (checkDecodeWithDefaultPlayer(MIMETYPE_VIDEO_AVC, AVCProfileBaseline, AVCLevel3)) {
+            String urlString = dynamicConfig.getValue(AVC_BASELINE_30_KEY);
+            playVideoWithRetries(urlString, 640, 360, PLAY_TIME_MS);
+        }
     }
 
     public void testAvcHigh31() throws Exception {
@@ -204,8 +210,10 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
             return; // skip
         }
 
-        String urlString = dynamicConfig.getValue(AVC_HIGH_31_KEY);
-        playVideoWithRetries(urlString, 1280, 720, PLAY_TIME_MS);
+        if (checkDecodeWithDefaultPlayer(MIMETYPE_VIDEO_AVC, AVCProfileHigh, AVCLevel31)) {
+            String urlString = dynamicConfig.getValue(AVC_HIGH_31_KEY);
+            playVideoWithRetries(urlString, 1280, 720, PLAY_TIME_MS);
+        }
     }
 
     public void testAvcHigh40() throws Exception {
@@ -217,8 +225,10 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
             return;
         }
 
-        String urlString = dynamicConfig.getValue(AVC_HIGH_40_KEY);
-        playVideoWithRetries(urlString, 1920, 1080, PLAY_TIME_MS);
+        if (checkDecodeWithDefaultPlayer(MIMETYPE_VIDEO_AVC, AVCProfileHigh, AVCLevel4)) {
+            String urlString = dynamicConfig.getValue(AVC_HIGH_40_KEY);
+            playVideoWithRetries(urlString, 1920, 1080, PLAY_TIME_MS);
+        }
     }
 
     public void testHevcMain1() throws Exception {
@@ -312,15 +322,26 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
     }
 
     private boolean hasDecoder(String mime, int profile, int level) {
-        return supports(mime, false /* isEncoder */, profile, level);
+        return supports(mime, false /* isEncoder */, profile, level, false /* defaultOnly */);
     }
 
     private boolean hasEncoder(String mime, int profile, int level) {
-        return supports(mime, true /* isEncoder */, profile, level);
+        return supports(mime, true /* isEncoder */, profile, level, false /* defaultOnly */);
+    }
+
+    // Checks whether the default AOSP player can play back a specific profile and level for a
+    // given media type. If it cannot, it automatically logs that the test is skipped.
+    private boolean checkDecodeWithDefaultPlayer(String mime, int profile, int level) {
+        if (!supports(mime, false /* isEncoder */, profile, level, true /* defaultOnly */)) {
+            MediaUtils.skipTest(TAG, "default player cannot test codec");
+            return false;
+        }
+        return true;
     }
 
     private boolean supports(
-            String mime, boolean isEncoder, int profile, int level) {
+            String mime, boolean isEncoder, int profile, int level,
+            boolean defaultOnly) {
         MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
         for (MediaCodecInfo info : mcl.getCodecInfos()) {
             if (isEncoder != info.isEncoder()) {
@@ -343,6 +364,11 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
                     if (pl.level >= level) {
                         return true;
                     }
+                }
+                // the default AOSP player picks the first codec for a specific mime type, so
+                // we can stop after the first one found
+                if (defaultOnly) {
+                    return false;
                 }
             } catch (IllegalArgumentException e) {
             }
@@ -463,6 +489,89 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
         }
         if (skipped) {
             MediaUtils.skipTest("no video decoders found ending in .secure");
+        }
+    }
+
+    private MediaFormat createVideoFormatForBitrateMode(String mime, int width, int height,
+            int bitrateMode, CodecCapabilities caps) {
+        MediaCodecInfo.EncoderCapabilities encoderCaps = caps.getEncoderCapabilities();
+        if (!encoderCaps.isBitrateModeSupported(bitrateMode)) {
+            return null;
+        }
+
+        VideoCapabilities vidCaps = caps.getVideoCapabilities();
+        MediaFormat format = MediaFormat.createVideoFormat(mime, width, height);
+
+        // bitrate
+        int maxWidth = vidCaps.getSupportedWidths().getUpper();
+        int maxHeight = vidCaps.getSupportedHeightsFor(width).getUpper();
+        int maxRate = vidCaps.getSupportedFrameRatesFor(width, height).getUpper().intValue();
+        format.setInteger(MediaFormat.KEY_BITRATE_MODE, bitrateMode);
+        if (bitrateMode == MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CQ) {
+            int quality = encoderCaps.getQualityRange().getLower();
+            Log.i(TAG, "reasonable quality for " + width + "x" + height + "@" + maxRate
+                    + " " + mime + " = " + quality);
+            format.setInteger(MediaFormat.KEY_QUALITY, quality);
+        } else {
+            int bitrate = vidCaps.getBitrateRange().clamp(
+                    (int)(vidCaps.getBitrateRange().getUpper()
+                            / Math.sqrt((double)maxWidth * maxHeight / width / height)));
+            Log.i(TAG, "reasonable bitrate for " + width + "x" + height + "@" + maxRate
+                    + " " + mime + " = " + bitrate + " mode " + bitrateMode);
+            format.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
+        }
+        format.setInteger(MediaFormat.KEY_FRAME_RATE, maxRate);
+        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
+        format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
+                CodecCapabilities.COLOR_FormatYUV420Flexible);
+
+        return format;
+    }
+
+    public void testAllAdvertisedVideoEncoderBitrateModes() throws IOException {
+        boolean skipped = true;
+        final int[] modes = {
+                MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CQ,
+                MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR,
+                MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
+        };
+        for (MediaCodecInfo info : mAllInfos) {
+            if (!info.isEncoder()) {
+                continue;
+            }
+
+            for (String mime: info.getSupportedTypes()) {
+                boolean isVideo = isVideoMime(mime);
+                if (!isVideo) {
+                    continue;
+                }
+                skipped = false;
+
+                int numSupportedModes = 0;
+                for (int mode : modes) {
+                    MediaFormat format = createVideoFormatForBitrateMode(
+                            mime, 176, 144, mode, info.getCapabilitiesForType(mime));
+                    if (format == null) {
+                        continue;
+                    }
+                    MediaCodec codec = null;
+                    try {
+                        codec = MediaCodec.createByCodecName(info.getName());
+                        codec.configure(format, null /* surface */, null /* crypto */,
+                                MediaCodec.CONFIGURE_FLAG_ENCODE);
+                    } finally {
+                        if (codec != null) {
+                            codec.release();
+                        }
+                    }
+                    numSupportedModes++;
+                }
+                assertTrue(info.getName() + " has no supported bitrate mode",
+                        numSupportedModes > 0);
+            }
+        }
+        if (skipped) {
+            MediaUtils.skipTest("no video encoders found");
         }
     }
 

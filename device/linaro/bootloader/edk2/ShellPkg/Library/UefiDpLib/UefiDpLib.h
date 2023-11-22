@@ -1,7 +1,8 @@
 /** @file
   Main file for NULL named library for dp command functions.
 
-  Copyright (c) 2010 - 2013, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved.<BR>
+  (C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -16,12 +17,11 @@
 #define _UEFI_DP_LIB_H_
 
 #include <Uefi.h>
-#include <ShellBase.h>
 
 extern EFI_GUID gDpHiiGuid;
 
-#include <Protocol/EfiShell.h>
-#include <Protocol/EfiShellParameters.h>
+#include <Protocol/Shell.h>
+#include <Protocol/ShellParameters.h>
 #include <Protocol/DevicePath.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/UnicodeCollation.h>
@@ -47,6 +47,11 @@ extern        EFI_HANDLE                        gDpHiiHandle;
 
   @param[in] ImageHandle  Handle to the Image (NULL if Internal).
   @param[in] SystemTable  Pointer to the System Table (NULL if Internal).
+
+  @retval SHELL_SUCCESS            Command completed successfully.
+  @retval SHELL_INVALID_PARAMETER  Command usage error.
+  @retval SHELL_ABORTED            The user aborts the operation.
+  @retval value                    Unknown error.
 **/
 SHELL_STATUS
 EFIAPI

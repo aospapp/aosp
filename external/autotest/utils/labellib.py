@@ -16,16 +16,13 @@ strings, which are common keyval label values.
 """
 
 import collections
-import logging
 import re
-
-logger = logging.getLogger(__name__)
 
 
 class Key(object):
     """Enum for keyval label keys."""
     CROS_VERSION = 'cros-version'
-    CROS_TH_VERSION = 'cros-th-version'
+    CROS_ANDROID_VERSION = 'cheets-version'
     ANDROID_BUILD_VERSION = 'ab-version'
     TESTBED_VERSION = 'testbed-version'
     FIRMWARE_RW_VERSION = 'fwrw-version'
@@ -52,29 +49,25 @@ class LabelsMapping(collections.MutableMapping):
     string labels.
     """
 
-    def __init__(self, str_labels):
+    def __init__(self, str_labels=()):
         self._plain_labels = []
         self._keyval_map = collections.OrderedDict()
         for str_label in str_labels:
             self._add_label(str_label)
 
-    def _add_label(self, str_label):
-        """Add a label string to the internal map or plain labels list.
+    @classmethod
+    def from_host(cls, host):
+        """Create instance using a frontend.afe.models.Host object."""
+        return cls(l.name for l in host.labels.all())
 
-        If there is already a corresponding keyval in the internal map,
-        skip adding the current label.  This is how existing labels code
-        tends to handle it, but duplicate keys should be considered an
-        anomaly.
-        """
+    def _add_label(self, str_label):
+        """Add a label string to the internal map or plain labels list."""
         try:
             keyval_label = parse_keyval_label(str_label)
         except ValueError:
             self._plain_labels.append(str_label)
         else:
-            if keyval_label.key in self._keyval_map:
-                logger.warning('Duplicate keyval label %r (current map %r)',
-                               str_label, self._keyval_map)
-            else:
+            if keyval_label.key not in self._keyval_map:
                 self._keyval_map[keyval_label.key] = keyval_label.value
 
     def __getitem__(self, key):

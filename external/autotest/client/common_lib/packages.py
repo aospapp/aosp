@@ -135,7 +135,7 @@ class RepositoryFetcher(object):
 
 
 class HttpFetcher(RepositoryFetcher):
-    wget_cmd_pattern = 'wget --connect-timeout=15 -nv %s -O %s'
+    curl_cmd_pattern = 'curl --connect-timeout 15 -s %s -o %s'
 
 
     def __init__(self, package_manager, repository_url):
@@ -166,7 +166,7 @@ class HttpFetcher(RepositoryFetcher):
             return False
 
     def _quick_http_test(self):
-        """ Run a simple 30 second wget on the repository to see if it is
+        """ Run a simple 30 second curl on the repository to see if it is
         reachable. This avoids the need to wait for a full 10min timeout.
         """
         # just make a temp file to write a test fetch into
@@ -174,8 +174,8 @@ class HttpFetcher(RepositoryFetcher):
         dest_file_path = self.run_command(mktemp).stdout.strip()
 
         try:
-            # build up a wget command
-            http_cmd = self.wget_cmd_pattern % (self.url, dest_file_path)
+            # build up a curl command
+            http_cmd = self.curl_cmd_pattern % (self.url, dest_file_path)
             try:
                 self.run_command(http_cmd, _run_command_dargs={'timeout': 30})
             except Exception, e:
@@ -195,12 +195,12 @@ class HttpFetcher(RepositoryFetcher):
         # try to retrieve the package via http
         package_url = os.path.join(self.url, filename)
         try:
-            cmd = self.wget_cmd_pattern % (package_url, dest_path)
+            cmd = self.curl_cmd_pattern % (package_url, dest_path)
             result = self.run_command(cmd,
                                       _run_command_dargs={'timeout': 1200})
 
             if not self.exists(dest_path):
-                logging.error('wget failed: %s', result)
+                logging.error('curl failed: %s', result)
                 raise error.CmdError(cmd, result)
 
             logging.info('Successfully fetched %s from %s', filename,
@@ -210,7 +210,7 @@ class HttpFetcher(RepositoryFetcher):
             self.run_command('rm -f %s' % dest_path)
 
             raise error.PackageFetchError('%s not found in %s\n%s'
-                    'wget error code: %d' % (filename, package_url,
+                    'curl error code: %d' % (filename, package_url,
                     e.result_obj.stderr, e.result_obj.exit_status))
 
 
@@ -582,9 +582,14 @@ class BasePackageManager(object):
                     logging.error("Error uploading to repository %s",
                                   upload_path)
             else:
+                # Delete any older version of the package that might exist.
+                orig_file = os.path.join(upload_path,
+                                         os.path.basename(file_path))
+                if os.path.exists(orig_file):
+                    os.remove(orig_file)
+
                 shutil.copy(file_path, upload_path)
-                os.chmod(os.path.join(upload_path,
-                                      os.path.basename(file_path)), 0644)
+                os.chmod(orig_file, 0644)
         except (IOError, os.error), why:
             logging.error("Upload of %s to %s failed: %s", file_path,
                           upload_path, why)
@@ -944,8 +949,8 @@ class BasePackageManager(object):
 
 
 class SiteHttpFetcher(HttpFetcher):
-    wget_cmd_pattern = ('wget --connect-timeout=15 --retry-connrefused '
-                        '--wait=5 -nv %s -O %s')
+    curl_cmd_pattern = ('curl --connect-timeout 15 --retry 5 '
+                        '--retry-delay 5 -s %s -o %s')
 
     # shortcut quick http test for now since our dev server does not support
     # this operation.

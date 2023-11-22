@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-
 #include <stdio.h>
 
 #include "timing_logger.h"
 
-#include "base/logging.h"
-#include "base/stl_util.h"
+#include <android-base/logging.h>
+
 #include "base/histogram-inl.h"
+#include "base/stl_util.h"
 #include "base/systrace.h"
 #include "base/time_utils.h"
 #include "gc/heap.h"
@@ -129,8 +129,11 @@ void CumulativeLogger::DumpHistogram(std::ostream &os) const {
   os << "Done Dumping histograms\n";
 }
 
-TimingLogger::TimingLogger(const char* name, bool precise, bool verbose)
-    : name_(name), precise_(precise), verbose_(verbose) {
+TimingLogger::TimingLogger(const char* name,
+                           bool precise,
+                           bool verbose,
+                           TimingLogger::TimingKind kind)
+    : name_(name), precise_(precise), verbose_(verbose), kind_(kind) {
 }
 
 void TimingLogger::Reset() {
@@ -139,12 +142,12 @@ void TimingLogger::Reset() {
 
 void TimingLogger::StartTiming(const char* label) {
   DCHECK(label != nullptr);
-  timings_.push_back(Timing(NanoTime(), label));
+  timings_.push_back(Timing(kind_, label));
   ATRACE_BEGIN(label);
 }
 
 void TimingLogger::EndTiming() {
-  timings_.push_back(Timing(NanoTime(), nullptr));
+  timings_.push_back(Timing(kind_, nullptr));
   ATRACE_END();
 }
 

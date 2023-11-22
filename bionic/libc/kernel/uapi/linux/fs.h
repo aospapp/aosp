@@ -99,6 +99,7 @@ struct inodes_stat_t {
 #define MS_I_VERSION (1 << 23)
 #define MS_STRICTATIME (1 << 24)
 #define MS_LAZYTIME (1 << 25)
+#define MS_SUBMOUNT (1 << 26)
 #define MS_NOREMOTELOCK (1 << 27)
 #define MS_NOSEC (1 << 28)
 #define MS_BORN (1 << 29)
@@ -192,16 +193,26 @@ struct fsxattr {
 #define FS_ENCRYPTION_MODE_AES_256_GCM 2
 #define FS_ENCRYPTION_MODE_AES_256_CBC 3
 #define FS_ENCRYPTION_MODE_AES_256_CTS 4
+#define FS_ENCRYPTION_MODE_AES_128_CBC 5
+#define FS_ENCRYPTION_MODE_AES_128_CTS 6
 struct fscrypt_policy {
   __u8 version;
   __u8 contents_encryption_mode;
   __u8 filenames_encryption_mode;
   __u8 flags;
   __u8 master_key_descriptor[FS_KEY_DESCRIPTOR_SIZE];
-} __packed;
+};
 #define FS_IOC_SET_ENCRYPTION_POLICY _IOR('f', 19, struct fscrypt_policy)
 #define FS_IOC_GET_ENCRYPTION_PWSALT _IOW('f', 20, __u8[16])
 #define FS_IOC_GET_ENCRYPTION_POLICY _IOW('f', 21, struct fscrypt_policy)
+#define FS_KEY_DESC_PREFIX "fscrypt:"
+#define FS_KEY_DESC_PREFIX_SIZE 8
+#define FS_MAX_KEY_SIZE 64
+struct fscrypt_key {
+  __u32 mode;
+  __u8 raw[FS_MAX_KEY_SIZE];
+  __u32 size;
+};
 #define FS_SECRM_FL 0x00000001
 #define FS_UNRM_FL 0x00000002
 #define FS_COMPR_FL 0x00000004
@@ -234,7 +245,10 @@ struct fscrypt_policy {
 #define SYNC_FILE_RANGE_WAIT_BEFORE 1
 #define SYNC_FILE_RANGE_WRITE 2
 #define SYNC_FILE_RANGE_WAIT_AFTER 4
-#define RWF_HIPRI 0x00000001
-#define RWF_DSYNC 0x00000002
-#define RWF_SYNC 0x00000004
+typedef int __bitwise __kernel_rwf_t;
+#define RWF_HIPRI ((__force __kernel_rwf_t) 0x00000001)
+#define RWF_DSYNC ((__force __kernel_rwf_t) 0x00000002)
+#define RWF_SYNC ((__force __kernel_rwf_t) 0x00000004)
+#define RWF_NOWAIT ((__force __kernel_rwf_t) 0x00000008)
+#define RWF_SUPPORTED (RWF_HIPRI | RWF_DSYNC | RWF_SYNC | RWF_NOWAIT)
 #endif

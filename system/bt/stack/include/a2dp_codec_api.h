@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,8 @@
 #include "avdt_api.h"
 #include "osi/include/time.h"
 
+class tBT_A2DP_OFFLOAD;
+
 /**
  * Structure used to initialize the A2DP encoder with A2DP peer information
  */
@@ -66,6 +68,15 @@ class A2dpCodecConfig {
 
   // Gets the current priority of the codec.
   btav_a2dp_codec_priority_t codecPriority() const { return codec_priority_; }
+
+  // gets current OTA codec specific config to |p_a2dp_offload->codec_info|.
+  // Returns true if the current codec config is valid and copied,
+  // otherwise false.
+  bool getCodecSpecificConfig(tBT_A2DP_OFFLOAD* p_a2dp_offload);
+
+  // Gets the bitRate for the A2DP codec.
+  // Returns the bitrate of current codec configuration, or 0 if not configured
+  int getTrackBitRate() const;
 
   // Copies out the current OTA codec config to |p_codec_info|.
   // Returns true if the current codec config is valid and copied,
@@ -113,6 +124,11 @@ class A2dpCodecConfig {
   // Returns true if the encoded data packets have RTP headers, and
   // the Marker bit in the header is set according to RFC 6416.
   virtual bool useRtpHeaderMarkerBit() const = 0;
+
+  // Gets the effective MTU for the A2DP codec.
+  // Returns the effective MTU of current codec configuration, or 0 if not
+  // configured.
+  virtual int getEffectiveMtu() const = 0;
 
   // Checks whether |codec_config| is empty and contains no configuration.
   // Returns true if |codec_config| is empty, otherwise false.
@@ -178,6 +194,12 @@ class A2dpCodecConfig {
       const tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params,
       bool* p_restart_input, bool* p_restart_output,
       bool* p_config_updated) = 0;
+
+  // Sets the codec capabilities for a peer.
+  // |p_peer_codec_capabiltities| is the peer codec capabilities to set.
+  // Returns true on success, otherwise false.
+  virtual bool setPeerCodecCapabilities(
+      const uint8_t* p_peer_codec_capabilities) = 0;
 
   // Constructor where |codec_index| is the unique index that identifies the
   // codec. The user-friendly name is |name|.
@@ -275,6 +297,11 @@ class A2dpCodecs {
   // Returns the Source codec if found, otherwise nullptr.
   A2dpCodecConfig* findSourceCodecConfig(const uint8_t* p_codec_info);
 
+  // Finds the Sink codec that corresponds to the A2DP over-the-air
+  // |p_codec_info| information.
+  // Returns the Sink codec if found, otherwise nullptr.
+  A2dpCodecConfig* findSinkCodecConfig(const uint8_t* p_codec_info);
+
   // Gets the codec config that is currently selected.
   // Returns the codec config that is currently selected, or nullptr if
   // no codec is selected.
@@ -330,6 +357,13 @@ class A2dpCodecs {
   bool setCodecConfig(const uint8_t* p_peer_codec_info, bool is_capability,
                       uint8_t* p_result_codec_config,
                       bool select_current_codec);
+
+  // Sets the A2DP Sink codec configuration to be used with a peer Source
+  // device.
+  // [See setCodecConfig() for description]
+  bool setSinkCodecConfig(const uint8_t* p_peer_codec_info, bool is_capability,
+                          uint8_t* p_result_codec_config,
+                          bool select_current_codec);
 
   // Sets the user prefered codec configuration.
   // |codec_user_config| contains the preferred codec configuration.
@@ -389,6 +423,16 @@ class A2dpCodecs {
                          const tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params,
                          uint8_t* p_result_codec_config, bool* p_restart_input,
                          bool* p_restart_output, bool* p_config_updated);
+
+  // Sets the codec capabilities for a Sink peer.
+  // |p_peer_codec_capabiltities| is the peer codec capabilities to set.
+  // Returns true on success, otherwise false.
+  bool setPeerSinkCodecCapabilities(const uint8_t* p_peer_codec_capabilities);
+
+  // Sets the codec capabilities for a Source peer.
+  // |p_peer_codec_capabiltities| is the peer codec capabilities to set.
+  // Returns true on success, otherwise false.
+  bool setPeerSourceCodecCapabilities(const uint8_t* p_peer_codec_capabilities);
 
   // Gets the current codec configuration and the capabilities of
   // all configured codecs.
@@ -453,8 +497,11 @@ typedef uint32_t (*a2dp_source_read_callback_t)(uint8_t* p_buf, uint32_t len);
 // responsible for freeing |p_buf|.
 // |frames_n| is the number of audio frames in |p_buf| - it is used for
 // statistics purpose.
+// |num_bytes| is the number of audio bytes in |p_buf| - it is used for
+// delay reporting.
 // Returns true if the packet was enqueued, otherwise false.
-typedef bool (*a2dp_source_enqueue_callback_t)(BT_HDR* p_buf, size_t frames_n);
+typedef bool (*a2dp_source_enqueue_callback_t)(BT_HDR* p_buf, size_t frames_n,
+                                               uint32_t num_bytes);
 
 //
 // A2DP encoder callbacks interface.
@@ -489,6 +536,27 @@ typedef struct {
   // Set transmit queue length for the A2DP encoder.
   void (*set_transmit_queue_length)(size_t transmit_queue_length);
 } tA2DP_ENCODER_INTERFACE;
+
+// Prototype for a callback to receive decoded audio data from a
+// tA2DP_DECODER_INTERFACE|.
+// |buf| is a pointer to the data.
+// |len| is the number of octets pointed to by |buf|.
+typedef void (*decoded_data_callback_t)(uint8_t* buf, uint32_t len);
+
+//
+// A2DP decoder callbacks interface.
+//
+typedef struct {
+  // Initialize the decoder. Can be called multiple times, will reinitalize.
+  bool (*decoder_init)(decoded_data_callback_t decode_callback);
+
+  // Cleanup the A2DP decoder.
+  void (*decoder_cleanup)();
+
+  // Decodes |p_buf| and calls |decode_callback| passed into init for the
+  // decoded data.
+  bool (*decode_packet)(BT_HDR* p_buf);
+} tA2DP_DECODER_INTERFACE;
 
 // Gets the A2DP codec type.
 // |p_codec_info| contains information about the codec capabilities.
@@ -535,14 +603,6 @@ bool A2DP_IsPeerSourceCodecSupported(const uint8_t* p_codec_info);
 // The initialized state with the codec capabilities is stored in
 // |p_codec_info|.
 void A2DP_InitDefaultCodec(uint8_t* p_codec_info);
-
-// Builds A2DP preferred Sink capability from Source capability.
-// |p_src_cap| is the Source capability to use.
-// |p_pref_cfg| is the result Sink capability to store.
-// Returns |A2DP_SUCCESS| on success, otherwise the corresponding A2DP error
-// status code.
-tA2DP_STATUS A2DP_BuildSrc2SinkConfig(const uint8_t* p_src_cap,
-                                      uint8_t* p_pref_cfg);
 
 // Checks whether the A2DP data packets should contain RTP header.
 // |content_protection_enabled| is true if Content Protection is
@@ -592,14 +652,6 @@ int A2DP_GetTrackChannelCount(const uint8_t* p_codec_info);
 // contains invalid codec information.
 int A2DP_GetSinkTrackChannelType(const uint8_t* p_codec_info);
 
-// Computes the number of frames to process in a time window for the A2DP
-// Sink codec. |time_interval_ms| is the time interval (in milliseconds).
-// |p_codec_info| is a pointer to the codec_info to decode.
-// Returns the number of frames to process on success, or -1 if |p_codec_info|
-// contains invalid codec information.
-int A2DP_GetSinkFramesCountToProcess(uint64_t time_interval_ms,
-                                     const uint8_t* p_codec_info);
-
 // Gets the A2DP audio data timestamp from an audio packet.
 // |p_codec_info| contains the codec information.
 // |p_data| contains the audio data.
@@ -624,6 +676,14 @@ bool A2DP_BuildCodecHeader(const uint8_t* p_codec_info, BT_HDR* p_buf,
 const tA2DP_ENCODER_INTERFACE* A2DP_GetEncoderInterface(
     const uint8_t* p_codec_info);
 
+// Gets the A2DP decoder interface that can be used to decode received A2DP
+// packets - see |tA2DP_DECODER_INTERFACE|.
+// |p_codec_info| contains the codec information.
+// Returns the A2DP decoder interface if the |p_codec_info| is valid and
+// supported, otherwise NULL.
+const tA2DP_DECODER_INTERFACE* A2DP_GetDecoderInterface(
+    const uint8_t* p_codec_info);
+
 // Adjusts the A2DP codec, based on local support and Bluetooth specification.
 // |p_codec_info| contains the codec information to adjust.
 // Returns true if |p_codec_info| is valid and supported, otherwise false.
@@ -634,45 +694,52 @@ bool A2DP_AdjustCodec(uint8_t* p_codec_info);
 // otherwise |BTAV_A2DP_CODEC_INDEX_MAX|.
 btav_a2dp_codec_index_t A2DP_SourceCodecIndex(const uint8_t* p_codec_info);
 
+// Gets the A2DP Sink codec index for a given |p_codec_info|.
+// Returns the corresponding |btav_a2dp_codec_index_t| on success,
+// otherwise |BTAV_A2DP_CODEC_INDEX_MAX|.
+btav_a2dp_codec_index_t A2DP_SinkCodecIndex(const uint8_t* p_codec_info);
+
 // Gets the A2DP codec name for a given |codec_index|.
 const char* A2DP_CodecIndexStr(btav_a2dp_codec_index_t codec_index);
 
-// Initializes A2DP codec-specific information into |tAVDT_CFG| configuration
-// entry pointed by |p_cfg|. The selected codec is defined by |codec_index|.
+// Initializes A2DP codec-specific information into |AvdtpSepConfig|
+// configuration entry pointed by |p_cfg|. The selected codec is defined
+// by |codec_index|.
 // Returns true on success, otherwise false.
 bool A2DP_InitCodecConfig(btav_a2dp_codec_index_t codec_index,
-                          tAVDT_CFG* p_cfg);
+                          AvdtpSepConfig* p_cfg);
 
-// Decodes and displays A2DP codec info when using |LOG_DEBUG|.
-// |p_codec_info| is a pointer to the codec_info to decode and display.
-// Returns true if the codec information is valid, otherwise false.
-bool A2DP_DumpCodecInfo(const uint8_t* p_codec_info);
+// Decodes A2DP codec info into a human readable string.
+// |p_codec_info| is a pointer to the codec_info to decode.
+// Returns a string describing the codec information.
+std::string A2DP_CodecInfoString(const uint8_t* p_codec_info);
 
 // Add enum-based flag operators to the btav_a2dp_codec_config_t fields
 #ifndef DEFINE_ENUM_FLAG_OPERATORS
+// Use NOLINT to suppress missing parentheses warnings around bitmask.
 #define DEFINE_ENUM_FLAG_OPERATORS(bitmask)                                 \
   extern "C++" {                                                            \
-  inline constexpr bitmask operator&(bitmask X, bitmask Y) {                \
+  inline constexpr bitmask operator&(bitmask X, bitmask Y) {  /* NOLINT */  \
     return static_cast<bitmask>(static_cast<int>(X) & static_cast<int>(Y)); \
   }                                                                         \
-  inline constexpr bitmask operator|(bitmask X, bitmask Y) {                \
+  inline constexpr bitmask operator|(bitmask X, bitmask Y) {  /* NOLINT */  \
     return static_cast<bitmask>(static_cast<int>(X) | static_cast<int>(Y)); \
   }                                                                         \
-  inline constexpr bitmask operator^(bitmask X, bitmask Y) {                \
+  inline constexpr bitmask operator^(bitmask X, bitmask Y) {  /* NOLINT */  \
     return static_cast<bitmask>(static_cast<int>(X) ^ static_cast<int>(Y)); \
   }                                                                         \
-  inline constexpr bitmask operator~(bitmask X) {                           \
+  inline constexpr bitmask operator~(bitmask X) {             /* NOLINT */  \
     return static_cast<bitmask>(~static_cast<int>(X));                      \
   }                                                                         \
-  inline bitmask& operator&=(bitmask& X, bitmask Y) {                       \
+  inline bitmask& operator&=(bitmask& X, bitmask Y) {         /* NOLINT */  \
     X = X & Y;                                                              \
     return X;                                                               \
   }                                                                         \
-  inline bitmask& operator|=(bitmask& X, bitmask Y) {                       \
+  inline bitmask& operator|=(bitmask& X, bitmask Y) {         /* NOLINT */  \
     X = X | Y;                                                              \
     return X;                                                               \
   }                                                                         \
-  inline bitmask& operator^=(bitmask& X, bitmask Y) {                       \
+  inline bitmask& operator^=(bitmask& X, bitmask Y) {         /* NOLINT */  \
     X = X ^ Y;                                                              \
     return X;                                                               \
   }                                                                         \

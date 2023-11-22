@@ -82,9 +82,10 @@ LOCAL_JNI_SHARED_LIBRARIES += \
     libhwbinder \
     android.hidl.token@1.0
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
+LOCAL_JAVA_LIBRARIES := android.test.runner android.test.base
 
 LOCAL_PACKAGE_NAME := FrameworksLowpanApiNativeTests
+LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_COMPATIBILITY_SUITE := device-tests
 
 LOCAL_CERTIFICATE := platform

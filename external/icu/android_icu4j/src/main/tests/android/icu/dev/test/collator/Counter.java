@@ -20,7 +20,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
 public class Counter<T> implements Iterable<T>, Comparable<Counter<T>> {
   Map<T,RWLong> map;
   Comparator<T> comparator;

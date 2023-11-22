@@ -18,8 +18,6 @@ package com.android.framework.tests;
 
 import com.android.ddmlib.testrunner.IRemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.ddmlib.testrunner.TestResult;
 import com.android.loganalysis.item.BugreportItem;
 import com.android.loganalysis.item.LogcatItem;
 import com.android.loganalysis.parser.BugreportParser;
@@ -31,8 +29,11 @@ import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.TestResult;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.junit.Assert;
 
@@ -86,10 +87,10 @@ public class FrameworkStressTest implements IDeviceTest, IRemoteTest {
         CollectingTestListener collectingListener = new CollectingMetricsTestListener(listener);
         mTestDevice.runInstrumentationTests(runner, collectingListener, listener);
 
-        Map<TestIdentifier, TestResult> testResults =
+        Map<TestDescription, TestResult> testResults =
                 collectingListener.getCurrentRunResults().getTestResults();
         if (testResults != null) {
-            for (Entry<TestIdentifier, TestResult> e : testResults.entrySet()) {
+            for (Entry<TestDescription, TestResult> e : testResults.entrySet()) {
                 TestResult res = e.getValue();
                 Map<String, String> testMetrics = res.getMetrics();
                 if (testMetrics != null) {
@@ -115,7 +116,7 @@ public class FrameworkStressTest implements IDeviceTest, IRemoteTest {
         // Create an empty testRun to report the parsed runMetrics
         CLog.d("About to report metrics: %s with label: %s", metrics, runName);
         listener.testRunStarted(runName, 0);
-        listener.testRunEnded(0, metrics);
+        listener.testRunEnded(0, TfMetricProtoUtil.upgradeConvert(metrics));
     }
 
     @Override
@@ -140,7 +141,7 @@ public class FrameworkStressTest implements IDeviceTest, IRemoteTest {
         }
 
         @Override
-        public void testEnded(TestIdentifier test, Map<String, String> testMetrics) {
+        public void testEnded(TestDescription test, Map<String, String> testMetrics) {
             // Retrieve bugreport
             BugreportParser parser = new BugreportParser();
             BugreportItem bugreport = null;

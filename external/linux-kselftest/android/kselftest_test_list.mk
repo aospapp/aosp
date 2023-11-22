@@ -2,44 +2,27 @@
 kselftest_modules := \
   kselftest_cpu-hotplug_cpu-on-off-test \
   kselftest_efivarfs_efivarfs \
-  kselftest_firmware_fw_filesystem \
-  kselftest_firmware_fw_userhelper \
-  kselftest_ftrace_ftracetest \
-  kselftest_ftrace_test.d_functions \
-  kselftest_ftrace_test.d_00basic_basic2 \
-  kselftest_ftrace_test.d_00basic_basic4 \
-  kselftest_ftrace_test.d_00basic_basic1 \
-  kselftest_ftrace_test.d_00basic_basic3 \
-  kselftest_ftrace_test.d_template \
-  kselftest_ftrace_test.d_instances_instance \
-  kselftest_ftrace_test.d_instances_instance-event \
+  kselftest_exec_execveat.sh \
+  kselftest_futex_functional_run.sh \
   kselftest_intel_pstate_run.sh \
   kselftest_lib_printf \
   kselftest_lib_bitmap \
-  kselftest_memory-hotplug_mem-on-off-test \
-  kselftest_net_test_bpf \
-  kselftest_ntb_ntb_test.sh \
-  kselftest_pstore_pstore_tests \
-  kselftest_pstore_pstore_post_reboot_tests \
-  kselftest_pstore_common_tests \
-  kselftest_pstore_pstore_crash_test \
-  kselftest_static_keys_test_static_keys \
-  kselftest_sysctl_run_numerictests \
-  kselftest_sysctl_run_stringtests \
-  kselftest_sysctl_common_tests \
-  kselftest_user_test_user_copy \
-  kselftest_zram_zram.sh \
-  kselftest_zram_zram01.sh \
-  kselftest_zram_zram02.sh \
-  kselftest_zram_zram_lib.sh \
+  kselftest_splice_default_file_splice_read.sh \
+  kselftest_vm_run_vmtests \
 
 # From Android.bp
 kselftest_modules += \
   kselftest_breakpoints_tests_breakpoint_test \
+  kselftest_breakpoints_tests_breakpoint_test_arm64 \
   kselftest_breakpoints_tests_step_after_suspend_test \
+  kselftest_capabilities_test_test_execve \
+  kselftest_capabilities_test_validate_cap \
   kselftest_efivarfs_tests_create-read \
   kselftest_efivarfs_tests_open-unlink \
+  kselftest_exec_test_execveat \
+  kselftest_futex_tests_futex_requeue_pi \
   kselftest_futex_tests_futex_requeue_pi_mismatched_ops \
+  kselftest_futex_tests_futex_requeue_pi_signal_restart \
   kselftest_futex_tests_futex_wait_private_mapped_file \
   kselftest_futex_tests_futex_wait_timeout \
   kselftest_futex_tests_futex_wait_uninitialized_heap \
@@ -47,43 +30,28 @@ kselftest_modules += \
   kselftest_intel_pstate_tests_aperf \
   kselftest_intel_pstate_tests_msr \
   kselftest_kcmp_tests_kcmp_test \
-  kselftest_media_tests_media_device_open \
-  kselftest_media_tests_media_device_test \
-  kselftest_media_tests_video_device_test \
-  kselftest_membarrier_tests_membarrier_test \
-  kselftest_mount_tests_unprivileged-remount-test \
-  kselftest_net_tests_psock_fanout \
   kselftest_net_tests_psock_tpacket \
-  kselftest_net_tests_reuseport_dualstack \
   kselftest_net_tests_socket \
+  kselftest_net_tests_reuseaddr_conflict \
   kselftest_ptrace_tests_peeksiginfo \
   kselftest_seccomp_tests_seccomp_bpf \
-  kselftest_timer_tests_adjtick \
+  kselftest_size_test_get_size \
+  kselftest_splice_test_default_file_splice_read \
   kselftest_timer_tests_alarmtimer-suspend \
-  kselftest_timer_tests_change_skew \
-  kselftest_timer_tests_clocksource-switch \
   kselftest_timer_tests_inconsistency-check \
-  kselftest_timer_tests_leap-a-day \
-  kselftest_timer_tests_leapcrash \
   kselftest_timer_tests_nanosleep \
   kselftest_timer_tests_nsleep-lat \
   kselftest_timer_tests_posix_timers \
   kselftest_timer_tests_raw_skew \
   kselftest_timer_tests_rtctest \
-  kselftest_timer_tests_set-2038 \
   kselftest_timer_tests_set-tai \
   kselftest_timer_tests_set-timer-lat \
-  kselftest_timer_tests_set-tz \
-  kselftest_timer_tests_skew_consistency \
   kselftest_timer_tests_threadtest \
   kselftest_timer_tests_valid-adjtimex \
-  kselftest_vm_tests_compaction_test \
-  kselftest_vm_tests_hugepage-mmap \
-  kselftest_vm_tests_hugepage-shm \
-  kselftest_vm_tests_map_hugetlb \
+  kselftest_vdso_test \
   kselftest_vm_tests_mlock2-tests \
   kselftest_vm_tests_on-fault-limit \
-  kselftest_vm_tests_transhuge-stress \
+  kselftest_vm64_tests_virtual_address_range \
   kselftest_x86_ptrace_syscall \
   kselftest_x86_tests_check_initial_reg_state \
   kselftest_x86_tests_ldt_gdt \

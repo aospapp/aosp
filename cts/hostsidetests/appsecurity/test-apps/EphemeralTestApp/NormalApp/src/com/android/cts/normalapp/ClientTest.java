@@ -16,6 +16,7 @@
 
 package com.android.cts.normalapp;
 
+import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
@@ -25,16 +26,16 @@ import static org.junit.Assert.fail;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ResolveInfo;
 import android.database.Cursor;
 import android.net.Uri;
+import android.provider.Settings.Secure;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.runner.AndroidJUnit4;
-import android.test.InstrumentationTestCase;
-import android.util.Log;
 
 import com.android.cts.util.TestResult;
 
@@ -293,7 +294,8 @@ public class ClientTest {
     public void testStartNormal() throws Exception {
         // start the normal activity
         {
-            final Intent startNormalIntent = new Intent(ACTION_START_NORMAL_ACTIVITY);
+            final Intent startNormalIntent = new Intent(ACTION_START_NORMAL_ACTIVITY)
+                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             InstrumentationRegistry.getContext().startActivity(startNormalIntent, null /*options*/);
             final TestResult testResult = getResult();
             assertThat(testResult.getPackageName(),
@@ -306,7 +308,8 @@ public class ClientTest {
 
         // start the normal activity; directed package
         {
-            final Intent startNormalIntent = new Intent(ACTION_START_NORMAL_ACTIVITY);
+            final Intent startNormalIntent = new Intent(ACTION_START_NORMAL_ACTIVITY)
+                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startNormalIntent.setPackage("com.android.cts.normalapp");
             InstrumentationRegistry.getContext().startActivity(startNormalIntent, null /*options*/);
             final TestResult testResult = getResult();
@@ -320,7 +323,8 @@ public class ClientTest {
 
         // start the normal activity; directed component
         {
-            final Intent startNormalIntent = new Intent(ACTION_START_NORMAL_ACTIVITY);
+            final Intent startNormalIntent = new Intent(ACTION_START_NORMAL_ACTIVITY)
+                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startNormalIntent.setComponent(new ComponentName(
                     "com.android.cts.normalapp", "com.android.cts.normalapp.NormalActivity"));
             InstrumentationRegistry.getContext().startActivity(startNormalIntent, null /*options*/);
@@ -354,9 +358,10 @@ public class ClientTest {
 
     @Test
     public void testStartEphemeral() throws Exception {
-        // start the ephemeral activity
+        // start the ephemeral activity; no EXTERNAL flag
         try {
-            final Intent startEphemeralIntent = new Intent(ACTION_START_EPHEMERAL_ACTIVITY);
+            final Intent startEphemeralIntent = new Intent(ACTION_START_EPHEMERAL_ACTIVITY)
+                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             InstrumentationRegistry.getContext().startActivity(
                     startEphemeralIntent, null /*options*/);
             final TestResult testResult = getResult();
@@ -364,9 +369,22 @@ public class ClientTest {
         } catch (ActivityNotFoundException expected) {
         }
 
-        // start the ephemeral activity; directed package
+        // start the ephemeral activity; EXTERNAL flag
+        {
+            final Intent startEphemeralIntent = new Intent(ACTION_START_EPHEMERAL_ACTIVITY)
+                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MATCH_EXTERNAL);
+            InstrumentationRegistry.getContext().startActivity(
+                    startEphemeralIntent, null /*options*/);
+            final TestResult testResult = getResult();
+            assertThat("com.android.cts.ephemeralapp1", is(testResult.getPackageName()));
+            assertThat(ACTION_START_EPHEMERAL_ACTIVITY, is(testResult.getIntent().getAction()));
+        }
+
+
+        // start the ephemeral activity; directed package, no EXTERNAL flag
         try {
-            final Intent startEphemeralIntent = new Intent(ACTION_START_EPHEMERAL_ACTIVITY);
+            final Intent startEphemeralIntent = new Intent(ACTION_START_EPHEMERAL_ACTIVITY)
+                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startEphemeralIntent.setPackage("com.android.cts.ephemeralapp1");
             InstrumentationRegistry.getContext().startActivity(
                     startEphemeralIntent, null /*options*/);
@@ -375,9 +393,22 @@ public class ClientTest {
         } catch (ActivityNotFoundException expected) {
         }
 
+        // start the ephemeral activity; directed package, includes EXTERNAL flag
+        {
+            final Intent startEphemeralIntent = new Intent(ACTION_START_EPHEMERAL_ACTIVITY)
+                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MATCH_EXTERNAL);
+            startEphemeralIntent.setPackage("com.android.cts.ephemeralapp1");
+            InstrumentationRegistry.getContext().startActivity(
+                    startEphemeralIntent, null /*options*/);
+            final TestResult testResult = getResult();
+            assertThat("com.android.cts.ephemeralapp1", is(testResult.getPackageName()));
+            assertThat(ACTION_START_EPHEMERAL_ACTIVITY, is(testResult.getIntent().getAction()));
+        }
+
         // start the ephemeral activity; directed component
         try {
-            final Intent startEphemeralIntent = new Intent(ACTION_START_EPHEMERAL_ACTIVITY);
+            final Intent startEphemeralIntent = new Intent(ACTION_START_EPHEMERAL_ACTIVITY)
+                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startEphemeralIntent.setComponent(
                     new ComponentName("com.android.cts.ephemeralapp1",
                             "com.android.cts.ephemeralapp1.EphemeralActivity"));
@@ -390,7 +421,8 @@ public class ClientTest {
 
         // start the ephemeral activity; using VIEW/BROWSABLE
         {
-            final Intent startViewIntent = new Intent(Intent.ACTION_VIEW);
+            final Intent startViewIntent = new Intent(Intent.ACTION_VIEW)
+                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startViewIntent.addCategory(Intent.CATEGORY_BROWSABLE);
             startViewIntent.setData(Uri.parse("https://cts.google.com/ephemeral"));
             InstrumentationRegistry.getContext().startActivity(
@@ -398,13 +430,51 @@ public class ClientTest {
             final TestResult testResult = getResult();
             assertThat("com.android.cts.ephemeralapp1", is(testResult.getPackageName()));
             assertThat("EphemeralActivity", is(testResult.getComponentName()));
+            assertThat(Intent.ACTION_VIEW, is(testResult.getIntent().getAction()));
+            assertThat(testResult.getIntent().getCategories(), hasItems(Intent.CATEGORY_BROWSABLE));
+            assertThat("https://cts.google.com/ephemeral",
+                    is(testResult.getIntent().getData().toString()));
+        }
+
+        final ContentResolver contentResolver =
+                InstrumentationRegistry.getContext().getContentResolver();
+        final int originalSetting = Secure.getInt(contentResolver, Secure.INSTANT_APPS_ENABLED, 1);
+        Secure.putInt(contentResolver, Secure.INSTANT_APPS_ENABLED, 0);
+        try {
+            // start the ephemeral activity; using VIEW/BROWSABLE with setting disabled
+            try {
+                final Intent startViewIntent = new Intent(Intent.ACTION_VIEW)
+                        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startViewIntent.addCategory(Intent.CATEGORY_BROWSABLE);
+                startViewIntent.setData(Uri.parse("https://cts.google.com/ephemeral"));
+                InstrumentationRegistry.getContext().startActivity(
+                        startViewIntent, null /*options*/);
+                final TestResult testResult = getResult();
+                fail();
+            } catch (TestResultNotFoundException expected) {
+                // we shouldn't resolve to our instant app
+            }
+
+            // start the ephemeral activity; EXTERNAL flag with setting disabled
+            {
+                final Intent startEphemeralIntent = new Intent(ACTION_START_EPHEMERAL_ACTIVITY)
+                        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                                | Intent.FLAG_ACTIVITY_MATCH_EXTERNAL);
+                InstrumentationRegistry.getContext().startActivity(
+                        startEphemeralIntent, null /*options*/);
+                final TestResult testResult = getResult();
+                assertThat("com.android.cts.ephemeralapp1", is(testResult.getPackageName()));
+                assertThat(ACTION_START_EPHEMERAL_ACTIVITY, is(testResult.getIntent().getAction()));
+            }
+
+        } finally {
+            Secure.putInt(contentResolver, Secure.INSTANT_APPS_ENABLED, originalSetting);
         }
 
         // connect to the instant app provider
         {
             final String provider = "content://com.android.cts.ephemeralapp1.provider/table";
-            final Cursor testCursor = InstrumentationRegistry
-                    .getContext().getContentResolver().query(
+            final Cursor testCursor = contentResolver.query(
                             Uri.parse(provider),
                             null /*projection*/,
                             null /*selection*/,
@@ -422,9 +492,16 @@ public class ClientTest {
             throw new RuntimeException(e);
         }
         if (result == null) {
-            throw new IllegalStateException("Activity didn't receive a Result in 5 seconds");
+            throw new TestResultNotFoundException(
+                    "Activity didn't receive a Result in 5 seconds");
         }
         return result;
+    }
+
+    private static class TestResultNotFoundException extends IllegalStateException {
+        public TestResultNotFoundException(String description) {
+            super(description);
+        }
     }
 
     private static class ActivityBroadcastReceiver extends BroadcastReceiver {

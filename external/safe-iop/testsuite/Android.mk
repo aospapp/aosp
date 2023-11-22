@@ -20,7 +20,10 @@ LOCAL_C_INCLUDES := \
 
 # TODO: make the test use the compiled static lib.
 LOCAL_SRC_FILES := ../src/safe_iop.c
-LOCAL_CFLAGS := -DSAFE_IOP_TEST=1 -DNDEBUG=1
+LOCAL_CFLAGS := \
+    -DSAFE_IOP_TEST=1 -DNDEBUG=1 \
+    -Wall -Werror \
+    -Wno-unused-parameter \
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 LOCAL_MODULE_TAGS := optional

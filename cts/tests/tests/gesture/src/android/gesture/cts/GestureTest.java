@@ -113,5 +113,7 @@ public class GestureTest extends TestCase {
         Gesture readGesture = Gesture.CREATOR.createFromParcel(parcel);
         // check that all attributes are equal
         new GestureComparator().assertGesturesEquals(mGesture, readGesture);
+
+        parcel.recycle();
     }
 }

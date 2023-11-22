@@ -16,57 +16,97 @@
 
 package com.android.tradefed.util;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.ddmlib.testrunner.TestResult;
-import com.android.ddmlib.testrunner.TestRunResult;
-import com.android.tradefed.result.CollectingTestListener;
+import static org.junit.Assert.fail;
+
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.xml.AbstractXmlParser.ParseException;
 
-import junit.framework.TestCase;
+import org.easymock.EasyMock;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.InputStream;
+import java.util.HashMap;
 
-/**
- * Simple unit tests for {@link JUnitXmlParser}.
- */
-public class JUnitXmlParserTest extends TestCase {
+/** Simple unit tests for {@link JUnitXmlParser}. */
+@RunWith(JUnit4.class)
+public class JUnitXmlParserTest {
+    private static final String TEST_PARSE_FILE = "JUnitXmlParserTest_testParse.xml";
+    private static final String TEST_PARSE_FILE2 = "JUnitXmlParserTest_error.xml";
 
-    private CollectingTestListener mListener = new CollectingTestListener();
+    private ITestInvocationListener mMockListener;
     private JUnitXmlParser mParser;
 
-    @Override
+    @Before
     public void setUp() {
-        mParser = new JUnitXmlParser(mListener);
+        mMockListener = EasyMock.createMock(ITestInvocationListener.class);
+        mParser = new JUnitXmlParser(mMockListener);
     }
 
-    /**
-     * Test behavior when data to parse is empty
-     */
+    /** Test behavior when data to parse is empty */
+    @Test
     public void testEmptyParse() {
         try {
             mParser.parse(new ByteArrayInputStream(new byte[0]));
+            fail("ParseException not thrown");
         } catch (ParseException e) {
             // expected
-            return;
         }
-        fail("ParseException not thrown");
     }
 
-    /**
-     * Simple success test for xml parsing
-     */
+    /** Simple success test for xml parsing */
+    @Test
     public void testParse() throws ParseException {
-        mParser.parse(extractTestXml("JUnitXmlParserTest_testParse.xml"));
-        assertEquals(3, mListener.getNumTotalTests());
-        assertEquals(1, mListener.getNumAllFailedTests());
-        TestRunResult runData = mListener.getCurrentRunResults();
-        assertEquals("null", runData.getName());
-        assertTrue(runData.getTestResults().containsKey(new TestIdentifier("PassTest", "testPass")));
-        TestResult result = runData.getTestResults().get(new TestIdentifier("FailTest", "testFail"));
-        assertNotNull(result);
-        assertTrue(result.getStackTrace().contains("java.lang.NullPointerException"));
+        mMockListener.testRunStarted("suiteName", 3);
+        TestDescription test1 = new TestDescription("PassTest", "testPass");
+        mMockListener.testStarted(test1);
+        mMockListener.testEnded(test1, new HashMap<String, Metric>());
+
+        TestDescription test2 = new TestDescription("PassTest", "testPass2");
+        mMockListener.testStarted(test2);
+        mMockListener.testEnded(test2, new HashMap<String, Metric>());
+
+        TestDescription test3 = new TestDescription("FailTest", "testFail");
+        mMockListener.testStarted(test3);
+        mMockListener.testFailed(
+                EasyMock.eq(test3), EasyMock.contains("java.lang.NullPointerException"));
+        mMockListener.testEnded(test3, new HashMap<String, Metric>());
+
+        mMockListener.testRunEnded(5000L, new HashMap<String, Metric>());
+        EasyMock.replay(mMockListener);
+        mParser.parse(extractTestXml(TEST_PARSE_FILE));
+        EasyMock.verify(mMockListener);
+    }
+
+    /** Test parsing the <error> and <skipped> tag in the junit xml. */
+    @Test
+    public void testParseErrorAndSkipped() throws ParseException {
+        mMockListener.testRunStarted("suiteName", 3);
+        TestDescription test1 = new TestDescription("PassTest", "testPass");
+        mMockListener.testStarted(test1);
+        mMockListener.testEnded(test1, new HashMap<String, Metric>());
+
+        TestDescription test2 = new TestDescription("SkippedTest", "testSkip");
+        mMockListener.testStarted(test2);
+        mMockListener.testIgnored(test2);
+        mMockListener.testEnded(test2, new HashMap<String, Metric>());
+
+        TestDescription test3 = new TestDescription("ErrorTest", "testFail");
+        mMockListener.testStarted(test3);
+        mMockListener.testFailed(
+                EasyMock.eq(test3), EasyMock.contains("java.lang.NullPointerException"));
+        mMockListener.testEnded(test3, new HashMap<String, Metric>());
+
+        mMockListener.testRunEnded(918686L, new HashMap<String, Metric>());
+        EasyMock.replay(mMockListener);
+        mParser.parse(extractTestXml(TEST_PARSE_FILE2));
+        EasyMock.verify(mMockListener);
     }
 
     private InputStream extractTestXml(String fileName) {

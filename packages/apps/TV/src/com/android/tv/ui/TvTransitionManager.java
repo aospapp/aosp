@@ -30,19 +30,23 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.FrameLayout.LayoutParams;
-
 import com.android.tv.MainActivity;
 import com.android.tv.R;
-import com.android.tv.data.Channel;
-
+import com.android.tv.data.api.Channel;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 public class TvTransitionManager extends TransitionManager {
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef({SCENE_TYPE_EMPTY, SCENE_TYPE_CHANNEL_BANNER, SCENE_TYPE_INPUT_BANNER,
-        SCENE_TYPE_KEYPAD_CHANNEL_SWITCH, SCENE_TYPE_SELECT_INPUT})
+    @IntDef({
+        SCENE_TYPE_EMPTY,
+        SCENE_TYPE_CHANNEL_BANNER,
+        SCENE_TYPE_INPUT_BANNER,
+        SCENE_TYPE_KEYPAD_CHANNEL_SWITCH,
+        SCENE_TYPE_SELECT_INPUT
+    })
     public @interface SceneType {}
+
     public static final int SCENE_TYPE_EMPTY = 0;
     public static final int SCENE_TYPE_CHANNEL_BANNER = 1;
     public static final int SCENE_TYPE_INPUT_BANNER = 2;
@@ -70,17 +74,24 @@ public class TvTransitionManager extends TransitionManager {
 
     private Listener mListener;
 
-    public TvTransitionManager(MainActivity mainActivity, ViewGroup sceneContainer,
-            ChannelBannerView channelBannerView, InputBannerView inputBannerView,
-            KeypadChannelSwitchView keypadChannelSwitchView, SelectInputView selectInputView) {
+    public TvTransitionManager(
+            MainActivity mainActivity,
+            ViewGroup sceneContainer,
+            ChannelBannerView channelBannerView,
+            InputBannerView inputBannerView,
+            KeypadChannelSwitchView keypadChannelSwitchView,
+            SelectInputView selectInputView) {
         mMainActivity = mainActivity;
         mSceneContainer = sceneContainer;
         mChannelBannerView = channelBannerView;
         mInputBannerView = inputBannerView;
         mKeypadChannelSwitchView = keypadChannelSwitchView;
         mSelectInputView = selectInputView;
-        mEmptyView = (FrameLayout) mMainActivity.getLayoutInflater().inflate(
-                R.layout.empty_info_banner, sceneContainer, false);
+        mEmptyView =
+                (FrameLayout)
+                        mMainActivity
+                                .getLayoutInflater()
+                                .inflate(R.layout.empty_info_banner, sceneContainer, false);
         mCurrentSceneView = mEmptyView;
     }
 
@@ -108,8 +119,10 @@ public class TvTransitionManager extends TransitionManager {
             if (mCurrentScene != mInputBannerScene) {
                 // Show the input banner instead.
                 LayoutParams lp = (LayoutParams) mInputBannerView.getLayoutParams();
-                lp.width = mCurrentScene == mSelectInputScene ? mSelectInputView.getWidth()
-                        : FrameLayout.LayoutParams.WRAP_CONTENT;
+                lp.width =
+                        mCurrentScene == mSelectInputScene
+                                ? mSelectInputView.getWidth()
+                                : FrameLayout.LayoutParams.WRAP_CONTENT;
                 mInputBannerView.setLayoutParams(lp);
                 mInputBannerView.updateLabel();
                 transitionTo(mInputBannerScene);
@@ -154,33 +167,35 @@ public class TvTransitionManager extends TransitionManager {
         if (mInitialized) {
             return;
         }
-        mEnterAnimator = AnimatorInflater.loadAnimator(mMainActivity,
-                R.animator.channel_banner_enter);
-        mExitAnimator = AnimatorInflater.loadAnimator(mMainActivity,
-                R.animator.channel_banner_exit);
+        mEnterAnimator =
+                AnimatorInflater.loadAnimator(mMainActivity, R.animator.channel_banner_enter);
+        mExitAnimator =
+                AnimatorInflater.loadAnimator(mMainActivity, R.animator.channel_banner_exit);
 
         mEmptyScene = new Scene(mSceneContainer, (View) mEmptyView);
-        mEmptyScene.setEnterAction(new Runnable() {
-            @Override
-            public void run() {
-                FrameLayout.LayoutParams emptySceneLayoutParams =
-                        (FrameLayout.LayoutParams) mEmptyView.getLayoutParams();
-                ViewGroup.MarginLayoutParams lp =
-                        (ViewGroup.MarginLayoutParams) mCurrentSceneView.getLayoutParams();
-                emptySceneLayoutParams.topMargin = mCurrentSceneView.getTop();
-                emptySceneLayoutParams.setMarginStart(lp.getMarginStart());
-                emptySceneLayoutParams.height = mCurrentSceneView.getHeight();
-                emptySceneLayoutParams.width = mCurrentSceneView.getWidth();
-                mEmptyView.setLayoutParams(emptySceneLayoutParams);
-                setCurrentScene(mEmptyScene, mEmptyView);
-            }
-        });
-        mEmptyScene.setExitAction(new Runnable() {
-            @Override
-            public void run() {
-                removeAllViewsFromOverlay();
-            }
-        });
+        mEmptyScene.setEnterAction(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        FrameLayout.LayoutParams emptySceneLayoutParams =
+                                (FrameLayout.LayoutParams) mEmptyView.getLayoutParams();
+                        ViewGroup.MarginLayoutParams lp =
+                                (ViewGroup.MarginLayoutParams) mCurrentSceneView.getLayoutParams();
+                        emptySceneLayoutParams.topMargin = mCurrentSceneView.getTop();
+                        emptySceneLayoutParams.setMarginStart(lp.getMarginStart());
+                        emptySceneLayoutParams.height = mCurrentSceneView.getHeight();
+                        emptySceneLayoutParams.width = mCurrentSceneView.getWidth();
+                        mEmptyView.setLayoutParams(emptySceneLayoutParams);
+                        setCurrentScene(mEmptyScene, mEmptyView);
+                    }
+                });
+        mEmptyScene.setExitAction(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        removeAllViewsFromOverlay();
+                    }
+                });
 
         mChannelBannerScene = buildScene(mSceneContainer, mChannelBannerView);
         mInputBannerScene = buildScene(mSceneContainer, mInputBannerView);
@@ -189,18 +204,20 @@ public class TvTransitionManager extends TransitionManager {
         mCurrentScene = mEmptyScene;
 
         // Enter transitions
-        TransitionSet enter = new TransitionSet()
-                .addTransition(new SceneTransition(SceneTransition.ENTER))
-                .addTransition(new Fade(Fade.IN));
+        TransitionSet enter =
+                new TransitionSet()
+                        .addTransition(new SceneTransition(SceneTransition.ENTER))
+                        .addTransition(new Fade(Fade.IN));
         setTransition(mEmptyScene, mChannelBannerScene, enter);
         setTransition(mEmptyScene, mInputBannerScene, enter);
         setTransition(mEmptyScene, mKeypadChannelSwitchScene, enter);
         setTransition(mEmptyScene, mSelectInputScene, enter);
 
         // Exit transitions
-        TransitionSet exit = new TransitionSet()
-                .addTransition(new SceneTransition(SceneTransition.EXIT))
-                .addTransition(new Fade(Fade.OUT));
+        TransitionSet exit =
+                new TransitionSet()
+                        .addTransition(new SceneTransition(SceneTransition.EXIT))
+                        .addTransition(new Fade(Fade.OUT));
         setTransition(mChannelBannerScene, mEmptyScene, exit);
         setTransition(mInputBannerScene, mEmptyScene, exit);
         setTransition(mKeypadChannelSwitchScene, mEmptyScene, exit);
@@ -220,10 +237,9 @@ public class TvTransitionManager extends TransitionManager {
         mInitialized = true;
     }
 
-    /**
-     * Returns the type of the given scene.
-     */
-    @SceneType public int getSceneType(Scene scene) {
+    /** Returns the type of the given scene. */
+    @SceneType
+    public int getSceneType(Scene scene) {
         if (scene == mChannelBannerScene) {
             return SCENE_TYPE_CHANNEL_BANNER;
         } else if (scene == mInputBannerScene) {
@@ -257,21 +273,23 @@ public class TvTransitionManager extends TransitionManager {
 
     private Scene buildScene(ViewGroup sceneRoot, final TransitionLayout layout) {
         final Scene scene = new Scene(sceneRoot, (View) layout);
-        scene.setEnterAction(new Runnable() {
-            @Override
-            public void run() {
-                boolean wasEmptyScene = (mCurrentScene == mEmptyScene);
-                setCurrentScene(scene, (ViewGroup) layout);
-                layout.onEnterAction(wasEmptyScene);
-            }
-        });
-        scene.setExitAction(new Runnable() {
-            @Override
-            public void run() {
-                removeAllViewsFromOverlay();
-                layout.onExitAction();
-            }
-        });
+        scene.setEnterAction(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        boolean wasEmptyScene = (mCurrentScene == mEmptyScene);
+                        setCurrentScene(scene, (ViewGroup) layout);
+                        layout.onEnterAction(wasEmptyScene);
+                    }
+                });
+        scene.setExitAction(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        removeAllViewsFromOverlay();
+                        layout.onExitAction();
+                    }
+                });
         return scene;
     }
 
@@ -294,12 +312,10 @@ public class TvTransitionManager extends TransitionManager {
         }
 
         @Override
-        public void captureStartValues(TransitionValues transitionValues) {
-        }
+        public void captureStartValues(TransitionValues transitionValues) {}
 
         @Override
-        public void captureEndValues(TransitionValues transitionValues) {
-        }
+        public void captureEndValues(TransitionValues transitionValues) {}
 
         @Override
         public Animator createAnimator(
@@ -311,9 +327,7 @@ public class TvTransitionManager extends TransitionManager {
         }
     }
 
-    /**
-     * An interface for notification of the scene transition.
-     */
+    /** An interface for notification of the scene transition. */
     public interface Listener {
         /**
          * Called when the scene changes. This method is called just before the scene transition.

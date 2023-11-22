@@ -37,7 +37,7 @@ LOCAL_SRC_FILES := \
   AudioRecorder.cpp \
   com_android_ndkaudio_AudioRecorder.cpp
 
-LOCAL_CXX_STL := libc++_static
+LOCAL_CXX_STL := libc++
 
 LOCAL_SHARED_LIBRARIES := liblog libOpenSLES
 
@@ -55,5 +55,7 @@ LOCAL_MODULE  := ndkaudio
 LOCAL_SRC_FILES := $(call all-subdir-java-files)
 
 LOCAL_CERTIFICATE := platform
+
+LOCAL_SDK_VERSION := current
 
 include $(BUILD_STATIC_JAVA_LIBRARY)

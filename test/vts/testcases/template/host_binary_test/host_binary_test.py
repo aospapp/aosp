@@ -52,9 +52,9 @@ class HostBinaryTest(base_test.BaseTestClass):
 
             cmd_result = cmd_utils.ExecuteShellCommand(binary_path)
             asserts.assertFalse(
-                any(results[cmd_utils.EXIT_CODE]),
+                any(cmd_result[cmd_utils.EXIT_CODE]),
                 "Test failed with the following results:\n "
-                "command result: %s" % results)
+                "command result: %s" % cmd_result)
 
 
 if __name__ == "__main__":

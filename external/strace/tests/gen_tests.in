@@ -1,6 +1,6 @@
 # Input for gen_tests.sh
 #
-# Copyright (c) 2017 The strace developers.
+# Copyright (c) 2017-2018 The strace developers.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,6 +26,7 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 _newselect
+_newselect-P	 -e trace=_newselect -P /dev/full 9>>/dev/full
 accept	-a22
 accept4	-a37
 access	-a30 -P access_sample
@@ -35,6 +36,7 @@ adjtimex	-a15
 aio	-a14 -e trace=io_setup,io_submit,io_getevents,io_cancel,io_destroy
 alarm	-a10
 bpf	-a20
+bpf-v	-a20 -v -e trace=bpf
 btrfs	+ioctl.test
 chmod	-a28
 chown	-a28
@@ -115,22 +117,29 @@ getsockname	-a27
 gettid	-a9
 getuid32	+getuid.test
 getxxid	-a10 -e trace=getxpid,getxuid,getxgid
+group_req	-e trace=setsockopt
 inet-cmsg	-e trace=recvmsg
 init_module	-a27
 inotify	-a23 -e trace=inotify_add_watch,inotify_rm_watch
 inotify_init1	-a27
 int_0x80	-a11 -e trace=getgid32
 ioctl_block	+ioctl.test
+ioctl_dm	+ioctl.test -s9
+ioctl_dm-v	+ioctl.test -v -s9
 ioctl_evdev	+ioctl.test
-ioctl_evdev-v	+ioctl-v.sh
+ioctl_evdev-v	+ioctl.test -v
+ioctl_kvm_run	+ioctl.test -a36 -y
 ioctl_loop	+ioctl.test
-ioctl_loop-v	+ioctl-v.sh
+ioctl_loop-nv	+ioctl.test -a22 -e verbose=none
+ioctl_loop-v	+ioctl.test -v
 ioctl_mtd	+ioctl.test
+ioctl_nsfs	+ioctl.test -esignal=none
 ioctl_rtc	+ioctl.test
-ioctl_rtc-v	+ioctl-v.sh
+ioctl_rtc-v	+ioctl.test -v
 ioctl_scsi	+ioctl.test
 ioctl_sg_io_v3	+ioctl.test
 ioctl_sg_io_v4	+ioctl.test
+ioctl_sock_gifconf	+ioctl.test -a28 -s1
 ioctl_uffdio	+ioctl.test
 ioctl_v4l2	+ioctl.test
 ioperm	-a27
@@ -141,7 +150,8 @@ ipc	-a19
 ipc_msg	+ipc.sh
 ipc_sem	+ipc.sh
 ipc_shm	+ipc.sh
-kcmp	-a27
+kcmp	-a22
+kcmp-y	-a22 -y -e trace=kcmp
 kexec_file_load	-s9
 kexec_load	-s9
 keyctl	-a31 -s10
@@ -171,6 +181,7 @@ mmsg	-e read=0 -e write=1 -e trace=recvmmsg,sendmmsg
 mmsg-silent	-a25 -e verbose=none -e trace=sendmmsg,recvmmsg
 mmsg_name	-a25 -e trace=sendmmsg,recvmmsg
 mmsg_name-v	-v -a25 -e trace=sendmmsg,recvmmsg
+modify_ldt	-a23
 mount
 move_pages	-s3
 mq	-a32 -e trace=mq_getsetattr,mq_open,mq_unlink
@@ -185,7 +196,9 @@ nanosleep	-a20
 net-icmp_filter	-e trace=getsockopt,setsockopt
 net-sockaddr	-a24 -e trace=connect
 netlink_audit	+netlink_sock_diag.test
+netlink_crypto	+netlink_sock_diag.test
 netlink_generic	+netlink_sock_diag.test
+netlink_kobject_uevent	+netlink_sock_diag.test
 netlink_netfilter	+netlink_sock_diag.test
 netlink_protocol	-e trace=sendto
 netlink_route	+netlink_sock_diag.test
@@ -193,15 +206,58 @@ netlink_selinux	+netlink_sock_diag.test
 netlink_xfrm	+netlink_sock_diag.test
 newfstatat	-a32 -v -P stat.sample -P /dev/full
 nlattr		+netlink_sock_diag.test
+nfnetlink_acct			+netlink_sock_diag.test
+nfnetlink_cthelper		+netlink_sock_diag.test
+nfnetlink_ctnetlink		+netlink_sock_diag.test
+nfnetlink_ctnetlink_exp		+netlink_sock_diag.test
+nfnetlink_cttimeout		+netlink_sock_diag.test
+nfnetlink_ipset			+netlink_sock_diag.test
+nfnetlink_nft_compat		+netlink_sock_diag.test
+nfnetlink_nftables		+netlink_sock_diag.test
+nfnetlink_osf			+netlink_sock_diag.test
+nfnetlink_queue			+netlink_sock_diag.test
+nfnetlink_ulog			+netlink_sock_diag.test
+nlattr_crypto_user_alg		+netlink_sock_diag.test
+nlattr_br_port_msg		+netlink_sock_diag.test
+nlattr_dcbmsg			+netlink_sock_diag.test
+nlattr_fib_rule_hdr		+netlink_sock_diag.test
+nlattr_ifaddrlblmsg		+netlink_sock_diag.test
+nlattr_ifaddrmsg		+netlink_sock_diag.test
+nlattr_ifinfomsg		+netlink_sock_diag.test
+nlattr_ifla_brport		+netlink_sock_diag.test
+nlattr_ifla_port		+netlink_sock_diag.test
+nlattr_ifla_xdp			+netlink_sock_diag.test
 nlattr_inet_diag_msg		+netlink_sock_diag.test
+nlattr_inet_diag_req_compat	+netlink_sock_diag.test
+nlattr_inet_diag_req_v2		+netlink_sock_diag.test
+nlattr_mdba_mdb_entry		+netlink_sock_diag.test
+nlattr_mdba_router_port		+netlink_sock_diag.test
+nlattr_ndmsg			+netlink_sock_diag.test
+nlattr_ndtmsg			+netlink_sock_diag.test
+nlattr_netconfmsg		+netlink_sock_diag.test
 nlattr_netlink_diag_msg		+netlink_sock_diag.test
+nlattr_nlmsgerr			+netlink_sock_diag.test
+nlattr_packet_diag_msg		+netlink_sock_diag-v.sh
+nlattr_rtgenmsg			+netlink_sock_diag.test
+nlattr_rtmsg			+netlink_sock_diag.test
+nlattr_smc_diag_msg		+netlink_sock_diag.test
+nlattr_tc_stats			+netlink_sock_diag.test
+nlattr_tca_stab			+netlink_sock_diag.test
+nlattr_tcamsg			+netlink_sock_diag.test
+nlattr_tcmsg			+netlink_sock_diag.test
 nlattr_unix_diag_msg		+netlink_sock_diag.test
 old_mmap	-a11 -e trace=mmap
+old_mmap-P	-e trace=mmap -P "/dev/full" 9>>/dev/full
+old_mmap-v-none	-a11 -e trace=mmap -e verbose=none
 oldfstat	-a18 -v -P stat.sample
 oldlstat	-a32 -v -P stat.sample -P /dev/full
+oldselect	-a13 -e trace=select
+oldselect-P	-a13 -e trace=select -P /dev/full 9>>/dev/full
+oldselect-efault	-a13 -e trace=select
+oldselect-efault-P	-a13 -e trace=select -P /dev/full 9>>/dev/full
 oldstat	-a32 -v -P stat.sample -P /dev/full
 open	-a30 -P $NAME.sample
-openat	-P $NAME.sample
+openat	-a36 -P $NAME.sample
 osf_utimes	-a21
 pause	-a8 -esignal=none
 perf_event_open	-a1
@@ -212,12 +268,19 @@ pkey_alloc	-a17
 pkey_free	-a13
 pkey_mprotect	-a37
 ppoll	-s2
+ppoll-P	-s2 -e trace=ppoll -P /dev/full 9>>/dev/full
 ppoll-v	-v -s2 -e trace=ppoll
 pread64-pwrite64	-a21 -eread=0 -ewrite=1 -e trace=pread64,pwrite64 -P pread64-pwrite64-tmpfile -P /dev/zero -P /dev/null
 preadv	-a21
 preadv-pwritev	-a19 -eread=0 -ewrite=1 -e trace=preadv,pwritev
 preadv2-pwritev2	-a22 -eread=0 -ewrite=1 -e trace=preadv2,pwritev2
 printstr	-e trace=writev
+printpath-umovestr	-a11 -e signal=none -e trace=chdir
+printpath-umovestr-peekdata	-a11 -e signal=none -e trace=chdir
+printpath-umovestr-undumpable	-a11 -e signal=none -e trace=chdir
+printstrn-umoven	-s4096 -e signal=none -e trace=add_key
+printstrn-umoven-peekdata	-e signal=none -e trace=add_key
+printstrn-umoven-undumpable	-e signal=none -e trace=add_key
 prlimit64
 process_vm_readv	-s5 -a37
 process_vm_writev	-s5 -a38
@@ -233,7 +296,7 @@ readahead	-a1
 readdir	-a16
 readlink	-xx
 readlinkat	-xx
-reboot
+reboot		-s 256
 recvfrom	-a35
 recvmmsg-timeout	-a25 -e trace=recvmmsg
 recvmsg	-eread=0 -ewrite=1 -e trace=recvmsg,sendmsg
@@ -243,6 +306,7 @@ rename	-a35
 renameat
 renameat2
 request_key	-a33 -s12
+riscv_flush_icache	-a34
 rmdir	-a22
 rt_sigpending	-a20
 rt_sigprocmask
@@ -251,6 +315,12 @@ rt_sigreturn	-esignal='!USR1'
 rt_sigsuspend	-a20 -esignal=none
 rt_sigtimedwait	-a38
 rt_tgsigqueueinfo	-esignal=none
+s390_guarded_storage	-a32
+s390_guarded_storage-v	-e trace=s390_guarded_storage -a32 -v
+s390_pci_mmio_read_write	-e trace=s390_pci_mmio_read,s390_pci_mmio_write -a30
+s390_runtime_instr	-a50
+s390_sthyi	-a47
+s390_sthyi-v	-e trace=s390_sthyi -a47 -v
 sched	test_trace_expr times -e/sched
 sched_get_priority_mxx	-a33 -e trace=sched_get_priority_min,sched_get_priority_max
 sched_rr_get_interval	-a31
@@ -261,7 +331,9 @@ sched_xetscheduler	-a22 -e trace=sched_getscheduler,sched_setscheduler
 sched_yield	-a14
 seccomp-filter	-e trace=seccomp
 seccomp-filter-v	-v -e trace=seccomp
+seccomp_get_action_avail	-e trace=seccomp
 select	-a36
+select-P	-a36 -e trace=select -P /dev/full 9>>/dev/full
 semop	-a32 -e trace=semop,semtimedop
 sendfile	-a27
 sendfile64	-a29
@@ -299,7 +371,11 @@ sigpending	-a15
 sigprocmask	-a34
 sigreturn	-esignal='!USR1'
 sigsuspend	-a19 -esignal=none
+so_linger	-e trace=getsockopt,setsockopt
+so_peercred	-e trace=getsockopt
+sock_filter-v	-v -e trace=getsockopt,setsockopt
 socketcall	-a20
+sockopt-sol_netlink	-e trace=getsockopt,setsockopt
 splice
 stat	-a32 -v -P stat.sample -P /dev/full
 stat64	-a32 -v -P stat.sample -P /dev/full

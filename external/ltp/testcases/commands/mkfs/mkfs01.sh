@@ -16,7 +16,6 @@
 # Test mkfs command with some basic options.
 #
 
-TST_ID="mkfs01"
 TST_CNT=5
 TST_SETUP=setup
 TST_TESTFUNC=test
@@ -95,7 +94,7 @@ mkfs_verify_size()
 	# 1k-block size should be devided by this argument for ntfs verification.
 	if [ "$1" = "ntfs" ]; then
 		local rate=1024/512
-		if [ $blocknum -lt "$(($2/rate*9/10))" ]; then
+		if [ $blocknum -lt "$(($2/$rate*9/10))" ]; then
 			return 1
 		fi
 	else

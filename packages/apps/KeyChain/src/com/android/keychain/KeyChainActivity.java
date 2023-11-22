@@ -46,6 +46,8 @@ import android.widget.Button;
 import android.widget.ListView;
 import android.widget.RadioButton;
 import android.widget.TextView;
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.keychain.internal.KeyInfoProvider;
 import com.android.org.bouncycastle.asn1.x509.X509Name;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -57,6 +59,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.security.auth.x500.X500Principal;
 
@@ -144,14 +147,31 @@ public class KeyChainActivity extends Activity {
     private void chooseCertificate() {
         // Start loading the set of certs to choose from now- if device policy doesn't return an
         // alias, having aliases loading already will save some time waiting for UI to start.
-        final AliasLoader loader = new AliasLoader();
+        KeyInfoProvider keyInfoProvider = new KeyInfoProvider() {
+            public boolean isUserSelectable(String alias) {
+                try (KeyChain.KeyChainConnection connection =
+                        KeyChain.bind(KeyChainActivity.this)) {
+                    return connection.getService().isUserSelectable(alias);
+                }
+                catch (InterruptedException ignored) {
+                    Log.e(TAG, "interrupted while checking if key is user-selectable", ignored);
+                    Thread.currentThread().interrupt();
+                    return false;
+                } catch (Exception ignored) {
+                    Log.e(TAG, "error while checking if key is user-selectable", ignored);
+                    return false;
+                }
+            }
+        };
+
+        final AliasLoader loader = new AliasLoader(mKeyStore, this, keyInfoProvider);
         loader.execute();
 
         final IKeyChainAliasCallback.Stub callback = new IKeyChainAliasCallback.Stub() {
             @Override public void alias(String alias) {
                 // Use policy-suggested alias if provided
                 if (alias != null) {
-                    finish(alias);
+                    finishWithAliasFromPolicy(alias);
                     return;
                 }
 
@@ -192,14 +212,26 @@ public class KeyChainActivity extends Activity {
         }
     }
 
-    private class AliasLoader extends AsyncTask<Void, Void, CertificateAdapter> {
+    @VisibleForTesting
+    static class AliasLoader extends AsyncTask<Void, Void, CertificateAdapter> {
+        private final KeyStore mKeyStore;
+        private final Context mContext;
+        private final KeyInfoProvider mInfoProvider;
+
+        public AliasLoader(KeyStore keyStore, Context context, KeyInfoProvider infoProvider) {
+          mKeyStore = keyStore;
+          mContext = context;
+          mInfoProvider = infoProvider;
+        }
+
         @Override protected CertificateAdapter doInBackground(Void... params) {
             String[] aliasArray = mKeyStore.list(Credentials.USER_PRIVATE_KEY);
-            List<String> aliasList = ((aliasArray == null)
+            List<String> rawAliasList = ((aliasArray == null)
                                       ? Collections.<String>emptyList()
                                       : Arrays.asList(aliasArray));
-            Collections.sort(aliasList);
-            return new CertificateAdapter(aliasList);
+            return new CertificateAdapter(mKeyStore, mContext,
+                    rawAliasList.stream().filter(mInfoProvider::isUserSelectable).sorted()
+                    .collect(Collectors.toList()));
         }
     }
 
@@ -323,12 +355,18 @@ public class KeyChainActivity extends Activity {
         dialog.show();
     }
 
-    private class CertificateAdapter extends BaseAdapter {
+    @VisibleForTesting
+    static class CertificateAdapter extends BaseAdapter {
         private final List<String> mAliases;
         private final List<String> mSubjects = new ArrayList<String>();
-        private CertificateAdapter(List<String> aliases) {
+        private final KeyStore mKeyStore;
+        private final Context mContext;
+
+        private CertificateAdapter(KeyStore keyStore, Context context, List<String> aliases) {
             mAliases = aliases;
             mSubjects.addAll(Collections.nCopies(aliases.size(), (String) null));
+            mKeyStore = keyStore;
+            mContext = context;
         }
         @Override public int getCount() {
             return mAliases.size();
@@ -342,7 +380,7 @@ public class KeyChainActivity extends Activity {
         @Override public View getView(final int adapterPosition, View view, ViewGroup parent) {
             ViewHolder holder;
             if (view == null) {
-                LayoutInflater inflater = LayoutInflater.from(KeyChainActivity.this);
+                LayoutInflater inflater = LayoutInflater.from(mContext);
                 view = inflater.inflate(R.layout.cert_item, parent, false);
                 holder = new ViewHolder();
                 holder.mAliasTextView = (TextView) view.findViewById(R.id.cert_item_alias);
@@ -428,6 +466,14 @@ public class KeyChainActivity extends Activity {
     }
 
     private void finish(String alias) {
+        finish(alias, false);
+    }
+
+    private void finishWithAliasFromPolicy(String alias) {
+        finish(alias, true);
+    }
+
+    private void finish(String alias, boolean isAliasFromPolicy) {
         if (alias == null) {
             setResult(RESULT_CANCELED);
         } else {
@@ -439,7 +485,7 @@ public class KeyChainActivity extends Activity {
                 = IKeyChainAliasCallback.Stub.asInterface(
                         getIntent().getIBinderExtra(KeyChain.EXTRA_RESPONSE));
         if (keyChainAliasResponse != null) {
-            new ResponseSender(keyChainAliasResponse, alias).execute();
+            new ResponseSender(keyChainAliasResponse, alias, isAliasFromPolicy).execute();
             return;
         }
         finish();
@@ -448,15 +494,29 @@ public class KeyChainActivity extends Activity {
     private class ResponseSender extends AsyncTask<Void, Void, Void> {
         private IKeyChainAliasCallback mKeyChainAliasResponse;
         private String mAlias;
-        private ResponseSender(IKeyChainAliasCallback keyChainAliasResponse, String alias) {
+        private boolean mFromPolicy;
+
+        private ResponseSender(IKeyChainAliasCallback keyChainAliasResponse, String alias,
+                boolean isFromPolicy) {
             mKeyChainAliasResponse = keyChainAliasResponse;
             mAlias = alias;
+            mFromPolicy = isFromPolicy;
         }
         @Override protected Void doInBackground(Void... unused) {
             try {
                 if (mAlias != null) {
                     KeyChain.KeyChainConnection connection = KeyChain.bind(KeyChainActivity.this);
                     try {
+                        // This is a safety check to make sure an alias was not somehow chosen by
+                        // the user but is not user-selectable.
+                        // However, if the alias was selected by the Device Owner / Profile Owner
+                        // (by implementing DeviceAdminReceiver), then there's no need to check
+                        // this.
+                        if (!mFromPolicy && (!connection.getService().isUserSelectable(mAlias))) {
+                            Log.w(TAG, String.format("Alias %s not user-selectable.", mAlias));
+                            //TODO: Should we invoke the callback with null here to indicate error?
+                            return null;
+                        }
                         connection.getService().setGrant(mSenderUid, mAlias, true);
                     } finally {
                         connection.close();

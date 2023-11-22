@@ -25,13 +25,14 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
 LOCAL_PACKAGE_NAME := AoapHostApp
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_PROGUARD_ENABLED := disabled
 
-LOCAL_STATIC_JAVA_LIBRARIES := junit legacy-android-test
+LOCAL_STATIC_JAVA_LIBRARIES := junit
 include packages/services/Car/car-support-lib/car-support.mk
 
 include $(BUILD_PACKAGE)

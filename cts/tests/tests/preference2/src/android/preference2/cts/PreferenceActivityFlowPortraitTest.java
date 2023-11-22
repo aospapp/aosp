@@ -36,7 +36,7 @@ public class PreferenceActivityFlowPortraitTest extends PreferenceActivityFlowTe
 
     @Rule
     public ActivityTestRule<PreferenceWithHeadersPortrait> mActivityRule =
-            new ActivityTestRule<>(PreferenceWithHeadersPortrait.class, false, false);
+            new ActivityTestRule<>(PreferenceWithHeadersPortrait.class, true, false);
 
     @Before
     public void setup() {

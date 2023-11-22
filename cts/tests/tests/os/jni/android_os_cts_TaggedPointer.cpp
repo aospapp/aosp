@@ -18,7 +18,6 @@
 #include <inttypes.h>
 #include <setjmp.h>
 #include <signal.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 

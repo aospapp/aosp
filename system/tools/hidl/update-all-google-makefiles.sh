@@ -7,4 +7,4 @@ $ANDROID_BUILD_TOP/hardware/interfaces/update-makefiles.sh
 $ANDROID_BUILD_TOP/frameworks/hardware/interfaces/update-makefiles.sh
 $ANDROID_BUILD_TOP/system/hardware/interfaces/update-makefiles.sh
 
-$ANDROID_BUILD_TOP/system/tools/hidl/test/vendor/1.0/update-makefile.sh
+$ANDROID_BUILD_TOP/system/tools/hidl/test/vendor/update-makefile.sh

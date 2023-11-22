@@ -30,43 +30,42 @@
         android:layout_height="wrap_content"
         android:text="This app provides two sample implementations of the self-managed ConnectionService API.  Use this UI to add simulated self-managed calls:" />
 
-    <RadioGroup
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal">
-        <RadioButton
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Sample Source 1"
-            android:id="@+id/useAcct1Button"
-            android:background="@color/test_call_a_color"/>
-        <RadioButton
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Sample Source 2"
-            android:id="@+id/useAcct2Button"
-            android:background="@color/test_call_b_color"/>
-    </RadioGroup>
-
-    <RadioGroup
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-        <RadioButton
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Video Call"
-            android:id="@+id/videoCallButton"/>
-        <RadioButton
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Audio Call"
-            android:id="@+id/audioCallButton"/>
-    </RadioGroup>
+        <TextView
+            android:id="@+id/textView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="Acct:"/>
+        <RadioGroup
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="1" android:orientation="horizontal">
+            <RadioButton
+                android:id="@+id/useAcct1Button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@color/test_call_a_color"
+                android:checked="true" android:text="1"/>
+            <RadioButton
+                android:id="@+id/useAcct2Button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@color/test_call_b_color"
+                android:text="2"/>
+        </RadioGroup>
+        <TextView
+            android:id="@+id/hasFocus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="👎 No Focus 👎"/>
+    </LinearLayout>
 
     <LinearLayout android:orientation="horizontal"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content">
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content">
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -76,6 +75,16 @@
             android:layout_height="wrap_content"
             android:id="@+id/phoneNumber"
             android:text="tel:555-1212"/>
+        <CheckBox
+            android:id="@+id/holdable"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:checked="true" android:text="Holdable"/>
+        <CheckBox
+            android:id="@+id/videoCall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="Video"/>
     </LinearLayout>
 
     <LinearLayout android:orientation="horizontal"
@@ -83,20 +92,20 @@
         android:layout_height="wrap_content">
 
         <Button
+            android:id="@+id/placeOutgoingCallButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Outgoing Call"
-            android:id="@+id/placeOutgoingCallButton" />
+            android:text="Outgoing"/>
         <Button
+            android:id="@+id/placeIncomingCallButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Incoming Call"
-            android:id="@+id/placeIncomingCallButton" />
+            android:text="Incoming"/>
         <Button
+            android:id="@+id/handoverFrom"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Handover From"
-            android:id="@+id/handoverFrom" />
+            android:text="Accept Handover"/>
     </LinearLayout>
 
     <ListView

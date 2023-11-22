@@ -10,6 +10,20 @@ LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/feature_mos/src/mosaic
 
 LOCAL_CFLAGS := -O3 -DNDEBUG
+LOCAL_CFLAGS += -Wall -Werror
+# suppress existing non-critical warnings
+LOCAL_CFLAGS += \
+        -Wno-gnu-static-float-init \
+        -Wno-non-literal-null-conversion \
+        -Wno-self-assign \
+        -Wno-unused-parameter \
+        -Wno-unused-variable \
+        -Wno-unused-function \
+
+# some warnings should be fixed
+LOCAL_CFLAGS += \
+        -Wno-error=sometimes-uninitialized \
+
 LOCAL_CPPFLAGS := -std=gnu++98
 
 LOCAL_SRC_FILES := \

@@ -22,6 +22,8 @@
         android:allowBackup="true"
         android:backupAgent="android.backup.app.KeyValueBackupAgent"
         android:label="Android Key Value Backup CTS App">
+        <uses-library android:name="android.test.runner" />
+
         <activity
             android:name="android.backup.app.MainActivity"
             android:label="Android Key Value Backup CTS App" >

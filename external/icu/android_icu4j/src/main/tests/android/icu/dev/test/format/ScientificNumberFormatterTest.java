@@ -10,17 +10,22 @@
 package android.icu.dev.test.format;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.DecimalFormat;
 import android.icu.text.NumberFormat;
 import android.icu.text.ScientificNumberFormatter;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author rocketman
  *
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class ScientificNumberFormatterTest extends TestFmwk {
     @Test
     public void TestBasic() {
@@ -36,8 +41,8 @@ public class ScientificNumberFormatterTest extends TestFmwk {
                 "1.23456×10⁻⁷⁸",
                 superscript.format(1.23456e-78));
     }
-    
-    
+
+
     @Test
     public void TestFarsi() {
         ScientificNumberFormatter fmt = ScientificNumberFormatter.getMarkupInstance(
@@ -55,14 +60,14 @@ public class ScientificNumberFormatterTest extends TestFmwk {
         decfmt.applyPattern("0.00E+0");
         ScientificNumberFormatter fmt = ScientificNumberFormatter.getMarkupInstance(
                 decfmt, "<sup>", "</sup>");
-                
+
         assertEquals(
                 "",
                 "6.02×10<sup>+23</sup>",
                 fmt.format(6.02e23));
     }
 
-    
+
     @Test
     public void TestPlusSignInExponentSuperscript() {
         DecimalFormat decfmt = (DecimalFormat) NumberFormat.getScientificInstance(ULocale.ENGLISH);
@@ -74,7 +79,7 @@ public class ScientificNumberFormatterTest extends TestFmwk {
                 "6.02×10⁺²³",
                 fmt.format(6.02e23));
     }
-    
+
     @Test
     public void TestFixedDecimalMarkup() {
         DecimalFormat decfmt = (DecimalFormat) NumberFormat.getInstance(ULocale.ENGLISH);
@@ -85,7 +90,7 @@ public class ScientificNumberFormatterTest extends TestFmwk {
                 "123,456",
                 fmt.format(123456.0));
     }
-    
+
     @Test
     public void TestFixedDecimalSuperscript() {
         DecimalFormat decfmt = (DecimalFormat) NumberFormat.getInstance(ULocale.ENGLISH);

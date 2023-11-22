@@ -25,36 +25,45 @@ import android.content.IntentFilter;
 
 public class BluetoothBroadcastHelper {
 
-  private static BroadcastReceiver mListener;
-  private final Context mContext;
-  private final BroadcastReceiver mReceiver;
-  private final String[] mActions = {BluetoothDevice.ACTION_FOUND,
-                                     BluetoothDevice.ACTION_UUID,
-                                     BluetoothAdapter.ACTION_DISCOVERY_STARTED,
-                                     BluetoothAdapter.ACTION_DISCOVERY_FINISHED};
+    private static BroadcastReceiver sListener;
+    private final Context mContext;
+    private final BroadcastReceiver mReceiver;
+    private final String[] mActions = {BluetoothDevice.ACTION_FOUND,
+            BluetoothDevice.ACTION_UUID,
+            BluetoothAdapter.ACTION_DISCOVERY_STARTED,
+            BluetoothAdapter.ACTION_DISCOVERY_FINISHED};
 
-  public BluetoothBroadcastHelper(Context context, BroadcastReceiver listener) {
-    mContext = context;
-    mListener = listener;
-    mReceiver = new BluetoothReceiver();
-  }
-
-  public void startReceiver() {
-    IntentFilter mIntentFilter = new IntentFilter();
-    for(String action : mActions) {
-      mIntentFilter.addAction(action);
+    public BluetoothBroadcastHelper(Context context, BroadcastReceiver listener) {
+        mContext = context;
+        sListener = listener;
+        mReceiver = new BluetoothReceiver();
     }
-    mContext.registerReceiver(mReceiver, mIntentFilter);
-  }
 
-  public static class BluetoothReceiver extends BroadcastReceiver {
-    @Override
-    public void onReceive(Context context, Intent intent) {
-      mListener.onReceive(context, intent);
+    /**
+     * Start the Receiver.
+     */
+    public void startReceiver() {
+        IntentFilter mIntentFilter = new IntentFilter();
+        for (String action : mActions) {
+            mIntentFilter.addAction(action);
+        }
+        mContext.registerReceiver(mReceiver, mIntentFilter);
     }
-  }
 
-  public void stopReceiver() {
-    mContext.unregisterReceiver(mReceiver);
-  }
+    /**
+     * Bluetooth Receiver Class.
+     */
+    public static class BluetoothReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            sListener.onReceive(context, intent);
+        }
+    }
+
+    /**
+     * Unregister the receiver.
+     */
+    public void stopReceiver() {
+        mContext.unregisterReceiver(mReceiver);
+    }
 }

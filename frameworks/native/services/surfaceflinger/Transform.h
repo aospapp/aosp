@@ -25,6 +25,8 @@
 #include <math/vec2.h>
 #include <math/vec3.h>
 
+#include <gui/ISurfaceComposer.h>
+
 #include <hardware/hardware.h>
 
 namespace android {
@@ -50,6 +52,8 @@ public:
                 ROT_270 = ROT_180|ROT_90,
                 ROT_INVALID = 0x80
             };
+
+            static orientation_flags fromRotation(ISurfaceComposer::Rotation rotation);
 
             enum type_mask {
                 IDENTITY            = 0,
@@ -80,6 +84,7 @@ public:
             Region  transform(const Region& reg) const;
             Rect    transform(const Rect& bounds,
                     bool roundOutwards = false) const;
+            FloatRect transform(const FloatRect& bounds) const;
             Transform operator * (const Transform& rhs) const;
             // assumes the last row is < 0 , 0 , 1 >
             vec2 transform(const vec2& v) const;

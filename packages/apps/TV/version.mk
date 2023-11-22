@@ -1,4 +1,4 @@
-#
+#####################################################
 # Copyright (C) 2015 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -48,13 +48,13 @@
 
 base_version_major := 1
 # Change this for each branch
-base_version_minor := 15
+base_version_minor := 17
 
 # code_version_major will overflow at 22
 code_version_major := $(shell echo $$(($(base_version_major)+3)))
 
 # x86 and arm sometimes don't match.
-code_version_build := 007
+code_version_build := 001
 #####################################################
 #####################################################
 # Collect automatic version code parameters

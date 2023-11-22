@@ -27,6 +27,7 @@ import android.icu.impl.locale.AsciiUtil;
 import android.icu.lang.UCharacter;
 import android.icu.lang.UScript;
 import android.icu.text.BreakIterator;
+import android.icu.text.CaseMap;
 import android.icu.text.DisplayContext;
 import android.icu.text.DisplayContext.Type;
 import android.icu.text.LocaleDisplayNames;
@@ -90,6 +91,13 @@ public class LocaleDisplayNamesImpl extends LocaleDisplayNames {
      */
     private transient BreakIterator capitalizationBrkIter = null;
 
+    private static final CaseMap.Title TO_TITLE_WHOLE_STRING_NO_LOWERCASE =
+            CaseMap.toTitle().wholeString().noLowercase();
+
+    private static String toTitleWholeStringNoLowercase(ULocale locale, String s) {
+        return TO_TITLE_WHOLE_STRING_NO_LOWERCASE.apply(
+                locale.toLocale(), null, s, new StringBuilder(), null).toString();
+    }
 
     public static LocaleDisplayNames getInstance(ULocale locale, DialectHandling dialectHandling) {
         synchronized (cache) {
@@ -606,9 +614,12 @@ public class LocaleDisplayNamesImpl extends LocaleDisplayNames {
         ULocale minimized = ULocale.minimizeSubtags(modified, ULocale.Minimize.FAVOR_SCRIPT);
         String tempName = modified.getDisplayName(locale);
         boolean titlecase = capContext == DisplayContext.CAPITALIZATION_FOR_UI_LIST_OR_MENU;
-        String nameInDisplayLocale =  titlecase ? UCharacter.toTitleFirst(locale, tempName) : tempName;
+        String nameInDisplayLocale =
+                titlecase ? toTitleWholeStringNoLowercase(locale, tempName) : tempName;
         tempName = modified.getDisplayName(modified);
-        String nameInSelf = capContext == DisplayContext.CAPITALIZATION_FOR_UI_LIST_OR_MENU ? UCharacter.toTitleFirst(modified, tempName) : tempName;
+        String nameInSelf = capContext ==
+                DisplayContext.CAPITALIZATION_FOR_UI_LIST_OR_MENU ?
+                        toTitleWholeStringNoLowercase(modified, tempName) : tempName;
         return new UiListItem(minimized, modified, nameInDisplayLocale, nameInSelf);
     }
 

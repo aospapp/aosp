@@ -50,8 +50,6 @@ cts_audio_quality_package: $(CTS_AUDIO_QUALITY_ZIP)
 
 cts: $(CTS_AUDIO_QUALITY_ZIP)
 
-ifneq ($(filter cts, $(MAKECMDGOALS)),)
 $(call dist-for-goals, cts, $(CTS_AUDIO_QUALITY_ZIP))
-endif # cts
 
 endif # linux

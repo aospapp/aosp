@@ -29,7 +29,11 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_PACKAGE_NAME := CtsDevicePolicyAssistApp
 
-LOCAL_STATIC_JAVA_LIBRARIES = android-support-v4 compatibility-device-util android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    androidx.legacy_legacy-support-v4 \
+    compatibility-device-util \
+    android-support-test \
+
 
 LOCAL_SDK_VERSION := current
 

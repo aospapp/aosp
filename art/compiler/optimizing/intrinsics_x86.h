@@ -39,7 +39,7 @@ class IntrinsicLocationsBuilderX86 FINAL : public IntrinsicVisitor {
 #define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions, ...) \
   void Visit ## Name(HInvoke* invoke) OVERRIDE;
 #include "intrinsics_list.h"
-INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
+  INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 #undef INTRINSICS_LIST
 #undef OPTIMIZING_INTRINSICS
 
@@ -49,8 +49,8 @@ INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
   bool TryDispatch(HInvoke* invoke);
 
  private:
-  ArenaAllocator* arena_;
-  CodeGeneratorX86* codegen_;
+  ArenaAllocator* const allocator_;
+  CodeGeneratorX86* const codegen_;
 
   DISALLOW_COPY_AND_ASSIGN(IntrinsicLocationsBuilderX86);
 };
@@ -64,7 +64,7 @@ class IntrinsicCodeGeneratorX86 FINAL : public IntrinsicVisitor {
 #define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions, ...) \
   void Visit ## Name(HInvoke* invoke) OVERRIDE;
 #include "intrinsics_list.h"
-INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
+  INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 #undef INTRINSICS_LIST
 #undef OPTIMIZING_INTRINSICS
 
@@ -73,7 +73,7 @@ INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 
   ArenaAllocator* GetAllocator();
 
-  CodeGeneratorX86* codegen_;
+  CodeGeneratorX86* const codegen_;
 
   DISALLOW_COPY_AND_ASSIGN(IntrinsicCodeGeneratorX86);
 };

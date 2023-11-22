@@ -15,16 +15,15 @@
 cc_library {
     name: "libhidl-gen-utils",
     host_supported: true,
-    vendor_available: true,
-    cflags: hidl_flags,
+    defaults: ["hidl-gen-defaults"],
     srcs: [
         "FQName.cpp",
         "Formatter.cpp",
+        "FqInstance.cpp",
         "StringHelper.cpp",
     ],
     shared_libs: [
         "libbase",
-        "liblog",
     ],
 
     local_include_dirs: ["include/hidl-util"],

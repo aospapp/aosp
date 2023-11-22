@@ -15,97 +15,72 @@
 import logging
 import os
 
-from autotest_lib.client.common_lib import error
 from autotest_lib.server import utils
 from autotest_lib.server.cros import tradefed_test
 
-_PARTNER_GTS_LOCATION = 'gs://chromeos-partner-gts/gts-4.1_r2-3911033.zip'
+_PARTNER_GTS_LOCATION = 'gs://chromeos-partner-gts/gts-5.1_r3-4604229.zip'
 
 
 class cheets_GTS(tradefed_test.TradefedTest):
     """Sets up tradefed to run GTS tests."""
     version = 1
-    _target_package = None
+
+    def _get_default_bundle_url(self, bundle):
+        return _PARTNER_GTS_LOCATION
 
 
-    def setup(self, uri=None):
-        """Set up GTS bundle from Google Storage.
+    def _get_tradefed_base_dir(self):
+        return 'android-gts'
 
-        @param uri: The location to pull the GTS bundle from.
+
+    def _tradefed_run_command(self, target_module=None, plan=None,
+                              session_id=None):
+        """Builds the GTS command line.
+
+        @param target_module: the module to be run.
+        @param plan: the plan to be run.
+        @param session_id: tradfed session id to continue.
         """
-
-        if uri:
-            self._android_gts = self._install_bundle(uri)
-        else:
-            self._android_gts = self._install_bundle(_PARTNER_GTS_LOCATION)
-
-        self.waivers = self._get_expected_failures('expectations')
-
-
-    def _get_gts_test_args(self):
-        """ This is the command to run GTS tests."""
         args = ['run', 'commandAndExit', 'gts']
-        if self._target_package is not None:
-            args += ['--module', self._target_package]
+        if target_module is not None:
+            args += ['--module', target_module]
+        elif plan is not None and session_id is not None:
+            args += ['--plan', plan, '--retry', '%d' % session_id]
         return args
 
 
-    def _run_gts_tradefed(self, gts_tradefed_args):
-        """This tests runs the GTS(XTS) tradefed binary and collects results.
+    def _run_tradefed(self, commands):
+        """Kick off GTS.
 
-        @raise TestFail: when a test failure is detected.
+        @param commands: the command(s) to pass to GTS.
+        @return: The result object from utils.run.
         """
-        gts_tradefed = os.path.join(
-                self._android_gts,
-                'android-gts',
-                'tools',
-                'gts-tradefed')
-        logging.info('GTS-tradefed path: %s', gts_tradefed)
-        # Run GTS via tradefed and obtain stdout, sterr as output.
+        gts_tradefed = os.path.join(self._repository, 'tools', 'gts-tradefed')
         with tradefed_test.adb_keepalive(self._get_adb_target(),
                                          self._install_paths):
-            output = self._run(
-                    gts_tradefed,
-                    args=gts_tradefed_args,
-                    verbose=True,
-                    # Make sure to tee tradefed stdout/stderr to autotest logs
-                    # already during the test run.
-                    stdout_tee=utils.TEE_TO_LOGS,
-                    stderr_tee=utils.TEE_TO_LOGS)
-        result_destination = os.path.join(self.resultsdir, 'android-gts')
+            for command in commands:
+                logging.info('RUN: ./gts-tradefed %s', ' '.join(command))
+                output = self._run(gts_tradefed,
+                                   args=command,
+                                   verbose=True,
+                                   # Tee tradefed stdout/stderr to logs
+                                   # continuously during the test run.
+                                   stdout_tee=utils.TEE_TO_LOGS,
+                                   stderr_tee=utils.TEE_TO_LOGS)
+                logging.info('END: ./gts-tradefed %s\n', ' '.join(command))
+        return output
 
-        # Gather the global log first. Datetime parsing below can abort the test
-        # if tradefed startup had failed. Even then the global log is useful.
-        self._collect_tradefed_global_log(output, result_destination)
 
-        # Parse stdout to obtain datetime IDs of directories into which tradefed
-        # wrote result xml files and logs.
-        datetime_id = self._parse_tradefed_datetime_v2(output)
-        repository = os.path.join(self._android_gts, 'android-gts')
-        self._collect_logs(repository, datetime_id, result_destination)
+    def run_once(self, target_package=None, tradefed_args=None):
+        """Runs GTS with either a target module or a custom command line.
 
-        # Result parsing must come after all other essential operations as test
-        # warnings, errors and failures can be raised here.
-        tests, passed, failed, not_executed, waived = self._parse_result_v2(
-            output, waivers=self.waivers)
-        passed += waived
-        failed -= waived
-        if tests != passed or failed > 0 or not_executed > 0:
-            raise error.TestFail('Failed: Passed (%d), Failed (%d), '
-                                 'Not Executed (%d)' %
-                                 (passed, failed, not_executed))
-
-        # All test has passed successfully, here.
-        logging.info('The test has passed successfully.')
-
-    def run_once(self, target_package=None, gts_tradefed_args=None):
-        """Runs GTS target package exactly once.
-        @param target_package: the name of test package to be run. If None is
-                               set, full GTS set will run.
+        @param target_package: the name of test module to be run.
+        @param tradefed_args: used to pass any specific cmd to GTS binary.
         """
-        self._target_package = target_package
-        with self._login_chrome():
-            self._ready_arc()
-            if not gts_tradefed_args:
-                gts_tradefed_args = self._get_gts_test_args()
-            self._run_gts_tradefed(gts_tradefed_args)
+        if tradefed_args:
+            test_command = tradefed_args
+            test_name = ' '.join(tradefed_args)
+        else:
+            test_command = self._tradefed_run_command(target_package)
+            test_name = 'module.%s' % target_package
+        self._run_tradefed_with_retries(target_package, test_command, test_name)

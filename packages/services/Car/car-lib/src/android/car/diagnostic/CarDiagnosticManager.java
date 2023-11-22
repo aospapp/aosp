@@ -349,14 +349,41 @@ public final class CarDiagnosticManager implements CarManagerBase {
     }
 
     /**
-     * Returns true if this vehicle supports clearing freeze frame timestamps.
+     * Returns true if this vehicle supports clearing all freeze frames.
      * This is only meaningful if freeze frame data is also supported.
+     *
+     * A return value of true for this method indicates that it is supported to call
+     * carDiagnosticManager.clearFreezeFrames()
+     * to delete all freeze frames stored in vehicle memory.
+     *
      * @return
      * @throws CarNotConnectedException
      */
     public boolean isClearFreezeFramesSupported() throws CarNotConnectedException {
         try {
             return mService.isClearFreezeFramesSupported();
+        } catch (IllegalStateException e) {
+            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
+        } catch (RemoteException e) {
+            throw new CarNotConnectedException();
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if this vehicle supports clearing specific freeze frames by timestamp.
+     * This is only meaningful if freeze frame data is also supported.
+     *
+     * A return value of true for this method indicates that it is supported to call
+     * carDiagnosticManager.clearFreezeFrames(timestamp1, timestamp2, ...)
+     * to delete the freeze frames stored for the provided input timestamps, provided any exist.
+     *
+     * @return
+     * @throws CarNotConnectedException
+     */
+    public boolean isSelectiveClearFreezeFramesSupported() throws CarNotConnectedException {
+        try {
+            return mService.isSelectiveClearFreezeFramesSupported();
         } catch (IllegalStateException e) {
             CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {

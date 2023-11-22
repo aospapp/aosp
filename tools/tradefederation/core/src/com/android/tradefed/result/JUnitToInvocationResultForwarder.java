@@ -16,7 +16,8 @@
 
 package com.android.tradefed.result;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
+import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
@@ -25,10 +26,11 @@ import junit.framework.TestListener;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * A class that listens to {@link junit.framework.TestListener} events and forwards them to an
@@ -74,7 +76,7 @@ public class JUnitToInvocationResultForwarder implements TestListener {
      */
     @Override
     public void endTest(Test test) {
-        Map<String, String> emptyMap = Collections.emptyMap();
+        HashMap<String, Metric> emptyMap = new HashMap<>();
         for (ITestInvocationListener listener : mInvocationListeners) {
             listener.testEnded(getTestId(test), emptyMap);
         }
@@ -86,7 +88,7 @@ public class JUnitToInvocationResultForwarder implements TestListener {
      * @param test The {@link Test} that just finished running.
      * @param metrics The metrics in a Map format to be passed to the results callback.
      */
-    public void endTest(Test test, Map<String, String> metrics) {
+    public void endTest(Test test, HashMap<String, Metric> metrics) {
         for (ITestInvocationListener listener : mInvocationListeners) {
             listener.testEnded(getTestId(test), metrics);
         }
@@ -119,18 +121,28 @@ public class JUnitToInvocationResultForwarder implements TestListener {
     }
 
     /**
-     * Return the {@link TestIdentifier} equivalent for the {@link Test}.
+     * Return the {@link TestDescription} equivalent for the {@link Test}.
      *
      * @param test the {@link Test} to convert
-     * @return the {@link TestIdentifier}
+     * @return the {@link TestDescription}
      */
-    private TestIdentifier getTestId(Test test) {
+    private TestDescription getTestId(Test test) {
         final String className = test.getClass().getName();
         String testName = "";
         if (test instanceof TestCase) {
-            testName = ((TestCase)test).getName();
+            testName = ((TestCase) test).getName();
         }
-        return new TestIdentifier(className, testName);
+        Annotation[] annotations = new Annotation[0];
+        try {
+            // Backfill the annotations on a JUnit3 method
+            Method testMethod = test.getClass().getMethod(testName);
+            annotations = testMethod.getAnnotations();
+        } catch (NoSuchMethodException | SecurityException e) {
+            // Should not happen, at that point the test method is ensured to exists.
+            CLog.e("Ignoring this exception:");
+            CLog.e(e);
+        }
+        return new TestDescription(className, testName, annotations);
     }
 
     /**

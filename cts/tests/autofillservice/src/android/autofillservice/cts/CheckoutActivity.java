@@ -21,6 +21,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -45,6 +46,7 @@ import java.util.concurrent.TimeUnit;
  * </ul>
  */
 public class CheckoutActivity extends AbstractAutoFillActivity {
+    private static final String TAG = "CheckoutActivity";
     private static final long BUY_TIMEOUT_MS = 1000;
 
     static final String ID_CC_NUMBER = "cc_number";
@@ -104,9 +106,18 @@ public class CheckoutActivity extends AbstractAutoFillActivity {
         mClearButton.setOnClickListener((v) -> resetFields());
     }
 
-    static void finishIt() {
+    @Override
+    public void finish() {
+        super.finish();
+
+        sInstance = null;
+    }
+
+    static void finishIt(UiBot uiBot) {
         if (sInstance != null) {
+            Log.d(TAG, "So long and thanks for all the fish!");
             sInstance.finish();
+            uiBot.assertGoneByRelativeId(ID_CC_NUMBER, Timeouts.ACTIVITY_RESURRECTION);
         }
     }
 

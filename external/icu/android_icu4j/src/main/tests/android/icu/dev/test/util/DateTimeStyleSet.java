@@ -10,11 +10,13 @@
 package android.icu.dev.test.util;
 
 import android.icu.text.DateFormat;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author srl
  *
  */
+@MainTestShard
 public class DateTimeStyleSet extends FieldsSet {
 
     private static final int DTS_DATE = 0;

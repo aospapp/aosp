@@ -11,30 +11,29 @@
 
 #include "xfa/fxfa/parser/cxfa_simple_parser.h"
 
-class CFDE_XMLDoc;
+class CFX_XMLDoc;
 class CXFA_Document;
 class CXFA_FFNotify;
 class CXFA_Notify;
-class IFX_SeekableReadStream;
-class IFX_Pause;
+class IFX_SeekableStream;
 
 class CXFA_DocumentParser {
  public:
   explicit CXFA_DocumentParser(CXFA_FFNotify* pNotify);
   ~CXFA_DocumentParser();
 
-  int32_t StartParse(const CFX_RetainPtr<IFX_SeekableReadStream>& pStream,
-                     XFA_XDPPACKET ePacketID);
-  int32_t DoParse(IFX_Pause* pPause);
+  int32_t StartParse(const RetainPtr<IFX_SeekableStream>& pStream,
+                     XFA_PacketType ePacketID);
+  int32_t DoParse();
 
-  CFDE_XMLDoc* GetXMLDoc() const;
+  CFX_XMLDoc* GetXMLDoc() const;
   CXFA_FFNotify* GetNotify() const;
   CXFA_Document* GetDocument() const;
 
- protected:
-  CXFA_SimpleParser m_nodeParser;
-  CXFA_FFNotify* m_pNotify;
+ private:
+  UnownedPtr<CXFA_FFNotify> const m_pNotify;
   std::unique_ptr<CXFA_Document> m_pDocument;
+  CXFA_SimpleParser m_nodeParser;
 };
 
 #endif  // XFA_FXFA_PARSER_CXFA_DOCUMENT_PARSER_H_

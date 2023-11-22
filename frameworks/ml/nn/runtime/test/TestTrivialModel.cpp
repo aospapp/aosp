@@ -158,7 +158,7 @@ TEST_F(TrivialTest, BroadcastAddTwo) {
     Model modelBroadcastAdd2;
     // activation: NONE.
     int32_t activation_init[] = {ANEURALNETWORKS_FUSED_NONE};
-    OperandType scalarType(Type::INT32, {1});
+    OperandType scalarType(Type::INT32, {});
     auto activation = modelBroadcastAdd2.addOperand(&scalarType);
     modelBroadcastAdd2.setOperandValue(activation, activation_init, sizeof(int32_t) * 1);
 
@@ -190,7 +190,7 @@ TEST_F(TrivialTest, BroadcastMulTwo) {
     Model modelBroadcastMul2;
     // activation: NONE.
     int32_t activation_init[] = {ANEURALNETWORKS_FUSED_NONE};
-    OperandType scalarType(Type::INT32, {1});
+    OperandType scalarType(Type::INT32, {});
     auto activation = modelBroadcastMul2.addOperand(&scalarType);
     modelBroadcastMul2.setOperandValue(activation, activation_init, sizeof(int32_t) * 1);
 

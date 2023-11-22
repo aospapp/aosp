@@ -20,5 +20,4 @@ public class ProfileButtonAttributes {
     public boolean mHasBtnA;
     public boolean mHasBtnB;
     public boolean mHasBtnC;
-    public boolean mHasBtnD;
 }

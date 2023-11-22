@@ -35,7 +35,8 @@ static void accumulate_rd_opt(ThreadData *td, ThreadData *td_t) {
                   td_t->rd_counts.coef_counts[i][j][k][l][m][n];
 }
 
-static int enc_worker_hook(EncWorkerData *const thread_data, void *unused) {
+static int enc_worker_hook(void *arg1, void *unused) {
+  EncWorkerData *const thread_data = (EncWorkerData *)arg1;
   VP9_COMP *const cpi = thread_data->cpi;
   const VP9_COMMON *const cm = &cpi->common;
   const int tile_cols = 1 << cm->log2_tile_cols;
@@ -64,6 +65,13 @@ static int get_max_tile_cols(VP9_COMP *cpi) {
   vp9_get_tile_n_bits(mi_cols, &min_log2_tile_cols, &max_log2_tile_cols);
   log2_tile_cols =
       clamp(cpi->oxcf.tile_columns, min_log2_tile_cols, max_log2_tile_cols);
+  if (cpi->oxcf.target_level == LEVEL_AUTO) {
+    const int level_tile_cols =
+        log_tile_cols_from_picsize_level(cpi->common.width, cpi->common.height);
+    if (log2_tile_cols > level_tile_cols) {
+      log2_tile_cols = VPXMAX(level_tile_cols, min_log2_tile_cols);
+    }
+  }
   return (1 << log2_tile_cols);
 }
 
@@ -135,7 +143,7 @@ static void launch_enc_workers(VP9_COMP *cpi, VPxWorkerHook hook, void *data2,
 
   for (i = 0; i < num_workers; i++) {
     VPxWorker *const worker = &cpi->workers[i];
-    worker->hook = (VPxWorkerHook)hook;
+    worker->hook = hook;
     worker->data1 = &cpi->tile_thr_data[i];
     worker->data2 = data2;
   }
@@ -203,7 +211,7 @@ void vp9_encode_tiles_mt(VP9_COMP *cpi) {
     }
   }
 
-  launch_enc_workers(cpi, (VPxWorkerHook)enc_worker_hook, NULL, num_workers);
+  launch_enc_workers(cpi, enc_worker_hook, NULL, num_workers);
 
   for (i = 0; i < num_workers; i++) {
     VPxWorker *const worker = &cpi->workers[i];
@@ -217,6 +225,7 @@ void vp9_encode_tiles_mt(VP9_COMP *cpi) {
   }
 }
 
+#if !CONFIG_REALTIME_ONLY
 static void accumulate_fp_tile_stat(TileDataEnc *tile_data,
                                     TileDataEnc *tile_data_t) {
   tile_data->fp_data.intra_factor += tile_data_t->fp_data.intra_factor;
@@ -251,6 +260,7 @@ static void accumulate_fp_tile_stat(TileDataEnc *tile_data,
           : VPXMIN(tile_data->fp_data.image_data_start_row,
                    tile_data_t->fp_data.image_data_start_row);
 }
+#endif  // !CONFIG_REALTIME_ONLY
 
 // Allocate memory for row synchronization
 void vp9_row_mt_sync_mem_alloc(VP9RowMTSync *row_mt_sync, VP9_COMMON *cm,
@@ -379,6 +389,7 @@ void vp9_row_mt_sync_write_dummy(VP9RowMTSync *const row_mt_sync, int r, int c,
   return;
 }
 
+#if !CONFIG_REALTIME_ONLY
 static int first_pass_worker_hook(EncWorkerData *const thread_data,
                                   MultiThreadHandle *multi_thread_ctxt) {
   VP9_COMP *const cpi = thread_data->cpi;
@@ -545,6 +556,7 @@ void vp9_temporal_filter_row_mt(VP9_COMP *cpi) {
   launch_enc_workers(cpi, (VPxWorkerHook)temporal_filter_worker_hook,
                      multi_thread_ctxt, num_workers);
 }
+#endif  // !CONFIG_REALTIME_ONLY
 
 static int enc_row_mt_worker_hook(EncWorkerData *const thread_data,
                                   MultiThreadHandle *multi_thread_ctxt) {

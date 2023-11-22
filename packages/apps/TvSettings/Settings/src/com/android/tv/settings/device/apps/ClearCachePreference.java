@@ -40,6 +40,7 @@ public class ClearCachePreference extends AppActionPreference {
         final Context context = getContext();
         setSummary(mClearingCache ? context.getString(R.string.computing_size)
                 : Formatter.formatFileSize(context, mEntry.cacheSize + mEntry.externalCacheSize));
+        setEnabled(!mClearingCache && mEntry.cacheSize > 0);
     }
 
     public void setClearingCache(boolean clearingCache) {

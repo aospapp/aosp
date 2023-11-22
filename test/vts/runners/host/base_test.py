@@ -17,6 +17,7 @@
 import logging
 import os
 import re
+import sys
 
 from vts.proto import VtsReportMessage_pb2 as ReportMsg
 from vts.runners.host import asserts
@@ -31,11 +32,15 @@ from vts.utils.python.controllers import android_device
 from vts.utils.python.common import filter_utils
 from vts.utils.python.common import list_utils
 from vts.utils.python.coverage import coverage_utils
+from vts.utils.python.coverage import sancov_utils
+from vts.utils.python.precondition import precondition_utils
 from vts.utils.python.profiling import profiling_utils
 from vts.utils.python.reporting import log_uploading_utils
 from vts.utils.python.systrace import systrace_utils
 from vts.utils.python.web import feature_utils
 from vts.utils.python.web import web_utils
+
+from acts import signals as acts_signals
 
 # Macro strings for test result reporting
 TEST_CASE_TOKEN = "[Test Case]"
@@ -45,7 +50,19 @@ STR_GENERATE = "generate"
 _REPORT_MESSAGE_FILE_NAME = "report_proto.msg"
 _BUG_REPORT_FILE_PREFIX = "bugreport"
 _BUG_REPORT_FILE_EXTENSION = ".zip"
+_LOGCAT_FILE_PREFIX = "logcat"
+_LOGCAT_FILE_EXTENSION = ".txt"
 _ANDROID_DEVICES = '_android_devices'
+_REASON_TO_SKIP_ALL_TESTS = '_reason_to_skip_all_tests'
+_SETUP_RETRY_NUMBER = 5
+
+LOGCAT_BUFFERS = [
+    'radio',
+    'events',
+    'main',
+    'system',
+    'crash'
+]
 
 
 class BaseTestClass(object):
@@ -60,9 +77,9 @@ class BaseTestClass(object):
     Attributes:
         android_devices: A list of AndroidDevice object, representing android
                          devices.
+        test_module_name: A string representing the test module name.
         tests: A list of strings, each representing a test case name.
-        TAG: A string used to refer to a test class. Default is the test class
-             name.
+        log: A logger object used for logging.
         results: A records.TestResult object for aggregating test results from
                  the execution of test cases.
         _current_record: A records.TestResultRecord object for the test case
@@ -76,23 +93,22 @@ class BaseTestClass(object):
         abi_bitness: String, bitness of abi in use
         web: WebFeature, object storing web feature util for test run
         coverage: CoverageFeature, object storing coverage feature util for test run
+        sancov: SancovFeature, object storing sancov feature util for test run
         profiling: ProfilingFeature, object storing profiling feature util for test run
-        _skip_all_testcases: A boolean, can be set by a subclass in
-                             setUpClass() to skip all test cases.
         _bug_report_on_failure: bool, whether to catch bug report at the end
-                                of failed test cases.
+                                of failed test cases. Default is False
+        _logcat_on_failure: bool, whether to dump logcat at the end
+                                of failed test cases. Default is True
         test_filter: Filter object to filter test names.
     """
-    TAG = None
 
     def __init__(self, configs):
         self.tests = []
-        if not self.TAG:
-            self.TAG = self.__class__.__name__
         # Set all the controller objects and params.
         for name, value in configs.items():
             setattr(self, name, value)
         self.results = records.TestResult()
+        self.log = logger.LoggerProxy()
         self._current_record = None
 
         # Setup test filters
@@ -117,8 +133,10 @@ class BaseTestClass(object):
             list_utils.ItemsToStr(self.exclude_filter), ',')
         exclude_over_include = self.getUserParam(
             keys.ConfigKeys.KEY_EXCLUDE_OVER_INCLUDE, default_value=None)
-        self.test_module_name = self.getUserParam(keys.ConfigKeys.KEY_TESTBED_NAME,
-                                             default_value=None)
+        self.test_module_name = self.getUserParam(
+            keys.ConfigKeys.KEY_TESTBED_NAME,
+            log_warning_and_continue_if_not_found=True,
+            default_value=self.__class__.__name__)
         self.test_filter = filter_utils.Filter(
             self.include_filter,
             self.exclude_filter,
@@ -126,8 +144,8 @@ class BaseTestClass(object):
             exclude_over_include=exclude_over_include,
             enable_negative_pattern=True,
             enable_module_name_prefix_matching=True,
-            module_name=self.test_module_name)
-        self.test_filter.ExpandBitness()
+            module_name=self.test_module_name,
+            expand_bitness=True)
         logging.info('Test filter: %s' % self.test_filter)
 
         # TODO: get abi information differently for multi-device support.
@@ -145,15 +163,24 @@ class BaseTestClass(object):
         self.web = web_utils.WebFeature(self.user_params)
         self.coverage = coverage_utils.CoverageFeature(
             self.user_params, web=self.web)
+        self.sancov = sancov_utils.SancovFeature(
+            self.user_params, web=self.web)
         self.profiling = profiling_utils.ProfilingFeature(
             self.user_params, web=self.web)
         self.systrace = systrace_utils.SystraceFeature(
             self.user_params, web=self.web)
         self.log_uploading = log_uploading_utils.LogUploadingFeature(
             self.user_params, web=self.web)
-        self._skip_all_testcases = False
+        self.collect_tests_only = self.getUserParam(
+            keys.ConfigKeys.IKEY_COLLECT_TESTS_ONLY, default_value=False)
+        self.run_as_vts_self_test = self.getUserParam(
+            keys.ConfigKeys.RUN_AS_VTS_SELFTEST, default_value=False)
+        self.run_as_compliance_test = self.getUserParam(
+            keys.ConfigKeys.RUN_AS_COMPLIANCE_TEST, default_value=False)
         self._bug_report_on_failure = self.getUserParam(
             keys.ConfigKeys.IKEY_BUG_REPORT_ON_FAILURE, default_value=False)
+        self._logcat_on_failure = self.getUserParam(
+            keys.ConfigKeys.IKEY_LOGCAT_ON_FAILURE, default_value=True)
 
     @property
     def android_devices(self):
@@ -173,6 +200,10 @@ class BaseTestClass(object):
 
     def __exit__(self, *args):
         self._exec_func(self.cleanUp)
+
+    def unpack_userparams(self, req_param_names=[], opt_param_names=[], **kwargs):
+        """Wrapper for test cases using ACTS runner API."""
+        return self.getUserParams(req_param_names, opt_param_names, **kwargs)
 
     def getUserParams(self, req_param_names=[], opt_param_names=[], **kwargs):
         """Unpacks user defined parameters in test config into individual
@@ -273,6 +304,9 @@ class BaseTestClass(object):
         """Proxy function to guarantee the base implementation of setUpClass
         is called.
         """
+        if not precondition_utils.MeetFirstApiLevelPrecondition(self):
+            self.skipAllTests("The device's first API level doesn't meet the "
+                              "precondition.")
         return self.setUpClass()
 
     def setUpClass(self):
@@ -380,7 +414,10 @@ class BaseTestClass(object):
             self.web.SetTestResult(ReportMsg.TEST_CASE_RESULT_FAIL)
         self.onFail(record.test_name, begin_time)
         if self._bug_report_on_failure:
-            self.CatchBugReport('%s-%s' % (self.TAG, record.test_name))
+            self.DumpBugReport(
+                '%s-%s' % (self.test_module_name, record.test_name))
+        if self._logcat_on_failure:
+            self.DumpLogcat('%s-%s' % (self.test_module_name, record.test_name))
 
     def onFail(self, test_name, begin_time):
         """A function that is executed upon a test case failure.
@@ -473,7 +510,10 @@ class BaseTestClass(object):
             self.web.SetTestResult(ReportMsg.TEST_CASE_RESULT_EXCEPTION)
         self.onException(test_name, begin_time)
         if self._bug_report_on_failure:
-            self.CatchBugReport('%s-%s' % (self.TAG, record.test_name))
+            self.DumpBugReport(
+                '%s-%s' % (self.test_module_name, record.test_name))
+        if self._logcat_on_failure:
+            self.DumpLogcat('%s-%s' % (self.test_module_name, record.test_name))
 
     def onException(self, test_name, begin_time):
         """A function that is executed upon an unhandled exception from a test
@@ -505,8 +545,8 @@ class BaseTestClass(object):
             return
         try:
             func()
-        except signals.TestAbortAll:
-            raise
+        except (signals.TestAbortAll, acts_signals.TestAbortAll) as e:
+            raise signals.TestAbortAll, e, sys.exc_info()[2]
         except Exception as e:
             logging.exception("Exception happened when executing %s for %s.",
                               func.__name__, record.test_name)
@@ -533,9 +573,8 @@ class BaseTestClass(object):
         if include filter is empty, only tests not in exclude filter will be
         executed.
 
-        The second layer of filter is checking _skip_all_testcases flag:
-        the subclass may set _skip_all_testcases to True in its implementation
-        of setUpClass. If the flag is set, this method raises signals.TestSkip.
+        The second layer of filter is checking whether skipAllTests method is
+        called. If the flag is set, this method raises signals.TestSkip.
 
         The third layer of filter is checking abi bitness:
         if a test has a suffix indicating the intended architecture bitness,
@@ -572,8 +611,8 @@ class BaseTestClass(object):
         if not test_filter.Filter(test_name):
             raise signals.TestSilent("Test case '%s' did not pass filters.")
 
-        if self._skip_all_testcases:
-            raise signals.TestSkip("All test cases skipped.")
+        if self.isSkipAllTests():
+            raise signals.TestSkip(self.getSkipAllTestsReason())
 
     def _filterOneTestThroughAbiBitness(self, test_name):
         """Check test filter for the given test name.
@@ -609,7 +648,7 @@ class BaseTestClass(object):
             kwargs: Extra kwargs.
         """
         is_silenced = False
-        tr_record = records.TestResultRecord(test_name, self.TAG)
+        tr_record = records.TestResultRecord(test_name, self.test_module_name)
         tr_record.testBegin()
         logging.info("%s %s", TEST_CASE_TOKEN, test_name)
         verdict = None
@@ -619,6 +658,9 @@ class BaseTestClass(object):
             asserts.assertTrue(ret is not False,
                                "Setup test entry for %s failed." % test_name)
             self.filterOneTest(test_name)
+            if self.collect_tests_only:
+                asserts.explicitPass("Collect tests only.")
+
             try:
                 ret = self._setUp(test_name)
                 asserts.assertTrue(ret is not False,
@@ -631,26 +673,31 @@ class BaseTestClass(object):
                 finished = True
             finally:
                 self._tearDown(test_name)
-        except (signals.TestFailure, AssertionError) as e:
+        except (signals.TestFailure, acts_signals.TestFailure, AssertionError) as e:
             tr_record.testFail(e)
             self._exec_procedure_func(self._onFail)
             finished = True
-        except signals.TestSkip as e:
+        except (signals.TestSkip, acts_signals.TestSkip) as e:
             # Test skipped.
             tr_record.testSkip(e)
             self._exec_procedure_func(self._onSkip)
             finished = True
-        except (signals.TestAbortClass, signals.TestAbortAll) as e:
+        except (signals.TestAbortClass, acts_signals.TestAbortClass) as e:
             # Abort signals, pass along.
             tr_record.testFail(e)
             finished = True
-            raise e
-        except signals.TestPass as e:
+            raise signals.TestAbortClass, e, sys.exc_info()[2]
+        except (signals.TestAbortAll, acts_signals.TestAbortAll) as e:
+            # Abort signals, pass along.
+            tr_record.testFail(e)
+            finished = True
+            raise signals.TestAbortAll, e, sys.exc_info()[2]
+        except (signals.TestPass, acts_signals.TestPass) as e:
             # Explicit test pass.
             tr_record.testPass(e)
             self._exec_procedure_func(self._onPass)
             finished = True
-        except signals.TestSilent as e:
+        except (signals.TestSilent, acts_signals.TestSilent) as e:
             # Suppress test reporting.
             is_silenced = True
             self._exec_procedure_func(self._onSilent)
@@ -679,7 +726,9 @@ class BaseTestClass(object):
         finally:
             if not finished:
                 for device in self.android_devices:
-                    device.shell.enabled = False
+                    # if shell has not been set up yet
+                    if device.shell is not None:
+                        device.shell.DisableShell()
 
                 logging.error('Test timed out.')
                 tr_record.testError()
@@ -725,24 +774,36 @@ class BaseTestClass(object):
         args = args or ()
         kwargs = kwargs or {}
         failed_settings = []
-        for s in settings:
-            test_name = "{} {}".format(tag, s)
+
+        def GenerateTestName(setting):
+            test_name = "{} {}".format(tag, setting)
             if name_func:
                 try:
-                    test_name = name_func(s, *args, **kwargs)
+                    test_name = name_func(setting, *args, **kwargs)
                 except:
                     logging.exception(("Failed to get test name from "
                                        "test_func. Fall back to default %s"),
                                       test_name)
 
-            tr_record = records.TestResultRecord(test_name, self.TAG)
-            self.results.requested.append(tr_record)
             if len(test_name) > utils.MAX_FILENAME_LEN:
                 test_name = test_name[:utils.MAX_FILENAME_LEN]
+
+            return test_name
+
+        for setting in settings:
+            test_name = GenerateTestName(setting)
+
+            tr_record = records.TestResultRecord(test_name, self.test_module_name)
+            self.results.requested.append(tr_record)
+
+        for setting in settings:
+            test_name = GenerateTestName(setting)
             previous_success_cnt = len(self.results.passed)
-            self.execOneTest(test_name, test_func, (s, ) + args, **kwargs)
+
+            self.execOneTest(test_name, test_func, (setting, ) + args, **kwargs)
             if len(self.results.passed) - previous_success_cnt != 1:
-                failed_settings.append(s)
+                failed_settings.append(setting)
+
         return failed_settings
 
     def _exec_func(self, func, *args):
@@ -761,11 +822,11 @@ class BaseTestClass(object):
         """
         try:
             return func(*args)
-        except signals.TestAbortAll:
-            raise
+        except (signals.TestAbortAll, acts_signals.TestAbortAll) as e:
+            raise signals.TestAbortAll, e, sys.exc_info()[2]
         except:
             logging.exception("Exception happened when executing %s in %s.",
-                              func.__name__, self.TAG)
+                              func.__name__, self.test_module_name)
             return False
 
     def _get_all_test_names(self):
@@ -801,8 +862,8 @@ class BaseTestClass(object):
         test_funcs = []
         for test_name in test_names:
             if not hasattr(self, test_name):
-                logging.warning("%s does not have test case %s.", self.TAG,
-                                test_name)
+                logging.warning("%s does not have test case %s.",
+                                self.test_module_name, test_name)
             elif (test_name.startswith(STR_TEST) or
                   test_name.startswith(STR_GENERATE)):
                 test_funcs.append((test_name, getattr(self, test_name)))
@@ -812,6 +873,101 @@ class BaseTestClass(object):
                 raise errors.USERError(msg)
 
         return test_funcs
+
+    def getTests(self, test_names=None):
+        """Get the test cases within a test class.
+
+        Args:
+            test_names: A list of string that are test case names requested in
+                        cmd line.
+
+        Returns:
+            A list of tuples of (string, function). String is the test case
+            name, function is the actual test case function.
+        """
+        if not test_names:
+            if self.tests:
+                # Specified by run list in class.
+                test_names = list(self.tests)
+            else:
+                # No test case specified by user, execute all in the test class
+                test_names = self._get_all_test_names()
+
+        tests = self._get_test_funcs(test_names)
+        return tests
+
+    def runTests(self, tests):
+        """Run tests and collect test results.
+
+        Args:
+            tests: A list of tests to be run.
+
+        Returns:
+            The test results object of this class.
+        """
+        # Setup for the class with retry.
+        for i in xrange(_SETUP_RETRY_NUMBER):
+            try:
+                if self._setUpClass() is False:
+                    raise signals.TestFailure(
+                        "Failed to setup %s." % self.test_module_name)
+                else:
+                    break
+            except Exception as e:
+                logging.exception("Failed to setup %s.", self.test_module_name)
+                if i + 1 == _SETUP_RETRY_NUMBER:
+                    self.results.failClass(self.test_module_name, e)
+                    self._exec_func(self._tearDownClass)
+                    return self.results
+                else:
+                    # restart services before retry setup.
+                    for device in self.android_devices:
+                        logging.info("restarting service on device %s", device.serial)
+                        device.stopServices()
+                        device.startServices()
+
+        # Run tests in order.
+        try:
+            # Check if module is running in self test mode.
+            if self.run_as_vts_self_test:
+                logging.info('setUpClass function was executed successfully.')
+                self.results.passClass(self.test_module_name)
+                return self.results
+
+            for test_name, test_func in tests:
+                if test_name.startswith(STR_GENERATE):
+                    logging.info(
+                        "Executing generated test trigger function '%s'",
+                        test_name)
+                    test_func()
+                    logging.info("Finished '%s'", test_name)
+                else:
+                    self.execOneTest(test_name, test_func, None)
+            if self.isSkipAllTests() and not self.results.executed:
+                self.results.skipClass(
+                    self.test_module_name,
+                    "All test cases skipped; unable to find any test case.")
+            return self.results
+        except (signals.TestAbortClass, acts_signals.TestAbortClass):
+            logging.info("Received TestAbortClass signal")
+            return self.results
+        except (signals.TestAbortAll, acts_signals.TestAbortAll) as e:
+            logging.info("Received TestAbortAll signal")
+            # Piggy-back test results on this exception object so we don't lose
+            # results from this test class.
+            setattr(e, "results", self.results)
+            raise signals.TestAbortAll, e, sys.exc_info()[2]
+        except Exception as e:
+            # Exception happened during test.
+            logging.exception(e)
+            raise e
+        finally:
+            self._exec_func(self._tearDownClass)
+            if self.web.enabled:
+                name, timestamp = self.web.GetTestModuleKeys()
+                self.results.setTestModuleKeys(name, timestamp)
+            logging.info("Summary for test class %s: %s",
+                         self.test_module_name, self.results.summary())
 
     def run(self, test_names=None):
         """Runs test cases within a test class by the order they appear in the
@@ -833,65 +989,16 @@ class BaseTestClass(object):
         Returns:
             The test results object of this class.
         """
-        logging.info("==========> %s <==========", self.TAG)
+        logging.info("==========> %s <==========", self.test_module_name)
         # Devise the actual test cases to run in the test class.
-        if not test_names:
-            if self.tests:
-                # Specified by run list in class.
-                test_names = list(self.tests)
-            else:
-                # No test case specified by user, execute all in the test class
-                test_names = self._get_all_test_names()
-        self.results.requested = [
-            records.TestResultRecord(test_name, self.TAG)
-            for test_name in test_names if test_name.startswith(STR_TEST)
-        ]
-        tests = self._get_test_funcs(test_names)
-        # Setup for the class.
-        try:
-            if self._setUpClass() is False:
-                raise signals.TestFailure("Failed to setup %s." % self.TAG)
-        except Exception as e:
-            logging.exception("Failed to setup %s.", self.TAG)
-            self.results.failClass(self.TAG, e)
-            self._exec_func(self._tearDownClass)
-            return self.results
-        # Run tests in order.
-        try:
-            for test_name, test_func in tests:
-                if test_name.startswith(STR_GENERATE):
-                    logging.info(
-                        "Executing generated test trigger function '%s'",
-                        test_name)
-                    test_func()
-                    logging.info("Finished '%s'", test_name)
-                else:
-                    self.execOneTest(test_name, test_func, None)
-            if self._skip_all_testcases and not self.results.executed:
-                self.results.skipClass(
-                    self.TAG,
-                    "All test cases skipped; unable to find any test case.")
-            return self.results
-        except signals.TestAbortClass:
-            logging.info("Received TestAbortClass signal")
-            return self.results
-        except signals.TestAbortAll as e:
-            logging.info("Received TestAbortAll signal")
-            # Piggy-back test results on this exception object so we don't lose
-            # results from this test class.
-            setattr(e, "results", self.results)
-            raise e
-        except Exception as e:
-            # Exception happened during test.
-            logging.exception(e)
-            raise e
-        finally:
-            self._exec_func(self._tearDownClass)
-            if self.web.enabled:
-                name, timestamp = self.web.GetTestModuleKeys()
-                self.results.setTestModuleKeys(name, timestamp)
-            logging.info("Summary for test class %s: %s", self.TAG,
-                         self.results.summary())
+        tests = self.getTests(test_names)
+
+        if not self.run_as_vts_self_test:
+            self.results.requested = [
+                records.TestResultRecord(test_name, self.test_module_name)
+                for test_name,_ in tests if test_name.startswith(STR_TEST)
+            ]
+        return self.runTests(tests)
 
     def cleanUp(self):
         """A function that is executed upon completion of all tests cases
@@ -901,7 +1008,7 @@ class BaseTestClass(object):
         user.
         """
 
-    def CatchBugReport(self, prefix=''):
+    def DumpBugReport(self, prefix=''):
         """Get device bugreport through adb command.
 
         Args:
@@ -911,12 +1018,78 @@ class BaseTestClass(object):
         if prefix:
             prefix = re.sub('[^\w\-_\. ]', '_', prefix) + '_'
 
-        for i in range(len(self.android_devices)):
-            device = self.android_devices[i]
-            bug_report_file_name = prefix + _BUG_REPORT_FILE_PREFIX + str(
-                i) + _BUG_REPORT_FILE_EXTENSION
-            bug_report_file_path = os.path.join(logging.log_path,
-                                                bug_report_file_name)
+        for device in self.android_devices:
+            file_name = (prefix
+                         + _BUG_REPORT_FILE_PREFIX
+                         + '_%s' % device.serial
+                         + _BUG_REPORT_FILE_EXTENSION)
 
-            logging.info('Catching bugreport %s' % bug_report_file_path)
-            device.adb.bugreport(bug_report_file_path)
+            file_path = os.path.join(logging.log_path,
+                                     file_name)
+
+            logging.info('Catching bugreport %s...' % file_path)
+            device.adb.bugreport(file_path)
+
+    def skipAllTests(self, msg):
+        """Skip all test cases.
+
+        This method is usually called in setup functions when a precondition
+        to the test module is not met.
+
+        Args:
+            msg: string, reason why tests are skipped. If set to None or empty
+            string, a default message will be used (not recommended)
+        """
+        if not msg:
+            msg = "No reason provided."
+
+        setattr(self, _REASON_TO_SKIP_ALL_TESTS, msg)
+
+    def isSkipAllTests(self):
+        """Returns whether all tests are set to be skipped.
+
+        Note: If all tests are being skipped not due to skipAllTests
+              being called, or there is no tests defined, this method will
+              still return False (since skipAllTests is not called.)
+
+        Returns:
+            bool, True if skipAllTests has been called; False otherwise.
+        """
+        return self.getSkipAllTestsReason() is not None
+
+    def getSkipAllTestsReason(self):
+        """Returns the reason why all tests are skipped.
+
+        Note: If all tests are being skipped not due to skipAllTests
+              being called, or there is no tests defined, this method will
+              still return None (since skipAllTests is not called.)
+
+        Returns:
+            String, reason why tests are skipped. None if skipAllTests
+            is not called.
+        """
+        return getattr(self, _REASON_TO_SKIP_ALL_TESTS, None)
+
+    def DumpLogcat(self, prefix=''):
+        """Dumps device logcat outputs to log directory.
+
+        Args:
+            prefix: string, file name prefix. Usually in format of
+                    <test_module>-<test_case>
+        """
+        if prefix:
+            prefix = re.sub('[^\w\-_\. ]', '_', prefix) + '_'
+
+        for device in self.android_devices:
+            for buffer in LOGCAT_BUFFERS:
+                file_name = (prefix
+                             + _LOGCAT_FILE_PREFIX
+                             + '_%s_' % buffer
+                             + device.serial
+                             + _LOGCAT_FILE_EXTENSION)
+
+                file_path = os.path.join(logging.log_path,
+                                         file_name)
+
+                logging.info('Dumping logcat %s...' % file_path)
+                device.adb.logcat('-b', buffer, '-d', '>', file_path)

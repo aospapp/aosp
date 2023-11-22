@@ -50,6 +50,7 @@
 #include <memory>
 
 #include <android-base/file.h>
+#include <android-base/logging.h>
 #include <android-base/strings.h>
 #include <log/log.h>
 #include <nativehelper/AsynchronousCloseMonitor.h>
@@ -73,6 +74,13 @@
 #define TO_JAVA_STRING(NAME, EXP) \
         jstring NAME = env->NewStringUTF(EXP); \
         if ((NAME) == NULL) return NULL;
+
+namespace {
+
+jfieldID int32RefValueFid;
+jfieldID int64RefValueFid;
+
+}  // namespace
 
 struct addrinfo_deleter {
     void operator()(addrinfo* p) const {
@@ -1668,11 +1676,10 @@ static jint Linux_ioctlInt(JNIEnv* env, jobject, jobject javaFd, jint cmd, jobje
     // This is complicated because ioctls may return their result by updating their argument
     // or via their return value, so we need to support both.
     int fd = jniGetFDFromFileDescriptor(env, javaFd);
-    static jfieldID valueFid = env->GetFieldID(JniConstants::mutableIntClass, "value", "I");
-    jint arg = env->GetIntField(javaArg, valueFid);
+    jint arg = env->GetIntField(javaArg, int32RefValueFid);
     int rc = throwIfMinusOne(env, "ioctl", TEMP_FAILURE_RETRY(ioctl(fd, cmd, &arg)));
     if (!env->ExceptionCheck()) {
-        env->SetIntField(javaArg, valueFid, arg);
+        env->SetIntField(javaArg, int32RefValueFid, arg);
     }
     return rc;
 }
@@ -2076,12 +2083,11 @@ static void Linux_rename(JNIEnv* env, jobject, jstring javaOldPath, jstring java
 static jlong Linux_sendfile(JNIEnv* env, jobject, jobject javaOutFd, jobject javaInFd, jobject javaOffset, jlong byteCount) {
     int outFd = jniGetFDFromFileDescriptor(env, javaOutFd);
     int inFd = jniGetFDFromFileDescriptor(env, javaInFd);
-    static jfieldID valueFid = env->GetFieldID(JniConstants::mutableLongClass, "value", "J");
     off_t offset = 0;
     off_t* offsetPtr = NULL;
     if (javaOffset != NULL) {
         // TODO: fix bionic so we can have a 64-bit off_t!
-        offset = env->GetLongField(javaOffset, valueFid);
+        offset = env->GetLongField(javaOffset, int64RefValueFid);
         offsetPtr = &offset;
     }
     jlong result = throwIfMinusOne(env, "sendfile", TEMP_FAILURE_RETRY(sendfile(outFd, inFd, offsetPtr, byteCount)));
@@ -2089,7 +2095,7 @@ static jlong Linux_sendfile(JNIEnv* env, jobject, jobject javaOutFd, jobject jav
         return -1;
     }
     if (javaOffset != NULL) {
-        env->SetLongField(javaOffset, valueFid, offset);
+        env->SetLongField(javaOffset, int64RefValueFid, offset);
     }
     return result;
 }
@@ -2231,48 +2237,6 @@ static void Linux_setsockoptGroupReq(JNIEnv* env, jobject, jobject javaFd, jint 
     throwIfMinusOne(env, "setsockopt", rc);
 }
 
-static void Linux_setsockoptGroupSourceReq(JNIEnv* env, jobject, jobject javaFd, jint level, jint option, jobject javaGroupSourceReq) {
-    socklen_t sa_len;
-    struct group_source_req req;
-    memset(&req, 0, sizeof(req));
-
-    static jfieldID gsrInterfaceFid = env->GetFieldID(JniConstants::structGroupSourceReqClass, "gsr_interface", "I");
-    req.gsr_interface = env->GetIntField(javaGroupSourceReq, gsrInterfaceFid);
-    // Get the IPv4 or IPv6 multicast address to join or leave.
-    static jfieldID gsrGroupFid = env->GetFieldID(JniConstants::structGroupSourceReqClass, "gsr_group", "Ljava/net/InetAddress;");
-    ScopedLocalRef<jobject> javaGroup(env, env->GetObjectField(javaGroupSourceReq, gsrGroupFid));
-    if (!inetAddressToSockaddrVerbatim(env, javaGroup.get(), 0, req.gsr_group, sa_len)) {
-        return;
-    }
-
-    // Get the IPv4 or IPv6 multicast address to add to the filter.
-    static jfieldID gsrSourceFid = env->GetFieldID(JniConstants::structGroupSourceReqClass, "gsr_source", "Ljava/net/InetAddress;");
-    ScopedLocalRef<jobject> javaSource(env, env->GetObjectField(javaGroupSourceReq, gsrSourceFid));
-    if (!inetAddressToSockaddrVerbatim(env, javaSource.get(), 0, req.gsr_source, sa_len)) {
-        return;
-    }
-
-    int fd = jniGetFDFromFileDescriptor(env, javaFd);
-    int rc = TEMP_FAILURE_RETRY(setsockopt(fd, level, option, &req, sizeof(req)));
-    if (rc == -1 && errno == EINVAL) {
-        // Maybe we're a 32-bit binary talking to a 64-bit kernel?
-        // glibc doesn't automatically handle this.
-        // http://sourceware.org/bugzilla/show_bug.cgi?id=12080
-        struct group_source_req64 {
-            uint32_t gsr_interface;
-            uint32_t my_padding;
-            sockaddr_storage gsr_group;
-            sockaddr_storage gsr_source;
-        };
-        group_source_req64 req64;
-        req64.gsr_interface = req.gsr_interface;
-        memcpy(&req64.gsr_group, &req.gsr_group, sizeof(req.gsr_group));
-        memcpy(&req64.gsr_source, &req.gsr_source, sizeof(req.gsr_source));
-        rc = TEMP_FAILURE_RETRY(setsockopt(fd, level, option, &req64, sizeof(req64)));
-    }
-    throwIfMinusOne(env, "setsockopt", rc);
-}
-
 static void Linux_setsockoptLinger(JNIEnv* env, jobject, jobject javaFd, jint level, jint option, jobject javaLinger) {
     static jfieldID lOnoffFid = env->GetFieldID(JniConstants::structLingerClass, "l_onoff", "I");
     static jfieldID lLingerFid = env->GetFieldID(JniConstants::structLingerClass, "l_linger", "I");
@@ -2339,6 +2303,50 @@ static void Linux_socketpair(JNIEnv* env, jobject, jint domain, jint type, jint 
         jniSetFileDescriptorOfFD(env, javaFd2, fds[1]);
     }
 }
+
+static jlong Linux_splice(JNIEnv* env, jobject, jobject javaFdIn, jobject javaOffIn, jobject javaFdOut, jobject javaOffOut, jlong len, jint flags) {
+    int fdIn = jniGetFDFromFileDescriptor(env, javaFdIn);
+    int fdOut = jniGetFDFromFileDescriptor(env, javaFdOut);
+    int spliceErrno;
+
+    jlong offIn = (javaOffIn == NULL ? 0 : env->GetLongField(javaOffIn, int64RefValueFid));
+    jlong offOut = (javaOffOut == NULL ? 0 : env->GetLongField(javaOffOut, int64RefValueFid));
+    jlong ret = -1;
+    do {
+        bool wasSignaled = false;
+        {
+            AsynchronousCloseMonitor monitorIn(fdIn);
+            AsynchronousCloseMonitor monitorOut(fdOut);
+            ret = splice(fdIn, (javaOffIn == NULL ? NULL : &offIn),
+                   fdOut, (javaOffOut == NULL ? NULL : &offOut),
+                   len, flags);
+            spliceErrno = errno;
+            wasSignaled = monitorIn.wasSignaled() || monitorOut.wasSignaled();
+        }
+        if (wasSignaled) {
+            jniThrowException(env, "java/io/InterruptedIOException", "splice interrupted");
+            ret = -1;
+            break;
+        }
+        if (ret == -1 && spliceErrno != EINTR) {
+            throwErrnoException(env, "splice");
+            break;
+        }
+    } while (ret == -1);
+    if (ret == -1) {
+        /* If the syscall failed, re-set errno: throwing an exception might have modified it. */
+        errno = spliceErrno;
+    } else {
+        if (javaOffIn != NULL) {
+            env->SetLongField(javaOffIn, int64RefValueFid, offIn);
+        }
+        if (javaOffOut != NULL) {
+            env->SetLongField(javaOffOut, int64RefValueFid, offOut);
+        }
+    }
+    return ret;
+}
+
 
 static jobject Linux_stat(JNIEnv* env, jobject, jstring javaPath) {
     return doStat(env, javaPath, false);
@@ -2431,9 +2439,8 @@ static void Linux_unsetenv(JNIEnv* env, jobject, jstring javaName) {
 static jint Linux_waitpid(JNIEnv* env, jobject, jint pid, jobject javaStatus, jint options) {
     int status;
     int rc = throwIfMinusOne(env, "waitpid", TEMP_FAILURE_RETRY(waitpid(pid, &status, options)));
-    if (rc != -1) {
-        static jfieldID valueFid = env->GetFieldID(JniConstants::mutableIntClass, "value", "I");
-        env->SetIntField(javaStatus, valueFid, status);
+    if (javaStatus != NULL && rc != -1) {
+        env->SetIntField(javaStatus, int32RefValueFid, status);
     }
     return rc;
 }
@@ -2516,7 +2523,7 @@ static JNINativeMethod gMethods[] = {
     NATIVE_METHOD(Linux, inet_pton, "(ILjava/lang/String;)Ljava/net/InetAddress;"),
     NATIVE_METHOD(Linux, ioctlFlags, "(Ljava/io/FileDescriptor;Ljava/lang/String;)I"),
     NATIVE_METHOD(Linux, ioctlInetAddress, "(Ljava/io/FileDescriptor;ILjava/lang/String;)Ljava/net/InetAddress;"),
-    NATIVE_METHOD(Linux, ioctlInt, "(Ljava/io/FileDescriptor;ILandroid/util/MutableInt;)I"),
+    NATIVE_METHOD(Linux, ioctlInt, "(Ljava/io/FileDescriptor;ILandroid/system/Int32Ref;)I"),
     NATIVE_METHOD(Linux, ioctlMTU, "(Ljava/io/FileDescriptor;Ljava/lang/String;)I"),
     NATIVE_METHOD(Linux, isatty, "(Ljava/io/FileDescriptor;)Z"),
     NATIVE_METHOD(Linux, kill, "(II)V"),
@@ -2549,7 +2556,7 @@ static JNINativeMethod gMethods[] = {
     NATIVE_METHOD(Linux, remove, "(Ljava/lang/String;)V"),
     NATIVE_METHOD(Linux, removexattr, "(Ljava/lang/String;Ljava/lang/String;)V"),
     NATIVE_METHOD(Linux, rename, "(Ljava/lang/String;Ljava/lang/String;)V"),
-    NATIVE_METHOD(Linux, sendfile, "(Ljava/io/FileDescriptor;Ljava/io/FileDescriptor;Landroid/util/MutableLong;J)J"),
+    NATIVE_METHOD(Linux, sendfile, "(Ljava/io/FileDescriptor;Ljava/io/FileDescriptor;Landroid/system/Int64Ref;J)J"),
     NATIVE_METHOD(Linux, sendtoBytes, "(Ljava/io/FileDescriptor;Ljava/lang/Object;IIILjava/net/InetAddress;I)I"),
     NATIVE_METHOD_OVERLOAD(Linux, sendtoBytes, "(Ljava/io/FileDescriptor;Ljava/lang/Object;IIILjava/net/SocketAddress;)I", SocketAddress),
     NATIVE_METHOD(Linux, setegid, "(I)V"),
@@ -2565,7 +2572,6 @@ static JNINativeMethod gMethods[] = {
     NATIVE_METHOD(Linux, setsockoptInt, "(Ljava/io/FileDescriptor;III)V"),
     NATIVE_METHOD(Linux, setsockoptIpMreqn, "(Ljava/io/FileDescriptor;III)V"),
     NATIVE_METHOD(Linux, setsockoptGroupReq, "(Ljava/io/FileDescriptor;IILandroid/system/StructGroupReq;)V"),
-    NATIVE_METHOD(Linux, setsockoptGroupSourceReq, "(Ljava/io/FileDescriptor;IILandroid/system/StructGroupSourceReq;)V"),
     NATIVE_METHOD(Linux, setsockoptLinger, "(Ljava/io/FileDescriptor;IILandroid/system/StructLinger;)V"),
     NATIVE_METHOD(Linux, setsockoptTimeval, "(Ljava/io/FileDescriptor;IILandroid/system/StructTimeval;)V"),
     NATIVE_METHOD(Linux, setuid, "(I)V"),
@@ -2573,6 +2579,7 @@ static JNINativeMethod gMethods[] = {
     NATIVE_METHOD(Linux, shutdown, "(Ljava/io/FileDescriptor;I)V"),
     NATIVE_METHOD(Linux, socket, "(III)Ljava/io/FileDescriptor;"),
     NATIVE_METHOD(Linux, socketpair, "(IIILjava/io/FileDescriptor;Ljava/io/FileDescriptor;)V"),
+    NATIVE_METHOD(Linux, splice, "(Ljava/io/FileDescriptor;Landroid/system/Int64Ref;Ljava/io/FileDescriptor;Landroid/system/Int64Ref;JI)J"),
     NATIVE_METHOD(Linux, stat, "(Ljava/lang/String;)Landroid/system/StructStat;"),
     NATIVE_METHOD(Linux, statvfs, "(Ljava/lang/String;)Landroid/system/StructStatVfs;"),
     NATIVE_METHOD(Linux, strerror, "(I)Ljava/lang/String;"),
@@ -2585,10 +2592,22 @@ static JNINativeMethod gMethods[] = {
     NATIVE_METHOD(Linux, uname, "()Landroid/system/StructUtsname;"),
     NATIVE_METHOD(Linux, unlink, "(Ljava/lang/String;)V"),
     NATIVE_METHOD(Linux, unsetenv, "(Ljava/lang/String;)V"),
-    NATIVE_METHOD(Linux, waitpid, "(ILandroid/util/MutableInt;I)I"),
+    NATIVE_METHOD(Linux, waitpid, "(ILandroid/system/Int32Ref;I)I"),
     NATIVE_METHOD(Linux, writeBytes, "(Ljava/io/FileDescriptor;Ljava/lang/Object;II)I"),
     NATIVE_METHOD(Linux, writev, "(Ljava/io/FileDescriptor;[Ljava/lang/Object;[I[I)I"),
 };
 void register_libcore_io_Linux(JNIEnv* env) {
+    // Note: it is safe to only cache the fields as boot classpath classes are never
+    //       unloaded.
+    ScopedLocalRef<jclass> int32RefClass(env, env->FindClass("android/system/Int32Ref"));
+    CHECK(int32RefClass != nullptr);
+    int32RefValueFid = env->GetFieldID(int32RefClass.get(), "value", "I");
+    CHECK(int32RefValueFid != nullptr);
+
+    ScopedLocalRef<jclass> int64RefClass(env, env->FindClass("android/system/Int64Ref"));
+    CHECK(int64RefClass != nullptr);
+    int64RefValueFid = env->GetFieldID(int64RefClass.get(), "value", "J");
+    CHECK(int64RefValueFid != nullptr);
+
     jniRegisterNativeMethods(env, "libcore/io/Linux", gMethods, NELEM(gMethods));
 }

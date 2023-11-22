@@ -32,9 +32,8 @@ import android.support.v17.leanback.widget.OnActionClickedListener;
 import android.support.v17.leanback.widget.PresenterSelector;
 import android.support.v17.leanback.widget.SparseArrayObjectAdapter;
 import android.text.TextUtils;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.data.BaseProgram;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrWatchedPositionManager;
@@ -42,16 +41,13 @@ import com.android.tv.dvr.data.RecordedProgram;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.ui.DvrUiHelper;
 import com.android.tv.dvr.ui.SortedArrayAdapter;
-
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-/**
- * {@link DetailsFragment} for series recording in DVR.
- */
-public class SeriesRecordingDetailsFragment extends DvrDetailsFragment implements
-        DvrDataManager.SeriesRecordingListener, DvrDataManager.RecordedProgramListener {
+/** {@link DetailsFragment} for series recording in DVR. */
+public class SeriesRecordingDetailsFragment extends DvrDetailsFragment
+        implements DvrDataManager.SeriesRecordingListener, DvrDataManager.RecordedProgramListener {
     private static final int ACTION_WATCH = 1;
     private static final int ACTION_SERIES_SCHEDULES = 2;
     private static final int ACTION_DELETE = 3;
@@ -77,7 +73,7 @@ public class SeriesRecordingDetailsFragment extends DvrDetailsFragment implement
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        mDvrDataManager = TvApplication.getSingletons(getActivity()).getDvrDataManager();
+        mDvrDataManager = TvSingletons.getSingletons(getActivity()).getDvrDataManager();
         mWatchLabel = getString(R.string.dvr_detail_watch);
         mResumeLabel = getString(R.string.dvr_detail_series_resume);
         mWatchDrawable = getResources().getDrawable(R.drawable.lb_ic_play, null);
@@ -87,8 +83,8 @@ public class SeriesRecordingDetailsFragment extends DvrDetailsFragment implement
 
     @Override
     protected void onCreateInternal() {
-        mDvrWatchedPositionManager = TvApplication.getSingletons(getActivity())
-                .getDvrWatchedPositionManager();
+        mDvrWatchedPositionManager =
+                TvSingletons.getSingletons(getActivity()).getDvrWatchedPositionManager();
         setDetailsOverviewRow(DetailsContent.createFromSeriesRecording(getContext(), mSeries));
         setupRecordedProgramsRow();
         mDvrDataManager.addSeriesRecordingListener(this);
@@ -119,27 +115,31 @@ public class SeriesRecordingDetailsFragment extends DvrDetailsFragment implement
             mActionsAdapter.clear(ACTION_WATCH);
         } else {
             String episodeStatus;
-            if(mDvrWatchedPositionManager.getWatchedStatus(mRecommendRecordedProgram)
+            if (mDvrWatchedPositionManager.getWatchedStatus(mRecommendRecordedProgram)
                     == DvrWatchedPositionManager.DVR_WATCHED_STATUS_WATCHING) {
                 episodeStatus = mResumeLabel;
-                mInitialPlaybackPositionMs = mDvrWatchedPositionManager
-                        .getWatchedPosition(mRecommendRecordedProgram.getId());
+                mInitialPlaybackPositionMs =
+                        mDvrWatchedPositionManager.getWatchedPosition(
+                                mRecommendRecordedProgram.getId());
             } else {
                 episodeStatus = mWatchLabel;
                 mInitialPlaybackPositionMs = TvInputManager.TIME_SHIFT_INVALID_TIME;
             }
-            String episodeDisplayNumber = mRecommendRecordedProgram.getEpisodeDisplayNumber(
-                    getContext());
-            mActionsAdapter.set(ACTION_WATCH, new Action(ACTION_WATCH,
-                    episodeStatus, episodeDisplayNumber, mWatchDrawable));
+            String episodeDisplayNumber =
+                    mRecommendRecordedProgram.getEpisodeDisplayNumber(getContext());
+            mActionsAdapter.set(
+                    ACTION_WATCH,
+                    new Action(ACTION_WATCH, episodeStatus, episodeDisplayNumber, mWatchDrawable));
         }
     }
 
     @Override
     protected boolean onLoadRecordingDetails(Bundle args) {
         long recordId = args.getLong(DvrDetailsActivity.RECORDING_ID);
-        mSeries = TvApplication.getSingletons(getActivity()).getDvrDataManager()
-                .getSeriesRecording(recordId);
+        mSeries =
+                TvSingletons.getSingletons(getActivity())
+                        .getDvrDataManager()
+                        .getSeriesRecording(recordId);
         if (mSeries == null) {
             return false;
         }
@@ -162,12 +162,19 @@ public class SeriesRecordingDetailsFragment extends DvrDetailsFragment implement
         mActionsAdapter = new SparseArrayObjectAdapter(new ActionPresenterSelector());
         Resources res = getResources();
         updateWatchAction();
-        mActionsAdapter.set(ACTION_SERIES_SCHEDULES, new Action(ACTION_SERIES_SCHEDULES,
-                getString(R.string.dvr_detail_view_schedule), null,
-                res.getDrawable(R.drawable.ic_schedule_32dp, null)));
-        mDeleteAction = new Action(ACTION_DELETE,
-                getString(R.string.dvr_detail_series_delete), null,
-                res.getDrawable(R.drawable.ic_delete_32dp, null));
+        mActionsAdapter.set(
+                ACTION_SERIES_SCHEDULES,
+                new Action(
+                        ACTION_SERIES_SCHEDULES,
+                        getString(R.string.dvr_detail_view_schedule),
+                        null,
+                        res.getDrawable(R.drawable.ic_schedule_32dp, null)));
+        mDeleteAction =
+                new Action(
+                        ACTION_DELETE,
+                        getString(R.string.dvr_detail_series_delete),
+                        null,
+                        res.getDrawable(R.drawable.ic_delete_32dp, null));
         if (!mRecordedPrograms.isEmpty()) {
             mActionsAdapter.set(ACTION_DELETE, mDeleteAction);
         }
@@ -207,11 +214,9 @@ public class SeriesRecordingDetailsFragment extends DvrDetailsFragment implement
         };
     }
 
-    /**
-     * The programs are sorted by season number and episode number.
-     */
+    /** The programs are sorted by season number and episode number. */
     private RecordedProgram getRecommendProgram(List<RecordedProgram> programs) {
-        for (int i = programs.size() - 1 ; i >= 0 ; i--) {
+        for (int i = programs.size() - 1; i >= 0; i--) {
             RecordedProgram program = programs.get(i);
             int watchedStatus = mDvrWatchedPositionManager.getWatchedStatus(program);
             if (watchedStatus == DvrWatchedPositionManager.DVR_WATCHED_STATUS_NEW) {
@@ -230,7 +235,7 @@ public class SeriesRecordingDetailsFragment extends DvrDetailsFragment implement
     }
 
     @Override
-    public void onSeriesRecordingAdded(SeriesRecording... seriesRecordings) { }
+    public void onSeriesRecordingAdded(SeriesRecording... seriesRecordings) {}
 
     @Override
     public void onSeriesRecordingChanged(SeriesRecording... seriesRecordings) {
@@ -308,8 +313,10 @@ public class SeriesRecordingDetailsFragment extends DvrDetailsFragment implement
         for (int i = rowsAdaptor.size() - 1; i >= 0; i--) {
             Object row = rowsAdaptor.get(i);
             if (row instanceof ListRow) {
-                int compareResult = BaseProgram.numberCompare(seasonNumber,
-                        ((SeasonRowAdapter) ((ListRow) row).getAdapter()).mSeasonNumber);
+                int compareResult =
+                        BaseProgram.numberCompare(
+                                seasonNumber,
+                                ((SeasonRowAdapter) ((ListRow) row).getAdapter()).mSeasonNumber);
                 if (compareResult == 0) {
                     return (ListRow) row;
                 } else if (compareResult < 0) {
@@ -321,18 +328,25 @@ public class SeriesRecordingDetailsFragment extends DvrDetailsFragment implement
     }
 
     private ListRow createNewSeasonRow(String seasonNumber, int position) {
-        String seasonTitle = seasonNumber.isEmpty() ? mSeries.getTitle()
-                : getString(R.string.dvr_detail_series_season_title, seasonNumber);
+        String seasonTitle =
+                seasonNumber.isEmpty()
+                        ? mSeries.getTitle()
+                        : getString(R.string.dvr_detail_series_season_title, seasonNumber);
         HeaderItem header = new HeaderItem(mSeasonRowCount++, seasonTitle);
         ClassPresenterSelector selector = new ClassPresenterSelector();
         selector.addClassPresenter(RecordedProgram.class, mRecordedProgramPresenter);
-        ListRow row = new ListRow(header, new SeasonRowAdapter(selector,
-                new Comparator<RecordedProgram>() {
-                    @Override
-                    public int compare(RecordedProgram lhs, RecordedProgram rhs) {
-                        return BaseProgram.EPISODE_COMPARATOR.compare(lhs, rhs);
-                    }
-                }, seasonNumber));
+        ListRow row =
+                new ListRow(
+                        header,
+                        new SeasonRowAdapter(
+                                selector,
+                                new Comparator<RecordedProgram>() {
+                                    @Override
+                                    public int compare(RecordedProgram lhs, RecordedProgram rhs) {
+                                        return BaseProgram.EPISODE_COMPARATOR.compare(lhs, rhs);
+                                    }
+                                },
+                                seasonNumber));
         getRowsAdapter().add(position, row);
         return row;
     }
@@ -340,7 +354,9 @@ public class SeriesRecordingDetailsFragment extends DvrDetailsFragment implement
     private class SeasonRowAdapter extends SortedArrayAdapter<RecordedProgram> {
         private String mSeasonNumber;
 
-        SeasonRowAdapter(PresenterSelector selector, Comparator<RecordedProgram> comparator,
+        SeasonRowAdapter(
+                PresenterSelector selector,
+                Comparator<RecordedProgram> comparator,
                 String seasonNumber) {
             super(selector, comparator);
             mSeasonNumber = seasonNumber;

@@ -32,17 +32,20 @@ bool TaskstatsSocket::Open() {
   std::unique_ptr<nl_sock, decltype(&nl_socket_free)> nl(
       nl_socket_alloc(), nl_socket_free);
   if (!nl.get()) {
-    LOG(FATAL) << "Failed to allocate netlink socket";
+    LOG(ERROR) << "Failed to allocate netlink socket";
+    return false;
   }
 
   int ret = genl_connect(nl.get());
   if (ret < 0) {
-    LOG(FATAL) << nl_geterror(ret) << std::endl << "Unable to open netlink socket (are you root?)";
+    LOG(ERROR) << nl_geterror(ret) << std::endl << "Unable to open netlink socket (are you root?)";
+    return false;
   }
 
   int family_id = genl_ctrl_resolve(nl.get(), TASKSTATS_GENL_NAME);
   if (family_id < 0) {
-    LOG(FATAL) << nl_geterror(family_id) << std::endl << "Unable to determine taskstats family id (does your kernel support taskstats?)";
+    LOG(ERROR) << nl_geterror(family_id) << std::endl << "Unable to determine taskstats family id (does your kernel support taskstats?)";
+    return false;
   }
 
   nl_ = std::move(nl);

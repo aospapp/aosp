@@ -9,7 +9,7 @@ additional_certificates := $(foreach c,$(LOCAL_ADDITIONAL_CERTIFICATES), $(c).x5
 
 # Set up all the target-specific variables.
 $(built_dpi_apk): PRIVATE_MODULE := $(dpi_apk_name)
-$(built_dpi_apk): PRIVATE_AAPT_FLAGS := $(LOCAL_AAPT_FLAGS) $(PRODUCT_AAPT_FLAGS) $($(LOCAL_PACKAGE_NAME)_aapt_flags_$(my_dpi))
+$(built_dpi_apk): PRIVATE_AAPT_FLAGS := $(LOCAL_AAPT_FLAGS) --pseudo-localize $($(LOCAL_PACKAGE_NAME)_aapt_flags_$(my_dpi))
 # Clear PRIVATE_PRODUCT_AAPT_CONFIG to include everything by default.
 $(built_dpi_apk): PRIVATE_PRODUCT_AAPT_CONFIG :=
 $(built_dpi_apk): PRIVATE_PRODUCT_AAPT_PREF_CONFIG := $(my_dpi)
@@ -17,8 +17,9 @@ $(built_dpi_apk): PRIVATE_ANDROID_MANIFEST := $(full_android_manifest)
 $(built_dpi_apk): PRIVATE_RESOURCE_DIR := $(LOCAL_RESOURCE_DIR)
 $(built_dpi_apk): PRIVATE_ASSET_DIR := $(LOCAL_ASSET_DIR)
 $(built_dpi_apk): PRIVATE_AAPT_INCLUDES := $(all_library_res_package_exports)
-ifneq (,$(filter-out current system_current test_current, $(LOCAL_SDK_VERSION)))
-$(built_dpi_apk): PRIVATE_DEFAULT_APP_TARGET_SDK := $(LOCAL_SDK_VERSION)
+$(built_dpi_apk): PRIVATE_RESOURCE_LIST := $(all_res_assets)
+ifneq (,$(filter-out current system_current test_current core_current, $(LOCAL_SDK_VERSION)))
+$(built_dpi_apk): PRIVATE_DEFAULT_APP_TARGET_SDK := $(call get-numeric-sdk-version,$(LOCAL_SDK_VERSION))
 else
 $(built_dpi_apk): PRIVATE_DEFAULT_APP_TARGET_SDK := $(DEFAULT_APP_TARGET_SDK)
 endif
@@ -34,12 +35,8 @@ $(built_dpi_apk): PRIVATE_ADDITIONAL_CERTIFICATES := $(additional_certificates)
 $(built_dpi_apk): PRIVATE_SOURCE_ARCHIVE :=
 ifneq ($(full_classes_jar),)
 $(built_dpi_apk): PRIVATE_DEX_FILE := $(built_dex)
-ifndef LOCAL_JACK_ENABLED
 # Use the jarjar processed arhive as the initial package file.
 $(built_dpi_apk): PRIVATE_SOURCE_ARCHIVE := $(full_classes_pre_proguard_jar)
-else
-$(built_dpi_apk): PRIVATE_JACK_INTERMEDIATES_DIR := $(intermediates.COMMON)/jack-rsc
-endif # LOCAL_JACK_ENABLED
 $(built_dpi_apk): $(built_dex)
 else
 $(built_dpi_apk): PRIVATE_DEX_FILE :=
@@ -64,9 +61,6 @@ ifeq ($(full_classes_jar),)
 	$(if $(PRIVATE_EXTRA_JAR_ARGS),$(call add-java-resources-to,$@))
 else
 	$(add-dex-to-package)
-ifdef LOCAL_JACK_ENABLED
-	$(add-carried-jack-resources)
-endif
 endif
 	$(sign-package)
 

@@ -14,7 +14,6 @@
 
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
-LOCAL_CLANG := true
 
 LOCAL_MODULE := libbnnmdata_jni
 LOCAL_MODULE_TAGS := optional
@@ -22,6 +21,7 @@ LOCAL_SRC_FILES := test_data.cpp
 LOCAL_SDK_VERSION := 23
 LOCAL_NDK_STL_VARIANT := c++_static
 
+LOCAL_CFLAGS := -Wall -Werror -Wno-unused-const-variable
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
 include $(BUILD_SHARED_LIBRARY)

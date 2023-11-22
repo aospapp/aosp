@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockito.internal.verification;
 
 import org.junit.Before;
@@ -7,8 +11,8 @@ import org.mockito.exceptions.base.MockitoAssertionError;
 import org.mockito.internal.verification.api.VerificationData;
 import org.mockito.verification.VerificationMode;
 
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.fail;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.MockitoAnnotations.initMocks;

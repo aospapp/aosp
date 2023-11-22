@@ -59,6 +59,28 @@ public class InputReader
 
         DuplicateClassPrinter duplicateClassPrinter = new DuplicateClassPrinter(notePrinter);
 
+        // Android-added: Read the classes from the systemjars.
+        // These are read into the library ClassPool before the programjars so that any duplicates
+        // between these are programjars will result in the classes in the programjars being
+        // ignored.
+        // Read the system class files, if any.
+        if (configuration.systemJars != null)
+        {
+            // Prepare a data entry reader to filter all classes,
+            // which are then decoded to classes by a class reader,
+            // which are then filtered by removing any that already exist in the libraryClassPool.
+            // which are then put in the class pool by a class pool filler.
+            readInput("Reading system ",
+                      configuration.systemJars,
+                      new ClassFilter(
+                      new ClassReader(true /* isLibrary */,
+                                      configuration.skipNonPublicLibraryClasses,
+                                      configuration.skipNonPublicLibraryClassMembers,
+                                      warningPrinter,
+                      new ClassPresenceFilter(libraryClassPool, duplicateClassPrinter,
+                      new ClassPoolFiller(libraryClassPool)))));
+        }
+
         // Read the program class files.
         // Prepare a data entry reader to filter all classes,
         // which are then decoded to classes by a class reader,
@@ -71,7 +93,9 @@ public class InputReader
                                   configuration.skipNonPublicLibraryClassMembers,
                                   warningPrinter,
                   new ClassPresenceFilter(programClassPool, duplicateClassPrinter,
-                  new ClassPoolFiller(programClassPool)))));
+                  // Android-changed: Filter out classes already read from systemjars.
+                  new ClassPresenceFilter(libraryClassPool, duplicateClassPrinter,
+                  new ClassPoolFiller(programClassPool))))));
 
         // Check if we have at least some input classes.
         if (programClassPool.size() == 0)

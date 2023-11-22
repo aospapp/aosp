@@ -11,8 +11,11 @@ include $(BUILD_PREBUILT)
 
 ifeq ($(WITH_HOST_DALVIK),true)
 
+# A host version of the tzlookup.xml module for use by
+# hostdex rules.
+
 include $(CLEAR_VARS)
-LOCAL_MODULE := tzlookup.xml-host
+LOCAL_MODULE := tzlookup.xml
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_IS_HOST_MODULE := true
 LOCAL_SRC_FILES := tzlookup.xml

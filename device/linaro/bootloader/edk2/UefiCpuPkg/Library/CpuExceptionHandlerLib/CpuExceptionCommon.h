@@ -1,7 +1,7 @@
 /** @file
   Common header file for CPU Exception Handler Library.
 
-  Copyright (c) 2012 - 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2012 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -31,6 +31,11 @@
 
 #include "ArchInterruptDefs.h"
 
+#define CPU_EXCEPTION_HANDLER_LIB_HOB_GUID \
+  { \
+    0xb21d9148, 0x9211, 0x4d8f, { 0xad, 0xd3, 0x66, 0xb1, 0x89, 0xc9, 0x2c, 0x83 } \
+  }
+
 //
 // Record exception handler information
 //
@@ -40,10 +45,16 @@ typedef struct {
   UINTN HookAfterStubHeaderStart;
 } EXCEPTION_HANDLER_TEMPLATE_MAP;
 
+typedef struct {
+  UINTN                       IdtEntryCount;
+  SPIN_LOCK                   DisplayMessageSpinLock;
+  RESERVED_VECTORS_DATA       *ReservedVectors;
+  EFI_CPU_INTERRUPT_HANDLER   *ExternalInterruptHandler;
+} EXCEPTION_HANDLER_DATA;
+
 extern CONST UINT32                mErrorCodeFlag;
 extern CONST UINTN                 mImageAlignSize;
 extern CONST UINTN                 mDoFarReturnFlag;
-extern RESERVED_VECTORS_DATA       *mReservedVectors;
 
 /**
   Return address map of exception handler template so that C code can generate
@@ -127,7 +138,8 @@ DumpCpuContent (
 /**
   Internal worker function to initialize exception handler.
 
-  @param[in]  VectorInfo    Pointer to reserved vector list.
+  @param[in]      VectorInfo            Pointer to reserved vector list.
+  @param[in, out] ExceptionHandlerData  Pointer to exception handler data.
   
   @retval EFI_SUCCESS           CPU Exception Entries have been successfully initialized 
                                 with default exception handlers.
@@ -137,16 +149,18 @@ DumpCpuContent (
 **/
 EFI_STATUS
 InitializeCpuExceptionHandlersWorker (
-  IN EFI_VECTOR_HANDOFF_INFO       *VectorInfo OPTIONAL
+  IN EFI_VECTOR_HANDOFF_INFO       *VectorInfo OPTIONAL,
+  IN OUT EXCEPTION_HANDLER_DATA    *ExceptionHandlerData
   );
 
 /**
   Registers a function to be called from the processor interrupt handler.
 
-  @param[in]  InterruptType     Defines which interrupt or exception to hook.
-  @param[in]  InterruptHandler  A pointer to a function of type EFI_CPU_INTERRUPT_HANDLER that is called
-                                when a processor interrupt occurs. If this parameter is NULL, then the handler
-                                will be uninstalled.
+  @param[in]  InterruptType        Defines which interrupt or exception to hook.
+  @param[in]  InterruptHandler     A pointer to a function of type EFI_CPU_INTERRUPT_HANDLER that is called
+                                   when a processor interrupt occurs. If this parameter is NULL, then the handler
+                                   will be uninstalled
+  @param[in] ExceptionHandlerData  Pointer to exception handler data.
 
   @retval EFI_SUCCESS           The handler for the processor interrupt was successfully installed or uninstalled.
   @retval EFI_ALREADY_STARTED   InterruptHandler is not NULL, and a handler for InterruptType was
@@ -159,48 +173,52 @@ InitializeCpuExceptionHandlersWorker (
 EFI_STATUS
 RegisterCpuInterruptHandlerWorker (
   IN EFI_EXCEPTION_TYPE            InterruptType,
-  IN EFI_CPU_INTERRUPT_HANDLER     InterruptHandler
+  IN EFI_CPU_INTERRUPT_HANDLER     InterruptHandler,
+  IN EXCEPTION_HANDLER_DATA        *ExceptionHandlerData
   );
 
 /**
   Internal worker function to update IDT entries accordling to vector attributes.
 
-  @param[in] IdtTable       Pointer to IDT table.
-  @param[in] TemplateMap    Pointer to a buffer where the address map is returned.
-  @param[in] IdtEntryCount  IDT entries number to be updated.
+  @param[in] IdtTable              Pointer to IDT table.
+  @param[in] TemplateMap           Pointer to a buffer where the address map is
+                                   returned.
+  @param[in] ExceptionHandlerData  Pointer to exception handler data.
 
 **/
 VOID
 UpdateIdtTable (
   IN IA32_IDT_GATE_DESCRIPTOR        *IdtTable,
   IN EXCEPTION_HANDLER_TEMPLATE_MAP  *TemplateMap,
-  IN UINTN                           IdtEntryCount
+  IN EXCEPTION_HANDLER_DATA          *ExceptionHandlerData
   );
 
 /**
   Save CPU exception context when handling EFI_VECTOR_HANDOFF_HOOK_AFTER case.
 
-  @param[in] ExceptionType  Exception type.
-  @param[in] SystemContext  Pointer to EFI_SYSTEM_CONTEXT.
-
+  @param[in] ExceptionType        Exception type.
+  @param[in] SystemContext        Pointer to EFI_SYSTEM_CONTEXT.
+  @param[in] ExceptionHandlerData Pointer to exception handler data.
 **/
 VOID
 ArchSaveExceptionContext (
-  IN UINTN                ExceptionType,
-  IN EFI_SYSTEM_CONTEXT   SystemContext 
+  IN UINTN                        ExceptionType,
+  IN EFI_SYSTEM_CONTEXT           SystemContext,
+  IN EXCEPTION_HANDLER_DATA       *ExceptionHandlerData
   );
 
 /**
   Restore CPU exception context when handling EFI_VECTOR_HANDOFF_HOOK_AFTER case.
 
-  @param[in] ExceptionType  Exception type.
-  @param[in] SystemContext  Pointer to EFI_SYSTEM_CONTEXT.
-
+  @param[in] ExceptionType        Exception type.
+  @param[in] SystemContext        Pointer to EFI_SYSTEM_CONTEXT.
+  @param[in] ExceptionHandlerData Pointer to exception handler data.
 **/
 VOID
 ArchRestoreExceptionContext (
-  IN UINTN                ExceptionType,
-  IN EFI_SYSTEM_CONTEXT   SystemContext 
+  IN UINTN                        ExceptionType,
+  IN EFI_SYSTEM_CONTEXT           SystemContext,
+  IN EXCEPTION_HANDLER_DATA       *ExceptionHandlerData
   );
 
 /**
@@ -247,6 +265,20 @@ ReadAndVerifyVectorInfo (
 CONST CHAR8 *
 GetExceptionNameStr (
   IN EFI_EXCEPTION_TYPE          ExceptionType
+  );
+
+/**
+  Internal worker function for common exception handler.
+
+  @param ExceptionType         Exception type.
+  @param SystemContext         Pointer to EFI_SYSTEM_CONTEXT.
+  @param ExceptionHandlerData  Pointer to exception handler data.
+**/
+VOID
+CommonExceptionHandlerWorker (
+  IN EFI_EXCEPTION_TYPE          ExceptionType, 
+  IN EFI_SYSTEM_CONTEXT          SystemContext,
+  IN EXCEPTION_HANDLER_DATA      *ExceptionHandlerData
   );
 
 #endif

@@ -18,6 +18,7 @@ package com.android.cts.verifier.bluetooth;
 
 import android.content.Intent;
 import android.os.Bundle;
+import com.android.cts.verifier.R;
 
 public class BleInsecureClientStartActivity extends BleClientTestBaseActivity {
     private Intent mIntent;
@@ -25,6 +26,10 @@ public class BleInsecureClientStartActivity extends BleClientTestBaseActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        setInfoResources(R.string.ble_client_test_name,
+                R.string.ble_insecure_client_test_info, -1);
+
         mIntent = new Intent(this, BleClientService.class);
         mIntent.setAction(BleClientService.BLE_CLIENT_ACTION_CLIENT_CONNECT);
 

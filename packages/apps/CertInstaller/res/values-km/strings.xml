@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN និង​កម្មវិធី"</item>
     <item msgid="692322974985472861">"វ៉ាយហ្វាយ"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"ចំណាំ៖ អ្នក​ចេញ​វិញ្ញាបនបត្រ​នេះ​អាច​ត្រួតពិនិត្យ​ចរាចរណ៍ទៅមក​ទាំងអស់របស់ឧបករណ៍។"</string>
     <string name="wifi_title" msgid="8475811746333426489">"ទម្រង់ Wi-Fi"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"ព័ត៌មានលម្អិតសម្រាប់ %s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"ព័ត៌មានលម្អិត"</string>

@@ -17,9 +17,12 @@
 
 #include <dirent.h>
 #include <fcntl.h>
+#include <json/json.h>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <map>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -39,6 +42,7 @@ namespace vts {
 
 bool VtsTraceProcessor::ParseBinaryTrace(const string& trace_file,
                                          bool ignore_timestamp, bool entry_only,
+                                         bool ignore_func_params,
                                          VtsProfilingMessage* profiling_msg) {
   int fd =
       open(trace_file.c_str(), O_RDONLY, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -52,6 +56,10 @@ bool VtsTraceProcessor::ParseBinaryTrace(const string& trace_file,
   while (readOneDelimited(&record, &input)) {
     if (ignore_timestamp) {
       record.clear_timestamp();
+    }
+    if (ignore_func_params) {
+      record.mutable_func_msg()->clear_arg();
+      record.mutable_func_msg()->clear_return_type_hidl();
     }
     if (entry_only) {
       if (isEntryEvent(record.event())) {
@@ -96,7 +104,7 @@ bool VtsTraceProcessor::ParseTextTrace(const string& trace_file,
 
 void VtsTraceProcessor::ParseTrace(const string& trace_file) {
   VtsProfilingMessage profiling_msg;
-  if (!ParseBinaryTrace(trace_file, false, false, &profiling_msg)) {
+  if (!ParseBinaryTrace(trace_file, false, false, false, &profiling_msg)) {
     cerr << __func__ << ": Failed to parse trace file: " << trace_file << endl;
     return;
   }
@@ -140,7 +148,7 @@ void VtsTraceProcessor::ConvertTrace(const string& trace_file) {
 
 void VtsTraceProcessor::CleanupTraceFile(const string& trace_file) {
   VtsProfilingMessage profiling_msg;
-  if (!ParseBinaryTrace(trace_file, false, false, &profiling_msg)) {
+  if (!ParseBinaryTrace(trace_file, false, false, true, &profiling_msg)) {
     cerr << __func__ << ": Failed to parse trace file: " << trace_file << endl;
     return;
   }
@@ -240,15 +248,15 @@ void VtsTraceProcessor::CleanupTraces(const string& path) {
 void VtsTraceProcessor::ProcessTraceForLatencyProfiling(
     const string& trace_file) {
   VtsProfilingMessage profiling_msg;
-  if (!ParseBinaryTrace(trace_file, false, false, &profiling_msg)) {
+  if (!ParseBinaryTrace(trace_file, false, false, true, &profiling_msg)) {
     cerr << __func__ << ": Failed to parse trace file: " << trace_file << endl;
     return;
   }
   if (!profiling_msg.records_size()) return;
-  if (profiling_msg.records(0).event()
-      == InstrumentationEventType::PASSTHROUGH_ENTRY
-      || profiling_msg.records(0).event()
-          == InstrumentationEventType::PASSTHROUGH_EXIT) {
+  if (profiling_msg.records(0).event() ==
+          InstrumentationEventType::PASSTHROUGH_ENTRY ||
+      profiling_msg.records(0).event() ==
+          InstrumentationEventType::PASSTHROUGH_EXIT) {
     cout << "hidl_hal_mode:passthrough" << endl;
   } else {
     cout << "hidl_hal_mode:binder" << endl;
@@ -295,14 +303,14 @@ void VtsTraceProcessor::ProcessTraceForLatencyProfiling(
 }
 
 void VtsTraceProcessor::DedupTraces(const string& trace_dir) {
-  DIR *dir = opendir(trace_dir.c_str());
+  DIR* dir = opendir(trace_dir.c_str());
   if (dir == 0) {
     cerr << trace_dir << "does not exist." << endl;
     return;
   }
   vector<VtsProfilingMessage> seen_msgs;
   vector<string> duplicate_trace_files;
-  struct dirent *file;
+  struct dirent* file;
   long total_trace_num = 0;
   long duplicat_trace_num = 0;
   while ((file = readdir(dir)) != NULL) {
@@ -314,7 +322,7 @@ void VtsTraceProcessor::DedupTraces(const string& trace_dir) {
       }
       trace_file += file->d_name;
       VtsProfilingMessage profiling_msg;
-      if (!ParseBinaryTrace(trace_file, true, true, &profiling_msg)) {
+      if (!ParseBinaryTrace(trace_file, true, true, false, &profiling_msg)) {
         cerr << "Failed to parse trace file: " << trace_file << endl;
         return;
       }
@@ -323,15 +331,15 @@ void VtsTraceProcessor::DedupTraces(const string& trace_dir) {
         duplicat_trace_num++;
         continue;
       }
-      auto found = find_if(
-          seen_msgs.begin(), seen_msgs.end(),
-          [&profiling_msg] (const VtsProfilingMessage& seen_msg) {
-            std::string str_profiling_msg;
-            std::string str_seen_msg;
-            profiling_msg.SerializeToString(&str_profiling_msg);
-            seen_msg.SerializeToString(&str_seen_msg);
-            return (str_profiling_msg == str_seen_msg);
-          });
+      auto found =
+          find_if(seen_msgs.begin(), seen_msgs.end(),
+                  [&profiling_msg](const VtsProfilingMessage& seen_msg) {
+                    std::string str_profiling_msg;
+                    std::string str_seen_msg;
+                    profiling_msg.SerializeToString(&str_profiling_msg);
+                    seen_msg.SerializeToString(&str_seen_msg);
+                    return (str_profiling_msg == str_seen_msg);
+                  });
       if (found == seen_msgs.end()) {
         seen_msgs.push_back(profiling_msg);
       } else {
@@ -348,43 +356,6 @@ void VtsTraceProcessor::DedupTraces(const string& trace_dir) {
   cout << "Num of duplicate trace deleted: " << duplicat_trace_num << endl;
   cout << "Duplicate percentage: "
        << float(duplicat_trace_num) / total_trace_num << endl;
-}
-
-bool VtsTraceProcessor::ParseCoverageData(const string& coverage_file,
-                                          TestReportMessage* report_msg) {
-  ifstream in(coverage_file, std::ios::in);
-  string msg_str((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());
-  if (!TextFormat::MergeFromString(msg_str, report_msg)) {
-    cerr << __func__ << ": Can't parse a given record: " << msg_str << endl;
-    return false;
-  }
-  return true;
-}
-
-void VtsTraceProcessor::UpdateCoverageData(
-    const CoverageReportMessage& ref_msg,
-    CoverageReportMessage* msg_to_be_updated) {
-  if (ref_msg.file_path() == msg_to_be_updated->file_path()) {
-    for (int line = 0; line < ref_msg.line_coverage_vector_size(); line++) {
-      if (line < msg_to_be_updated->line_coverage_vector_size()) {
-        if (ref_msg.line_coverage_vector(line) > 0 &&
-            msg_to_be_updated->line_coverage_vector(line) > 0) {
-          msg_to_be_updated->set_line_coverage_vector(line, 0);
-          msg_to_be_updated->set_covered_line_count(
-              msg_to_be_updated->covered_line_count() - 1);
-        }
-      } else {
-        cout << "Reached the end of line_coverage_vector." << endl;
-        break;
-      }
-    }
-    // sanity check.
-    if (msg_to_be_updated->covered_line_count() < 0) {
-      cerr << __func__ << ": covered_line_count should not be negative."
-           << endl;
-      exit(-1);
-    }
-  }
 }
 
 void VtsTraceProcessor::SelectTraces(const string& coverage_file_dir,
@@ -414,10 +385,7 @@ void VtsTraceProcessor::SelectTraces(const string& coverage_file_dir,
       string coverage_file_base_name = file->d_name;
       coverage_file += coverage_file_base_name;
       TestReportMessage coverage_msg;
-      if (!ParseCoverageData(coverage_file, &coverage_msg)) {
-        cerr << "Failed to parse coverage file: " << coverage_file << endl;
-        return;
-      }
+      coverage_processor_->ParseCoverageData(coverage_file, &coverage_msg);
 
       string trace_file = trace_file_dir;
       if (trace_file_dir.substr(trace_file_dir.size() - 1) != "/") {
@@ -440,11 +408,10 @@ void VtsTraceProcessor::SelectTraces(const string& coverage_file_dir,
       original_coverages[coverage_file] = coverage_info;
     }
   }
-  // Greedy algorithm that selects coverage files with the maximal code coverage
-  // delta at each iteration.
-  // Note: Not guaranteed to generate the optimal set.
-  // Example (*: covered, -: not_covered)
-  // line#\coverage_file   cov1 cov2 cov3
+  // Greedy algorithm that selects coverage files with the maximal code
+  // coverage delta at each iteration. Note: Not guaranteed to generate the
+  // optimal set. Example (*: covered, -: not_covered) line#\coverage_file
+  // cov1 cov2 cov3
   //          1              *   -    -
   //          2              *   *    -
   //          3              -   *    *
@@ -465,11 +432,13 @@ void VtsTraceProcessor::SelectTraces(const string& coverage_file_dir,
         for (int i = 0; i < cur_coverage_msg.coverage_size(); i++) {
           CoverageReportMessage* coverage_to_be_updated =
               cur_coverage_msg.mutable_coverage(i);
-          UpdateCoverageData(ref_coverage, coverage_to_be_updated);
+          coverage_processor_->UpdateCoverageData(ref_coverage,
+                                                  coverage_to_be_updated);
         }
       }
       it->second.coverage_msg = cur_coverage_msg;
-      long total_coverage_line = GetTotalCoverageLine(cur_coverage_msg);
+      long total_coverage_line =
+          coverage_processor_->GetTotalCoverageLine(cur_coverage_msg);
       long trace_file_size = it->second.trace_file_size;
       double coverage_size_ratio =
           (double)total_coverage_line / trace_file_size;
@@ -503,31 +472,16 @@ void VtsTraceProcessor::SelectTraces(const string& coverage_file_dir,
        ++it) {
     cout << "select trace file: " << it->second.trace_file_name << endl;
     TestReportMessage coverage_msg = it->second.coverage_msg;
-    total_lines_covered += GetTotalCoverageLine(coverage_msg);
-    if (GetTotalLine(coverage_msg) > total_lines) {
-      total_lines = GetTotalLine(coverage_msg);
+    total_lines_covered +=
+        coverage_processor_->GetTotalCoverageLine(coverage_msg);
+    if (coverage_processor_->GetTotalCodeLine(coverage_msg) > total_lines) {
+      total_lines = coverage_processor_->GetTotalCodeLine(coverage_msg);
     }
   }
   double coverage_rate = (double)total_lines_covered / total_lines;
   cout << "total lines covered: " << total_lines_covered << endl;
   cout << "total lines: " << total_lines << endl;
   cout << "coverage rate: " << coverage_rate << endl;
-}
-
-long VtsTraceProcessor::GetTotalCoverageLine(const TestReportMessage& msg) {
-  long total_coverage_line = 0;
-  for (const auto coverage : msg.coverage()) {
-    total_coverage_line += coverage.covered_line_count();
-  }
-  return total_coverage_line;
-}
-
-long VtsTraceProcessor::GetTotalLine(const TestReportMessage& msg) {
-  long total_line = 0;
-  for (const auto coverage : msg.coverage()) {
-    total_line += coverage.total_line_count();
-  }
-  return total_line;
 }
 
 string VtsTraceProcessor::GetTraceFileName(const string& coverage_file_name) {
@@ -575,6 +529,159 @@ bool VtsTraceProcessor::isPairedRecord(const VtsProfilingRecord& entry_record,
       return false;
   }
   return false;
+}
+
+void VtsTraceProcessor::GetTestListForHal(const string& test_trace_dir,
+                                          const string& output_file,
+                                          bool verbose_output) {
+  // Mapping from hal name to the list of test that access that hal.
+  map<string, vector<TraceSummary>> hal_trace_mapping;
+  GetHalTraceMapping(test_trace_dir, &hal_trace_mapping);
+
+  map<string, set<string>> test_list;
+  for (auto it = hal_trace_mapping.begin(); it != hal_trace_mapping.end();
+       it++) {
+    test_list[it->first] = set<string>();
+    vector<TraceSummary> trace_summaries = it->second;
+    vector<string> covered_apis;
+    for (auto summary : trace_summaries) {
+      for (auto const& api_stat_it : summary.api_stats) {
+        if (std::find(covered_apis.begin(), covered_apis.end(),
+                      api_stat_it.first) == covered_apis.end()) {
+          covered_apis.push_back(api_stat_it.first);
+          test_list[it->first].insert(summary.test_name);
+        }
+      }
+    }
+    for (auto api : covered_apis) {
+      cout << "covered api: " << api << endl;
+    }
+  }
+
+  ofstream fout;
+  fout.open(output_file);
+  for (auto it = hal_trace_mapping.begin(); it != hal_trace_mapping.end();
+       it++) {
+    if (verbose_output) {
+      Json::Value root(Json::objectValue);
+      root["Hal_name"] = Json::Value(it->first);
+      Json::Value arr(Json::arrayValue);
+      for (const TraceSummary& summary : it->second) {
+        Json::Value obj;
+        obj["Test_name"] = summary.test_name;
+        obj["Unique_Api_Count"] = std::to_string(summary.unique_api_count);
+        obj["Total_Api_Count"] = std::to_string(summary.total_api_count);
+        arr.append(obj);
+      }
+      root["Test_list"] = arr;
+      fout << root.toStyledString();
+    } else {
+      fout << it->first << ",";
+      for (auto test : test_list[it->first]) {
+        auto found = find_if(it->second.begin(), it->second.end(),
+                             [&](const TraceSummary& trace_summary) {
+                               return (trace_summary.test_name == test);
+                             });
+        if (found != it->second.end()) {
+          fout << found->test_name << "(" << found->unique_api_count << "/"
+               << found->total_api_count << "),";
+        }
+      }
+      fout << endl;
+    }
+  }
+  fout.close();
+}
+
+void VtsTraceProcessor::GetHalTraceMapping(
+    const string& test_trace_dir,
+    map<string, vector<TraceSummary>>* hal_trace_mapping) {
+  DIR* trace_dir = opendir(test_trace_dir.c_str());
+  if (trace_dir == 0) {
+    cerr << __func__ << ": " << trace_dir << " does not exist." << endl;
+    return;
+  }
+  vector<TraceSummary> trace_summaries;
+  struct dirent* test_dir;
+  while ((test_dir = readdir(trace_dir)) != NULL) {
+    if (test_dir->d_type == DT_DIR) {
+      string test_name = test_dir->d_name;
+      cout << "Processing test: " << test_name << endl;
+      string trace_file_dir_name = test_trace_dir;
+      if (test_trace_dir.substr(test_trace_dir.size() - 1) != "/") {
+        trace_file_dir_name += "/";
+      }
+      trace_file_dir_name += test_name;
+      DIR* trace_file_dir = opendir(trace_file_dir_name.c_str());
+      struct dirent* trace_file;
+      while ((trace_file = readdir(trace_file_dir)) != NULL) {
+        if (trace_file->d_type == DT_REG) {
+          string trace_file_name =
+              trace_file_dir_name + "/" + trace_file->d_name;
+          GetHalTraceSummary(trace_file_name, test_name, &trace_summaries);
+        }
+      }
+    }
+  }
+
+  // Generate hal_trace_mapping mappings.
+  for (const TraceSummary& trace_summary : trace_summaries) {
+    string test_name = trace_summary.test_name;
+    stringstream stream;
+    stream << fixed << setprecision(1) << trace_summary.version;
+    string hal_name = trace_summary.package + "@" + stream.str();
+    if (hal_trace_mapping->find(hal_name) != hal_trace_mapping->end()) {
+      (*hal_trace_mapping)[hal_name].push_back(trace_summary);
+    } else {
+      (*hal_trace_mapping)[hal_name] = vector<TraceSummary>{trace_summary};
+    }
+  }
+  for (auto it = hal_trace_mapping->begin(); it != hal_trace_mapping->end();
+       it++) {
+    // Sort the tests according to unique_api_count and break tie with
+    // total_api_count.
+    std::sort(it->second.begin(), it->second.end(),
+              [](const TraceSummary& lhs, const TraceSummary& rhs) {
+                return (lhs.unique_api_count > rhs.unique_api_count) ||
+                       (lhs.unique_api_count == rhs.unique_api_count &&
+                        lhs.total_api_count > rhs.total_api_count);
+              });
+  }
+}
+
+void VtsTraceProcessor::GetHalTraceSummary(
+    const string& trace_file, const string& test_name,
+    vector<TraceSummary>* trace_summaries) {
+  VtsProfilingMessage profiling_msg;
+  if (!ParseBinaryTrace(trace_file, true, true, true, &profiling_msg)) {
+    cerr << __func__ << ": Failed to parse trace file: " << trace_file << endl;
+    return;
+  }
+  for (const auto& record : profiling_msg.records()) {
+    string package = record.package();
+    float version = record.version();
+    string func_name = record.func_msg().name();
+    auto found = find_if(trace_summaries->begin(), trace_summaries->end(),
+                         [&](const TraceSummary& trace_summary) {
+                           return (test_name == trace_summary.test_name &&
+                                   package == trace_summary.package &&
+                                   version == trace_summary.version);
+                         });
+    if (found != trace_summaries->end()) {
+      found->total_api_count++;
+      if (found->api_stats.find(func_name) != found->api_stats.end()) {
+        found->api_stats[func_name]++;
+      } else {
+        found->unique_api_count++;
+        found->api_stats[func_name] = 1;
+      }
+    } else {
+      map<string, long> api_stats;
+      api_stats[func_name] = 1;
+      TraceSummary trace_summary(test_name, package, version, 1, 1, api_stats);
+      trace_summaries->push_back(trace_summary);
+    }
+  }
 }
 
 }  // namespace vts

@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN和应用"</item>
     <item msgid="692322974985472861">"WLAN"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"注：此证书的颁发者可能会检查进出设备的所有流量。"</string>
     <string name="wifi_title" msgid="8475811746333426489">"WLAN 配置文件"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%s的详细信息"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"详细信息"</string>

@@ -16,26 +16,10 @@
 
 package android.debug.cts;
 
-import junit.framework.TestCase;
+import org.junit.runner.RunWith;
+import com.android.gtestrunner.GtestRunner;
+import com.android.gtestrunner.TargetLibrary;
 
-public class DebugTest extends TestCase {
-
-    static {
-        System.loadLibrary("debugtest");
-    }
-
-    public static native boolean ptraceAttach();
-    public void test_ptraceAttach() {
-        assertEquals(true, ptraceAttach());
-    }
-
-    public static native boolean processVmReadv();
-    public void test_processVmReadv() {
-        assertEquals(true, processVmReadv());
-    }
-
-    public static native boolean processVmReadvNullptr();
-    public void test_processVmReadvNullptr() {
-        assertEquals(true, processVmReadvNullptr());
-    }
-}
+@RunWith(GtestRunner.class)
+@TargetLibrary("debugtest")
+public class DebugTest {}

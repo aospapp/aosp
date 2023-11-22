@@ -95,8 +95,6 @@ class BaseGenerator {
 
   static const char *FlatBuffersGeneratedWarning();
 
-  bool IsEverythingGenerated() const;
-
   static std::string FullNamespace(const char *separator, const Namespace &ns);
 
   static std::string LastNamespacePart(const Namespace &ns);
@@ -113,6 +111,8 @@ class BaseGenerator {
                               const std::string &name) const;
 
   std::string WrapInNameSpace(const Definition &def) const;
+
+  std::string GetNameSpace(const Definition &def) const;
 
   const Parser &parser_;
   const std::string &path_;

@@ -2,7 +2,7 @@
 
 Copyright (c) 2009, Hewlett-Packard Company. All rights reserved.<BR>
 Portions copyright (c) 2010, Apple Inc. All rights reserved.<BR>
-Portions copyright (c) 2011-2015, ARM Ltd. All rights reserved.<BR>
+Portions copyright (c) 2011-2016, ARM Ltd. All rights reserved.<BR>
 
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
@@ -50,7 +50,7 @@ GicV2EnableInterruptSource (
   IN HARDWARE_INTERRUPT_SOURCE          Source
   )
 {
-  if (Source > mGicNumInterrupts) {
+  if (Source >= mGicNumInterrupts) {
     ASSERT(FALSE);
     return EFI_UNSUPPORTED;
   }
@@ -77,7 +77,7 @@ GicV2DisableInterruptSource (
   IN HARDWARE_INTERRUPT_SOURCE          Source
   )
 {
-  if (Source > mGicNumInterrupts) {
+  if (Source >= mGicNumInterrupts) {
     ASSERT(FALSE);
     return EFI_UNSUPPORTED;
   }
@@ -106,7 +106,7 @@ GicV2GetInterruptSourceState (
   IN BOOLEAN                            *InterruptState
   )
 {
-  if (Source > mGicNumInterrupts) {
+  if (Source >= mGicNumInterrupts) {
     ASSERT(FALSE);
     return EFI_UNSUPPORTED;
   }
@@ -134,7 +134,7 @@ GicV2EndOfInterrupt (
   IN HARDWARE_INTERRUPT_SOURCE          Source
   )
 {
-  if (Source > mGicNumInterrupts) {
+  if (Source >= mGicNumInterrupts) {
     ASSERT(FALSE);
     return EFI_UNSUPPORTED;
   }
@@ -178,9 +178,8 @@ GicV2IrqInterruptHandler (
     InterruptHandler (GicInterrupt, SystemContext);
   } else {
     DEBUG ((EFI_D_ERROR, "Spurious GIC interrupt: 0x%x\n", GicInterrupt));
+    GicV2EndOfInterrupt (&gHardwareInterruptV2Protocol, GicInterrupt);
   }
-
-  GicV2EndOfInterrupt (&gHardwareInterruptV2Protocol, GicInterrupt);
 }
 
 //
@@ -260,8 +259,8 @@ GicV2DxeInitialize (
   // Make sure the Interrupt Controller Protocol is not already installed in the system.
   ASSERT_PROTOCOL_ALREADY_INSTALLED (NULL, &gHardwareInterruptProtocolGuid);
 
-  mGicInterruptInterfaceBase = PcdGet32 (PcdGicInterruptInterfaceBase);
-  mGicDistributorBase = PcdGet32 (PcdGicDistributorBase);
+  mGicInterruptInterfaceBase = PcdGet64 (PcdGicInterruptInterfaceBase);
+  mGicDistributorBase = PcdGet64 (PcdGicDistributorBase);
   mGicNumInterrupts = ArmGicGetMaxNumInterrupts (mGicDistributorBase);
 
   for (Index = 0; Index < mGicNumInterrupts; Index++) {

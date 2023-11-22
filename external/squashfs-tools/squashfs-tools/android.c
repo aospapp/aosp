@@ -108,7 +108,7 @@ struct vfs_cap_data set_caps(uint64_t capabilities) {
     if (capabilities == 0)
         return cap_data;
 
-    cap_data.magic_etc = VFS_CAP_REVISION | VFS_CAP_FLAGS_EFFECTIVE;
+    cap_data.magic_etc = VFS_CAP_REVISION_2 | VFS_CAP_FLAGS_EFFECTIVE;
     cap_data.data[0].permitted = (uint32_t) capabilities;
     cap_data.data[0].inheritable = 0;
     cap_data.data[1].permitted = (uint32_t) (capabilities >> 32);

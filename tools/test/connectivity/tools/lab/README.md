@@ -29,9 +29,10 @@ dict:
 * num_users:
     num_users: number of users (int)
 * process_time:
-    pid_times: a list of (time, PID) tuples where time is a string
-              representing time elapsed in D-HR:MM:SS format and PID is a string
-              representing the pid (string, string)
+    adb_processes, fastboot_processes: a list of (PID, serialnumber)
+                tuples
+    num_adb_processes, num_fastboot_processes: the number of tuples
+                in the previous lists
 * ram:
     total: total physical RAM available in KB (int)
     used: total RAM used by system in KB (int)
@@ -45,19 +46,28 @@ dict:
     load_avg_1_min: system load average for past 1 min (float)
     load_avg_5_min: system load average for past 5 min (float)
     load_avg_15_min: system load average for past 15 min (float)
+* time:
+    date_time: system date and time (string)
+* time_sync:
+    is_synchronized: whether NTP synchronized (bool)
 * uptime:
     time_seconds: uptime in seconds (float)
 * usb:
     devices: a list of Device objects, each with name of device, number of bytes
     transferred, and the usb bus number/device id.
 * verify:
-    device serial number as key: device status as value
+    unauthorized: list of phone sn's that are unauthorized
+    offline: list of phone sn's that are offline
+    recovery: list of phone sn's that are in recovery mode
+    question: list of phone sn's in ??? mode
+    device: list of phone sn's that are in device mode
+    total: total number of offline, recovery, question or unauthorized devices
 * version:
     fastboot_version: which version of fastboot (string)
     adb_version: which version of adb (string)
     python_version: which version of python (string)
     kernel_version: which version of kernel (string)
 * zombie:
-    adb_zombies: list of adb zombie processes (PID, state, name)
-    fastboot_zombies: list of fastboot zombie processes (PID, state, name)
-    other_zombies: list of other zombie processes (PID, state, name)
+    adb_zombies, fastboot_zombies, other_zombies: lists of
+                (PID, serial number) tuples
+    num_adb_zombies, num_fastboot_zombies, num_other_zombies: int

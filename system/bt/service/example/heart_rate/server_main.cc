@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2015 Google, Inc.
+//  Copyright 2015 Google, Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -153,7 +153,7 @@ int main(int argc, char* argv[]) {
   // received in dedicated threads set up by the ProcessState::startThreadPool
   // call above but we use this main loop for sending out heart rate
   // notifications.
-  main_loop.Run();
+  base::RunLoop().Run();
 
   LOG(INFO) << "Exiting";
   return EXIT_SUCCESS;

@@ -24,9 +24,12 @@
 #include <android-base/stringprintf.h>
 
 #include "dso.h"
+#include "OfflineUnwinder.h"
 #include "perf_regs.h"
 #include "tracing.h"
 #include "utils.h"
+
+using namespace simpleperf;
 
 static std::string RecordTypeToString(int record_type) {
   static std::unordered_map<int, std::string> record_type_names = {
@@ -46,6 +49,8 @@ static std::string RecordTypeToString(int record_type) {
       {SIMPLE_PERF_RECORD_DSO, "dso"},
       {SIMPLE_PERF_RECORD_SYMBOL, "symbol"},
       {SIMPLE_PERF_RECORD_EVENT_ID, "event_id"},
+      {SIMPLE_PERF_RECORD_CALLCHAIN, "callchain"},
+      {SIMPLE_PERF_RECORD_UNWINDING_RESULT, "unwinding_result"},
   };
 
   auto it = record_type_names.find(record_type);
@@ -189,7 +194,7 @@ uint64_t Record::Timestamp() const { return sample_id.time_data.time; }
 uint32_t Record::Cpu() const { return sample_id.cpu_data.cpu; }
 uint64_t Record::Id() const { return sample_id.id_data.id; }
 
-void Record::UpdateBinary(const char* new_binary) {
+void Record::UpdateBinary(char* new_binary) {
   if (own_binary_) {
     delete[] binary_;
   }
@@ -197,7 +202,7 @@ void Record::UpdateBinary(const char* new_binary) {
   binary_ = new_binary;
 }
 
-MmapRecord::MmapRecord(const perf_event_attr& attr, const char* p) : Record(p) {
+MmapRecord::MmapRecord(const perf_event_attr& attr, char* p) : Record(p) {
   const char* end = p + size();
   p += header_size();
   data = reinterpret_cast<const MmapRecordDataType*>(p);
@@ -249,8 +254,7 @@ void MmapRecord::DumpData(size_t indent) const {
                 filename);
 }
 
-Mmap2Record::Mmap2Record(const perf_event_attr& attr, const char* p)
-    : Record(p) {
+Mmap2Record::Mmap2Record(const perf_event_attr& attr, char* p) : Record(p) {
   const char* end = p + size();
   p += header_size();
   data = reinterpret_cast<const Mmap2RecordDataType*>(p);
@@ -289,7 +293,7 @@ void Mmap2Record::DumpData(size_t indent) const {
                 data->flags, filename);
 }
 
-CommRecord::CommRecord(const perf_event_attr& attr, const char* p) : Record(p) {
+CommRecord::CommRecord(const perf_event_attr& attr, char* p) : Record(p) {
   const char* end = p + size();
   p += header_size();
   data = reinterpret_cast<const CommRecordDataType*>(p);
@@ -327,7 +331,7 @@ void CommRecord::DumpData(size_t indent) const {
                 comm);
 }
 
-ExitOrForkRecord::ExitOrForkRecord(const perf_event_attr& attr, const char* p)
+ExitOrForkRecord::ExitOrForkRecord(const perf_event_attr& attr, char* p)
     : Record(p) {
   const char* end = p + size();
   p += header_size();
@@ -362,7 +366,7 @@ ForkRecord::ForkRecord(const perf_event_attr& attr, uint32_t pid, uint32_t tid,
   UpdateBinary(new_binary);
 }
 
-LostRecord::LostRecord(const perf_event_attr& attr, const char* p) : Record(p) {
+LostRecord::LostRecord(const perf_event_attr& attr, char* p) : Record(p) {
   const char* end = p + size();
   p += header_size();
   MoveFromBinaryFormat(id, p);
@@ -375,8 +379,7 @@ void LostRecord::DumpData(size_t indent) const {
   PrintIndented(indent, "id %" PRIu64 ", lost %" PRIu64 "\n", id, lost);
 }
 
-SampleRecord::SampleRecord(const perf_event_attr& attr, const char* p)
-    : Record(p) {
+SampleRecord::SampleRecord(const perf_event_attr& attr, char* p) : Record(p) {
   const char* end = p + size();
   p += header_size();
   sample_type = attr.sample_type;
@@ -412,7 +415,7 @@ SampleRecord::SampleRecord(const perf_event_attr& attr, const char* p)
   }
   if (sample_type & PERF_SAMPLE_CALLCHAIN) {
     MoveFromBinaryFormat(callchain_data.ip_nr, p);
-    callchain_data.ips = reinterpret_cast<const uint64_t*>(p);
+    callchain_data.ips = reinterpret_cast<uint64_t*>(p);
     p += callchain_data.ip_nr * sizeof(uint64_t);
   }
   if (sample_type & PERF_SAMPLE_RAW) {
@@ -422,7 +425,7 @@ SampleRecord::SampleRecord(const perf_event_attr& attr, const char* p)
   }
   if (sample_type & PERF_SAMPLE_BRANCH_STACK) {
     MoveFromBinaryFormat(branch_stack_data.stack_nr, p);
-    branch_stack_data.stack = reinterpret_cast<const BranchStackItemType*>(p);
+    branch_stack_data.stack = reinterpret_cast<BranchStackItemType*>(p);
     p += branch_stack_data.stack_nr * sizeof(BranchStackItemType);
   }
   if (sample_type & PERF_SAMPLE_REGS_USER) {
@@ -438,7 +441,7 @@ SampleRecord::SampleRecord(const perf_event_attr& attr, const char* p)
         }
       }
       regs_user_data.reg_nr = bit_nr;
-      regs_user_data.regs = reinterpret_cast<const uint64_t*>(p);
+      regs_user_data.regs = reinterpret_cast<uint64_t*>(p);
       p += bit_nr * sizeof(uint64_t);
     }
   }
@@ -559,10 +562,9 @@ void SampleRecord::ReplaceRegAndStackWithCallChain(
   CHECK_LE(size_added_in_callchain, size_reduced_in_reg_stack);
   uint32_t size_reduced = size_reduced_in_reg_stack - size_added_in_callchain;
   SetSize(size() - size_reduced);
-  char* p = const_cast<char*>(binary_);
+  char* p = binary_;
   MoveToBinaryFormat(header, p);
-  p = const_cast<char*>(stack_user_data.data + stack_user_data.size +
-                        sizeof(uint64_t)) -
+  p = (stack_user_data.data + stack_user_data.size + sizeof(uint64_t)) -
       (size_reduced_in_reg_stack - size_added_in_callchain);
   stack_user_data.size = 0;
   regs_user_data.abi = 0;
@@ -592,6 +594,147 @@ void SampleRecord::ReplaceRegAndStackWithCallChain(
   callchain_data.ip_nr += ips.size() + 1;
   p -= sizeof(uint64_t);
   *reinterpret_cast<uint64_t*>(p) = callchain_data.ip_nr;
+}
+
+size_t SampleRecord::ExcludeKernelCallChain() {
+  size_t user_callchain_length = 0u;
+  if (sample_type & PERF_SAMPLE_CALLCHAIN) {
+    size_t i;
+    for (i = 0; i < callchain_data.ip_nr; ++i) {
+      if (callchain_data.ips[i] == PERF_CONTEXT_USER) {
+        i++;
+        if (i < callchain_data.ip_nr) {
+          ip_data.ip = callchain_data.ips[i];
+          if (sample_type & PERF_SAMPLE_IP) {
+            *reinterpret_cast<uint64_t*>(binary_ + header_size()) = ip_data.ip;
+          }
+          header.misc = (header.misc & ~PERF_RECORD_MISC_KERNEL) | PERF_RECORD_MISC_USER;
+          reinterpret_cast<perf_event_header*>(binary_)->misc = header.misc;
+        }
+        break;
+      } else {
+        callchain_data.ips[i] = PERF_CONTEXT_USER;
+      }
+    }
+    user_callchain_length = callchain_data.ip_nr - i;
+  }
+  return user_callchain_length;
+}
+
+bool SampleRecord::HasUserCallChain() const {
+  if ((sample_type & PERF_SAMPLE_CALLCHAIN) == 0) {
+    return false;
+  }
+  bool in_user_context = !InKernel();
+  for (size_t i = 0; i < callchain_data.ip_nr; ++i) {
+    if (in_user_context && callchain_data.ips[i] < PERF_CONTEXT_MAX) {
+      return true;
+    }
+    if (callchain_data.ips[i] == PERF_CONTEXT_USER) {
+      in_user_context = true;
+    }
+  }
+  return false;
+}
+
+void SampleRecord::UpdateUserCallChain(const std::vector<uint64_t>& user_ips) {
+  std::vector<uint64_t> kernel_ips;
+  for (size_t i = 0; i < callchain_data.ip_nr; ++i) {
+    if (callchain_data.ips[i] == PERF_CONTEXT_USER) {
+      break;
+    }
+    kernel_ips.push_back(callchain_data.ips[i]);
+  }
+  kernel_ips.push_back(PERF_CONTEXT_USER);
+  size_t new_size = size() - callchain_data.ip_nr * sizeof(uint64_t) +
+                    (kernel_ips.size() + user_ips.size()) * sizeof(uint64_t);
+  if (new_size == size()) {
+    return;
+  }
+  char* new_binary = new char[new_size];
+  char* p = new_binary;
+  SetSize(new_size);
+  MoveToBinaryFormat(header, p);
+  if (sample_type & PERF_SAMPLE_IDENTIFIER) {
+    MoveToBinaryFormat(id_data, p);
+  }
+  if (sample_type & PERF_SAMPLE_IP) {
+    MoveToBinaryFormat(ip_data, p);
+  }
+  if (sample_type & PERF_SAMPLE_TID) {
+    MoveToBinaryFormat(tid_data, p);
+  }
+  if (sample_type & PERF_SAMPLE_TIME) {
+    MoveToBinaryFormat(time_data, p);
+  }
+  if (sample_type & PERF_SAMPLE_ADDR) {
+    MoveToBinaryFormat(addr_data, p);
+  }
+  if (sample_type & PERF_SAMPLE_ID) {
+    MoveToBinaryFormat(id_data, p);
+  }
+  if (sample_type & PERF_SAMPLE_STREAM_ID) {
+    MoveToBinaryFormat(stream_id_data, p);
+  }
+  if (sample_type & PERF_SAMPLE_CPU) {
+    MoveToBinaryFormat(cpu_data, p);
+  }
+  if (sample_type & PERF_SAMPLE_PERIOD) {
+    MoveToBinaryFormat(period_data, p);
+  }
+  if (sample_type & PERF_SAMPLE_CALLCHAIN) {
+    callchain_data.ip_nr = kernel_ips.size() + user_ips.size();
+    MoveToBinaryFormat(callchain_data.ip_nr, p);
+    callchain_data.ips = reinterpret_cast<uint64_t*>(p);
+    MoveToBinaryFormat(kernel_ips.data(), kernel_ips.size(), p);
+    MoveToBinaryFormat(user_ips.data(), user_ips.size(), p);
+  }
+  if (sample_type & PERF_SAMPLE_RAW) {
+    MoveToBinaryFormat(raw_data.size, p);
+    MoveToBinaryFormat(raw_data.data, raw_data.size, p);
+    raw_data.data = p - raw_data.size;
+  }
+  if (sample_type & PERF_SAMPLE_BRANCH_STACK) {
+    MoveToBinaryFormat(branch_stack_data.stack_nr, p);
+    char* old_p = p;
+    MoveToBinaryFormat(branch_stack_data.stack, branch_stack_data.stack_nr, p);
+    branch_stack_data.stack = reinterpret_cast<BranchStackItemType*>(old_p);
+  }
+  if (sample_type & PERF_SAMPLE_REGS_USER) {
+    MoveToBinaryFormat(regs_user_data.abi, p);
+    CHECK_EQ(regs_user_data.abi, 0u);
+  }
+  if (sample_type & PERF_SAMPLE_STACK_USER) {
+    MoveToBinaryFormat(stack_user_data.size, p);
+    CHECK_EQ(stack_user_data.size, 0u);
+  }
+  CHECK_EQ(p, new_binary + new_size) << "sample_type = " << std::hex << sample_type;
+  UpdateBinary(new_binary);
+}
+
+// When simpleperf requests the kernel to dump 64K stack per sample, it will allocate 64K space in
+// each sample to store stack data. However, a thread may use less stack than 64K. So not all the
+// 64K stack data in a sample is valid. And this function is used to remove invalid stack data in
+// a sample, which can save time and disk space when storing samples in file.
+void SampleRecord::RemoveInvalidStackData() {
+  if (sample_type & PERF_SAMPLE_STACK_USER) {
+    uint64_t valid_stack_size = GetValidStackSize();
+    if (stack_user_data.size > valid_stack_size) {
+      // Shrink stack size to valid_stack_size, and update it in binary.
+      stack_user_data.size = valid_stack_size;
+      char* p = stack_user_data.data - sizeof(stack_user_data.size);
+      MoveToBinaryFormat(stack_user_data.size, p);
+      p += valid_stack_size;
+      // Update dyn_size in binary.
+      if (valid_stack_size != 0u) {
+        MoveToBinaryFormat(stack_user_data.dyn_size, p);
+      }
+      // Update sample size.
+      header.size = p - binary_;
+      p = binary_;
+      header.MoveToBinaryFormat(p);
+    }
+  }
 }
 
 void SampleRecord::DumpData(size_t indent) const {
@@ -675,7 +818,33 @@ uint64_t SampleRecord::Timestamp() const { return time_data.time; }
 uint32_t SampleRecord::Cpu() const { return cpu_data.cpu; }
 uint64_t SampleRecord::Id() const { return id_data.id; }
 
-BuildIdRecord::BuildIdRecord(const char* p) : Record(p) {
+void SampleRecord::AdjustCallChainGeneratedByKernel() {
+  // The kernel stores return addrs in the callchain, but we want the addrs of call instructions
+  // along the callchain.
+  uint64_t* ips = callchain_data.ips;
+  bool first_frame = true;
+  for (uint64_t i = 0; i < callchain_data.ip_nr; ++i) {
+    if (ips[i] > 0 && ips[i] < PERF_CONTEXT_MAX) {
+      if (first_frame) {
+        first_frame = false;
+      } else {
+        // Here we want to change the return addr to the addr of the previous instruction. We don't
+        // need to find the exact start addr of the previous instruction. A location in
+        // [start_addr_of_call_inst, start_addr_of_next_inst) is enough.
+#if defined(__arm__) || defined(__aarch64__)
+        // If we are built for arm/aarch64, this may be a callchain of thumb code. For thumb code,
+        // the real instruction addr is (ip & ~1), and ip - 2 can used to hit the address range
+        // of the previous instruction. For non thumb code, any addr in [ip - 4, ip - 1] is fine.
+        ips[i] -= 2;
+#else
+        ips[i]--;
+#endif
+      }
+    }
+  }
+}
+
+BuildIdRecord::BuildIdRecord(char* p) : Record(p) {
   const char* end = p + size();
   p += header_size();
   MoveFromBinaryFormat(pid, p);
@@ -711,7 +880,7 @@ BuildIdRecord::BuildIdRecord(bool in_kernel, pid_t pid, const BuildId& build_id,
   UpdateBinary(new_binary);
 }
 
-KernelSymbolRecord::KernelSymbolRecord(const char* p) : Record(p) {
+KernelSymbolRecord::KernelSymbolRecord(char* p) : Record(p) {
   const char* end = p + size();
   p += header_size();
   MoveFromBinaryFormat(kallsyms_size, p);
@@ -738,7 +907,7 @@ KernelSymbolRecord::KernelSymbolRecord(const std::string& kallsyms) {
   UpdateBinary(new_binary);
 }
 
-DsoRecord::DsoRecord(const char* p) : Record(p) {
+DsoRecord::DsoRecord(char* p) : Record(p) {
   const char* end = p + size();
   p += header_size();
   MoveFromBinaryFormat(dso_type, p);
@@ -775,7 +944,7 @@ void DsoRecord::DumpData(size_t indent) const {
   PrintIndented(indent, "dso_name: %s\n", dso_name);
 }
 
-SymbolRecord::SymbolRecord(const char* p) : Record(p) {
+SymbolRecord::SymbolRecord(char* p) : Record(p) {
   const char* end = p + size();
   p += header_size();
   MoveFromBinaryFormat(addr, p);
@@ -811,7 +980,7 @@ void SymbolRecord::DumpData(size_t indent) const {
   PrintIndented(indent, "dso_id: %" PRIu64 "\n", dso_id);
 }
 
-TracingDataRecord::TracingDataRecord(const char* p) : Record(p) {
+TracingDataRecord::TracingDataRecord(char* p) : Record(p) {
   const char* end = p + size();
   p += header_size();
   MoveFromBinaryFormat(data_size, p);
@@ -838,7 +1007,7 @@ void TracingDataRecord::DumpData(size_t indent) const {
   tracing.Dump(indent);
 }
 
-EventIdRecord::EventIdRecord(const char* p) : Record(p) {
+EventIdRecord::EventIdRecord(char* p) : Record(p) {
   const char* end = p + size();
   p += header_size();
   MoveFromBinaryFormat(count, p);
@@ -870,15 +1039,131 @@ void EventIdRecord::DumpData(size_t indent) const {
   }
 }
 
-UnknownRecord::UnknownRecord(const char* p) : Record(p) {
+CallChainRecord::CallChainRecord(char* p) : Record(p) {
+  const char* end = p + size();
+  p += header_size();
+  MoveFromBinaryFormat(pid, p);
+  MoveFromBinaryFormat(tid, p);
+  MoveFromBinaryFormat(chain_type, p);
+  MoveFromBinaryFormat(time, p);
+  MoveFromBinaryFormat(ip_nr, p);
+  ips = reinterpret_cast<uint64_t*>(p);
+  p += ip_nr * sizeof(uint64_t);
+  sps = reinterpret_cast<uint64_t*>(p);
+  p += ip_nr * sizeof(uint64_t);
+  CHECK_EQ(p, end);
+}
+
+CallChainRecord::CallChainRecord(pid_t pid, pid_t tid, CallChainJoiner::ChainType type,
+                                 uint64_t time, const std::vector<uint64_t>& ips,
+                                 const std::vector<uint64_t>& sps) {
+  CHECK_EQ(ips.size(), sps.size());
+  SetTypeAndMisc(SIMPLE_PERF_RECORD_CALLCHAIN, 0);
+  this->pid = pid;
+  this->tid = tid;
+  this->chain_type = static_cast<int>(type);
+  this->time = time;
+  this->ip_nr = ips.size();
+  SetSize(header_size() + (4 + ips.size() * 2) * sizeof(uint64_t));
+  char* new_binary = new char[size()];
+  char* p = new_binary;
+  MoveToBinaryFormat(header, p);
+  MoveToBinaryFormat(this->pid, p);
+  MoveToBinaryFormat(this->tid, p);
+  MoveToBinaryFormat(this->chain_type, p);
+  MoveToBinaryFormat(this->time, p);
+  MoveToBinaryFormat(this->ip_nr, p);
+  this->ips = reinterpret_cast<uint64_t*>(p);
+  MoveToBinaryFormat(ips.data(), ips.size(), p);
+  this->sps = reinterpret_cast<uint64_t*>(p);
+  MoveToBinaryFormat(sps.data(), sps.size(), p);
+  UpdateBinary(new_binary);
+}
+
+void CallChainRecord::DumpData(size_t indent) const {
+  const char* type_name = "";
+  switch (chain_type) {
+    case CallChainJoiner::ORIGINAL_OFFLINE: type_name = "ORIGINAL_OFFLINE"; break;
+    case CallChainJoiner::ORIGINAL_REMOTE: type_name = "ORIGINAL_REMOTE"; break;
+    case CallChainJoiner::JOINED_OFFLINE: type_name = "JOINED_OFFLINE"; break;
+    case CallChainJoiner::JOINED_REMOTE: type_name = "JOINED_REMOTE"; break;
+  }
+  PrintIndented(indent, "pid %u\n", pid);
+  PrintIndented(indent, "tid %u\n", tid);
+  PrintIndented(indent, "chain_type %s\n", type_name);
+  PrintIndented(indent, "time %" PRIu64 "\n", time);
+  PrintIndented(indent, "ip_nr %" PRIu64 "\n", ip_nr);
+  for (size_t i = 0; i < ip_nr; ++i) {
+    PrintIndented(indent + 1, "ip 0x%" PRIx64 ", sp 0x%" PRIx64 "\n", ips[i], sps[i]);
+  }
+}
+
+UnwindingResultRecord::UnwindingResultRecord(char* p) : Record(p) {
+  const char* end = p + size();
+  p += header_size();
+  MoveFromBinaryFormat(time, p);
+  MoveFromBinaryFormat(unwinding_result.used_time, p);
+  uint64_t stop_reason;
+  MoveFromBinaryFormat(stop_reason, p);
+  unwinding_result.stop_reason = static_cast<decltype(unwinding_result.stop_reason)>(stop_reason);
+  MoveFromBinaryFormat(unwinding_result.stop_info, p);
+  MoveFromBinaryFormat(unwinding_result.stack_start, p);
+  MoveFromBinaryFormat(unwinding_result.stack_end, p);
+  CHECK_EQ(p, end);
+}
+
+UnwindingResultRecord::UnwindingResultRecord(uint64_t time,
+                                             const UnwindingResult& unwinding_result) {
+  SetTypeAndMisc(SIMPLE_PERF_RECORD_UNWINDING_RESULT, 0);
+  SetSize(header_size() + 6 * sizeof(uint64_t));
+  this->time = time;
+  this->unwinding_result = unwinding_result;
+  char* new_binary = new char[size()];
+  char* p = new_binary;
+  MoveToBinaryFormat(header, p);
+  MoveToBinaryFormat(this->time, p);
+  MoveToBinaryFormat(unwinding_result.used_time, p);
+  uint64_t stop_reason = unwinding_result.stop_reason;
+  MoveToBinaryFormat(stop_reason, p);
+  MoveToBinaryFormat(unwinding_result.stop_info, p);
+  MoveToBinaryFormat(unwinding_result.stack_start, p);
+  MoveToBinaryFormat(unwinding_result.stack_end, p);
+  UpdateBinary(new_binary);
+}
+
+void UnwindingResultRecord::DumpData(size_t indent) const {
+  PrintIndented(indent, "time %" PRIu64 "\n", time);
+  PrintIndented(indent, "used_time %" PRIu64 "\n", unwinding_result.used_time);
+  static std::unordered_map<int, std::string> map = {
+      {UnwindingResult::UNKNOWN_REASON, "UNKNOWN_REASON"},
+      {UnwindingResult::EXCEED_MAX_FRAMES_LIMIT, "EXCEED_MAX_FRAME_LIMIT"},
+      {UnwindingResult::ACCESS_REG_FAILED, "ACCESS_REG_FAILED"},
+      {UnwindingResult::ACCESS_STACK_FAILED, "ACCESS_STACK_FAILED"},
+      {UnwindingResult::ACCESS_MEM_FAILED, "ACCESS_MEM_FAILED"},
+      {UnwindingResult::FIND_PROC_INFO_FAILED, "FIND_PROC_INFO_FAILED"},
+      {UnwindingResult::EXECUTE_DWARF_INSTRUCTION_FAILED, "EXECUTE_DWARF_INSTRUCTION_FAILED"},
+      {UnwindingResult::DIFFERENT_ARCH, "DIFFERENT_ARCH"},
+      {UnwindingResult::MAP_MISSING, "MAP_MISSING"},
+  };
+  PrintIndented(indent, "stop_reason %s\n", map[unwinding_result.stop_reason].c_str());
+  if (unwinding_result.stop_reason == UnwindingResult::ACCESS_REG_FAILED) {
+    PrintIndented(indent, "regno %" PRIu64 "\n", unwinding_result.stop_info);
+  } else if (unwinding_result.stop_reason == UnwindingResult::ACCESS_STACK_FAILED ||
+             unwinding_result.stop_reason == UnwindingResult::ACCESS_MEM_FAILED) {
+    PrintIndented(indent, "addr 0x%" PRIx64 "\n", unwinding_result.stop_info);
+  }
+  PrintIndented(indent, "stack_start 0x%" PRIx64 "\n", unwinding_result.stack_start);
+  PrintIndented(indent, "stack_end 0x%" PRIx64 "\n", unwinding_result.stack_end);
+}
+
+UnknownRecord::UnknownRecord(char* p) : Record(p) {
   p += header_size();
   data = p;
 }
 
 void UnknownRecord::DumpData(size_t) const {}
 
-std::unique_ptr<Record> ReadRecordFromBuffer(const perf_event_attr& attr,
-                                             uint32_t type, const char* p) {
+std::unique_ptr<Record> ReadRecordFromBuffer(const perf_event_attr& attr, uint32_t type, char* p) {
   switch (type) {
     case PERF_RECORD_MMAP:
       return std::unique_ptr<Record>(new MmapRecord(attr, p));
@@ -904,14 +1189,17 @@ std::unique_ptr<Record> ReadRecordFromBuffer(const perf_event_attr& attr,
       return std::unique_ptr<Record>(new SymbolRecord(p));
     case SIMPLE_PERF_RECORD_EVENT_ID:
       return std::unique_ptr<Record>(new EventIdRecord(p));
+    case SIMPLE_PERF_RECORD_CALLCHAIN:
+      return std::unique_ptr<Record>(new CallChainRecord(p));
+    case SIMPLE_PERF_RECORD_UNWINDING_RESULT:
+      return std::unique_ptr<Record>(new UnwindingResultRecord(p));
     default:
       return std::unique_ptr<Record>(new UnknownRecord(p));
   }
 }
 
 std::unique_ptr<Record> ReadRecordFromOwnedBuffer(const perf_event_attr& attr,
-                                                  uint32_t type,
-                                                  const char* p) {
+                                                  uint32_t type, char* p) {
   std::unique_ptr<Record> record = ReadRecordFromBuffer(attr, type, p);
   if (record != nullptr) {
     record->OwnBinary();
@@ -922,10 +1210,10 @@ std::unique_ptr<Record> ReadRecordFromOwnedBuffer(const perf_event_attr& attr,
 }
 
 std::vector<std::unique_ptr<Record>> ReadRecordsFromBuffer(
-    const perf_event_attr& attr, const char* buf, size_t buf_size) {
+    const perf_event_attr& attr, char* buf, size_t buf_size) {
   std::vector<std::unique_ptr<Record>> result;
-  const char* p = buf;
-  const char* end = buf + buf_size;
+  char* p = buf;
+  char* end = buf + buf_size;
   while (p < end) {
     RecordHeader header(p);
     CHECK_LE(p + header.size, end);
@@ -936,8 +1224,7 @@ std::vector<std::unique_ptr<Record>> ReadRecordsFromBuffer(
   return result;
 }
 
-std::unique_ptr<Record> ReadRecordFromBuffer(const perf_event_attr& attr,
-                                             const char* p) {
+std::unique_ptr<Record> ReadRecordFromBuffer(const perf_event_attr& attr, char* p) {
   auto header = reinterpret_cast<const perf_event_header*>(p);
   return ReadRecordFromBuffer(attr, header->type, p);
 }

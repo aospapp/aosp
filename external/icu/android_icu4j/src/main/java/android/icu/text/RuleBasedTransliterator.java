@@ -268,8 +268,6 @@ import java.util.Map;
  * always matches anything it matches. In other words, the first
  * rule <em>masks</em> the second rule.
  *
- * <p>Copyright (c) IBM Corporation 1999-2000. All rights reserved.
- *
  * @author Alan Liu
  * @deprecated This API is ICU internal only.
  * @hide Only a subset of ICU is exposed in Android

@@ -20,7 +20,9 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.location.LocationManager;
 import android.net.ConnectivityManager;
+import android.net.MacAddress;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.net.wifi.WifiManager;
@@ -37,14 +39,11 @@ import android.net.wifi.aware.WifiAwareManager;
 import android.net.wifi.aware.WifiAwareSession;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.provider.Settings;
 import android.test.AndroidTestCase;
-import android.util.Log;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -75,13 +74,6 @@ public class SingleDeviceTest extends AndroidTestCase {
 
     // used to store any WifiAwareSession allocated during tests - will clean-up after tests
     private List<WifiAwareSession> mSessions = new ArrayList<>();
-
-    // Return true if location is enabled.
-    private boolean isLocationEnabled() {
-        return Settings.Secure.getInt(getContext().getContentResolver(),
-                Settings.Secure.LOCATION_MODE, Settings.Secure.LOCATION_MODE_OFF) !=
-                Settings.Secure.LOCATION_MODE_OFF;
-    }
 
     private class WifiAwareBroadcastReceiver extends BroadcastReceiver {
         private CountDownLatch mBlocker = new CountDownLatch(1);
@@ -358,6 +350,10 @@ public class SingleDeviceTest extends AndroidTestCase {
             return;
         }
 
+        assertTrue("Wi-Fi Aware requires Location to be Enabled",
+                ((LocationManager) getContext().getSystemService(
+                        Context.LOCATION_SERVICE)).isLocationEnabled());
+
         mWifiAwareManager = (WifiAwareManager) getContext().getSystemService(
                 Context.WIFI_AWARE_SERVICE);
         assertNotNull("Wi-Fi Aware Manager", mWifiAwareManager);
@@ -428,18 +424,6 @@ public class SingleDeviceTest extends AndroidTestCase {
      */
     public void testAvailabilityStatusChange() throws Exception {
         if (!TestUtils.shouldTestWifiAware(getContext())) {
-            return;
-        }
-
-        if (isLocationEnabled()) {
-            /* Can't execute this test with location on since it means that Aware will not get
-             * disabled even if we disable Wi-Fi (which when location is enabled does not correspond
-             * to disabling the Wi-Fi chip).
-             *
-             * Considering other tests may require locationing to be enable we can't also fail the
-             * test in such a case. Hence it is skipped.
-             */
-            Log.d(TAG, "Skipping test since location scans are enabled");
             return;
         }
 
@@ -717,82 +701,14 @@ public class SingleDeviceTest extends AndroidTestCase {
     }
 
     /**
-     * Request an Aware data-path (open) on a Publish discovery session (which can be done with a
-     * null peer - to accept all requests). Validate that times-out.
-     */
-    public void testDataPathOpenInContextOfDiscoveryFail() {
-        if (!TestUtils.shouldTestWifiAware(getContext())) {
-            return;
-        }
-
-        WifiAwareSession session = attachAndGetSession();
-
-        PublishConfig publishConfig = new PublishConfig.Builder().setServiceName(
-                "ValidName").build();
-        DiscoverySessionCallbackTest discoveryCb = new DiscoverySessionCallbackTest();
-        NetworkCallbackTest networkCb = new NetworkCallbackTest();
-
-        // 1. publish
-        session.publish(publishConfig, discoveryCb, mHandler);
-        assertTrue("Publish started",
-                discoveryCb.waitForCallback(DiscoverySessionCallbackTest.ON_PUBLISH_STARTED));
-        PublishDiscoverySession discoverySession = discoveryCb.getPublishDiscoverySession();
-        assertNotNull("Publish session", discoverySession);
-
-        // 2. request an AWARE network
-        NetworkRequest nr = new NetworkRequest.Builder().addTransportType(
-                NetworkCapabilities.TRANSPORT_WIFI_AWARE).setNetworkSpecifier(
-                discoverySession.createNetworkSpecifierOpen(null)).build();
-        mConnectivityManager.requestNetwork(nr, networkCb, 2000);
-        assertTrue("OnUnavailable received", networkCb.waitForOnUnavailable());
-
-        discoverySession.close();
-        session.close();
-    }
-
-    /**
-     * Request an Aware data-path (encrypted) on a Publish discovery session (which can be done
-     * with a null peer - to accept all requests). Validate that times-out.
-     */
-    public void testDataPathPassphraseInContextOfDiscoveryFail() {
-        if (!TestUtils.shouldTestWifiAware(getContext())) {
-            return;
-        }
-
-        WifiAwareSession session = attachAndGetSession();
-
-        PublishConfig publishConfig = new PublishConfig.Builder().setServiceName(
-                "ValidName").build();
-        DiscoverySessionCallbackTest discoveryCb = new DiscoverySessionCallbackTest();
-        NetworkCallbackTest networkCb = new NetworkCallbackTest();
-
-        // 1. publish
-        session.publish(publishConfig, discoveryCb, mHandler);
-        assertTrue("Publish started",
-                discoveryCb.waitForCallback(DiscoverySessionCallbackTest.ON_PUBLISH_STARTED));
-        PublishDiscoverySession discoverySession = discoveryCb.getPublishDiscoverySession();
-        assertNotNull("Publish session", discoverySession);
-
-        // 2. request an AWARE network
-        NetworkRequest nr = new NetworkRequest.Builder().addTransportType(
-                NetworkCapabilities.TRANSPORT_WIFI_AWARE).setNetworkSpecifier(
-                discoverySession.createNetworkSpecifierPassphrase(null,
-                        "Some very long but not very good passphrase")).build();
-        mConnectivityManager.requestNetwork(nr, networkCb, 2000);
-        assertTrue("OnUnavailable received", networkCb.waitForOnUnavailable());
-
-        discoverySession.close();
-        session.close();
-    }
-
-    /**
-     * Request an Aware data-path (open) as a Responder with no peer MAC address (i.e. accept any
-     * peer request). Validate that times-out.
+     * Request an Aware data-path (open) as a Responder with an arbitrary peer MAC address. Validate
+     * that times-out.
      */
     public void testDataPathOpenOutOfBandFail() {
         if (!TestUtils.shouldTestWifiAware(getContext())) {
             return;
         }
+        MacAddress mac = MacAddress.fromString("00:01:02:03:04:05");
 
         WifiAwareSession session = attachAndGetSession();
 
@@ -805,7 +721,8 @@ public class SingleDeviceTest extends AndroidTestCase {
         NetworkRequest nr = new NetworkRequest.Builder().addTransportType(
                 NetworkCapabilities.TRANSPORT_WIFI_AWARE).setNetworkSpecifier(
                 session.createNetworkSpecifierOpen(
-                        WifiAwareManager.WIFI_AWARE_DATA_PATH_ROLE_RESPONDER, null)).build();
+                        WifiAwareManager.WIFI_AWARE_DATA_PATH_ROLE_RESPONDER,
+                        mac.toByteArray())).build();
         mConnectivityManager.requestNetwork(nr, networkCb, 2000);
         assertTrue("OnUnavailable received", networkCb.waitForOnUnavailable());
 
@@ -813,13 +730,14 @@ public class SingleDeviceTest extends AndroidTestCase {
     }
 
     /**
-     * Request an Aware data-path (encrypted) as a Responder with no peer MAC address (i.e.
-     * accept any peer request). Validate that times-out.
+     * Request an Aware data-path (encrypted) as a Responder with an arbitrary peer MAC address.
+     * Validate that times-out.
      */
     public void testDataPathPassphraseOutOfBandFail() {
         if (!TestUtils.shouldTestWifiAware(getContext())) {
             return;
         }
+        MacAddress mac = MacAddress.fromString("00:01:02:03:04:05");
 
         WifiAwareSession session = attachAndGetSession();
 
@@ -832,7 +750,7 @@ public class SingleDeviceTest extends AndroidTestCase {
         NetworkRequest nr = new NetworkRequest.Builder().addTransportType(
                 NetworkCapabilities.TRANSPORT_WIFI_AWARE).setNetworkSpecifier(
                 session.createNetworkSpecifierPassphrase(
-                        WifiAwareManager.WIFI_AWARE_DATA_PATH_ROLE_RESPONDER, null,
+                        WifiAwareManager.WIFI_AWARE_DATA_PATH_ROLE_RESPONDER, mac.toByteArray(),
                         "abcdefghihk")).build();
         mConnectivityManager.requestNetwork(nr, networkCb, 2000);
         assertTrue("OnUnavailable received", networkCb.waitForOnUnavailable());

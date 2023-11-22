@@ -15,8 +15,8 @@
  */
 
 #include "assembler_arm64.h"
-#include "base/logging.h"
 #include "entrypoints/quick/quick_entrypoints.h"
+#include "heap_poisoning.h"
 #include "offsets.h"
 #include "thread.h"
 
@@ -156,6 +156,24 @@ void Arm64Assembler::MaybeUnpoisonHeapReference(Register reg) {
   if (kPoisonHeapReferences) {
     UnpoisonHeapReference(reg);
   }
+}
+
+void Arm64Assembler::GenerateMarkingRegisterCheck(Register temp, int code) {
+  // The Marking Register is only used in the Baker read barrier configuration.
+  DCHECK(kEmitCompilerReadBarrier);
+  DCHECK(kUseBakerReadBarrier);
+
+  vixl::aarch64::Register mr = reg_x(MR);  // Marking Register.
+  vixl::aarch64::Register tr = reg_x(TR);  // Thread Register.
+  vixl::aarch64::Label mr_is_ok;
+
+  // temp = self.tls32_.is.gc_marking
+  ___ Ldr(temp, MemOperand(tr, Thread::IsGcMarkingOffset<kArm64PointerSize>().Int32Value()));
+  // Check that mr == self.tls32_.is.gc_marking.
+  ___ Cmp(mr.W(), temp);
+  ___ B(eq, &mr_is_ok);
+  ___ Brk(code);
+  ___ Bind(&mr_is_ok);
 }
 
 #undef ___

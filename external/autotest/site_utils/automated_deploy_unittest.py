@@ -112,8 +112,9 @@ To https:TEST_URL
         #Test to get pushed commits for autotest repo.
         repo = 'autotest'
         expect_git_log_cmd = 'git log --oneline 123..789'
+        expect_display_cmd = expect_git_log_cmd + ' | grep autotest'
         expect_return = ('\n%s:\n%s\n%s\n' %
-                         (repo, expect_git_log_cmd, autotest_commits_logs))
+                         (repo, expect_display_cmd, autotest_commits_logs))
         actual_return = ad.get_pushed_commits(repo, 'test', '123..789')
 
         run_cmd.assert_called_with(expect_git_log_cmd, stream_output=True)

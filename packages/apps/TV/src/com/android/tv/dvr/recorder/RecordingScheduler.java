@@ -31,11 +31,10 @@ import android.support.annotation.VisibleForTesting;
 import android.util.ArrayMap;
 import android.util.Log;
 import android.util.Range;
-
-import com.android.tv.ApplicationSingletons;
 import com.android.tv.InputSessionManager;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
+import com.android.tv.common.util.Clock;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.ChannelDataManager.Listener;
 import com.android.tv.dvr.DvrDataManager;
@@ -44,22 +43,21 @@ import com.android.tv.dvr.DvrDataManager.ScheduledRecordingListener;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.WritableDvrDataManager;
 import com.android.tv.dvr.data.ScheduledRecording;
-import com.android.tv.util.Clock;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * The core class to manage DVR schedule and run recording task.
- **
- * <p> This class is responsible for:
+ * The core class to manage DVR schedule and run recording task. *
+ *
+ * <p>This class is responsible for:
+ *
  * <ul>
- *     <li>Sending record commands to TV inputs</li>
- *     <li>Resolving conflicting schedules, handling overlapping recording time durations, etc.</li>
+ *   <li>Sending record commands to TV inputs
+ *   <li>Resolving conflicting schedules, handling overlapping recording time durations, etc.
  * </ul>
  *
  * <p>This should be a singleton associated with application's main process.
@@ -71,8 +69,8 @@ public class RecordingScheduler extends TvInputCallback implements ScheduledReco
     private static final boolean DEBUG = false;
 
     private static final String HANDLER_THREAD_NAME = "RecordingScheduler";
-    private final static long SOON_DURATION_IN_MS = TimeUnit.MINUTES.toMillis(1);
-    @VisibleForTesting final static long MS_TO_WAKE_BEFORE_START = TimeUnit.SECONDS.toMillis(30);
+    private static final long SOON_DURATION_IN_MS = TimeUnit.MINUTES.toMillis(1);
+    @VisibleForTesting static final long MS_TO_WAKE_BEFORE_START = TimeUnit.SECONDS.toMillis(30);
 
     private final Looper mLooper;
     private final InputSessionManager mSessionManager;
@@ -98,21 +96,22 @@ public class RecordingScheduler extends TvInputCallback implements ScheduledReco
                 }
             };
 
-    private Listener mChannelDataLoadListener = new Listener() {
-        @Override
-        public void onLoadFinished() {
-            mChannelDataManager.removeListener(this);
-            if (isDbLoaded()) {
-                updateInternal();
-            }
-        }
+    private Listener mChannelDataLoadListener =
+            new Listener() {
+                @Override
+                public void onLoadFinished() {
+                    mChannelDataManager.removeListener(this);
+                    if (isDbLoaded()) {
+                        updateInternal();
+                    }
+                }
 
-        @Override
-        public void onChannelListUpdated() { }
+                @Override
+                public void onChannelListUpdated() {}
 
-        @Override
-        public void onChannelBrowsableChanged() { }
-    };
+                @Override
+                public void onChannelBrowsableChanged() {}
+            };
 
     /**
      * Creates a scheduler to schedule alarms for scheduled recordings and create recording tasks.
@@ -120,21 +119,32 @@ public class RecordingScheduler extends TvInputCallback implements ScheduledReco
      */
     public static RecordingScheduler createScheduler(Context context) {
         SoftPreconditions.checkState(
-                TvApplication.getSingletons(context).getRecordingScheduler() == null);
+                TvSingletons.getSingletons(context).getRecordingScheduler() == null);
         HandlerThread handlerThread = new HandlerThread(HANDLER_THREAD_NAME);
         handlerThread.start();
-        ApplicationSingletons singletons = TvApplication.getSingletons(context);
-        return new RecordingScheduler(handlerThread.getLooper(),
-                singletons.getDvrManager(), singletons.getInputSessionManager(),
+        TvSingletons singletons = TvSingletons.getSingletons(context);
+        return new RecordingScheduler(
+                handlerThread.getLooper(),
+                singletons.getDvrManager(),
+                singletons.getInputSessionManager(),
                 (WritableDvrDataManager) singletons.getDvrDataManager(),
-                singletons.getChannelDataManager(), singletons.getTvInputManagerHelper(), context,
-                Clock.SYSTEM, (AlarmManager) context.getSystemService(Context.ALARM_SERVICE));
+                singletons.getChannelDataManager(),
+                singletons.getTvInputManagerHelper(),
+                context,
+                Clock.SYSTEM,
+                (AlarmManager) context.getSystemService(Context.ALARM_SERVICE));
     }
 
     @VisibleForTesting
-    RecordingScheduler(Looper looper, DvrManager dvrManager, InputSessionManager sessionManager,
-            WritableDvrDataManager dataManager, ChannelDataManager channelDataManager,
-            TvInputManagerHelper inputManager, Context context, Clock clock,
+    RecordingScheduler(
+            Looper looper,
+            DvrManager dvrManager,
+            InputSessionManager sessionManager,
+            WritableDvrDataManager dataManager,
+            ChannelDataManager channelDataManager,
+            TvInputManagerHelper inputManager,
+            Context context,
+            Clock clock,
             AlarmManager alarmManager) {
         mLooper = looper;
         mDvrManager = dvrManager;
@@ -159,9 +169,7 @@ public class RecordingScheduler extends TvInputCallback implements ScheduledReco
         }
     }
 
-    /**
-     * Start recording that will happen soon, and set the next alarm time.
-     */
+    /** Start recording that will happen soon, and set the next alarm time. */
     public void updateAndStartServiceIfNeeded() {
         if (DEBUG) Log.d(TAG, "update and start service if needed");
         if (isDbLoaded()) {
@@ -185,8 +193,10 @@ public class RecordingScheduler extends TvInputCallback implements ScheduledReco
     }
 
     private boolean updatePendingRecordings() {
-        List<ScheduledRecording> scheduledRecordings = mDataManager
-                .getScheduledRecordings(new Range<>(mLastStartTimePendingMs,
+        List<ScheduledRecording> scheduledRecordings =
+                mDataManager.getScheduledRecordings(
+                        new Range<>(
+                                mLastStartTimePendingMs,
                                 mClock.currentTimeMillis() + SOON_DURATION_IN_MS),
                         ScheduledRecording.STATE_RECORDING_NOT_STARTED);
         for (ScheduledRecording r : scheduledRecordings) {
@@ -198,7 +208,8 @@ public class RecordingScheduler extends TvInputCallback implements ScheduledReco
         // recording service being wrongly pushed back to background in updateInternal().
         return scheduledRecordings.size() > 0
                 || (mLastStartTimePendingMs > mClock.currentTimeMillis()
-                && mLastStartTimePendingMs < mClock.currentTimeMillis() + SOON_DURATION_IN_MS);
+                        && mLastStartTimePendingMs
+                                < mClock.currentTimeMillis() + SOON_DURATION_IN_MS);
     }
 
     private boolean isDbLoaded() {
@@ -269,18 +280,32 @@ public class RecordingScheduler extends TvInputCallback implements ScheduledReco
         TvInputInfo input = Utils.getTvInputInfoForInputId(mContext, schedule.getInputId());
         if (input == null) {
             Log.e(TAG, "Can't find input for " + schedule);
-            mDataManager.changeState(schedule, ScheduledRecording.STATE_RECORDING_FAILED);
+            mDataManager.changeState(
+                    schedule,
+                    ScheduledRecording.STATE_RECORDING_FAILED,
+                    ScheduledRecording.FAILED_REASON_INPUT_UNAVAILABLE);
             return;
         }
         if (!input.canRecord() || input.getTunerCount() <= 0) {
             Log.e(TAG, "TV input doesn't support recording: " + input);
-            mDataManager.changeState(schedule, ScheduledRecording.STATE_RECORDING_FAILED);
+            mDataManager.changeState(
+                    schedule,
+                    ScheduledRecording.STATE_RECORDING_FAILED,
+                    ScheduledRecording.FAILED_REASON_INPUT_DVR_UNSUPPORTED);
             return;
         }
         InputTaskScheduler inputTaskScheduler = mInputSchedulerMap.get(input.getId());
         if (inputTaskScheduler == null) {
-            inputTaskScheduler = new InputTaskScheduler(mContext, input, mLooper,
-                    mChannelDataManager, mDvrManager, mDataManager, mSessionManager, mClock);
+            inputTaskScheduler =
+                    new InputTaskScheduler(
+                            mContext,
+                            input,
+                            mLooper,
+                            mChannelDataManager,
+                            mDvrManager,
+                            mDataManager,
+                            mSessionManager,
+                            mClock);
             mInputSchedulerMap.put(input.getId(), inputTaskScheduler);
         }
         inputTaskScheduler.addSchedule(schedule);
@@ -290,8 +315,9 @@ public class RecordingScheduler extends TvInputCallback implements ScheduledReco
     }
 
     private void updateNextAlarm() {
-        long nextStartTime = mDataManager.getNextScheduledStartTimeAfter(
-                Math.max(mLastStartTimePendingMs, mClock.currentTimeMillis()));
+        long nextStartTime =
+                mDataManager.getNextScheduledStartTimeAfter(
+                        Math.max(mLastStartTimePendingMs, mClock.currentTimeMillis()));
         if (nextStartTime != DvrDataManager.NEXT_START_TIME_NOT_FOUND) {
             long wakeAt = nextStartTime - MS_TO_WAKE_BEFORE_START;
             if (DEBUG) Log.d(TAG, "Set alarm to record at " + wakeAt);

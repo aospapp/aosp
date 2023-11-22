@@ -16,5 +16,6 @@
 <automotiveApp>
     <uses name="service" />
     <uses name="projection" />
+    <uses name="notification"/>
     <uses name="activity" class="com.google.android.car.kitchensink.KitchenSinkActivity" />
 </automotiveApp>

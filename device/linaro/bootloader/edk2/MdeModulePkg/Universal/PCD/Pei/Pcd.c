@@ -1,14 +1,15 @@
 /** @file 
   All Pcd Ppi services are implemented here.
   
-Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials                          
-are licensed and made available under the terms and conditions of the BSD License         
-which accompanies this distribution.  The full text of the license may be found at        
-http://opensource.org/licenses/bsd-license.php                                            
-                                                                                          
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,                     
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.             
+Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
+(C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -226,7 +227,7 @@ PeiGetPcdInfoGetSku (
   VOID
   )
 {
-  return GetPcdDatabase()->SystemSkuId;
+  return (UINTN) GetPcdDatabase()->SystemSkuId;
 }
 
 /**
@@ -239,7 +240,7 @@ PeiGetPcdInfoGetSku (
   or multiple values, where each value is associated with a specific SKU Id. Items with multiple, 
   SKU-specific values are called SKU enabled. 
   
-  The SKU Id of zero is reserved as a default. The valid SkuId range is 1 to 255.  
+  The SKU Id of zero is reserved as a default.
   For tokens that are not SKU enabled, the system ignores any set SKU Id and works with the 
   single value for that token. For SKU-enabled tokens, the system will use the SKU Id set by the 
   last call to SetSku(). If no SKU Id is set or the currently set SKU Id isn't valid for the specified token, 
@@ -1116,13 +1117,17 @@ PeiPcdGetNextToken (
     }
 
     if (Found) {
+      //
+      // If given token number is PCD_INVALID_TOKEN_NUMBER, then return the first
+      // token number in found token space.
+      //
       if (*TokenNumber == PCD_INVALID_TOKEN_NUMBER) {
         *TokenNumber = ExMapTable[Index].ExTokenNumber;
          return EFI_SUCCESS;
       }
 
       for ( ; Index < PeiPcdDb->ExTokenCount; Index++) {
-        if (ExMapTable[Index].ExTokenNumber == *TokenNumber) {
+        if ((ExMapTable[Index].ExTokenNumber == *TokenNumber) && (ExMapTable[Index].ExGuidIndex == GuidTableIdx)) {
           break;
         }
       }

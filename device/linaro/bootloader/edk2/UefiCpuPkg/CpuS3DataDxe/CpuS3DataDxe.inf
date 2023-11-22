@@ -9,7 +9,7 @@
 #  support hot plug CPUs.  This module can be copied into a CPU specific package
 #  and customized if these additional features are required.
 #
-#  Copyright (c) 2013-2015, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2013-2016, Intel Corporation. All rights reserved.<BR>
 #  Copyright (c) 2015, Red Hat, Inc.
 #
 #  This program and the accompanying materials
@@ -41,6 +41,7 @@
 
 [Packages]
   MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
   UefiCpuPkg/UefiCpuPkg.dec
 
 [LibraryClasses]
@@ -60,6 +61,7 @@
 [Pcd]
   gUefiCpuPkgTokenSpaceGuid.PcdCpuApStackSize    ## CONSUMES
   gUefiCpuPkgTokenSpaceGuid.PcdCpuS3DataAddress  ## PRODUCES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiS3Enable ## CONSUMES
 
 [Depex]
   gEfiMpServiceProtocolGuid

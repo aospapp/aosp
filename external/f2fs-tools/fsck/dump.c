@@ -11,6 +11,13 @@
 #include <inttypes.h>
 
 #include "fsck.h"
+#include "xattr.h"
+#ifdef HAVE_ATTR_XATTR_H
+#include <attr/xattr.h>
+#endif
+#ifdef HAVE_LINUX_XATTR_H
+#include <linux/xattr.h>
+#endif
 #include <locale.h>
 
 #define BUF_SZ	80
@@ -310,26 +317,92 @@ static void dump_node_blk(struct f2fs_sb_info *sbi, int ntype,
 	free(node_blk);
 }
 
+#ifdef HAVE_FSETXATTR
+static void dump_xattr(struct f2fs_sb_info *sbi, struct f2fs_node *node_blk)
+{
+	void *xattr;
+	struct f2fs_xattr_entry *ent;
+	char xattr_name[F2FS_NAME_LEN] = {0};
+	int ret;
+
+	xattr = read_all_xattrs(sbi, node_blk);
+
+	list_for_each_xattr(ent, xattr) {
+		char *name = strndup(ent->e_name, ent->e_name_len);
+		void *value = ent->e_name + ent->e_name_len;
+
+		if (!name)
+			continue;
+
+		switch (ent->e_name_index) {
+		case F2FS_XATTR_INDEX_USER:
+			ret = snprintf(xattr_name, F2FS_NAME_LEN, "%s%s",
+				       XATTR_USER_PREFIX, name);
+			break;
+
+		case F2FS_XATTR_INDEX_SECURITY:
+			ret = snprintf(xattr_name, F2FS_NAME_LEN, "%s%s",
+				       XATTR_SECURITY_PREFIX, name);
+			break;
+		case F2FS_XATTR_INDEX_TRUSTED:
+			ret = snprintf(xattr_name, F2FS_NAME_LEN, "%s%s",
+				       XATTR_TRUSTED_PREFIX, name);
+			break;
+		default:
+			MSG(0, "Unknown xattr index 0x%x\n", ent->e_name_index);
+			free(name);
+			continue;
+		}
+		if (ret >= F2FS_NAME_LEN) {
+			MSG(0, "XATTR index 0x%x name too long\n", ent->e_name_index);
+			free(name);
+			continue;
+		}
+
+		DBG(1, "fd %d xattr_name %s\n", c.dump_fd, xattr_name);
+#if defined(__linux__)
+		ret = fsetxattr(c.dump_fd, xattr_name, value,
+				le16_to_cpu(ent->e_value_size), 0);
+#elif defined(__APPLE__)
+		ret = fsetxattr(c.dump_fd, xattr_name, value,
+				le16_to_cpu(ent->e_value_size), 0,
+				XATTR_CREATE);
+#endif
+		if (ret)
+			MSG(0, "XATTR index 0x%x set xattr failed error %d\n",
+			    ent->e_name_index, errno);
+
+		free(name);
+	}
+
+	free(xattr);
+}
+#else
+static void dump_xattr(struct f2fs_sb_info *UNUSED(sbi),
+				struct f2fs_node *UNUSED(node_blk))
+{
+	MSG(0, "XATTR does not support\n");
+}
+#endif
+
 static void dump_inode_blk(struct f2fs_sb_info *sbi, u32 nid,
 					struct f2fs_node *node_blk)
 {
 	u32 i = 0;
 	u64 ofs = 0;
 
-	/* TODO: need to dump xattr */
-
-	if((node_blk->i.i_inline & F2FS_INLINE_DATA)){
+	if((node_blk->i.i_inline & F2FS_INLINE_DATA)) {
 		DBG(3, "ino[0x%x] has inline data!\n", nid);
 		/* recover from inline data */
 		dev_write_dump(((unsigned char *)node_blk) + INLINE_DATA_OFFSET,
-							0, MAX_INLINE_DATA);
+						0, MAX_INLINE_DATA(node_blk));
 		return;
 	}
 
 	/* check data blocks in inode */
 	for (i = 0; i < ADDRS_PER_INODE(&node_blk->i); i++, ofs++)
-		dump_data_blk(sbi, ofs * F2FS_BLKSIZE,
-				le32_to_cpu(node_blk->i.i_addr[i]));
+		dump_data_blk(sbi, ofs * F2FS_BLKSIZE, le32_to_cpu(
+			node_blk->i.i_addr[get_extra_isize(node_blk) + i]));
 
 	/* check node blocks in inode */
 	for (i = 0; i < 5; i++) {
@@ -345,6 +418,8 @@ static void dump_inode_blk(struct f2fs_sb_info *sbi, u32 nid,
 		else
 			ASSERT(0);
 	}
+
+	dump_xattr(sbi, node_blk);
 }
 
 static void dump_file(struct f2fs_sb_info *sbi, struct node_info *ni,
@@ -353,11 +428,16 @@ static void dump_file(struct f2fs_sb_info *sbi, struct node_info *ni,
 	struct f2fs_inode *inode = &node_blk->i;
 	u32 imode = le32_to_cpu(inode->i_mode);
 	u32 namelen = le32_to_cpu(inode->i_namelen);
-	unsigned char name[F2FS_NAME_LEN + 1] = {0};
+	char name[F2FS_NAME_LEN + 1] = {0};
 	char path[1024] = {0};
 	char ans[255] = {0};
-	int enc_name = file_enc_name(inode);
+	int is_encrypted = file_is_encrypt(inode);
 	int ret;
+
+	if (is_encrypted) {
+		MSG(force, "File is encrypted\n");
+		return;
+	}
 
 	if (!S_ISREG(imode) || namelen == 0 || namelen > F2FS_NAME_LEN) {
 		MSG(force, "Not a regular file or wrong name info\n\n");
@@ -376,8 +456,7 @@ dump:
 		ASSERT(ret >= 0);
 
 		/* make a file */
-		namelen = convert_encrypted_name(inode->i_name, namelen,
-							name, enc_name);
+		strncpy(name, (const char *)inode->i_name, namelen);
 		name[namelen] = 0;
 		sprintf(path, "./lost_found/%s", name);
 
@@ -419,17 +498,17 @@ void dump_node(struct f2fs_sb_info *sbi, nid_t nid, int force)
 	if (le32_to_cpu(node_blk->footer.ino) == ni.ino &&
 			le32_to_cpu(node_blk->footer.nid) == ni.nid &&
 			ni.ino == ni.nid) {
-		print_node_info(node_blk, force);
+		print_node_info(sbi, node_blk, force);
 		dump_file(sbi, &ni, node_blk, force);
 	} else {
-		print_node_info(node_blk, force);
+		print_node_info(sbi, node_blk, force);
 		MSG(force, "Invalid (i)node block\n\n");
 	}
 
 	free(node_blk);
 }
 
-static void dump_node_from_blkaddr(u32 blk_addr)
+static void dump_node_from_blkaddr(struct f2fs_sb_info *sbi, u32 blk_addr)
 {
 	struct f2fs_node *node_blk;
 	int ret;
@@ -441,9 +520,9 @@ static void dump_node_from_blkaddr(u32 blk_addr)
 	ASSERT(ret >= 0);
 
 	if (c.dbg_lv > 0)
-		print_node_info(node_blk, 0);
+		print_node_info(sbi, node_blk, 0);
 	else
-		print_inode_info(&node_blk->i, 1);
+		print_inode_info(sbi, node_blk, 1);
 
 	free(node_blk);
 }
@@ -507,6 +586,8 @@ int dump_info_from_blkaddr(struct f2fs_sb_info *sbi, u32 blk_addr)
 	int type;
 	struct f2fs_summary sum_entry;
 	struct node_info ni, ino_ni;
+	struct seg_entry *se;
+	u32 offset;
 	int ret = 0;
 
 	MSG(0, "\n== Dump data from block address ==\n\n");
@@ -538,6 +619,13 @@ int dump_info_from_blkaddr(struct f2fs_sb_info *sbi, u32 blk_addr)
 		return ret;
 	}
 
+	se = get_seg_entry(sbi, GET_SEGNO(sbi, blk_addr));
+	offset = OFFSET_IN_SEG(sbi, blk_addr);
+
+	if (f2fs_test_bit(offset, (const char *)se->cur_valid_map) == 0) {
+		MSG(0, "\nblkaddr is not valid\n");
+	}
+
 	type = get_sum_entry(sbi, blk_addr, &sum_entry);
 	nid = le32_to_cpu(sum_entry.nid);
 
@@ -567,7 +655,7 @@ int dump_info_from_blkaddr(struct f2fs_sb_info *sbi, u32 blk_addr)
 
 	/* print inode */
 	if (c.dbg_lv > 0)
-		dump_node_from_blkaddr(ino_ni.blk_addr);
+		dump_node_from_blkaddr(sbi, ino_ni.blk_addr);
 
 	if (type == SEG_TYPE_CUR_DATA || type == SEG_TYPE_DATA) {
 		MSG(0, "FS Userdata Area: Data block from 0x%x\n", blk_addr);
@@ -575,7 +663,7 @@ int dump_info_from_blkaddr(struct f2fs_sb_info *sbi, u32 blk_addr)
 					nid, ni.blk_addr);
 		MSG(0, " - Inode block       : id = 0x%x from 0x%x\n",
 					ni.ino, ino_ni.blk_addr);
-		dump_node_from_blkaddr(ino_ni.blk_addr);
+		dump_node_from_blkaddr(sbi, ino_ni.blk_addr);
 		dump_data_offset(ni.blk_addr,
 			le16_to_cpu(sum_entry.ofs_in_node));
 	} else {
@@ -583,13 +671,13 @@ int dump_info_from_blkaddr(struct f2fs_sb_info *sbi, u32 blk_addr)
 		if (ni.ino == ni.nid) {
 			MSG(0, " - Inode block       : id = 0x%x from 0x%x\n",
 					ni.ino, ino_ni.blk_addr);
-			dump_node_from_blkaddr(ino_ni.blk_addr);
+			dump_node_from_blkaddr(sbi, ino_ni.blk_addr);
 		} else {
 			MSG(0, " - Node block        : id = 0x%x from 0x%x\n",
 					nid, ni.blk_addr);
 			MSG(0, " - Inode block       : id = 0x%x from 0x%x\n",
 					ni.ino, ino_ni.blk_addr);
-			dump_node_from_blkaddr(ino_ni.blk_addr);
+			dump_node_from_blkaddr(sbi, ino_ni.blk_addr);
 			dump_node_offset(ni.blk_addr);
 		}
 	}

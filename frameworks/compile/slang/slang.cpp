@@ -128,7 +128,7 @@ static llvm::LLVMContext globalContext;
 
 llvm::LLVMContext &getGlobalLLVMContext() { return globalContext; }
 
-static inline llvm::tool_output_file *
+static inline std::unique_ptr<llvm::tool_output_file>
 OpenOutputFile(const char *OutputFile,
                llvm::sys::fs::OpenFlags Flags,
                std::error_code &EC,
@@ -139,10 +139,7 @@ OpenOutputFile(const char *OutputFile,
   EC = llvm::sys::fs::create_directories(
       llvm::sys::path::parent_path(OutputFile));
   if (!EC) {
-    llvm::tool_output_file *F =
-          new llvm::tool_output_file(OutputFile, EC, Flags);
-    if (F != nullptr)
-      return F;
+    return llvm::make_unique<llvm::tool_output_file>(OutputFile, EC, Flags);
   }
 
   // Report error here.
@@ -310,7 +307,7 @@ bool Slang::setInputSource(llvm::StringRef InputFile) {
 
 bool Slang::setOutput(const char *OutputFile) {
   std::error_code EC;
-  llvm::tool_output_file *OS = nullptr;
+  std::unique_ptr<llvm::tool_output_file> OS;
 
   switch (mOT) {
     case OT_Dependency:
@@ -335,7 +332,7 @@ bool Slang::setOutput(const char *OutputFile) {
   if (EC)
     return false;
 
-  mOS.reset(OS);
+  mOS = std::move(OS);
 
   mOutputFileName = OutputFile;
 
@@ -345,8 +342,7 @@ bool Slang::setOutput(const char *OutputFile) {
 bool Slang::setDepOutput(const char *OutputFile) {
   std::error_code EC;
 
-  mDOS.reset(
-      OpenOutputFile(OutputFile, llvm::sys::fs::F_Text, EC, mDiagEngine));
+  mDOS = OpenOutputFile(OutputFile, llvm::sys::fs::F_Text, EC, mDiagEngine);
   if (EC || (mDOS.get() == nullptr))
     return false;
 

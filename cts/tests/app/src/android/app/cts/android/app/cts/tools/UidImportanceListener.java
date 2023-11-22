@@ -17,6 +17,7 @@
 package android.app.cts.android.app.cts.tools;
 
 import android.app.ActivityManager;
+import android.content.Context;
 import android.os.SystemClock;
 import android.util.Log;
 
@@ -24,23 +25,46 @@ import android.util.Log;
  * Helper for monitoring the importance state of a uid.
  */
 public final class UidImportanceListener implements ActivityManager.OnUidImportanceListener {
+    final ActivityManager mAm;
     final int mUid;
+    final int mCutPoint;
+    final long mDefaultWaitTime;
 
     int mLastValue = -1;
 
-    public UidImportanceListener(int uid) {
+    public UidImportanceListener(Context context, int uid, int cutPoint) {
+        this(context, uid, cutPoint, 5*1000);
+    }
+
+    public UidImportanceListener(Context context, int uid, int cutPoint, long defaultWaitTime) {
+        mAm = context.getSystemService(ActivityManager.class);
         mUid = uid;
+        mCutPoint = cutPoint;
+        mDefaultWaitTime = defaultWaitTime;
     }
 
     @Override
     public void onUidImportance(int uid, int importance) {
         synchronized (this) {
-            Log.d("XXXXX", "Got importance for uid " + uid + ": " + importance);
+            Log.d("XXXXX", "Got importance for uid " + uid + " (cut " + mCutPoint
+                    + "): " + importance);
             if (uid == mUid) {
                 mLastValue = importance;
                 notifyAll();
             }
         }
+    }
+
+    public void register() {
+        mAm.addOnUidImportanceListener(this, mCutPoint);
+    }
+
+    public void unregister() {
+        mAm.removeOnUidImportanceListener(this);
+    }
+
+    public int waitForValue(int minValue, int maxValue) {
+        return waitForValue(minValue, maxValue, mDefaultWaitTime);
     }
 
     public int waitForValue(int minValue, int maxValue, long timeout) {
@@ -51,14 +75,16 @@ public final class UidImportanceListener implements ActivityManager.OnUidImporta
                 final long now = SystemClock.uptimeMillis();
                 if (now >= endTime) {
                     throw new IllegalStateException("Timed out waiting for importance "
-                            + minValue + "-" + maxValue + ", last was " + mLastValue);
+                            + minValue + "-" + maxValue + " (cut "
+                            + mCutPoint + "), last was " + mLastValue);
                 }
                 try {
                     wait(endTime-now);
                 } catch (InterruptedException e) {
                 }
             }
-            Log.d("XXXX", "waitForValue " + minValue + "-" + maxValue + ": " + mLastValue);
+            Log.d("XXXX", "waitForValue " + minValue + "-" + maxValue + " (cut "
+                    + mCutPoint + "): " + mLastValue);
             return mLastValue;
         }
     }

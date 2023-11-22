@@ -17,6 +17,7 @@
 #include <android-base/logging.h>
 
 #include <VtsHalHidlTargetTestBase.h>
+#include <VtsHalHidlTargetTestEnvBase.h>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
@@ -534,6 +535,22 @@ class RadioIndication_v1_1 : public ::android::hardware::radio::V1_1::IRadioIndi
                             const ::android::hardware::hidl_string& reason);
 };
 
+// Test environment for Radio HIDL HAL.
+class RadioHidlEnvironment : public ::testing::VtsHalHidlTargetTestEnvBase {
+   public:
+    // get the test environment singleton
+    static RadioHidlEnvironment* Instance() {
+        static RadioHidlEnvironment* instance = new RadioHidlEnvironment;
+        return instance;
+    }
+    virtual void registerTestServices() override {
+        registerTestService<::android::hardware::radio::V1_1::IRadio>();
+    }
+
+   private:
+    RadioHidlEnvironment() {}
+};
+
 // The main test class for Radio HIDL.
 class RadioHidlTest_v1_1 : public ::testing::VtsHalHidlTargetTestBase {
    protected:
@@ -541,31 +558,22 @@ class RadioHidlTest_v1_1 : public ::testing::VtsHalHidlTargetTestBase {
     std::condition_variable cv;
     int count;
 
+    /* Serial number for radio request */
+    int serial;
+
+    /* Update Sim Card Status */
+    void updateSimCardStatus();
+
    public:
     virtual void SetUp() override;
 
-    virtual void TearDown() override;
-
     /* Used as a mechanism to inform the test about data/event callback */
-    void notify();
+    void notify(int receivedSerial);
 
     /* Test code calls this function to wait for response */
-    std::cv_status wait();
-
-    /* Used for checking General Errors */
-    bool CheckGeneralError();
-
-    /* Used for checking OEM Errors */
-    bool CheckOEMError();
+    std::cv_status wait(int sec = TIMEOUT_PERIOD);
 
     sp<::android::hardware::radio::V1_1::IRadio> radio_v1_1;
     sp<RadioResponse_v1_1> radioRsp_v1_1;
     sp<RadioIndication_v1_1> radioInd_v1_1;
-};
-
-// A class for test environment setup
-class RadioHidlEnvironment : public ::testing::Environment {
-   public:
-    virtual void SetUp() {}
-    virtual void TearDown() {}
 };

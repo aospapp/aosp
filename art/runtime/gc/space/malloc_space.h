@@ -26,22 +26,12 @@ namespace art {
 namespace gc {
 
 namespace collector {
-  class MarkSweep;
+class MarkSweep;
 }  // namespace collector
 
 namespace space {
 
 class ZygoteSpace;
-
-// TODO: Remove define macro
-#define CHECK_MEMORY_CALL(call, args, what) \
-  do { \
-    int rc = call args; \
-    if (UNLIKELY(rc != 0)) { \
-      errno = rc; \
-      PLOG(FATAL) << # call << " failed for " << (what); \
-    } \
-  } while (false)
 
 // A common parent of DlMallocSpace and RosAllocSpace.
 class MallocSpace : public ContinuousMemMapAllocSpace {

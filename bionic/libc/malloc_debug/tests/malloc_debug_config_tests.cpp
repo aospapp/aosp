@@ -60,6 +60,9 @@ std::string usage_string(
   "6 malloc_debug   backtrace[=XX]\n"
   "6 malloc_debug     Enable capturing the backtrace at the point of allocation.\n"
   "6 malloc_debug     If XX is set it sets the number of backtrace frames.\n"
+  "6 malloc_debug     This option also enables dumping the backtrace heap data\n"
+  "6 malloc_debug     when a signal is received. The data is dumped to the file\n"
+  "6 malloc_debug     backtrace_dump_prefix.<PID>.txt.\n"
   "6 malloc_debug     The default is 16 frames, the max number of frames is 256.\n"
   "6 malloc_debug \n"
   "6 malloc_debug   backtrace_enable_on_signal[=XX]\n"
@@ -67,6 +70,18 @@ std::string usage_string(
   "6 malloc_debug     The backtrace capture is not enabled until the process\n"
   "6 malloc_debug     receives a signal. If XX is set it sets the number of backtrace\n"
   "6 malloc_debug     frames. The default is 16 frames, the max number of frames is 256.\n"
+  "6 malloc_debug \n"
+  "6 malloc_debug   backtrace_dump_prefix[=FILE]\n"
+  "6 malloc_debug     This option only has meaning if the backtrace option has been specified.\n"
+  "6 malloc_debug     This is the prefix of the name of the file to which backtrace heap\n"
+  "6 malloc_debug     data will be dumped. The file will be named backtrace_dump_prefix.<PID>.txt.\n"
+  "6 malloc_debug     The default is /data/local/tmp/backtrace_heap.\n"
+  "6 malloc_debug \n"
+  "6 malloc_debug   backtrace_dump_on_exit\n"
+  "6 malloc_debug     This option only has meaning if the backtrace option has been specified.\n"
+  "6 malloc_debug     This will cause all live allocations to be dumped to the file\n"
+  "6 malloc_debug     backtrace_dump_prefix.<PID>.final.txt.\n"
+  "6 malloc_debug     The default is false.\n"
   "6 malloc_debug \n"
   "6 malloc_debug   fill_on_alloc[=XX]\n"
   "6 malloc_debug     On first allocation, fill with the value 0xeb.\n"
@@ -120,6 +135,10 @@ std::string usage_string(
   "6 malloc_debug     This option only has meaning if the record_allocs options has been specified.\n"
   "6 malloc_debug     This is the name of the file to which recording information will be dumped.\n"
   "6 malloc_debug     The default is /data/local/tmp/record_allocs.txt.\n"
+  "6 malloc_debug \n"
+  "6 malloc_debug   verify_pointers\n"
+  "6 malloc_debug     A lightweight way to verify that free/malloc_usable_size/realloc\n"
+  "6 malloc_debug     are passed valid pointers.\n"
 );
 
 TEST_F(MallocDebugConfigTest, unknown_option) {
@@ -235,15 +254,15 @@ TEST_F(MallocDebugConfigTest, multiple_options) {
 
 TEST_F(MallocDebugConfigTest, front_guard) {
   ASSERT_TRUE(InitConfig("front_guard=48")) << getFakeLogPrint();
-  ASSERT_EQ(FRONT_GUARD, config->options());
+  ASSERT_EQ(FRONT_GUARD | TRACK_ALLOCS, config->options());
   ASSERT_EQ(48U, config->front_guard_bytes());
 
   ASSERT_TRUE(InitConfig("front_guard")) << getFakeLogPrint();
-  ASSERT_EQ(FRONT_GUARD, config->options());
+  ASSERT_EQ(FRONT_GUARD | TRACK_ALLOCS, config->options());
   ASSERT_EQ(32U, config->front_guard_bytes());
 
   ASSERT_TRUE(InitConfig("front_guard=39")) << getFakeLogPrint();
-  ASSERT_EQ(FRONT_GUARD, config->options());
+  ASSERT_EQ(FRONT_GUARD | TRACK_ALLOCS, config->options());
 #if defined(__LP64__)
   ASSERT_EQ(48U, config->front_guard_bytes());
 #else
@@ -251,7 +270,7 @@ TEST_F(MallocDebugConfigTest, front_guard) {
 #endif
 
   ASSERT_TRUE(InitConfig("front_guard=41")) << getFakeLogPrint();
-  ASSERT_EQ(FRONT_GUARD, config->options());
+  ASSERT_EQ(FRONT_GUARD | TRACK_ALLOCS, config->options());
   ASSERT_EQ(48U, config->front_guard_bytes());
 
   ASSERT_STREQ("", getFakeLogBuf().c_str());
@@ -260,11 +279,11 @@ TEST_F(MallocDebugConfigTest, front_guard) {
 
 TEST_F(MallocDebugConfigTest, rear_guard) {
   ASSERT_TRUE(InitConfig("rear_guard=50")) << getFakeLogPrint();
-  ASSERT_EQ(REAR_GUARD, config->options());
+  ASSERT_EQ(REAR_GUARD | TRACK_ALLOCS, config->options());
   ASSERT_EQ(50U, config->rear_guard_bytes());
 
   ASSERT_TRUE(InitConfig("rear_guard")) << getFakeLogPrint();
-  ASSERT_EQ(REAR_GUARD, config->options());
+  ASSERT_EQ(REAR_GUARD | TRACK_ALLOCS, config->options());
   ASSERT_EQ(32U, config->rear_guard_bytes());
 
   ASSERT_STREQ("", getFakeLogBuf().c_str());
@@ -273,12 +292,12 @@ TEST_F(MallocDebugConfigTest, rear_guard) {
 
 TEST_F(MallocDebugConfigTest, guard) {
   ASSERT_TRUE(InitConfig("guard=32")) << getFakeLogPrint();
-  ASSERT_EQ(FRONT_GUARD | REAR_GUARD, config->options());
+  ASSERT_EQ(FRONT_GUARD | REAR_GUARD | TRACK_ALLOCS, config->options());
   ASSERT_EQ(32U, config->front_guard_bytes());
   ASSERT_EQ(32U, config->rear_guard_bytes());
 
   ASSERT_TRUE(InitConfig("guard")) << getFakeLogPrint();
-  ASSERT_EQ(FRONT_GUARD | REAR_GUARD, config->options());
+  ASSERT_EQ(FRONT_GUARD | REAR_GUARD | TRACK_ALLOCS, config->options());
   ASSERT_EQ(32U, config->front_guard_bytes());
   ASSERT_EQ(32U, config->rear_guard_bytes());
 
@@ -292,12 +311,14 @@ TEST_F(MallocDebugConfigTest, backtrace) {
   ASSERT_EQ(64U, config->backtrace_frames());
   ASSERT_TRUE(config->backtrace_enabled());
   ASSERT_FALSE(config->backtrace_enable_on_signal());
+  ASSERT_FALSE(config->backtrace_dump_on_exit());
 
   ASSERT_TRUE(InitConfig("backtrace")) << getFakeLogPrint();
   ASSERT_EQ(BACKTRACE | TRACK_ALLOCS, config->options());
   ASSERT_EQ(16U, config->backtrace_frames());
   ASSERT_TRUE(config->backtrace_enabled());
   ASSERT_FALSE(config->backtrace_enable_on_signal());
+  ASSERT_FALSE(config->backtrace_dump_on_exit());
 
   ASSERT_STREQ("", getFakeLogBuf().c_str());
   ASSERT_STREQ("", getFakeLogPrint().c_str());
@@ -309,12 +330,14 @@ TEST_F(MallocDebugConfigTest, backtrace_enable_on_signal) {
   ASSERT_EQ(64U, config->backtrace_frames());
   ASSERT_FALSE(config->backtrace_enabled());
   ASSERT_TRUE(config->backtrace_enable_on_signal());
+  ASSERT_FALSE(config->backtrace_dump_on_exit());
 
   ASSERT_TRUE(InitConfig("backtrace_enable_on_signal")) << getFakeLogPrint();
   ASSERT_EQ(BACKTRACE | TRACK_ALLOCS, config->options());
   ASSERT_EQ(16U, config->backtrace_frames());
   ASSERT_FALSE(config->backtrace_enabled());
   ASSERT_TRUE(config->backtrace_enable_on_signal());
+  ASSERT_FALSE(config->backtrace_dump_on_exit());
 
   ASSERT_STREQ("", getFakeLogBuf().c_str());
   ASSERT_STREQ("", getFakeLogPrint().c_str());
@@ -326,12 +349,14 @@ TEST_F(MallocDebugConfigTest, backtrace_enable_on_signal_init) {
   ASSERT_EQ(64U, config->backtrace_frames());
   ASSERT_FALSE(config->backtrace_enabled());
   ASSERT_TRUE(config->backtrace_enable_on_signal());
+  ASSERT_FALSE(config->backtrace_dump_on_exit());
 
   ASSERT_TRUE(InitConfig("backtrace")) << getFakeLogPrint();
   ASSERT_EQ(BACKTRACE | TRACK_ALLOCS, config->options());
   ASSERT_EQ(16U, config->backtrace_frames());
   ASSERT_TRUE(config->backtrace_enabled());
   ASSERT_FALSE(config->backtrace_enable_on_signal());
+  ASSERT_FALSE(config->backtrace_dump_on_exit());
 
   ASSERT_STREQ("", getFakeLogBuf().c_str());
   ASSERT_STREQ("", getFakeLogPrint().c_str());
@@ -343,12 +368,46 @@ TEST_F(MallocDebugConfigTest, backtrace_enable_and_backtrace) {
   ASSERT_EQ(16U, config->backtrace_frames());
   ASSERT_TRUE(config->backtrace_enabled());
   ASSERT_TRUE(config->backtrace_enable_on_signal());
+  ASSERT_FALSE(config->backtrace_dump_on_exit());
 
   ASSERT_TRUE(InitConfig("backtrace backtrace_enable_on_signal")) << getFakeLogPrint();
   ASSERT_EQ(BACKTRACE | TRACK_ALLOCS, config->options());
   ASSERT_EQ(16U, config->backtrace_frames());
   ASSERT_TRUE(config->backtrace_enabled());
   ASSERT_TRUE(config->backtrace_enable_on_signal());
+  ASSERT_FALSE(config->backtrace_dump_on_exit());
+
+  ASSERT_STREQ("", getFakeLogBuf().c_str());
+  ASSERT_STREQ("", getFakeLogPrint().c_str());
+}
+
+TEST_F(MallocDebugConfigTest, backtrace_dump_on_exit) {
+  ASSERT_TRUE(InitConfig("backtrace_dump_on_exit")) << getFakeLogPrint();
+  ASSERT_EQ(0U, config->options());
+  ASSERT_TRUE(config->backtrace_dump_on_exit());
+
+  ASSERT_STREQ("", getFakeLogBuf().c_str());
+  ASSERT_STREQ("", getFakeLogPrint().c_str());
+}
+
+TEST_F(MallocDebugConfigTest, backtrace_dump_on_exit_error) {
+  ASSERT_FALSE(InitConfig("backtrace_dump_on_exit=something")) << getFakeLogPrint();
+
+  ASSERT_STREQ("", getFakeLogBuf().c_str());
+  std::string log_msg(
+      "6 malloc_debug malloc_testing: value set for option 'backtrace_dump_on_exit' "
+      "which does not take a value\n");
+  ASSERT_STREQ((log_msg + usage_string).c_str(), getFakeLogPrint().c_str());
+}
+
+TEST_F(MallocDebugConfigTest, backtrace_dump_prefix) {
+  ASSERT_TRUE(InitConfig("backtrace_dump_prefix")) << getFakeLogPrint();
+  ASSERT_EQ(0U, config->options());
+  ASSERT_EQ("/data/local/tmp/backtrace_heap", config->backtrace_dump_prefix());
+
+  ASSERT_TRUE(InitConfig("backtrace_dump_prefix=/fake/location")) << getFakeLogPrint();
+  ASSERT_EQ(0U, config->options());
+  ASSERT_EQ("/fake/location", config->backtrace_dump_prefix());
 
   ASSERT_STREQ("", getFakeLogBuf().c_str());
   ASSERT_STREQ("", getFakeLogPrint().c_str());
@@ -410,13 +469,13 @@ TEST_F(MallocDebugConfigTest, expand_alloc) {
 
 TEST_F(MallocDebugConfigTest, free_track) {
   ASSERT_TRUE(InitConfig("free_track=1234")) << getFakeLogPrint();
-  ASSERT_EQ(FREE_TRACK | FILL_ON_FREE, config->options());
+  ASSERT_EQ(FREE_TRACK | FILL_ON_FREE | TRACK_ALLOCS, config->options());
   ASSERT_EQ(1234U, config->free_track_allocations());
   ASSERT_EQ(SIZE_MAX, config->fill_on_free_bytes());
   ASSERT_EQ(16U, config->free_track_backtrace_num_frames());
 
   ASSERT_TRUE(InitConfig("free_track")) << getFakeLogPrint();
-  ASSERT_EQ(FREE_TRACK | FILL_ON_FREE, config->options());
+  ASSERT_EQ(FREE_TRACK | FILL_ON_FREE | TRACK_ALLOCS, config->options());
   ASSERT_EQ(100U, config->free_track_allocations());
   ASSERT_EQ(SIZE_MAX, config->fill_on_free_bytes());
   ASSERT_EQ(16U, config->free_track_backtrace_num_frames());
@@ -427,20 +486,20 @@ TEST_F(MallocDebugConfigTest, free_track) {
 
 TEST_F(MallocDebugConfigTest, free_track_and_fill_on_free) {
   ASSERT_TRUE(InitConfig("free_track=1234 fill_on_free=32")) << getFakeLogPrint();
-  ASSERT_EQ(FREE_TRACK | FILL_ON_FREE, config->options());
+  ASSERT_EQ(FREE_TRACK | FILL_ON_FREE | TRACK_ALLOCS, config->options());
   ASSERT_EQ(1234U, config->free_track_allocations());
   ASSERT_EQ(32U, config->fill_on_free_bytes());
   ASSERT_EQ(16U, config->free_track_backtrace_num_frames());
 
   ASSERT_TRUE(InitConfig("free_track fill_on_free=60")) << getFakeLogPrint();
-  ASSERT_EQ(FREE_TRACK | FILL_ON_FREE, config->options());
+  ASSERT_EQ(FREE_TRACK | FILL_ON_FREE | TRACK_ALLOCS, config->options());
   ASSERT_EQ(100U, config->free_track_allocations());
   ASSERT_EQ(60U, config->fill_on_free_bytes());
   ASSERT_EQ(16U, config->free_track_backtrace_num_frames());
 
   // Now reverse the arguments.
   ASSERT_TRUE(InitConfig("fill_on_free=32 free_track=1234")) << getFakeLogPrint();
-  ASSERT_EQ(FREE_TRACK | FILL_ON_FREE, config->options());
+  ASSERT_EQ(FREE_TRACK | FILL_ON_FREE | TRACK_ALLOCS, config->options());
   ASSERT_EQ(1234U, config->free_track_allocations());
   ASSERT_EQ(32U, config->fill_on_free_bytes());
   ASSERT_EQ(16U, config->free_track_backtrace_num_frames());
@@ -475,11 +534,11 @@ TEST_F(MallocDebugConfigTest, free_track_backtrace_num_frames_zero) {
 
 TEST_F(MallocDebugConfigTest, free_track_backtrace_num_frames_and_free_track) {
   ASSERT_TRUE(InitConfig("free_track free_track_backtrace_num_frames=123")) << getFakeLogPrint();
-  ASSERT_EQ(FREE_TRACK | FILL_ON_FREE, config->options());
+  ASSERT_EQ(FREE_TRACK | FILL_ON_FREE | TRACK_ALLOCS, config->options());
   ASSERT_EQ(123U, config->free_track_backtrace_num_frames());
 
   ASSERT_TRUE(InitConfig("free_track free_track_backtrace_num_frames")) << getFakeLogPrint();
-  ASSERT_EQ(FREE_TRACK | FILL_ON_FREE, config->options());
+  ASSERT_EQ(FREE_TRACK | FILL_ON_FREE | TRACK_ALLOCS, config->options());
   ASSERT_EQ(16U, config->free_track_backtrace_num_frames());
 
   ASSERT_STREQ("", getFakeLogBuf().c_str());
@@ -500,6 +559,24 @@ TEST_F(MallocDebugConfigTest, leak_track_fail) {
   ASSERT_STREQ("", getFakeLogBuf().c_str());
   std::string log_msg(
       "6 malloc_debug malloc_testing: value set for option 'leak_track' "
+      "which does not take a value\n");
+  ASSERT_STREQ((log_msg + usage_string).c_str(), getFakeLogPrint().c_str());
+}
+
+TEST_F(MallocDebugConfigTest, verify_pointers) {
+  ASSERT_TRUE(InitConfig("verify_pointers")) << getFakeLogPrint();
+  ASSERT_EQ(TRACK_ALLOCS, config->options());
+
+  ASSERT_STREQ("", getFakeLogBuf().c_str());
+  ASSERT_STREQ("", getFakeLogPrint().c_str());
+}
+
+TEST_F(MallocDebugConfigTest, verify_pointers_fail) {
+  ASSERT_FALSE(InitConfig("verify_pointers=200")) << getFakeLogPrint();
+
+  ASSERT_STREQ("", getFakeLogBuf().c_str());
+  std::string log_msg(
+      "6 malloc_debug malloc_testing: value set for option 'verify_pointers' "
       "which does not take a value\n");
   ASSERT_STREQ((log_msg + usage_string).c_str(), getFakeLogPrint().c_str());
 }

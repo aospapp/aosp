@@ -18,12 +18,12 @@ package com.android.tradefed.testtype;
 
 import com.android.ddmlib.IShellOutputReceiver;
 import com.android.ddmlib.Log;
-import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.ITestLifeCycleReceiver;
 
 import java.util.concurrent.TimeUnit;
 
@@ -269,7 +269,7 @@ public class VtsFuzzTest implements IDeviceTest, IRemoteTest {
      * @param runName
      * @return a {@link IShellOutputReceiver}
      */
-    IShellOutputReceiver createResultParser(String runName, ITestRunListener listener) {
+    IShellOutputReceiver createResultParser(String runName, ITestLifeCycleReceiver listener) {
         VtsFuzzTestResultParser resultParser = new VtsFuzzTestResultParser(runName, listener);
         return resultParser;
     }

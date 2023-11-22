@@ -60,3 +60,8 @@ See the best practices guide, existing tests, and comments in the code.
 See the coding style guide for guidance on submitting patches.
 
 [Coding Style](docs/coding-style.md)
+
+## Pre-upload hook dependencies
+
+You need to run `utils/build_externals.py` to set up the dependencies
+for pre-upload hook tests.

@@ -183,41 +183,61 @@ public:
     }
 
     /* Command assembly helpers */
-    int create(int family, uint8_t cmd, int flags, int hdrlen);
-    int create(uint8_t cmd, int flags, int hdrlen) {
+    wifi_error create(int family, uint8_t cmd, int flags, int hdrlen);
+    wifi_error create(uint8_t cmd, int flags, int hdrlen) {
         return create(mFamily, cmd, flags, hdrlen);
     }
-    int create(uint8_t cmd) {
+    wifi_error create(uint8_t cmd) {
         return create(mFamily, cmd, 0, 0);
     }
 
-    int create(uint32_t id, int subcmd);
+    wifi_error create(uint32_t id, int subcmd);
 
-    int put_u8(int attribute, uint8_t value) {
-        return nla_put(mMsg, attribute, sizeof(value), &value);
+    wifi_error wifi_nla_put(struct nl_msg *msg, int attr,
+                            int attrlen, const void *data)
+    {
+        int status;
+
+        status = nla_put(msg, attr, attrlen, data);
+	if (status < 0)
+            ALOGE("Failed to put attr with size = %d, type = %d, error = %d",
+                  attrlen, attr, status);
+        return mapKernelErrortoWifiHalError(status);
     }
-    int put_u16(int attribute, uint16_t value) {
-        return nla_put(mMsg, attribute, sizeof(value), &value);
+    wifi_error put_u8(int attribute, uint8_t value) {
+        return wifi_nla_put(mMsg, attribute, sizeof(value), &value);
     }
-    int put_u32(int attribute, uint32_t value) {
-        return nla_put(mMsg, attribute, sizeof(value), &value);
+    wifi_error put_u16(int attribute, uint16_t value) {
+        return wifi_nla_put(mMsg, attribute, sizeof(value), &value);
+    }
+    wifi_error put_u32(int attribute, uint32_t value) {
+        return wifi_nla_put(mMsg, attribute, sizeof(value), &value);
     }
 
-    int put_u64(int attribute, uint64_t value) {
-        return nla_put(mMsg, attribute, sizeof(value), &value);
+    wifi_error put_u64(int attribute, uint64_t value) {
+        return wifi_nla_put(mMsg, attribute, sizeof(value), &value);
     }
 
-    int put_s8(int attribute, s8 value) {
-        return nla_put(mMsg, attribute, sizeof(int8_t), &value);
+    wifi_error put_s8(int attribute, s8 value) {
+        return wifi_nla_put(mMsg, attribute, sizeof(int8_t), &value);
     }
-    int put_s16(int attribute, s16 value) {
-        return nla_put(mMsg, attribute, sizeof(int16_t), &value);
+    wifi_error put_s16(int attribute, s16 value) {
+        return wifi_nla_put(mMsg, attribute, sizeof(int16_t), &value);
     }
-    int put_s32(int attribute, s32 value) {
-        return nla_put(mMsg, attribute, sizeof(int32_t), &value);
+    wifi_error put_s32(int attribute, s32 value) {
+        return wifi_nla_put(mMsg, attribute, sizeof(int32_t), &value);
     }
-    int put_s64(int attribute, s64 value) {
-        return nla_put(mMsg, attribute, sizeof(int64_t), &value);
+    wifi_error put_s64(int attribute, s64 value) {
+        return wifi_nla_put(mMsg, attribute, sizeof(int64_t), &value);
+    }
+    wifi_error put_flag(int attribute) {
+        int status;
+
+        status =  nla_put_flag(mMsg, attribute);
+        if(status < 0)
+           ALOGE("Failed to put flag attr of type = %d, error = %d",
+                  attribute, status);
+        return mapKernelErrortoWifiHalError(status);
     }
 
     u8 get_u8(const struct nlattr *nla)
@@ -255,11 +275,11 @@ public:
         return *(s64 *) nla_data(nla);
     }
 
-    int put_string(int attribute, const char *value) {
-        return nla_put(mMsg, attribute, strlen(value) + 1, value);
+    wifi_error put_string(int attribute, const char *value) {
+        return wifi_nla_put(mMsg, attribute, strlen(value) + 1, value);
     }
-    int put_addr(int attribute, mac_addr value) {
-        return nla_put(mMsg, attribute, sizeof(mac_addr), value);
+    wifi_error put_addr(int attribute, mac_addr value) {
+        return wifi_nla_put(mMsg, attribute, sizeof(mac_addr), value);
     }
 
     struct nlattr * attr_start(int attribute) {
@@ -269,12 +289,12 @@ public:
         nla_nest_end(mMsg, attr);
     }
 
-    int set_iface_id(int ifindex) {
+    wifi_error set_iface_id(int ifindex) {
         return put_u32(NL80211_ATTR_IFINDEX, ifindex);
     }
 
-    int put_bytes(int attribute, const char *data, int len) {
-        return nla_put(mMsg, attribute, len, data);
+    wifi_error put_bytes(int attribute, const char *data, int len) {
+        return wifi_nla_put(mMsg, attribute, len, data);
     }
 
 private:
@@ -312,20 +332,20 @@ public:
         return mId;
     }
 
-    virtual int create() {
+    virtual wifi_error create() {
         /* by default there is no way to cancel */
         return WIFI_ERROR_NOT_SUPPORTED;
     }
 
-    virtual int cancel() {
+    virtual wifi_error cancel() {
         /* by default there is no way to cancel */
         return WIFI_ERROR_NOT_SUPPORTED;
     }
 
-    int requestResponse();
-    int requestEvent(int cmd);
-    int requestVendorEvent(uint32_t id, int subcmd);
-    int requestResponse(WifiRequest& request);
+    wifi_error requestResponse();
+    wifi_error requestEvent(int cmd);
+    wifi_error requestVendorEvent(uint32_t id, int subcmd);
+    wifi_error requestResponse(WifiRequest& request);
 
 protected:
     wifi_handle wifiHandle() {
@@ -364,7 +384,7 @@ protected:
         wifi_unregister_handler(wifiHandle(), cmd);
     }
 
-    int registerVendorHandler(uint32_t id, int subcmd) {
+    wifi_error registerVendorHandler(uint32_t id, int subcmd) {
         return wifi_register_vendor_handler(wifiHandle(), id, subcmd, &event_handler, this);
     }
 
@@ -405,27 +425,29 @@ public:
 
     virtual ~WifiVendorCommand();
 
-    virtual int create();
+    virtual wifi_error create();
 
-    virtual int requestResponse();
+    virtual wifi_error requestResponse();
 
-    virtual int requestEvent();
+    virtual wifi_error requestEvent();
 
-    virtual int put_u8(int attribute, uint8_t value);
+    virtual wifi_error put_u8(int attribute, uint8_t value);
 
-    virtual int put_u16(int attribute, uint16_t value);
+    virtual wifi_error put_u16(int attribute, uint16_t value);
 
-    virtual int put_u32(int attribute, uint32_t value);
+    virtual wifi_error put_u32(int attribute, uint32_t value);
 
-    virtual int put_u64(int attribute, uint64_t value);
+    virtual wifi_error put_u64(int attribute, uint64_t value);
 
-    virtual int put_s8(int attribute, s8 value);
+    virtual wifi_error put_s8(int attribute, s8 value);
 
-    virtual int put_s16(int attribute, s16 value);
+    virtual wifi_error put_s16(int attribute, s16 value);
 
-    virtual int put_s32(int attribute, s32 value);
+    virtual wifi_error put_s32(int attribute, s32 value);
 
-    virtual int put_s64(int attribute, s64 value);
+    virtual wifi_error put_s64(int attribute, s64 value);
+
+    wifi_error put_flag(int attribute);
 
     virtual u8 get_u8(const struct nlattr *nla);
     virtual u16 get_u16(const struct nlattr *nla);
@@ -437,17 +459,17 @@ public:
     virtual s32 get_s32(const struct nlattr *nla);
     virtual s64 get_s64(const struct nlattr *nla);
 
-    virtual int put_string(int attribute, const char *value);
+    virtual wifi_error put_string(int attribute, const char *value);
 
-    virtual int put_addr(int attribute, mac_addr value);
+    virtual wifi_error put_addr(int attribute, mac_addr value);
 
     virtual struct nlattr * attr_start(int attribute);
 
     virtual void attr_end(struct nlattr *attribute);
 
-    virtual int set_iface_id(const char* name);
+    virtual wifi_error set_iface_id(const char* name);
 
-    virtual int put_bytes(int attribute, const char *data, int len);
+    virtual wifi_error put_bytes(int attribute, const char *data, int len);
 
     virtual wifi_error get_mac_addr(struct nlattr **tb_vendor,
                                 int attribute,

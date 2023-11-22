@@ -26,5 +26,5 @@
     <string name="need_to_configure" msgid="1269102638159389032">"لم يتم تحديد أي صور."</string>
     <string name="photodream_select_all" msgid="6364858563337927827">"تحديد الكل"</string>
     <string name="photodream_select_none" msgid="8816452124894525861">"إلغاء تحديد الكل"</string>
-    <string name="no_photos" msgid="4262083523147564199">"لا يحتوي الجهاز على أية صور."</string>
+    <string name="no_photos" msgid="4262083523147564199">"لا يحتوي الجهاز على أي صور."</string>
 </resources>

@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"要清除所有資訊和聯絡人嗎？"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"新增醫療資訊和緊急聯絡人，以便第一線救援人員在發生緊急事件時提供相關協助。\n\n任何人不必先將手機解鎖，都能在鎖定畫面上查看這項資訊，而且只要輕觸緊急聯絡人姓名，即可撥打對方號碼。"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"新增緊急救援資訊"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"協助第一線處理人員找到重要資訊"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"讓第一位回覆者查看你的資訊"</string>
 </resources>

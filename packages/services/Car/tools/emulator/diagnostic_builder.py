@@ -15,12 +15,12 @@
 # limitations under the License.
 #
 
-# A helper class to generate COMPLEX property values that can be
+# A helper class to generate MIXED property values that can be
 # set as the value for a diagnostic frame
 # Spritually, the same as DiagnosticEventBuilder.java
 
-from diagnostic_sensors import OBD2_SENSOR_INTEGER_LAST_SYSTEM_INDEX
-from diagnostic_sensors import OBD2_SENSOR_FLOAT_LAST_SYSTEM_INDEX
+from diagnostic_sensors import DIAGNOSTIC_SENSOR_INTEGER_LAST_SYSTEM_INDEX
+from diagnostic_sensors import DIAGNOSTIC_SENSOR_FLOAT_LAST_SYSTEM_INDEX
 
 class DiagnosticEventBuilder(object):
     class ByteArray(object):
@@ -56,9 +56,9 @@ class DiagnosticEventBuilder(object):
         self.string_value = ""
         self.bytes = ""
         self.numIntSensors = propConfig.config[0].config_array[0] + \
-            OBD2_SENSOR_INTEGER_LAST_SYSTEM_INDEX + 1
+            DIAGNOSTIC_SENSOR_INTEGER_LAST_SYSTEM_INDEX + 1
         self.numFloatSensors = propConfig.config[0].config_array[1] + \
-            OBD2_SENSOR_FLOAT_LAST_SYSTEM_INDEX + 1
+            DIAGNOSTIC_SENSOR_FLOAT_LAST_SYSTEM_INDEX + 1
         self.bitmask = DiagnosticEventBuilder.ByteArray(
             self.numIntSensors+self.numFloatSensors)
         self.int32_values = [0] * self.numIntSensors

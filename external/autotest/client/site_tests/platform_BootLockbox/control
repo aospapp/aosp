@@ -12,7 +12,6 @@ TEST_CLASS = 'platform'
 TEST_TYPE = 'client'
 DEPENDENCIES = 'cleanup-reboot'
 BUG_TEMPLATE = {'owner': 'apronin@chromium.org'}
-ATTRIBUTES = "suite:bvt-perbuild"
 JOB_RETRIES = 2
 
 DOC = """

@@ -195,18 +195,10 @@ int main(int ac, char **av)
 			}
 
 			/* clean up things in case we are looping */
-			if (unlink(fname) == -1) {
-				tst_brkm(TBROK, cleanup, "unlink() #1 failed");
-			}
-			if (unlink(mname) == -1) {
-				tst_brkm(TBROK, cleanup, "unlink() #2 failed");
-			}
-			if (rmdir(fdir) == -1) {
-				tst_brkm(TBROK, cleanup, "rmdir() #1 failed");
-			}
-			if (rmdir(mdir) == -1) {
-				tst_brkm(TBROK, cleanup, "rmdir() #2 failed");
-			}
+			SAFE_UNLINK(cleanup, fname);
+			SAFE_UNLINK(cleanup, mname);
+			SAFE_RMDIR(cleanup, fdir);
+			SAFE_RMDIR(cleanup, mdir);
 		} else {
 			/* parent - let the second child carry on */
 			waitpid(pid1, &status, 0);
@@ -237,12 +229,7 @@ void setup(void)
 
 	pw = SAFE_GETPWNAM(NULL, "nobody");
 	nobody_uid = pw->pw_uid;
-#ifndef ANDROID
 	pw = SAFE_GETPWNAM(NULL, "bin");
-#else
-    // user "bin" does not exist in Android kernel
-    pw = SAFE_GETPWNAM(NULL, "everybody");
-#endif
 	bin_uid = pw->pw_uid;
 
 	tst_sig(FORK, DEF_HANDLER, cleanup);

@@ -17,6 +17,7 @@
     <dimen name="avatar_rounded_radius">118dp</dimen>
     <dimen name="in_call_controls_container_height">236dp</dimen>
     <dimen name="in_call_info_margin_top">96dp</dimen>
-    <dimen name="in_call_small_contact_photo_size">232dp</dimen>
     <dimen name="small_contact_photo_margin_end">96dp</dimen>
+    <dimen name="in_call_card_dialpad_horizontal_spacing">@dimen/car_padding_6</dimen>
+    <dimen name="in_call_card_dialpad_vertical_spacing">@dimen/car_padding_5</dimen>
 </resources>

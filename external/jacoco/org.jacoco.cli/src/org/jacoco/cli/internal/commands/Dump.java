@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -27,20 +27,20 @@ import org.kohsuke.args4j.Option;
  */
 public class Dump extends Command {
 
-	@Option(name = "-address", usage = "host name or ip address to connect to (default localhost)", metaVar = "<address>")
+	@Option(name = "--address", usage = "host name or ip address to connect to (default localhost)", metaVar = "<address>")
 	String address = AgentOptions.DEFAULT_ADDRESS;
 
-	@Option(name = "-port", usage = "the port to connect to (default 6300)", metaVar = "<port>")
+	@Option(name = "--port", usage = "the port to connect to (default 6300)", metaVar = "<port>")
 	int port = AgentOptions.DEFAULT_PORT;
 
-	@Option(name = "-destfile", usage = "file to write execution data to", metaVar = "<path>", required = true)
+	@Option(name = "--destfile", usage = "file to write execution data to", metaVar = "<path>", required = true)
 	File destfile;
 
-	@Option(name = "-reset", usage = "reset execution data on test target after dump")
+	@Option(name = "--reset", usage = "reset execution data on test target after dump")
 	boolean reset = false;
 
-	@Option(name = "-retry", usage = "number of retries (default 0)", metaVar = "<count>")
-	int retrycount = 0;
+	@Option(name = "--retry", usage = "number of retries (default 10)", metaVar = "<count>")
+	int retrycount = 10;
 
 	@Override
 	public String description() {

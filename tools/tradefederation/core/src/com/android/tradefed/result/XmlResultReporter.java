@@ -18,10 +18,7 @@ package com.android.tradefed.result;
 
 import com.android.ddmlib.Log;
 import com.android.ddmlib.Log.LogLevel;
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.ddmlib.testrunner.TestResult;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.StreamUtil;
@@ -88,7 +85,7 @@ public class XmlResultReporter extends CollectingTestListener implements ILogSav
     }
 
     @Override
-    public void testFailed(TestIdentifier test, String trace) {
+    public void testFailed(TestDescription test, String trace) {
         super.testFailed(test, trace);
         CLog.d("%s : %s", test, trace);
     }
@@ -164,8 +161,8 @@ public class XmlResultReporter extends CollectingTestListener implements ILogSav
 
         for (TestRunResult runResult : getRunResults()) {
             // TODO: add test run summaries as TESTSUITES ?
-            Map<TestIdentifier, TestResult> testResults = runResult.getTestResults();
-            for (Map.Entry<TestIdentifier, TestResult> testEntry : testResults.entrySet()) {
+            Map<TestDescription, TestResult> testResults = runResult.getTestResults();
+            for (Map.Entry<TestDescription, TestResult> testEntry : testResults.entrySet()) {
                 print(serializer, testEntry.getKey(), testEntry.getValue());
             }
         }
@@ -173,7 +170,7 @@ public class XmlResultReporter extends CollectingTestListener implements ILogSav
         serializer.endTag(NS, TESTSUITE);
     }
 
-    void print(KXmlSerializer serializer, TestIdentifier testId, TestResult testResult)
+    void print(KXmlSerializer serializer, TestDescription testId, TestResult testResult)
             throws IOException {
 
         serializer.startTag(NS, TESTCASE);

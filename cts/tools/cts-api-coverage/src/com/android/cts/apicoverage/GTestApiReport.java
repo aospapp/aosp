@@ -128,7 +128,7 @@ class GTestApiReport {
 
             for (File testConfigFile : testConfigFiles) {
                 XMLReader xmlReader = XMLReaderFactory.createXMLReader();
-                TestModuleConfigHandler testModuleXmlHandler = new TestModuleConfigHandler();
+                TestModuleConfigHandler testModuleXmlHandler = new TestModuleConfigHandler(file.getName());
                 xmlReader.setContentHandler(testModuleXmlHandler);
                 FileReader fileReader = null;
 

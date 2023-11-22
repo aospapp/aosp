@@ -19,20 +19,21 @@
 
 #include "dex_cache.h"
 
+#include <android-base/logging.h>
+
 #include "art_field.h"
 #include "art_method.h"
 #include "base/casts.h"
 #include "base/enums.h"
-#include "base/logging.h"
 #include "class_linker.h"
-#include "dex_file.h"
-#include "gc_root.h"
+#include "dex/dex_file.h"
 #include "gc/heap-inl.h"
-#include "mirror/class.h"
+#include "gc_root.h"
 #include "mirror/call_site.h"
+#include "mirror/class.h"
 #include "mirror/method_type.h"
-#include "runtime.h"
 #include "obj_ptr.h"
+#include "runtime.h"
 
 #include <atomic>
 
@@ -167,7 +168,7 @@ inline CallSite* DexCache::SetResolvedCallSite(uint32_t call_site_idx, CallSite*
   // The first assignment for a given call site wins.
   Atomic<GcRoot<mirror::CallSite>>& ref =
       reinterpret_cast<Atomic<GcRoot<mirror::CallSite>>&>(target);
-  if (ref.CompareExchangeStrongSequentiallyConsistent(null_call_site, candidate)) {
+  if (ref.CompareAndSetStrongSequentiallyConsistent(null_call_site, candidate)) {
     // TODO: Fine-grained marking, so that we don't need to go through all arrays in full.
     Runtime::Current()->GetHeap()->WriteBarrierEveryFieldOf(this);
     return call_site;
@@ -239,31 +240,6 @@ inline void DexCache::ClearResolvedMethod(uint32_t method_idx, PointerSize ptr_s
   if (GetNativePairPtrSize(resolved_methods, slot_idx, ptr_size).index == method_idx) {
     MethodDexCachePair cleared(nullptr, MethodDexCachePair::InvalidIndexForSlot(slot_idx));
     SetNativePairPtrSize(resolved_methods, slot_idx, cleared, ptr_size);
-  }
-}
-
-template <typename PtrType>
-inline PtrType DexCache::GetElementPtrSize(PtrType* ptr_array, size_t idx, PointerSize ptr_size) {
-  if (ptr_size == PointerSize::k64) {
-    uint64_t element = reinterpret_cast<const uint64_t*>(ptr_array)[idx];
-    return reinterpret_cast<PtrType>(dchecked_integral_cast<uintptr_t>(element));
-  } else {
-    uint32_t element = reinterpret_cast<const uint32_t*>(ptr_array)[idx];
-    return reinterpret_cast<PtrType>(dchecked_integral_cast<uintptr_t>(element));
-  }
-}
-
-template <typename PtrType>
-inline void DexCache::SetElementPtrSize(PtrType* ptr_array,
-                                        size_t idx,
-                                        PtrType ptr,
-                                        PointerSize ptr_size) {
-  if (ptr_size == PointerSize::k64) {
-    reinterpret_cast<uint64_t*>(ptr_array)[idx] =
-        dchecked_integral_cast<uint64_t>(reinterpret_cast<uintptr_t>(ptr));
-  } else {
-    reinterpret_cast<uint32_t*>(ptr_array)[idx] =
-        dchecked_integral_cast<uint32_t>(reinterpret_cast<uintptr_t>(ptr));
   }
 }
 

@@ -20,11 +20,33 @@
     <string name="launcher_settings_app_name" msgid="5782771766725939392">"تنظیمات"</string>
     <string name="launcher_network_app_name" msgid="5107150533945388559">"شبکه"</string>
     <string name="launcher_restricted_profile_app_name" msgid="671448012575234643">"نمایه محدود شده"</string>
+    <string name="header_category_suggestions" msgid="6732367439328586933">"پیشنهادها"</string>
+    <string name="header_category_quick_settings" msgid="6626141045575946920">"تنظیمات سریع"</string>
+    <string name="header_category_general_settings" msgid="1208946854116876918">"تنظیمات کلی"</string>
+    <string name="dismiss_suggestion" msgid="8288127823132069828">"نپذیرفتن پیشنهاد"</string>
+    <string name="hotwording_title" msgid="1984130766527626626">"تشخیص «OK Google»"</string>
+    <string name="hotwording_summary" msgid="2863751845299261441">"هروقت خواستید با «دستیار Google» صحبت کنید"</string>
     <string name="header_category_device" msgid="4855983928659541345">"دستگاه"</string>
-    <string name="header_category_preferences" msgid="175105555164713972">"تنظیمات ترجیحی"</string>
-    <string name="header_category_accessories" msgid="823295909353025991">"کنترل از راه دور و لوازم جانبی"</string>
+    <string name="header_category_preferences" msgid="175105555164713972">"اولویت‌ها"</string>
+    <string name="header_category_accessories" msgid="823295909353025991">"کنترل ازراه‌دور و لوازم جانبی"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"شخصی"</string>
-    <string name="accounts_category_title" msgid="7591072907146317425">"حساب‌ها"</string>
+    <string name="connect_to_network" msgid="2209125715907353369">"اتصال به شبکه"</string>
+    <string name="add_an_account" msgid="1123478843971990449">"افزودن حساب"</string>
+    <string name="accounts_category_title" msgid="7839427428921349418">"حساب‌ها و ورود به سیستم"</string>
+    <string name="accounts_category_summary_no_account" msgid="5739678666463033824">"هیچ حسابی وجود ندارد"</string>
+    <plurals name="accounts_category_summary" formatted="false" msgid="3864659911073569648">
+      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> حساب</item>
+      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> حساب</item>
+    </plurals>
+    <string name="connectivity_network_category_title" msgid="6005656364481347542">"شبکه و اینترنت"</string>
+    <string name="applications_category_title" msgid="3552921143969612110">"برنامه‌ها"</string>
+    <string name="device_pref_category_title" msgid="5264163316572335776">"تنظیمات ترجیحی دستگاه"</string>
+    <string name="remotes_and_accessories_category_title" msgid="2729050422677319645">"کنترل از راه دور و لوازم جانبی"</string>
+    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3967545806275801632">"دستگاه بلوتوث متصلی وجود ندارد"</string>
+    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="2004733390509722820">
+      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> لوازم جانبی</item>
+      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> لوازم جانبی</item>
+    </plurals>
     <string name="add_account" msgid="4098060223200619258">"افزودن حساب"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"حذف کردن حساب"</string>
     <string name="account_sync" msgid="773808124331714965">"انتخاب برنامه‌های همگام‌ شده"</string>
@@ -40,27 +62,47 @@
 %1$s</xliff:g>"</string>
     <string name="sync_failed" msgid="5514824149810480551">"همگام‌سازی نشد"</string>
     <string name="sync_active" msgid="6891115263481154378">"همگام‌سازی فعال"</string>
-    <string name="connectivity_network" msgid="8321537111272398501">"شبکه"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"اترنت"</string>
+    <string name="connectivity_summary_ethernet_connected" msgid="2015335020646410586">"اترنت متصل است"</string>
+    <string name="connectivity_summary_no_network_connected" msgid="5187378791046457432">"هیچ شبکه‌ای متصل نیست"</string>
+    <string name="connectivity_summary_wifi_disabled" msgid="6904637079319724455">"Wi-Fi خاموش است"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"همیشه اسکن در دسترس باشد"</string>
     <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"به سرویس مکان و دیگر برنامه‌های Google اجازه می‌دهد حتی زمانی که Wi-Fi خاموش است، شبکه‌ها را اسکن کنند."</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
+    <string name="connectivity_hint_message" msgid="1314202316675864203">"اتصال به شبکه"</string>
+    <string name="apps_recently_used_category_title" msgid="5254492409677346900">"برنامه‌های اخیراً بازشده"</string>
+    <string name="apps_see_all_apps" msgid="5546179088197139203">"مشاهده همه برنامه‌ها"</string>
+    <string name="apps_permissions_category_title" msgid="4476837368840442313">"مجوزها"</string>
+    <string name="all_apps_title" msgid="5330174847732759402">"همه برنامه‌ها"</string>
+    <string name="all_apps_show_system_apps" msgid="4648447904721171884">"نمایش‌ برنامه‌های سیستم"</string>
+    <string name="all_apps_installed" msgid="54800379871111518">"برنامه‌های نصب‌شده"</string>
+    <string name="all_apps_other" msgid="8297097642727891911">"برنامه‌های سیستم"</string>
+    <string name="all_apps_disabled" msgid="2016067533586741345">"برنامه‌های غیرفعال‌شده"</string>
     <string name="device_daydream" msgid="3354366974209179614">"محافظ صفحه"</string>
     <string name="device_display" msgid="101455384386372747">"نمایش"</string>
     <string name="device_sound" msgid="9214182566287657481">"صدا"</string>
     <string name="device_surround_sound" msgid="6272196310566546860">"صدای فراگیر"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"صداهای سیستم"</string>
-    <string name="device_apps" msgid="9180435229638772838">"برنامه‌ها"</string>
-    <string name="device_storage_reset" msgid="1425978936501134425">"فضای ذخیره‌سازی و بازنشانی"</string>
+    <string name="device_apps" msgid="1971794537385509294">"برنامه‌ها"</string>
+    <string name="device_storage" msgid="5536683600091277826">"حافظه"</string>
+    <string name="device_reset" msgid="1885840356489458285">"بازنشانی"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"تهیهٔ نسخهٔ پشتیبان و بازیابی"</string>
-    <string name="device_reset" msgid="2827002349560023125">"بازنشانی داده‌های کارخانه"</string>
+    <string name="device_factory_reset" msgid="6537106927211842545">"بازنشانی داده‌های کارخانه"</string>
     <string name="device_calibration" msgid="8632962533376605191">"کالیبراسیون"</string>
+    <string name="surround_sound_select_formats" msgid="6329868407147678259">"انتخاب قالب"</string>
+    <string name="surround_sound_category_title" msgid="1331285587464316534">"صدای فراگیر"</string>
+    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)‎"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)‎"</string>
+    <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
+    <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
+    <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
+    <string name="surround_sound_auto_info" msgid="4957977219847012992">"توجه: اگر دستگاهتان قالب‌های پشتیبانی‌شده‌اش را به‌درستی گزارش نکند، ممکن است گزینه «خودکار» کار نکند."</string>
+    <string name="surround_sound_auto_summary" msgid="175387511376834034">"خودکار: از قالب‌هایی استفاده کنید که دستگاهتان به‌عنوان پشتیبانی‌شده گزارش می‌کند (توصیه می‌شود)"</string>
+    <string name="surround_sound_none_summary" msgid="4295042972785042496">"هیچ‌کدام: هرگز از صدای فراگیر استفاده نکنید"</string>
+    <string name="surround_sound_manual_summary" msgid="9208540024024014501">"دستی: قالب‌های موردنظر را برای استفاده انتخاب کنید"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"اطلاعات در حافظه پنهان پاک شود؟"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"اطلاعات در حافظه پنهان همه برنامه‌ها پاک می‌شود."</string>
-    <string name="apps_downloaded" msgid="4222190849854323480">"برنامه‌های بارگیری‌شده"</string>
-    <string name="apps_system" msgid="2499191125802829425">"برنامه‌های سیستم"</string>
-    <string name="apps_running" msgid="6430310491739956228">"برنامه‌های در حال اجرا"</string>
     <string name="accessories_add" msgid="1347802656349218830">"افزودن وسیله جانبی"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"در حال مرتبط‌سازی..."</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"در حال اتصال..."</string>
@@ -91,12 +133,16 @@
     <string name="system_date_time" msgid="8898457978560618950">"تاریخ و ساعت"</string>
     <string name="system_language" msgid="2337138146114609247">"زبان"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"صفحه‌کلید"</string>
+    <string name="system_keyboard_autofill" msgid="5787948036400896834">"صفحه‌کلید و تکمیل خودکار"</string>
+    <string name="system_autofill" msgid="8647914463541617409">"تکمیل خودکار"</string>
     <string name="system_home" msgid="2858989138172296012">"صفحه اصلی"</string>
     <string name="system_search" msgid="2837264654143247611">"جستجو"</string>
     <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"امنیت و محدودیت‌ها"</string>
     <string name="system_speech" msgid="8128688499687306982">"گفتار"</string>
     <string name="system_inputs" msgid="2413907183796651102">"ورودی‌ها"</string>
+    <string name="system_inputs_devices" msgid="8700905419497948327">"ورودی‌ها و دستگاه‌ها"</string>
+    <string name="system_home_theater_control" msgid="2053198603790384368">"کنترل سینمای خانگی"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"قابلیت دسترسی"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"گزینه‌های برنامه‌نویسان"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"هیچ‌‌کدام"</string>
@@ -143,14 +189,11 @@
     <string name="imei_information_title" msgid="5208860549282877136">"اطلاعات IMEI"</string>
     <string name="status_bt_address" msgid="1571721865060122393">"آدرس بلوتوث"</string>
     <string name="status_up_time" msgid="1674116490191446110">"زمان فعالیت"</string>
-    <string name="status_wimax_mac_address" msgid="1102907383444152052">"آدرس 4G MAC"</string>
     <string name="legal_information" msgid="2346024659831852038">"اطلاعات حقوقی"</string>
     <string name="copyright_title" msgid="5564228453228549353">"حق نسخه‌برداری"</string>
     <string name="license_title" msgid="4482927105870812604">"مجوز"</string>
     <string name="terms_title" msgid="8480859222932736291">"شرایط و مقررات"</string>
     <string name="webview_license_title" msgid="8843666223583780825">"مجوز وب‌نمای سیستم"</string>
-    <string name="wallpaper_attributions" msgid="8622098625739634898">"تصاویر زمینه"</string>
-    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"ارائه‌دهندگان تصویر ماهواره‌ای:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"ضعیف"</item>
     <item msgid="5986166866411161790">"متوسط"</item>
@@ -159,7 +202,7 @@
   </string-array>
     <string name="title_mac_address" msgid="3428401680168668544">"آدرس MAC"</string>
     <string name="title_signal_strength" msgid="205478650262078041">"قدرت سیگنال"</string>
-    <string name="title_ip_address" msgid="4533523100923004711">"آدرس IP"</string>
+    <string name="title_ip_address" msgid="4533523100923004711">"نشانی IP"</string>
     <string name="title_ssid" msgid="4858945903642469730">"نام شبکه Wi-Fi را وارد کنید"</string>
     <string name="title_internet_connection" msgid="8710084774588697646">"اتصال اینترنت"</string>
     <string name="connected" msgid="7563100162902079938">"متصل"</string>
@@ -168,10 +211,8 @@
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"مشاهده همه"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"مشاهده موارد کمتر"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"شبکه‌های موجود"</string>
-    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"اتصال از طریق WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"افزودن شبکه جدید"</string>
     <string name="security_type" msgid="524443802004143058">"نوع امنیت"</string>
-    <string name="wps_network" msgid="1052148085426051873">"اتصال از طریق WPS"</string>
     <string name="other_network" msgid="3539704463099544488">"شبکه‌ای دیگر…"</string>
     <string name="skip_network" msgid="6380260543776712357">"رد شدن"</string>
     <string name="wifi_security_type_none" msgid="6622722325237471927">"هیچ‌کدام"</string>
@@ -190,7 +231,7 @@
     <string name="title_wifi_proxy_port" msgid="9194893429116021337">"درگاه پروکسی:"</string>
     <string name="title_wifi_proxy_bypass" msgid="4522775396659538614">"کنار گذاشتن پروکسی برای:"</string>
     <string name="title_wifi_ip_settings" msgid="1176973848286865602">"تنظیمات IP"</string>
-    <string name="title_wifi_ip_address" msgid="1176502993805009566">"آدرس IP:"</string>
+    <string name="title_wifi_ip_address" msgid="1176502993805009566">"نشانی IP:"</string>
     <string name="title_wifi_gateway" msgid="7210935277165358134">"دروازه:"</string>
     <string name="title_wifi_network_prefix_length" msgid="4821632382990582038">"طول پیشوند شبکه:"</string>
     <string name="title_wifi_dns1" msgid="8202712852864206601">"DNS 1:"</string>
@@ -206,6 +247,8 @@
     <string name="wifi_forget_network" msgid="7302755141573045803">"فراموش کردن شبکه"</string>
     <string name="wifi_forget_network_description" msgid="3328285160018330334">"این کار اطلاعات مورد استفاده برای اتصال به این شبکه، از جمله گذرواژه ذخیره شده را پاک می‌کند"</string>
     <string name="wifi_action_ok" msgid="5932500664228395779">"قبول"</string>
+    <string name="wifi_setup_action_dont_change_network" msgid="5136210803832000656">"ادامه"</string>
+    <string name="wifi_setup_action_change_network" msgid="4320731433166354508">"تغییر شبکه"</string>
     <string name="wifi_action_change_network" msgid="5196215981075986148">"تغییر داده شود"</string>
     <string name="wifi_action_dont_change_network" msgid="1449920958930251977">"تغییر داده نشود"</string>
     <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"تأیید"</string>
@@ -216,14 +259,14 @@
     <string name="wifi_action_static" msgid="1025855501453321749">"ثابت"</string>
     <string name="wifi_action_status_info" msgid="7664354971197839253">"اطلاعات وضعیت"</string>
     <string name="wifi_action_advanced_options_title" msgid="3242132674399983503">"گزینه‌های پیشرفته"</string>
-    <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"یک آدرس IP معتبر وارد کنید"</string>
+    <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"یک نشانی IP معتبر وارد کنید"</string>
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"یک آدرس دروازه معتبر وارد کنید"</string>
     <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"یک آدرس DNS معتبر وارد کنید"</string>
     <string name="wifi_ip_settings_invalid_network_prefix_length" msgid="6209978918929182270">"یک پیشوند شبکه با طول بین ۰ تا ۳۲ نویسه تایپ کنید"</string>
-    <string name="wifi_ip_address_description" msgid="6548838784556001283">"آدرس IP معتبری وارد کنید.\nمثال: <xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
-    <string name="wifi_dns1_description" msgid="2463500547232077393">"آدرس IP معتبری وارد کنید یا آن را خالی بگذارید.\nمثال: <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
-    <string name="wifi_dns2_description" msgid="8005473174044015359">"آدرس IP معتبری وارد کنید یا آن را خالی بگذارید.\nمثال: <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
-    <string name="wifi_gateway_description" msgid="4773751224452216231">"آدرس IP معتبری وارد کنید یا آن را خالی بگذارید.\nمثال: <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
+    <string name="wifi_ip_address_description" msgid="6548838784556001283">"نشانی IP معتبری وارد کنید.\nمثال: <xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
+    <string name="wifi_dns1_description" msgid="2463500547232077393">"نشانی IP معتبری وارد کنید یا آن را خالی بگذارید.\nمثال: <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
+    <string name="wifi_dns2_description" msgid="8005473174044015359">"نشانی IP معتبری وارد کنید یا آن را خالی بگذارید.\nمثال: <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
+    <string name="wifi_gateway_description" msgid="4773751224452216231">"نشانی IP معتبری وارد کنید یا آن را خالی بگذارید.\nمثال: <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
     <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"طول پیشوند شبکه معتبری وارد کنید.\nمثال: <xliff:g id="ID_1">24</xliff:g>"</string>
     <string name="proxy_error_invalid_host" msgid="3660415920668138953">"نام میزبان معتبر نیست"</string>
     <string name="proxy_error_invalid_exclusion_list" msgid="4921547051724987804">"این فهرست موارد استثنا معتبر نیست. فهرست جدا شده با کامایی از دامنه‌های استثنا شده وارد کنید."</string>
@@ -234,6 +277,11 @@
     <string name="proxy_port_description" msgid="6791098212244367568">"نام درگاه معتبری وارد کنید.\nمثال: <xliff:g id="ID_1">8080</xliff:g>"</string>
     <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"فهرستی جداشده با ویرگول از دامنه‌های مستثنا وارد کنید یا آن را خالی بگذارید.\nمثال: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
     <string name="proxy_hostname_description" msgid="5824391500254472447">"نام میزبان معتبری وارد کنید.\nمثال: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
+    <string name="title_wifi_eap_method" msgid="3723583936041145157">"روش EAP را برای <xliff:g id="SSID">%1$s</xliff:g> انتخاب کنید"</string>
+    <string name="title_wifi_phase2_authentication" msgid="8292177518924013886">"احراز هویت phase2 را برای <xliff:g id="SSID">%1$s</xliff:g> انتخاب کنید"</string>
+    <string name="title_wifi_identity" msgid="6154397685951091638">"هویتی برای <xliff:g id="SSID">%1$s</xliff:g> وارد کنید"</string>
+    <string name="title_wifi_anonymous_identity" msgid="4530402657655491360">"هویت ناشناسی برای <xliff:g id="SSID">%1$s</xliff:g> وارد کنید"</string>
+    <string name="wifi_setup_summary_title_connected" msgid="3349953509191969645">"شما به «<xliff:g id="SSID">%1$s</xliff:g>» وصل شدید"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"شبکه متصل شد"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"شبکه متصل نیست"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"در حال حاضر به <xliff:g id="SSID">%1$s</xliff:g> متصل است. به شبکه دیگری متصل شود؟"</string>
@@ -317,15 +365,6 @@
     <string name="system_package" msgid="9200255718634512790">"به‌روز‌رسانی‌های سیستم بر روی رسانه‌های خارجی نصب نمی‌شود."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"نمی‌توان «سرپرست دستگاه» را در رسانه خارجی نصب کرد."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"بیشتر بدانید"</string>
-    <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"سعی مجدد"</string>
-    <string name="wifi_wps_title" msgid="1872305810119408482">"درحال جستجو برای رهیاب WPS…"</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"دکمه راه‌اندازی حفاظت‌شده Wi‑Fi را در رهیاب فشار دهید.\nاین دکمه ممکن است WPS نامیده شود یا نماد آن در سمت راست باشد."</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"پین <xliff:g id="NUMBER">%1$s</xliff:g> را در رهیاب Wi-Fi وارد کنید"</string>
-    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"بعد از آنکه پین را وارد کردید، ممکن است تا ۲ دقیقه طول بکشد تا راه‌اندازی به پایان برسد"</string>
-    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"رهیاب Wi-Fi پیدا نشد"</string>
-    <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"تنظیم امنیتی رهیاب Wi-Fi (‏WEP) پشتیبانی نمی‌شود"</string>
-    <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"تنظیم امنیت رهیاب Wi-Fi (‏TKIP) پشتیبانی نمی‌شود"</string>
-    <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"جلسه WPS دیگری در حال انجام است. چند دقیقه دوباره امتحان کنید."</string>
     <string name="system_date" msgid="2767108116769558081">"تاریخ"</string>
     <string name="system_time" msgid="6726022312605226285">"زمان"</string>
     <string name="system_set_date" msgid="2437586307768561116">"تنظیم تاریخ"</string>
@@ -437,7 +476,7 @@
     <string name="system_check_for_drm_content_only" msgid="8716366734950874267">"فقط بررسی محتوای DRM"</string>
     <string name="system_always_check" msgid="1866566828098009853">"همیشه بررسی شود"</string>
     <string name="system_bt_hci_log" msgid="2425757846046504431">"گزارش‌گیری HCI بلوتوث"</string>
-    <string name="system_email_address" msgid="8669468986250302378">"آدرس رایانامه"</string>
+    <string name="system_email_address" msgid="8669468986250302378">"نشانی رایانامه"</string>
     <string name="system_usb_debugging" msgid="3777895294421924323">"اشکال‌زدایی USB"</string>
     <string name="system_allow_mock_locations" msgid="3635672039775772910">"مکان‌های کاذب مجاز هستند"</string>
     <string name="system_select_debug_app" msgid="8592021815119618485">"انتخاب برنامه اشکال‌زدایی"</string>
@@ -519,9 +558,14 @@
     <string name="tts_rate_normal" msgid="362011908545519639">"عادی"</string>
     <string name="tts_rate_fast" msgid="3792863158623953072">"سریع"</string>
     <string name="tts_rate_very_fast" msgid="5876670536911919074">"بسیار سریع"</string>
+    <string name="title_settings" msgid="5433841477518010243">"تنظیمات <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"صفحه‌کلید کنونی"</string>
     <string name="title_configure" msgid="6929522003149212388">"پیکربندی"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"گزینه‌های صفحه‌کلید"</string>
+    <string name="title_current_autofill_service" msgid="6055852915343152350">"سرویس تکمیل خودکار کنونی"</string>
+    <string name="title_select_autofill_service" msgid="2515782066694197988">"انتخاب سرویس تکمیل خودکار"</string>
+    <string name="autofill_none" msgid="2426888642367790651">"هیچ‌کدام"</string>
+    <string name="autofill_confirmation_message" msgid="9068009043054751287">"&lt;b&gt;مطمئن شوید به این برنامه اطمینان دارید&lt;/b&gt; &lt;br/&gt; &lt;br/&gt; &lt;xliff:g id=app_name example=سرویس گذرواژه&gt;%1$s&lt;/xliff:g&gt; برای تعیین مواردی که می‌توانند به‌طور خودکار تکمیل شوند، از آنچه روی صفحه‌نمایش شما است استفاده می‌کند."</string>
     <string name="computing_size" msgid="2955133568424704042">"‫در حال محاسبه..."</string>
     <string name="title_select_wifi_network" msgid="1038871400014761952">"شبکه Wi-Fi خودتان را انتخاب کنید"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"تغییر نام"</string>
@@ -616,7 +660,7 @@
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"پاک کردن داده‌ها"</string>
     <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"همه داده‌های این برنامه به صورت دائمی حذف می‌شود.\nاین شامل تمام فایل‌ها، تنظیمات، حساب‌ها، پایگاه‌های داده و دیگر موارد می‌شود."</string>
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"پاک کردن پیش‌فرض‌ها"</string>
-    <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"راه‌اندازی این برنامه برای برخی اقدامات"</string>
+    <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"راه‌اندازی این برنامه برای برخی کنش‌ها"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"هیچ پیش‌فرضی تنظیم نشده است"</string>
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"پاک کردن حافظه پنهان"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"اعلان‌ها"</string>
@@ -645,7 +689,7 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"همه اطلاعات شخصی و برنامه‌های بارگیری‌شده خودتان را پاک می‌کنید؟ این عملکرد دیگر قابل بازگشت نیست!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"پاک کردن همه موارد"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"نامی برای <xliff:g id="DEVICEMODEL">%1$s</xliff:g> خود انتخاب کنید"</string>
-    <string name="select_device_name_description" msgid="6890879006777364213">"برای <xliff:g id="DEVICEMODEL">%1$s</xliff:g> نامی انتخاب کنید تا هنگام ارسال محتوا یا اتصال به آن از سایر دستگاه‌ها، به شناسایی دستگاه کمک شود."</string>
+    <string name="select_device_name_description" msgid="4939767901420114190">"با انتخاب نامی برای دستگاهتان به شناسایی آن هنگام ارسال محتوا یا اتصال به آن از سایر دستگاه‌ها کمک کنید."</string>
   <string-array name="rooms">
     <item msgid="9056203990862307284">"Android TV"</item>
     <item msgid="7449352861592960712">"تلویزیون اتاق پذیرایی"</item>
@@ -655,11 +699,13 @@
     <string name="custom_room" msgid="8655516733933892458">"نام سفارشی را وارد کنید…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"تغییر نام این <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"نام فعلی این <xliff:g id="DEVICEMODEL">%1$s</xliff:g>،‏ «<xliff:g id="DEVICENAME">%2$s</xliff:g>» است."</string>
+    <string name="device_name_suggestion_title" msgid="2312205155408810120">"تنظیم نام دستگاه"</string>
+    <string name="device_name_suggestion_summary" msgid="5657494684788779371">"هنگام ارسال عکس، ویدیو و محتوایی دیگر از تلفنتان، از این نام استفاده کنید"</string>
     <string name="change_setting" msgid="2047402388786162246">"تغییر داده شود"</string>
     <string name="keep_settings" msgid="6798327196645732517">"تغییر داده نشود"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"مجوزها"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"مجوزهای برنامه"</string>
-    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> از <xliff:g id="COUNT_1">%d</xliff:g> برنامه‌های مجاز"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%1$d</xliff:g> از <xliff:g id="COUNT_1">%2$d</xliff:g> برنامه‌های مجاز"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"درخواست مجوز بلوتوث"</string>
     <string name="security_patch" msgid="2131617390189164481">"سطح وصله امنیتی Android"</string>
     <string name="choose_application" msgid="5662960665577780353">"انتخاب برنامه"</string>
@@ -674,4 +720,27 @@
     <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"غیرمجاز"</string>
     <string name="usage_access" msgid="1914242907684452328">"دسترسی به میزان استفاده"</string>
     <string name="usage_access_description" msgid="6290001769893747651">"دسترسی به میزان استفاده، امکان ردیابی اینکه از چه برنامه‌های دیگری و چند وقت یک‌بار استفاده می‌کنید و همچنین شرکت مخابراتی‌تان، تنظیمات زبان و سایر جزئیات را به برنامه می‌دهد."</string>
+    <string name="high_power_apps" msgid="7796096221999495077">"بهینه‌سازی انرژی"</string>
+    <string name="high_power_apps_description" msgid="1990016812115792282">"بهینه‌سازی مصرف انرژی برنامه‌ها"</string>
+    <string name="high_power_apps_empty" msgid="1355906551507153470">"هیچ برنامه‌ای به بهینه‌سازی نیاز ندارد"</string>
+    <string name="high_power_on" msgid="7725180078784796673">"بهینه‌نشده"</string>
+    <string name="high_power_off" msgid="308272752152871252">"بهینه‌سازی مصرف انرژی"</string>
+    <string name="high_power_system" msgid="7815843517656137656">"بهینه‌سازی انرژی امکان‌پذیر نیست"</string>
+    <string name="manage_notification_access_title" msgid="2051765294087620434">"دسترسی به اعلان"</string>
+    <string name="no_notification_listeners" msgid="4583789599075326886">"هیچ برنامه نصب‌شده‌ای دسترسی به اعلان را درخواست نکرده است."</string>
+    <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"این برنامه‌ها می‌توانند همه اعلان‌ها از جمله اطلاعات شخصی شما مانند نام مخاطبین و نوشتار پیام‌هایی را که دریافت می‌کنید بخوانند. همچنین می‌توانند اعلان‌ها را نپذیرند یا دکمه‌های عمل موجود در آن‌ها را به‌کار بیاندازند."</string>
+    <string name="system_alert_window_settings" msgid="2069031369694448339">"نمایش روی سایر برنامه‌ها"</string>
+    <string name="permit_draw_overlay" msgid="2400084757761408906">"مجاز کردن نمایش روی سایر برنامه‌ها"</string>
+    <string name="allow_overlay_description" msgid="1946279120428813474">"به برنامه‌‌‌ اجازه می‌دهد روی سایر برنامه‌هایی که درحال استفاده شدن هستند نشان داده شود. ممکن است این قابلیت در استفاده شما از آن برنامه‌ها تداخل ایجاد کند یا طرز نمایش یا عملکرد آنها را تغییر دهد."</string>
+    <string name="write_system_settings" msgid="2730923656857824907">"تغییر تنظیمات سیستم"</string>
+    <string name="write_settings_title" msgid="8750406725746598710">"می‌تواند تنظیمات سیستم را تغییر دهد"</string>
+    <string name="write_settings_description" msgid="2765037074460395437">"این مجوز به برنامه امکان می‌دهد تنظیمات سیستم را تغییر دهد."</string>
+    <string name="write_settings_on" msgid="3312616037931341656">"بله"</string>
+    <string name="write_settings_off" msgid="6219072254626503312">"نه"</string>
+    <string name="picture_in_picture_title" msgid="7738692876349058">"تصویردرتصویر"</string>
+    <string name="picture_in_picture_app_detail_switch" msgid="8063965798321494391">"مجاز کردن تصویردرتصویر"</string>
+    <string name="picture_in_picture_empty_text" msgid="5592688180792300051">"هیچ برنامه نصب‌شده‌ای از تصویردرتصویر پشتیبانی نمی‌کند"</string>
+    <string name="picture_in_picture_app_detail_summary" msgid="3478182415601436326">"به این برنامه امکان دهید هنگامی که باز است یا پس از اینکه از آن خارج شدید (مثلاً برای ادامه تماشای ویدیویی)، پنجره تصویردرتصویر ایجاد کند. این پنجره روی سایر برنامه‌هایی که درحال استفاده هستید نمایش داده می‌شود."</string>
+    <string name="special_access" msgid="3513811566600299998">"دسترسی ویژه به برنامه"</string>
+    <string name="string_concat" msgid="5897947064488902904">"<xliff:g id="PART1">%1s</xliff:g>، <xliff:g id="PART2">%2s</xliff:g>"</string>
 </resources>

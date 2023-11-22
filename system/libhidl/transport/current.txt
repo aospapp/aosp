@@ -15,3 +15,10 @@ bddab6184d7a346da6a07dc0828cf19a696f4caa3611c51f2e14565a14b40fd9 android.hidl.ba
 # HALs released in Android O-MR1
 
 0b94dc876f749ed24a98f61c41d46ad75a27511163f1968a084213a33c684ef6 android.hidl.manager@1.1::IServiceManager
+
+# HALs released in Android P
+445da29052612c57db3a8504f6395814277dc3826ee0f166cc732031b35af496 android.hidl.memory.block@1.0::types
+2e19301ceb87fb0696cd8268fab9c41f95d23c7392d35bc575daaa6eb32807eb android.hidl.memory.token@1.0::IMemoryToken
+
+# ABI preserving changes to HALs during Android Q
+fcde1d0788066a62d5766f4dc19d4c1ec76967d5ddb636f59ccc66603460bcf8 android.hidl.manager@1.0::IServiceNotification

@@ -92,6 +92,13 @@ class SainSmartBoard(RelayBoard):
     def _sync_status_dict(self):
         """Returns a dictionary of relays and there current state."""
         result = self._load_page(self.HIDDEN_STATUS_PAGE)
+        if 'TUX' not in result:
+            raise RelayDeviceConnectionError(
+                'Sainsmart board with URL %s has not completed initialization '
+                'after its IP was set, and must be power-cycled to prevent '
+                'random disconnections. After power-cycling, make sure %s/%s '
+                'has TUX appear in its output.' %
+                (self.base_url, self.base_url, self.HIDDEN_STATUS_PAGE))
         status_string = re.search(r'">([01]*)TUX', result).group(1)
 
         self.status_dict = dict()

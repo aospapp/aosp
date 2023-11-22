@@ -19,7 +19,9 @@
 
 #include "HalInterfaces.h"
 #include "Utils.h"
+#include "VersionedIDevice.h"
 
+#include <android-base/macros.h>
 #include <map>
 #include <unordered_set>
 #include <vector>
@@ -30,23 +32,28 @@ namespace nn {
 class ModelBuilder;
 
 class Device {
+    DISALLOW_IMPLICIT_CONSTRUCTORS(Device);
 public:
-    Device(const std::string& name, const sp<IDevice>& device) : mName(name), mInterface(device) {}
-    sp<IDevice> getInterface() { return mInterface; }
+    Device(std::string name, const sp<V1_0::IDevice>& device);
+    VersionedIDevice* getInterface() { return &mInterface; }
     const std::string& getName() const { return mName; }
     // Returns true if succesfully initialized.
     bool initialize();
 
-    void getSupportedOperations(const Model& hidlModel, hidl_vec<bool>* supportedOperations) const;
+    void getSupportedOperations(const Model& hidlModel, hidl_vec<bool>* supportedOperations);
 
     PerformanceInfo getFloat32Performance() const { return mFloat32Performance; }
     PerformanceInfo getQuantized8Performance() const { return mQuantized8Performance; }
+    PerformanceInfo getRelaxedFloat32toFloat16Performance() const {
+        return mRelaxedFloat32toFloat16Performance;
+    }
 
 private:
     std::string mName;
-    sp<IDevice> mInterface;
+    VersionedIDevice mInterface;
     PerformanceInfo mFloat32Performance;
     PerformanceInfo mQuantized8Performance;
+    PerformanceInfo mRelaxedFloat32toFloat16Performance;
 
 #ifdef NN_DEBUGGABLE
     // For debugging: behavior of IDevice::getSupportedOperations for SampleDriver.
@@ -61,14 +68,14 @@ private:
 class DeviceManager {
 public:
     const std::vector<std::shared_ptr<Device>>& getDrivers() const {
-        if (mUseCpuOnly) {
+        if (mSetCpuOnly || mDebugNNCpuOnly) {
             return mNoDevices;
         }
         return mDevices;
     }
 
     // For testing only:
-    void setUseCpuOnly(bool useCpuOnly) { mUseCpuOnly = useCpuOnly; }
+    void setUseCpuOnly(bool useCpuOnly) { mSetCpuOnly = useCpuOnly; }
 
     // How to handle graph partitioning?
     // 0 - Don't do graph partitioning.
@@ -93,7 +100,7 @@ private:
     DeviceManager();
 
     // Adds a device for the manager to use.
-    void registerDevice(const char* name, const sp<IDevice>& device);
+    void registerDevice(const char* name, const sp<V1_0::IDevice>& device);
 
     void findAvailableDevices();
 
@@ -103,9 +110,10 @@ private:
     // We leave this one always empty. To be used when mUseCpuOnly is true.
     std::vector<std::shared_ptr<Device>> mNoDevices;
 
-    // If true, we'll ignore the drivers that are on the device and run everything
-    // on the CPU.
-    bool mUseCpuOnly = false;
+    // If either of these is true, we'll ignore the drivers that are
+    // on the device and run everything on the CPU.
+    bool mSetCpuOnly = false;      // set by setUseCpuOnly()
+    bool mDebugNNCpuOnly = false;  // derived from system property debug.nn.cpuonly
 
     static const uint32_t kPartitioningDefault = kPartitioningWithFallback;
     uint32_t mPartitioning = kPartitioningDefault;

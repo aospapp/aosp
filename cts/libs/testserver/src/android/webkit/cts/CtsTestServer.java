@@ -57,7 +57,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
-import java.net.URL;
 import java.net.URLEncoder;
 import java.security.KeyStore;
 import java.security.cert.X509Certificate;
@@ -79,6 +78,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -130,6 +130,7 @@ public class CtsTestServer {
         NO_CLIENT_AUTH,
         WANTS_CLIENT_AUTH,
         NEEDS_CLIENT_AUTH,
+        TRUST_ANY_CLIENT
     }
 
     private static Hashtable<Integer, String> sReasons;
@@ -926,7 +927,16 @@ public class CtsTestServer {
                         mSslContext = SSLContext.getInstance("TLS");
                         mSslContext.init(getKeyManagers(), mServer.getTrustManagers(), null);
                         mSocket = mSslContext.getServerSocketFactory().createServerSocket(0);
-                        if (mSsl == SslMode.WANTS_CLIENT_AUTH) {
+                        if (mSsl == SslMode.TRUST_ANY_CLIENT) {
+                            HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
+                                @Override
+                                public boolean verify(String s, SSLSession sslSession) {
+                                    return true;
+                                }
+                            });
+                            HttpsURLConnection.setDefaultSSLSocketFactory(
+                                    mSslContext.getSocketFactory());
+                        } else if (mSsl == SslMode.WANTS_CLIENT_AUTH) {
                             ((SSLServerSocket) mSocket).setWantClientAuth(true);
                         } else if (mSsl == SslMode.NEEDS_CLIENT_AUTH) {
                             ((SSLServerSocket) mSocket).setNeedClientAuth(true);

@@ -5,4 +5,8 @@
         <item name="myattr">@integer/ten</item>
     </style>
 
+    <style name="ThemableWidgetStyle">
+        <item name="android:layout_height">150dp</item>
+    </style>
+
 </resources>

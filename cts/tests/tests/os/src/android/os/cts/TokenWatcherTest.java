@@ -23,7 +23,6 @@ import android.content.ServiceConnection;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.os.Message;
 import android.os.RemoteException;
 import android.os.TokenWatcher;
 import android.test.AndroidTestCase;
@@ -154,6 +153,36 @@ public class TokenWatcherTest extends AndroidTestCase {
         mMockTokenWatcher.dump();
         synchronized (mMockTokenWatcher) {
             mMockTokenWatcher.cleanup(token, true);
+            assertFalse(mMockTokenWatcher.isAcquired());
+        }
+        assertTrue(waitUntilReleased());
+    }
+
+    public void testRepeatedAcquire() throws RemoteException, InterruptedException {
+        IBinder token = mEmptyService.getToken();
+        mMockTokenWatcher = new MockTokenWatcher(mHandler, TAG);
+        assertFalse(mMockTokenWatcher.isAcquired());
+        assertFalse(mMockTokenWatcher.isAcquiredCalled);
+        assertFalse(mMockTokenWatcher.isReleasedCalled);
+
+        // First time
+        mMockTokenWatcher.acquire(token, TAG);
+        assertTrue(mMockTokenWatcher.isAcquired());
+        assertTrue(waitUntilAcquired());
+
+        // Reset
+        mMockTokenWatcher.isAcquiredCalled = false;
+        mMockTokenWatcher.isReleasedCalled = false;
+
+        // Second time -- should be a no-op
+        mMockTokenWatcher.acquire(token, TAG);
+        assertTrue(mMockTokenWatcher.isAcquired());
+        assertFalse(waitUntilAcquired());
+        assertFalse(waitUntilReleased());
+
+        // Release
+        synchronized (mMockTokenWatcher) {
+            mMockTokenWatcher.release(token);
             assertFalse(mMockTokenWatcher.isAcquired());
         }
         assertTrue(waitUntilReleased());

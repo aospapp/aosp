@@ -24,26 +24,30 @@ namespace art {
 namespace gc {
 namespace space {
 
-inline mirror::Object* RegionSpace::Alloc(Thread*, size_t num_bytes, size_t* bytes_allocated,
-                                          size_t* usable_size,
-                                          size_t* bytes_tl_bulk_allocated) {
+inline mirror::Object* RegionSpace::Alloc(Thread* self ATTRIBUTE_UNUSED,
+                                          size_t num_bytes,
+                                          /* out */ size_t* bytes_allocated,
+                                          /* out */ size_t* usable_size,
+                                          /* out */ size_t* bytes_tl_bulk_allocated) {
   num_bytes = RoundUp(num_bytes, kAlignment);
   return AllocNonvirtual<false>(num_bytes, bytes_allocated, usable_size,
                                 bytes_tl_bulk_allocated);
 }
 
-inline mirror::Object* RegionSpace::AllocThreadUnsafe(Thread* self, size_t num_bytes,
-                                                      size_t* bytes_allocated,
-                                                      size_t* usable_size,
-                                                      size_t* bytes_tl_bulk_allocated) {
+inline mirror::Object* RegionSpace::AllocThreadUnsafe(Thread* self,
+                                                      size_t num_bytes,
+                                                      /* out */ size_t* bytes_allocated,
+                                                      /* out */ size_t* usable_size,
+                                                      /* out */ size_t* bytes_tl_bulk_allocated) {
   Locks::mutator_lock_->AssertExclusiveHeld(self);
   return Alloc(self, num_bytes, bytes_allocated, usable_size, bytes_tl_bulk_allocated);
 }
 
 template<bool kForEvac>
-inline mirror::Object* RegionSpace::AllocNonvirtual(size_t num_bytes, size_t* bytes_allocated,
-                                                    size_t* usable_size,
-                                                    size_t* bytes_tl_bulk_allocated) {
+inline mirror::Object* RegionSpace::AllocNonvirtual(size_t num_bytes,
+                                                    /* out */ size_t* bytes_allocated,
+                                                    /* out */ size_t* usable_size,
+                                                    /* out */ size_t* bytes_tl_bulk_allocated) {
   DCHECK_ALIGNED(num_bytes, kAlignment);
   mirror::Object* obj;
   if (LIKELY(num_bytes <= kRegionSize)) {
@@ -79,8 +83,7 @@ inline mirror::Object* RegionSpace::AllocNonvirtual(size_t num_bytes, size_t* by
     }
   } else {
     // Large object.
-    obj = AllocLarge<kForEvac>(num_bytes, bytes_allocated, usable_size,
-                               bytes_tl_bulk_allocated);
+    obj = AllocLarge<kForEvac>(num_bytes, bytes_allocated, usable_size, bytes_tl_bulk_allocated);
     if (LIKELY(obj != nullptr)) {
       return obj;
     }
@@ -88,9 +91,10 @@ inline mirror::Object* RegionSpace::AllocNonvirtual(size_t num_bytes, size_t* by
   return nullptr;
 }
 
-inline mirror::Object* RegionSpace::Region::Alloc(size_t num_bytes, size_t* bytes_allocated,
-                                                  size_t* usable_size,
-                                                  size_t* bytes_tl_bulk_allocated) {
+inline mirror::Object* RegionSpace::Region::Alloc(size_t num_bytes,
+                                                  /* out */ size_t* bytes_allocated,
+                                                  /* out */ size_t* usable_size,
+                                                  /* out */ size_t* bytes_tl_bulk_allocated) {
   DCHECK(IsAllocated() && IsInToSpace());
   DCHECK_ALIGNED(num_bytes, kAlignment);
   uint8_t* old_top;
@@ -101,7 +105,7 @@ inline mirror::Object* RegionSpace::Region::Alloc(size_t num_bytes, size_t* byte
     if (UNLIKELY(new_top > end_)) {
       return nullptr;
     }
-  } while (!top_.CompareExchangeWeakRelaxed(old_top, new_top));
+  } while (!top_.CompareAndSetWeakRelaxed(old_top, new_top));
   objects_allocated_.FetchAndAddRelaxed(1);
   DCHECK_LE(Top(), end_);
   DCHECK_LT(old_top, end_);
@@ -115,7 +119,7 @@ inline mirror::Object* RegionSpace::Region::Alloc(size_t num_bytes, size_t* byte
 }
 
 template<RegionSpace::RegionType kRegionType>
-uint64_t RegionSpace::GetBytesAllocatedInternal() {
+inline uint64_t RegionSpace::GetBytesAllocatedInternal() {
   uint64_t bytes = 0;
   MutexLock mu(Thread::Current(), region_lock_);
   for (size_t i = 0; i < num_regions_; ++i) {
@@ -150,7 +154,7 @@ uint64_t RegionSpace::GetBytesAllocatedInternal() {
 }
 
 template<RegionSpace::RegionType kRegionType>
-uint64_t RegionSpace::GetObjectsAllocatedInternal() {
+inline uint64_t RegionSpace::GetObjectsAllocatedInternal() {
   uint64_t bytes = 0;
   MutexLock mu(Thread::Current(), region_lock_);
   for (size_t i = 0; i < num_regions_; ++i) {
@@ -185,7 +189,7 @@ uint64_t RegionSpace::GetObjectsAllocatedInternal() {
 }
 
 template<bool kToSpaceOnly, typename Visitor>
-void RegionSpace::WalkInternal(Visitor&& visitor) {
+inline void RegionSpace::WalkInternal(Visitor&& visitor) {
   // TODO: MutexLock on region_lock_ won't work due to lock order
   // issues (the classloader classes lock and the monitor lock). We
   // call this with threads suspended.
@@ -237,9 +241,10 @@ inline mirror::Object* RegionSpace::GetNextObject(mirror::Object* obj) {
 }
 
 template<bool kForEvac>
-mirror::Object* RegionSpace::AllocLarge(size_t num_bytes, size_t* bytes_allocated,
-                                        size_t* usable_size,
-                                        size_t* bytes_tl_bulk_allocated) {
+inline mirror::Object* RegionSpace::AllocLarge(size_t num_bytes,
+                                               /* out */ size_t* bytes_allocated,
+                                               /* out */ size_t* usable_size,
+                                               /* out */ size_t* bytes_tl_bulk_allocated) {
   DCHECK_ALIGNED(num_bytes, kAlignment);
   DCHECK_GT(num_bytes, kRegionSize);
   size_t num_regs = RoundUp(num_bytes, kRegionSize) / kRegionSize;
@@ -253,7 +258,7 @@ mirror::Object* RegionSpace::AllocLarge(size_t num_bytes, size_t* bytes_allocate
       return nullptr;
     }
   }
-  // Find a large enough contiguous free regions.
+  // Find a large enough set of contiguous free regions.
   size_t left = 0;
   while (left + num_regs - 1 < num_regions_) {
     bool found = true;
@@ -269,12 +274,16 @@ mirror::Object* RegionSpace::AllocLarge(size_t num_bytes, size_t* bytes_allocate
       }
     }
     if (found) {
-      // right points to the one region past the last free region.
+      // `right` points to the one region past the last free region.
       DCHECK_EQ(left + num_regs, right);
       Region* first_reg = &regions_[left];
       DCHECK(first_reg->IsFree());
       first_reg->UnfreeLarge(this, time_);
-      ++num_non_free_regions_;
+      if (kForEvac) {
+        ++num_evac_regions_;
+      } else {
+        ++num_non_free_regions_;
+      }
       size_t allocated = num_regs * kRegionSize;
       // We make 'top' all usable bytes, as the caller of this
       // allocation may use all of 'usable_size' (see mirror::Array::Alloc).
@@ -283,7 +292,11 @@ mirror::Object* RegionSpace::AllocLarge(size_t num_bytes, size_t* bytes_allocate
         DCHECK_LT(p, num_regions_);
         DCHECK(regions_[p].IsFree());
         regions_[p].UnfreeLargeTail(this, time_);
-        ++num_non_free_regions_;
+        if (kForEvac) {
+          ++num_evac_regions_;
+        } else {
+          ++num_non_free_regions_;
+        }
       }
       *bytes_allocated = allocated;
       if (usable_size != nullptr) {
@@ -299,6 +312,35 @@ mirror::Object* RegionSpace::AllocLarge(size_t num_bytes, size_t* bytes_allocate
   return nullptr;
 }
 
+template<bool kForEvac>
+inline void RegionSpace::FreeLarge(mirror::Object* large_obj, size_t bytes_allocated) {
+  DCHECK(Contains(large_obj));
+  DCHECK_ALIGNED(large_obj, kRegionSize);
+  MutexLock mu(Thread::Current(), region_lock_);
+  uint8_t* begin_addr = reinterpret_cast<uint8_t*>(large_obj);
+  uint8_t* end_addr = AlignUp(reinterpret_cast<uint8_t*>(large_obj) + bytes_allocated, kRegionSize);
+  CHECK_LT(begin_addr, end_addr);
+  for (uint8_t* addr = begin_addr; addr < end_addr; addr += kRegionSize) {
+    Region* reg = RefToRegionLocked(reinterpret_cast<mirror::Object*>(addr));
+    if (addr == begin_addr) {
+      DCHECK(reg->IsLarge());
+    } else {
+      DCHECK(reg->IsLargeTail());
+    }
+    reg->Clear(/*zero_and_release_pages*/true);
+    if (kForEvac) {
+      --num_evac_regions_;
+    } else {
+      --num_non_free_regions_;
+    }
+  }
+  if (end_addr < Limit()) {
+    // If we aren't at the end of the space, check that the next region is not a large tail.
+    Region* following_reg = RefToRegionLocked(reinterpret_cast<mirror::Object*>(end_addr));
+    DCHECK(!following_reg->IsLargeTail());
+  }
+}
+
 inline size_t RegionSpace::Region::BytesAllocated() const {
   if (IsLarge()) {
     DCHECK_LT(begin_ + kRegionSize, Top());
@@ -307,7 +349,7 @@ inline size_t RegionSpace::Region::BytesAllocated() const {
     DCHECK_EQ(begin_, Top());
     return 0;
   } else {
-    DCHECK(IsAllocated()) << static_cast<uint>(state_);
+    DCHECK(IsAllocated()) << "state=" << state_;
     DCHECK_LE(begin_, Top());
     size_t bytes;
     if (is_a_tlab_) {
@@ -320,6 +362,20 @@ inline size_t RegionSpace::Region::BytesAllocated() const {
   }
 }
 
+inline size_t RegionSpace::Region::ObjectsAllocated() const {
+  if (IsLarge()) {
+    DCHECK_LT(begin_ + kRegionSize, Top());
+    DCHECK_EQ(objects_allocated_.LoadRelaxed(), 0U);
+    return 1;
+  } else if (IsLargeTail()) {
+    DCHECK_EQ(begin_, Top());
+    DCHECK_EQ(objects_allocated_.LoadRelaxed(), 0U);
+    return 0;
+  } else {
+    DCHECK(IsAllocated()) << "state=" << state_;
+    return objects_allocated_;
+  }
+}
 
 }  // namespace space
 }  // namespace gc

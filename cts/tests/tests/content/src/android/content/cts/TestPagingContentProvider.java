@@ -26,7 +26,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.util.Log;
-import android.util.MathUtils;
 
 import javax.annotation.Nullable;
 
@@ -109,7 +108,8 @@ public final class TestPagingContentProvider extends ContentProvider {
         Bundle extras = c.getExtras();
 
         // Calculate the number of items to include in the cursor.
-        int numItems = MathUtils.constrain(recordsetSize - offset, 0, limit);
+        int numItems = recordsetSize - offset;
+        numItems = numItems < 0 ? 0 : (numItems > limit ? limit : numItems);
 
         // Build the paged result set.
         for (int i = offset; i < offset + numItems; i++) {

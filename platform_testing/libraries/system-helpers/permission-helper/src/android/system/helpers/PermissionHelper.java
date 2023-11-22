@@ -16,20 +16,23 @@
 
 package android.system.helpers;
 
+import android.app.Instrumentation;
 import android.app.UiAutomation;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.ParcelFileDescriptor;
-import android.os.SystemClock;
 import android.support.test.launcherhelper.ILauncherStrategy;
 import android.support.test.launcherhelper.LauncherStrategyFactory;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
+import android.support.test.uiautomator.UiObjectNotFoundException;
+import android.support.test.uiautomator.UiScrollable;
+import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 import android.util.Log;
 
@@ -37,12 +40,12 @@ import junit.framework.Assert;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
-import java.io.InputStreamReader;
 import java.io.IOException;
-import java.util.Arrays;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 import java.util.Hashtable;
+import java.util.List;
 
 /**
  * Implement common helper methods for permissions.
@@ -52,9 +55,10 @@ public class PermissionHelper {
     public static final String SETTINGS_PACKAGE = "com.android.settings";
     public static final int REQUESTED_PERMISSION_FLAG_GRANTED = 3;
     public static final int REQUESTED_PERMISSION_FLAG_DENIED = 1;
-    public final int TIMEOUT = 500;
+    public final int TIMEOUT = 2000;
     public static PermissionHelper mInstance = null;
     private UiDevice mDevice = null;
+    private Instrumentation mInstrumentation = null;
     private Context mContext = null;
     private static UiAutomation mUiAutomation = null;
     public static Hashtable<String, List<String>> mPermissionGroupInfo = null;
@@ -70,16 +74,23 @@ public class PermissionHelper {
         ON, OFF;
     }
 
-    private PermissionHelper() {
-        mDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        mContext = InstrumentationRegistry.getTargetContext();
-        mUiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+    private PermissionHelper(Instrumentation instrumentation) {
+        mInstrumentation = instrumentation;
+        mDevice = UiDevice.getInstance(mInstrumentation);
+        mContext = mInstrumentation.getTargetContext();
+        mUiAutomation = mInstrumentation.getUiAutomation();
         mLauncherStrategy = LauncherStrategyFactory.getInstance(mDevice).getLauncherStrategy();
     }
 
-    public static PermissionHelper getInstance() {
+    /**
+     * Static method to get permission helper instance.
+     *
+     * @param instrumentation
+     * @return
+     */
+    public static PermissionHelper getInstance(Instrumentation instrumentation) {
         if (mInstance == null) {
-            mInstance = new PermissionHelper();
+            mInstance = new PermissionHelper(instrumentation);
             PermissionHelper.populateDangerousPermissionGroupInfo();
         }
         return mInstance;
@@ -162,7 +173,8 @@ public class PermissionHelper {
                 permittedGroups);
         List<String> allPermissionsForPackageList = getPermissionByPackage(packageName,
                 Boolean.TRUE);
-        List<String> allPlatformDangerousPermissionList = getPlatformDangerousPermissionGroupNames();
+        List<String> allPlatformDangerousPermissionList =
+                getPlatformDangerousPermissionGroupNames();
         allPermissionsForPackageList.retainAll(allPlatformDangerousPermissionList);
         allPermissionsForPackageList.removeAll(allPermittedDangerousPermsList);
         Assert.assertTrue(
@@ -198,7 +210,8 @@ public class PermissionHelper {
     public void verifyNormalPermissionsAutoGranted(String packageName) {
         List<String> allDeniedPermissionsForPackageList = getPermissionByPackage(packageName,
                 Boolean.FALSE);
-        List<String> allPlatformDangerousPermissionList = getPlatformDangerousPermissionGroupNames();
+        List<String> allPlatformDangerousPermissionList =
+                getPlatformDangerousPermissionGroupNames();
         allDeniedPermissionsForPackageList.removeAll(allPlatformDangerousPermissionList);
         if (!allDeniedPermissionsForPackageList.isEmpty()) {
             for (int i = 0; i < allDeniedPermissionsForPackageList.size(); ++i) {
@@ -219,7 +232,7 @@ public class PermissionHelper {
      * @return
      */
     public Boolean verifyPermissionSettingStatus(String appName, String permission,
-            PermissionStatus expected) {
+            PermissionStatus expected) throws UiObjectNotFoundException {
         if (!expected.equals(PermissionStatus.ON) && !expected.equals(PermissionStatus.OFF)) {
             throw new RuntimeException(String.format("%s isn't valid permission status", expected));
         }
@@ -269,38 +282,28 @@ public class PermissionHelper {
      * For a given app, opens the permission settings window settings -> apps -> permissions
      * @param appName
      */
-    public void openAppPermissionView(String appName) {
-        mDevice.pressHome();
-        if (!mDevice.hasObject(By.pkg(SETTINGS_PACKAGE).depth(0))) {
-            mLauncherStrategy.launch("Settings", SETTINGS_PACKAGE);
-        }
-        UiObject2 app = null;
-        UiObject2 view = null;
-        int maxAttempt = 5;
-        while ((maxAttempt-- > 0)
-                && ((app = mDevice.wait(Until.findObject(By.res("android:id/title").text("Apps")),
-                TIMEOUT)) == null)) {
-            view = mDevice.wait(Until.findObject(By.res(SETTINGS_PACKAGE, "main_content")),
+    public void openAppPermissionView(String appName) throws UiObjectNotFoundException {
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        ComponentName settingComponent = new ComponentName(SETTINGS_PACKAGE,
+                String.format("%s.%s$%s", SETTINGS_PACKAGE,
+                        "Settings", "ManageApplicationsActivity"));
+        intent.setComponent(settingComponent);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(intent);
+        int maxAttemp = 5;
+        while (maxAttemp-- > 0) {
+            UiObject2 navBackBtn = mDevice.wait(Until.findObject(By.descContains("Navigate up")),
                     TIMEOUT);
-            // todo scroll may be different for device and build
-            view.scroll(Direction.DOWN, 1.0f);
+            if (navBackBtn == null) {
+                break;
+            }
+            navBackBtn.clickAndWait(Until.newWindow(), TIMEOUT);
         }
-
-        mDevice.wait(Until.findObject(By.res("android:id/title").text("Apps")),
-                TIMEOUT)
-                .clickAndWait(Until.newWindow(), TIMEOUT);
-        app = null;
-        view = null;
-        maxAttempt = 10;
-        while ((maxAttempt-- > 0)
-                && ((app = mDevice.wait(Until.findObject(By.res("android:id/title").text(appName)),
-                TIMEOUT)) == null)) {
-            view = mDevice.wait(Until.findObject(By.res("com.android.settings:id/main_content")),
-                    TIMEOUT);
-            // todo scroll may be different for device and build
-            view.scroll(Direction.DOWN, 1.0f);
-        }
-        app.clickAndWait(Until.newWindow(), TIMEOUT);
+        UiScrollable appList = new UiScrollable(new UiSelector()
+                .resourceId("com.android.settings:id/apps_list"));
+        appList.scrollToBeginning(100);
+        appList.scrollIntoView(new UiSelector().text(appName));
+        mDevice.findObject(By.text(appName)).clickAndWait(Until.newWindow(), TIMEOUT);
         mDevice.wait(Until.findObject(By.res("android:id/title").text("Permissions")),
                 TIMEOUT).clickAndWait(Until.newWindow(), TIMEOUT);
     }
@@ -311,17 +314,18 @@ public class PermissionHelper {
      * @param permission
      * @param toBeSet
      */
-    public void togglePermissionSetting(String appName, String permission, Boolean toBeSet) {
+    public void togglePermissionSetting(String appName, String permission, Boolean toBeSet)
+            throws UiObjectNotFoundException {
         openAppPermissionView(appName);
         UiObject2 permissionView = mDevice
                 .wait(Until.findObject(By.res("android:id/list_container")), TIMEOUT);
         List<UiObject2> permissionsList = permissionView.getChildren().get(0).getChildren();
         for (UiObject2 obj : permissionsList) {
-            if (obj.getChildren().get(1).getChildren().get(0).getText().equals(permission)) {
-                String status = obj.getChildren().get(2).getChildren().get(0).getText();
-                if ((toBeSet && !status.equals(PermissionStatus.ON.toString()))
-                        || (!toBeSet && status.equals(PermissionStatus.ON.toString()))) {
-                    obj.getChildren().get(2).getChildren().get(0).click();
+            if (obj.hasObject(By.res("android:id/title").text(permission))) {
+                UiObject2 swt = obj.findObject(By.res("android:id/switch_widget"));
+                if ((toBeSet && swt.getText().equals(PermissionStatus.ON.toString()))
+                        || (!toBeSet && swt.getText().equals(PermissionStatus.ON.toString()))) {
+                    swt.click();
                     mDevice.waitForIdle();
                 }
                 break;
@@ -404,7 +408,8 @@ public class PermissionHelper {
      * @param appName
      * @return
      */
-    public List<String> getPermissionDescGroupNames(String appName) {
+    public List<String> getPermissionDescGroupNames(String appName)
+            throws UiObjectNotFoundException {
         List<String> groupNames = new ArrayList<String>();
         openAppPermissionView(appName);
         mDevice.wait(Until.findObject(By.desc("More options")), TIMEOUT).click();

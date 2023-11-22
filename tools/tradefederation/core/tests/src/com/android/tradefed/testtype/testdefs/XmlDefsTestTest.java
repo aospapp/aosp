@@ -17,6 +17,7 @@ package com.android.tradefed.testtype.testdefs;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.testtype.MockInstrumentationTest;
@@ -30,7 +31,7 @@ import org.easymock.IAnswer;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.Map;
+import java.util.HashMap;
 
 /**
  * Unit tests for {@link XmlDefsTest}.
@@ -75,14 +76,19 @@ public class XmlDefsTestTest extends TestCase {
 
         injectMockXmlData();
         mMockListener.testRunStarted(TEST_PKG, 0);
-        Capture<Map<String, String>> captureMetrics = new Capture<Map<String, String>>();
+        Capture<HashMap<String, Metric>> captureMetrics = new Capture<HashMap<String, Metric>>();
         mMockListener.testRunEnded(EasyMock.anyLong(), EasyMock.capture(captureMetrics));
         EasyMock.replay(mMockTestDevice, mMockListener);
         mXmlTest.run(mMockListener);
         assertEquals(mMockListener, mMockInstrumentationTest.getListener());
         assertEquals(TEST_PKG, mMockInstrumentationTest.getPackageName());
-        assertEquals(TEST_COVERAGE_TARGET, captureMetrics.getValue().get(
-                XmlDefsTest.COVERAGE_TARGET_KEY));
+        assertEquals(
+                TEST_COVERAGE_TARGET,
+                captureMetrics
+                        .getValue()
+                        .get(XmlDefsTest.COVERAGE_TARGET_KEY)
+                        .getMeasurements()
+                        .getSingleString());
     }
 
     private void injectMockXmlData() throws DeviceNotAvailableException {

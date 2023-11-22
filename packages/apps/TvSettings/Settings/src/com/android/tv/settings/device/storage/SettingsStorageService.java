@@ -16,13 +16,15 @@
 
 package com.android.tv.settings.device.storage;
 
-import android.annotation.Nullable;
 import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
 import android.os.storage.DiskInfo;
 import android.os.storage.StorageManager;
 import android.os.storage.VolumeInfo;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.support.annotation.VisibleForTesting;
 import android.support.v4.content.LocalBroadcastManager;
 import android.text.TextUtils;
 import android.util.Log;
@@ -123,13 +125,13 @@ public class SettingsStorageService {
 
                 storageManager.partitionPublic(diskId);
 
-                LocalBroadcastManager.getInstance(this).sendBroadcast(
+                sendLocalBroadcast(
                         new Intent(ACTION_FORMAT_AS_PUBLIC)
                                 .putExtra(DiskInfo.EXTRA_DISK_ID, diskId)
                                 .putExtra(EXTRA_SUCCESS, true));
             } catch (Exception e) {
                 Log.e(TAG, "Failed to format " + diskId, e);
-                LocalBroadcastManager.getInstance(this).sendBroadcast(
+                sendLocalBroadcast(
                         new Intent(ACTION_FORMAT_AS_PUBLIC)
                                 .putExtra(DiskInfo.EXTRA_DISK_ID, diskId)
                                 .putExtra(EXTRA_SUCCESS, false));
@@ -140,16 +142,16 @@ public class SettingsStorageService {
             try {
                 final StorageManager storageManager = getSystemService(StorageManager.class);
                 storageManager.partitionPrivate(diskId);
-                final long internalBench = storageManager.benchmark(null);
+                final long internalBench = storageManager.benchmark("private");
 
-                final VolumeInfo privateVol = findVolume(storageManager, diskId);
+                final VolumeInfo privateVol = findPrivateVolume(storageManager, diskId);
                 final long privateBench;
                 if (privateVol != null) {
                     privateBench = storageManager.benchmark(privateVol.getId());
                 } else {
                     privateBench = -1;
                 }
-                LocalBroadcastManager.getInstance(this).sendBroadcast(
+                sendLocalBroadcast(
                         new Intent(ACTION_FORMAT_AS_PRIVATE)
                                 .putExtra(DiskInfo.EXTRA_DISK_ID, diskId)
                                 .putExtra(EXTRA_INTERNAL_BENCH, internalBench)
@@ -157,14 +159,16 @@ public class SettingsStorageService {
                                 .putExtra(EXTRA_SUCCESS, true));
             } catch (Exception e) {
                 Log.e(TAG, "Failed to format " + diskId, e);
-                LocalBroadcastManager.getInstance(this).sendBroadcast(
+                sendLocalBroadcast(
                         new Intent(ACTION_FORMAT_AS_PRIVATE)
                                 .putExtra(DiskInfo.EXTRA_DISK_ID, diskId)
                                 .putExtra(EXTRA_SUCCESS, false));
             }
         }
 
-        private VolumeInfo findVolume(StorageManager storageManager, String diskId) {
+        @Nullable
+        private VolumeInfo findPrivateVolume(@NonNull StorageManager storageManager,
+                String diskId) {
             final List<VolumeInfo> vols = storageManager.getVolumes();
             for (final VolumeInfo vol : vols) {
                 if (TextUtils.equals(diskId, vol.getDiskId())
@@ -197,15 +201,20 @@ public class SettingsStorageService {
                     }
                     waitTime = minTime - System.currentTimeMillis();
                 }
-                LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(ACTION_UNMOUNT)
+                sendLocalBroadcast(new Intent(ACTION_UNMOUNT)
                         .putExtra(VolumeInfo.EXTRA_VOLUME_ID, volumeId)
                         .putExtra(EXTRA_SUCCESS, true));
             } catch (Exception e) {
                 Log.d(TAG, "Could not unmount", e);
-                LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(ACTION_UNMOUNT)
+                sendLocalBroadcast(new Intent(ACTION_UNMOUNT)
                         .putExtra(VolumeInfo.EXTRA_VOLUME_ID, volumeId)
                         .putExtra(EXTRA_SUCCESS, false));
             }
+        }
+
+        @VisibleForTesting
+        void sendLocalBroadcast(Intent intent) {
+            LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
         }
     }
 }

@@ -24,8 +24,7 @@ def setup(topdir):
         utils.extract_tarball_to_dir(tarball_path, srcdir)
     os.chdir(srcdir)
     utils.system('patch -p1 < ../files/0001-Patch-index.html.patch')
-    utils.system(
-        'patch -p1 < ../files/0002-Always-increment-numberOfResults.patch')
+    utils.system('patch -p1 < ../files/0002-Report-tests-url-name.patch')
     shutil.copy('../files/favicon.ico', srcdir)
 
 

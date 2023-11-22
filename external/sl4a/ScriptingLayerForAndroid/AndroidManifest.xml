@@ -20,7 +20,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.googlecode.android_scripting"
     android:sharedUserId="android.uid.system">
-
     <uses-permission android:name="com.android.permission.WHITELIST_BLUETOOTH_DEVICE"
         android:protectionLevel="signature" />
     <uses-permission android:name="android.permission.ACCESS_BLUETOOTH_SHARE"
@@ -38,6 +37,7 @@
     <uses-permission android:name="android.permission.GET_ACCOUNTS_PRIVILEGED" />
     <uses-permission android:name="android.permission.LOCATION_HARDWARE" />
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
+    <uses-permission android:name="android.permission.PEERS_MAC_ADDRESS" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.SEND_SMS" />
@@ -120,8 +120,13 @@
     <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
     <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL" />
     <uses-permission android:name="android.permission.RECEIVE_EMERGENCY_BROADCAST"/>
-    <application android:icon="@drawable/sl4a_logo_48" android:label="@string/application_title" android:name=".Sl4aApplication"
-        android:theme="@android:style/Theme.DeviceDefault">
+    <uses-permission android:name="android.permission.NETWORK_STACK"/>
+    <application
+        android:icon="@drawable/sl4a_logo_48"
+        android:label="@string/application_title"
+        android:name=".Sl4aApplication"
+        android:theme="@android:style/Theme.DeviceDefault"
+        android:usesCleartextTraffic="true">
         <activity android:name=".activity.ScriptManager" android:configChanges="keyboardHidden|orientation" android:windowSoftInputMode="adjustResize" android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -185,8 +190,8 @@
         <activity android:name=".activity.FutureActivity" android:configChanges="keyboardHidden|orientation" android:theme="@android:style/Theme.DeviceDefault.NoActionBar.TranslucentDecor" />
         <activity android:name="org.connectbot.HelpActivity" android:configChanges="keyboardHidden|orientation" />
         <activity android:name="org.connectbot.HelpTopicActivity" android:configChanges="keyboardHidden|orientation" />
-        <service android:name=".activity.ScriptingLayerService" />
-        <service android:name=".activity.TriggerService" />
+        <service android:name=".service.ScriptingLayerService" />
+        <service android:name=".service.TriggerService" />
         <service android:name="com.googlecode.android_scripting.facade.telephony.InCallServiceImpl"
                  android:permission="android.permission.BIND_INCALL_SERVICE" >
             <intent-filter>

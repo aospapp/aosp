@@ -17,6 +17,8 @@
 #ifndef _INIT_SERVICE_H
 #define _INIT_SERVICE_H
 
+#include <signal.h>
+#include <sys/resource.h>
 #include <sys/types.h>
 
 #include <memory>
@@ -30,8 +32,9 @@
 #include "action.h"
 #include "capabilities.h"
 #include "descriptors.h"
-#include "init_parser.h"
 #include "keyword_map.h"
+#include "parser.h"
+#include "subcontext.h"
 
 #define SVC_DISABLED 0x001        // do not autostart with class
 #define SVC_ONESHOT 0x002         // do not restart on exit
@@ -57,43 +60,47 @@
 namespace android {
 namespace init {
 
-struct ServiceEnvironmentInfo {
-    ServiceEnvironmentInfo();
-    ServiceEnvironmentInfo(const std::string& name, const std::string& value);
-    std::string name;
-    std::string value;
-};
-
 class Service {
   public:
-    Service(const std::string& name, const std::vector<std::string>& args);
+    Service(const std::string& name, Subcontext* subcontext_for_restart_commands,
+            const std::vector<std::string>& args);
 
     Service(const std::string& name, unsigned flags, uid_t uid, gid_t gid,
             const std::vector<gid_t>& supp_gids, const CapSet& capabilities,
             unsigned namespace_flags, const std::string& seclabel,
-            const std::vector<std::string>& args);
+            Subcontext* subcontext_for_restart_commands, const std::vector<std::string>& args);
+
+    static std::unique_ptr<Service> MakeTemporaryOneshotService(const std::vector<std::string>& args);
 
     bool IsRunning() { return (flags_ & SVC_RUNNING) != 0; }
-    bool ParseLine(const std::vector<std::string>& args, std::string* err);
-    bool ExecStart(std::unique_ptr<android::base::Timer>* exec_waiter);
-    bool Start();
-    bool StartIfNotDisabled();
-    bool Enable();
+    Result<Success> ParseLine(const std::vector<std::string>& args);
+    Result<Success> ExecStart();
+    Result<Success> Start();
+    Result<Success> StartIfNotDisabled();
+    Result<Success> Enable();
     void Reset();
     void Stop();
     void Terminate();
     void Restart();
-    void RestartIfNeeded(time_t* process_needs_restart_at);
-    void Reap();
+    void Reap(const siginfo_t& siginfo);
     void DumpState() const;
     void SetShutdownCritical() { flags_ |= SVC_SHUTDOWN_CRITICAL; }
     bool IsShutdownCritical() const { return (flags_ & SVC_SHUTDOWN_CRITICAL) != 0; }
-    void UnSetExec() { flags_ &= ~SVC_EXEC; }
+    void UnSetExec() {
+        is_exec_service_running_ = false;
+        flags_ &= ~SVC_EXEC;
+    }
+    void AddReapCallback(std::function<void(const siginfo_t& siginfo)> callback) {
+        reap_callbacks_.emplace_back(std::move(callback));
+    }
+
+    static bool is_exec_service_running() { return is_exec_service_running_; }
 
     const std::string& name() const { return name_; }
     const std::set<std::string>& classnames() const { return classnames_; }
     unsigned flags() const { return flags_; }
     pid_t pid() const { return pid_; }
+    android::base::boot_clock::time_point time_started() const { return time_started_; }
     int crash_count() const { return crash_count_; }
     uid_t uid() const { return uid_; }
     gid_t gid() const { return gid_; }
@@ -105,16 +112,21 @@ class Service {
     void set_keychord_id(int keychord_id) { keychord_id_ = keychord_id; }
     IoSchedClass ioprio_class() const { return ioprio_class_; }
     int ioprio_pri() const { return ioprio_pri_; }
+    const std::set<std::string>& interfaces() const { return interfaces_; }
     int priority() const { return priority_; }
     int oom_score_adjust() const { return oom_score_adjust_; }
+    bool is_override() const { return override_; }
     bool process_cgroup_empty() const { return process_cgroup_empty_; }
+    unsigned long start_order() const { return start_order_; }
     const std::vector<std::string>& args() const { return args_; }
 
   private:
-    using OptionParser = bool (Service::*) (const std::vector<std::string>& args,
-                                            std::string* err);
+    using OptionParser = Result<Success> (Service::*)(const std::vector<std::string>& args);
     class OptionParserMap;
 
+    Result<Success> SetUpMountNamespace() const;
+    Result<Success> SetUpPidNamespace() const;
+    Result<Success> EnterNamespaces() const;
     void NotifyStateChange(const std::string& new_state) const;
     void StopOrReset(int how);
     void ZapStdio() const;
@@ -122,32 +134,39 @@ class Service {
     void KillProcessGroup(int signal);
     void SetProcessAttributes();
 
-    bool ParseCapabilities(const std::vector<std::string>& args, std::string *err);
-    bool ParseClass(const std::vector<std::string>& args, std::string* err);
-    bool ParseConsole(const std::vector<std::string>& args, std::string* err);
-    bool ParseCritical(const std::vector<std::string>& args, std::string* err);
-    bool ParseDisabled(const std::vector<std::string>& args, std::string* err);
-    bool ParseGroup(const std::vector<std::string>& args, std::string* err);
-    bool ParsePriority(const std::vector<std::string>& args, std::string* err);
-    bool ParseIoprio(const std::vector<std::string>& args, std::string* err);
-    bool ParseKeycodes(const std::vector<std::string>& args, std::string* err);
-    bool ParseOneshot(const std::vector<std::string>& args, std::string* err);
-    bool ParseOnrestart(const std::vector<std::string>& args, std::string* err);
-    bool ParseOomScoreAdjust(const std::vector<std::string>& args, std::string* err);
-    bool ParseMemcgLimitInBytes(const std::vector<std::string>& args, std::string* err);
-    bool ParseMemcgSoftLimitInBytes(const std::vector<std::string>& args, std::string* err);
-    bool ParseMemcgSwappiness(const std::vector<std::string>& args, std::string* err);
-    bool ParseNamespace(const std::vector<std::string>& args, std::string* err);
-    bool ParseSeclabel(const std::vector<std::string>& args, std::string* err);
-    bool ParseSetenv(const std::vector<std::string>& args, std::string* err);
-    bool ParseShutdown(const std::vector<std::string>& args, std::string* err);
-    bool ParseSocket(const std::vector<std::string>& args, std::string* err);
-    bool ParseFile(const std::vector<std::string>& args, std::string* err);
-    bool ParseUser(const std::vector<std::string>& args, std::string* err);
-    bool ParseWritepid(const std::vector<std::string>& args, std::string* err);
+    Result<Success> ParseCapabilities(const std::vector<std::string>& args);
+    Result<Success> ParseClass(const std::vector<std::string>& args);
+    Result<Success> ParseConsole(const std::vector<std::string>& args);
+    Result<Success> ParseCritical(const std::vector<std::string>& args);
+    Result<Success> ParseDisabled(const std::vector<std::string>& args);
+    Result<Success> ParseEnterNamespace(const std::vector<std::string>& args);
+    Result<Success> ParseGroup(const std::vector<std::string>& args);
+    Result<Success> ParsePriority(const std::vector<std::string>& args);
+    Result<Success> ParseInterface(const std::vector<std::string>& args);
+    Result<Success> ParseIoprio(const std::vector<std::string>& args);
+    Result<Success> ParseKeycodes(const std::vector<std::string>& args);
+    Result<Success> ParseOneshot(const std::vector<std::string>& args);
+    Result<Success> ParseOnrestart(const std::vector<std::string>& args);
+    Result<Success> ParseOomScoreAdjust(const std::vector<std::string>& args);
+    Result<Success> ParseOverride(const std::vector<std::string>& args);
+    Result<Success> ParseMemcgLimitInBytes(const std::vector<std::string>& args);
+    Result<Success> ParseMemcgSoftLimitInBytes(const std::vector<std::string>& args);
+    Result<Success> ParseMemcgSwappiness(const std::vector<std::string>& args);
+    Result<Success> ParseNamespace(const std::vector<std::string>& args);
+    Result<Success> ParseProcessRlimit(const std::vector<std::string>& args);
+    Result<Success> ParseSeclabel(const std::vector<std::string>& args);
+    Result<Success> ParseSetenv(const std::vector<std::string>& args);
+    Result<Success> ParseShutdown(const std::vector<std::string>& args);
+    Result<Success> ParseSocket(const std::vector<std::string>& args);
+    Result<Success> ParseFile(const std::vector<std::string>& args);
+    Result<Success> ParseUser(const std::vector<std::string>& args);
+    Result<Success> ParseWritepid(const std::vector<std::string>& args);
 
     template <typename T>
-    bool AddDescriptor(const std::vector<std::string>& args, std::string* err);
+    Result<Success> AddDescriptor(const std::vector<std::string>& args);
+
+    static unsigned long next_start_order_;
+    static bool is_exec_service_running_;
 
     std::string name_;
     std::set<std::string> classnames_;
@@ -164,15 +183,19 @@ class Service {
     std::vector<gid_t> supp_gids_;
     CapSet capabilities_;
     unsigned namespace_flags_;
+    // Pair of namespace type, path to namespace.
+    std::vector<std::pair<int, std::string>> namespaces_to_enter_;
 
     std::string seclabel_;
 
     std::vector<std::unique_ptr<DescriptorInfo>> descriptors_;
-    std::vector<ServiceEnvironmentInfo> envvars_;
+    std::vector<std::pair<std::string, std::string>> environment_vars_;
 
     Action onrestart_;  // Commands to execute on restart.
 
     std::vector<std::string> writepid_files_;
+
+    std::set<std::string> interfaces_;  // e.g. some.package.foo@1.0::IBaz/instance-name
 
     // keycodes for triggering this service via /dev/keychord
     std::vector<int> keycodes_;
@@ -190,58 +213,64 @@ class Service {
 
     bool process_cgroup_empty_ = false;
 
+    bool override_ = false;
+
+    unsigned long start_order_;
+
+    std::vector<std::pair<int, rlimit>> rlimits_;
+
     std::vector<std::string> args_;
+
+    std::vector<std::function<void(const siginfo_t& siginfo)>> reap_callbacks_;
 };
 
-class ServiceManager {
+class ServiceList {
   public:
-    static ServiceManager& GetInstance();
+    static ServiceList& GetInstance();
 
     // Exposed for testing
-    ServiceManager();
+    ServiceList();
 
     void AddService(std::unique_ptr<Service> service);
-    Service* MakeExecOneshotService(const std::vector<std::string>& args);
-    bool Exec(const std::vector<std::string>& args);
-    bool ExecStart(const std::string& name);
-    bool IsWaitingForExec() const;
-    Service* FindServiceByName(const std::string& name) const;
-    Service* FindServiceByPid(pid_t pid) const;
-    Service* FindServiceByKeychord(int keychord_id) const;
-    void ForEachService(const std::function<void(Service*)>& callback) const;
-    void ForEachServiceInClass(const std::string& classname,
-                               void (*func)(Service* svc)) const;
-    void ForEachServiceWithFlags(unsigned matchflags,
-                             void (*func)(Service* svc)) const;
-    void ReapAnyOutstandingChildren();
     void RemoveService(const Service& svc);
+
+    template <typename T, typename F = decltype(&Service::name)>
+    Service* FindService(T value, F function = &Service::name) const {
+        auto svc = std::find_if(services_.begin(), services_.end(),
+                                [&function, &value](const std::unique_ptr<Service>& s) {
+                                    return std::invoke(function, s) == value;
+                                });
+        if (svc != services_.end()) {
+            return svc->get();
+        }
+        return nullptr;
+    }
+
     void DumpState() const;
-    void ClearExecWait();
+
+    auto begin() const { return services_.begin(); }
+    auto end() const { return services_.end(); }
+    const std::vector<std::unique_ptr<Service>>& services() const { return services_; }
+    const std::vector<Service*> services_in_shutdown_order() const;
 
   private:
-    // Cleans up a child process that exited.
-    // Returns true iff a children was cleaned up.
-    bool ReapOneProcess();
-
-    static int exec_count_; // Every service needs a unique name.
-    std::unique_ptr<android::base::Timer> exec_waiter_;
-
     std::vector<std::unique_ptr<Service>> services_;
 };
 
 class ServiceParser : public SectionParser {
   public:
-    ServiceParser(ServiceManager* service_manager)
-        : service_manager_(service_manager), service_(nullptr) {}
-    bool ParseSection(std::vector<std::string>&& args, const std::string& filename, int line,
-                      std::string* err) override;
-    bool ParseLineSection(std::vector<std::string>&& args, int line, std::string* err) override;
-    void EndSection() override;
+    ServiceParser(ServiceList* service_list, std::vector<Subcontext>* subcontexts)
+        : service_list_(service_list), subcontexts_(subcontexts), service_(nullptr) {}
+    Result<Success> ParseSection(std::vector<std::string>&& args, const std::string& filename,
+                                 int line) override;
+    Result<Success> ParseLineSection(std::vector<std::string>&& args, int line) override;
+    Result<Success> EndSection() override;
 
   private:
     bool IsValidName(const std::string& name) const;
 
-    ServiceManager* service_manager_;
+    ServiceList* service_list_;
+    std::vector<Subcontext>* subcontexts_;
     std::unique_ptr<Service> service_;
 };
 

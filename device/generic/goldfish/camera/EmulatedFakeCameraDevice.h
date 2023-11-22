@@ -85,7 +85,7 @@ public:
 
 protected:
     /* Implementation of the frame production routine. */
-    bool produceFrame(void* buffer) override;
+    bool produceFrame(void* buffer, int64_t* timestamp) override;
 
     /****************************************************************************
      * Fake camera device private API

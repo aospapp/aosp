@@ -25,10 +25,9 @@ GIT_COMMAND = 'git diff-tree --no-commit-id --name-only -r %s'
 YAPF_COMMAND = 'yapf -d -p %s'
 YAPF_OLD_COMMAND = 'yapf -d %s'
 YAPF_INPLACE_FORMAT = 'yapf -p -i %s'
-YAPF_INPLACE_FORMAT_OLD = 'yapf -i %s'
 
 
-def main(argv):
+def main():
     if COMMIT_ID_ENV_KEY not in os.environ:
         logging.error('Missing commit id in environment.')
         exit(1)
@@ -49,18 +48,14 @@ def main(argv):
 
     result = job.run(YAPF_COMMAND % files_param_string, ignore_status=True)
     yapf_inplace_format = YAPF_INPLACE_FORMAT
-    if result.exit_status:
-        logging.warning('Using an old version of yapf. Please update soon.')
-        result = job.run(YAPF_OLD_COMMAND % files_param_string)
-        yapf_inplace_format = YAPF_INPLACE_FORMAT_OLD
 
     if result.stdout:
         logging.error(result.stdout)
         logging.error('INVALID FORMATTING.')
-        logging.error('Consider run:')
-        logging.error(yapf_inplace_format % files_param_string)
+        logging.error('Please run:\n'
+                      '%s' % yapf_inplace_format % files_param_string)
         exit(1)
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main()

@@ -24,6 +24,10 @@ import static android.car.settings.CarSettings.Secure
 import static android.car.settings.CarSettings.Secure
         .KEY_BLUETOOTH_AUTOCONNECT_MUSIC_DEVICE_PRIORITY_1;
 import static android.car.settings.CarSettings.Secure
+        .KEY_BLUETOOTH_AUTOCONNECT_NETWORK_DEVICE_PRIORITY_0;
+import static android.car.settings.CarSettings.Secure
+        .KEY_BLUETOOTH_AUTOCONNECT_NETWORK_DEVICE_PRIORITY_1;
+import static android.car.settings.CarSettings.Secure
         .KEY_BLUETOOTH_AUTOCONNECT_PHONE_DEVICE_PRIORITY_0;
 import static android.car.settings.CarSettings.Secure
         .KEY_BLUETOOTH_AUTOCONNECT_PHONE_DEVICE_PRIORITY_1;
@@ -55,11 +59,11 @@ public class CarBluetoothService extends ICarBluetooth.Stub implements CarServic
     private final BluetoothDeviceConnectionPolicy mBluetoothDeviceConnectionPolicy;
     private static final boolean DBG = false;
 
-    public CarBluetoothService(Context context, CarCabinService carCabinService,
-            CarSensorService carSensorService, PerUserCarServiceHelper userSwitchService) {
+    public CarBluetoothService(Context context, CarPropertyService carPropertyService,
+            PerUserCarServiceHelper userSwitchService, CarUxRestrictionsManagerService uxrService) {
         mContext = context;
         mBluetoothDeviceConnectionPolicy = BluetoothDeviceConnectionPolicy.create(mContext,
-                carCabinService, carSensorService, userSwitchService, this);
+                carPropertyService, userSwitchService, uxrService, this);
     }
 
     @Override
@@ -185,6 +189,13 @@ public class CarBluetoothService extends ICarBluetooth.Stub implements CarServic
                         ? KEY_BLUETOOTH_AUTOCONNECT_MESSAGING_DEVICE_PRIORITY_0
                         : KEY_BLUETOOTH_AUTOCONNECT_MESSAGING_DEVICE_PRIORITY_1;
                 break;
+            case BluetoothProfile.PAN:
+                keyToQuery = (priorityToCheck
+                        == CarBluetoothManager.BLUETOOTH_DEVICE_CONNECTION_PRIORITY_0)
+                        ? KEY_BLUETOOTH_AUTOCONNECT_NETWORK_DEVICE_PRIORITY_0
+                        : KEY_BLUETOOTH_AUTOCONNECT_NETWORK_DEVICE_PRIORITY_1;
+                break;
+
             default:
                 if (DBG) {
                     Log.d(TAG, "Unknown Bluetooth profile");
@@ -232,6 +243,13 @@ public class CarBluetoothService extends ICarBluetooth.Stub implements CarServic
                         ? KEY_BLUETOOTH_AUTOCONNECT_PHONE_DEVICE_PRIORITY_0
                         : KEY_BLUETOOTH_AUTOCONNECT_PHONE_DEVICE_PRIORITY_1;
                 break;
+            case BluetoothProfile.PAN:
+                keyToLookup = (priority
+                        == CarBluetoothManager.BLUETOOTH_DEVICE_CONNECTION_PRIORITY_0)
+                        ? KEY_BLUETOOTH_AUTOCONNECT_NETWORK_DEVICE_PRIORITY_0
+                        : KEY_BLUETOOTH_AUTOCONNECT_NETWORK_DEVICE_PRIORITY_1;
+                break;
+
             default:
                 Log.e(TAG, "Unsupported Bluetooth profile to set priority to");
                 break;

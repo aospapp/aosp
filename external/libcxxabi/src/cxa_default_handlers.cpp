@@ -14,12 +14,12 @@
 #include <exception>
 #include <cstdlib>
 #include "abort_message.h"
-#include "config.h" // For __sync_swap
 #include "cxxabi.h"
 #include "cxa_handlers.hpp"
 #include "cxa_exception.hpp"
 #include "private_typeinfo.h"
 
+#if !defined(LIBCXXABI_SILENT_TERMINATE)
 static const char* cause = "uncaught";
 
 __attribute__((noreturn))
@@ -85,12 +85,11 @@ static void demangling_unexpected_handler()
     std::terminate();
 }
 
-#if !LIBCXXABI_SILENT_TERMINATE
 static std::terminate_handler default_terminate_handler = demangling_terminate_handler;
 static std::terminate_handler default_unexpected_handler = demangling_unexpected_handler;
 #else
 static std::terminate_handler default_terminate_handler = std::abort;
-static std::terminate_handler default_unexpected_handler = std::abort;
+static std::terminate_handler default_unexpected_handler = std::terminate;
 #endif
 
 //

@@ -12,12 +12,18 @@ package android.icu.dev.test.format;
 import java.util.Arrays;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
+import android.icu.dev.test.TestFmwk;
 import android.icu.text.NumberFormat;
 import android.icu.text.NumberFormat.SimpleNumberFormatFactory;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
-public class NumberFormatRegistrationTest extends android.icu.dev.test.TestFmwk {
+@MainTestShard
+@RunWith(JUnit4.class)
+public class NumberFormatRegistrationTest extends TestFmwk {
     @Test
     public void TestRegistration() {
         final ULocale SRC_LOC = ULocale.FRANCE;
@@ -35,6 +41,7 @@ public class NumberFormatRegistrationTest extends android.icu.dev.test.TestFmwk 
                 currencyStyle = NumberFormat.getIntegerInstance(swapLoc);
             }
 
+            @Override
             public NumberFormat createFormat(ULocale loc, int formatType) {
                 if (formatType == FORMAT_CURRENCY) {
                     return currencyStyle;

@@ -18,15 +18,18 @@ package android.text.format.cts;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.app.UiAutomation;
 import android.content.Context;
+import android.content.res.Configuration;
+import android.os.LocaleList;
 import android.os.ParcelFileDescriptor;
 import android.provider.Settings;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.LargeTest;
 import android.support.test.runner.AndroidJUnit4;
@@ -309,6 +312,27 @@ public class DateFormatTest {
             assertTrue(locale.toString() + " day not found", seenDay);
             assertTrue(locale.toString() + " month not found", seenMonth);
             assertTrue(locale.toString() + " year not found", seenYear);
+        }
+    }
+
+    @Test
+    public void test_ContextLocaleIsUsed() {
+        final Locale oldLocale = Locale.getDefault();
+
+        try {
+            Date date = new Date(YEAR_FROM_1900, MONTH, DAY);
+            Locale.setDefault(Locale.FRANCE);
+            final String javaResult = java.text.DateFormat.getDateInstance(
+                    java.text.DateFormat.LONG).format(date);
+
+            final Configuration config = new Configuration();
+            config.setLocales(new LocaleList(Locale.JAPAN));
+            final Context context = mContext.createConfigurationContext(config);
+            final String androidResult = DateFormat.getLongDateFormat(context).format(date);
+
+            assertNotEquals(javaResult, androidResult);
+        } finally {
+            Locale.setDefault(oldLocale);
         }
     }
 

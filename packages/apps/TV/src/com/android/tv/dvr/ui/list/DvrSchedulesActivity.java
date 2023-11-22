@@ -20,23 +20,19 @@ import android.app.Activity;
 import android.app.ProgressDialog;
 import android.os.Bundle;
 import android.support.annotation.IntDef;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.Starter;
 import com.android.tv.data.Program;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.provider.EpisodicProgramLoadTask;
 import com.android.tv.dvr.recorder.SeriesRecordingScheduler;
 import com.android.tv.dvr.ui.BigArguments;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Activity to show the list of recording schedules.
- */
+/** Activity to show the list of recording schedules. */
 public class DvrSchedulesActivity extends Activity {
     /**
      * The key for the type of the schedules which will be listed in the list. The type of the value
@@ -47,9 +43,7 @@ public class DvrSchedulesActivity extends Activity {
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({TYPE_FULL_SCHEDULE, TYPE_SERIES_SCHEDULE})
     public @interface ScheduleListType {}
-    /**
-     * A type which means the activity will display the full scheduled recordings.
-     */
+    /** A type which means the activity will display the full scheduled recordings. */
     public static final int TYPE_FULL_SCHEDULE = 0;
     /**
      * A type which means the activity will display a scheduled recording list of a series
@@ -59,7 +53,7 @@ public class DvrSchedulesActivity extends Activity {
 
     @Override
     public void onCreate(final Bundle savedInstanceState) {
-        TvApplication.setCurrentRunningProcess(this, true);
+        Starter.start(this);
         // Pass null to prevent automatically re-creating fragments
         super.onCreate(null);
         setContentView(R.layout.activity_dvr_schedules);
@@ -67,20 +61,29 @@ public class DvrSchedulesActivity extends Activity {
         if (scheduleType == TYPE_FULL_SCHEDULE) {
             DvrSchedulesFragment schedulesFragment = new DvrSchedulesFragment();
             schedulesFragment.setArguments(getIntent().getExtras());
-            getFragmentManager().beginTransaction().add(
-                    R.id.fragment_container, schedulesFragment).commit();
+            getFragmentManager()
+                    .beginTransaction()
+                    .add(R.id.fragment_container, schedulesFragment)
+                    .commit();
         } else if (scheduleType == TYPE_SERIES_SCHEDULE) {
-            if (BigArguments.getArgument(DvrSeriesSchedulesFragment
-                    .SERIES_SCHEDULES_KEY_SERIES_PROGRAMS) != null) {
+            if (BigArguments.getArgument(
+                            DvrSeriesSchedulesFragment.SERIES_SCHEDULES_KEY_SERIES_PROGRAMS)
+                    != null) {
                 // The programs will be passed to the DvrSeriesSchedulesFragment, so don't need
                 // to reset the BigArguments.
                 showDvrSeriesSchedulesFragment(getIntent().getExtras());
             } else {
-                final ProgressDialog dialog = ProgressDialog.show(this, null, getString(
-                        R.string.dvr_series_progress_message_reading_programs));
-                SeriesRecording seriesRecording = getIntent().getExtras()
-                        .getParcelable(DvrSeriesSchedulesFragment
-                                .SERIES_SCHEDULES_KEY_SERIES_RECORDING);
+                final ProgressDialog dialog =
+                        ProgressDialog.show(
+                                this,
+                                null,
+                                getString(R.string.dvr_series_progress_message_reading_programs));
+                SeriesRecording seriesRecording =
+                        getIntent()
+                                .getExtras()
+                                .getParcelable(
+                                        DvrSeriesSchedulesFragment
+                                                .SERIES_SCHEDULES_KEY_SERIES_RECORDING);
                 // To get programs faster, hold the update of the series schedules.
                 SeriesRecordingScheduler.getInstance(this).pauseUpdate();
                 new EpisodicProgramLoadTask(this, Collections.singletonList(seriesRecording)) {
@@ -110,7 +113,9 @@ public class DvrSchedulesActivity extends Activity {
     private void showDvrSeriesSchedulesFragment(Bundle args) {
         DvrSeriesSchedulesFragment schedulesFragment = new DvrSeriesSchedulesFragment();
         schedulesFragment.setArguments(args);
-        getFragmentManager().beginTransaction().add(
-                R.id.fragment_container, schedulesFragment).commit();
+        getFragmentManager()
+                .beginTransaction()
+                .add(R.id.fragment_container, schedulesFragment)
+                .commit();
     }
 }

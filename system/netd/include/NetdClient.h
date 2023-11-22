@@ -21,6 +21,8 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>
 
+#define NETID_USE_LOCAL_NAMESERVERS 0x80000000
+
 __BEGIN_DECLS
 
 // All functions below that return an int return 0 on success or a negative errno value on failure.
@@ -39,6 +41,13 @@ int setNetworkForUser(uid_t uid, int socketFd);
 
 int queryUserAccess(uid_t uid, unsigned netId);
 
+int tagSocket(int socketFd, uint32_t tag, uid_t uid);
+
+int untagSocket(int socketFd);
+
+int setCounterSet(uint32_t counterSet, uid_t uid);
+
+int deleteTagData(uint32_t tag, uid_t uid);
 __END_DECLS
 
 #endif  // NETD_INCLUDE_NETD_CLIENT_H

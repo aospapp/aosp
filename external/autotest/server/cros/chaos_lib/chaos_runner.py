@@ -125,7 +125,7 @@ class ChaosRunner(object):
             logging.info('Starting up VM %s', webdriver_instance)
             utils.power_on_VM(webdriver_master, webdriver_instance)
             logging.info('Allow VM time to power on before creating a tunnel.')
-            time.sleep(5)
+            time.sleep(30)
 
             if not client_utils.host_is_in_lab_zone(webdriver_instance.hostname):
                 self._ap_spec._webdriver_hostname = webdriver_instance.hostname
@@ -158,10 +158,18 @@ class ChaosRunner(object):
                 healthy_dut = True
 
                 with contextlib.closing(wifi_client.WiFiClient(
-                    hosts.create_host({'hostname' : self._host.hostname,
-                            'afe_host' : self._host._afe_host},
-                            host_class=self._host.__class__),
-                    './debug', False)) as client:
+                    hosts.create_host(
+                            {
+                                    'hostname' : self._host.hostname,
+                                    'afe_host' : self._host._afe_host,
+                                    'host_info_store':
+                                            self._host.host_info_store,
+                            },
+                            host_class=self._host.__class__,
+                    ),
+                    './debug',
+                    False,
+                )) as client:
 
                     aps = batch_locker.get_ap_batch(batch_size=batch_size)
                     if not aps:

@@ -53,6 +53,11 @@ PchInitInterrupt (
   IN SYSTEM_CONFIGURATION  *SystemConfiguration
   );
 
+EFI_STATUS
+InstallPeiPchUsbPolicy (
+  IN CONST  EFI_PEI_SERVICES  **PeiServices
+  );
+
 #ifndef __GNUC__
 #pragma warning (push)
 #pragma warning (disable : 4245)
@@ -500,17 +505,7 @@ IchRcrbInit (
   IN SYSTEM_CONFIGURATION        *SystemConfiguration
   )
 {
-  UINT8                           LpcRevisionID;
-  EFI_PLATFORM_CPU_INFO           *PlatformCpuInfo;
-  EFI_PEI_HOB_POINTERS            Hob;
   EFI_BOOT_MODE                   BootMode;
-
-  //
-  // Get Platform Info HOB
-  //
-  Hob.Raw = GetFirstGuidHob (&gEfiPlatformCpuInfoGuid);
-  ASSERT (Hob.Raw != NULL);
-  PlatformCpuInfo = GET_GUID_HOB_DATA(Hob.Raw);
 
   (*PeiServices)->GetBootMode(PeiServices, &BootMode);
 
@@ -530,8 +525,6 @@ IchRcrbInit (
   //
   // Initial RCBA according to the PeiRCBA table
   //
-  LpcRevisionID = PchLpcPciCfg8 (R_PCH_LPC_RID_CC);
-
   if ((BootMode == BOOT_ON_S3_RESUME)) {
     //
     // We are resuming from S3
@@ -553,7 +546,17 @@ PlatformPchInit (
   IN UINT16                      PlatformType
   )
 {
+  EFI_STATUS     Status;
+  EFI_BOOT_MODE  BootMode;
+
+  Status = PeiServicesGetBootMode (&BootMode);
+  ASSERT_EFI_ERROR (Status);
+
   IchRcrbInit (PeiServices, SystemConfiguration);
+
+  if (BootMode == BOOT_IN_RECOVERY_MODE) {
+    InstallPeiPchUsbPolicy(PeiServices);
+  }
 
   //
   // PCH Policy Initialization based on Setup variable.
@@ -733,7 +736,8 @@ InstallPeiPchUsbPolicy (
   EFI_PEI_PPI_DESCRIPTOR  *PeiPchUsbPolicyPpiDesc;
   PCH_USB_POLICY_PPI      *PeiPchUsbPolicyPpi;
   PCH_USB_CONFIG          *UsbConfig;
-  EFI_PLATFORM_INFO_HOB   PlatformInfo;
+
+  DEBUG ((EFI_D_INFO, "InstallPeiPchUsbPolicy...\n"));
 
   //
   // Allocate descriptor and PPI structures.  Since these are dynamically updated
@@ -756,12 +760,6 @@ InstallPeiPchUsbPolicy (
   UsbConfig->Usb20Settings[0].Enable  = PCH_DEVICE_ENABLE;
   UsbConfig->UsbPerPortCtl            = PCH_DEVICE_DISABLE;
   UsbConfig->Ehci1Usbr                = PCH_DEVICE_DISABLE;
-
-  //
-  // Initialize PlatformInfo HOB
-  //
-  ZeroMem (&PlatformInfo, sizeof(PlatformInfo));
-  MultiPlatformInfoInit(PeiServices, &PlatformInfo);
 
   UsbConfig->Usb20OverCurrentPins[0] = PchUsbOverCurrentPin0;
 
@@ -795,6 +793,8 @@ InstallPeiPchUsbPolicy (
   PeiPchUsbPolicyPpi->EhciMemBaseAddr = PcdGet32(PcdPeiIchEhciControllerMemoryBaseAddress);
 
   PeiPchUsbPolicyPpi->EhciMemLength   = (UINT32) 0x400 * PchEhciControllerMax;
+
+  PeiPchUsbPolicyPpi->XhciMemBaseAddr = 0;
 
   PeiPchUsbPolicyPpi->UsbConfig       = UsbConfig;
 

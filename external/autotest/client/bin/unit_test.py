@@ -19,29 +19,29 @@ class unit_test(test.test):
       os.chdir(self.srcdir)
       utils.make('clean')
       utils.make('all')
-      
+
       self.job.setup_dep(['gtest'])
 
     def run_once(self):
         dep ='gtest'
         dep_dir = os.path.join(self.autodir, 'deps', dep)
         self.job.install_pkg(dep, 'dep', dep_dir)
-      
+
         # Run the unit test, gather the results and place the gcda files for
         # code coverage in the results directory.
-        
+
         os.chdir(self.srcdir)
-        result = utils.run('LD_LIBRARY_PATH=' + dep_dir + 
+        result = utils.run('LD_LIBRARY_PATH=' + dep_dir +
                            ' GCOV_PREFIX=' + self.resultsdir +
                            ' GCOV_PREFIX_STRIP=9999 ./unit_test > ' +
                            self.resultsdir + '/unit_test_result.txt')
         logging.debug(result.stderr)
         logging.info('result: ' + self.resultsdir + '/unit_test_result.txt')
-        
+
     def cleanup(self):
         # This is a hack - we should only need to copy back the .gcda file but
-        # we don't know how to access the source on the server. So copy 
+        # we don't know how to access the source on the server. So copy
         # everything back.
-        
+
         os.chdir(self.srcdir)
         utils.run('cp * ' + self.resultsdir)

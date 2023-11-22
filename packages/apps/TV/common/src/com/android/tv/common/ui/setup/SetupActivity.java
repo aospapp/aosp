@@ -28,7 +28,6 @@ import android.transition.Transition;
 import android.transition.TransitionInflater;
 import android.view.View;
 import android.view.ViewTreeObserver.OnPreDrawListener;
-
 import com.android.tv.common.R;
 import com.android.tv.common.WeakHandler;
 import com.android.tv.common.ui.setup.animation.SetupAnimationHelper;
@@ -51,23 +50,28 @@ public abstract class SetupActivity extends Activity implements OnActionClickLis
         super.onCreate(savedInstanceState);
         SetupAnimationHelper.initialize(this);
         setContentView(R.layout.activity_setup);
-        mFragmentTransitionDuration = getResources().getInteger(
-                R.integer.setup_fragment_transition_duration);
+        mFragmentTransitionDuration =
+                getResources().getInteger(R.integer.setup_fragment_transition_duration);
         // Show initial fragment only when the saved state is not restored, because the last
         // fragment is restored if savesInstanceState is not null.
         if (savedInstanceState == null) {
             // This is the workaround to show the first fragment with delay to show the fragment
             // enter transition. See http://b/26255145
-            getWindow().getDecorView().getViewTreeObserver().addOnPreDrawListener(
-                    new OnPreDrawListener() {
-                        @Override
-                        public boolean onPreDraw() {
-                            getWindow().getDecorView().getViewTreeObserver()
-                                    .removeOnPreDrawListener(this);
-                            showInitialFragment();
-                            return true;
-                        }
-                    });
+            getWindow()
+                    .getDecorView()
+                    .getViewTreeObserver()
+                    .addOnPreDrawListener(
+                            new OnPreDrawListener() {
+                                @Override
+                                public boolean onPreDraw() {
+                                    getWindow()
+                                            .getDecorView()
+                                            .getViewTreeObserver()
+                                            .removeOnPreDrawListener(this);
+                                    showInitialFragment();
+                                    return true;
+                                }
+                            });
         } else {
             mShowInitialFragment = false;
         }
@@ -76,8 +80,8 @@ public abstract class SetupActivity extends Activity implements OnActionClickLis
     /**
      * The inherited class should provide the initial fragment to show.
      *
-     * <p>If this method returns {@code null} during {@link #onCreate}, then call
-     * {@link #showInitialFragment} explicitly later with non null initial fragment.
+     * <p>If this method returns {@code null} during {@link #onCreate}, then call {@link
+     * #showInitialFragment} explicitly later with non null initial fragment.
      */
     protected abstract Fragment onCreateInitialFragment();
 
@@ -98,16 +102,15 @@ public abstract class SetupActivity extends Activity implements OnActionClickLis
         }
     }
 
-    /**
-     * Shows the given fragment.
-     */
+    /** Shows the given fragment. */
     protected FragmentTransaction showFragment(Fragment fragment, boolean addToBackStack) {
         FragmentTransaction ft = getFragmentManager().beginTransaction();
         if (fragment instanceof SetupFragment) {
             int[] sharedElements = ((SetupFragment) fragment).getSharedElementIds();
             if (sharedElements != null && sharedElements.length > 0) {
-                Transition sharedTransition = TransitionInflater.from(this)
-                        .inflateTransition(R.transition.transition_action_background);
+                Transition sharedTransition =
+                        TransitionInflater.from(this)
+                                .inflateTransition(R.transition.transition_action_background);
                 sharedTransition.setDuration(getSharedElementTransitionDuration());
                 SetupAnimationHelper.applyAnimationTimeScale(sharedTransition);
                 fragment.setSharedElementEnterTransition(sharedTransition);
@@ -143,9 +146,9 @@ public abstract class SetupActivity extends Activity implements OnActionClickLis
 
     /**
      * Override this method if the inherited class wants to handle the action.
-     * <p>
-     * The override method should return {@code true} if the action is handled, otherwise
-     * {@code false}.
+     *
+     * <p>The override method should return {@code true} if the action is handled, otherwise {@code
+     * false}.
      */
     protected boolean executeAction(String category, int actionId, Bundle params) {
         return false;

@@ -23,6 +23,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.platform.test.annotations.AppModeFull;
 import android.telephony.SmsManager;
 import android.telephony.TelephonyManager;
 import android.test.AndroidTestCase;
@@ -33,6 +34,7 @@ import android.util.Log;
  * Verify Sms and Mms cannot be received without required permissions.
  * Uses {@link android.telephony.SmsManager}.
  */
+@AppModeFull(reason = "Instant apps cannot get the SEND_SMS permission")
 public class NoReceiveSmsPermissionTest extends AndroidTestCase {
 
     // time to wait for sms to get delivered - currently 2 minutes

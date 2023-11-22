@@ -34,6 +34,7 @@ class policy_CookiesSessionOnlyForUrls(
     version = 1
 
     def initialize(self, **kwargs):
+        """Initialize this test."""
         self._initialize_test_constants()
         super(policy_CookiesSessionOnlyForUrls, self).initialize(**kwargs)
         self.start_webserver()
@@ -149,7 +150,7 @@ class policy_CookiesSessionOnlyForUrls(
                 raise error.TestFail('Cookie should not be Clear on exit.')
 
 
-    def run_test_case(self, case):
+    def run_once(self, case):
         """
         Setup and run the test configured for the specified test case.
 
@@ -157,5 +158,6 @@ class policy_CookiesSessionOnlyForUrls(
 
         """
         case_value = self.TEST_CASES[case]
-        self.setup_case(self.POLICY_NAME, case_value, self.SUPPORTING_POLICIES)
+        self.SUPPORTING_POLICIES[self.POLICY_NAME] = case_value
+        self.setup_case(user_policies=self.SUPPORTING_POLICIES)
         self._test_cookies_allowed_for_urls(case_value)

@@ -35,7 +35,7 @@ namespace nanoapp_testing {
 void memset(void *mem, int val, size_t count) {
   uint8_t *bytes = static_cast<uint8_t*>(mem);
   for (size_t i = 0; i < count; i++) {
-    bytes[i] = val;
+    bytes[i] = static_cast<uint8_t>(val);
   }
 }
 

@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+# /usr/bin/env python3.4
 #
 # Copyright (C) 2016 The Android Open Source Project
 #
@@ -130,7 +130,7 @@ class BtCarHfpConferenceTest(BluetoothCarHfpBaseTest):
         # Give time for state to update due to carrier limitations
         time.sleep(SHORT_TIMEOUT)
         # Extract the call.
-        #input("Continue?")
+        # input("Continue?")
         call_2 = car_telecom_utils.get_calls_in_states(
             self.log, self.hf, [tel_defines.CALL_STATE_RINGING])
         if len(call_2) != 1:
@@ -139,8 +139,7 @@ class BtCarHfpConferenceTest(BluetoothCarHfpBaseTest):
 
         # Accept the call on HF
         if not car_telecom_utils.accept_call(self.log, self.hf, call_2[0]):
-            self.hf.log.info("Accepting call failed {}".format(
-                calls_in_ringing))
+            self.hf.log.info("Accepting call failed {}".format(self.hf.serial))
             return False
 
         # Merge the calls now.

@@ -38,7 +38,7 @@ public class CodecUtils  {
     /** Load jni on initialization */
     static {
         Log.i(TAG, "before loadlibrary");
-        System.loadLibrary("ctsmediacodec_jni");
+        System.loadLibrary("ctscodecutils_jni");
         Log.i(TAG, "after loadlibrary");
     }
 

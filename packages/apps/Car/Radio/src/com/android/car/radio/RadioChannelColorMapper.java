@@ -16,14 +16,15 @@
 
 package com.android.car.radio;
 
+import android.annotation.ColorInt;
+import android.annotation.NonNull;
 import android.content.Context;
-import android.hardware.radio.RadioManager;
-import android.support.annotation.ColorInt;
-import android.support.annotation.NonNull;
-import com.android.car.radio.service.RadioStation;
+import android.hardware.radio.ProgramSelector;
+
+import com.android.car.broadcastradio.support.platform.ProgramSelectorExt;
 
 /**
- * A class that will take a {@link RadioStation} and return its corresponding color. The colors
+ * A class that will take a {@link Program} and return its corresponding color. The colors
  * for different channels can be found on go/aae-ncar-por in the radio section.
  */
 public class RadioChannelColorMapper {
@@ -68,45 +69,37 @@ public class RadioChannelColorMapper {
     }
 
     /**
-     * Convenience method for returning a color based on a {@link RadioStation}.
+     * Convenience method for returning a color based on a {@link Program}.
      *
-     * @see #getColorForStation(int, int)
+     * @see #getColorForStation
      */
     @ColorInt
-    public int getColorForStation(@NonNull RadioStation radioStation) {
-        return getColorForStation(radioStation.getRadioBand(), radioStation.getChannelNumber());
+    public int getColorForProgram(@NonNull ProgramSelector sel) {
+        if (!ProgramSelectorExt.isAmFmProgram(sel)
+                || !ProgramSelectorExt.hasId(sel, ProgramSelector.IDENTIFIER_TYPE_AMFM_FREQUENCY)) {
+            return mDefaultColor;
+        }
+        return getColorForChannel(sel.getFirstId(ProgramSelector.IDENTIFIER_TYPE_AMFM_FREQUENCY));
     }
 
     /**
      * Returns the color that should be used for the given radio band and channel. If a match cannot
      * be made, then {@link #mDefaultColor} is returned.
      *
-     * @param band One of {@link RadioManager}'s band values. (e.g. {@link RadioManager#BAND_AM}.
-     * @param channel The channel frequency in Hertz.
+     * @param freq The channel frequency in Hertz.
      */
     @ColorInt
-    public int getColorForStation(int band, int channel) {
-        switch (band) {
-            case RadioManager.BAND_AM:
-                if (channel < AM_LOW_THIRD_RANGE) {
-                    return mAmRange1Color;
-                } else if (channel > AM_HIGH_THIRD_RANGE) {
-                    return mAmRange3Color;
-                }
-
-                return mAmRange2Color;
-
-            case RadioManager.BAND_FM:
-                if (channel < FM_LOW_THIRD_RANGE) {
-                    return mFmRange1Color;
-                } else if (channel > FM_HIGH_THIRD_RANGE) {
-                    return mFmRange3Color;
-                }
-
-                return mFmRange2Color;
-
-            default:
-                return mDefaultColor;
+    public int getColorForChannel(long freq) {
+        if (ProgramSelectorExt.isAmFrequency(freq)) {
+                if (freq < AM_LOW_THIRD_RANGE) return mAmRange1Color;
+                else if (freq > AM_HIGH_THIRD_RANGE) return mAmRange3Color;
+                else return mAmRange2Color;
+        } else if (ProgramSelectorExt.isFmFrequency(freq)) {
+                if (freq < FM_LOW_THIRD_RANGE) return mFmRange1Color;
+                else if (freq > FM_HIGH_THIRD_RANGE) return mFmRange3Color;
+                else return mFmRange2Color;
+        } else {
+            return mDefaultColor;
         }
     }
 }

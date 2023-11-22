@@ -4,3 +4,5 @@ service netd /system/bin/netd
     socket dnsproxyd stream 0660 root inet
     socket mdns stream 0660 root system
     socket fwmarkd stream 0660 root inet
+    onrestart restart zygote
+    onrestart restart zygote_secondary

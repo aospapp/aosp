@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """Switch part of the objects file in working set to (possible) bad ones.
 
 This script is meant to be specifically used with the set_file test. This uses

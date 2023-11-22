@@ -26,7 +26,6 @@
 
 #define LOG_TAG "bt_vendor"
 
-#include <utils/Log.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>
@@ -36,8 +35,10 @@
 #include <dirent.h>
 #include <ctype.h>
 #include <cutils/properties.h>
+#include <log/log.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "bt_hci_bdroid.h"
 #include "bt_vendor_qcom.h"
 #include <string.h>

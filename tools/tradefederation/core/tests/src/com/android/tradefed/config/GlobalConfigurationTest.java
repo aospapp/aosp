@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.android.tradefed.config;
 
 import com.android.tradefed.command.CommandScheduler;
@@ -25,6 +26,7 @@ import junit.framework.TestCase;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +44,7 @@ public class GlobalConfigurationTest extends TestCase {
     private final static String ALIAS_NAME = "aliasssss";
     private final static String EMPTY_CONFIG = "empty";
     private static final String GLOBAL_TEST_CONFIG = "global-config";
+    private static final String GLOBAL_CONFIG_SERVER_TEST_CONFIG = "global-config-server-config";
 
     @Override
     protected void setUp() throws Exception {
@@ -118,12 +121,13 @@ public class GlobalConfigurationTest extends TestCase {
         List<String> nonGlobalArgs = new ArrayList<String>(args.length);
         // In order to find our test config, we provide our testconfigs/ folder. Otherwise only
         // the config/ folder is searched for configuration by default.
-        IConfigurationFactory configFactory = new ConfigurationFactory() {
-            @Override
-            String getConfigPrefix() {
-                return "testconfigs/";
-            }
-        };
+        IConfigurationFactory configFactory =
+                new ConfigurationFactory() {
+                    @Override
+                    protected String getConfigPrefix() {
+                        return "testconfigs/";
+                    }
+                };
         String globalConfigPath = GLOBAL_TEST_CONFIG;
         IGlobalConfiguration mGlobalConfig = configFactory.createGlobalConfigurationFromArgs(
                 ArrayUtil.buildArray(new String[] {globalConfigPath}, args), nonGlobalArgs);
@@ -148,7 +152,7 @@ public class GlobalConfigurationTest extends TestCase {
         IConfigurationFactory configFactory =
                 new ConfigurationFactory() {
                     @Override
-                    String getConfigPrefix() {
+                    protected String getConfigPrefix() {
                         return "testconfigs/";
                     }
                 };
@@ -186,7 +190,7 @@ public class GlobalConfigurationTest extends TestCase {
         IConfigurationFactory configFactory =
                 new ConfigurationFactory() {
                     @Override
-                    String getConfigPrefix() {
+                    protected String getConfigPrefix() {
                         return "testconfigs/";
                     }
                 };
@@ -213,5 +217,49 @@ public class GlobalConfigurationTest extends TestCase {
         } finally {
             FileUtil.deleteFile(tmpXml);
         }
+    }
+
+    public static class StubConfigServer implements IConfigurationServer {
+
+        @Option(name = "server-name", description = "Config server's name.")
+        private String mServerName;
+
+        @Override
+        public InputStream getConfig(String name) throws ConfigurationException {
+            return null;
+        }
+
+        @Override
+        public String getCurrentHostConfig() throws ConfigurationException {
+            return "current-host-config.xml";
+        }
+
+        public String getServerName() {
+            return mServerName;
+        }
+    }
+
+    /** Test global configuration load from config server. */
+    public void testCreateGlobalConfiguration_configServer() throws Exception {
+        IConfigurationFactory configFactory =
+                new ConfigurationFactory() {
+                    @Override
+                    protected String getConfigPrefix() {
+                        return "testconfigs/";
+                    }
+                };
+        String[] args = {"--server-name", "stub", "test-tag", "test"};
+        String globalConfigServerConfigPath = GLOBAL_CONFIG_SERVER_TEST_CONFIG;
+        List<String> nonConfigServerArgs = new ArrayList<String>(args.length);
+        IGlobalConfiguration configServerConfig =
+                configFactory.createGlobalConfigurationFromArgs(
+                        ArrayUtil.buildArray(new String[] {globalConfigServerConfigPath}, args),
+                        nonConfigServerArgs);
+        StubConfigServer globalConfigServer =
+                (StubConfigServer) configServerConfig.getGlobalConfigServer();
+        assertNotNull(globalConfigServer);
+        assertEquals("stub", globalConfigServer.getServerName());
+        assertEquals("current-host-config.xml", globalConfigServer.getCurrentHostConfig());
+        assertTrue(nonConfigServerArgs.size() == 2);
     }
 }

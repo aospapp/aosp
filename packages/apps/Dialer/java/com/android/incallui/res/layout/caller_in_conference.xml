@@ -62,6 +62,15 @@
         android:gravity="bottom"
         android:orientation="horizontal">
 
+        <!-- Status (only support on hold now) -->
+        <TextView
+            android:id="@+id/conferenceCallerStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="@style/SecondaryText"
+            android:textColor="@color/dialer_secondary_text_color_hiden"
+            android:visibility="gone"/>
+
         <!-- Number -->
         <TextView
           android:id="@+id/conferenceCallerNumber"
@@ -72,18 +81,6 @@
           android:singleLine="true"
           android:textColor="@color/conference_call_manager_secondary_text_color"
           android:textSize="14sp"/>
-
-        <!-- Number type -->
-        <TextView
-          android:id="@+id/conferenceCallerNumberType"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:ellipsize="marquee"
-          android:gravity="start"
-          android:singleLine="true"
-          android:textAllCaps="true"
-          android:textColor="@color/conference_call_manager_secondary_text_color"
-          android:textSize="12sp"/>
 
       </LinearLayout>  <!-- End of caller number -->
 
@@ -101,7 +98,7 @@
     android:contentDescription="@string/goPrivate"
     android:scaleType="center"
     android:src="@drawable/ic_call_split_white_24dp"
-    android:tint="@color/conference_call_manager_icon_color"/>
+    android:tint="@color/icon_color_grey"/>
 
   <!-- "Disconnect" button which terminates the connection with this caller. -->
   <ImageButton
@@ -113,7 +110,7 @@
     android:clickable="true"
     android:contentDescription="@string/conference_caller_disconnect_content_description"
     android:scaleType="center"
-    android:src="@drawable/ic_call_end_white_24dp"
-    android:tint="@color/conference_call_manager_icon_color"/>
+    android:src="@drawable/quantum_ic_call_end_white_24"
+    android:tint="@color/icon_color_grey"/>
 
 </LinearLayout>  <!-- End of single list element -->

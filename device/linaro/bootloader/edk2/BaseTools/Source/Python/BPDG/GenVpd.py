@@ -2,7 +2,7 @@
 #  This file include GenVpd class for fix the Vpd type PCD offset, and PcdEntry for describe
 #  and process each entry of vpd type PCD.
 #
-#  Copyright (c) 2010 - 2014, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved.<BR>
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -344,7 +344,7 @@ class GenVPD :
                 #
                 # Enhanced for support "|" character in the string.
                 #
-                ValueList = ['', '', '', '','']    
+                ValueList = ['', '', '', '','']
 
                 ValueRe = re.compile(r'\s*L?\".*\|.*\"\s*$')
                 PtrValue = ValueRe.findall(line)
@@ -359,7 +359,7 @@ class GenVPD :
                 ValueList[0:len(TokenList)] = TokenList
 
                 if ValueUpdateFlag:
-                    ValueList[4] = PtrValue[0]                              
+                    ValueList[4] = PtrValue[0]
                 self.FileLinesList[count] = ValueList
                 # Store the line number
                 self.FileLinesList[count].append(str(count + 1))
@@ -400,14 +400,14 @@ class GenVPD :
                 PCD.SkuId        = PCD.SkuId.strip(' ')
                 PCD.PcdOffset    = PCD.PcdOffset.strip(' ')
                 PCD.PcdSize      = PCD.PcdSize.strip(' ')
-                PCD.PcdValue     = PCD.PcdValue.strip(' ')               
+                PCD.PcdValue     = PCD.PcdValue.strip(' ')
                 PCD.Lineno       = PCD.Lineno.strip(' ')
-                                      
+
                 #
                 # Store the original pcd value.
                 # This information will be useful while generate the output map file.
                 #
-                PCD.PcdUnpackValue    =  str(PCD.PcdValue)                              
+                PCD.PcdUnpackValue    =  str(PCD.PcdValue)
 
                 #
                 # Translate PCD size string to an integer value.
@@ -421,6 +421,28 @@ class GenVPD :
                         PCD.PcdBinSize = PackSize
                     except:
                         EdkLogger.error("BPDG", BuildToolError.FORMAT_INVALID, "Invalid PCD size value %s at file: %s line: %s" % (PCD.PcdSize, self.InputFileName, PCD.Lineno))
+
+                #
+                # If value is Unicode string (e.g. L""), then use 2-byte alignment
+                # If value is byte array (e.g. {}), then use 8-byte alignment
+                #
+                PCD.PcdOccupySize = PCD.PcdBinSize
+                if PCD.PcdUnpackValue.startswith("{"):
+                    Alignment = 8
+                elif PCD.PcdUnpackValue.startswith("L"):
+                    Alignment = 2
+                else:
+                    Alignment = 1
+
+                if PCD.PcdOffset != '*':
+                    if PCD.PcdOccupySize % Alignment != 0:
+                        if PCD.PcdUnpackValue.startswith("{"):
+                            EdkLogger.warn("BPDG", "The offset value of PCD %s is not 8-byte aligned!" %(PCD.PcdCName), File=self.InputFileName)
+                        else:
+                            EdkLogger.error("BPDG", BuildToolError.FORMAT_INVALID, 'The offset value of PCD %s should be %s-byte aligned.' % (PCD.PcdCName, Alignment))
+                else:
+                    if PCD.PcdOccupySize % Alignment != 0:
+                        PCD.PcdOccupySize = (PCD.PcdOccupySize / Alignment + 1) * Alignment
 
                 if PCD._IsBoolean(PCD.PcdValue, PCD.PcdSize):
                     PCD._PackBooleanValue(PCD.PcdValue)
@@ -490,7 +512,7 @@ class GenVPD :
             for Pcd in self.PcdUnknownOffsetList :
                 Pcd.PcdBinOffset = NowOffset
                 Pcd.PcdOffset    = str(hex(Pcd.PcdBinOffset))
-                NowOffset       += Pcd.PcdBinSize
+                NowOffset       += Pcd.PcdOccupySize
                 
             self.PcdFixedOffsetSizeList = self.PcdUnknownOffsetList
             return
@@ -514,14 +536,14 @@ class GenVPD :
                                 None)
 
             # Overlapped   
-            if PcdNow.PcdBinOffset + PcdNow.PcdBinSize > PcdNext.PcdBinOffset :
+            if PcdNow.PcdBinOffset + PcdNow.PcdOccupySize > PcdNext.PcdBinOffset :
                 EdkLogger.error("BPDG", BuildToolError.ATTRIBUTE_GET_FAILURE,
                                 "The offset of %s at line: %s is overlapped with %s at line: %s in file %s" % \
                                 (PcdNow.PcdCName, PcdNow.Lineno, PcdNext.PcdCName, PcdNext.Lineno, PcdNext.FileName),
                                 None)
 
             # Has free space, raise a warning message   
-            if PcdNow.PcdBinOffset + PcdNow.PcdBinSize < PcdNext.PcdBinOffset :
+            if PcdNow.PcdBinOffset + PcdNow.PcdOccupySize < PcdNext.PcdBinOffset :
                 EdkLogger.warn("BPDG", BuildToolError.ATTRIBUTE_GET_FAILURE,
                                "The offsets have free space of between %s at line: %s and %s at line: %s in file %s" % \
                                (PcdNow.PcdCName, PcdNow.Lineno, PcdNext.PcdCName, PcdNext.Lineno, PcdNext.FileName),
@@ -547,7 +569,7 @@ class GenVPD :
                     countOfUnfixedList = 0
                     while(countOfUnfixedList < lenOfUnfixedList) :
                         eachUnfixedPcd      = self.PcdUnknownOffsetList[countOfUnfixedList]
-                        needFixPcdSize      = eachUnfixedPcd.PcdBinSize
+                        needFixPcdSize      = eachUnfixedPcd.PcdOccupySize
                         # Not been fixed
                         if eachUnfixedPcd.PcdOffset == '*' :
                             # The offset un-fixed pcd can write into this free space
@@ -572,7 +594,7 @@ class GenVPD :
                                 LastOffset              += needFixPcdSize                            
                             else :
                                 # It can not insert into those two pcds, need to check still has other space can store it.
-                                LastOffset             = NowOffset + self.PcdFixedOffsetSizeList[FixOffsetSizeListCount].PcdBinSize
+                                LastOffset             = NowOffset + self.PcdFixedOffsetSizeList[FixOffsetSizeListCount].PcdOccupySize
                                 FixOffsetSizeListCount += 1
                                 break
                                                                                  
@@ -582,7 +604,7 @@ class GenVPD :
                         
             # No free space, smoothly connect with previous pcd. 
             elif LastOffset == NowOffset :
-                LastOffset = NowOffset + eachFixedPcd.PcdBinSize
+                LastOffset = NowOffset + eachFixedPcd.PcdOccupySize
                 FixOffsetSizeListCount += 1
             # Usually it will not enter into this thunk, if so, means it overlapped. 
             else :
@@ -601,7 +623,7 @@ class GenVPD :
             LastPcd    = self.PcdFixedOffsetSizeList[lenOfList-1]
             NeedFixPcd = self.PcdUnknownOffsetList[0]
             
-            NeedFixPcd.PcdBinOffset = LastPcd.PcdBinOffset + LastPcd.PcdBinSize
+            NeedFixPcd.PcdBinOffset = LastPcd.PcdBinOffset + LastPcd.PcdOccupySize
             NeedFixPcd.PcdOffset    = str(hex(NeedFixPcd.PcdBinOffset))
             
             # Insert this pcd into fixed offset pcd list's tail.

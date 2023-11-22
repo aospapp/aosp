@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Configuration for Telecom2 Tests">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="telecom" />
     <option name="not-shardable" value="true" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">

@@ -28,6 +28,8 @@ LOCAL_RESOURCE_DIR += $(LOCAL_PATH)/../res
 
 LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner compatibility-device-util
 
+LOCAL_JAVA_LIBRARIES := android.test.base.stubs
+
 LOCAL_SDK_VERSION := current
 
 # tag this module as a cts test artifact

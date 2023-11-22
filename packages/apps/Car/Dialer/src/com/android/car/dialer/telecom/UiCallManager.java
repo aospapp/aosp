@@ -15,6 +15,11 @@
  */
 package com.android.car.dialer.telecom;
 
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothHeadsetClient;
+import android.bluetooth.BluetoothHeadsetClientCall;
+import android.bluetooth.BluetoothProfile;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -25,15 +30,17 @@ import android.os.IBinder;
 import android.provider.CallLog;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
+import android.telecom.CallAudioState.CallAudioRoute;
 import android.telecom.DisconnectCause;
 import android.telecom.GatewayInfo;
 import android.telecom.InCallService;
+import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
-import android.view.KeyEvent;
 
+import com.android.car.dialer.CallListener;
 import com.android.car.dialer.R;
 
 import java.lang.ref.WeakReference;
@@ -52,9 +59,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class UiCallManager {
     private static String TAG = "Em.TelecomMgr";
 
+    private static final String HFP_CLIENT_CONNECTION_SERVICE_CLASS_NAME
+            = "com.android.bluetooth.hfpclient.connserv.HfpClientConnectionService";
     // Rate limit how often you can place outgoing calls.
     private static final long MIN_TIME_BETWEEN_CALLS_MS = 3000;
     private static final List<Integer> sCallStateRank = new ArrayList<>();
+    private static UiCallManager sUiCallManager;
 
     // Used to assign id's to UiCall objects as they're created.
     private static int nextCarPhoneCallId = 0;
@@ -78,10 +88,39 @@ public class UiCallManager {
 
     private TelecomManager mTelecomManager;
     private InCallServiceImpl mInCallService;
+    private BluetoothHeadsetClient mBluetoothHeadsetClient;
     private final Map<UiCall, Call> mCallMapping = new HashMap<>();
     private final List<CallListener> mCallListeners = new CopyOnWriteArrayList<>();
 
-    public UiCallManager(Context context) {
+    /**
+     * Initialized a globally accessible {@link UiCallManager} which can be retrieved by
+     * {@link #get}. If this function is called a second time before calling {@link #tearDown()},
+     * an exception will be thrown.
+     *
+     * @param applicationContext Application context.
+     */
+    public static UiCallManager init(Context applicationContext) {
+        if (sUiCallManager == null) {
+            sUiCallManager = new UiCallManager(applicationContext);
+        } else {
+            throw new IllegalStateException("UiCallManager has been initialized.");
+        }
+        return sUiCallManager;
+    }
+
+    /**
+     * Gets the global {@link UiCallManager} instance. Make sure
+     * {@link #init(Context)} is called before calling this method.
+     */
+    public static UiCallManager get() {
+        if (sUiCallManager == null) {
+            throw new IllegalStateException(
+                    "Call UiCallManager.init(Context) before calling this function");
+        }
+        return sUiCallManager;
+    }
+
+    private UiCallManager(Context context) {
         if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "SetUp");
         }
@@ -93,6 +132,20 @@ public class UiCallManager {
         Intent intent = new Intent(context, InCallServiceImpl.class);
         intent.setAction(InCallServiceImpl.ACTION_LOCAL_BIND);
         context.bindService(intent, mInCallServiceConnection, Context.BIND_AUTO_CREATE);
+
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        adapter.getProfileProxy(mContext, new BluetoothProfile.ServiceListener() {
+            @Override
+            public void onServiceConnected(int profile, BluetoothProfile proxy) {
+                if (profile == BluetoothProfile.HEADSET_CLIENT) {
+                    mBluetoothHeadsetClient = (BluetoothHeadsetClient) proxy;
+                }
+            }
+
+            @Override
+            public void onServiceDisconnected(int profile) {
+            }
+        }, BluetoothProfile.HEADSET_CLIENT);
     }
 
     private final ServiceConnection mInCallServiceConnection = new ServiceConnection() {
@@ -140,12 +193,20 @@ public class UiCallManager {
                 };
     };
 
+    /**
+     * Tears down the {@link UiCallManager}. Calling this function will null out the global
+     * accessible {@link UiCallManager} instance. Remember to re-initialize the
+     * {@link UiCallManager}.
+     */
     public void tearDown() {
         if (mInCallService != null) {
             mContext.unbindService(mInCallServiceConnection);
             mInCallService = null;
         }
         mCallMapping.clear();
+        // Clear out the mContext reference to avoid memory leak.
+        mContext = null;
+        sUiCallManager = null;
     }
 
     public void addListener(CallListener listener) {
@@ -239,6 +300,46 @@ public class UiCallManager {
         return audioState != null ? audioState.getSupportedRouteMask() : 0;
     }
 
+    public List<Integer> getSupportedAudioRoute() {
+        List<Integer> audioRouteList = new ArrayList<>();
+
+        boolean isBluetoothPhoneCall = isBluetoothCall();
+        if (isBluetoothPhoneCall) {
+            // if this is bluetooth phone call, we can only select audio route between vehicle
+            // and phone.
+            // Vehicle speaker route.
+            audioRouteList.add(CallAudioState.ROUTE_BLUETOOTH);
+            // Headset route.
+            audioRouteList.add(CallAudioState.ROUTE_EARPIECE);
+        } else {
+            // Most likely we are making phone call with on board SIM card.
+            int supportedAudioRouteMask = getSupportedAudioRouteMask();
+
+            if ((supportedAudioRouteMask & CallAudioState.ROUTE_EARPIECE) != 0) {
+                audioRouteList.add(CallAudioState.ROUTE_EARPIECE);
+            } else if ((supportedAudioRouteMask & CallAudioState.ROUTE_BLUETOOTH) != 0) {
+                audioRouteList.add(CallAudioState.ROUTE_BLUETOOTH);
+            } else if ((supportedAudioRouteMask & CallAudioState.ROUTE_WIRED_HEADSET) != 0) {
+                audioRouteList.add(CallAudioState.ROUTE_WIRED_HEADSET);
+            } else if ((supportedAudioRouteMask & CallAudioState.ROUTE_SPEAKER) != 0) {
+                audioRouteList.add(CallAudioState.ROUTE_SPEAKER);
+            }
+        }
+
+        return audioRouteList;
+    }
+
+    public boolean isBluetoothCall() {
+        PhoneAccountHandle phoneAccountHandle =
+                mTelecomManager.getUserSelectedOutgoingPhoneAccount();
+        if (phoneAccountHandle != null && phoneAccountHandle.getComponentName() != null) {
+            return HFP_CLIENT_CONNECTION_SERVICE_CLASS_NAME.equals(
+                    phoneAccountHandle.getComponentName().getClassName());
+        } else {
+            return false;
+        }
+    }
+
     public int getAudioRoute() {
         CallAudioState audioState = getCallAudioStateOrNull();
         int audioRoute = audioState != null ? audioState.getRoute() : 0;
@@ -248,10 +349,24 @@ public class UiCallManager {
         return audioRoute;
     }
 
-    public void setAudioRoute(int audioRoute) {
-        // In case of embedded where the CarKitt is always connected to one kind of speaker we
-        // should simply ignore any setAudioRoute requests.
-        Log.w(TAG, "setAudioRoute ignoring request " + audioRoute);
+    /**
+     * Re-route the audio out phone of the ongoing phone call.
+     */
+    public void setAudioRoute(@CallAudioRoute int audioRoute) {
+        if (mBluetoothHeadsetClient != null && isBluetoothCall()) {
+            for (BluetoothDevice device : mBluetoothHeadsetClient.getConnectedDevices()) {
+                List<BluetoothHeadsetClientCall> currentCalls =
+                        mBluetoothHeadsetClient.getCurrentCalls(device);
+                if (currentCalls != null && !currentCalls.isEmpty()) {
+                    if (audioRoute == CallAudioState.ROUTE_BLUETOOTH) {
+                        mBluetoothHeadsetClient.connectAudio(device);
+                    } else if ((audioRoute & CallAudioState.ROUTE_WIRED_OR_EARPIECE) != 0) {
+                        mBluetoothHeadsetClient.disconnectAudio(device);
+                    }
+                }
+            }
+        }
+        // TODO: Implement routing audio if current call is not a bluetooth call.
     }
 
     public void holdCall(UiCall uiCall) {
@@ -372,7 +487,7 @@ public class UiCallManager {
 
     private void onStateChanged(UiCall uiCall, int state) {
         for (CallListener listener : mCallListeners) {
-            listener.onStateChanged(uiCall, state);
+            listener.onCallStateChanged(uiCall, state);
         }
     }
 
@@ -430,21 +545,6 @@ public class UiCallManager {
 
     private CallAudioState getCallAudioStateOrNull() {
         return mInCallService != null ? mInCallService.getCallAudioState() : null;
-    }
-
-    public static class CallListener {
-        @SuppressWarnings("unused")
-        public void dispatchPhoneKeyEvent(KeyEvent event) {}
-        @SuppressWarnings("unused")
-        public void onAudioStateChanged(boolean isMuted, int route, int supportedRouteMask) {}
-        @SuppressWarnings("unused")
-        public void onCallAdded(UiCall call) {}
-        @SuppressWarnings("unused")
-        public void onStateChanged(UiCall call, int state) {}
-        @SuppressWarnings("unused")
-        public void onCallUpdated(UiCall call) {}
-        @SuppressWarnings("unused")
-        public void onCallRemoved(UiCall call) {}
     }
 
     /** Returns a first call that matches at least one provided call state */

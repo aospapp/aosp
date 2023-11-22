@@ -16,6 +16,8 @@
 
 package com.android.cts.storageapp;
 
+import static android.os.storage.StorageManager.UUID_DEFAULT;
+
 import static com.android.cts.storageapp.Utils.CACHE_ALL;
 import static com.android.cts.storageapp.Utils.CACHE_EXT;
 import static com.android.cts.storageapp.Utils.CACHE_INT;
@@ -26,7 +28,6 @@ import static com.android.cts.storageapp.Utils.PKG_B;
 import static com.android.cts.storageapp.Utils.assertMostlyEquals;
 import static com.android.cts.storageapp.Utils.getSizeManual;
 import static com.android.cts.storageapp.Utils.makeUniqueFile;
-import static com.android.cts.storageapp.Utils.shouldHaveQuota;
 import static com.android.cts.storageapp.Utils.useSpace;
 
 import android.app.usage.StorageStats;
@@ -39,7 +40,6 @@ import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.os.UserHandle;
 import android.os.storage.StorageManager;
-import android.system.Os;
 import android.test.InstrumentationTestCase;
 
 import java.io.File;
@@ -59,17 +59,10 @@ public class StorageTest extends InstrumentationTestCase {
     }
 
     public void testFullDisk() throws Exception {
-        if (shouldHaveQuota(Os.uname())) {
+        final StorageStatsManager stats = getContext()
+                .getSystemService(StorageStatsManager.class);
+        if (stats.isReservedSupported(UUID_DEFAULT)) {
             final File dataDir = getContext().getDataDir();
-
-            // Pre-flight to see if we have enough disk space to test with
-            final long total = dataDir.getTotalSpace();
-            final long free = dataDir.getFreeSpace();
-            final long required = ((total * 9) / 10) + MB_IN_BYTES;
-            if (free < required) {
-                fail("Skipping full disk test; only found " + free + " free out of " + total);
-            }
-
             Hoarder.doBlocks(dataDir, true);
         } else {
             fail("Skipping full disk test due to missing quota support");

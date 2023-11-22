@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Puhelua ei voi soittaa, koska toisessa sovelluksessa on puhelu käynnissä."</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Saapuvat puhelut"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Vastaamattomat puhelut"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Puhelujen esto"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Tämän puhelun soittaminen päättää puhelun sovelluksessa <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Puhelujen esto"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Numerot eivät ole yhteystiedoissa"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Toiminto estää numerot, jotka eivät ole yhteystiedoissasi"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"Yksityinen"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"Estä soittajat, jotka ovat estäneet oman numeronsa näkymisen"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"Yleisöpuhelin"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"Estä yleisöpuhelimista soitetut puhelut"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"Tuntematon"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"Estä tuntemattomien soittajien puhelut"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"Puhelujen esto"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Puhelujen esto poistettu käytöstä"</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Hätäpuhelu soitettu"</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Puhelujen esto on poistettu käytöstä, jotta pelastusviranomaiset voivat soittaa puhelimeesi."</string>
 </resources>

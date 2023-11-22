@@ -32,6 +32,7 @@
  */
 
 #include "asm_support.h"
+#include "interpreter/cfi_asm_support.h"
 
 #if (__mips==32) && (__mips_isa_rev>=2)
 #define MIPS32REVGE2    /* mips32r2 and greater */
@@ -60,6 +61,8 @@
 
 /* single-purpose registers, given names for clarity */
 #define rPC s0
+#define CFI_DEX 16  // DWARF register number of the register holding dex-pc (s0).
+#define CFI_TMP 4   // DWARF register number of the first argument register (a0).
 #define rFP s1
 #define rSELF s2
 #define rIBASE s3
@@ -216,7 +219,7 @@
 #define OFF_FP_METHOD OFF_FP(SHADOWFRAME_METHOD_OFFSET)
 #define OFF_FP_RESULT_REGISTER OFF_FP(SHADOWFRAME_RESULT_REGISTER_OFFSET)
 #define OFF_FP_DEX_PC_PTR OFF_FP(SHADOWFRAME_DEX_PC_PTR_OFFSET)
-#define OFF_FP_CODE_ITEM OFF_FP(SHADOWFRAME_CODE_ITEM_OFFSET)
+#define OFF_FP_DEX_INSTRUCTIONS OFF_FP(SHADOWFRAME_DEX_INSTRUCTIONS_OFFSET)
 #define OFF_FP_SHADOWFRAME OFF_FP(0)
 
 #define MTERP_PROFILE_BRANCHES 1
@@ -238,9 +241,8 @@
     sw        rPC, OFF_FP_DEX_PC_PTR(rFP)
 
 #define EXPORT_DEX_PC(tmp) \
-    lw        tmp, OFF_FP_CODE_ITEM(rFP); \
+    lw        tmp, OFF_FP_DEX_INSTRUCTIONS(rFP); \
     sw        rPC, OFF_FP_DEX_PC_PTR(rFP); \
-    addu      tmp, CODEITEM_INSNS_OFFSET; \
     subu      tmp, rPC, tmp; \
     sra       tmp, tmp, 1; \
     sw        tmp, OFF_FP_DEX_PC(rFP)

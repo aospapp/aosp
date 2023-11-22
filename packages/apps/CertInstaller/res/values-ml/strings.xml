@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN-ഉം അപ്ലിക്കേഷനുകളും"</item>
     <item msgid="692322974985472861">"വൈഫൈ"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"ശ്രദ്ധിക്കുക: ഈ സർട്ടിഫിക്കറ്റിന്റെ ഇഷ്യൂവർ ഉപകരണത്തിലേക്കുള്ളതും അതിൽ നിന്നുള്ളതുമായ എല്ലാ ട്രാഫിക്കും പരിശോധിച്ചേക്കാം."</string>
     <string name="wifi_title" msgid="8475811746333426489">"വൈഫൈ പ്രൊഫൈൽ"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%s എന്നതിനായുള്ള വിശദാംശങ്ങൾ"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"വിശദാംശങ്ങൾ‌"</string>

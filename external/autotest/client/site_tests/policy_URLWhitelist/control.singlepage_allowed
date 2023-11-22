@@ -4,7 +4,7 @@
 
 AUTHOR = 'scunningham'
 NAME = 'policy_URLWhitelist.singlepage_allowed'
-ATTRIBUTES = 'suite:bvt-perbuild'
+ATTRIBUTES = 'suite:bvt-perbuild, suite:policy'
 TIME = 'SHORT'
 TEST_CATEGORY = 'General'
 TEST_CLASS = 'enterprise'

@@ -4,84 +4,133 @@
 
 import logging
 import os
+import socket
 import time
 
 import common
+
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.site_utils.lxc import Container
+from autotest_lib.client.common_lib.global_config import global_config
 from autotest_lib.site_utils.lxc import config as lxc_config
 from autotest_lib.site_utils.lxc import constants
+from autotest_lib.site_utils.lxc import container_pool
 from autotest_lib.site_utils.lxc import lxc
-from autotest_lib.site_utils.lxc import utils as lxc_utils
 from autotest_lib.site_utils.lxc.cleanup_if_fail import cleanup_if_fail
+from autotest_lib.site_utils.lxc.base_image import BaseImage
+from autotest_lib.site_utils.lxc.constants import \
+    CONTAINER_POOL_METRICS_PREFIX as METRICS_PREFIX
+from autotest_lib.site_utils.lxc.container import Container
+from autotest_lib.site_utils.lxc.container_factory import ContainerFactory
 
 try:
     from chromite.lib import metrics
+    from infra_libs import ts_mon
 except ImportError:
+    import mock
     metrics = utils.metrics_mock
+    ts_mon = mock.Mock()
 
+
+# Timeout (in seconds) for container pool operations.
+_CONTAINER_POOL_TIMEOUT = 3
+
+_USE_LXC_POOL = global_config.get_config_value('LXC_POOL', 'use_lxc_pool',
+                                               type=bool)
 
 class ContainerBucket(object):
     """A wrapper class to interact with containers in a specific container path.
     """
 
-    def __init__(self,
-                 container_path=constants.DEFAULT_CONTAINER_PATH,
-                 shared_host_path = constants.DEFAULT_SHARED_HOST_PATH):
+    def __init__(self, container_path=constants.DEFAULT_CONTAINER_PATH,
+                 container_factory=None):
         """Initialize a ContainerBucket.
 
         @param container_path: Path to the directory used to store containers.
                                Default is set to AUTOSERV/container_path in
                                global config.
+        @param container_factory: A factory for creating Containers.
         """
         self.container_path = os.path.realpath(container_path)
-        self.shared_host_path = os.path.realpath(shared_host_path)
-        # Try to create the base container.
-        try:
-            base_container = Container.createFromExistingDir(
-                    container_path, constants.BASE);
-            base_container.refresh_status()
-            self.base_container = base_container
-        except error.ContainerError:
-            self.base_container = None
+        if container_factory is not None:
+            self._factory = container_factory
+        else:
+            # Pick the correct factory class to use (pool-based, or regular)
+            # based on the config variable.
+            factory_class = ContainerFactory
+            if _USE_LXC_POOL:
+                logging.debug('Using container pool')
+                factory_class = _PoolBasedFactory
+
+            # Pass in the container path so that the bucket is hermetic (i.e. so
+            # that if the container path is customized, the base image doesn't
+            # fall back to using the default container path).
+            try:
+                base_image_ok = True
+                container = BaseImage(self.container_path).get()
+            except error.ContainerError as e:
+                base_image_ok = False
+                raise e
+            finally:
+                metrics.Counter(METRICS_PREFIX + '/base_image',
+                                field_spec=[ts_mon.BooleanField('corrupted')]
+                                ).increment(
+                                    fields={'corrupted': not base_image_ok})
+            self._factory = factory_class(
+                base_container=container,
+                lxc_path=self.container_path)
+        self.container_cache = {}
 
 
-    def get_all(self):
+    def get_all(self, force_update=False):
         """Get details of all containers.
+
+        Retrieves all containers owned by the bucket.  Note that this doesn't
+        include the base container, or any containers owned by the container
+        pool.
+
+        @param force_update: Boolean, ignore cached values if set.
 
         @return: A dictionary of all containers with detailed attributes,
                  indexed by container name.
         """
         info_collection = lxc.get_container_info(self.container_path)
-        containers = {}
+        containers = {} if force_update else self.container_cache
         for info in info_collection:
-            container = Container.createFromExistingDir(self.container_path,
-                                                        **info)
-            containers[container.name] = container
+            if info["name"] in containers:
+                continue
+            container = Container.create_from_existing_dir(self.container_path,
+                                                           **info)
+            # Active containers have an ID.  Zygotes and base containers, don't.
+            if container.id is not None:
+                containers[container.id] = container
+        self.container_cache = containers
         return containers
 
 
-    def get(self, name):
+    def get_container(self, container_id):
         """Get a container with matching name.
 
-        @param name: Name of the container.
+        @param container_id: ID of the container.
 
         @return: A container object with matching name. Returns None if no
                  container matches the given name.
         """
-        return self.get_all().get(name, None)
+        if container_id in self.container_cache:
+            return self.container_cache[container_id]
+
+        return self.get_all().get(container_id, None)
 
 
-    def exist(self, name):
+    def exist(self, container_id):
         """Check if a container exists with the given name.
 
-        @param name: Name of the container.
+        @param container_id: ID of the container.
 
-        @return: True if the container with the given name exists, otherwise
+        @return: True if the container with the given ID exists, otherwise
                  returns False.
         """
-        return self.get(name) != None
+        return self.get_container(container_id) != None
 
 
     def destroy_all(self):
@@ -89,156 +138,18 @@ class ContainerBucket(object):
         """
         containers = self.get_all().values()
         for container in sorted(
-            containers, key=lambda n: 1 if n.name == constants.BASE else 0):
+                containers, key=lambda n: 1 if n.name == constants.BASE else 0):
+            key = container.id
             logging.info('Destroy container %s.', container.name)
             container.destroy()
-        self._cleanup_shared_host_path()
+            del self.container_cache[key]
 
-
-    @metrics.SecondsTimerDecorator(
-        '%s/create_from_base_duration' % constants.STATS_KEY)
-    def create_from_base(self, name, disable_snapshot_clone=False,
-                         force_cleanup=False):
-        """Create a container from the base container.
-
-        @param name: Name of the container.
-        @param disable_snapshot_clone: Set to True to force to clone without
-                using snapshot clone even if the host supports that.
-        @param force_cleanup: Force to cleanup existing container.
-
-        @return: A Container object for the created container.
-
-        @raise ContainerError: If the container already exist.
-        @raise error.CmdError: If lxc-clone call failed for any reason.
-        """
-        if self.exist(name) and not force_cleanup:
-            raise error.ContainerError('Container %s already exists.' % name)
-
-        use_snapshot = (constants.SUPPORT_SNAPSHOT_CLONE and not
-                        disable_snapshot_clone)
-
-        try:
-            return Container.clone(src=self.base_container,
-                                   new_name=name,
-                                   new_path=self.container_path,
-                                   snapshot=use_snapshot,
-                                   cleanup=force_cleanup)
-        except error.CmdError:
-            logging.debug('Creating snapshot clone failed. Attempting without '
-                           'snapshot...')
-            if not use_snapshot:
-                raise
-            else:
-                # Snapshot clone failed, retry clone without snapshot.
-                container = Container.clone(src=self.base_container,
-                                            new_name=name,
-                                            new_path=self.container_path,
-                                            snapshot=False,
-                                            cleanup=force_cleanup)
-                return container
-
-
-    @cleanup_if_fail()
-    def setup_base(self, name=constants.BASE, force_delete=False):
-        """Setup base container.
-
-        @param name: Name of the base container, default to base.
-        @param force_delete: True to force to delete existing base container.
-                             This action will destroy all running test
-                             containers. Default is set to False.
-        """
-        if not self.container_path:
-            raise error.ContainerError(
-                    'You must set a valid directory to store containers in '
-                    'global config "AUTOSERV/ container_path".')
-
-        if not os.path.exists(self.container_path):
-            os.makedirs(self.container_path)
-
-        base_path = os.path.join(self.container_path, name)
-        if self.exist(name) and not force_delete:
-            logging.error(
-                    'Base container already exists. Set force_delete to True '
-                    'to force to re-stage base container. Note that this '
-                    'action will destroy all running test containers')
-            # Set proper file permission. base container in moblab may have
-            # owner of not being root. Force to update the folder's owner.
-            # TODO(dshi): Change root to current user when test container can be
-            # unprivileged container.
-            utils.run('sudo chown -R root "%s"' % base_path)
-            utils.run('sudo chgrp -R root "%s"' % base_path)
-            return
-
-        # Destroy existing base container if exists.
-        if self.exist(name):
-            # TODO: We may need to destroy all snapshots created from this base
-            # container, not all container.
-            self.destroy_all()
-
-        # Download and untar the base container.
-        tar_path = os.path.join(self.container_path, '%s.tar.xz' % name)
-        path_to_cleanup = [tar_path, base_path]
-        for path in path_to_cleanup:
-            if os.path.exists(path):
-                utils.run('sudo rm -rf "%s"' % path)
-        container_url = constants.CONTAINER_BASE_URL_FMT % name
-        lxc.download_extract(container_url, tar_path, self.container_path)
-        # Remove the downloaded container tar file.
-        utils.run('sudo rm "%s"' % tar_path)
-        # Set proper file permission.
-        # TODO(dshi): Change root to current user when test container can be
-        # unprivileged container.
-        utils.run('sudo chown -R root "%s"' % base_path)
-        utils.run('sudo chgrp -R root "%s"' % base_path)
-
-        # Update container config with container_path from global config.
-        config_path = os.path.join(base_path, 'config')
-        rootfs_path = os.path.join(base_path, 'rootfs')
-        utils.run(('sudo sed '
-                   '-i "s|\(lxc\.rootfs[[:space:]]*=\).*$|\\1 {rootfs}|" '
-                   '"{config}"').format(rootfs=rootfs_path,
-                                        config=config_path))
-
-        self.base_container = Container.createFromExistingDir(
-                self.container_path, name)
-
-        self._setup_shared_host_path()
-
-
-    def _setup_shared_host_path(self):
-        """Sets up the shared host directory."""
-        # First, clear out the old shared host dir if it exists.
-        if lxc_utils.path_exists(self.shared_host_path):
-            self._cleanup_shared_host_path()
-        # Create the dir and set it up as a shared mount point.
-        utils.run(('sudo mkdir "{path}" && '
-                   'sudo mount --bind "{path}" "{path}" && '
-                   'sudo mount --make-unbindable "{path}" && '
-                   'sudo mount --make-shared "{path}"')
-                  .format(path=self.shared_host_path))
-
-
-    def _cleanup_shared_host_path(self):
-        """Removes the shared host directory.
-
-        This should only be called after all containers have been destroyed
-        (i.e. all host mounts have been disconnected and removed, so the shared
-        host directory should be empty).
-        """
-        if not os.path.exists(self.shared_host_path):
-            return
-
-        if len(os.listdir(self.shared_host_path)) > 0:
-            raise RuntimeError('Attempting to clean up host dir before all '
-                               'hosts have been disconnected')
-        utils.run('sudo umount "{path}" && sudo rmdir "{path}"'
-                  .format(path=self.shared_host_path))
 
 
     @metrics.SecondsTimerDecorator(
         '%s/setup_test_duration' % constants.STATS_KEY)
     @cleanup_if_fail()
-    def setup_test(self, name, job_id, server_package_url, result_path,
+    def setup_test(self, container_id, job_id, server_package_url, result_path,
                    control=None, skip_cleanup=False, job_folder=None,
                    dut_name=None):
         """Setup test container for the test job to run.
@@ -252,7 +163,7 @@ class ContainerBucket(object):
         TODO(dshi): Setup also needs to include test control file for autoserv
                     to run in container.
 
-        @param name: Name of the container.
+        @param container_id: ID to assign to the test container.
         @param job_id: Job id for the test job to run in the test container.
         @param server_package_url: Url to download autotest_server package.
         @param result_path: Directory to be mounted to container to store test
@@ -288,16 +199,7 @@ class ContainerBucket(object):
             utils.run('cp %s %s' % (control, safe_control))
 
         # Create test container from the base container.
-        container = self.create_from_base(name)
-
-        # Update the hostname of the test container to be `dut-name`.
-        # Some TradeFed tests use hostname in test results, which is used to
-        # group test results in dashboard. The default container name is set to
-        # be the name of the folder, which is unique (as it is composed of job
-        # id and timestamp. For better result view, the container's hostname is
-        # set to be a string containing the dut hostname.
-        if dut_name:
-            container.set_hostname(dut_name.replace('.', '-'))
+        container = self._factory.create_container(container_id)
 
         # Deploy server side package
         container.install_ssp(server_package_url)
@@ -312,14 +214,10 @@ class ContainerBucket(object):
         mount_entries = [(constants.SITE_PACKAGES_PATH,
                           constants.CONTAINER_SITE_PACKAGES_PATH,
                           True),
-                         (os.path.join(common.autotest_dir, 'puppylab'),
-                          os.path.join(constants.CONTAINER_AUTOTEST_DIR,
-                                       'puppylab'),
-                          True),
                          (result_path,
                           os.path.join(constants.RESULT_DIR_FMT % job_folder),
                           False),
-                        ]
+        ]
 
         # Update container config to mount directories.
         for source, destination, readonly in mount_entries:
@@ -334,12 +232,80 @@ class ContainerBucket(object):
         utils.run('sudo chown -R root "%s"' % autotest_path)
         utils.run('sudo chgrp -R root "%s"' % autotest_path)
 
-        container.start(name)
+        container.start(wait_for_network=True)
         deploy_config_manager.deploy_post_start()
+
+        # Update the hostname of the test container to be `dut-name`.
+        # Some TradeFed tests use hostname in test results, which is used to
+        # group test results in dashboard. The default container name is set to
+        # be the name of the folder, which is unique (as it is composed of job
+        # id and timestamp. For better result view, the container's hostname is
+        # set to be a string containing the dut hostname.
+        if dut_name:
+            container.set_hostname(constants.CONTAINER_UTSNAME_FORMAT %
+                                   dut_name.replace('.', '-'))
 
         container.modify_import_order()
 
         container.verify_autotest_setup(job_folder)
 
-        logging.debug('Test container %s is set up.', name)
+        logging.debug('Test container %s is set up.', container.name)
         return container
+
+
+class _PoolBasedFactory(ContainerFactory):
+    """A ContainerFactory that queries the running container pool.
+
+    Implementation falls back to the regular container factory behaviour
+    (i.e. locally cloning a container) if the pool is unavailable or if it does
+    not return a bucket before the specified timeout.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(_PoolBasedFactory, self).__init__(*args, **kwargs)
+        try:
+            self._client = container_pool.Client()
+        except (socket.error, socket.timeout) as e:
+            # If an error occurs connecting to the container pool, fall back to
+            # the default container factory.
+            logging.exception('Container pool connection failed.')
+            self._client = None
+
+
+    def create_container(self, new_id):
+        """Creates a new container.
+
+        Attempts to retrieve a container from the container pool.  If that
+        operation fails, this falls back to the parent class behaviour.
+
+        @param new_id: ContainerId to assign to the new container.  Containers
+                       must be assigned an ID before they can be released from
+                       the container pool.
+
+        @return: The new container.
+        """
+        container = None
+        if self._client:
+            try:
+                container = self._client.get_container(new_id,
+                                                       _CONTAINER_POOL_TIMEOUT)
+            except Exception:
+                logging.exception('Error communicating with container pool.')
+            else:
+                if container is not None:
+                    logging.debug('Retrieved container from pool: %s',
+                                  container.name)
+                    return container
+        metrics.Counter(METRICS_PREFIX + '/containers_served',
+                        field_spec = [ts_mon.BooleanField('from_pool')]
+                        ).increment(fields={
+                            'from_pool': (container is not None)})
+        if container is not None:
+            return container
+
+        # If the container pool did not yield a container, make one locally.
+        logging.warning('Unable to obtain container from pre-populated pool.  '
+                        'Creating container locally.  This slows server tests '
+                        'down and should be debugged even if local creation '
+                        'works out.')
+        return super(_PoolBasedFactory, self).create_container(new_id)

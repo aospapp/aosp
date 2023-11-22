@@ -36,11 +36,11 @@
     <string name="respond_via_sms_setting_title_2" msgid="6104662227299493906">"Rediger hurtige svar"</string>
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Hurtigt svar"</string>
-    <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Meddelelsen er sendt til <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
+    <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Beskeden er sendt til <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Opkaldskonti"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Kun nødopkald er tilladt."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Denne app kan ikke foretage udgående opkald uden opkaldstilladelse."</string>
-    <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"Indtast et gyldigt nummer for at foretage et opkald."</string>
+    <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"Angiv et gyldigt nummer for at foretage et opkald."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"Opkaldet kan ikke tilføjes på nuværende tidspunkt."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"Telefonsvarernummer mangler"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Der er ikke gemt noget telefonsvarernummer på SIM-kortet."</string>
@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Opkaldet kan ikke foretages på grund et opkald i en anden app."</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Indgående opkald"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Ubesvarede opkald"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Opkaldsblokering"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Hvis du foretager dette opkald, afsluttes dit opkald i <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Opkaldsblokering"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Numre er ikke i Kontaktpersoner"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Bloker numre, som ikke er i dine kontaktpersoner"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"Privat"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"Bloker opkald fra personer, der ringer fra hemmeligt nummer"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"Mønttelefon"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"Bloker opkald fra mønttelefoner"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"Ukendt"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"Bloker opkald fra numre uden opkalds-id"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"Opkaldsblokering"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Opkaldsblokering er deaktiveret"</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Foretagne nødopkald"</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Opkaldsblokering er blevet deaktiveret for at give nødnumre mulighed for at kontakte dig."</string>
 </resources>

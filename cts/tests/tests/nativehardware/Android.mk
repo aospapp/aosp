@@ -14,81 +14,28 @@
 
 LOCAL_PATH:= $(call my-dir)
 
-#
-# Reusable test classes and helpers.
-#
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := cts-nativehardware-tests
+LOCAL_PACKAGE_NAME := CtsNativeHardwareTestCases
 
-LOCAL_MODULE_TAGS := tests
+# Include both the 32 and 64 bit versions
+LOCAL_MULTILIB := both
 
-LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
-
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util
-
-LOCAL_JAVA_LIBRARIES := platform-test-annotations
-
-LOCAL_SDK_VERSION := current
-
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
-
-include $(BUILD_STATIC_JAVA_LIBRARY)
-
-#
-# JNI components for testing NDK.
-#
-include $(CLEAR_VARS)
-
-LOCAL_MODULE := libcts-nativehardware-ndk-jni
-
-LOCAL_CFLAGS += -Werror -Wall -Wextra
-
-LOCAL_MODULE_TAGS := tests
-
-LOCAL_SRC_FILES := \
-    jni/AHardwareBufferTest.cpp \
-    jni/android_hardware_cts_AHardwareBufferNativeTest.cpp \
-    jni/NativeTestHelper.cpp
-
-LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
-
-LOCAL_SHARED_LIBRARIES := libandroid liblog
-
-LOCAL_SDK_VERSION := current
-
-LOCAL_NDK_STL_VARIANT := c++_shared
-
-include $(BUILD_SHARED_LIBRARY)
-
-#
-# CtsNativeHardwareTestCases package
-#
-include $(CLEAR_VARS)
-
-LOCAL_MODULE_TAGS := tests
-
+# When built, explicitly put it in the data partition.
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
-# include both the 32 and 64 bit versions
-LOCAL_MULTILIB := both
+LOCAL_JAVA_LIBRARIES := platform-test-annotations android.test.base.stubs
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util ctstestrunner nativetesthelper
+LOCAL_JNI_SHARED_LIBRARIES := libahardwarebuffertest
 
-LOCAL_STATIC_JAVA_LIBRARIES := \
-    compatibility-device-util \
-    ctstestrunner \
-    cts-nativehardware-tests \
-
-LOCAL_JNI_SHARED_LIBRARIES := libcts-nativehardware-ndk-jni
-
-LOCAL_PACKAGE_NAME := CtsNativeHardwareTestCases
+LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_SDK_VERSION := current
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
-
-LOCAL_NDK_STL_VARIANT := c++_shared
-
 include $(BUILD_CTS_PACKAGE)
+
+# Include the associated library's makefile.
+include $(LOCAL_PATH)/jni/Android.mk

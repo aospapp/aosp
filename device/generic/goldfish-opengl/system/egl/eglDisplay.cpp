@@ -33,6 +33,7 @@ static const char systemStaticEGLExtensions[] =
 
 // extensions to add dynamically depending on host-side support
 static const char kDynamicEGLExtNativeSync[] = "EGL_ANDROID_native_fence_sync ";
+static const char kDynamicEGLExtWaitSync[] = "EGL_KHR_wait_sync ";
 
 static void *s_gles_lib = NULL;
 static void *s_gles2_lib = NULL;
@@ -347,6 +348,10 @@ static char *buildExtensionString()
         if (hcon->rcEncoder()->hasNativeSync() &&
             !strstr(initialEGLExts, kDynamicEGLExtNativeSync)) {
             dynamicEGLExtensions += kDynamicEGLExtNativeSync;
+
+            if (hcon->rcEncoder()->hasNativeSyncV3()) {
+                dynamicEGLExtensions += kDynamicEGLExtWaitSync;
+            }
         }
 
         asprintf(&finalEGLExts, "%s%s", initialEGLExts, dynamicEGLExtensions.c_str());
@@ -572,3 +577,16 @@ void eglDisplay::onDestroySurface(EGLSurface surface) {
     pthread_mutex_unlock(&m_surfaceLock);
 }
 
+bool eglDisplay::isContext(EGLContext ctx) {
+    pthread_mutex_lock(&m_ctxLock);
+    bool res = m_contexts.find(ctx) != m_contexts.end();
+    pthread_mutex_unlock(&m_ctxLock);
+    return res;
+}
+
+bool eglDisplay::isSurface(EGLSurface surface) {
+    pthread_mutex_lock(&m_surfaceLock);
+    bool res = m_surfaces.find(surface) != m_surfaces.end();
+    pthread_mutex_unlock(&m_surfaceLock);
+    return res;
+}

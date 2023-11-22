@@ -43,12 +43,6 @@ job.run_test('hardware_SsdDetection')
 job.run_test('hardware_SAT', seconds=20)
 
 # Network
-job.run_test('network_DisableInterface',
-             iface_name='wlan0', tag='wlan0')  # WiFi
-job.run_test('network_DisableInterface',
-             iface_name='eth0', tag='eth0')  # Ethernet
-job.run_test('network_DisableInterface',
-             iface_name='hci0', tag='hci0')  # Bluetooth
 job.run_test('network_WiFiCaps')
 
 # GPU

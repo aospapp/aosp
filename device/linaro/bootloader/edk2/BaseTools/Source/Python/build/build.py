@@ -2,7 +2,7 @@
 # build a platform or a module
 #
 #  Copyright (c) 2014, Hewlett-Packard Development Company, L.P.<BR>
-#  Copyright (c) 2007 - 2015, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -25,6 +25,7 @@ import time
 import platform
 import traceback
 import encodings.ascii
+import itertools
 
 from struct import *
 from threading import *
@@ -53,7 +54,7 @@ import Common.GlobalData as GlobalData
 # Version and Copyright
 VersionNumber = "0.60" + ' ' + gBUILD_VERSION
 __version__ = "%prog Version " + VersionNumber
-__copyright__ = "Copyright (c) 2007 - 2014, Intel Corporation  All rights reserved."
+__copyright__ = "Copyright (c) 2007 - 2016, Intel Corporation  All rights reserved."
 
 ## standard targets of build command
 gSupportedTarget = ['all', 'genc', 'genmake', 'modules', 'libraries', 'fds', 'clean', 'cleanall', 'cleanlib', 'run']
@@ -109,6 +110,12 @@ def CheckEnvVariable():
     # set multiple workspace
     PackagesPath = os.getenv("PACKAGES_PATH")
     mws.setWs(WorkspaceDir, PackagesPath)
+    if mws.PACKAGES_PATH:
+        for Path in mws.PACKAGES_PATH:
+            if not os.path.exists(Path):
+                EdkLogger.error("build", FILE_NOT_FOUND, "One Path in PACKAGES_PATH doesn't exist", ExtraData="%s" % Path)
+            elif ' ' in Path:
+                EdkLogger.error("build", FORMAT_NOT_SUPPORTED, "No space is allowed in PACKAGES_PATH", ExtraData=Path)
 
     #
     # Check EFI_SOURCE (Edk build convention). EDK_SOURCE will always point to ECP
@@ -258,15 +265,16 @@ def LaunchCommand(Command, WorkingDir):
     # It could be a string or sequence. We find that if command is a string in following Popen(),
     # ubuntu may fail with an error message that the command is not found.
     # So here we may need convert command from string to list instance.
-    if not isinstance(Command, list):
-        if platform.system() != 'Windows':
+    if platform.system() != 'Windows':
+        if not isinstance(Command, list):
             Command = Command.split()
+        Command = ' '.join(Command)
 
     Proc = None
     EndOfProcedure = None
     try:
         # launch the command
-        Proc = Popen(Command, stdout=PIPE, stderr=PIPE, env=os.environ, cwd=WorkingDir, bufsize=-1)
+        Proc = Popen(Command, stdout=PIPE, stderr=PIPE, env=os.environ, cwd=WorkingDir, bufsize=-1, shell=True)
 
         # launch two threads to read the STDOUT and STDERR
         EndOfProcedure = Event()
@@ -287,6 +295,7 @@ def LaunchCommand(Command, WorkingDir):
         Proc.wait()
     except: # in case of aborting
         # terminate the threads redirecting the program output
+        EdkLogger.quiet("(Python %s on %s) " % (platform.python_version(), sys.platform) + traceback.format_exc())
         if EndOfProcedure != None:
             EndOfProcedure.set()
         if Proc == None:
@@ -303,6 +312,14 @@ def LaunchCommand(Command, WorkingDir):
     if Proc.returncode != 0:
         if type(Command) != type(""):
             Command = " ".join(Command)
+        # print out the Response file and its content when make failure
+        RespFile = os.path.join(WorkingDir, 'OUTPUT', 'respfilelist.txt')
+        if os.path.isfile(RespFile):
+            f = open(RespFile)
+            RespContent = f.read()
+            f.close()
+            EdkLogger.info(RespContent)
+
         EdkLogger.error("build", COMMAND_FAILURE, ExtraData="%s [%s]" % (Command, WorkingDir))
 
 ## The smallest unit that can be built in multi-thread build mode
@@ -746,6 +763,7 @@ class Build():
         self.BuildReport    = BuildReport(BuildOptions.ReportFile, BuildOptions.ReportType)
         self.TargetTxt      = TargetTxtClassObject()
         self.ToolDef        = ToolDefClassObject()
+        GlobalData.BuildOptionPcd     = BuildOptions.OptionPcd
         #Set global flag for build mode
         GlobalData.gIgnoreSource = BuildOptions.IgnoreSources
 
@@ -758,8 +776,11 @@ class Build():
                 # This also handles someone specifying the Conf directory in the workspace. Using --conf=Conf
                 ConfDirectoryPath = mws.join(self.WorkspaceDir, ConfDirectoryPath)
         else:
-            # Get standard WORKSPACE/Conf use the absolute path to the WORKSPACE/Conf
-            ConfDirectoryPath = mws.join(self.WorkspaceDir, 'Conf')
+            if "CONF_PATH" in os.environ:
+                ConfDirectoryPath = os.path.normcase(os.path.normpath(os.environ["CONF_PATH"]))
+            else:
+                # Get standard WORKSPACE/Conf use the absolute path to the WORKSPACE/Conf
+                ConfDirectoryPath = mws.join(self.WorkspaceDir, 'Conf')
         GlobalData.gConfDirectory = ConfDirectoryPath
         GlobalData.gDatabasePath = os.path.normpath(os.path.join(ConfDirectoryPath, GlobalData.gDatabasePath))
 
@@ -769,15 +790,20 @@ class Build():
             self.Db = WorkspaceDatabase(GlobalData.gDatabasePath, self.Reparse)
         self.BuildDatabase = self.Db.BuildObject
         self.Platform = None
+        self.ToolChainFamily = None
         self.LoadFixAddress = 0
         self.UniFlag        = BuildOptions.Flag
         self.BuildModules = []
+        self.Db_Flag = False
+        self.LaunchPrebuildFlag = False
+        self.PrebuildScript = ''
+        self.PostbuildScript = ''
+        self.PlatformBuildPath = os.path.join(GlobalData.gConfDirectory,'.cache', '.PlatformBuild')
+        if BuildOptions.CommandLength:
+            GlobalData.gCommandMaxLength = BuildOptions.CommandLength
 
         # print dot character during doing some time-consuming work
         self.Progress = Utils.Progressor()
-
-        self.InitBuild()
-
         # print current build environment and configuration
         EdkLogger.quiet("%-16s = %s" % ("WORKSPACE", os.environ["WORKSPACE"]))
         if "PACKAGES_PATH" in os.environ:
@@ -790,9 +816,21 @@ class Build():
         if "EDK_TOOLS_BIN" in os.environ:
             # Print the same path style with WORKSPACE env. 
             EdkLogger.quiet("%-16s = %s" % ("EDK_TOOLS_BIN", os.path.normcase(os.path.normpath(os.environ["EDK_TOOLS_BIN"]))))
+        EdkLogger.quiet("%-16s = %s" % ("CONF_PATH", GlobalData.gConfDirectory))
+        self.InitPreBuild()
+        self.InitPostBuild()
+        if self.PrebuildScript:
+            EdkLogger.quiet("%-16s = %s" % ("PREBUILD", self.PrebuildScript))
+        if self.PostbuildScript:
+            EdkLogger.quiet("%-16s = %s" % ("POSTBUILD", self.PostbuildScript))
+        if self.PrebuildScript:
+            self.LaunchPrebuild()
+            self.TargetTxt = TargetTxtClassObject()
+            self.ToolDef   = ToolDefClassObject()
+        if not (self.LaunchPrebuildFlag and os.path.exists(self.PlatformBuildPath)):
+            self.InitBuild()
 
         EdkLogger.info("")
-
         os.chdir(self.WorkspaceDir)
 
     ## Load configuration
@@ -847,6 +885,17 @@ class Build():
         else:
             self.ToolChainList = NewToolChainList
 
+        ToolChainFamily = []
+        ToolDefinition = self.ToolDef.ToolsDefTxtDatabase
+        for Tool in self.ToolChainList:
+            if TAB_TOD_DEFINES_FAMILY not in ToolDefinition or Tool not in ToolDefinition[TAB_TOD_DEFINES_FAMILY] \
+               or not ToolDefinition[TAB_TOD_DEFINES_FAMILY][Tool]:
+                EdkLogger.warn("No tool chain family found in configuration for %s. Default to MSFT." % Tool)
+                ToolChainFamily.append("MSFT")
+            else:
+                ToolChainFamily.append(ToolDefinition[TAB_TOD_DEFINES_FAMILY][Tool])
+        self.ToolChainFamily = ToolChainFamily
+
         if self.ThreadNumber == None:
             self.ThreadNumber = self.TargetTxt.TargetTxtDictionary[DataType.TAB_TAT_DEFINES_MAX_CONCURRENT_THREAD_NUMBER]
             if self.ThreadNumber == '':
@@ -890,8 +939,174 @@ class Build():
             EdkLogger.error("build", ErrorCode, ExtraData=ErrorInfo)
 
         # create metafile database
-        self.Db.InitDatabase()
+        if not self.Db_Flag:
+            self.Db.InitDatabase()
 
+    def InitPreBuild(self):
+        self.LoadConfiguration()
+        ErrorCode, ErrorInfo = self.PlatformFile.Validate(".dsc", False)
+        if ErrorCode != 0:
+            EdkLogger.error("build", ErrorCode, ExtraData=ErrorInfo)
+        if self.BuildTargetList:
+            GlobalData.gGlobalDefines['TARGET'] = self.BuildTargetList[0]
+        if self.ArchList:
+            GlobalData.gGlobalDefines['ARCH'] = self.ArchList[0]
+        if self.ToolChainList:
+            GlobalData.gGlobalDefines['TOOLCHAIN'] = self.ToolChainList[0]
+            GlobalData.gGlobalDefines['TOOL_CHAIN_TAG'] = self.ToolChainList[0]
+        if self.ToolChainFamily:
+            GlobalData.gGlobalDefines['FAMILY'] = self.ToolChainFamily[0]
+        if 'PREBUILD' in GlobalData.gCommandLineDefines.keys():
+            self.Prebuild   = GlobalData.gCommandLineDefines.get('PREBUILD')
+        else:
+            self.Db.InitDatabase()
+            self.Db_Flag = True
+            Platform = self.Db._MapPlatform(str(self.PlatformFile))
+            self.Prebuild = str(Platform.Prebuild)
+        if self.Prebuild:
+            PrebuildList = self.Prebuild.split()
+            if not os.path.isabs(PrebuildList[0]):
+                PrebuildList[0] = mws.join(self.WorkspaceDir, PrebuildList[0])
+            if os.path.isfile(PrebuildList[0]):
+                self.PrebuildScript = PrebuildList[0]
+                self.Prebuild = ' '.join(PrebuildList)
+                self.Prebuild += self.PassCommandOption(self.BuildTargetList, self.ArchList, self.ToolChainList)
+                #self.LaunchPrebuild()
+            else:
+                EdkLogger.error("Prebuild", PREBUILD_ERROR, "the prebuild script %s is not exist.\n If you'd like to disable the Prebuild process, please use the format: -D PREBUILD=\"\" " %(PrebuildList[0]))
+
+    def InitPostBuild(self):
+        if 'POSTBUILD' in GlobalData.gCommandLineDefines.keys():
+            self.Postbuild = GlobalData.gCommandLineDefines.get('POSTBUILD')
+        else:
+            Platform = self.Db._MapPlatform(str(self.PlatformFile))
+            self.Postbuild = str(Platform.Postbuild)
+        if self.Postbuild:
+            PostbuildList = self.Postbuild.split()
+            if not os.path.isabs(PostbuildList[0]):
+                PostbuildList[0] = mws.join(self.WorkspaceDir, PostbuildList[0])
+            if os.path.isfile(PostbuildList[0]):
+                self.PostbuildScript = PostbuildList[0]
+                self.Postbuild = ' '.join(PostbuildList)
+                self.Postbuild += self.PassCommandOption(self.BuildTargetList, self.ArchList, self.ToolChainList)
+                #self.LanuchPostbuild()
+            else:
+                EdkLogger.error("Postbuild", POSTBUILD_ERROR, "the postbuild script %s is not exist.\n If you'd like to disable the Postbuild process, please use the format: -D POSTBUILD=\"\" " %(PostbuildList[0]))
+
+    def PassCommandOption(self, BuildTarget, TargetArch, ToolChain):
+        BuildStr = ''
+        if GlobalData.gCommand and isinstance(GlobalData.gCommand, list):
+            BuildStr += ' ' + ' '.join(GlobalData.gCommand)
+        TargetFlag = False
+        ArchFlag = False
+        ToolChainFlag = False
+
+        if GlobalData.gOptions and not GlobalData.gOptions.BuildTarget:
+            TargetFlag = True
+        if GlobalData.gOptions and not GlobalData.gOptions.TargetArch:
+            ArchFlag = True
+        if GlobalData.gOptions and not GlobalData.gOptions.ToolChain:
+            ToolChainFlag = True
+
+        if TargetFlag and BuildTarget:
+            if isinstance(BuildTarget, list) or isinstance(BuildTarget, tuple):
+                BuildStr += ' -b ' + ' -b '.join(BuildTarget)
+            elif isinstance(BuildTarget, str):
+                BuildStr += ' -b ' + BuildTarget
+        if ArchFlag and TargetArch:
+            if isinstance(TargetArch, list) or isinstance(TargetArch, tuple):
+                BuildStr += ' -a ' + ' -a '.join(TargetArch)
+            elif isinstance(TargetArch, str):
+                BuildStr += ' -a ' + TargetArch
+        if ToolChainFlag and ToolChain:
+            if isinstance(ToolChain, list) or isinstance(ToolChain, tuple):
+                BuildStr += ' -t ' + ' -t '.join(ToolChain)
+            elif isinstance(ToolChain, str):
+                BuildStr += ' -t ' + ToolChain
+
+        return BuildStr
+
+    def LaunchPrebuild(self):
+        if self.Prebuild:
+            EdkLogger.info("\n- Prebuild Start -\n")
+            self.LaunchPrebuildFlag = True
+            PrebuildEnvFile = os.path.join(GlobalData.gConfDirectory,'.cache','.PrebuildEnv')
+            if os.path.isfile(PrebuildEnvFile):
+                os.remove(PrebuildEnvFile)
+            if os.path.isfile(self.PlatformBuildPath):
+                os.remove(self.PlatformBuildPath)
+            if sys.platform == "win32":
+                args = ' && '.join((self.Prebuild, 'set > ' + PrebuildEnvFile))
+                Process = Popen(args, stdout=PIPE, stderr=PIPE)
+            else:
+                args = ' && '.join((self.Prebuild, 'env > ' + PrebuildEnvFile))
+                Process = Popen(args, stdout=PIPE, stderr=PIPE, shell=True, executable="/bin/bash")
+
+            # launch two threads to read the STDOUT and STDERR
+            EndOfProcedure = Event()
+            EndOfProcedure.clear()
+            if Process.stdout:
+                StdOutThread = Thread(target=ReadMessage, args=(Process.stdout, EdkLogger.info, EndOfProcedure))
+                StdOutThread.setName("STDOUT-Redirector")
+                StdOutThread.setDaemon(False)
+                StdOutThread.start()
+
+            if Process.stderr:
+                StdErrThread = Thread(target=ReadMessage, args=(Process.stderr, EdkLogger.quiet, EndOfProcedure))
+                StdErrThread.setName("STDERR-Redirector")
+                StdErrThread.setDaemon(False)
+                StdErrThread.start()
+            # waiting for program exit
+            Process.wait()
+
+            if Process.stdout:
+                StdOutThread.join()
+            if Process.stderr:
+                StdErrThread.join()
+            if Process.returncode != 0 :
+                EdkLogger.error("Prebuild", PREBUILD_ERROR, 'Prebuild process is not success!')
+
+            if os.path.exists(PrebuildEnvFile):
+                f = open(PrebuildEnvFile)
+                envs = f.readlines()
+                f.close()
+                envs = itertools.imap(lambda l: l.split('=',1), envs)
+                envs = itertools.ifilter(lambda l: len(l) == 2, envs)
+                envs = itertools.imap(lambda l: [i.strip() for i in l], envs)
+                os.environ.update(dict(envs))
+            EdkLogger.info("\n- Prebuild Done -\n")
+
+    def LanuchPostbuild(self):
+        if self.Postbuild:
+            EdkLogger.info("\n- Postbuild Start -\n")
+            if sys.platform == "win32":
+                Process = Popen(self.Postbuild, stdout=PIPE, stderr=PIPE)
+            else:
+                Process = Popen(self.Postbuild, stdout=PIPE, stderr=PIPE, shell=True, executable="/bin/bash")
+            # launch two threads to read the STDOUT and STDERR
+            EndOfProcedure = Event()
+            EndOfProcedure.clear()
+            if Process.stdout:
+                StdOutThread = Thread(target=ReadMessage, args=(Process.stdout, EdkLogger.info, EndOfProcedure))
+                StdOutThread.setName("STDOUT-Redirector")
+                StdOutThread.setDaemon(False)
+                StdOutThread.start()
+
+            if Process.stderr:
+                StdErrThread = Thread(target=ReadMessage, args=(Process.stderr, EdkLogger.quiet, EndOfProcedure))
+                StdErrThread.setName("STDERR-Redirector")
+                StdErrThread.setDaemon(False)
+                StdErrThread.start()
+            # waiting for program exit
+            Process.wait()
+
+            if Process.stdout:
+                StdOutThread.join()
+            if Process.stderr:
+                StdErrThread.join()
+            if Process.returncode != 0 :
+                EdkLogger.error("Postbuild", POSTBUILD_ERROR, 'Postbuild process is not success!')
+            EdkLogger.info("\n- Postbuild Done -\n")
     ## Build a module or platform
     #
     # Create autogen code and makefile for a module or platform, and the launch
@@ -1401,11 +1616,15 @@ class Build():
     ## Build active platform for different build targets and different tool chains
     #
     def _BuildPlatform(self):
+        SaveFileOnChange(self.PlatformBuildPath, '# DO NOT EDIT \n# FILE auto-generated\n', False)
         for BuildTarget in self.BuildTargetList:
             GlobalData.gGlobalDefines['TARGET'] = BuildTarget
+            index = 0
             for ToolChain in self.ToolChainList:
                 GlobalData.gGlobalDefines['TOOLCHAIN'] = ToolChain
                 GlobalData.gGlobalDefines['TOOL_CHAIN_TAG'] = ToolChain
+                GlobalData.gGlobalDefines['FAMILY'] = self.ToolChainFamily[index]
+                index += 1
                 Wa = WorkspaceAutoGen(
                         self.WorkspaceDir,
                         self.PlatformFile,
@@ -1483,9 +1702,12 @@ class Build():
     def _BuildModule(self):
         for BuildTarget in self.BuildTargetList:
             GlobalData.gGlobalDefines['TARGET'] = BuildTarget
+            index = 0
             for ToolChain in self.ToolChainList:
                 GlobalData.gGlobalDefines['TOOLCHAIN'] = ToolChain
                 GlobalData.gGlobalDefines['TOOL_CHAIN_TAG'] = ToolChain
+                GlobalData.gGlobalDefines['FAMILY'] = self.ToolChainFamily[index]
+                index += 1
                 #
                 # module build needs platform build information, so get platform
                 # AutoGen first
@@ -1574,11 +1796,15 @@ class Build():
     ## Build a platform in multi-thread mode
     #
     def _MultiThreadBuildPlatform(self):
+        SaveFileOnChange(self.PlatformBuildPath, '# DO NOT EDIT \n# FILE auto-generated\n', False)
         for BuildTarget in self.BuildTargetList:
             GlobalData.gGlobalDefines['TARGET'] = BuildTarget
+            index = 0
             for ToolChain in self.ToolChainList:
                 GlobalData.gGlobalDefines['TOOLCHAIN'] = ToolChain
                 GlobalData.gGlobalDefines['TOOL_CHAIN_TAG'] = ToolChain
+                GlobalData.gGlobalDefines['FAMILY'] = self.ToolChainFamily[index]
+                index += 1
                 Wa = WorkspaceAutoGen(
                         self.WorkspaceDir,
                         self.PlatformFile,
@@ -1917,8 +2143,8 @@ def MyOptionParser():
     Parser.add_option("-D", "--define", action="append", type="string", dest="Macros", help="Macro: \"Name [= Value]\".")
 
     Parser.add_option("-y", "--report-file", action="store", dest="ReportFile", help="Create/overwrite the report to the specified filename.")
-    Parser.add_option("-Y", "--report-type", action="append", type="choice", choices=['PCD', 'LIBRARY', 'FLASH', 'DEPEX', 'BUILD_FLAGS', 'FIXED_ADDRESS', 'EXECUTION_ORDER'], dest="ReportType", default=[],
-        help="Flags that control the type of build report to generate.  Must be one of: [PCD, LIBRARY, FLASH, DEPEX, BUILD_FLAGS, FIXED_ADDRESS, EXECUTION_ORDER].  "\
+    Parser.add_option("-Y", "--report-type", action="append", type="choice", choices=['PCD','LIBRARY','FLASH','DEPEX','BUILD_FLAGS','FIXED_ADDRESS','HASH','EXECUTION_ORDER'], dest="ReportType", default=[],
+        help="Flags that control the type of build report to generate.  Must be one of: [PCD, LIBRARY, FLASH, DEPEX, BUILD_FLAGS, FIXED_ADDRESS, HASH, EXECUTION_ORDER].  "\
              "To specify more than one flag, repeat this option on the command line and the default flag set is [PCD, LIBRARY, FLASH, DEPEX, BUILD_FLAGS, FIXED_ADDRESS]")
     Parser.add_option("-F", "--flag", action="store", type="string", dest="Flag",
         help="Specify the specific option to parse EDK UNI file. Must be one of: [-c, -s]. -c is for EDK framework UNI file, and -s is for EDK UEFI UNI file. "\
@@ -1928,6 +2154,8 @@ def MyOptionParser():
     Parser.add_option("--conf", action="store", type="string", dest="ConfDirectory", help="Specify the customized Conf directory.")
     Parser.add_option("--check-usage", action="store_true", dest="CheckUsage", default=False, help="Check usage content of entries listed in INF file.")
     Parser.add_option("--ignore-sources", action="store_true", dest="IgnoreSources", default=False, help="Focus to a binary build and ignore all source files")
+    Parser.add_option("--pcd", action="append", dest="OptionPcd", help="Set PCD value by command line. Format: \"PcdName=Value\" ")
+    Parser.add_option("-l", "--cmd-len", action="store", type="int", dest="CommandLength", help="Specify the maximum line length of build command. Default is 4096.")
 
     (Opt, Args) = Parser.parse_args()
     return (Opt, Args)
@@ -1946,7 +2174,7 @@ def Main():
 
     # Initialize log system
     EdkLogger.Initialize()
-
+    GlobalData.gCommand = sys.argv[1:]
     #
     # Parse the options and args
     #
@@ -2044,7 +2272,8 @@ def Main():
 
         MyBuild = Build(Target, Workspace, Option)
         GlobalData.gCommandLineDefines['ARCH'] = ' '.join(MyBuild.ArchList)
-        MyBuild.Launch()
+        if not (MyBuild.LaunchPrebuildFlag and os.path.exists(MyBuild.PlatformBuildPath)):
+            MyBuild.Launch()
         # Drop temp tables to avoid database locked.
         for TmpTableName in TmpTableDict:
             SqlCommand = """drop table IF EXISTS %s""" % TmpTableName
@@ -2091,7 +2320,7 @@ def Main():
                     "\nbuild",
                     CODE_ERROR,
                     "Unknown fatal error when processing [%s]" % MetaFile,
-                    ExtraData="\n(Please send email to edk2-devel@lists.sourceforge.net for help, attaching following call stack trace!)\n",
+                    ExtraData="\n(Please send email to edk2-devel@lists.01.org for help, attaching following call stack trace!)\n",
                     RaiseError=False
                     )
         EdkLogger.quiet("(Python %s on %s) " % (platform.python_version(), sys.platform) + traceback.format_exc())
@@ -2101,7 +2330,11 @@ def Main():
         Utils.ClearDuplicatedInf()
 
     if ReturnCode == 0:
-        Conclusion = "Done"
+        try:
+            MyBuild.LanuchPostbuild()
+            Conclusion = "Done"
+        except:
+            Conclusion = "Failed"
     elif ReturnCode == ABORT_ERROR:
         Conclusion = "Aborted"
     else:

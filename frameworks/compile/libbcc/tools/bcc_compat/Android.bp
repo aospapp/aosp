@@ -26,18 +26,12 @@ cc_binary_host {
         windows: {
             enabled: true,
         },
-        darwin: {
-            host_ldlibs: ["-ldl"],
-        },
-        linux: {
-            host_ldlibs: ["-ldl"],
-        },
     },
 
     shared_libs: [
         "libbcc",
         "libbcinfo",
-        "libLLVM",
+        "libLLVM_android",
     ],
 
     header_libs: ["slang_headers"],

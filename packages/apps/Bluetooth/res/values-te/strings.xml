@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"బ్లూటూత్ ఆడియో కనెక్ట్ చేయబడింది"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"బ్లూటూత్ ఆడియో డిస్‌కనెక్ట్ చేయబడింది"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"బ్లూటూత్ ఆడియో"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4GB కన్నా పెద్ద ఫైళ్లు బదిలీ చేయబడవు"</string>
 </resources>

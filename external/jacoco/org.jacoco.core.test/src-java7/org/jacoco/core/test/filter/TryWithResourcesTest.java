@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -44,7 +44,7 @@ public class TryWithResourcesTest extends ValidationTestBase {
 		// without filter next line has branches:
 		assertLine("test.close", ICounter.EMPTY);
 		assertLine("test.catch", ICounter.NOT_COVERED);
-		assertLine("test.finally", ICounter.PARTLY_COVERED);
+		assertLine("test.finally", ICounter.FULLY_COVERED);
 	}
 
 	/**
@@ -62,7 +62,7 @@ public class TryWithResourcesTest extends ValidationTestBase {
 		// without filter next line has branches:
 		assertLine("test2.close", ICounter.EMPTY);
 		assertLine("test2.catch", ICounter.NOT_COVERED);
-		assertLine("test2.finally", ICounter.PARTLY_COVERED);
+		assertLine("test2.finally", ICounter.FULLY_COVERED);
 		assertLine("test2.after", ICounter.FULLY_COVERED);
 	}
 
@@ -109,14 +109,14 @@ public class TryWithResourcesTest extends ValidationTestBase {
 		assertLine("nested.try2", ICounter.FULLY_COVERED);
 		assertLine("nested.body", ICounter.FULLY_COVERED);
 		assertLine("nested.catch2", ICounter.NOT_COVERED);
-		assertLine("nested.finally2", ICounter.PARTLY_COVERED);
+		assertLine("nested.finally2", ICounter.FULLY_COVERED);
 
 		// next lines not covered on exceptional path:
-		assertLine("nested.try3", ICounter.PARTLY_COVERED, 0, 0);
-		assertLine("nested.open3", ICounter.PARTLY_COVERED, 0, 0);
-		assertLine("nested.body3", ICounter.PARTLY_COVERED, 0, 0);
+		assertLine("nested.try3", ICounter.FULLY_COVERED, 0, 0);
+		assertLine("nested.open3", ICounter.FULLY_COVERED, 0, 0);
+		assertLine("nested.body3", ICounter.FULLY_COVERED, 0, 0);
 		assertLine("nested.catch3", ICounter.NOT_COVERED);
-		assertLine("nested.finally3", ICounter.PARTLY_COVERED, 0, 0);
+		assertLine("nested.finally3", ICounter.FULLY_COVERED, 0, 0);
 
 		// without filter next lines have branches:
 		assertLine("nested.close3", ICounter.EMPTY);
@@ -132,12 +132,12 @@ public class TryWithResourcesTest extends ValidationTestBase {
 		// without filter next line covered partly:
 		assertLine("returnInCatch.try1", ICounter.FULLY_COVERED);
 		assertLine("returnInCatch.open", ICounter.FULLY_COVERED);
-		assertLine("returnInCatch.finally1", ICounter.PARTLY_COVERED, 5, 1);
+		assertLine("returnInCatch.finally1", ICounter.PARTLY_COVERED, 1, 1);
 		// without filter next line has branches:
 		assertLine("returnInCatch.close", ICounter.EMPTY);
 
 		assertLine("returnInCatch.try2", ICounter.EMPTY);
-		assertLine("returnInCatch.finally2", ICounter.PARTLY_COVERED, 5, 1);
+		assertLine("returnInCatch.finally2", ICounter.PARTLY_COVERED, 1, 1);
 	}
 
 	/*
@@ -164,7 +164,7 @@ public class TryWithResourcesTest extends ValidationTestBase {
 		// empty when EJC:
 		if (isJDKCompiler) {
 			final String jdkVersion = System.getProperty("java.version");
-			if (jdkVersion.startsWith("9-")) {
+			if (jdkVersion.startsWith("9") || jdkVersion.startsWith("10")) {
 				assertLine("empty.close", ICounter.FULLY_COVERED, 0, 0);
 			} else {
 				// branches with javac 7 and 8

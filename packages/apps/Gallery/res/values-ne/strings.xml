@@ -129,10 +129,10 @@
     <string name="details_fps" msgid="5450871169477340537">"<xliff:g id="FRAMES">%1$d</xliff:g> fps"</string>
     <string name="details_kbps" msgid="1515369011744784592">"<xliff:g id="SPEED">%1$d</xliff:g>Kbps"</string>
     <string name="details_mbps" msgid="3291428849607323284">"<xliff:g id="SPEED">%1$g</xliff:g> Mbps"</string>
-    <string name="details_ok" msgid="6848594369924424312">"ठीक छ"</string>
+    <string name="details_ok" msgid="6848594369924424312">"ठिक छ"</string>
     <string name="context_menu_header" msgid="1185348426222302182">"तस्बिर विकल्पहरू"</string>
     <string name="video_context_menu_header" msgid="7318971116949475029">"भिडियो विकल्पहरू"</string>
-    <string name="multiface_crop_help" msgid="2554690102655855657">"सुरु गर्नका लागि एउटा अनुहार छुनुहोस्।"</string>
+    <string name="multiface_crop_help" msgid="2554690102655855657">"सुरु गर्नाका लागि एउटा अनुहार छुनुहोस्।"</string>
     <string name="photos_gallery_title" msgid="6914406246471015448">"ग्यालरी"</string>
     <string name="pick_photos_gallery_title" msgid="8356086704733473321">"चित्र छान्नुहोस्"</string>
     <string name="videos_gallery_title" msgid="6150354029982749479">"ग्यालरी"</string>

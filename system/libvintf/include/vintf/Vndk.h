@@ -24,7 +24,8 @@
 namespace android {
 namespace vintf {
 
-struct VndkVersionRange {
+// deprecated. Kept here for libvintf backwards compatibility.
+struct [[deprecated]] VndkVersionRange {
 
     VndkVersionRange() : VndkVersionRange(0u, 0u, 0u) {}
     VndkVersionRange(size_t s, size_t v, size_t p)
@@ -40,7 +41,8 @@ struct VndkVersionRange {
     size_t patchMax;
 };
 
-struct Vndk {
+// deprecated. Kept here for libvintf backwards compatibility.
+struct [[deprecated]] Vndk {
 
     const VndkVersionRange &versionRange() const { return mVersionRange; }
     const std::set<std::string> &libraries() const { return mLibraries; }
@@ -56,10 +58,13 @@ private:
     std::set<std::string> mLibraries;
 };
 
+[[deprecated]]
 inline bool operator==(const VndkVersionRange &lft, const VndkVersionRange &rgt) {
     return lft.sdk == rgt.sdk && lft.vndk == rgt.vndk &&
            lft.patchMin == rgt.patchMin && lft.patchMax == rgt.patchMax;
 }
+
+[[deprecated]]
 inline bool operator==(const Vndk &lft, const Vndk &rgt) {
     return lft.mVersionRange == rgt.mVersionRange &&
            lft.mLibraries == rgt.mLibraries;

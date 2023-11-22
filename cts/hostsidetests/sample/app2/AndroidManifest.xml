@@ -16,8 +16,8 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.sample.cts.app2">
-
+          package="android.sample.cts.app2"
+          android:targetSandboxVersion="2">
     <application>
         <uses-library android:name="android.test.runner" />
     </application>

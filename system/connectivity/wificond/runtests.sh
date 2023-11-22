@@ -31,16 +31,25 @@ make -j32 -C $ANDROID_BUILD_TOP -f build/core/main.mk \
 
 set -x # print commands
 
+adb wait-for-device
 adb root
 adb wait-for-device
-adb remount
+
+# 'disable-verity' will appear in 'adb remount' output if
+# dm-verity is enabled and needs to be disabled.
+if adb remount | grep 'disable-verity'; then
+  adb disable-verity
+  adb reboot
+  adb wait-for-device
+  adb root
+  adb wait-for-device
+  adb remount
+fi
+
 adb sync
 
 adb shell /data/nativetest/wificond_unit_test/wificond_unit_test
 adb shell /data/nativetest64/wificond_unit_test/wificond_unit_test
-
-adb shell /data/nativetest/libwifi-system_tests/libwifi-system_tests
-adb shell /data/nativetest64/libwifi-system_tests/libwifi-system_tests
 
 # NOTE Integration tests are temporarily disabled until we hook up vendor
 # HAL to wificond for reloading driver/firmware.

@@ -16,33 +16,24 @@
 
 package com.android.documentsui.dirlist;
 
-import android.annotation.ColorInt;
 import android.content.Context;
 import android.database.Cursor;
-import android.graphics.Rect;
-import android.os.Build;
 import android.support.v7.widget.RecyclerView;
-import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewPropertyAnimator;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 
-import com.android.documentsui.R;
-import com.android.documentsui.base.DebugFlags;
-import com.android.documentsui.base.DocumentInfo;
-import com.android.documentsui.base.Events.InputEvent;
 import com.android.documentsui.base.Shared;
-import com.android.documentsui.ui.DocumentDebugInfo;
+import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
 
 import javax.annotation.Nullable;
 
 public abstract class DocumentHolder
-        extends RecyclerView.ViewHolder
-        implements View.OnKeyListener, DocumentDetails {
+        extends RecyclerView.ViewHolder implements View.OnKeyListener {
 
     static final float DISABLED_ALPHA = 0.3f;
 
@@ -50,11 +41,10 @@ public abstract class DocumentHolder
 
     protected @Nullable String mModelId;
 
-    private final View mSelectionHotspot;
-    private @Nullable DocumentDebugInfo mDebugInfo;
-
     // See #addKeyEventListener for details on the need for this field.
     private KeyboardEventListener mKeyEventListener;
+
+    private final DocumentItemDetails mDetails;
 
     public DocumentHolder(Context context, ViewGroup parent, int layout) {
         this(context, inflateLayout(context, parent, layout));
@@ -66,8 +56,7 @@ public abstract class DocumentHolder
         itemView.setOnKeyListener(this);
 
         mContext = context;
-
-        mSelectionHotspot = itemView.findViewById(R.id.icon_check);
+        mDetails = new DocumentItemDetails();
     }
 
     /**
@@ -78,12 +67,6 @@ public abstract class DocumentHolder
      */
     public abstract void bind(Cursor cursor, String modelId);
 
-    @Override
-    public boolean hasModelId() {
-        return !TextUtils.isEmpty(mModelId);
-    }
-
-    @Override
     public String getModelId() {
         return mModelId;
     }
@@ -111,7 +94,10 @@ public abstract class DocumentHolder
     @Override
     public boolean onKey(View v, int keyCode, KeyEvent event) {
         assert(mKeyEventListener != null);
-        return mKeyEventListener.onKey(this,  keyCode,  event);
+        ItemDetails details = getItemDetails();
+        return (details == null)
+            ? false
+            : mKeyEventListener.onKey(getItemDetails(),  keyCode,  event);
     }
 
     /**
@@ -127,26 +113,16 @@ public abstract class DocumentHolder
         mKeyEventListener = listener;
     }
 
-    @Override
-    public boolean isInSelectionHotspot(InputEvent event) {
-        // Do everything in global coordinates - it makes things simpler.
-        int[] coords = new int[2];
-        mSelectionHotspot.getLocationOnScreen(coords);
-        Rect rect = new Rect(coords[0], coords[1], coords[0] + mSelectionHotspot.getWidth(),
-                coords[1] + mSelectionHotspot.getHeight());
-
-        // If the tap occurred within the icon rect, consider it a selection.
-        return rect.contains((int) event.getRawX(), (int) event.getRawY());
-    }
-
-    @Override
-    public boolean isInDragHotspot(InputEvent event) {
+    public boolean inDragRegion(MotionEvent event) {
         return false;
     }
 
-    @Override
-    public boolean isOverDocIcon(InputEvent event) {
+    public boolean inSelectRegion(MotionEvent event) {
         return false;
+    }
+
+    public ItemDetails getItemDetails() {
+        return mDetails;
     }
 
     static void setEnabledRecursive(View itemView, boolean enabled) {
@@ -163,6 +139,7 @@ public abstract class DocumentHolder
         }
     }
 
+    @SuppressWarnings("TypeParameterUnusedInFormals")
     private static <V extends View> V inflateLayout(Context context, ViewGroup parent, int layout) {
         final LayoutInflater inflater = LayoutInflater.from(context);
         return (V) inflater.inflate(layout, parent, false);
@@ -172,20 +149,31 @@ public abstract class DocumentHolder
         return view.animate().setDuration(Shared.CHECK_ANIMATION_DURATION).alpha(alpha);
     }
 
-    /**
-     * Implement this in order to be able to respond to events coming from DocumentHolders.
-     * TODO: Make this bubble up logic events rather than having imperative commands.
-     */
-    interface KeyboardEventListener {
+    private final class DocumentItemDetails extends ItemDetails {
 
-        /**
-         * Handles key events on the document holder.
-         *
-         * @param doc The target DocumentHolder.
-         * @param keyCode Key code for the event.
-         * @param event KeyEvent for the event.
-         * @return Whether the event was handled.
-         */
-        public boolean onKey(DocumentHolder doc, int keyCode, KeyEvent event);
+        @Override
+        public int getPosition() {
+            return DocumentHolder.this.getAdapterPosition();
+        }
+
+        @Override
+        public String getStableId() {
+            return DocumentHolder.this.getModelId();
+        }
+
+        @Override
+        public int getItemViewType() {
+            return DocumentHolder.this.getItemViewType();
+        }
+
+        @Override
+        public boolean inDragRegion(MotionEvent e) {
+            return DocumentHolder.this.inDragRegion(e);
+        }
+
+        @Override
+        public boolean inSelectionHotspot(MotionEvent e) {
+            return DocumentHolder.this.inSelectRegion(e);
+        }
     }
 }

@@ -36,12 +36,12 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * A {@link ITargetPreparer} that installs all apps from a
- * {@link IDeviceBuildInfo#getTestsDir()} folder onto device. For individual
- * test app install please look at {@link TestAppInstallSetup}
+ * A {@link ITargetPreparer} that installs all apps from a {@link IDeviceBuildInfo#getTestsDir()}
+ * folder onto device. For individual test app install please look at {@link TestAppInstallSetup}
  */
 @OptionClass(alias = "all-tests-installer")
-public class AllTestAppsInstallSetup implements ITargetCleaner, IAbiReceiver {
+public class AllTestAppsInstallSetup extends BaseTargetPreparer
+        implements ITargetCleaner, IAbiReceiver {
     @Option(name = AbiFormatter.FORCE_ABI_STRING,
             description = AbiFormatter.FORCE_ABI_DESCRIPTION,
             importance = Importance.IF_UNSET)

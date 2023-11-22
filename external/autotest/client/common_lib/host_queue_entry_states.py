@@ -18,6 +18,8 @@ ACTIVE_STATUSES = (Status.STARTING, Status.RESETTING, Status.VERIFYING,
                    Status.GATHERING, Status.CLEANING)
 COMPLETE_STATUSES = (Status.ABORTED, Status.COMPLETED, Status.FAILED,
                      Status.STOPPED, Status.TEMPLATE)
+# A state cannot both be active and complete
+assert not set(ACTIVE_STATUSES) & set(COMPLETE_STATUSES)
 PRE_JOB_STATUSES = (Status.RESETTING, Status.PROVISIONING, Status.VERIFYING,
                     Status.PENDING, Status.QUEUED)
 IDLE_PRE_JOB_STATUSES = (Status.PENDING, Status.QUEUED)

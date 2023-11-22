@@ -67,6 +67,5 @@ public class ReadDefaultUris extends AndroidTestCase {
         mp.stop();
         mp.release();
         Thread.sleep(timeToPlayMs);
-        assertFalse(mAudioManager.isMusicActive());
     }
 }

@@ -31,9 +31,11 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 public class WatchPercentageScreenDimenTest {
+
     private Context mContext;
     private Configuration mConfig;
     private float mScreenWidth;
+    private DisplayMetrics mDisplayMetrics;
 
     private boolean isRoundWatch() {
         return mConfig.isScreenRound() && (mConfig.uiMode & Configuration.UI_MODE_TYPE_WATCH)
@@ -44,7 +46,8 @@ public class WatchPercentageScreenDimenTest {
     public void setUp() throws Exception {
         mContext = InstrumentationRegistry.getTargetContext();
         mConfig = mContext.getResources().getConfiguration();
-        mScreenWidth = mContext.getResources().getDisplayMetrics().widthPixels;
+        mDisplayMetrics = mContext.getResources().getDisplayMetrics();
+        mScreenWidth = mDisplayMetrics.widthPixels;
     }
 
     @Test
@@ -54,6 +57,7 @@ public class WatchPercentageScreenDimenTest {
         }
 
         float expected = mScreenWidth * 0.1f;
+        float expectedDelta = getMaxErrorRatio() * expected;
 
         TypedArray attrs = mContext.obtainStyledAttributes(new int[] {
             android.R.attr.listPreferredItemPaddingEnd
@@ -63,7 +67,7 @@ public class WatchPercentageScreenDimenTest {
         for (int i = 0; i < attrs.length(); ++i) {
             float actual = attrs.getDimension(i, -1);
             Assert.assertEquals("screen_percentage_10 is not 10% of screen width",
-                    expected, actual, 0.1f);
+                    expected, actual, expectedDelta + 0.01f);
         }
     }
 
@@ -74,6 +78,7 @@ public class WatchPercentageScreenDimenTest {
         }
 
         float expected = mScreenWidth * 0.15f;
+        float expectedDelta = getMaxErrorRatio() * expected;
 
         TypedArray attrs = mContext.obtainStyledAttributes(new int[] {
             android.R.attr.dialogPreferredPadding,
@@ -86,7 +91,14 @@ public class WatchPercentageScreenDimenTest {
         for (int i = 0; i < attrs.length(); ++i) {
             float actual = attrs.getDimension(i, -1);
             Assert.assertEquals("screen_percentage_15 is not 15% of screen width",
-                    expected, actual, 0.1f);
+                    expected, actual, expectedDelta + 0.01f);
         }
+    }
+
+    private float getMaxErrorRatio() {
+        // The size used will be the closest qualifier with width <= device width, so there may be
+        // small rounding errors.
+        float widthDp = mDisplayMetrics.widthPixels / mDisplayMetrics.density;
+        return (widthDp - (float) Math.floor(widthDp)) / widthDp;
     }
 }

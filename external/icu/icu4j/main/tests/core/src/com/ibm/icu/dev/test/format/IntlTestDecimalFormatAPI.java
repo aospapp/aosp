@@ -6,11 +6,11 @@
  *   Corporation and others.  All Rights Reserved.
  **/
 
-/** 
+/**
  * Port From:   JDK 1.4b1 : java.text.Format.IntlTestDecimalFormatAPI
  * Source File: java/text/format/IntlTestDecimalFormatAPI.java
  **/
- 
+
 /*
     @test 1.4 98/03/06
     @summary test International Decimal Format API
@@ -25,28 +25,32 @@ import java.text.ParsePosition;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
+import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.math.BigDecimal;
 import com.ibm.icu.math.MathContext;
 import com.ibm.icu.text.DecimalFormat;
 import com.ibm.icu.text.DecimalFormatSymbols;
 import com.ibm.icu.text.NumberFormat;
 
-public class IntlTestDecimalFormatAPI extends com.ibm.icu.dev.test.TestFmwk
+@RunWith(JUnit4.class)
+public class IntlTestDecimalFormatAPI extends TestFmwk
 {
     /**
-     * Problem 1: simply running 
-     * decF4.setRoundingMode(java.math.BigDecimal.ROUND_HALF_UP) does not work 
+     * Problem 1: simply running
+     * decF4.setRoundingMode(java.math.BigDecimal.ROUND_HALF_UP) does not work
      * as decF4.setRoundingIncrement(.0001) must also be run.
-     * Problem 2: decF4.format(8.88885) does not return 8.8889 as expected. 
-     * You must run decF4.format(new BigDecimal(Double.valueOf(8.88885))) in 
+     * Problem 2: decF4.format(8.88885) does not return 8.8889 as expected.
+     * You must run decF4.format(new BigDecimal(Double.valueOf(8.88885))) in
      * order for this to work as expected.
-     * Problem 3: There seems to be no way to set half up to be the default 
+     * Problem 3: There seems to be no way to set half up to be the default
      * rounding mode.
-     * We solved the problem with the code at the bottom of this page however 
+     * We solved the problem with the code at the bottom of this page however
      * this is not quite general purpose enough to include in icu4j. A static
-     * setDefaultRoundingMode function would solve the problem nicely. Also 
-     * decimal places past 20 are not handled properly. A small ammount of work 
+     * setDefaultRoundingMode function would solve the problem nicely. Also
+     * decimal places past 20 are not handled properly. A small ammount of work
      * would make bring this up to snuff.
      */
     @Test
@@ -55,17 +59,16 @@ public class IntlTestDecimalFormatAPI extends com.ibm.icu.dev.test.TestFmwk
         // problem 2
         double number = 8.88885;
         String expected = "8.8889";
-        
+
         String pat = ",##0.0000";
         DecimalFormat dec = new DecimalFormat(pat);
         dec.setRoundingMode(BigDecimal.ROUND_HALF_UP);
-        double roundinginc = 0.0001;
-        dec.setRoundingIncrement(roundinginc);
+        dec.setRoundingIncrement(new java.math.BigDecimal("0.0001"));
         String str = dec.format(number);
         if (!str.equals(expected)) {
             errln("Fail: " + number + " x \"" + pat + "\" = \"" +
                   str + "\", expected \"" + expected + "\"");
-        }   
+        }
 
         pat = ",##0.0001";
         dec = new DecimalFormat(pat);
@@ -74,25 +77,25 @@ public class IntlTestDecimalFormatAPI extends com.ibm.icu.dev.test.TestFmwk
         if (!str.equals(expected)) {
             errln("Fail: " + number + " x \"" + pat + "\" = \"" +
                   str + "\", expected \"" + expected + "\"");
-        }  
-        
+        }
+
         // testing 20 decimal places
         pat = ",##0.00000000000000000001";
         dec = new DecimalFormat(pat);
         BigDecimal bignumber = new BigDecimal("8.888888888888888888885");
         expected = "8.88888888888888888889";
-        
+
         dec.setRoundingMode(BigDecimal.ROUND_HALF_UP);
-        str = dec.format(bignumber); 
+        str = dec.format(bignumber);
         if (!str.equals(expected)) {
             errln("Fail: " + bignumber + " x \"" + pat + "\" = \"" +
                   str + "\", expected \"" + expected + "\"");
-        }   
-        
+        }
+
     }
 
-    /** 
-     * This test checks various generic API methods in DecimalFormat to achieve 
+    /**
+     * This test checks various generic API methods in DecimalFormat to achieve
      * 100% API coverage.
      */
     @Test
@@ -188,33 +191,25 @@ public class IntlTestDecimalFormatAPI extends com.ibm.icu.dev.test.TestFmwk
         pat.setPositivePrefix("+");
         posPrefix = pat.getPositivePrefix();
         logln("Positive prefix (should be +): " + posPrefix);
-        if(posPrefix != "+") {
-            errln("ERROR: setPositivePrefix() failed");
-        }
+        assertEquals("ERROR: setPositivePrefix() failed", "+", posPrefix);
 
         String negPrefix;
         pat.setNegativePrefix("-");
         negPrefix = pat.getNegativePrefix();
         logln("Negative prefix (should be -): " + negPrefix);
-        if(negPrefix != "-") {
-            errln("ERROR: setNegativePrefix() failed");
-        }
+        assertEquals("ERROR: setNegativePrefix() failed", "-", negPrefix);
 
         String posSuffix;
         pat.setPositiveSuffix("_");
         posSuffix = pat.getPositiveSuffix();
         logln("Positive suffix (should be _): " + posSuffix);
-        if(posSuffix != "_") {
-            errln("ERROR: setPositiveSuffix() failed");
-        }
+        assertEquals("ERROR: setPositiveSuffix() failed", "_", posSuffix);
 
         String negSuffix;
         pat.setNegativeSuffix("~");
         negSuffix = pat.getNegativeSuffix();
         logln("Negative suffix (should be ~): " + negSuffix);
-        if(negSuffix != "~") {
-            errln("ERROR: setNegativeSuffix() failed");
-        }
+        assertEquals("ERROR: setNegativeSuffix() failed", "~", negSuffix);
 
         long multiplier = 0;
         pat.setMultiplier(8);
@@ -298,7 +293,7 @@ public class IntlTestDecimalFormatAPI extends com.ibm.icu.dev.test.TestFmwk
         DecimalFormat decfmt = new DecimalFormat();
         MathContext resultICU;
 
-        MathContext comp1 = new MathContext(0, MathContext.PLAIN);
+        MathContext comp1 = new MathContext(0, MathContext.PLAIN, false, MathContext.ROUND_HALF_EVEN);
         resultICU = decfmt.getMathContextICU();
         if ((comp1.getDigits() != resultICU.getDigits()) ||
             (comp1.getForm() != resultICU.getForm()) ||
@@ -309,7 +304,7 @@ public class IntlTestDecimalFormatAPI extends com.ibm.icu.dev.test.TestFmwk
                 " / expected: " + comp1.toString());
         }
 
-        MathContext comp2 = new MathContext(5, MathContext.ENGINEERING);
+        MathContext comp2 = new MathContext(5, MathContext.ENGINEERING, false, MathContext.ROUND_HALF_EVEN);
         decfmt.setMathContextICU(comp2);
         resultICU = decfmt.getMathContextICU();
         if ((comp2.getDigits() != resultICU.getDigits()) ||
@@ -344,7 +339,7 @@ public class IntlTestDecimalFormatAPI extends com.ibm.icu.dev.test.TestFmwk
         // get default rounding increment
         r1 = pat.getRoundingIncrement();
 
-        // set rounding mode with zero increment.  Rounding 
+        // set rounding mode with zero increment.  Rounding
         // increment should be set by this operation
         pat.setRoundingMode(BigDecimal.ROUND_UP);
         r2 = pat.getRoundingIncrement();
@@ -358,43 +353,43 @@ public class IntlTestDecimalFormatAPI extends com.ibm.icu.dev.test.TestFmwk
             }
         }
     }
-    
+
     @Test
     public void testJB6648()
     {
         DecimalFormat df = new DecimalFormat();
         df.setParseStrict(true);
-        
+
         String numstr = new String();
-        
+
         String[] patterns = {
             "0",
             "00",
             "000",
             "0,000",
             "0.0",
-            "#000.0"          
+            "#000.0"
         };
-        
+
         for(int i=0; i < patterns.length; i++) {
             df.applyPattern(patterns[i]);
-            numstr = df.format(5);        
+            numstr = df.format(5);
             try {
                 Number n = df.parse(numstr);
                 logln("INFO: Parsed " + numstr + " -> " + n);
             } catch (ParseException pe) {
                 errln("ERROR: Failed round trip with strict parsing.");
-            }           
+            }
         }
-        
+
         df.applyPattern(patterns[1]);
-        numstr = "005";        
+        numstr = "005";
         try {
             Number n = df.parse(numstr);
             logln("INFO: Successful parse for " + numstr + " with strict parse enabled. Number is " + n);
         } catch (ParseException pe) {
             errln("ERROR: Parse Exception encountered in strict mode: numstr -> " + numstr);
-        }  
-        
+        }
+
     }
 }

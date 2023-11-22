@@ -39,7 +39,7 @@ static const uint64_t kOneSecond = UINT64_C(1000000000); // in nanoseconds
 
 static uint32_t mMyTid;
 static uint64_t mMyAppId;
-static int cnt;
+static int mCnt;
 static struct MyTimer mTimer;
 
 // Default implementation for message free
@@ -52,7 +52,7 @@ bool nanoappStart(void)
 {
     mMyAppId = chreGetAppId();
     mMyTid = chreGetInstanceId();
-    cnt = 3;
+    mCnt = 3;
     chreSendEvent(EVT_LOCAL_SETUP, NULL, NULL, mMyTid);
     chreLog(CHRE_LOG_INFO, APP_LABEL "init");
     return true;
@@ -99,11 +99,11 @@ void nanoappHandleEvent(uint32_t srcTid, uint16_t evtType, const void* evtData)
 
         chreLog(CHRE_LOG_INFO, APP_LABEL "received timer %" PRIu32
                                " (TIME: %" PRIu64
-                               ") cnt: %d\n", t->timerId, chreGetTime(), cnt);
+                               ") cnt: %d\n", t->timerId, chreGetTime(), mCnt);
         extMsg->msg = 0x01;
-        extMsg->val = cnt;
+        extMsg->val = mCnt;
         chreSendMessageToHost(extMsg, sizeof(*extMsg), 0, nanoappFreeMessage);
-        if (cnt-- <= 0)
+        if (mCnt-- <= 0)
             chreTimerCancel(t->timerId);
         break;
     }

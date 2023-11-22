@@ -43,9 +43,13 @@ void PlatformWifi::init() {
         PlatformWifiBase::scanResponseCallback;
     mWifiCallbacks.scanEventCallback =
         PlatformWifiBase::scanEventCallback;
+    mWifiCallbacks.rangingEventCallback =
+        PlatformWifiBase::rangingEventCallback;
     if (!mWifiApi->open(&gChrePalSystemApi, &mWifiCallbacks)) {
       LOGE("WiFi PAL open returned false");
       mWifiApi = nullptr;
+    } else {
+      LOGD("Opened WiFi PAL version 0x%08" PRIx32, mWifiApi->moduleVersion);
     }
   } else {
     LOGW("Requested Wifi PAL (version %08" PRIx32 ") not found",
@@ -71,6 +75,16 @@ bool PlatformWifi::configureScanMonitor(bool enable) {
   }
 }
 
+bool PlatformWifi::requestRanging(const struct chreWifiRangingParams *params) {
+  if (mWifiApi != nullptr
+      && mWifiApi->moduleVersion >= CHRE_PAL_WIFI_API_V1_2) {
+    prePalApiCall();
+    return mWifiApi->requestRanging(params);
+  } else {
+    return false;
+  }
+}
+
 bool PlatformWifi::requestScan(const struct chreWifiScanParams *params) {
   if (mWifiApi != nullptr) {
     prePalApiCall();
@@ -80,11 +94,20 @@ bool PlatformWifi::requestScan(const struct chreWifiScanParams *params) {
   }
 }
 
+void PlatformWifi::releaseRangingEvent(struct chreWifiRangingEvent *event) {
+  prePalApiCall();
+  mWifiApi->releaseRangingEvent(event);
+}
+
 void PlatformWifi::releaseScanEvent(struct chreWifiScanEvent *event) {
-  if (mWifiApi != nullptr) {
-    prePalApiCall();
-    mWifiApi->releaseScanEvent(event);
-  }
+  prePalApiCall();
+  mWifiApi->releaseScanEvent(event);
+}
+
+void PlatformWifiBase::rangingEventCallback(
+    uint8_t errorCode, struct chreWifiRangingEvent *event) {
+  EventLoopManagerSingleton::get()->getWifiRequestManager()
+      .handleRangingEvent(errorCode, event);
 }
 
 void PlatformWifiBase::scanMonitorStatusChangeCallback(bool enabled,

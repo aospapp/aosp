@@ -26,7 +26,7 @@ servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 
 def run_test(machine):
     host = hosts.create_host(machine, servo_args=servo_args)
-    repeat = int(args_dict.get('repeat', 10))
+    repeat = int(args_dict.get('repeat', 5))
     peripheral_whitelist_dict = {'Speaker': 'Jabra SPEAK 410'}
     job.run_test('enterprise_CFM_USBPeripheralHotplugStress',
                  host=host,

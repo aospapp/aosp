@@ -2,7 +2,7 @@
   function definitions for internal to shell functions.
 
   (C) Copyright 2014 Hewlett-Packard Development Company, L.P.<BR>
-  Copyright (c) 2009 - 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2009 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -17,18 +17,18 @@
 #define _SHELL_INTERNAL_HEADER_
 
 #include <Uefi.h>
-#include <ShellBase.h>
 
 #include <Guid/ShellVariableGuid.h>
 #include <Guid/ShellAliasGuid.h>
 
 #include <Protocol/LoadedImage.h>
 #include <Protocol/SimpleTextOut.h>
-#include <Protocol/EfiShell.h>
+#include <Protocol/Shell.h>
 #include <Protocol/EfiShellInterface.h>
 #include <Protocol/EfiShellEnvironment2.h>
-#include <Protocol/EfiShellParameters.h>
+#include <Protocol/ShellParameters.h>
 #include <Protocol/BlockIo.h>
+#include <Protocol/HiiPackageList.h>
 
 #include <Library/BaseLib.h>
 #include <Library/UefiApplicationEntryPoint.h>
@@ -47,6 +47,7 @@
 #include <Library/PrintLib.h>
 #include <Library/HandleParsingLib.h>
 #include <Library/FileHandleLib.h>
+#include <Library/UefiHiiServicesLib.h>
 
 #include "ShellParametersProtocol.h"
 #include "ShellProtocol.h"
@@ -55,6 +56,10 @@
 #include "ShellManParser.h"
 #include "ConsoleWrappers.h"
 #include "FileHandleWrappers.h"
+
+extern CONST CHAR16 mNoNestingEnvVarName[];
+extern CONST CHAR16 mNoNestingTrue[];
+extern CONST CHAR16 mNoNestingFalse[];
 
 typedef struct {
   LIST_ENTRY        Link;           ///< Standard linked list handler.
@@ -71,7 +76,8 @@ typedef struct {
   UINT32  NoMap:1;        ///< Was "-nomap"         found on command line.
   UINT32  NoVersion:1;    ///< Was "-noversion"     found on command line.
   UINT32  Delay:1;        ///< Was "-delay[:n]      found on command line
-  UINT32  Exit:1;         ///< Was "-_exit"          found on command line
+  UINT32  Exit:1;         ///< Was "-_exit"         found on command line
+  UINT32  NoNest:1;       ///< Was "-nonest"        found on command line
   UINT32  Reserved:7;     ///< Extra bits
 } SHELL_BITS;
 
@@ -122,6 +128,16 @@ typedef struct {
   BOOLEAN                       HaltOutput;           ///< TRUE to start a CTRL-S halt.
 } SHELL_INFO;
 
+#pragma pack(1)
+///
+/// HII specific Vendor Device Path definition.
+///
+typedef struct {
+  VENDOR_DEVICE_PATH             VendorDevicePath;
+  EFI_DEVICE_PATH_PROTOCOL       End;
+} SHELL_MAN_HII_VENDOR_DEVICE_PATH;
+#pragma pack()
+
 extern SHELL_INFO ShellInfoObject;
 
 /**
@@ -134,7 +150,6 @@ extern SHELL_INFO ShellInfoObject;
   @return                       some other error occurred
 **/
 EFI_STATUS
-EFIAPI
 ProcessCommandLineToFinal(
   IN OUT CHAR16 **CmdLine
   );
@@ -145,7 +160,6 @@ ProcessCommandLineToFinal(
   @param[in] ErrorCode      the error code to put into lasterror
 **/
 EFI_STATUS
-EFIAPI
 SetLastError(
   IN CONST SHELL_STATUS   ErrorCode
   );
@@ -156,7 +170,6 @@ SetLastError(
   @retval EFI_SUCCESS           all init commands were run successfully.
 **/
 EFI_STATUS
-EFIAPI
 SetBuiltInAlias(
   VOID
   );
@@ -176,7 +189,6 @@ SetBuiltInAlias(
   @sa HandleProtocol
 **/
 EFI_STATUS
-EFIAPI
 GetDevicePathsForImageAndFile (
   IN OUT EFI_DEVICE_PATH_PROTOCOL **DevPath,
   IN OUT EFI_DEVICE_PATH_PROTOCOL **FilePath
@@ -210,7 +222,6 @@ GetDevicePathsForImageAndFile (
   @retval EFI_SUCCESS           the variable is initialized.
 **/
 EFI_STATUS
-EFIAPI
 ProcessCommandLine(
   VOID
   );
@@ -226,7 +237,6 @@ ProcessCommandLine(
   @retval EFI_SUCCESS           The variable is initialized.
 **/
 EFI_STATUS
-EFIAPI
 DoStartupScript(
   IN EFI_DEVICE_PATH_PROTOCOL *ImagePath,
   IN EFI_DEVICE_PATH_PROTOCOL *FilePath
@@ -241,7 +251,6 @@ DoStartupScript(
   @retval RETURN_ABORTED
 **/
 EFI_STATUS
-EFIAPI
 DoShellPrompt (
   VOID
   );
@@ -253,7 +262,6 @@ DoShellPrompt (
   @param Buffer   Something to pass to FreePool when the shell is exiting.
 **/
 VOID*
-EFIAPI
 AddBufferToFreeList(
   VOID *Buffer
   );
@@ -264,7 +272,6 @@ AddBufferToFreeList(
   @param Buffer[in]     The line buffer to add.
 **/
 VOID
-EFIAPI
 AddLineToCommandHistory(
   IN CONST CHAR16 *Buffer
   );
@@ -280,7 +287,6 @@ AddLineToCommandHistory(
   @retval EFI_ABORTED     the command's operation was aborted
 **/
 EFI_STATUS
-EFIAPI
 RunCommand(
   IN CONST CHAR16   *CmdLine
   );
@@ -298,7 +304,6 @@ RunCommand(
   @retval EFI_ABORTED     The command's operation was aborted.
 **/
 EFI_STATUS
-EFIAPI
 RunShellCommand(
   IN CONST CHAR16   *CmdLine,
   OUT EFI_STATUS    *CommandStatus
@@ -314,7 +319,6 @@ RunShellCommand(
   @retval FALSE             CommandName could not be a valid command name
 **/
 BOOLEAN
-EFIAPI
 IsValidCommandName(
   IN CONST CHAR16     *CommandName
   );
@@ -328,7 +332,6 @@ IsValidCommandName(
   @retval EFI_SUCCESS           the script completed successfully
 **/
 EFI_STATUS
-EFIAPI
 RunScriptFileHandle (
   IN SHELL_FILE_HANDLE  Handle,
   IN CONST CHAR16       *Name
@@ -345,7 +348,6 @@ RunScriptFileHandle (
   @retval EFI_SUCCESS           the script completed successfully
 **/
 EFI_STATUS
-EFIAPI
 RunScriptFile (
   IN CONST CHAR16                   *ScriptPath,
   IN SHELL_FILE_HANDLE              Handle OPTIONAL,
@@ -364,7 +366,6 @@ RunScriptFile (
   @retval CHAR_NULL no instance of any character in CharacterList was found in String
 **/
 CONST CHAR16*
-EFIAPI
 FindFirstCharacter(
   IN CONST CHAR16 *String,
   IN CONST CHAR16 *CharacterList,
@@ -377,7 +378,6 @@ FindFirstCharacter(
   @param[in] String pointer to the string to trim them off.
 **/
 EFI_STATUS
-EFIAPI
 TrimSpaces(
   IN CHAR16 **String
   );

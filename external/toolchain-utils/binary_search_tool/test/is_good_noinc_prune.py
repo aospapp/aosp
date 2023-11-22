@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """Check to see if the working set produces a good executable.
 
 This test script is made for the noincremental-prune test. This makes sure

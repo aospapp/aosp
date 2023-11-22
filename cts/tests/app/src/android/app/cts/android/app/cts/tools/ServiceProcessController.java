@@ -26,6 +26,7 @@ import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.RemoteException;
+import android.support.test.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.SystemUtil;
 
@@ -42,6 +43,7 @@ public final class ServiceProcessController {
     final String mMyPackageName;
     final Intent[] mServiceIntents;
     final String mServicePackage;
+    final long mDefaultWaitTime;
 
     final ActivityManager mAm;
     final Parcel mData;
@@ -54,13 +56,21 @@ public final class ServiceProcessController {
     public ServiceProcessController(Context context, Instrumentation instrumentation,
             String myPackageName, Intent[] serviceIntents)
             throws IOException, PackageManager.NameNotFoundException {
+        this(context, instrumentation, myPackageName, serviceIntents, 5*1000);
+    }
+
+    public ServiceProcessController(Context context, Instrumentation instrumentation,
+            String myPackageName, Intent[] serviceIntents, long defaultWaitTime)
+            throws IOException, PackageManager.NameNotFoundException {
         mContext = context;
         mInstrumentation = instrumentation;
         mMyPackageName = myPackageName;
         mServiceIntents = serviceIntents;
         mServicePackage = mServiceIntents[0].getComponent().getPackageName();
-        String cmd = "pm grant " + mMyPackageName + " " + Manifest.permission.PACKAGE_USAGE_STATS;
-        String result = SystemUtil.runShellCommand(mInstrumentation, cmd);
+        mDefaultWaitTime = defaultWaitTime;
+
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().grantRuntimePermission(
+                mMyPackageName, android.Manifest.permission.PACKAGE_USAGE_STATS);
         /*
         Log.d("XXXX", "Invoke: " + cmd);
         Log.d("XXXX", "Result: " + result);
@@ -72,21 +82,26 @@ public final class ServiceProcessController {
         mData = Parcel.obtain();
         mConnections = new ServiceConnectionHandler[serviceIntents.length];
         for (int i=0; i<serviceIntents.length; i++) {
-            mConnections[i] = new ServiceConnectionHandler(mContext, serviceIntents[i]);
+            mConnections[i] = new ServiceConnectionHandler(mContext, serviceIntents[i],
+                    mDefaultWaitTime);
         }
 
         ApplicationInfo appInfo = mContext.getPackageManager().getApplicationInfo(
                 mServicePackage, 0);
         mUid = appInfo.uid;
 
-        mUidForegroundListener = new UidImportanceListener(appInfo.uid);
-        mAm.addOnUidImportanceListener(mUidForegroundListener,
-                ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE);
-        mUidGoneListener = new UidImportanceListener(appInfo.uid);
-        mAm.addOnUidImportanceListener(mUidGoneListener,
-                ActivityManager.RunningAppProcessInfo.IMPORTANCE_EMPTY);
+        mUidForegroundListener = new UidImportanceListener(mContext, appInfo.uid,
+                ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE, mDefaultWaitTime);
+        mUidForegroundListener.register();
+        mUidGoneListener = new UidImportanceListener(mContext, appInfo.uid,
+                ActivityManager.RunningAppProcessInfo.IMPORTANCE_EMPTY, mDefaultWaitTime);
+        mUidGoneListener.register();
 
-        mUidWatcher = new WatchUidRunner(instrumentation, appInfo.uid);
+        mUidWatcher = new WatchUidRunner(instrumentation, appInfo.uid, mDefaultWaitTime);
+    }
+
+    public void denyBackgroundOp() throws IOException {
+        denyBackgroundOp(mDefaultWaitTime);
     }
 
     public void denyBackgroundOp(long timeout) throws IOException {
@@ -123,12 +138,22 @@ public final class ServiceProcessController {
         String result = SystemUtil.runShellCommand(mInstrumentation, cmd);
     }
 
+    public void removeFromTempWhitelist() throws IOException {
+        String cmd = "cmd deviceidle tempwhitelist -r " + mServicePackage;
+        SystemUtil.runShellCommand(mInstrumentation, cmd);
+    }
+
+    public void setAppOpMode(String opStr, String mode) throws IOException {
+        String cmd = "cmd appops set " + mServicePackage + " " + opStr + "  " + mode;
+        SystemUtil.runShellCommand(mInstrumentation, cmd);
+    }
+
     public void cleanup() throws IOException {
         removeFromWhitelist();
         allowBackgroundOp();
         mUidWatcher.finish();
-        mAm.removeOnUidImportanceListener(mUidGoneListener);
-        mAm.removeOnUidImportanceListener(mUidForegroundListener);
+        mUidGoneListener.unregister();
+        mUidForegroundListener.unregister();
         mData.recycle();
     }
 
@@ -150,6 +175,10 @@ public final class ServiceProcessController {
 
     public WatchUidRunner getUidWatcher() {
         return mUidWatcher;
+    }
+
+    public void ensureProcessGone() {
+        ensureProcessGone(mDefaultWaitTime);
     }
 
     public void ensureProcessGone(long timeout) {

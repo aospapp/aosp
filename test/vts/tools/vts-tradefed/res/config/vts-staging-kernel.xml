@@ -16,11 +16,14 @@
 <configuration description="VTS Serving Plan for Kernel Staging Tests">
   <include name="vts-base" />
   <option name="plan" value="vts" />
-  <option name="test-tag" value="vts" />
-  <option name="vts-plan-result:plan-name" value="vts-serving-staging-kernel" />
+  <option name="test-tag" value="vts-star" />
+  <option name="vts-plan-result:plan-name" value="vts-staging-kernel" />
 
   <option name="compatibility:include-filter" value="SecurityPoCKernelTestStaging" />
   <option name="compatibility:include-filter" value="VtsKernelLinuxKselftestStaging" />
   <option name="compatibility:include-filter" value="VtsKernelLtpStaging" />
+
+  <!-- TODO(bowgotsai): move this into compliance test list -->
+  <option name="compatibility:include-filter" value="VtsKernelRootDir" />
 
 </configuration>

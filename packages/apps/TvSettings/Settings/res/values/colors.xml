@@ -19,7 +19,9 @@
     <color name="background">#FF707070</color>
     <color name="legacy_app_item_background">#1a000000</color>
     <color name="settings_background">#FF1F292E</color>
-
+    <color name="settings_category_text_color">#FF51AAFF</color>
+    <color name="lb_preference_decor_list_background">#FF202124</color>
+    <color name="settings_screen_title_color">#FF1B1C1E</color>
     <color name="storage_avail">#333333</color>
     <color name="storage_apps_usage">#77831A</color>
     <color name="storage_downloads">#476093</color>
@@ -29,9 +31,7 @@
     <color name="storage_misc">#7C3030</color>
 
     <color name="icon_background">#FF4A4F51</color>
-
     <color name="add_accessory_hint_text_color">#FFE0E0E0</color>
-
     <color name="captioning_color_FFFFFF">#FFFFFFFF</color>
     <color name="captioning_color_000000">#FF000000</color>
     <color name="captioning_color_FF0000">#FFFF0000</color>

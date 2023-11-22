@@ -28,4 +28,6 @@
         <item>com.google.android.apps.mediashell</item>
     </string-array>
 
+    <!-- Svelte specific logic, see RecentsConfiguration.SVELTE_* constants. -->
+    <integer name="recents_svelte_level">3</integer>
 </resources>

@@ -721,6 +721,22 @@ TEST(DynamicVector, MoveConstruct) {
   EXPECT_EQ(movedVector.capacity(), 4);
 }
 
+TEST(DynamicVector, MoveAssignmentConstruct) {
+  DynamicVector<int> vector;
+  ASSERT_TRUE(vector.push_back(0));
+  ASSERT_TRUE(vector.push_back(1));
+  ASSERT_TRUE(vector.push_back(2));
+
+  DynamicVector<int> movedVector;
+  movedVector = std::move(vector);
+  EXPECT_EQ(vector.data(), nullptr);
+  EXPECT_NE(movedVector.data(), nullptr);
+  EXPECT_EQ(vector.size(), 0);
+  EXPECT_EQ(movedVector.size(), 3);
+  EXPECT_EQ(vector.capacity(), 0);
+  EXPECT_EQ(movedVector.capacity(), 4);
+}
+
 // Tests basic functionality of a vector wrapping an array
 TEST(DynamicVector, Wrap) {
   constexpr size_t kSize = 4;
@@ -905,4 +921,41 @@ TEST(DynamicVector, PopBack) {
     vector.pop_back();
   }
   EXPECT_TRUE(vector.empty());
+}
+
+/**
+ * A test class to default construct an integer with an incrementing value.
+ */
+struct FancyInt {
+  static int index;
+  int value;
+
+  FancyInt() : value(index++) {}
+};
+
+int FancyInt::index = 0;
+
+TEST(DynamicVector, Resize) {
+  DynamicVector<FancyInt> vector;
+  ASSERT_TRUE(vector.resize(4));
+  ASSERT_EQ(vector.size(), 4);
+
+  EXPECT_EQ(vector[0].value, 0);
+  EXPECT_EQ(vector[1].value, 1);
+  EXPECT_EQ(vector[2].value, 2);
+  EXPECT_EQ(vector[3].value, 3);
+
+  ASSERT_TRUE(vector.resize(2));
+  ASSERT_EQ(vector.size(), 2);
+
+  EXPECT_EQ(vector[0].value, 0);
+  EXPECT_EQ(vector[1].value, 1);
+
+  ASSERT_TRUE(vector.resize(4));
+  ASSERT_EQ(vector.size(), 4);
+
+  EXPECT_EQ(vector[0].value, 0);
+  EXPECT_EQ(vector[1].value, 1);
+  EXPECT_EQ(vector[2].value, 4);
+  EXPECT_EQ(vector[3].value, 5);
 }

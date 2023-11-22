@@ -4,7 +4,7 @@
 
 AUTHOR = "cmasone, joaodasilva"
 NAME = "login_MultipleSessions"
-ATTRIBUTES = "suite:bvt-inline, suite:smoke"
+ATTRIBUTES = "suite:bvt-perbuild"
 TIME = "FAST"
 TEST_CLASS = "login"
 TEST_TYPE = "client"

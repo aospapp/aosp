@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace android.support.text.emoji.flatbuffer;
+namespace androidx.text.emoji.flatbuffer;
 
 table MetadataList {
     version : int;

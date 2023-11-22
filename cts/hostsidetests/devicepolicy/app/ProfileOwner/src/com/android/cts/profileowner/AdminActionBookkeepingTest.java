@@ -22,9 +22,8 @@ import android.os.Process;
 import android.os.UserHandle;
 import android.provider.Settings;
 
-import com.android.org.conscrypt.TrustedCertificateStore;
-
 import java.io.ByteArrayInputStream;
+import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.util.List;
@@ -93,12 +92,13 @@ public class AdminActionBookkeepingTest extends BaseProfileOwnerTest {
         final byte[] rawCert = TEST_CA.getBytes();
         final Certificate cert = CertificateFactory.getInstance("X.509")
                 .generateCertificate(new ByteArrayInputStream(rawCert));
-        final TrustedCertificateStore store = new TrustedCertificateStore();
 
         // Install a CA cert.
-        assertNull(store.getCertificateAlias(cert));
+        KeyStore keyStore = KeyStore.getInstance("AndroidCAStore");
+        keyStore.load(null, null);
+        assertNull(keyStore.getCertificateAlias(cert));
         assertTrue(mDevicePolicyManager.installCaCert(getWho(), rawCert));
-        final String alias = store.getCertificateAlias(cert);
+        final String alias = keyStore.getCertificateAlias(cert);
         assertNotNull(alias);
 
         // Verify that the CA cert was marked as installed by the Profile Owner.

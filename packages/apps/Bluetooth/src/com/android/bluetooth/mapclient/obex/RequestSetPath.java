@@ -30,14 +30,14 @@ class RequestSetPath extends Request {
     ;
     String mName;
 
-    public RequestSetPath(String name) {
+    RequestSetPath(String name) {
         mDir = SetPathDir.DOWN;
         mName = name;
 
         mHeaderSet.setHeader(HeaderSet.NAME, name);
     }
 
-    public RequestSetPath(boolean goRoot) {
+    RequestSetPath(boolean goRoot) {
         mHeaderSet.setEmptyNameHeader();
         if (goRoot) {
             mDir = SetPathDir.ROOT;

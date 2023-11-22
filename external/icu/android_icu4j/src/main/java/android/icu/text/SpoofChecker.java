@@ -47,8 +47,8 @@ import android.icu.util.ULocale;
  * <a href="http://unicode.org/reports/tr39">Unicode Technical Standard #39</a>, has two main functions:
  *
  * <ol>
- * <li>Checking whether two strings are visually <em>confusable</em> with each other, such as "desordenado" and
- * "ԁеѕогԁепаԁо".</li>
+ * <li>Checking whether two strings are visually <em>confusable</em> with each other, such as "desparejado" and
+ * "ԁеѕрагејаԁо".</li>
  * <li>Checking whether an individual string is likely to be an attempt at confusing the reader (<em>spoof
  * detection</em>), such as "pаypаl" spelled with Cyrillic 'а' characters.</li>
  * </ol>
@@ -66,7 +66,7 @@ import android.icu.util.ULocale;
  * <pre>
  * <code>
  * SpoofChecker sc = new SpoofChecker.Builder().setChecks(SpoofChecker.CONFUSABLE).build();
- * int result = sc.areConfusable("desordenado", "ԁеѕогԁепаԁо");
+ * int result = sc.areConfusable("desparejado", "ԁеѕрагејаԁо");
  * System.out.println(result != 0);  // true
  * </code>
  * </pre>
@@ -90,7 +90,7 @@ import android.icu.util.ULocale;
  * <pre>
  * <code>
  * SpoofChecker sc = new SpoofChecker.Builder().setChecks(SpoofChecker.CONFUSABLE).build();
- * boolean result = sc.getSkeleton("desordenado").equals(sc.getSkeleton("ԁеѕогԁепаԁо"));
+ * boolean result = sc.getSkeleton("desparejado").equals(sc.getSkeleton("ԁеѕрагејаԁо"));
  * System.out.println(result);  // true
  * </code>
  * </pre>
@@ -256,8 +256,6 @@ public class SpoofChecker {
 
     /**
      * Security Profile constant from UTS 39 for use in {@link SpoofChecker.Builder#setAllowedChars}.
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final UnicodeSet INCLUSION = new UnicodeSet(
             "['\\-.\\:\\u00B7\\u0375\\u058A\\u05F3\\u05F4\\u06FD\\u06FE\\u0F0B\\u200C\\u200D\\u2010\\u"
@@ -269,8 +267,6 @@ public class SpoofChecker {
 
     /**
      * Security Profile constant from UTS 39 for use in {@link SpoofChecker.Builder#setAllowedChars}.
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final UnicodeSet RECOMMENDED = new UnicodeSet(
             "[0-9A-Z_a-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u0131\\u0134-\\u013E\\u0141-\\u014"
@@ -364,8 +360,6 @@ public class SpoofChecker {
      * Enable this flag in {@link SpoofChecker.Builder#setChecks} to turn on all types of confusables. You may set the
      * checks to some subset of SINGLE_SCRIPT_CONFUSABLE, MIXED_SCRIPT_CONFUSABLE, or WHOLE_SCRIPT_CONFUSABLE to make
      * {@link SpoofChecker#areConfusable} return only those types of confusables.
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final int CONFUSABLE = SINGLE_SCRIPT_CONFUSABLE | MIXED_SCRIPT_CONFUSABLE | WHOLE_SCRIPT_CONFUSABLE;
 
@@ -382,8 +376,6 @@ public class SpoofChecker {
      * Check that an identifier satisfies the requirements for the restriction level specified in
      * {@link SpoofChecker.Builder#setRestrictionLevel}. The default restriction level is
      * {@link RestrictionLevel#HIGHLY_RESTRICTIVE}.
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final int RESTRICTION_LEVEL = 16;
 
@@ -413,8 +405,6 @@ public class SpoofChecker {
     /**
      * Check that an identifier does not mix numbers from different numbering systems. For more information, see UTS 39
      * section 5.3.
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final int MIXED_NUMBERS = 128;
 
@@ -515,8 +505,6 @@ public class SpoofChecker {
          *            unicode.org.
          * @throws ParseException
          *             To report syntax errors in the input.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         public Builder setData(Reader confusables) throws ParseException, IOException {
 
@@ -1146,15 +1134,11 @@ public class SpoofChecker {
         /**
          * The numerics found in the string, if MIXED_NUMBERS was set; otherwise null.  The set will contain the zero
          * digit from each decimal number system found in the input string.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         public UnicodeSet numerics;
 
         /**
          * The restriction level that the text meets, if RESTRICTION_LEVEL is set; otherwise null.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         public RestrictionLevel restrictionLevel;
 
@@ -1398,8 +1382,6 @@ public class SpoofChecker {
      * @param str
      *            The input string whose skeleton will be generated.
      * @return The output skeleton string.
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     public String getSkeleton(CharSequence str) {
         // Apply the skeleton mapping to the NFD normalized input string
@@ -1441,7 +1423,6 @@ public class SpoofChecker {
      * @param other
      *            the SpoofChecker being compared with.
      * @return true if the two SpoofCheckers are equal.
-     * @hide draft / provisional / internal are hidden on Android
      */
     @Override
     public boolean equals(Object other) {
@@ -1470,7 +1451,7 @@ public class SpoofChecker {
     }
 
     /**
-     * @hide draft / provisional / internal are hidden on Android
+     * Overrides {@link Object#hashCode()}.
      */
     @Override
     public int hashCode() {

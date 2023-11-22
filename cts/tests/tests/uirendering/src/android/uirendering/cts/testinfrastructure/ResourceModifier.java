@@ -99,6 +99,7 @@ public class ResourceModifier {
         final float height = bitmap.getHeight() / 8.0f;
 
         bitmapVertices = new float[]{
+                -1.0f, -2.0f, -3.0f, -4.0f,  // these two (points) are skipped by the test
                 0.0f, 0.0f, width, 0.0f, width * 2, 0.0f, width * 3, 0.0f,
                 0.0f, height, width, height, width * 2, height, width * 4, height,
                 0.0f, height * 2, width, height * 2, width * 2, height * 2, width * 3, height * 2,

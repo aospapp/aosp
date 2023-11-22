@@ -16,6 +16,7 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import android.graphics.Canvas;
@@ -34,20 +35,44 @@ import org.junit.runner.RunWith;
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class BulletSpanTest {
-    @Test
-    public void testConstructor() {
-        new BulletSpan();
-        new BulletSpan(BulletSpan.STANDARD_GAP_WIDTH);
-        BulletSpan b = new BulletSpan(BulletSpan.STANDARD_GAP_WIDTH, Color.RED);
 
-        final Parcel p = Parcel.obtain();
-        try {
-            b.writeToParcel(p, 0);
-            p.setDataPosition(0);
-            new BulletSpan(p);
-        } finally {
-            p.recycle();
-        }
+    @Test
+    public void testDefaultConstructor() {
+        BulletSpan bulletSpan = new BulletSpan();
+        assertEquals(calculateLeadingMargin(bulletSpan.getGapWidth(), bulletSpan.getBulletRadius()),
+                bulletSpan.getLeadingMargin(true));
+        assertEquals(0, bulletSpan.getColor());
+        assertEquals(BulletSpan.STANDARD_GAP_WIDTH, bulletSpan.getGapWidth());
+        assertTrue(bulletSpan.getBulletRadius() > 0);
+    }
+
+    @Test
+    public void testConstructorFromGapWidth() {
+        BulletSpan bulletSpan = new BulletSpan(2);
+        assertEquals(calculateLeadingMargin(2, bulletSpan.getBulletRadius()),
+                bulletSpan.getLeadingMargin(true));
+        assertEquals(0, bulletSpan.getColor());
+        assertEquals(2, bulletSpan.getGapWidth());
+        assertTrue(bulletSpan.getBulletRadius() > 0);
+    }
+
+    @Test
+    public void testConstructorFromGapWidthColor() {
+        BulletSpan bulletSpan = new BulletSpan(2, Color.RED);
+        assertEquals(bulletSpan.getBulletRadius() * 2 + bulletSpan.getGapWidth(),
+                bulletSpan.getLeadingMargin(true));
+        assertEquals(Color.RED, bulletSpan.getColor());
+        assertEquals(2, bulletSpan.getGapWidth());
+        assertTrue(bulletSpan.getBulletRadius() > 0);
+    }
+
+    @Test
+    public void testConstructorFromGapWidthColorBulletRadius() {
+        BulletSpan bulletSpan = new BulletSpan(2, Color.RED, 10);
+        assertEquals(calculateLeadingMargin(2, 10), bulletSpan.getLeadingMargin(true));
+        assertEquals(Color.RED, bulletSpan.getColor());
+        assertEquals(2, bulletSpan.getGapWidth());
+        assertEquals(10, bulletSpan.getBulletRadius());
     }
 
     @Test
@@ -72,7 +97,7 @@ public class BulletSpanTest {
         bulletSpan.drawLeadingMargin(canvas, paint, 10, 0, 10, 0, 20, text, 0, 0, true, null);
     }
 
-    @Test(expected=ClassCastException.class)
+    @Test(expected = ClassCastException.class)
     public void testDrawLeadingMarginString() {
         BulletSpan bulletSpan = new BulletSpan(10, 20);
 
@@ -81,7 +106,7 @@ public class BulletSpanTest {
         bulletSpan.drawLeadingMargin(null, null, 0, 0, 0, 0, 0, text, 0, 0, true, null);
     }
 
-    @Test(expected=NullPointerException.class)
+    @Test(expected = NullPointerException.class)
     public void testDrawLeadingMarginNull() {
         BulletSpan bulletSpan = new BulletSpan(10, 20);
 
@@ -108,27 +133,35 @@ public class BulletSpanTest {
 
         Parcel p = Parcel.obtain();
         try {
-            BulletSpan bulletSpan = new BulletSpan(BulletSpan.STANDARD_GAP_WIDTH, Color.RED);
+            BulletSpan bulletSpan = new BulletSpan(2, Color.RED, 5);
             bulletSpan.writeToParcel(p, 0);
             p.setDataPosition(0);
             BulletSpan b = new BulletSpan(p);
             leadingMargin1 = b.getLeadingMargin(true);
+            assertEquals(calculateLeadingMargin(2, 5), leadingMargin1);
+            assertEquals(Color.RED, b.getColor());
+            assertEquals(2, b.getGapWidth());
         } finally {
             p.recycle();
         }
 
         p = Parcel.obtain();
         try {
-            BulletSpan bulletSpan = new BulletSpan(10, Color.BLACK);
+            BulletSpan bulletSpan = new BulletSpan();
             bulletSpan.writeToParcel(p, 0);
             p.setDataPosition(0);
             BulletSpan b = new BulletSpan(p);
             leadingMargin2 = b.getLeadingMargin(true);
+            assertEquals(calculateLeadingMargin(b.getGapWidth(), b.getBulletRadius()),
+                    leadingMargin2);
+            assertEquals(0, bulletSpan.getColor());
+            assertEquals(BulletSpan.STANDARD_GAP_WIDTH, bulletSpan.getGapWidth());
         } finally {
             p.recycle();
         }
+    }
 
-        assertTrue(leadingMargin2 > leadingMargin1);
-        // TODO: Test color. How?
+    private int calculateLeadingMargin(int gapWidth, int bulletRadius) {
+        return 2 * bulletRadius + gapWidth;
     }
 }

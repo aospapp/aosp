@@ -12,6 +12,7 @@ package android.icu.dev.test.bidi;
 
 import android.icu.lang.UCharacterDirection;
 import android.icu.text.Bidi;
+import android.icu.testsharding.MainTestShard;
 
 
 /**
@@ -20,6 +21,7 @@ import android.icu.text.Bidi;
  * Ported from C by Lina Kemmel, Matitiahu Allouche
  *
  */
+@MainTestShard
 public class TestData {
     protected static final int L   = UCharacterDirection.LEFT_TO_RIGHT;
     protected static final int R   = UCharacterDirection.RIGHT_TO_LEFT;

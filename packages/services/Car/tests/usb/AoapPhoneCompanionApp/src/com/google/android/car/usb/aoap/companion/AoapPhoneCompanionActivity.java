@@ -29,8 +29,6 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 
-import libcore.io.IoUtils;
-
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -97,7 +95,15 @@ public class AoapPhoneCompanionActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         unregisterReceiver(mReceiver);
-        IoUtils.closeQuietly(mFd);
+        // close quietly
+        if (mFd != null) {
+            try {
+                mFd.close();
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+            }
+        }
         if (mProcessorThread != null) {
             mProcessorThread.requestToQuit();
             try {

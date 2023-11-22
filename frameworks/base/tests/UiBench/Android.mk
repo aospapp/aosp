@@ -10,24 +10,12 @@ LOCAL_SRC_FILES := $(call all-java-files-under,src)
 
 # use appcompat/support lib from the tree, so improvements/
 # regressions are reflected in test data
-LOCAL_RESOURCE_DIR := \
-    $(LOCAL_PATH)/res \
-    frameworks/support/design/res \
-    frameworks/support/v7/appcompat/res \
-    frameworks/support/v7/cardview/res \
-    frameworks/support/v7/recyclerview/res \
-    frameworks/support/v17/leanback/res
+LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
-LOCAL_AAPT_FLAGS := \
-    --auto-add-overlay \
-    --extra-packages android.support.design \
-    --extra-packages android.support.v7.appcompat \
-    --extra-packages android.support.v7.cardview \
-    --extra-packages android.support.v7.recyclerview \
-    --extra-packages android.support.v17.leanback
+LOCAL_USE_AAPT2 := true
 
-LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-design \
+LOCAL_STATIC_ANDROID_LIBRARIES := \
+    $(ANDROID_SUPPORT_DESIGN_TARGETS) \
     android-support-v4 \
     android-support-v7-appcompat \
     android-support-v7-cardview \

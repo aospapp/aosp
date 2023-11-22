@@ -26,8 +26,6 @@
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.debug.cts"
                      android:label="CTS tests of native debugging API">
-        <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>
 
 </manifest>

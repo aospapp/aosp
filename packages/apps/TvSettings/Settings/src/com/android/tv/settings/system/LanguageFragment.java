@@ -21,22 +21,26 @@ import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.RemoteException;
-import android.provider.Settings;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceScreen;
 import android.util.ArrayMap;
 import android.util.Log;
 
 import com.android.internal.app.LocalePicker;
+import com.android.internal.logging.nano.MetricsProto;
+import com.android.settingslib.development.DevelopmentSettingsEnabler;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RadioPreference;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-public class LanguageFragment extends LeanbackPreferenceFragment {
+/**
+ * The language settings screen in TV Settings.
+ */
+public class LanguageFragment extends SettingsPreferenceFragment {
     private static final String TAG = "LanguageFragment";
 
     private static final String LANGUAGE_RADIO_GROUP = "language";
@@ -73,11 +77,9 @@ public class LanguageFragment extends LeanbackPreferenceFragment {
             Log.e(TAG, "Could not retrieve locale", e);
         }
 
-        final boolean isInDeveloperMode = Settings.Global.getInt(themedContext.getContentResolver(),
-                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0;
-
         final List<LocalePicker.LocaleInfo> localeInfoList =
-                LocalePicker.getAllAssetLocales(themedContext, isInDeveloperMode);
+                LocalePicker.getAllAssetLocales(themedContext,
+                        DevelopmentSettingsEnabler.isDevelopmentSettingsEnabled(getContext()));
 
         Preference activePref = null;
         for (final LocalePicker.LocaleInfo localeInfo : localeInfoList) {
@@ -120,5 +122,10 @@ public class LanguageFragment extends LeanbackPreferenceFragment {
             }
         }
         return super.onPreferenceTreeClick(preference);
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.SETTINGS_LANGUAGE_CATEGORY;
     }
 }

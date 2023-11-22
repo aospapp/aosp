@@ -51,7 +51,8 @@
 #include <stdlib.h>
 
 #include "test.h"
-#include "linux_syscall_numbers.h"
+#include "safe_macros.h"
+#include "lapi/syscalls.h"
 
 char *TCID = "get_robust_list01";
 int TST_TOTAL = 5;
@@ -156,8 +157,7 @@ int main(int argc, char **argv)
 			tst_resm(TFAIL | TTERRNO,
 				 "get_robust_list failed unexpectedly");
 
-		if (setuid(1) == -1)
-			tst_brkm(TBROK | TERRNO, cleanup, "setuid(1) failed");
+		SAFE_SETUID(cleanup, 1);
 
 		TEST(ltp_syscall(__NR_get_robust_list, 1,
 				      (struct robust_list_head *)&head,

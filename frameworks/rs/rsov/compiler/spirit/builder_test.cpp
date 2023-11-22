@@ -79,13 +79,12 @@ TEST(BuilderTest, testBuildAndSerialize) {
 
   auto UIntTy = m->getUnsignedIntType(32);
   auto V3UIntTy = m->getVectorType(UIntTy, 3);
-  auto V3UIntPtrTy = m->getPointerType(StorageClass::Input, V3UIntTy);
 
   auto InvocationID = m->getInvocationId();
 
-  auto ConstFour = m->getConstant(UIntTy, 4);
   auto ConstOne = m->getConstant(UIntTy, 1);
 #if 0
+  auto V3UIntPtrTy = m->getPointerType(StorageClass::Input, V3UIntTy);
   auto GSize = b.MakeVariable(V3UIntPtrTy, StorageClass::Input);
   GSize->decorate(Decoration::BuiltIn)->addExtraOperand(BuiltIn::WorkgroupSize);
   m->addVariable(GSize);
@@ -105,7 +104,6 @@ TEST(BuilderTest, testBuildAndSerialize) {
 
   Blk->addInstruction(b.MakeLabel());
 
-  auto IntTy = m->getIntType(32);
   auto ConstZero = m->getConstant(UIntTy, 0);
   auto UIntPtrTy = m->getPointerType(StorageClass::Input, UIntTy);
 

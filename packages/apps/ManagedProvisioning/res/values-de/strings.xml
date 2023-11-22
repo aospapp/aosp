@@ -35,7 +35,7 @@
     <string name="learn_more_link" msgid="3012495805919550043">"Weitere Informationen"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"Abbrechen"</string>
     <string name="ok_setup" msgid="4593707675416137504">"OK"</string>
-    <string name="user_consent_msg" msgid="8820951802130353584">"Ich stimme zu."</string>
+    <string name="user_consent_msg" msgid="8820951802130353584">"Ich stimme zu"</string>
     <string name="url_error" msgid="5958494012986243186">"Anzeige nicht möglich."</string>
     <string name="terms" msgid="8295436105384703903">"Nutzungsbedingungen"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Arbeitsprofilinformationen"</string>
@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"Dienstgerät wird eingerichtet…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Einrichtungsdaten werden verarbeitet…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"WLAN-Verbindung wird hergestellt…"</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Verbindung mit Mobilfunknetz wird hergestellt…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Admin-App wird heruntergeladen…"</string>
     <string name="progress_install" msgid="2258045670385866183">"Admin-App wird installiert…"</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Nicht benötigte System-Apps werden entfernt…"</string>
@@ -95,7 +96,7 @@
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Die Admin-App konnte nicht installiert werden."</string>
     <string name="profile_owner_cancel_message" msgid="6868736915633023477">"Einrichtung abbrechen?"</string>
     <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Nein"</string>
-    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Ja"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"\"Ja\""</string>
     <string name="profile_owner_cancelling" msgid="5679573829145112822">"Vorgang wird abgebrochen…"</string>
     <string name="work_profile_setup_later_title" msgid="9069148190226279892">"Profileinrichtung abbrechen?"</string>
     <string name="work_profile_setup_later_message" msgid="122069011117225292">"Du kannst dein Arbeitsprofil später über die Geräteverwaltungs-App deiner Organisation einrichten"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Du erstellst gerade ein Arbeitsprofil, das danach von deiner Organisation verwaltet und überwacht wird. Es gelten die Nutzungsbedingungen von <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"Für deine Apps für die Arbeit wird ein Arbeitsprofil erstellt. Das Profil und dein Gerät werden von deiner Organisation verwaltet und überwacht. Es gelten die Nutzungsbedingungen."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"Für deine Apps für die Arbeit wird ein Arbeitsprofil erstellt. Das Profil und dein Gerät werden von deiner Organisation verwaltet und überwacht. Es gelten die Nutzungsbedingungen von <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"Das Gerät wird von <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> verwaltet. Deine Organisation kümmert sich auch um den entsprechenden Schutz. Es gelten die Nutzungsbedingungen. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"Das Gerät wird von <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> verwaltet. Deine Organisation kümmert sich auch um den entsprechenden Schutz. Es gelten die Nutzungsbedingungen von <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"Dieses Gerät wird von <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> verwaltet und überwacht. Die Organisation kümmert sich auch um den entsprechenden Schutz. Es gelten die Nutzungsbedingungen. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Dieses Gerät wird von <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> verwaltet und überwacht. Die Organisation kümmert sich auch um den entsprechenden Schutz. Es gelten die Nutzungsbedingungen von <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Dieser Link ist nicht sicher und kann erst geöffnet werden, wenn die Einrichtung des Geräts abgeschlossen ist: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"Bitte wende dich bei Fragen an den <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"Bitte wende dich bei Fragen an den Administrator deiner Organisation"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> und <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"Dies kann einige Minuten dauern"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"In diesem Profil findest du deine Apps für die Arbeit. Sie werden von deiner Organisation verwaltet."</string>
+    <string name="device_owner_description" msgid="168013145812679664">"Das Gerät wird von deiner Organisation geschützt und verwaltet"</string>
 </resources>

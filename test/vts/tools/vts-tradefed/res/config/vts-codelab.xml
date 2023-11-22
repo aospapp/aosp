@@ -20,6 +20,7 @@
   <option name="vts-plan-result:plan-name" value="vts-codelab" />
 
   <option name="compatibility:include-filter" value="VtsCodelabHelloWorldTest" />
+  <option name="compatibility:include-filter" value="VtsCodelabHelloWorldSl4aTest" />
   <option name="compatibility:include-filter" value="VtsCodelabHelloWorldStagingTest" />
   <option name="compatibility:include-filter" value="VtsCodelabTargetBinary" />
 

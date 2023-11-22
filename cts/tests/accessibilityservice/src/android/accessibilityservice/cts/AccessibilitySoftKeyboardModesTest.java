@@ -14,20 +14,22 @@
 
 package android.accessibilityservice.cts;
 
-import android.accessibilityservice.AccessibilityServiceInfo;
 import android.accessibilityservice.AccessibilityService.SoftKeyboardController;
+import android.accessibilityservice.AccessibilityServiceInfo;
+import android.accessibilityservice.cts.R;
+import android.accessibilityservice.cts.activities.AccessibilityTestActivity;
 import android.app.Activity;
+import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.ResultReceiver;
 import android.os.SystemClock;
+import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
-
-import android.accessibilityservice.cts.R;
 import android.view.accessibility.AccessibilityWindowInfo;
 import android.view.inputmethod.InputMethodManager;
 
@@ -36,10 +38,12 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Test cases for testing the accessibility APIs for interacting with the soft keyboard show mode.
  */
+@AppModeFull
 public class AccessibilitySoftKeyboardModesTest extends ActivityInstrumentationTestCase2
         <AccessibilitySoftKeyboardModesTest.SoftKeyboardModesActivity> {
 
@@ -70,6 +74,8 @@ public class AccessibilitySoftKeyboardModesTest extends ActivityInstrumentationT
     private InstrumentedAccessibilityService mService;
     private SoftKeyboardController mKeyboardController;
     private UiAutomation mUiAutomation;
+    private Activity mActivity;
+    private View mKeyboardTargetView;
 
     private Object mLock = new Object();
 
@@ -83,7 +89,7 @@ public class AccessibilitySoftKeyboardModesTest extends ActivityInstrumentationT
 
         // If we don't call getActivity(), we get an empty list when requesting the number of
         // windows on screen.
-        getActivity();
+        mActivity = getActivity();
 
         mService = InstrumentedAccessibilityService.enableService(
                 getInstrumentation(), InstrumentedAccessibilityService.class);
@@ -93,6 +99,8 @@ public class AccessibilitySoftKeyboardModesTest extends ActivityInstrumentationT
         AccessibilityServiceInfo info = mUiAutomation.getServiceInfo();
         info.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
         mUiAutomation.setServiceInfo(info);
+        getInstrumentation().runOnMainSync(
+                () -> mKeyboardTargetView = mActivity.findViewById(R.id.edit_text));
     }
 
     @Override
@@ -100,8 +108,11 @@ public class AccessibilitySoftKeyboardModesTest extends ActivityInstrumentationT
         mKeyboardController.setShowMode(SHOW_MODE_AUTO);
         mService.runOnServiceSync(() -> mService.disableSelf());
         Activity activity = getActivity();
-        activity.getSystemService(InputMethodManager.class)
-                .hideSoftInputFromWindow(activity.getCurrentFocus().getWindowToken(), 0);
+        View currentFocus = activity.getCurrentFocus();
+        if (currentFocus != null) {
+            activity.getSystemService(InputMethodManager.class)
+                    .hideSoftInputFromWindow(currentFocus.getWindowToken(), 0);
+        }
     }
 
     public void testApiReturnValues_shouldChangeValueOnRequestAndSendCallback() throws Exception {
@@ -140,26 +151,6 @@ public class AccessibilitySoftKeyboardModesTest extends ActivityInstrumentationT
         assertTrue(mKeyboardController.removeOnShowModeChangedListener(listener));
     }
 
-    public void testHideSoftKeyboard_shouldHideKeyboardOnRequest() throws Exception {
-        // The soft keyboard should be in its default mode.
-        assertEquals(SHOW_MODE_AUTO, mKeyboardController.getShowMode());
-
-        if (!tryShowSoftInput()) {
-            // If the current (default) IME declined to show its window, then there is nothing we
-            // can test here.
-            // TODO: Create a mock IME so that we can test only the framework behavior.
-            return;
-        }
-
-        waitForImePresentToBe(true);
-        // Request the keyboard be hidden.
-        assertTrue(mKeyboardController.setShowMode(SHOW_MODE_HIDDEN));
-
-        waitForImePresentToBe(false);
-
-        assertTrue(mKeyboardController.setShowMode(SHOW_MODE_AUTO));
-    }
-
     private void waitForCallbackValueWithLock(int expectedValue) throws Exception {
         long timeoutTimeMillis = SystemClock.uptimeMillis() + TIMEOUT_PROPAGATE_SETTING;
 
@@ -180,89 +171,8 @@ public class AccessibilitySoftKeyboardModesTest extends ActivityInstrumentationT
                 + "> does not match expected value < " + expectedValue + ">");
     }
 
-    private void waitForWindowChanges() {
-        try {
-            mUiAutomation.executeAndWaitForEvent(new Runnable() {
-                @Override
-                public void run() {
-                    // Do nothing.
-                }
-            },
-            new UiAutomation.AccessibilityEventFilter() {
-                @Override
-                public boolean accept (AccessibilityEvent event) {
-                    return event.getEventType() == AccessibilityEvent.TYPE_WINDOWS_CHANGED;
-                }
-            },
-            TIMEOUT_PROPAGATE_SETTING);
-        } catch (TimeoutException ignored) {
-            // Ignore since the event could have occurred before this method was called. There
-            // should be a check after this method returns to catch incorrect values.
-        }
-    }
-
-    private boolean isImeWindowPresent() {
-        List<AccessibilityWindowInfo> windows = mUiAutomation.getWindows();
-        for (int i = 0; i < windows.size(); i++) {
-            if (windows.get(i).getType() == AccessibilityWindowInfo.TYPE_INPUT_METHOD) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void waitForImePresentToBe(boolean imeShown) {
-        long timeOutTime = System.currentTimeMillis() + TIMEOUT_ASYNC_PROCESSING;
-        while (isImeWindowPresent() != imeShown) {
-            assertTrue(System.currentTimeMillis() < timeOutTime);
-            waitForWindowChanges();
-        }
-    }
-
     /**
-     * Tries to call {@link InputMethodManager#hideSoftInputFromWindow(IBinder, int)} to see if
-     * software keyboard is shown as a result or not.
-     * @return {@code true} if the current input method reported that it is currently shown
-     * @throws Exception when the result is unknown, including the system did not return the result
-     *                   within {@link #TIMEOUT_SHOW_SOFTINPUT_RESULT}
-     */
-    private boolean tryShowSoftInput() throws Exception {
-        final BlockingQueue<Integer> queue = new ArrayBlockingQueue<>(1);
-
-        getInstrumentation().runOnMainSync(() -> {
-            Activity activity = getActivity();
-            ResultReceiver resultReceiver =
-                    new ResultReceiver(new Handler(activity.getMainLooper())) {
-                            @Override
-                            protected void onReceiveResult(int resultCode, Bundle resultData) {
-                                queue.add(resultCode);
-                            }
-                    };
-            View editText = activity.findViewById(R.id.edit_text);
-            activity.getSystemService(InputMethodManager.class)
-                    .showSoftInput(editText, InputMethodManager.SHOW_FORCED, resultReceiver);
-        });
-
-        Integer result;
-        try {
-            result = queue.poll(TIMEOUT_SHOW_SOFTINPUT_RESULT, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            throw new Exception("Failed to get the result of showSoftInput().", e);
-        }
-        if (result == null) {
-            throw new Exception("Failed to get the result of showSoftInput() within timeout.");
-        }
-        switch (result) {
-            case InputMethodManager.RESULT_SHOWN:
-            case InputMethodManager.RESULT_UNCHANGED_SHOWN:
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    /**
-     * Activity for testing the AccessibilityService API for hiding and showring the soft keyboard.
+     * Activity for testing the AccessibilityService API for hiding and showing the soft keyboard.
      */
     public static class SoftKeyboardModesActivity extends AccessibilityTestActivity {
         public SoftKeyboardModesActivity() {

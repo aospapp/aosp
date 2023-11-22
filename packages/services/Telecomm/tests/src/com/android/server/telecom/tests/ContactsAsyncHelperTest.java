@@ -21,15 +21,21 @@ import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.support.test.InstrumentationRegistry;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.server.telecom.ContactsAsyncHelper;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyObject;
@@ -40,6 +46,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
+@RunWith(JUnit4.class)
 public class ContactsAsyncHelperTest extends TelecomTestCase {
     private static final Uri SAMPLE_CONTACT_PHOTO_URI = Uri.parse(
             "android.resource://com.android.server.telecom.tests/"
@@ -82,12 +89,14 @@ public class ContactsAsyncHelperTest extends TelecomTestCase {
             };
 
     @Override
+    @Before
     public void setUp() throws Exception {
-        mContext = getTestContext();
         super.setUp();
+        mContext = InstrumentationRegistry.getTargetContext();
     }
 
     @SmallTest
+    @Test
     public void testEmptyUri() throws Exception {
         ContactsAsyncHelper cah = new ContactsAsyncHelper(mNullContentResolverAdapter);
         try {
@@ -101,6 +110,7 @@ public class ContactsAsyncHelperTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testNullReturnFromOpenInputStream() {
         ContactsAsyncHelper cah = new ContactsAsyncHelper(mNullContentResolverAdapter);
         cah.startObtainPhotoAsync(TOKEN, mContext, SAMPLE_CONTACT_PHOTO_URI, mListener, COOKIE);
@@ -110,6 +120,7 @@ public class ContactsAsyncHelperTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testImageScaling() {
         ContactsAsyncHelper cah = new ContactsAsyncHelper(mWorkingContentResolverAdapter);
         cah.startObtainPhotoAsync(TOKEN, mContext, SAMPLE_CONTACT_PHOTO_URI, mListener, COOKIE);
@@ -129,6 +140,7 @@ public class ContactsAsyncHelperTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testNoScaling() {
         ContactsAsyncHelper cah = new ContactsAsyncHelper(mWorkingContentResolverAdapter);
         cah.startObtainPhotoAsync(TOKEN, mContext, SAMPLE_CONTACT_PHOTO_URI_SMALL,

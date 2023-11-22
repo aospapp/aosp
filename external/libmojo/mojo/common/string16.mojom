@@ -10,4 +10,3 @@ module mojo.common.mojom;
 struct String16 {
   array<uint16> data;
 };
-

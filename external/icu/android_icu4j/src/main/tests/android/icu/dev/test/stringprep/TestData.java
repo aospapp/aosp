@@ -11,6 +11,7 @@ package android.icu.dev.test.stringprep;
 
 import android.icu.text.IDNA;
 import android.icu.text.StringPrepParseException;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author ram
@@ -18,6 +19,7 @@ import android.icu.text.StringPrepParseException;
  * To change the template for this generated type comment go to
  * Window>Preferences>Java>Code Generation>Code and Comments
  */
+@MainTestShard
 public class TestData {
     public static final char[][] unicodeIn ={
         { 

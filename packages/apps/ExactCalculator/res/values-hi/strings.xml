@@ -81,7 +81,7 @@
     <string name="title_history" msgid="7820912156315181539">"इतिहास"</string>
     <string name="desc_navigate_up" msgid="6208699569165589623">"ऊपर नेविगेट करें"</string>
     <string name="dialog_timeout" msgid="9069768442342329065">"समयबाह्य"</string>
-    <string name="dialog_clear" msgid="7137395395908350702">"इतिहास और मेमोरी साफ़ करना है?"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"इतिहास और मेमोरी मिटाना चाहते हैं?"</string>
     <string name="title_current_expression" msgid="2442754548537900591">"वर्तमान अभिव्यक्ति"</string>
     <string name="no_history" msgid="4331262030447527188">"कोई इतिहास नहीं"</string>
 </resources>

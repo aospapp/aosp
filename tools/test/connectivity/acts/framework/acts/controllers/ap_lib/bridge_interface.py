@@ -18,9 +18,8 @@ import logging
 import time
 from acts.libs.proc import job
 
-# TODO(@qijiang): will change to brctl when it's built in image
-_BRCTL = '/home/root/bridge-utils/sbin/brctl'
-BRIDGE_NAME = 'br0'
+_BRCTL = 'brctl'
+BRIDGE_NAME = 'br-lan'
 CREATE_BRIDGE = '%s addbr %s' % (_BRCTL, BRIDGE_NAME)
 DELETE_BRIDGE = '%s delbr %s' % (_BRCTL, BRIDGE_NAME)
 BRING_DOWN_BRIDGE = 'ifconfig %s down' % BRIDGE_NAME
@@ -48,16 +47,14 @@ class BridgeInterface(object):
     """Class object for bridge interface betwen WLAN and LAN
 
     """
-
-    def __init__(self, ssh_session):
+    def __init__(self, ap):
         """Initialize the BridgeInterface class.
 
         Bridge interface will be added between ethernet LAN port and WLAN port.
         Args:
-            ssh_session: ssh session to the AP
+            ap: AP object within ACTS
         """
-        self.ssh = ssh_session
-        self.log = logging.getLogger()
+        self.ssh = ap.ssh
 
     def startup(self, brconfigs):
         """Start up the bridge interface.
@@ -66,12 +63,12 @@ class BridgeInterface(object):
             brconfigs: the bridge interface config, type BridgeInterfaceConfigs
         """
 
-        self.log.info('Create bridge interface between LAN and WLAN')
+        logging.info('Create bridge interface between LAN and WLAN')
         # Create the bridge
         try:
             self.ssh.run(CREATE_BRIDGE)
         except job.Error:
-            self.log.warning(
+            logging.warning(
                 'Bridge interface {} already exists, no action needed'.format(
                     BRIDGE_NAME))
 
@@ -80,8 +77,8 @@ class BridgeInterface(object):
         try:
             self.ssh.run(ENABLE_4ADDR)
         except job.Error:
-            self.log.warning(
-                '4addr is already enabled on {}'.format(brconfigs.iface_wlan))
+            logging.warning('4addr is already enabled on {}'.format(
+                brconfigs.iface_wlan))
 
         # Add both LAN and WLAN interfaces to the bridge interface
         for interface in [brconfigs.iface_lan, brconfigs.iface_wlan]:
@@ -89,7 +86,7 @@ class BridgeInterface(object):
             try:
                 self.ssh.run(ADD_INTERFACE)
             except job.Error:
-                self.log.warning('{} has alrady been added to {}'.format(
+                logging.warning('{} has alrady been added to {}'.format(
                     interface, BRIDGE_NAME))
         time.sleep(5)
 
@@ -99,7 +96,7 @@ class BridgeInterface(object):
         time.sleep(2)
 
         # Bridge interface is up
-        self.log.info('Bridge interface is up and running')
+        logging.info('Bridge interface is up and running')
 
     def teardown(self, brconfigs):
         """Tear down the bridge interface.
@@ -107,7 +104,7 @@ class BridgeInterface(object):
         Args:
             brconfigs: the bridge interface config, type BridgeInterfaceConfigs
         """
-        self.log.info('Bringing down the bridge interface')
+        logging.info('Bringing down the bridge interface')
         # Delete the bridge interface
         self.ssh.run(BRING_DOWN_BRIDGE)
         time.sleep(1)
@@ -120,4 +117,4 @@ class BridgeInterface(object):
         DISABLE_4ADDR = 'iw dev %s set 4addr off' % (brconfigs.iface_wlan)
         self.ssh.run(DISABLE_4ADDR)
         time.sleep(1)
-        self.log.info('Bridge interface is down')
+        logging.info('Bridge interface is down')

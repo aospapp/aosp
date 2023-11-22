@@ -43,9 +43,12 @@ class firmware_RollbackKernel(FirmwareTest):
         self.setup_kernel('a')
 
     def cleanup(self):
-        self.ensure_kernel_on_non_recovery('a')
-        self.restore_cgpt_attributes()
-        self.restore_kernel()
+        try:
+            self.ensure_kernel_on_non_recovery('a')
+            self.restore_cgpt_attributes()
+            self.restore_kernel()
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_RollbackKernel, self).cleanup()
 
     def run_once(self, dev_mode=False):

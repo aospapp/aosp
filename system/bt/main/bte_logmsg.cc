@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2001-2012 Broadcom Corporation
+ *  Copyright 2001-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -40,12 +40,8 @@
 #include "sdp_api.h"
 #include "stack_config.h"
 
-#if (AVDT_INCLUDED == TRUE)
 #include "avdt_api.h"
-#endif
-#if (A2D_INCLUDED == TRUE)
 #include "a2dp_api.h"
-#endif
 #if (BNEP_INCLUDED == TRUE)
 #include "bnep_api.h"
 #endif
@@ -66,7 +62,7 @@
 #endif
 
 #ifndef BTE_LOG_BUF_SIZE
-#define BTE_LOG_BUF_SIZE 1024
+#define BTE_LOG_BUF_SIZE 256
 #endif
 
 #define BTE_LOG_MAX_SIZE (BTE_LOG_BUF_SIZE - 12)
@@ -97,20 +93,12 @@ static tBTTRC_FUNC_MAP bttrc_set_level_map[] = {
      DEFAULT_CONF_TRACE_LEVEL},
     {BTTRC_ID_STK_RFCOMM, BTTRC_ID_STK_RFCOMM_DATA, PORT_SetTraceLevel,
      "TRC_RFCOMM", DEFAULT_CONF_TRACE_LEVEL},
-#if (AVDT_INCLUDED == TRUE)
     {BTTRC_ID_STK_AVDT, BTTRC_ID_STK_AVDT, AVDT_SetTraceLevel, "TRC_AVDT",
      DEFAULT_CONF_TRACE_LEVEL},
-#endif
     {BTTRC_ID_STK_AVRC, BTTRC_ID_STK_AVRC, AVRC_SetTraceLevel, "TRC_AVRC",
      DEFAULT_CONF_TRACE_LEVEL},
-#if (AVDT_INCLUDED == TRUE)
-//{BTTRC_ID_AVDT_SCB, BTTRC_ID_AVDT_CCB, NULL, "TRC_AVDT_SCB",
-// DEFAULT_CONF_TRACE_LEVEL},
-#endif
-#if (A2D_INCLUDED == TRUE)
     {BTTRC_ID_STK_A2DP, BTTRC_ID_STK_A2DP, A2DP_SetTraceLevel, "TRC_A2D",
      DEFAULT_CONF_TRACE_LEVEL},
-#endif
 #if (BNEP_INCLUDED == TRUE)
     {BTTRC_ID_STK_BNEP, BTTRC_ID_STK_BNEP, BNEP_SetTraceLevel, "TRC_BNEP",
      DEFAULT_CONF_TRACE_LEVEL},
@@ -144,7 +132,7 @@ static tBTTRC_FUNC_MAP bttrc_set_level_map[] = {
     {0, 0, NULL, NULL, DEFAULT_CONF_TRACE_LEVEL}};
 
 void LogMsg(uint32_t trace_set_mask, const char* fmt_str, ...) {
-  static char buffer[BTE_LOG_BUF_SIZE];
+  char buffer[BTE_LOG_BUF_SIZE];
   int trace_layer = TRACE_GET_LAYER(trace_set_mask);
   if (trace_layer >= TRACE_LAYER_MAX_NUM) trace_layer = 0;
 
@@ -199,10 +187,11 @@ static void load_levels_from_config(const config_t* config) {
 
   for (tBTTRC_FUNC_MAP* functions = &bttrc_set_level_map[0];
        functions->trc_name; ++functions) {
-    int value =
-        config_get_int(config, CONFIG_DEFAULT_SECTION, functions->trc_name, -1);
+    int value = config_get_int(*config, CONFIG_DEFAULT_SECTION,
+                               functions->trc_name, -1);
     if (value != -1) functions->trace_level = value;
-
+    LOG_INFO(LOG_TAG, "BTE_InitTraceLevels -- %s : Level %d",
+             functions->trc_name, functions->trace_level);
     if (functions->p_f) functions->p_f(functions->trace_level);
   }
 }

@@ -93,11 +93,10 @@ MterpException:
     add     x1, xFP, #OFF_FP_SHADOWFRAME
     bl      MterpHandleException                    // (self, shadow_frame)
     cbz     w0, MterpExceptionReturn                // no local catch, back to caller.
-    ldr     x0, [xFP, #OFF_FP_CODE_ITEM]
+    ldr     x0, [xFP, #OFF_FP_DEX_INSTRUCTIONS]
     ldr     w1, [xFP, #OFF_FP_DEX_PC]
     ldr     xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]
-    add     xPC, x0, #CODEITEM_INSNS_OFFSET
-    add     xPC, xPC, x1, lsl #1                    // generate new dex_pc_ptr
+    add     xPC, x0, x1, lsl #1                     // generate new dex_pc_ptr
     /* Do we need to switch interpreters? */
     bl      MterpShouldSwitchInterpreters
     cbnz    w0, MterpFallback
@@ -304,7 +303,4 @@ MterpProfileActive:
     RESTORE_TWO_REGS                xIBASE, xREFS, 16
     RESTORE_TWO_REGS_DECREASE_FRAME xPROFILE, x27, 80
     ret
-
-    .cfi_endproc
-    .size   ExecuteMterpImpl, .-ExecuteMterpImpl
 

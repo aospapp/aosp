@@ -15,19 +15,9 @@
  */
 package android.graphics.cts;
 
-import android.content.Context;
-import android.hardware.camera2.CameraAccessException;
-import android.hardware.camera2.CameraCharacteristics;
-import android.hardware.camera2.CameraManager;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.test.suitebuilder.annotation.LargeTest;
-import android.util.Log;
-
-import junit.framework.Assert;
-
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,40 +28,15 @@ import org.junit.runner.RunWith;
 public class CameraGpuTest {
 
     private static final String TAG = "CameraGpuTest";
-    private Context mContext;
 
     @Rule
     public ActivityTestRule<CameraGpuCtsActivity> mActivityRule =
             new ActivityTestRule<>(CameraGpuCtsActivity.class, false, false);
 
-    @Before
-    public void setup() {
-        mContext = InstrumentationRegistry.getTargetContext();
-    }
-
-    private boolean cameraAvailable() throws Exception {
-        CameraManager cameraManager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
-        try {
-            String[] cameraIds = cameraManager.getCameraIdList();
-            if(cameraIds.length > 0) {
-                CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(cameraIds[0]);
-                for(int capability : characteristics.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)) {
-                    if(capability == CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE)
-                        return true;
-                }
-            }
-        } catch (CameraAccessException e) {
-            Assert.fail("Failed to access camera, " + Log.getStackTraceString(e));
-        }
-        return false;
-    }
-
     @Test
     public void testCameraImageCaptureAndRendering() throws Exception {
-        if(cameraAvailable()) {
-            CameraGpuCtsActivity activity = mActivityRule.launchActivity(null);
-            activity.waitToFinishRendering();
-            activity.finish();
-        }
+        CameraGpuCtsActivity activity = mActivityRule.launchActivity(null);
+        activity.waitToFinishRendering();
+        activity.finish();
     }
 }

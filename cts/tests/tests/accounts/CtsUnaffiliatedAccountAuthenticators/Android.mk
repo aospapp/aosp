@@ -38,7 +38,7 @@ LOCAL_RESOURCE_DIR += $(LOCAL_PATH)/res
 LOCAL_PACKAGE_NAME := CtsUnaffiliatedAccountAuthenticators
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey2

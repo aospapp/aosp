@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "test.h"
+#include "safe_macros.h"
 
 char *TCID = "setrlimit01";
 int TST_TOTAL = 1;
@@ -124,8 +125,7 @@ static void test2(void)
 	 */
 	int pipefd[2];
 	fflush(stdout);
-	if (pipe(pipefd) == -1)
-		tst_brkm(TBROK | TERRNO, NULL, "pipe creation failed");
+	SAFE_PIPE(NULL, pipefd);
 
 	/*
 	 * Spawn a child process, and reduce the filesize to
@@ -162,8 +162,7 @@ static void test2(void)
 	}
 
 	/* parent */
-	if (waitpid(pid, &status, 0) == -1)
-		tst_brkm(TBROK, cleanup, "waitpid() failed");
+	SAFE_WAITPID(cleanup, pid, &status, 0);
 
 	switch (WEXITSTATUS(status)) {
 	case 0:
@@ -195,8 +194,7 @@ static void test2(void)
  */
 static void test3(void)
 {
-	if (getrlimit(RLIMIT_NPROC, &save_rlim) < 0)
-		tst_brkm(TBROK, cleanup, "getrlimit failed, errno: %d", errno);
+	SAFE_GETRLIMIT(cleanup, RLIMIT_NPROC, &save_rlim);
 
 	rlim.rlim_cur = 10;
 	rlim.rlim_max = 10;

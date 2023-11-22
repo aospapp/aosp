@@ -15,19 +15,24 @@
  */
 package com.android.documentsui.bots;
 
-import android.annotation.StringRes;
+import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertTrue;
+
 import android.app.Activity;
 import android.content.Context;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiSelector;
+import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import static junit.framework.Assert.assertEquals;
-import static junit.framework.Assert.assertTrue;
-
-import com.android.documentsui.inspector.DetailsView;
 import com.android.documentsui.R;
+import com.android.documentsui.inspector.DetailsView;
+import com.android.documentsui.inspector.KeyValueRow;
+import com.android.documentsui.inspector.TableView;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class InspectorBot extends Bots.BaseBot {
 
@@ -42,23 +47,45 @@ public class InspectorBot extends Bots.BaseBot {
         assertEquals(expected, text);
     }
 
-    public void assertRowPresent(@StringRes String key, String value, Activity activity)
+    public void assertRowPresent(String key, Activity activity)
             throws Exception {
-        assertTrue(isRowPresent(key, value, activity));
+        assertTrue(isRowPresent(key, activity));
     }
 
-    private boolean isRowPresent(@StringRes String key, String value, Activity activity)
+    public void assertRowEquals(String key, String value, Activity activity)
             throws Exception {
-        DetailsView detailsView = (DetailsView) activity.findViewById(R.id.inspector_details_view);
-        int children = detailsView.getChildCount();
+        assertTrue(isRowEquals(key, value, activity));
+    }
+
+    private static Map<String, String> getTableRows(TableView table)
+            throws Exception {
+        Map<String, String> rows = new HashMap<>();
+        int children = table.getChildCount();
         for (int i = 0; i < children; i++) {
-            LinearLayout child = (LinearLayout) detailsView.getChildAt(i);
-            TextView title = (TextView) child.getChildAt(0);
-            if (title.getText().equals(key)) {
-                TextView info = (TextView) child.getChildAt(1);
-                return info.getText().equals(value);
+            View view = table.getChildAt(i);
+            if (view instanceof KeyValueRow) {
+                LinearLayout row = (LinearLayout) table.getChildAt(i);
+                TextView key = (TextView) row.getChildAt(0);
+                TextView value = (TextView) row.getChildAt(1);
+                rows.put(
+                        String.valueOf(key.getText()),
+                        String.valueOf(value.getText()));
             }
         }
-        return false;
+        return rows;
+    }
+
+    private boolean isRowPresent(String key, Activity activity)
+            throws Exception {
+        DetailsView details = (DetailsView) activity.findViewById(R.id.inspector_details_view);
+        Map<String, String> rows = getTableRows(details);
+        return rows.containsKey(key);
+    }
+
+    private boolean isRowEquals(String key, String value, Activity activity)
+            throws Exception {
+        DetailsView details = (DetailsView) activity.findViewById(R.id.inspector_details_view);
+        Map<String, String> rows = getTableRows(details);
+        return rows.containsKey(key) && value.equals(rows.get(key));
     }
 }

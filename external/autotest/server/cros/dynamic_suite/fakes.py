@@ -30,6 +30,8 @@ class FakeControlData(control_data.ControlData):
         self.job_retries = job_retries
         self.bug_template = {}
         self.require_ssp = None
+        self.priority = 10
+        self.fast = False
 
 
 class FakeJob(object):

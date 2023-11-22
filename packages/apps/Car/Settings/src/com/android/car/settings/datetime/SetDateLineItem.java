@@ -20,43 +20,49 @@ import android.content.Context;
 import android.provider.Settings;
 import android.text.format.DateFormat;
 
+import androidx.car.widget.TextListItem;
+
 import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
-import com.android.car.settings.common.TextLineItem;
+import com.android.car.settings.common.BaseFragment.FragmentController;
 
 import java.util.Calendar;
 
 /**
  * A LineItem that displays and sets system date.
  */
-class SetDateLineItem extends TextLineItem {
+class SetDateLineItem extends TextListItem implements DatetimeSettingsFragment.ListRefreshObserver {
+
     private final Context mContext;
-    private final BaseFragment.FragmentController mFragmentController;
+    private final FragmentController mFragmentController;
 
     public SetDateLineItem(Context context, BaseFragment.FragmentController fragmentController) {
-        super(context.getString(R.string.date_time_set_date));
+        super(context);
         mContext = context;
         mFragmentController = fragmentController;
+        setTitle(context.getString(R.string.date_time_set_date));
+        updateLineItemData();
     }
 
     @Override
-    public CharSequence getDesc() {
-        return DateFormat.getLongDateFormat(mContext).format(Calendar.getInstance().getTime());
+    public void onPreRefresh() {
+        updateLineItemData();
     }
 
-    @Override
-    public boolean isEnabled() {
+    private void updateLineItemData() {
+        setBody(DateFormat.getLongDateFormat(mContext).format(Calendar.getInstance().getTime()));
+        if (isEnabled()) {
+            setSupplementalIcon(R.drawable.ic_chevron_right, /* showDivider= */ false);
+            setOnClickListener(v ->
+                    mFragmentController.launchFragment(DatePickerFragment.getInstance()));
+        } else {
+            setSupplementalIcon(null, /* showDivider= */ false);
+            setOnClickListener(null);
+        }
+    }
+
+    private boolean isEnabled() {
         return Settings.Global.getInt(mContext.getContentResolver(),
                 Settings.Global.AUTO_TIME, 0) <= 0;
-    }
-
-    @Override
-    public boolean isExpandable() {
-        return isEnabled();
-    }
-
-    @Override
-    public void onClick() {
-        mFragmentController.launchFragment(DatePickerFragment.getInstance());
     }
 }

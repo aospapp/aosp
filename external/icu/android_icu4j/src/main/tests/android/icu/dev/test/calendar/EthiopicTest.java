@@ -13,6 +13,8 @@ import java.util.Date;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.impl.LocaleUtility;
 import android.icu.text.DateFormat;
@@ -22,11 +24,14 @@ import android.icu.util.EthiopicCalendar;
 import android.icu.util.GregorianCalendar;
 import android.icu.util.TimeZone;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Tests for the <code>EthiopicCalendar</code> class.
  */
-public class EthiopicTest extends CalendarTestFmwk 
+@MainTestShard
+@RunWith(JUnit4.class)
+public class EthiopicTest extends CalendarTestFmwk
 {
     /** Constants to save typing. */
     public static final int MESKEREM = EthiopicCalendar.MESKEREM;
@@ -43,13 +48,13 @@ public class EthiopicTest extends CalendarTestFmwk
     public static final int NEHASSE  = EthiopicCalendar.NEHASSE;
     public static final int PAGUMEN  = EthiopicCalendar.PAGUMEN;
 
-    /* DY[20050507]  I don't know what this is for yet: 
+    /* DY[20050507]  I don't know what this is for yet:
     @Test
     public void TestRoll() {
        int[][] tests = new int[][] {
        //       input                roll by          output
        //  year  month     day     field amount    year  month     day
-    
+
        {   0001, QIDAH,     2,     MONTH,   1,     0001, HIJJAH,    2 },   // non-leap years
        {   0001, QIDAH,     2,     MONTH,   2,     0001, MUHARRAM,  2 },
        {   0001, QIDAH,     2,     MONTH,  -1,     0001, SHAWWAL,   2 },
@@ -63,7 +68,7 @@ public class EthiopicTest extends CalendarTestFmwk
        {   0001, MUHARRAM, 30,     MONTH,   1,     0001, SAFAR,    29 },
        {   0002, HIJJAH,   30,     YEAR,   -1,     0001, HIJJAH,   29 },
        };
-       
+
        EthiopicCalendar cal = newCivil();
 
        doRollAdd(ROLL, cal, tests);
@@ -72,9 +77,9 @@ public class EthiopicTest extends CalendarTestFmwk
 
     /* Test dates from:
      * "The Amharic Letters of Emperor Theodore of Ethiopia to Queen Victoria and
-     * Her Special Envoy", David Appleyard, Girma Selasse Asfaw, Oxford University Press, 
+     * Her Special Envoy", David Appleyard, Girma Selasse Asfaw, Oxford University Press,
      * June 1 1979, ISBN: 0856726605, Longwood Pr Ltd
-     *  
+     *
      * Ethiopic       Gregorian    JD
      * 20/02/1855     29/10/1862  2401443
      * 29/10/1857     05/07/1865  2402423
@@ -82,16 +87,16 @@ public class EthiopicTest extends CalendarTestFmwk
      * 10/08/1858     17/04/1866  2402709
      * 28/04/1859     05/01/1867  2402972
      * 05/05/1860     13/01/1868  2403345
-     * 
+     *
      * --------------------------------------------------
-     * 
+     *
      * From the Calendrica applet:  http://emr.cs.iit.edu/home/reingold/calendar-book/Calendrica.html
-     * 
+     *
      * Ethiopic       Gregorian    JD
      * 07/05/-8       01/01/0000  1721060
      * 08/05/-7       01/01/0001  1721426
      * 06/13/-1       27/08/0007  1723855
-     * 
+     *
      * 01/01/0000     28/08/0007  1723856
      * 01/01/0001     27/08/0008  1724221
      * 01/01/0002     27/08/0009  1724586
@@ -103,17 +108,17 @@ public class EthiopicTest extends CalendarTestFmwk
      * 05/13/0003     26/08/0011  1725315
      * 06/13/0003     27/08/0011  1725316  first ethiopian leap year
      * 05/13/0004     26/08/0012  1725561
-     * 
+     *
      * 06/02/1575     13/10/1582  2299159
      * 07/02/1575     14/10/1582  2299160  Julian 04/10/1582
      * 08/02/1575     15/10/1582  2299161
      * 09/02/1575     16/10/1582  2299162
-     * 
+     *
      * 23/04/1892     01/01/1900  2415021
      * 23/04/1997     01/01/2005  2453372
      * 05/13/2000     10/09/2008  2454720
      */
-    
+
     /** A huge list of test cases to make sure that computeTime and computeFields
      * work properly for a wide range of data in the civil calendar.
      */
@@ -135,7 +140,7 @@ public class EthiopicTest extends CalendarTestFmwk
             new TestCase(2402708.5,  1,  1858,    8,  10,  TUE,   0,  0,  0), // Gregorian: 17/04/1866
             new TestCase(2402971.5,  1,  1859,    4,  28,  SAT,   0,  0,  0), // Gregorian: 05/01/1867
             new TestCase(2403344.5,  1,  1860,    5,   5,  MON,   0,  0,  0), // Gregorian: 13/01/1868
-                        
+
             // Miscellaneous:
             /* Skip these tests until JD bug fixed in the Gregorian calendar:
              * http://www.jtcsv.com/cgibin/icu-bugs/incoming?id=4406;page=2;user=guest
@@ -158,7 +163,7 @@ public class EthiopicTest extends CalendarTestFmwk
             new TestCase(1725315.5,  1,     3,   13,   6,  SAT,   0,  0,  0), // Gregorian: 27/08/0011 - first ethiopic leap year
             // new TestCase(1725560.5,  1,     4,   13,   5,  SUN,   0,  0,  0), // Gregorian: 26/08/0012 - dlf
             new TestCase(1725680.5,  1,     4,   13,   5,  SUN,   0,  0,  0), // Gregorian: 26/08/0012
-            new TestCase(2299158.5,  1,  1575,    2,   6,  WED,   0,  0,  0), // Gregorian: 13/10/1582  
+            new TestCase(2299158.5,  1,  1575,    2,   6,  WED,   0,  0,  0), // Gregorian: 13/10/1582
             new TestCase(2299159.5,  1,  1575,    2,   7,  THU,   0,  0,  0), // Gregorian: 14/10/1582  Julian 04/10/1582
 
             new TestCase(2299160.5,  1,  1575,    2,   8,  FRI,   0,  0,  0), // Gregorian: 15/10/1582
@@ -184,7 +189,7 @@ public class EthiopicTest extends CalendarTestFmwk
                 new TestCase(2402708.5,  0,  7358,    8,  10,  TUE,   0,  0,  0), // Gregorian: 17/04/1866
                 new TestCase(2402971.5,  0,  7359,    4,  28,  SAT,   0,  0,  0), // Gregorian: 05/01/1867
                 new TestCase(2403344.5,  0,  7360,    5,   5,  MON,   0,  0,  0), // Gregorian: 13/01/1868
-                            
+
                 // Miscellaneous:
                 /* Skip these tests until JD bug fixed in the Gregorian calendar:
                  * http://www.jtcsv.com/cgibin/icu-bugs/incoming?id=4406;page=2;user=guest
@@ -207,7 +212,7 @@ public class EthiopicTest extends CalendarTestFmwk
                 new TestCase(1725315.5,  0,  5503,   13,   6,  SAT,   0,  0,  0), // Gregorian: 27/08/0011 - first ethiopic leap year
                 // new TestCase(1725560.5,  0,  5504,   13,   5,  SUN,   0,  0,  0), // Gregorian: 26/08/0012 - dlf
                 new TestCase(1725680.5,  0,  5504,   13,   5,  SUN,   0,  0,  0), // Gregorian: 26/08/0012
-                new TestCase(2299158.5,  0,  7075,    2,   6,  WED,   0,  0,  0), // Gregorian: 13/10/1582  
+                new TestCase(2299158.5,  0,  7075,    2,   6,  WED,   0,  0,  0), // Gregorian: 13/10/1582
                 new TestCase(2299159.5,  0,  7075,    2,   7,  THU,   0,  0,  0), // Gregorian: 14/10/1582  Julian 04/10/1582
 
                 new TestCase(2299160.5,  0,  7075,    2,   8,  FRI,   0,  0,  0), // Gregorian: 15/10/1582
@@ -245,11 +250,11 @@ public class EthiopicTest extends CalendarTestFmwk
         assertEquals("Ethiopic Date", "Tue Jan 01, 5500 BC", fmt.format(cal));
 
         // The gregorian calendar gets off by two days when
-        // the date gets low, unless the gregorian changeover is set to 
+        // the date gets low, unless the gregorian changeover is set to
         // very early.  The funny thing is, it's ok for dates in the year
         // 283, but not in the year 7, and it claims to be ok until the year 4.
         // should track down when the dates start to differ...
-        
+
         GregorianCalendar gc = new GregorianCalendar();
         gc.setGregorianChange(new Date(Long.MIN_VALUE)); // act like proleptic Gregorian
         gc.setTime(cal.getTime());
@@ -264,16 +269,16 @@ public class EthiopicTest extends CalendarTestFmwk
         cal.set(1000, 0, 30);
         logln("1000/0/30-> " +
               cal.get(YEAR) + "/" +
-              cal.get(MONTH) + "/" + 
+              cal.get(MONTH) + "/" +
               cal.get(DATE));
         cal.clear();
         cal.set(1, 0, 30);
         logln("1/0/30 -> " +
               cal.get(YEAR) + "/" +
-              cal.get(MONTH) + "/" + 
+              cal.get(MONTH) + "/" +
               cal.get(DATE));
     }
-    
+
     @Test
     public void TestJD(){
         int jd = EthiopicCalendar.EthiopicToJD(1567,8,9);
@@ -301,13 +306,13 @@ public class EthiopicTest extends CalendarTestFmwk
         doTheoreticalLimitsTest(ethiopic, true);
     }
 
-    
+
     @Test
     public void TestCoverage() {
 
         {
             // new EthiopicCalendar(TimeZone)
-            EthiopicCalendar cal = new EthiopicCalendar(TimeZone.getDefault()); 
+            EthiopicCalendar cal = new EthiopicCalendar(TimeZone.getDefault());
             if(cal == null){
                 errln("could not create EthiopicCalendar with TimeZone");
             }
@@ -320,7 +325,7 @@ public class EthiopicTest extends CalendarTestFmwk
                 errln("could not create EthiopicCalendar with ULocale");
             }
         }
-        
+
         {
             // new EthiopicCalendar(Locale)
             EthiopicCalendar cal = new EthiopicCalendar(Locale.getDefault());
@@ -344,7 +349,7 @@ public class EthiopicTest extends CalendarTestFmwk
                 errln("could not create EthiopicCalendar with TimeZone,ULocale");
             }
         }
-        
+
         {
             // new EthiopicCalendar(Date)
             EthiopicCalendar cal = new EthiopicCalendar(new Date());
@@ -394,7 +399,7 @@ public class EthiopicTest extends CalendarTestFmwk
 
             logln(cal.getTime().toString());
         }
-    
+
         {
             // data
             EthiopicCalendar cal = new EthiopicCalendar(1997, EthiopicCalendar.MESKEREM, 1);
@@ -421,7 +426,7 @@ public class EthiopicTest extends CalendarTestFmwk
             }
         }
     }
-    
+
     private static EthiopicCalendar newAmeteAlemEraCalendar() {
         EthiopicCalendar alemawiCalendar = new EthiopicCalendar();
         alemawiCalendar.setAmeteAlemEra(true);
@@ -478,7 +483,7 @@ public class EthiopicTest extends CalendarTestFmwk
             int endMonth = testCalendar.get(Calendar.MONTH);
             int endDay = testCalendar.get(Calendar.DATE);
             if ( endYear != item.getEndYear() || endMonth != item.getEndMonth() || endDay != item.getEndDay() ) {
-                errln("EToJD FAILS: field " + item.getField() + " delta " + item.getDelta() + 
+                errln("EToJD FAILS: field " + item.getField() + " delta " + item.getDelta() +
                             " expected yr " + item.getEndYear() + " mo " + item.getEndMonth() +  " da " + item.getEndDay() +
                             " got yr " + endYear + " mo " + endMonth +  " da " + endDay);
             }

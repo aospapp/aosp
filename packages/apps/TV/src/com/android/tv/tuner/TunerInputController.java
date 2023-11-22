@@ -17,6 +17,9 @@
 package com.android.tv.tuner;
 
 import android.app.AlarmManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -24,10 +27,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Looper;
@@ -38,118 +45,132 @@ import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
-
-import com.android.tv.Features;
 import com.android.tv.R;
+import com.android.tv.Starter;
 import com.android.tv.TvApplication;
-import com.android.tv.common.SoftPreconditions;
-import com.android.tv.tuner.setup.TunerSetupActivity;
-import com.android.tv.tuner.tvinput.TunerTvInputService;
-import com.android.tv.tuner.util.SystemPropertiesProxy;
-import com.android.tv.tuner.util.TunerInputInfoUtils;
+import com.android.tv.TvSingletons;
+import com.android.tv.common.BuildConfig;
+import com.android.tv.common.util.SystemPropertiesProxy;
 
+
+import com.android.tv.tuner.setup.BaseTunerSetupActivity;
+import com.android.tv.tuner.util.TunerInputInfoUtils;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Controls the package visibility of {@link TunerTvInputService}.
- * <p>
- * Listens to broadcast intent for {@link Intent#ACTION_BOOT_COMPLETED},
- * {@code UsbManager.ACTION_USB_DEVICE_ATTACHED}, and {@code UsbManager.ACTION_USB_DEVICE_ATTACHED}
- * to update the connection status of the supported USB TV tuners.
+ * Controls the package visibility of {@link BaseTunerTvInputService}.
+ *
+ * <p>Listens to broadcast intent for {@link Intent#ACTION_BOOT_COMPLETED}, {@code
+ * UsbManager.ACTION_USB_DEVICE_ATTACHED}, and {@code UsbManager.ACTION_USB_DEVICE_ATTACHED} to
+ * update the connection status of the supported USB TV tuners.
  */
 public class TunerInputController {
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
     private static final String TAG = "TunerInputController";
     private static final String PREFERENCE_IS_NETWORK_TUNER_ATTACHED = "network_tuner";
     private static final String SECURITY_PATCH_LEVEL_KEY = "ro.build.version.security_patch";
     private static final String SECURITY_PATCH_LEVEL_FORMAT = "yyyy-MM-dd";
+    private static final String PLAY_STORE_LINK_TEMPLATE = "market://details?id=%s";
 
-    /**
-     * Action of {@link Intent} to check network connection repeatedly when it is necessary.
-     */
-    private static final String CHECKING_NETWORK_CONNECTION =
-            "com.android.tv.action.CHECKING_NETWORK_CONNECTION";
+    /** Action of {@link Intent} to check network connection repeatedly when it is necessary. */
+    private static final String CHECKING_NETWORK_TUNER_STATUS =
+            "com.android.tv.action.CHECKING_NETWORK_TUNER_STATUS";
 
     private static final String EXTRA_CHECKING_DURATION =
             "com.android.tv.action.extra.CHECKING_DURATION";
+    private static final String EXTRA_DEVICE_IP = "com.android.tv.action.extra.DEVICE_IP";
 
     private static final long INITIAL_CHECKING_DURATION_MS = TimeUnit.SECONDS.toMillis(10);
     private static final long MAXIMUM_CHECKING_DURATION_MS = TimeUnit.MINUTES.toMillis(10);
+    private static final String NOTIFICATION_CHANNEL_ID = "tuner_discovery_notification";
 
+    // TODO: Load settings from XML file
     private static final TunerDevice[] TUNER_DEVICES = {
         new TunerDevice(0x2040, 0xb123, null), // WinTV-HVR-955Q
         new TunerDevice(0x07ca, 0x0837, null), // AverTV Volar Hybrid Q
         // WinTV-dualHD (bulk) will be supported after 2017 April security patch.
         new TunerDevice(0x2040, 0x826d, "2017-04-01"), // WinTV-dualHD (bulk)
-        // STOPSHIP: Add WinTV-soloHD (Isoc) temporary for test. Remove this after test complete.
         new TunerDevice(0x2040, 0x0264, null),
     };
 
     private static final int MSG_ENABLE_INPUT_SERVICE = 1000;
     private static final long DVB_DRIVER_CHECK_DELAY_MS = 300;
 
-    /**
-     * Checks status of USB devices to see if there are available USB tuners connected.
-     */
-    public static void onCheckingUsbTunerStatus(Context context, String action) {
-        onCheckingUsbTunerStatus(context, action, new CheckDvbDeviceHandler());
+    private final ComponentName usbTunerComponent;
+    private final ComponentName networkTunerComponent;
+    private final ComponentName builtInTunerComponent;
+    private final Map<TunerDevice, ComponentName> mTunerServiceMapping = new HashMap<>();
+
+    private final Map<ComponentName, String> mTunerApplicationNames = new HashMap<>();
+    private final Map<ComponentName, String> mNotificationMessages = new HashMap<>();
+    private final Map<ComponentName, Bitmap> mNotificationLargeIcons = new HashMap<>();
+
+    private final CheckDvbDeviceHandler mHandler = new CheckDvbDeviceHandler(this);
+
+    public TunerInputController(ComponentName embeddedTuner) {
+        usbTunerComponent = embeddedTuner;
+        networkTunerComponent = usbTunerComponent;
+        builtInTunerComponent = usbTunerComponent;
+        for (TunerDevice device : TUNER_DEVICES) {
+            mTunerServiceMapping.put(device, usbTunerComponent);
+        }
     }
 
-    private static void onCheckingUsbTunerStatus(Context context, String action,
-            @NonNull CheckDvbDeviceHandler handler) {
-        SharedPreferences sharedPreferences =
-                PreferenceManager.getDefaultSharedPreferences(context);
-        if (TunerHal.useBuiltInTuner(context)) {
-            enableTunerTvInputService(context, true, false, TunerHal.TUNER_TYPE_BUILT_IN);
-            return;
-        }
-        // Falls back to the below to check USB tuner devices.
-        boolean enabled = isUsbTunerConnected(context);
+    /** Checks status of USB devices to see if there are available USB tuners connected. */
+    public void onCheckingUsbTunerStatus(Context context, String action) {
+        onCheckingUsbTunerStatus(context, action, mHandler);
+    }
+
+    private void onCheckingUsbTunerStatus(
+            Context context, String action, @NonNull CheckDvbDeviceHandler handler) {
+        Set<TunerDevice> connectedUsbTuners = getConnectedUsbTuners(context);
         handler.removeMessages(MSG_ENABLE_INPUT_SERVICE);
-        if (enabled) {
+        if (!connectedUsbTuners.isEmpty()) {
             // Need to check if DVB driver is accessible. Since the driver creation
             // could be happen after the USB event, delay the checking by
             // DVB_DRIVER_CHECK_DELAY_MS.
-            handler.sendMessageDelayed(handler.obtainMessage(MSG_ENABLE_INPUT_SERVICE, context),
+            handler.sendMessageDelayed(
+                    handler.obtainMessage(MSG_ENABLE_INPUT_SERVICE, context),
                     DVB_DRIVER_CHECK_DELAY_MS);
         } else {
-            if (sharedPreferences.getBoolean(PREFERENCE_IS_NETWORK_TUNER_ATTACHED, false)) {
-                // Since network tuner is attached, do not disable TunerTvInput,
-                // just updates the TvInputInfo.
-                TunerInputInfoUtils.updateTunerInputInfo(context);
-                return;
-            }
-            enableTunerTvInputService(context, false, false, TextUtils
-                    .equals(action, UsbManager.ACTION_USB_DEVICE_DETACHED) ?
-                    TunerHal.TUNER_TYPE_USB : null);
+            handleTunerStatusChanged(
+                    context,
+                    false,
+                    connectedUsbTuners,
+                    TextUtils.equals(action, UsbManager.ACTION_USB_DEVICE_DETACHED)
+                            ? TunerHal.TUNER_TYPE_USB
+                            : null);
         }
     }
 
-    private static void onNetworkTunerChanged(Context context, boolean enabled) {
+    private void onNetworkTunerChanged(Context context, boolean enabled) {
         SharedPreferences sharedPreferences =
                 PreferenceManager.getDefaultSharedPreferences(context);
-        if (enabled) {
-            // Network tuner detection is initiated by UI. So the app should not
-            // be killed.
-            sharedPreferences.edit().putBoolean(PREFERENCE_IS_NETWORK_TUNER_ATTACHED, true).apply();
-            enableTunerTvInputService(context, true, true, TunerHal.TUNER_TYPE_NETWORK);
-        } else {
-            sharedPreferences.edit()
-                    .putBoolean(PREFERENCE_IS_NETWORK_TUNER_ATTACHED, false).apply();
-            if(!isUsbTunerConnected(context) && !TunerHal.useBuiltInTuner(context)) {
-                // Network tuner detection is initiated by UI. So the app should not
-                // be killed.
-                enableTunerTvInputService(context, false, true, TunerHal.TUNER_TYPE_NETWORK);
-            } else {
-                // Since USB tuner is attached, do not disable TunerTvInput,
-                // just updates the TvInputInfo.
-                TunerInputInfoUtils.updateTunerInputInfo(context);
-            }
+        if (sharedPreferences.contains(PREFERENCE_IS_NETWORK_TUNER_ATTACHED)
+                && sharedPreferences.getBoolean(PREFERENCE_IS_NETWORK_TUNER_ATTACHED, false)
+                        == enabled) {
+            // the status is not changed
+            return;
         }
+        if (enabled) {
+            sharedPreferences.edit().putBoolean(PREFERENCE_IS_NETWORK_TUNER_ATTACHED, true).apply();
+        } else {
+            sharedPreferences
+                    .edit()
+                    .putBoolean(PREFERENCE_IS_NETWORK_TUNER_ATTACHED, false)
+                    .apply();
+        }
+        // Network tuner detection is initiated by UI. So the app should not
+        // be killed.
+        handleTunerStatusChanged(
+                context, true, getConnectedUsbTuners(context), TunerHal.TUNER_TYPE_NETWORK);
     }
 
     /**
@@ -158,66 +179,131 @@ public class TunerInputController {
      * @param context {@link Context} instance
      * @return {@code true} if any tuner device we support is plugged in
      */
-    private static boolean isUsbTunerConnected(Context context) {
+    private Set<TunerDevice> getConnectedUsbTuners(Context context) {
         UsbManager manager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
         Map<String, UsbDevice> deviceList = manager.getDeviceList();
         String currentSecurityLevel =
                 SystemPropertiesProxy.getString(SECURITY_PATCH_LEVEL_KEY, null);
 
+        Set<TunerDevice> devices = new HashSet<>();
         for (UsbDevice device : deviceList.values()) {
             if (DEBUG) {
                 Log.d(TAG, "Device: " + device);
             }
             for (TunerDevice tuner : TUNER_DEVICES) {
-                if (tuner.equals(device) && tuner.isSupported(currentSecurityLevel)) {
+                if (tuner.equalsTo(device) && tuner.isSupported(currentSecurityLevel)) {
                     Log.i(TAG, "Tuner found");
-                    return true;
+                    devices.add(tuner);
                 }
             }
         }
-        return false;
+        return devices;
+    }
+
+    private void handleTunerStatusChanged(
+            Context context,
+            boolean forceDontKillApp,
+            Set<TunerDevice> connectedUsbTuners,
+            Integer triggerType) {
+        Map<ComponentName, Integer> serviceToEnable = new HashMap<>();
+        Set<ComponentName> serviceToDisable = new HashSet<>();
+        serviceToDisable.add(builtInTunerComponent);
+        serviceToDisable.add(networkTunerComponent);
+        if (TunerFeatures.TUNER.isEnabled(context)) {
+            // TODO: support both built-in tuner and other tuners at the same time?
+            if (TunerHal.useBuiltInTuner(context)) {
+                enableTunerTvInputService(
+                        context, true, false, TunerHal.TUNER_TYPE_BUILT_IN, builtInTunerComponent);
+                return;
+            }
+            SharedPreferences sharedPreferences =
+                    PreferenceManager.getDefaultSharedPreferences(context);
+            if (sharedPreferences.getBoolean(PREFERENCE_IS_NETWORK_TUNER_ATTACHED, false)) {
+                serviceToEnable.put(networkTunerComponent, TunerHal.TUNER_TYPE_NETWORK);
+            }
+        }
+        for (TunerDevice device : TUNER_DEVICES) {
+            if (TunerFeatures.TUNER.isEnabled(context) && connectedUsbTuners.contains(device)) {
+                serviceToEnable.put(mTunerServiceMapping.get(device), TunerHal.TUNER_TYPE_USB);
+            } else {
+                serviceToDisable.add(mTunerServiceMapping.get(device));
+            }
+        }
+        serviceToDisable.removeAll(serviceToEnable.keySet());
+        for (ComponentName serviceComponent : serviceToEnable.keySet()) {
+            if (isTunerPackageInstalled(context, serviceComponent)) {
+                enableTunerTvInputService(
+                        context,
+                        true,
+                        forceDontKillApp,
+                        serviceToEnable.get(serviceComponent),
+                        serviceComponent);
+            } else {
+                sendNotificationToInstallPackage(context, serviceComponent);
+            }
+        }
+        for (ComponentName serviceComponent : serviceToDisable) {
+            if (isTunerPackageInstalled(context, serviceComponent)) {
+                enableTunerTvInputService(
+                        context, false, forceDontKillApp, triggerType, serviceComponent);
+            } else {
+                cancelNotificationToInstallPackage(context, serviceComponent);
+            }
+        }
     }
 
     /**
-     * Enable/disable the component {@link TunerTvInputService}.
+     * Enable/disable the component {@link BaseTunerTvInputService}.
      *
      * @param context {@link Context} instance
      * @param enabled {@code true} to enable the service; otherwise {@code false}
      */
-    private static void enableTunerTvInputService(Context context, boolean enabled,
-            boolean forceDontKillApp, Integer tunerType) {
+    private static void enableTunerTvInputService(
+            Context context,
+            boolean enabled,
+            boolean forceDontKillApp,
+            Integer tunerType,
+            ComponentName serviceComponent) {
         if (DEBUG) Log.d(TAG, "enableTunerTvInputService: " + enabled);
-        PackageManager pm  = context.getPackageManager();
-        ComponentName componentName = new ComponentName(context, TunerTvInputService.class);
-
-        // Don't kill app by enabling/disabling TvActivity. If LC is killed by enabling/disabling
-        // TvActivity, the following pm.setComponentEnabledSetting doesn't work.
-        ((TvApplication) context.getApplicationContext()).handleInputCountChanged(
-                true, enabled, true);
-        // Since PackageManager.DONT_KILL_APP delays the operation by 10 seconds
-        // (PackageManagerService.BROADCAST_DELAY), we'd better avoid using it. It is used only
-        // when the LiveChannels app is active since we don't want to kill the running app.
-        int flags = forceDontKillApp
-                || TvApplication.getSingletons(context).getMainActivityWrapper().isCreated()
-                ? PackageManager.DONT_KILL_APP : 0;
-        int newState = enabled ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                : PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
-        if (newState != pm.getComponentEnabledSetting(componentName)) {
-            // Send/cancel the USB tuner TV input setup notification.
-            TunerSetupActivity.onTvInputEnabled(context, enabled, tunerType);
-            // Enable/disable the USB tuner TV input.
-            pm.setComponentEnabledSetting(componentName, newState, flags);
-            if (!enabled && tunerType != null) {
-                if (tunerType == TunerHal.TUNER_TYPE_USB) {
-                    Toast.makeText(context, R.string.msg_usb_tuner_disconnected,
-                            Toast.LENGTH_SHORT).show();
-                } else if (tunerType == TunerHal.TUNER_TYPE_NETWORK) {
-                    Toast.makeText(context, R.string.msg_network_tuner_disconnected,
-                            Toast.LENGTH_SHORT).show();
+        PackageManager pm = context.getPackageManager();
+        int newState =
+                enabled
+                        ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                        : PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
+        if (newState != pm.getComponentEnabledSetting(serviceComponent)) {
+            int flags = forceDontKillApp ? PackageManager.DONT_KILL_APP : 0;
+            if (serviceComponent.getPackageName().equals(context.getPackageName())) {
+                // Don't kill APP when handling input count changing. Or the following
+                // setComponentEnabledSetting() call won't work.
+                ((TvApplication) context.getApplicationContext())
+                        .handleInputCountChanged(true, enabled, true);
+                // Bundled input. Don't kill app if LiveChannels app is active since we don't want
+                // to kill the running app.
+                if (TvSingletons.getSingletons(context).getMainActivityWrapper().isCreated()) {
+                    flags |= PackageManager.DONT_KILL_APP;
+                }
+                // Send/cancel the USB tuner TV input setup notification.
+                BaseTunerSetupActivity.onTvInputEnabled(context, enabled, tunerType);
+                if (!enabled && tunerType != null) {
+                    if (tunerType == TunerHal.TUNER_TYPE_USB) {
+                        Toast.makeText(
+                                        context,
+                                        R.string.msg_usb_tuner_disconnected,
+                                        Toast.LENGTH_SHORT)
+                                .show();
+                    } else if (tunerType == TunerHal.TUNER_TYPE_NETWORK) {
+                        Toast.makeText(
+                                        context,
+                                        R.string.msg_network_tuner_disconnected,
+                                        Toast.LENGTH_SHORT)
+                                .show();
+                    }
                 }
             }
+            // Enable/disable the USB tuner TV input.
+            pm.setComponentEnabledSetting(serviceComponent, newState, flags);
             if (DEBUG) Log.d(TAG, "Status updated:" + enabled);
-        } else if (enabled) {
+        } else if (enabled && serviceComponent.getPackageName().equals(context.getPackageName())) {
             // When # of tuners is changed or the tuner input service is switching from/to using
             // network tuners or the device just boots.
             TunerInputInfoUtils.updateTunerInputInfo(context);
@@ -227,96 +313,179 @@ public class TunerInputController {
     /**
      * Discovers a network tuner. If the network connection is down, it won't repeatedly checking.
      */
-    public static void executeNetworkTunerDiscoveryAsyncTask(final Context context) {
-        boolean runningInMainProcess =
-                TvApplication.getSingletons(context).isRunningInMainProcess();
-        SoftPreconditions.checkState(runningInMainProcess);
-        if (!runningInMainProcess) {
-            return;
-        }
-        executeNetworkTunerDiscoveryAsyncTask(context, 0);
+    public void executeNetworkTunerDiscoveryAsyncTask(final Context context) {
+        executeNetworkTunerDiscoveryAsyncTask(context, 0, 0);
     }
 
     /**
      * Discovers a network tuner.
+     *
      * @param context {@link Context}
-     * @param repeatedDurationMs the time length to wait to repeatedly check network status to start
-     *                           finding network tuner when the network connection is not available.
-     *                           {@code 0} to disable repeatedly checking.
+     * @param repeatedDurationMs The time length to wait to repeatedly check network status to start
+     *     finding network tuner when the network connection is not available. {@code 0} to disable
+     *     repeatedly checking.
+     * @param deviceIp The previous discovered device IP, 0 if none.
      */
-    private static void executeNetworkTunerDiscoveryAsyncTask(final Context context,
-            final long repeatedDurationMs) {
-        if (!Features.NETWORK_TUNER.isEnabled(context)) {
+    private void executeNetworkTunerDiscoveryAsyncTask(
+            final Context context, final long repeatedDurationMs, final int deviceIp) {
+        if (!TunerFeatures.NETWORK_TUNER.isEnabled(context)) {
             return;
         }
-        new AsyncTask<Void, Void, Boolean>() {
-            @Override
-            protected Boolean doInBackground(Void... params) {
-                if (isNetworkConnected(context)) {
+        final Intent networkCheckingIntent = new Intent(context, IntentReceiver.class);
+        networkCheckingIntent.setAction(CHECKING_NETWORK_TUNER_STATUS);
+        if (!isNetworkConnected(context) && repeatedDurationMs > 0) {
+            sendCheckingAlarm(context, networkCheckingIntent, repeatedDurationMs);
+        } else {
+            new AsyncTask<Void, Void, Boolean>() {
+                @Override
+                protected Boolean doInBackground(Void... params) {
+                    Boolean result = null;
                     // Implement and execute network tuner discovery AsyncTask here.
-                } else if (repeatedDurationMs > 0) {
-                    AlarmManager alarmManager =
-                            (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-                    Intent networkCheckingIntent = new Intent(context, IntentReceiver.class);
-                    networkCheckingIntent.setAction(CHECKING_NETWORK_CONNECTION);
-                    networkCheckingIntent.putExtra(EXTRA_CHECKING_DURATION, repeatedDurationMs);
-                    PendingIntent alarmIntent = PendingIntent.getBroadcast(
-                            context, 0, networkCheckingIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-                    alarmManager.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime()
-                            + repeatedDurationMs, alarmIntent);
+                    return result;
                 }
-                return null;
-            }
 
-            @Override
-            protected void onPostExecute(Boolean result) {
-                if (result == null) {
-                    return;
+                @Override
+                protected void onPostExecute(Boolean foundNetworkTuner) {
+                    if (foundNetworkTuner == null) {
+                        return;
+                    }
+                    sendCheckingAlarm(
+                            context,
+                            networkCheckingIntent,
+                            foundNetworkTuner ? INITIAL_CHECKING_DURATION_MS : repeatedDurationMs);
+                    onNetworkTunerChanged(context, foundNetworkTuner);
                 }
-                onNetworkTunerChanged(context, result);
-            }
-        }.execute();
+            }.execute();
+        }
     }
 
     private static boolean isNetworkConnected(Context context) {
-        ConnectivityManager cm = (ConnectivityManager)
-                context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager cm =
+                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo networkInfo = cm.getActiveNetworkInfo();
         return networkInfo != null && networkInfo.isConnected();
     }
 
+    private static void sendCheckingAlarm(Context context, Intent intent, long delayMs) {
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        intent.putExtra(EXTRA_CHECKING_DURATION, delayMs);
+        PendingIntent alarmIntent =
+                PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        alarmManager.set(
+                AlarmManager.ELAPSED_REALTIME,
+                SystemClock.elapsedRealtime() + delayMs,
+                alarmIntent);
+    }
+
+    private static boolean isTunerPackageInstalled(
+            Context context, ComponentName serviceComponent) {
+        try {
+            context.getPackageManager().getPackageInfo(serviceComponent.getPackageName(), 0);
+            return true;
+        } catch (NameNotFoundException e) {
+            return false;
+        }
+    }
+
+    private void sendNotificationToInstallPackage(Context context, ComponentName serviceComponent) {
+        if (!BuildConfig.ENG) {
+            return;
+        }
+        String applicationName = mTunerApplicationNames.get(serviceComponent);
+        if (applicationName == null) {
+            applicationName = context.getString(R.string.tuner_install_default_application_name);
+        }
+        String contentTitle =
+                context.getString(
+                        R.string.tuner_install_notification_content_title, applicationName);
+        String contentText = mNotificationMessages.get(serviceComponent);
+        if (contentText == null) {
+            contentText = context.getString(R.string.tuner_install_notification_content_text);
+        }
+        Bitmap largeIcon = mNotificationLargeIcons.get(serviceComponent);
+        if (largeIcon == null) {
+            // TODO: Make a better default image.
+            largeIcon = BitmapFactory.decodeResource(context.getResources(), R.drawable.ic_store);
+        }
+        NotificationManager notificationManager =
+                (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager.getNotificationChannel(NOTIFICATION_CHANNEL_ID) == null) {
+            createNotificationChannel(context, notificationManager);
+        }
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setData(
+                Uri.parse(
+                        String.format(
+                                PLAY_STORE_LINK_TEMPLATE, serviceComponent.getPackageName())));
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        Notification.Builder builder = new Notification.Builder(context, NOTIFICATION_CHANNEL_ID);
+        builder.setAutoCancel(true)
+                .setSmallIcon(R.drawable.ic_launcher_s)
+                .setLargeIcon(largeIcon)
+                .setContentTitle(contentTitle)
+                .setContentText(contentText)
+                .setCategory(Notification.CATEGORY_RECOMMENDATION)
+                .setContentIntent(PendingIntent.getActivity(context, 0, intent, 0));
+        notificationManager.notify(serviceComponent.getPackageName(), 0, builder.build());
+    }
+
+    private static void cancelNotificationToInstallPackage(
+            Context context, ComponentName serviceComponent) {
+        NotificationManager notificationManager =
+                (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        notificationManager.cancel(serviceComponent.getPackageName(), 0);
+    }
+
+    private static void createNotificationChannel(
+            Context context, NotificationManager notificationManager) {
+        notificationManager.createNotificationChannel(
+                new NotificationChannel(
+                        NOTIFICATION_CHANNEL_ID,
+                        context.getResources()
+                                .getString(R.string.ut_setup_notification_channel_name),
+                        NotificationManager.IMPORTANCE_HIGH));
+    }
+
     public static class IntentReceiver extends BroadcastReceiver {
-        private final CheckDvbDeviceHandler mHandler = new CheckDvbDeviceHandler();
 
         @Override
         public void onReceive(Context context, Intent intent) {
             if (DEBUG) Log.d(TAG, "Broadcast intent received:" + intent);
-            TvApplication.setCurrentRunningProcess(context, true);
-            if (!Features.TUNER.isEnabled(context)) {
-                enableTunerTvInputService(context, false, false, null);
+            Starter.start(context);
+            TunerInputController tunerInputController =
+                    TvSingletons.getSingletons(context).getTunerInputController();
+            if (!TunerFeatures.TUNER.isEnabled(context)) {
+                tunerInputController.handleTunerStatusChanged(
+                        context, false, Collections.emptySet(), null);
                 return;
             }
             switch (intent.getAction()) {
                 case Intent.ACTION_BOOT_COMPLETED:
-                    executeNetworkTunerDiscoveryAsyncTask(context, INITIAL_CHECKING_DURATION_MS);
+                    tunerInputController.executeNetworkTunerDiscoveryAsyncTask(
+                            context, INITIAL_CHECKING_DURATION_MS, 0);
+                    // fall through
                 case TvApplication.ACTION_APPLICATION_FIRST_LAUNCHED:
                 case UsbManager.ACTION_USB_DEVICE_ATTACHED:
                 case UsbManager.ACTION_USB_DEVICE_DETACHED:
-                    onCheckingUsbTunerStatus(context, intent.getAction(), mHandler);
+                    tunerInputController.onCheckingUsbTunerStatus(context, intent.getAction());
                     break;
-                case CHECKING_NETWORK_CONNECTION:
-                    long repeatedDurationMs = intent.getLongExtra(EXTRA_CHECKING_DURATION,
-                            INITIAL_CHECKING_DURATION_MS);
-                    executeNetworkTunerDiscoveryAsyncTask(context,
-                            Math.min(repeatedDurationMs * 2, MAXIMUM_CHECKING_DURATION_MS));
+                case CHECKING_NETWORK_TUNER_STATUS:
+                    long repeatedDurationMs =
+                            intent.getLongExtra(
+                                    EXTRA_CHECKING_DURATION, INITIAL_CHECKING_DURATION_MS);
+                    tunerInputController.executeNetworkTunerDiscoveryAsyncTask(
+                            context,
+                            Math.min(repeatedDurationMs * 2, MAXIMUM_CHECKING_DURATION_MS),
+                            intent.getIntExtra(EXTRA_DEVICE_IP, 0));
                     break;
+                default: // fall out
             }
         }
     }
 
     /**
-     * Simple data holder for a USB device. Used to represent a tuner model, and compare
-     * against {@link UsbDevice}.
+     * Simple data holder for a USB device. Used to represent a tuner model, and compare against
+     * {@link UsbDevice}.
      */
     private static class TunerDevice {
         private final int vendorId;
@@ -331,7 +500,7 @@ public class TunerInputController {
             this.minSecurityLevel = minSecurityLevel;
         }
 
-        private boolean equals(UsbDevice device) {
+        private boolean equalsTo(UsbDevice device) {
             return device.getVendorId() == vendorId && device.getProductId() == productId;
         }
 
@@ -354,10 +523,13 @@ public class TunerInputController {
     }
 
     private static class CheckDvbDeviceHandler extends Handler {
+
+        private final TunerInputController mTunerInputController;
         private DvbDeviceAccessor mDvbDeviceAccessor;
 
-        CheckDvbDeviceHandler() {
+        CheckDvbDeviceHandler(TunerInputController tunerInputController) {
             super(Looper.getMainLooper());
+            this.mTunerInputController = tunerInputController;
         }
 
         @Override
@@ -369,9 +541,15 @@ public class TunerInputController {
                         mDvbDeviceAccessor = new DvbDeviceAccessor(context);
                     }
                     boolean enabled = mDvbDeviceAccessor.isDvbDeviceAvailable();
-                    enableTunerTvInputService(
-                            context, enabled, false, enabled ? TunerHal.TUNER_TYPE_USB : null);
+                    mTunerInputController.handleTunerStatusChanged(
+                            context,
+                            false,
+                            enabled
+                                    ? mTunerInputController.getConnectedUsbTuners(context)
+                                    : Collections.emptySet(),
+                            TunerHal.TUNER_TYPE_USB);
                     break;
+                default: // fall out
             }
         }
     }

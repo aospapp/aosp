@@ -30,12 +30,15 @@ class IDCTTest : public ::testing::TestWithParam<IdctFunc> {
   virtual void SetUp() {
     UUT = GetParam();
 
-    input = new (std::nothrow) Buffer<int16_t>(4, 4, 0);
+    input = new Buffer<int16_t>(4, 4, 0);
     ASSERT_TRUE(input != NULL);
-    predict = new (std::nothrow) Buffer<uint8_t>(4, 4, 3);
+    ASSERT_TRUE(input->Init());
+    predict = new Buffer<uint8_t>(4, 4, 3);
     ASSERT_TRUE(predict != NULL);
-    output = new (std::nothrow) Buffer<uint8_t>(4, 4, 3);
+    ASSERT_TRUE(predict->Init());
+    output = new Buffer<uint8_t>(4, 4, 3);
     ASSERT_TRUE(output != NULL);
+    ASSERT_TRUE(output->Init());
   }
 
   virtual void TearDown() {
@@ -166,4 +169,9 @@ INSTANTIATE_TEST_CASE_P(MMX, IDCTTest,
 INSTANTIATE_TEST_CASE_P(MSA, IDCTTest,
                         ::testing::Values(vp8_short_idct4x4llm_msa));
 #endif  // HAVE_MSA
+
+#if HAVE_MMI
+INSTANTIATE_TEST_CASE_P(MMI, IDCTTest,
+                        ::testing::Values(vp8_short_idct4x4llm_mmi));
+#endif  // HAVE_MMI
 }

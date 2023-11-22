@@ -1,7 +1,7 @@
 /** @file
   The implementation for Ping6 application.
 
-  Copyright (c) 2009 - 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2009 - 2016, Intel Corporation. All rights reserved.<BR>
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -19,6 +19,7 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/DebugLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiHiiServicesLib.h>
 #include <Library/HiiLib.h>
 #include <Library/NetLib.h>
 
@@ -28,6 +29,11 @@
 #include <Protocol/Ip6Config.h>
 
 #include "Ping6.h"
+
+//
+// String token ID of Ping6 command help message text.
+//
+GLOBAL_REMOVE_IF_UNREFERENCED EFI_STRING_ID mStringPing6HelpToken = STRING_TOKEN (STR_PING6_HELP);
 
 SHELL_PARAM_ITEM    Ping6ParamList[] = {
   {
@@ -41,10 +47,6 @@ SHELL_PARAM_ITEM    Ping6ParamList[] = {
   {
     L"-s",
     TypeValue
-  },
-  {
-    L"-?",
-    TypeFlag
   },
   {
     NULL,
@@ -1059,11 +1061,36 @@ InitializePing6 (
   CONST CHAR16        *ValueStr;
   CONST CHAR16        *ValueStrPtr;
   UINTN               NonOptionCount;
+  EFI_HII_PACKAGE_LIST_HEADER     *PackageList;
 
   //
-  // Register our string package with HII and return the handle to it.
+  // Retrieve HII package list from ImageHandle
   //
-  mHiiHandle = HiiAddPackages (&gEfiCallerIdGuid, ImageHandle, Ping6Strings, NULL);
+  Status = gBS->OpenProtocol (
+                  ImageHandle,
+                  &gEfiHiiPackageListProtocolGuid,
+                  (VOID **) &PackageList,
+                  ImageHandle,
+                  NULL,
+                  EFI_OPEN_PROTOCOL_GET_PROTOCOL
+                  );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  //
+  // Publish HII package list to HII Database.
+  //
+  Status = gHiiDatabase->NewPackageList (
+                          gHiiDatabase,
+                          PackageList,
+                          NULL,
+                          &mHiiHandle
+                          );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+  
   ASSERT (mHiiHandle != NULL);
 
   Status = ShellCommandLineParseEx (Ping6ParamList, &ParamPackage, NULL, TRUE, FALSE);
@@ -1072,16 +1099,11 @@ InitializePing6 (
     goto ON_EXIT;
   }
 
-  if (ShellCommandLineGetFlag (ParamPackage, L"-?")) {
-    ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_PING6_HELP), mHiiHandle);
-    goto ON_EXIT;
-  }
-
   SendNumber = 10;
   BufferSize = 16;
 
   //
-  // Parse the paramter of count number.
+  // Parse the parameter of count number.
   //
   ValueStr = ShellCommandLineGetValue (ParamPackage, L"-n");
   ValueStrPtr = ValueStr;
@@ -1098,7 +1120,7 @@ InitializePing6 (
     }
   }
   //
-  // Parse the paramter of buffer size.
+  // Parse the parameter of buffer size.
   //
   ValueStr = ShellCommandLineGetValue (ParamPackage, L"-l");
   ValueStrPtr = ValueStr;
@@ -1119,7 +1141,7 @@ InitializePing6 (
   ZeroMem (&DstAddress, sizeof (EFI_IPv6_ADDRESS));
 
   //
-  // Parse the paramter of source ip address.
+  // Parse the parameter of source ip address.
   //
   ValueStr = ShellCommandLineGetValue (ParamPackage, L"-s");
   ValueStrPtr = ValueStr;
@@ -1133,7 +1155,7 @@ InitializePing6 (
     }
   }
   //
-  // Parse the paramter of destination ip address.
+  // Parse the parameter of destination ip address.
   //
   NonOptionCount = ShellCommandLineGetCount(ParamPackage);
   ValueStr = ShellCommandLineGetRawValue (ParamPackage, (UINT32)(NonOptionCount-1));

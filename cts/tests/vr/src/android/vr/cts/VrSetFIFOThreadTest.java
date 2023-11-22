@@ -33,6 +33,7 @@ public class VrSetFIFOThreadTest extends ActivityInstrumentationTestCase2<OpenGL
     private OpenGLESActivity mActivity;
     private ActivityManager mActivityManager;
     private Context mContext;
+    private String mOldVrListener;
     private static final int SCHED_OTHER = 0;
     private static final int SCHED_FIFO = 1;
     private static final int SCHED_RESET_ON_FORK = 0x40000000;
@@ -41,6 +42,20 @@ public class VrSetFIFOThreadTest extends ActivityInstrumentationTestCase2<OpenGL
 
     public VrSetFIFOThreadTest() {
         super(OpenGLESActivity.class);
+    }
+
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        mContext = getInstrumentation().getTargetContext();
+        mOldVrListener = Settings.Secure.getString(mContext.getContentResolver(), ENABLED_VR_LISTENERS);
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        Settings.Secure.putString(mContext.getContentResolver(),
+            ENABLED_VR_LISTENERS, mOldVrListener);
+        super.tearDown();
     }
 
     private void setIntent(int viewIndex, int createProtected,
@@ -54,10 +69,8 @@ public class VrSetFIFOThreadTest extends ActivityInstrumentationTestCase2<OpenGL
     }
 
     public void testSetVrThreadAPISuccess() throws Throwable {
-        mContext = getInstrumentation().getTargetContext();
         setIntent(OpenGLESActivity.RENDERER_BASIC, 1, 0, 0);
         ComponentName requestedComponent = new ComponentName(mContext, MockVrListenerService.class);
-        String old_vr_listener = Settings.Secure.getString(mContext.getContentResolver(), ENABLED_VR_LISTENERS);
         Settings.Secure.putString(mContext.getContentResolver(),
             ENABLED_VR_LISTENERS,
             requestedComponent.flattenToString());
@@ -76,15 +89,11 @@ public class VrSetFIFOThreadTest extends ActivityInstrumentationTestCase2<OpenGL
             Log.e(TAG, "scheduling policy: " + policy);
             assertEquals((SCHED_FIFO | SCHED_RESET_ON_FORK), policy);
         }
-        Settings.Secure.putString(mContext.getContentResolver(),
-            ENABLED_VR_LISTENERS, old_vr_listener);
     }
 
     public void testSetVrThreadAPIFailure() throws Throwable {
-        mContext = getInstrumentation().getTargetContext();
         setIntent(OpenGLESActivity.RENDERER_BASIC, 1, 0, 0);
         ComponentName requestedComponent = new ComponentName(mContext, MockVrListenerService.class);
-        String old_vr_listener = Settings.Secure.getString(mContext.getContentResolver(), ENABLED_VR_LISTENERS);
         Settings.Secure.putString(mContext.getContentResolver(),
             ENABLED_VR_LISTENERS,
             requestedComponent.flattenToString());
@@ -102,7 +111,5 @@ public class VrSetFIFOThreadTest extends ActivityInstrumentationTestCase2<OpenGL
             Log.e(TAG, "scheduling policy: " + policy);
             assertEquals(SCHED_OTHER, policy);
         }
-        Settings.Secure.putString(mContext.getContentResolver(),
-            ENABLED_VR_LISTENERS, old_vr_listener);
     }
 }

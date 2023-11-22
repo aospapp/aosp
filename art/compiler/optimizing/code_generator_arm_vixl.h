@@ -20,11 +20,11 @@
 #include "base/enums.h"
 #include "code_generator.h"
 #include "common_arm.h"
+#include "dex/string_reference.h"
+#include "dex/type_reference.h"
 #include "driver/compiler_options.h"
 #include "nodes.h"
-#include "string_reference.h"
 #include "parallel_move_resolver.h"
-#include "type_reference.h"
 #include "utils/arm/assembler_arm_vixl.h"
 
 // TODO(VIXL): make vixl clean wrt -Wshadow.
@@ -119,7 +119,7 @@ class JumpTableARMVIXL : public DeletableArenaObject<kArenaAllocSwitchTable> {
   explicit JumpTableARMVIXL(HPackedSwitch* switch_instr)
       : switch_instr_(switch_instr),
         table_start_(),
-        bb_addresses_(switch_instr->GetArena()->Adapter(kArenaAllocCodeGenerator)) {
+        bb_addresses_(switch_instr->GetAllocator()->Adapter(kArenaAllocCodeGenerator)) {
     uint32_t num_entries = switch_instr_->GetNumEntries();
     for (uint32_t i = 0; i < num_entries; i++) {
       VIXLInt32Literal *lit = new VIXLInt32Literal(0, vixl32::RawLiteral::kManuallyPlaced);
@@ -173,8 +173,8 @@ class InvokeDexCallingConventionVisitorARMVIXL : public InvokeDexCallingConventi
   InvokeDexCallingConventionVisitorARMVIXL() {}
   virtual ~InvokeDexCallingConventionVisitorARMVIXL() {}
 
-  Location GetNextLocation(Primitive::Type type) OVERRIDE;
-  Location GetReturnLocation(Primitive::Type type) const OVERRIDE;
+  Location GetNextLocation(DataType::Type type) OVERRIDE;
+  Location GetReturnLocation(DataType::Type type) const OVERRIDE;
   Location GetMethodLocation() const OVERRIDE;
 
  private:
@@ -194,20 +194,20 @@ class FieldAccessCallingConventionARMVIXL : public FieldAccessCallingConvention 
   Location GetFieldIndexLocation() const OVERRIDE {
     return helpers::LocationFrom(vixl::aarch32::r0);
   }
-  Location GetReturnLocation(Primitive::Type type) const OVERRIDE {
-    return Primitive::Is64BitType(type)
+  Location GetReturnLocation(DataType::Type type) const OVERRIDE {
+    return DataType::Is64BitType(type)
         ? helpers::LocationFrom(vixl::aarch32::r0, vixl::aarch32::r1)
         : helpers::LocationFrom(vixl::aarch32::r0);
   }
-  Location GetSetValueLocation(Primitive::Type type, bool is_instance) const OVERRIDE {
-    return Primitive::Is64BitType(type)
+  Location GetSetValueLocation(DataType::Type type, bool is_instance) const OVERRIDE {
+    return DataType::Is64BitType(type)
         ? helpers::LocationFrom(vixl::aarch32::r2, vixl::aarch32::r3)
         : (is_instance
             ? helpers::LocationFrom(vixl::aarch32::r2)
             : helpers::LocationFrom(vixl::aarch32::r1));
   }
-  Location GetFpuLocation(Primitive::Type type) const OVERRIDE {
-    return Primitive::Is64BitType(type)
+  Location GetFpuLocation(DataType::Type type) const OVERRIDE {
+    return DataType::Is64BitType(type)
         ? helpers::LocationFrom(vixl::aarch32::s0, vixl::aarch32::s1)
         : helpers::LocationFrom(vixl::aarch32::s0);
   }
@@ -287,7 +287,6 @@ class LocationsBuilderARMVIXL : public HGraphVisitor {
   Location ArithmeticZeroOrFpuRegister(HInstruction* input);
   Location ArmEncodableConstantOrRegister(HInstruction* constant, Opcode opcode);
   bool CanEncodeConstantAsImmediate(HConstant* input_cst, Opcode opcode);
-  bool CanEncodeConstantAsImmediate(uint32_t value, Opcode opcode, SetCc set_cc = kCcDontCare);
 
   CodeGeneratorARMVIXL* const codegen_;
   InvokeDexCallingConventionVisitorARMVIXL parameter_visitor_;
@@ -434,7 +433,7 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
   void GenerateFrameExit() OVERRIDE;
   void Bind(HBasicBlock* block) OVERRIDE;
   void MoveConstant(Location destination, int32_t value) OVERRIDE;
-  void MoveLocation(Location dst, Location src, Primitive::Type dst_type) OVERRIDE;
+  void MoveLocation(Location dst, Location src, DataType::Type dst_type) OVERRIDE;
   void AddLocationAsTemp(Location location, LocationSummary* locations) OVERRIDE;
 
   size_t SaveCoreRegister(size_t stack_index, uint32_t reg_id) OVERRIDE;
@@ -475,12 +474,12 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
   // Helper method to move a 32-bit value between two locations.
   void Move32(Location destination, Location source);
 
-  void LoadFromShiftedRegOffset(Primitive::Type type,
+  void LoadFromShiftedRegOffset(DataType::Type type,
                                 Location out_loc,
                                 vixl::aarch32::Register base,
                                 vixl::aarch32::Register reg_index,
                                 vixl::aarch32::Condition cond = vixl::aarch32::al);
-  void StoreToShiftedRegOffset(Primitive::Type type,
+  void StoreToShiftedRegOffset(DataType::Type type,
                                Location out_loc,
                                vixl::aarch32::Register base,
                                vixl::aarch32::Register reg_index,
@@ -522,8 +521,8 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
 
   const ArmInstructionSetFeatures& GetInstructionSetFeatures() const { return isa_features_; }
 
-  bool NeedsTwoRegisters(Primitive::Type type) const OVERRIDE {
-    return type == Primitive::kPrimDouble || type == Primitive::kPrimLong;
+  bool NeedsTwoRegisters(DataType::Type type) const OVERRIDE {
+    return type == DataType::Type::kFloat64 || type == DataType::Type::kInt64;
   }
 
   void ComputeSpillMask() OVERRIDE;
@@ -551,34 +550,38 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
   void GenerateVirtualCall(
       HInvokeVirtual* invoke, Location temp, SlowPathCode* slow_path = nullptr) OVERRIDE;
 
-  void MoveFromReturnRegister(Location trg, Primitive::Type type) OVERRIDE;
+  void MoveFromReturnRegister(Location trg, DataType::Type type) OVERRIDE;
 
-  // The PcRelativePatchInfo is used for PC-relative addressing of dex cache arrays
-  // and boot image strings/types. The only difference is the interpretation of the
-  // offset_or_index. The PC-relative address is loaded with three instructions,
+  // The PcRelativePatchInfo is used for PC-relative addressing of methods/strings/types,
+  // whether through .data.bimg.rel.ro, .bss, or directly in the boot image.
+  //
+  // The PC-relative address is loaded with three instructions,
   // MOVW+MOVT to load the offset to base_reg and then ADD base_reg, PC. The offset
   // is calculated from the ADD's effective PC, i.e. PC+4 on Thumb2. Though we
   // currently emit these 3 instructions together, instruction scheduling could
   // split this sequence apart, so we keep separate labels for each of them.
   struct PcRelativePatchInfo {
-    PcRelativePatchInfo(const DexFile& dex_file, uint32_t off_or_idx)
+    PcRelativePatchInfo(const DexFile* dex_file, uint32_t off_or_idx)
         : target_dex_file(dex_file), offset_or_index(off_or_idx) { }
     PcRelativePatchInfo(PcRelativePatchInfo&& other) = default;
 
-    const DexFile& target_dex_file;
-    // Either the dex cache array element offset or the string/type index.
+    // Target dex file or null for .data.bmig.rel.ro patches.
+    const DexFile* target_dex_file;
+    // Either the boot image offset (to write to .data.bmig.rel.ro) or string/type/method index.
     uint32_t offset_or_index;
     vixl::aarch32::Label movw_label;
     vixl::aarch32::Label movt_label;
     vixl::aarch32::Label add_pc_label;
   };
 
-  PcRelativePatchInfo* NewPcRelativeMethodPatch(MethodReference target_method);
+  PcRelativePatchInfo* NewBootImageMethodPatch(MethodReference target_method);
   PcRelativePatchInfo* NewMethodBssEntryPatch(MethodReference target_method);
-  PcRelativePatchInfo* NewPcRelativeTypePatch(const DexFile& dex_file, dex::TypeIndex type_index);
+  PcRelativePatchInfo* NewBootImageTypePatch(const DexFile& dex_file, dex::TypeIndex type_index);
   PcRelativePatchInfo* NewTypeBssEntryPatch(const DexFile& dex_file, dex::TypeIndex type_index);
-  PcRelativePatchInfo* NewPcRelativeStringPatch(const DexFile& dex_file,
-                                                dex::StringIndex string_index);
+  PcRelativePatchInfo* NewBootImageStringPatch(const DexFile& dex_file,
+                                               dex::StringIndex string_index);
+  PcRelativePatchInfo* NewStringBssEntryPatch(const DexFile& dex_file,
+                                              dex::StringIndex string_index);
 
   // Add a new baker read barrier patch and return the label to be bound
   // before the BNE instruction.
@@ -592,7 +595,7 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
                                                 dex::TypeIndex type_index,
                                                 Handle<mirror::Class> handle);
 
-  void EmitLinkerPatches(ArenaVector<LinkerPatch>* linker_patches) OVERRIDE;
+  void EmitLinkerPatches(ArenaVector<linker::LinkerPatch>* linker_patches) OVERRIDE;
 
   void EmitJitRootPatches(uint8_t* code, const uint8_t* roots_data) OVERRIDE;
 
@@ -661,6 +664,28 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
                                 ScaleFactor scale_factor,
                                 bool needs_null_check);
 
+  // Emit code checking the status of the Marking Register, and
+  // aborting the program if MR does not match the value stored in the
+  // art::Thread object. Code is only emitted in debug mode and if
+  // CompilerOptions::EmitRunTimeChecksInDebugMode returns true.
+  //
+  // Argument `code` is used to identify the different occurrences of
+  // MaybeGenerateMarkingRegisterCheck in the code generator, and is
+  // used together with kMarkingRegisterCheckBreakCodeBaseCode to
+  // create the value passed to the BKPT instruction. Note that unlike
+  // in the ARM64 code generator, where `__LINE__` is passed as `code`
+  // argument to
+  // CodeGeneratorARM64::MaybeGenerateMarkingRegisterCheck, we cannot
+  // realistically do that here, as Encoding T1 for the BKPT
+  // instruction only accepts 8-bit immediate values.
+  //
+  // If `temp_loc` is a valid location, it is expected to be a
+  // register and will be used as a temporary to generate code;
+  // otherwise, a temporary will be fetched from the core register
+  // scratch pool.
+  virtual void MaybeGenerateMarkingRegisterCheck(int code,
+                                                 Location temp_loc = Location::NoLocation());
+
   // Generate a read barrier for a heap reference within `instruction`
   // using a slow path.
   //
@@ -715,7 +740,7 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
   void GenerateExplicitNullCheck(HNullCheck* instruction) OVERRIDE;
 
   JumpTableARMVIXL* CreateJumpTable(HPackedSwitch* switch_instr) {
-    jump_tables_.emplace_back(new (GetGraph()->GetArena()) JumpTableARMVIXL(switch_instr));
+    jump_tables_.emplace_back(new (GetGraph()->GetAllocator()) JumpTableARMVIXL(switch_instr));
     return jump_tables_.back().get();
   }
   void EmitJumpTables();
@@ -751,12 +776,12 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
   };
 
   VIXLUInt32Literal* DeduplicateUint32Literal(uint32_t value, Uint32ToLiteralMap* map);
-  PcRelativePatchInfo* NewPcRelativePatch(const DexFile& dex_file,
+  PcRelativePatchInfo* NewPcRelativePatch(const DexFile* dex_file,
                                           uint32_t offset_or_index,
                                           ArenaDeque<PcRelativePatchInfo>* patches);
-  template <LinkerPatch (*Factory)(size_t, const DexFile*, uint32_t, uint32_t)>
+  template <linker::LinkerPatch (*Factory)(size_t, const DexFile*, uint32_t, uint32_t)>
   static void EmitPcRelativeLinkerPatches(const ArenaDeque<PcRelativePatchInfo>& infos,
-                                          ArenaVector<LinkerPatch>* linker_patches);
+                                          ArenaVector<linker::LinkerPatch>* linker_patches);
 
   // Labels for each block that will be compiled.
   // We use a deque so that the `vixl::aarch32::Label` objects do not move in memory.
@@ -774,15 +799,17 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
   // Deduplication map for 32-bit literals, used for non-patchable boot image addresses.
   Uint32ToLiteralMap uint32_literals_;
   // PC-relative method patch info for kBootImageLinkTimePcRelative.
-  ArenaDeque<PcRelativePatchInfo> pc_relative_method_patches_;
+  ArenaDeque<PcRelativePatchInfo> boot_image_method_patches_;
   // PC-relative method patch info for kBssEntry.
   ArenaDeque<PcRelativePatchInfo> method_bss_entry_patches_;
   // PC-relative type patch info for kBootImageLinkTimePcRelative.
-  ArenaDeque<PcRelativePatchInfo> pc_relative_type_patches_;
+  ArenaDeque<PcRelativePatchInfo> boot_image_type_patches_;
   // PC-relative type patch info for kBssEntry.
   ArenaDeque<PcRelativePatchInfo> type_bss_entry_patches_;
-  // PC-relative String patch info; type depends on configuration (app .bss or boot image PIC).
-  ArenaDeque<PcRelativePatchInfo> pc_relative_string_patches_;
+  // PC-relative String patch info; type depends on configuration (intern table or boot image PIC).
+  ArenaDeque<PcRelativePatchInfo> boot_image_string_patches_;
+  // PC-relative String patch info for kBssEntry.
+  ArenaDeque<PcRelativePatchInfo> string_bss_entry_patches_;
   // Baker read barrier patch info.
   ArenaDeque<BakerReadBarrierPatchInfo> baker_read_barrier_patches_;
 

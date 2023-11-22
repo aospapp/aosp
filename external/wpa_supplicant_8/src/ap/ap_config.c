@@ -37,6 +37,10 @@ static void hostapd_config_free_vlan(struct hostapd_bss_config *bss)
 }
 
 
+#ifndef DEFAULT_WPA_DISABLE_EAPOL_KEY_RETRIES
+#define DEFAULT_WPA_DISABLE_EAPOL_KEY_RETRIES 0
+#endif /* DEFAULT_WPA_DISABLE_EAPOL_KEY_RETRIES */
+
 void hostapd_config_defaults_bss(struct hostapd_bss_config *bss)
 {
 	dl_list_init(&bss->anqp_elem);
@@ -58,6 +62,8 @@ void hostapd_config_defaults_bss(struct hostapd_bss_config *bss)
 	bss->wpa_gmk_rekey = 86400;
 	bss->wpa_group_update_count = 4;
 	bss->wpa_pairwise_update_count = 4;
+	bss->wpa_disable_eapol_key_retries =
+		DEFAULT_WPA_DISABLE_EAPOL_KEY_RETRIES;
 	bss->wpa_key_mgmt = WPA_KEY_MGMT_PSK;
 	bss->wpa_pairwise = WPA_CIPHER_TKIP;
 	bss->wpa_group = WPA_CIPHER_TKIP;
@@ -93,6 +99,10 @@ void hostapd_config_defaults_bss(struct hostapd_bss_config *bss)
 
 #ifdef CONFIG_IEEE80211R_AP
 	bss->ft_over_ds = 1;
+	bss->rkh_pos_timeout = 86400;
+	bss->rkh_neg_timeout = 60;
+	bss->rkh_pull_timeout = 1000;
+	bss->rkh_pull_retries = 4;
 #endif /* CONFIG_IEEE80211R_AP */
 
 	bss->radius_das_time_window = 300;
@@ -107,6 +117,12 @@ void hostapd_config_defaults_bss(struct hostapd_bss_config *bss)
 	bss->dhcp_server_port = DHCP_SERVER_PORT;
 	bss->dhcp_relay_port = DHCP_SERVER_PORT;
 #endif /* CONFIG_FILS */
+
+	bss->broadcast_deauth = 1;
+
+#ifdef CONFIG_MBO
+	bss->mbo_cell_data_conn_pref = -1;
+#endif /* CONFIG_MBO */
 }
 
 
@@ -203,6 +219,11 @@ struct hostapd_config * hostapd_config_defaults(void)
 #ifdef CONFIG_ACS
 	conf->acs_num_scans = 5;
 #endif /* CONFIG_ACS */
+
+	/* The third octet of the country string uses an ASCII space character
+	 * by default to indicate that the regulations encompass all
+	 * environments for the current frequency band in the country. */
+	conf->country[2] = ' ';
 
 	return conf;
 }
@@ -595,6 +616,9 @@ void hostapd_config_free_bss(struct hostapd_bss_config *conf)
 	wpabuf_free(conf->assocresp_elements);
 
 	os_free(conf->sae_groups);
+#ifdef CONFIG_OWE
+	os_free(conf->owe_groups);
+#endif /* CONFIG_OWE */
 
 	os_free(conf->wowlan_triggers);
 
@@ -602,12 +626,21 @@ void hostapd_config_free_bss(struct hostapd_bss_config *conf)
 
 #ifdef CONFIG_TESTING_OPTIONS
 	wpabuf_free(conf->own_ie_override);
+	wpabuf_free(conf->sae_commit_override);
 #endif /* CONFIG_TESTING_OPTIONS */
 
 	os_free(conf->no_probe_resp_if_seen_on);
 	os_free(conf->no_auth_if_seen_on);
 
 	hostapd_config_free_fils_realms(conf);
+
+#ifdef CONFIG_DPP
+	os_free(conf->dpp_connector);
+	wpabuf_free(conf->dpp_netaccesskey);
+	wpabuf_free(conf->dpp_csign);
+#endif /* CONFIG_DPP */
+
+	os_free(conf->sae_password);
 
 	os_free(conf);
 }
@@ -1015,6 +1048,9 @@ void hostapd_set_security_params(struct hostapd_bss_config *bss,
 		bss->rsn_pairwise = bss->wpa_pairwise;
 	bss->wpa_group = wpa_select_ap_group_cipher(bss->wpa, bss->wpa_pairwise,
 						    bss->rsn_pairwise);
+	if (!bss->wpa_group_rekey_set)
+		bss->wpa_group_rekey = bss->wpa_group == WPA_CIPHER_TKIP ?
+			600 : 86400;
 
 	if (full_config) {
 		bss->radius->auth_server = bss->radius->auth_servers;

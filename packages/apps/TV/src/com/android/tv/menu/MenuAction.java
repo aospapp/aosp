@@ -19,37 +19,47 @@ package com.android.tv.menu;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
-
 import com.android.tv.R;
 import com.android.tv.TvOptionsManager;
 import com.android.tv.TvOptionsManager.OptionType;
 
-/**
- * A class to define possible actions from main menu.
- */
+/** A class to define possible actions from main menu. */
 public class MenuAction {
     // Actions in the TV option row.
     public static final MenuAction SELECT_CLOSED_CAPTION_ACTION =
-            new MenuAction(R.string.options_item_closed_caption,
+            new MenuAction(
+                    R.string.options_item_closed_caption,
                     TvOptionsManager.OPTION_CLOSED_CAPTIONS,
                     R.drawable.ic_tvoption_cc);
     public static final MenuAction SELECT_DISPLAY_MODE_ACTION =
-            new MenuAction(R.string.options_item_display_mode, TvOptionsManager.OPTION_DISPLAY_MODE,
+            new MenuAction(
+                    R.string.options_item_display_mode,
+                    TvOptionsManager.OPTION_DISPLAY_MODE,
                     R.drawable.ic_tvoption_aspect);
     public static final MenuAction SYSTEMWIDE_PIP_ACTION =
-            new MenuAction(R.string.options_item_pip, TvOptionsManager.OPTION_SYSTEMWIDE_PIP,
+            new MenuAction(
+                    R.string.options_item_pip,
+                    TvOptionsManager.OPTION_SYSTEMWIDE_PIP,
                     R.drawable.ic_tvoption_pip);
     public static final MenuAction SELECT_AUDIO_LANGUAGE_ACTION =
-            new MenuAction(R.string.options_item_multi_audio, TvOptionsManager.OPTION_MULTI_AUDIO,
+            new MenuAction(
+                    R.string.options_item_multi_audio,
+                    TvOptionsManager.OPTION_MULTI_AUDIO,
                     R.drawable.ic_tvoption_multi_track);
     public static final MenuAction MORE_CHANNELS_ACTION =
-            new MenuAction(R.string.options_item_more_channels,
-                    TvOptionsManager.OPTION_MORE_CHANNELS, R.drawable.ic_store);
+            new MenuAction(
+                    R.string.options_item_more_channels,
+                    TvOptionsManager.OPTION_MORE_CHANNELS,
+                    R.drawable.ic_store);
     public static final MenuAction DEV_ACTION =
-            new MenuAction(R.string.options_item_developer,
-                    TvOptionsManager.OPTION_DEVELOPER, R.drawable.ic_developer_mode_tv_white_48dp);
+            new MenuAction(
+                    R.string.options_item_developer,
+                    TvOptionsManager.OPTION_DEVELOPER,
+                    R.drawable.ic_developer_mode_tv_white_48dp);
     public static final MenuAction SETTINGS_ACTION =
-            new MenuAction(R.string.options_item_settings, TvOptionsManager.OPTION_SETTINGS,
+            new MenuAction(
+                    R.string.options_item_settings,
+                    TvOptionsManager.OPTION_SETTINGS,
                     R.drawable.ic_settings);
 
     private final String mActionName;
@@ -60,18 +70,14 @@ public class MenuAction {
     private int mDrawableResId;
     private boolean mEnabled = true;
 
-    /**
-     * Sets the action description. Returns {@code trye} if the description is changed.
-     */
+    /** Sets the action description. Returns {@code trye} if the description is changed. */
     public static boolean setActionDescription(MenuAction action, String actionDescription) {
         String oldDescription = action.mActionDescription;
         action.mActionDescription = actionDescription;
         return !TextUtils.equals(action.mActionDescription, oldDescription);
     }
 
-    /**
-     * Enables or disables the action. Returns {@code true} if the value is changed.
-     */
+    /** Enables or disables the action. Returns {@code true} if the value is changed. */
     public static boolean setEnabled(MenuAction action, boolean enabled) {
         boolean changed = action.mEnabled != enabled;
         action.mEnabled = enabled;
@@ -105,13 +111,12 @@ public class MenuAction {
         return mActionDescription;
     }
 
-    @OptionType public int getType() {
+    @OptionType
+    public int getType() {
         return mType;
     }
 
-    /**
-     * Returns Drawable.
-     */
+    /** Returns Drawable. */
     public Drawable getDrawable(Context context) {
         if (mDrawable == null) {
             mDrawable = context.getDrawable(mDrawableResId);

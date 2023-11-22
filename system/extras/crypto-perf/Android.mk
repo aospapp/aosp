@@ -2,7 +2,7 @@ LOCAL_PATH := $(call my-dir)
 ifeq ($(TARGET_ARCH),arm64)
 include $(CLEAR_VARS)
 
-LOCAL_CFLAGS := -O0 -march=armv8-a+crypto
+LOCAL_CFLAGS := -O0 -march=armv8-a+crypto -Wall -Werror
 LOCAL_SRC_FILES := crypto.cpp
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)

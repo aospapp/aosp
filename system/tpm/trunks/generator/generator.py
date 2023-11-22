@@ -1267,7 +1267,7 @@ TPM_RC Tpm::SerializeCommand_%(method_name)s(%(method_args)s) {
   command_size += %(var_name)s_bytes.size();"""
   _AUTHORIZE_COMMAND = """
   std::string command_hash(32, 0);
-  hash->Finish(string_as_array(&command_hash), command_hash.size());
+  hash->Finish(base::string_as_array(&command_hash), command_hash.size());
   std::string authorization_section_bytes;
   std::string authorization_size_bytes;
   if (authorization_delegate) {
@@ -1353,7 +1353,7 @@ TPM_RC Tpm::ParseResponse_%(method_name)s(%(method_args)s) {
   }"""
   _AUTHORIZE_RESPONSE = """
   std::string response_hash(32, 0);
-  hash->Finish(string_as_array(&response_hash), response_hash.size());
+  hash->Finish(base::string_as_array(&response_hash), response_hash.size());
   if (tag == TPM_ST_SESSIONS) {
     CHECK(authorization_delegate) << "Authorization delegate missing!";
     if (!authorization_delegate->CheckResponseAuthorization(

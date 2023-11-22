@@ -53,6 +53,83 @@
 static int __cil_expr_to_bitmap(struct cil_list *expr, ebitmap_t *out, int max, struct cil_db *db);
 static int __cil_expr_list_to_bitmap(struct cil_list *expr_list, ebitmap_t *out, int max, struct cil_db *db);
 
+static int cats_compare(struct cil_cats *a, struct cil_cats *b)
+{
+	struct cil_list_item *i, *j;
+	int rc;
+
+	if (a == b) return 0;
+	if (!a) return -1;
+	if (!b) return 1;
+
+	/* Expects cat expression to have been evaluated */
+	cil_list_for_each(i, a->datum_expr) {
+		cil_list_for_each(j, b->datum_expr) {
+			rc = strcmp(DATUM(i->data)->fqn, DATUM(j->data)->fqn);
+			if (!rc) return rc;
+		}
+	}
+	return 0;
+}
+
+static int level_compare(struct cil_level *a, struct cil_level *b)
+{
+	int rc;
+
+	if (a == b) return 0;
+	if (!a) return -1;
+	if (!b) return 1;
+
+	if (a->sens != b->sens) {
+		rc = strcmp(DATUM(a->sens)->fqn, DATUM(b->sens)->fqn);
+		if (rc != 0) return rc;
+	}
+	if (a->cats != b->cats) {
+		return cats_compare(a->cats, b->cats);
+	}
+	return 0;
+}
+
+static int range_compare(struct cil_levelrange *a, struct cil_levelrange *b)
+{
+	int rc;
+
+	if (a == b) return 0;
+	if (!a) return -1;
+	if (!b) return 1;
+
+	if (a->low != b->low) {
+		rc = level_compare(a->low, b->low);
+		if (rc != 0) return rc;
+	}
+	if (a->high != b->high) {
+		return level_compare(a->high, b->high);
+	}
+	return 0;
+}
+
+static int context_compare(struct cil_context *a, struct cil_context *b)
+{
+	int rc;
+
+	if (a->user != b->user) {
+		rc = strcmp(DATUM(a->user)->fqn, DATUM(b->user)->fqn);
+		if (rc != 0) return rc;
+	}
+	if (a->role != b->role) {
+		rc = strcmp(DATUM(a->role)->fqn, DATUM(b->role)->fqn);
+		if (rc != 0) return rc;
+	}
+	if (a->type != b->type) {
+		rc = strcmp(DATUM(a->type)->fqn, DATUM(b->type)->fqn);
+		if (rc != 0) return rc;
+	}
+	if (a->range != b->range) {
+		return range_compare(a->range, b->range);
+	}
+	return 0;
+}
+
 static int cil_verify_is_list(struct cil_list *list, enum cil_flavor flavor)
 {
 	struct cil_list_item *curr;
@@ -102,6 +179,7 @@ void cil_post_fc_fill_data(struct fc_data *fc, char *path)
 			break;
 		case '\\':
 			c++;
+			/* FALLTHRU */
 		default:
 			if (!fc->meta) {
 				fc->stem_len++;
@@ -144,12 +222,36 @@ int cil_post_filecon_compare(const void *a, const void *b)
 		rc = -1;
 	} else if (b_filecon->type < a_filecon->type) {
 		rc = 1;
+	} else {
+		rc = strcmp(a_filecon->path_str, b_filecon->path_str);
 	}
 
 	free(a_path);
 	free(b_path);
 	free(a_data);
 	free(b_data);
+
+	return rc;
+}
+
+int cil_post_ibpkeycon_compare(const void *a, const void *b)
+{
+	int rc = SEPOL_ERR;
+	struct cil_ibpkeycon *aibpkeycon = *(struct cil_ibpkeycon **)a;
+	struct cil_ibpkeycon *bibpkeycon = *(struct cil_ibpkeycon **)b;
+
+	rc = strcmp(aibpkeycon->subnet_prefix_str, bibpkeycon->subnet_prefix_str);
+	if (rc)
+		return rc;
+
+	rc = (aibpkeycon->pkey_high - aibpkeycon->pkey_low)
+		- (bibpkeycon->pkey_high - bibpkeycon->pkey_low);
+	if (rc == 0) {
+		if (aibpkeycon->pkey_low < bibpkeycon->pkey_low)
+			rc = -1;
+		else if (bibpkeycon->pkey_low < aibpkeycon->pkey_low)
+			rc = 1;
+	}
 
 	return rc;
 }
@@ -166,6 +268,10 @@ int cil_post_portcon_compare(const void *a, const void *b)
 		if (aportcon->port_low < bportcon->port_low) {
 			rc = -1;
 		} else if (bportcon->port_low < aportcon->port_low) {
+			rc = 1;
+		} else if (aportcon->proto < bportcon->proto) {
+			rc = -1;
+		} else if (aportcon->proto > bportcon->proto) {
 			rc = 1;
 		}
 	}
@@ -193,6 +299,25 @@ int cil_post_netifcon_compare(const void *a, const void *b)
 	struct cil_netifcon *bnetifcon = *(struct cil_netifcon**)b;
 
 	return  strcmp(anetifcon->interface_str, bnetifcon->interface_str);
+}
+
+int cil_post_ibendportcon_compare(const void *a, const void *b)
+{
+	int rc = SEPOL_ERR;
+
+	struct cil_ibendportcon *aibendportcon = *(struct cil_ibendportcon **)a;
+	struct cil_ibendportcon *bibendportcon = *(struct cil_ibendportcon **)b;
+
+	rc = strcmp(aibendportcon->dev_name_str, bibendportcon->dev_name_str);
+	if (rc)
+		return rc;
+
+	if (aibendportcon->port < bibendportcon->port)
+		return -1;
+	else if (bibendportcon->port < aibendportcon->port)
+		return 1;
+
+	return rc;
 }
 
 int cil_post_nodecon_compare(const void *a, const void *b)
@@ -327,6 +452,102 @@ int cil_post_fsuse_compare(const void *a, const void *b)
 	return rc;
 }
 
+int cil_post_filecon_context_compare(const void *a, const void *b)
+{
+	struct cil_filecon *a_filecon = *(struct cil_filecon**)a;
+	struct cil_filecon *b_filecon = *(struct cil_filecon**)b;
+	return context_compare(a_filecon->context, b_filecon->context);
+}
+
+int cil_post_ibpkeycon_context_compare(const void *a, const void *b)
+{
+	struct cil_ibpkeycon *a_ibpkeycon = *(struct cil_ibpkeycon **)a;
+	struct cil_ibpkeycon *b_ibpkeycon = *(struct cil_ibpkeycon **)b;
+	return context_compare(a_ibpkeycon->context, b_ibpkeycon->context);
+}
+
+int cil_post_portcon_context_compare(const void *a, const void *b)
+{
+	struct cil_portcon *a_portcon = *(struct cil_portcon**)a;
+	struct cil_portcon *b_portcon = *(struct cil_portcon**)b;
+	return context_compare(a_portcon->context, b_portcon->context);
+}
+
+int cil_post_genfscon_context_compare(const void *a, const void *b)
+{
+	struct cil_genfscon *a_genfscon = *(struct cil_genfscon**)a;
+	struct cil_genfscon *b_genfscon = *(struct cil_genfscon**)b;
+	return context_compare(a_genfscon->context, b_genfscon->context);
+}
+
+int cil_post_netifcon_context_compare(const void *a, const void *b)
+{
+	int rc;
+	struct cil_netifcon *a_netifcon = *(struct cil_netifcon**)a;
+	struct cil_netifcon *b_netifcon = *(struct cil_netifcon**)b;
+	rc = context_compare(a_netifcon->if_context, b_netifcon->if_context);
+	if (rc != 0) {
+		return rc;
+	}
+	return context_compare(a_netifcon->packet_context, b_netifcon->packet_context);
+}
+
+int cil_post_ibendportcon_context_compare(const void *a, const void *b)
+{
+	struct cil_ibendportcon *a_ibendportcon = *(struct cil_ibendportcon **)a;
+	struct cil_ibendportcon *b_ibendportcon = *(struct cil_ibendportcon **)b;
+	return context_compare(a_ibendportcon->context, b_ibendportcon->context);
+}
+
+int cil_post_nodecon_context_compare(const void *a, const void *b)
+{
+	struct cil_nodecon *a_nodecon = *(struct cil_nodecon **)a;
+	struct cil_nodecon *b_nodecon = *(struct cil_nodecon **)b;
+	return context_compare(a_nodecon->context, b_nodecon->context);
+}
+
+int cil_post_pirqcon_context_compare(const void *a, const void *b)
+{
+	struct cil_pirqcon *a_pirqcon = *(struct cil_pirqcon**)a;
+	struct cil_pirqcon *b_pirqcon = *(struct cil_pirqcon**)b;
+	return context_compare(a_pirqcon->context, b_pirqcon->context);
+}
+
+int cil_post_iomemcon_context_compare(const void *a, const void *b)
+{
+	struct cil_iomemcon *a_iomemcon = *(struct cil_iomemcon**)a;
+	struct cil_iomemcon *b_iomemcon = *(struct cil_iomemcon**)b;
+	return context_compare(a_iomemcon->context, b_iomemcon->context);
+}
+
+int cil_post_ioportcon_context_compare(const void *a, const void *b)
+{
+	struct cil_ioportcon *a_ioportcon = *(struct cil_ioportcon**)a;
+	struct cil_ioportcon *b_ioportcon = *(struct cil_ioportcon**)b;
+	return context_compare(a_ioportcon->context, b_ioportcon->context);
+}
+
+int cil_post_pcidevicecon_context_compare(const void *a, const void *b)
+{
+	struct cil_pcidevicecon *a_pcidevicecon = *(struct cil_pcidevicecon**)a;
+	struct cil_pcidevicecon *b_pcidevicecon = *(struct cil_pcidevicecon**)b;
+	return context_compare(a_pcidevicecon->context, b_pcidevicecon->context);
+}
+
+int cil_post_devicetreecon_context_compare(const void *a, const void *b)
+{
+	struct cil_devicetreecon *a_devicetreecon = *(struct cil_devicetreecon**)a;
+	struct cil_devicetreecon *b_devicetreecon = *(struct cil_devicetreecon**)b;
+	return context_compare(a_devicetreecon->context, b_devicetreecon->context);
+}
+
+int cil_post_fsuse_context_compare(const void *a, const void *b)
+{
+	struct cil_fsuse *a_fsuse = *(struct cil_fsuse**)a;
+	struct cil_fsuse *b_fsuse = *(struct cil_fsuse**)b;
+	return context_compare(a_fsuse->context, b_fsuse->context);
+}
+
 static int __cil_post_db_count_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args)
 {
 	struct cil_db *db = extra_args;
@@ -400,6 +621,12 @@ static int __cil_post_db_count_helper(struct cil_tree_node *node, uint32_t *fini
 		break;
 	case CIL_NODECON:
 		db->nodecon->count++;
+		break;
+	case CIL_IBPKEYCON:
+		db->ibpkeycon->count++;
+		break;
+	case CIL_IBENDPORTCON:
+		db->ibendportcon->count++;
 		break;
 	case CIL_PORTCON:
 		db->portcon->count++;
@@ -491,6 +718,17 @@ static int __cil_post_db_array_helper(struct cil_tree_node *node, uint32_t *fini
 		sort->index++;
 		break;
 	}
+	case CIL_IBENDPORTCON: {
+		struct cil_sort *sort = db->ibendportcon;
+		uint32_t count = sort->count;
+		uint32_t i = sort->index;
+
+		if (!sort->array)
+			sort->array = cil_malloc(sizeof(*sort->array) * count);
+		sort->array[i] = node->data;
+		sort->index++;
+		break;
+	}
 	case CIL_FSUSE: {
 		struct cil_sort *sort = db->fsuse;
 		uint32_t count = sort->count;
@@ -531,6 +769,17 @@ static int __cil_post_db_array_helper(struct cil_tree_node *node, uint32_t *fini
 		if (sort->array == NULL) {
 			sort->array = cil_malloc(sizeof(*sort->array)*count);
 		}
+		sort->array[i] = node->data;
+		sort->index++;
+		break;
+	}
+	case CIL_IBPKEYCON: {
+		struct cil_sort *sort = db->ibpkeycon;
+		uint32_t count = sort->count;
+		uint32_t i = sort->index;
+
+		if (!sort->array)
+			sort->array = cil_malloc(sizeof(*sort->array) * count);
 		sort->array[i] = node->data;
 		sort->index++;
 		break;
@@ -1227,6 +1476,55 @@ static int cil_typeattribute_used(struct cil_typeattribute *attr, struct cil_db 
 	return CIL_TRUE;
 }
 
+static void __mark_neverallow_attrs(struct cil_list *expr_list)
+{
+	struct cil_list_item *curr;
+
+	cil_list_for_each(curr, expr_list) {
+		if (curr->flavor == CIL_DATUM) {
+			if (NODE(curr->data)->flavor == CIL_TYPEATTRIBUTE) {
+				struct cil_typeattribute *attr = curr->data;
+				if (strstr(DATUM(attr)->name, TYPEATTR_INFIX)) {
+					__mark_neverallow_attrs(attr->expr_list);
+				} else {
+					attr->used |= CIL_ATTR_NEVERALLOW;
+				}
+			}
+		} else if (curr->flavor == CIL_LIST) {
+			 __mark_neverallow_attrs(curr->data);
+		}
+	}
+}
+
+static int __cil_post_db_neverallow_attr_helper(struct cil_tree_node *node, uint32_t *finished, __attribute__((unused)) void *extra_args)
+{
+	switch (node->flavor) {
+	case CIL_BLOCK: {
+		struct cil_block *blk = node->data;
+		if (blk->is_abstract == CIL_TRUE) {
+			*finished = CIL_TREE_SKIP_HEAD;
+		}
+		break;
+	}
+	case CIL_MACRO: {
+		*finished = CIL_TREE_SKIP_HEAD;
+		break;
+	}
+	case CIL_TYPEATTRIBUTE: {
+		struct cil_typeattribute *attr = node->data;
+		if ((attr->used & CIL_ATTR_NEVERALLOW) &&
+		    strstr(DATUM(attr)->name, TYPEATTR_INFIX)) {
+			__mark_neverallow_attrs(attr->expr_list);
+		}
+		break;
+	}
+	default:
+		break;
+	}
+
+	return SEPOL_OK;
+}
+
 static int __cil_post_db_attr_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args)
 {
 	int rc = SEPOL_ERR;
@@ -1250,7 +1548,7 @@ static int __cil_post_db_attr_helper(struct cil_tree_node *node, uint32_t *finis
 			rc = __evaluate_type_expression(attr, db);
 			if (rc != SEPOL_OK) goto exit;
 		}
-		attr->used = cil_typeattribute_used(attr, db);
+		attr->keep = cil_typeattribute_used(attr, db);
 		break;
 	}
 	case CIL_ROLEATTRIBUTE: {
@@ -1618,6 +1916,22 @@ static int __cil_post_db_cat_helper(struct cil_tree_node *node, uint32_t *finish
 		}
 		break;
 	}
+	case CIL_IBPKEYCON: {
+		struct cil_ibpkeycon *ibpkeycon = node->data;
+
+		rc = __evaluate_levelrange_expression(ibpkeycon->context->range, db);
+		if (rc != SEPOL_OK)
+			goto exit;
+		break;
+	}
+	case CIL_IBENDPORTCON: {
+		struct cil_ibendportcon *ibendportcon = node->data;
+
+		rc = __evaluate_levelrange_expression(ibendportcon->context->range, db);
+		if (rc != SEPOL_OK)
+			goto exit;
+		break;
+	}
 	case CIL_PORTCON: {
 		struct cil_portcon *portcon = node->data;
 		rc = __evaluate_levelrange_expression(portcon->context->range, db);
@@ -1929,6 +2243,74 @@ exit:
 	return rc;
 }
 
+static int __cil_post_report_conflict(struct cil_tree_node *node, uint32_t *finished, void *extra_args)
+{
+	struct cil_list_item *li = extra_args;
+
+	if (node->flavor == CIL_BLOCK) {
+		struct cil_block *blk = node->data;
+		if (blk->is_abstract == CIL_TRUE) {
+			*finished = CIL_TREE_SKIP_HEAD;
+		}
+	} else if (node->flavor == CIL_MACRO) {
+		*finished = CIL_TREE_SKIP_HEAD;
+	} else if (node->flavor == li->flavor) {
+		if (node->data == li->data) {
+			char *path = cil_tree_get_cil_path(node);
+			cil_log(CIL_WARN, "  at %s:%d\n", path, node->line);
+		}
+	}
+	return SEPOL_OK;
+}
+
+static int __cil_post_process_context_rules(struct cil_sort *sort, int (*compar)(const void *, const void *), int (*concompar)(const void *, const void *), struct cil_db *db, enum cil_flavor flavor, const char *flavor_str)
+{
+	uint32_t count = sort->count;
+	uint32_t i, j = 0, removed = 0;
+	int rc = SEPOL_OK;
+
+	if (count < 2) {
+		return SEPOL_OK;
+	}
+
+	qsort(sort->array, sort->count, sizeof(sort->array), compar);
+
+	for (i=1; i<count; i++) {
+		if (compar(&sort->array[i], &sort->array[j]) != 0) {
+			j++;
+		} else {
+			removed++;
+			if (!db->multiple_decls ||
+			   concompar(&sort->array[i], &sort->array[j]) != 0) {
+				struct cil_list_item li;
+				int rc2;
+				cil_log(CIL_WARN, "Found conflicting %s rules\n",
+					flavor_str);
+				rc = SEPOL_ERR;
+				li.flavor = flavor;
+				li.data = sort->array[i];
+				rc2 = cil_tree_walk(db->ast->root,
+						    __cil_post_report_conflict,
+						    NULL, NULL, &li);
+				if (rc2 != SEPOL_OK) goto exit;
+				li.data = sort->array[j];
+				rc2 = cil_tree_walk(db->ast->root,
+						    __cil_post_report_conflict,
+						    NULL, NULL, &li);
+				if (rc2 != SEPOL_OK) goto exit;
+			}
+		}
+		if (i != j) {
+			sort->array[j] = sort->array[i];
+		}
+	}
+
+	sort->count = count - removed;
+
+exit:
+	return rc;
+}
+
 static int cil_post_db(struct cil_db *db)
 {
 	int rc = SEPOL_ERR;
@@ -1942,6 +2324,12 @@ static int cil_post_db(struct cil_db *db)
 	rc = cil_tree_walk(db->ast->root, __cil_post_db_array_helper, NULL, NULL, db);
 	if (rc != SEPOL_OK) {
 		cil_log(CIL_INFO, "Failure during cil database array helper\n");
+		goto exit;
+	}
+
+	rc = cil_tree_walk(db->ast->root, __cil_post_db_neverallow_attr_helper, NULL, NULL, db);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_INFO, "Failed to mark attributes used by generated attributes used in neverallow rules\n");
 		goto exit;
 	}
 
@@ -1975,17 +2363,77 @@ static int cil_post_db(struct cil_db *db)
 		goto exit;
 	}
 
-	qsort(db->netifcon->array, db->netifcon->count, sizeof(db->netifcon->array), cil_post_netifcon_compare);
-	qsort(db->genfscon->array, db->genfscon->count, sizeof(db->genfscon->array), cil_post_genfscon_compare);
-	qsort(db->portcon->array, db->portcon->count, sizeof(db->portcon->array), cil_post_portcon_compare);
-	qsort(db->nodecon->array, db->nodecon->count, sizeof(db->nodecon->array), cil_post_nodecon_compare);
-	qsort(db->fsuse->array, db->fsuse->count, sizeof(db->fsuse->array), cil_post_fsuse_compare);
-	qsort(db->filecon->array, db->filecon->count, sizeof(db->filecon->array), cil_post_filecon_compare);
-	qsort(db->pirqcon->array, db->pirqcon->count, sizeof(db->pirqcon->array), cil_post_pirqcon_compare);
-	qsort(db->iomemcon->array, db->iomemcon->count, sizeof(db->iomemcon->array), cil_post_iomemcon_compare);
-	qsort(db->ioportcon->array, db->ioportcon->count, sizeof(db->ioportcon->array), cil_post_ioportcon_compare);
-	qsort(db->pcidevicecon->array, db->pcidevicecon->count, sizeof(db->pcidevicecon->array), cil_post_pcidevicecon_compare);
-	qsort(db->devicetreecon->array, db->devicetreecon->count, sizeof(db->devicetreecon->array), cil_post_devicetreecon_compare);
+	rc = __cil_post_process_context_rules(db->netifcon, cil_post_netifcon_compare, cil_post_netifcon_context_compare, db, CIL_NETIFCON, CIL_KEY_NETIFCON);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Problems processing netifcon rules\n");
+		goto exit;
+	}
+
+	rc = __cil_post_process_context_rules(db->genfscon, cil_post_genfscon_compare, cil_post_genfscon_context_compare, db, CIL_GENFSCON, CIL_KEY_GENFSCON);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Problems processing genfscon rules\n");
+		goto exit;
+	}
+
+	rc = __cil_post_process_context_rules(db->ibpkeycon, cil_post_ibpkeycon_compare, cil_post_ibpkeycon_context_compare, db, CIL_IBPKEYCON, CIL_KEY_IBPKEYCON);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Problems processing ibpkeycon rules\n");
+		goto exit;
+	}
+
+	rc = __cil_post_process_context_rules(db->ibendportcon, cil_post_ibendportcon_compare, cil_post_ibendportcon_context_compare, db, CIL_IBENDPORTCON, CIL_KEY_IBENDPORTCON);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Problems processing ibendportcon rules\n");
+		goto exit;
+	}
+
+	rc = __cil_post_process_context_rules(db->portcon, cil_post_portcon_compare, cil_post_portcon_context_compare, db, CIL_PORTCON, CIL_KEY_PORTCON);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Problems processing portcon rules\n");
+		goto exit;
+	}
+
+	rc = __cil_post_process_context_rules(db->nodecon, cil_post_nodecon_compare, cil_post_nodecon_context_compare, db, CIL_NODECON, CIL_KEY_NODECON);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Problems processing nodecon rules\n");
+		goto exit;
+	}
+
+	rc = __cil_post_process_context_rules(db->fsuse, cil_post_fsuse_compare, cil_post_fsuse_context_compare, db, CIL_FSUSE, CIL_KEY_FSUSE);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Problems processing fsuse rules\n");
+		goto exit;
+	}
+
+	rc = __cil_post_process_context_rules(db->filecon, cil_post_filecon_compare, cil_post_filecon_context_compare, db, CIL_FILECON, CIL_KEY_FILECON);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Problems processing filecon rules\n");
+		goto exit;
+	}
+
+	rc = __cil_post_process_context_rules(db->iomemcon, cil_post_iomemcon_compare, cil_post_iomemcon_context_compare, db, CIL_IOMEMCON, CIL_KEY_IOMEMCON);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Problems processing iomemcon rules\n");
+		goto exit;
+	}
+
+	rc = __cil_post_process_context_rules(db->ioportcon, cil_post_ioportcon_compare, cil_post_ioportcon_context_compare, db, CIL_IOPORTCON, CIL_KEY_IOPORTCON);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Problems processing ioportcon rules\n");
+		goto exit;
+	}
+
+	rc = __cil_post_process_context_rules(db->pcidevicecon, cil_post_pcidevicecon_compare, cil_post_pcidevicecon_context_compare, db, CIL_PCIDEVICECON, CIL_KEY_PCIDEVICECON);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Problems processing pcidevicecon rules\n");
+		goto exit;
+	}
+
+	rc = __cil_post_process_context_rules(db->devicetreecon, cil_post_devicetreecon_compare, cil_post_devicetreecon_context_compare, db, CIL_DEVICETREECON, CIL_KEY_DEVICETREECON);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Problems processing devicetreecon rules\n");
+		goto exit;
+	}
 
 exit:
 	return rc;

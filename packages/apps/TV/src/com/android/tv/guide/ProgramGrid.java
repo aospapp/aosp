@@ -25,15 +25,11 @@ import android.util.Log;
 import android.util.Range;
 import android.view.View;
 import android.view.ViewTreeObserver;
-
 import com.android.tv.R;
 import com.android.tv.ui.OnRepeatedKeyInterceptListener;
-
 import java.util.concurrent.TimeUnit;
 
-/**
- * A {@link VerticalGridView} for the program table view.
- */
+/** A {@link VerticalGridView} for the program table view. */
 public class ProgramGrid extends VerticalGridView {
     private static final String TAG = "ProgramGrid";
 
@@ -84,7 +80,7 @@ public class ProgramGrid extends VerticalGridView {
 
     private final int mRowHeight;
     private final int mDetailHeight;
-    private final int mSelectionRow;  // Row that is focused
+    private final int mSelectionRow; // Row that is focused
 
     private View mLastFocusedView;
     private final Rect mTempRect = new Rect();
@@ -97,8 +93,8 @@ public class ProgramGrid extends VerticalGridView {
 
     interface ChildFocusListener {
         /**
-         * Is called before focus is moved. Only children to {@code ProgramGrid} will be passed.
-         * See {@code ProgramGrid#setChildFocusListener(ChildFocusListener)}.
+         * Is called before focus is moved. Only children to {@code ProgramGrid} will be passed. See
+         * {@code ProgramGrid#setChildFocusListener(ChildFocusListener)}.
          */
         void onRequestChildFocus(View oldFocus, View newFocus);
     }
@@ -207,16 +203,13 @@ public class ProgramGrid extends VerticalGridView {
     }
 
     /**
-     * Initializes ProgramGrid. It should be called before the view is actually attached to
-     * Window.
+     * Initializes ProgramGrid. It should be called before the view is actually attached to Window.
      */
     void initialize(ProgramManager programManager) {
         mProgramManager = programManager;
     }
 
-    /**
-     * Registers a listener focus events occurring on children to the {@code ProgramGrid}.
-     */
+    /** Registers a listener focus events occurring on children to the {@code ProgramGrid}. */
     void setChildFocusListener(ChildFocusListener childFocusListener) {
         mChildFocusListener = childFocusListener;
     }
@@ -226,8 +219,8 @@ public class ProgramGrid extends VerticalGridView {
     }
 
     /**
-     * Resets focus states. If the logic to keep the last focus needs to be cleared, it should
-     * be called.
+     * Resets focus states. If the logic to keep the last focus needs to be cleared, it should be
+     * called.
      */
     void resetFocusState() {
         mLastFocusedView = null;
@@ -255,8 +248,8 @@ public class ProgramGrid extends VerticalGridView {
             Log.w(TAG, "No child view has focus");
             return null;
         }
-        int nextChildIndex = direction == View.FOCUS_UP ? focusedChildIndex - 1
-                : focusedChildIndex + 1;
+        int nextChildIndex =
+                direction == View.FOCUS_UP ? focusedChildIndex - 1 : focusedChildIndex + 1;
         if (nextChildIndex < 0 || nextChildIndex >= getChildCount()) {
             // Wraparound if reached head or end
             if (getSelectedPosition() == 0) {
@@ -268,8 +261,12 @@ public class ProgramGrid extends VerticalGridView {
             }
             return focused;
         }
-        View nextFocusedProgram = GuideUtils.findNextFocusedProgram(getChildAt(nextChildIndex),
-                mFocusRangeLeft, mFocusRangeRight, mKeepCurrentProgramFocused);
+        View nextFocusedProgram =
+                GuideUtils.findNextFocusedProgram(
+                        getChildAt(nextChildIndex),
+                        mFocusRangeLeft,
+                        mFocusRangeRight,
+                        mKeepCurrentProgramFocused);
         if (nextFocusedProgram != null) {
             nextFocusedProgram.getGlobalVisibleRect(mTempRect);
             mNextFocusByUpDown = nextFocusedProgram;
@@ -320,8 +317,9 @@ public class ProgramGrid extends VerticalGridView {
         mFocusRangeRight = getRightMostFocusablePosition();
         mNextFocusByUpDown = null;
         // If focus is not a program item, drop focus to the current program when back to the grid
-        mKeepCurrentProgramFocused = !(focus instanceof ProgramItemView)
-                || GuideUtils.isCurrentProgram((ProgramItemView) focus);
+        mKeepCurrentProgramFocused =
+                !(focus instanceof ProgramItemView)
+                        || GuideUtils.isCurrentProgram((ProgramItemView) focus);
     }
 
     private int getRightMostFocusablePosition() {

@@ -28,10 +28,10 @@ import android.view.View;
 
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.files.TestActivity;
-import com.android.documentsui.selection.SelectionManager;
+import com.android.documentsui.selection.SelectionHelper;
 import com.android.documentsui.testing.ClipDatas;
 import com.android.documentsui.testing.DragEvents;
-import com.android.documentsui.testing.SelectionManagers;
+import com.android.documentsui.testing.SelectionHelpers;
 import com.android.documentsui.testing.TestActionHandler;
 import com.android.documentsui.testing.TestDragAndDropManager;
 import com.android.documentsui.testing.TestEnv;
@@ -55,7 +55,7 @@ public class DragHostTest {
     private TestDialogController mDialogs;
     private DragHost<?> dragHost;
     private TestDragAndDropManager mDragAndDropManager;
-    private SelectionManager mSelectionMgr;
+    private SelectionHelper mSelectionMgr;
     private boolean mIsDocumentView;
     private DocumentHolder mNextDocumentHolder;
     private DocumentInfo mNextDocumentInfo;
@@ -66,7 +66,7 @@ public class DragHostTest {
         mActivity = TestActivity.create(mEnv);
         mDialogs = new TestDialogController();
         mDragAndDropManager = new TestDragAndDropManager();
-        mSelectionMgr = SelectionManagers.createTestInstance(ITEMS);
+        mSelectionMgr = SelectionHelpers.createTestInstance(ITEMS);
         mActionHandler = new TestActionHandler();
         dragHost = new DragHost<>(
                 mActivity,

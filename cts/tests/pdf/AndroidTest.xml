@@ -14,8 +14,11 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Pdf test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="not-shardable" value="true" />
-    <option name="config-descriptor:metadata" key="component" value="framework" />
+
+    <!-- Printing is a large user of PDF, hence run the tests in the same component -->
+    <option name="config-descriptor:metadata" key="component" value="print" />
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />

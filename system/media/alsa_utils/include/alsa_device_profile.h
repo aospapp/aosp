@@ -60,34 +60,34 @@ typedef struct  {
 } alsa_device_profile;
 
 void profile_init(alsa_device_profile* profile, int direction);
-bool profile_is_initialized(alsa_device_profile* profile);
-bool profile_is_valid(alsa_device_profile* profile);
-bool profile_is_cached_for(alsa_device_profile* profile, int card, int device);
+bool profile_is_initialized(const alsa_device_profile* profile);
+bool profile_is_valid(const alsa_device_profile* profile);
+bool profile_is_cached_for(const alsa_device_profile* profile, int card, int device);
 void profile_decache(alsa_device_profile* profile);
 
 bool profile_read_device_info(alsa_device_profile* profile);
 
 /* Audio Config Strings Methods */
-char * profile_get_sample_rate_strs(alsa_device_profile* profile);
-char * profile_get_format_strs(alsa_device_profile* profile);
-char * profile_get_channel_count_strs(alsa_device_profile* profile);
+char * profile_get_sample_rate_strs(const alsa_device_profile* profile);
+char * profile_get_format_strs(const alsa_device_profile* profile);
+char * profile_get_channel_count_strs(const alsa_device_profile* profile);
 
 /* Sample Rate Methods */
-unsigned profile_get_default_sample_rate(alsa_device_profile* profile);
-bool profile_is_sample_rate_valid(alsa_device_profile* profile, unsigned rate);
+unsigned profile_get_default_sample_rate(const alsa_device_profile* profile);
+bool profile_is_sample_rate_valid(const alsa_device_profile* profile, unsigned rate);
 
 /* Format Methods */
-enum pcm_format profile_get_default_format(alsa_device_profile* profile);
-bool profile_is_format_valid(alsa_device_profile* profile, enum pcm_format fmt);
+enum pcm_format profile_get_default_format(const alsa_device_profile* profile);
+bool profile_is_format_valid(const alsa_device_profile* profile, enum pcm_format fmt);
 
 /* Channel Methods */
-unsigned profile_get_default_channel_count(alsa_device_profile* profile);
-unsigned profile_get_closest_channel_count(alsa_device_profile* profile, unsigned count);
-bool profile_is_channel_count_valid(alsa_device_profile* profile, unsigned count);
+unsigned profile_get_default_channel_count(const alsa_device_profile* profile);
+unsigned profile_get_closest_channel_count(const alsa_device_profile* profile, unsigned count);
+bool profile_is_channel_count_valid(const alsa_device_profile* profile, unsigned count);
 
 /* Utility */
-unsigned profile_calc_min_period_size(alsa_device_profile* profile, unsigned sample_rate);
-unsigned int profile_get_period_size(alsa_device_profile* profile, unsigned sample_rate);
+unsigned profile_calc_min_period_size(const alsa_device_profile* profile, unsigned sample_rate);
+unsigned int profile_get_period_size(const alsa_device_profile* profile, unsigned sample_rate);
 
 /* Debugging */
 void profile_dump(const alsa_device_profile* profile, int fd);

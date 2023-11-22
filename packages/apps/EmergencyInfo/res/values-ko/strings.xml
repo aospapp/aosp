@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"모든 정보 및 연락처를 삭제하시겠습니까?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"의료 정보와 비상 연락처를 추가하면 응급 상황에서 초기 대처에 도움이 될 수 있습니다.\n\n누구나 잠금 화면에서 이 정보를 읽을 수 있으며, 휴대전화를 잠금 해제하지 않고도 연락처 이름을 탭하여 전화를 걸 수 있습니다."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"긴급 상황 정보 추가"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"초기 대처자가 중요한 정보를 찾는 데 도움이 됩니다."</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"긴급 구조 대원이 내 정보를 볼 수 있도록 입력합니다."</string>
 </resources>

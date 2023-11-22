@@ -9,11 +9,14 @@
  */
 package android.icu.dev.test.util;
 
+import android.icu.testsharding.MainTestShard;
+
 /**
  * @author srl
  *
  */
 
+@MainTestShard
 public class DebugUtilities {
     
     /**

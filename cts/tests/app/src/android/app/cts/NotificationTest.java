@@ -17,19 +17,30 @@
 package android.app.cts;
 
 import android.app.Notification;
+import android.app.Notification.Action.Builder;
+import android.app.Notification.MessagingStyle;
 import android.app.Notification.MessagingStyle.Message;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.Person;
 import android.app.RemoteInput;
+import android.app.stubs.R;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Parcel;
+import android.os.Parcelable;
+import androidx.annotation.Nullable;
+
+import android.os.StrictMode;
 import android.test.AndroidTestCase;
 import android.widget.RemoteViews;
 
-import org.mockito.internal.matchers.Not;
+import java.util.ArrayList;
+import java.util.function.Consumer;
 
 public class NotificationTest extends AndroidTestCase {
     private static final String TEXT_RESULT_KEY = "text";
@@ -87,6 +98,25 @@ public class NotificationTest extends AndroidTestCase {
         final int expected = 0;
         mNotification = new Notification();
         assertEquals(expected, mNotification.describeContents());
+    }
+
+    public void testCategories() {
+        assertNotNull(Notification.CATEGORY_ALARM);
+        assertNotNull(Notification.CATEGORY_CALL);
+        assertNotNull(Notification.CATEGORY_EMAIL);
+        assertNotNull(Notification.CATEGORY_ERROR);
+        assertNotNull(Notification.CATEGORY_EVENT);
+        assertNotNull(Notification.CATEGORY_MESSAGE);
+        assertNotNull(Notification.CATEGORY_NAVIGATION);
+        assertNotNull(Notification.CATEGORY_PROGRESS);
+        assertNotNull(Notification.CATEGORY_PROMO);
+        assertNotNull(Notification.CATEGORY_RECOMMENDATION);
+        assertNotNull(Notification.CATEGORY_REMINDER);
+        assertNotNull(Notification.CATEGORY_SERVICE);
+        assertNotNull(Notification.CATEGORY_SOCIAL);
+        assertNotNull(Notification.CATEGORY_STATUS);
+        assertNotNull(Notification.CATEGORY_SYSTEM);
+        assertNotNull(Notification.CATEGORY_TRANSPORT);
     }
 
     public void testWriteToParcel() {
@@ -226,6 +256,15 @@ public class NotificationTest extends AndroidTestCase {
         assertEquals(Notification.GROUP_ALERT_SUMMARY, mNotification.getGroupAlertBehavior());
     }
 
+    public void testBuilder_getStyle() {
+        MessagingStyle ms = new MessagingStyle(new Person.Builder().setName("Test name").build());
+        Notification.Builder builder = new Notification.Builder(mContext, CHANNEL.getId());
+
+        builder.setStyle(ms);
+
+        assertEquals(ms, builder.getStyle());
+    }
+
     public void testActionBuilder() {
         final Intent intent = new Intent();
         final PendingIntent actionIntent = PendingIntent.getBroadcast(mContext, 0, intent, 0);
@@ -235,6 +274,63 @@ public class NotificationTest extends AndroidTestCase {
         assertEquals(actionIntent, mAction.actionIntent);
         assertEquals(true, mAction.getAllowGeneratedReplies());
     }
+
+    public void testNotification_addPerson() {
+        String name = "name";
+        String key = "key";
+        String uri = "name:name";
+        Person person = new Person.Builder()
+                .setName(name)
+                .setIcon(Icon.createWithResource(mContext, 1))
+                .setKey(key)
+                .setUri(uri)
+                .build();
+        mNotification = new Notification.Builder(mContext, CHANNEL.getId())
+                .setSmallIcon(1)
+                .setContentTitle(CONTENT_TITLE)
+                .addPerson(person)
+                .build();
+
+        ArrayList<Person> restoredPeople = mNotification.extras.getParcelableArrayList(
+                Notification.EXTRA_PEOPLE_LIST);
+        assertNotNull(restoredPeople);
+        Person restoredPerson = restoredPeople.get(0);
+        assertNotNull(restoredPerson);
+        assertNotNull(restoredPerson.getIcon());
+        assertEquals(name, restoredPerson.getName());
+        assertEquals(key, restoredPerson.getKey());
+        assertEquals(uri, restoredPerson.getUri());
+    }
+
+    public void testNotification_MessagingStyle_people() {
+        String name = "name";
+        String key = "key";
+        String uri = "name:name";
+        Person user = new Person.Builder()
+                .setName(name)
+                .setIcon(Icon.createWithResource(mContext, 1))
+                .setKey(key)
+                .setUri(uri)
+                .build();
+        Person participant = new Person.Builder().setName("sender").build();
+        Notification.MessagingStyle messagingStyle = new Notification.MessagingStyle(user)
+                .addMessage("text", 0, participant)
+                .addMessage(new Message("text 2", 0, participant));
+        mNotification = new Notification.Builder(mContext, CHANNEL.getId())
+                .setSmallIcon(1)
+                .setStyle(messagingStyle)
+                .build();
+
+        Person restoredPerson = mNotification.extras.getParcelable(
+                Notification.EXTRA_MESSAGING_PERSON);
+        assertNotNull(restoredPerson);
+        assertNotNull(restoredPerson.getIcon());
+        assertEquals(name, restoredPerson.getName());
+        assertEquals(key, restoredPerson.getKey());
+        assertEquals(uri, restoredPerson.getUri());
+        assertNotNull(mNotification.extras.getParcelableArray(Notification.EXTRA_MESSAGES));
+    }
+
 
     public void testMessagingStyle_historicMessages() {
         mNotification = new Notification.Builder(mContext, CHANNEL.getId())
@@ -250,6 +346,88 @@ public class NotificationTest extends AndroidTestCase {
 
         assertNotNull(
                 mNotification.extras.getParcelableArray(Notification.EXTRA_HISTORIC_MESSAGES));
+    }
+
+    public void testMessagingStyle_isGroupConversation() {
+        mContext.getApplicationInfo().targetSdkVersion = Build.VERSION_CODES.P;
+        Notification.MessagingStyle messagingStyle = new Notification.MessagingStyle("self name")
+                .setGroupConversation(true)
+                .setConversationTitle("test conversation title");
+        Notification notification = new Notification.Builder(mContext, "test id")
+                .setSmallIcon(1)
+                .setContentTitle("test title")
+                .setStyle(messagingStyle)
+                .build();
+
+        assertTrue(messagingStyle.isGroupConversation());
+        assertTrue(notification.extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION));
+    }
+
+    public void testMessagingStyle_isGroupConversation_noConversationTitle() {
+        mContext.getApplicationInfo().targetSdkVersion = Build.VERSION_CODES.P;
+        Notification.MessagingStyle messagingStyle = new Notification.MessagingStyle("self name")
+                .setGroupConversation(true)
+                .setConversationTitle(null);
+        Notification notification = new Notification.Builder(mContext, "test id")
+                .setSmallIcon(1)
+                .setContentTitle("test title")
+                .setStyle(messagingStyle)
+                .build();
+
+        assertTrue(messagingStyle.isGroupConversation());
+        assertTrue(notification.extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION));
+    }
+
+    public void testMessagingStyle_isGroupConversation_withConversationTitle_legacy() {
+        // In legacy (version < P), isGroupConversation is controlled by conversationTitle.
+        mContext.getApplicationInfo().targetSdkVersion = Build.VERSION_CODES.O;
+        Notification.MessagingStyle messagingStyle = new Notification.MessagingStyle("self name")
+                .setGroupConversation(false)
+                .setConversationTitle("test conversation title");
+        Notification notification = new Notification.Builder(mContext, "test id")
+                .setSmallIcon(1)
+                .setContentTitle("test title")
+                .setStyle(messagingStyle)
+                .build();
+
+        assertTrue(messagingStyle.isGroupConversation());
+        assertFalse(notification.extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION));
+    }
+
+    public void testMessagingStyle_isGroupConversation_withoutConversationTitle_legacy() {
+        // In legacy (version < P), isGroupConversation is controlled by conversationTitle.
+        mContext.getApplicationInfo().targetSdkVersion = Build.VERSION_CODES.O;
+        Notification.MessagingStyle messagingStyle = new Notification.MessagingStyle("self name")
+                .setGroupConversation(true)
+                .setConversationTitle(null);
+        Notification notification = new Notification.Builder(mContext, "test id")
+                .setSmallIcon(1)
+                .setContentTitle("test title")
+                .setStyle(messagingStyle)
+                .build();
+
+        assertFalse(messagingStyle.isGroupConversation());
+        assertTrue(notification.extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION));
+    }
+
+    public void testMessagingStyle_getUser() {
+        Person user = new Person.Builder().setName("Test name").build();
+
+        MessagingStyle messagingStyle = new MessagingStyle(user);
+
+        assertEquals(user, messagingStyle.getUser());
+    }
+
+    public void testMessage() {
+        Person sender = new Person.Builder().setName("Test name").build();
+        String text = "Test message";
+        long timestamp = 400;
+
+        Message message = new Message(text, timestamp, sender);
+
+        assertEquals(text, message.getText());
+        assertEquals(timestamp, message.getTimestamp());
+        assertEquals(sender, message.getSenderPerson());
     }
 
     public void testToString() {
@@ -294,6 +472,56 @@ public class NotificationTest extends AndroidTestCase {
         assertTrue(a.getDataOnlyRemoteInputs()[0].isDataOnly());
     }
 
+    public void testAction_builder_hasDefault() {
+        Notification.Action action = makeNotificationAction(null);
+        assertEquals(Notification.Action.SEMANTIC_ACTION_NONE, action.getSemanticAction());
+    }
+
+    public void testAction_builder_setSemanticAction() {
+        Notification.Action action = makeNotificationAction(
+                builder -> builder.setSemanticAction(Notification.Action.SEMANTIC_ACTION_REPLY));
+        assertEquals(Notification.Action.SEMANTIC_ACTION_REPLY, action.getSemanticAction());
+    }
+
+    public void testAction_parcel() {
+        Notification.Action action = writeAndReadParcelable(
+                makeNotificationAction(builder -> {
+                    builder.setSemanticAction(Notification.Action.SEMANTIC_ACTION_ARCHIVE);
+                    builder.setAllowGeneratedReplies(true);
+                }));
+
+        assertEquals(Notification.Action.SEMANTIC_ACTION_ARCHIVE, action.getSemanticAction());
+        assertTrue(action.getAllowGeneratedReplies());
+    }
+
+    public void testAction_clone() {
+        Notification.Action action = makeNotificationAction(
+                builder -> builder.setSemanticAction(Notification.Action.SEMANTIC_ACTION_DELETE));
+        assertEquals(
+                Notification.Action.SEMANTIC_ACTION_DELETE,
+                action.clone().getSemanticAction());
+    }
+
+    public void testBuildStrictMode() {
+        try {
+            StrictMode.setThreadPolicy(
+                    new StrictMode.ThreadPolicy.Builder().detectAll().penaltyDeath().build());
+            Notification.Action a = newActionBuilder()
+                    .addRemoteInput(newDataOnlyRemoteInput())
+                    .addRemoteInput(newTextRemoteInput())
+                    .addRemoteInput(newTextAndDataRemoteInput())
+                    .build();
+            Notification.Builder b = new Notification.Builder(mContext, "id")
+                    .setStyle(new Notification.BigTextStyle().setBigContentTitle("Big content"))
+                    .setContentTitle("title")
+                    .setActions(a);
+
+            b.build();
+        } finally {
+            StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder().permitAll().build());
+        }
+    }
+
     private static RemoteInput newDataOnlyRemoteInput() {
         return new RemoteInput.Builder(DATA_RESULT_KEY)
             .setAllowFreeFormInput(false)
@@ -319,5 +547,30 @@ public class NotificationTest extends AndroidTestCase {
 
     private static Notification.Action.Builder newActionBuilder() {
         return new Notification.Action.Builder(0, "title", null);
+    }
+
+    /**
+     * Writes an arbitrary {@link Parcelable} into a {@link Parcel} using its writeToParcel
+     * method before reading it out again to check that it was sent properly.
+     */
+    private static <T extends Parcelable> T writeAndReadParcelable(T original) {
+        Parcel p = Parcel.obtain();
+        p.writeParcelable(original, /* flags */ 0);
+        p.setDataPosition(0);
+        return p.readParcelable(/* classLoader */ null);
+    }
+
+    /**
+     * Creates a Notification.Action by mocking initial dependencies and then applying
+     * transformations if they're defined.
+     */
+    private Notification.Action makeNotificationAction(
+            @Nullable Consumer<Builder> transformation) {
+        Notification.Action.Builder actionBuilder =
+            new Notification.Action.Builder(null, "Test Title", null);
+        if (transformation != null) {
+            transformation.accept(actionBuilder);
+        }
+        return actionBuilder.build();
     }
 }

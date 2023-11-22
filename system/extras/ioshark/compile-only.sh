@@ -110,7 +110,7 @@ merge_compile()
 
 rm -f *.wl
 rm -f parsed*
-rm ioshark_filenames
+rm -f ioshark_filenames
 
 # Pre-process the ftrace file
 prep_fstrace fstrace

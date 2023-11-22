@@ -115,7 +115,9 @@
 
 /* By default, use vfork() on Linux. */
 #ifndef START_CHILD_USE_VFORK
-  #ifdef __linux__
+// Android-changed: disable vfork under AddressSanitizer.
+//  #ifdef __linux__
+  #if defined(__linux__) && !__has_feature(address_sanitizer)
     #define START_CHILD_USE_VFORK 1
   #else
     #define START_CHILD_USE_VFORK 0
@@ -526,6 +528,8 @@ debugPrint(char *format, ...)
  * misfeature, but compatibility wins over sanity.  The original support for
  * this was imported accidentally from execvp().
  */
+// Android-added: #if START_CHILD_USE_CLONE || START_CHILD_USE_VFORK
+#if START_CHILD_USE_CLONE || START_CHILD_USE_VFORK
 static void
 execve_as_traditional_shell_script(const char *file,
                                    const char *argv[],
@@ -544,6 +548,7 @@ execve_as_traditional_shell_script(const char *file,
     memmove(argv+1, argv+2, (end-argv) * sizeof (*end));
     argv[0] = argv0;
 }
+#endif
 
 /**
  * Like execve(2), except that in case of ENOEXEC, FILE is assumed to

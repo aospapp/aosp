@@ -39,7 +39,10 @@ class firmware_ECUsbPorts(FirmwareTest):
 
 
     def cleanup(self):
-        self.ec.send_command("chan 0xffffffff")
+        try:
+            self.ec.send_command("chan 0xffffffff")
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_ECUsbPorts, self).cleanup()
 
 

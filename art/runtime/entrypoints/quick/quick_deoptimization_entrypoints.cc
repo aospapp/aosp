@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "base/logging.h"
+#include "base/logging.h"  // For VLOG_IS_ON.
 #include "base/mutex.h"
 #include "base/systrace.h"
 #include "callee_save_frame.h"
@@ -73,7 +73,11 @@ extern "C" NO_RETURN void artDeoptimizeFromCompiledCode(DeoptimizationKind kind,
   // Before deoptimizing to interpreter, we must push the deoptimization context.
   JValue return_value;
   return_value.SetJ(0);  // we never deoptimize from compiled code with an invoke result.
-  self->PushDeoptimizationContext(return_value, false, /* from_code */ true, self->GetException());
+  self->PushDeoptimizationContext(return_value,
+                                  false /* is_reference */,
+                                  self->GetException(),
+                                  true /* from_code */,
+                                  DeoptimizationMethodType::kDefault);
   artDeoptimizeImpl(self, kind, true);
 }
 

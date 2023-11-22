@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-#include <inttypes.h>
-#include <memory>
-#include <stdio.h>
 #include <dlfcn.h>
+#include <inttypes.h>
+
+#include <cstdio>
+#include <memory>
 
 #include "android-base/stringprintf.h"
 #include "jni.h"
@@ -26,8 +27,8 @@
 // Test infrastructure
 #include "jni_binder.h"
 #include "jvmti_helper.h"
-#include "test_env.h"
 #include "scoped_local_ref.h"
+#include "test_env.h"
 
 namespace art {
 namespace Test986NativeBind {
@@ -114,10 +115,10 @@ extern "C" JNIEXPORT void JNICALL Java_art_Test986_setNativeBindNotify(
 extern "C" JNIEXPORT void JNICALL Java_art_Test986_rebindTransformClass(
     JNIEnv* env, jclass klass ATTRIBUTE_UNUSED, jclass k) {
   JNINativeMethod m[2];
-  m[0].name= "sayHi";
+  m[0].name = "sayHi";
   m[0].signature = "()V";
   m[0].fnPtr = reinterpret_cast<void*>(Java_art_Test986_00024Transform_sayHi__);
-  m[1].name= "sayHi2";
+  m[1].name = "sayHi2";
   m[1].signature = "()V";
   m[1].fnPtr = reinterpret_cast<void*>(Java_art_Test986_00024Transform_sayHi2);
   env->RegisterNatives(k, m, 2);

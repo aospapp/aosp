@@ -8,6 +8,8 @@ FLAT_BUFFERS_PREFIX = $(CHRE_PREFIX)/external/flatbuffers
 # Common Compiler Flags ########################################################
 
 # Include paths.
+COMMON_CFLAGS += -I$(WIFI_OFFLOAD_TYPES_PREFIX)/include
+COMMON_CFLAGS += -I$(WIFI_OFFLOAD_TYPES_PREFIX)/test/include
 COMMON_CFLAGS += -I$(FLAT_BUFFERS_PREFIX)/include
 
 # Common Source Files ##########################################################

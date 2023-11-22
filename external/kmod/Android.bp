@@ -1,5 +1,4 @@
 cc_binary_host {
-    clang: true,
     srcs: [
         "libkmod/libkmod.c",
         "libkmod/libkmod-file.c",
@@ -35,6 +34,7 @@ cc_binary_host {
         "-ffunction-sections",
         "-fdata-sections",
         "-Wall",
+        "-Werror",
         "-Wno-unused-parameter",
         "-Wno-unused-variable",
         "-Dsecure_getenv=getenv",

@@ -1,12 +1,12 @@
+// Generated file (from: conv_1_h3_w2_SAME.mod.py). Do not edit
 void CreateModel(Model *model) {
-  OperandType type0(Type::INT32, {1});
+  OperandType type0(Type::INT32, {});
   OperandType type3(Type::TENSOR_FLOAT32, {1, 3, 2, 3});
   OperandType type2(Type::TENSOR_FLOAT32, {1, 8, 8, 1});
   OperandType type1(Type::TENSOR_FLOAT32, {1, 8, 8, 3});
   OperandType type4(Type::TENSOR_FLOAT32, {1});
   // Phase 1, operands
-  auto pad0 = model->addOperand(&type0);
-  auto pad1 = model->addOperand(&type0);
+  auto b4 = model->addOperand(&type0);
   auto b5 = model->addOperand(&type0);
   auto b6 = model->addOperand(&type0);
   auto b7 = model->addOperand(&type0);
@@ -15,24 +15,27 @@ void CreateModel(Model *model) {
   auto op0 = model->addOperand(&type3);
   auto op1 = model->addOperand(&type4);
   // Phase 2, operations
-  int32_t pad0_init[] = {0};
-  model->setOperandValue(pad0, pad0_init, sizeof(int32_t) * 1);
-  int32_t pad1_init[] = {1};
-  model->setOperandValue(pad1, pad1_init, sizeof(int32_t) * 1);
-  int32_t b5_init[] = {1};
+  static int32_t b4_init[] = {1};
+  model->setOperandValue(b4, b4_init, sizeof(int32_t) * 1);
+  static int32_t b5_init[] = {1};
   model->setOperandValue(b5, b5_init, sizeof(int32_t) * 1);
-  int32_t b6_init[] = {1};
+  static int32_t b6_init[] = {1};
   model->setOperandValue(b6, b6_init, sizeof(int32_t) * 1);
-  int32_t b7_init[] = {0};
+  static int32_t b7_init[] = {0};
   model->setOperandValue(b7, b7_init, sizeof(int32_t) * 1);
-  float op0_init[] = {-0.966213, -0.467474, -0.82203, -0.579455, 0.0278809, -0.79946, -0.684259, 0.563238, 0.37289, 0.738216, 0.386045, -0.917775, 0.184325, -0.270568, 0.82236, 0.0973683, -0.941308, -0.144706};
+  static float op0_init[] = {-0.966213f, -0.467474f, -0.82203f, -0.579455f, 0.0278809f, -0.79946f, -0.684259f, 0.563238f, 0.37289f, 0.738216f, 0.386045f, -0.917775f, 0.184325f, -0.270568f, 0.82236f, 0.0973683f, -0.941308f, -0.144706f};
   model->setOperandValue(op0, op0_init, sizeof(float) * 18);
-  float op1_init[] = {0};
+  static float op1_init[] = {0.0f};
   model->setOperandValue(op1, op1_init, sizeof(float) * 1);
-  model->addOperation(ANEURALNETWORKS_CONV_2D, {op2, op0, op1, pad0, pad1, pad1, pad1, b5, b6, b7}, {op3});
+  model->addOperation(ANEURALNETWORKS_CONV_2D, {op2, op0, op1, b4, b5, b6, b7}, {op3});
   // Phase 3, inputs and outputs
   model->identifyInputsAndOutputs(
     {op2},
     {op3});
   assert(model->isValid());
+}
+
+bool is_ignored(int i) {
+  static std::set<int> ignore = {};
+  return ignore.find(i) != ignore.end();
 }

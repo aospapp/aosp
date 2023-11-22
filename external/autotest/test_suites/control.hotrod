@@ -25,7 +25,7 @@ from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 _BUG_TEMPLATE = {
     'components': ['UI>Shell>Kiosk'],
     'labels': ['Proj-Hotrod', 'Hotrod-Auto-Bug'],
-    'owner': 'harpreet@chromium.org',
+    'owner': 'chromeos-meetings@chromium.org',
     'status': None,
     'summary': None,
     'title': None,

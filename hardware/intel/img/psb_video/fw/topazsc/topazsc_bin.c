@@ -132,7 +132,6 @@ int main()
     FILE *fp = NULL;
     topaz_fw_codec_t iter = FW_MASTER_JPEG;
     unsigned int size = 0;
-    unsigned int i;
 
     fw_table_t topaz_fw_table[] = {
         /* index   header

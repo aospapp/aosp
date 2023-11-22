@@ -52,6 +52,7 @@
 #include "libc_init_common.h"
 
 #include "private/bionic_globals.h"
+#include "private/bionic_macros.h"
 #include "private/bionic_ssp.h"
 #include "private/bionic_tls.h"
 #include "private/KernelArgumentBlock.h"
@@ -76,11 +77,14 @@ static void __libc_preinit_impl(KernelArgumentBlock& args) {
   netdClientInit();
 }
 
-// We flag the __libc_preinit function as a constructor to ensure
-// that its address is listed in libc.so's .init_array section.
-// This ensures that the function is called by the dynamic linker
-// as soon as the shared library is loaded.
-__attribute__((constructor)) static void __libc_preinit() {
+// We flag the __libc_preinit function as a constructor to ensure that
+// its address is listed in libc.so's .init_array section.
+// This ensures that the function is called by the dynamic linker as
+// soon as the shared library is loaded.
+// We give this constructor priority 1 because we want libc's constructor
+// to run before any others (such as the jemalloc constructor), and lower
+// is better (http://b/68046352).
+__attribute__((constructor(1))) static void __libc_preinit() {
   // Read the kernel argument block pointer from TLS.
   void** tls = __get_tls();
   KernelArgumentBlock** args_slot = &reinterpret_cast<KernelArgumentBlock**>(tls)[TLS_SLOT_BIONIC_PREINIT];
@@ -108,6 +112,7 @@ __noreturn void __libc_init(void* raw_args,
                             void (*onexit)(void) __unused,
                             int (*slingshot)(int, char**, char**),
                             structors_array_t const * const structors) {
+  BIONIC_STOP_UNWIND;
 
   KernelArgumentBlock args(raw_args);
 

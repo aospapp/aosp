@@ -1,3 +1,0 @@
-set_prop(surfaceflinger, hdmi_prop)
-
-hal_server_domain(surfaceflinger, hal_graphics_allocator)

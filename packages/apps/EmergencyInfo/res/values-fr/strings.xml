@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Effacer toutes les informations et tous les contacts ?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Vous pouvez ajouter des informations médicales et des contacts à joindre en cas d\'urgence. Ces renseignements seront utiles aux personnes qui vous porteront secours, si jamais il vous arrive quelque chose.\n\nN\'importe qui peut avoir accès à ces informations sur l\'écran de verrouillage, et appeler vos contacts en appuyant sur leur nom, sans déverrouiller votre téléphone."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Ajouter des informations d\'urgence"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Ces informations seront utiles aux premiers secours s\'il vous arrive quelque chose"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Autoriser les premiers secours à voir vos informations"</string>
 </resources>

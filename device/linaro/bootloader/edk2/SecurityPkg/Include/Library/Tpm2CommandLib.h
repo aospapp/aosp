@@ -1,7 +1,7 @@
 /** @file
   This library is used by other modules to send TPM2 command.
 
-Copyright (c) 2013 - 2014, Intel Corporation. All rights reserved. <BR>
+Copyright (c) 2013 - 2016, Intel Corporation. All rights reserved. <BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -561,6 +561,23 @@ Tpm2PcrAllocate (
   );
 
 /**
+  Alloc PCR data.
+
+  @param[in]  PlatformAuth      platform auth value. NULL means no platform auth change.
+  @param[in]  SupportedPCRBanks Supported PCR banks
+  @param[in]  PCRBanks          PCR banks
+
+  @retval EFI_SUCCESS Operation completed successfully.
+**/
+EFI_STATUS
+EFIAPI
+Tpm2PcrAllocateBanks (
+  IN TPM2B_AUTH                *PlatformAuth,  OPTIONAL
+  IN UINT32                    SupportedPCRBanks,
+  IN UINT32                    PCRBanks
+  );
+
+/**
   This command returns various information regarding the TPM and its current state.
 
   The capability parameter determines the category of data returned. The property parameter 
@@ -743,6 +760,24 @@ EFI_STATUS
 EFIAPI
 Tpm2GetCapabilityPcrs (
   OUT TPML_PCR_SELECTION      *Pcrs
+  );
+
+/**
+  This function will query the TPM to determine which hashing algorithms
+  are supported and which PCR banks are currently active.
+
+  @param[out]  TpmHashAlgorithmBitmap A bitmask containing the algorithms supported by the TPM.
+  @param[out]  ActivePcrBanks         A bitmask containing the PCRs currently allocated.
+
+  @retval     EFI_SUCCESS   TPM was successfully queried and return values can be trusted.
+  @retval     Others        An error occurred, likely in communication with the TPM.
+
+**/
+EFI_STATUS
+EFIAPI
+Tpm2GetCapabilitySupportedAndActivePcrs(
+  OUT UINT32                            *TpmHashAlgorithmBitmap,
+  OUT UINT32                            *ActivePcrBanks
   );
 
 /**
@@ -969,6 +1004,83 @@ UINT16
 EFIAPI
 GetHashSizeFromAlgo (
   IN TPMI_ALG_HASH    HashAlgo
+  );
+
+/**
+  Get hash mask from algorithm.
+
+  @param[in] HashAlgo   Hash algorithm
+
+  @return Hash mask
+**/
+UINT32
+EFIAPI
+GetHashMaskFromAlgo (
+  IN TPMI_ALG_HASH     HashAlgo
+  );
+
+/**
+  Return if hash alg is supported in HashAlgorithmMask.
+
+  @param HashAlg            Hash algorithm to be checked.
+  @param HashAlgorithmMask  Bitfield of allowed hash algorithms.
+
+  @retval TRUE  Hash algorithm is supported.
+  @retval FALSE Hash algorithm is not supported.
+**/
+BOOLEAN
+EFIAPI
+IsHashAlgSupportedInHashAlgorithmMask(
+  IN TPMI_ALG_HASH  HashAlg,
+  IN UINT32         HashAlgorithmMask
+  );
+
+/**
+  Copy TPML_DIGEST_VALUES into a buffer
+
+  @param[in,out] Buffer             Buffer to hold copied TPML_DIGEST_VALUES compact binary.
+  @param[in]     DigestList         TPML_DIGEST_VALUES to be copied.
+  @param[in]     HashAlgorithmMask  HASH bits corresponding to the desired digests to copy.
+
+  @return The end of buffer to hold TPML_DIGEST_VALUES.
+**/
+VOID *
+EFIAPI
+CopyDigestListToBuffer(
+  IN OUT VOID                       *Buffer,
+  IN TPML_DIGEST_VALUES             *DigestList,
+  IN UINT32                         HashAlgorithmMask
+  );
+
+/**
+  Get TPML_DIGEST_VALUES data size.
+
+  @param[in]     DigestList    TPML_DIGEST_VALUES data.
+
+  @return TPML_DIGEST_VALUES data size.
+**/
+UINT32
+EFIAPI
+GetDigestListSize(
+  IN TPML_DIGEST_VALUES             *DigestList
+  );
+
+/**
+  This function get digest from digest list.
+
+  @param[in]  HashAlg       Digest algorithm
+  @param[in]  DigestList    Digest list
+  @param[out] Digest        Digest
+
+  @retval EFI_SUCCESS       Digest is found and returned.
+  @retval EFI_NOT_FOUND     Digest is not found.
+**/
+EFI_STATUS
+EFIAPI
+GetDigestFromDigestList(
+  IN TPMI_ALG_HASH      HashAlg,
+  IN TPML_DIGEST_VALUES *DigestList,
+  OUT VOID              *Digest
   );
 
 #endif

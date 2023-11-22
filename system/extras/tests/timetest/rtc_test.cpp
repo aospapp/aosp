@@ -24,49 +24,51 @@
 
 #include <gtest/gtest.h>
 
+#include <android-base/unique_fd.h>
+
 static int hwtime(int flag, int request, struct rtc_time *tm) {
   static const char rtc[] = "/dev/rtc0";
 
-  int ret = TEMP_FAILURE_RETRY(access(rtc, flag & O_WRONLY) ? W_OK : R_OK);
+  int ret = access(rtc, flag & O_WRONLY);
   if (ret < 0) {
-    ret = -errno;
-  }
-  if (ret == -EACCES) {
-    return ret;
+    return -errno;
   }
 
   if (flag & O_WRONLY) {
     struct stat st;
     ret = TEMP_FAILURE_RETRY(stat(rtc, &st));
     if (ret < 0) {
-      ret = -errno;
+      return -errno;
     } else if (!(st.st_mode & (S_IWUSR|S_IWGRP|S_IWOTH))) {
-      ret = -EACCES;
+      return -EACCES;
     }
   }
-  if (ret == -EACCES) {
-    return ret;
-  }
 
-  do {
+  for (int count = 0; count < 10; count++) {
     ret = TEMP_FAILURE_RETRY(open(rtc, flag));
     if (ret < 0) {
-      ret = -errno;
+      if (errno == EBUSY) {
+        sleep(1);
+        continue;
+      }
+      return -errno;
     }
-  } while (ret == -EBUSY);
-  if (ret < 0) {
-    return ret;
+    break;
   }
+  android::base::unique_fd fd(ret);
 
-  int fd = ret;
-  do {
-    ret = TEMP_FAILURE_RETRY(ioctl(fd, request, tm));
+  for (int count = 0; count < 10; count++) {
+    ret = TEMP_FAILURE_RETRY(ioctl(fd.get(), request, tm));
     if (ret < 0) {
-      ret = -errno;
+      if (errno == EBUSY) {
+        sleep(1);
+        continue;
+      }
+      return -errno;
     }
-  } while (ret == -EBUSY);
-  close(fd);
-  return ret;
+    return ret;
+  };
+  return -EBUSY;
 }
 
 static int rd_hwtime(struct rtc_time *tm) {

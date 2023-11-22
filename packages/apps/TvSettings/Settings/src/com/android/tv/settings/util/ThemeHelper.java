@@ -18,8 +18,6 @@ package com.android.tv.settings.util;
 
 import android.content.Intent;
 
-import com.android.tv.settings.R;
-
 public class ThemeHelper {
     public static final String EXTRA_FROM_SETUP_WIZARD = "firstRun";
 
@@ -28,24 +26,6 @@ public class ThemeHelper {
      */
     public static boolean fromSetupWizard(Intent intent) {
         return intent.getBooleanExtra(EXTRA_FROM_SETUP_WIZARD, false);
-    }
-
-    /**
-     * Checks for the setup wizard extra and returns the appropriate theme.
-     */
-    public static int getThemeResource(Intent intent) {
-        return getThemeResource(fromSetupWizard(intent));
-    }
-
-    /**
-     * Returns the appropriate setup theme.
-     */
-    public static int getThemeResource(boolean transparent) {
-        if (transparent) {
-            return R.style.Theme_Leanback_FormWizard_Transparent;
-        } else {
-            return R.style.Theme_Leanback_FormWizard_Solid;
-        }
     }
 
     /**

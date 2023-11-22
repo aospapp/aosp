@@ -24,6 +24,7 @@
 #include <sys/errno.h>
 #include "ioshark.h"
 #include "compile_ioshark.h"
+#include <endian.h>
 
 extern char *progname;
 
@@ -48,7 +49,7 @@ files_db_write_objects(FILE *fp)
 			st.size = db_node->size;
 			st.global_filename_ix =
 				db_node->global_filename_ix;
-			if (fwrite(&st, sizeof(st), 1, fp) != 1) {
+			if (ioshark_write_file_state(fp, &st) != 1) {
 				fprintf(stderr,
 					"%s Write error trace.outfile\n",
 					progname);
@@ -213,5 +214,67 @@ store_filename_cache(void)
 	free(filename_cache);
 }
 
+int
+ioshark_write_header(FILE *fp, struct ioshark_header *header)
+{
+	header->version = htobe64(header->version);
+	header->num_files = htobe64(header->num_files);
+	header->num_io_operations = htobe64(header->num_io_operations);
+	return fwrite(header, sizeof(struct ioshark_header), 1, fp);
+}
 
+int
+ioshark_write_file_state(FILE *fp, struct ioshark_file_state *state)
+{
+	state->fileno = htobe64(state->fileno);
+	state->size = htobe64(state->size);
+	state->global_filename_ix = htobe64(state->global_filename_ix);
+	return fwrite(state, sizeof(struct ioshark_file_state), 1, fp);
+}
 
+int
+ioshark_write_file_op(FILE *fp, struct ioshark_file_operation *file_op)
+{
+	enum file_op op = file_op->ioshark_io_op;
+
+	file_op->delta_us = htobe64(file_op->delta_us);
+	file_op->op_union.enum_size = htobe32(file_op->op_union.enum_size);
+	file_op->fileno = htobe64(file_op->fileno);
+	switch (op) {
+	case IOSHARK_LSEEK:
+	case IOSHARK_LLSEEK:
+		file_op->lseek_offset = htobe64(file_op->lseek_offset);
+		file_op->lseek_action = htobe32(file_op->lseek_action);
+		break;
+	case IOSHARK_PREAD64:
+	case IOSHARK_PWRITE64:
+		file_op->prw_offset = htobe64(file_op->prw_offset);
+		file_op->prw_len = htobe64(file_op->prw_len);
+		break;
+	case IOSHARK_READ:
+	case IOSHARK_WRITE:
+		file_op->rw_len = htobe64(file_op->rw_len);
+		break;
+	case IOSHARK_MMAP:
+	case IOSHARK_MMAP2:
+		file_op->mmap_offset = htobe64(file_op->mmap_offset);
+		file_op->mmap_len = htobe64(file_op->mmap_len);
+		file_op->mmap_prot = htobe32(file_op->mmap_prot);
+		break;
+	case IOSHARK_OPEN:
+		file_op->open_flags = htobe32(file_op->open_flags);
+		file_op->open_mode = htobe32(file_op->open_mode);
+		break;
+	case IOSHARK_FSYNC:
+	case IOSHARK_FDATASYNC:
+		break;
+	case IOSHARK_CLOSE:
+		break;
+	default:
+		fprintf(stderr, "%s: unknown FILE_OP %d\n",
+			progname, op);
+		exit(EXIT_FAILURE);
+		break;
+	}
+	return fwrite(file_op, sizeof(struct ioshark_file_operation), 1, fp);
+}

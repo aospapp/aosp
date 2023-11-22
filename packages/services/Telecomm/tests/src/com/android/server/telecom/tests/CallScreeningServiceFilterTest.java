@@ -15,6 +15,7 @@
  */
 
 package com.android.server.telecom.tests;
+
 import android.Manifest;
 import android.content.ComponentName;
 import android.content.Context;
@@ -37,29 +38,32 @@ import com.android.server.telecom.CallsManager;
 import com.android.server.telecom.DefaultDialerCache;
 import com.android.server.telecom.ParcelableCallUtils;
 import com.android.server.telecom.PhoneAccountRegistrar;
-import com.android.server.telecom.TelecomServiceImpl;
 import com.android.server.telecom.callfiltering.CallFilterResultCallback;
 import com.android.server.telecom.callfiltering.CallFilteringResult;
 import com.android.server.telecom.callfiltering.CallScreeningServiceFilter;
 import com.android.server.telecom.TelecomSystem;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
 import java.util.Collections;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.nullable;
-import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@RunWith(JUnit4.class)
 public class CallScreeningServiceFilterTest extends TelecomTestCase {
     @Mock Context mContext;
     @Mock CallsManager mCallsManager;
@@ -90,13 +94,14 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
     );
 
     private CallScreeningServiceFilter mFilter;
+
     @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         when(mCallsManager.getCurrentUserHandle()).thenReturn(UserHandle.CURRENT);
         when(mContext.getPackageManager()).thenReturn(mPackageManager);
         when(mCall.getId()).thenReturn(CALL_ID);
-//        when(mBinder.queryLocalInterface(anyString())).thenReturn(mCallScreeningService);
         doReturn(mCallScreeningService).when(mBinder).queryLocalInterface(anyString());
 
         mResolveInfo =  new ResolveInfo() {{
@@ -120,6 +125,7 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testNoDefaultDialer() {
         when(mDefaultDialerCache.getDefaultDialerApplication(eq(UserHandle.USER_CURRENT)))
                 .thenReturn(null);
@@ -128,6 +134,7 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testNoResolveEntries() {
         when(mPackageManager.queryIntentServicesAsUser(nullable(Intent.class), anyInt(), anyInt()))
                 .thenReturn(Collections.emptyList());
@@ -136,6 +143,7 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testBadResolveEntry() {
         mResolveInfo.serviceInfo = null;
         mFilter.startFilterLookup(mCall, mCallback);
@@ -143,6 +151,7 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testPermissionlessFilterService() {
         mResolveInfo.serviceInfo.permission = null;
         mFilter.startFilterLookup(mCall, mCallback);
@@ -150,6 +159,7 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testContextFailToBind() {
         when(mContext.bindServiceAsUser(nullable(Intent.class), nullable(ServiceConnection.class),
                 anyInt(), eq(UserHandle.CURRENT))).thenReturn(false);
@@ -158,6 +168,7 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testExceptionInScreeningService() throws Exception {
         doThrow(new RemoteException()).when(mCallScreeningService).screenCall(
                 nullable(ICallScreeningAdapter.class), nullable(ParcelableCall.class));
@@ -168,6 +179,7 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testAllowCall() throws Exception {
         mFilter.startFilterLookup(mCall, mCallback);
         ServiceConnection serviceConnection = verifyBindingIntent();
@@ -178,6 +190,7 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testDisallowCall() throws Exception {
         mFilter.startFilterLookup(mCall, mCallback);
         ServiceConnection serviceConnection = verifyBindingIntent();

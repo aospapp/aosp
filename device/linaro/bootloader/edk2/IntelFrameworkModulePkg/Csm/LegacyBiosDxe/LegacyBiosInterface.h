@@ -1,6 +1,6 @@
 /** @file
 
-Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
 
 This program and the accompanying materials
 are licensed and made available under the terms and conditions
@@ -20,6 +20,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <FrameworkDxe.h>
 #include <IndustryStandard/Pci.h>
 #include <IndustryStandard/SmBios.h>
+#include <IndustryStandard/Acpi10.h>
 
 #include <Guid/SmBios.h>
 #include <Guid/Acpi.h>
@@ -44,6 +45,8 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Protocol/DevicePath.h>
 #include <Protocol/Legacy8259.h>
 #include <Protocol/PciRootBridgeIo.h>
+#include <Protocol/SerialIo.h>
+#include <Protocol/SuperIo.h>
 
 #include <Library/BaseLib.h>
 #include <Library/DebugLib.h>
@@ -823,7 +826,7 @@ LegacyBiosFarCall86 (
   @param  RomSize                Size of ROM Image
   @param  Flags                  Indicates if ROM found and if PC-AT.
 
-  @retval EFI_SUCCESS            Legacy Option ROM availible for this device
+  @retval EFI_SUCCESS            Legacy Option ROM available for this device
   @retval EFI_UNSUPPORTED        Legacy Option ROM not supported.
 
 **/
@@ -1460,7 +1463,7 @@ LegacyCalculateWriteStandardCmosChecksum (
   @param[out] OpromRevision          Revision of the PCI Rom
   @param[out] ConfigUtilityCodeHeaderPointer of Configuration Utility Code Header
 
-  @return EFI_SUCCESS            Legacy Option ROM availible for this device
+  @return EFI_SUCCESS            Legacy Option ROM available for this device
   @return EFI_ALREADY_STARTED    This device is already managed by its Oprom
   @return EFI_UNSUPPORTED        Legacy Option ROM not supported.
 

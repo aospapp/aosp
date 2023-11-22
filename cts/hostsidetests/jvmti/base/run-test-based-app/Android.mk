@@ -25,7 +25,7 @@ LOCAL_SRC_FILES := \
 
 LOCAL_SDK_VERSION := current
 LOCAL_DEX_PREOPT := false
-LOCAL_JAVA_LIBRARIES := android.test.runner cts-junit
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs cts-junit
 LOCAL_STATIC_JAVA_LIBRARIES := CtsJvmtiDeviceAppBase
 LOCAL_STATIC_JAVA_LIBRARIES += run-test-jvmti-java
 LOCAL_PROGUARD_ENABLED := disabled

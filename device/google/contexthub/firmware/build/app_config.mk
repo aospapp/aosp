@@ -27,7 +27,9 @@ LOCAL_OBJCOPY_SECT_cortexm4 := .flash .data .relocs .dynsym
 LOCAL_FORCE_STATIC_EXECUTABLE := false
 
 LOCAL_CFLAGS +=                                 \
+    -DNANOAPP_ID=0x$(LOCAL_NANO_APP_ID)         \
     -DAPP_ID=$(LOCAL_NANO_APP_ID)               \
+    -DNANOAPP_VERSION=$(LOCAL_NANO_APP_VERSION) \
     -DAPP_VERSION=$(LOCAL_NANO_APP_VERSION)     \
     -D__NANOHUB__                               \
 

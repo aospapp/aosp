@@ -24,15 +24,17 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <cstdio>
 
 #include "test-runner.h"
 
 // Initialize the list as empty.
 vixl::Test* vixl::Test::first_ = NULL;
 vixl::Test* vixl::Test::last_ = NULL;
+
+bool vixl::Test::verbose_ = false;
 
 // No debugger to start with.
 bool vixl::Test::debug_ = false;
@@ -45,6 +47,7 @@ bool vixl::Test::trace_branch_ = false;
 
 // Do not disassemble by default.
 bool vixl::Test::disassemble_ = false;
+bool vixl::Test::disassemble_infrastructure_ = false;
 
 // No colour highlight by default.
 bool vixl::Test::coloured_trace_ = false;
@@ -102,21 +105,25 @@ static void PrintHelpMessage() {
   printf(
       "Usage:  ./test [options] [test names]\n"
       "Run all tests specified on the command line.\n"
-      "--help                 Print this help message.\n"
-      "--list                 List all available tests.\n"
-      "--run_all              Run all available tests.\n"
-      "--debugger             Run in the debugger.\n"
-      "--trace_all            "
+      "--help                   Print this help message.\n"
+      "--list                   List all available tests.\n"
+      "--run_all                Run all available tests.\n"
+      "--verbose                Print verbose output when available.\n"
+      "--debugger               Run in the debugger.\n"
+      "--trace_all              "
       "Enable all trace options, plus --coloured_trace.\n"
-      "--trace_sim            Generate a trace of simulated instructions, as\n"
-      "                       well as disassembly from the DISASM tests.\n"
-      "--trace_reg            Generate a trace of simulated registers.\n"
-      "--trace_write          Generate a trace of memory writes.\n"
-      "--trace_branch         Generate a trace of branches taken.\n"
-      "--disassemble          Disassemble and print generated instructions.\n"
-      "--coloured_trace       Generate coloured trace.\n"
-      "--instruction_stats    Log instruction statistics to vixl_stats.csv.\n"
-      "--generate_test_trace  "
+      "--trace_sim              "
+      "Generate a trace of simulated instructions, as\n"
+      "                         well as disassembly from the DISASM tests.\n"
+      "--trace_reg              Generate a trace of simulated registers.\n"
+      "--trace_write            Generate a trace of memory writes.\n"
+      "--trace_branch           Generate a trace of branches taken.\n"
+      "--disassemble            Disassemble and print generated instructions.\n"
+      "--disassemble-test-code  "
+      "As above, but don't disassemble infrastructure code.\n"
+      "--coloured_trace         Generate coloured trace.\n"
+      "--instruction_stats      Log instruction statistics to vixl_stats.csv.\n"
+      "--generate_test_trace    "
       "Print result traces for SIM_* and TRACE_* tests.\n");
 }
 
@@ -148,6 +155,10 @@ int main(int argc, char* argv[]) {
     vixl::Test::set_coloured_trace(true);
   }
 
+  if (IsInArgs("--verbose", argc, argv)) {
+    vixl::Test::set_verbose(true);
+  }
+
   if (IsInArgs("--debugger", argc, argv)) {
     vixl::Test::set_debug(true);
   }
@@ -170,6 +181,10 @@ int main(int argc, char* argv[]) {
 
   if (IsInArgs("--disassemble", argc, argv)) {
     vixl::Test::set_disassemble(true);
+    vixl::Test::set_disassemble_infrastructure(true);
+  } else if (IsInArgs("--disassemble-test-code", argc, argv)) {
+    vixl::Test::set_disassemble(true);
+    vixl::Test::set_disassemble_infrastructure(false);
   }
 
   if (IsInArgs("--instruction-stats", argc, argv)) {

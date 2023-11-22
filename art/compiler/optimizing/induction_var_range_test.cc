@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+#include "induction_var_range.h"
+
 #include "base/arena_allocator.h"
 #include "builder.h"
 #include "induction_var_analysis.h"
-#include "induction_var_range.h"
 #include "nodes.h"
 #include "optimizing_unit_test.h"
 
@@ -28,13 +29,11 @@ using Value = InductionVarRange::Value;
 /**
  * Fixture class for the InductionVarRange tests.
  */
-class InductionVarRangeTest : public CommonCompilerTest {
+class InductionVarRangeTest : public OptimizingUnitTest {
  public:
   InductionVarRangeTest()
-      : pool_(),
-        allocator_(&pool_),
-        graph_(CreateGraph(&allocator_)),
-        iva_(new (&allocator_) HInductionVarAnalysis(graph_)),
+      : graph_(CreateGraph()),
+        iva_(new (GetAllocator()) HInductionVarAnalysis(graph_)),
         range_(iva_) {
     BuildGraph();
   }
@@ -60,22 +59,22 @@ class InductionVarRangeTest : public CommonCompilerTest {
   /** Constructs bare minimum graph. */
   void BuildGraph() {
     graph_->SetNumberOfVRegs(1);
-    entry_block_ = new (&allocator_) HBasicBlock(graph_);
-    exit_block_ = new (&allocator_) HBasicBlock(graph_);
+    entry_block_ = new (GetAllocator()) HBasicBlock(graph_);
+    exit_block_ = new (GetAllocator()) HBasicBlock(graph_);
     graph_->AddBlock(entry_block_);
     graph_->AddBlock(exit_block_);
     graph_->SetEntryBlock(entry_block_);
     graph_->SetExitBlock(exit_block_);
     // Two parameters.
-    x_ = new (&allocator_) HParameterValue(graph_->GetDexFile(),
-                                           dex::TypeIndex(0),
-                                           0,
-                                           Primitive::kPrimInt);
+    x_ = new (GetAllocator()) HParameterValue(graph_->GetDexFile(),
+                                              dex::TypeIndex(0),
+                                              0,
+                                              DataType::Type::kInt32);
     entry_block_->AddInstruction(x_);
-    y_ = new (&allocator_) HParameterValue(graph_->GetDexFile(),
-                                           dex::TypeIndex(0),
-                                           0,
-                                           Primitive::kPrimInt);
+    y_ = new (GetAllocator()) HParameterValue(graph_->GetDexFile(),
+                                              dex::TypeIndex(0),
+                                              0,
+                                              DataType::Type::kInt32);
     entry_block_->AddInstruction(y_);
     // Set arbitrary range analysis hint while testing private methods.
     SetHint(x_);
@@ -84,13 +83,13 @@ class InductionVarRangeTest : public CommonCompilerTest {
   /** Constructs loop with given upper bound. */
   void BuildLoop(int32_t lower, HInstruction* upper, int32_t stride) {
     // Control flow.
-    loop_preheader_ = new (&allocator_) HBasicBlock(graph_);
+    loop_preheader_ = new (GetAllocator()) HBasicBlock(graph_);
     graph_->AddBlock(loop_preheader_);
-    loop_header_ = new (&allocator_) HBasicBlock(graph_);
+    loop_header_ = new (GetAllocator()) HBasicBlock(graph_);
     graph_->AddBlock(loop_header_);
-    loop_body_ = new (&allocator_) HBasicBlock(graph_);
+    loop_body_ = new (GetAllocator()) HBasicBlock(graph_);
     graph_->AddBlock(loop_body_);
-    HBasicBlock* return_block = new (&allocator_) HBasicBlock(graph_);
+    HBasicBlock* return_block = new (GetAllocator()) HBasicBlock(graph_);
     graph_->AddBlock(return_block);
     entry_block_->AddSuccessor(loop_preheader_);
     loop_preheader_->AddSuccessor(loop_header_);
@@ -99,23 +98,24 @@ class InductionVarRangeTest : public CommonCompilerTest {
     loop_body_->AddSuccessor(loop_header_);
     return_block->AddSuccessor(exit_block_);
     // Instructions.
-    loop_preheader_->AddInstruction(new (&allocator_) HGoto());
-    HPhi* phi = new (&allocator_) HPhi(&allocator_, 0, 0, Primitive::kPrimInt);
+    loop_preheader_->AddInstruction(new (GetAllocator()) HGoto());
+    HPhi* phi = new (GetAllocator()) HPhi(GetAllocator(), 0, 0, DataType::Type::kInt32);
     loop_header_->AddPhi(phi);
     phi->AddInput(graph_->GetIntConstant(lower));  // i = l
     if (stride > 0) {
-      condition_ = new (&allocator_) HLessThan(phi, upper);  // i < u
+      condition_ = new (GetAllocator()) HLessThan(phi, upper);  // i < u
     } else {
-      condition_ = new (&allocator_) HGreaterThan(phi, upper);  // i > u
+      condition_ = new (GetAllocator()) HGreaterThan(phi, upper);  // i > u
     }
     loop_header_->AddInstruction(condition_);
-    loop_header_->AddInstruction(new (&allocator_) HIf(condition_));
-    increment_ = new (&allocator_) HAdd(Primitive::kPrimInt, phi, graph_->GetIntConstant(stride));
+    loop_header_->AddInstruction(new (GetAllocator()) HIf(condition_));
+    increment_ =
+        new (GetAllocator()) HAdd(DataType::Type::kInt32, phi, graph_->GetIntConstant(stride));
     loop_body_->AddInstruction(increment_);  // i += s
     phi->AddInput(increment_);
-    loop_body_->AddInstruction(new (&allocator_) HGoto());
-    return_block->AddInstruction(new (&allocator_) HReturnVoid());
-    exit_block_->AddInstruction(new (&allocator_) HExit());
+    loop_body_->AddInstruction(new (GetAllocator()) HGoto());
+    return_block->AddInstruction(new (GetAllocator()) HReturnVoid());
+    exit_block_->AddInstruction(new (GetAllocator()) HExit());
   }
 
   /** Constructs SSA and performs induction variable analysis. */
@@ -172,7 +172,7 @@ class InductionVarRangeTest : public CommonCompilerTest {
     return iva_->CreateTripCount(op,
                                  CreateConst(tc),
                                  CreateInvariant('<', CreateConst(0), CreateConst(tc)),
-                                 Primitive::kPrimInt);
+                                 DataType::Type::kInt32);
   }
 
   /** Constructs a linear a * i + b induction. */
@@ -182,7 +182,7 @@ class InductionVarRangeTest : public CommonCompilerTest {
                                  CreateConst(a),
                                  CreateConst(b),
                                  nullptr,
-                                 Primitive::kPrimInt);
+                                 DataType::Type::kInt32);
   }
 
   /** Constructs a polynomial sum(a * i + b) + c induction. */
@@ -192,7 +192,7 @@ class InductionVarRangeTest : public CommonCompilerTest {
                                  CreateLinear(a, b),
                                  CreateConst(c),
                                  nullptr,
-                                 Primitive::kPrimInt);
+                                 DataType::Type::kInt32);
   }
 
   /** Constructs a geometric a * f^i + b induction. */
@@ -203,7 +203,7 @@ class InductionVarRangeTest : public CommonCompilerTest {
                                  CreateConst(a),
                                  CreateConst(b),
                                  graph_->GetIntConstant(f),
-                                 Primitive::kPrimInt);
+                                 DataType::Type::kInt32);
   }
 
   /** Constructs a range [lo, hi] using a periodic induction. */
@@ -213,7 +213,7 @@ class InductionVarRangeTest : public CommonCompilerTest {
                                  CreateConst(lo),
                                  CreateConst(hi),
                                  nullptr,
-                                 Primitive::kPrimInt);
+                                 DataType::Type::kInt32);
   }
 
   /** Constructs a wrap-around induction consisting of a constant, followed by info. */
@@ -225,7 +225,7 @@ class InductionVarRangeTest : public CommonCompilerTest {
                                  CreateConst(initial),
                                  info,
                                  nullptr,
-                                 Primitive::kPrimInt);
+                                 DataType::Type::kInt32);
   }
 
   /** Constructs a wrap-around induction consisting of a constant, followed by a range. */
@@ -302,8 +302,6 @@ class InductionVarRangeTest : public CommonCompilerTest {
   Value MaxValue(Value v1, Value v2) { return range_.MergeVal(v1, v2, false); }
 
   // General building fields.
-  ArenaPool pool_;
-  ArenaAllocator allocator_;
   HGraph* graph_;
   HBasicBlock* entry_block_;
   HBasicBlock* exit_block_;
@@ -703,9 +701,9 @@ TEST_F(InductionVarRangeTest, MaxValue) {
 
 TEST_F(InductionVarRangeTest, ArrayLengthAndHints) {
   // We pass a bogus constant for the class to avoid mocking one.
-  HInstruction* new_array = new (&allocator_) HNewArray(x_, x_, 0);
+  HInstruction* new_array = new (GetAllocator()) HNewArray(x_, x_, 0);
   entry_block_->AddInstruction(new_array);
-  HInstruction* array_length = new (&allocator_) HArrayLength(new_array, 0);
+  HInstruction* array_length = new (GetAllocator()) HArrayLength(new_array, 0);
   entry_block_->AddInstruction(array_length);
   // With null hint: yields extreme constants.
   const int32_t max_value = std::numeric_limits<int32_t>::max();
@@ -720,6 +718,29 @@ TEST_F(InductionVarRangeTest, ArrayLengthAndHints) {
   SetHint(x_);
   ExpectEqual(Value(x_, 1, 0), GetMin(CreateFetch(array_length), nullptr));
   ExpectEqual(Value(x_, 1, 0), GetMax(CreateFetch(array_length), nullptr));
+}
+
+TEST_F(InductionVarRangeTest, AddOrSubAndConstant) {
+  HInstruction* add = new (GetAllocator())
+      HAdd(DataType::Type::kInt32, x_, graph_->GetIntConstant(-1));
+  HInstruction* alt = new (GetAllocator())
+      HAdd(DataType::Type::kInt32, graph_->GetIntConstant(-1), x_);
+  HInstruction* sub = new (GetAllocator())
+      HSub(DataType::Type::kInt32, x_, graph_->GetIntConstant(1));
+  HInstruction* rev = new (GetAllocator())
+      HSub(DataType::Type::kInt32, graph_->GetIntConstant(1), x_);
+  entry_block_->AddInstruction(add);
+  entry_block_->AddInstruction(alt);
+  entry_block_->AddInstruction(sub);
+  entry_block_->AddInstruction(rev);
+  ExpectEqual(Value(x_, 1, -1), GetMin(CreateFetch(add), nullptr));
+  ExpectEqual(Value(x_, 1, -1), GetMax(CreateFetch(add), nullptr));
+  ExpectEqual(Value(x_, 1, -1), GetMin(CreateFetch(alt), nullptr));
+  ExpectEqual(Value(x_, 1, -1), GetMax(CreateFetch(alt), nullptr));
+  ExpectEqual(Value(x_, 1, -1), GetMin(CreateFetch(sub), nullptr));
+  ExpectEqual(Value(x_, 1, -1), GetMax(CreateFetch(sub), nullptr));
+  ExpectEqual(Value(x_, -1, 1), GetMin(CreateFetch(rev), nullptr));
+  ExpectEqual(Value(x_, -1, 1), GetMax(CreateFetch(rev), nullptr));
 }
 
 //

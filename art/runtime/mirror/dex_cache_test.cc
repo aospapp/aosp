@@ -21,10 +21,10 @@
 #include "art_method-inl.h"
 #include "class_linker.h"
 #include "common_runtime_test.h"
+#include "handle_scope-inl.h"
 #include "linear_alloc.h"
 #include "mirror/class_loader-inl.h"
 #include "mirror/dex_cache-inl.h"
-#include "handle_scope-inl.h"
 #include "scoped_thread_state_change-inl.h"
 
 namespace art {
@@ -148,12 +148,16 @@ TEST_F(DexCacheMethodHandlesTest, TestResolvedMethodTypes) {
 
   const DexFile::MethodId& method1_id = dex_file.GetMethodId(method1->GetDexMethodIndex());
   const DexFile::MethodId& method2_id = dex_file.GetMethodId(method2->GetDexMethodIndex());
-
   Handle<mirror::MethodType> method1_type = hs.NewHandle(
-      class_linker_->ResolveMethodType(dex_file, method1_id.proto_idx_, dex_cache, class_loader));
+      class_linker_->ResolveMethodType(soa.Self(),
+                                       method1_id.proto_idx_,
+                                       dex_cache,
+                                       class_loader));
   Handle<mirror::MethodType> method2_type = hs.NewHandle(
-      class_linker_->ResolveMethodType(dex_file, method2_id.proto_idx_, dex_cache, class_loader));
-
+      class_linker_->ResolveMethodType(soa.Self(),
+                                       method2_id.proto_idx_,
+                                       dex_cache,
+                                       class_loader));
   EXPECT_EQ(method1_type.Get(), dex_cache->GetResolvedMethodType(method1_id.proto_idx_));
   EXPECT_EQ(method2_type.Get(), dex_cache->GetResolvedMethodType(method2_id.proto_idx_));
 

@@ -32,7 +32,9 @@
 
 #include <netdutils/MockSyscalls.h>
 #include "BandwidthController.h"
+#include "Fwmark.h"
 #include "IptablesBaseTest.h"
+#include "bpf/BpfUtils.h"
 #include "tun_interface.h"
 
 using ::testing::ByMove;
@@ -44,6 +46,8 @@ using ::testing::_;
 
 using android::base::Join;
 using android::base::StringPrintf;
+using android::bpf::XT_BPF_EGRESS_PROG_PATH;
+using android::bpf::XT_BPF_INGRESS_PROG_PATH;
 using android::net::TunInterface;
 using android::netdutils::status::ok;
 using android::netdutils::UniqueFile;
@@ -62,19 +66,6 @@ protected:
 
     void TearDown() {
         mTun.destroy();
-    }
-
-    void addIptablesRestoreOutput(std::string contents) {
-        sIptablesRestoreOutput.push_back(contents);
-    }
-
-    void addIptablesRestoreOutput(std::string contents1, std::string contents2) {
-        sIptablesRestoreOutput.push_back(contents1);
-        sIptablesRestoreOutput.push_back(contents2);
-    }
-
-    void clearIptablesRestoreOutput() {
-        sIptablesRestoreOutput.clear();
     }
 
     void expectSetupCommands(const std::string& expectedClean, std::string expectedAccounting) {
@@ -168,6 +159,16 @@ TEST_F(BandwidthControllerTest, TestSetupIptablesHooks) {
     expectSetupCommands(expectedCleanCmds, "");
 }
 
+TEST_F(BandwidthControllerTest, TestCheckUidBillingMask) {
+    uint32_t uidBillingMask = Fwmark::getUidBillingMask();
+
+    // If mask is non-zero, and mask & mask-1 is equal to 0, then the mask is a power of two.
+    bool isPowerOfTwo = uidBillingMask && (uidBillingMask & (uidBillingMask - 1)) == 0;
+
+    // Must be exactly a power of two
+    EXPECT_TRUE(isPowerOfTwo);
+}
+
 TEST_F(BandwidthControllerTest, TestEnableBandwidthControl) {
     // Pretend no bw_costly_shared_<iface> rules already exist...
     addIptablesRestoreOutput(
@@ -178,9 +179,17 @@ TEST_F(BandwidthControllerTest, TestEnableBandwidthControl) {
     // ... so none are flushed or deleted.
     std::string expectedClean = "";
 
+    uint32_t uidBillingMask = Fwmark::getUidBillingMask();
+    bool useBpf = BandwidthController::getBpfStatsStatus();
     std::string expectedAccounting =
         "*filter\n"
-        "-A bw_INPUT -m owner --socket-exists\n"
+        "-A bw_INPUT -p esp -j RETURN\n" +
+        StringPrintf("-A bw_INPUT -m mark --mark 0x%x/0x%x -j RETURN\n",
+                    uidBillingMask, uidBillingMask) +
+        "-A bw_INPUT -m owner --socket-exists\n" +
+        StringPrintf("-A bw_INPUT -j MARK --or-mark 0x%x\n", uidBillingMask) +
+        "-A bw_OUTPUT -o " IPSEC_IFACE_PREFIX "+ -j RETURN\n"
+        "-A bw_OUTPUT -m policy --pol ipsec --dir out -j RETURN\n"
         "-A bw_OUTPUT -m owner --socket-exists\n"
         "-A bw_costly_shared --jump bw_penalty_box\n"
         "-A bw_penalty_box --jump bw_happy_box\n"
@@ -189,12 +198,29 @@ TEST_F(BandwidthControllerTest, TestEnableBandwidthControl) {
         "-I bw_happy_box -m owner --uid-owner 0-9999 --jump RETURN\n"
         "COMMIT\n"
         "*raw\n"
-        "-A bw_raw_PREROUTING -m owner --socket-exists\n"
+        "-A bw_raw_PREROUTING -i " IPSEC_IFACE_PREFIX "+ -j RETURN\n"
+        "-A bw_raw_PREROUTING -m policy --pol ipsec --dir in -j RETURN\n"
+        "-A bw_raw_PREROUTING -m owner --socket-exists\n";
+    if (useBpf) {
+        expectedAccounting += StringPrintf("-A bw_raw_PREROUTING -m bpf --object-pinned %s\n",
+                                           XT_BPF_INGRESS_PROG_PATH);
+    } else {
+        expectedAccounting += "\n";
+    }
+    expectedAccounting +=
         "COMMIT\n"
         "*mangle\n"
-        "-A bw_mangle_POSTROUTING -m owner --socket-exists\n"
-        "COMMIT\n";
-
+        "-A bw_mangle_POSTROUTING -o " IPSEC_IFACE_PREFIX "+ -j RETURN\n"
+        "-A bw_mangle_POSTROUTING -m policy --pol ipsec --dir out -j RETURN\n"
+        "-A bw_mangle_POSTROUTING -m owner --socket-exists\n" +
+        StringPrintf("-A bw_mangle_POSTROUTING -j MARK --set-mark 0x0/0x%x\n", uidBillingMask);
+    if (useBpf) {
+        expectedAccounting += StringPrintf("-A bw_mangle_POSTROUTING -m bpf --object-pinned %s\n",
+                                           XT_BPF_EGRESS_PROG_PATH);
+    } else {
+        expectedAccounting += "\n";
+    }
+    expectedAccounting += "COMMIT\n";
     mBw.enableBandwidthControl(false);
     expectSetupCommands(expectedClean, expectedAccounting);
 }
@@ -255,155 +281,6 @@ TEST_F(BandwidthControllerTest, TestEnableDataSaver) {
     });
 }
 
-std::string kIPv4TetherCounters = Join(std::vector<std::string> {
-    "Chain natctrl_tether_counters (4 references)",
-    "    pkts      bytes target     prot opt in     out     source               destination",
-    "      26     2373 RETURN     all  --  wlan0  rmnet0  0.0.0.0/0            0.0.0.0/0",
-    "      27     2002 RETURN     all  --  rmnet0 wlan0   0.0.0.0/0            0.0.0.0/0",
-    "    1040   107471 RETURN     all  --  bt-pan rmnet0  0.0.0.0/0            0.0.0.0/0",
-    "    1450  1708806 RETURN     all  --  rmnet0 bt-pan  0.0.0.0/0            0.0.0.0/0",
-}, '\n');
-
-std::string kIPv6TetherCounters = Join(std::vector<std::string> {
-    "Chain natctrl_tether_counters (2 references)",
-    "    pkts      bytes target     prot opt in     out     source               destination",
-    "   10000 10000000 RETURN     all      wlan0  rmnet0  ::/0                 ::/0",
-    "   20000 20000000 RETURN     all      rmnet0 wlan0   ::/0                 ::/0",
-}, '\n');
-
-std::string readSocketClientResponse(int fd) {
-    char buf[32768];
-    ssize_t bytesRead = read(fd, buf, sizeof(buf));
-    if (bytesRead < 0) {
-        return "";
-    }
-    for (int i = 0; i < bytesRead; i++) {
-        if (buf[i] == '\0') buf[i] = '\n';
-    }
-    return std::string(buf, bytesRead);
-}
-
-void expectNoSocketClientResponse(int fd) {
-    char buf[64];
-    EXPECT_EQ(-1, read(fd, buf, sizeof(buf)));
-}
-
-TEST_F(BandwidthControllerTest, TestGetTetherStats) {
-    int socketPair[2];
-    ASSERT_EQ(0, socketpair(AF_UNIX, SOCK_STREAM, 0, socketPair));
-    ASSERT_EQ(0, fcntl(socketPair[0], F_SETFL, O_NONBLOCK | fcntl(socketPair[0], F_GETFL)));
-    ASSERT_EQ(0, fcntl(socketPair[1], F_SETFL, O_NONBLOCK | fcntl(socketPair[1], F_GETFL)));
-    SocketClient cli(socketPair[0], false);
-
-    std::string err;
-    BandwidthController::TetherStats filter;
-
-    // If no filter is specified, both IPv4 and IPv6 counters must have at least one interface pair.
-    addIptablesRestoreOutput(kIPv4TetherCounters);
-    ASSERT_EQ(-1, mBw.getTetherStats(&cli, filter, err));
-    expectNoSocketClientResponse(socketPair[1]);
-    clearIptablesRestoreOutput();
-
-    addIptablesRestoreOutput(kIPv6TetherCounters);
-    ASSERT_EQ(-1, mBw.getTetherStats(&cli, filter, err));
-    clearIptablesRestoreOutput();
-
-    // IPv4 and IPv6 counters are properly added together.
-    addIptablesRestoreOutput(kIPv4TetherCounters, kIPv6TetherCounters);
-    filter = BandwidthController::TetherStats();
-    std::string expected =
-            "114 wlan0 rmnet0 10002373 10026 20002002 20027\n"
-            "114 bt-pan rmnet0 107471 1040 1708806 1450\n"
-            "200 Tethering stats list completed\n";
-    ASSERT_EQ(0, mBw.getTetherStats(&cli, filter, err));
-    ASSERT_EQ(expected, readSocketClientResponse(socketPair[1]));
-    expectNoSocketClientResponse(socketPair[1]);
-    clearIptablesRestoreOutput();
-
-    // Test filtering.
-    addIptablesRestoreOutput(kIPv4TetherCounters, kIPv6TetherCounters);
-    filter = BandwidthController::TetherStats("bt-pan", "rmnet0", -1, -1, -1, -1);
-    expected = "221 bt-pan rmnet0 107471 1040 1708806 1450\n";
-    ASSERT_EQ(0, mBw.getTetherStats(&cli, filter, err));
-    ASSERT_EQ(expected, readSocketClientResponse(socketPair[1]));
-    expectNoSocketClientResponse(socketPair[1]);
-    clearIptablesRestoreOutput();
-
-    addIptablesRestoreOutput(kIPv4TetherCounters, kIPv6TetherCounters);
-    filter = BandwidthController::TetherStats("wlan0", "rmnet0", -1, -1, -1, -1);
-    expected = "221 wlan0 rmnet0 10002373 10026 20002002 20027\n";
-    ASSERT_EQ(0, mBw.getTetherStats(&cli, filter, err));
-    ASSERT_EQ(expected, readSocketClientResponse(socketPair[1]));
-    clearIptablesRestoreOutput();
-
-    // Select nonexistent interfaces.
-    addIptablesRestoreOutput(kIPv4TetherCounters, kIPv6TetherCounters);
-    filter = BandwidthController::TetherStats("rmnet0", "foo0", -1, -1, -1, -1);
-    expected = "200 Tethering stats list completed\n";
-    ASSERT_EQ(0, mBw.getTetherStats(&cli, filter, err));
-    ASSERT_EQ(expected, readSocketClientResponse(socketPair[1]));
-    clearIptablesRestoreOutput();
-
-    // No stats with a filter: no error.
-    addIptablesRestoreOutput("", "");
-    ASSERT_EQ(0, mBw.getTetherStats(&cli, filter, err));
-    ASSERT_EQ("200 Tethering stats list completed\n", readSocketClientResponse(socketPair[1]));
-    clearIptablesRestoreOutput();
-
-    addIptablesRestoreOutput("foo", "foo");
-    ASSERT_EQ(0, mBw.getTetherStats(&cli, filter, err));
-    ASSERT_EQ("200 Tethering stats list completed\n", readSocketClientResponse(socketPair[1]));
-    clearIptablesRestoreOutput();
-
-    // No stats and empty filter: error.
-    filter = BandwidthController::TetherStats();
-    addIptablesRestoreOutput("", kIPv6TetherCounters);
-    ASSERT_EQ(-1, mBw.getTetherStats(&cli, filter, err));
-    expectNoSocketClientResponse(socketPair[1]);
-    clearIptablesRestoreOutput();
-
-    addIptablesRestoreOutput(kIPv4TetherCounters, "");
-    ASSERT_EQ(-1, mBw.getTetherStats(&cli, filter, err));
-    expectNoSocketClientResponse(socketPair[1]);
-    clearIptablesRestoreOutput();
-
-    // Include only one pair of interfaces and things are fine.
-    std::vector<std::string> counterLines = android::base::Split(kIPv4TetherCounters, "\n");
-    std::vector<std::string> brokenCounterLines = counterLines;
-    counterLines.resize(4);
-    std::string counters = Join(counterLines, "\n") + "\n";
-    addIptablesRestoreOutput(counters, counters);
-    expected =
-            "114 wlan0 rmnet0 4746 52 4004 54\n"
-            "200 Tethering stats list completed\n";
-    ASSERT_EQ(0, mBw.getTetherStats(&cli, filter, err));
-    ASSERT_EQ(expected, readSocketClientResponse(socketPair[1]));
-    clearIptablesRestoreOutput();
-
-    // But if interfaces aren't paired, it's always an error.
-    err = "";
-    counterLines.resize(3);
-    counters = Join(counterLines, "\n") + "\n";
-    addIptablesRestoreOutput(counters, counters);
-    ASSERT_EQ(-1, mBw.getTetherStats(&cli, filter, err));
-    expectNoSocketClientResponse(socketPair[1]);
-    clearIptablesRestoreOutput();
-
-    // Token unit test of the fact that we return the stats in the error message which the caller
-    // ignores.
-    std::string expectedError = counters;
-    EXPECT_EQ(expectedError, err);
-
-    addIptablesRestoreOutput(kIPv4TetherCounters);
-    ASSERT_EQ(-1, mBw.getTetherStats(&cli, filter, err));
-    expectNoSocketClientResponse(socketPair[1]);
-    clearIptablesRestoreOutput();
-    addIptablesRestoreOutput(kIPv6TetherCounters);
-    ASSERT_EQ(-1, mBw.getTetherStats(&cli, filter, err));
-    expectNoSocketClientResponse(socketPair[1]);
-    clearIptablesRestoreOutput();
-}
-
 const std::vector<std::string> makeInterfaceQuotaCommands(const std::string& iface, int ruleIndex,
                                                           int64_t quota) {
     const std::string chain = "bw_costly_" + iface;
@@ -415,6 +292,7 @@ const std::vector<std::string> makeInterfaceQuotaCommands(const std::string& ifa
         StringPrintf("-A %s -j bw_penalty_box", c_chain),
         StringPrintf("-I bw_INPUT %d -i %s --jump %s", ruleIndex, c_iface, c_chain),
         StringPrintf("-I bw_OUTPUT %d -o %s --jump %s", ruleIndex, c_iface, c_chain),
+        StringPrintf("-A bw_FORWARD -i %s --jump %s", c_iface, c_chain),
         StringPrintf("-A bw_FORWARD -o %s --jump %s", c_iface, c_chain),
         StringPrintf("-A %s -m quota2 ! --quota %" PRIu64 " --name %s --jump REJECT", c_chain,
                      quota, c_iface),
@@ -431,6 +309,7 @@ const std::vector<std::string> removeInterfaceQuotaCommands(const std::string& i
         "*filter",
         StringPrintf("-D bw_INPUT -i %s --jump %s", c_iface, c_chain),
         StringPrintf("-D bw_OUTPUT -o %s --jump %s", c_iface, c_chain),
+        StringPrintf("-D bw_FORWARD -i %s --jump %s", c_iface, c_chain),
         StringPrintf("-D bw_FORWARD -o %s --jump %s", c_iface, c_chain),
         StringPrintf("-F %s", c_chain),
         StringPrintf("-X %s", c_chain),
@@ -468,6 +347,7 @@ const std::vector<std::string> makeInterfaceSharedQuotaCommands(const std::strin
         "*filter",
         StringPrintf("-I bw_INPUT %d -i %s --jump %s", ruleIndex, c_iface, c_chain),
         StringPrintf("-I bw_OUTPUT %d -o %s --jump %s", ruleIndex, c_iface, c_chain),
+        StringPrintf("-A bw_FORWARD -i %s --jump %s", c_iface, c_chain),
         StringPrintf("-A bw_FORWARD -o %s --jump %s", c_iface, c_chain),
     };
     if (insertQuota) {
@@ -487,6 +367,7 @@ const std::vector<std::string> removeInterfaceSharedQuotaCommands(const std::str
         "*filter",
         StringPrintf("-D bw_INPUT -i %s --jump %s", c_iface, c_chain),
         StringPrintf("-D bw_OUTPUT -o %s --jump %s", c_iface, c_chain),
+        StringPrintf("-D bw_FORWARD -i %s --jump %s", c_iface, c_chain),
         StringPrintf("-D bw_FORWARD -o %s --jump %s", c_iface, c_chain),
     };
     if (deleteQuota) {

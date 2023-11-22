@@ -36,37 +36,36 @@ class CPDF_TextObject : public CPDF_PageObject {
   const CPDF_TextObject* AsText() const override;
 
   std::unique_ptr<CPDF_TextObject> Clone() const;
-  int CountItems() const;
-  void GetItemInfo(int index, CPDF_TextObjectItem* pInfo) const;
-  int CountChars() const;
-  void GetCharInfo(int index, uint32_t* charcode, FX_FLOAT* kerning) const;
-  void GetCharInfo(int index, CPDF_TextObjectItem* pInfo) const;
-  FX_FLOAT GetCharWidth(uint32_t charcode) const;
+
+  size_t CountItems() const;
+  void GetItemInfo(size_t index, CPDF_TextObjectItem* pInfo) const;
+
+  size_t CountChars() const;
+  void GetCharInfo(size_t index, uint32_t* charcode, float* kerning) const;
+  void GetCharInfo(size_t index, CPDF_TextObjectItem* pInfo) const;
+  float GetCharWidth(uint32_t charcode) const;
+
   CFX_PointF GetPos() const { return m_Pos; }
   CFX_Matrix GetTextMatrix() const;
   CPDF_Font* GetFont() const;
-  FX_FLOAT GetFontSize() const;
+  float GetFontSize() const;
 
-  void SetText(const CFX_ByteString& text);
-  void SetPosition(FX_FLOAT x, FX_FLOAT y);
+  void SetText(const ByteString& text);
+  void SetPosition(CFX_PointF pos) { m_Pos = pos; }
+  void SetPosition(float x, float y);
 
   void RecalcPositionData();
 
+  const std::vector<uint32_t>& GetCharCodes() const { return m_CharCodes; }
+  const std::vector<float>& GetCharPositions() const { return m_CharPos; }
+
+  void SetSegments(const ByteString* pStrs, const float* pKerning, int nSegs);
+  CFX_PointF CalcPositionData(float horz_scale);
+
  private:
-  friend class CPDF_RenderStatus;
-  friend class CPDF_StreamContentParser;
-  friend class CPDF_TextRenderer;
-  friend class CPDF_PageContentGenerator;
-
-  void SetSegments(const CFX_ByteString* pStrs,
-                   const FX_FLOAT* pKerning,
-                   int nSegs);
-
-  CFX_PointF CalcPositionData(FX_FLOAT horz_scale);
-
   CFX_PointF m_Pos;
   std::vector<uint32_t> m_CharCodes;
-  std::vector<FX_FLOAT> m_CharPos;
+  std::vector<float> m_CharPos;
 };
 
 #endif  // CORE_FPDFAPI_PAGE_CPDF_TEXTOBJECT_H_

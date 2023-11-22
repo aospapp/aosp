@@ -17,10 +17,10 @@
 #include "utils/InterfaceSpecUtil.h"
 
 #include <fstream>
-#include <iostream>
 #include <sstream>
 #include <string>
 
+#include <android-base/logging.h>
 #include <assert.h>
 #include <google/protobuf/message.h>
 #include <google/protobuf/text_format.h>
@@ -38,7 +38,7 @@ bool ParseInterfaceSpec(const char* file_path,
   ifstream in_file(file_path);
   stringstream str_stream;
   if (!in_file.is_open()) {
-    cerr << "Unable to open file. " << file_path << endl;
+    LOG(ERROR) << "Unable to open file. " << file_path;
     return false;
   }
   str_stream << in_file.rdbuf();
@@ -47,9 +47,7 @@ bool ParseInterfaceSpec(const char* file_path,
 
   message->Clear();
   if (!google::protobuf::TextFormat::MergeFromString(data, message)) {
-    cerr << __FUNCTION__ << ": Can't parse a given proto file " << file_path
-         << "." << endl;
-    cerr << data << endl;
+    LOG(ERROR) << "Can't parse a given proto file " << file_path;
     return false;
   }
   return true;
@@ -102,6 +100,11 @@ string GetVersionString(float version, bool for_macro) {
 string GetHidlHalDriverLibName(const string& package_name,
                                const float version) {
   return package_name + "@" + GetVersionString(version) + "-vts.driver.so";
+}
+
+string GetInterfaceFQName(const string& package_name, const float version,
+                          const string& interface_name) {
+  return package_name + "@" + GetVersionString(version) + "::" + interface_name;
 }
 
 string GetPackageName(const string& type_name) {

@@ -19,7 +19,7 @@
     <string name="app_name" msgid="963247385700831716">"Speichermanager"</string>
     <string name="cancel" msgid="7021218262867558825">"Abbrechen"</string>
     <string name="storage_menu_free" msgid="1878247401436882778">"Speicherplatz freigeben"</string>
-    <string name="deletion_helper_title" msgid="7928959984891140427">"Zu löschende Elemente"</string>
+    <string name="deletion_helper_title" msgid="3526170325226275927">"Elemente entfernen"</string>
     <string name="deletion_helper_app_summary" msgid="4904590040180275237">"Vor <xliff:g id="DAYS">%1$d</xliff:g> Tagen"</string>
     <!-- no translation found for deletion_helper_app_summary_item_size (3770886184921427886) -->
     <skip />
@@ -35,8 +35,9 @@
     <skip />
     <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
     <skip />
-    <string name="deletion_helper_clear_dialog_message" msgid="4896104662649947320">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> werden von deinem Gerät entfernt"</string>
-    <string name="deletion_helper_clear_dialog_remove" msgid="3386502418767917932">"Entfernen"</string>
+    <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"Speicherplatz freigeben"</string>
+    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> Inhalt werden von deinem Gerät entfernt"</string>
+    <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"Speicherplatz freigeben"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"Speicherplatz automatisch verwalten?"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"Zurzeit sind <xliff:g id="USED">%1$s</xliff:g> frei. Zulassen, dass der Speichermanager automatisch Speicherplatz freigibt, indem gesicherte Inhalte von deinem Gerät gelöscht werden?"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"Kein Interesse"</string>
@@ -57,7 +58,7 @@
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Elemente werden gesucht…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Alle Elemente anzeigen"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Kürzlich genutzte Elemente ausblenden"</string>
-    <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> werden von deinem Gerät entfernt"</string>
+    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> Inhalt werden von deinem Gerät entfernt"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Dein Speicher wird jetzt vom Speichermanager verwaltet"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"Keine Elemente vorhanden"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Aktuelle Elemente prüfen"</string>

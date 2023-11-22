@@ -19,7 +19,7 @@
     <string name="app_name" msgid="963247385700831716">"اسٹوریج مینیجر"</string>
     <string name="cancel" msgid="7021218262867558825">"منسوخ کریں"</string>
     <string name="storage_menu_free" msgid="1878247401436882778">"جگہ خالی کریں"</string>
-    <string name="deletion_helper_title" msgid="7928959984891140427">"ہٹانے کیلئے آئٹمز منتخب کریں"</string>
+    <string name="deletion_helper_title" msgid="3526170325226275927">"آئٹمز ہٹائیں"</string>
     <string name="deletion_helper_app_summary" msgid="4904590040180275237">"<xliff:g id="DAYS">%1$d</xliff:g> دنوں پہلے"</string>
     <!-- no translation found for deletion_helper_app_summary_item_size (3770886184921427886) -->
     <skip />
@@ -35,8 +35,9 @@
     <skip />
     <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
     <skip />
-    <string name="deletion_helper_clear_dialog_message" msgid="4896104662649947320">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> کو آپ کے آلہ سے ہٹا دیا جائے گا"</string>
-    <string name="deletion_helper_clear_dialog_remove" msgid="3386502418767917932">"ہٹائیں"</string>
+    <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"جگہ خالی کریں"</string>
+    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"آپ کے آلہ سے <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> مواد ہٹا دیا جائے گا"</string>
+    <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"جگہ خالی کریں"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"خودکار طور پر اسٹوریج کا نظم کریں؟"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"<xliff:g id="USED">%1$s</xliff:g> اب خالی ہے۔ اسٹوریج مینیجر کو خودکار طور پر اپنے آلہ سے بیک اپ شدہ مواد ہٹا کر جگہ خالی کرنے دیں؟"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"نہیں شکریہ"</string>
@@ -57,7 +58,7 @@
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"آئٹمز کی تلاش ہو رہی ہے…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"سبھی آئٹمز دکھائیں"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"حالیہ آئٹمز چھپائیں"</string>
-    <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> کو آپ کے آلہ سے ہٹا دیا جائے گا"</string>
+    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"آپ کے آلہ سے <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> مواد ہٹا دیا جائے گا"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"آپ کی اسٹوریج کا نظم اب اسٹوریج مینیجر کی جانب سے کیا جا رہا ہے"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"ہٹانے کیلئے کوئی آئٹم نہیں ہے"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"حالیہ آئٹمز کا جائزہ لیں"</string>

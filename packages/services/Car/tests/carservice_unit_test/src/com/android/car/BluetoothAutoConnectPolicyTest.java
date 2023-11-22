@@ -16,36 +16,41 @@
 
 package com.android.car;
 
+import static org.mockito.Mockito.*;
+
 import android.annotation.Nullable;
 import android.bluetooth.BluetoothA2dpSink;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothMapClient;
+import android.bluetooth.BluetoothPan;
 import android.bluetooth.BluetoothPbapClient;
 import android.bluetooth.BluetoothProfile;
+import android.car.CarBluetoothManager;
 import android.car.ICarUserService;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.cabin.CarCabinManager;
 import android.car.hardware.property.CarPropertyEvent;
-import android.car.CarBluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.RemoteException;
 import android.test.AndroidTestCase;
+import android.test.suitebuilder.annotation.Suppress;
 
+import org.junit.Test;
 import org.mockito.Matchers;
+import org.mockito.Mock;
 import org.mockito.Mockito;
-
-import static org.mockito.Mockito.*;
-
+import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
-import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -66,14 +71,17 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
     private BroadcastReceiver mReceiver;
     private BluetoothDeviceConnectionPolicy.CarPropertyListener mCabinEventListener;
     private Handler mMainHandler;
-    private Context mockContext;
+    private Context mMockContext;
     // Mock of Services that the policy interacts with
-    private CarCabinService mockCarCabinService;
-    private CarSensorService mockCarSensorService;
-    private CarBluetoothUserService mockBluetoothUserService;
-    private PerUserCarServiceHelper mockPerUserCarServiceHelper;
-    private ICarUserService mockPerUserCarService;
-    private CarBluetoothService mockCarBluetoothService;
+    private CarPropertyService mMockCarPropertyService;
+    private CarUxRestrictionsManagerService mMockCarUxRService;
+    private CarBluetoothUserService mMockBluetoothUserService;
+    private PerUserCarServiceHelper mMockPerUserCarServiceHelper;
+    private ICarUserService mMockPerUserCarService;
+    private CarBluetoothService mMockCarBluetoothService;
+    @Mock
+    private Resources mMockResources;
+
     // Timeouts
     private static final int CONNECTION_STATE_CHANGE_TIME = 200; //ms
     private static final int CONNECTION_REQUEST_TIMEOUT = 10000;//ms
@@ -82,9 +90,12 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+        MockitoAnnotations.initMocks(this);
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         mMainHandler = new Handler(Looper.getMainLooper());
         makeMockServices();
+        when(mMockResources.getInteger(R.integer.fastPairModelId)).thenReturn(0);
+        when(mMockContext.getResources()).thenReturn(mMockResources);
     }
 
     @Override
@@ -179,6 +190,9 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
             case BluetoothProfile.MAP_CLIENT:
                 connectionIntent = new Intent(BluetoothMapClient.ACTION_CONNECTION_STATE_CHANGED);
                 break;
+            case BluetoothProfile.PAN:
+                connectionIntent = new Intent(BluetoothPan.ACTION_CONNECTION_STATE_CHANGED);
+                break;
             case BluetoothProfile.PBAP_CLIENT:
                 connectionIntent = new Intent(BluetoothPbapClient.ACTION_CONNECTION_STATE_CHANGED);
                 break;
@@ -206,23 +220,25 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
     private void triggerFakeVehicleEvent() throws RemoteException {
         assertNotNull(mCabinEventListener);
         CarPropertyValue<Boolean> value = new CarPropertyValue<>(CarCabinManager.ID_DOOR_LOCK,
-                false);
+                0, false);
         CarPropertyEvent event = new CarPropertyEvent(
                 CarPropertyEvent.PROPERTY_EVENT_PROPERTY_CHANGE, value);
-        mCabinEventListener.onEvent(event);
+        List<CarPropertyEvent> events = new ArrayList<>();
+        events.add(event);
+        mCabinEventListener.onEvent(events);
     }
 
     /**
      * Put all the mock creations in one place.  To be called from setup()
      */
     private void makeMockServices() {
-        mockContext = mock(Context.class);
-        mockCarCabinService = mock(CarCabinService.class);
-        mockCarSensorService = mock(CarSensorService.class);
-        mockPerUserCarServiceHelper = mock(PerUserCarServiceHelper.class);
-        mockPerUserCarService = mock(ICarUserService.class);
-        mockCarBluetoothService = mock(CarBluetoothService.class);
-        mockBluetoothUserService = mock(CarBluetoothUserService.class,
+        mMockContext = mock(Context.class);
+        mMockCarPropertyService = mock(CarPropertyService.class);
+        mMockCarUxRService = mock(CarUxRestrictionsManagerService.class);
+        mMockPerUserCarServiceHelper = mock(PerUserCarServiceHelper.class);
+        mMockPerUserCarService = mock(ICarUserService.class);
+        mMockCarBluetoothService = mock(CarBluetoothService.class);
+        mMockBluetoothUserService = mock(CarBluetoothUserService.class,
                 Mockito.withSettings().verboseLogging());
     }
 
@@ -237,8 +253,8 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
         if (mBluetoothDeviceConnectionPolicyTest != null) {
             for (Integer profile : mBluetoothDeviceConnectionPolicyTest.getProfilesToConnect()) {
                 Mockito.doAnswer(createDeviceAvailabilityAnswer(available)).when(
-                        mockBluetoothUserService).
-                        bluetoothConnectToProfile(profile, device);
+                        mMockBluetoothUserService)
+                        .bluetoothConnectToProfile(profile, device);
             }
         }
     }
@@ -275,13 +291,14 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
      */
     private void createAndSetupBluetoothPolicy() throws Exception {
         // Return the mock Bluetooth User Service when asked for
-        when(mockBluetoothUserService.isBluetoothConnectionProxyAvailable(
+        when(mMockBluetoothUserService.isBluetoothConnectionProxyAvailable(
                 Matchers.anyInt())).thenReturn(true);
-        when(mockPerUserCarService.getBluetoothUserService()).thenReturn(mockBluetoothUserService);
+        when(mMockPerUserCarService.getBluetoothUserService())
+                .thenReturn(mMockBluetoothUserService);
 
-        mBluetoothDeviceConnectionPolicyTest = BluetoothDeviceConnectionPolicy.create(mockContext,
-                mockCarCabinService, mockCarSensorService, mockPerUserCarServiceHelper,
-                mockCarBluetoothService);
+        mBluetoothDeviceConnectionPolicyTest = BluetoothDeviceConnectionPolicy.create(mMockContext,
+                mMockCarPropertyService, mMockPerUserCarServiceHelper,
+                mMockCarUxRService, mMockCarBluetoothService);
         mBluetoothDeviceConnectionPolicyTest.setAllowReadWriteToSettings(false);
         mBluetoothDeviceConnectionPolicyTest.init();
 
@@ -293,7 +310,7 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
         mCabinEventListener = mBluetoothDeviceConnectionPolicyTest.getCarPropertyListener();
         assertNotNull(mCabinEventListener);
 
-        serviceConnectionCallback.onServiceConnected(mockPerUserCarService);
+        serviceConnectionCallback.onServiceConnected(mMockPerUserCarService);
     }
 
     /**
@@ -347,10 +364,50 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
         triggerFakeVehicleEvent();
         // Verify that on all profiles, device1 connected
         for (Integer profile : mBluetoothDeviceConnectionPolicyTest.getProfilesToConnect()) {
-            verify(mockBluetoothUserService,
+            verify(mMockBluetoothUserService,
                     Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                     profile, device1);
         }
+
+        // Before we cleanup wait for the last Connection Status change from mockDeviceAvailability
+        // is broadcast to the policy.
+        Thread.sleep(WAIT_FOR_COMPLETION_TIME);
+        // Inject an Unbond event to the policy
+        mReceiver.onReceive(null, createBluetoothBondStateChangedIntent(device1, false));
+    }
+
+    /** When android/iphone connects on HFP, it doesn't explicitly try to connect on PBAP and MAP.
+     *  In such cases, the Auto should try to connect on PBAP and MAP profiles.
+     *  The following tests that scenario.
+     */
+    @Test
+    public void testDeviceConnectExplicitlyOnPbapAndMap() throws Exception {
+        // This tests the following: when a device connects on HFP, try to connect on
+        // PBAP and MAP. When android/iphone connects on HFP, it doesn't explicitly try to
+        // connect on PBA and MAP. Thats when the Auto should connect on those profiles after
+        // receiving HFP connect.
+        createAndSetupBluetoothPolicy();
+        // Tell the policy a new device connected - this mimics pairing
+        BluetoothDevice device1 = mBluetoothAdapter.getRemoteDevice("DE:AD:BE:EF:00:01");
+        mockDeviceAvailability(device1, true);
+        List<Integer> profilesToConnect = Arrays.asList(BluetoothProfile.HEADSET_CLIENT,
+                BluetoothProfile.PBAP_CLIENT, BluetoothProfile.MAP_CLIENT);
+        for (Integer profile : profilesToConnect) {
+            pairDeviceOnProfile(device1, profile);
+        }
+        // Disconnect
+        sendFakeConnectionStateChange(device1, false);
+
+        // Send connect change event (true) on HFP client only.
+        sendFakeConnectionStateChangeOnProfile(device1, BluetoothProfile.HEADSET_CLIENT, true);
+
+        // Verify device1 connected on PBAP and MAP
+        verify(mMockBluetoothUserService,
+                Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).atLeastOnce()).bluetoothConnectToProfile(
+                BluetoothProfile.PBAP_CLIENT, device1);
+        verify(mMockBluetoothUserService,
+                Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).atLeastOnce()).bluetoothConnectToProfile(
+                BluetoothProfile.MAP_CLIENT, device1);
 
         // Before we cleanup wait for the last Connection Status change from mockDeviceAvailability
         // is broadcast to the policy.
@@ -387,6 +444,7 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
         pairDeviceOnProfile(device2, BluetoothProfile.PBAP_CLIENT);
         pairDeviceOnProfile(device3, BluetoothProfile.A2DP_SINK);
         pairDeviceOnProfile(device4, BluetoothProfile.MAP_CLIENT);
+        pairDeviceOnProfile(device4, BluetoothProfile.PAN);
 
         // Disconnect all the 4 devices on the respective connected profiles
         sendFakeConnectionStateChangeOnProfile(device1, BluetoothProfile.HEADSET_CLIENT, false);
@@ -395,28 +453,32 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
         sendFakeConnectionStateChangeOnProfile(device2, BluetoothProfile.PBAP_CLIENT, false);
         sendFakeConnectionStateChangeOnProfile(device3, BluetoothProfile.A2DP_SINK, false);
         sendFakeConnectionStateChangeOnProfile(device4, BluetoothProfile.MAP_CLIENT, false);
+        sendFakeConnectionStateChangeOnProfile(device4, BluetoothProfile.PAN, false);
 
         triggerFakeVehicleEvent();
 
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.HEADSET_CLIENT, device1);
 
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.PBAP_CLIENT, device1);
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.HEADSET_CLIENT, device2);
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.PBAP_CLIENT, device2);
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.A2DP_SINK, device3);
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.MAP_CLIENT, device4);
+        verify(mMockBluetoothUserService,
+                Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
+                BluetoothProfile.PAN, device4);
 
         // Before we cleanup wait for the last Connection Status change from is broadcast to the
         // policy.
@@ -439,8 +501,10 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
      * 6. Disconnect and tag another device.
      * 7. Send a Connection trigger.
      * 8. Verify if the newly tagged device connected.
+     * TODO(vnori): fix b/69122852 and enable this test again
      */
-    @Test
+    //@Test
+    @Suppress
     public void testAutoConnectSetPrimaryPriority() throws Exception {
         createAndSetupBluetoothPolicy();
         BluetoothDevice device1 = mBluetoothAdapter.getRemoteDevice("DE:AD:BE:EF:00:01");
@@ -467,16 +531,19 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
         // Device order should be {device3, device1, device2, device4} now
         // Now when we trigger an auto connect, device 3 should connect on all profiles
         triggerFakeVehicleEvent();
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.HEADSET_CLIENT, device3);
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
+                Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
+                BluetoothProfile.PAN, device3);
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.PBAP_CLIENT, device3);
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.A2DP_SINK, device3);
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.MAP_CLIENT, device3);
         Thread.sleep(WAIT_FOR_COMPLETION_TIME);
@@ -493,16 +560,19 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
         triggerFakeVehicleEvent();
 
         // Check if device4 connects now
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.HEADSET_CLIENT, device4);
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
+                Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
+                BluetoothProfile.PAN, device4);
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.PBAP_CLIENT, device4);
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.A2DP_SINK, device4);
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.MAP_CLIENT, device4);
 
@@ -525,8 +595,10 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
      * Change Primary device to unavailable.
      * Trigger Connection.
      * Secondary device should now be connected on A2DP (since Primary is not available)
+     * TODO(vnori): fix b/69122852 and enable this test again
      */
-    @Test
+    //@Test
+    @Suppress
     public void testAutoConnectSetSecondaryPriority() throws Exception {
         createAndSetupBluetoothPolicy();
         BluetoothDevice device1 = mBluetoothAdapter.getRemoteDevice("DE:AD:BE:EF:00:01");
@@ -560,9 +632,9 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
         triggerFakeVehicleEvent();
         // Mockito.never() doesn't have a timeout option, hence the sleep here.
         Thread.sleep(WAIT_FOR_COMPLETION_TIME);
-        verify(mockBluetoothUserService, Mockito.never()).bluetoothConnectToProfile(
+        verify(mMockBluetoothUserService, Mockito.never()).bluetoothConnectToProfile(
                 BluetoothProfile.A2DP_SINK, device4);
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.HEADSET_CLIENT, device4);
 
@@ -573,7 +645,7 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
         triggerFakeVehicleEvent();
         // Now a connection attempt should be made on device4 for A2DP_SINK for the same reasons as
         // above
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.A2DP_SINK, device4);
         Thread.sleep(WAIT_FOR_COMPLETION_TIME);
@@ -611,6 +683,13 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
         mockDeviceAvailability(device2, false);
         triggerFakeVehicleEvent();
         Thread.sleep(WAIT_FOR_COMPLETION_TIME);
+
+        verify(mMockBluetoothUserService,
+                Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
+                BluetoothProfile.HEADSET_CLIENT, device1);
+        verify(mMockBluetoothUserService, times(1)).bluetoothConnectToProfile(
+                BluetoothProfile.A2DP_SINK, device1);
+
         // At this point device1 should have connected and device2 disconnected, since it is mocked
         // to be out of range (unavailable)
         // Now bring device2 in range (mock it to be available)
@@ -622,17 +701,17 @@ public class BluetoothAutoConnectPolicyTest extends AndroidTestCase {
         // 1 connection)
         // There should have been 2 connection attempts on the device2 - the first one unsuccessful
         // due to its unavailability and the second one successful.
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(2)).bluetoothConnectToProfile(
                 BluetoothProfile.HEADSET_CLIENT, device2);
         // There should be only 1 connection attempt on device1 - since it is available to connect
         // from the beginning.  The first connection attempt on the first vehicle event should have
         // been successful. For the second vehicle event, we should not have tried to connect on
         // device1 - this tests if we try to connect on already connected devices.
-        verify(mockBluetoothUserService,
+        verify(mMockBluetoothUserService,
                 Mockito.timeout(CONNECTION_REQUEST_TIMEOUT).times(1)).bluetoothConnectToProfile(
                 BluetoothProfile.HEADSET_CLIENT, device1);
-        verify(mockBluetoothUserService, Mockito.never()).bluetoothConnectToProfile(
+        verify(mMockBluetoothUserService, Mockito.never()).bluetoothConnectToProfile(
                 BluetoothProfile.A2DP_SINK, device2);
         Thread.sleep(WAIT_FOR_COMPLETION_TIME);
         mReceiver.onReceive(null, createBluetoothBondStateChangedIntent(device1, false));

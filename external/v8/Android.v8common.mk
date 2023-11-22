@@ -3,10 +3,13 @@ LOCAL_CXX_STL := libc++
 LOCAL_CPP_EXTENSION := cc
 
 LOCAL_CFLAGS += \
+	-Wall \
+	-Werror \
 	-Wno-endif-labels \
 	-Wno-import \
 	-Wno-format \
 	-Wno-unused-parameter \
+	-Wno-unused-private-field \
 	-Wno-sign-compare \
 	-Wno-missing-field-initializers \
 	-Wno-ignored-qualifiers \

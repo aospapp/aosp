@@ -158,8 +158,13 @@ public class MatcherTest extends TestCase {
     public void testReset() {
     }
 
+    /**
+     * Ensures {@link Matcher#find(int)} resets the matcher state and creates a new snapshot of the
+     * original CharSequence before doing the find. http://b/38021063
+     */
     public void testFind_invokeReset() {
-        // First, verify find() doesn't reset, and search for the subsequent pattern
+        // Assert that find() doesn't reset the matcher by doing multiple find() calls on the same
+        // input.
         Pattern p = Pattern.compile("a|c");
         StringBuilder sb = new StringBuilder("abc");
         Matcher m = p.matcher(sb);
@@ -168,18 +173,20 @@ public class MatcherTest extends TestCase {
         assertTrue(m.find());
         assertEquals(2, m.start());
 
-        // Second, find(int) resets the matcher
+        // Assert that find(int) resets the matcher by checking its state.
         assertTrue(m.find(0));
         assertEquals(0, m.start());
-        sb.replace(0, 3, "bac");
 
-        // Test find(0) reset the cached string value from the StringBuilder
+        // Assert that find(int) refreshes the String being matched against from the input
+        // CharSequence.
+        sb.replace(0, 3, "bac");
         assertTrue(m.find(0));
         assertEquals(1, m.start());
     }
 
     /**
-     * Test reset() reset the cached string value from the StringBuilder
+     * Ensure {@link Matcher#reset()} creates a new snapshot of the original CharSequence.
+     * http://b/38021063
      */
     public void testReset_resetStringCache() {
         Pattern p = Pattern.compile("a");

@@ -27,6 +27,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES:= thermalJNI.cpp \
     onload.cpp
 
+LOCAL_CFLAGS += -Wall -Werror
 
 LOCAL_SHARED_LIBRARIES := \
     libbinder \

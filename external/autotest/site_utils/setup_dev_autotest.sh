@@ -5,17 +5,26 @@
 # found in the LICENSE file.
 set -e
 
-USAGE='Usage: setup_dev_autotest.sh [-pavnm]'
-HELP="${USAGE}\n\n\
-Install and configure software needed to run autotest locally.\n\
-If you're just working on tests, you do not need to run this.\n\n\
-Options:\n\
-  -p Desired Autotest DB password. Must be non-empty.\n\
-  -a Absolute path to autotest source tree.\n\
-  -v Show info logging from build_externals.py and compile_gwt_clients.py \n\
+function usage() {
+  cat >&2 <<EOT
+Usage: setup_dev_autotest.sh [-pavnms]
+
+Install and configure software needed to run autotest locally.
+If you're just working on tests, you do not need to run this.
+Options:
+  -p Desired Autotest DB password. Must be non-empty.
+  -a Absolute path to autotest source tree.
+  -v Show info logging from build_externals.py and compile_gwt_clients.py
   -n Non-interactive mode, doesn't ask for any user input.
-     Requires -p and -a to be set.\n\
-  -m Allow remote access for database."
+     Requires -p and -a to be set.
+  -m Allow remote access for database.
+  -s Skip steps handled via puppet in prod.
+     This is a transitional flag used to skip certain steps as they are migrated
+     to puppet for use in the autotest lab. Not to be used by developers.
+
+EOT
+}
+
 
 function get_y_or_n_interactive {
     local ret
@@ -44,7 +53,8 @@ PASSWD=
 verbose="FALSE"
 noninteractive="FALSE"
 remotedb="FALSE"
-while getopts ":p:a:vnmh" opt; do
+skip_puppetized_steps="FALSE"
+while getopts ":p:a:vnmsh" opt; do
   case ${opt} in
     a)
       AUTOTEST_DIR=$OPTARG
@@ -61,22 +71,29 @@ while getopts ":p:a:vnmh" opt; do
     m)
       remotedb="TRUE"
       ;;
+    s)
+      skip_puppetized_steps="TRUE"
+      ;;
     h)
-      echo -e "${HELP}" >&2
+      usage
       exit 0
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
-      echo -e "${HELP}" >&2
+      usage
       exit 1
       ;;
     :)
       echo "Option -$OPTARG requires an argument." >&2
-      echo -e "${HELP}" >&2
+      usage
       exit 1
       ;;
   esac
 done
+
+if [[ "${skip_puppetized_steps}" == "TRUE" ]]; then
+  echo "Requested to skip certain steps. Will tell you when I skip things."
+fi
 
 if [[ $EUID -eq 0 ]]; then
   echo "Running with sudo / as root is not recommended"

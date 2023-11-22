@@ -20,6 +20,7 @@
 import collections
 import random
 import time
+from acts.asserts import explicit_pass
 from acts.asserts import fail
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
@@ -44,6 +45,7 @@ from acts.test_utils.tel.tel_test_utils import is_voice_attached
 from acts.test_utils.tel.tel_test_utils import run_multithread_func
 from acts.test_utils.tel.tel_test_utils import set_wfc_mode
 from acts.test_utils.tel.tel_test_utils import sms_send_receive_verify
+from acts.test_utils.tel.tel_test_utils import start_qxdm_loggers
 from acts.test_utils.tel.tel_test_utils import mms_send_receive_verify
 from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_3g
 from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_2g
@@ -68,7 +70,7 @@ from TelWifiVoiceTest import ATTEN_NAME_FOR_CELL_3G
 from TelWifiVoiceTest import ATTEN_NAME_FOR_CELL_4G
 
 import socket
-from acts.controllers.sl4a_client import Sl4aProtocolError
+from acts.controllers.sl4a_lib.rpc_client import Sl4aProtocolError
 
 IGNORE_EXCEPTIONS = (BrokenPipeError, Sl4aProtocolError)
 EXCEPTION_TOLERANCE = 20
@@ -99,6 +101,9 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
         self.helper = self.android_devices[1]
 
         return True
+
+    def on_fail(self, test_name, begin_time):
+        pass
 
     def _setup_volte_wfc_wifi_preferred(self):
         return self._wfc_phone_setup(
@@ -136,13 +141,20 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
             0: sms_send_receive_verify,
             1: mms_send_receive_verify
         }
-        self.result_info["Total %s" % message_type_map[selection]] += 1
+        message_type = message_type_map[selection]
+        self.result_info["Total %s" % message_type] += 1
+        begin_time = get_current_epoch_time()
+        start_qxdm_loggers(self.log, self.android_devices)
         if not message_func_map[selection](self.log, ads[0], ads[1],
                                            message_content_map[selection]):
-            self.log.error("%s of length %s from %s to %s fails",
-                           message_type_map[selection], length, ads[0].serial,
-                           ads[1].serial)
-            self.result_info["%s failure" % message_type_map[selection]] += 1
+            self.log.error("%s of length %s from %s to %s fails", message_type,
+                           length, ads[0].serial, ads[1].serial)
+            self.result_info["%s failure" % message_type] += 1
+            if message_type == "SMS" or self.result_info["%s failure" %
+                                                         message_type] == 1:
+                self._take_bug_report("%s_%s_failure" % (self.test_name,
+                                                         message_type),
+                                      begin_time)
             return False
         else:
             self.log.info("%s of length %s from %s to %s succeed",
@@ -152,6 +164,8 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
 
     def _make_phone_call(self, ads):
         self.result_info["Total Calls"] += 1
+        begin_time = get_current_epoch_time()
+        start_qxdm_loggers(self.log, self.android_devices)
         if not call_setup_teardown(
                 self.log,
                 ads[0],
@@ -162,6 +176,8 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
                     self.max_phone_call_duration)):
             self.log.error("Call setup and teardown failed.")
             self.result_info["Call Failure"] += 1
+            self._take_bug_report("%s_call_failure" % self.test_name,
+                                  begin_time)
             return False
         self.log.info("Call setup and teardown succeed.")
         return True
@@ -171,8 +187,7 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
         while time.time() < self.finishing_time:
             self.dut.log.info(dict(self.result_info))
             try:
-                begin_time = epoch_to_log_line_timestamp(
-                    get_current_epoch_time())
+                begin_time = get_current_epoch_time()
                 time.sleep(self.crash_check_interval)
                 crash_report = self.dut.check_crash_report(
                     "checking_crash", begin_time, True)
@@ -185,16 +200,14 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
                 self.log.error("Exception error %s", str(e))
                 self.result_info["Exception Errors"] += 1
                 if self.result_info["Exception Errors"] > EXCEPTION_TOLERANCE:
-                    self.finishing_time = time.time()
-                    raise
+                    return False
             except Exception as e:
-                self.finishing_time = time.time()
-                raise
+                return False
             self.dut.log.info("Crashes found: %s", failure)
         if failure:
-            return "%s crashes" % failure
+            return False
         else:
-            return ""
+            return True
 
     def environment_change_4g_wifi(self):
         #block cell 3G, WIFI 2G
@@ -274,24 +287,23 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
                                          self.log, self.helper))
                 if not self._make_phone_call(ads):
                     failure += 1
-                    self._take_bug_report("%s_call_failure" % self.test_name,
-                                          time.strftime("%m-%d-%Y-%H-%M-%S"))
                 self.dut.droid.goToSleepNow()
                 time.sleep(random.randrange(0, self.max_sleep_time))
-            except IGNORE_EXCEPTION as e:
+            except IGNORE_EXCEPTIONS as e:
                 self.log.error("Exception error %s", str(e))
                 self.result_info["Exception Errors"] += 1
                 if self.result_info["Exception Errors"] > EXCEPTION_TOLERANCE:
-                    self.finishing_time = time.time()
-                    raise
+                    self.log.error("Too many exception errors %s",
+                                   IGNORE_EXCEPTIONS)
+                    return False
             except Exception as e:
-                self.finishing_time = time.time()
-                raise
+                self.log.error(e)
+                return False
             self.dut.log.info("Call test failure: %s/%s", failure, total_count)
         if failure:
-            return "Call test failure: %s/%s" % (failure, total_count)
+            return False
         else:
-            return ""
+            return True
 
     def message_test(self):
         failure = 0
@@ -303,25 +315,24 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
                 total_count += 1
                 if not self._send_message(ads):
                     failure += 1
-                    #self._take_bug_report("%s_messaging_failure" % self.test_name,
-                    #                      time.strftime("%m-%d-%Y-%H-%M-%S"))
                 self.dut.droid.goToSleepNow()
                 time.sleep(random.randrange(0, self.max_sleep_time))
-            except IGNORE_EXCEPTION as e:
+            except IGNORE_EXCEPTIONS as e:
                 self.log.error("Exception error %s", str(e))
                 self.result_info["Exception Errors"] += 1
                 if self.result_info["Exception Errors"] > EXCEPTION_TOLERANCE:
-                    self.finishing_time = time.time()
-                    raise
+                    self.log.error("Too many exception errors %s",
+                                   IGNORE_EXCEPTIONS)
+                    return False
             except Exception as e:
-                self.finishing_time = time.time()
-                raise
+                self.log.error(e)
+                return False
             self.dut.log.info("Messaging test failure: %s/%s", failure,
                               total_count)
         if failure / total_count > 0.1:
-            return "Messaging test failure: %s/%s" % (failure, total_count)
+            return False
         else:
-            return ""
+            return True
 
     def data_test(self):
         failure = 0
@@ -331,6 +342,8 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
         file_names = ["5MB", "10MB", "20MB", "50MB", "200MB"]
         while time.time() < self.finishing_time:
             total_count += 1
+            begin_time = get_current_epoch_time()
+            start_qxdm_loggers(self.log, self.android_devices)
             try:
                 self.dut.log.info(dict(self.result_info))
                 self.result_info["Total file download"] += 1
@@ -338,28 +351,30 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
                 file_name = file_names[selection]
                 if not active_file_download_test(self.log, self.dut,
                                                  file_name):
-                    self.result_info["%s file download failure" %
-                                     file_name] += 1
-                    #self._take_bug_report("%s_download_failure" % self.test_name,
-                    #                      time.strftime("%m-%d-%Y-%H-%M-%S"))
+                    self.result_info["File download failure"] += 1
                     failure += 1
-                    self.dut.droid.goToSleepNow()
-                    time.sleep(random.randrange(0, self.max_sleep_time))
-            except IGNORE_EXCEPTION as e:
+                    if self.result_info["File download failure"] == 1:
+                        self._take_bug_report(
+                            "%s_file_download_failure" % self.test_name,
+                            begin_time)
+                self.dut.droid.goToSleepNow()
+                time.sleep(random.randrange(0, self.max_sleep_time))
+            except IGNORE_EXCEPTIONS as e:
                 self.log.error("Exception error %s", str(e))
                 self.result_info["Exception Errors"] += 1
                 if self.result_info["Exception Errors"] > EXCEPTION_TOLERANCE:
-                    self.finishing_time = time.time()
-                    raise
+                    self.log.error("Too many exception error %s",
+                                   IGNORE_EXCEPTIONS)
+                    return False
             except Exception as e:
-                self.finishing_time = time.time()
-                raise
+                self.log.error(e)
+                return False
             self.dut.log.info("File download test failure: %s/%s", failure,
                               total_count)
         if failure / total_count > 0.1:
-            return "File download test failure: %s/%s" % (failure, total_count)
+            return False
         else:
-            return ""
+            return True
 
     def parallel_tests(self, change_env_func, setup_func=None):
         if setup_func and not setup_func():
@@ -370,12 +385,12 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
         results = run_multithread_func(self.log, [(self.call_test, []), (
             self.message_test, []), (self.data_test, []), (
                 self.crash_check_test, []), (change_env_func, [])])
-        self.log.info(dict(self.result_info))
-        error_message = " ".join(results).strip()
-        if error_message:
-            self.log.error(error_message)
-            fail(error_message)
-        return True
+        result_message = "%s" % dict(self.result_info)
+        self.log.info(result_message)
+        if all(results):
+            explicit_pass(result_message)
+        else:
+            fail(result_message)
 
     """ Tests Begin """
 

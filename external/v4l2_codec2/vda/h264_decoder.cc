@@ -1,6 +1,7 @@
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: c3bd64c
 
 #include <algorithm>
 #include <limits>
@@ -16,22 +17,22 @@
 
 namespace media {
 
-H264Decoder::H264Accelerator::H264Accelerator() {}
+H264Decoder::H264Accelerator::H264Accelerator() = default;
 
-H264Decoder::H264Accelerator::~H264Accelerator() {}
+H264Decoder::H264Accelerator::~H264Accelerator() = default;
 
 H264Decoder::H264Decoder(H264Accelerator* accelerator)
-    : max_frame_num_(0),
+    : state_(kNeedStreamMetadata),
+      max_frame_num_(0),
       max_pic_num_(0),
       max_long_term_frame_idx_(0),
       max_num_reorder_frames_(0),
       accelerator_(accelerator) {
   DCHECK(accelerator_);
   Reset();
-  state_ = kNeedStreamMetadata;
 }
 
-H264Decoder::~H264Decoder() {}
+H264Decoder::~H264Decoder() = default;
 
 void H264Decoder::Reset() {
   curr_pic_ = nullptr;
@@ -176,6 +177,8 @@ bool H264Decoder::InitCurrPicture(const H264SliceHeader* slice_hdr) {
     memcpy(curr_pic_->ref_pic_marking, slice_hdr->ref_pic_marking,
            sizeof(curr_pic_->ref_pic_marking));
   }
+
+  curr_pic_->visible_rect = visible_rect_;
 
   return true;
 }
@@ -1107,10 +1110,24 @@ bool H264Decoder::ProcessSPS(int sps_id, bool* need_new_buffers) {
   if (max_dpb_mbs == 0)
     return false;
 
-  size_t max_dpb_size = std::min(max_dpb_mbs / (width_mb * height_mb),
-                                 static_cast<int>(H264DPB::kDPBMaxSize));
-  if (max_dpb_size == 0) {
-    DVLOG(1) << "Invalid DPB Size";
+  // MaxDpbFrames from level limits per spec.
+  size_t max_dpb_frames = std::min(max_dpb_mbs / (width_mb * height_mb),
+                                   static_cast<int>(H264DPB::kDPBMaxSize));
+  DVLOG(1) << "MaxDpbFrames: " << max_dpb_frames
+           << ", max_num_ref_frames: " << sps->max_num_ref_frames
+           << ", max_dec_frame_buffering: " << sps->max_dec_frame_buffering;
+
+  // Set DPB size to at least the level limit, or what the stream requires.
+  size_t max_dpb_size =
+      std::max(static_cast<int>(max_dpb_frames),
+               std::max(sps->max_num_ref_frames, sps->max_dec_frame_buffering));
+  // Some non-conforming streams specify more frames are needed than the current
+  // level limit. Allow this, but only up to the maximum number of reference
+  // frames allowed per spec.
+  DVLOG_IF(1, max_dpb_size > max_dpb_frames)
+      << "Invalid stream, DPB size > MaxDpbFrames";
+  if (max_dpb_size == 0 || max_dpb_size > H264DPB::kDPBMaxSize) {
+    DVLOG(1) << "Invalid DPB size: " << max_dpb_size;
     return false;
   }
 
@@ -1122,6 +1139,12 @@ bool H264Decoder::ProcessSPS(int sps_id, bool* need_new_buffers) {
     *need_new_buffers = true;
     pic_size_ = new_pic_size;
     dpb_.set_max_num_pics(max_dpb_size);
+  }
+
+  Rect new_visible_rect = sps->GetVisibleRect().value_or(Rect());
+  if (visible_rect_ != new_visible_rect) {
+    DVLOG(2) << "New visible rect: " << new_visible_rect.ToString();
+    visible_rect_ = new_visible_rect;
   }
 
   if (!UpdateMaxNumReorderFrames(sps))
@@ -1320,7 +1343,7 @@ H264Decoder::DecodeResult H264Decoder::Decode() {
         if (state_ != kDecoding)
           break;
 
-      // else fallthrough
+        // else fallthrough
       case H264NALU::kIDRSlice: {
         // TODO(posciak): the IDR may require an SPS that we don't have
         // available. For now we'd fail if that happens, but ideally we'd like

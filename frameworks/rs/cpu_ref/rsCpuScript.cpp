@@ -161,8 +161,9 @@ static bool compileBitcode(const std::string &bcFileName,
 // be for a source APK change or an OTA. In either case, the APK would be
 // reinstalled, which would already clear the code_cache/ directory.
 bool isChecksumNeeded(const char *cacheDir) {
+    static const std::string sysLibPathVndk = getVndkSysLibPath();
     if ((::strcmp(SYSLIBPATH, cacheDir) == 0) ||
-        (::strcmp(SYSLIBPATH_VNDK, cacheDir) == 0) ||
+        (::strcmp(sysLibPathVndk.c_str(), cacheDir) == 0) ||
         (::strcmp(SYSLIBPATH_VENDOR, cacheDir) == 0))
         return false;
     char buf[PROP_VALUE_MAX];

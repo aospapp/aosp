@@ -45,7 +45,8 @@ LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util \
 	ctstestrunner \
 	mockito-target-minus-junit4 \
 	android-ex-camera2 \
-	CtsCameraUtils
+	CtsCameraUtils \
+	truth-prebuilt
 
 LOCAL_JNI_SHARED_LIBRARIES := \
 	libctscamera2_jni \
@@ -58,13 +59,13 @@ LOCAL_SRC_FILES := \
 	$(call all-renderscript-files-under, src)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 LOCAL_PACKAGE_NAME := CtsCameraTestCases
 
 LOCAL_SDK_VERSION := test_current
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 
 cts_runtime_hint := 120
 

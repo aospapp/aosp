@@ -19,12 +19,12 @@ import sampler
 import threading
 import time
 
-from autotest_lib.client.bin import test, utils
+from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.graphics import graphics_utils
-from autotest_lib.client.cros import power_status, power_utils
 from autotest_lib.client.cros import service_stopper
+from autotest_lib.client.cros.power import power_rapl, power_status, power_utils
 
 # Minimum battery charge percentage to run the test
 BATTERY_INITIAL_CHARGED_MIN = 10
@@ -83,17 +83,6 @@ class graphics_WebGLAquarium(graphics_utils.GraphicsTest):
             self._backlight.restore()
         if self._service_stopper:
             self._service_stopper.restore_services()
-
-        if self._GSC:
-            keyvals = self._GSC.get_memory_difference_keyvals()
-            if not self._test_power:
-                for key, val in keyvals.iteritems():
-                    self.output_perf_value(
-                        description=key,
-                        value=val,
-                        units='bytes',
-                        higher_is_better=False)
-            self.write_perf_keyval(keyvals)
         super(graphics_WebGLAquarium, self).cleanup()
 
     def run_fish_test(self, browser, test_url, num_fishes, perf_log=True):
@@ -160,12 +149,30 @@ class graphics_WebGLAquarium(graphics_utils.GraphicsTest):
         logging.info('%d fish(es): Average FPS = %f, '
                      'average render time = %f', num_fishes, avg_fps,
                      avg_render_time)
+
         if perf_log:
+            # Report frames per second to chromeperf/ dashboard.
             self.output_perf_value(
                 description='avg_fps_%04d_fishes' % num_fishes,
                 value=avg_fps,
                 units='fps',
                 higher_is_better=True)
+
+            # Intel only: Record the power consumption for the next few seconds.
+            rapl_rate = power_rapl.get_rapl_measurement(
+                'rapl_%04d_fishes' % num_fishes)
+            # Remove entries that we don't care about.
+            rapl_rate = {key: rapl_rate[key]
+                         for key in rapl_rate.keys() if key.endswith('pwr')}
+            # Report to chromeperf/ dashboard.
+            for key, values in rapl_rate.iteritems():
+                self.output_perf_value(
+                    description=key,
+                    value=values,
+                    units='W',
+                    higher_is_better=False,
+                    graph='rapl_power_consumption'
+                )
 
     def run_power_test(self, browser, test_url, ac_ok):
         """Runs the webgl power consumption test and reports the perf results.

@@ -1045,7 +1045,15 @@ NvIndexIsAccessible(
        // indicated as present
        if(nvIndex.publicArea.attributes.TPMA_NV_PLATFORMCREATE == CLEAR)
        {
-           if(gc.shEnable == FALSE)
+           /*
+            * FWMP is a Chrome OS specific object saved at address 0x100a, it
+            * needs to be available for reading even before TPM2_Startup
+            * command is issued.
+            */
+           UINT32 isFwmpRead = (handle == 0x100100a) &&
+               IsReadOperation(commandCode);
+
+           if((gc.shEnable == FALSE) && !isFwmpRead)
                return TPM_RC_HANDLE;
        }
        // if phEnableNV is CLEAR, a platform created Index should not

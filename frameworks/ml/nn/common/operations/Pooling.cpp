@@ -15,9 +15,9 @@
  */
 
 #include "Operations.h"
-#include "OperationsUtils.h"
+#include "CpuOperationUtils.h"
 
-#include "internal/optimized/optimized_ops.h"
+#include "tensorflow/contrib/lite/kernels/internal/optimized/optimized_ops.h"
 
 namespace android {
 namespace nn {
@@ -40,15 +40,16 @@ bool averagePoolFloat32(const float* inputData, const Shape& inputShape,
 
     ANDROID_NN_POOLING_PARAMETERS
 
-    #define ANDROID_NN_AVERAGE_POOL(activation)                                \
-        optimized_ops::AveragePool<FusedActivationFunctionType::activation>(   \
-            inputData, convertShapeToDims(inputShape),                         \
-            stride_width, stride_height, paddingWidth, paddingHeight,          \
-            filter_width, filter_height,                                       \
-            outputData, convertShapeToDims(outputShape))
+    float output_activation_min, output_activation_max;
+    CalculateActivationRangeFloat(activation, &output_activation_min,
+                                  &output_activation_max);
 
-    ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_AVERAGE_POOL)
-    #undef ANDROID_NN_AVERAGE_POOL
+    tflite::optimized_ops::AveragePool(
+            inputData, convertShapeToDims(inputShape),
+            stride_width, stride_height, paddingWidth, paddingHeight,
+            filter_width, filter_height,
+            output_activation_min, output_activation_max,
+            outputData, convertShapeToDims(outputShape));
 
     return true;
 }
@@ -69,16 +70,12 @@ bool averagePoolQuant8(const uint8_t* inputData, const Shape& inputShape,
                                   &output_activation_min,
                                   &output_activation_max);
 
-    #define ANDROID_NN_AVERAGE_POOL(activation)                                \
-        optimized_ops::AveragePool<FusedActivationFunctionType::activation>(   \
-            inputData, convertShapeToDims(inputShape),                         \
-            stride_width, stride_height, paddingWidth, paddingHeight,          \
-            filter_width, filter_height,                                       \
-            output_activation_min, output_activation_max,                      \
-            outputData, convertShapeToDims(outputShape))
-
-    ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_AVERAGE_POOL)
-    #undef ANDROID_NN_AVERAGE_POOL
+    tflite::optimized_ops::AveragePool(
+            inputData, convertShapeToDims(inputShape),
+            stride_width, stride_height, paddingWidth, paddingHeight,
+            filter_width, filter_height,
+            output_activation_min, output_activation_max,
+            outputData, convertShapeToDims(outputShape));
 
     return true;
 }
@@ -92,15 +89,16 @@ bool l2PoolFloat32(const float* inputData, const Shape& inputShape,
 
     ANDROID_NN_POOLING_PARAMETERS
 
-    #define ANDROID_NN_L2_POOL(activation)                                     \
-        optimized_ops::L2Pool<FusedActivationFunctionType::activation>(        \
-            inputData, convertShapeToDims(inputShape),                         \
-            stride_width, stride_height, paddingWidth, paddingHeight,          \
-            filter_width, filter_height,                                       \
-            outputData, convertShapeToDims(outputShape))
+    float output_activation_min, output_activation_max;
+    CalculateActivationRangeFloat(activation, &output_activation_min,
+                                  &output_activation_max);
 
-    ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_L2_POOL)
-    #undef ANDROID_NN_L2_POOL
+    tflite::optimized_ops::L2Pool(
+            inputData, convertShapeToDims(inputShape),
+            stride_width, stride_height, paddingWidth, paddingHeight,
+            filter_width, filter_height,
+            output_activation_min, output_activation_max,
+            outputData, convertShapeToDims(outputShape));
 
     return true;
 }
@@ -114,15 +112,16 @@ bool maxPoolFloat32(const float* inputData, const Shape& inputShape,
 
     ANDROID_NN_POOLING_PARAMETERS
 
-    #define ANDROID_NN_MAX_POOL(activation)                                    \
-        optimized_ops::MaxPool<FusedActivationFunctionType::activation>(       \
-            inputData, convertShapeToDims(inputShape),                         \
-            stride_width, stride_height, paddingWidth, paddingHeight,          \
-            filter_width, filter_height,                                       \
-            outputData, convertShapeToDims(outputShape))
+    float output_activation_min, output_activation_max;
+    CalculateActivationRangeFloat(activation, &output_activation_min,
+                                  &output_activation_max);
 
-    ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_MAX_POOL)
-    #undef ANDROID_NN_MAX_POOL
+    tflite::optimized_ops::MaxPool(
+            inputData, convertShapeToDims(inputShape),
+            stride_width, stride_height, paddingWidth, paddingHeight,
+            filter_width, filter_height,
+            output_activation_min, output_activation_max,
+            outputData, convertShapeToDims(outputShape));
 
     return true;
 }
@@ -143,16 +142,12 @@ bool maxPoolQuant8(const uint8_t* inputData, const Shape& inputShape,
                                   &output_activation_min,
                                   &output_activation_max);
 
-    #define ANDROID_NN_MAX_POOL(activation)                                    \
-        optimized_ops::MaxPool<FusedActivationFunctionType::activation>(       \
-            inputData, convertShapeToDims(inputShape),                         \
-            stride_width, stride_height, paddingWidth, paddingHeight,          \
-            filter_width, filter_height,                                       \
-            output_activation_min, output_activation_max,                      \
-            outputData, convertShapeToDims(outputShape))
-
-    ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_MAX_POOL)
-    #undef ANDROID_NN_MAX_POOL
+    tflite::optimized_ops::MaxPool(
+            inputData, convertShapeToDims(inputShape),
+            stride_width, stride_height, paddingWidth, paddingHeight,
+            filter_width, filter_height,
+            output_activation_min, output_activation_max,
+            outputData, convertShapeToDims(outputShape));
 
     return true;
 }

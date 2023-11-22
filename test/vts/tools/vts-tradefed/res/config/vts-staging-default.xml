@@ -17,15 +17,21 @@
 
     <include name="vts-base" />
     <option name="plan" value="vts" />
-    <option name="test-tag" value="vts" />
+    <option name="test-tag" value="vts-star" />
     <option name="vts-plan-result:plan-name" value="vts-staging-default" />
 
     <!-- for System -->
     <option name="compatibility:include-filter" value="MemorySystemStressTest" />
-    <option name="compatibility:include-filter" value="VtsAppCameraStressTest" />
+    <!-- b/66012102 -->
+    <!-- <option name="compatibility:include-filter" value="VtsAppCameraStressTest" /> -->
 
-    <!-- for VNDK -->
-    <option name="compatibility:include-filter" value="VtsVndkAbi" />
-    <option name="compatibility:include-filter" value="VtsVndkOpenLibraries" />
+    <!-- for Hal -->
+    <option name="compatibility:include-filter" value="VtsHalAudioEffectV2_0TargetReplay" />
+    <option name="compatibility:include-filter" value="VtsHalBluetoothV1_0TargetReplay" />
+    <option name="compatibility:include-filter" value="VtsHalThermalV1_0TargetReplay" />
+
+    <!-- for HAL adapter tests -->
+    <option name="compatibility:include-filter" value="VtsHalVibratorV1_1AdapterCtsOsTestCases" />
+    <option name="compatibility:include-filter" value="VtsHalVibratorV1_1AdapterDeviceHealthTests" />
 
 </configuration>

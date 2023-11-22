@@ -219,7 +219,13 @@ void * RS::threadProc(void *vrsc) {
 
         if (receiveLen >= rbuf_size) {
             rbuf_size = receiveLen + 32;
-            rbuf = realloc(rbuf, rbuf_size);
+            void *tmpBuf = realloc(rbuf, rbuf_size);
+            if (tmpBuf) {
+                rbuf = tmpBuf;
+            } else {
+                free(rbuf);
+                rbuf = NULL;
+            }
         }
         if (!rbuf) {
             ALOGE("RS::message handler realloc error %zu", rbuf_size);

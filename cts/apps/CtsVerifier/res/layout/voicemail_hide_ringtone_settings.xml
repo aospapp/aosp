@@ -32,11 +32,18 @@
         android:layout_height="wrap_content"
         android:text="@string/open_voicemail_settings_explanation"
         android:textSize="16dp"/>
+
     <Button
-        android:id="@+id/open_voicemail_settings"
+        android:id="@+id/voicemail_hide_ringtone_settings_not_applicable"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/open_voicemail_settings"/>
+        android:text="@string/visual_voicemail_service_remove_sim_not_applicable"/>
+
+    <Button
+      android:id="@+id/open_voicemail_settings"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="@string/open_voicemail_settings"/>
 
     <LinearLayout
         android:layout_width="wrap_content"

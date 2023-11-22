@@ -26,8 +26,7 @@
 #include <hardware/keymaster2.h>
 
 #include <keymaster/android_keymaster.h>
-#include <keymaster/soft_keymaster_context.h>
-
+#include <keymaster/contexts/soft_keymaster_context.h>
 #include <keymaster/UniquePtr.h>
 
 namespace keymaster {
@@ -240,7 +239,6 @@ class SoftKeymasterDevice {
     keymaster1_device_t km1_device_;
     keymaster2_device_t km2_device_;
 
-    keymaster0_device_t* wrapped_km0_device_;
     keymaster1_device_t* wrapped_km1_device_;
     DigestMap km1_device_digests_;
     SoftKeymasterContext* context_;

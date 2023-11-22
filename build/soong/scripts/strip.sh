@@ -1,5 +1,19 @@
 #!/bin/bash -e
 
+# Copyright 2017 Google Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # Script to handle the various ways soong may need to strip binaries
 # Inputs:
 #  Environment:
@@ -41,6 +55,7 @@ do_strip_keep_mini_debug_info() {
         "${CROSS_COMPILE}nm" -D "${infile}" --format=posix --defined-only | awk '{ print $$1 }' | sort >"${outfile}.dynsyms"
         "${CROSS_COMPILE}nm" "${infile}" --format=posix --defined-only | awk '{ if ($$2 == "T" || $$2 == "t" || $$2 == "D") print $$1 }' | sort > "${outfile}.funcsyms"
         comm -13 "${outfile}.dynsyms" "${outfile}.funcsyms" > "${outfile}.keep_symbols"
+        echo >> "${outfile}.keep_symbols" # Ensure that the keep_symbols file is not empty.
         "${CROSS_COMPILE}objcopy" --rename-section .debug_frame=saved_debug_frame "${outfile}.debug" "${outfile}.mini_debuginfo"
         "${CROSS_COMPILE}objcopy" -S --remove-section .gdb_index --remove-section .comment --keep-symbols="${outfile}.keep_symbols" "${outfile}.mini_debuginfo"
         "${CROSS_COMPILE}objcopy" --rename-section saved_debug_frame=.debug_frame "${outfile}.mini_debuginfo"

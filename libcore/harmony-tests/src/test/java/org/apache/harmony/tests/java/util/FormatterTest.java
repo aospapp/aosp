@@ -57,6 +57,7 @@ import java.util.Formatter.BigDecimalLayoutForm;
 
 import junit.framework.TestCase;
 
+@SuppressWarnings("FormatString")  // This test tests illegal format strings.
 public class FormatterTest extends TestCase {
     private boolean root;
 

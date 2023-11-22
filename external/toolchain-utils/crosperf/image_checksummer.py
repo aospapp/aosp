@@ -25,8 +25,8 @@ class ImageChecksummer(object):
     def Checksum(self):
       with self._lock:
         if not self._checksum:
-          logger.GetLogger().LogOutput("Acquiring checksum for '%s'." %
-                                       self.label.name)
+          logger.GetLogger().LogOutput(
+              "Acquiring checksum for '%s'." % self.label.name)
           self._checksum = None
           if self.label.image_type != 'local':
             raise RuntimeError('Called Checksum on non-local image!')
@@ -48,8 +48,8 @@ class ImageChecksummer(object):
   def __new__(cls, *args, **kwargs):
     with cls._lock:
       if not cls._instance:
-        cls._instance = super(ImageChecksummer, cls).__new__(cls, *args,
-                                                             **kwargs)
+        cls._instance = super(ImageChecksummer, cls).__new__(
+            cls, *args, **kwargs)
       return cls._instance
 
   def Checksum(self, label, log_level):

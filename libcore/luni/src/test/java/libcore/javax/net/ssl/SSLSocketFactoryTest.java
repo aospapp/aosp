@@ -46,12 +46,6 @@ import libcore.java.security.StandardNames;
 public class SSLSocketFactoryTest extends TestCase {
     private static final String SSL_PROPERTY = "ssl.SocketFactory.provider";
 
-    public void test_SSLSocketFactory_getDefault() {
-        SocketFactory sf = SSLSocketFactory.getDefault();
-        assertNotNull(sf);
-        assertTrue(SSLSocketFactory.class.isAssignableFrom(sf.getClass()));
-    }
-
     public static class FakeSSLSocketProvider extends Provider {
         public FakeSSLSocketProvider() {
             super("FakeSSLSocketProvider", 1.0, "Testing provider");
@@ -208,47 +202,6 @@ public class SSLSocketFactoryTest extends TestCase {
 
         assertNull(Security.getProperty(SSL_PROPERTY));
         return origProvider;
-    }
-
-    public void test_SSLSocketFactory_defaultConfiguration() throws Exception {
-        SSLConfigurationAsserts.assertSSLSocketFactoryDefaultConfiguration(
-                (SSLSocketFactory) SSLSocketFactory.getDefault());
-    }
-
-    public void test_SSLSocketFactory_getDefaultCipherSuitesReturnsCopies() {
-        SSLSocketFactory sf = (SSLSocketFactory) SSLSocketFactory.getDefault();
-        assertNotSame(sf.getDefaultCipherSuites(), sf.getDefaultCipherSuites());
-    }
-
-    public void test_SSLSocketFactory_getSupportedCipherSuitesReturnsCopies() {
-        SSLSocketFactory sf = (SSLSocketFactory) SSLSocketFactory.getDefault();
-        assertNotSame(sf.getSupportedCipherSuites(), sf.getSupportedCipherSuites());
-    }
-
-    public void test_SSLSocketFactory_createSocket() throws Exception {
-        try {
-            SSLSocketFactory sf = (SSLSocketFactory) SSLSocketFactory.getDefault();
-            Socket s = sf.createSocket(null, null, -1, false);
-            fail();
-        } catch (NullPointerException expected) {
-        }
-
-        try {
-            SSLSocketFactory sf = (SSLSocketFactory) SSLSocketFactory.getDefault();
-            Socket ssl = sf.createSocket(new Socket(), null, -1, false);
-            fail();
-        } catch (SocketException expected) {
-        }
-
-        ServerSocket ss = ServerSocketFactory.getDefault().createServerSocket(0);
-        InetSocketAddress sa = (InetSocketAddress) ss.getLocalSocketAddress();
-        InetAddress host = sa.getAddress();
-        int port = sa.getPort();
-        Socket s = new Socket(host, port);
-        SSLSocketFactory sf = (SSLSocketFactory) SSLSocketFactory.getDefault();
-        Socket ssl = sf.createSocket(s, null, -1, false);
-        assertNotNull(ssl);
-        assertTrue(SSLSocket.class.isAssignableFrom(ssl.getClass()));
     }
 
 

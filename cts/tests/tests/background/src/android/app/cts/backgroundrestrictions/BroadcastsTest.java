@@ -23,11 +23,14 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.platform.test.annotations.AppModeFull;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 
+import com.android.compatibility.common.util.AmUtils;
 import com.android.compatibility.common.util.SystemUtil;
+import com.android.compatibility.common.util.CddTest;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -54,6 +57,7 @@ public class BroadcastsTest {
      * receiver.
      */
     @Test
+    @CddTest(requirement="3.5/C-0-6")
     public void testNonSupportedBroadcastsNotDelivered_runtimeReceiver() throws Exception {
 
         // Need a reference here to initialize it in a lambda.
@@ -79,7 +83,9 @@ public class BroadcastsTest {
      * Make sure "com.android.launcher.action.INSTALL_SHORTCUT" won't be delivered to a manifest
      * receiver, even if an intent is targeted to the component.
      */
+    @AppModeFull(reason = "Instant apps don't get to run in the background.")
     @Test
+    @CddTest(requirement="3.5/C-0-6")
     public void testNonSupportedBroadcastsNotDelivered_manifestReceiver() throws Exception {
         // Need a reference here to initialize it in a lambda.
         final AtomicReference<BroadcastReceiver> receiverRef = new AtomicReference<>();
@@ -96,7 +102,10 @@ public class BroadcastsTest {
             BiConsumer<IntentFilter, Consumer<Intent>> receiverInitializer,
             Consumer<Intent> intentInitializer,
             Runnable receiverDeinitializer) throws Exception {
-        // This broadcast should be delivered.
+
+        AmUtils.waitForBroadcastIdle();
+
+        // This broadcast should not be delivered.
         final String[] UNSUPPORTED_BROADCASTS = new String[]{
                 "com.android.launcher.action.INSTALL_SHORTCUT",
         };

@@ -18,7 +18,7 @@
     <bool name="profile_supported_hdp">true</bool>
     <bool name="profile_supported_hs_hfp">true</bool>
     <bool name="profile_supported_hfpclient">false</bool>
-    <bool name="profile_supported_hid">true</bool>
+    <bool name="profile_supported_hid_host">true</bool>
     <bool name="profile_supported_opp">true</bool>
     <bool name="profile_supported_pan">true</bool>
     <bool name="profile_supported_pbap">true</bool>
@@ -26,11 +26,13 @@
     <bool name="pbap_include_photos_in_vcard">true</bool>
     <bool name="pbap_use_profile_for_owner_vcard">true</bool>
     <bool name="profile_supported_map">true</bool>
+    <bool name="profile_supported_avrcp_target">true</bool>
     <bool name="profile_supported_avrcp_controller">false</bool>
     <bool name="profile_supported_sap">false</bool>
     <bool name="profile_supported_pbapclient">false</bool>
     <bool name="profile_supported_mapmce">false</bool>
-    <bool name="profile_supported_hidd">false</bool>
+    <bool name="profile_supported_hid_device">true</bool>
+    <bool name="profile_supported_hearing_aid">false</bool>
 
     <!-- If true, we will require location to be enabled on the device to
          fire Bluetooth LE scan result callbacks in addition to having one
@@ -99,5 +101,8 @@
           - BluetoothDevice.ACTION_CONNECTION_ACCESS_REQUEST on access requests
           - BluetoothDevice.ACTION_CONNECTION_ACCESS_CANCEL to cancel access requests -->
     <string name="pairing_ui_package">com.android.settings</string>
+
+    <!-- Flag whether or not to keep polling AG with CLCC for call information every 2 seconds -->
+    <bool name="hfp_clcc_poll_during_call">true</bool>
 
 </resources>

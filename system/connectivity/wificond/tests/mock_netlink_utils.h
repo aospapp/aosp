@@ -33,6 +33,9 @@ class MockNetlinkUtils : public NetlinkUtils {
   MOCK_METHOD1(UnsubscribeMlmeEvent, void(uint32_t interface_index));
   MOCK_METHOD1(UnsubscribeRegDomainChange, void(uint32_t wiphy_index));
   MOCK_METHOD1(UnsubscribeStationEvent, void(uint32_t interface_index));
+  MOCK_METHOD1(UnsubscribeChannelSwitchEvent, void(uint32_t interface_index));
+  MOCK_METHOD1(GetProtocolFeatures, bool(uint32_t* features));
+
   MOCK_METHOD2(SetInterfaceMode,
                bool(uint32_t interface_index, InterfaceMode mode));
   MOCK_METHOD2(SubscribeMlmeEvent,
@@ -44,6 +47,9 @@ class MockNetlinkUtils : public NetlinkUtils {
   MOCK_METHOD2(SubscribeStationEvent,
                void(uint32_t interface_index,
                     OnStationEventHandler handler));
+  MOCK_METHOD2(SubscribeChannelSwitchEvent,
+               void(uint32_t interface_index,
+                    OnChannelSwitchEventHandler handler));
 
   MOCK_METHOD2(GetInterfaces,
                bool(uint32_t wiphy_index,

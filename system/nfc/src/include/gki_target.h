@@ -24,14 +24,6 @@
 
 #include "data_types.h"
 
-/* Operating System Selection */
-#ifndef BTE_SIM_APP
-#define _GKI_ARM
-#define _GKI_STANDALONE
-#else
-#define _BT_WIN32
-#endif
-
 /******************************************************************************
 **
 ** Task configuration
@@ -176,7 +168,7 @@
 
 /* The size of the buffers in pool 3. */
 #ifndef GKI_BUF3_SIZE
-#define GKI_BUF3_SIZE 2500
+#define GKI_BUF3_SIZE (0xFFB0)
 #endif
 
 /* The number of buffers in buffer pool 3. */
@@ -359,53 +351,6 @@ over HCI data and intentionally kept out of order */
 /* The number of buffers in buffer pool 8. */
 #ifndef GKI_BUF8_MAX
 #define GKI_BUF8_MAX 30
-#endif
-
-#define GKI_TRACE_0(m)
-#define GKI_TRACE_1(m, p1)
-#define GKI_TRACE_2(m, p1, p2)
-#define GKI_TRACE_3(m, p1, p2, p3)
-#define GKI_TRACE_4(m, p1, p2, p3, p4)
-#define GKI_TRACE_5(m, p1, p2, p3, p4, p5)
-#define GKI_TRACE_6(m, p1, p2, p3, p4, p5, p6)
-
-#define GKI_TRACE_ERROR_0(m)                                                   \
-  LogMsg(                                                                      \
-      TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | TRACE_TYPE_ERROR, \
-      m)
-#define GKI_TRACE_ERROR_1(m, p1)                                               \
-  LogMsg(                                                                      \
-      TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | TRACE_TYPE_ERROR, \
-      m, p1)
-#define GKI_TRACE_ERROR_2(m, p1, p2)                                           \
-  LogMsg(                                                                      \
-      TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | TRACE_TYPE_ERROR, \
-      m, p1, p2)
-#define GKI_TRACE_ERROR_3(m, p1, p2, p3)                                       \
-  LogMsg(                                                                      \
-      TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | TRACE_TYPE_ERROR, \
-      m, p1, p2, p3)
-#define GKI_TRACE_ERROR_4(m, p1, p2, p3, p4)                                   \
-  LogMsg(                                                                      \
-      TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | TRACE_TYPE_ERROR, \
-      m, p1, p2, p3, p4)
-#define GKI_TRACE_ERROR_5(m, p1, p2, p3, p4, p5)                               \
-  LogMsg(                                                                      \
-      TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | TRACE_TYPE_ERROR, \
-      m, p1, p2, p3, p4, p5)
-#define GKI_TRACE_ERROR_6(m, p1, p2, p3, p4, p5, p6)                           \
-  LogMsg(                                                                      \
-      TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | TRACE_TYPE_ERROR, \
-      m, p1, p2, p3, p4, p5, p6)
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-extern void LogMsg(uint32_t trace_set_mask, const char* fmt_str, ...);
-
-#ifdef __cplusplus
-}
 #endif
 
 #endif /* GKI_TARGET_H */

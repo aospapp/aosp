@@ -17,13 +17,13 @@
 #include <math.h>
 
 #include "entrypoints/jni/jni_entrypoints.h"
+#include "entrypoints/math_entrypoints.h"
 #include "entrypoints/quick/quick_alloc_entrypoints.h"
 #include "entrypoints/quick/quick_default_externs.h"
 #if !defined(__APPLE__)
 #include "entrypoints/quick/quick_default_init_entrypoints.h"
 #endif
 #include "entrypoints/quick/quick_entrypoints.h"
-#include "entrypoints/math_entrypoints.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
 #include "interpreter/interpreter.h"
 
@@ -91,6 +91,7 @@ void InitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) {
   qpoints->pAsin = asin;
   qpoints->pAtan = atan;
   qpoints->pAtan2 = atan2;
+  qpoints->pPow = pow;
   qpoints->pCbrt = cbrt;
   qpoints->pCosh = cosh;
   qpoints->pExp = exp;
@@ -139,6 +140,6 @@ void InitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) {
   qpoints->pReadBarrierSlow = art_quick_read_barrier_slow;
   qpoints->pReadBarrierForRootSlow = art_quick_read_barrier_for_root_slow;
 #endif  // __APPLE__
-};
+}
 
 }  // namespace art

@@ -34,7 +34,7 @@
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"သင့်အဖွဲ့အစည်း၏ ပုဂ္ဂိုလ်ရေးဆိုင်ရာ လုံခြုံရေးမူဝါဒများအပါအဝင်၊ နောက်ထပ်အချက်အလက်များအတွက် သင့်စီမံခန့်ခွဲသူကိုဆက်သွယ်ပါ။"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"ပိုမိုသိလိုလျှင်"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"မလုပ်တော့"</string>
-    <string name="ok_setup" msgid="4593707675416137504">"အိုကေ"</string>
+    <string name="ok_setup" msgid="4593707675416137504">"OK"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"သဘောတူခွင့်ပြုသည်"</string>
     <string name="url_error" msgid="5958494012986243186">"ဤလင့်ခ်ကို ဖော်ပြ၍မရပါ။"</string>
     <string name="terms" msgid="8295436105384703903">"စည်းကမ်းချက်များ"</string>
@@ -61,12 +61,13 @@
     <string name="change_device_launcher" msgid="4523563368433637980">"စက်ပစ္စည်း launcher ကို ပြောင်းပါ"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"ဤ launcher အက်ပ်ကို သင်၏ အလုပ်ပရိုဖိုင်အတွက် အသုံးပြု၍မရပါ"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"မလုပ်တော့"</string>
-    <string name="pick_launcher" msgid="4257084827403983845">"အိုကေ"</string>
+    <string name="pick_launcher" msgid="4257084827403983845">"OK"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"အသုံးပြုသူ ပြင်ဆင်သတ်မှတ်မှု မပြီးစီးပါ"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"အလုပ်စက်ပစ္စည်း အသုံးပြုသူ"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"အလုပ်စက်ပစ္စည်းကို ပြင်ဆင်သတ်မှတ်နေပါသည်…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"ဖွဲ့စည်းပုံအချက်အလက်ကို စီမံဆောင်ရွက်နေသည်..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"ကြိုးမဲ့အင်တာနက်သို့ ချိတ်ဆက်နေသည်..."</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"မိုဘိုင်းကွန်ရက်သို့ ချိတ်ဆက်နေသည်…"</string>
     <string name="progress_download" msgid="3522436271691064624">"စီမံအုပ်ချုပ်သူ အပ်ဖ်ကို ဒေါင်းလုဒ်လုပ်နေသည်..."</string>
     <string name="progress_install" msgid="2258045670385866183">"စီမံအုပ်ချုပ်သူ အပ်ဖ်ကို ထည့်သွင်းနေသည်..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"မလိုအပ်သည့် စနစ်အက်ပ်များကို ဖယ်ရှားနေသည်…"</string>
@@ -78,7 +79,7 @@
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"၎င်းသည် သင်၏ စက်ပစ္စည်းကို ပြင်ဆင်သတ်မှတ်ပြီး ပထမဆုံးစာမျက်နှာသို့ ပြန်ပို့ပေးပါမည်"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"စဖွင့်စီစဉ်မှုအား ရပ်စဲကာ သင့် ကိရိယာ၏ဒေတာကို ဖျက်ပစ်မည်လား?"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"မလုပ်တော့"</string>
-    <string name="device_owner_error_ok" msgid="2002250763093787051">"အိုကေ"</string>
+    <string name="device_owner_error_ok" msgid="2002250763093787051">"OK"</string>
     <string name="reset" msgid="6467204151306265796">"ပြန်သတ်မှတ်ရန်"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"ပရိုဖိုင်ကို စနစ်ထည့်သွင်း၍ မရပါ"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"စက်ပစ္စည်းကို စနစ်ထည့်သွင်း၍ မရပါ"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"သင်သည် သင့်အဖွဲ့အစည်းက စောင့်ကြည့် စီမံခန့်ခွဲနိုင်သည့် အလုပ်ပရိုဖိုင်တစ်ခုကို ပြုလုပ်ပါတော့မည်။ <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> မှ စည်းကမ်းသတ်မှတ်ချက်များ အကျုံးဝင်ပါလိမ့်မည်။"</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"အလုပ်အက်ပ်များအတွက် ပရိုဖိုင်တစ်ခု ပြုလုပ်သွားပါမည်။ ဤပရိုဖိုင်နှင့် သင်၏စက်ပစ္စည်းအားလုံးကို သင့်အဖွဲ့အစည်းက စီမံခန့်ခွဲပါလိမ့်မည်။ သက်ဆိုင်ရာစည်းကမ်းသတ်မှတ်ချက်များ အကျုံးဝင်ပါလိမ့်မည်။"</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"အလုပ်အက်ပ်များအတွက် ပရိုဖိုင်တစ်ခု ပြုလုပ်သွားပါမည်။ ဤပရိုဖိုင်နှင့် သင်၏စက်ပစ္စည်းအားလုံးကို သင့်အဖွဲ့အစည်းက စီမံခန့်ခွဲပါလိမ့်မည်။ <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> မှ စည်းကမ်းသတ်မှတ်ချက်များ အကျုံးဝင်ပါလိမ့်မည်။"</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"ဤစက်ပစ္စည်းကို <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> က စီမံခန့်ခွဲ၍ လုံခြုံအောင်ပြုလုပ်သွားပါမည်။ စည်းကမ်းသတ်မှတ်ချက်များ ရှိပါသည်။ <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"ဤစက်ပစ္စည်းကို <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> က စီမံခန့်ခွဲ၍ လုံခြုံအောင် ပြုလုပ်သွားပါမည်။ <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> မှ စည်းကမ်းသတ်မှတ်ချက်များ အကျုံးဝင်ပါလိမ့်မည်။ <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"ဤစက်ကို <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> က စီမံခန့်ခွဲ၍ စောင့်ကြည့်ပြီး လုံခြုံအောင်ပြုလုပ်သွားပါမည်။ စည်းကမ်းသတ်မှတ်ချက်များ ရှိပါသည်။ <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"ဤစက်ကို <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> က စီမံခန့်ခွဲ၍ စောင့်ကြည့်ပြီး လုံခြုံအောင်ပြုလုပ်သွားပါမည်။ <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> မှ စည်းကမ်းသတ်မှတ်ချက်များကို လိုက်နာရန် လိုအပ်ပါသည်။ <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"ဤလင့်ခ်က လုံခြုံမှုမရှိသောကြောင့် စက်ပစ္စည်း စနစ်ထည့်သွင်းမှု မပြီးမချင်း ဖွင့်၍ရမည် မဟုတ်ပါ− <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"မေးမြန်းစရာများရှိပါက သင်၏ <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> ကို ဆက်သွယ်ပါ။"</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"မေးမြန်းစရာများရှိပါက အဖွဲ့အစည်း၏ စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> နှင့် <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>၊ <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>၊ <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"မိနစ်အနည်းငယ် ကြာနိုင်ပါသည်"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"အလုပ်အက်ပ်များကို ဤပရိုဖိုင်တွင် ထားရှိမည်ဖြစ်ပြီး သင်၏အဖွဲ့အစည်းက စီမံခန့်ခွဲပါမည်"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"ဤစက်ပစ္စည်းကို သင်၏ အဖွဲ့အစည်းက လုံခြုံအောင်ထားပြီး စီမံခန့်ခွဲသွားပါမည်"</string>
 </resources>

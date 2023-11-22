@@ -16,6 +16,10 @@
 
 package android.platform.systemui.tests.jank;
 
+import static android.system.helpers.OverviewHelper.isRecentsInLauncher;
+
+import static org.junit.Assert.assertNotNull;
+
 import android.app.Notification.Action;
 import android.app.Notification.Builder;
 import android.app.NotificationManager;
@@ -36,6 +40,7 @@ import android.support.test.jank.JankTestBase;
 import android.support.test.timeresulthelper.TimeResultLogger;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
+import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiObject2;
@@ -49,6 +54,7 @@ import android.widget.ImageView;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class SystemUiJankTests extends JankTestBase {
@@ -58,9 +64,9 @@ public class SystemUiJankTests extends JankTestBase {
     private static final BySelector RECENTS = By.res(SYSTEMUI_PACKAGE, "recents_view");
     private static final String LOG_TAG = SystemUiJankTests.class.getSimpleName();
     private static final int SWIPE_MARGIN = 5;
-    private static final int DEFAULT_FLING_STEPS = 5;
     private static final int DEFAULT_SCROLL_STEPS = 15;
     private static final int BRIGHTNESS_SCROLL_STEPS = 30;
+    private static final int DEFAULT_FLING_SPEED = 15000;
 
     // short transitions should be repeated within the test function, otherwise frame stats
     // captured are not really meaningful in a statistical sense
@@ -79,7 +85,7 @@ public class SystemUiJankTests extends JankTestBase {
             android.R.drawable.stat_notify_voicemail,
     };
     private static final String NOTIFICATION_TEXT = "Lorem ipsum dolor sit amet";
-    private static final String REPLY_TEXT = "REPLY";
+    private static final String REPLY_TEXT = "Reply";
     private static final File TIMESTAMP_FILE = new File(Environment.getExternalStorageDirectory()
             .getAbsolutePath(), "autotester.log");
     private static final File RESULTS_FILE = new File(Environment.getExternalStorageDirectory()
@@ -105,6 +111,9 @@ public class SystemUiJankTests extends JankTestBase {
      * Group mode: All notifications should be separate
      */
     private static final int GROUP_MODE_UNGROUPED = 2;
+
+    private final UiSelector clearAllSelector =
+                        new UiSelector().className(Button.class).descriptionContains("CLEAR ALL");
 
     private UiDevice mDevice;
     private ArrayList<String> mLaunchedPackages;
@@ -151,18 +160,45 @@ public class SystemUiJankTests extends JankTestBase {
         super.afterTest(metrics);
     }
 
-    public void resetRecentsToBottom() {
+    public static BySelector getLauncherOverviewSelector(UiDevice device) {
+        return By.res(device.getLauncherPackageName(), "overview_panel");
+    }
+
+    private BySelector getLauncherOverviewSelector() {
+        return getLauncherOverviewSelector(mDevice);
+    }
+
+    public static void openRecents(Context context, UiDevice device) {
+        final UiObject2 recentsButton = device.findObject(By.res(SYSTEMUI_PACKAGE, "recent_apps"));
+        if (recentsButton == null) {
+            int height = device.getDisplayHeight();
+            UiObject2 navBar = device.findObject(By.res(SYSTEMUI_PACKAGE, "navigation_bar_frame"));
+
+            // Swipe from nav bar to 2/3rd down the screen.
+            device.swipe(
+                    navBar.getVisibleBounds().centerX(), navBar.getVisibleBounds().centerY(),
+                    navBar.getVisibleBounds().centerX(), height * 2 / 3,
+                    (navBar.getVisibleBounds().centerY() - height * 2 / 3) / 100); // 100 px/step
+        } else {
+            recentsButton.click();
+        }
+
+        // use a long timeout to wait until recents populated
+        if (device.wait(
+                Until.findObject(isRecentsInLauncher()
+                        ? getLauncherOverviewSelector(device) : RECENTS),
+                10000) == null) {
+            fail("Recents didn't appear");
+        }
+        device.waitForIdle();
+    }
+
+    public void resetRecentsToBottom() throws RemoteException {
+        mDevice.wakeUp();
         // Rather than trying to scroll back to the bottom, just re-open the recents list
         mDevice.pressHome();
         mDevice.waitForIdle();
-        try {
-            mDevice.pressRecentApps();
-        } catch (RemoteException e) {
-            throw new RuntimeException(e);
-        }
-        // use a long timeout to wait until recents populated
-        mDevice.wait(Until.findObject(RECENTS), 10000);
-        mDevice.waitForIdle();
+        openRecents(getInstrumentation().getTargetContext(), mDevice);
     }
 
     public void prepareNotifications(int groupMode) throws Exception {
@@ -172,8 +208,7 @@ public class SystemUiJankTests extends JankTestBase {
         mDevice.waitForIdle();
 
         // CLEAR ALL might not be visible in case we don't have any clearable notifications.
-        UiObject clearAll =
-                mDevice.findObject(new UiSelector().className(Button.class).text("CLEAR ALL"));
+        UiObject clearAll = mDevice.findObject(clearAllSelector);
         if (clearAll.exists()) {
             clearAll.click();
         }
@@ -188,7 +223,8 @@ public class SystemUiJankTests extends JankTestBase {
     }
 
     private void postNotifications(int groupMode, int sleepBetweenDuration, int maxCount) {
-        Builder builder = new Builder(getInstrumentation().getTargetContext())
+        Context context = getInstrumentation().getContext();
+        Builder builder = new Builder(context)
                 .setContentTitle(NOTIFICATION_TEXT);
         if (groupMode == GROUP_MODE_GROUPED) {
             builder.setGroup("key");
@@ -209,6 +245,8 @@ public class SystemUiJankTests extends JankTestBase {
             }
             builder.setContentText(Integer.toHexString(icon))
                     .setSmallIcon(icon);
+            builder.setContentIntent(PendingIntent.getActivity(
+                    context, 0, new Intent(context, DummyActivity.class), 0));
             mNotificationManager.notify(icon, builder.build());
             SystemClock.sleep(sleepBetweenDuration);
             first = false;
@@ -253,20 +291,38 @@ public class SystemUiJankTests extends JankTestBase {
         mNotificationManager.cancelAll();
     }
 
+    /**
+     * Returns the package that provides Recents.
+     */
+    public String getPackageForRecents() {
+        return isRecentsInLauncher() ? mDevice.getLauncherPackageName() : SYSTEMUI_PACKAGE;
+    }
+
     /** Starts from the bottom of the recent apps list and measures jank while flinging up. */
     @JankTest(beforeTest = "populateRecentApps", beforeLoop = "resetRecentsToBottom",
             afterTest = "forceStopPackages", expectedFrames = 100, defaultIterationCount = 5)
-    @GfxMonitor(processName = SYSTEMUI_PACKAGE)
+    @GfxMonitor(processName = "#getPackageForRecents")
     public void testRecentAppsFling() {
-        UiObject2 recents = mDevice.findObject(RECENTS);
-        Rect r = recents.getVisibleBounds();
-        // decide the top & bottom edges for scroll gesture
-        int top = r.top + r.height() / 4; // top edge = top + 25% height
-        int bottom = r.bottom - 200; // bottom edge = bottom & shift up 200px
+        final UiObject2 recents;
+        final Direction firstFling, secondFling;
+
+        if (isRecentsInLauncher()) {
+            recents = mDevice.findObject(getLauncherOverviewSelector());
+            firstFling = Direction.RIGHT;
+            secondFling = Direction.LEFT;
+        } else {
+            recents = mDevice.findObject(RECENTS);
+            final Rect r = recents.getVisibleBounds();
+            final int margin = r.height() / 4; // top & bottom edges for fling gesture = 25% height
+            recents.setGestureMargins(0, margin, 0, margin);
+            firstFling = Direction.UP;
+            secondFling = Direction.DOWN;
+        }
+
         for (int i = 0; i < INNER_LOOP; i++) {
-            mDevice.swipe(r.width() / 2, top, r.width() / 2, bottom, DEFAULT_FLING_STEPS);
+            recents.fling(firstFling, DEFAULT_FLING_SPEED);
             mDevice.waitForIdle();
-            mDevice.swipe(r.width() / 2, bottom, r.width() / 2, top, DEFAULT_FLING_STEPS);
+            recents.fling(secondFling, DEFAULT_FLING_SPEED);
             mDevice.waitForIdle();
         }
     }
@@ -276,21 +332,63 @@ public class SystemUiJankTests extends JankTestBase {
      */
     @JankTest(beforeTest = "populateRecentApps", beforeLoop = "resetRecentsToBottom",
             afterTest = "forceStopPackages", expectedFrames = 10, defaultIterationCount = 5)
-    @GfxMonitor(processName = SYSTEMUI_PACKAGE)
+    @GfxMonitor(processName = "#getPackageForRecents")
     public void testRecentAppsDismiss() {
-        // Wait until dismiss views are fully faded in.
-        mDevice.findObject(new UiSelector().resourceId("com.android.systemui:id/dismiss_task"))
-                .waitForExists(5000);
-        for (int i = 0; i < INNER_LOOP; i++) {
-            List<UiObject2> dismissViews = mDevice.findObjects(
-                    By.res(SYSTEMUI_PACKAGE, "dismiss_task"));
-            if (dismissViews.size() == 0) {
-                fail("Unable to find dismiss view");
-            }
-            dismissViews.get(dismissViews.size() - 1).click();
+        if (isRecentsInLauncher()) {
+            final UiObject2 overviewPanel = mDevice.findObject(getLauncherOverviewSelector());
+            // Bring some task onto the screen.
+            overviewPanel.fling(Direction.RIGHT, DEFAULT_FLING_SPEED);
             mDevice.waitForIdle();
-            SystemClock.sleep(500);
+
+            for (int i = 0; i < INNER_LOOP; i++) {
+                final List<UiObject2> taskViews = mDevice.findObjects(
+                        By.res(mDevice.getLauncherPackageName(), "snapshot"));
+
+                if (taskViews.size() == 0) {
+                    fail("Unable to find a task to dismiss");
+                }
+
+                // taskViews contains up to 3 task views: the 'main' (having the widest visible
+                // part) one in the center, and parts of its right and left siblings. Find the
+                // main task view by its width.
+                final UiObject2 widestTask = Collections.max(taskViews,
+                        (t1, t2) -> Integer.compare(t1.getVisibleBounds().width(),
+                                t2.getVisibleBounds().width()));
+
+                // Dismiss the task via flinging it up.
+                widestTask.fling(Direction.DOWN);
+                mDevice.waitForIdle();
+            }
+
+        } else {
+            // Wait until dismiss views are fully faded in.
+            mDevice.findObject(new UiSelector().resourceId("com.android.systemui:id/dismiss_task"))
+                    .waitForExists(5000);
+            for (int i = 0; i < INNER_LOOP; i++) {
+                List<UiObject2> dismissViews = mDevice.findObjects(
+                        By.res(SYSTEMUI_PACKAGE, "dismiss_task"));
+                if (dismissViews.size() == 0) {
+                    fail("Unable to find dismiss view");
+                }
+                dismissViews.get(dismissViews.size() - 1).click();
+                mDevice.waitForIdle();
+                SystemClock.sleep(500);
+            }
         }
+    }
+
+    private void scrollListUp() {
+        mDevice.swipe(mDevice.getDisplayWidth() / 2,
+                mDevice.getDisplayHeight() / 2, mDevice.getDisplayWidth() / 2,
+                0,
+                DEFAULT_SCROLL_STEPS);
+    }
+
+    private void scrollListDown() {
+        mDevice.swipe(mDevice.getDisplayWidth() / 2,
+                mDevice.getDisplayHeight() / 2, mDevice.getDisplayWidth() / 2,
+                mDevice.getDisplayHeight(),
+                DEFAULT_SCROLL_STEPS);
     }
 
     private void swipeDown() {
@@ -333,6 +431,41 @@ public class SystemUiJankTests extends JankTestBase {
             swipeDown();
             mDevice.waitForIdle();
             swipeUp();
+            mDevice.waitForIdle();
+        }
+    }
+
+    public void beforeNotificationListScroll() throws Exception {
+        prepareNotifications(GROUP_MODE_UNGROUPED);
+        mDevice.waitForIdle();
+        TimeResultLogger.writeTimeStampLogStart(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
+        swipeDown();
+        mDevice.waitForIdle();
+    }
+
+    public void afterNotificationListScroll(Bundle metrics) throws Exception {
+        TimeResultLogger.writeTimeStampLogEnd(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
+        cancelNotifications();
+        mDevice.waitForIdle();
+        swipeUp();
+        mDevice.waitForIdle();
+        TimeResultLogger.writeResultToFile(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), RESULTS_FILE, metrics);
+        super.afterTest(metrics);
+    }
+
+    /** Measures jank while scrolling notification list */
+    @JankTest(expectedFrames = 100,
+            defaultIterationCount = 5,
+            beforeTest = "beforeNotificationListScroll", afterTest = "afterNotificationListScroll")
+    @GfxMonitor(processName = SYSTEMUI_PACKAGE)
+    public void testNotificationListScroll() {
+        for (int i = 0; i < INNER_LOOP; i++) {
+            scrollListUp();
+            mDevice.waitForIdle();
+            scrollListDown();
             mDevice.waitForIdle();
         }
     }
@@ -389,9 +522,9 @@ public class SystemUiJankTests extends JankTestBase {
                 new UiSelector().className(ImageView.class)
                         .descriptionContains("quick settings"));
         for (int i = 0; i < INNER_LOOP; i++) {
-            quickSettingsButton.click();
+            swipeDown();
             mDevice.waitForIdle();
-            quickSettingsButton.click();
+            mDevice.pressBack();
             mDevice.waitForIdle();
         }
     }
@@ -507,8 +640,7 @@ public class SystemUiJankTests extends JankTestBase {
             afterTest = "afterClearAll")
     @GfxMonitor(processName = SYSTEMUI_PACKAGE)
     public void testClearAll() throws Exception {
-        UiObject clearAll =
-                mDevice.findObject(new UiSelector().className(Button.class).text("CLEAR ALL"));
+        UiObject clearAll = mDevice.findObject(clearAllSelector);
         while (!clearAll.exists()) {
             scrollDown();
         }
@@ -746,7 +878,12 @@ public class SystemUiJankTests extends JankTestBase {
             afterTest = "afterInlineReply")
     @GfxMonitor(processName = SYSTEMUI_PACKAGE)
     public void testInlineReply() throws Exception {
-        UiObject2 replyButton = mDevice.findObject(By.clazz(Button.class).text(REPLY_TEXT));
+
+        UiSelector replySelector = new UiSelector().className(ImageView.class)
+                .descriptionContains(REPLY_TEXT);
+        UiObject replyButton = mDevice.findObject(replySelector);
+
+        assertNotNull("Could not find button with text '" + REPLY_TEXT + "'.", replyButton);
         for (int i = 0; i < INNER_LOOP; i++) {
             replyButton.click();
             mDevice.waitForIdle();
@@ -785,9 +922,9 @@ public class SystemUiJankTests extends JankTestBase {
     }
 
     /**
-     * Measures jank when launching the camera from lockscreen.
+     * Measures jank when swiping up and showing pin on lockscreen.
      */
-    @JankTest(expectedFrames = 30,
+    @JankTest(expectedFrames = 20,
             defaultIterationCount = 5,
             beforeTest = "beforePinAppearance",
             afterTest = "afterPinAppearance",
@@ -810,7 +947,7 @@ public class SystemUiJankTests extends JankTestBase {
     }
 
     public void beforeLaunchSettingsLoop() throws Exception {
-        mDevice.openNotification();
+        mDevice.openQuickSettings();
 
         // Wait until animation kicks in
         SystemClock.sleep(100);
@@ -844,6 +981,52 @@ public class SystemUiJankTests extends JankTestBase {
     @GfxMonitor(processName = SYSTEMUI_PACKAGE)
     public void testLaunchSettings() throws Exception {
         mDevice.findObject(By.res(SYSTEMUI_PACKAGE, "settings_button")).click();
+        // Wait until animation kicks in
+        SystemClock.sleep(100);
+        mDevice.waitForIdle();
+    }
+
+    public void beforeLaunchNotification() throws Exception {
+        prepareNotifications(GROUP_MODE_UNGROUPED);
+        TimeResultLogger.writeTimeStampLogStart(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
+    }
+
+    public void beforeLaunchNotificationLoop() throws Exception {
+        mDevice.openNotification();
+
+        // Wait until animation kicks in
+        SystemClock.sleep(100);
+        mDevice.waitForIdle();
+    }
+
+    public void afterLaunchNotificationLoop() throws Exception {
+        mDevice.pressHome();
+        mDevice.waitForIdle();
+    }
+
+    public void afterLaunchNotification(Bundle metrics) throws Exception {
+        TimeResultLogger.writeTimeStampLogEnd(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
+        cancelNotifications();
+        TimeResultLogger.writeResultToFile(String.format("%s-%s",
+                getClass().getSimpleName(), getName()), RESULTS_FILE, metrics);
+        super.afterTest(metrics);
+    }
+
+    /**
+     * Measures jank when launching a notification
+     */
+    @JankTest(expectedFrames = 30,
+            defaultIterationCount = 5,
+            beforeTest = "beforeLaunchNotification",
+            afterTest = "afterLaunchNotification",
+            beforeLoop = "beforeLaunchNotificationLoop",
+            afterLoop = "afterLaunchNotificationLoop")
+    @GfxMonitor(processName = SYSTEMUI_PACKAGE)
+    public void testLaunchNotification() throws Exception {
+        mDevice.findObject(By.text("Lorem ipsum dolor sit amet")).click();
+
         // Wait until animation kicks in
         SystemClock.sleep(100);
         mDevice.waitForIdle();

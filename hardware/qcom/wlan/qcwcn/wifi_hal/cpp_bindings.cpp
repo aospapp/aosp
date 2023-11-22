@@ -543,7 +543,7 @@ int WifiEvent::parse() {
     return result;
 }
 
-int WifiRequest::create(int family, uint8_t cmd, int flags, int hdrlen) {
+wifi_error WifiRequest::create(int family, uint8_t cmd, int flags, int hdrlen) {
 
     destroy();
 
@@ -557,25 +557,21 @@ int WifiRequest::create(int family, uint8_t cmd, int flags, int hdrlen) {
     }
 }
 
-int WifiRequest::create(uint32_t id, int subcmd) {
-    int res = create(NL80211_CMD_VENDOR);
-    if (res < 0) {
+wifi_error WifiRequest::create(uint32_t id, int subcmd) {
+    wifi_error res = create(NL80211_CMD_VENDOR);
+    if (res != WIFI_SUCCESS)
         return res;
-    }
 
     res = put_u32(NL80211_ATTR_VENDOR_ID, id);
-    if (res < 0) {
+    if (res != WIFI_SUCCESS)
         return res;
-    }
 
     res = put_u32(NL80211_ATTR_VENDOR_SUBCMD, subcmd);
-    if (res < 0) {
+    if (res != WIFI_SUCCESS)
         return res;
-    }
 
-    if (mIface != -1) {
+    if (mIface != -1)
         res = set_iface_id(mIface);
-    }
 
     return res;
 }
@@ -586,16 +582,17 @@ static int no_seq_check(struct nl_msg *msg, void *arg)
     return NL_OK;
 }
 
-int WifiCommand::requestResponse() {
-    int err = create();                 /* create the message */
-    if (err < 0) {
+wifi_error WifiCommand::requestResponse()
+{
+    wifi_error err = create();                 /* create the message */
+    if (err != WIFI_SUCCESS)
         return err;
-    }
 
     return requestResponse(mMsg);
 }
 
-int WifiCommand::requestResponse(WifiRequest& request) {
+wifi_error WifiCommand::requestResponse(WifiRequest& request)
+{
     int err = 0;
 
     struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
@@ -623,26 +620,30 @@ int WifiCommand::requestResponse(WifiRequest& request) {
 out:
     nl_cb_put(cb);
     mMsg.destroy();
-    return err;
+    return mapKernelErrortoWifiHalError(err);
 }
 
-int WifiCommand::requestEvent(int cmd) {
+wifi_error WifiCommand::requestEvent(int cmd)
+{
 
-    int res = wifi_register_handler(wifiHandle(), cmd, event_handler, this);
-    if (res < 0) {
+    int status;
+    wifi_error res = wifi_register_handler(wifiHandle(), cmd, event_handler,
+                                           this);
+    if (res != WIFI_SUCCESS)
         return res;
-    }
 
     res = create();                                                 /* create the message */
-    if (res < 0)
+    if (res != WIFI_SUCCESS)
         goto out;
 
-    res = nl_send_auto_complete(mInfo->cmd_sock, mMsg.getMessage());    /* send message */
-    if (res < 0)
+    status = nl_send_auto_complete(mInfo->cmd_sock, mMsg.getMessage());    /* send message */
+    if (status < 0) {
+        res = mapKernelErrortoWifiHalError(status);
         goto out;
+    }
 
     res = mCondition.wait();
-    if (res < 0)
+    if (res != WIFI_SUCCESS)
         goto out;
 
 out:
@@ -650,23 +651,25 @@ out:
     return res;
 }
 
-int WifiCommand::requestVendorEvent(uint32_t id, int subcmd) {
-
-    int res = wifi_register_vendor_handler(wifiHandle(), id, subcmd, event_handler, this);
-    if (res < 0) {
+wifi_error WifiCommand::requestVendorEvent(uint32_t id, int subcmd) {
+    int status;
+    wifi_error res = wifi_register_vendor_handler(wifiHandle(), id, subcmd,
+                                                  event_handler, this);
+    if (res != WIFI_SUCCESS)
         return res;
-    }
 
     res = create();                                                 /* create the message */
-    if (res < 0)
+    if (res != WIFI_SUCCESS)
         goto out;
 
-    res = nl_send_auto_complete(mInfo->cmd_sock, mMsg.getMessage());    /* send message */
-    if (res < 0)
+    status = nl_send_auto_complete(mInfo->cmd_sock, mMsg.getMessage());    /* send message */
+    if (status < 0) {
+        res = mapKernelErrortoWifiHalError(status);
         goto out;
+    }
 
     res = mCondition.wait();
-    if (res < 0)
+    if (res != WIFI_SUCCESS)
         goto out;
 
 out:
@@ -794,83 +797,89 @@ int WifiVendorCommand::handleEvent(WifiEvent &event)
     return NL_SKIP;
 }
 
-int WifiVendorCommand::create() {
+wifi_error WifiVendorCommand::create() {
     int ifindex;
-    int ret = mMsg.create(NL80211_CMD_VENDOR, 0, 0);
-    if (ret < 0) {
+    wifi_error ret = mMsg.create(NL80211_CMD_VENDOR, 0, 0);
+    if (ret != WIFI_SUCCESS)
         return ret;
-    }
+
     // insert the oui in the msg
     ret = mMsg.put_u32(NL80211_ATTR_VENDOR_ID, mVendor_id);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto out;
 
     // insert the subcmd in the msg
     ret = mMsg.put_u32(NL80211_ATTR_VENDOR_SUBCMD, mSubcmd);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto out;
 
     //Insert the vendor specific data
     ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
+    if (ret != WIFI_SUCCESS)
+        goto out;
     hexdump(mVendorData, mDataLen);
 
     //insert the iface id to be "wlan0"
     ifindex = if_nametoindex("wlan0");
-    mMsg.set_iface_id(ifindex);
+    ret = mMsg.set_iface_id(ifindex);
 out:
     return ret;
-
 }
 
-int WifiVendorCommand::requestResponse()
+wifi_error WifiVendorCommand::requestResponse()
 {
     return WifiCommand::requestResponse(mMsg);
 }
 
-int WifiVendorCommand::requestEvent()
+wifi_error WifiVendorCommand::requestEvent()
 {
-    int res = requestVendorEvent(mVendor_id, mSubcmd);
+    wifi_error res = requestVendorEvent(mVendor_id, mSubcmd);
     return res;
-
 }
 
-int WifiVendorCommand::put_u8(int attribute, uint8_t value)
+wifi_error WifiVendorCommand::put_u8(int attribute, uint8_t value)
 {
     return mMsg.put_u8(attribute, value);
 }
 
-int WifiVendorCommand::put_u16(int attribute, uint16_t value)
+wifi_error WifiVendorCommand::put_u16(int attribute, uint16_t value)
 {
     return mMsg.put_u16(attribute, value);
 }
 
-int WifiVendorCommand::put_u32(int attribute, uint32_t value)
+wifi_error WifiVendorCommand::put_u32(int attribute, uint32_t value)
 {
     return mMsg.put_u32(attribute, value);
 }
 
-int WifiVendorCommand::put_u64(int attribute, uint64_t value)
+wifi_error WifiVendorCommand::put_u64(int attribute, uint64_t value)
 {
     return mMsg.put_u64(attribute, value);
 }
 
-int WifiVendorCommand::put_s8(int attribute, s8 value)
+wifi_error WifiVendorCommand::put_s8(int attribute, s8 value)
 {
     return mMsg.put_s8(attribute, value);
 }
 
-int WifiVendorCommand::put_s16(int attribute, s16 value)
+wifi_error WifiVendorCommand::put_s16(int attribute, s16 value)
 {
     return mMsg.put_s16(attribute, value);
 }
 
-int WifiVendorCommand::put_s32(int attribute, s32 value) {
+wifi_error WifiVendorCommand::put_s32(int attribute, s32 value)
+{
     return mMsg.put_s32(attribute, value);
 }
 
-int WifiVendorCommand::put_s64(int attribute, s64 value)
+wifi_error WifiVendorCommand::put_s64(int attribute, s64 value)
 {
     return mMsg.put_s64(attribute, value);
+}
+
+wifi_error WifiVendorCommand::put_flag(int attribute)
+{
+    return mMsg.put_flag(attribute);
 }
 
 u8 WifiVendorCommand::get_u8(const struct nlattr *nla)
@@ -913,12 +922,12 @@ s64 WifiVendorCommand::get_s64(const struct nlattr *nla)
     return mMsg.get_s64(nla);
 }
 
-int WifiVendorCommand::put_string(int attribute, const char *value)
+wifi_error WifiVendorCommand::put_string(int attribute, const char *value)
 {
     return mMsg.put_string(attribute, value);
 }
 
-int WifiVendorCommand::put_addr(int attribute, mac_addr value)
+wifi_error WifiVendorCommand::put_addr(int attribute, mac_addr value)
 {
     return mMsg.put_addr(attribute, value);
 }
@@ -933,13 +942,15 @@ void WifiVendorCommand::attr_end(struct nlattr *attribute)
     return mMsg.attr_end(attribute);
 }
 
-int WifiVendorCommand::set_iface_id(const char* name)
+wifi_error WifiVendorCommand::set_iface_id(const char* name)
 {
     unsigned ifindex = if_nametoindex(name);
     return mMsg.set_iface_id(ifindex);
 }
 
-int WifiVendorCommand::put_bytes(int attribute, const char *data, int len)
+wifi_error WifiVendorCommand::put_bytes(int attribute,
+                                        const char *data,
+                                        int len)
 {
     return mMsg.put_bytes(attribute, data, len);
 }
@@ -973,7 +984,7 @@ wifi_error initialize_vendor_cmd(wifi_interface_handle iface,
                                  u32 subcmd,
                                  WifiVendorCommand **vCommand)
 {
-    int ret = 0;
+    wifi_error ret;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
 
@@ -992,16 +1003,16 @@ wifi_error initialize_vendor_cmd(wifi_interface_handle iface,
 
     /* Create the message */
     ret = (*vCommand)->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     ret = (*vCommand)->set_iface_id(ifaceInfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     return WIFI_SUCCESS;
 
 cleanup:
     delete *vCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }

@@ -32,11 +32,13 @@ package android.icu.dev.test.stringprep;
 import android.icu.text.StringPrepParseException;
 import android.icu.text.UCharacterIterator;
 import android.icu.text.UTF16;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * The implementation is direct port of C code in the RFC
  */
 
+@MainTestShard
 public final class PunycodeReference {
     /*** punycode status codes */
     public static final int punycode_success=0;

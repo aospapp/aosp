@@ -71,8 +71,6 @@ public class FinalizationControllerTest extends AndroidTestCase {
         // this is necessary for mockito to work
         System.setProperty("dexmaker.dexcache", getContext().getCacheDir().toString());
         MockitoAnnotations.initMocks(this);
-        when(mUtils.findDeviceAdmin(null, TEST_MDM_ADMIN, mContext))
-                .thenReturn(TEST_MDM_ADMIN);
         when(mUtils.canResolveIntentAsUser(any(Context.class), any(Intent.class), anyInt()))
                 .thenReturn(true);
         when(mContext.getFilesDir()).thenReturn(getContext().getFilesDir());

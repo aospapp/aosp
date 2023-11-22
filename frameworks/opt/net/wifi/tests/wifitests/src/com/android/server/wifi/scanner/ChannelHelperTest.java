@@ -27,7 +27,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import android.net.wifi.WifiScanner;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import com.android.server.wifi.WifiNative;
 
@@ -88,6 +88,27 @@ public class ChannelHelperTest {
                     10000, 0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN);
             assertEquals("[2400,5100]", ChannelHelper.toString(scanSettings));
         }
+    }
+
+    /**
+     * Unit tests for
+     * {@link com.android.server.wifi.scanner.ChannelHelper#bandToString}.
+     */
+    @Test
+    public void bandToString_ShouldReturnApproapriateString() {
+        assertEquals("unspecified", ChannelHelper.bandToString(
+                WifiScanner.WIFI_BAND_UNSPECIFIED));
+        assertEquals("24Ghz", ChannelHelper.bandToString(WifiScanner.WIFI_BAND_24_GHZ));
+        assertEquals("5Ghz (no DFS)", ChannelHelper.bandToString(WifiScanner.WIFI_BAND_5_GHZ));
+        assertEquals("5Ghz (DFS only)", ChannelHelper.bandToString(
+                WifiScanner.WIFI_BAND_5_GHZ_DFS_ONLY));
+        assertEquals("5Ghz (DFS incl)", ChannelHelper.bandToString(
+                WifiScanner.WIFI_BAND_5_GHZ_WITH_DFS));
+        assertEquals("24Ghz & 5Ghz (no DFS)", ChannelHelper.bandToString(
+                WifiScanner.WIFI_BAND_BOTH));
+        assertEquals("24Ghz & 5Ghz (DFS incl)", ChannelHelper.bandToString(
+                WifiScanner.WIFI_BAND_BOTH_WITH_DFS));
+        assertEquals("invalid band", ChannelHelper.bandToString(-235342));
     }
 
     /**

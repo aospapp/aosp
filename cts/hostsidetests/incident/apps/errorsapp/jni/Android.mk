@@ -25,6 +25,8 @@ LOCAL_SRC_FILES := crash-jni.c
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
+LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter
+
 LOCAL_SDK_VERSION := current
 
 include $(BUILD_SHARED_LIBRARY)

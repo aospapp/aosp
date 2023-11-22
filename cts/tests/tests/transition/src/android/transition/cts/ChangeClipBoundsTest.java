@@ -18,7 +18,6 @@ package android.transition.cts;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import android.graphics.Rect;
 import android.support.test.filters.MediumTest;
@@ -26,6 +25,8 @@ import android.support.test.runner.AndroidJUnit4;
 import android.transition.ChangeClipBounds;
 import android.transition.TransitionManager;
 import android.view.View;
+
+import com.android.compatibility.common.util.PollingCheck;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -59,17 +60,8 @@ public class ChangeClipBoundsTest extends BaseTransitionTest {
             redSquare.setClipBounds(newClip);
         });
         waitForStart();
-        Thread.sleep(150);
-        mActivityRule.runOnUiThread(() -> {
-            Rect midClip = redSquare.getClipBounds();
-            assertNotNull(midClip);
-            assertTrue(midClip.left > 0 && midClip.left < newClip.left);
-            assertTrue(midClip.top > 0 && midClip.top < newClip.top);
-            assertTrue(midClip.right < redSquare.getRight() && midClip.right > newClip.right);
-            assertTrue(midClip.bottom < redSquare.getBottom() &&
-                    midClip.bottom > newClip.bottom);
-        });
-        waitForEnd(400);
+        PollingCheck.waitFor(isMiddleOfClipping(redSquare, newClip));
+        waitForEnd(600);
 
         mActivityRule.runOnUiThread(() -> {
             final Rect endRect = redSquare.getClipBounds();
@@ -83,19 +75,21 @@ public class ChangeClipBoundsTest extends BaseTransitionTest {
             redSquare.setClipBounds(null);
         });
         waitForStart();
-        Thread.sleep(150);
-        mActivityRule.runOnUiThread(() -> {
-            Rect midClip = redSquare.getClipBounds();
-            assertNotNull(midClip);
-            assertTrue(midClip.left > 0 && midClip.left < newClip.left);
-            assertTrue(midClip.top > 0 && midClip.top < newClip.top);
-            assertTrue(midClip.right < redSquare.getRight() && midClip.right > newClip.right);
-            assertTrue(midClip.bottom < redSquare.getBottom() &&
-                    midClip.bottom > newClip.bottom);
-        });
-        waitForEnd(400);
+        PollingCheck.waitFor(isMiddleOfClipping(redSquare, newClip));
+        waitForEnd(600);
 
         mActivityRule.runOnUiThread(() -> assertNull(redSquare.getClipBounds()));
+    }
+
+    private static PollingCheck.PollingCheckCondition isMiddleOfClipping(final View redSquare,
+            final Rect newClip) {
+        return () -> {
+            Rect midClip = redSquare.getClipBounds();
+            return midClip.left > 0 && midClip.left < newClip.left
+                    && midClip.top > 0 && midClip.top < newClip.top
+                    && midClip.right < redSquare.getRight() && midClip.right > newClip.right
+                    && midClip.bottom < redSquare.getBottom() && midClip.bottom > newClip.bottom;
+        };
     }
 }
 

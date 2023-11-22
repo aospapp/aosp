@@ -20,7 +20,6 @@ limitations under the License.
     <color name="car_radio_control_fab_button_disabled">@color/car_grey_600</color>
     <color name="car_radio_display_scrim">#52000000</color>  <!-- 32% black -->
     <color name="radio_preset_item_text">@color/car_grey_100</color>
-    <color name="radio_ripple_background">@color/car_card_ripple_background_light</color>
     <color name="manual_tuner_button_text">@color/car_grey_100</color>
     <color name="manual_tuner_channel_text">@color/car_grey_100</color>
     <color name="manual_tuner_done_disabled">@color/car_grey_800</color>

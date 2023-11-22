@@ -426,6 +426,7 @@ import android.icu.lang.UProperty;
  *
  * </pre>
  *
+ * @author Simon Montagu, Matitiahu Allouche (ported from C code written by Markus W. Scherer)
  * @hide Only a subset of ICU is exposed in Android
  */
 

@@ -28,9 +28,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "base/logging.h"
-#include "runtime.h"
-#include "mem_map.h"
+#include <android-base/logging.h>
 
 namespace art {
 
@@ -40,29 +38,26 @@ static const char* gProgName = "dexdump";
  * Shows usage.
  */
 static void usage(void) {
-  fprintf(stderr, "Copyright (C) 2007 The Android Open Source Project\n\n");
-  fprintf(stderr, "%s: [-a] [-c] [-d] [-e] [-f] [-h] [-i] [-l layout] [-o outfile]"
-                  " dexfile...\n\n", gProgName);
-  fprintf(stderr, " -a : display annotations\n");
-  fprintf(stderr, " -c : verify checksum and exit\n");
-  fprintf(stderr, " -d : disassemble code sections\n");
-  fprintf(stderr, " -e : display exported items only\n");
-  fprintf(stderr, " -f : display summary information from file header\n");
-  fprintf(stderr, " -g : display CFG for dex\n");
-  fprintf(stderr, " -h : display file header details\n");
-  fprintf(stderr, " -i : ignore checksum failures\n");
-  fprintf(stderr, " -l : output layout, either 'plain' or 'xml'\n");
-  fprintf(stderr, " -o : output file name (defaults to stdout)\n");
+  LOG(ERROR) << "Copyright (C) 2007 The Android Open Source Project\n";
+  LOG(ERROR) << gProgName << ": [-a] [-c] [-d] [-e] [-f] [-h] [-i] [-j] [-l layout] [-o outfile]"
+                  " dexfile...\n";
+  LOG(ERROR) << " -a : display annotations";
+  LOG(ERROR) << " -c : verify checksum and exit";
+  LOG(ERROR) << " -d : disassemble code sections";
+  LOG(ERROR) << " -e : display exported items only";
+  LOG(ERROR) << " -f : display summary information from file header";
+  LOG(ERROR) << " -g : display CFG for dex";
+  LOG(ERROR) << " -h : display file header details";
+  LOG(ERROR) << " -i : ignore checksum failures";
+  LOG(ERROR) << " -j : disable dex file verification";
+  LOG(ERROR) << " -l : output layout, either 'plain' or 'xml'";
+  LOG(ERROR) << " -o : output file name (defaults to stdout)";
 }
 
 /*
  * Main driver of the dexdump utility.
  */
 int dexdumpDriver(int argc, char** argv) {
-  // Art specific set up.
-  InitLogging(argv, Runtime::Abort);
-  MemMap::Init();
-
   // Reset options.
   bool wantUsage = false;
   memset(&gOptions, 0, sizeof(gOptions));
@@ -70,7 +65,7 @@ int dexdumpDriver(int argc, char** argv) {
 
   // Parse all arguments.
   while (1) {
-    const int ic = getopt(argc, argv, "acdefghil:o:");
+    const int ic = getopt(argc, argv, "acdefghijl:o:");
     if (ic < 0) {
       break;  // done
     }
@@ -99,6 +94,9 @@ int dexdumpDriver(int argc, char** argv) {
       case 'i':  // continue even if checksum is bad
         gOptions.ignoreBadChecksum = true;
         break;
+      case 'j':  // disable dex file verification
+        gOptions.disableVerifier = true;
+        break;
       case 'l':  // layout
         if (strcmp(optarg, "plain") == 0) {
           gOptions.outputFormat = OUTPUT_PLAIN;
@@ -120,11 +118,11 @@ int dexdumpDriver(int argc, char** argv) {
 
   // Detect early problems.
   if (optind == argc) {
-    fprintf(stderr, "%s: no file specified\n", gProgName);
+    LOG(ERROR) << "No file specified";
     wantUsage = true;
   }
   if (gOptions.checksumOnly && gOptions.ignoreBadChecksum) {
-    fprintf(stderr, "Can't specify both -c and -i\n");
+    LOG(ERROR) << "Can't specify both -c and -i";
     wantUsage = true;
   }
   if (wantUsage) {
@@ -136,7 +134,7 @@ int dexdumpDriver(int argc, char** argv) {
   if (gOptions.outputFileName) {
     gOutFile = fopen(gOptions.outputFileName, "w");
     if (!gOutFile) {
-      fprintf(stderr, "Can't open %s\n", gOptions.outputFileName);
+      PLOG(ERROR) << "Can't open " << gOptions.outputFileName;
       return 1;
     }
   }
@@ -152,5 +150,8 @@ int dexdumpDriver(int argc, char** argv) {
 }  // namespace art
 
 int main(int argc, char** argv) {
+  // Output all logging to stderr.
+  android::base::SetLogger(android::base::StderrLogger);
+
   return art::dexdumpDriver(argc, argv);
 }

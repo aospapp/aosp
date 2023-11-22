@@ -22,14 +22,9 @@ call:checkCommand adb
 call:checkCommand java
 
 :: check java version
-set JAVA_VERSION=
 
-for /f "delims=" %%j in ('java -version 2^>^&1 ^| findstr /i """1.8"') do (
-    set JAVA_VERSION=8
-)
-
-if "%JAVA_VERSION%" == "" (
-    echo "Wrong java version. 1.8 is required."
+%JAVA% -version 2>&1 | findstr /R "version\ \"1*\.*[89].*\"$" || (
+    echo "Wrong java version. 1.8 or 9 is required."
     exit /B
 )
 

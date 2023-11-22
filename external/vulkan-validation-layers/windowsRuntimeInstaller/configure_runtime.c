@@ -77,6 +77,7 @@ struct SDKVersion
 };
 
 const char* FLAG_ABI_MAJOR = "--abi-major";
+const char* FLAG_API_NAME = "--api-name";
 const char* PATH_SYSTEM32 = "\\SYSTEM32\\";
 const char* PATH_SYSWOW64 = "\\SysWOW64\\";
 
@@ -88,8 +89,9 @@ inline size_t min_s(size_t a, size_t b) { return a > b ? a : b; }
 // log (input) - Logging file stream
 // install_path (input) - The installation path of the SDK which provides the layers
 // platform (input) - The platform to set the installation for (x64 or x86)
+// api_name (input) - The api name to use when working with registries
 // Returns: Zero on success, an error code on failure
-int add_explicit_layers(FILE* log, const char* install_path, enum Platform platform);
+int add_explicit_layers(FILE* log, const char* install_path, enum Platform platform, const char* api_name);
 
 // Compare two sdk versions
 //
@@ -98,6 +100,7 @@ int compare_versions(const struct SDKVersion* a, const struct SDKVersion* b);
 
 // Locate all of the SDK installations
 //
+// api_name (input) - The api name to use when working with registries
 // install_paths (output) - A poiner to an array of the installations paths
 // install_versions (output) - A pointer to an array of the SDK versions
 // count (output) - A pointer to the number of items in each array
@@ -107,7 +110,8 @@ int compare_versions(const struct SDKVersion* a, const struct SDKVersion* b);
 // call free_installations(), even if this function returned an error code. The orders of
 // install_paths and install_versions match, so (*install_paths)[2] is guaranteed to match
 // (*install_versions)[2]
-int find_installations(char*** install_paths, struct SDKVersion** install_versions, size_t* count);
+int find_installations(const char* api_name, char*** install_paths, struct SDKVersion** install_versions,
+    size_t* count);
 
 // Free the memory allocated by find_installations()
 void free_installations(char** install_paths, struct SDKVersion* install_versions, size_t count);
@@ -118,8 +122,9 @@ void free_installations(char** install_paths, struct SDKVersion* install_version
 // argc (input) - The argument count
 // argv (input) - An array of argument strings
 // abi_major (output) - The major abi version from the arguments
+// api_name (output) - The api name to use when working with registries and system files
 // Returns: Zero on success, an error code on failure
-int parse_arguments(FILE* log, int argc, char** argv, long* abi_major);
+int parse_arguments(FILE* log, int argc, char** argv, long* abi_major, const char** api_name);
 
 // Read the version from a string
 //
@@ -142,16 +147,20 @@ int read_version_from_filename(const char* filename, struct SDKVersion* version)
 // install_paths (input) - An array of every vulkan installation path
 // count (input) - The number of vulkan installations
 // platform (input) - The platform (x64 or x86) of the registry to use (both exist on x64)
+// api_name (input) - The api name to use when working with registries
 // Returns: Zero on success, an error code on failure
-int remove_explicit_layers(FILE* log, const char** install_paths, size_t count, enum Platform platform);
+int remove_explicit_layers(FILE* log, const char** install_paths, size_t count, enum Platform platform,
+    const char* api_name);
 
 // Update all explicity layers in the windows registry
 //
 // log (input) - Logging file stream
 // platform (input) - The platform of the OS (both registries will be modified if this is x64)
 // version (input) - The version that should be set to current (if it exists)
+// api_name (input) - The api name to use when working with registries
 // Returns: Zero on success, an error code on failure
-int update_registry_layers(FILE* log, enum Platform platform, const struct SDKVersion* version);
+int update_registry_layers(FILE* log, enum Platform platform, const struct SDKVersion* version,
+    const char* api_name);
 
 // Update a single vulkan system file (vulkan.dll or vulkaninfo.exe)
 //
@@ -171,8 +180,9 @@ int update_system_file(FILE* log, const char* name, const char* extension, const
 // log (input) - Loging file stream
 // abi_major (input) - The ABI major version of the files that should be used
 // platform (input) - The platform for the current OS
+// api_name (input) - The api name to use when working with system files
 // latest_runtime_version (output) - The version that the runtime files were updated to
-int update_windows_directories(FILE* log, long abi_major, enum Platform platform,
+int update_windows_directories(FILE* log, long abi_major, enum Platform platform, const char* api_name,
     struct SDKVersion* latest_runtime_version);
 
 int main(int argc, char** argv)
@@ -189,24 +199,29 @@ int main(int argc, char** argv)
 
     // Parse the arguments to get the abi version and the number of bits of the OS
     long abi_major;
-    CHECK_ERROR_HANDLED(parse_arguments(log, argc, argv, &abi_major), { fclose(log); });
+    const char* api_name;
+    CHECK_ERROR_HANDLED(parse_arguments(log, argc, argv, &abi_major, &api_name), { fclose(log); });
+    
+    fprintf(log, "API Name: %s\n", api_name);
     
     // This makes System32 and SysWOW64 not do any redirection (well, until 128-bit is a thing)
-    Wow64DisableWow64FsRedirection(NULL);
+    PVOID useless;
+    Wow64DisableWow64FsRedirection(&useless);
     
     // Update System32 (on all systems) and SysWOW64 on 64-bit system
     struct SDKVersion latest_runtime_version;
-    CHECK_ERROR_HANDLED(update_windows_directories(log, abi_major, platform, &latest_runtime_version),
-        { fclose(log); });
+    CHECK_ERROR_HANDLED(update_windows_directories(log, abi_major, platform, api_name,
+        &latest_runtime_version), { fclose(log); });
 
     // Update the explicit layers that are set in the windows registry
-    CHECK_ERROR_HANDLED(update_registry_layers(log, platform, &latest_runtime_version), { fclose(log); });
+    CHECK_ERROR_HANDLED(update_registry_layers(log, platform, &latest_runtime_version, api_name),
+        { fclose(log); });
 
     fclose(log);
     return 0;
 }
 
-int add_explicit_layers(FILE* log, const char* install_path, enum Platform platform)
+int add_explicit_layers(FILE* log, const char* install_path, enum Platform platform, const char* api_name)
 {
     switch(platform)
     {
@@ -217,6 +232,11 @@ int add_explicit_layers(FILE* log, const char* install_path, enum Platform platf
         fprintf(log, "Updating x86 explicit layers to path: %s\n", install_path);
         break;
     }
+    
+    const char* registry_pattern = "SOFTWARE\\Khronos\\%s\\ExplicitLayers";
+    int registry_size = snprintf(NULL, 0, registry_pattern, api_name) + 1;
+    char* registry_key = malloc(registry_size);
+    snprintf(registry_key, registry_size, registry_pattern, api_name);
 
     // If this is a 32 bit system, we allow redirection to point this at the 32-bit registries.
     // If not, we add the flag KEY_WOW64_64KEY, to disable redirection for this node.
@@ -227,8 +247,9 @@ int add_explicit_layers(FILE* log, const char* install_path, enum Platform platf
     }
     
     // Create (if needed) and open the explicit layer key
-    if(RegCreateKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\Vulkan\\ExplicitLayers",
-        0, NULL, REG_OPTION_NON_VOLATILE, flags, NULL, &hKey, NULL) != ERROR_SUCCESS) {
+    if(RegCreateKeyEx(HKEY_LOCAL_MACHINE, registry_key, 0, NULL, REG_OPTION_NON_VOLATILE, flags,
+         NULL, &hKey, NULL) != ERROR_SUCCESS) {
+        free(registry_key);
         return 20;
     }
 
@@ -249,6 +270,7 @@ int add_explicit_layers(FILE* log, const char* install_path, enum Platform platf
         const char* layer_pattern = platform == PLATFORM_X64 ? "%s\\Bin\\%s" : "%s\\Bin32\\%s";
         int layer_size = snprintf(NULL, 0, layer_pattern, install_path, find_data.cFileName) + 1;
         if(layer_size < 0) {
+            free(registry_key);
             return 40;
         }
         char* layer = malloc(layer_size);
@@ -260,11 +282,13 @@ int add_explicit_layers(FILE* log, const char* install_path, enum Platform platf
         LSTATUS err = RegSetValueEx(hKey, layer, zero, REG_DWORD, (BYTE*) &zero, sizeof(DWORD));
         free(layer);
         if(err != ERROR_SUCCESS) {
+            free(registry_key);
             return 50;
         }
     }
 
     RegCloseKey(hKey);
+    free(registry_key);
     return 0;
 }
 
@@ -293,7 +317,7 @@ int compare_versions(const struct SDKVersion* a, const struct SDKVersion* b)
     return strncmp(a->extended, b->extended, SDK_VERSION_BUFFER_SIZE);
 }
 
-int find_installations(char*** install_paths, struct SDKVersion** install_versions, size_t* count)
+int find_installations(const char* api_name, char*** install_paths, struct SDKVersion** install_versions, size_t* count)
 {
     *install_paths = malloc(sizeof(char*) * 64);
     *install_versions = malloc(sizeof(struct SDKVersion) * 64);
@@ -307,6 +331,11 @@ int find_installations(char*** install_paths, struct SDKVersion** install_versio
         return 90;
     }
     
+    size_t api_len = strlen(api_name);
+    char* sdk_id = malloc(api_len + 4);
+    strcpy(sdk_id, api_name);
+    strcpy(sdk_id + api_len, "SDK");
+    
     DWORD keyCount, keyLen;
     RegQueryInfoKey(hKey, NULL, NULL, NULL, &keyCount, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
     for(int i = 0; i < keyCount; ++i) {
@@ -314,7 +343,7 @@ int find_installations(char*** install_paths, struct SDKVersion** install_versio
         DWORD nameSize = COPY_BUFFER_SIZE;
         RegEnumKeyEx(hKey, i, name, &nameSize, NULL, NULL, NULL, NULL);
         
-        if(strncmp("VulkanSDK", name, 9)) {
+        if(strncmp(sdk_id, name, api_len + 3)) {
             continue;
         }
         
@@ -329,14 +358,14 @@ int find_installations(char*** install_paths, struct SDKVersion** install_versio
         for(int j = 0; j < valueCount; ++j) {
 
             TCHAR name[COPY_BUFFER_SIZE], value[COPY_BUFFER_SIZE];
-            DWORD type, buffSize = COPY_BUFFER_SIZE;
-            RegEnumValue(subKey, j, name, &buffSize, NULL, &type, value, &buffSize);
+            DWORD type, nameSize = COPY_BUFFER_SIZE, valSize = COPY_BUFFER_SIZE;
+            LSTATUS ret = RegEnumValue(subKey, j, name, &nameSize, NULL, &type, value, &valSize);
             if(type == REG_SZ && !strcmp("InstallDir", name)) {
                 *install_paths = realloc(*install_paths, sizeof(char*) * ((*count) + 1));
                 (*install_paths)[*count] = malloc(sizeof(char) * COPY_BUFFER_SIZE);
                 strcpy((*install_paths)[*count], value);
                 found_installation = true;
-            } else if(type == REG_SZ && !strncmp("DisplayVersion", name, 8)) {
+            } else if(type == REG_SZ && !strcmp("DisplayVersion", name)) {
                 *install_versions = realloc(*install_versions, sizeof(struct SDKVersion) * ((*count) + 1));
                 CHECK_ERROR(read_version(value, (*install_versions) + *count));
                 found_version = true;
@@ -351,10 +380,12 @@ int find_installations(char*** install_paths, struct SDKVersion** install_versio
         
         if(!(found_installation && found_version)) {
             RegCloseKey(hKey);
+            free(sdk_id);
             return 100;
         }
     }
     RegCloseKey(hKey);
+    free(sdk_id);
     
     return 0;
 }
@@ -368,9 +399,10 @@ void free_installations(char** install_paths, struct SDKVersion* install_version
     free(install_versions);
 }
 
-int parse_arguments(FILE* log, int argc, char** argv, long* abi_major)
+int parse_arguments(FILE* log, int argc, char** argv, long* abi_major, const char** api_name)
 {
     *abi_major = 0;
+    *api_name = "Vulkan";
 
     // Parse arguments
     for(int i = 0; i < argc; ++i) {
@@ -384,6 +416,13 @@ int parse_arguments(FILE* log, int argc, char** argv, long* abi_major)
                 fprintf(log, "ERROR: Unable to parse ABI major version as integer.\n");
                 return 120;
             }
+        }
+        if(!strcmp(argv[i], FLAG_API_NAME)) {
+            if(i + 1 == argc) {
+                fprintf(log, "ERROR: No value given for flag %s.\n", FLAG_API_NAME);
+                return 124;
+            }
+            *api_name = argv[++i];
         }
     }
     
@@ -466,7 +505,8 @@ int read_version_from_filename(const char* filename, struct SDKVersion* version)
     return 0;
 }
 
-int remove_explicit_layers(FILE* log, const char** install_paths, size_t count, enum Platform platform)
+int remove_explicit_layers(FILE* log, const char** install_paths, size_t count, enum Platform platform,
+    const char* api_name)
 {
     switch(platform)
     {
@@ -477,6 +517,11 @@ int remove_explicit_layers(FILE* log, const char** install_paths, size_t count, 
         fprintf(log, "Removing x86 explicit layers from registry\n");
         break;
     }
+    
+    const char* pattern = "SOFTWARE\\Khronos\\%s\\ExplicitLayers";
+    int registry_size = snprintf(NULL, 0, pattern, api_name) + 1;
+    char* registry_key = malloc(registry_size);
+    snprintf(registry_key, registry_size, pattern, api_name);
 
     bool removed_one;
     do {
@@ -489,8 +534,9 @@ int remove_explicit_layers(FILE* log, const char** install_paths, size_t count, 
         }
 
         // Create (if needed) and open the explicit layer key
-        if(RegCreateKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\Vulkan\\ExplicitLayers",
-            0, NULL, REG_OPTION_NON_VOLATILE, flags, NULL, &hKey, NULL) != ERROR_SUCCESS) {
+        if(RegCreateKeyEx(HKEY_LOCAL_MACHINE, registry_key, 0, NULL, REG_OPTION_NON_VOLATILE, flags,
+            NULL, &hKey, NULL) != ERROR_SUCCESS) {
+            free(registry_key);
             return 160;
         }
 
@@ -507,6 +553,7 @@ int remove_explicit_layers(FILE* log, const char** install_paths, size_t count, 
                     fprintf(log, "Removing explicit layer entry: %s\n", name);
                     LSTATUS err = RegDeleteValue(hKey, name);
                     if(err != ERROR_SUCCESS) {
+                        free(registry_key);
                         return 170;
                     }
                     removed_one = true;
@@ -520,16 +567,18 @@ int remove_explicit_layers(FILE* log, const char** install_paths, size_t count, 
 
         RegCloseKey(hKey);
     } while(removed_one);
-
+    
+    free(registry_key);
     return 0;
 }
 
-int update_registry_layers(FILE* log, enum Platform platform, const struct SDKVersion* version)
+int update_registry_layers(FILE* log, enum Platform platform, const struct SDKVersion* version,
+    const char* api_name)
 {
     char** install_paths;
     struct SDKVersion* install_versions;
     size_t count;
-    CHECK_ERROR_HANDLED(find_installations(&install_paths, &install_versions, &count),
+    CHECK_ERROR_HANDLED(find_installations(api_name, &install_paths, &install_versions, &count),
         { free_installations(install_paths, install_versions, count); });
     for(size_t i = 0; i < count; ++i) {
         fprintf(log, "Found installation of %ld.%ld.%ld.%ld in: %s\n", install_versions[i].major,
@@ -537,11 +586,11 @@ int update_registry_layers(FILE* log, enum Platform platform, const struct SDKVe
     }
     fprintf(log, "\n");
     if(platform == PLATFORM_X64) {
-        CHECK_ERROR_HANDLED(remove_explicit_layers(log, install_paths, count, PLATFORM_X64),
+        CHECK_ERROR_HANDLED(remove_explicit_layers(log, install_paths, count, PLATFORM_X64, api_name),
             { free_installations(install_paths, install_versions, count); });
         fprintf(log, "\n");
     }
-    CHECK_ERROR_HANDLED(remove_explicit_layers(log, install_paths, count, PLATFORM_X86),
+    CHECK_ERROR_HANDLED(remove_explicit_layers(log, install_paths, count, PLATFORM_X86, api_name),
         { free_installations(install_paths, install_versions, count); });
     fprintf(log, "\n");
 
@@ -550,18 +599,27 @@ int update_registry_layers(FILE* log, enum Platform platform, const struct SDKVe
         return 0;
     }
 
+    size_t preferred_sdk = count;
     for(size_t i = 0; i < count; ++i) {
-        if(compare_versions(install_versions + i, version) == 0) {
-            if(platform == PLATFORM_X64) {
-                CHECK_ERROR_HANDLED(add_explicit_layers(log, install_paths[i], PLATFORM_X64),
-                    { free_installations(install_paths, install_versions, count); });
-                fprintf(log, "\n");
+        int cmp = compare_versions(install_versions + i, version);
+        if(cmp <= 0 && cmp >= -2) {
+            if(preferred_sdk == count ||
+                (compare_versions(install_versions + i, install_versions + preferred_sdk) > 0)) {
+                preferred_sdk = i;
             }
-            CHECK_ERROR_HANDLED(add_explicit_layers(log, install_paths[i], PLATFORM_X86),
-                { free_installations(install_paths, install_versions, count); });
-            break;
         }
     }
+    
+    if(preferred_sdk < count) {
+        if(platform == PLATFORM_X64) {
+            CHECK_ERROR_HANDLED(add_explicit_layers(log, install_paths[preferred_sdk], PLATFORM_X64, api_name),
+                { free_installations(install_paths, install_versions, count); });
+            fprintf(log, "\n");
+        }
+        CHECK_ERROR_HANDLED(add_explicit_layers(log, install_paths[preferred_sdk], PLATFORM_X86, api_name),
+            { free_installations(install_paths, install_versions, count); });
+    }
+    
     free_installations(install_paths, install_versions, count);
     return 0;
 }
@@ -639,27 +697,25 @@ int update_system_file(FILE* log, const char* name, const char* extension, const
         snprintf(output_filename, out_size, outPattern, path, name, extension);
     }
     
-    // Remove any older version of the output file
-    if(remove(output_filename) == 0) {
-        fprintf(log, "Removed file %s\n", output_filename);
-    } else {
-        fprintf(log, "Did not remove file %s\n", output_filename);
-    }
-    
-    fprintf(log, "Attempting to copy file %s to %s\n", latest_filename, output_filename);
-    if(CopyFile(latest_filename, output_filename, false) == 0) {
-        free(latest_filename);
-        free(output_filename);
-        return 215;
-    }
-    
+    fprintf(stdout, "%s>%s;", latest_filename, output_filename);
     free(latest_filename);
     free(output_filename);
     return 0;
 }
 
-int update_windows_directories(FILE* log, long abi_major, enum Platform platform, struct SDKVersion* latest_runtime_version)
+int update_windows_directories(FILE* log, long abi_major, enum Platform platform, const char* api_name,
+    struct SDKVersion* latest_runtime_version)
 {
+    size_t api_len = strlen(api_name);
+    char* vulkan_name = malloc(api_len + 1);
+    char* vulkan_info_name = malloc(api_len + 5);
+    for(size_t i = 0; i < api_len; ++i) {
+        vulkan_name[i] = tolower(api_name[i]);
+    }
+    vulkan_name[api_len] = '\0';
+    strcpy(vulkan_info_name, vulkan_name);
+    strcpy(vulkan_info_name + api_len, "info");
+    
     struct SDKVersion version;
     unsigned windows_path_size = GetWindowsDirectory(NULL, 0); // Size includes null terminator
     char* system_path = malloc(windows_path_size +
@@ -668,33 +724,41 @@ int update_windows_directories(FILE* log, long abi_major, enum Platform platform
 
     strcpy(system_path + windows_path_size - 1, PATH_SYSTEM32);
     fprintf(log, "Updating system directory: %s\n", system_path);
-    CHECK_ERROR_HANDLED(update_system_file(log, "vulkan", ".dll", system_path, abi_major, true,
+    CHECK_ERROR_HANDLED(update_system_file(log, vulkan_name, ".dll", system_path, abi_major, true,
         latest_runtime_version), { free(system_path); });
-    CHECK_ERROR_HANDLED(update_system_file(log, "vulkaninfo", ".exe", system_path, abi_major, false,
-        &version), { free(system_path); });
+    CHECK_ERROR_HANDLED(update_system_file(log, vulkan_info_name, ".exe", system_path, abi_major, false,
+        &version), { free(system_path); free(vulkan_info_name); free(vulkan_name);});
     if(compare_versions(latest_runtime_version, &version) != 0) {
         free(system_path);
+        free(vulkan_info_name);
+        free(vulkan_name);
         return 220;
     }
 
     if(platform == PLATFORM_X64) {
         strcpy(system_path + windows_path_size - 1, PATH_SYSWOW64);
         fprintf(log, "\nUpdating system directory: %s\n", system_path);
-        CHECK_ERROR_HANDLED(update_system_file(log, "vulkan", ".dll", system_path, abi_major,
-            true, &version), { free(system_path); });
+        CHECK_ERROR_HANDLED(update_system_file(log, vulkan_name, ".dll", system_path, abi_major,
+            true, &version), { free(system_path); free(vulkan_info_name); free(vulkan_name); });
         if(compare_versions(latest_runtime_version, &version) != 0) {
             free(system_path);
+            free(vulkan_info_name);
+            free(vulkan_name);
             return 230;
         }
-        CHECK_ERROR_HANDLED(update_system_file(log, "vulkaninfo", ".exe", system_path, abi_major,
-            false, &version), { free(system_path); });
+        CHECK_ERROR_HANDLED(update_system_file(log, vulkan_info_name, ".exe", system_path, abi_major,
+            false, &version), { free(system_path); free(vulkan_info_name); free(vulkan_name); });
         if(compare_versions(latest_runtime_version, &version) != 0) {
             free(system_path);
+            free(vulkan_info_name);
+            free(vulkan_name);
             return 240;
         }
     }
 
     free(system_path);
+    free(vulkan_info_name);
+    free(vulkan_name);
     fprintf(log, "\nUpdate of system directories succeeded.\n\n");
     return 0;
 }

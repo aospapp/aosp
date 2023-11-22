@@ -717,8 +717,8 @@ extern "C" void rsScriptSetVarVE (RsContext ctxWrapper, RsScript s, uint32_t slo
 // Graphics
 /* The following API are deprecated. */
 
-RsContext rsContextCreateGL(RsDevice vdev, uint32_t version, uint32_t sdkVersion,
-                            RsSurfaceConfig sc, uint32_t dpi)
+extern "C" RsContext rsContextCreateGL(RsDevice vdev, uint32_t version, uint32_t sdkVersion,
+                                       RsSurfaceConfig sc, uint32_t dpi)
 {
     if (!globalObjAlive) {
         ALOGE("rsContextCreateGL is not allowed during process teardown.");
@@ -860,52 +860,52 @@ extern "C" void rsProgramBindSampler (RsContext ctxWrapper, RsProgramFragment pf
     RS_DISPATCH(ctxWrapper, ProgramBindSampler, pf, slot, s);
 }
 
-RsObjectBase rsaFileA3DGetEntryByIndex(RsContext ctxWrapper, uint32_t index, RsFile file)
+extern "C" RsObjectBase rsaFileA3DGetEntryByIndex(RsContext ctxWrapper, uint32_t index, RsFile file)
 {
     return RS_DISPATCH(ctxWrapper, FileA3DGetEntryByIndex, index, file);
 }
 
-RsFile rsaFileA3DCreateFromMemory(RsContext ctxWrapper, const void *data, uint32_t len)
+extern "C" RsFile rsaFileA3DCreateFromMemory(RsContext ctxWrapper, const void *data, uint32_t len)
 {
     return RS_DISPATCH(ctxWrapper, FileA3DCreateFromMemory, data, len);
 }
 
-RsFile rsaFileA3DCreateFromAsset(RsContext ctxWrapper, void *_asset)
+extern "C" RsFile rsaFileA3DCreateFromAsset(RsContext ctxWrapper, void *_asset)
 {
     return RS_DISPATCH(ctxWrapper, FileA3DCreateFromAsset, _asset);
 }
 
-RsFile rsaFileA3DCreateFromFile(RsContext ctxWrapper, const char *path)
+extern "C" RsFile rsaFileA3DCreateFromFile(RsContext ctxWrapper, const char *path)
 {
     return RS_DISPATCH(ctxWrapper, FileA3DCreateFromFile, path);
 }
 
-void rsaFileA3DGetNumIndexEntries(RsContext ctxWrapper, int32_t *numEntries, RsFile file)
+extern "C"  void rsaFileA3DGetNumIndexEntries(RsContext ctxWrapper, int32_t *numEntries, RsFile file)
 {
     RS_DISPATCH(ctxWrapper, FileA3DGetNumIndexEntries, numEntries, file);
 }
 
-void rsaFileA3DGetIndexEntries(RsContext ctxWrapper, RsFileIndexEntry *fileEntries, uint32_t numEntries, RsFile file)
+extern "C" void rsaFileA3DGetIndexEntries(RsContext ctxWrapper, RsFileIndexEntry *fileEntries, uint32_t numEntries, RsFile file)
 {
     RS_DISPATCH(ctxWrapper, FileA3DGetIndexEntries, fileEntries, numEntries, file);
 }
 
-void rsaMeshGetVertexBufferCount(RsContext ctxWrapper, RsMesh mv, int32_t *numVtx)
+extern "C" void rsaMeshGetVertexBufferCount(RsContext ctxWrapper, RsMesh mv, int32_t *numVtx)
 {
     RS_DISPATCH(ctxWrapper, MeshGetVertexBufferCount, mv, numVtx);
 }
 
-void rsaMeshGetIndexCount(RsContext ctxWrapper, RsMesh mv, int32_t *numIdx)
+extern "C" void rsaMeshGetIndexCount(RsContext ctxWrapper, RsMesh mv, int32_t *numIdx)
 {
     RS_DISPATCH(ctxWrapper, MeshGetIndexCount, mv, numIdx);
 }
 
-void rsaMeshGetVertices(RsContext ctxWrapper, RsMesh mv, RsAllocation *vtxData, uint32_t vtxDataCount)
+extern "C" void rsaMeshGetVertices(RsContext ctxWrapper, RsMesh mv, RsAllocation *vtxData, uint32_t vtxDataCount)
 {
     RS_DISPATCH(ctxWrapper, MeshGetVertices, mv, vtxData, vtxDataCount);
 }
 
-void rsaMeshGetIndices(RsContext ctxWrapper, RsMesh mv, RsAllocation *va, uint32_t *primType, uint32_t idxDataCount)
+extern "C" void rsaMeshGetIndices(RsContext ctxWrapper, RsMesh mv, RsAllocation *va, uint32_t *primType, uint32_t idxDataCount)
 {
     RS_DISPATCH(ctxWrapper, MeshGetIndices, mv, va, primType, idxDataCount);
 }

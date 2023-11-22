@@ -19,7 +19,7 @@ This script shows simple examples of how to get started with bluetooth low energ
 
 import pprint
 
-from acts.controllers import android_devices
+from acts.controllers import android_device
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.bt_constants import adv_succ
 from acts.test_utils.bt.bt_constants import scan_result

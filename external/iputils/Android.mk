@@ -2,6 +2,8 @@ LOCAL_PATH:= $(call my-dir)
 
 iputils_cflags := \
   -D_GNU_SOURCE \
+  -Wall -Werror \
+  -Wno-constant-conversion \
   -Wno-missing-field-initializers \
   -Wno-sign-compare \
   -Wno-unused-parameter \

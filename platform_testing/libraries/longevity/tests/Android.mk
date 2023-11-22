@@ -15,12 +15,24 @@
 #
 
 LOCAL_PATH := $(call my-dir)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := LongevityHostLibTests
+LOCAL_STATIC_JAVA_LIBRARIES := longevity-host-lib mockito-host truth-host-prebuilt guavalib objenesis-host
+LOCAL_SRC_FILES := $(call all-java-files-under, src/android/longevity/core/)
+
+include $(BUILD_HOST_JAVA_LIBRARY)
+
+###########################
+
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
-LOCAL_PACKAGE_NAME := LongevityLibTests
+LOCAL_PACKAGE_NAME := LongevityPlatformLibTests
 LOCAL_SDK_VERSION := 24
-LOCAL_STATIC_JAVA_LIBRARIES := longevity-lib mockito-target truth-prebuilt guava
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_STATIC_JAVA_LIBRARIES := longevity-device-lib mockito-target truth-prebuilt guava
+LOCAL_SRC_FILES := $(call all-java-files-under, src/android/longevity/platform/)
+LOCAL_COMPATIBILITY_SUITE := device-tests
 
 include $(BUILD_PACKAGE)

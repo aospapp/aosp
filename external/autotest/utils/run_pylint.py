@@ -122,6 +122,7 @@ def patch_consumed_list(to_consume=None, consumed=None):
 class CustomImportsChecker(imports.ImportsChecker):
     """Modifies stock imports checker to suit autotest."""
     def visit_from(self, node):
+        """Patches modnames so pylints understands autotest_lib."""
         node.modname = patch_modname(node.modname)
         return super(CustomImportsChecker, self).visit_from(node)
 
@@ -193,36 +194,6 @@ class CustomDocStringChecker(base.DocStringChecker):
                  not require a "@param" docstring.
         """
         return arg in ('self', 'cls', 'args', 'kwargs', 'dargs')
-
-
-    def _check_docstring(self, node_type, node):
-        """
-        Teaches pylint to look for @param with each argument in the
-        function/method signature.
-
-        @param node_type: type of the node we're currently checking.
-        @param node: node of the ast we're currently checking.
-        """
-        super(CustomDocStringChecker, self)._check_docstring(node_type, node)
-        docstring = node.doc
-        if pylint_version >= 1.1:
-            key = 'missing-docstring'
-        else:
-            key = 'C0111'
-
-        if (docstring is not None and
-               (node_type is 'method' or
-                node_type is 'function')):
-            args = node.argnames()
-            old_msg = self.linter._messages[key].msg
-            for arg in args:
-                arg_docstring_rgx = '.*@param '+arg+'.*'
-                line = re.search(arg_docstring_rgx, node.doc)
-                if not line and not self._should_skip_arg(arg):
-                    self.linter._messages[key].msg = ('Docstring needs '
-                                                      '"@param '+arg+':"')
-                    self.add_message(key, node=node)
-            self.linter._messages[key].msg = old_msg
 
 base.DocStringChecker = CustomDocStringChecker
 imports.ImportsChecker = CustomImportsChecker

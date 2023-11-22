@@ -16,6 +16,7 @@ import android.icu.dev.test.TestLog;
 import android.icu.util.Calendar;
 import android.icu.util.GregorianCalendar;
 import android.icu.util.SimpleTimeZone;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * A pseudo <code>Calendar</code> that is useful for testing
@@ -26,6 +27,7 @@ import android.icu.util.SimpleTimeZone;
  * tested, and the equals and fieldsEqual methods are used to ensure
  * that the calendar has ended up in the right state.
  */
+@MainTestShard
 public class TestCase {
 
     //------------------------------------------------------------------

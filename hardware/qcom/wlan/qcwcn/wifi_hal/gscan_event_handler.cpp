@@ -21,22 +21,19 @@
 #include "vendor_definitions.h"
 
 /* This function implements creation of Vendor command event handler. */
-int GScanCommandEventHandler::create() {
-    int ret = mMsg.create(NL80211_CMD_VENDOR, 0, 0);
-    if (ret < 0) {
+wifi_error GScanCommandEventHandler::create() {
+    wifi_error ret = mMsg.create(NL80211_CMD_VENDOR, 0, 0);
+    if (ret != WIFI_SUCCESS)
         return ret;
-    }
 
     /* Insert the oui in the msg */
     ret = mMsg.put_u32(NL80211_ATTR_VENDOR_ID, mVendor_id);
-    if (ret < 0)
-        goto out;
+    if (ret != WIFI_SUCCESS)
+        return ret;
 
     /* Insert the subcmd in the msg */
     ret = mMsg.put_u32(NL80211_ATTR_VENDOR_SUBCMD, mSubcmd);
-    if (ret < 0)
-        goto out;
-out:
+
     return ret;
 }
 

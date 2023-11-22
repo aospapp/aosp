@@ -18,7 +18,6 @@ package com.android.monkey;
 
 import com.android.ddmlib.CollectingOutputReceiver;
 import com.android.ddmlib.IShellOutputReceiver;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.loganalysis.item.AnrItem;
 import com.android.loganalysis.item.BugreportItem;
 import com.android.loganalysis.item.MiscKernelLogItem;
@@ -31,12 +30,14 @@ import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.DeviceFileReporter;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IRetriableTest;
@@ -57,7 +58,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -256,7 +256,7 @@ public class MonkeyBase implements IDeviceTest, IRemoteTest, IRetriableTest {
     public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
         Assert.assertNotNull(getDevice());
 
-        TestIdentifier id = new TestIdentifier(getClass().getCanonicalName(), "monkey");
+        TestDescription id = new TestDescription(getClass().getCanonicalName(), "monkey");
         long startTime = System.currentTimeMillis();
 
         listener.testRunStarted(getClass().getCanonicalName(), 1);
@@ -265,9 +265,9 @@ public class MonkeyBase implements IDeviceTest, IRemoteTest, IRetriableTest {
         try {
             runMonkey(listener);
         } finally {
-            Map<String, String> empty = Collections.emptyMap();
-            listener.testEnded(id, empty);
-            listener.testRunEnded(System.currentTimeMillis() - startTime, empty);
+            listener.testEnded(id, new HashMap<String, Metric>());
+            listener.testRunEnded(
+                    System.currentTimeMillis() - startTime, new HashMap<String, Metric>());
         }
     }
 

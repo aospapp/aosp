@@ -20,6 +20,7 @@
 #include <sstream>
 
 #include "art_field-inl.h"
+#include "base/file_utils.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-refvisitor-inl.h"
 
@@ -85,7 +86,7 @@ void Verification::LogHeapCorruption(ObjPtr<mirror::Object> holder,
                                      mirror::Object* ref,
                                      bool fatal) const {
   // Lowest priority logging first:
-  PrintFileToLog("/proc/self/maps", LogSeverity::FATAL_WITHOUT_ABORT);
+  PrintFileToLog("/proc/self/maps", android::base::LogSeverity::FATAL_WITHOUT_ABORT);
   MemMap::DumpMaps(LOG_STREAM(FATAL_WITHOUT_ABORT), true);
   // Buffer the output in the string stream since it is more important than the stack traces
   // and we want it to have log priority. The stack traces are printed from Runtime::Abort
@@ -139,7 +140,7 @@ bool Verification::IsValidClass(const void* addr) const {
   if (!IsValidHeapObjectAddress(k1)) {
     return false;
   }
-  // k should be class class, take the class again to verify.
+  // `k1` should be class class, take the class again to verify.
   // Note that this check may not be valid for the no image space since the class class might move
   // around from moving GC.
   mirror::Class* k2 = k1->GetClass<kVerifyNone, kWithoutReadBarrier>();

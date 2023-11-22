@@ -29,17 +29,15 @@ LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
-# Build against the current public APIs of the SDK
-LOCAL_SDK_VERSION := current
+#TODO(b/72620511) support lib should be able to be using public APIs only
+#LOCAL_SDK_VERSION := current
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_MANIFEST_FILE := AndroidManifest.xml
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-Iaidl-files-under, src)
 LOCAL_JAVA_LIBRARIES += android.car\
-                        android-support-annotations
-# Specify 1.7 for backwards compatibility.
-# Otherwise the lib won't be usable on pre-N devices
-LOCAL_JAVA_LANGUAGE_VERSION := 1.7
+                        androidx.annotation_annotation
 
 LOCAL_PROGUARD_ENABLED := custom optimization obfuscation
 LOCAL_PROGUARD_FLAGS := -dontwarn
@@ -61,17 +59,15 @@ LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
-# Build against the current public APIs of the SDK
-LOCAL_SDK_VERSION := current
+#TODO(b/72620511) support lib should be able to be using public APIs only
+#LOCAL_SDK_VERSION := current
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_MANIFEST_FILE := AndroidManifest.xml
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-Iaidl-files-under, src)
 LOCAL_JAVA_LIBRARIES += android.car\
-                        android-support-annotations
-# Specify 1.7 for backwards compatibility.
-# Otherwise the lib won't be usable on pre-N devices
-LOCAL_JAVA_LANGUAGE_VERSION := 1.7
+                        androidx.annotation_annotation
 
 LOCAL_PROGUARD_ENABLED := disabled
 include $(BUILD_STATIC_JAVA_LIBRARY)
@@ -85,15 +81,17 @@ endif
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := android.support.car
-LOCAL_SDK_VERSION := current
+
+#TODO(b/72620511) support lib should be able to be using public APIs only
+#LOCAL_SDK_VERSION := current
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-Iaidl-files-under, src)
 
-LOCAL_STATIC_JAVA_LIBRARIES += android-support-annotations
+LOCAL_STATIC_JAVA_LIBRARIES += androidx.annotation_annotation
 
 LOCAL_JAVA_LIBRARIES += android.car
 
-LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 # API Check
@@ -118,7 +116,7 @@ LOCAL_DROIDDOC_SOURCE_PATH := $(LOCAL_PATH)/src
 
 LOCAL_JAVA_LIBRARIES := \
     android.car \
-    android-support-annotations
+    androidx.annotation_annotation
 
 LOCAL_MODULE := android.support.car
 LOCAL_MODULE_TAGS := optional

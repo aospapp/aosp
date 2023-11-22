@@ -54,6 +54,7 @@ TEST(InlineXmlFormatParserTest, ExtractOneXmlResource) {
       </View1>)");
 
   doc->file.name = test::ParseNameOrDie("layout/main");
+  doc->file.type = ResourceFile::Type::kProtoXml;
 
   InlineXmlFormatParser parser;
   ASSERT_TRUE(parser.Consume(context.get(), doc.get()));
@@ -80,6 +81,9 @@ TEST(InlineXmlFormatParserTest, ExtractOneXmlResource) {
 
   // Make sure the generated reference is correct.
   EXPECT_THAT(extracted_doc->file.name, Eq(name_ref));
+
+  // Make sure the ResourceFile::Type is the same.
+  EXPECT_THAT(extracted_doc->file.type, Eq(ResourceFile::Type::kProtoXml));
 
   // Verify the structure of the extracted XML.
   el = extracted_doc->root.get();
@@ -180,4 +184,42 @@ TEST(InlineXmlFormatParserTest, ExtractNestedXmlResources) {
   // Confirm that all of the nested inline xmls are parsed out.
   ASSERT_THAT(parser.GetExtractedInlineXmlDocuments(), SizeIs(8u));
 }
+
+TEST(InlineXmlFormatParserTest, ExtractIntoAppAttribute) {
+  std::unique_ptr<IAaptContext> context = test::ContextBuilder().Build();
+  std::unique_ptr<xml::XmlResource> doc = test::BuildXmlDom(R"(
+      <parent xmlns:app="http://schemas.android.com/apk/res-auto"
+              xmlns:aapt="http://schemas.android.com/aapt">
+            <aapt:attr name="app:foo">
+                <child />
+            </aapt:attr>
+      </parent>)");
+
+  doc->file.name = test::ParseNameOrDie("layout/main");
+
+  InlineXmlFormatParser parser;
+  ASSERT_TRUE(parser.Consume(context.get(), doc.get()));
+
+  ASSERT_THAT(doc->root, NotNull());
+  EXPECT_THAT(doc->root->FindAttribute(xml::kSchemaAuto, "foo"), NotNull());
+}
+
+TEST(InlineXmlFormatParserTest, ExtractIntoNoNamespaceAttribute) {
+  std::unique_ptr<IAaptContext> context = test::ContextBuilder().Build();
+  std::unique_ptr<xml::XmlResource> doc = test::BuildXmlDom(R"(
+      <parent xmlns:aapt="http://schemas.android.com/aapt">
+            <aapt:attr name="foo">
+                <child />
+            </aapt:attr>
+      </parent>)");
+
+  doc->file.name = test::ParseNameOrDie("layout/main");
+
+  InlineXmlFormatParser parser;
+  ASSERT_TRUE(parser.Consume(context.get(), doc.get()));
+
+  ASSERT_THAT(doc->root, NotNull());
+  EXPECT_THAT(doc->root->FindAttribute({}, "foo"), NotNull());
+}
+
 }  // namespace aapt

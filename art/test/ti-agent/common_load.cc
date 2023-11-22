@@ -17,7 +17,8 @@
 #include <jni.h>
 #include <stdio.h>
 
-#include "base/logging.h"
+#include <android-base/logging.h>
+
 #include "base/macros.h"
 
 #include "jni_binder.h"
@@ -27,7 +28,7 @@
 #include "901-hello-ti-agent/basics.h"
 #include "909-attach-agent/attach.h"
 #include "936-search-onload/search_onload.h"
-#include "983-source-transform-verify/source_transform.h"
+#include "1919-vminit-thread-start-timing/vminit.h"
 
 namespace art {
 
@@ -62,7 +63,7 @@ static jint MinimalOnLoad(JavaVM* vm,
     printf("Unable to get jvmti env!\n");
     return 1;
   }
-  SetAllCapabilities(jvmti_env);
+  SetStandardCapabilities(jvmti_env);
   return 0;
 }
 
@@ -81,7 +82,7 @@ static AgentLib agents[] = {
   { "939-hello-transformation-bcp", common_redefine::OnLoad, nullptr },
   { "941-recursive-obsolete-jit", common_redefine::OnLoad, nullptr },
   { "943-private-recursive-jit", common_redefine::OnLoad, nullptr },
-  { "983-source-transform-verify", Test983SourceTransformVerify::OnLoad, nullptr },
+  { "1919-vminit-thread-start-timing", Test1919VMInitThreadStart::OnLoad, nullptr },
 };
 
 static AgentLib* FindAgent(char* name) {

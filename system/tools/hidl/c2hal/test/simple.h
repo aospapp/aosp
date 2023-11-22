@@ -32,7 +32,7 @@ __BEGIN_DECLS
 
 /* Simple example */
 typedef struct simple_t {
-    /**
+    /*
      * Common methods of the simple device.
      */
     struct hw_device_t common;
@@ -67,7 +67,7 @@ typedef struct {
 
 } simple_location_t;
 
-/** convenience API for coloring */
+/* convenience API for coloring */
 
 static inline int showColor(const struct hw_module_t* module,
         struct simple_t** device) {

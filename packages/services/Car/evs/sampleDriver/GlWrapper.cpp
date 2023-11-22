@@ -339,19 +339,19 @@ void GlWrapper::shutdown() {
 
 void GlWrapper::showWindow() {
     if (mFlingerSurfaceControl != nullptr) {
-        SurfaceComposerClient::openGlobalTransaction();
-        mFlingerSurfaceControl->setLayer(0x7FFFFFFF);     // always on top
-        mFlingerSurfaceControl->show();
-        SurfaceComposerClient::closeGlobalTransaction();
+        SurfaceComposerClient::Transaction{}
+                .setLayer(mFlingerSurfaceControl, 0x7FFFFFFF)     // always on top
+                .show(mFlingerSurfaceControl)
+                .apply();
     }
 }
 
 
 void GlWrapper::hideWindow() {
     if (mFlingerSurfaceControl != nullptr) {
-        SurfaceComposerClient::openGlobalTransaction();
-        mFlingerSurfaceControl->hide();
-        SurfaceComposerClient::closeGlobalTransaction();
+        SurfaceComposerClient::Transaction{}
+                .hide(mFlingerSurfaceControl)
+                .apply();
     }
 }
 

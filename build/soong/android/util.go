@@ -54,7 +54,7 @@ func sortedKeys(m map[string][]string) []string {
 	return s
 }
 
-func indexList(s string, list []string) int {
+func IndexList(s string, list []string) int {
 	for i, l := range list {
 		if l == s {
 			return i
@@ -64,17 +64,90 @@ func indexList(s string, list []string) int {
 	return -1
 }
 
-func inList(s string, list []string) bool {
-	return indexList(s, list) != -1
+func InList(s string, list []string) bool {
+	return IndexList(s, list) != -1
 }
 
-func prefixInList(s string, list []string) bool {
+func PrefixInList(s string, list []string) bool {
 	for _, prefix := range list {
 		if strings.HasPrefix(s, prefix) {
 			return true
 		}
 	}
 	return false
+}
+
+func FilterList(list []string, filter []string) (remainder []string, filtered []string) {
+	for _, l := range list {
+		if InList(l, filter) {
+			filtered = append(filtered, l)
+		} else {
+			remainder = append(remainder, l)
+		}
+	}
+
+	return
+}
+
+func RemoveListFromList(list []string, filter_out []string) (result []string) {
+	result = make([]string, 0, len(list))
+	for _, l := range list {
+		if !InList(l, filter_out) {
+			result = append(result, l)
+		}
+	}
+	return
+}
+
+func RemoveFromList(s string, list []string) (bool, []string) {
+	i := IndexList(s, list)
+	if i == -1 {
+		return false, list
+	}
+
+	result := make([]string, 0, len(list)-1)
+	result = append(result, list[:i]...)
+	for _, l := range list[i+1:] {
+		if l != s {
+			result = append(result, l)
+		}
+	}
+	return true, result
+}
+
+// FirstUniqueStrings returns all unique elements of a slice of strings, keeping the first copy of
+// each.  It modifies the slice contents in place, and returns a subslice of the original slice.
+func FirstUniqueStrings(list []string) []string {
+	k := 0
+outer:
+	for i := 0; i < len(list); i++ {
+		for j := 0; j < k; j++ {
+			if list[i] == list[j] {
+				continue outer
+			}
+		}
+		list[k] = list[i]
+		k++
+	}
+	return list[:k]
+}
+
+// LastUniqueStrings returns all unique elements of a slice of strings, keeping the last copy of
+// each.  It modifies the slice contents in place, and returns a subslice of the original slice.
+func LastUniqueStrings(list []string) []string {
+	totalSkip := 0
+	for i := len(list) - 1; i >= totalSkip; i-- {
+		skip := 0
+		for j := i - 1; j >= totalSkip; j-- {
+			if list[i] == list[j] {
+				skip++
+			} else {
+				list[j+skip] = list[j]
+			}
+		}
+		totalSkip += skip
+	}
+	return list[totalSkip:]
 }
 
 // checkCalledFromInit panics if a Go package's init function is not on the
@@ -121,4 +194,11 @@ func callerName(skip int) (pkgPath, funcName string, ok bool) {
 	funcName = fullName[lastDotIndex+1:]
 	ok = true
 	return
+}
+
+func GetNumericSdkVersion(v string) string {
+	if strings.Contains(v, "system_") {
+		return strings.Replace(v, "system_", "", 1)
+	}
+	return v
 }

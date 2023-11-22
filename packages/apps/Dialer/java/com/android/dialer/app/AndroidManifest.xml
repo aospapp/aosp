@@ -56,7 +56,7 @@
 
   <uses-sdk
     android:minSdkVersion="23"
-    android:targetSdkVersion="26"/>
+    android:targetSdkVersion="27"/>
 
   <application android:theme="@style/Theme.AppCompat">
 
@@ -86,6 +86,11 @@
           android:mimeType="vnd.android.cursor.item/voicemail"
           android:scheme="content"
           />
+        <data
+            android:host="com.android.voicemail"
+            android:mimeType="vnd.android.cursor.dir/voicemails"
+            android:scheme="content"
+            />
       </intent-filter>
       <intent-filter android:priority="100">
         <action android:name="android.intent.action.BOOT_COMPLETED"/>
@@ -101,6 +106,11 @@
       android:directBootAware="true"
       android:exported="false"
       android:name="com.android.dialer.app.calllog.CallLogNotificationsService"
+      />
+
+    <service
+      android:name="com.android.dialer.app.calllog.VoicemailNotificationJobService"
+      android:permission="android.permission.BIND_JOB_SERVICE"
       />
 
     <receiver
@@ -121,6 +131,11 @@
       </intent-filter>
     </receiver>
 
+    <receiver
+        android:exported="false"
+        android:name="com.android.dialer.commandline.CommandLineReceiver">
+    </receiver>
+
     <provider
       android:authorities="com.android.dialer.files"
       android:exported="false"
@@ -130,5 +145,6 @@
         android:name="android.support.FILE_PROVIDER_PATHS"
         android:resource="@xml/file_paths"/>
     </provider>
+    <meta-data android:name="supports_per_number_preferred_account" android:value="true" />
   </application>
 </manifest>

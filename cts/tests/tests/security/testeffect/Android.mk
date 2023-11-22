@@ -28,6 +28,6 @@ LOCAL_MODULE:= libctstesteffect
 LOCAL_C_INCLUDES := \
   $(call include-path-for, audio-effects)
 
-LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter -Wno-gnu-designator
 
 include $(BUILD_SHARED_LIBRARY)

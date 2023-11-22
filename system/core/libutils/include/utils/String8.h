@@ -31,7 +31,8 @@
 namespace android {
 
 class String16;
-class TextOutput;
+
+// DO NOT USE: please use std::string
 
 //! This is a string holding UTF-8 characters. Does not allow the value more
 // than 0x10FFFF, which is not valid unicode codepoint.
@@ -67,7 +68,6 @@ public:
     inline  const char*         c_str() const;
     inline  const char*         string() const;
 
-// TODO(b/35363681): remove
 private:
     static inline std::string   std_string(const String8& str);
 public:

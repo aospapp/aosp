@@ -121,11 +121,18 @@ EFI_STATUS
   OUT VOID  **Buffer
   );
 
+typedef
+EFI_STATUS
+(*FASTBOOT_TRANSPORT_REQUEST_RECEIVE) (
+  IN UINTN    BufferSize
+  );
+
 typedef struct _FASTBOOT_TRANSPORT_PROTOCOL {
   FASTBOOT_TRANSPORT_START                     Start;
   FASTBOOT_TRANSPORT_STOP                      Stop;
   FASTBOOT_TRANSPORT_SEND                      Send;
   FASTBOOT_TRANSPORT_RECEIVE                   Receive;
+  FASTBOOT_TRANSPORT_REQUEST_RECEIVE           RequestReceive;
 } FASTBOOT_TRANSPORT_PROTOCOL;
 
 #endif

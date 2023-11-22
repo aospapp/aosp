@@ -21,6 +21,8 @@ import com.google.doclava.apicheck.ApiParseException;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Objects;
 
 public class FieldInfo extends MemberInfo {
   public static final Comparator<FieldInfo> comparator = new Comparator<FieldInfo>() {
@@ -44,6 +46,9 @@ public class FieldInfo extends MemberInfo {
   }
 
   public FieldInfo cloneForClass(ClassInfo newContainingClass) {
+    if (newContainingClass == containingClass()) {
+      return this;
+    }
     return new FieldInfo(name(), newContainingClass, realContainingClass(), isPublic(),
         isProtected(), isPackagePrivate(), isPrivate(), isFinal(), isStatic(), isTransient(),
         isVolatile(), isSynthetic(), mType, getRawCommentText(), mConstantValue, position(),
@@ -55,6 +60,28 @@ public class FieldInfo extends MemberInfo {
     return isConstant(isFinal, isStatic, constantValue) ? "constant" : "field";
   }
 
+  @Override
+  public String toString() {
+    return this.name();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    } else if (o instanceof FieldInfo) {
+      final FieldInfo f = (FieldInfo) o;
+      return mName.equals(f.mName);
+    } else {
+      return false;
+    }
+  }
+
+  @Override
+  public int hashCode() {
+    return mName.hashCode();
+  }
+
   public String qualifiedName() {
     String parentQName
         = (containingClass() != null) ? (containingClass().qualifiedName() + ".") : "";
@@ -63,6 +90,19 @@ public class FieldInfo extends MemberInfo {
 
   public TypeInfo type() {
     return mType;
+  }
+
+  public HashSet<String> typeVariables() {
+    HashSet<String> result = new HashSet<String>();
+    ClassInfo cl = containingClass();
+    while (cl != null) {
+      ArrayList<TypeInfo> types = cl.asTypeInfo().typeArguments();
+      if (types != null) {
+        TypeInfo.typeVariables(types, result);
+      }
+      cl = cl.containingClass();
+    }
+    return result;
   }
 
   static boolean isConstant(boolean isFinal, boolean isStatic, Object constantValue)

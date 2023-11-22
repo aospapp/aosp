@@ -254,7 +254,7 @@ static const struct SensorInfo si7034SensorInfo[NUM_OF_SENSOR] =
 {
     { DEC_INFO("Humidity", SENS_TYPE_HUMIDITY, NUM_AXIS_EMBEDDED, NANOHUB_INT_NONWAKEUP,
         300, si7034Rates) },
-    { DEC_INFO("Temperature", SENS_TYPE_TEMP, NUM_AXIS_EMBEDDED, NANOHUB_INT_NONWAKEUP,
+    { DEC_INFO("Temperature", SENS_TYPE_AMBIENT_TEMP, NUM_AXIS_EMBEDDED, NANOHUB_INT_NONWAKEUP,
         20, si7034Rates) },
 };
 
@@ -338,7 +338,7 @@ static bool tempSetRate(uint32_t rate, uint64_t latency, void *cookie)
 
 static bool tempFlush(void *cookie)
 {
-    return osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_TEMP), SENSOR_DATA_EVENT_FLUSH, NULL);
+    return osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_AMBIENT_TEMP), SENSOR_DATA_EVENT_FLUSH, NULL);
 }
 
 #define DEC_OPS(power, firmware, rate, flush, cal, cfg) \
@@ -406,7 +406,7 @@ static void handleI2cEvent(const void *evtData)
             DEBUG_PRINT("Temp = %u\n", (unsigned)value);
             sample.fdata = (float)value / 1000.0f;
 
-            osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_TEMP), sample.vptr, NULL);
+            osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_AMBIENT_TEMP), sample.vptr, NULL);
         }
 
         mTask.humiReading = mTask.tempReading = false;

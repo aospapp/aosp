@@ -39,6 +39,24 @@ public class Configuration
     // Input and output options.
     ///////////////////////////////////////////////////////////////////////////
 
+    // Android-added: Add -systemjars option.
+    /**
+     * A list of system entries (jars, wars, ears, zips, and directories).
+     *
+     * <p>A system jar is one that appears on the runtime classpath before the program jars. Unless
+     * there are duplicate classes between it and a program jar then it behaves no different to a
+     * library jar. If there are duplicate classes between it and a program jar then the class in
+     * the system jar will be used and the duplicate class in the program jar will be ignored.
+     * Conversely, if a library jar contains duplicates of classes in a program jar then the class
+     * in the program jar will be used and the one in the library jar will be ignored.
+     *
+     * <p>e.g. the android.jar from the Android SDK should usually be treated as a system jar
+     * because at runtime if the APK contains duplicates of classes in android.jar then the ones in
+     * the APK will be ignored; unless the APK does some ClassLoader manipulation to change that
+     * behavior.
+     */
+    public ClassPath systemJars;
+
     /**
      * A list of input and output entries (jars, wars, ears, zips, and directories).
      */

@@ -19,8 +19,10 @@
 
 #include <android/hidl/base/1.0/IBase.h>
 #include <hidl/HidlBinderSupport.h>
+#include <hidl/HidlPassthroughSupport.h>
 #include <hidl/HidlSupport.h>
 #include <hidl/HidlTransportUtils.h>
+#include <hidl/ServiceManagement.h>
 
 namespace android {
 namespace hardware {
@@ -49,6 +51,26 @@ void configureRpcThreadpool(size_t maxThreads, bool callerWillJoin);
 void joinRpcThreadpool();
 
 /**
+ * Sets up the transport for use with (e)poll.
+ *
+ * Note that all currently supported transports can only be polled
+ * from a single thread. When poll() on the returned fd returns,
+ * the caller must call handleTransportPoll() to handle the result.
+ *
+ * @return the file descriptor to be used with (e)poll, or -1 in case of error.
+ */
+int setupTransportPolling();
+
+/**
+ * Handles transport work after poll() returns.
+ *
+ * @param fd returned from setupTransportPolling()
+ *
+ * @return OK when successful
+ */
+status_t handleTransportPoll(int fd);
+
+/**
  * Sets a minimum scheduler policy for all transactions coming into this
  * service.
  *
@@ -62,7 +84,10 @@ void joinRpcThreadpool();
 bool setMinSchedulerPolicy(const sp<::android::hidl::base::V1_0::IBase>& service,
                            int policy, int priority);
 
-template <typename ILeft, typename IRight>
+template <typename ILeft,
+          typename IRight,
+          typename = std::enable_if_t<std::is_same<details::i_tag, typename ILeft::_hidl_tag>::value>,
+          typename = std::enable_if_t<std::is_same<details::i_tag, typename IRight::_hidl_tag>::value>>
 bool interfacesEqual(sp<ILeft> left, sp<IRight> right) {
     if (left == nullptr || right == nullptr || !left->isRemote() || !right->isRemote()) {
         return left == right;
@@ -72,6 +97,9 @@ bool interfacesEqual(sp<ILeft> left, sp<IRight> right) {
 }
 
 namespace details {
+
+// Return PID on userdebug / eng builds and IServiceManager::PidConstant::NO_PID on user builds.
+int32_t getPidIfSharable();
 
 // cast the interface IParent to IChild.
 // Return nonnull if cast successful.
@@ -103,8 +131,28 @@ Return<sp<IChild>> castInterface(sp<IParent> parent, const char* childIndicator,
         // binderized mode. Got BpChild. grab the remote and wrap it.
         return sp<IChild>(new BpChild(toBinder<IParent>(parent)));
     }
-    // Passthrough mode. Got BnChild and BsChild.
+    // Passthrough mode. Got BnChild or BsChild.
     return sp<IChild>(static_cast<IChild *>(parent.get()));
+}
+
+template <typename BpType, typename IType = typename BpType::Pure,
+          typename = std::enable_if_t<std::is_same<i_tag, typename IType::_hidl_tag>::value>,
+          typename = std::enable_if_t<std::is_same<bphw_tag, typename BpType::_hidl_tag>::value>>
+sp<IType> getServiceInternal(const std::string& instance, bool retry, bool getStub) {
+    using ::android::hidl::base::V1_0::IBase;
+
+    sp<IBase> base = getRawServiceInternal(IType::descriptor, instance, retry, getStub);
+
+    if (base == nullptr) {
+        return nullptr;
+    }
+
+    if (base->isRemote()) {
+        // getRawServiceInternal guarantees we get the proper class
+        return sp<IType>(new BpType(toBinder<IBase>(base)));
+    }
+
+    return IType::castFrom(base);
 }
 
 }  // namespace details

@@ -1,7 +1,7 @@
 /** @file
 Private MACRO, structure and function definitions for Setup Browser module.
 
-Copyright (c) 2007 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -90,7 +90,7 @@ typedef struct {
   // Produced protocol
   //
   EFI_FORM_BROWSER2_PROTOCOL            FormBrowser2;
-  EFI_FORM_BROWSER_EXTENSION_PROTOCOL   FormBrowserEx;
+  EDKII_FORM_BROWSER_EXTENSION_PROTOCOL FormBrowserEx;
 
   EDKII_FORM_BROWSER_EXTENSION2_PROTOCOL FormBrowserEx2;
 
@@ -178,6 +178,8 @@ typedef struct {
   BOOLEAN          HasCallAltCfg;  // Flag to show whether browser has call ExtractConfig to get Altcfg string.
   UINTN            ElementCount;   // Number of <RequestElement> in the <ConfigRequest>
   UINTN            SpareStrLen;    // Spare length of ConfigRequest string buffer
+  CHAR16           *RestoreConfigRequest; // When submit formset fail, the element need to be restored
+  CHAR16           *SyncConfigRequest;    // When submit formset fail, the element need to be synced
 } FORMSET_STORAGE;
 
 #define FORMSET_STORAGE_FROM_LINK(a)  CR (a, FORMSET_STORAGE, Link, FORMSET_STORAGE_SIGNATURE)
@@ -387,6 +389,8 @@ typedef struct {
   CHAR16                *ConfigAltResp; // Alt config response string for this ConfigRequest.
   UINTN                 ElementCount;   // Number of <RequestElement> in the <ConfigRequest>  
   UINTN                 SpareStrLen;
+  CHAR16                *RestoreConfigRequest; // When submit form fail, the element need to be restored
+  CHAR16                *SyncConfigRequest;    // When submit form fail, the element need to be synced
 
   BROWSER_STORAGE       *Storage;
 } FORM_BROWSER_CONFIG_REQUEST;
@@ -1218,8 +1222,8 @@ IsNvUpdateRequiredForFormSet (
   @param Action                The action request.
   @param SkipSaveOrDiscard     Whether skip save or discard action.
 
-  @retval EFI_SUCCESS          The call back function excutes successfully.
-  @return Other value if the call back function failed to excute.  
+  @retval EFI_SUCCESS          The call back function executes successfully.
+  @return Other value if the call back function failed to execute.
 **/
 EFI_STATUS 
 ProcessCallBackFunction (
@@ -1241,8 +1245,8 @@ ProcessCallBackFunction (
   @param Statement             The Question which need to call.
   @param FormSet               The formset this question belong to.
 
-  @retval EFI_SUCCESS          The call back function excutes successfully.
-  @return Other value if the call back function failed to excute.  
+  @retval EFI_SUCCESS          The call back function executes successfully.
+  @return Other value if the call back function failed to execute.
 **/
 EFI_STATUS 
 ProcessRetrieveForQuestion (

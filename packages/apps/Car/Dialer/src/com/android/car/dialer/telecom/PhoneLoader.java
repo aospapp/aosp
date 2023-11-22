@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import android.net.Uri;
 import android.provider.BaseColumns;
 import android.provider.CallLog;
 import android.provider.ContactsContract;
+import android.support.annotation.IntDef;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -32,11 +33,11 @@ import java.util.HashMap;
 import java.util.List;
 
 /**
- * Manage loading different types of call logs.
+ * Manages loading different types of call logs.
  * Currently supports:
- *     All calls
- *     Missed calls
- *     speed dial calls
+ * All calls
+ * Missed calls
+ * speed dial calls
  */
 public class PhoneLoader {
     private static final String TAG = "Em.PhoneLoader";
@@ -46,6 +47,19 @@ public class PhoneLoader {
     public final static int CALL_TYPE_MISSED = CallLog.Calls.MISSED_TYPE;
     /** Starred and frequent **/
     public final static int CALL_TYPE_SPEED_DIAL = 2;
+
+    @IntDef({
+            CallType.CALL_TYPE_ALL,
+            CallType.INCOMING_TYPE,
+            CallType.OUTGOING_TYPE,
+            CallType.MISSED_TYPE,
+    })
+    public @interface CallType {
+        int CALL_TYPE_ALL = -1;
+        int INCOMING_TYPE = CallLog.Calls.INCOMING_TYPE;
+        int OUTGOING_TYPE = CallLog.Calls.OUTGOING_TYPE;
+        int MISSED_TYPE = CallLog.Calls.MISSED_TYPE;
+    }
 
     private static final int NUM_LOGS_TO_DISPLAY = 100;
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
@@ -67,7 +81,7 @@ public class PhoneLoader {
             Log.d(TAG, "registerCallObserver: type: " + type + ", listener: " + listener);
         }
 
-        switch(type) {
+        switch (type) {
             case CALL_TYPE_ALL:
             case CALL_TYPE_MISSED:
                 return fetchCallLog(type, context, listener);
@@ -129,8 +143,8 @@ public class PhoneLoader {
 
     /**
      * @return The column index of the contact id. It should be {@link BaseColumns#_ID}. However,
-     *         if that fails use {@link android.provider.ContactsContract.RawContacts#CONTACT_ID}.
-     *         If that also fails, we use the first column in the table.
+     * if that fails use {@link android.provider.ContactsContract.RawContacts#CONTACT_ID}.
+     * If that also fails, we use the first column in the table.
      */
     public static int getIdColumnIndex(Cursor cursor) {
         int ret = cursor.getColumnIndex(BaseColumns._ID);
@@ -153,7 +167,7 @@ public class PhoneLoader {
 
     /**
      * @return The column index of the number.
-     *         Will return a valid column for call log or contacts queries.
+     * Will return a valid column for call log or contacts queries.
      */
     public static int getNumberColumnIndex(Cursor cursor) {
         int numberColumn = cursor.getColumnIndex(CallLog.Calls.NUMBER);
@@ -166,7 +180,7 @@ public class PhoneLoader {
 
     /**
      * @return The column index of the number type.
-     *         Will return a valid column for call log or contacts queries.
+     * Will return a valid column for call log or contacts queries.
      */
     public static int getTypeColumnIndex(Cursor cursor) {
         int typeColumn = cursor.getColumnIndex(CallLog.Calls.TYPE);
@@ -178,7 +192,7 @@ public class PhoneLoader {
 
     /**
      * @return The column index of the name.
-     *         Will return a valid column for call log or contacts queries.
+     * Will return a valid column for call log or contacts queries.
      */
     public static int getNameColumnIndex(Cursor cursor) {
         int typeColumn = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME);
@@ -190,10 +204,10 @@ public class PhoneLoader {
 
     /**
      * @return The phone number for the contact. Most phones will simply get the value in the
-     *         column returned by {@link #getNumberColumnIndex(Cursor)}. However, some devices
-     *         such as the Galaxy S6 return null for those columns. In those cases, we use the
-     *         contact id (which we hopefully do have) to look up just the phone number for that
-     *         specific contact.
+     * column returned by {@link #getNumberColumnIndex(Cursor)}. However, some devices
+     * such as the Galaxy S6 return null for those columns. In those cases, we use the
+     * contact id (which we hopefully do have) to look up just the phone number for that
+     * specific contact.
      */
     public static String getPhoneNumber(Cursor cursor, ContentResolver cr) {
         int columnIndex = getNumberColumnIndex(cursor);
@@ -210,8 +224,9 @@ public class PhoneLoader {
 
     /**
      * Return the phone number for the given contact id.
+     *
      * @param columnName On some phones, we have to use non-standard columns for the primary key.
-     * @param id The value in the columnName for the desired contact.
+     * @param id         The value in the columnName for the desired contact.
      * @return The phone number for the given contact or empty string if there was an error.
      */
     public static String getNumberFromContactId(ContentResolver cr, String columnName, String id) {
@@ -227,8 +242,8 @@ public class PhoneLoader {
 
         Uri uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI;
         Cursor phoneNumberCursor = cr.query(uri,
-                new String[] {ContactsContract.CommonDataKinds.Phone.NUMBER},
-                columnName + " = ?" , new String[] {id}, null);
+                new String[]{ContactsContract.CommonDataKinds.Phone.NUMBER},
+                columnName + " = ?", new String[]{id}, null);
 
         if (!phoneNumberCursor.moveToFirst()) {
             Log.e(TAG, "Unable to move phone number cursor to the first item.");

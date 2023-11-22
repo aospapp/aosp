@@ -24,6 +24,11 @@ import com.android.server.telecom.CallsManager;
 import com.android.server.telecom.ProximitySensorManager;
 import com.android.server.telecom.TelecomWakeLock;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 
 import java.util.ArrayList;
@@ -33,6 +38,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@RunWith(JUnit4.class)
 public class ProximitySensorManagerTest extends TelecomTestCase{
 
     @Mock CallsManager mCallsManager;
@@ -41,6 +47,7 @@ public class ProximitySensorManagerTest extends TelecomTestCase{
     private ProximitySensorManager mProximitySensorManager;
 
     @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         TelecomWakeLock telecomWakeLock = new TelecomWakeLock(
@@ -51,12 +58,14 @@ public class ProximitySensorManagerTest extends TelecomTestCase{
     }
 
     @Override
+    @After
     public void tearDown() throws Exception {
         mProximitySensorManager = null;
         super.tearDown();
     }
 
     @SmallTest
+    @Test
     public void testTurnOnProximityWithCallsActive() throws Exception {
         when(mCallsManager.getCalls()).thenReturn(new ArrayList<Call>(){{
             add(mCall);
@@ -69,6 +78,7 @@ public class ProximitySensorManagerTest extends TelecomTestCase{
     }
 
     @SmallTest
+    @Test
     public void testTurnOnProximityWithNoCallsActive() throws Exception {
         when(mCallsManager.getCalls()).thenReturn(new ArrayList<Call>());
         when(mWakeLockAdapter.isHeld()).thenReturn(false);
@@ -80,6 +90,7 @@ public class ProximitySensorManagerTest extends TelecomTestCase{
     }
 
     @SmallTest
+    @Test
     public void testTurnOffProximityExplicitly() throws Exception {
         when(mWakeLockAdapter.isHeld()).thenReturn(true);
 
@@ -89,6 +100,7 @@ public class ProximitySensorManagerTest extends TelecomTestCase{
     }
 
     @SmallTest
+    @Test
     public void testCallRemovedFromCallsManagerCallsActive() throws Exception {
         when(mCallsManager.getCalls()).thenReturn(new ArrayList<Call>(){{
             add(mCall);
@@ -101,6 +113,7 @@ public class ProximitySensorManagerTest extends TelecomTestCase{
     }
 
     @SmallTest
+    @Test
     public void testCallRemovedFromCallsManagerNoCallsActive() throws Exception {
         when(mCallsManager.getCalls()).thenReturn(new ArrayList<Call>());
         when(mWakeLockAdapter.isHeld()).thenReturn(true);

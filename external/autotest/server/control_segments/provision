@@ -5,6 +5,7 @@
 import datetime
 import re
 
+from autotest_lib.client.bin import sysinfo
 from autotest_lib.client.cros import constants
 from autotest_lib.server import utils
 from autotest_lib.server.cros import provision
@@ -46,7 +47,8 @@ def provision_machine(machine):
     job.record('START', None, 'provision')
     host = hosts.create_target_machine(machine, try_lab_servo=True)
     try:
-        job.sysinfo.add_logdir(constants.AUTOUPDATE_PRESERVE_LOG)
+        job.sysinfo.add_logdir(
+                sysinfo.logdir(constants.AUTOUPDATE_PRESERVE_LOG))
         provision.run_special_task_actions(job, host, labels_list,
                                            provision.Provision)
         host.verify()

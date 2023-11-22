@@ -24,7 +24,6 @@
 #include "NetdConstants.h"
 #include "NetworkController.h"
 #include "TetherController.h"
-#include "NatController.h"
 #include "PppController.h"
 #include "BandwidthController.h"
 #include "IdletimerController.h"

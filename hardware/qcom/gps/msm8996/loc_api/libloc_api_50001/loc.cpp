@@ -48,6 +48,7 @@
 #include <sys/un.h>
 #include <sstream>
 #include <string>
+#include <unistd.h>
 
 using namespace loc_core;
 

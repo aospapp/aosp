@@ -1,7 +1,7 @@
 /** @file
   The driver binding and service binding protocol for IP6 driver.
 
-  Copyright (c) 2009 - 2014, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2009 - 2016, Intel Corporation. All rights reserved.<BR>
   (C) Copyright 2015 Hewlett-Packard Development Company, L.P.<BR>
 
   This program and the accompanying materials
@@ -149,6 +149,22 @@ Ip6CleanService (
   EFI_IPv6_ADDRESS          AllNodes;
   IP6_NEIGHBOR_ENTRY        *NeighborCache;
 
+  IpSb->State     = IP6_SERVICE_DESTROY;
+
+  if (IpSb->Timer != NULL) {
+    gBS->SetTimer (IpSb->Timer, TimerCancel, 0);
+    gBS->CloseEvent (IpSb->Timer);
+
+    IpSb->Timer = NULL;
+  }
+
+  if (IpSb->FasterTimer != NULL) {
+    gBS->SetTimer (IpSb->FasterTimer, TimerCancel, 0);
+    gBS->CloseEvent (IpSb->FasterTimer);
+
+    IpSb->FasterTimer = NULL;
+  }
+
   Ip6ConfigCleanInstance (&IpSb->Ip6ConfigInstance);
 
   if (!IpSb->LinkLocalDadFail) {
@@ -214,19 +230,6 @@ Ip6CleanService (
     gBS->CloseEvent (IpSb->RecvRequest.MnpToken.Event);
   }
 
-  if (IpSb->Timer != NULL) {
-    gBS->SetTimer (IpSb->Timer, TimerCancel, 0);
-    gBS->CloseEvent (IpSb->Timer);
-
-    IpSb->Timer = NULL;
-  }
-
-  if (IpSb->FasterTimer != NULL) {
-    gBS->SetTimer (IpSb->FasterTimer, TimerCancel, 0);
-    gBS->CloseEvent (IpSb->FasterTimer);
-
-    IpSb->FasterTimer = NULL;
-  }
   //
   // Free the Neighbor Discovery resources
   //
@@ -262,7 +265,6 @@ Ip6CreateService (
   EFI_STATUS                            Status;
   EFI_MANAGED_NETWORK_COMPLETION_TOKEN  *MnpToken;
   EFI_MANAGED_NETWORK_CONFIG_DATA       *Config;
-  IP6_CONFIG_DATA_ITEM                  *DataItem;
 
   ASSERT (Service != NULL);
 
@@ -476,30 +478,6 @@ Ip6CreateService (
     goto ON_ERROR;
   }
 
-  //
-  // If there is any manual address, set it.
-  //
-  DataItem = &IpSb->Ip6ConfigInstance.DataItem[Ip6ConfigDataTypeManualAddress];
-  if (DataItem->Data.Ptr != NULL) {
-    DataItem->SetData (
-                &IpSb->Ip6ConfigInstance,
-                DataItem->DataSize,
-                DataItem->Data.Ptr
-                );
-  }
-
-  //
-  // If there is any gateway address, set it.
-  //
-  DataItem = &IpSb->Ip6ConfigInstance.DataItem[Ip6ConfigDataTypeGateway];
-  if (DataItem->Data.Ptr != NULL) {
-    DataItem->SetData (
-                &IpSb->Ip6ConfigInstance,
-                DataItem->DataSize,
-                DataItem->Data.Ptr
-                );
-  }
-
   InsertHeadList (&IpSb->Interfaces, &IpSb->DefaultInterface->Link);
 
   *Service = IpSb;
@@ -535,6 +513,12 @@ Ip6DriverBindingStart (
 {
   IP6_SERVICE               *IpSb;
   EFI_STATUS                Status;
+  EFI_IP6_CONFIG_PROTOCOL   *Ip6Cfg;
+  IP6_CONFIG_DATA_ITEM      *DataItem;
+
+  IpSb     = NULL;
+  Ip6Cfg   = NULL;
+  DataItem = NULL;
 
   //
   // Test for the Ip6 service binding protocol
@@ -560,6 +544,8 @@ Ip6DriverBindingStart (
 
   ASSERT (IpSb != NULL);
 
+  Ip6Cfg  = &IpSb->Ip6ConfigInstance.Ip6Config;
+
   //
   // Install the Ip6ServiceBinding Protocol onto ControlerHandle
   //
@@ -568,50 +554,92 @@ Ip6DriverBindingStart (
                   &gEfiIp6ServiceBindingProtocolGuid,
                   &IpSb->ServiceBinding,
                   &gEfiIp6ConfigProtocolGuid,
-                  &IpSb->Ip6ConfigInstance.Ip6Config,
+                  Ip6Cfg,
                   NULL
                   );
-
-  if (!EFI_ERROR (Status)) {
-    //
-    // ready to go: start the receiving and timer
-    //
-    Status = Ip6ReceiveFrame (Ip6AcceptFrame, IpSb);
-    if (EFI_ERROR (Status)) {
-      goto ON_ERROR;
-    }
-
-    //
-    // The timer expires every 100 (IP6_TIMER_INTERVAL_IN_MS) milliseconds.
-    //
-    Status = gBS->SetTimer (
-                    IpSb->FasterTimer,
-                    TimerPeriodic,
-                    TICKS_PER_MS * IP6_TIMER_INTERVAL_IN_MS
-                    );
-    if (EFI_ERROR (Status)) {
-      goto ON_ERROR;
-    }
-
-    //
-    // The timer expires every 1000 (IP6_ONE_SECOND_IN_MS) milliseconds.
-    //
-    Status = gBS->SetTimer (
-                    IpSb->Timer,
-                    TimerPeriodic,
-                    TICKS_PER_MS * IP6_ONE_SECOND_IN_MS
-                    );
-    if (EFI_ERROR (Status)) {
-      goto ON_ERROR;
-    }    
-
-    //
-    // Initialize the IP6 ID
-    //
-    mIp6Id = NET_RANDOM (NetRandomInitSeed ());
-
-    return EFI_SUCCESS;
+  if (EFI_ERROR (Status)) {
+    goto ON_ERROR;
   }
+
+  //
+  // Read the config data from NV variable again. 
+  // The default data can be changed by other drivers.
+  //
+  Status = Ip6ConfigReadConfigData (IpSb->MacString, &IpSb->Ip6ConfigInstance);
+  if (EFI_ERROR (Status)) {
+    goto ON_ERROR;
+  }
+  
+  //
+  // If there is any default manual address, set it.
+  //
+  DataItem = &IpSb->Ip6ConfigInstance.DataItem[Ip6ConfigDataTypeManualAddress];
+  if (DataItem->Data.Ptr != NULL) {
+    Status = Ip6Cfg->SetData (
+                       Ip6Cfg,
+                       Ip6ConfigDataTypeManualAddress,
+                       DataItem->DataSize,
+                       DataItem->Data.Ptr
+                       );
+    if (EFI_ERROR(Status) && Status != EFI_NOT_READY) {
+      goto ON_ERROR;
+    }
+  }
+
+  //
+  // If there is any default gateway address, set it.
+  //
+  DataItem = &IpSb->Ip6ConfigInstance.DataItem[Ip6ConfigDataTypeGateway];
+  if (DataItem->Data.Ptr != NULL) {
+    Status = Ip6Cfg->SetData (
+                       Ip6Cfg,
+                       Ip6ConfigDataTypeGateway,
+                       DataItem->DataSize,
+                       DataItem->Data.Ptr
+                       );
+    if (EFI_ERROR(Status)) {
+      goto ON_ERROR;
+    }
+  }
+
+  //
+  // ready to go: start the receiving and timer
+  //
+  Status = Ip6ReceiveFrame (Ip6AcceptFrame, IpSb);
+  if (EFI_ERROR (Status)) {
+    goto ON_ERROR;
+  }
+
+  //
+  // The timer expires every 100 (IP6_TIMER_INTERVAL_IN_MS) milliseconds.
+  //
+  Status = gBS->SetTimer (
+                  IpSb->FasterTimer,
+                  TimerPeriodic,
+                  TICKS_PER_MS * IP6_TIMER_INTERVAL_IN_MS
+                  );
+  if (EFI_ERROR (Status)) {
+    goto ON_ERROR;
+  }
+
+  //
+  // The timer expires every 1000 (IP6_ONE_SECOND_IN_MS) milliseconds.
+  //
+  Status = gBS->SetTimer (
+                  IpSb->Timer,
+                  TimerPeriodic,
+                  TICKS_PER_MS * IP6_ONE_SECOND_IN_MS
+                  );
+  if (EFI_ERROR (Status)) {
+    goto ON_ERROR;
+  }    
+
+  //
+  // Initialize the IP6 ID
+  //
+  mIp6Id = NET_RANDOM (NetRandomInitSeed ());
+
+  return EFI_SUCCESS;
 
 ON_ERROR:
   Ip6CleanService (IpSb);
@@ -734,8 +762,6 @@ Ip6DriverBindingStop (
                );
   } else if (IsListEmpty (&IpSb->Children)) {
     State           = IpSb->State;
-    IpSb->State     = IP6_SERVICE_DESTROY;
-
     Status = Ip6CleanService (IpSb);
     if (EFI_ERROR (Status)) {
       IpSb->State = State;
@@ -770,7 +796,7 @@ Exit:
                                  the existing child handle.
 
   @retval EFI_SUCCES             The child handle was created with the I/O services.
-  @retval EFI_OUT_OF_RESOURCES   There are not enough resources availabe to create
+  @retval EFI_OUT_OF_RESOURCES   There are not enough resources available to create
                                  the child.
   @retval other                  The child handle was not created.
 

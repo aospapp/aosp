@@ -34,6 +34,9 @@
   gArmVirtTokenSpaceGuid = { 0x0B6F5CA7, 0x4F53, 0x445A, { 0xB7, 0x6E, 0x2E, 0x36, 0x5B, 0x80, 0x63, 0x66 } }
   gEarlyPL011BaseAddressGuid       = { 0xB199DEA9, 0xFD5C, 0x4A84, { 0x80, 0x82, 0x2F, 0x41, 0x70, 0x78, 0x03, 0x05 } }
 
+[Protocols]
+  gFdtClientProtocolGuid = { 0xE11FACA0, 0x4710, 0x4C8E, { 0xA7, 0xA2, 0x01, 0xBA, 0xA2, 0x59, 0x1B, 0x4C } }
+
 [PcdsFixedAtBuild, PcdsPatchableInModule]
   #
   # This is the physical address where the device tree is expected to be stored
@@ -56,45 +59,12 @@
   #
   gArmVirtTokenSpaceGuid.PcdTerminalTypeGuidBuffer|{0x65, 0x60, 0xA6, 0xDF, 0x19, 0xB4, 0xD3, 0x11, 0x9A, 0x2D, 0x00, 0x90, 0x27, 0x3F, 0xC1, 0x4D}|VOID*|0x00000007
 
-[PcdsDynamic, PcdsFixedAtBuild]
-  #
-  # ARM PSCI function invocations can be done either through hypervisor
-  # calls (HVC) or secure monitor calls (SMC).
-  # PcdArmPsciMethod == 1 : use HVC
-  # PcdArmPsciMethod == 2 : use SMC
-  #
-  gArmVirtTokenSpaceGuid.PcdArmPsciMethod|0|UINT32|0x00000003
-
-  gArmVirtTokenSpaceGuid.PcdFwCfgSelectorAddress|0x0|UINT64|0x00000004
-  gArmVirtTokenSpaceGuid.PcdFwCfgDataAddress|0x0|UINT64|0x00000005
-  gArmVirtTokenSpaceGuid.PcdFwCfgDmaAddress|0x0|UINT64|0x00000009
-
-  #
-  # Supported GIC revision (2, 3, ...)
-  #
-  gArmVirtTokenSpaceGuid.PcdArmGicRevision|0x0|UINT32|0x00000008
-
 [PcdsFeatureFlag]
   #
-  # "Map PCI MMIO as Cached"
+  # Pure ACPI boot
   #
-  # Due to the way Stage1 and Stage2 mappings are combined on Aarch64, and
-  # because KVM -- for the time being -- does not try to interfere with the
-  # Stage1 mappings, we must not set EFI_MEMORY_UC for emulated PCI MMIO
-  # regions.
+  # Inhibit installation of the FDT as a configuration table if this feature
+  # PCD is TRUE. Otherwise, the OS is presented with both a DT and an ACPI
+  # description of the platform, and it is up to the OS to choose.
   #
-  # EFI_MEMORY_UC is mapped to Device-nGnRnE, and that Stage1 attribute would
-  # direct guest writes to host DRAM immediately, bypassing the cache
-  # regardless of Stage2 attributes. However, QEMU's reads of the same range
-  # can easily be served from the (stale) CPU cache.
-  #
-  # Setting this PCD to TRUE will use EFI_MEMORY_WB for mapping PCI MMIO
-  # regions, which ensures that guest writes to such regions go through the CPU
-  # cache. Strictly speaking this is wrong, but it is needed as a temporary
-  # workaround for emulated PCI devices. Setting the PCD to FALSE results in
-  # the theoretically correct EFI_MEMORY_UC mapping, and should be the long
-  # term choice, especially with assigned devices.
-  #
-  # The default is to turn off the kludge; DSC's can selectively enable it.
-  #
-  gArmVirtTokenSpaceGuid.PcdKludgeMapPciMmioAsCached|FALSE|BOOLEAN|0x00000006
+  gArmVirtTokenSpaceGuid.PcdPureAcpiBoot|FALSE|BOOLEAN|0x0000000a

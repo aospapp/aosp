@@ -37,7 +37,6 @@ class DynamicSuiteTest(mox.MoxTestBase):
                        'builds': self._BUILDS,
                        'board': 'board',
                        'job': self.mox.CreateMock(base_job.base_job),
-                       'num': 1,
                        'pool': 'pool',
                        'check_hosts': False,
                        'add_experimental': False,
@@ -92,7 +91,6 @@ class DynamicSuiteTest(mox.MoxTestBase):
         """Should verify that optional args can be overridden."""
         spec = dynamic_suite._SuiteSpec(**self._DARGS)
         self.assertEquals(spec.pool, 'pool:' + self._DARGS['pool'])
-        self.assertEquals(spec.num, self._DARGS['num'])
         self.assertEquals(spec.check_hosts, self._DARGS['check_hosts'])
         self.assertEquals(spec.add_experimental,
                           self._DARGS['add_experimental'])
@@ -105,12 +103,10 @@ class DynamicSuiteTest(mox.MoxTestBase):
         del(self._DARGS['pool'])
         del(self._DARGS['check_hosts'])
         del(self._DARGS['add_experimental'])
-        del(self._DARGS['num'])
         del(self._DARGS['suite_dependencies'])
 
         spec = dynamic_suite._SuiteSpec(**self._DARGS)
         self.assertEquals(spec.pool, None)
-        self.assertEquals(spec.num, None)
         self.assertEquals(spec.check_hosts, True)
         self.assertEquals(spec.add_experimental, True)
         self.assertEquals(

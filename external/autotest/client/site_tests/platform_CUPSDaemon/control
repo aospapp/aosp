@@ -14,7 +14,7 @@ CRITERIA = """
 Fail if Upstart won't launch CUPS properly or doesn't clean up its sockets
 correctly.
 """
-ATTRIBUTES = "suite:bvt-inline, suite:smoke"
+ATTRIBUTES = "suite:bvt-cq, suite:smoke"
 TEST_CLASS = "platform"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"

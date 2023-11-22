@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -285,7 +285,8 @@ void l2c_link_sec_comp2(const RawAddress& p_bda,
   tL2C_CCB* p_next_ccb;
   uint8_t event;
 
-  L2CAP_TRACE_DEBUG("l2c_link_sec_comp: %d, 0x%x", status, p_ref_data);
+  L2CAP_TRACE_DEBUG("%s: status=%d, p_ref_data=%p, BD_ADDR=%s", __func__,
+                    status, p_ref_data, p_bda.ToString().c_str());
 
   if (status == BTM_SUCCESS_NO_SECURITY) status = BTM_SUCCESS;
 
@@ -396,19 +397,19 @@ bool l2c_link_hci_disc_comp(uint16_t handle, uint8_t reason) {
     if (p_lcb->ccb_queue.p_first_ccb != NULL || p_lcb->p_pending_ccb) {
       L2CAP_TRACE_DEBUG(
           "l2c_link_hci_disc_comp: Restarting pending ACL request");
+      /* Release any held buffers */
+      while (!list_is_empty(p_lcb->link_xmit_data_q)) {
+        BT_HDR* p_buf =
+            static_cast<BT_HDR*>(list_front(p_lcb->link_xmit_data_q));
+        list_remove(p_lcb->link_xmit_data_q, p_buf);
+        osi_free(p_buf);
+      }
       transport = p_lcb->transport;
       /* for LE link, always drop and re-open to ensure to get LE remote feature
        */
       if (p_lcb->transport == BT_TRANSPORT_LE) {
         l2cb.is_ble_connecting = false;
         btm_acl_removed(p_lcb->remote_bd_addr, p_lcb->transport);
-        /* Release any held buffers */
-        BT_HDR* p_buf;
-        while (!list_is_empty(p_lcb->link_xmit_data_q)) {
-          p_buf = static_cast<BT_HDR*>(list_front(p_lcb->link_xmit_data_q));
-          list_remove(p_lcb->link_xmit_data_q, p_buf);
-          osi_free(p_buf);
-        }
       } else {
 #if (L2CAP_NUM_FIXED_CHNLS > 0)
         /* If we are going to re-use the LCB without dropping it, release all
@@ -523,7 +524,7 @@ void l2c_link_timeout(tL2C_LCB* p_lcb) {
 
       p_ccb = pn;
     }
-    if (p_lcb->link_state == LST_CONNECTING && l2cb.is_ble_connecting == true) {
+    if (p_lcb->link_state == LST_CONNECTING && l2cb.is_ble_connecting) {
       L2CA_CancelBleConnectReq(l2cb.ble_connecting_bda);
     }
     /* Release the LCB */

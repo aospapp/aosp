@@ -5,6 +5,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
         C2DColorConverter.cpp
 
+LOCAL_CFLAGS += -Wno-error
+
 LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/qcom/display
 

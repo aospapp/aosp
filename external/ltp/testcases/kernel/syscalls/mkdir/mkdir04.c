@@ -209,12 +209,7 @@ void setup(void)
 
 	pw = SAFE_GETPWNAM(NULL, "nobody");
 	nobody_uid = pw->pw_uid;
-#ifndef ANDROID
 	pw = SAFE_GETPWNAM(NULL, "bin");
-#else
-    // user "bin" does not exist in Android kernel
-    pw = SAFE_GETPWNAM(NULL, "everybody");
-#endif
 	bin_uid = pw->pw_uid;
 
 	tst_sig(FORK, DEF_HANDLER, cleanup);

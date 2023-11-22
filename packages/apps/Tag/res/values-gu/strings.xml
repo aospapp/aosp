@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"NFC ટેગમાંથી ડેટા"</string>
     <string name="vcard_title" msgid="7122634780732426007">"^1 માટેની સંપર્ક માહિતી"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"કૉલ કરવા માટે આ ઍપ્લિકેશને ટેલિફોન પરવાનગીનો ઍક્સેસ જરૂરી છે. તમે સેટિંગ્સમાં ટૅગની પરવાનગી સંચાલિત કરી શકો છો"</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"ફાઇલો ઍક્સેસ કરવા માટે આ ઍપ્લિકેશને બાહ્ય સ્ટોરેજ પરવાનગીને ઍક્સેસ કરવાની જરૂર છે. તમે સેટિંગમાં ટૅગની પરવાનગી મેનેજ કરી શકો છો"</string>
 </resources>

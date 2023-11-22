@@ -715,6 +715,17 @@ public class InCallServiceImpl extends InCallService {
         c.hold();
     }
 
+    public static void muteCall(Boolean shouldMute) {
+        InCallServiceImpl svc = getService();
+
+        if (svc == null) {
+            Log.d("muteCall: InCallServiceImpl is null.");
+            return;
+        }
+
+        svc.setMuted(shouldMute);
+    }
+
     public static void mergeCallsInConference(String callId) {
         Call c = getCallById(callId);
         if (c == null) {

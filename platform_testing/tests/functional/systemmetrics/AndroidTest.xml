@@ -14,10 +14,10 @@
      limitations under the License.
 -->
 <configuration description="Runs Android System Metrics Functional Tests.">
-    <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="test-file-name" value="SystemMetricsFunctionalTests.apk" />
+        <option name="cleanup-apks" value="true" />
     </target_preparer>
-
     <option name="test-tag" value="SystemMetricsFunctionalTests" />
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="com.android.systemmetrics.functional" />

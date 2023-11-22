@@ -65,10 +65,8 @@ typedef struct _LAN91X_DRIVER {
   EFI_NETWORK_STATISTICS Stats;
 
   // Transmit Buffer recycle queue
-#define TX_QUEUE_DEPTH 16
-  VOID              *TxQueue[TX_QUEUE_DEPTH];
-  UINTN             TxQueHead;
-  UINTN             TxQueTail;
+
+  LIST_ENTRY TransmitQueueHead;
 
   // Register access variables
   UINTN             IoBase;             // I/O Base Address
@@ -137,47 +135,20 @@ STATIC CHAR16 CONST * CONST ChipIds[ 16 ] =  {
   NULL, NULL, NULL
 };
 
+/* ------------------ TxBuffer Queue structures ------------------- */
 
-/* ------------------ TxBuffer Queue functions ------------------- */
+typedef struct {
+  VOID            *Buf;
+  UINTN           Length;
+} MSK_SYSTEM_BUF;
 
-#define TxQueNext(off)  ((((off) + 1) >= TX_QUEUE_DEPTH) ? 0 : ((off) + 1))
+typedef struct {
+  UINTN           Signature;
+  LIST_ENTRY      Link;
+  MSK_SYSTEM_BUF  SystemBuf;
+} MSK_LINKED_SYSTEM_BUF;
 
-STATIC
-BOOLEAN
-TxQueInsert (
-    IN    LAN91X_DRIVER *LanDriver,
-    IN    VOID          *Buffer
-    )
-{
-
-  if (TxQueNext (LanDriver->TxQueTail) == LanDriver->TxQueHead) {
-    return FALSE;
-  }
-
-  LanDriver->TxQueue[LanDriver->TxQueTail] = Buffer;
-  LanDriver->TxQueTail = TxQueNext (LanDriver->TxQueTail);
-
-  return TRUE;
-}
-
-STATIC
-VOID
-*TxQueRemove (
-    IN    LAN91X_DRIVER *LanDriver
-    )
-{
-  VOID *Buffer;
-
-  if (LanDriver->TxQueTail == LanDriver->TxQueHead) {
-    return NULL;
-  }
-
-  Buffer = LanDriver->TxQueue[LanDriver->TxQueHead];
-  LanDriver->TxQueue[LanDriver->TxQueHead] = NULL;
-  LanDriver->TxQueHead = TxQueNext (LanDriver->TxQueHead);
-
-  return Buffer;
-}
+#define TX_MBUF_SIGNATURE  SIGNATURE_32 ('t','x','m','b')
 
 /* ------------------ MAC Address Hash Calculations ------------------- */
 
@@ -1643,11 +1614,12 @@ SnpGetStatus (
       OUT   VOID    **TxBuff    OPTIONAL
   )
 {
-  LAN91X_DRIVER   *LanDriver;
-  EFI_TPL          SavedTpl;
-  EFI_STATUS       Status;
-  BOOLEAN          MediaPresent;
-  UINT8            IstReg;
+  LAN91X_DRIVER         *LanDriver;
+  EFI_TPL               SavedTpl;
+  EFI_STATUS            Status;
+  BOOLEAN               MediaPresent;
+  UINT8                 IstReg;
+  MSK_LINKED_SYSTEM_BUF *LinkedTXRecycleBuff;
 
   // Check preliminaries
   if (Snp == NULL) {
@@ -1689,8 +1661,18 @@ SnpGetStatus (
   }
 
   // Pass back the completed buffer address
+  // The transmit buffer status is not read when TxBuf is NULL
   if (TxBuff != NULL) {
-    *TxBuff = TxQueRemove (LanDriver);
+    *((UINT8 **) TxBuff) = (UINT8 *) 0;
+    if( !IsListEmpty (&LanDriver->TransmitQueueHead))
+    {
+      LinkedTXRecycleBuff = CR (GetFirstNode (&LanDriver->TransmitQueueHead), MSK_LINKED_SYSTEM_BUF, Link, TX_MBUF_SIGNATURE);
+      if(LinkedTXRecycleBuff != NULL) {
+        *TxBuff = LinkedTXRecycleBuff->SystemBuf.Buf;
+        RemoveEntryList (&LinkedTXRecycleBuff->Link);
+        FreePool (LinkedTXRecycleBuff);
+      }
+    }
   }
 
   // Update the media status
@@ -1733,6 +1715,8 @@ SnpTransmit (
   UINTN            Retries;
   UINT16           Proto;
   UINT8            PktNum;
+  MSK_LINKED_SYSTEM_BUF   *LinkedTXRecycleBuff;
+
 
   // Check preliminaries
   if ((Snp == NULL) || (BufAddr == NULL)) {
@@ -1818,12 +1802,18 @@ SnpTransmit (
   PktNum &= ARR_PACKET;
 
   // Check for the nature of the frame
-  if (DstAddr->Addr[0] == 0xFF) {
-    LanDriver->Stats.TxBroadcastFrames += 1;
-  } else if ((DstAddr->Addr[0] & 0x1) == 1) {
-    LanDriver->Stats.TxMulticastFrames += 1;
+  // If no destination address, it's ARP broadcast
+  if(DstAddr != NULL)
+  {
+    if (DstAddr->Addr[0] == 0xFF) {
+      LanDriver->Stats.TxBroadcastFrames += 1;
+    } else if ((DstAddr->Addr[0] & 0x1) == 1) {
+      LanDriver->Stats.TxMulticastFrames += 1;
+    } else {
+      LanDriver->Stats.TxUnicastFrames += 1;
+    }
   } else {
-    LanDriver->Stats.TxUnicastFrames += 1;
+    LanDriver->Stats.TxBroadcastFrames += 1;
   }
 
   // Set the Packet Number and Pointer registers
@@ -1877,14 +1867,23 @@ SnpTransmit (
     ReturnUnlock (EFI_DEVICE_ERROR);
   }
 
-  // Update the Rx statistics
+  // Update the Tx statistics
   LanDriver->Stats.TxTotalBytes += BufSize;
   LanDriver->Stats.TxGoodFrames += 1;
 
   // Update the Tx Buffer cache
-  if (!TxQueInsert (LanDriver, BufAddr)) {
-    DEBUG((EFI_D_WARN, "LAN91x: SnpTransmit(): TxQueue insert failure.\n"));
+  LinkedTXRecycleBuff = AllocateZeroPool (sizeof (MSK_LINKED_SYSTEM_BUF));
+  if (LinkedTXRecycleBuff == NULL) {
+    return EFI_OUT_OF_RESOURCES;
   }
+  LinkedTXRecycleBuff->Signature = TX_MBUF_SIGNATURE;
+  //
+  // Add the passed Buffer to the transmit queue. Don't copy.
+  //
+  LinkedTXRecycleBuff->SystemBuf.Buf = BufAddr;
+  LinkedTXRecycleBuff->SystemBuf.Length = BufSize;
+  InsertTailList (&LanDriver->TransmitQueueHead, &LinkedTXRecycleBuff->Link);
+
   Status = EFI_SUCCESS;
 
   // Dump the packet header
@@ -2154,6 +2153,9 @@ Lan91xDxeEntry (
   PrintIoRegisters (LanDriver);
   PrintPhyRegisters (LanDriver);
 #endif
+
+  // Initialize transmit queue
+  InitializeListHead (&LanDriver->TransmitQueueHead);
 
   // Assign fields and func pointers
   Snp->Revision = EFI_SIMPLE_NETWORK_PROTOCOL_REVISION;

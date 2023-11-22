@@ -64,7 +64,7 @@
     <string name="uninstall_application_title" msgid="1860074100811653963">"Ապատեղադրել հավելվածը"</string>
     <string name="uninstall_update_title" msgid="4146940097553335390">"Ապատեղադրել թարմացումը"</string>
     <string name="uninstall_activity_text" msgid="6680688689803932550">"<xliff:g id="ACTIVITY_NAME">%1$s</xliff:g>-ը հետևյալ հավելվածի մասն է`"</string>
-    <string name="uninstall_application_text" msgid="6691975835951187030">"Ցանկանու՞մ եք ապատեղադրել այս ծրագիրը:"</string>
+    <string name="uninstall_application_text" msgid="6691975835951187030">"Ուզո՞ւմ եք ապատեղադրել այս հավելվածը։"</string>
     <string name="uninstall_application_text_all_users" msgid="5574704453233525222">"Ցանկանու՞մ եք ապատեղադրել այս հավելվածը "<b>"բոլոր"</b>" օգտատերերի համար:  Հավելվածը և դրա տվյալները կհեռացվեն սարքի "<b>"բոլոր"</b>" օգտատերերից:"</string>
     <string name="uninstall_application_text_user" msgid="8766882355635485733">"Ցանկանում եք ապատեղադրե՞լ այս ծրագիրը <xliff:g id="USERNAME">%1$s</xliff:g> օգտատիրոջ համար:"</string>
     <string name="uninstall_update_text" msgid="1394549691152728409">"Փոխարինե՞լ այս հավելվածը գործարանային տարբերակով: Բոլոր տվյալները կհեռացվեն:"</string>
@@ -106,6 +106,7 @@
     <string name="never_ask_again" msgid="1089938738199748687">"Այլևս չհարցնել"</string>
     <string name="no_permissions" msgid="3210542466245591574">"Թույլտվություններ չկան"</string>
     <string name="additional_permissions" msgid="6667573114240111763">"Լրացուցիչ թույլտվություններ"</string>
+    <string name="app_permissions_info_button_label" msgid="7789812060395257748">"Հավելվածի մասին"</string>
     <plurals name="additional_permissions_more" formatted="false" msgid="945127158155064388">
       <item quantity="one">Եվս <xliff:g id="COUNT_1">%1$d</xliff:g></item>
       <item quantity="other">Եվս <xliff:g id="COUNT_1">%1$d</xliff:g></item>
@@ -115,7 +116,7 @@
     <string name="app_permissions_group_summary" msgid="4787239772223699263">"Թույլատրված է <xliff:g id="COUNT_0">%1$d</xliff:g> հավելվածի՝ <xliff:g id="COUNT_1">%2$d</xliff:g>-ից"</string>
     <string name="menu_show_system" msgid="6773743421743728921">"Ցուցադրել համակարգայինները"</string>
     <string name="menu_hide_system" msgid="7595471742649432977">"Թաքցնել համակարգայինները"</string>
-    <string name="permission_title" msgid="6495415273398916381">"<xliff:g id="PERMISSION">%1$s</xliff:g> թույլտվություններ"</string>
+    <string name="permission_title" msgid="6495415273398916381">"Թույլտվություններ (<xliff:g id="PERMISSION">%1$s</xliff:g>)"</string>
     <string name="no_apps" msgid="1965493419005012569">"Հավելվածներ չկան"</string>
     <string name="location_settings" msgid="1774875730854491297">"Տեղորոշման կարգավորումներ"</string>
     <string name="location_warning" msgid="8778701356292735971">"Այս սարքի տեղադրության ծառայությունները տրամադրում է <xliff:g id="APP_NAME">%1$s</xliff:g> հավելվածը: Տեղադրության ցուցադրման կարգավորումները կարող եք փոխել տեղադրության կարգավորումներից:"</string>

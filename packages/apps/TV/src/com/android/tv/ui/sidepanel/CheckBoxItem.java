@@ -22,7 +22,6 @@ import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-
 import com.android.tv.R;
 
 public class CheckBoxItem extends CompoundButtonItem {
@@ -46,16 +45,17 @@ public class CheckBoxItem extends CompoundButtonItem {
         super.onBind(view);
         if (mLayoutForLargeDescription) {
             CompoundButton checkBox = (CompoundButton) view.findViewById(getCompoundButtonId());
-            LinearLayout.LayoutParams lp =
-                    (LinearLayout.LayoutParams) checkBox.getLayoutParams();
+            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) checkBox.getLayoutParams();
             lp.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
-            lp.topMargin = view.getResources().getDimensionPixelOffset(
-                    R.dimen.option_item_check_box_margin_top);
+            lp.topMargin =
+                    view.getResources()
+                            .getDimensionPixelOffset(R.dimen.option_item_check_box_margin_top);
             checkBox.setLayoutParams(lp);
 
             TypedValue outValue = new TypedValue();
-            view.getResources().getValue(R.dimen.option_item_check_box_line_spacing_multiplier,
-                    outValue, true);
+            view.getResources()
+                    .getValue(
+                            R.dimen.option_item_check_box_line_spacing_multiplier, outValue, true);
 
             TextView descriptionTextView = (TextView) view.findViewById(getDescriptionViewId());
             descriptionTextView.setMaxLines(Integer.MAX_VALUE);

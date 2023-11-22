@@ -14,35 +14,25 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" >
-        <Button
-            android:id="@+id/back"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/back"
-            android:layout_gravity="left"/>
+    android:layout_height="wrap_content">
 
-        <TextView
-            android:id="@+id/title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="48dp"
-            android:layout_gravity="center" />
-    </FrameLayout>
-    <ListView
+    <TextView
+        android:id="@+id/current_path"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:textAppearance="@style/TextAppearance.Car.Body2"
+        android:layout_marginStart="@dimen/car_gutter_size"
+        android:layout_marginEnd="@dimen/car_margin"/>
+
+    <androidx.car.widget.PagedListView
         android:id="@+id/folder_list"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="10dp"
-        android:gravity="center"
-        android:numColumns="auto_fit"
-        android:verticalSpacing="10dp"
-        android:drawSelectorOnTop="true"
-        android:stretchMode="columnWidth" />
+        android:layout_height="match_parent"
+        app:showPagedListViewDivider="true"
+        app:gutter="start"/>
 </LinearLayout>

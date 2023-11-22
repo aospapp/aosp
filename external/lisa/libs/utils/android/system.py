@@ -19,10 +19,22 @@ import logging
 
 from devlib.utils.android import adb_command
 from devlib import TargetError
+from devlib.utils.android_build import Build
+from time import sleep
 import os
+import re
+import time
+import json
 import pexpect as pe
+from time import sleep
 
 GET_FRAMESTATS_CMD = 'shell dumpsys gfxinfo {} > {}'
+ADB_INSTALL_CMD = 'install -g -r {}'
+BOARD_CONFIG_FILE = 'board.json'
+
+# See https://developer.android.com/reference/android/content/Intent.html#setFlags(int)
+FLAG_ACTIVITY_NEW_TASK = 0x10000000
+FLAG_ACTIVITY_CLEAR_TASK = 0x00008000
 
 class System(object):
     """
@@ -141,6 +153,51 @@ class System(object):
         System._set_svc(target, 'nfc', on)
 
     @staticmethod
+    def get_property(target, prop):
+        """
+        Get the value of a system property
+        """
+        try:
+            value = target.execute('getprop {}'.format(prop), as_root=True)
+        except TargetError:
+            log = logging.getLogger('System')
+            log.warning('Failed to get prop {}'.format(prop))
+        return value.strip()
+
+    @staticmethod
+    def get_boolean_property(target, prop):
+        """
+        Get a boolean system property and return whether its value corresponds to True
+        """
+        return System.get_property(target, prop) in {'yes', 'true', 'on', '1', 'y'}
+
+    @staticmethod
+    def set_property(target, prop, value, restart=False):
+        """
+        Set a system property, then run adb shell stop && start if necessary
+
+        When restart=True, this function clears logcat to avoid detecting old
+        "Boot is finished" messages.
+        """
+        try:
+            target.execute('setprop {} {}'.format(prop, value), as_root=True)
+        except TargetError:
+            log = logging.getLogger('System')
+            log.warning('Failed to set {} to {}.'.format(prop, value))
+        if not restart:
+            return
+
+        target.execute('logcat -c', check_exit_code=False)
+        BOOT_FINISHED_RE = re.compile(r'Boot is finished')
+        logcat = target.background('logcat SurfaceFlinger:* *:S')
+        target.execute('stop && start', as_root=True)
+        while True:
+            message = logcat.stdout.readline(1024)
+            match = BOOT_FINISHED_RE.search(message)
+            if match:
+                return
+
+    @staticmethod
     def start_app(target, apk_name):
         """
         Start the main activity of the specified application
@@ -193,6 +250,29 @@ class System(object):
         target.execute('svc power stayon {}'.format(param))
 
     @staticmethod
+    def view_uri(target, uri, force_new=True):
+        """
+        Start a view activity by specifying a URI
+
+        :param uri: URI of the item to display
+        :type uri: str
+
+        :param force_new: Force the viewing application to be
+            relaunched if it is already running
+        :type force_new: bool
+        """
+        arguments = '-d {}'.format(uri)
+
+        if force_new:
+            # Activity flags ensure the app is restarted
+            arguments = '{} -f {}'.format(arguments,
+                FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TASK)
+
+        System.start_action(target, 'android.intent.action.VIEW', arguments)
+        # Wait for the viewing application to be completely loaded
+        sleep(5)
+
+    @staticmethod
     def force_stop(target, apk_name, clear=False):
         """
         Stop the application and clear its data if necessary.
@@ -209,6 +289,29 @@ class System(object):
         target.execute('am force-stop {}'.format(apk_name))
         if clear:
             target.execute('pm clear {}'.format(apk_name))
+
+    @staticmethod
+    def force_suspend_start(target):
+        """
+        Force the device to go into suspend. If a wakelock is held, the device
+        will go into idle instead.
+
+        :param target: instance of devlib Android target
+        :type target: devlib.target.AndroidTarget
+
+        """
+        target.execute('dumpsys deviceidle force-idle deep')
+
+    @staticmethod
+    def force_suspend_stop(target):
+        """
+        Stop forcing the device to suspend/idle.
+
+        :param target: instance of devlib Android target
+        :type target: devlib.target.AndroidTarget
+
+        """
+        target.execute('dumpsys deviceidle unforce')
 
     @staticmethod
     def tap(target, x, y, absolute=False):
@@ -397,6 +500,7 @@ class System(object):
         :type apk_name: str
         """
         target.execute('dumpsys gfxinfo {} reset'.format(apk_name))
+        sleep(1)
 
     @staticmethod
     def surfaceflinger_reset(target, apk_name):
@@ -544,5 +648,126 @@ class System(object):
         if len(packages):
             return packages
         return None
+
+
+    @staticmethod
+    def install_apk(target, apk_path):
+        """
+        Get a dictionary of installed APKs and related information
+
+        :param target: instance of devlib Android target
+        :type target: devlib.target.AndroidTarget
+
+        :param apk_path: path to application
+        :type apk_path: str
+        """
+        adb_command(target.adb_name, ADB_INSTALL_CMD.format(apk_path))
+
+    @staticmethod
+    def contains_package(target, package):
+        """
+        Returns true if the package exists on the device
+
+        :param target: instance of devlib Android target
+        :type target: devlib.target.AndroidTarget
+
+        :param package: the name of the package
+        :type package: str
+        """
+        packages = System.list_packages(target)
+        if not packages:
+            return None
+
+        return package in packages
+
+    @staticmethod
+    def grant_permission(target, package, permission):
+        """
+        Grant permission to a package
+
+        :param target: instance of devlib Android target
+        :type target: devlib.target.AndroidTarget
+
+        :param package: the name of the package
+        :type package: str
+
+        :param permission: the name of the permission
+        :type permission: str
+        """
+        target.execute('pm grant {} {}'.format(package, permission))
+
+    @staticmethod
+    def reset_permissions(target, package):
+        """
+        Reset the permission for a package
+
+        :param target: instance of devlib Android target
+        :type target: devlib.target.AndroidTarget
+
+        :param package: the name of the package
+        :type package: str
+        """
+        target.execute('pm reset-permissions {}'.format(package))
+
+    @staticmethod
+    def find_config_file(test_env):
+        # Try device-specific config file first
+        board_cfg_file = os.path.join(test_env.DEVICE_LISA_HOME, BOARD_CONFIG_FILE)
+
+        if not os.path.exists(board_cfg_file):
+            # Try local config file $LISA_HOME/libs/utils/platforms/$TARGET_PRODUCT.json
+            board_cfg_file = 'libs/utils/platforms/{}.json'.format(test_env.TARGET_PRODUCT)
+            board_cfg_file = os.path.join(test_env.LISA_HOME, board_cfg_file)
+            if not os.path.exists(board_cfg_file):
+                return None
+        return board_cfg_file
+
+    @staticmethod
+    def read_config_file(board_cfg_file):
+        with open(board_cfg_file, "r") as fh:
+            board_config = json.load(fh)
+        return board_config
+
+    @staticmethod
+    def reimage(test_env, kernel_path='', update_cfg=''):
+        """
+        Get a reference to the specified Android workload
+
+        :param test_env: target test environment
+        :type test_env: TestEnv
+
+        :param kernel_path: path to kernel sources, required if reimage option is used
+        :type kernel_path: str
+
+        :param update_cfg: update configuration name from board_cfg.json
+        :type update_cfg: str
+
+        """
+        # Find board config file from device-specific or local directory
+        board_cfg_file = System.find_config_file(test_env)
+        if board_cfg_file == None:
+            raise RuntimeError('Board config file is not found')
+
+        # Read build config file
+        board_config = System.read_config_file(board_cfg_file)
+        if board_config == None:
+            raise RuntimeError('Board config file {} is invalid'.format(board_cfg_file))
+
+        # Read update-config section and execute appropriate scripts
+        update_config = board_config['update-config'][update_cfg]
+        if update_config == None:
+            raise RuntimeError('Update config \'{}\' is not found'.format(update_cfg))
+
+        board_cfg_dir = os.path.dirname(os.path.realpath(board_cfg_file))
+        build_script = update_config['build-script']
+        flash_script = update_config['flash-script']
+        build_script = os.path.join(board_cfg_dir, build_script)
+        flash_script = os.path.join(board_cfg_dir, flash_script)
+
+        cmd_prefix = "LOCAL_KERNEL_HOME='{}' ".format(kernel_path)
+        bld = Build(test_env)
+        bld.exec_cmd(cmd_prefix + build_script)
+        bld.exec_cmd(cmd_prefix + flash_script)
+
 
 # vim :set tabstop=4 shiftwidth=4 expandtab

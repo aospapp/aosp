@@ -16,6 +16,9 @@
 
 # Common make file for all car builds
 
+BOARD_PLAT_PUBLIC_SEPOLICY_DIR += packages/services/Car/car_product/sepolicy/public
+BOARD_PLAT_PRIVATE_SEPOLICY_DIR += packages/services/Car/car_product/sepolicy/private
+
 PRODUCT_PACKAGES += \
     Bluetooth \
     OneTimeInitializer \
@@ -30,19 +33,27 @@ PRODUCT_PACKAGES += \
     screenrecord
 
 # This is for testing
+ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
 PRODUCT_PACKAGES += \
+    DefaultStorageMonitoringCompanionApp \
     EmbeddedKitchenSinkApp \
     VmsPublisherClientSample \
     VmsSubscriberClientSample \
     android.car.cluster.loggingrenderer \
     DirectRenderingClusterSample \
+    com.android.car.powertestservice \
+
+# SEPolicy for test apps / services
+BOARD_SEPOLICY_DIRS += packages/services/Car/car_product/sepolicy/test
+endif
 
 PRODUCT_COPY_FILES := \
     frameworks/av/media/libeffects/data/audio_effects.conf:system/etc/audio_effects.conf \
     packages/services/Car/car_product/preloaded-classes-car:system/etc/preloaded-classes \
 
 PRODUCT_PROPERTY_OVERRIDES += \
-    ro.carrier=unknown
+    ro.carrier=unknown \
+    persist.bluetooth.enablenewavrcp=false
 
 # Overlay for Google network and fused location providers
 $(call inherit-product, device/sample/products/location_overlay.mk)
@@ -74,12 +85,12 @@ PRODUCT_PROPERTY_OVERRIDES += \
 
 # Automotive specific packages
 PRODUCT_PACKAGES += \
-    vehicle_monitor_service \
     CarService \
     CarTrustAgentService \
     CarDialerApp \
     CarRadioApp \
     OverviewApp \
+    CarLauncher \
     CarLensPickerApp \
     LocalMediaPlayer \
     CarMediaApp \
@@ -87,9 +98,15 @@ PRODUCT_PACKAGES += \
     CarHvacApp \
     CarMapsPlaceholder \
     CarLatinIME \
+    CarSettings \
     CarUsbHandler \
     android.car \
-    libvehiclemonitor-native \
+    car-frameworks-service \
+    com.android.car.procfsinspector \
+    libcar-framework-service-jni \
+
+# System Server components
+PRODUCT_SYSTEM_SERVER_JARS += car-frameworks-service
 
 # Boot animation
 PRODUCT_COPY_FILES += \

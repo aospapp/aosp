@@ -33,6 +33,12 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
   vogar-jsr305 \
   vogar-kxml-libcore-20110123
 
+LOCAL_ADDITIONAL_DEPENDENCIES := \
+  $(HOST_OUT_EXECUTABLES)/dx \
+  $(HOST_OUT_EXECUTABLES)/d8-compat-dx \
+  $(HOST_OUT_EXECUTABLES)/adb \
+  $(HOST_OUT_JAVA_LIBRARIES)/desugar.jar
+
 # Vogar uses android.jar.
 LOCAL_CLASSPATH := prebuilts/sdk/9/android.jar
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7

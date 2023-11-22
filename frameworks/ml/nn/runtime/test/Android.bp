@@ -18,13 +18,19 @@ cc_defaults {
     name: "NeuralNetworksTest_defaults",
     defaults: ["neuralnetworks_defaults"],
     host_supported: false,
+    openmp: true,
     srcs: [
-        "TestMain.cpp",
+        // Subset of tests that rely only on public functionality.
+        //
+        // Changes to this list must be reflected in cts/tests/tests/neuralnetworks/Android.mk
+        // to ensure CTS tests coverage.
+        "TestGenerated.cpp",
         "TestMemory.cpp",
         "TestTrivialModel.cpp",
+        "TestUnknownDimensions.cpp",
+        "TestValidateOperations.cpp",
         "TestValidation.cpp",
-        "TestGenerated.cpp",
-        "TestPartitioning.cpp",
+        "TestWrapper.cpp",
     ],
     shared_libs: [
         "libandroid",
@@ -33,40 +39,63 @@ cc_defaults {
         "libhidltransport",
         "libhidlmemory",
         "liblog",
-        "libnativehelper",
         "libtextclassifier_hash",
         "libutils",
         "android.hardware.neuralnetworks@1.0",
+        "android.hardware.neuralnetworks@1.1",
         "android.hidl.allocator@1.0",
         "android.hidl.memory@1.0",
     ],
     header_libs: [
-        "libneuralnetworks_private_headers",
         "libneuralnetworks_generated_test_harness_headers",
     ],
+    /* To enable address sanitizer, uncomment the block below
+     * here and in ../../Android.bp. You will have to
+     * do a full 'adb sync' after building. */
+    /* sanitize: {
+      address: true,
+    }, */
 }
 
 cc_test {
-    name: "NeuralNetworksTest",
+    name: "NeuralNetworksTest_shared_partial",
     defaults: ["NeuralNetworksTest_defaults"],
+    srcs: [
+        "TestMain.cpp",
+    ],
+    cflags: [
+        "-DNNTEST_ONLY_PUBLIC_API"
+    ],
     shared_libs: [
         "libneuralnetworks",
         "libtextclassifier_hash",
-    ],
-    static_libs: [
-        "libneuralnetworks_common",
     ],
 }
 
 cc_test {
     name: "NeuralNetworksTest_static",
     defaults: ["NeuralNetworksTest_defaults"],
+    srcs: [
+        "TestMain.cpp",
+
+        "Bridge.cpp",
+        // Tests that rely on non-public functionality (i.e., symbols
+        // not exported from libneuralnetworks.so).
+        "TestExecution.cpp",
+        "TestMemoryInternal.cpp",
+        "TestOpenmpSettings.cpp",
+        "TestPartitioning.cpp",
+        "TestPartitioningRandom.cpp",
+    ],
     static_libs: [
         "libneuralnetworks",
         "libneuralnetworks_common",
+        "libSampleDriver",
     ],
-
     shared_libs: [
         "libcutils",
-    ]
+    ],
+    header_libs: [
+        "libneuralnetworks_private_headers",
+    ],
 }

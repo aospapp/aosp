@@ -37,7 +37,7 @@
     <strings>
         <intro>
 <![CDATA[
-Sample demonstrates best practices for building a messaging experience on Android Wear.
+Sample demonstrates best practices for building a messaging experience on Wear.
 ]]>
         </intro>
     </strings>
@@ -153,9 +153,9 @@ Each feature is contained in it's own package:
     the mock database.
 
 
-To see other examples of Google Sign-in, check out the [Android Wear Google Sign-In Sample][1].
+To see other examples of Google Sign-in, check out the [Wear Google Sign-In Sample][1].
 
-To see other examples of notifications, check out the [Android WearNotifications Sample][2]
+To see other examples of notifications, check out the [WearNotifications Sample][2]
 
 [1]: https://github.com/googlesamples/android-WearStandaloneGoogleSignIn
 [2]: https://github.com/googlesamples/android-WearNotifications

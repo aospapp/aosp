@@ -28,6 +28,7 @@ import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
 import com.googlecode.android_scripting.rpc.RpcParameter;
+import com.googlecode.android_scripting.rpc.RpcOptional;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,6 +37,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Facade for managing Applications.
@@ -88,6 +92,38 @@ public class ApplicationManagerFacade extends RpcReceiver {
   public void appLaunch(@RpcParameter(name = "name") String name) {
       Intent LaunchIntent = mPackageManager.getLaunchIntentForPackage(name);
       mService.startActivity(LaunchIntent);
+  }
+
+  @Rpc(description = "Launch activity for result with intent")
+  public Intent launchForResultWithIntent(
+  @RpcParameter(name = "intent") Intent intent,
+          @RpcParameter(name = "extras")@RpcOptional JSONObject extras)
+          throws JSONException {
+      if(extras != null) {
+          mAndroidFacade.putExtrasFromJsonObject(extras, intent);
+      }
+      return mAndroidFacade.startActivityForResult(intent);
+  }
+
+  @Rpc(description = "Create intent given the class name")
+  public Intent createIntentForClassName(
+          @RpcParameter(name = "className") String className) {
+      Intent intent = new Intent(Intent.ACTION_MAIN);
+      String packageName = className.substring(0, className.lastIndexOf("."));
+      intent.setClassName(packageName, className);
+      return intent;
+  }
+
+  @Rpc(description = "Get UID of a package")
+  public int getUidForPackage(
+          @RpcParameter(name = "className") String className) {
+      String packageName = className.substring(0, className.lastIndexOf("."));
+      try {
+          return mPackageManager.getApplicationInfo(packageName, 0).uid;
+      } catch (PackageManager.NameNotFoundException e) {
+          Log.e("Package not found", e);
+      }
+      return 0;
   }
 
   @Rpc(description = "Kill the specified app.")

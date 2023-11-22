@@ -23,24 +23,21 @@ import android.os.Message;
 import android.support.annotation.MainThread;
 import android.support.annotation.NonNull;
 import android.util.Log;
-
 import com.android.tv.R;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.WeakHandler;
-import com.android.tv.data.Channel;
+import com.android.tv.data.ChannelImpl;
 import com.android.tv.data.Program;
 import com.android.tv.data.ProgramDataManager;
-
+import com.android.tv.data.api.Channel;
 import java.util.List;
 
-/**
- * A poster image prefetcher to show the program poster art in the Channels row faster.
- */
+/** A poster image prefetcher to show the program poster art in the Channels row faster. */
 public class ChannelsPosterPrefetcher {
     private static final String TAG = "PosterPrefetcher";
     private static final boolean DEBUG = false;
     private static final int MSG_PREFETCH_IMAGE = 1000;
-    private static final int ONDEMAND_POSTER_PREFETCH_DELAY_MILLIS = 500;  // 500 milliseconds
+    private static final int ONDEMAND_POSTER_PREFETCH_DELAY_MILLIS = 500; // 500 milliseconds
 
     private final ProgramDataManager mProgramDataManager;
     private final ChannelsRowAdapter mChannelsAdapter;
@@ -51,23 +48,19 @@ public class ChannelsPosterPrefetcher {
 
     private boolean isCanceled;
 
-    /**
-     * Create {@link ChannelsPosterPrefetcher} object with given parameters.
-     */
-    public ChannelsPosterPrefetcher(Context context, ProgramDataManager programDataManager,
-            ChannelsRowAdapter adapter) {
+    /** Create {@link ChannelsPosterPrefetcher} object with given parameters. */
+    public ChannelsPosterPrefetcher(
+            Context context, ProgramDataManager programDataManager, ChannelsRowAdapter adapter) {
         mProgramDataManager = programDataManager;
         mChannelsAdapter = adapter;
-        mPosterArtWidth = context.getResources().getDimensionPixelSize(
-                R.dimen.card_image_layout_width);
-        mPosterArtHeight = context.getResources().getDimensionPixelSize(
-                R.dimen.card_image_layout_height);
+        mPosterArtWidth =
+                context.getResources().getDimensionPixelSize(R.dimen.card_image_layout_width);
+        mPosterArtHeight =
+                context.getResources().getDimensionPixelSize(R.dimen.card_image_layout_height);
         mContext = context.getApplicationContext();
     }
 
-    /**
-     * Start prefetching of program poster art of recommendation.
-     */
+    /** Start prefetching of program poster art of recommendation. */
     public void prefetch() {
         SoftPreconditions.checkState(!isCanceled, TAG, "Prefetch called after cancel was called.");
         if (isCanceled) {
@@ -79,13 +72,11 @@ public class ChannelsPosterPrefetcher {
          * prefetch the intermediate channels. So ignore previous schedule.
          */
         mHandler.removeMessages(MSG_PREFETCH_IMAGE);
-        mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_PREFETCH_IMAGE),
-                ONDEMAND_POSTER_PREFETCH_DELAY_MILLIS);
+        mHandler.sendMessageDelayed(
+                mHandler.obtainMessage(MSG_PREFETCH_IMAGE), ONDEMAND_POSTER_PREFETCH_DELAY_MILLIS);
     }
 
-    /**
-     * Cancels pending and current prefetch requests.
-     */
+    /** Cancels pending and current prefetch requests. */
     public void cancel() {
         isCanceled = true;
         mHandler.removeCallbacksAndMessages(null);
@@ -104,11 +95,14 @@ public class ChannelsPosterPrefetcher {
                     return;
                 }
                 Channel channel = item.getChannel();
-                if (!Channel.isValid(channel)) {
+                if (!ChannelImpl.isValid(channel)) {
                     continue;
                 }
-                channel.prefetchImage(mContext, Channel.LOAD_IMAGE_TYPE_CHANNEL_LOGO,
-                        mPosterArtWidth, mPosterArtHeight);
+                channel.prefetchImage(
+                        mContext,
+                        Channel.LOAD_IMAGE_TYPE_CHANNEL_LOGO,
+                        mPosterArtWidth,
+                        mPosterArtHeight);
                 Program program = mProgramDataManager.getCurrentProgram(channel.getId());
                 if (program != null) {
                     program.prefetchPosterArt(mContext, mPosterArtWidth, mPosterArtHeight);
@@ -116,8 +110,11 @@ public class ChannelsPosterPrefetcher {
             }
         }
         if (DEBUG) {
-            Log.d(TAG, "doPrefetchImages() finished. ImageLoader may still have async tasks for "
-                            + "channels " + items);
+            Log.d(
+                    TAG,
+                    "doPrefetchImages() finished. ImageLoader may still have async tasks for "
+                            + "channels "
+                            + items);
         }
     }
 

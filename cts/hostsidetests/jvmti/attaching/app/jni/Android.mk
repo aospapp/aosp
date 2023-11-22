@@ -27,14 +27,15 @@ LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 LOCAL_HEADER_LIBRARIES := libopenjdkjvmti_headers
 
 LOCAL_SHARED_LIBRARIES := liblog \
-                          libdl
+                          libdl \
+                          libz
 
 # The test implementation. We get this provided by ART.
 # Note: Needs to be "whole" as this exposes JNI functions.
 LOCAL_WHOLE_STATIC_LIBRARIES := libctstiagent
 
-# Platform libraries that are not available to apps. Link in statically.
-LOCAL_STATIC_LIBRARIES += libbase
+# Platform libraries that may not be available to apps. Link in statically.
+LOCAL_STATIC_LIBRARIES += libbase_ndk
 
 LOCAL_STRIP_MODULE := keep_symbols
 
@@ -58,6 +59,7 @@ LOCAL_CFLAGS :=  -fno-rtti \
                  -g \
                  -O0 \
 
-LOCAL_CXX_STL := libc++_static
+LOCAL_SDK_VERSION := current
+LOCAL_NDK_STL_VARIANT := c++_static
 
 include $(BUILD_SHARED_LIBRARY)

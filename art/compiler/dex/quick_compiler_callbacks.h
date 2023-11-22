@@ -23,51 +23,62 @@
 namespace art {
 
 class CompilerDriver;
+class DexFile;
 class VerificationResults;
 
 class QuickCompilerCallbacks FINAL : public CompilerCallbacks {
-  public:
-    explicit QuickCompilerCallbacks(CompilerCallbacks::CallbackMode mode)
-        : CompilerCallbacks(mode) {}
+ public:
+  explicit QuickCompilerCallbacks(CompilerCallbacks::CallbackMode mode)
+      : CompilerCallbacks(mode), dex_files_(nullptr) {}
 
-    ~QuickCompilerCallbacks() { }
+  ~QuickCompilerCallbacks() { }
 
-    void MethodVerified(verifier::MethodVerifier* verifier)
-        REQUIRES_SHARED(Locks::mutator_lock_) OVERRIDE;
+  void MethodVerified(verifier::MethodVerifier* verifier)
+      REQUIRES_SHARED(Locks::mutator_lock_) OVERRIDE;
 
-    void ClassRejected(ClassReference ref) OVERRIDE;
+  void ClassRejected(ClassReference ref) OVERRIDE;
 
-    // We are running in an environment where we can call patchoat safely so we should.
-    bool IsRelocationPossible() OVERRIDE {
-      return true;
-    }
+  // We are running in an environment where we can call patchoat safely so we should.
+  bool IsRelocationPossible() OVERRIDE {
+    return true;
+  }
 
-    verifier::VerifierDeps* GetVerifierDeps() const OVERRIDE {
-      return verifier_deps_.get();
-    }
+  verifier::VerifierDeps* GetVerifierDeps() const OVERRIDE {
+    return verifier_deps_.get();
+  }
 
-    void SetVerifierDeps(verifier::VerifierDeps* deps) OVERRIDE {
-      verifier_deps_.reset(deps);
-    }
+  void SetVerifierDeps(verifier::VerifierDeps* deps) OVERRIDE {
+    verifier_deps_.reset(deps);
+  }
 
-    void SetVerificationResults(VerificationResults* verification_results) {
-      verification_results_ = verification_results;
-    }
+  void SetVerificationResults(VerificationResults* verification_results) {
+    verification_results_ = verification_results;
+  }
 
-    bool CanAssumeVerified(ClassReference ref) OVERRIDE;
+  ClassStatus GetPreviousClassState(ClassReference ref) OVERRIDE;
 
-    void SetDoesClassUnloading(bool does_class_unloading, CompilerDriver* compiler_driver)
-        OVERRIDE {
-      does_class_unloading_ = does_class_unloading;
-      compiler_driver_ = compiler_driver;
-      DCHECK(!does_class_unloading || compiler_driver_ != nullptr);
-    }
+  void SetDoesClassUnloading(bool does_class_unloading, CompilerDriver* compiler_driver)
+      OVERRIDE {
+    does_class_unloading_ = does_class_unloading;
+    compiler_driver_ = compiler_driver;
+    DCHECK(!does_class_unloading || compiler_driver_ != nullptr);
+  }
 
-  private:
-    VerificationResults* verification_results_ = nullptr;
-    bool does_class_unloading_ = false;
-    CompilerDriver* compiler_driver_ = nullptr;
-    std::unique_ptr<verifier::VerifierDeps> verifier_deps_;
+  void UpdateClassState(ClassReference ref, ClassStatus state) OVERRIDE;
+
+  bool CanUseOatStatusForVerification(mirror::Class* klass) OVERRIDE
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  void SetDexFiles(const std::vector<const DexFile*>* dex_files) {
+    dex_files_ = dex_files;
+  }
+
+ private:
+  VerificationResults* verification_results_ = nullptr;
+  bool does_class_unloading_ = false;
+  CompilerDriver* compiler_driver_ = nullptr;
+  std::unique_ptr<verifier::VerifierDeps> verifier_deps_;
+  const std::vector<const DexFile*>* dex_files_;
 };
 
 }  // namespace art

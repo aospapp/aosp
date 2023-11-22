@@ -21,7 +21,8 @@ ustat02
 vhangup01
 vhangup02
 
-# Test SysV IPC, while bionic deliberately doesn't support
+# Test SysV IPC, which is not allowed in Android kernels.
+cve-2017-5669
 hugeshmat01
 hugeshmat02
 hugeshmat03
@@ -76,10 +77,6 @@ msgsnd03
 msgsnd04
 msgsnd05
 msgsnd06
-process_vm01
-process_vm_readv02
-process_vm_readv03
-process_vm_writev02
 remap_file_pages01
 remap_file_pages02
 sem01
@@ -163,6 +160,187 @@ openat02
 process
 sendmsg02
 
+# Following tests are for commands that are not available on Android
+# device
+ar01
+at_allow01
+at_deny01
+cp_tests.sh
+cpio_tests.sh
+cron02
+cron03
+cron_allow01
+cron_deny01
+cron_dirs_check
+cron_dirs_checks01
+cron_illegal_cron_lines
+cron_neg_tests.sh
+cron_pos_tests.sh
+cron_tests.sh
+df01.sh
+du01.sh
+eject_check_tray
+eject-tests.sh
+file_test.sh
+# TODO(b/69117476): Enable ftrace_stress tests again
+ftrace_buffer_size_kb.h
+ftrace_current_tracer.sh
+ftrace_ftrace_enabled.sh
+ftrace_function_profile_enabled.sh
+ftrace_set_event.sh
+ftrace_set_ftrace_filter.sh
+ftrace_set_ftrace_pid.sh
+ftrace_stack_max_size.sh
+ftrace_stack_trace.sh
+ftrace_stress_test.sh
+ftrace_trace.sh
+ftrace_trace_clock.sh
+ftrace_trace_options.sh
+ftrace_trace_pipe.sh
+ftrace_trace_stat.sh
+ftrace_tracing_cpumask.sh
+ftrace_tracing_enabled.sh
+ftrace_tracing_max_latency.sh
+ftrace_tracing_on.sh
+gzip_tests.sh
+insmod01.sh
+keyctl01.sh
+ld01
+ldd01
+lddfile.out
+lddfile1.obj.so
+lddfile2.obj.so
+lddfile3.obj.so
+lddfile4.obj.so
+lddfile5.obj.so
+logrotate_tests.sh
+lsmod01.sh
+mail_tests.sh
+mkdir_tests.sh
+mkfs01.sh
+mkswap01.sh
+mv_tests.sh
+nm01
+sssd01
+sssd02
+sssd03
+sssd-lib.sh
+su01
+su01_s1
+su_set_passwd
+tar_tests.sh
+tpm_changeauth_tests.sh
+tpm_changeauth_tests_exp01.sh
+tpm_changeauth_tests_exp02.sh
+tpm_changeauth_tests_exp03.sh
+tpm_clear_tests.sh
+tpm_clear_tests_exp01.sh
+tpm_getpubek_tests.sh
+tpm_getpubek_tests_exp01.sh
+tpm_restrictpubek_tests.sh
+tpm_restrictpubek_tests_exp01.sh
+tpm_restrictpubek_tests_exp02.sh
+tpm_restrictpubek_tests_exp03.sh
+tpm_selftest_tests.sh
+tpm_takeownership_tests.sh
+tpm_takeownership_tests_exp01.sh
+tpm_version_tests.sh
+tpmtoken_import_tests.sh
+tpmtoken_import_tests_exp01.sh
+tpmtoken_import_tests_exp02.sh
+tpmtoken_import_tests_exp03.sh
+tpmtoken_import_tests_exp04.sh
+tpmtoken_import_tests_exp05.sh
+tpmtoken_import_tests_exp06.sh
+tpmtoken_import_tests_exp07.sh
+tpmtoken_import_tests_exp08.sh
+tpmtoken_init_tests.sh
+tpmtoken_init_tests_exp00.sh
+tpmtoken_init_tests_exp01.sh
+tpmtoken_init_tests_exp02.sh
+tpmtoken_init_tests_exp03.sh
+tpmtoken_objects_tests.sh
+tpmtoken_objects_tests_exp01.sh
+tpmtoken_protect_tests.sh
+tpmtoken_protect_tests_exp01.sh
+tpmtoken_protect_tests_exp02.sh
+tpmtoken_setpasswd_tests.sh
+tpmtoken_setpasswd_tests_exp01.sh
+tpmtoken_setpasswd_tests_exp02.sh
+tpmtoken_setpasswd_tests_exp03.sh
+tpmtoken_setpasswd_tests_exp04.sh
+unzip_tests.sh
+wc01.sh
+which01.sh
+
+# Following tests are for containers which Android doesn't support / use.
+# Some of these also require SysV IPC, so they need to be disabled anyway.
+mountns01
+mountns02
+mountns03
+mountns04
+mesgq_nstest
+mqns_01
+mqns_02
+mqns_03
+mqns_04
+msg_comm
+netns_breakns.sh
+netns_comm.sh
+netns_helper.sh
+netns_netlink
+netns_sysfs.sh
+ns_create
+ns_exec
+ns_ifmove
+pidns01
+pidns02
+pidns03
+pidns04
+pidns05
+pidns06
+pidns10
+pidns12
+pidns13
+pidns16
+pidns17
+pidns20
+pidns30
+pidns31
+pidns32
+runipctests_noltp.sh
+runutstests_noltp.sh
+sem_comm
+sem_nstest
+semtest_2ns
+setns_check
+shm_comm
+shmem_2nstest
+shmnstest
+userns01
+userns02
+userns03
+userns04
+userns05
+userns06
+userns06_capcheck
+userns07
+utstest
+
+# Following test require 'syslogd' running on device which Android doesn't
+# support
+syslog01
+syslog02
+syslog03
+syslog04
+syslog05
+syslog06
+syslog07
+syslog08
+syslog09
+syslog10
+syslog-lib.sh
+
 # Require mkfs on device
 access06
 chmod06
@@ -211,15 +389,6 @@ mc_gethost
 # Actually two conflicting tests with the same name (upstream bug)
 fsstress
 
-# The ldd test requires specials hacks to build, and tests a utility we
-# don't ship in AOSP anyway
-lddfile.out
-lddfile1.obj.so
-lddfile2.obj.so
-lddfile3.obj.so
-lddfile4.obj.so
-lddfile5.obj.so
-
 # Require mkfifo
 gf12
 gf13
@@ -247,7 +416,6 @@ io_submit01
 pidns17
 pidns20
 io_getevents01
-cron_dirs_check
 nfs05_make_tree
 test
 check_tray
@@ -280,65 +448,17 @@ cpuset_sched_domains_check
 cpuset_memory_pressure
 
 # The following test cases are disabled due to a disabled cflags
-setfsgid02
-setregid01
-getgid03
-setregid02
-setreuid07
-getegid02
-geteuid01
-setgroups02
-setfsuid04
-getgroups03
-setfsuid03
-setreuid02
-fchown04
-setresuid03
-getuid01
-setreuid05
-setgroups01
-fchown01
-setresgid03
-lchown01
-getgroups01
-getuid03
-setgid03
-setgid02
-chown01
-fchown02
-getgid01
-setreuid01
-setgid01
-chown05
-lchown03
-setreuid03
-setreuid04
-setreuid06
-setuid01
-chown04
-fchown05
-setresuid02
-setuid02
-getegid01
-setregid04
-lchown02
-setresuid04
-geteuid02
-setgroups03
-fchown03
-setfsuid01
-setfsgid03
-setresgid02
-setuid03
-setresgid04
-setregid03
-setresuid01
-chown02
-setfsgid01
-setfsuid02
-setuid04
-setresuid05
-setresgid01
-chown03
-setgroups04
 
+# TODO b/69263988
+# The leapsec timer test relies on manipulations of the system time
+# which may be disrupted if the device is configured to use network time.
+leapsec_timer
+
+# b/70174578
+# The getrusage03 test is dependent on the runtime environment and the current
+# memory pressure in the system, making it a poor choice to include in a
+# compliance test suite.
+getrusage03
+
+# input03 depends on /dev/input/mice which may not exist
+input03

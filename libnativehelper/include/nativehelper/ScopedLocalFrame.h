@@ -17,22 +17,6 @@
 #ifndef SCOPED_LOCAL_FRAME_H_included
 #define SCOPED_LOCAL_FRAME_H_included
 
-#include "JNIHelp.h"
-
-class ScopedLocalFrame {
-public:
-    explicit ScopedLocalFrame(JNIEnv* env) : mEnv(env) {
-        mEnv->PushLocalFrame(128);
-    }
-
-    ~ScopedLocalFrame() {
-        mEnv->PopLocalFrame(NULL);
-    }
-
-private:
-    JNIEnv* const mEnv;
-
-    DISALLOW_COPY_AND_ASSIGN(ScopedLocalFrame);
-};
+#include <nativehelper/scoped_local_frame.h>
 
 #endif  // SCOPED_LOCAL_FRAME_H_included

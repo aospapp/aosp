@@ -44,10 +44,10 @@ import android.graphics.Color;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.StringRes;
-import android.support.v4.content.ContextCompat;
-import android.support.v4.view.ViewPager;
+import androidx.annotation.NonNull;
+import androidx.annotation.StringRes;
+import androidx.core.content.ContextCompat;
+import androidx.viewpager.widget.ViewPager;
 import android.text.Editable;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
@@ -535,9 +535,6 @@ public class Calculator extends Activity
     }
 
     public boolean isResultLayout() {
-        if (mCurrentState == CalculatorState.ANIMATE) {
-            throw new AssertionError("impossible state");
-        }
         // Note that ERROR has INPUT, not RESULT layout.
         return mCurrentState == CalculatorState.INIT_FOR_RESULT
                 || mCurrentState == CalculatorState.RESULT;
@@ -1339,7 +1336,14 @@ public class Calculator extends Activity
      */
     private boolean prepareForHistory() {
         if (mCurrentState == CalculatorState.ANIMATE) {
-            throw new AssertionError("onUserInteraction should have ended animation");
+            // End the current animation and signal that preparation has failed.
+            // onUserInteraction is unreliable and onAnimationEnd() is asynchronous, so we
+            // aren't guaranteed to be out of the ANIMATE state by the time prepareForHistory is
+            // called.
+            if (mCurrentAnimator != null) {
+                mCurrentAnimator.end();
+            }
+            return false;
         } else if (mCurrentState == CalculatorState.EVALUATE) {
             // Cancel current evaluation
             cancelIfEvaluating(true /* quiet */ );
@@ -1366,12 +1370,15 @@ public class Calculator extends Activity
     }
 
     private void showHistoryFragment() {
-        final FragmentManager manager = getFragmentManager();
-        if (manager == null || manager.isDestroyed()) {
+        if (getHistoryFragment() != null) {
+            // If the fragment already exists, do nothing.
             return;
         }
 
-        if (getHistoryFragment() != null || !prepareForHistory()) {
+        final FragmentManager manager = getFragmentManager();
+        if (manager == null || manager.isDestroyed() || !prepareForHistory()) {
+            // If the history fragment can not be shown, close the draglayout.
+            mDragLayout.setClosed();
             return;
         }
 

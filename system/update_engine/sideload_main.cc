@@ -25,7 +25,6 @@
 #include <base/strings/stringprintf.h>
 #include <brillo/asynchronous_signal_handler.h>
 #include <brillo/flag_helper.h>
-#include <brillo/make_unique_ptr.h>
 #include <brillo/message_loops/base_message_loop.h>
 #include <brillo/streams/file_stream.h>
 #include <brillo/streams/stream.h>
@@ -42,6 +41,7 @@
 using std::string;
 using std::vector;
 using update_engine::UpdateStatus;
+using update_engine::UpdateEngineStatus;
 
 namespace {
 // The root directory used for temporary files in update_engine_sideload.
@@ -81,11 +81,10 @@ class SideloadDaemonState : public DaemonStateInterface,
   }
 
   // ServiceObserverInterface overrides.
-  void SendStatusUpdate(int64_t last_checked_time,
-                        double progress,
-                        UpdateStatus status,
-                        const string& new_version,
-                        int64_t new_size) override {
+  void SendStatusUpdate(
+      const UpdateEngineStatus& update_engine_status) override {
+    UpdateStatus status = update_engine_status.status;
+    double progress = update_engine_status.progress;
     if (status_ != status && (status == UpdateStatus::DOWNLOADING ||
                               status == UpdateStatus::FINALIZING)) {
       // Split the progress bar in two parts for the two stages DOWNLOADING and

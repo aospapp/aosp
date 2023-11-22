@@ -20,7 +20,6 @@ import android.annotation.IntDef;
 import android.content.Intent;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.provider.DocumentsContract;
 import android.util.SparseArray;
 
 import com.android.documentsui.services.FileOperationService;
@@ -30,6 +29,7 @@ import com.android.documentsui.sorting.SortModel;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
@@ -139,7 +139,7 @@ public class State implements android.os.Parcelable {
     public String toString() {
         return "State{"
                 + "action=" + action
-                + ", acceptMimes=" + acceptMimes
+                + ", acceptMimes=" + Arrays.toString(acceptMimes)
                 + ", allowMultiple=" + allowMultiple
                 + ", localOnly=" + localOnly
                 + ", showDeviceStorageOption=" + showDeviceStorageOption

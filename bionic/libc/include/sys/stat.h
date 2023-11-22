@@ -151,88 +151,46 @@ struct stat64 { __STAT64_BODY };
 #define S_TYPEISSHM(__sb) 0
 #define S_TYPEISTMO(__sb) 0
 
-int chmod(const char*, mode_t);
-int fchmod(int, mode_t);
-int mkdir(const char*, mode_t);
+int chmod(const char* __path, mode_t __mode);
+int fchmod(int __fd, mode_t __mode);
+int mkdir(const char* __path, mode_t __mode);
 
-int fstat(int, struct stat*);
-int fstat64(int, struct stat64*) __INTRODUCED_IN(21);
-int fstatat(int, const char*, struct stat*, int);
-int fstatat64(int, const char*, struct stat64*, int) __INTRODUCED_IN(21);
-int lstat(const char*, struct stat*);
-int lstat64(const char*, struct stat64*) __INTRODUCED_IN(21);
-int stat(const char*, struct stat*);
-int stat64(const char*, struct stat64*) __INTRODUCED_IN(21);
+int fstat(int __fd, struct stat* __buf);
+int fstat64(int __fd, struct stat64* __buf) __RENAME_STAT64(fstat, 3, 21);
+int fstatat(int __dir_fd, const char* __path, struct stat* __buf, int __flags);
+int fstatat64(int __dir_fd, const char* __path, struct stat64* __buf, int __flags) __RENAME_STAT64(fstatat, 3, 21);
+int lstat(const char* __path, struct stat* __buf);
+int lstat64(const char* __path, struct stat64* __buf) __RENAME_STAT64(lstat, 3, 21);
+int stat(const char* __path, struct stat* __buf);
+int stat64(const char* __path, struct stat64* __buf) __RENAME_STAT64(stat, 3, 21);
 
-int mknod(const char*, mode_t, dev_t);
-mode_t umask(mode_t) __overloadable __RENAME_CLANG(umask);
+int mknod(const char* __path, mode_t __mode, dev_t __dev);
+mode_t umask(mode_t __mask);
 
-mode_t __umask_chk(mode_t) __INTRODUCED_IN(18);
-
-#if defined(__BIONIC_FORTIFY)
-#define __umask_invalid_mode_str "umask called with invalid mode"
-
-#if defined(__clang__)
-
-#if __ANDROID_API__ >= __ANDROID_API_J_MR2__
-/*
- * Abuse enable_if to make these be seen as overloads of umask, rather than
- * definitions.
- */
-__BIONIC_ERROR_FUNCTION_VISIBILITY
-mode_t umask(mode_t mode) __overloadable
-        __enable_if(1, "")
-        __enable_if(mode & ~0777, __umask_invalid_mode_str)
-        __errorattr(__umask_invalid_mode_str);
-
-__BIONIC_FORTIFY_INLINE
-mode_t umask(mode_t mode) __enable_if(1, "") __overloadable {
-  return __umask_chk(mode);
-}
-#endif /* __ANDROID_API__ >= __ANDROID_API_J_MR2__ */
-
-#else /* defined(__clang__) */
-__errordecl(__umask_invalid_mode, __umask_invalid_mode_str);
-extern mode_t __umask_real(mode_t) __RENAME(umask);
-
-#if __ANDROID_API__ >= __ANDROID_API_J_MR2__
-__BIONIC_FORTIFY_INLINE
-mode_t umask(mode_t mode) {
-  if (__builtin_constant_p(mode)) {
-    if ((mode & 0777) != mode) {
-      __umask_invalid_mode();
-    }
-    return __umask_real(mode);
-  }
-  return __umask_chk(mode);
-}
-#endif /* __ANDROID_API__ >= __ANDROID_API_J_MR2__ */
-
-#endif /* defined(__clang__) */
-#undef __umask_invalid_mode_str
-
-#endif /* defined(__BIONIC_FORTIFY) */
+#if defined(__BIONIC_INCLUDE_FORTIFY_HEADERS)
+#include <bits/fortify/stat.h>
+#endif
 
 #if __ANDROID_API__ >= __ANDROID_API_L__
-int mkfifo(const char*, mode_t) __INTRODUCED_IN(21);
+int mkfifo(const char* __path, mode_t __mode) __INTRODUCED_IN(21);
 #else
 // Implemented as a static inline before 21.
 #endif
 
-int mkfifoat(int, const char*, mode_t) __INTRODUCED_IN(23);
+int mkfifoat(int __dir_fd, const char* __path, mode_t __mode) __INTRODUCED_IN(23);
 
-int fchmodat(int, const char*, mode_t, int);
-int mkdirat(int, const char*, mode_t);
-int mknodat(int, const char*, mode_t, dev_t) __INTRODUCED_IN(21);
+int fchmodat(int __dir_fd, const char* __path, mode_t __mode, int __flags);
+int mkdirat(int __dir_fd, const char* __path, mode_t __mode);
+int mknodat(int __dir_fd, const char* __path, mode_t __mode, dev_t __dev) __INTRODUCED_IN(21);
 
 #define UTIME_NOW  ((1L << 30) - 1L)
 #define UTIME_OMIT ((1L << 30) - 2L)
-int utimensat(int fd, const char* path, const struct timespec times[2], int flags)
+int utimensat(int __dir_fd, const char* __path, const struct timespec __times[2], int __flags)
   __INTRODUCED_IN(12);
-int futimens(int fd, const struct timespec times[2]) __INTRODUCED_IN(19);
+int futimens(int __dir_fd, const struct timespec __times[2]) __INTRODUCED_IN(19);
 
 __END_DECLS
 
 #include <android/legacy_sys_stat_inlines.h>
 
-#endif /* _SYS_STAT_H_ */
+#endif

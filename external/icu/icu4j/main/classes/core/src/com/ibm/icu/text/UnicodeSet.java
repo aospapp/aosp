@@ -3409,7 +3409,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
      * property alias, or a special ID.  Special IDs are matched
      * loosely and correspond to the following sets:
      *
-     * "ANY" = [\\u0000-\\u0010FFFF],
+     * "ANY" = [\\u0000-\\U0010FFFF],
      * "ASCII" = [\\u0000-\\u007F].
      *
      * @param valueAlias a value alias, either short or long.  The
@@ -3443,7 +3443,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
         checkFrozen();
         int p;
         int v;
-        boolean mustNotBeEmpty = false, invert = false;
+        boolean invert = false;
 
         if (symbols != null
                 && (symbols instanceof XSymbolTable)
@@ -3476,10 +3476,7 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
                             p == UProperty.LEAD_CANONICAL_COMBINING_CLASS ||
                             p == UProperty.TRAIL_CANONICAL_COMBINING_CLASS) {
                         v = Integer.parseInt(PatternProps.trimWhiteSpace(valueAlias));
-                        // If the resultant set is empty then the numeric value
-                        // was invalid.
-                        //mustNotBeEmpty = true;
-                        // old code was wrong; anything between 0 and 255 is valid even if unused.
+                        // Anything between 0 and 255 is valid even if unused.
                         if (v < 0 || v > 255) throw e;
                     } else {
                         throw e;
@@ -3578,12 +3575,6 @@ public class UnicodeSet extends UnicodeFilter implements Iterable<String>, Compa
         applyIntPropertyValue(p, v);
         if(invert) {
             complement();
-        }
-
-        if (mustNotBeEmpty && isEmpty()) {
-            // mustNotBeEmpty is set to true if an empty set indicates
-            // invalid input.
-            throw new IllegalArgumentException("Invalid property value");
         }
 
         return this;

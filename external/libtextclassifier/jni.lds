@@ -1,7 +1,7 @@
-{
-  # Export symbols that correspond to our JNIEXPORTed functions.
+VERS_1.0 {
+  # Export JNI symbols.
   global:
-    Java_android_view_textclassifier_*;
+    Java_*;
 
   # Hide everything else.
   local:

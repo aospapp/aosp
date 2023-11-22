@@ -35,9 +35,9 @@ class EmbeddedElf {
   {
   }
 
-  EmbeddedElf(std::string filepath,
-              std::string entry_name,
-              size_t entry_offset,
+  EmbeddedElf(const std::string& filepath,
+              const std::string& entry_name,
+              uint64_t entry_offset,
               size_t entry_size)
       : filepath_(filepath)
       , entry_name_(entry_name)
@@ -71,6 +71,9 @@ class ApkInspector {
   // Given an APK/ZIP/JAR file and an offset into that file, if the
   // corresponding region of the APK corresponds to an uncompressed
   // ELF file, then return pertinent info on the ELF.
+  static bool FindOffsetInApkByName(const std::string& apk_path,
+                                    const std::string& elf_filename,
+                                    uint64_t* offset, uint32_t* uncompressed_length);
   static EmbeddedElf* FindElfInApkByOffset(const std::string& apk_path, uint64_t file_offset);
   static std::unique_ptr<EmbeddedElf> FindElfInApkByName(const std::string& apk_path,
                                                          const std::string& elf_filename);

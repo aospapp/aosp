@@ -56,6 +56,7 @@
 #include <netinet/in.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 char *TCID = "recvmsg01";
 int testno;
@@ -294,15 +295,12 @@ void setup1(void)
 	struct timeval timeout;
 	int n;
 
-	s = socket(tdat[testno].domain, tdat[testno].type, tdat[testno].proto);
-	if (s < 0)
-		tst_brkm(TBROK | TERRNO, cleanup, "socket setup failed");
+	s = SAFE_SOCKET(cleanup, tdat[testno].domain, tdat[testno].type,
+			tdat[testno].proto);
 	if (tdat[testno].type == SOCK_STREAM) {
 		if (tdat[testno].domain == PF_INET) {
-			if (connect(s, (struct sockaddr *)&sin1, sizeof(sin1)) <
-			    0)
-				tst_brkm(TBROK | TERRNO, cleanup,
-					 "connect failed");
+			SAFE_CONNECT(cleanup, s, (struct sockaddr *)&sin1,
+				     sizeof(sin1));
 			/* Wait for something to be readable, else we won't detect EFAULT on recv */
 			FD_ZERO(&rdfds);
 			FD_SET(s, &rdfds);
@@ -313,10 +311,8 @@ void setup1(void)
 				tst_brkm(TBROK, cleanup,
 					 "client setup1 failed - no message ready in 2 sec");
 		} else if (tdat[testno].domain == PF_UNIX) {
-			if (connect(s, (struct sockaddr *)&sun1, sizeof(sun1)) <
-			    0)
-				tst_brkm(TBROK | TERRNO, cleanup,
-					 "UD connect failed");
+			SAFE_CONNECT(cleanup, s, (struct sockaddr *)&sun1,
+				     sizeof(sun1));
 		}
 	}
 }
@@ -387,8 +383,7 @@ pid_t start_server(struct sockaddr_in *ssin, struct sockaddr_un *ssun)
 		tst_brkm(TBROK | TERRNO, cleanup, "server listen failed");
 		return -1;
 	}
-	if (getsockname(sfd, (struct sockaddr *)ssin, &slen) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "getsockname failed");
+	SAFE_GETSOCKNAME(cleanup, sfd, (struct sockaddr *)ssin, &slen);
 
 	/* set up UNIX-domain socket */
 	ufd = socket(PF_UNIX, SOCK_STREAM, 0);

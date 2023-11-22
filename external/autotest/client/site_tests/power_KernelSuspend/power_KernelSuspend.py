@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 from autotest_lib.client.bin import test
-from autotest_lib.client.cros import sys_power
+from autotest_lib.client.cros.power import sys_power
 
 class power_KernelSuspend(test.test):
     """Suspend the system."""

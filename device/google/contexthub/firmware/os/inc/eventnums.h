@@ -29,8 +29,11 @@
 #define EVT_APP_TO_HOST                  0x00000401    //app data to host. Type is struct HostHubRawPacket
 #define EVT_MARSHALLED_SENSOR_DATA       0x00000402    //marshalled event data. Type is MarshalledUserEventData
 #define EVT_RESET_REASON                 0x00000403    //reset reason to host.
-#define EVT_APP_TO_SENSOR_HAL_DATA       0x00000404    // sensor driver out of band data update to sensor hal
-#define EVT_DEBUG_LOG                    0x00007F01    // send message payload to Linux kernel log
+#define EVT_APP_TO_SENSOR_HAL_DATA       0x00000404    //sensor driver out of band data update to sensor hal
+#define EVT_APP_STARTED                  0x00000405    //sent when a app has successfully started
+#define EVT_APP_STOPPED                  0x00000406    //sent when a app has stopped
+#define EVT_APP_TO_HOST_CHRE             0x00000407    //app data to host. Type is struct HostHubChrePacket
+#define EVT_DEBUG_LOG                    0x00007F01    //send message payload to Linux kernel log
 #define EVT_MASK                         0x0000FFFF
 
 // host-side events are 32-bit
@@ -53,10 +56,30 @@ struct HostHubRawPacket {
 }ATTRIBUTE_PACKED;
 SET_PACKED_STRUCT_MODE_OFF
 
+#define HOST_HUB_CHRE_PACKET_MAX_LEN     128
+
+SET_PACKED_STRUCT_MODE_ON
+struct HostHubChrePacket {
+    uint64_t appId;
+    uint8_t messageSize; //not incl this header, 128 bytes max
+    uint32_t messageType;
+    uint16_t hostEndpoint;
+    //raw data in unspecified format here
+}ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
+SET_PACKED_STRUCT_MODE_ON
+struct NanohubMsgChreHdrV10 {
+    uint8_t size;
+    uint32_t appEvent;
+}ATTRIBUTE_PACKED;
+SET_PACKED_STRUCT_MODE_OFF
+
 SET_PACKED_STRUCT_MODE_ON
 struct NanohubMsgChreHdr {
     uint8_t size;
     uint32_t appEvent;
+    uint16_t endpoint;
 }ATTRIBUTE_PACKED;
 SET_PACKED_STRUCT_MODE_OFF
 
@@ -103,17 +126,18 @@ SET_PACKED_STRUCT_MODE_OFF
 //for all apps
 #define EVT_APP_FREE_EVT_DATA            0x000000FF    //sent to an external app when its event has been marked for freeing. Data: struct AppEventFreeData
 // this event is never enqueued; it goes directly to the app.
-// It notifies app that hav outstanding IO, that is is about to end;
+// It notifies app that have outstanding IO, that is is about to end;
 // Expected app behavior is to not send any more events to system;
 // any events sent after this point will be silently ignored by the system;
-// any outstading events will be allowed to proceed to completion. (this is SIG_STOP)
+// any outstanding events will be allowed to proceed to completion. (this is SIG_STOP)
 #define EVT_APP_STOP                     0x000000FE
 // Internal event, with task pointer as event data;
 // system ends the task unconditionally; no further checks performed (this is SIG_KILL)
 #define EVT_APP_END                      0x000000FD
+#define EVT_APP_BEGIN                    0x000000FC
 //for host comms
-#define EVT_APP_FROM_HOST                0x000000F8    //host data to an app. Type is struct HostMsgHdr
 #define EVT_APP_FROM_HOST_CHRE           0x000000F9    //host data to an app. Type is struct HostMsgHdrChre
+#define EVT_APP_FROM_HOST                0x000000F8    //host data to an app. Type is struct HostMsgHdr
 
 //for apps that use I2C
 #define EVT_APP_I2C_CBK                  0x000000F0    //data pointer points to struct I2cEventData

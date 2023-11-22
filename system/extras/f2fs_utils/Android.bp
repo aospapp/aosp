@@ -1,135 +1,8 @@
 // Copyright 2017 The Android Open Source Project
 
-cc_library_host_static {
-    name: "libf2fs_utils_host",
-
-    srcs: ["f2fs_utils.c"],
-
-    static_libs: [
-        "libsparse",
-        "libz",
-    ],
-
-    include_dirs: [
-        "external/f2fs-tools/include",
-        "external/f2fs-tools/mkfs",
-    ],
-
-    cflags: ["-Wno-unused-parameter"],
-
-    target: {
-        darwin: {
-            enabled: false,
-        },
-    },
-}
-
-cc_library_host_static {
-    name: "libf2fs_ioutils_host",
-
-    srcs: ["f2fs_ioutils.c"],
-
-    include_dirs: [
-        "external/f2fs-tools/include",
-        "external/f2fs-tools/mkfs",
-    ],
-
-    cflags: ["-Wno-unused-parameter"],
-
-    static_libs: [
-        "libselinux",
-        "libsparse",
-        "libext2_uuid",
-        "libz",
-    ],
-
-    target: {
-        darwin: {
-            enabled: false,
-        },
-    },
-}
-
-cc_library_host_static {
-    name: "libf2fs_dlutils_host",
-
-    srcs: ["f2fs_dlutils.c"],
-
-    include_dirs: [
-        "external/f2fs-tools/include",
-        "external/f2fs-tools/mkfs",
-    ],
-    // Will attempt to dlopen("libf2fs_fmt_host_dyn")
-    host_ldlibs: ["-ldl"],
-
-    target: {
-        darwin: {
-            enabled: false,
-        },
-    },
-}
-
-cc_library_shared {
-    name: "libf2fs_dlutils",
-
-    srcs: ["f2fs_dlutils.c"],
-
-    include_dirs: [
-        "external/f2fs-tools/include",
-        "external/f2fs-tools/mkfs",
-    ],
-
-    shared_libs: ["libdl"],
-
-    target: {
-        darwin: {
-            enabled: false,
-        },
-    },
-}
-
-cc_library_static {
-    name: "libf2fs_dlutils_static",
-
-    srcs: ["f2fs_dlutils.c"],
-
-    include_dirs: [
-        "external/f2fs-tools/include",
-        "external/f2fs-tools/mkfs",
-    ],
-
-    shared_libs: ["libdl"],
-
-    target: {
-        darwin: {
-            enabled: false,
-        },
-    },
-}
-
-cc_library_static {
-    name: "libf2fs_utils_static",
-
-    srcs: ["f2fs_utils.c"],
-
-    include_dirs: [
-        "external/f2fs-tools/include",
-        "external/f2fs-tools/mkfs",
-    ],
-
-    cflags: ["-Wno-unused-parameter"],
-
-    static_libs: ["libsparse"],
-
-    target: {
-        darwin: {
-            enabled: false,
-        },
-    },
-}
-
 cc_library_shared {
     name: "libf2fs_sparseblock",
+    defaults: ["system-extras-cflags-defaults"],
 
     srcs: ["f2fs_sparseblock.c"],
 
@@ -148,6 +21,7 @@ cc_library_shared {
 
 cc_binary {
     name: "f2fs_sparseblock",
+    defaults: ["system-extras-cflags-defaults"],
 
     srcs: ["f2fs_sparseblock.c"],
 
@@ -166,6 +40,6 @@ cc_prebuilt_binary {
     name: "mkf2fsuserimg.sh",
 
     srcs: ["mkf2fsuserimg.sh"],
-
+    required: ["make_f2fs", "sload_f2fs"],
     host_supported: true,
 }

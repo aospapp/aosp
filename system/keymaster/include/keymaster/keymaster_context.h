@@ -19,17 +19,18 @@
 
 #include <assert.h>
 
-#include <openssl/evp.h>
-
 #include <hardware/keymaster_defs.h>
 #include <keymaster/keymaster_enforcement.h>
+#include <keymaster/android_keymaster_utils.h>
 
 namespace keymaster {
 
 class AuthorizationSet;
 class KeyFactory;
 class OperationFactory;
-struct KeymasterKeyBlob;
+template<typename BlobType> struct TKeymasterBlob;
+typedef TKeymasterBlob<keymaster_key_blob_t> KeymasterKeyBlob;
+class Key;
 
 /**
  * KeymasterContext provides a singleton abstract interface that encapsulates various
@@ -66,11 +67,6 @@ class KeymasterContext {
     virtual ~KeymasterContext(){};
 
     /**
-     * Returns the security level (SW or TEE) of this keymaster implementation.
-     */
-    virtual keymaster_security_level_t GetSecurityLevel() const = 0;
-
-    /**
      * Sets the system version as reported by the system *itself*.  This is used to verify that the
      * system believes itself to be running the same version that is reported by the bootloader, in
      * hardware implementations.  For SoftKeymasterDevice, this sets the version information used.
@@ -93,20 +89,6 @@ class KeymasterContext {
     virtual keymaster_algorithm_t* GetSupportedAlgorithms(size_t* algorithms_count) const = 0;
 
     /**
-     * CreateKeyBlob takes authorization sets and key material and produces a key blob and hardware
-     * and software authorization lists ready to be returned to the AndroidKeymaster client
-     * (Keystore, generally).  The blob is integrity-checked and may be encrypted, depending on the
-     * needs of the context.
-    *
-     * This method is generally called only by KeyFactory subclassses.
-     */
-    virtual keymaster_error_t CreateKeyBlob(const AuthorizationSet& key_description,
-                                            keymaster_key_origin_t origin,
-                                            const KeymasterKeyBlob& key_material,
-                                            KeymasterKeyBlob* blob, AuthorizationSet* hw_enforced,
-                                            AuthorizationSet* sw_enforced) const = 0;
-
-    /**
      * UpgradeKeyBlob takes an existing blob, parses out key material and constructs a new blob with
      * the current format and OS version info.
      */
@@ -123,9 +105,7 @@ class KeymasterContext {
      */
     virtual keymaster_error_t ParseKeyBlob(const KeymasterKeyBlob& blob,
                                            const AuthorizationSet& additional_params,
-                                           KeymasterKeyBlob* key_material,
-                                           AuthorizationSet* hw_enforced,
-                                           AuthorizationSet* sw_enforced) const = 0;
+                                           UniquePtr<Key>* key) const = 0;
 
     /**
      * Take whatever environment-specific action is appropriate (if any) to delete the specified
@@ -150,63 +130,19 @@ class KeymasterContext {
     virtual keymaster_error_t AddRngEntropy(const uint8_t* buf, size_t length) const = 0;
 
     /**
-     * Generates \p length random bytes, placing them in \p buf.
-     */
-    virtual keymaster_error_t GenerateRandom(uint8_t* buf, size_t length) const = 0;
-
-    /**
      * Return the enforcement policy for this context, or null if no enforcement should be done.
      */
     virtual KeymasterEnforcement* enforcement_policy() = 0;
 
-    /**
-     * Return the attestation signing key of the specified algorithm (KM_ALGORITHM_RSA or
-     * KM_ALGORITHM_EC).  Caller acquires ownership and should free using EVP_PKEY_free.
-     */
-    virtual EVP_PKEY* AttestationKey(keymaster_algorithm_t algorithm,
-                                     keymaster_error_t* error) const = 0;
+    virtual keymaster_error_t GenerateAttestation(const Key& key,
+                                                  const AuthorizationSet& attest_params,
+                                                  CertChainPtr* cert_chain) const = 0;
 
-    /**
-     * Return the certificate chain of the attestation signing key of the specified algorithm
-     * (KM_ALGORITHM_RSA or KM_ALGORITHM_EC).  Caller acquires ownership and should free.
-     */
-    virtual keymaster_cert_chain_t* AttestationChain(keymaster_algorithm_t algorithm,
-                                                     keymaster_error_t* error) const = 0;
-
-    /**
-     * Generate the current unique ID.
-     */
-    virtual keymaster_error_t GenerateUniqueId(uint64_t creation_date_time,
-                                               const keymaster_blob_t& application_id,
-                                               bool reset_since_rotation,
-                                               Buffer* unique_id) const = 0;
-
-    /**
-     * Verify that the device IDs provided in the attestation_params match the device's actual IDs
-     * and copy them to attestation. If *any* of the IDs do not match or verification is not
-     * possible, return KM_ERROR_CANNOT_ATTEST_IDS. If *all* IDs provided are successfully verified
-     * or no IDs were provided, return KM_ERROR_OK.
-     *
-     * If you do not support device ID attestation, ignore all arguments and return
-     * KM_ERROR_UNIMPLEMENTED.
-     */
-    virtual keymaster_error_t VerifyAndCopyDeviceIds(
-        const AuthorizationSet& /* attestation_params */,
-        AuthorizationSet* /* attestation */) const {
-        return KM_ERROR_UNIMPLEMENTED;
-    }
-
-    /**
-     * Returns verified boot parameters for the Attestation Extension.  For hardware-based
-     * implementations, these will be the values reported by the bootloader. By default,  verified
-     * boot state is unknown, and KM_ERROR_UNIMPLEMENTED is returned.
-     */
     virtual keymaster_error_t
-    GetVerifiedBootParams(keymaster_blob_t* /* verified_boot_key */,
-                          keymaster_verified_boot_t* /* verified_boot_state */,
-                          bool* /* device_locked */) const {
-        return KM_ERROR_UNIMPLEMENTED;
-    }
+    UnwrapKey(const KeymasterKeyBlob& wrapped_key_blob, const KeymasterKeyBlob& wrapping_key_blob,
+              const AuthorizationSet& wrapping_key_params, const KeymasterKeyBlob& masking_key,
+              AuthorizationSet* wrapped_key_params, keymaster_key_format_t* wrapped_key_format,
+              KeymasterKeyBlob* wrapped_key_material) const = 0;
 
   private:
     // Uncopyable.

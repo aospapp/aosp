@@ -18,10 +18,15 @@ class ScreenUtilityFactory(object):
     """
 
     _PIXEL_DIFF_MARGIN_FOR_ANALOG = 30
-    _PIXEL_DIFF_MARGIN_FOR_DIGITAL = 3
-
     _WRONG_PIXELS_MARGIN_FOR_ANALOG = 0.04  # 4%
+
+    _PIXEL_DIFF_MARGIN_FOR_DIGITAL = 3
     _WRONG_PIXELS_MARGIN_FOR_DIGITAL = 0
+
+    # Comparing to the calibration image directly allows more margin due to
+    # anti-aliasing.
+    _PIXEL_DIFF_MARGIN_FOR_CALIBRATION = 30
+    _WRONG_PIXELS_MARGIN_FOR_CALIBRATION = 0.01  # 1%
 
 
     def __init__(self, chameleon_port, display_facade):
@@ -64,6 +69,11 @@ class ScreenUtilityFactory(object):
                     self._display_facade)
 
 
+    def create_calibration_image_capturer(self):
+        """Creates a calibration image capturer."""
+        return screen_capture.CrosCalibrationImageCapturer(self._display_facade)
+
+
     def create_screen_comparer(self, output_dir):
         """Creates a screen comparer.
 
@@ -89,4 +99,25 @@ class ScreenUtilityFactory(object):
 
         @param output_dir: The directory the image files output to.
         """
-        return mirror_comparison.MirrorComparer(self._display_facade, output_dir)
+        return mirror_comparison.MirrorComparer(self._display_facade,
+                                                output_dir)
+
+
+    def create_calibration_comparer(self, output_dir):
+        """Creates a comparer to check between Chameleon and calibration image.
+
+        @param output_dir: The directory the image files output to.
+        """
+        if self._is_vga:
+            pixel_diff_margin = self._PIXEL_DIFF_MARGIN_FOR_ANALOG
+            wrong_pixels_margin = self._WRONG_PIXELS_MARGIN_FOR_ANALOG
+        else:
+            pixel_diff_margin = self._PIXEL_DIFF_MARGIN_FOR_CALIBRATION
+            wrong_pixels_margin = self._WRONG_PIXELS_MARGIN_FOR_CALIBRATION
+
+        capturer1 = self.create_chameleon_screen_capturer()
+        capturer2 = self.create_calibration_image_capturer()
+
+        return screen_comparison.ScreenComparer(
+                capturer1, capturer2, output_dir,
+                pixel_diff_margin, wrong_pixels_margin)

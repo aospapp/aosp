@@ -18,13 +18,15 @@ package com.android.car.dialer;
 
 import android.animation.ValueAnimator;
 import android.app.Activity;
-import android.app.Fragment;
 import android.app.SearchManager;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.Nullable;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentActivity;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -32,13 +34,11 @@ import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 
-import com.android.car.view.CarLayoutManager;
-
 /**
  * An activity that manages contact searching. This activity will display the result of a search
  * as well as show the details of a contact when that contact is clicked.
  */
-public class ContactSearchActivity extends Activity {
+public class ContactSearchActivity extends FragmentActivity {
     private static final String CONTENT_FRAGMENT_TAG = "CONTENT_FRAGMENT_TAG";
     private static final int ANIMATION_DURATION_MS = 100;
 
@@ -76,10 +76,12 @@ public class ContactSearchActivity extends Activity {
 
         mSearchField.addTextChangedListener(new TextWatcher() {
             @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
 
             @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
 
             @Override
             public void afterTextChanged(Editable s) {
@@ -187,7 +189,7 @@ public class ContactSearchActivity extends Activity {
         // changes since any lists in it will be reset to the top.
         resetSearchPanelElevation();
 
-        getFragmentManager().beginTransaction()
+        getSupportFragmentManager().beginTransaction()
                 .setCustomAnimations(R.animator.fade_in, R.animator.fade_out)
                 .replace(R.id.content_fragment_container, fragment, CONTENT_FRAGMENT_TAG)
                 .commitNow();
@@ -198,7 +200,7 @@ public class ContactSearchActivity extends Activity {
      */
     @Nullable
     private Fragment getCurrentFragment() {
-        return getFragmentManager().findFragmentByTag(CONTENT_FRAGMENT_TAG);
+        return getSupportFragmentManager().findFragmentByTag(CONTENT_FRAGMENT_TAG);
     }
 
     @Override
@@ -254,11 +256,12 @@ public class ContactSearchActivity extends Activity {
     public class ContactScrollListener extends RecyclerView.OnScrollListener {
         @Override
         public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
-            // Assuming CarLayoutManager is the layout manager as all car applications should be
-            // using a PagedListView.
-            CarLayoutManager layoutManager = (CarLayoutManager) recyclerView.getLayoutManager();
+            // The default LayoutManager for PagedListView is a LinearLayoutManager. Dialer does
+            // not change this.
+            LinearLayoutManager layoutManager =
+                    (LinearLayoutManager) recyclerView.getLayoutManager();
 
-            if (layoutManager.isAtTop()) {
+            if (layoutManager.findFirstCompletelyVisibleItemPosition() == 0) {
                 resetSearchPanelElevation();
             } else {
                 // No animation needed when adding the elevation because the scroll masks the adding

@@ -49,6 +49,7 @@ class AndroidKeymaster {
   public:
     AndroidKeymaster(KeymasterContext* context, size_t operation_table_size);
     virtual ~AndroidKeymaster();
+    AndroidKeymaster(AndroidKeymaster&&);
 
     void GetVersion(const GetVersionRequest& request, GetVersionResponse* response);
     void SupportedAlgorithms(const SupportedAlgorithmsRequest& request,
@@ -64,12 +65,18 @@ class AndroidKeymaster {
     void SupportedExportFormats(const SupportedExportFormatsRequest& request,
                                 SupportedExportFormatsResponse* response);
 
+    GetHmacSharingParametersResponse GetHmacSharingParameters();
+    ComputeSharedHmacResponse ComputeSharedHmac(const ComputeSharedHmacRequest& request);
+    VerifyAuthorizationResponse VerifyAuthorization(const VerifyAuthorizationRequest& request);
+
     void AddRngEntropy(const AddEntropyRequest& request, AddEntropyResponse* response);
     void Configure(const ConfigureRequest& request, ConfigureResponse* response);
     void GenerateKey(const GenerateKeyRequest& request, GenerateKeyResponse* response);
     void GetKeyCharacteristics(const GetKeyCharacteristicsRequest& request,
                                GetKeyCharacteristicsResponse* response);
     void ImportKey(const ImportKeyRequest& request, ImportKeyResponse* response);
+    void ImportWrappedKey(const ImportWrappedKeyRequest& request,
+                          ImportWrappedKeyResponse* response);
     void ExportKey(const ExportKeyRequest& request, ExportKeyResponse* response);
     void AttestKey(const AttestKeyRequest& request, AttestKeyResponse* response);
     void UpgradeKey(const UpgradeKeyRequest& request, UpgradeKeyResponse* response);
@@ -85,7 +92,6 @@ class AndroidKeymaster {
   private:
     keymaster_error_t LoadKey(const keymaster_key_blob_t& key_blob,
                               const AuthorizationSet& additional_params,
-                              AuthorizationSet* hw_enforced, AuthorizationSet* sw_enforced,
                               const KeyFactory** factory, UniquePtr<Key>* key);
 
     UniquePtr<KeymasterContext> context_;

@@ -257,7 +257,7 @@ int main (void)
   exec_vqshl ();
   exec_vqshl_n ();
   exec_vrshl ();
-  exec_vldX ();
+  // exec_vldX ();
   exec_vdup_lane ();
   exec_vqdmull_lane ();
   exec_vqdmull_n ();
@@ -302,7 +302,7 @@ int main (void)
   exec_vbic ();
   exec_vcreate ();
   exec_vldX_lane ();
-  exec_vldX_dup ();
+  // exec_vldX_dup ();
   exec_vmla ();
   exec_vmls ();
   exec_vmul ();

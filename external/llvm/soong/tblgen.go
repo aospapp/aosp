@@ -22,6 +22,7 @@ import (
 	"android/soong/genrule"
 
 	"github.com/google/blueprint"
+	"github.com/google/blueprint/proptools"
 )
 
 func init() {
@@ -36,14 +37,14 @@ var (
 	tblgenRule = pctx.StaticRule("tblgenRule", blueprint.RuleParams{
 		Depfile:     "${out}.d",
 		Deps:        blueprint.DepsGCC,
-		Command:     "${llvmTblgen} ${includes} ${generator} -d ${depfile} -o ${out} ${in}",
+		Command:     "${llvmTblgen} ${includes} ${genopt} -d ${depfile} -o ${out} ${in}",
 		CommandDeps: []string{"${llvmTblgen}"},
 		Description: "LLVM TableGen $in => $out",
-	}, "includes", "depfile", "generator")
+	}, "includes", "depfile", "genopt")
 )
 
 type tblgenProperties struct {
-	In   string
+	In   *string
 	Outs []string
 }
 
@@ -59,7 +60,7 @@ type tblgen struct {
 var _ genrule.SourceFileGenerator = (*tblgen)(nil)
 
 func (t *tblgen) GenerateAndroidBuildActions(ctx android.ModuleContext) {
-	in := android.PathForModuleSrc(ctx, t.properties.In)
+	in := android.PathForModuleSrc(ctx, proptools.String(t.properties.In))
 
 	includes := []string{
 		"-I " + ctx.ModuleDir(),
@@ -77,8 +78,8 @@ func (t *tblgen) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 			Input:  in,
 			Output: out,
 			Args: map[string]string{
-				"includes":  strings.Join(includes, " "),
-				"generator": generator,
+				"includes": strings.Join(includes, " "),
+				"genopt":   generator,
 			},
 		})
 		t.generatedHeaders = append(t.generatedHeaders, out)
@@ -144,6 +145,10 @@ func (t *tblgen) GeneratedHeaderDirs() android.Paths {
 }
 
 func (t *tblgen) GeneratedSourceFiles() android.Paths {
+	return nil
+}
+
+func (t *tblgen) GeneratedDeps() android.Paths {
 	return t.generatedHeaders
 }
 

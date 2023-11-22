@@ -16,15 +16,24 @@
 
 package com.android.server.telecom.tests;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.telecom.VideoProfile;
-import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Unit tests for the {@link android.telecom.VideoProfile} class.
  */
-public class VideoProfileTest extends AndroidTestCase {
+@RunWith(JUnit4.class)
+public class VideoProfileTest extends TelecomTestCase {
     @SmallTest
+    @Test
     public void testToString() {
         assertEquals("Audio Only", VideoProfile.videoStateToString(VideoProfile.STATE_AUDIO_ONLY));
         assertEquals("Audio Tx", VideoProfile.videoStateToString(VideoProfile.STATE_TX_ENABLED));
@@ -42,6 +51,7 @@ public class VideoProfileTest extends AndroidTestCase {
     }
 
     @SmallTest
+    @Test
     public void testIsAudioOnly() {
         assertFalse(VideoProfile.isAudioOnly(VideoProfile.STATE_RX_ENABLED));
         assertFalse(VideoProfile.isAudioOnly(VideoProfile.STATE_TX_ENABLED));

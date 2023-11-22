@@ -25,21 +25,8 @@ endif
 
 LOCAL_BUILT_MODULE_STEM := javalib.jar
 
-#################################
-include $(BUILD_SYSTEM)/configure_local_jack.mk
-#################################
-
-ifdef LOCAL_JACK_ENABLED
-ifdef LOCAL_IS_STATIC_JAVA_LIBRARY
-LOCAL_BUILT_MODULE_STEM := classes.jack
-endif
-endif
-
-# For non-static java libraries, other modules should depend on
-# out/target/common/obj/JAVA_LIBRARIES/.../javalib.jar (for jack)
-# or out/target/common/obj/JAVA_LIBRARIES/.../classes.jar (for javac).
-# For static java libraries, other modules should depend on
-# out/target/common/obj/JAVA_LIBRARIES/.../classes.jar
+# For java libraries, other modules should depend on
+# out/target/common/obj/JAVA_LIBRARIES/.../classes.jar.
 # There are some dependencies outside the build system that assume static
 # java libraries produce javalib.jar, so we will copy classes.jar there too.
 intermediates.COMMON := $(call local-intermediates-dir,COMMON)
@@ -55,6 +42,8 @@ ifeq (true,$(EMMA_INSTRUMENT))
 ifeq (true,$(LOCAL_EMMA_INSTRUMENT))
 ifeq (true,$(EMMA_INSTRUMENT_STATIC))
 LOCAL_STATIC_JAVA_LIBRARIES += jacocoagent
+# Exclude jacoco classes from proguard
+LOCAL_PROGUARD_FLAGS += -include $(BUILD_SYSTEM)/proguard.jacoco.flags
 endif # LOCAL_EMMA_INSTRUMENT
 endif # EMMA_INSTRUMENT_STATIC
 else
@@ -68,31 +57,27 @@ include $(BUILD_SYSTEM)/java.mk
 ifeq ($(LOCAL_IS_STATIC_JAVA_LIBRARY),true)
 # There are some dependencies outside the build system that assume classes.jar
 # is available as javalib.jar so copy it there too.
-$(eval $(call copy-one-file,$(full_classes_jar),$(common_javalib.jar)))
+$(eval $(call copy-one-file,$(full_classes_proguard_jar),$(common_javalib.jar)))
 
-ifdef LOCAL_JACK_ENABLED
-$(eval $(call copy-one-file,$(full_classes_jack),$(LOCAL_BUILT_MODULE)))
-else
-$(eval $(call copy-one-file,$(full_classes_jar),$(LOCAL_BUILT_MODULE)))
-endif
+$(eval $(call copy-one-file,$(full_classes_proguard_jar),$(LOCAL_BUILT_MODULE)))
 
 else # !LOCAL_IS_STATIC_JAVA_LIBRARY
 
 $(common_javalib.jar): PRIVATE_DEX_FILE := $(built_dex)
 $(common_javalib.jar): PRIVATE_SOURCE_ARCHIVE := $(full_classes_pre_proguard_jar)
 $(common_javalib.jar): PRIVATE_DONT_DELETE_JAR_DIRS := $(LOCAL_DONT_DELETE_JAR_DIRS)
-$(common_javalib.jar) : $(built_dex) $(java_resource_sources) | $(ZIPTIME)
+$(common_javalib.jar) : $(built_dex) $(java_resource_sources) | $(ZIPTIME) $(ZIPALIGN)
 	@echo "target Jar: $(PRIVATE_MODULE) ($@)"
-ifdef LOCAL_JACK_ENABLED
-	$(create-empty-package)
-else
-	$(call initialize-package-file,$(PRIVATE_SOURCE_ARCHIVE),$@)
-endif
-	$(add-dex-to-package)
-ifdef LOCAL_JACK_ENABLED
-	$(add-carried-jack-resources)
-endif
-	$(remove-timestamps-from-package)
+	$(call initialize-package-file,$(PRIVATE_SOURCE_ARCHIVE),$@.tmp)
+	$(call add-dex-to-package-arg,$@.tmp)
+	$(hide) $(ZIPTIME) $@.tmp
+	$(call commit-change-for-toc,$@)
+ifeq (true, $(LOCAL_UNCOMPRESS_DEX))
+	$(uncompress-dexs)
+	$(align-package)
+endif  # LOCAL_UNCOMPRESS_DEX
+
+.KATI_RESTAT: $(common_javalib.jar)
 
 ifdef LOCAL_DEX_PREOPT
 ifneq ($(dexpreopt_boot_jar_module),) # boot jar
@@ -108,10 +93,7 @@ $(built_odex) : $(dir $(LOCAL_BUILT_MODULE))% : $(common_javalib.jar)
 	@echo "Dexpreopt Jar: $(PRIVATE_MODULE) ($@)"
 	$(call dexpreopt-one-file,$<,$@)
 
-$(eval $(call copy-one-file,$(common_javalib.jar),$(LOCAL_BUILT_MODULE)))
-ifneq (nostripping,$(LOCAL_DEX_PREOPT))
-	$(call dexpreopt-remove-classes.dex,$@)
-endif
+$(eval $(call dexpreopt-copy-jar,$(common_javalib.jar),$(LOCAL_BUILT_MODULE),$(LOCAL_DEX_PREOPT)))
 
 endif # ! boot jar
 

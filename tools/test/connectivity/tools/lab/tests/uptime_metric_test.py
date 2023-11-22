@@ -23,17 +23,23 @@ from tests import fake
 class UptimeMetricTest(unittest.TestCase):
     """Class for testing UptimeMetric."""
 
-    def test_correct_uptime(self):
-        # Create sample stdout string ShellCommand.run() would return
-        stdout_string = "358350.70 14241538.06"
+    def test_get_seconds(self):
+        stdout_string = '358350.70'
         FAKE_RESULT = fake.FakeResult(stdout=stdout_string)
         fake_shell = fake.MockShellCommand(fake_result=FAKE_RESULT)
         metric_obj = uptime_metric.UptimeMetric(shell=fake_shell)
 
-        expected_result = {
-            uptime_metric.UptimeMetric.TIME_SECONDS: 358350.70,
-        }
-        self.assertEqual(expected_result, metric_obj.gather_metric())
+        expected_result = '358350.70'
+        self.assertEqual(expected_result, metric_obj.get_seconds())
+
+    def test_get_readable(self):
+        stdout_string = '2 days, 8 hours, 19 minutes'
+        FAKE_RESULT = fake.FakeResult(stdout=stdout_string)
+        fake_shell = fake.MockShellCommand(fake_result=FAKE_RESULT)
+        metric_obj = uptime_metric.UptimeMetric(shell=fake_shell)
+
+        expected_result = '2 days, 8 hours, 19 minutes'
+        self.assertEqual(expected_result, metric_obj.get_readable())
 
 
 if __name__ == '__main__':

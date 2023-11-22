@@ -17,7 +17,9 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner junit legacy-android-test
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner junit
+
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
@@ -31,7 +33,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 LOCAL_SDK_VERSION := current
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 include $(BUILD_CTS_PACKAGE)
 
@@ -41,12 +43,14 @@ include $(BUILD_CTS_PACKAGE)
 # CTS tests, so drop it into a library that other tests can use.
 include $(CLEAR_VARS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := junit legacy-android-test
+LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 
 LOCAL_SRC_FILES := src/android/dpi/cts/DefaultManifestAttributesTest.java
 
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE := android.cts.dpi
+
+LOCAL_SDK_VERSION := current
 
 include $(BUILD_STATIC_JAVA_LIBRARY)

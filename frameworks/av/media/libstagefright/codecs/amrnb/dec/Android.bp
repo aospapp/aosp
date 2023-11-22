@@ -41,7 +41,7 @@ cc_library_static {
     ],
 
     include_dirs: ["frameworks/av/media/libstagefright/include"],
-    local_include_dirs: ["src"],
+    export_include_dirs: ["src"],
 
     cflags: [
         "-DOSCL_UNUSED_ARG(x)=(void)(x)",
@@ -49,6 +49,8 @@ cc_library_static {
 
         "-Werror",
     ],
+
+    version_script: "exports.lds",
 
     //sanitize: {
     //    misc_undefined: [
@@ -85,6 +87,8 @@ cc_library_shared {
         "-Werror",
     ],
 
+    version_script: "exports.lds",
+
     //sanitize: {
     //    misc_undefined: [
     //        "signed-integer-overflow",
@@ -106,13 +110,14 @@ cc_library_shared {
     ],
     compile_multilib: "32",
 }
-
 //###############################################################################
 cc_test {
     name: "libstagefright_amrnbdec_test",
     gtest: false,
 
     srcs: ["test/amrnbdec_test.cpp"],
+
+    cflags: ["-Wall", "-Werror"],
 
     local_include_dirs: ["src"],
 

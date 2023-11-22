@@ -74,6 +74,9 @@ DECLARE_ACCESSOR(wpas_dbus_setter_iface_global);
 DBusMessage * wpas_dbus_handler_scan(DBusMessage *message,
 				     struct wpa_supplicant *wpa_s);
 
+DBusMessage * wpas_dbus_handler_abort_scan(DBusMessage *message,
+					   struct wpa_supplicant *wpa_s);
+
 DBusMessage * wpas_dbus_handler_signal_poll(DBusMessage *message,
 					    struct wpa_supplicant *wpa_s);
 
@@ -205,6 +208,9 @@ DECLARE_ACCESSOR(wpas_dbus_setter_wps_device_serial_number);
 DECLARE_ACCESSOR(wpas_dbus_getter_wps_device_device_type);
 DECLARE_ACCESSOR(wpas_dbus_setter_wps_device_device_type);
 
+DECLARE_ACCESSOR(wpas_dbus_getter_mesh_peers);
+DECLARE_ACCESSOR(wpas_dbus_getter_mesh_group);
+
 DBusMessage * wpas_dbus_handler_tdls_discover(DBusMessage *message,
 					      struct wpa_supplicant *wpa_s);
 DBusMessage * wpas_dbus_handler_tdls_setup(DBusMessage *message,
@@ -213,6 +219,12 @@ DBusMessage * wpas_dbus_handler_tdls_status(DBusMessage *message,
 					    struct wpa_supplicant *wpa_s);
 DBusMessage * wpas_dbus_handler_tdls_teardown(DBusMessage *message,
 					      struct wpa_supplicant *wpa_s);
+DBusMessage *
+wpas_dbus_handler_tdls_channel_switch(DBusMessage *message,
+				      struct wpa_supplicant *wpa_s);
+DBusMessage *
+wpas_dbus_handler_tdls_cancel_channel_switch(DBusMessage *message,
+					     struct wpa_supplicant *wpa_s);
 
 DBusMessage * wpas_dbus_handler_vendor_elem_add(DBusMessage *message,
 						struct wpa_supplicant *wpa_s);

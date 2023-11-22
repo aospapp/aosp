@@ -1148,6 +1148,11 @@ public class IntentTest extends AndroidTestCase {
                         .putExtra("int", 1000).putExtra("long", (long) 1000)
                         .putExtra("boolean", true).putExtra("float", 10.4f)
                         .setPackage("com.myapp"));
+        checkIntentUri(
+                "intent://example.org/db?123#Intent;scheme=z39.50r;end",
+                null,
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse("z39.50r://example.org/db?123")));
     }
 
     private boolean compareIntents(Intent expected, Intent actual) {

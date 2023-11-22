@@ -17,7 +17,7 @@
 package com.android.documentsui;
 
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.internal.util.Preconditions.checkNotNull;
 
 import android.annotation.ColorRes;
@@ -47,8 +47,8 @@ import com.android.documentsui.base.Procedure;
 import com.android.documentsui.dirlist.DocumentHolder;
 import com.android.documentsui.dirlist.DocumentsAdapter;
 import com.android.documentsui.dirlist.FocusHandler;
+import com.android.documentsui.selection.SelectionHelper;
 import com.android.documentsui.Model.Update;
-import com.android.documentsui.selection.SelectionManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -61,7 +61,7 @@ public final class FocusManager implements FocusHandler {
     private final ContentScope mScope = new ContentScope();
 
     private final Features mFeatures;
-    private final SelectionManager mSelectionMgr;
+    private final SelectionHelper mSelectionMgr;
     private final DrawerController mDrawer;
     private final Procedure mRootsFocuser;
     private final TitleSearchHelper mSearchHelper;
@@ -70,7 +70,7 @@ public final class FocusManager implements FocusHandler {
 
     public FocusManager(
             Features features,
-            SelectionManager selectionMgr,
+            SelectionHelper selectionMgr,
             DrawerController drawer,
             Procedure rootsFocuser,
             @ColorRes int color) {
@@ -153,6 +153,10 @@ public final class FocusManager implements FocusHandler {
         final int focusPos = (mScope.lastFocusPosition != RecyclerView.NO_POSITION)
                 ? mScope.lastFocusPosition
                 : mScope.layout.findFirstVisibleItemPosition();
+        if (focusPos == RecyclerView.NO_POSITION) {
+            return false;
+        }
+
         focusItem(focusPos);
         return true;
     }
@@ -167,7 +171,7 @@ public final class FocusManager implements FocusHandler {
             return;
         }
 
-        int pos = mScope.adapter.getModelIds().indexOf(mScope.pendingFocusId);
+        int pos = mScope.adapter.getStableIds().indexOf(mScope.pendingFocusId);
         if (pos != -1) {
             focusItem(pos);
         }
@@ -558,7 +562,7 @@ public final class FocusManager implements FocusHandler {
             int itemCount = mScope.adapter.getItemCount();
             List<String> index = new ArrayList<>(itemCount);
             for (int i = 0; i < itemCount; i++) {
-                String modelId = mScope.adapter.getModelId(i);
+                String modelId = mScope.adapter.getStableId(i);
                 Cursor cursor = mScope.model.getItem(modelId);
                 if (modelId != null && cursor != null) {
                     String title = getCursorString(cursor, Document.COLUMN_DISPLAY_NAME);

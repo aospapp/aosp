@@ -302,7 +302,7 @@ argparser = argparse.ArgumentParser(
 argparser.add_argument(
     '--host',
     dest='host',
-    default='chromeos-server38.cbf',
+    default='173.194.81.83',
     help='Host containing autotest result DB.')
 argparser.add_argument('--user', dest='user', help='Database user account.')
 argparser.add_argument(

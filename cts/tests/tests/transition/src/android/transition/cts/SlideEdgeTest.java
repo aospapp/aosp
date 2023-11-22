@@ -33,6 +33,8 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.android.compatibility.common.util.PollingCheck;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -221,6 +223,13 @@ public class SlideEdgeTest extends BaseTransitionTest  {
             assertEquals(View.VISIBLE, greenSquare.getVisibility());
             assertEquals(View.VISIBLE, hello.getVisibility());
         }
+    }
+
+    private void verifyTranlationChanged(View view) {
+        final float startX = view.getTranslationX();
+        final float startY = view.getTranslationY();
+        PollingCheck.waitFor(
+                () -> view.getTranslationX() != startX || view.getTranslationY() != startY);
     }
 
     private void verifyTranslation(int slideEdge, View view) {

@@ -35,13 +35,13 @@ class DeviceHandlerTester {
         device_handler_.sysfs_mount_point_ = fake_sys_root.path;
 
         std::string platform_device_dir = fake_sys_root.path + platform_device;
-        mkdir_recursive(platform_device_dir, 0777, nullptr);
+        mkdir_recursive(platform_device_dir, 0777);
 
         std::string platform_bus = fake_sys_root.path + "/bus/platform"s;
-        mkdir_recursive(platform_bus, 0777, nullptr);
+        mkdir_recursive(platform_bus, 0777);
         symlink(platform_bus.c_str(), (platform_device_dir + "/subsystem").c_str());
 
-        mkdir_recursive(android::base::Dirname(fake_sys_root.path + uevent.path), 0777, nullptr);
+        mkdir_recursive(android::base::Dirname(fake_sys_root.path + uevent.path), 0777);
 
         std::vector<std::string> result;
         result = device_handler_.GetBlockDeviceSymlinks(uevent);
@@ -84,7 +84,6 @@ TEST(device_handler, get_block_device_symlinks_success_platform_with_partition) 
     };
     std::vector<std::string> expected_result{
         "/dev/block/platform/soc.0/f9824900.sdhci/by-name/modem",
-        "/dev/block/platform/soc.0/f9824900.sdhci/by-num/p1",
         "/dev/block/platform/soc.0/f9824900.sdhci/mmcblk0p1",
     };
 
@@ -100,7 +99,6 @@ TEST(device_handler, get_block_device_symlinks_success_platform_with_partition_o
         .partition_num = 1,
     };
     std::vector<std::string> expected_result{
-        "/dev/block/platform/soc.0/f9824900.sdhci/by-num/p1",
         "/dev/block/platform/soc.0/f9824900.sdhci/mmcblk0p1",
     };
 

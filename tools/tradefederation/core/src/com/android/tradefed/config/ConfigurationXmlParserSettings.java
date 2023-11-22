@@ -16,8 +16,7 @@
 
 package com.android.tradefed.config;
 
-import java.util.HashMap;
-import java.util.Map;
+import com.android.tradefed.util.MultiMap;
 
 /**
  * A simple class to accept settings for the ConfigurationXmlParser
@@ -28,8 +27,12 @@ import java.util.Map;
  */
 @OptionClass(alias = "template", global_namespace = false)
 class ConfigurationXmlParserSettings {
-    @Option(name = "map", description = "Map the <template-include> tag with the specified " +
-            "name to the specified actual configuration file.  Configuration file " +
-            "resolution will happen as with a standard <include> tag.")
-    public Map<String, String> templateMap = new HashMap<>();
+    @Option(
+        name = "map",
+        description =
+                "Map the <template-include> tag with the specified "
+                        + "name to the specified actual configuration file.  Configuration file "
+                        + "resolution will happen as with a standard <include> tag."
+    )
+    public MultiMap<String, String> templateMap = new MultiMap<>();
 }

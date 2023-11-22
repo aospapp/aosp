@@ -26,6 +26,9 @@ import android.graphics.Color;
 import android.hardware.Camera;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.ShutterCallback;
+import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraManager;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
@@ -104,6 +107,13 @@ public class PhotoCaptureActivity extends Activity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.camera_fov_calibration_photo_capture);
 
+        int cameraToBeTested = 0;
+        for (int cameraId = 0; cameraId < Camera.getNumberOfCameras(); ++cameraId) {
+            if (!isExternalCamera(cameraId)) {
+                cameraToBeTested++;
+            }
+        }
+
         mPreview = (SurfaceView) findViewById(R.id.camera_fov_camera_preview);
         mSurfaceHolder = mPreview.getHolder();
         mSurfaceHolder.addCallback(this);
@@ -139,7 +149,9 @@ public class PhotoCaptureActivity extends Activity
                 mPreviewSizeCamerasToProcess.clear();
                 mPreviewSizes =  new Size[Camera.getNumberOfCameras()];
                 for (int cameraId = 0; cameraId < Camera.getNumberOfCameras(); ++cameraId) {
-                    mPreviewSizeCamerasToProcess.add(cameraId);
+                    if (!isExternalCamera(cameraId)) {
+                        mPreviewSizeCamerasToProcess.add(cameraId);
+                    }
                 }
                 showNextDialogToChoosePreviewSize();
             }
@@ -181,9 +193,19 @@ public class PhotoCaptureActivity extends Activity
                 }
             }
 
-        @Override
-        public void onNothingSelected(AdapterView<?> arg0) {}
+            @Override
+            public void onNothingSelected(AdapterView<?> arg0) {}
         });
+
+        if (cameraToBeTested == 0) {
+            Log.i(TAG, "No cameras needs to be tested. Setting test pass.");
+            Toast.makeText(this, "No cameras needs to be tested. Test pass.",
+                    Toast.LENGTH_LONG).show();
+
+            TestResult.setPassedResult(this, getClass().getName(),
+                    "All cameras are external, test skipped!");
+            finish();
+        }
     }
 
     @Override
@@ -198,6 +220,10 @@ public class PhotoCaptureActivity extends Activity
             mSupportedResolutions = new ArrayList<SelectableResolution>();
             int numCameras = Camera.getNumberOfCameras();
             for (int cameraId = 0; cameraId < numCameras; ++cameraId) {
+                if (isExternalCamera(cameraId)) {
+                    continue;
+                }
+
                 Camera camera = Camera.open(cameraId);
 
                 // Get the supported picture sizes and fill the spinner.
@@ -538,5 +564,24 @@ public class PhotoCaptureActivity extends Activity
             mJpegOrientation = (info.orientation - degrees + 360) % 360;
             mPreviewOrientation = mJpegOrientation;
         }
+    }
+
+    private boolean isExternalCamera(int cameraId) {
+        CameraManager manager = (CameraManager) this.getSystemService(Context.CAMERA_SERVICE);
+        try {
+            String cameraIdStr = manager.getCameraIdList()[cameraId];
+            CameraCharacteristics characteristics =
+                    manager.getCameraCharacteristics(cameraIdStr);
+
+            if (characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL) ==
+                            CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL) {
+                // External camera doesn't support FOV informations
+                return true;
+            }
+        } catch (CameraAccessException e) {
+            Toast.makeText(this, "Could not access camera " + cameraId +
+                    ": " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+        return false;
     }
 }

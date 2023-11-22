@@ -31,9 +31,9 @@ $(DIST_DIR)/fip.bin:
 $(DIST_DIR)/l-loader.bin: $(DIST_DIR)/fip.bin
 	cd $(ANDROID_BUILD_TOP)/device/linaro/hikey/l-loader && \
 	ln -sf $(EDK2_DIR)/Build/HiKey/$(TARGET)_GCC49/FV//bl1.bin && \
-	make CROSS_COMPILE=arm-linux-androideabi- l-loader.bin && \
+	make CROSS_COMPILE=arm-linux-androideabi- hikey && \
 	mv l-loader.bin $(DIST_DIR)/
 
 clean:
-	rm -rf $(DIST_DIR)/fip.bin $(DIST_DIR)/l-loader.bin
-
+	rm -rf $(DIST_DIR)/fip.bin $(DIST_DIR)/l-loader.bin $(ANDROID_BUILD_TOP)/$(PRODUCT_OUT)/obj/uefi $(EDK2_DIR)/Build/HiKey
+	cd $(EDK2_DIR)/BaseTools && make clean

@@ -19,10 +19,12 @@ import android.icu.impl.duration.BasicPeriodFormatterFactory;
 import android.icu.impl.duration.Period;
 import android.icu.impl.duration.PeriodFormatter;
 import android.icu.impl.duration.TimeUnitConstants;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Test cases for en
  */
+@MainTestShard
 public class Test_ja extends LanguageTestFmwk implements TimeUnitConstants {
   private BasicPeriodFormatterFactory pff;
 

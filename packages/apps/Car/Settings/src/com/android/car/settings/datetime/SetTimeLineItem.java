@@ -20,44 +20,49 @@ import android.content.Context;
 import android.provider.Settings;
 import android.text.format.DateFormat;
 
+import androidx.car.widget.TextListItem;
+
 import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
-import com.android.car.settings.common.TextLineItem;
-import com.android.settingslib.datetime.ZoneGetter;
+import com.android.car.settings.common.BaseFragment.FragmentController;
 
 import java.util.Calendar;
 
 /**
  * A LineItem that displays and sets system time.
  */
-class SetTimeLineItem extends TextLineItem {
+class SetTimeLineItem extends TextListItem implements DatetimeSettingsFragment.ListRefreshObserver {
+
     private final Context mContext;
-    private final BaseFragment.FragmentController mFragmentController;
+    private final FragmentController mFragmentController;
 
     public SetTimeLineItem(Context context, BaseFragment.FragmentController fragmentController) {
-        super(context.getString(R.string.date_time_set_time));
+        super(context);
         mContext = context;
         mFragmentController = fragmentController;
+        setTitle(context.getString(R.string.date_time_set_time));
+        updateLineItemData();
     }
 
     @Override
-    public CharSequence getDesc() {
-        return DateFormat.getTimeFormat(mContext).format(Calendar.getInstance().getTime());
+    public void onPreRefresh() {
+        updateLineItemData();
     }
 
-    @Override
-    public boolean isEnabled() {
+    private void updateLineItemData() {
+        setBody(DateFormat.getTimeFormat(mContext).format(Calendar.getInstance().getTime()));
+        if (isEnabled()) {
+            setSupplementalIcon(R.drawable.ic_chevron_right, /* showDivider= */ false);
+            setOnClickListener(v ->
+                    mFragmentController.launchFragment(TimePickerFragment.getInstance()));
+        } else {
+            setSupplementalIcon(null, /* showDivider= */ false);
+            setOnClickListener(null);
+        }
+    }
+
+    private boolean isEnabled() {
         return Settings.Global.getInt(mContext.getContentResolver(),
                 Settings.Global.AUTO_TIME, 0) <= 0;
-    }
-
-    @Override
-    public boolean isExpandable() {
-        return isEnabled();
-    }
-
-    @Override
-    public void onClick() {
-        mFragmentController.launchFragment(TimePickerFragment.getInstance());
     }
 }

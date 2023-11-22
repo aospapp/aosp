@@ -193,6 +193,20 @@ public class VrExtensionBehaviorTest extends ActivityInstrumentationTestCase2<Op
         });
     }
 
+    public void testSrgbBuffer() throws Throwable {
+        mActivity = getGlEsActivity(OpenGLESActivity.RENDERER_BASIC, 0, 0, 0);
+        if (!mActivity.supportsVrHighPerformance())
+            return;
+
+        assertEquals(GLES32.GL_NO_ERROR, mActivity.glGetError());
+
+        mActivity.runOnGlThread(new Runnable() {
+            public void run() {
+                nativeTestSrgbBuffer();
+            }
+        });
+    }
+
     /**
      * Runs a context priority test.
      */
@@ -223,4 +237,5 @@ public class VrExtensionBehaviorTest extends ActivityInstrumentationTestCase2<Op
 
     private static native boolean nativeTestEglImageArray();
     private static native boolean nativeTestExternalBuffer();
+    private static native boolean nativeTestSrgbBuffer();
 }

@@ -18,9 +18,7 @@ package com.android.tv.util;
 
 import java.util.Comparator;
 
-/**
- * A comparator which runs multiple comparators sequentially.
- */
+/** A comparator which runs multiple comparators sequentially. */
 public class CompositeComparator<T> implements Comparator<T> {
     private final Comparator<T>[] mComparators;
 

@@ -22,13 +22,14 @@ import android.animation.AnimatorListenerAdapter;
 import android.app.Activity;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
-import android.os.Handler;
 import android.view.View;
 import android.view.ViewTreeObserver;
-
+import android.view.accessibility.AccessibilityManager.AccessibilityStateChangeListener;
 import com.android.tv.R;
+import com.android.tv.ui.hideable.AutoHideScheduler;
 
-public class SideFragmentManager {
+/** Manages {@link SideFragment}s. */
+public class SideFragmentManager implements AccessibilityStateChangeListener {
     private static final String FIRST_BACKSTACK_RECORD_NAME = "0";
 
     private final Activity mActivity;
@@ -45,17 +46,11 @@ public class SideFragmentManager {
     private final Animator mShowAnimator;
     private final Animator mHideAnimator;
 
-    private final Handler mHandler = new Handler();
-    private final Runnable mHideAllRunnable = new Runnable() {
-        @Override
-        public void run() {
-            hideAll(true);
-        }
-    };
+    private final AutoHideScheduler mAutoHideScheduler;
     private final long mShowDurationMillis;
 
-    public SideFragmentManager(Activity activity, Runnable preShowRunnable,
-            Runnable postHideRunnable) {
+    public SideFragmentManager(
+            Activity activity, Runnable preShowRunnable, Runnable postHideRunnable) {
         mActivity = activity;
         mFragmentManager = mActivity.getFragmentManager();
         mPreShowRunnable = preShowRunnable;
@@ -66,16 +61,18 @@ public class SideFragmentManager {
         mShowAnimator.setTarget(mPanel);
         mHideAnimator = AnimatorInflater.loadAnimator(mActivity, R.animator.side_panel_exit);
         mHideAnimator.setTarget(mPanel);
-        mHideAnimator.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                // Animation is still in running state at this point.
-                hideAllInternal();
-            }
-        });
+        mHideAnimator.addListener(
+                new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        // Animation is still in running state at this point.
+                        hideAllInternal();
+                    }
+                });
 
-        mShowDurationMillis = mActivity.getResources().getInteger(
-                R.integer.side_panel_show_duration);
+        mShowDurationMillis =
+                mActivity.getResources().getInteger(R.integer.side_panel_show_duration);
+        mAutoHideScheduler = new AutoHideScheduler(activity, () -> hideAll(true));
     }
 
     public int getCount() {
@@ -90,16 +87,12 @@ public class SideFragmentManager {
         return mHideAnimator.isStarted();
     }
 
-    /**
-     * Shows the given {@link SideFragment}.
-     */
+    /** Shows the given {@link SideFragment}. */
     public void show(SideFragment sideFragment) {
         show(sideFragment, true);
     }
 
-    /**
-     * Shows the given {@link SideFragment}.
-     */
+    /** Shows the given {@link SideFragment}. */
     public void show(SideFragment sideFragment, boolean showEnterAnimation) {
         if (isHiding()) {
             mHideAnimator.end();
@@ -114,7 +107,8 @@ public class SideFragmentManager {
                     R.animator.side_panel_fragment_pop_exit);
         }
         ft.replace(R.id.side_fragment_container, sideFragment)
-                .addToBackStack(Integer.toString(mFragmentCount)).commit();
+                .addToBackStack(Integer.toString(mFragmentCount))
+                .commit();
         mFragmentCount++;
 
         if (isFirst) {
@@ -122,17 +116,18 @@ public class SideFragmentManager {
             // slide-in animation to prevent jankiness resulted by performing transition and
             // layouting at the same time with animation.
             mPanel.setVisibility(View.VISIBLE);
-            mShowOnGlobalLayoutListener = new ViewTreeObserver.OnGlobalLayoutListener() {
-                @Override
-                public void onGlobalLayout() {
-                    mPanel.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                    mShowOnGlobalLayoutListener = null;
-                    if (mPreShowRunnable != null) {
-                        mPreShowRunnable.run();
-                    }
-                    mShowAnimator.start();
-                }
-            };
+            mShowOnGlobalLayoutListener =
+                    new ViewTreeObserver.OnGlobalLayoutListener() {
+                        @Override
+                        public void onGlobalLayout() {
+                            mPanel.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                            mShowOnGlobalLayoutListener = null;
+                            if (mPreShowRunnable != null) {
+                                mPreShowRunnable.run();
+                            }
+                            mShowAnimator.start();
+                        }
+                    };
             mPanel.getViewTreeObserver().addOnGlobalLayoutListener(mShowOnGlobalLayoutListener);
         }
         scheduleHideAll();
@@ -177,14 +172,14 @@ public class SideFragmentManager {
     }
 
     private void hideAllInternal() {
-        mHandler.removeCallbacksAndMessages(null);
+        mAutoHideScheduler.cancel();
         if (mFragmentCount == 0) {
             return;
         }
 
         mPanel.setVisibility(View.GONE);
-        mFragmentManager.popBackStack(FIRST_BACKSTACK_RECORD_NAME,
-                FragmentManager.POP_BACK_STACK_INCLUSIVE);
+        mFragmentManager.popBackStack(
+                FIRST_BACKSTACK_RECORD_NAME, FragmentManager.POP_BACK_STACK_INCLUSIVE);
         mFragmentCount = 0;
 
         if (mPostHideRunnable != null) {
@@ -193,8 +188,8 @@ public class SideFragmentManager {
     }
 
     /**
-     * Show the side panel with animation. If there are many entries in the fragment stack,
-     * the animation look like that there's only one fragment.
+     * Show the side panel with animation. If there are many entries in the fragment stack, the
+     * animation look like that there's only one fragment.
      *
      * @param withAnimation specifies if animation should be shown.
      */
@@ -211,22 +206,23 @@ public class SideFragmentManager {
     }
 
     /**
-     * Hide the side panel. This method just hide the panel and preserves the back
-     * stack. If you want to empty the back stack, call {@link #hideAll}.
+     * Hide the side panel. This method just hide the panel and preserves the back stack. If you
+     * want to empty the back stack, call {@link #hideAll}.
      */
     public void hideSidePanel(boolean withAnimation) {
-        mHandler.removeCallbacks(mHideAllRunnable);
+        mAutoHideScheduler.cancel();
         if (withAnimation) {
             Animator hideAnimator =
                     AnimatorInflater.loadAnimator(mActivity, R.animator.side_panel_exit);
             hideAnimator.setTarget(mPanel);
             hideAnimator.start();
-            hideAnimator.addListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    mPanel.setVisibility(View.GONE);
-                }
-            });
+            hideAnimator.addListener(
+                    new AnimatorListenerAdapter() {
+                        @Override
+                        public void onAnimationEnd(Animator animation) {
+                            mPanel.setVisibility(View.GONE);
+                        }
+                    });
         } else {
             mPanel.setVisibility(View.GONE);
         }
@@ -236,23 +232,23 @@ public class SideFragmentManager {
         return mPanel.getVisibility() == View.VISIBLE;
     }
 
-    /**
-     * Resets the timer for hiding side fragment.
-     */
+    /** Resets the timer for hiding side fragment. */
     public void scheduleHideAll() {
-        mHandler.removeCallbacks(mHideAllRunnable);
-        mHandler.postDelayed(mHideAllRunnable, mShowDurationMillis);
+        mAutoHideScheduler.schedule(mShowDurationMillis);
     }
 
-    /**
-     * Should {@code keyCode} hide the current panel.
-     */
+    /** Should {@code keyCode} hide the current panel. */
     public boolean isHideKeyForCurrentPanel(int keyCode) {
         if (isActive()) {
-            SideFragment current = (SideFragment) mFragmentManager.findFragmentById(
-                    R.id.side_fragment_container);
+            SideFragment current =
+                    (SideFragment) mFragmentManager.findFragmentById(R.id.side_fragment_container);
             return current != null && current.isHideKeyForThisPanel(keyCode);
         }
         return false;
+    }
+
+    @Override
+    public void onAccessibilityStateChanged(boolean enabled) {
+        mAutoHideScheduler.onAccessibilityStateChanged(enabled);
     }
 }

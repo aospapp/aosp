@@ -17,10 +17,10 @@ import sys
 
 """Shared functions for use in tzdata scripts."""
 
-def GetIanaTarFile(dir_name):
+def GetIanaTarFile(dir_name, file_type):
   matching_files = []
   for filename in os.listdir(dir_name):
-    if filename.startswith('tzdata20') and filename.endswith('.tar.gz'):
+    if filename.startswith('tz%s20' % file_type) and filename.endswith('.tar.gz'):
       matching_files.append(filename);
 
   if len(matching_files) == 0:
@@ -28,6 +28,6 @@ def GetIanaTarFile(dir_name):
   elif len(matching_files) == 1:
     return '%s/%s' % (dir_name, matching_files[0])
   else:
-    print 'Multiple tzdata files found unexpectedly %s' % matching_files
+    print 'Multiple tz%s files found unexpectedly %s' % (file_type, matching_files)
     sys.exit(1)
 

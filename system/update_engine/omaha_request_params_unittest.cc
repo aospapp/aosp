@@ -47,7 +47,7 @@ class OmahaRequestParamsTest : public ::testing::Test {
     // Create a fresh copy of the params for each test, so there's no
     // unintended reuse of state across tests.
     params_ = OmahaRequestParams(&fake_system_state_);
-    params_.set_root(tempdir_.path().value());
+    params_.set_root(tempdir_.GetPath().value());
     SetLockDown(false);
     fake_system_state_.set_prefs(&fake_prefs_);
   }
@@ -105,7 +105,8 @@ TEST_F(OmahaRequestParamsTest, DeltaOKTest) {
 }
 
 TEST_F(OmahaRequestParamsTest, NoDeltasTest) {
-  ASSERT_TRUE(WriteFileString(tempdir_.path().Append(".nodelta").value(), ""));
+  ASSERT_TRUE(
+      WriteFileString(tempdir_.GetPath().Append(".nodelta").value(), ""));
   EXPECT_TRUE(params_.Init("", "", false));
   EXPECT_FALSE(params_.delta_okay());
 }
@@ -113,48 +114,49 @@ TEST_F(OmahaRequestParamsTest, NoDeltasTest) {
 TEST_F(OmahaRequestParamsTest, SetTargetChannelTest) {
   {
     OmahaRequestParams params(&fake_system_state_);
-    params.set_root(tempdir_.path().value());
+    params.set_root(tempdir_.GetPath().value());
     EXPECT_TRUE(params.Init("", "", false));
     EXPECT_TRUE(params.SetTargetChannel("canary-channel", false, nullptr));
-    EXPECT_FALSE(params.is_powerwash_allowed());
+    EXPECT_FALSE(params.mutable_image_props_.is_powerwash_allowed);
   }
-  params_.set_root(tempdir_.path().value());
+  params_.set_root(tempdir_.GetPath().value());
   EXPECT_TRUE(params_.Init("", "", false));
   EXPECT_EQ("canary-channel", params_.target_channel());
-  EXPECT_FALSE(params_.is_powerwash_allowed());
+  EXPECT_FALSE(params_.mutable_image_props_.is_powerwash_allowed);
 }
 
 TEST_F(OmahaRequestParamsTest, SetIsPowerwashAllowedTest) {
   {
     OmahaRequestParams params(&fake_system_state_);
-    params.set_root(tempdir_.path().value());
+    params.set_root(tempdir_.GetPath().value());
     EXPECT_TRUE(params.Init("", "", false));
     EXPECT_TRUE(params.SetTargetChannel("canary-channel", true, nullptr));
-    EXPECT_TRUE(params.is_powerwash_allowed());
+    EXPECT_TRUE(params.mutable_image_props_.is_powerwash_allowed);
   }
-  params_.set_root(tempdir_.path().value());
+  params_.set_root(tempdir_.GetPath().value());
   EXPECT_TRUE(params_.Init("", "", false));
   EXPECT_EQ("canary-channel", params_.target_channel());
-  EXPECT_TRUE(params_.is_powerwash_allowed());
+  EXPECT_TRUE(params_.mutable_image_props_.is_powerwash_allowed);
 }
 
 TEST_F(OmahaRequestParamsTest, SetTargetChannelInvalidTest) {
   {
     OmahaRequestParams params(&fake_system_state_);
-    params.set_root(tempdir_.path().value());
+    params.set_root(tempdir_.GetPath().value());
     SetLockDown(true);
     EXPECT_TRUE(params.Init("", "", false));
+    params.image_props_.allow_arbitrary_channels = false;
     string error_message;
     EXPECT_FALSE(
         params.SetTargetChannel("dogfood-channel", true, &error_message));
     // The error message should include a message about the valid channels.
     EXPECT_NE(string::npos, error_message.find("stable-channel"));
-    EXPECT_FALSE(params.is_powerwash_allowed());
+    EXPECT_FALSE(params.mutable_image_props_.is_powerwash_allowed);
   }
-  params_.set_root(tempdir_.path().value());
+  params_.set_root(tempdir_.GetPath().value());
   EXPECT_TRUE(params_.Init("", "", false));
   EXPECT_EQ("stable-channel", params_.target_channel());
-  EXPECT_FALSE(params_.is_powerwash_allowed());
+  EXPECT_FALSE(params_.mutable_image_props_.is_powerwash_allowed);
 }
 
 TEST_F(OmahaRequestParamsTest, IsValidChannelTest) {
@@ -165,6 +167,10 @@ TEST_F(OmahaRequestParamsTest, IsValidChannelTest) {
   EXPECT_FALSE(params_.IsValidChannel("testimage-channel"));
   EXPECT_FALSE(params_.IsValidChannel("dogfood-channel"));
   EXPECT_FALSE(params_.IsValidChannel("some-channel"));
+  EXPECT_FALSE(params_.IsValidChannel(""));
+  params_.image_props_.allow_arbitrary_channels = true;
+  EXPECT_TRUE(params_.IsValidChannel("some-channel"));
+  EXPECT_FALSE(params_.IsValidChannel("wrong-suffix"));
   EXPECT_FALSE(params_.IsValidChannel(""));
 }
 
@@ -226,7 +232,25 @@ TEST_F(OmahaRequestParamsTest, ChannelIndexTest) {
 TEST_F(OmahaRequestParamsTest, ToMoreStableChannelFlagTest) {
   params_.image_props_.current_channel = "canary-channel";
   params_.download_channel_ = "stable-channel";
-  EXPECT_TRUE(params_.to_more_stable_channel());
+  EXPECT_TRUE(params_.ToMoreStableChannel());
+  params_.image_props_.current_channel = "stable-channel";
+  EXPECT_FALSE(params_.ToMoreStableChannel());
+  params_.download_channel_ = "beta-channel";
+  EXPECT_FALSE(params_.ToMoreStableChannel());
+}
+
+TEST_F(OmahaRequestParamsTest, ShouldPowerwashTest) {
+  params_.mutable_image_props_.is_powerwash_allowed = false;
+  EXPECT_FALSE(params_.ShouldPowerwash());
+  params_.mutable_image_props_.is_powerwash_allowed = true;
+  params_.image_props_.allow_arbitrary_channels = true;
+  params_.image_props_.current_channel = "foo-channel";
+  params_.download_channel_ = "bar-channel";
+  EXPECT_TRUE(params_.ShouldPowerwash());
+  params_.image_props_.allow_arbitrary_channels = false;
+  params_.image_props_.current_channel = "canary-channel";
+  params_.download_channel_ = "stable-channel";
+  EXPECT_TRUE(params_.ShouldPowerwash());
 }
 
 TEST_F(OmahaRequestParamsTest, CollectECFWVersionsTest) {

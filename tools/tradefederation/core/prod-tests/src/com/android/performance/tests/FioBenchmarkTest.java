@@ -31,6 +31,7 @@ import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.StreamUtil;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import junit.framework.TestCase;
 
@@ -882,7 +883,7 @@ public class FioBenchmarkTest implements IDeviceTest, IRemoteTest {
         }
 
         CLog.d("About to report metrics to %s: %s", key, metrics);
-        listener.testRunEnded(0, metrics);
+        listener.testRunEnded(0, TfMetricProtoUtil.upgradeConvert(metrics));
     }
 
     private void collectLogs(TestInfo testInfo, ITestInvocationListener listener,

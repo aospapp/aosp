@@ -16,7 +16,8 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.accessibilityservice.cts">
+          package="android.accessibilityservice.cts"
+          android:targetSandboxVersion="2">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
@@ -28,35 +29,47 @@
 
         <activity
             android:label="@string/accessibility_end_to_end_test_activity"
-            android:name=".AccessibilityEndToEndActivity" />
+            android:name=".activities.AccessibilityEndToEndActivity"
+            android:screenOrientation="portrait"/>
 
         <activity
             android:label="@string/accessibility_query_window_test_activity"
-            android:name=".AccessibilityWindowQueryActivity"
-            android:supportsPictureInPicture="true" />
+            android:name=".activities.AccessibilityWindowQueryActivity"
+            android:supportsPictureInPicture="true"
+            android:screenOrientation="portrait"/>
 
         <activity
             android:label="@string/accessibility_view_tree_reporting_test_activity"
-            android:name=".AccessibilityViewTreeReportingActivity" />
+            android:name=".activities.AccessibilityViewTreeReportingActivity"
+            android:screenOrientation="portrait"/>
 
         <activity
             android:label="@string/accessibility_focus_and_input_focus_sync_test_activity"
-            android:name=".AccessibilityFocusAndInputFocusSyncActivity" />
+            android:name=".activities.AccessibilityFocusAndInputFocusSyncActivity"
+            android:screenOrientation="portrait"/>
 
         <activity
             android:label="@string/accessibility_text_traversal_test_activity"
-            android:name=".AccessibilityTextTraversalActivity"/>
+            android:name=".activities.AccessibilityTextTraversalActivity"
+            android:screenOrientation="portrait"/>
 
         <activity android:label="Activity for testing window accessibility reporting"
-             android:name=".AccessibilityWindowReportingActivity"/>
+             android:name=".activities.AccessibilityWindowReportingActivity"
+             android:supportsPictureInPicture="true"
+             android:screenOrientation="portrait"/>
 
         <activity
             android:label="Full screen activity for gesture dispatch testing"
-            android:name=".AccessibilityGestureDispatchTest$GestureDispatchActivity" />
+            android:name=".AccessibilityGestureDispatchTest$GestureDispatchActivity"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:label="@string/accessibility_soft_keyboard_modes_activity"
+            android:name=".AccessibilitySoftKeyboardModesTest$SoftKeyboardModesActivity" />
 
         <service
-            android:name=".StubGestureAccessibilityService"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+                android:name=".StubGestureAccessibilityService"
+                android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
                 <category android:name="android.accessibilityservice.category.FEEDBACK_GENERIC" />
@@ -68,20 +81,16 @@
         </service>
 
         <service
-            android:name=".AccessibilityGestureDetectorTest$StubService"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+                android:name=".AccessibilityGestureDetectorTest$StubService"
+                android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
                 <category android:name="android.accessibilityservice.category.FEEDBACK_GENERIC" />
             </intent-filter>
             <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/stub_gesture_detect_a11y_service" />
+                    android:name="android.accessibilityservice"
+                    android:resource="@xml/stub_gesture_detect_a11y_service" />
         </service>
-
-        <activity
-            android:label="@string/accessibility_soft_keyboard_modes_activity"
-            android:name=".AccessibilitySoftKeyboardModesTest$SoftKeyboardModesActivity" />
 
         <service
             android:name=".InstrumentedAccessibilityService"

@@ -41,6 +41,7 @@ We are taking the risk because
 """
 
 
+from autotest_lib.client.bin import sysinfo
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import constants
 from autotest_lib.server import afe_utils
@@ -61,7 +62,8 @@ def run(machine):
     else:
         is_test_na = False
         # Save preserved log after autoupdate is completed.
-        job.sysinfo.add_logdir(constants.AUTOUPDATE_PRESERVE_LOG)
+        job.sysinfo.add_logdir(
+                sysinfo.logdir(constants.AUTOUPDATE_PRESERVE_LOG))
         host = hosts.create_host(machine)
         info = host.host_info_store.get()
         value = info.build

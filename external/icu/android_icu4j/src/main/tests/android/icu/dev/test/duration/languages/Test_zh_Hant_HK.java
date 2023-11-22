@@ -13,11 +13,13 @@
 package android.icu.dev.test.duration.languages;
 
 import android.icu.dev.test.duration.LanguageTestFmwk;
+import android.icu.testsharding.MainTestShard;
 
 
 /**
  * Test cases for zh_Hant_HK
  */
+@MainTestShard
 public class Test_zh_Hant_HK extends LanguageTestFmwk {
   public Test_zh_Hant_HK() {
     super("zh_Hant_HK", false);

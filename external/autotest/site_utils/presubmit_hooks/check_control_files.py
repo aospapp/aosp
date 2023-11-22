@@ -141,7 +141,7 @@ def CheckSuites(ctrl_data, test_name, useflags):
         raise ControlFileCheckerError(
                 'No ebuild entry for %s. To fix, please do the following: 1. '
                 'Add your new test to one of the ebuilds referenced by '
-                'autotest-all. 2. cros_workon start --board=<board> '
+                'autotest-all. 2. cros_workon --board=<board> start '
                 '<your_ebuild>. 3. emerge-<board> <your_ebuild>' % test_name)
 
 

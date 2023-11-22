@@ -21,6 +21,7 @@ glsl_to_spirv(Smoke.vert)
 glsl_to_spirv(Smoke.push_constant.vert)
 
 set(sources
+    Game.cpp
     Game.h
     Helpers.h
     HelpersDispatchTable.cpp
@@ -62,14 +63,14 @@ if(WIN32)
 else()
     list(APPEND libraries PRIVATE -ldl -lrt)
 
-    if(BUILD_WSI_XCB_SUPPORT)
+    if(BUILD_WSI_XCB_SUPPORT AND DEMOS_WSI_SELECTION STREQUAL "XCB")
         find_package(XCB REQUIRED)
 
         list(APPEND sources ShellXcb.cpp ShellXcb.h)
         list(APPEND definitions PRIVATE -DVK_USE_PLATFORM_XCB_KHR)
         list(APPEND includes PRIVATE ${XCB_INCLUDES})
         list(APPEND libraries PRIVATE ${XCB_LIBRARIES})
-    elseif(BUILD_WSI_WAYLAND_SUPPORT)
+    elseif(BUILD_WSI_WAYLAND_SUPPORT AND DEMOS_WSI_SELECTION STREQUAL "WAYLAND")
         find_package(Wayland REQUIRED)
 
         list(APPEND sources ShellWayland.cpp ShellWayland.h)
@@ -79,9 +80,15 @@ else()
     endif()
 endif()
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/demos)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/..)
 
 add_executable(smoketest ${sources})
 target_compile_definitions(smoketest ${definitions})
 target_include_directories(smoketest ${includes})
 target_link_libraries(smoketest ${libraries})
+
+if(UNIX)
+    if(INSTALL_LVL_FILES)
+        install(TARGETS smoketest DESTINATION ${CMAKE_INSTALL_BINDIR})
+    endif()
+endif()

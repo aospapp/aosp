@@ -2,9 +2,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import logging
+import os
 import string
-import common
 
+import common
 from chromite.lib import gce
 
 from autotest_lib.client.common_lib import error
@@ -13,6 +15,7 @@ from autotest_lib.client.cros import constants as client_constants
 from autotest_lib.server.hosts import abstract_ssh
 
 SSH_KEYS_METADATA_KEY = "sshKeys"
+TMP_DIR='/usr/local/tmp'
 
 def extract_arguments(args_dict):
     """Extract GCE-specific arguments from arguments dictionary.
@@ -45,13 +48,30 @@ class GceHost(abstract_ssh.AbstractSSHHost):
             self._gce_instance = gce_args['gce_instance']
             self._gce_key_file = gce_args['gce_key_file']
         else:
-            # TODO(andreyu): determine project, zone and instance names by
-            # querying metadata from the DUT instance
-            raise error.AutoservError('No GCE flags provided.')
+            logging.warning("No GCE flags provided, calls to GCE API will fail")
+            return
 
         self.gce = gce.GceContext.ForServiceAccountThreadSafe(
                 self._gce_project, self._gce_zone, self._gce_key_file)
 
+    @staticmethod
+    def check_host(host, timeout=10):
+        """
+        Check if the given host is running on GCE.
+
+        @param host: An ssh host representing a device.
+        @param timeout: The timeout for the run command.
+
+        @return: True if the host is running on GCE.
+        """
+        try:
+            result = host.run(
+                    'grep CHROMEOS_RELEASE_BOARD /etc/lsb-release',
+                     timeout=timeout)
+            return lsbrelease_utils.is_gce_board(
+                    lsb_release_content=result.stdout)
+        except (error.AutoservRunError, error.AutoservSSHTimeout):
+            return False
 
     def _modify_ssh_keys(self, to_add, to_remove):
         """Modifies the list of ssh keys.
@@ -97,6 +117,26 @@ class GceHost(abstract_ssh.AbstractSSHHost):
                     'cat "%s"' % client_constants.LSB_RELEASE).stdout.strip()
         return lsbrelease_utils.get_chromeos_release_version(
                     lsb_release_content=lsb_release_content)
+
+    def get_tmp_dir(self, parent=TMP_DIR):
+        """Return the pathname of a directory on the host suitable
+        for temporary file storage.
+
+        The directory and its content will be deleted automatically
+        on the destruction of the Host object that was used to obtain
+        it.
+
+        @param parent: Parent directory of the returned tmp dir.
+
+        @returns a path to the tmp directory on the host.
+        """
+        if not parent.startswith(TMP_DIR):
+            parent = os.path.join(TMP_DIR, parent.lstrip(os.path.sep))
+        self.run("mkdir -p %s" % parent)
+        template = os.path.join(parent, 'autoserv-XXXXXX')
+        dir_name = self.run_output("mktemp -d %s" % template)
+        self.tmp_dirs.append(dir_name)
+        return dir_name
 
 
     def set_instance_metadata(self, key, value):

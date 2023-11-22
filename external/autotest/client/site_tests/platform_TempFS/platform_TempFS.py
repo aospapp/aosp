@@ -25,8 +25,8 @@ class platform_TempFS(test.test):
         # allows for 50% usage of space allocated before this test is run.
 
         threshold = utils.memtotal()/4
-        tempdirs = ['/dev', '/tmp', '/dev/shm', '/var/tmp', '/var/run',
-                    '/var/lock']
+        tempdirs = ['/dev', '/tmp', '/dev/shm', '/var/tmp', '/run',
+                    '/run/lock']
 
         for dir in tempdirs:
             if os.path.isdir(dir):

@@ -24,23 +24,24 @@ import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
 import android.system.helpers.CommandsHelper;
 
-public class AutoLauncherStrategy  implements IAutoLauncherStrategy {
+import junit.framework.Assert;
+
+public class AutoLauncherStrategy implements IAutoLauncherStrategy {
 
     private static final String LOG_TAG = AutoLauncherStrategy.class.getSimpleName();
-    private static final String CAR_LENSPICKER = "com.android.support.car.lenspicker";
+    private static final String CAR_LENSPICKER = "com.android.car.carlauncher";
 
     private static final long APP_INIT_WAIT = 10000;
+    private static final int OPEN_FACET_RETRY_TIME = 5;
 
     //todo: Remove x and y axis and use resource ID's.
     private static final int FACET_APPS = 560;
     private static final int MAP_FACET = 250;
-    private static final int DIAL_FACET = 380;
-    private static final int HOME_FACET = 530;
-    private static final int MEDIA_FACET = 680;
-    private static final int SETTINGS_FACET = 810;
 
-    private static final BySelector R_ID_LENSPICKER_PAGEDOWN =
+    private static final BySelector R_ID_LENSPICKER_PAGE_DOWN =
             By.res(CAR_LENSPICKER, "page_down");
+    private static final BySelector R_ID_LENSPICKER_LIST =
+            By.res(CAR_LENSPICKER, "list_view");
 
     protected UiDevice mDevice;
     private Instrumentation mInstrumentation;
@@ -67,18 +68,35 @@ public class AutoLauncherStrategy  implements IAutoLauncherStrategy {
 
     @Override
     public void openDialFacet() {
-        CommandsHelper.getInstance(mInstrumentation).executeShellCommand(
-                "input tap " + DIAL_FACET + " " + FACET_APPS);
+        throw new UnsupportedOperationException(
+                "The feature not supported on Auto");
     }
 
     @Override
-    public  void openMediaFacet(String appName) {
-        openApp(appName, MEDIA_FACET, FACET_APPS);
+    public void openMediaFacet(String appName) {
+        BySelector button = By.clickable(true).hasDescendant(By.text(appName));
+        for (int tries = 3; tries >= 0; tries--) {
+            // TODO: Switch this to intents. It doesn't appear to work via intents on my system.
+            CommandsHelper.getInstance(mInstrumentation).executeShellCommand(
+                    "am start -n com.android.support.car.lenspicker/.LensPickerActivity"
+                            + " --esa categories android.intent.category.APP_MUSIC");
+            mDevice.wait(Until.findObject(button), APP_INIT_WAIT);
+            if (mDevice.hasObject(button)) {
+                break;
+            }
+        }
+        UiObject2 choice = mDevice.findObject(button);
+        Assert.assertNotNull("Unable to find application " + appName, choice);
+        choice.click();
+        mDevice.wait(Until.gone(button), APP_INIT_WAIT);
+        Assert.assertFalse("Failed to exit media menu.", mDevice.hasObject(button));
+        mDevice.waitForIdle(APP_INIT_WAIT);
     }
 
     @Override
     public void openSettingsFacet(String appName) {
-        openApp(appName, SETTINGS_FACET, FACET_APPS);
+        throw new UnsupportedOperationException(
+                "The feature not supported on Auto");
     }
 
     @Override
@@ -89,32 +107,29 @@ public class AutoLauncherStrategy  implements IAutoLauncherStrategy {
 
     @Override
     public void openHomeFacet() {
-        CommandsHelper.getInstance(mInstrumentation).executeShellCommand(
-                "input tap " + HOME_FACET + " " + FACET_APPS);
+        UiDevice.getInstance(mInstrumentation).pressHome();
     }
 
-    public void openApp(String appName, int x, int y) {
+    public void openApp(String appName) {
         do {
+            // TODO: Switch this to intents. It doesn't appear to work via intents on my system.
             CommandsHelper.getInstance(mInstrumentation).executeShellCommand(
-                    "input tap " + x + " " + y);
+                    "am start -n com.android.car.carlauncher/.AppGridActivity");
         }
-        while (!mDevice.hasObject(R_ID_LENSPICKER_PAGEDOWN));
+        //R_ID_LENSPICKER_LIST to open app if scrollContainer not avilable.
+        while (!mDevice.hasObject(R_ID_LENSPICKER_PAGE_DOWN)
+                && !mDevice.hasObject(R_ID_LENSPICKER_LIST));
 
-        UiObject2 scrollContainer = mDevice.findObject(R_ID_LENSPICKER_PAGEDOWN);
+        UiObject2 scrollContainer = mDevice.findObject(R_ID_LENSPICKER_PAGE_DOWN);
 
-        if (scrollContainer == null) {
-            throw new UnsupportedOperationException("Cannot find scroll container");
-        }
+        if (scrollContainer != null) {
 
-        if (!mDevice.hasObject(By.text(appName))) {
-            do {
-                scrollContainer.scroll(Direction.DOWN, 1.0f);
+            if (!mDevice.hasObject(By.text(appName))) {
+                do {
+                    scrollContainer.scroll(Direction.DOWN, 1.0f);
+                }
+                while (!mDevice.hasObject(By.text(appName)) && scrollContainer.isEnabled());
             }
-            while (!mDevice.hasObject(By.text(appName)) && scrollContainer.isEnabled());
-        }
-
-        if (!scrollContainer.isEnabled()) {
-            throw new UnsupportedOperationException("Unable to find application " + appName);
         }
 
         UiObject2 application = mDevice.wait(Until.findObject(By.text(appName)), APP_INIT_WAIT);
@@ -122,7 +137,7 @@ public class AutoLauncherStrategy  implements IAutoLauncherStrategy {
             application.click();
             mDevice.waitForIdle();
         } else {
-            throw new RuntimeException("Unable to find permission text ok button");
+            Assert.fail("Unable to find application " + appName);
         }
     }
 

@@ -18,7 +18,9 @@
 
 #include "DumpstateInternal.h"
 
+#include <errno.h>
 #include <grp.h>
+#include <poll.h>
 #include <pwd.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -34,6 +36,7 @@
 #include <vector>
 
 #include <android-base/file.h>
+#include <android-base/macros.h>
 #include <log/log.h>
 
 uint64_t Nanotime() {
@@ -97,13 +100,25 @@ bool DropRootUser() {
     capheader.version = _LINUX_CAPABILITY_VERSION_3;
     capheader.pid = 0;
 
-    capdata[CAP_TO_INDEX(CAP_SYSLOG)].permitted = CAP_TO_MASK(CAP_SYSLOG);
-    capdata[CAP_TO_INDEX(CAP_SYSLOG)].effective = CAP_TO_MASK(CAP_SYSLOG);
-    capdata[0].inheritable = 0;
-    capdata[1].inheritable = 0;
+    if (capget(&capheader, &capdata[0]) != 0) {
+        MYLOGE("capget failed: %s\n", strerror(errno));
+        return false;
+    }
 
-    if (capset(&capheader, &capdata[0]) < 0) {
-        MYLOGE("capset failed: %s\n", strerror(errno));
+    const uint32_t cap_syslog_mask = CAP_TO_MASK(CAP_SYSLOG);
+    const uint32_t cap_syslog_index = CAP_TO_INDEX(CAP_SYSLOG);
+    bool has_cap_syslog = (capdata[cap_syslog_index].effective & cap_syslog_mask) != 0;
+
+    memset(&capdata, 0, sizeof(capdata));
+    if (has_cap_syslog) {
+        // Only attempt to keep CAP_SYSLOG if it was present to begin with.
+        capdata[cap_syslog_index].permitted |= cap_syslog_mask;
+        capdata[cap_syslog_index].effective |= cap_syslog_mask;
+    }
+
+    if (capset(&capheader, &capdata[0]) != 0) {
+        MYLOGE("capset({%#x, %#x}) failed: %s\n", capdata[0].effective,
+               capdata[1].effective, strerror(errno));
         return false;
     }
 
@@ -141,22 +156,16 @@ int DumpFileFromFdToFd(const std::string& title, const std::string& path_string,
         return 0;
     }
     bool newline = false;
-    fd_set read_set;
-    timeval tm;
     while (true) {
-        FD_ZERO(&read_set);
-        FD_SET(fd, &read_set);
-        /* Timeout if no data is read for 30 seconds. */
-        tm.tv_sec = 30;
-        tm.tv_usec = 0;
-        uint64_t elapsed = Nanotime();
-        int ret = TEMP_FAILURE_RETRY(select(fd + 1, &read_set, nullptr, nullptr, &tm));
+        uint64_t start_time = Nanotime();
+        pollfd fds[] = { { .fd = fd, .events = POLLIN } };
+        int ret = TEMP_FAILURE_RETRY(poll(fds, arraysize(fds), 30 * 1000));
         if (ret == -1) {
-            dprintf(out_fd, "*** %s: select failed: %s\n", path, strerror(errno));
+            dprintf(out_fd, "*** %s: poll failed: %s\n", path, strerror(errno));
             newline = true;
             break;
         } else if (ret == 0) {
-            elapsed = Nanotime() - elapsed;
+            uint64_t elapsed = Nanotime() - start_time;
             dprintf(out_fd, "*** %s: Timed out after %.3fs\n", path, (float)elapsed / NANOS_PER_SEC);
             newline = true;
             break;
@@ -175,7 +184,6 @@ int DumpFileFromFdToFd(const std::string& title, const std::string& path_string,
             }
         }
     }
-    close(fd);
 
     if (!newline) dprintf(out_fd, "\n");
     if (!title.empty()) dprintf(out_fd, "\n");

@@ -10,8 +10,8 @@ from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 
 class firmware_TPMNotCorruptedDevMode(FirmwareTest):
     """
-    Checks the firmware and kernel verion stored in TPMC and boots to USB and
-    checks the firmware verion and kernel version in crossystem.
+    Checks the firmware and kernel version stored in TPMC and boots to USB and
+    checks the firmware version and kernel version in crossystem.
 
     This test requires a USB disk plugged-in, which contains a Chrome OS test
     image (built by "build_image test").
@@ -36,23 +36,11 @@ class firmware_TPMNotCorruptedDevMode(FirmwareTest):
             str(self.original_dev_boot_usb))
 
     def cleanup(self):
-        self.ensure_internal_device_boot()
+        try:
+            self.ensure_dev_internal_boot(self.original_dev_boot_usb)
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_TPMNotCorruptedDevMode, self).cleanup()
-
-    def ensure_internal_device_boot(self):
-        """Ensure internal device boot; if not, reboot into it.
-
-        If not, it may be a test failure during step 2 or 3, try to reboot
-        and press Ctrl-D to internal device boot.
-        """
-        if self.faft_client.system.is_removable_device_boot():
-            logging.info('Reboot into internal disk...')
-            self.faft_client.system.set_dev_boot_usb(self.original_dev_boot_usb)
-            self.switcher.mode_aware_reboot()
-
-        self.check_state((self.checkers.dev_boot_usb_checker,
-                          False,
-                          'Did not boot from internal disk.'))
 
     def ensure_usb_device_boot(self):
         """Ensure USB device boot and if not reboot into USB."""
@@ -63,27 +51,15 @@ class firmware_TPMNotCorruptedDevMode(FirmwareTest):
             self.switcher.bypass_dev_boot_usb()
             self.switcher.wait_for_client()
 
-        self.check_state((self.checkers.dev_boot_usb_checker,
-                          True,
-                          'Did not boot from USB.'))
-
-    def check_tpmc(self, tpmc_output):
-        """Checks that the kern and fw version from the tpmc read command is one
-        of the expected values.
-        """
-        if len(tpmc_output) != 1:
-          return False
-
-        tpmc_fw_kern_version = tpmc_output[0]
-
-        return (tpmc_fw_kern_version in self.TPMC_KNOWN_VALUES)
+        self.check_state((self.checkers.dev_boot_usb_checker, (True, True),
+                          'Device not booted from USB image properly.'))
 
     def read_tmpc(self):
         """First checks if internal device boot and if not reboots into it.
         Then stops the tcsd then reads the value of `tpmc read 0x1008 0x0d` then
         checks if the output of that command is what is expected.
         """
-        self.ensure_internal_device_boot()
+        self.ensure_dev_internal_boot(self.original_dev_boot_usb)
         logging.info('Reading tpmc data.')
         self.faft_client.tpm.stop_daemon()
         tpmc_output = self.faft_client.system.run_shell_command_get_output(
@@ -97,7 +73,7 @@ class firmware_TPMNotCorruptedDevMode(FirmwareTest):
                   (tpmc_output, self.TPMC_KNOWN_VALUES))
 
     def read_kern_fw_ver(self):
-        """First ensures that we are botted on a USB device. Then checks the
+        """First ensures that we are booted on a USB device. Then checks the
         firmware and kernel version reported by crossystem.
         """
         self.ensure_usb_device_boot()

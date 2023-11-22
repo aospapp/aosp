@@ -15,43 +15,35 @@
 
 namespace policy {
 
-static const char kPolicyFileAllSet[] =
-    "policy/tests/whitelist/policy_all";
-static const char kPolicyFileNoneSet[] =
-    "policy/tests/whitelist/policy_none";
+static const char kPolicyFileAllSet[] = "policy/tests/whitelist/policy_all";
+static const char kPolicyFileNoneSet[] = "policy/tests/whitelist/policy_none";
 static const char kKeyFile[] = "policy/tests/whitelist/owner.key";
 
-// This class mocks only the minimally needed functionionality to run tests
-// that would otherwise fail because of hard restrictions like root file
-// ownership. Otherwise, it preserves all the functionallity of the original
-// class.
-class MockDevicePolicyImpl : public DevicePolicyImpl {
- public:
-  MockDevicePolicyImpl(const base::FilePath& policy_path,
-                       const base::FilePath& keyfile_path,
-                       bool verify_files)
-      : verify_files_(verify_files) {
-    policy_path_ = policy_path;
-    keyfile_path_ = keyfile_path;
-  }
+// Creates the DevicePolicyImpl with given parameters for test.
+std::unique_ptr<DevicePolicyImpl> CreateDevicePolicyImpl(
+    std::unique_ptr<InstallAttributesReader> install_attributes_reader,
+    const base::FilePath& policy_path,
+    const base::FilePath& keyfile_path,
+    bool verify_files) {
+  std::unique_ptr<DevicePolicyImpl> device_policy(new DevicePolicyImpl());
+  device_policy->set_install_attributes_for_testing(
+      std::move(install_attributes_reader));
+  device_policy->set_policy_path_for_testing(policy_path);
+  device_policy->set_key_file_path_for_testing(keyfile_path);
+  device_policy->set_verify_root_ownership_for_testing(verify_files);
 
- private:
-  // We don't care if files are owned by root for most tests.
-  virtual bool VerifyPolicyFiles() {
-    return !verify_files_ || DevicePolicyImpl::VerifyPolicyFiles();
-  }
-
-  bool verify_files_;
-};
+  return device_policy;
+}
 
 // Test that a policy file can be verified and parsed correctly. The file
 // contains all possible fields, so reading should succeed for all.
 TEST(PolicyTest, DevicePolicyAllSetTest) {
   base::FilePath policy_file(kPolicyFileAllSet);
   base::FilePath key_file(kKeyFile);
-  MockDevicePolicyImpl* device_policy =
-      new MockDevicePolicyImpl(policy_file, key_file, false);
-  PolicyProvider provider(device_policy);
+  PolicyProvider provider(
+      CreateDevicePolicyImpl(std::make_unique<MockInstallAttributesReader>(
+                                 cryptohome::SerializedInstallAttributes()),
+                             policy_file, key_file, false));
   provider.Reload();
 
   // Ensure we successfully loaded the device policy file.
@@ -162,6 +154,9 @@ TEST(PolicyTest, DevicePolicyAllSetTest) {
   ASSERT_EQ(0x0403, list_device[1].vendor_id);
   ASSERT_EQ(0x6001, list_device[1].product_id);
 
+  ASSERT_TRUE(policy.GetAutoLaunchedKioskAppId(&string_value));
+  ASSERT_EQ("my_kiosk_app", string_value);
+
   // Reloading the protobuf should succeed.
   ASSERT_TRUE(provider.Reload());
 }
@@ -171,9 +166,11 @@ TEST(PolicyTest, DevicePolicyAllSetTest) {
 TEST(PolicyTest, DevicePolicyNoneSetTest) {
   base::FilePath policy_file(kPolicyFileNoneSet);
   base::FilePath key_file(kKeyFile);
-  MockDevicePolicyImpl* device_policy =
-      new MockDevicePolicyImpl(policy_file, key_file, false);
-  PolicyProvider provider(device_policy);
+
+  PolicyProvider provider(
+      CreateDevicePolicyImpl(std::make_unique<MockInstallAttributesReader>(
+                                 cryptohome::SerializedInstallAttributes()),
+                             policy_file, key_file, false));
   provider.Reload();
 
   // Ensure we successfully loaded the device policy file.
@@ -217,9 +214,13 @@ TEST(PolicyTest, DevicePolicyFailure) {
   LOG(INFO) << "Errors expected.";
   // Try loading non-existing protobuf should fail.
   base::FilePath non_existing("this_file_is_doof");
-  MockDevicePolicyImpl* device_policy =
-      new MockDevicePolicyImpl(non_existing, non_existing, true);
-  PolicyProvider provider(device_policy);
+  PolicyProvider provider(
+      CreateDevicePolicyImpl(std::make_unique<MockInstallAttributesReader>(
+                                 cryptohome::SerializedInstallAttributes()),
+                             non_existing,
+                             non_existing,
+                             true));
+
   // Even after reload the policy should still be not loaded.
   ASSERT_FALSE(provider.Reload());
   ASSERT_FALSE(provider.device_policy_is_loaded());

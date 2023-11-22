@@ -71,7 +71,9 @@ public final class HostnameVerifierTest {
         + "HwlNrAu8jlZ2UqSgskSWlhYdMTAP9CPHiUv9N7FcT58Itv/I4fKREINQYjDpvQcx\n"
         + "SaTYb9dr5sB4WLNglk7zxDtM80H518VvihTcP7FHL+Gn6g4j5fkI98+S\n"
         + "-----END CERTIFICATE-----\n");
-    assertTrue(verifier.verify("foo.com", session));
+    // Android-changed: Ignore common name in hostname verification. http://b/70278814
+    // assertTrue(verifier.verify("foo.com", session));
+    assertFalse(verifier.verify("foo.com", session));
     assertFalse(verifier.verify("a.foo.com", session));
     assertFalse(verifier.verify("bar.com", session));
   }
@@ -104,7 +106,9 @@ public final class HostnameVerifierTest {
         + "9BsO7qe46hidgn39hKh1WjKK2VcL/3YRsC4wUi0PBtFW6ScMCuMhgIRXSPU55Rae\n"
         + "UIlOdPjjr1SUNWGId1rD7W16Scpwnknn310FNxFMHVI0GTGFkNdkilNCFJcIoRA=\n"
         + "-----END CERTIFICATE-----\n");
-    assertTrue(verifier.verify("\u82b1\u5b50.co.jp", session));
+    // Android-changed: Ignore common name in hostname verification. http://b/70278814
+    // assertTrue(verifier.verify("\u82b1\u5b50.co.jp", session));
+    assertFalse(verifier.verify("\u82b1\u5b50.co.jp", session));
     assertFalse(verifier.verify("a.\u82b1\u5b50.co.jp", session));
   }
 
@@ -257,7 +261,9 @@ public final class HostnameVerifierTest {
     assertFalse(verifier.verify("a.foo.com", session));
     assertFalse(verifier.verify("bar.com", session));
     assertFalse(verifier.verify("a.bar.com", session));
-    assertTrue(verifier.verify("\u82b1\u5b50.co.jp", session));
+    // Android-changed: Ignore common name in hostname verification. http://b/70278814
+    // assertTrue(verifier.verify("\u82b1\u5b50.co.jp", session));
+    assertFalse(verifier.verify("\u82b1\u5b50.co.jp", session));
     assertFalse(verifier.verify("a.\u82b1\u5b50.co.jp", session));
   }
 
@@ -290,8 +296,12 @@ public final class HostnameVerifierTest {
         + "l3Q/RK95bnA6cuRClGusLad0e6bjkBzx/VQ3VarDEpAkTLUGVAa0CLXtnyc=\n"
         + "-----END CERTIFICATE-----\n");
     assertFalse(verifier.verify("foo.com", session));
-    assertTrue(verifier.verify("www.foo.com", session));
-    assertTrue(verifier.verify("\u82b1\u5b50.foo.com", session));
+    // Android-changed: Ignore common name in hostname verification. http://b/70278814
+    // assertTrue(verifier.verify("www.foo.com", session));
+    assertFalse(verifier.verify("www.foo.com", session));
+    // Android-changed: Ignore common name in hostname verification. http://b/70278814
+    // assertTrue(verifier.verify("\u82b1\u5b50.foo.com", session));
+    assertFalse(verifier.verify("\u82b1\u5b50.foo.com", session));
     assertFalse(verifier.verify("a.b.foo.com", session));
   }
 
@@ -324,8 +334,12 @@ public final class HostnameVerifierTest {
         + "UGPLEUDzRHMPHLnSqT1n5UU5UDRytbjJPXzF+l/+WZIsanefWLsxnkgAuZe/oMMF\n"
         + "EJMryEzOjg4Tfuc5qM0EXoPcQ/JlheaxZ40p2IyHqbsWV4MRYuFH4bkM\n"
         + "-----END CERTIFICATE-----\n");
-    assertTrue(verifier.verify("foo.co.jp", session));
-    assertTrue(verifier.verify("\u82b1\u5b50.co.jp", session));
+    // Android-changed: Ignore common name in hostname verification. http://b/70278814
+    // assertTrue(verifier.verify("foo.co.jp", session));
+    assertFalse(verifier.verify("foo.co.jp", session));
+    // Android-changed: Ignore common name in hostname verification. http://b/70278814
+    // assertTrue(verifier.verify("\u82b1\u5b50.co.jp", session));
+    assertFalse(verifier.verify("\u82b1\u5b50.co.jp", session));
   }
 
   /**
@@ -451,7 +465,9 @@ public final class HostnameVerifierTest {
         + "U6LFxmZr31lFyis2/T68PpjAppc0DpNQuA2m/Y7oTHBDi55Fw6HVHCw3lucuWZ5d\n"
         + "qUYo4ES548JdpQtcLrW2sA==\n"
         + "-----END CERTIFICATE-----");
-    assertTrue(verifier.verify("google.com", session));
+    // Android-changed: Ignore common name in hostname verification. http://b/70278814
+    // assertTrue(verifier.verify("google.com", session));
+    assertFalse(verifier.verify("google.com", session));
   }
 
   @Test public void subjectAltName() throws Exception {

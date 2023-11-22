@@ -82,7 +82,7 @@
     <string name="medical_conditions_hint" msgid="6959152183029062882">"Beispiel: Asthma"</string>
     <string name="organ_donor" msgid="5953509460007124827">"Organspender"</string>
     <string name="unknown_organ_donor" msgid="2780515342875494225">"Unbekannt"</string>
-    <string name="yes" msgid="5829765567799916128">"Ja"</string>
+    <string name="yes" msgid="5829765567799916128">"\"Ja\""</string>
     <string name="no" msgid="1681689233660683509">"Nein"</string>
     <!-- no translation found for organ_donor_entries:0 (4680498266537823362) -->
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
@@ -99,11 +99,11 @@
     <string name="ok" msgid="163967937451981024">"OK"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Keine Informationen über den Eigentümer des Smartphones verfügbar"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"Wenn du der Eigentümer dieses Smartphones bist, tippe auf das Bleistiftsymbol, um Informationen hinzuzufügen, die im Notfall eingeblendet werden"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Wenn du der Eigentümer dieses Smartphones bist, tippe auf das Stiftsymbol, um Informationen hinzuzufügen, die im Notfall eingeblendet werden"</string>
     <string name="clear_all" msgid="8899013032870561633">"Alle löschen"</string>
     <string name="clear" msgid="3648880442502887163">"Löschen"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Möchtest du alle Informationen und Kontakte löschen?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Medizinische Informationen und Kontaktangaben können Ersthelfern im Notfall sehr helfen.\n\nDiese Angaben sind für alle auf dem Sperrbildschirm sichtbar und die Kontakte können durch einfaches Tippen auf den Namen angerufen werden, ohne dass dein Smartphone entsperrt werden muss."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Notfallinformationen hinzufügen"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Ersthelfern wichtige Informationen zur Verfügung stellen"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Deine Informationen für Ersthelfer"</string>
 </resources>

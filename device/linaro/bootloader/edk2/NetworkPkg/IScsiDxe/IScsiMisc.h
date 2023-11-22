@@ -1,7 +1,7 @@
 /** @file
   Miscellaneous definitions for iSCSI driver.
 
-Copyright (c) 2004 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -50,9 +50,14 @@ typedef struct _ISCSI_SESSION_CONFIG_NVDATA {
   UINT8             PrefixLength;
   UINT8             BootLun[8];
 
-  UINT16            ConnectTimeout; ///< timout value in milliseconds
+  UINT16            ConnectTimeout; ///< timout value in milliseconds.
   UINT8             ConnectRetryCount;
   UINT8             IsId[6];
+
+  BOOLEAN           RedirectFlag;
+  UINT16            OriginalTargetPort;     // The port of proxy/virtual target.
+  EFI_IP_ADDRESS    OriginalTargetIp;       // The address of proxy/virtual target.
+  
 } ISCSI_SESSION_CONFIG_NVDATA;
 #pragma pack()
 
@@ -306,10 +311,13 @@ IScsiCreateDriverData (
 /**
   Clean the iSCSI driver data.
 
-  @param[in]  Private The iSCSI driver data.
+  @param[in]              Private The iSCSI driver data.
+
+  @retval EFI_SUCCES      The clean operation is successful.
+  @retval Others          Other errors as indicated.
 
 **/
-VOID
+EFI_STATUS
 IScsiCleanDriverData (
   IN ISCSI_DRIVER_DATA  *Private
   );

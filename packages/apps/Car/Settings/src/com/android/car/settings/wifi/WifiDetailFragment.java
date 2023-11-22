@@ -19,18 +19,17 @@ import android.net.NetworkInfo.State;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.support.annotation.StringRes;
-import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.android.car.settings.common.ListSettingsFragment;
-import com.android.car.settings.common.SimpleTextLineItem;
-import com.android.car.settings.common.TypedPagedListAdapter;
-import com.android.settingslib.wifi.AccessPoint;
-
+import com.android.car.list.SimpleTextLineItem;
+import com.android.car.list.TypedPagedListAdapter;
 import com.android.car.settings.R;
+import com.android.car.settings.common.ListSettingsFragment;
+import com.android.car.settings.common.Logger;
+import com.android.settingslib.wifi.AccessPoint;
 
 import java.util.ArrayList;
 
@@ -41,13 +40,14 @@ import java.util.ArrayList;
  */
 public class WifiDetailFragment extends ListSettingsFragment {
     public static final String EXTRA_AP_STATE = "extra_ap_state";
-    private static final String TAG = "WifiDetailFragment";
+    private static final Logger LOG = new Logger(WifiDetailFragment.class);
 
     private AccessPoint mAccessPoint;
     private WifiManager mWifiManager;
 
     private class ActionFailListener implements WifiManager.ActionListener {
-        @StringRes private final int mMessageResId;
+        @StringRes
+        private final int mMessageResId;
 
         public ActionFailListener(@StringRes int messageResId) {
             mMessageResId = messageResId;
@@ -56,6 +56,7 @@ public class WifiDetailFragment extends ListSettingsFragment {
         @Override
         public void onSuccess() {
         }
+
         @Override
         public void onFailure(int reason) {
             Toast.makeText(getContext(),
@@ -88,21 +89,21 @@ public class WifiDetailFragment extends ListSettingsFragment {
 
         super.onActivityCreated(savedInstanceState);
         ((TextView) getActivity().findViewById(R.id.title)).setText(mAccessPoint.getSsid());
-        TextView forgetButton = (TextView) getActivity().findViewById(R.id.action_button1);
+        Button forgetButton = (Button) getActivity().findViewById(R.id.action_button1);
         forgetButton.setText(R.string.forget);
         forgetButton.setOnClickListener(v -> {
-                forget();
-                mFragmentController.goBack();
-            });
+            forget();
+            getFragmentController().goBack();
+        });
 
         if (mAccessPoint.isSaved() && !mAccessPoint.isActive()) {
-            TextView connectButton = (TextView) getActivity().findViewById(R.id.action_button2);
+            Button connectButton = (Button) getActivity().findViewById(R.id.action_button2);
             connectButton.setVisibility(View.VISIBLE);
             connectButton.setText(R.string.wifi_setup_connect);
             connectButton.setOnClickListener(v -> {
                 mWifiManager.connect(mAccessPoint.getConfig(),
                         new ActionFailListener(R.string.wifi_failed_connect_message));
-                mFragmentController.goBack();
+                getFragmentController().goBack();
             });
         }
     }
@@ -115,7 +116,7 @@ public class WifiDetailFragment extends ListSettingsFragment {
         lineItems.add(
                 new SimpleTextLineItem(getText(R.string.wifi_signal), getSignalString()));
         lineItems.add(new SimpleTextLineItem(getText(R.string.wifi_security),
-                mAccessPoint.getSecurityString(true /* concise*/)));
+                mAccessPoint.getSecurityString(/* concise= */ true)));
         return lineItems;
     }
 
@@ -136,7 +137,7 @@ public class WifiDetailFragment extends ListSettingsFragment {
                         AccessPoint.convertToQuotedString(mAccessPoint.getSsidStr()));
             } else {
                 // Should not happen, but a monkey seems to trigger it
-                Log.e(TAG, "Failed to forget invalid network " + mAccessPoint.getConfig());
+                LOG.e("Failed to forget invalid network " + mAccessPoint.getConfig());
                 return;
             }
         } else {

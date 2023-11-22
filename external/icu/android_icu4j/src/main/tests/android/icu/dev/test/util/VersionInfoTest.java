@@ -15,9 +15,12 @@ package android.icu.dev.test.util;
 import java.util.Arrays;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.util.VersionInfo;
+import android.icu.testsharding.MainTestShard;
 
 
 /**
@@ -25,6 +28,8 @@ import android.icu.util.VersionInfo;
 * @author Syn Wee Quek
 * @since release 2.1 March 01 2002
 */
+@MainTestShard
+@RunWith(JUnit4.class)
 public final class VersionInfoTest extends TestFmwk
 {
     // constructor ---------------------------------------------------

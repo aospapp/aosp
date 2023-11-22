@@ -37,8 +37,11 @@ import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
+import android.provider.Settings;
 import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiObject;
+import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
@@ -77,7 +80,7 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
     }
 
     public void testInvalidPath() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supportedHardwareForScopedDirectoryAccess()) return;
 
         for (StorageVolume volume : getVolumes()) {
             openExternalDirectoryInvalidPath(volume, "");
@@ -89,7 +92,7 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
     }
 
     public void testUserRejects() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supportedHardwareForScopedDirectoryAccess()) return;
 
         for (StorageVolume volume : getVolumes()) {
             // Tests user clicking DENY button, for all valid directories.
@@ -114,7 +117,7 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
     }
 
     public void testUserAccepts() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supportedHardwareForScopedDirectoryAccess()) return;
 
         for (StorageVolume volume : getVolumes()) {
             userAcceptsTest(volume, DIRECTORY_PICTURES);
@@ -125,7 +128,7 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
     }
 
     public void testUserAcceptsNewDirectory() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supportedHardwareForScopedDirectoryAccess()) return;
 
         // TODO: figure out a better way to remove the directory.
         final String command = "rm -rf /sdcard/" + DIRECTORY_PICTURES;
@@ -137,7 +140,7 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
     }
 
     public void testNotAskedAgain() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supportedHardwareForScopedDirectoryAccess()) return;
 
         for (StorageVolume volume : getVolumes()) {
             final String volumeDesc = volume.getDescription(getInstrumentation().getContext());
@@ -157,7 +160,7 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
     }
 
     public void testNotAskedAgainOnRoot() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supportedHardwareForScopedDirectoryAccess()) return;
 
         for (StorageVolume volume : getVolumes()) {
             if (volume.isPrimary()) continue;
@@ -185,7 +188,7 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
     }
 
     public void testDeniesOnceButAllowsAskingAgain() throws Exception {
-        if (!supportedHardware())return;
+        if (!supportedHardwareForScopedDirectoryAccess())return;
 
         final String[] dirs = { DIRECTORY_DCIM, DIRECTORY_ROOT };
         for (StorageVolume volume : getVolumes()) {
@@ -210,7 +213,7 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
     }
 
     public void testDeniesOnceForAll() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supportedHardwareForScopedDirectoryAccess()) return;
 
         final String[] dirs = {DIRECTORY_PICTURES, DIRECTORY_ROOT};
         for (StorageVolume volume : getVolumes()) {
@@ -246,13 +249,13 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
     }
 
     public void testRemovePackageStep1UserDenies() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supportedHardwareForScopedDirectoryAccess()) return;
 
         deniesOnceForAllTest(getPrimaryVolume(), DIRECTORY_NOTIFICATIONS);
     }
 
     public void testRemovePackageStep2UserAcceptsDoNotClear() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supportedHardwareForScopedDirectoryAccess()) return;
 
         userAcceptsTest(getPrimaryVolume(), DIRECTORY_NOTIFICATIONS);
     }
@@ -285,6 +288,17 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
         final String volumeDesc = volume.getDescription(context);
         final Intent data = assertActivitySucceeded("should have already granted "
                 + "permission to " + volumeDesc + " and " + directoryName);
+
+        return assertPermissionGranted(data);
+    }
+
+    /**
+     * Asserts a permission was effectively granted by using it to write docs.
+     *
+     * @return the granted URI.
+     */
+    private Uri assertPermissionGranted(Intent data) throws Exception {
+        final Context context = getInstrumentation().getContext();
         final Uri grantedUri = data.getData();
 
         // Test granted permission directly by persisting it...
@@ -315,6 +329,100 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
         assertTrue("delete", DocumentsContract.deleteDocument(resolver, dir));
 
         return grantedUri;
+    }
+
+    public void testResetDoNotAskAgain() throws Exception {
+        if (!supportedHardwareForScopedDirectoryAccess()) return;
+
+        final StorageVolume volume = getPrimaryVolume();
+        // TODO: ideally it should test all directories, but that would be too slow, and would
+        // require a more sophisticated way to get the toggle object (for example, it might require
+        // scrolling on devices with small screens)
+        final String dir = DIRECTORY_DOCUMENTS;
+
+        // First, triggers it.
+        deniesOnceForAllTest(volume, dir);
+
+        // Then reset it using settings.
+
+        // Launch screen.
+        launchDirectoryAccessSettingsScreenAndSelectApp();
+
+        // Toggle permission for dir.
+        final boolean gotIt = mDevice.wait(Until.hasObject(By.text(dir)), TIMEOUT);
+        assertTrue("object with text'(" + dir + "') not visible yet", gotIt);
+        // TODO: find a better way to get the toggle rather then getting all
+        final List<UiObject2> toggles = mDevice.findObjects(By.res("android:id/switch_widget"));
+        assertEquals("should have just one toggle: " + toggles, 1, toggles.size());
+        final UiObject2 toggle = toggles.get(0);
+        assertFalse("toggle for '" + dir + "' should not be checked", toggle.isChecked());
+        toggle.click();
+        assertTrue("toggle for '" + dir + "' should be checked", toggle.isChecked());
+
+        // Close app screen.
+        mDevice.pressBack();
+        // Close main screen.
+        mDevice.pressBack();
+
+        // Finally, make sure it's reset by requesting it again.
+        sendOpenExternalDirectoryIntent(volume, dir);
+        final Intent newData = assertActivitySucceeded("should have already granted "
+                + "permission to " + volume+ " and " + dir);
+        assertPermissionGranted(newData);
+    }
+
+    public void testResetGranted() throws Exception {
+        if (!supportedHardwareForScopedDirectoryAccess()) return;
+
+        final StorageVolume volume = getPrimaryVolume();
+        // TODO: ideally it should test all directories, but that would be too slow, and would
+        // require a more sophisticated way to get the toggle object (for example, it might require
+        // scrolling on devices with small screens)
+        final String dir = DIRECTORY_DOCUMENTS;
+
+        // First, grants it
+        userAcceptsTest(volume, dir);
+
+        // Then revoke it using settings.
+
+        // Launch screen.
+        launchDirectoryAccessSettingsScreenAndSelectApp();
+
+        // Toggle permission for dir.
+        final boolean gotIt = mDevice.wait(Until.hasObject(By.text(dir)), TIMEOUT);
+        assertTrue("object with text'(" + dir + "') not visible yet", gotIt);
+        // TODO: find a better way to get the toggle rather then getting all
+        final List<UiObject2> toggles = mDevice.findObjects(By.res("android:id/switch_widget"));
+        assertEquals("should have just one toggle: " + toggles, 1, toggles.size());
+        final UiObject2 toggle = toggles.get(0);
+        assertTrue("toggle for '" + dir + "' should be checked", toggle.isChecked());
+        toggle.click();
+        assertFalse("toggle for '" + dir + "' should not be checked", toggle.isChecked());
+
+        // Close app screen.
+        mDevice.pressBack();
+        // Close main screen.
+        mDevice.pressBack();
+
+        // Then tries again - should be denied.
+        sendOpenExternalDirectoryIntent(volume, dir);
+        assertActivityFailed();
+    }
+
+    private void launchDirectoryAccessSettingsScreenAndSelectApp() {
+        final Intent intent = new Intent(Settings.ACTION_STORAGE_VOLUME_ACCESS_SETTINGS)
+                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK );
+        final Context context = getInstrumentation().getContext();
+        context.startActivity(intent);
+
+        // Select app.
+        final String appLabel = context.getPackageManager().getApplicationLabel(
+                context.getApplicationInfo()).toString();
+        final BySelector byAppLabel = By.text(appLabel);
+        boolean gotIt = mDevice.wait(Until.hasObject(byAppLabel), TIMEOUT);
+        assertTrue("object with text'(" + appLabel + "') not visible yet", gotIt);
+        final UiObject2 appRow = mDevice.findObject(byAppLabel);
+        appRow.click();
     }
 
     private void openExternalDirectoryInvalidPath(StorageVolume volume, String directoryName) {

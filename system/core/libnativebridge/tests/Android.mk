@@ -29,23 +29,28 @@ test_src_files := \
 
 shared_libraries := \
     liblog \
+    libbase \
     libnativebridge \
     libnativebridge-dummy
 
+libnativebridge_tests_common_cflags := \
+    -Wall \
+    -Werror \
+
 $(foreach file,$(test_src_files), \
     $(eval include $(CLEAR_VARS)) \
-    $(eval LOCAL_CLANG := true) \
     $(eval LOCAL_SHARED_LIBRARIES := $(shared_libraries)) \
     $(eval LOCAL_SRC_FILES := $(file)) \
+    $(eval LOCAL_CFLAGS := $(libnativebridge_tests_common_cflags)) \
     $(eval LOCAL_MODULE := $(notdir $(file:%.cpp=%))) \
     $(eval include $(BUILD_NATIVE_TEST)) \
 )
 
 $(foreach file,$(test_src_files), \
     $(eval include $(CLEAR_VARS)) \
-    $(eval LOCAL_CLANG := true) \
     $(eval LOCAL_SHARED_LIBRARIES := $(shared_libraries)) \
     $(eval LOCAL_SRC_FILES := $(file)) \
+    $(eval LOCAL_CFLAGS := $(libnativebridge_tests_common_cflags)) \
     $(eval LOCAL_MODULE := $(notdir $(file:%.cpp=%))) \
     $(eval include $(BUILD_HOST_NATIVE_TEST)) \
 )

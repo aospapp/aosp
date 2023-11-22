@@ -8,6 +8,7 @@ option optimize_for = LITE_RUNTIME;
 package com.android.dialer.callintent;
 
 
+
 // Different ways a call can be initiated.
 message CallInitiationType {
   enum Type {
@@ -59,5 +60,9 @@ message CallInitiationType {
     CALL_SUBJECT_DIALOG = 16;
 
     IMS_VIDEO_BLOCKED_FALLBACK_TO_VOICE = 17;
+
+    LEGACY_VOICEMAIL_NOTIFICATION = 18;
+
+    VOICEMAIL_ERROR_MESSAGE = 19;
   }
 }

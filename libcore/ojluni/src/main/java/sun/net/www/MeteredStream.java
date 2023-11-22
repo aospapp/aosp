@@ -157,7 +157,10 @@ public class MeteredStream extends FilterInputStream {
         return n;
     }
 
-    public void close() throws IOException {
+    // Android-changed: Added synchronize to prevent concurrent finalization.
+    // Since other relevant methods also synchronize on the same object, this prevents
+    // finalization while those methods are running.
+    public synchronized void close() throws IOException {
         if (closed) {
             return;
         }

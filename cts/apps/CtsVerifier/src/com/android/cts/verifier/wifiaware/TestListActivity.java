@@ -20,6 +20,7 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.DataSetObserver;
 import android.net.wifi.aware.WifiAwareManager;
 import android.os.Bundle;
@@ -51,6 +52,9 @@ public class TestListActivity extends PassFailButtons.TestListActivity {
                     "Can't get WIFI_AWARE_SERVICE. Should be gated by 'test_required_features'!?");
             return;
         }
+
+        boolean isRttSupported = getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_WIFI_RTT);
 
         setContentView(R.layout.pass_fail_list);
         setInfoResources(R.string.aware_test, R.string.aware_test_info, 0);
@@ -120,6 +124,18 @@ public class TestListActivity extends PassFailButtons.TestListActivity {
                 R.string.aware_initiator,
                 DataPathOobPassphraseInitiatorTestActivity.class.getName(),
                 new Intent(this, DataPathOobPassphraseInitiatorTestActivity.class), null));
+        if (isRttSupported) {
+            adapter.add(TestListAdapter.TestListItem.newCategory(this,
+                    R.string.aware_discovery_ranging));
+            adapter.add(TestListAdapter.TestListItem.newTest(this,
+                    R.string.aware_publish,
+                    DiscoveryRangingPublishTestActivity.class.getName(),
+                    new Intent(this, DiscoveryRangingPublishTestActivity.class), null));
+            adapter.add(TestListAdapter.TestListItem.newTest(this,
+                    R.string.aware_subscribe,
+                    DiscoveryRangingSubscribeTestActivity.class.getName(),
+                    new Intent(this, DiscoveryRangingSubscribeTestActivity.class), null));
+        }
 
         adapter.registerDataSetObserver(new DataSetObserver() {
             @Override

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 The Android Open Source Project
+ * Copyright (C) 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,18 @@
 
 package android.telephony.ims;
 
+import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertTrue;
+
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.verify;
+
+import android.os.Parcel;
 import android.support.test.runner.AndroidJUnit4;
+import android.telephony.ims.feature.CapabilityChangeRequest;
 import android.telephony.ims.feature.ImsFeature;
+import android.telephony.ims.feature.MmTelFeature;
+import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.ims.internal.IImsFeatureStatusCallback;
@@ -27,94 +37,198 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
-
-import static junit.framework.Assert.assertEquals;
-import static junit.framework.Assert.assertTrue;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 
 @RunWith(AndroidJUnit4.class)
 public class ImsFeatureTest {
 
-    private TestImsFeature mTestImsService;
+    private TestImsFeature mTestImsFeature;
+    private ImsFeature.CapabilityCallback mCapabilityCallback;
 
     @Mock
     private IImsFeatureStatusCallback mTestStatusCallback;
     @Mock
     private IImsFeatureStatusCallback mTestStatusCallback2;
-    @Mock
-    private ImsFeature.INotifyFeatureRemoved mTestRemovedCallback;
-
-    private class TestImsFeature extends ImsFeature {
-
-        public boolean featureRemovedCalled = false;
-
-        @Override
-        public void onFeatureRemoved() {
-            featureRemovedCalled = true;
-        }
-
-        public void testSetFeatureState(int featureState) {
-            setFeatureState(featureState);
-        }
-    }
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        mTestImsService = new TestImsFeature();
+        mTestImsFeature = new TestImsFeature();
+        mCapabilityCallback = Mockito.spy(new ImsFeature.CapabilityCallback());
+        mTestImsFeature.addCapabilityCallback(mCapabilityCallback);
     }
 
     @After
     public void tearDown() {
-        mTestImsService = null;
+        mTestImsFeature = null;
+        mCapabilityCallback = null;
     }
 
     @Test
     @SmallTest
     public void testSetCallbackAndNotify() throws Exception {
-        mTestImsService.addImsFeatureStatusCallback(mTestStatusCallback);
-        mTestImsService.addImsFeatureStatusCallback(mTestStatusCallback2);
+        mTestImsFeature.addImsFeatureStatusCallback(mTestStatusCallback);
+        mTestImsFeature.addImsFeatureStatusCallback(mTestStatusCallback2);
 
-        verify(mTestStatusCallback).notifyImsFeatureStatus(eq(ImsFeature.STATE_NOT_AVAILABLE));
-        verify(mTestStatusCallback2).notifyImsFeatureStatus(eq(ImsFeature.STATE_NOT_AVAILABLE));
+        verify(mTestStatusCallback).notifyImsFeatureStatus(eq(ImsFeature.STATE_UNAVAILABLE));
+        verify(mTestStatusCallback2).notifyImsFeatureStatus(eq(ImsFeature.STATE_UNAVAILABLE));
     }
 
     @Test
     @SmallTest
     public void testSetFeatureAndCheckCallback() throws Exception {
-        mTestImsService.addImsFeatureStatusCallback(mTestStatusCallback);
-        mTestImsService.addImsFeatureStatusCallback(mTestStatusCallback2);
+        mTestImsFeature.addImsFeatureStatusCallback(mTestStatusCallback);
+        mTestImsFeature.addImsFeatureStatusCallback(mTestStatusCallback2);
 
-        mTestImsService.testSetFeatureState(ImsFeature.STATE_READY);
+        mTestImsFeature.testSetFeatureState(ImsFeature.STATE_READY);
 
         verify(mTestStatusCallback).notifyImsFeatureStatus(eq(ImsFeature.STATE_READY));
         verify(mTestStatusCallback2).notifyImsFeatureStatus(eq(ImsFeature.STATE_READY));
-        assertEquals(ImsFeature.STATE_READY, mTestImsService.getFeatureState());
+        assertEquals(ImsFeature.STATE_READY, mTestImsFeature.getFeatureState());
     }
 
-    @Test
     @SmallTest
-    public void testRegisterAndNotifyRemoveFeature() {
-        mTestImsService.addFeatureRemovedListener(mTestRemovedCallback);
+    @Test
+    public void testCapabilityConfigAdd() throws Exception {
+        ImsFeature.Capabilities c = new ImsFeature.Capabilities();
+        c.addCapabilities(TestImsFeature.CAPABILITY_TEST_1);
 
-        mTestImsService.notifyFeatureRemoved(0);
-
-        verify(mTestRemovedCallback).onFeatureRemoved(eq(0));
-        assertTrue(mTestImsService.featureRemovedCalled);
+        assertTrue(c.isCapable(TestImsFeature.CAPABILITY_TEST_1));
     }
 
-    @Test
     @SmallTest
-    public void testRegisterAndUnregisterNotify() {
-        mTestImsService.addFeatureRemovedListener(mTestRemovedCallback);
-        mTestImsService.removeFeatureRemovedListener(mTestRemovedCallback);
+    @Test
+    public void testCapabilityConfigAddMultiple() throws Exception {
+        ImsFeature.Capabilities c = new ImsFeature.Capabilities();
+        c.addCapabilities(TestImsFeature.CAPABILITY_TEST_1);
+        c.addCapabilities(TestImsFeature.CAPABILITY_TEST_2);
 
-        mTestImsService.notifyFeatureRemoved(0);
+        assertTrue(c.isCapable(TestImsFeature.CAPABILITY_TEST_2));
+    }
 
-        verify(mTestRemovedCallback, never()).onFeatureRemoved(eq(0));
-        assertTrue(mTestImsService.featureRemovedCalled);
+    @SmallTest
+    @Test
+    public void testCapabilityConfigHasMultiple() throws Exception {
+        ImsFeature.Capabilities c = new ImsFeature.Capabilities();
+        c.addCapabilities(TestImsFeature.CAPABILITY_TEST_1);
+        c.addCapabilities(TestImsFeature.CAPABILITY_TEST_2);
+
+        assertTrue(c.isCapable(
+                TestImsFeature.CAPABILITY_TEST_1 | TestImsFeature.CAPABILITY_TEST_2));
+    }
+
+    @SmallTest
+    @Test
+    public void testCapabilityConfigRemove() throws Exception {
+        ImsFeature.Capabilities c = new ImsFeature.Capabilities();
+        c.addCapabilities(TestImsFeature.CAPABILITY_TEST_1);
+        c.addCapabilities(TestImsFeature.CAPABILITY_TEST_2);
+        c.removeCapabilities(TestImsFeature.CAPABILITY_TEST_1);
+
+        assertTrue(c.isCapable(TestImsFeature.CAPABILITY_TEST_2));
+    }
+
+    @SmallTest
+    @Test
+    public void testSetCapabilityConfig() throws Exception {
+        CapabilityChangeRequest request = new CapabilityChangeRequest();
+        request.addCapabilitiesToEnableForTech(TestImsFeature.CAPABILITY_TEST_1,
+                ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN);
+
+        mTestImsFeature.requestChangeEnabledCapabilities(request, null);
+
+        assertEquals(request, mTestImsFeature.lastRequest);
+    }
+
+
+    @SmallTest
+    @Test
+    public void testSetCapabilityConfigError() throws Exception {
+        CapabilityChangeRequest request = new CapabilityChangeRequest();
+        request.addCapabilitiesToEnableForTech(TestImsFeature.CAPABILITY_TEST_1,
+                ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN);
+
+        mTestImsFeature.setCapabilitiesResult = ImsFeature.CAPABILITY_ERROR_GENERIC;
+        mTestImsFeature.requestChangeEnabledCapabilities(request, mCapabilityCallback);
+
+        verify(mCapabilityCallback).onChangeCapabilityConfigurationError(
+                eq(TestImsFeature.CAPABILITY_TEST_1),
+                eq(ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN),
+                eq(ImsFeature.CAPABILITY_ERROR_GENERIC));
+        assertEquals(request, mTestImsFeature.lastRequest);
+    }
+
+    @SmallTest
+    @Test
+    public void testNotifyCapabilityStatusChanged() throws Exception {
+        ImsFeature.Capabilities status =
+                new ImsFeature.Capabilities();
+        status.addCapabilities(TestImsFeature.CAPABILITY_TEST_1);
+        status.addCapabilities(TestImsFeature.CAPABILITY_TEST_2);
+
+        mTestImsFeature.capabilitiesStatusChanged(status);
+
+        assertEquals(status.getMask(), mTestImsFeature.queryCapabilityStatus().getMask());
+    }
+
+    @SmallTest
+    @Test
+    public void testNotifyCapabilityStatusChangedCallback() throws Exception {
+        ImsFeature.Capabilities status =
+                new ImsFeature.Capabilities();
+        status.addCapabilities(TestImsFeature.CAPABILITY_TEST_1);
+        status.addCapabilities(TestImsFeature.CAPABILITY_TEST_2);
+
+        mTestImsFeature.capabilitiesStatusChanged(status);
+
+        assertEquals(status.getMask(), mTestImsFeature.queryCapabilityStatus().getMask());
+        verify(mCapabilityCallback).onCapabilitiesStatusChanged(eq(status));
+    }
+
+    @SmallTest
+    @Test
+    public void testCapabilityChangeContainsFullSets() throws Exception {
+        CapabilityChangeRequest request = new CapabilityChangeRequest();
+        request.addCapabilitiesToEnableForTech(TestImsFeature.CAPABILITY_TEST_1
+                        | TestImsFeature.CAPABILITY_TEST_2,
+                ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN);
+        request.addCapabilitiesToEnableForTech(TestImsFeature.CAPABILITY_TEST_2,
+                ImsRegistrationImplBase.REGISTRATION_TECH_LTE);
+        request.addCapabilitiesToDisableForTech(TestImsFeature.CAPABILITY_TEST_1,
+                ImsRegistrationImplBase.REGISTRATION_TECH_LTE);
+
+        mTestImsFeature.changeEnabledCapabilities(request, /*Callback*/null);
+
+        assertTrue(request.getCapabilitiesToDisable().containsAll(
+                mTestImsFeature.lastRequest.getCapabilitiesToDisable()));
+        assertTrue(request.getCapabilitiesToEnable().containsAll(
+                mTestImsFeature.lastRequest.getCapabilitiesToEnable()));
+    }
+
+    @SmallTest
+    @Test
+    public void testCapabilityChangeRequestParcel() throws Exception {
+        CapabilityChangeRequest request = new CapabilityChangeRequest();
+        // add some capabilities
+        request.addCapabilitiesToEnableForTech(MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE,
+                ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN);
+        request.addCapabilitiesToEnableForTech(
+                MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VIDEO
+                        | MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE,
+                ImsRegistrationImplBase.REGISTRATION_TECH_LTE);
+        request.addCapabilitiesToDisableForTech(MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_UT,
+                ImsRegistrationImplBase.REGISTRATION_TECH_LTE);
+        request.addCapabilitiesToDisableForTech(MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_UT,
+                ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN);
+
+        Parcel p = Parcel.obtain();
+        request.writeToParcel(p, 0);
+        p.setDataPosition(0);
+        CapabilityChangeRequest result =
+                CapabilityChangeRequest.CREATOR.createFromParcel(p);
+        p.recycle();
+
+        assertEquals(request, result);
     }
 }

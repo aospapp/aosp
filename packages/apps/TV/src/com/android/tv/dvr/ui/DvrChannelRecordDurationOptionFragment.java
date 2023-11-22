@@ -21,15 +21,13 @@ import android.os.Bundle;
 import android.support.v17.leanback.app.GuidedStepFragment;
 import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
 import android.support.v17.leanback.widget.GuidedAction;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
-import com.android.tv.data.Channel;
+import com.android.tv.data.api.Channel;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.ui.DvrConflictFragment.DvrChannelRecordConflictFragment;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -43,8 +41,10 @@ public class DvrChannelRecordDurationOptionFragment extends DvrGuidedStepFragmen
         Bundle args = getArguments();
         if (args != null) {
             long channelId = args.getLong(DvrHalfSizedDialogFragment.KEY_CHANNEL_ID);
-            mChannel = TvApplication.getSingletons(getContext()).getChannelDataManager()
-                    .getChannel(channelId);
+            mChannel =
+                    TvSingletons.getSingletons(getContext())
+                            .getChannelDataManager()
+                            .getChannel(channelId);
         }
         SoftPreconditions.checkArgument(mChannel != null);
         super.onCreate(savedInstanceState);
@@ -66,32 +66,36 @@ public class DvrChannelRecordDurationOptionFragment extends DvrGuidedStepFragmen
         mDurations.add(TimeUnit.HOURS.toMillis(1));
         mDurations.add(TimeUnit.HOURS.toMillis(3));
 
-        actions.add(new GuidedAction.Builder(getContext())
-                .id(++actionId)
-                .title(R.string.recording_start_dialog_10_min_duration)
-                .build());
-        actions.add(new GuidedAction.Builder(getContext())
-                .id(++actionId)
-                .title(R.string.recording_start_dialog_30_min_duration)
-                .build());
-        actions.add(new GuidedAction.Builder(getContext())
-                .id(++actionId)
-                .title(R.string.recording_start_dialog_1_hour_duration)
-                .build());
-        actions.add(new GuidedAction.Builder(getContext())
-                .id(++actionId)
-                .title(R.string.recording_start_dialog_3_hours_duration)
-                .build());
+        actions.add(
+                new GuidedAction.Builder(getContext())
+                        .id(++actionId)
+                        .title(R.string.recording_start_dialog_10_min_duration)
+                        .build());
+        actions.add(
+                new GuidedAction.Builder(getContext())
+                        .id(++actionId)
+                        .title(R.string.recording_start_dialog_30_min_duration)
+                        .build());
+        actions.add(
+                new GuidedAction.Builder(getContext())
+                        .id(++actionId)
+                        .title(R.string.recording_start_dialog_1_hour_duration)
+                        .build());
+        actions.add(
+                new GuidedAction.Builder(getContext())
+                        .id(++actionId)
+                        .title(R.string.recording_start_dialog_3_hours_duration)
+                        .build());
     }
 
     @Override
     public void onTrackedGuidedActionClicked(GuidedAction action) {
-        DvrManager dvrManager = TvApplication.getSingletons(getContext()).getDvrManager();
+        DvrManager dvrManager = TvSingletons.getSingletons(getContext()).getDvrManager();
         long duration = mDurations.get((int) action.getId());
         long startTimeMs = System.currentTimeMillis();
         long endTimeMs = System.currentTimeMillis() + duration;
-        List<ScheduledRecording> conflicts = dvrManager.getConflictingSchedules(
-                mChannel.getId(), startTimeMs, endTimeMs);
+        List<ScheduledRecording> conflicts =
+                dvrManager.getConflictingSchedules(mChannel.getId(), startTimeMs, endTimeMs);
         dvrManager.addSchedule(mChannel, startTimeMs, endTimeMs);
         if (conflicts.isEmpty()) {
             dismissDialog();
@@ -102,8 +106,7 @@ public class DvrChannelRecordDurationOptionFragment extends DvrGuidedStepFragmen
             args.putLong(DvrHalfSizedDialogFragment.KEY_START_TIME_MS, startTimeMs);
             args.putLong(DvrHalfSizedDialogFragment.KEY_END_TIME_MS, endTimeMs);
             fragment.setArguments(args);
-            GuidedStepFragment.add(getFragmentManager(), fragment,
-                    R.id.halfsized_dialog_host);
+            GuidedStepFragment.add(getFragmentManager(), fragment, R.id.halfsized_dialog_host);
         }
     }
 

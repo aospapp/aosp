@@ -111,7 +111,7 @@ float* drawColorOne(float mColor[]){
 
 
     glReadPixels(width/2, height/2, 1,1, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid*)&data);
-    for(int i = 0; i < sizeof(data); i++){
+    for(size_t i = 0; i < sizeof(data); i++){
         dataFloat[i] = data[i];
     }
 

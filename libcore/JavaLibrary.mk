@@ -37,9 +37,6 @@
 #
 # All subdirectories are optional (hence the "2> /dev/null"s below).
 
-include $(LOCAL_PATH)/openjdk_java_files.mk
-include $(LOCAL_PATH)/non_openjdk_java_files.mk
-
 define all-test-java-files-under
 $(foreach dir,$(1),$(patsubst ./%,%,$(shell cd $(LOCAL_PATH) && (find $(dir)/src/test/java -name "*.java" 2> /dev/null) | grep -v -f java_tests_blacklist)))
 endef
@@ -91,135 +88,46 @@ android_icu4j_src_files := $(call all-java-files-under,$(android_icu4j_root)/src
 android_icu4j_resource_dirs := $(android_icu4j_root)/resources
 
 #
+# Build jaif-annotated source files for ojluni target .
+#
+ojluni_annotate_dir := $(call intermediates-dir-for,JAVA_LIBRARIES,core-oj,,COMMON)/annotated
+ojluni_annotate_target := $(ojluni_annotate_dir)/timestamp
+ojluni_annotate_jaif := $(LOCAL_PATH)/annotations/ojluni.jaif
+ojluni_annotate_input := $(annotated_ojluni_files)
+ojluni_annotate_output := $(patsubst $(LOCAL_PATH)/ojluni/src/main/java/%, $(ojluni_annotate_dir)/%, $(ojluni_annotate_input))
+
+$(ojluni_annotate_target): PRIVATE_ANNOTATE_TARGET := $(ojluni_annotate_target)
+$(ojluni_annotate_target): PRIVATE_ANNOTATE_DIR := $(ojluni_annotate_dir)
+$(ojluni_annotate_target): PRIVATE_ANNOTATE_JAIF := $(ojluni_annotate_jaif)
+$(ojluni_annotate_target): PRIVATE_ANNOTATE_INPUT := $(ojluni_annotate_input)
+$(ojluni_annotate_target): PRIVATE_ANNOTATE_GENERATE_CMD := $(LOCAL_PATH)/annotations/generate_annotated_java_files.py
+$(ojluni_annotate_target): PRIVATE_ANNOTATE_GENERATE_OUTPUT := $(LOCAL_PATH)/annotated_java_files.bp
+$(ojluni_annotate_target): PRIVATE_INSERT_ANNOTATIONS_TO_SOURCE := external/annotation-tools/annotation-file-utilities/scripts/insert-annotations-to-source
+
+# Diff output of _ojluni_annotate_generate_cmd with what we have, and if generate annotated source.
+$(ojluni_annotate_target):  $(ojluni_annotate_input) $(ojluni_annotate_jaif)
+	rm -rf $(PRIVATE_ANNOTATE_DIR)
+	mkdir -p $(PRIVATE_ANNOTATE_DIR)
+	$(PRIVATE_ANNOTATE_GENERATE_CMD) $(PRIVATE_ANNOTATE_JAIF) > $(PRIVATE_ANNOTATE_DIR)/annotated_java_files.bp.tmp
+	diff -u $(PRIVATE_ANNOTATE_GENERATE_OUTPUT) $(PRIVATE_ANNOTATE_DIR)/annotated_java_files.bp.tmp || \
+	(echo -e "********************" >&2; \
+	 echo -e "annotated_java_files.bp needs regenerating. Please run:" >&2; \
+	 echo -e "libcore/annotations/generate_annotated_java_files.py libcore/annotations/ojluni.jaif > libcore/annotated_java_files.bp" >&2; \
+	 echo -e "********************" >&2; exit 1)
+	rm $(PRIVATE_ANNOTATE_DIR)/annotated_java_files.bp.tmp
+	$(PRIVATE_INSERT_ANNOTATIONS_TO_SOURCE) -d $(PRIVATE_ANNOTATE_DIR) $(PRIVATE_ANNOTATE_JAIF) $(PRIVATE_ANNOTATE_INPUT)
+	touch $@
+$(ojluni_annotate_target): .KATI_IMPLICIT_OUTPUTS := $(ojluni_annotate_output)
+
+ojluni_annotate_dir:=
+ojluni_annotate_target:=
+ojluni_annotate_jaif:=
+ojluni_annotate_input:=
+ojluni_annotate_output:=
+
+#
 # Build for the target (device).
 #
-
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(openjdk_java_files) $(non_openjdk_java_files) $(android_icu4j_src_files) $(openjdk_lambda_stub_files)
-LOCAL_JAVA_RESOURCE_DIRS := $(core_resource_dirs) $(android_icu4j_resource_dirs)
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVACFLAGS := $(local_javac_flags)
-LOCAL_JACK_FLAGS := $(local_jack_flags)
-LOCAL_DX_FLAGS := --core-library
-LOCAL_MODULE_TAGS := optional
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
-LOCAL_MODULE := core-all
-LOCAL_REQUIRED_MODULES := tzdata tzlookup.xml
-LOCAL_CORE_LIBRARY := true
-LOCAL_UNINSTALLABLE_MODULE := true
-include $(BUILD_JAVA_LIBRARY)
-
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(openjdk_java_files)
-LOCAL_JAVA_RESOURCE_DIRS := $(core_resource_dirs)
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVACFLAGS := $(local_javac_flags)
-LOCAL_JACK_FLAGS := $(local_jack_flags)
-LOCAL_DX_FLAGS := --core-library
-LOCAL_MODULE_TAGS := optional
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
-LOCAL_MODULE := core-oj
-LOCAL_JAVA_LIBRARIES := core-all
-LOCAL_NOTICE_FILE := $(LOCAL_PATH)/ojluni/NOTICE
-LOCAL_REQUIRED_MODULES := tzdata tzlookup.xml
-LOCAL_CORE_LIBRARY := true
-include $(BUILD_JAVA_LIBRARY)
-
-# Definitions to make the core library.
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(non_openjdk_java_files) $(android_icu4j_src_files)
-LOCAL_JAVA_RESOURCE_DIRS := $(android_icu4j_resource_dirs)
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVACFLAGS := $(local_javac_flags)
-LOCAL_JACK_FLAGS := $(local_jack_flags)
-LOCAL_DX_FLAGS := --core-library
-LOCAL_MODULE_TAGS := optional
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
-LOCAL_MODULE := core-libart
-LOCAL_JAVA_LIBRARIES := core-all
-ifeq ($(EMMA_INSTRUMENT),true)
-ifneq ($(EMMA_INSTRUMENT_STATIC),true)
-    # For instrumented build, include Jacoco classes into core-libart.
-    LOCAL_STATIC_JAVA_LIBRARIES := jacocoagent
-endif # EMMA_INSTRUMENT_STATIC
-endif # EMMA_INSTRUMENT
-LOCAL_CORE_LIBRARY := true
-LOCAL_REQUIRED_MODULES := tzdata tzlookup.xml
-include $(BUILD_JAVA_LIBRARY)
-
-# A library that exists to satisfy javac when
-# compiling source code that contains lambdas.
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(openjdk_lambda_stub_files) $(openjdk_lambda_duplicate_stub_files)
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVACFLAGS := $(local_javac_flags)
-LOCAL_JACK_FLAGS := $(local_jack_flags)
-LOCAL_DX_FLAGS := --core-library
-LOCAL_MODULE_TAGS := optional
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
-LOCAL_MODULE := core-lambda-stubs
-LOCAL_JAVA_LIBRARIES := core-all
-LOCAL_NOTICE_FILE := $(LOCAL_PATH)/ojluni/NOTICE
-LOCAL_CORE_LIBRARY := true
-LOCAL_UNINSTALLABLE_MODULE := true
-include $(BUILD_JAVA_LIBRARY)
-
-ifeq ($(LIBCORE_SKIP_TESTS),)
-# A guaranteed unstripped version of core-oj and core-libart.
-# The build system may or may not strip the core-oj and core-libart jars,
-# but these will not be stripped. See b/24535627.
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(openjdk_java_files)
-LOCAL_JAVA_RESOURCE_DIRS := $(core_resource_dirs)
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVACFLAGS := $(local_javac_flags)
-LOCAL_JACK_FLAGS := $(local_jack_flags)
-LOCAL_DX_FLAGS := --core-library
-LOCAL_MODULE_TAGS := optional
-LOCAL_DEX_PREOPT := false
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
-LOCAL_MODULE := core-oj-testdex
-LOCAL_JAVA_LIBRARIES := core-all
-LOCAL_NOTICE_FILE := $(LOCAL_PATH)/ojluni/NOTICE
-LOCAL_REQUIRED_MODULES := tzdata tzlookup.xml
-LOCAL_CORE_LIBRARY := true
-include $(BUILD_JAVA_LIBRARY)
-
-# Build libcore test rules for target
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(call all-java-files-under, dalvik/test-rules/src/main test-rules/src/main)
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_MODULE := core-test-rules
-LOCAL_JAVA_LIBRARIES := core-all
-LOCAL_STATIC_JAVA_LIBRARIES := junit
-include $(BUILD_STATIC_JAVA_LIBRARY)
-
-# Build libcore test rules for host
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(call all-java-files-under, dalvik/test-rules/src/main test-rules/src/main)
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_MODULE := core-test-rules-hostdex
-LOCAL_JAVA_LIBRARIES := core-oj-hostdex core-libart-hostdex
-LOCAL_STATIC_JAVA_LIBRARIES := junit-hostdex
-include $(BUILD_HOST_DALVIK_STATIC_JAVA_LIBRARY)
-
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(non_openjdk_java_files) $(android_icu4j_src_files)
-LOCAL_JAVA_RESOURCE_DIRS := $(android_icu4j_resource_dirs)
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVACFLAGS := $(local_javac_flags)
-LOCAL_JACK_FLAGS := $(local_jack_flags)
-LOCAL_DX_FLAGS := --core-library
-LOCAL_MODULE_TAGS := optional
-LOCAL_DEX_PREOPT := false
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
-LOCAL_MODULE := core-libart-testdex
-LOCAL_JAVA_LIBRARIES := core-all
-LOCAL_CORE_LIBRARY := true
-LOCAL_REQUIRED_MODULES := tzdata tzlookup.xml
-include $(BUILD_JAVA_LIBRARY)
-endif
-
 ifeq ($(LIBCORE_SKIP_TESTS),)
 # Build a library just containing files from luni/src/test/filesystems for use in tests.
 include $(CLEAR_VARS)
@@ -229,10 +137,28 @@ LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_MODULE := filesystemstest
 LOCAL_JAVA_LIBRARIES := core-oj core-libart
 LOCAL_DEX_PREOPT := false
+LOCAL_ERROR_PRONE_FLAGS := -Xep:MissingOverride:OFF
 include $(BUILD_JAVA_LIBRARY)
-my_filesystemstest_jar := $(intermediates)/filesystemstest.jar
-$(my_filesystemstest_jar): $(LOCAL_BUILT_MODULE)
+
+filesystemstest_jar := $(intermediates)/$(LOCAL_MODULE).jar
+$(filesystemstest_jar): $(LOCAL_BUILT_MODULE)
 	$(call copy-file-to-target)
+
+# Build a library just containing files from luni/src/test/parameter_metadata for use in tests.
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := $(call all-java-files-under, luni/src/test/parameter_metadata/src)
+LOCAL_NO_STANDARD_LIBRARIES := true
+LOCAL_MODULE := parameter-metadata-test
+LOCAL_JAVA_LIBRARIES := core-oj core-libart
+LOCAL_DEX_PREOPT := false
+LOCAL_JAVACFLAGS := -parameters
+LOCAL_ERROR_PRONE_FLAGS := -Xep:MissingOverride:OFF
+include $(BUILD_JAVA_LIBRARY)
+
+parameter_metadata_test_jar := $(intermediates)/$(LOCAL_MODULE).jar
+$(parameter_metadata_test_jar): $(LOCAL_BUILT_MODULE)
+	$(call copy-file-to-target)
+
 endif
 
 ifeq ($(LIBCORE_SKIP_TESTS),)
@@ -242,7 +168,7 @@ LOCAL_SRC_FILES := $(test_src_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(test_resource_dirs)
 # Include individual dex.jar files (jars containing resources and a classes.dex) so that they
 # be loaded by tests using ClassLoaders but are not in the main classes.dex.
-LOCAL_JAVA_RESOURCE_FILES := $(my_filesystemstest_jar)
+LOCAL_JAVA_RESOURCE_FILES := $(filesystemstest_jar) $(parameter_metadata_test_jar)
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_JAVA_LIBRARIES := core-oj core-libart okhttp bouncycastle
 LOCAL_STATIC_JAVA_LIBRARIES := \
@@ -259,37 +185,11 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 	tzdata-testing
 LOCAL_JAVACFLAGS := $(local_javac_flags)
 LOCAL_JACK_FLAGS := $(local_jack_flags)
-LOCAL_ERROR_PRONE_FLAGS := -Xep:TryFailThrowable:ERROR -Xep:ComparisonOutOfRange:ERROR
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
+LOCAL_ERROR_PRONE_FLAGS := \
+        -Xep:TryFailThrowable:ERROR \
+        -Xep:ComparisonOutOfRange:ERROR \
+        -Xep:MissingOverride:OFF
 LOCAL_MODULE := core-tests
-include $(BUILD_STATIC_JAVA_LIBRARY)
-endif
-
-ifeq ($(LIBCORE_SKIP_TESTS),)
-# Make the core-tests-support library.
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(call all-test-java-files-under,support)
-LOCAL_JAVA_RESOURCE_DIRS := $(test_resource_dirs)
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVA_LIBRARIES := core-oj core-libart junit bouncycastle
-LOCAL_STATIC_JAVA_LIBRARIES := bouncycastle-bcpkix bouncycastle-ocsp
-LOCAL_JAVACFLAGS := $(local_javac_flags)
-LOCAL_JACK_FLAGS := $(local_jack_flags)
-LOCAL_MODULE := core-tests-support
-include $(BUILD_STATIC_JAVA_LIBRARY)
-endif
-
-ifeq ($(LIBCORE_SKIP_TESTS),)
-# Make the jsr166-tests library.
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES :=  $(call all-test-java-files-under, jsr166-tests)
-LOCAL_JAVA_RESOURCE_DIRS := $(test_resource_dirs)
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVA_LIBRARIES := core-oj core-libart junit
-LOCAL_JAVACFLAGS := $(local_javac_flags)
-LOCAL_JACK_FLAGS := $(local_jack_flags)
-LOCAL_MODULE := jsr166-tests
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 include $(BUILD_STATIC_JAVA_LIBRARY)
 endif
 
@@ -304,18 +204,22 @@ ifeq ($(LIBCORE_SKIP_TESTS),)
     LOCAL_JACK_FLAGS := $(local_jack_flags)
     LOCAL_DX_FLAGS := --core-library
     LOCAL_MODULE_TAGS := optional
-    LOCAL_JAVA_LANGUAGE_VERSION := 1.8
     LOCAL_MODULE := core-ojtests
     # jack bug workaround: int[] java.util.stream.StatefulTestOp.-getjava-util-stream-StreamShapeSwitchesValues() is a private synthetic method in an interface which causes a hard verifier error
     LOCAL_DEX_PREOPT := false # disable AOT preverification which breaks the build. it will still throw VerifyError at runtime.
+    LOCAL_ERROR_PRONE_FLAGS := -Xep:MissingOverride:OFF
     include $(BUILD_JAVA_LIBRARY)
 endif
 
 # Make the core-ojtests-public library. Excludes any private API tests.
 ifeq ($(LIBCORE_SKIP_TESTS),)
     include $(CLEAR_VARS)
-    # Filter out SerializedLambdaTest because it depends on stub classes and won't actually run.
-    LOCAL_SRC_FILES := $(filter-out %/DeserializeMethodTest.java %/SerializedLambdaTest.java ojluni/src/test/java/util/stream/boot%,$(ojtest_src_files)) # Do not include anything from the boot* directories. Those directories need a custom bootclasspath to run.
+    # Filter out the following:
+    # 1.) DeserializeMethodTest and SerializedLambdaTest, because they depends on stub classes
+    #     and won't actually run, and
+    # 2.) util/stream/boot*. Those directories contain classes in the package java.util.stream;
+    #     excluding them means we don't need LOCAL_PATCH_MODULE := java.base
+    LOCAL_SRC_FILES := $(filter-out %/DeserializeMethodTest.java %/SerializedLambdaTest.java ojluni/src/test/java/util/stream/boot%,$(ojtest_src_files))
     # Include source code as part of JAR
     LOCAL_JAVA_RESOURCE_DIRS := ojluni/src/test/dist $(ojtest_resource_dirs)
     LOCAL_NO_STANDARD_LIBRARIES := true
@@ -329,10 +233,10 @@ ifeq ($(LIBCORE_SKIP_TESTS),)
     LOCAL_JACK_FLAGS := $(local_jack_flags)
     LOCAL_DX_FLAGS := --core-library
     LOCAL_MODULE_TAGS := optional
-    LOCAL_JAVA_LANGUAGE_VERSION := 1.8
     LOCAL_MODULE := core-ojtests-public
     # jack bug workaround: int[] java.util.stream.StatefulTestOp.-getjava-util-stream-StreamShapeSwitchesValues() is a private synthetic method in an interface which causes a hard verifier error
     LOCAL_DEX_PREOPT := false # disable AOT preverification which breaks the build. it will still throw VerifyError at runtime.
+    LOCAL_ERROR_PRONE_FLAGS := -Xep:MissingOverride:OFF
     include $(BUILD_JAVA_LIBRARY)
 endif
 
@@ -341,63 +245,6 @@ endif
 #
 
 ifeq ($(HOST_OS),linux)
-
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(non_openjdk_java_files) $(openjdk_java_files) $(android_icu4j_src_files) $(openjdk_lambda_stub_files)
-LOCAL_JAVA_RESOURCE_DIRS := $(core_resource_dirs)
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVACFLAGS := $(local_javac_flags)
-LOCAL_DX_FLAGS := --core-library
-LOCAL_MODULE_TAGS := optional
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
-LOCAL_MODULE := core-all-hostdex
-LOCAL_REQUIRED_MODULES := tzdata-host tzlookup.xml-host
-LOCAL_CORE_LIBRARY := true
-LOCAL_UNINSTALLABLE_MODULE := true
-include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
-
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(openjdk_java_files)
-LOCAL_JAVA_RESOURCE_DIRS := $(core_resource_dirs)
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVACFLAGS := $(local_javac_flags)
-LOCAL_DX_FLAGS := --core-library
-LOCAL_MODULE_TAGS := optional
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
-LOCAL_MODULE := core-oj-hostdex
-LOCAL_NOTICE_FILE := $(LOCAL_PATH)/ojluni/NOTICE
-LOCAL_JAVA_LIBRARIES := core-all-hostdex
-LOCAL_REQUIRED_MODULES := tzdata-host tzlookup.xml-host
-LOCAL_CORE_LIBRARY := true
-include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
-
-# Definitions to make the core library.
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(non_openjdk_java_files) $(android_icu4j_src_files)
-LOCAL_JAVA_RESOURCE_DIRS := $(android_icu4j_resource_dirs)
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVACFLAGS := $(local_javac_flags)
-LOCAL_DX_FLAGS := --core-library
-LOCAL_MODULE_TAGS := optional
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
-LOCAL_MODULE := core-libart-hostdex
-LOCAL_JAVA_LIBRARIES := core-oj-hostdex
-LOCAL_REQUIRED_MODULES := tzdata-host tzlookup.xml-host
-include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
-
-# A library that exists to satisfy javac when
-# compiling source code that contains lambdas.
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(openjdk_lambda_stub_files) $(openjdk_lambda_duplicate_stub_files)
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVACFLAGS := $(local_javac_flags)
-LOCAL_DX_FLAGS := --core-library
-LOCAL_MODULE_TAGS := optional
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
-LOCAL_MODULE := core-lambda-stubs-hostdex
-LOCAL_JAVA_LIBRARIES := core-all-hostdex
-LOCAL_CORE_LIBRARY := true
-include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 
 # Make the core-tests-hostdex library.
 ifeq ($(LIBCORE_SKIP_TESTS),)
@@ -425,28 +272,8 @@ ifeq ($(LIBCORE_SKIP_TESTS),)
         tzdata-testing-hostdex
     LOCAL_JAVACFLAGS := $(local_javac_flags)
     LOCAL_MODULE_TAGS := optional
-    LOCAL_JAVA_LANGUAGE_VERSION := 1.8
     LOCAL_MODULE := core-tests-hostdex
-    include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
-endif
-
-# Make the core-tests-support library.
-ifeq ($(LIBCORE_SKIP_TESTS),)
-    include $(CLEAR_VARS)
-    LOCAL_SRC_FILES := $(call all-test-java-files-under,support)
-    LOCAL_JAVA_RESOURCE_DIRS := $(test_resource_dirs)
-    LOCAL_NO_STANDARD_LIBRARIES := true
-    LOCAL_JAVA_LIBRARIES := \
-        bouncycastle-hostdex \
-        core-libart-hostdex \
-        core-oj-hostdex \
-        junit-hostdex
-    LOCAL_STATIC_JAVA_LIBRARIES := \
-        bouncycastle-bcpkix-hostdex \
-        bouncycastle-ocsp-hostdex
-    LOCAL_JAVACFLAGS := $(local_javac_flags)
-    LOCAL_MODULE_TAGS := optional
-    LOCAL_MODULE := core-tests-support-hostdex
+    LOCAL_ERROR_PRONE_FLAGS := -Xep:MissingOverride:OFF
     include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 endif
 
@@ -464,8 +291,23 @@ ifeq ($(LIBCORE_SKIP_TESTS),)
     LOCAL_JAVACFLAGS := $(local_javac_flags)
     LOCAL_DX_FLAGS := --core-library
     LOCAL_MODULE_TAGS := optional
-    LOCAL_JAVA_LANGUAGE_VERSION := 1.8
     LOCAL_MODULE := core-ojtests-hostdex
+    # ojluni/src/test/java/util/stream/{bootlib,boottest}
+    # contains tests that are in packages from java.base;
+    # By default, OpenJDK 9's javac will only compile such
+    # code if it's declared to also be in java.base at
+    # compile time.
+    #
+    # For now, we use --patch-module to put all sources
+    # and dependencies from this make target into java.base;
+    # other source directories in this make target are in
+    # packages not from java.base; if this becomes a proble
+    # in future, this could be addressed eg. by splitting
+    # boot{lib,test} out into a separate make target,
+    # deleting those tests or moving them to a different
+    # package.
+    LOCAL_PATCH_MODULE := java.base
+    LOCAL_ERROR_PRONE_FLAGS := -Xep:MissingOverride:OFF
     include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 endif
 
@@ -498,6 +340,9 @@ include $(LOCAL_PATH)/Docs.mk
 # The libcore_to_document paths are relative to $(TOPDIR). We are in libcore so we must prepend
 # ../ to make LOCAL_SRC_FILES relative to $(LOCAL_PATH).
 LOCAL_SRC_FILES := $(addprefix ../, $(libcore_to_document))
+LOCAL_INTERMEDIATE_SOURCES := \
+    $(patsubst $(TARGET_OUT_COMMON_INTERMEDIATES)/%,%,$(libcore_to_document_generated))
+LOCAL_ADDITIONAL_DEPENDENCIES := $(libcore_to_document_generated)
 # rerun doc generation without recompiling the java
 LOCAL_JAVACFLAGS := $(local_javac_flags)
 LOCAL_MODULE_CLASS:=JAVA_LIBRARIES
@@ -516,5 +361,51 @@ LOCAL_DROIDDOC_CUSTOM_TEMPLATE_DIR:=external/doclava/res/assets/templates-sdk
 
 include $(BUILD_DROIDDOC)
 
-openjdk_java_files :=
-non_openjdk_java_files :=
+# For unbundled build we'll use the prebuilt jar from prebuilts/sdk.
+ifeq (,$(TARGET_BUILD_APPS)$(filter true,$(TARGET_BUILD_PDK)))
+
+# Generate the stub source files for core.current.stubs
+# =====================================================
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES := $(addprefix ../, $(libcore_to_document))
+LOCAL_GENERATED_SOURCES := $(libcore_to_document_generated)
+
+LOCAL_MODULE_CLASS := JAVA_LIBRARIES
+
+LOCAL_DROIDDOC_OPTIONS:= \
+    -stubs $(TARGET_OUT_COMMON_INTERMEDIATES)/JAVA_LIBRARIES/core.current.stubs_intermediates/src \
+    -nodocs \
+
+LOCAL_UNINSTALLABLE_MODULE := true
+LOCAL_NO_STANDARD_LIBRARIES := true
+LOCAL_MODULE := core-current-stubs-gen
+
+include $(BUILD_DROIDDOC)
+
+# Remember the target that will trigger the code generation.
+core_current_gen_stamp := $(full_target)
+
+# Build the core.current.stubs library
+# ====================================
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := core.current.stubs
+
+LOCAL_SOURCE_FILES_ALL_GENERATED := true
+
+# Make sure to run droiddoc first to generate the stub source files.
+LOCAL_ADDITIONAL_DEPENDENCIES := $(core_current_gen_stamp)
+core_current_gen_stamp :=
+
+# Because javac refuses to compile these stubs with --system=none, ( http://b/72206056#comment31 ),
+# just patch them into java.base at compile time.
+LOCAL_PATCH_MODULE := java.base
+LOCAL_NO_STANDARD_LIBRARIES := true
+LOCAL_ERROR_PRONE_FLAGS := -Xep:MissingOverride:OFF
+include $(BUILD_STATIC_JAVA_LIBRARY)
+
+# Archive a copy of the classes.jar in SDK build.
+$(call dist-for-goals,sdk win_sdk,$(full_classes_jar):core.current.stubs.jar)
+
+endif  # not TARGET_BUILD_APPS not TARGET_BUILD_PDK=true

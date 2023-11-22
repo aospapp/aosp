@@ -62,6 +62,7 @@
 #include <errno.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 void setup();
 void cleanup();
@@ -139,11 +140,7 @@ void setup(void)
 
 	/* create "old" file */
 	SAFE_TOUCH(cleanup, fname, 0700, NULL);
-	if (stat(fname, &buf1) == -1) {
-		tst_brkm(TBROK, cleanup, "failed to stat file %s"
-			 "in rename()", fname);
-
-	}
+	SAFE_STAT(cleanup, fname, &buf1);
 
 	/* save "old"'s dev and ino */
 	olddev = buf1.st_dev;
@@ -154,15 +151,9 @@ void setup(void)
 		tst_brkm(TBROK, cleanup, "tmp directory %s found!", mdir);
 	}
 
-	if (mkdir(mdir, 00770) == -1) {
-		tst_brkm(TBROK, cleanup, "Could not create directory %s", mdir);
-	}
+	SAFE_MKDIR(cleanup, mdir, 00770);
 
-	if (stat(mdir, &buf2) == -1) {
-		tst_brkm(TBROK, cleanup, "failed to stat directory %s "
-			 "in rename()", mdir);
-
-	}
+	SAFE_STAT(cleanup, mdir, &buf2);
 
 	/* save "new"'s dev and ino */
 	olddev1 = buf2.st_dev;

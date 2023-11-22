@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,6 +12,7 @@
 package org.jacoco.core.internal.analysis;
 
 import org.jacoco.core.analysis.IMethodCoverage;
+import org.jacoco.core.internal.analysis.filter.Filters;
 import org.jacoco.core.internal.flow.ClassProbesVisitor;
 import org.jacoco.core.internal.flow.MethodProbesVisitor;
 import org.jacoco.core.internal.instr.InstrSupport;
@@ -65,7 +66,7 @@ public class ClassAnalyzer extends ClassProbesVisitor {
 
 		return new MethodAnalyzer(coverage.getName(), coverage.getSuperName(),
 				stringPool.get(name), stringPool.get(desc),
-				stringPool.get(signature), probes) {
+				stringPool.get(signature), probes, Filters.ALL) {
 			@Override
 			public void visitEnd() {
 				super.visitEnd();

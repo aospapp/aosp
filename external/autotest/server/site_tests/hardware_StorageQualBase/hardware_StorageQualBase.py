@@ -19,8 +19,8 @@ class hardware_StorageQualBase(test.test):
         ('hardware_SsdDetection', {
             'constraints': ['mb_ssd_device_size >= 8000']}),
         ('hardware_StorageFio', {'constraints': [
-            '_seq_read_read_bw_mean >= 50 * 1024',
-            '_seq_write_write_bw_mean >= 15 * 1024',
+            '_seq_read_read_bw >= 50 * 1024',
+            '_seq_write_write_bw >= 15 * 1024',
             '_16k_write_write_iops >= 10'],
             'requirements': [
                 ('seq_read', []),

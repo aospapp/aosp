@@ -21,7 +21,9 @@ import com.android.tradefed.device.ITestDevice;
 import java.io.File;
 import java.util.Collection;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A {@link IDeviceBuildInfo} used for over-the-air update testing. It is composed of two device
@@ -161,12 +163,30 @@ public class OtaDeviceBuildInfo implements IDeviceBuildInfo {
         mBaselineBuild.addBuildAttribute(attributeName, attributeValue);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void setProperties(BuildInfoProperties... properties) {
+        mBaselineBuild.setProperties(properties);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<BuildInfoProperties> getProperties() {
+        return mBaselineBuild.getProperties();
+    }
+
     /**
      * {@inheritDoc}
      */
     @Override
     public File getFile(String name) {
         return mBaselineBuild.getFile(name);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public VersionedFile getVersionedFile(String name) {
+        return mBaselineBuild.getVersionedFile(name);
     }
 
     /**
@@ -400,6 +420,13 @@ public class OtaDeviceBuildInfo implements IDeviceBuildInfo {
     public void cleanUp() {
         mBaselineBuild.cleanUp();
         mOtaBuild.cleanUp();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void cleanUp(List<File> doNotDelete) {
+        mBaselineBuild.cleanUp(doNotDelete);
+        mOtaBuild.cleanUp(doNotDelete);
     }
 
     /**

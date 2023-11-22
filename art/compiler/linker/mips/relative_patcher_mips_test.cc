@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-#include "linker/relative_patcher_test.h"
 #include "linker/mips/relative_patcher_mips.h"
+
+#include "linker/relative_patcher_test.h"
 
 namespace art {
 namespace linker {
 
 class MipsRelativePatcherTest : public RelativePatcherTest {
  public:
-  MipsRelativePatcherTest() : RelativePatcherTest(kMips, "mips32r2") {}
+  MipsRelativePatcherTest() : RelativePatcherTest(InstructionSet::kMips, "mips32r2") {}
 
  protected:
   static const uint8_t kUnpatchedPcRelativeRawCode[];

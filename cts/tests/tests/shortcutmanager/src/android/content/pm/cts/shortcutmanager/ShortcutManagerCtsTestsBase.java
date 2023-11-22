@@ -33,12 +33,13 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
 import android.os.Bundle;
 import android.os.PersistableBundle;
+import android.os.StrictMode;
+import android.os.StrictMode.ThreadPolicy;
 import android.os.UserHandle;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.test.InstrumentationTestCase;
 import android.text.TextUtils;
 
-import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -49,6 +50,14 @@ public abstract class ShortcutManagerCtsTestsBase extends InstrumentationTestCas
     protected static final String TAG = "ShortcutCTS";
 
     private static final boolean DUMPSYS_IN_TEARDOWN = false; // DO NOT SUBMIT WITH true
+
+    /**
+     * Whether to enable strict mode or not.
+     *
+     * TODO Enable it after fixing b/68051728. Somehow violations would happen on the dashboard
+     * only and can't reproduce it locally.
+     */
+    private static final boolean ENABLE_STRICT_MODE = false;
 
     private static class SpoofingContext extends ContextWrapper {
         private final String mPackageName;
@@ -276,6 +285,33 @@ public abstract class ShortcutManagerCtsTestsBase extends InstrumentationTestCas
         return mCurrentLauncherApps;
     }
 
+    protected void runWithStrictMode(Runnable r) {
+        final ThreadPolicy oldPolicy = StrictMode.getThreadPolicy();
+        try {
+            if (ENABLE_STRICT_MODE) {
+                StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder()
+                        .detectAll()
+                        .penaltyDeath()
+                        .build());
+            }
+            r.run();
+        } finally {
+            StrictMode.setThreadPolicy(oldPolicy);
+        }
+    }
+
+    protected void runWithNoStrictMode(Runnable r) {
+        final ThreadPolicy oldPolicy = StrictMode.getThreadPolicy();
+        try {
+            StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder()
+                    .permitAll()
+                    .build());
+            r.run();
+        } finally {
+            StrictMode.setThreadPolicy(oldPolicy);
+        }
+    }
+
     protected void runWithCaller(Context callerContext, Runnable r) {
         final Context prev = mCurrentCallerPackage;
 
@@ -284,6 +320,14 @@ public abstract class ShortcutManagerCtsTestsBase extends InstrumentationTestCas
         r.run();
 
         setCurrentCaller(prev);
+    }
+
+    protected void runWithCallerWithStrictMode(Context callerContext, Runnable r) {
+        runWithCaller(callerContext, () -> runWithStrictMode(r));
+    }
+
+    protected void runWithCallerWithNoStrictMode(Context callerContext, Runnable r) {
+        runWithCaller(callerContext, () -> runWithNoStrictMode(r));
     }
 
     public static Bundle makeBundle(Object... keysAndValues) {
@@ -437,11 +481,11 @@ public abstract class ShortcutManagerCtsTestsBase extends InstrumentationTestCas
 
     protected Drawable getIconAsLauncher(Context launcherContext, String packageName,
             String shortcutId, boolean withBadge) {
-        setDefaultLauncher(getInstrumentation(), launcherContext);
+        runWithNoStrictMode(() -> setDefaultLauncher(getInstrumentation(), launcherContext));
 
         final AtomicReference<Drawable> ret = new AtomicReference<>();
 
-        runWithCaller(launcherContext, () -> {
+        runWithCallerWithNoStrictMode(launcherContext, () -> {
             final ShortcutQuery q = new ShortcutQuery()
                     .setQueryFlags(ShortcutQuery.FLAG_MATCH_DYNAMIC
                                     | ShortcutQuery.FLAG_MATCH_MANIFEST

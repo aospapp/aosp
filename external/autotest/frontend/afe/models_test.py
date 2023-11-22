@@ -4,6 +4,7 @@
 import unittest
 
 import common
+from autotest_lib.client.common_lib import error
 from autotest_lib.frontend import setup_django_environment
 from autotest_lib.frontend.afe import frontend_test_utils
 from autotest_lib.frontend.afe import models, model_logic
@@ -48,6 +49,72 @@ class HostTest(unittest.TestCase,
 
     def tearDown(self):
         self._frontend_common_teardown()
+
+
+    def _get_attributes(self, host):
+        models.Host.objects.populate_relationships(
+                [host], models.HostAttribute, 'attribute_list')
+        return dict((attribute.attribute, attribute.value)
+                    for attribute in host.attribute_list)
+
+    def test_delete_attribute(self):
+        previous_config = models.RESPECT_STATIC_ATTRIBUTES
+        models.RESPECT_STATIC_ATTRIBUTES = False
+        host1 = models.Host.objects.create(hostname='test_host1')
+        host1.set_attribute('test_attribute1', 'test_value1')
+
+        attributes = self._get_attributes(host1)
+        self.assertEquals(attributes['test_attribute1'], 'test_value1')
+
+        host1.set_or_delete_attribute('test_attribute1', None)
+        attributes = self._get_attributes(host1)
+        self.assertNotIn('test_attribute1', attributes.keys())
+
+        models.RESPECT_STATIC_ATTRIBUTES = previous_config
+
+
+    def test_delete_static_attribute(self):
+        previous_config = models.RESPECT_STATIC_ATTRIBUTES
+        models.RESPECT_STATIC_ATTRIBUTES = True
+        host1 = models.Host.objects.create(hostname='test_host1')
+        host1.set_attribute('test_attribute1', 'test_value1')
+        self._set_static_attribute(host1, 'test_attribute1', 'test_value1')
+
+        self.assertRaises(
+                error.UnmodifiableAttributeException,
+                host1.set_or_delete_attribute,
+                'test_attribute1', None)
+
+        models.RESPECT_STATIC_ATTRIBUTES = previous_config
+
+
+    def test_set_attribute(self):
+        previous_config = models.RESPECT_STATIC_ATTRIBUTES
+        models.RESPECT_STATIC_ATTRIBUTES = False
+        host1 = models.Host.objects.create(hostname='test_host1')
+        host1.set_attribute('test_attribute1', 'test_value1')
+
+        host1.set_or_delete_attribute('test_attribute1', 'test_new_value1')
+
+        attributes = self._get_attributes(host1)
+        self.assertEquals(attributes['test_attribute1'], 'test_new_value1')
+
+        models.RESPECT_STATIC_ATTRIBUTES = previous_config
+
+
+    def test_set_static_attribute(self):
+        previous_config = models.RESPECT_STATIC_ATTRIBUTES
+        models.RESPECT_STATIC_ATTRIBUTES = True
+        host1 = models.Host.objects.create(hostname='test_host1')
+        host1.set_attribute('test_attribute1', 'test_value1')
+        self._set_static_attribute(host1, 'test_attribute1', 'test_value1')
+
+        self.assertRaises(
+                error.UnmodifiableAttributeException,
+                host1.set_or_delete_attribute,
+                'test_attribute1', 'test_value2')
+
+        models.RESPECT_STATIC_ATTRIBUTES = previous_config
 
 
     def test_add_host_previous_one_time_host(self):

@@ -1,6 +1,8 @@
 /*-
- * Copyright (c) 2015
+ * Copyright (c) 2015, 2017
  *	KO Myung-Hun <komh@chollian.net>
+ * Copyright (c) 2017
+ *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
  * are retained or reproduced in an accompanying document, permission
@@ -24,18 +26,18 @@
 #include "sh.h"
 
 #include <klibc/startup.h>
+#include <errno.h>
 #include <io.h>
 #include <unistd.h>
 #include <process.h>
 
-__RCSID("$MirOS: src/bin/mksh/os2.c,v 1.1 2017/04/02 15:00:44 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/os2.c,v 1.8 2017/12/22 16:41:42 tg Exp $");
 
 static char *remove_trailing_dots(char *);
 static int access_stat_ex(int (*)(), const char *, void *);
 static int test_exec_exist(const char *, char *);
 static void response(int *, const char ***);
 static char *make_response_file(char * const *);
-static void env_slashify(void);
 static void add_temp(const char *);
 static void cleanup_temps(void);
 static void cleanup(void);
@@ -167,44 +169,12 @@ init_extlibpath(void)
 	}
 }
 
-/*
- * Convert backslashes of environmental variables to forward slahes.
- * A backslash may be used as an escaped character when doing 'echo'.
- * This leads to an unexpected behavior.
- */
-static void
-env_slashify(void)
-{
-	/*
-	 * PATH and TMPDIR are used by OS/2 as well. That is, they may
-	 * have backslashes as a directory separator.
-	 * BEGINLIBPATH and ENDLIBPATH are special variables on OS/2.
-	 */
-	const char *var_list[] = {
-		"PATH",
-		"TMPDIR",
-		"BEGINLIBPATH",
-		"ENDLIBPATH",
-		NULL
-	};
-	const char **var;
-	char *value;
-
-	for (var = var_list; *var; var++) {
-		value = getenv(*var);
-
-		if (value)
-			_fnslashify(value);
-	}
-}
-
 void
 os2_init(int *argcp, const char ***argvp)
 {
 	response(argcp, argvp);
 
 	init_extlibpath();
-	env_slashify();
 
 	if (!isatty(STDIN_FILENO))
 		setmode(STDIN_FILENO, O_BINARY);
@@ -247,9 +217,9 @@ setextlibpath(const char *name, const char *val)
 static char *
 remove_trailing_dots(char *name)
 {
-	char *p;
+	char *p = strnul(name);
 
-	for (p = name + strlen(name); --p > name && *p == '.'; )
+	while (--p > name && *p == '.')
 		/* nothing */;
 
 	if (*p != '.' && *p != '/' && *p != '\\' && *p != ':')
@@ -359,49 +329,30 @@ real_exec_name(const char *name)
 	return (real_name);
 }
 
-/* OS/2 can process a command line up to 32 KiB */
-#define MAX_CMD_LINE_LEN 32768
-
 /* make a response file to pass a very long command line */
 static char *
 make_response_file(char * const *argv)
 {
 	char rsp_name_arg[] = "@mksh-rsp-XXXXXX";
 	char *rsp_name = &rsp_name_arg[1];
-	int arg_len = 0;
 	int i;
+	int fd;
+	char *result;
 
-	for (i = 0; argv[i]; i++)
-		arg_len += strlen(argv[i]) + 1;
+	if ((fd = mkstemp(rsp_name)) == -1)
+		return (NULL);
 
-	/*
-	 * If a length of command line is longer than MAX_CMD_LINE_LEN, then
-	 * use a response file. OS/2 cannot process a command line longer
-	 * than 32K. Of course, a response file cannot be recognised by a
-	 * normal OS/2 program, that is, neither non-EMX or non-kLIBC. But
-	 * it cannot accept a command line longer than 32K in itself. So
-	 * using a response file in this case, is an acceptable solution.
-	 */
-	if (arg_len > MAX_CMD_LINE_LEN) {
-		int fd;
-		char *result;
-
-		if ((fd = mkstemp(rsp_name)) == -1)
-			return (NULL);
-
-		/* write all the arguments except a 0th program name */
-		for (i = 1; argv[i]; i++) {
-			write(fd, argv[i], strlen(argv[i]));
-			write(fd, "\n", 1);
-		}
-
-		close(fd);
-		add_temp(rsp_name);
-		strdupx(result, rsp_name_arg, ATEMP);
-		return (result);
+	/* write all the arguments except a 0th program name */
+	for (i = 1; argv[i]; i++) {
+		write(fd, argv[i], strlen(argv[i]));
+		write(fd, "\n", 1);
 	}
 
-	return (NULL);
+	close(fd);
+	add_temp(rsp_name);
+	strdupx(result, rsp_name_arg, ATEMP);
+
+	return (result);
 }
 
 /* alias of execve() */
@@ -414,12 +365,12 @@ execve(const char *name, char * const *argv, char * const *envp)
 	const char *exec_name;
 	FILE *fp;
 	char sign[2];
-	char *rsp_argv[3];
-	char *rsp_name_arg;
 	int pid;
 	int status;
 	int fd;
 	int rc;
+	int saved_mode;
+	int saved_errno;
 
 	/*
 	 * #! /bin/sh : append .exe
@@ -459,23 +410,41 @@ execve(const char *name, char * const *argv, char * const *envp)
 	if (errno == ENOEXEC)
 		return (-1);
 
-	rsp_name_arg = make_response_file(argv);
-
-	if (rsp_name_arg) {
-		rsp_argv[0] = argv[0];
-		rsp_argv[1] = rsp_name_arg;
-		rsp_argv[2] = NULL;
-
-		argv = rsp_argv;
-	}
+	/*
+	 * Normal OS/2 programs expect that standard IOs, especially stdin,
+	 * are opened in text mode at the startup. By the way, on OS/2 kLIBC
+	 * child processes inherit a translation mode of a parent process.
+	 * As a result, if stdin is set to binary mode in a parent process,
+	 * stdin of child processes is opened in binary mode as well at the
+	 * startup. In this case, some programs such as sed suffer from CR.
+	 */
+	saved_mode = setmode(STDIN_FILENO, O_TEXT);
 
 	pid = spawnve(P_NOWAIT, exec_name, argv, envp);
+	saved_errno = errno;
 
-	afree(rsp_name_arg, ATEMP);
+	/* arguments too long? */
+	if (pid == -1 && saved_errno == EINVAL) {
+		/* retry with a response file */
+		char *rsp_name_arg = make_response_file(argv);
+
+		if (rsp_name_arg) {
+			char *rsp_argv[3] = { argv[0], rsp_name_arg, NULL };
+
+			pid = spawnve(P_NOWAIT, exec_name, rsp_argv, envp);
+			saved_errno = errno;
+
+			afree(rsp_name_arg, ATEMP);
+		}
+	}
+
+	/* restore translation mode of stdin */
+	setmode(STDIN_FILENO, saved_mode);
 
 	if (pid == -1) {
 		cleanup_temps();
 
+		errno = saved_errno;
 		return (-1);
 	}
 
@@ -554,4 +523,53 @@ static void
 cleanup(void)
 {
 	cleanup_temps();
+}
+
+int
+getdrvwd(char **cpp, unsigned int drvltr)
+{
+	PBYTE cp;
+	ULONG sz;
+	APIRET rc;
+	ULONG drvno;
+
+	if (DosQuerySysInfo(QSV_MAX_PATH_LENGTH, QSV_MAX_PATH_LENGTH,
+	    &sz, sizeof(sz)) != 0) {
+		errno = EDOOFUS;
+		return (-1);
+	}
+
+	/* allocate 'X:/' plus sz plus NUL */
+	checkoktoadd((size_t)sz, (size_t)4);
+	cp = aresize(*cpp, (size_t)sz + (size_t)4, ATEMP);
+	cp[0] = ksh_toupper(drvltr);
+	cp[1] = ':';
+	cp[2] = '/';
+	drvno = ksh_numuc(cp[0]) + 1;
+	/* NUL is part of space within buffer passed */
+	++sz;
+	if ((rc = DosQueryCurrentDir(drvno, cp + 3, &sz)) == 0) {
+		/* success! */
+		*cpp = cp;
+		return (0);
+	}
+	afree(cp, ATEMP);
+	*cpp = NULL;
+	switch (rc) {
+	case 15: /* invalid drive */
+		errno = ENOTBLK;
+		break;
+	case 26: /* not dos disk */
+		errno = ENODEV;
+		break;
+	case 108: /* drive locked */
+		errno = EDEADLK;
+		break;
+	case 111: /* buffer overflow */
+		errno = ENAMETOOLONG;
+		break;
+	default:
+		errno = EINVAL;
+	}
+	return (-1);
 }

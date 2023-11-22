@@ -71,8 +71,6 @@ public class BleConnectionPriorityClientBaseActivity extends PassFailButtons.Act
         mTestAdapter = new TestAdapter(this, setupTestList());
         ListView listView = (ListView) findViewById(R.id.ble_client_connection_tests);
         listView.setAdapter(mTestAdapter);
-        listView.setEnabled(false);
-        listView.setClickable(false);
     }
 
     @Override

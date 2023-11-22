@@ -219,6 +219,18 @@ TEST_F(DEATHTEST, memchr_fortified2) {
 #endif // __BIONIC__
 }
 
+TEST_F(DEATHTEST, memrchr_fortified2) {
+#if defined(__BIONIC__)
+  foo myfoo;
+  volatile int asize = sizeof(myfoo.a) + 1;
+  memcpy(myfoo.a, "0123456789", sizeof(myfoo.a));
+  ASSERT_FORTIFY(printf("%s", memrchr(myfoo.a, 'a', asize)));
+  ASSERT_FORTIFY(printf("%s", memrchr(static_cast<const void*>(myfoo.a), 'a', asize)));
+#else // __BIONIC__
+  GTEST_LOG_(INFO) << "This test does nothing.\n";
+#endif // __BIONIC__
+}
+
 TEST_F(DEATHTEST, strlcpy_fortified2) {
 #if defined(__BIONIC__)
   foo myfoo;
@@ -984,4 +996,16 @@ TEST_F(DEATHTEST, ppoll_fortified) {
   timespec timeout;
   timeout.tv_sec = timeout.tv_nsec = 0;
   ASSERT_FORTIFY(ppoll(buf, fd_count, &timeout, NULL));
+}
+
+TEST_F(DEATHTEST, open_O_CREAT_without_mode_fortified) {
+  int flags = O_CREAT; // Fool the compiler.
+  ASSERT_FORTIFY(open("", flags));
+}
+
+TEST_F(DEATHTEST, open_O_TMPFILE_without_mode_fortified) {
+#if __BIONIC__ // Our glibc is too old for O_TMPFILE.
+  int flags = O_TMPFILE; // Fool the compiler.
+  ASSERT_FORTIFY(open("", flags));
+#endif
 }

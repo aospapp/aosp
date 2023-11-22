@@ -20,11 +20,9 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.annotation.MainThread;
-
-import com.android.tv.data.Channel;
 import com.android.tv.data.ChannelDataManager;
+import com.android.tv.data.api.Channel;
 import com.android.tv.util.RecurringRunner;
-
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -32,53 +30,63 @@ import java.util.concurrent.TimeUnit;
  * Periodically sends analytics data with the channel count.
  *
  * <p>
- * <p>This should only be started from a user activity
- * like {@link com.android.tv.MainActivity}.
+ *
+ * <p>This should only be started from a user activity like {@link com.android.tv.MainActivity}.
  */
 @MainThread
 public class SendChannelStatusRunnable implements Runnable {
     private static final long SEND_CHANNEL_STATUS_INTERVAL_MS = TimeUnit.DAYS.toMillis(1);
 
-    public static RecurringRunner startChannelStatusRecurringRunner(Context context,
-            Tracker tracker, ChannelDataManager channelDataManager) {
+    public static RecurringRunner startChannelStatusRecurringRunner(
+            Context context, Tracker tracker, ChannelDataManager channelDataManager) {
 
-        final SendChannelStatusRunnable sendChannelStatusRunnable = new SendChannelStatusRunnable(
-                channelDataManager, tracker);
+        final SendChannelStatusRunnable sendChannelStatusRunnable =
+                new SendChannelStatusRunnable(channelDataManager, tracker);
 
-        Runnable onStopRunnable = new Runnable() {
-            @Override
-            public void run() {
-                sendChannelStatusRunnable.setDbLoadListener(null);
-            }
-        };
-        final RecurringRunner recurringRunner = new RecurringRunner(context,
-                SEND_CHANNEL_STATUS_INTERVAL_MS, sendChannelStatusRunnable, onStopRunnable);
+        Runnable onStopRunnable =
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        sendChannelStatusRunnable.setDbLoadListener(null);
+                    }
+                };
+        final RecurringRunner recurringRunner =
+                new RecurringRunner(
+                        context,
+                        SEND_CHANNEL_STATUS_INTERVAL_MS,
+                        sendChannelStatusRunnable,
+                        onStopRunnable);
 
         if (channelDataManager.isDbLoadFinished()) {
             sendChannelStatusRunnable.setDbLoadListener(null);
             recurringRunner.start();
         } else {
-            //Start the recurring runnable after the channel DB is finished loading.
-            sendChannelStatusRunnable.setDbLoadListener(new ChannelDataManager.Listener() {
-                @Override
-                public void onLoadFinished() {
-                    // This is called inside an iterator of Listeners so the remove step is done
-                    // via a post on the main thread
-                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+            // Start the recurring runnable after the channel DB is finished loading.
+            sendChannelStatusRunnable.setDbLoadListener(
+                    new ChannelDataManager.Listener() {
                         @Override
-                        public void run() {
-                            sendChannelStatusRunnable.setDbLoadListener(null);
+                        public void onLoadFinished() {
+                            // This is called inside an iterator of Listeners so the remove step is
+                            // done
+                            // via a post on the main thread
+                            new Handler(Looper.getMainLooper())
+                                    .post(
+                                            new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    sendChannelStatusRunnable.setDbLoadListener(
+                                                            null);
+                                                }
+                                            });
+                            recurringRunner.start();
                         }
+
+                        @Override
+                        public void onChannelListUpdated() {}
+
+                        @Override
+                        public void onChannelBrowsableChanged() {}
                     });
-                    recurringRunner.start();
-                }
-
-                @Override
-                public void onChannelListUpdated() { }
-
-                @Override
-                public void onChannelBrowsableChanged() { }
-            });
         }
         return recurringRunner;
     }

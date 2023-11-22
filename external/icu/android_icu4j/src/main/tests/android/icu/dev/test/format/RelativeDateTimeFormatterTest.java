@@ -12,6 +12,8 @@ package android.icu.dev.test.format;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.math.BigDecimal;
@@ -24,7 +26,10 @@ import android.icu.text.RelativeDateTimeFormatter.RelativeDateTimeUnit;
 import android.icu.text.RelativeDateTimeFormatter.RelativeUnit;
 import android.icu.text.RelativeDateTimeFormatter.Style;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class RelativeDateTimeFormatterTest extends TestFmwk {
     @Test
     public void TestRelativeDateWithQuantity() {

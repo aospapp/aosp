@@ -15,14 +15,16 @@
  */
 package com.android.cts.webkit;
 
+import android.platform.test.annotations.AppModeFull;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.result.CollectingTestListener;
+import com.android.tradefed.result.TestResult;
+import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.testtype.DeviceTestCase;
 
-import java.util.Map;
+import java.util.Collection;
 
 public class WebViewHostSideStartupTest extends DeviceTestCase {
     private static final String RUNNER = "android.support.test.runner.AndroidJUnitRunner";
@@ -34,27 +36,50 @@ public class WebViewHostSideStartupTest extends DeviceTestCase {
         super.setUp();
     }
 
+    @AppModeFull(reason = "Instant apps cannot open TCP sockets.")
     public void testCookieManager() throws DeviceNotAvailableException {
-        assertTrue(runDeviceTest(DEVICE_WEBVIEW_STARTUP_PKG, DEVICE_WEBVIEW_STARTUP_TEST_CLASS,
-                    "testCookieManagerBlockingUiThread"));
+        assertDeviceTestPasses("testCookieManagerBlockingUiThread");
     }
 
     public void testWebViewVersionApiOnUiThread() throws DeviceNotAvailableException {
-        assertTrue(runDeviceTest(DEVICE_WEBVIEW_STARTUP_PKG, DEVICE_WEBVIEW_STARTUP_TEST_CLASS,
-                    "testGetCurrentWebViewPackageOnUiThread"));
+        assertDeviceTestPasses("testGetCurrentWebViewPackageOnUiThread");
     }
 
     public void testWebViewVersionApi() throws DeviceNotAvailableException {
-        assertTrue(runDeviceTest(DEVICE_WEBVIEW_STARTUP_PKG, DEVICE_WEBVIEW_STARTUP_TEST_CLASS,
-                    "testGetCurrentWebViewPackage"));
+        assertDeviceTestPasses("testGetCurrentWebViewPackage");
     }
 
     public void testStrictMode() throws DeviceNotAvailableException {
-        assertTrue(runDeviceTest(DEVICE_WEBVIEW_STARTUP_PKG, DEVICE_WEBVIEW_STARTUP_TEST_CLASS,
-                    "testStrictModeNotViolatedOnStartup"));
+        assertDeviceTestPasses("testStrictModeNotViolatedOnStartup");
     }
 
-    private boolean runDeviceTest(String packageName, String testClassName,
+    public void testGetWebViewLooperOnUiThread() throws DeviceNotAvailableException {
+        assertDeviceTestPasses("testGetWebViewLooperOnUiThread");
+    }
+
+    public void testGetWebViewLooperFromUiThread() throws DeviceNotAvailableException {
+        assertDeviceTestPasses("testGetWebViewLooperCreatedOnUiThreadFromInstrThread");
+    }
+
+    public void testGetWebViewLooperCreatedOnBackgroundThreadFromInstThread()
+            throws DeviceNotAvailableException {
+        assertDeviceTestPasses("testGetWebViewLooperCreatedOnBackgroundThreadFromInstThread");
+    }
+
+    private void assertDeviceTestPasses(String testMethodName) throws DeviceNotAvailableException {
+        TestRunResult testRunResult = runSingleDeviceTest(DEVICE_WEBVIEW_STARTUP_PKG,
+                                                 DEVICE_WEBVIEW_STARTUP_TEST_CLASS,
+                                                 testMethodName);
+        assertTrue(testRunResult.isRunComplete());
+
+        Collection<TestResult> testResults = testRunResult.getTestResults().values();
+        // We're only running a single test.
+        assertEquals(1, testResults.size());
+        TestResult testResult = testResults.toArray(new TestResult[1])[0];
+        assertTrue(testResult.getStackTrace(), TestStatus.PASSED.equals(testResult.getStatus()));
+    }
+
+    private TestRunResult runSingleDeviceTest(String packageName, String testClassName,
             String testMethodName) throws DeviceNotAvailableException {
         testClassName = packageName + "." + testClassName;
 
@@ -65,7 +90,6 @@ public class WebViewHostSideStartupTest extends DeviceTestCase {
         CollectingTestListener listener = new CollectingTestListener();
         assertTrue(getDevice().runInstrumentationTests(testRunner, listener));
 
-        TestRunResult runResult = listener.getCurrentRunResults();
-        return !runResult.hasFailedTests() && runResult.getNumTestsInState(TestStatus.PASSED) > 0;
+        return listener.getCurrentRunResults();
     }
 }

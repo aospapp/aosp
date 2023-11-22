@@ -34,9 +34,6 @@ import com.googlecode.android_scripting.rpc.RpcError;
  *
  */
 public class JsonRpcServer extends SimpleServer {
-
-    private static final String CMD_CLOSE_SESSION = "closeSl4aSession";
-
     private final RpcReceiverManagerFactory mRpcReceiverManagerFactory;
 
     // private final String mHandshake;
@@ -98,18 +95,6 @@ public class JsonRpcServer extends SimpleServer {
             } catch (Throwable t) {
                 Log.e("Invocation error.", t);
                 send(writer, JsonRpcResult.error(id, t), UID);
-            }
-            if (method.equals(CMD_CLOSE_SESSION)) {
-                Log.d("Got shutdown signal");
-                synchronized (writer) {
-                    receiverManager.shutdown();
-                    reader.close();
-                    writer.close();
-                    sock.close();
-                    shutdown();
-                    mgrs.remove(UID);
-                }
-                return;
             }
         }
     }

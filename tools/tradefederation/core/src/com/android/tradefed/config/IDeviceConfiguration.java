@@ -29,10 +29,11 @@ import java.util.List;
  */
 public interface IDeviceConfiguration {
 
-    /**
-     * Return The Name of the device specified in the field "name" of the configuration.
-     */
+    /** Returns The Name of the device specified in the field "name" of the configuration. */
     public String getDeviceName();
+
+    /** Returns whether the container is for a Device Under Test or not. */
+    public boolean isFake();
 
     /**
      * Return The list of all the configuration objects held the instance of

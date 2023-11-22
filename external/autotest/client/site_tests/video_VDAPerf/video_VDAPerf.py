@@ -38,10 +38,9 @@ MICROSECONDS_PER_SECOND = 1000000
 
 RENDERING_WARM_UP_ITERS = 30
 
-# These strings should match chromium/src/tools/perf/unit-info.json.
 UNIT_MILLISECOND = 'milliseconds'
 UNIT_MICROSECOND = 'us'
-UNIT_PERCENT = 'percent'
+UNIT_RATIO = 'ratio'
 
 # The format used for 'time': <real time>, <kernel time>, <user time>
 TIME_OUTPUT_FORMAT = '%e %S %U'
@@ -136,7 +135,7 @@ class video_VDAPerf(chrome_binary_test.ChromeBinaryTest):
         # Since we won't drop the first frame, don't add it to the number of
         # frames.
         drop_rate = float(drop_count) / (n - 1) if n > 1 else 0
-        self._logperf(name, KEY_FRAME_DROP_RATE, drop_rate, UNIT_PERCENT)
+        self._logperf(name, KEY_FRAME_DROP_RATE, drop_rate, UNIT_RATIO)
 
         # The performance keys would be used as names of python variables when
         # evaluating the test constraints. So we cannot use '.' as we did in
@@ -149,8 +148,8 @@ class video_VDAPerf(chrome_binary_test.ChromeBinaryTest):
             content = f.read()
         r, s, u = (float(x) for x in content.split())
 
-        self._logperf(name, KEY_CPU_USER_USAGE, u / r, UNIT_PERCENT)
-        self._logperf(name, KEY_CPU_KERNEL_USAGE, s / r, UNIT_PERCENT)
+        self._logperf(name, KEY_CPU_USER_USAGE, u / r, UNIT_RATIO)
+        self._logperf(name, KEY_CPU_KERNEL_USAGE, s / r, UNIT_RATIO)
 
 
     def _load_frame_delivery_times(self, test_log_file):

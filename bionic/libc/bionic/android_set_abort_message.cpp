@@ -29,8 +29,10 @@
 #include <android/set_abort_message.h>
 
 #include <pthread.h>
+#include <string.h>
 #include <sys/mman.h>
 
+#include "private/bionic_defs.h"
 #include "private/ScopedPthreadMutexLocker.h"
 
 static pthread_mutex_t g_abort_msg_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -42,6 +44,7 @@ struct abort_msg_t {
 
 abort_msg_t** __abort_message_ptr; // Accessible to __libc_init_common.
 
+__BIONIC_WEAK_FOR_NATIVE_BRIDGE
 void android_set_abort_message(const char* msg) {
   ScopedPthreadMutexLocker locker(&g_abort_msg_lock);
 

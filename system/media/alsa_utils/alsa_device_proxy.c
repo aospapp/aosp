@@ -21,8 +21,8 @@
 #include <log/log.h>
 
 #include <errno.h>
-
 #include <stdio.h>
+#include <string.h>
 
 #include "include/alsa_device_proxy.h"
 
@@ -41,7 +41,7 @@ static const unsigned format_byte_size_map[] = {
     3, /* PCM_FORMAT_S24_3LE */
 };
 
-int proxy_prepare(alsa_device_proxy * proxy, alsa_device_profile* profile,
+int proxy_prepare(alsa_device_proxy * proxy, const alsa_device_profile* profile,
                    struct pcm_config * config)
 {
     int ret = 0;
@@ -126,7 +126,7 @@ int proxy_prepare(alsa_device_proxy * proxy, alsa_device_profile* profile,
 
 int proxy_open(alsa_device_proxy * proxy)
 {
-    alsa_device_profile* profile = proxy->profile;
+    const alsa_device_profile* profile = proxy->profile;
     ALOGV("proxy_open(card:%d device:%d %s)", profile->card, profile->device,
           profile->direction == PCM_OUT ? "PCM_OUT" : "PCM_IN");
 
@@ -262,8 +262,8 @@ void proxy_dump(const alsa_device_proxy* proxy, int fd)
     }
 }
 
-int proxy_scan_rates(alsa_device_proxy * proxy, unsigned sample_rates[]) {
-    alsa_device_profile* profile = proxy->profile;
+int proxy_scan_rates(alsa_device_proxy * proxy, const unsigned sample_rates[]) {
+    const alsa_device_profile* profile = proxy->profile;
     if (profile->card < 0 || profile->device < 0) {
         return -EINVAL;
     }

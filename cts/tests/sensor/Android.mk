@@ -27,7 +27,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util
 
-LOCAL_JAVA_LIBRARIES := platform-test-annotations
+LOCAL_JAVA_LIBRARIES := platform-test-annotations android.test.base.stubs
 
 LOCAL_SDK_VERSION := current
 
@@ -89,7 +89,7 @@ LOCAL_PACKAGE_NAME := CtsSensorTestCases
 
 LOCAL_SDK_VERSION := current
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 
 LOCAL_NDK_STL_VARIANT := c++_shared
 

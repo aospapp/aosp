@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import static android.content.pm.PackageManager.GET_PERMISSIONS;
+import static android.content.pm.PackageManager.MATCH_FACTORY_ONLY;
 
 /**
  * Tests enforcement of signature|privileged permission whitelist:
@@ -64,16 +65,24 @@ public class PrivappPermissionsTest extends AndroidTestCase {
         }
 
         List<PackageInfo> installedPackages = pm
-                .getInstalledPackages(PackageManager.MATCH_UNINSTALLED_PACKAGES | GET_PERMISSIONS);
+                .getInstalledPackages(PackageManager.MATCH_UNINSTALLED_PACKAGES);
 
         for (PackageInfo pkg : installedPackages) {
-            Set<String> requestedPrivPermissions = new TreeSet<>();
-            Set<String> grantedPrivPermissions = new TreeSet<>();
-            String[] requestedPermissions = pkg.requestedPermissions;
+            String packageName = pkg.packageName;
             if (!pkg.applicationInfo.isPrivilegedApp()
-                    || PLATFORM_PACKAGE_NAME.equals(pkg.packageName)) {
+                    || PLATFORM_PACKAGE_NAME.equals(packageName)) {
                 continue;
             }
+
+            Set<String> requestedPrivPermissions = new TreeSet<>();
+            Set<String> grantedPrivPermissions = new TreeSet<>();
+            PackageInfo factoryPackageInfo = pm
+                    .getPackageInfo(packageName, MATCH_FACTORY_ONLY | GET_PERMISSIONS);
+
+            assertNotNull("No system image version found for " + packageName, factoryPackageInfo);
+            String[] requestedPermissions = factoryPackageInfo.requestedPermissions;
+            int[] requestedPermissionsFlags = factoryPackageInfo.requestedPermissionsFlags;
+
             if (requestedPermissions == null || requestedPermissions.length == 0) {
                 continue;
             }
@@ -82,7 +91,7 @@ public class PrivappPermissionsTest extends AndroidTestCase {
                 String permission = requestedPermissions[i];
                 if (platformPrivPermissions.contains(permission)) {
                     requestedPrivPermissions.add(permission);
-                    if ((pkg.requestedPermissionsFlags[i]
+                    if ((requestedPermissionsFlags[i]
                             & PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0) {
                         grantedPrivPermissions.add(permission);
                     }
@@ -93,9 +102,9 @@ public class PrivappPermissionsTest extends AndroidTestCase {
             if (!requestedPrivPermissions.isEmpty()) {
                 Set<String> notGranted = new TreeSet<>(requestedPrivPermissions);
                 notGranted.removeAll(grantedPrivPermissions);
-                Set<String> whitelist = getPrivAppPermissions(pkg.packageName);
-                Set<String> denylist = getPrivAppDenyPermissions(pkg.packageName);
-                Log.i(TAG, "Application " + pkg.packageName + "."
+                Set<String> whitelist = getPrivAppPermissions(packageName);
+                Set<String> denylist = getPrivAppDenyPermissions(packageName);
+                Log.i(TAG, "Application " + packageName + "."
                         + " Requested permissions: " + requestedPrivPermissions + "."
                         + " Granted permissions: " + grantedPrivPermissions + "."
                         + " Not granted: " + notGranted + "."
@@ -108,11 +117,11 @@ public class PrivappPermissionsTest extends AndroidTestCase {
                 notGrantedNotInDenylist.removeAll(denylist);
 
                 assertTrue("Not whitelisted permissions are granted for package "
-                                + pkg.packageName + ": " + grantedNotInWhitelist,
+                                + packageName + ": " + grantedNotInWhitelist,
                         grantedNotInWhitelist.isEmpty());
 
                 assertTrue("Requested permissions not granted for package "
-                                + pkg.packageName + ": " + notGrantedNotInDenylist,
+                                + packageName + ": " + notGrantedNotInDenylist,
                         notGrantedNotInDenylist.isEmpty());
             }
         }

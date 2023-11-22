@@ -1010,8 +1010,9 @@ void PermutationWriter::writeRsAllocationDefinition(const ParameterDefinition& p
 }
 
 // Open the mJavaFile and writes the header.
-static bool startJavaFile(GeneratedFile* file, const Function& function, const string& directory,
-                          const string& testName, const string& relaxedTestName) {
+static bool startJavaFile(GeneratedFile* file, const string& directory,
+                          const string& testName,
+                          const string& relaxedTestName) {
     const string fileName = testName + ".java";
     if (!file->start(directory, fileName)) {
         return false;
@@ -1072,7 +1073,7 @@ static void finishJavaFile(GeneratedFile* file, const Function& function,
 }
 
 // Open the script file and write its header.
-static bool startRsFile(GeneratedFile* file, const Function& function, const string& directory,
+static bool startRsFile(GeneratedFile* file, const string& directory,
                         const string& testName) {
     string fileName = testName + ".rs";
     if (!file->start(directory, fileName)) {
@@ -1086,8 +1087,8 @@ static bool startRsFile(GeneratedFile* file, const Function& function, const str
 }
 
 // Write the entire *Relaxed.rs test file, as it only depends on the name.
-static bool writeRelaxedRsFile(const Function& function, const string& directory,
-                               const string& testName, const string& relaxedTestName) {
+static bool writeRelaxedRsFile(const string& directory, const string& testName,
+                               const string& relaxedTestName) {
     string name = relaxedTestName + ".rs";
 
     GeneratedFile file;
@@ -1115,17 +1116,17 @@ static bool writeTestFilesForFunction(const Function& function, const string& di
     const string testName = "Test" + function.getCapitalizedName();
     const string relaxedTestName = testName + "Relaxed";
 
-    if (!writeRelaxedRsFile(function, directory, testName, relaxedTestName)) {
+    if (!writeRelaxedRsFile(directory, testName, relaxedTestName)) {
         return false;
     }
 
     GeneratedFile rsFile;    // The Renderscript test file we're generating.
     GeneratedFile javaFile;  // The Jave test file we're generating.
-    if (!startRsFile(&rsFile, function, directory, testName)) {
+    if (!startRsFile(&rsFile, directory, testName)) {
         return false;
     }
 
-    if (!startJavaFile(&javaFile, function, directory, testName, relaxedTestName)) {
+    if (!startJavaFile(&javaFile, directory, testName, relaxedTestName)) {
         return false;
     }
 

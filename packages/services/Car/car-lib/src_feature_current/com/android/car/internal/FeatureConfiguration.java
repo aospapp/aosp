@@ -25,5 +25,4 @@ public class FeatureConfiguration {
     public static final boolean DEFAULT = false;
     /** product configuration in CarInfoManager */
     public static final boolean ENABLE_PRODUCT_CONFIGURATION_INFO = DEFAULT;
-    public static final boolean ENABLE_VEHICLE_MAP_SERVICE = DEFAULT;
 }

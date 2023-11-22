@@ -28,6 +28,11 @@ import logging
 import common
 from autotest_lib.client.common_lib import error
 
+try:
+    from chromite.lib import metrics
+except ImportError:
+    from autotest_lib.client.bin.utils import metrics_mock as metrics
+
 
 class AutoservVerifyError(error.AutoservError):
     """
@@ -68,6 +73,7 @@ class AutoservVerifyDependencyError(error.AutoservError):
     @property _node     Instance of `_DependencyNode` reporting the
                         failed dependencies.
     """
+
     def __init__(self, node, failures):
         """
         Constructor for `AutoservVerifyDependencyError`.
@@ -80,7 +86,6 @@ class AutoservVerifyDependencyError(error.AutoservError):
                 '\n'.join([f.error for f in failures]))
         self.failures = failures
         self._node = node
-
 
     def log_dependencies(self, action, deps):
         """
@@ -132,26 +137,49 @@ class _DependencyNode(object):
     @property _dependency_list  Dependency pre-requisites.
     """
 
-    def __init__(self, tag, dependencies):
+    def __init__(self, tag, record_type, dependencies):
         self._dependency_list = dependencies
         self._tag = tag
+        self._record_tag = record_type + '.' + tag
 
-
-    def _record(self, host, silent, *record_args):
+    def _record(self, host, silent, status_code, *record_args):
         """
         Log a status record for `host`.
 
-        Call `host.record()` with the given `record_args`, unless
-        requested to skip by `silent`.
+        Call `host.record()` using the given status_code, and
+        operation tag `self._record_tag`, plus any extra arguments in
+        `record_args`.  Do nothing if `silent` is a true value.
 
         @param host         Host which will record the status record.
         @param silent       Don't record the event if this is a true
                             value.
-        @param record_args  Arguments to pass to `host.record()`.
+        @param status_code  Value for the `status_code` parameter to
+                            `host.record()`.
+        @param record_args  Additional arguments to pass to
+                            `host.record()`.
         """
         if not silent:
-            host.record(*record_args)
+            host.record(status_code, None, self._record_tag,
+                        *record_args)
 
+    def _record_good(self, host, silent):
+        """Log a 'GOOD' status line.
+
+        @param host         Host which will record the status record.
+        @param silent       Don't record the event if this is a true
+                            value.
+        """
+        self._record(host, silent, 'GOOD')
+
+    def _record_fail(self, host, silent, exc):
+        """Log a 'FAIL' status line.
+
+        @param host         Host which will record the status record.
+        @param silent       Don't record the event if this is a true
+                            value.
+        @param exc          Exception describing the cause of failure.
+        """
+        self._record(host, silent, 'FAIL', str(exc))
 
     def _verify_list(self, host, verifiers, silent):
         """
@@ -187,7 +215,6 @@ class _DependencyNode(object):
         if failures:
             raise AutoservVerifyDependencyError(self, failures)
 
-
     def _verify_dependencies(self, host, silent):
         """
         Verify that all of this node's dependencies pass for a host.
@@ -203,7 +230,6 @@ class _DependencyNode(object):
                     'The following dependencies failed')
             raise
 
-
     @property
     def tag(self):
         """
@@ -218,7 +244,6 @@ class _DependencyNode(object):
         @return A short identifier-like string.
         """
         return self._tag
-
 
     @property
     def description(self):
@@ -284,10 +309,8 @@ class Verifier(_DependencyNode):
     """
 
     def __init__(self, tag, dependencies):
-        super(Verifier, self).__init__(tag, dependencies)
+        super(Verifier, self).__init__(tag, 'verify', dependencies)
         self._result = None
-        self._verify_tag = 'verify.' + self.tag
-
 
     def _reverify(self):
         """
@@ -300,7 +323,6 @@ class Verifier(_DependencyNode):
             self._result = None
             for v in self._dependency_list:
                 v._reverify()
-
 
     def _verify_host(self, host, silent):
         """
@@ -327,15 +349,13 @@ class Verifier(_DependencyNode):
         logging.info('Verifying this condition: %s', self.description)
         try:
             self.verify(host)
-            self._record(host, silent, 'GOOD', None, self._verify_tag)
+            self._record_good(host, silent)
         except Exception as e:
             logging.exception('Failed: %s', self.description)
             self._result = e
-            self._record(host, silent,
-                         'FAIL', None, self._verify_tag, str(e))
+            self._record_fail(host, silent, e)
             raise
         self._result = True
-
 
     def verify(self, host):
         """
@@ -414,10 +434,38 @@ class RepairAction(_DependencyNode):
     """
 
     def __init__(self, tag, dependencies, triggers):
-        super(RepairAction, self).__init__(tag, dependencies)
+        super(RepairAction, self).__init__(tag, 'repair', dependencies)
         self._trigger_list = triggers
-        self._repair_tag = 'repair.' + self.tag
 
+    def _record_start(self, host, silent):
+        """Log a 'START' status line.
+
+        @param host         Host which will record the status record.
+        @param silent       Don't record the event if this is a true
+                            value.
+        """
+        self._record(host, silent, 'START')
+
+    def _record_end_good(self, host, silent):
+        """Log an 'END GOOD' status line.
+
+        @param host         Host which will record the status record.
+        @param silent       Don't record the event if this is a true
+                            value.
+        """
+        self._record(host, silent, 'END GOOD')
+        self.status = 'repaired'
+
+    def _record_end_fail(self, host, silent, status, *args):
+        """Log an 'END FAIL' status line.
+
+        @param host         Host which will record the status record.
+        @param silent       Don't record the event if this is a true
+                            value.
+        @param args         Extra arguments to `self._record()`
+        """
+        self._record(host, silent, 'END FAIL', *args)
+        self.status = status
 
     def _repair_host(self, host, silent):
         """
@@ -435,49 +483,54 @@ class RepairAction(_DependencyNode):
         @param host     The host to be repaired.
         @param silent   If true, don't log host status records.
         """
+        # Note:  Every exit path from the method must set `self.status`.
+        # There's a lot of exit paths, so be careful.
+        #
+        # If we're blocked by a failed dependency, we exit with an
+        # exception.  So set status to 'blocked' first.
+        self.status = 'blocked'
         self._verify_dependencies(host, silent)
+        # This is a defensive action.  Every path below should overwrite
+        # this setting, but if it doesn't, we want our status to reflect
+        # a coding error.
+        self.status = 'unknown'
         try:
             self._verify_list(host, self._trigger_list, silent)
         except AutoservVerifyDependencyError as e:
             e.log_dependencies(
                     'Attempting this repair action',
                     'Repairing because these triggers failed')
-            self._record(host, silent, 'START', None, self._repair_tag)
+            self._record_start(host, silent)
             try:
                 self.repair(host)
             except Exception as e:
                 logging.exception('Repair failed: %s', self.description)
-                self._record(host, silent,
-                             'FAIL', None, self._repair_tag, str(e))
-                self._record(host, silent,
-                             'END FAIL', None, self._repair_tag)
+                self._record_fail(host, silent, e)
+                self._record_end_fail(host, silent, 'failed-action')
                 raise
             try:
                 for v in self._trigger_list:
                     v._reverify()
                 self._verify_list(host, self._trigger_list, silent)
-                self._record(host, silent,
-                             'END GOOD', None, self._repair_tag)
+                self._record_end_good(host, silent)
             except AutoservVerifyDependencyError as e:
                 e.log_dependencies(
                         'This repair action reported success',
                         'However, these triggers still fail')
-                self._record(host, silent,
-                             'END FAIL', None, self._repair_tag)
+                self._record_end_fail(host, silent, 'failed-trigger')
                 raise AutoservRepairError(
                         'Some verification checks still fail')
             except Exception:
                 # The specification for `self._verify_list()` says
                 # that this can't happen; this is a defensive
                 # precaution.
-                self._record(host, silent,
-                             'END FAIL', None, self._repair_tag,
-                            'Internal error in repair')
+                self._record_end_fail(host, silent, 'unknown',
+                                      'Internal error in repair')
                 raise
         else:
+            self.status = 'untriggered'
             logging.info('No failed triggers, skipping repair:  %s',
                          self.description)
-
 
     def repair(self, host):
         """
@@ -517,7 +570,6 @@ class _RootVerifier(Verifier):
 
     def verify(self, host):
         pass
-
 
     @property
     def description(self):
@@ -632,7 +684,6 @@ class RepairStrategy(object):
         deps = [verifiers[d] for d in dep_tags]
         verifiers[tag] = constructor(tag, deps)
 
-
     def __init__(self, verifier_data, repair_data):
         """
         Construct a `RepairStrategy` from simplified DAG data.
@@ -651,6 +702,13 @@ class RepairStrategy(object):
                               elements of the repair action list, and
                               their dependencies and triggers.
         """
+        # Metrics - we report on 'actions' for every repair action
+        # we execute; we report on 'completions' for every complete
+        # repair operation.
+        self._completions_counter = metrics.Counter(
+                'chromeos/autotest/repair/completions')
+        self._actions_counter = metrics.Counter(
+                'chromeos/autotest/repair/actions')
         # We use the `all_verifiers` list to guarantee that our root
         # verifier will execute its dependencies in the order provided
         # to us by our caller.
@@ -673,6 +731,19 @@ class RepairStrategy(object):
                             [verifier_map[t] for t in triggers])
             self._repair_actions.append(r)
 
+    def _count_completions(self, host, success):
+        try:
+            board = host.host_info_store.board or ''
+        except Exception:
+            board = ''
+        fields = {'success': success, 'board': board}
+        self._completions_counter.increment(fields=fields)
+        for ra in self._repair_actions:
+            fields = {'tag': ra.tag,
+                      'status': ra.status,
+                      'success': success,
+                      'board': board}
+            self._actions_counter.increment(fields=fields)
 
     def verify(self, host, silent=False):
         """
@@ -683,7 +754,6 @@ class RepairStrategy(object):
         """
         self._verify_root._reverify()
         self._verify_root._verify_host(host, silent)
-
 
     def repair(self, host, silent=False):
         """
@@ -700,4 +770,9 @@ class RepairStrategy(object):
                 # all logging and exception handling was done at
                 # lower levels
                 pass
-        self._verify_root._verify_host(host, silent)
+        try:
+            self._verify_root._verify_host(host, silent)
+        except:
+            self._count_completions(host, False)
+            raise
+        self._count_completions(host, True)

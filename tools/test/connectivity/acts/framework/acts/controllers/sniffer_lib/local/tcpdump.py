@@ -18,6 +18,7 @@ import shutil
 from acts.controllers import sniffer
 from acts.controllers.sniffer_lib.local import local_base
 
+
 class Sniffer(local_base.SnifferLocalBase):
     """This class defines a sniffer which uses tcpdump as its back-end
     """
@@ -27,12 +28,13 @@ class Sniffer(local_base.SnifferLocalBase):
         """
         self._executable_path = None
 
-        super().__init__(config_path, logger, base_configs=base_configs)
+        super(local_base.SnifferLocalBase).__init__(
+            config_path, logger, base_configs=base_configs)
 
         self._executable_path = shutil.which("tcpdump")
         if self._executable_path is None:
             raise sniffer.SnifferError(
-                              "Cannot find a path to the 'tcpdump' executable")
+                "Cannot find a path to the 'tcpdump' executable")
 
     def get_descriptor(self):
         """See base class documentation
@@ -44,7 +46,9 @@ class Sniffer(local_base.SnifferLocalBase):
         """
         return "tcpdump"
 
-    def _get_command_line(self, additional_args=None, duration=None,
+    def _get_command_line(self,
+                          additional_args=None,
+                          duration=None,
                           packet_count=None):
         cmd = "{} -i {} -w {}".format(self._executable_path, self._interface,
                                       self._temp_capture_file_path)

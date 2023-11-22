@@ -19,7 +19,7 @@
 #ifndef LIBTEXTCLASSIFIER_UTIL_BASE_PORT_H_
 #define LIBTEXTCLASSIFIER_UTIL_BASE_PORT_H_
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 #if defined(__GNUC__) && \
     (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))
@@ -40,6 +40,6 @@ namespace libtextclassifier {
 #define TC_ATTRIBUTE_NOINLINE
 #endif
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
 #endif  // LIBTEXTCLASSIFIER_UTIL_BASE_PORT_H_

@@ -24,6 +24,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
         ./app/src/android/leanbackjank/app/IntentKeys.java
 
 LOCAL_PACKAGE_NAME := CtsLeanbackJankTestCases
+LOCAL_SDK_VERSION := current
 
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
@@ -32,11 +33,9 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     compatibility-device-util \
     ctstestrunner \
     ub-uiautomator \
-    ub-janktesthelper \
-    android-support-v17-leanback \
-    android-support-v7-recyclerview \
-    android-support-v4 \
-    legacy-android-test
+    ub-janktesthelper
+
+LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 
 include $(BUILD_CTS_PACKAGE)
 

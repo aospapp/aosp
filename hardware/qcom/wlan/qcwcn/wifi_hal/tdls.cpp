@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2018 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -282,12 +282,13 @@ int TdlsCommand::handleResponse(WifiEvent &reply)
 }
 
 
-int TdlsCommand::setCallbackHandler(wifi_tdls_handler nHandler, u32 event)
+wifi_error TdlsCommand::setCallbackHandler(wifi_tdls_handler nHandler, u32 event)
 {
-    int res = 0;
+    wifi_error res;
     mHandler = nHandler;
+
     res = registerVendorHandler(mVendor_id, event);
-    if (res != 0) {
+    if (res != WIFI_SUCCESS) {
         /* Error case should not happen print log */
         ALOGE("%s: Unable to register Vendor Handler Vendor Id=0x%x subcmd=%u",
               __FUNCTION__, mVendor_id, mSubcmd);
@@ -309,7 +310,7 @@ void TdlsCommand::getStatusRspParams(wifi_tdls_status *status)
     status->reason = mTDLSgetStatusRspParams.reason;
 }
 
-int TdlsCommand::requestResponse()
+wifi_error TdlsCommand::requestResponse()
 {
     return WifiCommand::requestResponse(mMsg);
 }
@@ -349,7 +350,7 @@ wifi_error wifi_enable_tdls(wifi_interface_handle iface,
                             wifi_tdls_params *params,
                             wifi_tdls_handler handler)
 {
-    int ret = 0;
+    wifi_error ret;
     TdlsCommand *pTdlsCommand;
     struct nlattr *nl_data;
     interface_info *iinfo = getIfaceInfo(iface);
@@ -364,11 +365,11 @@ wifi_error wifi_enable_tdls(wifi_interface_handle iface,
 
     /* Create the message */
     ret = pTdlsCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     ret = pTdlsCommand->set_iface_id(iinfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Add the attributes */
@@ -378,7 +379,7 @@ wifi_error wifi_enable_tdls(wifi_interface_handle iface,
     ALOGV("%s: MAC_ADDR: " MAC_ADDR_STR, __FUNCTION__, MAC_ADDR_ARRAY(addr));
     ret = pTdlsCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_TDLS_ENABLE_MAC_ADDR,
                                   (char *)addr, 6);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     if (params != NULL) {
@@ -388,34 +389,39 @@ wifi_error wifi_enable_tdls(wifi_interface_handle iface,
             params->max_latency_ms, params->min_bandwidth_kbps);
         ret = pTdlsCommand->put_u32(
                             QCA_WLAN_VENDOR_ATTR_TDLS_ENABLE_CHANNEL,
-                            params->channel) |
-              pTdlsCommand->put_u32(
+                            params->channel);
+        if (ret != WIFI_SUCCESS)
+                goto cleanup;
+        ret = pTdlsCommand->put_u32(
                             QCA_WLAN_VENDOR_ATTR_TDLS_ENABLE_GLOBAL_OPERATING_CLASS,
-                            params->global_operating_class) |
-              pTdlsCommand->put_u32(
+                            params->global_operating_class);
+        if (ret != WIFI_SUCCESS)
+                goto cleanup;
+        ret = pTdlsCommand->put_u32(
                             QCA_WLAN_VENDOR_ATTR_TDLS_ENABLE_MAX_LATENCY_MS,
-                            params->max_latency_ms) |
-              pTdlsCommand->put_u32(
+                            params->max_latency_ms);
+        if (ret != WIFI_SUCCESS)
+                goto cleanup;
+        ret = pTdlsCommand->put_u32(
                             QCA_WLAN_VENDOR_ATTR_TDLS_ENABLE_MIN_BANDWIDTH_KBPS,
                             params->min_bandwidth_kbps);
-        if (ret < 0)
-            goto cleanup;
+        if (ret != WIFI_SUCCESS)
+                goto cleanup;
     }
 
     pTdlsCommand->attr_end(nl_data);
 
     ret = pTdlsCommand->setCallbackHandler(handler,
                         QCA_NL80211_VENDOR_SUBCMD_TDLS_STATE);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     ret = pTdlsCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
-    }
 
 cleanup:
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 /* wifi_disable_tdls - disables TDLS-auto mode for a specific route
@@ -428,7 +434,7 @@ cleanup:
  */
 wifi_error wifi_disable_tdls(wifi_interface_handle iface, mac_addr addr)
 {
-    int ret = 0;
+    wifi_error ret;
     TdlsCommand *pTdlsCommand;
     struct nlattr *nl_data;
     interface_info *iinfo = getIfaceInfo(iface);
@@ -443,11 +449,11 @@ wifi_error wifi_disable_tdls(wifi_interface_handle iface, mac_addr addr)
 
     /* Create the message */
     ret = pTdlsCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     ret = pTdlsCommand->set_iface_id(iinfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
     ALOGV("%s: ifindex obtained:%d", __FUNCTION__, ret);
     ALOGV("%s: MAC_ADDR: " MAC_ADDR_STR, __FUNCTION__, MAC_ADDR_ARRAY(addr));
@@ -458,18 +464,17 @@ wifi_error wifi_disable_tdls(wifi_interface_handle iface, mac_addr addr)
         goto cleanup;
     ret = pTdlsCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_TDLS_DISABLE_MAC_ADDR,
                                   (char *)addr, 6);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
     pTdlsCommand->attr_end(nl_data);
 
     ret = pTdlsCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
-    }
 
 cleanup:
     delete pTdlsCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 /* wifi_get_tdls_status - allows getting the status of TDLS for a specific
@@ -478,7 +483,7 @@ cleanup:
 wifi_error wifi_get_tdls_status(wifi_interface_handle iface, mac_addr addr,
                                 wifi_tdls_status *status)
 {
-    int ret = 0;
+    wifi_error ret;
     TdlsCommand *pTdlsCommand;
     struct nlattr *nl_data;
     interface_info *iinfo = getIfaceInfo(iface);
@@ -493,11 +498,11 @@ wifi_error wifi_get_tdls_status(wifi_interface_handle iface, mac_addr addr,
 
     /* Create the message */
     ret = pTdlsCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     ret = pTdlsCommand->set_iface_id(iinfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
     ALOGV("%s: ifindex obtained:%d", __FUNCTION__, ret);
 
@@ -507,25 +512,25 @@ wifi_error wifi_get_tdls_status(wifi_interface_handle iface, mac_addr addr,
         goto cleanup;
     ret = pTdlsCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_TDLS_GET_STATUS_MAC_ADDR,
                                   (char *)addr, 6);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
     pTdlsCommand->attr_end(nl_data);
 
     ret = pTdlsCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
-    }
+
     pTdlsCommand->getStatusRspParams(status);
 
 cleanup:
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 /* return the current HW + Firmware combination's TDLS capabilities */
 wifi_error wifi_get_tdls_capabilities(wifi_interface_handle iface,
                                       wifi_tdls_capabilities *capabilities)
 {
-    int ret = 0;
+    wifi_error ret;
     TdlsCommand *pTdlsCommand;
 
     if (capabilities == NULL) {
@@ -545,23 +550,23 @@ wifi_error wifi_get_tdls_capabilities(wifi_interface_handle iface,
 
     /* Create the message */
     ret = pTdlsCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     ret = pTdlsCommand->set_iface_id(iinfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     ret = pTdlsCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
         goto cleanup;
     }
     pTdlsCommand->getCapsRspParams(capabilities);
 
 cleanup:
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         memset(capabilities, 0, sizeof(wifi_tdls_capabilities));
     delete pTdlsCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }

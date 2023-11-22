@@ -24,7 +24,7 @@
 /*
  * On entry:
  *  0  Thread* self
- *  1  code_item
+ *  1  insns_
  *  2  ShadowFrame
  *  3  JValue* result_register
  *
@@ -53,15 +53,15 @@ SYMBOL(ExecuteMterpImpl):
 
     /* Remember the code_item */
     movl    IN_ARG1(%esp), %ecx
-    movl    %ecx, SHADOWFRAME_CODE_ITEM_OFFSET(%edx)
+    movl    %ecx, SHADOWFRAME_DEX_INSTRUCTIONS_OFFSET(%edx)
 
     /* set up "named" registers */
     movl    SHADOWFRAME_NUMBER_OF_VREGS_OFFSET(%edx), %eax
     leal    SHADOWFRAME_VREGS_OFFSET(%edx), rFP
     leal    (rFP, %eax, 4), rREFS
     movl    SHADOWFRAME_DEX_PC_OFFSET(%edx), %eax
-    lea     CODEITEM_INSNS_OFFSET(%ecx), rPC
-    lea     (rPC, %eax, 2), rPC
+    lea     (%ecx, %eax, 2), rPC
+    CFI_DEFINE_DEX_PC_WITH_OFFSET(CFI_TMP, CFI_DEX, 0)
     EXPORT_PC
 
     /* Set up for backwards branches & osr profiling */
@@ -69,6 +69,8 @@ SYMBOL(ExecuteMterpImpl):
     movl    %eax, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %ecx
     movl    %ecx, OUT_ARG1(%esp)
+    movl    rSELF, %eax
+    movl    %eax, OUT_ARG2(%esp)
     call    SYMBOL(MterpSetUpHotnessCountdown)
 
     /* Starting ibase */

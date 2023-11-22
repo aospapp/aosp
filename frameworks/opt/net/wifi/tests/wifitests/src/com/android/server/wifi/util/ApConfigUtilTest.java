@@ -22,7 +22,7 @@ import static org.mockito.Mockito.when;
 
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiScanner;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import com.android.internal.util.ArrayUtils;
 import com.android.server.wifi.WifiNative;
@@ -235,28 +235,8 @@ public class ApConfigUtilTest {
         when(mWifiNative.isHalStarted()).thenReturn(true);
         when(mWifiNative.getChannelsForBand(WifiScanner.WIFI_BAND_5_GHZ))
                 .thenReturn(null);
-        when(mWifiNative.isGetChannelsForBandSupported()).thenReturn(true);
         assertEquals(ApConfigUtil.ERROR_NO_CHANNEL,
                 ApConfigUtil.updateApChannelConfig(
                         mWifiNative, TEST_COUNTRY_CODE, mAllowed2GChannels, config));
-    }
-
-    /**
-     * Verify updateApChannelConfig will use the default band and channel when
-     * GetChannelsForBand API is not supported by HAL.
-     */
-    @Test
-    public void updateApChannelConfigWithoutChannelsForBandSupported() throws Exception {
-        WifiConfiguration config = new WifiConfiguration();
-        config.apBand = WifiConfiguration.AP_BAND_5GHZ;
-        when(mWifiNative.isHalStarted()).thenReturn(true);
-        when(mWifiNative.getChannelsForBand(WifiScanner.WIFI_BAND_5_GHZ))
-                .thenReturn(null);
-        when(mWifiNative.isGetChannelsForBandSupported()).thenReturn(false);
-        assertEquals(ApConfigUtil.SUCCESS,
-                ApConfigUtil.updateApChannelConfig(
-                        mWifiNative, TEST_COUNTRY_CODE, mAllowed2GChannels, config));
-        assertEquals(ApConfigUtil.DEFAULT_AP_BAND, config.apBand);
-        assertEquals(ApConfigUtil.DEFAULT_AP_CHANNEL, config.apChannel);
     }
 }

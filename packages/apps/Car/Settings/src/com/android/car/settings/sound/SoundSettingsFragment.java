@@ -15,105 +15,114 @@
  */
 package com.android.car.settings.sound;
 
-import android.app.Activity;
+import android.annotation.DrawableRes;
+import android.annotation.StringRes;
 import android.car.Car;
 import android.car.CarNotConnectedException;
 import android.car.media.CarAudioManager;
-import android.annotation.DrawableRes;
-import android.annotation.StringRes;
+import android.car.media.ICarVolumeCallback;
 import android.content.ComponentName;
 import android.content.ServiceConnection;
+import android.content.res.TypedArray;
+import android.content.res.XmlResourceParser;
 import android.media.AudioAttributes;
-import android.media.IVolumeController;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
-import android.os.RemoteException;
-import android.util.Log;
+import android.util.AttributeSet;
+import android.util.SparseArray;
+import android.util.Xml;
 
-import com.android.car.settings.common.BaseFragment;
-import com.android.car.settings.common.TypedPagedListAdapter;
+import androidx.car.widget.ListItem;
+import androidx.car.widget.ListItemAdapter;
+import androidx.car.widget.ListItemProvider.ListProvider;
+import androidx.car.widget.PagedListView;
+
 import com.android.car.settings.R;
-import com.android.car.view.PagedListView;
+import com.android.car.settings.common.BaseFragment;
+import com.android.car.settings.common.Logger;
 
+import org.xmlpull.v1.XmlPullParserException;
+
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.List;
 
 /**
  * Activity hosts sound related settings.
  */
 public class SoundSettingsFragment extends BaseFragment {
-    private static final String TAG = "SoundSettingsFragment";
-    private Car mCar;
-    private CarAudioManager mCarAudioManager;
-    private PagedListView mListView;
-    private TypedPagedListAdapter mPagedListAdapter;
+    private static final Logger LOG = new Logger(SoundSettingsFragment.class);
 
-    private final ArrayList<VolumeLineItem> mVolumeLineItems = new ArrayList<>();
-    private final VolumeCallback
-            mVolumeCallback = new VolumeCallback();
+    private static final String XML_TAG_VOLUME_ITEMS = "carVolumeItems";
+    private static final String XML_TAG_VOLUME_ITEM = "item";
 
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private final HashSet<StreamItem> mUniqueStreamItems = new HashSet<>();
+    private final SparseArray<VolumeItem> mVolumeItems = new SparseArray<>();
+
+    private final List<ListItem> mVolumeLineItems = new ArrayList<>();
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             try {
                 mCarAudioManager = (CarAudioManager) mCar.getCarManager(Car.AUDIO_SERVICE);
-                mCarAudioManager.setVolumeController(mVolumeCallback);
-
-                mUniqueStreamItems.add(new StreamItem(
-                        mCarAudioManager.getAudioAttributesForCarUsage(
-                                mCarAudioManager.CAR_AUDIO_USAGE_MUSIC)
-                                .getVolumeControlStream(),
-                        R.string.media_volume_title,
-                        com.android.internal.R.drawable.ic_audio_media));
-                mUniqueStreamItems.add(new StreamItem(
-                        mCarAudioManager.getAudioAttributesForCarUsage(
-                                mCarAudioManager.CAR_AUDIO_USAGE_SYSTEM_SOUND)
-                                .getVolumeControlStream(),
-                        R.string.ring_volume_title,
-                        com.android.internal.R.drawable.ic_audio_ring_notif));
-                mUniqueStreamItems.add(new StreamItem(
-                        mCarAudioManager.getAudioAttributesForCarUsage(
-                                mCarAudioManager.CAR_AUDIO_USAGE_NAVIGATION_GUIDANCE)
-                                .getVolumeControlStream(),
-                        R.string.navi_volume_title,
-                        R.drawable.ic_audio_navi));
+                int volumeGroupCount = mCarAudioManager.getVolumeGroupCount();
+                cleanUpVolumeLineItems();
+                // Populates volume slider items from volume groups to UI.
+                for (int groupId = 0; groupId < volumeGroupCount; groupId++) {
+                    final VolumeItem volumeItem = getVolumeItemForUsages(
+                            mCarAudioManager.getUsagesForVolumeGroupId(groupId));
+                    mVolumeLineItems.add(new VolumeLineItem(
+                            getContext(),
+                            mCarAudioManager,
+                            groupId,
+                            volumeItem.usage,
+                            volumeItem.icon,
+                            volumeItem.title));
+                }
+                updateList();
+                mCarAudioManager.registerVolumeCallback(mVolumeChangeCallback.asBinder());
             } catch (CarNotConnectedException e) {
-                Log.e(TAG, "Car is not connected!", e);
-                return;
-            }
-
-            for (StreamItem streamItem : mUniqueStreamItems) {
-                mVolumeLineItems.add(new VolumeLineItem(
-                        getContext(),
-                        mCarAudioManager,
-                        streamItem.volumeStream,
-                        streamItem.nameStringId,
-                        streamItem.iconId));
-            }
-            // if list is already initiated, update it's content.
-            if (mPagedListAdapter != null) {
-                mPagedListAdapter.updateList(new ArrayList<>(mVolumeLineItems));
+                LOG.e("Car is not connected!", e);
             }
         }
 
+        /**
+         * This does not gets called when service is properly disconnected.
+         * So we need to also handle cleanups in onStop().
+         */
         @Override
         public void onServiceDisconnected(ComponentName name) {
-            try {
-                mCarAudioManager.setVolumeController(null);
-            } catch (CarNotConnectedException e) {
-            Log.e(TAG, "Car is not connected!", e);
-            return;
-            }
-            mCarAudioManager = null;
+            cleanupAudioManager();
         }
     };
 
-    public static SoundSettingsFragment getInstance() {
+    private final ICarVolumeCallback mVolumeChangeCallback = new ICarVolumeCallback.Stub() {
+        @Override
+        public void onGroupVolumeChanged(int groupId, int flags) {
+            for (ListItem lineItem : mVolumeLineItems) {
+                VolumeLineItem volumeLineItem = (VolumeLineItem) lineItem;
+                if (volumeLineItem.getVolumeGroupId() == groupId) {
+                    volumeLineItem.updateProgress();
+                }
+            }
+            updateList();
+        }
+
+        @Override
+        public void onMasterMuteChanged(int flags) {
+            // ignored
+        }
+    };
+
+    private Car mCar;
+    private CarAudioManager mCarAudioManager;
+    private PagedListView mListView;
+    private ListItemAdapter mPagedListAdapter;
+
+    /**
+     * Creates a new instance of this fragment.
+     */
+    public static SoundSettingsFragment newInstance() {
         SoundSettingsFragment soundSettingsFragment = new SoundSettingsFragment();
         Bundle bundle = BaseFragment.getBundle();
         bundle.putInt(EXTRA_TITLE_ID, R.string.sound_settings);
@@ -123,22 +132,32 @@ public class SoundSettingsFragment extends BaseFragment {
         return soundSettingsFragment;
     }
 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        mCar = Car.createCar(getContext(), mServiceConnection);
+    private void cleanupAudioManager() {
+        try {
+            mCarAudioManager.unregisterVolumeCallback(mVolumeChangeCallback.asBinder());
+        } catch (CarNotConnectedException e) {
+            LOG.e("Car is not connected!", e);
+        }
+        cleanUpVolumeLineItems();
+        mCarAudioManager = null;
+    }
+
+    private void updateList() {
+        if (getActivity() != null && mPagedListAdapter != null) {
+            getActivity().runOnUiThread(() -> mPagedListAdapter.notifyDataSetChanged());
+        }
     }
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        mListView = (PagedListView) getView().findViewById(R.id.list);
-        mListView.setDarkMode();
-        mPagedListAdapter = new TypedPagedListAdapter(getContext());
+
+        loadAudioUsageItems();
+        mCar = Car.createCar(getContext(), mServiceConnection);
+        mListView = getView().findViewById(R.id.list);
+        mPagedListAdapter = new ListItemAdapter(getContext(), new ListProvider(mVolumeLineItems));
         mListView.setAdapter(mPagedListAdapter);
-        if (!mVolumeLineItems.isEmpty()) {
-            mPagedListAdapter.updateList(new ArrayList<>(mVolumeLineItems));
-        }
+        mListView.setMaxPages(PagedListView.UNLIMITED_PAGES);
     }
 
     @Override
@@ -150,91 +169,84 @@ public class SoundSettingsFragment extends BaseFragment {
     @Override
     public void onStop() {
         super.onStop();
-        for (VolumeLineItem item : mVolumeLineItems) {
-            item.stop();
-        }
-        mVolumeLineItems.clear();
+        cleanUpVolumeLineItems();
+        cleanupAudioManager();
         mCar.disconnect();
     }
 
-    /**
-     * The interface has a terrible name, it is actually a callback, so here name it accordingly.
-     */
-    private final class VolumeCallback extends IVolumeController.Stub {
-        @Override
-        public void displaySafeVolumeWarning(int flags) throws RemoteException {
+    private void cleanUpVolumeLineItems() {
+        for (ListItem item : mVolumeLineItems) {
+            ((VolumeLineItem) item).stop();
         }
+        mVolumeLineItems.clear();
+    }
 
-        @Override
-        public void volumeChanged(int streamType, int flags) throws RemoteException {
-            Activity activity = getActivity();
-            if (activity == null) {
-                Log.w(TAG, "no activity attached.");
-                return;
+    private void loadAudioUsageItems() {
+        try (XmlResourceParser parser = getResources().getXml(R.xml.car_volume_items)) {
+            AttributeSet attrs = Xml.asAttributeSet(parser);
+            int type;
+            // Traverse to the first start tag
+            while ((type=parser.next()) != XmlResourceParser.END_DOCUMENT
+                    && type != XmlResourceParser.START_TAG) {
             }
 
-            for (VolumeLineItem item : mVolumeLineItems) {
-                if (streamType == item.getStreamType()) {
-                    handler.post(() -> mPagedListAdapter.notifyDataSetChanged());
-                    return;
+            if (!XML_TAG_VOLUME_ITEMS.equals(parser.getName())) {
+                throw new RuntimeException("Meta-data does not start with carVolumeItems tag");
+            }
+            int outerDepth = parser.getDepth();
+            int rank = 0;
+            while ((type=parser.next()) != XmlResourceParser.END_DOCUMENT
+                    && (type != XmlResourceParser.END_TAG || parser.getDepth() > outerDepth)) {
+                if (type == XmlResourceParser.END_TAG) {
+                    continue;
+                }
+                if (XML_TAG_VOLUME_ITEM.equals(parser.getName())) {
+                    TypedArray item = getResources().obtainAttributes(
+                            attrs, R.styleable.carVolumeItems_item);
+                    int usage = item.getInt(R.styleable.carVolumeItems_item_usage, -1);
+                    if (usage >= 0) {
+                        mVolumeItems.put(usage, new VolumeItem(
+                                usage, rank,
+                                item.getResourceId(R.styleable.carVolumeItems_item_title, 0),
+                                item.getResourceId(R.styleable.carVolumeItems_item_icon, 0)));
+                        rank++;
+                    }
+                    item.recycle();
                 }
             }
-
-        }
-
-        // this is not mute of this stream
-        @Override
-        public void masterMuteChanged(int flags) throws RemoteException {
-        }
-
-        @Override
-        public void setLayoutDirection(int layoutDirection) throws RemoteException {
-        }
-
-        @Override
-        public void dismiss() throws RemoteException {
-        }
-
-        @Override
-        public void setA11yMode(int mode) {
+        } catch (XmlPullParserException | IOException e) {
+            LOG.e("Error parsing volume groups configuration", e);
         }
     }
 
+    private VolumeItem getVolumeItemForUsages(int[] usages) {
+        int rank = Integer.MAX_VALUE;
+        VolumeItem result = null;
+        for (int usage : usages) {
+            VolumeItem volumeItem = mVolumeItems.get(usage);
+            if (volumeItem.rank < rank) {
+                rank = volumeItem.rank;
+                result = volumeItem;
+            }
+        }
+        return result;
+    }
+
     /**
-     * Wraps information needed to render an audio stream, keyed by volumeControlStream.
+     * Wrapper class which contains information to render volume item on UI.
      */
-    private static final class StreamItem {
-        final int volumeStream;
+    private static class VolumeItem {
+        private final @AudioAttributes.AttributeUsage int usage;
+        private final int rank;
+        private final @StringRes int title;
+        private final @DrawableRes int icon;
 
-        @StringRes
-        final int nameStringId;
-
-        @DrawableRes
-        final int iconId;
-
-        StreamItem(
-                int volumeStream,
-                @StringRes int nameStringId,
-                @DrawableRes int iconId) {
-            this.volumeStream = volumeStream;
-            this.nameStringId = nameStringId;
-            this.iconId = iconId;
-        }
-
-        @Override
-        public int hashCode() {
-            return volumeStream;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (!(o instanceof  StreamItem)) {
-                return false;
-            }
-            return volumeStream == ((StreamItem) o).volumeStream;
+        private VolumeItem(@AudioAttributes.AttributeUsage int usage, int rank,
+                @StringRes int title, @DrawableRes int icon) {
+            this.usage = usage;
+            this.rank = rank;
+            this.title = title;
+            this.icon = icon;
         }
     }
 }

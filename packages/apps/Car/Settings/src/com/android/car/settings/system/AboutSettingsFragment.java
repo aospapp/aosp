@@ -19,42 +19,71 @@ package com.android.car.settings.system;
 import android.os.Build;
 import android.os.Bundle;
 
-import com.android.car.settings.common.ListSettingsFragment;
-import com.android.car.settings.common.SimpleTextLineItem;
-import com.android.car.settings.common.TypedPagedListAdapter;
+import androidx.car.widget.ListItem;
+import androidx.car.widget.ListItemProvider;
+import androidx.car.widget.TextListItem;
+
 import com.android.car.settings.R;
-import com.android.car.view.PagedListView;
+import com.android.car.settings.common.ListItemSettingsFragment;
 import com.android.settingslib.DeviceInfoUtils;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Shows basic info about the system and provide some actions like update, reset etc.
  */
-public class AboutSettingsFragment extends ListSettingsFragment {
+public class AboutSettingsFragment extends ListItemSettingsFragment {
+
+    private ListItemProvider mItemProvider;
 
     public static AboutSettingsFragment getInstance() {
         AboutSettingsFragment aboutSettingsFragment = new AboutSettingsFragment();
-        Bundle bundle = ListSettingsFragment.getBundle();
+        Bundle bundle = ListItemSettingsFragment.getBundle();
         bundle.putInt(EXTRA_TITLE_ID, R.string.about_settings);
         aboutSettingsFragment.setArguments(bundle);
         return aboutSettingsFragment;
     }
 
     @Override
-    public ArrayList<TypedPagedListAdapter.LineItem> getLineItems() {
-        ArrayList<TypedPagedListAdapter.LineItem> lineItems = new ArrayList<>();
-        lineItems.add(new SimpleTextLineItem(
-                getText(R.string.model_info), Build.MODEL + DeviceInfoUtils.getMsvSuffix()));
-        lineItems.add(new SimpleTextLineItem(
-                getText(R.string.firmware_version),
-                getString(R.string.about_summary, Build.VERSION.RELEASE)));
-        lineItems.add(new SimpleTextLineItem(
-                getText(R.string.security_patch), DeviceInfoUtils.getSecurityPatch()));
-        lineItems.add(new SimpleTextLineItem(
-                getText(R.string.kernel_version), DeviceInfoUtils.getFormattedKernelVersion()));
-        lineItems.add(new SimpleTextLineItem(
-                getText(R.string.build_number), Build.DISPLAY));
-        return lineItems;
+    public void onActivityCreated(Bundle savedInstanceState) {
+        mItemProvider = new ListItemProvider.ListProvider(getListItems());
+        // super.onActivityCreated() will need itemProvider, so call it after the provider
+        // is initialized.
+        super.onActivityCreated(savedInstanceState);
+    }
+
+    @Override
+    public ListItemProvider getItemProvider() {
+        return mItemProvider;
+    }
+
+    private List<ListItem> getListItems() {
+        List<ListItem> listItems = new ArrayList<>();
+        TextListItem modelItem = new TextListItem(getContext());
+        modelItem.setTitle(getString(R.string.model_info));
+        modelItem.setBody(Build.MODEL + DeviceInfoUtils.getMsvSuffix());
+        listItems.add(modelItem);
+
+        TextListItem androidVersionItem = new TextListItem(getContext());
+        androidVersionItem.setTitle(getString(R.string.firmware_version));
+        androidVersionItem.setBody(getString(R.string.about_summary, Build.VERSION.RELEASE));
+        listItems.add(androidVersionItem);
+
+        TextListItem securityLevelItem = new TextListItem(getContext());
+        securityLevelItem.setTitle(getString(R.string.security_patch));
+        securityLevelItem.setBody(DeviceInfoUtils.getSecurityPatch());
+        listItems.add(securityLevelItem);
+
+        TextListItem kernelVersionItem = new TextListItem(getContext());
+        kernelVersionItem.setTitle(getString(R.string.kernel_version));
+        kernelVersionItem.setBody(DeviceInfoUtils.getFormattedKernelVersion(getContext()));
+        listItems.add(kernelVersionItem);
+
+        TextListItem buildNumberItem = new TextListItem(getContext());
+        buildNumberItem.setTitle(getString(R.string.build_number));
+        buildNumberItem.setBody(Build.DISPLAY);
+        listItems.add(buildNumberItem);
+        return listItems;
     }
 }

@@ -232,7 +232,19 @@
          disconnecting the ongoing Telephony call when the call goes active. -->
     <bool name="config_support_handover_from">false</bool>
 
+    <!-- Flag indicating whether the device supports RTT (real-time text) -->
+    <bool name="config_support_rtt">false</bool>
+
     <!-- Flag indicating whether a system app can use video calling fallback if carrier video
          calling is not available. -->
-    <bool name="config_support_video_calling_fallback">false</bool>
+    <bool name="config_support_video_calling_fallback">true</bool>
+
+    <!-- Whether the cellular radio is allowed to be power down when the Bluetooth can provide the data/call capabilities -->
+    <bool name="config_allowRadioPowerDownOnBluetooth">false</bool>
+
+    <!-- Whether the device supports the AudioManager Telephony audio device and output onto this
+         device using {@link AudioDeviceInfo#TYPE_TELEPHONY}.
+         When this is true, the Telephony stack is able to add additional audio to the outgoing
+         audio stream which the remote party will be able to hear. -->
+    <bool name="config_support_telephony_audio_device">false</bool>
 </resources>

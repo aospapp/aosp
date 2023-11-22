@@ -264,7 +264,6 @@ class _TabletDetachableBypasser(_BaseFwBypasser):
         next item and pwr button selects current activated item.
         """
         time.sleep(self.faft_config.firmware_screen)
-        time.sleep(self.faft_config.firmware_screen)
         self.servo.set_nocheck('volume_up_hold', 100)
         time.sleep(self.faft_config.confirm_screen)
         self.servo.set_nocheck('volume_up_hold', 100)
@@ -278,33 +277,21 @@ class _TabletDetachableBypasser(_BaseFwBypasser):
         """Trigger to the dev mode from the rec screen using vol up button.
 
         On tablets/ detachables, recovery entered by pressing pwr, vol up
-        & vol down buttons for 10s.
-           Menu options seen in RECOVERY screen:
-                 Enable Developer Mode
-                 Show Debug Info
-                 Power off*
-                 Language
+        & vol down buttons for 10s. TO_DEV screen is entered by pressing
+        vol up & vol down buttons together on the INSERT screen.
            Menu options seen in TO_DEV screen:
                  Confirm enabling developer mode
-                 Cancel
-                 Power off*
+                 Cancel*
+                 Power off
                  Language
         Vol up button selects previous item, vol down button selects
         next item and pwr button selects current activated item.
         """
         time.sleep(self.faft_config.firmware_screen)
-        self.servo.set_nocheck('volume_up_hold', 100)
+        self.set_button('volume_up_down_hold', 100, ('Enter Recovery Menu.'))
         time.sleep(self.faft_config.confirm_screen)
         self.set_button('volume_up_hold', 100, ('Selecting power as '
-                        'enter key to select Enable Developer Mode'))
-        self.servo.power_short_press()
-        logging.info('Transitioning from REC to TO_DEV screen.')
-        time.sleep(self.faft_config.confirm_screen)
-        self.servo.set_nocheck('volume_up_hold', 100)
-        time.sleep(self.faft_config.confirm_screen)
-        self.set_button('volume_up_hold', 100, ('Selecting power as '
-                        'enter key to select Confirm enabling '
-                        'developer mode'))
+                        'enter key to select Confirm Enabling Developer Mode'))
         self.servo.power_short_press()
         time.sleep(self.faft_config.firmware_screen)
 
@@ -319,9 +306,9 @@ class _TabletDetachableBypasser(_BaseFwBypasser):
                  Power Off*
                  Language
            Menu options seen in TO_NORM screen:
-                 Confirm Enabling Verified Boot
+                 Confirm Enabling Verified Boot*
                  Cancel
-                 Power off*
+                 Power off
                  Language
         Vol up button selects previous item, vol down button selects
         next item and pwr button selects current activated item.
@@ -331,14 +318,46 @@ class _TabletDetachableBypasser(_BaseFwBypasser):
                         'Enable Root Verification using pwr '
                         'button to enter TO_NORM screen'))
         self.servo.power_short_press()
+        logging.info('Transitioning from DEV to TO_NORM screen.')
         time.sleep(self.faft_config.firmware_screen)
-        self.servo.set_nocheck('volume_up_hold', 100)
-        time.sleep(self.faft_config.confirm_screen)
-        self.set_button('volume_up_hold', 100, ('Selecting Confirm '
-                        'Enabling Verified Boot using pwr '
-                        'button in TO_NORM screen'))
+        logging.info('Selecting Confirm Enabling Verified '
+                        'Boot using pwr button in '
+                        'TO_NORM screen')
         self.servo.power_short_press()
 
+    def trigger_dev_to_rec(self):
+        """Trigger to the TO_NORM screen from the dev screen.
+           Menu options seen in DEVELOPER WARNING screen:
+                 Developer Options
+                 Show Debug Info
+                 Enable Root Verification
+                 Power Off*
+                 Language
+           Menu options seen in TO_NORM screen:
+                 Confirm Enabling Verified Boot*
+                 Cancel
+                 Power off
+                 Language
+        Vol up button selects previous item, vol down button selects
+        next item and pwr button selects current activated item.
+        """
+        time.sleep(self.faft_config.firmware_screen)
+        self.set_button('volume_up_hold', 100, ('Selecting '
+                        'Enable Root Verification using pwr '
+                        'button to enter TO_NORM screen'))
+        self.servo.power_short_press()
+        logging.info('Transitioning from DEV to TO_NORM screen.')
+        time.sleep(self.faft_config.firmware_screen)
+
+        # In firmware_FwScreenPressPower, test will power off the DUT using
+        # Power button in second screen (TO_NORM screen) so scrolling to
+        # Power-off is necessary in this case. Hence scroll to Power-off as
+        # a generic action and wait for next action of either Lid close or
+        # power button press.
+        self.servo.set_nocheck('volume_down_hold', 100)
+        time.sleep(self.faft_config.confirm_screen)
+        self.servo.set_nocheck('volume_down_hold', 100)
+        time.sleep(self.faft_config.confirm_screen)
 
 def _create_fw_bypasser(faft_framework):
     """Creates a proper firmware bypasser.
@@ -385,6 +404,9 @@ class _BaseModeSwitcher(object):
         do so.
 
         @param mode: A string of mode, one of 'normal', 'dev', or 'rec'.
+        @raise TestFail: If the system not switched to expected mode after
+                         reboot_to_mode.
+
         """
         if not self.checkers.mode_checker(mode):
             logging.info('System not in expected %s mode. Reboot into it.',
@@ -393,12 +415,22 @@ class _BaseModeSwitcher(object):
                 # Only resume to normal/dev mode after test, not recovery.
                 self._backup_mode = 'dev' if mode == 'normal' else 'normal'
             self.reboot_to_mode(mode)
-
+            if not self.checkers.mode_checker(mode):
+                raise error.TestFail('System not switched to expected %s'
+                        ' mode after setup_mode.' % mode)
 
     def restore_mode(self):
-        """Restores original dev mode status if it has changed."""
-        if self._backup_mode is not None:
+        """Restores original dev mode status if it has changed.
+
+        @raise TestFail: If the system not restored to expected mode.
+        """
+        if (self._backup_mode is not None and
+            not self.checkers.mode_checker(self._backup_mode)):
             self.reboot_to_mode(self._backup_mode)
+            if not self.checkers.mode_checker(self._backup_mode):
+                raise error.TestFail('System not restored to expected %s'
+                        ' mode in cleanup.' % self._backup_mode)
+
 
 
     def reboot_to_mode(self, to_mode, from_mode=None, sync_before_boot=True,
@@ -498,21 +530,28 @@ class _BaseModeSwitcher(object):
 
         logging.info("-[ModeSwitcher]-[ start mode_aware_reboot(%r, %s, ..) ]-",
                      reboot_type, reboot_method.__name__)
-        is_dev = False
+        is_dev = is_rec = is_devsw_boot = False
         if sync_before_boot:
             is_dev = self.checkers.mode_checker('dev')
+            is_rec = self.checkers.mode_checker('rec')
+            is_devsw_boot = self.checkers.crossystem_checker(
+                                               {'devsw_boot': '1'}, True)
             boot_id = self.faft_framework.get_bootid()
             self.faft_framework.blocking_sync()
-        logging.info("-[mode_aware_reboot]-[ is_dev=%s ]-", is_dev);
+        if is_rec:
+            logging.info("-[mode_aware_reboot]-[ is_rec=%s is_dev_switch=%s ]-",
+                         is_rec, is_devsw_boot)
+        else:
+            logging.info("-[mode_aware_reboot]-[ is_dev=%s ]-", is_dev)
         reboot_method()
         if sync_before_boot:
             self.wait_for_client_offline(orig_boot_id=boot_id)
         # Encapsulating the behavior of skipping dev firmware screen,
         # hitting ctrl-D
-        # Note that if booting from recovery mode, will not
-        # call bypass_dev_mode because can't determine prior to
-        # reboot if we're going to boot up in dev or normal mode.
-        if is_dev:
+        # Note that if booting from recovery mode, we can predict the next
+        # boot based on the developer switch position at boot (devsw_boot).
+        # If devsw_boot is True, we will call bypass_dev_mode after reboot.
+        if is_dev or is_devsw_boot:
             self.bypass_dev_mode()
         if wait_for_dut_up:
             self.wait_for_client()
@@ -609,10 +648,10 @@ class _BaseModeSwitcher(object):
             # Check the FAFT client is avaiable.
             self.faft_client.system.is_available()
             # Stop update-engine as it may change firmware/kernel.
-            self.faft_framework._stop_service('update-engine')
+            self.faft_framework.faft_client.updater.stop_daemon()
         else:
             logging.error('wait_for_client() timed out.')
-            raise ConnectionError()
+            raise ConnectionError('DUT is still down unexpectedly')
         logging.info("-[FAFT]-[ end wait_for_client ]-----")
 
 
@@ -634,7 +673,7 @@ class _BaseModeSwitcher(object):
             if orig_boot_id and self.client_host.get_boot_id() != orig_boot_id:
                 logging.warn('Reboot done very quickly.')
                 return
-            raise ConnectionError()
+            raise ConnectionError('DUT is still up unexpectedly')
 
 
 class _PhysicalButtonSwitcher(_BaseModeSwitcher):
@@ -756,7 +795,7 @@ class _RyuSwitcher(_BaseModeSwitcher):
         @raise ConnectionError: Failed to connect DUT.
         """
         if not self.faft_client.system.wait_for_client(timeout):
-            raise ConnectionError()
+            raise ConnectionError('DUT is still down unexpectedly')
 
         # there's a conflict between fwtool and crossystem trying to access
         # the nvram after the OS boots up.  Temporarily put a hard wait of
@@ -773,7 +812,7 @@ class _RyuSwitcher(_BaseModeSwitcher):
         """
         # TODO: Add a way to check orig_boot_id
         if not self.faft_client.system.wait_for_client_offline(timeout):
-            raise ConnectionError()
+            raise ConnectionError('DUT is still up unexpectedly')
 
     def print_recovery_warning(self):
         """Print recovery warning"""

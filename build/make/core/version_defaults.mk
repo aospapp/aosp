@@ -24,8 +24,9 @@
 #     DEFAULT_APP_TARGET_SDK
 #     BUILD_ID
 #     BUILD_NUMBER
-#     BUILD_DATETIME
 #     PLATFORM_SECURITY_PATCH
+#     PLATFORM_VNDK_VERSION
+#     PLATFORM_SYSTEMSDK_VERSIONS
 #
 
 # Look for an optional file containing overrides of the defaults,
@@ -38,9 +39,9 @@ ifdef INTERNAL_BUILD_ID_MAKEFILE
   include $(INTERNAL_BUILD_ID_MAKEFILE)
 endif
 
-DEFAULT_PLATFORM_VERSION := OPM1
-MIN_PLATFORM_VERSION := OPM1
-MAX_PLATFORM_VERSION := OPM1
+DEFAULT_PLATFORM_VERSION := PPR1
+MIN_PLATFORM_VERSION := PPR1
+MAX_PLATFORM_VERSION := PPR1
 
 ALLOWED_VERSIONS := $(call allowed-platform-versions,\
   $(MIN_PLATFORM_VERSION),\
@@ -74,11 +75,11 @@ endif
 # please add that PLATFORM_VERSION as well as clean up obsolete PLATFORM_VERSION's
 # in the following text file:
 # cts/tests/tests/os/assets/platform_versions.txt
-PLATFORM_VERSION.OPM1 := 8.1.0
+PLATFORM_VERSION.PPR1 := 9
 
 # These are the current development codenames, if the build is not a final
 # release build.  If this is a final release build, it is simply "REL".
-PLATFORM_VERSION_CODENAME.OPM1 := REL
+PLATFORM_VERSION_CODENAME.PPR1 := REL
 
 ifndef PLATFORM_VERSION
   PLATFORM_VERSION := $(PLATFORM_VERSION.$(TARGET_PLATFORM_VERSION))
@@ -105,16 +106,7 @@ ifndef PLATFORM_SDK_VERSION
   # When you increment the PLATFORM_SDK_VERSION please ensure you also
   # clear out the following text file of all older PLATFORM_VERSION's:
   # cts/tests/tests/os/assets/platform_versions.txt
-  PLATFORM_SDK_VERSION := 27
-endif
-
-ifndef PLATFORM_JACK_MIN_SDK_VERSION
-  # This is definition of the min SDK version given to Jack for the current
-  # platform. For released version it should be the same as
-  # PLATFORM_SDK_VERSION. During development, this number may be incremented
-  # before PLATFORM_SDK_VERSION if the platform starts to add new java
-  # language supports.
-  PLATFORM_JACK_MIN_SDK_VERSION := o-b1
+  PLATFORM_SDK_VERSION := 28
 endif
 
 ifndef PLATFORM_VERSION_CODENAME
@@ -124,14 +116,17 @@ ifndef PLATFORM_VERSION_CODENAME
     PLATFORM_VERSION_CODENAME := $(TARGET_PLATFORM_VERSION)
   endif
 
-  # This is all of the development codenames that are active.  Should be either
-  # the same as PLATFORM_VERSION_CODENAME or a comma-separated list of additional
-  # codenames after PLATFORM_VERSION_CODENAME.
+  # This is all of the *active* development codenames. There are future
+  # codenames not included in this list. This confusing name is needed because
+  # all_codenames has been baked into build.prop for ages.
+  #
+  # Should be either the same as PLATFORM_VERSION_CODENAME or a comma-separated
+  # list of additional codenames after PLATFORM_VERSION_CODENAME.
   PLATFORM_VERSION_ALL_CODENAMES :=
 
-  # Build a list of all possible code names. Avoid duplicates, and stop when we
+  # Build a list of all active code names. Avoid duplicates, and stop when we
   # reach a codename that matches PLATFORM_VERSION_CODENAME (anything beyond
-  # that is not included in our build.
+  # that is not included in our build).
   _versions_in_target := \
     $(call find_and_earlier,$(ALL_VERSIONS),$(TARGET_PLATFORM_VERSION))
   $(foreach version,$(_versions_in_target),\
@@ -139,9 +134,23 @@ ifndef PLATFORM_VERSION_CODENAME
     $(if $(filter $(_codename),$(PLATFORM_VERSION_ALL_CODENAMES)),,\
       $(eval PLATFORM_VERSION_ALL_CODENAMES += $(_codename))))
 
+  # This is all of the inactive development codenames. Available to be targeted
+  # in this branch but in the future relative to our current target.
+  PLATFORM_VERSION_FUTURE_CODENAMES :=
+
+  # Build a list of all untargeted code names. Avoid duplicates.
+  _versions_not_in_target := \
+    $(filter-out $(PLATFORM_VERSION_ALL_CODENAMES),$(ALL_VERSIONS))
+  $(foreach version,$(_versions_not_in_target),\
+    $(eval _codename := $(PLATFORM_VERSION_CODENAME.$(version)))\
+    $(if $(filter $(_codename),$(PLATFORM_VERSION_FUTURE_CODENAMES)),,\
+      $(eval PLATFORM_VERSION_FUTURE_CODENAMES += $(_codename))))
+
   # And convert from space separated to comma separated.
   PLATFORM_VERSION_ALL_CODENAMES := \
     $(subst $(space),$(comma),$(strip $(PLATFORM_VERSION_ALL_CODENAMES)))
+  PLATFORM_VERSION_FUTURE_CODENAMES := \
+    $(subst $(space),$(comma),$(strip $(PLATFORM_VERSION_FUTURE_CODENAMES)))
 
 endif
 
@@ -175,14 +184,65 @@ ifndef DEFAULT_APP_TARGET_SDK
   endif
 endif
 
+ifndef PLATFORM_VNDK_VERSION
+  # This is the definition of the VNDK version for the current VNDK libraries.
+  # The version is only available when PLATFORM_VERSION_CODENAME == REL.
+  # Otherwise, it will be set to a CODENAME version. The ABI is allowed to be
+  # changed only before the Android version is released. Once
+  # PLATFORM_VNDK_VERSION is set to actual version, the ABI for this version
+  # will be frozon and emit build errors if any ABI for the VNDK libs are
+  # changed.
+  # After that the snapshot of the VNDK with this version will be generated.
+  #
+  # The VNDK version follows PLATFORM_SDK_VERSION.
+  ifeq (REL,$(PLATFORM_VERSION_CODENAME))
+    PLATFORM_VNDK_VERSION := $(PLATFORM_SDK_VERSION)
+  else
+    PLATFORM_VNDK_VERSION := $(PLATFORM_VERSION_CODENAME)
+  endif
+endif
+
+ifndef PLATFORM_SYSTEMSDK_MIN_VERSION
+  # This is the oldest version of system SDK that the platform supports. Contrary
+  # to the public SDK where platform essentially supports all previous SDK versions,
+  # platform supports only a few number of recent system SDK versions as some of
+  # old system APIs are gradually deprecated, removed and then deleted.
+  PLATFORM_SYSTEMSDK_MIN_VERSION := 28
+endif
+
+# This is the list of system SDK versions that the current platform supports.
+PLATFORM_SYSTEMSDK_VERSIONS :=
+ifneq (,$(PLATFORM_SYSTEMSDK_MIN_VERSION))
+  $(if $(call math_is_number,$(PLATFORM_SYSTEMSDK_MIN_VERSION)),,\
+    $(error PLATFORM_SYSTEMSDK_MIN_VERSION must be a number, but was $(PLATFORM_SYSTEMSDK_MIN_VERSION)))
+  PLATFORM_SYSTEMSDK_VERSIONS := $(call int_range_list,$(PLATFORM_SYSTEMSDK_MIN_VERSION),$(PLATFORM_SDK_VERSION))
+endif
+# Platform always supports the current version
+ifeq (REL,$(PLATFORM_VERSION_CODENAME))
+  PLATFORM_SYSTEMSDK_VERSIONS += $(PLATFORM_SDK_VERSION)
+else
+  PLATFORM_SYSTEMSDK_VERSIONS += $(PLATFORM_VERSION_CODENAME)
+endif
+PLATFORM_SYSTEMSDK_VERSIONS := $(strip $(sort $(PLATFORM_SYSTEMSDK_VERSIONS)))
+
 ifndef PLATFORM_SECURITY_PATCH
     #  Used to indicate the security patch that has been applied to the device.
     #  It must signify that the build includes all security patches issued up through the designated Android Public Security Bulletin.
     #  It must be of the form "YYYY-MM-DD" on production devices.
     #  It must match one of the Android Security Patch Level strings of the Public Security Bulletins.
     #  If there is no $PLATFORM_SECURITY_PATCH set, keep it empty.
-      PLATFORM_SECURITY_PATCH := 2017-12-05
+      PLATFORM_SECURITY_PATCH := 2018-08-05
 endif
+
+ifndef PLATFORM_SECURITY_PATCH_TIMESTAMP
+  # Used to indicate the matching timestamp for the security patch string in PLATFORM_SECURITY_PATCH.
+  ifneq (,$(findstring Darwin,$(UNAME)))
+    PLATFORM_SECURITY_PATCH_TIMESTAMP := $(shell date -jf '%Y-%m-%d %T %Z' '$(PLATFORM_SECURITY_PATCH) 00:00:00 GMT' +%s)
+  else
+    PLATFORM_SECURITY_PATCH_TIMESTAMP := $(shell date -d 'TZ="GMT" $(PLATFORM_SECURITY_PATCH)' +%s)
+  endif
+endif
+.KATI_READONLY := PLATFORM_SECURITY_PATCH_TIMESTAMP
 
 ifndef PLATFORM_BASE_OS
   # Used to indicate the base os applied to the device.
@@ -207,12 +267,18 @@ ifndef BUILD_DATETIME
   BUILD_DATETIME := $(shell date +%s)
 endif
 
-ifneq (,$(findstring Darwin,$(shell uname -sm)))
+ifneq (,$(findstring Darwin,$(UNAME)))
 DATE := date -r $(BUILD_DATETIME)
 else
 DATE := date -d @$(BUILD_DATETIME)
 endif
 
+# Everything should be using BUILD_DATETIME_FROM_FILE instead.
+# BUILD_DATETIME and DATE can be removed once BUILD_NUMBER moves
+# to soong_ui.
+BUILD_DATETIME :=
+
+HAS_BUILD_NUMBER := true
 ifndef BUILD_NUMBER
   # BUILD_NUMBER should be set to the source control value that
   # represents the current state of the source code.  E.g., a
@@ -224,4 +290,12 @@ ifndef BUILD_NUMBER
   # from this date/time" value.  Make it start with a non-digit so that
   # anyone trying to parse it as an integer will probably get "0".
   BUILD_NUMBER := eng.$(shell echo $${USER:0:6}).$(shell $(DATE) +%Y%m%d.%H%M%S)
+  HAS_BUILD_NUMBER := false
+endif
+
+ifndef PLATFORM_MIN_SUPPORTED_TARGET_SDK_VERSION
+  # Used to set minimum supported target sdk version. Apps targeting sdk
+  # version lower than the set value will fail to install and run on android
+  # device.
+  PLATFORM_MIN_SUPPORTED_TARGET_SDK_VERSION := 17
 endif

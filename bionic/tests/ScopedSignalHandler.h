@@ -20,6 +20,27 @@
 #include <signal.h>
 #include <string.h>
 
+#if defined(__GLIBC__)
+#define posix_spawnattr_getsigdefault64 posix_spawnattr_getsigdefault
+#define posix_spawnattr_getsigmask64 posix_spawnattr_getsigmask
+#define posix_spawnattr_setsigdefault64 posix_spawnattr_setsigdefault
+#define posix_spawnattr_setsigmask64 posix_spawnattr_setsigmask
+#define pthread_sigmask64 pthread_sigmask
+#define sigaction64 sigaction
+#define sigaddset64 sigaddset
+#define sigdelset64 sigdelset
+#define sigemptyset64 sigemptyset
+#define sigfillset64 sigfillset
+#define sigismember64 sigismember
+#define sigpending64 sigpending
+#define sigprocmask64 sigprocmask
+#define sigset64_t sigset_t
+#define sigsuspend64 sigsuspend
+#define sigtimedwait64 sigtimedwait
+#define sigwait64 sigwait
+#define sigwaitinfo64 sigwaitinfo
+#endif
+
 class ScopedSignalHandler {
  public:
   ScopedSignalHandler(int signal_number, void (*handler)(int), int sa_flags = 0)
@@ -27,7 +48,7 @@ class ScopedSignalHandler {
     memset(&action_, 0, sizeof(action_));
     action_.sa_flags = sa_flags;
     action_.sa_handler = handler;
-    sigaction(signal_number_, &action_, &old_action_);
+    sigaction64(signal_number_, &action_, &old_action_);
   }
 
   ScopedSignalHandler(int signal_number, void (*action)(int, siginfo_t*, void*),
@@ -36,35 +57,35 @@ class ScopedSignalHandler {
     memset(&action_, 0, sizeof(action_));
     action_.sa_flags = sa_flags;
     action_.sa_sigaction = action;
-    sigaction(signal_number_, &action_, &old_action_);
+    sigaction64(signal_number_, &action_, &old_action_);
   }
 
   ScopedSignalHandler(int signal_number) : signal_number_(signal_number) {
-    sigaction(signal_number, nullptr, &old_action_);
+    sigaction64(signal_number, nullptr, &old_action_);
   }
 
   ~ScopedSignalHandler() {
-    sigaction(signal_number_, &old_action_, NULL);
+    sigaction64(signal_number_, &old_action_, NULL);
   }
 
  private:
-  struct sigaction action_;
-  struct sigaction old_action_;
+  struct sigaction64 action_;
+  struct sigaction64 old_action_;
   const int signal_number_;
 };
 
-class ScopedSignalMask {
+class SignalMaskRestorer {
  public:
-  ScopedSignalMask() {
-    sigprocmask(SIG_SETMASK, nullptr, &old_mask_);
+  SignalMaskRestorer() {
+    sigprocmask64(SIG_SETMASK, nullptr, &old_mask_);
   }
 
-  ~ScopedSignalMask() {
-    sigprocmask(SIG_SETMASK, &old_mask_, nullptr);
+  ~SignalMaskRestorer() {
+    sigprocmask64(SIG_SETMASK, &old_mask_, nullptr);
   }
 
  private:
-  sigset_t old_mask_;
+  sigset64_t old_mask_;
 };
 
 #endif // _BIONIC_TESTS_SCOPED_SIGNAL_HANDLER_H

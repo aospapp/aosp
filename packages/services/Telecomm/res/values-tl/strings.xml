@@ -52,18 +52,18 @@
     <string name="blocked_numbers" msgid="2751843139572970579">"Mga naka-block na numero"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Hindi ka makakatanggap ng mga tawag o mga text mula sa mga naka-block na numero."</string>
     <string name="block_number" msgid="1101252256321306179">"Magdagdag ng numero"</string>
-    <string name="unblock_dialog_body" msgid="1614238499771862793">"Aalisin ba sa pagkaka-block ang <xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g>?"</string>
-    <string name="unblock_button" msgid="3078048901972674170">"Alisin sa pagkaka-block"</string>
+    <string name="unblock_dialog_body" msgid="1614238499771862793">"Ia-unblock ba ang <xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g>?"</string>
+    <string name="unblock_button" msgid="3078048901972674170">"I-unblock"</string>
     <string name="add_blocked_dialog_body" msgid="9030243212265516828">"I-block ang mga tawag at text mula sa"</string>
     <string name="add_blocked_number_hint" msgid="6847675097085433553">"Numero ng telepono"</string>
     <string name="block_button" msgid="8822290682524373357">"I-block"</string>
     <string name="non_primary_user" msgid="5180129233352533459">"Ang may-ari ng device lang ang makakakita at makakapamahala sa mga naka-block na numero."</string>
-    <string name="delete_icon_description" msgid="8903995728252556724">"Inaalis sa pagkaka-block"</string>
+    <string name="delete_icon_description" msgid="8903995728252556724">"Na-unblock"</string>
     <string name="blocked_numbers_butter_bar_title" msgid="438170866438793182">"Pansamantalang naka-off ang pag-block"</string>
     <string name="blocked_numbers_butter_bar_body" msgid="2223244484319442431">"Pagkatapos mong i-dial o i-text ang isang pang-emergency na numero, ino-off ang pag-block upang matiyak na maaaring makipag-ugnayan sa iyo ang mga serbisyong pang-emergency."</string>
     <string name="blocked_numbers_butter_bar_button" msgid="2197943354922010696">"I-enable muli ngayon"</string>
     <string name="blocked_numbers_number_blocked_message" msgid="7678509606805029540">"Naka-block ang <xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g>"</string>
-    <string name="blocked_numbers_number_unblocked_message" msgid="977894647366750418">"Naka-unblock ang <xliff:g id="UNBLOCKED_NUMBER">%1$s</xliff:g>"</string>
+    <string name="blocked_numbers_number_unblocked_message" msgid="977894647366750418">"Na-unblock ang <xliff:g id="UNBLOCKED_NUMBER">%1$s</xliff:g>"</string>
     <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"Hindi ma-block ang numerong pang-emergency."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"Naka-block na ang <xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g>."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"Ginagamit ang personal na dialer upang tumawag"</string>
@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Hindi makakatawag dahil sa isang tawag sa isa pang app."</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Mga papasok na tawag"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Mga hindi nasagot na tawag"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Pag-block ng Tawag"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Tatapusin ng pagtawag na ito ang iyong tawag sa <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Pag-block ng Tawag"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Mga numerong wala sa Mga Contact"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"I-block ang mga numero na hindi nakalista sa iyong Mga Contact"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"Pribado"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"Bina-block ang mga tumatawag na hindi hinahayag ang kanilang numero"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"Pay phone"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"Bina-block ang mga tawag mula sa mga pay phone"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"Hindi Alam"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"Bina-block ang mga tumatawag mula sa mga hindi kilalang tumatawag"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"Pag-block ng Tawag"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Naka-disable ang Pag-block ng Tawag"</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Ginawang emergency na tawag"</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Na-disable ang Pag-block ng Tawag para payagan ang mga tumutugon sa emergency na kontakin ka."</string>
 </resources>

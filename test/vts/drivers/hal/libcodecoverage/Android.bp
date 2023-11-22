@@ -23,5 +23,7 @@ cc_library_shared {
         "GcdaFile.cpp",
     ],
 
+    cflags: ["-Wall", "-Werror"],
+
     export_include_dirs: ["."],
 }

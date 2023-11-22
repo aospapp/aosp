@@ -31,7 +31,7 @@ from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 dynamic_suite.reimage_and_run(
     build=build, board=board, name=NAME, job=job, pool=pool,
-    check_hosts=check_hosts, add_experimental=True, num=num,
+    check_hosts=check_hosts, add_experimental=True,
     file_bugs=file_bugs, priority=priority, timeout_mins=timeout_mins,
     max_runtime_mins=60, devserver_url=devserver_url,
     version_prefix=provision.CROS_VERSION_PREFIX, job_retry=job_retry,

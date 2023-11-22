@@ -13,7 +13,7 @@ namespace hardware {
 
 vintf::Transport getTransportFromManifest(
         const FQName &fqName, const std::string &instanceName,
-        const vintf::HalManifest *vm) {
+        const std::shared_ptr<const vintf::HalManifest>& vm) {
     if (vm == nullptr) {
         return vintf::Transport::EMPTY;
     }

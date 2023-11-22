@@ -5,22 +5,27 @@
  *******************************************************************************
  * Copyright (c) 2004-2011, International Business Machines
  * Corporation and others.  All Rights Reserved.
- * Copyright (C) 2010 , Yahoo! Inc.                                            
+ * Copyright (C) 2010 , Yahoo! Inc.
  *******************************************************************************
  */
 package android.icu.dev.test.format;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.SelectFormat;
+import android.icu.testsharding.MainTestShard;
 
 /**
- * @author kirtig 
+ * @author kirtig
  * This class does the unit testing for the SelectFormat
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class SelectFormatUnitTest extends TestFmwk {
-  
+
     static final String SIMPLE_PATTERN = "feminine {feminineVerbValue} other{otherVerbValue}";
 
     /**
@@ -34,8 +39,8 @@ public class SelectFormatUnitTest extends TestFmwk {
             "odd{foo},other{bar}",
             "od d{foo} other{bar}",
             "odd{foo}{foobar}other{foo}",
-            "odd{foo1}other{foo2}}",  
-            "odd{foo1}other{{foo2}",  
+            "odd{foo1}other{foo2}}",
+            "odd{foo1}other{{foo2}",
             "odd{fo{o1}other{foo2}}"
         };
 
@@ -60,7 +65,7 @@ public class SelectFormatUnitTest extends TestFmwk {
     }
 
     /**
-     * Unit tests for invalid keywords 
+     * Unit tests for invalid keywords
      */
     @Test
     public void TestInvalidKeyword() {
@@ -87,7 +92,7 @@ public class SelectFormatUnitTest extends TestFmwk {
                      + "for keyword: " + keywords[i]  );
             } catch (IllegalArgumentException e){
                 assertEquals("Error:TestInvalidKeyword failed with unexpected "
-                            +"error message for keyword: " + keywords[i] 
+                            +"error message for keyword: " + keywords[i]
                             , expected , e.getMessage() );
                 continue;
             }
@@ -138,7 +143,7 @@ public class SelectFormatUnitTest extends TestFmwk {
         };
 
         log("SelectFormat Unit test: Testing  applyPattern() and format() ...");
-        SelectFormat selFmt = new SelectFormat(SIMPLE_PATTERN); 
+        SelectFormat selFmt = new SelectFormat(SIMPLE_PATTERN);
 
         for (int i=0; i<patternTestData.length; ++i) {
             try {

@@ -37,13 +37,17 @@ void WifiCapabilitiesTest::setUp(uint32_t messageSize,
       allCapabilities |= CHRE_WIFI_CAPABILITIES_SCAN_MONITORING
           | CHRE_WIFI_CAPABILITIES_ON_DEMAND_SCAN;
     }
+    if (mApiVersion >= CHRE_API_VERSION_1_2) {
+      allCapabilities |= CHRE_WIFI_CAPABILITIES_RADIO_CHAIN_PREF
+          | CHRE_WIFI_CAPABILITIES_RTT_RANGING;
+    }
 
     // Call the new API
     uint32_t capabilities = chreWifiGetCapabilities();
 
     // Clear out known capabilities, any remaining are unknown
     if ((capabilities & ~allCapabilities) != 0) {
-      if (mApiVersion > CHRE_API_VERSION_1_1) {
+      if (mApiVersion > CHRE_API_VERSION_1_2) {
         nanoapp_testing::sendFatalFailureToHost(
             "New version with unknown capabilities encountered:",
             &capabilities);

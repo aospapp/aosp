@@ -8,6 +8,11 @@ import android.webkit.WebViewClient;
 import java.util.concurrent.CountDownLatch;
 
 public final class WebViewReadyHelper {
+    // Hacky quick-fix similar to DrawActivity's DrawCounterListener
+    // TODO: De-dupe this against DrawCounterListener and fix this cruft
+    private static final int DEBUG_REQUIRE_EXTRA_FRAMES = 1;
+    private int mDrawCount = 0;
+
     private final CountDownLatch mLatch;
     private final WebView mWebView;
 
@@ -38,6 +43,11 @@ public final class WebViewReadyHelper {
     private OnDrawListener mOnDrawListener = new OnDrawListener() {
         @Override
         public void onDraw() {
+            if (++mDrawCount <= DEBUG_REQUIRE_EXTRA_FRAMES) {
+                mWebView.postInvalidate();
+                return;
+            }
+
             mWebView.post(() -> {
                 mWebView.getViewTreeObserver().removeOnDrawListener(mOnDrawListener);
                 mLatch.countDown();

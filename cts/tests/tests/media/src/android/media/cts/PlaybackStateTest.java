@@ -20,6 +20,7 @@ import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.os.Parcel;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 /**
  * Test {@link android.media.session.PlaybackState}.
  */
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class PlaybackStateTest extends AndroidTestCase {
 
     private static final long TEST_POSITION = 20000L;

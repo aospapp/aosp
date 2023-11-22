@@ -18,6 +18,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(call all-subdir-cpp-files)
 LOCAL_SRC_FILES += ../jni/graphics/Matrix.cpp
 
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../jni/graphics/
 LOCAL_STATIC_LIBRARIES := liblog
 LOCAL_LDFLAGS:= -g -lpthread

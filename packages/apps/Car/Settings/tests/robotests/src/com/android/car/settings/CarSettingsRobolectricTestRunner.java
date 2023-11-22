@@ -15,20 +15,18 @@
  */
 package com.android.car.settings;
 
-import android.app.Activity;
-import android.app.Fragment;
-import android.content.Intent;
+import android.support.annotation.NonNull;
+
 import org.junit.runners.model.InitializationError;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 import org.robolectric.manifest.AndroidManifest;
 import org.robolectric.res.Fs;
 import org.robolectric.res.ResourcePath;
-import org.robolectric.util.ActivityController;
-import org.robolectric.util.ReflectionHelpers;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.List;
-
 
 /**
  * Custom test runner for the testing of BluetoothPairingDialogs. This is needed because the
@@ -42,6 +40,14 @@ public class CarSettingsRobolectricTestRunner extends RobolectricTestRunner {
      */
     public CarSettingsRobolectricTestRunner(Class<?> testClass) throws InitializationError {
         super(testClass);
+    }
+
+    private static ResourcePath createResourcePath(@NonNull String filePath) {
+        try {
+            return new ResourcePath(null, Fs.fromURL(new URL(filePath)), null);
+        } catch (MalformedURLException e) {
+            throw new RuntimeException("CarSettingsobolectricTestRunner failure", e);
+        }
     }
 
     /**
@@ -58,29 +64,30 @@ public class CarSettingsRobolectricTestRunner extends RobolectricTestRunner {
 
         // By adding any resources from libraries we need to the AndroidManifest, we can access
         // them from within the parallel universe's resource loader.
-        final AndroidManifest manifest = new AndroidManifest(Fs.fileFromPath(manifestPath),
-                Fs.fileFromPath(resDir), Fs.fileFromPath(assetsDir)) {
+        return new AndroidManifest(Fs.fileFromPath(manifestPath), Fs.fileFromPath(resDir),
+            Fs.fileFromPath(assetsDir)) {
             @Override
             public List<ResourcePath> getIncludedResourcePaths() {
                 List<ResourcePath> paths = super.getIncludedResourcePaths();
-                paths.add(new ResourcePath(
-                        getPackageName(),
-                        Fs.fileFromPath("./packages/apps/Car/Settings/res"),
-                        null));
-                paths.add(new ResourcePath(
-                        getPackageName(),
-                        Fs.fileFromPath("./frameworks/base/packages/SettingsLib/res"),
-                        null));
-                paths.add(new ResourcePath(
-                        getPackageName(),
-                        Fs.fileFromPath("./frameworks/base/core/res/res"),
-                        null));
+                paths.add(createResourcePath("file:packages/apps/Car/Settings/res"));
+
+                // Support library resources. These need to point to the prebuilts of support
+                // library and not the source.
+                paths.add(createResourcePath(
+                        "file:prebuilts/sdk/current/support/v7/appcompat/res/"));
+                paths.add(createResourcePath("file:prebuilts/sdk/current/support/car/res"));
+
+
+                paths.add(createResourcePath("file:packages/apps/Car/libs/car-stream-ui-lib/res "));
+                paths.add(createResourcePath("file:packages/apps/Car/libs/car-list/res"));
+                paths.add(createResourcePath("file:frameworks/base/packages/SettingsLib/res"));
+                paths.add(createResourcePath(
+                        "file:frameworks/opt/setupwizard/library/gingerbread/res"));
+                paths.add(createResourcePath(
+                        "file:frameworks/opt/setupwizard/library/main/res"));
+
                 return paths;
             }
         };
-
-        // Set the package name to the renamed one
-        manifest.setPackageName("com.android.car.settings");
-        return manifest;
     }
 }

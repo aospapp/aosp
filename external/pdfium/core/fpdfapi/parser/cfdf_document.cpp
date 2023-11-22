@@ -7,11 +7,14 @@
 #include "core/fpdfapi/parser/cfdf_document.h"
 
 #include <memory>
+#include <sstream>
 #include <utility>
 
 #include "core/fpdfapi/edit/cpdf_creator.h"
 #include "core/fpdfapi/parser/cpdf_dictionary.h"
 #include "core/fpdfapi/parser/cpdf_syntax_parser.h"
+#include "core/fpdfapi/parser/fpdf_parser_utility.h"
+#include "core/fxcrt/cfx_memorystream.h"
 #include "third_party/base/ptr_util.h"
 
 CFDF_Document::CFDF_Document()
@@ -26,29 +29,21 @@ std::unique_ptr<CFDF_Document> CFDF_Document::CreateNewDoc() {
   return pDoc;
 }
 
-std::unique_ptr<CFDF_Document> CFDF_Document::ParseFile(
-    const CFX_RetainPtr<IFX_SeekableReadStream>& pFile) {
-  if (!pFile)
-    return nullptr;
-
+std::unique_ptr<CFDF_Document> CFDF_Document::ParseMemory(uint8_t* pData,
+                                                          uint32_t size) {
   auto pDoc = pdfium::MakeUnique<CFDF_Document>();
-  pDoc->ParseStream(pFile);
+  pDoc->ParseStream(pdfium::MakeRetain<CFX_MemoryStream>(pData, size, false));
   return pDoc->m_pRootDict ? std::move(pDoc) : nullptr;
 }
 
-std::unique_ptr<CFDF_Document> CFDF_Document::ParseMemory(uint8_t* pData,
-                                                          uint32_t size) {
-  return CFDF_Document::ParseFile(IFX_MemoryStream::Create(pData, size));
-}
-
 void CFDF_Document::ParseStream(
-    const CFX_RetainPtr<IFX_SeekableReadStream>& pFile) {
+    const RetainPtr<IFX_SeekableReadStream>& pFile) {
   m_pFile = pFile;
   CPDF_SyntaxParser parser;
   parser.InitParser(m_pFile, 0);
   while (1) {
     bool bNumber;
-    CFX_ByteString word = parser.GetNextWord(&bNumber);
+    ByteString word = parser.GetNextWord(&bNumber);
     if (bNumber) {
       uint32_t objnum = FXSYS_atoui(word.c_str());
       if (!objnum)
@@ -62,8 +57,7 @@ void CFDF_Document::ParseStream(
       if (word != "obj")
         break;
 
-      std::unique_ptr<CPDF_Object> pObj =
-          parser.GetObject(this, objnum, 0, true);
+      std::unique_ptr<CPDF_Object> pObj = parser.GetObjectBody(this);
       if (!pObj)
         break;
 
@@ -76,7 +70,7 @@ void CFDF_Document::ParseStream(
         break;
 
       std::unique_ptr<CPDF_Dictionary> pMainDict =
-          ToDictionary(parser.GetObject(this, 0, 0, true));
+          ToDictionary(parser.GetObjectBody(this));
       if (pMainDict)
         m_pRootDict = pMainDict->GetDictFor("Root");
 
@@ -85,10 +79,11 @@ void CFDF_Document::ParseStream(
   }
 }
 
-bool CFDF_Document::WriteBuf(CFX_ByteTextBuf& buf) const {
+ByteString CFDF_Document::WriteToString() const {
   if (!m_pRootDict)
-    return false;
+    return ByteString();
 
+  std::ostringstream buf;
   buf << "%FDF-1.2\r\n";
   for (const auto& pair : *this)
     buf << pair.first << " 0 obj\r\n"
@@ -96,5 +91,6 @@ bool CFDF_Document::WriteBuf(CFX_ByteTextBuf& buf) const {
 
   buf << "trailer\r\n<</Root " << m_pRootDict->GetObjNum()
       << " 0 R>>\r\n%%EOF\r\n";
-  return true;
+
+  return ByteString(buf);
 }

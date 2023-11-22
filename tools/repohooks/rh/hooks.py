@@ -28,6 +28,7 @@ if sys.path[0] != _path:
     sys.path.insert(0, _path)
 del _path
 
+# pylint: disable=wrong-import-position
 import rh.results
 import rh.git
 import rh.utils

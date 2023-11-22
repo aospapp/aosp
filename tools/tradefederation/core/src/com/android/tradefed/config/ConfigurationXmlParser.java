@@ -16,6 +16,8 @@
 
 package com.android.tradefed.config;
 
+import com.android.tradefed.log.LogUtil.CLog;
+
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -27,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -49,6 +52,7 @@ class ConfigurationXmlParser {
         private static final String TEMPLATE_INCLUDE_TAG = "template-include";
         private static final String CONFIG_TAG = "configuration";
         private static final String DEVICE_TAG = "device";
+        private static final String IS_FAKE_ATTR = "isFake";
 
         /** Note that this simply hasn't been implemented; it is not intentionally forbidden. */
         static final String INNER_TEMPLATE_INCLUDE_ERROR =
@@ -67,7 +71,6 @@ class ConfigurationXmlParser {
         // State-holding members
         private String mCurrentConfigObject;
         private String mCurrentDeviceObject;
-        private Boolean isMultiDeviceConfigMode = false;
         private List<String> mListDevice = new ArrayList<String>();
         private List<String> mOutsideTag = new ArrayList<String>();
 
@@ -128,7 +131,6 @@ class ConfigurationXmlParser {
                             + "cannot contain reserved character: '%s'",
                             OptionSetter.NAMESPACE_SEPARATOR)));
                 }
-                isMultiDeviceConfigMode = true;
                 mConfigDef.setMultiDeviceMode(true);
                 mCurrentDeviceObject = deviceName;
                 addObject(localName, attributes);
@@ -209,6 +211,9 @@ class ConfigurationXmlParser {
                 if (includeName == null) {
                     throwException("Missing 'name' attribute for include");
                 }
+                if (attributes.getLength() > 1) {
+                    throwException("<include> tag only expect a 'name' attribute.");
+                }
                 try {
                     mConfigDefLoader.loadIncludedConfiguration(
                             mConfigDef, mName, includeName, mCurrentDeviceObject, mTemplateMap);
@@ -268,13 +273,21 @@ class ConfigurationXmlParser {
 
         void addObject(String objectTypeName, Attributes attributes) throws SAXException {
             if (Configuration.DEVICE_NAME.equals(objectTypeName)) {
+                String isFakeString = attributes.getValue(IS_FAKE_ATTR);
+                boolean isFake = false;
+                if (isFakeString != null && Boolean.parseBoolean(isFakeString) == true) {
+                    isFake = true;
+                }
                 // We still want to add a standalone device without any inner object.
                 String deviceName = attributes.getValue("name");
                 if (!mListDevice.contains(deviceName)) {
                     mListDevice.add(deviceName);
                     mConfigDef.addConfigObjectDef(objectTypeName,
                             DeviceConfigurationHolder.class.getCanonicalName());
-                    mConfigDef.addExpectedDevice(deviceName);
+                }
+                String resp = mConfigDef.addExpectedDevice(deviceName, isFake);
+                if (resp != null) {
+                    throwException(resp);
                 }
             } else {
                 String className = attributes.getValue("class");
@@ -337,7 +350,8 @@ class ConfigurationXmlParser {
                     new ConfigHandler(
                             configDef, name, mConfigDefLoader, mParentDeviceObject, templateMap);
             parser.parse(new InputSource(xmlInput), configHandler);
-            checkValidMultiConfiguration(configHandler);
+            // ConfigurationDef holds whether or not the configs are multi-device or not.
+            checkValidMultiConfiguration(configHandler, configDef);
         } catch (ParserConfigurationException e) {
             throwConfigException(name, e);
         } catch (SAXException e) {
@@ -360,14 +374,38 @@ class ConfigurationXmlParser {
     }
 
     /**
-     * Validate that the configuration is valid from a multi device configuration standpoint:
-     * Some tags are not allowed outside the <device> tags.
+     * Validate that the configuration is valid from a multi device configuration standpoint: Some
+     * tags are not allowed outside the <device> tags.
      */
-    private void checkValidMultiConfiguration(ConfigHandler configHandler) throws SAXException {
-        if (configHandler.isMultiDeviceConfigMode == true &&
-                !configHandler.mOutsideTag.isEmpty()) {
-            throw new SAXException(new ConfigurationException(String.format("Tags %s "
-                    + "should be included in a <device> tag.", configHandler.mOutsideTag)));
+    private void checkValidMultiConfiguration(
+            ConfigHandler configHandler, ConfigurationDef configDef) throws SAXException {
+        Map<String, Boolean> expected = configDef.getExpectedDevices();
+        Long numDut =
+                expected.values()
+                        .stream()
+                        .filter(value -> (value == false))
+                        .collect(Collectors.counting());
+        Long numNonDut =
+                expected.values()
+                        .stream()
+                        .filter(value -> (value == true))
+                        .collect(Collectors.counting());
+        if (numNonDut > 0 && numDut == 1) {
+            // If we only have one DUT device and the rest are non-DUT devices. We need to consider
+            // this has an hybrid use case since there is technically only one device. So we cannot
+            // validate yet if objects are allowed to be outside <device> tags, it will be validated
+            // later during the parsing when we have more information.
+            CLog.d("Only one device under tests. Using hybrid handling.");
+            return;
+        }
+
+        if (configDef.isMultiDeviceMode() && !configHandler.mOutsideTag.isEmpty()) {
+            throw new SAXException(
+                    new ConfigurationException(
+                            String.format(
+                                    "You seem to want a multi-devices configuration but you have "
+                                            + "%s tags outside the <device> tags",
+                                    configHandler.mOutsideTag)));
         }
     }
 }

@@ -96,12 +96,12 @@ static inline void eOsLog(enum LogLevel level, const char *str, ...)
     va_end(vl);
 }
 
-static inline const struct SensorInfo* eOsSensorSignalInternalEvt(uint32_t handle, uint32_t intEvtNum, uint32_t value1, uint64_t value2)
+static inline bool eOsSensorSignalInternalEvt(uint32_t handle, uint32_t intEvtNum, uint32_t value1, uint64_t value2)
 {
     uint32_t value2_lo = value2;
     uint32_t value2_hi = value2 >> 32;
 
-    return (const struct SensorInfo*)syscallDo5P(SYSCALL_NO(SYSCALL_DOMAIN_OS, SYSCALL_OS_MAIN, SYSCALL_OS_MAIN_SENSOR, SYSCALL_OS_MAIN_SENSOR_SIGNAL), handle, intEvtNum, value1, value2_lo, value2_hi);
+    return syscallDo5P(SYSCALL_NO(SYSCALL_DOMAIN_OS, SYSCALL_OS_MAIN, SYSCALL_OS_MAIN_SENSOR, SYSCALL_OS_MAIN_SENSOR_SIGNAL), handle, intEvtNum, value1, value2_lo, value2_hi);
 }
 
 static inline uint32_t eOsSensorRegister(const struct SensorInfo *si, uint32_t tid, void *cookie, bool initComplete)

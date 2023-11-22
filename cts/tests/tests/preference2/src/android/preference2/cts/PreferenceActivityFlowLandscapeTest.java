@@ -36,7 +36,7 @@ public class PreferenceActivityFlowLandscapeTest extends PreferenceActivityFlowT
 
     @Rule
     public ActivityTestRule<PreferenceWithHeadersLandscape> mActivityRule =
-            new ActivityTestRule<>(PreferenceWithHeadersLandscape.class, false, false);
+            new ActivityTestRule<>(PreferenceWithHeadersLandscape.class, true, false);
 
     @Before
     public void setup() {

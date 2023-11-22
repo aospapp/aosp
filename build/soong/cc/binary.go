@@ -15,10 +15,6 @@
 package cc
 
 import (
-	"path/filepath"
-
-	"github.com/google/blueprint/proptools"
-
 	"android/soong/android"
 )
 
@@ -27,16 +23,19 @@ type BinaryLinkerProperties struct {
 	Static_executable *bool `android:"arch_variant"`
 
 	// set the name of the output
-	Stem string `android:"arch_variant"`
+	Stem *string `android:"arch_variant"`
 
 	// append to the name of the output
-	Suffix string `android:"arch_variant"`
+	Suffix *string `android:"arch_variant"`
 
 	// if set, add an extra objcopy --prefix-symbols= step
-	Prefix_symbols string
+	Prefix_symbols *string
+
+	// local file name to pass to the linker as --version_script
+	Version_script *string `android:"arch_variant"`
 
 	// if set, install a symlink to the preferred architecture
-	Symlink_preferred_arch bool
+	Symlink_preferred_arch *bool
 
 	// install symlinks to the binary.  Symlink names will have the suffix and the binary
 	// extension (if any) appended
@@ -46,6 +45,13 @@ type BinaryLinkerProperties struct {
 	No_pie *bool `android:"arch_variant"`
 
 	DynamicLinker string `blueprint:"mutated"`
+
+	// Names of modules to be overridden. Listed modules can only be other binaries
+	// (in Make or Soong).
+	// This does not completely prevent installation of the overridden binaries, but if both
+	// binaries would be installed by default (in PRODUCT_PACKAGES) the other binary will be removed
+	// from PRODUCT_PACKAGES.
+	Overrides []string
 }
 
 func init() {
@@ -96,18 +102,18 @@ func (binary *binaryDecorator) linkerProps() []interface{} {
 
 func (binary *binaryDecorator) getStem(ctx BaseModuleContext) string {
 	stem := ctx.baseModuleName()
-	if binary.Properties.Stem != "" {
-		stem = binary.Properties.Stem
+	if String(binary.Properties.Stem) != "" {
+		stem = String(binary.Properties.Stem)
 	}
 
-	return stem + binary.Properties.Suffix
+	return stem + String(binary.Properties.Suffix)
 }
 
 func (binary *binaryDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps {
 	deps = binary.baseLinker.linkerDeps(ctx, deps)
 	if ctx.toolchain().Bionic() {
 		if !Bool(binary.baseLinker.Properties.Nocrt) {
-			if !ctx.sdk() {
+			if !ctx.useSdk() {
 				if binary.static() {
 					deps.CrtBegin = "crtbegin_static"
 				} else {
@@ -149,12 +155,19 @@ func (binary *binaryDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps {
 				[]string{"libc", "libc_nomalloc", "libcompiler_rt"})
 			deps.LateStaticLibs = append(groupLibs, deps.LateStaticLibs...)
 		}
+
+		if ctx.Os() == android.LinuxBionic && !binary.static() {
+			deps.LinkerScript = "host_bionic_linker_script"
+		}
 	}
 
 	if !binary.static() && inList("libc", deps.StaticLibs) {
 		ctx.ModuleErrorf("statically linking libc to dynamic executable, please remove libc\n" +
 			"from static libs or set static_executable: true")
 	}
+
+	android.ExtractSourceDeps(ctx, binary.Properties.Version_script)
+
 	return deps
 }
 
@@ -179,8 +192,8 @@ func (binary *binaryDecorator) linkerInit(ctx BaseModuleContext) {
 
 	if !ctx.toolchain().Bionic() {
 		if ctx.Os() == android.Linux {
-			if binary.Properties.Static_executable == nil && Bool(ctx.AConfig().ProductVariables.HostStaticBinaries) {
-				binary.Properties.Static_executable = proptools.BoolPtr(true)
+			if binary.Properties.Static_executable == nil && ctx.Config().HostStaticBinaries() {
+				binary.Properties.Static_executable = BoolPtr(true)
 			}
 		} else {
 			// Static executables are not supported on Darwin or Windows
@@ -201,7 +214,7 @@ func (binary *binaryDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags
 	flags = binary.baseLinker.linkerFlags(ctx, flags)
 
 	if ctx.Host() && !binary.static() {
-		if !ctx.AConfig().IsEnvTrue("DISABLE_HOST_PIE") {
+		if !ctx.Config().IsEnvTrue("DISABLE_HOST_PIE") {
 			flags.LdFlags = append(flags.LdFlags, "-pie")
 			if ctx.Windows() {
 				flags.LdFlags = append(flags.LdFlags, "-Wl,-e_mainCRTStartup")
@@ -231,7 +244,6 @@ func (binary *binaryDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags
 				"-Bstatic",
 				"-Wl,--gc-sections",
 			)
-
 		} else {
 			if flags.DynamicLinker == "" {
 				if binary.Properties.DynamicLinker != "" {
@@ -241,15 +253,7 @@ func (binary *binaryDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags
 					case android.Android:
 						flags.DynamicLinker = "/system/bin/linker"
 					case android.LinuxBionic:
-						// The linux kernel expects the linker to be an
-						// absolute path
-						path := android.PathForOutput(ctx,
-							"host", "linux_bionic-x86", "bin", "linker")
-						if p, err := filepath.Abs(path.String()); err == nil {
-							flags.DynamicLinker = p
-						} else {
-							ctx.ModuleErrorf("can't find path to dynamic linker: %q", err)
-						}
+						flags.DynamicLinker = ""
 					default:
 						ctx.ModuleErrorf("unknown dynamic linker")
 					}
@@ -266,6 +270,7 @@ func (binary *binaryDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags
 				"-Wl,--gc-sections",
 				"-Wl,-z,nocopyreloc",
 			)
+
 		}
 	} else {
 		if binary.static() {
@@ -282,6 +287,7 @@ func (binary *binaryDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags
 func (binary *binaryDecorator) link(ctx ModuleContext,
 	flags Flags, deps PathDeps, objs Objects) android.Path {
 
+	versionScript := ctx.ExpandOptionalSource(binary.Properties.Version_script, "version_script")
 	fileName := binary.getStem(ctx) + flags.Toolchain.ExecutableSuffix()
 	outputFile := android.PathForModuleOut(ctx, fileName)
 	ret := outputFile
@@ -290,6 +296,20 @@ func (binary *binaryDecorator) link(ctx ModuleContext,
 
 	sharedLibs := deps.SharedLibs
 	sharedLibs = append(sharedLibs, deps.LateSharedLibs...)
+
+	if versionScript.Valid() {
+		if ctx.Darwin() {
+			ctx.PropertyErrorf("version_script", "Not supported on Darwin")
+		} else {
+			flags.LdFlags = append(flags.LdFlags, "-Wl,--version-script,"+versionScript.String())
+			linkerDeps = append(linkerDeps, versionScript.Path())
+		}
+	}
+
+	if deps.LinkerScript.Valid() {
+		flags.LdFlags = append(flags.LdFlags, "-Wl,-T,"+deps.LinkerScript.String())
+		linkerDeps = append(linkerDeps, deps.LinkerScript.Path())
+	}
 
 	if flags.DynamicLinker != "" {
 		flags.LdFlags = append(flags.LdFlags, " -Wl,-dynamic-linker,"+flags.DynamicLinker)
@@ -303,16 +323,23 @@ func (binary *binaryDecorator) link(ctx ModuleContext,
 		binary.stripper.strip(ctx, outputFile, strippedOutputFile, builderFlags)
 	}
 
-	if binary.Properties.Prefix_symbols != "" {
+	if String(binary.Properties.Prefix_symbols) != "" {
 		afterPrefixSymbols := outputFile
 		outputFile = android.PathForModuleOut(ctx, "unprefixed", fileName)
-		TransformBinaryPrefixSymbols(ctx, binary.Properties.Prefix_symbols, outputFile,
+		TransformBinaryPrefixSymbols(ctx, String(binary.Properties.Prefix_symbols), outputFile,
 			flagsToBuilderFlags(flags), afterPrefixSymbols)
+	}
+
+	if Bool(binary.baseLinker.Properties.Use_version_lib) && ctx.Host() {
+		versionedOutputFile := outputFile
+		outputFile = android.PathForModuleOut(ctx, "unversioned", fileName)
+		binary.injectVersionSymbol(ctx, outputFile, versionedOutputFile)
 	}
 
 	linkerDeps = append(linkerDeps, deps.SharedLibsDeps...)
 	linkerDeps = append(linkerDeps, deps.LateSharedLibsDeps...)
 	linkerDeps = append(linkerDeps, objs.tidyFiles...)
+	linkerDeps = append(linkerDeps, flags.LdFlagsDeps...)
 
 	TransformObjToDynamicBinary(ctx, objs.objFiles, sharedLibs, deps.StaticLibs,
 		deps.LateStaticLibs, deps.WholeStaticLibs, linkerDeps, deps.CrtBegin, deps.CrtEnd, true,
@@ -329,11 +356,11 @@ func (binary *binaryDecorator) install(ctx ModuleContext, file android.Path) {
 	binary.baseInstaller.install(ctx, file)
 	for _, symlink := range binary.Properties.Symlinks {
 		binary.symlinks = append(binary.symlinks,
-			symlink+binary.Properties.Suffix+ctx.toolchain().ExecutableSuffix())
+			symlink+String(binary.Properties.Suffix)+ctx.toolchain().ExecutableSuffix())
 	}
 
-	if binary.Properties.Symlink_preferred_arch {
-		if binary.Properties.Stem == "" && binary.Properties.Suffix == "" {
+	if Bool(binary.Properties.Symlink_preferred_arch) {
+		if String(binary.Properties.Stem) == "" && String(binary.Properties.Suffix) == "" {
 			ctx.PropertyErrorf("symlink_preferred_arch", "must also specify stem or suffix")
 		}
 		if ctx.TargetPrimary() {

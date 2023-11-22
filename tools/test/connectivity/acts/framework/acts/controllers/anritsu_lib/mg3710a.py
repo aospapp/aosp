@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3.4
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -695,8 +695,8 @@ class MG3710A(object):
         Returns:
             frequency offset
         """
-        return self.send_query("SOUR{}:RAD:ARB:WM{}:FREQ:OFFS?".format(sg,
-                                                                       a_or_b))
+        return self.send_query(
+            "SOUR{}:RAD:ARB:WM{}:FREQ:OFFS?".format(sg, a_or_b))
 
     def set_arb_freq_offset_aorb(self, a_or_b, offset, sg=1):
         """ Sets the frequency offset of Pattern A/Pattern B based on Baseband

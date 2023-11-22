@@ -98,9 +98,4 @@ void perfprofd_log_info(const char *fmt, ...)
     va_end(ap);
 }
 
-void perfprofd_sleep(int seconds)
-{
-    perfprofd_log_info("sleep %d seconds", seconds);
-}
-
 }

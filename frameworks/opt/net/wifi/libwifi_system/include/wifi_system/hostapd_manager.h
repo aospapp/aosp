@@ -44,28 +44,6 @@ class HostapdManager {
   // Returns true on success.
   virtual bool StopHostapd();
 
-  // Create a string suitable for writing to the hostapd configuration file.
-  // |interface_name| is a network interface name (e.g. "wlan0").
-  // |ssid| is the SSID used by the configurated network.
-  // |is_hidden| is true iff hostapd should not broadcast the SSID.
-  // |channel| is the WiFi channel (e.g. 6) or <0 for a default value.
-  // |encryption_type| defines the encryption of the configured network.
-  // |passphrase| is ignored for kOpen networks.
-  //
-  // Returns an empty string on failure.
-  virtual std::string CreateHostapdConfig(
-      const std::string& interface_name,
-      const std::vector<uint8_t> ssid,
-      bool is_hidden,
-      int channel,
-      EncryptionType encryption,
-      const std::vector<uint8_t> passphrase);
-
-  // Write out a hostapd configuration file created via CreateHostapdConfig().
-  // Future instances of hostapd will use this new configuration.
-  // Returns true if the configuration file is successfully written.
-  virtual bool WriteHostapdConfig(const std::string& config_file);
-
  private:
   DISALLOW_COPY_AND_ASSIGN(HostapdManager);
 };  // class HostapdManager

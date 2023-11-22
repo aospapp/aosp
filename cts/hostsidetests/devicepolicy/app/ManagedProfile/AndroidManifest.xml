@@ -77,11 +77,22 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <action android:name="com.android.cts.managedprofile.ACTION_TEST_MANAGED_ACTIVITY" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <data android:mimeType="*/*" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
         <activity android:name=".PrimaryUserActivity">
             <intent-filter>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <action android:name="com.android.cts.managedprofile.ACTION_TEST_PRIMARY_ACTIVITY" />
+            </intent-filter>
+            <!-- Catch ACTION_PICK in case there is no other app handing it -->
+            <intent-filter>
+                <action android:name="android.intent.action.PICK" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
         <activity android:name=".AllUsersActivity">
@@ -145,6 +156,11 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".WebViewActivity"
+            android:process=":testProcess"/>
+
+        <activity android:name=".TimeoutActivity" android:exported="true"/>
+
         <service
             android:name=".CrossProfileNotificationListenerService"
             android:label="CrossProfileNotificationListenerService"
@@ -167,6 +183,19 @@
           <intent-filter>
             <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
           </intent-filter>
+        </receiver>
+
+        <receiver android:name=".LockProfileReceiver">
+          <intent-filter>
+            <action android:name="com.android.cts.managedprofile.LOCK_PROFILE" />
+          </intent-filter>
+        </receiver>
+
+        <receiver android:name=".WipeDataReceiver">
+            <intent-filter>
+                <action android:name="com.android.cts.managedprofile.WIPE_DATA" />
+                <action android:name="com.android.cts.managedprofile.WIPE_DATA_WITH_REASON" />
+            </intent-filter>
         </receiver>
 
     </application>

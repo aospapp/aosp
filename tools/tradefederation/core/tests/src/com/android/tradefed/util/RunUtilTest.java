@@ -39,11 +39,14 @@ public class RunUtilTest extends TestCase {
 
     private RunUtil mRunUtil;
     private RunnableResult mMockRunnableResult;
-    private long mSleepTime = 0;
+    private long mSleepTime = 0L;
     private boolean success = false;
-    private static final long VERY_SHORT_TIMEOUT_MS = 10;
-    private static final long SHORT_TIMEOUT_MS = 200;
-    private static final long LONG_TIMEOUT_MS = 1000;
+    private static final long VERY_SHORT_TIMEOUT_MS = 10L;
+    private static final long SHORT_TIMEOUT_MS = 200L;
+    private static final long LONG_TIMEOUT_MS = 1000L;
+    // Timeout to ensure that IO depend tests have enough time to finish. They should not use the
+    // full duration in most cases.
+    private static final long VERY_LONG_TIMEOUT_MS = 5000L;
 
     @Override
     protected void setUp() throws Exception {
@@ -435,7 +438,8 @@ public class RunUtilTest extends TestCase {
         testRunUtil.setEnvVariable(ENV_NAME, "initvalue");
         testRunUtil.unsetEnvVariable(ENV_NAME);
         CommandResult result =
-                testRunUtil.runTimedCmd(LONG_TIMEOUT_MS, "/bin/bash", "-c", "echo $" + ENV_NAME);
+                testRunUtil.runTimedCmd(
+                        VERY_LONG_TIMEOUT_MS, "/bin/bash", "-c", "echo $" + ENV_NAME);
         assertNotNull(result.getStdout());
         // Variable should be unset, some echo return empty line break.
         assertEquals("\n", result.getStdout());

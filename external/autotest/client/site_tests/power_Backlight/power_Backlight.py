@@ -5,9 +5,9 @@
 import time
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import power_status, power_utils
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.graphics import graphics_utils
+from autotest_lib.client.cros.power import power_status, power_utils
 
 
 class power_Backlight(test.test):

@@ -27,11 +27,13 @@
 #include <functional>
 #include <set>
 
+#include "Fwmark.h"
 #include "NetlinkCommands.h"
 #include "Permission.h"
 #include "UidRanges.h"
 
 struct inet_diag_msg;
+struct tcp_info;
 class SockDiagTest;
 
 namespace android {
@@ -42,9 +44,16 @@ class SockDiag {
   public:
     static const int kBufferSize = 4096;
 
-    // Callback function that is called once for every socket in the dump. A return value of true
-    // means destroy the socket.
+    // Callback function that is called once for every socket in the sockDestroy dump.
+    // A return value of true means destroy the socket.
     typedef std::function<bool(uint8_t proto, const inet_diag_msg *)> DestroyFilter;
+
+    // Callback function that is called once for every socket in the sockInfo dump.
+    // 'tcp_info_length' is the length in bytes of the INET_DIAG_INFO attribute read from Netlink.
+    // Knowing this length is necessary for handling struct tcp_info serialized from different
+    // kernel versions.
+    typedef std::function<void(Fwmark mark, const struct inet_diag_msg *, const struct tcp_info *,
+            uint32_t tcp_info_length)> TcpInfoReader;
 
     struct DestroyRequest {
         nlmsghdr nlh;
@@ -58,6 +67,7 @@ class SockDiag {
     int sendDumpRequest(uint8_t proto, uint8_t family, uint32_t states);
     int sendDumpRequest(uint8_t proto, uint8_t family, const char *addrstr);
     int readDiagMsg(uint8_t proto, const DestroyFilter& callback);
+    int readDiagMsgWithTcpInfo(const TcpInfoReader& callback);
 
     int sockDestroy(uint8_t proto, const inet_diag_msg *);
     // Destroys all sockets on the given IPv4 or IPv6 address.
@@ -72,12 +82,16 @@ class SockDiag {
     int destroySocketsLackingPermission(unsigned netId, Permission permission,
                                         bool excludeLoopback);
 
+    // Dump struct tcp_info for all "live" (CONNECTED, SYN_SENT, SYN_RECV) TCP sockets.
+    int getLiveTcpInfos(const TcpInfoReader& sockInfoReader);
+
   private:
     friend class SockDiagTest;
     int mSock;
     int mWriteSock;
     int mSocketsDestroyed;
-    int sendDumpRequest(uint8_t proto, uint8_t family, uint32_t states, iovec *iov, int iovcnt);
+    int sendDumpRequest(uint8_t proto, uint8_t family, uint8_t extensions, uint32_t states,
+                        iovec *iov, int iovcnt);
     int destroySockets(uint8_t proto, int family, const char *addrstr);
     int destroyLiveSockets(DestroyFilter destroy, const char *what, iovec *iov, int iovcnt);
     bool hasSocks() { return mSock != -1 && mWriteSock != -1; }

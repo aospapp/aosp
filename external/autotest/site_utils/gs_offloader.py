@@ -35,7 +35,11 @@ from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils
 from autotest_lib.site_utils import job_directories
-from autotest_lib.site_utils import cloud_console_client
+# For unittest, the cloud_console.proto is not compiled yet.
+try:
+    from autotest_lib.site_utils import cloud_console_client
+except ImportError:
+    cloud_console_client = None
 from autotest_lib.tko import models
 from autotest_lib.utils import labellib
 from autotest_lib.utils import gslib
@@ -54,9 +58,8 @@ try:
     from chromite.lib import metrics
     from chromite.lib import ts_mon_config
 except ImportError:
-    from autotest_lib import site_utils
-    metrics = site_utils.metrics_mock
-    ts_mon_config = site_utils.metrics_mock
+    metrics = utils.metrics_mock
+    ts_mon_config = utils.metrics_mock
 
 
 GS_OFFLOADING_ENABLED = global_config.global_config.get_config_value(
@@ -78,9 +81,6 @@ REPORT_INTERVAL_SECS = 60 * 60
 # Location of Autotest results on disk.
 RESULTS_DIR = '/usr/local/autotest/results'
 FAILED_OFFLOADS_FILE = os.path.join(RESULTS_DIR, 'FAILED_OFFLOADS')
-
-# Hosts sub-directory that contains cleanup, verify and repair jobs.
-HOSTS_SUB_DIR = 'hosts'
 
 FAILED_OFFLOADS_FILE_HEADER = '''
 This is the list of gs_offloader failed jobs.
@@ -120,6 +120,8 @@ DEFAULT_CTS_APFE_GSURI = global_config.global_config.get_config_value(
 GS_OFFLOADER_SUCCESS_TYPE = 'gs_offloader_success'
 GS_OFFLOADER_FAILURE_TYPE = 'gs_offloader_failure'
 
+# Autotest test to collect list of CTS tests
+TEST_LIST_COLLECTOR = 'tradefed-run-collect-tests-only'
 
 def _get_metrics_fields(dir_entry):
     """Get metrics fields for the given test result directory, including board
@@ -367,10 +369,13 @@ def correct_results_folder_permission(dir_entry):
 
     logging.info('Trying to correct file permission of %s.', dir_entry)
     try:
+        owner = '%s:%s' % (os.getuid(), os.getgid())
         subprocess.check_call(
-                ['sudo', '-n', 'chown', '-R', str(os.getuid()), dir_entry])
+                ['sudo', '-n', 'chown', '-R', owner, dir_entry])
+        subprocess.check_call(['chmod', '-R', 'u+r', dir_entry])
         subprocess.check_call(
-                ['sudo', '-n', 'chgrp', '-R', str(os.getgid()), dir_entry])
+                ['find', dir_entry, '-type', 'd',
+                 '-exec', 'chmod', 'u+x', '{}', ';'])
     except subprocess.CalledProcessError as e:
         logging.error('Failed to modify permission for %s: %s',
                       dir_entry, e)
@@ -430,6 +435,16 @@ def _is_valid_result(build, result_pattern, suite):
     return True
 
 
+def _is_test_collector(package):
+    """Returns true if the test run is just to collect list of CTS tests.
+
+    @param package: Autotest package name. e.g. cheets_CTS_N.CtsGraphicsTestCase
+
+    @return Bool flag indicating a test package is CTS list generator or not.
+    """
+    return TEST_LIST_COLLECTOR in package
+
+
 def _upload_files(host, path, result_pattern, multiprocessing):
     keyval = models.test.parse_job_keyval(host)
     build = keyval.get('build')
@@ -446,22 +461,29 @@ def _upload_files(host, path, result_pattern, multiprocessing):
     package = folders[-4]
     timestamp = folders[-1]
 
-    # Path: bucket/build/parent_job_id/cheets_CTS.*/job_id_timestamp/
-    # or bucket/build/parent_job_id/cheets_GTS.*/job_id_timestamp/
-    cts_apfe_gs_path = os.path.join(
-            DEFAULT_CTS_APFE_GSURI, build, parent_job_id,
-            package, job_id + '_' + timestamp) + '/'
+    # Results produced by CTS test list collector are dummy results.
+    # They don't need to be copied to APFE bucket which is mainly being used for
+    # CTS APFE submission.
+    if not _is_test_collector(package):
+        # Path: bucket/build/parent_job_id/cheets_CTS.*/job_id_timestamp/
+        # or bucket/build/parent_job_id/cheets_GTS.*/job_id_timestamp/
+        cts_apfe_gs_path = os.path.join(
+                DEFAULT_CTS_APFE_GSURI, build, parent_job_id,
+                package, job_id + '_' + timestamp) + '/'
+
+        for zip_file in glob.glob(os.path.join('%s.zip' % path)):
+            utils.run(' '.join(_get_cmd_list(
+                    multiprocessing, zip_file, cts_apfe_gs_path)))
+            logging.debug('Upload %s to %s ', zip_file, cts_apfe_gs_path)
+    else:
+        logging.debug('%s is a CTS Test collector Autotest test run.', package)
+        logging.debug('Skipping CTS results upload to APFE gs:// bucket.')
 
     # Path: bucket/cheets_CTS.*/job_id_timestamp/
     # or bucket/cheets_GTS.*/job_id_timestamp/
     test_result_gs_path = os.path.join(
             DEFAULT_CTS_RESULTS_GSURI, package,
             job_id + '_' + timestamp) + '/'
-
-    for zip_file in glob.glob(os.path.join('%s.zip' % path)):
-        utils.run(' '.join(_get_cmd_list(
-                multiprocessing, zip_file, cts_apfe_gs_path)))
-        logging.debug('Upload %s to %s ', zip_file, cts_apfe_gs_path)
 
     for test_result_file in glob.glob(os.path.join(path, result_pattern)):
         # gzip test_result_file(testResult.xml/test_result.xml)
@@ -487,15 +509,65 @@ def _emit_gs_returncode_metric(returncode):
     metrics.Counter(m_gs_returncode).increment(fields={'return_code': rcode})
 
 
+def _handle_dir_os_error(dir_entry, fix_permission=False):
+    """Try to fix the result directory's permission issue if needed.
+
+    @param dir_entry: Directory entry to offload.
+    @param fix_permission: True to change the directory's owner to the same one
+            running gs_offloader.
+    """
+    if fix_permission:
+        correct_results_folder_permission(dir_entry)
+    m_permission_error = ('chromeos/autotest/errors/gs_offloader/'
+                          'wrong_permissions_count')
+    metrics_fields = _get_metrics_fields(dir_entry)
+    metrics.Counter(m_permission_error).increment(fields=metrics_fields)
+
+
 class BaseGSOffloader(object):
 
     """Google Storage offloader interface."""
 
     __metaclass__ = abc.ABCMeta
 
-    @abc.abstractmethod
     def offload(self, dir_entry, dest_path, job_complete_time):
+        """Safely offload a directory entry to Google Storage.
+
+        This method is responsible for copying the contents of
+        `dir_entry` to Google storage at `dest_path`.
+
+        When successful, the method must delete all of `dir_entry`.
+        On failure, `dir_entry` should be left undisturbed, in order
+        to allow for retry.
+
+        Errors are conveyed simply and solely by two methods:
+          * At the time of failure, write enough information to the log
+            to allow later debug, if necessary.
+          * Don't delete the content.
+
+        In order to guarantee robustness, this method must not raise any
+        exceptions.
+
+        @param dir_entry: Directory entry to offload.
+        @param dest_path: Location in google storage where we will
+                          offload the directory.
+        @param job_complete_time: The complete time of the job from the AFE
+                                  database.
+        """
+        try:
+            self._full_offload(dir_entry, dest_path, job_complete_time)
+        except Exception as e:
+            logging.debug('Exception in offload for %s', dir_entry)
+            logging.debug('Ignoring this error: %s', str(e))
+
+    @abc.abstractmethod
+    def _full_offload(self, dir_entry, dest_path, job_complete_time):
         """Offload a directory entry to Google Storage.
+
+        This method implements the actual offload behavior of its
+        subclass.  To guarantee effective debug, this method should
+        catch all exceptions, and perform any reasonable diagnosis
+        or other handling.
 
         @param dir_entry: Directory entry to offload.
         @param dest_path: Location in google storage where we will
@@ -524,7 +596,7 @@ class GSOffloader(BaseGSOffloader):
 
     @metrics.SecondsTimerDecorator(
             'chromeos/autotest/gs_offloader/job_offload_duration')
-    def offload(self, dir_entry, dest_path, job_complete_time):
+    def _full_offload(self, dir_entry, dest_path, job_complete_time):
         """Offload the specified directory entry to Google storage.
 
         @param dir_entry: Directory entry to offload.
@@ -536,7 +608,16 @@ class GSOffloader(BaseGSOffloader):
         with tempfile.TemporaryFile('w+') as stdout_file, \
              tempfile.TemporaryFile('w+') as stderr_file:
             try:
-                self._offload(dir_entry, dest_path, stdout_file, stderr_file)
+                try:
+                    self._try_offload(dir_entry, dest_path, stdout_file,
+                                      stderr_file)
+                except OSError as e:
+                    # Correct file permission error of the directory, then raise
+                    # the exception so gs_offloader can retry later.
+                    _handle_dir_os_error(dir_entry, e.errno==errno.EACCES)
+                    # Try again after the permission issue is fixed.
+                    self._try_offload(dir_entry, dest_path, stdout_file,
+                                      stderr_file)
             except _OffloadError as e:
                 metrics_fields = _get_metrics_fields(dir_entry)
                 m_any_error = 'chromeos/autotest/errors/gs_offloader/any_error'
@@ -563,7 +644,7 @@ class GSOffloader(BaseGSOffloader):
             else:
                 self._prune(dir_entry, job_complete_time)
 
-    def _offload(self, dir_entry, dest_path,
+    def _try_offload(self, dir_entry, dest_path,
                  stdout_file, stderr_file):
         """Offload the specified directory entry to Google storage.
 
@@ -643,16 +724,12 @@ class GSOffloader(BaseGSOffloader):
         try:
             shutil.rmtree(dir_entry)
         except OSError as e:
-            # The wrong file permission can lead call
-            # `shutil.rmtree(dir_entry)` to raise OSError with message
-            # 'Permission denied'. Details can be found in
-            # crbug.com/536151
-            if e.errno == errno.EACCES:
-                correct_results_folder_permission(dir_entry)
-            m_permission_error = ('chromeos/autotest/errors/gs_offloader/'
-                                  'wrong_permissions_count')
-            metrics_fields = _get_metrics_fields(dir_entry)
-            metrics.Counter(m_permission_error).increment(fields=metrics_fields)
+            # The wrong file permission can lead call `shutil.rmtree(dir_entry)`
+            # to raise OSError with message 'Permission denied'. Details can be
+            # found in crbug.com/536151
+            _handle_dir_os_error(dir_entry, e.errno==errno.EACCES)
+            # Try again after the permission issue is fixed.
+            shutil.rmtree(dir_entry)
 
 
 class _OffloadError(Exception):
@@ -669,7 +746,7 @@ class FakeGSOffloader(BaseGSOffloader):
 
     """Fake Google Storage Offloader that only deletes directories."""
 
-    def offload(self, dir_entry, dest_path, job_complete_time):
+    def _full_offload(self, dir_entry, dest_path, job_complete_time):
         """Pretend to offload a directory and delete it.
 
         @param dir_entry: Directory entry to offload.
@@ -801,7 +878,8 @@ class Offloader(object):
             logging.info(
                     'Offloader multiprocessing is set to:%r', multiprocessing)
             console_client = None
-            if cloud_console_client.is_cloud_notification_enabled():
+            if (cloud_console_client and
+                    cloud_console_client.is_cloud_notification_enabled()):
                 console_client = cloud_console_client.PubSubBasedClient()
             self._gs_offloader = GSOffloader(
                     self.gs_uri, multiprocessing, self._delete_age_limit,
@@ -1018,6 +1096,13 @@ def parse_options():
                       help='Minimum job age in days before a result can be '
                       'removed from local storage',
                       type='int', default=None)
+    parser.add_option(
+            '--metrics-file',
+            help='If provided, drop metrics to this local file instead of '
+                 'reporting to ts_mon',
+            type=str,
+            default=None,
+    )
 
     options = parser.parse_args()[0]
     if options.process_all and options.process_hosts_only:
@@ -1069,15 +1154,17 @@ def main():
 
     service_name = 'gs_offloader(%s)' % offloader_type
     with ts_mon_config.SetupTsMonGlobalState(service_name, indirect=True,
-                                             short_lived=False):
-        offloader = Offloader(options)
-        if not options.delete_only:
-            wait_for_gs_write_access(offloader.gs_uri)
-        while True:
-            offloader.offload_once()
-            if options.offload_once:
-                break
-            time.sleep(SLEEP_TIME_SECS)
+                                             short_lived=False,
+                                             debug_file=options.metrics_file):
+        with metrics.SuccessCounter('chromeos/autotest/gs_offloader/exit'):
+            offloader = Offloader(options)
+            if not options.delete_only:
+                wait_for_gs_write_access(offloader.gs_uri)
+            while True:
+                offloader.offload_once()
+                if options.offload_once:
+                    break
+                time.sleep(SLEEP_TIME_SECS)
 
 
 _LOG_LOCATION = '/usr/local/autotest/logs/'

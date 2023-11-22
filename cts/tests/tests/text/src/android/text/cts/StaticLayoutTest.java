@@ -21,27 +21,45 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.Paint.FontMetricsInt;
 import android.graphics.Typeface;
+import android.os.LocaleList;
+import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SmallTest;
+import android.support.test.filters.Suppress;
 import android.support.test.runner.AndroidJUnit4;
 import android.text.Editable;
 import android.text.Layout;
 import android.text.Layout.Alignment;
+import android.text.PrecomputedText;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.SpannedString;
 import android.text.StaticLayout;
+import android.text.TextDirectionHeuristic;
+import android.text.TextDirectionHeuristics;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.TextUtils.TruncateAt;
 import android.text.method.cts.EditorState;
+import android.text.style.ReplacementSpan;
 import android.text.style.StyleSpan;
+import android.text.style.TextAppearanceSpan;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -58,6 +76,13 @@ public class StaticLayoutTest {
     private static final int LAST_LINE = 5;
     private static final int LINE_COUNT = 6;
     private static final int LARGER_THAN_LINE_COUNT  = 50;
+
+    private static final String LOREM_IPSUM = "Lorem ipsum dolor sit amet, consectetur adipiscing "
+            + "elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad "
+            + "minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea "
+            + "commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse "
+            + "cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non "
+            + "proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
 
     /* the first line must have one tab. the others not. totally 6 lines
      */
@@ -203,13 +228,45 @@ public class StaticLayoutTest {
             // setBreakStrategy, setHyphenationFrequency, setIncludePad, and setIndents.
             StaticLayout.Builder builder = StaticLayout.Builder.obtain(LAYOUT_TEXT, 0,
                     LAYOUT_TEXT.length(), mDefaultPaint, DEFAULT_OUTER_WIDTH);
-            builder.setBreakStrategy(StaticLayout.BREAK_STRATEGY_HIGH_QUALITY);
-            builder.setHyphenationFrequency(StaticLayout.HYPHENATION_FREQUENCY_FULL);
+            builder.setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY);
+            builder.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_FULL);
             builder.setIncludePad(true);
             builder.setIndents(null, null);
             StaticLayout layout = builder.build();
             assertNotNull(layout);
         }
+    }
+
+    @Test
+    public void testSetLineSpacing_whereLineEndsWithNextLine() {
+        final float spacingAdd = 10f;
+        final float spacingMult = 3f;
+
+        // two lines of text, with line spacing, first line will have the spacing, but last line
+        // wont have the spacing
+        final String tmpText = "a\nb";
+        StaticLayout.Builder builder = StaticLayout.Builder.obtain(tmpText, 0, tmpText.length(),
+                mDefaultPaint, DEFAULT_OUTER_WIDTH);
+        builder.setLineSpacing(spacingAdd, spacingMult).setIncludePad(false);
+        final StaticLayout comparisonLayout = builder.build();
+
+        assertEquals(2, comparisonLayout.getLineCount());
+        final int heightWithLineSpacing = comparisonLayout.getLineBottom(0)
+                - comparisonLayout.getLineTop(0);
+        final int heightWithoutLineSpacing = comparisonLayout.getLineBottom(1)
+                - comparisonLayout.getLineTop(1);
+        assertTrue(heightWithLineSpacing > heightWithoutLineSpacing);
+
+        final String text = "a\n";
+        // build the layout to be tested
+        builder = StaticLayout.Builder.obtain("a\n", 0, text.length(), mDefaultPaint,
+                DEFAULT_OUTER_WIDTH);
+        builder.setLineSpacing(spacingAdd, spacingMult).setIncludePad(false);
+        final StaticLayout layout = builder.build();
+
+        assertEquals(comparisonLayout.getLineCount(), layout.getLineCount());
+        assertEquals(heightWithLineSpacing, layout.getLineBottom(0) - layout.getLineTop(0));
+        assertEquals(heightWithoutLineSpacing, layout.getLineBottom(1) - layout.getLineTop(1));
     }
 
     @Test
@@ -222,6 +279,7 @@ public class StaticLayoutTest {
         // without causing any exceptions.
         assertNotNull(layout);
     }
+
     /*
      * Get the line number corresponding to the specified vertical position.
      *  If you ask for a position above 0, you get 0. above 0 means pixel above the fire line
@@ -1122,7 +1180,7 @@ public class StaticLayoutTest {
 
     @Test
     public void testVeryLargeString() {
-        final int MAX_COUNT = 1 << 21;
+        final int MAX_COUNT = 1 << 20;
         final int WORD_SIZE = 32;
         char[] longText = new char[MAX_COUNT];
         for (int n = 0; n < MAX_COUNT; n++) {
@@ -1189,5 +1247,293 @@ public class StaticLayoutTest {
                 mDefaultPaint, Integer.MAX_VALUE - 1).setMaxLines(2)
                 .setEllipsize(TruncateAt.END).build();
         layout.getPrimaryHorizontal(layout.getText().length());
+    }
+
+    @Test
+    public void testNegativeWidth() {
+        StaticLayout.Builder.obtain("a", 0, 1, new TextPaint(), 5)
+            .setIndents(new int[] { 10 }, new int[] { 10 })
+            .setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY).build();
+        StaticLayout.Builder.obtain("a", 0, 1, new TextPaint(), 5)
+            .setIndents(new int[] { 10 }, new int[] { 10 })
+            .setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE).build();
+        StaticLayout.Builder.obtain("a", 0, 1, new TextPaint(), 5)
+            .setIndents(new int[] { 10 }, new int[] { 10 })
+            .setBreakStrategy(Layout.BREAK_STRATEGY_BALANCED).build();
+    }
+
+    // TODO: Re-enable once http://b/65207701 is fixed.
+    @Test
+    @Suppress
+    public void testGetLineWidth() {
+        final float wholeWidth = mDefaultPaint.measureText(LOREM_IPSUM);
+        final int lineWidth = (int) (wholeWidth / 10.0f);  // Make 10 lines per paragraph.
+        final String multiParaTestString =
+                LOREM_IPSUM + "\n" + LOREM_IPSUM + "\n" + LOREM_IPSUM + "\n" + LOREM_IPSUM;
+        final Layout layout = StaticLayout.Builder.obtain(multiParaTestString, 0,
+                multiParaTestString.length(), mDefaultPaint, lineWidth)
+                .build();
+        for (int i = 0; i < layout.getLineCount(); i++) {
+            assertTrue(layout.getLineWidth(i) <= lineWidth);
+        }
+    }
+
+    // TODO: Re-enable once http://b/65207701 is fixed.
+    @Test
+    @Suppress
+    public void testIndent() {
+        final float wholeWidth = mDefaultPaint.measureText(LOREM_IPSUM);
+        final int lineWidth = (int) (wholeWidth / 10.0f);  // Make 10 lines per paragraph.
+        final int indentWidth = (int) (lineWidth * 0.3f);  // Make 30% indent.
+        final String multiParaTestString =
+                LOREM_IPSUM + "\n" + LOREM_IPSUM + "\n" + LOREM_IPSUM + "\n" + LOREM_IPSUM;
+        final Layout layout = StaticLayout.Builder.obtain(multiParaTestString, 0,
+                multiParaTestString.length(), mDefaultPaint, lineWidth)
+                .setIndents(new int[] { indentWidth }, null)
+                .build();
+        for (int i = 0; i < layout.getLineCount(); i++) {
+            assertTrue(layout.getLineWidth(i) <= lineWidth - indentWidth);
+        }
+    }
+
+    private static Bitmap drawToBitmap(Layout l) {
+        final Bitmap bmp = Bitmap.createBitmap(l.getWidth(), l.getHeight(), Bitmap.Config.RGB_565);
+        final Canvas c = new Canvas(bmp);
+
+        c.save();
+        c.translate(0, 0);
+        l.draw(c);
+        c.restore();
+        return bmp;
+    }
+
+    private static String textPaintToString(TextPaint p) {
+        return "{"
+            + "mTextSize=" + p.getTextSize() + ", "
+            + "mTextSkewX=" + p.getTextSkewX() + ", "
+            + "mTextScaleX=" + p.getTextScaleX() + ", "
+            + "mLetterSpacing=" + p.getLetterSpacing() + ", "
+            + "mFlags=" + p.getFlags() + ", "
+            + "mTextLocales=" + p.getTextLocales() + ", "
+            + "mFontVariationSettings=" + p.getFontVariationSettings() + ", "
+            + "mTypeface=" + p.getTypeface() + ", "
+            + "mFontFeatureSettings=" + p.getFontFeatureSettings()
+            + "}";
+    }
+
+    private static String directionToString(TextDirectionHeuristic dir) {
+        if (dir == TextDirectionHeuristics.LTR) {
+            return "LTR";
+        } else if (dir == TextDirectionHeuristics.RTL) {
+            return "RTL";
+        } else if (dir == TextDirectionHeuristics.FIRSTSTRONG_LTR) {
+            return "FIRSTSTRONG_LTR";
+        } else if (dir == TextDirectionHeuristics.FIRSTSTRONG_RTL) {
+            return "FIRSTSTRONG_RTL";
+        } else if (dir == TextDirectionHeuristics.ANYRTL_LTR) {
+            return "ANYRTL_LTR";
+        } else {
+            throw new RuntimeException("Unknown Direction");
+        }
+    }
+
+    static class LayoutParam {
+        final int mStrategy;
+        final int mFrequency;
+        final TextPaint mPaint;
+        final TextDirectionHeuristic mDir;
+
+        LayoutParam(int strategy, int frequency, TextPaint paint, TextDirectionHeuristic dir) {
+            mStrategy = strategy;
+            mFrequency = frequency;
+            mPaint = new TextPaint(paint);
+            mDir = dir;
+        }
+
+        @Override
+        public String toString() {
+            return "{"
+                + "mStrategy=" + mStrategy + ", "
+                + "mFrequency=" + mFrequency + ", "
+                + "mPaint=" + textPaintToString(mPaint) + ", "
+                + "mDir=" + directionToString(mDir)
+                + "}";
+
+        }
+
+        Layout getLayout(CharSequence text, int width) {
+            return StaticLayout.Builder.obtain(text, 0, text.length(), mPaint, width)
+                .setBreakStrategy(mStrategy).setHyphenationFrequency(mFrequency)
+                .setTextDirection(mDir).build();
+        }
+
+        PrecomputedText getPrecomputedText(CharSequence text) {
+            PrecomputedText.Params param = new PrecomputedText.Params.Builder(mPaint)
+                    .setBreakStrategy(mStrategy)
+                    .setHyphenationFrequency(mFrequency)
+                    .setTextDirection(mDir).build();
+            return PrecomputedText.create(text, param);
+        }
+    };
+
+    void assertSameStaticLayout(CharSequence text, LayoutParam measuredTextParam,
+                                LayoutParam staticLayoutParam) {
+        String msg = "StaticLayout for " + staticLayoutParam + " with PrecomputedText"
+                + " created with " + measuredTextParam + " must output the same BMP.";
+
+        final float wholeWidth = mDefaultPaint.measureText(text.toString());
+        final int lineWidth = (int) (wholeWidth / 10.0f);  // Make 10 lines per paragraph.
+
+        // Static layout parameter should be used for the final output.
+        final Layout expectedLayout = staticLayoutParam.getLayout(text, lineWidth);
+
+        final PrecomputedText mt = measuredTextParam.getPrecomputedText(text);
+        final Layout resultLayout = StaticLayout.Builder.obtain(mt, 0, mt.length(),
+                staticLayoutParam.mPaint, lineWidth)
+                .setBreakStrategy(staticLayoutParam.mStrategy)
+                .setHyphenationFrequency(staticLayoutParam.mFrequency)
+                .setTextDirection(staticLayoutParam.mDir).build();
+
+        assertEquals(msg, expectedLayout.getHeight(), resultLayout.getHeight(), 0.0f);
+
+        final Bitmap expectedBMP = drawToBitmap(expectedLayout);
+        final Bitmap resultBMP = drawToBitmap(resultLayout);
+
+        assertTrue(msg, resultBMP.sameAs(expectedBMP));
+    }
+
+    @Test
+    public void testPrecomputedText() {
+        int[] breaks = {
+            Layout.BREAK_STRATEGY_SIMPLE,
+            Layout.BREAK_STRATEGY_HIGH_QUALITY,
+            Layout.BREAK_STRATEGY_BALANCED,
+        };
+
+        int[] frequencies = {
+            Layout.HYPHENATION_FREQUENCY_NORMAL,
+            Layout.HYPHENATION_FREQUENCY_FULL,
+            Layout.HYPHENATION_FREQUENCY_NONE,
+        };
+
+        TextDirectionHeuristic[] dirs = {
+            TextDirectionHeuristics.LTR,
+            TextDirectionHeuristics.RTL,
+            TextDirectionHeuristics.FIRSTSTRONG_LTR,
+            TextDirectionHeuristics.FIRSTSTRONG_RTL,
+            TextDirectionHeuristics.ANYRTL_LTR,
+        };
+
+        float[] textSizes = {
+            8.0f, 16.0f, 32.0f
+        };
+
+        LocaleList[] locales = {
+            LocaleList.forLanguageTags("en-US"),
+            LocaleList.forLanguageTags("ja-JP"),
+            LocaleList.forLanguageTags("en-US,ja-JP"),
+        };
+
+        TextPaint paint = new TextPaint();
+
+        // If the PrecomputedText is created with the same argument of the StaticLayout, generate
+        // the same bitmap.
+        for (int b : breaks) {
+            for (int f : frequencies) {
+                for (TextDirectionHeuristic dir : dirs) {
+                    for (float textSize : textSizes) {
+                        for (LocaleList locale : locales) {
+                            paint.setTextSize(textSize);
+                            paint.setTextLocales(locale);
+
+                            assertSameStaticLayout(LOREM_IPSUM,
+                                    new LayoutParam(b, f, paint, dir),
+                                    new LayoutParam(b, f, paint, dir));
+                        }
+                    }
+                }
+            }
+        }
+
+        // If the parameters are different, the output of the static layout must be
+        // same bitmap.
+        for (int bi = 0; bi < breaks.length; bi++) {
+            for (int fi = 0; fi < frequencies.length; fi++) {
+                for (int diri = 0; diri < dirs.length; diri++) {
+                    for (int sizei = 0; sizei < textSizes.length; sizei++) {
+                        for (int localei = 0; localei < locales.length; localei++) {
+                            TextPaint p1 = new TextPaint();
+                            TextPaint p2 = new TextPaint();
+
+                            p1.setTextSize(textSizes[sizei]);
+                            p2.setTextSize(textSizes[(sizei + 1) % textSizes.length]);
+
+                            p1.setTextLocales(locales[localei]);
+                            p2.setTextLocales(locales[(localei + 1) % locales.length]);
+
+                            int b1 = breaks[bi];
+                            int b2 = breaks[(bi + 1) % breaks.length];
+
+                            int f1 = frequencies[fi];
+                            int f2 = frequencies[(fi + 1) % frequencies.length];
+
+                            TextDirectionHeuristic dir1 = dirs[diri];
+                            TextDirectionHeuristic dir2 = dirs[(diri + 1) % dirs.length];
+
+                            assertSameStaticLayout(LOREM_IPSUM,
+                                    new LayoutParam(b1, f1, p1, dir1),
+                                    new LayoutParam(b2, f2, p2, dir2));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+    @Test
+    public void testReplacementFontMetricsTest() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+
+        Typeface tf = new Typeface.Builder(context.getAssets(), "fonts/samplefont.ttf").build();
+        assertNotNull(tf);
+        TextPaint paint = new TextPaint();
+        paint.setTypeface(tf);
+
+        ReplacementSpan firstReplacement = mock(ReplacementSpan.class);
+        ArgumentCaptor<FontMetricsInt> fm1Captor = ArgumentCaptor.forClass(FontMetricsInt.class);
+        when(firstReplacement.getSize(
+            any(Paint.class), any(CharSequence.class), anyInt(), anyInt(),
+            fm1Captor.capture())).thenReturn(0);
+        TextAppearanceSpan firstStyleSpan = new TextAppearanceSpan(
+                null /* family */, Typeface.NORMAL /* style */, 100 /* text size, 1em = 100px */,
+                null /* text color */, null /* link color */);
+
+        ReplacementSpan secondReplacement = mock(ReplacementSpan.class);
+        ArgumentCaptor<FontMetricsInt> fm2Captor = ArgumentCaptor.forClass(FontMetricsInt.class);
+        when(secondReplacement.getSize(
+            any(Paint.class), any(CharSequence.class), any(Integer.class), any(Integer.class),
+            fm2Captor.capture())).thenReturn(0);
+        TextAppearanceSpan secondStyleSpan = new TextAppearanceSpan(
+                null /* family */, Typeface.NORMAL /* style */, 200 /* text size, 1em = 200px */,
+                null /* text color */, null /* link color */);
+
+        SpannableStringBuilder ssb = new SpannableStringBuilder("Hello, World\nHello, Android");
+        ssb.setSpan(firstStyleSpan, 0, 13, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        ssb.setSpan(firstReplacement, 0, 13, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        ssb.setSpan(secondStyleSpan, 13, 27, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        ssb.setSpan(secondReplacement, 13, 27, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+        StaticLayout.Builder.obtain(ssb, 0, ssb.length(), paint, Integer.MAX_VALUE).build();
+
+        FontMetricsInt firstMetrics = fm1Captor.getValue();
+        FontMetricsInt secondMetrics = fm2Captor.getValue();
+
+        // The samplefont.ttf has 0.8em ascent and 0.2em descent.
+        assertEquals(-100, firstMetrics.ascent);
+        assertEquals(20, firstMetrics.descent);
+
+        assertEquals(-200, secondMetrics.ascent);
+        assertEquals(40, secondMetrics.descent);
     }
 }

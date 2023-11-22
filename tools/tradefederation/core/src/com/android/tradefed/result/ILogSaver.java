@@ -75,17 +75,16 @@ public interface ILogSaver {
 
     /**
      * A helper method to save the log data unmodified.
-     * <p>
-     * Logs may be stored in a location inaccessable to Tradefed.
-     * </p>
+     *
+     * <p>Logs may be stored in a location inaccessible to Tradefed.
      *
      * @param dataName a {@link String} descriptive name of the data. e.g. "device_logcat".
-     * @param ext a {@link String} the extention of the file
+     * @param type a {@link LogDataType} containing the type and the extension of the file
      * @param dataStream the {@link InputStream} of the data.
      * @return the {@link LogFile} containing the path and URL of the saved file.
      * @throws IOException if log file could not be generated
      */
-    public LogFile saveLogDataRaw(String dataName, String ext, InputStream dataStream)
+    public LogFile saveLogDataRaw(String dataName, LogDataType type, InputStream dataStream)
             throws IOException;
 
     /**

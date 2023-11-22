@@ -23,6 +23,7 @@
 #include <functional>
 #include <map>
 #include <mutex>
+#include <vector>
 
 #include <android-base/macros.h>
 #include <cutils/sockets.h>
@@ -98,6 +99,10 @@ class SocketServer {
 
   // Maps from socket FD to ClientData
   std::map<int, ClientData> mClients;
+
+  // A buffer to read packets into. Allocated here to prevent a large object on
+  // the stack.
+  std::vector<uint8_t> mRecvBuffer = std::vector<uint8_t>(kMaxPacketSize);
 
   // Ensures that mClients can be safely iterated over from other threads
   // without worrying about potential modification from the RX thread

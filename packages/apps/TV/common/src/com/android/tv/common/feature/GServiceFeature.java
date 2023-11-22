@@ -18,10 +18,7 @@ package com.android.tv.common.feature;
 
 import android.content.Context;
 
-
-/**
- * A feature controlled by a GServices flag.
- */
+/** A feature controlled by a GServices flag. */
 public class GServiceFeature implements Feature {
     private static final String LIVECHANNELS_PREFIX = "livechannels:";
     private final String mKey;

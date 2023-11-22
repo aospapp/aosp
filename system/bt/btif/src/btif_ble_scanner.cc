@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2016 The Android Open Source Project
+ *  Copyright 2016 The Android Open Source Project
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -88,33 +88,6 @@ bool btif_gattc_find_bdaddr(const RawAddress& p_bda) {
 void btif_gattc_init_dev_cb(void) {
   remote_bdaddr_cache.clear();
   remote_bdaddr_cache_ordered = {};
-}
-
-void btif_gatts_upstreams_evt(uint16_t event, char* p_param) {
-  LOG_VERBOSE(LOG_TAG, "%s: Event %d", __func__, event);
-
-  tBTA_GATTC* p_data = (tBTA_GATTC*)p_param;
-  switch (event) {
-    case BTA_GATTC_DEREG_EVT:
-      break;
-
-    case BTA_GATTC_SEARCH_CMPL_EVT: {
-      HAL_CBACK(bt_gatt_callbacks, client->search_complete_cb,
-                p_data->search_cmpl.conn_id, p_data->search_cmpl.status);
-      break;
-    }
-
-    default:
-      LOG_DEBUG(LOG_TAG, "%s: Unhandled event (%d)", __func__, event);
-      break;
-  }
-}
-
-void bta_gatts_cback(tBTA_GATTC_EVT event, tBTA_GATTC* p_data) {
-  bt_status_t status =
-      btif_transfer_context(btif_gatts_upstreams_evt, (uint16_t)event,
-                            (char*)p_data, sizeof(tBTA_GATTC), NULL);
-  ASSERTC(status == BT_STATUS_SUCCESS, "Context transfer failed!", status);
 }
 
 void bta_batch_scan_threshold_cb(tBTM_BLE_REF_VALUE ref_value) {
@@ -227,6 +200,8 @@ void bta_track_adv_event_cb(tBTM_BLE_TRACK_ADV_DATA* p_track_adv_data) {
   SCAN_CBACK_IN_JNI(track_adv_event_cb, Owned(btif_scan_track_cb));
 }
 
+void bta_cback(tBTA_GATTC_EVT, tBTA_GATTC*) {}
+
 class BleScannerInterfaceImpl : public BleScannerInterface {
   ~BleScannerInterfaceImpl(){};
 
@@ -235,7 +210,7 @@ class BleScannerInterfaceImpl : public BleScannerInterface {
                      Bind(
                          [](RegisterCallback cb) {
                            BTA_GATTC_AppRegister(
-                               bta_gatts_cback,
+                               bta_cback,
                                jni_thread_wrapper(FROM_HERE, std::move(cb)));
                          },
                          std::move(cb)));
@@ -255,9 +230,8 @@ class BleScannerInterfaceImpl : public BleScannerInterface {
           }
 
           btif_gattc_init_dev_cb();
-          do_in_bta_thread(FROM_HERE,
-                           Bind(&BTA_DmBleObserve, true, 0,
-                                (tBTA_DM_SEARCH_CBACK*)bta_scan_results_cb));
+          do_in_bta_thread(
+              FROM_HERE, Bind(&BTA_DmBleObserve, true, 0, bta_scan_results_cb));
         },
         start));
   }
@@ -280,93 +254,18 @@ class BleScannerInterfaceImpl : public BleScannerInterface {
                                 jni_thread_wrapper(FROM_HERE, std::move(cb))));
   }
 
-  void ScanFilterAddRemove(int action, int filt_type, int filt_index,
-                           int company_id, int company_id_mask,
-                           const bt_uuid_t* p_uuid,
-                           const bt_uuid_t* p_uuid_mask,
-                           const RawAddress* bd_addr, char addr_type,
-                           vector<uint8_t> data, vector<uint8_t> mask,
-                           FilterConfigCallback cb) override {
-    BTIF_TRACE_DEBUG("%s, %d, %d", __func__, action, filt_type);
+  void ScanFilterAdd(int filter_index, std::vector<ApcfCommand> filters,
+                     FilterConfigCallback cb) override {
+    BTIF_TRACE_DEBUG("%s: %d", __func__, filter_index);
 
-    /* If data is passed, both mask and data have to be the same length */
-    if (data.size() != mask.size() && data.size() != 0 && mask.size() != 0)
-      return;
-
-    switch (filt_type) {
-      case BTM_BLE_PF_ADDR_FILTER: {
-        tBLE_BD_ADDR target_addr;
-        target_addr.bda = *bd_addr;
-        target_addr.type = addr_type;
-
-        do_in_bta_thread(
-            FROM_HERE,
-            base::Bind(&BTM_LE_PF_addr_filter, action, filt_index,
-                       std::move(target_addr),
-                       jni_thread_wrapper(FROM_HERE, Bind(cb, filt_type))));
-        return;
-      }
-
-      case BTM_BLE_PF_SRVC_DATA:
-        do_in_bta_thread(FROM_HERE,
-                         base::Bind(&BTM_LE_PF_srvc_data, action, filt_index));
-        return;
-
-      case BTM_BLE_PF_SRVC_UUID:
-      case BTM_BLE_PF_SRVC_SOL_UUID: {
-        tBT_UUID bt_uuid;
-        btif_to_bta_uuid(&bt_uuid, p_uuid);
-
-        if (p_uuid_mask == NULL) {
-          do_in_bta_thread(
-              FROM_HERE,
-              base::Bind(&BTM_LE_PF_uuid_filter, action, filt_index, filt_type,
-                         bt_uuid, BTM_BLE_PF_LOGIC_AND, nullptr,
-                         jni_thread_wrapper(FROM_HERE, Bind(cb, filt_type))));
-          return;
-        }
-
-        tBTM_BLE_PF_COND_MASK* mask = new tBTM_BLE_PF_COND_MASK;
-        btif_to_bta_uuid_mask(mask, p_uuid_mask, p_uuid);
-        do_in_bta_thread(
-            FROM_HERE,
-            base::Bind(&BTM_LE_PF_uuid_filter, action, filt_index, filt_type,
-                       bt_uuid, BTM_BLE_PF_LOGIC_AND, base::Owned(mask),
-                       jni_thread_wrapper(FROM_HERE, Bind(cb, filt_type))));
-        return;
-      }
-
-      case BTM_BLE_PF_LOCAL_NAME: {
-        do_in_bta_thread(
-            FROM_HERE,
-            base::Bind(&BTM_LE_PF_local_name, action, filt_index,
-                       std::move(data),
-                       jni_thread_wrapper(FROM_HERE, Bind(cb, filt_type))));
-        return;
-      }
-
-      case BTM_BLE_PF_MANU_DATA: {
-        do_in_bta_thread(
-            FROM_HERE,
-            base::Bind(&BTM_LE_PF_manu_data, action, filt_index, company_id,
-                       company_id_mask, std::move(data), std::move(mask),
-                       jni_thread_wrapper(FROM_HERE, Bind(cb, filt_type))));
-        return;
-      }
-
-      case BTM_BLE_PF_SRVC_DATA_PATTERN: {
-        do_in_bta_thread(
-            FROM_HERE,
-            base::Bind(&BTM_LE_PF_srvc_data_pattern, action, filt_index,
-                       std::move(data), std::move(mask),
-                       jni_thread_wrapper(FROM_HERE, Bind(cb, filt_type))));
-        return;
-      }
-
-      default:
-        LOG_ERROR(LOG_TAG, "%s: Unknown filter type (%d)!", __func__, action);
-        return;
-    }
+    do_in_bta_thread(
+        FROM_HERE,
+        base::Bind(
+            &BTM_LE_PF_set, filter_index, std::move(filters),
+            jni_thread_wrapper(
+                FROM_HERE,
+                Bind(std::move(cb),
+                     0 /*TODO: this used to be filter type, unused ?*/))));
   }
 
   void ScanFilterClear(int filter_index, FilterConfigCallback cb) override {

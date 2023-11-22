@@ -1,7 +1,7 @@
 ## @file
 # This file is used to parse DEC file. It will consumed by DecParser
 #
-# Copyright (c) 2011 - 2014, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2011 - 2016, Intel Corporation. All rights reserved.<BR>
 #
 # This program and the accompanying materials are licensed and made available 
 # under the terms and conditions of the BSD License which accompanies this 
@@ -270,7 +270,21 @@ class _DecBase:
                     self._LoggerError(ST.ERR_DECPARSE_BACKSLASH_EMPTY)
                 CatLine += Line
          
-        self._RawData.CurrentLine = self._ReplaceMacro(CatLine)
+        #
+        # All MACRO values defined by the DEFINE statements in any section
+        # (except [Userextensions] sections for Intel) of the INF or DEC file
+        # must be expanded before processing of the file.
+        #
+        __IsReplaceMacro = True
+        Header = self._RawData.CurrentScope[0] if self._RawData.CurrentScope else None
+        if Header and len(Header) > 2:
+            if Header[0].upper() == 'USEREXTENSIONS' and not (Header[1] == 'TianoCore' and Header[2] == '"ExtraFiles"'):
+                __IsReplaceMacro = False
+        if __IsReplaceMacro:
+            self._RawData.CurrentLine = self._ReplaceMacro(CatLine)
+        else:
+            self._RawData.CurrentLine = CatLine
+
         return CatLine, CommentList
     
     ## Parse
@@ -742,7 +756,26 @@ class Dec(_DecBase, _DecComments):
         except BaseException:
             Logger.Error(TOOL_NAME, FILE_OPEN_FAILURE, File=DecFile,
                          ExtraData=ST.ERR_DECPARSE_FILEOPEN % DecFile)
-        RawData = FileContent(DecFile, Content)
+
+        #
+        # Pre-parser for Private section
+        #
+        self._Private = ''
+        __IsFoundPrivate = False
+        NewContent = []
+        for Line in Content:
+            Line = Line.strip()
+            if Line.startswith(DT.TAB_SECTION_START) and Line.endswith(DT.TAB_PRIVATE + DT.TAB_SECTION_END):
+                __IsFoundPrivate = True
+            if Line.startswith(DT.TAB_SECTION_START) and Line.endswith(DT.TAB_SECTION_END)\
+               and not Line.endswith(DT.TAB_PRIVATE + DT.TAB_SECTION_END):
+                __IsFoundPrivate = False
+            if __IsFoundPrivate:
+                self._Private += Line + '\r'
+            if not __IsFoundPrivate:
+                NewContent.append(Line + '\r')
+
+        RawData = FileContent(DecFile, NewContent)
         
         _DecComments.__init__(self)
         _DecBase.__init__(self, RawData)
@@ -1060,3 +1093,5 @@ class Dec(_DecBase, _DecComments):
         return self._Define.GetDataObject().GetPackageVersion()
     def GetPackageUniFile(self):
         return self._Define.GetDataObject().GetPackageUniFile()
+    def GetPrivateSections(self):
+        return self._Private

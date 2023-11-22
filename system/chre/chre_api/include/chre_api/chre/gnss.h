@@ -53,12 +53,19 @@ extern "C" {
 //! A lack of flags indicates that GNSS is not supported in this CHRE
 #define CHRE_GNSS_CAPABILITIES_NONE          UINT32_C(0)
 
-//! GNSS position fixes are supported via chreGnssPositionSessionStartAsync()
+//! GNSS position fixes are supported via chreGnssLocationSessionStartAsync()
 #define CHRE_GNSS_CAPABILITIES_LOCATION      UINT32_C(1 << 0)
 
 //! GNSS raw measurements are supported via
 //! chreGnssMeasurementSessionStartAsync()
 #define CHRE_GNSS_CAPABILITIES_MEASUREMENTS  UINT32_C(1 << 1)
+
+//! Location fixes supplied from chreGnssConfigurePassiveLocationListener()
+//! are tapped in at the GNSS engine level, so they include additional fixes
+//! such as those requested by the AP, and not just those requested by other
+//! nanoapps within CHRE (which is the case when this flag is not set)
+#define CHRE_GNSS_CAPABILITIES_GNSS_ENGINE_BASED_PASSIVE_LISTENER \
+                                             UINT32_C(1 << 2)
 
 /** @} */
 
@@ -361,7 +368,7 @@ uint32_t chreGnssGetCapabilities(void);
 /**
  * Initiates a GNSS positioning session, or changes the requested interval of an
  * existing session. If starting or modifying the session was successful, then
- * the GPS engine will work on determining the device's position.
+ * the GNSS engine will work on determining the device's position.
  *
  * This result of this request is delivered asynchronously via an event of type
  * CHRE_EVENT_GNSS_ASYNC_RESULT. Refer to the note in {@link #chreAsyncResult}
@@ -467,6 +474,40 @@ bool chreGnssMeasurementSessionStartAsync(uint32_t minIntervalMs,
  */
 bool chreGnssMeasurementSessionStopAsync(const void *cookie);
 
+/**
+ * Controls whether this nanoapp will passively receive GNSS-based location
+ * fixes produced as a result of location sessions initiated by other entities.
+ * This function allows a nanoapp to opportunistically receive location fixes
+ * via CHRE_EVENT_GNSS_LOCATION events without imposing additional power cost,
+ * though with no guarantees as to when or how often those events will arrive.
+ * There will be no duplication of events if a passive location listener and
+ * location session are enabled in parallel.
+ *
+ * Enabling passive location listening is not required to receive events for an
+ * active location session started via chreGnssLocationSessionStartAsync(). This
+ * setting is independent of the active location session, so modifying one does
+ * not have an effect on the other.
+ *
+ * If chreGnssGetCapabilities() returns a value that does not have the
+ * CHRE_GNSS_CAPABILITIES_LOCATION flag set or the value returned by
+ * chreGetApiVersion() is less than CHRE_API_VERSION_1_2, then this method will
+ * return false.
+ *
+ * If chreGnssGetCapabilities() includes
+ * CHRE_GNSS_CAPABILITIES_GNSS_ENGINE_BASED_PASSIVE_LISTENER, the passive
+ * registration is recorded at the GNSS engine level, so events include fixes
+ * requested by the applications processor and potentially other non-CHRE
+ * clients. If this flag is not set, then only fixes requested by other nanoapps
+ * within CHRE are provided.
+ *
+ * @param enable true to receive opportunistic location fixes, false to disable
+ *
+ * @return true if the configuration was processed successfully, false on error
+ *     or if this feature is not supported
+ *
+ * @since v1.2
+ */
+bool chreGnssConfigurePassiveLocationListener(bool enable);
 
 #ifdef __cplusplus
 }

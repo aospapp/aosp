@@ -26,10 +26,10 @@ LOCAL_MODULE_TAGS := tests
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := \
-    compatibility-device-util ctstestrunner apache-commons-math
+LOCAL_JAVA_LIBRARIES := telephony-common android.test.base.stubs
 
-LOCAL_SDK_VERSION := test_current
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    compatibility-device-util ctstestrunner apache-commons-math platform-test-annotations
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src/android/location/cts) \
    $(call all-proto-files-under, protos)
@@ -48,7 +48,9 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
+
+LOCAL_JAVA_LIBRARIES := telephony-common android.test.base.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util ctstestrunner  apache-commons-math
 
@@ -58,10 +60,9 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
    $(call all-proto-files-under, protos)
 
 LOCAL_PACKAGE_NAME := CtsLocationTestCases
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_JACK_FLAGS := --multi-dex native
 LOCAL_DX_FLAGS := --multi-dex
-
-LOCAL_SDK_VERSION := test_current
 
 include $(BUILD_CTS_PACKAGE)

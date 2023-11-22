@@ -25,7 +25,7 @@
     <string name="notification_missedCallsMsg" msgid="4575787816055205600">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g>টি মিসড কল"</string>
     <string name="notification_missedCallTicker" msgid="504686252427747209">"<xliff:g id="MISSED_CALL_FROM">%s</xliff:g> এর থেকে মিসড কল"</string>
     <string name="notification_missedCall_call_back" msgid="2684890353590890187">"কল ব্যাক করুন"</string>
-    <string name="notification_missedCall_message" msgid="3049928912736917988">"বার্তা"</string>
+    <string name="notification_missedCall_message" msgid="3049928912736917988">"মেসেজ"</string>
     <string name="accessibility_call_muted" msgid="2776111226185342220">"কল নিঃশব্দ করা আছে৷"</string>
     <string name="accessibility_speakerphone_enabled" msgid="1988512040421036359">"স্পীকারফোন সক্ষম করা আছে৷"</string>
     <string name="respond_via_sms_canned_response_1" msgid="2461606462788380215">"এখন কথা বলতে পারছি না৷ কি খবর?"</string>
@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"অন্য একটি অ্যাপের কলের কারণে কলটি করা যাবে না।"</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"ইনকামিং কল"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"মিস করা কল"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"কল ব্লক করা"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"এই কলটির উত্তর দেওয়া হলে তা আপনার <xliff:g id="OTHER_APP">%1$s</xliff:g> কলটি কেটে যাবে৷"</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"কল ব্লক করা"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"পরিচিতিতে নেই এমন নম্বর"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"আপনার পরিচিতিতে নেই এমন নম্বর ব্লক করুন"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"ব্যক্তিগত"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"কলার আইডিতে নম্বর দেখা যায়না এমন কল ব্লক করুন"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"পাবলিক ফোন"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"পাবলিক ফোন থেকে করা কল ব্লক করুন"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"অজানা"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"অচেনা নম্বর থেকে করা কল ব্লক করুন"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"কল ব্লক করা"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"কল ব্লক করার বৈশিষ্ট্য বন্ধ করা হয়েছে"</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"জরুরি অবস্থার কল করা হয়েছে"</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"কল ব্লক করার বৈশিষ্ট্য বন্ধ করা হয়েছে যাতে জরুরি অবস্থার সাহায্যকারী ব্যক্তি আপনার সাথে যোগাযোগ করতে পারেন।"</string>
 </resources>

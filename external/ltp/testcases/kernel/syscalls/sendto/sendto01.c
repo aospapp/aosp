@@ -41,6 +41,7 @@
 #include <netinet/in.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 char *TCID = "sendto01";
 int testno;
@@ -252,8 +253,7 @@ static pid_t start_server(struct sockaddr_in *sin0)
 		tst_brkm(TBROK | TERRNO, cleanup, "server listen failed");
 		return -1;
 	}
-	if (getsockname(sfd, (struct sockaddr *)sin0, &slen) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "getsockname failed");
+	SAFE_GETSOCKNAME(cleanup, sfd, (struct sockaddr *)sin0, &slen);
 
 	switch ((pid = FORK_OR_VFORK())) {
 	case 0:
@@ -395,11 +395,9 @@ static void cleanup0(void)
 
 static void setup1(void)
 {
-	s = socket(tdat[testno].domain, tdat[testno].type, tdat[testno].proto);
-	if (s < 0)
-		tst_brkm(TBROK | TERRNO, cleanup, "socket setup failed");
-	if (connect(s, (const struct sockaddr *)&sin1, sizeof(sin1)) < 0)
-		tst_brkm(TBROK | TERRNO, cleanup, "connect failed");
+	s = SAFE_SOCKET(cleanup, tdat[testno].domain, tdat[testno].type,
+			tdat[testno].proto);
+	SAFE_CONNECT(cleanup, s, (const struct sockaddr *)&sin1, sizeof(sin1));
 }
 
 static void cleanup1(void)
@@ -418,7 +416,6 @@ static void setup2(void)
 
 static void setup3(void)
 {
-	s = socket(tdat[testno].domain, tdat[testno].type, tdat[testno].proto);
-	if (s < 0)
-		tst_brkm(TBROK | TERRNO, cleanup, "socket setup failed");
+	s = SAFE_SOCKET(cleanup, tdat[testno].domain, tdat[testno].type,
+		        tdat[testno].proto);
 }

@@ -4,7 +4,11 @@
  */
 package org.mockito;
 
+import org.mockito.invocation.InvocationFactory;
+import org.mockito.invocation.MockHandler;
 import org.mockito.listeners.InvocationListener;
+import org.mockito.listeners.VerificationStartedListener;
+import org.mockito.mock.MockCreationSettings;
 import org.mockito.mock.SerializableMode;
 import org.mockito.stubbing.Answer;
 
@@ -200,9 +204,7 @@ public interface MockSettings extends Serializable {
      * Registers a listener for method invocations on this mock. The listener is
      * notified every time a method on this mock is called.
      * <p>
-     * Multiple listeners may be added, but the same object is only added once.
-     * The order, in which the listeners are added, is not guaranteed to be the
-     * order in which the listeners are notified.
+     * Multiple listeners may be added and they will be notified in the order they were supplied.
      *
      * Example:
      * <pre class="code"><code class="java">
@@ -215,6 +217,23 @@ public interface MockSettings extends Serializable {
      * @return settings instance so that you can fluently specify other settings
      */
     MockSettings invocationListeners(InvocationListener... listeners);
+
+    /**
+     * Registers a listener(s) that will be notified when user starts verification.
+     * See {@link VerificationStartedListener} on how such listener can be useful.
+     * <p>
+     * When multiple listeners are added, they are notified in order they were supplied.
+     * There is no reason to supply multiple listeners but we wanted to keep the API
+     * simple and consistent with {@link #invocationListeners(InvocationListener...)}.
+     * <p>
+     * Throws exception when any of the passed listeners is null or when the entire vararg array is null.
+     *
+     * @param listeners to be notified when user starts verification.
+     * @return settings instance so that you can fluently specify other settings
+     * @since 2.11.0
+     */
+    @Incubating
+    MockSettings verificationStartedListeners(VerificationStartedListener... listeners);
 
     /**
      * A stub-only mock does not record method
@@ -240,19 +259,25 @@ public interface MockSettings extends Serializable {
      * OtherAbstract spy = mock(OtherAbstract.class, withSettings()
      *   .useConstructor().defaultAnswer(CALLS_REAL_METHODS));
      *
+     * //Mocking an abstract class with constructor arguments
+     * SomeAbstract spy = mock(SomeAbstract.class, withSettings()
+     *   .useConstructor("arg1", 123).defaultAnswer(CALLS_REAL_METHODS));
+     *
      * //Mocking a non-static inner abstract class:
      * InnerAbstract spy = mock(InnerAbstract.class, withSettings()
      *   .useConstructor().outerInstance(outerInstance).defaultAnswer(CALLS_REAL_METHODS));
      * </code></pre>
      *
+     * @param args The arguments to pass to the constructor. Not passing any arguments means that a parameter-less
+     *             constructor will be called
      * @return settings instance so that you can fluently specify other settings
-     * @since 1.10.12
+     * @since 2.7.14 (useConstructor with no arguments was supported since 1.10.12)
      */
     @Incubating
-    MockSettings useConstructor();
+    MockSettings useConstructor(Object... args);
 
     /**
-     * Makes it possible to mock non-static inner classes in conjunction with {@link #useConstructor()}.
+     * Makes it possible to mock non-static inner classes in conjunction with {@link #useConstructor(Object...)}.
      * <p>
      * Example:
      * <pre class="code"><code class="java">
@@ -265,4 +290,30 @@ public interface MockSettings extends Serializable {
      */
     @Incubating
     MockSettings outerInstance(Object outerClassInstance);
+
+    /**
+     * By default, Mockito makes an attempt to preserve all annotation meta data on the mocked
+     * type and its methods to mirror the mocked type as closely as possible. If this is not
+     * desired, this option can be used to disable this behavior.
+     *
+     * @return settings instance so that you can fluently specify other settings
+     * @since 1.10.13
+     */
+    @Incubating
+    MockSettings withoutAnnotations();
+
+    /**
+     * Creates immutable view of mock settings used later by Mockito.
+     * Framework integrators can use this method to create instances of creation settings
+     * and use them in advanced use cases, for example to create invocations with {@link InvocationFactory},
+     * or to implement custom {@link MockHandler}.
+     * Since {@link MockCreationSettings} is {@link NotExtensible}, Mockito public API needs a creation method for this type.
+     *
+     * @param typeToMock class to mock
+     * @param <T> type to mock
+     * @return immutable view of mock settings
+     * @since 2.10.0
+     */
+    @Incubating
+    <T> MockCreationSettings<T> build(Class<T> typeToMock);
 }

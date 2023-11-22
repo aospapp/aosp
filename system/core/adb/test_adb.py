@@ -60,13 +60,13 @@ class NonApiTest(unittest.TestCase):
                              stderr=subprocess.STDOUT)
         out, _ = p.communicate()
         self.assertEqual(1, p.returncode)
-        self.assertIn('help message', out)
+        self.assertIn('requires an argument', out)
 
         p = subprocess.Popen(['adb', 'tcpip', 'foo'], stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT)
         out, _ = p.communicate()
         self.assertEqual(1, p.returncode)
-        self.assertIn('error', out)
+        self.assertIn('invalid port', out)
 
     # Helper method that reads a pipe until it is closed, then sets the event.
     def _read_pipe_and_set_event(self, pipe, event):
@@ -217,8 +217,12 @@ class NonApiTest(unittest.TestCase):
         ipv4.listen(1)
 
         ipv6 = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-        ipv6.bind(('::1', ipv4.getsockname()[1] + 1))
-        ipv6.listen(1)
+        try:
+            ipv6.bind(('::1', ipv4.getsockname()[1] + 1))
+            ipv6.listen(1)
+        except socket.error:
+            print("IPv6 not available, skipping")
+            return
 
         for s in (ipv4, ipv6):
             port = s.getsockname()[1]

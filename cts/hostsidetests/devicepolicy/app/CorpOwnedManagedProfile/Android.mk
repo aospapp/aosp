@@ -32,7 +32,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
 
 LOCAL_AIDL_INCLUDES := $(LOCAL_PATH)/src
 
-LOCAL_JAVA_LIBRARIES := android.test.runner cts-junit
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs cts-junit android.test.base.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner compatibility-device-util
 
@@ -57,7 +57,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
 
 LOCAL_AIDL_INCLUDES := $(LOCAL_PATH)/src
 
-LOCAL_JAVA_LIBRARIES := android.test.runner cts-junit
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs cts-junit android.test.base.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner compatibility-device-util
 

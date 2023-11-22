@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Vai notīrīt visu informāciju un kontaktpersonas?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Medicīniskās informācijas un ārkārtas situāciju kontaktpersonu pievienošana ārkārtas gadījumā var sniegt noderīgu informāciju glābējiem.\n\nIkviens var izlasīt šo informāciju jūsu bloķēšanas ekrānā un piezvanīt attiecīgajām kontaktpersonām, pieskaroties to vārdiem, taču neatbloķējot jūsu tālruni."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Ārkārtas informācijas pievienošana"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Palīdziet glābējiem atrast noderīgu informāciju"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Ļaujiet glābējiem skatīt jūsu informāciju"</string>
 </resources>

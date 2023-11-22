@@ -70,6 +70,17 @@ static inline void vec3Add(struct Vec3 *v, const struct Vec3 *w) {
   v->z += w->z;
 }
 
+// Sets u as the sum of v and w.
+static inline void vec3AddVecs(struct Vec3 *u, const struct Vec3 *v,
+                               const struct Vec3 *w) {
+  ASSERT_NOT_NULL(u);
+  ASSERT_NOT_NULL(v);
+  ASSERT_NOT_NULL(w);
+  u->x = v->x + w->x;
+  u->y = v->y + w->y;
+  u->z = v->z + w->z;
+}
+
 // Updates v as the subtraction of w from v.
 static inline void vec3Sub(struct Vec3 *v, const struct Vec3 *w) {
   ASSERT_NOT_NULL(v);
@@ -77,6 +88,17 @@ static inline void vec3Sub(struct Vec3 *v, const struct Vec3 *w) {
   v->x -= w->x;
   v->y -= w->y;
   v->z -= w->z;
+}
+
+// Sets u as the difference of v and w.
+static inline void vec3SubVecs(struct Vec3 *u, const struct Vec3 *v,
+                               const struct Vec3 *w) {
+  ASSERT_NOT_NULL(u);
+  ASSERT_NOT_NULL(v);
+  ASSERT_NOT_NULL(w);
+  u->x = v->x - w->x;
+  u->y = v->y - w->y;
+  u->z = v->z - w->z;
 }
 
 // Scales v by the scalar c, i.e. v = c * v.

@@ -20,43 +20,108 @@ import android.database.Cursor;
 import android.provider.ContactsContract;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
+import android.util.Log;
+
 import com.android.car.dialer.telecom.PhoneLoader;
 import com.android.car.dialer.telecom.TelecomUtils;
 
 /**
  * Encapsulates data about a phone Contact entry. Typically loaded from the local Contact store.
  */
+// TODO: Refactor to use Builder design pattern.
 public class ContactEntry implements Comparable<ContactEntry> {
     private final Context mContext;
 
+    /**
+     * An unique primary key for searching an entry.
+     */
+    private int mId;
+
+    /**
+     * Whether this contact entry is starred by user.
+     */
+    private boolean mIsStarred;
+
+    /**
+     * Contact-specific information about whether or not a contact has been pinned by the user at
+     * a particular position within the system contact application's user interface.
+     */
+    private int mPinnedPosition;
+
+    /**
+     * Phone number.
+     */
+    private String mNumber;
+
+    /**
+     * The display name.
+     */
     @Nullable
-    public String name;
-    public String number;
-    public boolean isStarred;
-    public int pinnedPosition;
+    private String mDisplayName;
+
+    /**
+     * A URI that can be used to retrieve a thumbnail of the contact's photo.
+     */
+    private String mAvatarThumbnailUri;
+
+    /**
+     * A URI that can be used to retrieve the contact's full-size photo.
+     */
+    private String mAvatarUri;
+
+    /**
+     * An opaque value that contains hints on how to find the contact if its row id changed
+     * as a result of a sync or aggregation
+     */
+    private String mLookupKey;
+
+    /**
+     * The type of data, for example Home or Work.
+     */
+    private int mType;
+
+    /**
+     * The user defined label for the the contact method.
+     */
+    private String mLabel;
 
     /**
      * Parses a Contact entry for a Cursor loaded from the OS Strequents DB.
      */
     public static ContactEntry fromCursor(Cursor cursor, Context context) {
-        int nameColumn = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME);
+        int idColumnIndex = PhoneLoader.getIdColumnIndex(cursor);
         int starredColumn = cursor.getColumnIndex(ContactsContract.Contacts.STARRED);
         int pinnedColumn = cursor.getColumnIndex("pinned");
+        int displayNameColumnIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME);
+        int avatarUriColumnIndex = cursor.getColumnIndex(ContactsContract.Contacts.PHOTO_URI);
+        int avatarThumbnailColumnIndex = cursor.getColumnIndex(
+                ContactsContract.Contacts.PHOTO_THUMBNAIL_URI);
+        int lookupKeyColumnIndex = cursor.getColumnIndex(ContactsContract.Contacts.LOOKUP_KEY);
+        int typeColumnIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DATA2);
+        int labelColumnIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DATA3);
 
-        String name = cursor.getString(nameColumn);
+        String name = cursor.getString(displayNameColumnIndex);
         String number = PhoneLoader.getPhoneNumber(cursor, context.getContentResolver());
         int starred = cursor.getInt(starredColumn);
         int pinnedPosition = cursor.getInt(pinnedColumn);
-        return new ContactEntry(context, name, number, starred > 0, pinnedPosition);
+        ContactEntry contactEntry = new ContactEntry(context, name, number, starred > 0,
+                pinnedPosition);
+        contactEntry.setId(cursor.getInt(idColumnIndex));
+        contactEntry.setAvatarUri(cursor.getString(avatarUriColumnIndex));
+        contactEntry.setAvatarThumbnailUri(cursor.getString(avatarThumbnailColumnIndex));
+        contactEntry.setLookupKey(cursor.getString(lookupKeyColumnIndex));
+        contactEntry.setType(cursor.getInt(typeColumnIndex));
+        contactEntry.setLabel(cursor.getString(labelColumnIndex));
+        return contactEntry;
     }
 
     public ContactEntry(
             Context context, String name, String number, boolean isStarred, int pinnedPosition) {
         mContext = context;
-        this.name = name;
-        this.number = number;
-        this.isStarred = isStarred;
-        this.pinnedPosition = pinnedPosition;
+        this.mDisplayName = name;
+        this.mNumber = number;
+        this.mIsStarred = isStarred;
+        this.mPinnedPosition = pinnedPosition;
     }
 
     /**
@@ -64,13 +129,13 @@ public class ContactEntry implements Comparable<ContactEntry> {
      * It takes into account the number associated with a name for fail cases.
      */
     public String getDisplayName() {
-        if (!TextUtils.isEmpty(name)) {
-            return name;
+        if (!TextUtils.isEmpty(mDisplayName)) {
+            return mDisplayName;
         }
         if (isVoicemail()) {
             return mContext.getResources().getString(R.string.voicemail);
         } else {
-            String displayName = TelecomUtils.getFormattedNumber(mContext, number);
+            String displayName = TelecomUtils.getFormattedNumber(mContext, mNumber);
             if (TextUtils.isEmpty(displayName)) {
                 displayName = mContext.getString(R.string.unknown);
             }
@@ -79,23 +144,23 @@ public class ContactEntry implements Comparable<ContactEntry> {
     }
 
     public boolean isVoicemail() {
-        return number.equals(TelecomUtils.getVoicemailNumber(mContext));
+        return mNumber.equals(TelecomUtils.getVoicemailNumber(mContext));
     }
 
     @Override
     public int compareTo(ContactEntry strequentContactEntry) {
-        if (isStarred == strequentContactEntry.isStarred) {
-            if (pinnedPosition == strequentContactEntry.pinnedPosition) {
-                if (name == strequentContactEntry.name) {
-                    return compare(number, strequentContactEntry.number);
+        if (mIsStarred == strequentContactEntry.mIsStarred) {
+            if (mPinnedPosition == strequentContactEntry.mPinnedPosition) {
+                if (mDisplayName == strequentContactEntry.mDisplayName) {
+                    return compare(mNumber, strequentContactEntry.mNumber);
                 }
-                return compare(name, strequentContactEntry.name);
+                return compare(mDisplayName, strequentContactEntry.mDisplayName);
             } else {
-                if (pinnedPosition > 0 && strequentContactEntry.pinnedPosition > 0) {
-                    return pinnedPosition - strequentContactEntry.pinnedPosition;
+                if (mPinnedPosition > 0 && strequentContactEntry.mPinnedPosition > 0) {
+                    return mPinnedPosition - strequentContactEntry.mPinnedPosition;
                 }
 
-                if (pinnedPosition > 0) {
+                if (mPinnedPosition > 0) {
                     return -1;
                 }
 
@@ -103,7 +168,7 @@ public class ContactEntry implements Comparable<ContactEntry> {
             }
         }
 
-        if (isStarred) {
+        if (mIsStarred) {
             return -1;
         }
 
@@ -114,10 +179,10 @@ public class ContactEntry implements Comparable<ContactEntry> {
     public boolean equals(Object obj) {
         if (obj instanceof ContactEntry) {
             ContactEntry other = (ContactEntry) obj;
-            if (compare(name, other.name) == 0
-                    && compare(number, other.number) == 0
-                    && isStarred == other.isStarred
-                    && pinnedPosition == other.pinnedPosition) {
+            if (compare(mDisplayName, other.mDisplayName) == 0
+                    && compare(mNumber, other.mNumber) == 0
+                    && mIsStarred == other.mIsStarred
+                    && mPinnedPosition == other.mPinnedPosition) {
                 return true;
             }
         }
@@ -127,10 +192,10 @@ public class ContactEntry implements Comparable<ContactEntry> {
     @Override
     public int hashCode() {
         int result = 17;
-        result = 31 * result + (isStarred ? 1 : 0);
-        result = 31 * result + pinnedPosition;
-        result = 31 * result + (name == null ? 0 : name.hashCode());
-        result = 31 * result + (number == null ? 0 : number.hashCode());
+        result = 31 * result + (mIsStarred ? 1 : 0);
+        result = 31 * result + mPinnedPosition;
+        result = 31 * result + (mDisplayName == null ? 0 : mDisplayName.hashCode());
+        result = 31 * result + (mNumber == null ? 0 : mNumber.hashCode());
         return result;
     }
 
@@ -145,4 +210,65 @@ public class ContactEntry implements Comparable<ContactEntry> {
 
         return one.compareTo(two);
     }
+
+    public int getId() {
+        return mId;
+    }
+
+    private void setId(int id) {
+        mId = id;
+    }
+
+    public String getAvatarUri() {
+        return mAvatarUri;
+    }
+
+    private void setAvatarUri(String avatarUri) {
+        mAvatarUri = avatarUri;
+    }
+
+    public String getLookupKey() {
+        return mLookupKey;
+    }
+
+    private void setLookupKey(String lookupKey) {
+        mLookupKey = lookupKey;
+    }
+
+    public int getType() {
+        return mType;
+    }
+
+    private void setType(int type) {
+        mType = type;
+    }
+
+    public String getLabel() {
+        return mLabel;
+    }
+
+    private void setLabel(String label) {
+        mLabel = label;
+    }
+
+    public String getAvatarThumbnailUri() {
+        return mAvatarThumbnailUri;
+    }
+
+    private void setAvatarThumbnailUri(String avatarThumbnailUri) {
+        mAvatarThumbnailUri = avatarThumbnailUri;
+    }
+
+    public String getNumber() {
+        return mNumber;
+    }
+
+    public boolean isStarred() {
+        return mIsStarred;
+    }
+
+    public int getPinnedPosition() {
+        return mPinnedPosition;
+    }
+
 }

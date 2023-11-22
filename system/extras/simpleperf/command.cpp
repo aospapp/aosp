@@ -22,6 +22,7 @@
 #include <vector>
 
 #include <android-base/logging.h>
+#include <android-base/quick_exit.h>
 
 #include "utils.h"
 
@@ -79,6 +80,7 @@ extern void RegisterRecordCommand();
 extern void RegisterReportCommand();
 extern void RegisterReportSampleCommand();
 extern void RegisterStatCommand();
+extern void RegisterDebugUnwindCommand();
 
 class CommandRegister {
  public:
@@ -92,14 +94,22 @@ class CommandRegister {
     RegisterListCommand();
     RegisterRecordCommand();
     RegisterStatCommand();
+    RegisterDebugUnwindCommand();
 #endif
   }
 };
 
 CommandRegister command_register;
 
+static void StderrLogger(android::base::LogId, android::base::LogSeverity severity,
+                         const char*, const char* file, unsigned int line, const char* message) {
+  static const char log_characters[] = "VDIWEFF";
+  char severity_char = log_characters[severity];
+  fprintf(stderr, "simpleperf %c %s:%u] %s\n", severity_char, file, line, message);
+}
+
 bool RunSimpleperfCmd(int argc, char** argv) {
-  android::base::InitLogging(argv, android::base::StderrLogger);
+  android::base::InitLogging(argv, StderrLogger);
   std::vector<std::string> args;
   android::base::LogSeverity log_severity = android::base::INFO;
 
@@ -141,5 +151,9 @@ bool RunSimpleperfCmd(int argc, char** argv) {
   bool result = command->Run(args);
   LOG(DEBUG) << "command '" << command_name << "' "
              << (result ? "finished successfully" : "failed");
+  // Quick exit to avoid cost freeing memory and closing files.
+  fflush(stdout);
+  fflush(stderr);
+  android::base::quick_exit(result ? 0 : 1);
   return result;
 }

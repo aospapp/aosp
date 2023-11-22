@@ -24,17 +24,23 @@
        in the connecting stage. -->
   <string name="incall_connecting">Calling…</string>
 
+  <!-- Display information related to assisted dialing, for example Calling using +1 (US)… -->
+  <string name="incall_connecting_assited_dialed">Calling using +<xliff:g example="1" id="ad_country_code">%1$s</xliff:g> (<xliff:g example="1" id="ad_user_home_locale">%2$s</xliff:g>)\u2026</string>
+
   <!-- Displayed above the contact name when an external call is being pulled to the local
        device. -->
   <string name="incall_transferring">Transferring…</string>
 
-  <!-- Displayed above the contact name when the user requests an upgrade from a voice call to a
-       video call. -->
-  <string name="incall_video_call_requesting">Video calling…</string>
+  <!-- Displayed above the contact name when the user starts a video call. -->
+  <string name="incall_video_call_requesting">Carrier video calling…</string>
 
   <!-- Displayed above the contact name when the user requests an upgrade from a voice call to a
        Wi-Fi video call. -->
-  <string name="incall_wifi_video_call_requesting">Wi-Fi video calling…</string>
+  <string name="incall_wifi_video_call_requesting">Wi-Fi carrier video calling…</string>
+
+  <!-- Displayed above the contact name when the user requests an upgrade from a voice call to a
+     video call. -->
+  <string name="incall_video_call_upgrade_request">Switching to carrier video…</string>
 
   <!-- Displayed above the contact name when the user's video upgrade failed due to an unknown
        reason. -->
@@ -60,16 +66,10 @@
   <string name="incall_remotely_held">On hold</string>
 
   <!-- Displayed in the answer call screen for incoming video calls. -->
-  <string name="contact_grid_incoming_video_call">Video call from</string>
+  <string name="contact_grid_incoming_video_call">Carrier video call from</string>
 
   <!-- Displayed in the answer call screen for incoming video calls over Wi-F. -->
-  <string name="contact_grid_incoming_wifi_video_call">Wi-Fi video call from</string>
-
-  <!-- Displayed in the answer call screen for incoming requests to upgrade to a video call. -->
-  <string name="contact_grid_incoming_video_request">Video upgrade request from</string>
-
-  <!-- Displayed in the answer call screen for incoming requests to upgrade to a video call over Wi-F. -->
-  <string name="contact_grid_incoming_wifi_video_request">Wi-Fi video upgrade request from</string>
+  <string name="contact_grid_incoming_wifi_video_call">Wi-Fi carrier video call from</string>
 
   <!-- Displayed in the answer call screen for incoming voice calls. -->
   <string name="contact_grid_incoming_voice_call">Call from</string>
@@ -83,8 +83,7 @@
   <!-- Displayed in the answer call screen for incoming spam calls. -->
   <string name="contact_grid_incoming_suspected_spam">Suspected spam caller</string>
 
-  <!-- In-call screen: string shown to the user when their outgoing number is different than the
-     number reported by TelephonyManager#getLine1Number(). This is used for carriers like
-     Project Fi so that users can give their number to emergency responders. -->
-  <string name="contact_grid_callback_number">Callback number: <xliff:g id="dark_number">%1$s</xliff:g></string>
+  <!-- In-call screen: phone number of the device shown to the users so that users can give their
+      number to emergency responders. -->
+  <string name="contact_grid_callback_number">This phone\'s number: <xliff:g id="light_number">%1$s</xliff:g></string>
 </resources>

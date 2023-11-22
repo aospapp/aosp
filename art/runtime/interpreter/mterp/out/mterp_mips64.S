@@ -21,17 +21,50 @@
  * limitations under the License.
  */
 
-#include <machine/regdef.h>
+#define zero $0  /* always zero */
+#define AT   $at /* assembler temp */
+#define v0   $2  /* return value */
+#define v1   $3
+#define a0   $4  /* argument registers */
+#define a1   $5
+#define a2   $6
+#define a3   $7
+#define a4   $8  /* expanded register arguments */
+#define a5   $9
+#define a6   $10
+#define a7   $11
+#define ta0  $8  /* alias */
+#define ta1  $9
+#define ta2  $10
+#define ta3  $11
+#define t0   $12 /* temp registers (not saved across subroutine calls) */
+#define t1   $13
+#define t2   $14
+#define t3   $15
 
-/* TODO: add the missing file and use its FP register definitions. */
-/* #include <machine/fpregdef.h> */
-/* FP register definitions */
-#define f0  $f0
-#define f1  $f1
-#define f2  $f2
-#define f3  $f3
-#define f12 $f12
-#define f13 $f13
+#define s0   $16 /* saved across subroutine calls (callee saved) */
+#define s1   $17
+#define s2   $18
+#define s3   $19
+#define s4   $20
+#define s5   $21
+#define s6   $22
+#define s7   $23
+#define t8   $24 /* two more temp registers */
+#define t9   $25
+#define k0   $26 /* kernel temporary */
+#define k1   $27
+#define gp   $28 /* global pointer */
+#define sp   $29 /* stack pointer */
+#define s8   $30 /* one more callee saved */
+#define ra   $31 /* return address */
+
+#define f0   $f0
+#define f1   $f1
+#define f2   $f2
+#define f3   $f3
+#define f12  $f12
+#define f13  $f13
 
 /*
  * It looks like the GNU assembler currently does not support the blec and bgtc
@@ -64,6 +97,8 @@ The following registers have fixed assignments:
 /* During bringup, we'll use the shadow frame model instead of rFP */
 /* single-purpose registers, given names for clarity */
 #define rPC      s0
+#define CFI_DEX  16  // DWARF register number of the register holding dex-pc (s0).
+#define CFI_TMP  4   // DWARF register number of the first argument register (a0).
 #define rFP      s1
 #define rSELF    s2
 #define rINST    s3
@@ -76,6 +111,7 @@ The following registers have fixed assignments:
  * to expand the macros into assembler assignment statements.
  */
 #include "asm_support.h"
+#include "interpreter/cfi_asm_support.h"
 
 /*
  * Instead of holding a pointer to the shadow frame, we keep rFP at the base of the vregs.  So,
@@ -88,7 +124,7 @@ The following registers have fixed assignments:
 #define OFF_FP_METHOD OFF_FP(SHADOWFRAME_METHOD_OFFSET)
 #define OFF_FP_RESULT_REGISTER OFF_FP(SHADOWFRAME_RESULT_REGISTER_OFFSET)
 #define OFF_FP_DEX_PC_PTR OFF_FP(SHADOWFRAME_DEX_PC_PTR_OFFSET)
-#define OFF_FP_CODE_ITEM OFF_FP(SHADOWFRAME_CODE_ITEM_OFFSET)
+#define OFF_FP_DEX_INSTRUCTIONS OFF_FP(SHADOWFRAME_DEX_INSTRUCTIONS_OFFSET)
 #define OFF_FP_SHADOWFRAME OFF_FP(0)
 
 #define MTERP_PROFILE_BRANCHES 1
@@ -328,7 +364,7 @@ The following registers have fixed assignments:
 /*
  * On entry:
  *  a0  Thread* self
- *  a1  code_item
+ *  a1  dex_instructions
  *  a2  ShadowFrame
  *  a3  JValue* result_register
  *
@@ -364,17 +400,17 @@ ExecuteMterpImpl:
     /* Remember the return register */
     sd      a3, SHADOWFRAME_RESULT_REGISTER_OFFSET(a2)
 
-    /* Remember the code_item */
-    sd      a1, SHADOWFRAME_CODE_ITEM_OFFSET(a2)
+    /* Remember the dex instruction pointer */
+    sd      a1, SHADOWFRAME_DEX_INSTRUCTIONS_OFFSET(a2)
 
     /* set up "named" registers */
     move    rSELF, a0
     daddu   rFP, a2, SHADOWFRAME_VREGS_OFFSET
     lw      v0, SHADOWFRAME_NUMBER_OF_VREGS_OFFSET(a2)
     dlsa    rREFS, v0, rFP, 2
-    daddu   rPC, a1, CODEITEM_INSNS_OFFSET
     lw      v0, SHADOWFRAME_DEX_PC_OFFSET(a2)
-    dlsa    rPC, v0, rPC, 1
+    dlsa    rPC, v0, a1, 1
+    CFI_DEFINE_DEX_PC_WITH_OFFSET(CFI_TMP, CFI_DEX, 0)
     EXPORT_PC
 
     /* Starting ibase */
@@ -383,6 +419,7 @@ ExecuteMterpImpl:
     /* Set up for backwards branches & osr profiling */
     ld      a0, OFF_FP_METHOD(rFP)
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rSELF
     jal     MterpSetUpHotnessCountdown
     move    rPROFILE, v0                # Starting hotness countdown to rPROFILE
 
@@ -395,7 +432,6 @@ ExecuteMterpImpl:
 
 
     .global artMterpAsmInstructionStart
-    .type   artMterpAsmInstructionStart, %function
 artMterpAsmInstructionStart = .L_op_nop
     .text
 
@@ -827,19 +863,24 @@ artMterpAsmInstructionStart = .L_op_nop
     .balign 128
 .L_op_const_string: /* 0x1a */
 /* File: mips64/op_const_string.S */
-    /* const/string vAA, String//BBBB */
+/* File: mips64/const.S */
+    /* const/class vAA, type@BBBB */
+    /* const/method-handle vAA, method_handle@BBBB */
+    /* const/method-type vAA, proto@BBBB */
+    /* const/string vAA, string@@BBBB */
     .extern MterpConstString
     EXPORT_PC
     lhu     a0, 2(rPC)                  # a0 <- BBBB
     srl     a1, rINST, 8                # a1 <- AA
     daddu   a2, rFP, OFF_FP_SHADOWFRAME
     move    a3, rSELF
-    jal     MterpConstString            # (index, tgt_reg, shadow_frame, self)
+    jal     MterpConstString                     # (index, tgt_reg, shadow_frame, self)
     PREFETCH_INST 2                     # load rINST
     bnez    v0, MterpPossibleException  # let reference interpreter deal with it.
     ADVANCE 2                           # advance rPC
     GET_INST_OPCODE v0                  # extract opcode from rINST
     GOTO_OPCODE v0                      # jump to next instruction
+
 
 /* ------------------------------ */
     .balign 128
@@ -865,19 +906,24 @@ artMterpAsmInstructionStart = .L_op_nop
     .balign 128
 .L_op_const_class: /* 0x1c */
 /* File: mips64/op_const_class.S */
-    /* const/class vAA, Class//BBBB */
+/* File: mips64/const.S */
+    /* const/class vAA, type@BBBB */
+    /* const/method-handle vAA, method_handle@BBBB */
+    /* const/method-type vAA, proto@BBBB */
+    /* const/string vAA, string@@BBBB */
     .extern MterpConstClass
     EXPORT_PC
     lhu     a0, 2(rPC)                  # a0 <- BBBB
     srl     a1, rINST, 8                # a1 <- AA
     daddu   a2, rFP, OFF_FP_SHADOWFRAME
     move    a3, rSELF
-    jal     MterpConstClass             # (index, tgt_reg, shadow_frame, self)
+    jal     MterpConstClass                     # (index, tgt_reg, shadow_frame, self)
     PREFETCH_INST 2                     # load rINST
     bnez    v0, MterpPossibleException  # let reference interpreter deal with it.
     ADVANCE 2                           # advance rPC
     GET_INST_OPCODE v0                  # extract opcode from rINST
     GOTO_OPCODE v0                      # jump to next instruction
+
 
 /* ------------------------------ */
     .balign 128
@@ -3762,7 +3808,6 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_INST_OPCODE v0                  # extract opcode from rINST
     SET_VREG_DOUBLE f0, a1
     GOTO_OPCODE v0                      # jump to next instruction
-
 
 
 /* ------------------------------ */
@@ -7106,51 +7151,154 @@ artMterpAsmInstructionStart = .L_op_nop
 /* ------------------------------ */
     .balign 128
 .L_op_invoke_polymorphic: /* 0xfa */
-/* Transfer stub to alternate interpreter */
-    b       MterpFallback
+/* File: mips64/op_invoke_polymorphic.S */
+/* File: mips64/invoke_polymorphic.S */
+    /*
+     * invoke-polymorphic handler wrapper.
+     */
+    /* op {vC, vD, vE, vF, vG}, meth@BBBB, proto@HHHH */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB, proto@HHHH */
+    .extern MterpInvokePolymorphic
+    .extern MterpShouldSwitchInterpreters
+    EXPORT_PC
+    move    a0, rSELF
+    daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
+    move    a3, rINST
+    jal     MterpInvokePolymorphic
+    beqzc   v0, MterpException
+    FETCH_ADVANCE_INST 4
+    jal     MterpShouldSwitchInterpreters
+    bnezc   v0, MterpFallback
+    GET_INST_OPCODE v0
+    GOTO_OPCODE v0
+
 
 /* ------------------------------ */
     .balign 128
 .L_op_invoke_polymorphic_range: /* 0xfb */
-/* Transfer stub to alternate interpreter */
-    b       MterpFallback
+/* File: mips64/op_invoke_polymorphic_range.S */
+/* File: mips64/invoke_polymorphic.S */
+    /*
+     * invoke-polymorphic handler wrapper.
+     */
+    /* op {vC, vD, vE, vF, vG}, meth@BBBB, proto@HHHH */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB, proto@HHHH */
+    .extern MterpInvokePolymorphicRange
+    .extern MterpShouldSwitchInterpreters
+    EXPORT_PC
+    move    a0, rSELF
+    daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
+    move    a3, rINST
+    jal     MterpInvokePolymorphicRange
+    beqzc   v0, MterpException
+    FETCH_ADVANCE_INST 4
+    jal     MterpShouldSwitchInterpreters
+    bnezc   v0, MterpFallback
+    GET_INST_OPCODE v0
+    GOTO_OPCODE v0
+
 
 /* ------------------------------ */
     .balign 128
 .L_op_invoke_custom: /* 0xfc */
-/* Transfer stub to alternate interpreter */
-    b       MterpFallback
+/* File: mips64/op_invoke_custom.S */
+/* File: mips64/invoke.S */
+    /*
+     * Generic invoke handler wrapper.
+     */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
+    .extern MterpInvokeCustom
+    .extern MterpShouldSwitchInterpreters
+    EXPORT_PC
+    move    a0, rSELF
+    daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
+    move    a3, rINST
+    jal     MterpInvokeCustom
+    beqzc   v0, MterpException
+    FETCH_ADVANCE_INST 3
+    jal     MterpShouldSwitchInterpreters
+    bnezc   v0, MterpFallback
+    GET_INST_OPCODE v0
+    GOTO_OPCODE v0
+
 
 /* ------------------------------ */
     .balign 128
 .L_op_invoke_custom_range: /* 0xfd */
-/* Transfer stub to alternate interpreter */
-    b       MterpFallback
+/* File: mips64/op_invoke_custom_range.S */
+/* File: mips64/invoke.S */
+    /*
+     * Generic invoke handler wrapper.
+     */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
+    .extern MterpInvokeCustomRange
+    .extern MterpShouldSwitchInterpreters
+    EXPORT_PC
+    move    a0, rSELF
+    daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
+    move    a3, rINST
+    jal     MterpInvokeCustomRange
+    beqzc   v0, MterpException
+    FETCH_ADVANCE_INST 3
+    jal     MterpShouldSwitchInterpreters
+    bnezc   v0, MterpFallback
+    GET_INST_OPCODE v0
+    GOTO_OPCODE v0
+
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_fe: /* 0xfe */
-/* File: mips64/op_unused_fe.S */
-/* File: mips64/unused.S */
-/*
- * Bail to reference interpreter to throw.
- */
-    b       MterpFallback
+.L_op_const_method_handle: /* 0xfe */
+/* File: mips64/op_const_method_handle.S */
+/* File: mips64/const.S */
+    /* const/class vAA, type@BBBB */
+    /* const/method-handle vAA, method_handle@BBBB */
+    /* const/method-type vAA, proto@BBBB */
+    /* const/string vAA, string@@BBBB */
+    .extern MterpConstMethodHandle
+    EXPORT_PC
+    lhu     a0, 2(rPC)                  # a0 <- BBBB
+    srl     a1, rINST, 8                # a1 <- AA
+    daddu   a2, rFP, OFF_FP_SHADOWFRAME
+    move    a3, rSELF
+    jal     MterpConstMethodHandle                     # (index, tgt_reg, shadow_frame, self)
+    PREFETCH_INST 2                     # load rINST
+    bnez    v0, MterpPossibleException  # let reference interpreter deal with it.
+    ADVANCE 2                           # advance rPC
+    GET_INST_OPCODE v0                  # extract opcode from rINST
+    GOTO_OPCODE v0                      # jump to next instruction
 
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_ff: /* 0xff */
-/* File: mips64/op_unused_ff.S */
-/* File: mips64/unused.S */
-/*
- * Bail to reference interpreter to throw.
- */
-    b       MterpFallback
+.L_op_const_method_type: /* 0xff */
+/* File: mips64/op_const_method_type.S */
+/* File: mips64/const.S */
+    /* const/class vAA, type@BBBB */
+    /* const/method-handle vAA, method_handle@BBBB */
+    /* const/method-type vAA, proto@BBBB */
+    /* const/string vAA, string@@BBBB */
+    .extern MterpConstMethodType
+    EXPORT_PC
+    lhu     a0, 2(rPC)                  # a0 <- BBBB
+    srl     a1, rINST, 8                # a1 <- AA
+    daddu   a2, rFP, OFF_FP_SHADOWFRAME
+    move    a3, rSELF
+    jal     MterpConstMethodType                     # (index, tgt_reg, shadow_frame, self)
+    PREFETCH_INST 2                     # load rINST
+    bnez    v0, MterpPossibleException  # let reference interpreter deal with it.
+    ADVANCE 2                           # advance rPC
+    GET_INST_OPCODE v0                  # extract opcode from rINST
+    GOTO_OPCODE v0                      # jump to next instruction
 
 
     .balign 128
-    .size   artMterpAsmInstructionStart, .-artMterpAsmInstructionStart
     .global artMterpAsmInstructionEnd
 artMterpAsmInstructionEnd:
 
@@ -7160,18 +7308,14 @@ artMterpAsmInstructionEnd:
  * ===========================================================================
  */
     .global artMterpAsmSisterStart
-    .type   artMterpAsmSisterStart, %function
     .text
     .balign 4
 artMterpAsmSisterStart:
-
-    .size   artMterpAsmSisterStart, .-artMterpAsmSisterStart
     .global artMterpAsmSisterEnd
 artMterpAsmSisterEnd:
 
 
     .global artMterpAsmAltInstructionStart
-    .type   artMterpAsmAltInstructionStart, %function
     .text
 
 artMterpAsmAltInstructionStart = .L_ALT_op_nop
@@ -12003,7 +12147,7 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_fe: /* 0xfe */
+.L_ALT_op_const_method_handle: /* 0xfe */
 /* File: mips64/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12022,7 +12166,7 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_ff: /* 0xff */
+.L_ALT_op_const_method_type: /* 0xff */
 /* File: mips64/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12040,7 +12184,6 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
     jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
     .balign 128
-    .size   artMterpAsmAltInstructionStart, .-artMterpAsmAltInstructionStart
     .global artMterpAsmAltInstructionEnd
 artMterpAsmAltInstructionEnd:
 /* File: mips64/footer.S */
@@ -12101,11 +12244,10 @@ MterpException:
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
     jal     MterpHandleException                    # (self, shadow_frame)
     beqzc   v0, MterpExceptionReturn                # no local catch, back to caller.
-    ld      a0, OFF_FP_CODE_ITEM(rFP)
+    ld      a0, OFF_FP_DEX_INSTRUCTIONS(rFP)
     lwu     a1, OFF_FP_DEX_PC(rFP)
     REFRESH_IBASE
-    daddu   rPC, a0, CODEITEM_INSNS_OFFSET
-    dlsa    rPC, a1, rPC, 1                         # generate new dex_pc_ptr
+    dlsa    rPC, a1, a0, 1                          # generate new dex_pc_ptr
     /* Do we need to switch interpreters? */
     jal     MterpShouldSwitchInterpreters
     bnezc   v0, MterpFallback

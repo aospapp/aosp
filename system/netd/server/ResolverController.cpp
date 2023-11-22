@@ -40,194 +40,349 @@
 #include <resolv_stats.h>
 
 #include <android-base/strings.h>
+#include <android-base/thread_annotations.h>
 #include <android/net/INetd.h>
+#include <android/net/metrics/INetdEventListener.h>
 
 #include "DumpWriter.h"
+#include "EventReporter.h"
 #include "NetdConstants.h"
 #include "ResolverController.h"
 #include "ResolverStats.h"
 #include "dns/DnsTlsTransport.h"
+#include "dns/DnsTlsServer.h"
+#include "netdutils/BackoffSequence.h"
 
 namespace android {
-namespace net {
 
+using netdutils::BackoffSequence;
+
+namespace net {
 namespace {
 
-struct PrivateDnsServer {
-    PrivateDnsServer(const sockaddr_storage& ss) : ss(ss) {}
-    const sockaddr_storage ss;
-    // For now, the fingerprints are always SHA-256.  This is the only digest algorithm
-    // that is mandatory to support (https://tools.ietf.org/html/rfc7858#section-4.2).
-    std::set<std::vector<uint8_t>> fingerprints;
-};
-
-// This comparison ignores ports and fingerprints.
-bool operator<(const PrivateDnsServer& x, const PrivateDnsServer& y) {
-    if (x.ss.ss_family != y.ss.ss_family) {
-        return x.ss.ss_family < y.ss.ss_family;
-    }
-    // Same address family.  Compare IP addresses.
-    if (x.ss.ss_family == AF_INET) {
-        const sockaddr_in& x_sin = reinterpret_cast<const sockaddr_in&>(x.ss);
-        const sockaddr_in& y_sin = reinterpret_cast<const sockaddr_in&>(y.ss);
-        return x_sin.sin_addr.s_addr < y_sin.sin_addr.s_addr;
-    } else if (x.ss.ss_family == AF_INET6) {
-        const sockaddr_in6& x_sin6 = reinterpret_cast<const sockaddr_in6&>(x.ss);
-        const sockaddr_in6& y_sin6 = reinterpret_cast<const sockaddr_in6&>(y.ss);
-        return std::memcmp(x_sin6.sin6_addr.s6_addr, y_sin6.sin6_addr.s6_addr, 16) < 0;
-    }
-    return false;  // Unknown address type.  This is an error.
+std::string addrToString(const sockaddr_storage* addr) {
+    char out[INET6_ADDRSTRLEN] = {0};
+    getnameinfo((const sockaddr*)addr, sizeof(sockaddr_storage), out,
+            INET6_ADDRSTRLEN, NULL, 0, NI_NUMERICHOST);
+    return std::string(out);
 }
 
-bool parseServer(const char* server, in_port_t port, sockaddr_storage* parsed) {
-    sockaddr_in* sin = reinterpret_cast<sockaddr_in*>(parsed);
-    if (inet_pton(AF_INET, server, &(sin->sin_addr)) == 1) {
-        // IPv4 parse succeeded, so it's IPv4
-        sin->sin_family = AF_INET;
-        sin->sin_port = htons(port);
-        return true;
+bool parseServer(const char* server, sockaddr_storage* parsed) {
+    addrinfo hints = {
+        .ai_family = AF_UNSPEC,
+        .ai_flags = AI_NUMERICHOST | AI_NUMERICSERV
+    };
+    addrinfo* res;
+
+    int err = getaddrinfo(server, "853", &hints, &res);
+    if (err != 0) {
+        ALOGW("Failed to parse server address (%s): %s", server, gai_strerror(err));
+        return false;
     }
-    sockaddr_in6* sin6 = reinterpret_cast<sockaddr_in6*>(parsed);
-    if (inet_pton(AF_INET6, server, &(sin6->sin6_addr)) == 1){
-        // IPv6 parse succeeded, so it's IPv6.
-        sin6->sin6_family = AF_INET6;
-        sin6->sin6_port = htons(port);
-        return true;
-    }
-    if (DBG) {
-        ALOGW("Failed to parse server address: %s", server);
-    }
-    return false;
+
+    memcpy(parsed, res->ai_addr, res->ai_addrlen);
+    freeaddrinfo(res);
+    return true;
 }
 
-// Structure for tracking the entire set of known Private DNS servers.
-std::mutex privateDnsLock;
-typedef std::set<PrivateDnsServer> PrivateDnsSet;
-PrivateDnsSet privateDnsServers;
-
-// Structure for tracking the validation status of servers on a specific netid.
-// Servers that fail validation are removed from the tracker, and can be retried.
-enum class Validation : bool { in_process, success };
-typedef std::map<PrivateDnsServer, Validation> PrivateDnsTracker;
-std::map<unsigned, PrivateDnsTracker> privateDnsTransports;
-
-PrivateDnsSet parseServers(const char** servers, int numservers, in_port_t port) {
-    PrivateDnsSet set;
-    for (int i = 0; i < numservers; ++i) {
-        sockaddr_storage parsed;
-        if (parseServer(servers[i], port, &parsed)) {
-            set.insert(parsed);
-        }
+const char* getPrivateDnsModeString(PrivateDnsMode mode) {
+    switch (mode) {
+        case PrivateDnsMode::OFF: return "OFF";
+        case PrivateDnsMode::OPPORTUNISTIC: return "OPPORTUNISTIC";
+        case PrivateDnsMode::STRICT: return "STRICT";
     }
-    return set;
 }
 
-void checkPrivateDnsProviders(const unsigned netId, const char** servers, int numservers) {
-    if (DBG) {
-        ALOGD("checkPrivateDnsProviders(%u)", netId);
+constexpr const char* validationStatusToString(ResolverController::Validation value) {
+    switch (value) {
+        case ResolverController::Validation::in_process:     return "in_process";
+        case ResolverController::Validation::success:        return "success";
+        case ResolverController::Validation::fail:           return "fail";
+        case ResolverController::Validation::unknown_server: return "unknown_server";
+        case ResolverController::Validation::unknown_netid:  return "unknown_netid";
+        default: return "unknown_status";
     }
+}
 
-    std::lock_guard<std::mutex> guard(privateDnsLock);
-    if (privateDnsServers.empty()) {
-        return;
-    }
 
-    // First compute the intersection of the servers to check with the
-    // servers that are permitted to use DNS over TLS.  The intersection
-    // will contain the port number to be used for Private DNS.
-    PrivateDnsSet serversToCheck = parseServers(servers, numservers, 53);
-    PrivateDnsSet intersection;
-    std::set_intersection(privateDnsServers.begin(), privateDnsServers.end(),
-        serversToCheck.begin(), serversToCheck.end(),
-        std::inserter(intersection, intersection.begin()));
-    if (intersection.empty()) {
-        return;
-    }
+class PrivateDnsConfiguration {
+  public:
+    typedef ResolverController::PrivateDnsStatus PrivateDnsStatus;
+    typedef ResolverController::Validation Validation;
+    typedef std::map<DnsTlsServer, Validation, AddressComparator> PrivateDnsTracker;
 
-    auto netPair = privateDnsTransports.find(netId);
-    if (netPair == privateDnsTransports.end()) {
-        // New netId
-        bool added;
-        std::tie(netPair, added) = privateDnsTransports.emplace(netId, PrivateDnsTracker());
-        if (!added) {
-            ALOGE("Memory error while checking private DNS for netId %d", netId);
-            return;
+    int set(int32_t netId, const std::vector<std::string>& servers, const std::string& name,
+            const std::set<std::vector<uint8_t>>& fingerprints) {
+        if (DBG) {
+            ALOGD("PrivateDnsConfiguration::set(%u, %zu, %s, %zu)",
+                    netId, servers.size(), name.c_str(), fingerprints.size());
         }
-    }
 
-    auto& tracker = netPair->second;
-    for (const auto& privateServer : intersection) {
-        if (tracker.count(privateServer) != 0) {
-            continue;
-        }
-        tracker[privateServer] = Validation::in_process;
-        std::thread validate_thread([privateServer, netId] {
-            // validateDnsTlsServer() is a blocking call that performs network operations.
-            // It can take milliseconds to minutes, up to the SYN retry limit.
-            bool success = validateDnsTlsServer(netId,
-                    privateServer.ss, privateServer.fingerprints);
-            std::lock_guard<std::mutex> guard(privateDnsLock);
-            auto netPair = privateDnsTransports.find(netId);
-            if (netPair == privateDnsTransports.end()) {
-                ALOGW("netId %u was erased during private DNS validation", netId);
-                return;
+        const bool explicitlyConfigured = !name.empty() || !fingerprints.empty();
+
+        // Parse the list of servers that has been passed in
+        std::set<DnsTlsServer> tlsServers;
+        for (size_t i = 0; i < servers.size(); ++i) {
+            sockaddr_storage parsed;
+            if (!parseServer(servers[i].c_str(), &parsed)) {
+                return -EINVAL;
             }
-            auto& tracker = netPair->second;
-            if (privateDnsServers.count(privateServer) == 0) {
-                ALOGW("Server was removed during private DNS validation");
-                success = false;
+            DnsTlsServer server(parsed);
+            server.name = name;
+            server.fingerprints = fingerprints;
+            tlsServers.insert(server);
+        }
+
+        std::lock_guard<std::mutex> guard(mPrivateDnsLock);
+        if (explicitlyConfigured) {
+            mPrivateDnsModes[netId] = PrivateDnsMode::STRICT;
+        } else if (!tlsServers.empty()) {
+            mPrivateDnsModes[netId] = PrivateDnsMode::OPPORTUNISTIC;
+        } else {
+            mPrivateDnsModes[netId] = PrivateDnsMode::OFF;
+            mPrivateDnsTransports.erase(netId);
+            return 0;
+        }
+
+        // Create the tracker if it was not present
+        auto netPair = mPrivateDnsTransports.find(netId);
+        if (netPair == mPrivateDnsTransports.end()) {
+            // No TLS tracker yet for this netId.
+            bool added;
+            std::tie(netPair, added) = mPrivateDnsTransports.emplace(netId, PrivateDnsTracker());
+            if (!added) {
+                ALOGE("Memory error while recording private DNS for netId %d", netId);
+                return -ENOMEM;
             }
-            if (success) {
-                tracker[privateServer] = Validation::success;
+        }
+        auto& tracker = netPair->second;
+
+        // Remove any servers from the tracker that are not in |servers| exactly.
+        for (auto it = tracker.begin(); it != tracker.end();) {
+            if (tlsServers.count(it->first) == 0) {
+                it = tracker.erase(it);
             } else {
-                // Validation failure is expected if a user is on a captive portal.
-                // TODO: Trigger a second validation attempt after captive portal login
-                // succeeds.
-                tracker.erase(privateServer);
+                ++it;
+            }
+        }
+
+        // Add any new or changed servers to the tracker, and initiate async checks for them.
+        for (const auto& server : tlsServers) {
+            // Don't probe a server more than once.  This means that the only way to
+            // re-check a failed server is to remove it and re-add it from the netId.
+            if (tracker.count(server) == 0) {
+                validatePrivateDnsProvider(server, tracker, netId);
+            }
+        }
+        return 0;
+    }
+
+    PrivateDnsStatus getStatus(unsigned netId) {
+        PrivateDnsStatus status{PrivateDnsMode::OFF, {}};
+
+        // This mutex is on the critical path of every DNS lookup.
+        //
+        // If the overhead of mutex acquisition proves too high, we could reduce
+        // it by maintaining an atomic_int32_t counter of TLS-enabled netids, or
+        // by using an RWLock.
+        std::lock_guard<std::mutex> guard(mPrivateDnsLock);
+
+        const auto mode = mPrivateDnsModes.find(netId);
+        if (mode == mPrivateDnsModes.end()) return status;
+        status.mode = mode->second;
+
+        const auto netPair = mPrivateDnsTransports.find(netId);
+        if (netPair != mPrivateDnsTransports.end()) {
+            for (const auto& serverPair : netPair->second) {
+                if (serverPair.second == Validation::success) {
+                    status.validatedServers.push_back(serverPair.first);
+                }
+            }
+        }
+
+        return status;
+    }
+
+    void clear(unsigned netId) {
+        if (DBG) {
+            ALOGD("PrivateDnsConfiguration::clear(%u)", netId);
+        }
+        std::lock_guard<std::mutex> guard(mPrivateDnsLock);
+        mPrivateDnsModes.erase(netId);
+        mPrivateDnsTransports.erase(netId);
+    }
+
+    void dump(DumpWriter& dw, unsigned netId) {
+        std::lock_guard<std::mutex> guard(mPrivateDnsLock);
+
+        const auto& mode = mPrivateDnsModes.find(netId);
+        dw.println("Private DNS mode: %s", getPrivateDnsModeString(
+                (mode != mPrivateDnsModes.end()) ? mode->second : PrivateDnsMode::OFF));
+        const auto& netPair = mPrivateDnsTransports.find(netId);
+        if (netPair == mPrivateDnsTransports.end()) {
+            dw.println("No Private DNS servers configured");
+        } else {
+            const auto& tracker = netPair->second;
+            dw.println("Private DNS configuration (%zu entries)", tracker.size());
+            dw.incIndent();
+            for (const auto& kv : tracker) {
+                const auto& server = kv.first;
+                const auto status = kv.second;
+                dw.println("%s name{%s} status{%s}",
+                        addrToString(&(server.ss)).c_str(),
+                        server.name.c_str(),
+                        validationStatusToString(status));
+            }
+            dw.decIndent();
+        }
+    }
+
+  private:
+    void validatePrivateDnsProvider(const DnsTlsServer& server, PrivateDnsTracker& tracker,
+            unsigned netId) REQUIRES(mPrivateDnsLock) {
+        if (DBG) {
+            ALOGD("validatePrivateDnsProvider(%s, %u)", addrToString(&(server.ss)).c_str(), netId);
+        }
+
+        tracker[server] = Validation::in_process;
+        if (DBG) {
+            ALOGD("Server %s marked as in_process.  Tracker now has size %zu",
+                    addrToString(&(server.ss)).c_str(), tracker.size());
+        }
+        // Note that capturing |server| and |netId| in this lambda create copies.
+        std::thread validate_thread([this, server, netId] {
+            // cat /proc/sys/net/ipv4/tcp_syn_retries yields "6".
+            //
+            // Start with a 1 minute delay and backoff to once per hour.
+            //
+            // Assumptions:
+            //     [1] Each TLS validation is ~10KB of certs+handshake+payload.
+            //     [2] Network typically provision clients with <=4 nameservers.
+            //     [3] Average month has 30 days.
+            //
+            // Each validation pass in a given hour is ~1.2MB of data. And 24
+            // such validation passes per day is about ~30MB per month, in the
+            // worst case. Otherwise, this will cost ~600 SYNs per month
+            // (6 SYNs per ip, 4 ips per validation pass, 24 passes per day).
+            auto backoff = BackoffSequence<>::Builder()
+                    .withInitialRetransmissionTime(std::chrono::seconds(60))
+                    .withMaximumRetransmissionTime(std::chrono::seconds(3600))
+                    .build();
+
+            while (true) {
+                // ::validate() is a blocking call that performs network operations.
+                // It can take milliseconds to minutes, up to the SYN retry limit.
+                const bool success = DnsTlsTransport::validate(server, netId);
+                if (DBG) {
+                    ALOGD("validateDnsTlsServer returned %d for %s", success,
+                            addrToString(&(server.ss)).c_str());
+                }
+
+                const bool needs_reeval = this->recordPrivateDnsValidation(server, netId, success);
+                if (!needs_reeval) {
+                    break;
+                }
+
+                if (backoff.hasNextTimeout()) {
+                    std::this_thread::sleep_for(backoff.getNextTimeout());
+                } else {
+                    break;
+                }
             }
         });
         validate_thread.detach();
     }
-}
 
-void clearPrivateDnsProviders(unsigned netId) {
-    if (DBG) {
-        ALOGD("clearPrivateDnsProviders(%u)", netId);
+    bool recordPrivateDnsValidation(const DnsTlsServer& server, unsigned netId, bool success) {
+        constexpr bool NEEDS_REEVALUATION = true;
+        constexpr bool DONT_REEVALUATE = false;
+
+        std::lock_guard<std::mutex> guard(mPrivateDnsLock);
+
+        auto netPair = mPrivateDnsTransports.find(netId);
+        if (netPair == mPrivateDnsTransports.end()) {
+            ALOGW("netId %u was erased during private DNS validation", netId);
+            return DONT_REEVALUATE;
+        }
+
+        bool reevaluationStatus = success ? DONT_REEVALUATE : NEEDS_REEVALUATION;
+
+        auto& tracker = netPair->second;
+        auto serverPair = tracker.find(server);
+        if (serverPair == tracker.end()) {
+            ALOGW("Server %s was removed during private DNS validation",
+                    addrToString(&(server.ss)).c_str());
+            success = false;
+            reevaluationStatus = DONT_REEVALUATE;
+        } else if (!(serverPair->first == server)) {
+            // TODO: It doesn't seem correct to overwrite the tracker entry for
+            // |server| down below in this circumstance... Fix this.
+            ALOGW("Server %s was changed during private DNS validation",
+                    addrToString(&(server.ss)).c_str());
+            success = false;
+            reevaluationStatus = DONT_REEVALUATE;
+        }
+
+        // Send a validation event to NetdEventListenerService.
+        if (mNetdEventListener == nullptr) {
+            mNetdEventListener = mEventReporter.getNetdEventListener();
+        }
+        if (mNetdEventListener != nullptr) {
+            const String16 ipLiteral(addrToString(&(server.ss)).c_str());
+            const String16 hostname(server.name.empty() ? "" : server.name.c_str());
+            mNetdEventListener->onPrivateDnsValidationEvent(netId, ipLiteral, hostname, success);
+            if (DBG) {
+                ALOGD("Sending validation %s event on netId %u for %s with hostname %s",
+                        success ? "success" : "failure", netId,
+                        addrToString(&(server.ss)).c_str(), server.name.c_str());
+            }
+        } else {
+            ALOGE("Validation event not sent since NetdEventListenerService is unavailable.");
+        }
+
+        if (success) {
+            tracker[server] = Validation::success;
+            if (DBG) {
+                ALOGD("Validation succeeded for %s! Tracker now has %zu entries.",
+                        addrToString(&(server.ss)).c_str(), tracker.size());
+            }
+        } else {
+            // Validation failure is expected if a user is on a captive portal.
+            // TODO: Trigger a second validation attempt after captive portal login
+            // succeeds.
+            tracker[server] = Validation::fail;
+            if (DBG) {
+                ALOGD("Validation failed for %s!", addrToString(&(server.ss)).c_str());
+            }
+        }
+
+        return reevaluationStatus;
     }
-    std::lock_guard<std::mutex> guard(privateDnsLock);
-    privateDnsTransports.erase(netId);
-}
+
+    EventReporter mEventReporter;
+
+    std::mutex mPrivateDnsLock;
+    std::map<unsigned, PrivateDnsMode> mPrivateDnsModes GUARDED_BY(mPrivateDnsLock);
+    // Structure for tracking the validation status of servers on a specific netId.
+    // Using the AddressComparator ensures at most one entry per IP address.
+    std::map<unsigned, PrivateDnsTracker> mPrivateDnsTransports GUARDED_BY(mPrivateDnsLock);
+    android::sp<android::net::metrics::INetdEventListener>
+            mNetdEventListener GUARDED_BY(mPrivateDnsLock);
+} privateDnsConfiguration;
 
 }  // namespace
 
 int ResolverController::setDnsServers(unsigned netId, const char* searchDomains,
         const char** servers, int numservers, const __res_params* params) {
     if (DBG) {
-        ALOGD("setDnsServers netId = %u\n", netId);
+        ALOGD("setDnsServers netId = %u, numservers = %d", netId, numservers);
     }
-    checkPrivateDnsProviders(netId, servers, numservers);
     return -_resolv_set_nameservers_for_net(netId, servers, numservers, searchDomains, params);
 }
 
-bool ResolverController::shouldUseTls(unsigned netId, const sockaddr_storage& insecureServer,
-        sockaddr_storage* secureServer, std::set<std::vector<uint8_t>>* fingerprints) {
-    // This mutex is on the critical path of every DNS lookup that doesn't hit a local cache.
-    // If the overhead of mutex acquisition proves too high, we could reduce it by maintaining
-    // an atomic_int32_t counter of validated connections, and returning early if it's zero.
-    std::lock_guard<std::mutex> guard(privateDnsLock);
-    const auto netPair = privateDnsTransports.find(netId);
-    if (netPair == privateDnsTransports.end()) {
-        return false;
-    }
-    const auto& tracker = netPair->second;
-    const auto serverPair = tracker.find(insecureServer);
-    if (serverPair == tracker.end() || serverPair->second != Validation::success) {
-        return false;
-    }
-    const auto& validatedServer = serverPair->first;
-    *secureServer = validatedServer.ss;
-    *fingerprints = validatedServer.fingerprints;
-    return true;
+ResolverController::PrivateDnsStatus
+ResolverController::getPrivateDnsStatus(unsigned netId) const {
+    return privateDnsConfiguration.getStatus(netId);
 }
 
 int ResolverController::clearDnsServers(unsigned netId) {
@@ -235,7 +390,7 @@ int ResolverController::clearDnsServers(unsigned netId) {
     if (DBG) {
         ALOGD("clearDnsServers netId = %u\n", netId);
     }
-    clearPrivateDnsProviders(netId);
+    privateDnsConfiguration.clear(netId);
     return 0;
 }
 
@@ -322,13 +477,21 @@ int ResolverController::getDnsInfo(unsigned netId, std::vector<std::string>* ser
 
 int ResolverController::setResolverConfiguration(int32_t netId,
         const std::vector<std::string>& servers, const std::vector<std::string>& domains,
-        const std::vector<int32_t>& params) {
+        const std::vector<int32_t>& params, const std::string& tlsName,
+        const std::vector<std::string>& tlsServers,
+        const std::set<std::vector<uint8_t>>& tlsFingerprints) {
     using android::net::INetd;
     if (params.size() != INetd::RESOLVER_PARAMS_COUNT) {
         ALOGE("%s: params.size()=%zu", __FUNCTION__, params.size());
         return -EINVAL;
     }
 
+    const int err = privateDnsConfiguration.set(netId, tlsServers, tlsName, tlsFingerprints);
+    if (err != 0) {
+        return err;
+    }
+
+    // Convert network-assigned server list to bionic's format.
     auto server_count = std::min<size_t>(MAXNS, servers.size());
     std::vector<const char*> server_ptrs;
     for (size_t i = 0 ; i < server_count ; ++i) {
@@ -426,59 +589,10 @@ void ResolverController::dump(DumpWriter& dw, unsigned netId) {
                     static_cast<unsigned>(params.min_samples),
                     static_cast<unsigned>(params.max_samples));
         }
+
+        privateDnsConfiguration.dump(dw, netId);
     }
     dw.decIndent();
-}
-
-int ResolverController::addPrivateDnsServer(const std::string& server, int32_t port,
-        const std::string& fingerprintAlgorithm,
-        const std::set<std::vector<uint8_t>>& fingerprints) {
-    using android::net::INetd;
-    if (fingerprintAlgorithm.empty()) {
-        if (!fingerprints.empty()) {
-            return INetd::PRIVATE_DNS_BAD_FINGERPRINT;
-        }
-    } else if (fingerprintAlgorithm.compare("SHA-256") == 0) {
-        if (fingerprints.empty()) {
-            return INetd::PRIVATE_DNS_BAD_FINGERPRINT;
-        }
-        for (const auto& fingerprint : fingerprints) {
-            if (fingerprint.size() != SHA256_SIZE) {
-                return INetd::PRIVATE_DNS_BAD_FINGERPRINT;
-            }
-        }
-    } else {
-        return INetd::PRIVATE_DNS_UNKNOWN_ALGORITHM;
-    }
-    if (port <= 0 || port > 0xFFFF) {
-        return INetd::PRIVATE_DNS_BAD_PORT;
-    }
-    sockaddr_storage parsed;
-    if (!parseServer(server.c_str(), port, &parsed)) {
-        return INetd::PRIVATE_DNS_BAD_ADDRESS;
-    }
-    PrivateDnsServer privateServer(parsed);
-    privateServer.fingerprints = fingerprints;
-    std::lock_guard<std::mutex> guard(privateDnsLock);
-    // Ensure we overwrite any previous matching server.  This is necessary because equality is
-    // based only on the IP address, not the port or fingerprints.
-    privateDnsServers.erase(privateServer);
-    privateDnsServers.insert(privateServer);
-    return INetd::PRIVATE_DNS_SUCCESS;
-}
-
-int ResolverController::removePrivateDnsServer(const std::string& server) {
-    using android::net::INetd;
-    sockaddr_storage parsed;
-    if (!parseServer(server.c_str(), 0, &parsed)) {
-        return INetd::PRIVATE_DNS_BAD_ADDRESS;
-    }
-    std::lock_guard<std::mutex> guard(privateDnsLock);
-    privateDnsServers.erase(parsed);
-    for (auto& pair : privateDnsTransports) {
-        pair.second.erase(parsed);
-    }
-    return INetd::PRIVATE_DNS_SUCCESS;
 }
 
 }  // namespace net

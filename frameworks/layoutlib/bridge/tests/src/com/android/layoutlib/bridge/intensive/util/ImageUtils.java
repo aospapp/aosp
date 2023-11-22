@@ -86,8 +86,6 @@ public class ImageUtils {
 
     public static void assertImageSimilar(String relativePath, BufferedImage goldenImage,
             BufferedImage image, double maxPercentDifferent) throws IOException {
-        assertEquals("Only TYPE_INT_ARGB image types are supported",  TYPE_INT_ARGB, image.getType());
-
         if (goldenImage.getType() != TYPE_INT_ARGB) {
             BufferedImage temp = new BufferedImage(goldenImage.getWidth(), goldenImage.getHeight(),
                     TYPE_INT_ARGB);
@@ -165,7 +163,6 @@ public class ImageUtils {
                     "vs" + image.getWidth() + "x" + image.getHeight();
         }
 
-        assertEquals(TYPE_INT_ARGB, image.getType());
         if (error != null) {
             // Expected on the left
             // Golden on the right

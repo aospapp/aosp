@@ -18,7 +18,6 @@ class camera_V4L2(test.test):
     v4l2_major_dev_num = 81
     v4l2_minor_dev_num_min = 0
     v4l2_minor_dev_num_max = 64
-    test_constant_framerate = False
 
     def setup(self):
         # TODO(jiesun): make binary here when cross compile issue is resolved.
@@ -26,13 +25,25 @@ class camera_V4L2(test.test):
         utils.make('clean')
         utils.make()
 
-    def run_once(self, test_constant_framerate=False):
+    def run_once(self, test_list=None):
+        # Enable USB camera HW timestamp
+        path = "/sys/module/uvcvideo/parameters/hwtimestamps"
+        if os.path.exists(path):
+            utils.system("echo 1 > %s" % path)
 
-        self.test_constant_framerate = test_constant_framerate
+        self.test_list = test_list
+        if self.test_list is None:
+            if os.path.exists('/usr/bin/arc_camera3_service'):
+                self.test_list = "halv3"
+            else:
+                self.test_list = "default"
+
         self.find_video_capture_devices()
 
         for device in self.v4l2_devices:
             self.usb_info = self.get_camera_device_usb_info(device)
+            if not self.usb_info:
+                continue
             self.run_v4l2_unittests(device)
             self.run_v4l2_capture_test(device)
 
@@ -40,6 +51,10 @@ class camera_V4L2(test.test):
         device_name = ntpath.basename(device)
         vid_path = "/sys/class/video4linux/%s/device/../idVendor" % device_name
         pid_path = "/sys/class/video4linux/%s/device/../idProduct" % device_name
+        if not os.path.isfile(vid_path) or not os.path.isfile(pid_path):
+            logging.info("Device %s is not a USB camera" % device)
+            return None
+
         with open(vid_path, 'r') as f_vid, open(pid_path, 'r') as f_pid:
             vid = f_vid.read()
             pid = f_pid.read()
@@ -68,6 +83,8 @@ class camera_V4L2(test.test):
 
     def run_v4l2_unittests(self, device):
         options = ["--device=%s" % device, "--usb-info=%s" % self.usb_info]
+        if self.test_list:
+            options += ["--test-list=%s" % self.test_list]
         executable = os.path.join(self.bindir, "media_v4l2_unittest")
         cmd = "%s %s" % (executable, " ".join(options))
         logging.info("Running %s" % cmd)
@@ -75,8 +92,8 @@ class camera_V4L2(test.test):
 
     def run_v4l2_capture_test(self, device):
         options = ["--device=%s" % device, "--usb-info=%s" % self.usb_info]
-        if self.test_constant_framerate:
-            options += ["--constant-framerate"]
+        if self.test_list:
+            options += ["--test-list=%s" % self.test_list]
         executable = os.path.join(self.bindir, "media_v4l2_test")
         cmd = "%s %s" % (executable, " ".join(options))
         logging.info("Running %s" % cmd)

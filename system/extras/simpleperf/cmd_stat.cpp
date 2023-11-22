@@ -386,8 +386,8 @@ bool StatCommand::Run(const std::vector<std::string>& args) {
       event_selection_set_.AddMonitoredProcesses({workload->GetPid()});
       event_selection_set_.SetEnableOnExec(true);
     } else if (!app_package_name_.empty()) {
-      int pid = WaitForAppProcess(app_package_name_);
-      event_selection_set_.AddMonitoredProcesses({pid});
+      std::set<pid_t> pids = WaitForAppProcesses(app_package_name_);
+      event_selection_set_.AddMonitoredProcesses(pids);
     } else {
       LOG(ERROR)
           << "No threads to monitor. Try `simpleperf help stat` for help\n";
@@ -416,6 +416,12 @@ bool StatCommand::Run(const std::vector<std::string>& args) {
   }
 
   // 4. Add signal/periodic Events.
+  IOEventLoop* loop = event_selection_set_.GetIOEventLoop();
+  if (interval_in_ms_ != 0) {
+    if (!loop->UsePreciseTimer()) {
+      return false;
+    }
+  }
   std::chrono::time_point<std::chrono::steady_clock> start_time;
   std::vector<CountersInfo> counters;
   if (system_wide_collection_ || (!cpus_.empty() && cpus_[0] != -1)) {
@@ -426,7 +432,6 @@ bool StatCommand::Run(const std::vector<std::string>& args) {
   if (need_to_check_targets && !event_selection_set_.StopWhenNoMoreTargets()) {
     return false;
   }
-  IOEventLoop* loop = event_selection_set_.GetIOEventLoop();
   if (!loop->AddSignalEvents({SIGCHLD, SIGINT, SIGTERM, SIGHUP},
                              [&]() { return loop->ExitLoop(); })) {
     return false;

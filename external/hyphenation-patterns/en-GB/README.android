@@ -1,10 +1,12 @@
-URL: svn://tug.org/texhyphen/trunk/misc/@736
-Version: r736
+URL: https://github.com/hyphenation/tex-hyphen
+Version: ff4fb0d804ded27440a716fee15542a4289a2e04
 License: Unicode
 License File: NOTICE
 
 Description:
 Hyphenation patterns for automatic hyphenation of British English
-from TeX hyphenation patterns project at http://tug.org/tex-hyphen/.
-This is identical to that for en-GB in the main tree except that it's
-under Unicode license.
+from TeX hyphenation patterns project at http://www.hyphenation.org.
+
+The British English patterns have been taken from the "misc" directory in the
+repository. They are identical to that for en-GB in the main tree except that
+this data is under the Unicode license.

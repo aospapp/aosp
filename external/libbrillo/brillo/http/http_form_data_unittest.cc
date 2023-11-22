@@ -42,7 +42,7 @@ TEST(HttpFormData, FileFormField) {
   base::ScopedTempDir dir;
   ASSERT_TRUE(dir.CreateUniqueTempDir());
   std::string file_content{"text line1\ntext line2\n"};
-  base::FilePath file_name = dir.path().Append("sample.txt");
+  base::FilePath file_name = dir.GetPath().Append("sample.txt");
   ASSERT_EQ(file_content.size(),
             static_cast<size_t>(base::WriteFile(
                 file_name, file_content.data(), file_content.size())));
@@ -70,12 +70,12 @@ TEST(HttpFormData, MultiPartFormField) {
   base::ScopedTempDir dir;
   ASSERT_TRUE(dir.CreateUniqueTempDir());
   std::string file1{"text line1\ntext line2\n"};
-  base::FilePath filename1 = dir.path().Append("sample.txt");
+  base::FilePath filename1 = dir.GetPath().Append("sample.txt");
   ASSERT_EQ(file1.size(),
             static_cast<size_t>(
                 base::WriteFile(filename1, file1.data(), file1.size())));
   std::string file2{"\x01\x02\x03\x04\x05"};
-  base::FilePath filename2 = dir.path().Append("test.bin");
+  base::FilePath filename2 = dir.GetPath().Append("test.bin");
   ASSERT_EQ(file2.size(),
             static_cast<size_t>(
                 base::WriteFile(filename2, file2.data(), file2.size())));
@@ -145,12 +145,12 @@ TEST(HttpFormData, FormData) {
   base::ScopedTempDir dir;
   ASSERT_TRUE(dir.CreateUniqueTempDir());
   std::string file1{"text line1\ntext line2\n"};
-  base::FilePath filename1 = dir.path().Append("sample.txt");
+  base::FilePath filename1 = dir.GetPath().Append("sample.txt");
   ASSERT_EQ(file1.size(),
             static_cast<size_t>(
                 base::WriteFile(filename1, file1.data(), file1.size())));
   std::string file2{"\x01\x02\x03\x04\x05"};
-  base::FilePath filename2 = dir.path().Append("test.bin");
+  base::FilePath filename2 = dir.GetPath().Append("test.bin");
   ASSERT_EQ(file2.size(),
             static_cast<size_t>(
                 base::WriteFile(filename2, file2.data(), file2.size())));

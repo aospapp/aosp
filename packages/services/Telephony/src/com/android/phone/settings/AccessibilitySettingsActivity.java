@@ -16,6 +16,7 @@
 
 package com.android.phone.settings;
 
+import android.app.ActionBar;
 import android.os.Bundle;
 import android.preference.PreferenceActivity;
 import android.view.MenuItem;
@@ -27,8 +28,10 @@ public class AccessibilitySettingsActivity extends PreferenceActivity {
    @Override
     protected void onCreate(Bundle icicle) {
         super.onCreate(icicle);
-
-        getActionBar().setTitle(R.string.accessibility_settings_activity_title);
+        final ActionBar actionBar = getActionBar();
+        if (actionBar != null) {
+          actionBar.setTitle(R.string.accessibility_settings_activity_title);
+        }
         getFragmentManager().beginTransaction().replace(
                 android.R.id.content, new AccessibilitySettingsFragment()).commit();
     }

@@ -43,17 +43,13 @@ class Trace(object):
 
     :param platform: a dictionary containing information about the target
         platform
-    :type platform: dict
+    :type platform: dict or None
 
     :param data_dir: folder containing all trace data
     :type data_dir: str
 
     :param events: events to be parsed (everything in the trace by default)
     :type events: list(str)
-
-    :param tasks: filter data for the specified tasks only. If None (default),
-        use data for all tasks found in the trace.
-    :type tasks: list(str) or NoneType
 
     :param window: time window to consider when parsing the trace
     :type window: tuple(int, int)
@@ -81,8 +77,9 @@ class Trace(object):
     :type cgroup_info: dict
     """
 
-    def __init__(self, platform, data_dir, events=None,
-                 tasks=None, window=(0, None),
+    def __init__(self, platform, data_dir, events,
+                 tasks=None,
+                 window=(0, None),
                  normalize_time=True,
                  trace_format='FTrace',
                  plots_dir=None,
@@ -90,7 +87,7 @@ class Trace(object):
                  cgroup_info={}):
 
         # The platform used to run the experiments
-        self.platform = platform
+        self.platform = platform or {}
 
         # TRAPpy Trace object
         self.ftrace = None
@@ -101,6 +98,9 @@ class Trace(object):
         # The time window used to limit trace parsing to
         self.window = window
 
+        # Whether trace timestamps are normalized or not
+        self.normalize_time = normalize_time
+
         # Dynamically registered TRAPpy events
         self.trappy_cls = {}
 
@@ -110,9 +110,6 @@ class Trace(object):
         # Time the system was overutilzied
         self.overutilized_time = 0
         self.overutilized_prc = 0
-
-        # The dictionary of tasks descriptors available in the dataset
-        self.tasks = {}
 
         # List of events required by user
         self.events = []
@@ -131,7 +128,7 @@ class Trace(object):
 
         # Folder containing trace
         if not os.path.isdir(data_dir):
-            self.data_dir = os.path.dirname(data_dir)
+            self.data_dir = os.path.dirname(data_dir) or '.'
         else:
             self.data_dir = data_dir
 
@@ -145,9 +142,7 @@ class Trace(object):
         self.cgroup_info = cgroup_info
 
         self.__registerTraceEvents(events) if events else None
-        self.__parseTrace(data_dir, tasks, window, normalize_time,
-                          trace_format)
-        self.__computeTimeSpan()
+        self.__parseTrace(data_dir, tasks, window, trace_format)
 
         # Minimum and Maximum x_time to use for all plots
         self.x_min = 0
@@ -160,6 +155,13 @@ class Trace(object):
 
         self.data_frame = TraceData()
         self._registerDataFrameGetters(self)
+
+        # If we don't know the number of CPUs, check the trace for the
+        # highest-numbered CPU that traced an event.
+        if 'cpus_count' not in self.platform:
+            max_cpu = max(int(self.data_frame.trace_event(e)['__cpu'].max())
+                          for e in self.available_events)
+            self.platform['cpus_count'] = max_cpu + 1
 
         self.analysis = AnalysisRegister(self)
 
@@ -190,14 +192,9 @@ class Trace(object):
         :param t_max: upper bound
         :type t_max: int or float
         """
-        if t_min is None:
-            self.x_min = 0
-        else:
-            self.x_min = t_min
-        if t_max is None:
-            self.x_max = self.time_range
-        else:
-            self.x_max = t_max
+        self.x_min = t_min if t_min is not None else self.start_time
+        self.x_max = t_max if t_max is not None else self.start_time + self.time_range
+
         self._log.debug('Set plots time range to (%.6f, %.6f)[s]',
                        self.x_min, self.x_max)
 
@@ -218,7 +215,7 @@ class Trace(object):
         if 'cpu_frequency' in events:
             self.events.append('cpu_frequency_devlib')
 
-    def __parseTrace(self, path, tasks, window, normalize_time, trace_format):
+    def __parseTrace(self, path, tasks, window, trace_format):
         """
         Internal method in charge of performing the actual parsing of the
         trace.
@@ -231,9 +228,6 @@ class Trace(object):
 
         :param window: time window to consider when parsing the trace
         :type window: tuple(int, int)
-
-        :param normalize_time: normalize trace time stamps
-        :type normalize_time: bool
 
         :param trace_format: format of the trace. Possible values are:
             - FTrace
@@ -253,9 +247,16 @@ class Trace(object):
         else:
             raise ValueError("Unknown trace format {}".format(trace_format))
 
+        # If using normalized time, we should use
+        # TRAPpy's `abs_window` instead of `window`
+        window_kw = {}
+        if self.normalize_time:
+            window_kw['window'] = window
+        else:
+            window_kw['abs_window'] = window
         scope = 'custom' if self.events else 'all'
         self.ftrace = trace_class(path, scope=scope, events=self.events,
-                                  window=window, normalize_time=normalize_time)
+                                  normalize_time=self.normalize_time, **window_kw)
 
         # Load Functions profiling data
         has_function_stats = self._loadFunctionsStats(path)
@@ -269,8 +270,16 @@ class Trace(object):
             raise ValueError('The trace does not contain useful events '
                              'nor function stats')
 
+        # Index PIDs and Task names
+        self.__loadTasksNames(tasks)
+
+        self.__computeTimeSpan()
+
         # Sanitize cgroup info if any
         self._sanitize_CgroupAttachTask()
+
+        # Setup internal data reference to interesting events/dataframes
+        self._sanitize_SchedOverutilized()
 
         # Santization not possible if platform missing
         if not self.platform:
@@ -281,20 +290,7 @@ class Trace(object):
             self._sanitize_SchedBoostCpu()
             self._sanitize_SchedBoostTask()
             self._sanitize_SchedEnergyDiff()
-            self._sanitize_SchedOverutilized()
             self._sanitize_CpuFrequency()
-
-        self.__loadTasksNames(tasks)
-
-        # Compute plot window
-        if not normalize_time:
-            start = self.window[0]
-            if self.window[1]:
-                duration = min(self.ftrace.get_duration(), self.window[1])
-            else:
-                duration = self.ftrace.get_duration()
-            self.window = (self.ftrace.basetime + start,
-                           self.ftrace.basetime + duration)
 
     def __checkAvailableEvents(self, key=""):
         """
@@ -322,16 +318,18 @@ class Trace(object):
             df = self._dfg_trace_event(event)
             if tasks is None:
                 tasks = df[name_key].unique()
-            self.getTasks(df, tasks, name_key=name_key, pid_key=pid_key)
             self._scanTasks(df, name_key=name_key, pid_key=pid_key)
             self._scanTgids(df)
 
         if 'sched_switch' in self.available_events:
-            load(tasks, 'sched_switch', 'next_comm', 'next_pid')
-        elif 'sched_load_avg_task' in self.available_events:
+            load(tasks, 'sched_switch', 'prev_comm', 'prev_pid')
+            return
+
+        if 'sched_load_avg_task' in self.available_events:
             load(tasks, 'sched_load_avg_task', 'comm', 'pid')
-        else:
-            self._log.warning('Failed to load tasks names from trace events')
+            return
+
+        self._log.warning('Failed to load tasks names from trace events')
 
     def hasEvents(self, dataset):
         """
@@ -349,30 +347,12 @@ class Trace(object):
         """
         Compute time axis range, considering all the parsed events.
         """
-        ts = sys.maxint
-        te = 0
-
-        for events in self.available_events:
-            df = self._dfg_trace_event(events)
-            if len(df) == 0:
-                continue
-            if (df.index[0]) < ts:
-                ts = df.index[0]
-            if (df.index[-1]) > te:
-                te = df.index[-1]
-            self.time_range = te - ts
-
+        self.start_time = 0 if self.normalize_time else self.ftrace.basetime
+        self.time_range = self.ftrace.get_duration()
         self._log.debug('Collected events spans a %.3f [s] time interval',
                        self.time_range)
 
-        # Build a stat on trace overutilization
-        if self.hasEvents('sched_overutilized'):
-            df = self._dfg_trace_event('sched_overutilized')
-            self.overutilized_time = df[df.overutilized == 1].len.sum()
-            self.overutilized_prc = 100. * self.overutilized_time / self.time_range
-
-            self._log.debug('Overutilized time: %.6f [s] (%.3f%% of trace time)',
-                           self.overutilized_time, self.overutilized_prc)
+        self.setXTimeRange(self.window[0], self.window[1])
 
     def _scanTgids(self, df):
         if not '__tgid' in df.columns:
@@ -399,37 +379,57 @@ class Trace(object):
         :param pid_key: The name of the dataframe columns containing task PIDs
         :type pid_key: str
         """
-        df = df[[name_key, pid_key]].drop_duplicates()
+        df = df[[name_key, pid_key]]
         self._tasks_by_name = df.set_index(name_key)
-        self._tasks_by_pid = df.set_index(pid_key)
+        self._tasks_by_pid = (df.drop_duplicates(subset=pid_key, keep='last')
+                .rename(columns={
+                    pid_key : 'PID',
+                    name_key : 'TaskName'})
+                .set_index('PID').sort_index())
 
     def getTaskByName(self, name):
         """
         Get the PIDs of all tasks with the specified name.
 
+        The same PID can have different task names, mainly because once a task
+        is generated it inherits the parent name and then its name is updated
+        to represent what the task really is.
+
+        This API works under the assumption that a task name is updated at
+        most one time and it always considers the name a task had the last time
+        it has been scheduled for execution in the current trace.
+
         :param name: task name
         :type name: str
+
+        :return: a list of PID for tasks which name matches the required one,
+                 the last time they ran in the current trace
         """
-        if name not in self._tasks_by_name.index:
-            return []
-        if len(self._tasks_by_name.ix[name].values) > 1:
-            return list({task[0] for task in
-                         self._tasks_by_name.ix[name].values})
-        return [self._tasks_by_name.ix[name].values[0]]
+        return (self._tasks_by_pid[self._tasks_by_pid.TaskName == name]
+                    .index.tolist())
 
     def getTaskByPid(self, pid):
         """
-        Get the names of all tasks with the specified PID.
+        Get the name of the task with the specified PID.
+
+        The same PID can have different task names, mainly because once a task
+        is generated it inherits the parent name and then its name is
+        updated to represent what the task really is.
+
+        This API works under the assumption that a task name is updated at
+        most one time and it always report the name the task had the last time
+        it has been scheduled for execution in the current trace.
 
         :param name: task PID
         :type name: int
+
+        :return: the list of names of the tasks whose PID matches the required one,
+                 the last time they ran in the current trace
         """
-        if pid not in self._tasks_by_pid.index:
-            return []
-        if len(self._tasks_by_pid.ix[pid].values) > 1:
-            return list({task[0] for task in
-                         self._tasks_by_pid.ix[pid].values})
-        return [self._tasks_by_pid.ix[pid].values[0]]
+        try:
+            return self._tasks_by_pid.ix[pid].values[0]
+        except KeyError:
+            return None
 
     def getTgidFromPid(self, pid):
         return _pid_tgid.ix[pid].values[0]
@@ -437,55 +437,22 @@ class Trace(object):
     def getTasks(self, dataframe=None,
                  task_names=None, name_key='comm', pid_key='pid'):
         """
-        Helper function to get PIDs of specified tasks.
-
-        This method can take a Pandas dataset in input to be used to fiter out
-        the PIDs of all the specified tasks. If a dataset is not provided,
-        previously filtered PIDs are returned.
-
-        If a list of task names is not provided, all tasks detected in the trace
-        will be used. The specified dataframe must provide at least two columns
-        reporting the task name and the task PID. The default values of this
-        colums could be specified using the provided parameters.
-
-        :param dataframe: A Pandas dataframe containing at least 'name_key' and
-            'pid_key' columns. If None, the all PIDs are returned.
-        :type dataframe: :mod:`pandas.DataFrame`
-
-        :param task_names: The list of tasks to get the PID of (default: all
-            tasks)
-        :type task_names: list(str)
-
-        :param name_key: The name of the dataframe columns containing task
-            names
-        :type name_key: str
-
-        :param pid_key: The name of the dataframe columns containing task PIDs
-        :type pid_key: str
+        :return: the name of the task which PID matches the required one,
+                 the last time they ran in the current trace
         """
-        if task_names is None:
-            task_names = self.tasks.keys()
-        if dataframe is None:
-            return {k: v for k, v in  self.tasks.iteritems() if k in task_names}
-        df = dataframe
-        self._log.debug('Lookup dataset for tasks...')
-        for tname in task_names:
-            self._log.debug('Lookup for task [%s]...', tname)
-            results = df[df[name_key] == tname][[name_key, pid_key]]
-            if len(results) == 0:
-                self._log.error('  task %16s NOT found', tname)
-                continue
-            (name, pid) = results.head(1).values[0]
-            if name != tname:
-                self._log.error('  task %16s NOT found', tname)
-                continue
-            if tname not in self.tasks:
-                self.tasks[tname] = {}
-            pids = list(results[pid_key].unique())
-            self.tasks[tname]['pid'] = pids
-            self._log.debug('  task %16s found, pid: %s',
-                            tname, self.tasks[tname]['pid'])
-        return self.tasks
+        try:
+            return self._tasks_by_pid.ix[pid].values[0]
+        except KeyError:
+            return None
+
+    def getTasks(self):
+        """
+        Get a dictionary of all the tasks in the Trace.
+
+        :return: a dictionary which maps each PID to the corresponding task
+                 name
+        """
+        return self._tasks_by_pid.TaskName.to_dict()
 
 
 ###############################################################################
@@ -637,21 +604,29 @@ class Trace(object):
         sdf = sdf.join(self._pid_tgid, on='prev_pid').rename(columns = {'tgid': 'prev_tgid'})
 
         df = self._tasks_by_pid.rename(columns = { 'next_comm': 'comm' })
-        sdf = sdf.join(df, on='next_tgid').rename(columns = {'comm': 'next_tgid_comm'})
-        sdf = sdf.join(df, on='prev_tgid').rename(columns = {'comm': 'prev_tgid_comm'})
+
+        sdf = sdf.join(df, on='next_tgid').rename(columns = {'TaskName': 'next_tgid_comm'})
+        sdf = sdf.join(df, on='prev_tgid').rename(columns = {'TaskName': 'prev_tgid_comm'})
         return sdf
 
 ###############################################################################
 # Trace Events Sanitize Methods
 ###############################################################################
+    @property
+    def has_big_little(self):
+        return ('clusters' in self.platform
+                and 'big' in self.platform['clusters']
+                and 'little' in self.platform['clusters']
+                and 'nrg_model' in self.platform)
 
     def _sanitize_SchedCpuCapacity(self):
         """
         Add more columns to cpu_capacity data frame if the energy model is
-        available.
+        available and the platform is big.LITTLE.
         """
         if not self.hasEvents('cpu_capacity') \
-           or 'nrg_model' not in self.platform:
+           or 'nrg_model' not in self.platform \
+           or not self.has_big_little:
             return
 
         df = self._dfg_trace_event('cpu_capacity')
@@ -694,9 +669,17 @@ class Trace(object):
             df.rename(columns={'avg_period': 'period_contrib'}, inplace=True)
             df.rename(columns={'runnable_avg_sum': 'load_sum'}, inplace=True)
             df.rename(columns={'running_avg_sum': 'util_sum'}, inplace=True)
+
+        if not self.has_big_little:
+            return
+
         df['cluster'] = np.select(
                 [df.cpu.isin(self.platform['clusters']['little'])],
                 ['LITTLE'], 'big')
+
+        if 'nrg_model' not in self.platform:
+            return
+
         # Add a column which represents the max capacity of the smallest
         # clustre which can accomodate the task utilization
         little_cap = self.platform['nrg_model']['little']['cpu']['cap_max']
@@ -742,7 +725,8 @@ class Trace(object):
         Also convert between existing field name formats for sched_energy_diff
         """
         if not self.hasEvents('sched_energy_diff') \
-           or 'nrg_model' not in self.platform:
+           or 'nrg_model' not in self.platform \
+           or not self.has_big_little:
             return
         nrg_model = self.platform['nrg_model']
         em_lcluster = nrg_model['little']['cluster']
@@ -789,6 +773,18 @@ class Trace(object):
         df['start'] = df.index
         df['len'] = (df.start - df.start.shift()).fillna(0).shift(-1)
         df.drop('start', axis=1, inplace=True)
+
+        # Fix the last event, which will have a NaN duration
+        # Set duration to trace_end - last_event
+        df.loc[df.index[-1], 'len'] = self.start_time + self.time_range - df.index[-1]
+
+        # Build a stat on trace overutilization
+        df = self._dfg_trace_event('sched_overutilized')
+        self.overutilized_time = df[df.overutilized == 1].len.sum()
+        self.overutilized_prc = 100. * self.overutilized_time / self.time_range
+
+        self._log.debug('Overutilized time: %.6f [s] (%.3f%% of trace time)',
+                        self.overutilized_time, self.overutilized_prc)
 
     # Sanitize cgroup information helper
     def _helper_sanitize_CgroupAttachTask(self, df, allowed_cgroups, controller_id_name):
@@ -862,7 +858,8 @@ class Trace(object):
         Verify that all platform reported clusters are frequency coherent (i.e.
         frequency scaling is performed at a cluster level).
         """
-        if not self.hasEvents('cpu_frequency_devlib'):
+        if not self.hasEvents('cpu_frequency_devlib') \
+           or 'clusters' not in self.platform:
             return
 
         devlib_freq = self._dfg_trace_event('cpu_frequency_devlib')
@@ -967,7 +964,9 @@ class Trace(object):
         """
         if os.path.isdir(path):
             path = os.path.join(path, 'trace.stats')
-        if path.endswith('dat') or path.endswith('html'):
+        if (path.endswith('dat') or
+            path.endswith('txt') or
+            path.endswith('html')):
             pre, ext = os.path.splitext(path)
             path = pre + '.stats'
         if not os.path.isfile(path):
@@ -1060,6 +1059,10 @@ class Trace(object):
             )
 
         active.fillna(method='ffill', inplace=True)
+        # There might be NaNs in the signal where we got data from some CPUs
+        # before others. That will break the .astype(int) below, so drop rows
+        # with NaN in them.
+        active.dropna(inplace=True)
 
         # Cluster active is the OR between the actives on each CPU
         # belonging to that specific cluster

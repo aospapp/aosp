@@ -75,7 +75,7 @@
     <string name="approximate" msgid="7117143366610670836">"(±1 ក្នុងខ្ទង់ចុងក្រោយ)"</string>
     <string name="menu_leading" msgid="2338520833272667740">"ចម្លើយជាមួយខ្ទង់នាំមុខ"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"ចម្លើយជាប្រភាគ"</string>
-    <string name="menu_licenses" msgid="1890541368064108592">"អាជ្ញាប័ណ្ណប្រភពកូដចំហ"</string>
+    <string name="menu_licenses" msgid="1890541368064108592">"អាជ្ញាបណ្ណកូដចំហ"</string>
     <string name="menu_history" msgid="9006222701220105452">"ប្រវត្តិ"</string>
     <string name="menu_clear_history" msgid="2336526604226069572">"សម្អាត"</string>
     <string name="title_history" msgid="7820912156315181539">"ប្រវត្តិ"</string>

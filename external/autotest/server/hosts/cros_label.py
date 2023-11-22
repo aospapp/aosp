@@ -4,6 +4,7 @@
 
 """This class defines the CrosHost Label class."""
 
+import collections
 import logging
 import os
 import re
@@ -21,6 +22,20 @@ from autotest_lib.server.hosts import servo_host
 from autotest_lib.site_utils import hwid_lib
 
 # pylint: disable=missing-docstring
+LsbOutput = collections.namedtuple('LsbOutput', ['unibuild', 'board'])
+
+def _parse_lsb_output(host):
+  """Parses the LSB output and returns key data points for labeling.
+
+  @param host: Host that the command will be executed against
+  @returns: LsbOutput with the result of parsing the /etc/lsb-release output
+  """
+  release_info = utils.parse_cmd_output('cat /etc/lsb-release',
+                                        run_method=host.run)
+
+  unibuild = release_info.get('CHROMEOS_RELEASE_UNIBUILD') == '1'
+  return LsbOutput(unibuild, release_info['CHROMEOS_RELEASE_BOARD'])
+
 
 class BoardLabel(base_label.StringPrefixLabel):
     """Determine the correct board label for the device."""
@@ -37,14 +52,7 @@ class BoardLabel(base_label.StringPrefixLabel):
             if label.startswith(self._NAME + ':'):
                 return [label.split(':')[-1]]
 
-        # TODO(kevcheng): for now this will dup the code in CrosHost and a
-        # separate cl will refactor the get_board in CrosHost to just return the
-        # board without the BOARD_PREFIX and all the other callers will be
-        # updated to not need to clear it out and this code will be replaced to
-        # just call the host's get_board() method.
-        release_info = utils.parse_cmd_output('cat /etc/lsb-release',
-                                              run_method=host.run)
-        return [release_info['CHROMEOS_RELEASE_BOARD']]
+        return [_parse_lsb_output(host).board]
 
 
 class ModelLabel(base_label.StringPrefixLabel):
@@ -53,19 +61,32 @@ class ModelLabel(base_label.StringPrefixLabel):
     _NAME = ds_constants.MODEL_LABEL
 
     def generate_labels(self, host):
-        # Return the existing label if set to defend against any bad image
-        # pushes to the host.  See comment in BoardLabel for more details.
+        # Based on the issue explained in BoardLabel, return the existing
+        # label if it has already been set once.
         for label in host._afe_host.labels:
             if label.startswith(self._NAME + ':'):
                 return [label.split(':')[-1]]
 
-        cmd = "mosys platform model"
-        result = host.run(command=cmd, ignore_status=True)
-        if result.exit_status == 0:
-            return result.stddout
-        else:
-            logging.info("%s exited with status %d", cmd, result.exit_status)
-            return ""
+        lsb_output = _parse_lsb_output(host)
+        model = None
+
+        if lsb_output.unibuild:
+            test_label_cmd = 'cros_config / test-label'
+            result = host.run(command=test_label_cmd, ignore_status=True)
+            if result.exit_status == 0:
+                model = result.stdout.strip()
+            if not model:
+                mosys_cmd = 'mosys platform model'
+                result = host.run(command=mosys_cmd, ignore_status=True)
+                if result.exit_status == 0:
+                    model = result.stdout.strip()
+
+        # We need some sort of backwards compatibility for boards that
+        # are not yet supported with mosys and unified builds.
+        # This is necessary so that we can begin changing cbuildbot to take
+        # advantage of the model/board label differentiations for
+        # scheduling, while still retaining backwards compatibility.
+        return [model or lsb_output.board]
 
 
 class LightSensorLabel(base_label.BaseLabel):
@@ -268,6 +289,7 @@ class StorageLabel(base_label.StringPrefixLabel):
              * `storage:ssd` when internal device is solid state drive
              * `storage:hdd` when internal device is hard disk drive
              * `storage:mmc` when internal device is mmc drive
+             * `storage:nvme` when internal device is NVMe drive
              * None          When internal device is something else or
                              when we are unable to determine the type
     """
@@ -336,6 +358,11 @@ class StorageLabel(base_label.StringPrefixLabel):
             self.type_str = rotate_dict.get(rotate_str)
             return True
 
+        nvme_pattern = '/dev/nvme[0-9]+n[0-9]+'
+        if re.match(nvme_pattern, rootdev_str):
+            self.type_str = 'nvme'
+            return True
+
         # All other internal device / error case will always fall here
         return False
 
@@ -369,6 +396,7 @@ class VideoLabel(base_label.StringLabel):
     # List gathered from
     # https://chromium.googlesource.com/chromiumos/
     # platform2/+/master/avtest_label_detect/main.c#19
+    # TODO(hiroh): '4k_video' won't be used. It will be removed in the future.
     _NAME = [
         'hw_jpeg_acc_dec',
         'hw_video_acc_h264',
@@ -377,6 +405,10 @@ class VideoLabel(base_label.StringLabel):
         'hw_video_acc_enc_h264',
         'hw_video_acc_enc_vp8',
         'webcam',
+        '4k_video',
+        '4k_video_h264',
+        '4k_video_vp8',
+        '4k_video_vp9',
     ]
 
     def generate_labels(self, host):
@@ -385,8 +417,21 @@ class VideoLabel(base_label.StringLabel):
         return re.findall('^Detected label: (\w+)$', result, re.M)
 
 
-class CTSArchLabel(base_label.StringLabel):
-    """Labels to determine CTS abi."""
+class ArcLabel(base_label.BaseLabel):
+    """Label indicates if host has ARC support."""
+
+    _NAME = 'arc'
+
+    @base_label.forever_exists_decorate
+    def exists(self, host):
+        return 0 == host.run(
+            'grep CHROMEOS_ARC_VERSION /etc/lsb-release',
+            ignore_status=True).exit_status
+
+
+class CtsArchLabel(base_label.StringLabel):
+    """Labels to determine the abi of the CTS bundle (arm or x86 only)."""
+    # TODO(ihf): create labels for ABIs supported by container like x86_64.
 
     _NAME = ['cts_abi_arm', 'cts_abi_x86']
 
@@ -398,20 +443,48 @@ class CTSArchLabel(base_label.StringLabel):
         cts_abis = {'x86_64': ['arm', 'x86'], 'arm': ['arm']}
         return cts_abis.get(host.get_cpu_arch(), [])
 
-
     def generate_labels(self, host):
         return ['cts_abi_' + abi for abi in self._get_cts_abis(host)]
 
 
-class ArcLabel(base_label.BaseLabel):
-    """Label indicates if host has ARC support."""
+class SparseCoverageLabel(base_label.StringLabel):
+    """Label indicates if it is desirable to cover a test for this build."""
 
-    _NAME = 'arc'
+    # Prime numbers. We can easily construct 6, 10, 15 and 30 from these.
+    _NAME = ['sparse_coverage_2', 'sparse_coverage_3', 'sparse_coverage_5']
 
-    @base_label.forever_exists_decorate
-    def exists(self, host):
-        return 0 == host.run('grep CHROMEOS_ARC_VERSION /etc/lsb-release',
-                             ignore_status=True).exit_status
+    def _should_cover(self, host, nth_build):
+        release_info = utils.parse_cmd_output(
+            'cat /etc/lsb-release', run_method=host.run)
+        build = release_info.get('CHROMEOS_RELEASE_BUILD_NUMBER')
+        branch = release_info.get('CHROMEOS_RELEASE_BRANCH_NUMBER')
+        patch = release_info.get('CHROMEOS_RELEASE_PATCH_NUMBER')
+        builder = release_info.get('CHROMEOS_RELEASE_BUILDER_PATH')
+        if not 'release' in builder:
+            # Sparse coverage only makes sense on release/canary builds.
+            return True
+        if patch != '0':
+            # We are on a paladin or pfq build. These are never sparse.
+            # Redundant with release check above but just in case.
+            return True
+        if branch != '0':
+            # We are on a branch. For now these are not sparse.
+            # TODO(ihf): Consider sparse coverage on beta.
+            return True
+        # Now we can be sure we are on master.
+        if int(build) % nth_build == 0:
+            # We only want to cover one in n builds on master. This is the
+            # lucky one.
+            return True
+        # We skip all other builds on master.
+        return False
+
+    def generate_labels(self, host):
+        labels = []
+        for n in [2, 3, 5]:
+            if self._should_cover(host, n):
+                labels.append('sparse_coverage_%d' % n)
+        return labels
 
 
 class VideoGlitchLabel(base_label.BaseLabel):
@@ -517,17 +590,28 @@ class HWIDLabel(base_label.StringLabel):
         return all_hwid_labels, all_hwid_labels
 
 
+class DetachableBaseLabel(base_label.BaseLabel):
+    """Label indicating if device has detachable keyboard."""
+
+    _NAME = 'detachablebase'
+
+    def exists(self, host):
+        return host.run('which hammerd', ignore_status=True).exit_status == 0
+
+
 CROS_LABELS = [
     AccelsLabel(),
     ArcLabel(),
     AudioLoopbackDongleLabel(),
     BluetoothLabel(),
     BoardLabel(),
+    ModelLabel(),
     ChameleonConnectionLabel(),
     ChameleonLabel(),
     ChameleonPeripheralsLabel(),
     common_label.OSLabel(),
-    CTSArchLabel(),
+    CtsArchLabel(),
+    DetachableBaseLabel(),
     ECLabel(),
     HWIDLabel(),
     InternalDisplayLabel(),
@@ -535,6 +619,7 @@ CROS_LABELS = [
     LucidSleepLabel(),
     PowerSupplyLabel(),
     ServoLabel(),
+    SparseCoverageLabel(),
     StorageLabel(),
     VideoGlitchLabel(),
     VideoLabel(),

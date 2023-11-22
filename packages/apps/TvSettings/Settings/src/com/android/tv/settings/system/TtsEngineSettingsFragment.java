@@ -25,7 +25,6 @@ import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.TtsEngines;
 import android.support.annotation.NonNull;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.ListPreference;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceScreen;
@@ -33,14 +32,17 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.Locale;
 
-public class TtsEngineSettingsFragment extends LeanbackPreferenceFragment implements
+/**
+ * The text-to-speech engine settings screen in TV Settings.
+ */
+public class TtsEngineSettingsFragment extends SettingsPreferenceFragment implements
         Preference.OnPreferenceClickListener, Preference.OnPreferenceChangeListener {
     private static final String TAG = "TtsEngineSettings";
     private static final boolean DBG = false;
@@ -276,12 +278,7 @@ public class TtsEngineSettingsFragment extends LeanbackPreferenceFragment implem
         }
 
         // Sort it
-        Collections.sort(entryPairs, new Comparator<Pair<String, Locale>>() {
-            @Override
-            public int compare(Pair<String, Locale> lhs, Pair<String, Locale> rhs) {
-                return lhs.first.compareToIgnoreCase(rhs.first);
-            }
-        });
+        entryPairs.sort((lhs, rhs) -> lhs.first.compareToIgnoreCase(rhs.first));
 
         // Get two arrays out of one of pairs
         mSelectedLocaleIndex = 0; // Will point to the R.string.tts_lang_use_system value
@@ -384,5 +381,10 @@ public class TtsEngineSettingsFragment extends LeanbackPreferenceFragment implem
 
     private String getEngineLabel() {
         return getArguments().getString(ARG_ENGINE_LABEL);
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.TTS_ENGINE_SETTINGS;
     }
 }

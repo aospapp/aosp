@@ -20,11 +20,35 @@
     <string name="launcher_settings_app_name" msgid="5782771766725939392">"Setări"</string>
     <string name="launcher_network_app_name" msgid="5107150533945388559">"Rețea"</string>
     <string name="launcher_restricted_profile_app_name" msgid="671448012575234643">"Profil cu acces limitat"</string>
+    <string name="header_category_suggestions" msgid="6732367439328586933">"Sugestii"</string>
+    <string name="header_category_quick_settings" msgid="6626141045575946920">"Setări rapide"</string>
+    <string name="header_category_general_settings" msgid="1208946854116876918">"Setări generale"</string>
+    <string name="dismiss_suggestion" msgid="8288127823132069828">"Respingeți sugestia"</string>
+    <string name="hotwording_title" msgid="1984130766527626626">"Detectare „Ok Google”"</string>
+    <string name="hotwording_summary" msgid="2863751845299261441">"Vorbiți oricând cu Asistentul Google"</string>
     <string name="header_category_device" msgid="4855983928659541345">"Dispozitiv"</string>
     <string name="header_category_preferences" msgid="175105555164713972">"Preferințe"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"Telecomandă și accesorii"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"Personal"</string>
-    <string name="accounts_category_title" msgid="7591072907146317425">"Conturi"</string>
+    <string name="connect_to_network" msgid="2209125715907353369">"Conectați-vă la rețea"</string>
+    <string name="add_an_account" msgid="1123478843971990449">"Adăugați un cont"</string>
+    <string name="accounts_category_title" msgid="7839427428921349418">"Conturi și conectare"</string>
+    <string name="accounts_category_summary_no_account" msgid="5739678666463033824">"Niciun cont"</string>
+    <plurals name="accounts_category_summary" formatted="false" msgid="3864659911073569648">
+      <item quantity="few"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> conturi</item>
+      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> de conturi</item>
+      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> cont</item>
+    </plurals>
+    <string name="connectivity_network_category_title" msgid="6005656364481347542">"Rețea și internet"</string>
+    <string name="applications_category_title" msgid="3552921143969612110">"Aplicații"</string>
+    <string name="device_pref_category_title" msgid="5264163316572335776">"Preferințe privind dispozitivul"</string>
+    <string name="remotes_and_accessories_category_title" msgid="2729050422677319645">"Telecomenzi și accesorii"</string>
+    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3967545806275801632">"Niciun dispozitiv Bluetooth conectat"</string>
+    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="2004733390509722820">
+      <item quantity="few"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> accesorii</item>
+      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> de accesorii</item>
+      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g> accesoriu</item>
+    </plurals>
     <string name="add_account" msgid="4098060223200619258">"Adăugați un cont"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"Eliminați contul"</string>
     <string name="account_sync" msgid="773808124331714965">"Alegeți aplicații sincronizate"</string>
@@ -40,27 +64,47 @@
 %1$s</xliff:g>"</string>
     <string name="sync_failed" msgid="5514824149810480551">"Sincronizarea nu a reușit"</string>
     <string name="sync_active" msgid="6891115263481154378">"Sincronizarea este activă"</string>
-    <string name="connectivity_network" msgid="8321537111272398501">"Rețea"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
+    <string name="connectivity_summary_ethernet_connected" msgid="2015335020646410586">"Ethernet conectat"</string>
+    <string name="connectivity_summary_no_network_connected" msgid="5187378791046457432">"Nicio rețea conectată"</string>
+    <string name="connectivity_summary_wifi_disabled" msgid="6904637079319724455">"Wi-Fi este dezactivat"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Scanare mereu disponibilă"</string>
     <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Permiteți serviciului de localizare Google și altor aplicații să caute rețele, chiar dacă rețeaua Wi-Fi este dezactivată"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
+    <string name="connectivity_hint_message" msgid="1314202316675864203">"Conectați-vă la rețea"</string>
+    <string name="apps_recently_used_category_title" msgid="5254492409677346900">"Aplicații deschise recent"</string>
+    <string name="apps_see_all_apps" msgid="5546179088197139203">"Vedeți toate aplicațiile"</string>
+    <string name="apps_permissions_category_title" msgid="4476837368840442313">"Permisiuni"</string>
+    <string name="all_apps_title" msgid="5330174847732759402">"Toate aplicațiile"</string>
+    <string name="all_apps_show_system_apps" msgid="4648447904721171884">"Afișați aplicațiile de sistem"</string>
+    <string name="all_apps_installed" msgid="54800379871111518">"Aplicații instalate"</string>
+    <string name="all_apps_other" msgid="8297097642727891911">"Aplicații de sistem"</string>
+    <string name="all_apps_disabled" msgid="2016067533586741345">"Aplicații dezactivate"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Economizor de ecran"</string>
     <string name="device_display" msgid="101455384386372747">"Afișaj"</string>
     <string name="device_sound" msgid="9214182566287657481">"Sunet"</string>
     <string name="device_surround_sound" msgid="6272196310566546860">"Sunet surround"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Sunete de sistem"</string>
-    <string name="device_apps" msgid="9180435229638772838">"Aplicații"</string>
-    <string name="device_storage_reset" msgid="1425978936501134425">"Stocare și resetare"</string>
+    <string name="device_apps" msgid="1971794537385509294">"Aplicații"</string>
+    <string name="device_storage" msgid="5536683600091277826">"Stocare"</string>
+    <string name="device_reset" msgid="1885840356489458285">"Resetați"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"Creați și restabiliți backupuri"</string>
-    <string name="device_reset" msgid="2827002349560023125">"Revenire la setările din fabrică"</string>
+    <string name="device_factory_reset" msgid="6537106927211842545">"Revenire la setările din fabrică"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Calibrare"</string>
+    <string name="surround_sound_select_formats" msgid="6329868407147678259">"Selectați formatele"</string>
+    <string name="surround_sound_category_title" msgid="1331285587464316534">"Sunet surround"</string>
+    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
+    <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
+    <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
+    <string name="surround_sound_auto_info" msgid="4957977219847012992">"Notă: opțiunea Auto ar putea să nu funcționeze dacă dispozitivul nu raportează corect formatele acceptate."</string>
+    <string name="surround_sound_auto_summary" msgid="175387511376834034">"Auto: utilizați formatele acceptate (recomandat)"</string>
+    <string name="surround_sound_none_summary" msgid="4295042972785042496">"Fără: nu utilizați niciodată sunet surround"</string>
+    <string name="surround_sound_manual_summary" msgid="9208540024024014501">"Manual: selectați formatele de utilizat"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"Ștergeți datele memorate în cache?"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Datele din cache ale aplicațiilor vor fi șterse."</string>
-    <string name="apps_downloaded" msgid="4222190849854323480">"Aplicații descărcate"</string>
-    <string name="apps_system" msgid="2499191125802829425">"Aplicații de sistem"</string>
-    <string name="apps_running" msgid="6430310491739956228">"Aplicații pornite"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Adăugați un accesoriu"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"Se împerechează…"</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"Se conectează…"</string>
@@ -91,12 +135,16 @@
     <string name="system_date_time" msgid="8898457978560618950">"Data și ora"</string>
     <string name="system_language" msgid="2337138146114609247">"Limbă"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Tastatură"</string>
+    <string name="system_keyboard_autofill" msgid="5787948036400896834">"Tastatură și completarea automată"</string>
+    <string name="system_autofill" msgid="8647914463541617409">"Completare automată"</string>
     <string name="system_home" msgid="2858989138172296012">"Ecran de pornire"</string>
     <string name="system_search" msgid="2837264654143247611">"Căutare"</string>
     <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Securitate și restricții"</string>
     <string name="system_speech" msgid="8128688499687306982">"Recunoaștere vocală"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Intrări"</string>
+    <string name="system_inputs_devices" msgid="8700905419497948327">"Intrări și dispozitive"</string>
+    <string name="system_home_theater_control" msgid="2053198603790384368">"Comenzi pentru sistemul „Home Theatre”"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Accesibilitate"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"Opțiuni pentru dezvoltatori"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Niciuna"</string>
@@ -144,14 +192,11 @@
     <string name="imei_information_title" msgid="5208860549282877136">"Informații despre IMEI"</string>
     <string name="status_bt_address" msgid="1571721865060122393">"Adresă Bluetooth"</string>
     <string name="status_up_time" msgid="1674116490191446110">"Durată de funcționare"</string>
-    <string name="status_wimax_mac_address" msgid="1102907383444152052">"Adresă MAC 4G"</string>
     <string name="legal_information" msgid="2346024659831852038">"Informații de ordin juridic"</string>
     <string name="copyright_title" msgid="5564228453228549353">"Drepturi de autor"</string>
     <string name="license_title" msgid="4482927105870812604">"Licență"</string>
     <string name="terms_title" msgid="8480859222932736291">"Termeni și condiții"</string>
     <string name="webview_license_title" msgid="8843666223583780825">"Licență de sistem pentru WebView"</string>
-    <string name="wallpaper_attributions" msgid="8622098625739634898">"Imagini de fundal"</string>
-    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"Furnizori de imagini din satelit:\n©2014 CNES/Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"Slab"</item>
     <item msgid="5986166866411161790">"Acceptabil"</item>
@@ -169,10 +214,8 @@
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"Afișați tot"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Afișați mai puține"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"Rețele disponibile"</string>
-    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Conectați-vă prin WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Adăugați o rețea nouă"</string>
     <string name="security_type" msgid="524443802004143058">"Tip de securitate"</string>
-    <string name="wps_network" msgid="1052148085426051873">"Conectați-vă prin WPS"</string>
     <string name="other_network" msgid="3539704463099544488">"Altă rețea…"</string>
     <string name="skip_network" msgid="6380260543776712357">"Omiteți"</string>
     <string name="wifi_security_type_none" msgid="6622722325237471927">"Nesecurizată"</string>
@@ -207,6 +250,8 @@
     <string name="wifi_forget_network" msgid="7302755141573045803">"Eliminați rețeaua"</string>
     <string name="wifi_forget_network_description" msgid="3328285160018330334">"Vor fi șterse informațiile utilizate pentru conectarea la această rețea, inclusiv parolele salvate"</string>
     <string name="wifi_action_ok" msgid="5932500664228395779">"OK"</string>
+    <string name="wifi_setup_action_dont_change_network" msgid="5136210803832000656">"Continuați"</string>
+    <string name="wifi_setup_action_change_network" msgid="4320731433166354508">"Schimbați rețeaua"</string>
     <string name="wifi_action_change_network" msgid="5196215981075986148">"Schimbați"</string>
     <string name="wifi_action_dont_change_network" msgid="1449920958930251977">"Nu schimbați"</string>
     <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"OK"</string>
@@ -235,6 +280,11 @@
     <string name="proxy_port_description" msgid="6791098212244367568">"Introduceți un port valid.\nExemplu: <xliff:g id="ID_1">8080</xliff:g>"</string>
     <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Introduceți o listă de domenii excluse, separate prin virgulă sau nu completați.\nExemplu: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
     <string name="proxy_hostname_description" msgid="5824391500254472447">"Introduceți un nume de gazdă valid.\nExemplu: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
+    <string name="title_wifi_eap_method" msgid="3723583936041145157">"Alegeți metoda EAP pentru <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="title_wifi_phase2_authentication" msgid="8292177518924013886">"Alegeți autentificarea din faza 2 pentru <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="title_wifi_identity" msgid="6154397685951091638">"Introduceți identitatea pentru <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="title_wifi_anonymous_identity" msgid="4530402657655491360">"Introduceți identitate anonimă pentru <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_summary_title_connected" msgid="3349953509191969645">"V-ați conectat la <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"Conectat la rețea"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Rețeaua nu este conectată"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"Sunteți conectat(ă) deja la <xliff:g id="SSID">%1$s</xliff:g>. Doriți să vă conectați la altă rețea?"</string>
@@ -318,15 +368,6 @@
     <string name="system_package" msgid="9200255718634512790">"Actualizările de sistem nu pot fi instalate pe suportul extern."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Administratorul de dispozitive nu poate fi instalat pe suportul extern."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"Aflați mai multe"</string>
-    <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Reîncercați"</string>
-    <string name="wifi_wps_title" msgid="1872305810119408482">"Se caută routerul WPS…"</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"Apăsați pe butonul Configurare protejată Wi-Fi pe router.\nAcesta se poate numi „WPS” sau poate conține simbolul din partea stângă."</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Introduceți codul PIN <xliff:g id="NUMBER">%1$s</xliff:g> pe routerul Wi-Fi."</string>
-    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"După ce introduceți codul PIN, finalizarea configurării poate dura până la 2 minute"</string>
-    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Nu s-a găsit routerul Wi-Fi"</string>
-    <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Setarea de securitate (WEP) pentru routerul Wi-Fi nu este acceptată"</string>
-    <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Setarea de securitate (TKIP) pentru routerul Wi-Fi nu este acceptată"</string>
-    <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"Se desfășoară altă sesiune WPS. Încercați din nou peste câteva minute."</string>
     <string name="system_date" msgid="2767108116769558081">"Data"</string>
     <string name="system_time" msgid="6726022312605226285">"Ora"</string>
     <string name="system_set_date" msgid="2437586307768561116">"Setați data"</string>
@@ -520,9 +561,14 @@
     <string name="tts_rate_normal" msgid="362011908545519639">"Normal"</string>
     <string name="tts_rate_fast" msgid="3792863158623953072">"Rapid"</string>
     <string name="tts_rate_very_fast" msgid="5876670536911919074">"Foarte rapid"</string>
+    <string name="title_settings" msgid="5433841477518010243">"Setări <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"Tastatura curentă"</string>
     <string name="title_configure" msgid="6929522003149212388">"Configurați"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"Opțiuni tastatură"</string>
+    <string name="title_current_autofill_service" msgid="6055852915343152350">"Serviciul actual de completare automată"</string>
+    <string name="title_select_autofill_service" msgid="2515782066694197988">"Selectați Serviciul de completare automată"</string>
+    <string name="autofill_none" msgid="2426888642367790651">"Fără"</string>
+    <string name="autofill_confirmation_message" msgid="9068009043054751287">"&lt;b&gt;Asigurați-vă că aveți încredere în această aplicație&lt;/b&gt; &lt;br/&gt; &lt;br/&gt; &lt;xliff:g id=app_name example=Password service&gt;%1$s&lt;/xliff:g&gt; folosește conținutul de pe ecran pentru a stabili ce se poate completa automat."</string>
     <string name="computing_size" msgid="2955133568424704042">"Se calculează…"</string>
     <string name="title_select_wifi_network" msgid="1038871400014761952">"Selectați rețeaua Wi-Fi"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"Redenumiți"</string>
@@ -650,7 +696,7 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Ștergeți toate informațiile personale și aplicațiile descărcate? Nu puteți anula această acțiune!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Ștergeți tot"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Alegeți un nume pentru <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="6890879006777364213">"Denumiți dispozitivul <xliff:g id="DEVICEMODEL">%1$s</xliff:g> pentru a-l identifica mai ușor când proiectați conținut sau când vă conectați la el de pe alte dispozitive."</string>
+    <string name="select_device_name_description" msgid="4939767901420114190">"Denumiți dispozitivul pentru a-l identifica mai ușor când proiectați conținut sau când vă conectați la el de pe alte dispozitive."</string>
   <string-array name="rooms">
     <item msgid="9056203990862307284">"Android TV"</item>
     <item msgid="7449352861592960712">"Televizor în camera de zi"</item>
@@ -660,11 +706,13 @@
     <string name="custom_room" msgid="8655516733933892458">"Introduceți un nume personalizat…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Redenumiți acest <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Acest <xliff:g id="DEVICEMODEL">%1$s</xliff:g> este momentan denumit „<xliff:g id="DEVICENAME">%2$s</xliff:g>”"</string>
+    <string name="device_name_suggestion_title" msgid="2312205155408810120">"Setați numele dispozitivului"</string>
+    <string name="device_name_suggestion_summary" msgid="5657494684788779371">"Folosiți acest nume când proiectați fotografii, videoclipuri și multe altele de pe telefon"</string>
     <string name="change_setting" msgid="2047402388786162246">"Modificați"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Nu modificați"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Permisiuni"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"Permisiuni aplicație"</string>
-    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> din <xliff:g id="COUNT_1">%d</xliff:g> aplicații permise"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%1$d</xliff:g> din <xliff:g id="COUNT_1">%2$d</xliff:g> aplicații permise"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Solicitare de permisiune Bluetooth"</string>
     <string name="security_patch" msgid="2131617390189164481">"Nivelul corecției de securitate Android"</string>
     <string name="choose_application" msgid="5662960665577780353">"Alegeți aplicația"</string>
@@ -679,4 +727,27 @@
     <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Nepermis"</string>
     <string name="usage_access" msgid="1914242907684452328">"Acces la datele de utilizare"</string>
     <string name="usage_access_description" msgid="6290001769893747651">"Accesul la datele de utilizare permite unei aplicații să înregistreze ce alte aplicații folosiți și cât de des le folosiți, precum și operatorul, setările de limbă și alte detalii."</string>
+    <string name="high_power_apps" msgid="7796096221999495077">"Optimizarea energiei"</string>
+    <string name="high_power_apps_description" msgid="1990016812115792282">"Optimizați consumul de energie al aplicațiilor"</string>
+    <string name="high_power_apps_empty" msgid="1355906551507153470">"Nicio aplicație nu trebuie optimizată"</string>
+    <string name="high_power_on" msgid="7725180078784796673">"Neoptimizată"</string>
+    <string name="high_power_off" msgid="308272752152871252">"Se optimizează consumul de energie"</string>
+    <string name="high_power_system" msgid="7815843517656137656">"Optimizarea energiei nu este disponibilă"</string>
+    <string name="manage_notification_access_title" msgid="2051765294087620434">"Accesul la notificări"</string>
+    <string name="no_notification_listeners" msgid="4583789599075326886">"Nicio aplicație instalată nu a solicitat accesul la notificări."</string>
+    <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Aceste aplicații vor putea să citească toate notificările, inclusiv informațiile cu caracter personal, cum ar fi numele persoanelor de contact și textul mesajelor primite. De asemenea, vor putea să respingă notificări sau să declanșeze butoane pentru acțiuni din acestea."</string>
+    <string name="system_alert_window_settings" msgid="2069031369694448339">"Afișare peste alte aplicații"</string>
+    <string name="permit_draw_overlay" msgid="2400084757761408906">"Permiteți afișarea peste alte aplicații"</string>
+    <string name="allow_overlay_description" msgid="1946279120428813474">"Permiteți unei aplicații să se afișeze peste alte aplicații pe care le folosiți. Aceasta poate interfera cu folosirea acelor aplicații sau poate schimba modul în care acestea apar sau se comportă."</string>
+    <string name="write_system_settings" msgid="2730923656857824907">"Modifică setările de sistem"</string>
+    <string name="write_settings_title" msgid="8750406725746598710">"Pot modifica setările de sistem"</string>
+    <string name="write_settings_description" msgid="2765037074460395437">"Având această permisiune, o aplicație poate să modifice setările de sistem."</string>
+    <string name="write_settings_on" msgid="3312616037931341656">"Da"</string>
+    <string name="write_settings_off" msgid="6219072254626503312">"Nu"</string>
+    <string name="picture_in_picture_title" msgid="7738692876349058">"Picture-in-picture"</string>
+    <string name="picture_in_picture_app_detail_switch" msgid="8063965798321494391">"Permiteți modul picture-in-picture"</string>
+    <string name="picture_in_picture_empty_text" msgid="5592688180792300051">"Niciuna dintre aplicațiile instalate nu acceptă picture-in-picture"</string>
+    <string name="picture_in_picture_app_detail_summary" msgid="3478182415601436326">"Permiteți aplicațiilor să creeze o fereastră picture-in-picture în timp ce aplicația este deschisă sau după ce ieșiți (de exemplu, pentru a continua vizionarea unui videoclip). Această fereastră se afișează peste alte aplicații pe care le folosiți."</string>
+    <string name="special_access" msgid="3513811566600299998">"Acces special pentru aplicații"</string>
+    <string name="string_concat" msgid="5897947064488902904">"<xliff:g id="PART1">%1s</xliff:g>, <xliff:g id="PART2">%2s</xliff:g>"</string>
 </resources>

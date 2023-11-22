@@ -29,10 +29,12 @@ BnTo2B(
     )
 {
     BYTE      *pb = outVal->buffer;
+    UINT16    unpaddedSize = (((UINT16) BN_num_bits(inVal) + 7) / 8);
     outVal->size = size;
-    size = size - (((UINT16) BN_num_bits(inVal) + 7) / 8);
-    if(size < 0)
+    if(size < unpaddedSize)
         return FALSE;
+
+    size -= unpaddedSize;
     for(;size > 0; size--)
         *pb++ = 0;
     BN_bn2bin(inVal, pb);

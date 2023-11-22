@@ -22,6 +22,7 @@
 #include "Utils.h"
 
 #include <algorithm>
+#include <android-base/macros.h>
 #include <vector>
 
 namespace android {
@@ -60,13 +61,40 @@ struct RunTimeOperandInfo {
 };
 
 // Used to keep a pointer to each of the memory pools.
-struct RunTimePoolInfo {
-    sp<IMemory> memory;
-    hidl_memory hidlMemory;
-    uint8_t* buffer;
+//
+// In the case of an "mmap_fd" pool, owns the mmap region
+// returned by getBuffer() -- i.e., that region goes away
+// when the RunTimePoolInfo is destroyed or is assigned to.
+class RunTimePoolInfo {
+public:
+    // If "fail" is not nullptr, and construction fails, then set *fail = true.
+    // If construction succeeds, leave *fail unchanged.
+    // getBuffer() == nullptr IFF construction fails.
+    explicit RunTimePoolInfo(const hidl_memory& hidlMemory, bool* fail);
 
-    bool set(const hidl_memory& hidlMemory);
-    bool update();
+    explicit RunTimePoolInfo(uint8_t* buffer);
+
+    // Implement move
+    RunTimePoolInfo(RunTimePoolInfo&& other);
+    RunTimePoolInfo& operator=(RunTimePoolInfo&& other);
+
+    // Forbid copy
+    RunTimePoolInfo(const RunTimePoolInfo&) = delete;
+    RunTimePoolInfo& operator=(const RunTimePoolInfo&) = delete;
+
+    ~RunTimePoolInfo() { release(); }
+
+    uint8_t* getBuffer() const { return mBuffer; }
+
+    bool update() const;
+
+private:
+    void release();
+    void moveFrom(RunTimePoolInfo&& other);
+
+    hidl_memory mHidlMemory;     // always used
+    uint8_t* mBuffer = nullptr;  // always used
+    sp<IMemory> mMemory;         // only used when hidlMemory.name() == "ashmem"
 };
 
 bool setRunTimePoolInfosFromHidlMemories(std::vector<RunTimePoolInfo>* poolInfos,
@@ -79,7 +107,10 @@ public:
     // specified in the constructor.
     // The model must outlive the executor.  We prevent it from being modified
     // while this is executing.
-    int run(const Model& model, const Request& request,
+    int run(const V1_0::Model& model, const Request& request,
+            const std::vector<RunTimePoolInfo>& modelPoolInfos,
+            const std::vector<RunTimePoolInfo>& requestPoolInfos);
+    int run(const V1_1::Model& model, const Request& request,
             const std::vector<RunTimePoolInfo>& modelPoolInfos,
             const std::vector<RunTimePoolInfo>& requestPoolInfos);
 
@@ -105,6 +136,43 @@ private:
     // Runtime information about all the operands.
     std::vector<RunTimeOperandInfo> mOperands;
 };
+
+// Class for setting reasonable OpenMP threading settings. (OpenMP is used by
+// the Eigen matrix library.)
+//
+// Currently sets a low blocktime: the time OpenMP threads busy-wait for more
+// work before going to sleep. See b/79159165, https://reviews.llvm.org/D18577.
+// The default is 200ms, we set to 20ms here, see b/109645291. This keeps the
+// cores enabled throughout inference computation without too much extra power
+// consumption afterwards.
+//
+// The OpenMP settings are thread-local (applying only to worker threads formed
+// from that thread), see https://software.intel.com/en-us/node/522688 and
+// http://lists.llvm.org/pipermail/openmp-dev/2016-July/001432.html. This class
+// ensures that within the scope in which an object is instantiated we use the
+// right settings (scopes may be nested), as long as no other library changes
+// them.  (Note that in current NNAPI usage only one instance is used in the
+// CpuExecutor thread).
+//
+// TODO(mikie): consider also setting the number of threads used. Using as many
+// threads as there are cores results in more variable performance: if we don't
+// get all cores for our threads, the latency is doubled as we wait for one core
+// to do twice the amount of work. Reality is complicated though as not all
+// cores are the same. Decision to be based on benchmarking against a
+// representative set of workloads and devices. I'm keeping the code here for
+// reference.
+class ScopedOpenmpSettings {
+public:
+    ScopedOpenmpSettings();
+    ~ScopedOpenmpSettings();
+    DISALLOW_COPY_AND_ASSIGN(ScopedOpenmpSettings);
+private:
+    int mBlocktimeInitial;
+#if NNAPI_LIMIT_CPU_THREADS
+    int mMaxThreadsInitial;
+#endif
+};
+
 
 namespace {
 

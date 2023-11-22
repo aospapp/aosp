@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Išvalyti visą informaciją ir kontaktus?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Pridėję medicininės informacijos ir kritinės padėties kontaktų, padėsite žmonėms, kurie sureaguos kritiniu atveju.\n\nVisi galės perskaityti šią informaciją ir paskambinti jūsų kontaktams įvesdami jų vardus užrakinimo ekrane neatrakinę telefono."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Pridėkite kritinės padėties informaciją"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Padėkite pirmiesiems sureagavusiems žmonėms rasti svarbią informaciją"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Leiskite pirmiesiems sureag. žm. matyti jūsų inform."</string>
 </resources>

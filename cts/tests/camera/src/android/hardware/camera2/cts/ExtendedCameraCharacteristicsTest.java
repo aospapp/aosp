@@ -31,6 +31,8 @@ import android.hardware.camera2.params.ColorSpaceTransform;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.CamcorderProfile;
 import android.media.ImageReader;
+import android.os.Build;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
 import android.util.Rational;
@@ -38,6 +40,7 @@ import android.util.Range;
 import android.util.Size;
 import android.util.Patterns;
 import android.view.Surface;
+import android.view.WindowManager;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,12 +48,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Set;
 
 import static android.hardware.camera2.cts.helpers.AssertHelpers.*;
 
 /**
  * Extended tests for static camera characteristics.
  */
+@AppModeFull
 public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
     private static final String TAG = "ExChrsTest"; // must be short so next line doesn't throw
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -73,6 +78,7 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
     private static final Size VGA = new Size(640, 480);
     private static final Size QVGA = new Size(320, 240);
 
+    private static final long FRAME_DURATION_30FPS_NSEC = (long) 1e9 / 30;
     /*
      * HW Levels short hand
      */
@@ -80,6 +86,7 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
     private static final int LIMITED = CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED;
     private static final int FULL = CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_FULL;
     private static final int LEVEL_3 = CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_3;
+    private static final int EXTERNAL = CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL;
     private static final int OPT = Integer.MAX_VALUE;  // For keys that are optional on all hardware levels.
 
     /*
@@ -100,6 +107,8 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
             CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING;
     private static final int CONSTRAINED_HIGH_SPEED =
             CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_CONSTRAINED_HIGH_SPEED_VIDEO;
+    private static final int MONOCHROME =
+            CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME;
     private static final int HIGH_SPEED_FPS_LOWER_MIN = 30;
     private static final int HIGH_SPEED_FPS_UPPER_MIN = 120;
 
@@ -141,7 +150,7 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
     /**
      * Test that the available stream configurations contain a few required formats and sizes.
      */
-    public void testAvailableStreamConfigs() {
+    public void testAvailableStreamConfigs() throws Exception {
         int counter = 0;
         for (CameraCharacteristics c : mCharacteristics) {
             StreamConfigurationMap config =
@@ -212,12 +221,32 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
             ArrayList<Size> jpegSizesList = new ArrayList<>(Arrays.asList(jpegSizes));
             ArrayList<Size> yuvSizesList = new ArrayList<>(Arrays.asList(yuvSizes));
             ArrayList<Size> privateSizesList = new ArrayList<>(Arrays.asList(privateSizes));
-
-            int cameraId = Integer.valueOf(mIds[counter]);
-            CamcorderProfile maxVideoProfile = CamcorderProfile.get(
-                    cameraId, CamcorderProfile.QUALITY_HIGH);
-            Size maxVideoSize = new Size(
-                    maxVideoProfile.videoFrameWidth, maxVideoProfile.videoFrameHeight);
+            boolean isExternalCamera = (hwLevel ==
+                    CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL);
+            Size maxVideoSize = null;
+            if (isExternalCamera) {
+                // TODO: for now, use FULLHD 30 as largest possible video size
+                List<Size> videoSizes = CameraTestUtils.getSupportedVideoSizes(
+                        mIds[counter], mCameraManager, FULLHD);
+                for (Size sz : videoSizes) {
+                    long minFrameDuration = config.getOutputMinFrameDuration(
+                            android.media.MediaRecorder.class, sz);
+                    // Give some margin for rounding error
+                    if (minFrameDuration > (1e9 / 30.1)) {
+                        maxVideoSize = sz;
+                        break;
+                    }
+                }
+            } else {
+                int cameraId = Integer.valueOf(mIds[counter]);
+                CamcorderProfile maxVideoProfile = CamcorderProfile.get(
+                        cameraId, CamcorderProfile.QUALITY_HIGH);
+                maxVideoSize = new Size(
+                        maxVideoProfile.videoFrameWidth, maxVideoProfile.videoFrameHeight);
+            }
+            if (maxVideoSize == null) {
+                fail("Camera " + mIds[counter] + " does not support any 30fps video output");
+            }
 
             // Handle FullHD special case first
             if (jpegSizesList.contains(FULLHD)) {
@@ -334,11 +363,11 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
                 expectKeyAvailable(c, CameraCharacteristics.FLASH_INFO_AVAILABLE                            , OPT      ,   BC                   );
                 expectKeyAvailable(c, CameraCharacteristics.HOT_PIXEL_AVAILABLE_HOT_PIXEL_MODES             , OPT      ,   RAW                  );
                 expectKeyAvailable(c, CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL                   , OPT      ,   BC                   );
+                expectKeyAvailable(c, CameraCharacteristics.INFO_VERSION                                    , OPT      ,   NONE                 );
                 expectKeyAvailable(c, CameraCharacteristics.JPEG_AVAILABLE_THUMBNAIL_SIZES                  , OPT      ,   BC                   );
                 expectKeyAvailable(c, CameraCharacteristics.LENS_FACING                                     , OPT      ,   BC                   );
                 expectKeyAvailable(c, CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES                   , FULL     ,   MANUAL_SENSOR        );
                 expectKeyAvailable(c, CameraCharacteristics.LENS_INFO_AVAILABLE_FILTER_DENSITIES            , FULL     ,   MANUAL_SENSOR        );
-                expectKeyAvailable(c, CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS               , OPT      ,   BC                   );
                 expectKeyAvailable(c, CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION       , LIMITED  ,   BC                   );
                 expectKeyAvailable(c, CameraCharacteristics.LENS_INFO_FOCUS_DISTANCE_CALIBRATION            , LIMITED  ,   MANUAL_SENSOR        );
                 expectKeyAvailable(c, CameraCharacteristics.LENS_INFO_HYPERFOCAL_DISTANCE                   , LIMITED  ,   BC                   );
@@ -355,8 +384,7 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
                 expectKeyAvailable(c, CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM               , OPT      ,   BC                   );
                 expectKeyAvailable(c, CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP                 , OPT      ,   BC                   );
                 expectKeyAvailable(c, CameraCharacteristics.SCALER_CROPPING_TYPE                            , OPT      ,   BC                   );
-                expectKeyAvailable(c, CameraCharacteristics.SENSOR_AVAILABLE_TEST_PATTERN_MODES             , OPT      ,   BC                   );
-                expectKeyAvailable(c, CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN                      , FULL     ,   MANUAL_SENSOR, RAW   );
+                expectKeyAvailable(c, CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN                      , FULL     ,   RAW                  );
                 expectKeyAvailable(c, CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM1                   , OPT      ,   RAW                  );
                 expectKeyAvailable(c, CameraCharacteristics.SENSOR_COLOR_TRANSFORM1                         , OPT      ,   RAW                  );
                 expectKeyAvailable(c, CameraCharacteristics.SENSOR_FORWARD_MATRIX1                          , OPT      ,   RAW                  );
@@ -364,7 +392,6 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
                 expectKeyAvailable(c, CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT            , FULL     ,   RAW                  );
                 expectKeyAvailable(c, CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE                 , FULL     ,   MANUAL_SENSOR        );
                 expectKeyAvailable(c, CameraCharacteristics.SENSOR_INFO_MAX_FRAME_DURATION                  , FULL     ,   MANUAL_SENSOR        );
-                expectKeyAvailable(c, CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE                       , OPT      ,   BC                   );
                 expectKeyAvailable(c, CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE                    , OPT      ,   BC                   );
                 expectKeyAvailable(c, CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE                   , FULL     ,   MANUAL_SENSOR        );
                 expectKeyAvailable(c, CameraCharacteristics.SENSOR_INFO_WHITE_LEVEL                         , OPT      ,   RAW                  );
@@ -406,6 +433,30 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
                 expectKeyAvailable(c,
                         CameraCharacteristics.CONTROL_POST_RAW_SENSITIVITY_BOOST_RANGE, OPT, BC);
             }
+
+            // External Camera exceptional keys
+            Integer hwLevel = c.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL);
+            boolean isExternalCamera = (hwLevel ==
+                    CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL);
+            if (!isExternalCamera) {
+                expectKeyAvailable(c, CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS               , OPT      ,   BC                   );
+                expectKeyAvailable(c, CameraCharacteristics.SENSOR_AVAILABLE_TEST_PATTERN_MODES             , OPT      ,   BC                   );
+                expectKeyAvailable(c, CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE                       , OPT      ,   BC                   );
+            }
+
+
+            // Verify version is a short text string.
+            if (allKeys.contains(CameraCharacteristics.INFO_VERSION)) {
+                final String TEXT_REGEX = "[\\p{Alnum}\\p{Punct}\\p{Space}]*";
+                final int MAX_VERSION_LENGTH = 256;
+
+                String version = c.get(CameraCharacteristics.INFO_VERSION);
+                mCollector.expectTrue("Version contains non-text characters: " + version,
+                        version.matches(TEXT_REGEX));
+                mCollector.expectLessOrEqual("Version too long: " + version, MAX_VERSION_LENGTH,
+                        version.length());
+            }
+
             counter++;
         }
     }
@@ -493,6 +544,25 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
 
             // TODO: profileHueSatMap, and profileToneCurve aren't supported yet.
             counter++;
+        }
+    }
+
+    /**
+     * Test values for the available session keys.
+     */
+    public void testStaticSessionKeys() throws Exception {
+        for (CameraCharacteristics c : mCharacteristics) {
+            List<CaptureRequest.Key<?>> availableSessionKeys = c.getAvailableSessionKeys();
+            if (availableSessionKeys == null) {
+                continue;
+            }
+            List<CaptureRequest.Key<?>> availableRequestKeys = c.getAvailableCaptureRequestKeys();
+
+            //Every session key should be part of the available request keys
+            for (CaptureRequest.Key<?> key : availableSessionKeys) {
+                assertTrue("Session key:" + key.getName() + " not present in the available capture "
+                        + "request keys!", availableRequestKeys.contains(key));
+            }
         }
     }
 
@@ -812,8 +882,11 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
 
             float[] poseRotation = c.get(CameraCharacteristics.LENS_POSE_ROTATION);
             float[] poseTranslation = c.get(CameraCharacteristics.LENS_POSE_TRANSLATION);
+            Integer poseReference = c.get(CameraCharacteristics.LENS_POSE_REFERENCE);
             float[] cameraIntrinsics = c.get(CameraCharacteristics.LENS_INTRINSIC_CALIBRATION);
-            float[] radialDistortion = c.get(CameraCharacteristics.LENS_RADIAL_DISTORTION);
+            float[] distortion = getLensDistortion(c);
+            Rect precorrectionArray = c.get(
+                CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE);
 
             if (supportDepth) {
                 mCollector.expectTrue("Supports DEPTH_OUTPUT but does not support DEPTH16",
@@ -867,70 +940,14 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
                 mCollector.expectTrue("Supports DEPTH_OUTPUT but DEPTH_IS_EXCLUSIVE is not defined",
                         depthIsExclusive != null);
 
-                mCollector.expectTrue(
-                        "Supports DEPTH_OUTPUT but LENS_POSE_ROTATION not right size",
-                        poseRotation != null && poseRotation.length == 4);
-                mCollector.expectTrue(
-                        "Supports DEPTH_OUTPUT but LENS_POSE_TRANSLATION not right size",
-                        poseTranslation != null && poseTranslation.length == 3);
-                mCollector.expectTrue(
-                        "Supports DEPTH_OUTPUT but LENS_INTRINSIC_CALIBRATION not right size",
-                        cameraIntrinsics != null && cameraIntrinsics.length == 5);
-                mCollector.expectTrue(
-                        "Supports DEPTH_OUTPUT but LENS_RADIAL_DISTORTION not right size",
-                        radialDistortion != null && radialDistortion.length == 6);
-
-                if (poseRotation != null && poseRotation.length == 4) {
-                    float normSq =
-                        poseRotation[0] * poseRotation[0] +
-                        poseRotation[1] * poseRotation[1] +
-                        poseRotation[2] * poseRotation[2] +
-                        poseRotation[3] * poseRotation[3];
-                    mCollector.expectTrue(
-                            "LENS_POSE_ROTATION quarternion must be unit-length",
-                            0.9999f < normSq && normSq < 1.0001f);
-
-                    // TODO: Cross-validate orientation/facing and poseRotation
-                    Integer orientation = c.get(CameraCharacteristics.SENSOR_ORIENTATION);
-                    Integer facing = c.get(CameraCharacteristics.LENS_FACING);
-                }
-
-                if (poseTranslation != null && poseTranslation.length == 3) {
-                    float normSq =
-                        poseTranslation[0] * poseTranslation[0] +
-                        poseTranslation[1] * poseTranslation[1] +
-                        poseTranslation[2] * poseTranslation[2];
-                    mCollector.expectTrue("Pose translation is larger than 1 m",
-                            normSq < 1.f);
-                }
-
-                Rect precorrectionArray =
-                    c.get(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE);
-                mCollector.expectTrue("Supports DEPTH_OUTPUT but does not have " +
-                        "precorrection active array defined", precorrectionArray != null);
-
-                if (cameraIntrinsics != null && precorrectionArray != null) {
-                    float fx = cameraIntrinsics[0];
-                    float fy = cameraIntrinsics[1];
-                    float cx = cameraIntrinsics[2];
-                    float cy = cameraIntrinsics[3];
-                    float s = cameraIntrinsics[4];
-                    mCollector.expectTrue("Optical center expected to be within precorrection array",
-                            0 <= cx && cx < precorrectionArray.width() &&
-                            0 <= cy && cy < precorrectionArray.height());
-
-                    // TODO: Verify focal lengths and skew are reasonable
-                }
-
-                if (radialDistortion != null) {
-                    // TODO: Verify radial distortion
-                }
+                verifyLensCalibration(poseRotation, poseTranslation, poseReference,
+                        cameraIntrinsics, distortion, precorrectionArray);
 
             } else {
                 boolean hasFields =
                     hasDepth16 && (poseTranslation != null) &&
                     (poseRotation != null) && (cameraIntrinsics != null) &&
-                    (radialDistortion != null) && (depthIsExclusive != null);
+                    (distortion != null) && (depthIsExclusive != null);
 
                 mCollector.expectTrue(
                         "All necessary depth fields defined, but DEPTH_OUTPUT capability is not listed",
@@ -938,6 +955,84 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
             }
             counter++;
         }
+    }
+
+    private void verifyLensCalibration(float[] poseRotation, float[] poseTranslation,
+            Integer poseReference, float[] cameraIntrinsics, float[] distortion,
+            Rect precorrectionArray) {
+
+        mCollector.expectTrue(
+            "LENS_POSE_ROTATION not right size",
+            poseRotation != null && poseRotation.length == 4);
+        mCollector.expectTrue(
+            "LENS_POSE_TRANSLATION not right size",
+            poseTranslation != null && poseTranslation.length == 3);
+        mCollector.expectTrue(
+            "LENS_POSE_REFERENCE is not defined",
+            poseReference != null);
+        mCollector.expectTrue(
+            "LENS_INTRINSIC_CALIBRATION not right size",
+            cameraIntrinsics != null && cameraIntrinsics.length == 5);
+        mCollector.expectTrue(
+            "LENS_DISTORTION not right size",
+            distortion != null && distortion.length == 6);
+
+        if (poseRotation != null && poseRotation.length == 4) {
+            float normSq =
+                    poseRotation[0] * poseRotation[0] +
+                    poseRotation[1] * poseRotation[1] +
+                    poseRotation[2] * poseRotation[2] +
+                    poseRotation[3] * poseRotation[3];
+            mCollector.expectTrue(
+                "LENS_POSE_ROTATION quarternion must be unit-length",
+                0.9999f < normSq && normSq < 1.0001f);
+
+            // TODO: Cross-validate orientation/facing and poseRotation
+        }
+
+        if (poseTranslation != null && poseTranslation.length == 3) {
+            float normSq =
+                    poseTranslation[0] * poseTranslation[0] +
+                    poseTranslation[1] * poseTranslation[1] +
+                    poseTranslation[2] * poseTranslation[2];
+            mCollector.expectTrue("Pose translation is larger than 1 m",
+                    normSq < 1.f);
+        }
+
+        if (poseReference != null) {
+            int ref = poseReference;
+            boolean validReference = false;
+            switch (ref) {
+                case CameraCharacteristics.LENS_POSE_REFERENCE_PRIMARY_CAMERA:
+                case CameraCharacteristics.LENS_POSE_REFERENCE_GYROSCOPE:
+                    // Allowed values
+                    validReference = true;
+                    break;
+                default:
+            }
+            mCollector.expectTrue("POSE_REFERENCE has unknown value", validReference);
+        }
+
+        mCollector.expectTrue("Does not have precorrection active array defined",
+                precorrectionArray != null);
+
+        if (cameraIntrinsics != null && precorrectionArray != null) {
+            float fx = cameraIntrinsics[0];
+            float fy = cameraIntrinsics[1];
+            float cx = cameraIntrinsics[2];
+            float cy = cameraIntrinsics[3];
+            float s = cameraIntrinsics[4];
+            mCollector.expectTrue("Optical center expected to be within precorrection array",
+                    0 <= cx && cx < precorrectionArray.width() &&
+                    0 <= cy && cy < precorrectionArray.height());
+
+            // TODO: Verify focal lengths and skew are reasonable
+        }
+
+        if (distortion != null) {
+            // TODO: Verify radial distortion
+        }
+
     }
 
     /**
@@ -1303,6 +1398,126 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
             counter++;
         }
     }
+
+    /**
+     * Check Logical camera capability
+     */
+    public void testLogicalCameraCharacteristics() throws Exception {
+        int counter = 0;
+        List<String> cameraIdList = Arrays.asList(mIds);
+
+        for (CameraCharacteristics c : mCharacteristics) {
+            int[] capabilities = CameraTestUtils.getValueNotNull(
+                    c, CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
+            boolean supportLogicalCamera = arrayContains(capabilities,
+                    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA);
+            if (supportLogicalCamera) {
+                Set<String> physicalCameraIds = c.getPhysicalCameraIds();
+                assertNotNull("android.logicalCam.physicalCameraIds shouldn't be null",
+                    physicalCameraIds);
+                assertTrue("Logical camera must contain at least 2 physical camera ids",
+                    physicalCameraIds.size() >= 2);
+
+                mCollector.expectKeyValueInRange(c,
+                        CameraCharacteristics.LOGICAL_MULTI_CAMERA_SENSOR_SYNC_TYPE,
+                        CameraCharacteristics.LOGICAL_MULTI_CAMERA_SENSOR_SYNC_TYPE_APPROXIMATE,
+                        CameraCharacteristics.LOGICAL_MULTI_CAMERA_SENSOR_SYNC_TYPE_CALIBRATED);
+
+                Integer timestampSource = c.get(CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE);
+                for (String physicalCameraId : physicalCameraIds) {
+                    assertNotNull("Physical camera id shouldn't be null", physicalCameraId);
+                    assertTrue(
+                            String.format("Physical camera id %s shouldn't be the same as logical"
+                                    + " camera id %s", physicalCameraId, mIds[counter]),
+                            physicalCameraId != mIds[counter]);
+                    assertTrue(
+                            String.format("Physical camera id %s should be in available camera ids",
+                                    physicalCameraId),
+                            cameraIdList.contains(physicalCameraId));
+
+                    //validation for depth static metadata of physical cameras
+                    CameraCharacteristics pc =
+                            mCameraManager.getCameraCharacteristics(physicalCameraId);
+
+                    float[] poseRotation = pc.get(CameraCharacteristics.LENS_POSE_ROTATION);
+                    float[] poseTranslation = pc.get(CameraCharacteristics.LENS_POSE_TRANSLATION);
+                    Integer poseReference = pc.get(CameraCharacteristics.LENS_POSE_REFERENCE);
+                    float[] cameraIntrinsics = pc.get(
+                            CameraCharacteristics.LENS_INTRINSIC_CALIBRATION);
+                    float[] distortion = getLensDistortion(pc);
+                    Rect precorrectionArray = pc.get(
+                            CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE);
+
+                    verifyLensCalibration(poseRotation, poseTranslation, poseReference,
+                            cameraIntrinsics, distortion, precorrectionArray);
+
+                    Integer timestampSourcePhysical =
+                            pc.get(CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE);
+                    mCollector.expectEquals("Logical camera and physical cameras must have same " +
+                            "timestamp source", timestampSource, timestampSourcePhysical);
+                }
+            }
+            counter++;
+        }
+    }
+
+    /**
+     * Check monochrome camera capability
+     */
+    public void testMonochromeCharacteristics() {
+        int counter = 0;
+
+        for (CameraCharacteristics c : mCharacteristics) {
+            Log.i(TAG, "testMonochromeCharacteristics: Testing camera ID " + mIds[counter]);
+
+            int[] capabilities = c.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
+            assertNotNull("android.request.availableCapabilities must never be null",
+                    capabilities);
+            boolean supportMonochrome = arrayContains(capabilities, MONOCHROME);
+
+            if (!supportMonochrome) {
+                continue;
+            }
+
+            assertTrue("Monochrome camera must have BACKWARD_COMPATIBLE capability",
+                    arrayContains(capabilities, BC));
+            assertTrue("Monochrome camera must not have RAW capability",
+                    !arrayContains(capabilities, RAW));
+            assertTrue("Monochrome camera must not have MANUAL_POST_PROCESSING capability",
+                    !arrayContains(capabilities, MANUAL_POSTPROC));
+
+            // Check that awbSupportedModes only contains AUTO
+            int[] awbAvailableModes = c.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES);
+            assertTrue("availableAwbModes must not be null", awbAvailableModes != null);
+            assertTrue("availableAwbModes must contain only AUTO", awbAvailableModes.length == 1 &&
+                    awbAvailableModes[0] == CaptureRequest.CONTROL_AWB_MODE_AUTO);
+        }
+    }
+
+    /**
+     * Get lens distortion coefficients, as a list of 6 floats; returns null if no valid
+     * distortion field is available
+     */
+    private float[] getLensDistortion(CameraCharacteristics c) {
+        float[] distortion = null;
+        float[] newDistortion = c.get(CameraCharacteristics.LENS_DISTORTION);
+        if (Build.VERSION.FIRST_SDK_INT > Build.VERSION_CODES.O_MR1 || newDistortion != null) {
+            // New devices need to use fixed radial distortion definition; old devices can
+            // opt-in to it
+            if (newDistortion != null && newDistortion.length == 5) {
+                distortion = new float[6];
+                distortion[0] = 1.0f;
+                for (int i = 1; i < 6; i++) {
+                    distortion[i] = newDistortion[i-1];
+                }
+            }
+        } else {
+            // Select old field only if on older first SDK and new definition not available
+            distortion = c.get(CameraCharacteristics.LENS_RADIAL_DISTORTION);
+        }
+        return distortion;
+    }
+
     /**
      * Create an invalid size that's close to one of the good sizes in the list, but not one of them
      */
@@ -1475,17 +1690,17 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
                 return Integer.MAX_VALUE;
             case LEGACY:
                 return 0; // lowest
-            case LIMITED:
+            case EXTERNAL:
                 return 1; // second lowest
+            case LIMITED:
+                return 2;
             case FULL:
-                return 2; // good
+                return 3; // good
+            case LEVEL_3:
+                return 4;
             default:
-                if (level >= LEVEL_3) {
-                    return level; // higher levels map directly
-                }
+                fail("Unknown HW level: " + level);
         }
-
-        fail("Unknown HW level: " + level);
         return -1;
     }
 
@@ -1497,6 +1712,8 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
                 return "LIMITED";
             case FULL:
                 return "FULL";
+            case EXTERNAL:
+                return "EXTERNAL";
             default:
                 if (level >= LEVEL_3) {
                     return String.format("LEVEL_%d", level);

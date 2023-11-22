@@ -19,13 +19,11 @@ package com.android.tv.common.feature;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 
-/**
- * A feature that is for system App.
- */
+/** A feature that is for system App. */
 public final class SystemAppFeature implements Feature {
     public static final Feature SYSTEM_APP_FEATURE = new SystemAppFeature();
 
-    private SystemAppFeature() { }
+    private SystemAppFeature() {}
 
     @Override
     public boolean isEnabled(Context context) {

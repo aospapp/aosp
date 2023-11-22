@@ -32,8 +32,6 @@
 
 package com.android.bluetooth.opp;
 
-import com.android.bluetooth.R;
-
 import android.content.BroadcastReceiver;
 import android.content.ContentValues;
 import android.content.Context;
@@ -44,21 +42,22 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.text.format.Formatter;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.text.format.Formatter;
 
+import com.android.bluetooth.R;
 import com.android.internal.app.AlertActivity;
 import com.android.internal.app.AlertController;
 
 /**
  * This class is designed to ask user to confirm if accept incoming file;
  */
-public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity implements
-        DialogInterface.OnClickListener {
+public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity
+        implements DialogInterface.OnClickListener {
     private static final String TAG = "BluetoothIncomingFileConfirmActivity";
     private static final boolean D = Constants.DEBUG;
     private static final boolean V = Constants.VERBOSE;
@@ -90,7 +89,9 @@ public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity imple
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         setTheme(R.style.Theme_Material_Settings_Floating);
-        if (V) Log.d(TAG, "onCreate(): action = " + getIntent().getAction());
+        if (V) {
+            Log.d(TAG, "onCreate(): action = " + getIntent().getAction());
+        }
         super.onCreate(savedInstanceState);
 
         Intent intent = getIntent();
@@ -98,7 +99,9 @@ public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity imple
         mTransInfo = new BluetoothOppTransferInfo();
         mTransInfo = BluetoothOppUtility.queryRecord(this, mUri);
         if (mTransInfo == null) {
-            if (V) Log.e(TAG, "Error: Can not get data from db");
+            if (V) {
+                Log.e(TAG, "Error: Can not get data from db");
+            }
             finish();
             return;
         }
@@ -112,28 +115,33 @@ public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity imple
         p.mNegativeButtonText = getString(R.string.incoming_file_confirm_cancel);
         p.mNegativeButtonListener = this;
         setupAlert();
-        if (V) Log.v(TAG, "mTimeout: " + mTimeout);
+        if (V) {
+            Log.v(TAG, "mTimeout: " + mTimeout);
+        }
         if (mTimeout) {
             onTimeout();
         }
 
-        if (V) Log.v(TAG, "BluetoothIncomingFileConfirmActivity: Got uri:" + mUri);
+        if (V) {
+            Log.v(TAG, "BluetoothIncomingFileConfirmActivity: Got uri:" + mUri);
+        }
 
-        registerReceiver(mReceiver, new IntentFilter(
-                BluetoothShare.USER_CONFIRMATION_TIMEOUT_ACTION));
+        registerReceiver(mReceiver,
+                new IntentFilter(BluetoothShare.USER_CONFIRMATION_TIMEOUT_ACTION));
     }
 
     private View createView() {
         View view = getLayoutInflater().inflate(R.layout.incoming_dialog, null);
 
-        ((TextView)view.findViewById(R.id.from_content)).setText(mTransInfo.mDeviceName);
-        ((TextView)view.findViewById(R.id.filename_content)).setText(mTransInfo.mFileName);
-        ((TextView)view.findViewById(R.id.size_content)).setText(
+        ((TextView) view.findViewById(R.id.from_content)).setText(mTransInfo.mDeviceName);
+        ((TextView) view.findViewById(R.id.filename_content)).setText(mTransInfo.mFileName);
+        ((TextView) view.findViewById(R.id.size_content)).setText(
                 Formatter.formatFileSize(this, mTransInfo.mTotalBytes));
 
         return view;
     }
 
+    @Override
     public void onClick(DialogInterface dialog, int which) {
         switch (which) {
             case DialogInterface.BUTTON_POSITIVE:
@@ -161,12 +169,9 @@ public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity imple
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            if (D) Log.d(TAG, "onKeyDown() called; Key: back key");
-            mUpdateValues = new ContentValues();
-            mUpdateValues.put(BluetoothShare.VISIBILITY, BluetoothShare.VISIBILITY_HIDDEN);
-            this.getContentResolver().update(mUri, mUpdateValues, null, null);
-
-            Toast.makeText(this, getString(R.string.bt_toast_2), Toast.LENGTH_SHORT).show();
+            if (D) {
+                Log.d(TAG, "onKeyDown() called; Key: back key");
+            }
             finish();
             return true;
         }
@@ -183,7 +188,9 @@ public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity imple
     protected void onRestoreInstanceState(Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
         mTimeout = savedInstanceState.getBoolean(PREFERENCE_USER_TIMEOUT);
-        if (V) Log.v(TAG, "onRestoreInstanceState() mTimeout: " + mTimeout);
+        if (V) {
+            Log.v(TAG, "onRestoreInstanceState() mTimeout: " + mTimeout);
+        }
         if (mTimeout) {
             onTimeout();
         }
@@ -192,17 +199,19 @@ public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity imple
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        if (V) Log.v(TAG, "onSaveInstanceState() mTimeout: " + mTimeout);
+        if (V) {
+            Log.v(TAG, "onSaveInstanceState() mTimeout: " + mTimeout);
+        }
         outState.putBoolean(PREFERENCE_USER_TIMEOUT, mTimeout);
     }
 
     private void onTimeout() {
         mTimeout = true;
-        mAlert.setTitle(getString(R.string.incoming_file_confirm_timeout_content,
-                mTransInfo.mDeviceName));
+        mAlert.setTitle(
+                getString(R.string.incoming_file_confirm_timeout_content, mTransInfo.mDeviceName));
         mAlert.getButton(DialogInterface.BUTTON_NEGATIVE).setVisibility(View.GONE);
-        mAlert.getButton(DialogInterface.BUTTON_POSITIVE).setText(
-                getString(R.string.incoming_file_confirm_timeout_ok));
+        mAlert.getButton(DialogInterface.BUTTON_POSITIVE)
+                .setText(getString(R.string.incoming_file_confirm_timeout_ok));
 
         mTimeoutHandler.sendMessageDelayed(mTimeoutHandler.obtainMessage(DISMISS_TIMEOUT_DIALOG),
                 DISMISS_TIMEOUT_DIALOG_VALUE);
@@ -213,7 +222,9 @@ public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity imple
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case DISMISS_TIMEOUT_DIALOG:
-                    if (V) Log.v(TAG, "Received DISMISS_TIMEOUT_DIALOG msg.");
+                    if (V) {
+                        Log.v(TAG, "Received DISMISS_TIMEOUT_DIALOG msg.");
+                    }
                     finish();
                     break;
                 default:

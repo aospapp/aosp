@@ -25,9 +25,13 @@ import tempfile
 import common
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib import global_config, logging_manager, utils
+from autotest_lib.client.common_lib import global_config
+from autotest_lib.client.common_lib import logging_manager
+from autotest_lib.client.common_lib import utils
 from autotest_lib.utils import test_importer
 
+from chromite.lib import metrics
+from chromite.lib import ts_mon_config
 
 _ATTEMPTS = 3
 _GSUTIL_BIN = 'gsutil'
@@ -168,11 +172,29 @@ class MySqlArchiver(object):
         @return: The path to a tempfile containing a dump of
                  hosts and their pool labels.
         """
-        query = ('SELECT hostname, labels.name FROM afe_hosts AS hosts '
-                 'JOIN afe_hosts_labels ON hosts.id = afe_hosts_labels.host_id '
-                 'JOIN afe_labels AS labels '
-                 'ON labels.id = afe_hosts_labels.label_id '
-                 'WHERE labels.name LIKE \'%%pool%%\';')
+        respect_static_labels = global_config.global_config.get_config_value(
+                'SKYLAB', 'respect_static_labels', type=bool, default=False)
+        template = ('SELECT hosts.hostname, labels.name FROM afe_hosts AS '
+                    'hosts JOIN %(hosts_labels_table)s AS hlt ON '
+                    'hosts.id = hlt.host_id '
+                    'JOIN %(labels_table)s AS labels '
+                    'ON labels.id = hlt.%(column)s '
+                    'WHERE labels.name LIKE \'%%pool%%\';')
+        if respect_static_labels:
+            # HACK: We're not checking the replaced_by_static_label on the
+            # pool label and just hard coding the fact that pool labels are
+            # indeed static labels. Expedience.
+            query = template % {
+                    'hosts_labels_table': 'afe_static_hosts_labels',
+                    'labels_table': 'afe_static_labels',
+                    'column': 'staticlabel_id',
+            }
+        else:
+            query = template % {
+                    'hosts_labels_table': 'afe_hosts_labels',
+                    'labels_table': 'afe_labels',
+                    'column': 'label_id',
+            }
         return self._create_dump_from_query(query)
 
 
@@ -274,7 +296,7 @@ class MySqlArchiver(object):
         to_remove = ordered_listing[:-self._number_to_keep]
         rm_cmd = self._get_gs_command('rm')
         for artifact in to_remove:
-            cmd = ' '.join(rm_cmd + [self._gs_dir + '/' + artifact])
+            cmd = ' '.join(rm_cmd + [artifact])
             self._retry_run(cmd)
 
 
@@ -301,13 +323,28 @@ def main():
     options = parse_options()
     logging_manager.configure_logging(test_importer.TestImporterLoggingConfig(),
                                       verbose=options.verbose)
-    logging.debug('Start db backup: %s', options.type)
-    archiver = MySqlArchiver(options.type, options.keep, options.gs_bucket)
-    dump_file = archiver.dump()
-    logging.debug('Uploading backup: %s', options.type)
-    archiver.upload_to_google_storage(dump_file)
-    archiver.cleanup()
-    logging.debug('Db backup completed: %s', options.type)
+    backup_succeeded = False
+
+    with ts_mon_config.SetupTsMonGlobalState(service_name='mysql_db_backup',
+                                             indirect=True):
+        with metrics.SecondsTimer(
+                'chromeos/autotest/afe_db/backup/durations',
+                fields={'type': options.type}):
+             try:
+                 logging.debug('Start db backup: %s', options.type)
+                 archiver = MySqlArchiver(
+                         options.type, options.keep, options.gs_bucket)
+                 dump_file = archiver.dump()
+                 logging.debug('Uploading backup: %s', options.type)
+                 archiver.upload_to_google_storage(dump_file)
+                 archiver.cleanup()
+                 logging.debug('Db backup completed: %s', options.type)
+                 backup_succeeded = True
+             finally:
+                 metrics.Counter(
+                     'chromeos/autotest/db/db_backup/completed').increment(
+                         fields={'success': backup_succeeded,
+                                 'type': options.type})
 
 
 if __name__ == '__main__':

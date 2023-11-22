@@ -14,11 +14,85 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.cros.networking import shill_proxy
 
-SHILL_START_LOCK_PATH = '/var/lock/shill-start.lock'
+SHILL_START_LOCK_PATH = '/run/lock/shill-start.lock'
 
 class ContextError(Exception):
     """An error raised by a context managers dealing with shill objects."""
     pass
+
+
+class AllowedTechnologiesContext(object):
+    """A context manager for allowing only specified technologies in shill.
+
+    Usage:
+        # Suppose both 'wifi' and 'cellular' technology are originally enabled.
+        allowed = [shill_proxy.ShillProxy.TECHNOLOGY_CELLULAR]
+        with AllowedTechnologiesContext(allowed):
+            # Within this context, only the 'cellular' technology is allowed to
+            # be enabled. The 'wifi' technology is temporarily prohibited and
+            # disabled until after the context ends.
+
+    """
+
+    def __init__(self, allowed):
+        self._allowed = set(allowed)
+
+
+    def __enter__(self):
+        shill = shill_proxy.ShillProxy.get_proxy()
+
+        # The EnabledTechologies property is an array of strings of technology
+        # identifiers.
+        enabled = shill.get_dbus_property(
+                shill.manager,
+                shill_proxy.ShillProxy.MANAGER_PROPERTY_ENABLED_TECHNOLOGIES)
+        self._originally_enabled = set(enabled)
+
+        # The ProhibitedTechnologies property is a comma-separated string of
+        # technology identifiers.
+        prohibited_csv = shill.get_dbus_property(
+                shill.manager,
+                shill_proxy.ShillProxy.MANAGER_PROPERTY_PROHIBITED_TECHNOLOGIES)
+        prohibited = prohibited_csv.split(',') if prohibited_csv else []
+        self._originally_prohibited = set(prohibited)
+
+        prohibited = ((self._originally_prohibited | self._originally_enabled)
+                      - self._allowed)
+        prohibited_csv = ','.join(prohibited)
+
+        logging.debug('Allowed technologies = [%s]', ','.join(self._allowed))
+        logging.debug('Originally enabled technologies = [%s]',
+                      ','.join(self._originally_enabled))
+        logging.debug('Originally prohibited technologies = [%s]',
+                      ','.join(self._originally_prohibited))
+        logging.debug('To be prohibited technologies = [%s]',
+                      ','.join(prohibited))
+
+        # Setting the ProhibitedTechnologies property will disable those
+        # prohibited technologies.
+        shill.set_dbus_property(
+                shill.manager,
+                shill_proxy.ShillProxy.MANAGER_PROPERTY_PROHIBITED_TECHNOLOGIES,
+                prohibited_csv)
+
+        return self
+
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        shill = shill_proxy.ShillProxy.get_proxy()
+
+        prohibited_csv = ','.join(self._originally_prohibited)
+        shill.set_dbus_property(
+                shill.manager,
+                shill_proxy.ShillProxy.MANAGER_PROPERTY_PROHIBITED_TECHNOLOGIES,
+                prohibited_csv)
+
+        # Re-enable originally enabled technologies as they may have been
+        # disabled.
+        for technology in self._originally_enabled:
+            shill.manager.EnableTechnology(technology)
+
+        return False
 
 
 class ServiceAutoConnectContext(object):

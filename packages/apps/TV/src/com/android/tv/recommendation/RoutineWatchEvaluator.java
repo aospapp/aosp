@@ -19,9 +19,7 @@ package com.android.tv.recommendation;
 import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
-
 import com.android.tv.data.Program;
-
 import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -32,8 +30,7 @@ public class RoutineWatchEvaluator extends Recommender.Evaluator {
     // TODO: test and refine constant values in WatchedProgramRecommender in order to
     // improve the performance of this recommender.
     private static final double REQUIRED_MIN_SCORE = 0.15;
-    @VisibleForTesting
-    static final double MULTIPLIER_FOR_UNMATCHED_DAY_OF_WEEK = 0.7;
+    @VisibleForTesting static final double MULTIPLIER_FOR_UNMATCHED_DAY_OF_WEEK = 0.7;
     private static final double TITLE_MATCH_WEIGHT = 0.5;
     private static final double TIME_MATCH_WEIGHT = 1 - TITLE_MATCH_WEIGHT;
     private static final long DIFF_MS_TOLERANCE_FOR_OLD_PROGRAM = TimeUnit.DAYS.toMillis(14);
@@ -57,8 +54,8 @@ public class RoutineWatchEvaluator extends Recommender.Evaluator {
         }
 
         Program watchedProgram = watchHistory[watchHistory.length - 1].getProgram();
-        long startTimeDiffMsWithCurrentProgram = currentProgram.getStartTimeUtcMillis()
-                - watchedProgram.getStartTimeUtcMillis();
+        long startTimeDiffMsWithCurrentProgram =
+                currentProgram.getStartTimeUtcMillis() - watchedProgram.getStartTimeUtcMillis();
         if (startTimeDiffMsWithCurrentProgram >= MAX_DIFF_MS_FOR_OLD_PROGRAM) {
             return NOT_RECOMMENDED;
         }
@@ -70,42 +67,48 @@ public class RoutineWatchEvaluator extends Recommender.Evaluator {
                     == watchHistory[i].getProgram().getStartTimeUtcMillis()) {
                 watchedDurationMs += watchHistory[i].getWatchedDurationMs();
             } else {
-                double score = calculateRoutineWatchScore(
-                        currentProgram, watchedProgram, watchedDurationMs);
+                double score =
+                        calculateRoutineWatchScore(
+                                currentProgram, watchedProgram, watchedDurationMs);
                 if (score >= REQUIRED_MIN_SCORE && score > maxScore) {
                     maxScore = score;
                 }
                 watchedProgram = watchHistory[i].getProgram();
                 watchedDurationMs = watchHistory[i].getWatchedDurationMs();
-                startTimeDiffMsWithCurrentProgram = currentProgram.getStartTimeUtcMillis()
-                        - watchedProgram.getStartTimeUtcMillis();
+                startTimeDiffMsWithCurrentProgram =
+                        currentProgram.getStartTimeUtcMillis()
+                                - watchedProgram.getStartTimeUtcMillis();
                 if (startTimeDiffMsWithCurrentProgram >= MAX_DIFF_MS_FOR_OLD_PROGRAM) {
                     return maxScore;
                 }
             }
         }
-        double score = calculateRoutineWatchScore(
-                currentProgram, watchedProgram, watchedDurationMs);
+        double score =
+                calculateRoutineWatchScore(currentProgram, watchedProgram, watchedDurationMs);
         if (score >= REQUIRED_MIN_SCORE && score > maxScore) {
             maxScore = score;
         }
         return maxScore;
     }
 
-    private static double calculateRoutineWatchScore(Program currentProgram, Program watchedProgram,
-            long watchedDurationMs) {
+    private static double calculateRoutineWatchScore(
+            Program currentProgram, Program watchedProgram, long watchedDurationMs) {
         double timeMatchScore = calculateTimeMatchScore(currentProgram, watchedProgram);
-        double titleMatchScore = calculateTitleMatchScore(
-                currentProgram.getTitle(), watchedProgram.getTitle());
+        double titleMatchScore =
+                calculateTitleMatchScore(currentProgram.getTitle(), watchedProgram.getTitle());
         double watchDurationScore = calculateWatchDurationScore(watchedProgram, watchedDurationMs);
-        long diffMs = currentProgram.getStartTimeUtcMillis()
-                - watchedProgram.getStartTimeUtcMillis();
-        double multiplierForOldProgram = (diffMs < MAX_DIFF_MS_FOR_OLD_PROGRAM)
-                ? 1.0 - (double) Math.max(diffMs - DIFF_MS_TOLERANCE_FOR_OLD_PROGRAM, 0)
-                        / (MAX_DIFF_MS_FOR_OLD_PROGRAM - DIFF_MS_TOLERANCE_FOR_OLD_PROGRAM)
-                : 0.0;
+        long diffMs =
+                currentProgram.getStartTimeUtcMillis() - watchedProgram.getStartTimeUtcMillis();
+        double multiplierForOldProgram =
+                (diffMs < MAX_DIFF_MS_FOR_OLD_PROGRAM)
+                        ? 1.0
+                                - (double) Math.max(diffMs - DIFF_MS_TOLERANCE_FOR_OLD_PROGRAM, 0)
+                                        / (MAX_DIFF_MS_FOR_OLD_PROGRAM
+                                                - DIFF_MS_TOLERANCE_FOR_OLD_PROGRAM)
+                        : 0.0;
         return (titleMatchScore * TITLE_MATCH_WEIGHT + timeMatchScore * TIME_MATCH_WEIGHT)
-                * watchDurationScore * multiplierForOldProgram;
+                * watchDurationScore
+                * multiplierForOldProgram;
     }
 
     @VisibleForTesting
@@ -118,8 +121,7 @@ public class RoutineWatchEvaluator extends Recommender.Evaluator {
         if (wordList1.isEmpty() || wordList2.isEmpty()) {
             return 0;
         }
-        int maxMatchedWordSeqLen = calculateMaximumMatchedWordSequenceLength(
-                wordList1, wordList2);
+        int maxMatchedWordSeqLen = calculateMaximumMatchedWordSequenceLength(wordList1, wordList2);
 
         // F-measure score
         double precision = (double) maxMatchedWordSeqLen / wordList1.size();
@@ -128,8 +130,8 @@ public class RoutineWatchEvaluator extends Recommender.Evaluator {
     }
 
     @VisibleForTesting
-    static int calculateMaximumMatchedWordSequenceLength(List<String> toSearchWords,
-            List<String> toMatchWords) {
+    static int calculateMaximumMatchedWordSequenceLength(
+            List<String> toSearchWords, List<String> toMatchWords) {
         int[] matchedWordSeqLen = new int[toMatchWords.size()];
         int maxMatchedWordSeqLen = 0;
         for (String word : toSearchWords) {
@@ -170,14 +172,20 @@ public class RoutineWatchEvaluator extends Recommender.Evaluator {
 
         boolean sameDay = false;
         // Handle cases like (00:00 - 02:00) - (01:00 - 03:00) or (22:00 - 25:00) - (23:00 - 26:00).
-        double score = Math.max(0, Math.min(t1.endTimeOfDayInSec, t2.endTimeOfDayInSec)
-                - Math.max(t1.startTimeOfDayInSec, t2.startTimeOfDayInSec));
+        double score =
+                Math.max(
+                        0,
+                        Math.min(t1.endTimeOfDayInSec, t2.endTimeOfDayInSec)
+                                - Math.max(t1.startTimeOfDayInSec, t2.startTimeOfDayInSec));
         if (score > 0) {
             sameDay = (t1.weekDay == t2.weekDay);
         } else if (t1.dayChanged != t2.dayChanged) {
             // To handle cases like t1 : (00:00 - 01:00) and t2 : (23:00 - 25:00).
-            score = Math.max(0, Math.min(t1.endTimeOfDayInSec, t2.endTimeOfDayInSec - 24 * 60 * 60)
-                    - t1.startTimeOfDayInSec);
+            score =
+                    Math.max(
+                            0,
+                            Math.min(t1.endTimeOfDayInSec, t2.endTimeOfDayInSec - 24 * 60 * 60)
+                                    - t1.startTimeOfDayInSec);
             // Same day if next day of t2's start day equals to t1's start day. (1 <= weekDay <= 7)
             sameDay = (t1.weekDay == ((t2.weekDay % 7) + 1));
         }
@@ -206,7 +214,8 @@ public class RoutineWatchEvaluator extends Recommender.Evaluator {
         BreakIterator boundary = BreakIterator.getWordInstance();
         boundary.setText(text);
         int start = boundary.first();
-        for (int end = boundary.next(); end != BreakIterator.DONE;
+        for (int end = boundary.next();
+                end != BreakIterator.DONE;
                 start = end, end = boundary.next()) {
             String word = text.substring(start, end);
             if (Character.isLetterOrDigit(word.charAt(0))) {
@@ -233,15 +242,20 @@ public class RoutineWatchEvaluator extends Recommender.Evaluator {
             time.setTimeInMillis(p.getEndTimeUtcMillis());
             boolean dayChanged = (weekDay != time.get(Calendar.DAY_OF_WEEK));
             // Set maximum program duration time to 12 hours.
-            int endTimeOfDayInSec = startTimeOfDayInSec +
-                    (int) Math.min(p.getEndTimeUtcMillis() - p.getStartTimeUtcMillis(),
-                            TimeUnit.HOURS.toMillis(12)) / 1000;
+            int endTimeOfDayInSec =
+                    startTimeOfDayInSec
+                            + (int)
+                                            Math.min(
+                                                    p.getEndTimeUtcMillis()
+                                                            - p.getStartTimeUtcMillis(),
+                                                    TimeUnit.HOURS.toMillis(12))
+                                    / 1000;
 
             return new ProgramTime(startTimeOfDayInSec, endTimeOfDayInSec, weekDay, dayChanged);
         }
 
-        private ProgramTime(int startTimeOfDayInSec, int endTimeOfDayInSec, int weekDay,
-                boolean dayChanged) {
+        private ProgramTime(
+                int startTimeOfDayInSec, int endTimeOfDayInSec, int weekDay, boolean dayChanged) {
             this.startTimeOfDayInSec = startTimeOfDayInSec;
             this.endTimeOfDayInSec = endTimeOfDayInSec;
             this.weekDay = weekDay;

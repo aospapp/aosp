@@ -16,41 +16,60 @@
 
 package com.android.tv.settings.inputmethod;
 
-import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.RemoteException;
 import android.os.UserHandle;
-import android.provider.Settings;
-import android.support.v17.preference.LeanbackPreferenceFragment;
+import android.support.annotation.Keep;
+import android.support.annotation.VisibleForTesting;
 import android.support.v7.preference.ListPreference;
 import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceCategory;
 import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.util.ArraySet;
-import android.util.Log;
 import android.view.inputmethod.InputMethodInfo;
-import android.view.inputmethod.InputMethodManager;
 
+import com.android.internal.logging.nano.MetricsProto;
+import com.android.settingslib.applications.DefaultAppInfo;
+import com.android.settingslib.wrapper.PackageManagerWrapper;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
+import com.android.tv.settings.autofill.AutofillHelper;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 /**
- * Fragment for managing IMEs
+ * Fragment for managing IMEs and Autofills
  */
-public class KeyboardFragment extends LeanbackPreferenceFragment {
+@Keep
+public class KeyboardFragment extends SettingsPreferenceFragment {
     private static final String TAG = "KeyboardFragment";
-    private static final String KEY_CURRENT_KEYBOARD = "currentKeyboard";
-    private static final String KEY_MANAGE_KEYBOARDS = "manageKeyboards";
+
+    // Order of input methods, make sure they are inserted between 1 (currentKeyboard) and
+    // 3 (manageKeyboards).
+    private static final int INPUT_METHOD_PREFERENCE_ORDER = 2;
+
+    @VisibleForTesting
+    static final String KEY_KEYBOARD_CATEGORY = "keyboardCategory";
+
+    @VisibleForTesting
+    static final String KEY_CURRENT_KEYBOARD = "currentKeyboard";
 
     private static final String KEY_KEYBOARD_SETTINGS_PREFIX = "keyboardSettings:";
 
-    private InputMethodManager mInputMethodManager;
+    @VisibleForTesting
+    static final String KEY_AUTOFILL_CATEGORY = "autofillCategory";
+
+    @VisibleForTesting
+    static final String KEY_CURRENT_AUTOFILL = "currentAutofill";
+
+    private static final String KEY_AUTOFILL_SETTINGS_PREFIX = "autofillSettings:";
+
+    private PackageManagerWrapper mPm;
 
     /**
      * @return New fragment instance
@@ -60,63 +79,50 @@ public class KeyboardFragment extends LeanbackPreferenceFragment {
     }
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        mInputMethodManager =
-                (InputMethodManager) getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
-
-        super.onCreate(savedInstanceState);
+    public void onAttach(Context context) {
+        super.onAttach(context);
+        mPm = new PackageManagerWrapper(context.getPackageManager());
     }
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-        final Context preferenceContext = getPreferenceManager().getContext();
+        setPreferencesFromResource(R.xml.keyboard, null);
 
-        final PreferenceScreen screen =
-                getPreferenceManager().createPreferenceScreen(preferenceContext);
-        screen.setTitle(R.string.system_keyboard);
-        setPreferenceScreen(screen);
+        findPreference(KEY_CURRENT_KEYBOARD).setOnPreferenceChangeListener(
+                (preference, newValue) -> {
+                    InputMethodHelper.setDefaultInputMethodId(getContext(), (String) newValue);
+                    return true;
+                });
 
-        final ListPreference currentKeyboard = new ListPreference(preferenceContext);
-        currentKeyboard.setPersistent(false);
-        currentKeyboard.setTitle(R.string.title_current_keyboard);
-        currentKeyboard.setDialogTitle(R.string.title_current_keyboard);
-        currentKeyboard.setSummary("%s");
-        currentKeyboard.setKey(KEY_CURRENT_KEYBOARD);
-        currentKeyboard.setOnPreferenceChangeListener((preference, newValue) -> {
-            setInputMethod((String) newValue);
-            return true;
-        });
-        updateCurrentKeyboardPreference(currentKeyboard);
-        screen.addPreference(currentKeyboard);
-
-        final Preference manageKeyboards = new Preference(preferenceContext);
-        manageKeyboards.setTitle(R.string.manage_keyboards);
-        manageKeyboards.setKey(KEY_MANAGE_KEYBOARDS);
-        manageKeyboards.setFragment(AvailableVirtualKeyboardFragment.class.getName());
-        screen.addPreference(manageKeyboards);
-
-        updatePrefs();
+        updateUi();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        updatePrefs();
-        final Preference currentKeyboard = findPreference(KEY_CURRENT_KEYBOARD);
-        if (currentKeyboard instanceof ListPreference) {
-            updateCurrentKeyboardPreference((ListPreference) currentKeyboard);
-        }
+        updateUi();
+    }
+
+    @VisibleForTesting
+    void updateUi() {
+        updateAutofill();
+        updateKeyboards();
+    }
+
+    private void updateKeyboards() {
+        updateCurrentKeyboardPreference((ListPreference) findPreference(KEY_CURRENT_KEYBOARD));
+        updateKeyboardsSettings();
     }
 
     private void updateCurrentKeyboardPreference(ListPreference currentKeyboardPref) {
-        final PackageManager packageManager = getActivity().getPackageManager();
-        List<InputMethodInfo> enabledInputMethodInfos = getEnabledSystemInputMethodList();
+        final PackageManager packageManager = getContext().getPackageManager();
+        List<InputMethodInfo> enabledInputMethodInfos = InputMethodHelper
+                .getEnabledSystemInputMethodList(getContext());
         final List<CharSequence> entries = new ArrayList<>(enabledInputMethodInfos.size());
         final List<CharSequence> values = new ArrayList<>(enabledInputMethodInfos.size());
 
         int defaultIndex = 0;
-        final String defaultId = Settings.Secure.getString(getActivity().getContentResolver(),
-                Settings.Secure.DEFAULT_INPUT_METHOD);
+        final String defaultId = InputMethodHelper.getDefaultInputMethodId(getContext());
 
         for (final InputMethodInfo info : enabledInputMethodInfos) {
             entries.add(info.loadLabel(packageManager));
@@ -134,83 +140,133 @@ public class KeyboardFragment extends LeanbackPreferenceFragment {
         }
     }
 
-    private void updatePrefs() {
-        final Context preferenceContext = getPreferenceManager().getContext();
-        final PackageManager packageManager = getActivity().getPackageManager();
-        List<InputMethodInfo> enabledInputMethodInfos = getEnabledSystemInputMethodList();
+    Context getPreferenceContext() {
+        return getPreferenceManager().getContext();
+    }
 
-        final PreferenceScreen screen = getPreferenceScreen();
+    private void updateKeyboardsSettings() {
+        final Context preferenceContext = getPreferenceContext();
+        final PackageManager packageManager = getContext().getPackageManager();
+        List<InputMethodInfo> enabledInputMethodInfos = InputMethodHelper
+                .getEnabledSystemInputMethodList(getContext());
 
+        PreferenceScreen preferenceScreen = getPreferenceScreen();
         final Set<String> enabledInputMethodKeys = new ArraySet<>(enabledInputMethodInfos.size());
         // Add per-IME settings
         for (final InputMethodInfo info : enabledInputMethodInfos) {
-            final Intent settingsIntent = getInputMethodSettingsIntent(info);
+            final Intent settingsIntent = InputMethodHelper.getInputMethodSettingsIntent(info);
             if (settingsIntent == null) {
                 continue;
             }
             final String key = KEY_KEYBOARD_SETTINGS_PREFIX + info.getId();
 
-            Preference preference = findPreference(key);
+            Preference preference = preferenceScreen.findPreference(key);
             if (preference == null) {
                 preference = new Preference(preferenceContext);
-                screen.addPreference(preference);
+                preference.setOrder(INPUT_METHOD_PREFERENCE_ORDER);
+                preferenceScreen.addPreference(preference);
             }
-            preference.setTitle(info.loadLabel(packageManager));
+            preference.setTitle(getContext().getString(R.string.title_settings,
+                    info.loadLabel(packageManager)));
             preference.setKey(key);
             preference.setIntent(settingsIntent);
             enabledInputMethodKeys.add(key);
         }
 
-        for (int i = 0; i < screen.getPreferenceCount();) {
-            final Preference preference = screen.getPreference(i);
+        for (int i = 0; i < preferenceScreen.getPreferenceCount();) {
+            final Preference preference = preferenceScreen.getPreference(i);
             final String key = preference.getKey();
             if (!TextUtils.isEmpty(key)
                     && key.startsWith(KEY_KEYBOARD_SETTINGS_PREFIX)
                     && !enabledInputMethodKeys.contains(key)) {
-                screen.removePreference(preference);
+                preferenceScreen.removePreference(preference);
             } else {
                 i++;
             }
         }
     }
 
-    private void setInputMethod(String imid) {
-        if (imid == null) {
-            throw new IllegalArgumentException("Null ID");
-        }
-
-        int userId;
-        try {
-            userId = ActivityManager.getService().getCurrentUser().id;
-            Settings.Secure.putStringForUser(getActivity().getContentResolver(),
-                    Settings.Secure.DEFAULT_INPUT_METHOD, imid, userId);
-
-            Intent intent = new Intent(Intent.ACTION_INPUT_METHOD_CHANGED);
-            intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING);
-            intent.putExtra("input_method_id", imid);
-            getActivity().sendBroadcastAsUser(intent, UserHandle.CURRENT);
-        } catch (RemoteException e) {
-            Log.d(TAG, "set default input method remote exception");
-        }
-    }
-
-    private List<InputMethodInfo> getEnabledSystemInputMethodList() {
-        List<InputMethodInfo> enabledInputMethodInfos =
-                new ArrayList<>(mInputMethodManager.getEnabledInputMethodList());
-        // Filter auxiliary keyboards out
-        enabledInputMethodInfos.removeIf(InputMethodInfo::isAuxiliaryIme);
-        return enabledInputMethodInfos;
-    }
-
-    private Intent getInputMethodSettingsIntent(InputMethodInfo imi) {
-        final Intent intent;
-        final String settingsActivity = imi.getSettingsActivity();
-        if (!TextUtils.isEmpty(settingsActivity)) {
-            intent = new Intent(Intent.ACTION_MAIN);
-            intent.setClassName(imi.getPackageName(), settingsActivity);
+    /**
+     * Update autofill related preferences.
+     */
+    private void updateAutofill() {
+        final PreferenceCategory autofillCategory = (PreferenceCategory)
+                findPreference(KEY_AUTOFILL_CATEGORY);
+        List<DefaultAppInfo> candidates = getAutofillCandidates();
+        if (candidates.isEmpty()) {
+            // No need to show keyboard category and autofill category.
+            // Keyboard only preference screen:
+            findPreference(KEY_KEYBOARD_CATEGORY).setVisible(false);
+            autofillCategory.setVisible(false);
+            getPreferenceScreen().setTitle(R.string.system_keyboard);
         } else {
-            intent = null;
+            // Show both keyboard category and autofill category in keyboard & autofill screen.
+            findPreference(KEY_KEYBOARD_CATEGORY).setVisible(true);
+            autofillCategory.setVisible(true);
+            final Preference currentAutofillPref = findPreference(KEY_CURRENT_AUTOFILL);
+            updateCurrentAutofillPreference(currentAutofillPref, candidates);
+            updateAutofillSettings(candidates);
+            getPreferenceScreen().setTitle(R.string.system_keyboard_autofill);
         }
-        return intent;
+
+    }
+
+    private List<DefaultAppInfo> getAutofillCandidates() {
+        return AutofillHelper.getAutofillCandidates(getContext(),
+                mPm, UserHandle.myUserId());
+    }
+
+    private void updateCurrentAutofillPreference(Preference currentAutofillPref,
+                                         List<DefaultAppInfo> candidates) {
+
+        DefaultAppInfo app = AutofillHelper.getCurrentAutofill(getContext(), candidates);
+
+        CharSequence summary = app == null ? getContext().getString(R.string.autofill_none)
+                : app.loadLabel();
+        currentAutofillPref.setSummary(summary);
+    }
+
+    private void updateAutofillSettings(List<DefaultAppInfo> candidates) {
+        final Context preferenceContext = getPreferenceContext();
+
+        final PreferenceCategory autofillCategory = (PreferenceCategory)
+                findPreference(KEY_AUTOFILL_CATEGORY);
+
+        final Set<String> autofillServicesKeys = new ArraySet<>(candidates.size());
+        for (final DefaultAppInfo info : candidates) {
+            final Intent settingsIntent = AutofillHelper.getAutofillSettingsIntent(getContext(),
+                    mPm, info);
+            if (settingsIntent == null) {
+                continue;
+            }
+            final String key = KEY_AUTOFILL_SETTINGS_PREFIX + info.getKey();
+
+            Preference preference = findPreference(key);
+            if (preference == null) {
+                preference = new Preference(preferenceContext);
+                autofillCategory.addPreference(preference);
+            }
+            preference.setTitle(getContext().getString(R.string.title_settings, info.loadLabel()));
+            preference.setKey(key);
+            preference.setIntent(settingsIntent);
+            autofillServicesKeys.add(key);
+        }
+
+        for (int i = 0; i < autofillCategory.getPreferenceCount();) {
+            final Preference preference = autofillCategory.getPreference(i);
+            final String key = preference.getKey();
+            if (!TextUtils.isEmpty(key)
+                    && key.startsWith(KEY_AUTOFILL_SETTINGS_PREFIX)
+                    && !autofillServicesKeys.contains(key)) {
+                autofillCategory.removePreference(preference);
+            } else {
+                i++;
+            }
+        }
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.INPUTMETHOD_KEYBOARD;
     }
 }

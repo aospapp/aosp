@@ -176,8 +176,8 @@ public class SupplicantStateTrackerTest {
         IntentFilter mIntentFilter = new IntentFilter();
         mIntentFilter.addAction(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION);
         mContext.registerReceiver(wifiBroadcastReceiver, mIntentFilter);
-        mSupplicantStateTracker.sendMessage(WifiMonitor.AUTHENTICATION_FAILURE_EVENT, 0,
-                WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD);
+        mSupplicantStateTracker.sendMessage(WifiMonitor.AUTHENTICATION_FAILURE_EVENT,
+                WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD, -1);
         mSupplicantStateTracker.sendMessage(getSupplicantStateChangeMessage(0, sWifiSsid,
                 sBSSID, SupplicantState.AUTHENTICATING));
     }

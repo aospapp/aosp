@@ -21,7 +21,7 @@ import junit.framework.TestCase;
 import java.io.IOException;
 import java.nio.file.FileSystemException;
 import java.nio.file.NotDirectoryException;
-import libcore.util.SerializationTester;
+import libcore.libcore.util.SerializationTester;
 
 public class NotDirectoryExceptionTest extends TestCase {
     public void test_constructor$String() {

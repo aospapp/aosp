@@ -43,7 +43,8 @@ from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib import time_utils
 from autotest_lib.frontend.afe import models as afe_models
-from autotest_lib.site_utils.suite_scheduler import constants
+from autotest_lib.frontend.afe import rpc_client_lib
+from autotest_lib.server import constants
 
 
 # Values used to describe the diagnosis of a DUT.  These values are
@@ -125,7 +126,10 @@ class _JobEvent(object):
         @return A URL to the requested results log.
 
         """
-        return cls._LOG_URL_PATTERN % (afe_hostname, logdir)
+        return cls._LOG_URL_PATTERN % (
+            rpc_client_lib.add_protocol(afe_hostname),
+            logdir,
+        )
 
 
     @classmethod
@@ -488,36 +492,24 @@ class HostJobHistory(object):
 
 
     @classmethod
-    def get_multiple_histories(cls, afe, start_time, end_time,
-                               board=None, pool=None):
+    def get_multiple_histories(cls, afe, start_time, end_time, labels=()):
         """Create `HostJobHistory` instances for a set of hosts.
-
-        The set of hosts can be specified as "all hosts of a given
-        board type", "all hosts in a given pool", or "all hosts
-        of a given board and pool".
 
         @param afe         Autotest frontend
         @param start_time  Start time for the history's time
                            interval.
         @param end_time    End time for the history's time interval.
-        @param board       All hosts must have this board type; if
-                           `None`, all boards are allowed.
-        @param pool        All hosts must be in this pool; if
-                           `None`, all pools are allowed.
+        @param labels      type: [str]. AFE labels to constrain the host query.
+                           This option must be non-empty. An unconstrained
+                           search of the DB is too costly.
 
         @return A list of new `HostJobHistory` instances.
 
         """
-        # If `board` or `pool` are both `None`, we could search the
-        # entire database, which is more expensive than we want.
-        # Our caller currently won't (can't) do this, but assert to
-        # be safe.
-        assert board is not None or pool is not None
-        labels = []
-        if board is not None:
-            labels.append(constants.Labels.BOARD_PREFIX + board)
-        if pool is not None:
-            labels.append(constants.Labels.POOL_PREFIX + pool)
+        assert labels, (
+            'Must specify labels for get_multiple_histories. '
+            'Unconstrainted search of the database is prohibitively costly.')
+
         kwargs = {'multiple_labels': labels}
         hosts = afe.get_hosts(**kwargs)
         return [cls(afe, h, start_time, end_time) for h in hosts]
@@ -564,6 +556,13 @@ class HostJobHistory(object):
     def host(self):
         """Return the AFE host object for this history."""
         return self._host
+
+
+    @property
+    def host_model(self):
+        """Return the model name for this history's DUT."""
+        prefix = constants.Labels.MODEL_PREFIX
+        return self._extract_prefixed_label(prefix)
 
 
     @property

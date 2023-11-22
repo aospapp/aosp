@@ -48,14 +48,12 @@ class TestSettings(unittest.TestCase):
             'run the test.'))
     self.assertEqual(len(self.settings.fields), 1)
     # Adding the same field twice raises an exception.
-    self.assertRaises(
-        Exception,
-        self.settings.AddField, (IntegerField(
-            'iterations',
-            default=1,
-            required=False,
-            description='Number of iterations to run '
-            'the test.')))
+    self.assertRaises(Exception, self.settings.AddField, (IntegerField(
+        'iterations',
+        default=1,
+        required=False,
+        description='Number of iterations to run '
+        'the test.')))
     res = self.settings.fields['iterations']
     self.assertIsInstance(res, IntegerField)
     self.assertEqual(res.Get(), 1)
@@ -116,10 +114,10 @@ class TestSettings(unittest.TestCase):
     self.assertEqual(res, 5)
 
   def test_inherit(self):
-    parent_settings = settings_factory.SettingsFactory().GetSettings('global',
-                                                                     'global')
-    label_settings = settings_factory.SettingsFactory().GetSettings('label',
-                                                                    'label')
+    parent_settings = settings_factory.SettingsFactory().GetSettings(
+        'global', 'global')
+    label_settings = settings_factory.SettingsFactory().GetSettings(
+        'label', 'label')
     self.assertEqual(parent_settings.GetField('chromeos_root'), '')
     self.assertEqual(label_settings.GetField('chromeos_root'), '')
     self.assertIsNone(label_settings.parent)
@@ -140,8 +138,8 @@ class TestSettings(unittest.TestCase):
             'list of email addresses to send '
             'email to.'))
 
-    global_settings = settings_factory.SettingsFactory().GetSettings('global',
-                                                                     'global')
+    global_settings = settings_factory.SettingsFactory().GetSettings(
+        'global', 'global')
 
     global_settings.SetField('email', 'john.doe@google.com', append=True)
     global_settings.SetField('email', 'jane.smith@google.com', append=True)

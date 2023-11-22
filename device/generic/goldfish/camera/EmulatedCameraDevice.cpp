@@ -221,7 +221,8 @@ status_t EmulatedCameraDevice::getCurrentFrameImpl(const uint8_t* source,
 }
 
 status_t EmulatedCameraDevice::getCurrentFrame(void* buffer,
-                                               uint32_t pixelFormat)
+                                               uint32_t pixelFormat,
+                                               int64_t* timestamp)
 {
     if (!isStarted()) {
         ALOGE("%s: Device is not started", __FUNCTION__);
@@ -238,12 +239,18 @@ status_t EmulatedCameraDevice::getCurrentFrame(void* buffer,
         ALOGE("%s: No framebuffer", __FUNCTION__);
         return EINVAL;
     }
+
+    if (timestamp != nullptr) {
+      *timestamp = mCameraThread->getPrimaryTimestamp();
+    }
+
     return getCurrentFrameImpl(reinterpret_cast<const uint8_t*>(source),
                                reinterpret_cast<uint8_t*>(buffer),
                                pixelFormat);
 }
 
-status_t EmulatedCameraDevice::getCurrentPreviewFrame(void* buffer)
+status_t EmulatedCameraDevice::getCurrentPreviewFrame(void* buffer,
+                                                      int64_t* timestamp)
 {
     if (!isStarted()) {
         ALOGE("%s: Device is not started", __FUNCTION__);
@@ -259,6 +266,10 @@ status_t EmulatedCameraDevice::getCurrentPreviewFrame(void* buffer)
     if (currentFrame == nullptr) {
         ALOGE("%s: No framebuffer", __FUNCTION__);
         return EINVAL;
+    }
+
+    if (timestamp != nullptr) {
+      *timestamp = mCameraThread->getPrimaryTimestamp();
     }
 
     /* In emulation the framebuffer is never RGB. */
@@ -461,6 +472,13 @@ const void* EmulatedCameraDevice::CameraThread::getPrimaryBuffer() const {
     return nullptr;
 }
 
+int64_t EmulatedCameraDevice::CameraThread::getPrimaryTimestamp() const {
+    if (mFrameProducer.get()) {
+        return mFrameProducer->getPrimaryTimestamp();
+    }
+    return 0L;
+}
+
 void EmulatedCameraDevice::CameraThread::lockPrimaryBuffer() {
     mFrameProducer->lockPrimaryBuffer();
 }
@@ -549,6 +567,8 @@ EmulatedCameraDevice::CameraThread::FrameProducer::FrameProducer(
       mOpaque(opaque),
       mPrimaryBuffer(primaryBuffer),
       mSecondaryBuffer(secondaryBuffer),
+      mPrimaryTimestamp(0L),
+      mSecondaryTimestamp(0L),
       mLastFrame(0),
       mHasFrame(false) {
 
@@ -557,6 +577,11 @@ EmulatedCameraDevice::CameraThread::FrameProducer::FrameProducer(
 const void*
 EmulatedCameraDevice::CameraThread::FrameProducer::getPrimaryBuffer() const {
     return mPrimaryBuffer;
+}
+
+int64_t
+EmulatedCameraDevice::CameraThread::FrameProducer::getPrimaryTimestamp() const {
+    return mPrimaryTimestamp;
 }
 
 void EmulatedCameraDevice::CameraThread::FrameProducer::lockPrimaryBuffer() {
@@ -650,7 +675,7 @@ bool EmulatedCameraDevice::CameraThread::FrameProducer::inWorkerThread() {
 
     // Produce one frame and place it in the secondary buffer
     mLastFrame = systemTime(SYSTEM_TIME_MONOTONIC);
-    if (!mProducer(mOpaque, mSecondaryBuffer)) {
+    if (!mProducer(mOpaque, mSecondaryBuffer, &mSecondaryTimestamp)) {
         ALOGE("FrameProducer could not produce frame, exiting thread");
         mCameraHAL->onCameraDeviceError(CAMERA_ERROR_SERVER_DIED);
         return false;
@@ -660,6 +685,7 @@ bool EmulatedCameraDevice::CameraThread::FrameProducer::inWorkerThread() {
         // Switch buffers now that the secondary buffer is ready
         Mutex::Autolock lock(mBufferMutex);
         std::swap(mPrimaryBuffer, mSecondaryBuffer);
+        std::swap(mPrimaryTimestamp, mSecondaryTimestamp);
     }
     mHasFrame = true;
     return true;

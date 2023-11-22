@@ -47,7 +47,7 @@ void NanoappInfoByAppIdTest::handleEvent(uint32_t senderInstanceId,
                                     sizeof(&appVersion));
 
     nanoapp_testing::memcpy(&appVersion, message, sizeof(appVersion));
-    nanoapp_testing::littleEndianToHost(&appVersion);
+    appVersion = nanoapp_testing::littleEndianToHost(appVersion);
 
     RunningInfo runningInfo;
 

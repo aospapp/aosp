@@ -100,6 +100,10 @@ class GBMBuffer(object):
         self._l = library
         self._buffer = buffer
 
+    def __del__(self):
+        if self._l:
+            self._l.gbm_bo_destroy(self._buffer)
+
     @classmethod
     def fromFD(cls, device, fd, width, height, stride, bo_format, usage):
         """Create/import a GBM Buffer Object from a file descriptor.
@@ -176,15 +180,6 @@ def _bgrx24(i):
     return r, g, b
 
 
-def _copyImage(image, map_ints, map_ints_pitch, unformat):
-    width, height = image.size
-    for y in range(height):
-        y_offset = y * map_ints_pitch
-        for x in range(width):
-            rgb = unformat(map_ints[y_offset + x])
-            image.putpixel((x, y), rgb)
-
-
 def crtcScreenshot(crtc_id=None):
     """Take a screenshot, returning an image object.
 
@@ -211,15 +206,59 @@ def crtcScreenshot(crtc_id=None):
         map_void_p, stride_bytes = bo.map(0, 0, framebuffer.width,
                                           framebuffer.height,
                                           GBM_BO_TRANSFER_READ, 0)
-        stride_pixels = stride_bytes.value / 4
-        map_ints_type = c_int * (stride_pixels * framebuffer.height)
-        map_int_p = cast(map_void_p, POINTER(c_int))
-        addr = addressof(map_int_p.contents)
-        map_ints = map_ints_type.from_address(addr)
-        image = Image.new("RGB", (framebuffer.width, framebuffer.height))
-        _copyImage(image, map_ints, stride_pixels, _bgrx24)
+        map_bytes = stride_bytes.value * framebuffer.height
+
+        # Create a Python Buffer object which references (but does not own) the
+        # memory.
+        buffer_from_memory = pythonapi.PyBuffer_FromMemory
+        buffer_from_memory.restype = py_object
+        buffer_from_memory.argtypes = [c_void_p, c_ssize_t]
+        map_buffer = buffer_from_memory(map_void_p, map_bytes)
+
+        # Make a copy of the bytes. Doing this is faster than the conversion,
+        # and is more likely to capture a consistent snapshot of the framebuffer
+        # contents, as a process may be writing to it.
+        buffer_bytes = bytes(map_buffer)
+
+        # Load the image, converting from the BGRX format to a PIL Image in RGB
+        # form. As the conversion is implemented by PIL as C code, this
+        # conversion is much faster than calling _bgrx24().
+        image = Image.fromstring(
+                'RGB', (framebuffer.width, framebuffer.height), buffer_bytes,
+                'raw', 'BGRX', stride_bytes.value, 1)
         bo.unmap(bo._map_p)
+	del bo
         return image
 
     raise RuntimeError(
         "Unable to take screenshot. There may not be anything on the screen.")
+
+
+def crtcGetPixel(x, y, crtc_id=None):
+    """Get a pixel from the specified screen, returning a rgb tuple.
+
+    @param x: The x-coordinate of the desired pixel.
+    @param y: The y-coordinate of the desired pixel.
+    @param crtc_id: The CRTC to get the pixel from.
+                    None for first found CRTC with mode set
+                    or "internal" for crtc connected to internal LCD
+                    or "external" for crtc connected to external display
+                    or "usb" "evdi" or "udl" for crtc with valid mode on evdi
+                    or udl display
+                    or DRM integer crtc_id
+    """
+    crtc = drm.getCrtc(crtc_id)
+    if crtc is None:
+        raise RuntimeError(
+            "Unable to get pixel. There may not be anything on the screen.")
+    device = GBMDevice.fromHandle(drm._drm._fd)
+    framebuffer = crtc.fb()
+    bo = GBMBuffer.fromFD(device,
+                          framebuffer.getFD(), framebuffer.width,
+                          framebuffer.height, framebuffer.pitch,
+                          GBM_FORMAT_ARGB8888, GBM_BO_USE_SCANOUT)
+    map_void_p, _ = bo.map(int(x), int(y), 1, 1, GBM_BO_TRANSFER_READ, 0)
+    map_int_p = cast(map_void_p, POINTER(c_int))
+    pixel = _bgrx24(map_int_p[0])
+    bo.unmap(bo._map_p)
+    return pixel

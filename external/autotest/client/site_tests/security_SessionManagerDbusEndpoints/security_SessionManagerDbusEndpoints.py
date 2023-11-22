@@ -115,7 +115,8 @@ class security_SessionManagerDbusEndpoints(test.test):
             # Pass an empty dbus.Array with the correct signature, taken from
             # platform2/login_manager/dbus_bindings/org.chromium.SessionManagerInterface.xml.
             empty_string_array = dbus.Array(signature="as")
-            path = session_manager.EnableChromeTesting(True, empty_string_array)
+            path = session_manager.EnableChromeTesting(True, empty_string_array,
+                                                       empty_string_array)
         except dbus.exceptions.DBusException as dbe:
             logging.info(dbe)
         else:

@@ -125,6 +125,8 @@ void mat33Transpose(struct Mat33 *out, const struct Mat33 *A);
 void mat33GetEigenbasis(struct Mat33 *S, struct Vec3 *eigenvals,
                         struct Mat33 *eigenvecs);
 
+// Computes the determinant of a 3 by 3 matrix.
+float mat33Determinant(const struct Mat33 *A);
 
 // 4x4 MATRIX MATH /////////////////////////////////////////////////////////////
 // Updates out with the multiplication of A and v, i.e.:

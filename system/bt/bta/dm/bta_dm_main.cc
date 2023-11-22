@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2012 Broadcom Corporation
+ *  Copyright 2003-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -38,60 +38,6 @@ tBTA_DM_DI_CB bta_dm_di_cb;
 
 /* type for action functions */
 typedef void (*tBTA_DM_ACTION)(tBTA_DM_MSG* p_data);
-
-/* action function list */
-const tBTA_DM_ACTION bta_dm_action[] = {
-
-    /* device manager local device API events */
-    bta_dm_enable,         /* 0  BTA_DM_API_ENABLE_EVT */
-    bta_dm_disable,        /* 1  BTA_DM_API_DISABLE_EVT */
-    bta_dm_set_dev_name,   /* 2  BTA_DM_API_SET_NAME_EVT */
-    bta_dm_set_visibility, /* 3  BTA_DM_API_SET_VISIBILITY_EVT */
-    bta_dm_acl_change,     /* 8  BTA_DM_ACL_CHANGE_EVT */
-    bta_dm_add_device,     /* 9  BTA_DM_API_ADD_DEVICE_EVT */
-    bta_dm_close_acl,      /* 10  BTA_DM_API_ADD_DEVICE_EVT */
-
-    /* security API events */
-    bta_dm_bond,        /* 11  BTA_DM_API_BOND_EVT */
-    bta_dm_bond_cancel, /* 12  BTA_DM_API_BOND_CANCEL_EVT */
-    bta_dm_pin_reply,   /* 13 BTA_DM_API_PIN_REPLY_EVT */
-
-    /* power manger events */
-    bta_dm_pm_btm_status, /* 16 BTA_DM_PM_BTM_STATUS_EVT */
-    bta_dm_pm_timer,      /* 17 BTA_DM_PM_TIMER_EVT*/
-
-    /* simple pairing events */
-    bta_dm_confirm, /* 18 BTA_DM_API_CONFIRM_EVT */
-
-    bta_dm_set_encryption, /* BTA_DM_API_SET_ENCRYPTION_EVT */
-
-    /* out of band pairing events */
-    bta_dm_loc_oob,        /* 20 BTA_DM_API_LOC_OOB_EVT */
-    bta_dm_ci_io_req_act,  /* 21 BTA_DM_CI_IO_REQ_EVT */
-    bta_dm_ci_rmt_oob_act, /* 22 BTA_DM_CI_RMT_OOB_EVT */
-
-    bta_dm_add_blekey,        /*  BTA_DM_API_ADD_BLEKEY_EVT           */
-    bta_dm_add_ble_device,    /*  BTA_DM_API_ADD_BLEDEVICE_EVT        */
-    bta_dm_ble_passkey_reply, /*  BTA_DM_API_BLE_PASSKEY_REPLY_EVT    */
-    bta_dm_ble_confirm_reply, /*  BTA_DM_API_BLE_CONFIRM_REPLY_EVT    */
-    bta_dm_security_grant, bta_dm_ble_set_bg_conn_type,
-    bta_dm_ble_set_conn_params,      /* BTA_DM_API_BLE_CONN_PARAM_EVT */
-    bta_dm_ble_set_conn_scan_params, /* BTA_DM_API_BLE_CONN_SCAN_PARAM_EVT */
-    bta_dm_ble_observe,
-    bta_dm_ble_update_conn_params, /* BTA_DM_API_UPDATE_CONN_PARAM_EVT */
-#if (BLE_PRIVACY_SPT == TRUE)
-    bta_dm_ble_config_local_privacy, /* BTA_DM_API_LOCAL_PRIVACY_EVT */
-#endif
-    bta_dm_ble_set_data_length, /* BTA_DM_API_SET_DATA_LENGTH_EVT */
-    bta_dm_ble_get_energy_info,    /* BTA_DM_API_BLE_ENERGY_INFO_EVT */
-
-    bta_dm_enable_test_mode,  /*  BTA_DM_API_ENABLE_TEST_MODE_EVT     */
-    bta_dm_disable_test_mode, /*  BTA_DM_API_DISABLE_TEST_MODE_EVT    */
-    bta_dm_execute_callback,  /*  BTA_DM_API_EXECUTE_CBACK_EVT        */
-
-    bta_dm_remove_all_acl, /* BTA_DM_API_REMOVE_ALL_ACL_EVT */
-    bta_dm_remove_device,  /* BTA_DM_API_REMOVE_DEVICE_EVT */
-};
 
 /* state machine action enumeration list */
 enum {
@@ -258,41 +204,6 @@ const tBTA_DM_ST_TBL bta_dm_search_st_tbl[] = {
     bta_dm_search_idle_st_table, bta_dm_search_search_active_st_table,
     bta_dm_search_search_cancelling_st_table,
     bta_dm_search_disc_active_st_table};
-
-/*******************************************************************************
- *
- * Function         bta_dm_sm_disable
- *
- * Description     unregister BTA DM
- *
- *
- * Returns          void
- *
- ******************************************************************************/
-void bta_dm_sm_disable() { bta_sys_deregister(BTA_ID_DM); }
-
-/*******************************************************************************
- *
- * Function         bta_dm_sm_execute
- *
- * Description      State machine event handling function for DM
- *
- *
- * Returns          void
- *
- ******************************************************************************/
-bool bta_dm_sm_execute(BT_HDR* p_msg) {
-  uint16_t event = p_msg->event & 0x00ff;
-
-  APPL_TRACE_EVENT("bta_dm_sm_execute event:0x%x", event);
-
-  /* execute action functions */
-  if (event < BTA_DM_NUM_ACTIONS) {
-    (*bta_dm_action[event])((tBTA_DM_MSG*)p_msg);
-  }
-
-  return true;
-}
 
 /*******************************************************************************
  *

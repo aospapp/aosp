@@ -58,7 +58,7 @@ class AudioTestData(object):
             return f.read()
 
 
-    def convert(self, data_format, volume_scale):
+    def convert(self, data_format, volume_scale, path=None):
         """Converts the data format and returns a new AudioTestData object.
 
         Converts the source file at self.path to a new data format.
@@ -75,16 +75,23 @@ class AudioTestData(object):
         @param volume_scale: A float for volume scale used in sox command.
                               E.g. 1.0 is the same. 0.5 to scale volume by
                               half. -1.0 to invert the data.
+        @param path: The path to the file of new AudioTestData. If this is None,
+                     this function will add the suffix described above to the
+                     path of the source file.
 
         @returns: A new AudioTestData object with converted format and new path.
 
         """
-        original_path_without_ext, _ = os.path.splitext(self.path)
-        new_ext = '.' + data_format['file_type']
-        # New path will be the composition of original name, new data format,
-        # and new file type as extension.
-        new_path = (original_path_without_ext + '_' +
-                    '_'.join(str(x) for x in data_format.values()) + new_ext)
+        if path:
+            new_path = path
+        else:
+            original_path_without_ext, _ = os.path.splitext(self.path)
+            new_ext = '.' + data_format['file_type']
+            # New path will be the composition of original name, new data
+            # format, and new file type as extension.
+            new_path = (original_path_without_ext + '_' +
+                        '_'.join(str(x) for x in data_format.values()) +
+                        new_ext)
 
         logging.debug('src data_format: %s', self.data_format)
         logging.debug('dst data_format: %s', data_format)
@@ -149,47 +156,56 @@ class FakeTestData(object):
         self.duration_secs = duration_secs
 
 
-class AudioTestDataGenerateOnDemand(AudioTestData):
-    """AudioTestData that generates real data on demand."""
-    def __init__(self, data_format=None, path=None, frequencies=None,
-                 duration_secs=None):
-        """
-        Initializes an audio test file that generate file on demand.
+def GenerateAudioTestData(data_format, path, frequencies=None,
+            duration_secs=None, volume_scale=None):
+    """Generates audio test data with specified format and frequencies.
 
-        @param data_format: A dict containing data format including
-                            file_type, sample_format, channel, and rate.
-                            file_type: file type e.g. 'raw' or 'wav'.
-                            sample_format: One of the keys in
-                                           audio_data.SAMPLE_FORMAT.
-                            channel: number of channels.
-                            rate: sampling rate.
-        @param path: The path to the file.
-        @param frequencies: A list containing the frequency of each channel in
-                            this file. Only applicable to data of sine tone.
-        @param duration_secs: Duration of test file in seconds.
+    @param data_format: A dict containing data format including
+                        file_type, sample_format, channel, and rate.
+                        file_type: file type e.g. 'raw' or 'wav'.
+                        sample_format: One of the keys in
+                                       audio_data.SAMPLE_FORMAT.
+                        channel: number of channels.
+                        rate: sampling rate.
+    @param path: The path to the file.
+    @param frequencies: A list containing the frequency of each channel in
+                        this file. Only applicable to data of sine tone.
+    @param duration_secs: Duration of test file in seconds.
+    @param volume_scale: A float for volume scale used in sox command.
+                         E.g. 0.5 to scale volume by half. -1.0 to invert.
 
-        """
-        self.data_format = data_format
-        self.path = path
-        self.frequencies = frequencies
-        self.duration_secs = duration_secs
+    @returns an AudioTestData object.
+    """
+    sample_format = audio_data.SAMPLE_FORMATS[data_format['sample_format']]
+    bits = sample_format['size_bytes'] * 8
 
+    if volume_scale:
+        path_without_ext, ext = os.path.splitext(path)
+        sox_file_path = os.path.join(path_without_ext + "_temp" + ext)
+    else:
+        sox_file_path = path
 
-    def generate_file(self):
-        """Generates the data with specified format and frequencies."""
-        sample_format = audio_data.SAMPLE_FORMATS[self.data_format['sample_format']]
-        bits = sample_format['size_bytes'] * 8
+    command = sox_utils.generate_sine_tone_cmd(
+            filename=sox_file_path,
+            channels=data_format['channel'],
+            bits=bits,
+            rate=data_format['rate'],
+            duration=duration_secs,
+            frequencies=frequencies,
+            raw=(data_format['file_type'] == 'raw'))
 
-        command = sox_utils.generate_sine_tone_cmd(
-                filename=self.path,
-                channels=self.data_format['channel'],
-                bits=bits,
-                rate=self.data_format['rate'],
-                duration=self.duration_secs,
-                frequencies=self.frequencies,
-                raw=(self.data_format['file_type'] == 'raw'))
+    logging.info(' '.join(command))
+    subprocess.check_call(command)
 
-        subprocess.check_call(command)
+    test_data = AudioTestData(data_format=data_format, path=sox_file_path,
+            frequencies=frequencies, duration_secs=duration_secs)
+
+    if volume_scale:
+        converted_test_data = test_data.convert(data_format, volume_scale, path)
+        test_data.delete()
+        return converted_test_data
+    else:
+        return test_data
 
 
 AUDIO_PATH = os.path.join(os.path.dirname(__file__))
@@ -254,55 +270,6 @@ SIMPLE_FREQUENCY_TEST_1330_FILE = AudioTestData(
                          channel=2,
                          rate=48000),
         frequencies=[1330, 1330])
-
-"""
-This test data contains fixed frequency sine wave in two channels.
-Left and right channel are both 660Hz. The duration is 60 seconds.
-The file format is two-channel wav data with each sample being a signed
-16-bit integer in little-endian with sampling rate 48000 samples/sec.
-The volume is 1.0.
-"""
-SIMPLE_FREQUENCY_LOUD_WAVE_FILE = AudioTestDataGenerateOnDemand(
-        path=os.path.join(AUDIO_PATH, 'fix_660_16.wav'),
-        data_format=dict(file_type='wav',
-                         sample_format='S16_LE',
-                         channel=2,
-                         rate=48000),
-        duration_secs=60,
-        frequencies=[660, 660])
-
-
-"""
-This test data contains fixed frequency sine wave in one channel.
-Left channel is 440Hz. The duration is 10 seconds.
-The file format is two-channel raw data with each sample being a signed
-16-bit integer in little-endian with sampling rate 48000 samples/sec.
-The volume is 0.5.
-"""
-LEFT_CHANNEL_TEST_FILE = AudioTestDataGenerateOnDemand(
-        path=os.path.join(AUDIO_PATH, 'left_440_half.raw'),
-        data_format=dict(file_type='raw',
-                         sample_format='S16_LE',
-                         channel=2,
-                         rate=48000),
-        duration_secs=10,
-        frequencies=[440, 0])
-
-"""
-This test data contains fixed frequency sine wave in one channel.
-Right channel is 440Hz. The duration is 10 seconds.
-The file format is two-channel raw data with each sample being a signed
-16-bit integer in little-endian with sampling rate 48000 samples/sec.
-The volume is 0.5.
-"""
-RIGHT_CHANNEL_TEST_FILE = AudioTestDataGenerateOnDemand(
-        path=os.path.join(AUDIO_PATH, 'right_440_half.raw'),
-        data_format=dict(file_type='raw',
-                         sample_format='S16_LE',
-                         channel=2,
-                         rate=48000),
-        duration_secs=10,
-        frequencies=[0, 440])
 
 """
 This test data contains fixed frequency sine wave in two channels.

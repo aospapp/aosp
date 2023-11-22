@@ -16,10 +16,18 @@
 
 package com.android.mediaframeworktest.integration;
 
+import static android.hardware.camera2.CameraDevice.TEMPLATE_PREVIEW;
+
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
+
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.ICameraService;
-import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureRequest;
@@ -27,6 +35,7 @@ import android.hardware.camera2.ICameraDeviceCallbacks;
 import android.hardware.camera2.ICameraDeviceUser;
 import android.hardware.camera2.impl.CameraMetadataNative;
 import android.hardware.camera2.impl.CaptureResultExtras;
+import android.hardware.camera2.impl.PhysicalCaptureResultInfo;
 import android.hardware.camera2.params.OutputConfiguration;
 import android.hardware.camera2.utils.SubmitInfo;
 import android.media.Image;
@@ -41,13 +50,10 @@ import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
 import android.view.Surface;
 
-import static android.hardware.camera2.CameraDevice.TEMPLATE_PREVIEW;
-
 import com.android.mediaframeworktest.MediaFrameworkIntegrationTestRunner;
 
 import org.mockito.ArgumentCaptor;
-import org.mockito.compat.ArgumentMatcher;
-import static org.mockito.Mockito.*;
+import org.mockito.ArgumentMatcher;
 
 public class CameraDeviceBinderTest extends AndroidTestCase {
     private static String TAG = "CameraDeviceBinderTest";
@@ -130,8 +136,8 @@ public class CameraDeviceBinderTest extends AndroidTestCase {
          * android.hardware.camera2.impl.CameraMetadataNative,
          * android.hardware.camera2.CaptureResultExtras)
          */
-        public void onResultReceived(CameraMetadataNative result, CaptureResultExtras resultExtras)
-                throws RemoteException {
+        public void onResultReceived(CameraMetadataNative result, CaptureResultExtras resultExtras,
+                PhysicalCaptureResultInfo physicalResults[]) throws RemoteException {
             // TODO Auto-generated method stub
 
         }
@@ -166,10 +172,10 @@ public class CameraDeviceBinderTest extends AndroidTestCase {
         }
     }
 
-    class IsMetadataNotEmpty extends ArgumentMatcher<CameraMetadataNative> {
+    class IsMetadataNotEmpty implements ArgumentMatcher<CameraMetadataNative> {
         @Override
-        public boolean matchesObject(Object obj) {
-            return !((CameraMetadataNative) obj).isEmpty();
+        public boolean matches(CameraMetadataNative obj) {
+            return !obj.isEmpty();
         }
     }
 
@@ -192,7 +198,7 @@ public class CameraDeviceBinderTest extends AndroidTestCase {
         assertFalse(metadata.isEmpty());
 
         CaptureRequest.Builder request = new CaptureRequest.Builder(metadata, /*reprocess*/false,
-                CameraCaptureSession.SESSION_ID_NONE);
+                CameraCaptureSession.SESSION_ID_NONE, mCameraId, /*physicalCameraIdSet*/null);
         assertFalse(request.isEmpty());
         assertFalse(metadata.isEmpty());
         if (needStream) {
@@ -440,12 +446,14 @@ public class CameraDeviceBinderTest extends AndroidTestCase {
         // Test both single request and streaming request.
         verify(mMockCb, timeout(WAIT_FOR_COMPLETE_TIMEOUT_MS).times(1)).onResultReceived(
                 argThat(matcher),
-                any(CaptureResultExtras.class));
+                any(CaptureResultExtras.class),
+                any(PhysicalCaptureResultInfo[].class));
 
         verify(mMockCb, timeout(WAIT_FOR_COMPLETE_TIMEOUT_MS).atLeast(NUM_CALLBACKS_CHECKED))
                 .onResultReceived(
                         argThat(matcher),
-                        any(CaptureResultExtras.class));
+                        any(CaptureResultExtras.class),
+                        any(PhysicalCaptureResultInfo[].class));
     }
 
     @SmallTest

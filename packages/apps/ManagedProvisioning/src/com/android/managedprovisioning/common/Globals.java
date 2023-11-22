@@ -26,6 +26,15 @@ public final class Globals {
     public static final String ACTION_RESUME_PROVISIONING =
             "com.android.managedprovisioning.action.RESUME_PROVISIONING";
 
+    /**
+     * Start a provisioning flow that sets a Device Owner without user interaction. Per the Android
+     * Compatibility Definition document, this is not compatible with declaring the feature
+     * android.software.device_admin, so it cannot be used to silently enroll a production device
+     * into Android Enterprise management.
+     */
+    public static final String ACTION_PROVISION_MANAGED_DEVICE_SILENTLY =
+            "android.app.action.PROVISION_MANAGED_DEVICE_SILENTLY";
+
     public static final String MANAGED_PROVISIONING_PACKAGE_NAME =
             "com.android.managedprovisioning";
 }

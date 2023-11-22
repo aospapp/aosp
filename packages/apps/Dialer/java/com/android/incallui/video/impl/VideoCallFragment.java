@@ -30,6 +30,7 @@ import android.renderscript.Allocation;
 import android.renderscript.Element;
 import android.renderscript.RenderScript;
 import android.renderscript.ScriptIntrinsicBlur;
+import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
@@ -85,7 +86,7 @@ import com.android.incallui.videosurface.protocol.VideoSurfaceTexture;
 import com.android.incallui.videotech.utils.VideoUtils;
 
 /** Contains UI elements for a video call. */
-// LINT.IfChange
+
 public class VideoCallFragment extends Fragment
     implements InCallScreen,
         InCallButtonUi,
@@ -845,7 +846,7 @@ public class VideoCallFragment extends Fragment
   }
 
   @Override
-  public void updateInCallButtonUiColors() {}
+  public void updateInCallButtonUiColors(@ColorInt int color) {}
 
   @Override
   public Fragment getInCallButtonUiFragment() {
@@ -886,7 +887,7 @@ public class VideoCallFragment extends Fragment
     updateButtonStates();
     FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
     Fragment oldBanner = getChildFragmentManager().findFragmentById(R.id.videocall_on_hold_banner);
-    if (secondaryInfo.shouldShow) {
+    if (secondaryInfo.shouldShow()) {
       OnHoldFragment onHoldFragment = OnHoldFragment.newInstance(secondaryInfo);
       onHoldFragment.setPadTopInset(!isInFullscreenMode);
       transaction.replace(R.id.videocall_on_hold_banner, onHoldFragment);
@@ -1149,12 +1150,12 @@ public class VideoCallFragment extends Fragment
       return;
     }
 
-    // TODO: When the view is first displayed after a rotation the bitmap is empty
+    // TODO(mdooley): When the view is first displayed after a rotation the bitmap is empty
     // and thus this blur has no effect.
     // This call can take 100 milliseconds.
     blur(getContext(), bitmap, blurRadius);
 
-    // TODO: Figure out why only have to apply the transform in landscape mode
+    // TODO(mdooley): Figure out why only have to apply the transform in landscape mode
     if (width > height) {
       bitmap =
           Bitmap.createBitmap(
@@ -1271,4 +1272,4 @@ public class VideoCallFragment extends Fragment
     }
   }
 }
-// LINT.ThenChange(//depot/google3/third_party/java_src/android_app/dialer/java/com/android/incallui/video/impl/SurfaceViewVideoCallFragment.java)
+

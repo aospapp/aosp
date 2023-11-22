@@ -25,25 +25,24 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-
 import com.android.tv.MainActivity;
 import com.android.tv.R;
 import com.android.tv.util.ViewCache;
-
 import java.util.Collections;
 import java.util.List;
 
-/**
- * A view that shows a title and list view.
- */
+/** A view that shows a title and list view. */
 public class ItemListRowView extends MenuRowView implements OnChildSelectedListener {
     private static final String TAG = MenuView.TAG;
     private static final boolean DEBUG = MenuView.DEBUG;
 
     public interface CardView<T> {
         void onBind(T row, boolean selected);
+
         void onRecycled();
+
         void onSelected();
+
         void onDeselected();
     }
 
@@ -115,7 +114,7 @@ public class ItemListRowView extends MenuRowView implements OnChildSelectedListe
         }
     }
 
-    public static abstract class ItemListAdapter<T>
+    public abstract static class ItemListAdapter<T>
             extends RecyclerView.Adapter<ItemListAdapter.MyViewHolder> {
         private final MainActivity mMainActivity;
         private final LayoutInflater mLayoutInflater;
@@ -129,25 +128,20 @@ public class ItemListRowView extends MenuRowView implements OnChildSelectedListe
         }
 
         /**
-         * In most cases, implementation should call {@link #setItemList(java.util.List)} with
-         * newly update item list.
+         * In most cases, implementation should call {@link #setItemList(java.util.List)} with newly
+         * update item list.
          */
         public abstract void update();
 
-        /**
-         * Gets layout resource ID. It'll be used in {@link #onCreateViewHolder}.
-         */
+        /** Gets layout resource ID. It'll be used in {@link #onCreateViewHolder}. */
         protected abstract int getLayoutResId(int viewType);
 
-        /**
-         * Releases all the resources which need to be released.
-        */
-        public void release() {
-        }
+        /** Releases all the resources which need to be released. */
+        public void release() {}
 
         /**
-         * The initial position of list that will be selected when the main menu appears.
-         * By default, the first item is initially selected.
+         * The initial position of list that will be selected when the main menu appears. By
+         * default, the first item is initially selected.
          */
         public int getInitialPosition() {
             return 0;
@@ -169,8 +163,8 @@ public class ItemListRowView extends MenuRowView implements OnChildSelectedListe
          * <p>This sends an item change event, not a structural change event. The items of the same
          * positions retain the same identity.
          *
-         * <p>If there's any structural change and relayout and rebind is needed, call
-         * {@link #notifyDataSetChanged} explicitly.
+         * <p>If there's any structural change and relayout and rebind is needed, call {@link
+         * #notifyDataSetChanged} explicitly.
          */
         protected void setItemList(List<T> itemList) {
             int oldSize = mItemList.size();
@@ -197,24 +191,21 @@ public class ItemListRowView extends MenuRowView implements OnChildSelectedListe
             return mItemList.size();
         }
 
-        /**
-         * Returns the position of the item.
-         */
+        /** Returns the position of the item. */
         protected int getItemPosition(T item) {
             return mItemList.indexOf(item);
         }
 
-        /**
-         * Returns {@code true} if the item list contains the item, otherwise {@code false}.
-         */
+        /** Returns {@code true} if the item list contains the item, otherwise {@code false}. */
         protected boolean containsItem(T item) {
             return mItemList.contains(item);
         }
 
         @Override
         public MyViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            View view = ViewCache.getInstance().getOrCreateView(
-                    mLayoutInflater, getLayoutResId(viewType), parent);
+            View view =
+                    ViewCache.getInstance()
+                            .getOrCreateView(mLayoutInflater, getLayoutResId(viewType), parent);
             return new MyViewHolder(view);
         }
 

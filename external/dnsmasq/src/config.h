@@ -33,7 +33,6 @@
 #define DHCP_PACKET_MAX 16384 /* hard limit on DHCP packet size */
 #define SMALLDNAME 40 /* most domain names are smaller than this */
 #define HOSTSFILE "/etc/hosts"
-#define ETHERSFILE "/etc/ethers"
 #ifdef __uClinux__
 #  define RESOLVFILE "/etc/config/resolv.conf"
 #else

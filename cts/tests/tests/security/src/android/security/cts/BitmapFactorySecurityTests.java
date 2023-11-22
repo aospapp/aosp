@@ -69,4 +69,16 @@ public class BitmapFactorySecurityTests extends AndroidTestCase {
         // This previously crashed in fread. No need to check the output.
         BitmapFactory.decodeFileDescriptor(getResource(R.raw.b38116746_new));
     }
+
+    /**
+     * Verifies that decoding a corrupt BMP does crash.
+     */
+    public void test_android_bug_37627194() {
+        FileDescriptor exploitImage = getResource(R.raw.bug_37627194);
+        try {
+            BitmapFactory.decodeFileDescriptor(exploitImage);
+        } catch (OutOfMemoryError e) {
+            fail("OOM attempting to decode BMP");
+        }
+    }
 }

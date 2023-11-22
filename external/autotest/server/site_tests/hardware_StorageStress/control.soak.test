@@ -15,7 +15,8 @@ Shorter version of control.soak, last only 1 hour:
 
 def run_hardware_storage_stress(machine):
     job.run_test('hardware_StorageStress', client_ip=machine, duration=3600,
-                  power_command='nothing', storage_test_command='full_write')
+                  power_command='wait', storage_test_command='full_write',
+                  suspend_duration= 5 * 60)
 
 job.parallel_simple(run_hardware_storage_stress, machines)
 

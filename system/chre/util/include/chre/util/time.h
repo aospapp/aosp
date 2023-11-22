@@ -21,14 +21,23 @@
 
 namespace chre {
 
+//! The number of milliseconds in one min.
+constexpr uint64_t kOneMinuteInMillisecods(60000);
+
+//! The number of milliseconds in one second.
+constexpr uint64_t kOneSecondInMillisecods(1000);
+
 //! The number of nanoseconds in one second.
 constexpr uint64_t kOneSecondInNanoseconds(1000000000);
 
 //! The number of nanoseconds in one millisecond.
 constexpr uint64_t kOneMillisecondInNanoseconds(1000000);
 
-//! The number of nanoseconds in one millisecond.
+//! The number of nanoseconds in one microsecond.
 constexpr uint64_t kOneMicrosecondInNanoseconds(1000);
+
+//! The number of microseconds in one millisecond.
+constexpr uint64_t kOneMillisecondInMicroseconds(1000);
 
 // Forward declare classes for unit-conversion constructors.
 class Milliseconds;
@@ -84,7 +93,14 @@ class Milliseconds {
   constexpr uint64_t toRawNanoseconds() const;
 
   /**
-   * Obtains the number of Milliseconds stroed by this time duration.
+   * Obtains the number of Microseconds stored by this time duration.
+   *
+   * @return the value of microseconds.
+   */
+  constexpr uint64_t getMicroseconds() const;
+
+  /**
+   * Obtains the number of Milliseconds stored by this time duration.
    *
    * @return the value of milliseconds.
    */
@@ -125,12 +141,20 @@ class Microseconds {
    */
   constexpr uint64_t toRawNanoseconds() const;
 
-  /*
-   * Obtains the number of Microseconds stroed by this time duration.
+  /**
+   * Obtains the number of Microseconds stored by this time duration.
    *
    * @return the value of microseconds.
    */
   constexpr uint64_t getMicroseconds() const;
+
+  /**
+   * Obtains the rounded-down number of Milliseconds stored by this time
+   * duration.
+   *
+   * @return the value of milliseconds.
+   */
+  constexpr uint64_t getMilliseconds() const;
 
  private:
   //! Store the time duration.
@@ -230,6 +254,16 @@ constexpr Nanoseconds operator-(const Nanoseconds& nanos_a,
  * @return Whether nanos_a is greater than or equal to nanos_b.
  */
 constexpr bool operator>=(const Nanoseconds& nanos_a,
+                          const Nanoseconds& nanos_b);
+
+/**
+ * Performs a less than or equal to comparison on two nanoseconds values.
+ *
+ * @param nanos_a the first nanoseconds duration
+ * @param nanos_b the second nanoseconds duration
+ * @return Whether nanos_a is less than or equal to nanos_b.
+ */
+constexpr bool operator<=(const Nanoseconds& nanos_a,
                           const Nanoseconds& nanos_b);
 
 /**

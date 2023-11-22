@@ -17,6 +17,7 @@
 package android.app.cts;
 
 import android.app.Instrumentation;
+import android.app.PictureInPictureParams;
 import android.app.stubs.PipNotSupportedActivity;
 import android.test.ActivityInstrumentationTestCase2;
 
@@ -42,7 +43,8 @@ public class PipNotSupportedActivityTest
             public void run() {
                 boolean pipSupportDisabled = false;
                 try {
-                    mActivity.enterPictureInPictureMode();
+                    pipSupportDisabled = !mActivity.enterPictureInPictureMode(
+                            new PictureInPictureParams.Builder().build());
                 } catch (IllegalStateException e) {
                     // Pip not supported
                     pipSupportDisabled = true;

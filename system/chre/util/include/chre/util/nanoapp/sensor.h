@@ -29,6 +29,14 @@ namespace chre {
  */
 const char *getSensorNameForEventType(uint16_t eventType);
 
+/**
+ * Returns the name of a given CHRE API sensor type.
+ *
+ * @param sensorType the type of a sensor.
+ * @return the name of the sensor.
+ */
+const char *getSensorTypeName(uint8_t sensorType);
+
 }  // namespace chre
 
 #endif  // CHRE_UTIL_NANOAPP_SENSOR_H_

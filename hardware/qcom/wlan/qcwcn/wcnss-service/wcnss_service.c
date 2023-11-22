@@ -66,7 +66,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define WCNSS_DEVICE    "/dev/wcnss_wlan"
 #define WCNSS_CTRL      "/dev/wcnss_ctrl"
 #define WLAN_INI_FILE_DEST   "/data/misc/wifi/WCNSS_qcom_cfg.ini"
-#define WLAN_INI_FILE_SOURCE "/system/etc/wifi/WCNSS_qcom_cfg.ini"
+#define WLAN_INI_FILE_SOURCE "/vendor/etc/wifi/WCNSS_qcom_cfg.ini"
 #define WCNSS_HAS_CAL_DATA\
 		"/sys/module/wcnsscore/parameters/has_calibrated_data"
 #define WLAN_DRIVER_ATH_DEFAULT_VAL "0"

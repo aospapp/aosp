@@ -24,11 +24,9 @@ import com.android.tradefed.device.ITestDevice;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * A {@link ITargetPreparer} that adds arbitrary attributes to the {@link IBuildInfo}.
- */
-@OptionClass(alias="buildinfo-preparer")
-public class BuildInfoAttributePreparer implements ITargetPreparer {
+/** A {@link ITargetPreparer} that adds arbitrary attributes to the {@link IBuildInfo}. */
+@OptionClass(alias = "buildinfo-preparer")
+public class BuildInfoAttributePreparer extends BaseTargetPreparer {
 
     @Option(name = "build-attribute", description = "build attributes to add")
     private Map<String, String> mBuildAttributes = new HashMap<String, String>();

@@ -38,7 +38,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <com.example.android.autofillframework.app.InfoButton
+    <com.example.android.autofill.app.InfoButton
         android:id="@+id/imageButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -86,7 +86,7 @@
         app:layout_constraintStart_toStartOf="@id/creditCardNumberLabel"
         app:layout_constraintTop_toBottomOf="@+id/creditCardNumberLabel" />
 
-    <com.example.android.autofillframework.app.CreditCardExpirationDateCompoundView
+    <com.example.android.autofill.app.CreditCardExpirationDateCompoundView
         android:id="@+id/creditCardExpirationView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

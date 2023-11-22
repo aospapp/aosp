@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"Data kutoka kwa lebo ya NFC"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Maelezo ya mawasiliano ya ^1"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Programu hii inahitaji kufikia ruhusa ya Simu ili kuweza kupiga simu. Unaweza kudhibiti ruhusa ya Kuweka lebo katika Mipangilio"</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Programu hii inahitaji kufikia ruhusa ya Hifadhi ya Nje ili itumie faili. Unaweza kudhibiti ruhusa za Lebo katika Mipangilio"</string>
 </resources>

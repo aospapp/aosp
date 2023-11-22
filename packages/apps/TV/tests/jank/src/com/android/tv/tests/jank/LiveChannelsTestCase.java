@@ -18,12 +18,9 @@ package com.android.tv.tests.jank;
 import android.content.res.Resources;
 import android.support.test.jank.JankTestBase;
 import android.support.test.uiautomator.UiDevice;
-
 import com.android.tv.testing.uihelper.LiveChannelsUiDeviceHelper;
 
-/**
- * Base test case for LiveChannel jank tests.
- */
+/** Base test case for LiveChannel jank tests. */
 abstract class LiveChannelsTestCase extends JankTestBase {
     protected UiDevice mDevice;
     protected Resources mTargetResources;
@@ -34,8 +31,9 @@ abstract class LiveChannelsTestCase extends JankTestBase {
         super.setUp();
         mDevice = UiDevice.getInstance(getInstrumentation());
         mTargetResources = getInstrumentation().getTargetContext().getResources();
-        mLiveChannelsHelper = new LiveChannelsUiDeviceHelper(mDevice, mTargetResources,
-                getInstrumentation().getContext());
+        mLiveChannelsHelper =
+                new LiveChannelsUiDeviceHelper(
+                        mDevice, mTargetResources, getInstrumentation().getContext());
         mLiveChannelsHelper.assertAppStarted();
     }
 

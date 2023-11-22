@@ -12,10 +12,7 @@ import org.mockito.internal.verification.VerificationModeFactory;
 import org.mockito.verification.VerificationMode;
 import org.mockitoutil.TestBase;
 
-import static junit.framework.TestCase.*;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
+import static org.junit.Assert.*;
 
 public class MockingProgressImplTest extends TestBase {
 

@@ -21,7 +21,11 @@ LOCAL_MODULE_TAGS := optional
 # and when built explicitly put it in the data partition
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_JAVA_LIBRARIES := android.test.runner org.apache.http.legacy
+LOCAL_JAVA_LIBRARIES := \
+    android.test.runner.stubs \
+    org.apache.http.legacy \
+    android.test.base.stubs \
+
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     compatibility-device-util \
@@ -38,5 +42,6 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 # uncomment when dalvik.annotation.Test* are removed or part of SDK
 #LOCAL_SDK_VERSION := current
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 include $(BUILD_CTS_PACKAGE)

@@ -18,31 +18,24 @@
 import logging
 
 from vts.runners.host import asserts
-from vts.runners.host import base_test
 from vts.runners.host import keys
 from vts.runners.host import test_runner
-from vts.utils.python.precondition import precondition_utils
+from vts.testcases.template.hal_hidl_host_test import hal_hidl_host_test
 
-
-class VtsHalGnssV1_0HostTest(base_test.BaseTestClass):
+class VtsHalGnssV1_0HostTest(hal_hidl_host_test.HalHidlHostTest):
     """A simple testcase for the GNSS HIDL HAL."""
-    SYSPROP_GETSTUB = "vts.hal.vts.hidl.get_stub"
 
+    SYSPROP_GETSTUB = "vts.hal.vts.hidl.get_stub"
+    TEST_HAL_SERVICES = {"android.hardware.gnss@1.0::IGnss"}
     def setUpClass(self):
         """Creates a mirror and turns on the framework-layer GNSS service."""
-        self.dut = self.android_devices[0]
+        super(VtsHalGnssV1_0HostTest, self).setUpClass()
 
         self.passthrough_mode = self.getUserParam(
             keys.ConfigKeys.IKEY_PASSTHROUGH_MODE, default_value=True)
 
-        self.dut.shell.Execute("setenforce 0")  # SELinux permissive mode
-        if not precondition_utils.CanRunHidlHalTest(
-            self, self.dut, self.dut.shell.default):
-            self._skip_all_testcases = True
-            return
-
         mode = "true" if self.passthrough_mode else "false"
-        self.dut.shell.Execute(
+        self.shell.Execute(
             "setprop %s %s" % (self.SYSPROP_GETSTUB, mode))
 
         self.dut.hal.InitHidlHal(
@@ -52,10 +45,6 @@ class VtsHalGnssV1_0HostTest(base_test.BaseTestClass):
             target_package="android.hardware.gnss",
             target_component_name="IGnss",
             bits=int(self.abi_bitness))
-
-        if self.coverage.enabled:
-            self.coverage.LoadArtifacts()
-            self.coverage.InitializeDeviceCoverage(self._dut)
 
     def SetCallback(self):
         """Utility function to set the callbacks."""

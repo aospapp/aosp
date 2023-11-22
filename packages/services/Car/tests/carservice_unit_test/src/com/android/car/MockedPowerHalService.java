@@ -35,7 +35,7 @@ public class MockedPowerHalService extends PowerHalService {
 
     public MockedPowerHalService(boolean isPowerStateSupported, boolean isDeepSleepAllowed,
             boolean isTimedWakeupAllowed) {
-        super(new VehicleHal(null, null, null, null, null, null, null, null, null));
+        super(new VehicleHal(null, null, null, null));
         mIsPowerStateSupported = isPowerStateSupported;
         mIsDeepSleepAllowed = isDeepSleepAllowed;
         mIsTimedWakeupAllowed = isTimedWakeupAllowed;

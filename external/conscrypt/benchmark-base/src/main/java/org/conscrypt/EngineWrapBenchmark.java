@@ -37,6 +37,7 @@ import static org.conscrypt.TestUtils.newTextMessage;
 import static org.junit.Assert.assertEquals;
 
 import java.nio.ByteBuffer;
+import java.util.Locale;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
 import javax.net.ssl.SSLException;
@@ -50,12 +51,12 @@ public final class EngineWrapBenchmark {
      */
     interface Config {
         BufferType bufferType();
-        EngineType engineType();
+        EngineFactory engineFactory();
         int messageSize();
         String cipher();
     }
 
-    private final EngineType engineType;
+    private final EngineFactory engineFactory;
     private final String cipher;
     private final SSLEngine clientEngine;
     private final SSLEngine serverEngine;
@@ -68,12 +69,12 @@ public final class EngineWrapBenchmark {
     private final ByteBuffer preEncryptedBuffer;
 
     EngineWrapBenchmark(Config config) throws Exception {
-        engineType = config.engineType();
+        engineFactory = config.engineFactory();
         cipher = config.cipher();
         BufferType bufferType = config.bufferType();
 
-        clientEngine = engineType.newClientEngine(cipher);
-        serverEngine = engineType.newServerEngine(cipher);
+        clientEngine = engineFactory.newClientEngine(cipher, false);
+        serverEngine = engineFactory.newServerEngine(cipher, false);
 
         // Create the application and packet buffers for both endpoints.
         clientApplicationBuffer = bufferType.newApplicationBuffer(clientEngine);
@@ -89,7 +90,7 @@ public final class EngineWrapBenchmark {
 
         // Complete the initial TLS handshake.
         doEngineHandshake(clientEngine, serverEngine, clientApplicationBuffer, clientPacketBuffer,
-                serverApplicationBuffer, serverPacketBuffer);
+                serverApplicationBuffer, serverPacketBuffer, true);
 
         // Populate the pre-encrypted buffer for use with the unwrap benchmark.
         preEncryptedBuffer = bufferType.newBuffer(clientEngine.getSession().getPacketBufferSize());
@@ -98,8 +99,8 @@ public final class EngineWrapBenchmark {
     }
 
     void teardown() {
-        engineType.dispose(clientEngine);
-        engineType.dispose(serverEngine);
+        engineFactory.dispose(clientEngine);
+        engineFactory.dispose(serverEngine);
     }
 
     void wrap() throws SSLException {
@@ -150,40 +151,9 @@ public final class EngineWrapBenchmark {
         }
         if (result.bytesConsumed() != src.limit()) {
             throw new RuntimeException(
-                    String.format("Operation didn't consume all bytes. Expected %d, consumed %d.",
+                    String.format(Locale.US,
+                            "Operation didn't consume all bytes. Expected %d, consumed %d.",
                             src.limit(), result.bytesConsumed()));
-        }
-    }
-
-    /**
-     * A simple main for profiling.
-     */
-    public static void main(String[] args) throws Exception {
-        EngineWrapBenchmark bm = new EngineWrapBenchmark(new Config() {
-            @Override
-            public BufferType bufferType() {
-                return BufferType.HEAP;
-            }
-
-            @Override
-            public EngineType engineType() {
-                return EngineType.CONSCRYPT_POOLED;
-            }
-
-            @Override
-            public int messageSize() {
-                return 512;
-            }
-
-            @Override
-            public String cipher() {
-                return TestUtils.TEST_CIPHER;
-            }
-        });
-
-        // Just run forever for profiling.
-        while (true) {
-            bm.wrapAndUnwrap();
         }
     }
 }

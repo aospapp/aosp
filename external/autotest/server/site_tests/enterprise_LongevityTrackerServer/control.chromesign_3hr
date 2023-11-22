@@ -38,6 +38,6 @@ def run_test(machine):
     job.run_test('enterprise_LongevityTrackerServer',
             host=host,
             perf_params=perf_params,
-            tag='chromesign')
+            tag='chromesign_3hr')
 
 parallel_simple(run_test, machines)

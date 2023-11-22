@@ -33,19 +33,27 @@ KEYFILE=$KEYFILE/chromeos-base/chromeos-ssh-testkeys/files/testing_rsa
 
 TMPKEYS=$(mktemp)
 TMPHOSTS=$(mktemp)
+
 trap 'rm $TMPKEYS $TMPHOSTS' EXIT
 cp $KEYFILE $TMPKEYS
 
+_ssh() {
+  local ssh_opts=( -n -o BatchMode=yes -o StrictHostKeyChecking=no
+                   -o UserKnownHostsFile=$TMPHOSTS -i $TMPKEYS )
+  local timeout=$1
+  local servo=$2
+  shift 2
+  timeout "${timeout}" ssh "${ssh_opts[@]}" "root@${servo}" "$@"
+}
+
 dut_control() {
-  timeout 90 $PYTHON $HDCTOOLS/dut_control.py "$@"
+  local servo=$1
+  shift
+  _ssh 90 $servo dut-control "$@"
 }
 
 remote() {
-    local ssh_opts=( -n -o BatchMode=yes -o StrictHostKeyChecking=no
-                     -o UserKnownHostsFile=$TMPHOSTS -i $TMPKEYS )
-    local servo=$1
-    shift
-    timeout 45 ssh "${ssh_opts[@]}" root@$servo "$@"
+  _ssh 45 "$@"
 }
 
 get_afe_host_attr() {
@@ -89,14 +97,14 @@ do
   if ping -c1 -w2 $SERVO >/dev/null 2>&1
   then
     echo -n "B"
-    if BUTTON=$(dut_control -s $SERVO -p $SERVO_PORT pwr_button 2>&1)
+    if BUTTON=$(dut_control $SERVO -p $SERVO_PORT pwr_button 2>/dev/null)
     then
       if [ "$BUTTON" != "pwr_button:release" ]
       then
         STATUS=("${STATUS[@]}" "pwr_button is '$BUTTON'")
       else
         echo -n "C"
-        LID=$(dut_control -s $SERVO -p $SERVO_PORT lid_open 2>&1)
+        LID=$(dut_control $SERVO -p $SERVO_PORT lid_open 2>/dev/null)
         if [ "$LID" != "lid_open:yes" -a "$LID" != "lid_open:not_applicable" ]
         then
           STATUS=("${STATUS[@]}" "lid_open is '$LID'")

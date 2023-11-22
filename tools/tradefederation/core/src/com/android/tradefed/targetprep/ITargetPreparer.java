@@ -18,18 +18,19 @@ package com.android.tradefed.targetprep;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.util.IDisableable;
 
 /**
  * Prepares the test environment for the test run.
- * <p/>
- * For example, installs software, tweaks env settings for testing, launches targets etc.
- * <p/>
- * Note that multiple {@link ITargetPreparer}s can be specified in a configuration. It is
+ *
+ * <p>For example, installs software, tweaks env settings for testing, launches targets etc.
+ *
+ * <p>Note that multiple {@link ITargetPreparer}s can be specified in a configuration. It is
  * recommended that each ITargetPreparer clearly document its expected environment pre-setup and
- * post-setUp.  e.g. a ITargetPreparer that configures a device for testing must be run after the
+ * post-setUp. e.g. a ITargetPreparer that configures a device for testing must be run after the
  * ITargetPreparer that installs software.
  */
-public interface ITargetPreparer {
+public interface ITargetPreparer extends IDisableable {
 
     /**
      * Perform the target setup for testing.

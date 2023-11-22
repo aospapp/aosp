@@ -17,6 +17,7 @@ cc_library {
     name: "libpower",
 
     srcs: ["power.c"],
+    cflags: ["-Wall", "-Werror"],
     export_include_dirs: ["include"],
     shared_libs: ["libcutils", "liblog"],
     vendor_available: true,
@@ -48,6 +49,8 @@ cc_library_shared {
 
     cflags: [
         "-DQEMU_HARDWARE",
+        "-Wall",
+        "-Werror",
         "-Wno-unused-parameter",
         "-Wno-gnu-designator",
     ],

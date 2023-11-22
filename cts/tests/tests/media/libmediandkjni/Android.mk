@@ -15,6 +15,37 @@
 LOCAL_PATH := $(call my-dir)
 
 #------------------------------------------------------------------------------
+# Builds libctscodecutils_jni.so
+#
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libctscodecutils_jni
+
+LOCAL_MODULE_TAGS := optional
+
+LOCAL_SRC_FILES := \
+  codec-utils-jni.cpp \
+  md5_utils.cpp
+
+LOCAL_C_INCLUDES := \
+  $(JNI_H_INCLUDE) \
+  system/core/include
+
+LOCAL_C_INCLUDES += $(call include-path-for, mediandk)
+
+LOCAL_SHARED_LIBRARIES := \
+  libnativehelper_compat_libc++ \
+  liblog
+
+LOCAL_SDK_VERSION := current
+
+LOCAL_NDK_STL_VARIANT := system
+
+LOCAL_CFLAGS := -Werror -Wall -DEGL_EGLEXT_PROTOTYPES -std=gnu++14
+
+include $(BUILD_SHARED_LIBRARY)
+
+#------------------------------------------------------------------------------
 # Builds libctsmediacodec_jni.so
 #
 include $(CLEAR_VARS)
@@ -25,8 +56,6 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := \
   native-media-jni.cpp \
-  codec-utils-jni.cpp  \
-  md5_utils.cpp \
   native_media_utils.cpp \
   native_media_decoder_source.cpp \
   native_media_encoder_jni.cpp
@@ -40,13 +69,13 @@ LOCAL_C_INCLUDES += $(call include-path-for, mediandk)
 LOCAL_SHARED_LIBRARIES := \
   libandroid libnativehelper_compat_libc++ \
   liblog libmediandk libEGL
-LOCAL_NDK_STL_VARIANT := c++_static
 
-LOCAL_SDK_VERSION := current
+LOCAL_CXX_STL := libc++
 
 LOCAL_CFLAGS := -Werror -Wall -DEGL_EGLEXT_PROTOTYPES -std=gnu++14
 
 include $(BUILD_SHARED_LIBRARY)
+
 
 #------------------------------------------------------------------------------
 # Builds libctsmediadrm_jni.so
@@ -75,10 +104,8 @@ LOCAL_SHARED_LIBRARIES := \
   libandroid libnativehelper_compat_libc++ \
   liblog libmediandk libdl libEGL
 
-LOCAL_SDK_VERSION := current
-
 LOCAL_CFLAGS := -Werror -Wall -DEGL_EGLEXT_PROTOTYPES
 
-LOCAL_NDK_STL_VARIANT := c++_static
+LOCAL_CXX_STL := libc++
 
 include $(BUILD_SHARED_LIBRARY)

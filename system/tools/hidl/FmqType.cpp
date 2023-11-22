@@ -23,12 +23,11 @@
 
 namespace android {
 
-FmqType::FmqType(const char *nsp, const char *name)
-    : mNamespace(nsp), mName(name) {
-}
+FmqType::FmqType(const char* nsp, const char* name, Scope* parent)
+    : TemplatedType(parent), mNamespace(nsp), mName(name) {}
 
-std::string FmqType::typeName() const {
-    return mName + " of " + mElementType->typeName();
+std::string FmqType::templatedTypeName() const {
+    return mName;
 }
 
 std::string FmqType::fullName() const {
@@ -138,7 +137,7 @@ void FmqType::emitReaderWriterEmbedded(
             mNamespace);
 }
 
-bool FmqType::isJavaCompatible() const {
+bool FmqType::deepIsJavaCompatible(std::unordered_set<const Type*>* /* visited */) const {
     return false;
 }
 
@@ -160,7 +159,7 @@ bool FmqType::resultNeedsDeref() const {
     return true;
 }
 
-bool FmqType::isCompatibleElementType(Type *elementType) const {
+bool FmqType::isCompatibleElementType(const Type* elementType) const {
     return (!elementType->isInterface() && !elementType->needsEmbeddedReadWrite());
 }
 
@@ -169,9 +168,9 @@ std::string FmqType::getVtsType() const {
         return "TYPE_FMQ_SYNC";
     } else if (mName == "MQDescriptorUnsync") {
         return "TYPE_FMQ_UNSYNC";
-    } else {
-        LOG(ERROR) << "Invalid fmq type name.\n";
     }
+
+    CHECK(false) << "Invalid FmqType.";
     return "";
 }
 

@@ -16,7 +16,7 @@
 
 package com.android.documentsui.base;
 
-import static com.android.documentsui.base.Shared.TAG;
+import static com.android.documentsui.base.SharedMinimal.TAG;
 
 import android.os.BadParcelableException;
 import android.os.Parcel;

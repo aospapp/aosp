@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2018 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,7 @@ wifi_error wifi_extended_dtim_config_set(wifi_request_id id,
                                          wifi_interface_handle iface,
                                          int extended_dtim)
 {
-    int ret = 0;
+    wifi_error ret;
     WiFiConfigCommand *wifiConfigCommand;
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
@@ -61,7 +61,7 @@ wifi_error wifi_extended_dtim_config_set(wifi_request_id id,
 
     /* Create the NL message. */
     ret = wifiConfigCommand->create();
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_extended_dtim_config_set: failed to create NL msg. "
             "Error:%d", ret);
         goto cleanup;
@@ -69,7 +69,7 @@ wifi_error wifi_extended_dtim_config_set(wifi_request_id id,
 
     /* Set the interface Id of the message. */
     ret = wifiConfigCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_extended_dtim_config_set: failed to set iface id. "
             "Error:%d", ret);
         goto cleanup;
@@ -83,8 +83,9 @@ wifi_error wifi_extended_dtim_config_set(wifi_request_id id,
         goto cleanup;
     }
 
-    if (wifiConfigCommand->put_u32(
-        QCA_WLAN_VENDOR_ATTR_WIFI_CONFIG_DYNAMIC_DTIM, extended_dtim)) {
+    ret = wifiConfigCommand->put_u32(
+                  QCA_WLAN_VENDOR_ATTR_WIFI_CONFIG_DYNAMIC_DTIM, extended_dtim);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_extended_dtim_config_set(): failed to put vendor data. "
             "Error:%d", ret);
         goto cleanup;
@@ -94,21 +95,22 @@ wifi_error wifi_extended_dtim_config_set(wifi_request_id id,
     /* Send the NL msg. */
     wifiConfigCommand->waitForRsp(false);
     ret = wifiConfigCommand->requestEvent();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_extended_dtim_config_set(): requestEvent Error:%d", ret);
         goto cleanup;
     }
 
 cleanup:
     delete wifiConfigCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 /* Set the country code to driver. */
 wifi_error wifi_set_country_code(wifi_interface_handle iface,
                                  const char* country_code)
 {
-    int requestId, ret = 0;
+    int requestId;
+    wifi_error ret;
     WiFiConfigCommand *wifiConfigCommand;
     wifi_handle wifiHandle = getWifiHandle(iface);
 
@@ -131,12 +133,13 @@ wifi_error wifi_set_country_code(wifi_interface_handle iface,
 
     /* Create the NL message with NL80211_CMD_REQ_SET_REG NL cmd. */
     ret = wifiConfigCommand->create_generic(NL80211_CMD_REQ_SET_REG);
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_set_country_code: failed to create NL msg. Error:%d", ret);
         goto cleanup;
     }
 
-    if (wifiConfigCommand->put_string(NL80211_ATTR_REG_ALPHA2, country_code)) {
+    ret = wifiConfigCommand->put_string(NL80211_ATTR_REG_ALPHA2, country_code);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_set_country_code: put country code failed. Error:%d", ret);
         goto cleanup;
     }
@@ -144,7 +147,7 @@ wifi_error wifi_set_country_code(wifi_interface_handle iface,
     /* Send the NL msg. */
     wifiConfigCommand->waitForRsp(false);
     ret = wifiConfigCommand->requestEvent();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_set_country_code(): requestEvent Error:%d", ret);
         goto cleanup;
     }
@@ -152,7 +155,7 @@ wifi_error wifi_set_country_code(wifi_interface_handle iface,
 
 cleanup:
     delete wifiConfigCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 wifi_error wifi_set_beacon_wifi_iface_stats_averaging_factor(
@@ -160,7 +163,7 @@ wifi_error wifi_set_beacon_wifi_iface_stats_averaging_factor(
                                                 wifi_interface_handle iface,
                                                 u16 factor)
 {
-    int ret = 0;
+    wifi_error ret;
     WiFiConfigCommand *wifiConfigCommand;
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
@@ -179,7 +182,7 @@ wifi_error wifi_set_beacon_wifi_iface_stats_averaging_factor(
 
     /* Create the NL message. */
     ret = wifiConfigCommand->create();
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_set_beacon_wifi_iface_stats_averaging_factor: failed to "
             "create NL msg. Error:%d", ret);
         goto cleanup;
@@ -187,7 +190,7 @@ wifi_error wifi_set_beacon_wifi_iface_stats_averaging_factor(
 
     /* Set the interface Id of the message. */
     ret = wifiConfigCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_set_beacon_wifi_iface_stats_averaging_factor: failed to "
             "set iface id. Error:%d", ret);
         goto cleanup;
@@ -212,7 +215,7 @@ wifi_error wifi_set_beacon_wifi_iface_stats_averaging_factor(
     /* Send the NL msg. */
     wifiConfigCommand->waitForRsp(false);
     ret = wifiConfigCommand->requestEvent();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_set_beacon_wifi_iface_stats_averaging_factor(): "
             "requestEvent Error:%d", ret);
         goto cleanup;
@@ -220,14 +223,14 @@ wifi_error wifi_set_beacon_wifi_iface_stats_averaging_factor(
 
 cleanup:
     delete wifiConfigCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 wifi_error wifi_set_guard_time(wifi_request_id id,
                                wifi_interface_handle iface,
                                u32 guard_time)
 {
-    int ret = 0;
+    wifi_error ret;
     WiFiConfigCommand *wifiConfigCommand;
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
@@ -247,14 +250,14 @@ wifi_error wifi_set_guard_time(wifi_request_id id,
 
     /* Create the NL message. */
     ret = wifiConfigCommand->create();
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_set_guard_time: failed to create NL msg. Error:%d", ret);
         goto cleanup;
     }
 
     /* Set the interface Id of the message. */
     ret = wifiConfigCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_set_guard_time: failed to set iface id. Error:%d", ret);
         goto cleanup;
     }
@@ -277,20 +280,20 @@ wifi_error wifi_set_guard_time(wifi_request_id id,
     /* Send the NL msg. */
     wifiConfigCommand->waitForRsp(false);
     ret = wifiConfigCommand->requestEvent();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_set_guard_time(): requestEvent Error:%d", ret);
         goto cleanup;
     }
 
 cleanup:
     delete wifiConfigCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 wifi_error wifi_select_tx_power_scenario(wifi_interface_handle handle,
                                          wifi_power_scenario scenario)
 {
-    int ret = 0;
+    wifi_error ret;
     WiFiConfigCommand *wifiConfigCommand;
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(handle);
@@ -311,14 +314,14 @@ wifi_error wifi_select_tx_power_scenario(wifi_interface_handle handle,
 
     /* Create the NL message. */
     ret = wifiConfigCommand->create();
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_select_tx_power_scenario: failed to create NL msg. Error:%d", ret);
         goto cleanup;
     }
 
     /* Set the interface Id of the message. */
     ret = wifiConfigCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_select_tx_power_scenario: failed to set iface id. Error:%d", ret);
         goto cleanup;
     }
@@ -331,13 +334,30 @@ wifi_error wifi_select_tx_power_scenario(wifi_interface_handle handle,
         goto cleanup;
     }
 
-    if (scenario == WIFI_POWER_SCENARIO_VOICE_CALL) {
-        bdf_file = QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_BDF0;
-    } else {
-        ALOGE("wifi_select_tx_power_scenario: invalid scenario %d", scenario);
-        ret = WIFI_ERROR_INVALID_ARGS;
-        goto cleanup;
+    switch (scenario) {
+        case WIFI_POWER_SCENARIO_VOICE_CALL:
+        case WIFI_POWER_SCENARIO_ON_HEAD_CELL_OFF:
+            bdf_file = QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_BDF0;
+            break;
+
+        case WIFI_POWER_SCENARIO_ON_HEAD_CELL_ON:
+            bdf_file = QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_BDF1;
+            break;
+
+        case WIFI_POWER_SCENARIO_ON_BODY_CELL_OFF:
+            bdf_file = QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_BDF2;
+            break;
+
+        case WIFI_POWER_SCENARIO_ON_BODY_CELL_ON:
+            bdf_file = QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_BDF3;
+            break;
+
+        default:
+            ALOGE("wifi_select_tx_power_scenario: invalid scenario %d", scenario);
+            ret = WIFI_ERROR_INVALID_ARGS;
+            goto cleanup;
     }
+
     if (wifiConfigCommand->put_u32(
                       QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SAR_ENABLE,
                       bdf_file)) {
@@ -347,19 +367,19 @@ wifi_error wifi_select_tx_power_scenario(wifi_interface_handle handle,
     wifiConfigCommand->attr_end(nlData);
 
     ret = wifiConfigCommand->requestEvent();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_select_tx_power_scenario(): requestEvent Error:%d", ret);
         goto cleanup;
     }
 
 cleanup:
     delete wifiConfigCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 wifi_error wifi_reset_tx_power_scenario(wifi_interface_handle handle)
 {
-    int ret = 0;
+    wifi_error ret;
     WiFiConfigCommand *wifiConfigCommand;
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(handle);
@@ -377,14 +397,14 @@ wifi_error wifi_reset_tx_power_scenario(wifi_interface_handle handle)
 
     /* Create the NL message. */
     ret = wifiConfigCommand->create();
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_reset_tx_power_scenario: failed to create NL msg. Error:%d", ret);
         goto cleanup;
     }
 
     /* Set the interface Id of the message. */
     ret = wifiConfigCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_reset_tx_power_scenario: failed to set iface id. Error:%d", ret);
         goto cleanup;
     }
@@ -405,14 +425,14 @@ wifi_error wifi_reset_tx_power_scenario(wifi_interface_handle handle)
     wifiConfigCommand->attr_end(nlData);
 
     ret = wifiConfigCommand->requestEvent();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_reset_tx_power_scenario(): requestEvent Error:%d", ret);
         goto cleanup;
     }
 
 cleanup:
     delete wifiConfigCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 WiFiConfigCommand::WiFiConfigCommand(wifi_handle handle,
@@ -431,27 +451,26 @@ WiFiConfigCommand::~WiFiConfigCommand()
 }
 
 /* This function implements creation of Vendor command */
-int WiFiConfigCommand::create() {
-    int ret = mMsg.create(NL80211_CMD_VENDOR, 0, 0);
-    if (ret < 0) {
+wifi_error WiFiConfigCommand::create()
+{
+    wifi_error ret = mMsg.create(NL80211_CMD_VENDOR, 0, 0);
+    if (ret != WIFI_SUCCESS)
         return ret;
-    }
 
     /* Insert the oui in the msg */
     ret = mMsg.put_u32(NL80211_ATTR_VENDOR_ID, mVendor_id);
-    if (ret < 0)
-        goto out;
+    if (ret != WIFI_SUCCESS)
+        return ret;
     /* Insert the subcmd in the msg */
     ret = mMsg.put_u32(NL80211_ATTR_VENDOR_SUBCMD, mSubcmd);
-    if (ret < 0)
-        goto out;
-out:
+
     return ret;
 }
 
 /* This function implements creation of generic NL command */
-int WiFiConfigCommand::create_generic(u8 cmdId) {
-    int ret = mMsg.create(cmdId, 0, 0);
+wifi_error WiFiConfigCommand::create_generic(u8 cmdId)
+{
+    wifi_error ret = mMsg.create(cmdId, 0, 0);
     return ret;
 }
 
@@ -501,43 +520,49 @@ static int finish_handler_wifi_config(struct nl_msg *msg, void *arg)
  * We don't wait for any response back in case of wificonfig,
  * thus no wait for condition.
  */
-int WiFiConfigCommand::requestEvent()
+wifi_error WiFiConfigCommand::requestEvent()
 {
-    int res = -1;
+    int status;
+    wifi_error res = WIFI_SUCCESS;
     struct nl_cb *cb;
 
     cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb) {
         ALOGE("%s: Callback allocation failed",__FUNCTION__);
-        res = -1;
+        res = WIFI_ERROR_OUT_OF_MEMORY;
         goto out;
     }
 
-    res = nl_send_auto_complete(mInfo->cmd_sock, mMsg.getMessage());
-    if (res < 0)
+    status = nl_send_auto_complete(mInfo->cmd_sock, mMsg.getMessage());
+    if (status < 0) {
+        res = mapKernelErrortoWifiHalError(status);
         goto out;
-    res = 1;
+    }
+    status = 1;
 
-    nl_cb_err(cb, NL_CB_CUSTOM, error_handler_wifi_config, &res);
+    nl_cb_err(cb, NL_CB_CUSTOM, error_handler_wifi_config, &status);
     nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM, finish_handler_wifi_config,
-        &res);
-    nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ack_handler_wifi_config, &res);
+        &status);
+    nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ack_handler_wifi_config, &status);
 
     /* Err is populated as part of finish_handler. */
-    while (res > 0){
+    while (status > 0) {
          nl_recvmsgs(mInfo->cmd_sock, cb);
     }
 
-    /* Only wait for the asynchronous event if HDD returns success, res=0 */
-    if (!res && (mWaitforRsp == true)) {
+    if (status < 0) {
+        res = mapKernelErrortoWifiHalError(status);
+        goto out;
+    }
+
+    if (mWaitforRsp == true) {
         struct timespec abstime;
         abstime.tv_sec = 4;
         abstime.tv_nsec = 0;
         res = mCondition.wait(abstime);
-        if (res == ETIMEDOUT)
-        {
+        if (res == WIFI_ERROR_TIMED_OUT)
             ALOGE("%s: Time out happened.", __FUNCTION__);
-        }
+
         ALOGV("%s: Command invoked return value:%d, mWaitForRsp=%d",
             __FUNCTION__, res, mWaitforRsp);
     }

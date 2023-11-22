@@ -115,6 +115,8 @@ public class ShortcutManagerManagedUserTest extends ShortcutManagerDeviceTestBas
                     assertEquals(userCurrent, si.getUserHandle());
                 });
 
+        // Accessing the main profile from the managed profile, which will not throw, but will
+        // return an empty result.
         assertWith(getLauncherApps().getShortcuts(q, userOther)).isEmpty();
 
         // TODO Make sure the activity actually starts.
@@ -122,6 +124,7 @@ public class ShortcutManagerManagedUserTest extends ShortcutManagerDeviceTestBas
                 userCurrent);
 
         try {
+            // This won't throw SecurityException either.
             getLauncherApps().startShortcut(getContext().getPackageName(), "s1", null, null,
                     userOther);
             fail("Didn't throw ActivityNotFoundException");

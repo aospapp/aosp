@@ -22,25 +22,27 @@
 
 #include "rsInternalDefines.h"
 
-// Legacy graphics functions
-// Not extern C because not used from C++ API
-RsObjectBase rsaFileA3DGetEntryByIndex(RsContext, uint32_t idx, RsFile);
-RsFile rsaFileA3DCreateFromMemory(RsContext, const void *data, uint32_t len);
-RsFile rsaFileA3DCreateFromAsset(RsContext, void *asset);
-RsFile rsaFileA3DCreateFromFile(RsContext, const char *path);
-void rsaFileA3DGetNumIndexEntries(RsContext, int32_t *numEntries, RsFile);
-void rsaFileA3DGetIndexEntries(RsContext, RsFileIndexEntry *fileEntries,
-                               uint32_t numEntries, RsFile);
-// Mesh update functions
-void rsaMeshGetVertexBufferCount(RsContext, RsMesh, int32_t *vtxCount);
-void rsaMeshGetIndexCount(RsContext, RsMesh, int32_t *idxCount);
-void rsaMeshGetVertices(RsContext, RsMesh, RsAllocation *vtxData, uint32_t vtxDataCount);
-void rsaMeshGetIndices(RsContext, RsMesh, RsAllocation *va,
-                       uint32_t *primType, uint32_t idxDataCount);
-RsContext rsContextCreateGL(RsDevice dev, uint32_t version, uint32_t sdkVersion,
-                            RsSurfaceConfig sc, uint32_t dpi);
-
 extern "C" {
+    // Legacy graphics functions
+    RsObjectBase rsaFileA3DGetEntryByIndex(RsContext, uint32_t idx, RsFile);
+    RsFile rsaFileA3DCreateFromMemory(RsContext, const void *data,
+                                      uint32_t len);
+    RsFile rsaFileA3DCreateFromAsset(RsContext, void *asset);
+    RsFile rsaFileA3DCreateFromFile(RsContext, const char *path);
+    void rsaFileA3DGetNumIndexEntries(RsContext, int32_t *numEntries, RsFile);
+    void rsaFileA3DGetIndexEntries(RsContext, RsFileIndexEntry *fileEntries,
+                                   uint32_t numEntries, RsFile);
+    // Mesh update functions
+    void rsaMeshGetVertexBufferCount(RsContext, RsMesh, int32_t *vtxCount);
+    void rsaMeshGetIndexCount(RsContext, RsMesh, int32_t *idxCount);
+    void rsaMeshGetVertices(RsContext, RsMesh, RsAllocation *vtxData,
+                            uint32_t vtxDataCount);
+    void rsaMeshGetIndices(RsContext, RsMesh, RsAllocation *va,
+                           uint32_t *primType, uint32_t idxDataCount);
+    RsContext rsContextCreateGL(RsDevice dev, uint32_t version,
+                                uint32_t sdkVersion, RsSurfaceConfig sc,
+                                uint32_t dpi);
+
     void rsaGetName(RsContext, void * obj, const char **name);
     // Allocation update
     const void* rsaAllocationGetType(RsContext con, RsAllocation va);

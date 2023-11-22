@@ -175,9 +175,26 @@ public class WindowTest {
 
     @Test
     public void testFindViewById() {
-        TextView v = (TextView) mWindow.findViewById(R.id.listview_window);
+        TextView v = mWindow.findViewById(R.id.listview_window);
         assertNotNull(v);
         assertEquals(R.id.listview_window, v.getId());
+    }
+
+    @Test
+    public void testRequireViewById() {
+        TextView v = mWindow.requireViewById(R.id.listview_window);
+        assertNotNull(v);
+        assertEquals(R.id.listview_window, v.getId());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testRequireViewByIdNoId() {
+        TextView v = mWindow.requireViewById(View.NO_ID);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testRequireViewByIdInvalid() {
+        TextView v = mWindow.requireViewById(R.id.view); // not present in layout
     }
 
     /**

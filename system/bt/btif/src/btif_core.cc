@@ -1,7 +1,7 @@
 /******************************************************************************
  *
- *  Copyright (C) 2014 The Android Open Source Project
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright 2014 The Android Open Source Project
+ *  Copyright 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@
 #include <base/at_exit.h>
 #include <base/bind.h>
 #include <base/run_loop.h>
+#include <base/threading/platform_thread.h>
 #include <base/threading/thread.h>
 #include <ctype.h>
 #include <dirent.h>
@@ -45,6 +46,7 @@
 #include "bt_common.h"
 #include "bt_utils.h"
 #include "bta_api.h"
+#include "bta_closure_api.h"
 #include "bte.h"
 #include "btif_api.h"
 #include "btif_av.h"
@@ -64,6 +66,9 @@
 #include "osi/include/properties.h"
 #include "osi/include/thread.h"
 #include "stack_manager.h"
+
+using base::PlatformThread;
+using bluetooth::Uuid;
 
 /*******************************************************************************
  *  Constants & Macros
@@ -128,6 +133,7 @@ static const char* BT_JNI_WORKQUEUE_NAME = "bt_jni_workqueue";
 static uid_set_t* uid_set = NULL;
 base::MessageLoop* message_loop_ = NULL;
 base::RunLoop* jni_run_loop = NULL;
+static base::PlatformThreadId btif_thread_id_ = -1;
 
 /*******************************************************************************
  *  Static functions
@@ -219,14 +225,20 @@ bt_status_t btif_transfer_context(tBTIF_CBACK* p_cback, uint16_t event,
  **/
 bt_status_t do_in_jni_thread(const tracked_objects::Location& from_here,
                              const base::Closure& task) {
-  if (!message_loop_ || !message_loop_->task_runner().get()) {
+  if (!message_loop_) {
     BTIF_TRACE_WARNING("%s: Dropped message, message_loop not initialized yet!",
                        __func__);
     return BT_STATUS_FAIL;
   }
 
-  if (message_loop_->task_runner()->PostTask(from_here, task))
-    return BT_STATUS_SUCCESS;
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner =
+      message_loop_->task_runner();
+  if (!task_runner.get()) {
+    BTIF_TRACE_WARNING("%s: task runner is dead", __func__);
+    return BT_STATUS_FAIL;
+  }
+
+  if (task_runner->PostTask(from_here, task)) return BT_STATUS_SUCCESS;
 
   BTIF_TRACE_ERROR("%s: Post task to task runner failed!", __func__);
   return BT_STATUS_FAIL;
@@ -235,6 +247,12 @@ bt_status_t do_in_jni_thread(const tracked_objects::Location& from_here,
 bt_status_t do_in_jni_thread(const base::Closure& task) {
   return do_in_jni_thread(FROM_HERE, task);
 }
+
+bool is_on_jni_thread() {
+  return btif_thread_id_ == PlatformThread::CurrentId();
+}
+
+base::MessageLoop* get_jni_message_loop() { return message_loop_; }
 
 /*******************************************************************************
  *
@@ -315,6 +333,7 @@ void btif_thread_post(thread_fn func, void* context) {
 
 void run_message_loop(UNUSED_ATTR void* context) {
   LOG_INFO(LOG_TAG, "%s entered", __func__);
+  btif_thread_id_ = PlatformThread::CurrentId();
 
   // TODO(jpawlowski): exit_manager should be defined in main(), but there is no
   // main method.
@@ -337,6 +356,7 @@ void run_message_loop(UNUSED_ATTR void* context) {
   delete jni_run_loop;
   jni_run_loop = NULL;
 
+  btif_thread_id_ = -1;
   LOG_INFO(LOG_TAG, "%s finished", __func__);
 }
 /*******************************************************************************
@@ -458,7 +478,7 @@ void btif_enable_bluetooth_evt(tBTA_STATUS status) {
 bt_status_t btif_disable_bluetooth(void) {
   LOG_INFO(LOG_TAG, "%s entered", __func__);
 
-  btm_ble_multi_adv_cleanup();
+  do_in_bta_thread(FROM_HERE, base::Bind(&btm_ble_multi_adv_cleanup));
   // TODO(jpawlowski): this should do whole BTA_VendorCleanup(), but it would
   // kill the stack now.
 
@@ -509,7 +529,7 @@ void btif_disable_bluetooth_evt(void) {
 bt_status_t btif_cleanup_bluetooth(void) {
   LOG_INFO(LOG_TAG, "%s entered", __func__);
 
-  BTA_VendorCleanup();
+  do_in_bta_thread(FROM_HERE, base::Bind(&BTA_VendorCleanup));
 
   btif_dm_cleanup();
   btif_jni_disassociate();
@@ -608,7 +628,7 @@ static bt_status_t btif_in_get_adapter_properties(void) {
   bt_scan_mode_t mode;
   uint32_t disc_timeout;
   RawAddress bonded_devices[BTM_SEC_MAX_DEVICE_RECORDS];
-  bt_uuid_t local_uuids[BT_MAX_NUM_UUIDS];
+  Uuid local_uuids[BT_MAX_NUM_UUIDS];
   bt_status_t status;
 
   /* RawAddress */
@@ -666,7 +686,7 @@ static bt_status_t btif_in_get_remote_device_properties(RawAddress* bd_addr) {
 
   bt_bdname_t name, alias;
   uint32_t cod, devtype;
-  bt_uuid_t remote_uuids[BT_MAX_NUM_UUIDS];
+  Uuid remote_uuids[BT_MAX_NUM_UUIDS];
 
   memset(remote_properties, 0, sizeof(remote_properties));
   BTIF_STORAGE_FILL_PROPERTY(&remote_properties[num_props], BT_PROPERTY_BDNAME,
@@ -900,7 +920,7 @@ bt_status_t btif_get_adapter_property(bt_property_type_t type) {
 
   /* Allow get_adapter_property only for BDADDR and BDNAME if BT is disabled */
   if (!btif_is_enabled() && (type != BT_PROPERTY_BDADDR) &&
-      (type != BT_PROPERTY_BDNAME))
+      (type != BT_PROPERTY_BDNAME) && (type != BT_PROPERTY_CLASS_OF_DEVICE))
     return BT_STATUS_NOT_READY;
 
   req.read_req.bd_addr = RawAddress::kEmpty;
@@ -986,6 +1006,15 @@ bt_status_t btif_set_adapter_property(const bt_property_t* property) {
          will change the SCAN_MODE property after setting timeout,
          if required */
       storage_req_id = BTIF_CORE_STORAGE_ADAPTER_WRITE;
+    } break;
+    case BT_PROPERTY_CLASS_OF_DEVICE: {
+      DEV_CLASS dev_class;
+      memcpy(dev_class, property->val, DEV_CLASS_LEN);
+
+      BTIF_TRACE_EVENT("set property dev_class : 0x%02x%02x%02x", dev_class[0],
+                       dev_class[1], dev_class[2]);
+
+      BTM_SetDeviceClass(dev_class);
     } break;
     case BT_PROPERTY_BDADDR:
     case BT_PROPERTY_UUIDS:
@@ -1095,8 +1124,8 @@ bt_status_t btif_set_remote_device_property(RawAddress* remote_addr,
  * Returns          bt_status_t
  *
  ******************************************************************************/
-bt_status_t btif_get_remote_service_record(RawAddress* remote_addr,
-                                           bt_uuid_t* uuid) {
+bt_status_t btif_get_remote_service_record(const RawAddress& remote_addr,
+                                           const Uuid& uuid) {
   if (!btif_is_enabled()) return BT_STATUS_NOT_READY;
 
   return btif_dm_get_remote_service_record(remote_addr, uuid);

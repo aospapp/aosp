@@ -26,17 +26,15 @@ import android.media.tv.TvInputInfo;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.widget.Toast;
-
-import com.android.tv.ApplicationSingletons;
 import com.android.tv.R;
 import com.android.tv.SetupPassthroughActivity;
-import com.android.tv.TvApplication;
-import com.android.tv.common.TvCommonUtils;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.ui.setup.SetupActivity;
 import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
+import com.android.tv.common.util.CommonUtils;
+import com.android.tv.common.util.PermissionUtils;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.util.OnboardingUtils;
-import com.android.tv.util.PermissionUtils;
 import com.android.tv.util.SetupUtils;
 import com.android.tv.util.TvInputManagerHelper;
 
@@ -51,29 +49,31 @@ public class OnboardingActivity extends SetupActivity {
 
     private ChannelDataManager mChannelDataManager;
     private TvInputManagerHelper mInputManager;
-    private final ChannelDataManager.Listener mChannelListener = new ChannelDataManager.Listener() {
-        @Override
-        public void onLoadFinished() {
-            mChannelDataManager.removeListener(this);
-            SetupUtils.getInstance(OnboardingActivity.this).markNewChannelsBrowsable();
-        }
+    private SetupUtils mSetupUtils;
+    private final ChannelDataManager.Listener mChannelListener =
+            new ChannelDataManager.Listener() {
+                @Override
+                public void onLoadFinished() {
+                    mChannelDataManager.removeListener(this);
+                    mSetupUtils.markNewChannelsBrowsable();
+                }
 
-        @Override
-        public void onChannelListUpdated() { }
+                @Override
+                public void onChannelListUpdated() {}
 
-        @Override
-        public void onChannelBrowsableChanged() { }
-    };
+                @Override
+                public void onChannelBrowsableChanged() {}
+            };
 
     /**
      * Returns an intent to start {@link OnboardingActivity}.
      *
      * @param context context to create an intent. Should not be {@code null}.
      * @param intentAfterCompletion intent which will be used to start a new activity when this
-     * activity finishes. Should not be {@code null}.
+     *     activity finishes. Should not be {@code null}.
      */
-    public static Intent buildIntent(@NonNull Context context,
-            @NonNull Intent intentAfterCompletion) {
+    public static Intent buildIntent(
+            @NonNull Context context, @NonNull Intent intentAfterCompletion) {
         return new Intent(context, OnboardingActivity.class)
                 .putExtra(OnboardingActivity.KEY_INTENT_AFTER_COMPLETION, intentAfterCompletion);
     }
@@ -81,19 +81,21 @@ public class OnboardingActivity extends SetupActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        ApplicationSingletons singletons = TvApplication.getSingletons(this);
+        TvSingletons singletons = TvSingletons.getSingletons(this);
         mInputManager = singletons.getTvInputManagerHelper();
+        mSetupUtils = singletons.getSetupUtils();
         if (PermissionUtils.hasAccessAllEpg(this) || PermissionUtils.hasReadTvListings(this)) {
             mChannelDataManager = singletons.getChannelDataManager();
             // Make the channels of the new inputs which have been setup outside Live TV
             // browsable.
             if (mChannelDataManager.isDbLoadFinished()) {
-                SetupUtils.getInstance(this).markNewChannelsBrowsable();
+                mSetupUtils.markNewChannelsBrowsable();
             } else {
                 mChannelDataManager.addListener(mChannelListener);
             }
         } else {
-            requestPermissions(new String[] {PermissionUtils.PERMISSION_READ_TV_LISTINGS},
+            requestPermissions(
+                    new String[] {PermissionUtils.PERMISSION_READ_TV_LISTINGS},
                     PERMISSIONS_REQUEST_READ_TV_LISTINGS);
         }
     }
@@ -109,32 +111,35 @@ public class OnboardingActivity extends SetupActivity {
     @Override
     protected Fragment onCreateInitialFragment() {
         if (PermissionUtils.hasAccessAllEpg(this) || PermissionUtils.hasReadTvListings(this)) {
-            return OnboardingUtils.isFirstRunWithCurrentVersion(this) ? new WelcomeFragment()
+            return OnboardingUtils.isFirstRunWithCurrentVersion(this)
+                    ? new WelcomeFragment()
                     : new SetupSourcesFragment();
         }
         return null;
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-            @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(
+            int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         if (requestCode == PERMISSIONS_REQUEST_READ_TV_LISTINGS) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 finish();
-                Intent intentForNextActivity = getIntent().getParcelableExtra(
-                        KEY_INTENT_AFTER_COMPLETION);
+                Intent intentForNextActivity =
+                        getIntent().getParcelableExtra(KEY_INTENT_AFTER_COMPLETION);
                 startActivity(buildIntent(this, intentForNextActivity));
             } else {
-                Toast.makeText(this, R.string.msg_read_tv_listing_permission_denied,
-                        Toast.LENGTH_LONG).show();
+                Toast.makeText(
+                                this,
+                                R.string.msg_read_tv_listing_permission_denied,
+                                Toast.LENGTH_LONG)
+                        .show();
                 finish();
             }
         }
     }
 
     private void finishActivity() {
-        Intent intentForNextActivity = getIntent().getParcelableExtra(
-                KEY_INTENT_AFTER_COMPLETION);
+        Intent intentForNextActivity = getIntent().getParcelableExtra(KEY_INTENT_AFTER_COMPLETION);
         if (intentForNextActivity != null) {
             startActivity(intentForNextActivity);
         }
@@ -142,12 +147,14 @@ public class OnboardingActivity extends SetupActivity {
     }
 
     private void showMerchantCollection() {
-        executeActionWithDelay(new Runnable() {
-            @Override
-            public void run() {
-                startActivity(OnboardingUtils.ONLINE_STORE_INTENT);
-            }
-        }, SHOW_RIPPLE_DURATION_MS);
+        executeActionWithDelay(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        startActivity(OnboardingUtils.ONLINE_STORE_INTENT);
+                    }
+                },
+                SHOW_RIPPLE_DURATION_MS);
     }
 
     @Override
@@ -167,42 +174,55 @@ public class OnboardingActivity extends SetupActivity {
                     case SetupSourcesFragment.ACTION_ONLINE_STORE:
                         showMerchantCollection();
                         return true;
-                    case SetupSourcesFragment.ACTION_SETUP_INPUT: {
-                        String inputId = params.getString(
-                                SetupSourcesFragment.ACTION_PARAM_KEY_INPUT_ID);
-                        TvInputInfo input = mInputManager.getTvInputInfo(inputId);
-                        Intent intent = TvCommonUtils.createSetupIntent(input);
-                        if (intent == null) {
-                            Toast.makeText(this, R.string.msg_no_setup_activity, Toast.LENGTH_SHORT)
-                                    .show();
+                    case SetupSourcesFragment.ACTION_SETUP_INPUT:
+                        {
+                            String inputId =
+                                    params.getString(
+                                            SetupSourcesFragment.ACTION_PARAM_KEY_INPUT_ID);
+                            TvInputInfo input = mInputManager.getTvInputInfo(inputId);
+                            Intent intent = CommonUtils.createSetupIntent(input);
+                            if (intent == null) {
+                                Toast.makeText(
+                                                this,
+                                                R.string.msg_no_setup_activity,
+                                                Toast.LENGTH_SHORT)
+                                        .show();
+                                return true;
+                            }
+                            // Even though other app can handle the intent, the setup launched by
+                            // Live
+                            // channels should go through Live channels SetupPassthroughActivity.
+                            intent.setComponent(
+                                    new ComponentName(this, SetupPassthroughActivity.class));
+                            try {
+                                // Now we know that the user intends to set up this input. Grant
+                                // permission for writing EPG data.
+                                SetupUtils.grantEpgPermission(
+                                        this, input.getServiceInfo().packageName);
+                                startActivityForResult(intent, REQUEST_CODE_START_SETUP_ACTIVITY);
+                            } catch (ActivityNotFoundException e) {
+                                Toast.makeText(
+                                                this,
+                                                getString(
+                                                        R.string.msg_unable_to_start_setup_activity,
+                                                        input.loadLabel(this)),
+                                                Toast.LENGTH_SHORT)
+                                        .show();
+                            }
                             return true;
                         }
-                        // Even though other app can handle the intent, the setup launched by Live
-                        // channels should go through Live channels SetupPassthroughActivity.
-                        intent.setComponent(new ComponentName(this,
-                                SetupPassthroughActivity.class));
-                        try {
-                            // Now we know that the user intends to set up this input. Grant
-                            // permission for writing EPG data.
-                            SetupUtils.grantEpgPermission(this, input.getServiceInfo().packageName);
-                            startActivityForResult(intent, REQUEST_CODE_START_SETUP_ACTIVITY);
-                        } catch (ActivityNotFoundException e) {
-                            Toast.makeText(this,
-                                    getString(R.string.msg_unable_to_start_setup_activity,
-                                    input.loadLabel(this)), Toast.LENGTH_SHORT).show();
+                    case SetupMultiPaneFragment.ACTION_DONE:
+                        {
+                            ChannelDataManager manager =
+                                    TvSingletons.getSingletons(OnboardingActivity.this)
+                                            .getChannelDataManager();
+                            if (manager.getChannelCount() == 0) {
+                                finish();
+                            } else {
+                                finishActivity();
+                            }
+                            return true;
                         }
-                        return true;
-                    }
-                    case SetupMultiPaneFragment.ACTION_DONE: {
-                        ChannelDataManager manager = TvApplication.getSingletons(
-                                OnboardingActivity.this).getChannelDataManager();
-                        if (manager.getChannelCount() == 0) {
-                            finish();
-                        } else {
-                            finishActivity();
-                        }
-                        return true;
-                    }
                 }
                 break;
         }

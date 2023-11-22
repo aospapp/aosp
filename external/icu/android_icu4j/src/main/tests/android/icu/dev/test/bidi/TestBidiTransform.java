@@ -5,6 +5,8 @@
 package android.icu.dev.test.bidi;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.lang.UCharacter;
@@ -13,6 +15,7 @@ import android.icu.text.Bidi;
 import android.icu.text.BidiTransform;
 import android.icu.text.BidiTransform.Mirroring;
 import android.icu.text.BidiTransform.Order;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Verify Bidi Layout Transformations
@@ -20,6 +23,8 @@ import android.icu.text.BidiTransform.Order;
  * @author Lina Kemmel
  *
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class TestBidiTransform extends TestFmwk {
 
     static final char LATN_ZERO         = '\u0030';

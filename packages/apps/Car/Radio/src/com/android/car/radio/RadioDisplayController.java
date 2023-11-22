@@ -17,7 +17,6 @@
 package com.android.car.radio;
 
 import android.content.Context;
-import android.content.res.Resources;
 import android.media.session.PlaybackState;
 import android.text.TextUtils;
 import android.view.View;
@@ -34,10 +33,8 @@ public class RadioDisplayController {
     private TextView mChannelBand;
     private TextView mChannelNumber;
 
-    private CarouselView mChannelList;
-
-    private TextView mCurrentSongTitle;
-    private TextView mCurrentSongArtistOrStation;
+    private TextView mCurrentSongTitleAndArtist;
+    private TextView mCurrentStation;
 
     private ImageView mBackwardSeekButton;
     private ImageView mForwardSeekButton;
@@ -58,8 +55,8 @@ public class RadioDisplayController {
         mChannelBand = container.findViewById(R.id.radio_station_band);
         mChannelNumber = container.findViewById(R.id.radio_station_channel);
 
-        mCurrentSongTitle = container.findViewById(R.id.radio_station_song);
-        mCurrentSongArtistOrStation = container.findViewById(R.id.radio_station_artist_or_station);
+        mCurrentSongTitleAndArtist = container.findViewById(R.id.radio_station_song_artist);
+        mCurrentStation = container.findViewById(R.id.radio_station_name);
 
         mBackwardSeekButton = container.findViewById(R.id.radio_back_button);
         mForwardSeekButton = container.findViewById(R.id.radio_forward_button);
@@ -85,38 +82,6 @@ public class RadioDisplayController {
         // Update references to the band and channel number.
         mChannelBand = container.findViewById(R.id.radio_station_band);
         mChannelNumber = container.findViewById(R.id.radio_station_channel);
-    }
-
-    /**
-     * Sets this controller to display a list of channels that include the current radio station as
-     * well as pre-scanned stations for the current band.
-     */
-    public void setChannelListDisplay(View container, PrescannedRadioStationAdapter adapter) {
-        ViewStub stub = container.findViewById(R.id.channel_list_view_stub);
-
-        if (stub == null) {
-            return;
-        }
-
-        mChannelList = (CarouselView) stub.inflate();
-        mChannelList.setAdapter(adapter);
-
-        Resources res = mContext.getResources();
-        int topOffset = res.getDimensionPixelSize(R.dimen.lens_header_height)
-                + res.getDimensionPixelSize(R.dimen.car_radio_container_top_padding)
-                + res.getDimensionPixelSize(R.dimen.car_radio_station_top_margin);
-
-        mChannelList.setTopOffset(topOffset);
-    }
-
-    /**
-     * Set the given position as the radio station that should be be displayed first in the channel
-     * list controlled by this class.
-     */
-    public void setCurrentStationInList(int position) {
-        if (mChannelList != null) {
-            mChannelList.shiftToPosition(position);
-        }
     }
 
     /**
@@ -229,11 +194,22 @@ public class RadioDisplayController {
     /**
      * Sets the title of the currently playing song.
      */
-    public void setCurrentSongTitle(String songTitle) {
-        if (mCurrentSongTitle != null) {
-            boolean isEmpty = TextUtils.isEmpty(songTitle);
-            mCurrentSongTitle.setText(isEmpty ? null : songTitle.trim());
-            mCurrentSongTitle.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+    public void setCurrentSongTitleAndArtist(String songTitle, String songArtist) {
+        if (mCurrentSongTitleAndArtist != null) {
+            boolean isTitleEmpty = TextUtils.isEmpty(songTitle);
+            boolean isArtistEmpty = TextUtils.isEmpty(songArtist);
+            String titleAndArtist = null;
+            if (!isTitleEmpty) {
+                titleAndArtist = songTitle.trim();
+                if (!isArtistEmpty) {
+                    titleAndArtist += '\u2014' + songArtist.trim();
+                }
+            } else if (!isArtistEmpty) {
+                titleAndArtist = songArtist.trim();
+            }
+            mCurrentSongTitleAndArtist.setText(titleAndArtist);
+            mCurrentSongTitleAndArtist.setVisibility(
+                    (isTitleEmpty && isArtistEmpty)? View.INVISIBLE : View.VISIBLE);
         }
     }
 
@@ -241,11 +217,11 @@ public class RadioDisplayController {
      * Sets the artist(s) of the currently playing song or current radio station information
      * (e.g. KOIT).
      */
-    public void setCurrentSongArtistOrStation(String songArtist) {
-        if (mCurrentSongArtistOrStation != null) {
-            boolean isEmpty = TextUtils.isEmpty(songArtist);
-            mCurrentSongArtistOrStation.setText(isEmpty ? null : songArtist.trim());
-            mCurrentSongArtistOrStation.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+    public void setCurrentStation(String stationName) {
+        if (mCurrentStation != null) {
+            boolean isEmpty = TextUtils.isEmpty(stationName);
+            mCurrentStation.setText(isEmpty ? null : stationName.trim());
+            mCurrentStation.setVisibility(isEmpty ? View.INVISIBLE : View.VISIBLE);
         }
     }
 

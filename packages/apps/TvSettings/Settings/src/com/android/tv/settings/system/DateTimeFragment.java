@@ -25,19 +25,23 @@ import android.os.Bundle;
 import android.os.SystemProperties;
 import android.provider.Settings;
 import android.support.v14.preference.SwitchPreference;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.ListPreference;
 import android.support.v7.preference.Preference;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.datetime.ZoneGetter;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.Calendar;
 import java.util.Date;
 
-public class DateTimeFragment extends LeanbackPreferenceFragment implements
+/**
+ * The date and time screen in TV settings.
+ */
+public class DateTimeFragment extends SettingsPreferenceFragment implements
         Preference.OnPreferenceChangeListener {
 
     private static final String KEY_AUTO_DATE_TIME = "auto_date_time";
@@ -216,4 +220,8 @@ public class DateTimeFragment extends LeanbackPreferenceFragment implements
         return AUTO_DATE_TIME_OFF;
     }
 
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.DATE_TIME;
+    }
 }

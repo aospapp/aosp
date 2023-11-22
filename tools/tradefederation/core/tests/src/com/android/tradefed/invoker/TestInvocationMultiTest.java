@@ -26,6 +26,7 @@ import com.android.tradefed.config.DeviceConfigurationHolder;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.StubDevice;
+import com.android.tradefed.guice.InvocationScope;
 import com.android.tradefed.invoker.shard.IShardHelper;
 import com.android.tradefed.invoker.shard.ShardHelper;
 import com.android.tradefed.log.ILeveledLogOutput;
@@ -33,6 +34,7 @@ import com.android.tradefed.log.ILogRegistry;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.ILogSaver;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.LogFile;
 
 import org.easymock.EasyMock;
@@ -80,13 +82,24 @@ public class TestInvocationMultiTest {
                     }
 
                     @Override
-                    protected IShardHelper createShardHelper() {
-                        return new ShardHelper();
+                    public IInvocationExecution createInvocationExec(boolean isSandboxed) {
+                        return new InvocationExecution() {
+                            @Override
+                            protected IShardHelper createShardHelper() {
+                                return new ShardHelper();
+                            }
+                        };
                     }
 
                     @Override
                     protected void setExitCode(ExitCode code, Throwable stack) {
                         // empty on purpose
+                    }
+
+                    @Override
+                    InvocationScope getInvocationScope() {
+                        // Avoid re-entry in the current TF invocation scope for unit tests.
+                        return new InvocationScope();
                     }
                 };
     }
@@ -130,7 +143,6 @@ public class TestInvocationMultiTest {
         EasyMock.expect(mMockConfig.getTestInvocationListeners())
                 .andReturn(configListener)
                 .times(2);
-        EasyMock.expect(mMockConfig.getProfiler()).andReturn(null);
         EasyMock.expect(mMockConfig.getLogSaver()).andReturn(mMockLogSaver);
         EasyMock.expect(mMockConfig.getLogOutput()).andReturn(mMockLogger).times(4);
         EasyMock.expect(mMockConfig.getConfigurationDescription()).andReturn(mConfigDesc);
@@ -186,7 +198,6 @@ public class TestInvocationMultiTest {
         EasyMock.expect(mMockConfig.getTestInvocationListeners())
                 .andReturn(configListener)
                 .times(2);
-        EasyMock.expect(mMockConfig.getProfiler()).andReturn(null);
         EasyMock.expect(mMockConfig.getLogSaver()).andReturn(mMockLogSaver);
         EasyMock.expect(mMockConfig.getLogOutput()).andStubReturn(mMockLogger);
         EasyMock.expect(mMockConfig.getConfigurationDescription()).andReturn(mConfigDesc);
@@ -212,7 +223,7 @@ public class TestInvocationMultiTest {
         EasyMock.expect(
                         mMockLogSaver.saveLogData(
                                 EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyObject()))
-                .andReturn(new LogFile("", "", false, true));
+                .andReturn(new LogFile("", "", LogDataType.TEXT));
         mMockTestListener.invocationEnded(EasyMock.anyLong());
         EasyMock.expect(mMockTestListener.getSummary()).andReturn(null);
         mMockLogSaver.invocationEnded(EasyMock.anyLong());
@@ -265,7 +276,6 @@ public class TestInvocationMultiTest {
         EasyMock.expect(mMockConfig.getTestInvocationListeners())
                 .andReturn(configListener)
                 .times(2);
-        EasyMock.expect(mMockConfig.getProfiler()).andReturn(null);
         EasyMock.expect(mMockConfig.getLogSaver()).andReturn(mMockLogSaver);
         EasyMock.expect(mMockConfig.getLogOutput()).andStubReturn(mMockLogger);
         EasyMock.expect(mMockConfig.getConfigurationDescription()).andReturn(mConfigDesc);
@@ -291,7 +301,7 @@ public class TestInvocationMultiTest {
         EasyMock.expect(
                         mMockLogSaver.saveLogData(
                                 EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyObject()))
-                .andReturn(new LogFile("", "", false, true));
+                .andReturn(new LogFile("", "", LogDataType.TEXT));
         mMockTestListener.invocationEnded(EasyMock.anyLong());
         EasyMock.expect(mMockTestListener.getSummary()).andReturn(null);
         mMockLogSaver.invocationEnded(EasyMock.anyLong());

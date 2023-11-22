@@ -7,6 +7,7 @@ import time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros import vboot_constants as vboot
+from autotest_lib.server.cros.faft.firmware_test import ConnectionError
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 from autotest_lib.server.cros.faft.utils import mode_switcher
 
@@ -35,18 +36,19 @@ class firmware_ECLidShutdown(FirmwareTest):
         """
         # reset ec_uart_regexp to prevent timeouts in case there was
         # an error before we could reset it
-        self._reset_ec_regexp()
-        if self.servo.get('lid_open') == 'no':
-            self.servo.set('lid_open', 'yes')
-        self.clear_set_gbb_flags(vboot.GBB_FLAG_DISABLE_LID_SHUTDOWN,
-                                 0)
         try:
+            self._reset_ec_regexp()
+            if self.servo.get('lid_open') == 'no':
+                self.servo.set('lid_open', 'yes')
+            self.clear_set_gbb_flags(vboot.GBB_FLAG_DISABLE_LID_SHUTDOWN, 0)
             self.switcher.wait_for_client()
         except ConnectionError:
             logging.error("ERROR: client not in OS mode.  Rebooting ...")
             # reboot back to OS mode
             self.switcher.mode_aware_reboot(reboot_type='cold',
                                             sync_before_boot=False)
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_ECLidShutdown, self).cleanup()
 
     def _reset_ec_regexp(self):

@@ -8,6 +8,7 @@
 #define CORE_FPDFDOC_CPDF_ICONFIT_H_
 
 #include "core/fxcrt/fx_system.h"
+#include "core/fxcrt/unowned_ptr.h"
 
 class CPDF_Dictionary;
 
@@ -15,16 +16,18 @@ class CPDF_IconFit {
  public:
   enum ScaleMethod { Always = 0, Bigger, Smaller, Never };
 
-  explicit CPDF_IconFit(const CPDF_Dictionary* pDict) : m_pDict(pDict) {}
+  explicit CPDF_IconFit(const CPDF_Dictionary* pDict);
+  CPDF_IconFit(const CPDF_IconFit& that);
+  ~CPDF_IconFit();
 
   ScaleMethod GetScaleMethod();
   bool IsProportionalScale();
-  void GetIconPosition(FX_FLOAT& fLeft, FX_FLOAT& fBottom);
+  void GetIconPosition(float& fLeft, float& fBottom);
   bool GetFittingBounds();
-  const CPDF_Dictionary* GetDict() const { return m_pDict; }
+  const CPDF_Dictionary* GetDict() const { return m_pDict.Get(); }
 
  private:
-  const CPDF_Dictionary* const m_pDict;
+  UnownedPtr<const CPDF_Dictionary> const m_pDict;
 };
 
 #endif  // CORE_FPDFDOC_CPDF_ICONFIT_H_

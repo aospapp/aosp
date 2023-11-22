@@ -7,7 +7,6 @@ from autotest_lib.server import utils
 AUTHOR = "mruthven"
 NAME = "firmware_Cr50USB"
 PURPOSE = "Verify Cr50 to AP USB connection"
-ATTRIBUTES = "suite:cr50_stress_experimental"
 TIME = "MEDIUM"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo"

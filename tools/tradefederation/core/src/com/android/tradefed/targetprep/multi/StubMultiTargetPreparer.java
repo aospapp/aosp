@@ -19,10 +19,8 @@ import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.TargetSetupError;
 
-/**
- * Placeholder empty implementation of a {@link IMultiTargetPreparer}.
- */
-public class StubMultiTargetPreparer implements IMultiTargetPreparer {
+/** Placeholder empty implementation of a {@link IMultiTargetPreparer}. */
+public class StubMultiTargetPreparer extends BaseMultiTargetPreparer {
 
     /**
      * {@inheritDoc}

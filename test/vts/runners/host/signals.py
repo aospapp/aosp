@@ -18,6 +18,7 @@
 
 import functools
 import json
+import logging
 
 
 def GeneratedTest(func):
@@ -40,15 +41,24 @@ def GeneratedTest(func):
 class TestSignalError(Exception):
     """Raised when an error occurs inside a test signal."""
 
-
 class TestSignal(Exception):
-    """Base class for all test result control signals."""
+    """Base class for all test result control signals.
+
+    Attributes:
+        details: A string that describes the reason for raising this signal.
+        extras: A json-serializable data type to convey extra information about
+                a test result.
+    """
 
     def __init__(self, details, extras=None):
-        if not isinstance(details, str):
-            raise TestSignalError("Message has to be a string.")
         super(TestSignal, self).__init__(details)
-        self.details = details
+        try:
+            self.details = str(details)
+        except UnicodeEncodeError:
+            # TODO: remove when we stop supporting Python 2
+            logging.warning(u"Details contain non-ASCII characters: %s",
+                            details)
+            self.details = details.encode("utf-8")
         try:
             json.dumps(extras)
             self.extras = extras

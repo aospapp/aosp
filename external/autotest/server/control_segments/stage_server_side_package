@@ -6,6 +6,8 @@
 
 import logging
 
+from contextlib import closing
+
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.server import hosts
@@ -17,8 +19,8 @@ error_msg = None
 # Only need to stage server side package once.
 for machine in machines:
     try:
-        host = hosts.create_host(machine)
-        ssp_url = host.stage_server_side_package(image)
+        with closing(hosts.create_host(machine)) as host:
+            ssp_url = host.stage_server_side_package(image)
         break
     except (error.AutoservError, dev_server.DevServerException) as e:
         error_msg = str(e)

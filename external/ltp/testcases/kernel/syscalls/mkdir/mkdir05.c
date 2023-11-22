@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <pwd.h>
 #include "test.h"
+#include "safe_macros.h"
 
 void setup();
 void cleanup();
@@ -83,10 +84,7 @@ int main(int ac, char **av)
 			continue;
 		}
 
-		if (stat(tstdir1, &buf) == -1) {
-			tst_brkm(TBROK, cleanup, "failed to stat the "
-				 "new directory");
-		}
+		SAFE_STAT(cleanup, tstdir1, &buf);
 		/* check the owner */
 		if (buf.st_uid != geteuid()) {
 			tst_resm(TFAIL, "mkdir() FAILED to set owner ID"
@@ -102,9 +100,7 @@ int main(int ac, char **av)
 		tst_resm(TPASS, "mkdir() functionality is correct");
 
 		/* clean up things in case we are looping */
-		if (rmdir(tstdir1) == -1) {
-			tst_brkm(TBROK, cleanup, "could not remove directory");
-		}
+		SAFE_RMDIR(cleanup, tstdir1);
 
 	}
 

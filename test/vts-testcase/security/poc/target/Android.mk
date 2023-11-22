@@ -26,9 +26,12 @@ poc_test_src_files := \
 
 # TODO(trong): tests should not emit warnings.
 poc_test_cflags := \
+    -Wall \
+    -Werror \
     -Wno-int-conversion \
-    -Wno-unused-parameter \
     -Wno-pointer-sign \
+    -Wno-unused-parameter \
+    -Wno-unused-variable \
 
 poc_test_c_includes := \
     $(poc_target_dir) \

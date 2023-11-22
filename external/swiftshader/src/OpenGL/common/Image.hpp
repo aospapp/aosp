@@ -36,36 +36,75 @@
 #define SW_YV12_BT709 0x48315659   // YCrCb 4:2:0 Planar, 16-byte aligned, BT.709 color space, studio swing
 #define SW_YV12_JFIF  0x4A315659   // YCrCb 4:2:0 Planar, 16-byte aligned, BT.601 color space, full swing
 
+namespace gl
+{
+
+struct PixelStorageModes
+{
+	GLint rowLength = 0;
+	GLint skipRows = 0;
+	GLint skipPixels = 0;
+	GLint alignment = 4;
+	GLint imageHeight = 0;
+	GLint skipImages = 0;
+};
+
+GLint GetSizedInternalFormat(GLint internalFormat, GLenum type);
+sw::Format ConvertReadFormatType(GLenum format, GLenum type);
+sw::Format SelectInternalFormat(GLint format);
+bool IsUnsizedInternalFormat(GLint internalformat);
+GLenum GetBaseInternalFormat(GLint internalformat);
+GLsizei ComputePitch(GLsizei width, GLenum format, GLenum type, GLint alignment);
+GLsizei ComputeCompressedSize(GLsizei width, GLsizei height, GLenum format);
+size_t ComputePackingOffset(GLenum format, GLenum type, GLsizei width, GLsizei height, const PixelStorageModes &storageModes);
+
+}
+
 namespace egl
 {
 
-class Context;
+class ClientBuffer
+{
+public:
+	ClientBuffer(int width, int height, sw::Format format, void* buffer, size_t plane)
+		: width(width), height(height), format(format), buffer(buffer), plane(plane)
+	{}
 
-sw::Format ConvertFormatType(GLenum format, GLenum type);
-sw::Format SelectInternalFormat(GLenum format, GLenum type);
-GLsizei ComputePitch(GLsizei width, GLenum format, GLenum type, GLint alignment);
-GLsizei ComputeCompressedSize(GLsizei width, GLsizei height, GLenum format);
-size_t ComputePackingOffset(GLenum format, GLenum type, GLsizei width, GLsizei height, GLint alignment, GLint skipImages, GLint skipRows, GLint skipPixels);
+	int getWidth() const;
+	int getHeight() const;
+	sw::Format getFormat() const;
+	size_t getPlane() const;
+	int pitchP() const;
+	void retain();
+	void release();
+	void* lock(int x, int y, int z);
+	void unlock();
+
+private:
+	int width;
+	int height;
+	sw::Format format;
+	void* buffer;
+	size_t plane;
+};
 
 class [[clang::lto_visibility_public]] Image : public sw::Surface, public gl::Object
 {
 protected:
 	// 2D texture image
-	Image(Texture *parentTexture, GLsizei width, GLsizei height, GLenum format, GLenum type)
-		: sw::Surface(parentTexture->getResource(), width, height, 1, SelectInternalFormat(format, type), true, true),
-		  width(width), height(height), format(format), type(type), internalFormat(SelectInternalFormat(format, type)), depth(1),
-		  parentTexture(parentTexture)
+	Image(Texture *parentTexture, GLsizei width, GLsizei height, GLint internalformat)
+		: sw::Surface(parentTexture->getResource(), width, height, 1, 0, 1, gl::SelectInternalFormat(internalformat), true, true),
+		  width(width), height(height), depth(1), internalformat(internalformat), parentTexture(parentTexture)
 	{
 		shared = false;
 		Object::addRef();
 		parentTexture->addRef();
 	}
 
-	// 3D texture image
-	Image(Texture *parentTexture, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type)
-		: sw::Surface(parentTexture->getResource(), width, height, depth, SelectInternalFormat(format, type), true, true),
-		  width(width), height(height), format(format), type(type), internalFormat(SelectInternalFormat(format, type)), depth(depth),
-		  parentTexture(parentTexture)
+	// 3D/Cube texture image
+	Image(Texture *parentTexture, GLsizei width, GLsizei height, GLsizei depth, int border, GLint internalformat)
+		: sw::Surface(parentTexture->getResource(), width, height, depth, border, 1, gl::SelectInternalFormat(internalformat), true, true),
+		  width(width), height(height), depth(depth), internalformat(internalformat), parentTexture(parentTexture)
 	{
 		shared = false;
 		Object::addRef();
@@ -73,20 +112,18 @@ protected:
 	}
 
 	// Native EGL image
-	Image(GLsizei width, GLsizei height, GLenum format, GLenum type, int pitchP)
-		: sw::Surface(nullptr, width, height, 1, SelectInternalFormat(format, type), true, true, pitchP),
-		  width(width), height(height), format(format), type(type), internalFormat(SelectInternalFormat(format, type)), depth(1),
-		  parentTexture(nullptr)
+	Image(GLsizei width, GLsizei height, GLint internalformat, int pitchP)
+		: sw::Surface(nullptr, width, height, 1, 0, 1, gl::SelectInternalFormat(internalformat), true, true, pitchP),
+		  width(width), height(height), depth(1), internalformat(internalformat), parentTexture(nullptr)
 	{
 		shared = true;
 		Object::addRef();
 	}
 
 	// Render target
-	Image(GLsizei width, GLsizei height, sw::Format internalFormat, int multiSampleDepth, bool lockable)
-		: sw::Surface(nullptr, width, height, multiSampleDepth, internalFormat, lockable, true),
-		  width(width), height(height), format(0 /*GL_NONE*/), type(0 /*GL_NONE*/), internalFormat(internalFormat), depth(multiSampleDepth),
-		  parentTexture(nullptr)
+	Image(GLsizei width, GLsizei height, GLint internalformat, int multiSampleDepth, bool lockable)
+		: sw::Surface(nullptr, width, height, 1, 0, multiSampleDepth, gl::SelectInternalFormat(internalformat), lockable, true),
+		  width(width), height(height), depth(1), internalformat(internalformat), parentTexture(nullptr)
 	{
 		shared = false;
 		Object::addRef();
@@ -94,16 +131,19 @@ protected:
 
 public:
 	// 2D texture image
-	static Image *create(Texture *parentTexture, GLsizei width, GLsizei height, GLenum format, GLenum type);
+	static Image *create(Texture *parentTexture, GLsizei width, GLsizei height, GLint internalformat);
 
-	// 3D texture image
-	static Image *create(Texture *parentTexture, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type);
+	// 3D/Cube texture image
+	static Image *create(Texture *parentTexture, GLsizei width, GLsizei height, GLsizei depth, int border, GLint internalformat);
 
 	// Native EGL image
-	static Image *create(GLsizei width, GLsizei height, GLenum format, GLenum type, int pitchP);
+	static Image *create(GLsizei width, GLsizei height, GLint internalformat, int pitchP);
 
 	// Render target
-	static Image *create(GLsizei width, GLsizei height, sw::Format internalFormat, int multiSampleDepth, bool lockable);
+	static Image *create(GLsizei width, GLsizei height, GLint internalformat, int multiSampleDepth, bool lockable);
+
+	// Back buffer from client buffer
+	static Image *create(const egl::ClientBuffer& clientBuffer);
 
 	GLsizei getWidth() const
 	{
@@ -122,19 +162,9 @@ public:
 		return depth;
 	}
 
-	GLenum getFormat() const
+	GLint getFormat() const
 	{
-		return format;
-	}
-
-	GLenum getType() const
-	{
-		return type;
-	}
-
-	sw::Format getInternalFormat() const
-	{
-		return internalFormat;
+		return internalformat;
 	}
 
 	bool isShared() const
@@ -147,14 +177,19 @@ public:
 		shared = true;
 	}
 
-	virtual void *lock(unsigned int left, unsigned int top, sw::Lock lock)
+	virtual void *lock(int x, int y, int z, sw::Lock lock)
 	{
-		return lockExternal(left, top, 0, lock, sw::PUBLIC);
+		return lockExternal(x, y, z, lock, sw::PUBLIC);
 	}
 
 	unsigned int getPitch() const
 	{
 		return getExternalPitchB();
+	}
+
+	unsigned int getSlice() const
+	{
+		return getExternalSliceB();
 	}
 
 	virtual void unlock()
@@ -165,19 +200,7 @@ public:
 	void *lockInternal(int x, int y, int z, sw::Lock lock, sw::Accessor client) override = 0;
 	void unlockInternal() override = 0;
 
-	struct UnpackInfo
-	{
-		UnpackInfo() : alignment(4), rowLength(0), imageHeight(0), skipPixels(0), skipRows(0), skipImages(0) {}
-
-		GLint alignment;
-		GLint rowLength;
-		GLint imageHeight;
-		GLint skipPixels;
-		GLint skipRows;
-		GLint skipImages;
-	};
-
-	void loadImageData(Context *context, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const UnpackInfo& unpackInfo, const void *input);
+	void loadImageData(GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const gl::PixelStorageModes &unpackParameters, const void *pixels);
 	void loadCompressedData(GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLsizei imageSize, const void *pixels);
 
 	void release() override = 0;
@@ -194,10 +217,8 @@ public:
 protected:
 	const GLsizei width;
 	const GLsizei height;
-	const GLenum format;
-	const GLenum type;
-	const sw::Format internalFormat;
 	const int depth;
+	const GLint internalformat;
 
 	bool shared;   // Used as an EGLImage
 
@@ -205,8 +226,8 @@ protected:
 
 	~Image() override = 0;
 
-	void loadD24S8ImageData(GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, int inputPitch, int inputHeight, const void *input, void *buffer);
-	void loadD32FS8ImageData(GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, int inputPitch, int inputHeight, const void *input, void *buffer);
+	void loadImageData(GLsizei width, GLsizei height, GLsizei depth, int inputPitch, int inputHeight, GLenum format, GLenum type, const void *input, void *buffer);
+	void loadStencilData(GLsizei width, GLsizei height, GLsizei depth, int inputPitch, int inputHeight, GLenum format, GLenum type, const void *input, void *buffer);
 };
 
 #ifdef __ANDROID__
@@ -226,27 +247,8 @@ inline GLenum GLPixelFormatFromAndroid(int halFormat)
 #ifdef GRALLOC_MODULE_API_VERSION_0_2
 	case HAL_PIXEL_FORMAT_YCbCr_420_888: return SW_YV12_BT601;
 #endif
-	case HAL_PIXEL_FORMAT_RGB_888:   // Unsupported.
-	default:
-		ALOGE("Unsupported EGL image format %d", halFormat); ASSERT(false);
-		return GL_NONE;
-	}
-}
-
-inline GLenum GLPixelTypeFromAndroid(int halFormat)
-{
-	switch(halFormat)
-	{
-	case HAL_PIXEL_FORMAT_RGBA_8888: return GL_UNSIGNED_BYTE;
-#if ANDROID_PLATFORM_SDK_VERSION > 16
-	case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED: return GL_UNSIGNED_BYTE;
-#endif
-	case HAL_PIXEL_FORMAT_RGBX_8888: return GL_UNSIGNED_BYTE;
-	case HAL_PIXEL_FORMAT_BGRA_8888: return GL_UNSIGNED_BYTE;
-	case HAL_PIXEL_FORMAT_RGB_565:   return GL_UNSIGNED_SHORT_5_6_5;
-	case HAL_PIXEL_FORMAT_YV12:      return GL_UNSIGNED_BYTE;
-#ifdef GRALLOC_MODULE_API_VERSION_0_2
-	case HAL_PIXEL_FORMAT_YCbCr_420_888: return GL_UNSIGNED_BYTE;
+#if ANDROID_PLATFORM_SDK_VERSION >= 26
+	case HAL_PIXEL_FORMAT_RGBA_FP16: return GL_RGBA16F;
 #endif
 	case HAL_PIXEL_FORMAT_RGB_888:   // Unsupported.
 	default:
@@ -261,7 +263,6 @@ public:
 	explicit AndroidNativeImage(ANativeWindowBuffer *nativeBuffer)
 		: egl::Image(nativeBuffer->width, nativeBuffer->height,
 		             GLPixelFormatFromAndroid(nativeBuffer->format),
-		             GLPixelTypeFromAndroid(nativeBuffer->format),
 		             nativeBuffer->stride),
 		  nativeBuffer(nativeBuffer)
 	{
@@ -320,10 +321,10 @@ private:
 		sw::Surface::unlockInternal();
 	}
 
-	void *lock(unsigned int left, unsigned int top, sw::Lock lock) override
+	void *lock(int x, int y, int z, sw::Lock lock) override
 	{
 		LOGLOCK("image=%p op=%s lock=%d", this, __FUNCTION__, lock);
-		(void)sw::Surface::lockExternal(left, top, 0, lock, sw::PUBLIC);
+		(void)sw::Surface::lockExternal(x, y, z, lock, sw::PUBLIC);
 
 		return lockNativeBuffer(GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN);
 	}

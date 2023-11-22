@@ -14,17 +14,16 @@
      limitations under the License.
 -->
 <configuration description="Config for VTS VtsHalNeuralnetworksV1_0Target test cases">
+    <option name="config-descriptor:metadata" key="plan" value="vts-hal" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="abort-on-push-failure" value="false"/>
         <option name="push-group" value="HalHidlTargetTest.push"/>
     </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer"/>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsHalNeuralnetworksV1_0Target"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalNeuralnetworksV1_0TargetTest/VtsHalNeuralnetworksV1_0TargetTest"/>
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalNeuralnetworksV1_0TargetTest/VtsHalNeuralnetworksV1_0TargetTest"/>
         <option name="binary-test-type" value="hal_hidl_gtest"/>
-        <option name="precondition-lshal" value="android.hardware.neuralnetworks@1.0"/>
         <option name="test-timeout" value="5m"/>
     </test>
 </configuration>

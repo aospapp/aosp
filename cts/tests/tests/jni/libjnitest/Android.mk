@@ -26,6 +26,7 @@ LOCAL_MODULE := libjnitest
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := \
+	android_jni_cts_BasicLoaderTest.cpp \
 	android_jni_cts_InstanceNonce.c \
 	android_jni_cts_JniCTest.c \
 	android_jni_cts_JniCppTest.cpp \
@@ -37,11 +38,28 @@ LOCAL_SRC_FILES := \
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
+LOCAL_STATIC_LIBRARIES := libbase_ndk
+
 LOCAL_SHARED_LIBRARIES := libdl liblog libnativehelper_compat_libc++
 
 LOCAL_SDK_VERSION := 23
 LOCAL_NDK_STL_VARIANT := c++_static
 
-LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter
+LOCAL_CFLAGS += -Wno-format -Wno-gnu-designator
+
+include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libjni_test_dlclose
+
+LOCAL_SRC_FILES := taxicab_number.cpp
+
+LOCAL_CFLAGS += -Wall -Werror
+
+LOCAL_SDK_VERSION := 23
+
+LOCAL_NDK_STL_VARIANT := c++_static
 
 include $(BUILD_SHARED_LIBRARY)

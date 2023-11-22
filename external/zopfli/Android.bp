@@ -21,6 +21,7 @@ cc_library {
         "src/zopfli/zlib_container.c",
         "src/zopfli/zopfli_lib.c",
     ],
+    export_include_dirs: ["src"],
 
     target: {
         windows: {

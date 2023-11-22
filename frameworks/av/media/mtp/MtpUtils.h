@@ -17,13 +17,26 @@
 #ifndef _MTP_UTILS_H
 #define _MTP_UTILS_H
 
+#include "private/android_filesystem_config.h"
+
 #include <stdint.h>
 
 namespace android {
 
+constexpr int FILE_GROUP = AID_MEDIA_RW;
+constexpr int FILE_PERM = 0664;
+constexpr int DIR_PERM = 0775;
+
 bool parseDateTime(const char* dateTime, time_t& outSeconds);
 void formatDateTime(time_t seconds, char* buffer, int bufferLength);
 
+int makeFolder(const char *path);
+int copyRecursive(const char *fromPath, const char *toPath);
+int copyFile(const char *fromPath, const char *toPath);
+bool deletePath(const char* path);
+int renameTo(const char *oldPath, const char *newPath);
+
+void closeObjFd(int fd, const char *path);
 }; // namespace android
 
 #endif // _MTP_UTILS_H

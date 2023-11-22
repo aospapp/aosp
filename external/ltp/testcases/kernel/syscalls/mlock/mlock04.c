@@ -31,6 +31,7 @@
  * 02110-1301, USA.
  */
 #include "test.h"
+#include "safe_macros.h"
 #include "config.h"
 
 char *TCID = "mlock04";
@@ -72,8 +73,7 @@ int main(void)
 		if (munlock(buf, file_len) == -1)
 			tst_brkm(TBROK | TERRNO, cleanup, "munlock");
 
-		if (munmap(buf, file_len) == -1)
-			tst_brkm(TBROK | TERRNO, cleanup, "munmap");
+		SAFE_MUNMAP(cleanup, buf, file_len);
 	}
 
 	tst_resm(TPASS, "test succeeded.");
@@ -87,12 +87,9 @@ static void setup(void)
 {
 	tst_tmpdir();
 
-	fd = open(testfile, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
-	if (fd == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "open");
+	fd = SAFE_OPEN(cleanup, testfile, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
-	if (ftruncate(fd, file_len) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "ftruncate");
+	SAFE_FTRUNCATE(cleanup, fd, file_len);
 
 	TEST_PAUSE;
 }

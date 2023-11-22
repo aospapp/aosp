@@ -33,6 +33,7 @@ class UpdateEnginePerformanceMonitor(object):
         """
         self.verbose = verbose
         self.timeout_seconds = timeout_seconds
+        self.timer = time.time()
 
 
     @staticmethod
@@ -146,7 +147,8 @@ class UpdateEnginePerformanceMonitor(object):
             time.sleep(0.1)
             if time.time() > timeout_deadline:
                 return None
-        return json.dumps({'rss_peak': self.rss_peak})
+        return json.dumps({'rss_peak': self.rss_peak,
+                           'update_length': int(time.time() - self.timer)})
 
 
 class WriteToSyslog:

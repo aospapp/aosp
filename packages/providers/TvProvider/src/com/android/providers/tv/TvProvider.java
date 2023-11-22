@@ -1166,7 +1166,8 @@ public class TvProvider extends ContentProvider {
                     default:
                         return null;
                 }
-                try (SQLiteDatabase db = mOpenHelper.getWritableDatabase()) {
+                SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+                try {
                     db.execSQL("ALTER TABLE " + tableName + " ADD "
                             + columnName + " " + dataType + defaultValue + ";");
                     projectionMap.put(columnName.toString(), tableName + '.' + columnName);
@@ -1588,7 +1589,7 @@ public class TvProvider extends ContentProvider {
 
     private static void updateProjectionMap(SQLiteDatabase db, String tableName,
             Map<String, String> projectionMap) {
-        try(Cursor cursor = db.rawQuery("SELECT * FROM " + tableName + " LIMIT 0", null)) {
+        try (Cursor cursor = db.rawQuery("SELECT * FROM " + tableName + " LIMIT 0", null)) {
             for (String columnName : cursor.getColumnNames()) {
                 if (!projectionMap.containsKey(columnName)) {
                     projectionMap.put(columnName, tableName + '.' + columnName);

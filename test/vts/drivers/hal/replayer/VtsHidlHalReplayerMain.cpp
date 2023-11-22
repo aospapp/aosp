@@ -22,10 +22,11 @@
  *    /data/local/tmp/hal-trace/nfc/V1_0/nfc.vts.trace
  */
 
+#include <getopt.h>
 #include <iostream>
 #include <string>
 
-#include <getopt.h>
+#include <android-base/logging.h>
 
 #include "VtsHidlHalReplayer.h"
 #include "driver_manager/VtsHalDriverManager.h"
@@ -33,28 +34,52 @@
 using namespace std;
 
 static constexpr const char* kDefaultSpecDirPath = "/data/local/tmp/spec/";
-static constexpr const char* kDefaultHalServiceName = "default";
 static constexpr const char* kPassedMarker = "[  PASSED  ]";
 static const int kDefaultEpochCount = 100;
+
+static void AddHalServiceInstance(const string& instance,
+                                  map<string, string>* halServiceInstances) {
+  if (halServiceInstances == nullptr) {
+    cerr << __func__ << ": halServiceInstances should not be null " << endl;
+    return;
+  }
+  // hal_service_instance follows the format:
+  // package@version::interface/service_name e.g.:
+  // android.hardware.vibrator@1.0::IVibrator/default
+  string instanceName = instance.substr(0, instance.find('/'));
+  string serviceName = instance.substr(instance.find('/') + 1);
+  // Fail the process if trying to pass multiple service names for the same
+  // service instance.
+  if (halServiceInstances->find(instanceName) != halServiceInstances->end()) {
+    cerr << "Exisitng instance " << instanceName << " with name "
+         << (*halServiceInstances)[instanceName] << endl;
+  } else {
+    (*halServiceInstances)[instanceName] = serviceName;
+  }
+}
 
 void ShowUsage() {
   cout << "Usage: vts_hal_replayer [options] <trace file>\n"
           "--spec_dir_path <path>:     Set path that store the vts spec files\n"
-          "--hal_service_name <name>:  Set the hal service name\n"
+          "--hal_service_instances <name>:  Set the hal service name\n"
           "--help:                     Show help\n";
   exit(1);
 }
 
 int main(int argc, char** argv) {
-  const char* const short_opts = "h:d:n";
+  android::base::InitLogging(argv, android::base::StderrLogger);
+
+  const char* const short_opts = "hld:n:";
   const option long_opts[] = {
       {"help", no_argument, nullptr, 'h'},
+      {"list_service", no_argument, nullptr, 'l'},
       {"spec_dir_path", optional_argument, nullptr, 'd'},
-      {"hal_service_name", optional_argument, nullptr, 'n'},
+      {"hal_service_instances", optional_argument, nullptr, 'n'},
       {nullptr, 0, nullptr, 0}};
 
   string spec_dir_path = kDefaultSpecDirPath;
-  string hal_service_name = kDefaultHalServiceName;
+  map<string, string> hal_service_instances;
+  bool list_service = false;
 
   while (true) {
     int opt = getopt_long(argc, argv, short_opts, long_opts, nullptr);
@@ -72,7 +97,11 @@ int main(int argc, char** argv) {
         break;
       }
       case 'n': {
-        hal_service_name = string(optarg);
+        AddHalServiceInstance(string(optarg), &hal_service_instances);
+        break;
+      }
+      case 'l': {
+        list_service = true;
         break;
       }
       default:
@@ -91,9 +120,14 @@ int main(int argc, char** argv) {
   android::vts::VtsHalDriverManager driver_manager(spec_dir_path,
                                                    kDefaultEpochCount, "");
   android::vts::VtsHidlHalReplayer replayer(&driver_manager);
-  bool success = replayer.ReplayTrace(trace_path, hal_service_name);
-  if (success) {
-    cout << endl << kPassedMarker << endl;
+
+  if (list_service) {
+    replayer.ListTestServices(trace_path);
+  } else {
+    bool success = replayer.ReplayTrace(trace_path, hal_service_instances);
+    if (success) {
+      cout << endl << kPassedMarker << endl;
+    }
   }
   return 0;
 }

@@ -49,22 +49,24 @@ enum class Result {
     INCOMPLETE = ANEURALNETWORKS_INCOMPLETE,
     UNEXPECTED_NULL = ANEURALNETWORKS_UNEXPECTED_NULL,
     BAD_DATA = ANEURALNETWORKS_BAD_DATA,
+    OP_FAILED = ANEURALNETWORKS_OP_FAILED,
+    UNMAPPABLE = ANEURALNETWORKS_UNMAPPABLE,
+    BAD_STATE = ANEURALNETWORKS_BAD_STATE,
 };
 
 struct OperandType {
     ANeuralNetworksOperandType operandType;
-    // int32_t type;
     std::vector<uint32_t> dimensions;
 
-    OperandType(Type type, const std::vector<uint32_t>& d, float scale = 0.0f,
-                int32_t zeroPoint = 0)
-        : dimensions(d) {
-        operandType.type = static_cast<int32_t>(type);
-        operandType.scale = scale;
-        operandType.zeroPoint = zeroPoint;
-
-        operandType.dimensionCount = static_cast<uint32_t>(dimensions.size());
-        operandType.dimensions = dimensions.data();
+    OperandType(Type type, std::vector<uint32_t> d, float scale = 0.0f, int32_t zeroPoint = 0)
+            : dimensions(std::move(d)) {
+        operandType = {
+            .type = static_cast<int32_t>(type),
+            .dimensionCount = static_cast<uint32_t>(dimensions.size()),
+            .dimensions = dimensions.size() > 0 ? dimensions.data() : nullptr,
+            .scale = scale,
+            .zeroPoint = zeroPoint,
+        };
     }
 };
 
@@ -89,6 +91,7 @@ public:
     Memory(Memory&& other) { *this = std::move(other); }
     Memory& operator=(Memory&& other) {
         if (this != &other) {
+            ANeuralNetworksMemory_free(mMemory);
             mMemory = other.mMemory;
             mValid = other.mValid;
             other.mMemory = nullptr;
@@ -125,6 +128,7 @@ public:
     Model(Model&& other) { *this = std::move(other); }
     Model& operator=(Model&& other) {
         if (this != &other) {
+            ANeuralNetworksModel_free(mModel);
             mModel = other.mModel;
             mNextOperandId = other.mNextOperandId;
             mValid = other.mValid;
@@ -135,7 +139,17 @@ public:
         return *this;
     }
 
-    Result finish() { return static_cast<Result>(ANeuralNetworksModel_finish(mModel)); }
+    Result finish() {
+        if (mValid) {
+            auto result = static_cast<Result>(ANeuralNetworksModel_finish(mModel));
+            if (result != Result::NO_ERROR) {
+                mValid = false;
+            }
+            return result;
+        } else {
+            return Result::BAD_STATE;
+        }
+    }
 
     uint32_t addOperand(const OperandType* type) {
         if (ANeuralNetworksModel_addOperand(mModel, &(type->operandType)) !=
@@ -177,14 +191,24 @@ public:
             mValid = false;
         }
     }
+
+    void relaxComputationFloat32toFloat16(bool isRelax) {
+        if (ANeuralNetworksModel_relaxComputationFloat32toFloat16(mModel, isRelax) ==
+                ANEURALNETWORKS_NO_ERROR) {
+            mRelaxed = isRelax;
+        }
+    }
+
     ANeuralNetworksModel* getHandle() const { return mModel; }
     bool isValid() const { return mValid; }
+    bool isRelaxed() const { return mRelaxed; }
 
 private:
     ANeuralNetworksModel* mModel = nullptr;
     // We keep track of the operand ID as a convenience to the caller.
     uint32_t mNextOperandId = 0;
     bool mValid = true;
+    bool mRelaxed = false;
 };
 
 class Event {
@@ -204,6 +228,7 @@ public:
     Event(Event&& other) { *this = std::move(other); }
     Event& operator=(Event&& other) {
         if (this != &other) {
+            ANeuralNetworksEvent_free(mEvent);
             mEvent = other.mEvent;
             other.mEvent = nullptr;
         }
@@ -233,12 +258,19 @@ public:
 
     ~Compilation() { ANeuralNetworksCompilation_free(mCompilation); }
 
+    // Disallow copy semantics to ensure the runtime object can only be freed
+    // once. Copy semantics could be enabled if some sort of reference counting
+    // or deep-copy system for runtime objects is added later.
     Compilation(const Compilation&) = delete;
     Compilation& operator=(const Compilation&) = delete;
 
+    // Move semantics to remove access to the runtime object from the wrapper
+    // object that is being moved. This ensures the runtime object will be
+    // freed only once.
     Compilation(Compilation&& other) { *this = std::move(other); }
     Compilation& operator=(Compilation&& other) {
         if (this != &other) {
+            ANeuralNetworksCompilation_free(mCompilation);
             mCompilation = other.mCompilation;
             other.mCompilation = nullptr;
         }
@@ -281,6 +313,7 @@ public:
     Execution(Execution&& other) { *this = std::move(other); }
     Execution& operator=(Execution&& other) {
         if (this != &other) {
+            ANeuralNetworksExecution_free(mExecution);
             mExecution = other.mExecution;
             other.mExecution = nullptr;
         }

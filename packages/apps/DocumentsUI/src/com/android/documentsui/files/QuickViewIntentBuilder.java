@@ -17,7 +17,7 @@
 package com.android.documentsui.files;
 
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.base.Shared.MAX_DOCS_IN_INTENT;
 
 import android.content.ClipData;
@@ -62,6 +62,7 @@ public final class QuickViewIntentBuilder {
     private static final String[] FULL_FEATURES = {
             QuickViewConstants.FEATURE_VIEW,
             QuickViewConstants.FEATURE_EDIT,
+            QuickViewConstants.FEATURE_DELETE,
             QuickViewConstants.FEATURE_SEND,
             QuickViewConstants.FEATURE_DOWNLOAD,
             QuickViewConstants.FEATURE_PRINT

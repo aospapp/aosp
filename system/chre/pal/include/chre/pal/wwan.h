@@ -55,8 +55,8 @@ struct chrePalWwanCallbacks {
      *
      * @param result
      *
-     * @see #requestCellInfo
-     * @see #releaseCellInfoResult
+     * @see chrePalWwanApi.requestCellInfo
+     * @see chrePalWwanApi.releaseCellInfoResult
      */
     void (*cellInfoResultCallback)(struct chreWwanCellInfoResult *result);
 };
@@ -114,7 +114,7 @@ struct chrePalWwanApi {
      *         to cellInfoResultCallback will be used to communicate the result
      *
      * @see chreWwanGetCellInfoAsync()
-     * @see #cellInfoResultCallback
+     * @see chrePalWwanCallbacks.cellInfoResultCallback
      */
     bool (*requestCellInfo)(void);
 

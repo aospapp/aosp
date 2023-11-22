@@ -134,12 +134,17 @@ class network_WiFi_TDLSPing(wifi_cell_test_base.WiFiCellTestBase):
         # command to succeed.
         time.sleep(1)
 
-        # A second attempt should succeed, since by now the ARP cache should
-        # be populated.  However at this time there should be no link.
-        link_state = self.context.client.query_tdls_link(peer_ip)
-        if link_state != 'Nonexistent':
-            raise error.TestError(
-                    'DUT does not report a missing TDLS link: %r' % link_state)
+        try:
+            # One of the next few attempts should succeed, since by now the ARP
+            # cache should be populated. However at this time there should be
+            # no link.
+            utils.poll_for_condition(
+                    lambda: ( self.context.client.query_tdls_link(peer_ip) ==
+                    'Nonexistent'), sleep_interval=1)
+        except utils.TimeoutError:
+            link_state = self.context.client.query_tdls_link(peer_ip)
+            raise error.TestError('DUT does not report a missing TDLS link: %r'
+                                  % link_state)
 
         # Perform TDLS discover and check the status after waiting for response.
         self.context.client.discover_tdls_link(peer_ip)

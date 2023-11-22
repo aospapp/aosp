@@ -10,7 +10,6 @@ TIME = "SHORT"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
-ATTRIBUTES = "suite:power_build"
 
 DOC = """
 This test runs a load test consisting of cycling though web pages, playing
@@ -36,4 +35,4 @@ loop_count = 1
 
 job.run_test('power_LoadTest', loop_time=loop_time, loop_count=loop_count,
              test_low_batt_p=6, check_network=False, ac_ok=True,
-             gaia_login=True)
+             gaia_login=True, tag=NAME.split('.')[1])

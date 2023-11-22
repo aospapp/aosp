@@ -16,7 +16,6 @@
 
 package com.android.tv.ui.sidepanel;
 
-
 public abstract class SubMenuItem extends ActionItem {
     private final SideFragmentManager mSideFragmentManager;
 

@@ -14,53 +14,26 @@
  * limitations under the License.
  */
 
-import android.support.SupportLibraryExtension
-import android.support.LibraryVersions
+import static androidx.build.dependencies.DependenciesKt.*
+import androidx.build.LibraryGroups
+import androidx.build.SupportLibraryExtension
+import androidx.build.LibraryVersions
 
-apply plugin: android.support.FlatfootAndroidLibraryPlugin
-
-android {
-    compileSdkVersion tools.current_sdk
-    buildToolsVersion tools.build_tools_version
-
-    defaultConfig {
-        minSdkVersion flatfoot.min_sdk
-        targetSdkVersion tools.current_sdk
-
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-    }
-
-    testOptions {
-        unitTests.returnDefaultValues = true
-    }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_7
-        targetCompatibility JavaVersion.VERSION_1_7
-    }
+plugins {
+    id("SupportAndroidLibraryPlugin")
 }
 
 dependencies {
-    compile libs.support.annotations
-    compile project(":arch:common")
+    api(SUPPORT_ANNOTATIONS)
+    api(project(":arch:core-common"))
 }
 
-createAndroidCheckstyle(project)
-
-android.libraryVariants.all { variant ->
-    def name = variant.buildType.name
-    def suffix = name.capitalize()
-    def jarTask = project.tasks.create(name: "jar${suffix}", type: Jar){
-        dependsOn variant.javaCompile
-        from variant.javaCompile.destinationDir
-        destinationDir new File(project.buildDir, "libJar")
-    }
-}
-
-version = LibraryVersions.ARCH_RUNTIME.toString()
 supportLibrary {
-    name 'Android Arch-Runtime'
-    publish true
-    inceptionYear '2017'
-    description "Android Arch-Runtime"
-    url SupportLibraryExtension.ARCHITECTURE_URL
+    name = "Android Arch-Runtime"
+    publish = true
+    mavenVersion = LibraryVersions.ARCH_RUNTIME
+    mavenGroup = LibraryGroups.ARCH_CORE
+    inceptionYear = "2017"
+    description = "Android Arch-Runtime"
+    url = SupportLibraryExtension.ARCHITECTURE_URL
 }

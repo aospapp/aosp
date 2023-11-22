@@ -20,11 +20,33 @@
     <string name="launcher_settings_app_name" msgid="5782771766725939392">"Indstillinger"</string>
     <string name="launcher_network_app_name" msgid="5107150533945388559">"Netværk"</string>
     <string name="launcher_restricted_profile_app_name" msgid="671448012575234643">"Begrænset profil"</string>
+    <string name="header_category_suggestions" msgid="6732367439328586933">"Forslag"</string>
+    <string name="header_category_quick_settings" msgid="6626141045575946920">"Hurtige indstillinger"</string>
+    <string name="header_category_general_settings" msgid="1208946854116876918">"Generelle indstillinger"</string>
+    <string name="dismiss_suggestion" msgid="8288127823132069828">"Afvis forslaget"</string>
+    <string name="hotwording_title" msgid="1984130766527626626">"Registrer \"Ok Google\""</string>
+    <string name="hotwording_summary" msgid="2863751845299261441">"Tal til Google Assistent når som helst"</string>
     <string name="header_category_device" msgid="4855983928659541345">"Enhed"</string>
     <string name="header_category_preferences" msgid="175105555164713972">"Præferencer"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"Fjernbetjening og tilbehør"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"Personligt"</string>
-    <string name="accounts_category_title" msgid="7591072907146317425">"Konti"</string>
+    <string name="connect_to_network" msgid="2209125715907353369">"Opret forbindelse til netværk"</string>
+    <string name="add_an_account" msgid="1123478843971990449">"Tilføj en konto"</string>
+    <string name="accounts_category_title" msgid="7839427428921349418">"Konti og login"</string>
+    <string name="accounts_category_summary_no_account" msgid="5739678666463033824">"Der er ingen konti"</string>
+    <plurals name="accounts_category_summary" formatted="false" msgid="3864659911073569648">
+      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> konto</item>
+      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> konti</item>
+    </plurals>
+    <string name="connectivity_network_category_title" msgid="6005656364481347542">"Netværk og internet"</string>
+    <string name="applications_category_title" msgid="3552921143969612110">"Apps"</string>
+    <string name="device_pref_category_title" msgid="5264163316572335776">"Enhedspræferencer"</string>
+    <string name="remotes_and_accessories_category_title" msgid="2729050422677319645">"Fjernbetjeninger og tilbehør"</string>
+    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3967545806275801632">"Der er ingen tilsluttede Bluetooth-enheder"</string>
+    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="2004733390509722820">
+      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> tilbehørsdel</item>
+      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> tilbehørsdele</item>
+    </plurals>
     <string name="add_account" msgid="4098060223200619258">"Tilføj konto"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"Fjern konto"</string>
     <string name="account_sync" msgid="773808124331714965">"Vælg synkroniserede apps"</string>
@@ -40,27 +62,47 @@
 %1$s</xliff:g>"</string>
     <string name="sync_failed" msgid="5514824149810480551">"Synkroniseringen mislykkedes"</string>
     <string name="sync_active" msgid="6891115263481154378">"Synkronisering er aktiveret"</string>
-    <string name="connectivity_network" msgid="8321537111272398501">"Netværk"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
+    <string name="connectivity_summary_ethernet_connected" msgid="2015335020646410586">"Der er forbindelse via Ethernet"</string>
+    <string name="connectivity_summary_no_network_connected" msgid="5187378791046457432">"Der er ikke forbindelse til et netværk"</string>
+    <string name="connectivity_summary_wifi_disabled" msgid="6904637079319724455">"Wi-Fi er deaktiveret"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Scanning altid tilgængelig"</string>
     <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Lad Googles placeringstjeneste og andre apps scanne efter netværk, selv når Wi-Fi er slået fra"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
+    <string name="connectivity_hint_message" msgid="1314202316675864203">"Opret forbindelse til netværk"</string>
+    <string name="apps_recently_used_category_title" msgid="5254492409677346900">"Senest åbnede apps"</string>
+    <string name="apps_see_all_apps" msgid="5546179088197139203">"Se alle apps"</string>
+    <string name="apps_permissions_category_title" msgid="4476837368840442313">"Tilladelser"</string>
+    <string name="all_apps_title" msgid="5330174847732759402">"Alle apps"</string>
+    <string name="all_apps_show_system_apps" msgid="4648447904721171884">"Vis systemapps"</string>
+    <string name="all_apps_installed" msgid="54800379871111518">"Installerede apps"</string>
+    <string name="all_apps_other" msgid="8297097642727891911">"Systemapps"</string>
+    <string name="all_apps_disabled" msgid="2016067533586741345">"Deaktiverede apps"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Pauseskærm"</string>
     <string name="device_display" msgid="101455384386372747">"Skærm"</string>
     <string name="device_sound" msgid="9214182566287657481">"Lyd"</string>
     <string name="device_surround_sound" msgid="6272196310566546860">"Surroundsound"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Systemlyde"</string>
-    <string name="device_apps" msgid="9180435229638772838">"Apps"</string>
-    <string name="device_storage_reset" msgid="1425978936501134425">"Lagerplads og nulstilling"</string>
+    <string name="device_apps" msgid="1971794537385509294">"Apps"</string>
+    <string name="device_storage" msgid="5536683600091277826">"Lager"</string>
+    <string name="device_reset" msgid="1885840356489458285">"Gendan"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"Sikkerhedskopiering og gendannelse"</string>
-    <string name="device_reset" msgid="2827002349560023125">"Nulstilling af fabriksdata"</string>
+    <string name="device_factory_reset" msgid="6537106927211842545">"Gendannelse af fabriksdata"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrering"</string>
+    <string name="surround_sound_select_formats" msgid="6329868407147678259">"Vælg formater"</string>
+    <string name="surround_sound_category_title" msgid="1331285587464316534">"Surroundsound"</string>
+    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
+    <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
+    <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
+    <string name="surround_sound_auto_info" msgid="4957977219847012992">"Bemærk! Muligheden Automatisk fungerer muligvis kun, hvis enheden rapporterer sine understøttede formater korrekt."</string>
+    <string name="surround_sound_auto_summary" msgid="175387511376834034">"Automatisk: Brug formater, som enheden rapporterer, at den støtter (anbefales)"</string>
+    <string name="surround_sound_none_summary" msgid="4295042972785042496">"Ingen: Brug aldrig surroundsound"</string>
+    <string name="surround_sound_manual_summary" msgid="9208540024024014501">"Manuelt: Vælg, hvilke formater der skal bruges"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"Vil du rydde cachelagrede data?"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Dette vil rydde cachelagrede data for alle apps."</string>
-    <string name="apps_downloaded" msgid="4222190849854323480">"Downloadede apps"</string>
-    <string name="apps_system" msgid="2499191125802829425">"Systemapps"</string>
-    <string name="apps_running" msgid="6430310491739956228">"Kørende apps"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Tilføj tilbehør"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"Parrer..."</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"Forbinder..."</string>
@@ -82,8 +124,8 @@
     <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"Hvis du vil parre med: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, skal du sørge for, at den viser denne adgangsnøgle: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;"</string>
     <string name="bluetooth_incoming_pairing_msg" msgid="8234127565393932499">"Fra: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;Vil du parre med denne enhed?"</string>
     <string name="bluetooth_display_passkey_pin_msg" msgid="8951451728250058901">"Sådan parrer du med: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;br&gt;Skriv følgende på den: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>, og tryk derefter på Return eller Enter."</string>
-    <string name="bluetooth_enter_pin_msg" msgid="7443458826667686394">"Sådan parrer du med: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, &lt;br&gt;Indtast enhedens påkrævede pinkode:"</string>
-    <string name="bluetooth_enter_passkey_msg" msgid="7980787196089653577">"Sådan parrer du med: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, &lt;br&gt;Indtast enhedens påkrævede adgangsnøgle:"</string>
+    <string name="bluetooth_enter_pin_msg" msgid="7443458826667686394">"Sådan parrer du med: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, &lt;br&gt;Angiv enhedens påkrævede pinkode:"</string>
+    <string name="bluetooth_enter_passkey_msg" msgid="7980787196089653577">"Sådan parrer du med: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, &lt;br&gt;Angiv enhedens påkrævede adgangsnøgle:"</string>
     <string name="bluetooth_pin_values_hint" msgid="2319900367581543300">"Normalt 0000 eller 1234"</string>
     <string name="bluetooth_pair" msgid="7836818609620478122">"Par"</string>
     <string name="bluetooth_cancel" msgid="4152153558528588479">"Annuller"</string>
@@ -91,12 +133,16 @@
     <string name="system_date_time" msgid="8898457978560618950">"Dato og tid"</string>
     <string name="system_language" msgid="2337138146114609247">"Sprog"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Tastatur"</string>
+    <string name="system_keyboard_autofill" msgid="5787948036400896834">"Tastatur og Autofyld"</string>
+    <string name="system_autofill" msgid="8647914463541617409">"Autofyld"</string>
     <string name="system_home" msgid="2858989138172296012">"Startskærm"</string>
     <string name="system_search" msgid="2837264654143247611">"Søgning"</string>
     <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Sikkerhed og begrænsninger"</string>
     <string name="system_speech" msgid="8128688499687306982">"Tale"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Indgange"</string>
+    <string name="system_inputs_devices" msgid="8700905419497948327">"Input og enheder"</string>
+    <string name="system_home_theater_control" msgid="2053198603790384368">"Styring af hjemmebiograf"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Hjælpefunktioner"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"Valgmuligheder for udviklere"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Ingen"</string>
@@ -143,14 +189,11 @@
     <string name="imei_information_title" msgid="5208860549282877136">"IMEI-oplysninger"</string>
     <string name="status_bt_address" msgid="1571721865060122393">"Bluetooth-adresse"</string>
     <string name="status_up_time" msgid="1674116490191446110">"Oppetid"</string>
-    <string name="status_wimax_mac_address" msgid="1102907383444152052">"4G MAC-adresse"</string>
     <string name="legal_information" msgid="2346024659831852038">"Juridiske oplysninger"</string>
     <string name="copyright_title" msgid="5564228453228549353">"Ophavsret"</string>
     <string name="license_title" msgid="4482927105870812604">"Licens"</string>
     <string name="terms_title" msgid="8480859222932736291">"Vilkår og betingelser"</string>
     <string name="webview_license_title" msgid="8843666223583780825">"System WebView-licens"</string>
-    <string name="wallpaper_attributions" msgid="8622098625739634898">"Baggrunde"</string>
-    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"Leverandører af satellitbilleder:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"Dårlig"</item>
     <item msgid="5986166866411161790">"Rimelig"</item>
@@ -160,7 +203,7 @@
     <string name="title_mac_address" msgid="3428401680168668544">"MAC-adresse"</string>
     <string name="title_signal_strength" msgid="205478650262078041">"Signalstyrke"</string>
     <string name="title_ip_address" msgid="4533523100923004711">"IP-adresse"</string>
-    <string name="title_ssid" msgid="4858945903642469730">"Indtast navnet på Wi-Fi-netværket"</string>
+    <string name="title_ssid" msgid="4858945903642469730">"Angiv navnet på Wi-Fi-netværket"</string>
     <string name="title_internet_connection" msgid="8710084774588697646">"Internetforbindelse"</string>
     <string name="connected" msgid="7563100162902079938">"Tilsluttet"</string>
     <string name="not_connected" msgid="6858480380326923017">"Ikke tilsluttet"</string>
@@ -168,10 +211,8 @@
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"Se alle"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Se færre"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"Tilgængelige netværk"</string>
-    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Tilslut via WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Tilføj nyt netværk"</string>
     <string name="security_type" msgid="524443802004143058">"Sikkerhedstype"</string>
-    <string name="wps_network" msgid="1052148085426051873">"Tilslut via WPS"</string>
     <string name="other_network" msgid="3539704463099544488">"Andre netværk..."</string>
     <string name="skip_network" msgid="6380260543776712357">"Spring over"</string>
     <string name="wifi_security_type_none" msgid="6622722325237471927">"Ingen"</string>
@@ -206,6 +247,8 @@
     <string name="wifi_forget_network" msgid="7302755141573045803">"Glem netværk"</string>
     <string name="wifi_forget_network_description" msgid="3328285160018330334">"Rydder oplysninger, som bruges til at oprette forbindelse til netværket, bl.a. eventuelle gemte adgangskoder."</string>
     <string name="wifi_action_ok" msgid="5932500664228395779">"OK"</string>
+    <string name="wifi_setup_action_dont_change_network" msgid="5136210803832000656">"Fortsæt"</string>
+    <string name="wifi_setup_action_change_network" msgid="4320731433166354508">"Skift netværk"</string>
     <string name="wifi_action_change_network" msgid="5196215981075986148">"Skift"</string>
     <string name="wifi_action_dont_change_network" msgid="1449920958930251977">"Skift ikke"</string>
     <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"OK"</string>
@@ -216,15 +259,15 @@
     <string name="wifi_action_static" msgid="1025855501453321749">"Statisk"</string>
     <string name="wifi_action_status_info" msgid="7664354971197839253">"Statusoplysninger"</string>
     <string name="wifi_action_advanced_options_title" msgid="3242132674399983503">"Avancerede valgmuligheder"</string>
-    <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"Indtast en gyldig IP-adresse"</string>
-    <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"Indtast en gyldig gateway-adresse"</string>
-    <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"Indtast en gyldig DNS-adresse"</string>
-    <string name="wifi_ip_settings_invalid_network_prefix_length" msgid="6209978918929182270">"Indtast et gyldigt netværkspræfiks på 0-32 tegn"</string>
-    <string name="wifi_ip_address_description" msgid="6548838784556001283">"Indtast en gyldig IP-adresse.\nEksempel: <xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
-    <string name="wifi_dns1_description" msgid="2463500547232077393">"Indtast en gyldig IP-adresse, eller lad feltet stå tomt.\nEksempel: <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
-    <string name="wifi_dns2_description" msgid="8005473174044015359">"Indtast en gyldig IP-adresse, eller lad feltet stå tomt.\nEksempel: <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
-    <string name="wifi_gateway_description" msgid="4773751224452216231">"Indtast en gyldig IP-adresse, eller lad feltet stå tomt.\nEksempel: <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
-    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"Indtast en gyldig længde på netværkspræfiks.\nEksempel: <xliff:g id="ID_1">24</xliff:g>"</string>
+    <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"Angiv en gyldig IP-adresse"</string>
+    <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"Angiv en gyldig gateway-adresse"</string>
+    <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"Angiv en gyldig DNS-adresse"</string>
+    <string name="wifi_ip_settings_invalid_network_prefix_length" msgid="6209978918929182270">"Angiv et gyldigt netværkspræfiks på 0-32 tegn"</string>
+    <string name="wifi_ip_address_description" msgid="6548838784556001283">"Angiv en gyldig IP-adresse.\nEksempel: <xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
+    <string name="wifi_dns1_description" msgid="2463500547232077393">"Angiv en gyldig IP-adresse, eller lad feltet stå tomt.\nEksempel: <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
+    <string name="wifi_dns2_description" msgid="8005473174044015359">"Angiv en gyldig IP-adresse, eller lad feltet stå tomt.\nEksempel: <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
+    <string name="wifi_gateway_description" msgid="4773751224452216231">"Angiv en gyldig IP-adresse, eller lad feltet stå tomt.\nEksempel: <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
+    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"Angiv en gyldig længde på netværkspræfiks.\nEksempel: <xliff:g id="ID_1">24</xliff:g>"</string>
     <string name="proxy_error_invalid_host" msgid="3660415920668138953">"Hostname er ikke gyldigt"</string>
     <string name="proxy_error_invalid_exclusion_list" msgid="4921547051724987804">"Udeladelseslisten er ikke gyldig. Angiv en kommasepareret liste over udeladte domæner."</string>
     <string name="proxy_error_empty_port" msgid="6835658067776408062">"Feltet Port må ikke være tomt"</string>
@@ -232,8 +275,13 @@
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"Porten er ikke gyldig"</string>
     <string name="proxy_warning_limited_support" msgid="6160239282535986523">"HTTP-proxyen anvendes af browseren, men må ikke bruges af andre apps."</string>
     <string name="proxy_port_description" msgid="6791098212244367568">"Angiv en gyldig port.\nEksempel: <xliff:g id="ID_1">8080</xliff:g>"</string>
-    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Indtast en kommasepareret liste over udelukkede domæner, eller lad feltet stå tomt. Eksempel: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g> \n"</string>
-    <string name="proxy_hostname_description" msgid="5824391500254472447">"Indtast et gyldigt hostnavn.\nEksempel: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
+    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Angiv en kommasepareret liste over udelukkede domæner, eller lad feltet stå tomt. Eksempel: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g> \n"</string>
+    <string name="proxy_hostname_description" msgid="5824391500254472447">"Angiv et gyldigt hostnavn.\nEksempel: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
+    <string name="title_wifi_eap_method" msgid="3723583936041145157">"Vælg EAP-metoden for <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="title_wifi_phase2_authentication" msgid="8292177518924013886">"Vælg fase 2-godkendelse for <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="title_wifi_identity" msgid="6154397685951091638">"Angiv identiteten for <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="title_wifi_anonymous_identity" msgid="4530402657655491360">"Angiv anonym identitet for <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_summary_title_connected" msgid="3349953509191969645">"Du har forbindelse til <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"Der er forbindelse til netværket"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Netværket er ikke tilsluttet"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"Der er allerede forbindelse til <xliff:g id="SSID">%1$s</xliff:g>. Vil du oprette forbindelse til et andet netværk?"</string>
@@ -317,15 +365,6 @@
     <string name="system_package" msgid="9200255718634512790">"Systemopdateringer kan ikke installeres på eksterne medier."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Enhedsadministratoren kan ikke installeres på eksterne medier."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"Få flere oplysninger"</string>
-    <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Prøv igen"</string>
-    <string name="wifi_wps_title" msgid="1872305810119408482">"Søger efter WPS-router…"</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"Tryk på knappen for Wi-Fi Protected Setup på din router.\nDen kaldes muligvis \"WPS\" eller indeholder symbolet til venstre."</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Indtast pinkoden <xliff:g id="NUMBER">%1$s</xliff:g> på din Wi-Fi-router."</string>
-    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"Når pinkoden er indtastet, kan det tage op til to minutter at fuldføre konfigurationen."</string>
-    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Wi-Fi-routeren blev ikke fundet"</string>
-    <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Sikkerhedsindstillingen for Wi-Fi-routeren (WEP) understøttes ikke"</string>
-    <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Sikkerhedsindstillingen for Wi-Fi-routeren (TKIP) understøttes ikke"</string>
-    <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"Der er en anden igangværende WPS-session. Prøv igen om et par minutter."</string>
     <string name="system_date" msgid="2767108116769558081">"Dato"</string>
     <string name="system_time" msgid="6726022312605226285">"Tid"</string>
     <string name="system_set_date" msgid="2437586307768561116">"Angiv dato"</string>
@@ -420,7 +459,7 @@
     <string name="system_speak_passwords" msgid="5264650214879185873">"Oplæs adgangskoder"</string>
     <string name="system_preferred_engine" msgid="8258210139854655567">"Foretrukken maskine"</string>
     <string name="system_speech_rate" msgid="8099856582088545576">"Talehastighed"</string>
-    <string name="system_play_sample" msgid="7187293932891811148">"Afspil eksempel"</string>
+    <string name="system_play_sample" msgid="7187293932891811148">"Afspil et uddrag"</string>
     <string name="system_install_voice_data" msgid="8920883886563714355">"Installer stemmedata"</string>
     <string name="system_general" msgid="3535958631591158282">"Generelt"</string>
     <string name="system_debugging" msgid="7204447785851191331">"Fejlretning"</string>
@@ -519,9 +558,15 @@
     <string name="tts_rate_normal" msgid="362011908545519639">"Normal"</string>
     <string name="tts_rate_fast" msgid="3792863158623953072">"Hurtig"</string>
     <string name="tts_rate_very_fast" msgid="5876670536911919074">"Meget hurtig"</string>
+    <string name="title_settings" msgid="5433841477518010243">"Indstillinger for <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"Aktuelt tastatur"</string>
     <string name="title_configure" msgid="6929522003149212388">"Konfigurer"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"Valgmuligheder for tastatur"</string>
+    <string name="title_current_autofill_service" msgid="6055852915343152350">"Aktuel AutoFyld-tjeneste"</string>
+    <string name="title_select_autofill_service" msgid="2515782066694197988">"Vælg AutoFyld-tjenesten"</string>
+    <string name="autofill_none" msgid="2426888642367790651">"Ingen"</string>
+    <!-- syntax error in translation for autofill_confirmation_message (9068009043054751287) org.xmlpull.v1.XmlPullParserException: expected: /string read: b (position:END_TAG </b>@1:131 in     <string name="autofill_confirmation_message" msgid="9068009043054751287">"&lt;b&gt;Sørg for, at du har tillid til denne app</b> <br/> <br/> <xliff:g id=app_name example=Password service>%1$s</xliff:g> anvender indholdet af din skærm til at fastslå, hvad der kan udfyldes automatisk."</string>
+)  -->
     <string name="computing_size" msgid="2955133568424704042">"Beregner..."</string>
     <string name="title_select_wifi_network" msgid="1038871400014761952">"Vælg dit Wi-Fi-netværk"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"Omdøb"</string>
@@ -542,7 +587,7 @@
     <string name="inputs_game" msgid="1114086481110094757">"Spillekonsol"</string>
     <string name="inputs_aux" msgid="5704676433978730340">"Aux"</string>
     <string name="inputs_custom_name" msgid="5584925321693432362">"Tilpasset navn"</string>
-    <string name="inputs_custom_name_description_fmt" msgid="7123031859468901866">"Indtast et navn på <xliff:g id="INPUT">%1$s</xliff:g>-indgangen."</string>
+    <string name="inputs_custom_name_description_fmt" msgid="7123031859468901866">"Angiv et navn på <xliff:g id="INPUT">%1$s</xliff:g>-indgangen."</string>
     <string name="inputs_hide" msgid="1575971556150395486">"Skjult"</string>
     <string name="inputs_show" msgid="5069718540369447778">"Vis denne indgang"</string>
     <string name="input_header_names" msgid="6958427658951236078">"Navn"</string>
@@ -590,10 +635,10 @@
     <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"Denne app har adgang til dine konti. Administreres af <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"Angiv pinkode for at se denne kanal"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"Angiv pinkode for at se dette program"</string>
-    <string name="pin_enter_pin" msgid="821552376577935497">"Indtast pinkode"</string>
+    <string name="pin_enter_pin" msgid="821552376577935497">"Angiv pinkode"</string>
     <string name="pin_enter_new_pin" msgid="4788218421265924211">"Angiv en ny pinkode"</string>
-    <string name="pin_enter_again" msgid="1510456697040826496">"Indtast ny pinkode igen"</string>
-    <string name="pin_enter_old_pin" msgid="851029058127630869">"Indtast den gamle pinkode"</string>
+    <string name="pin_enter_again" msgid="1510456697040826496">"Angiv ny pinkode igen"</string>
+    <string name="pin_enter_old_pin" msgid="851029058127630869">"Angiv den gamle pinkode"</string>
     <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"Du har indtastet en forkert pinkode fem gange.\nPrøv igen om <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> sekunder."</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"Forkert pinkode. Prøv igen"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"Prøv igen. Pinkoden var forkert"</string>
@@ -645,7 +690,7 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Vil du slette alle dine personlige oplysninger og downloadede apps? Denne handling kan ikke fortrydes."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Slet alt"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Vælg et navn til din <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="6890879006777364213">"Giv din <xliff:g id="DEVICEMODEL">%1$s</xliff:g> et navn for nemmere at kunne identificere den, når du caster eller opretter forbindelse til den fra andre enheder."</string>
+    <string name="select_device_name_description" msgid="4939767901420114190">"Giv din enhed et navn for nemmere at kunne identificere den, når du caster eller opretter forbindelse til den fra andre enheder."</string>
   <string-array name="rooms">
     <item msgid="9056203990862307284">"Android TV"</item>
     <item msgid="7449352861592960712">"Fjernsyn i stuen"</item>
@@ -655,11 +700,13 @@
     <string name="custom_room" msgid="8655516733933892458">"Angiv et tilpasset navn…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Omdøb denne <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Denne <xliff:g id="DEVICEMODEL">%1$s</xliff:g> har i øjeblikket navnet \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
+    <string name="device_name_suggestion_title" msgid="2312205155408810120">"Angiv navnet på din enhed"</string>
+    <string name="device_name_suggestion_summary" msgid="5657494684788779371">"Brug dette navn, når du caster billeder, videoer og andet fra din telefon"</string>
     <string name="change_setting" msgid="2047402388786162246">"Skift"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Skift ikke"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Tilladelser"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"Apptilladelser"</string>
-    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> ud af <xliff:g id="COUNT_1">%d</xliff:g> apps har tilladelse"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%1$d</xliff:g> ud af <xliff:g id="COUNT_1">%2$d</xliff:g> apps har tilladelse"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Anmodning om Bluetooth-tilladelse"</string>
     <string name="security_patch" msgid="2131617390189164481">"Niveau for sikkerhedsrettelse på Android"</string>
     <string name="choose_application" msgid="5662960665577780353">"Vælg app"</string>
@@ -674,4 +721,27 @@
     <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Ikke tilladt"</string>
     <string name="usage_access" msgid="1914242907684452328">"Adgang til forbrug"</string>
     <string name="usage_access_description" msgid="6290001769893747651">"Med adgang til forbrug kan en app se, hvilke andre apps du anvender og hvor ofte, samt dit mobilselskab, dine sprogindstillinger og andre oplysninger."</string>
+    <string name="high_power_apps" msgid="7796096221999495077">"Energioptimering"</string>
+    <string name="high_power_apps_description" msgid="1990016812115792282">"Optimer energiforbruget for apps"</string>
+    <string name="high_power_apps_empty" msgid="1355906551507153470">"Ingen apps skal optimeres"</string>
+    <string name="high_power_on" msgid="7725180078784796673">"Ikke-optimeret"</string>
+    <string name="high_power_off" msgid="308272752152871252">"Energiforbruget er optimeret"</string>
+    <string name="high_power_system" msgid="7815843517656137656">"Energioptimering er ikke tilgængelig"</string>
+    <string name="manage_notification_access_title" msgid="2051765294087620434">"Adgang til underretninger"</string>
+    <string name="no_notification_listeners" msgid="4583789599075326886">"Ingen installerede apps har anmodet om adgang til underretninger."</string>
+    <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Disse apps kan læse alle underretninger, herunder personlige oplysninger såsom navne på kontaktpersoner og teksten i de meddelelser, du modtager. De kan også lukke underretninger eller aktivere handlingsknapperne, som de indeholder."</string>
+    <string name="system_alert_window_settings" msgid="2069031369694448339">"Vis over andre apps"</string>
+    <string name="permit_draw_overlay" msgid="2400084757761408906">"Tillad visning over andre apps"</string>
+    <string name="allow_overlay_description" msgid="1946279120428813474">"Tillad, at en app vises over andre apps, du bruger. Dette kan forstyrre din brug af disse apps eller ændre deres udseende eller adfærd."</string>
+    <string name="write_system_settings" msgid="2730923656857824907">"Rediger systemindstillinger"</string>
+    <string name="write_settings_title" msgid="8750406725746598710">"Kan ændre systemindstillinger"</string>
+    <string name="write_settings_description" msgid="2765037074460395437">"Denne tilladelse giver en app lov til at ændre systemindstillingerne."</string>
+    <string name="write_settings_on" msgid="3312616037931341656">"Ja"</string>
+    <string name="write_settings_off" msgid="6219072254626503312">"Nej"</string>
+    <string name="picture_in_picture_title" msgid="7738692876349058">"Integreret billede"</string>
+    <string name="picture_in_picture_app_detail_switch" msgid="8063965798321494391">"Tillad integreret billede"</string>
+    <string name="picture_in_picture_empty_text" msgid="5592688180792300051">"Ingen af de installerede apps understøtter integreret billede"</string>
+    <string name="picture_in_picture_app_detail_summary" msgid="3478182415601436326">"Giv tilladelse til, at apps opretter et vindue med integreret billede, mens appen er åben, eller efter du lukker den (f.eks. for at fortsætte med at se en video). Dette vindue vises oven på andre apps, du bruger."</string>
+    <string name="special_access" msgid="3513811566600299998">"Særlig appadgang"</string>
+    <string name="string_concat" msgid="5897947064488902904">"<xliff:g id="PART1">%1s</xliff:g>, <xliff:g id="PART2">%2s</xliff:g>"</string>
 </resources>

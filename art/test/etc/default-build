@@ -17,6 +17,12 @@
 # Stop if something fails.
 set -e
 
+if [[ $# -le 0 ]]; then
+  echo 'Error:' '$0 should have the parameters from the "build" script forwarded to it' >&2
+  echo 'Error: An example of how do it correctly is ./default-build "$@"'
+  exit 1
+fi
+
 # Set default values for directories.
 if [ -d smali ]; then
   HAS_SMALI=true
@@ -81,6 +87,17 @@ else
   HAS_SRC_DEX2OAT_UNRESOLVED=false
 fi
 
+if [ -f api-light-greylist.txt -o -f api-dark-greylist.txt -o -f api-blacklist.txt ]; then
+  HAS_HIDDENAPI_SPEC=true
+else
+  HAS_HIDDENAPI_SPEC=false
+fi
+
+# USE_HIDDENAPI=false run-test... will disable hiddenapi.
+if [ -z "${USE_HIDDENAPI}" ]; then
+  USE_HIDDENAPI=true
+fi
+
 # DESUGAR=false run-test... will disable desugar.
 if [[ "$DESUGAR" == false ]]; then
   USE_DESUGAR=false
@@ -113,18 +130,22 @@ JACK_EXPERIMENTAL_ARGS[${DEFAULT_EXPERIMENT}]="-D jack.java.source.version=1.8 -
 declare -A SMALI_EXPERIMENTAL_ARGS
 SMALI_EXPERIMENTAL_ARGS["default-methods"]="--api 24"
 SMALI_EXPERIMENTAL_ARGS["method-handles"]="--api 26"
+SMALI_EXPERIMENTAL_ARGS["var-handles"]="--api 26"
 SMALI_EXPERIMENTAL_ARGS["agents"]="--api 26"
 
 declare -A JAVAC_EXPERIMENTAL_ARGS
 JAVAC_EXPERIMENTAL_ARGS["default-methods"]="-source 1.8 -target 1.8"
 JAVAC_EXPERIMENTAL_ARGS["lambdas"]="-source 1.8 -target 1.8"
 JAVAC_EXPERIMENTAL_ARGS["method-handles"]="-source 1.8 -target 1.8"
-# We need to leave javac at default 1.7 so that dx will continue to work
+JAVAC_EXPERIMENTAL_ARGS["parameter-annotations"]="-source 1.8 -target 1.8"
+JAVAC_EXPERIMENTAL_ARGS["var-handles"]="-source 1.8 -target 1.8"
 JAVAC_EXPERIMENTAL_ARGS[${DEFAULT_EXPERIMENT}]="-source 1.8 -target 1.8"
 JAVAC_EXPERIMENTAL_ARGS["agents"]="-source 1.8 -target 1.8"
 
 declare -A DX_EXPERIMENTAL_ARGS
 DX_EXPERIMENTAL_ARGS["method-handles"]="--min-sdk-version=26"
+DX_EXPERIMENTAL_ARGS["parameter-annotations"]="--min-sdk-version=25"
+DX_EXPERIMENTAL_ARGS["var-handles"]="--min-sdk-version=26"
 
 while true; do
   if [ "x$1" = "x--dx-option" ]; then
@@ -136,8 +157,6 @@ while true; do
     shift
     option="$1"
     DX_VM_FLAGS="${DX_VM_FLAGS} $option"
-    shift
-  elif [ "x$1" = "x--jvm" ]; then
     shift
   elif [ "x$1" = "x--no-src" ]; then
     HAS_SRC=false
@@ -180,6 +199,9 @@ while true; do
   elif [ "x$1" = "x--target" ]; then
     BUILD_MODE="target"
     shift
+  elif [ "x$1" = "x--jvm" ]; then
+    BUILD_MODE="jvm"
+    shift
   elif [ "x$1" = "x--dev" ]; then
     DEV_MODE="yes"
     shift
@@ -190,6 +212,13 @@ while true; do
     break
   fi
 done
+
+if [[ $BUILD_MODE == jvm ]]; then
+  # Does not need desugar on jvm because it supports the latest functionality.
+  USE_DESUGAR=false
+  # Do not attempt to build src-art directories on jvm, it would fail without libcore.
+  HAS_SRC_ART=false
+fi
 
 # Be sure to get any default arguments if not doing any experiments.
 EXPERIMENTAL="${EXPERIMENTAL} ${DEFAULT_EXPERIMENT}"
@@ -248,10 +277,7 @@ function make_jasmin() {
 }
 
 function desugar() {
-  local desugar_args=--mode=host
-  if [[ $BUILD_MODE == target ]]; then
-    desugar_args=--mode=target
-  fi
+  local desugar_args="--mode=$BUILD_MODE"
 
   if [[ $DEV_MODE == yes ]]; then
     desugar_args="$desugar_args --show-commands"
@@ -260,18 +286,16 @@ function desugar() {
   "$DESUGAR" --core-only $desugar_args "$@"
 }
 
-# Like regular javac but includes libcore on the bootclasspath.
+# Like regular javac but may include libcore on the bootclasspath.
 function javac_with_bootclasspath {
-  local javac_args=--mode=host
-  if [[ $BUILD_MODE == target ]]; then
-    javac_args=--mode=target
-  fi
+  local helper_args="--mode=$BUILD_MODE"
 
   if [[ $DEV_MODE == yes ]]; then
-    javac_args="$javac_args --show-commands"
+    helper_args="$helper_args --show-commands"
   fi
 
-  "$ANDROID_BUILD_TOP/art/tools/javac-helper.sh" --core-only $javac_args "$@"
+  # build with libcore for host and target, or openjdk for jvm
+  "$ANDROID_BUILD_TOP/art/tools/javac-helper.sh" --core-only $helper_args ${JAVAC_ARGS} "$@"
 }
 
 # Make a "dex" file given a directory of classes in $1.
@@ -292,8 +316,13 @@ function make_dex() {
     dx_input="${name}"
   fi
 
+  local dexer="${DX}"
+  if [ ${USE_D8} = "true" ]; then
+    dexer="${ANDROID_HOST_OUT}/bin/d8-compat-dx"
+  fi
+
   # Make dex file from desugared JAR.
-  ${DX} -JXmx256m ${DX_VM_FLAGS} --debug --dex --dump-to=${name}.lst --output=${name}.dex --dump-width=1000 ${DX_FLAGS} "${dx_input}"
+  ${dexer} -JXmx256m ${DX_VM_FLAGS} --debug --dex --dump-to=${name}.lst --output=${name}.dex --dump-width=1000 ${DX_FLAGS} "${dx_input}"
 }
 
 # Merge all the dex files in $1..$N into $1. Skip non-existing files, but at least 1 file must exist.
@@ -316,6 +345,24 @@ function make_dexmerge() {
   ${DXMERGER} "$dst_file" "${dex_files_to_merge[@]}"
 }
 
+function make_hiddenapi() {
+  local args=()
+  while [[ $# -gt 0 ]]; do
+    args+=("--dex=$1")
+    shift
+  done
+  if [ -f api-light-greylist.txt ]; then
+    args+=("--light-greylist=api-light-greylist.txt")
+  fi
+  if [ -f api-dark-greylist.txt ]; then
+    args+=("--dark-greylist=api-dark-greylist.txt")
+  fi
+  if [ -f api-blacklist.txt ]; then
+    args+=("--blacklist=api-blacklist.txt")
+  fi
+  ${HIDDENAPI} "${args[@]}"
+}
+
 # Print the directory name only if it exists.
 function maybe_dir() {
   local dirname="$1"
@@ -329,11 +376,18 @@ if [ -e classes.dex ]; then
   exit 0
 fi
 
+# Helper function for a common test. Evaluate with $(has_mutlidex).
+function has_multidex() {
+  echo [ ${HAS_SRC_MULTIDEX} = "true" \
+         -o ${HAS_JASMIN_MULTIDEX} = "true" \
+         -o ${HAS_SMALI_MULTIDEX} = "true" ]
+}
+
 if [ ${HAS_SRC_DEX2OAT_UNRESOLVED} = "true" ]; then
-  mkdir classes
+  mkdir -p classes
   mkdir classes-ex
-  ${JAVAC} ${JAVAC_ARGS} -implicit:none -sourcepath src-dex2oat-unresolved -d classes `find src -name '*.java'`
-  ${JAVAC} ${JAVAC_ARGS} -implicit:none -sourcepath src -d classes-ex `find src-dex2oat-unresolved -name '*.java'`
+  javac_with_bootclasspath -implicit:none -sourcepath src-dex2oat-unresolved -d classes `find src -name '*.java'`
+  javac_with_bootclasspath -implicit:none -sourcepath src -d classes-ex `find src-dex2oat-unresolved -name '*.java'`
   if [ ${USE_JACK} = "true" ]; then
     jar cf classes.jill.jar -C classes .
     jar cf classes-ex.jill.jar -C classes-ex .
@@ -381,18 +435,18 @@ else
   else
     # Legacy toolchain with javac+dx
     if [ "${HAS_SRC}" = "true" ]; then
-      mkdir classes
-      ${JAVAC} ${JAVAC_ARGS} -implicit:none -classpath src-multidex -d classes `find src -name '*.java'`
+      mkdir -p classes
+      javac_with_bootclasspath -implicit:none -classpath src-multidex -d classes `find src -name '*.java'`
     fi
 
     if [ "${HAS_SRC_ART}" = "true" ]; then
       mkdir -p classes
-      javac_with_bootclasspath ${JAVAC_ARGS} -implicit:none -classpath src-multidex -d classes `find src-art -name '*.java'`
+      javac_with_bootclasspath -implicit:none -classpath src-multidex -d classes `find src-art -name '*.java'`
     fi
 
     if [ "${HAS_SRC_MULTIDEX}" = "true" ]; then
       mkdir classes2
-      ${JAVAC} ${JAVAC_ARGS} -implicit:none -classpath src -d classes2 `find src-multidex -name '*.java'`
+      javac_with_bootclasspath -implicit:none -classpath src -d classes2 `find src-multidex -name '*.java'`
       if [ ${NEED_DEX} = "true" ]; then
         make_dex classes2
       fi
@@ -400,7 +454,7 @@ else
 
     if [ "${HAS_SRC2}" = "true" ]; then
       mkdir -p classes
-      ${JAVAC} ${JAVAC_ARGS} -d classes `find src2 -name '*.java'`
+      javac_with_bootclasspath -classpath classes -d classes `find src2 -name '*.java'`
     fi
 
     if [[ "${HAS_SRC}" == "true" || "${HAS_SRC2}" == "true" || "${HAS_SRC_ART}" == "true" ]]; then
@@ -473,32 +527,47 @@ if [ ${HAS_SRC_EX} = "true" ]; then
     # Includes 'src', 'src-art' source when compiling classes-ex, but exclude their .class files.
     if [[ "${HAS_SRC}" == "true" ]]; then
       mkdir -p classes-tmp-for-ex
-      ${JAVAC} ${JAVAC_ARGS} -d classes-tmp-for-ex `find src -name '*.java'`
+      javac_with_bootclasspath -d classes-tmp-for-ex `find src -name '*.java'`
       src_tmp_for_ex="-cp classes-tmp-for-ex"
     fi
     if [[ "${HAS_SRC_ART}" == "true" ]]; then
       mkdir -p classes-tmp-for-ex
-      javac_with_bootclasspath ${JAVAC_ARGS} -d classes-tmp-for-ex `find src-art -name '*.java'`
+      javac_with_bootclasspath -d classes-tmp-for-ex `find src-art -name '*.java'`
       src_tmp_for_ex="-cp classes-tmp-for-ex"
     fi
     mkdir classes-ex
-    ${JAVAC} ${JAVAC_ARGS} -d classes-ex $src_tmp_for_ex `find src-ex -name '*.java'`
-    if [ ${NEED_DEX} = "true" ]; then
-      make_dex classes-ex
+    javac_with_bootclasspath -d classes-ex $src_tmp_for_ex `find src-ex -name '*.java'`
+  fi
+fi
 
-      # quick shuffle so that the stored name is "classes.dex"
-      mv classes.dex classes-1.dex
-      mv classes-ex.dex classes.dex
-      zip $TEST_NAME-ex.jar classes.dex
-      mv classes.dex classes-ex.dex
-      mv classes-1.dex classes.dex
-    fi
+if [[ -d classes-ex ]] && [ ${NEED_DEX} = "true" ]; then
+  make_dex classes-ex
+
+  # Apply hiddenapi on the dex files if the test has API list file(s).
+  if [ ${USE_HIDDENAPI} = "true" -a ${HAS_HIDDENAPI_SPEC} = "true" ]; then
+    make_hiddenapi classes-ex.dex
+  fi
+
+  # quick shuffle so that the stored name is "classes.dex"
+  mv classes.dex classes-1.dex
+  mv classes-ex.dex classes.dex
+  zip $TEST_NAME-ex.jar classes.dex
+  mv classes.dex classes-ex.dex
+  mv classes-1.dex classes.dex
+fi
+
+# Apply hiddenapi on the dex files if the test has API list file(s).
+if [ ${NEED_DEX} = "true" -a ${USE_HIDDENAPI} = "true" -a ${HAS_HIDDENAPI_SPEC} = "true" ]; then
+  if $(has_multidex); then
+    make_hiddenapi classes.dex classes2.dex
+  else
+    make_hiddenapi classes.dex
   fi
 fi
 
 # Create a single dex jar with two dex files for multidex.
 if [ ${NEED_DEX} = "true" ]; then
-  if [ ${HAS_SRC_MULTIDEX} = "true" ] || [ ${HAS_JASMIN_MULTIDEX} = "true" ] || [ ${HAS_SMALI_MULTIDEX} = "true" ]; then
+  if $(has_multidex); then
     zip $TEST_NAME.jar classes.dex classes2.dex
   else
     zip $TEST_NAME.jar classes.dex

@@ -27,7 +27,6 @@ int main(int argc, char *argv[])
     char buffer[DM_CRYPT_BUF_SIZE];
     struct dm_ioctl *io;
     struct dm_target_versions *v;
-    int i;
     int fd;
 
     fd = open("/dev/device-mapper", O_RDWR);

@@ -2,33 +2,55 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import time
-
-from autotest_lib.client.bin import test
-from autotest_lib.client.common_lib.cros import chrome
-from autotest_lib.client.cros import power_suspend, sys_power
+from autotest_lib.client.bin import utils
+from autotest_lib.client.common_lib.cros import arc, chrome
 
 
-class power_UiResume(test.test):
+class power_UiResume(arc.ArcTest):
     """
-    Suspend a logged in system by sending a request to power manager via dbus.
+    Suspend the system while simulating user behavior.
 
-    This test waits quite a bit after logging in and before suspending.
-    Therefore it verifies suspend/resume functionality for an idle system. For
-    stress-testing suspend/resume in parallel with other things going on, see
-    power_SuspendStress.
+    If ARC is present, open ARC before suspending. If ARC is not present, log
+    into Chrome before suspending. To suspend, call autotest power_Resume. This
+    reduces duplicate code, while cover all 3 cases: with ARC, with Chrome but
+    without ARC, and without Chrome.
 
     """
-    version = 2
+    version = 3
 
     def initialize(self):
-        self._suspender = power_suspend.Suspender(self.resultsdir,
-                method=sys_power.do_suspend, throw=True)
+        """
+        Entry point. Initialize ARC if it is enabled on the DUT, otherwise log
+        in Chrome browser.
+
+        """
+        self._arc_available = utils.is_arc_available()
+        if self._arc_available:
+            super(power_UiResume, self).initialize()
+        else:
+            self._chrome = chrome.Chrome()
 
 
-    def run_once(self):
-        # Some idle time before initiating suspend-to-ram
-        with chrome.Chrome():
-            time.sleep(10)
-            results = self._suspender.suspend(0)
-            self.write_perf_keyval(results)
+    def run_once(self, max_devs_returned=10, seconds=0,
+                 ignore_kernel_warns=False):
+        """
+        Run client side autotest power_Resume, to reduce duplicate code.
+
+        """
+        self.job.run_test(
+                'power_Resume',
+                max_devs_returned=max_devs_returned,
+                seconds=seconds,
+                ignore_kernel_warns=ignore_kernel_warns,
+                measure_arc=self._arc_available)
+
+
+    def cleanup(self):
+        """
+        Clean up ARC if it is enabled on the DUT, otherwise close the Chrome
+        browser.
+        """
+        if self._arc_available:
+            super(power_UiResume, self).cleanup()
+        else:
+            self._chrome.close()

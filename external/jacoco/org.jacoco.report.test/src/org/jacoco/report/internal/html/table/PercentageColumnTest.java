@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -115,8 +115,11 @@ public class PercentageColumnTest {
 		column.item(td, item, resources, root);
 		doc.close();
 		final Document doc = support.parse(output.getFile("Test.html"));
-		assertEquals("100 %",
-				support.findStr(doc, "/html/body/table/tr/td[1]/text()"));
+		// After integration of JEP 252 into JDK9, CLDR locale data is used by
+		// default, which results in usage of non-breaking space below, while
+		// the legacy locale data uses regular space:
+		assertTrue(support.findStr(doc, "/html/body/table/tr/td[1]/text()")
+				.matches("100[ \u00A0]%"));
 	}
 
 	@Test

@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    SFNT object management (base).                                       */
 /*                                                                         */
-/*  Copyright 1996-2017 by                                                 */
+/*  Copyright 1996-2018 by                                                 */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -787,6 +787,8 @@
          tag != TTAG_OTTO    &&
          tag != TTAG_true    &&
          tag != TTAG_typ1    &&
+         tag != TTAG_0xA5kbd &&
+         tag != TTAG_0xA5lst &&
          tag != 0x00020000UL )
     {
       FT_TRACE2(( "  not a font using the SFNT container format\n" ));
@@ -942,6 +944,8 @@
 
 #ifdef TT_CONFIG_OPTION_GX_VAR_SUPPORT
     {
+      FT_Memory  memory = face->root.memory;
+
       FT_ULong  fvar_len;
 
       FT_ULong  version;
@@ -954,8 +958,9 @@
 
       FT_Int  instance_index;
 
+      FT_Byte*  default_values  = NULL;
+      FT_Byte*  instance_values = NULL;
 
-      face->is_default_instance = 1;
 
       instance_index = FT_ABS( face_instance_index ) >> 16;
 
@@ -964,7 +969,7 @@
            fvar_len < 20                                          ||
            FT_READ_ULONG( version )                               ||
            FT_READ_USHORT( offset )                               ||
-           FT_STREAM_SKIP( 2 ) /* count_size_pairs */             ||
+           FT_STREAM_SKIP( 2 ) /* reserved */                     ||
            FT_READ_USHORT( num_axes )                             ||
            FT_READ_USHORT( axis_size )                            ||
            FT_READ_USHORT( num_instances )                        ||
@@ -980,18 +985,13 @@
 
       /* check that the data is bound by the table length */
       if ( version != 0x00010000UL                    ||
-#if 0
-           /* fonts like `JamRegular.ttf' have an incorrect value for   */
-           /* `count_size_pairs'; since value 2 is hard-coded in `fvar' */
-           /* version 1.0, we simply ignore it                          */
-           count_size_pairs != 2                      ||
-#endif
            axis_size != 20                            ||
            num_axes == 0                              ||
            /* `num_axes' limit implied by 16-bit `instance_size' */
            num_axes > 0x3FFE                          ||
            !( instance_size == 4 + 4 * num_axes ||
               instance_size == 6 + 4 * num_axes )     ||
+           /* `num_instances' limit implied by limited range of name IDs */
            num_instances > 0x7EFF                     ||
            offset                          +
              axis_size * num_axes          +
@@ -1000,21 +1000,72 @@
       else
         face->variation_support |= TT_FACE_FLAG_VAR_FVAR;
 
-      /* we don't support Multiple Master CFFs yet */
+      /*
+       *  As documented in the OpenType specification, an entry for the
+       *  default instance may be omitted in the named instance table.  In
+       *  particular this means that even if there is no named instance
+       *  table in the font we actually do have a named instance, namely the
+       *  default instance.
+       *
+       *  For consistency, we always want the default instance in our list
+       *  of named instances.  If it is missing, we try to synthesize it
+       *  later on.  Here, we have to adjust `num_instances' accordingly.
+       */
+
+      if ( ( face->variation_support & TT_FACE_FLAG_VAR_FVAR ) &&
+           !( FT_ALLOC( default_values, num_axes * 4 )  ||
+              FT_ALLOC( instance_values, num_axes * 4 ) )      )
+      {
+        /* the current stream position is 16 bytes after the table start */
+        FT_ULong  array_start = FT_STREAM_POS() - 16 + offset;
+        FT_ULong  default_value_offset, instance_offset;
+
+        FT_Byte*  p;
+        FT_UInt   i;
+
+
+        default_value_offset = array_start + 8;
+        p                    = default_values;
+
+        for ( i = 0; i < num_axes; i++ )
+        {
+          (void)FT_STREAM_READ_AT( default_value_offset, p, 4 );
+
+          default_value_offset += axis_size;
+          p                    += 4;
+        }
+
+        instance_offset = array_start + axis_size * num_axes + 4;
+
+        for ( i = 0; i < num_instances; i++ )
+        {
+          (void)FT_STREAM_READ_AT( instance_offset,
+                                   instance_values,
+                                   num_axes * 4 );
+
+          if ( !ft_memcmp( default_values, instance_values, num_axes * 4 ) )
+            break;
+
+          instance_offset += instance_size;
+        }
+
+        if ( i == num_instances )
+        {
+          /* no default instance in named instance table; */
+          /* we thus have to synthesize it                */
+          num_instances++;
+        }
+      }
+
+      FT_FREE( default_values );
+      FT_FREE( instance_values );
+
+      /* we don't support Multiple Master CFFs yet; */
       /* note that `glyf' or `CFF2' have precedence */
       if ( face->goto_table( face, TTAG_glyf, stream, 0 ) &&
            face->goto_table( face, TTAG_CFF2, stream, 0 ) &&
            !face->goto_table( face, TTAG_CFF, stream, 0 ) )
         num_instances = 0;
-
-      /* we support at most 2^15 - 1 instances */
-      if ( num_instances >= ( 1U << 15 ) - 1 )
-      {
-        if ( face_instance_index >= 0 )
-          return FT_THROW( Invalid_Argument );
-        else
-          num_instances = 0;
-      }
 
       /* instance indices in `face_instance_index' start with index 1, */
       /* thus `>' and not `>='                                         */
@@ -1173,7 +1224,10 @@
         goto Exit;
     }
 
-    if ( face->header.Units_Per_EM == 0 )
+    /* OpenType 1.8.2 introduced limits to this value;    */
+    /* however, they make sense for older SFNT fonts also */
+    if ( face->header.Units_Per_EM <    16 ||
+         face->header.Units_Per_EM > 16384 )
     {
       error = FT_THROW( Invalid_Table );
 
@@ -1413,7 +1467,8 @@
       /* Polish the charmaps.                                              */
       /*                                                                   */
       /*   Try to set the charmap encoding according to the platform &     */
-      /*   encoding ID of each charmap.                                    */
+      /*   encoding ID of each charmap.  Emulate Unicode charmap if one    */
+      /*   is missing.                                                     */
       /*                                                                   */
 
       tt_face_build_cmaps( face );  /* ignore errors */
@@ -1421,7 +1476,10 @@
 
       /* set the encoding fields */
       {
-        FT_Int  m;
+        FT_Int   m;
+#ifdef FT_CONFIG_OPTION_POSTSCRIPT_NAMES
+        FT_Bool  has_unicode = FALSE;
+#endif
 
 
         for ( m = 0; m < root->num_charmaps; m++ )
@@ -1432,14 +1490,34 @@
           charmap->encoding = sfnt_find_encoding( charmap->platform_id,
                                                   charmap->encoding_id );
 
-#if 0
-          if ( !root->charmap                           &&
-               charmap->encoding == FT_ENCODING_UNICODE )
-          {
-            /* set 'root->charmap' to the first Unicode encoding we find */
-            root->charmap = charmap;
-          }
-#endif
+#ifdef FT_CONFIG_OPTION_POSTSCRIPT_NAMES
+
+          if ( charmap->encoding == FT_ENCODING_UNICODE   ||
+               charmap->encoding == FT_ENCODING_MS_SYMBOL )  /* PUA */
+            has_unicode = TRUE;
+        }
+
+        /* synthesize Unicode charmap if one is missing */
+        if ( !has_unicode )
+        {
+          FT_CharMapRec cmaprec;
+
+
+          cmaprec.face        = root;
+          cmaprec.platform_id = TT_PLATFORM_MICROSOFT;
+          cmaprec.encoding_id = TT_MS_ID_UNICODE_CS;
+          cmaprec.encoding    = FT_ENCODING_UNICODE;
+
+
+          error = FT_CMap_New( (FT_CMap_Class)&tt_cmap_unicode_class_rec,
+                               NULL, &cmaprec, NULL );
+          if ( error                                      &&
+               FT_ERR_NEQ( error, No_Unicode_Glyph_Name ) )
+            goto Exit;
+          error = FT_Err_Ok;
+
+#endif /* FT_CONFIG_OPTION_POSTSCRIPT_NAMES */
+
         }
       }
 
@@ -1606,9 +1684,9 @@
           (FT_Short)( face->vertical_info ? face->vertical.advance_Height_Max
                                           : root->height );
 
-        /* See http://www.microsoft.com/OpenType/OTSpec/post.htm -- */
-        /* Adjust underline position from top edge to centre of     */
-        /* stroke to convert TrueType meaning to FreeType meaning.  */
+        /* See https://www.microsoft.com/typography/otspec/post.htm -- */
+        /* Adjust underline position from top edge to centre of        */
+        /* stroke to convert TrueType meaning to FreeType meaning.     */
         root->underline_position  = face->postscript.underlinePosition -
                                     face->postscript.underlineThickness / 2;
         root->underline_thickness = face->postscript.underlineThickness;
@@ -1705,7 +1783,10 @@
     FT_FREE( face->sbit_strike_map );
     face->root.num_fixed_sizes = 0;
 
+#ifdef TT_CONFIG_OPTION_GX_VAR_SUPPORT
     FT_FREE( face->postscript_name );
+    FT_FREE( face->var_postscript_prefix );
+#endif
 
     face->sfnt = NULL;
   }

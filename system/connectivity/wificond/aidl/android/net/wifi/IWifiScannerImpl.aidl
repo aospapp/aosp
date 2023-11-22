@@ -23,17 +23,14 @@ import com.android.server.wifi.wificond.PnoSettings;
 import com.android.server.wifi.wificond.SingleScanSettings;
 
 interface IWifiScannerImpl {
-  // Returns an array of available frequencies for 2.4GHz channels.
-  // Returrns null on failure.
-  @nullable int[] getAvailable2gChannels();
-
-  // Returns an array of available frequencies for 5GHz non-DFS channels.
-  // Returrns null on failure.
-  @nullable int[] getAvailable5gNonDFSChannels();
-
-  // Returns an array of available frequencies for DFS channels.
-  // Returrns null on failure.
-  @nullable int[] getAvailableDFSChannels();
+  // Type of scan request. This is used in |SingleScanSettings.scan_type|.
+  const int SCAN_TYPE_LOW_SPAN = 0;
+  const int SCAN_TYPE_LOW_POWER = 1;
+  const int SCAN_TYPE_HIGH_ACCURACY = 2;
+  // Scan type used internally if the device does not support
+  // the type specified in |SingleScanSettings.scan_type|.
+  // Scan requests from framework with this type will be rejected.
+  const int SCAN_TYPE_DEFAULT = -1;
 
   // Get the latest single scan results from kernel.
   NativeScanResult[] getScanResults();

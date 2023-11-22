@@ -28,9 +28,18 @@
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
 
+#include <sys/epoll.h>
+
 #define ARRAY_SIZE(array) (sizeof array / sizeof array[0])
 
 using namespace android;
+
+static ::testing::AssertionResult IsPageAligned(void *buf) {
+    if (((unsigned long)buf & ((unsigned long)PAGE_SIZE - 1)) == 0)
+        return ::testing::AssertionSuccess();
+    else
+        return ::testing::AssertionFailure() << buf << " is not page aligned";
+}
 
 static testing::Environment* binder_env;
 static char *binderservername;
@@ -43,7 +52,10 @@ enum BinderLibTestTranscationCode {
     BINDER_LIB_TEST_NOP_TRANSACTION = IBinder::FIRST_CALL_TRANSACTION,
     BINDER_LIB_TEST_REGISTER_SERVER,
     BINDER_LIB_TEST_ADD_SERVER,
+    BINDER_LIB_TEST_ADD_POLL_SERVER,
     BINDER_LIB_TEST_CALL_BACK,
+    BINDER_LIB_TEST_CALL_BACK_VERIFY_BUF,
+    BINDER_LIB_TEST_DELAYED_CALL_BACK,
     BINDER_LIB_TEST_NOP_CALL_BACK,
     BINDER_LIB_TEST_GET_SELF_TRANSACTION,
     BINDER_LIB_TEST_GET_ID_TRANSACTION,
@@ -60,7 +72,7 @@ enum BinderLibTestTranscationCode {
     BINDER_LIB_TEST_CREATE_BINDER_TRANSACTION,
 };
 
-pid_t start_server_process(int arg2)
+pid_t start_server_process(int arg2, bool usePoll = false)
 {
     int ret;
     pid_t pid;
@@ -68,11 +80,13 @@ pid_t start_server_process(int arg2)
     int pipefd[2];
     char stri[16];
     char strpipefd1[16];
+    char usepoll[2];
     char *childargv[] = {
         binderservername,
         binderserverarg,
         stri,
         strpipefd1,
+        usepoll,
         binderserversuffix,
         NULL
     };
@@ -83,6 +97,7 @@ pid_t start_server_process(int arg2)
 
     snprintf(stri, sizeof(stri), "%d", arg2);
     snprintf(strpipefd1, sizeof(strpipefd1), "%d", pipefd[1]);
+    snprintf(usepoll, sizeof(usepoll), "%d", usePoll ? 1 : 0);
 
     pid = fork();
     if (pid == -1)
@@ -167,14 +182,14 @@ class BinderLibTest : public ::testing::Test {
         virtual void TearDown() {
         }
     protected:
-        sp<IBinder> addServer(int32_t *idPtr = NULL)
+        sp<IBinder> addServerEtc(int32_t *idPtr, int code)
         {
             int ret;
             int32_t id;
             Parcel data, reply;
             sp<IBinder> binder;
 
-            ret = m_server->transact(BINDER_LIB_TEST_ADD_SERVER, data, &reply);
+            ret = m_server->transact(code, data, &reply);
             EXPECT_EQ(NO_ERROR, ret);
 
             EXPECT_FALSE(binder != NULL);
@@ -186,6 +201,17 @@ class BinderLibTest : public ::testing::Test {
                 *idPtr = id;
             return binder;
         }
+
+        sp<IBinder> addServer(int32_t *idPtr = NULL)
+        {
+            return addServerEtc(idPtr, BINDER_LIB_TEST_ADD_SERVER);
+        }
+
+        sp<IBinder> addPollServer(int32_t *idPtr = NULL)
+        {
+            return addServerEtc(idPtr, BINDER_LIB_TEST_ADD_POLL_SERVER);
+        }
+
         void waitForReadData(int fd, int timeout_ms) {
             int ret;
             pollfd pfd = pollfd();
@@ -265,17 +291,23 @@ class BinderLibTestEvent
             pthread_mutex_unlock(&m_waitMutex);
             return ret;
         }
+        pthread_t getTriggeringThread()
+        {
+            return m_triggeringThread;
+        }
     protected:
         void triggerEvent(void) {
             pthread_mutex_lock(&m_waitMutex);
             pthread_cond_signal(&m_waitCond);
             m_eventTriggered = true;
+            m_triggeringThread = pthread_self();
             pthread_mutex_unlock(&m_waitMutex);
         };
     private:
         pthread_mutex_t m_waitMutex;
         pthread_cond_t m_waitCond;
         bool m_eventTriggered;
+        pthread_t m_triggeringThread;
 };
 
 class BinderLibTestCallBack : public BBinder, public BinderLibTestEvent
@@ -283,6 +315,7 @@ class BinderLibTestCallBack : public BBinder, public BinderLibTestEvent
     public:
         BinderLibTestCallBack()
             : m_result(NOT_ENOUGH_DATA)
+            , m_prev_end(NULL)
         {
         }
         status_t getResult(void)
@@ -298,16 +331,43 @@ class BinderLibTestCallBack : public BBinder, public BinderLibTestEvent
             (void)reply;
             (void)flags;
             switch(code) {
-            case BINDER_LIB_TEST_CALL_BACK:
-                m_result = data.readInt32();
+            case BINDER_LIB_TEST_CALL_BACK: {
+                status_t status = data.readInt32(&m_result);
+                if (status != NO_ERROR) {
+                    m_result = status;
+                }
                 triggerEvent();
                 return NO_ERROR;
+            }
+            case BINDER_LIB_TEST_CALL_BACK_VERIFY_BUF: {
+                sp<IBinder> server;
+                int ret;
+                const uint8_t *buf = data.data();
+                size_t size = data.dataSize();
+                if (m_prev_end) {
+                    /* 64-bit kernel needs at most 8 bytes to align buffer end */
+                    EXPECT_LE((size_t)(buf - m_prev_end), (size_t)8);
+                } else {
+                    EXPECT_TRUE(IsPageAligned((void *)buf));
+                }
+
+                m_prev_end = buf + size + data.objectsCount() * sizeof(binder_size_t);
+
+                if (size > 0) {
+                    server = static_cast<BinderLibTestEnv *>(binder_env)->getServer();
+                    ret = server->transact(BINDER_LIB_TEST_INDIRECT_TRANSACTION,
+                                           data, reply);
+                    EXPECT_EQ(NO_ERROR, ret);
+                }
+                return NO_ERROR;
+            }
             default:
                 return UNKNOWN_TRANSACTION;
             }
         }
 
         status_t m_result;
+        const uint8_t *m_prev_end;
 };
 
 class TestDeathRecipient : public IBinder::DeathRecipient, public BinderLibTestEvent
@@ -606,6 +666,65 @@ TEST_F(BinderLibTest, DeathNotificationMultiple)
     }
 }
 
+TEST_F(BinderLibTest, DeathNotificationThread)
+{
+    status_t ret;
+    sp<BinderLibTestCallBack> callback;
+    sp<IBinder> target = addServer();
+    ASSERT_TRUE(target != NULL);
+    sp<IBinder> client = addServer();
+    ASSERT_TRUE(client != NULL);
+
+    sp<TestDeathRecipient> testDeathRecipient = new TestDeathRecipient();
+
+    ret = target->linkToDeath(testDeathRecipient);
+    EXPECT_EQ(NO_ERROR, ret);
+
+    {
+        Parcel data, reply;
+        ret = target->transact(BINDER_LIB_TEST_EXIT_TRANSACTION, data, &reply, TF_ONE_WAY);
+        EXPECT_EQ(0, ret);
+    }
+
+    /* Make sure it's dead */
+    testDeathRecipient->waitEvent(5);
+
+    /* Now, pass the ref to another process and ask that process to
+     * call linkToDeath() on it, and wait for a response. This tests
+     * two things:
+     * 1) You still get death notifications when calling linkToDeath()
+     *    on a ref that is already dead when it was passed to you.
+     * 2) That death notifications are not directly pushed to the thread
+     *    registering them, but to the threadpool (proc workqueue) instead.
+     *
+     * 2) is tested because the thread handling BINDER_LIB_TEST_DEATH_TRANSACTION
+     * is blocked on a condition variable waiting for the death notification to be
+     * called; therefore, that thread is not available for handling proc work.
+     * So, if the death notification was pushed to the thread workqueue, the callback
+     * would never be called, and the test would timeout and fail.
+     *
+     * Note that we can't do this part of the test from this thread itself, because
+     * the binder driver would only push death notifications to the thread if
+     * it is a looper thread, which this thread is not.
+     *
+     * See b/23525545 for details.
+     */
+    {
+        Parcel data, reply;
+
+        callback = new BinderLibTestCallBack();
+        data.writeStrongBinder(target);
+        data.writeStrongBinder(callback);
+        ret = client->transact(BINDER_LIB_TEST_LINK_DEATH_TRANSACTION, data, &reply, TF_ONE_WAY);
+        EXPECT_EQ(NO_ERROR, ret);
+    }
+
+    ret = callback->waitEvent(5);
+    EXPECT_EQ(NO_ERROR, ret);
+    ret = callback->getResult();
+    EXPECT_EQ(NO_ERROR, ret);
+}
+
 TEST_F(BinderLibTest, PassFile) {
     int ret;
     int pipefd[2];
@@ -681,7 +800,7 @@ TEST_F(BinderLibTest, CheckHandleZeroBinderHighBitsZeroCookie) {
 
     const flat_binder_object *fb = reply.readObject(false);
     ASSERT_TRUE(fb != NULL);
-    EXPECT_EQ(BINDER_TYPE_HANDLE, fb->type);
+    EXPECT_EQ(BINDER_TYPE_HANDLE, fb->hdr.type);
     EXPECT_EQ(m_server, ProcessState::self()->getStrongProxyForHandle(fb->handle));
     EXPECT_EQ((binder_uintptr_t)0, fb->cookie);
     EXPECT_EQ((uint64_t)0, (uint64_t)fb->binder >> 32);
@@ -728,6 +847,61 @@ TEST_F(BinderLibTest, FreedBinder) {
     }
 }
 
+TEST_F(BinderLibTest, CheckNoHeaderMappedInUser) {
+    status_t ret;
+    Parcel data, reply;
+    sp<BinderLibTestCallBack> callBack = new BinderLibTestCallBack();
+    for (int i = 0; i < 2; i++) {
+        BinderLibTestBundle datai;
+        datai.appendFrom(&data, 0, data.dataSize());
+
+        data.freeData();
+        data.writeInt32(1);
+        data.writeStrongBinder(callBack);
+        data.writeInt32(BINDER_LIB_TEST_CALL_BACK_VERIFY_BUF);
+
+        datai.appendTo(&data);
+    }
+    ret = m_server->transact(BINDER_LIB_TEST_INDIRECT_TRANSACTION, data, &reply);
+    EXPECT_EQ(NO_ERROR, ret);
+}
+
+TEST_F(BinderLibTest, OnewayQueueing)
+{
+    status_t ret;
+    Parcel data, data2;
+
+    sp<IBinder> pollServer = addPollServer();
+
+    sp<BinderLibTestCallBack> callBack = new BinderLibTestCallBack();
+    data.writeStrongBinder(callBack);
+    data.writeInt32(500000); // delay in us before calling back
+
+    sp<BinderLibTestCallBack> callBack2 = new BinderLibTestCallBack();
+    data2.writeStrongBinder(callBack2);
+    data2.writeInt32(0); // delay in us
+
+    ret = pollServer->transact(BINDER_LIB_TEST_DELAYED_CALL_BACK, data, NULL, TF_ONE_WAY);
+    EXPECT_EQ(NO_ERROR, ret);
+
+    // The delay ensures that this second transaction will end up on the async_todo list
+    // (for a single-threaded server)
+    ret = pollServer->transact(BINDER_LIB_TEST_DELAYED_CALL_BACK, data2, NULL, TF_ONE_WAY);
+    EXPECT_EQ(NO_ERROR, ret);
+
+    // The server will ensure that the two transactions are handled in the expected order;
+    // If the ordering is not as expected, an error will be returned through the callbacks.
+    ret = callBack->waitEvent(2);
+    EXPECT_EQ(NO_ERROR, ret);
+    ret = callBack->getResult();
+    EXPECT_EQ(NO_ERROR, ret);
+
+    ret = callBack2->waitEvent(2);
+    EXPECT_EQ(NO_ERROR, ret);
+    ret = callBack2->getResult();
+    EXPECT_EQ(NO_ERROR, ret);
+}
+
 class BinderLibTestService : public BBinder
 {
     public:
@@ -735,6 +909,7 @@ class BinderLibTestService : public BBinder
             : m_id(id)
             , m_nextServerId(id + 1)
             , m_serverStartRequested(false)
+            , m_callback(NULL)
         {
             pthread_mutex_init(&m_serverWaitMutex, NULL);
             pthread_cond_init(&m_serverWaitCond, NULL);
@@ -743,6 +918,16 @@ class BinderLibTestService : public BBinder
         {
             exit(EXIT_SUCCESS);
         }
+
+        void processPendingCall() {
+            if (m_callback != NULL) {
+                Parcel data;
+                data.writeInt32(NO_ERROR);
+                m_callback->transact(BINDER_LIB_TEST_CALL_BACK, data, nullptr, TF_ONE_WAY);
+                m_callback = NULL;
+            }
+        }
+
         virtual status_t onTransact(uint32_t code,
                                     const Parcel& data, Parcel* reply,
                                     uint32_t flags = 0) {
@@ -774,6 +959,7 @@ class BinderLibTestService : public BBinder
                 pthread_mutex_unlock(&m_serverWaitMutex);
                 return NO_ERROR;
             }
+            case BINDER_LIB_TEST_ADD_POLL_SERVER:
             case BINDER_LIB_TEST_ADD_SERVER: {
                 int ret;
                 uint8_t buf[1] = { 0 };
@@ -788,9 +974,10 @@ class BinderLibTestService : public BBinder
                 } else {
                     serverid = m_nextServerId++;
                     m_serverStartRequested = true;
+                    bool usePoll = code == BINDER_LIB_TEST_ADD_POLL_SERVER;
 
                     pthread_mutex_unlock(&m_serverWaitMutex);
-                    ret = start_server_process(serverid);
+                    ret = start_server_process(serverid, usePoll);
                     pthread_mutex_lock(&m_serverWaitMutex);
                 }
                 if (ret > 0) {
@@ -818,6 +1005,42 @@ class BinderLibTestService : public BBinder
             }
             case BINDER_LIB_TEST_NOP_TRANSACTION:
                 return NO_ERROR;
+            case BINDER_LIB_TEST_DELAYED_CALL_BACK: {
+                // Note: this transaction is only designed for use with a
+                // poll() server. See comments around epoll_wait().
+                if (m_callback != NULL) {
+                    // A callback was already pending; this means that
+                    // we received a second call while still processing
+                    // the first one. Fail the test.
+                    sp<IBinder> callback = data.readStrongBinder();
+                    Parcel data2;
+                    data2.writeInt32(UNKNOWN_ERROR);
+
+                    callback->transact(BINDER_LIB_TEST_CALL_BACK, data2, NULL, TF_ONE_WAY);
+                } else {
+                    m_callback = data.readStrongBinder();
+                    int32_t delayUs = data.readInt32();
+                    /*
+                     * It's necessary that we sleep here, so the next
+                     * transaction the caller makes will be queued to
+                     * the async queue.
+                     */
+                    usleep(delayUs);
+
+                    /*
+                     * Now when we return, libbinder will tell the kernel
+                     * we are done with this transaction, and the kernel
+                     * can move the queued transaction to either the
+                     * thread todo worklist (for kernels without the fix),
+                     * or the proc todo worklist. In case of the former,
+                     * the next outbound call will pick up the pending
+                     * transaction, which leads to undesired reentrant
+                     * behavior. This is caught in the if() branch above.
+                     */
+                }
+
+                return NO_ERROR;
+            }
             case BINDER_LIB_TEST_NOP_CALL_BACK: {
                 Parcel data2, reply2;
                 sp<IBinder> binder;
@@ -825,7 +1048,7 @@ class BinderLibTestService : public BBinder
                 if (binder == NULL) {
                     return BAD_VALUE;
                 }
-                reply2.writeInt32(NO_ERROR);
+                data2.writeInt32(NO_ERROR);
                 binder->transact(BINDER_LIB_TEST_CALL_BACK, data2, &reply2);
                 return NO_ERROR;
             }
@@ -967,16 +1190,26 @@ class BinderLibTestService : public BBinder
         bool m_serverStartRequested;
         sp<IBinder> m_serverStarted;
         sp<IBinder> m_strongRef;
+        bool m_callbackPending;
+        sp<IBinder> m_callback;
 };
 
-int run_server(int index, int readypipefd)
+int run_server(int index, int readypipefd, bool usePoll)
 {
     binderLibTestServiceName += String16(binderserversuffix);
 
     status_t ret;
     sp<IServiceManager> sm = defaultServiceManager();
+    BinderLibTestService* testServicePtr;
     {
         sp<BinderLibTestService> testService = new BinderLibTestService(index);
+        /*
+         * We need this below, but can't hold a sp<> because it prevents the
+         * node from being cleaned up automatically. It's safe in this case
+         * because of how the tests are written.
+         */
+        testServicePtr = testService.get();
+
         if (index == 0) {
             ret = sm->addService(binderLibTestServiceName, testService);
         } else {
@@ -994,8 +1227,53 @@ int run_server(int index, int readypipefd)
     if (ret)
         return 1;
     //printf("%s: joinThreadPool\n", __func__);
-    ProcessState::self()->startThreadPool();
-    IPCThreadState::self()->joinThreadPool();
+    if (usePoll) {
+        int fd;
+        struct epoll_event ev;
+        int epoll_fd;
+        IPCThreadState::self()->setupPolling(&fd);
+        if (fd < 0) {
+            return 1;
+        }
+        IPCThreadState::self()->flushCommands(); // flush BC_ENTER_LOOPER
+
+        epoll_fd = epoll_create1(0);
+        if (epoll_fd == -1) {
+            return 1;
+        }
+
+        ev.events = EPOLLIN;
+        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
+            return 1;
+        }
+
+        while (1) {
+             /*
+              * We simulate a single-threaded process using the binder poll
+              * interface; besides handling binder commands, it can also
+              * issue outgoing transactions, by storing a callback in
+              * m_callback and setting m_callbackPending.
+              *
+              * processPendingCall() will then issue that transaction.
+              */
+             struct epoll_event events[1];
+             int numEvents = epoll_wait(epoll_fd, events, 1, 1000);
+             if (numEvents < 0) {
+                 if (errno == EINTR) {
+                     continue;
+                 }
+                 return 1;
+             }
+             if (numEvents > 0) {
+                 IPCThreadState::self()->handlePolledCommands();
+                 IPCThreadState::self()->flushCommands(); // flush BC_FREE_BUFFER
+                 testServicePtr->processPendingCall();
+             }
+        }
+    } else {
+        ProcessState::self()->startThreadPool();
+        IPCThreadState::self()->joinThreadPool();
+    }
     //printf("%s: joinThreadPool returned\n", __func__);
     return 1; /* joinThreadPool should not return */
 }
@@ -1009,9 +1287,9 @@ int main(int argc, char **argv) {
         binderservername = argv[0];
     }
 
-    if (argc == 5 && !strcmp(argv[1], binderserverarg)) {
-        binderserversuffix = argv[4];
-        return run_server(atoi(argv[2]), atoi(argv[3]));
+    if (argc == 6 && !strcmp(argv[1], binderserverarg)) {
+        binderserversuffix = argv[5];
+        return run_server(atoi(argv[2]), atoi(argv[3]), atoi(argv[4]) == 1);
     }
     binderserversuffix = new char[16];
     snprintf(binderserversuffix, 16, "%d", getpid());

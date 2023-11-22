@@ -16,7 +16,6 @@
 
 package com.android.monkey;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.loganalysis.item.AnrItem;
 import com.android.loganalysis.item.BugreportItem;
 import com.android.loganalysis.item.IItem;
@@ -31,6 +30,7 @@ import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.ResultForwarder;
+import com.android.tradefed.result.TestDescription;
 
 import com.google.common.base.Throwables;
 
@@ -104,11 +104,9 @@ public class MonkeyBrillopadForwarder extends ResultForwarder {
         super.testLog(dataName, dataType, dataStream);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-   public void testEnded(TestIdentifier monkeyTest, Map<String, String> metrics) {
+    public void testEnded(TestDescription monkeyTest, Map<String, String> metrics) {
         Map<String, String> monkeyMetrics = new HashMap<String, String>();
         try {
             Assert.assertNotNull("Failed to parse or retrieve bug report", mBugreport);

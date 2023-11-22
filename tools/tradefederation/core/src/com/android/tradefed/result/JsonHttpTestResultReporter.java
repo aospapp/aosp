@@ -15,12 +15,6 @@
  */
 package com.android.tradefed.result;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.ddmlib.testrunner.TestResult;
-import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
@@ -30,7 +24,11 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.StreamUtil;
 import com.android.tradefed.util.net.HttpHelper;
 import com.android.tradefed.util.net.IHttpHelper;
+
 import com.google.common.base.Joiner;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -170,14 +168,14 @@ public class JsonHttpTestResultReporter extends CollectingTestListener {
             }
 
             // Parse test metrics
-            Map<TestIdentifier, TestResult> testResultMap = runResult.getTestResults();
-            for (Entry<TestIdentifier, TestResult> entry : testResultMap.entrySet()) {
-                TestIdentifier testIdentifier = entry.getKey();
+            Map<TestDescription, TestResult> testResultMap = runResult.getTestResults();
+            for (Entry<TestDescription, TestResult> entry : testResultMap.entrySet()) {
+                TestDescription testDescription = entry.getKey();
                 TestResult testResult = entry.getValue();
                 Joiner joiner = Joiner.on(SEPARATOR).skipNulls();
                 String reportingUnit = joiner.join(
                         mIncludeRunName ? runResult.getName() : null,
-                        testIdentifier.getClassName(), testIdentifier.getTestName());
+                                testDescription.getClassName(), testDescription.getTestName());
                 if (mReportingUnitKeySuffix != null && !mReportingUnitKeySuffix.isEmpty()) {
                     reportingUnit += mReportingUnitKeySuffix;
                 }
@@ -186,7 +184,7 @@ public class JsonHttpTestResultReporter extends CollectingTestListener {
                     JSONObject testResultMetrics = new JSONObject(testResult.getMetrics());
                     allTestMetrics.put(reportingUnit, testResultMetrics);
                 } else {
-                    CLog.d("Skipping metrics for %s because results are empty.", testIdentifier);
+                    CLog.d("Skipping metrics for %s because results are empty.", testDescription);
                 }
             }
         }

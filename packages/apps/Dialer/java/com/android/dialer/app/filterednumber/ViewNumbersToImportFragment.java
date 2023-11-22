@@ -32,10 +32,11 @@ import com.android.dialer.app.R;
 import com.android.dialer.blocking.FilteredNumbersUtil;
 import com.android.dialer.blocking.FilteredNumbersUtil.ImportSendToVoicemailContactsListener;
 
+/** TODO(calderwoodra): documentation */
 public class ViewNumbersToImportFragment extends ListFragment
     implements LoaderManager.LoaderCallbacks<Cursor>, View.OnClickListener {
 
-  private ViewNumbersToImportAdapter mAdapter;
+  private ViewNumbersToImportAdapter adapter;
 
   @Override
   public Context getContext() {
@@ -46,12 +47,12 @@ public class ViewNumbersToImportFragment extends ListFragment
   public void onActivityCreated(Bundle savedInstanceState) {
     super.onActivityCreated(savedInstanceState);
 
-    if (mAdapter == null) {
-      mAdapter =
+    if (adapter == null) {
+      adapter =
           ViewNumbersToImportAdapter.newViewNumbersToImportAdapter(
               getContext(), getActivity().getFragmentManager());
     }
-    setListAdapter(mAdapter);
+    setListAdapter(adapter);
   }
 
   @Override
@@ -102,12 +103,12 @@ public class ViewNumbersToImportFragment extends ListFragment
 
   @Override
   public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
-    mAdapter.swapCursor(data);
+    adapter.swapCursor(data);
   }
 
   @Override
   public void onLoaderReset(Loader<Cursor> loader) {
-    mAdapter.swapCursor(null);
+    adapter.swapCursor(null);
   }
 
   @Override

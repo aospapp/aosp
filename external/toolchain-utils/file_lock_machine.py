@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 # Copyright 2010 Google Inc. All Rights Reserved.
 """Script to lock/unlock machines."""
@@ -79,9 +79,11 @@ class LockDescription(object):
     return self.counter or self.exclusive
 
   def __str__(self):
-    return ' '.join(['Owner: %s' % self.owner, 'Exclusive: %s' % self.exclusive,
-                     'Counter: %s' % self.counter, 'Time: %s' % self.time,
-                     'Reason: %s' % self.reason, 'Auto: %s' % self.auto])
+    return ' '.join([
+        'Owner: %s' % self.owner, 'Exclusive: %s' % self.exclusive,
+        'Counter: %s' % self.counter, 'Time: %s' % self.time,
+        'Reason: %s' % self.reason, 'Auto: %s' % self.auto
+    ])
 
 
 class FileLock(object):
@@ -120,9 +122,8 @@ class FileLock(object):
           (os.path.basename(file_lock.getFilePath),
            file_lock.getDescription().owner,
            file_lock.getDescription().exclusive,
-           file_lock.getDescription().counter,
-           elapsed_time, file_lock.getDescription().reason,
-           file_lock.getDescription().auto))
+           file_lock.getDescription().counter, elapsed_time,
+           file_lock.getDescription().reason, file_lock.getDescription().auto))
     table = '\n'.join(lock_strings)
     return '\n'.join([header, table])
 
@@ -199,8 +200,8 @@ class Lock(object):
     with FileLock(self._lock_file) as lock:
       if lock.exclusive:
         self._logger.LogError(
-            'Exclusive lock already acquired by %s. Reason: %s' %
-            (lock.owner, lock.reason))
+            'Exclusive lock already acquired by %s. Reason: %s' % (lock.owner,
+                                                                   lock.reason))
         return False
 
       if exclusive:
@@ -245,9 +246,10 @@ class Lock(object):
         lock.owner = ''
 
         if self._auto:
-          del_list = [i
-                      for i in FileLock.FILE_OPS
-                      if i.name == FileCheckName(self._lock_file)]
+          del_list = [
+              i for i in FileLock.FILE_OPS
+              if i.name == FileCheckName(self._lock_file)
+          ]
           for i in del_list:
             FileLock.FILE_OPS.remove(i)
           for f in del_list:
@@ -287,8 +289,7 @@ class Machine(object):
       if locked or not timeout >= 0:
         break
       print('Lock not acquired for {0}, wait {1} seconds ...'.format(
-          self._name,
-          sleep))
+          self._name, sleep))
       time.sleep(sleep)
       timeout -= sleep
     return locked
@@ -302,41 +303,43 @@ def Main(argv):
   """The main function."""
 
   parser = argparse.ArgumentParser()
-  parser.add_argument('-r',
-                      '--reason',
-                      dest='reason',
-                      default='',
-                      help='The lock reason.')
-  parser.add_argument('-u',
-                      '--unlock',
-                      dest='unlock',
-                      action='store_true',
-                      default=False,
-                      help='Use this to unlock.')
-  parser.add_argument('-l',
-                      '--list_locks',
-                      dest='list_locks',
-                      action='store_true',
-                      default=False,
-                      help='Use this to list locks.')
-  parser.add_argument('-f',
-                      '--ignore_ownership',
-                      dest='ignore_ownership',
-                      action='store_true',
-                      default=False,
-                      help="Use this to force unlock on a lock you don't own.")
-  parser.add_argument('-s',
-                      '--shared',
-                      dest='shared',
-                      action='store_true',
-                      default=False,
-                      help='Use this for a shared (non-exclusive) lock.')
-  parser.add_argument('-d',
-                      '--dir',
-                      dest='locks_dir',
-                      action='store',
-                      default=Machine.LOCKS_DIR,
-                      help='Use this to set different locks_dir')
+  parser.add_argument(
+      '-r', '--reason', dest='reason', default='', help='The lock reason.')
+  parser.add_argument(
+      '-u',
+      '--unlock',
+      dest='unlock',
+      action='store_true',
+      default=False,
+      help='Use this to unlock.')
+  parser.add_argument(
+      '-l',
+      '--list_locks',
+      dest='list_locks',
+      action='store_true',
+      default=False,
+      help='Use this to list locks.')
+  parser.add_argument(
+      '-f',
+      '--ignore_ownership',
+      dest='ignore_ownership',
+      action='store_true',
+      default=False,
+      help="Use this to force unlock on a lock you don't own.")
+  parser.add_argument(
+      '-s',
+      '--shared',
+      dest='shared',
+      action='store_true',
+      default=False,
+      help='Use this for a shared (non-exclusive) lock.')
+  parser.add_argument(
+      '-d',
+      '--dir',
+      dest='locks_dir',
+      action='store',
+      default=Machine.LOCKS_DIR,
+      help='Use this to set different locks_dir')
   parser.add_argument('args', nargs='*', help='Machine arg.')
 
   options = parser.parse_args(argv)

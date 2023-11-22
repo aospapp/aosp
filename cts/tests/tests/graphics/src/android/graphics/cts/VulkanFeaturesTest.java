@@ -36,6 +36,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.UnsupportedEncodingException;
+import com.android.compatibility.common.util.CddTest;
 
 /**
  * Test that the Vulkan loader is present, supports the required extensions, and that system
@@ -55,12 +56,20 @@ public class VulkanFeaturesTest {
     // Require patch version 3 for Vulkan 1.0: It was the first publicly available version,
     // and there was an important bugfix relative to 1.0.2.
     private static final int VULKAN_1_0 = 0x00400003; // 1.0.3
+    private static final int VULKAN_1_1 = 0x00401000; // 1.1.0
+
+    private static final String VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME =
+            "VK_ANDROID_external_memory_android_hardware_buffer";
+    private static final int VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_SPEC_VERSION = 2;
+    private static final int VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT = 0x8;
+    private static final int VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT = 0x10;
 
     private PackageManager mPm;
     private FeatureInfo mVulkanHardwareLevel = null;
     private FeatureInfo mVulkanHardwareVersion = null;
     private FeatureInfo mVulkanHardwareCompute = null;
     private JSONObject mVulkanDevices[];
+    private JSONObject mBestDevice = null;
 
     @Before
     public void setup() throws Throwable {
@@ -88,8 +97,9 @@ public class VulkanFeaturesTest {
         }
 
         mVulkanDevices = getVulkanDevices();
+        mBestDevice = getBestDevice();
     }
-
+    @CddTest(requirement="7.1.4.2/C-1-1,C-2-1")
     @Test
     public void testVulkanHardwareFeatures() throws JSONException {
         if (DEBUG) {
@@ -132,27 +142,9 @@ public class VulkanFeaturesTest {
                        mVulkanHardwareCompute.version == 0);
         }
 
-        JSONObject bestDevice = null;
-        int bestDeviceLevel = -1;
-        int bestComputeLevel = -1;
-        int bestDeviceVersion = -1;
-        for (JSONObject device : mVulkanDevices) {
-            int level = determineHardwareLevel(device);
-            int compute = determineHardwareCompute(device);
-            int version = determineHardwareVersion(device);
-            if (DEBUG) {
-                Log.d(TAG, device.getJSONObject("properties").getString("deviceName") +
-                    ": level=" + level + " compute=" + compute +
-                    " version=0x" + Integer.toHexString(version));
-            }
-            if (level >= bestDeviceLevel && compute >= bestComputeLevel &&
-                    version >= bestDeviceVersion) {
-                bestDevice = device;
-                bestDeviceLevel = level;
-                bestComputeLevel = compute;
-                bestDeviceVersion = version;
-            }
-        }
+        int bestDeviceLevel = determineHardwareLevel(mBestDevice);
+        int bestComputeLevel = determineHardwareCompute(mBestDevice);
+        int bestDeviceVersion = determineHardwareVersion(mBestDevice);
 
         assertEquals("System feature " + PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL +
             " version " + mVulkanHardwareLevel.version + " doesn't match best physical device " +
@@ -176,6 +168,24 @@ public class VulkanFeaturesTest {
         }
     }
 
+    @CddTest(requirement="7.9.2/C-1-5")
+    @Test
+    public void testVulkan1_1Requirements() throws JSONException {
+        if (mVulkanHardwareVersion == null || mVulkanHardwareVersion.version < VULKAN_1_1)
+            return;
+        assertTrue("Devices with Vulkan 1.1 must support SYNC_FD external semaphores",
+                hasHandleType(mBestDevice.getJSONArray("externalSemaphoreProperties"),
+                    VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+                    "externalSemaphoreFeatures", 0x3 /* importable + exportable */));
+        assertTrue("Devices with Vulkan 1.1 must support SYNC_FD external fences",
+                hasHandleType(mBestDevice.getJSONArray("externalFenceProperties"),
+                    VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT,
+                    "externalFenceFeatures", 0x3 /* importable + exportable */));
+        assertTrue("Devices with Vulkan 1.1 must support sampler YCbCr conversion",
+                mBestDevice.getJSONObject("samplerYcbcrConversionFeatures")
+                           .getInt("samplerYcbcrConversion") != 0);
+    }
+
     @Test
     public void testVulkanVersionForVrHighPerformance() {
         if (!mPm.hasSystemFeature(PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE))
@@ -185,6 +195,31 @@ public class VulkanFeaturesTest {
             "but this device does not.",
             mVulkanHardwareVersion != null && mVulkanHardwareVersion.version >= VULKAN_1_0 &&
             mVulkanHardwareLevel != null && mVulkanHardwareLevel.version >= 0);
+    }
+
+    private JSONObject getBestDevice() throws JSONException {
+        JSONObject bestDevice = null;
+        int bestDeviceLevel = -1;
+        int bestComputeLevel = -1;
+        int bestDeviceVersion = -1;
+        for (JSONObject device : mVulkanDevices) {
+            int level = determineHardwareLevel(device);
+            int compute = determineHardwareCompute(device);
+            int version = determineHardwareVersion(device);
+            if (DEBUG) {
+                Log.d(TAG, device.getJSONObject("properties").getString("deviceName") +
+                    ": level=" + level + " compute=" + compute +
+                    " version=0x" + Integer.toHexString(version));
+            }
+            if (level >= bestDeviceLevel && compute >= bestComputeLevel &&
+                    version >= bestDeviceVersion) {
+                bestDevice = device;
+                bestDeviceLevel = level;
+                bestComputeLevel = compute;
+                bestDeviceVersion = version;
+            }
+        }
+        return bestDevice;
     }
 
     private int determineHardwareLevel(JSONObject device) throws JSONException {
@@ -221,8 +256,9 @@ public class VulkanFeaturesTest {
     }
 
     private int determineHardwareCompute(JSONObject device) throws JSONException {
-        JSONObject variablePointersFeatures = device.getJSONObject("variablePointersFeaturesKHR");
-        boolean variablePointers = variablePointersFeatures.getInt("variablePointers") != 0;
+        boolean variablePointers = device.getJSONObject("VK_KHR_variable_pointers")
+                                         .getJSONObject("variablePointerFeaturesKHR")
+                                         .getInt("variablePointers") != 0;
         JSONObject limits = device.getJSONObject("properties").getJSONObject("limits");
         int maxPerStageDescriptorStorageBuffers = limits.getInt("maxPerStageDescriptorStorageBuffers");
         if (DEBUG) {
@@ -261,6 +297,7 @@ public class VulkanFeaturesTest {
         // patch versions.
         final int[] ALLOWED_HARDWARE_VERSIONS = {
             VULKAN_1_0,
+            VULKAN_1_1,
         };
         for (int expected : ALLOWED_HARDWARE_VERSIONS) {
             if (actual == expected) {
@@ -270,10 +307,35 @@ public class VulkanFeaturesTest {
         return false;
     }
 
+    private boolean hasExtension(JSONObject device, String name, int minVersion)
+            throws JSONException {
+        JSONArray extensions = device.getJSONArray("extensions");
+        for (int i = 0; i < extensions.length(); i++) {
+            JSONObject ext = extensions.getJSONObject(i);
+            if (ext.getString("extensionName").equals(name) &&
+                    ext.getInt("specVersion") >= minVersion)
+                return true;
+        }
+        return false;
+    }
+
+    private boolean hasHandleType(JSONArray handleTypes, int type,
+            String featuresName, int requiredFeatures) throws JSONException {
+        for (int i = 0; i < handleTypes.length(); i++) {
+            JSONArray typeRecord = handleTypes.getJSONArray(i);
+            if (typeRecord.getInt(0) == type) {
+                JSONObject typeInfo = typeRecord.getJSONObject(1);
+                if ((typeInfo.getInt(featuresName) & requiredFeatures) == requiredFeatures)
+                    return true;
+            }
+        }
+        return false;
+    }
+
     private static native String nativeGetVkJSON();
 
     private JSONObject[] getVulkanDevices() throws JSONException, UnsupportedEncodingException {
-        JSONArray vkjson = new JSONArray(nativeGetVkJSON());
+        JSONArray vkjson = (new JSONObject(nativeGetVkJSON())).getJSONArray("devices");
         JSONObject[] devices = new JSONObject[vkjson.length()];
         for (int i = 0; i < vkjson.length(); i++) {
             devices[i] = vkjson.getJSONObject(i);

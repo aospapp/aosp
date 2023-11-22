@@ -22,8 +22,6 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.widget.ImageView;
 
-import com.android.car.apps.common.FabDrawable;
-
 /**
  * An {@link ImageView} that renders a play/pause button like a floating action button.
  */
@@ -37,11 +35,6 @@ public class PlayPauseButton extends ImageView {
 
     public PlayPauseButton(Context context, AttributeSet attrs) {
         super(context, attrs);
-
-        FabDrawable fabDrawable = new FabDrawable(context);
-        fabDrawable.setFabAndStrokeColor(
-                context.getColor(R.color.car_radio_accent_color));
-        setBackground(fabDrawable);
     }
 
     /**

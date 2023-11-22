@@ -24,6 +24,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under,src)
 LOCAL_STATIC_JAVA_LIBRARIES += android-common
 
 LOCAL_PACKAGE_NAME := OneTimeInitializer
+LOCAL_SDK_VERSION := current
 
 LOCAL_PRIVILEGED_MODULE := true
 

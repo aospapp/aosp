@@ -19,9 +19,11 @@ gpu_list = [
     'broadwell',
     'braswell',
     'skylake',
+    'broxton',
     'mali-t604',
     'mali-t628',
     'mali-t760',
+    'mali-t860',
     'rogue',
     'tegra',
 ]
@@ -102,7 +104,7 @@ argparser.add_argument('interface',
                        default='gles2',
                        help='Interface for matrix (gles2, gles3, gles31).')
 args = argparser.parse_args()
-status = '%s-master.json' % args.interface
+status = '%s-master.txt.json' % args.interface
 
 dict = {}
 for gpu in gpu_list:

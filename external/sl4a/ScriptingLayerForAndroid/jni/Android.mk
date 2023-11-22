@@ -20,7 +20,9 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := com_googlecode_android_scripting_Exec.cpp
 
-LOCAL_CFLAGS += -Wno-unused-parameter
+LOCAL_CFLAGS += \
+    -Wall -Werror \
+    -Wno-unused-parameter \
 
 LOCAL_SHARED_LIBRARIES := \
     liblog

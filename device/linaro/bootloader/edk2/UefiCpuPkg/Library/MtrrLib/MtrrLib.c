@@ -1,7 +1,11 @@
 /** @file
   MTRR setting library
 
-  Copyright (c) 2008 - 2015, Intel Corporation. All rights reserved.<BR>
+  @par Note: 
+    Most of services in this library instance are suggested to be invoked by BSP only,
+    except for MtrrSetAllMtrrs() which is used to sync BSP's MTRR setting to APs.
+
+  Copyright (c) 2008 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -19,6 +23,9 @@
 #include <Library/CpuLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
+
+#define OR_SEED      0x0101010101010101ull
+#define CLEAR_SEED   0xFFFFFFFFFFFFFFFFull
 
 //
 // Context to save and restore when MTRRs are programmed
@@ -438,7 +445,8 @@ MtrrGetVariableMtrr (
   @param[in]      MemoryCacheType  The memory type to set.
   @param[in, out] Base             The base address of memory range.
   @param[in, out] Length           The length of memory range.
-  @param[out]     ReturnMsrNum     The index of the fixed MTRR MSR to program.
+  @param[in, out] LastMsrNum       On input, the last index of the fixed MTRR MSR to program.
+                                   On return, the current index of the fixed MTRR MSR to program.
   @param[out]     ReturnClearMask  The bits to clear in the fixed MTRR MSR.
   @param[out]     ReturnOrMask     The bits to set in the fixed MTRR MSR.
 
@@ -452,22 +460,22 @@ ProgramFixedMtrr (
   IN     UINT64               MemoryCacheType,
   IN OUT UINT64               *Base,
   IN OUT UINT64               *Length,
-  OUT    UINT32               *ReturnMsrNum,
+  IN OUT UINT32               *LastMsrNum,
   OUT    UINT64               *ReturnClearMask,
   OUT    UINT64               *ReturnOrMask
   )
 {
   UINT32  MsrNum;
-  UINT32  ByteShift;
-  UINT64  TempQword;
+  UINT32  LeftByteShift;
+  UINT32  RightByteShift;
   UINT64  OrMask;
   UINT64  ClearMask;
+  UINT64  SubLength;
 
-  TempQword = 0;
-  OrMask    = 0;
-  ClearMask = 0;
-
-  for (MsrNum = 0; MsrNum < MTRR_NUMBER_OF_FIXED_MTRR; MsrNum++) {
+  //
+  // Find the fixed MTRR index to be programmed
+  //
+  for (MsrNum = *LastMsrNum + 1; MsrNum < MTRR_NUMBER_OF_FIXED_MTRR; MsrNum++) {
     if ((*Base >= mMtrrLibFixedMtrrTable[MsrNum].BaseAddress) &&
         (*Base <
             (
@@ -480,44 +488,63 @@ ProgramFixedMtrr (
     }
   }
 
-  if (MsrNum == MTRR_NUMBER_OF_FIXED_MTRR) {
+  if (MsrNum >= MTRR_NUMBER_OF_FIXED_MTRR) {
     return RETURN_UNSUPPORTED;
   }
 
   //
-  // We found the fixed MTRR to be programmed
+  // Find the begin offset in fixed MTRR and calculate byte offset of left shift
   //
-  for (ByteShift = 0; ByteShift < 8; ByteShift++) {
-    if (*Base ==
-         (
-           mMtrrLibFixedMtrrTable[MsrNum].BaseAddress +
-           (ByteShift * mMtrrLibFixedMtrrTable[MsrNum].Length)
-         )
-       ) {
-      break;
+  LeftByteShift = ((UINT32)*Base - mMtrrLibFixedMtrrTable[MsrNum].BaseAddress)
+               / mMtrrLibFixedMtrrTable[MsrNum].Length;
+
+  if (LeftByteShift >= 8) {
+    return RETURN_UNSUPPORTED;
+  }
+
+  //
+  // Find the end offset in fixed MTRR and calculate byte offset of right shift
+  //
+  SubLength = mMtrrLibFixedMtrrTable[MsrNum].Length * (8 - LeftByteShift);
+  if (*Length >= SubLength) {
+    RightByteShift = 0;
+  } else {
+    RightByteShift = 8 - LeftByteShift -
+                (UINT32)(*Length) / mMtrrLibFixedMtrrTable[MsrNum].Length;
+    if ((LeftByteShift >= 8) ||
+        (((UINT32)(*Length) % mMtrrLibFixedMtrrTable[MsrNum].Length) != 0)
+        ) {
+      return RETURN_UNSUPPORTED;
     }
+    //
+    // Update SubLength by actual length
+    //
+    SubLength = *Length;
   }
 
-  if (ByteShift == 8) {
-    return RETURN_UNSUPPORTED;
+  ClearMask = CLEAR_SEED;
+  OrMask    = MultU64x32 (OR_SEED, (UINT32)MemoryCacheType);
+
+  if (LeftByteShift != 0) {
+    //
+    // Clear the low bits by LeftByteShift
+    //
+    ClearMask &= LShiftU64 (ClearMask, LeftByteShift * 8);
+    OrMask    &= LShiftU64 (OrMask, LeftByteShift * 8);
   }
 
-  for (
-        ;
-        ((ByteShift < 8) && (*Length >= mMtrrLibFixedMtrrTable[MsrNum].Length));
-        ByteShift++
-      ) {
-    OrMask |= LShiftU64 ((UINT64) MemoryCacheType, (UINT32) (ByteShift * 8));
-    ClearMask |= LShiftU64 ((UINT64) 0xFF, (UINT32) (ByteShift * 8));
-    *Length -= mMtrrLibFixedMtrrTable[MsrNum].Length;
-    *Base += mMtrrLibFixedMtrrTable[MsrNum].Length;
+  if (RightByteShift != 0) {
+    //
+    // Clear the high bits by RightByteShift
+    //
+    ClearMask &= RShiftU64 (ClearMask, RightByteShift * 8);
+    OrMask    &= RShiftU64 (OrMask, RightByteShift * 8);
   }
 
-  if (ByteShift < 8 && (*Length != 0)) {
-    return RETURN_UNSUPPORTED;
-  }
+  *Length -= SubLength;
+  *Base   += SubLength;
 
-  *ReturnMsrNum    = MsrNum;
+  *LastMsrNum      = MsrNum;
   *ReturnClearMask = ClearMask;
   *ReturnOrMask    = OrMask;
 
@@ -579,7 +606,7 @@ MtrrGetMemoryAttributeInVariableMtrrWorker (
   @param[in]   MtrrValidAddressMask  The valid address mask for MTRR
   @param[out]  VariableMtrr          The array to shadow variable MTRRs content
 
-  @return                       The return value of this paramter indicates the
+  @return                       The return value of this parameter indicates the
                                 number of MTRRs which has been used.
 
 **/
@@ -1530,6 +1557,7 @@ MtrrSetMemoryAttributeWorker (
   //
   Status = RETURN_SUCCESS;
   if (BaseAddress < BASE_1MB) {
+    MsrNum = (UINT32)-1;
     while ((BaseAddress < BASE_1MB) && (Length > 0) && Status == RETURN_SUCCESS) {
       Status = ProgramFixedMtrr (MemoryType, &BaseAddress, &Length, &MsrNum, &ClearMask, &OrMask);
       if (RETURN_ERROR (Status)) {
@@ -2078,8 +2106,6 @@ MtrrSetAllMtrrs (
   AsmWriteMsr64 (MTRR_LIB_IA32_MTRR_DEF_TYPE, MtrrSetting->MtrrDefType);
 
   PostMtrrChangeEnableCache (&MtrrContext);
-
-  MtrrDebugPrintAllMtrrs ();
 
   return MtrrSetting;
 }

@@ -26,8 +26,9 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
 	compatibility-device-util \
-	ctstestrunner \
-	legacy-android-test
+	ctstestrunner
+
+LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 
 src_dirs := src \
     ../telecom/src/android/telecom/cts/SelfManagedConnection.java \

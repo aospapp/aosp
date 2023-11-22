@@ -28,6 +28,8 @@ import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
 import android.util.Log;
 
+import com.android.compatibility.common.util.SystemUtil;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -40,6 +42,12 @@ import java.util.concurrent.TimeUnit;
 @TargetApi(21)
 public class ConnectivityConstraintTest extends ConstraintTest {
     private static final String TAG = "ConnectivityConstraintTest";
+    private static final String RESTRICT_BACKGROUND_GET_CMD =
+            "cmd netpolicy get restrict-background";
+    private static final String RESTRICT_BACKGROUND_ON_CMD =
+            "cmd netpolicy set restrict-background true";
+    private static final String RESTRICT_BACKGROUND_OFF_CMD =
+            "cmd netpolicy set restrict-background false";
 
     /** Unique identifier for the job scheduled by this suite of tests. */
     public static final int CONNECTIVITY_JOB_ID = ConnectivityConstraintTest.class.hashCode();
@@ -53,6 +61,8 @@ public class ConnectivityConstraintTest extends ConstraintTest {
     private boolean mHasTelephony;
     /** Track whether WiFi was enabled in case we turn it off. */
     private boolean mInitialWiFiState;
+    /** Track whether restrict background policy was enabled in case we turn it off. */
+    private boolean mInitialRestrictBackground;
 
     private JobInfo.Builder mBuilder;
 
@@ -71,11 +81,19 @@ public class ConnectivityConstraintTest extends ConstraintTest {
                 new JobInfo.Builder(CONNECTIVITY_JOB_ID, kJobServiceComponent);
 
         mInitialWiFiState = mWifiManager.isWifiEnabled();
+        mInitialRestrictBackground = SystemUtil
+                .runShellCommand(getInstrumentation(), RESTRICT_BACKGROUND_GET_CMD)
+                .contains("enabled");
     }
 
     @Override
     public void tearDown() throws Exception {
         mJobScheduler.cancel(CONNECTIVITY_JOB_ID);
+
+        // Restore initial restrict background data usage policy
+        if (mInitialRestrictBackground) {
+            SystemUtil.runShellCommand(getInstrumentation(), RESTRICT_BACKGROUND_ON_CMD);
+        }
 
         // Ensure that we leave WiFi in its previous state.
         if (mWifiManager.isWifiEnabled() == mInitialWiFiState) {
@@ -174,6 +192,7 @@ public class ConnectivityConstraintTest extends ConstraintTest {
         if (!checkDeviceSupportsMobileData()) {
             return;
         }
+        ensureRestrictBackgroundPolicyOff();
         disconnectWifiToConnectToMobile();
 
         kTestEnvironment.setExpectedExecutions(1);
@@ -310,6 +329,16 @@ public class ConnectivityConstraintTest extends ConstraintTest {
 
             mContext.unregisterReceiver(connectMobileReceiver);
             mContext.unregisterReceiver(disconnectWifiReceiver);
+        }
+    }
+
+    /**
+     * Ensures that restrict background data usage policy is turned off.
+     * If the policy is on, it interferes with tests that relies on metered connection.
+     */
+    private void ensureRestrictBackgroundPolicyOff() throws Exception {
+        if (mInitialRestrictBackground) {
+            SystemUtil.runShellCommand(getInstrumentation(), RESTRICT_BACKGROUND_OFF_CMD);
         }
     }
 

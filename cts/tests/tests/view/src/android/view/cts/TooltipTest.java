@@ -182,9 +182,13 @@ public class TooltipTest {
         mInstrumentation.sendPointerSync(event);
     }
 
+    private void injectHoverMove(int source, View target, int offsetX, int offsetY) {
+        injectMotionEvent(obtainMotionEvent(
+                    source, target, MotionEvent.ACTION_HOVER_MOVE, offsetX,  offsetY));
+    }
+
     private void injectHoverMove(View target, int offsetX, int offsetY) {
-        injectMotionEvent(obtainMouseEvent(
-                target, MotionEvent.ACTION_HOVER_MOVE, offsetX,  offsetY));
+        injectHoverMove(InputDevice.SOURCE_MOUSE, target, offsetX,  offsetY);
     }
 
     private void injectHoverMove(View target) {
@@ -197,13 +201,18 @@ public class TooltipTest {
     }
 
     private static MotionEvent obtainMouseEvent(View target, int action, int offsetX, int offsetY) {
+        return obtainMotionEvent(InputDevice.SOURCE_MOUSE, target, action, offsetX, offsetY);
+    }
+
+    private static MotionEvent obtainMotionEvent(
+                int source, View target, int action, int offsetX, int offsetY) {
         final long eventTime = SystemClock.uptimeMillis();
         final int[] xy = new int[2];
         target.getLocationOnScreen(xy);
         MotionEvent event = MotionEvent.obtain(eventTime, eventTime, action,
                 xy[0] + target.getWidth() / 2 + offsetX, xy[1] + target.getHeight() / 2 + offsetY,
                 0);
-        event.setSource(InputDevice.SOURCE_MOUSE);
+        event.setSource(source);
         return event;
     }
 
@@ -250,17 +259,16 @@ public class TooltipTest {
     }
 
     @Test
-    public void testNoTooltipOnDisabledView() throws Throwable {
+    public void testTooltipOnDisabledView() throws Throwable {
         mActivityRule.runOnUiThread(() -> mTooltipView.setEnabled(false));
 
+        // Long click has no effect on a disabled view.
         injectLongClick(mTooltipView);
         assertFalse(hasTooltip(mTooltipView));
 
-        injectLongEnter(mTooltipView);
-        assertFalse(hasTooltip(mTooltipView));
-
+        // Hover does show the tooltip on a disabled view.
         injectLongHoverMove(mTooltipView);
-        assertFalse(hasTooltip(mTooltipView));
+        assertTrue(hasTooltip(mTooltipView));
     }
 
     @Test
@@ -656,7 +664,8 @@ public class TooltipTest {
         injectHoverMove(mTooltipView);
         mActivityRule.runOnUiThread(() -> mTooltipView.setEnabled(false));
         waitOut(ViewConfiguration.getHoverTooltipShowTimeout());
-        assertFalse(hasTooltip(mTooltipView));
+        // Disabled view still displays a hover tooltip.
+        assertTrue(hasTooltip(mTooltipView));
     }
 
     @Test
@@ -784,6 +793,76 @@ public class TooltipTest {
         setVisibility(child1, View.INVISIBLE);
         injectLongHoverMove(parent);
         assertTrue(hasTooltip(parent));
+    }
+
+    @Test
+    public void testMouseHoverWithJitter() throws Throwable {
+        testHoverWithJitter(InputDevice.SOURCE_MOUSE);
+    }
+
+    @Test
+    public void testStylusHoverWithJitter() throws Throwable {
+        testHoverWithJitter(InputDevice.SOURCE_STYLUS);
+    }
+
+    @Test
+    public void testTouchscreenHoverWithJitter() throws Throwable {
+        testHoverWithJitter(InputDevice.SOURCE_TOUCHSCREEN);
+    }
+
+    private void testHoverWithJitter(int source) {
+        final int hoverSlop = ViewConfiguration.get(mTooltipView.getContext()).getScaledHoverSlop();
+        if (hoverSlop == 0) {
+            // Zero hoverSlop makes this test redundant.
+            return;
+        }
+
+        final int tooltipTimeout = ViewConfiguration.getHoverTooltipShowTimeout();
+        final long halfTimeout = tooltipTimeout / 2;
+        assertTrue(halfTimeout + WAIT_MARGIN < tooltipTimeout);
+
+        // Imitate strong jitter (above hoverSlop threshold). No tooltip should be shown.
+        int jitterHigh = hoverSlop + 1;
+        assertTrue(jitterHigh <= mTooltipView.getWidth());
+        assertTrue(jitterHigh <= mTooltipView.getHeight());
+
+        injectHoverMove(source, mTooltipView, 0, 0);
+        waitOut(halfTimeout);
+        assertFalse(hasTooltip(mTooltipView));
+
+        injectHoverMove(source, mTooltipView, jitterHigh, 0);
+        waitOut(halfTimeout);
+        assertFalse(hasTooltip(mTooltipView));
+
+        injectHoverMove(source, mTooltipView, 0, 0);
+        waitOut(halfTimeout);
+        assertFalse(hasTooltip(mTooltipView));
+
+        injectHoverMove(source, mTooltipView, 0, jitterHigh);
+        waitOut(halfTimeout);
+        assertFalse(hasTooltip(mTooltipView));
+
+        // Jitter below threshold should be ignored and the tooltip should be shown.
+        injectHoverMove(source, mTooltipView, 0, 0);
+        waitOut(halfTimeout);
+        assertFalse(hasTooltip(mTooltipView));
+
+        int jitterLow = hoverSlop - 1;
+        injectHoverMove(source, mTooltipView, jitterLow, 0);
+        waitOut(halfTimeout);
+        assertTrue(hasTooltip(mTooltipView));
+
+        // Dismiss the tooltip
+        injectShortClick(mTooltipView);
+        assertFalse(hasTooltip(mTooltipView));
+
+        injectHoverMove(source, mTooltipView, 0, 0);
+        waitOut(halfTimeout);
+        assertFalse(hasTooltip(mTooltipView));
+
+        injectHoverMove(source, mTooltipView, 0, jitterLow);
+        waitOut(halfTimeout);
+        assertTrue(hasTooltip(mTooltipView));
     }
 
     @Test

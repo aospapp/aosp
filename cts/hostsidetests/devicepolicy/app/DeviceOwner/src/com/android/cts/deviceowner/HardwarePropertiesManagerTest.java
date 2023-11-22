@@ -43,13 +43,24 @@ public class HardwarePropertiesManagerTest extends BaseDeviceOwnerTest {
         assertTrue(Math.abs(temp) < MAX_DEVICE_TEMPERATURE
                 || temp == HardwarePropertiesManager.UNDEFINED_TEMPERATURE);
 
-        // Compare current temperature and shutdown threshold.
-        assertTrue(temp < shutdownTemp || temp == HardwarePropertiesManager.UNDEFINED_TEMPERATURE
-                || shutdownTemp == HardwarePropertiesManager.UNDEFINED_TEMPERATURE);
-        // Compare throttling and shutdown thresholds.
-        assertTrue(throttlingTemp < shutdownTemp
-                || throttlingTemp == HardwarePropertiesManager.UNDEFINED_TEMPERATURE
-                || shutdownTemp == HardwarePropertiesManager.UNDEFINED_TEMPERATURE);
+        // Compare current temperature and shutdown threshold to determine direction.
+        if (shutdownTemp != HardwarePropertiesManager.UNDEFINED_TEMPERATURE
+                && throttlingTemp != HardwarePropertiesManager.UNDEFINED_TEMPERATURE) {
+
+            // Cold (lower) thresholds.
+            if (throttlingTemp > shutdownTemp) {
+                // Compare current temperature and shutdown threshold.
+                assertTrue(temp > shutdownTemp
+                        || temp == HardwarePropertiesManager.UNDEFINED_TEMPERATURE);
+            }
+
+            // Warm (upper) thresholds.
+            else if (throttlingTemp < shutdownTemp) {
+                // Compare current temperature and shutdown threshold.
+                assertTrue(temp < shutdownTemp
+                        || temp == HardwarePropertiesManager.UNDEFINED_TEMPERATURE);
+            }
+        }
     }
 
     private void checkCpuUsageInfo(CpuUsageInfo info) {

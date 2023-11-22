@@ -34,14 +34,14 @@ class BtFunhausTest(BtFunhausBaseTest):
         """Test audio quality over 12 hours.
 
         This test is designed to run Bluetooth audio for 12 hours
-        and collect relavant logs. If all devices disconnect during
+        and collect relevant logs. If all devices disconnect during
         the test or Bluetooth is off on all devices, then fail the
         test.
 
         Steps:
         1. For each Android device connected run steps 2-5.
         2. Open and play media file of music pushed to device
-        3. Set media to loop indefintely.
+        3. Set media to loop indefinitely.
         4. After 12 hours collect bluetooth_manager dumpsys information
         5. Stop media player
 

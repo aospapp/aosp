@@ -45,15 +45,21 @@ public class CarNavigationManagerTest extends CarApiTestBase {
         assertNotNull(mCarAppFocusManager);
     }
 
-    public void testStart() throws Exception {
+    public void testSendEvent() throws Exception {
         if (mCarNavigationManager == null) {
             Log.w(TAG, "Unable to run the test: "
                     + "car navigation manager was not created succesfully.");
             return;
         }
 
+        Bundle bundle = new Bundle();
+        bundle.putInt("BUNDLE_INTEGER_VALUE", 1234);
+        bundle.putFloat("BUNDLE_FLOAT_VALUE", 12.3456f);
+        bundle.putStringArrayList("BUNDLE_ARRAY_OF_STRINGS",
+                Lists.newArrayList("Value A", "Value B", "Value Z"));
+
         try {
-            mCarNavigationManager.sendNavigationStatus(1);
+            mCarNavigationManager.sendEvent(1, bundle);
             fail();
         } catch (IllegalStateException expected) {
             // Expected. Client should acquire focus ownership for APP_FOCUS_TYPE_NAVIGATION.
@@ -85,15 +91,6 @@ public class CarNavigationManagerTest extends CarApiTestBase {
 
         // TODO: we should use mocked HAL to be able to verify this, right now just make sure that
         // it is not crashing and logcat has appropriate traces.
-        mCarNavigationManager.sendNavigationStatus(1);
-
-        Bundle bundle = new Bundle();
-        bundle.putInt("BUNDLE_INTEGER_VALUE", 1234);
-        bundle.putFloat("BUNDLE_FLOAT_VALUE", 12.3456f);
-        bundle.putStringArrayList("BUNDLE_ARRAY_OF_STRINGS",
-                Lists.newArrayList("Value A", "Value B", "Value Z"));
-
-        mCarNavigationManager.sendEvent
-                (CarNavigationStatusManager.EVENT_TYPE_NEXT_MANEUVER_INFO, bundle);
+        mCarNavigationManager.sendEvent(1, bundle);
     }
 }

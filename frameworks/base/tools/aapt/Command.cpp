@@ -29,24 +29,6 @@
 
 using namespace android;
 
-#ifndef AAPT_VERSION
-    #define AAPT_VERSION ""
-#endif
-
-/*
- * Show version info.  All the cool kids do it.
- */
-int doVersion(Bundle* bundle)
-{
-    if (bundle->getFileSpecCount() != 0) {
-        printf("(ignoring extra arguments)\n");
-    }
-    printf("Android Asset Packaging Tool, v0.2-" AAPT_VERSION "\n");
-
-    return 0;
-}
-
-
 /*
  * Open the file read only.  The call fails if the file doesn't exist.
  *
@@ -311,6 +293,8 @@ enum {
     ISGAME_ATTR = 0x10103f4,
     REQUIRED_FEATURE_ATTR = 0x1010557,
     REQUIRED_NOT_FEATURE_ATTR = 0x1010558,
+    COMPILE_SDK_VERSION_ATTR = 0x01010572, // NOT FINALIZED
+    COMPILE_SDK_VERSION_CODENAME_ATTR = 0x01010573, // NOT FINALIZED
 };
 
 String8 getComponentName(String8 &pkgName, String8 &componentName) {
@@ -1265,9 +1249,37 @@ int doDump(Bundle* bundle)
                                     splitName.string()).string());
                     }
 
-                    String8 platformVersionName = AaptXml::getAttribute(tree, NULL,
+                    String8 platformBuildVersionName = AaptXml::getAttribute(tree, NULL,
                             "platformBuildVersionName");
-                    printf(" platformBuildVersionName='%s'", platformVersionName.string());
+                    if (platformBuildVersionName != "") {
+                        printf(" platformBuildVersionName='%s'", platformBuildVersionName.string());
+                    }
+
+                    String8 platformBuildVersionCode = AaptXml::getAttribute(tree, NULL,
+                            "platformBuildVersionCode");
+                    if (platformBuildVersionCode != "") {
+                        printf(" platformBuildVersionCode='%s'", platformBuildVersionCode.string());
+                    }
+
+                    int32_t compileSdkVersion = AaptXml::getIntegerAttribute(tree,
+                            COMPILE_SDK_VERSION_ATTR, &error);
+                    if (error != "") {
+                        SourcePos(manifestFile, tree.getLineNumber()).error(
+                                "ERROR getting 'android:compileSdkVersion' attribute: %s",
+                                error.string());
+                        goto bail;
+                    }
+                    if (compileSdkVersion > 0) {
+                        printf(" compileSdkVersion='%d'", compileSdkVersion);
+                    }
+
+                    String8 compileSdkVersionCodename = AaptXml::getResolvedAttribute(res, tree,
+                            COMPILE_SDK_VERSION_CODENAME_ATTR, &error);
+                    if (compileSdkVersionCodename != "") {
+                        printf(" compileSdkVersionCodename='%s'", ResTable::normalizeForOutput(
+                                compileSdkVersionCodename.string()).string());
+                    }
+
                     printf("\n");
 
                     int32_t installLocation = AaptXml::getResolvedIntegerAttribute(res, tree,

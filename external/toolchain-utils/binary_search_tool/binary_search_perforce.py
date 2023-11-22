@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """Module of binary serch for perforce."""
 from __future__ import print_function
 
@@ -368,8 +368,8 @@ class P4GCCBinarySearcher(P4BinarySearcher):
     self.CleanupCLs()
     # Change the revision of only the gcc part of the toolchain.
     command = ('cd %s/gcctools/google_vendor_src_branch/gcc '
-               '&& g4 revert ...; g4 sync @%s' %
-               (self.checkout_dir, current_revision))
+               '&& g4 revert ...; g4 sync @%s' % (self.checkout_dir,
+                                                  current_revision))
     self.current_ce.RunCommand(command)
 
     self.HandleBrokenCLs(current_revision)
@@ -402,11 +402,13 @@ def Main(argv):
       '-s', '--script', dest='script', help='Script to run for every version.')
   options = parser.parse_args(argv)
   # First get all revisions
-  p4_paths = ['//depot2/gcctools/google_vendor_src_branch/gcc/gcc-4.4.3/...',
-              '//depot2/gcctools/google_vendor_src_branch/binutils/'
-              'binutils-2.20.1-mobile/...',
-              '//depot2/gcctools/google_vendor_src_branch/'
-              'binutils/binutils-20100303/...']
+  p4_paths = [
+      '//depot2/gcctools/google_vendor_src_branch/gcc/gcc-4.4.3/...',
+      '//depot2/gcctools/google_vendor_src_branch/binutils/'
+      'binutils-2.20.1-mobile/...',
+      '//depot2/gcctools/google_vendor_src_branch/'
+      'binutils/binutils-20100303/...'
+  ]
   p4gccbs = P4GCCBinarySearcher('perforce2:2666', p4_paths, '')
 
   # Main loop:
@@ -425,8 +427,8 @@ def Main(argv):
       ce = command_executer.GetCommandExecuter()
       command = '%s %s' % (script, p4gccbs.checkout_dir)
       status = ce.RunCommand(command)
-      message = ('Revision: %s produced: %d status\n' %
-                 (current_revision, status))
+      message = ('Revision: %s produced: %d status\n' % (current_revision,
+                                                         status))
       logger.GetLogger().LogOutput(message, print_to_console=verbose)
       terminated = p4gccbs.SetStatus(status)
       num_tries -= 1

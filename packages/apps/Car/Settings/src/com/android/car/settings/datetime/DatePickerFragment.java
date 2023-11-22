@@ -19,11 +19,11 @@ import android.app.AlarmManager;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.widget.Button;
 import android.widget.DatePicker;
-import android.widget.TextView;
 
-import com.android.car.settings.common.BaseFragment;
 import com.android.car.settings.R;
+import com.android.car.settings.common.BaseFragment;
 
 import java.util.Calendar;
 
@@ -51,8 +51,8 @@ public class DatePickerFragment extends BaseFragment {
 
         mDatePicker = (DatePicker) getView().findViewById(R.id.date_picker);
 
-        TextView button = (TextView) getActivity().findViewById(R.id.action_button1);
-        button.setText(R.string.okay);
+        Button button = (Button) getActivity().findViewById(R.id.action_button1);
+        button.setText(android.R.string.ok);
         button.setOnClickListener(v -> {
             Calendar c = Calendar.getInstance();
 
@@ -64,7 +64,7 @@ public class DatePickerFragment extends BaseFragment {
                 ((AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE)).setTime(when);
                 getContext().sendBroadcast(new Intent(Intent.ACTION_TIME_CHANGED));
             }
-            mFragmentController.goBack();
+            getFragmentController().goBack();
         });
     }
 }

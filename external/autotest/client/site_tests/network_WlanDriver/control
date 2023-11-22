@@ -5,14 +5,15 @@
 AUTHOR = 'pstew, quiche, wiley'
 NAME = 'network_WlanDriver'
 ATTRIBUTES = ('suite:network_nightly, suite:wifi_matfunc,'
-              'suite:wifi_matfunc_noservo')
+              'suite:wifi_matfunc_noservo, suite:bvt-perbuild,'
+              'suite:wificell-pre-cq')
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 
 DOC = """
-Ensure the detected wlan device has the correct associated kernel driver and
-that the driver is the expected revision.  This test will fail if we find
-that mlan0/wlan0 has an odd driver release.
+Ensure we detected a wlan device and that it has the correct associated kernel
+driver and revision.  This test will fail if we find that mlan0/wlan0 has an
+odd driver release, or if it is missing entirely.
 """
 
 

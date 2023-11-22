@@ -24,10 +24,6 @@
 #ifndef NFC_NCI_HMSGS_H
 #define NFC_NCI_HMSGS_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "nci_defs.h"
 #include "nfc_types.h"
 
@@ -69,10 +65,7 @@ uint8_t nci_snd_nfcee_mode_set(uint8_t nfcee_id, uint8_t nfcee_mode);
 uint8_t nci_snd_set_routing_cmd(bool more, uint8_t num_tlv, uint8_t tlv_size,
                                 uint8_t* p_param_tlvs);
 uint8_t nci_snd_get_routing_cmd(void);
-#endif
-
-#ifdef __cplusplus
-}
+uint8_t nci_snd_nfcee_power_link_control(uint8_t nfcee_id, uint8_t pl_config);
 #endif
 
 #endif /* NFC_NCI_MSGS_H */

@@ -29,7 +29,8 @@ bool IsElidableType(const VariableType& type) {
 }
 
 bool IsConstType(const VariableType& type) {
-  if (type == TYPE_ARRAY || type == TYPE_VECTOR || type == TYPE_REF) {
+  if (type == TYPE_ARRAY || type == TYPE_VECTOR || type == TYPE_REF ||
+      type == TYPE_HIDL_INTERFACE) {
     return true;
   }
   if (IsElidableType(type)) {

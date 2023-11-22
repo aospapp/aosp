@@ -36,7 +36,7 @@ class ProcZoneInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
 
     t_ignore = ' '
 
-    start = 'nodes'
+    start = 'newnode'
 
     p_nodes = repeat_rule('node')
     p_lines = repeat_rule('line')
@@ -44,9 +44,22 @@ class ProcZoneInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
     p_colonlines = repeat_rule('colonline')
     p_numcommas = repeat_rule('numcomma')
 
+    def p_newnode(self, p):
+        'newnode : nodes unpopulated'
+        p[0] = p[1:]
+
     def p_node(self, p):
-        'node : heading pernode APAGES lines protection PAGESETS NEWLINE cpus colonlines'
-        p[0] = [p[1], p[3], p[4], p[7], p[8]]
+        '''node : heading pernode APAGES lines protection PAGESETS NEWLINE cpus colonlines
+                | heading pernode APAGES lines protection lines PAGESETS NEWLINE cpus colonlines'''
+        if len(p) == 11:
+            p[0] = [p[1], p[3], p[4] + p[6], p[8], p[9]]
+        else:
+            p[0] = [p[1], p[3], p[4], p[7], p[8]]
+
+    def p_unpopulated(self, p):
+        '''unpopulated : heading pernode APAGES lines protection
+                   | empty'''
+        p[0] = [] if len(p) == 2 else [p[1], p[3], p[4]]
 
     def p_pernode(self, p):
         '''pernode : PERNODE STATS NEWLINE lines

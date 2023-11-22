@@ -23,6 +23,7 @@ import com.google.doclava.apicheck.ApiParseException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,7 +54,7 @@ public class SinceTagger {
     xmlToName.put(file, name);
   }
 
-  public void tagAll(ClassInfo[] classDocs) {
+  public void tagAll(Collection<ClassInfo> classDocs) {
     // read through the XML files in order, applying their since information
     // to the Javadoc models
     for (Map.Entry<String, String> versionSpec : xmlToName.entrySet()) {
@@ -103,7 +104,8 @@ public class SinceTagger {
    *        named version
    * @param classDocs the doc model to update
    */
-  private void applyVersionsFromSpec(String versionName, ApiInfo specApi, ClassInfo[] classDocs) {
+  private void applyVersionsFromSpec(String versionName, ApiInfo specApi,
+      Collection<ClassInfo> classDocs) {
     for (ClassInfo classDoc : classDocs) {
       PackageInfo packageSpec
           = specApi.getPackages().get(classDoc.containingPackage().name());
@@ -232,7 +234,7 @@ public class SinceTagger {
    * zero warnings because {@code apicheck} guarantees that all symbols are present in the most
    * recent API.
    */
-  private void warnForMissingVersions(ClassInfo[] classDocs) {
+  private void warnForMissingVersions(Collection<ClassInfo> classDocs) {
     for (ClassInfo claz : classDocs) {
       if (!checkLevelRecursive(claz)) {
         continue;

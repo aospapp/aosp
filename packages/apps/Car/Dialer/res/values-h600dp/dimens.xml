@@ -15,5 +15,6 @@
 -->
 <resources>
     <dimen name="avatar_rounded_radius">98dp</dimen>
-    <dimen name="in_call_small_contact_photo_size">196dp</dimen>
+    <dimen name="car_key1_size">50sp</dimen>
+    <dimen name="car_key2_size">22sp</dimen>
 </resources>

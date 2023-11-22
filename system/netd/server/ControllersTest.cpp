@@ -55,12 +55,12 @@ TEST_F(ControllersTest, TestFindExistingChildChains) {
         "-P PREROUTING ACCEPT\n"
         "-A PREROUTING -j bw_raw_PREROUTING\n"
         "-A PREROUTING -j idletimer_raw_PREROUTING\n"
-        "-A PREROUTING -j natctrl_raw_PREROUTING\n"
+        "-A PREROUTING -j tetherctrl_raw_PREROUTING\n"
     );
     std::set<std::string> expectedChains = {
         "bw_raw_PREROUTING",
         "idletimer_raw_PREROUTING",
-        "natctrl_raw_PREROUTING",
+        "tetherctrl_raw_PREROUTING",
     };
     std::set<std::string> actual = findExistingChildChains(V6, "raw", "PREROUTING");
     EXPECT_THAT(expectedChains, ContainerEq(actual));
@@ -88,8 +88,8 @@ TEST_F(ControllersTest, TestInitIptablesRules) {
                 "-A FORWARD -j fw_FORWARD\n"
                 ":bw_FORWARD -\n"
                 "-A FORWARD -j bw_FORWARD\n"
-                ":natctrl_FORWARD -\n"
-                "-A FORWARD -j natctrl_FORWARD\n"
+                ":tetherctrl_FORWARD -\n"
+                "-A FORWARD -j tetherctrl_FORWARD\n"
                 "COMMIT\n"
         },
         { V4V6, "*raw\n"
@@ -99,15 +99,15 @@ TEST_F(ControllersTest, TestInitIptablesRules) {
                 "-A PREROUTING -j bw_raw_PREROUTING\n"
                 ":idletimer_raw_PREROUTING -\n"
                 "-A PREROUTING -j idletimer_raw_PREROUTING\n"
-                ":natctrl_raw_PREROUTING -\n"
-                "-A PREROUTING -j natctrl_raw_PREROUTING\n"
+                ":tetherctrl_raw_PREROUTING -\n"
+                "-A PREROUTING -j tetherctrl_raw_PREROUTING\n"
                 "COMMIT\n"
         },
         { V4V6, "*mangle\n"
                 ":FORWARD -\n"
                 "-F FORWARD\n"
-                ":natctrl_mangle_FORWARD -\n"
-                "-A FORWARD -j natctrl_mangle_FORWARD\n"
+                ":tetherctrl_mangle_FORWARD -\n"
+                "-A FORWARD -j tetherctrl_mangle_FORWARD\n"
                 "COMMIT\n"
         },
         { V4V6, "*mangle\n"
@@ -129,8 +129,8 @@ TEST_F(ControllersTest, TestInitIptablesRules) {
         { V4,   "*nat\n"
                 ":POSTROUTING -\n"
                 "-F POSTROUTING\n"
-                ":natctrl_nat_POSTROUTING -\n"
-                "-A POSTROUTING -j natctrl_nat_POSTROUTING\n"
+                ":tetherctrl_nat_POSTROUTING -\n"
+                "-A POSTROUTING -j tetherctrl_nat_POSTROUTING\n"
                 "COMMIT\n"
         },
         { V4, "*filter\n"

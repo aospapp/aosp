@@ -23,6 +23,10 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.net.VpnService;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
@@ -36,13 +40,18 @@ import java.net.UnknownHostException;
 
 public class ReflectorVpnService extends VpnService {
 
-    private static String TAG = "ReflectorVpnService";
+    private static final String TAG = "ReflectorVpnService";
+    private static final String DEVICE_AND_PROFILE_OWNER_PACKAGE =
+        "com.android.cts.deviceandprofileowner";
+    private static final String ACTION_VPN_IS_UP = "com.android.cts.vpnfirewall.VPN_IS_UP";
     private static final int NOTIFICATION_ID = 1;
     private static final String NOTIFICATION_CHANNEL_ID = TAG;
     private static int MTU = 1799;
 
     private ParcelFileDescriptor mFd = null;
     private PingReflector mPingReflector = null;
+    private ConnectivityManager mConnectivityManager = null;
+    private ConnectivityManager.NetworkCallback mNetworkCallback = null;
 
     public static final String RESTRICTION_ADDRESSES = "vpn.addresses";
     public static final String RESTRICTION_ROUTES = "vpn.routes";
@@ -65,15 +74,45 @@ public class ReflectorVpnService extends VpnService {
     }
 
     @Override
+    public void onCreate() {
+        mConnectivityManager = getSystemService(ConnectivityManager.class);
+    }
+
+    @Override
     public void onDestroy() {
         stop();
         NotificationManager notificationManager = getSystemService(NotificationManager.class);
         notificationManager.deleteNotificationChannel(NOTIFICATION_CHANNEL_ID);
+        ensureNetworkCallbackUnregistered();
         super.onDestroy();
+    }
+
+    private void ensureNetworkCallbackUnregistered() {
+        if (null == mConnectivityManager || null == mNetworkCallback) return;
+        mConnectivityManager.unregisterNetworkCallback(mNetworkCallback);
+        mNetworkCallback = null;
     }
 
     private void start() {
         VpnService.prepare(this);
+
+        ensureNetworkCallbackUnregistered();
+        final NetworkRequest request = new NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_VPN)
+            .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+            .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build();
+        mNetworkCallback = new ConnectivityManager.NetworkCallback() {
+                @Override
+                public void onAvailable(final Network net) {
+                    final Intent vpnIsUpIntent = new Intent(ACTION_VPN_IS_UP);
+                    vpnIsUpIntent.setPackage(DEVICE_AND_PROFILE_OWNER_PACKAGE);
+                    sendBroadcast(vpnIsUpIntent);
+                    ensureNetworkCallbackUnregistered();
+                }
+            };
+        mConnectivityManager.registerNetworkCallback(request, mNetworkCallback);
+
         Builder builder = new Builder();
 
         final UserManager um = (UserManager) getSystemService(Context.USER_SERVICE);

@@ -9,15 +9,17 @@ import multiprocessing
 import numpy
 import os
 import re
+import shutil
 import time
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils as common_utils
 from autotest_lib.client.common_lib.cros import retry
-from autotest_lib.client.cros import constants, sys_power
+from autotest_lib.client.cros import constants
 from autotest_lib.client.cros.graphics import graphics_utils
 from autotest_lib.client.cros.multimedia import facade_resource
 from autotest_lib.client.cros.multimedia import image_generator
+from autotest_lib.client.cros.power import sys_power
 from telemetry.internal.browser import web_contents
 
 class TimeoutException(Exception):
@@ -40,7 +42,7 @@ class DisplayFacadeNative(object):
     The methods inside this class only accept Python native types.
     """
 
-    CALIBRATION_IMAGE_PATH = '/tmp/calibration.svg'
+    CALIBRATION_IMAGE_PATH = '/tmp/calibration.png'
     MINIMUM_REFRESH_RATE_EXPECTED = 25.0
     DELAY_TIME = 3
     MAX_TYPEC_PORT = 6
@@ -61,7 +63,7 @@ class DisplayFacadeNative(object):
         @return array of dict for display info.
         """
         extension = self._resource.get_extension(
-                constants.MULTIMEDIA_TEST_EXTENSION)
+                constants.DISPLAY_TEST_EXTENSION)
         extension.ExecuteJavaScript('window.__display_info = null;')
         extension.ExecuteJavaScript(
                 "chrome.system.display.getInfo(function(info) {"
@@ -135,15 +137,15 @@ class DisplayFacadeNative(object):
         """
         time.sleep(delay_before_rotation)
         extension = self._resource.get_extension(
-                constants.MULTIMEDIA_TEST_EXTENSION)
+                constants.DISPLAY_TEST_EXTENSION)
         extension.ExecuteJavaScript(
                 """
                 window.__set_display_rotation_has_error = null;
                 chrome.system.display.setDisplayProperties('%(id)s',
                     {"rotation": %(rotation)d}, () => {
-                    if (runtime.lastError) {
+                    if (chrome.runtime.lastError) {
                         console.error('Failed to set display rotation',
-                            runtime.lastError);
+                            chrome.runtime.lastError);
                         window.__set_display_rotation_has_error = "failure";
                     } else {
                         window.__set_display_rotation_has_error = "success";
@@ -155,8 +157,12 @@ class DisplayFacadeNative(object):
         utils.wait_for_value(lambda: (
                 extension.EvaluateJavaScript(
                     'window.__set_display_rotation_has_error') != None),
-                expected_value="success")
+                expected_value=True)
         time.sleep(delay_after_rotation)
+        result = extension.EvaluateJavaScript(
+                'window.__set_display_rotation_has_error')
+        if result != 'success':
+            raise RuntimeError('Failed to set display rotation: %r' % result)
 
 
     def get_available_resolutions(self, display_id):
@@ -164,9 +170,14 @@ class DisplayFacadeNative(object):
 
         @return a list of (width, height) tuples.
         """
-        modes = self.get_display_modes(display_id)
+        display = self._get_display_by_id(display_id)
+        modes = display['modes']
         if 'widthInNativePixels' not in modes[0]:
             raise RuntimeError('Cannot find widthInNativePixels attribute')
+        if display['isInternal']:
+            logging.info("Getting resolutions of internal display")
+            return list(set([(mode['width'], mode['height']) for mode in
+                             modes]))
         return list(set([(mode['widthInNativePixels'],
                           mode['heightInNativePixels']) for mode in modes]))
 
@@ -206,7 +217,7 @@ class DisplayFacadeNative(object):
         """
 
         extension = self._resource.get_extension(
-                constants.MULTIMEDIA_TEST_EXTENSION)
+                constants.DISPLAY_TEST_EXTENSION)
         extension.ExecuteJavaScript(
                 """
                 window.__set_resolution_progress = null;
@@ -217,8 +228,6 @@ class DisplayFacadeNative(object):
                             for (var m of info['modes']) {
                                 if (m['width'] == %(width)d &&
                                     m['height'] == %(height)d) {
-                                    window.__set_resolution_progress =
-                                        "found_mode";
                                     mode = m;
                                     break;
                                 }
@@ -235,9 +244,9 @@ class DisplayFacadeNative(object):
 
                     chrome.system.display.setDisplayProperties('%(id)s',
                         {'displayMode': mode}, () => {
-                            if (runtime.lastError) {
-                                window.__set_resolution_progress = "failed " +
-                                    runtime.lastError;
+                            if (chrome.runtime.lastError) {
+                                window.__set_resolution_progress = "failed: " +
+                                    chrome.runtime.lastError.message;
                             } else {
                                 window.__set_resolution_progress = "succeeded";
                             }
@@ -250,7 +259,11 @@ class DisplayFacadeNative(object):
         utils.wait_for_value(lambda: (
                 extension.EvaluateJavaScript(
                     'window.__set_resolution_progress') != None),
-                expected_value="success")
+                expected_value=True)
+        result = extension.EvaluateJavaScript(
+                'window.__set_resolution_progress')
+        if result != 'succeeded':
+            raise RuntimeError('Failed to set resolution: %r' % result)
 
 
     @_retry_display_call
@@ -332,6 +345,15 @@ class DisplayFacadeNative(object):
         """
 
         graphics_utils.take_screenshot_crop(path, crtc_id=id)
+        return True
+
+
+    def save_calibration_image(self, path):
+        """Save the calibration image to the given path.
+
+        @param path: path to image file.
+        """
+        shutil.copy(self.CALIBRATION_IMAGE_PATH, path)
         return True
 
 
@@ -637,16 +659,20 @@ class DisplayFacadeNative(object):
 
         @param tab_descriptor: Indicate which tab to be closed.
         """
-        # set_fullscreen(False) is necessary here because currently there
-        # is a bug in tabs.Close(). If the current state is fullscreen and
-        # we call close_tab() without setting state back to normal, it will
-        # cancel fullscreen mode without changing system configuration, and
-        # so that the next time someone calls set_fullscreen(True), the
-        # function will find that current state is already 'fullscreen'
-        # (though it is not) and do nothing, which will break all the
-        # following tests.
-        self.set_fullscreen(False)
-        self._resource.close_tab(tab_descriptor)
+        if tab_descriptor:
+            # set_fullscreen(False) is necessary here because currently there
+            # is a bug in tabs.Close(). If the current state is fullscreen and
+            # we call close_tab() without setting state back to normal, it will
+            # cancel fullscreen mode without changing system configuration, and
+            # so that the next time someone calls set_fullscreen(True), the
+            # function will find that current state is already 'fullscreen'
+            # (though it is not) and do nothing, which will break all the
+            # following tests.
+            self.set_fullscreen(False)
+            self._resource.close_tab(tab_descriptor)
+        else:
+            logging.error('close_tab: not a valid tab_descriptor')
+
         return True
 
 

@@ -16,19 +16,17 @@
 
 package com.android.server.wifi;
 
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import com.android.internal.app.IBatteryStats;
 
-import static org.junit.Assert.*;
-
 import org.junit.Before;
 import org.junit.Test;
-
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 

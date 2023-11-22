@@ -109,16 +109,6 @@ static int audio_vbuffer_live (audio_vbuffer_t * audio_vbuffer) {
     return live;
 }
 
-static int audio_vbuffer_dead (audio_vbuffer_t * audio_vbuffer) {
-    if (!audio_vbuffer) {
-        return -EINVAL;
-    }
-    pthread_mutex_lock (&audio_vbuffer->lock);
-    int dead = audio_vbuffer->frame_count - audio_vbuffer->live;
-    pthread_mutex_unlock (&audio_vbuffer->lock);
-    return dead;
-}
-
 #define MIN(a,b) (((a)<(b))?(a):(b))
 static size_t audio_vbuffer_write (audio_vbuffer_t * audio_vbuffer, const void * buffer, size_t frame_count) {
     size_t frames_written = 0;
@@ -310,27 +300,47 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
     struct str_parms *parms;
     char value[32];
     int ret;
+    int success;
     long val;
     char *end;
 
+    if (kvpairs == NULL || kvpairs[0] == 0) {
+        return 0;
+    }
     pthread_mutex_lock(&out->lock);
     if (!out->standby) {
         //Do not support changing params while stream running
         ret = -ENOSYS;
     } else {
+        ret = -EINVAL;
         parms = str_parms_create_str(kvpairs);
-        ret = str_parms_get_str(parms, AUDIO_PARAMETER_STREAM_ROUTING,
+        success = str_parms_get_str(parms, AUDIO_PARAMETER_STREAM_ROUTING,
                                 value, sizeof(value));
-        if (ret >= 0) {
+        if (success >= 0) {
             errno = 0;
             val = strtol(value, &end, 10);
             if (errno == 0 && (end != NULL) && (*end == '\0') && ((int)val == val)) {
                 out->device = (int)val;
                 ret = 0;
-            } else {
-                ret = -EINVAL;
             }
         }
+
+        // NO op for AUDIO_PARAMETER_DEVICE_CONNECT and AUDIO_PARAMETER_DEVICE_DISCONNECT
+        success = str_parms_get_str(parms, AUDIO_PARAMETER_DEVICE_CONNECT,
+                                value, sizeof(value));
+        if (success >= 0) {
+            ret = 0;
+        }
+        success = str_parms_get_str(parms, AUDIO_PARAMETER_DEVICE_DISCONNECT,
+                                value, sizeof(value));
+        if (success >= 0) {
+            ret = 0;
+        }
+
+        if (ret != 0) {
+            ALOGD("Unsupported parameter %s", kvpairs);
+        }
+
         str_parms_destroy(parms);
     }
     pthread_mutex_unlock(&out->lock);
@@ -341,7 +351,7 @@ static char * out_get_parameters(const struct audio_stream *stream, const char *
 {
     struct generic_stream_out *out = (struct generic_stream_out *)stream;
     struct str_parms *query = str_parms_create_str(keys);
-    char *str;
+    char *str = NULL;
     char value[256];
     struct str_parms *reply = str_parms_create();
     int ret;
@@ -352,8 +362,6 @@ static char * out_get_parameters(const struct audio_stream *stream, const char *
         str_parms_add_int(reply, AUDIO_PARAMETER_STREAM_ROUTING, out->device);
         pthread_mutex_unlock(&out->lock);
         str = strdup(str_parms_to_str(reply));
-    } else {
-        str = strdup(keys);
     }
 
     str_parms_destroy(query);
@@ -562,7 +570,6 @@ static int out_get_presentation_position(const struct audio_stream_out *stream,
                                    uint64_t *frames, struct timespec *timestamp)
 
 {
-    int ret = -EINVAL;
     if (stream == NULL || frames == NULL || timestamp == NULL) {
         return -EINVAL;
     }
@@ -693,13 +700,6 @@ static int refine_output_parameters(uint32_t *sample_rate, audio_format_t *forma
     return 0;
 }
 
-static int check_output_parameters(uint32_t sample_rate, audio_format_t format,
-                                  audio_channel_mask_t channel_mask)
-{
-    return refine_output_parameters(&sample_rate, &format, &channel_mask);
-}
-
-
 static int refine_input_parameters(uint32_t *sample_rate, audio_format_t *format, audio_channel_mask_t *channel_mask)
 {
     static const uint32_t sample_rates [] = {8000, 11025, 16000, 22050, 44100, 48000};
@@ -751,7 +751,6 @@ static size_t get_input_buffer_size(uint32_t sample_rate, audio_format_t format,
                                     audio_channel_mask_t channel_mask)
 {
     size_t size;
-    size_t device_rate;
     int channel_count = popcount(channel_mask);
     if (check_input_parameters(sample_rate, format, channel_mask) != 0)
         return 0;
@@ -820,26 +819,44 @@ static int in_set_parameters(struct audio_stream *stream, const char *kvpairs)
     struct str_parms *parms;
     char value[32];
     int ret;
+    int success;
     long val;
     char *end;
 
+    if (kvpairs == NULL || kvpairs[0] == 0) {
+        return 0;
+    }
     pthread_mutex_lock(&in->lock);
     if (!in->standby) {
         ret = -ENOSYS;
     } else {
+        ret = -EINVAL;
         parms = str_parms_create_str(kvpairs);
 
-        ret = str_parms_get_str(parms, AUDIO_PARAMETER_STREAM_ROUTING,
+        success = str_parms_get_str(parms, AUDIO_PARAMETER_STREAM_ROUTING,
                                 value, sizeof(value));
-        if (ret >= 0) {
+        if (success >= 0) {
             errno = 0;
             val = strtol(value, &end, 10);
             if ((errno == 0) && (end != NULL) && (*end == '\0') && ((int)val == val)) {
                 in->device = (int)val;
                 ret = 0;
-            } else {
-                ret = -EINVAL;
             }
+        }
+        // NO op for AUDIO_PARAMETER_DEVICE_CONNECT and AUDIO_PARAMETER_DEVICE_DISCONNECT
+        success = str_parms_get_str(parms, AUDIO_PARAMETER_DEVICE_CONNECT,
+                                value, sizeof(value));
+        if (success >= 0) {
+            ret = 0;
+        }
+        success = str_parms_get_str(parms, AUDIO_PARAMETER_DEVICE_DISCONNECT,
+                                value, sizeof(value));
+        if (success >= 0) {
+            ret = 0;
+        }
+
+        if (ret != 0) {
+            ALOGD("Unsupported parameter %s", kvpairs);
         }
 
         str_parms_destroy(parms);
@@ -853,7 +870,7 @@ static char * in_get_parameters(const struct audio_stream *stream,
 {
     struct generic_stream_in *in = (struct generic_stream_in *)stream;
     struct str_parms *query = str_parms_create_str(keys);
-    char *str;
+    char *str = NULL;
     char value[256];
     struct str_parms *reply = str_parms_create();
     int ret;
@@ -862,8 +879,6 @@ static char * in_get_parameters(const struct audio_stream *stream,
     if (ret >= 0) {
         str_parms_add_int(reply, AUDIO_PARAMETER_STREAM_ROUTING, in->device);
         str = strdup(str_parms_to_str(reply));
-    } else {
-        str = strdup(keys);
     }
 
     str_parms_destroy(query);
@@ -1008,7 +1023,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer,
     struct generic_stream_in *in = (struct generic_stream_in *)stream;
     struct generic_audio_device *adev = in->dev;
     const size_t frames =  bytes / audio_stream_in_frame_size(stream);
-    int ret = 0;
     bool mic_mute = false;
     size_t read_bytes = 0;
 
@@ -1548,10 +1562,10 @@ fallback_init(void)
 
     ALOGD("Emulator without host-side ALSA audio emulation detected.");
 #if __LP64__
-    module = dlopen("/system/lib64/hw/audio.primary.goldfish_legacy.so",
+    module = dlopen("/vendor/lib64/hw/audio.primary.goldfish_legacy.so",
                     RTLD_LAZY|RTLD_LOCAL);
 #else
-    module = dlopen("/system/lib/hw/audio.primary.goldfish_legacy.so",
+    module = dlopen("/vendor/lib/hw/audio.primary.goldfish_legacy.so",
                     RTLD_LAZY|RTLD_LOCAL);
 #endif
     if (module != NULL) {

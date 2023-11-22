@@ -3,7 +3,6 @@
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """Unittest for the results reporter."""
 
 from __future__ import division
@@ -50,10 +49,11 @@ class FreeFunctionsTest(unittest.TestCase):
         '/chromiumos_test_image.bin'
     buildbot_img = buildbot_case.split('/chroot/tmp')[1]
 
-    self.assertEqual(ParseChromeosImage(buildbot_case),
-                     ('R02-1.0', buildbot_img))
-    self.assertEqual(ParseChromeosImage(os.path.dirname(buildbot_case)),
-                     ('', os.path.dirname(buildbot_img)))
+    self.assertEqual(
+        ParseChromeosImage(buildbot_case), ('R02-1.0', buildbot_img))
+    self.assertEqual(
+        ParseChromeosImage(os.path.dirname(buildbot_case)),
+        ('', os.path.dirname(buildbot_img)))
 
     # Ensure we don't act completely insanely given a few mildly insane paths.
     fun_case = '/chromiumos_test_image.bin'
@@ -66,6 +66,8 @@ class FreeFunctionsTest(unittest.TestCase):
 # There are many ways for this to be done better, but the linter complains
 # about all of them (that I can think of, at least).
 _fake_path_number = [0]
+
+
 def FakePath(ext):
   """Makes a unique path that shouldn't exist on the host system.
 
@@ -73,7 +75,7 @@ def FakePath(ext):
   error message, it may be easier to track it to its source.
   """
   _fake_path_number[0] += 1
-  prefix = '/tmp/should/not/exist/%d/' % (_fake_path_number[0], )
+  prefix = '/tmp/should/not/exist/%d/' % (_fake_path_number[0],)
   return os.path.join(prefix, ext)
 
 
@@ -121,14 +123,15 @@ def _InjectSuccesses(experiment, how_many, keyvals, for_benchmark=0,
   share_cache = ''
   locks_dir = ''
   log = logger.GetLogger()
-  machine_manager = MockMachineManager(FakePath('chromeos_root'), 0,
-                                       log_level, locks_dir)
+  machine_manager = MockMachineManager(
+      FakePath('chromeos_root'), 0, log_level, locks_dir)
   machine_manager.AddMachine('testing_machine')
   machine = next(m for m in machine_manager.GetMachines()
                  if m.name == 'testing_machine')
   for label in experiment.labels:
+
     def MakeSuccessfulRun(n):
-      run = MockBenchmarkRun('mock_success%d' % (n, ), bench, label,
+      run = MockBenchmarkRun('mock_success%d' % (n,), bench, label,
                              1 + n + num_runs, cache_conditions,
                              machine_manager, log, log_level, share_cache)
       mock_result = MockResult(log, label, log_level, machine)
@@ -136,8 +139,8 @@ def _InjectSuccesses(experiment, how_many, keyvals, for_benchmark=0,
       run.result = mock_result
       return run
 
-    experiment.benchmark_runs.extend(MakeSuccessfulRun(n)
-                                     for n in xrange(how_many))
+    experiment.benchmark_runs.extend(
+        MakeSuccessfulRun(n) for n in xrange(how_many))
   return experiment
 
 
@@ -160,7 +163,6 @@ class TextResultsReportTest(unittest.TestCase):
     self.assertIn(MockCrosMachine.CPUINFO_STRING, text_report)
     return text_report
 
-
   def testOutput(self):
     email_report = self._checkReport(email=True)
     text_report = self._checkReport(email=False)
@@ -177,12 +179,10 @@ class HTMLResultsReportTest(unittest.TestCase):
   things are displayed. It just cares that they're present.
   """
 
-  _TestOutput = collections.namedtuple('TestOutput', ['summary_table',
-                                                      'perf_html',
-                                                      'chart_js',
-                                                      'charts',
-                                                      'full_table',
-                                                      'experiment_file'])
+  _TestOutput = collections.namedtuple('TestOutput', [
+      'summary_table', 'perf_html', 'chart_js', 'charts', 'full_table',
+      'experiment_file'
+  ])
 
   @staticmethod
   def _GetTestOutput(perf_table, chart_js, summary_table, print_table,
@@ -192,12 +192,13 @@ class HTMLResultsReportTest(unittest.TestCase):
     summary_table = print_table(summary_table, 'HTML')
     perf_html = print_table(perf_table, 'HTML')
     full_table = print_table(full_table, 'HTML')
-    return HTMLResultsReportTest._TestOutput(summary_table=summary_table,
-                                             perf_html=perf_html,
-                                             chart_js=chart_js,
-                                             charts=chart_divs,
-                                             full_table=full_table,
-                                             experiment_file=experiment_file)
+    return HTMLResultsReportTest._TestOutput(
+        summary_table=summary_table,
+        perf_html=perf_html,
+        chart_js=chart_js,
+        charts=chart_divs,
+        full_table=full_table,
+        experiment_file=experiment_file)
 
   def _GetOutput(self, experiment=None, benchmark_results=None):
     with mock.patch('results_report_templates.GenerateHTMLPage') as standin:
@@ -222,8 +223,8 @@ class HTMLResultsReportTest(unittest.TestCase):
   def testSuccessfulOutput(self):
     num_success = 2
     success_keyvals = {'retval': 0, 'a_float': 3.96}
-    output = self._GetOutput(_InjectSuccesses(MakeMockExperiment(), num_success,
-                                              success_keyvals))
+    output = self._GetOutput(
+        _InjectSuccesses(MakeMockExperiment(), num_success, success_keyvals))
 
     self.assertNotIn('no result', output.summary_table)
     #self.assertIn(success_keyvals['machine'], output.summary_table)
@@ -321,8 +322,17 @@ class JSONResultsReportTest(unittest.TestCase):
     benchmark_names_and_iterations = [('bench1', 1), ('bench2', 2),
                                       ('bench3', 1), ('bench4', 0)]
     benchmark_keyvals = {
-        'bench1': [[{'retval': 1, 'foo': 2.0}]],
-        'bench2': [[{'retval': 1, 'foo': 4.0}, {'retval': -1, 'bar': 999}]],
+        'bench1': [[{
+            'retval': 1,
+            'foo': 2.0
+        }]],
+        'bench2': [[{
+            'retval': 1,
+            'foo': 4.0
+        }, {
+            'retval': -1,
+            'bar': 999
+        }]],
         # lack of retval is considered a failure.
         'bench3': [[{}]],
         'bench4': [[]]
@@ -341,8 +351,8 @@ class JSONResultsReportTest(unittest.TestCase):
     benchmark_keyvals = {'bench1': [[{'retval': 0, 'foo': 2.0}]]}
     bench_results = BenchmarkResults(labels, benchmark_names_and_iterations,
                                      benchmark_keyvals)
-    reporter = JSONResultsReport(bench_results,
-                                 json_args={'separators': separators})
+    reporter = JSONResultsReport(
+        bench_results, json_args={'separators': separators})
     result_str = reporter.GetReport()
     self.assertIn(separators[0], result_str)
     self.assertIn(separators[1], result_str)
@@ -351,8 +361,17 @@ class JSONResultsReportTest(unittest.TestCase):
     labels = ['label1']
     benchmark_names_and_iterations = [('bench1', 1), ('bench2', 2)]
     benchmark_keyvals = {
-        'bench1': [[{'retval': 0, 'foo': 2.0}]],
-        'bench2': [[{'retval': 0, 'foo': 4.0}, {'retval': 0, 'bar': 999}]]
+        'bench1': [[{
+            'retval': 0,
+            'foo': 2.0
+        }]],
+        'bench2': [[{
+            'retval': 0,
+            'foo': 4.0
+        }, {
+            'retval': 0,
+            'bar': 999
+        }]]
     }
     bench_results = BenchmarkResults(labels, benchmark_names_and_iterations,
                                      benchmark_keyvals)
@@ -374,6 +393,7 @@ class JSONResultsReportTest(unittest.TestCase):
 
 class PerfReportParserTest(unittest.TestCase):
   """Tests for the perf report parser in results_report."""
+
   @staticmethod
   def _ReadRealPerfReport():
     my_dir = os.path.dirname(os.path.realpath(__file__))

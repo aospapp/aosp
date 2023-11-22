@@ -234,8 +234,8 @@ vendor_tag_info_t qcamera3_awb_speed[QCAMERA3_AWB_CONVERGENCE_SPEED_END -
 vendor_tag_info_t
         qcamera3_instant_aec[QCAMERA3_INSTANT_AEC_END -
         QCAMERA3_INSTANT_AEC_START] = {
-    { "instant_aec_mode", TYPE_INT32 },
-    { "instant_aec_available_modes",   TYPE_INT32 }
+    { "instant_aec_mode", TYPE_BYTE },
+    { "instant_aec_available_modes",   TYPE_BYTE }
 };
 
 vendor_tag_info_t nexus_experimental_2016[NEXUS_EXPERIMENTAL_2016_END -
@@ -353,6 +353,10 @@ vendor_tag_info_t nexus_experimental_2017[NEXUS_EXPERIMENTAL_2017_END -
     { "sensorEepromPDAFRightGains", TYPE_BYTE },
     { "sensorEepromPDAFLeftGains", TYPE_BYTE },
     { "sensorEepromPDAFConvCoeff", TYPE_BYTE },
+    { "sensorEepromWbNumLights", TYPE_INT32 },
+    { "sensorEepromWbRGRatios", TYPE_FLOAT },
+    { "sensorEepromWbBGRatios", TYPE_FLOAT },
+    { "sensorEepromWbGrGbRatio", TYPE_FLOAT },
     { "control.tracking_af_trigger", TYPE_BYTE },
     { "control.af_regions_confidence", TYPE_INT32 },
     { "stats.ois_frame_timestamp_vsync", TYPE_INT64 },
@@ -373,6 +377,10 @@ vendor_tag_info_t nexus_experimental_2017[NEXUS_EXPERIMENTAL_2017_END -
     { "request.continuous_zsl_capture", TYPE_INT32},
     { "request.disable_hdrplus", TYPE_INT32},
     { "control.scene_distance", TYPE_INT32},
+    { "stats.motion_detection_enable", TYPE_BYTE},
+    { "stats.camera_motion_x", TYPE_FLOAT},
+    { "stats.camera_motion_y", TYPE_FLOAT},
+    { "stats.subject_motion", TYPE_FLOAT},
 };
 
 vendor_tag_info_t tango_mode_data[TANGO_MODE_DATA_END -
@@ -602,6 +610,10 @@ uint32_t qcamera3_all_tags[] = {
     (uint32_t)NEXUS_EXPERIMENTAL_2017_EEPROM_PDAF_CALIB_RIGHT_GAINS,
     (uint32_t)NEXUS_EXPERIMENTAL_2017_EEPROM_PDAF_CALIB_LEFT_GAINS,
     (uint32_t)NEXUS_EXPERIMENTAL_2017_EEPROM_PDAF_CALIB_CONV_COEFF,
+    (uint32_t)NEXUS_EXPERIMENTAL_2017_EEPROM_WB_CALIB_NUM_LIGHTS,
+    (uint32_t)NEXUS_EXPERIMENTAL_2017_EEPROM_WB_CALIB_R_OVER_G_RATIOS,
+    (uint32_t)NEXUS_EXPERIMENTAL_2017_EEPROM_WB_CALIB_B_OVER_G_RATIOS,
+    (uint32_t)NEXUS_EXPERIMENTAL_2017_EEPROM_WB_CALIB_GR_OVER_GB_RATIO,
     (uint32_t)NEXUS_EXPERIMENTAL_2017_TRACKING_AF_TRIGGER,
     (uint32_t)NEXUS_EXPERIMENTAL_2017_AF_REGIONS_CONFIDENCE,
     (uint32_t)NEXUS_EXPERIMENTAL_2017_OIS_FRAME_TIMESTAMP_VSYNC,
@@ -622,7 +634,10 @@ uint32_t qcamera3_all_tags[] = {
     (uint32_t)NEXUS_EXPERIMENTAL_2017_CONTINUOUS_ZSL_CAPTURE,
     (uint32_t)NEXUS_EXPERIMENTAL_2017_DISABLE_HDRPLUS,
     (uint32_t)NEXUS_EXPERIMENTAL_2017_SCENE_DISTANCE,
-
+    (uint32_t)NEXUS_EXPERIMENTAL_2017_MOTION_DETECTION_ENABLE,
+    (uint32_t)NEXUS_EXPERIMENTAL_2017_CAMERA_MOTION_X,
+    (uint32_t)NEXUS_EXPERIMENTAL_2017_CAMERA_MOTION_Y,
+    (uint32_t)NEXUS_EXPERIMENTAL_2017_SUBJECT_MOTION,
     //TANGO_MODE
     (uint32_t)TANGO_MODE_DATA_SENSOR_FULLFOV,
 };

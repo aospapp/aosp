@@ -12,7 +12,7 @@ CRITERIA = """
 The test outputs the cpu usage and dropped frame count of VP9 High Frame Rate
 (60fps) video playback.
 """
-ATTRIBUTES = "suite:video"
+ATTRIBUTES = "suite:crosbolt_perf_perbuild"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"

@@ -19,16 +19,21 @@ import com.android.ddmlib.AdbCommandRejectedException;
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.IDevice.DeviceState;
 import com.android.ddmlib.IShellOutputReceiver;
+import com.android.ddmlib.InstallReceiver;
 import com.android.ddmlib.RawImage;
 import com.android.ddmlib.ShellCommandUnresponsiveException;
 import com.android.ddmlib.TimeoutException;
 import com.android.ddmlib.testrunner.IRemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice.MountPointInfo;
 import com.android.tradefed.device.ITestDevice.RecoveryMode;
+import com.android.tradefed.host.HostOptions;
+import com.android.tradefed.host.IHostOptions;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
+import com.android.tradefed.result.ITestLifeCycleReceiver;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.util.ArrayUtil;
 import com.android.tradefed.util.CommandResult;
@@ -108,6 +113,12 @@ public class TestDeviceTest extends TestCase {
         @Override
         void doReboot() throws DeviceNotAvailableException, UnsupportedOperationException {
         }
+
+        @Override
+        IHostOptions getHostOptions() {
+            // Avoid issue with GlobalConfiguration
+            return new HostOptions();
+        }
     }
 
     /**
@@ -126,17 +137,18 @@ public class TestDeviceTest extends TestCase {
         mMockWifi = EasyMock.createMock(IWifiHelper.class);
 
         // A TestDevice with a no-op recoverDevice() implementation
-        mTestDevice = new TestableTestDevice() {
-            @Override
-            public void recoverDevice() throws DeviceNotAvailableException {
-                // ignore
-            }
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    public void recoverDevice() throws DeviceNotAvailableException {
+                        // ignore
+                    }
 
-            @Override
-            IWifiHelper createWifiHelper() {
-                return mMockWifi;
-            }
-        };
+                    @Override
+                    IWifiHelper createWifiHelper() throws DeviceNotAvailableException {
+                        return mMockWifi;
+                    }
+                };
         mTestDevice.setRecovery(mMockRecovery);
         mTestDevice.setCommandTimeout(100);
         mTestDevice.setLogStartDelay(-1);
@@ -178,9 +190,13 @@ public class TestDeviceTest extends TestCase {
      */
     public void testEnableAdbRoot_noEnableRoot() throws Exception {
         boolean enableRoot = mTestDevice.getOptions().isEnableAdbRoot();
-        mTestDevice.getOptions().setEnableAdbRoot(false);
-        assertFalse(mTestDevice.enableAdbRoot());
-        mTestDevice.getOptions().setEnableAdbRoot(enableRoot);
+        OptionSetter setter = new OptionSetter(mTestDevice.getOptions());
+        setter.setOptionValue("enable-root", "false");
+        try {
+            assertFalse(mTestDevice.enableAdbRoot());
+        } finally {
+            setter.setOptionValue("enable-root", Boolean.toString(enableRoot));
+        }
     }
 
     /**
@@ -355,9 +371,9 @@ public class TestDeviceTest extends TestCase {
      * product type property
      */
     public void testGetProductType_adb() throws Exception {
-        EasyMock.expect(mMockIDevice.getProperty("ro.hardware")).andReturn(null);
+        EasyMock.expect(mMockIDevice.getProperty(DeviceProperties.BOARD)).andReturn(null);
         final String expectedOutput = "nexusone";
-        injectSystemProperty("ro.hardware", expectedOutput);
+        injectSystemProperty(DeviceProperties.BOARD, expectedOutput);
         EasyMock.replay(mMockIDevice);
         assertEquals(expectedOutput, mTestDevice.getProductType());
     }
@@ -368,7 +384,7 @@ public class TestDeviceTest extends TestCase {
      */
     public void testGetProductType_adbFail() throws Exception {
         EasyMock.expect(mMockIDevice.getProperty(EasyMock.<String>anyObject())).andStubReturn(null);
-        injectSystemProperty("ro.hardware", null).times(3);
+        injectSystemProperty(DeviceProperties.BOARD, null).times(3);
         EasyMock.expect(mMockIDevice.getState()).andReturn(DeviceState.ONLINE).times(2);
         EasyMock.replay(mMockIDevice);
         try {
@@ -826,10 +842,11 @@ public class TestDeviceTest extends TestCase {
     public void testRunInstrumentationTests() throws Exception {
         IRemoteAndroidTestRunner mockRunner = EasyMock.createMock(IRemoteAndroidTestRunner.class);
         EasyMock.expect(mockRunner.getPackageName()).andStubReturn("com.example");
-        Collection<ITestRunListener> listeners = new ArrayList<ITestRunListener>(0);
+        Collection<ITestLifeCycleReceiver> listeners = new ArrayList<>(0);
         mockRunner.setMaxTimeToOutputResponse(EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject());
         // expect runner.run command to be called
-        mockRunner.run(listeners);
+        Collection<ITestRunListener> expectedMock = EasyMock.anyObject();
+        mockRunner.run(expectedMock);
         EasyMock.replay(mockRunner);
         mTestDevice.runInstrumentationTests(mockRunner, listeners);
     }
@@ -840,11 +857,12 @@ public class TestDeviceTest extends TestCase {
      */
     public void testRunInstrumentationTests_recoveryFails() throws Exception {
         IRemoteAndroidTestRunner mockRunner = EasyMock.createMock(IRemoteAndroidTestRunner.class);
-        Collection<ITestRunListener> listeners = new ArrayList<ITestRunListener>(1);
-        ITestRunListener listener = EasyMock.createMock(ITestRunListener.class);
+        Collection<ITestLifeCycleReceiver> listeners = new ArrayList<>(1);
+        ITestLifeCycleReceiver listener = EasyMock.createMock(ITestLifeCycleReceiver.class);
         listeners.add(listener);
         mockRunner.setMaxTimeToOutputResponse(EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject());
-        mockRunner.run(listeners);
+        Collection<ITestRunListener> expectedMock = EasyMock.anyObject();
+        mockRunner.run(expectedMock);
         EasyMock.expectLastCall().andThrow(new IOException());
         EasyMock.expect(mockRunner.getPackageName()).andReturn("foo");
         listener.testRunFailed((String)EasyMock.anyObject());
@@ -865,11 +883,12 @@ public class TestDeviceTest extends TestCase {
      */
     public void testRunInstrumentationTests_recoverySucceeds() throws Exception {
         IRemoteAndroidTestRunner mockRunner = EasyMock.createMock(IRemoteAndroidTestRunner.class);
-        Collection<ITestRunListener> listeners = new ArrayList<ITestRunListener>(1);
-        ITestRunListener listener = EasyMock.createMock(ITestRunListener.class);
+        Collection<ITestLifeCycleReceiver> listeners = new ArrayList<>(1);
+        ITestLifeCycleReceiver listener = EasyMock.createMock(ITestLifeCycleReceiver.class);
         listeners.add(listener);
         mockRunner.setMaxTimeToOutputResponse(EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject());
-        mockRunner.run(listeners);
+        Collection<ITestRunListener> expectedMock = EasyMock.anyObject();
+        mockRunner.run(expectedMock);
         EasyMock.expectLastCall().andThrow(new IOException());
         EasyMock.expect(mockRunner.getPackageName()).andReturn("foo");
         listener.testRunFailed((String)EasyMock.anyObject());
@@ -1176,7 +1195,6 @@ public class TestDeviceTest extends TestCase {
      * Test for {@link TestDevice#switchToAdbTcp()} when device has no ip address
      */
     public void testSwitchToAdbTcp_noIp() throws Exception {
-        mMockWifi.cleanUp();
         EasyMock.expect(mMockWifi.getIpAddress()).andReturn(null);
         replayMocks();
         assertNull(mTestDevice.switchToAdbTcp());
@@ -1187,7 +1205,6 @@ public class TestDeviceTest extends TestCase {
      * Test normal success case for {@link TestDevice#switchToAdbTcp()}.
      */
     public void testSwitchToAdbTcp() throws Exception {
-        mMockWifi.cleanUp();
         EasyMock.expect(mMockWifi.getIpAddress()).andReturn("ip");
         EasyMock.expect(mMockRunUtil.runTimedCmd(EasyMock.anyLong(), EasyMock.eq("adb"),
                 EasyMock.eq("-s"), EasyMock.eq("serial"), EasyMock.eq("tcpip"),
@@ -1203,6 +1220,15 @@ public class TestDeviceTest extends TestCase {
      * {@link TestDevice#installPackage(File, File, boolean, String...)}.
      */
     public void testInstallPackages() throws Exception {
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    InstallReceiver createInstallReceiver() {
+                        InstallReceiver receiver = new InstallReceiver();
+                        receiver.processNewLines(new String[] {"Success"});
+                        return receiver;
+                    }
+                };
         final String certFile = "foo.dc";
         final String apkFile = "foo.apk";
         EasyMock.expect(mMockIDevice.syncPackageToDevice(EasyMock.contains(certFile))).andReturn(
@@ -1210,8 +1236,15 @@ public class TestDeviceTest extends TestCase {
         EasyMock.expect(mMockIDevice.syncPackageToDevice(EasyMock.contains(apkFile))).andReturn(
                 apkFile);
         // expect apk path to be passed as extra arg
-        mMockIDevice.installRemotePackage(EasyMock.eq(certFile), EasyMock.eq(true),
-                EasyMock.eq("-l"), EasyMock.contains(apkFile));
+        mMockIDevice.installRemotePackage(
+                EasyMock.eq(certFile),
+                EasyMock.eq(true),
+                EasyMock.anyObject(),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_MINUTES),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_TO_OUTPUT_MINUTES),
+                EasyMock.eq(TimeUnit.MINUTES),
+                EasyMock.eq("-l"),
+                EasyMock.contains(apkFile));
         EasyMock.expectLastCall();
         mMockIDevice.removeRemotePackage(certFile);
         mMockIDevice.removeRemotePackage(apkFile);
@@ -1302,9 +1335,24 @@ public class TestDeviceTest extends TestCase {
      * @throws Exception
      */
     public void testInstallPackage_default_runtimePermissionNotSupported() throws Exception {
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    InstallReceiver createInstallReceiver() {
+                        InstallReceiver receiver = new InstallReceiver();
+                        receiver.processNewLines(new String[] {"Success"});
+                        return receiver;
+                    }
+                };
         final String apkFile = "foo.apk";
         setMockIDeviceRuntimePermissionNotSupported();
-        mMockIDevice.installPackage(EasyMock.contains(apkFile), EasyMock.eq(true));
+        mMockIDevice.installPackage(
+                EasyMock.contains(apkFile),
+                EasyMock.eq(true),
+                EasyMock.anyObject(),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_MINUTES),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_TO_OUTPUT_MINUTES),
+                EasyMock.eq(TimeUnit.MINUTES));
         EasyMock.expectLastCall();
         replayMocks();
         assertNull(mTestDevice.installPackage(new File(apkFile), true));
@@ -1315,9 +1363,24 @@ public class TestDeviceTest extends TestCase {
      * @throws Exception
      */
     public void testInstallPackage_default_runtimePermissionSupported() throws Exception {
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    InstallReceiver createInstallReceiver() {
+                        InstallReceiver receiver = new InstallReceiver();
+                        receiver.processNewLines(new String[] {"Success"});
+                        return receiver;
+                    }
+                };
         final String apkFile = "foo.apk";
         setMockIDeviceRuntimePermissionSupported();
-        mMockIDevice.installPackage(EasyMock.contains(apkFile), EasyMock.eq(true),
+        mMockIDevice.installPackage(
+                EasyMock.contains(apkFile),
+                EasyMock.eq(true),
+                EasyMock.anyObject(),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_MINUTES),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_TO_OUTPUT_MINUTES),
+                EasyMock.eq(TimeUnit.MINUTES),
                 EasyMock.eq("-g"));
         EasyMock.expectLastCall();
         replayMocks();
@@ -1330,11 +1393,27 @@ public class TestDeviceTest extends TestCase {
      * @throws Exception
      */
     public void testinstallPackageForUser_default_runtimePermissionNotSupported() throws Exception {
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    InstallReceiver createInstallReceiver() {
+                        InstallReceiver receiver = new InstallReceiver();
+                        receiver.processNewLines(new String[] {"Success"});
+                        return receiver;
+                    }
+                };
         final String apkFile = "foo.apk";
         int uid = 123;
         setMockIDeviceRuntimePermissionNotSupported();
-        mMockIDevice.installPackage(EasyMock.contains(apkFile), EasyMock.eq(true),
-                EasyMock.eq("--user"), EasyMock.eq(Integer.toString(uid)));
+        mMockIDevice.installPackage(
+                EasyMock.contains(apkFile),
+                EasyMock.eq(true),
+                EasyMock.anyObject(),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_MINUTES),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_TO_OUTPUT_MINUTES),
+                EasyMock.eq(TimeUnit.MINUTES),
+                EasyMock.eq("--user"),
+                EasyMock.eq(Integer.toString(uid)));
         EasyMock.expectLastCall();
         replayMocks();
         assertNull(mTestDevice.installPackageForUser(new File(apkFile), true, uid));
@@ -1346,11 +1425,28 @@ public class TestDeviceTest extends TestCase {
      * @throws Exception
      */
     public void testinstallPackageForUser_default_runtimePermissionSupported() throws Exception {
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    InstallReceiver createInstallReceiver() {
+                        InstallReceiver receiver = new InstallReceiver();
+                        receiver.processNewLines(new String[] {"Success"});
+                        return receiver;
+                    }
+                };
         final String apkFile = "foo.apk";
         int uid = 123;
         setMockIDeviceRuntimePermissionSupported();
-        mMockIDevice.installPackage(EasyMock.contains(apkFile), EasyMock.eq(true),
-                EasyMock.eq("-g"), EasyMock.eq("--user"), EasyMock.eq(Integer.toString(uid)));
+        mMockIDevice.installPackage(
+                EasyMock.contains(apkFile),
+                EasyMock.eq(true),
+                EasyMock.anyObject(),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_MINUTES),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_TO_OUTPUT_MINUTES),
+                EasyMock.eq(TimeUnit.MINUTES),
+                EasyMock.eq("-g"),
+                EasyMock.eq("--user"),
+                EasyMock.eq(Integer.toString(uid)));
         EasyMock.expectLastCall();
         replayMocks();
         assertNull(mTestDevice.installPackageForUser(new File(apkFile), true, uid));
@@ -1380,13 +1476,56 @@ public class TestDeviceTest extends TestCase {
      * @throws Exception
      */
     public void testInstallPackage_grant_runtimePermissionSupported() throws Exception {
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    InstallReceiver createInstallReceiver() {
+                        InstallReceiver receiver = new InstallReceiver();
+                        receiver.processNewLines(new String[] {"Success"});
+                        return receiver;
+                    }
+                };
         final String apkFile = "foo.apk";
         setMockIDeviceRuntimePermissionSupported();
-        mMockIDevice.installPackage(EasyMock.contains(apkFile), EasyMock.eq(true),
+        mMockIDevice.installPackage(
+                EasyMock.contains(apkFile),
+                EasyMock.eq(true),
+                EasyMock.anyObject(),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_MINUTES),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_TO_OUTPUT_MINUTES),
+                EasyMock.eq(TimeUnit.MINUTES),
                 EasyMock.eq("-g"));
         EasyMock.expectLastCall();
         replayMocks();
         assertNull(mTestDevice.installPackage(new File(apkFile), true, true));
+    }
+
+    /** Test installing an apk that times out without any messages. */
+    public void testInstallPackage_timeout() throws Exception {
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    InstallReceiver createInstallReceiver() {
+                        InstallReceiver receiver = new InstallReceiver();
+                        receiver.processNewLines(new String[] {});
+                        return receiver;
+                    }
+                };
+        final String apkFile = "foo.apk";
+        setMockIDeviceRuntimePermissionSupported();
+        mMockIDevice.installPackage(
+                EasyMock.contains(apkFile),
+                EasyMock.eq(true),
+                EasyMock.anyObject(),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_MINUTES),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_TO_OUTPUT_MINUTES),
+                EasyMock.eq(TimeUnit.MINUTES),
+                EasyMock.eq("-g"));
+        EasyMock.expectLastCall();
+        replayMocks();
+        assertEquals(
+                String.format("Installation of %s timed out", new File(apkFile).getAbsolutePath()),
+                mTestDevice.installPackage(new File(apkFile), true, true));
     }
 
     /**
@@ -1395,9 +1534,24 @@ public class TestDeviceTest extends TestCase {
      * @throws Exception
      */
     public void testInstallPackage_noGrant_runtimePermissionSupported() throws Exception {
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    InstallReceiver createInstallReceiver() {
+                        InstallReceiver receiver = new InstallReceiver();
+                        receiver.processNewLines(new String[] {"Success"});
+                        return receiver;
+                    }
+                };
         final String apkFile = "foo.apk";
         setMockIDeviceRuntimePermissionSupported();
-        mMockIDevice.installPackage(EasyMock.contains(apkFile), EasyMock.eq(true));
+        mMockIDevice.installPackage(
+                EasyMock.contains(apkFile),
+                EasyMock.eq(true),
+                EasyMock.anyObject(),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_MINUTES),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_TO_OUTPUT_MINUTES),
+                EasyMock.eq(TimeUnit.MINUTES));
         EasyMock.expectLastCall();
         replayMocks();
         assertNull(mTestDevice.installPackage(new File(apkFile), true, false));
@@ -1427,11 +1581,28 @@ public class TestDeviceTest extends TestCase {
      * @throws Exception
      */
     public void testInstallPackageForUser_grant_runtimePermissionSupported() throws Exception {
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    InstallReceiver createInstallReceiver() {
+                        InstallReceiver receiver = new InstallReceiver();
+                        receiver.processNewLines(new String[] {"Success"});
+                        return receiver;
+                    }
+                };
         final String apkFile = "foo.apk";
         int uid = 123;
         setMockIDeviceRuntimePermissionSupported();
-        mMockIDevice.installPackage(EasyMock.contains(apkFile), EasyMock.eq(true),
-                EasyMock.eq("-g"), EasyMock.eq("--user"), EasyMock.eq(Integer.toString(uid)));
+        mMockIDevice.installPackage(
+                EasyMock.contains(apkFile),
+                EasyMock.eq(true),
+                EasyMock.anyObject(),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_MINUTES),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_TO_OUTPUT_MINUTES),
+                EasyMock.eq(TimeUnit.MINUTES),
+                EasyMock.eq("-g"),
+                EasyMock.eq("--user"),
+                EasyMock.eq(Integer.toString(uid)));
         EasyMock.expectLastCall();
         replayMocks();
         assertNull(mTestDevice.installPackageForUser(new File(apkFile), true, true, uid));
@@ -1443,11 +1614,27 @@ public class TestDeviceTest extends TestCase {
      * @throws Exception
      */
     public void testInstallPackageForUser_noGrant_runtimePermissionSupported() throws Exception {
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    InstallReceiver createInstallReceiver() {
+                        InstallReceiver receiver = new InstallReceiver();
+                        receiver.processNewLines(new String[] {"Success"});
+                        return receiver;
+                    }
+                };
         final String apkFile = "foo.apk";
         int uid = 123;
         setMockIDeviceRuntimePermissionSupported();
-        mMockIDevice.installPackage(EasyMock.contains(apkFile), EasyMock.eq(true),
-                EasyMock.eq("--user"), EasyMock.eq(Integer.toString(uid)));
+        mMockIDevice.installPackage(
+                EasyMock.contains(apkFile),
+                EasyMock.eq(true),
+                EasyMock.anyObject(),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_MINUTES),
+                EasyMock.eq(TestDevice.INSTALL_TIMEOUT_TO_OUTPUT_MINUTES),
+                EasyMock.eq(TimeUnit.MINUTES),
+                EasyMock.eq("--user"),
+                EasyMock.eq(Integer.toString(uid)));
         EasyMock.expectLastCall();
         replayMocks();
         assertNull(mTestDevice.installPackageForUser(new File(apkFile), true, false, uid));
@@ -1796,10 +1983,38 @@ public class TestDeviceTest extends TestCase {
      */
     public void testListUsers_invalidOutput() throws Exception {
         final String listUsersCommand = "pm list users";
-        injectShellResponse(listUsersCommand, "not really what we are looking for");
+        final String output = "not really what we are looking for";
+        injectShellResponse(listUsersCommand, output);
         replayMocks();
-        ArrayList<Integer> actual = mTestDevice.listUsers();
-        assertNull(actual);
+        try {
+            mTestDevice.listUsers();
+            fail("Failed to throw DeviceRuntimeException.");
+        } catch (DeviceRuntimeException expected) {
+            // expected
+            assertEquals(
+                    String.format("'%s' in not a valid output for 'pm list users'", output),
+                    expected.getMessage());
+        }
+    }
+
+    /** Test that invalid format of users is handled by {@link TestDevice#listUsers()}. */
+    public void testListUsers_unparsableOutput() throws Exception {
+        final String listUsersCommand = "pm list users";
+        final String output = "Users:\n" + "\tUserInfo{0:Ownertooshort}";
+        injectShellResponse(listUsersCommand, output);
+        replayMocks();
+        try {
+            mTestDevice.listUsers();
+            fail("Failed to throw DeviceRuntimeException.");
+        } catch (DeviceRuntimeException expected) {
+            // expected
+            assertEquals(
+                    String.format(
+                            "device output: '%s' \nline: '\tUserInfo{0:Ownertooshort}' was not in the"
+                                    + " expected format for user info.",
+                            output),
+                    expected.getMessage());
+        }
     }
 
     /**
@@ -1837,6 +2052,28 @@ public class TestDeviceTest extends TestCase {
         injectShellResponse(getMaxUsersCommand, "not the output we expect");
         replayMocks();
         assertEquals(0, mTestDevice.getMaxNumberOfUsersSupported());
+    }
+
+    /**
+     * Test that multi user output is handled by {@link TestDevice#getMaxNumberOfUsersSupported()}.
+     */
+    public void testMaxNumberOfRunningUsersSupported() throws Exception {
+        injectSystemProperty("ro.build.version.sdk", "28");
+        injectSystemProperty(TestDevice.BUILD_CODENAME_PROP, "REL");
+        final String getMaxRunningUsersCommand = "pm get-max-running-users";
+        injectShellResponse(getMaxRunningUsersCommand, "Maximum supported running users: 4");
+        replayMocks();
+        assertEquals(4, mTestDevice.getMaxNumberOfRunningUsersSupported());
+    }
+
+    /** Test that invalid output is handled by {@link TestDevice#getMaxNumberOfUsersSupported()}. */
+    public void testMaxNumberOfRunningUsersSupported_invalid() throws Exception {
+        injectSystemProperty("ro.build.version.sdk", "28");
+        injectSystemProperty(TestDevice.BUILD_CODENAME_PROP, "REL");
+        final String getMaxRunningUsersCommand = "pm get-max-running-users";
+        injectShellResponse(getMaxRunningUsersCommand, "not the output we expect");
+        replayMocks();
+        assertEquals(0, mTestDevice.getMaxNumberOfRunningUsersSupported());
     }
 
     /**
@@ -1956,7 +2193,7 @@ public class TestDeviceTest extends TestCase {
     public void testrunInstrumentationTestsAsUser_failed() throws Exception {
         IRemoteAndroidTestRunner mockRunner = EasyMock.createMock(IRemoteAndroidTestRunner.class);
         EasyMock.expect(mockRunner.getPackageName()).andStubReturn("com.example");
-        Collection<ITestRunListener> listeners = new ArrayList<ITestRunListener>();
+        Collection<ITestLifeCycleReceiver> listeners = new ArrayList<>();
         EasyMock.replay(mockRunner);
         try {
             mTestDevice.runInstrumentationTestsAsUser(mockRunner, 12, listeners);
@@ -3033,8 +3270,14 @@ public class TestDeviceTest extends TestCase {
             // Size of the raw test data
             Assert.assertEquals(3000, testImage.data.length);
             byte[] result = mTestDevice.compressRawImage(testImage, "PNG", true);
-            // Size after compressing
-            Assert.assertEquals(107, result.length);
+            // Size after compressing can vary a bit depending of the JDK
+            if (result.length != 107 && result.length != 117) {
+                fail(
+                        String.format(
+                                "Should have compress the length as expected, got %s, "
+                                        + "expected 107 or 117",
+                                result.length));
+            }
 
             // Do it again with JPEG encoding
             Assert.assertEquals(3000, testImage.data.length);
@@ -3144,6 +3387,24 @@ public class TestDeviceTest extends TestCase {
                     public String executeShellCommand(String command)
                             throws DeviceNotAvailableException {
                         return "KeyguardController:\n"
+                                + "  mKeyguardShowing=true\n"
+                                + "  mKeyguardGoingAway=false\n"
+                                + "  mOccluded=false\n";
+                    }
+                };
+        KeyguardControllerState state = mTestDevice.getKeyguardState();
+        Assert.assertTrue(state.isKeyguardShowing());
+        Assert.assertFalse(state.isKeyguardOccluded());
+    }
+
+    /** New output of dumpsys is not as clean and has stuff in front. */
+    public void testGetKeyguardState_new() throws Exception {
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    public String executeShellCommand(String command)
+                            throws DeviceNotAvailableException {
+                        return "isHomeRecentsComponent=true  KeyguardController:\n"
                                 + "  mKeyguardShowing=true\n"
                                 + "  mKeyguardGoingAway=false\n"
                                 + "  mOccluded=false\n";
@@ -3356,5 +3617,52 @@ public class TestDeviceTest extends TestCase {
         } catch (IllegalArgumentException expected) {
             // expected
         }
+    }
+
+    /**
+     * Test that the wifi helper is uninstalled at postInvocationTearDown if it was installed
+     * before.
+     */
+    public void testPostInvocationWifiTearDown() throws Exception {
+        // A TestDevice with a no-op recoverDevice() implementation
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    public void recoverDevice() throws DeviceNotAvailableException {
+                        // ignore
+                    }
+
+                    @Override
+                    public String installPackage(
+                            File packageFile, boolean reinstall, String... extraArgs)
+                            throws DeviceNotAvailableException {
+                        // Fake install is successfull
+                        return null;
+                    }
+
+                    @Override
+                    IWifiHelper createWifiHelper() throws DeviceNotAvailableException {
+                        super.createWifiHelper();
+                        return mMockWifi;
+                    }
+
+                    @Override
+                    IWifiHelper createWifiHelper(boolean doSetup)
+                            throws DeviceNotAvailableException {
+                        return mMockWifi;
+                    }
+                };
+        mMockIDevice.executeShellCommand(
+                EasyMock.eq("dumpsys package com.android.tradefed.utils.wifi"),
+                EasyMock.anyObject(),
+                EasyMock.anyLong(),
+                EasyMock.anyObject());
+        EasyMock.expect(mMockWifi.getIpAddress()).andReturn("ip");
+        // Wifi is cleaned up by the post invocation tear down.
+        mMockWifi.cleanUp();
+        replayMocks();
+        mTestDevice.getIpAddress();
+        mTestDevice.postInvocationTearDown();
+        verifyMocks();
     }
 }

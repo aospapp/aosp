@@ -58,7 +58,7 @@ public class AutomaticStorageManagementJobService extends JobService {
         }
 
         mProvider = FeatureFactory.getFactory(this).getStorageManagementJobProvider();
-        if (maybeDisableDueToPolicy(mProvider, getContentResolver(), getClock())) {
+        if (maybeDisableDueToPolicy(mProvider, this, getClock())) {
             jobFinished(args, false);
             return false;
         }
@@ -72,10 +72,7 @@ public class AutomaticStorageManagementJobService extends JobService {
             return false;
         }
 
-        boolean isEnabled =
-                Settings.Secure.getInt(getContentResolver(),
-                        Settings.Secure.AUTOMATIC_STORAGE_MANAGER_ENABLED, 0) != 0;
-        if (!isEnabled) {
+        if (!Utils.isStorageManagerEnabled(getApplicationContext())) {
             Intent maybeShowNotificationIntent =
                     new Intent(NotificationController.INTENT_ACTION_SHOW_NOTIFICATION);
             maybeShowNotificationIntent.setClass(getApplicationContext(),
@@ -136,12 +133,18 @@ public class AutomaticStorageManagementJobService extends JobService {
     /** Returns if ASM was disabled due to policy. * */
     @VisibleForTesting
     static boolean maybeDisableDueToPolicy(
-            StorageManagementJobProvider provider, ContentResolver cr, Clock clock) {
+            StorageManagementJobProvider provider, Context context, Clock clock) {
+        final ContentResolver cr = context.getContentResolver();
         if (provider == null || cr == null) {
             return false;
         }
 
-        final long disabledThresholdMillis = provider.getDisableThresholdMillis(cr);
+        final long disabledThresholdMillis = provider.getDisableThresholdMillis(context);
+        // Toss invalid thresholds.
+        if (disabledThresholdMillis < 0) {
+            return false;
+        }
+
         final long currentTime = clock.currentTimeMillis();
         final boolean disabledByPolicyInThePast =
                 Settings.Secure.getInt(

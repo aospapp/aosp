@@ -20,17 +20,32 @@ from metrics.metric import Metric
 class VerifyMetric(Metric):
     """Gathers the information of connected devices via ADB"""
     COMMAND = r"adb devices | sed '1d;$d'"
-    DEVICES = 'devices'
+    UNAUTHORIZED = 'unauthorized'
+    OFFLINE = 'offline'
+    RECOVERY = 'recovery'
+    QUESTION = 'question'
+    DEVICE = 'device'
+    TOTAL_UNHEALTHY = 'total_unhealthy'
 
     def gather_metric(self):
         """ Gathers device info based on adb output.
 
         Returns:
-            A dictionary with the field:
-            devices: a dict with device serial number as key and device status as
-            value.
+            A dictionary with the fields:
+            unauthorized: list of phone sn's that are unauthorized
+            offline: list of phone sn's that are offline
+            recovery: list of phone sn's that are in recovery mode
+            question: list of phone sn's in ??? mode
+            device: list of phone sn's that are in device mode
+            total: total number of offline, recovery, question or unauthorized
+                devices
         """
-        device_dict = {}
+        offline_list = list()
+        unauth_list = list()
+        recovery_list = list()
+        question_list = list()
+        device_list = list()
+
         # Delete first and last line of output of adb.
         output = self._shell.run(self.COMMAND).stdout
 
@@ -40,6 +55,32 @@ class VerifyMetric(Metric):
             for line in output.split('\n'):
                 spl_line = line.split('\t')
                 # spl_line[0] is serial, [1] is status. See example line.
-                device_dict[spl_line[0]] = spl_line[1]
+                phone_sn = spl_line[0]
+                phone_state = spl_line[1]
 
-        return {self.DEVICES: device_dict}
+                if phone_state == 'device':
+                    device_list.append(phone_sn)
+                elif phone_state == 'unauthorized':
+                    unauth_list.append(phone_sn)
+                elif phone_state == 'recovery':
+                    recovery_list.append(phone_sn)
+                elif '?' in phone_state:
+                    question_list.append(phone_sn)
+                elif phone_state == 'offline':
+                    offline_list.append(phone_sn)
+
+        return {
+            self.UNAUTHORIZED:
+            unauth_list,
+            self.OFFLINE:
+            offline_list,
+            self.RECOVERY:
+            recovery_list,
+            self.QUESTION:
+            question_list,
+            self.DEVICE:
+            device_list,
+            self.TOTAL_UNHEALTHY:
+            len(unauth_list) + len(offline_list) + len(recovery_list) +
+            len(question_list)
+        }

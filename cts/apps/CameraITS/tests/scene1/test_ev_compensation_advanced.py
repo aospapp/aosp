@@ -41,6 +41,7 @@ def main():
                              its.caps.per_frame_control(props) and
                              its.caps.ev_compensation(props))
 
+        mono_camera = its.caps.mono_camera(props)
         debug = its.caps.debug_mode()
         largest_yuv = its.objects.get_largest_yuv_format(props)
         if debug:
@@ -63,20 +64,21 @@ def main():
         # Converge 3A, and lock AE once converged. skip AF trigger as
         # dark/bright scene could make AF convergence fail and this test
         # doesn't care the image sharpness.
-        cam.do_3a(ev_comp=0, lock_ae=True, do_af=False)
+        cam.do_3a(ev_comp=0, lock_ae=True, do_af=False, mono_camera=mono_camera)
 
         for ev in ev_steps:
 
             # Capture a single shot with the same EV comp and locked AE.
             req = its.objects.auto_capture_request()
             req['android.control.aeExposureCompensation'] = ev
-            req["android.control.aeLock"] = True
+            req['android.control.aeLock'] = True
             # Use linear tone curve to avoid brightness being impacted
             # by tone curves.
-            req["android.tonemap.mode"] = 0
-            req["android.tonemap.curveRed"] = [0.0,0.0, 1.0,1.0]
-            req["android.tonemap.curveGreen"] = [0.0,0.0, 1.0,1.0]
-            req["android.tonemap.curveBlue"] = [0.0,0.0, 1.0,1.0]
+            req['android.tonemap.mode'] = 0
+            req['android.tonemap.curve'] = {
+                'red': [0.0,0.0, 1.0,1.0],
+                'green': [0.0,0.0, 1.0,1.0],
+                'blue': [0.0,0.0, 1.0,1.0]}
             caps = cam.do_capture([req]*THREASH_CONVERGE_FOR_EV, fmt)
 
             for cap in caps:

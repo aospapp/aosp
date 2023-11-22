@@ -17,10 +17,9 @@
 #ifndef __VTS_SYSFUZZER_COMMON_FUZZER_CALLBACK_BASE_H__
 #define __VTS_SYSFUZZER_COMMON_FUZZER_CALLBACK_BASE_H__
 
-#include "component_loader/DllLoader.h"
-
 #include <string>
 
+#include "component_loader/DllLoader.h"
 #include "test/vts/proto/AndroidSystemControlMessage.pb.h"
 #include "test/vts/proto/ComponentSpecificationMessage.pb.h"
 

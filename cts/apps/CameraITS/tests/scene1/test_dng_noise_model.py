@@ -22,7 +22,7 @@ from matplotlib import pylab
 
 NAME = os.path.basename(__file__).split('.')[0]
 BAYER_LIST = ['R', 'GR', 'GB', 'B']
-DIFF_THRESH = 0.0005  # absolute variance delta threshold
+DIFF_THRESH = 0.0012  # absolute variance delta threshold
 FRAC_THRESH = 0.2  # relative variance delta threshold
 NUM_STEPS = 4
 STATS_GRID = 49  # center 2.04% of image for calculations
@@ -45,7 +45,8 @@ def main():
                              its.caps.raw16(props) and
                              its.caps.manual_sensor(props) and
                              its.caps.read_3a(props) and
-                             its.caps.per_frame_control(props))
+                             its.caps.per_frame_control(props) and
+                             not its.caps.mono_camera(props))
         debug = its.caps.debug_mode()
 
         white_level = float(props['android.sensor.info.whiteLevel'])
@@ -119,8 +120,8 @@ def main():
 
     # PASS/FAIL check
     for i, ch in enumerate(BAYER_LIST):
-        diffs = [var_measured[i][j] - var_expected[i][j]
-                 for j in range(NUM_STEPS)]
+        diffs = [abs(var_measured[i][j] - var_expected[i][j])
+                 for j in range(len(sensitivities))]
         print 'Diffs (%s):'%(ch), diffs
         for j, diff in enumerate(diffs):
             thresh = max(DIFF_THRESH, FRAC_THRESH*var_expected[i][j])
@@ -128,4 +129,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

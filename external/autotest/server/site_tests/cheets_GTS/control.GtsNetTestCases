@@ -13,8 +13,7 @@ TEST_TYPE = 'server'
 TIME = 'LENGTHY'
 
 DOC = ('Run package GtsNetTestCases of the '
-       'Android 4.1_r2 Google Test Suite (GTS), build 3911033,'
-       'in the ARC++ container.')
+       'Android Google Test Suite (GTS) in the ARC++ container.')
 
 def run_GTS(machine):
     host = hosts.create_host(machine)
@@ -22,8 +21,10 @@ def run_GTS(machine):
         'cheets_GTS',
         host=host,
         iterations=1,
+        max_retry=2,
         tag='GtsNetTestCases',
         target_package='GtsNetTestCases',
-        timeout=3600)
+
+        timeout=360)
 
 parallel_simple(run_GTS, machines)

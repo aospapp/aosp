@@ -64,6 +64,7 @@ from acts.test_utils.tel.tel_test_utils import is_wfc_enabled
 from acts.test_utils.tel.tel_test_utils import \
     reset_preferred_network_type_to_allowable_range
 from acts.test_utils.tel.tel_test_utils import set_wfc_mode
+from acts.test_utils.tel.tel_test_utils import set_wifi_to_default
 from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts.test_utils.tel.tel_test_utils import toggle_volte
 from acts.test_utils.tel.tel_test_utils import toggle_volte_for_subscription
@@ -435,6 +436,7 @@ def phone_setup_data_for_subscription(log, ad, sub_id, network_generation):
         True if success, False if fail.
     """
     toggle_airplane_mode(log, ad, False, strict_checking=False)
+    set_wifi_to_default(log, ad)
     if not set_wfc_mode(log, ad, WFC_MODE_DISABLED):
         ad.log.error("Disable WFC failed.")
         return False
@@ -771,6 +773,7 @@ def phone_setup_data_general_for_subscription(log, ad, sub_id):
 def phone_setup_rat_for_subscription(log, ad, sub_id, network_preference,
                                      rat_family):
     toggle_airplane_mode(log, ad, False, strict_checking=False)
+    set_wifi_to_default(log, ad)
     if not set_wfc_mode(log, ad, WFC_MODE_DISABLED):
         ad.log.error("Disable WFC failed.")
         return False
@@ -978,6 +981,7 @@ def phone_idle_2g_for_subscription(log, ad, sub_id):
     return wait_for_network_generation_for_subscription(
         log, ad, sub_id, GEN_2G, voice_or_data=NETWORK_SERVICE_VOICE)
 
+
 def get_current_voice_rat(log, ad):
     """Return current Voice RAT
 
@@ -987,6 +991,7 @@ def get_current_voice_rat(log, ad):
     return get_current_voice_rat_for_subscription(
         log, ad, get_outgoing_voice_sub_id(ad))
 
+
 def get_current_voice_rat_for_subscription(log, ad, sub_id):
     """Return current Voice RAT for subscription id.
 
@@ -995,7 +1000,8 @@ def get_current_voice_rat_for_subscription(log, ad, sub_id):
         sub_id: subscription id.
     """
     return get_network_rat_for_subscription(log, ad, sub_id,
-                                           NETWORK_SERVICE_VOICE)
+                                            NETWORK_SERVICE_VOICE)
+
 
 def is_phone_in_call_volte(log, ad):
     """Return if phone is in VoLTE call.

@@ -41,7 +41,7 @@ def GetRequrementDefinitions():
                 to_cleanup=True), path_permission.PathPermission(
                     paths=[ltp_configs.TMP, ltp_configs.TMPBASE,
                            ltp_configs.LTPTMP, ltp_configs.TMPDIR],
-                    permissions=775,
+                    permissions=777,
                     to_check=False,
                     to_setup=True,
                     to_cleanup=False)

@@ -24,6 +24,7 @@ import android.media.MediaPlayer;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
 import android.os.PowerManager;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
@@ -36,6 +37,7 @@ import static android.app.WallpaperManager.FLAG_LOCK;
 /**
  * Verify that Wallpaper-related operations enforce the correct permissions.
  */
+@AppModeFull(reason = "instant apps cannot access the WallpaperManager")
 public class NoWallpaperPermissionsTest extends AndroidTestCase {
     private WallpaperManager mWM;
 

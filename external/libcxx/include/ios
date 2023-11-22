@@ -592,6 +592,9 @@ public:
     typedef typename traits_type::pos_type pos_type;
     typedef typename traits_type::off_type off_type;
 
+    static_assert((is_same<_CharT, typename traits_type::char_type>::value),
+                  "traits_type::char_type must be the same type as CharT");
+
   // __true_value will generate undefined references when linking unless
   // we give it internal linkage.
 
@@ -657,7 +660,7 @@ protected:
 
     _LIBCPP_INLINE_VISIBILITY 
     void move(basic_ios& __rhs);
-#ifndef _LIBCPP_HAS_NO_RVALUE_REFERENCES
+#ifndef _LIBCPP_CXX03_LANG
     _LIBCPP_ALWAYS_INLINE
     void move(basic_ios&& __rhs) {move(__rhs);}
 #endif

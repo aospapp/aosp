@@ -400,7 +400,14 @@ public class LinkReference {
         }
       }
       if (result.label.length() == 0) {
-        result.label = result.referencedMemberName;
+        // Qualify labels that link beyond the base context
+        final boolean beyondBase = base != null && containing != null
+            && !base.qualifiedName().equals(containing.qualifiedName());
+        if (beyondBase) {
+          result.label = containing.name() + "." + result.referencedMemberName;
+        } else {
+          result.label = result.referencedMemberName;
+        }
       }
       setHref(result, containing, result.memberInfo.anchor());
       if (DBG) System.out.println(" ---- member reference");

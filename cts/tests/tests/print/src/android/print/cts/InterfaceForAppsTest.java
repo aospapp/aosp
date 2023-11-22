@@ -16,6 +16,14 @@
 
 package android.print.cts;
 
+import static android.print.test.Utils.eventually;
+import static android.print.test.Utils.getPrintJob;
+import static android.print.test.Utils.getPrintManager;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintJob;
@@ -23,22 +31,22 @@ import android.print.PrintJobInfo;
 import android.print.PrinterCapabilitiesInfo;
 import android.print.PrinterId;
 import android.print.PrinterInfo;
-import android.print.cts.services.FirstPrintService;
-import android.print.cts.services.PrintServiceCallbacks;
-import android.print.cts.services.PrinterDiscoverySessionCallbacks;
-import android.print.cts.services.SecondPrintService;
-import android.print.cts.services.StubbablePrinterDiscoverySession;
-import android.support.annotation.NonNull;
+import android.print.test.BasePrintTest;
+import android.print.test.services.FirstPrintService;
+import android.print.test.services.PrintServiceCallbacks;
+import android.print.test.services.PrinterDiscoverySessionCallbacks;
+import android.print.test.services.SecondPrintService;
+import android.print.test.services.StubbablePrinterDiscoverySession;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
-
-import static android.print.cts.Utils.*;
-import static org.junit.Assert.*;
 
 /**
  * Test interface from the application to the print service.
@@ -358,11 +366,11 @@ public class InterfaceForAppsTest extends BasePrintTest {
         // Set some non default options
         openPrintOptions();
         changeCopies(2);
-        changeColor(getPrintSpoolerStringArray("color_mode_labels")[1]);
+        changeColor("Color");
         // Leave duplex as default to test that defaults are retained
         changeMediaSize(
                 PrintAttributes.MediaSize.ISO_A3.getLabel(getActivity().getPackageManager()));
-        changeOrientation(getPrintSpoolerStringArray("orientation_labels")[1]);
+        changeOrientation("Landscape");
 
         // Print and wait until it is completed
         clickPrintButton();

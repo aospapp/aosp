@@ -28,13 +28,13 @@ import android.telephony.TelephonyManager;
 import android.util.ArrayMap;
 import com.android.dialer.app.calllog.CallLogAlertManager;
 import com.android.dialer.app.calllog.CallLogModalAlertManager;
-import com.android.dialer.app.voicemail.error.VoicemailErrorAlert;
-import com.android.dialer.app.voicemail.error.VoicemailErrorMessageCreator;
-import com.android.dialer.app.voicemail.error.VoicemailStatus;
-import com.android.dialer.app.voicemail.error.VoicemailStatusReader;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.database.CallLogQueryHandler;
+import com.android.dialer.voicemail.listui.error.VoicemailErrorAlert;
+import com.android.dialer.voicemail.listui.error.VoicemailErrorMessageCreator;
+import com.android.dialer.voicemail.listui.error.VoicemailStatus;
+import com.android.dialer.voicemail.listui.error.VoicemailStatusReader;
 import com.android.voicemail.VoicemailComponent;
 import java.util.ArrayList;
 import java.util.List;
@@ -92,7 +92,7 @@ public class VoicemailErrorManager implements CallLogQueryHandler.Listener, Voic
       }
     }
     alertItem.updateStatus(statuses, this);
-    // TODO: b/30668323 support error from multiple sources.
+    // TODO(twyen): a bug support error from multiple sources.
     return;
   }
 

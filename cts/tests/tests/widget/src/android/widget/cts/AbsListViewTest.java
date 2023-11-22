@@ -41,6 +41,7 @@ import static org.mockito.Mockito.verifyZeroInteractions;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -60,11 +61,13 @@ import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.ActionMode;
 import android.view.ContextMenu.ContextMenuInfo;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AbsListView;
 import android.widget.AbsListView.OnScrollListener;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListAdapter;
 import android.widget.ListView;
@@ -125,9 +128,9 @@ public class AbsListViewTest {
     @Before
     public void setup() throws Exception {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
-        mContext = mInstrumentation.getTargetContext();
-
         final Activity activity = mActivityRule.getActivity();
+        // Always use the activity context
+        mContext = activity;
 
         PollingCheck.waitFor(activity::hasWindowFocus);
 
@@ -145,7 +148,7 @@ public class AbsListViewTest {
 
     private boolean isWatch() {
         return (mContext.getResources().getConfiguration().uiMode
-                & Configuration.UI_MODE_TYPE_WATCH) == Configuration.UI_MODE_TYPE_WATCH;
+                & Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_WATCH;
     }
 
     @Test
@@ -410,6 +413,53 @@ public class AbsListViewTest {
         assertEquals(v.getLeft(), r.left);
         assertEquals(v.getTop(), r.top);
         assertEquals(v.getBottom(), r.bottom);
+    }
+
+    @Test
+    public void testSelectorOnScreen() throws Throwable {
+        // leave touch-mode
+        mInstrumentation.setInTouchMode(false);
+        setAdapter();
+        mInstrumentation.waitForIdleSync();
+        // Entering touch mode hides selector
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
+            // make sure we've left touchmode (including message sending. instrumentation just sets
+            // a variable without any broadcast).
+            mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_TAB);
+            mActivityRule.runOnUiThread(() -> {
+                mListView.requestFocus();
+                mListView.setSelectionFromTop(1, 0);
+            });
+            mInstrumentation.waitForIdleSync();
+            assertEquals(1, mListView.getSelectedItemPosition());
+            final int[] pt = new int[2];
+            mListView.getLocationOnScreen(pt);
+            CtsTouchUtils.emulateDragGesture(mInstrumentation, pt[0] + 2, pt[1] + 2, 0, 10);
+            mInstrumentation.waitForIdleSync();
+            assertEquals(AdapterView.INVALID_POSITION, mListView.getSelectedItemPosition());
+            // leave touch-mode
+            mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_TAB);
+        }
+
+        // Scroll off-screen hides selector, but shows up again when on-screen
+        mActivityRule.runOnUiThread(() -> {
+            mListView.requestFocus();
+            mListView.setSelectionFromTop(1, 0);
+        });
+        mInstrumentation.waitForIdleSync();
+        assertEquals(1, mListView.getSelectedItemPosition());
+        int selViewHeight = mListView.getSelectedView().getHeight();
+        final int[] pt = new int[2];
+        mListView.getLocationOnScreen(pt);
+        pt[0] += mListView.getWidth() / 2;
+        pt[1] += selViewHeight / 2;
+        mActivityRule.runOnUiThread(() -> mListView.scrollListBy(selViewHeight * 2));
+        mInstrumentation.waitForIdleSync();
+        assertEquals(1, mListView.getSelectedItemPosition());
+        assertFalse(mListView.shouldDrawSelector());
+        mActivityRule.runOnUiThread(() -> mListView.scrollListBy(-(selViewHeight * 4) / 3));
+        assertEquals(1, mListView.getSelectedItemPosition());
+        assertTrue(mListView.shouldDrawSelector());
     }
 
     @Test

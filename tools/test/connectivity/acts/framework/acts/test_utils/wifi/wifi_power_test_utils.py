@@ -15,155 +15,28 @@
 #   limitations under the License.
 
 import logging
-import os
 import time
-from acts import asserts
 from acts import utils
 from acts.controllers import monsoon
 from acts.libs.proc import job
+from acts.controllers.ap_lib import bridge_interface as bi
 from acts.test_utils.wifi import wifi_test_utils as wutils
 from bokeh.layouts import layout
 from bokeh.models import CustomJS, ColumnDataSource
+from bokeh.models import tools as bokeh_tools
 from bokeh.models.widgets import DataTable, TableColumn
 from bokeh.plotting import figure, output_file, save
 from acts.controllers.ap_lib import hostapd_security
 from acts.controllers.ap_lib import hostapd_ap_preset
+
 # http://www.secdev.org/projects/scapy/
 # On ubuntu, sudo pip3 install scapy-python3
 import scapy.all as scapy
 
-SETTINGS_PAGE = "am start -n com.android.settings/.Settings"
-SCROLL_BOTTOM = "input swipe 0 2000 0 0"
-UNLOCK_SCREEN = "input keyevent 82"
-SCREENON_USB_DISABLE = "dumpsys battery unplug"
-RESET_BATTERY_STATS = "dumpsys batterystats --reset"
-AOD_OFF = "settings put secure doze_always_on 0"
-MUSIC_IQ_OFF = "pm disable-user com.google.intelligence.sense"
-# Command to disable gestures
-LIFT = "settings put secure doze_pulse_on_pick_up 0"
-DOUBLE_TAP = "settings put secure doze_pulse_on_double_tap 0"
-JUMP_TO_CAMERA = "settings put secure camera_double_tap_power_gesture_disabled 1"
-RAISE_TO_CAMERA = "settings put secure camera_lift_trigger_enabled 0"
-FLIP_CAMERA = "settings put secure camera_double_twist_to_flip_enabled 0"
-ASSIST_GESTURE = "settings put secure assist_gesture_enabled 0"
-ASSIST_GESTURE_ALERT = "settings put secure assist_gesture_silence_alerts_enabled 0"
-ASSIST_GESTURE_WAKE = "settings put secure assist_gesture_wake_enabled 0"
-SYSTEM_NAVI = "settings put secure system_navigation_keys_enabled 0"
-# End of command to disable gestures
-AUTO_TIME_OFF = "settings put global auto_time 0"
-AUTO_TIMEZONE_OFF = "settings put global auto_time_zone 0"
-FORCE_YOUTUBE_STOP = "am force-stop com.google.android.youtube"
-FORCE_DIALER_STOP = "am force-stop com.google.android.dialer"
-IPERF_TIMEOUT = 180
-THRESHOLD_TOLERANCE = 0.2
 GET_FROM_PHONE = 'get_from_dut'
 GET_FROM_AP = 'get_from_ap'
-
-
-def dut_rockbottom(ad):
-    """Set the phone into Rock-bottom state.
-
-    Args:
-        ad: the target android device, AndroidDevice object
-
-    """
-    ad.log.info("Now set the device to Rockbottom State")
-    utils.require_sl4a((ad, ))
-    ad.droid.connectivityToggleAirplaneMode(False)
-    time.sleep(5)
-    ad.droid.connectivityToggleAirplaneMode(True)
-    utils.set_ambient_display(ad, False)
-    utils.set_auto_rotate(ad, False)
-    utils.set_adaptive_brightness(ad, False)
-    utils.sync_device_time(ad)
-    utils.set_location_service(ad, False)
-    utils.set_mobile_data_always_on(ad, False)
-    utils.disable_doze_light(ad)
-    utils.disable_doze(ad)
-    wutils.reset_wifi(ad)
-    wutils.wifi_toggle_state(ad, False)
-    ad.droid.nfcDisable()
-    ad.droid.setScreenBrightness(0)
-    ad.adb.shell(AOD_OFF)
-    ad.droid.setScreenTimeout(2200)
-    ad.droid.wakeUpNow()
-    ad.adb.shell(LIFT)
-    ad.adb.shell(DOUBLE_TAP)
-    ad.adb.shell(JUMP_TO_CAMERA)
-    ad.adb.shell(RAISE_TO_CAMERA)
-    ad.adb.shell(FLIP_CAMERA)
-    ad.adb.shell(ASSIST_GESTURE)
-    ad.adb.shell(ASSIST_GESTURE_ALERT)
-    ad.adb.shell(ASSIST_GESTURE_WAKE)
-    ad.adb.shell(SCREENON_USB_DISABLE)
-    ad.adb.shell(UNLOCK_SCREEN)
-    ad.adb.shell(SETTINGS_PAGE)
-    ad.adb.shell(SCROLL_BOTTOM)
-    ad.adb.shell(MUSIC_IQ_OFF)
-    ad.adb.shell(AUTO_TIME_OFF)
-    ad.adb.shell(AUTO_TIMEZONE_OFF)
-    ad.adb.shell(FORCE_YOUTUBE_STOP)
-    ad.adb.shell(FORCE_DIALER_STOP)
-    ad.droid.wakeUpNow()
-    ad.log.info('Device has been set to Rockbottom state')
-
-
-def pass_fail_check(test_class, test_result):
-    """Check the test result and decide if it passed or failed.
-    The threshold is provided in the config file
-
-    Args:
-        test_class: the specific test class where test is running
-        avg_current: the average current as the test result
-    """
-    test_name = test_class.current_test_name
-    current_threshold = test_class.threshold[test_name]
-    asserts.assert_true(
-        abs(test_result - current_threshold) / current_threshold <
-        THRESHOLD_TOLERANCE,
-        ("Measured average current in [%s]: %s, which is "
-         "more than %d percent off than acceptable threshold %.2fmA") %
-        (test_name, test_result, THRESHOLD_TOLERANCE * 100, current_threshold))
-    asserts.explicit_pass("Measurement finished for %s." % test_name)
-
-
-def monsoon_data_collect_save(ad, mon_info, test_name, bug_report):
-    """Current measurement and save the log file.
-
-    Collect current data using Monsoon box and return the path of the
-    log file. Take bug report if requested.
-
-    Args:
-        ad: the android device under test
-        mon_info: dict with information of monsoon measurement, including
-                  monsoon device object, measurement frequency, duration and
-                  offset etc.
-        test_name: current test name, used to contruct the result file name
-        bug_report: indicator to take bug report or not, 0 or 1
-    Returns:
-        data_path: the absolute path to the log file of monsoon current
-                   measurement
-        avg_current: the average current of the test
-    """
-    log = logging.getLogger()
-    log.info("Starting power measurement with monsoon box")
-    tag = (test_name + '_' + ad.model + '_' + ad.build_info['build_id'])
-    #Resets the battery status right before the test started
-    ad.adb.shell(RESET_BATTERY_STATS)
-    begin_time = utils.get_current_human_time()
-    #Start the power measurement using monsoon
-    result = mon_info['dut'].measure_power(
-        mon_info['freq'],
-        mon_info['duration'],
-        tag=tag,
-        offset=mon_info['offset'])
-    data_path = os.path.join(mon_info['data_path'], "%s.txt" % tag)
-    avg_current = result.average_current
-    monsoon.MonsoonData.save_to_text_file([result], data_path)
-    log.info("Power measurement done")
-    if bool(bug_report) == True:
-        ad.take_bug_report(test_name, begin_time)
-    return data_path, avg_current
+ENABLED_MODULATED_DTIM = 'gEnableModulatedDTIM='
+MAX_MODULATED_DTIM = 'gMaxLIModulatedDTIM='
 
 
 def monsoon_data_plot(mon_info, file_path, tag=""):
@@ -176,7 +49,7 @@ def monsoon_data_plot(mon_info, file_path, tag=""):
     https://drive.google.com/open?id=0Bwp8Cq841VnpT2dGUUxLYWZvVjA
 
     Args:
-        mon_info: dict with information of monsoon measurement, including
+        mon_info: obj with information of monsoon measurement, including
                   monsoon device object, measurement frequency, duration and
                   offset etc.
         file_path: the path to the monsoon log file with current data
@@ -198,7 +71,7 @@ def monsoon_data_plot(mon_info, file_path, tag=""):
     voltage = results[0].voltage
     [current_data.extend(x.data_points) for x in results]
     [timestamps.extend(x.timestamps) for x in results]
-    period = 1 / float(mon_info['freq'])
+    period = 1 / float(mon_info.freq)
     time_relative = [x * period for x in range(len(current_data))]
     #Calculate the average current for the test
     current_data = [x * 1000 for x in current_data]
@@ -206,14 +79,15 @@ def monsoon_data_plot(mon_info, file_path, tag=""):
     color = ['navy'] * len(current_data)
 
     #Preparing the data and source link for bokehn java callback
-    source = ColumnDataSource(data=dict(
-        x0=time_relative, y0=current_data, color=color))
-    s2 = ColumnDataSource(data=dict(
-        z0=[mon_info['duration']],
-        y0=[round(avg_current, 2)],
-        x0=[round(avg_current * voltage, 2)],
-        z1=[round(avg_current * voltage * mon_info['duration'], 2)],
-        z2=[round(avg_current * mon_info['duration'], 2)]))
+    source = ColumnDataSource(
+        data=dict(x0=time_relative, y0=current_data, color=color))
+    s2 = ColumnDataSource(
+        data=dict(
+            z0=[mon_info.duration],
+            y0=[round(avg_current, 2)],
+            x0=[round(avg_current * voltage, 2)],
+            z1=[round(avg_current * voltage * mon_info.duration, 2)],
+            z2=[round(avg_current * mon_info.duration, 2)]))
     #Setting up data table for the output
     columns = [
         TableColumn(field='z0', title='Total Duration (s)'),
@@ -226,16 +100,17 @@ def monsoon_data_plot(mon_info, file_path, tag=""):
         source=s2, columns=columns, width=1300, height=60, editable=True)
 
     plot_title = file_path[file_path.rfind('/') + 1:-4] + tag
-    output_file("%s/%s.html" % (mon_info['data_path'], plot_title))
-    TOOLS = ('box_zoom,box_select,pan,crosshair,redo,undo,resize,reset,'
-             'hover,xwheel_zoom,ywheel_zoom,save')
+    output_file("%s/%s.html" % (mon_info.data_path, plot_title))
+    TOOLS = ('box_zoom,box_select,pan,crosshair,redo,undo,reset,hover,save')
     # Create a new plot with the datatable above
     plot = figure(
         plot_width=1300,
         plot_height=700,
         title=plot_title,
         tools=TOOLS,
-        webgl=True)
+        output_backend="webgl")
+    plot.add_tools(bokeh_tools.WheelZoomTool(dimensions="width"))
+    plot.add_tools(bokeh_tools.WheelZoomTool(dimensions="height"))
     plot.line('x0', 'y0', source=source, line_width=2)
     plot.circle('x0', 'y0', source=source, size=0.5, fill_color='color')
     plot.xaxis.axis_label = 'Time (s)'
@@ -287,7 +162,7 @@ def monsoon_data_plot(mon_info, file_path, tag=""):
     return [plot, dt]
 
 
-def change_dtim(ad, gEnableModulatedDTIM, gMaxLIModulatedDTIM=6):
+def change_dtim(ad, gEnableModulatedDTIM, gMaxLIModulatedDTIM=10):
     """Function to change the DTIM setting in the phone.
 
     Args:
@@ -295,62 +170,79 @@ def change_dtim(ad, gEnableModulatedDTIM, gMaxLIModulatedDTIM=6):
         gEnableModulatedDTIM: Modulated DTIM, int
         gMaxLIModulatedDTIM: Maximum modulated DTIM, int
     """
-    serial = ad.serial
-    ini_file_phone = 'vendor/firmware/wlan/qca_cld/WCNSS_qcom_cfg.ini'
-    ini_file_local = 'local_ini_file.ini'
-    ini_pull_cmd = 'adb -s %s pull %s %s' % (serial, ini_file_phone,
-                                             ini_file_local)
-    ini_push_cmd = 'adb -s %s push %s %s' % (serial, ini_file_local,
-                                             ini_file_phone)
-    utils.exe_cmd(ini_pull_cmd)
+    # First trying to find the ini file with DTIM settings
+    ini_file_phone = ad.adb.shell('ls /vendor/firmware/wlan/*/*.ini')
+    ini_file_local = ini_file_phone.split('/')[-1]
+
+    # Pull the file and change the DTIM to desired value
+    ad.adb.pull('{} {}'.format(ini_file_phone, ini_file_local))
 
     with open(ini_file_local, 'r') as fin:
         for line in fin:
-            if 'gEnableModulatedDTIM=' in line:
-                gEDTIM_old = line.strip('gEnableModulatedDTIM=').strip('\n')
-            if 'gMaxLIModulatedDTIM=' in line:
-                gMDTIM_old = line.strip('gMaxLIModulatedDTIM=').strip('\n')
-    if int(gEDTIM_old) == gEnableModulatedDTIM:
+            if ENABLED_MODULATED_DTIM in line:
+                gE_old = line.strip('\n')
+                gEDTIM_old = line.strip(ENABLED_MODULATED_DTIM).strip('\n')
+            if MAX_MODULATED_DTIM in line:
+                gM_old = line.strip('\n')
+                gMDTIM_old = line.strip(MAX_MODULATED_DTIM).strip('\n')
+    fin.close()
+    if int(gEDTIM_old) == gEnableModulatedDTIM and int(
+            gMDTIM_old) == gMaxLIModulatedDTIM:
         ad.log.info('Current DTIM is already the desired value,'
                     'no need to reset it')
-        return
+        return 0
 
-    gE_old = 'gEnableModulatedDTIM=' + gEDTIM_old
-    gM_old = 'gMaxLIModulatedDTIM=' + gMDTIM_old
-    gE_new = 'gEnableModulatedDTIM=' + str(gEnableModulatedDTIM)
-    gM_new = 'gMaxLIModulatedDTIM=' + str(gMaxLIModulatedDTIM)
+    gE_new = ENABLED_MODULATED_DTIM + str(gEnableModulatedDTIM)
+    gM_new = MAX_MODULATED_DTIM + str(gMaxLIModulatedDTIM)
 
-    sed_gE = 'sed -i \'s/%s/%s/g\' %s' % (gE_old, gE_new, ini_file_local)
-    sed_gM = 'sed -i \'s/%s/%s/g\' %s' % (gM_old, gM_new, ini_file_local)
-    utils.exe_cmd(sed_gE)
-    utils.exe_cmd(sed_gM)
+    sed_gE = 'sed -i \'s/{}/{}/g\' {}'.format(gE_old, gE_new, ini_file_local)
+    sed_gM = 'sed -i \'s/{}/{}/g\' {}'.format(gM_old, gM_new, ini_file_local)
+    job.run(sed_gE)
+    job.run(sed_gM)
 
-    utils.exe_cmd('adb -s {} root'.format(serial))
-    cmd_out = utils.exe_cmd('adb -s {} remount'.format(serial))
-    if ("Permission denied").encode() in cmd_out:
+    # Push the file to the phone
+    push_file_to_phone(ad, ini_file_local, ini_file_phone)
+    ad.log.info('DTIM changes checked in and rebooting...')
+    ad.reboot()
+    # Wait for auto-wifi feature to start
+    time.sleep(20)
+    ad.log.info('DTIM updated and device back from reboot')
+    return 1
+
+
+def push_file_to_phone(ad, file_local, file_phone):
+    """Function to push local file to android phone.
+
+    Args:
+        ad: the target android device
+        file_local: the locla file to push
+        file_phone: the file/directory on the phone to be pushed
+    """
+    ad.adb.root()
+    cmd_out = ad.adb.remount()
+    if 'Permission denied' in cmd_out:
         ad.log.info('Need to disable verity first and reboot')
-        utils.exe_cmd('adb -s {} disable-verity'.format(serial))
+        ad.adb.disable_verity()
         time.sleep(1)
         ad.reboot()
         ad.log.info('Verity disabled and device back from reboot')
-        utils.exe_cmd('adb -s {} root'.format(serial))
-        utils.exe_cmd('adb -s {} remount'.format(serial))
+        ad.adb.root()
+        ad.adb.remount()
     time.sleep(1)
-    utils.exe_cmd(ini_push_cmd)
-    ad.log.info('ini file changes checked in and rebooting...')
-    ad.reboot()
-    ad.log.info('DTIM updated and device back from reboot')
+    ad.adb.push('{} {}'.format(file_local, file_phone))
 
 
-def ap_setup(ap, network):
+def ap_setup(ap, network, bandwidth=80):
     """Set up the whirlwind AP with provided network info.
 
     Args:
         ap: access_point object of the AP
         network: dict with information of the network, including ssid, password
                  bssid, channel etc.
+        bandwidth: the operation bandwidth for the AP, default 80MHz
+    Returns:
+        brconfigs: the bridge interface configs
     """
-
     log = logging.getLogger()
     bss_settings = []
     ssid = network[wutils.WifiEnums.SSID_KEY]
@@ -366,12 +258,24 @@ def ap_setup(ap, network):
         ssid=ssid,
         security=security,
         bss_settings=bss_settings,
-        profile_name='whirlwind')
+        vht_bandwidth=bandwidth,
+        profile_name='whirlwind',
+        iface_wlan_2g=ap.wlan_2g,
+        iface_wlan_5g=ap.wlan_5g)
+    config_bridge = ap.generate_bridge_configs(channel)
+    brconfigs = bi.BridgeInterfaceConfigs(config_bridge[0], config_bridge[1],
+                                          config_bridge[2])
+    ap.bridge.startup(brconfigs)
     ap.start_ap(config)
     log.info("AP started on channel {} with SSID {}".format(channel, ssid))
+    return brconfigs
 
 
-def bokeh_plot(data_sets, legends, fig_property):
+def bokeh_plot(data_sets,
+               legends,
+               fig_property,
+               shaded_region=None,
+               output_file_path=None):
     """Plot bokeh figs.
         Args:
             data_sets: data sets including lists of x_data and lists of y_data
@@ -379,34 +283,49 @@ def bokeh_plot(data_sets, legends, fig_property):
             legends: list of legend for each curve
             fig_property: dict containing the plot property, including title,
                       lables, linewidth, circle size, etc.
+            shaded_region: optional dict containing data for plot shading
+            output_file_path: optional path at which to save figure
         Returns:
             plot: bokeh plot figure object
     """
-    TOOLS = ('box_zoom,box_select,pan,crosshair,redo,undo,resize,reset,'
-             'hover,xwheel_zoom,ywheel_zoom,save')
+    TOOLS = ('box_zoom,box_select,pan,crosshair,redo,undo,reset,hover,save')
     plot = figure(
         plot_width=1300,
         plot_height=700,
         title=fig_property['title'],
         tools=TOOLS,
-        webgl=True)
+        output_backend="webgl")
+    plot.add_tools(bokeh_tools.WheelZoomTool(dimensions="width"))
+    plot.add_tools(bokeh_tools.WheelZoomTool(dimensions="height"))
     colors = [
         'red', 'green', 'blue', 'olive', 'orange', 'salmon', 'black', 'navy',
         'yellow', 'darkred', 'goldenrod'
     ]
+    if shaded_region:
+        band_x = shaded_region["x_vector"]
+        band_x.extend(shaded_region["x_vector"][::-1])
+        band_y = shaded_region["lower_limit"]
+        band_y.extend(shaded_region["upper_limit"][::-1])
+        plot.patch(
+            band_x, band_y, color='#7570B3', line_alpha=0.1, fill_alpha=0.1)
+
     for x_data, y_data, legend in zip(data_sets[0], data_sets[1], legends):
         index_now = legends.index(legend)
         color = colors[index_now % len(colors)]
         plot.line(
-            x_data, y_data, legend=str(legend), line_width=3, color=color)
+            x_data, y_data, legend=str(legend), line_width=fig_property['linewidth'], color=color)
         plot.circle(
-            x_data, y_data, size=10, legend=str(legend), fill_color=color)
+            x_data, y_data, size=fig_property['markersize'], legend=str(legend), fill_color=color)
+
     #Plot properties
     plot.xaxis.axis_label = fig_property['x_label']
     plot.yaxis.axis_label = fig_property['y_label']
     plot.legend.location = "top_right"
     plot.legend.click_policy = "hide"
     plot.title.text_font_size = {'value': '15pt'}
+    if output_file_path is not None:
+        output_file(output_file_path)
+        save(plot)
     return plot
 
 
@@ -520,7 +439,7 @@ def wait_for_dhcp(intf):
     ip = '0.0.0.0'
     while ip == '0.0.0.0':
         ip = scapy.get_if_addr(intf)
-    log.info('DHCP address assigned to {}'.format(intf))
+    log.info('DHCP address assigned to {} as {}'.format(intf, ip))
     return ip
 
 
@@ -535,9 +454,8 @@ def reset_host_interface(intf):
     intf_up_cmd = 'ifconfig %s up' % intf
     try:
         job.run(intf_down_cmd)
-        time.sleep(3)
+        time.sleep(10)
         job.run(intf_up_cmd)
-        time.sleep(3)
         log.info('{} has been reset'.format(intf))
     except job.Error:
         raise Exception('No such interface')
@@ -585,22 +503,3 @@ def create_pkt_config(test_class):
         'gw_ipv4': ipv4_gw
     }
     return pkt_gen_config
-
-
-def create_monsoon_info(test_class):
-    """Creates the config dictionary for monsoon
-
-    Args:
-        test_class: object with all the parameters
-
-    Returns:
-        Dictionary with the monsoon packet config
-    """
-    mon_info = {
-        'dut': test_class.mon,
-        'freq': test_class.mon_freq,
-        'duration': test_class.mon_duration,
-        'offset': test_class.mon_offset,
-        'data_path': test_class.mon_data_path
-    }
-    return mon_info

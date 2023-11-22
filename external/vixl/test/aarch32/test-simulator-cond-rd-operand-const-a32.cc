@@ -40,8 +40,8 @@
 #include "test-utils-aarch32.h"
 
 #include "aarch32/assembler-aarch32.h"
-#include "aarch32/macro-assembler-aarch32.h"
 #include "aarch32/disasm-aarch32.h"
+#include "aarch32/macro-assembler-aarch32.h"
 
 #define __ masm.
 #define BUF_SIZE (4096)
@@ -60,26 +60,25 @@
 // TODO: Run the tests in the simulator.
 #define RUN()
 
-#define TEARDOWN()
-
 #else  // ifdef VIXL_INCLUDE_SIMULATOR_AARCH32.
 
-#define SETUP()                                   \
-  MacroAssembler masm(BUF_SIZE);                  \
-  UseScratchRegisterScope harness_scratch(&masm); \
-  harness_scratch.ExcludeAll();
+#define SETUP()                  \
+  MacroAssembler masm(BUF_SIZE); \
+  UseScratchRegisterScope harness_scratch;
 
-#define START()              \
-  masm.GetBuffer()->Reset(); \
-  __ Push(r4);               \
-  __ Push(r5);               \
-  __ Push(r6);               \
-  __ Push(r7);               \
-  __ Push(r8);               \
-  __ Push(r9);               \
-  __ Push(r10);              \
-  __ Push(r11);              \
-  __ Push(lr);               \
+#define START()                 \
+  harness_scratch.Open(&masm);  \
+  harness_scratch.ExcludeAll(); \
+  masm.GetBuffer()->Reset();    \
+  __ Push(r4);                  \
+  __ Push(r5);                  \
+  __ Push(r6);                  \
+  __ Push(r7);                  \
+  __ Push(r8);                  \
+  __ Push(r9);                  \
+  __ Push(r10);                 \
+  __ Push(r11);                 \
+  __ Push(lr);                  \
   harness_scratch.Include(ip);
 
 #define END()                  \
@@ -94,7 +93,8 @@
   __ Pop(r5);                  \
   __ Pop(r4);                  \
   __ Bx(lr);                   \
-  __ FinalizeCode();
+  __ FinalizeCode();           \
+  harness_scratch.Close();
 
 #define RUN()                                                 \
   {                                                           \
@@ -105,8 +105,6 @@
                   pcs_offset);                                \
     masm.GetBuffer()->SetWritable();                          \
   }
-
-#define TEARDOWN() harness_scratch.Close();
 
 #endif  // ifdef VIXL_INCLUDE_SIMULATOR_AARCH32
 
@@ -179,37 +177,18 @@ static const Inputs kCondition[] = {{NFlag, 0xabababab},
                                     {ZCVFlag, 0xabababab},
                                     {NZCVFlag, 0xabababab}};
 
-static const Inputs kModifiedImmediate[] = {{NoFlag, 0x00000000},
-                                            {NoFlag, 0x00000001},
-                                            {NoFlag, 0x00000002},
-                                            {NoFlag, 0x00000020},
-                                            {NoFlag, 0x0000007d},
-                                            {NoFlag, 0x0000007e},
-                                            {NoFlag, 0x0000007f},
-                                            {NoFlag, 0x00007ffd},
-                                            {NoFlag, 0x00007ffe},
-                                            {NoFlag, 0x00007fff},
-                                            {NoFlag, 0x33333333},
-                                            {NoFlag, 0x55555555},
-                                            {NoFlag, 0x7ffffffd},
-                                            {NoFlag, 0x7ffffffe},
-                                            {NoFlag, 0x7fffffff},
-                                            {NoFlag, 0x80000000},
-                                            {NoFlag, 0x80000001},
-                                            {NoFlag, 0xaaaaaaaa},
-                                            {NoFlag, 0xcccccccc},
-                                            {NoFlag, 0xffff8000},
-                                            {NoFlag, 0xffff8001},
-                                            {NoFlag, 0xffff8002},
-                                            {NoFlag, 0xffff8003},
-                                            {NoFlag, 0xffffff80},
-                                            {NoFlag, 0xffffff81},
-                                            {NoFlag, 0xffffff82},
-                                            {NoFlag, 0xffffff83},
-                                            {NoFlag, 0xffffffe0},
-                                            {NoFlag, 0xfffffffd},
-                                            {NoFlag, 0xfffffffe},
-                                            {NoFlag, 0xffffffff}};
+static const Inputs kModifiedImmediate[] =
+    {{NoFlag, 0x00000000}, {NoFlag, 0x00000001}, {NoFlag, 0x00000002},
+     {NoFlag, 0x00000020}, {NoFlag, 0x0000007d}, {NoFlag, 0x0000007e},
+     {NoFlag, 0x0000007f}, {NoFlag, 0x00007ffd}, {NoFlag, 0x00007ffe},
+     {NoFlag, 0x00007fff}, {NoFlag, 0x33333333}, {NoFlag, 0x55555555},
+     {NoFlag, 0x7ffffffd}, {NoFlag, 0x7ffffffe}, {NoFlag, 0x7fffffff},
+     {NoFlag, 0x80000000}, {NoFlag, 0x80000001}, {NoFlag, 0xaaaaaaaa},
+     {NoFlag, 0xcccccccc}, {NoFlag, 0xffff8000}, {NoFlag, 0xffff8001},
+     {NoFlag, 0xffff8002}, {NoFlag, 0xffff8003}, {NoFlag, 0xffffff80},
+     {NoFlag, 0xffffff81}, {NoFlag, 0xffffff82}, {NoFlag, 0xffffff83},
+     {NoFlag, 0xffffffe0}, {NoFlag, 0xfffffffd}, {NoFlag, 0xfffffffe},
+     {NoFlag, 0xffffffff}};
 
 
 // A loop will be generated for each element of this array.
@@ -463,14 +442,14 @@ struct TestResult {
 
 // These headers each contain an array of `TestResult` with the reference output
 // values. The reference arrays are names `kReference{mnemonic}`.
-#include "aarch32/traces/simulator-cond-rd-operand-const-a32-cmn.h"
-#include "aarch32/traces/simulator-cond-rd-operand-const-a32-cmp.h"
-#include "aarch32/traces/simulator-cond-rd-operand-const-a32-mov.h"
-#include "aarch32/traces/simulator-cond-rd-operand-const-a32-movs.h"
-#include "aarch32/traces/simulator-cond-rd-operand-const-a32-mvn.h"
-#include "aarch32/traces/simulator-cond-rd-operand-const-a32-mvns.h"
-#include "aarch32/traces/simulator-cond-rd-operand-const-a32-teq.h"
-#include "aarch32/traces/simulator-cond-rd-operand-const-a32-tst.h"
+#include "aarch32/traces/simulator-cond-rd-operand-const-cmn-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-const-cmp-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-const-mov-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-const-movs-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-const-mvn-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-const-mvns-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-const-teq-a32.h"
+#include "aarch32/traces/simulator-cond-rd-operand-const-tst-a32.h"
 
 
 // The maximum number of errors to report in detail for each test.
@@ -650,8 +629,6 @@ void TestHelper(Fn instruction,
     delete results[i];
     delete[] scratch_memory_buffers[i];
   }
-
-  TEARDOWN();
 }
 
 // Instantiate tests for each instruction in the list.
@@ -661,18 +638,18 @@ void TestHelper(Fn instruction,
   void Test_##mnemonic() {                                                  \
     TestHelper(&MacroAssembler::mnemonic, #mnemonic, kReference##mnemonic); \
   }                                                                         \
-  Test test_##mnemonic(                                                     \
-      "AARCH32_SIMULATOR_COND_RD_OPERAND_CONST_A32_" #mnemonic,             \
-      &Test_##mnemonic);
+  Test test_##mnemonic("AARCH32_SIMULATOR_COND_RD_OPERAND_CONST_" #mnemonic \
+                       "_A32",                                              \
+                       &Test_##mnemonic);
 #else
-#define TEST(mnemonic)                                          \
-  void Test_##mnemonic() {                                      \
-    VIXL_WARNING("This test can only run on a 32-bit host.\n"); \
-    USE(TestHelper);                                            \
-  }                                                             \
-  Test test_##mnemonic(                                         \
-      "AARCH32_SIMULATOR_COND_RD_OPERAND_CONST_A32_" #mnemonic, \
-      &Test_##mnemonic);
+#define TEST(mnemonic)                                                      \
+  void Test_##mnemonic() {                                                  \
+    VIXL_WARNING("This test can only run on a 32-bit host.\n");             \
+    USE(TestHelper);                                                        \
+  }                                                                         \
+  Test test_##mnemonic("AARCH32_SIMULATOR_COND_RD_OPERAND_CONST_" #mnemonic \
+                       "_A32",                                              \
+                       &Test_##mnemonic);
 #endif
 
 FOREACH_INSTRUCTION(TEST)

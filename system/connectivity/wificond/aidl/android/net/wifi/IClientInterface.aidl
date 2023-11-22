@@ -16,21 +16,11 @@
 
 package android.net.wifi;
 
-import android.net.wifi.IANQPDoneCallback;
 import android.net.wifi.IWifiScannerImpl;
 
 // IClientInterface represents a network interface that can be used to connect
 // to access points and obtain internet connectivity.
 interface IClientInterface {
-
-  // Enable a wpa_supplicant instance running against this interface.
-  // Returns true if supplicant was successfully enabled, or is already enabled.
-  boolean enableSupplicant();
-
-  // Remove this interface from wpa_supplicant's control.
-  // Returns true if removal was successful.
-  boolean disableSupplicant();
-
   // Get packet counters for this interface.
   // First element in array is the number of successfully transmitted packets.
   // Second element in array is the number of tramsmission failure.
@@ -58,8 +48,7 @@ interface IClientInterface {
   // Returns null when the underlying interface object is destroyed.
   @nullable IWifiScannerImpl getWifiScannerImpl();
 
-  // Query specified ANQP elements from an AP (specified by BSSID)
-  // and provide a callback for ANQP response.
-  // Returns true if request is sent successfully, false otherwise.
-  boolean requestANQP(in byte[] bssid, IANQPDoneCallback callback);
+  // Set the MAC address of this interface
+  // Returns true if the set was successful
+  boolean setMacAddress(in byte[] mac);
 }

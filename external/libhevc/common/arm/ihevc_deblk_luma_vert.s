@@ -37,6 +37,12 @@
 @*
 @*******************************************************************************/
 
+.equ    qp_q_offset,                44
+.equ    beta_offset_div2_offset,    48
+.equ    tc_offset_div2_offset,      52
+.equ    filter_p_offset,            56
+.equ    filter_q_offset,            60
+
 .text
 .align 4
 
@@ -60,12 +66,12 @@ gai4_ihevc_beta_table_addr:
 ihevc_deblk_luma_vert_a9q:
 
     push        {r3-r12,lr}
-    ldr         r4,[sp,#0x2c]
-    ldr         r5,[sp,#0x30]
+    ldr         r4,[sp,#qp_q_offset]
+    ldr         r5,[sp,#beta_offset_div2_offset]
 
     add         r3,r3,r4
     add         r3,r3,#1
-    ldr         r6, [sp,#0x34]
+    ldr         r6, [sp,#tc_offset_div2_offset]
     asr         r3,r3,#1
     add         r7,r3,r5,lsl #1
     add         r3,r3,r6,lsl #1
@@ -291,9 +297,9 @@ ulbl1:
     vqadd.u8    d30,d6,d19
 
     mov         r2,#2
-    ldr         r4,[sp,#0x38]               @ loading the filter_flag_p
+    ldr         r4,[sp,#filter_p_offset]        @ loading the filter_flag_p
     vqsub.u8    d31,d6,d19
-    ldr         r5,[sp,#0x3c]               @ loading the filter_flag_q
+    ldr         r5,[sp,#filter_q_offset]        @ loading the filter_flag_q
     b           end_dep_deq_decision
 @ r2 has the value of de
 @ r6 has teh value of tc
@@ -307,8 +313,8 @@ l1.336:
     mov         r2,#1
 l1.424:
     mov         r11,r5
-    ldr         r4,[sp,#0x38]               @ loading the filter_flag_p
-    ldr         r5,[sp,#0x3c]               @ loading the filter_flag_q
+    ldr         r4,[sp,#filter_p_offset]        @ loading the filter_flag_p
+    ldr         r5,[sp,#filter_q_offset]        @ loading the filter_flag_q
 
     cmp         r6,#1
     moveq       r9,#0
@@ -532,7 +538,6 @@ l1.1212:
     vst1.16     {d3[1]},[r12]
     vst1.8      {d16[3]},[r3]
 l1.1272:
-    @   ldr      r3,[sp,#0x38]
     cmp         r5,#0
     beq         l1.964
     @ checks for the flag q

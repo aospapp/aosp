@@ -42,7 +42,7 @@ CameraClient::CameraClient(const sp<CameraService>& cameraService,
         int clientPid, int clientUid,
         int servicePid, bool legacyMode):
         Client(cameraService, cameraClient, clientPackageName,
-                String8::format("%d", cameraId), cameraFacing, clientPid,
+                String8::format("%d", cameraId), cameraId, cameraFacing, clientPid,
                 clientUid, servicePid)
 {
     int callingPid = getCallingPid();
@@ -62,7 +62,8 @@ CameraClient::CameraClient(const sp<CameraService>& cameraService,
     LOG1("CameraClient::CameraClient X (pid %d, id %d)", callingPid, cameraId);
 }
 
-status_t CameraClient::initialize(sp<CameraProviderManager> manager) {
+status_t CameraClient::initialize(sp<CameraProviderManager> manager,
+        const String8& /*monitorTags*/) {
     int callingPid = getCallingPid();
     status_t res;
 
@@ -136,7 +137,12 @@ status_t CameraClient::dumpClient(int fd, const Vector<String16>& args) {
     const char *enddump = "\n\n";
     write(fd, enddump, strlen(enddump));
 
-    return mHardware->dump(fd, args);
+    sp<CameraHardwareInterface> hardware = mHardware;
+    if (hardware != nullptr) {
+        return hardware->dump(fd, args);
+    }
+    ALOGI("%s: camera device closed already, skip dumping", __FUNCTION__);
+    return OK;
 }
 
 // ----------------------------------------------------------------------------
@@ -257,7 +263,8 @@ binder::Status CameraClient::disconnect() {
     mHardware->stopPreview();
     sCameraService->updateProxyDeviceState(
             hardware::ICameraServiceProxy::CAMERA_STATE_IDLE,
-            mCameraIdStr, mCameraFacing, mClientPackageName);
+            mCameraIdStr, mCameraFacing, mClientPackageName,
+            hardware::ICameraServiceProxy::CAMERA_API_LEVEL_1);
     mHardware->cancelPicture();
     // Release the hardware resources.
     mHardware->release();
@@ -419,7 +426,8 @@ status_t CameraClient::startPreviewMode() {
     if (result == NO_ERROR) {
         sCameraService->updateProxyDeviceState(
             hardware::ICameraServiceProxy::CAMERA_STATE_ACTIVE,
-            mCameraIdStr, mCameraFacing, mClientPackageName);
+            mCameraIdStr, mCameraFacing, mClientPackageName,
+            hardware::ICameraServiceProxy::CAMERA_API_LEVEL_1);
     }
     return result;
 }
@@ -462,7 +470,8 @@ void CameraClient::stopPreview() {
     mHardware->stopPreview();
     sCameraService->updateProxyDeviceState(
         hardware::ICameraServiceProxy::CAMERA_STATE_IDLE,
-        mCameraIdStr, mCameraFacing, mClientPackageName);
+        mCameraIdStr, mCameraFacing, mClientPackageName,
+        hardware::ICameraServiceProxy::CAMERA_API_LEVEL_1);
     mPreviewBuffer.clear();
 }
 
@@ -503,7 +512,7 @@ void CameraClient::releaseRecordingFrame(const sp<IMemory>& mem) {
 
 void CameraClient::releaseRecordingFrameHandle(native_handle_t *handle) {
     if (handle == nullptr) return;
-
+    Mutex::Autolock lock(mLock);
     sp<IMemory> dataPtr;
     {
         Mutex::Autolock l(mAvailableCallbackBuffersLock);
@@ -527,17 +536,22 @@ void CameraClient::releaseRecordingFrameHandle(native_handle_t *handle) {
         return;
     }
 
-    VideoNativeHandleMetadata *metadata = (VideoNativeHandleMetadata*)(dataPtr->pointer());
-    metadata->eType = kMetadataBufferTypeNativeHandleSource;
-    metadata->pHandle = handle;
-
-    mHardware->releaseRecordingFrame(dataPtr);
+    if (mHardware != nullptr) {
+        VideoNativeHandleMetadata *metadata = (VideoNativeHandleMetadata*)(dataPtr->pointer());
+        metadata->eType = kMetadataBufferTypeNativeHandleSource;
+        metadata->pHandle = handle;
+        mHardware->releaseRecordingFrame(dataPtr);
+    }
 }
 
 void CameraClient::releaseRecordingFrameHandleBatch(const std::vector<native_handle_t*>& handles) {
+    Mutex::Autolock lock(mLock);
+    bool disconnected = (mHardware == nullptr);
     size_t n = handles.size();
     std::vector<sp<IMemory>> frames;
-    frames.reserve(n);
+    if (!disconnected) {
+        frames.reserve(n);
+    }
     bool error = false;
     for (auto& handle : handles) {
         sp<IMemory> dataPtr;
@@ -561,10 +575,12 @@ void CameraClient::releaseRecordingFrameHandleBatch(const std::vector<native_han
             break;
         }
 
-        VideoNativeHandleMetadata *metadata = (VideoNativeHandleMetadata*)(dataPtr->pointer());
-        metadata->eType = kMetadataBufferTypeNativeHandleSource;
-        metadata->pHandle = handle;
-        frames.push_back(dataPtr);
+        if (!disconnected) {
+            VideoNativeHandleMetadata *metadata = (VideoNativeHandleMetadata*)(dataPtr->pointer());
+            metadata->eType = kMetadataBufferTypeNativeHandleSource;
+            metadata->pHandle = handle;
+            frames.push_back(dataPtr);
+        }
     }
 
     if (error) {
@@ -572,7 +588,7 @@ void CameraClient::releaseRecordingFrameHandleBatch(const std::vector<native_han
             native_handle_close(handle);
             native_handle_delete(handle);
         }
-    } else {
+    } else if (!disconnected) {
         mHardware->releaseRecordingFrameBatch(frames);
     }
     return;
@@ -961,7 +977,8 @@ void CameraClient::handleShutter(void) {
     // idle now, until preview is restarted
     sCameraService->updateProxyDeviceState(
         hardware::ICameraServiceProxy::CAMERA_STATE_IDLE,
-        mCameraIdStr, mCameraFacing, mClientPackageName);
+        mCameraIdStr, mCameraFacing, mClientPackageName,
+        hardware::ICameraServiceProxy::CAMERA_API_LEVEL_1);
 
     mLock.unlock();
 }

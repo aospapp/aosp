@@ -16,7 +16,7 @@
 
 package android.os.cts;
 
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.os.AsyncTask;
 import android.test.InstrumentationTestCase;
 

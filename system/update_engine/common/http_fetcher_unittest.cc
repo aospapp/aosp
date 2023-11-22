@@ -32,7 +32,6 @@
 #include <base/strings/string_util.h>
 #include <base/strings/stringprintf.h>
 #include <base/time/time.h>
-#include <brillo/bind_lambda.h>
 #include <brillo/message_loops/base_message_loop.h>
 #include <brillo/message_loops/message_loop.h>
 #include <brillo/message_loops/message_loop_utils.h>
@@ -634,7 +633,7 @@ TYPED_TEST(HttpFetcherTest, PauseWhileResolvingProxyTest) {
   fetcher->Unpause();
   fetcher->Pause();
   // Proxy resolver comes back after we paused the fetcher.
-  ASSERT_TRUE(proxy_callback);
+  ASSERT_FALSE(proxy_callback.is_null());
   proxy_callback.Run({1, kNoProxy});
 }
 

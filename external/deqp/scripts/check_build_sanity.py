@@ -135,8 +135,9 @@ def runSteps (steps):
 		else:
 			print "Skip: %s" % step.getName()
 
-COMMON_GCC_CFLAGS	= ["-Werror"]
-COMMON_CLANG_CFLAGS	= COMMON_GCC_CFLAGS + ["-Wno-error=unused-command-line-argument"]
+COMMON_CFLAGS		= ["-Werror", "-Wno-error=unused-function"]
+COMMON_GCC_CFLAGS	= COMMON_CFLAGS + ["-Wno-implicit-fallthrough"]
+COMMON_CLANG_CFLAGS	= COMMON_CFLAGS + ["-Wno-error=unused-command-line-argument"]
 GCC_32BIT_CFLAGS	= COMMON_GCC_CFLAGS + ["-m32"]
 CLANG_32BIT_CFLAGS	= COMMON_CLANG_CFLAGS + ["-m32"]
 GCC_64BIT_CFLAGS	= COMMON_GCC_CFLAGS + ["-m64"]
@@ -189,10 +190,15 @@ SPECIAL_RECIPES		= [
 			RunScript(os.path.join("external", "vulkancts", "scripts", "build_mustpass.py"),
 					  lambda env: ["--build-dir", os.path.join(env.tmpDir, "vulkan-mustpass")]),
 		]),
+	('spirv-binaries', [
+			RunScript(os.path.join("external", "vulkancts", "scripts", "build_spirv_binaries.py"),
+					  lambda env: ["--build-dir", os.path.join(env.tmpDir, "spirv-binaries")]),
+		]),
 	('gen-inl-files', [
 			RunScript(os.path.join("scripts", "gen_egl.py")),
 			RunScript(os.path.join("scripts", "opengl", "gen_all.py")),
 			RunScript(os.path.join("external", "vulkancts", "scripts", "gen_framework.py")),
+			RunScript(os.path.join("scripts", "gen_android_mk.py")),
 			RunScript(os.path.join("scripts", "src_util", "check_all.py")),
 		])
 ]

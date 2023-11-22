@@ -1,7 +1,7 @@
 /** @file
   Implements editor interface functions.
 
-  Copyright (c) 2005 - 2014, Intel Corporation. All rights reserved. <BR>
+  Copyright (c) 2005 - 2016, Intel Corporation. All rights reserved. <BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -1418,7 +1418,6 @@ EFI_EDITOR_GLOBAL_EDITOR      MainEditorConst = {
   @retval EFI_LOAD_ERROR          A load error occured.
 **/
 EFI_STATUS
-EFIAPI
 MainEditorInit (
   VOID
   )
@@ -1552,7 +1551,6 @@ MainEditorInit (
   @retval EFI_LOAD_ERROR          A load error occured.
 **/
 EFI_STATUS
-EFIAPI
 MainEditorCleanup (
   VOID
   )
@@ -1596,7 +1594,6 @@ MainEditorCleanup (
   Refresh the main editor component.
 **/
 VOID
-EFIAPI
 MainEditorRefresh (
   VOID
   )
@@ -1617,8 +1614,8 @@ MainEditorRefresh (
 
     MainTitleBarRefresh (MainEditor.FileBuffer->FileName, MainEditor.FileBuffer->FileType, MainEditor.FileBuffer->ReadOnly, MainEditor.FileBuffer->FileModified, MainEditor.ScreenSize.Column, MainEditor.ScreenSize.Row, 0, 0);
     FileBufferRestorePosition ();
-    FileBufferRefresh ();
   }
+
   if (EditorFirst
     || FileBufferBackupVar.FilePosition.Row != FileBuffer.FilePosition.Row 
     || FileBufferBackupVar.FilePosition.Column != FileBuffer.FilePosition.Column 
@@ -1627,12 +1624,13 @@ MainEditorRefresh (
 
     StatusBarRefresh (EditorFirst, MainEditor.ScreenSize.Row, MainEditor.ScreenSize.Column, MainEditor.FileBuffer->FilePosition.Row, MainEditor.FileBuffer->FilePosition.Column, MainEditor.FileBuffer->ModeInsert);
     FileBufferRestorePosition ();
-    FileBufferRefresh ();
   }
 
   if (EditorFirst) {
     FileBufferRestorePosition ();
   }
+
+  FileBufferRefresh ();
 
   //
   // EditorFirst is now set to FALSE
@@ -1648,7 +1646,6 @@ MainEditorRefresh (
   @return The X location of the mouse.
 **/
 INT32
-EFIAPI
 GetTextX (
   IN INT32 GuidX
   )
@@ -1670,7 +1667,6 @@ GetTextX (
   @return The Y location of the mouse.
 **/
 INT32
-EFIAPI
 GetTextY (
   IN INT32 GuidY
   )
@@ -1694,7 +1690,6 @@ GetTextY (
   @retval EFI_NOT_FOUND     There was no mouse support found.
 **/
 EFI_STATUS
-EFIAPI
 MainEditorHandleMouseInput (
   IN EFI_SIMPLE_POINTER_STATE       MouseState
   )
@@ -1795,7 +1790,6 @@ MainEditorHandleMouseInput (
   @retval EFI_OUT_OF_RESOURCES    A memory allocation failed.
 **/
 EFI_STATUS
-EFIAPI
 MainEditorKeyInput (
   VOID
   )
@@ -1892,7 +1886,6 @@ MainEditorKeyInput (
   @retval EFI_OUT_OF_RESOURCES A memory allocation failed.
 **/
 EFI_STATUS
-EFIAPI
 MainEditorSetCutLine (
   EFI_EDITOR_LINE *Line
   )
@@ -1924,7 +1917,6 @@ MainEditorSetCutLine (
   @retval EFI_SUCCESS The operation was successful.
 **/
 EFI_STATUS
-EFIAPI
 MainEditorBackup (
   VOID
   )

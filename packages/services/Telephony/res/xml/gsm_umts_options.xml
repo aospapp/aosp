@@ -31,13 +31,20 @@
             android:key="button_network_select_key"
             android:title="@string/network_select_title"
             android:persistent="false"/>
+
+        <Preference
+            android:key="button_choose_network_key"
+            android:title="@string/choose_network_title"
+            android:fragment="com.android.phone.NetworkSelectSetting" />
     </com.android.phone.NetworkOperators>
 
     <!--We want separate APN setting from reset of settings because-->
     <!--we want user to change it with caution.-->
     <PreferenceCategory
-        android:key="category_gsm_apn_key">
-        <Preference
+        android:key="category_gsm_apn_key"
+        android:layout="@layout/preference_category_no_label">
+
+        <com.android.phone.RestrictedPreference
             android:key="button_gsm_apn_key"
             android:title="@string/apn_settings"
             android:persistent="false" />

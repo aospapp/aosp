@@ -34,7 +34,7 @@ PWD := $(shell pwd)
 TOP := .
 TOPDIR :=
 
-BUILD_SYSTEM := $(TOPDIR)build/core
+BUILD_SYSTEM := $(TOPDIR)build/make/core
 
 # This is the default target.  It must be the first declared target.
 .PHONY: droid
@@ -52,6 +52,10 @@ ifneq ($(filter $(dont_bother_goals), $(MAKECMDGOALS)),)
 dont_bother := true
 endif
 
+.KATI_READONLY := SOONG_CONFIG_NAMESPACES
+.KATI_READONLY := $(foreach n,$(SOONG_CONFIG_NAMESPACES),SOONG_CONFIG_$(n))
+.KATI_READONLY := $(foreach n,$(SOONG_CONFIG_NAMESPACES),$(foreach k,$(SOONG_CONFIG_$(n)),SOONG_CONFIG_$(n)_$(k)))
+
 include $(SOONG_MAKEVARS_MK)
 
 include $(BUILD_SYSTEM)/clang/config.mk
@@ -60,15 +64,27 @@ include $(BUILD_SYSTEM)/clang/config.mk
 # without changing the command line every time.  Avoids rebuilds
 # when using ninja.
 $(shell mkdir -p $(OUT_DIR) && \
-    echo -n $(BUILD_NUMBER) > $(OUT_DIR)/build_number.txt && \
-    echo -n $(BUILD_DATETIME) > $(OUT_DIR)/build_date.txt)
-BUILD_NUMBER_FROM_FILE := $$(cat $(OUT_DIR)/build_number.txt)
-BUILD_DATETIME_FROM_FILE := $$(cat $(OUT_DIR)/build_date.txt)
+    echo -n $(BUILD_NUMBER) > $(OUT_DIR)/build_number.txt)
+BUILD_NUMBER_FILE := $(OUT_DIR)/build_number.txt
+
 ifeq ($(HOST_OS),darwin)
 DATE_FROM_FILE := date -r $(BUILD_DATETIME_FROM_FILE)
 else
 DATE_FROM_FILE := date -d @$(BUILD_DATETIME_FROM_FILE)
 endif
+
+# Pick a reasonable string to use to identify files.
+ifeq ($(strip $(HAS_BUILD_NUMBER)),false)
+  # BUILD_NUMBER has a timestamp in it, which means that
+  # it will change every time.  Pick a stable value.
+  FILE_NAME_TAG := eng.$(USER)
+else
+  FILE_NAME_TAG := $(file <$(BUILD_NUMBER_FILE))
+endif
+
+# Make an empty directory, which can be used to make empty jars
+EMPTY_DIRECTORY := $(OUT_DIR)/empty
+$(shell mkdir -p $(EMPTY_DIRECTORY) && rm -rf $(EMPTY_DIRECTORY)/*)
 
 # CTS-specific config.
 -include cts/build/config.mk
@@ -78,12 +94,18 @@ endif
 -include tools/tradefederation/build/suites/device-tests/config.mk
 # general-tests-specific-config.
 -include tools/tradefederation/build/suites/general-tests/config.mk
+# STS-specific config.
+-include test/sts/tools/sts-tradefed/build/config.mk
+# CTS-Instant-specific config
+-include test/suite_harness/tools/cts-instant-tradefed/build/config.mk
 
-# This allows us to force a clean build - included after the config.mk
-# environment setup is done, but before we generate any dependencies.  This
-# file does the rm -rf inline so the deps which are all done below will
-# be generated correctly
-include $(BUILD_SYSTEM)/cleanbuild.mk
+# Clean rules
+.PHONY: clean-dex-files
+clean-dex-files:
+	$(hide) find $(OUT_DIR) -name "*.dex" | xargs rm -f
+	$(hide) for i in `find $(OUT_DIR) -name "*.jar" -o -name "*.apk"` ; do ((unzip -l $$i 2> /dev/null | \
+				grep -q "\.dex$$" && rm -f $$i) || continue ) ; done
+	@echo "All dex files and archives containing dex files have been removed."
 
 # Include the google-specific config
 -include vendor/google/build/config.mk
@@ -93,9 +115,19 @@ include $(BUILD_SYSTEM)/cleanbuild.mk
 # (must be defined before including definitions.make)
 INTERNAL_MODIFIER_TARGETS := all
 
-# EMMA_INSTRUMENT_STATIC merges the static emma library to each emma-enabled module.
+# EMMA_INSTRUMENT_STATIC merges the static jacoco library to each
+# jacoco-enabled module.
 ifeq (true,$(EMMA_INSTRUMENT_STATIC))
 EMMA_INSTRUMENT := true
+endif
+
+ifeq (true,$(EMMA_INSTRUMENT))
+# Adding the jacoco library can cause the inclusion of
+# some typically banned classes
+# So if the user didn't specify SKIP_BOOT_JARS_CHECK, enable it here
+ifndef SKIP_BOOT_JARS_CHECK
+SKIP_BOOT_JARS_CHECK := true
+endif
 endif
 
 #
@@ -111,6 +143,8 @@ endif
 ifneq ($(ADDITIONAL_BUILD_PROPERTIES),)
 $(error ADDITIONAL_BUILD_PROPERTIES must not be set before here: $(ADDITIONAL_BUILD_PROPERTIES))
 endif
+
+ADDITIONAL_BUILD_PROPERTIES :=
 
 #
 # -----------------------------------------------------------------
@@ -167,38 +201,37 @@ TARGET_BUILD_JAVA_SUPPORT_LEVEL := platform
 
 # -----------------------------------------------------------------
 # The pdk (Platform Development Kit) build
-include build/core/pdk_config.mk
+include build/make/core/pdk_config.mk
 
 #
 # -----------------------------------------------------------------
-# Jack version configuration
--include $(TOPDIR)prebuilts/sdk/tools/jack_versions.mk
--include $(TOPDIR)prebuilts/sdk/tools/jack_for_module.mk
-
-#
-# -----------------------------------------------------------------
-# Install and start Jack server
--include $(TOPDIR)prebuilts/sdk/tools/jack_server_setup.mk
-
-#
-# -----------------------------------------------------------------
-# Jacoco package name for Jack
--include $(TOPDIR)external/jacoco/config.mk
-
-#
-# -----------------------------------------------------------------
-# Enable dynamic linker developer warnings for userdebug, eng
-# and non-REL builds
+# Enable dynamic linker and hidden API developer warnings for
+# userdebug, eng and non-REL builds
 ifneq ($(TARGET_BUILD_VARIANT),user)
-  ADDITIONAL_BUILD_PROPERTIES += ro.bionic.ld.warning=1
+  ADDITIONAL_BUILD_PROPERTIES += ro.bionic.ld.warning=1 \
+                                 ro.art.hiddenapi.warning=1
 else
 # Enable it for user builds as long as they are not final.
 ifneq ($(PLATFORM_VERSION_CODENAME),REL)
-  ADDITIONAL_BUILD_PROPERTIES += ro.bionic.ld.warning=1
+  ADDITIONAL_BUILD_PROPERTIES += ro.bionic.ld.warning=1 \
+                                 ro.art.hiddenapi.warning=1
 endif
 endif
 
 ADDITIONAL_BUILD_PROPERTIES += ro.treble.enabled=${PRODUCT_FULL_TREBLE}
+
+$(KATI_obsolete_var PRODUCT_FULL_TREBLE,\
+	Code should be written to work regardless of a device being Treble or \
+	variables like PRODUCT_SEPOLICY_SPLIT should be used until that is \
+	possible.)
+
+# Sets ro.actionable_compatible_property.enabled to know on runtime whether the whitelist
+# of actionable compatible properties is enabled or not.
+ifeq ($(PRODUCT_ACTIONABLE_COMPATIBLE_PROPERTY_DISABLE),true)
+ADDITIONAL_DEFAULT_PROPERTIES += ro.actionable_compatible_property.enabled=false
+else
+ADDITIONAL_DEFAULT_PROPERTIES += ro.actionable_compatible_property.enabled=${PRODUCT_COMPATIBLE_PROPERTY}
+endif
 
 # -----------------------------------------------------------------
 ###
@@ -416,16 +449,16 @@ ifneq ($(dont_bother),true)
 # Include all of the makefiles in the system
 #
 
-subdir_makefiles := $(SOONG_ANDROID_MK) $(call first-makefiles-under,$(TOP))
+subdir_makefiles := $(SOONG_ANDROID_MK) $(file <$(OUT_DIR)/.module_paths/Android.mk.list)
 subdir_makefiles_total := $(words $(subdir_makefiles))
 .KATI_READONLY := subdir_makefiles_total
 
 $(foreach mk,$(subdir_makefiles),$(info [$(call inc_and_print,subdir_makefiles_inc)/$(subdir_makefiles_total)] including $(mk) ...)$(eval include $(mk)))
 
-ifdef PDK_FUSION_PLATFORM_ZIP
+ifneq (,$(PDK_FUSION_PLATFORM_ZIP)$(PDK_FUSION_PLATFORM_DIR))
 # Bring in the PDK platform.zip modules.
 include $(BUILD_SYSTEM)/pdk_fusion_modules.mk
-endif # PDK_FUSION_PLATFORM_ZIP
+endif # PDK_FUSION_PLATFORM_ZIP || PDK_FUSION_PLATFORM_DIR
 
 droid_targets : blueprint_tools
 
@@ -498,9 +531,10 @@ endif  # TARGET_TRANSLATE_2ND_ARCH
 # If a module is for a cross host os, the required modules must be for
 # that OS too.
 # If a module is built for 32-bit, the required modules must be 32-bit too;
-# Otherwise if the module is an exectuable or shared library,
+# Otherwise if the module is an executable or shared library,
 #   the required modules must be 64-bit;
 #   otherwise we require both 64-bit and 32-bit variant, if one exists.
+define select-bitness-of-required-modules
 $(foreach m,$(ALL_MODULES),\
   $(eval r := $(ALL_MODULES.$(m).REQUIRED))\
   $(if $(r),\
@@ -516,6 +550,8 @@ $(foreach m,$(ALL_MODULES),\
      $(eval ALL_MODULES.$(m).REQUIRED := $(strip $(r_r)))\
   )\
 )
+endef
+$(call select-bitness-of-required-modules)
 r_r :=
 
 define add-required-deps
@@ -530,24 +566,93 @@ define add-required-host-so-deps
 $(1): $(2)
 endef
 
+# Sets up dependencies such that whenever a host module is installed,
+# any other host modules listed in $(ALL_MODULES.$(m).REQUIRED) will also be installed
+define add-all-host-to-host-required-modules-deps
+$(foreach m,$(ALL_MODULES), \
+  $(eval r := $(ALL_MODULES.$(m).REQUIRED)) \
+  $(if $(r), \
+    $(eval r := $(call module-installed-files,$(r))) \
+    $(eval h_m := $(filter $(HOST_OUT)/%, $(ALL_MODULES.$(m).INSTALLED))) \
+    $(eval hc_m := $(filter $(HOST_CROSS_OUT)/%, $(ALL_MODULES.$(m).INSTALLED))) \
+    $(eval h_r := $(filter $(HOST_OUT)/%, $(r))) \
+    $(eval hc_r := $(filter $(HOST_CROSS_OUT)/%, $(r))) \
+    $(eval h_m := $(filter-out $(h_r), $(h_m))) \
+    $(eval hc_m := $(filter-out $(hc_r), $(hc_m))) \
+    $(if $(h_m), $(eval $(call add-required-deps, $(h_m),$(h_r)))) \
+    $(if $(hc_m), $(eval $(call add-required-deps, $(hc_m),$(hc_r)))) \
+  ) \
+)
+endef
+$(call add-all-host-to-host-required-modules-deps)
+
+# Sets up dependencies such that whenever a target module is installed,
+# any other target modules listed in $(ALL_MODULES.$(m).REQUIRED) will also be installed
+define add-all-target-to-target-required-modules-deps
 $(foreach m,$(ALL_MODULES), \
   $(eval r := $(ALL_MODULES.$(m).REQUIRED)) \
   $(if $(r), \
     $(eval r := $(call module-installed-files,$(r))) \
     $(eval t_m := $(filter $(TARGET_OUT_ROOT)/%, $(ALL_MODULES.$(m).INSTALLED))) \
-    $(eval h_m := $(filter $(HOST_OUT)/%, $(ALL_MODULES.$(m).INSTALLED))) \
-    $(eval hc_m := $(filter $(HOST_CROSS_OUT)/%, $(ALL_MODULES.$(m).INSTALLED))) \
     $(eval t_r := $(filter $(TARGET_OUT_ROOT)/%, $(r))) \
-    $(eval h_r := $(filter $(HOST_OUT)/%, $(r))) \
-    $(eval hc_r := $(filter $(HOST_CROSS_OUT)/%, $(r))) \
     $(eval t_m := $(filter-out $(t_r), $(t_m))) \
-    $(eval h_m := $(filter-out $(h_r), $(h_m))) \
-    $(eval hc_m := $(filter-out $(hc_r), $(hc_m))) \
     $(if $(t_m), $(eval $(call add-required-deps, $(t_m),$(t_r)))) \
-    $(if $(h_m), $(eval $(call add-required-deps, $(h_m),$(h_r)))) \
-    $(if $(hc_m), $(eval $(call add-required-deps, $(hc_m),$(hc_r)))) \
-   ) \
- )
+  ) \
+)
+endef
+$(call add-all-target-to-target-required-modules-deps)
+
+# Sets up dependencies such that whenever a host module is installed,
+# any target modules listed in $(ALL_MODULES.$(m).TARGET_REQUIRED) will also be installed
+define add-all-host-to-target-required-modules-deps
+$(foreach m,$(ALL_MODULES), \
+  $(eval req_mods := $(ALL_MODULES.$(m).TARGET_REQUIRED))\
+  $(if $(req_mods), \
+    $(eval req_files := )\
+    $(foreach req_mod,$(req_mods), \
+      $(eval req_file := $(filter $(TARGET_OUT_ROOT)/%, $(call module-installed-files,$(req_mod)))) \
+      $(if $(strip $(req_file)),\
+        ,\
+        $(error $(m).LOCAL_TARGET_REQUIRED_MODULES : illegal value $(req_mod) : not a device module. If you want to specify host modules to be required to be installed along with your host module, add those module names to LOCAL_REQUIRED_MODULES instead)\
+      )\
+      $(eval req_files := $(req_files)$(space)$(req_file))\
+    )\
+    $(eval req_files := $(strip $(req_files)))\
+    $(eval mod_files := $(filter $(HOST_OUT)/%, $(call module-installed-files,$(m)))) \
+    $(eval mod_files := $(filter-out $(req_files),$(mod_files)))\
+    $(if $(mod_files),\
+      $(eval $(call add-required-deps, $(mod_files),$(req_files))) \
+    )\
+  )\
+)
+endef
+$(call add-all-host-to-target-required-modules-deps)
+
+# Sets up dependencies such that whenever a target module is installed,
+# any host modules listed in $(ALL_MODULES.$(m).HOST_REQUIRED) will also be installed
+define add-all-target-to-host-required-modules-deps
+$(foreach m,$(ALL_MODULES), \
+  $(eval req_mods := $(ALL_MODULES.$(m).HOST_REQUIRED))\
+  $(if $(req_mods), \
+    $(eval req_files := )\
+    $(foreach req_mod,$(req_mods), \
+      $(eval req_file := $(filter $(HOST_OUT)/%, $(call module-installed-files,$(req_mod)))) \
+      $(if $(strip $(req_file)),\
+        ,\
+        $(error $(m).LOCAL_HOST_REQUIRED_MODULES : illegal value $(req_mod) : not a host module. If you want to specify target modules to be required to be installed along with your target module, add those module names to LOCAL_REQUIRED_MODULES instead)\
+      )\
+      $(eval req_files := $(req_files)$(space)$(req_file))\
+    )\
+    $(eval req_files := $(strip $(req_files)))\
+    $(eval mod_files := $(filter $(TARGET_OUT_ROOT)/%, $(call module-installed-files,$(m))))\
+    $(eval mod_files := $(filter-out $(req_files),$(mod_files)))\
+    $(if $(mod_files),\
+      $(eval $(call add-required-deps, $(mod_files),$(req_files))) \
+    )\
+  )\
+)
+endef
+$(call add-all-target-to-host-required-modules-deps)
 
 t_m :=
 h_m :=
@@ -556,7 +661,7 @@ t_r :=
 h_r :=
 hc_r :=
 
-# Establish the dependecies on the shared libraries.
+# Establish the dependencies on the shared libraries.
 # It also adds the shared library module names to ALL_MODULES.$(m).REQUIRED,
 # so they can be expanded to product_MODULES later.
 # $(1): TARGET_ or HOST_ or HOST_CROSS_.
@@ -792,6 +897,9 @@ ifdef FULL_BUILD
   # by the appropriate product definition file, which was included
   # by product_config.mk.
   product_MODULES := $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_PACKAGES)
+ifdef BOARD_VNDK_VERSION
+  product_MODULES += vndk_package
+endif
   # Filter out the overridden packages before doing expansion
   product_MODULES := $(filter-out $(foreach p, $(product_MODULES), \
       $(PACKAGES.$(p).OVERRIDES)), $(product_MODULES))
@@ -903,7 +1011,7 @@ ifdef is_sdk_build
       $(warning $(ALL_MODULES.$(m).MAKEFILE): Module '$(m)' in PRODUCT_PACKAGES_TESTS has nothing to install!)))
 endif
 
-# build/core/Makefile contains extra stuff that we don't want to pollute this
+# build/make/core/Makefile contains extra stuff that we don't want to pollute this
 # top-level makefile with.  It expects that ALL_DEFAULT_INSTALLED_MODULES
 # contains everything that's built during the current make, but it also further
 # extends ALL_DEFAULT_INSTALLED_MODULES.
@@ -981,6 +1089,9 @@ bptimage: $(INSTALLED_BPTIMAGE_TARGET)
 .PHONY: vendorimage
 vendorimage: $(INSTALLED_VENDORIMAGE_TARGET)
 
+.PHONY: productimage
+productimage: $(INSTALLED_PRODUCTIMAGE_TARGET)
+
 .PHONY: systemotherimage
 systemotherimage: $(INSTALLED_SYSTEMOTHERIMAGE_TARGET)
 
@@ -1004,10 +1115,13 @@ droidcore: files \
 	$(INSTALLED_CACHEIMAGE_TARGET) \
 	$(INSTALLED_BPTIMAGE_TARGET) \
 	$(INSTALLED_VENDORIMAGE_TARGET) \
+	$(INSTALLED_PRODUCTIMAGE_TARGET) \
 	$(INSTALLED_SYSTEMOTHERIMAGE_TARGET) \
 	$(INSTALLED_FILES_FILE) \
 	$(INSTALLED_FILES_FILE_VENDOR) \
-	$(INSTALLED_FILES_FILE_SYSTEMOTHER)
+	$(INSTALLED_FILES_FILE_PRODUCT) \
+	$(INSTALLED_FILES_FILE_SYSTEMOTHER) \
+	soong_docs
 
 # dist_files only for putting your library into the dist directory with a full build.
 .PHONY: dist_files
@@ -1035,13 +1149,8 @@ ifneq ($(TARGET_BUILD_APPS),)
   $(call dist-for-goals,apps_only, $(apps_only_dist_built_files))
 
   ifeq ($(EMMA_INSTRUMENT),true)
-    ifeq ($(ANDROID_COMPILE_WITH_JACK),false)
-      $(JACOCO_REPORT_CLASSES_ALL) : $(apps_only_installed_files)
-      $(call dist-for-goals,apps_only, $(JACOCO_REPORT_CLASSES_ALL))
-    else
-      $(EMMA_META_ZIP) : $(apps_only_installed_files)
-      $(call dist-for-goals,apps_only, $(EMMA_META_ZIP))
-    endif
+    $(JACOCO_REPORT_CLASSES_ALL) : $(apps_only_installed_files)
+    $(call dist-for-goals,apps_only, $(JACOCO_REPORT_CLASSES_ALL))
   endif
 
   $(PROGUARD_DICT_ZIP) : $(apps_only_installed_files)
@@ -1076,6 +1185,7 @@ else # TARGET_BUILD_APPS
     $(COVERAGE_ZIP) \
     $(INSTALLED_FILES_FILE) \
     $(INSTALLED_FILES_FILE_VENDOR) \
+    $(INSTALLED_FILES_FILE_PRODUCT) \
     $(INSTALLED_FILES_FILE_SYSTEMOTHER) \
     $(INSTALLED_BUILD_PROP_TARGET) \
     $(BUILT_TARGET_FILES_PACKAGE) \
@@ -1098,13 +1208,8 @@ else # TARGET_BUILD_APPS
   endif
 
   ifeq ($(EMMA_INSTRUMENT),true)
-    ifeq ($(ANDROID_COMPILE_WITH_JACK),false)
-      $(JACOCO_REPORT_CLASSES_ALL) : $(INSTALLED_SYSTEMIMAGE)
-      $(call dist-for-goals, dist_files, $(JACOCO_REPORT_CLASSES_ALL))
-    else
-      $(EMMA_META_ZIP) : $(INSTALLED_SYSTEMIMAGE)
-      $(call dist-for-goals, dist_files, $(EMMA_META_ZIP))
-    endif
+    $(JACOCO_REPORT_CLASSES_ALL) : $(INSTALLED_SYSTEMIMAGE)
+    $(call dist-for-goals, dist_files, $(JACOCO_REPORT_CLASSES_ALL))
   endif
 
 # Building a full system-- the default is to build droidcore
@@ -1140,7 +1245,7 @@ target-java-tests : java-target-tests
 target-native-tests : native-target-tests
 tests : host-tests target-tests
 
-# Phony target to run all java compilations that use javac instead of jack.
+# Phony target to run all java compilations that use javac
 .PHONY: javac-check
 
 ifneq (,$(filter samplecode, $(MAKECMDGOALS)))
@@ -1161,6 +1266,9 @@ endif  # samplecode in $(MAKECMDGOALS)
 
 .PHONY: findbugs
 findbugs: $(INTERNAL_FINDBUGS_HTML_TARGET) $(INTERNAL_FINDBUGS_XML_TARGET)
+
+.PHONY: findlsdumps
+findlsdumps: $(FIND_LSDUMPS_FILE)
 
 #xxx scrape this from ALL_MODULE_NAME_TAGS
 .PHONY: modules

@@ -1,31 +1,7 @@
 /*
- * Copyright (c) 2013-2014, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2017, ARM Limited and Contributors. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this
- * list of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * Neither the name of ARM nor the names of its contributors may be used
- * to endorse or promote products derived from this software without specific
- * prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #ifndef __OPTEED_PRIVATE_H__
@@ -110,7 +86,7 @@
 typedef uint32_t optee_vector_isn_t;
 
 typedef struct optee_vectors {
-	optee_vector_isn_t std_smc_entry;
+	optee_vector_isn_t yield_smc_entry;
 	optee_vector_isn_t fast_smc_entry;
 	optee_vector_isn_t cpu_on_entry;
 	optee_vector_isn_t cpu_off_entry;
@@ -169,8 +145,11 @@ void __dead2 opteed_exit_sp(uint64_t c_rt_ctx, uint64_t ret);
 uint64_t opteed_synchronous_sp_entry(optee_context_t *optee_ctx);
 void __dead2 opteed_synchronous_sp_exit(optee_context_t *optee_ctx, uint64_t ret);
 void opteed_init_optee_ep_state(struct entry_point_info *optee_ep,
-				uint32_t rw, uint64_t pc,
-				uint64_t paged_part, uint64_t mem_limit,
+				uint32_t rw,
+				uint64_t pc,
+				uint64_t pageable_part,
+				uint64_t mem_limit,
+				uint64_t dt_addr,
 				optee_context_t *optee_ctx);
 
 extern optee_context_t opteed_sp_context[OPTEED_CORE_COUNT];

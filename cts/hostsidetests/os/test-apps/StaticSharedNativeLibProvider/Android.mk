@@ -23,8 +23,9 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_JNI_SHARED_LIBRARIES := libstaticsharednativelibprovider
 
 LOCAL_PACKAGE_NAME := CtsStaticSharedNativeLibProvider
+LOCAL_SDK_VERSION := current
 
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 LOCAL_PROGUARD_ENABLED := disabled
 
@@ -54,8 +55,10 @@ LOCAL_SRC_FILES := $(call all-cpp-files-under)
 
 LOCAL_MODULE := libstaticsharednativelibprovider
 
+LOCAL_SDK_VERSION := current
+
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/native/version.h
 
-LOCAL_CXX_STL := none
+LOCAL_NDK_STL_VARIANT := none
 
 include $(BUILD_SHARED_LIBRARY)

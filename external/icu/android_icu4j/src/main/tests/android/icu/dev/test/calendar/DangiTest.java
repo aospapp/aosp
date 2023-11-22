@@ -11,6 +11,8 @@ package android.icu.dev.test.calendar;
 import java.util.Date;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.text.DateFormat;
 import android.icu.util.Calendar;
@@ -18,7 +20,10 @@ import android.icu.util.DangiCalendar;
 import android.icu.util.GregorianCalendar;
 import android.icu.util.TimeZone;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class DangiTest extends CalendarTestFmwk {
     /**
      * Test basic mapping to and from Gregorian.
@@ -34,7 +39,7 @@ public class DangiTest extends CalendarTestFmwk {
             1964,  9,  7,   4297,  8,0,  2,
             1961, 12, 25,   4294, 11,0, 18,
             1999,  6,  4,   4332,  4,0, 21,
-            
+
             1990,  5, 23,   4323,  4,0, 29,
             1990,  5, 24,   4323,  5,0,  1,
             1990,  6, 22,   4323,  5,0, 30,
@@ -191,14 +196,14 @@ public class DangiTest extends CalendarTestFmwk {
             Calendar.DAY_OF_YEAR, 1,
             END,
             1,0,1, // Expect 1-1
-            
+
             // If we set MONTH only, that should be used
             Calendar.IS_LEAP_MONTH, 1,
             Calendar.DAY_OF_MONTH, 1,
             Calendar.MONTH, 3,
             END,
             4,1,1, // Expect 4*-1
-            
+
             // If we set the DOY last, that should take precedence
             Calendar.MONTH, 1, // Should ignore
             Calendar.IS_LEAP_MONTH, 1, // Should ignore
@@ -206,7 +211,7 @@ public class DangiTest extends CalendarTestFmwk {
             Calendar.DAY_OF_YEAR, 121,
             END,
             4,1,2, // Expect 4*-2
-            
+
             // If we set IS_LEAP_MONTH last, that should take precedence
             Calendar.MONTH, 3,
             Calendar.DAY_OF_MONTH, 1,
@@ -310,7 +315,7 @@ public class DangiTest extends CalendarTestFmwk {
             {  4334,   3,0,  30,   MONTH,   3,   4334,   5,0,  30 }, // no dom pin
             {  4334,   3,0,  30,   MONTH,   4,   4334,   6,0,  29 }, // dom should pin
         };
-       
+
         Calendar cal = Calendar.getInstance(new ULocale("ko_KR@calendar=dangi"));
         doRollAddDangi(ADD, cal, tests);
     }
@@ -342,11 +347,11 @@ public class DangiTest extends CalendarTestFmwk {
             {  4334,   3,0,  30,   MONTH,  16,   4334,   5,0,  30 }, // no dom pin
             {  4334,   3,0,  30,   MONTH,  -9,   4334,   6,0,  29 }, // dom should pin
         };
-       
+
         Calendar cal = Calendar.getInstance(new ULocale("ko_KR@calendar=dangi"));
         doRollAddDangi(ROLL, cal, tests);
     }
-    
+
     void doRollAddDangi(boolean roll, Calendar cal, int[][] tests) {
         String name = roll ? "rolling" : "adding";
 
@@ -411,7 +416,7 @@ public class DangiTest extends CalendarTestFmwk {
         // If the chinese calendar current millis isn't called, the default year is wrong.
         // this test is assuming the 'year' is the current cycle
         // so when we cross a cycle boundary, the target will need to change
-        // that shouldn't be for awhile yet... 
+        // that shouldn't be for awhile yet...
 
         Calendar cc = Calendar.getInstance(new ULocale("ko_KR@calendar=dangi"));
         cc.set(Calendar.EXTENDED_YEAR, 4338);
@@ -426,7 +431,7 @@ public class DangiTest extends CalendarTestFmwk {
         cc.set(Calendar.MILLISECOND, 0);
 
         cc.add(Calendar.DATE, 1);
- 
+
         Calendar cal = new GregorianCalendar(2005, Calendar.FEBRUARY, 28);
         Date target = cal.getTime();
         Date result = cc.getTime();

@@ -81,10 +81,6 @@ class MlmeRoamEvent {
       const NL80211Packet* packet);
   // Returns the BSSID of the associated AP.
   const std::vector<uint8_t>& GetBSSID() const { return bssid_; }
-  // Get the status code of this roam event.
-  // 0 = success, non-zero = failure.
-  // Status codes definition: IEEE 802.11-2012, 8.4.1.9, Table 8-37
-  uint16_t GetStatusCode() const { return status_code_; }
   uint32_t GetInterfaceIndex() const { return interface_index_; }
 
  private:
@@ -92,7 +88,6 @@ class MlmeRoamEvent {
 
   uint32_t interface_index_;
   std::vector<uint8_t> bssid_;
-  uint16_t status_code_;
 
   DISALLOW_COPY_AND_ASSIGN(MlmeRoamEvent);
 };

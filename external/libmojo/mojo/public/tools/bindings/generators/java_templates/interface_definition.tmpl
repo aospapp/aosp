@@ -91,11 +91,11 @@ try {
     }
     switch(header.getType()) {
 {%   if with_response %}
-        case org.chromium.mojo.bindings.InterfaceControlMessagesConstants.RUN_MESSAGE_ID:
+        case org.chromium.mojo.bindings.interfacecontrol.InterfaceControlMessagesConstants.RUN_MESSAGE_ID:
             return org.chromium.mojo.bindings.InterfaceControlMessagesHelper.handleRun(
                     getCore(), {{interface|name}}_Internal.MANAGER, messageWithHeader, receiver);
 {%   else %}
-        case org.chromium.mojo.bindings.InterfaceControlMessagesConstants.RUN_OR_CLOSE_PIPE_MESSAGE_ID:
+        case org.chromium.mojo.bindings.interfacecontrol.InterfaceControlMessagesConstants.RUN_OR_CLOSE_PIPE_MESSAGE_ID:
             return org.chromium.mojo.bindings.InterfaceControlMessagesHelper.handleRunOrClosePipe(
                     {{interface|name}}_Internal.MANAGER, messageWithHeader);
 {%   endif %}
@@ -246,7 +246,12 @@ class {{interface|name}}_Internal {
 {%   if method.response_parameters|length %}
                 {{response_struct|name}} response = {{response_struct|name}}.deserialize(messageWithHeader.getPayload());
 {%   endif %}
-                mCallback.call({{run_callback('response', method.response_parameters)}});
+                try {
+                    mCallback.call({{run_callback('response', method.response_parameters)}});
+                } catch (RuntimeException e) {
+                    // TODO(lhchavez): Remove this hack. See b/28814913 for details.
+                    android.util.Log.wtf("{{namespace}}.{{interface.name}}", "Uncaught runtime exception", e);
+                }
                 return true;
             } catch (org.chromium.mojo.bindings.DeserializationException e) {
                 return false;

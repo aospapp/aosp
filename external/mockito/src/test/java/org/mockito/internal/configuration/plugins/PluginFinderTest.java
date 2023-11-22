@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockito.internal.configuration.plugins;
 
 import org.junit.Rule;
@@ -14,7 +18,7 @@ import java.net.URL;
 import java.util.Collections;
 
 import static java.util.Arrays.asList;
-import static junit.framework.TestCase.*;
+import static org.junit.Assert.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.when;

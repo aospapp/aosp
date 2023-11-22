@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -47,7 +47,10 @@ public class AgentOptionsTest {
 		assertFalse(options.getInclNoLocationClasses());
 		assertNull(options.getSessionId());
 		assertTrue(options.getDumpOnExit());
-		assertEquals(AgentOptions.OutputMode.file, options.getOutput());
+		// BEGIN android-change
+		// assertEquals(AgentOptions.OutputMode.file, options.getOutput());
+		assertEquals(AgentOptions.OutputMode.none, options.getOutput());
+		// END android-change
 		assertEquals(AgentOptions.DEFAULT_ADDRESS, options.getAddress());
 		assertEquals(AgentOptions.DEFAULT_PORT, options.getPort());
 		assertNull(options.getClassDumpDir());

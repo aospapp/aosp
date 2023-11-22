@@ -29,6 +29,7 @@ from analysis_module import AnalysisModule
 from trace import ResidencyTime, ResidencyData
 from bart.common.Utils import area_under_curve
 
+import numpy as np
 
 class FrequencyAnalysis(AnalysisModule):
     """
@@ -115,6 +116,126 @@ class FrequencyAnalysis(AnalysisModule):
 # Plotting Methods
 ###############################################################################
 
+    def plotPeripheralClock(self, title='Peripheral Frequency', clk='unknown'):
+        """
+        Produce graph plotting the frequency of a particular peripheral clock
+
+        :param title: The title for the chart
+        :type  title: str
+
+        :param clk: The clk name to chart
+        :type  clk: str
+
+        :raises: KeyError
+        """
+        if not self._trace.hasEvents('clock_set_rate'):
+            self._log.warning('Events [clock_set_rate] not found, plot DISABLED!')
+            return
+        rate_df = self._dfg_trace_event('clock_set_rate')
+        enable_df = self._dfg_trace_event('clock_enable')
+        disable_df = self._dfg_trace_event('clock_disable')
+        pd.options.mode.chained_assignment = None
+
+        rate_df = rate_df[rate_df.clk_name == clk]
+        rate_df['clock_setting'] = rate_df['rate']/1e6
+        rate_df['state'] = -1
+
+        pd.set_option('display.expand_frame_repr', False)
+
+        if not enable_df.empty:
+          enable_df = enable_df[enable_df.clk_name == clk]
+          enable_df['clock_setting'] = 1;
+        if not disable_df.empty:
+          disable_df = disable_df[disable_df.clk_name == clk]
+          disable_df['clock_setting'] = 0;
+
+        freq = pd.concat([rate_df, enable_df, disable_df])
+        freq.sort_index(inplace=True)
+
+        if freq.empty:
+            self._log.warning('No events for clock ' + clk + ' found in trace')
+            return
+
+        last = freq.tail(n=1)
+        last.index = { self._trace.x_max }
+        freq = pd.concat([freq, last])
+        freq['timestamp'] = freq.index
+        freq['frequency'] = 0;
+
+        max_freq = 0
+        last_state = 1
+        last_freq = rate_df.iloc[0]['clock_setting']
+        for index, row in freq.iterrows():
+            if row.state == -1 :
+                last_freq = row.clock_setting
+                if max_freq < last_freq: max_freq = last_freq
+                if last_state == 0:
+                    freq.loc[index, 'frequency'] = 0
+                else:
+                    freq.loc[index, 'frequency'] = last_freq
+
+            if row.state == 1:
+                freq.loc[index, 'frequency'] = last_freq
+                last_state = row.state
+
+            if row.state == 0:
+                freq.loc[index, 'frequency'] = 0
+                last_state = row.state
+
+        gs = gridspec.GridSpec(5,1)
+        freq_axis = plt.subplot(gs[:4, 0])
+        state_axis = plt.subplot(gs[4:, 0])
+        plt.suptitle(title, y=.97, fontsize=16, horizontalalignment='center')
+
+        gs.update(hspace=1.7)
+
+        #plot frequency information
+        freq_axis.set_title("Clock frequency for " + clk)
+        freq_axis.set_ylim(0, max_freq * 1.1)
+        if len(freq) > 0:
+            freq['frequency'].plot(style=['b-'], ax=freq_axis, drawstyle='steps-post', alpha=0.4)
+        else:
+            self._log.warning('NO frequency events to plot')
+
+        freq_axis.set_xlim(self._trace.x_min, self._trace.x_max)
+        freq_axis.set_ylabel('MHz')
+        freq_axis.set_xlabel('')
+        freq_axis.grid(True)
+
+        #figure out when clocks are on and off
+        onoff = freq.loc[freq.state != -1, :]
+        first_onoff = self._trace.x_max
+        if len(onoff):
+            #edge detect when the state changes
+            onoff['statechange'] = onoff['state'].diff()
+            onoff = onoff[onoff.statechange != 0]
+
+            #compute delta as the time period between state changes
+            onoff['delta'] = (onoff['timestamp'] - onoff['timestamp'].shift()).fillna(0).shift(-1)
+            onoff.iloc[-1, onoff.columns.get_loc('delta')] = self._trace.x_max - onoff.iloc[-1].timestamp
+
+            #plot state on as green and off as red
+            enable_events = onoff[onoff.state == 1]
+            disable_events = onoff[onoff.state == 0]
+            state_axis.hlines([0] * len(enable_events),
+                          enable_events['timestamp'], enable_events['timestamp'] + enable_events['delta'],
+                          linewidth = 10.0, label='clock on', color='green')
+            state_axis.hlines([0] * len(disable_events),
+                          disable_events['timestamp'], disable_events['timestamp'] + disable_events['delta'],
+                          linewidth = 10.0, label='clock off', color='red')
+            first_onoff = onoff.iloc[0].timestamp
+
+        #plot time period that the clock state was unknown from the trace
+        state_axis.hlines(0, 0, first_onoff, linewidth = 1.0, label='indeterminate clock state', linestyle='--')
+        state_axis.set_yticks([])
+        state_axis.set_xlabel('seconds')
+        state_axis.set_xlim(self._trace.x_min, self._trace.x_max)
+        state_axis.legend(bbox_to_anchor=(0., 1.02, 1., 0.102), loc=3, ncol=3, mode='expand')
+
+        figname = '{}/{}{}.png'\
+                  .format(self._trace.plots_dir, self._trace.plots_prefix, clk)
+        pl.savefig(figname, bbox_inches='tight')
+
     def plotClusterFrequencies(self, title='Clusters Frequencies'):
         """
         Plot frequency trend for all clusters. If sched_overutilized events are
@@ -133,13 +254,13 @@ class FrequencyAnalysis(AnalysisModule):
 
         # Extract LITTLE and big clusters frequencies
         # and scale them to [MHz]
-        if len(self._platform['clusters']['little']):
-            lfreq = df[df.cpu == self._platform['clusters']['little'][-1]]
+        if self._little_cpus:
+            lfreq = df[df.cpu == self._little_cpus[-1]]
             lfreq['frequency'] = lfreq['frequency']/1e3
         else:
             lfreq = []
-        if len(self._platform['clusters']['big']):
-            bfreq = df[df.cpu == self._platform['clusters']['big'][-1]]
+        if self._big_cpus:
+            bfreq = df[df.cpu == self._big_cpus[-1]]
             bfreq['frequency'] = bfreq['frequency']/1e3
         else:
             bfreq = []
@@ -263,7 +384,7 @@ class FrequencyAnalysis(AnalysisModule):
             avg_freq = 0
             if len(_df) > 1:
                 timespan = _df.index[-1] - _df.index[0]
-                avg_freq = area_under_curve(_df['frequency']) / timespan
+                avg_freq = area_under_curve(_df['frequency'], method='rect') / timespan
 
             # Store DF for plotting
             freq[cpu_id] = {
@@ -296,14 +417,17 @@ class FrequencyAnalysis(AnalysisModule):
             axes.axhline(_avg, color='r', linestyle='--', linewidth=2)
 
             # Set plot limit based on CPU min/max frequencies
-            for cluster,cpus in self._platform['clusters'].iteritems():
-                if cpu_id not in cpus:
-                    continue
-                axes.set_ylim(
-                        (self._platform['freqs'][cluster][0] - 100000)/1e3,
-                        (self._platform['freqs'][cluster][-1] + 100000)/1e3
-                )
-                break
+            if 'clusters' in self._platform:
+                for cluster,cpus in self._platform['clusters'].iteritems():
+                    if cpu_id not in cpus:
+                        continue
+                    freqs = self._platform['freqs'][cluster]
+                    break
+            else:
+                freqs = df['frequency'].unique()
+
+            axes.set_ylim((min(freqs) - 100000) / 1e3,
+                          (max(freqs) + 100000) / 1e3)
 
             # Plot CPU frequency transitions
             _df['frequency'].plot(style=['r-'], ax=axes,
@@ -367,9 +491,8 @@ class FrequencyAnalysis(AnalysisModule):
 
         # Split between big and LITTLE CPUs ordered from higher to lower ID
         _cpus.reverse()
-        big_cpus = [c for c in _cpus if c in self._platform['clusters']['big']]
-        little_cpus = [c for c in _cpus if c in
-                       self._platform['clusters']['little']]
+        big_cpus = [c for c in _cpus if c in self._big_cpus]
+        little_cpus = [c for c in _cpus if c in self._little_cpus]
         _cpus = big_cpus + little_cpus
 
         # Precompute active and total time for each CPU
@@ -412,6 +535,9 @@ class FrequencyAnalysis(AnalysisModule):
             return
         if not self._trace.hasEvents('cpu_idle'):
             self._log.warning('Events [cpu_idle] not found, plot DISABLED!')
+            return
+        if 'clusters' not in self._platform:
+            self._log.warning('No platform cluster info. Plot DISABLED!')
             return
 
         # Assumption: all CPUs in a cluster run at the same frequency, i.e. the

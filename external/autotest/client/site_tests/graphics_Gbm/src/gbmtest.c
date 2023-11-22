@@ -6,13 +6,16 @@
 
 #define _GNU_SOURCE
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <linux/dma-buf.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -29,9 +32,20 @@
 	}\
 } while(0)
 
+#define HANDLE_EINTR(x)                                                  \
+	({                                                               \
+		int eintr_wrapper_counter = 0;                           \
+		int eintr_wrapper_result;                                \
+		do {                                                     \
+			eintr_wrapper_result = (x);                      \
+		} while (eintr_wrapper_result == -1 && errno == EINTR && \
+			 eintr_wrapper_counter++ < 100);                 \
+		eintr_wrapper_result;                                    \
+	})
+
 #define ARRAY_SIZE(A) (sizeof(A)/sizeof(*(A)))
 
-#define ENODRM     -1
+#define ENODRM	   -1
 #define ENODISPLAY -2
 
 static int fd;
@@ -86,11 +100,94 @@ static const uint32_t format_list[] = {
 	GBM_FORMAT_YVU420,
 };
 
+struct plane_info {
+	uint32_t bits_per_pixel;
+	uint32_t subsample_rate;
+};
+
+#define MAX_PLANES 3
+struct format_info {
+	uint32_t pixel_format;
+	int num_planes;
+	struct plane_info planes[MAX_PLANES];
+};
+
+/* Bits per pixel for each. */
+static const struct format_info format_info_list[] = {
+	{GBM_FORMAT_C8, 1, {{8, 1}}},
+	{GBM_FORMAT_RGB332, 1, {{8, 1}}},
+	{GBM_FORMAT_BGR233, 1, {{8, 1}}},
+	{GBM_FORMAT_XRGB4444, 1, {{16, 1}}},
+	{GBM_FORMAT_XBGR4444, 1, {{16, 1}}},
+	{GBM_FORMAT_RGBX4444, 1, {{16, 1}}},
+	{GBM_FORMAT_BGRX4444, 1, {{16, 1}}},
+	{GBM_FORMAT_ARGB4444, 1, {{16, 1}}},
+	{GBM_FORMAT_ABGR4444, 1, {{16, 1}}},
+	{GBM_FORMAT_RGBA4444, 1, {{16, 1}}},
+	{GBM_FORMAT_BGRA4444, 1, {{16, 1}}},
+	{GBM_FORMAT_XRGB1555, 1, {{16, 1}}},
+	{GBM_FORMAT_XBGR1555, 1, {{16, 1}}},
+	{GBM_FORMAT_RGBX5551, 1, {{16, 1}}},
+	{GBM_FORMAT_BGRX5551, 1, {{16, 1}}},
+	{GBM_FORMAT_ARGB1555, 1, {{16, 1}}},
+	{GBM_FORMAT_ABGR1555, 1, {{16, 1}}},
+	{GBM_FORMAT_RGBA5551, 1, {{16, 1}}},
+	{GBM_FORMAT_BGRA5551, 1, {{16, 1}}},
+	{GBM_FORMAT_RGB565, 1, {{16, 1}}},
+	{GBM_FORMAT_BGR565, 1, {{16, 1}}},
+	{GBM_FORMAT_RGB888, 1, {{24, 1}}},
+	{GBM_FORMAT_BGR888, 1, {{24, 1}}},
+	{GBM_FORMAT_XRGB8888, 1, {{32, 1}}},
+	{GBM_FORMAT_XBGR8888, 1, {{32, 1}}},
+	{GBM_FORMAT_RGBX8888, 1, {{32, 1}}},
+	{GBM_FORMAT_BGRX8888, 1, {{32, 1}}},
+	{GBM_FORMAT_ARGB8888, 1, {{32, 1}}},
+	{GBM_FORMAT_ABGR8888, 1, {{32, 1}}},
+	{GBM_FORMAT_RGBA8888, 1, {{32, 1}}},
+	{GBM_FORMAT_BGRA8888, 1, {{32, 1}}},
+	{GBM_FORMAT_XRGB2101010, 1, {{32, 1}}},
+	{GBM_FORMAT_XBGR2101010, 1, {{32, 1}}},
+	{GBM_FORMAT_RGBX1010102, 1, {{32, 1}}},
+	{GBM_FORMAT_BGRX1010102, 1, {{32, 1}}},
+	{GBM_FORMAT_ARGB2101010, 1, {{32, 1}}},
+	{GBM_FORMAT_ABGR2101010, 1, {{32, 1}}},
+	{GBM_FORMAT_RGBA1010102, 1, {{32, 1}}},
+	{GBM_FORMAT_BGRA1010102, 1, {{32, 1}}},
+	{GBM_FORMAT_YUYV, 1, {{16, 1}}},
+	{GBM_FORMAT_YVYU, 1, {{16, 1}}},
+	{GBM_FORMAT_UYVY, 1, {{16, 1}}},
+	{GBM_FORMAT_VYUY, 1, {{16, 1}}},
+	{GBM_FORMAT_AYUV, 1, {{32, 1}}},
+	{GBM_FORMAT_NV12, 2, {{8, 1}, {16, 2}}},
+	{GBM_FORMAT_YVU420, 3, {{8, 1}, {8, 2}, {8,2}}},
+};
+
 static const uint32_t usage_list[] = {
 	GBM_BO_USE_SCANOUT,
 	GBM_BO_USE_CURSOR_64X64,
 	GBM_BO_USE_RENDERING,
 	GBM_BO_USE_LINEAR,
+	GBM_BO_USE_SW_READ_OFTEN,
+	GBM_BO_USE_SW_READ_RARELY,
+	GBM_BO_USE_SW_WRITE_OFTEN,
+	GBM_BO_USE_SW_WRITE_RARELY,
+};
+
+static const uint32_t buffer_list[] = {
+	GBM_BO_USE_SCANOUT | GBM_BO_USE_SW_READ_RARELY | GBM_BO_USE_SW_WRITE_RARELY,
+	GBM_BO_USE_RENDERING | GBM_BO_USE_SW_READ_RARELY | GBM_BO_USE_SW_WRITE_RARELY,
+	GBM_BO_USE_SW_READ_RARELY | GBM_BO_USE_SW_WRITE_RARELY,
+	GBM_BO_USE_SW_READ_RARELY | GBM_BO_USE_SW_WRITE_RARELY | GBM_BO_USE_TEXTURING,
+	GBM_BO_USE_SW_READ_RARELY | GBM_BO_USE_SW_WRITE_RARELY | GBM_BO_USE_TEXTURING,
+
+	GBM_BO_USE_RENDERING | GBM_BO_USE_SW_READ_RARELY | GBM_BO_USE_SW_WRITE_RARELY |
+	GBM_BO_USE_TEXTURING,
+
+	GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT | GBM_BO_USE_SW_READ_RARELY |
+	GBM_BO_USE_SW_WRITE_RARELY,
+
+	GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT | GBM_BO_USE_SW_READ_RARELY |
+	GBM_BO_USE_SW_WRITE_RARELY | GBM_BO_USE_TEXTURING,
 };
 
 static int check_bo(struct gbm_bo *bo)
@@ -361,6 +458,7 @@ static int test_alloc_free_formats()
 			struct gbm_bo *bo;
 			bo = gbm_bo_create(gbm, 1024, 1024, format, GBM_BO_USE_RENDERING);
 			CHECK(check_bo(bo));
+			gbm_bo_destroy(bo);
 		}
 	}
 
@@ -381,9 +479,13 @@ static int test_alloc_free_usage()
 			uint32_t format = format_list[j];
 			if (gbm_device_is_format_supported(gbm, format, usage)) {
 				struct gbm_bo *bo;
-				bo = gbm_bo_create(gbm, 1024, 1024, format, usage);
+				if (usage == GBM_BO_USE_CURSOR_64X64)
+					bo = gbm_bo_create(gbm, 64, 64, format, usage);
+				else
+					bo = gbm_bo_create(gbm, 1024, 1024, format, usage);
 				CHECK(check_bo(bo));
 				found = 1;
+				gbm_bo_destroy(bo);
 			}
 		}
 		CHECK(found);
@@ -619,11 +721,12 @@ static int test_gem_map()
 
 	addr = map_data = NULL;
 
-	bo = gbm_bo_create(gbm, width, height, GBM_FORMAT_ARGB8888, GBM_BO_USE_LINEAR);
+	bo = gbm_bo_create(gbm, width, height, GBM_FORMAT_ARGB8888,
+			   GBM_BO_USE_SW_READ_RARELY | GBM_BO_USE_SW_WRITE_RARELY);
 	CHECK(check_bo(bo));
 
 	addr = gbm_bo_map(bo, 0, 0, width, height, GBM_BO_TRANSFER_READ_WRITE, &stride,
-		          &map_data, 0);
+			  &map_data, 0);
 
 	CHECK(addr != MAP_FAILED);
 	CHECK(map_data);
@@ -640,7 +743,7 @@ static int test_gem_map()
 	addr = map_data = NULL;
 
 	addr = gbm_bo_map(bo, 0, 0, width, height, GBM_BO_TRANSFER_READ_WRITE, &stride,
-		          &map_data, 0);
+			  &map_data, 0);
 
 	CHECK(addr != MAP_FAILED);
 	CHECK(map_data);
@@ -655,9 +758,240 @@ static int test_gem_map()
 	return 1;
 }
 
+static int test_dmabuf_map()
+{
+	uint32_t *pixel;
+	struct gbm_bo *bo;
+	void *addr, *map_data;
+	const int width = 666;
+	const int height = 777;
+	int x, y, ret, prime_fd;
+	struct dma_buf_sync sync_end = { 0 };
+	struct dma_buf_sync sync_start = { 0 };
+	uint32_t pixel_size, stride, stride_pixels, length;
+
+	bo = gbm_bo_create(gbm, width, height, GBM_FORMAT_ARGB8888, GBM_BO_USE_LINEAR);
+	CHECK(check_bo(bo));
+
+	prime_fd = gbm_bo_get_fd(bo);
+	CHECK(prime_fd > 0);
+
+	stride = gbm_bo_get_stride(bo);
+	length = gbm_bo_get_plane_size(bo, 0);
+	CHECK(stride > 0);
+	CHECK(length > 0);
+
+	addr = mmap(NULL, length, (PROT_READ | PROT_WRITE), MAP_SHARED, prime_fd, 0);
+	CHECK(addr != MAP_FAILED);
+
+	pixel = (uint32_t *)addr;
+	pixel_size = sizeof(*pixel);
+	stride_pixels = stride / pixel_size;
+
+	sync_start.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_WRITE;
+	ret = HANDLE_EINTR(ioctl(prime_fd, DMA_BUF_IOCTL_SYNC, &sync_start));
+	CHECK(ret == 0);
+
+	for (y = 0; y < height; ++y)
+		for (x = 0; x < width; ++x)
+			pixel[y * stride_pixels + x] = ((y << 16) | x);
+
+	sync_end.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_WRITE;
+	ret = HANDLE_EINTR(ioctl(prime_fd, DMA_BUF_IOCTL_SYNC, &sync_end));
+	CHECK(ret == 0);
+
+	ret = munmap(addr, length);
+	CHECK(ret == 0);
+
+	ret = close(prime_fd);
+	CHECK(ret == 0);
+
+	prime_fd = gbm_bo_get_fd(bo);
+	CHECK(prime_fd > 0);
+
+	addr = mmap(NULL, length, (PROT_READ | PROT_WRITE), MAP_SHARED, prime_fd, 0);
+	CHECK(addr != MAP_FAILED);
+
+	pixel = (uint32_t *)addr;
+
+	memset(&sync_start, 0, sizeof(sync_start));
+	memset(&sync_end, 0, sizeof(sync_end));
+
+	sync_start.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_READ;
+	ret = HANDLE_EINTR(ioctl(prime_fd, DMA_BUF_IOCTL_SYNC, &sync_start));
+	CHECK(ret == 0);
+
+	for (y = 0; y < height; ++y)
+		for (x = 0; x < width; ++x)
+			CHECK(pixel[y * stride_pixels + x] == ((y << 16) | x));
+
+	sync_end.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_READ;
+	ret = HANDLE_EINTR(ioctl(prime_fd, DMA_BUF_IOCTL_SYNC, &sync_end));
+	CHECK(ret == 0);
+
+	ret = munmap(addr, length);
+	CHECK(ret == 0);
+
+	ret = close(prime_fd);
+	CHECK(ret == 0);
+
+	addr = gbm_bo_map(bo, 0, 0, width, height, GBM_BO_TRANSFER_READ, &stride,
+			  &map_data, 0);
+
+	CHECK(addr != MAP_FAILED);
+	CHECK(map_data);
+	CHECK(stride > 0);
+
+	pixel = (uint32_t *)addr;
+
+	for (y = 0; y < height; ++y)
+		for (x = 0; x < width; ++x)
+			CHECK(pixel[y * stride_pixels + x] == ((y << 16) | x));
+
+	gbm_bo_unmap(bo, map_data);
+	gbm_bo_destroy(bo);
+
+	return 1;
+}
+
+static int test_gem_map_tiling(enum gbm_bo_flags buffer_create_flag)
+{
+	uint32_t *pixel, pixel_size;
+	struct gbm_bo *bo;
+	void *map_data, *addr;
+
+	uint32_t stride = 0;
+	uint32_t stride_pixels = 0;
+	const int width = 666;
+	const int height = 777;
+	int x, y;
+
+	addr = map_data = NULL;
+
+	bo = gbm_bo_create(gbm, width, height, GBM_FORMAT_ARGB8888, buffer_create_flag);
+	CHECK(check_bo(bo));
+
+	addr = gbm_bo_map(bo, 0, 0, width, height, GBM_BO_TRANSFER_WRITE, &stride,
+			  &map_data, 0);
+
+	CHECK(addr != MAP_FAILED);
+	CHECK(map_data);
+	CHECK(stride > 0);
+
+	pixel = (uint32_t *)addr;
+	pixel_size = sizeof(*pixel);
+	stride_pixels = stride / pixel_size;
+
+	for (y = 0; y < height; ++y)
+		for (x = 0; x < width; ++x)
+			pixel[y * stride_pixels + x] = ((y << 16) | x);
+
+	gbm_bo_unmap(bo, map_data);
+
+	/* Re-map and verify written previously data. */
+	stride = 0;
+	addr = map_data = NULL;
+
+	addr = gbm_bo_map(bo, 0, 0, width, height, GBM_BO_TRANSFER_READ, &stride,
+			  &map_data, 0);
+
+	CHECK(addr != MAP_FAILED);
+	CHECK(map_data);
+	CHECK(stride > 0);
+
+	pixel = (uint32_t *)addr;
+	pixel_size = sizeof(*pixel);
+	stride_pixels = stride / pixel_size;
+
+	for (y = 0; y < height; ++y)
+		for (x = 0; x < width; ++x)
+			CHECK(pixel[y * stride_pixels + x] == ((y << 16) | x));
+
+	gbm_bo_unmap(bo, map_data);
+	gbm_bo_destroy(bo);
+
+	return 1;
+}
+
+
+static int test_gem_map_format(int format_index,
+			       enum gbm_bo_flags buffer_create_flag)
+{
+	uint8_t *pixel;
+	struct gbm_bo *bo;
+	void *map_data, *addr;
+	uint32_t x, y, p, w, h, b, planes, bytes_per_pixel, idx;
+	uint32_t stride = 0;
+	const int width = 333;
+	const int height = 444;
+	const uint32_t pixel_format = format_info_list[format_index].pixel_format;
+
+	addr = map_data = NULL;
+	if (!gbm_device_is_format_supported(gbm, pixel_format, buffer_create_flag))
+		return 1;
+
+	bo = gbm_bo_create(gbm, width, height, pixel_format, buffer_create_flag);
+	CHECK(check_bo(bo));
+	planes = gbm_bo_get_num_planes(bo);
+	CHECK(planes == format_info_list[format_index].num_planes);
+
+	for (p = 0; p < planes; ++p) {
+		w = width / format_info_list[format_index].planes[p].subsample_rate;
+		h = height / format_info_list[format_index].planes[p].subsample_rate;
+		addr = gbm_bo_map(bo, 0, 0, w, h, GBM_BO_TRANSFER_WRITE, &stride,
+				  &map_data, p);
+
+		CHECK(addr != MAP_FAILED);
+		CHECK(map_data);
+		CHECK(stride > 0);
+
+		pixel = (uint8_t *)addr;
+		bytes_per_pixel = format_info_list[format_index].planes[p].bits_per_pixel / 8;
+		for (y = 0; y < h; ++y) {
+			for (x = 0; x < w; ++x) {
+				idx = y * stride + x * bytes_per_pixel;
+				for (b = 0; b < bytes_per_pixel; ++b)
+					pixel[idx + b] = y ^ x ^ b;
+			}
+		}
+		gbm_bo_unmap(bo, map_data);
+		stride = 0;
+		addr = map_data = NULL;
+	}
+
+	/* Re-map and verify written previously data. */
+	for (p = 0; p < planes; ++p) {
+		w = width / format_info_list[format_index].planes[p].subsample_rate;
+		h = height / format_info_list[format_index].planes[p].subsample_rate;
+		addr = gbm_bo_map(bo, 0, 0, w, h, GBM_BO_TRANSFER_READ, &stride,
+				  &map_data, p);
+
+		CHECK(addr != MAP_FAILED);
+		CHECK(map_data);
+		CHECK(stride > 0);
+
+		pixel = (uint8_t *)addr;
+		bytes_per_pixel = format_info_list[format_index].planes[p].bits_per_pixel / 8;
+		for (y = 0; y < h; ++y) {
+			for (x = 0; x < w; ++x) {
+				idx = y * stride + x * bytes_per_pixel;
+				for (b = 0; b < bytes_per_pixel; ++b)
+					CHECK(pixel[idx + b] == (uint8_t)(y ^ x ^ b));
+			}
+		}
+		gbm_bo_unmap(bo, map_data);
+		stride = 0;
+		addr = map_data = NULL;
+	}
+
+	gbm_bo_destroy(bo);
+	return 1;
+}
+
+
 int main(int argc, char *argv[])
 {
-	int result;
+	int result, i, j;
 
 	result = test_init();
 	if (result == ENODISPLAY) {
@@ -679,6 +1013,17 @@ int main(int argc, char *argv[])
 	result &= test_import_dmabuf();
 	result &= test_import_planar();
 	result &= test_gem_map();
+
+	// TODO(crbug.com/752669)
+	if (strcmp(gbm_device_get_backend_name(gbm), "tegra")) {
+		for (i = 0; i < ARRAY_SIZE(buffer_list); ++i) {
+			result &= test_gem_map_tiling(buffer_list[i]);
+			for (j = 0; j < ARRAY_SIZE(format_info_list); ++j)
+				result &= test_gem_map_format(j, buffer_list[i]);
+		}
+
+		result &= test_dmabuf_map();
+	}
 	result &= test_destroy();
 
 	if (!result) {
@@ -689,4 +1034,3 @@ int main(int argc, char *argv[])
 		return EXIT_SUCCESS;
 	}
 }
-

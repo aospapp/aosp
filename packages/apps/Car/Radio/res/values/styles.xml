@@ -21,6 +21,22 @@ limitations under the License.
         <item name="android:scaleType">center</item>
     </style>
 
+    <!-- The radio button style in presets display. -->
+    <style name="RadioButtonPreset" parent="@android:style/Widget.Material.Button.Borderless">
+        <item name="android:background">@drawable/radio_control_background</item>
+        <item name="android:scaleType">center</item>
+    </style>
+
+    <!-- The radio button style in presets display. -->
+    <style name="RadioButtonFab" parent="@android:style/Widget.Material.Button.Borderless">
+        <item name="android:background">@drawable/radio_control_background</item>
+        <item name="android:padding">@dimen/car_radio_controls_button_padding</item>
+        <item name="android:scaleType">center</item>
+        <item name="android:transitionName">@string/radio_play_button_transition_name</item>
+        <item name="android:elevation">@dimen/car_radio_fab_elevation</item>
+        <item name="android:stateListAnimator">@anim/car_fab_state_list_animator</item>
+    </style>
+
     <!-- The text style for the radio channel in the main display. -->
     <style name="RadioStationChannelText">
         <item name="android:fontFamily">sans-serif-light</item>
@@ -70,8 +86,8 @@ limitations under the License.
 
     <!-- The default style for FAB icons in the radio. -->
     <style name="RadioFab">
-        <item name="android:layout_width">@dimen/car_radio_fab_size</item>
-        <item name="android:layout_height">@dimen/car_radio_fab_size</item>
+        <item name="android:layout_width">@dimen/manual_tuner_fab_size</item>
+        <item name="android:layout_height">@dimen/manual_tuner_fab_size</item>
         <item name="android:padding">@dimen/car_radio_fab_padding</item>
         <item name="android:scaleType">centerCrop</item>
         <item name="android:elevation">@dimen/car_radio_fab_elevation</item>
@@ -80,8 +96,8 @@ limitations under the License.
     <!-- The style for the text in the manual tuner dialpad. -->
     <style name="ManualTunerText">
         <item name="android:background">@drawable/radio_control_background</item>
-        <item name="android:layout_height">@dimen/stream_button_size</item>
-        <item name="android:layout_width">@dimen/stream_button_size</item>
+        <item name="android:layout_height">@dimen/car_touch_target_size</item>
+        <item name="android:layout_width">@dimen/car_touch_target_size</item>
         <item name="android:gravity">center</item>
         <item name="android:textColor">@color/manual_tuner_button_text</item>
         <item name="android:textSize">@dimen/manual_tuner_dialpad_text_size</item>
@@ -100,7 +116,7 @@ limitations under the License.
     <!-- The text style for the text displaying the current channel that the user has typed. -->
     <style name="ManualTunerChannelText">
         <item name="android:textAllCaps">true</item>
-        <item name="android:textColor">@color/car_headline0</item>
+        <item name="android:textColor">@color/car_headline1</item>
         <item name="android:textSize">@dimen/manual_tuner_channel_text_size</item>
     </style>
 </resources>

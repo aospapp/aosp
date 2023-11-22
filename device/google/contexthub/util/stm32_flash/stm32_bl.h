@@ -19,6 +19,7 @@
 
 /*
  * cmd_erase, cmd_read_memory, cmd_write_memory - byte to send for cmd
+ * no_extra_sync - uart erase requires no extra sync between cnt and sector
  *
  * write_data - write length bytes of data
  *   (function must checksum data. space reserved for checksum in buffer)
@@ -32,6 +33,7 @@ typedef struct handle
     uint8_t cmd_erase;
     uint8_t cmd_read_memory;
     uint8_t cmd_write_memory;
+    uint8_t no_extra_sync;
 
     uint8_t (*write_data)(struct handle *, uint8_t *buffer, int length);
     uint8_t (*write_cmd)(struct handle *, uint8_t cmd);

@@ -1,7 +1,7 @@
 /** @file
 Enable SMM profile.
 
-Copyright (c) 2012 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2012 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -30,11 +30,6 @@ UINTN                     mSmmProfileSize;
 UINTN                     mMsrDsAreaSize   = SMM_PROFILE_DTS_SIZE;
 
 //
-// The flag indicates if execute-disable is supported by processor.
-//
-BOOLEAN                   mXdSupported     = FALSE;
-
-//
 // The flag indicates if execute-disable is enabled on processor.
 //
 BOOLEAN                   mXdEnabled       = FALSE;
@@ -42,7 +37,7 @@ BOOLEAN                   mXdEnabled       = FALSE;
 //
 // The flag indicates if BTS is supported by processor.
 //
-BOOLEAN                   mBtsSupported     = FALSE;
+BOOLEAN                   mBtsSupported     = TRUE;
 
 //
 // The flag indicates if SMM profile starts to record data.
@@ -144,7 +139,7 @@ GetCpuIndex (
 
   ApicId = GetApicId ();
 
-  for (Index = 0; Index < PcdGet32 (PcdCpuMaxLogicalProcessorNumber); Index++) {
+  for (Index = 0; Index < mMaxNumberOfCpus; Index++) {
     if (gSmmCpuPrivate->ProcessorInfo[Index].ProcessorId == ApicId) {
       return Index;
     }
@@ -342,7 +337,6 @@ InitProtectedMemRange (
   UINTN                            NumberOfSpliteRange;
   EFI_GCD_MEMORY_SPACE_DESCRIPTOR  *MemorySpaceMap;
   UINTN                            TotalSize;
-  EFI_STATUS                       Status;
   EFI_PHYSICAL_ADDRESS             ProtectBaseAddress;
   EFI_PHYSICAL_ADDRESS             ProtectEndAddress;
   EFI_PHYSICAL_ADDRESS             Top2MBAlignedAddress;
@@ -358,10 +352,10 @@ InitProtectedMemRange (
   //
   // Get MMIO ranges from GCD and add them into protected memory ranges.
   //
-  Status = gDS->GetMemorySpaceMap (
-                &NumberOfDescriptors,
-                &MemorySpaceMap
-                );
+  gDS->GetMemorySpaceMap (
+       &NumberOfDescriptors,
+       &MemorySpaceMap
+       );
   for (Index = 0; Index < NumberOfDescriptors; Index++) {
     if (MemorySpaceMap[Index].GcdMemoryType == EfiGcdMemoryTypeMemoryMappedIo) {
       NumberOfMmioDescriptors++;
@@ -530,6 +524,12 @@ InitPaging (
         //
         continue;
       }
+      if ((*Pde & IA32_PG_PS) != 0) {
+        //
+        // This is 1G entry, skip it
+        //
+        continue;
+      }
       Pte = (UINT64 *)(UINTN)(*Pde & PHYSICAL_ADDRESS_MASK);
       if (Pte == 0) {
         continue;
@@ -586,6 +586,15 @@ InitPaging (
         //
         // If PDE entry does not exist, skip it
         //
+        continue;
+      }
+      if ((*Pde & IA32_PG_PS) != 0) {
+        //
+        // This is 1G entry, set NX bit and skip it
+        //
+        if (mXdSupported) {
+          *Pde = *Pde | IA32_PG_NX;
+        }
         continue;
       }
       Pte = (UINT64 *)(UINTN)(*Pde & PHYSICAL_ADDRESS_MASK);
@@ -776,18 +785,16 @@ InitSmmProfileCallBack (
   IN EFI_HANDLE      Handle
   )
 {
-  EFI_STATUS         Status;
-
   //
   // Save to variable so that SMM profile data can be found.
   //
-  Status = gRT->SetVariable (
-                  SMM_PROFILE_NAME,
-                  &gEfiCallerIdGuid,
-                  EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-                  sizeof(mSmmProfileBase),
-                  &mSmmProfileBase
-                  );
+  gRT->SetVariable (
+         SMM_PROFILE_NAME,
+         &gEfiCallerIdGuid,
+         EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+         sizeof(mSmmProfileBase),
+         &mSmmProfileBase
+         );
 
   //
   // Get Software SMI from FADT
@@ -818,13 +825,13 @@ InitSmmProfileInternal (
   UINTN                      MsrDsAreaSizePerCpu;
   UINTN                      TotalSize;
 
-  mPFEntryCount = (UINTN *)AllocateZeroPool (sizeof (UINTN) * PcdGet32 (PcdCpuMaxLogicalProcessorNumber));
+  mPFEntryCount = (UINTN *)AllocateZeroPool (sizeof (UINTN) * mMaxNumberOfCpus);
   ASSERT (mPFEntryCount != NULL);
   mLastPFEntryValue = (UINT64  (*)[MAX_PF_ENTRY_COUNT])AllocateZeroPool (
-                                                         sizeof (mLastPFEntryValue[0]) * PcdGet32 (PcdCpuMaxLogicalProcessorNumber));
+                                                         sizeof (mLastPFEntryValue[0]) * mMaxNumberOfCpus);
   ASSERT (mLastPFEntryValue != NULL);
   mLastPFEntryPointer = (UINT64 *(*)[MAX_PF_ENTRY_COUNT])AllocateZeroPool (
-                                                           sizeof (mLastPFEntryPointer[0]) * PcdGet32 (PcdCpuMaxLogicalProcessorNumber));
+                                                           sizeof (mLastPFEntryPointer[0]) * mMaxNumberOfCpus);
   ASSERT (mLastPFEntryPointer != NULL);
 
   //
@@ -865,17 +872,17 @@ InitSmmProfileInternal (
   mSmmProfileBase->NumCpus        = gSmmCpuPrivate->SmmCoreEntryContext.NumberOfCpus;
 
   if (mBtsSupported) {
-    mMsrDsArea = (MSR_DS_AREA_STRUCT **)AllocateZeroPool (sizeof (MSR_DS_AREA_STRUCT *) * PcdGet32 (PcdCpuMaxLogicalProcessorNumber));
+    mMsrDsArea = (MSR_DS_AREA_STRUCT **)AllocateZeroPool (sizeof (MSR_DS_AREA_STRUCT *) * mMaxNumberOfCpus);
     ASSERT (mMsrDsArea != NULL);
-    mMsrBTSRecord = (BRANCH_TRACE_RECORD **)AllocateZeroPool (sizeof (BRANCH_TRACE_RECORD *) * PcdGet32 (PcdCpuMaxLogicalProcessorNumber));
+    mMsrBTSRecord = (BRANCH_TRACE_RECORD **)AllocateZeroPool (sizeof (BRANCH_TRACE_RECORD *) * mMaxNumberOfCpus);
     ASSERT (mMsrBTSRecord != NULL);
-    mMsrPEBSRecord = (PEBS_RECORD **)AllocateZeroPool (sizeof (PEBS_RECORD *) * PcdGet32 (PcdCpuMaxLogicalProcessorNumber));
+    mMsrPEBSRecord = (PEBS_RECORD **)AllocateZeroPool (sizeof (PEBS_RECORD *) * mMaxNumberOfCpus);
     ASSERT (mMsrPEBSRecord != NULL);
 
     mMsrDsAreaBase  = (MSR_DS_AREA_STRUCT *)((UINTN)Base + mSmmProfileSize);
-    MsrDsAreaSizePerCpu = mMsrDsAreaSize / PcdGet32 (PcdCpuMaxLogicalProcessorNumber);
+    MsrDsAreaSizePerCpu = mMsrDsAreaSize / mMaxNumberOfCpus;
     mBTSRecordNumber    = (MsrDsAreaSizePerCpu - sizeof(PEBS_RECORD) * PEBS_RECORD_NUMBER - sizeof(MSR_DS_AREA_STRUCT)) / sizeof(BRANCH_TRACE_RECORD);
-    for (Index = 0; Index < PcdGet32 (PcdCpuMaxLogicalProcessorNumber); Index++) {
+    for (Index = 0; Index < mMaxNumberOfCpus; Index++) {
       mMsrDsArea[Index]     = (MSR_DS_AREA_STRUCT *)((UINTN)mMsrDsAreaBase + MsrDsAreaSizePerCpu * Index);
       mMsrBTSRecord[Index]  = (BRANCH_TRACE_RECORD *)((UINTN)mMsrDsArea[Index] + sizeof(MSR_DS_AREA_STRUCT));
       mMsrPEBSRecord[Index] = (PEBS_RECORD *)((UINTN)mMsrDsArea[Index] + MsrDsAreaSizePerCpu - sizeof(PEBS_RECORD) * PEBS_RECORD_NUMBER);
@@ -934,8 +941,9 @@ CheckFeatureSupported (
   VOID
   )
 {
-  UINT32                 RegEax;
-  UINT32                 RegEdx;
+  UINT32                         RegEax;
+  UINT32                         RegEdx;
+  MSR_IA32_MISC_ENABLE_REGISTER  MiscEnableMsr;
 
   if (mXdSupported) {
     AsmCpuid (CPUID_EXTENDED_FUNCTION, &RegEax, NULL, NULL, NULL);
@@ -966,76 +974,15 @@ CheckFeatureSupported (
       //    BTINT bits in the MSR_DEBUGCTLA MSR.
       // 2. The IA32_DS_AREA MSR can be programmed to point to the DS save area.
       //
-      if ((AsmMsrBitFieldRead64 (MSR_IA32_MISC_ENABLE, 11, 11) == 0) &&
-          (AsmMsrBitFieldRead64 (MSR_IA32_MISC_ENABLE, 12, 12) == 0)) {
+      MiscEnableMsr.Uint64 = AsmReadMsr64 (MSR_IA32_MISC_ENABLE);
+      if (MiscEnableMsr.Bits.BTS == 1) {
         //
-        // BTS facilities is supported.
+        // BTS facilities is not supported if MSR_IA32_MISC_ENABLE.BTS bit is set.
         //
         mBtsSupported = FALSE;
       }
     }
   }
-}
-
-/**
-  Check if XD and BTS features are supported by all processors.
-
-**/
-VOID
-CheckProcessorFeature (
-  VOID
-  )
-{
-  EFI_STATUS                        Status;
-  EFI_MP_SERVICES_PROTOCOL          *MpServices;
-
-  Status = gBS->LocateProtocol (&gEfiMpServiceProtocolGuid, NULL, (VOID **)&MpServices);
-  ASSERT_EFI_ERROR (Status);
-
-  //
-  // First detect if XD and BTS are supported
-  //
-  mXdSupported  = TRUE;
-  mBtsSupported = TRUE;
-
-  //
-  // Check if XD and BTS are supported on all processors.
-  //
-  CheckFeatureSupported ();
-
-  //
-  //Check on other processors if BSP supports this
-  //
-  if (mXdSupported || mBtsSupported) {
-    MpServices->StartupAllAPs (
-                  MpServices,
-                  (EFI_AP_PROCEDURE) CheckFeatureSupported,
-                  TRUE,
-                  NULL,
-                  0,
-                  NULL,
-                  NULL
-                  );
-  }
-}
-
-/**
-  Enable XD feature.
-
-**/
-VOID
-ActivateXd (
-  VOID
-  )
-{
-  UINT64           MsrRegisters;
-
-  MsrRegisters = AsmReadMsr64 (MSR_EFER);
-  if ((MsrRegisters & MSR_EFER_XD) != 0) {
-    return ;
-  }
-  MsrRegisters |= MSR_EFER_XD;
-  AsmWriteMsr64 (MSR_EFER, MsrRegisters);
 }
 
 /**
@@ -1072,8 +1019,6 @@ ActivateLBR (
   if ((DebugCtl & MSR_DEBUG_CTL_LBR) != 0) {
     return ;
   }
-  AsmWriteMsr64 (MSR_LER_FROM_LIP, 0);
-  AsmWriteMsr64 (MSR_LER_TO_LIP, 0);
   DebugCtl |= MSR_DEBUG_CTL_LBR;
   AsmWriteMsr64 (MSR_DEBUG_CTL, DebugCtl);
 }
@@ -1308,7 +1253,6 @@ SmmProfilePFHandler (
   SMM_PROFILE_ENTRY     *SmmProfileEntry;
   UINT64                SmiCommand;
   EFI_STATUS            Status;
-  UINTN                 SwSmiCpuIndex;
   UINT8                 SoftSmiValue;
   EFI_SMM_SAVE_STATE_IO_INFO    IoInfo;
 
@@ -1352,10 +1296,6 @@ SmmProfilePFHandler (
     }
 
     //
-    // Try to find which CPU trigger SWSMI
-    //
-    SwSmiCpuIndex = 0;
-    //
     // Indicate it is not software SMI
     //
     SmiCommand    = 0xFFFFFFFFFFFFFFFFULL;
@@ -1365,10 +1305,6 @@ SmmProfilePFHandler (
         continue;
       }
       if (IoInfo.IoPort == mSmiCommandPort) {
-        //
-        // Great! Find it.
-        //
-        SwSmiCpuIndex = Index;
         //
         // A software SMI triggered by SMI command port has been found, get SmiCommand from SMI command port.
         //
@@ -1439,5 +1375,8 @@ InitIdtr (
   VOID
   )
 {
-  SmmRegisterExceptionHandler (&mSmmCpuService, EXCEPT_IA32_DEBUG, DebugExceptionHandler);
+  EFI_STATUS                        Status;
+
+  Status = SmmRegisterExceptionHandler (&mSmmCpuService, EXCEPT_IA32_DEBUG, DebugExceptionHandler);
+  ASSERT_EFI_ERROR (Status);
 }

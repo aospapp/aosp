@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -14,7 +14,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import mock
 import socket
 import unittest
 
@@ -25,19 +24,6 @@ class ActsHostUtilsTest(unittest.TestCase):
     """This test class has unit tests for the implementation of everything
     under acts.controllers.adb.
     """
-
-    def test_is_port_available_positive(self):
-        # Unfortunately, we cannot do this test reliably for SOCK_STREAM
-        # because the kernel allow this socket to linger about for some
-        # small amount of time.  We're not using SO_REUSEADDR because we
-        # are working around behavior on darwin where binding to localhost
-        # on some port and then binding again to the wildcard address
-        # with SO_REUSEADDR seems to be allowed.
-        test_s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        test_s.bind(('localhost', 0))
-        port = test_s.getsockname()[1]
-        test_s.close()
-        self.assertTrue(host_utils.is_port_available(port))
 
     def test_detects_udp_port_in_use(self):
         test_s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

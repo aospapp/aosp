@@ -16,8 +16,9 @@
 
 package android.support.car;
 
-import android.support.annotation.IntDef;
-import android.support.annotation.Nullable;
+import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -101,4 +102,30 @@ public abstract class CarInfoManager implements CarManagerBase {
      * @return {@link #DRIVER_SIDE_UNKNOWN} if information is not available.
      */
     public abstract @DriverSide int getDriverPosition() throws CarNotConnectedException;
+
+    /**
+     * Return fuel capacity of the car in milliliters.
+     * @return 0 if car doesn't run on fuel.
+     */
+    public abstract float getFuelCapacity() throws CarNotConnectedException;
+
+    /**
+     * Return array of fuel types available in the car, defined in
+     * android.hardware.automotive.vehicle.V2_0.FuelType
+     * @return empty array if no fuel types available.
+     */
+    public abstract int[] getFuelTypes() throws CarNotConnectedException;
+
+    /**
+     * Return battery capacity of the car in WH.
+     * @return 0 if car doesn't run on battery.
+     */
+    public abstract float getEvBatteryCapacity() throws CarNotConnectedException;
+
+    /**
+     * Return array of EV connector types available in the car, defined in
+     * android.hardware.automotive.vehicle.V2_0.EvConnectorType
+     * @return empty array if no connector types available.
+     */
+    public abstract int[] getEvConnectorTypes() throws CarNotConnectedException;
 }

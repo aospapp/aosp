@@ -17,14 +17,15 @@ package com.android.support.car.lenspicker;
 
 import android.content.Context;
 import android.content.pm.ResolveInfo;
-import android.support.v7.widget.RecyclerView;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.recyclerview.widget.RecyclerView;
+
 /**
- * A {@link android.support.v7.widget.RecyclerView.ViewHolder} representing a row within the
+ * A {@link androidx.recyclerview.widget.RecyclerView.ViewHolder} representing a row within the
  * {@link LensResolverActivity}.
  */
 public class ResolverListRow extends RecyclerView.ViewHolder {

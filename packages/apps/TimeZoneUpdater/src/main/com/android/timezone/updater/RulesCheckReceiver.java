@@ -30,6 +30,7 @@ import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
+import android.os.UserHandle;
 import android.provider.TimeZoneRulesDataContract;
 import android.util.Log;
 
@@ -85,6 +86,17 @@ public class RulesCheckReceiver extends BroadcastReceiver {
                     + ", action=" + intent.getAction());
             return;
         }
+
+        // The time zone update process should run as the system user exclusively as it's a
+        // system feature, not user dependent.
+        UserHandle currentUserHandle = android.os.Process.myUserHandle();
+        if (!currentUserHandle.isSystem()) {
+            // Just do nothing.
+            Log.w(TAG, "Supposed to be running as the system user,"
+                    + " instead running as user=" + currentUserHandle);
+            return;
+        }
+
         mRulesManager = (RulesManager) context.getSystemService("timezone");
 
         byte[] token = intent.getByteArrayExtra(RulesUpdaterContract.EXTRA_CHECK_TOKEN);

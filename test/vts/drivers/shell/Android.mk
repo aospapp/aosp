@@ -27,6 +27,7 @@ LOCAL_SRC_FILES := \
   ShellDriverMain.cpp \
 
 LOCAL_SHARED_LIBRARIES := \
+  libbase \
   libutils \
   libcutils \
   libvts_multidevice_proto \
@@ -54,6 +55,7 @@ LOCAL_SRC_FILES := \
   ShellDriverTest.cpp \
 
 LOCAL_SHARED_LIBRARIES := \
+  libbase \
   libutils \
   libcutils \
   libvts_multidevice_proto \

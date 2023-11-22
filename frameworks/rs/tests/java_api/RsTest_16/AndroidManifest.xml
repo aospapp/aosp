@@ -5,6 +5,8 @@
     <application
         android:label="_RS_Test_v16"
         android:icon="@drawable/test_pattern">
+        <uses-library android:name="android.test.runner" />
+
         <activity android:name="RSTest_v16"
                   android:screenOrientation="portrait">
             <intent-filter>

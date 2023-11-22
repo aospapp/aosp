@@ -200,7 +200,7 @@ public class Utils {
             try {
                 sVersionCode = String.valueOf(context.getPackageManager()
                         .getPackageInfo(context.getPackageName(), 0 /* flags */)
-                        .versionCode);
+                        .getLongVersionCode());
             } catch (NameNotFoundException e) {
                 LogUtils.e(Utils.LOG_TAG, "Error finding package %s",
                         context.getApplicationInfo().packageName);

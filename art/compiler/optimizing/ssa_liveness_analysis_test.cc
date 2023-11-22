@@ -14,24 +14,23 @@
  * limitations under the License.
  */
 
+#include "ssa_liveness_analysis.h"
+
 #include "arch/instruction_set.h"
 #include "arch/instruction_set_features.h"
 #include "base/arena_allocator.h"
 #include "base/arena_containers.h"
-#include "driver/compiler_options.h"
 #include "code_generator.h"
+#include "driver/compiler_options.h"
 #include "nodes.h"
 #include "optimizing_unit_test.h"
-#include "ssa_liveness_analysis.h"
 
 namespace art {
 
-class SsaLivenessAnalysisTest : public testing::Test {
+class SsaLivenessAnalysisTest : public OptimizingUnitTest {
  public:
   SsaLivenessAnalysisTest()
-      : pool_(),
-        allocator_(&pool_),
-        graph_(CreateGraph(&allocator_)),
+      : graph_(CreateGraph()),
         compiler_options_(),
         instruction_set_(kRuntimeISA) {
     std::string error_msg;
@@ -43,7 +42,7 @@ class SsaLivenessAnalysisTest : public testing::Test {
                                      compiler_options_);
     CHECK(codegen_ != nullptr) << instruction_set_ << " is not a supported target architecture.";
     // Create entry block.
-    entry_ = new (&allocator_) HBasicBlock(graph_);
+    entry_ = new (GetAllocator()) HBasicBlock(graph_);
     graph_->AddBlock(entry_);
     graph_->SetEntryBlock(entry_);
   }
@@ -51,14 +50,12 @@ class SsaLivenessAnalysisTest : public testing::Test {
  protected:
   HBasicBlock* CreateSuccessor(HBasicBlock* block) {
     HGraph* graph = block->GetGraph();
-    HBasicBlock* successor = new (&allocator_) HBasicBlock(graph);
+    HBasicBlock* successor = new (GetAllocator()) HBasicBlock(graph);
     graph->AddBlock(successor);
     block->AddSuccessor(successor);
     return successor;
   }
 
-  ArenaPool pool_;
-  ArenaAllocator allocator_;
   HGraph* graph_;
   CompilerOptions compiler_options_;
   InstructionSet instruction_set_;
@@ -68,17 +65,17 @@ class SsaLivenessAnalysisTest : public testing::Test {
 };
 
 TEST_F(SsaLivenessAnalysisTest, TestReturnArg) {
-  HInstruction* arg = new (&allocator_) HParameterValue(
-      graph_->GetDexFile(), dex::TypeIndex(0), 0, Primitive::kPrimInt);
+  HInstruction* arg = new (GetAllocator()) HParameterValue(
+      graph_->GetDexFile(), dex::TypeIndex(0), 0, DataType::Type::kInt32);
   entry_->AddInstruction(arg);
 
   HBasicBlock* block = CreateSuccessor(entry_);
-  HInstruction* ret = new (&allocator_) HReturn(arg);
+  HInstruction* ret = new (GetAllocator()) HReturn(arg);
   block->AddInstruction(ret);
-  block->AddInstruction(new (&allocator_) HExit());
+  block->AddInstruction(new (GetAllocator()) HExit());
 
   graph_->BuildDominatorTree();
-  SsaLivenessAnalysis ssa_analysis(graph_, codegen_.get());
+  SsaLivenessAnalysis ssa_analysis(graph_, codegen_.get(), GetScopedAllocator());
   ssa_analysis.Analyze();
 
   std::ostringstream arg_dump;
@@ -88,49 +85,48 @@ TEST_F(SsaLivenessAnalysisTest, TestReturnArg) {
 }
 
 TEST_F(SsaLivenessAnalysisTest, TestAput) {
-  HInstruction* array = new (&allocator_) HParameterValue(
-      graph_->GetDexFile(), dex::TypeIndex(0), 0, Primitive::kPrimNot);
-  HInstruction* index = new (&allocator_) HParameterValue(
-      graph_->GetDexFile(), dex::TypeIndex(1), 1, Primitive::kPrimInt);
-  HInstruction* value = new (&allocator_) HParameterValue(
-      graph_->GetDexFile(), dex::TypeIndex(2), 2, Primitive::kPrimInt);
-  HInstruction* extra_arg1 = new (&allocator_) HParameterValue(
-      graph_->GetDexFile(), dex::TypeIndex(3), 3, Primitive::kPrimInt);
-  HInstruction* extra_arg2 = new (&allocator_) HParameterValue(
-      graph_->GetDexFile(), dex::TypeIndex(4), 4, Primitive::kPrimNot);
-  ArenaVector<HInstruction*> args({ array, index, value, extra_arg1, extra_arg2 },
-                                  allocator_.Adapter());
+  HInstruction* array = new (GetAllocator()) HParameterValue(
+      graph_->GetDexFile(), dex::TypeIndex(0), 0, DataType::Type::kReference);
+  HInstruction* index = new (GetAllocator()) HParameterValue(
+      graph_->GetDexFile(), dex::TypeIndex(1), 1, DataType::Type::kInt32);
+  HInstruction* value = new (GetAllocator()) HParameterValue(
+      graph_->GetDexFile(), dex::TypeIndex(2), 2, DataType::Type::kInt32);
+  HInstruction* extra_arg1 = new (GetAllocator()) HParameterValue(
+      graph_->GetDexFile(), dex::TypeIndex(3), 3, DataType::Type::kInt32);
+  HInstruction* extra_arg2 = new (GetAllocator()) HParameterValue(
+      graph_->GetDexFile(), dex::TypeIndex(4), 4, DataType::Type::kReference);
+  HInstruction* const args[] = { array, index, value, extra_arg1, extra_arg2 };
   for (HInstruction* insn : args) {
     entry_->AddInstruction(insn);
   }
 
   HBasicBlock* block = CreateSuccessor(entry_);
-  HInstruction* null_check = new (&allocator_) HNullCheck(array, 0);
+  HInstruction* null_check = new (GetAllocator()) HNullCheck(array, 0);
   block->AddInstruction(null_check);
-  HEnvironment* null_check_env = new (&allocator_) HEnvironment(&allocator_,
-                                                                /* number_of_vregs */ 5,
-                                                                /* method */ nullptr,
-                                                                /* dex_pc */ 0u,
-                                                                null_check);
-  null_check_env->CopyFrom(args);
+  HEnvironment* null_check_env = new (GetAllocator()) HEnvironment(GetAllocator(),
+                                                                   /* number_of_vregs */ 5,
+                                                                   /* method */ nullptr,
+                                                                   /* dex_pc */ 0u,
+                                                                   null_check);
+  null_check_env->CopyFrom(ArrayRef<HInstruction* const>(args));
   null_check->SetRawEnvironment(null_check_env);
-  HInstruction* length = new (&allocator_) HArrayLength(array, 0);
+  HInstruction* length = new (GetAllocator()) HArrayLength(array, 0);
   block->AddInstruction(length);
-  HInstruction* bounds_check = new (&allocator_) HBoundsCheck(index, length, /* dex_pc */ 0u);
+  HInstruction* bounds_check = new (GetAllocator()) HBoundsCheck(index, length, /* dex_pc */ 0u);
   block->AddInstruction(bounds_check);
-  HEnvironment* bounds_check_env = new (&allocator_) HEnvironment(&allocator_,
-                                                                  /* number_of_vregs */ 5,
-                                                                  /* method */ nullptr,
-                                                                  /* dex_pc */ 0u,
-                                                                  bounds_check);
-  bounds_check_env->CopyFrom(args);
+  HEnvironment* bounds_check_env = new (GetAllocator()) HEnvironment(GetAllocator(),
+                                                                     /* number_of_vregs */ 5,
+                                                                     /* method */ nullptr,
+                                                                     /* dex_pc */ 0u,
+                                                                     bounds_check);
+  bounds_check_env->CopyFrom(ArrayRef<HInstruction* const>(args));
   bounds_check->SetRawEnvironment(bounds_check_env);
   HInstruction* array_set =
-      new (&allocator_) HArraySet(array, index, value, Primitive::kPrimInt, /* dex_pc */ 0);
+      new (GetAllocator()) HArraySet(array, index, value, DataType::Type::kInt32, /* dex_pc */ 0);
   block->AddInstruction(array_set);
 
   graph_->BuildDominatorTree();
-  SsaLivenessAnalysis ssa_analysis(graph_, codegen_.get());
+  SsaLivenessAnalysis ssa_analysis(graph_, codegen_.get(), GetScopedAllocator());
   ssa_analysis.Analyze();
 
   EXPECT_FALSE(graph_->IsDebuggable());
@@ -147,7 +143,7 @@ TEST_F(SsaLivenessAnalysisTest, TestAput) {
       // Environment uses keep the reference argument alive.
       "ranges: { [10,19) }, uses: { }, { 15 19 } is_fixed: 0, is_split: 0 is_low: 0 is_high: 0",
   };
-  ASSERT_EQ(arraysize(expected), args.size());
+  static_assert(arraysize(expected) == arraysize(args), "Array size check.");
   size_t arg_index = 0u;
   for (HInstruction* arg : args) {
     std::ostringstream arg_dump;
@@ -158,53 +154,52 @@ TEST_F(SsaLivenessAnalysisTest, TestAput) {
 }
 
 TEST_F(SsaLivenessAnalysisTest, TestDeoptimize) {
-  HInstruction* array = new (&allocator_) HParameterValue(
-      graph_->GetDexFile(), dex::TypeIndex(0), 0, Primitive::kPrimNot);
-  HInstruction* index = new (&allocator_) HParameterValue(
-      graph_->GetDexFile(), dex::TypeIndex(1), 1, Primitive::kPrimInt);
-  HInstruction* value = new (&allocator_) HParameterValue(
-      graph_->GetDexFile(), dex::TypeIndex(2), 2, Primitive::kPrimInt);
-  HInstruction* extra_arg1 = new (&allocator_) HParameterValue(
-      graph_->GetDexFile(), dex::TypeIndex(3), 3, Primitive::kPrimInt);
-  HInstruction* extra_arg2 = new (&allocator_) HParameterValue(
-      graph_->GetDexFile(), dex::TypeIndex(4), 4, Primitive::kPrimNot);
-  ArenaVector<HInstruction*> args({ array, index, value, extra_arg1, extra_arg2 },
-                                  allocator_.Adapter());
+  HInstruction* array = new (GetAllocator()) HParameterValue(
+      graph_->GetDexFile(), dex::TypeIndex(0), 0, DataType::Type::kReference);
+  HInstruction* index = new (GetAllocator()) HParameterValue(
+      graph_->GetDexFile(), dex::TypeIndex(1), 1, DataType::Type::kInt32);
+  HInstruction* value = new (GetAllocator()) HParameterValue(
+      graph_->GetDexFile(), dex::TypeIndex(2), 2, DataType::Type::kInt32);
+  HInstruction* extra_arg1 = new (GetAllocator()) HParameterValue(
+      graph_->GetDexFile(), dex::TypeIndex(3), 3, DataType::Type::kInt32);
+  HInstruction* extra_arg2 = new (GetAllocator()) HParameterValue(
+      graph_->GetDexFile(), dex::TypeIndex(4), 4, DataType::Type::kReference);
+  HInstruction* const args[] = { array, index, value, extra_arg1, extra_arg2 };
   for (HInstruction* insn : args) {
     entry_->AddInstruction(insn);
   }
 
   HBasicBlock* block = CreateSuccessor(entry_);
-  HInstruction* null_check = new (&allocator_) HNullCheck(array, 0);
+  HInstruction* null_check = new (GetAllocator()) HNullCheck(array, 0);
   block->AddInstruction(null_check);
-  HEnvironment* null_check_env = new (&allocator_) HEnvironment(&allocator_,
-                                                                /* number_of_vregs */ 5,
-                                                                /* method */ nullptr,
-                                                                /* dex_pc */ 0u,
-                                                                null_check);
-  null_check_env->CopyFrom(args);
+  HEnvironment* null_check_env = new (GetAllocator()) HEnvironment(GetAllocator(),
+                                                                   /* number_of_vregs */ 5,
+                                                                   /* method */ nullptr,
+                                                                   /* dex_pc */ 0u,
+                                                                   null_check);
+  null_check_env->CopyFrom(ArrayRef<HInstruction* const>(args));
   null_check->SetRawEnvironment(null_check_env);
-  HInstruction* length = new (&allocator_) HArrayLength(array, 0);
+  HInstruction* length = new (GetAllocator()) HArrayLength(array, 0);
   block->AddInstruction(length);
   // Use HAboveOrEqual+HDeoptimize as the bounds check.
-  HInstruction* ae = new (&allocator_) HAboveOrEqual(index, length);
+  HInstruction* ae = new (GetAllocator()) HAboveOrEqual(index, length);
   block->AddInstruction(ae);
-  HInstruction* deoptimize =
-      new(&allocator_) HDeoptimize(&allocator_, ae, DeoptimizationKind::kBlockBCE, /* dex_pc */ 0u);
+  HInstruction* deoptimize = new(GetAllocator()) HDeoptimize(
+      GetAllocator(), ae, DeoptimizationKind::kBlockBCE, /* dex_pc */ 0u);
   block->AddInstruction(deoptimize);
-  HEnvironment* deoptimize_env = new (&allocator_) HEnvironment(&allocator_,
-                                                                /* number_of_vregs */ 5,
-                                                                /* method */ nullptr,
-                                                                /* dex_pc */ 0u,
-                                                                deoptimize);
-  deoptimize_env->CopyFrom(args);
+  HEnvironment* deoptimize_env = new (GetAllocator()) HEnvironment(GetAllocator(),
+                                                                   /* number_of_vregs */ 5,
+                                                                   /* method */ nullptr,
+                                                                   /* dex_pc */ 0u,
+                                                                   deoptimize);
+  deoptimize_env->CopyFrom(ArrayRef<HInstruction* const>(args));
   deoptimize->SetRawEnvironment(deoptimize_env);
   HInstruction* array_set =
-      new (&allocator_) HArraySet(array, index, value, Primitive::kPrimInt, /* dex_pc */ 0);
+      new (GetAllocator()) HArraySet(array, index, value, DataType::Type::kInt32, /* dex_pc */ 0);
   block->AddInstruction(array_set);
 
   graph_->BuildDominatorTree();
-  SsaLivenessAnalysis ssa_analysis(graph_, codegen_.get());
+  SsaLivenessAnalysis ssa_analysis(graph_, codegen_.get(), GetScopedAllocator());
   ssa_analysis.Analyze();
 
   EXPECT_FALSE(graph_->IsDebuggable());
@@ -220,7 +215,7 @@ TEST_F(SsaLivenessAnalysisTest, TestDeoptimize) {
       // Environment uses keep the reference argument alive.
       "ranges: { [10,21) }, uses: { }, { 15 21 } is_fixed: 0, is_split: 0 is_low: 0 is_high: 0",
   };
-  ASSERT_EQ(arraysize(expected), args.size());
+  static_assert(arraysize(expected) == arraysize(args), "Array size check.");
   size_t arg_index = 0u;
   for (HInstruction* arg : args) {
     std::ostringstream arg_dump;

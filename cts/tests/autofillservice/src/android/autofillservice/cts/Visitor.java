@@ -28,7 +28,7 @@ package android.autofillservice.cts;
  * }
  * </code></pre>
  */
-interface Visitor<T>{
+interface Visitor<T> {
 
     void visit(T view);
 }

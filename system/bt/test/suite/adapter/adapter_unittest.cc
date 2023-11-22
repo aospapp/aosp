@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2015 Google, Inc.
+ *  Copyright 2015 Google, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -82,7 +82,8 @@ TEST_F(BluetoothTest, AdapterSetGetName) {
     property_free(new_name);
     new_name = property_new_name("BluetoothTestName2");
   }
-  std::string old_name((const char*)property_as_name(name_property)->name);
+  std::string old_name((const char*)property_as_name(name_property)->name,
+                       name_property->len);
 
   EXPECT_EQ(bt_interface()->set_adapter_property(new_name), BT_STATUS_SUCCESS);
   semaphore_wait(adapter_properties_callback_sem_);

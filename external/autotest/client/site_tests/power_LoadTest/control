@@ -31,4 +31,4 @@ loop_time = 3600
 loop_count = 16
 
 job.run_test('power_LoadTest', loop_time=loop_time, loop_count=loop_count,
-             test_low_batt_p=3)
+             test_low_batt_p=3, gaia_login=False)

@@ -73,43 +73,45 @@ public class EventsLogParserTest extends TestCase {
     /**
      * Test for Cold launch transition delay and starting window delay info
      */
-    public void testValidTransitionDelay() throws IOException {
+    public void testValidColdTransitionDelay() throws IOException {
         List<String> lines = Arrays
-                .asList("01-02 08:12:10.849   934   986 I sysui_multi_action: [319,42,321,59,322,208,325,84100,757,761,758,9,759,4,806,com.google.android.apps.maps,871,com.google.android.maps.MapsActivity,905,0]",
-                        "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,803,799,overview_trigger_nav_btn,802,1]",
-                        "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,803,799,overview_source_app,802,1]",
-                        "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,804,799,overview_source_app_index,801,8,802,1]");
+                .asList("09-18 23:56:19.376  1140  1221 I sysui_multi_action: [319,51,321,50,322,190,325,670,757,761,758,7,759,1,806,com.google.android.calculator,871,com.android.calculator2.Calculator,904,com.google.android.apps.nexuslauncher,905,0,945,41]",
+                        "09-18 23:56:19.376  1140  1221 I sysui_multi_action: [319,51,321,50,322,190,325,670,757,761,758,7,759,1,806,com.google.android.calculator,871,com.android.calculator2.Calculator,905,0,945,41]");
         List<TransitionDelayItem> transitionItems = (new EventsLogParser()).
                 parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
-        assertEquals("Transition Delay items list should have one item", 1,
+        assertEquals("Startinng Window Delay items list should have two item", 2,
                 transitionItems.size());
         assertEquals("Component name not parsed correctly",
-                "com.google.android.apps.maps/com.google.android.maps.MapsActivity",
+                "com.google.android.calculator/com.android.calculator2.Calculator",
                 transitionItems.get(0).getComponentName());
-        assertEquals("Transition delay is not parsed correctly", 42,
+        assertEquals("Transition delay is not parsed correctly", Long.valueOf(51),
                 transitionItems.get(0).getTransitionDelay());
-        assertEquals("Starting window delay is not parsed correctly", 59,
+        assertEquals("Starting window delay is not parsed correctly", Long.valueOf(50),
                 transitionItems.get(0).getStartingWindowDelay());
+        assertEquals("Date and time is not parsed correctly", "09-18 23:56:19.376",
+                transitionItems.get(0).getDateTime());
     }
 
     /**
-     * Test for only transition delay in hot launch
+     * Test for Hot launch transition delay and starting window delay info
      */
-    public void testOnlyTransitionDelay() throws IOException {
+    public void testValidHotTransitionDelay() throws IOException {
         List<String> lines = Arrays
-                .asList("01-02 08:12:10.849   934   986 I sysui_multi_action: [319,42,322,208,325,84100,757,761,758,9,759,4,806,com.google.android.apps.maps,871,com.google.android.maps.MapsActivity,905,0]",
-                        "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,803,799,overview_trigger_nav_btn,802,1]",
-                        "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,803,799,overview_source_app,802,1]",
-                        "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,804,799,overview_source_app_index,801,8,802,1]");
+                .asList("09-18 23:56:19.376  1140  1221 I sysui_multi_action: [319,51,321,50,322,190,325,670,757,761,758,7,759,1,806,com.google.android.calculator,871,com.android.calculator2.Calculator,904,com.google.android.apps.nexuslauncher,905,0]",
+                        "09-18 23:56:19.376  1140  1221 I sysui_multi_action: [319,51,321,50,322,190,325,670,757,761,758,7,759,1,806,com.google.android.calculator,871,com.android.calculator2.Calculator,905,0]",
+                        "09-19 02:26:30.182  1143  1196 I sysui_multi_action: [319,87,322,75,325,212,757,761,758,9,759,2,806,com.google.android.apps.nexuslauncher,871,com.google.android.apps.nexuslauncher.NexusLauncherActivity,904,com.google.android.apps.nexuslauncher,905,0]",
+                        "09-19 02:26:30.182  1143  1196 I sysui_multi_action: [319,87,322,75,325,212,757,761,758,9,759,2,806,com.google.android.apps.nexuslauncher,871,com.google.android.apps.nexuslauncher.NexusLauncherActivity,905,0]");
         List<TransitionDelayItem> transitionItems = (new EventsLogParser()).
                 parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
-        assertEquals("Transition Delay items list should have one item", 1,
+        assertEquals("Transition Delay items list should have four item", 4,
                 transitionItems.size());
         assertEquals("Component name not parsed correctly",
-                "com.google.android.apps.maps/com.google.android.maps.MapsActivity",
+                "com.google.android.calculator/com.android.calculator2.Calculator",
                 transitionItems.get(0).getComponentName());
-        assertEquals("Transition delay is not parsed correctly", 42,
+        assertEquals("Transition delay is not parsed correctly", Long.valueOf(51),
                 transitionItems.get(0).getTransitionDelay());
+        assertEquals("Date is not parsed correctly", "09-18 23:56:19.376",
+                transitionItems.get(0).getDateTime());
     }
 
     /**
@@ -117,20 +119,16 @@ public class EventsLogParserTest extends TestCase {
      */
     public void testTransitionDelayOrder() throws IOException {
         List<String> lines = Arrays
-                .asList("01-02 08:12:10.849   934   986 I sysui_multi_action: [319,42,321,59,322,208,325,84100,757,761,758,9,759,4,806,com.google.android.apps.maps,871,com.google.android.maps.MapsActivity,905,0]",
-                        "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,803,799,overview_trigger_nav_btn,802,1]",
-                        "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,803,799,overview_source_app,802,1]",
-                        "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,804,799,overview_source_app_index,801,8,802,1]",
-                        "01-02 08:12:42.187   934   986 I sysui_multi_action: [319,61,321,46,322,159,325,84131,757,761,758,9,759,4,806,com.google.android.apps.maps,871,com.google.android.maps.MapsActivity,905,0]",
-                        "01-02 08:12:42.450  1446  1446 I sysui_multi_action: [757,224,758,2]");
+                .asList("09-18 23:56:19.376  1140  1221 I sysui_multi_action: [319,51,321,59,322,190,325,670,757,761,758,7,759,1,806,com.google.android.calculator,871,com.android.calculator2.Calculator,904,com.google.android.apps.nexuslauncher,905,0,945,41]",
+                        "09-18 23:59:18.380  1140  1221 I sysui_multi_action: [319,55,321,65,322,190,325,670,757,761,758,7,759,1,806,com.google.android.calculator,871,com.android.calculator2.Calculator,905,0,945,41]");
         List<TransitionDelayItem> transitionItems = (new EventsLogParser()).
                 parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
         assertEquals("Transition Delay items list should have two items", 2,
                 transitionItems.size());
-        assertEquals("Transition delay for the first item is not set correct", 42,
-                transitionItems.get(0).getTransitionDelay());
-        assertEquals("Transition delay for the second item is not set correct", 61,
-                transitionItems.get(1).getTransitionDelay());
+        assertEquals("Transition delay for the first item is not set correct", Long.valueOf(59),
+                transitionItems.get(0).getStartingWindowDelay());
+        assertEquals("Transition delay for the second item is not set correct", Long.valueOf(65),
+                transitionItems.get(1).getStartingWindowDelay());
     }
 
     /**
@@ -138,12 +136,8 @@ public class EventsLogParserTest extends TestCase {
      */
     public void testDifferentAppTransitionDelay() throws IOException {
         List<String> lines = Arrays
-                .asList("01-02 08:11:58.691   934   986 I sysui_multi_action: [319,48,321,37,322,82,325,84088,757,761,758,9,759,4,806,com.google.android.calculator,871,com.android.calculator2.Calculator,905,0]",
-                        "01-02 08:12:03.639   934   970 I sysui_multi_action: [757,803,799,window_time_0,802,5]",
-                        "01-02 08:12:10.849   934   986 I sysui_multi_action: [319,42,321,59,322,208,325,84100,757,761,758,9,759,4,806,com.google.android.apps.maps,871,com.google.android.maps.MapsActivity,905,0]",
-                        "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,803,799,overview_trigger_nav_btn,802,1]",
-                        "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,803,799,overview_source_app,802,1]",
-                        "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,804,799,overview_source_app_index,801,8,802,1]");
+                .asList("09-18 23:56:19.376  1140  1221 I sysui_multi_action: [319,51,321,50,322,190,325,670,757,761,758,7,759,1,806,com.google.android.calculator,871,com.android.calculator2.Calculator,904,com.google.android.apps.nexuslauncher,905,0]",
+                        "09-19 02:26:30.182  1143  1196 I sysui_multi_action: [319,87,322,75,325,212,757,761,758,9,759,2,806,com.google.android.apps.nexuslauncher,871,com.google.android.apps.nexuslauncher.NexusLauncherActivity,904,com.google.android.apps.nexuslauncher,905,0]");
         List<TransitionDelayItem> transitionItems = (new EventsLogParser()).
                 parseTransitionDelayInfo(readInputBuffer(getTempFile(lines)));
         assertEquals("Transition Delay items list should have two items", 2,
@@ -152,7 +146,8 @@ public class EventsLogParserTest extends TestCase {
                 "com.google.android.calculator/com.android.calculator2.Calculator",
                 transitionItems.get(0).getComponentName());
         assertEquals("Maps is not the second transition delay item",
-                "com.google.android.apps.maps/com.google.android.maps.MapsActivity",
+                "com.google.android.apps.nexuslauncher/"
+                + "com.google.android.apps.nexuslauncher.NexusLauncherActivity",
                 transitionItems.get(1).getComponentName());
     }
 
@@ -161,7 +156,7 @@ public class EventsLogParserTest extends TestCase {
      */
     public void testInvalidTransitionPattern() throws IOException {
         List<String> lines = Arrays
-                .asList("01-02 08:11:58.691   934   986 I sysui_multi_action: [319,48,322,82,325,84088,757,761,758,9,759,4,807,com.google.android.calculator,871,com.android.calculator2.Calculator,905,0]",
+                .asList("01-02 08:11:58.691   934   986 I sysui_multi_action: a[319,48,322,82,325,84088,757,761,758,9,759,4,807,com.google.android.calculator,871,com.android.calculator2.Calculator,905,0]",
                         "01-02 08:12:03.639   934   970 I sysui_multi_action: [757,803,799,window_time_0,802,5]",
                         "01-02 08:12:10.849   934   986 I sysui_multi_action: 319,42,321,59,322,208,325,84100,757,761,758,9,759,4,806,com.google.android.apps.maps,871,com.google.android.maps.MapsActivity,905,0]",
                         "01-02 08:12:16.895  1446  1446 I sysui_multi_action: [757,803,799,overview_trigger_nav_btn,802,1]",

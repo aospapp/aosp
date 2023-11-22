@@ -32,6 +32,4 @@
     <instrumentation android:name="android.test.InstrumentationTestRunner"
                      android:targetPackage="com.android.providers.partnerbookmarks"
                      android:label="partner bookmarks provider tests"/>
-
-    <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="14" />
 </manifest>

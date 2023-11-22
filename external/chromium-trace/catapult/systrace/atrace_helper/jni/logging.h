@@ -6,6 +6,7 @@
 #define LOGGING_H_
 
 #include <android/log.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -24,5 +25,11 @@
       abort();                                                \
     }                                                         \
   } while (0)
+
+inline void LogError(const char* message) {
+  __android_log_write(ANDROID_LOG_ERROR, "atrace_helper", message);
+  fprintf(stderr, "\n%s\n", message);
+  fflush(stderr);
+}
 
 #endif  // LOGGING_H_

@@ -17,12 +17,19 @@
 package com.android.server.telecom.callfiltering;
 
 import android.content.Context;
+import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Bundle;
+import android.provider.BlockedNumberContract;
 import android.telecom.Log;
 import android.telecom.Logging.Session;
+import android.telecom.TelecomManager;
 
+import com.android.internal.telephony.CallerInfo;
 import com.android.server.telecom.Call;
+import com.android.server.telecom.CallerInfoLookupHelper;
 import com.android.server.telecom.LogUtils;
+import com.android.server.telecom.settings.BlockedNumbersUtil;
 
 /**
  * An {@link AsyncTask} that checks if a call needs to be blocked.
@@ -37,10 +44,13 @@ public class AsyncBlockCheckFilter extends AsyncTask<String, Void, Boolean>
     private Session mBackgroundTaskSubsession;
     private Session mPostExecuteSubsession;
     private CallFilterResultCallback mCallback;
+    private CallerInfoLookupHelper mCallerInfoLookupHelper;
 
-    public AsyncBlockCheckFilter(Context context, BlockCheckerAdapter blockCheckerAdapter) {
+    public AsyncBlockCheckFilter(Context context, BlockCheckerAdapter blockCheckerAdapter,
+            CallerInfoLookupHelper callerInfoLookupHelper) {
         mContext = context;
         mBlockCheckerAdapter = blockCheckerAdapter;
+        mCallerInfoLookupHelper = callerInfoLookupHelper;
     }
 
     @Override
@@ -49,7 +59,29 @@ public class AsyncBlockCheckFilter extends AsyncTask<String, Void, Boolean>
         mIncomingCall = call;
         String number = call.getHandle() == null ?
                 null : call.getHandle().getSchemeSpecificPart();
-        this.execute(number);
+        if (BlockedNumbersUtil.isEnhancedCallBlockingEnabledByPlatform(mContext)) {
+            int presentation = mIncomingCall.getHandlePresentation();
+            if (presentation == TelecomManager.PRESENTATION_ALLOWED) {
+                mCallerInfoLookupHelper.startLookup(call.getHandle(),
+                        new CallerInfoLookupHelper.OnQueryCompleteListener() {
+                            @Override
+                            public void onCallerInfoQueryComplete(Uri handle, CallerInfo info) {
+                                boolean contactExists = info == null ? false : info.contactExists;
+                                execute(number, String.valueOf(presentation),
+                                        String.valueOf(contactExists));
+                            }
+
+                            @Override
+                            public void onContactPhotoQueryComplete(Uri handle, CallerInfo info) {
+                                // ignore
+                            }
+                        });
+            } else {
+                this.execute(number, String.valueOf(presentation));
+            }
+        } else {
+            this.execute(number);
+        }
     }
 
     @Override
@@ -63,7 +95,16 @@ public class AsyncBlockCheckFilter extends AsyncTask<String, Void, Boolean>
         try {
             Log.continueSession(mBackgroundTaskSubsession, "ABCF.dIB");
             Log.addEvent(mIncomingCall, LogUtils.Events.BLOCK_CHECK_INITIATED);
-            return mBlockCheckerAdapter.isBlocked(mContext, params[0]);
+            Bundle extras = new Bundle();
+            if (params.length > 1) {
+                extras.putInt(BlockedNumberContract.EXTRA_CALL_PRESENTATION,
+                        Integer.valueOf(params[1]));
+            }
+            if (params.length > 2) {
+                extras.putBoolean(BlockedNumberContract.EXTRA_CONTACT_EXIST,
+                        Boolean.valueOf(params[2]));
+            }
+            return mBlockCheckerAdapter.isBlocked(mContext, params[0], extras);
         } finally {
             Log.endSession();
         }

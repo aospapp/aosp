@@ -60,12 +60,12 @@ void ClassTable::VisitRoots(const Visitor& visitor) {
   }
 }
 
-template <typename Visitor>
+template <typename Visitor, ReadBarrierOption kReadBarrierOption>
 bool ClassTable::Visit(Visitor& visitor) {
   ReaderMutexLock mu(Thread::Current(), lock_);
   for (ClassSet& class_set : classes_) {
     for (TableSlot& table_slot : class_set) {
-      if (!visitor(table_slot.Read())) {
+      if (!visitor(table_slot.Read<kReadBarrierOption>())) {
         return false;
       }
     }
@@ -73,12 +73,12 @@ bool ClassTable::Visit(Visitor& visitor) {
   return true;
 }
 
-template <typename Visitor>
+template <typename Visitor, ReadBarrierOption kReadBarrierOption>
 bool ClassTable::Visit(const Visitor& visitor) {
   ReaderMutexLock mu(Thread::Current(), lock_);
   for (ClassSet& class_set : classes_) {
     for (TableSlot& table_slot : class_set) {
-      if (!visitor(table_slot.Read())) {
+      if (!visitor(table_slot.Read<kReadBarrierOption>())) {
         return false;
       }
     }
@@ -95,7 +95,7 @@ inline mirror::Class* ClassTable::TableSlot::Read() const {
   if (kReadBarrierOption != kWithoutReadBarrier && before_ptr != after_ptr) {
     // If another thread raced and updated the reference, do not store the read barrier updated
     // one.
-    data_.CompareExchangeStrongRelease(before, Encode(after_ptr, MaskHash(before)));
+    data_.CompareAndSetStrongRelease(before, Encode(after_ptr, MaskHash(before)));
   }
   return after_ptr.Ptr();
 }
@@ -110,7 +110,7 @@ inline void ClassTable::TableSlot::VisitRoot(const Visitor& visitor) const {
   if (before_ptr != after_ptr) {
     // If another thread raced and updated the reference, do not store the read barrier updated
     // one.
-    data_.CompareExchangeStrongRelease(before, Encode(after_ptr, MaskHash(before)));
+    data_.CompareAndSetStrongRelease(before, Encode(after_ptr, MaskHash(before)));
   }
 }
 

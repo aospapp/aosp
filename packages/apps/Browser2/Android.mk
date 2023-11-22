@@ -10,7 +10,7 @@ LOCAL_SRC_FILES := \
 
 LOCAL_STATIC_JAVA_LIBRARIES := junit
 
-LOCAL_JAVA_LIBRARIES := legacy-android-test
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 
 LOCAL_PACKAGE_NAME := Browser2
 

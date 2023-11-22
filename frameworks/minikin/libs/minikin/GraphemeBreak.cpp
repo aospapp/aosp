@@ -14,31 +14,32 @@
  * limitations under the License.
  */
 
-#include <stdint.h>
+#include "minikin/GraphemeBreak.h"
+
 #include <algorithm>
+#include <cstdint>
+
 #include <unicode/uchar.h>
 #include <unicode/utf16.h>
 
-#include <minikin/GraphemeBreak.h>
-#include <minikin/Emoji.h>
-#include "MinikinInternal.h"
+#include "minikin/Emoji.h"
 
 namespace minikin {
 
 int32_t tailoredGraphemeClusterBreak(uint32_t c) {
     // Characters defined as Control that we want to treat them as Extend.
     // These are curated manually.
-    if (c == 0x00AD                         // SHY
-            || c == 0x061C                  // ALM
-            || c == 0x180E                  // MONGOLIAN VOWEL SEPARATOR
-            || c == 0x200B                  // ZWSP
-            || c == 0x200E                  // LRM
-            || c == 0x200F                  // RLM
-            || (0x202A <= c && c <= 0x202E) // LRE, RLE, PDF, LRO, RLO
-            || ((c | 0xF) == 0x206F)        // WJ, invisible math operators, LRI, RLI, FSI, PDI,
-                                            // and the deprecated invisible format controls
-            || c == 0xFEFF                  // BOM
-            || ((c | 0x7F) == 0xE007F))     // recently undeprecated tag characters in Plane 14
+    if (c == 0x00AD                      // SHY
+        || c == 0x061C                   // ALM
+        || c == 0x180E                   // MONGOLIAN VOWEL SEPARATOR
+        || c == 0x200B                   // ZWSP
+        || c == 0x200E                   // LRM
+        || c == 0x200F                   // RLM
+        || (0x202A <= c && c <= 0x202E)  // LRE, RLE, PDF, LRO, RLO
+        || ((c | 0xF) == 0x206F)         // WJ, invisible math operators, LRI, RLI, FSI, PDI,
+                                         // and the deprecated invisible format controls
+        || c == 0xFEFF                   // BOM
+        || ((c | 0x7F) == 0xE007F))      // recently undeprecated tag characters in Plane 14
         return U_GCB_EXTEND;
     // THAI CHARACTER SARA AM is treated as a normal letter by most other implementations: they
     // allow a grapheme break before it.
@@ -51,13 +52,14 @@ int32_t tailoredGraphemeClusterBreak(uint32_t c) {
 // Returns true for all characters whose IndicSyllabicCategory is Pure_Killer.
 // From http://www.unicode.org/Public/9.0.0/ucd/IndicSyllabicCategory.txt
 bool isPureKiller(uint32_t c) {
-    return (c == 0x0E3A || c == 0x0E4E || c == 0x0F84 || c == 0x103A || c == 0x1714 || c == 0x1734
-            || c == 0x17D1 || c == 0x1BAA || c == 0x1BF2 || c == 0x1BF3 || c == 0xA806
-            || c == 0xA953 || c == 0xABED || c == 0x11134 || c == 0x112EA || c == 0x1172B);
+    return (c == 0x0E3A || c == 0x0E4E || c == 0x0F84 || c == 0x103A || c == 0x1714 ||
+            c == 0x1734 || c == 0x17D1 || c == 0x1BAA || c == 0x1BF2 || c == 0x1BF3 ||
+            c == 0xA806 || c == 0xA953 || c == 0xABED || c == 0x11134 || c == 0x112EA ||
+            c == 0x1172B);
 }
 
 bool GraphemeBreak::isGraphemeBreak(const float* advances, const uint16_t* buf, size_t start,
-        size_t count, const size_t offset) {
+                                    size_t count, const size_t offset) {
     // This implementation closely follows Unicode Standard Annex #29 on
     // Unicode Text Segmentation (http://www.unicode.org/reports/tr29/),
     // implementing a tailored version of extended grapheme clusters.
@@ -194,8 +196,8 @@ bool GraphemeBreak::isGraphemeBreak(const float* advances, const uint16_t* buf, 
     // disallow grapheme breaks (if we are here, we don't know about advances, or we already know
     // that c2 has no advance).
     if (u_getIntPropertyValue(c1, UCHAR_CANONICAL_COMBINING_CLASS) == 9  // virama
-            && !isPureKiller(c1)
-            && u_getIntPropertyValue(c2, UCHAR_GENERAL_CATEGORY) == U_OTHER_LETTER) {
+        && !isPureKiller(c1) &&
+        u_getIntPropertyValue(c2, UCHAR_GENERAL_CATEGORY) == U_OTHER_LETTER) {
         return false;
     }
     // Rule GB999, Any ÷ Any
@@ -203,33 +205,33 @@ bool GraphemeBreak::isGraphemeBreak(const float* advances, const uint16_t* buf, 
 }
 
 size_t GraphemeBreak::getTextRunCursor(const float* advances, const uint16_t* buf, size_t start,
-        size_t count, size_t offset, MoveOpt opt) {
+                                       size_t count, size_t offset, MoveOpt opt) {
     switch (opt) {
-    case AFTER:
-        if (offset < start + count) {
-            offset++;
-        }
+        case AFTER:
+            if (offset < start + count) {
+                offset++;
+            }
         // fall through
-    case AT_OR_AFTER:
-        while (!isGraphemeBreak(advances, buf, start, count, offset)) {
-            offset++;
-        }
-        break;
-    case BEFORE:
-        if (offset > start) {
-            offset--;
-        }
+        case AT_OR_AFTER:
+            while (!isGraphemeBreak(advances, buf, start, count, offset)) {
+                offset++;
+            }
+            break;
+        case BEFORE:
+            if (offset > start) {
+                offset--;
+            }
         // fall through
-    case AT_OR_BEFORE:
-        while (!isGraphemeBreak(advances, buf, start, count, offset)) {
-            offset--;
-        }
-        break;
-    case AT:
-        if (!isGraphemeBreak(advances, buf, start, count, offset)) {
-            offset = (size_t)-1;
-        }
-        break;
+        case AT_OR_BEFORE:
+            while (!isGraphemeBreak(advances, buf, start, count, offset)) {
+                offset--;
+            }
+            break;
+        case AT:
+            if (!isGraphemeBreak(advances, buf, start, count, offset)) {
+                offset = (size_t)-1;
+            }
+            break;
     }
     return offset;
 }

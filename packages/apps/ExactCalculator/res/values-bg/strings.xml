@@ -75,7 +75,7 @@
     <string name="approximate" msgid="7117143366610670836">"(±1 в последната цифра)"</string>
     <string name="menu_leading" msgid="2338520833272667740">"Отг. с първите цифри"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"Отг. като дроб"</string>
-    <string name="menu_licenses" msgid="1890541368064108592">"Лицензи за отв. код"</string>
+    <string name="menu_licenses" msgid="1890541368064108592">"Лицензи за отворен код"</string>
     <string name="menu_history" msgid="9006222701220105452">"История"</string>
     <string name="menu_clear_history" msgid="2336526604226069572">"Изчистване"</string>
     <string name="title_history" msgid="7820912156315181539">"История"</string>

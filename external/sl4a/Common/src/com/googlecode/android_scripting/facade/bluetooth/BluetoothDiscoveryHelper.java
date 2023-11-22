@@ -23,74 +23,98 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 
-import java.util.Set;
-
 import com.googlecode.android_scripting.Log;
 
+import java.util.Set;
+
+/**
+ * This class is used to put the device in discovery mode.
+ */
 public class BluetoothDiscoveryHelper {
 
-  public static interface BluetoothDiscoveryListener {
-    public void addBondedDevice(String name, String address);
+    /**
+     * BLuetooth discovery listener Interface.
+     */
+    public interface BluetoothDiscoveryListener {
 
-    public void addDevice(String name, String address);
+        /**
+         * Add Bonded device.
+         */
+        void addBondedDevice(String name, String address);
 
-    public void scanDone();
-  }
+        /**
+         * Add Devices.
+         */
+        void addDevice(String name, String address);
 
-  private final Context mContext;
-  private final BluetoothDiscoveryListener mListener;
-  private final BroadcastReceiver mReceiver;
+        /**
+         * Complete scanning.
+         */
+        void scanDone();
+    }
 
-  public BluetoothDiscoveryHelper(Context context, BluetoothDiscoveryListener listener) {
+    private final Context mContext;
+    private final BluetoothDiscoveryListener mListener;
+    private final BroadcastReceiver mReceiver;
+
+    public BluetoothDiscoveryHelper(
+            Context context, BluetoothDiscoveryListener listener) {
     mContext = context;
     mListener = listener;
     mReceiver = new BluetoothReceiver();
-  }
+    }
 
-  private class BluetoothReceiver extends BroadcastReceiver {
+    private class BluetoothReceiver extends BroadcastReceiver {
     @Override
-    public void onReceive(Context context, Intent intent) {
-      final String action = intent.getAction();
+        public void onReceive(Context context, Intent intent) {
+            final String action = intent.getAction();
 
-      if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-        // Get the BluetoothDevice object from the Intent.
-        BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-        Log.d("Found device " + device.getAliasName());
-        // If it's already paired, skip it, because it's been listed already.
-        if (device.getBondState() != BluetoothDevice.BOND_BONDED) {
-          mListener.addDevice(device.getName(), device.getAddress());
+            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+                // Get the BluetoothDevice object from the Intent.
+                BluetoothDevice device = intent.getParcelableExtra(
+                        BluetoothDevice.EXTRA_DEVICE);
+                Log.d("Found device " + device.getAliasName());
+                // If it's already paired, skip it, because it's been listed already.
+                if (device.getBondState() != BluetoothDevice.BOND_BONDED) {
+                    mListener.addDevice(device.getName(), device.getAddress());
+                }
+            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
+                mListener.scanDone();
+            }
         }
-      } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
+    }
+    /**
+     * Start Bluetooth Discovery.
+     */
+
+    public void startDiscovery() {
+        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+        if (bluetoothAdapter.isDiscovering()) {
+            bluetoothAdapter.cancelDiscovery();
+        }
+
+        Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
+        for (BluetoothDevice device : pairedDevices) {
+            mListener.addBondedDevice(device.getName(), device.getAddress());
+        }
+
+        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        mContext.registerReceiver(mReceiver, filter);
+
+        if (!bluetoothAdapter.isEnabled()) {
+            bluetoothAdapter.enable();
+        }
+
+        bluetoothAdapter.startDiscovery();
+    }
+
+    /**
+     * Cancel.
+     */
+    public void cancel() {
+        mContext.unregisterReceiver(mReceiver);
         mListener.scanDone();
-      }
     }
-  }
-
-  public void startDiscovery() {
-    BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-
-    if (bluetoothAdapter.isDiscovering()) {
-      bluetoothAdapter.cancelDiscovery();
-    }
-
-    Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
-    for (BluetoothDevice device : pairedDevices) {
-      mListener.addBondedDevice(device.getName(), device.getAddress());
-    }
-
-    IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-    filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-    mContext.registerReceiver(mReceiver, filter);
-
-    if (!bluetoothAdapter.isEnabled()) {
-      bluetoothAdapter.enable();
-    }
-
-    bluetoothAdapter.startDiscovery();
-  }
-
-  public void cancel() {
-    mContext.unregisterReceiver(mReceiver);
-    mListener.scanDone();
-  }
 }

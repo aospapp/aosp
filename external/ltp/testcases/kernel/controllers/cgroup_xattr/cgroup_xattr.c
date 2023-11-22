@@ -226,8 +226,7 @@ static void cleanup(void)
 
 	int i;
 	for (i = 0; i < odir_num; ++i) {
-		if (closedir(odir[i]) == -1)
-			tst_brkm(TBROK, NULL, "Failed to close dir\n");
+		SAFE_CLOSEDIR(NULL, odir[i]);
 	}
 
 	char *cwd = tst_get_tmpdir();
@@ -237,17 +236,11 @@ static void cleanup(void)
 	for (i = 0; i < cgrp_opt_num; ++i) {
 		if (cgrp_opt[i].subdir) {
 			SAFE_CHDIR(NULL, cgrp_opt[i].dir);
-			if (rmdir(subdir_name) == -1) {
-				tst_brkm(TBROK | TERRNO, NULL,
-					"Can't remove dir");
-			}
+			SAFE_RMDIR(NULL, subdir_name);
 			SAFE_CHDIR(NULL, "..");
 		}
 		if (cgrp_opt[i].mounted) {
-			if (umount(cgrp_opt[i].dir) == -1) {
-				tst_brkm(TBROK | TERRNO, NULL,
-					"Can't unmount: %s", cgrp_opt[i].dir);
-			}
+			SAFE_UMOUNT(NULL, cgrp_opt[i].dir);
 		}
 	}
 

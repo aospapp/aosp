@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"Се поставува работен уред…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Податоците за поставување се обработуваат..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Се поврзува на Wi-Fi..."</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Се поврзува со мобилна мрежа…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Администраторската апликација се презема..."</string>
     <string name="progress_install" msgid="2258045670385866183">"Администраторската апликација се инсталира..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Отстранување непотребни системски апликации…"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Ќе создадете работен профил што ќе го управува и следи вашата организацијата. Важат условите од <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"Ќе се создаде профил за вашите апликации за работа. Профилот и остатокот од уредот ќе ги управува и следи вашата организација. Важат стандардните услови."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"Ќе се создаде профил за вашите апликации за работа. Профилот и остатокот од уредот ќе ги управува и следи вашата организација. Важат условите од <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ќе управува со уредов и ќе го обезбедува. Важат стандардните услови. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ќе управува со уредов и ќе го обезбедува. Важат условите од <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ќе управува со уредов, ќе го надгледува и ќе го обезбедува. Важат стандардните услови. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ќе управува со уредов, ќе го надгледува и ќе го обезбедува. Важат условите од <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Линков не е безбеден и не може да се отвори сѐ додека не заврши поставувањето на уредот: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"Ако имате прашања, контактирајте го вашиот <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"Ако имате прашања, контактирајте го администраторот во вашата организација"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> и <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"Ова може да потрае неколку минути"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"Aпликациите за работа ќе се чуваат во профилов и со нив ќе управува вашата организација"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"Организацијата ќе го чува уредов безбеден и ќе управува со него"</string>
 </resources>

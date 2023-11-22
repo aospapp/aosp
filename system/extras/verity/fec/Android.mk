@@ -1,7 +1,6 @@
 LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
-LOCAL_CLANG := true
 ifeq ($(HOST_OS),linux)
 LOCAL_SANITIZE := integer
 endif

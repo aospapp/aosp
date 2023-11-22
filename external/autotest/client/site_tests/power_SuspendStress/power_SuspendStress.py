@@ -6,14 +6,15 @@ import logging, numpy, random, time
 
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import power_suspend, sys_power
+from autotest_lib.client.common_lib.cros.network import interface
+from autotest_lib.client.cros.power import power_suspend, sys_power
 
 class power_SuspendStress(test.test):
     """Class for test."""
     version = 1
 
     def initialize(self, duration, idle=False, init_delay=0, min_suspend=0,
-                   min_resume=0, max_resume_window=3, check_connection=False,
+                   min_resume=5, max_resume_window=3, check_connection=True,
                    iterations=None, suspend_state=''):
         """
         Entry point.
@@ -61,27 +62,28 @@ class power_SuspendStress(test.test):
                 self.resultsdir, method=self._method,
                 suspend_state=self._suspend_state)
         # Find the interface which is used for most communication.
+        # We assume the interface connects to the gateway and has the lowest
+        # metric.
         if self._check_connection:
+            interface_choices={}
             with open('/proc/net/route') as fh:
                 for line in fh:
                     fields = line.strip().split()
                     if fields[1] != '00000000' or not int(fields[3], 16) & 2:
                         continue
-                    interface = fields[0]
+                    interface_choices[fields[0]] = fields[6]
+            iface = interface.Interface(min(interface_choices))
 
         while not self._done():
             time.sleep(self._min_resume +
                        random.randint(0, self._max_resume_window))
             # Check the network interface to the caller is still available
             if self._check_connection:
-                link_status = None
+                # Give a 10 second window for the network to come back.
                 try:
-                    with open('/sys/class/net/' + interface +
-                              '/operstate') as link_file:
-                        link_status = link_file.readline().strip()
-                except Exception:
-                    pass
-                if link_status != 'up':
+                    utils.poll_for_condition(iface.is_link_operational,
+                                             desc='Link is operational')
+                except utils.TimeoutError:
                     logging.error('Link to the server gone, reboot')
                     utils.system('reboot')
 

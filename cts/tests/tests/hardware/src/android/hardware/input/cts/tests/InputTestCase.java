@@ -24,6 +24,7 @@ import android.app.UiAutomation;
 import android.hardware.input.cts.InputCallback;
 import android.hardware.input.cts.InputCtsActivity;
 import android.os.ParcelFileDescriptor;
+import android.os.SystemClock;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.rule.ActivityTestRule;
 import android.view.KeyEvent;
@@ -103,6 +104,7 @@ public class InputTestCase {
         } catch (InterruptedException ex) {
             fail("Unexpectedly interrupted while waiting for device added notification.");
         }
+        SystemClock.sleep(100);
     }
 
     /**

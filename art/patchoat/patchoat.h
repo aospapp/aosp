@@ -21,12 +21,12 @@
 #include "base/enums.h"
 #include "base/macros.h"
 #include "base/mutex.h"
+#include "base/os.h"
 #include "elf_file.h"
 #include "elf_utils.h"
 #include "gc/accounting/space_bitmap.h"
-#include "gc/space/image_space.h"
 #include "gc/heap.h"
-#include "os.h"
+#include "gc/space/image_space.h"
 #include "runtime.h"
 
 namespace art {
@@ -44,11 +44,28 @@ class Class;
 
 class PatchOat {
  public:
+  // Relocates the provided image by the specified offset. If output_image_directory is non-empty,
+  // outputs the relocated image into that directory. If output_image_relocation_directory is
+  // non-empty, outputs image relocation files (see GeneratePatch) into that directory.
   static bool Patch(const std::string& image_location,
                     off_t delta,
-                    const std::string& output_directory,
+                    const std::string& output_image_directory,
+                    const std::string& output_image_relocation_directory,
                     InstructionSet isa,
                     TimingLogger* timings);
+  static bool Verify(const std::string& image_location,
+                     const std::string& output_image_filename,
+                     InstructionSet isa,
+                     TimingLogger* timings);
+
+  // Generates a patch which can be used to efficiently relocate the original file or to check that
+  // a relocated file matches the original. The patch is generated from the difference of the
+  // |original| and the already |relocated| image, and written to |output| in the form of unsigned
+  // LEB128 for each relocation position.
+  static bool GeneratePatch(const MemMap& original,
+                            const MemMap& relocated,
+                            std::vector<uint8_t>* output,
+                            std::string* error_msg);
 
   ~PatchOat() {}
   PatchOat(PatchOat&&) = default;
@@ -74,10 +91,9 @@ class PatchOat {
   // Was the .oat image at oat_in made with --compile-pic ?
   static MaybePic IsOatPic(const ElfFile* oat_in);
 
-  // Attempt to replace the file with a symlink
-  // Returns false if it fails
-  static bool ReplaceOatFileWithSymlink(const std::string& input_oat_filename,
-                                        const std::string& output_oat_filename);
+  static bool CreateVdexAndOatSymlinks(const std::string& input_image_filename,
+                                       const std::string& output_image_filename);
+
 
   void VisitObject(mirror::Object* obj)
       REQUIRES_SHARED(Locks::mutator_lock_);
@@ -150,7 +166,7 @@ class PatchOat {
   // Walks through the old image and patches the mmap'd copy of it to the new offset. It does not
   // change the heap.
   class PatchVisitor {
-  public:
+   public:
     PatchVisitor(PatchOat* patcher, mirror::Object* copy) : patcher_(patcher), copy_(copy) {}
     ~PatchVisitor() {}
     void operator() (ObjPtr<mirror::Object> obj, MemberOffset off, bool b) const
@@ -163,7 +179,7 @@ class PatchOat {
         const {}
     void VisitRoot(mirror::CompressedReference<mirror::Object>* root ATTRIBUTE_UNUSED) const {}
 
-  private:
+   private:
     PatchOat* const patcher_;
     mirror::Object* const copy_;
   };

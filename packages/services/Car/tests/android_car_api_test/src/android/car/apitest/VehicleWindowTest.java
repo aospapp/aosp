@@ -15,8 +15,7 @@
  */
 package android.car.apitest;
 
-import android.car.VehicleWindow;
-import android.hardware.automotive.vehicle.V2_0.VehicleAreaWindow;
+import android.car.VehicleAreaWindow;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
@@ -24,14 +23,25 @@ import android.test.suitebuilder.annotation.SmallTest;
 public class VehicleWindowTest extends AndroidTestCase {
 
     public void testMatchWithVehicleHal() {
-        assertEquals(VehicleAreaWindow.FRONT_WINDSHIELD, VehicleWindow.WINDOW_FRONT_WINDSHIELD);
-        assertEquals(VehicleAreaWindow.REAR_WINDSHIELD, VehicleWindow.WINDOW_REAR_WINDSHIELD);
-        assertEquals(VehicleAreaWindow.ROOF_TOP, VehicleWindow.WINDOW_ROOF_TOP);
-        assertEquals(VehicleAreaWindow.ROW_1_LEFT, VehicleWindow.WINDOW_ROW_1_LEFT);
-        assertEquals(VehicleAreaWindow.ROW_1_RIGHT, VehicleWindow.WINDOW_ROW_1_RIGHT);
-        assertEquals(VehicleAreaWindow.ROW_2_LEFT, VehicleWindow.WINDOW_ROW_2_LEFT);
-        assertEquals(VehicleAreaWindow.ROW_2_RIGHT, VehicleWindow.WINDOW_ROW_2_RIGHT);
-        assertEquals(VehicleAreaWindow.ROW_3_LEFT, VehicleWindow.WINDOW_ROW_3_LEFT);
-        assertEquals(VehicleAreaWindow.ROW_3_RIGHT, VehicleWindow.WINDOW_ROW_3_RIGHT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaWindow.FRONT_WINDSHIELD,
+                VehicleAreaWindow.WINDOW_FRONT_WINDSHIELD);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaWindow.REAR_WINDSHIELD,
+                VehicleAreaWindow.WINDOW_REAR_WINDSHIELD);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaWindow.ROW_1_LEFT,
+                VehicleAreaWindow.WINDOW_ROW_1_LEFT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaWindow.ROW_1_RIGHT,
+                VehicleAreaWindow.WINDOW_ROW_1_RIGHT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaWindow.ROW_2_LEFT,
+                VehicleAreaWindow.WINDOW_ROW_2_LEFT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaWindow.ROW_2_RIGHT,
+                VehicleAreaWindow.WINDOW_ROW_2_RIGHT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaWindow.ROW_3_LEFT,
+                VehicleAreaWindow.WINDOW_ROW_3_LEFT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaWindow.ROW_3_RIGHT,
+                VehicleAreaWindow.WINDOW_ROW_3_RIGHT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaWindow.ROOF_TOP_1,
+                VehicleAreaWindow.WINDOW_ROOF_TOP_1);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaWindow.ROOF_TOP_2,
+                VehicleAreaWindow.WINDOW_ROOF_TOP_2);
     }
 }

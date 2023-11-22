@@ -182,7 +182,7 @@ bool GateKeeper::CreatePasswordHandle(SizedBuffer *password_handle_buffer, salt_
 
     uint32_t metadata_length = sizeof(user_id) + sizeof(flags) + sizeof(HANDLE_VERSION);
     const size_t to_sign_size = password_length + metadata_length;
-    UniquePtr<uint8_t> to_sign(new uint8_t[to_sign_size]);
+    UniquePtr<uint8_t[]> to_sign(new uint8_t[to_sign_size]);
 
     if (to_sign.get() == nullptr) {
         return false;

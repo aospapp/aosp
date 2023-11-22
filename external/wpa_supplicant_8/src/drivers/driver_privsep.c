@@ -184,10 +184,9 @@ wpa_driver_privsep_get_scan_results2(void *priv)
 		if (len < 0 || len > 10000 || len > end - pos)
 			break;
 
-		r = os_malloc(len);
+		r = os_memdup(pos, len);
 		if (r == NULL)
 			break;
-		os_memcpy(r, pos, len);
 		pos += len;
 		if (sizeof(*r) + r->ie_len + r->beacon_ie_len > (size_t) len) {
 			wpa_printf(MSG_ERROR,
@@ -484,19 +483,6 @@ static void wpa_driver_privsep_event_pmkid_candidate(void *ctx, u8 *buf,
 }
 
 
-static void wpa_driver_privsep_event_stkstart(void *ctx, u8 *buf, size_t len)
-{
-	union wpa_event_data data;
-
-	if (len != ETH_ALEN)
-		return;
-
-	os_memset(&data, 0, sizeof(data));
-	os_memcpy(data.stkstart.peer, buf, ETH_ALEN);
-	wpa_supplicant_event(ctx, EVENT_STKSTART, &data);
-}
-
-
 static void wpa_driver_privsep_event_ft_response(void *ctx, u8 *buf,
 						 size_t len)
 {
@@ -589,10 +575,6 @@ static void wpa_driver_privsep_receive(int sock, void *eloop_ctx,
 	case PRIVSEP_EVENT_PMKID_CANDIDATE:
 		wpa_driver_privsep_event_pmkid_candidate(drv->ctx, event_buf,
 							 event_len);
-		break;
-	case PRIVSEP_EVENT_STKSTART:
-		wpa_driver_privsep_event_stkstart(drv->ctx, event_buf,
-						  event_len);
 		break;
 	case PRIVSEP_EVENT_FT_RESPONSE:
 		wpa_driver_privsep_event_ft_response(drv->ctx, event_buf,

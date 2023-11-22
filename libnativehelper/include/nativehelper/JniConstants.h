@@ -56,8 +56,6 @@ struct JniConstants {
     static jclass integerClass;
     static jclass localeDataClass;
     static jclass longClass;
-    static jclass mutableIntClass;
-    static jclass mutableLongClass;
     static jclass netlinkSocketAddressClass;
     static jclass packetSocketAddressClass;
     static jclass patternSyntaxExceptionClass;
@@ -67,7 +65,6 @@ struct JniConstants {
     static jclass structAddrinfoClass;
     static jclass structFlockClass;
     static jclass structGroupReqClass;
-    static jclass structGroupSourceReqClass;
     static jclass structIfaddrs;
     static jclass structLingerClass;
     static jclass structPasswdClass;

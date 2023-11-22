@@ -25,6 +25,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <sys/mman.h>
+
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
@@ -119,7 +120,9 @@ namespace aarch64 {
   Disassembler disasm;                                            \
   Decoder disassembler_decoder;                                   \
   disassembler_decoder.AppendVisitor(&disasm);                    \
-  RegisterDump core
+  RegisterDump core;                                              \
+  ptrdiff_t offset_after_infrastructure_start;                    \
+  ptrdiff_t offset_before_infrastructure_end
 
 #define START()                                                               \
   masm.Reset();                                                               \
@@ -137,16 +140,22 @@ namespace aarch64 {
   }                                                                           \
   if (Test::instruction_stats()) {                                            \
     __ EnableInstrumentation();                                               \
-  }
+  }                                                                           \
+  offset_after_infrastructure_start = masm.GetCursorOffset();                 \
+  /* Avoid unused-variable warnings in case a test never calls RUN(). */      \
+  USE(offset_after_infrastructure_start)
 
-#define END()                       \
-  if (Test::instruction_stats()) {  \
-    __ DisableInstrumentation();    \
-  }                                 \
-  __ Trace(LOG_ALL, TRACE_DISABLE); \
-  core.Dump(&masm);                 \
-  __ PopCalleeSavedRegisters();     \
-  __ Ret();                         \
+#define END()                                                            \
+  offset_before_infrastructure_end = masm.GetCursorOffset();             \
+  /* Avoid unused-variable warnings in case a test never calls RUN(). */ \
+  USE(offset_before_infrastructure_end);                                 \
+  if (Test::instruction_stats()) {                                       \
+    __ DisableInstrumentation();                                         \
+  }                                                                      \
+  __ Trace(LOG_ALL, TRACE_DISABLE);                                      \
+  core.Dump(&masm);                                                      \
+  __ PopCalleeSavedRegisters();                                          \
+  __ Ret();                                                              \
   masm.FinalizeCode()
 
 #define RUN()    \
@@ -187,16 +196,24 @@ namespace aarch64 {
   disassembler_decoder.AppendVisitor(&disasm); \
   masm.SetGenerateSimulatorCode(false);        \
   RegisterDump core;                           \
-  CPU::SetUp()
+  CPU::SetUp();                                \
+  ptrdiff_t offset_after_infrastructure_start; \
+  ptrdiff_t offset_before_infrastructure_end
 
-#define START() \
-  masm.Reset(); \
-  __ PushCalleeSavedRegisters()
+#define START()                                                          \
+  masm.Reset();                                                          \
+  __ PushCalleeSavedRegisters();                                         \
+  offset_after_infrastructure_start = masm.GetCursorOffset();            \
+  /* Avoid unused-variable warnings in case a test never calls RUN(). */ \
+  USE(offset_after_infrastructure_start)
 
-#define END()                   \
-  core.Dump(&masm);             \
-  __ PopCalleeSavedRegisters(); \
-  __ Ret();                     \
+#define END()                                                            \
+  offset_before_infrastructure_end = masm.GetCursorOffset();             \
+  /* Avoid unused-variable warnings in case a test never calls RUN(). */ \
+  USE(offset_before_infrastructure_end);                                 \
+  core.Dump(&masm);                                                      \
+  __ PopCalleeSavedRegisters();                                          \
+  __ Ret();                                                              \
   masm.FinalizeCode()
 
 // Execute the generated code from the memory area.
@@ -220,18 +237,33 @@ namespace aarch64 {
 
 #endif  // ifdef VIXL_INCLUDE_SIMULATOR_AARCH64.
 
-#define DISASSEMBLE()                                                    \
-  if (Test::disassemble()) {                                             \
-    Instruction* instruction =                                           \
-        masm.GetBuffer()->GetStartAddress<Instruction*>();               \
-    Instruction* end = masm.GetBuffer()->GetOffsetAddress<Instruction*>( \
-        masm.GetSizeOfCodeGenerated());                                  \
-    while (instruction != end) {                                         \
-      disassembler_decoder.Decode(instruction);                          \
-      uint32_t encoding = *reinterpret_cast<uint32_t*>(instruction);     \
-      printf("%08" PRIx32 "\t%s\n", encoding, disasm.GetOutput());       \
-      instruction += kInstructionSize;                                   \
-    }                                                                    \
+#define DISASSEMBLE()                                                   \
+  if (Test::disassemble()) {                                            \
+    ptrdiff_t start_offset = offset_after_infrastructure_start;         \
+    ptrdiff_t end_offset = offset_before_infrastructure_end;            \
+    if (Test::disassemble_infrastructure()) {                           \
+      start_offset = 0;                                                 \
+      end_offset = masm.GetSizeOfCodeGenerated();                       \
+    } else {                                                            \
+      printf(                                                           \
+          "    Warning: Omitting infrastructure code. "                 \
+          "Use --disassemble to see it.\n");                            \
+    }                                                                   \
+    Instruction* instruction =                                          \
+        masm.GetBuffer()->GetOffsetAddress<Instruction*>(start_offset); \
+    Instruction* end =                                                  \
+        masm.GetBuffer()->GetOffsetAddress<Instruction*>(end_offset);   \
+    while (instruction != end) {                                        \
+      disassembler_decoder.Decode(instruction);                         \
+      uint32_t encoding;                                                \
+      memcpy(&encoding, instruction, sizeof(encoding));                 \
+      uint64_t address = reinterpret_cast<uintptr_t>(instruction);      \
+      printf("  %016" PRIx64 ":\t%08" PRIx32 "\t%s\n",                  \
+             address,                                                   \
+             encoding,                                                  \
+             disasm.GetOutput());                                       \
+      instruction += kInstructionSize;                                  \
+    }                                                                   \
   }
 
 #define ASSERT_EQUAL_NZCV(expected) \
@@ -257,6 +289,77 @@ namespace aarch64 {
 
 #define ASSERT_LITERAL_POOL_SIZE(expected) \
   VIXL_CHECK((expected + kInstructionSize) == (masm.GetLiteralPoolSize()))
+
+
+TEST(preshift_immediates) {
+  SETUP();
+
+  START();
+  // Test operations involving immediates that could be generated using a
+  // pre-shifted encodable immediate followed by a post-shift applied to
+  // the arithmetic or logical operation.
+
+  // Save sp.
+  __ Mov(x29, sp);
+
+  // Set the registers to known values.
+  __ Mov(x0, 0x1000);
+  __ Mov(sp, 0x1004);
+
+  // Arithmetic ops.
+  __ Add(x1, x0, 0x1f7de);
+  __ Add(w2, w0, 0xffffff1);
+  __ Adds(x3, x0, 0x18001);
+  __ Adds(w4, w0, 0xffffff1);
+  __ Sub(x5, x0, 0x1f7de);
+  __ Sub(w6, w0, 0xffffff1);
+  __ Subs(x7, x0, 0x18001);
+  __ Subs(w8, w0, 0xffffff1);
+
+  // Logical ops.
+  __ And(x9, x0, 0x1f7de);
+  __ Orr(w10, w0, 0xffffff1);
+  __ Eor(x11, x0, 0x18001);
+
+  // Ops using the stack pointer.
+  __ Add(sp, sp, 0x18001);
+  __ Mov(x12, sp);
+  __ Mov(sp, 0x1004);
+
+  __ Add(sp, sp, 0x1f7de);
+  __ Mov(x13, sp);
+  __ Mov(sp, 0x1004);
+
+  __ Adds(x14, sp, 0x1f7de);
+
+  __ Orr(sp, x0, 0x1f7de);
+  __ Mov(x15, sp);
+
+  //  Restore sp.
+  __ Mov(sp, x29);
+  END();
+
+  RUN();
+
+  ASSERT_EQUAL_64(0x1000, x0);
+  ASSERT_EQUAL_64(0x207de, x1);
+  ASSERT_EQUAL_64(0x10000ff1, x2);
+  ASSERT_EQUAL_64(0x19001, x3);
+  ASSERT_EQUAL_64(0x10000ff1, x4);
+  ASSERT_EQUAL_64(0xfffffffffffe1822, x5);
+  ASSERT_EQUAL_64(0xf000100f, x6);
+  ASSERT_EQUAL_64(0xfffffffffffe8fff, x7);
+  ASSERT_EQUAL_64(0xf000100f, x8);
+  ASSERT_EQUAL_64(0x1000, x9);
+  ASSERT_EQUAL_64(0xffffff1, x10);
+  ASSERT_EQUAL_64(0x19001, x11);
+  ASSERT_EQUAL_64(0x19005, x12);
+  ASSERT_EQUAL_64(0x207e2, x13);
+  ASSERT_EQUAL_64(0x207e2, x14);
+  ASSERT_EQUAL_64(0x1f7de, x15);
+
+  TEARDOWN();
+}
 
 
 TEST(stack_ops) {
@@ -1643,6 +1746,66 @@ TEST(rbit_rev) {
   TEARDOWN();
 }
 
+typedef void (MacroAssembler::*TestBranchSignature)(const Register& rt,
+                                                    unsigned bit_pos,
+                                                    Label* label);
+
+static void TbzRangePoolLimitHelper(TestBranchSignature test_branch) {
+  const int kTbzRange = 32768;
+  const int kNumLdrLiteral = kTbzRange / 4;
+  const int fuzzRange = 2;
+  for (int n = kNumLdrLiteral - fuzzRange; n <= kNumLdrLiteral + fuzzRange;
+       ++n) {
+    for (int margin = -32; margin < 32; margin += 4) {
+      SETUP();
+
+      START();
+
+      // Emit 32KB of literals (equal to the range of TBZ).
+      for (int i = 0; i < n; ++i) {
+        __ Ldr(w0, 0x12345678);
+      }
+
+      const int kLiteralMargin = 128 * KBytes;
+
+      // Emit enough NOPs to be just about to emit the literal pool.
+      ptrdiff_t end =
+          masm.GetCursorOffset() + (kLiteralMargin - n * 4 + margin);
+      while (masm.GetCursorOffset() < end) {
+        __ Nop();
+      }
+
+      // Add a TBZ instruction.
+      Label label;
+
+      (masm.*test_branch)(x0, 2, &label);
+
+      // Add enough NOPs to surpass its range, to make sure we can encode the
+      // veneer.
+      end = masm.GetCursorOffset() + (kTbzRange - 4);
+      {
+        ExactAssemblyScope scope(&masm,
+                                 kTbzRange,
+                                 ExactAssemblyScope::kMaximumSize);
+        while (masm.GetCursorOffset() < end) __ nop();
+      }
+
+      // Finally, bind the label.
+      __ Bind(&label);
+
+      END();
+
+      RUN();
+
+      TEARDOWN();
+    }
+  }
+}
+
+TEST(test_branch_limits_literal_pool_size) {
+  TbzRangePoolLimitHelper(&MacroAssembler::Tbz);
+  TbzRangePoolLimitHelper(&MacroAssembler::Tbnz);
+}
 
 TEST(clz_cls) {
   SETUP();
@@ -13365,34 +13528,6 @@ TEST(zero_dest_setflags) {
 }
 
 
-TEST(register_bit) {
-  // No code generation takes place in this test, so no need to setup and
-  // teardown.
-
-  // Simple tests.
-  VIXL_CHECK(x0.GetBit() == (UINT64_C(1) << 0));
-  VIXL_CHECK(x1.GetBit() == (UINT64_C(1) << 1));
-  VIXL_CHECK(x10.GetBit() == (UINT64_C(1) << 10));
-
-  // AAPCS64 definitions.
-  VIXL_CHECK(lr.GetBit() == (UINT64_C(1) << kLinkRegCode));
-
-  // Fixed (hardware) definitions.
-  VIXL_CHECK(xzr.GetBit() == (UINT64_C(1) << kZeroRegCode));
-
-  // Internal ABI definitions.
-  VIXL_CHECK(sp.GetBit() == (UINT64_C(1) << kSPRegInternalCode));
-  VIXL_CHECK(sp.GetBit() != xzr.GetBit());
-
-  // xn.GetBit() == wn.GetBit() at all times, for the same n.
-  VIXL_CHECK(x0.GetBit() == w0.GetBit());
-  VIXL_CHECK(x1.GetBit() == w1.GetBit());
-  VIXL_CHECK(x10.GetBit() == w10.GetBit());
-  VIXL_CHECK(xzr.GetBit() == wzr.GetBit());
-  VIXL_CHECK(sp.GetBit() == wsp.GetBit());
-}
-
-
 TEST(stack_pointer_override) {
   // This test generates some stack maintenance code, but the test only checks
   // the reported state.
@@ -13899,9 +14034,9 @@ enum PushPopMethod {
 };
 
 
-// The maximum number of registers that can be used by the PushPopXReg* tests,
-// where a reg_count field is provided.
-static int const kPushPopXRegMaxRegCount = -1;
+// For the PushPop* tests, use the maximum number of registers that the test
+// supports (where a reg_count argument would otherwise be provided).
+static int const kPushPopUseMaxRegCount = -1;
 
 // Test a simple push-pop pattern:
 //  * Claim <claim> bytes to set the stack alignment.
@@ -13912,11 +14047,11 @@ static int const kPushPopXRegMaxRegCount = -1;
 //
 // Different push and pop methods can be specified independently to test for
 // proper word-endian behaviour.
-static void PushPopXRegSimpleHelper(int reg_count,
-                                    int claim,
-                                    int reg_size,
-                                    PushPopMethod push_method,
-                                    PushPopMethod pop_method) {
+static void PushPopSimpleHelper(int reg_count,
+                                int claim,
+                                int reg_size,
+                                PushPopMethod push_method,
+                                PushPopMethod pop_method) {
   SETUP();
 
   START();
@@ -13924,7 +14059,7 @@ static void PushPopXRegSimpleHelper(int reg_count,
   // Arbitrarily pick a register to use as a stack pointer.
   const Register& stack_pointer = x20;
   const RegList allowed = ~stack_pointer.GetBit();
-  if (reg_count == kPushPopXRegMaxRegCount) {
+  if (reg_count == kPushPopUseMaxRegCount) {
     reg_count = CountSetBits(allowed, kNumberOfRegisters);
   }
   // Work out which registers to use, based on reg_size.
@@ -14048,48 +14183,48 @@ static void PushPopXRegSimpleHelper(int reg_count,
 TEST(push_pop_xreg_simple_32) {
   for (int claim = 0; claim <= 8; claim++) {
     for (int count = 0; count <= 8; count++) {
-      PushPopXRegSimpleHelper(count,
-                              claim,
-                              kWRegSize,
-                              PushPopByFour,
-                              PushPopByFour);
-      PushPopXRegSimpleHelper(count,
-                              claim,
-                              kWRegSize,
-                              PushPopByFour,
-                              PushPopRegList);
-      PushPopXRegSimpleHelper(count,
-                              claim,
-                              kWRegSize,
-                              PushPopRegList,
-                              PushPopByFour);
-      PushPopXRegSimpleHelper(count,
-                              claim,
-                              kWRegSize,
-                              PushPopRegList,
-                              PushPopRegList);
+      PushPopSimpleHelper(count,
+                          claim,
+                          kWRegSize,
+                          PushPopByFour,
+                          PushPopByFour);
+      PushPopSimpleHelper(count,
+                          claim,
+                          kWRegSize,
+                          PushPopByFour,
+                          PushPopRegList);
+      PushPopSimpleHelper(count,
+                          claim,
+                          kWRegSize,
+                          PushPopRegList,
+                          PushPopByFour);
+      PushPopSimpleHelper(count,
+                          claim,
+                          kWRegSize,
+                          PushPopRegList,
+                          PushPopRegList);
     }
     // Test with the maximum number of registers.
-    PushPopXRegSimpleHelper(kPushPopXRegMaxRegCount,
-                            claim,
-                            kWRegSize,
-                            PushPopByFour,
-                            PushPopByFour);
-    PushPopXRegSimpleHelper(kPushPopXRegMaxRegCount,
-                            claim,
-                            kWRegSize,
-                            PushPopByFour,
-                            PushPopRegList);
-    PushPopXRegSimpleHelper(kPushPopXRegMaxRegCount,
-                            claim,
-                            kWRegSize,
-                            PushPopRegList,
-                            PushPopByFour);
-    PushPopXRegSimpleHelper(kPushPopXRegMaxRegCount,
-                            claim,
-                            kWRegSize,
-                            PushPopRegList,
-                            PushPopRegList);
+    PushPopSimpleHelper(kPushPopUseMaxRegCount,
+                        claim,
+                        kWRegSize,
+                        PushPopByFour,
+                        PushPopByFour);
+    PushPopSimpleHelper(kPushPopUseMaxRegCount,
+                        claim,
+                        kWRegSize,
+                        PushPopByFour,
+                        PushPopRegList);
+    PushPopSimpleHelper(kPushPopUseMaxRegCount,
+                        claim,
+                        kWRegSize,
+                        PushPopRegList,
+                        PushPopByFour);
+    PushPopSimpleHelper(kPushPopUseMaxRegCount,
+                        claim,
+                        kWRegSize,
+                        PushPopRegList,
+                        PushPopRegList);
   }
 }
 
@@ -14097,55 +14232,54 @@ TEST(push_pop_xreg_simple_32) {
 TEST(push_pop_xreg_simple_64) {
   for (int claim = 0; claim <= 8; claim++) {
     for (int count = 0; count <= 8; count++) {
-      PushPopXRegSimpleHelper(count,
-                              claim,
-                              kXRegSize,
-                              PushPopByFour,
-                              PushPopByFour);
-      PushPopXRegSimpleHelper(count,
-                              claim,
-                              kXRegSize,
-                              PushPopByFour,
-                              PushPopRegList);
-      PushPopXRegSimpleHelper(count,
-                              claim,
-                              kXRegSize,
-                              PushPopRegList,
-                              PushPopByFour);
-      PushPopXRegSimpleHelper(count,
-                              claim,
-                              kXRegSize,
-                              PushPopRegList,
-                              PushPopRegList);
+      PushPopSimpleHelper(count,
+                          claim,
+                          kXRegSize,
+                          PushPopByFour,
+                          PushPopByFour);
+      PushPopSimpleHelper(count,
+                          claim,
+                          kXRegSize,
+                          PushPopByFour,
+                          PushPopRegList);
+      PushPopSimpleHelper(count,
+                          claim,
+                          kXRegSize,
+                          PushPopRegList,
+                          PushPopByFour);
+      PushPopSimpleHelper(count,
+                          claim,
+                          kXRegSize,
+                          PushPopRegList,
+                          PushPopRegList);
     }
     // Test with the maximum number of registers.
-    PushPopXRegSimpleHelper(kPushPopXRegMaxRegCount,
-                            claim,
-                            kXRegSize,
-                            PushPopByFour,
-                            PushPopByFour);
-    PushPopXRegSimpleHelper(kPushPopXRegMaxRegCount,
-                            claim,
-                            kXRegSize,
-                            PushPopByFour,
-                            PushPopRegList);
-    PushPopXRegSimpleHelper(kPushPopXRegMaxRegCount,
-                            claim,
-                            kXRegSize,
-                            PushPopRegList,
-                            PushPopByFour);
-    PushPopXRegSimpleHelper(kPushPopXRegMaxRegCount,
-                            claim,
-                            kXRegSize,
-                            PushPopRegList,
-                            PushPopRegList);
+    PushPopSimpleHelper(kPushPopUseMaxRegCount,
+                        claim,
+                        kXRegSize,
+                        PushPopByFour,
+                        PushPopByFour);
+    PushPopSimpleHelper(kPushPopUseMaxRegCount,
+                        claim,
+                        kXRegSize,
+                        PushPopByFour,
+                        PushPopRegList);
+    PushPopSimpleHelper(kPushPopUseMaxRegCount,
+                        claim,
+                        kXRegSize,
+                        PushPopRegList,
+                        PushPopByFour);
+    PushPopSimpleHelper(kPushPopUseMaxRegCount,
+                        claim,
+                        kXRegSize,
+                        PushPopRegList,
+                        PushPopRegList);
   }
 }
 
-
-// The maximum number of registers that can be used by the PushPopFPXReg* tests,
-// where a reg_count field is provided.
-static int const kPushPopFPXRegMaxRegCount = -1;
+// For the PushPopFP* tests, use the maximum number of registers that the test
+// supports (where a reg_count argument would otherwise be provided).
+static int const kPushPopFPUseMaxRegCount = -1;
 
 // Test a simple push-pop pattern:
 //  * Claim <claim> bytes to set the stack alignment.
@@ -14156,11 +14290,11 @@ static int const kPushPopFPXRegMaxRegCount = -1;
 //
 // Different push and pop methods can be specified independently to test for
 // proper word-endian behaviour.
-static void PushPopFPXRegSimpleHelper(int reg_count,
-                                      int claim,
-                                      int reg_size,
-                                      PushPopMethod push_method,
-                                      PushPopMethod pop_method) {
+static void PushPopFPSimpleHelper(int reg_count,
+                                  int claim,
+                                  int reg_size,
+                                  PushPopMethod push_method,
+                                  PushPopMethod pop_method) {
   SETUP();
 
   START();
@@ -14168,7 +14302,7 @@ static void PushPopFPXRegSimpleHelper(int reg_count,
   // We can use any floating-point register. None of them are reserved for
   // debug code, for example.
   static RegList const allowed = ~0;
-  if (reg_count == kPushPopFPXRegMaxRegCount) {
+  if (reg_count == kPushPopFPUseMaxRegCount) {
     reg_count = CountSetBits(allowed, kNumberOfFPRegisters);
   }
   // Work out which registers to use, based on reg_size.
@@ -14300,48 +14434,48 @@ static void PushPopFPXRegSimpleHelper(int reg_count,
 TEST(push_pop_fp_xreg_simple_32) {
   for (int claim = 0; claim <= 8; claim++) {
     for (int count = 0; count <= 8; count++) {
-      PushPopFPXRegSimpleHelper(count,
-                                claim,
-                                kSRegSize,
-                                PushPopByFour,
-                                PushPopByFour);
-      PushPopFPXRegSimpleHelper(count,
-                                claim,
-                                kSRegSize,
-                                PushPopByFour,
-                                PushPopRegList);
-      PushPopFPXRegSimpleHelper(count,
-                                claim,
-                                kSRegSize,
-                                PushPopRegList,
-                                PushPopByFour);
-      PushPopFPXRegSimpleHelper(count,
-                                claim,
-                                kSRegSize,
-                                PushPopRegList,
-                                PushPopRegList);
+      PushPopFPSimpleHelper(count,
+                            claim,
+                            kSRegSize,
+                            PushPopByFour,
+                            PushPopByFour);
+      PushPopFPSimpleHelper(count,
+                            claim,
+                            kSRegSize,
+                            PushPopByFour,
+                            PushPopRegList);
+      PushPopFPSimpleHelper(count,
+                            claim,
+                            kSRegSize,
+                            PushPopRegList,
+                            PushPopByFour);
+      PushPopFPSimpleHelper(count,
+                            claim,
+                            kSRegSize,
+                            PushPopRegList,
+                            PushPopRegList);
     }
     // Test with the maximum number of registers.
-    PushPopFPXRegSimpleHelper(kPushPopFPXRegMaxRegCount,
-                              claim,
-                              kSRegSize,
-                              PushPopByFour,
-                              PushPopByFour);
-    PushPopFPXRegSimpleHelper(kPushPopFPXRegMaxRegCount,
-                              claim,
-                              kSRegSize,
-                              PushPopByFour,
-                              PushPopRegList);
-    PushPopFPXRegSimpleHelper(kPushPopFPXRegMaxRegCount,
-                              claim,
-                              kSRegSize,
-                              PushPopRegList,
-                              PushPopByFour);
-    PushPopFPXRegSimpleHelper(kPushPopFPXRegMaxRegCount,
-                              claim,
-                              kSRegSize,
-                              PushPopRegList,
-                              PushPopRegList);
+    PushPopFPSimpleHelper(kPushPopFPUseMaxRegCount,
+                          claim,
+                          kSRegSize,
+                          PushPopByFour,
+                          PushPopByFour);
+    PushPopFPSimpleHelper(kPushPopFPUseMaxRegCount,
+                          claim,
+                          kSRegSize,
+                          PushPopByFour,
+                          PushPopRegList);
+    PushPopFPSimpleHelper(kPushPopFPUseMaxRegCount,
+                          claim,
+                          kSRegSize,
+                          PushPopRegList,
+                          PushPopByFour);
+    PushPopFPSimpleHelper(kPushPopFPUseMaxRegCount,
+                          claim,
+                          kSRegSize,
+                          PushPopRegList,
+                          PushPopRegList);
   }
 }
 
@@ -14349,55 +14483,55 @@ TEST(push_pop_fp_xreg_simple_32) {
 TEST(push_pop_fp_xreg_simple_64) {
   for (int claim = 0; claim <= 8; claim++) {
     for (int count = 0; count <= 8; count++) {
-      PushPopFPXRegSimpleHelper(count,
-                                claim,
-                                kDRegSize,
-                                PushPopByFour,
-                                PushPopByFour);
-      PushPopFPXRegSimpleHelper(count,
-                                claim,
-                                kDRegSize,
-                                PushPopByFour,
-                                PushPopRegList);
-      PushPopFPXRegSimpleHelper(count,
-                                claim,
-                                kDRegSize,
-                                PushPopRegList,
-                                PushPopByFour);
-      PushPopFPXRegSimpleHelper(count,
-                                claim,
-                                kDRegSize,
-                                PushPopRegList,
-                                PushPopRegList);
+      PushPopFPSimpleHelper(count,
+                            claim,
+                            kDRegSize,
+                            PushPopByFour,
+                            PushPopByFour);
+      PushPopFPSimpleHelper(count,
+                            claim,
+                            kDRegSize,
+                            PushPopByFour,
+                            PushPopRegList);
+      PushPopFPSimpleHelper(count,
+                            claim,
+                            kDRegSize,
+                            PushPopRegList,
+                            PushPopByFour);
+      PushPopFPSimpleHelper(count,
+                            claim,
+                            kDRegSize,
+                            PushPopRegList,
+                            PushPopRegList);
     }
     // Test with the maximum number of registers.
-    PushPopFPXRegSimpleHelper(kPushPopFPXRegMaxRegCount,
-                              claim,
-                              kDRegSize,
-                              PushPopByFour,
-                              PushPopByFour);
-    PushPopFPXRegSimpleHelper(kPushPopFPXRegMaxRegCount,
-                              claim,
-                              kDRegSize,
-                              PushPopByFour,
-                              PushPopRegList);
-    PushPopFPXRegSimpleHelper(kPushPopFPXRegMaxRegCount,
-                              claim,
-                              kDRegSize,
-                              PushPopRegList,
-                              PushPopByFour);
-    PushPopFPXRegSimpleHelper(kPushPopFPXRegMaxRegCount,
-                              claim,
-                              kDRegSize,
-                              PushPopRegList,
-                              PushPopRegList);
+    PushPopFPSimpleHelper(kPushPopFPUseMaxRegCount,
+                          claim,
+                          kDRegSize,
+                          PushPopByFour,
+                          PushPopByFour);
+    PushPopFPSimpleHelper(kPushPopFPUseMaxRegCount,
+                          claim,
+                          kDRegSize,
+                          PushPopByFour,
+                          PushPopRegList);
+    PushPopFPSimpleHelper(kPushPopFPUseMaxRegCount,
+                          claim,
+                          kDRegSize,
+                          PushPopRegList,
+                          PushPopByFour);
+    PushPopFPSimpleHelper(kPushPopFPUseMaxRegCount,
+                          claim,
+                          kDRegSize,
+                          PushPopRegList,
+                          PushPopRegList);
   }
 }
 
 
 // Push and pop data using an overlapping combination of Push/Pop and
 // RegList-based methods.
-static void PushPopXRegMixedMethodsHelper(int claim, int reg_size) {
+static void PushPopMixedMethodsHelper(int claim, int reg_size) {
   SETUP();
 
   // Arbitrarily pick a register to use as a stack pointer.
@@ -14488,26 +14622,26 @@ static void PushPopXRegMixedMethodsHelper(int claim, int reg_size) {
 
 TEST(push_pop_xreg_mixed_methods_64) {
   for (int claim = 0; claim <= 8; claim++) {
-    PushPopXRegMixedMethodsHelper(claim, kXRegSize);
+    PushPopMixedMethodsHelper(claim, kXRegSize);
   }
 }
 
 
 TEST(push_pop_xreg_mixed_methods_32) {
   for (int claim = 0; claim <= 8; claim++) {
-    PushPopXRegMixedMethodsHelper(claim, kWRegSize);
+    PushPopMixedMethodsHelper(claim, kWRegSize);
   }
 }
 
 
 // Push and pop data using overlapping X- and W-sized quantities.
-static void PushPopXRegWXOverlapHelper(int reg_count, int claim) {
+static void PushPopWXOverlapHelper(int reg_count, int claim) {
   SETUP();
 
   // Arbitrarily pick a register to use as a stack pointer.
   const Register& stack_pointer = x10;
   const RegList allowed = ~stack_pointer.GetBit();
-  if (reg_count == kPushPopXRegMaxRegCount) {
+  if (reg_count == kPushPopUseMaxRegCount) {
     reg_count = CountSetBits(allowed, kNumberOfRegisters);
   }
   // Work out which registers to use, based on reg_size.
@@ -14694,10 +14828,10 @@ static void PushPopXRegWXOverlapHelper(int reg_count, int claim) {
 TEST(push_pop_xreg_wx_overlap) {
   for (int claim = 0; claim <= 8; claim++) {
     for (int count = 1; count <= 8; count++) {
-      PushPopXRegWXOverlapHelper(count, claim);
+      PushPopWXOverlapHelper(count, claim);
     }
     // Test with the maximum number of registers.
-    PushPopXRegWXOverlapHelper(kPushPopXRegMaxRegCount, claim);
+    PushPopWXOverlapHelper(kPushPopUseMaxRegCount, claim);
   }
 }
 
@@ -14790,161 +14924,6 @@ TEST(push_pop_sp) {
   ASSERT_EQUAL_32(0x22222222U, w28);
   ASSERT_EQUAL_32(0x33333333U, w29);
   TEARDOWN();
-}
-
-
-TEST(noreg) {
-  // This test doesn't generate any code, but it verifies some invariants
-  // related to NoReg.
-  VIXL_CHECK(NoReg.Is(NoFPReg));
-  VIXL_CHECK(NoFPReg.Is(NoReg));
-
-  VIXL_CHECK(NoVReg.Is(NoReg));
-  VIXL_CHECK(NoReg.Is(NoVReg));
-
-  VIXL_CHECK(NoReg.Is(NoCPUReg));
-  VIXL_CHECK(NoCPUReg.Is(NoReg));
-
-  VIXL_CHECK(NoFPReg.Is(NoCPUReg));
-  VIXL_CHECK(NoCPUReg.Is(NoFPReg));
-
-  VIXL_CHECK(NoVReg.Is(NoCPUReg));
-  VIXL_CHECK(NoCPUReg.Is(NoVReg));
-
-  VIXL_CHECK(NoReg.IsNone());
-  VIXL_CHECK(NoFPReg.IsNone());
-  VIXL_CHECK(NoVReg.IsNone());
-  VIXL_CHECK(NoCPUReg.IsNone());
-}
-
-
-TEST(isvalid) {
-  // This test doesn't generate any code, but it verifies some invariants
-  // related to IsValid().
-  VIXL_CHECK(!NoReg.IsValid());
-  VIXL_CHECK(!NoFPReg.IsValid());
-  VIXL_CHECK(!NoVReg.IsValid());
-  VIXL_CHECK(!NoCPUReg.IsValid());
-
-  VIXL_CHECK(x0.IsValid());
-  VIXL_CHECK(w0.IsValid());
-  VIXL_CHECK(x30.IsValid());
-  VIXL_CHECK(w30.IsValid());
-  VIXL_CHECK(xzr.IsValid());
-  VIXL_CHECK(wzr.IsValid());
-
-  VIXL_CHECK(sp.IsValid());
-  VIXL_CHECK(wsp.IsValid());
-
-  VIXL_CHECK(d0.IsValid());
-  VIXL_CHECK(s0.IsValid());
-  VIXL_CHECK(d31.IsValid());
-  VIXL_CHECK(s31.IsValid());
-
-  VIXL_CHECK(x0.IsValidRegister());
-  VIXL_CHECK(w0.IsValidRegister());
-  VIXL_CHECK(xzr.IsValidRegister());
-  VIXL_CHECK(wzr.IsValidRegister());
-  VIXL_CHECK(sp.IsValidRegister());
-  VIXL_CHECK(wsp.IsValidRegister());
-  VIXL_CHECK(!x0.IsValidFPRegister());
-  VIXL_CHECK(!w0.IsValidFPRegister());
-  VIXL_CHECK(!xzr.IsValidFPRegister());
-  VIXL_CHECK(!wzr.IsValidFPRegister());
-  VIXL_CHECK(!sp.IsValidFPRegister());
-  VIXL_CHECK(!wsp.IsValidFPRegister());
-
-  VIXL_CHECK(d0.IsValidFPRegister());
-  VIXL_CHECK(s0.IsValidFPRegister());
-  VIXL_CHECK(!d0.IsValidRegister());
-  VIXL_CHECK(!s0.IsValidRegister());
-
-  // Test the same as before, but using CPURegister types. This shouldn't make
-  // any difference.
-  VIXL_CHECK(static_cast<CPURegister>(x0).IsValid());
-  VIXL_CHECK(static_cast<CPURegister>(w0).IsValid());
-  VIXL_CHECK(static_cast<CPURegister>(x30).IsValid());
-  VIXL_CHECK(static_cast<CPURegister>(w30).IsValid());
-  VIXL_CHECK(static_cast<CPURegister>(xzr).IsValid());
-  VIXL_CHECK(static_cast<CPURegister>(wzr).IsValid());
-
-  VIXL_CHECK(static_cast<CPURegister>(sp).IsValid());
-  VIXL_CHECK(static_cast<CPURegister>(wsp).IsValid());
-
-  VIXL_CHECK(static_cast<CPURegister>(d0).IsValid());
-  VIXL_CHECK(static_cast<CPURegister>(s0).IsValid());
-  VIXL_CHECK(static_cast<CPURegister>(d31).IsValid());
-  VIXL_CHECK(static_cast<CPURegister>(s31).IsValid());
-
-  VIXL_CHECK(static_cast<CPURegister>(x0).IsValidRegister());
-  VIXL_CHECK(static_cast<CPURegister>(w0).IsValidRegister());
-  VIXL_CHECK(static_cast<CPURegister>(xzr).IsValidRegister());
-  VIXL_CHECK(static_cast<CPURegister>(wzr).IsValidRegister());
-  VIXL_CHECK(static_cast<CPURegister>(sp).IsValidRegister());
-  VIXL_CHECK(static_cast<CPURegister>(wsp).IsValidRegister());
-  VIXL_CHECK(!static_cast<CPURegister>(x0).IsValidFPRegister());
-  VIXL_CHECK(!static_cast<CPURegister>(w0).IsValidFPRegister());
-  VIXL_CHECK(!static_cast<CPURegister>(xzr).IsValidFPRegister());
-  VIXL_CHECK(!static_cast<CPURegister>(wzr).IsValidFPRegister());
-  VIXL_CHECK(!static_cast<CPURegister>(sp).IsValidFPRegister());
-  VIXL_CHECK(!static_cast<CPURegister>(wsp).IsValidFPRegister());
-
-  VIXL_CHECK(static_cast<CPURegister>(d0).IsValidFPRegister());
-  VIXL_CHECK(static_cast<CPURegister>(s0).IsValidFPRegister());
-  VIXL_CHECK(!static_cast<CPURegister>(d0).IsValidRegister());
-  VIXL_CHECK(!static_cast<CPURegister>(s0).IsValidRegister());
-}
-
-
-TEST(areconsecutive) {
-  // This test generates no code; it just checks that AreConsecutive works.
-  VIXL_CHECK(AreConsecutive(b0, NoVReg));
-  VIXL_CHECK(AreConsecutive(b1, b2));
-  VIXL_CHECK(AreConsecutive(b3, b4, b5));
-  VIXL_CHECK(AreConsecutive(b6, b7, b8, b9));
-  VIXL_CHECK(AreConsecutive(h10, NoVReg));
-  VIXL_CHECK(AreConsecutive(h11, h12));
-  VIXL_CHECK(AreConsecutive(h13, h14, h15));
-  VIXL_CHECK(AreConsecutive(h16, h17, h18, h19));
-  VIXL_CHECK(AreConsecutive(s20, NoVReg));
-  VIXL_CHECK(AreConsecutive(s21, s22));
-  VIXL_CHECK(AreConsecutive(s23, s24, s25));
-  VIXL_CHECK(AreConsecutive(s26, s27, s28, s29));
-  VIXL_CHECK(AreConsecutive(d30, NoVReg));
-  VIXL_CHECK(AreConsecutive(d31, d0));
-  VIXL_CHECK(AreConsecutive(d1, d2, d3));
-  VIXL_CHECK(AreConsecutive(d4, d5, d6, d7));
-  VIXL_CHECK(AreConsecutive(q8, NoVReg));
-  VIXL_CHECK(AreConsecutive(q9, q10));
-  VIXL_CHECK(AreConsecutive(q11, q12, q13));
-  VIXL_CHECK(AreConsecutive(q14, q15, q16, q17));
-  VIXL_CHECK(AreConsecutive(v18, NoVReg));
-  VIXL_CHECK(AreConsecutive(v19, v20));
-  VIXL_CHECK(AreConsecutive(v21, v22, v23));
-  VIXL_CHECK(AreConsecutive(v24, v25, v26, v27));
-  VIXL_CHECK(AreConsecutive(b29, h30));
-  VIXL_CHECK(AreConsecutive(s31, d0, q1));
-  VIXL_CHECK(AreConsecutive(v2, b3, h4, s5));
-
-  VIXL_CHECK(!AreConsecutive(b0, b2));
-  VIXL_CHECK(!AreConsecutive(h1, h0));
-  VIXL_CHECK(!AreConsecutive(s31, s1));
-  VIXL_CHECK(!AreConsecutive(d12, d12));
-  VIXL_CHECK(!AreConsecutive(q31, q1));
-
-  VIXL_CHECK(!AreConsecutive(b0, b1, b3));
-  VIXL_CHECK(!AreConsecutive(h4, h5, h6, h6));
-  VIXL_CHECK(!AreConsecutive(d11, d13, NoVReg, d14));
-  VIXL_CHECK(!AreConsecutive(d15, d16, d18, NoVReg));
-  VIXL_CHECK(!AreConsecutive(b26, b28, NoVReg, b29));
-  VIXL_CHECK(!AreConsecutive(s28, s30, NoVReg, NoVReg));
-
-  VIXL_CHECK(AreConsecutive(q19, NoVReg, NoVReg, q22));
-  VIXL_CHECK(AreConsecutive(v23, NoVReg, v25, NoVReg));
-  VIXL_CHECK(AreConsecutive(b26, b27, NoVReg, NoVReg));
-  VIXL_CHECK(AreConsecutive(h28, NoVReg, NoVReg, NoVReg));
-  VIXL_CHECK(AreConsecutive(s30, s31, NoVReg, s2));
-  VIXL_CHECK(AreConsecutive(d3, NoVReg, d6, d7));
 }
 
 
@@ -23013,41 +22992,6 @@ TEST(literal_deletion_policies) {
 }
 
 
-TEST(move_immediate_helpers) {
-  // Using these helpers to query information (without generating code) should
-  // not crash.
-  MacroAssembler::MoveImmediateHelper(NULL, x0, 0x12345678);
-  MacroAssembler::OneInstrMoveImmediateHelper(NULL, x1, 0xabcdef);
-}
-
-
-TEST(generic_operand_helpers) {
-  GenericOperand invalid_1;
-  GenericOperand invalid_2;
-  GenericOperand reg(x3);
-  GenericOperand mem(MemOperand(sp, 8), kXRegSizeInBytes);
-
-  VIXL_CHECK(!invalid_1.IsValid());
-  VIXL_CHECK(!invalid_2.IsValid());
-
-  VIXL_CHECK(invalid_1.Equals(invalid_1));
-  VIXL_CHECK(invalid_2.Equals(invalid_2));
-  VIXL_CHECK(reg.Equals(reg));
-  VIXL_CHECK(mem.Equals(mem));
-
-  VIXL_CHECK(invalid_1.Equals(invalid_2));
-  VIXL_CHECK(invalid_2.Equals(invalid_1));
-
-  VIXL_CHECK(!invalid_1.Equals(reg));
-  VIXL_CHECK(!invalid_1.Equals(mem));
-  VIXL_CHECK(!reg.Equals(invalid_1));
-  VIXL_CHECK(!reg.Equals(invalid_2));
-  VIXL_CHECK(!reg.Equals(mem));
-  VIXL_CHECK(!mem.Equals(invalid_1));
-  VIXL_CHECK(!mem.Equals(reg));
-}
-
-
 TEST(generic_operand) {
   SETUP();
 
@@ -23133,6 +23077,24 @@ TEST(generic_operand) {
 }
 
 
+// Test feature detection of calls to runtime functions.
+
+// C++11 should be sufficient to provide simulated runtime calls, except for a
+// GCC bug before 4.9.1.
+#if defined(VIXL_INCLUDE_SIMULATOR_AARCH64) && (__cplusplus >= 201103L) && \
+    (defined(__clang__) || GCC_VERSION_OR_NEWER(4, 9, 1)) &&               \
+    !defined(VIXL_HAS_SIMULATED_RUNTIME_CALL_SUPPORT)
+#error \
+    "C++11 should be sufficient to provide support for simulated runtime calls."
+#endif  // #if defined(VIXL_INCLUDE_SIMULATOR_AARCH64) && ...
+
+#if (__cplusplus >= 201103L) && \
+    !defined(VIXL_HAS_MACROASSEMBLER_RUNTIME_CALL_SUPPORT)
+#error \
+    "C++11 should be sufficient to provide support for `MacroAssembler::CallRuntime()`."
+#endif  // #if (__cplusplus >= 201103L) && ...
+
+#ifdef VIXL_HAS_MACROASSEMBLER_RUNTIME_CALL_SUPPORT
 int32_t runtime_call_add_one(int32_t a) { return a + 1; }
 
 double runtime_call_add_doubles(double a, double b, double c) {
@@ -23166,24 +23128,21 @@ double runtime_call_two_arguments_on_stack(int64_t arg1 __attribute__((unused)),
 
 void runtime_call_store_at_address(int64_t* address) { *address = 0xf00d; }
 
-// Test feature detection of calls to runtime functions.
+enum RuntimeCallTestEnum { Enum0 };
 
-// C++11 should be sufficient to provide simulated runtime calls, except for a
-// GCC bug before 4.9.1.
-#if defined(VIXL_INCLUDE_SIMULATOR_AARCH64) && (__cplusplus >= 201103L) && \
-    (defined(__clang__) || GCC_VERSION_OR_NEWER(4, 9, 1)) &&               \
-    !defined(VIXL_HAS_SIMULATED_RUNTIME_CALL_SUPPORT)
-#error \
-    "C++11 should be sufficient to provide support for simulated runtime calls."
-#endif  // #if defined(VIXL_INCLUDE_SIMULATOR_AARCH64) && ...
+RuntimeCallTestEnum runtime_call_enum(RuntimeCallTestEnum e) { return e; }
 
-#if (__cplusplus >= 201103L) && \
-    !defined(VIXL_HAS_MACROASSEMBLER_RUNTIME_CALL_SUPPORT)
-#error \
-    "C++11 should be sufficient to provide support for `MacroAssembler::CallRuntime()`."
-#endif  // #if (__cplusplus >= 201103L) && ...
+enum class RuntimeCallTestEnumClass { Enum0 };
 
-#ifdef VIXL_HAS_MACROASSEMBLER_RUNTIME_CALL_SUPPORT
+RuntimeCallTestEnumClass runtime_call_enum_class(RuntimeCallTestEnumClass e) {
+  return e;
+}
+
+int8_t test_int8_t(int8_t x) { return x; }
+uint8_t test_uint8_t(uint8_t x) { return x; }
+int16_t test_int16_t(int16_t x) { return x; }
+uint16_t test_uint16_t(uint16_t x) { return x; }
+
 TEST(runtime_calls) {
   SETUP();
 
@@ -23198,6 +23157,9 @@ TEST(runtime_calls) {
 #endif
 
   START();
+
+  // Test `CallRuntime`.
+
   __ Mov(w0, 0);
   __ CallRuntime(runtime_call_add_one);
   __ Mov(w20, w0);
@@ -23221,6 +23183,64 @@ TEST(runtime_calls) {
   __ Fmov(d21, d0);
   __ Pop(d1, d0);
 
+  // Test that the template mechanisms don't break with enums.
+  __ Mov(w0, 0);
+  __ CallRuntime(runtime_call_enum);
+  __ Mov(w0, 0);
+  __ CallRuntime(runtime_call_enum_class);
+
+  // Test `TailCallRuntime`.
+
+  Label function, after_function;
+  __ B(&after_function);
+  __ Bind(&function);
+  __ Mov(x22, 0);
+  __ Mov(w0, 123);
+  __ TailCallRuntime(runtime_call_add_one);
+  // Control should not fall through.
+  __ Mov(x22, 0xbad);
+  __ Ret();
+  __ Bind(&after_function);
+
+  // Call our dummy function, taking care to preserve the link register.
+  __ Push(ip0, lr);
+  __ Bl(&function);
+  __ Pop(lr, ip0);
+  // Save the result.
+  __ Mov(w23, w0);
+
+  __ Mov(x24, 0);
+  int test_values[] = {static_cast<int8_t>(-1),
+                       static_cast<uint8_t>(-1),
+                       static_cast<int16_t>(-1),
+                       static_cast<uint16_t>(-1),
+                       -256,
+                       -1,
+                       0,
+                       1,
+                       256};
+  for (size_t i = 0; i < sizeof(test_values) / sizeof(test_values[0]); ++i) {
+    Label pass_int8, pass_uint8, pass_int16, pass_uint16;
+    int x = test_values[i];
+    __ Mov(w0, static_cast<int8_t>(x));
+    __ CallRuntime(test_int8_t);
+    __ Cmp(w0, static_cast<int8_t>(x));
+    __ Cinc(x24, x24, ne);
+    __ Mov(w0, static_cast<uint8_t>(x));
+    __ CallRuntime(test_uint8_t);
+    __ Cmp(w0, static_cast<uint8_t>(x));
+    __ Cinc(x24, x24, ne);
+    __ Mov(w0, static_cast<int16_t>(x));
+    __ CallRuntime(test_int16_t);
+    __ Cmp(w0, static_cast<int16_t>(x));
+    __ Cinc(x24, x24, ne);
+    __ Mov(w0, static_cast<uint16_t>(x));
+    __ CallRuntime(test_uint16_t);
+    __ Cmp(w0, static_cast<uint16_t>(x));
+    __ Cinc(x24, x24, ne);
+  }
+
+
   int64_t value = 0xbadbeef;
   __ Mov(x0, reinterpret_cast<uint64_t>(&value));
   __ CallRuntime(runtime_call_store_at_address);
@@ -23236,6 +23256,9 @@ TEST(runtime_calls) {
   ASSERT_EQUAL_64(0x123, x21);
   ASSERT_EQUAL_FP64(310.0, d21);
   VIXL_CHECK(value == 0xf00d);
+  ASSERT_EQUAL_64(0, x22);
+  ASSERT_EQUAL_32(124, w23);
+  ASSERT_EQUAL_64(0, x24);
 #endif  // #if defined(VIXL_HAS_SIMULATED_RUNTIME_CALL_SUPPORT) || ...
 
   TEARDOWN();
@@ -23294,44 +23317,6 @@ TEST(scratch_scope_basic_v) {
     VRegister temp = temps.AcquireVRegisterOfSize(kSRegSize);
     VIXL_CHECK(temp.Aliases(v31));
   }
-}
-
-TEST(static_register_types) {
-  SETUP();
-  START();
-
-  // [WX]Register implicitly casts to Register.
-  XRegister x_x0(0);
-  WRegister w_w0(0);
-  Register r_x0 = x_x0;
-  Register r_w0 = w_w0;
-  VIXL_CHECK(r_x0.Is(x_x0));
-  VIXL_CHECK(x_x0.Is(r_x0));
-  VIXL_CHECK(r_w0.Is(w_w0));
-  VIXL_CHECK(w_w0.Is(r_w0));
-
-  // Register explicitly casts to [WX]Register.
-  Register r_x1(1, kXRegSize);
-  Register r_w1(1, kWRegSize);
-  XRegister x_x1(r_x1);
-  WRegister w_w1(r_w1);
-  VIXL_CHECK(r_x1.Is(x_x1));
-  VIXL_CHECK(x_x1.Is(r_x1));
-  VIXL_CHECK(r_w1.Is(w_w1));
-  VIXL_CHECK(w_w1.Is(r_w1));
-
-  // [WX]Register implicitly casts to CPURegister.
-  XRegister x_x2(2);
-  WRegister w_w2(2);
-  CPURegister cpu_x2 = x_x2;
-  CPURegister cpu_w2 = w_w2;
-  VIXL_CHECK(cpu_x2.Is(x_x2));
-  VIXL_CHECK(x_x2.Is(cpu_x2));
-  VIXL_CHECK(cpu_w2.Is(w_w2));
-  VIXL_CHECK(w_w2.Is(cpu_w2));
-
-  END();
-  TEARDOWN();
 }
 
 

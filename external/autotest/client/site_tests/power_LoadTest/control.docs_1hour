@@ -74,4 +74,4 @@ tasks='[{' + \
 
 
 job.run_test('power_LoadTest', loop_time=loop_time, loop_count=loop_count,
-             test_low_batt_p=6, tasks=tasks)
+             test_low_batt_p=6, tasks=tasks, tag=NAME.split('.')[1])

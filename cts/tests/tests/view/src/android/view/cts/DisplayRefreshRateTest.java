@@ -66,11 +66,12 @@ public class DisplayRefreshRateTest {
     @Test
     public void testRefreshRate() {
         boolean fpsOk = false;
+        // This tests the fps of the default display.
+        // In consideration of multi-display devices we use getApplicationContext()
+        // to get the default display.
+        Context context = mActivity.getApplicationContext();
+        WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
 
-        WindowManager wm = (WindowManager) mActivity
-                .getView()
-                .getContext()
-                .getSystemService(Context.WINDOW_SERVICE);
         Display dpy = wm.getDefaultDisplay();
         float claimedFps = dpy.getRefreshRate();
 

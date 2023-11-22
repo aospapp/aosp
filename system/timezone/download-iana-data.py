@@ -33,22 +33,19 @@ iana_data_dir = os.path.realpath('%s/system/timezone/input_data/iana' % android_
 def FtpRetrieveFile(ftp, filename):
   ftp.retrbinary('RETR %s' % filename, open(filename, 'wb').write)
 
-
-def FtpRetrieveFileAndCheckSignature(ftp, data_filename):
-  """Downloads and repackages the given data from the given FTP server."""
-  print 'Downloading data (%s)...' % data_filename
-  FtpRetrieveFile(ftp, data_filename)
-
-  signature_filename = '%s.asc' % data_filename
-  print 'Downloading signature (%s)...' % signature_filename
-  FtpRetrieveFile(ftp, signature_filename)
-
+def CheckSignature(data_filename, signature_filename):
+  """Checks the signature of a file."""
   print 'Verifying signature...'
-  # If this fails for you, you probably need to import Paul Eggert's public key:
-  # gpg --recv-keys ED97E90E62AA7E34
-  subprocess.check_call(['gpg', '--trusted-key=ED97E90E62AA7E34', '--verify',
-                         signature_filename, data_filename])
-
+  try:
+    subprocess.check_call(['gpg', '--trusted-key=ED97E90E62AA7E34', '--verify',
+                          signature_filename, data_filename])
+  except subprocess.CalledProcessError as err:
+    print 'Unable to verify signature'
+    print '\n\n******'
+    print 'If this fails for you, you probably need to import Paul Eggert''s public key:'
+    print '  gpg --receive-keys ED97E90E62AA7E34'
+    print '******\n\n'
+    raise
 
 # Run with no arguments from any directory, with no special setup required.
 # See http://www.iana.org/time-zones/ for more about the source of this data.
@@ -75,7 +72,7 @@ def main():
 
   latest_iana_tar_filename = iana_tar_filenames[0]
 
-  local_iana_tar_file = tzdatautil.GetIanaTarFile(iana_data_dir)
+  local_iana_tar_file = tzdatautil.GetIanaTarFile(iana_data_dir, 'data')
 
   if local_iana_tar_file:
     local_iana_tar_filename = os.path.basename(local_iana_tar_file)
@@ -85,14 +82,28 @@ def main():
 
   print 'Found new tzdata: %s' % latest_iana_tar_filename
   i18nutil.SwitchToNewTemporaryDirectory()
-  FtpRetrieveFileAndCheckSignature(ftp, latest_iana_tar_filename)
+
+  print 'Downloading data (%s)...' % latest_iana_tar_filename
+  FtpRetrieveFile(ftp, latest_iana_tar_filename)
+
+  signature_filename = '%s.asc' % latest_iana_tar_filename
+  print 'Downloading signature (%s)...' % signature_filename
+  FtpRetrieveFile(ftp, signature_filename)
+
+  CheckSignature(latest_iana_tar_filename, signature_filename)
 
   new_local_iana_tar_file = '%s/%s' % (iana_data_dir, latest_iana_tar_filename)
   shutil.copyfile(latest_iana_tar_filename, new_local_iana_tar_file)
+  new_local_signature_file = '%s/%s' % (iana_data_dir, signature_filename)
+  shutil.copyfile(signature_filename, new_local_signature_file)
 
   # Delete the existing local IANA tar file, if there is one.
   if local_iana_tar_file:
     os.remove(local_iana_tar_file)
+
+  local_signature_file = '%s.asc' % local_iana_tar_file
+  if os.path.exists(local_signature_file):
+    os.remove(local_signature_file)
 
   print 'Look in %s for new IANA data files' % new_local_iana_tar_file
   sys.exit(0)

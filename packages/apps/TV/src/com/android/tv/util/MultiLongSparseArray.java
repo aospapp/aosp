@@ -19,7 +19,6 @@ package com.android.tv.util;
 import android.support.annotation.VisibleForTesting;
 import android.util.ArraySet;
 import android.util.LongSparseArray;
-
 import java.util.Collections;
 import java.util.Set;
 
@@ -29,8 +28,7 @@ import java.util.Set;
  * <p>This has the same memory and performance trade offs listed in {@link LongSparseArray}.
  */
 public class MultiLongSparseArray<T> {
-    @VisibleForTesting
-    static final int DEFAULT_MAX_EMPTIES_KEPT = 4;
+    @VisibleForTesting static final int DEFAULT_MAX_EMPTIES_KEPT = 4;
     private final LongSparseArray<Set<T>> mSparseArray;
     private final Set<T>[] mEmptySets;
     private int mEmptyIndex = -1;
@@ -46,9 +44,8 @@ public class MultiLongSparseArray<T> {
     }
 
     /**
-     * Adds a mapping from the specified key to the specified value,
-     * replacing the previous mapping from the specified key if there
-     * was one.
+     * Adds a mapping from the specified key to the specified value, replacing the previous mapping
+     * from the specified key if there was one.
      */
     public void put(long key, T value) {
         Set<T> values = mSparseArray.get(key);
@@ -59,9 +56,7 @@ public class MultiLongSparseArray<T> {
         values.add(value);
     }
 
-    /**
-     * Removes the value at the specified index.
-     */
+    /** Removes the value at the specified index. */
     public void remove(long key, T value) {
         Set<T> values = mSparseArray.get(key);
         if (values != null) {
@@ -74,17 +69,15 @@ public class MultiLongSparseArray<T> {
     }
 
     /**
-     * Gets the set of Objects mapped from the specified key, or an empty set
-     * if no such mapping has been made.
+     * Gets the set of Objects mapped from the specified key, or an empty set if no such mapping has
+     * been made.
      */
     public Iterable<T> get(long key) {
         Set<T> values = mSparseArray.get(key);
         return values == null ? Collections.EMPTY_SET : values;
     }
 
-    /**
-     * Clears cached empty sets.
-     */
+    /** Clears cached empty sets. */
     public void clearEmptyCache() {
         while (mEmptyIndex >= 0) {
             mEmptySets[mEmptyIndex--] = null;

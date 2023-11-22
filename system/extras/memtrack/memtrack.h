@@ -24,7 +24,9 @@
 #include <vector>
 
 #define DEFAULT_SLEEP_DELAY_SECONDS 5
-#define NS_PER_SEC 1000000000LL
+#ifndef NS_PER_SEC
+#define NS_PER_SEC 1000000000ULL
+#endif
 
 class FileData {
 public:

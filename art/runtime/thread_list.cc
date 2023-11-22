@@ -16,17 +16,19 @@
 
 #include "thread_list.h"
 
-#include <backtrace/BacktraceMap.h>
 #include <dirent.h>
-#include "nativehelper/ScopedLocalRef.h"
-#include "nativehelper/ScopedUtfChars.h"
 #include <sys/types.h>
 #include <unistd.h>
 
 #include <sstream>
+#include <vector>
 
 #include "android-base/stringprintf.h"
+#include "backtrace/BacktraceMap.h"
+#include "nativehelper/scoped_local_ref.h"
+#include "nativehelper/scoped_utf_chars.h"
 
+#include "base/aborting.h"
 #include "base/histogram-inl.h"
 #include "base/mutex-inl.h"
 #include "base/systrace.h"
@@ -67,8 +69,7 @@ static constexpr useconds_t kThreadSuspendMaxSleepUs = 5000;
 
 // Whether we should try to dump the native stack of unattached threads. See commit ed8b723 for
 // some history.
-// Turned off again. b/29248079
-static constexpr bool kDumpUnattachedThreadNativeStackForSigQuit = false;
+static constexpr bool kDumpUnattachedThreadNativeStackForSigQuit = true;
 
 ThreadList::ThreadList(uint64_t thread_suspend_timeout_ns)
     : suspend_all_count_(0),
@@ -204,7 +205,11 @@ class DumpCheckpoint FINAL : public Closure {
       : os_(os),
         barrier_(0),
         backtrace_map_(dump_native_stack ? BacktraceMap::Create(getpid()) : nullptr),
-        dump_native_stack_(dump_native_stack) {}
+        dump_native_stack_(dump_native_stack) {
+    if (backtrace_map_ != nullptr) {
+      backtrace_map_->SetSuffixesToIgnore(std::vector<std::string> { "oat", "odex" });
+    }
+  }
 
   void Run(Thread* thread) OVERRIDE {
     // Note thread and self may not be equal if thread was already suspended at the point of the
@@ -283,12 +288,17 @@ void ThreadList::AssertThreadsAreSuspended(Thread* self, Thread* ignore1, Thread
 #if HAVE_TIMED_RWLOCK
 // Attempt to rectify locks so that we dump thread list with required locks before exiting.
 NO_RETURN static void UnsafeLogFatalForThreadSuspendAllTimeout() {
+  // Increment gAborting before doing the thread list dump since we don't want any failures from
+  // AssertThreadSuspensionIsAllowable in cases where thread suspension is not allowed.
+  // See b/69044468.
+  ++gAborting;
   Runtime* runtime = Runtime::Current();
   std::ostringstream ss;
   ss << "Thread suspend timeout\n";
   Locks::mutator_lock_->Dump(ss);
   ss << "\n";
   runtime->GetThreadList()->Dump(ss);
+  --gAborting;
   LOG(FATAL) << ss.str();
   exit(0);
 }
@@ -297,6 +307,8 @@ NO_RETURN static void UnsafeLogFatalForThreadSuspendAllTimeout() {
 // Unlike suspending all threads where we can wait to acquire the mutator_lock_, suspending an
 // individual thread requires polling. delay_us is the requested sleep wait. If delay_us is 0 then
 // we use sched_yield instead of calling usleep.
+// Although there is the possibility, here and elsewhere, that usleep could return -1 and
+// errno = EINTR, there should be no problem if interrupted, so we do not check.
 static void ThreadSuspendSleep(useconds_t delay_us) {
   if (delay_us == 0) {
     sched_yield();
@@ -352,11 +364,11 @@ size_t ThreadList::RunCheckpoint(Closure* checkpoint_function, Closure* callback
   // Run the checkpoint on the suspended threads.
   for (const auto& thread : suspended_count_modified_threads) {
     if (!thread->IsSuspended()) {
-      if (ATRACE_ENABLED()) {
+      ScopedTrace trace([&]() {
         std::ostringstream oss;
         thread->ShortDump(oss);
-        ATRACE_BEGIN((std::string("Waiting for suspension of thread ") + oss.str()).c_str());
-      }
+        return std::string("Waiting for suspension of thread ") + oss.str();
+      });
       // Busy wait until the thread is suspended.
       const uint64_t start_time = NanoTime();
       do {
@@ -365,7 +377,6 @@ size_t ThreadList::RunCheckpoint(Closure* checkpoint_function, Closure* callback
       const uint64_t total_delay = NanoTime() - start_time;
       // Shouldn't need to wait for longer than 1000 microseconds.
       constexpr uint64_t kLongWaitThreshold = MsToNs(1);
-      ATRACE_END();
       if (UNLIKELY(total_delay > kLongWaitThreshold)) {
         LOG(WARNING) << "Long wait of " << PrettyDuration(total_delay) << " for "
             << *thread << " suspension!";

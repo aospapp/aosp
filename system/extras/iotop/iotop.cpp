@@ -144,7 +144,7 @@ int main(int argc, char* argv[]) {
       if (sorter == nullptr) {
         LOG(ERROR) << "Invalid sort column \"" << optarg << "\"";
         usage(argv[0]);
-        return(EXIT_FAILURE);
+        return EXIT_FAILURE;
       }
       break;
     }
@@ -153,7 +153,7 @@ int main(int argc, char* argv[]) {
       break;
     case '?':
       usage(argv[0]);
-      return(EXIT_FAILURE);
+      return EXIT_FAILURE;
     default:
       abort();
     }
@@ -162,7 +162,9 @@ int main(int argc, char* argv[]) {
   std::map<pid_t, std::vector<pid_t>> tgid_map;
 
   TaskstatsSocket taskstats_socket;
-  taskstats_socket.Open();
+  if (!taskstats_socket.Open()) {
+    return EXIT_FAILURE;
+  }
 
   std::unordered_map<pid_t, TaskStatistics> pid_stats;
   std::unordered_map<pid_t, TaskStatistics> tgid_stats;
@@ -174,7 +176,8 @@ int main(int argc, char* argv[]) {
   while (true) {
     stats.clear();
     if (!TaskList::Scan(tgid_map)) {
-      LOG(FATAL) << "failed to scan tasks";
+      LOG(ERROR) << "failed to scan tasks";
+      return EXIT_FAILURE;
     }
     for (auto& tgid_it : tgid_map) {
       pid_t tgid = tgid_it.first;

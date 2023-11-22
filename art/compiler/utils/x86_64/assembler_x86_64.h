@@ -25,6 +25,7 @@
 #include "base/macros.h"
 #include "constants_x86_64.h"
 #include "globals.h"
+#include "heap_poisoning.h"
 #include "managed_register_x86_64.h"
 #include "offsets.h"
 #include "utils/assembler.h"
@@ -77,6 +78,21 @@ class Operand : public ValueObject {
 
   Register base() const {
     return static_cast<Register>(encoding_at(1) & 7);
+  }
+
+  CpuRegister cpu_rm() const {
+    int ext = (rex_ & 1) != 0 ? x86_64::R8 : x86_64::RAX;
+    return static_cast<CpuRegister>(rm() + ext);
+  }
+
+  CpuRegister cpu_index() const {
+    int ext = (rex_ & 2) != 0 ? x86_64::R8 : x86_64::RAX;
+    return static_cast<CpuRegister>(index() + ext);
+  }
+
+  CpuRegister cpu_base() const {
+    int ext = (rex_ & 1) != 0 ? x86_64::R8 : x86_64::RAX;
+    return static_cast<CpuRegister>(base() + ext);
   }
 
   uint8_t rex() const {
@@ -267,13 +283,15 @@ class Address : public Operand {
   Address() {}
 };
 
+std::ostream& operator<<(std::ostream& os, const Address& addr);
 
 /**
  * Class to handle constant area values.
  */
 class ConstantArea {
  public:
-  explicit ConstantArea(ArenaAllocator* arena) : buffer_(arena->Adapter(kArenaAllocAssembler)) {}
+  explicit ConstantArea(ArenaAllocator* allocator)
+      : buffer_(allocator->Adapter(kArenaAllocAssembler)) {}
 
   // Add a double to the constant area, returning the offset into
   // the constant area where the literal resides.
@@ -335,7 +353,8 @@ class NearLabel : private Label {
 
 class X86_64Assembler FINAL : public Assembler {
  public:
-  explicit X86_64Assembler(ArenaAllocator* arena) : Assembler(arena), constant_area_(arena) {}
+  explicit X86_64Assembler(ArenaAllocator* allocator)
+      : Assembler(allocator), constant_area_(allocator) {}
   virtual ~X86_64Assembler() {}
 
   /*
@@ -525,6 +544,16 @@ class X86_64Assembler FINAL : public Assembler {
 
   void pavgb(XmmRegister dst, XmmRegister src);  // no addr variant (for now)
   void pavgw(XmmRegister dst, XmmRegister src);
+  void psadbw(XmmRegister dst, XmmRegister src);
+  void pmaddwd(XmmRegister dst, XmmRegister src);
+  void phaddw(XmmRegister dst, XmmRegister src);
+  void phaddd(XmmRegister dst, XmmRegister src);
+  void haddps(XmmRegister dst, XmmRegister src);
+  void haddpd(XmmRegister dst, XmmRegister src);
+  void phsubw(XmmRegister dst, XmmRegister src);
+  void phsubd(XmmRegister dst, XmmRegister src);
+  void hsubps(XmmRegister dst, XmmRegister src);
+  void hsubpd(XmmRegister dst, XmmRegister src);
 
   void pminsb(XmmRegister dst, XmmRegister src);  // no addr variant (for now)
   void pmaxsb(XmmRegister dst, XmmRegister src);
@@ -564,6 +593,11 @@ class X86_64Assembler FINAL : public Assembler {
   void punpckldq(XmmRegister dst, XmmRegister src);
   void punpcklqdq(XmmRegister dst, XmmRegister src);
 
+  void punpckhbw(XmmRegister dst, XmmRegister src);
+  void punpckhwd(XmmRegister dst, XmmRegister src);
+  void punpckhdq(XmmRegister dst, XmmRegister src);
+  void punpckhqdq(XmmRegister dst, XmmRegister src);
+
   void psllw(XmmRegister reg, const Immediate& shift_count);
   void pslld(XmmRegister reg, const Immediate& shift_count);
   void psllq(XmmRegister reg, const Immediate& shift_count);
@@ -575,6 +609,7 @@ class X86_64Assembler FINAL : public Assembler {
   void psrlw(XmmRegister reg, const Immediate& shift_count);
   void psrld(XmmRegister reg, const Immediate& shift_count);
   void psrlq(XmmRegister reg, const Immediate& shift_count);
+  void psrldq(XmmRegister reg, const Immediate& shift_count);
 
   void flds(const Address& src);
   void fstps(const Address& dst);
@@ -658,6 +693,7 @@ class X86_64Assembler FINAL : public Assembler {
   void addl(CpuRegister reg, const Address& address);
   void addl(const Address& address, CpuRegister reg);
   void addl(const Address& address, const Immediate& imm);
+  void addw(const Address& address, const Immediate& imm);
 
   void addq(CpuRegister reg, const Immediate& imm);
   void addq(CpuRegister dst, CpuRegister src);
@@ -869,8 +905,9 @@ class X86_64Assembler FINAL : public Assembler {
   void EmitOperandSizeOverride();
 
   void EmitOperand(uint8_t rm, const Operand& operand);
-  void EmitImmediate(const Immediate& imm);
-  void EmitComplex(uint8_t rm, const Operand& operand, const Immediate& immediate);
+  void EmitImmediate(const Immediate& imm, bool is_16_op = false);
+  void EmitComplex(
+      uint8_t rm, const Operand& operand, const Immediate& immediate, bool is_16_op = false);
   void EmitLabel(Label* label, int instruction_size);
   void EmitLabelLink(Label* label);
   void EmitLabelLink(NearLabel* label);

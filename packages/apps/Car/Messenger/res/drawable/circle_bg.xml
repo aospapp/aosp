@@ -19,6 +19,6 @@
        android:shape="oval">
     <solid android:color="@color/car_blue_grey_900" />
     <size
-        android:height="@dimen/car_touch_target"
-        android:width="@dimen/car_touch_target" />
+        android:height="@dimen/car_touch_target_size"
+        android:width="@dimen/car_touch_target_size" />
 </shape>

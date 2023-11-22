@@ -69,9 +69,8 @@ void PlatformNanoapp::end() {
   closeNanoapp();
 }
 
-bool PlatformNanoappBase::loadFromBuffer(uint64_t appId, uint32_t appVersion,
-                                         const void *appBinary,
-                                         size_t appBinaryLen) {
+bool PlatformNanoappBase::reserveBuffer(
+    uint64_t appId, uint32_t appVersion, size_t appBinaryLen) {
   CHRE_ASSERT(!isLoaded());
   bool success = false;
   constexpr size_t kMaxAppSize = 2 * 1024 * 1024;  // 2 MiB
@@ -87,9 +86,26 @@ bool PlatformNanoappBase::loadFromBuffer(uint64_t appId, uint32_t appVersion,
       mExpectedAppId = appId;
       mExpectedAppVersion = appVersion;
       mAppBinaryLen = appBinaryLen;
-      memcpy(mAppBinary, appBinary, appBinaryLen);
       success = true;
     }
+  }
+
+  return success;
+}
+
+bool PlatformNanoappBase::copyNanoappFragment(
+    const void *buffer, size_t bufferLen) {
+  CHRE_ASSERT(!isLoaded());
+
+  bool success = true;
+  if (mBytesLoaded + bufferLen > mAppBinaryLen) {
+    LOGE("Overflow: cannot load %zu bytes to %zu/%zu nanoapp binary buffer",
+         bufferLen, mBytesLoaded, mAppBinaryLen);
+    success = false;
+  } else {
+    uint8_t *binaryBuffer = static_cast<uint8_t *>(mAppBinary) + mBytesLoaded;
+    memcpy(binaryBuffer, buffer, bufferLen);
+    mBytesLoaded += bufferLen;
   }
 
   return success;
@@ -108,7 +124,8 @@ void PlatformNanoappBase::loadStatic(const struct chreNslNanoappInfo *appInfo) {
 }
 
 bool PlatformNanoappBase::isLoaded() const {
-  return (mIsStatic || mAppBinary != nullptr || mDsoHandle != nullptr);
+  return (mIsStatic || (mAppBinary != nullptr && mBytesLoaded == mAppBinaryLen)
+          || mDsoHandle != nullptr);
 }
 
 bool PlatformNanoappBase::isUimgApp() const {

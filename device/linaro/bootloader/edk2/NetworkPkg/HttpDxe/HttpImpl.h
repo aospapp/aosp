@@ -1,7 +1,8 @@
 /** @file
   The header files of implementation of EFI_HTTP_PROTOCOL protocol interfaces.
 
-  Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2015 - 2016, Intel Corporation. All rights reserved.<BR>
+  (C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>  
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -19,15 +20,10 @@
 #define HTTP_DEFAULT_PORT        80
 #define HTTP_END_OF_HDR_STR      "\r\n\r\n"
 #define HTTP_CRLF_STR            "\r\n"
-#define HTTP_VERSION_STR         "HTTP/1.1"
+#define HTTP_VERSION_STR         HTTP_VERSION
 #define HTTP_VERSION_CRLF_STR    " HTTP/1.1\r\n"
-#define HTTP_GET_STR             "GET "
-#define HTTP_HEAD_STR            "HEAD "
-//
-// Connect method has maximum length according to EFI_HTTP_METHOD defined in
-// UEFI2.5 spec so use this.
-//
-#define HTTP_MAXIMUM_METHOD_LEN  sizeof ("CONNECT")
+#define HTTP_ERROR_OR_NOT_SUPPORT_STATUS_CODE         300
+
 
 /**
   Returns the operational parameters for the current HTTP child instance.
@@ -43,9 +39,11 @@
   @retval EFI_INVALID_PARAMETER   One or more of the following conditions is TRUE:
                                   This is NULL.
                                   HttpConfigData is NULL.
-                                  HttpConfigData->AccessPoint is NULL.
-  @retval EFI_OUT_OF_RESOURCES    Could not allocate enough system resources.
-  @retval EFI_NOT_STARTED         The HTTP instance is not configured.
+                                  HttpInstance->LocalAddressIsIPv6 is FALSE and
+                                  HttpConfigData->IPv4Node is NULL.
+                                  HttpInstance->LocalAddressIsIPv6 is TRUE and
+                                  HttpConfigData->IPv6Node is NULL.
+  @retval EFI_NOT_STARTED         This EFI HTTP Protocol instance has not been started.
 
 **/
 EFI_STATUS
@@ -65,8 +63,8 @@ EfiHttpGetModeData (
   connections with remote hosts, canceling all asynchronous tokens, and flush request
   and response buffers without informing the appropriate hosts.
 
-  Except for GetModeData() and Configure(), No other EFI HTTP function can be executed
-  by this instance until the Configure() function is executed and returns successfully.
+  No other EFI HTTP function can be executed by this instance until the Configure() 
+  function is executed and returns successfully.
 
   @param[in]  This                Pointer to EFI_HTTP_PROTOCOL instance.
   @param[in]  HttpConfigData      Pointer to the configure data to configure the instance.
@@ -112,6 +110,7 @@ EfiHttpConfigure (
                                   implementation.
   @retval EFI_INVALID_PARAMETER   One or more of the following conditions is TRUE:
                                   This is NULL.
+                                  Token is NULL.
                                   Token->Message is NULL.
                                   Token->Message->Body is not NULL,
                                   Token->Message->BodyLength is non-zero, and
@@ -142,8 +141,6 @@ EfiHttpRequest (
   @retval EFI_SUCCESS             Request and Response queues are successfully flushed.
   @retval EFI_INVALID_PARAMETER   This is NULL.
   @retval EFI_NOT_STARTED         This instance hasn't been configured.
-  @retval EFI_NO_MAPPING          When using the default address, configuration (DHCP,
-                                  BOOTP, RARP, etc.) hasn't finished yet.
   @retval EFI_NOT_FOUND           The asynchronous request or response token is not
                                   found.
   @retval EFI_UNSUPPORTED         The implementation does not support this function.
@@ -157,7 +154,7 @@ EfiHttpCancel (
 
 /**
   The Response() function queues an HTTP response to this HTTP instance, similar to
-  Receive() function in the EFI TCP driver. When the HTTP request is sent successfully,
+  Receive() function in the EFI TCP driver. When the HTTP response is received successfully,
   or if there is an error, Status in token will be updated and Event will be signaled.
 
   The HTTP driver will queue a receive token to the underlying TCP instance. When data

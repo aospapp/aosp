@@ -17,6 +17,7 @@ LOCAL_MODULE := memory_replay
 LOCAL_MULTILIB := both
 LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)32
 LOCAL_MODULE_STEM_64 := $(LOCAL_MODULE)64
+LOCAL_SHARED_LIBRARIES := libbase
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
@@ -27,6 +28,7 @@ LOCAL_MODULE_TAGS := debug
 LOCAL_MODULE := memory_replay
 LOCAL_MODULE_HOST_OS := linux
 LOCAL_LDLIBS := -lrt
+LOCAL_SHARED_LIBRARIES := libbase
 include $(BUILD_HOST_EXECUTABLE)
 
 memory_replay_test_src_files := \

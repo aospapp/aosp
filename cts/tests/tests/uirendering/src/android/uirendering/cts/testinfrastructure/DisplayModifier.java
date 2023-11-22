@@ -413,9 +413,12 @@ public abstract class DisplayModifier {
                             put("bitmapMesh", new DisplayModifier() {
                                 @Override
                                 public void modifyDrawing(Paint paint, Canvas canvas) {
+                                    // skip some verts to exercise fix in P
+                                    // (previously this was ignored)
+                                    int vertsToSkip = 2;
                                     canvas.drawBitmapMesh(ResourceModifier.instance().bitmap, 3, 3,
-                                            ResourceModifier.instance().bitmapVertices, 0, null, 0,
-                                            null);
+                                            ResourceModifier.instance().bitmapVertices, vertsToSkip,
+                                            null, 0, null);
                                 }
                             });
                             put("arc", new DisplayModifier() {

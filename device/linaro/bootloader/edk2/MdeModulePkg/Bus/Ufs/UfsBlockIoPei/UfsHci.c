@@ -1,6 +1,6 @@
 /** @file
 
-  Copyright (c) 2014, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2014 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -329,6 +329,11 @@ UfsInitUtpPrdt (
   UINT8      *Remaining;
   UINTN      PrdtNumber;
 
+  if ((BufferSize & (BIT0 | BIT1)) != 0) {
+    BufferSize &= ~(BIT0 | BIT1);
+    DEBUG ((EFI_D_WARN, "UfsInitUtpPrdt: The BufferSize [%d] is not dword-aligned!\n", BufferSize));
+  }
+
   if (BufferSize == 0) {
     return EFI_SUCCESS;
   }
@@ -475,6 +480,7 @@ UfsCreateScsiCommandDesc (
   Trd->Int    = UFS_INTERRUPT_COMMAND;
   Trd->Dd     = DataDirection;
   Trd->Ct     = UFS_STORAGE_COMMAND_TYPE;
+  Trd->Ocs    = 0x0F;
   Trd->UcdBa  = (UINT32)RShiftU64 ((UINT64)(UINTN)CommandUpiu, 7);
   Trd->UcdBaU = (UINT32)RShiftU64 ((UINT64)(UINTN)CommandUpiu, 32);
   Trd->RuL    = (UINT16)DivU64x32 ((UINT64)ROUNDUP8 (sizeof (UTP_RESPONSE_UPIU)), sizeof (UINT32));
@@ -632,6 +638,7 @@ UfsCreateNopCommandDesc (
   Trd->Int    = UFS_INTERRUPT_COMMAND;
   Trd->Dd     = 0x00;
   Trd->Ct     = UFS_STORAGE_COMMAND_TYPE;
+  Trd->Ocs    = 0x0F;
   Trd->UcdBa  = (UINT32)RShiftU64 ((UINT64)(UINTN)NopOutUpiu, 7);
   Trd->UcdBaU = (UINT32)RShiftU64 ((UINT64)(UINTN)NopOutUpiu, 32);
   Trd->RuL    = (UINT16)DivU64x32 ((UINT64)ROUNDUP8 (sizeof (UTP_NOP_IN_UPIU)), sizeof (UINT32));
@@ -837,7 +844,7 @@ UfsRwDeviceDesc (
   // Wait for the completion of the transfer request.
   //  
   Address = Private->UfsHcBase + UFS_HC_UTRLDBR_OFFSET;  
-  Status = UfsWaitMemSet (Address, BIT0, 0, Packet.Timeout);
+  Status = UfsWaitMemSet (Address, BIT0 << Slot, 0, Packet.Timeout);
   if (EFI_ERROR (Status)) {
     goto Exit;
   }
@@ -951,7 +958,7 @@ UfsRwAttributes (
   // Wait for the completion of the transfer request.
   //  
   Address = Private->UfsHcBase + UFS_HC_UTRLDBR_OFFSET;  
-  Status = UfsWaitMemSet (Address, BIT0, 0, Packet.Timeout);
+  Status = UfsWaitMemSet (Address, BIT0 << Slot, 0, Packet.Timeout);
   if (EFI_ERROR (Status)) {
     goto Exit;
   }
@@ -1065,7 +1072,7 @@ UfsRwFlags (
   // Wait for the completion of the transfer request.
   //  
   Address = Private->UfsHcBase + UFS_HC_UTRLDBR_OFFSET;  
-  Status = UfsWaitMemSet (Address, BIT0, 0, Packet.Timeout);
+  Status = UfsWaitMemSet (Address, BIT0 << Slot, 0, Packet.Timeout);
   if (EFI_ERROR (Status)) {
     goto Exit;
   }
@@ -1223,7 +1230,7 @@ UfsExecNopCmds (
   // Wait for the completion of the transfer request.
   //  
   Address = Private->UfsHcBase + UFS_HC_UTRLDBR_OFFSET;  
-  Status = UfsWaitMemSet (Address, BIT0, 0, UFS_TIMEOUT);
+  Status = UfsWaitMemSet (Address, BIT0 << Slot, 0, UFS_TIMEOUT);
   if (EFI_ERROR (Status)) {
     goto Exit;
   }
@@ -1307,7 +1314,7 @@ UfsExecScsiCmds (
   // Wait for the completion of the transfer request.
   //  
   Address = Private->UfsHcBase + UFS_HC_UTRLDBR_OFFSET;  
-  Status = UfsWaitMemSet (Address, BIT0, 0, Packet->Timeout);
+  Status = UfsWaitMemSet (Address, BIT0 << Slot, 0, Packet->Timeout);
   if (EFI_ERROR (Status)) {
     goto Exit;
   }

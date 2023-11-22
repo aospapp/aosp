@@ -29,6 +29,13 @@ from acts.controllers import android_device
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
 from acts.test_utils.bt.bt_test_utils import setup_multiple_devices_for_bt_test
 from acts.test_utils.bt.bt_test_utils import take_btsnoop_logs
+from acts.test_utils.bt.ble_lib import BleLib
+from acts.test_utils.bt.bta_lib import BtaLib
+from acts.test_utils.bt.config_lib import ConfigLib
+from acts.test_utils.bt.gattc_lib import GattClientLib
+from acts.test_utils.bt.gatts_lib import GattServerLib
+from acts.test_utils.bt.rfcomm_lib import RfcommLib
+from acts.test_utils.bt.shell_commands_lib import ShellCommands
 
 
 class BluetoothBaseTest(BaseTestClass):
@@ -38,6 +45,8 @@ class BluetoothBaseTest(BaseTestClass):
 
     def __init__(self, controllers):
         BaseTestClass.__init__(self, controllers)
+        for ad in self.android_devices:
+            self._setup_bt_libs(ad)
 
     # Use for logging in the test cases to facilitate
     # faster log lookup and reduce ambiguity in logging.
@@ -109,8 +118,9 @@ class BluetoothBaseTest(BaseTestClass):
         return True
 
     def on_fail(self, test_name, begin_time):
-        self.log.debug("Test {} failed. Gathering bugreport and btsnoop logs".
-                       format(test_name))
+        self.log.debug(
+            "Test {} failed. Gathering bugreport and btsnoop logs".format(
+                test_name))
         take_btsnoop_logs(self.android_devices, self, test_name)
         self._take_bug_report(test_name, begin_time)
         for _ in range(5):
@@ -142,3 +152,26 @@ class BluetoothBaseTest(BaseTestClass):
             self.log.info("Total items in list {}".format(
                 len(self.timer_list)))
         self.timer_list = []
+
+    def _setup_bt_libs(self, android_device):
+        # Bluetooth Low Energy library.
+        setattr(android_device, "ble", BleLib(
+            log=self.log, dut=android_device))
+        # Bluetooth Adapter library.
+        setattr(android_device, "bta", BtaLib(
+            log=self.log, dut=android_device))
+        # Bluetooth stack config library.
+        setattr(android_device, "config",
+                ConfigLib(log=self.log, dut=android_device))
+        # GATT Client library.
+        setattr(android_device, "gattc",
+                GattClientLib(log=self.log, dut=android_device))
+        # GATT Server library.
+        setattr(android_device, "gatts",
+                GattServerLib(log=self.log, dut=android_device))
+        # RFCOMM library.
+        setattr(android_device, "rfcomm",
+                RfcommLib(log=self.log, dut=android_device))
+        # Shell command library
+        setattr(android_device, "shell",
+                ShellCommands(log=self.log, dut=android_device))

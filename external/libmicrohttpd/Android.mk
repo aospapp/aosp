@@ -18,7 +18,13 @@ LOCAL_PATH := $(my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmicrohttpd
-LOCAL_CFLAGS := -Wno-sign-compare -Wno-unused-parameter
+LOCAL_CFLAGS := \
+    -Wall -Werror \
+    -Wno-sign-compare \
+    -Wno-tautological-constant-out-of-range-compare \
+    -Wno-unused-parameter \
+    -Wno-unused-variable \
+
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src/include
 
 LOCAL_C_INCLUDES := \

@@ -1,0 +1,55 @@
+#/** @file
+#  ZLib produces gzip decompression algorithm.
+#
+#  It is based on the zlib 1.2.11.
+#  LZMA SDK 4.65 was placed in the public domain on 2009-02-03.
+#  It was released on the http://www.7-zip.org/sdk.html website.
+#
+#  Copyright (c) 2009, Intel Corporation. All rights reserved.<BR>
+#
+#  This program and the accompanying materials
+#  are licensed and made available under the terms and conditions of the BSD License
+#  which accompanies this distribution. The full text of the license may be found at
+#  http://opensource.org/licenses/bsd-license.php
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x00010019
+  BASE_NAME                      = ZLib
+  FILE_GUID                      = b3fda02c-8720-4256-ad96-f9d8631ab219
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = ZLib
+
+#
+# The following information is for reference only and not required by the build tools.
+#
+#  VALID_ARCHITECTURES           = ARM AARCH64 IA32 X64 IPF EBC
+#
+
+[Sources]
+  adler32.c
+  crc32.c
+  inffast.c
+  inflate.c
+  inftrees.c
+  zutil.c
+  ZLib.c
+
+[Packages]
+  StdLib/StdLib.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiLib
+  UefiRuntimeServicesTableLib

@@ -18,7 +18,6 @@ package com.android.tv;
 
 import android.app.Activity;
 import android.content.Intent;
-
 import com.android.tv.util.Utils;
 
 public class TvActivity extends Activity {

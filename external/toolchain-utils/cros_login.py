@@ -1,9 +1,8 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 # Copyright 2010~2015 Google Inc. All Rights Reserved.
-"""Script to get past the login screen of ChromeOS.
+"""Script to get past the login screen of ChromeOS."""
 
-"""
 from __future__ import print_function
 
 import argparse
@@ -82,15 +81,17 @@ def RestartUI(remote, chromeos_root, login=True):
 
   with open(host_login_script, 'w') as f:
     f.write(full_login_script_contents)
-  ce.CopyFiles(host_login_script,
-               device_login_script,
-               dest_machine=remote,
-               chromeos_root=chromeos_root,
-               recursive=False,
-               dest_cros=True)
-  ret = ce.CrosRunCommand('python %s' % device_login_script,
-                          chromeos_root=chromeos_root,
-                          machine=remote)
+  ce.CopyFiles(
+      host_login_script,
+      device_login_script,
+      dest_machine=remote,
+      chromeos_root=chromeos_root,
+      recursive=False,
+      dest_cros=True)
+  ret = ce.CrosRunCommand(
+      'python %s' % device_login_script,
+      chromeos_root=chromeos_root,
+      machine=remote)
   if os.path.exists(host_login_script):
     os.remove(host_login_script)
   return ret
@@ -99,14 +100,10 @@ def RestartUI(remote, chromeos_root, login=True):
 def Main(argv):
   """The main function."""
   parser = argparse.ArgumentParser()
-  parser.add_argument('-r',
-                      '--remote',
-                      dest='remote',
-                      help='The remote ChromeOS box.')
-  parser.add_argument('-c',
-                      '--chromeos_root',
-                      dest='chromeos_root',
-                      help='The ChromeOS root.')
+  parser.add_argument(
+      '-r', '--remote', dest='remote', help='The remote ChromeOS box.')
+  parser.add_argument(
+      '-c', '--chromeos_root', dest='chromeos_root', help='The ChromeOS root.')
 
   options = parser.parse_args(argv)
 

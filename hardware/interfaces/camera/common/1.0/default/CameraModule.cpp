@@ -306,7 +306,7 @@ int CameraModule::getCameraInfo(int cameraId, struct camera_info *info) {
             return ret;
         }
         CameraMetadata m;
-        m = rawInfo.static_camera_characteristics;
+        m.append(rawInfo.static_camera_characteristics);
         deriveCameraCharacteristicsKeys(rawInfo.device_version, m);
         cameraInfo = rawInfo;
         cameraInfo.static_camera_characteristics = m.release();
@@ -423,6 +423,13 @@ status_t CameraModule::filterOpenErrorCode(status_t err) {
             break;
     }
     return -ENODEV;
+}
+
+void CameraModule::removeCamera(int cameraId) {
+    free_camera_metadata(
+        const_cast<camera_metadata_t*>(mCameraInfoMap[cameraId].static_camera_characteristics));
+    mCameraInfoMap.removeItem(cameraId);
+    mDeviceVersionMap.removeItem(cameraId);
 }
 
 uint16_t CameraModule::getModuleApiVersion() const {

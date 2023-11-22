@@ -1,6 +1,7 @@
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <carrier_config_list>
     <carrier_config>
+        <boolean name="rtt_supported_bool" value="true" />
         <boolean name="sms_requires_destination_number_conversion_bool" value="true" />
         <boolean name="mdn_is_additional_voicemail_number_bool" value="true" />
         <boolean name="operator_selection_expand_bool" value="true" />
@@ -29,6 +30,7 @@
         <boolean name="allow_adding_apns_bool" value="false" />
         <boolean name="broadcast_emergency_call_state_changes_bool" value="true" />
         <string name="carrier_eri_file_name_string">eri_311480.xml</string>
+        <boolean name="carrier_wfc_ims_available_bool" value="true" />
         <int name="carrier_default_wfc_ims_mode_int" value="1"/>
         <string name="default_vm_number_string">*86</string>
         <string-array name="carrier_data_call_permanent_failure_strings" num="14">
@@ -48,6 +50,7 @@
             <item value="SIGNAL_LOST" />
         </string-array>
         <boolean name="editable_wfc_mode_bool" value="false"/>
+        <boolean name="editable_wfc_roaming_mode_bool" value="true"/>
         <boolean name="disable_severe_when_extreme_disabled_bool" value="false" />
         <boolean name="persist_lpp_mode_bool" value="true" />
         <boolean name="mmsCloseConnection" value="true"/>
@@ -86,5 +89,8 @@
             <item value="supl" />
         </string-array>
         <boolean name="disable_voice_barring_notification_bool" value="true" />
+        <boolean name="carrier_name_override_bool" value="true" />
+        <string name="carrier_name_string">Verizon</string>
+        <boolean name="show_apn_setting_cdma_bool" value="true" />
     </carrier_config>
 </carrier_config_list>

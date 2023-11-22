@@ -21,6 +21,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := InstrumentClusterRendererSampleImpl
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 # Each update should be signed by OEMs
 LOCAL_CERTIFICATE := platform
@@ -31,6 +32,9 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_JAVA_LIBRARIES += android.car
 
-LOCAL_STATIC_JAVA_LIBRARIES += android-support-v4
+LOCAL_USE_AAPT2 := true
+LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
+
+LOCAL_STATIC_ANDROID_LIBRARIES += androidx.legacy_legacy-support-v4
 
 include $(BUILD_PACKAGE)

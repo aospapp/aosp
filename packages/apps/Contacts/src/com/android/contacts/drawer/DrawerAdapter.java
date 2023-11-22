@@ -33,6 +33,7 @@ import com.android.contacts.list.ContactListFilter;
 import com.android.contacts.model.account.AccountDisplayInfo;
 import com.android.contacts.model.account.AccountDisplayInfoFactory;
 import com.android.contacts.util.SharedPreferenceUtil;
+import com.android.contactsbind.HelpUtils;
 import com.android.contactsbind.ObjectFactory;
 
 import java.util.ArrayList;
@@ -47,8 +48,7 @@ public class DrawerAdapter extends BaseAdapter {
     private static final int VIEW_TYPE_ACCOUNT_ENTRY = 4;
     private static final int VIEW_TYPE_CREATE_LABEL = 5;
     private static final int VIEW_TYPE_NAV_SPACER = 6;
-    private static final int VIEW_TYPE_STATUS_SPACER = 7;
-    private static final int VIEW_TYPE_NAV_DIVIDER = 8;
+    private static final int VIEW_TYPE_NAV_DIVIDER = 7;
 
     // This count must be updated if we add more view types.
     private static final int VIEW_TYPE_COUNT = 9;
@@ -66,7 +66,6 @@ public class DrawerAdapter extends BaseAdapter {
     private ContactListFilter mSelectedAccount;
 
     // Adapter elements, ordered in this way mItemsList. The ordering is based on:
-    //  [Status bar spacer item]
     //  [Navigation spacer item]
     //  [Primary items] (Contacts, Suggestions)
     //  [Group Header]
@@ -76,7 +75,6 @@ public class DrawerAdapter extends BaseAdapter {
     //  [Accounts]
     //  [Misc items] (a divider, Settings, Help & Feedback)
     //  [Navigation spacer item]
-    private StatusBarSpacerItem mStatusBarSpacerItem = null;
     private NavSpacerItem mNavSpacerItem = null;
     private List<PrimaryItem> mPrimaryItems = new ArrayList<>();
     private HeaderItem mGroupHeader = null;
@@ -99,7 +97,6 @@ public class DrawerAdapter extends BaseAdapter {
     private void initializeDrawerMenuItems() {
         // Spacer item for dividing sections in drawer
         mNavSpacerItem = new NavSpacerItem(R.id.nav_drawer_spacer);
-        mStatusBarSpacerItem = new StatusBarSpacerItem(R.id.nav_status_bar_spacer);
         // Primary items
         mPrimaryItems.add(new PrimaryItem(R.id.nav_all_contacts, R.string.contactsList,
                 R.drawable.quantum_ic_account_circle_vd_theme_24, ContactsView.ALL_CONTACTS));
@@ -118,14 +115,15 @@ public class DrawerAdapter extends BaseAdapter {
         mMiscItems.add(new DividerItem());
         mMiscItems.add(new MiscItem(R.id.nav_settings, R.string.menu_settings,
                 R.drawable.quantum_ic_settings_vd_theme_24));
-        mMiscItems.add(new MiscItem(R.id.nav_help, R.string.menu_help,
-                R.drawable.quantum_ic_help_vd_theme_24));
+        if (HelpUtils.isHelpAndFeedbackAvailable()) {
+            mMiscItems.add(new MiscItem(R.id.nav_help, R.string.menu_help,
+                    R.drawable.quantum_ic_help_vd_theme_24));
+        }
         rebuildItemsList();
     }
 
     private void rebuildItemsList() {
         mItemsList.clear();
-        mItemsList.add(mStatusBarSpacerItem);
         mItemsList.add(mNavSpacerItem);
         mItemsList.addAll(mPrimaryItems);
         if (mAreGroupWritableAccountsAvailable || !mGroupEntries.isEmpty()) {
@@ -190,8 +188,6 @@ public class DrawerAdapter extends BaseAdapter {
     public View getView(int position, View view, ViewGroup viewGroup) {
         final BaseDrawerItem drawerItem = getItem(position);
         switch (drawerItem.viewType) {
-            case VIEW_TYPE_STATUS_SPACER:
-                return getBaseItemView(R.layout.nav_header_main, view, viewGroup);
             case VIEW_TYPE_PRIMARY_ITEM:
                 return getPrimaryItemView((PrimaryItem) drawerItem, view, viewGroup);
             case VIEW_TYPE_HEADER_ITEM:
@@ -399,15 +395,6 @@ public class DrawerAdapter extends BaseAdapter {
     public static class HeaderItem extends BaseDrawerItem {
         public HeaderItem(int id, int textId) {
             super(VIEW_TYPE_HEADER_ITEM, id, textId, /* iconResId */ 0);
-        }
-    }
-
-
-    // Navigation drawer item for status bar spacer item to take up the height of status bar in the
-    // drawer.
-    public static class StatusBarSpacerItem extends BaseDrawerItem {
-        public StatusBarSpacerItem(int id) {
-            super(VIEW_TYPE_STATUS_SPACER, id, /* textResId */ 0, /* iconResId */ 0);
         }
     }
 

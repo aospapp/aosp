@@ -19,95 +19,23 @@
   <option name="test-tag" value="vts" />
   <option name="vts-plan-result:plan-name" value="vts" />
 
-  <option name="compatibility:test-arg" value="com.android.tradefed.testtype.VtsMultiDeviceTest:precondition-vintf-override:true" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-firmware" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-hal" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-hal-replay" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-kernel" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-security" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-treble" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-vndk" />
 
-  <!-- For Treble-specific validations -->
-  <option name="compatibility:include-filter" value="VtsTreblePlatformVersionTest" />
-  <option name="compatibility:include-filter" value="VtsTrebleVintfTest" />
+  <!-- Unapproved vts-security Tests -->
+  <option name="compatibility:exclude-filter" value="SecurityPoCKernelTest" />
+  <option name="compatibility:exclude-filter" value="VtsSecuritySelinuxPolicyHost" />
 
-  <!-- From vts-hal-hidl.xml -->
-  <option name="compatibility:include-filter" value="VtsHalBluetoothV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalBootV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalDumpstateV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalIrV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalNfcV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalRadioV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalRadioV1_1Target" />
-  <option name="compatibility:include-filter" value="VtsHalRenderscriptV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalWifiV1_0Host" />
-  <option name="compatibility:include-filter" value="VtsHalWifiV1_1Target" />
-  <option name="compatibility:include-filter" value="VtsHalWifiNanV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalWifiOffloadV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalWifiSupplicantV1_0Target" />
+  <!-- VtsTrebleVintfTest is deprecated, run VtsTrebleVendorVintfTest instead -->
+  <option name="compatibility:exclude-filter" value="VtsTrebleVintfTest" />
+  <option name="compatibility:exclude-filter" value="VtsTrebleVintfTestOMr1" />
 
-  <!-- From vts-hal-hidl.xml: Internal Only -->
-  <option name="compatibility:include-filter" value="VtsHalAudioV2_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalAudioEffectV2_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalBiometricsFingerprintV2_1Target" />
-  <option name="compatibility:include-filter" value="VtsHalBroadcastradioV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalCameraProviderV2_4Target" />
-  <option name="compatibility:include-filter" value="VtsHalCasV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalConfigstoreV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalContexthubV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalDrmV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalGatekeeperV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalGnssV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalGraphicsComposerV2_1Target" />
-  <option name="compatibility:include-filter" value="VtsHalGraphicsMapperV2_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalHealthV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalKeymasterV3_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalLightV2_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalMemtrackV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalMediaOmxStoreV1_0Host" />
-  <option name="compatibility:include-filter" value="VtsHalMediaOmxV1_0Host" />
-  <option name="compatibility:include-filter" value="VtsHalOemHookV1_0Host" />
-  <option name="compatibility:include-filter" value="VtsHalOemLockV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalPowerV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalPowerV1_1Target" />
-  <option name="compatibility:include-filter" value="VtsHalSensorsV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalSoundtriggerV2_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalTetherOffloadConfigV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalTetherOffloadControlV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalThermalV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalThermalV1_1Target" />
-  <option name="compatibility:include-filter" value="VtsHalUsbV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalUsbV1_1Target" />
-  <option name="compatibility:include-filter" value="VtsHalVibratorV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalVibratorV1_1Target" />
-  <option name="compatibility:include-filter" value="VtsHalVrV1_0Target" />
-  <option name="compatibility:include-filter" value="VtsHalWeaverV1_0Target" />
-
-  <!-- From vts-kernel.xml -->
-  <option name="compatibility:include-filter" value="VtsKernelLtp" />
-  <option name="compatibility:include-filter" value="KernelProcFileApiTest" />
-  <option name="compatibility:include-filter" value="VtsKernelLinuxKselftest" />
-  <option name="compatibility:include-filter" value="VtsKernelLinuxKselftestPresubmit" />
-  <option name="compatibility:include-filter" value="SyscallExistenceTest" />
-  <option name="compatibility:include-filter" value="VtsKernelApiSysfsTest" />
-  <option name="compatibility:include-filter" value="VtsKernelBinderTest" />
-  <option name="compatibility:include-filter" value="VtsKernelConfig" />
-  <option name="compatibility:include-filter" value="VtsKernelHwBinder" />
-  <option name="compatibility:include-filter" value="VtsKernelLibcutilsTest" />
-  <option name="compatibility:include-filter" value="VtsKernelNetdTest" />
-  <option name="compatibility:include-filter" value="VtsKernelSelinuxFileApi" />
-  <option name="compatibility:include-filter" value="VtsKernelTunTest" />
-  <option name="compatibility:include-filter" value="VtsQtaguidTest" />
-
-  <!--  From vts-vndk.xml -->
-  <option name="compatibility:include-filter" value="VtsVndkDependencyTest" />
-
-  <!-- For Hidl Hal replay tests -->
-  <option name="compatibility:include-filter" value="VtsHalNfcV1_0TargetReplay" />
-
-  <!-- For Hidl Hal replay tests: Internal Only -->
-  <option name="compatibility:include-filter" value="VtsHalBiometricsFingerprintV2_1TargetReplay" />
-  <option name="compatibility:include-filter" value="VtsHalContexthubV1_0TargetReplay" />
-  <option name="compatibility:include-filter" value="VtsHalKeymasterV3_0TargetReplay" />
-  <option name="compatibility:include-filter" value="VtsHalLightV2_0TargetReplay" />
-  <option name="compatibility:include-filter" value="VtsHalMemtrackV1_0TargetReplay" />
-  <option name="compatibility:include-filter" value="VtsHalPowerV1_0TargetReplay" />
-  <option name="compatibility:include-filter" value="VtsHalUsbV1_0TargetReplay" />
-  <option name="compatibility:include-filter" value="VtsHalVibratorV1_0TargetReplay" />
-  <option name="compatibility:include-filter" value="VtsHalVrV1_0TargetReplay" />
+  <!-- Tests for libraries not on GSI -->
+  <option name="compatibility:exclude-filter" value="VtsVndkHidlBufferpoolV1_0Target" />
 
 </configuration>

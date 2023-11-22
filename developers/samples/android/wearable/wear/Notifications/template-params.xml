@@ -23,8 +23,11 @@
     <package>com.example.android.support.wearable.notifications</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>25</targetSdkVersion>
-    <targetSdkVersionWear>25</targetSdkVersionWear>
+    <targetSdkVersion>27</targetSdkVersion>
+
+    <minSdkVersionWear>23</minSdkVersionWear>
+    <compileSdkVersionWear>26</compileSdkVersionWear>
+    <targetSdkVersionWear>26</targetSdkVersionWear>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
@@ -36,7 +39,7 @@
         <intro>
             <![CDATA[
 This sample application provides a showcase of available notification styles and
-demonstrates various features of the Android Wear notifications API. Running the sample on your
+demonstrates various features of the Wear notifications API. Running the sample on your
 companion allows you to select between various notification styles and to see how these
 notifications are displayed, both in a phone\'s notification shade and on the wearable.
             ]]>

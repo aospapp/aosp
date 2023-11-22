@@ -8,53 +8,8 @@
 
 #include "core/fpdfapi/parser/fpdf_parser_decode.h"
 
-CPDF_StreamAcc::CPDF_StreamAcc()
-    : m_pData(nullptr),
-      m_dwSize(0),
-      m_bNewBuf(false),
-      m_pImageParam(nullptr),
-      m_pStream(nullptr),
-      m_pSrcData(nullptr) {}
-
-void CPDF_StreamAcc::LoadAllData(const CPDF_Stream* pStream,
-                                 bool bRawAccess,
-                                 uint32_t estimated_size,
-                                 bool bImageAcc) {
-  if (!pStream)
-    return;
-
-  m_pStream = pStream;
-  if (pStream->IsMemoryBased() && (!pStream->HasFilter() || bRawAccess)) {
-    m_dwSize = pStream->GetRawSize();
-    m_pData = pStream->GetRawData();
-    return;
-  }
-  uint32_t dwSrcSize = pStream->GetRawSize();
-  if (dwSrcSize == 0)
-    return;
-
-  uint8_t* pSrcData;
-  if (!pStream->IsMemoryBased()) {
-    pSrcData = m_pSrcData = FX_Alloc(uint8_t, dwSrcSize);
-    if (!pStream->ReadRawData(0, pSrcData, dwSrcSize))
-      return;
-  } else {
-    pSrcData = pStream->GetRawData();
-  }
-  if (!pStream->HasFilter() || bRawAccess) {
-    m_pData = pSrcData;
-    m_dwSize = dwSrcSize;
-  } else if (!PDF_DataDecode(pSrcData, dwSrcSize, m_pStream->GetDict(), m_pData,
-                             m_dwSize, m_ImageDecoder, m_pImageParam,
-                             estimated_size, bImageAcc)) {
-    m_pData = pSrcData;
-    m_dwSize = dwSrcSize;
-  }
-  if (pSrcData != pStream->GetRawData() && pSrcData != m_pData)
-    FX_Free(pSrcData);
-  m_pSrcData = nullptr;
-  m_bNewBuf = m_pData != pStream->GetRawData();
-}
+CPDF_StreamAcc::CPDF_StreamAcc(const CPDF_Stream* pStream)
+    : m_pStream(pStream) {}
 
 CPDF_StreamAcc::~CPDF_StreamAcc() {
   if (m_bNewBuf)
@@ -62,10 +17,63 @@ CPDF_StreamAcc::~CPDF_StreamAcc() {
   FX_Free(m_pSrcData);
 }
 
+void CPDF_StreamAcc::LoadAllData(bool bRawAccess,
+                                 uint32_t estimated_size,
+                                 bool bImageAcc) {
+  if (!m_pStream)
+    return;
+
+  bool bProcessRawData = bRawAccess || !m_pStream->HasFilter();
+  if (bProcessRawData && m_pStream->IsMemoryBased()) {
+    m_dwSize = m_pStream->GetRawSize();
+    m_pData = m_pStream->GetRawData();
+    return;
+  }
+  uint32_t dwSrcSize = m_pStream->GetRawSize();
+  if (dwSrcSize == 0)
+    return;
+
+  uint8_t* pSrcData;
+  if (m_pStream->IsMemoryBased()) {
+    pSrcData = m_pStream->GetRawData();
+  } else {
+    pSrcData = m_pSrcData = FX_Alloc(uint8_t, dwSrcSize);
+    if (!m_pStream->ReadRawData(0, pSrcData, dwSrcSize))
+      return;
+  }
+  if (bProcessRawData) {
+    m_pData = pSrcData;
+    m_dwSize = dwSrcSize;
+  } else if (!PDF_DataDecode(pSrcData, dwSrcSize, m_pStream->GetDict(),
+                             estimated_size, bImageAcc, &m_pData, &m_dwSize,
+                             &m_ImageDecoder, &m_pImageParam)) {
+    m_pData = pSrcData;
+    m_dwSize = dwSrcSize;
+  }
+  if (pSrcData != m_pStream->GetRawData() && pSrcData != m_pData)
+    FX_Free(pSrcData);
+  m_pSrcData = nullptr;
+  m_bNewBuf = m_pData != m_pStream->GetRawData();
+}
+
+void CPDF_StreamAcc::LoadAllDataFiltered() {
+  LoadAllData(false, 0, false);
+}
+
+void CPDF_StreamAcc::LoadAllDataRaw() {
+  LoadAllData(true, 0, false);
+}
+
+CPDF_Dictionary* CPDF_StreamAcc::GetDict() const {
+  return m_pStream ? m_pStream->GetDict() : nullptr;
+}
+
 const uint8_t* CPDF_StreamAcc::GetData() const {
-  if (m_bNewBuf)
-    return m_pData;
-  return m_pStream ? m_pStream->GetRawData() : nullptr;
+  return GetDataHelper();
+}
+
+uint8_t* CPDF_StreamAcc::GetData() {
+  return GetDataHelper();
 }
 
 uint32_t CPDF_StreamAcc::GetSize() const {
@@ -82,6 +90,12 @@ std::unique_ptr<uint8_t, FxFreeDeleter> CPDF_StreamAcc::DetachData() {
     return p;
   }
   std::unique_ptr<uint8_t, FxFreeDeleter> p(FX_Alloc(uint8_t, m_dwSize));
-  FXSYS_memcpy(p.get(), m_pData, m_dwSize);
+  memcpy(p.get(), m_pData, m_dwSize);
   return p;
+}
+
+uint8_t* CPDF_StreamAcc::GetDataHelper() const {
+  if (m_bNewBuf)
+    return m_pData;
+  return m_pStream ? m_pStream->GetRawData() : nullptr;
 }

@@ -18,11 +18,15 @@
 package com.android.bips.discovery;
 
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import com.android.bips.BuiltInPrintService;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +46,7 @@ public abstract class Discovery {
     private final BuiltInPrintService mPrintService;
     private final List<Listener> mListeners = new CopyOnWriteArrayList<>();
     private final Map<Uri, DiscoveredPrinter> mPrinters = new HashMap<>();
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
 
     private boolean mStarted = false;
 
@@ -55,7 +60,17 @@ public abstract class Discovery {
      */
     public void start(Listener listener) {
         mListeners.add(listener);
-        mPrinters.values().forEach(listener::onPrinterFound);
+
+        // If printers are already present, signal them to the listener
+        if (!mPrinters.isEmpty()) {
+            if (!mListeners.contains(listener)) {
+                return;
+            }
+            for (DiscoveredPrinter printer : new ArrayList<>(mPrinters.values())) {
+                listener.onPrinterFound(printer);
+            }
+        }
+
         start();
     }
 
@@ -85,6 +100,14 @@ public abstract class Discovery {
     }
 
     /**
+     * Return a handler to defer actions to the main (UI) thread while started. All delayed actions
+     * scheduled on this handler are cancelled at {@link #stop()} time.
+     */
+    Handler getHandler() {
+        return mHandler;
+    }
+
+    /**
      * Start if not already started
      */
     private void start() {
@@ -102,6 +125,7 @@ public abstract class Discovery {
             mStarted = false;
             onStop();
             mPrinters.clear();
+            mHandler.removeCallbacksAndMessages(null);
         }
     }
 
@@ -111,7 +135,7 @@ public abstract class Discovery {
     abstract void onStart();
 
     /**
-     * Stop searching for printers, freeing any search-reated resources.
+     * Stop searching for printers, freeing any search-related resources
      */
     abstract void onStop();
 
@@ -135,7 +159,9 @@ public abstract class Discovery {
      */
     void printerLost(Uri printerUri) {
         DiscoveredPrinter printer = mPrinters.remove(printerUri);
-        if (printer == null) return;
+        if (printer == null) {
+            return;
+        }
         for (Listener listener : mListeners) {
             listener.onPrinterLost(printer);
         }
@@ -143,12 +169,9 @@ public abstract class Discovery {
 
     /** Signal loss of all printers */
     void allPrintersLost() {
-        for (DiscoveredPrinter printer : mPrinters.values()) {
-            for (Listener listener : mListeners) {
-                listener.onPrinterLost(printer);
-            }
+        for (Uri uri: new ArrayList<>(mPrinters.keySet())) {
+            printerLost(uri);
         }
-        mPrinters.clear();
     }
 
     /**
@@ -165,9 +188,49 @@ public abstract class Discovery {
         return mPrinters.get(uri);
     }
 
+    /**
+     * Return a collection of leaf objects. By default returns a collection containing this object.
+     * Subclasses wrapping other {@link Discovery} objects should override this method.
+     */
+    Collection<Discovery> getChildren() {
+        return Collections.singleton(this);
+    }
+
+    /**
+     * Return a collection of saved printers. Subclasses supporting saved printers should override
+     * this method.
+     */
+    public Collection<DiscoveredPrinter> getSavedPrinters() {
+        List<DiscoveredPrinter> printers = new ArrayList<>();
+        for (Discovery child : getChildren()) {
+            if (child != this) {
+                printers.addAll(child.getSavedPrinters());
+            }
+        }
+        return printers;
+    }
+
+    /**
+     * Remove a saved printer by its path. Subclasses supporting saved printers should override
+     * this method.
+     */
+    public void removeSavedPrinter(Uri printerPath) {
+        for (Discovery child : getChildren()) {
+            if (child != this) {
+                child.removeSavedPrinter(printerPath);
+            }
+        }
+    }
+
     public interface Listener {
+        /**
+         * A new printer has been discovered, or an existing printer has been updated
+         */
         void onPrinterFound(DiscoveredPrinter printer);
 
+        /**
+         * A previously-found printer is no longer discovered.
+         */
         void onPrinterLost(DiscoveredPrinter printer);
     }
 }

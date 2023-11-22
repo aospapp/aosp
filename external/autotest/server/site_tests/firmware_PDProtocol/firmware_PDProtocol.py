@@ -52,7 +52,7 @@ class firmware_PDProtocol(FirmwareTest):
                      str(self.original_dev_boot_usb))
 
     def cleanup(self):
-        self.ensure_internal_device_boot()
+        self.ensure_dev_internal_boot(self.original_dev_boot_usb)
         super(firmware_PDProtocol, self).cleanup()
 
     def check_if_pd_supported(self):
@@ -64,21 +64,6 @@ class firmware_PDProtocol(FirmwareTest):
         if (not output or
             self.check_ec_output(output, self.PD_NOT_SUPPORTED_PATTERN)):
             raise error.TestNAError("PD not supported skipping test.")
-
-    def ensure_internal_device_boot(self):
-        """Ensure internal device boot; if not, reboot into it.
-
-        If not, it may be a test failure during step 2 or 3, try to reboot
-        and press Ctrl-D to internal device boot.
-        """
-        if self.faft_client.system.is_removable_device_boot():
-            logging.info('Reboot into internal disk...')
-            self.faft_client.system.set_dev_boot_usb(self.original_dev_boot_usb)
-            self.switcher.mode_aware_reboot()
-
-        self.check_state((self.checkers.dev_boot_usb_checker,
-                          False,
-                          'Did not boot from internal disk.'))
 
     def boot_to_recovery(self):
         """Boot device into recovery mode."""
@@ -122,7 +107,7 @@ class firmware_PDProtocol(FirmwareTest):
 
 
     def run_once(self):
-        self.ensure_internal_device_boot()
+        self.ensure_dev_internal_boot(self.original_dev_boot_usb)
         output = self.run_command(self.ECTOOL_CMD_DICT[self.current_board])
 
         if not self.check_ec_output(output, self.NEGOTIATED_PATTERN):

@@ -307,7 +307,7 @@ public class OnthrowDebuggerLaunchTest extends JDWPRawTestCase {
     	        + " -cp "
                 + settings.getDebuggeeClassPath()
     	        + " \""
-                + "-agentlib:" + settings.getDebuggeeAgentName()
+                + settings.getDebuggeeAgentArgument() + settings.getDebuggeeAgentName()
                 + "=transport=dt_socket,address=" + transportAddress
                 + ",server=y"
                 + ",suspend=" + isSuspendDebuggee

@@ -18,9 +18,14 @@ package android.view.inputmethod.cts;
 
 import static org.junit.Assert.assertEquals;
 
+import android.graphics.Typeface;
 import android.os.Parcel;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.StyleSpan;
 import android.view.inputmethod.ExtractedText;
 
 import org.junit.Test;
@@ -38,6 +43,9 @@ public class ExtractedTextTest {
         extractedText.startOffset = 1;
         CharSequence text = "test";
         extractedText.text = text;
+        SpannableStringBuilder hint = new SpannableStringBuilder("hint");
+        hint.setSpan(new StyleSpan(Typeface.BOLD), 1, 3, Spanned.SPAN_INCLUSIVE_INCLUSIVE);
+        extractedText.hint = hint;
         Parcel p = Parcel.obtain();
         extractedText.writeToParcel(p, 0);
         p.setDataPosition(0);
@@ -49,7 +57,12 @@ public class ExtractedTextTest {
         assertEquals(extractedText.partialStartOffset, target.partialStartOffset);
         assertEquals(extractedText.partialEndOffset, target.partialEndOffset);
         assertEquals(extractedText.text.toString(), target.text.toString());
+        assertEquals(extractedText.hint.toString(), target.hint.toString());
+        final Spannable hintText = (Spannable) extractedText.hint;
+        assertEquals(1, hintText.getSpans(0, hintText.length(), StyleSpan.class).length);
 
         assertEquals(0, extractedText.describeContents());
+
+        p.recycle();
     }
 }

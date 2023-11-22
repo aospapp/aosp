@@ -16,22 +16,19 @@
 
 package com.android.tv.testing;
 
-import junit.framework.Assert;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import junit.framework.Assert;
 
 /**
  * Tester for {@link java.lang.Comparable}s.
  *
- * <p>
- * To use, create a new {@link ComparableTester} and add comparable groups
- * where each group contains objects that are
- * {@link java.util.Comparator#compare(Object, Object)} == 0 to each other.
- * Groups are added in order asserting that all earlier groups have compare < 0
- * for all later groups.
+ * <p>To use, create a new {@link ComparableTester} and add comparable groups where each group
+ * contains objects that are {@link java.util.Comparator#compare(Object, Object)} == 0 to each
+ * other. Groups are added in order asserting that all earlier groups have compare < 0 for all later
+ * groups.
  *
  * <pre>{@code
  * new ComparableTester<String>()
@@ -39,8 +36,7 @@ import java.util.List;
  *     .addEquivalentGroup("World", "wORLD")
  *     .addEquivalentGroup("ZEBRA")
  *     .test();
- * }
- * </pre>
+ * }</pre>
  *
  * @param <T> the type of objects to compare.
  */
@@ -74,8 +70,8 @@ public class ComparableTester<T extends Comparable<T>> {
         assertMore(more, less, moreGroup, lessGroup);
     }
 
-    private void assertLess(int left, int right, Collection<T> leftGroup,
-            Collection<T> rightGroup) {
+    private void assertLess(
+            int left, int right, Collection<T> leftGroup, Collection<T> rightGroup) {
         int leftSub = 0;
         for (T leftItem : leftGroup) {
             int rightSub = 0;
@@ -83,14 +79,22 @@ public class ComparableTester<T extends Comparable<T>> {
             for (T rightItem : rightGroup) {
                 String rightName = "Item[" + right + "," + (rightSub++) + "]";
                 Assert.assertEquals(
-                        leftName + " " + leftItem + " compareTo  " + rightName + " " + rightItem
-                                + " is <0", true, leftItem.compareTo(rightItem) < 0);
+                        leftName
+                                + " "
+                                + leftItem
+                                + " compareTo  "
+                                + rightName
+                                + " "
+                                + rightItem
+                                + " is <0",
+                        true,
+                        leftItem.compareTo(rightItem) < 0);
             }
         }
     }
 
-    private void assertMore(int left, int right, Collection<T> leftGroup,
-            Collection<T> rightGroup) {
+    private void assertMore(
+            int left, int right, Collection<T> leftGroup, Collection<T> rightGroup) {
         int leftSub = 0;
         for (T leftItem : leftGroup) {
             int rightSub = 0;
@@ -98,8 +102,16 @@ public class ComparableTester<T extends Comparable<T>> {
             for (T rightItem : rightGroup) {
                 String rightName = "Item[" + right + "," + (rightSub++) + "]";
                 Assert.assertEquals(
-                        leftName + " " + leftItem + " compareTo  " + rightName + " " + rightItem
-                                + " is >0", true, leftItem.compareTo(rightItem) > 0);
+                        leftName
+                                + " "
+                                + leftItem
+                                + " compareTo  "
+                                + rightName
+                                + " "
+                                + rightItem
+                                + " is >0",
+                        true,
+                        leftItem.compareTo(rightItem) > 0);
             }
         }
     }

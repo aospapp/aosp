@@ -13,6 +13,7 @@ package android.icu.dev.test.bidi;
 import org.junit.Test;
 
 import android.icu.text.Bidi;
+import android.icu.testsharding.MainTestShard;
 
 
 /**
@@ -21,6 +22,7 @@ import android.icu.text.Bidi;
  * ported from C by Lina Kemmel, Matitiahu Allouche
  */
 
+@MainTestShard
 public class TestReorder extends BidiFmwk {
 
     private static final String[] logicalOrder = {

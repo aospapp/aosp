@@ -16,9 +16,7 @@
 
 package android.car.media;
 
-import android.car.media.ICarAudioCallback;
-import android.media.AudioAttributes;
-import android.media.IVolumeController;
+import android.car.media.CarAudioPatchHandle;
 
 /**
  * Binder interface for {@link android.car.media.CarAudioManager}.
@@ -27,21 +25,25 @@ import android.media.IVolumeController;
  * @hide
  */
 interface ICarAudio {
-    AudioAttributes getAudioAttributesForCarUsage(int carUsage) = 0;
-    void setStreamVolume(int streamType, int index, int flags) = 1;
-    void setVolumeController(IVolumeController controller) = 2;
-    int getStreamMaxVolume(int streamType) = 3;
-    int getStreamMinVolume(int streamType) = 4;
-    int getStreamVolume(int streamType) = 5;
-    boolean isMediaMuted() = 6;
-    boolean setMediaMute(boolean mute) = 7;
-    AudioAttributes getAudioAttributesForRadio(in String radioType) = 8;
-    AudioAttributes getAudioAttributesForExternalSource(in String externalSourceType) = 9;
-    String[] getSupportedExternalSourceTypes() = 10;
-    String[] getSupportedRadioTypes() = 11;
-    String[] getParameterKeys() = 12;
-    void setParameters(in String parameters) = 13;
-    String getParameters(in String keys) = 14;
-    void registerOnParameterChangeListener(in ICarAudioCallback callback) = 15;
-    void unregisterOnParameterChangeListener(in ICarAudioCallback callback) = 16;
+    void setGroupVolume(int groupId, int index, int flags);
+    int getGroupMaxVolume(int groupId);
+    int getGroupMinVolume(int groupId);
+    int getGroupVolume(int groupId);
+
+    void setFadeTowardFront(float value);
+    void setBalanceTowardRight(float value);
+
+    String[] getExternalSources();
+    CarAudioPatchHandle createAudioPatch(in String sourceAddress, int usage, int gainInMillibels);
+    void releaseAudioPatch(in CarAudioPatchHandle patch);
+
+    int getVolumeGroupCount();
+    int getVolumeGroupIdForUsage(int usage);
+    int[] getUsagesForVolumeGroupId(int groupId);
+
+    /**
+     * IBinder is ICarVolumeCallback but passed as IBinder due to aidl hidden.
+     */
+    void registerVolumeCallback(in IBinder binder);
+    void unregisterVolumeCallback(in IBinder binder);
 }

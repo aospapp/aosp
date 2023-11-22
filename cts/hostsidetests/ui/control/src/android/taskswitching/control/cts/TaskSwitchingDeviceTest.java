@@ -16,23 +16,22 @@
 
 package android.taskswitching.control.cts;
 
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
-
-import android.content.BroadcastReceiver;
-import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
+import android.net.Uri;
+import android.os.RemoteCallback;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
-
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.MeasureRun;
 import com.android.compatibility.common.util.MeasureTime;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 import com.android.compatibility.common.util.Stat;
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Device test which actually launches two apps sequentially and
@@ -41,32 +40,15 @@ import com.android.compatibility.common.util.Stat;
  */
 public class TaskSwitchingDeviceTest extends CtsAndroidTestCase {
     private static final String REPORT_LOG_NAME = "CtsUiHostTestCases";
-    private static final String PKG_A = "android.taskswitching.appa";
-    private static final String PKG_B = "android.taskswitching.appb";
-    private static final String ACTIVITY_A = "AppAActivity";
-    private static final String ACTIVITY_B = "AppBActivity";
     private static final long TASK_SWITCHING_WAIT_TIME = 5;
-    private final AppBroadcastReceiver mReceiverA = new AppBroadcastReceiver();
-    private final AppBroadcastReceiver mReceiverB = new AppBroadcastReceiver();
+
+    private final Semaphore mSemaphore = new Semaphore(0);
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        getContext().registerReceiver(mReceiverA, new IntentFilter(PKG_A));
-        getContext().registerReceiver(mReceiverB, new IntentFilter(PKG_B));
 
-        startActivity(PKG_A, ACTIVITY_A);
-        assertTrue(mReceiverA.waitForBroadcast(TASK_SWITCHING_WAIT_TIME));
-
-        startActivity(PKG_B, ACTIVITY_B);
-        assertTrue(mReceiverB.waitForBroadcast(TASK_SWITCHING_WAIT_TIME));
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
-        getContext().unregisterReceiver(mReceiverA);
-        getContext().unregisterReceiver(mReceiverB);
-        super.tearDown();
+        startActivitiesABSequentially();
     }
 
     public void testMeasureTaskSwitching() throws Exception {
@@ -78,10 +60,7 @@ public class TaskSwitchingDeviceTest extends CtsAndroidTestCase {
             @Override
             public void run(int i) throws Exception {
                 for (int j = 0; j < SWITCHING_PER_ONE_TRY; j++) {
-                    startActivity(PKG_A, ACTIVITY_A);
-                    assertTrue(mReceiverA.waitForBroadcast(TASK_SWITCHING_WAIT_TIME));
-                    startActivity(PKG_B, ACTIVITY_B);
-                    assertTrue(mReceiverB.waitForBroadcast(TASK_SWITCHING_WAIT_TIME));
+                    startActivitiesABSequentially();
                 }
             }
         });
@@ -94,24 +73,20 @@ public class TaskSwitchingDeviceTest extends CtsAndroidTestCase {
         report.submit(getInstrumentation());
     }
 
-    private void startActivity(String packageName, String activityName) {
-        Context context = getContext();
-        Intent intent = new Intent();
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        intent.addCategory(Intent.CATEGORY_LAUNCHER);
-        intent.setComponent(new ComponentName(packageName, packageName + "." + activityName));
-        context.startActivity(intent);
+    private void startActivitiesABSequentially()
+            throws InterruptedException, TimeoutException, ExecutionException {
+        startActivityAndWait('a');
+        startActivityAndWait('b');
     }
 
-    class AppBroadcastReceiver extends BroadcastReceiver {
-        private final Semaphore mSemaphore = new Semaphore(0);
-
-        public boolean waitForBroadcast(long timeoutInSec) throws InterruptedException {
-            return mSemaphore.tryAcquire(timeoutInSec, TimeUnit.SECONDS);
-        }
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            mSemaphore.release();
-        }
+    private void startActivityAndWait(char activityLetter)
+            throws InterruptedException, TimeoutException, ExecutionException {
+        getContext().startActivity(new Intent(Intent.ACTION_VIEW)
+                .setData(Uri.parse("https://foo.com/app" + activityLetter))
+                .addCategory(Intent.CATEGORY_DEFAULT)
+                .addCategory(Intent.CATEGORY_BROWSABLE)
+                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra("callback", new RemoteCallback(b -> mSemaphore.release())));
+        mSemaphore.tryAcquire(TASK_SWITCHING_WAIT_TIME, TimeUnit.SECONDS);
     }
 }

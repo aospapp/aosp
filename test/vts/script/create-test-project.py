@@ -42,16 +42,19 @@ class TestCaseCreator(object):
         build_top: string, equal to environment variable ANDROID_BUILD_TOP
         test_dir: string, test case absolute directory
         test_name: string, test case name in UpperCamel
+        test_plan: string, the plan that the test belongs to
         test_type: test type, such as HidlHalTest, HostDrivenTest, etc
         current_year: current year
         vts_test_case_dir: absolute dir of vts testcases directory
     '''
 
-    def __init__(self, test_name, test_dir_under_testcases, test_type):
+    def __init__(self, test_name, test_plan, test_dir_under_testcases,
+                 test_type):
         '''Initialize class attributes.
 
         Args:
             test_name: string, test case name in UpperCamel
+            test_plan: string, the plan that the test belongs to
             test_dir_under_testcases: string, test case relative directory under
                                       test/vts/testcases.
         '''
@@ -65,6 +68,11 @@ class TestCaseCreator(object):
             print 'Error: Test name not in UpperCamel case. Exiting'
             sys.exit(4)
         self.test_name = test_name
+
+        if not test_plan:
+            self.test_plan = 'vts-misc'
+        else:
+            self.test_plan = test_plan
 
         if not test_type:
             self.test_type = 'HidlHalTest'
@@ -178,6 +186,7 @@ class TestCaseCreator(object):
             f.write(
                 ANDROID_TEST_XML_TEMPLATE.format(
                     test_name=self.test_name,
+                    test_plan=self.test_plan,
                     test_type=self.test_type,
                     test_path_under_vts=self.test_dir[
                         len(os.path.join(self.build_top, VTS_PATH)) + 1:],
@@ -202,6 +211,11 @@ def main():
         required=True,
         help='Test case name in UpperCamel. Example: VtsKernelLtp')
     parser.add_argument(
+        '--plan',
+        dest='test_plan',
+        required=False,
+        help='The plan that the test belongs to. Example: vts-kernel')
+    parser.add_argument(
         '--dir',
         dest='test_dir',
         required=True,
@@ -213,8 +227,8 @@ def main():
         help='Test type, such as HidlHalTest, HostDrivenTest, etc.')
 
     args = parser.parse_args()
-    test_case_creater = TestCaseCreator(args.test_name, args.test_dir,
-                                        args.test_type)
+    test_case_creater = TestCaseCreator(args.test_name, args.test_plan,
+                                        args.test_dir, args.test_type)
     test_case_creater.InitTestCaseDir()
 
 
@@ -271,10 +285,9 @@ XML_HEADER = '''<?xml version="1.0" encoding="utf-8"?>
 '''
 
 ANDROID_TEST_XML_TEMPLATE = '''<configuration description="Config for VTS {test_name} test cases">
+    <option name="config-descriptor:metadata" key="plan" value="{test_plan}" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="push-group" value="{test_type}.push" />
-    </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer">
     </target_preparer>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="{test_name}" />

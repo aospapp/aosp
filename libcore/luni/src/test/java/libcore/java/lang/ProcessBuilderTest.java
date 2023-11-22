@@ -86,7 +86,7 @@ public class ProcessBuilderTest extends TestCase {
                 .redirectErrorStream(true)
                 .start();
         try {
-            long pid = getChildProcessPid(process);
+            int pid = getChildProcessPid(process);
             String path = "/proc/" + pid + "/fd/";
             assertEquals("stdout and stderr should point to the same socket",
                     Os.stat(path + "1").st_ino, Os.stat(path + "2").st_ino);
@@ -113,7 +113,7 @@ public class ProcessBuilderTest extends TestCase {
                     Os.fstat(FileDescriptor.in).st_ino,
                     Os.fstat(FileDescriptor.out).st_ino,
                     Os.fstat(FileDescriptor.err).st_ino);
-            long childPid = getChildProcessPid(process);
+            int childPid = getChildProcessPid(process);
             // Get the inode numbers of the ends of the symlink chains
             List<Long> childInodes = Arrays.asList(
                     Os.stat("/proc/" + childPid + "/fd/0").st_ino,
@@ -309,6 +309,7 @@ public class ProcessBuilderTest extends TestCase {
      * it's hard to imagine this ever breaking, but it's good to have a test
      * since it's called out in the documentation.
      */
+    @SuppressWarnings("CollectionIncompatibleType")
     public void testEnvironmentMapForbidsNonStringKeysAndValues() {
         ProcessBuilder pb = new ProcessBuilder("echo", "Hello, world!");
         Map<String, String> environment = pb.environment();
@@ -524,11 +525,11 @@ public class ProcessBuilderTest extends TestCase {
         assertEquals(a.hashCode(), b.hashCode());
     }
 
-    private static long getChildProcessPid(Process process) {
+    private static int getChildProcessPid(Process process) {
         // Hack: UNIXProcess.pid is private; parse toString() instead of reflection
         Matcher matcher = Pattern.compile("pid=(\\d+)").matcher(process.toString());
         assertTrue("Can't find PID in: " + process, matcher.find());
-        long result = Integer.parseInt(matcher.group(1));
+        int result = Integer.parseInt(matcher.group(1));
         return result;
     }
 

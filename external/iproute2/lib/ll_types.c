@@ -16,7 +16,6 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
@@ -100,11 +99,13 @@ __PF(IEEE80211,ieee802.11)
 __PF(IEEE80211_PRISM,ieee802.11/prism)
 __PF(IEEE80211_RADIOTAP,ieee802.11/radiotap)
 __PF(IEEE802154, ieee802.15.4)
+__PF(IEEE802154_MONITOR, ieee802.15.4/monitor)
 __PF(PHONET, phonet)
 __PF(PHONET_PIPE, phonet_pipe)
 __PF(CAIF, caif)
 __PF(IP6GRE, gre6)
 __PF(NETLINK, netlink)
+__PF(6LOWPAN, 6lowpan)
 
 __PF(NONE, none)
 __PF(VOID,void)

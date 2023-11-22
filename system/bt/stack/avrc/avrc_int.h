@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2016 Broadcom Corporation
+ *  Copyright 2003-2016 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -118,7 +118,6 @@
  *  Type definitions
  ****************************************************************************/
 
-#if (AVRC_METADATA_INCLUDED == TRUE)
 /* type for Metadata fragmentation control block */
 typedef struct {
   BT_HDR* p_fmsg;    /* the fragmented message */
@@ -132,7 +131,6 @@ typedef struct {
   uint16_t rasm_offset; /* re-assembly flag, the offset of the start fragment */
   uint8_t rasm_pdu;     /* the PDU ID for re-assembly */
 } tAVRC_RASM_CB;
-#endif
 
 /* AVRC internal connection control block */
 typedef struct {
@@ -147,11 +145,9 @@ typedef struct {
       ccb[AVCT_NUM_CONN]; /* Connection control block from AVRC_Open API */
   tAVRC_CONN_INT_CB
       ccb_int[AVCT_NUM_CONN]; /* Internal connection control block  */
-#if (AVRC_METADATA_INCLUDED == TRUE)
   tAVRC_FRAG_CB fcb[AVCT_NUM_CONN];
   tAVRC_RASM_CB rcb[AVCT_NUM_CONN];
-#endif
-  tAVRC_FIND_CBACK* p_cback; /* pointer to application callback */
+  tAVRC_FIND_CBACK find_cback; /* sdp discovery callback */
   tSDP_DISCOVERY_DB* p_db;   /* pointer to discovery database */
   uint16_t service_uuid;     /* service UUID to search */
   uint8_t trace_level;

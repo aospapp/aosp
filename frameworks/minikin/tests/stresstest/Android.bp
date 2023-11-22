@@ -18,6 +18,7 @@ cc_test {
     name: "minikin_stress_tests",
 
     header_libs: ["libminikin-headers-for-tests"],
+    data: [":minikin-test-data"],
 
     static_libs: [
         "libminikin-tests-util",
@@ -28,7 +29,7 @@ cc_test {
     // Shared libraries which are dependencies of minikin; these are not automatically
     // pulled in by the build system (and thus sadly must be repeated).
     shared_libs: [
-        "libskia",
+
         "libft2",
         "libharfbuzz_ng",
         "libicuuc",
@@ -42,7 +43,7 @@ cc_test {
         "MultithreadTest.cpp",
     ],
 
-    cppflags: [
+    cflags: [
         "-Werror",
         "-Wall",
         "-Wextra",

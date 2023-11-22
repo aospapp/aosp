@@ -25,7 +25,6 @@
 #include <utils/String16.h>
 #include <utils/String8.h>
 
-#include <media/IAudioFlinger.h>
 #include <hardware_legacy/AudioSystemLegacy.h>
 
 #include <system/audio.h>

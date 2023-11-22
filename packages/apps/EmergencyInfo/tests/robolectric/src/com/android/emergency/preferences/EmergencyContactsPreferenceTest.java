@@ -32,7 +32,6 @@ import android.net.Uri;
 import android.support.v7.preference.PreferenceGroup;
 import android.support.v7.preference.PreferenceManager;
 import android.support.v7.preference.PreferenceScreen;
-import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.emergency.ContactTestUtils;
 import com.android.emergency.EmergencyContactManager;
@@ -52,7 +51,6 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link EmergencyContactsPreference}. */
-@SmallTest
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION)
 public class EmergencyContactsPreferenceTest {

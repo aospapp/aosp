@@ -25,7 +25,9 @@
     <Toolbar
         android:id="@+id/toolbar"
         android:title="@string/terms"
-        style="@style/Provisioning2Theme.Toolbar"/>
+        android:layout_width="match_parent"
+        android:layout_height="?android:attr/actionBarSize"
+        android:theme="?actionBarTheme"/>
 
     <ExpandableListView
         android:id="@+id/terms_container"

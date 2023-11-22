@@ -11,11 +11,11 @@ from datetime import datetime
 import common
 
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib import host_states
 from autotest_lib.client.common_lib import time_utils
 from autotest_lib.server import utils
 from autotest_lib.server.cros.dynamic_suite import reporting_utils
 from autotest_lib.server.lib import status_history
+from autotest_lib.utils import labellib
 
 CONFIG = global_config.global_config
 
@@ -234,12 +234,15 @@ class RPCHelper(object):
         """
         end_time = datetime.now()
         start_time = end_time - time_delta_hours
-        get_histories = status_history.HostJobHistory.get_multiple_histories
-        host_histories = get_histories(
+        labels = labellib.LabelsMapping()
+        labels['board'] = board
+        labels['pool'] = pool
+        host_histories = status_history.HostJobHistory.get_multiple_histories(
                 self.rpc_interface,
                 time_utils.to_epoch_time(start_time),
                 time_utils.to_epoch_time(end_time),
-                board=board, pool=pool)
+                labels.getlabels(),
+        )
         if not host_histories:
             logging.error('No hosts found for board:%s in pool:%s',
                             board, pool)
@@ -272,15 +275,6 @@ class RPCHelper(object):
                           job_info)
 
 
-    def _is_host_available(self, host):
-        """Check whether DUT host is available.
-
-        @param host: The Host instance for the DUT.
-        @return: bool
-        """
-        return not (host.locked or host.status in host_states.UNAVAILABLE_STATES)
-
-
     def check_dut_availability(self, board, pool, minimum_duts=0, skip_duts_check=False):
         """Check if DUT availability for a given board and pool is less than
         minimum.
@@ -300,7 +294,7 @@ class RPCHelper(object):
             return
 
         # TODO(ayatane): Replace label prefixes with constants in
-        # site_utils.suite_scheduler.constants
+        # autotest_lib.server.constants
         hosts = self.rpc_interface.get_hosts(
                 invalid=False,
                 multiple_labels=('pool:%s' % pool, 'board:%s' % board))
@@ -323,7 +317,7 @@ class RPCHelper(object):
 
         available_hosts = 0
         for host in hosts:
-            if self._is_host_available(host):
+            if host.is_available():
                 available_hosts += 1
         logging.debug('%d of %d DUTs are available for board %s pool %s.',
                       available_hosts, len(hosts), board, pool)

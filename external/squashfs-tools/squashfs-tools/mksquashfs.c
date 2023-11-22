@@ -3282,7 +3282,7 @@ void dir_scan(squashfs_inode *inode, char *pathname,
 				pathname, strerror(errno));
 /* ANDROID CHANGES START*/
 #ifdef ANDROID
-		buf.st_mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH; // root mode
+		buf.st_mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH | S_IFDIR; // root mode
 		buf.st_uid = 0;
 		buf.st_gid = 0;
 		buf.st_mtime = time(NULL);
@@ -3296,6 +3296,9 @@ void dir_scan(squashfs_inode *inode, char *pathname,
 /* ANDROID CHANGES START*/
 #ifdef ANDROID
 	dir_ent->capabilities = caps;
+	if (android_config) {
+		android_fs_config(fs_config_func, "", &dir_ent->inode->buf, target_out_path, &dir_ent->capabilities);
+	}
 #endif
 /* ANDROID CHANGES END */
 

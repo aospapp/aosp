@@ -32,7 +32,7 @@ class firmware_ECBootTime(FirmwareTest):
         # platforms. http://crosbug.com/p/21628 has been opened to track this
         # issue.
         if self._x86:
-            boot_anchors = ["\[([0-9\.]+) PB", "\[([0-9\.]+) Port 80"]
+            boot_anchors = ["\[([0-9\.]+) PB", "\[([0-9\.]+) .*(HC 0x|Port 80|ACPI query)"]
         elif self._arm_legacy:
             boot_anchors = ["\[([0-9\.]+) AP running ...",
                             "\[([0-9\.]+) XPSHOLD seen"]
@@ -111,4 +111,8 @@ class firmware_ECBootTime(FirmwareTest):
 
     def cleanup(self):
         # Restore the ec_uart_regexp to None
-        self.ec.set_uart_regexp('None')
+        try:
+            self.ec.set_uart_regexp('None')
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
+        super(firmware_ECBootTime, self).cleanup()

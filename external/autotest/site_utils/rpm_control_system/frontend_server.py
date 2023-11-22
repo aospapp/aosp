@@ -360,12 +360,17 @@ if __name__ == '__main__':
     Main function used to launch the frontend server. Creates an instance of
     RPMFrontendServer and registers it to a MultiThreadedXMLRPCServer instance.
     """
-    if len(sys.argv) > 1:
-      print 'Usage: ./%s, no arguments available.' % sys.argv[0]
+    if len(sys.argv) != 2:
+      print 'Usage: ./%s <log_file_dir>.' % sys.argv[0]
       sys.exit(1)
-    email_handler = rpm_logging_config.set_up_logging(LOG_FILENAME_FORMAT)
+
+    email_handler = rpm_logging_config.set_up_logging_to_file(
+            sys.argv[1], LOG_FILENAME_FORMAT)
     frontend_server = RPMFrontendServer(email_handler=email_handler)
-    address = rpm_config.get('RPM_INFRASTRUCTURE', 'frontend_addr')
+    # We assume that external clients will always connect to us via the
+    # hostname, so listening on the hostname ensures we pick the right network
+    # interface.
+    address = socket.gethostname()
     port = rpm_config.getint('RPM_INFRASTRUCTURE', 'frontend_port')
     server = MultiThreadedXMLRPCServer((address, port), allow_none=True)
     server.register_instance(frontend_server)

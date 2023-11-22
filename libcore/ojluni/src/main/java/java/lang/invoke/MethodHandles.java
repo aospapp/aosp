@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2016, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,6 +26,7 @@
 package java.lang.invoke;
 
 import java.lang.reflect.*;
+import java.nio.ByteOrder;
 import java.util.List;
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -797,6 +798,16 @@ assertEquals("[x, y]", MH_asList.invoke("x", "y").toString());
             return null;
         }
 
+        private MethodHandle findVirtualForVH(String name, MethodType type) {
+            VarHandle.AccessMode accessMode;
+            try {
+                accessMode = VarHandle.AccessMode.valueFromMethodName(name);
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
+            return varHandleInvoker(accessMode, type);
+        }
+
         private static MethodHandle createMethodHandle(Method method, int handleKind,
                                                        MethodType methodType) {
             MethodHandle mh = new MethodHandleImpl(method.getArtMethod(), handleKind, methodType);
@@ -883,6 +894,12 @@ assertEquals("", (String) MH_newString.invokeExact());
             // itself, we can return one of our specialized invokers.
             if (refc == MethodHandle.class) {
                 MethodHandle mh = findVirtualForMH(name, type);
+                if (mh != null) {
+                    return mh;
+                }
+            } else if (refc == VarHandle.class) {
+                // Returns an non-exact invoker.
+                MethodHandle mh = findVirtualForVH(name, type);
                 if (mh != null) {
                     return mh;
                 }
@@ -1186,49 +1203,36 @@ assertEquals(""+l, (String) MH_this.invokeExact(subl)); // Listie method
 
         private MethodHandle findAccessor(Class<?> refc, String name, Class<?> type, int kind)
             throws NoSuchFieldException, IllegalAccessException {
-            final Field field = refc.getDeclaredField(name);
-            final Class<?> fieldType = field.getType();
-            if (fieldType != type) {
-                throw new NoSuchFieldException(
-                        "Field has wrong type: " + fieldType + " != " + type);
-            }
-
+            final Field field = findFieldOfType(refc, name, type);
             return findAccessor(field, refc, type, kind, true /* performAccessChecks */);
         }
 
-        private MethodHandle findAccessor(Field field, Class<?> refc, Class<?> fieldType, int kind,
+        private MethodHandle findAccessor(Field field, Class<?> refc, Class<?> type, int kind,
                                           boolean performAccessChecks)
                 throws IllegalAccessException {
-            if (!performAccessChecks) {
-                checkAccess(refc, field.getDeclaringClass(), field.getModifiers(), field.getName());
-            }
-
-            final boolean isStaticKind = kind == MethodHandle.SGET || kind == MethodHandle.SPUT;
-            final int modifiers = field.getModifiers();
-            if (Modifier.isStatic(modifiers) != isStaticKind) {
-                String reason = "Field " + field + " is " +
-                        (isStaticKind ? "not " : "") + "static";
-                throw new IllegalAccessException(reason);
-            }
-
             final boolean isSetterKind = kind == MethodHandle.IPUT || kind == MethodHandle.SPUT;
-            if (Modifier.isFinal(modifiers) && isSetterKind) {
-                throw new IllegalAccessException("Field " + field + " is final");
+            final boolean isStaticKind = kind == MethodHandle.SGET || kind == MethodHandle.SPUT;
+            commonFieldChecks(field, refc, type, isStaticKind, performAccessChecks);
+            if (performAccessChecks) {
+                final int modifiers = field.getModifiers();
+                if (isSetterKind && Modifier.isFinal(modifiers)) {
+                    throw new IllegalAccessException("Field " + field + " is final");
+                }
             }
 
             final MethodType methodType;
             switch (kind) {
                 case MethodHandle.SGET:
-                    methodType = MethodType.methodType(fieldType);
+                    methodType = MethodType.methodType(type);
                     break;
                 case MethodHandle.SPUT:
-                    methodType = MethodType.methodType(void.class, fieldType);
+                    methodType = MethodType.methodType(void.class, type);
                     break;
                 case MethodHandle.IGET:
-                    methodType = MethodType.methodType(fieldType, refc);
+                    methodType = MethodType.methodType(type, refc);
                     break;
                 case MethodHandle.IPUT:
-                    methodType = MethodType.methodType(void.class, refc, fieldType);
+                    methodType = MethodType.methodType(void.class, refc, type);
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid kind " + kind);
@@ -1256,6 +1260,126 @@ assertEquals(""+l, (String) MH_this.invokeExact(subl)); // Listie method
         public MethodHandle findSetter(Class<?> refc, String name, Class<?> type) throws NoSuchFieldException, IllegalAccessException {
             return findAccessor(refc, name, type, MethodHandle.IPUT);
         }
+
+        // BEGIN Android-changed: OpenJDK 9+181 VarHandle API factory method.
+        /**
+         * Produces a VarHandle giving access to a non-static field {@code name}
+         * of type {@code type} declared in a class of type {@code recv}.
+         * The VarHandle's variable type is {@code type} and it has one
+         * coordinate type, {@code recv}.
+         * <p>
+         * Access checking is performed immediately on behalf of the lookup
+         * class.
+         * <p>
+         * Certain access modes of the returned VarHandle are unsupported under
+         * the following conditions:
+         * <ul>
+         * <li>if the field is declared {@code final}, then the write, atomic
+         *     update, numeric atomic update, and bitwise atomic update access
+         *     modes are unsupported.
+         * <li>if the field type is anything other than {@code byte},
+         *     {@code short}, {@code char}, {@code int}, {@code long},
+         *     {@code float}, or {@code double} then numeric atomic update
+         *     access modes are unsupported.
+         * <li>if the field type is anything other than {@code boolean},
+         *     {@code byte}, {@code short}, {@code char}, {@code int} or
+         *     {@code long} then bitwise atomic update access modes are
+         *     unsupported.
+         * </ul>
+         * <p>
+         * If the field is declared {@code volatile} then the returned VarHandle
+         * will override access to the field (effectively ignore the
+         * {@code volatile} declaration) in accordance to its specified
+         * access modes.
+         * <p>
+         * If the field type is {@code float} or {@code double} then numeric
+         * and atomic update access modes compare values using their bitwise
+         * representation (see {@link Float#floatToRawIntBits} and
+         * {@link Double#doubleToRawLongBits}, respectively).
+         * @apiNote
+         * Bitwise comparison of {@code float} values or {@code double} values,
+         * as performed by the numeric and atomic update access modes, differ
+         * from the primitive {@code ==} operator and the {@link Float#equals}
+         * and {@link Double#equals} methods, specifically with respect to
+         * comparing NaN values or comparing {@code -0.0} with {@code +0.0}.
+         * Care should be taken when performing a compare and set or a compare
+         * and exchange operation with such values since the operation may
+         * unexpectedly fail.
+         * There are many possible NaN values that are considered to be
+         * {@code NaN} in Java, although no IEEE 754 floating-point operation
+         * provided by Java can distinguish between them.  Operation failure can
+         * occur if the expected or witness value is a NaN value and it is
+         * transformed (perhaps in a platform specific manner) into another NaN
+         * value, and thus has a different bitwise representation (see
+         * {@link Float#intBitsToFloat} or {@link Double#longBitsToDouble} for more
+         * details).
+         * The values {@code -0.0} and {@code +0.0} have different bitwise
+         * representations but are considered equal when using the primitive
+         * {@code ==} operator.  Operation failure can occur if, for example, a
+         * numeric algorithm computes an expected value to be say {@code -0.0}
+         * and previously computed the witness value to be say {@code +0.0}.
+         * @param recv the receiver class, of type {@code R}, that declares the
+         * non-static field
+         * @param name the field's name
+         * @param type the field's type, of type {@code T}
+         * @return a VarHandle giving access to non-static fields.
+         * @throws NoSuchFieldException if the field does not exist
+         * @throws IllegalAccessException if access checking fails, or if the field is {@code static}
+         * @exception SecurityException if a security manager is present and it
+         *                              <a href="MethodHandles.Lookup.html#secmgr">refuses access</a>
+         * @throws NullPointerException if any argument is null
+         * @since 9
+         * @hide
+         */
+        public VarHandle findVarHandle(Class<?> recv, String name, Class<?> type) throws NoSuchFieldException, IllegalAccessException {
+            final Field field = findFieldOfType(recv, name, type);
+            final boolean isStatic = false;
+            final boolean performAccessChecks = true;
+            commonFieldChecks(field, recv, type, isStatic, performAccessChecks);
+            return FieldVarHandle.create(field);
+        }
+        // END Android-changed: OpenJDK 9+181 VarHandle API factory method.
+
+        // BEGIN Android-added: Common field resolution and access check methods.
+        private Field findFieldOfType(final Class<?> refc, String name, Class<?> type)
+                throws NoSuchFieldException {
+            Field field = null;
+
+            // Search refc and super classes for the field.
+            for (Class<?> cls = refc; cls != null; cls = cls.getSuperclass()) {
+                try {
+                    field = cls.getDeclaredField(name);
+                    break;
+                } catch (NoSuchFieldException e) {
+                }
+            }
+
+            if (field == null) {
+                // Force failure citing refc.
+                field = refc.getDeclaredField(name);
+            }
+
+            final Class<?> fieldType = field.getType();
+            if (fieldType != type) {
+                throw new NoSuchFieldException(name);
+            }
+            return field;
+        }
+
+        private void commonFieldChecks(Field field, Class<?> refc, Class<?> type,
+                                       boolean isStatic, boolean performAccessChecks)
+                throws IllegalAccessException {
+            final int modifiers = field.getModifiers();
+            if (performAccessChecks) {
+                checkAccess(refc, field.getDeclaringClass(), modifiers, field.getName());
+            }
+            if (Modifier.isStatic(modifiers) != isStatic) {
+                String reason = "Field " + field + " is " +
+                        (isStatic ? "not " : "") + "static";
+                throw new IllegalAccessException(reason);
+            }
+        }
+        // END Android-added: Common field resolution and access check methods.
 
         /**
          * Produces a method handle giving read access to a static field.
@@ -1302,6 +1426,87 @@ assertEquals(""+l, (String) MH_this.invokeExact(subl)); // Listie method
         public MethodHandle findStaticSetter(Class<?> refc, String name, Class<?> type) throws NoSuchFieldException, IllegalAccessException {
             return findAccessor(refc, name, type, MethodHandle.SPUT);
         }
+
+        // BEGIN Android-changed: OpenJDK 9+181 VarHandle API factory method.
+        /**
+         * Produces a VarHandle giving access to a static field {@code name} of
+         * type {@code type} declared in a class of type {@code decl}.
+         * The VarHandle's variable type is {@code type} and it has no
+         * coordinate types.
+         * <p>
+         * Access checking is performed immediately on behalf of the lookup
+         * class.
+         * <p>
+         * If the returned VarHandle is operated on, the declaring class will be
+         * initialized, if it has not already been initialized.
+         * <p>
+         * Certain access modes of the returned VarHandle are unsupported under
+         * the following conditions:
+         * <ul>
+         * <li>if the field is declared {@code final}, then the write, atomic
+         *     update, numeric atomic update, and bitwise atomic update access
+         *     modes are unsupported.
+         * <li>if the field type is anything other than {@code byte},
+         *     {@code short}, {@code char}, {@code int}, {@code long},
+         *     {@code float}, or {@code double}, then numeric atomic update
+         *     access modes are unsupported.
+         * <li>if the field type is anything other than {@code boolean},
+         *     {@code byte}, {@code short}, {@code char}, {@code int} or
+         *     {@code long} then bitwise atomic update access modes are
+         *     unsupported.
+         * </ul>
+         * <p>
+         * If the field is declared {@code volatile} then the returned VarHandle
+         * will override access to the field (effectively ignore the
+         * {@code volatile} declaration) in accordance to its specified
+         * access modes.
+         * <p>
+         * If the field type is {@code float} or {@code double} then numeric
+         * and atomic update access modes compare values using their bitwise
+         * representation (see {@link Float#floatToRawIntBits} and
+         * {@link Double#doubleToRawLongBits}, respectively).
+         * @apiNote
+         * Bitwise comparison of {@code float} values or {@code double} values,
+         * as performed by the numeric and atomic update access modes, differ
+         * from the primitive {@code ==} operator and the {@link Float#equals}
+         * and {@link Double#equals} methods, specifically with respect to
+         * comparing NaN values or comparing {@code -0.0} with {@code +0.0}.
+         * Care should be taken when performing a compare and set or a compare
+         * and exchange operation with such values since the operation may
+         * unexpectedly fail.
+         * There are many possible NaN values that are considered to be
+         * {@code NaN} in Java, although no IEEE 754 floating-point operation
+         * provided by Java can distinguish between them.  Operation failure can
+         * occur if the expected or witness value is a NaN value and it is
+         * transformed (perhaps in a platform specific manner) into another NaN
+         * value, and thus has a different bitwise representation (see
+         * {@link Float#intBitsToFloat} or {@link Double#longBitsToDouble} for more
+         * details).
+         * The values {@code -0.0} and {@code +0.0} have different bitwise
+         * representations but are considered equal when using the primitive
+         * {@code ==} operator.  Operation failure can occur if, for example, a
+         * numeric algorithm computes an expected value to be say {@code -0.0}
+         * and previously computed the witness value to be say {@code +0.0}.
+         * @param decl the class that declares the static field
+         * @param name the field's name
+         * @param type the field's type, of type {@code T}
+         * @return a VarHandle giving access to a static field
+         * @throws NoSuchFieldException if the field does not exist
+         * @throws IllegalAccessException if access checking fails, or if the field is not {@code static}
+         * @exception SecurityException if a security manager is present and it
+         *                              <a href="MethodHandles.Lookup.html#secmgr">refuses access</a>
+         * @throws NullPointerException if any argument is null
+         * @since 9
+         * @hide
+         */
+        public VarHandle findStaticVarHandle(Class<?> decl, String name, Class<?> type) throws NoSuchFieldException, IllegalAccessException {
+            final Field field = findFieldOfType(decl, name, type);
+            final boolean isStatic = true;
+            final boolean performAccessChecks = true;
+            commonFieldChecks(field, decl, type, isStatic, performAccessChecks);
+            return FieldVarHandle.create(field);
+        }
+        // END Android-changed: OpenJDK 9+181 VarHandle API factory method.
 
         /**
          * Produces an early-bound method handle for a non-static method.
@@ -1516,7 +1721,7 @@ return mh1;
         public MethodHandle unreflectGetter(Field f) throws IllegalAccessException {
             return findAccessor(f, f.getDeclaringClass(), f.getType(),
                     Modifier.isStatic(f.getModifiers()) ? MethodHandle.SGET : MethodHandle.IGET,
-                    f.isAccessible() /* performAccessChecks */);
+                    !f.isAccessible() /* performAccessChecks */);
         }
 
         /**
@@ -1540,8 +1745,89 @@ return mh1;
         public MethodHandle unreflectSetter(Field f) throws IllegalAccessException {
             return findAccessor(f, f.getDeclaringClass(), f.getType(),
                     Modifier.isStatic(f.getModifiers()) ? MethodHandle.SPUT : MethodHandle.IPUT,
-                    f.isAccessible() /* performAccessChecks */);
+                    !f.isAccessible() /* performAccessChecks */);
         }
+
+        // BEGIN Android-changed: OpenJDK 9+181 VarHandle API factory method.
+        /**
+         * Produces a VarHandle giving access to a reflected field {@code f}
+         * of type {@code T} declared in a class of type {@code R}.
+         * The VarHandle's variable type is {@code T}.
+         * If the field is non-static the VarHandle has one coordinate type,
+         * {@code R}.  Otherwise, the field is static, and the VarHandle has no
+         * coordinate types.
+         * <p>
+         * Access checking is performed immediately on behalf of the lookup
+         * class, regardless of the value of the field's {@code accessible}
+         * flag.
+         * <p>
+         * If the field is static, and if the returned VarHandle is operated
+         * on, the field's declaring class will be initialized, if it has not
+         * already been initialized.
+         * <p>
+         * Certain access modes of the returned VarHandle are unsupported under
+         * the following conditions:
+         * <ul>
+         * <li>if the field is declared {@code final}, then the write, atomic
+         *     update, numeric atomic update, and bitwise atomic update access
+         *     modes are unsupported.
+         * <li>if the field type is anything other than {@code byte},
+         *     {@code short}, {@code char}, {@code int}, {@code long},
+         *     {@code float}, or {@code double} then numeric atomic update
+         *     access modes are unsupported.
+         * <li>if the field type is anything other than {@code boolean},
+         *     {@code byte}, {@code short}, {@code char}, {@code int} or
+         *     {@code long} then bitwise atomic update access modes are
+         *     unsupported.
+         * </ul>
+         * <p>
+         * If the field is declared {@code volatile} then the returned VarHandle
+         * will override access to the field (effectively ignore the
+         * {@code volatile} declaration) in accordance to its specified
+         * access modes.
+         * <p>
+         * If the field type is {@code float} or {@code double} then numeric
+         * and atomic update access modes compare values using their bitwise
+         * representation (see {@link Float#floatToRawIntBits} and
+         * {@link Double#doubleToRawLongBits}, respectively).
+         * @apiNote
+         * Bitwise comparison of {@code float} values or {@code double} values,
+         * as performed by the numeric and atomic update access modes, differ
+         * from the primitive {@code ==} operator and the {@link Float#equals}
+         * and {@link Double#equals} methods, specifically with respect to
+         * comparing NaN values or comparing {@code -0.0} with {@code +0.0}.
+         * Care should be taken when performing a compare and set or a compare
+         * and exchange operation with such values since the operation may
+         * unexpectedly fail.
+         * There are many possible NaN values that are considered to be
+         * {@code NaN} in Java, although no IEEE 754 floating-point operation
+         * provided by Java can distinguish between them.  Operation failure can
+         * occur if the expected or witness value is a NaN value and it is
+         * transformed (perhaps in a platform specific manner) into another NaN
+         * value, and thus has a different bitwise representation (see
+         * {@link Float#intBitsToFloat} or {@link Double#longBitsToDouble} for more
+         * details).
+         * The values {@code -0.0} and {@code +0.0} have different bitwise
+         * representations but are considered equal when using the primitive
+         * {@code ==} operator.  Operation failure can occur if, for example, a
+         * numeric algorithm computes an expected value to be say {@code -0.0}
+         * and previously computed the witness value to be say {@code +0.0}.
+         * @param f the reflected field, with a field of type {@code T}, and
+         * a declaring class of type {@code R}
+         * @return a VarHandle giving access to non-static fields or a static
+         * field
+         * @throws IllegalAccessException if access checking fails
+         * @throws NullPointerException if the argument is null
+         * @since 9
+         * @hide
+         */
+        public VarHandle unreflectVarHandle(Field f) throws IllegalAccessException {
+            final boolean isStatic = Modifier.isStatic(f.getModifiers());
+            final boolean performAccessChecks = true;
+            commonFieldChecks(f, f.getDeclaringClass(), f.getType(), isStatic, performAccessChecks);
+            return FieldVarHandle.create(f);
+        }
+        // END Android-changed: OpenJDK 9+181 VarHandle API factory method.
 
         /**
          * Cracks a <a href="MethodHandleInfo.html#directmh">direct method handle</a>
@@ -1701,6 +1987,26 @@ return mh1;
         throw new IllegalArgumentException(target + " is not a direct handle");
     }
 
+    // BEGIN Android-added: method to check if a class is an array.
+    private static void checkClassIsArray(Class<?> c) {
+        if (!c.isArray()) {
+            throw new IllegalArgumentException("Not an array type: " + c);
+        }
+    }
+
+    private static void checkTypeIsViewable(Class<?> componentType) {
+        if (componentType == short.class ||
+            componentType == char.class ||
+            componentType == int.class ||
+            componentType == long.class ||
+            componentType == float.class ||
+            componentType == double.class) {
+            return;
+        }
+        throw new UnsupportedOperationException("Component type not supported: " + componentType);
+    }
+    // END Android-added: method to check if a class is an array.
+
     /**
      * Produces a method handle giving read access to elements of an array.
      * The type of the method handle will have a return type of the array's
@@ -1713,11 +2019,8 @@ return mh1;
      */
     public static
     MethodHandle arrayElementGetter(Class<?> arrayClass) throws IllegalArgumentException {
+        checkClassIsArray(arrayClass);
         final Class<?> componentType = arrayClass.getComponentType();
-        if (componentType == null) {
-            throw new IllegalArgumentException("Not an array type: " + arrayClass);
-        }
-
         if (componentType.isPrimitive()) {
             try {
                 return Lookup.PUBLIC_LOOKUP.findStatic(MethodHandles.class,
@@ -1752,11 +2055,8 @@ return mh1;
      */
     public static
     MethodHandle arrayElementSetter(Class<?> arrayClass) throws IllegalArgumentException {
+        checkClassIsArray(arrayClass);
         final Class<?> componentType = arrayClass.getComponentType();
-        if (componentType == null) {
-            throw new IllegalArgumentException("Not an array type: " + arrayClass);
-        }
-
         if (componentType.isPrimitive()) {
             try {
                 return Lookup.PUBLIC_LOOKUP.findStatic(MethodHandles.class,
@@ -1787,6 +2087,240 @@ return mh1;
     /** @hide */
     public static void arrayElementSetter(double[] array, int i, double val) { array[i] = val; }
 
+    // BEGIN Android-changed: OpenJDK 9+181 VarHandle API factory methods.
+    /**
+     * Produces a VarHandle giving access to elements of an array of type
+     * {@code arrayClass}.  The VarHandle's variable type is the component type
+     * of {@code arrayClass} and the list of coordinate types is
+     * {@code (arrayClass, int)}, where the {@code int} coordinate type
+     * corresponds to an argument that is an index into an array.
+     * <p>
+     * Certain access modes of the returned VarHandle are unsupported under
+     * the following conditions:
+     * <ul>
+     * <li>if the component type is anything other than {@code byte},
+     *     {@code short}, {@code char}, {@code int}, {@code long},
+     *     {@code float}, or {@code double} then numeric atomic update access
+     *     modes are unsupported.
+     * <li>if the field type is anything other than {@code boolean},
+     *     {@code byte}, {@code short}, {@code char}, {@code int} or
+     *     {@code long} then bitwise atomic update access modes are
+     *     unsupported.
+     * </ul>
+     * <p>
+     * If the component type is {@code float} or {@code double} then numeric
+     * and atomic update access modes compare values using their bitwise
+     * representation (see {@link Float#floatToRawIntBits} and
+     * {@link Double#doubleToRawLongBits}, respectively).
+     * @apiNote
+     * Bitwise comparison of {@code float} values or {@code double} values,
+     * as performed by the numeric and atomic update access modes, differ
+     * from the primitive {@code ==} operator and the {@link Float#equals}
+     * and {@link Double#equals} methods, specifically with respect to
+     * comparing NaN values or comparing {@code -0.0} with {@code +0.0}.
+     * Care should be taken when performing a compare and set or a compare
+     * and exchange operation with such values since the operation may
+     * unexpectedly fail.
+     * There are many possible NaN values that are considered to be
+     * {@code NaN} in Java, although no IEEE 754 floating-point operation
+     * provided by Java can distinguish between them.  Operation failure can
+     * occur if the expected or witness value is a NaN value and it is
+     * transformed (perhaps in a platform specific manner) into another NaN
+     * value, and thus has a different bitwise representation (see
+     * {@link Float#intBitsToFloat} or {@link Double#longBitsToDouble} for more
+     * details).
+     * The values {@code -0.0} and {@code +0.0} have different bitwise
+     * representations but are considered equal when using the primitive
+     * {@code ==} operator.  Operation failure can occur if, for example, a
+     * numeric algorithm computes an expected value to be say {@code -0.0}
+     * and previously computed the witness value to be say {@code +0.0}.
+     * @param arrayClass the class of an array, of type {@code T[]}
+     * @return a VarHandle giving access to elements of an array
+     * @throws NullPointerException if the arrayClass is null
+     * @throws IllegalArgumentException if arrayClass is not an array type
+     * @since 9
+     * @hide
+     */
+    public static
+    VarHandle arrayElementVarHandle(Class<?> arrayClass) throws IllegalArgumentException {
+        checkClassIsArray(arrayClass);
+        return ArrayElementVarHandle.create(arrayClass);
+    }
+
+    /**
+     * Produces a VarHandle giving access to elements of a {@code byte[]} array
+     * viewed as if it were a different primitive array type, such as
+     * {@code int[]} or {@code long[]}.
+     * The VarHandle's variable type is the component type of
+     * {@code viewArrayClass} and the list of coordinate types is
+     * {@code (byte[], int)}, where the {@code int} coordinate type
+     * corresponds to an argument that is an index into a {@code byte[]} array.
+     * The returned VarHandle accesses bytes at an index in a {@code byte[]}
+     * array, composing bytes to or from a value of the component type of
+     * {@code viewArrayClass} according to the given endianness.
+     * <p>
+     * The supported component types (variables types) are {@code short},
+     * {@code char}, {@code int}, {@code long}, {@code float} and
+     * {@code double}.
+     * <p>
+     * Access of bytes at a given index will result in an
+     * {@code IndexOutOfBoundsException} if the index is less than {@code 0}
+     * or greater than the {@code byte[]} array length minus the size (in bytes)
+     * of {@code T}.
+     * <p>
+     * Access of bytes at an index may be aligned or misaligned for {@code T},
+     * with respect to the underlying memory address, {@code A} say, associated
+     * with the array and index.
+     * If access is misaligned then access for anything other than the
+     * {@code get} and {@code set} access modes will result in an
+     * {@code IllegalStateException}.  In such cases atomic access is only
+     * guaranteed with respect to the largest power of two that divides the GCD
+     * of {@code A} and the size (in bytes) of {@code T}.
+     * If access is aligned then following access modes are supported and are
+     * guaranteed to support atomic access:
+     * <ul>
+     * <li>read write access modes for all {@code T}, with the exception of
+     *     access modes {@code get} and {@code set} for {@code long} and
+     *     {@code double} on 32-bit platforms.
+     * <li>atomic update access modes for {@code int}, {@code long},
+     *     {@code float} or {@code double}.
+     *     (Future major platform releases of the JDK may support additional
+     *     types for certain currently unsupported access modes.)
+     * <li>numeric atomic update access modes for {@code int} and {@code long}.
+     *     (Future major platform releases of the JDK may support additional
+     *     numeric types for certain currently unsupported access modes.)
+     * <li>bitwise atomic update access modes for {@code int} and {@code long}.
+     *     (Future major platform releases of the JDK may support additional
+     *     numeric types for certain currently unsupported access modes.)
+     * </ul>
+     * <p>
+     * Misaligned access, and therefore atomicity guarantees, may be determined
+     * for {@code byte[]} arrays without operating on a specific array.  Given
+     * an {@code index}, {@code T} and it's corresponding boxed type,
+     * {@code T_BOX}, misalignment may be determined as follows:
+     * <pre>{@code
+     * int sizeOfT = T_BOX.BYTES;  // size in bytes of T
+     * int misalignedAtZeroIndex = ByteBuffer.wrap(new byte[0]).
+     *     alignmentOffset(0, sizeOfT);
+     * int misalignedAtIndex = (misalignedAtZeroIndex + index) % sizeOfT;
+     * boolean isMisaligned = misalignedAtIndex != 0;
+     * }</pre>
+     * <p>
+     * If the variable type is {@code float} or {@code double} then atomic
+     * update access modes compare values using their bitwise representation
+     * (see {@link Float#floatToRawIntBits} and
+     * {@link Double#doubleToRawLongBits}, respectively).
+     * @param viewArrayClass the view array class, with a component type of
+     * type {@code T}
+     * @param byteOrder the endianness of the view array elements, as
+     * stored in the underlying {@code byte} array
+     * @return a VarHandle giving access to elements of a {@code byte[]} array
+     * viewed as if elements corresponding to the components type of the view
+     * array class
+     * @throws NullPointerException if viewArrayClass or byteOrder is null
+     * @throws IllegalArgumentException if viewArrayClass is not an array type
+     * @throws UnsupportedOperationException if the component type of
+     * viewArrayClass is not supported as a variable type
+     * @since 9
+     * @hide
+     */
+    public static
+    VarHandle byteArrayViewVarHandle(Class<?> viewArrayClass,
+                                     ByteOrder byteOrder) throws IllegalArgumentException {
+        checkClassIsArray(viewArrayClass);
+        checkTypeIsViewable(viewArrayClass.getComponentType());
+        return ByteArrayViewVarHandle.create(viewArrayClass, byteOrder);
+    }
+
+    /**
+     * Produces a VarHandle giving access to elements of a {@code ByteBuffer}
+     * viewed as if it were an array of elements of a different primitive
+     * component type to that of {@code byte}, such as {@code int[]} or
+     * {@code long[]}.
+     * The VarHandle's variable type is the component type of
+     * {@code viewArrayClass} and the list of coordinate types is
+     * {@code (ByteBuffer, int)}, where the {@code int} coordinate type
+     * corresponds to an argument that is an index into a {@code byte[]} array.
+     * The returned VarHandle accesses bytes at an index in a
+     * {@code ByteBuffer}, composing bytes to or from a value of the component
+     * type of {@code viewArrayClass} according to the given endianness.
+     * <p>
+     * The supported component types (variables types) are {@code short},
+     * {@code char}, {@code int}, {@code long}, {@code float} and
+     * {@code double}.
+     * <p>
+     * Access will result in a {@code ReadOnlyBufferException} for anything
+     * other than the read access modes if the {@code ByteBuffer} is read-only.
+     * <p>
+     * Access of bytes at a given index will result in an
+     * {@code IndexOutOfBoundsException} if the index is less than {@code 0}
+     * or greater than the {@code ByteBuffer} limit minus the size (in bytes) of
+     * {@code T}.
+     * <p>
+     * Access of bytes at an index may be aligned or misaligned for {@code T},
+     * with respect to the underlying memory address, {@code A} say, associated
+     * with the {@code ByteBuffer} and index.
+     * If access is misaligned then access for anything other than the
+     * {@code get} and {@code set} access modes will result in an
+     * {@code IllegalStateException}.  In such cases atomic access is only
+     * guaranteed with respect to the largest power of two that divides the GCD
+     * of {@code A} and the size (in bytes) of {@code T}.
+     * If access is aligned then following access modes are supported and are
+     * guaranteed to support atomic access:
+     * <ul>
+     * <li>read write access modes for all {@code T}, with the exception of
+     *     access modes {@code get} and {@code set} for {@code long} and
+     *     {@code double} on 32-bit platforms.
+     * <li>atomic update access modes for {@code int}, {@code long},
+     *     {@code float} or {@code double}.
+     *     (Future major platform releases of the JDK may support additional
+     *     types for certain currently unsupported access modes.)
+     * <li>numeric atomic update access modes for {@code int} and {@code long}.
+     *     (Future major platform releases of the JDK may support additional
+     *     numeric types for certain currently unsupported access modes.)
+     * <li>bitwise atomic update access modes for {@code int} and {@code long}.
+     *     (Future major platform releases of the JDK may support additional
+     *     numeric types for certain currently unsupported access modes.)
+     * </ul>
+     * <p>
+     * Misaligned access, and therefore atomicity guarantees, may be determined
+     * for a {@code ByteBuffer}, {@code bb} (direct or otherwise), an
+     * {@code index}, {@code T} and it's corresponding boxed type,
+     * {@code T_BOX}, as follows:
+     * <pre>{@code
+     * int sizeOfT = T_BOX.BYTES;  // size in bytes of T
+     * ByteBuffer bb = ...
+     * int misalignedAtIndex = bb.alignmentOffset(index, sizeOfT);
+     * boolean isMisaligned = misalignedAtIndex != 0;
+     * }</pre>
+     * <p>
+     * If the variable type is {@code float} or {@code double} then atomic
+     * update access modes compare values using their bitwise representation
+     * (see {@link Float#floatToRawIntBits} and
+     * {@link Double#doubleToRawLongBits}, respectively).
+     * @param viewArrayClass the view array class, with a component type of
+     * type {@code T}
+     * @param byteOrder the endianness of the view array elements, as
+     * stored in the underlying {@code ByteBuffer} (Note this overrides the
+     * endianness of a {@code ByteBuffer})
+     * @return a VarHandle giving access to elements of a {@code ByteBuffer}
+     * viewed as if elements corresponding to the components type of the view
+     * array class
+     * @throws NullPointerException if viewArrayClass or byteOrder is null
+     * @throws IllegalArgumentException if viewArrayClass is not an array type
+     * @throws UnsupportedOperationException if the component type of
+     * viewArrayClass is not supported as a variable type
+     * @since 9
+     * @hide
+     */
+    public static
+    VarHandle byteBufferViewVarHandle(Class<?> viewArrayClass,
+                                      ByteOrder byteOrder) throws IllegalArgumentException {
+        checkClassIsArray(viewArrayClass);
+        checkTypeIsViewable(viewArrayClass.getComponentType());
+        return ByteBufferViewVarHandle.create(viewArrayClass, byteOrder);
+    }
+    // END Android-changed: OpenJDK 9+181 VarHandle API factory methods.
 
     /// method handle invocation (reflective style)
 
@@ -1924,6 +2458,74 @@ return invoker;
     static public
     MethodHandle invoker(MethodType type) {
         return new Transformers.Invoker(type, false /* isExactInvoker */);
+    }
+
+    // BEGIN Android-added: resolver for VarHandle accessor methods.
+    static private MethodHandle methodHandleForVarHandleAccessor(VarHandle.AccessMode accessMode,
+                                                                 MethodType type,
+                                                                 boolean isExactInvoker) {
+        Class<?> refc = VarHandle.class;
+        Method method;
+        try {
+            method = refc.getDeclaredMethod(accessMode.methodName(), Object[].class);
+        } catch (NoSuchMethodException e) {
+            throw new InternalError("No method for AccessMode " + accessMode, e);
+        }
+        MethodType methodType = type.insertParameterTypes(0, VarHandle.class);
+        int kind = isExactInvoker ? MethodHandle.INVOKE_VAR_HANDLE_EXACT
+                                  : MethodHandle.INVOKE_VAR_HANDLE;
+        return new MethodHandleImpl(method.getArtMethod(), kind, methodType);
+    }
+    // END Android-added: resolver for VarHandle accessor methods.
+
+    /**
+     * Produces a special <em>invoker method handle</em> which can be used to
+     * invoke a signature-polymorphic access mode method on any VarHandle whose
+     * associated access mode type is compatible with the given type.
+     * The resulting invoker will have a type which is exactly equal to the
+     * desired given type, except that it will accept an additional leading
+     * argument of type {@code VarHandle}.
+     *
+     * @param accessMode the VarHandle access mode
+     * @param type the desired target type
+     * @return a method handle suitable for invoking an access mode method of
+     *         any VarHandle whose access mode type is of the given type.
+     * @since 9
+     * @hide
+     */
+    static public
+    MethodHandle varHandleExactInvoker(VarHandle.AccessMode accessMode, MethodType type) {
+        return methodHandleForVarHandleAccessor(accessMode, type, true /* isExactInvoker */);
+    }
+
+    /**
+     * Produces a special <em>invoker method handle</em> which can be used to
+     * invoke a signature-polymorphic access mode method on any VarHandle whose
+     * associated access mode type is compatible with the given type.
+     * The resulting invoker will have a type which is exactly equal to the
+     * desired given type, except that it will accept an additional leading
+     * argument of type {@code VarHandle}.
+     * <p>
+     * Before invoking its target, if the access mode type differs from the
+     * desired given type, the invoker will apply reference casts as necessary
+     * and box, unbox, or widen primitive values, as if by
+     * {@link MethodHandle#asType asType}.  Similarly, the return value will be
+     * converted as necessary.
+     * <p>
+     * This method is equivalent to the following code (though it may be more
+     * efficient): {@code publicLookup().findVirtual(VarHandle.class, accessMode.name(), type)}
+     *
+     * @param accessMode the VarHandle access mode
+     * @param type the desired target type
+     * @return a method handle suitable for invoking an access mode method of
+     *         any VarHandle whose access mode type is convertible to the given
+     *         type.
+     * @since 9
+     * @hide
+     */
+    static public
+    MethodHandle varHandleInvoker(VarHandle.AccessMode accessMode, MethodType type) {
+        return methodHandleForVarHandleAccessor(accessMode, type, false /* isExactInvoker */);
     }
 
     // Android-changed: Basic invokers are not supported.

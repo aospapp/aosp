@@ -1,23 +1,15 @@
-/* Copyright (C) 2017 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+/* Copyright 2017 The Chromium OS Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
  */
 
 #include "system.h"
 
 #include <errno.h>
 #include <fcntl.h>
+#include <grp.h>
 #include <net/if.h>
+#include <pwd.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -203,7 +195,7 @@ int setup_and_dupe_pipe_end(int fds[2], size_t index, int fd)
 
 int write_pid_to_path(pid_t pid, const char *path)
 {
-	FILE *fp = fopen(path, "w");
+	FILE *fp = fopen(path, "we");
 
 	if (!fp) {
 		pwarn("failed to open '%s'", path);
@@ -223,14 +215,48 @@ int write_pid_to_path(pid_t pid, const char *path)
 }
 
 /*
+ * Create the |path| directory and its parents (if need be) with |mode|.
+ * If not |isdir|, then |path| is actually a file, so the last component
+ * will not be created.
+ */
+int mkdir_p(const char *path, mode_t mode, bool isdir)
+{
+	char *dir = strdup(path);
+	if (!dir)
+		return -errno;
+
+	/* Starting from the root, work our way out to the end. */
+	char *p = strchr(dir + 1, '/');
+	while (p) {
+		*p = '\0';
+		if (mkdir(dir, mode) && errno != EEXIST) {
+			free(dir);
+			return -errno;
+		}
+		*p = '/';
+		p = strchr(p + 1, '/');
+	}
+
+	/*
+	 * Create the last directory.  We still check EEXIST here in case
+	 * of trailing slashes.
+	 */
+	free(dir);
+	if (isdir && mkdir(path, mode) && errno != EEXIST)
+		return -errno;
+	return 0;
+}
+
+/*
  * setup_mount_destination: Ensures the mount target exists.
  * Creates it if needed and possible.
  */
 int setup_mount_destination(const char *source, const char *dest, uid_t uid,
-			    uid_t gid)
+			    uid_t gid, bool bind)
 {
 	int rc;
 	struct stat st_buf;
+	bool domkdir;
 
 	rc = stat(dest, &st_buf);
 	if (rc == 0) /* destination exists */
@@ -239,18 +265,125 @@ int setup_mount_destination(const char *source, const char *dest, uid_t uid,
 	/*
 	 * Try to create the destination.
 	 * Either make a directory or touch a file depending on the source type.
-	 * If the source doesn't exist, assume it is a filesystem type such as
-	 * "tmpfs" and create a directory to mount it on.
+	 *
+	 * If the source isn't an absolute path, assume it is a filesystem type
+	 * such as "tmpfs" and create a directory to mount it on.  The dest will
+	 * be something like "none" or "proc" which we shouldn't be checking.
 	 */
-	rc = stat(source, &st_buf);
-	if (rc || S_ISDIR(st_buf.st_mode) || S_ISBLK(st_buf.st_mode)) {
-		if (mkdir(dest, 0700))
+	if (source[0] == '/') {
+		/* The source is an absolute path -- it better exist! */
+		rc = stat(source, &st_buf);
+		if (rc)
 			return -errno;
+
+		/*
+		 * If bind mounting, we only create a directory if the source
+		 * is a directory, else we always bind mount it as a file to
+		 * support device nodes, sockets, etc...
+		 *
+		 * For all other mounts, we assume a block/char source is
+		 * going to want a directory to mount to.  If the source is
+		 * something else (e.g. a fifo or socket), this probably will
+		 * not do the right thing, but we'll fail later on when we try
+		 * to mount(), so shouldn't be a big deal.
+		 */
+		domkdir = S_ISDIR(st_buf.st_mode) ||
+			  (!bind && (S_ISBLK(st_buf.st_mode) ||
+				     S_ISCHR(st_buf.st_mode)));
 	} else {
-		int fd = open(dest, O_RDWR | O_CREAT, 0700);
+		/* The source is a relative path -- assume it's a pseudo fs. */
+
+		/* Disallow relative bind mounts. */
+		if (bind)
+			return -EINVAL;
+
+		domkdir = true;
+	}
+
+	/*
+	 * Now that we know what we want to do, do it!
+	 * We always create the intermediate dirs and the final path with 0755
+	 * perms and root/root ownership.  This shouldn't be a problem because
+	 * the actual mount will set those perms/ownership on the mount point
+	 * which is all people should need to access it.
+	 */
+	if (mkdir_p(dest, 0755, domkdir))
+		return -errno;
+	if (!domkdir) {
+		int fd = open(dest, O_RDWR | O_CREAT | O_CLOEXEC, 0700);
 		if (fd < 0)
 			return -errno;
 		close(fd);
 	}
 	return chown(dest, uid, gid);
+}
+
+/*
+ * lookup_user: Gets the uid/gid for the given username.
+ */
+int lookup_user(const char *user, uid_t *uid, gid_t *gid)
+{
+	char *buf = NULL;
+	struct passwd pw;
+	struct passwd *ppw = NULL;
+	ssize_t sz = sysconf(_SC_GETPW_R_SIZE_MAX);
+	if (sz == -1)
+		sz = 65536; /* your guess is as good as mine... */
+
+	/*
+	 * sysconf(_SC_GETPW_R_SIZE_MAX), under glibc, is documented to return
+	 * the maximum needed size of the buffer, so we don't have to search.
+	 */
+	buf = malloc(sz);
+	if (!buf)
+		return -ENOMEM;
+	getpwnam_r(user, &pw, buf, sz, &ppw);
+	/*
+	 * We're safe to free the buffer here. The strings inside |pw| point
+	 * inside |buf|, but we don't use any of them; this leaves the pointers
+	 * dangling but it's safe. |ppw| points at |pw| if getpwnam_r(3)
+	 * succeeded.
+	 */
+	free(buf);
+	/* getpwnam_r(3) does *not* set errno when |ppw| is NULL. */
+	if (!ppw)
+		return -1;
+
+	*uid = ppw->pw_uid;
+	*gid = ppw->pw_gid;
+	return 0;
+}
+
+/*
+ * lookup_group: Gets the gid for the given group name.
+ */
+int lookup_group(const char *group, gid_t *gid)
+{
+	char *buf = NULL;
+	struct group gr;
+	struct group *pgr = NULL;
+	ssize_t sz = sysconf(_SC_GETGR_R_SIZE_MAX);
+	if (sz == -1)
+		sz = 65536; /* and mine is as good as yours, really */
+
+	/*
+	 * sysconf(_SC_GETGR_R_SIZE_MAX), under glibc, is documented to return
+	 * the maximum needed size of the buffer, so we don't have to search.
+	 */
+	buf = malloc(sz);
+	if (!buf)
+		return -ENOMEM;
+	getgrnam_r(group, &gr, buf, sz, &pgr);
+	/*
+	 * We're safe to free the buffer here. The strings inside gr point
+	 * inside buf, but we don't use any of them; this leaves the pointers
+	 * dangling but it's safe. pgr points at gr if getgrnam_r succeeded.
+	 */
+	free(buf);
+	/* getgrnam_r(3) does *not* set errno when |pgr| is NULL. */
+	if (!pgr)
+		return -1;
+
+	*gid = pgr->gr_gid;
+	return 0;
 }

@@ -17,6 +17,7 @@
 package android.provider.cts;
 
 import android.app.Activity;
+import android.app.UiAutomation;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -33,13 +34,14 @@ import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
 import android.provider.MediaStore;
 import android.provider.cts.GetResultActivity.Result;
+import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
-import android.support.v4.content.FileProvider;
+import androidx.core.content.FileProvider;
 import android.test.InstrumentationTestCase;
 import android.text.format.DateUtils;
 import android.util.Log;
@@ -166,22 +168,20 @@ public class MediaStoreUiTest extends InstrumentationTestCase {
         Log.d(TAG, "We're probably launching " + ri);
 
         // Grant them all the permissions they might want
-        getInstrumentation().getUiAutomation().executeShellCommand("pm grant "
-                + pkg + " " + android.Manifest.permission.CAMERA);
-        getInstrumentation().getUiAutomation().executeShellCommand("pm grant "
-                + pkg + " " + android.Manifest.permission.ACCESS_COARSE_LOCATION);
-        getInstrumentation().getUiAutomation().executeShellCommand("pm grant "
-                + pkg + " " + android.Manifest.permission.ACCESS_FINE_LOCATION);
-        getInstrumentation().getUiAutomation().executeShellCommand("pm grant "
-                + pkg + " " + android.Manifest.permission.RECORD_AUDIO);
-        getInstrumentation().getUiAutomation().executeShellCommand("pm grant "
-                + pkg + " " + android.Manifest.permission.READ_EXTERNAL_STORAGE);
-        getInstrumentation().getUiAutomation().executeShellCommand("pm grant "
-                + pkg + " " + android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        final UiAutomation ui = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        ui.grantRuntimePermission(pkg, android.Manifest.permission.CAMERA);
+        ui.grantRuntimePermission(pkg, android.Manifest.permission.ACCESS_COARSE_LOCATION);
+        ui.grantRuntimePermission(pkg, android.Manifest.permission.ACCESS_FINE_LOCATION);
+        ui.grantRuntimePermission(pkg, android.Manifest.permission.RECORD_AUDIO);
+        ui.grantRuntimePermission(pkg, android.Manifest.permission.READ_EXTERNAL_STORAGE);
+        ui.grantRuntimePermission(pkg, android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
         SystemClock.sleep(DateUtils.SECOND_IN_MILLIS);
 
         mActivity.startActivityForResult(intent, REQUEST_CODE);
         mDevice.waitForIdle();
+
+        // To ensure camera app is launched
+        SystemClock.sleep(5 * DateUtils.SECOND_IN_MILLIS);
 
         // Try a couple different strategies for taking a photo: first take a
         // photo and confirm using hardware keys

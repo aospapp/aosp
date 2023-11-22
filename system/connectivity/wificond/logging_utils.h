@@ -22,6 +22,8 @@
 
 #include <android-base/macros.h>
 
+#include "wificond/net/netlink_manager.h"
+
 namespace android {
 namespace wificond {
 
@@ -29,6 +31,7 @@ class LoggingUtils {
  public:
   LoggingUtils() = default;
   static std::string GetMacString(const std::vector<uint8_t>& mac_address);
+  static std::string GetBandwidthString(ChannelBandwidth bandwidth);
 
  private:
 

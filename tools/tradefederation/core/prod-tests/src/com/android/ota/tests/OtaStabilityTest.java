@@ -26,6 +26,7 @@ import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
@@ -42,6 +43,7 @@ import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.junit.Assert;
 
@@ -50,7 +52,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Map;
 
 /**
  * A test that will flash a build on a device, wait for the device to be OTA-ed to another build,
@@ -233,8 +234,10 @@ public class OtaStabilityTest implements IDeviceTest, IBuildReceiver, IConfigura
         } catch (ConfigurationException e) {
             Log.e(LOG_TAG, e);
         } finally {
-            Map<String, String> metrics = new HashMap<>(1);
-            metrics.put("iterations", Integer.toString(actualIterations));
+            HashMap<String, Metric> metrics = new HashMap<>();
+            metrics.put(
+                    "iterations",
+                    TfMetricProtoUtil.stringToMetric(Integer.toString(actualIterations)));
             long endTime = System.currentTimeMillis() - startTime;
             listener.testRunEnded(endTime, metrics);
         }

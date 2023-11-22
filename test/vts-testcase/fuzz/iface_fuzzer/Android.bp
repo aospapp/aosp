@@ -14,13 +14,14 @@
 // limitations under the License.
 //
 
-cc_library_shared {
+cc_library {
     name: "libvts_proto_fuzzer",
     srcs: [
         "ProtoFuzzerUtils.cpp",
         "ProtoFuzzerMutator.cpp",
         "ProtoFuzzerMutateFns.cpp",
         "ProtoFuzzerRunner.cpp",
+        "ProtoFuzzerStats.cpp",
     ],
     include_dirs: [
         "test/vts/drivers/hal/common/include",
@@ -34,6 +35,8 @@ cc_library_shared {
         "libvts_proto_fuzzer_proto",
     ],
     cflags: [
+        "-Wall",
+        "-Werror",
         "-Wno-unused-parameter",
     ],
 }
@@ -50,15 +53,18 @@ cc_binary {
     ],
     shared_libs: [
         "libprotobuf-cpp-full",
+        "libvintf",
         "libvts_common",
         "libvts_multidevice_proto",
-        "libvts_proto_fuzzer",
         "libvts_proto_fuzzer_proto",
     ],
     static_libs: [
         "libFuzzer",
+        "libvts_proto_fuzzer",
     ],
     cflags: [
+        "-Wall",
+        "-Werror",
         "-Wno-unused-parameter",
         "-Wno-macro-redefined",
         "-Wno-extra-tokens",

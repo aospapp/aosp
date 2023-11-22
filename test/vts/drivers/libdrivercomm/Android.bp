@@ -23,6 +23,8 @@ cc_library_shared {
         "VtsDriverFileUtil.cpp",
     ],
 
+    cflags: ["-Wall", "-Werror"],
+
     shared_libs: [
         "libbase",
         "libcutils",

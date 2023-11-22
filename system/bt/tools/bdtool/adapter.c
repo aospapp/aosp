@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2014 Google, Inc.
+ *  Copyright 2014 Google, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -205,7 +205,7 @@ static void parse_properties(int num_properties, bt_property_t* property) {
 
       case BT_PROPERTY_UUIDS: {
         size_t num_uuid;
-        const bt_uuid_t* uuid = property_as_uuids(property, &num_uuid);
+        const Uuid* uuid = property_as_uuids(property, &num_uuid);
         if (uuid) {
           for (size_t i = 0; i < num_uuid; i++) {
             fprintf(stdout, " uuid:%zd: ", i);

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0+ WITH Linux-syscall-note */
 /* audit.h -- Auditing support
  *
  * Copyright 2003-2004 Red Hat Inc., Durham, North Carolina.
@@ -111,6 +112,8 @@
 #define AUDIT_PROCTITLE		1327	/* Proctitle emit event */
 #define AUDIT_FEATURE_CHANGE	1328	/* audit log listing feature changes */
 #define AUDIT_REPLACE		1329	/* Replace auditd if this packet unanswerd */
+#define AUDIT_KERN_MODULE	1330	/* Kernel Module events */
+#define AUDIT_FANOTIFY		1331	/* Fanotify access decision */
 
 #define AUDIT_AVC		1400	/* SE Linux avc denial or grant */
 #define AUDIT_SELINUX_ERR	1401	/* Internal SE Linux Errors */
@@ -154,8 +157,9 @@
 #define AUDIT_FILTER_WATCH	0x03	/* Apply rule to file system watches */
 #define AUDIT_FILTER_EXIT	0x04	/* Apply rule at syscall exit */
 #define AUDIT_FILTER_TYPE	0x05	/* Apply rule at audit_log_start */
+#define AUDIT_FILTER_FS		0x06	/* Apply rule at __audit_inode_child */
 
-#define AUDIT_NR_FILTERS	6
+#define AUDIT_NR_FILTERS	7
 
 #define AUDIT_FILTER_PREPEND	0x10	/* Prepend to front of list */
 
@@ -255,6 +259,7 @@
 #define AUDIT_OBJ_LEV_HIGH	23
 #define AUDIT_LOGINUID_SET	24
 #define AUDIT_SESSIONID	25	/* Session ID */
+#define AUDIT_FSTYPE	26	/* FileSystem Type */
 
 				/* These are ONLY useful when checking
 				 * at syscall exit time (AUDIT_AT_EXIT). */
@@ -326,17 +331,23 @@ enum {
 #define AUDIT_STATUS_RATE_LIMIT		0x0008
 #define AUDIT_STATUS_BACKLOG_LIMIT	0x0010
 #define AUDIT_STATUS_BACKLOG_WAIT_TIME	0x0020
+#define AUDIT_STATUS_LOST		0x0040
 
 #define AUDIT_FEATURE_BITMAP_BACKLOG_LIMIT	0x00000001
 #define AUDIT_FEATURE_BITMAP_BACKLOG_WAIT_TIME	0x00000002
 #define AUDIT_FEATURE_BITMAP_EXECUTABLE_PATH	0x00000004
 #define AUDIT_FEATURE_BITMAP_EXCLUDE_EXTEND	0x00000008
 #define AUDIT_FEATURE_BITMAP_SESSIONID_FILTER	0x00000010
+#define AUDIT_FEATURE_BITMAP_LOST_RESET		0x00000020
+#define AUDIT_FEATURE_BITMAP_FILTER_FS		0x00000040
+
 #define AUDIT_FEATURE_BITMAP_ALL (AUDIT_FEATURE_BITMAP_BACKLOG_LIMIT | \
 				  AUDIT_FEATURE_BITMAP_BACKLOG_WAIT_TIME | \
 				  AUDIT_FEATURE_BITMAP_EXECUTABLE_PATH | \
 				  AUDIT_FEATURE_BITMAP_EXCLUDE_EXTEND | \
-				  AUDIT_FEATURE_BITMAP_SESSIONID_FILTER)
+				  AUDIT_FEATURE_BITMAP_SESSIONID_FILTER | \
+				  AUDIT_FEATURE_BITMAP_LOST_RESET | \
+				  AUDIT_FEATURE_BITMAP_FILTER_FS)
 
 /* deprecated: AUDIT_VERSION_* */
 #define AUDIT_VERSION_LATEST 		AUDIT_FEATURE_BITMAP_ALL

@@ -16,7 +16,6 @@
 
 package com.android.tv.guide;
 
-import android.content.Context;
 import android.content.res.Resources;
 import android.support.v7.widget.RecyclerView;
 import android.text.format.DateFormat;
@@ -24,17 +23,15 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-
 import com.android.tv.R;
 import com.android.tv.util.Utils;
-
 import java.util.Date;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Adapts the time range from {@link ProgramManager} to the timeline header row of the program
- * guide table.
+ * Adapts the time range from {@link ProgramManager} to the timeline header row of the program guide
+ * table.
  */
 class TimeListAdapter extends RecyclerView.Adapter<TimeListAdapter.TimeViewHolder> {
     private static final long TIME_UNIT_MS = TimeUnit.MINUTES.toMillis(30);
@@ -53,8 +50,10 @@ class TimeListAdapter extends RecyclerView.Adapter<TimeListAdapter.TimeViewHolde
 
     TimeListAdapter(Resources res) {
         if (sRowHeaderOverlapping == 0) {
-            sRowHeaderOverlapping = Math.abs(res.getDimensionPixelOffset(
-                    R.dimen.program_guide_table_header_row_overlap));
+            sRowHeaderOverlapping =
+                    Math.abs(
+                            res.getDimensionPixelOffset(
+                                    R.dimen.program_guide_table_header_row_overlap));
         }
         Locale locale = res.getConfiguration().locale;
         mTimePatternSameDay = DateFormat.getBestDateTimePattern(locale, TIME_PATTERN_SAME_DAY);

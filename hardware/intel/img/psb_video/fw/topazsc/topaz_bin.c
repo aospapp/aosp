@@ -82,7 +82,6 @@ int main()
     FILE *fp = NULL;
     topaz_fw_codec_t iter = FW_H264_NO_RC;
     unsigned int size = 0;
-    unsigned int i;
 
     fw_table_t topaz_fw_table[] = {
         /* index   header

@@ -19,6 +19,11 @@
 
 top_srcdir              ?= ../../../..
 
+vma05_vdso: CFLAGS+=-ggdb3
+
 include $(top_srcdir)/include/mk/testcases.mk
 include $(top_srcdir)/testcases/kernel/mem/include/libmem.mk
+
+INSTALL_TARGETS		:= vma05.sh
+
 include $(top_srcdir)/include/mk/generic_leaf_target.mk

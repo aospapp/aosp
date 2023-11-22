@@ -23,32 +23,31 @@ package com.android.bluetooth.avrcp;
  ************************************************************************************************/
 
 public interface AvrcpMediaRspInterface {
-    public void setAddrPlayerRsp(byte[] address, int rspStatus);
+    void setAddrPlayerRsp(byte[] address, int rspStatus);
 
-    public void setBrowsedPlayerRsp(byte[] address, int rspStatus, byte depth, int numItems,
-        String[] textArray);
+    void setBrowsedPlayerRsp(byte[] address, int rspStatus, byte depth, int numItems,
+            String[] textArray);
 
-    public void mediaPlayerListRsp(byte[] address, int rspStatus, MediaPlayerListRsp rspObj);
+    void mediaPlayerListRsp(byte[] address, int rspStatus, MediaPlayerListRsp rspObj);
 
-    public void folderItemsRsp(byte[] address, int rspStatus, FolderItemsRsp rspObj);
+    void folderItemsRsp(byte[] address, int rspStatus, FolderItemsRsp rspObj);
 
-    public void changePathRsp(byte[] address, int rspStatus, int numItems);
+    void changePathRsp(byte[] address, int rspStatus, int numItems);
 
-    public void getItemAttrRsp(byte[] address, int rspStatus, ItemAttrRsp rspObj);
+    void getItemAttrRsp(byte[] address, int rspStatus, ItemAttrRsp rspObj);
 
-    public void playItemRsp(byte[] address, int rspStatus);
+    void playItemRsp(byte[] address, int rspStatus);
 
-    public void getTotalNumOfItemsRsp(byte[] address, int rspStatus, int uidCounter,
-        int numItems);
+    void getTotalNumOfItemsRsp(byte[] address, int rspStatus, int uidCounter, int numItems);
 
-    public void addrPlayerChangedRsp(int type, int playerId, int uidCounter);
+    void addrPlayerChangedRsp(int type, int playerId, int uidCounter);
 
-    public void avalPlayerChangedRsp(byte[] address, int type);
+    void avalPlayerChangedRsp(byte[] address, int type);
 
-    public void uidsChangedRsp(int type);
+    void uidsChangedRsp(int type);
 
-    public void nowPlayingChangedRsp(int type);
+    void nowPlayingChangedRsp(int type);
 
-    public void trackChangedRsp(int type, byte[] uid);
+    void trackChangedRsp(int type, byte[] uid);
 }
 

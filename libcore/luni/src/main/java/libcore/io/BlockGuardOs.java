@@ -17,12 +17,14 @@
 package libcore.io;
 
 import android.system.ErrnoException;
+import android.system.GaiException;
+import android.system.Int64Ref;
 import android.system.OsConstants;
+import android.system.StructAddrinfo;
 import android.system.StructLinger;
 import android.system.StructPollfd;
 import android.system.StructStat;
 import android.system.StructStatVfs;
-import android.util.MutableLong;
 import dalvik.system.BlockGuard;
 import dalvik.system.SocketTagger;
 import java.io.FileDescriptor;
@@ -32,6 +34,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
+
 import static android.system.OsConstants.*;
 
 /**
@@ -46,14 +49,6 @@ public class BlockGuardOs extends ForwardingOs {
         try {
             SocketTagger.get().tag(fd);
             return fd;
-        } catch (SocketException e) {
-            throw new ErrnoException("socket", EINVAL, e);
-        }
-    }
-
-    private void untagSocket(FileDescriptor fd) throws ErrnoException {
-        try {
-            SocketTagger.get().untag(fd);
         } catch (SocketException e) {
             throw new ErrnoException("socket", EINVAL, e);
         }
@@ -94,9 +89,6 @@ public class BlockGuardOs extends ForwardingOs {
                     // We allow non-linger sockets so that apps can close their network
                     // connections in methods like onDestroy which will run on the UI thread.
                     BlockGuard.getThreadPolicy().onNetwork();
-                }
-                if (isInetSocket(fd)) {
-                    untagSocket(fd);
                 }
             }
         } catch (ErrnoException ignored) {
@@ -167,6 +159,17 @@ public class BlockGuardOs extends ForwardingOs {
     @Override public void ftruncate(FileDescriptor fd, long length) throws ErrnoException {
         BlockGuard.getThreadPolicy().onWriteToDisk();
         os.ftruncate(fd, length);
+    }
+
+    @Override public InetAddress[] android_getaddrinfo(String node, StructAddrinfo hints, int netId) throws GaiException {
+        // With AI_NUMERICHOST flag set, the node must a numerical network address, therefore no
+        // host address lookups will be performed. In this case, it is fine to perform on main
+        // thread.
+        boolean isNumericHost = (hints.ai_flags & AI_NUMERICHOST) != 0;
+        if (!isNumericHost) {
+            BlockGuard.getThreadPolicy().onNetwork();
+        }
+        return os.android_getaddrinfo(node, hints, netId);
     }
 
     @Override public void lchown(String path, int uid, int gid) throws ErrnoException {
@@ -286,9 +289,9 @@ public class BlockGuardOs extends ForwardingOs {
         os.rename(oldPath, newPath);
     }
 
-    @Override public long sendfile(FileDescriptor outFd, FileDescriptor inFd, MutableLong inOffset, long byteCount) throws ErrnoException {
+    @Override public long sendfile(FileDescriptor outFd, FileDescriptor inFd, Int64Ref offset, long byteCount) throws ErrnoException {
         BlockGuard.getThreadPolicy().onWriteToDisk();
-        return os.sendfile(outFd, inFd, inOffset, byteCount);
+        return os.sendfile(outFd, inFd, offset, byteCount);
     }
 
     @Override public int sendto(FileDescriptor fd, ByteBuffer buffer, int flags, InetAddress inetAddress, int port) throws ErrnoException, SocketException {
@@ -393,5 +396,13 @@ public class BlockGuardOs extends ForwardingOs {
     @Override public void unlink(String pathname) throws ErrnoException {
         BlockGuard.getThreadPolicy().onWriteToDisk();
         os.unlink(pathname);
+    }
+
+    @Override public long splice(FileDescriptor fdIn, Int64Ref offIn, FileDescriptor fdOut, Int64Ref offOut, long len, int flags) throws ErrnoException {
+        // It's infeasible to figure out if splice will result in read or write (would require fstat to figure out which fd is pipe).
+        // So, signal both read and write.
+        BlockGuard.getThreadPolicy().onWriteToDisk();
+        BlockGuard.getThreadPolicy().onReadFromDisk();
+        return os.splice(fdIn, offIn, fdOut, offOut, len, flags);
     }
 }

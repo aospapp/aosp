@@ -43,6 +43,7 @@ public class GlPlanetsActivity extends Activity implements
     private float mAverageFps;
     private int mNumTriangles;
     private int[] mFrameInterval;
+    private String mRendererName;
 
     private PlanetsSurfaceView mView;
 
@@ -57,6 +58,10 @@ public class GlPlanetsActivity extends Activity implements
 
     public int getNumTriangles() {
         return mNumTriangles;
+    }
+
+    public String getRendererName() {
+        return mRendererName;
     }
 
     /**
@@ -89,10 +94,12 @@ public class GlPlanetsActivity extends Activity implements
     }
 
     @Override
-    public void onRenderCompletion(float averageFps, int numTriangles,  int[] frameInterval) {
+    public void onRenderCompletion(float averageFps, int numTriangles, int[] frameInterval,
+            String rendererName) {
         mAverageFps = averageFps;
         mNumTriangles = numTriangles;
         mFrameInterval = frameInterval;
+        mRendererName = rendererName;
         mSem.release();
     }
 

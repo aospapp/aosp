@@ -138,11 +138,17 @@ public class SelfManagedConnection extends Connection {
 
     @Override
     public void onHold() {
+        if (mMediaPlayer != null) {
+            mMediaPlayer.pause();
+        }
         setOnHold();
     }
 
     @Override
     public void onUnhold() {
+        if (mMediaPlayer != null) {
+            mMediaPlayer.start();
+        }
         setActive();
     }
 
@@ -183,6 +189,9 @@ public class SelfManagedConnection extends Connection {
     }
 
     public void setConnectionDisconnected(int cause) {
+        NotificationManager notificationManager = mContext.getSystemService(
+                NotificationManager.class);
+        notificationManager.cancel(CALL_NOTIFICATION, mCallId);
         mMediaPlayer.stop();
         setDisconnected(new DisconnectCause(cause));
         destroy();
@@ -213,6 +222,10 @@ public class SelfManagedConnection extends Connection {
 
     public boolean isHandover() {
         return mIsHandover;
+    }
+
+    public boolean isHoldable() {
+        return (getConnectionCapabilities() & Connection.CAPABILITY_HOLD) != 0;
     }
 
     private MediaPlayer createMediaPlayer(Context context) {

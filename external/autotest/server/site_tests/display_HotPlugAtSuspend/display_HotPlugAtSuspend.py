@@ -51,7 +51,7 @@ class display_HotPlugAtSuspend(test.test):
         is_display_failure = False
         for chameleon_port in finder.iterate_all_ports():
             screen_test = chameleon_screen_test.ChameleonScreenTest(
-                    chameleon_port, display_facade, self.outputdir)
+                    host, chameleon_port, display_facade, self.outputdir)
 
             logging.info('See the display on Chameleon: port %d (%s)',
                          chameleon_port.get_connector_id(),

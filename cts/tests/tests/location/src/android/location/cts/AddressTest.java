@@ -329,6 +329,8 @@ public class AddressTest extends TestCase {
         assertEquals(address.getPhone(), parcel.readString());
         assertEquals(address.getUrl(), parcel.readString());
         assertEquals(address.getExtras(), parcel.readBundle());
+
+        parcel.recycle();
     }
 
     private class MockParcelable implements Parcelable {

@@ -24,12 +24,12 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
         robolectric-commons-codec \
         robolectric-commons-logging \
         robolectric-h2 \
-        hamcrest-host \
+        hamcrest \
         robolectric-httpclient \
         robolectric-httpcore \
         robolectric-javassist \
         robolectric-json \
-        junit-host \
+        junit \
         robolectric-maps \
         objenesis-host \
         robolectric-sqlite-jdbc \

@@ -43,6 +43,7 @@ import java.lang.reflect.Modifier;
 public class UiBenchLeanbackJankTests extends JankTestBase {
 
     public static final String EXTRA_BITMAP_UPLOAD = "extra_bitmap_upload";
+    public static final String EXTRA_SHOW_FAST_LANE = "extra_show_fast_lane";
 
     /** Annotation for test option */
     @Retention(RetentionPolicy.RUNTIME)
@@ -54,19 +55,19 @@ public class UiBenchLeanbackJankTests extends JankTestBase {
         String activity();
 
         /**
-         * Optional method name that return extras for launch the activity.
+         * Bitmap upload is enabled
          */
-        String extras() default "";
+        boolean extraBitmapUpload() default true;
+
+        /**
+         * Initially show fast lane
+         */
+        boolean extraShowFastLane() default true;
 
         /**
          * Expected text component indicate the activity is loaded
          */
         String expectedText() default "Row";
-
-        /**
-         * Optional method name that performed after activity has been launched.
-         */
-        String postLaunch() default "";
     }
 
     protected UiDevice mDevice;
@@ -96,30 +97,14 @@ public class UiBenchLeanbackJankTests extends JankTestBase {
         }
     }
 
-    public void focusToBrowseContent() {
-        mHelper.pressKeyCode(KeyEvent.KEYCODE_DPAD_RIGHT);
-    }
-
-    public Bundle noBitmapUpload() {
-        Bundle bundle = new Bundle();
-        bundle.putBoolean(EXTRA_BITMAP_UPLOAD, false);
-        return bundle;
-    }
-
     @Override
     public void beforeTest() throws Exception {
         Method method = getClass().getMethod(getName());
         Option option = method.getAnnotation(Option.class);
-        Bundle extrasBundle = null;
-        if (!TextUtils.isEmpty(option.extras())) {
-            Method extraMethod = getClass().getMethod(option.extras());
-            extrasBundle = (Bundle) extraMethod.invoke(this);
-        }
+        Bundle extrasBundle = new Bundle();
+        extrasBundle.putBoolean(EXTRA_BITMAP_UPLOAD, option.extraBitmapUpload());
+        extrasBundle.putBoolean(EXTRA_SHOW_FAST_LANE, option.extraShowFastLane());
         mHelper.launchActivity(option.activity(), extrasBundle, option.expectedText());
-        if (!TextUtils.isEmpty(option.postLaunch())) {
-            Method postLaunchMethod = getClass().getMethod(option.postLaunch());
-            postLaunchMethod.invoke(this);
-        }
     }
 
     /**
@@ -137,7 +122,7 @@ public class UiBenchLeanbackJankTests extends JankTestBase {
      * Vertically scroll BrowseFragment in the content (fast lane closed)
      */
     @JankTest(expectedFrames = SHORT_EXPECTED_FRAMES)
-    @Option(activity = "leanback.BrowseActivity", postLaunch = "focusToBrowseContent")
+    @Option(activity = "leanback.BrowseActivity", extraShowFastLane = false)
     @GfxMonitor(processName = PACKAGE_NAME)
     @GfxFrameStatsMonitor(processName = PACKAGE_NAME)
     public void testBrowseContentScroll() {
@@ -149,7 +134,7 @@ public class UiBenchLeanbackJankTests extends JankTestBase {
      * option: no bitmap upload
      */
     @JankTest(expectedFrames = SHORT_EXPECTED_FRAMES)
-    @Option(activity = "leanback.BrowseActivity", extras = "noBitmapUpload")
+    @Option(activity = "leanback.BrowseActivity", extraBitmapUpload = false)
     @GfxMonitor(processName = PACKAGE_NAME)
     @GfxFrameStatsMonitor(processName = PACKAGE_NAME)
     public void testBrowseFastLaneScrollNoBitmapUpload() {
@@ -161,8 +146,8 @@ public class UiBenchLeanbackJankTests extends JankTestBase {
      * option: no bitmap upload
      */
     @JankTest(expectedFrames = SHORT_EXPECTED_FRAMES)
-    @Option(activity = "leanback.BrowseActivity", extras = "noBitmapUpload",
-            postLaunch = "focusToBrowseContent")
+    @Option(activity = "leanback.BrowseActivity", extraBitmapUpload = false,
+            extraShowFastLane = false)
     @GfxMonitor(processName = PACKAGE_NAME)
     @GfxFrameStatsMonitor(processName = PACKAGE_NAME)
     public void testBrowseContentScrollNoBitmapUpload() {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,20 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.android.car.media;
 
-import android.support.annotation.StringDef;
+import android.annotation.StringDef;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * Constants shared by SDK and 3rd party media apps.
- *
+ * Constants shared by SDK and 3rd party media apps to extend the media APIs in order to accommodate
+ * car-specific requirements.
+ * These constants are also shared with Android Auto Projected. They will be moved to the Car
+ * Support Library on b/76108793.
+ * Please refer to <a href="https://developer.android.com/training/auto/audio/index.html">Providing
+ * Audio Playback for Auto</a> for a detailed explanation.
  */
-
 public class MediaConstants {
-
     /**
      * Action along with the media connection broadcast, which contains the current media
      * connection status.
@@ -56,11 +59,6 @@ public class MediaConstants {
      * Key for extra feedback message in extra.
      */
     public static final String EXTRA_CUSTOM_ACTION_STATUS = "media_custom_action_status";
-
-    /**
-     * Extra along with playback state, which contains the message shown by toast.
-     */
-    public static final String EXTRA_TOAST_MESSAGE = "EXTRA_TOAST_MESSAGE";
 
     /**
      * Extra along with the Media Session, which contains if the slot of the action should be
@@ -95,4 +93,10 @@ public class MediaConstants {
      */
     public static final String EXTRA_REPEATED_CUSTOM_ACTION_BUTTON_ON_DOWN =
             "com.google.android.gms.car.media.CUSTOM_ACTION.ON_DOWN_EVENT";
+
+    /**
+     * Extra along with metadata to indicate whether this audio is advertisement.
+     */
+    public static final String EXTRA_METADATA_ADVERTISEMENT =
+            "android.media.metadata.ADVERTISEMENT";
 }

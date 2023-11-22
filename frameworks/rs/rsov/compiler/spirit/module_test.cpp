@@ -171,7 +171,6 @@ TEST_F(ModuleTest, testLookupByName) {
   auto kernel = m->getFunctionDefinitionFromInstruction(i);
   ASSERT_NE(nullptr, kernel);
 
-  auto pt = static_cast<FunctionInst *>(m->lookupByName("greyscale(vf4;"));
   EXPECT_NE(nullptr, kernel->getParameter(0));
   EXPECT_NE(nullptr, kernel->getReturnType());
 

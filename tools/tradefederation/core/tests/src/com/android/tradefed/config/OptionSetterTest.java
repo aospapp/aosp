@@ -19,8 +19,8 @@ package com.android.tradefed.config;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.targetprep.BaseTargetPreparer;
 import com.android.tradefed.targetprep.BuildError;
-import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.MultiMap;
@@ -70,6 +70,15 @@ public class OptionSetterTest extends TestCase {
 
         @Option(name = "string", shortName = 's')
         private String mMyDuplicateOption;
+    }
+
+    /** Option source with options with same name and an unsupported type. */
+    private static class DuplicateOptionSourceUnsupportedType {
+        @Option(name = "string", shortName = 's')
+        private String mMyOption;
+
+        @Option(name = "string", shortName = 's')
+        private String[] mMyDuplicateOptionThatIsAlsoUnsupported;
     }
 
     /** Option source with an option with same name as AllTypesOptionSource. */
@@ -186,7 +195,7 @@ public class OptionSetterTest extends TestCase {
     }
 
     @OptionClass(alias = "parent")
-    private static class ParentOptionSource implements ITargetPreparer {
+    private static class ParentOptionSource extends BaseTargetPreparer {
         @Option(name = "string", shortName = 's')
         private String mString = null;
 
@@ -237,7 +246,7 @@ public class OptionSetterTest extends TestCase {
     private static enum CustomEnumClass {
         VAL1(42);
 
-        private int mVal;
+        private final int mVal;
 
         CustomEnumClass(int val) {
             mVal = val;
@@ -271,6 +280,19 @@ public class OptionSetterTest extends TestCase {
     public void testOptionSetter_duplicateOptions() {
         try {
             new OptionSetter(new DuplicateOptionSource());
+            fail("ConfigurationException not thrown");
+        } catch (ConfigurationException e) {
+            // expected
+        }
+    }
+
+    /**
+     * Test creating an {@link OptionSetter} for a source with duplicate option names,
+     * where one of the options has an unsupported type.
+     */
+    public void testOptionSetter_duplicateOptionsUnsupportedType() {
+        try {
+            new OptionSetter(new DuplicateOptionSourceUnsupportedType());
             fail("ConfigurationException not thrown");
         } catch (ConfigurationException e) {
             // expected

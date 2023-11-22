@@ -183,7 +183,7 @@ public class InstallSessionParamsUnitTest {
         List<SessionInfo> mySessionInfos = installer.getMySessions();
 
         for (SessionInfo sessionInfo : mySessionInfos) {
-            if (sessionInfo.sessionId == sessionId) {
+            if (sessionInfo.getSessionId() == sessionId) {
                 return sessionInfo;
             }
         }

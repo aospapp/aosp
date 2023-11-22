@@ -25,12 +25,24 @@ import android.telecom.ParcelableCall;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.test.suitebuilder.annotation.MediumTest;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.util.ArrayList;
 import java.util.Arrays;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Tests the {@link Connection} and {@link Call} extras functionality.
  */
+@RunWith(JUnit4.class)
 public class CallExtrasTest extends TelecomSystemTest {
 
     public final static String EXTRA_KEY_STR = "STRINGKEY";
@@ -41,6 +53,18 @@ public class CallExtrasTest extends TelecomSystemTest {
     public final static String EXTRA_VALUE2_STR = "mozzarella";
     public final static int EXTRA_VALUE_INT = 1234;
 
+    @Override
+    @Before
+    public void setUp() throws Exception {
+        super.setUp();
+    }
+
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
+    }
+
     /**
      * Tests setting extras on the connection side and ensuring they are propagated through to
      * the InCallService.
@@ -48,6 +72,7 @@ public class CallExtrasTest extends TelecomSystemTest {
      * @throws Exception
      */
     @MediumTest
+    @Test
     public void testCsPutExtras() throws Exception {
         // Get a call up and running.
         IdPair ids = startAndMakeActiveIncomingCall("650-555-1212",
@@ -74,6 +99,7 @@ public class CallExtrasTest extends TelecomSystemTest {
      * @throws Exception
      */
     @MediumTest
+    @Test
     public void testCsPutBooleanExtra() throws Exception {
         // Get a call up and running.
         IdPair ids = startAndMakeActiveIncomingCall("650-555-1212",
@@ -95,6 +121,7 @@ public class CallExtrasTest extends TelecomSystemTest {
      * @throws Exception
      */
     @MediumTest
+    @Test
     public void testCsPutIntExtra() throws Exception {
         // Get a call up and running.
         IdPair ids = startAndMakeActiveIncomingCall("650-555-1212",
@@ -116,6 +143,7 @@ public class CallExtrasTest extends TelecomSystemTest {
      * @throws Exception
      */
     @MediumTest
+    @Test
     public void testCsPutStringExtra() throws Exception {
         // Get a call up and running.
         IdPair ids = startAndMakeActiveIncomingCall("650-555-1212",
@@ -138,6 +166,7 @@ public class CallExtrasTest extends TelecomSystemTest {
      * @throws Exception
      */
     @MediumTest
+    @Test
     public void testCsRemoveExtra() throws Exception {
         // Get a call up and running."STRING"
         IdPair ids = startAndMakeActiveIncomingCall("650-555-1212",
@@ -168,6 +197,7 @@ public class CallExtrasTest extends TelecomSystemTest {
      * @throws Exception
      */
     @MediumTest
+    @Test
     public void testCsUpdateExisting() throws Exception {
         // Get a call up and running.
         IdPair ids = startAndMakeActiveIncomingCall("650-555-1212",
@@ -204,6 +234,7 @@ public class CallExtrasTest extends TelecomSystemTest {
      * @throws Exception
      */
     @MediumTest
+    @Test
     public void testCsSetExtras() throws Exception {
         // Get a call up and running.
         IdPair ids = startAndMakeActiveIncomingCall("650-555-1212",
@@ -243,6 +274,7 @@ public class CallExtrasTest extends TelecomSystemTest {
      * @throws Exception
      */
     @MediumTest
+    @Test
     public void testICSPutExtras() throws Exception {
         Bundle extras = new Bundle();
         extras.putString(EXTRA_KEY_STR, EXTRA_VALUE_STR);
@@ -270,6 +302,7 @@ public class CallExtrasTest extends TelecomSystemTest {
      * @throws Exception
      */
     @LargeTest
+    @Test
     public void testExtrasBidirectional() throws Exception {
         // Get a call up and running.
         IdPair ids = startAndMakeActiveIncomingCall("650-555-1212",
@@ -322,6 +355,7 @@ public class CallExtrasTest extends TelecomSystemTest {
      * @throws Exception
      */
     @LargeTest
+    @Test
     public void testConferenceSetExtras() throws Exception {
         ParcelableCall call = makeConferenceCall();
         String conferenceId = call.getId();
@@ -364,6 +398,7 @@ public class CallExtrasTest extends TelecomSystemTest {
      * @throws Exception
      */
     @LargeTest
+    @Test
     public void testConferenceExtraOperations() throws Exception {
         ParcelableCall call = makeConferenceCall();
         String conferenceId = call.getId();
@@ -399,6 +434,7 @@ public class CallExtrasTest extends TelecomSystemTest {
      * @throws Exception
      */
     @LargeTest
+    @Test
     public void testConferenceICS() throws Exception {
         ParcelableCall call = makeConferenceCall();
         String conferenceId = call.getId();

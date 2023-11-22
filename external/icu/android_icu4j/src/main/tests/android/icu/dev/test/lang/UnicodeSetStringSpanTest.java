@@ -12,6 +12,8 @@ package android.icu.dev.test.lang;
 import java.util.Collection;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.Utility;
@@ -19,11 +21,14 @@ import android.icu.text.UTF16;
 import android.icu.text.UnicodeSet;
 import android.icu.text.UnicodeSet.SpanCondition;
 import android.icu.util.OutputInt;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @test
  * @summary General test of UnicodeSet string span.
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class UnicodeSetStringSpanTest extends TestFmwk {
     // Simple test first, easier to debug.
     @Test
@@ -121,7 +126,7 @@ public class UnicodeSetStringSpanTest extends TestFmwk {
         }
 
         pattern = "[d{cd}{bcd}{ab}]";
-        set = (UnicodeSet)set.cloneAsThawed();
+        set = set.cloneAsThawed();
         set.applyPattern(pattern).freeze();
         s16 = "abbcdabcdabd";
         if (   set.spanBack(s16, 12, SpanCondition.CONTAINED) != 0
@@ -561,7 +566,7 @@ public class UnicodeSetStringSpanTest extends TestFmwk {
      * Verify that we get the same results whether we look at text with contains(), span() or spanBack(), using unfrozen
      * or frozen versions of the set, and using the set or its complement (switching the spanConditions accordingly).
      * The latter verifies that set.span(spanCondition) == set.complement().span(!spanCondition).
-     * 
+     *
      * The expectLimits[] are either provided by the caller (with expectCount>=0) or returned to the caller (with an
      * input expectCount<0).
      */

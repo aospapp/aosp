@@ -27,6 +27,7 @@ import android.os.Looper;
 import android.os.UserHandle;
 import android.os.PersistableBundle;
 import android.provider.CallLog.Calls;
+import android.telecom.Connection;
 import android.telecom.DisconnectCause;
 import android.telecom.Log;
 import android.telecom.PhoneAccount;
@@ -68,12 +69,13 @@ public final class CallLogManager extends CallsManagerListenerBase {
          * @param creationDate Time when the call was created (milliseconds since epoch).
          * @param durationInMillis Duration of the call (milliseconds).
          * @param dataUsage Data usage in bytes, or null if not applicable.
+         * @param isRead Indicates if the entry has been read or not.
          * @param logCallCompletedListener optional callback called after the call is logged.
          */
         public AddCallArgs(Context context, CallerInfo callerInfo, String number,
                 String postDialDigits, String viaNumber, int presentation, int callType,
                 int features, PhoneAccountHandle accountHandle, long creationDate,
-                long durationInMillis, Long dataUsage, UserHandle initiatingUser,
+                long durationInMillis, Long dataUsage, UserHandle initiatingUser, boolean isRead,
                 @Nullable LogCallCompletedListener logCallCompletedListener) {
             this.context = context;
             this.callerInfo = callerInfo;
@@ -88,6 +90,7 @@ public final class CallLogManager extends CallsManagerListenerBase {
             this.durationInSec = (int)(durationInMillis / 1000);
             this.dataUsage = dataUsage;
             this.initiatingUser = initiatingUser;
+            this.isRead = isRead;
             this.logCallCompletedListener = logCallCompletedListener;
         }
         // Since the members are accessed directly, we don't use the
@@ -105,6 +108,7 @@ public final class CallLogManager extends CallsManagerListenerBase {
         public final int durationInSec;
         public final Long dataUsage;
         public final UserHandle initiatingUser;
+        public final boolean isRead;
 
         @Nullable
         public final LogCallCompletedListener logCallCompletedListener;
@@ -226,11 +230,15 @@ public final class CallLogManager extends CallsManagerListenerBase {
                 call.getCallDataUsage();
 
         int callFeatures = getCallFeatures(call.getVideoStateHistory(),
-                call.getDisconnectCause().getCode() == DisconnectCause.CALL_PULLED);
+                call.getDisconnectCause().getCode() == DisconnectCause.CALL_PULLED,
+                shouldSaveHdInfo(call, accountHandle),
+                (call.getConnectionProperties() & Connection.PROPERTY_ASSISTED_DIALING_USED) ==
+                        Connection.PROPERTY_ASSISTED_DIALING_USED,
+                call.wasEverRttCall());
         logCall(call.getCallerInfo(), logNumber, call.getPostDialDigits(), formattedViaNumber,
                 call.getHandlePresentation(), callLogType, callFeatures, accountHandle,
                 creationTime, age, callDataUsage, call.isEmergencyCall(), call.getInitiatingUser(),
-                logCallCompletedListener);
+                call.isSelfManaged(), logCallCompletedListener);
     }
 
     /**
@@ -248,6 +256,8 @@ public final class CallLogManager extends CallsManagerListenerBase {
      * @param dataUsage The data usage for the call, null if not applicable.
      * @param isEmergency {@code true} if this is an emergency call, {@code false} otherwise.
      * @param logCallCompletedListener optional callback called after the call is logged.
+     * @param initiatingUser The user the call was initiated under.
+     * @param isSelfManaged {@code true} if this is a self-managed call, {@code false} otherwise.
      */
     private void logCall(
             CallerInfo callerInfo,
@@ -263,6 +273,7 @@ public final class CallLogManager extends CallsManagerListenerBase {
             Long dataUsage,
             boolean isEmergency,
             UserHandle initiatingUser,
+            boolean isSelfManaged,
             @Nullable LogCallCompletedListener logCallCompletedListener) {
 
         // On some devices, to avoid accidental redialing of emergency numbers, we *never* log
@@ -284,12 +295,18 @@ public final class CallLogManager extends CallsManagerListenerBase {
         sendAddCallBroadcast(callType, duration);
 
         if (isOkToLogThisCall) {
-            Log.d(TAG, "Logging Calllog entry: " + callerInfo + ", "
+            Log.d(TAG, "Logging Call log entry: " + callerInfo + ", "
                     + Log.pii(number) + "," + presentation + ", " + callType
                     + ", " + start + ", " + duration);
+            boolean isRead = false;
+            if (isSelfManaged) {
+                // Mark self-managed calls are read since they're being handled by their own app.
+                // Their inclusion in the call log is informational only.
+                isRead = true;
+            }
             AddCallArgs args = new AddCallArgs(mContext, callerInfo, number, postDialDigits,
                     viaNumber, presentation, callType, features, accountHandle, start, duration,
-                    dataUsage, initiatingUser, logCallCompletedListener);
+                    dataUsage, initiatingUser, isRead, logCallCompletedListener);
             logCallAsync(args);
         } else {
           Log.d(TAG, "Not adding emergency call to call log.");
@@ -301,9 +318,12 @@ public final class CallLogManager extends CallsManagerListenerBase {
      *
      * @param videoState The video state.
      * @param isPulledCall {@code true} if this call was pulled to another device.
+     * @param isStoreHd {@code true} if this call was used HD.
+     * @param isUsingAssistedDialing {@code true} if this call used assisted dialing.
      * @return The call features.
      */
-    private static int getCallFeatures(int videoState, boolean isPulledCall) {
+    private static int getCallFeatures(int videoState, boolean isPulledCall, boolean isStoreHd,
+            boolean isUsingAssistedDialing, boolean isRtt) {
         int features = 0;
         if (VideoProfile.isVideo(videoState)) {
             features |= Calls.FEATURES_VIDEO;
@@ -311,7 +331,32 @@ public final class CallLogManager extends CallsManagerListenerBase {
         if (isPulledCall) {
             features |= Calls.FEATURES_PULLED_EXTERNALLY;
         }
+        if (isStoreHd) {
+            features |= Calls.FEATURES_HD_CALL;
+        }
+        if (isUsingAssistedDialing) {
+            features |= Calls.FEATURES_ASSISTED_DIALING_USED;
+        }
+        if (isRtt) {
+            features |= Calls.FEATURES_RTT;
+        }
         return features;
+    }
+
+    private boolean shouldSaveHdInfo(Call call, PhoneAccountHandle accountHandle) {
+        CarrierConfigManager configManager = (CarrierConfigManager) mContext.getSystemService(
+                Context.CARRIER_CONFIG_SERVICE);
+        PersistableBundle configBundle = null;
+        if (configManager != null) {
+            configBundle = configManager.getConfigForSubId(
+                    mPhoneAccountRegistrar.getSubscriptionIdForPhoneAccount(accountHandle));
+        }
+        if (configBundle != null && configBundle.getBoolean(
+                CarrierConfigManager.KEY_IDENTIFY_HIGH_DEFINITION_CALLS_IN_CALL_LOG_BOOL)
+                && call.wasHighDefAudio()) {
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -407,7 +452,7 @@ public final class CallLogManager extends CallsManagerListenerBase {
             return Calls.addCall(c.callerInfo, c.context, c.number, c.postDialDigits, c.viaNumber,
                     c.presentation, c.callType, c.features, c.accountHandle, c.timestamp,
                     c.durationInSec, c.dataUsage, userToBeInserted == null,
-                    userToBeInserted);
+                    userToBeInserted, c.isRead);
         }
 
 

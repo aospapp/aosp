@@ -63,6 +63,7 @@
 #include "config.h"
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <sys/wait.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -73,6 +74,7 @@
 #include <string.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 char *TCID = "open11";
 
@@ -371,9 +373,7 @@ static void setup(void)
 	tst_tmpdir();
 
 	/* Create test files */
-	fd = open(T_REG, O_WRONLY | O_CREAT, 0644);
-	if (fd == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "Create %s failed", T_REG);
+	fd = SAFE_OPEN(cleanup, T_REG, O_WRONLY | O_CREAT, 0644);
 	ret = write(fd, T_MSG, sizeof(T_MSG));
 	if (ret == -1) {
 		close(fd);
@@ -381,30 +381,13 @@ static void setup(void)
 	}
 	close(fd);
 
-	fd = creat(T_REG_EMPTY, 0644);
-	if (fd == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "Create %s failed",
-			 T_REG_EMPTY);
+	fd = SAFE_CREAT(cleanup, T_REG_EMPTY, 0644);
 	close(fd);
 
-	ret = link(T_REG, T_LINK_REG);
-	if (ret == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "Hard link %s -> %s failed",
-			 T_REG, T_LINK_REG);
-
-	ret = symlink(T_REG, T_SYMLINK_REG);
-	if (ret == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "Symlink %s -> %s failed",
-			 T_REG, T_SYMLINK_REG);
-
-	ret = mkdir(T_DIR, 0755);
-	if (ret == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "mkdir %s failed", T_DIR);
-
-	ret = symlink(T_DIR, T_SYMLINK_DIR);
-	if (ret == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "Symlink %s -> %s failed",
-			 T_DIR, T_SYMLINK_DIR);
+	SAFE_LINK(cleanup, T_REG, T_LINK_REG);
+	SAFE_SYMLINK(cleanup, T_REG, T_SYMLINK_REG);
+	SAFE_MKDIR(cleanup, T_DIR, 0755);
+	SAFE_SYMLINK(cleanup, T_DIR, T_SYMLINK_DIR);
 
 	ret = mknod(T_DEV, S_IFCHR, makedev(1, 5));
 	if (ret == -1)

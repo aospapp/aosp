@@ -5,7 +5,8 @@ import logging
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import power_utils, service_stopper
+from autotest_lib.client.cros import service_stopper
+from autotest_lib.client.cros.power import power_utils
 
 
 class hardware_Backlight(test.test):

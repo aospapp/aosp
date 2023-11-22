@@ -93,6 +93,7 @@
 #include <pwd.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 #define TEST_FILE       "testfile"
 
@@ -205,17 +206,12 @@ void setup(void)
 		signal(siglist[i], &sighandler);
 
 	ltpuser = getpwnam(nobody_uid);
-	if (setuid(ltpuser->pw_uid) == -1)
-		tst_brkm(TBROK | TERRNO, NULL, "setuid(%d) failed",
-			 ltpuser->pw_uid);
+	SAFE_SETUID(NULL, ltpuser->pw_uid);
 
 	tst_tmpdir();
 
 	/* Create a testfile under temporary directory */
-	fildes = open(TEST_FILE, O_RDWR | O_CREAT, 0666);
-	if (fildes == -1)
-		tst_brkm(TBROK | TERRNO, cleanup,
-			 "open(%s, O_RDWR|O_CREAT, 0666) failed", TEST_FILE);
+	fildes = SAFE_OPEN(cleanup, TEST_FILE, O_RDWR | O_CREAT, 0666);
 
 	TEST_PAUSE;
 }
@@ -232,9 +228,7 @@ void setup(void)
 void cleanup(void)
 {
 
-	if (close(fildes) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "close(%s) failed",
-			 TEST_FILE);
+	SAFE_CLOSE(cleanup, fildes);
 
 	tst_rmdir();
 

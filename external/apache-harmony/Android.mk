@@ -38,6 +38,8 @@ LOCAL_JAVA_LIBRARIES := core-oj core-libart junit
 LOCAL_JAVACFLAGS := $(harmony_test_javac_flags)
 LOCAL_MODULE := apache-harmony-tests
 LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
+# Pin java_version until jarjar is certified to support later versions. http://b/72703434
+LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
@@ -49,6 +51,8 @@ LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_JAVA_LIBRARIES := core-oj-hostdex core-libart-hostdex junit-hostdex
 LOCAL_JAVACFLAGS := $(harmony_test_javac_flags)
 LOCAL_MODULE := apache-harmony-tests-hostdex
+# Pin java_version until jarjar is certified to support later versions. http://b/72703434
+LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
 include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 endif  # HOST_OS == linux

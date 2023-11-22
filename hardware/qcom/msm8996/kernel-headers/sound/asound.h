@@ -19,6 +19,8 @@
 #ifndef _UAPI__SOUND_ASOUND_H
 #define _UAPI__SOUND_ASOUND_H
 #include <linux/types.h>
+#include <stdlib.h>
+#include <time.h>
 #define SNDRV_PROTOCOL_VERSION(major,minor,subminor) (((major) << 16) | ((minor) << 8) | (subminor))
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define SNDRV_PROTOCOL_MAJOR(version) (((version) >> 16) & 0xffff)

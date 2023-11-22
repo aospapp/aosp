@@ -19,10 +19,12 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) \
-    ../PermissionDeclareApp/src/com/android/cts/permissiondeclareapp/GrantUriPermission.java
+    ../PermissionDeclareApp/src/com/android/cts/permissiondeclareapp/UtilsProvider.java
 
 LOCAL_SDK_VERSION := current
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test legacy-android-test
+LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+
+LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 
 LOCAL_PACKAGE_NAME := CtsUsePermissionDiffCert
 

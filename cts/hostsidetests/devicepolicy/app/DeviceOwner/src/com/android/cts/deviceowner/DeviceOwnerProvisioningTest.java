@@ -44,7 +44,7 @@ public class DeviceOwnerProvisioningTest extends BaseDeviceOwnerTest {
 
         mPackageManager = getContext().getPackageManager();
         mDpm = getContext().getSystemService(DevicePolicyManager.class);
-        mEnabledAppsBeforeTest = getPackageNameList();
+        mEnabledAppsBeforeTest = getSystemPackageNameList();
     }
 
     @Override
@@ -69,7 +69,7 @@ public class DeviceOwnerProvisioningTest extends BaseDeviceOwnerTest {
     }
 
     private void enableUninstalledApp() {
-        final List<String> currentEnabledApps = getPackageNameList();
+        final List<String> currentEnabledApps = getSystemPackageNameList();
 
         final List<String> disabledApps = new ArrayList<String>(mEnabledAppsBeforeTest);
         disabledApps.removeAll(currentEnabledApps);

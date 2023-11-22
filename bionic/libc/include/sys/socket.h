@@ -44,8 +44,6 @@
 
 __BEGIN_DECLS
 
-#define sockaddr_storage __kernel_sockaddr_storage
-
 struct timespec;
 
 #ifdef __mips__
@@ -115,7 +113,7 @@ struct cmsghdr {
 #define CMSG_OK(mhdr, cmsg) ((cmsg)->cmsg_len >= sizeof(struct cmsghdr) &&   (cmsg)->cmsg_len <= (unsigned long)   ((mhdr)->msg_controllen -   ((char*)(cmsg) - (char*)(mhdr)->msg_control)))
 
 #if __ANDROID_API__ >= __ANDROID_API_L__
-struct cmsghdr* __cmsg_nxthdr(struct msghdr*, struct cmsghdr*) __INTRODUCED_IN(21);
+struct cmsghdr* __cmsg_nxthdr(struct msghdr* __msg, struct cmsghdr* __cmsg) __INTRODUCED_IN(21);
 #else
 /* TODO(danalbert): Move this into libandroid_support. */
 static inline struct cmsghdr* __cmsg_nxthdr(struct msghdr* msg, struct cmsghdr* cmsg) {
@@ -299,169 +297,36 @@ struct ucred {
 # define __socketcall extern
 #endif
 
-__socketcall int accept(int, struct sockaddr*, socklen_t*);
-__socketcall int accept4(int, struct sockaddr*, socklen_t*, int) __INTRODUCED_IN(21);
-__socketcall int bind(int, const struct sockaddr*, socklen_t);
-__socketcall int connect(int, const struct sockaddr*, socklen_t);
-__socketcall int getpeername(int, struct sockaddr*, socklen_t*);
-__socketcall int getsockname(int, struct sockaddr*, socklen_t*);
-__socketcall int getsockopt(int, int, int, void*, socklen_t*);
-__socketcall int listen(int, int);
-__socketcall int recvmmsg(int, struct mmsghdr*, unsigned int, int, const struct timespec*)
+__socketcall int accept(int __fd, struct sockaddr* __addr, socklen_t* __addr_length);
+__socketcall int accept4(int __fd, struct sockaddr* __addr, socklen_t* __addr_length, int __flags) __INTRODUCED_IN(21);
+__socketcall int bind(int __fd, const struct sockaddr* __addr, socklen_t __addr_length);
+__socketcall int connect(int __fd, const struct sockaddr* __addr, socklen_t __addr_length);
+__socketcall int getpeername(int __fd, struct sockaddr* __addr, socklen_t* __addr_length);
+__socketcall int getsockname(int __fd, struct sockaddr* __addr, socklen_t* __addr_length);
+__socketcall int getsockopt(int __fd, int __level, int __option, void* __value, socklen_t* __value_length);
+__socketcall int listen(int __fd, int __backlog);
+__socketcall int recvmmsg(int __fd, struct mmsghdr* __msgs, unsigned int __msg_count, int __flags, const struct timespec* __timeout)
   __INTRODUCED_IN(21);
-__socketcall ssize_t recvmsg(int, struct msghdr*, int);
-__socketcall int sendmmsg(int, const struct mmsghdr*, unsigned int, int) __INTRODUCED_IN(21);
-__socketcall ssize_t sendmsg(int, const struct msghdr*, int);
-__socketcall int setsockopt(int, int, int, const void*, socklen_t);
-__socketcall int shutdown(int, int);
-__socketcall int socket(int, int, int);
-__socketcall int socketpair(int, int, int, int*);
+__socketcall ssize_t recvmsg(int __fd, struct msghdr* __msg, int __flags);
+__socketcall int sendmmsg(int __fd, const struct mmsghdr* __msgs, unsigned int __msg_count, int __flags) __INTRODUCED_IN(21);
+__socketcall ssize_t sendmsg(int __fd, const struct msghdr* __msg, int __flags);
+__socketcall int setsockopt(int __fd, int __level, int __option, const void* __value, socklen_t __value_length);
+__socketcall int shutdown(int __fd, int __how);
+__socketcall int socket(int __af, int __type, int __protocol);
+__socketcall int socketpair(int __af, int __type, int __protocol, int __fds[2]);
 
-ssize_t recv(int, void*, size_t, int) __overloadable __RENAME_CLANG(recv);
-ssize_t send(int, const void*, size_t, int) __overloadable __RENAME_CLANG(send);
+ssize_t recv(int __fd, void* __buf, size_t __n, int __flags);
+ssize_t send(int __fd, const void* __buf, size_t __n, int __flags);
 
-__socketcall ssize_t sendto(int, const void*, size_t, int, const struct sockaddr*, socklen_t)
-        __overloadable __RENAME_CLANG(sendto);
-__socketcall ssize_t recvfrom(int, void*, size_t, int, struct sockaddr*,
-        socklen_t*) __overloadable __RENAME_CLANG(recvfrom);
+__socketcall ssize_t sendto(int __fd, const void* __buf, size_t __n, int __flags, const struct sockaddr* __dst_addr, socklen_t __dst_addr_length);
+__socketcall ssize_t recvfrom(int __fd, void* __buf, size_t __n, int __flags, struct sockaddr* __src_addr, socklen_t* __src_addr_length);
 
-extern ssize_t __sendto_chk(int, const void*, size_t, size_t, int, const struct sockaddr*,
-        socklen_t) __INTRODUCED_IN(26);
-ssize_t __recvfrom_chk(int, void*, size_t, size_t, int, struct sockaddr*,
-        socklen_t*) __INTRODUCED_IN(21);
-
-#if defined(__BIONIC_FORTIFY)
-
-#define __recvfrom_bad_size "recvfrom called with size bigger than buffer"
-#define __sendto_bad_size "sendto called with size bigger than buffer"
-#if defined(__clang__)
-#if __ANDROID_API__ >= __ANDROID_API_N__
-__BIONIC_ERROR_FUNCTION_VISIBILITY
-ssize_t recvfrom(int fd, void* const buf __pass_object_size0, size_t len,
-                 int flags, struct sockaddr* src_addr, socklen_t* addr_len)
-        __overloadable
-        __enable_if(__bos(buf) != __BIONIC_FORTIFY_UNKNOWN_SIZE &&
-                    __bos(buf) < len, "selected when the buffer is too small")
-        __errorattr(__recvfrom_bad_size);
-
-__BIONIC_FORTIFY_INLINE
-ssize_t recvfrom(int fd, void* const buf __pass_object_size0, size_t len,
-                 int flags, struct sockaddr* src_addr, socklen_t* addr_len)
-      __overloadable {
-  size_t bos = __bos0(buf);
-
-  if (bos == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
-    return __call_bypassing_fortify(recvfrom)(fd, buf, len, flags, src_addr,
-              addr_len);
-  }
-
-  return __recvfrom_chk(fd, buf, len, bos, flags, src_addr, addr_len);
-}
-#endif /* __ANDROID_API__ >= __ANDROID_API_N__ */
-
-#if __ANDROID_API__ >= __ANDROID_API_N_MR1__
-__BIONIC_ERROR_FUNCTION_VISIBILITY
-ssize_t sendto(int fd, const void* buf, size_t len, int flags,
-               const struct sockaddr* dest_addr, socklen_t addr_len)
-        __overloadable
-        __enable_if(__bos0(buf) != __BIONIC_FORTIFY_UNKNOWN_SIZE &&
-                    __bos0(buf) < len, "selected when the buffer is too small")
-        __errorattr(__sendto_bad_size);
-
-__BIONIC_FORTIFY_INLINE
-ssize_t sendto(int fd, const void* const buf __pass_object_size0, size_t len,
-               int flags, const struct sockaddr* dest_addr, socklen_t addr_len)
-      __overloadable {
-  size_t bos = __bos0(buf);
-
-  if (bos == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
-    return __call_bypassing_fortify(sendto)(fd, buf, len, flags, dest_addr,
-              addr_len);
-  }
-
-  return __sendto_chk(fd, buf, len, bos, flags, dest_addr, addr_len);
-}
-
-__BIONIC_ERROR_FUNCTION_VISIBILITY
-ssize_t send(int socket, const void* buf, size_t len, int flags)
-        __overloadable
-        __enable_if(__bos0(buf) != __BIONIC_FORTIFY_UNKNOWN_SIZE &&
-                    __bos0(buf) < len, "selected when the buffer is too small")
-        __errorattr("send called with size bigger than buffer");
-#endif /* __ANDROID_API__ >= __ANDROID_API_N_MR1__ */
-
-#else /* defined(__clang__) */
-ssize_t __recvfrom_real(int, void*, size_t, int, struct sockaddr*, socklen_t*) __RENAME(recvfrom);
-__errordecl(__recvfrom_error, __recvfrom_bad_size);
-
-extern ssize_t __sendto_real(int, const void*, size_t, int, const struct sockaddr*, socklen_t)
-        __RENAME(sendto);
-__errordecl(__sendto_error, __sendto_bad_size);
-
-#if __ANDROID_API__ >= __ANDROID_API_N__
-__BIONIC_FORTIFY_INLINE
-ssize_t recvfrom(int fd, void* buf, size_t len, int flags,
-                 struct sockaddr* src_addr, socklen_t* addr_len) {
-  size_t bos = __bos0(buf);
-
-  if (bos == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
-    return __recvfrom_real(fd, buf, len, flags, src_addr, addr_len);
-  }
-
-  if (__builtin_constant_p(len) && (len <= bos)) {
-    return __recvfrom_real(fd, buf, len, flags, src_addr, addr_len);
-  }
-
-  if (__builtin_constant_p(len) && (len > bos)) {
-    __recvfrom_error();
-  }
-
-  return __recvfrom_chk(fd, buf, len, bos, flags, src_addr, addr_len);
-}
-#endif /* __ANDROID_API__ >= __ANDROID_API_N__ */
-
-#if __ANDROID_API__ >= __ANDROID_API_N_MR1__
-__BIONIC_FORTIFY_INLINE
-ssize_t sendto(int fd, const void* buf, size_t len, int flags,
-               const struct sockaddr* dest_addr, socklen_t addr_len) {
-  size_t bos = __bos0(buf);
-
-  if (bos == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
-    return __sendto_real(fd, buf, len, flags, dest_addr, addr_len);
-  }
-
-  if (__builtin_constant_p(len) && (len <= bos)) {
-    return __sendto_real(fd, buf, len, flags, dest_addr, addr_len);
-  }
-
-  if (__builtin_constant_p(len) && (len > bos)) {
-    __sendto_error();
-  }
-
-  return __sendto_chk(fd, buf, len, bos, flags, dest_addr, addr_len);
-}
-#endif /* __ANDROID_API__ >= __ANDROID_API_N_MR1__ */
-
-#endif /* defined(__clang__) */
-#undef __recvfrom_bad_size
-#undef __sendto_bad_size
-
-__BIONIC_FORTIFY_INLINE
-ssize_t recv(int socket, void* const buf __pass_object_size0, size_t len,
-             int flags) __overloadable {
-  return recvfrom(socket, buf, len, flags, NULL, 0);
-}
-
-__BIONIC_FORTIFY_INLINE
-ssize_t send(int socket, const void* const buf __pass_object_size0, size_t len, int flags)
-        __overloadable {
-  return sendto(socket, buf, len, flags, NULL, 0);
-}
-
-#endif /* __BIONIC_FORTIFY */
+#if defined(__BIONIC_INCLUDE_FORTIFY_HEADERS)
+#include <bits/fortify/socket.h>
+#endif
 
 #undef __socketcall
 
 __END_DECLS
 
-#endif /* _SYS_SOCKET_H */
+#endif

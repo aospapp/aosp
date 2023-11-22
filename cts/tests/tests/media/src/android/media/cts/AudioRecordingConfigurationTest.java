@@ -319,9 +319,9 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
         try {
             final Method getClientUidMethod = confClass.getDeclaredMethod("getClientUid");
             final Method getClientPackageName = confClass.getDeclaredMethod("getClientPackageName");
-            Integer uid = (Integer) getClientUidMethod.invoke(config, null);
+            Integer uid = (Integer) getClientUidMethod.invoke(config, (Object[]) null);
             assertEquals("client uid isn't protected", -1 /*expected*/, uid.intValue());
-            String name = (String) getClientPackageName.invoke(config, null);
+            String name = (String) getClientPackageName.invoke(config, (Object[]) null);
             assertNotNull("client package name is null", name);
             assertEquals("client package name isn't protected", 0 /*expected*/, name.length());
         } catch (Exception e) {

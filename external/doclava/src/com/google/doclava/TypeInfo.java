@@ -274,6 +274,17 @@ public class TypeInfo implements Resolvable {
     return fullName;
   }
 
+  public String dexName() {
+    if (mIsTypeVariable || mIsWildcard) {
+      if (mExtendsBounds != null && !mExtendsBounds.isEmpty()) {
+        return mExtendsBounds.get(0).dexName() + mDimension;
+      } else {
+        return "java.lang.Object" + mDimension;
+      }
+    }
+    return mQualifiedTypeName + mDimension;
+  }
+
   public ArrayList<TypeInfo> typeArguments() {
     return mTypeArguments;
   }

@@ -56,12 +56,12 @@ namespace java {
 
 int generate_java(const string& filename, const string& originalSrc,
                   AidlInterface* iface, JavaTypeNamespace* types,
-                  const IoDelegate& io_delegate) {
-  Class* cl = generate_binder_interface_class(iface, types);
+                  const IoDelegate& io_delegate, const JavaOptions& options) {
+  Class* cl = generate_binder_interface_class(iface, types, options);
 
   Document* document = new Document(
       "" /* no comment */,
-      (!iface->GetPackage().empty()) ? iface->GetPackage() : "",
+      iface->GetPackage(),
       originalSrc,
       unique_ptr<Class>(cl));
 

@@ -1106,7 +1106,14 @@ public class FormatHandler
             NumberFormat format_b = (NumberFormat) b;
             double number = 1234.56;
 
-            return format_a.format(number).equals(format_b.format(number));
+            String result_a = format_a.format(number);
+            String result_b = format_b.format(number);
+            boolean equal = result_a.equals(result_b);
+            if (!equal) {
+                System.out.println(format_a+" "+format_b);
+                System.out.println(result_a+" "+result_b);
+            }
+            return equal;
         }
     }
 
@@ -1710,7 +1717,17 @@ public class FormatHandler
             char chars_a[] = getCharSymbols(dfs_a);
             char chars_b[] = getCharSymbols(dfs_b);
 
-            return SerializableTestUtility.compareStrings(strings_a, strings_b) && SerializableTestUtility.compareChars(chars_a, chars_b);
+            // Spot-check char-to-string conversion (ICU 58)
+            String percent_a1 = Character.toString(dfs_a.getPercent());
+            String percent_a2 = dfs_a.getPercentString();
+            String percent_b1 = Character.toString(dfs_b.getPercent());
+            String percent_b2 = dfs_b.getPercentString();
+
+            return SerializableTestUtility.compareStrings(strings_a, strings_b)
+                    && SerializableTestUtility.compareChars(chars_a, chars_b)
+                    && percent_a1.equals(percent_b1)
+                    && percent_a2.equals(percent_b2)
+                    && percent_a1.equals(percent_a2);
         }
     }
 
@@ -1856,16 +1873,18 @@ public class FormatHandler
                 // The difference of locale data for localized GMT format
                 // will produce different format result.  This is a temporary
                 // workaround for the issue.
-                DateFormatSymbols dfsa = ((SimpleDateFormat)dfa).getDateFormatSymbols();
-                DateFormatSymbols tmp = (DateFormatSymbols)((SimpleDateFormat)dfb).getDateFormatSymbols().clone();
+                // Hmm, this test had tmp backwards, it needs to override a behavior
+                // with certain symbols from b. Fixed in ICU 60.
+                DateFormatSymbols dfsb = ((SimpleDateFormat)dfb).getDateFormatSymbols();
+                DateFormatSymbols tmp = (DateFormatSymbols)((SimpleDateFormat)dfa).getDateFormatSymbols().clone();
 
                 TimeZoneFormat tmptzf = (TimeZoneFormat)((SimpleDateFormat)dfb).getTimeZoneFormat().clone();
 
-                tmp.setMonths(dfsa.getMonths());
-                tmp.setShortMonths(dfsa.getShortMonths());
-                tmp.setWeekdays(dfsa.getWeekdays());
-                tmp.setShortWeekdays(dfsa.getShortWeekdays());
-                tmp.setAmPmStrings(dfsa.getAmPmStrings());
+                tmp.setMonths(dfsb.getMonths());
+                tmp.setShortMonths(dfsb.getShortMonths());
+                tmp.setWeekdays(dfsb.getWeekdays());
+                tmp.setShortWeekdays(dfsb.getShortWeekdays());
+                tmp.setAmPmStrings(dfsb.getAmPmStrings());
 
                 ((SimpleDateFormat)dfa).setDateFormatSymbols(tmp);
                 ((SimpleDateFormat)dfa).setTimeZoneFormat(tmptzf);

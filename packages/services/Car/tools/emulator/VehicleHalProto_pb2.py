@@ -14,7 +14,7 @@ from google.protobuf import descriptor_pb2
 DESCRIPTOR = _descriptor.FileDescriptor(
   name='VehicleHalProto.proto',
   package='emulator',
-  serialized_pb='\n\x15VehicleHalProto.proto\x12\x08\x65mulator\"\xba\x01\n\x11VehicleAreaConfig\x12\x0f\n\x07\x61rea_id\x18\x01 \x02(\x05\x12\x17\n\x0fmin_int32_value\x18\x02 \x01(\x11\x12\x17\n\x0fmax_int32_value\x18\x03 \x01(\x11\x12\x17\n\x0fmin_int64_value\x18\x04 \x01(\x12\x12\x17\n\x0fmax_int64_value\x18\x05 \x01(\x12\x12\x17\n\x0fmin_float_value\x18\x06 \x01(\x02\x12\x17\n\x0fmax_float_value\x18\x07 \x01(\x02\"\x9b\x02\n\x11VehiclePropConfig\x12\x0c\n\x04prop\x18\x01 \x02(\x05\x12\x0e\n\x06\x61\x63\x63\x65ss\x18\x02 \x01(\x05\x12\x13\n\x0b\x63hange_mode\x18\x03 \x01(\x05\x12\x12\n\nvalue_type\x18\x04 \x01(\x05\x12\x17\n\x0fsupported_areas\x18\x05 \x01(\x05\x12\x31\n\x0c\x61rea_configs\x18\x06 \x03(\x0b\x32\x1b.emulator.VehicleAreaConfig\x12\x14\n\x0c\x63onfig_flags\x18\x07 \x01(\x05\x12\x14\n\x0c\x63onfig_array\x18\x08 \x03(\x05\x12\x15\n\rconfig_string\x18\t \x01(\t\x12\x17\n\x0fmin_sample_rate\x18\n \x01(\x02\x12\x17\n\x0fmax_sample_rate\x18\x0b \x01(\x02\"\xc5\x01\n\x10VehiclePropValue\x12\x0c\n\x04prop\x18\x01 \x02(\x05\x12\x12\n\nvalue_type\x18\x02 \x01(\x05\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12\x0f\n\x07\x61rea_id\x18\x04 \x01(\x05\x12\x14\n\x0cint32_values\x18\x05 \x03(\x11\x12\x14\n\x0cint64_values\x18\x06 \x03(\x12\x12\x14\n\x0c\x66loat_values\x18\x07 \x03(\x02\x12\x14\n\x0cstring_value\x18\x08 \x01(\t\x12\x13\n\x0b\x62ytes_value\x18\t \x01(\x0c\"/\n\x0eVehiclePropGet\x12\x0c\n\x04prop\x18\x01 \x02(\x05\x12\x0f\n\x07\x61rea_id\x18\x02 \x01(\x05\"\xd8\x01\n\x0f\x45mulatorMessage\x12#\n\x08msg_type\x18\x01 \x02(\x0e\x32\x11.emulator.MsgType\x12 \n\x06status\x18\x02 \x01(\x0e\x32\x10.emulator.Status\x12&\n\x04prop\x18\x03 \x03(\x0b\x32\x18.emulator.VehiclePropGet\x12+\n\x06\x63onfig\x18\x04 \x03(\x0b\x32\x1b.emulator.VehiclePropConfig\x12)\n\x05value\x18\x05 \x03(\x0b\x32\x1a.emulator.VehiclePropValue*\x8a\x02\n\x07MsgType\x12\x12\n\x0eGET_CONFIG_CMD\x10\x00\x12\x13\n\x0fGET_CONFIG_RESP\x10\x01\x12\x16\n\x12GET_CONFIG_ALL_CMD\x10\x02\x12\x17\n\x13GET_CONFIG_ALL_RESP\x10\x03\x12\x14\n\x10GET_PROPERTY_CMD\x10\x04\x12\x15\n\x11GET_PROPERTY_RESP\x10\x05\x12\x18\n\x14GET_PROPERTY_ALL_CMD\x10\x06\x12\x19\n\x15GET_PROPERTY_ALL_RESP\x10\x07\x12\x14\n\x10SET_PROPERTY_CMD\x10\x08\x12\x15\n\x11SET_PROPERTY_RESP\x10\t\x12\x16\n\x12SET_PROPERTY_ASYNC\x10\n*\xfb\x01\n\x06Status\x12\r\n\tRESULT_OK\x10\x00\x12\x11\n\rERROR_UNKNOWN\x10\x01\x12\x1b\n\x17\x45RROR_UNIMPLEMENTED_CMD\x10\x02\x12\x1a\n\x16\x45RROR_INVALID_PROPERTY\x10\x03\x12\x19\n\x15\x45RROR_INVALID_AREA_ID\x10\x04\x12 \n\x1c\x45RROR_PROPERTY_UNINITIALIZED\x10\x05\x12\x1d\n\x19\x45RROR_WRITE_ONLY_PROPERTY\x10\x06\x12\x1d\n\x19\x45RROR_MEMORY_ALLOC_FAILED\x10\x07\x12\x1b\n\x17\x45RROR_INVALID_OPERATION\x10\x08\x42\x02H\x03')
+  serialized_pb='\n\x15VehicleHalProto.proto\x12\x08\x65mulator\"\xba\x01\n\x11VehicleAreaConfig\x12\x0f\n\x07\x61rea_id\x18\x01 \x02(\x05\x12\x17\n\x0fmin_int32_value\x18\x02 \x01(\x11\x12\x17\n\x0fmax_int32_value\x18\x03 \x01(\x11\x12\x17\n\x0fmin_int64_value\x18\x04 \x01(\x12\x12\x17\n\x0fmax_int64_value\x18\x05 \x01(\x12\x12\x17\n\x0fmin_float_value\x18\x06 \x01(\x02\x12\x17\n\x0fmax_float_value\x18\x07 \x01(\x02\"\x9b\x02\n\x11VehiclePropConfig\x12\x0c\n\x04prop\x18\x01 \x02(\x05\x12\x0e\n\x06\x61\x63\x63\x65ss\x18\x02 \x01(\x05\x12\x13\n\x0b\x63hange_mode\x18\x03 \x01(\x05\x12\x12\n\nvalue_type\x18\x04 \x01(\x05\x12\x17\n\x0fsupported_areas\x18\x05 \x01(\x05\x12\x31\n\x0c\x61rea_configs\x18\x06 \x03(\x0b\x32\x1b.emulator.VehicleAreaConfig\x12\x14\n\x0c\x63onfig_flags\x18\x07 \x01(\x05\x12\x14\n\x0c\x63onfig_array\x18\x08 \x03(\x05\x12\x15\n\rconfig_string\x18\t \x01(\t\x12\x17\n\x0fmin_sample_rate\x18\n \x01(\x02\x12\x17\n\x0fmax_sample_rate\x18\x0b \x01(\x02\"\xf2\x01\n\x10VehiclePropValue\x12\x0c\n\x04prop\x18\x01 \x02(\x05\x12\x12\n\nvalue_type\x18\x02 \x01(\x05\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12+\n\x06status\x18\n \x01(\x0e\x32\x1b.emulator.VehiclePropStatus\x12\x0f\n\x07\x61rea_id\x18\x04 \x01(\x05\x12\x14\n\x0cint32_values\x18\x05 \x03(\x11\x12\x14\n\x0cint64_values\x18\x06 \x03(\x12\x12\x14\n\x0c\x66loat_values\x18\x07 \x03(\x02\x12\x14\n\x0cstring_value\x18\x08 \x01(\t\x12\x13\n\x0b\x62ytes_value\x18\t \x01(\x0c\"/\n\x0eVehiclePropGet\x12\x0c\n\x04prop\x18\x01 \x02(\x05\x12\x0f\n\x07\x61rea_id\x18\x02 \x01(\x05\"\xd8\x01\n\x0f\x45mulatorMessage\x12#\n\x08msg_type\x18\x01 \x02(\x0e\x32\x11.emulator.MsgType\x12 \n\x06status\x18\x02 \x01(\x0e\x32\x10.emulator.Status\x12&\n\x04prop\x18\x03 \x03(\x0b\x32\x18.emulator.VehiclePropGet\x12+\n\x06\x63onfig\x18\x04 \x03(\x0b\x32\x1b.emulator.VehiclePropConfig\x12)\n\x05value\x18\x05 \x03(\x0b\x32\x1a.emulator.VehiclePropValue*\x8a\x02\n\x07MsgType\x12\x12\n\x0eGET_CONFIG_CMD\x10\x00\x12\x13\n\x0fGET_CONFIG_RESP\x10\x01\x12\x16\n\x12GET_CONFIG_ALL_CMD\x10\x02\x12\x17\n\x13GET_CONFIG_ALL_RESP\x10\x03\x12\x14\n\x10GET_PROPERTY_CMD\x10\x04\x12\x15\n\x11GET_PROPERTY_RESP\x10\x05\x12\x18\n\x14GET_PROPERTY_ALL_CMD\x10\x06\x12\x19\n\x15GET_PROPERTY_ALL_RESP\x10\x07\x12\x14\n\x10SET_PROPERTY_CMD\x10\x08\x12\x15\n\x11SET_PROPERTY_RESP\x10\t\x12\x16\n\x12SET_PROPERTY_ASYNC\x10\n*\xfb\x01\n\x06Status\x12\r\n\tRESULT_OK\x10\x00\x12\x11\n\rERROR_UNKNOWN\x10\x01\x12\x1b\n\x17\x45RROR_UNIMPLEMENTED_CMD\x10\x02\x12\x1a\n\x16\x45RROR_INVALID_PROPERTY\x10\x03\x12\x19\n\x15\x45RROR_INVALID_AREA_ID\x10\x04\x12 \n\x1c\x45RROR_PROPERTY_UNINITIALIZED\x10\x05\x12\x1d\n\x19\x45RROR_WRITE_ONLY_PROPERTY\x10\x06\x12\x1d\n\x19\x45RROR_MEMORY_ALLOC_FAILED\x10\x07\x12\x1b\n\x17\x45RROR_INVALID_OPERATION\x10\x08*>\n\x11VehiclePropStatus\x12\r\n\tAVAILABLE\x10\x00\x12\x0f\n\x0bUNAVAILABLE\x10\x01\x12\t\n\x05\x45RROR\x10\x02\x42\x02H\x03')
 
 _MSGTYPE = _descriptor.EnumDescriptor(
   name='MsgType',
@@ -69,8 +69,8 @@ _MSGTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=979,
-  serialized_end=1245,
+  serialized_start=1024,
+  serialized_end=1290,
 )
 
 MsgType = enum_type_wrapper.EnumTypeWrapper(_MSGTYPE)
@@ -119,11 +119,37 @@ _STATUS = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=1248,
-  serialized_end=1499,
+  serialized_start=1293,
+  serialized_end=1544,
 )
 
 Status = enum_type_wrapper.EnumTypeWrapper(_STATUS)
+_VEHICLEPROPSTATUS = _descriptor.EnumDescriptor(
+  name='VehiclePropStatus',
+  full_name='emulator.VehiclePropStatus',
+  filename=None,
+  file=DESCRIPTOR,
+  values=[
+    _descriptor.EnumValueDescriptor(
+      name='AVAILABLE', index=0, number=0,
+      options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='UNAVAILABLE', index=1, number=1,
+      options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='ERROR', index=2, number=2,
+      options=None,
+      type=None),
+  ],
+  containing_type=None,
+  options=None,
+  serialized_start=1546,
+  serialized_end=1608,
+)
+
+VehiclePropStatus = enum_type_wrapper.EnumTypeWrapper(_VEHICLEPROPSTATUS)
 GET_CONFIG_CMD = 0
 GET_CONFIG_RESP = 1
 GET_CONFIG_ALL_CMD = 2
@@ -144,6 +170,9 @@ ERROR_PROPERTY_UNINITIALIZED = 5
 ERROR_WRITE_ONLY_PROPERTY = 6
 ERROR_MEMORY_ALLOC_FAILED = 7
 ERROR_INVALID_OPERATION = 8
+AVAILABLE = 0
+UNAVAILABLE = 1
+ERROR = 2
 
 
 
@@ -344,42 +373,49 @@ _VEHICLEPROPVALUE = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='area_id', full_name='emulator.VehiclePropValue.area_id', index=3,
+      name='status', full_name='emulator.VehiclePropValue.status', index=3,
+      number=10, type=14, cpp_type=8, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='area_id', full_name='emulator.VehiclePropValue.area_id', index=4,
       number=4, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='int32_values', full_name='emulator.VehiclePropValue.int32_values', index=4,
+      name='int32_values', full_name='emulator.VehiclePropValue.int32_values', index=5,
       number=5, type=17, cpp_type=1, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='int64_values', full_name='emulator.VehiclePropValue.int64_values', index=5,
+      name='int64_values', full_name='emulator.VehiclePropValue.int64_values', index=6,
       number=6, type=18, cpp_type=2, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='float_values', full_name='emulator.VehiclePropValue.float_values', index=6,
+      name='float_values', full_name='emulator.VehiclePropValue.float_values', index=7,
       number=7, type=2, cpp_type=6, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='string_value', full_name='emulator.VehiclePropValue.string_value', index=7,
+      name='string_value', full_name='emulator.VehiclePropValue.string_value', index=8,
       number=8, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='bytes_value', full_name='emulator.VehiclePropValue.bytes_value', index=8,
+      name='bytes_value', full_name='emulator.VehiclePropValue.bytes_value', index=9,
       number=9, type=12, cpp_type=9, label=1,
       has_default_value=False, default_value="",
       message_type=None, enum_type=None, containing_type=None,
@@ -395,7 +431,7 @@ _VEHICLEPROPVALUE = _descriptor.Descriptor(
   is_extendable=False,
   extension_ranges=[],
   serialized_start=511,
-  serialized_end=708,
+  serialized_end=753,
 )
 
 
@@ -429,8 +465,8 @@ _VEHICLEPROPGET = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=710,
-  serialized_end=757,
+  serialized_start=755,
+  serialized_end=802,
 )
 
 
@@ -485,11 +521,12 @@ _EMULATORMESSAGE = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=760,
-  serialized_end=976,
+  serialized_start=805,
+  serialized_end=1021,
 )
 
 _VEHICLEPROPCONFIG.fields_by_name['area_configs'].message_type = _VEHICLEAREACONFIG
+_VEHICLEPROPVALUE.fields_by_name['status'].enum_type = _VEHICLEPROPSTATUS
 _EMULATORMESSAGE.fields_by_name['msg_type'].enum_type = _MSGTYPE
 _EMULATORMESSAGE.fields_by_name['status'].enum_type = _STATUS
 _EMULATORMESSAGE.fields_by_name['prop'].message_type = _VEHICLEPROPGET

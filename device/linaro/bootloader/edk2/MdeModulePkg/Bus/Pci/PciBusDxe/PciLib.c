@@ -1,7 +1,7 @@
 /** @file
   Internal library implementation for PCI Bus module.
 
-Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
 (C) Copyright 2015 Hewlett Packard Enterprise Development LP<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
@@ -429,7 +429,7 @@ PciHostBridgeResourceAllocator (
       //
 
       //
-      // If non-stardard PCI Bridge I/O window alignment is supported,
+      // If non-standard PCI Bridge I/O window alignment is supported,
       // set I/O aligment to minimum possible alignment for root bridge.
       //
       IoBridge = CreateResourceNode (
@@ -522,7 +522,7 @@ PciHostBridgeResourceAllocator (
       }
 
       //
-      // Based on the all the resource tree, contruct ACPI resource node to
+      // Based on the all the resource tree, construct ACPI resource node to
       // submit the resource aperture to pci host bridge protocol
       //
       Status = ConstructAcpiResourceRequestor (
@@ -868,7 +868,7 @@ PciHostBridgeResourceAllocator (
       Resources[2] = PMem32Bridge;
       Resources[3] = Mem64Bridge;
       Resources[4] = PMem64Bridge;
-      DumpResourceMap (RootBridgeDev, Resources, sizeof (Resources) / sizeof (Resources[0]));
+      DumpResourceMap (RootBridgeDev, Resources, ARRAY_SIZE (Resources));
     );
 
     FreePool (AcpiConfig);
@@ -1232,7 +1232,7 @@ PciScanBus (
             //
             // Reserve the larger one between the actual occupied bus number and padded bus number
             //
-            Status = PciAllocateBusNumber (PciDevice, StartBusNumber, (UINT8) (BusRange), &PaddedSubBus);
+            Status = PciAllocateBusNumber (PciDevice, SecondBus, (UINT8) (BusRange), &PaddedSubBus);
             if (EFI_ERROR (Status)) {
               return Status;
             }

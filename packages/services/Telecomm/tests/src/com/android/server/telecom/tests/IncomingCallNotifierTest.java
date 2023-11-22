@@ -28,6 +28,10 @@ import com.android.server.telecom.CallState;
 import com.android.server.telecom.HandoverState;
 import com.android.server.telecom.ui.IncomingCallNotifier;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 
 import static org.mockito.Matchers.any;
@@ -41,6 +45,7 @@ import static org.mockito.Mockito.when;
 /**
  * Tests for the {@link com.android.server.telecom.ui.IncomingCallNotifier} class.
  */
+@RunWith(JUnit4.class)
 public class IncomingCallNotifierTest extends TelecomTestCase {
 
     @Mock private IncomingCallNotifier.CallsManagerProxy mCallsManagerProxy;
@@ -50,6 +55,8 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
     private IncomingCallNotifier mIncomingCallNotifier;
     private NotificationManager mNotificationManager;
 
+    @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         mContext = mComponentContextFixture.getTestDouble().getApplicationContext();
@@ -78,6 +85,7 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
      * Add a call that isn't ringing.
      */
     @SmallTest
+    @Test
     public void testSingleCall() {
         mIncomingCallNotifier.onCallAdded(mAudioCall);
         verify(mNotificationManager, never()).notify(eq(IncomingCallNotifier.NOTIFICATION_TAG),
@@ -88,6 +96,7 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
      * Add a ringing call when there is no other ongoing call.
      */
     @SmallTest
+    @Test
     public void testIncomingDuringOngoingCall() {
         when(mCallsManagerProxy.hasCallsForOtherPhoneAccount(any())).thenReturn(false);
         mIncomingCallNotifier.onCallAdded(mRingingCall);
@@ -99,6 +108,7 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
      * Add a ringing call with another call ongoing, not from a different phone account.
      */
     @SmallTest
+    @Test
     public void testIncomingDuringOngoingCall2() {
         when(mCallsManagerProxy.hasCallsForOtherPhoneAccount(any())).thenReturn(false);
         when(mCallsManagerProxy.getNumCallsForOtherPhoneAccount(any())).thenReturn(0);
@@ -114,6 +124,7 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
      * Remove ringing call with another call ongoing.
      */
     @SmallTest
+    @Test
     public void testCallRemoved() {
         when(mCallsManagerProxy.hasCallsForOtherPhoneAccount(any())).thenReturn(true);
         when(mCallsManagerProxy.getNumCallsForOtherPhoneAccount(any())).thenReturn(1);
@@ -132,6 +143,7 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
      * Ensure notification doesn't show during handover.
      */
     @SmallTest
+    @Test
     public void testDontShowDuringHandover1() {
         when(mCallsManagerProxy.hasCallsForOtherPhoneAccount(any())).thenReturn(true);
         when(mCallsManagerProxy.getNumCallsForOtherPhoneAccount(any())).thenReturn(1);
@@ -150,6 +162,7 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
      * Ensure notification doesn't show during handover.
      */
     @SmallTest
+    @Test
     public void testDontShowDuringHandover2() {
         when(mCallsManagerProxy.hasCallsForOtherPhoneAccount(any())).thenReturn(true);
         when(mCallsManagerProxy.getNumCallsForOtherPhoneAccount(any())).thenReturn(1);

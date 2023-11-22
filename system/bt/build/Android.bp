@@ -15,18 +15,28 @@ bootstrap_go_package {
 }
 
 fluoride_defaults {
-    name: "fluoride_types_defaults",
+    name: "libchrome_support_defaults",
+    shared_libs: ["libchrome"],
     cflags: [
-        "-DEXPORT_SYMBOL=__attribute__((visibility(\"default\")))",
-        "-fvisibility=hidden",
         "-Wall",
         "-Wextra",
         "-Werror",
+    ],
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+}
+
+fluoride_defaults {
+    name: "fluoride_types_defaults",
+    defaults: ["libchrome_support_defaults"],
+    cflags: [
+        "-DEXPORT_SYMBOL=__attribute__((visibility(\"default\")))",
+        "-fvisibility=hidden",
         // struct BT_HDR is defined as a variable-size header in a struct.
         "-Wno-gnu-variable-sized-type-not-at-end",
-        // needed because of the way the struct typedef is done in osi/include
-        // header files. This issue can be obsoleted by switching to C11 or C++.
-        "-Wno-typedef-redefinition",
         // there are too many unused parameters in all the code.
         "-Wno-unused-parameter",
         "-DLOG_NDEBUG=1",
@@ -38,17 +48,15 @@ fluoride_defaults {
         debuggable: {
             cflags: [
                 "-DBLUEDROID_DEBUG",
-                "-DDCHECK_ALWAYS_ON"
             ],
         },
     },
-    shared_libs: [ "libchrome" ]
-    // Setup Bluetooth local make variables for handling configuration
 }
 
 fluoride_defaults {
     name: "fluoride_defaults",
     defaults: ["fluoride_types_defaults"],
+    header_libs: ["libbluetooth_headers"],
     static_libs: [
         "libbluetooth-types",
     ],

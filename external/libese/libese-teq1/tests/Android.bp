@@ -18,6 +18,7 @@ cc_test {
     name: "ese_teq1_unittests",
     proprietary: true,
     srcs: ["teq1_unittests.cpp", "ese_operations_wrapper.cpp" ],
+    cflags: ["-Wall", "-Werror"],
     host_supported: true,
     shared_libs: [
         "libese",

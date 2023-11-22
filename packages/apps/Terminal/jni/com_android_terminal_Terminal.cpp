@@ -216,7 +216,6 @@ static int term_settermprop(VTermProp prop, VTermValue *val, void *user) {
 }
 
 static int term_setmousefunc(VTermMouseFunc func, void *data, void *user) {
-    Terminal* term = reinterpret_cast<Terminal*>(user);
 #if DEBUG_CALLBACKS
     ALOGW("term_setmousefunc");
 #endif

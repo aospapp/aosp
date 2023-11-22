@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2015 Google, Inc.
+//  Copyright 2015 Google, Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ status_t BluetoothGattDescriptor::readFromParcel(const Parcel* parcel) {
   UUID uuid;
   status_t status = parcel->readParcelable(&uuid);
   if (status != OK) return status;
-  uuid_ = (bluetooth::UUID)uuid;
+  uuid_ = uuid.uuid;
 
   int32_t tmp;
   status = parcel->readInt32(&tmp);

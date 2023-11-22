@@ -53,21 +53,15 @@ class platform_PartitionCheck(test.test):
     def run_once(self):
         errors = []
         device = os.path.basename(utils.get_fixed_dst_drive())
-        mmcpath = os.path.join('/sys', 'block', device)
-
-        if os.path.exists(mmcpath) and device.startswith('mmc'):
-            partitions = [device + 'p3', device + 'p5']
-        else:
-            partitions = [device + '3', device + '5']
-
+        partitions = [utils.concat_partition(device, i) for i in (3, 5)]
         block_size = self.get_block_size(device)
 
         for p in partitions:
             pblocks = self.get_partition_size(device, p)
             psize = pblocks * block_size
             if psize != ROOTFS_SIZE_2G and psize != ROOTFS_SIZE_4G:
-                errmsg = ('%s is %d bytes, expected %d' %
-                          (p, psize, ROOTFS_SIZE))
+                errmsg = ('%s is %d bytes, expected %d or %d' %
+                          (p, psize, ROOTFS_SIZE_2G, ROOTFS_SIZE_4G))
                 logging.warning(errmsg)
                 errors.append(errmsg)
 

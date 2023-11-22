@@ -34,12 +34,22 @@ void nanohubInitCommand(void);
 void nanohubPrefetchTx(uint32_t interrupt, uint32_t wakeup, uint32_t nonwakeup);
 const struct NanohubCommand *nanohubFindCommand(uint32_t packetReason);
 
-struct NanohubHalCommand {
+struct NanohubHalLegacyCommand {
     uint8_t msg;
     void (*handler)(void *, uint8_t);
 };
 
+const struct NanohubHalLegacyCommand *nanohubHalLegacyFindCommand(uint8_t msg);
+
+struct NanohubHalCommand {
+    uint8_t msg;
+    void (*handler)(void *, uint8_t, uint32_t);
+    uint8_t minDataLen;
+    uint8_t maxDataLen;
+};
+
 const struct NanohubHalCommand *nanohubHalFindCommand(uint8_t msg);
 uint64_t hostGetTime(void);
+int64_t hostGetTimeDelta(void);
 
 #endif /* __NANOHUBCOMMAND_H */

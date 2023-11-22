@@ -18,7 +18,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="android.os.lib.consumer3"
         android:versionCode="2"
-        android:versionName="3.0">
+        android:versionName="3.0"
+        android:targetSandboxVersion="2">
 
     <application>
         <uses-static-library

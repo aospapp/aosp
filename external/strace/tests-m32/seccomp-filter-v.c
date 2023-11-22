@@ -42,9 +42,7 @@
 #ifdef HAVE_LINUX_SECCOMP_H
 # include <linux/seccomp.h>
 #endif
-#ifdef HAVE_LINUX_FILTER_H
-# include <linux/filter.h>
-#endif
+#include <linux/filter.h>
 
 #if defined __NR_seccomp \
  && defined PR_SET_NO_NEW_PRIVS \
@@ -91,17 +89,13 @@ static const struct sock_filter filter_c[] = {
 	SOCK_FILTER_KILL_PROCESS
 };
 
-#ifndef BPF_MAXINSNS
-# define BPF_MAXINSNS 4096
-#endif
-
 int
 main(void)
 {
 	tprintf("%s", "");
 
 	static const char kill_stmt_txt[] =
-		"BPF_STMT(BPF_RET|BPF_K, SECCOMP_RET_KILL)";
+		"BPF_STMT(BPF_RET|BPF_K, SECCOMP_RET_KILL_THREAD)";
 	struct sock_filter *const filter =
 		tail_memdup(filter_c, sizeof(filter_c));
 	struct sock_filter *const big_filter =
@@ -142,7 +136,8 @@ main(void)
 	prog->filter = big_filter;
 	prog->len = BPF_MAXINSNS + 1;
 	tprintf("seccomp(SECCOMP_SET_MODE_FILTER, %s, {len=%u, filter=[",
-		"SECCOMP_FILTER_FLAG_TSYNC|0xfffffffe", prog->len);
+		"SECCOMP_FILTER_FLAG_TSYNC|SECCOMP_FILTER_FLAG_LOG|0xfffffffc",
+		prog->len);
 	for (i = 0; i < BPF_MAXINSNS; ++i) {
 		if (i)
 			tprintf(", ");

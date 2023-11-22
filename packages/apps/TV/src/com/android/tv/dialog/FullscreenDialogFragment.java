@@ -23,21 +23,18 @@ import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
-
 import com.android.tv.MainActivity;
 import com.android.tv.R;
 
-/**
- * Dialog fragment with full screen.
- */
+/** Dialog fragment with full screen. */
 public class FullscreenDialogFragment extends SafeDismissDialogFragment {
     public static final String DIALOG_TAG = FullscreenDialogFragment.class.getSimpleName();
     public static final String VIEW_LAYOUT_ID = "viewLayoutId";
     public static final String TRACKER_LABEL = "trackerLabel";
 
     /**
-     * Creates a FullscreenDialogFragment. View class of viewLayoutResId should
-     * implement {@link DialogView}.
+     * Creates a FullscreenDialogFragment. View class of viewLayoutResId should implement {@link
+     * DialogView}.
      */
     public static FullscreenDialogFragment newInstance(int viewLayoutResId, String trackerLabel) {
         FullscreenDialogFragment f = new FullscreenDialogFragment();
@@ -100,21 +97,13 @@ public class FullscreenDialogFragment extends SafeDismissDialogFragment {
         }
     }
 
-    /**
-     * Interface for the view of {@link FullscreenDialogFragment}.
-     */
+    /** Interface for the view of {@link FullscreenDialogFragment}. */
     public interface DialogView {
-        /**
-         * Called after the view is inflated and attached to the dialog.
-         */
+        /** Called after the view is inflated and attached to the dialog. */
         void initialize(MainActivity activity, Dialog dialog);
-        /**
-         * Called when a back key is pressed.
-         */
+        /** Called when a back key is pressed. */
         void onBackPressed();
-        /**
-         * Called when {@link DialogFragment#onDestroy} is called.
-         */
+        /** Called when {@link DialogFragment#onDestroy} is called. */
         void onDestroy();
     }
 }

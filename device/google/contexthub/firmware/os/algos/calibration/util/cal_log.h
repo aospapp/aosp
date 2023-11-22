@@ -16,12 +16,13 @@
 
 ///////////////////////////////////////////////////////////////
 /*
- * Logging macros for printing formatted strings to Nanohub.
+ * Logging macros for printing user-debug messages.
  */
 ///////////////////////////////////////////////////////////////
 #ifndef LOCATION_LBS_CONTEXTHUB_NANOAPPS_CALIBRATION_UTIL_CAL_LOG_H_
 #define LOCATION_LBS_CONTEXTHUB_NANOAPPS_CALIBRATION_UTIL_CAL_LOG_H_
 
+// clang-format off
 #ifdef GCC_DEBUG_LOG
 # include <stdio.h>
 # define CAL_DEBUG_LOG(tag, fmt, ...) \
@@ -35,31 +36,61 @@
    LOG_FUNC(LOG_DEBUG, "%s " fmt "\n", tag, ##__VA_ARGS__)
 # define CAL_DEBUG_LOG(tag, fmt, ...) \
    osLog(LOG_DEBUG, "%s " fmt, tag, ##__VA_ARGS__);
-#else  // _OS_BUILD_
+#elif NANOHUB_DEBUG_LOG
 # include <chre.h>
 # define CAL_DEBUG_LOG(tag, fmt, ...) \
    chreLog(CHRE_LOG_INFO, "%s " fmt, tag, ##__VA_ARGS__)
+#else
+// CHRE/SLPI Nanoapp Logging.
+# include "chre/util/nanoapp/log.h"
+# ifndef LOG_TAG
+#  define LOG_TAG ""
+# endif  // LOG_TAG
+# define CAL_DEBUG_LOG(tag, format, ...) \
+   LOGI("%s " format, tag, ##__VA_ARGS__)
 #endif  // GCC_DEBUG_LOG
+// clang-format on
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// Using this macro because floorf() is not currently implemented by the Nanohub
-// firmware.
+// Floor macro implementation for platforms that do not supply the standard
+// floorf() math function.
 #define CAL_FLOOR(x) ((int)(x) - ((x) < (int)(x)))  // NOLINT
 
+/*
+ * On some embedded software platforms numerical string formatting is not fully
+ * supported. Defining CAL_NO_FLOAT_FORMAT_STRINGS will enable a workaround that
+ * prints floating-point values having a specified number of digits using the
+ * CAL_ENCODE_FLOAT macro.
+ *   Examples:
+ *     - Nanohub does not support floating-point format strings.
+ *     - CHRE/SLPI allows %.Xf for printing float values.
+ */
+#ifdef CAL_NO_FLOAT_FORMAT_STRINGS
 // Macro used to print floating point numbers with a specified number of digits.
-#define CAL_ENCODE_FLOAT(x, num_digits) \
-  ((x < 0) ? "-" : ""),                 \
-  (int)CAL_FLOOR(fabsf(x)), (int)((fabsf(x) - CAL_FLOOR(fabsf(x))) * powf(10, num_digits))  // NOLINT
+# define CAL_ENCODE_FLOAT(x, num_digits)           \
+  ((x < 0) ? "-" : ""), (int)CAL_FLOOR(fabsf(x)),  \
+      (int)((fabsf(x) - CAL_FLOOR(fabsf(x))) *     \
+            powf(10, num_digits))  // NOLINT
 
 // Helper definitions for CAL_ENCODE_FLOAT to specify the print format with
 // desired significant digits.
-#define CAL_FORMAT_3DIGITS "%s%d.%03d"
-#define CAL_FORMAT_6DIGITS "%s%d.%06d"
-#define CAL_FORMAT_3DIGITS_TRIPLET "%s%d.%03d, %s%d.%03d, %s%d.%03d"
-#define CAL_FORMAT_6DIGITS_TRIPLET "%s%d.%06d, %s%d.%06d, %s%d.%06d"
+# define CAL_FORMAT_3DIGITS "%s%d.%03d"
+# define CAL_FORMAT_6DIGITS "%s%d.%06d"
+# define CAL_FORMAT_3DIGITS_TRIPLET "%s%d.%03d, %s%d.%03d, %s%d.%03d"
+# define CAL_FORMAT_6DIGITS_TRIPLET "%s%d.%06d, %s%d.%06d, %s%d.%06d"
+#else
+// Pass-through when float string formatting (e.g., %.6f) is available.
+# define CAL_ENCODE_FLOAT(x, num_digits) (x)
+
+// Float string formatting helpers.
+# define CAL_FORMAT_3DIGITS "%.3f"
+# define CAL_FORMAT_6DIGITS "%.6f"
+# define CAL_FORMAT_3DIGITS_TRIPLET "%.3f, %.3f, %.3f"
+# define CAL_FORMAT_6DIGITS_TRIPLET "%.6f, %.6f, %.6f"
+#endif  // CAL_NO_FLOAT_FORMAT_STRINGS
 
 #ifdef __cplusplus
 }

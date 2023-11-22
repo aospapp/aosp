@@ -59,21 +59,22 @@ bool Nanoapp::hasPendingEvent() {
 }
 
 void Nanoapp::configureNanoappInfoEvents(bool enable) {
-  bool success;
   if (enable) {
-    success = registerForBroadcastEvent(CHRE_EVENT_NANOAPP_STARTED);
-    success &= registerForBroadcastEvent(CHRE_EVENT_NANOAPP_STOPPED);
+    registerForBroadcastEvent(CHRE_EVENT_NANOAPP_STARTED);
+    registerForBroadcastEvent(CHRE_EVENT_NANOAPP_STOPPED);
   } else {
-    success = unregisterForBroadcastEvent(CHRE_EVENT_NANOAPP_STARTED);
-    success &= unregisterForBroadcastEvent(CHRE_EVENT_NANOAPP_STOPPED);
+    unregisterForBroadcastEvent(CHRE_EVENT_NANOAPP_STARTED);
+    unregisterForBroadcastEvent(CHRE_EVENT_NANOAPP_STOPPED);
   }
+}
 
-  if (!success) {
-    // An app has failed to register for an event and may be stuck waiting for
-    // an event that it will never receive. This is considered a fatal situation
-    // as the nanoapp is stuck and there is no way to recover other than
-    // unloading the nanoapp. This can happen in an OOM situation.
-    FATAL_ERROR("Failed to configure nanoapp info events to %d", enable);
+void Nanoapp::configureHostSleepEvents(bool enable) {
+  if (enable) {
+    registerForBroadcastEvent(CHRE_EVENT_HOST_AWAKE);
+    registerForBroadcastEvent(CHRE_EVENT_HOST_ASLEEP);
+  } else {
+    unregisterForBroadcastEvent(CHRE_EVENT_HOST_AWAKE);
+    unregisterForBroadcastEvent(CHRE_EVENT_HOST_ASLEEP);
   }
 }
 

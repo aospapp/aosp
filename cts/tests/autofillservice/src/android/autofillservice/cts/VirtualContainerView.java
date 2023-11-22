@@ -16,7 +16,7 @@
 
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.Helper.FILL_TIMEOUT_MS;
+import static android.autofillservice.cts.Timeouts.FILL_TIMEOUT;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -27,6 +27,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Paint.Style;
 import android.graphics.Rect;
+import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -40,6 +41,11 @@ import android.view.View;
 import android.view.ViewStructure;
 import android.view.ViewStructure.HtmlInfo;
 import android.view.WindowManager;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityManager;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityNodeProvider;
+import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillManager;
 import android.view.autofill.AutofillValue;
 
@@ -51,16 +57,20 @@ import java.util.concurrent.TimeUnit;
 class VirtualContainerView extends View {
 
     private static final String TAG = "VirtualContainerView";
+    private static final int LOGIN_BUTTON_VIRTUAL_ID = 666;
 
     static final String LABEL_CLASS = "my.readonly.view";
     static final String TEXT_CLASS = "my.editable.view";
-
+    static final String ID_URL_BAR = "my_url_bar";
+    static final String ID_URL_BAR2 = "my_url_bar2";
 
     private final ArrayList<Line> mLines = new ArrayList<>();
     private final SparseArray<Item> mItems = new SparseArray<>();
-    private final AutofillManager mAfm;
+    private AutofillManager mAfm;
+    final AutofillId mLoginButtonId;
 
     private Line mFocusedLine;
+    private int mNextChildId;
 
     private Paint mTextPaint;
     private int mTextHeight;
@@ -73,10 +83,24 @@ class VirtualContainerView extends View {
     private boolean mSync = true;
     private boolean mOverrideDispatchProvideAutofillStructure = false;
 
+    private boolean mCompatMode = false;
+    private AccessibilityDelegate mAccessibilityDelegate;
+    private AccessibilityNodeProvider mAccessibilityNodeProvider;
+
+    /**
+     * Enum defining how the view communicate visibility changes to the framework
+     */
+    enum VisibilityIntegrationMode {
+        NOTIFY_AFM,
+        OVERRIDE_IS_VISIBLE_TO_USER
+    }
+
+    private VisibilityIntegrationMode mVisibilityIntegrationMode;
+
     public VirtualContainerView(Context context, AttributeSet attrs) {
         super(context, attrs);
 
-        mAfm = context.getSystemService(AutofillManager.class);
+        setAutofillManager(context);
 
         mTextPaint = new Paint();
 
@@ -94,28 +118,27 @@ class VirtualContainerView extends View {
         mLineLength = mTextHeight + mVerticalGap;
         mTextPaint.setTextSize(mTextHeight);
         Log.d(TAG, "Text height: " + mTextHeight);
+        mLoginButtonId = new AutofillId(getAutofillId(), LOGIN_BUTTON_VIRTUAL_ID);
+    }
+
+    public void setAutofillManager(Context context) {
+        mAfm = context.getSystemService(AutofillManager.class);
+        Log.d(TAG, "Set AFM from " + context);
     }
 
     @Override
     public void autofill(SparseArray<AutofillValue> values) {
         Log.d(TAG, "autofill: " + values);
+        if (mCompatMode) {
+            Log.v(TAG, "using super.autofill() on compat mode");
+            super.autofill(values);
+            return;
+        }
         for (int i = 0; i < values.size(); i++) {
             final int id = values.keyAt(i);
             final AutofillValue value = values.valueAt(i);
-            final Item item = mItems.get(id);
-            if (item == null) {
-                Log.w(TAG, "No item for id " + id);
-                return;
-            }
-            if (!item.editable) {
-                Log.w(TAG, "Item for id " + id + " is not editable: " + item);
-                return;
-            }
-            item.text = value.getTextValue();
-            if (item.listener != null) {
-                Log.d(TAG, "Notify listener: " + item.text);
-                item.listener.onTextChanged(item.text, 0, 0, 0);
-            }
+            final Item item = getItem(id);
+            item.autofill(value.getTextValue());
         }
         postInvalidate();
     }
@@ -192,6 +215,11 @@ class VirtualContainerView extends View {
         Log.d(TAG, "onProvideAutofillVirtualStructure(): flags = " + flags);
         super.onProvideAutofillVirtualStructure(structure, flags);
 
+        if (mCompatMode) {
+            Log.v(TAG, "using super.onProvideAutofillVirtualStructure() on compat mode");
+            return;
+        }
+
         final String packageName = getContext().getPackageName();
         structure.setClassName(getClass().getName());
         final int childrenSize = mItems.size();
@@ -205,13 +233,17 @@ class VirtualContainerView extends View {
                     : structure.asyncNewChild(index);
             child.setAutofillId(structure.getAutofillId(), item.id);
             child.setDataIsSensitive(item.sensitive);
+            if (item.editable) {
+                child.setInputType(item.line.inputType);
+            }
             index++;
-            final String className = item.editable ? TEXT_CLASS : LABEL_CLASS;
-            child.setClassName(className);
+            child.setClassName(item.className);
             // Must set "fake" idEntry because that's what the test cases use to find nodes.
             child.setId(1000 + index, packageName, "id", item.resourceId);
             child.setText(item.text);
             if (TextUtils.getTrimmedLength(item.text) > 0) {
+                // TODO: Must checked trimmed length because input fields use 8 empty spaces to
+                // set width
                 child.setAutofillValue(AutofillValue.forText(item.text));
             }
             child.setFocused(item.line.focused);
@@ -229,6 +261,72 @@ class VirtualContainerView extends View {
         }
     }
 
+    @Override
+    public boolean isVisibleToUserForAutofill(int virtualId) {
+        boolean callSuper = true;
+        if (mVisibilityIntegrationMode == null) {
+            Log.w(TAG, "isVisibleToUserForAutofill(): mVisibilityIntegrationMode not set");
+        } else {
+            callSuper = mVisibilityIntegrationMode == VisibilityIntegrationMode.NOTIFY_AFM;
+        }
+        final boolean isVisible;
+        if (callSuper) {
+            isVisible = super.isVisibleToUserForAutofill(virtualId);
+            Log.d(TAG, "isVisibleToUserForAutofill(" + virtualId + ") using super: " + isVisible);
+        } else {
+            final Item item = getItem(virtualId);
+            isVisible = item.line.visible;
+            Log.d(TAG, "isVisibleToUserForAutofill(" + virtualId + ") set by test: " + isVisible);
+        }
+        return isVisible;
+    }
+
+    /**
+     * Emulates clicking the login button.
+     */
+    void clickLogin() {
+        Log.d(TAG, "clickLogin()");
+        if (mCompatMode) {
+            sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_CLICKED, LOGIN_BUTTON_VIRTUAL_ID);
+        } else {
+            mAfm.notifyViewClicked(this, LOGIN_BUTTON_VIRTUAL_ID);
+        }
+    }
+
+    private Item getItem(int id) {
+        final Item item = mItems.get(id);
+        assertWithMessage("No item for id %s", id).that(item).isNotNull();
+        return item;
+    }
+
+    private AccessibilityNodeInfo onProvideAutofillCompatModeAccessibilityNodeInfo() {
+        final AccessibilityNodeInfo node = AccessibilityNodeInfo.obtain();
+
+        final String packageName = getContext().getPackageName();
+        node.setPackageName(packageName);
+        node.setClassName(getClass().getName());
+
+        final int childrenSize = mItems.size();
+        for (int i = 0; i < childrenSize; i++) {
+            final Item item = mItems.valueAt(i);
+            final int id = i + 1;
+            Log.d(TAG, "Adding new A11Y child with id " + id + ": " + item);
+
+            node.addChild(this, id);
+        }
+
+        return node;
+    }
+
+    private AccessibilityNodeInfo onProvideAutofillCompatModeAccessibilityNodeInfoForLoginButton() {
+        final AccessibilityNodeInfo node = AccessibilityNodeInfo.obtain();
+        node.setSource(this, LOGIN_BUTTON_VIRTUAL_ID);
+        node.setPackageName(getContext().getPackageName());
+        // TODO(b/37566627): ideally this button should be visible / drawn in the canvas and contain
+        // more properties like boundaries, class name, text etc...
+        return node;
+    }
+
     static void assertHtmlInfo(ViewNode node) {
         final String name = node.getText().toString();
         final HtmlInfo info = node.getHtmlInfo();
@@ -241,8 +339,8 @@ class VirtualContainerView extends View {
                         new Pair<>("a1", "v2"));
     }
 
-    Line addLine(String labelId, String label, String textId, String text) {
-        final Line line = new Line(labelId, label, textId, text);
+    Line addLine(String labelId, String label, String textId, String text, int inputType) {
+        final Line line = new Line(labelId, label, textId, text, inputType);
         Log.d(TAG, "addLine: " + line);
         mLines.add(line);
         mItems.put(line.label.id, line.label);
@@ -254,11 +352,64 @@ class VirtualContainerView extends View {
         mSync = sync;
     }
 
+    void setCompatMode(boolean compatMode) {
+        mCompatMode = compatMode;
+
+        if (mCompatMode) {
+            setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+            mAccessibilityNodeProvider = new AccessibilityNodeProvider() {
+                @Override
+                public AccessibilityNodeInfo createAccessibilityNodeInfo(int virtualViewId) {
+                    Log.d(TAG, "createAccessibilityNodeInfo(): id=" + virtualViewId);
+                    switch (virtualViewId) {
+                        case AccessibilityNodeProvider.HOST_VIEW_ID:
+                            return onProvideAutofillCompatModeAccessibilityNodeInfo();
+                        case LOGIN_BUTTON_VIRTUAL_ID:
+                            return onProvideAutofillCompatModeAccessibilityNodeInfoForLoginButton();
+                        default:
+                            final Item item = getItem(virtualViewId);
+                            return item.provideAccessibilityNodeInfo(VirtualContainerView.this,
+                                    getContext());
+                    }
+                }
+
+                @Override
+                public boolean performAction(int virtualViewId, int action, Bundle arguments) {
+                    if (action == AccessibilityNodeInfo.ACTION_SET_TEXT) {
+                        final CharSequence text = arguments.getCharSequence(
+                                AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE);
+                        final Item item = getItem(virtualViewId);
+                        item.autofill(text);
+                        return true;
+                    }
+
+                    return false;
+                }
+            };
+            mAccessibilityDelegate = new AccessibilityDelegate() {
+                @Override
+                public AccessibilityNodeProvider getAccessibilityNodeProvider(View host) {
+                    return mAccessibilityNodeProvider;
+                }
+            };
+
+            setAccessibilityDelegate(mAccessibilityDelegate);
+        }
+    }
+
     void setOverrideDispatchProvideAutofillStructure(boolean flag) {
         mOverrideDispatchProvideAutofillStructure = flag;
     }
 
-    private static int nextId;
+    private void sendAccessibilityEvent(int eventType, int virtualId) {
+        final AccessibilityEvent event = AccessibilityEvent.obtain();
+        event.setEventType(eventType);
+        event.setSource(VirtualContainerView.this, virtualId);
+        event.setEnabled(true);
+        event.setPackageName(getContext().getPackageName());
+        Log.v(TAG, "sendAccessibilityEvent(" + eventType + ", " + virtualId + "): " + event);
+        getContext().getSystemService(AccessibilityManager.class).sendAccessibilityEvent(event);
+    }
 
     final class Line {
 
@@ -266,19 +417,33 @@ class VirtualContainerView extends View {
         final Item text;
         // Boundaries of the text field, relative to the CustomView
         final Rect bounds = new Rect();
+        // Boundaries of the text field, relative to the screen
+        Rect absBounds;
 
         private boolean focused;
         private boolean visible = true;
+        private final int inputType;
 
-        private Line(String labelId, String label, String textId, String text) {
-            this.label = new Item(this, ++nextId, labelId, label, false, false);
-            this.text = new Item(this, ++nextId, textId, text, true, true);
+        private Line(String labelId, String label, String textId, String text, int inputType) {
+            this.label = new Item(this, ++mNextChildId, labelId, label, false, false);
+            this.text = new Item(this, ++mNextChildId, textId, text, true, true);
+            this.inputType = inputType;
         }
 
         void changeFocus(boolean focused) {
             this.focused = focused;
+
             if (focused) {
-                final Rect absBounds = getAbsCoordinates();
+                absBounds = getAbsCoordinates();
+                Log.v(TAG, "Setting absBounds for " + text.id + " on focus change: " + absBounds);
+            }
+
+            if (mCompatMode) {
+                sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED, text.id);
+                return;
+            }
+
+            if (focused) {
                 Log.d(TAG, "focus gained on " + text.id + "; absBounds=" + absBounds);
                 mAfm.notifyViewEntered(VirtualContainerView.this, text.id, absBounds);
             } else {
@@ -287,13 +452,23 @@ class VirtualContainerView extends View {
             }
         }
 
+        void setVisibilityIntegrationMode(VisibilityIntegrationMode mode) {
+            mVisibilityIntegrationMode = mode;
+        }
+
         void changeVisibility(boolean visible) {
+            if (mVisibilityIntegrationMode == null) {
+                throw new IllegalStateException("must call setVisibilityIntegrationMode() first");
+            }
             if (this.visible == visible) {
                 return;
             }
             this.visible = visible;
-            mAfm.notifyViewVisibilityChanged(VirtualContainerView.this, text.id, visible);
-            Log.d(TAG, "visibility changed view: " + text.id + "; visible:" + visible);
+            Log.d(TAG, "visibility changed view: " + text.id + "; visible:" + visible
+                    + "; integrationMode: " + mVisibilityIntegrationMode);
+            if (mVisibilityIntegrationMode == VisibilityIntegrationMode.NOTIFY_AFM) {
+                mAfm.notifyViewVisibilityChanged(VirtualContainerView.this, text.id, visible);
+            }
             invalidate();
         }
 
@@ -313,9 +488,13 @@ class VirtualContainerView extends View {
             text.text = value;
             final AutofillManager autofillManager =
                     getContext().getSystemService(AutofillManager.class);
-            if (autofillManager != null) {
-                autofillManager.notifyValueChanged(VirtualContainerView.this, text.id,
-                        AutofillValue.forText(text.text));
+            if (mCompatMode) {
+                sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, text.id);
+            } else {
+                if (autofillManager != null) {
+                    autofillManager.notifyValueChanged(VirtualContainerView.this, text.id,
+                            AutofillValue.forText(text.text));
+                }
             }
             invalidate();
         }
@@ -353,8 +532,8 @@ class VirtualContainerView extends View {
             }
 
             void assertAutoFilled() throws Exception {
-                final boolean set = latch.await(FILL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-                assertWithMessage("Timeout (%s ms) on Line %s", FILL_TIMEOUT_MS, label)
+                final boolean set = latch.await(FILL_TIMEOUT.ms(), TimeUnit.MILLISECONDS);
+                assertWithMessage("Timeout (%s ms) on Line %s", FILL_TIMEOUT.ms(), label)
                         .that(set).isTrue();
                 final String actual = text.text.toString();
                 assertWithMessage("Wrong auto-fill value on Line %s", label)
@@ -370,6 +549,7 @@ class VirtualContainerView extends View {
         private CharSequence text;
         private final boolean editable;
         private final boolean sensitive;
+        private final String className;
         private TextWatcher listener;
 
         Item(Line line, int id, String resourceId, CharSequence text, boolean editable,
@@ -380,6 +560,39 @@ class VirtualContainerView extends View {
             this.text = text;
             this.editable = editable;
             this.sensitive = sensitive;
+            this.className = editable ? TEXT_CLASS : LABEL_CLASS;
+        }
+
+        AccessibilityNodeInfo provideAccessibilityNodeInfo(View parent, Context context) {
+            final AccessibilityNodeInfo node = AccessibilityNodeInfo.obtain();
+            node.setSource(parent, id);
+            node.setPackageName(context.getPackageName());
+            node.setClassName(className);
+            node.setEditable(editable);
+            node.setViewIdResourceName(resourceId);
+            node.setVisibleToUser(true);
+            node.setInputType(line.inputType);
+            if (line.absBounds != null) {
+                node.setBoundsInScreen(line.absBounds);
+            }
+            if (TextUtils.getTrimmedLength(text) > 0) {
+                // TODO: Must checked trimmed length because input fields use 8 empty spaces to
+                // set width
+                node.setText(text);
+            }
+            return node;
+        }
+
+        private void autofill(CharSequence value) {
+            if (!editable) {
+                Log.w(TAG, "Item for id " + id + " is not editable: " + this);
+                return;
+            }
+            text = value;
+            if (listener != null) {
+                Log.d(TAG, "Notify listener: " + text);
+                listener.onTextChanged(text, 0, 0, 0);
+            }
         }
 
         @Override

@@ -15,16 +15,16 @@
  */
 
 #include "Operations.h"
-#include "OperationsUtils.h"
+#include "CpuOperationUtils.h"
 
-#include "internal/optimized/optimized_ops.h"
+#include "tensorflow/contrib/lite/kernels/internal/optimized/optimized_ops.h"
 
 namespace android {
 namespace nn {
 
 bool l2normFloat32(const float* inputData, const Shape& inputShape,
                    float* outputData, const Shape& outputShape) {
-    optimized_ops::L2Normalization<FusedActivationFunctionType::kNone>(
+    tflite::optimized_ops::L2Normalization<tflite::FusedActivationFunctionType::kNone>(
             inputData, convertShapeToDims(inputShape),
             outputData, convertShapeToDims(outputShape));
 
@@ -33,7 +33,7 @@ bool l2normFloat32(const float* inputData, const Shape& inputShape,
 
 bool l2normQuant8(const uint8_t* inputData, const Shape& inputShape,
                   uint8_t* outputData, const Shape& outputShape) {
-    optimized_ops::L2Normalization(
+    tflite::optimized_ops::L2Normalization(
             inputData, convertShapeToDims(inputShape),
             inputShape.offset,
             outputData, convertShapeToDims(outputShape));
@@ -44,7 +44,7 @@ bool l2normQuant8(const uint8_t* inputData, const Shape& inputShape,
 bool localResponseNormFloat32(const float* inputData, const Shape& inputShape,
                               int32_t radius, float bias, float alpha, float beta,
                               float* outputData, const Shape& outputShape) {
-    optimized_ops::LocalResponseNormalization(
+    tflite::optimized_ops::LocalResponseNormalization(
             inputData, convertShapeToDims(inputShape),
             radius, bias, alpha, beta,
             outputData, convertShapeToDims(outputShape));

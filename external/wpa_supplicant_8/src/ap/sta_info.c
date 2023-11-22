@@ -1,6 +1,6 @@
 /*
  * hostapd / Station table
- * Copyright (c) 2002-2016, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2002-2017, Jouni Malinen <j@w1.fi>
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -17,6 +17,7 @@
 #include "radius/radius_client.h"
 #include "p2p/p2p.h"
 #include "fst/fst.h"
+#include "crypto/crypto.h"
 #include "hostapd.h"
 #include "accounting.h"
 #include "ieee802_1x.h"
@@ -344,7 +345,17 @@ void ap_free_sta(struct hostapd_data *hapd, struct sta_info *sta)
 	wpabuf_free(sta->fils_hlp_resp);
 	wpabuf_free(sta->hlp_dhcp_discover);
 	eloop_cancel_timeout(fils_hlp_timeout, hapd, sta);
+#ifdef CONFIG_FILS_SK_PFS
+	crypto_ecdh_deinit(sta->fils_ecdh);
+	wpabuf_clear_free(sta->fils_dh_ss);
+	wpabuf_free(sta->fils_g_sta);
+#endif /* CONFIG_FILS_SK_PFS */
 #endif /* CONFIG_FILS */
+
+#ifdef CONFIG_OWE
+	bin_clear_free(sta->owe_pmk, sta->owe_pmk_len);
+	crypto_ecdh_deinit(sta->owe_ecdh);
+#endif /* CONFIG_OWE */
 
 	os_free(sta);
 }
@@ -606,7 +617,7 @@ void ap_sta_no_session_timeout(struct hostapd_data *hapd, struct sta_info *sta)
 
 static void ap_handle_session_warning_timer(void *eloop_ctx, void *timeout_ctx)
 {
-#ifdef CONFIG_WNM
+#ifdef CONFIG_WNM_AP
 	struct hostapd_data *hapd = eloop_ctx;
 	struct sta_info *sta = timeout_ctx;
 
@@ -617,7 +628,7 @@ static void ap_handle_session_warning_timer(void *eloop_ctx, void *timeout_ctx)
 
 	wnm_send_ess_disassoc_imminent(hapd, sta, sta->hs20_session_info_url,
 				       sta->hs20_disassoc_timer);
-#endif /* CONFIG_WNM */
+#endif /* CONFIG_WNM_AP */
 }
 
 

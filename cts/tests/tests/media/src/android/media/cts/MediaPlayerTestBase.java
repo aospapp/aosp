@@ -20,6 +20,7 @@ import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.media.MediaPlayer;
+import android.media.cts.TestUtils.Monitor;
 import android.net.Uri;
 import android.os.PersistableBundle;
 import android.test.ActivityInstrumentationTestCase2;
@@ -43,58 +44,6 @@ public class MediaPlayerTestBase extends ActivityInstrumentationTestCase2<MediaS
     protected static final int LONG_SLEEP_TIME = 6000;
     protected static final int STREAM_RETRIES = 20;
     protected static boolean sUseScaleToFitMode = false;
-
-    public static class Monitor {
-        private int numSignal;
-
-        public synchronized void reset() {
-            numSignal = 0;
-        }
-
-        public synchronized void signal() {
-            numSignal++;
-            notifyAll();
-        }
-
-        public synchronized boolean waitForSignal() throws InterruptedException {
-            return waitForCountedSignals(1) > 0;
-        }
-
-        public synchronized int waitForCountedSignals(int targetCount) throws InterruptedException {
-            while (numSignal < targetCount) {
-                wait();
-            }
-            return numSignal;
-        }
-
-        public synchronized boolean waitForSignal(long timeoutMs) throws InterruptedException {
-            return waitForCountedSignals(1, timeoutMs) > 0;
-        }
-
-        public synchronized int waitForCountedSignals(int targetCount, long timeoutMs)
-                throws InterruptedException {
-            if (timeoutMs == 0) {
-                return waitForCountedSignals(targetCount);
-            }
-            long deadline = System.currentTimeMillis() + timeoutMs;
-            while (numSignal < targetCount) {
-                long delay = deadline - System.currentTimeMillis();
-                if (delay <= 0) {
-                    break;
-                }
-                wait(delay);
-            }
-            return numSignal;
-        }
-
-        public synchronized boolean isSignalled() {
-            return numSignal >= 1;
-        }
-
-        public synchronized int getNumSignal() {
-            return numSignal;
-        }
-    }
 
     protected Monitor mOnVideoSizeChangedCalled = new Monitor();
     protected Monitor mOnVideoRenderingStartCalled = new Monitor();

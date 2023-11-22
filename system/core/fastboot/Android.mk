@@ -22,8 +22,8 @@ LOCAL_CFLAGS += -DFASTBOOT_VERSION="\"$(tool_version)\""
 
 LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../adb \
-  $(LOCAL_PATH)/../mkbootimg \
-  $(LOCAL_PATH)/../../extras/f2fs_utils \
+
+LOCAL_HEADER_LIBRARIES := bootimg_headers
 
 LOCAL_SRC_FILES := \
     bootimg_utils.cpp \
@@ -40,25 +40,26 @@ LOCAL_MODULE := fastboot
 LOCAL_MODULE_TAGS := debug
 LOCAL_MODULE_HOST_OS := darwin linux windows
 LOCAL_CFLAGS += -Wall -Wextra -Werror -Wunreachable-code
-LOCAL_REQUIRED_MODULES := mke2fs e2fsdroid
+LOCAL_REQUIRED_MODULES := mke2fs make_f2fs
 
 LOCAL_SRC_FILES_linux := usb_linux.cpp
 LOCAL_STATIC_LIBRARIES_linux := libselinux
+LOCAL_REQUIRED_MODULES_linux := e2fsdroid mke2fs.conf sload_f2fs
 
 LOCAL_SRC_FILES_darwin := usb_osx.cpp
 LOCAL_STATIC_LIBRARIES_darwin := libselinux
+LOCAL_REQUIRED_MODULES_darwin := e2fsdroid mke2fs.conf sload_f2fs
 LOCAL_LDLIBS_darwin := -lpthread -framework CoreFoundation -framework IOKit -framework Carbon
 LOCAL_CFLAGS_darwin := -Wno-unused-parameter
 
 LOCAL_SRC_FILES_windows := usb_windows.cpp
-LOCAL_STATIC_LIBRARIES_windows := AdbWinApi
-LOCAL_REQUIRED_MODULES_windows := AdbWinApi AdbWinUsbApi
+LOCAL_SHARED_LIBRARIES_windows := AdbWinApi
+LOCAL_REQUIRED_MODULES_windows := AdbWinUsbApi
 LOCAL_LDLIBS_windows := -lws2_32
 LOCAL_C_INCLUDES_windows := development/host/windows/usb/api
 
 LOCAL_STATIC_LIBRARIES := \
     libziparchive \
-    libext4_utils \
     libsparse \
     libutils \
     liblog \
@@ -67,14 +68,6 @@ LOCAL_STATIC_LIBRARIES := \
     libbase \
     libcutils \
     libgtest_host \
-
-# libf2fs_dlutils_host will dlopen("libf2fs_fmt_host_dyn")
-LOCAL_CFLAGS_linux := -DUSE_F2FS
-LOCAL_LDFLAGS_linux := -ldl -rdynamic -Wl,-rpath,.
-LOCAL_REQUIRED_MODULES_linux := libf2fs_fmt_host_dyn
-# The following libf2fs_* are from system/extras/f2fs_utils,
-# and do not use code in external/f2fs-tools.
-LOCAL_STATIC_LIBRARIES_linux += libf2fs_utils_host libf2fs_ioutils_host libf2fs_dlutils_host
 
 LOCAL_CXX_STL := libc++_static
 
@@ -88,9 +81,8 @@ include $(BUILD_HOST_EXECUTABLE)
 my_dist_files := $(LOCAL_BUILT_MODULE)
 my_dist_files += $(HOST_OUT_EXECUTABLES)/mke2fs$(HOST_EXECUTABLE_SUFFIX)
 my_dist_files += $(HOST_OUT_EXECUTABLES)/e2fsdroid$(HOST_EXECUTABLE_SUFFIX)
-ifeq ($(HOST_OS),linux)
-my_dist_files += $(HOST_LIBRARY_PATH)/libf2fs_fmt_host_dyn$(HOST_SHLIB_SUFFIX)
-endif
+my_dist_files += $(HOST_OUT_EXECUTABLES)/make_f2fs$(HOST_EXECUTABLE_SUFFIX)
+my_dist_files += $(HOST_OUT_EXECUTABLES)/sload_f2fs$(HOST_EXECUTABLE_SUFFIX)
 $(call dist-for-goals,dist_files sdk win_sdk,$(my_dist_files))
 ifdef HOST_CROSS_OS
 # Archive fastboot.exe for win_sdk build.

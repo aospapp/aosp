@@ -29,7 +29,7 @@ import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.hotspot2.PasspointConfiguration;
 import android.net.wifi.hotspot2.pps.Credential;
 import android.net.wifi.hotspot2.pps.HomeSp;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 import android.util.Base64;
 
 import com.android.server.wifi.FakeKeys;
@@ -48,6 +48,7 @@ import com.android.server.wifi.hotspot2.anqp.eap.AuthParam;
 import com.android.server.wifi.hotspot2.anqp.eap.EAPMethod;
 import com.android.server.wifi.hotspot2.anqp.eap.NonEAPInnerAuth;
 
+import com.android.server.wifi.util.InformationElementUtil.RoamingConsortium;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -77,12 +78,14 @@ public class PasspointProviderTest {
 
     @Mock WifiKeyStore mKeyStore;
     @Mock SIMAccessor mSimAccessor;
+    @Mock RoamingConsortium mRoamingConsortium;
     PasspointProvider mProvider;
 
     /** Sets up test. */
     @Before
     public void setUp() throws Exception {
         initMocks(this);
+        when(mRoamingConsortium.getRoamingConsortiums()).thenReturn(null);
     }
 
     /**
@@ -362,7 +365,8 @@ public class PasspointProviderTest {
         anqpElementMap.put(ANQPElementType.ANQPDomName,
                 createDomainNameElement(new String[] {testDomain}));
 
-        assertEquals(PasspointMatch.HomeProvider, mProvider.match(anqpElementMap));
+        assertEquals(PasspointMatch.HomeProvider,
+            mProvider.match(anqpElementMap, mRoamingConsortium));
     }
 
     /**
@@ -397,7 +401,8 @@ public class PasspointProviderTest {
                 createNAIRealmElement(testRealm, EAPConstants.EAP_TTLS,
                         new NonEAPInnerAuth(NonEAPInnerAuth.AUTH_TYPE_MSCHAPV2)));
 
-        assertEquals(PasspointMatch.HomeProvider, mProvider.match(anqpElementMap));
+        assertEquals(PasspointMatch.HomeProvider,
+            mProvider.match(anqpElementMap, mRoamingConsortium));
     }
 
     /**
@@ -432,7 +437,7 @@ public class PasspointProviderTest {
         anqpElementMap.put(ANQPElementType.ANQPNAIRealm,
                 createNAIRealmElement(testRealm, EAPConstants.EAP_TLS, null));
 
-        assertEquals(PasspointMatch.None, mProvider.match(anqpElementMap));
+        assertEquals(PasspointMatch.None, mProvider.match(anqpElementMap, mRoamingConsortium));
     }
 
     /**
@@ -462,7 +467,8 @@ public class PasspointProviderTest {
         anqpElementMap.put(ANQPElementType.ANQPDomName,
                 createDomainNameElement(new String[] {"wlan.mnc456.mcc123.3gppnetwork.org"}));
 
-        assertEquals(PasspointMatch.HomeProvider, mProvider.match(anqpElementMap));
+        assertEquals(PasspointMatch.HomeProvider,
+            mProvider.match(anqpElementMap, mRoamingConsortium));
     }
 
     /**
@@ -493,7 +499,75 @@ public class PasspointProviderTest {
         anqpElementMap.put(ANQPElementType.ANQPRoamingConsortium,
                 createRoamingConsortiumElement(anqpRCOIs));
 
-        assertEquals(PasspointMatch.RoamingProvider, mProvider.match(anqpElementMap));
+        assertEquals(PasspointMatch.RoamingProvider,
+            mProvider.match(anqpElementMap, mRoamingConsortium));
+    }
+
+    /**
+     * Verify that a provider is a roaming provider when a roaming consortium OI matches an OI
+     * in the roaming consortium information element.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void matchRoamingConsortiumIe() throws Exception {
+        long[] providerRCOIs = new long[] {0x1234L, 0x2345L};
+        long[] ieRCOIs = new long[] {0x1234L, 0x2133L};
+
+        // Setup test provider.
+        PasspointConfiguration config = new PasspointConfiguration();
+        HomeSp homeSp = new HomeSp();
+        homeSp.setRoamingConsortiumOis(providerRCOIs);
+        config.setHomeSp(homeSp);
+        Credential credential = new Credential();
+        Credential.UserCredential userCredential = new Credential.UserCredential();
+        userCredential.setNonEapInnerMethod(Credential.UserCredential.AUTH_METHOD_MSCHAPV2);
+        credential.setUserCredential(userCredential);
+        config.setCredential(credential);
+        mProvider = createProvider(config);
+
+        // Setup Roaming Consortium ANQP element.
+        Map<ANQPElementType, ANQPElement> anqpElementMap = new HashMap<>();
+
+        // Setup Roaming Consortium Information element.
+        when(mRoamingConsortium.getRoamingConsortiums()).thenReturn(ieRCOIs);
+
+        assertEquals(PasspointMatch.RoamingProvider,
+            mProvider.match(anqpElementMap, mRoamingConsortium));
+    }
+
+    /**
+     * Verify that none of matched providers are not found when a roaming consortium OI doesn't
+     * matches an OI in the roaming consortium information element and
+     * none of NAI realms match each other.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void misMatchForRoamingConsortiumIeAndNAIRealm() throws Exception {
+        long[] providerRCOIs = new long[] {0x1234L, 0x2345L};
+        long[] ieRCOIs = new long[] {0x2255L, 0x2133L};
+
+        // Setup test provider.
+        PasspointConfiguration config = new PasspointConfiguration();
+        HomeSp homeSp = new HomeSp();
+        homeSp.setRoamingConsortiumOis(providerRCOIs);
+        config.setHomeSp(homeSp);
+        Credential credential = new Credential();
+        Credential.UserCredential userCredential = new Credential.UserCredential();
+        userCredential.setNonEapInnerMethod(Credential.UserCredential.AUTH_METHOD_MSCHAPV2);
+        credential.setUserCredential(userCredential);
+        config.setCredential(credential);
+        mProvider = createProvider(config);
+
+        // Setup Roaming Consortium ANQP element.
+        Map<ANQPElementType, ANQPElement> anqpElementMap = new HashMap<>();
+
+        // Setup Roaming Consortium Information element.
+        when(mRoamingConsortium.getRoamingConsortiums()).thenReturn(ieRCOIs);
+
+        assertEquals(PasspointMatch.None,
+            mProvider.match(anqpElementMap, mRoamingConsortium));
     }
 
     /**
@@ -523,7 +597,8 @@ public class PasspointProviderTest {
         anqpElementMap.put(ANQPElementType.ANQP3GPPNetwork,
                 createThreeGPPNetworkElement(new String[] {"123456"}));
 
-        assertEquals(PasspointMatch.RoamingProvider, mProvider.match(anqpElementMap));
+        assertEquals(PasspointMatch.RoamingProvider,
+            mProvider.match(anqpElementMap, mRoamingConsortium));
     }
 
     /**
@@ -553,7 +628,8 @@ public class PasspointProviderTest {
                 createNAIRealmElement(testRealm, EAPConstants.EAP_TTLS,
                         new NonEAPInnerAuth(NonEAPInnerAuth.AUTH_TYPE_MSCHAPV2)));
 
-        assertEquals(PasspointMatch.RoamingProvider, mProvider.match(anqpElementMap));
+        assertEquals(PasspointMatch.RoamingProvider,
+            mProvider.match(anqpElementMap, mRoamingConsortium));
     }
 
     /**
@@ -595,7 +671,8 @@ public class PasspointProviderTest {
         anqpElementMap.put(ANQPElementType.ANQP3GPPNetwork,
                 createThreeGPPNetworkElement(new String[] {"123456"}));
 
-        assertEquals(PasspointMatch.HomeProvider, mProvider.match(anqpElementMap));
+        assertEquals(PasspointMatch.HomeProvider,
+            mProvider.match(anqpElementMap, mRoamingConsortium));
     }
 
     /**
@@ -650,6 +727,7 @@ public class PasspointProviderTest {
         assertTrue(Arrays.equals(rcOIs, wifiConfig.roamingConsortiumIds));
         assertTrue(wifiConfig.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_EAP));
         assertTrue(wifiConfig.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.IEEE8021X));
+        assertFalse(wifiConfig.shared);
         assertEquals(realm, wifiEnterpriseConfig.getRealm());
         assertEquals(fqdn, wifiEnterpriseConfig.getDomainSuffixMatch());
         assertEquals("anonymous@" + realm, wifiEnterpriseConfig.getAnonymousIdentity());
@@ -712,6 +790,7 @@ public class PasspointProviderTest {
         assertTrue(Arrays.equals(rcOIs, wifiConfig.roamingConsortiumIds));
         assertTrue(wifiConfig.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_EAP));
         assertTrue(wifiConfig.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.IEEE8021X));
+        assertFalse(wifiConfig.shared);
         assertEquals(realm, wifiEnterpriseConfig.getRealm());
         assertEquals(fqdn, wifiEnterpriseConfig.getDomainSuffixMatch());
         assertEquals("anonymous@" + realm, wifiEnterpriseConfig.getAnonymousIdentity());
@@ -761,6 +840,7 @@ public class PasspointProviderTest {
         assertTrue(Arrays.equals(rcOIs, wifiConfig.roamingConsortiumIds));
         assertTrue(wifiConfig.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_EAP));
         assertTrue(wifiConfig.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.IEEE8021X));
+        assertFalse(wifiConfig.shared);
         assertEquals(realm, wifiEnterpriseConfig.getRealm());
         assertEquals(fqdn, wifiEnterpriseConfig.getDomainSuffixMatch());
         assertEquals(WifiEnterpriseConfig.Eap.SIM, wifiEnterpriseConfig.getEapMethod());

@@ -119,6 +119,18 @@ struct sockaddr_tipc {
 #define TIPC_CONN_TIMEOUT 130
 #define TIPC_NODE_RECVQ_DEPTH 131
 #define TIPC_SOCK_RECVQ_DEPTH 132
+#define TIPC_MCAST_BROADCAST 133
+#define TIPC_MCAST_REPLICAST 134
+#define TIPC_GROUP_JOIN 135
+#define TIPC_GROUP_LEAVE 136
+#define TIPC_GROUP_LOOPBACK 0x1
+#define TIPC_GROUP_MEMBER_EVTS 0x2
+struct tipc_group_req {
+  __u32 type;
+  __u32 instance;
+  __u32 scope;
+  __u32 flags;
+};
 #define TIPC_MAX_MEDIA_NAME 16
 #define TIPC_MAX_IF_NAME 16
 #define TIPC_MAX_BEARER_NAME 32

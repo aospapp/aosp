@@ -6,8 +6,8 @@
 
 from __future__ import print_function
 
-from error import PayloadError
-import update_metadata_pb2
+from update_payload import update_metadata_pb2
+from update_payload.error import PayloadError
 
 
 #
@@ -27,7 +27,8 @@ BRILLO_MAJOR_PAYLOAD_VERSION = 2
 INPLACE_MINOR_PAYLOAD_VERSION = 1
 SOURCE_MINOR_PAYLOAD_VERSION = 2
 OPSRCHASH_MINOR_PAYLOAD_VERSION = 3
-IMGDIFF_MINOR_PAYLOAD_VERSION = 4
+BROTLI_BSDIFF_MINOR_PAYLOAD_VERSION = 4
+PUFFDIFF_MINOR_PAYLOAD_VERSION = 5
 
 #
 # Payload operation types.
@@ -35,7 +36,6 @@ IMGDIFF_MINOR_PAYLOAD_VERSION = 4
 class OpType(object):
   """Container for operation type constants."""
   _CLASS = update_metadata_pb2.InstallOperation
-  # pylint: disable=E1101
   REPLACE = _CLASS.REPLACE
   REPLACE_BZ = _CLASS.REPLACE_BZ
   MOVE = _CLASS.MOVE
@@ -45,9 +45,10 @@ class OpType(object):
   ZERO = _CLASS.ZERO
   DISCARD = _CLASS.DISCARD
   REPLACE_XZ = _CLASS.REPLACE_XZ
-  IMGDIFF = _CLASS.IMGDIFF
+  PUFFDIFF = _CLASS.PUFFDIFF
+  BROTLI_BSDIFF = _CLASS.BROTLI_BSDIFF
   ALL = (REPLACE, REPLACE_BZ, MOVE, BSDIFF, SOURCE_COPY, SOURCE_BSDIFF, ZERO,
-         DISCARD, REPLACE_XZ, IMGDIFF)
+         DISCARD, REPLACE_XZ, PUFFDIFF, BROTLI_BSDIFF)
   NAMES = {
       REPLACE: 'REPLACE',
       REPLACE_BZ: 'REPLACE_BZ',
@@ -58,7 +59,8 @@ class OpType(object):
       ZERO: 'ZERO',
       DISCARD: 'DISCARD',
       REPLACE_XZ: 'REPLACE_XZ',
-      IMGDIFF: 'IMGDIFF',
+      PUFFDIFF: 'PUFFDIFF',
+      BROTLI_BSDIFF: 'BROTLI_BSDIFF',
   }
 
   def __init__(self):

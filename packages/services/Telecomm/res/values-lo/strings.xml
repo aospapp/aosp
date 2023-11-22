@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"ບໍ່ສາມາດໂທອອກໄດ້ເນື່ອງຈາກສາຍໃນແອັບອື່ນ."</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"ສາຍໂທເຂົ້າ"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"ສາຍບໍ່ໄດ້ຮັບ"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"ການບລັອກສາຍ"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"ການໂທສາຍນີ້ຈະເປັນການສິ້ນສຸດສາຍ <xliff:g id="OTHER_APP">%1$s</xliff:g> ຂອງທ່ານ."</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"ການບລັອກສາຍ"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"ເບີໂທບໍ່ໄດ້ຢູ່ໃນລາຍຊື່ຜູ້ຕິດຕໍ່"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"ບລັອກເບີໂທທີ່ບໍ່ຢູ່ໃນລາຍຊື່ຜູ້ຕິດຕໍ່ຂອງທ່ານ"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"ສ່ວນຕົວ"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"ບລັອກຜູ້ໂທທີ່ບໍ່ສະແດງເບີໂທຂອງເຂົາເຈົ້າ"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"ຕູ້ໂທ"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"ບລັອກສາຍຈາກຕູ້ໂທ"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"ບໍ່ຮູ້ຈັກ"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"ບລັອກສາຍຈາກຜູ້ໂທທີ່ລະບຸຕົວຕົນບໍ່ໄດ້"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"ການບລັອກສາຍ"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"ປິດການບລັອກສາຍແລ້ວ"</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"ໂທສຸກເສີນແລ້ວ"</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"ປິດການບລັອກສາຍແລ້ວເພື່ອອະນຸຍາດໃຫ້ສາຍສຸກເສີນສາມາດຕິດຕໍ່ຫາທ່ານໄດ້."</string>
 </resources>

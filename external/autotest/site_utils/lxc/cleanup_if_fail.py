@@ -29,7 +29,8 @@ def cleanup_if_fail():
             @param kwargs: keyword arguments for function to be called.
             """
             bucket = args[0]
-            name = utils.get_function_arg_value(func, 'name', args, kwargs)
+            container_id = utils.get_function_arg_value(
+                    func, 'container_id', args, kwargs)
             try:
                 skip_cleanup = utils.get_function_arg_value(
                         func, 'skip_cleanup', args, kwargs)
@@ -40,7 +41,7 @@ def cleanup_if_fail():
             except:
                 exc_info = sys.exc_info()
                 try:
-                    container = bucket.get(name)
+                    container = bucket.get_container(container_id)
                     if container and not skip_cleanup:
                         container.destroy()
                 except error.CmdError as e:

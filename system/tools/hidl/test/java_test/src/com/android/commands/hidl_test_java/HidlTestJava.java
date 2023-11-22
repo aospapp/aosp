@@ -16,6 +16,7 @@
 
 package com.android.commands.hidl_test_java;
 
+import android.hidl.manager.V1_0.IServiceManager;
 import android.hardware.tests.baz.V1_0.IBase;
 import android.hardware.tests.baz.V1_0.IBaz;
 import android.hardware.tests.baz.V1_0.IQuux;
@@ -29,6 +30,7 @@ import android.util.Log;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 
 public final class HidlTestJava {
     private static final String TAG = "HidlTestJava";
@@ -115,6 +117,20 @@ public final class HidlTestJava {
         throw new RuntimeException();
     }
 
+    // .equals and HidlSupport.interfacesEqual should have the same behavior.
+    private void ExpectEqual(android.hidl.base.V1_0.IBase l, android.hidl.base.V1_0.IBase r) {
+        ExpectTrue(Objects.equals(l, r));
+        ExpectTrue(Objects.equals(r, l));
+        ExpectTrue(HidlSupport.interfacesEqual(l, r));
+        ExpectTrue(HidlSupport.interfacesEqual(r, l));
+    }
+    private void ExpectNotEqual(android.hidl.base.V1_0.IBase l, android.hidl.base.V1_0.IBase r) {
+        ExpectFalse(Objects.equals(l, r));
+        ExpectFalse(Objects.equals(r, l));
+        ExpectFalse(HidlSupport.interfacesEqual(l, r));
+        ExpectFalse(HidlSupport.interfacesEqual(r, l));
+    }
+
     class BazCallback extends IBazCallback.Stub {
         private boolean mCalled;
 
@@ -135,6 +151,12 @@ public final class HidlTestJava {
         public void hey() {
             mCalled = true;
         }
+
+        @Override public boolean equals(Object other) {
+            return other != null && other.getClass() == BazCallback.class &&
+                ((BazCallback) other).mCalled == mCalled;
+        }
+        @Override public int hashCode() { return mCalled ? 1 : 0; }
     }
 
     private String numberToEnglish(int x) {
@@ -240,6 +262,8 @@ public final class HidlTestJava {
             // Test proper exceptions are thrown
             try {
                 IBase proxy = IBase.getService("this-doesn't-exist");
+                // this should never run
+                ExpectTrue(false);
             } catch (Exception e) {
                 ExpectTrue(e instanceof NoSuchElementException);
             }
@@ -259,7 +283,18 @@ public final class HidlTestJava {
             ExpectTrue(quuxProxy == null);
         }
 
+        {
+            // Test waiting API
+            IBase baseProxyA = IBaz.getService("baz", true /* retry */);
+            ExpectTrue(baseProxyA != null);
+            IBase baseProxyB = IBaz.getService("baz", false /* retry */);
+            ExpectTrue(baseProxyB != null);
+        }
+
         IBaz proxy = IBaz.getService("baz");
+
+        proxy.ping();
+
         proxy.someBaseMethod();
 
         {
@@ -630,6 +665,142 @@ public final class HidlTestJava {
             }
         }
 
+        {
+            // TestArrays
+            IBase.LotsOfPrimitiveArrays in = new IBase.LotsOfPrimitiveArrays();
+
+            for (int i = 0; i < 128; ++i) {
+                in.byte1[i] = (byte)i;
+                in.boolean1[i] = (i & 4) != 0;
+                in.double1[i] = i;
+            }
+
+            int m = 0;
+            for (int i = 0; i < 8; ++i) {
+                for (int j = 0; j < 128; ++j, ++m) {
+                    in.byte2[i][j] = (byte)m;
+                    in.boolean2[i][j] = (m & 4) != 0;
+                    in.double2[i][j] = m;
+                }
+            }
+
+            m = 0;
+            for (int i = 0; i < 8; ++i) {
+                for (int j = 0; j < 16; ++j) {
+                    for (int k = 0; k < 128; ++k, ++m) {
+                        in.byte3[i][j][k] = (byte)m;
+                        in.boolean3[i][j][k] = (m & 4) != 0;
+                        in.double3[i][j][k] = m;
+                    }
+                }
+            }
+
+            IBase.LotsOfPrimitiveArrays out = proxy.testArrays(in);
+            ExpectTrue(in.equals(out));
+        }
+
+        {
+            // testByteVecs
+
+            ArrayList<byte[]> in = new ArrayList<byte[]>();
+
+            int k = 0;
+            for (int i = 0; i < in.size(); ++i) {
+                byte[] elem = new byte[128];
+                for (int j = 0; j < 128; ++j, ++k) {
+                    elem[j] = (byte)k;
+                }
+                in.add(elem);
+            }
+
+            ArrayList<byte[]> out = proxy.testByteVecs(in);
+            ExpectTrue(in.equals(out));
+        }
+
+        {
+            // testBooleanVecs
+
+            ArrayList<boolean[]> in = new ArrayList<boolean[]>();
+
+            int k = 0;
+            for (int i = 0; i < in.size(); ++i) {
+                boolean[] elem = new boolean[128];
+                for (int j = 0; j < 128; ++j, ++k) {
+                    elem[j] = (k & 4) != 0;
+                }
+                in.add(elem);
+            }
+
+            ArrayList<boolean[]> out = proxy.testBooleanVecs(in);
+            ExpectTrue(in.equals(out));
+        }
+
+        {
+            // testDoubleVecs
+
+            ArrayList<double[]> in = new ArrayList<double[]>();
+
+            int k = 0;
+            for (int i = 0; i < in.size(); ++i) {
+                double[] elem = new double[128];
+                for (int j = 0; j < 128; ++j, ++k) {
+                    elem[j] = k;
+                }
+                in.add(elem);
+            }
+
+            ArrayList<double[]> out = proxy.testDoubleVecs(in);
+            ExpectTrue(in.equals(out));
+        }
+
+        {
+            // testProxyEquals
+            // TODO(b/68727931): test passthrough services as well.
+
+            IBase proxy1 = IBase.getService("baz");
+            IBase proxy2 = IBase.getService("baz");
+            IBaz proxy3 = IBaz.getService("baz");
+            IBazCallback callback1 = new BazCallback();
+            IBazCallback callback2 = new BazCallback();
+            IServiceManager manager = IServiceManager.getService();
+
+            // test hwbinder proxies
+            ExpectEqual(proxy1, proxy2); // same proxy class
+            ExpectEqual(proxy1, proxy3); // different proxy class
+
+            // negative tests
+            ExpectNotEqual(proxy1, null);
+            ExpectNotEqual(proxy1, callback1); // proxy != stub
+            ExpectNotEqual(proxy1, manager);
+
+            // HidlSupport.interfacesEqual use overridden .equals for stubs
+            ExpectEqual(callback1, callback1);
+            ExpectEqual(callback1, callback2);
+            callback1.hey();
+            ExpectNotEqual(callback1, callback2);
+            callback2.hey();
+            ExpectEqual(callback1, callback2);
+
+            // test hash for proxies
+            java.util.HashSet<IBase> set = new java.util.HashSet<>();
+            set.add(proxy1);
+            ExpectTrue(set.contains(proxy1)); // hash is stable
+            ExpectTrue(set.contains(proxy2));
+            ExpectFalse(set.contains(manager));
+        }
+        {
+            IBaz baz = IBaz.getService("baz");
+            ExpectTrue(baz != null);
+            IBaz.StructWithInterface swi = new IBaz.StructWithInterface();
+            swi.dummy = baz;
+            swi.number = 12345678;
+            IBaz.StructWithInterface swi_back = baz.haveSomeStructWithInterface(swi);
+            ExpectTrue(swi_back != null);
+            ExpectTrue(swi_back.dummy != null);
+            ExpectTrue(HidlSupport.interfacesEqual(baz, swi_back.dummy));
+            ExpectTrue(swi_back.number == 12345678);
+        }
+
         // --- DEATH RECIPIENT TESTING ---
         // This must always be done last, since it will kill the native server process
         HidlDeathRecipient recipient1 = new HidlDeathRecipient();
@@ -817,6 +988,22 @@ public final class HidlTestJava {
                     (byte)(second.value & bf), (byte)((bf | bf) & third));
         }
 
+        public LotsOfPrimitiveArrays testArrays(LotsOfPrimitiveArrays in) {
+            return in;
+        }
+
+        public ArrayList<byte[]> testByteVecs(ArrayList<byte[]> in) {
+            return in;
+        }
+
+        public ArrayList<boolean[]> testBooleanVecs(ArrayList<boolean[]> in) {
+            return in;
+        }
+
+        public ArrayList<double[]> testDoubleVecs(ArrayList<double[]> in) {
+            return in;
+        }
+
         public byte returnABitField() {
             return 0;
         }
@@ -893,6 +1080,10 @@ public final class HidlTestJava {
 
         public void returnABunchOfStrings(returnABunchOfStringsCallback cb) {
             cb.onValues("Eins", "Zwei", "Drei");
+        }
+
+        public StructWithInterface haveSomeStructWithInterface(StructWithInterface swi) {
+            return swi;
         }
     }
 

@@ -73,6 +73,15 @@ public class TagViewer extends Activity implements OnClickListener {
         }
     }
 
+    private void addView(LayoutInflater inflater, LinearLayout content, View v) {
+        if (v == null) {
+            TextView empty = (TextView) inflater.inflate(R.layout.tag_text, content, false);
+            empty.setText(R.string.tag_empty);
+            v = empty;
+        }
+        content.addView(v);
+    }
+
     void buildTagViews(NdefMessage msg) {
         LayoutInflater inflater = LayoutInflater.from(this);
         LinearLayout content = mTagContent;
@@ -82,9 +91,7 @@ public class TagViewer extends Activity implements OnClickListener {
 
         // Build views for all of the sub records
         if (msg == null) {
-            TextView empty = (TextView) inflater.inflate(R.layout.tag_text, content, false);
-            empty.setText(R.string.tag_empty);
-            content.addView(empty);
+            addView(inflater, content, null);
         } else {
             // Parse the first message in the list
             //TODO figure out what to do when/if we support multiple messages per tag
@@ -93,13 +100,11 @@ public class TagViewer extends Activity implements OnClickListener {
             List<ParsedNdefRecord> records = parsedMsg.getRecords();
             final int size = records.size();
             if (size == 0) {
-                TextView empty = (TextView) inflater.inflate(R.layout.tag_text, content, false);
-                empty.setText(R.string.tag_empty);
-                content.addView(empty);
+                addView(inflater, content, null);
             } else {
                 for (int i = 0; i < size; i++) {
                     ParsedNdefRecord record = records.get(i);
-                    content.addView(record.getView(this, inflater, content, i));
+                    addView(inflater, content, record.getView(this, inflater, content, i));
                     inflater.inflate(R.layout.tag_divider, content, true);
                 }
             }

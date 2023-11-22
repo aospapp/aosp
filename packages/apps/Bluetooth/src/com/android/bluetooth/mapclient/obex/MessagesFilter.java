@@ -10,33 +10,33 @@ import java.util.Date;
  */
 public final class MessagesFilter {
 
-    public final static byte MESSAGE_TYPE_ALL = 0x00;
-    public final static byte MESSAGE_TYPE_SMS_GSM = 0x01;
-    public final static byte MESSAGE_TYPE_SMS_CDMA = 0x02;
-    public final static byte MESSAGE_TYPE_EMAIL = 0x04;
-    public final static byte MESSAGE_TYPE_MMS = 0x08;
+    public static final byte MESSAGE_TYPE_ALL = 0x00;
+    public static final byte MESSAGE_TYPE_SMS_GSM = 0x01;
+    public static final byte MESSAGE_TYPE_SMS_CDMA = 0x02;
+    public static final byte MESSAGE_TYPE_EMAIL = 0x04;
+    public static final byte MESSAGE_TYPE_MMS = 0x08;
 
-    public final static byte READ_STATUS_ANY = 0x00;
-    public final static byte READ_STATUS_UNREAD = 0x01;
-    public final static byte READ_STATUS_READ = 0x02;
+    public static final byte READ_STATUS_ANY = 0x00;
+    public static final byte READ_STATUS_UNREAD = 0x01;
+    public static final byte READ_STATUS_READ = 0x02;
 
-    public final static byte PRIORITY_ANY = 0x00;
-    public final static byte PRIORITY_HIGH = 0x01;
-    public final static byte PRIORITY_NON_HIGH = 0x02;
+    public static final byte PRIORITY_ANY = 0x00;
+    public static final byte PRIORITY_HIGH = 0x01;
+    public static final byte PRIORITY_NON_HIGH = 0x02;
 
-    byte messageType = MESSAGE_TYPE_ALL;
+    public byte messageType = MESSAGE_TYPE_ALL;
 
-    String periodBegin = null;
+    public String periodBegin = null;
 
-    String periodEnd = null;
+    public String periodEnd = null;
 
-    byte readStatus = READ_STATUS_ANY;
+    public byte readStatus = READ_STATUS_ANY;
 
-    String recipient = null;
+    public String recipient = null;
 
-    String originator = null;
+    public String originator = null;
 
-    byte priority = PRIORITY_ANY;
+    public byte priority = PRIORITY_ANY;
 
     public MessagesFilter() {
     }
@@ -60,7 +60,7 @@ public final class MessagesFilter {
     }
 
     public void setRecipient(String filter) {
-        if ("".equals(filter)) {
+        if (filter != null && filter.isEmpty()) {
             recipient = null;
         } else {
             recipient = filter;
@@ -68,7 +68,7 @@ public final class MessagesFilter {
     }
 
     public void setOriginator(String filter) {
-        if ("".equals(filter)) {
+        if (filter != null && filter.isEmpty()) {
             originator = null;
         } else {
             originator = filter;

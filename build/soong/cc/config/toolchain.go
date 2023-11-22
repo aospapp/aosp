@@ -70,6 +70,8 @@ type Toolchain interface {
 
 	YasmFlags() string
 
+	WindresFlags() string
+
 	Is64Bit() bool
 
 	ShlibSuffix() string
@@ -135,6 +137,10 @@ func (toolchainBase) YasmFlags() string {
 	return ""
 }
 
+func (toolchainBase) WindresFlags() string {
+	return ""
+}
+
 func (toolchainBase) SanitizerRuntimeLibraryArch() string {
 	return ""
 }
@@ -193,20 +199,6 @@ func addPrefix(list []string, prefix string) []string {
 	return list
 }
 
-func indexList(s string, list []string) int {
-	for i, l := range list {
-		if l == s {
-			return i
-		}
-	}
-
-	return -1
-}
-
-func inList(s string, list []string) bool {
-	return indexList(s, list) != -1
-}
-
 func SanitizerRuntimeLibrary(t Toolchain, sanitizer string) string {
 	arch := t.SanitizerRuntimeLibraryArch()
 	if arch == "" {
@@ -223,8 +215,16 @@ func UndefinedBehaviorSanitizerRuntimeLibrary(t Toolchain) string {
 	return SanitizerRuntimeLibrary(t, "ubsan_standalone")
 }
 
+func UndefinedBehaviorSanitizerMinimalRuntimeLibrary(t Toolchain) string {
+	return SanitizerRuntimeLibrary(t, "ubsan_minimal")
+}
+
 func ThreadSanitizerRuntimeLibrary(t Toolchain) string {
 	return SanitizerRuntimeLibrary(t, "tsan")
+}
+
+func ProfileRuntimeLibrary(t Toolchain) string {
+	return SanitizerRuntimeLibrary(t, "profile")
 }
 
 func ToolPath(t Toolchain) string {
@@ -233,3 +233,5 @@ func ToolPath(t Toolchain) string {
 	}
 	return filepath.Join(t.GccRoot(), t.GccTriple(), "bin")
 }
+
+var inList = android.InList

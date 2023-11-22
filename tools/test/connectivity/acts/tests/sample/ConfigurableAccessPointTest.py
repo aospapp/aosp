@@ -14,7 +14,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-
 import logging
 
 from acts import base_test
@@ -35,8 +34,7 @@ class ConfigurableAccessPointTest(base_test.BaseTestClass):
 
     def test_setup_access_point(self):
         config = hostapd_config.HostapdConfig(
-            channel=6,
-            ssid='ImagineYourNetworkHere')
+            channel=6, ssid='ImagineYourNetworkHere')
         self.ap.start_ap(config)
 
         logging.info('Your test logic should go here!')

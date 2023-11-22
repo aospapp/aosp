@@ -49,7 +49,7 @@ extern "C" {
 #include "gpt-utils.h"
 
 #define BOOTDEV_DIR "/dev/block/bootdevice/by-name"
-#define BOOT_IMG_PTN_NAME "boot"
+#define BOOT_IMG_PTN_NAME "boot_"
 #define LUN_NAME_END_LOC 14
 #define BOOT_SLOT_PROP "ro.boot.slot_suffix"
 
@@ -266,6 +266,8 @@ unsigned get_number_slots(struct boot_control_module *module)
 	while ((de = readdir(dir_bootdev))) {
 		if (de->d_name[0] == '.')
 			continue;
+		static_assert(AB_SLOT_A_SUFFIX[0] == '_', "Breaking change to slot A suffix");
+		static_assert(AB_SLOT_B_SUFFIX[0] == '_', "Breaking change to slot B suffix");
 		if (!strncmp(de->d_name, BOOT_IMG_PTN_NAME,
 					strlen(BOOT_IMG_PTN_NAME)))
 			slot_count++;
@@ -560,7 +562,10 @@ int set_active_boot_slot(struct boot_control_module *module, unsigned slot)
 	for (map_iter = ptn_map.begin(); map_iter != ptn_map.end(); map_iter++){
 		if (map_iter->second.size() < 1)
 			continue;
-		boot_ctl_set_active_slot_for_partitions(map_iter->second, slot);
+		if (boot_ctl_set_active_slot_for_partitions(map_iter->second, slot)) {
+			ALOGE("%s: Failed to set active slot for partitions ", __func__);;
+			goto error;
+		}
 	}
 	if (is_ufs) {
 		if (!strncmp(slot_suffix_arr[slot], AB_SLOT_A_SUFFIX,

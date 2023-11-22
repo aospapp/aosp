@@ -33,7 +33,7 @@
     <!-- Disable source profiles (typically used in phone) -->
     <bool name="profile_supported_a2dp">false</bool>
     <bool name="profile_supported_hs_hfp">false</bool>
-    <bool name="profile_supported_hid">false</bool>
+    <bool name="profile_supported_hid_host">false</bool>
     <bool name="profile_supported_pbap">false</bool>
     <bool name="profile_supported_map">false</bool>
     <bool name="profile_supported_hdp">false</bool>

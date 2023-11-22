@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -74,11 +74,10 @@ class ActsTestRunnerTest(unittest.TestCase):
         tr = test_runner.TestRunner(mock_test_config, self.mock_run_list)
         tr.register_controller(mock_controller)
         registered_name = "mock_controller"
-        self.assertTrue(registered_name in tr.controller_registry)
-        mock_ctrlrs = tr.controller_registry[registered_name]
+        self.assertTrue(mock_controller in tr.controller_registry)
+        mock_ctrlrs = tr.controller_registry[mock_controller]
         self.assertEqual(mock_ctrlrs[0].magic, "magic1")
         self.assertEqual(mock_ctrlrs[1].magic, "magic2")
-        self.assertTrue(tr.controller_destructors[registered_name])
         expected_msg = "Controller module .* has already been registered."
         with self.assertRaisesRegexp(signals.ControllerError, expected_msg):
             tr.register_controller(mock_controller)
@@ -114,17 +113,16 @@ class ActsTestRunnerTest(unittest.TestCase):
                 "magic1", "magic2"
             ]
             tr = test_runner.TestRunner(mock_test_config, self.mock_run_list)
-            tr.register_controller(mock_controller)
+            tr.register_controller(mock_controller, builtin=True)
             self.assertTrue(mock_ref_name in tr.test_run_info)
-            self.assertTrue(mock_ref_name in tr.controller_registry)
+            self.assertTrue(mock_controller in tr.controller_registry)
             mock_ctrlrs = tr.test_run_info[mock_ctrlr_ref_name]
             self.assertEqual(mock_ctrlrs[0].magic, "magic1")
             self.assertEqual(mock_ctrlrs[1].magic, "magic2")
-            self.assertTrue(tr.controller_destructors[mock_ctrlr_ref_name])
             expected_msg = "Controller module .* has already been registered."
             with self.assertRaisesRegexp(signals.ControllerError,
                                          expected_msg):
-                tr.register_controller(mock_controller)
+                tr.register_controller(mock_controller, builtin=True)
         finally:
             delattr(mock_controller, "ACTS_CONTROLLER_REFERENCE_NAME")
 
@@ -172,16 +170,14 @@ class ActsTestRunnerTest(unittest.TestCase):
             "magic": "Magic2"
         }]
         mock_test_config[tb_key][mock_ctrlr_config_name] = my_config
-        tr = test_runner.TestRunner(mock_test_config, [('IntegrationTest',
-                                                        None)])
+        tr = test_runner.TestRunner(mock_test_config,
+                                    [('IntegrationTest', None)])
         tr.run()
         self.assertFalse(tr.controller_registry)
-        self.assertFalse(tr.controller_destructors)
         self.assertTrue(mock_test_config[tb_key][mock_ctrlr_config_name][0])
         tr.run()
         tr.stop()
         self.assertFalse(tr.controller_registry)
-        self.assertFalse(tr.controller_destructors)
         results = tr.results.summary_dict()
         self.assertEqual(results["Requested"], 2)
         self.assertEqual(results["Executed"], 2)
@@ -213,7 +209,11 @@ class ActsTestRunnerTest(unittest.TestCase):
     @mock.patch(
         'acts.controllers.android_device.AndroidDevice.ensure_screen_on',
         return_value=True)
-    def test_run_two_test_classes(self, mock_ensure_screen_on, mock_get_all,
+    @mock.patch(
+        'acts.controllers.android_device.AndroidDevice.exit_setup_wizard',
+        return_value=True)
+    def test_run_two_test_classes(self, mock_exit_setup_wizard,
+                                  mock_ensure_screen_on, mock_get_all,
                                   mock_list_adb, mock_fastboot, mock_adb):
         """Verifies that runing more than one test class in one test run works
         proerly.
@@ -236,12 +236,12 @@ class ActsTestRunnerTest(unittest.TestCase):
             "serial": "1",
             "skip_sl4a": True
         }]
-        tr = test_runner.TestRunner(mock_test_config, [(
-            'IntegrationTest', None), ('IntegrationTest', None)])
+        tr = test_runner.TestRunner(mock_test_config,
+                                    [('IntegrationTest', None),
+                                     ('IntegrationTest', None)])
         tr.run()
         tr.stop()
         self.assertFalse(tr.controller_registry)
-        self.assertFalse(tr.controller_destructors)
         results = tr.results.summary_dict()
         self.assertEqual(results["Requested"], 2)
         self.assertEqual(results["Executed"], 2)

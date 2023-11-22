@@ -85,36 +85,34 @@ bool DisableHALProfiling() {
   return true;
 }
 
-// Usage examples:
-//   To enable, <binary> enable <lib path>
-//   To disable, <binary> disable clear
-int main(int argc, char *argv[]) {
-  bool enable_profiling = false;
-  if (argc >= 2) {
-    if (!strcmp(argv[1], "enable")) {
-      enable_profiling = true;
-    }
-    if (argc == 3 && strlen(argv[2]) > 0) {
-      if (!strcmp(argv[2], "clear")) {
-        property_set("hal.instrumentation.lib.path", "");
-        printf("* setprop hal.instrumentation.lib.path \"\"\n");
-      } else {
-        property_set("hal.instrumentation.lib.path", argv[2]);
-        printf("* setprop hal.instrumentation.lib.path %s\n", argv[2]);
-      }
-    }
-  }
+void PrintUsage() {
+  printf(
+      "Usage: \n"
+      "To enable profiling: <binary> enable <lib path 32> <lib path 64>"
+      "To disable profiling <binary> disable");
+}
 
-  if (enable_profiling) {
+int main(int argc, char *argv[]) {
+  if (argc == 2 && !strcmp(argv[1], "disable")) {
+    printf("* disable profiling.\n");
+    property_set("hal.instrumentation.lib.path.32", "");
+    property_set("hal.instrumentation.lib.path.64", "");
+    if (!DisableHALProfiling()) {
+      printf("failed to disable profiling.\n");
+      return -1;
+    }
+  } else if (argc >= 2 && !strcmp(argv[1], "enable")) {
     printf("* enable profiling.\n");
+    if (argc == 4) {
+      property_set("hal.instrumentation.lib.path.32", argv[2]);
+      property_set("hal.instrumentation.lib.path.64", argv[3]);
+    }
     if (!EnableHALProfiling()) {
-      fprintf(stderr, "failed to enable profiling.\n");
+      printf("failed to enable profiling.\n");
+      return -1;
     }
   } else {
-    printf("* disable profiling.\n");
-    if (!DisableHALProfiling()) {
-      fprintf(stderr, "failed to disable profiling.\n");
-    }
+    PrintUsage();
   }
   return 0;
 }

@@ -18,23 +18,18 @@
 #ifndef SYSTEM_EXTRAS_PERFPROFD_PERFPROFDCORE_H_
 #define SYSTEM_EXTRAS_PERFPROFD_PERFPROFDCORE_H_
 
-class ConfigReader;
+#include <functional>
+#include <memory>
 
-// Semaphore file that indicates that the user is opting in
-#define SEMAPHORE_FILENAME "perf_profile_collection_enabled.txt"
+#include "perfprofd_record-fwd.h"
 
-// File containing a list of sequence numbers corresponding to profiles
-// that have been processed/uploaded. Written by the GmsCore uploader,
-// within the GmsCore files directory.
-#define PROCESSED_FILENAME "perfprofd_processed.txt"
+struct Config;
 
-// File containing a list of sequence numbers corresponding to profiles
-// that have been created by the perfprofd but not yet uploaded. Written
-// by perfprofd within the destination directory; consumed by GmsCore.
-#define PRODUCED_FILENAME "perfprofd_produced.txt"
+namespace perfprofd {
+struct Symbolizer;
+}
 
-// Main routine for perfprofd daemon
-extern int perfprofd_main(int argc, char **argv);
+void CommonInit(uint32_t use_fixed_seed, const char* dest_dir);
 
 //
 // This enumeration holds the results of what happened when on an
@@ -69,8 +64,17 @@ typedef enum {
 //
 PROFILE_RESULT encode_to_proto(const std::string &data_file_path,
                                const char *encoded_file_path,
-                               const ConfigReader &config,
-                               unsigned cpu_utilization);
+                               const Config& config,
+                               unsigned cpu_utilization,
+                               perfprofd::Symbolizer* symbolizer);
+
+using HandlerFn = std::function<bool(android::perfprofd::PerfprofdRecord* proto,
+                                     Config* config)>;
+
+void ProfilingLoop(Config& config, HandlerFn handler);
+void ProfilingLoop(std::function<Config*()> config_fn,
+                   std::function<void()> update_fn,
+                   HandlerFn handler);
 
 //
 // Exposed for unit testing
@@ -79,5 +83,7 @@ extern unsigned collect_cpu_utilization();
 extern bool get_booting();
 extern bool get_charging();
 extern bool get_camera_active();
+
+bool IsDebugBuild();
 
 #endif

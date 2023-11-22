@@ -19,12 +19,13 @@ package android.app.uiautomation.cts;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
 import android.app.UiAutomation;
-import android.app.uiautomation.cts.R;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
+import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 import android.provider.Settings;
 import android.test.InstrumentationTestCase;
 import android.view.FrameStats;
@@ -61,6 +62,7 @@ public class UiAutomationTest extends InstrumentationTestCase {
         grantWriteSecureSettingsPermission(uiAutomation);
     }
 
+    @Presubmit
     public void testWindowContentFrameStats() throws Exception {
         Activity activity = null;
         try {
@@ -169,6 +171,7 @@ public class UiAutomationTest extends InstrumentationTestCase {
         }
     }
 
+    @Presubmit
     public void testWindowAnimationFrameStats() throws Exception {
         Activity firstActivity = null;
         Activity secondActivity = null;
@@ -265,6 +268,7 @@ public class UiAutomationTest extends InstrumentationTestCase {
         assertEquals(stats.getEndTimeNano(), FrameStats.UNDEFINED_TIME_NANO);
     }
 
+    @Presubmit
     public void testUsingUiAutomationAfterDestroy_shouldThrowException() {
         UiAutomation uiAutomation = getInstrumentation().getUiAutomation();
         uiAutomation.destroy();
@@ -275,6 +279,7 @@ public class UiAutomationTest extends InstrumentationTestCase {
         }
     }
 
+    @AppModeFull
     public void testDontSuppressAccessibility_canStartA11yService() throws IOException,
             InterruptedException {
         turnAccessibilityOff();
@@ -288,6 +293,7 @@ public class UiAutomationTest extends InstrumentationTestCase {
         }
     }
 
+    @AppModeFull
     public void testServiceWithNoFlags_shutsDownA11yService() throws IOException {
         turnAccessibilityOff();
         try {
@@ -304,6 +310,7 @@ public class UiAutomationTest extends InstrumentationTestCase {
         }
     }
 
+    @AppModeFull
     public void testServiceSupressingA11yServices_a11yServiceStartsWhenDestroyed()
             throws IOException, InterruptedException {
         turnAccessibilityOff();
@@ -323,6 +330,7 @@ public class UiAutomationTest extends InstrumentationTestCase {
         }
     }
 
+    @AppModeFull
     public void testServiceSupressingA11yServices_a11yServiceStartsWhenFlagsChange()
             throws IOException, InterruptedException {
         turnAccessibilityOff();
@@ -370,10 +378,8 @@ public class UiAutomationTest extends InstrumentationTestCase {
     }
 
     private void grantWriteSecureSettingsPermission(UiAutomation uiAutomation) throws IOException {
-        Context context = getInstrumentation().getContext();
-        ParcelFileDescriptor fd = uiAutomation.executeShellCommand("pm grant "
-                + context.getPackageName() + "android.permission.WRITE_SECURE_SETTINGS");
-        fd.close();
+        uiAutomation.grantRuntimePermission(getInstrumentation().getContext().getPackageName(),
+                android.Manifest.permission.WRITE_SECURE_SETTINGS);
     }
 
     private void enableAccessibilityService() {

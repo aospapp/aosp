@@ -16,12 +16,13 @@
 
 package foo;
 
-import static android.arch.lifecycle.Lifecycle.Event.ON_START;
-import static android.arch.lifecycle.Lifecycle.Event.ON_STOP;
+import static androidx.lifecycle.Lifecycle.Event.ON_START;
+import static androidx.lifecycle.Lifecycle.Event.ON_STOP;
 
-import android.arch.lifecycle.OnLifecycleEvent;
+import androidx.lifecycle.LifecycleObserver;
+import androidx.lifecycle.OnLifecycleEvent;
 
-class Base {
+class Base implements LifecycleObserver {
     @OnLifecycleEvent(ON_STOP)
     void foo() {
     }

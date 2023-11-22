@@ -24,14 +24,17 @@
 #include "art_method-inl.h"
 #include "base/casts.h"
 #include "base/enums.h"
+#include "base/os.h"
 #include "base/stl_util.h"
 #include "base/systrace.h"
 #include "base/time_utils.h"
 #include "base/unix_file/fd_file.h"
+#include "base/utils.h"
 #include "class_linker.h"
 #include "common_throws.h"
 #include "debugger.h"
-#include "dex_file-inl.h"
+#include "dex/descriptors_names.h"
+#include "dex/dex_file-inl.h"
 #include "entrypoints/quick/quick_entrypoints.h"
 #include "gc/scoped_gc_critical_section.h"
 #include "instrumentation.h"
@@ -39,13 +42,11 @@
 #include "mirror/dex_cache-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
-#include "nativehelper/ScopedLocalRef.h"
-#include "os.h"
+#include "nativehelper/scoped_local_ref.h"
 #include "scoped_thread_state_change-inl.h"
 #include "stack.h"
 #include "thread.h"
 #include "thread_list.h"
-#include "utils.h"
 
 namespace art {
 
@@ -302,6 +303,12 @@ void* Trace::RunSamplingThread(void* arg) {
       }
     }
     {
+      // Avoid a deadlock between a thread doing garbage collection
+      // and the profile sampling thread, by blocking GC when sampling
+      // thread stacks (see b/73624630).
+      gc::ScopedGCCriticalSection gcs(self,
+                                      art::gc::kGcCauseInstrumentation,
+                                      art::gc::kCollectorTypeInstrumentation);
       ScopedSuspendAll ssa(__FUNCTION__);
       MutexLock mu(self, *Locks::thread_list_lock_);
       runtime->GetThreadList()->ForEach(GetSample, the_trace);
@@ -413,42 +420,40 @@ void Trace::StopTracing(bool finish_tracing, bool flush_file) {
     sampling_pthread_ = 0U;
   }
 
-  {
+  if (the_trace != nullptr) {
+    stop_alloc_counting = (the_trace->flags_ & Trace::kTraceCountAllocs) != 0;
+    if (finish_tracing) {
+      the_trace->FinishTracing();
+    }
     gc::ScopedGCCriticalSection gcs(self,
                                     gc::kGcCauseInstrumentation,
                                     gc::kCollectorTypeInstrumentation);
     ScopedSuspendAll ssa(__FUNCTION__);
-    if (the_trace != nullptr) {
-      stop_alloc_counting = (the_trace->flags_ & Trace::kTraceCountAllocs) != 0;
-      if (finish_tracing) {
-        the_trace->FinishTracing();
-      }
 
-      if (the_trace->trace_mode_ == TraceMode::kSampling) {
-        MutexLock mu(self, *Locks::thread_list_lock_);
-        runtime->GetThreadList()->ForEach(ClearThreadStackTraceAndClockBase, nullptr);
-      } else {
-        runtime->GetInstrumentation()->DisableMethodTracing(kTracerInstrumentationKey);
-        runtime->GetInstrumentation()->RemoveListener(
-            the_trace, instrumentation::Instrumentation::kMethodEntered |
-            instrumentation::Instrumentation::kMethodExited |
-            instrumentation::Instrumentation::kMethodUnwind);
-      }
-      if (the_trace->trace_file_.get() != nullptr) {
-        // Do not try to erase, so flush and close explicitly.
-        if (flush_file) {
-          if (the_trace->trace_file_->Flush() != 0) {
-            PLOG(WARNING) << "Could not flush trace file.";
-          }
-        } else {
-          the_trace->trace_file_->MarkUnchecked();  // Do not trigger guard.
-        }
-        if (the_trace->trace_file_->Close() != 0) {
-          PLOG(ERROR) << "Could not close trace file.";
-        }
-      }
-      delete the_trace;
+    if (the_trace->trace_mode_ == TraceMode::kSampling) {
+      MutexLock mu(self, *Locks::thread_list_lock_);
+      runtime->GetThreadList()->ForEach(ClearThreadStackTraceAndClockBase, nullptr);
+    } else {
+      runtime->GetInstrumentation()->DisableMethodTracing(kTracerInstrumentationKey);
+      runtime->GetInstrumentation()->RemoveListener(
+          the_trace, instrumentation::Instrumentation::kMethodEntered |
+          instrumentation::Instrumentation::kMethodExited |
+          instrumentation::Instrumentation::kMethodUnwind);
     }
+    if (the_trace->trace_file_.get() != nullptr) {
+      // Do not try to erase, so flush and close explicitly.
+      if (flush_file) {
+        if (the_trace->trace_file_->Flush() != 0) {
+          PLOG(WARNING) << "Could not flush trace file.";
+        }
+      } else {
+        the_trace->trace_file_->MarkUnchecked();  // Do not trigger guard.
+      }
+      if (the_trace->trace_file_->Close() != 0) {
+        PLOG(ERROR) << "Could not close trace file.";
+      }
+    }
+    delete the_trace;
   }
   if (stop_alloc_counting) {
     // Can be racy since SetStatsEnabled is not guarded by any locks.
@@ -717,12 +722,12 @@ void Trace::FinishTracing() {
     FlushBuf();
   } else {
     if (trace_file_.get() == nullptr) {
-      iovec iov[2];
-      iov[0].iov_base = reinterpret_cast<void*>(const_cast<char*>(header.c_str()));
-      iov[0].iov_len = header.length();
-      iov[1].iov_base = buf_.get();
-      iov[1].iov_len = final_offset;
-      Dbg::DdmSendChunkV(CHUNK_TYPE("MPSE"), iov, 2);
+      std::vector<uint8_t> data;
+      data.resize(header.length() + final_offset);
+      memcpy(data.data(), header.c_str(), header.length());
+      memcpy(data.data() + header.length(), buf_.get(), final_offset);
+      Runtime::Current()->GetRuntimeCallbacks()->DdmPublishChunk(CHUNK_TYPE("MPSE"),
+                                                                 ArrayRef<const uint8_t>(data));
       const bool kDumpTraceInfo = false;
       if (kDumpTraceInfo) {
         LOG(INFO) << "Trace sent:\n" << header;
@@ -805,10 +810,16 @@ void Trace::MethodUnwind(Thread* thread,
                       thread_clock_diff, wall_clock_diff);
 }
 
-void Trace::ExceptionCaught(Thread* thread ATTRIBUTE_UNUSED,
+void Trace::ExceptionThrown(Thread* thread ATTRIBUTE_UNUSED,
                             Handle<mirror::Throwable> exception_object ATTRIBUTE_UNUSED)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  LOG(ERROR) << "Unexpected exception caught event in tracing";
+  LOG(ERROR) << "Unexpected exception thrown event in tracing";
+}
+
+void Trace::ExceptionHandled(Thread* thread ATTRIBUTE_UNUSED,
+                             Handle<mirror::Throwable> exception_object ATTRIBUTE_UNUSED)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  LOG(ERROR) << "Unexpected exception thrown event in tracing";
 }
 
 void Trace::Branch(Thread* /*thread*/, ArtMethod* method,
@@ -824,6 +835,11 @@ void Trace::InvokeVirtualOrInterface(Thread*,
                                      ArtMethod*) {
   LOG(ERROR) << "Unexpected invoke event in tracing" << ArtMethod::PrettyMethod(method)
              << " " << dex_pc;
+}
+
+void Trace::WatchedFramePop(Thread* self ATTRIBUTE_UNUSED,
+                            const ShadowFrame& frame ATTRIBUTE_UNUSED) {
+  LOG(ERROR) << "Unexpected WatchedFramePop event in tracing";
 }
 
 void Trace::ReadClocks(Thread* thread, uint32_t* thread_clock_diff, uint32_t* wall_clock_diff) {
@@ -928,7 +944,7 @@ void Trace::LogMethodTraceEvent(Thread* thread, ArtMethod* method,
         overflow_ = true;
         return;
       }
-    } while (!cur_offset_.CompareExchangeWeakSequentiallyConsistent(old_offset, new_offset));
+    } while (!cur_offset_.CompareAndSetWeakSequentiallyConsistent(old_offset, new_offset));
   }
 
   TraceAction action = kTraceMethodEnter;

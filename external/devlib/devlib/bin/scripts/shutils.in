@@ -187,6 +187,62 @@ cgroup_trace_attach_task() {
         done
 }
 
+cgroups_freezer_set_state() {
+    STATE=${1}
+    SYSFS_ENTRY=${2}/freezer.state
+
+    # Set the state of the freezer
+    echo $STATE > $SYSFS_ENTRY
+    
+    # And check it applied cleanly
+    for i in `seq 1 10`; do
+        [ $($CAT $SYSFS_ENTRY) = $STATE ] && exit 0
+        sleep 1
+    done
+
+    # We have an issue
+    echo "ERROR: Freezer stalled while changing state to \"$STATE\"." >&2
+    exit 1
+}
+
+################################################################################
+# Hotplug
+################################################################################
+
+hotplug_online_all() {
+    for path in /sys/devices/system/cpu/cpu[0-9]*; do
+        if [ $(cat $path/online) -eq 0 ]; then
+            echo 1 > $path/online
+        fi
+    done
+}
+
+################################################################################
+# Misc
+################################################################################
+
+read_tree_values() {
+    BASEPATH=$1
+    MAXDEPTH=$2
+
+    if [ ! -e $BASEPATH ]; then
+        echo "ERROR: $BASEPATH does not exist"
+        exit 1
+    fi
+
+    PATHS=$($BUSYBOX find $BASEPATH -follow -maxdepth $MAXDEPTH)
+    i=0
+    for path in $PATHS; do
+        i=$(expr $i + 1)
+        if [ $i -gt 1 ]; then
+            break;
+        fi
+    done
+    if [ $i -gt 1 ]; then
+        $BUSYBOX grep -s '' $PATHS
+    fi
+}
+
 ################################################################################
 # Main Function Dispatcher
 ################################################################################
@@ -225,8 +281,17 @@ cgroups_tasks_move)
 cgroups_tasks_in)
 	cgroups_tasks_in $*
 	;;
+cgroups_freezer_set_state)
+	cgroups_freezer_set_state $*
+	;;
 ftrace_get_function_stats)
     ftrace_get_function_stats
+    ;;
+hotplug_online_all)
+	hotplug_online_all
+    ;;
+read_tree_values)
+	read_tree_values $*
     ;;
 *)
     echo "Command [$CMD] not supported"

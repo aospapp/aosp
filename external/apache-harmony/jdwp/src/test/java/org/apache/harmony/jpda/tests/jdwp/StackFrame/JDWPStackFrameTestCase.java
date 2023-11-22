@@ -25,7 +25,10 @@
  */
 package org.apache.harmony.jpda.tests.jdwp.StackFrame;
 
+import java.util.List;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
+import org.apache.harmony.jpda.tests.framework.jdwp.Frame;
+import org.apache.harmony.jpda.tests.framework.jdwp.Frame.Variable;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.Location;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
@@ -56,31 +59,6 @@ public class JDWPStackFrameTestCase extends JDWPSyncTestCase {
         public Location getLocation() {
             return location;
         }
-    }
-    
-    public class VarInfo {
-        int slot;
-        String signature, name;
-        
-        
-        public VarInfo(String name, int slot, String signature) {
-            this.slot = slot;
-            this.signature = signature;
-            this.name = name;
-        }
-        
-        public int getSlot() {
-            return slot;
-        }
-        
-        public String getSignature() {
-            return signature;
-        }
-        
-        public String getName() {
-            return name;
-        }
-        
     }
     
     @Override
@@ -122,29 +100,14 @@ public class JDWPStackFrameTestCase extends JDWPSyncTestCase {
         return frameInfos;
     }
     
-    protected VarInfo[] jdwpGetVariableTable(long classID, long methodID) {
-        CommandPacket packet = new CommandPacket(
-                JDWPCommands.MethodCommandSet.CommandSetID,
-                JDWPCommands.MethodCommandSet.VariableTableCommand);
-        packet.setNextValueAsClassID(classID);
-        packet.setNextValueAsMethodID(methodID);
-
-        ReplyPacket reply = debuggeeWrapper.vmMirror.performCommand(packet);
-        checkReplyPacket(reply, "Method::VariableTable command");
-        
-        reply.getNextValueAsInt();
-        int varNumber = reply.getNextValueAsInt();
-        
-        VarInfo[] varInfos = new VarInfo[varNumber];
-        for (int i = 0; i < varNumber; i++) {
-            reply.getNextValueAsLong();
-            String name = reply.getNextValueAsString();
-            String sign = reply.getNextValueAsString();
-            reply.getNextValueAsInt();
-
-            int slot = reply.getNextValueAsInt();
-            varInfos[i] = new VarInfo(name, slot, sign);
+    protected Frame.Variable[] jdwpGetVariableTable(long classID, long methodID) {
+        List<Variable> variables = debuggeeWrapper.vmMirror.getVariableTable(classID, methodID);
+        if (variables == null) {
+            // We failed to collect variable table
+            fail("No variable table");
         }
+        Frame.Variable[] varInfos = new Frame.Variable[variables.size()];
+        varInfos = variables.toArray(varInfos);
         return varInfos;
     }
 

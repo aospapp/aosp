@@ -94,7 +94,7 @@ public class GnssMeasurementValuesTest extends GnssTestCase {
         Log.i(TAG, "Location status received = " + mLocationListener.isLocationReceived());
 
         if (!mMeasurementListener.verifyStatus(isMeasurementTestStrict())) {
-            // If test is strict and veriifyState reutrns false, an assert exception happens and
+            // If test is strict and verifyStatus returns false, an assert exception happens and
             // test fails.   If test is not strict, we arrive here, and:
             return; // exit (with pass)
         }
@@ -102,11 +102,11 @@ public class GnssMeasurementValuesTest extends GnssTestCase {
         List<GnssMeasurementsEvent> events = mMeasurementListener.getEvents();
         int eventCount = events.size();
         Log.i(TAG, "Number of Gps Event received = " + eventCount);
-        SoftAssert.failOrWarning(isMeasurementTestStrict(),
-                "GnssMeasurementEvent count: expected >= 0, received = " + eventCount,
-                eventCount > 0);
 
         SoftAssert softAssert = new SoftAssert(TAG);
+
+        softAssert.assertTrue("GnssMeasurementEvent count", "X > 0",
+                String.valueOf(eventCount), eventCount > 0);
 
         boolean carrierPhaseQualityPrrFound = false;
         // we received events, so perform a quick sanity check on mandatory fields
@@ -119,8 +119,8 @@ public class GnssMeasurementValuesTest extends GnssTestCase {
             TestMeasurementUtil.assertGnssClockFields(event.getClock(), softAssert, timeInNs);
 
             for (GnssMeasurement measurement : event.getMeasurements()) {
-                TestMeasurementUtil.assertAllGnssMeasurementMandatoryFields(measurement,
-                        softAssert, timeInNs);
+                TestMeasurementUtil.assertAllGnssMeasurementMandatoryFields(mTestLocationManager,
+                        measurement, softAssert, timeInNs);
                 carrierPhaseQualityPrrFound |=
                         TestMeasurementUtil.gnssMeasurementHasCarrierPhasePrr(measurement);
             }

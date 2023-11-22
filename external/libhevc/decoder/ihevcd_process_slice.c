@@ -704,14 +704,8 @@ IHEVCD_ERROR_T ihevcd_process(process_ctxt_t *ps_proc)
                     WORD32 row, col;
                     UWORD32 *pu4_nbr_pu_idx = ps_proc->pu4_pic_pu_idx_map;
                     WORD32 nbr_pu_idx_strd = MAX_CTB_SIZE / MIN_PU_SIZE + 2;
+                    WORD32 ctb_size_in_min_pu = (ctb_size / MIN_PU_SIZE);
 
-                    for(row = 0; row < ctb_size / MIN_PU_SIZE; row++)
-                    {
-                        for(col = 0; col < ctb_size / MIN_PU_SIZE; col++)
-                        {
-                            pu1_pic_pu_map_ctb[row * ctb_size / MIN_PU_SIZE + col] = 0;
-                        }
-                    }
                     /* Neighbor PU idx update inside CTB */
                     /* 1byte per 4x4. Indicates the PU idx that 4x4 block belongs to */
 
@@ -759,6 +753,27 @@ IHEVCD_ERROR_T ihevcd_process(process_ctxt_t *ps_proc)
                             ps_proc->pu4_pic_pu_idx_top[(ps_proc->i4_ctb_x * ctb_size / MIN_PU_SIZE) + i] =
                                             pu4_nbr_pu_idx[(ctb_size_left / MIN_PU_SIZE) * nbr_pu_idx_strd + i + 1];
 
+                        }
+
+                        /* Updating the CTB level PU idx (Used for collocated MV pred)*/
+                        {
+                            WORD32 ctb_row, ctb_col, index_pic_map, index_nbr_map;
+                            WORD32 first_pu_of_ctb;
+                            first_pu_of_ctb = pu4_nbr_pu_idx[1 + nbr_pu_idx_strd];
+
+                            index_pic_map = 0 * ctb_size_in_min_pu + 0;
+                            index_nbr_map = (0 + 1) * nbr_pu_idx_strd + (0 + 1);
+
+                            for(ctb_row = 0; ctb_row < ctb_size_in_min_pu; ctb_row++)
+                            {
+                                for(ctb_col = 0; ctb_col < ctb_size_in_min_pu; ctb_col++)
+                                {
+                                    pu1_pic_pu_map_ctb[index_pic_map + ctb_col] = pu4_nbr_pu_idx[index_nbr_map + ctb_col]
+                                                    - first_pu_of_ctb;
+                                }
+                                index_pic_map += ctb_size_in_min_pu;
+                                index_nbr_map += nbr_pu_idx_strd;
+                            }
                         }
                     }
                 }

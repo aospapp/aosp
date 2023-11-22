@@ -1,5 +1,5 @@
 #!/bin/sh
-srcversion='$MirOS: src/bin/mksh/Build.sh,v 1.716 2017/04/12 18:33:22 tg Exp $'
+srcversion='$MirOS: src/bin/mksh/Build.sh,v 1.731 2018/01/13 21:38:06 tg Exp $'
 #-
 # Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
 #		2011, 2012, 2013, 2014, 2015, 2016, 2017
@@ -52,6 +52,16 @@ allu=QWERTYUIOPASDFGHJKLZXCVBNM
 alll=qwertyuiopasdfghjklzxcvbnm
 alln=0123456789
 alls=______________________________________________________________
+
+case `echo a | tr '\201' X` in
+X)
+	# EBCDIC build system
+	lfcr='\n\r'
+	;;
+*)
+	lfcr='\012\015'
+	;;
+esac
 
 genopt_die() {
 	if test -n "$1"; then
@@ -425,7 +435,7 @@ ac_header() {
 		na=0
 	fi
 	hf=$1; shift
-	hv=`echo "$hf" | tr -d '\012\015' | tr -c $alll$allu$alln $alls`
+	hv=`echo "$hf" | tr -d "$lfcr" | tr -c $alll$allu$alln $alls`
 	echo "/* NeXTstep bug workaround */" >x
 	for i
 	do
@@ -496,6 +506,7 @@ last=
 tfn=
 legacy=0
 textmode=0
+ebcdic=false
 
 for i
 do
@@ -518,6 +529,9 @@ do
 		;;
 	:-c)
 		last=c
+		;;
+	:-E)
+		ebcdic=true
 		;;
 	:-G)
 		echo "$me: Do not call me with '-G'!" >&2
@@ -601,6 +615,10 @@ if test $legacy = 0; then
 else
 	check_categories="$check_categories shell:legacy-yes"
 	add_cppflags -DMKSH_LEGACY_MODE
+fi
+
+if $ebcdic; then
+	add_cppflags -DMKSH_EBCDIC
 fi
 
 if test $textmode = 0; then
@@ -765,7 +783,9 @@ GNU/kFreeBSD)
 	add_cppflags -DSETUID_CAN_FAIL_WITH_EAGAIN
 	;;
 Haiku)
-	add_cppflags -DMKSH_ASSUME_UTF8; HAVE_ISSET_MKSH_ASSUME_UTF8=1
+	add_cppflags -DMKSH_ASSUME_UTF8
+	HAVE_ISSET_MKSH_ASSUME_UTF8=1
+	HAVE_ISOFF_MKSH_ASSUME_UTF8=0
 	;;
 Harvey)
 	add_cppflags -D_POSIX_SOURCE
@@ -773,11 +793,16 @@ Harvey)
 	add_cppflags -D_BSD_EXTENSION
 	add_cppflags -D_SUSV2_SOURCE
 	add_cppflags -D_GNU_SOURCE
-	add_cppflags -DMKSH_ASSUME_UTF8; HAVE_ISSET_MKSH_ASSUME_UTF8=1
+	add_cppflags -DMKSH_ASSUME_UTF8
+	HAVE_ISSET_MKSH_ASSUME_UTF8=1
+	HAVE_ISOFF_MKSH_ASSUME_UTF8=0
+	add_cppflags -DMKSH__NO_SYMLINK
+	check_categories="$check_categories nosymlink"
 	add_cppflags -DMKSH_NO_CMDLINE_EDITING
 	add_cppflags -DMKSH__NO_SETEUGID
 	oswarn=' and will currently not work'
 	add_cppflags -DMKSH_UNEMPLOYED
+	add_cppflags -DMKSH_NOPROSPECTOFWORK
 	# these taken from Harvey-OS github and need re-checking
 	add_cppflags -D_setjmp=setjmp -D_longjmp=longjmp
 	: "${HAVE_CAN_NO_EH_FRAME=0}"
@@ -795,6 +820,20 @@ Interix)
 	;;
 IRIX*)
 	: "${HAVE_SETLOCALE_CTYPE=0}"
+	;;
+Jehanne)
+	add_cppflags -DMKSH_ASSUME_UTF8
+	HAVE_ISSET_MKSH_ASSUME_UTF8=1
+	HAVE_ISOFF_MKSH_ASSUME_UTF8=0
+	add_cppflags -DMKSH__NO_SYMLINK
+	check_categories="$check_categories nosymlink"
+	add_cppflags -DMKSH_NO_CMDLINE_EDITING
+	add_cppflags -DMKSH_DISABLE_REVOKE_WARNING
+	add_cppflags '-D_PATH_DEFPATH=\"/cmd\"'
+	add_cppflags '-DMKSH_DEFAULT_EXECSHELL=\"/cmd/mksh\"'
+	add_cppflags '-DMKSH_DEFAULT_PROFILEDIR=\"/cfg/mksh\"'
+	add_cppflags '-DMKSH_ENVDIR=\"/env\"'
+	SRCS="$SRCS jehanne.c"
 	;;
 Linux)
 	case $CC in
@@ -826,7 +865,9 @@ Minix3)
 MirBSD)
 	;;
 MSYS_*)
-	add_cppflags -DMKSH_ASSUME_UTF8=0; HAVE_ISSET_MKSH_ASSUME_UTF8=1
+	add_cppflags -DMKSH_ASSUME_UTF8=0
+	HAVE_ISSET_MKSH_ASSUME_UTF8=1
+	HAVE_ISOFF_MKSH_ASSUME_UTF8=1
 	# almost same as CYGWIN* (from RT|Chatzilla)
 	: "${HAVE_SETLOCALE_CTYPE=0}"
 	# broken on this OE (from ir0nh34d)
@@ -860,7 +901,9 @@ OpenBSD)
 	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 OS/2)
-	add_cppflags -DMKSH_ASSUME_UTF8=0; HAVE_ISSET_MKSH_ASSUME_UTF8=1
+	add_cppflags -DMKSH_ASSUME_UTF8=0
+	HAVE_ISSET_MKSH_ASSUME_UTF8=1
+	HAVE_ISOFF_MKSH_ASSUME_UTF8=1
 	HAVE_TERMIOS_H=0
 	HAVE_MKNOD=0	# setmode() incompatible
 	oswarn="; it is being ported"
@@ -894,6 +937,16 @@ the mksh-os2 porter.
 ] incompatibilities with $y.
 "
 	;;
+OS/390)
+	add_cppflags -DMKSH_ASSUME_UTF8=0
+	HAVE_ISSET_MKSH_ASSUME_UTF8=1
+	HAVE_ISOFF_MKSH_ASSUME_UTF8=1
+	: "${CC=xlc}"
+	: "${SIZE=: size}"
+	add_cppflags -DMKSH_FOR_Z_OS
+	add_cppflags -D_ALL_SOURCE
+	oswarn='; EBCDIC support is incomplete'
+	;;
 OSF1)
 	HAVE_SIG_T=0	# incompatible
 	add_cppflags -D_OSF_SOURCE
@@ -907,7 +960,11 @@ Plan9)
 	add_cppflags -D_LIMITS_EXTENSION
 	add_cppflags -D_BSD_EXTENSION
 	add_cppflags -D_SUSV2_SOURCE
-	add_cppflags -DMKSH_ASSUME_UTF8; HAVE_ISSET_MKSH_ASSUME_UTF8=1
+	add_cppflags -DMKSH_ASSUME_UTF8
+	HAVE_ISSET_MKSH_ASSUME_UTF8=1
+	HAVE_ISOFF_MKSH_ASSUME_UTF8=0
+	add_cppflags -DMKSH__NO_SYMLINK
+	check_categories="$check_categories nosymlink"
 	add_cppflags -DMKSH_NO_CMDLINE_EDITING
 	add_cppflags -DMKSH__NO_SETEUGID
 	oswarn=' and will currently not work'
@@ -1047,7 +1104,7 @@ $e $bi$me: Scanning for functions... please ignore any errors.$ao
 # - LLVM+clang defines __GNUC__ too
 # - nwcc defines __GNUC__ too
 CPP="$CC -E"
-$e ... which compiler seems to be used
+$e ... which compiler type seems to be used
 cat >conftest.c <<'EOF'
 const char *
 #if defined(__ICC) || defined(__INTEL_COMPILER)
@@ -1297,7 +1354,7 @@ unknown)
 	# huh?
 	;;
 esac
-$e "$bi==> which compiler seems to be used...$ao $ui$ct$etd$ao"
+$e "$bi==> which compiler type seems to be used...$ao $ui$ct$etd$ao"
 rmf conftest.c conftest.o conftest a.out* a.exe* conftest.exe* vv.out
 
 #
@@ -1392,8 +1449,16 @@ watcom)
 	DOWARN=-Wc,-we
 	;;
 xlc)
-	save_NOWARN=-qflag=i:e
-	DOWARN=-qflag=i:i
+	case $TARGET_OS in
+	OS/390)
+		save_NOWARN=-qflag=e
+		DOWARN=-qflag=i
+		;;
+	*)
+		save_NOWARN=-qflag=i:e
+		DOWARN=-qflag=i:i
+		;;
+	esac
 	;;
 *)
 	test x"$save_NOWARN" = x"" && save_NOWARN=-Wno-error
@@ -1563,10 +1628,24 @@ tendra)
 	ac_flags 1 extansi -Xa
 	;;
 xlc)
-	ac_flags 1 rodata "-qro -qroconst -qroptr"
-	ac_flags 1 rtcheck -qcheck=all
-	#ac_flags 1 rtchkc -qextchk	# reported broken
-	ac_flags 1 wformat "-qformat=all -qformat=nozln"
+	case $TARGET_OS in
+	OS/390)
+		# On IBM z/OS, the following are warnings by default:
+		# CCN3296: #include file <foo.h> not found.
+		# CCN3944: Attribute "__foo__" is not supported and is ignored.
+		# CCN3963: The attribute "foo" is not a valid variable attribute and is ignored.
+		ac_flags 1 halton '-qhaltonmsg=CCN3296 -qhaltonmsg=CCN3944 -qhaltonmsg=CCN3963'
+		# CCN3290: Unknown macro name FOO on #undef directive.
+		# CCN4108: The use of keyword '__attribute__' is non-portable.
+		ac_flags 1 supprss '-qsuppress=CCN3290 -qsuppress=CCN4108'
+		;;
+	*)
+		ac_flags 1 rodata '-qro -qroconst -qroptr'
+		ac_flags 1 rtcheck -qcheck=all
+		#ac_flags 1 rtchkc -qextchk	# reported broken
+		ac_flags 1 wformat '-qformat=all -qformat=nozln'
+		;;
+	esac
 	#ac_flags 1 wp64 -qwarn64	# too verbose for now
 	;;
 esac
@@ -1705,6 +1784,10 @@ ac_ifcpp 'ifdef MKSH_NOPROSPECTOFWORK' isset_MKSH_NOPROSPECTOFWORK '' \
     check_categories="$check_categories arge nojsig"
 ac_ifcpp 'ifdef MKSH_ASSUME_UTF8' isset_MKSH_ASSUME_UTF8 '' \
     'if the default UTF-8 mode is specified' && : "${HAVE_SETLOCALE_CTYPE=0}"
+ac_ifcpp 'if !MKSH_ASSUME_UTF8' isoff_MKSH_ASSUME_UTF8 \
+    isset_MKSH_ASSUME_UTF8 0 \
+    'if the default UTF-8 mode is disabled' && \
+    check_categories="$check_categories noutf8"
 #ac_ifcpp 'ifdef MKSH_DISABLE_DEPRECATED' isset_MKSH_DISABLE_DEPRECATED '' \
 #    "if deprecated features are to be omitted" && \
 #    check_categories="$check_categories nodeprecated"
@@ -2025,6 +2108,11 @@ ac_test mmap lock_fcntl 0 'for mmap and munmap' <<-'EOF'
 	    munmap(NULL, 0)); }
 EOF
 
+ac_test ftruncate mmap 0 'for ftruncate' <<-'EOF'
+	#include <unistd.h>
+	int main(void) { return (ftruncate(0, 0)); }
+EOF
+
 ac_test nice <<-'EOF'
 	#include <unistd.h>
 	int main(void) { return (nice(4)); }
@@ -2179,8 +2267,8 @@ EOF
 # other checks
 #
 fd='if to use persistent history'
-ac_cache PERSISTENT_HISTORY || case $HAVE_MMAP$HAVE_FLOCK$HAVE_LOCK_FCNTL in
-11*|101) fv=1 ;;
+ac_cache PERSISTENT_HISTORY || case $HAVE_FTRUNCATE$HAVE_MMAP$HAVE_FLOCK$HAVE_LOCK_FCNTL in
+111*|1101) fv=1 ;;
 esac
 test 1 = $fv || check_categories="$check_categories no-histfile"
 ac_testdone
@@ -2339,7 +2427,7 @@ addsrcs '!' HAVE_STRLCPY strlcpy.c
 addsrcs USE_PRINTF_BUILTIN printf.c
 test 1 = "$USE_PRINTF_BUILTIN" && add_cppflags -DMKSH_PRINTF_BUILTIN
 test 1 = "$HAVE_CAN_VERB" && CFLAGS="$CFLAGS -verbose"
-add_cppflags -DMKSH_BUILD_R=551
+add_cppflags -DMKSH_BUILD_R=563
 
 $e $bi$me: Finished configuration testing, now producing output.$ao
 
@@ -2366,8 +2454,8 @@ cat >test.sh <<-EOF
 	set -A check_categories -- $check_categories
 	pflag='$curdir/$mkshexe'
 	sflag='$srcdir/check.t'
-	usee=0 Pflag=0 Sflag=0 uset=0 vflag=1 xflag=0
-	while getopts "C:e:fPp:QSs:t:v" ch; do case \$ch {
+	usee=0 useU=0 Pflag=0 Sflag=0 uset=0 vflag=1 xflag=0
+	while getopts "C:e:fPp:QSs:t:U:v" ch; do case \$ch {
 	(C)	check_categories[\${#check_categories[*]}]=\$OPTARG ;;
 	(e)	usee=1; eflag=\$OPTARG ;;
 	(f)	check_categories[\${#check_categories[*]}]=fastbox ;;
@@ -2380,6 +2468,7 @@ cat >test.sh <<-EOF
 	(+S)	Sflag=0 ;;
 	(s)	sflag=\$OPTARG ;;
 	(t)	uset=1; tflag=\$OPTARG ;;
+	(U)	useU=1; Uflag=\$OPTARG ;;
 	(v)	vflag=1 ;;
 	(+v)	vflag=0 ;;
 	(*)	xflag=1 ;;
@@ -2387,6 +2476,9 @@ cat >test.sh <<-EOF
 	done
 	shift \$((OPTIND - 1))
 	set -A args -- '$srcdir/check.pl' -p "\$pflag"
+	if $ebcdic; then
+		args[\${#args[*]}]=-E
+	fi
 	x=
 	for y in "\${check_categories[@]}"; do
 		x=\$x,\$y
@@ -2403,6 +2495,10 @@ cat >test.sh <<-EOF
 	if (( uset )); then
 		args[\${#args[*]}]=-t
 		args[\${#args[*]}]=\$tflag
+	fi
+	if (( useU )); then
+		args[\${#args[*]}]=-U
+		args[\${#args[*]}]=\$Uflag
 	fi
 	(( vflag )) && args[\${#args[*]}]=-v
 	(( xflag )) && args[\${#args[*]}]=-x	# force usage by synerr
@@ -2647,7 +2743,7 @@ MKSH_A4PB			force use of arc4random_pushb
 MKSH_ASSUME_UTF8		(0=disabled, 1=enabled; default: unset)
 MKSH_BINSHPOSIX			if */sh or */-sh, enable set -o posix
 MKSH_BINSHREDUCED		if */sh or */-sh, enable set -o sh
-MKSH_CLS_STRING			"\033[;H\033[J"
+MKSH_CLS_STRING			KSH_ESC_STRING "[;H" KSH_ESC_STRING "[J"
 MKSH_DEFAULT_EXECSHELL		"/bin/sh" (do not change)
 MKSH_DEFAULT_PROFILEDIR		"/etc" (do not change)
 MKSH_DEFAULT_TMPDIR		"/tmp" (do not change)
@@ -2655,6 +2751,7 @@ MKSH_DISABLE_DEPRECATED		disable code paths scheduled for later removal
 MKSH_DISABLE_EXPERIMENTAL	disable code not yet comfy for (LTS) snapshots
 MKSH_DISABLE_TTY_WARNING	shut up warning about ctty if OS cant be fixed
 MKSH_DONT_EMIT_IDSTRING		omit RCS IDs from binary
+MKSH_EARLY_LOCALE_TRACKING	track utf8-mode from POSIX locale, for SuSE
 MKSH_MIDNIGHTBSD01ASH_COMPAT	set -o sh: additional compatibility quirk
 MKSH_NOPROSPECTOFWORK		disable jobs, co-processes, etc. (do not use)
 MKSH_NOPWNAM			skip PAM calls, for -static on glibc or Solaris

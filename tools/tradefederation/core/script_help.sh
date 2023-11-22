@@ -42,9 +42,9 @@ checkPath java
 
 # check java version
 java_version_string=$(java -version 2>&1)
-JAVA_VERSION=$(echo "$java_version_string" | grep '[ "]1\.[8][\. "$$]')
+JAVA_VERSION=$(echo "$java_version_string" | grep 'version [ "]\(1\.8\|9\).*[ "]')
 if [ "${JAVA_VERSION}" == "" ]; then
-    echo "Wrong java version. 1.8 is required."
+    echo "Wrong java version. 1.8 or 9 is required."
     exit
 fi
 
@@ -79,8 +79,10 @@ fi
 # include any host-side test jars from suite
 if [ ! -z "${ANDROID_HOST_OUT_TESTCASES}" ]; then
     for folder in ${ANDROID_HOST_OUT_TESTCASES}/*; do
-        for j in $folder/*.jar; do
-            TF_PATH=${TF_PATH}:$j
+        for entry in "$folder"/*; do
+            if [[ "$entry" = *".jar"* ]]; then
+                TF_PATH=${TF_PATH}:$entry
+            fi
         done
     done
 fi

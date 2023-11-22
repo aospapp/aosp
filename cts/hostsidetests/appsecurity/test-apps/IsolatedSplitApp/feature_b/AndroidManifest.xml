@@ -15,19 +15,19 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.isolatedsplitapp"
+        package="com.android.cts.isolatedsplitapp.feature_b"
         featureSplit="feature_b">
 
     <uses-split android:name="feature_a" />
 
     <application>
-        <activity android:name=".feature_b.FeatureBActivity">
+        <activity android:name=".FeatureBActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <receiver android:name=".feature_b.FeatureBReceiver">
+        <receiver android:name=".FeatureBReceiver">
             <intent-filter>
                 <action android:name="com.android.cts.isolatedsplitapp.ACTION" />
             </intent-filter>

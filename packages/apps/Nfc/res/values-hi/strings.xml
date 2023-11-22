@@ -43,4 +43,8 @@
     <string name="beam_requires_nfc_enabled" msgid="2800366967218600534">"Android बीम के लिए नियर फ़ील्ड कम्यूनिकेशन (NFC) को सक्षम करना ज़रूरी है. क्या आप इसे सक्षम करना चाहते हैं?"</string>
     <string name="android_beam" msgid="1666446406999492763">"Android बीम"</string>
     <string name="beam_requires_external_storage_permission" msgid="8798337545702206901">"ऐप्लिकेशन में बाहरी जगह की अनुमति नहीं है. इस फ़ाइल को बीम करने के लिए यह अनुमति ज़रूरी है"</string>
+    <string name="title_confirm_url_open" msgid="8069968913244794478">"लिंक को खोलें?"</string>
+    <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"आपके टैबलेट पर NFC के ज़रिए एक लिंक आया है:"</string>
+    <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"आपके फ़ोन पर NFC के ज़रिए एक लिंक आया है:"</string>
+    <string name="action_confirm_url_open" msgid="3458322738812921189">"लिंक को खोलें"</string>
 </resources>

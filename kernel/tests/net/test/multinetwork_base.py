@@ -53,6 +53,8 @@ IPV6_HOPLIMIT = 52  # Different from IPV6_UNICAST_HOPS, this is cmsg only.
 
 
 AUTOCONF_TABLE_SYSCTL = "/proc/sys/net/ipv6/conf/default/accept_ra_rt_table"
+IPV4_MARK_REFLECT_SYSCTL = "/proc/sys/net/ipv4/fwmark_reflect"
+IPV6_MARK_REFLECT_SYSCTL = "/proc/sys/net/ipv6/fwmark_reflect"
 
 HAVE_AUTOCONF_TABLE = os.path.isfile(AUTOCONF_TABLE_SYSCTL)
 
@@ -106,9 +108,16 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
   PRIORITY_DEFAULT = 999
   PRIORITY_UNREACHABLE = 1000
 
+  # Actual device routing is more complicated, involving more than one rule
+  # per NetId, but here we make do with just one rule that selects the lower
+  # 16 bits.
+  NETID_FWMASK = 0xffff
+
   # For convenience.
   IPV4_ADDR = net_test.IPV4_ADDR
   IPV6_ADDR = net_test.IPV6_ADDR
+  IPV4_ADDR2 = net_test.IPV4_ADDR2
+  IPV6_ADDR2 = net_test.IPV6_ADDR2
   IPV4_PING = net_test.IPV4_PING
   IPV6_PING = net_test.IPV6_PING
 
@@ -166,8 +175,13 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
   @classmethod
   def MyAddress(cls, version, netid):
     return {4: cls._MyIPv4Address(netid),
-            5: "::ffff:" + cls._MyIPv4Address(netid),
+            5: cls._MyIPv4Address(netid),
             6: cls._MyIPv6Address(netid)}[version]
+
+  @classmethod
+  def MySocketAddress(cls, version, netid):
+    addr = cls.MyAddress(version, netid)
+    return "::ffff:" + addr if version == 5 else addr
 
   @classmethod
   def MyLinkLocalAddress(cls, netid):
@@ -259,7 +273,7 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
       cls.iproute.UidRangeRule(version, is_add, start, end, table,
                                cls.PRIORITY_UID)
       cls.iproute.OifRule(version, is_add, iface, table, cls.PRIORITY_OIF)
-      cls.iproute.FwmarkRule(version, is_add, netid, table,
+      cls.iproute.FwmarkRule(version, is_add, netid, cls.NETID_FWMASK, table,
                              cls.PRIORITY_FWMARK)
 
       # Configure routing and addressing.
@@ -296,6 +310,28 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
           cls.iproute.DelNeighbour(version, router, macaddr, ifindex)
           cls.iproute.DelAddress(cls._MyIPv4Address(netid),
                                  cls.OnlinkPrefixLen(4), ifindex)
+
+  @classmethod
+  def SetMarkReflectSysctls(cls, value):
+    """Makes kernel-generated replies use the mark of the original packet."""
+    cls.SetSysctl(IPV4_MARK_REFLECT_SYSCTL, value)
+    cls.SetSysctl(IPV6_MARK_REFLECT_SYSCTL, value)
+
+  @classmethod
+  def _SetInboundMarking(cls, netid, iface, is_add):
+    for version in [4, 6]:
+      # Run iptables to set up incoming packet marking.
+      add_del = "-A" if is_add else "-D"
+      iptables = {4: "iptables", 6: "ip6tables"}[version]
+      args = "%s INPUT -t mangle -i %s -j MARK --set-mark %d" % (
+          add_del, iface, netid)
+      if net_test.RunIptablesCommand(version, args):
+        raise ConfigurationError("Setup command failed: %s" % args)
+
+  @classmethod
+  def SetInboundMarks(cls, is_add):
+    for netid in cls.tuns:
+      cls._SetInboundMarking(netid, cls.GetInterfaceName(netid), is_add)
 
   @classmethod
   def SetDefaultNetwork(cls, netid):
@@ -378,6 +414,9 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
     cls.loglevel = cls.GetConsoleLogLevel()
     cls.SetConsoleLogLevel(net_test.KERN_INFO)
 
+    # When running on device, don't send connections through FwmarkServer.
+    os.environ["ANDROID_NO_USE_FWMARK_CLIENT"] = "1"
+
     # Uncomment to look around at interface and rule configuration while
     # running in the background. (Once the test finishes running, all the
     # interfaces and rules are gone.)
@@ -385,6 +424,8 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
 
   @classmethod
   def tearDownClass(cls):
+    del os.environ["ANDROID_NO_USE_FWMARK_CLIENT"]
+
     for version in [4, 6]:
       try:
         cls.iproute.UnreachableRule(version, False, cls.PRIORITY_UNREACHABLE)
@@ -429,8 +470,17 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
 
   def GetRemoteAddress(self, version):
     return {4: self.IPV4_ADDR,
-            5: "::ffff:" + self.IPV4_ADDR,
+            5: self.IPV4_ADDR,
             6: self.IPV6_ADDR}[version]
+
+  def GetRemoteSocketAddress(self, version):
+    addr = self.GetRemoteAddress(version)
+    return "::ffff:" + addr if version == 5 else addr
+
+  def GetOtherRemoteSocketAddress(self, version):
+    return {4: self.IPV4_ADDR2,
+            5: "::ffff:" + self.IPV4_ADDR2,
+            6: self.IPV6_ADDR2}[version]
 
   def SelectInterface(self, s, netid, mode):
     if mode == "uid":
@@ -456,6 +506,19 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
 
     return s
 
+  def RandomNetid(self, exclude=None):
+    """Return a random netid from the list of netids
+
+    Args:
+      exclude: a netid or list of netids that should not be chosen
+    """
+    if exclude is None:
+      exclude = []
+    elif isinstance(exclude, int):
+        exclude = [exclude]
+    diff = [netid for netid in self.NETIDS if netid not in exclude]
+    return random.choice(diff)
+
   def SendOnNetid(self, version, s, dstaddr, dstport, netid, payload, cmsgs):
     if netid is not None:
       pktinfo = MakePktInfo(version, None, self.ifindices[netid])
@@ -475,6 +538,13 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
     self.ReceiveEtherPacketOn(netid, packet)
 
   def ReadAllPacketsOn(self, netid, include_multicast=False):
+    """Return all queued packets on a netid as a list.
+
+    Args:
+      netid: The netid from which to read packets
+      include_multicast: A boolean, whether to remove multicast packets
+        (default=False)
+    """
     packets = []
     retries = 0
     max_retries = 1
@@ -503,11 +573,13 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
           raise e
     return packets
 
-  def InvalidateDstCache(self, version, remoteaddr, netid):
-    """Invalidates destination cache entries of sockets to remoteaddr.
+  def InvalidateDstCache(self, version, netid):
+    """Invalidates destination cache entries of sockets on the specified table.
 
-    Creates and then deletes a route pointing to remoteaddr, which invalidates
-    the destination cache entries of any sockets connected to remoteaddr.
+    Creates and then deletes a low-priority throw route in the table for the
+    given netid, which invalidates the destination cache entries of any sockets
+    that refer to routes in that table.
+
     The fact that this method actually invalidates destination cache entries is
     tested by OutgoingTest#testIPv[46]Remarking, which checks that the kernel
     does not re-route sockets when they are remarked, but does re-route them if
@@ -515,16 +587,16 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
 
     Args:
       version: The IP version, 4 or 6.
-      remoteaddr: The IP address to temporarily reroute.
-      netid: The netid to add/remove the route to.
+      netid: The netid to invalidate dst caches on.
     """
     iface = self.GetInterfaceName(netid)
     ifindex = self.ifindices[netid]
     table = self._TableForNetid(netid)
-    nexthop = self._RouterAddress(netid, version)
-    plen = {4: 32, 6: 128}[version]
-    self.iproute.AddRoute(version, table, remoteaddr, plen, nexthop, ifindex)
-    self.iproute.DelRoute(version, table, remoteaddr, plen, nexthop, ifindex)
+    for action in [iproute.RTM_NEWROUTE, iproute.RTM_DELROUTE]:
+      self.iproute._Route(version, iproute.RTPROT_STATIC, action, table,
+                          "default", 0, nexthop=None, dev=None, mark=None,
+                          uid=None, route_type=iproute.RTN_THROW,
+                          priority=100000)
 
   def ClearTunQueues(self):
     # Keep reading packets on all netids until we get no packets on any of them.
@@ -675,3 +747,17 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
     else:
       self.ExpectNoPacketsOn(netid, msg)
       return None
+
+
+class InboundMarkingTest(MultiNetworkBaseTest):
+  """Class that automatically sets up inbound marking."""
+
+  @classmethod
+  def setUpClass(cls):
+    super(InboundMarkingTest, cls).setUpClass()
+    cls.SetInboundMarks(True)
+
+  @classmethod
+  def tearDownClass(cls):
+    cls.SetInboundMarks(False)
+    super(InboundMarkingTest, cls).tearDownClass()

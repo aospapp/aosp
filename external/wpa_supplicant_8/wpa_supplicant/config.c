@@ -397,6 +397,50 @@ static char * wpa_config_write_bssid(const struct parse_data *data,
 #endif /* NO_CONFIG_WRITE */
 
 
+static int wpa_config_parse_bssid_hint(const struct parse_data *data,
+				       struct wpa_ssid *ssid, int line,
+				       const char *value)
+{
+	if (value[0] == '\0' || os_strcmp(value, "\"\"") == 0 ||
+	    os_strcmp(value, "any") == 0) {
+		ssid->bssid_hint_set = 0;
+		wpa_printf(MSG_MSGDUMP, "BSSID hint any");
+		return 0;
+	}
+	if (hwaddr_aton(value, ssid->bssid_hint)) {
+		wpa_printf(MSG_ERROR, "Line %d: Invalid BSSID hint '%s'.",
+			   line, value);
+		return -1;
+	}
+	ssid->bssid_hint_set = 1;
+	wpa_hexdump(MSG_MSGDUMP, "BSSID hint", ssid->bssid_hint, ETH_ALEN);
+	return 0;
+}
+
+
+#ifndef NO_CONFIG_WRITE
+static char * wpa_config_write_bssid_hint(const struct parse_data *data,
+					  struct wpa_ssid *ssid)
+{
+	char *value;
+	int res;
+
+	if (!ssid->bssid_hint_set)
+		return NULL;
+
+	value = os_malloc(20);
+	if (!value)
+		return NULL;
+	res = os_snprintf(value, 20, MACSTR, MAC2STR(ssid->bssid_hint));
+	if (os_snprintf_error(20, res)) {
+		os_free(value);
+		return NULL;
+	}
+	return value;
+}
+#endif /* NO_CONFIG_WRITE */
+
+
 static int wpa_config_parse_bssid_blacklist(const struct parse_data *data,
 					    struct wpa_ssid *ssid, int line,
 					    const char *value)
@@ -732,6 +776,14 @@ static int wpa_config_parse_key_mgmt(const struct parse_data *data,
 			val |= WPA_KEY_MGMT_FT_FILS_SHA384;
 #endif /* CONFIG_IEEE80211R */
 #endif /* CONFIG_FILS */
+#ifdef CONFIG_OWE
+		else if (os_strcmp(start, "OWE") == 0)
+			val |= WPA_KEY_MGMT_OWE;
+#endif /* CONFIG_OWE */
+#ifdef CONFIG_DPP
+		else if (os_strcmp(start, "DPP") == 0)
+			val |= WPA_KEY_MGMT_DPP;
+#endif /* CONFIG_DPP */
 		else {
 			wpa_printf(MSG_ERROR, "Line %d: invalid key_mgmt '%s'",
 				   line, start);
@@ -934,6 +986,47 @@ static char * wpa_config_write_key_mgmt(const struct parse_data *data,
 	}
 #endif /* CONFIG_SUITEB192 */
 
+#ifdef CONFIG_FILS
+	if (ssid->key_mgmt & WPA_KEY_MGMT_FILS_SHA256) {
+		ret = os_snprintf(pos, end - pos, "%sFILS-SHA256",
+				  pos == buf ? "" : " ");
+		if (os_snprintf_error(end - pos, ret)) {
+			end[-1] = '\0';
+			return buf;
+		}
+		pos += ret;
+	}
+	if (ssid->key_mgmt & WPA_KEY_MGMT_FILS_SHA384) {
+		ret = os_snprintf(pos, end - pos, "%sFILS-SHA384",
+				  pos == buf ? "" : " ");
+		if (os_snprintf_error(end - pos, ret)) {
+			end[-1] = '\0';
+			return buf;
+		}
+		pos += ret;
+	}
+#ifdef CONFIG_IEEE80211R
+	if (ssid->key_mgmt & WPA_KEY_MGMT_FT_FILS_SHA256) {
+		ret = os_snprintf(pos, end - pos, "%sFT-FILS-SHA256",
+				  pos == buf ? "" : " ");
+		if (os_snprintf_error(end - pos, ret)) {
+			end[-1] = '\0';
+			return buf;
+		}
+		pos += ret;
+	}
+	if (ssid->key_mgmt & WPA_KEY_MGMT_FT_FILS_SHA384) {
+		ret = os_snprintf(pos, end - pos, "%sFT-FILS-SHA384",
+				  pos == buf ? "" : " ");
+		if (os_snprintf_error(end - pos, ret)) {
+			end[-1] = '\0';
+			return buf;
+		}
+		pos += ret;
+	}
+#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_FILS */
+
 	if (pos == buf) {
 		os_free(buf);
 		buf = NULL;
@@ -1051,6 +1144,40 @@ static char * wpa_config_write_group(const struct parse_data *data,
 				     struct wpa_ssid *ssid)
 {
 	return wpa_config_write_cipher(ssid->group_cipher);
+}
+#endif /* NO_CONFIG_WRITE */
+
+
+static int wpa_config_parse_group_mgmt(const struct parse_data *data,
+				       struct wpa_ssid *ssid, int line,
+				       const char *value)
+{
+	int val;
+
+	val = wpa_config_parse_cipher(line, value);
+	if (val == -1)
+		return -1;
+
+	if (val & ~WPA_ALLOWED_GROUP_MGMT_CIPHERS) {
+		wpa_printf(MSG_ERROR,
+			   "Line %d: not allowed group management cipher (0x%x).",
+			   line, val);
+		return -1;
+	}
+
+	if (ssid->group_mgmt_cipher == val)
+		return 1;
+	wpa_printf(MSG_MSGDUMP, "group_mgmt: 0x%x", val);
+	ssid->group_mgmt_cipher = val;
+	return 0;
+}
+
+
+#ifndef NO_CONFIG_WRITE
+static char * wpa_config_write_group_mgmt(const struct parse_data *data,
+					  struct wpa_ssid *ssid)
+{
+	return wpa_config_write_cipher(ssid->group_mgmt_cipher);
 }
 #endif /* NO_CONFIG_WRITE */
 
@@ -1892,6 +2019,24 @@ static char * wpa_config_write_mka_ckn(const struct parse_data *data,
 #endif /* CONFIG_MACSEC */
 
 
+static int wpa_config_parse_peerkey(const struct parse_data *data,
+				    struct wpa_ssid *ssid, int line,
+				    const char *value)
+{
+	wpa_printf(MSG_INFO, "NOTE: Obsolete peerkey parameter ignored");
+	return 0;
+}
+
+
+#ifndef NO_CONFIG_WRITE
+static char * wpa_config_write_peerkey(const struct parse_data *data,
+				       struct wpa_ssid *ssid)
+{
+	return NULL;
+}
+#endif /* NO_CONFIG_WRITE */
+
+
 /* Helper macros for network block parser */
 
 #ifdef OFFSET
@@ -1983,24 +2128,33 @@ static const struct parse_data ssid_fields[] = {
 	{ STR_RANGE(ssid, 0, SSID_MAX_LEN) },
 	{ INT_RANGE(scan_ssid, 0, 1) },
 	{ FUNC(bssid) },
+	{ FUNC(bssid_hint) },
 	{ FUNC(bssid_blacklist) },
 	{ FUNC(bssid_whitelist) },
 	{ FUNC_KEY(psk) },
 	{ INT(mem_only_psk) },
+	{ STR_KEY(sae_password) },
 	{ FUNC(proto) },
 	{ FUNC(key_mgmt) },
 	{ INT(bg_scan_period) },
 	{ FUNC(pairwise) },
 	{ FUNC(group) },
+	{ FUNC(group_mgmt) },
 	{ FUNC(auth_alg) },
 	{ FUNC(scan_freq) },
 	{ FUNC(freq_list) },
+	{ INT_RANGE(ht, 0, 1) },
+	{ INT_RANGE(vht, 0, 1) },
+	{ INT_RANGE(ht40, -1, 1) },
 	{ INT_RANGE(max_oper_chwidth, VHT_CHANWIDTH_USE_HT,
 		    VHT_CHANWIDTH_80P80MHZ) },
+	{ INT(vht_center_freq1) },
+	{ INT(vht_center_freq2) },
 #ifdef IEEE8021X_EAPOL
 	{ FUNC(eap) },
 	{ STR_LENe(identity) },
 	{ STR_LENe(anonymous_identity) },
+	{ STR_LENe(imsi_identity) },
 	{ FUNC_KEY(password) },
 	{ STRe(ca_cert) },
 	{ STRe(ca_path) },
@@ -2057,6 +2211,7 @@ static const struct parse_data ssid_fields[] = {
 #ifdef CONFIG_MESH
 	{ INT_RANGE(mode, 0, 5) },
 	{ INT_RANGE(no_auto_peer, 0, 1) },
+	{ INT_RANGE(mesh_rssi_threshold, -255, 1) },
 #else /* CONFIG_MESH */
 	{ INT_RANGE(mode, 0, 4) },
 #endif /* CONFIG_MESH */
@@ -2066,7 +2221,7 @@ static const struct parse_data ssid_fields[] = {
 #ifdef CONFIG_IEEE80211W
 	{ INT_RANGE(ieee80211w, 0, 2) },
 #endif /* CONFIG_IEEE80211W */
-	{ INT_RANGE(peerkey, 0, 1) },
+	{ FUNC(peerkey) /* obsolete - removed */ },
 	{ INT_RANGE(mixed_cell, 0, 1) },
 	{ INT_RANGE(frequency, 0, 65000) },
 	{ INT_RANGE(fixed_freq, 0, 1) },
@@ -2138,6 +2293,14 @@ static const struct parse_data ssid_fields[] = {
 	{ INT_RANGE(mac_addr, 0, 2) },
 	{ INT_RANGE(pbss, 0, 2) },
 	{ INT_RANGE(wps_disabled, 0, 1) },
+	{ INT_RANGE(fils_dh_group, 0, 65535) },
+#ifdef CONFIG_DPP
+	{ STR(dpp_connector) },
+	{ STR_LEN(dpp_netaccesskey) },
+	{ INT(dpp_netaccesskey_expiry) },
+	{ STR_LEN(dpp_csign) },
+#endif /* CONFIG_DPP */
+	{ INT_RANGE(owe_group, 0, 65535) },
 };
 
 #undef OFFSET
@@ -2249,6 +2412,7 @@ static void eap_peer_config_free(struct eap_peer_config *eap)
 	os_free(eap->eap_methods);
 	bin_clear_free(eap->identity, eap->identity_len);
 	os_free(eap->anonymous_identity);
+	os_free(eap->imsi_identity);
 	bin_clear_free(eap->password, eap->password_len);
 	os_free(eap->ca_cert);
 	os_free(eap->ca_path);
@@ -2307,6 +2471,7 @@ void wpa_config_free_ssid(struct wpa_ssid *ssid)
 	os_free(ssid->ssid);
 	str_clear_free(ssid->passphrase);
 	os_free(ssid->ext_psk);
+	str_clear_free(ssid->sae_password);
 #ifdef IEEE8021X_EAPOL
 	eap_peer_config_free(&ssid->eap);
 #endif /* IEEE8021X_EAPOL */
@@ -2323,6 +2488,9 @@ void wpa_config_free_ssid(struct wpa_ssid *ssid)
 #ifdef CONFIG_MESH
 	os_free(ssid->mesh_basic_rates);
 #endif /* CONFIG_MESH */
+	os_free(ssid->dpp_connector);
+	bin_clear_free(ssid->dpp_netaccesskey, ssid->dpp_netaccesskey_len);
+	os_free(ssid->dpp_csign);
 	while ((psk = dl_list_first(&ssid->psk_list, struct psk_list_entry,
 				    list))) {
 		dl_list_del(&psk->list);
@@ -2576,6 +2744,7 @@ void wpa_config_set_network_defaults(struct wpa_ssid *ssid)
 	ssid->group_cipher = DEFAULT_GROUP;
 	ssid->key_mgmt = DEFAULT_KEY_MGMT;
 	ssid->bg_scan_period = DEFAULT_BG_SCAN_PERIOD;
+	ssid->ht = 1;
 #ifdef IEEE8021X_EAPOL
 	ssid->eapol_flags = DEFAULT_EAPOL_FLAGS;
 	ssid->eap_workaround = DEFAULT_EAP_WORKAROUND;
@@ -2587,6 +2756,7 @@ void wpa_config_set_network_defaults(struct wpa_ssid *ssid)
 	ssid->dot11MeshRetryTimeout = DEFAULT_MESH_RETRY_TIMEOUT;
 	ssid->dot11MeshConfirmTimeout = DEFAULT_MESH_CONFIRM_TIMEOUT;
 	ssid->dot11MeshHoldingTimeout = DEFAULT_MESH_HOLDING_TIMEOUT;
+	ssid->mesh_rssi_threshold = DEFAULT_MESH_RSSI_THRESHOLD;
 #endif /* CONFIG_MESH */
 #ifdef CONFIG_HT_OVERRIDES
 	ssid->disable_ht = DEFAULT_DISABLE_HT;
@@ -3742,6 +3912,9 @@ struct wpa_config * wpa_config_alloc_empty(const char *ctrl_interface,
 
 #ifdef CONFIG_MBO
 	config->mbo_cell_capa = DEFAULT_MBO_CELL_CAPA;
+	config->disassoc_imminent_rssi_threshold =
+		DEFAULT_DISASSOC_IMMINENT_RSSI_THRESHOLD;
+	config->oce = DEFAULT_OCE_SUPPORT;
 #endif /* CONFIG_MBO */
 
 	if (ctrl_interface)
@@ -4354,6 +4527,7 @@ static const struct global_parse_data global_fields[] = {
 	{ FUNC_NO_VAR(load_dynamic_eap), 0 },
 #ifdef CONFIG_WPS
 	{ FUNC(uuid), CFG_CHANGED_UUID },
+	{ INT_RANGE(auto_uuid, 0, 1), 0 },
 	{ STR_RANGE(device_name, 0, WPS_DEV_NAME_MAX_LEN),
 	  CFG_CHANGED_DEVICE_NAME },
 	{ STR_RANGE(manufacturer, 0, 64), CFG_CHANGED_WPS_STRING },
@@ -4410,6 +4584,11 @@ static const struct global_parse_data global_fields[] = {
 	{ INT_RANGE(interworking, 0, 1), 0 },
 	{ FUNC(hessid), 0 },
 	{ INT_RANGE(access_network_type, 0, 15), 0 },
+	{ INT_RANGE(go_interworking, 0, 1), 0 },
+	{ INT_RANGE(go_access_network_type, 0, 15), 0 },
+	{ INT_RANGE(go_internet, 0, 1), 0 },
+	{ INT_RANGE(go_venue_group, 0, 255), 0 },
+	{ INT_RANGE(go_venue_type, 0, 255), 0 },
 	{ INT_RANGE(pbc_in_m1, 0, 1), 0 },
 	{ STR(autoscan), 0 },
 	{ INT_RANGE(wps_nfc_dev_pw_id, 0x10, 0xffff),
@@ -4430,9 +4609,10 @@ static const struct global_parse_data global_fields[] = {
 	{ FUNC(freq_list), 0 },
 	{ INT(scan_cur_freq), 0 },
 	{ INT(sched_scan_interval), 0 },
+	{ INT(sched_scan_start_delay), 0 },
 	{ INT(tdls_external_control), 0},
 	{ STR(osu_dir), 0 },
-	{ STR(wowlan_triggers), 0 },
+	{ STR(wowlan_triggers), CFG_CHANGED_WOWLAN_TRIGGERS },
 	{ INT(p2p_search_delay), 0},
 	{ INT(mac_addr), 0 },
 	{ INT(rand_addr_lifetime), 0 },
@@ -4453,12 +4633,15 @@ static const struct global_parse_data global_fields[] = {
 	{ STR(non_pref_chan), 0 },
 	{ INT_RANGE(mbo_cell_capa, MBO_CELL_CAPA_AVAILABLE,
 		    MBO_CELL_CAPA_NOT_SUPPORTED), 0 },
-#endif /*CONFIG_MBO */
+	{ INT_RANGE(disassoc_imminent_rssi_threshold, -120, 0), 0 },
+	{ INT_RANGE(oce, 0, 3), 0 },
+#endif /* CONFIG_MBO */
 	{ INT(gas_address3), 0 },
 	{ INT_RANGE(ftm_responder, 0, 1), 0 },
 	{ INT_RANGE(ftm_initiator, 0, 1), 0 },
 	{ INT(gas_rand_addr_lifetime), 0 },
 	{ INT_RANGE(gas_rand_mac_addr, 0, 2), 0 },
+	{ INT_RANGE(dpp_config_processing, 0, 2), 0 },
 };
 
 #undef FUNC

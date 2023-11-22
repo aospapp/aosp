@@ -16,6 +16,16 @@
 
 package android.print.cts;
 
+import static android.print.test.Utils.assertException;
+import static android.print.test.Utils.eventually;
+import static android.print.test.Utils.getPrintJob;
+import static android.print.test.Utils.runOnMainThread;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.ComponentName;
@@ -38,13 +48,14 @@ import android.print.PrintManager;
 import android.print.PrinterCapabilitiesInfo;
 import android.print.PrinterId;
 import android.print.PrinterInfo;
-import android.print.cts.services.FirstPrintService;
-import android.print.cts.services.InfoActivity;
-import android.print.cts.services.PrintServiceCallbacks;
-import android.print.cts.services.PrinterDiscoverySessionCallbacks;
-import android.print.cts.services.SecondPrintService;
-import android.print.cts.services.StubbablePrintService;
-import android.print.cts.services.StubbablePrinterDiscoverySession;
+import android.print.test.BasePrintTest;
+import android.print.test.services.FirstPrintService;
+import android.print.test.services.InfoActivity;
+import android.print.test.services.PrintServiceCallbacks;
+import android.print.test.services.PrinterDiscoverySessionCallbacks;
+import android.print.test.services.SecondPrintService;
+import android.print.test.services.StubbablePrintService;
+import android.print.test.services.StubbablePrinterDiscoverySession;
 import android.printservice.CustomPrinterIconCallback;
 import android.printservice.PrintJob;
 import android.printservice.PrintService;
@@ -52,14 +63,12 @@ import android.support.test.runner.AndroidJUnit4;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiSelector;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import static android.print.cts.Utils.*;
-import static org.junit.Assert.*;
 
 /**
  * Test the interface from a print service to the print manager

@@ -16,6 +16,7 @@
 
 package android.graphics.drawable.cts;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
@@ -132,6 +133,52 @@ public class IconTest {
         verify(mockRunnable, times(1)).run();
     }
 
+    @Test
+    public void testBitmapIcon_getType() {
+        Icon icon = Icon.createWithBitmap(Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888));
+        assertEquals(Icon.TYPE_BITMAP, icon.getType());
+    }
+
+    @Test
+    public void testDataIcon_getType() {
+        byte[] data = new byte[4];
+        data[0] = data[1] = data[2] = data[3] = (byte) 255;
+        Icon icon = Icon.createWithData(data, 0, 4);
+        assertEquals(Icon.TYPE_DATA, icon.getType());
+    }
+
+    @Test
+    public void testFileIcon_getType() throws IOException {
+        File file = new File(mActivity.getFilesDir(), "testimage.jpg");
+        try {
+            writeSampleImage(file);
+            assertTrue(file.exists());
+            String filePath = file.toURI().getPath();
+
+            Icon icon = Icon.createWithFilePath(file.getPath());
+            assertEquals(Icon.TYPE_URI, icon.getType());
+            assertEquals(filePath, icon.getUri().getPath());
+
+            icon = Icon.createWithContentUri(Uri.fromFile(file));
+            assertEquals(Icon.TYPE_URI, icon.getType());
+            assertEquals(filePath, icon.getUri().getPath());
+
+            icon = Icon.createWithContentUri(file.toURI().toString());
+            assertEquals(Icon.TYPE_URI, icon.getType());
+            assertEquals(filePath, icon.getUri().getPath());
+        } finally {
+            file.delete();
+        }
+    }
+
+    @Test
+    public void testResourceIcon_getType() {
+        Icon icon = Icon.createWithResource("com.android.cts.testpkg", R.drawable.bmp_test);
+        assertEquals(Icon.TYPE_RESOURCE, icon.getType());
+        assertEquals("com.android.cts.testpkg", icon.getResPackage());
+        assertEquals(R.drawable.bmp_test, icon.getResId());
+    }
+
     private void writeSampleImage(File imagefile) throws IOException {
         try (InputStream source = mActivity.getResources().openRawResource(R.drawable.testimage);
              OutputStream target = new FileOutputStream(imagefile)) {
@@ -161,5 +208,7 @@ public class IconTest {
 
         // loading drawable synchronously.
         assertNotNull(icon.loadDrawable(mActivity));
+
+        parcel.recycle();
     }
 }

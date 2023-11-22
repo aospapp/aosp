@@ -214,7 +214,7 @@ public class AssertHelpers {
 
         boolean first = true;
         for (T elem : collection) {
-            String val = ((first) ? ", " : "") + ((elem != null) ? elem.toString() : "null");
+            String val = (first ? "" : ", ") + elem;
             first = false;
             if ((builder.length() + val.length()) > maxLen - "...]".length()) {
                 builder.append("...");

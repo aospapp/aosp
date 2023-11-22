@@ -37,46 +37,41 @@ public class SyncTask extends BaseTask {
   private static final int MINIMAL_INTERVAL_MILLIS = 60_000;
 
   private static final String EXTRA_PHONE_ACCOUNT_HANDLE = "extra_phone_account_handle";
-  private static final String EXTRA_SYNC_TYPE = "extra_sync_type";
 
-  private final RetryPolicy mRetryPolicy;
+  private final RetryPolicy retryPolicy;
 
-  private PhoneAccountHandle mPhone;
-  private String mSyncType;
+  private PhoneAccountHandle phone;
 
-  public static void start(Context context, PhoneAccountHandle phone, String syncType) {
+  public static void start(Context context, PhoneAccountHandle phone) {
     Intent intent = BaseTask.createIntent(context, SyncTask.class, phone);
     intent.putExtra(EXTRA_PHONE_ACCOUNT_HANDLE, phone);
-    intent.putExtra(EXTRA_SYNC_TYPE, syncType);
     context.sendBroadcast(intent);
   }
 
   public SyncTask() {
     super(TASK_SYNC);
-    mRetryPolicy = new RetryPolicy(RETRY_TIMES, RETRY_INTERVAL_MILLIS);
-    addPolicy(mRetryPolicy);
+    retryPolicy = new RetryPolicy(RETRY_TIMES, RETRY_INTERVAL_MILLIS);
+    addPolicy(retryPolicy);
     addPolicy(new MinimalIntervalPolicy(MINIMAL_INTERVAL_MILLIS));
   }
 
   @Override
   public void onCreate(Context context, Bundle extras) {
     super.onCreate(context, extras);
-    mPhone = extras.getParcelable(EXTRA_PHONE_ACCOUNT_HANDLE);
-    mSyncType = extras.getString(EXTRA_SYNC_TYPE);
+    phone = extras.getParcelable(EXTRA_PHONE_ACCOUNT_HANDLE);
   }
 
   @Override
   public void onExecuteInBackgroundThread() {
     OmtpVvmSyncService service = new OmtpVvmSyncService(getContext());
-    service.sync(this, mSyncType, mPhone, null, mRetryPolicy.getVoicemailStatusEditor());
+    service.sync(this, phone, null, retryPolicy.getVoicemailStatusEditor());
   }
 
   @Override
   public Intent createRestartIntent() {
     LoggerUtils.logImpressionOnMainThread(getContext(), DialerImpression.Type.VVM_AUTO_RETRY_SYNC);
     Intent intent = super.createRestartIntent();
-    intent.putExtra(EXTRA_PHONE_ACCOUNT_HANDLE, mPhone);
-    intent.putExtra(EXTRA_SYNC_TYPE, mSyncType);
+    intent.putExtra(EXTRA_PHONE_ACCOUNT_HANDLE, phone);
     return intent;
   }
 }

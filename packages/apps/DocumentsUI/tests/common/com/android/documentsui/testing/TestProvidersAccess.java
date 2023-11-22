@@ -16,6 +16,7 @@
 package com.android.documentsui.testing;
 
 import android.provider.DocumentsContract.Root;
+
 import com.android.documentsui.InspectorProvider;
 import com.android.documentsui.base.Providers;
 import com.android.documentsui.base.RootInfo;
@@ -45,6 +46,7 @@ public class TestProvidersAccess implements ProvidersAccess {
         }};
         DOWNLOADS.authority = Providers.AUTHORITY_DOWNLOADS;
         DOWNLOADS.rootId = Providers.ROOT_ID_DOWNLOADS;
+        DOWNLOADS.title = "Downloads";
         DOWNLOADS.flags = Root.FLAG_LOCAL_ONLY
                 | Root.FLAG_SUPPORTS_CREATE
                 | Root.FLAG_SUPPORTS_IS_CHILD
@@ -53,6 +55,7 @@ public class TestProvidersAccess implements ProvidersAccess {
         HOME = new RootInfo();
         HOME.authority = Providers.AUTHORITY_STORAGE;
         HOME.rootId = Providers.ROOT_ID_HOME;
+        HOME.title = "Home";
         HOME.flags = Root.FLAG_LOCAL_ONLY
                 | Root.FLAG_SUPPORTS_CREATE
                 | Root.FLAG_SUPPORTS_IS_CHILD
@@ -61,10 +64,12 @@ public class TestProvidersAccess implements ProvidersAccess {
         HAMMY = new RootInfo();
         HAMMY.authority = "yummies";
         HAMMY.rootId = "hamsandwich";
+        HAMMY.title = "Ham Sandwich";
 
         PICKLES = new RootInfo();
         PICKLES.authority = "yummies";
         PICKLES.rootId = "pickles";
+        PICKLES.title = "Pickles";
 
         RECENTS = new RootInfo() {{
             // Special root for recents
@@ -72,10 +77,12 @@ public class TestProvidersAccess implements ProvidersAccess {
             flags = Root.FLAG_LOCAL_ONLY | Root.FLAG_SUPPORTS_IS_CHILD;
             availableBytes = -1;
         }};
+        RECENTS.title = "Recents";
 
         INSPECTOR = new RootInfo();
         INSPECTOR.authority = InspectorProvider.AUTHORITY;
         INSPECTOR.rootId = InspectorProvider.ROOT_ID;
+        INSPECTOR.title = "Inspector";
         INSPECTOR.flags = Root.FLAG_LOCAL_ONLY
             | Root.FLAG_SUPPORTS_CREATE;
     }

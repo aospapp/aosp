@@ -21,15 +21,12 @@ import android.database.Cursor;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.annotation.IntDef;
-import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
-
 import com.android.tv.data.BaseProgram;
 import com.android.tv.data.Program;
 import com.android.tv.dvr.DvrScheduleManager;
 import com.android.tv.dvr.provider.DvrContract.SeriesRecordings;
 import com.android.tv.util.Utils;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
@@ -40,68 +37,55 @@ import java.util.Objects;
 /**
  * Schedules the recording of a Series of Programs.
  *
- * <p>
- * Contains the data needed to create new ScheduleRecordings as the programs become available in
+ * <p>Contains the data needed to create new ScheduleRecordings as the programs become available in
  * the EPG.
  */
 public class SeriesRecording implements Parcelable {
-    /**
-     * Indicates that the ID is not assigned yet.
-     */
+    /** Indicates that the ID is not assigned yet. */
     public static final long ID_NOT_SET = 0;
 
-    /**
-     * The default priority of this recording.
-     */
+    /** The default priority of this recording. */
     public static final long DEFAULT_PRIORITY = Long.MAX_VALUE >> 1;
 
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef(flag = true,
-            value = {OPTION_CHANNEL_ONE, OPTION_CHANNEL_ALL})
+    @IntDef(
+        flag = true,
+        value = {OPTION_CHANNEL_ONE, OPTION_CHANNEL_ALL}
+    )
     public @interface ChannelOption {}
-    /**
-     * An option which indicates that the episodes in one channel are recorded.
-     */
+    /** An option which indicates that the episodes in one channel are recorded. */
     public static final int OPTION_CHANNEL_ONE = 0;
-    /**
-     * An option which indicates that the episodes in all the channels are recorded.
-     */
+    /** An option which indicates that the episodes in all the channels are recorded. */
     public static final int OPTION_CHANNEL_ALL = 1;
 
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef(flag = true,
-            value = {STATE_SERIES_NORMAL, STATE_SERIES_STOPPED})
+    @IntDef(
+        flag = true,
+        value = {STATE_SERIES_NORMAL, STATE_SERIES_STOPPED}
+    )
     public @interface SeriesState {}
 
-    /**
-     * The state indicates that the series recording is a normal one.
-     */
+    /** The state indicates that the series recording is a normal one. */
     public static final int STATE_SERIES_NORMAL = 0;
 
-    /**
-     * The state indicates that the series recording is stopped.
-     */
+    /** The state indicates that the series recording is stopped. */
     public static final int STATE_SERIES_STOPPED = 1;
 
-    /**
-     * Compare priority in descending order.
-     */
+    /** Compare priority in descending order. */
     public static final Comparator<SeriesRecording> PRIORITY_COMPARATOR =
             new Comparator<SeriesRecording>() {
-        @Override
-        public int compare(SeriesRecording lhs, SeriesRecording rhs) {
-            int value = Long.compare(rhs.mPriority, lhs.mPriority);
-            if (value == 0) {
-                // New recording has the higher priority.
-                value = Long.compare(rhs.mId, lhs.mId);
-            }
-            return value;
-        }
-    };
+                @Override
+                public int compare(SeriesRecording lhs, SeriesRecording rhs) {
+                    int value = Long.compare(rhs.mPriority, lhs.mPriority);
+                    if (value == 0) {
+                        // New recording has the higher priority.
+                        value = Long.compare(rhs.mId, lhs.mId);
+                    }
+                    return value;
+                }
+            };
 
-    /**
-     * Compare ID in ascending order.
-     */
+    /** Compare ID in ascending order. */
     public static final Comparator<SeriesRecording> ID_COMPARATOR =
             new Comparator<SeriesRecording>() {
                 @Override
@@ -126,9 +110,7 @@ public class SeriesRecording implements Parcelable {
                 .setPhotoUri(p.getThumbnailUri());
     }
 
-    /**
-     * Creates a new Builder with the values set from an existing {@link SeriesRecording}.
-     */
+    /** Creates a new Builder with the values set from an existing {@link SeriesRecording}. */
     public static Builder buildFrom(SeriesRecording r) {
         return new Builder()
                 .setId(r.mId)
@@ -149,30 +131,28 @@ public class SeriesRecording implements Parcelable {
     }
 
     /**
-     * Use this projection if you want to create {@link SeriesRecording} object using
-     * {@link #fromCursor}.
+     * Use this projection if you want to create {@link SeriesRecording} object using {@link
+     * #fromCursor}.
      */
     public static final String[] PROJECTION = {
-            // Columns must match what is read in fromCursor()
-            SeriesRecordings._ID,
-            SeriesRecordings.COLUMN_INPUT_ID,
-            SeriesRecordings.COLUMN_CHANNEL_ID,
-            SeriesRecordings.COLUMN_PRIORITY,
-            SeriesRecordings.COLUMN_TITLE,
-            SeriesRecordings.COLUMN_SHORT_DESCRIPTION,
-            SeriesRecordings.COLUMN_LONG_DESCRIPTION,
-            SeriesRecordings.COLUMN_SERIES_ID,
-            SeriesRecordings.COLUMN_START_FROM_EPISODE,
-            SeriesRecordings.COLUMN_START_FROM_SEASON,
-            SeriesRecordings.COLUMN_CHANNEL_OPTION,
-            SeriesRecordings.COLUMN_CANONICAL_GENRE,
-            SeriesRecordings.COLUMN_POSTER_URI,
-            SeriesRecordings.COLUMN_PHOTO_URI,
-            SeriesRecordings.COLUMN_STATE
+        // Columns must match what is read in fromCursor()
+        SeriesRecordings._ID,
+        SeriesRecordings.COLUMN_INPUT_ID,
+        SeriesRecordings.COLUMN_CHANNEL_ID,
+        SeriesRecordings.COLUMN_PRIORITY,
+        SeriesRecordings.COLUMN_TITLE,
+        SeriesRecordings.COLUMN_SHORT_DESCRIPTION,
+        SeriesRecordings.COLUMN_LONG_DESCRIPTION,
+        SeriesRecordings.COLUMN_SERIES_ID,
+        SeriesRecordings.COLUMN_START_FROM_EPISODE,
+        SeriesRecordings.COLUMN_START_FROM_SEASON,
+        SeriesRecordings.COLUMN_CHANNEL_OPTION,
+        SeriesRecordings.COLUMN_CANONICAL_GENRE,
+        SeriesRecordings.COLUMN_POSTER_URI,
+        SeriesRecordings.COLUMN_PHOTO_URI,
+        SeriesRecordings.COLUMN_STATE
     };
-    /**
-     * Creates {@link SeriesRecording} object from the given {@link Cursor}.
-     */
+    /** Creates {@link SeriesRecording} object from the given {@link Cursor}. */
     public static SeriesRecording fromCursor(Cursor c) {
         int index = -1;
         return new Builder()
@@ -195,8 +175,8 @@ public class SeriesRecording implements Parcelable {
     }
 
     /**
-     * Returns the ContentValues with keys as the columns specified in {@link SeriesRecordings}
-     * and the values from {@code r}.
+     * Returns the ContentValues with keys as the columns specified in {@link SeriesRecordings} and
+     * the values from {@code r}.
      */
     public static ContentValues toContentValues(SeriesRecording r) {
         ContentValues values = new ContentValues();
@@ -214,9 +194,9 @@ public class SeriesRecording implements Parcelable {
         values.put(SeriesRecordings.COLUMN_SERIES_ID, r.getSeriesId());
         values.put(SeriesRecordings.COLUMN_START_FROM_EPISODE, r.getStartFromEpisode());
         values.put(SeriesRecordings.COLUMN_START_FROM_SEASON, r.getStartFromSeason());
-        values.put(SeriesRecordings.COLUMN_CHANNEL_OPTION,
-                channelOption(r.getChannelOption()));
-        values.put(SeriesRecordings.COLUMN_CANONICAL_GENRE,
+        values.put(SeriesRecordings.COLUMN_CHANNEL_OPTION, channelOption(r.getChannelOption()));
+        values.put(
+                SeriesRecordings.COLUMN_CANONICAL_GENRE,
                 Utils.getCanonicalGenre(r.getCanonicalGenreIds()));
         values.put(SeriesRecordings.COLUMN_POSTER_URI, r.getPosterUri());
         values.put(SeriesRecordings.COLUMN_PHOTO_URI, r.getPhotoUri());
@@ -234,7 +214,8 @@ public class SeriesRecording implements Parcelable {
         return SeriesRecordings.OPTION_CHANNEL_ONE;
     }
 
-    @ChannelOption private static int channelOption(String option) {
+    @ChannelOption
+    private static int channelOption(String option) {
         switch (option) {
             case SeriesRecordings.OPTION_CHANNEL_ONE:
                 return OPTION_CHANNEL_ONE;
@@ -254,7 +235,8 @@ public class SeriesRecording implements Parcelable {
         return SeriesRecordings.STATE_SERIES_NORMAL;
     }
 
-    @SeriesState private static int seriesRecordingState(String state) {
+    @SeriesState
+    private static int seriesRecordingState(String state) {
         switch (state) {
             case SeriesRecordings.STATE_SERIES_NORMAL:
                 return STATE_SERIES_NORMAL;
@@ -264,9 +246,7 @@ public class SeriesRecording implements Parcelable {
         return STATE_SERIES_NORMAL;
     }
 
-    /**
-     * Builder for {@link SeriesRecording}.
-     */
+    /** Builder for {@link SeriesRecording}. */
     public static class Builder {
         private long mId = ID_NOT_SET;
         private long mPriority = DvrScheduleManager.DEFAULT_SERIES_PRIORITY;
@@ -284,141 +264,120 @@ public class SeriesRecording implements Parcelable {
         private String mPhotoUri;
         private int mState = SeriesRecording.STATE_SERIES_NORMAL;
 
-        /**
-         * @see #getId()
-         */
+        /** @see #getId() */
         public Builder setId(long id) {
             mId = id;
             return this;
         }
 
-        /**
-         * @see #getPriority() ()
-         */
+        /** @see #getPriority() () */
         public Builder setPriority(long priority) {
             mPriority = priority;
             return this;
         }
 
-        /**
-         * @see #getTitle()
-         */
+        /** @see #getTitle() */
         public Builder setTitle(String title) {
             mTitle = title;
             return this;
         }
 
-        /**
-         * @see #getDescription()
-         */
+        /** @see #getDescription() */
         public Builder setDescription(String description) {
             mDescription = description;
             return this;
         }
 
-        /**
-         * @see #getLongDescription()
-         */
+        /** @see #getLongDescription() */
         public Builder setLongDescription(String longDescription) {
             mLongDescription = longDescription;
             return this;
         }
 
-        /**
-         * @see #getInputId()
-         */
+        /** @see #getInputId() */
         public Builder setInputId(String inputId) {
             mInputId = inputId;
             return this;
         }
 
-        /**
-         * @see #getChannelId()
-         */
+        /** @see #getChannelId() */
         public Builder setChannelId(long channelId) {
             mChannelId = channelId;
             return this;
         }
 
-        /**
-         * @see #getSeriesId()
-         */
+        /** @see #getSeriesId() */
         public Builder setSeriesId(String seriesId) {
             mSeriesId = seriesId;
             return this;
         }
 
-        /**
-         * @see #getStartFromSeason()
-         */
+        /** @see #getStartFromSeason() */
         public Builder setStartFromSeason(int startFromSeason) {
             mStartFromSeason = startFromSeason;
             return this;
         }
 
-        /**
-         * @see #getChannelOption()
-         */
+        /** @see #getChannelOption() */
         public Builder setChannelOption(@ChannelOption int option) {
             mChannelOption = option;
             return this;
         }
 
-        /**
-         * @see #getStartFromEpisode()
-         */
+        /** @see #getStartFromEpisode() */
         public Builder setStartFromEpisode(int startFromEpisode) {
             mStartFromEpisode = startFromEpisode;
             return this;
         }
 
-        /**
-         * @see #getCanonicalGenreIds()
-         */
+        /** @see #getCanonicalGenreIds() */
         public Builder setCanonicalGenreIds(String genres) {
             mCanonicalGenreIds = Utils.getCanonicalGenreIds(genres);
             return this;
         }
 
-        /**
-         * @see #getCanonicalGenreIds()
-         */
+        /** @see #getCanonicalGenreIds() */
         public Builder setCanonicalGenreIds(int[] canonicalGenreIds) {
             mCanonicalGenreIds = canonicalGenreIds;
             return this;
         }
 
-        /**
-         * @see #getPosterUri()
-         */
+        /** @see #getPosterUri() */
         public Builder setPosterUri(String posterUri) {
             mPosterUri = posterUri;
             return this;
         }
 
-        /**
-         * @see #getPhotoUri()
-         */
+        /** @see #getPhotoUri() */
         public Builder setPhotoUri(String photoUri) {
             mPhotoUri = photoUri;
             return this;
         }
 
-        /**
-         * @see #getState()
-         */
+        /** @see #getState() */
         public Builder setState(@SeriesState int state) {
             mState = state;
             return this;
         }
 
-        /**
-         * Creates a new {@link SeriesRecording}.
-         */
+        /** Creates a new {@link SeriesRecording}. */
         public SeriesRecording build() {
-            return new SeriesRecording(mId, mPriority, mTitle, mDescription, mLongDescription,
-                    mInputId, mChannelId, mSeriesId, mStartFromSeason, mStartFromEpisode,
-                    mChannelOption, mCanonicalGenreIds, mPosterUri, mPhotoUri, mState);
+            return new SeriesRecording(
+                    mId,
+                    mPriority,
+                    mTitle,
+                    mDescription,
+                    mLongDescription,
+                    mInputId,
+                    mChannelId,
+                    mSeriesId,
+                    mStartFromSeason,
+                    mStartFromEpisode,
+                    mChannelOption,
+                    mCanonicalGenreIds,
+                    mPosterUri,
+                    mPhotoUri,
+                    mState);
         }
     }
 
@@ -444,16 +403,16 @@ public class SeriesRecording implements Parcelable {
 
     public static final Parcelable.Creator<SeriesRecording> CREATOR =
             new Parcelable.Creator<SeriesRecording>() {
-        @Override
-        public SeriesRecording createFromParcel(Parcel in) {
-          return SeriesRecording.fromParcel(in);
-        }
+                @Override
+                public SeriesRecording createFromParcel(Parcel in) {
+                    return SeriesRecording.fromParcel(in);
+                }
 
-        @Override
-        public SeriesRecording[] newArray(int size) {
-          return new SeriesRecording[size];
-        }
-    };
+                @Override
+                public SeriesRecording[] newArray(int size) {
+                    return new SeriesRecording[size];
+                }
+            };
 
     private long mId;
     private final long mPriority;
@@ -471,9 +430,7 @@ public class SeriesRecording implements Parcelable {
     private final String mPhotoUri;
     @SeriesState private int mState;
 
-    /**
-     * The input id of this SeriesRecording.
-     */
+    /** The input id of this SeriesRecording. */
     public String getInputId() {
         return mInputId;
     }
@@ -485,16 +442,12 @@ public class SeriesRecording implements Parcelable {
         return mChannelId;
     }
 
-    /**
-     * The id of this SeriesRecording.
-     */
+    /** The id of this SeriesRecording. */
     public long getId() {
         return mId;
     }
 
-    /**
-     * Sets the ID.
-     */
+    /** Sets the ID. */
     public void setId(long id) {
         mId = id;
     }
@@ -502,30 +455,24 @@ public class SeriesRecording implements Parcelable {
     /**
      * The priority of this recording.
      *
-     * <p> The highest number is recorded first. If there is a tie in mPriority then the higher mId
+     * <p>The highest number is recorded first. If there is a tie in mPriority then the higher mId
      * wins.
      */
     public long getPriority() {
         return mPriority;
     }
 
-    /**
-     * The series title.
-     */
+    /** The series title. */
     public String getTitle() {
         return mTitle;
     }
 
-    /**
-     * The series description.
-     */
+    /** The series description. */
     public String getDescription() {
         return mDescription;
     }
 
-    /**
-     * The long series description.
-     */
+    /** The long series description. */
     public String getLongDescription() {
         return mLongDescription;
     }
@@ -555,44 +502,34 @@ public class SeriesRecording implements Parcelable {
         return mStartFromSeason;
     }
 
-    /**
-     * Returns the channel recording option.
-     */
-    @ChannelOption public int getChannelOption() {
+    /** Returns the channel recording option. */
+    @ChannelOption
+    public int getChannelOption() {
         return mChannelOption;
     }
 
-    /**
-     * Returns the canonical genre ID's.
-     */
+    /** Returns the canonical genre ID's. */
     public int[] getCanonicalGenreIds() {
         return mCanonicalGenreIds;
     }
 
-    /**
-     * Returns the poster URI.
-     */
+    /** Returns the poster URI. */
     public String getPosterUri() {
         return mPosterUri;
     }
 
-    /**
-     * Returns the photo URI.
-     */
+    /** Returns the photo URI. */
     public String getPhotoUri() {
         return mPhotoUri;
     }
 
-    /**
-     * Returns the state of series recording.
-     */
-    @SeriesState public int getState() {
+    /** Returns the state of series recording. */
+    @SeriesState
+    public int getState() {
         return mState;
     }
 
-    /**
-     * Checks whether the series recording is stopped or not.
-     */
+    /** Checks whether the series recording is stopped or not. */
     public boolean isStopped() {
         return mState == STATE_SERIES_STOPPED;
     }
@@ -620,35 +557,77 @@ public class SeriesRecording implements Parcelable {
 
     @Override
     public int hashCode() {
-        return Objects.hash(mPriority, mChannelId, mStartFromSeason, mStartFromEpisode, mId,
-                mTitle, mDescription, mLongDescription, mSeriesId, mChannelOption,
-                mCanonicalGenreIds, mPosterUri, mPhotoUri, mState);
+        return Objects.hash(
+                mPriority,
+                mChannelId,
+                mStartFromSeason,
+                mStartFromEpisode,
+                mId,
+                mTitle,
+                mDescription,
+                mLongDescription,
+                mSeriesId,
+                mChannelOption,
+                Arrays.hashCode(mCanonicalGenreIds),
+                mPosterUri,
+                mPhotoUri,
+                mState);
     }
 
     @Override
     public String toString() {
-        return "SeriesRecording{" +
-                "inputId=" + mInputId +
-                ", channelId=" + mChannelId +
-                ", id='" + mId + '\'' +
-                ", priority=" + mPriority +
-                ", title='" + mTitle + '\'' +
-                ", description='" + mDescription + '\'' +
-                ", longDescription='" + mLongDescription + '\'' +
-                ", startFromSeason=" + mStartFromSeason +
-                ", startFromEpisode=" + mStartFromEpisode +
-                ", channelOption=" + mChannelOption +
-                ", canonicalGenreIds=" + Arrays.toString(mCanonicalGenreIds) +
-                ", posterUri=" + mPosterUri +
-                ", photoUri=" + mPhotoUri +
-                ", state=" + mState +
-                '}';
+        return "SeriesRecording{"
+                + "inputId="
+                + mInputId
+                + ", channelId="
+                + mChannelId
+                + ", id='"
+                + mId
+                + '\''
+                + ", priority="
+                + mPriority
+                + ", title='"
+                + mTitle
+                + '\''
+                + ", description='"
+                + mDescription
+                + '\''
+                + ", longDescription='"
+                + mLongDescription
+                + '\''
+                + ", startFromSeason="
+                + mStartFromSeason
+                + ", startFromEpisode="
+                + mStartFromEpisode
+                + ", channelOption="
+                + mChannelOption
+                + ", canonicalGenreIds="
+                + Arrays.toString(mCanonicalGenreIds)
+                + ", posterUri="
+                + mPosterUri
+                + ", photoUri="
+                + mPhotoUri
+                + ", state="
+                + mState
+                + '}';
     }
 
-    private SeriesRecording(long id, long priority, String title, String description,
-            String longDescription, String inputId, long channelId, String seriesId,
-            int startFromSeason, int startFromEpisode, int channelOption, int[] canonicalGenreIds,
-            String posterUri, String photoUri, int state) {
+    private SeriesRecording(
+            long id,
+            long priority,
+            String title,
+            String description,
+            String longDescription,
+            String inputId,
+            long channelId,
+            String seriesId,
+            int startFromSeason,
+            int startFromEpisode,
+            int channelOption,
+            int[] canonicalGenreIds,
+            String posterUri,
+            String photoUri,
+            int state) {
         this.mId = id;
         this.mPriority = priority;
         this.mTitle = title;
@@ -690,9 +669,7 @@ public class SeriesRecording implements Parcelable {
         out.writeInt(mState);
     }
 
-    /**
-     * Returns an array containing all of the elements in the list.
-     */
+    /** Returns an array containing all of the elements in the list. */
     public static SeriesRecording[] toArray(Collection<SeriesRecording> series) {
         return series.toArray(new SeriesRecording[series.size()]);
     }
@@ -715,16 +692,16 @@ public class SeriesRecording implements Parcelable {
         long channelId = program.getChannelId();
         String seasonNumber = program.getSeasonNumber();
         String episodeNumber = program.getEpisodeNumber();
-        if (!mSeriesId.equals(seriesId) || (channelOption == SeriesRecording.OPTION_CHANNEL_ONE
-                && mChannelId != channelId)) {
+        if (!mSeriesId.equals(seriesId)
+                || (channelOption == SeriesRecording.OPTION_CHANNEL_ONE
+                        && mChannelId != channelId)) {
             return false;
         }
         // Season number and episode number matches if
         // start_season_number < program_season_number
         // || (start_season_number == program_season_number
         // && start_episode_number <= program_episode_number).
-        if (mStartFromSeason == SeriesRecordings.THE_BEGINNING
-                || TextUtils.isEmpty(seasonNumber)) {
+        if (mStartFromSeason == SeriesRecordings.THE_BEGINNING || TextUtils.isEmpty(seasonNumber)) {
             return true;
         } else {
             int intSeasonNumber;

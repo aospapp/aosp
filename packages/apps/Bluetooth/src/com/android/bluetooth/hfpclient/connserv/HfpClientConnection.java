@@ -18,7 +18,6 @@ package com.android.bluetooth.hfpclient.connserv;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothHeadsetClientCall;
-import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.net.Uri;
 import android.telecom.Connection;
@@ -74,8 +73,7 @@ public class HfpClientConnection extends Connection {
             throw new IllegalStateException("HeadsetProfile is null, returning");
         }
 
-        mCurrentCall = mHeadsetProfile.dial(
-            mDevice, number.getSchemeSpecificPart());
+        mCurrentCall = mHeadsetProfile.dial(mDevice, number.getSchemeSpecificPart());
         if (mCurrentCall == null) {
             close(DisconnectCause.ERROR);
             Log.e(TAG, "Failed to create the call, dial failed.");
@@ -93,9 +91,11 @@ public class HfpClientConnection extends Connection {
         setAudioModeIsVoip(false);
         Uri number = Uri.fromParts(PhoneAccount.SCHEME_TEL, mCurrentCall.getNumber(), null);
         setAddress(number, TelecomManager.PRESENTATION_ALLOWED);
-        setConnectionCapabilities(CAPABILITY_SUPPORT_HOLD | CAPABILITY_MUTE |
-                CAPABILITY_SEPARATE_FROM_CONFERENCE | CAPABILITY_DISCONNECT_FROM_CONFERENCE |
-                (getState() == STATE_ACTIVE || getState() == STATE_HOLDING ? CAPABILITY_HOLD : 0));
+        setConnectionCapabilities(
+                CAPABILITY_SUPPORT_HOLD | CAPABILITY_MUTE | CAPABILITY_SEPARATE_FROM_CONFERENCE
+                        | CAPABILITY_DISCONNECT_FROM_CONFERENCE | (
+                        getState() == STATE_ACTIVE || getState() == STATE_HOLDING ? CAPABILITY_HOLD
+                                : 0));
     }
 
     public UUID getUUID() {
@@ -116,8 +116,8 @@ public class HfpClientConnection extends Connection {
     }
 
     public boolean inConference() {
-        return mAdded && mCurrentCall != null && mCurrentCall.isMultiParty() &&
-                getState() != Connection.STATE_DISCONNECTED;
+        return mAdded && mCurrentCall != null && mCurrentCall.isMultiParty()
+                && getState() != Connection.STATE_DISCONNECTED;
     }
 
     public void enterPrivateMode() {
@@ -289,7 +289,7 @@ public class HfpClientConnection extends Connection {
 
     @Override
     public String toString() {
-        return "HfpClientConnection{" + getAddress() + "," + stateToString(getState()) + "," +
-                mCurrentCall + "}";
+        return "HfpClientConnection{" + getAddress() + "," + stateToString(getState()) + ","
+                + mCurrentCall + "}";
     }
 }

@@ -10,10 +10,10 @@ icu4j/          - ICU4J with Google and Android-specific patches applied.
                   the repackaged version used in Android and CTS tests.
                       tools/srcgen/generate_android_icu4j.sh
 
-android_icu4j/  - A transformed copy of icu4j source repackaged into android.icu.
-                  This is the copy of ICU4J used in the Android platform.
-                  IMPORTANT NOTE: Do not make changes to this code directly.
-                  See tools/README.android.
+android_icu4j/  - This is the copy of ICU4J used in the Android platform.
+                  IMPORTANT NOTE: Do not make changes to this code directly,
+                  except where noted in android_icu4j/README.android. See
+                  tools/README.android for how to generate it.
 
 android_utils/  - ICU4C runtime initialization / Android integration code.
 

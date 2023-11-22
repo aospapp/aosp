@@ -25,7 +25,7 @@
           android:targetSdkVersion="23"/>
 
     <instrumentation
-            android:name="android.test.InstrumentationTestRunner"
+            android:name="android.support.test.runner.AndroidJUnitRunner"
             android:targetPackage="com.android.uibench.janktests"
             android:label="Platform UiBench Jank Tests" />
 </manifest>

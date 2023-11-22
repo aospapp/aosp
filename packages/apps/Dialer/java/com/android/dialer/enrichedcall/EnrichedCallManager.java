@@ -16,6 +16,7 @@
 
 package com.android.dialer.enrichedcall;
 
+import android.content.BroadcastReceiver.PendingResult;
 import android.support.annotation.MainThread;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -23,6 +24,7 @@ import com.android.dialer.calldetails.CallDetailsEntries;
 import com.android.dialer.calldetails.CallDetailsEntries.CallDetailsEntry;
 import com.android.dialer.enrichedcall.historyquery.proto.HistoryResult;
 import com.android.dialer.enrichedcall.videoshare.VideoShareListener;
+import com.android.dialer.enrichedcall.videoshare.VideoShareSession;
 import com.android.dialer.multimedia.MultimediaData;
 import java.util.List;
 import java.util.Map;
@@ -176,6 +178,34 @@ public interface EnrichedCallManager {
   @NonNull
   Filter createOutgoingCallComposerFilter();
 
+  /** Receives updates when the state of an historical data changes. */
+  interface HistoricalDataChangedListener {
+
+    /**
+     * Callback fired when historical data changes. Listeners should call {@link
+     * #getAllHistoricalData(String, CallDetailsEntries)} to retrieve the new data.
+     */
+    void onHistoricalDataChanged();
+  }
+
+  /**
+   * Registers the given {@link HistoricalDataChangedListener}.
+   *
+   * <p>As a result of this method, the listener will receive updates when the state of any enriched
+   * call historical data changes.
+   */
+  @MainThread
+  void registerHistoricalDataChangedListener(@NonNull HistoricalDataChangedListener listener);
+
+  /**
+   * Unregisters the given {@link HistoricalDataChangedListener}.
+   *
+   * <p>As a result of this method, the listener will not receive updates when the state of enriched
+   * call historical data changes.
+   */
+  @MainThread
+  void unregisterHistoricalDataChangedListener(@NonNull HistoricalDataChangedListener listener);
+
   /**
    * Starts an asynchronous process to get all historical data for the given number and set of
    * {@link CallDetailsEntries}.
@@ -240,10 +270,17 @@ public interface EnrichedCallManager {
   /**
    * Called when post call data arrives for the given session.
    *
+   * @param pendingResult PendingResult form a broadcast receiver. The broadcast might be received
+   *     when dialer is not in the foreground, and can not start {@link
+   *     com.android.dialer.app.calllog.CallLogNotificationsService} to handle the event. The
+   *     pendingResult allows dialer to hold on to resources when the event is handled in a
+   *     background thread. TODO(a bug): migrate CallLogNotificationsService to a
+   *     JobIntentService so it can be used in the background.
    * @throws IllegalStateException if there's no session for the given id
    */
   @MainThread
-  void onIncomingPostCallData(long sessionId, @NonNull MultimediaData multimediaData);
+  void onIncomingPostCallData(
+      @NonNull PendingResult pendingResult, long sessionId, @NonNull MultimediaData multimediaData);
 
   /**
    * Registers the given {@link VideoShareListener}.
@@ -297,6 +334,14 @@ public interface EnrichedCallManager {
    */
   @MainThread
   long getVideoShareInviteSessionId(@NonNull String number);
+
+  /**
+   * Returns the {@link VideoShareSession} for the given sessionId, or {@code null} if no session
+   * exists.
+   */
+  @MainThread
+  @Nullable
+  VideoShareSession getVideoShareSession(long sessionId);
 
   /**
    * Ends the given video share session.

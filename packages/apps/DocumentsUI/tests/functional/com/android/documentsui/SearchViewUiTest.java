@@ -70,6 +70,7 @@ public class SearchViewUiTest extends ActivityTest<FilesActivity> {
     public void testSearchView_CollapsesOnBack() throws Exception {
         bots.search.clickIcon();
         device.pressBack();
+        device.pressBack();
 
         bots.search.assertIconVisible(true);
         bots.search.assertInputExists(false);
@@ -79,6 +80,7 @@ public class SearchViewUiTest extends ActivityTest<FilesActivity> {
         bots.search.clickIcon();
         bots.search.setInputText("file2");
 
+        device.pressBack();
         device.pressBack();
 
         // Wait for a file in the default directory to be listed.

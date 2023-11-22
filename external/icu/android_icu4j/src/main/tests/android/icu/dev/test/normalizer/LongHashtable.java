@@ -5,6 +5,7 @@ package android.icu.dev.test.normalizer;
 
 import java.util.HashMap;
 import java.util.Map;
+import android.icu.testsharding.MainTestShard;
 
 /**
  *******************************************************************************
@@ -16,6 +17,7 @@ import java.util.Map;
  * for storing of composition data.
  * @author Vladimir Weinstein
  */
+@MainTestShard
 public class LongHashtable {
 
     public LongHashtable (int defaultValue) {

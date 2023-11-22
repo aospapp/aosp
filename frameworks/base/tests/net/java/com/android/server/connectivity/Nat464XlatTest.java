@@ -85,6 +85,32 @@ public class Nat464XlatTest {
     }
 
     @Test
+    public void testRequiresClat() throws Exception {
+        final int[] supportedTypes = {
+            ConnectivityManager.TYPE_MOBILE,
+            ConnectivityManager.TYPE_WIFI,
+            ConnectivityManager.TYPE_ETHERNET,
+        };
+
+        // NetworkInfo doesn't allow setting the State directly, but rather
+        // requires setting DetailedState in order set State as a side-effect.
+        final NetworkInfo.DetailedState[] supportedDetailedStates = {
+            NetworkInfo.DetailedState.CONNECTED,
+            NetworkInfo.DetailedState.SUSPENDED,
+        };
+
+        for (int type : supportedTypes) {
+            mNai.networkInfo.setType(type);
+            for (NetworkInfo.DetailedState state : supportedDetailedStates) {
+                mNai.networkInfo.setDetailedState(state, "reason", "extraInfo");
+                assertTrue(
+                        String.format("requiresClat expected for type=%d state=%s", type, state),
+                        Nat464Xlat.requiresClat(mNai));
+            }
+        }
+    }
+
+    @Test
     public void testNormalStartAndStop() throws Exception {
         Nat464Xlat nat = makeNat464Xlat();
         ArgumentCaptor<LinkProperties> c = ArgumentCaptor.forClass(LinkProperties.class);
@@ -100,7 +126,6 @@ public class Nat464XlatTest {
         mLooper.dispatchNext();
 
         verify(mNms).getInterfaceConfig(eq(STACKED_IFACE));
-        verify(mNms).setInterfaceIpv6NdOffload(eq(BASE_IFACE), eq(false));
         verify(mConnectivity).handleUpdateLinkProperties(eq(mNai), c.capture());
         assertFalse(c.getValue().getStackedLinks().isEmpty());
         assertTrue(c.getValue().getAllInterfaceNames().contains(STACKED_IFACE));
@@ -110,7 +135,6 @@ public class Nat464XlatTest {
         nat.stop();
 
         verify(mNms).stopClatd(eq(BASE_IFACE));
-        verify(mNms).setInterfaceIpv6NdOffload(eq(BASE_IFACE), eq(true));
 
         // Stacked interface removed notification arrives.
         nat.interfaceRemoved(STACKED_IFACE);
@@ -141,7 +165,6 @@ public class Nat464XlatTest {
         mLooper.dispatchNext();
 
         verify(mNms).getInterfaceConfig(eq(STACKED_IFACE));
-        verify(mNms).setInterfaceIpv6NdOffload(eq(BASE_IFACE), eq(false));
         verify(mConnectivity, times(1)).handleUpdateLinkProperties(eq(mNai), c.capture());
         assertFalse(c.getValue().getStackedLinks().isEmpty());
         assertTrue(c.getValue().getAllInterfaceNames().contains(STACKED_IFACE));
@@ -153,7 +176,6 @@ public class Nat464XlatTest {
 
         verify(mNms).unregisterObserver(eq(nat));
         verify(mNms).stopClatd(eq(BASE_IFACE));
-        verify(mNms).setInterfaceIpv6NdOffload(eq(BASE_IFACE), eq(true));
         verify(mConnectivity, times(2)).handleUpdateLinkProperties(eq(mNai), c.capture());
         assertTrue(c.getValue().getStackedLinks().isEmpty());
         assertFalse(c.getValue().getAllInterfaceNames().contains(STACKED_IFACE));

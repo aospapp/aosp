@@ -72,11 +72,10 @@ class Schedv2Test(unittest.TestCase):
     """Create fake experiment from string.
 
         Note - we mock out BenchmarkRun in this step.
-        """
+    """
     experiment_file = ExperimentFile(StringIO.StringIO(expstr))
-    experiment = ExperimentFactory().GetExperiment(experiment_file,
-                                                   working_directory='',
-                                                   log_dir='')
+    experiment = ExperimentFactory().GetExperiment(
+        experiment_file, working_directory='', log_dir='')
     return experiment
 
   def test_remote(self):
@@ -99,8 +98,8 @@ class Schedv2Test(unittest.TestCase):
       return (cm.name != 'chromeos-daisy3.cros' and
               cm.name != 'chromeos-daisy5.cros')
 
-    with mock.patch('machine_manager.MockCrosMachine.IsReachable',
-                    new=MockIsReachable):
+    with mock.patch(
+        'machine_manager.MockCrosMachine.IsReachable', new=MockIsReachable):
       self.exp = self._make_fake_experiment(EXPERIMENT_FILE_1)
       self.assertIn('chromeos-daisy1.cros', self.exp.remote)
       self.assertIn('chromeos-daisy2.cros', self.exp.remote)
@@ -119,8 +118,8 @@ class Schedv2Test(unittest.TestCase):
   def test_BenchmarkRunCacheReader_1(self, reader):
     """Test benchmarkrun set is split into 5 segments."""
 
-    self.exp = self._make_fake_experiment(EXPERIMENT_FILE_WITH_FORMAT.format(
-        kraken_iterations=9))
+    self.exp = self._make_fake_experiment(
+        EXPERIMENT_FILE_WITH_FORMAT.format(kraken_iterations=9))
     my_schedv2 = Schedv2(self.exp)
     self.assertFalse(my_schedv2.is_complete())
     # We have 9 * 2 == 18 brs, we use 5 threads, each reading 4, 4, 4,
@@ -141,8 +140,8 @@ class Schedv2Test(unittest.TestCase):
   def test_BenchmarkRunCacheReader_2(self, reader):
     """Test benchmarkrun set is split into 4 segments."""
 
-    self.exp = self._make_fake_experiment(EXPERIMENT_FILE_WITH_FORMAT.format(
-        kraken_iterations=8))
+    self.exp = self._make_fake_experiment(
+        EXPERIMENT_FILE_WITH_FORMAT.format(kraken_iterations=8))
     my_schedv2 = Schedv2(self.exp)
     self.assertFalse(my_schedv2.is_complete())
     # We have 8 * 2 == 16 brs, we use 4 threads, each reading 4 brs.
@@ -156,8 +155,8 @@ class Schedv2Test(unittest.TestCase):
   def test_BenchmarkRunCacheReader_3(self, reader):
     """Test benchmarkrun set is split into 2 segments."""
 
-    self.exp = self._make_fake_experiment(EXPERIMENT_FILE_WITH_FORMAT.format(
-        kraken_iterations=3))
+    self.exp = self._make_fake_experiment(
+        EXPERIMENT_FILE_WITH_FORMAT.format(kraken_iterations=3))
     my_schedv2 = Schedv2(self.exp)
     self.assertFalse(my_schedv2.is_complete())
     # We have 3 * 2 == 6 brs, we use 2 threads.
@@ -169,8 +168,8 @@ class Schedv2Test(unittest.TestCase):
   def test_BenchmarkRunCacheReader_4(self, reader):
     """Test benchmarkrun set is not splitted."""
 
-    self.exp = self._make_fake_experiment(EXPERIMENT_FILE_WITH_FORMAT.format(
-        kraken_iterations=1))
+    self.exp = self._make_fake_experiment(
+        EXPERIMENT_FILE_WITH_FORMAT.format(kraken_iterations=1))
     my_schedv2 = Schedv2(self.exp)
     self.assertFalse(my_schedv2.is_complete())
     # We have 1 * 2 == 2 br, so only 1 instance.
@@ -183,18 +182,17 @@ class Schedv2Test(unittest.TestCase):
     def MockReadCache(br):
       br.cache_hit = (br.label.name == 'image2')
 
-    with mock.patch('benchmark_run.MockBenchmarkRun.ReadCache',
-                    new=MockReadCache):
+    with mock.patch(
+        'benchmark_run.MockBenchmarkRun.ReadCache', new=MockReadCache):
       # We have 2 * 30 brs, half of which are put into _cached_br_list.
-      self.exp = self._make_fake_experiment(EXPERIMENT_FILE_WITH_FORMAT.format(
-          kraken_iterations=30))
+      self.exp = self._make_fake_experiment(
+          EXPERIMENT_FILE_WITH_FORMAT.format(kraken_iterations=30))
       my_schedv2 = Schedv2(self.exp)
       self.assertEquals(len(my_schedv2.get_cached_run_list()), 30)
       # The non-cache-hit brs are put into Schedv2._label_brl_map.
       self.assertEquals(
           reduce(lambda a, x: a + len(x[1]),
-                 my_schedv2.get_label_map().iteritems(),
-                 0), 30)
+                 my_schedv2.get_label_map().iteritems(), 0), 30)
 
   def test_nocachehit(self):
     """Test no cache-hit."""
@@ -202,18 +200,17 @@ class Schedv2Test(unittest.TestCase):
     def MockReadCache(br):
       br.cache_hit = False
 
-    with mock.patch('benchmark_run.MockBenchmarkRun.ReadCache',
-                    new=MockReadCache):
+    with mock.patch(
+        'benchmark_run.MockBenchmarkRun.ReadCache', new=MockReadCache):
       # We have 2 * 30 brs, none of which are put into _cached_br_list.
-      self.exp = self._make_fake_experiment(EXPERIMENT_FILE_WITH_FORMAT.format(
-          kraken_iterations=30))
+      self.exp = self._make_fake_experiment(
+          EXPERIMENT_FILE_WITH_FORMAT.format(kraken_iterations=30))
       my_schedv2 = Schedv2(self.exp)
       self.assertEquals(len(my_schedv2.get_cached_run_list()), 0)
       # The non-cache-hit brs are put into Schedv2._label_brl_map.
       self.assertEquals(
           reduce(lambda a, x: a + len(x[1]),
-                 my_schedv2.get_label_map().iteritems(),
-                 0), 60)
+                 my_schedv2.get_label_map().iteritems(), 0), 60)
 
 
 if __name__ == '__main__':

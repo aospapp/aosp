@@ -29,6 +29,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
     ../toast/src/android/widget/toast/cts/BaseToastTest.java
 
 LOCAL_PACKAGE_NAME := CtsToastLegacyTestCases
+LOCAL_SDK_VERSION := current
 
 include $(BUILD_CTS_PACKAGE)
 

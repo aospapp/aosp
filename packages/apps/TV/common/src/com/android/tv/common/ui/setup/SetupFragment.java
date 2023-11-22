@@ -26,22 +26,25 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
-
 import com.android.tv.common.ui.setup.animation.FadeAndShortSlide;
 import com.android.tv.common.ui.setup.animation.SetupAnimationHelper;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
-/**
- * A fragment which slides when it is entering/exiting.
- */
+/** A fragment which slides when it is entering/exiting. */
 public abstract class SetupFragment extends Fragment {
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef(flag = true,
-            value = {FRAGMENT_ENTER_TRANSITION, FRAGMENT_EXIT_TRANSITION,
-                    FRAGMENT_REENTER_TRANSITION, FRAGMENT_RETURN_TRANSITION})
+    @IntDef(
+        flag = true,
+        value = {
+            FRAGMENT_ENTER_TRANSITION,
+            FRAGMENT_EXIT_TRANSITION,
+            FRAGMENT_REENTER_TRANSITION,
+            FRAGMENT_RETURN_TRANSITION
+        }
+    )
     public @interface FragmentTransitionType {}
+
     public static final int FRAGMENT_ENTER_TRANSITION = 0x01;
     public static final int FRAGMENT_EXIT_TRANSITION = FRAGMENT_ENTER_TRANSITION << 1;
     public static final int FRAGMENT_REENTER_TRANSITION = FRAGMENT_ENTER_TRANSITION << 2;
@@ -49,50 +52,50 @@ public abstract class SetupFragment extends Fragment {
 
     private boolean mEnterTransitionRunning;
 
-    private final TransitionListener mTransitionListener = new TransitionListener() {
-        @Override
-        public void onTransitionStart(Transition transition) {
-            mEnterTransitionRunning = true;
-        }
+    private final TransitionListener mTransitionListener =
+            new TransitionListener() {
+                @Override
+                public void onTransitionStart(Transition transition) {
+                    mEnterTransitionRunning = true;
+                }
 
-        @Override
-        public void onTransitionEnd(Transition transition) {
-            mEnterTransitionRunning = false;
-            onEnterTransitionEnd();
-        }
+                @Override
+                public void onTransitionEnd(Transition transition) {
+                    mEnterTransitionRunning = false;
+                    onEnterTransitionEnd();
+                }
 
-        @Override
-        public void onTransitionCancel(Transition transition) { }
+                @Override
+                public void onTransitionCancel(Transition transition) {}
 
-        @Override
-        public void onTransitionPause(Transition transition) { }
+                @Override
+                public void onTransitionPause(Transition transition) {}
 
-        @Override
-        public void onTransitionResume(Transition transition) { }
-    };
+                @Override
+                public void onTransitionResume(Transition transition) {}
+            };
 
-    /**
-     * Returns {@code true} if the enter/reenter transition is running.
-     */
+    /** Returns {@code true} if the enter/reenter transition is running. */
     protected boolean isEnterTransitionRunning() {
         return mEnterTransitionRunning;
     }
 
-    /**
-     * Called when the enter/reenter transition ends.
-     */
-    protected void onEnterTransitionEnd() { }
+    /** Called when the enter/reenter transition ends. */
+    protected void onEnterTransitionEnd() {}
 
     public SetupFragment() {
         setAllowEnterTransitionOverlap(false);
         setAllowReturnTransitionOverlap(false);
-        enableFragmentTransition(FRAGMENT_ENTER_TRANSITION | FRAGMENT_EXIT_TRANSITION
-                | FRAGMENT_REENTER_TRANSITION | FRAGMENT_RETURN_TRANSITION);
+        enableFragmentTransition(
+                FRAGMENT_ENTER_TRANSITION
+                        | FRAGMENT_EXIT_TRANSITION
+                        | FRAGMENT_REENTER_TRANSITION
+                        | FRAGMENT_RETURN_TRANSITION);
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
+    public View onCreateView(
+            LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(getLayoutResourceId(), container, false);
         // After the transition animation, we need to request the focus. If not, this fragment
         // doesn't have the focus.
@@ -100,18 +103,17 @@ public abstract class SetupFragment extends Fragment {
         return view;
     }
 
-    /**
-     * Returns the layout resource ID for this fragment.
-     */
-    abstract protected int getLayoutResourceId();
+    /** Returns the layout resource ID for this fragment. */
+    protected abstract int getLayoutResourceId();
 
     protected void setOnClickAction(View view, final String category, final int actionId) {
-        view.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                onActionClick(category, actionId);
-            }
-        });
+        view.setOnClickListener(
+                new OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        onActionClick(category, actionId);
+                    }
+                });
     }
 
     protected boolean onActionClick(String category, int actionId) {
@@ -141,24 +143,22 @@ public abstract class SetupFragment extends Fragment {
     /**
      * Enables fragment transition according to the given {@code mask}.
      *
-     * @param mask This value is the combination of {@link #FRAGMENT_ENTER_TRANSITION},
-     * {@link #FRAGMENT_EXIT_TRANSITION}, {@link #FRAGMENT_REENTER_TRANSITION}, and
-     * {@link #FRAGMENT_RETURN_TRANSITION}.
+     * @param mask This value is the combination of {@link #FRAGMENT_ENTER_TRANSITION}, {@link
+     *     #FRAGMENT_EXIT_TRANSITION}, {@link #FRAGMENT_REENTER_TRANSITION}, and {@link
+     *     #FRAGMENT_RETURN_TRANSITION}.
      */
     public void enableFragmentTransition(@FragmentTransitionType int mask) {
-        setEnterTransition((mask & FRAGMENT_ENTER_TRANSITION) == 0 ? null
-                : createTransition(Gravity.END));
-        setExitTransition((mask & FRAGMENT_EXIT_TRANSITION) == 0 ? null
-                : createTransition(Gravity.START));
-        setReenterTransition((mask & FRAGMENT_REENTER_TRANSITION) == 0 ? null
-                : createTransition(Gravity.START));
-        setReturnTransition((mask & FRAGMENT_RETURN_TRANSITION) == 0 ? null
-                : createTransition(Gravity.END));
+        setEnterTransition(
+                (mask & FRAGMENT_ENTER_TRANSITION) == 0 ? null : createTransition(Gravity.END));
+        setExitTransition(
+                (mask & FRAGMENT_EXIT_TRANSITION) == 0 ? null : createTransition(Gravity.START));
+        setReenterTransition(
+                (mask & FRAGMENT_REENTER_TRANSITION) == 0 ? null : createTransition(Gravity.START));
+        setReturnTransition(
+                (mask & FRAGMENT_RETURN_TRANSITION) == 0 ? null : createTransition(Gravity.END));
     }
 
-    /**
-     * Sets the transition with the given {@code slidEdge}.
-     */
+    /** Sets the transition with the given {@code slidEdge}. */
     public void setFragmentTransition(@FragmentTransitionType int transitionType, int slideEdge) {
         switch (transitionType) {
             case FRAGMENT_ENTER_TRANSITION:
@@ -184,9 +184,7 @@ public abstract class SetupFragment extends Fragment {
                 .build();
     }
 
-    /**
-     * Changes the move distance of the transitions to short distance.
-     */
+    /** Changes the move distance of the transitions to short distance. */
     public void setShortDistance(@FragmentTransitionType int mask) {
         if ((mask & FRAGMENT_ENTER_TRANSITION) != 0) {
             Transition transition = getEnterTransition();
@@ -218,7 +216,7 @@ public abstract class SetupFragment extends Fragment {
      * Returns the ID's of the view's whose descendants will perform delayed move.
      *
      * @see com.android.tv.common.ui.setup.animation.SetupAnimationHelper.TransitionBuilder
-     * #setParentIdsForDelay
+     *     #setParentIdsForDelay
      */
     protected int[] getParentIdsForDelay() {
         return null;
@@ -228,7 +226,7 @@ public abstract class SetupFragment extends Fragment {
      * Sets the ID's of the views which will not be included in the transition.
      *
      * @see com.android.tv.common.ui.setup.animation.SetupAnimationHelper.TransitionBuilder
-     * #setExcludeIds
+     *     #setExcludeIds
      */
     protected int[] getExcludedTargetIds() {
         return null;

@@ -16,13 +16,17 @@
 
 #include "reg_type_cache-inl.h"
 
+#include <type_traits>
+
+#include "base/aborting.h"
 #include "base/arena_bit_vector.h"
 #include "base/bit_vector-inl.h"
 #include "base/casts.h"
 #include "base/scoped_arena_allocator.h"
 #include "base/stl_util.h"
 #include "class_linker-inl.h"
-#include "dex_file-inl.h"
+#include "dex/descriptors_names.h"
+#include "dex/dex_file-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "reg_type-inl.h"
@@ -51,8 +55,10 @@ ALWAYS_INLINE static inline bool MatchingPrecisionForClass(const RegType* entry,
 }
 
 void RegTypeCache::FillPrimitiveAndSmallConstantTypes() {
+  // Note: this must have the same order as CreatePrimitiveAndSmallConstantTypes.
   entries_.push_back(UndefinedType::GetInstance());
   entries_.push_back(ConflictType::GetInstance());
+  entries_.push_back(NullType::GetInstance());
   entries_.push_back(BooleanType::GetInstance());
   entries_.push_back(ByteType::GetInstance());
   entries_.push_back(ShortType::GetInstance());
@@ -164,7 +170,7 @@ mirror::Class* RegTypeCache::ResolveClass(const char* descriptor, mirror::ClassL
 }
 
 StringPiece RegTypeCache::AddString(const StringPiece& string_piece) {
-  char* ptr = arena_.AllocArray<char>(string_piece.length());
+  char* ptr = allocator_.AllocArray<char>(string_piece.length());
   memcpy(ptr, string_piece.data(), string_piece.length());
   return StringPiece(ptr, string_piece.length());
 }
@@ -197,9 +203,10 @@ const RegType& RegTypeCache::From(mirror::ClassLoader* loader,
     if (klass->CannotBeAssignedFromOtherTypes() || precise) {
       DCHECK(!(klass->IsAbstract()) || klass->IsArrayClass());
       DCHECK(!klass->IsInterface());
-      entry = new (&arena_) PreciseReferenceType(klass, AddString(sp_descriptor), entries_.size());
+      entry =
+          new (&allocator_) PreciseReferenceType(klass, AddString(sp_descriptor), entries_.size());
     } else {
-      entry = new (&arena_) ReferenceType(klass, AddString(sp_descriptor), entries_.size());
+      entry = new (&allocator_) ReferenceType(klass, AddString(sp_descriptor), entries_.size());
     }
     return AddEntry(entry);
   } else {  // Class not resolved.
@@ -213,7 +220,7 @@ const RegType& RegTypeCache::From(mirror::ClassLoader* loader,
     }
     if (IsValidDescriptor(descriptor)) {
       return AddEntry(
-          new (&arena_) UnresolvedReferenceType(AddString(sp_descriptor), entries_.size()));
+          new (&allocator_) UnresolvedReferenceType(AddString(sp_descriptor), entries_.size()));
     } else {
       // The descriptor is broken return the unknown type as there's nothing sensible that
       // could be done at runtime
@@ -224,7 +231,7 @@ const RegType& RegTypeCache::From(mirror::ClassLoader* loader,
 
 const RegType& RegTypeCache::MakeUnresolvedReference() {
   // The descriptor is intentionally invalid so nothing else will match this type.
-  return AddEntry(new (&arena_) UnresolvedReferenceType(AddString("a"), entries_.size()));
+  return AddEntry(new (&allocator_) UnresolvedReferenceType(AddString("a"), entries_.size()));
 }
 
 const RegType* RegTypeCache::FindClass(mirror::Class* klass, bool precise) const {
@@ -253,8 +260,8 @@ const RegType* RegTypeCache::InsertClass(const StringPiece& descriptor,
   DCHECK(FindClass(klass, precise) == nullptr);
   RegType* const reg_type = precise
       ? static_cast<RegType*>(
-          new (&arena_) PreciseReferenceType(klass, descriptor, entries_.size()))
-      : new (&arena_) ReferenceType(klass, descriptor, entries_.size());
+          new (&allocator_) PreciseReferenceType(klass, descriptor, entries_.size()))
+      : new (&allocator_) ReferenceType(klass, descriptor, entries_.size());
   return &AddEntry(reg_type);
 }
 
@@ -267,12 +274,13 @@ const RegType& RegTypeCache::FromClass(const char* descriptor, mirror::Class* kl
   return *reg_type;
 }
 
-RegTypeCache::RegTypeCache(bool can_load_classes, ScopedArenaAllocator& arena)
-    : entries_(arena.Adapter(kArenaAllocVerifier)),
-      klass_entries_(arena.Adapter(kArenaAllocVerifier)),
+RegTypeCache::RegTypeCache(bool can_load_classes, ScopedArenaAllocator& allocator, bool can_suspend)
+    : entries_(allocator.Adapter(kArenaAllocVerifier)),
+      klass_entries_(allocator.Adapter(kArenaAllocVerifier)),
       can_load_classes_(can_load_classes),
-      arena_(arena) {
-  if (kIsDebugBuild) {
+      allocator_(allocator) {
+  DCHECK(can_suspend || !can_load_classes) << "Cannot load classes if suspension is disabled!";
+  if (kIsDebugBuild && can_suspend) {
     Thread::Current()->AssertThreadSuspensionIsAllowable(gAborting == 0);
   }
   // The klass_entries_ array does not have primitives or small constants.
@@ -302,6 +310,7 @@ void RegTypeCache::ShutDown() {
     FloatType::Destroy();
     DoubleLoType::Destroy();
     DoubleHiType::Destroy();
+    NullType::Destroy();
     for (int32_t value = kMinSmallConstant; value <= kMaxSmallConstant; ++value) {
       const PreciseConstType* type = small_precise_constants_[value - kMinSmallConstant];
       delete type;
@@ -312,33 +321,55 @@ void RegTypeCache::ShutDown() {
   }
 }
 
-template <class Type>
-const Type* RegTypeCache::CreatePrimitiveTypeInstance(const std::string& descriptor) {
-  mirror::Class* klass = nullptr;
-  // Try loading the class from linker.
-  if (!descriptor.empty()) {
-    klass = art::Runtime::Current()->GetClassLinker()->FindSystemClass(Thread::Current(),
-                                                                       descriptor.c_str());
-    DCHECK(klass != nullptr);
-  }
-  const Type* entry = Type::CreateInstance(klass, descriptor, RegTypeCache::primitive_count_);
-  RegTypeCache::primitive_count_++;
-  return entry;
-}
+// Helper for create_primitive_type_instance lambda.
+namespace {
+template <typename T>
+struct TypeHelper {
+  using type = T;
+  static_assert(std::is_convertible<T*, RegType*>::value, "T must be a RegType");
+
+  const char* descriptor;
+
+  explicit TypeHelper(const char* d) : descriptor(d) {}
+};
+}  // namespace
 
 void RegTypeCache::CreatePrimitiveAndSmallConstantTypes() {
-  CreatePrimitiveTypeInstance<UndefinedType>("");
-  CreatePrimitiveTypeInstance<ConflictType>("");
-  CreatePrimitiveTypeInstance<BooleanType>("Z");
-  CreatePrimitiveTypeInstance<ByteType>("B");
-  CreatePrimitiveTypeInstance<ShortType>("S");
-  CreatePrimitiveTypeInstance<CharType>("C");
-  CreatePrimitiveTypeInstance<IntegerType>("I");
-  CreatePrimitiveTypeInstance<LongLoType>("J");
-  CreatePrimitiveTypeInstance<LongHiType>("J");
-  CreatePrimitiveTypeInstance<FloatType>("F");
-  CreatePrimitiveTypeInstance<DoubleLoType>("D");
-  CreatePrimitiveTypeInstance<DoubleHiType>("D");
+  // Note: this must have the same order as FillPrimitiveAndSmallConstantTypes.
+
+  // It is acceptable to pass on the const char* in type to CreateInstance, as all calls below are
+  // with compile-time constants that will have global lifetime. Use of the lambda ensures this
+  // code cannot leak to other users.
+  auto create_primitive_type_instance = [&](auto type) REQUIRES_SHARED(Locks::mutator_lock_) {
+    using Type = typename decltype(type)::type;
+    mirror::Class* klass = nullptr;
+    // Try loading the class from linker.
+    DCHECK(type.descriptor != nullptr);
+    if (strlen(type.descriptor) > 0) {
+      klass = art::Runtime::Current()->GetClassLinker()->FindSystemClass(Thread::Current(),
+                                                                         type.descriptor);
+      DCHECK(klass != nullptr);
+    }
+    const Type* entry = Type::CreateInstance(klass,
+                                             type.descriptor,
+                                             RegTypeCache::primitive_count_);
+    RegTypeCache::primitive_count_++;
+    return entry;
+  };
+  create_primitive_type_instance(TypeHelper<UndefinedType>(""));
+  create_primitive_type_instance(TypeHelper<ConflictType>(""));
+  create_primitive_type_instance(TypeHelper<NullType>(""));
+  create_primitive_type_instance(TypeHelper<BooleanType>("Z"));
+  create_primitive_type_instance(TypeHelper<ByteType>("B"));
+  create_primitive_type_instance(TypeHelper<ShortType>("S"));
+  create_primitive_type_instance(TypeHelper<CharType>("C"));
+  create_primitive_type_instance(TypeHelper<IntegerType>("I"));
+  create_primitive_type_instance(TypeHelper<LongLoType>("J"));
+  create_primitive_type_instance(TypeHelper<LongHiType>("J"));
+  create_primitive_type_instance(TypeHelper<FloatType>("F"));
+  create_primitive_type_instance(TypeHelper<DoubleLoType>("D"));
+  create_primitive_type_instance(TypeHelper<DoubleHiType>("D"));
+
   for (int32_t value = kMinSmallConstant; value <= kMaxSmallConstant; ++value) {
     PreciseConstType* type = new PreciseConstType(value, primitive_count_);
     small_precise_constants_[value - kMinSmallConstant] = type;
@@ -349,7 +380,7 @@ void RegTypeCache::CreatePrimitiveAndSmallConstantTypes() {
 const RegType& RegTypeCache::FromUnresolvedMerge(const RegType& left,
                                                  const RegType& right,
                                                  MethodVerifier* verifier) {
-  ArenaBitVector types(&arena_,
+  ArenaBitVector types(&allocator_,
                        kDefaultArenaBitVectorBytes * kBitsPerByte,  // Allocate at least 8 bytes.
                        true);                                       // Is expandable.
   const RegType* left_resolved;
@@ -394,6 +425,9 @@ const RegType& RegTypeCache::FromUnresolvedMerge(const RegType& left,
   if (resolved_parts_merged.IsConflict()) {
     return Conflict();
   }
+  if (resolved_parts_merged.IsJavaLangObject()) {
+    return resolved_parts_merged;
+  }
 
   bool resolved_merged_is_array = resolved_parts_merged.IsArrayTypes();
   if (left_unresolved_is_array || right_unresolved_is_array || resolved_merged_is_array) {
@@ -426,10 +460,10 @@ const RegType& RegTypeCache::FromUnresolvedMerge(const RegType& left,
       }
     }
   }
-  return AddEntry(new (&arena_) UnresolvedMergedType(resolved_parts_merged,
-                                                     types,
-                                                     this,
-                                                     entries_.size()));
+  return AddEntry(new (&allocator_) UnresolvedMergedType(resolved_parts_merged,
+                                                         types,
+                                                         this,
+                                                         entries_.size()));
 }
 
 const RegType& RegTypeCache::FromUnresolvedSuperClass(const RegType& child) {
@@ -446,7 +480,7 @@ const RegType& RegTypeCache::FromUnresolvedSuperClass(const RegType& child) {
       }
     }
   }
-  return AddEntry(new (&arena_) UnresolvedSuperClass(child.GetId(), this, entries_.size()));
+  return AddEntry(new (&allocator_) UnresolvedSuperClass(child.GetId(), this, entries_.size()));
 }
 
 const UninitializedType& RegTypeCache::Uninitialized(const RegType& type, uint32_t allocation_pc) {
@@ -462,9 +496,9 @@ const UninitializedType& RegTypeCache::Uninitialized(const RegType& type, uint32
         return *down_cast<const UnresolvedUninitializedRefType*>(cur_entry);
       }
     }
-    entry = new (&arena_) UnresolvedUninitializedRefType(descriptor,
-                                                         allocation_pc,
-                                                         entries_.size());
+    entry = new (&allocator_) UnresolvedUninitializedRefType(descriptor,
+                                                             allocation_pc,
+                                                             entries_.size());
   } else {
     mirror::Class* klass = type.GetClass();
     for (size_t i = primitive_count_; i < entries_.size(); i++) {
@@ -476,10 +510,10 @@ const UninitializedType& RegTypeCache::Uninitialized(const RegType& type, uint32
         return *down_cast<const UninitializedReferenceType*>(cur_entry);
       }
     }
-    entry = new (&arena_) UninitializedReferenceType(klass,
-                                                     descriptor,
-                                                     allocation_pc,
-                                                     entries_.size());
+    entry = new (&allocator_) UninitializedReferenceType(klass,
+                                                         descriptor,
+                                                         allocation_pc,
+                                                         entries_.size());
   }
   return AddEntry(entry);
 }
@@ -496,7 +530,7 @@ const RegType& RegTypeCache::FromUninitialized(const RegType& uninit_type) {
         return *cur_entry;
       }
     }
-    entry = new (&arena_) UnresolvedReferenceType(descriptor, entries_.size());
+    entry = new (&allocator_) UnresolvedReferenceType(descriptor, entries_.size());
   } else {
     mirror::Class* klass = uninit_type.GetClass();
     if (uninit_type.IsUninitializedThisReference() && !klass->IsFinal()) {
@@ -507,7 +541,7 @@ const RegType& RegTypeCache::FromUninitialized(const RegType& uninit_type) {
           return *cur_entry;
         }
       }
-      entry = new (&arena_) ReferenceType(klass, "", entries_.size());
+      entry = new (&allocator_) ReferenceType(klass, "", entries_.size());
     } else if (!klass->IsPrimitive()) {
       // We're uninitialized because of allocation, look or create a precise type as allocations
       // may only create objects of that type.
@@ -526,9 +560,9 @@ const RegType& RegTypeCache::FromUninitialized(const RegType& uninit_type) {
           return *cur_entry;
         }
       }
-      entry = new (&arena_) PreciseReferenceType(klass,
-                                                 uninit_type.GetDescriptor(),
-                                                 entries_.size());
+      entry = new (&allocator_) PreciseReferenceType(klass,
+                                                     uninit_type.GetDescriptor(),
+                                                     entries_.size());
     } else {
       return Conflict();
     }
@@ -547,7 +581,7 @@ const UninitializedType& RegTypeCache::UninitializedThisArgument(const RegType& 
         return *down_cast<const UninitializedType*>(cur_entry);
       }
     }
-    entry = new (&arena_) UnresolvedUninitializedThisRefType(descriptor, entries_.size());
+    entry = new (&allocator_) UnresolvedUninitializedThisRefType(descriptor, entries_.size());
   } else {
     mirror::Class* klass = type.GetClass();
     for (size_t i = primitive_count_; i < entries_.size(); i++) {
@@ -556,7 +590,7 @@ const UninitializedType& RegTypeCache::UninitializedThisArgument(const RegType& 
         return *down_cast<const UninitializedType*>(cur_entry);
       }
     }
-    entry = new (&arena_) UninitializedThisReferenceType(klass, descriptor, entries_.size());
+    entry = new (&allocator_) UninitializedThisReferenceType(klass, descriptor, entries_.size());
   }
   return AddEntry(entry);
 }
@@ -572,9 +606,9 @@ const ConstantType& RegTypeCache::FromCat1NonSmallConstant(int32_t value, bool p
   }
   ConstantType* entry;
   if (precise) {
-    entry = new (&arena_) PreciseConstType(value, entries_.size());
+    entry = new (&allocator_) PreciseConstType(value, entries_.size());
   } else {
-    entry = new (&arena_) ImpreciseConstType(value, entries_.size());
+    entry = new (&allocator_) ImpreciseConstType(value, entries_.size());
   }
   return AddEntry(entry);
 }
@@ -589,9 +623,9 @@ const ConstantType& RegTypeCache::FromCat2ConstLo(int32_t value, bool precise) {
   }
   ConstantType* entry;
   if (precise) {
-    entry = new (&arena_) PreciseConstLoType(value, entries_.size());
+    entry = new (&allocator_) PreciseConstLoType(value, entries_.size());
   } else {
-    entry = new (&arena_) ImpreciseConstLoType(value, entries_.size());
+    entry = new (&allocator_) ImpreciseConstLoType(value, entries_.size());
   }
   return AddEntry(entry);
 }
@@ -606,9 +640,9 @@ const ConstantType& RegTypeCache::FromCat2ConstHi(int32_t value, bool precise) {
   }
   ConstantType* entry;
   if (precise) {
-    entry = new (&arena_) PreciseConstHiType(value, entries_.size());
+    entry = new (&allocator_) PreciseConstHiType(value, entries_.size());
   } else {
-    entry = new (&arena_) ImpreciseConstHiType(value, entries_.size());
+    entry = new (&allocator_) ImpreciseConstHiType(value, entries_.size());
   }
   return AddEntry(entry);
 }

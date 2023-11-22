@@ -31,20 +31,19 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-
 import com.android.tv.R;
 import com.android.tv.dvr.data.RecordedProgram;
 import com.android.tv.ui.ViewUtils;
-import com.android.tv.util.ImageLoader;
+import com.android.tv.util.images.ImageLoader;
 
 /**
- * A CardView for displaying info about a {@link com.android.tv.dvr.data.ScheduledRecording}
- * or {@link RecordedProgram} or {@link com.android.tv.dvr.data.SeriesRecording}.
+ * A CardView for displaying info about a {@link com.android.tv.dvr.data.ScheduledRecording} or
+ * {@link RecordedProgram} or {@link com.android.tv.dvr.data.SeriesRecording}.
  */
 public class RecordingCardView extends BaseCardView {
     // This value should be the same with
     // android.support.v17.leanback.widget.FocusHighlightHelper.BrowseItemFocusHighlight.DURATION_MS
-    private final static int ANIMATION_DURATION = 150;
+    private static final int ANIMATION_DURATION = 150;
     private final ImageView mImageView;
     private final int mImageWidth;
     private final int mImageHeight;
@@ -70,16 +69,19 @@ public class RecordingCardView extends BaseCardView {
     }
 
     public RecordingCardView(Context context, boolean expandTitleWhenFocused) {
-        this(context, context.getResources().getDimensionPixelSize(
-                R.dimen.dvr_library_card_image_layout_width), context.getResources()
-                .getDimensionPixelSize(R.dimen.dvr_library_card_image_layout_height),
+        this(
+                context,
+                context.getResources()
+                        .getDimensionPixelSize(R.dimen.dvr_library_card_image_layout_width),
+                context.getResources()
+                        .getDimensionPixelSize(R.dimen.dvr_library_card_image_layout_height),
                 expandTitleWhenFocused);
     }
 
-    public RecordingCardView(Context context, int imageWidth, int imageHeight,
-            boolean expandTitleWhenFocused) {
+    public RecordingCardView(
+            Context context, int imageWidth, int imageHeight, boolean expandTitleWhenFocused) {
         super(context);
-        //TODO(dvr): move these to the layout XML.
+        // TODO(dvr): move these to the layout XML.
         setCardType(BaseCardView.CARD_TYPE_INFO_UNDER_WITH_EXTRA);
         setInfoVisibility(BaseCardView.CARD_REGION_VISIBLE_ALWAYS);
         setFocusable(true);
@@ -99,21 +101,27 @@ public class RecordingCardView extends BaseCardView {
         mTitleArea = (FrameLayout) findViewById(R.id.title_area);
         mFoldedTitleView = (TextView) findViewById(R.id.title_one_line);
         mExpandedTitleView = (TextView) findViewById(R.id.title_two_lines);
-        mFoldedTitleHeight = getResources()
-                .getDimensionPixelSize(R.dimen.dvr_library_card_folded_title_height);
-        mExpandedTitleHeight = getResources()
-                .getDimensionPixelSize(R.dimen.dvr_library_card_expanded_title_height);
+        mFoldedTitleHeight =
+                getResources().getDimensionPixelSize(R.dimen.dvr_library_card_folded_title_height);
+        mExpandedTitleHeight =
+                getResources()
+                        .getDimensionPixelSize(R.dimen.dvr_library_card_expanded_title_height);
         mExpandTitleAnimator = ValueAnimator.ofFloat(0.0f, 1.0f).setDuration(ANIMATION_DURATION);
-        mExpandTitleAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator valueAnimator) {
-                float value = (Float) valueAnimator.getAnimatedValue();
-                mExpandedTitleView.setAlpha(value);
-                mFoldedTitleView.setAlpha(1.0f - value);
-                ViewUtils.setLayoutHeight(mTitleArea, (int) (mFoldedTitleHeight
-                        + (mExpandedTitleHeight - mFoldedTitleHeight) * value));
-            }
-        });
+        mExpandTitleAnimator.addUpdateListener(
+                new ValueAnimator.AnimatorUpdateListener() {
+                    @Override
+                    public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                        float value = (Float) valueAnimator.getAnimatedValue();
+                        mExpandedTitleView.setAlpha(value);
+                        mFoldedTitleView.setAlpha(1.0f - value);
+                        ViewUtils.setLayoutHeight(
+                                mTitleArea,
+                                (int)
+                                        (mFoldedTitleHeight
+                                                + (mExpandedTitleHeight - mFoldedTitleHeight)
+                                                        * value));
+                    }
+                });
         mExpandTitleWhenFocused = expandTitleWhenFocused;
     }
 
@@ -124,8 +132,12 @@ public class RecordingCardView extends BaseCardView {
         // loading and drawing background images during activity transitions.
         if (gainFocus) {
             if (!TextUtils.isEmpty(mDetailBackgroundImageUri)) {
-                ImageLoader.loadBitmap(getContext(), mDetailBackgroundImageUri,
-                            Integer.MAX_VALUE, Integer.MAX_VALUE, null);
+                ImageLoader.loadBitmap(
+                        getContext(),
+                        mDetailBackgroundImageUri,
+                        Integer.MAX_VALUE,
+                        Integer.MAX_VALUE,
+                        null);
             }
         }
         if (mExpandTitleWhenFocused) {
@@ -186,9 +198,7 @@ public class RecordingCardView extends BaseCardView {
         }
     }
 
-    /**
-     * Sets progress bar. If progress is {@code null}, hides progress bar.
-     */
+    /** Sets progress bar. If progress is {@code null}, hides progress bar. */
     void setProgressBar(Integer progress) {
         if (progress == null) {
             mProgressBar.setVisibility(View.GONE);
@@ -198,16 +208,14 @@ public class RecordingCardView extends BaseCardView {
         }
     }
 
-    /**
-     * Sets the color of progress bar.
-     */
+    /** Sets the color of progress bar. */
     void setProgressBarColor(int color) {
         mProgressBar.getProgressDrawable().setTint(color);
     }
 
     /**
      * Sets the image URI of the poster should be shown on the card view.
-
+     *
      * @param isChannelLogo {@code true} if the image is from channels' logo.
      */
     void setImageUri(String uri, boolean isChannelLogo) {
@@ -220,14 +228,16 @@ public class RecordingCardView extends BaseCardView {
         if (TextUtils.isEmpty(uri)) {
             mImageView.setImageDrawable(mDefaultImage);
         } else {
-            ImageLoader.loadBitmap(getContext(), uri, mImageWidth, mImageHeight,
+            ImageLoader.loadBitmap(
+                    getContext(),
+                    uri,
+                    mImageWidth,
+                    mImageHeight,
                     new RecordingCardImageLoaderCallback(this, uri));
         }
     }
 
-    /**
-     * Sets the {@link Drawable} of the poster should be shown on the card view.
-     */
+    /** Sets the {@link Drawable} of the poster should be shown on the card view. */
     public void setImage(Drawable image) {
         if (image != null) {
             mImageView.setImageDrawable(image);
@@ -255,9 +265,7 @@ public class RecordingCardView extends BaseCardView {
         mDetailBackgroundImageUri = uri;
     }
 
-    /**
-     * Returns image view.
-     */
+    /** Returns image view. */
     public ImageView getImageView() {
         return mImageView;
     }

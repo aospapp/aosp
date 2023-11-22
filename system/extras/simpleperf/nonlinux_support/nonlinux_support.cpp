@@ -17,13 +17,18 @@
 // Add fake functions to build successfully on darwin.
 #include <android-base/logging.h>
 
-#include "dwarf_unwind.h"
 #include "environment.h"
+#include "OfflineUnwinder.h"
 
-std::vector<uint64_t> UnwindCallChain(int, const ThreadEntry&, const RegSet&,
-                                      const char*, size_t, bool) {
-  return std::vector<uint64_t>();
+namespace simpleperf {
+OfflineUnwinder::OfflineUnwinder(bool collect_stat) : collect_stat_(collect_stat) {
 }
+
+bool OfflineUnwinder::UnwindCallChain(const ThreadEntry&, const RegSet&, const char*, size_t,
+                     std::vector<uint64_t>*, std::vector<uint64_t>*) {
+  return false;
+}
+}  // namespace simpleperf
 
 bool GetKernelBuildId(BuildId*) {
   return false;

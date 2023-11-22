@@ -37,6 +37,12 @@
 @*
 @*******************************************************************************/
 
+.equ    qp_offset_u_offset,     40
+.equ    qp_offset_v_offset,     44
+.equ    tc_offset_div2_offset,  48
+.equ    filter_p_offset,        52
+.equ    filter_q_offset,        56
+
 .text
 .align 4
 
@@ -63,19 +69,19 @@ ihevc_deblk_chroma_vert_a9q:
     vld1.8      {d5},[r8],r1
     add         r2,r2,#1
     vld1.8      {d17},[r8],r1
-    ldr         r7,[sp,#0x28]
+    ldr         r7,[sp,#qp_offset_u_offset]
     vld1.8      {d16},[r8],r1
-    ldr         r4,[sp,#0x38]
+    ldr         r4,[sp,#filter_q_offset]
     vld1.8      {d4},[r8]
-    ldr         r5,[sp,#0x30]
+    ldr         r5,[sp,#tc_offset_div2_offset]
     vtrn.8      d5,d17
     adds        r3,r7,r2,asr #1
     vtrn.8      d16,d4
     ldr         r7,gai4_ihevc_qp_table_addr
 ulbl1:
     add         r7,r7,pc
-    ldr         r12,[sp,#0x34]
-    ldr         r6,[sp,#0x2c]
+    ldr         r12,[sp,#filter_p_offset]
+    ldr         r6,[sp,#qp_offset_v_offset]
     bmi         l1.2944
     cmp         r3,#0x39
     ldrle       r3,[r7,r3,lsl #2]

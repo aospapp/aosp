@@ -19,6 +19,8 @@
 
 #include "class_linker.h"
 #include "mirror/class-inl.h"
+#include "mirror/method_handle_impl.h"
+#include "mirror/method_type.h"
 #include "mirror/string.h"
 #include "mirror/throwable.h"
 #include "reg_type.h"
@@ -79,6 +81,9 @@ inline const UndefinedType& RegTypeCache::Undefined() {
 inline const ConflictType& RegTypeCache::Conflict() {
   return *ConflictType::GetInstance();
 }
+inline const NullType& RegTypeCache::Null() {
+  return *NullType::GetInstance();
+}
 
 inline const ImpreciseConstType& RegTypeCache::ByteConstant() {
   const ConstantType& result = FromCat1Const(std::numeric_limits<jbyte>::min(), false);
@@ -127,6 +132,20 @@ inline const PreciseReferenceType& RegTypeCache::JavaLangString() {
   // String is final and therefore always precise.
   const RegType* result = &FromClass("Ljava/lang/String;", mirror::String::GetJavaLangString(),
                                      true);
+  DCHECK(result->IsPreciseReference());
+  return *down_cast<const PreciseReferenceType*>(result);
+}
+
+inline const PreciseReferenceType& RegTypeCache::JavaLangInvokeMethodHandle() {
+  const RegType* result = &FromClass("Ljava/lang/invoke/MethodHandle;",
+                                     mirror::MethodHandle::StaticClass(), true);
+  DCHECK(result->IsPreciseReference());
+  return *down_cast<const PreciseReferenceType*>(result);
+}
+
+inline const PreciseReferenceType& RegTypeCache::JavaLangInvokeMethodType() {
+  const RegType* result = &FromClass("Ljava/lang/invoke/MethodType;",
+                                     mirror::MethodType::StaticClass(), true);
   DCHECK(result->IsPreciseReference());
   return *down_cast<const PreciseReferenceType*>(result);
 }

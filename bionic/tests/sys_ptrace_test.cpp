@@ -51,7 +51,7 @@ class ChildGuard {
   ~ChildGuard() {
     kill(pid, SIGKILL);
     int status;
-    waitpid(pid, &status, 0);
+    TEMP_FAILURE_RETRY(waitpid(pid, &status, 0));
   }
 
  private:
@@ -184,7 +184,7 @@ static void run_watchpoint_test(std::function<void(T&)> child_func, size_t offse
   ChildGuard guard(child);
 
   int status;
-  ASSERT_EQ(child, waitpid(child, &status, __WALL)) << strerror(errno);
+  ASSERT_EQ(child, TEMP_FAILURE_RETRY(waitpid(child, &status, __WALL))) << strerror(errno);
   ASSERT_TRUE(WIFSTOPPED(status)) << "Status was: " << status;
   ASSERT_EQ(SIGSTOP, WSTOPSIG(status)) << "Status was: " << status;
 
@@ -196,7 +196,7 @@ static void run_watchpoint_test(std::function<void(T&)> child_func, size_t offse
   set_watchpoint(child, uintptr_t(&data) + offset, size);
 
   ASSERT_EQ(0, ptrace(PTRACE_CONT, child, nullptr, nullptr)) << strerror(errno);
-  ASSERT_EQ(child, waitpid(child, &status, __WALL)) << strerror(errno);
+  ASSERT_EQ(child, TEMP_FAILURE_RETRY(waitpid(child, &status, __WALL))) << strerror(errno);
   ASSERT_TRUE(WIFSTOPPED(status)) << "Status was: " << status;
   ASSERT_EQ(SIGTRAP, WSTOPSIG(status)) << "Status was: " << status;
 
@@ -271,18 +271,8 @@ static void watchpoint_imprecise_child(Uint128_t& data) {
 // test fail on arm64, you will likely need to cherry-pick fdfeff0f into your
 // kernel.
 TEST(sys_ptrace, watchpoint_imprecise) {
-  // Make sure we get interrupted in case a buggy kernel does not report the
-  // watchpoint hit correctly.
-  struct sigaction action, oldaction;
-  action.sa_handler = [](int) {};
-  sigemptyset(&action.sa_mask);
-  action.sa_flags = 0;
-  ASSERT_EQ(0, sigaction(SIGALRM, &action, &oldaction)) << strerror(errno);
-  alarm(5);
-
+  // This test relies on the infrastructure to timeout if the test hangs.
   run_watchpoint_test<Uint128_t>(watchpoint_imprecise_child, 8, sizeof(void*));
-
-  ASSERT_EQ(0, sigaction(SIGALRM, &oldaction, nullptr)) << strerror(errno);
 }
 
 static void __attribute__((noinline)) breakpoint_func() {
@@ -364,7 +354,7 @@ TEST(sys_ptrace, hardware_breakpoint) {
   ChildGuard guard(child);
 
   int status;
-  ASSERT_EQ(child, waitpid(child, &status, __WALL)) << strerror(errno);
+  ASSERT_EQ(child, TEMP_FAILURE_RETRY(waitpid(child, &status, __WALL))) << strerror(errno);
   ASSERT_TRUE(WIFSTOPPED(status)) << "Status was: " << status;
   ASSERT_EQ(SIGSTOP, WSTOPSIG(status)) << "Status was: " << status;
 
@@ -376,7 +366,7 @@ TEST(sys_ptrace, hardware_breakpoint) {
   set_breakpoint(child);
 
   ASSERT_EQ(0, ptrace(PTRACE_CONT, child, nullptr, nullptr)) << strerror(errno);
-  ASSERT_EQ(child, waitpid(child, &status, __WALL)) << strerror(errno);
+  ASSERT_EQ(child, TEMP_FAILURE_RETRY(waitpid(child, &status, __WALL))) << strerror(errno);
   ASSERT_TRUE(WIFSTOPPED(status)) << "Status was: " << status;
   ASSERT_EQ(SIGTRAP, WSTOPSIG(status)) << "Status was: " << status;
 
@@ -394,22 +384,40 @@ class PtraceResumptionTest : public ::testing::Test {
 
   PtraceResumptionTest() {
     unique_fd worker_pipe_read;
-    int pipefd[2];
-    if (pipe2(pipefd, O_CLOEXEC) != 0) {
+    if (!android::base::Pipe(&worker_pipe_read, &worker_pipe_write)) {
       err(1, "failed to create pipe");
     }
 
-    worker_pipe_read.reset(pipefd[0]);
-    worker_pipe_write.reset(pipefd[1]);
+    // Second pipe to synchronize the Yama ptracer setup.
+    unique_fd worker_pipe_setup_read, worker_pipe_setup_write;
+    if (!android::base::Pipe(&worker_pipe_setup_read, &worker_pipe_setup_write)) {
+      err(1, "failed to create pipe");
+    }
 
     worker = fork();
     if (worker == -1) {
       err(1, "failed to fork worker");
     } else if (worker == 0) {
       char buf;
+      // Allow the tracer process, which is not a direct process ancestor, to
+      // be able to use ptrace(2) on this process when Yama LSM is active.
+      if (prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0) == -1) {
+        // if Yama is off prctl(PR_SET_PTRACER) returns EINVAL - don't log in this
+        // case since it's expected behaviour.
+        if (errno != EINVAL) {
+          err(1, "prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY) failed for pid %d", getpid());
+        }
+      }
+      worker_pipe_setup_write.reset();
+
       worker_pipe_write.reset();
       TEMP_FAILURE_RETRY(read(worker_pipe_read.get(), &buf, sizeof(buf)));
       exit(0);
+    } else {
+      // Wait until the Yama ptracer is setup.
+      char buf;
+      worker_pipe_setup_write.reset();
+      TEMP_FAILURE_RETRY(read(worker_pipe_setup_read.get(), &buf, sizeof(buf)));
     }
   }
 
@@ -436,7 +444,7 @@ class PtraceResumptionTest : public ::testing::Test {
     }
 
     int result;
-    pid_t rc = waitpid(tracer, &result, 0);
+    pid_t rc = TEMP_FAILURE_RETRY(waitpid(tracer, &result, 0));
     if (rc != tracer) {
       printf("waitpid returned %d (%s)\n", rc, strerror(errno));
       return false;
@@ -463,7 +471,7 @@ class PtraceResumptionTest : public ::testing::Test {
     }
 
     int result;
-    pid_t rc = waitpid(worker, &result, WNOHANG);
+    pid_t rc = TEMP_FAILURE_RETRY(waitpid(worker, &result, WNOHANG));
     if (rc != 0) {
       printf("worker exited prematurely\n");
       return false;
@@ -471,7 +479,7 @@ class PtraceResumptionTest : public ::testing::Test {
 
     worker_pipe_write.reset();
 
-    rc = waitpid(worker, &result, 0);
+    rc = TEMP_FAILURE_RETRY(waitpid(worker, &result, 0));
     if (rc != worker) {
       printf("waitpid for worker returned %d (%s)\n", rc, strerror(errno));
       return false;
@@ -517,9 +525,9 @@ TEST_F(PtraceResumptionTest, smoke) {
   std::this_thread::sleep_for(250ms);
 
   int result;
-  ASSERT_EQ(0, waitpid(worker, &result, WNOHANG));
+  ASSERT_EQ(0, TEMP_FAILURE_RETRY(waitpid(worker, &result, WNOHANG)));
   ASSERT_TRUE(WaitForTracer());
-  ASSERT_EQ(worker, waitpid(worker, &result, 0));
+  ASSERT_EQ(worker, TEMP_FAILURE_RETRY(waitpid(worker, &result, 0)));
 }
 
 TEST_F(PtraceResumptionTest, seize) {

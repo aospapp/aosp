@@ -27,11 +27,13 @@ import android.media.cts.CodecUtils;
 import android.media.Image;
 import android.media.AudioManager;
 import android.media.MediaCodec;
+import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodecList;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.view.Surface;
 import android.net.Uri;
@@ -50,10 +52,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.zip.CRC32;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static android.media.MediaCodecInfo.CodecProfileLevel.*;
 
+@AppModeFull(reason = "There should be no instant apps specific behavior related to decoders")
 public class DecoderTest extends MediaPlayerTestBase {
     private static final String TAG = "DecoderTest";
 
@@ -352,6 +358,18 @@ public class DecoderTest extends MediaPlayerTestBase {
                 R.raw.color_176x144_srgb_lr_sdr_h265, 4 /* testId */,
                 MediaFormat.COLOR_RANGE_LIMITED, MediaFormat.COLOR_STANDARD_BT709,
                 2 /* MediaFormat.COLOR_TRANSFER_SRGB */);
+        // Test the main10 streams with surface as the decoder might
+        // support opaque buffers only.
+        testColorAspects(
+                R.raw.color_176x144_bt2020_lr_smpte2084_h265, 5 /* testId */,
+                MediaFormat.COLOR_RANGE_LIMITED, MediaFormat.COLOR_STANDARD_BT2020,
+                MediaFormat.COLOR_TRANSFER_ST2084,
+                getActivity().getSurfaceHolder().getSurface());
+        testColorAspects(
+                R.raw.color_176x144_bt2020_lr_hlg_h265, 6 /* testId */,
+                MediaFormat.COLOR_RANGE_LIMITED, MediaFormat.COLOR_STANDARD_BT2020,
+                MediaFormat.COLOR_TRANSFER_HLG,
+                getActivity().getSurfaceHolder().getSurface());
     }
 
     /**
@@ -392,6 +410,13 @@ public class DecoderTest extends MediaPlayerTestBase {
     private void testColorAspects(
             int res, int testId, int expectRange, int expectStandard, int expectTransfer)
             throws Exception {
+        testColorAspects(
+                res, testId, expectRange, expectStandard, expectTransfer, null /*surface*/);
+    }
+
+    private void testColorAspects(
+            int res, int testId, int expectRange, int expectStandard, int expectTransfer,
+            Surface surface) throws Exception {
         MediaFormat format = MediaUtils.getTrackFormatForResource(mContext, res, "video");
         MediaFormat mimeFormat = new MediaFormat();
         mimeFormat.setString(MediaFormat.KEY_MIME, format.getString(MediaFormat.KEY_MIME));
@@ -400,21 +425,21 @@ public class DecoderTest extends MediaPlayerTestBase {
             if (!MediaUtils.supports(decoderName, format)) {
                 MediaUtils.skipTest(decoderName + " cannot play resource " + res);
             } else {
-                testColorAspects(
-                        decoderName, res, testId, expectRange, expectStandard, expectTransfer);
+                testColorAspects(decoderName, res, testId,
+                        expectRange, expectStandard, expectTransfer, surface);
             }
         }
     }
 
     private void testColorAspects(
             String decoderName, int res, int testId, int expectRange,
-            int expectStandard, int expectTransfer) throws Exception {
+            int expectStandard, int expectTransfer, Surface surface) throws Exception {
         AssetFileDescriptor fd = mResources.openRawResourceFd(res);
         MediaExtractor ex = new MediaExtractor();
         ex.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
         MediaFormat format = ex.getTrackFormat(0);
         MediaCodec dec = MediaCodec.createByCodecName(decoderName);
-        dec.configure(format, null, null, 0);
+        dec.configure(format, surface, null, 0);
         dec.start();
         ByteBuffer[] buf = dec.getInputBuffers();
         ex.selectTrack(0);
@@ -493,6 +518,8 @@ public class DecoderTest extends MediaPlayerTestBase {
             log.setSummary("result", 0, ResultType.HIGHER_BETTER, ResultUnit.COUNT);
         }
         log.submit(getInstrumentation());
+
+        assertTrue(rangeMatch && colorMatch && transferMatch);
 
         dec.release();
         ex.release();
@@ -671,6 +698,179 @@ public class DecoderTest extends MediaPlayerTestBase {
                 fd1.close();
             }
         }
+    }
+
+    public void testVp9HdrStaticMetadata() throws Exception {
+        final String staticInfo =
+                "00 d0 84 80 3e c2 33 c4  86 4c 1d b8 0b 13 3d 42" +
+                "40 e8 03 64 00 e8 03 2c  01                     " ;
+        testHdrStaticMetadata(R.raw.video_1280x720_vp9_hdr_static_3mbps,
+                staticInfo, true /*metadataInContainer*/);
+    }
+
+    public void testH265HDR10StaticMetadata() throws Exception {
+        final String staticInfo =
+                "00 c2 33 c4 86 4c 1d b8  0b d0 84 80 3e 13 3d 42" +
+                "40 e8 03 00 00 e8 03 90  01                     " ;
+        testHdrStaticMetadata(R.raw.video_1280x720_hevc_hdr10_static_3mbps,
+                staticInfo, false /*metadataInContainer*/);
+    }
+
+    private void testHdrStaticMetadata(int res, String pattern, boolean metadataInContainer)
+            throws Exception {
+        AssetFileDescriptor infd = null;
+        MediaExtractor extractor = null;
+
+        try {
+            infd = mResources.openRawResourceFd(res);
+            extractor = new MediaExtractor();
+            extractor.setDataSource(infd.getFileDescriptor(),
+                    infd.getStartOffset(), infd.getLength());
+
+            MediaFormat format = null;
+            int trackIndex = -1;
+            for (int i = 0; i < extractor.getTrackCount(); i++) {
+                format = extractor.getTrackFormat(i);
+                if (format.getString(MediaFormat.KEY_MIME).startsWith("video/")) {
+                    trackIndex = i;
+                    break;
+                }
+            }
+
+            assertTrue("Extractor failed to extract video track",
+                    format != null && trackIndex >= 0);
+            if (metadataInContainer) {
+                verifyHdrStaticInfo("Extractor failed to extract static info", format, pattern);
+            }
+
+            extractor.selectTrack(trackIndex);
+            Log.v(TAG, "format " + format);
+
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            // setting profile and level
+            if (MediaFormat.MIMETYPE_VIDEO_HEVC.equals(mime)) {
+                assertEquals("Extractor set wrong profile",
+                        MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10,
+                        format.getInteger(MediaFormat.KEY_PROFILE));
+            } else if (MediaFormat.MIMETYPE_VIDEO_VP9.equals(mime)) {
+                // The muxer might not have put VP9 CSD in the mkv, we manually patch
+                // it here so that we only test HDR when decoder supports it.
+                format.setInteger(MediaFormat.KEY_PROFILE,
+                        MediaCodecInfo.CodecProfileLevel.VP9Profile2HDR);
+            } else {
+                fail("Codec " + mime + " shouldn't be tested with this test!");
+            }
+            String[] decoderNames = MediaUtils.getDecoderNames(format);
+
+            if (decoderNames == null || decoderNames.length == 0) {
+                MediaUtils.skipTest("No video codecs supports HDR");
+                return;
+            }
+
+            final Surface surface = getActivity().getSurfaceHolder().getSurface();
+            final MediaExtractor finalExtractor = extractor;
+
+            for (String name : decoderNames) {
+                Log.d(TAG, "Testing candicate decoder " + name);
+                CountDownLatch latch = new CountDownLatch(1);
+                extractor.seekTo(0, MediaExtractor.SEEK_TO_PREVIOUS_SYNC);
+
+                MediaCodec decoder = MediaCodec.createByCodecName(name);
+                decoder.setCallback(new MediaCodec.Callback() {
+                    boolean mInputEOS;
+                    boolean mOutputReceived;
+
+                    @Override
+                    public void onOutputBufferAvailable(
+                            MediaCodec codec, int index, BufferInfo info) {
+                        if (mOutputReceived) {
+                            return;
+                        }
+
+                        MediaFormat bufferFormat = codec.getOutputFormat(index);
+                        Log.i(TAG, "got output buffer: format " + bufferFormat);
+
+                        codec.releaseOutputBuffer(index,  false);
+                        verifyHdrStaticInfo("Output buffer has wrong static info",
+                                bufferFormat, pattern);
+                        mOutputReceived = true;
+                        latch.countDown();
+                    }
+
+                    @Override
+                    public void onInputBufferAvailable(MediaCodec codec, int index) {
+                        // keep queuing until intput EOS, or first output buffer received.
+                        if (mInputEOS || mOutputReceived) {
+                            return;
+                        }
+
+                        ByteBuffer inputBuffer = codec.getInputBuffer(index);
+
+                        if (finalExtractor.getSampleTrackIndex() == -1) {
+                            codec.queueInputBuffer(
+                                    index, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                            mInputEOS = true;
+                        } else {
+                            int size = finalExtractor.readSampleData(inputBuffer, 0);
+                            long timestamp = finalExtractor.getSampleTime();
+                            finalExtractor.advance();
+                            codec.queueInputBuffer(index, 0, size, timestamp, 0);
+                        }
+                    }
+
+                    @Override
+                    public void onError(MediaCodec codec, MediaCodec.CodecException e) {
+                        Log.i(TAG, "got codec exception", e);
+                        fail("received codec error during decode" + e);
+                    }
+
+                    @Override
+                    public void onOutputFormatChanged(MediaCodec codec, MediaFormat format) {
+                        Log.i(TAG, "got output format: " + format);
+                        verifyHdrStaticInfo("Output format has wrong static info",
+                                format, pattern);
+                    }
+                });
+                decoder.configure(format, surface, null/*crypto*/, 0/*flags*/);
+                decoder.start();
+                try {
+                    assertTrue(latch.await(2000, TimeUnit.MILLISECONDS));
+                } catch (InterruptedException e) {
+                    fail("playback interrupted");
+                }
+                decoder.stop();
+                decoder.release();
+            }
+        } finally {
+            if (extractor != null) {
+                extractor.release();
+            }
+            if (infd != null) {
+                infd.close();
+            }
+        }
+    }
+
+    private void verifyHdrStaticInfo(String reason, MediaFormat format, String pattern) {
+        ByteBuffer staticMetadataBuffer = format.containsKey("hdr-static-info") ?
+                format.getByteBuffer("hdr-static-info") : null;
+        assertTrue(reason + ": empty",
+                staticMetadataBuffer != null && staticMetadataBuffer.remaining() > 0);
+        assertTrue(reason + ": mismatch",
+                Arrays.equals(loadByteArrayFromString(pattern), staticMetadataBuffer.array()));
+    }
+
+    // helper to load byte[] from a String
+    private byte[] loadByteArrayFromString(final String str) {
+        Pattern pattern = Pattern.compile("[0-9a-fA-F]{2}");
+        Matcher matcher = pattern.matcher(str);
+        // allocate a large enough byte array first
+        byte[] tempArray = new byte[str.length() / 2];
+        int i = 0;
+        while (matcher.find()) {
+          tempArray[i++] = (byte)Integer.parseInt(matcher.group(), 16);
+        }
+        return Arrays.copyOfRange(tempArray, 0, i);
     }
 
     public void testDecodeFragmented() throws Exception {
@@ -2045,18 +2245,14 @@ public class DecoderTest extends MediaPlayerTestBase {
         try {
             if (false) {
                 // change to force testing software codecs
-                if (mime.contains("avc")) {
-                    return MediaCodec.createByCodecName("OMX.google.h264.decoder");
-                } else if (mime.contains("hevc")) {
-                    return MediaCodec.createByCodecName("OMX.google.hevc.decoder");
-                } else if (mime.contains("3gpp")) {
-                    return MediaCodec.createByCodecName("OMX.google.h263.decoder");
-                } else if (mime.contains("mp4v")) {
-                    return MediaCodec.createByCodecName("OMX.google.mpeg4.decoder");
-                } else if (mime.contains("vp8")) {
-                    return MediaCodec.createByCodecName("OMX.google.vp8.decoder");
-                } else if (mime.contains("vp9")) {
-                    return MediaCodec.createByCodecName("OMX.google.vp9.decoder");
+                MediaFormat format = new MediaFormat();
+                format.setString(MediaFormat.KEY_MIME, mime);
+                String[] codecs =
+                    MediaUtils.getDecoderNames(Boolean.TRUE /* isGoog */, format);
+                if (codecs.length > 0) {
+                    return MediaCodec.createByCodecName(codecs[0]);
+                } else {
+                    return null;
                 }
             }
             return MediaCodec.createDecoderByType(mime);
@@ -2929,4 +3125,3 @@ public class DecoderTest extends MediaPlayerTestBase {
         return pm.hasSystemFeature(PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE);
     }
 }
-

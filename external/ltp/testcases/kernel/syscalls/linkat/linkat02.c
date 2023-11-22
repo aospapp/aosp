@@ -31,7 +31,7 @@
 #include <sys/mount.h>
 
 #include "test.h"
-#include "linux_syscall_numbers.h"
+#include "lapi/syscalls.h"
 #include "safe_macros.h"
 #include "lapi/fcntl.h"
 
@@ -173,10 +173,7 @@ static void setup(void)
 	tst_mkfs(cleanup, device, fs_type, NULL, NULL);
 	SAFE_MKDIR(cleanup, "mntpoint", DIR_MODE);
 
-	if (mount(device, "mntpoint", fs_type, 0, NULL) < 0) {
-		tst_brkm(TBROK | TERRNO, cleanup,
-			 "mount device:%s failed", device);
-	}
+	SAFE_MOUNT(cleanup, device, "mntpoint", fs_type, 0, NULL);
 	mount_flag = 1;
 
 	max_hardlinks = tst_fs_fill_hardlinks(cleanup, "emlink_dir");
@@ -194,11 +191,8 @@ static void cleanup_eacces(void)
 
 static void setup_erofs(void)
 {
-	if (mount(device, "mntpoint", fs_type,
-		  MS_REMOUNT | MS_RDONLY, NULL) < 0) {
-		tst_brkm(TBROK | TERRNO, cleanup, "remount device:%s failed",
-			 device);
-	}
+	SAFE_MOUNT(cleanup, device, "mntpoint", fs_type,
+		   MS_REMOUNT | MS_RDONLY, NULL);
 	mount_flag = 1;
 }
 

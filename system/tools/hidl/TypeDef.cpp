@@ -21,16 +21,21 @@
 
 namespace android {
 
-TypeDef::TypeDef(const char* localName, const Location& location, Scope* parent, Type* type)
-    : NamedType(localName, location, parent), mReferencedType(type) {}
+TypeDef::TypeDef(const char* localName, const FQName& fullName, const Location& location,
+                 Scope* parent, const Reference<Type>& type)
+    : NamedType(localName, fullName, location, parent), mReferencedType(type) {}
 
 const ScalarType *TypeDef::resolveToScalarType() const {
     CHECK(!"Should not be here");
     return NULL;
 }
 
-Type *TypeDef::referencedType() const {
-    return mReferencedType;
+Type* TypeDef::referencedType() {
+    return mReferencedType.get();
+}
+
+const Type* TypeDef::referencedType() const {
+    return mReferencedType.get();
 }
 
 bool TypeDef::isInterface() const {
@@ -50,6 +55,14 @@ bool TypeDef::isTypeDef() const {
     return true;
 }
 
+const Type* TypeDef::resolve() const {
+    return mReferencedType.get();
+}
+
+std::vector<const Reference<Type>*> TypeDef::getReferences() const {
+    return {&mReferencedType};
+}
+
 bool TypeDef::needsEmbeddedReadWrite() const {
     CHECK(!"Should not be here");
     return false;
@@ -60,14 +73,12 @@ bool TypeDef::resultNeedsDeref() const {
     return false;
 }
 
-status_t TypeDef::emitTypeDeclarations(Formatter &out) const {
+void TypeDef::emitTypeDeclarations(Formatter& out) const {
     out << "typedef "
         << mReferencedType->getCppStackType()
         << " "
         << localName()
         << ";\n\n";
-
-    return OK;
 }
 
 }  // namespace android

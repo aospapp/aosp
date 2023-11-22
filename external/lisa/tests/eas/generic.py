@@ -29,7 +29,7 @@ from trace import Trace
 from unittest import SkipTest
 
 
-WORKLOAD_PERIOD_MS =  10
+WORKLOAD_PERIOD_MS =  16
 SET_IS_BIG_LITTLE = True
 SET_INITIAL_TASK_UTIL = True
 
@@ -63,7 +63,7 @@ class _EnergyModelTest(LisaTest):
     negative_slack_allowed_pct = 15
     """Percentage of RT-App task activations with negative slack allowed"""
 
-    energy_est_threshold_pct = 20
+    energy_est_threshold_pct = 5
     """
     Allowed margin for error in estimated energy cost for task placement,
     compared to optimal placment.
@@ -311,7 +311,7 @@ class OneSmallTask(_EnergyModelTest):
                 'params' : {
                     'duty_cycle_pct': 20,
                     'duration_s': 2,
-                    'period_ms': 10,
+                    'period_ms': WORKLOAD_PERIOD_MS,
                 },
                 'tasks' : 1,
                 'prefix' : 'many',
@@ -329,6 +329,15 @@ class ThreeSmallTasks(_EnergyModelTest):
     """
     Test EAS for 3 20% tasks over 2 seconds
     """
+
+    # The energy estimation for this test is probably not very accurate and this
+    # isn't a very realistic workload. It doesn't really matter if we pick an
+    # "ideal" task placement for this workload, we just want to avoid using big
+    # CPUs in a big.LITTLE system. So use a larger energy threshold that
+    # hopefully prevents too much use of big CPUs but otherwise is flexible in
+    # allocation of LITTLEs.
+    energy_est_threshold_pct = 20
+
     workloads = {
         'three_small' : {
             'type' : 'rt-app',
@@ -337,7 +346,7 @@ class ThreeSmallTasks(_EnergyModelTest):
                 'params' : {
                     'duty_cycle_pct': 20,
                     'duration_s': 2,
-                    'period_ms': 10,
+                    'period_ms': WORKLOAD_PERIOD_MS,
                 },
                 'tasks' : 3,
                 'prefix' : 'many',
@@ -363,7 +372,7 @@ class TwoBigTasks(_EnergyModelTest):
                 'params' : {
                     'duty_cycle_pct': 80,
                     'duration_s': 2,
-                    'period_ms': 10,
+                    'period_ms': WORKLOAD_PERIOD_MS,
                 },
                 'tasks' : 2,
                 'prefix' : 'many',
@@ -429,7 +438,7 @@ class RampUp(_EnergyModelTest):
                     "r5_10-60" : {
                         "kind"   : "Ramp",
                         "params" : {
-                            "period_ms" : 16,
+                            'period_ms': WORKLOAD_PERIOD_MS,
                             "start_pct" :  5,
                             "end_pct"   : 70,
                             "delta_pct" :  5,
@@ -452,6 +461,14 @@ class RampDown(_EnergyModelTest):
     """
     Test EAS for a task ramping from 70% down to 5% over 2 seconds
     """
+
+    # The main purpose of this test is to ensure that as it reduces in load, a
+    # task is migrated from big to LITTLE CPUs on a big.LITTLE system.
+    # This migration naturally happens some time _after_ it could possibly be
+    # done, since there must be some hysteresis to avoid a performance cost.
+    # Therefore allow a larger energy usage threshold
+    energy_est_threshold_pct = 15
+
     workloads = {
         "ramp_down" : {
             "type": "rt-app",
@@ -461,7 +478,7 @@ class RampDown(_EnergyModelTest):
                     "r5_10-60" : {
                         "kind"   : "Ramp",
                         "params" : {
-                            "period_ms" : 16,
+                            'period_ms': WORKLOAD_PERIOD_MS,
                             "start_pct" : 70,
                             "end_pct"   :  5,
                             "delta_pct" :  5,
@@ -493,6 +510,7 @@ class EnergyModelWakeMigration(_EnergyModelTest):
                     'wmig' : {
                         'kind' : 'Step',
                         'params' : {
+                            "period_ms" : WORKLOAD_PERIOD_MS,
                             'start_pct': 10,
                             'end_pct': 50,
                             'time_s': 2,

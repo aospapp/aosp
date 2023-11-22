@@ -32,21 +32,25 @@
 #include <vector>
 
 #include <linux/unistd.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <sys/types.h>
 
 #include "android-base/stringprintf.h"
+#include "android-base/strings.h"
 
 #include "arch/instruction_set.h"
+#include "base/aborting.h"
+#include "base/file_utils.h"
 #include "base/memory_tool.h"
 #include "base/mutex.h"
+#include "base/os.h"
 #include "base/unix_file/fd_file.h"
+#include "base/utils.h"
 #include "oat_quick_method_header.h"
-#include "os.h"
 #include "thread-current-inl.h"
-#include "utils.h"
 
 #endif
 
@@ -143,21 +147,14 @@ static void Drain(size_t expected,
   bool prefix_written = false;
 
   for (;;) {
-    constexpr uint32_t kWaitTimeExpectedMicros = 500 * 1000;
-    constexpr uint32_t kWaitTimeUnexpectedMicros = 50 * 1000;
+    constexpr uint32_t kWaitTimeExpectedMilli = 500;
+    constexpr uint32_t kWaitTimeUnexpectedMilli = 50;
 
-    struct timeval tv;
-    tv.tv_sec = 0;
-    tv.tv_usec = expected > 0 ? kWaitTimeExpectedMicros : kWaitTimeUnexpectedMicros;
-
-    fd_set rfds;
-    FD_ZERO(&rfds);
-    FD_SET(in, &rfds);
-
-    int retval = TEMP_FAILURE_RETRY(select(in + 1, &rfds, nullptr, nullptr, &tv));
-
-    if (retval < 0) {
-      // Other side may have crashed or other errors.
+    int timeout = expected > 0 ? kWaitTimeExpectedMilli : kWaitTimeUnexpectedMilli;
+    struct pollfd read_fd{in, POLLIN, 0};
+    int retval = TEMP_FAILURE_RETRY(poll(&read_fd, 1, timeout));
+    if (retval == -1) {
+      // An error occurred.
       pipe->reset();
       return;
     }
@@ -167,19 +164,23 @@ static void Drain(size_t expected,
       return;
     }
 
-    DCHECK_EQ(retval, 1);
+    if (!(read_fd.revents & POLLIN)) {
+      // addr2line call exited.
+      pipe->reset();
+      return;
+    }
 
     constexpr size_t kMaxBuffer = 128;  // Relatively small buffer. Should be OK as we're on an
     // alt stack, but just to be sure...
     char buffer[kMaxBuffer];
     memset(buffer, 0, kMaxBuffer);
     int bytes_read = TEMP_FAILURE_RETRY(read(in, buffer, kMaxBuffer - 1));
-
-    if (bytes_read < 0) {
+    if (bytes_read <= 0) {
       // This should not really happen...
       pipe->reset();
       return;
     }
+    buffer[bytes_read] = '\0';
 
     char* tmp = buffer;
     while (*tmp != 0) {
@@ -217,8 +218,10 @@ static void Addr2line(const std::string& map_src,
                       std::unique_ptr<Addr2linePipe>* pipe /* inout */) {
   DCHECK(pipe != nullptr);
 
-  if (map_src == "[vdso]") {
-    // Special-case this, our setup has problems with this.
+  if (map_src == "[vdso]" || android::base::EndsWith(map_src, ".vdex")) {
+    // addr2line will not work on the vdso.
+    // vdex files are special frames injected for the interpreter
+    // so they don't have any line number information available.
     return;
   }
 
@@ -284,7 +287,8 @@ void DumpNativeStack(std::ostream& os,
                      BacktraceMap* existing_map,
                      const char* prefix,
                      ArtMethod* current_method,
-                     void* ucontext_ptr) {
+                     void* ucontext_ptr,
+                     bool skip_frames) {
   // b/18119146
   if (RUNNING_ON_MEMORY_TOOL != 0) {
     return;
@@ -297,6 +301,7 @@ void DumpNativeStack(std::ostream& os,
     map = tmp_map.get();
   }
   std::unique_ptr<Backtrace> backtrace(Backtrace::Create(BACKTRACE_CURRENT_PROCESS, tid, map));
+  backtrace->SetSkipFrames(skip_frames);
   if (!backtrace->Unwind(0, reinterpret_cast<ucontext*>(ucontext_ptr))) {
     os << prefix << "(backtrace::Unwind failed for thread " << tid
        << ": " <<  backtrace->GetErrorString(backtrace->GetError()) << ")" << std::endl;
@@ -331,27 +336,38 @@ void DumpNativeStack(std::ostream& os,
     os << prefix << StringPrintf("#%02zu pc ", it->num);
     bool try_addr2line = false;
     if (!BacktraceMap::IsValid(it->map)) {
-      os << StringPrintf(Is64BitInstructionSet(kRuntimeISA) ? "%016" PRIxPTR "  ???"
-                                                            : "%08" PRIxPTR "  ???",
+      os << StringPrintf(Is64BitInstructionSet(kRuntimeISA) ? "%016" PRIx64 "  ???"
+                                                            : "%08" PRIx64 "  ???",
                          it->pc);
     } else {
-      os << StringPrintf(Is64BitInstructionSet(kRuntimeISA) ? "%016" PRIxPTR "  "
-                                                            : "%08" PRIxPTR "  ",
+      os << StringPrintf(Is64BitInstructionSet(kRuntimeISA) ? "%016" PRIx64 "  "
+                                                            : "%08" PRIx64 "  ",
                          it->rel_pc);
-      os << it->map.name;
+      if (it->map.name.empty()) {
+        os << StringPrintf("<anonymous:%" PRIx64 ">", it->map.start);
+      } else {
+        os << it->map.name;
+      }
+      if (it->map.offset != 0) {
+        os << StringPrintf(" (offset %" PRIx64 ")", it->map.offset);
+      }
       os << " (";
       if (!it->func_name.empty()) {
         os << it->func_name;
         if (it->func_offset != 0) {
           os << "+" << it->func_offset;
         }
-        try_addr2line = true;
+        // Functions found using the gdb jit interface will be in an empty
+        // map that cannot be found using addr2line.
+        if (!it->map.name.empty()) {
+          try_addr2line = true;
+        }
       } else if (current_method != nullptr &&
           Locks::mutator_lock_->IsSharedHeld(Thread::Current()) &&
           PcIsWithinQuickCode(current_method, it->pc)) {
         const void* start_of_code = current_method->GetEntryPointFromQuickCompiledCode();
         os << current_method->JniLongName() << "+"
-           << (it->pc - reinterpret_cast<uintptr_t>(start_of_code));
+           << (it->pc - reinterpret_cast<uint64_t>(start_of_code));
       } else {
         os << "???";
       }
@@ -383,6 +399,10 @@ void DumpKernelStack(std::ostream& os, pid_t tid, const char* prefix, bool inclu
 
   std::vector<std::string> kernel_stack_frames;
   Split(kernel_stack, '\n', &kernel_stack_frames);
+  if (kernel_stack_frames.empty()) {
+    os << prefix << "(" << kernel_stack_filename << " is empty)\n";
+    return;
+  }
   // We skip the last stack frame because it's always equivalent to "[<ffffffff>] 0xffffffff",
   // which looking at the source appears to be the kernel's way of saying "that's all, folks!".
   kernel_stack_frames.pop_back();
@@ -409,7 +429,8 @@ void DumpNativeStack(std::ostream& os ATTRIBUTE_UNUSED,
                      BacktraceMap* existing_map ATTRIBUTE_UNUSED,
                      const char* prefix ATTRIBUTE_UNUSED,
                      ArtMethod* current_method ATTRIBUTE_UNUSED,
-                     void* ucontext_ptr ATTRIBUTE_UNUSED) {
+                     void* ucontext_ptr ATTRIBUTE_UNUSED,
+                     bool skip_frames ATTRIBUTE_UNUSED) {
 }
 
 void DumpKernelStack(std::ostream& os ATTRIBUTE_UNUSED,

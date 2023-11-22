@@ -110,10 +110,11 @@ bool RuntimeInfo::checkCompatibility(const CompatibilityMatrix& mat, std::string
         }
         return false;
     }
-    if (kernelSepolicyVersion() != mat.framework.mSepolicy.kernelSepolicyVersion()) {
+    if (kernelSepolicyVersion() < mat.framework.mSepolicy.kernelSepolicyVersion()) {
         if (error != nullptr) {
-            *error = "kernelSepolicyVersion = " + to_string(kernelSepolicyVersion())
-                     + " but required " + to_string(mat.framework.mSepolicy.kernelSepolicyVersion());
+            *error =
+                "kernelSepolicyVersion = " + to_string(kernelSepolicyVersion()) +
+                " but required >= " + to_string(mat.framework.mSepolicy.kernelSepolicyVersion());
         }
         return false;
     }

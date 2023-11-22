@@ -25,6 +25,7 @@
 
 #include <base/bind.h>
 #include <string.h>
+#include <array>
 #include <memory>
 
 #include <cutils/log.h>
@@ -38,34 +39,38 @@
 #define asrt(s) \
   if (!(s)) ALOGE("%s(L%d): ASSERT %s failed! ##", __func__, __LINE__, #s)
 
-#define BD_ADDR_LEN 6
+using bluetooth::Uuid;
 
 #define UUID_PARAMS(uuid) uuid_lsb(uuid), uuid_msb(uuid)
 
-static void set_uuid(uint8_t* uuid, jlong uuid_msb, jlong uuid_lsb) {
-  for (int i = 0; i != 8; ++i) {
-    uuid[i] = (uuid_lsb >> (8 * i)) & 0xFF;
-    uuid[i + 8] = (uuid_msb >> (8 * i)) & 0xFF;
+static Uuid from_java_uuid(jlong uuid_msb, jlong uuid_lsb) {
+  std::array<uint8_t, Uuid::kNumBytes128> uu;
+  for (int i = 0; i < 8; i++) {
+    uu[7 - i] = (uuid_msb >> (8 * i)) & 0xFF;
+    uu[15 - i] = (uuid_lsb >> (8 * i)) & 0xFF;
   }
+  return Uuid::From128BitBE(uu);
 }
 
-static uint64_t uuid_lsb(const bt_uuid_t& uuid) {
+static uint64_t uuid_lsb(const Uuid& uuid) {
   uint64_t lsb = 0;
 
-  for (int i = 7; i >= 0; i--) {
+  auto uu = uuid.To128BitBE();
+  for (int i = 8; i <= 15; i++) {
     lsb <<= 8;
-    lsb |= uuid.uu[i];
+    lsb |= uu[i];
   }
 
   return lsb;
 }
 
-static uint64_t uuid_msb(const bt_uuid_t& uuid) {
+static uint64_t uuid_msb(const Uuid& uuid) {
   uint64_t msb = 0;
 
-  for (int i = 15; i >= 8; i--) {
+  auto uu = uuid.To128BitBE();
+  for (int i = 0; i <= 7; i++) {
     msb <<= 8;
-    msb |= uuid.uu[i];
+    msb |= uu[i];
   }
 
   return msb;
@@ -129,7 +134,7 @@ static jmethodID method_onBatchScanStartStopped;
 static jmethodID method_onBatchScanReports;
 static jmethodID method_onBatchScanThresholdCrossed;
 
-static jmethodID method_CreateonTrackAdvFoundLostObject;
+static jmethodID method_createOnTrackAdvFoundLostObject;
 static jmethodID method_onTrackAdvFoundLost;
 static jmethodID method_onScanParamSetupCompleted;
 static jmethodID method_getSampleGattDbElement;
@@ -192,8 +197,7 @@ static jobject mPeriodicScanCallbacksObj = NULL;
  * BTA client callbacks
  */
 
-void btgattc_register_app_cb(int status, int clientIf,
-                             const bt_uuid_t& app_uuid) {
+void btgattc_register_app_cb(int status, int clientIf, const Uuid& app_uuid) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClientRegistered, status,
@@ -411,7 +415,7 @@ void btgattc_track_adv_event_cb(btgatt_track_adv_info_t* p_adv_track_info) {
   ScopedLocalRef<jobject> trackadv_obj(
       sCallbackEnv.get(),
       sCallbackEnv->CallObjectMethod(
-          mCallbacksObj, method_CreateonTrackAdvFoundLostObject,
+          mCallbacksObj, method_createOnTrackAdvFoundLostObject,
           p_adv_track_info->client_if, p_adv_track_info->adv_pkt_len,
           jb_adv_pkt.get(), p_adv_track_info->scan_rsp_len, jb_scan_rsp.get(),
           p_adv_track_info->filt_index, p_adv_track_info->advertiser_state,
@@ -556,7 +560,7 @@ static const btgatt_client_callbacks_t sGattClientCallbacks = {
  * BTA server callbacks
  */
 
-void btgatts_register_app_cb(int status, int server_if, const bt_uuid_t& uuid) {
+void btgatts_register_app_cb(int status, int server_if, const Uuid& uuid) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerRegistered, status,
@@ -811,8 +815,8 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
       env->GetMethodID(clazz, "onBatchScanReports", "(IIII[B)V");
   method_onBatchScanThresholdCrossed =
       env->GetMethodID(clazz, "onBatchScanThresholdCrossed", "(I)V");
-  method_CreateonTrackAdvFoundLostObject =
-      env->GetMethodID(clazz, "CreateonTrackAdvFoundLostObject",
+  method_createOnTrackAdvFoundLostObject =
+      env->GetMethodID(clazz, "createOnTrackAdvFoundLostObject",
                        "(II[BI[BIIILjava/lang/String;IIII)Lcom/android/"
                        "bluetooth/gatt/AdvtFilterOnFoundOnLostInfo;");
   method_onTrackAdvFoundLost = env->GetMethodID(
@@ -821,7 +825,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
   method_onScanParamSetupCompleted =
       env->GetMethodID(clazz, "onScanParamSetupCompleted", "(II)V");
   method_getSampleGattDbElement =
-      env->GetMethodID(clazz, "GetSampleGattDbElement",
+      env->GetMethodID(clazz, "getSampleGattDbElement",
                        "()Lcom/android/bluetooth/gatt/GattDbElement;");
   method_onGetGattDb =
       env->GetMethodID(clazz, "onGetGattDb", "(ILjava/util/ArrayList;)V");
@@ -939,10 +943,8 @@ static int gattClientGetDeviceTypeNative(JNIEnv* env, jobject object,
 static void gattClientRegisterAppNative(JNIEnv* env, jobject object,
                                         jlong app_uuid_lsb,
                                         jlong app_uuid_msb) {
-  bt_uuid_t uuid;
-
   if (!sGattIf) return;
-  set_uuid(uuid.uu, app_uuid_msb, app_uuid_lsb);
+  Uuid uuid = from_java_uuid(app_uuid_msb, app_uuid_lsb);
   sGattIf->client->register_client(uuid);
 }
 
@@ -952,7 +954,7 @@ static void gattClientUnregisterAppNative(JNIEnv* env, jobject object,
   sGattIf->client->unregister_client(clientIf);
 }
 
-void btgattc_register_scanner_cb(bt_uuid_t app_uuid, uint8_t scannerId,
+void btgattc_register_scanner_cb(const Uuid& app_uuid, uint8_t scannerId,
                                  uint8_t status) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
@@ -964,8 +966,7 @@ static void registerScannerNative(JNIEnv* env, jobject object,
                                   jlong app_uuid_lsb, jlong app_uuid_msb) {
   if (!sGattIf) return;
 
-  bt_uuid_t uuid;
-  set_uuid(uuid.uu, app_uuid_msb, app_uuid_lsb);
+  Uuid uuid = from_java_uuid(app_uuid_msb, app_uuid_lsb);
   sGattIf->scanner->RegisterScanner(
       base::Bind(&btgattc_register_scanner_cb, uuid));
 }
@@ -1041,8 +1042,7 @@ static void gattClientSearchServiceNative(JNIEnv* env, jobject object,
                                           jlong service_uuid_msb) {
   if (!sGattIf) return;
 
-  bt_uuid_t uuid;
-  set_uuid(uuid.uu, service_uuid_msb, service_uuid_lsb);
+  Uuid uuid = from_java_uuid(service_uuid_msb, service_uuid_lsb);
   sGattIf->client->search_service(conn_id, search_all ? 0 : &uuid);
 }
 
@@ -1052,8 +1052,7 @@ static void gattClientDiscoverServiceByUuidNative(JNIEnv* env, jobject object,
                                                   jlong service_uuid_msb) {
   if (!sGattIf) return;
 
-  bt_uuid_t uuid;
-  set_uuid(uuid.uu, service_uuid_msb, service_uuid_lsb);
+  Uuid uuid = from_java_uuid(service_uuid_msb, service_uuid_lsb);
   sGattIf->client->btif_gattc_discover_service_by_uuid(conn_id, uuid);
 }
 
@@ -1077,8 +1076,7 @@ static void gattClientReadUsingCharacteristicUuidNative(
     jint s_handle, jint e_handle, jint authReq) {
   if (!sGattIf) return;
 
-  bt_uuid_t uuid;
-  set_uuid(uuid.uu, uuid_msb, uuid_lsb);
+  Uuid uuid = from_java_uuid(uuid_msb, uuid_lsb);
   sGattIf->client->read_using_characteristic_uuid(conn_id, uuid, s_handle,
                                                   e_handle, authReq);
 }
@@ -1262,120 +1260,115 @@ static void scan_filter_cfg_cb(uint8_t client_if, uint8_t filt_type,
                                status, client_if, filt_type, avbl_space);
 }
 
-static void gattClientScanFilterAddRemoveNative(
-    JNIEnv* env, jobject object, jint client_if, jint action, jint filt_type,
-    jint filt_index, jint company_id, jint company_id_mask, jlong uuid_lsb,
-    jlong uuid_msb, jlong uuid_mask_lsb, jlong uuid_mask_msb, jstring name,
-    jstring address, jbyte addr_type, jbyteArray data, jbyteArray mask) {
-  switch (filt_type) {
-    case 0:  // BTM_BLE_PF_ADDR_FILTER
-    {
-      RawAddress bda = str2addr(env, address);
-      sGattIf->scanner->ScanFilterAddRemove(
-          action, filt_type, filt_index, 0, 0, NULL, NULL, &bda, addr_type, {},
-          {}, base::Bind(&scan_filter_cfg_cb, client_if));
-      break;
-    }
+static void gattClientScanFilterAddNative(JNIEnv* env, jobject object,
+                                          jint client_if, jobjectArray filters,
+                                          jint filter_index) {
+  if (!sGattIf) return;
 
-    case 1:  // BTM_BLE_PF_SRVC_DATA
-    {
-      jbyte* data_array = env->GetByteArrayElements(data, 0);
-      int data_len = env->GetArrayLength(data);
-      std::vector<uint8_t> vec_data(data_array, data_array + data_len);
-      env->ReleaseByteArrayElements(data, data_array, JNI_ABORT);
+  jclass uuidClazz = env->FindClass("java/util/UUID");
+  jmethodID uuidGetMsb =
+      env->GetMethodID(uuidClazz, "getMostSignificantBits", "()J");
+  jmethodID uuidGetLsb =
+      env->GetMethodID(uuidClazz, "getLeastSignificantBits", "()J");
 
-      jbyte* mask_array = env->GetByteArrayElements(mask, NULL);
-      uint16_t mask_len = (uint16_t)env->GetArrayLength(mask);
-      std::vector<uint8_t> vec_mask(mask_array, mask_array + mask_len);
-      env->ReleaseByteArrayElements(mask, mask_array, JNI_ABORT);
+  std::vector<ApcfCommand> native_filters;
 
-      sGattIf->scanner->ScanFilterAddRemove(
-          action, filt_type, filt_index, 0, 0, NULL, NULL, NULL, 0,
-          std::move(vec_data), std::move(vec_mask),
-          base::Bind(&scan_filter_cfg_cb, client_if));
-      break;
-    }
-
-    case 2:  // BTM_BLE_PF_SRVC_UUID
-    case 3:  // BTM_BLE_PF_SRVC_SOL_UUID
-    {
-      bt_uuid_t uuid, uuid_mask;
-      set_uuid(uuid.uu, uuid_msb, uuid_lsb);
-      set_uuid(uuid_mask.uu, uuid_mask_msb, uuid_mask_lsb);
-      if (uuid_mask_lsb != 0 && uuid_mask_msb != 0)
-        sGattIf->scanner->ScanFilterAddRemove(
-            action, filt_type, filt_index, 0, 0, &uuid, &uuid_mask, NULL, 0, {},
-            {}, base::Bind(&scan_filter_cfg_cb, client_if));
-      else
-        sGattIf->scanner->ScanFilterAddRemove(
-            action, filt_type, filt_index, 0, 0, &uuid, NULL, NULL, 0, {}, {},
-            base::Bind(&scan_filter_cfg_cb, client_if));
-      break;
-    }
-
-    case 4:  // BTM_BLE_PF_LOCAL_NAME
-    {
-      const char* c_name = env->GetStringUTFChars(name, NULL);
-      if (c_name != NULL && strlen(c_name) != 0) {
-        std::vector<uint8_t> vec_name(c_name, c_name + strlen(c_name));
-        env->ReleaseStringUTFChars(name, c_name);
-        sGattIf->scanner->ScanFilterAddRemove(
-            action, filt_type, filt_index, 0, 0, NULL, NULL, NULL, 0,
-            std::move(vec_name), {},
-            base::Bind(&scan_filter_cfg_cb, client_if));
-      }
-      break;
-    }
-
-    case 5:  // BTM_BLE_PF_MANU_DATA
-    case 6:  // BTM_BLE_PF_SRVC_DATA_PATTERN
-    {
-      jbyte* data_array = env->GetByteArrayElements(data, 0);
-      int data_len = env->GetArrayLength(data);
-      std::vector<uint8_t> vec_data(data_array, data_array + data_len);
-      env->ReleaseByteArrayElements(data, data_array, JNI_ABORT);
-
-      jbyte* mask_array = env->GetByteArrayElements(mask, NULL);
-      uint16_t mask_len = (uint16_t)env->GetArrayLength(mask);
-      std::vector<uint8_t> vec_mask(mask_array, mask_array + mask_len);
-      env->ReleaseByteArrayElements(mask, mask_array, JNI_ABORT);
-
-      sGattIf->scanner->ScanFilterAddRemove(
-          action, filt_type, filt_index, company_id, company_id_mask, NULL,
-          NULL, NULL, 0, std::move(vec_data), std::move(vec_mask),
-          base::Bind(&scan_filter_cfg_cb, client_if));
-      break;
-    }
-
-    default:
-      break;
+  int numFilters = env->GetArrayLength(filters);
+  if (numFilters == 0) {
+    sGattIf->scanner->ScanFilterAdd(filter_index, std::move(native_filters),
+                                    base::Bind(&scan_filter_cfg_cb, client_if));
+    return;
   }
-}
 
-static void gattClientScanFilterAddNative(
-    JNIEnv* env, jobject object, jint client_if, jint filt_type,
-    jint filt_index, jint company_id, jint company_id_mask, jlong uuid_lsb,
-    jlong uuid_msb, jlong uuid_mask_lsb, jlong uuid_mask_msb, jstring name,
-    jstring address, jbyte addr_type, jbyteArray data, jbyteArray mask) {
-  if (!sGattIf) return;
-  int action = 0;
-  gattClientScanFilterAddRemoveNative(
-      env, object, client_if, action, filt_type, filt_index, company_id,
-      company_id_mask, uuid_lsb, uuid_msb, uuid_mask_lsb, uuid_mask_msb, name,
-      address, addr_type, data, mask);
-}
+  jclass entryClazz =
+      env->GetObjectClass(env->GetObjectArrayElement(filters, 0));
 
-static void gattClientScanFilterDeleteNative(
-    JNIEnv* env, jobject object, jint client_if, jint filt_type,
-    jint filt_index, jint company_id, jint company_id_mask, jlong uuid_lsb,
-    jlong uuid_msb, jlong uuid_mask_lsb, jlong uuid_mask_msb, jstring name,
-    jstring address, jbyte addr_type, jbyteArray data, jbyteArray mask) {
-  if (!sGattIf) return;
-  int action = 1;
-  gattClientScanFilterAddRemoveNative(
-      env, object, client_if, action, filt_type, filt_index, company_id,
-      company_id_mask, uuid_lsb, uuid_msb, uuid_mask_lsb, uuid_mask_msb, name,
-      address, addr_type, data, mask);
+  jfieldID typeFid = env->GetFieldID(entryClazz, "type", "B");
+  jfieldID addressFid =
+      env->GetFieldID(entryClazz, "address", "Ljava/lang/String;");
+  jfieldID addrTypeFid = env->GetFieldID(entryClazz, "addr_type", "B");
+  jfieldID uuidFid = env->GetFieldID(entryClazz, "uuid", "Ljava/util/UUID;");
+  jfieldID uuidMaskFid =
+      env->GetFieldID(entryClazz, "uuid_mask", "Ljava/util/UUID;");
+  jfieldID nameFid = env->GetFieldID(entryClazz, "name", "Ljava/lang/String;");
+  jfieldID companyFid = env->GetFieldID(entryClazz, "company", "I");
+  jfieldID companyMaskFid = env->GetFieldID(entryClazz, "company_mask", "I");
+  jfieldID dataFid = env->GetFieldID(entryClazz, "data", "[B");
+  jfieldID dataMaskFid = env->GetFieldID(entryClazz, "data_mask", "[B");
+
+  for (int i = 0; i < numFilters; ++i) {
+    ApcfCommand curr;
+
+    ScopedLocalRef<jobject> current(env,
+                                    env->GetObjectArrayElement(filters, i));
+
+    curr.type = env->GetByteField(current.get(), typeFid);
+
+    ScopedLocalRef<jstring> address(
+        env, (jstring)env->GetObjectField(current.get(), addressFid));
+    if (address.get() != NULL) {
+      curr.address = str2addr(env, address.get());
+    }
+
+    curr.addr_type = env->GetByteField(current.get(), addrTypeFid);
+
+    ScopedLocalRef<jobject> uuid(env,
+                                 env->GetObjectField(current.get(), uuidFid));
+    if (uuid.get() != NULL) {
+      jlong uuid_msb = env->CallLongMethod(uuid.get(), uuidGetMsb);
+      jlong uuid_lsb = env->CallLongMethod(uuid.get(), uuidGetLsb);
+      curr.uuid = from_java_uuid(uuid_msb, uuid_lsb);
+    }
+
+    ScopedLocalRef<jobject> uuid_mask(
+        env, env->GetObjectField(current.get(), uuidMaskFid));
+    if (uuid.get() != NULL) {
+      jlong uuid_msb = env->CallLongMethod(uuid_mask.get(), uuidGetMsb);
+      jlong uuid_lsb = env->CallLongMethod(uuid_mask.get(), uuidGetLsb);
+      curr.uuid_mask = from_java_uuid(uuid_msb, uuid_lsb);
+    }
+
+    ScopedLocalRef<jstring> name(
+        env, (jstring)env->GetObjectField(current.get(), nameFid));
+    if (name.get() != NULL) {
+      const char* c_name = env->GetStringUTFChars(name.get(), NULL);
+      if (c_name != NULL && strlen(c_name) != 0) {
+        curr.name = std::vector<uint8_t>(c_name, c_name + strlen(c_name));
+        env->ReleaseStringUTFChars(name.get(), c_name);
+      }
+    }
+
+    curr.company = env->GetIntField(current.get(), companyFid);
+
+    curr.company_mask = env->GetIntField(current.get(), companyMaskFid);
+
+    ScopedLocalRef<jbyteArray> data(
+        env, (jbyteArray)env->GetObjectField(current.get(), dataFid));
+    if (data.get() != NULL) {
+      jbyte* data_array = env->GetByteArrayElements(data.get(), 0);
+      int data_len = env->GetArrayLength(data.get());
+      if (data_array && data_len) {
+        curr.data = std::vector<uint8_t>(data_array, data_array + data_len);
+        env->ReleaseByteArrayElements(data.get(), data_array, JNI_ABORT);
+      }
+    }
+
+    ScopedLocalRef<jbyteArray> data_mask(
+        env, (jbyteArray)env->GetObjectField(current.get(), dataMaskFid));
+    if (data_mask.get() != NULL) {
+      jbyte* data_array = env->GetByteArrayElements(data_mask.get(), 0);
+      int data_len = env->GetArrayLength(data_mask.get());
+      if (data_array && data_len) {
+        curr.data_mask =
+            std::vector<uint8_t>(data_array, data_array + data_len);
+        env->ReleaseByteArrayElements(data_mask.get(), data_array, JNI_ABORT);
+      }
+    }
+    native_filters.push_back(curr);
+  }
+
+  sGattIf->scanner->ScanFilterAdd(filter_index, std::move(native_filters),
+                                  base::Bind(&scan_filter_cfg_cb, client_if));
 }
 
 static void gattClientScanFilterClearNative(JNIEnv* env, jobject object,
@@ -1409,10 +1402,12 @@ static void gattConnectionParameterUpdateNative(JNIEnv* env, jobject object,
                                                 jint client_if, jstring address,
                                                 jint min_interval,
                                                 jint max_interval, jint latency,
-                                                jint timeout) {
+                                                jint timeout, jint min_ce_len,
+                                                jint max_ce_len) {
   if (!sGattIf) return;
-  sGattIf->client->conn_parameter_update(str2addr(env, address), min_interval,
-                                         max_interval, latency, timeout);
+  sGattIf->client->conn_parameter_update(
+      str2addr(env, address), min_interval, max_interval, latency, timeout,
+      (uint16_t)min_ce_len, (uint16_t)max_ce_len);
 }
 
 void batchscan_cfg_storage_cb(uint8_t client_if, uint8_t status) {
@@ -1469,9 +1464,8 @@ static void gattClientReadScanReportsNative(JNIEnv* env, jobject object,
 static void gattServerRegisterAppNative(JNIEnv* env, jobject object,
                                         jlong app_uuid_lsb,
                                         jlong app_uuid_msb) {
-  bt_uuid_t uuid;
   if (!sGattIf) return;
-  set_uuid(uuid.uu, app_uuid_msb, app_uuid_lsb);
+  Uuid uuid = from_java_uuid(app_uuid_msb, app_uuid_lsb);
   sGattIf->server->register_server(uuid);
 }
 
@@ -1563,10 +1557,11 @@ static void gattServerAddServiceNative(JNIEnv* env, jobject object,
 
     fid = env->GetFieldID(gattDbElementClazz, "uuid", "Ljava/util/UUID;");
     ScopedLocalRef<jobject> uuid(env, env->GetObjectField(element.get(), fid));
-
-    jlong uuid_msb = env->CallLongMethod(uuid.get(), uuidGetMsb);
-    jlong uuid_lsb = env->CallLongMethod(uuid.get(), uuidGetLsb);
-    set_uuid(curr.uuid.uu, uuid_msb, uuid_lsb);
+    if (uuid.get() != NULL) {
+      jlong uuid_msb = env->CallLongMethod(uuid.get(), uuidGetMsb);
+      jlong uuid_lsb = env->CallLongMethod(uuid.get(), uuidGetLsb);
+      curr.uuid = from_java_uuid(uuid_msb, uuid_lsb);
+    }
 
     fid = env->GetFieldID(gattDbElementClazz, "type", "I");
     curr.type =
@@ -1650,7 +1645,13 @@ static void gattServerSendResponseNative(JNIEnv* env, jobject object,
   response.attr_value.len = 0;
 
   if (val != NULL) {
-    response.attr_value.len = (uint16_t)env->GetArrayLength(val);
+    if (env->GetArrayLength(val) < BTGATT_MAX_ATTR_LEN) {
+      response.attr_value.len = (uint16_t)env->GetArrayLength(val);
+    } else {
+      android_errorWriteLog(0x534e4554, "78787521");
+      response.attr_value.len = BTGATT_MAX_ATTR_LEN;
+    }
+
     jbyte* array = env->GetByteArrayElements(val, 0);
 
     for (int i = 0; i != response.attr_value.len; ++i)
@@ -2045,8 +2046,7 @@ static void gattTestNative(JNIEnv* env, jobject object, jint command,
 
   RawAddress bt_bda1 = str2addr(env, bda1);
 
-  bt_uuid_t uuid1;
-  set_uuid(uuid1.uu, uuid1_msb, uuid1_lsb);
+  Uuid uuid1 = from_java_uuid(uuid1_msb, uuid1_lsb);
 
   btgatt_test_params_t params;
   params.bda1 = &bt_bda1;
@@ -2122,11 +2122,8 @@ static JNINativeMethod sScanMethods[] = {
     {"gattClientScanFilterParamClearAllNative", "(I)V",
      (void*)gattClientScanFilterParamClearAllNative},
     {"gattClientScanFilterAddNative",
-     "(IIIIIJJJJLjava/lang/String;Ljava/lang/String;B[B[B)V",
+     "(I[Lcom/android/bluetooth/gatt/ScanFilterQueue$Entry;I)V",
      (void*)gattClientScanFilterAddNative},
-    {"gattClientScanFilterDeleteNative",
-     "(IIIIIJJJJLjava/lang/String;Ljava/lang/String;B[B[B)V",
-     (void*)gattClientScanFilterDeleteNative},
     {"gattClientScanFilterClearNative", "(II)V",
      (void*)gattClientScanFilterClearNative},
     {"gattClientScanFilterEnableNative", "(IZ)V",
@@ -2179,7 +2176,7 @@ static JNINativeMethod sMethods[] = {
      (void*)gattClientReadRemoteRssiNative},
     {"gattClientConfigureMTUNative", "(II)V",
      (void*)gattClientConfigureMTUNative},
-    {"gattConnectionParameterUpdateNative", "(ILjava/lang/String;IIII)V",
+    {"gattConnectionParameterUpdateNative", "(ILjava/lang/String;IIIIII)V",
      (void*)gattConnectionParameterUpdateNative},
     {"gattServerRegisterAppNative", "(JJ)V",
      (void*)gattServerRegisterAppNative},
@@ -2223,4 +2220,4 @@ int register_com_android_bluetooth_gatt(JNIEnv* env) {
          jniRegisterNativeMethods(env, "com/android/bluetooth/gatt/GattService",
                                   sMethods, NELEM(sMethods));
 }
-}
+}  // namespace android

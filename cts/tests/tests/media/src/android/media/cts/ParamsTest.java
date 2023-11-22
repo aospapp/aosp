@@ -22,6 +22,7 @@ import android.media.BufferingParams;
 import android.media.PlaybackParams;
 import android.media.SyncParams;
 import android.os.Parcel;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 /**
@@ -29,6 +30,7 @@ import android.test.AndroidTestCase;
  *
  * In particular, check Params objects' behavior.
  */
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class ParamsTest extends AndroidTestCase {
     private static final String TAG = "ParamsTest";
     private static final float FLOAT_TOLERANCE = .00001f;
@@ -373,59 +375,18 @@ public class ParamsTest extends AndroidTestCase {
     }
 
     public void testBufferingParamsBuilderAndGet() {
-        final int initialMode = BufferingParams.BUFFERING_MODE_TIME_THEN_SIZE;
         final int initialMarkMs = 2;
-        final int initialMarkKB = 20;
-        final int rebufferingMode = BufferingParams.BUFFERING_MODE_TIME_THEN_SIZE;
-        final int rebufferingMarkLowMs = 1;
-        final int rebufferingMarkHighMs = 3;
-        final int rebufferingMarkLowKB = 10;
-        final int rebufferingMarkHighKB = 30;
+        final int resumePlaybackMarkMs = 3;
 
         BufferingParams p1 = new BufferingParams.Builder()
-                .setInitialBufferingMode(initialMode)
-                .setInitialBufferingWatermarkMs(initialMarkMs)
-                .setInitialBufferingWatermarkKB(initialMarkKB)
-                .setRebufferingMode(rebufferingMode)
-                .setRebufferingWatermarkLowMs(rebufferingMarkLowMs)
-                .setRebufferingWatermarkHighMs(rebufferingMarkHighMs)
-                .setRebufferingWatermarkLowKB(rebufferingMarkLowKB)
-                .setRebufferingWatermarkHighKB(rebufferingMarkHighKB)
+                .setInitialMarkMs(initialMarkMs)
+                .setResumePlaybackMarkMs(resumePlaybackMarkMs)
                 .build();
 
-        assertEquals("initial buffering mode should match",
-                p1.getInitialBufferingMode(), initialMode);
-        assertEquals("rebuffering mode should match",
-                p1.getRebufferingMode(), rebufferingMode);
         assertEquals("intial markMs should match",
-                p1.getInitialBufferingWatermarkMs(), initialMarkMs);
-        assertEquals("intial markKB should match",
-                p1.getInitialBufferingWatermarkKB(), initialMarkKB);
-        assertEquals("rebuffering low markMs should match",
-                p1.getRebufferingWatermarkLowMs(), rebufferingMarkLowMs);
-        assertEquals("rebuffering low markKB should match",
-                p1.getRebufferingWatermarkLowKB(), rebufferingMarkLowKB);
-        assertEquals("rebuffering high markMs should match",
-                p1.getRebufferingWatermarkHighMs(), rebufferingMarkHighMs);
-        assertEquals("rebuffering high markKB should match",
-                p1.getRebufferingWatermarkHighKB(), rebufferingMarkHighKB);
-
-        final int rebufferingMarkLowMsPair = 4;
-        final int rebufferingMarkHighMsPair = 5;
-        final int rebufferingMarkLowKBPair = 40;
-        final int rebufferingMarkHighKBPair = 50;
-        BufferingParams p2 = new BufferingParams.Builder(p1)
-                .setRebufferingWatermarksMs(rebufferingMarkLowMsPair, rebufferingMarkHighMsPair)
-                .setRebufferingWatermarksKB(rebufferingMarkLowKBPair, rebufferingMarkHighKBPair)
-                .build();
-        assertEquals("paired low markMs should match",
-                p2.getRebufferingWatermarkLowMs(), rebufferingMarkLowMsPair);
-        assertEquals("paired low markKB should match",
-                p2.getRebufferingWatermarkLowKB(), rebufferingMarkLowKBPair);
-        assertEquals("paired high markMs should match",
-                p2.getRebufferingWatermarkHighMs(), rebufferingMarkHighMsPair);
-        assertEquals("paired high markKB should match",
-                p2.getRebufferingWatermarkHighKB(), rebufferingMarkHighKBPair);
+                p1.getInitialMarkMs(), initialMarkMs);
+        assertEquals("resume playback markMs should match",
+                p1.getResumePlaybackMarkMs(), resumePlaybackMarkMs);
     }
 
     public void testBufferingParamsDescribeContents() {
@@ -434,24 +395,12 @@ public class ParamsTest extends AndroidTestCase {
     }
 
     public void testBufferingParamsWriteToParcel() {
-        final int initialMode = BufferingParams.BUFFERING_MODE_TIME_THEN_SIZE;
         final int initialMarkMs = 2;
-        final int initialMarkKB = 20;
-        final int rebufferingMode = BufferingParams.BUFFERING_MODE_TIME_THEN_SIZE;
-        final int rebufferingMarkLowMs = 1;
-        final int rebufferingMarkHighMs = 3;
-        final int rebufferingMarkLowKB = 10;
-        final int rebufferingMarkHighKB = 30;
+        final int resumePlaybackMarkMs = 3;
 
         BufferingParams p = new BufferingParams.Builder()
-                .setInitialBufferingMode(initialMode)
-                .setInitialBufferingWatermarkMs(initialMarkMs)
-                .setInitialBufferingWatermarkKB(initialMarkKB)
-                .setRebufferingMode(rebufferingMode)
-                .setRebufferingWatermarkLowMs(rebufferingMarkLowMs)
-                .setRebufferingWatermarkHighMs(rebufferingMarkHighMs)
-                .setRebufferingWatermarkLowKB(rebufferingMarkLowKB)
-                .setRebufferingWatermarkHighKB(rebufferingMarkHighKB)
+                .setInitialMarkMs(initialMarkMs)
+                .setResumePlaybackMarkMs(resumePlaybackMarkMs)
                 .build();
 
         Parcel parcel = Parcel.obtain();
@@ -459,22 +408,10 @@ public class ParamsTest extends AndroidTestCase {
         parcel.setDataPosition(0);
         BufferingParams q = BufferingParams.CREATOR.createFromParcel(parcel);
 
-        assertEquals("initial buffering mode should match",
-                p.getInitialBufferingMode(), q.getInitialBufferingMode());
-        assertEquals("rebuffering mode should match",
-                p.getRebufferingMode(), q.getRebufferingMode());
-        assertEquals("initial buffering markMs should match",
-                p.getInitialBufferingWatermarkMs(), q.getInitialBufferingWatermarkMs());
-        assertEquals("initial buffering markKB should match",
-                p.getInitialBufferingWatermarkKB(), q.getInitialBufferingWatermarkKB());
-        assertEquals("rebuffering low markMs should match",
-                p.getRebufferingWatermarkLowMs(), q.getRebufferingWatermarkLowMs());
-        assertEquals("rebuffering low markKB should match",
-                p.getRebufferingWatermarkLowKB(), q.getRebufferingWatermarkLowKB());
-        assertEquals("rebuffering high markMs should match",
-                p.getRebufferingWatermarkHighMs(), q.getRebufferingWatermarkHighMs());
-        assertEquals("rebuffering high markKB should match",
-                p.getRebufferingWatermarkHighKB(), q.getRebufferingWatermarkHighKB());
+        assertEquals("initial markMs should match",
+                p.getInitialMarkMs(), q.getInitialMarkMs());
+        assertEquals("resume playback markMs should match",
+                p.getResumePlaybackMarkMs(), q.getResumePlaybackMarkMs());
 
         parcel.recycle();
     }

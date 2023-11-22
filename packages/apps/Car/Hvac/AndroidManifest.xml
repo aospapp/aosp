@@ -21,10 +21,15 @@
         android:minSdkVersion="22"
         android:targetSdkVersion="23"/>
 
-    <uses-permission android:name="android.car.permission.CAR_HVAC" />
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_CLIMATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Required to use the TYPE_DISPLAY_OVERLAY layout param for the overlay hvac ui-->
     <uses-permission android:name="android.permission.INTERNAL_SYSTEM_WINDOW" />
+    <!-- Allow Hvac to go across all users-->
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+    <protected-broadcast android:name="android.car.intent.action.TOGGLE_HVAC_CONTROLS" />
 
     <application android:label="@string/hvac_label"
         android:icon="@drawable/ic_launcher_hvac"

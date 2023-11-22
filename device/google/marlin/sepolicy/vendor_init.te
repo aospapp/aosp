@@ -1,0 +1,43 @@
+typeattribute vendor_init data_between_core_and_vendor_violators;
+
+allow vendor_init proc_uid_cpupower:file write;
+
+# symlink /sdcard to backing block
+
+allow vendor_init debugfs_sps:dir search;
+allow vendor_init debugfs_sps:file w_file_perms;
+
+allow vendor_init {
+  adb_keys_file
+  dhcp_data_file
+  display_data_file
+  location_data_file
+  media_rw_data_file
+  netmgr_data_file
+  perfd_data_file
+  preloads_data_file
+  preloads_media_file
+  radio_data_file
+  smlog_dump_file
+  system_data_file
+  time_data_file
+  tombstone_data_file
+  wifi_data_file
+}:dir { create search getattr open read setattr ioctl write add_name remove_name rmdir relabelfrom };
+
+allow vendor_init {
+  adb_keys_file
+  location_data_file
+  perfd_data_file
+  radio_data_file
+}:file { create getattr open read write setattr relabelfrom unlink };
+
+allow vendor_init {
+  location_data_file
+}:sock_file setattr;
+
+set_prop(vendor_init, thermal_prop)
+set_prop(vendor_init, vendor_charge_prop)
+
+dontaudit vendor_init unlabeled:dir getattr;
+dontaudit vendor_init unlabeled:file getattr;

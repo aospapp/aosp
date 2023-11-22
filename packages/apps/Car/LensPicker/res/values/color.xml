@@ -20,5 +20,5 @@
     <color name="car_lens_picker_bg_color">#ff11181d</color>
 
     <!-- The ripple color for cards in the lens picker. -->
-    <color name="car_lens_picker_ripple_color">@color/car_card_ripple_light_color_background</color>
+    <color name="car_lens_picker_ripple_color">@color/car_card_ripple_background</color>
 </resources>

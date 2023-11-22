@@ -255,7 +255,6 @@ Java_sun_nio_ch_Net_socket0(JNIEnv *env, jclass cl, jboolean preferIPv6,
             JNU_ThrowByNameWithLastError(env,
                                          JNU_JAVANETPKG "SocketException",
                                          "Unable to set IPV6_V6ONLY");
-            untagSocket(env, fd);
             close(fd);
             return -1;
         }
@@ -269,7 +268,6 @@ Java_sun_nio_ch_Net_socket0(JNIEnv *env, jclass cl, jboolean preferIPv6,
             JNU_ThrowByNameWithLastError(env,
                                          JNU_JAVANETPKG "SocketException",
                                          "Unable to set SO_REUSEADDR");
-            untagSocket(env, fd);
             close(fd);
             return -1;
         }
@@ -299,7 +297,6 @@ Java_sun_nio_ch_Net_socket0(JNIEnv *env, jclass cl, jboolean preferIPv6,
             JNU_ThrowByNameWithLastError(env,
                                          JNU_JAVANETPKG "SocketException",
                                          "Unable to set IPV6_MULTICAST_HOPS");
-            untagSocket(env, fd);
             close(fd);
             return -1;
         }
@@ -561,17 +558,9 @@ Java_sun_nio_ch_Net_joinOrDrop4(JNIEnv *env, jobject this, jboolean join, jobjec
         }
 #endif
 
-// Begin Android changed.
-#if defined(__GLIBC__)
         mreq_source.imr_multiaddr.s_addr = htonl(group);
         mreq_source.imr_sourceaddr.s_addr = htonl(source);
         mreq_source.imr_interface.s_addr = htonl(interf);
-#else
-        mreq_source.imr_multiaddr = htonl(group);
-        mreq_source.imr_sourceaddr = htonl(source);
-        mreq_source.imr_interface = htonl(interf);
-#endif
-// End Android changed.
         opt = (join) ? IP_ADD_SOURCE_MEMBERSHIP : IP_DROP_SOURCE_MEMBERSHIP;
         optval = (void*)&mreq_source;
         optlen = sizeof(mreq_source);
@@ -605,16 +594,9 @@ Java_sun_nio_ch_Net_blockOrUnblock4(JNIEnv *env, jobject this, jboolean block, j
         return IOS_UNAVAILABLE;
     }
 #endif
-// Begin Android changed.
-#if defined(__GLIBC__)
         mreq_source.imr_multiaddr.s_addr = htonl(group);
         mreq_source.imr_sourceaddr.s_addr = htonl(source);
         mreq_source.imr_interface.s_addr = htonl(interf);
-#else
-        mreq_source.imr_multiaddr = htonl(group);
-        mreq_source.imr_sourceaddr = htonl(source);
-        mreq_source.imr_interface = htonl(interf);
-#endif
 
     n = setsockopt(fdval(env,fdo), IPPROTO_IP, opt,
                    (void*)&mreq_source, sizeof(mreq_source));

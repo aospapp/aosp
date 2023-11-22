@@ -14,6 +14,8 @@ import java.util.Locale;
 import java.util.MissingResourceException;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.impl.LocaleUtility;
 import android.icu.text.DateFormat;
@@ -21,10 +23,13 @@ import android.icu.util.Calendar;
 import android.icu.util.HebrewCalendar;
 import android.icu.util.TimeZone;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Tests for the <code>HebrewCalendar</code> class.
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class HebrewTest extends CalendarTestFmwk {
     // Constants to save typing.
     public static final int TISHRI  = HebrewCalendar.TISHRI;
@@ -51,7 +56,7 @@ public class HebrewTest extends CalendarTestFmwk {
         int[][] tests = new int[][] {
             //       input                roll by          output
             //  year  month     day     field amount    year  month     day
-    
+
             {   5759, HESHVAN,   2,     MONTH,   1,     5759, KISLEV,    2 },   // non-leap years
             {   5759, SHEVAT,    2,     MONTH,   1,     5759, ADAR,      2 },
             {   5759, SHEVAT,    2,     MONTH,   2,     5759, NISAN,     2 },
@@ -65,13 +70,13 @@ public class HebrewTest extends CalendarTestFmwk {
             {   5757, SHEVAT,    2,     MONTH,  12,     5757, TEVET,     2 },
             {   5757, SHEVAT,    2,     MONTH,  13,     5757, SHEVAT,    2 },
             {   5757, AV,        1,     MONTH,  12,     5757, TAMUZ,     1 }, // Alan
-            
+
             {   5757, KISLEV,    1,     DATE,   30,     5757, KISLEV,    2 },   // 29-day month
             {   5758, KISLEV,    1,     DATE,   31,     5758, KISLEV,    2 },   // 30-day month
-            
+
             // Try some other fields too
             {   5757, TISHRI,    1,     YEAR,    1,     5758, TISHRI,    1 },
-   
+
 
             // Try some rolls that require other fields to be adjusted
             {   5757, TISHRI,   30,     MONTH,   1,     5757, HESHVAN,  29 },
@@ -79,13 +84,13 @@ public class HebrewTest extends CalendarTestFmwk {
         };
 //        try{
             HebrewCalendar cal = new HebrewCalendar(UTC, Locale.getDefault());
-    
+
             doRollAdd(ROLL, cal, tests);
  //       }catch(MissingResourceException ex){
 //            warnln("Got Exception: "+ ex.getMessage());
  //       }
     }
-    
+
     /**
      * Test the behavior of HebrewCalendar.roll
      * The only real nastiness with roll is the MONTH field, since a year can
@@ -107,18 +112,18 @@ public class HebrewTest extends CalendarTestFmwk {
             {   5757, SHEVAT,    2,     MONTH,   3,     5757, NISAN,     2 },
             {   5757, SHEVAT,    2,     MONTH,  12,     5758, TEVET,     2 },
             {   5757, SHEVAT,    2,     MONTH,  13,     5758, SHEVAT,    2 },
-            
+
             {   5762, AV,        1,     MONTH,   1,     5762, ELUL,      1 },   // JB#2327
             {   5762, AV,       30,     DATE,    1,     5762, ELUL,      1 },   // JB#2327
             {   5762, ELUL,      1,     DATE,   -1,     5762, AV,       30 },   // JB#2327
             {   5762, ELUL,      1,     MONTH,  -1,     5762, AV,        1 },   // JB#2327
-            
+
             {   5757, KISLEV,    1,     DATE,   30,     5757, TEVET,     2 },   // 29-day month
             {   5758, KISLEV,    1,     DATE,   31,     5758, TEVET,     2 },   // 30-day month
         };
         try{
             HebrewCalendar cal = new HebrewCalendar(UTC, Locale.getDefault());
-    
+
             doRollAdd(ADD, cal, tests);
         }catch( MissingResourceException ex){
             warnln("Could not load the locale data");
@@ -209,8 +214,8 @@ public class HebrewTest extends CalendarTestFmwk {
                     new TestCase(2459464.5,  0,  5782,    1,   1,  TUE,   0,  0,  0),
                     new TestCase(2467142.5,  0,  5803,    1,   1,  MON,   0,  0,  0),
                     new TestCase(2455448.5,  0,  5771,    1,   1,  THU,   0,  0,  0),
-                
-                    // Test cases for JB#2327        
+
+                    // Test cases for JB#2327
                     // http://www.fourmilab.com/documents/calendar/
                     // http://www.calendarhome.com/converter/
 //                2452465.5, 2002, JULY, 10, 5762, AV, 1,
@@ -226,7 +231,7 @@ public class HebrewTest extends CalendarTestFmwk {
                     new TestCase(2452524.5,  0,  5763,TISHRI+1,  1,  SAT,   0,  0,  0),
                 };
                 doTestCases(testCases, new HebrewCalendar());
-   
+
         }catch(MissingResourceException ex){
             warnln("Got Exception: "+ ex.getMessage());
         }
@@ -266,14 +271,14 @@ public class HebrewTest extends CalendarTestFmwk {
                 // I hope that year = 0 does not exists
                 // because the test fails for it !
                 cal.clear();
-                
+
                 cal.set(Calendar.YEAR, year);
                 cal.set(Calendar.MONTH, ELUL);
                 cal.set(Calendar.DAY_OF_MONTH, 1);
-                
+
                 int yact = cal.get(Calendar.YEAR);
                 int mact = cal.get(Calendar.MONTH);
-                
+
                 if (year != yact || ELUL != mact) {
                     errln("Fail: " + ELUL + "/" + year +
                           " -> " +
@@ -282,9 +287,9 @@ public class HebrewTest extends CalendarTestFmwk {
             }
         }catch(MissingResourceException ex){
             warnln("Got Exception: "+ ex.getMessage());
-        }   
+        }
     }
-    
+
     /**
      * Test of the behavior of the month field.  This requires special
      * handling in the Hebrew calendar because of the pattern of leap
@@ -299,7 +304,7 @@ public class HebrewTest extends CalendarTestFmwk {
             // We can't test complete() on some lines below because of ADAR_1 -- if
             // the calendar is set to ADAR_1 on a non-leap year, the result is undefined.
             int[] DATA = {
-                // m1/y1 - month/year before (month is 1-based) 
+                // m1/y1 - month/year before (month is 1-based)
                 // delta - amount to add to month field
                 // m2/y2 - month/year after add(MONTH, delta)
                 // m3/y3 - month/year after set(MONTH, m1+delta)
@@ -320,7 +325,7 @@ public class HebrewTest extends CalendarTestFmwk {
                 int m2 = DATA[i++], y2 = DATA[i++];
                 int m3 = DATA[i++], y3 = DATA[i++];
                 int mact, yact;
-    
+
                 cal.clear();
                 cal.set(Calendar.YEAR, y);
                 cal.set(Calendar.MONTH, m-1);
@@ -342,7 +347,7 @@ public class HebrewTest extends CalendarTestFmwk {
                               (cal.get(Calendar.MONTH) + 1) + "/" + cal.get(Calendar.YEAR));
                     }
                 }
-                
+
                 cal.clear();
                 cal.set(Calendar.YEAR, y);
                 cal.set(Calendar.MONTH, m + monthDelta - 1);
@@ -416,7 +421,7 @@ public class HebrewTest extends CalendarTestFmwk {
                     errln("could not create HebrewCalendar with TimeZone");
                 }
             }
-    
+
             {
                 // new HebrewCalendar(ULocale)
                 HebrewCalendar cal = new HebrewCalendar(ULocale.getDefault());
@@ -424,7 +429,7 @@ public class HebrewTest extends CalendarTestFmwk {
                     errln("could not create HebrewCalendar with ULocale");
                 }
             }
-                
+
             {
                 // new HebrewCalendar(Locale)
                 HebrewCalendar cal = new HebrewCalendar(Locale.getDefault());
@@ -432,7 +437,7 @@ public class HebrewTest extends CalendarTestFmwk {
                     errln("could not create HebrewCalendar with locale");
                 }
             }
-        
+
             {
                 // new HebrewCalendar(Date)
                 HebrewCalendar cal = new HebrewCalendar(new Date());
@@ -440,16 +445,16 @@ public class HebrewTest extends CalendarTestFmwk {
                     errln("could not create HebrewCalendar with date");
                 }
             }
-        
+
             {
                 // data
                 HebrewCalendar cal = new HebrewCalendar(2800, HebrewCalendar.SHEVAT, 1);
                 Date time = cal.getTime();
-        
+
                 String[] calendarLocales = {
                 "iw_IL"
                 };
-        
+
                 String[] formatLocales = {
                 "en", "fi", "fr", "hu", "iw", "nl"
                 };
@@ -457,7 +462,7 @@ public class HebrewTest extends CalendarTestFmwk {
                     String calLocName = calendarLocales[i];
                     Locale calLocale = LocaleUtility.getLocaleFromName(calLocName);
                     cal = new HebrewCalendar(calLocale);
-            
+
                     for (int j = 0; j < formatLocales.length; ++j) {
                         String locName = formatLocales[j];
                         Locale formatLocale = LocaleUtility.getLocaleFromName(locName);
@@ -477,7 +482,7 @@ public class HebrewTest extends CalendarTestFmwk {
         HebrewCalendar hc = new HebrewCalendar (5742, HebrewCalendar.AV, 22);
         DateFormat df = hc.getDateTimeFormat(DateFormat.FULL, DateFormat.FULL, Locale.getDefault());
         String dateString = df.format(hc.getTime());
-     
+
         for (int year = 5600; year < 5800; year ++) {
             boolean leapYear = HebrewCalendar.isLeapYear (year);
             for (int month = HebrewCalendar.TISHRI; month <= HebrewCalendar.ELUL;month++) {
@@ -507,7 +512,7 @@ public class HebrewTest extends CalendarTestFmwk {
                     break;
                 }
             }
-        }       
+        }
     }
 
     // Test case for Ticket#10313. HebrewCalendar requires

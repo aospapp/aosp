@@ -1,38 +1,16 @@
 /*
  * Copyright (c) 2014, ARM Limited and Contributors. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this
- * list of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * Neither the name of ARM nor the names of its contributors may be used
- * to endorse or promote products derived from this software without specific
- * prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #ifndef __IO_H__
 #define __IO_H__
 
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h> /* For ssize_t */
+#include <uuid.h>
 
 
 /* Device type which can be used to enable policy decisions about which device
@@ -41,6 +19,7 @@ typedef enum {
 	IO_TYPE_INVALID,
 	IO_TYPE_SEMIHOSTING,
 	IO_TYPE_MEMMAP,
+	IO_TYPE_DUMMY,
 	IO_TYPE_FIRMWARE_IMAGE_PACKAGE,
 	IO_TYPE_BLOCK,
 	IO_TYPE_MAX
@@ -68,6 +47,11 @@ typedef struct io_file_spec {
 	unsigned int mode;
 } io_file_spec_t;
 
+/* UUID specification - used to refer to data accessed using UUIDs (i.e. FIP
+ * images) */
+typedef struct io_uuid_spec {
+	const uuid_t uuid;
+} io_uuid_spec_t;
 
 /* Block specification - used to refer to data on a device supporting
  * block-like entities */
@@ -81,13 +65,6 @@ typedef struct io_block_spec {
 #define IO_MODE_INVALID (0)
 #define IO_MODE_RO	(1 << 0)
 #define IO_MODE_RW	(1 << 1)
-
-
-/* Return codes reported by 'io_*' APIs */
-#define IO_SUCCESS		(0)
-#define IO_FAIL			(-1)
-#define IO_NOT_SUPPORTED	(-2)
-#define IO_RESOURCES_EXHAUSTED	(-3)
 
 
 /* Open a connection to a device */

@@ -25,6 +25,7 @@ INCLUDE="
     LICENSE
     src
     subprojects/android
+    subprojects/inline
     "
 
 EXCLUDE="

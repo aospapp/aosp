@@ -19,7 +19,6 @@
 #include "FwmarkCommand.h"
 
 #include <errno.h>
-#include <cutils/properties.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -32,10 +31,20 @@ namespace {
 
 const sockaddr_un FWMARK_SERVER_PATH = {AF_UNIX, "/dev/socket/fwmarkd"};
 
-const bool isBuildDebuggable = property_get_bool("ro.debuggable", 0) == 1;
+#if defined(NETD_CLIENT_DEBUGGABLE_BUILD)
+constexpr bool isBuildDebuggable = true;
+#else
+constexpr bool isBuildDebuggable = false;
+#endif
 
 bool isOverriddenBy(const char *name) {
     return isBuildDebuggable && getenv(name);
+}
+
+bool commandHasFd(int cmdId) {
+    return (cmdId != FwmarkCommand::QUERY_USER_ACCESS) &&
+        (cmdId != FwmarkCommand::SET_COUNTERSET) &&
+        (cmdId != FwmarkCommand::DELETE_TAGDATA);
 }
 
 }  // namespace
@@ -73,6 +82,8 @@ int FwmarkClient::send(FwmarkCommand* data, int fd, FwmarkConnectInfo* connectIn
                                    sizeof(FWMARK_SERVER_PATH))) == -1) {
         // If we are unable to connect to the fwmark server, assume there's no error. This protects
         // against future changes if the fwmark server goes away.
+        // TODO: This means that fd will very likely be misrouted. See if we can delete this in a
+        //       separate CL.
         return 0;
     }
 
@@ -90,7 +101,7 @@ int FwmarkClient::send(FwmarkCommand* data, int fd, FwmarkConnectInfo* connectIn
         char cmsg[CMSG_SPACE(sizeof(fd))];
     } cmsgu;
 
-    if (data->cmdId != FwmarkCommand::QUERY_USER_ACCESS) {
+    if (commandHasFd(data->cmdId)) {
         memset(cmsgu.cmsg, 0, sizeof(cmsgu.cmsg));
         message.msg_control = cmsgu.cmsg;
         message.msg_controllen = sizeof(cmsgu.cmsg);

@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import vogar.Action;
+import vogar.Toolchain;
 import vogar.Variant;
 import vogar.Classpath;
 import vogar.Mode;
@@ -88,7 +89,10 @@ public final class DeviceRuntime implements Mode {
                 // _adb_connect in system/core/adb/adb_client.cpp).
                 .maxLength(4096);
         if (run.debugPort != null) {
-            vmCommandBuilder.vmArgs("-Xcompiler-option", "--debuggable");
+            vmCommandBuilder.vmArgs(
+                    "-Xcompiler-option", "--debuggable", "-Xplugin:libopenjdkjvmti.so",
+                    "-agentpath:libjdwp.so=transport=dt_socket,address=" + run.debugPort
+                            + ",server=y,suspend=y");
         }
 
         if (modeId == ModeId.APP_PROCESS) {
@@ -140,14 +144,7 @@ public final class DeviceRuntime implements Mode {
 
     private Task newCreateDexJarTask(Classpath classpath, File classpathElement, String name,
             Action action, File localDex, File localTempDir) {
-        Task dex;
-        if (run.useJack) {
-            dex = new JackDexTask(run, classpath, run.benchmark, name, classpathElement,
-                    action, localDex);
-        } else {
-            dex = new DexTask(run.androidSdk, classpath, run.benchmark, name, classpathElement,
-                    action, localDex, localTempDir, run.multidex);
-        }
-        return dex;
+        return new DexTask(run.toolchain.getDexer(), run.androidSdk, classpath, run.benchmark,
+                name, classpathElement, action, localDex, localTempDir, run.multidex);
     }
 }

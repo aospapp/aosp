@@ -55,7 +55,9 @@ struct nano_app_binary_t {
     uint32_t app_version;          // Version of the app
     uint32_t flags;                // Signed, encrypted
     uint64_t hw_hub_type;          // which hub type is this compiled for
-    uint32_t reserved[2];          // Should be all zeroes
+    uint8_t  chre_api_major;       // Which CHRE API version this is compiled for
+    uint8_t  chre_api_minor;
+    uint8_t  reserved[6];          // Should be all zeroes
     uint8_t  custom_binary[0];     // start of custom binary data
 };
 
@@ -67,11 +69,19 @@ struct HostMsgHdr {
     uint8_t len;
 } __attribute__((packed));
 
+struct HostMsgHdrChreV10 {
+    uint32_t eventId;
+    uint64_t appId;
+    uint8_t len;
+    uint32_t appEventId;
+} __attribute__((packed));
+
 struct HostMsgHdrChre {
     uint32_t eventId;
     uint64_t appId;
     uint8_t len;
     uint32_t appEventId;
+    uint16_t endpoint;
 } __attribute__((packed));
 
 // we translate AOSP header into FW header: this header is in LE format
@@ -84,7 +94,8 @@ struct FwCommonHdr {
     uint32_t appVer;        // external: copy from AOSP header; internal: defined locally
     uint8_t  payInfoType;   // external: copy ImageLayout::payload; internal: LAYOUT_APP
     uint8_t  payInfoSize;   // sizeof(PayloadInfo) for this payload type
-    uint8_t  rfu[2];        // filled with 0xFF
+    uint8_t  chreApiMajor;  // Chre Api Major Version (or 0xFF for non-chre nanoapps)
+    uint8_t  chreApiMinor;  // Chre Api Minor Version (or 0xFF for non-chre nanoapps)
 };
 
 struct SectInfo {

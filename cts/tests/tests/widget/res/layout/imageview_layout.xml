@@ -26,7 +26,7 @@
     <ImageView
         android:id="@+id/imageview_regular"
         android:layout_width="320px"
-        android:layout_height="240px"/>
+        android:layout_height="@dimen/imageview_regular_height"/>
 
     <ImageView
         android:id="@+id/imageview_tint"

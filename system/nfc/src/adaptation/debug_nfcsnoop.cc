@@ -16,16 +16,16 @@
  *
  ******************************************************************************/
 
-#include <assert.h>
+#include <android-base/logging.h>
 #include <resolv.h>
 #include <zlib.h>
 #include <mutex>
 
+#include <ringbuffer.h>
+
 #include "bt_types.h"
 #include "include/debug_nfcsnoop.h"
-#include "include/ringbuffer.h"
 #include "nfc_int.h"
-#include "nfc_types.h"
 
 #define USEC_PER_SEC 1000000ULL
 
@@ -60,8 +60,13 @@ static void nfcsnoop_cb(const uint8_t* data, const size_t length,
   // Insert data
   header.length = length;
   header.is_received = is_received ? 1 : 0;
-  header.delta_time_ms =
-      last_timestamp_ms ? timestamp_us - last_timestamp_ms : 0;
+
+  uint64_t delta_time_ms = 0;
+  if (last_timestamp_ms) {
+    __builtin_sub_overflow(timestamp_us, last_timestamp_ms, &delta_time_ms);
+  }
+  header.delta_time_ms = delta_time_ms;
+
   last_timestamp_ms = timestamp_us;
 
   ringbuffer_insert(buffer, (uint8_t*)&header, sizeof(nfcsnooz_header_t));
@@ -69,8 +74,8 @@ static void nfcsnoop_cb(const uint8_t* data, const size_t length,
 }
 
 static bool nfcsnoop_compress(ringbuffer_t* rb_dst, ringbuffer_t* rb_src) {
-  assert(rb_dst != NULL);
-  assert(rb_src != NULL);
+  CHECK(rb_dst != NULL);
+  CHECK(rb_src != NULL);
 
   z_stream zs;
   zs.zalloc = Z_NULL;

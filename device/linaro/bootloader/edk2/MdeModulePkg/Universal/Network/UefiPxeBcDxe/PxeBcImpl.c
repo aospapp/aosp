@@ -1,7 +1,7 @@
 /** @file
   Interface routines for PxeBc.
 
-Copyright (c) 2007 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -176,7 +176,9 @@ IcmpErrorListenHandlerDpc (
   }
 
   if (EFI_IP4 (RxData->Header->SourceAddress) != 0 &&
-      !NetIp4IsUnicast (EFI_NTOHL (RxData->Header->SourceAddress), 0)) {
+      (NTOHL (Mode->SubnetMask.Addr[0]) != 0) &&
+      IP4_NET_EQUAL (NTOHL(Mode->StationIp.Addr[0]), EFI_NTOHL (RxData->Header->SourceAddress), NTOHL (Mode->SubnetMask.Addr[0])) &&
+      !NetIp4IsUnicast (EFI_NTOHL (RxData->Header->SourceAddress), NTOHL (Mode->SubnetMask.Addr[0]))) {
     //
     // The source address is not zero and it's not a unicast IP address, discard it.
     //
@@ -1163,7 +1165,9 @@ EfiPxeBcMtftp (
   if ((This == NULL)                                                          ||
       (Filename == NULL)                                                      ||
       (BufferSize == NULL)                                                    ||
-      ((ServerIp == NULL) || !NetIp4IsUnicast (NTOHL (ServerIp->Addr[0]), 0)) ||
+      ((ServerIp == NULL) || 
+       (IP4_IS_UNSPECIFIED (NTOHL (ServerIp->Addr[0])) || 
+        IP4_IS_LOCAL_BROADCAST (NTOHL (ServerIp->Addr[0]))))                  ||
       ((BufferPtr == NULL) && DontUseBuffer)                                  ||
       ((BlockSize != NULL) && (*BlockSize < 512))) {
 
@@ -1378,7 +1382,7 @@ EfiPxeBcUdpWrite (
     return EFI_INVALID_PARAMETER;
   }
 
-  if ((GatewayIp != NULL) && !NetIp4IsUnicast (NTOHL (GatewayIp->Addr[0]), 0)) {
+  if ((GatewayIp != NULL) && (IP4_IS_UNSPECIFIED (NTOHL (GatewayIp->Addr[0])) || IP4_IS_LOCAL_BROADCAST (NTOHL (GatewayIp->Addr[0])))) {
     //
     // Gateway is provided but it's not a unicast IP address.
     //
@@ -1435,7 +1439,9 @@ EfiPxeBcUdpWrite (
              &Private->StationIp.v4,
              &Private->SubnetMask.v4,
              &Private->GatewayIp.v4,
-             &Private->CurrentUdpSrcPort
+             &Private->CurrentUdpSrcPort,
+             Private->Mode.TTL,
+             Private->Mode.ToS
              );
   if (EFI_ERROR (Status)) {
     Private->CurrentUdpSrcPort = 0;
@@ -1962,9 +1968,11 @@ EfiPxeBcSetIpFilter (
       DEBUG ((EFI_D_ERROR, "There is broadcast address in NewFilter.\n"));
       return EFI_INVALID_PARAMETER;
     }
-    if (NetIp4IsUnicast (EFI_IP4 (NewFilter->IpList[Index].v4), 0) &&
-        ((NewFilter->Filters & EFI_PXE_BASE_CODE_IP_FILTER_STATION_IP) != 0)
-       ) {
+    if ((EFI_NTOHL(Mode->StationIp) != 0) &&
+        (EFI_NTOHL(Mode->SubnetMask) != 0) &&
+        IP4_NET_EQUAL(EFI_NTOHL(Mode->StationIp), EFI_NTOHL(NewFilter->IpList[Index].v4), EFI_NTOHL(Mode->SubnetMask)) &&
+        NetIp4IsUnicast (EFI_IP4 (NewFilter->IpList[Index].v4), EFI_NTOHL(Mode->SubnetMask)) &&
+        ((NewFilter->Filters & EFI_PXE_BASE_CODE_IP_FILTER_STATION_IP) != 0)) {
       //
       // If EFI_PXE_BASE_CODE_IP_FILTER_STATION_IP is set and IP4 address is in IpList,
       // promiscuous mode is needed.
@@ -2306,14 +2314,18 @@ EfiPxeBcSetStationIP (
     return EFI_INVALID_PARAMETER;
   }
 
-  if (NewStationIp != NULL && !NetIp4IsUnicast (NTOHL (NewStationIp->Addr[0]), 0)) {
-    return EFI_INVALID_PARAMETER;
-  }
-
   if (NewSubnetMask != NULL && !IP4_IS_VALID_NETMASK (NTOHL (NewSubnetMask->Addr[0]))) {
     return EFI_INVALID_PARAMETER;
   }
 
+  if (NewStationIp != NULL) {
+    if (IP4_IS_UNSPECIFIED(NTOHL (NewStationIp->Addr[0])) || 
+        IP4_IS_LOCAL_BROADCAST(NTOHL (NewStationIp->Addr[0])) ||
+        (NewSubnetMask != NULL && !NetIp4IsUnicast (NTOHL (NewStationIp->Addr[0]), NTOHL (NewSubnetMask->Addr[0])))) {
+      return EFI_INVALID_PARAMETER;
+    }
+  }
+  
   Private = PXEBC_PRIVATE_DATA_FROM_PXEBC (This);
   Mode    = Private->PxeBc.Mode;
 

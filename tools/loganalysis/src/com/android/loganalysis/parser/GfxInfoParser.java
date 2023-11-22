@@ -38,6 +38,18 @@ public class GfxInfoParser implements IParser {
     private static final Pattern JANKY_FRAMES_PREFIX = Pattern.compile(
             "Janky frames: (\\d+) \\(.+\\%\\)");
 
+    // Example: "90th percentile: 9ms"
+    private static final Pattern PERCENTILE_90_PREFIX =
+            Pattern.compile("90th percentile: (\\d+)ms");
+
+    // Example: "90th percentile: 14ms"
+    private static final Pattern PERCENTILE_95_PREFIX =
+            Pattern.compile("95th percentile: (\\d+)ms");
+
+    // Example: "90th percentile: 32ms"
+    private static final Pattern PERCENTILE_99_PREFIX =
+            Pattern.compile("99th percentile: (\\d+)ms");
+
     /**
      * Parses the log of "dumpsys gfxinfo".
      * Currently it only parses total frame number and total jank number per process.
@@ -51,6 +63,9 @@ public class GfxInfoParser implements IParser {
         Integer pid = null;
         Long totalFrames = null;
         Long jankyFrames = null;
+        Integer percentile90 = null;
+        Integer percentile95 = null;
+        Integer percentile99 = null;
 
         // gfxinfo also offers stats for specific views, but this parser
         // only records per process data. See example in GfxInfoParserTest.java.
@@ -64,6 +79,9 @@ public class GfxInfoParser implements IParser {
 
                 totalFrames = null;
                 jankyFrames = null;
+                percentile90 = null;
+                percentile95 = null;
+                percentile99 = null;
             }
 
             m = TOTAL_FRAMES_PREFIX.matcher(line);
@@ -76,14 +94,45 @@ public class GfxInfoParser implements IParser {
                 jankyFrames = Long.parseLong(m.group(1));
             }
 
-            if (name != null && pid != null && totalFrames != null && jankyFrames != null) {
+            m = PERCENTILE_90_PREFIX.matcher(line);
+            if (percentile90 == null && m.matches()) {
+                percentile90 = Integer.parseInt(m.group(1));
+            }
+
+            m = PERCENTILE_95_PREFIX.matcher(line);
+            if (percentile95 == null && m.matches()) {
+                percentile95 = Integer.parseInt(m.group(1));
+            }
+
+            m = PERCENTILE_99_PREFIX.matcher(line);
+            if (percentile99 == null && m.matches()) {
+                percentile99 = Integer.parseInt(m.group(1));
+            }
+
+            if (name != null
+                    && pid != null
+                    && totalFrames != null
+                    && jankyFrames != null
+                    && percentile90 != null
+                    && percentile95 != null
+                    && percentile99 != null) {
                 // All the data for the process is recorded, add as a row.
-                item.addRow(pid, name, totalFrames, jankyFrames);
+                item.addRow(
+                        pid,
+                        name,
+                        totalFrames,
+                        jankyFrames,
+                        percentile90,
+                        percentile95,
+                        percentile99);
 
                 name = null;
                 pid = null;
                 totalFrames = null;
                 jankyFrames = null;
+                percentile90 = null;
+                percentile95 = null;
+                percentile99 = null;
             }
         }
 

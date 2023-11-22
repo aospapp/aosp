@@ -19,7 +19,6 @@ package com.android.documentsui;
 import android.annotation.IntDef;
 import android.app.PendingIntent;
 import android.content.ContentProvider;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
@@ -29,8 +28,8 @@ import com.android.documentsui.base.BooleanConsumer;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.RootInfo;
-import com.android.documentsui.dirlist.DocumentDetails;
-import com.android.documentsui.selection.Selection;
+import com.android.documentsui.selection.ContentLock;
+import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -111,7 +110,7 @@ public interface ActionHandler {
      * If container, then opens the container, otherwise views using the specified type of view.
      * If the primary view type is unavailable, then fallback to the alternative type of view.
      */
-    boolean openDocument(DocumentDetails doc, @ViewType int type, @ViewType int fallback);
+    boolean openItem(ItemDetails doc, @ViewType int type, @ViewType int fallback);
 
     /**
      * This is called when user hovers over a doc for enough time during a drag n' drop, to open a
@@ -158,5 +157,5 @@ public interface ActionHandler {
      * Allow action handler to be initialized in a new scope.
      * @return this
      */
-    <T extends ActionHandler> T reset(DirectoryReloadLock reloadLock);
+    <T extends ActionHandler> T reset(ContentLock contentLock);
 }

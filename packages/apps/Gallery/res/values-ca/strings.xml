@@ -126,7 +126,7 @@
     <string name="details_dimension_x" msgid="4923037334136168978">"<xliff:g id="WIDTH">%1$d</xliff:g> x <xliff:g id="HEIGHT">%2$d</xliff:g>"</string>
     <string name="details_ms" msgid="7574063760642857397">"<xliff:g id="MINUTES">%1$02d</xliff:g>:<xliff:g id="SECONDS">%2$02d</xliff:g>"</string>
     <string name="details_hms" msgid="772340067838331166">"<xliff:g id="HOURS">%1$d</xliff:g>:<xliff:g id="MINUTES">%2$02d</xliff:g>:<xliff:g id="SECONDS">%3$02d</xliff:g>"</string>
-    <string name="details_fps" msgid="5450871169477340537">"<xliff:g id="FRAMES">%1$d</xliff:g> fps"</string>
+    <string name="details_fps" msgid="5450871169477340537">"<xliff:g id="FRAMES">%1$d</xliff:g> FPS"</string>
     <string name="details_kbps" msgid="1515369011744784592">"<xliff:g id="SPEED">%1$d</xliff:g> Kbps"</string>
     <string name="details_mbps" msgid="3291428849607323284">"<xliff:g id="SPEED">%1$g</xliff:g> Mbps"</string>
     <string name="details_ok" msgid="6848594369924424312">"D\'acord"</string>
@@ -149,7 +149,7 @@
     <string name="resume_playing_restart" msgid="5471008499835769292">"Torna a començar"</string>
     <string name="gadget_title" msgid="259405922673466798">"Marc de la imatge"</string>
     <string name="file_info_title" msgid="1628963357466012538">"Informació del fitxer:"</string>
-    <string name="video_exceed_mms_limit" msgid="3835075281230780010">"El vídeo que heu enregistrat és massa gran per enviar-lo mitjançant MMS. Proveu d\'enregistrar un clip més curt."</string>
+    <string name="video_exceed_mms_limit" msgid="3835075281230780010">"El vídeo que heu enregistrat és massa gran per enviar-lo mitjançant MMS. Proveu de gravar un clip més curt."</string>
     <string name="multiselect_share" msgid="5261644537749253581">"Comparteix"</string>
     <string name="multiselect_delete" msgid="9113461994546744603">"Suprimeix"</string>
     <string name="multiselect_cancel" msgid="5969428692864002165">"Cancel·la"</string>

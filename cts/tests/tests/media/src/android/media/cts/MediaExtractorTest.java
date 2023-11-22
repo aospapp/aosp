@@ -20,6 +20,7 @@ import android.media.cts.R;
 
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
+import android.media.AudioPresentation;
 import android.media.MediaDataSource;
 import android.media.MediaExtractor;
 import android.os.PersistableBundle;
@@ -27,6 +28,7 @@ import android.test.AndroidTestCase;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 public class MediaExtractorTest extends AndroidTestCase {
     protected Resources mResources;
@@ -121,5 +123,11 @@ public class MediaExtractorTest extends AndroidTestCase {
             }
         }
 
+    }
+
+    public void testGetAudioPresentations() throws Exception {
+        List<AudioPresentation> presentations = mExtractor.getAudioPresentations(0 /*trackIndex*/);
+        assertNotNull(presentations);
+        assertTrue(presentations.isEmpty());
     }
 }

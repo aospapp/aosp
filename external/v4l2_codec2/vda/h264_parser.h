@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 //
 // This file contains an implementation of an H264 Annex-B video stream parser.
+// Note: ported from Chromium commit head: 0a918e9
 
 #ifndef H264_PARSER_H_
 #define H264_PARSER_H_
@@ -19,6 +20,7 @@
 #include "base/optional.h"
 #include "h264_bit_reader.h"
 #include "ranges.h"
+#include "rect.h"
 #include "size.h"
 #include "subsample_entry.h"
 
@@ -142,8 +144,8 @@ struct H264SPS {
   int frame_crop_bottom_offset;
 
   bool vui_parameters_present_flag;
-  int sar_width;    // Set to 0 when not specified.
-  int sar_height;   // Set to 0 when not specified.
+  int sar_width;   // Set to 0 when not specified.
+  int sar_height;  // Set to 0 when not specified.
   bool bitstream_restriction_flag;
   int max_num_reorder_frames;
   int max_dec_frame_buffering;
@@ -181,6 +183,7 @@ struct H264SPS {
   // base::nullopt if they encounter integer overflow. They do not verify that
   // the results are in-spec for the given profile or level.
   base::Optional<Size> GetCodedSize() const;
+  base::Optional<Rect> GetVisibleRect() const;
 };
 
 struct H264PPS {
@@ -239,10 +242,7 @@ struct H264DecRefPicMarking {
 struct H264SliceHeader {
   H264SliceHeader();
 
-  enum {
-    kRefListSize = 32,
-    kRefListModSize = kRefListSize
-  };
+  enum { kRefListSize = 32, kRefListModSize = kRefListSize };
 
   enum Type {
     kPSlice = 0,
@@ -258,11 +258,11 @@ struct H264SliceHeader {
   bool IsSPSlice() const;
   bool IsSISlice() const;
 
-  bool idr_pic_flag;       // from NAL header
-  int nal_ref_idc;         // from NAL header
+  bool idr_pic_flag;         // from NAL header
+  int nal_ref_idc;           // from NAL header
   const uint8_t* nalu_data;  // from NAL header
-  off_t nalu_size;         // from NAL header
-  off_t header_bit_size;   // calculated
+  off_t nalu_size;           // from NAL header
+  off_t header_bit_size;     // calculated
 
   int first_mb_in_slice;
   int slice_type;
@@ -376,6 +376,12 @@ class H264Parser {
                                          const Ranges<const uint8_t*>& ranges,
                                          off_t* offset,
                                          off_t* start_code_size);
+
+  // Parses the input stream and returns all the NALUs through |nalus|. Returns
+  // false if the stream is invalid.
+  static bool ParseNALUs(const uint8_t* stream,
+                         size_t stream_size,
+                         std::vector<H264NALU>* nalus);
 
   H264Parser();
   ~H264Parser();

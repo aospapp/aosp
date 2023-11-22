@@ -15,21 +15,21 @@
  */
 package android.host.multiuser;
 
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.testtype.IDeviceTest;
+
+import org.junit.After;
+import org.junit.Before;
 
 import java.util.ArrayList;
 
 /**
  * Base class for multi user tests.
  */
-public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver {
+public class BaseMultiUserTest implements IDeviceTest {
     protected static final int USER_SYSTEM = 0; // From the UserHandle class.
-
-    protected IBuildInfo mBuildInfo;
 
     /** Whether multi-user is supported. */
     protected boolean mSupportsMultiUser;
@@ -38,16 +38,10 @@ public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver 
     /** Users we shouldn't delete in the tests */
     private ArrayList<Integer> mFixedUsers;
 
-    @Override
-    public void setBuild(IBuildInfo buildInfo) {
-        mBuildInfo = buildInfo;
-    }
+    private ITestDevice mDevice;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        assertNotNull(mBuildInfo); // ensure build has been set before test is run.
-
+    @Before
+    public void setUp() throws Exception {
         mSupportsMultiUser = getDevice().getMaxNumberOfUsersSupported() > 1;
         mIsSplitSystemUser = checkIfSplitSystemUser();
         mPrimaryUserId = getDevice().getPrimaryUserId();
@@ -60,14 +54,23 @@ public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver 
         removeTestUsers();
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         if (getDevice().getCurrentUser() != mPrimaryUserId) {
             CLog.w("User changed during test. Switching back to " + mPrimaryUserId);
             getDevice().switchUser(mPrimaryUserId);
         }
         removeTestUsers();
-        super.tearDown();
+    }
+
+    @Override
+    public void setDevice(ITestDevice device) {
+        mDevice = device;
+    }
+
+    @Override
+    public ITestDevice getDevice() {
+        return mDevice;
     }
 
     protected int createRestrictedProfile(int userId)

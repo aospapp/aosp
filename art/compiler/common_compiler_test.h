@@ -23,17 +23,17 @@
 
 #include "common_runtime_test.h"
 #include "compiler.h"
-#include "jit/profile_compilation_info.h"
 #include "oat_file.h"
 
 namespace art {
 namespace mirror {
-  class ClassLoader;
+class ClassLoader;
 }  // namespace mirror
 
 class CompilerDriver;
 class CompilerOptions;
 class CumulativeLogger;
+class ProfileCompilationInfo;
 class VerificationResults;
 
 template<class T> class Handle;
@@ -106,7 +106,6 @@ class CommonCompilerTest : public CommonRuntimeTest {
   std::unique_ptr<CompilerOptions> compiler_options_;
   std::unique_ptr<VerificationResults> verification_results_;
   std::unique_ptr<CompilerDriver> compiler_driver_;
-  std::unique_ptr<CumulativeLogger> timer_;
   std::unique_ptr<const InstructionSetFeatures> instruction_set_features_;
 
 

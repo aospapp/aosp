@@ -27,7 +27,7 @@ PRODUCT_PACKAGES += \
 
 # Additional mixins to the boot classpath.
 PRODUCT_PACKAGES += \
-    legacy-test \
+    android.test.base \
 
 # Why are we pulling in ext, which is frameworks/base, depending on tagsoup and nist-sip?
 PRODUCT_PACKAGES += \
@@ -56,32 +56,44 @@ PRODUCT_PACKAGES += art-tools
 PRODUCT_PACKAGES += \
     cacerts \
 
-PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+PRODUCT_PACKAGES += \
+    hiddenapi-package-whitelist.xml \
+
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
     dalvik.vm.image-dex2oat-Xms=64m \
     dalvik.vm.image-dex2oat-Xmx=64m \
     dalvik.vm.dex2oat-Xms=64m \
     dalvik.vm.dex2oat-Xmx=512m \
-    ro.dalvik.vm.native.bridge=0 \
     dalvik.vm.usejit=true \
     dalvik.vm.usejitprofiles=true \
     dalvik.vm.dexopt.secondary=true \
     dalvik.vm.appimageformat=lz4
 
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.dalvik.vm.native.bridge=0
+
 # Different dexopt types for different package update/install times.
 # On eng builds, make "boot" reasons only extract for faster turnaround.
 ifeq (eng,$(TARGET_BUILD_VARIANT))
-    PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+    PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
         pm.dexopt.first-boot=extract \
         pm.dexopt.boot=extract
 else
-    PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+    PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
         pm.dexopt.first-boot=quicken \
         pm.dexopt.boot=verify
 endif
 
-PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
-    pm.dexopt.install=quicken \
+# The install filter is speed-profile in order to enable the use of
+# profiles from the dex metadata files. Note that if a profile is not provided
+# or if it is empty speed-profile is equivalent to (quicken + empty app image).
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+    pm.dexopt.install=speed-profile \
     pm.dexopt.bg-dexopt=speed-profile \
     pm.dexopt.ab-ota=speed-profile \
     pm.dexopt.inactive=verify \
     pm.dexopt.shared=speed
+
+# Enable minidebuginfo generation unless overridden.
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+    dalvik.vm.dex2oat-minidebuginfo=true

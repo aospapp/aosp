@@ -27,8 +27,8 @@ import android.test.suitebuilder.annotation.SmallTest;
 public class PermissionMaxSdkVersionTest extends AndroidTestCase {
     // These two permission names must match the corresponding <uses-permission>
     // declarations in the test app manifest.
-    static final String UNGRANTABLE_PERMISSION = "android.permission.VIBRATE";
-    static final String GRANTABLE_PERMISSION = "android.permission.FLASHLIGHT";
+    static final String UNGRANTABLE_PERMISSION = "android.permission.INTERNET";
+    static final String GRANTABLE_PERMISSION = "android.permission.ACCESS_NETWORK_STATE";
 
     /**
      * Verify that with android:maxSdkVersion set to a previous API level,

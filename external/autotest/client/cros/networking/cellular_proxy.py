@@ -6,6 +6,7 @@ import dbus
 import logging
 import time
 
+from autotest_lib.client.bin import utils
 from autotest_lib.client.cros.networking import shill_proxy
 
 
@@ -72,11 +73,11 @@ class CellularProxy(shill_proxy.ShillProxy):
             registration timeout period.
 
         """
-        CellularProxy._poll_for_condition(
-                lambda: self.find_cellular_service_object() is not None,
-                'Failed to find cellular service object',
+        return utils.poll_for_condition(
+                lambda: self.find_cellular_service_object(),
+                exception=shill_proxy.ShillProxyTimeoutError(
+                        'Failed to find cellular service object'),
                 timeout=timeout_seconds)
-        return self.find_cellular_service_object()
 
 
     def find_cellular_device_object(self):
@@ -138,23 +139,25 @@ class CellularProxy(shill_proxy.ShillProxy):
         modem.Reset()
 
         # (1) Wait for the old modem to disappear
-        CellularProxy._poll_for_condition(
+        utils.poll_for_condition(
                 lambda: self._is_old_modem_gone(old_modem_path,
                                                 old_modem_mm_object),
-                'Old modem disappeared',
+                exception=shill_proxy.ShillProxyTimeoutError(
+                        'Old modem disappeared'),
                 timeout=60)
+
 
         # (2) Wait for the device to reappear
         if not expect_device:
             return None, None
         # The timeout here should be sufficient for our slowest modem to
         # reappear.
-        CellularProxy._poll_for_condition(
+        new_modem = utils.poll_for_condition(
                 lambda: self._get_reappeared_modem(model_id,
                                                    old_modem_mm_object),
-                desc='The modem reappeared after reset.',
+                exception=shill_proxy.ShillProxyTimeoutError(
+                        'The modem reappeared after reset.'),
                 timeout=60)
-        new_modem = self._get_reappeared_modem(model_id, old_modem_mm_object)
 
         # (3) Check powered state of the device
         if not expect_powered:
@@ -202,37 +205,15 @@ class CellularProxy(shill_proxy.ShillProxy):
             except dbus.DBusException as e:
                 return False
 
-        CellularProxy._poll_for_condition(
+        utils.poll_for_condition(
                 lambda: _disable_cellular_technology(self),
-                'Failed to disable cellular technology.',
+                exception=shill_proxy.ShillProxyTimeoutError(
+                        'Failed to disable cellular technology.'),
                 timeout=timeout_seconds)
         modem = self.find_cellular_device_object()
         self.wait_for_property_in(modem, self.DEVICE_PROPERTY_POWERED,
                                   [self.VALUE_POWERED_OFF],
                                   timeout_seconds=timeout_seconds)
-
-
-    # TODO(pprabhu) Use utils.poll_for_condition instead
-    @staticmethod
-    def _poll_for_condition(condition, desc, timeout=10):
-        """Poll till |condition| is satisfied.
-
-        @param condition: A function taking no arguments. The condition is
-                met when the return value can be cast to the bool True.
-        @param desc: The description given when we timeout waiting for
-                |condition|.
-
-        """
-        start_time = time.time()
-        while True:
-            value = condition()
-            if value:
-                return value
-            if(time.time() + CellularProxy.SLEEP_INTERVAL - start_time >
-               timeout):
-                raise shill_proxy.ShillProxyError(
-                        'Timed out waiting for condition %s.' % desc)
-            time.sleep(CellularProxy.SLEEP_INTERVAL)
 
 
     def _is_old_modem_gone(self, modem_path, modem_mm_object):

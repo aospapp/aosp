@@ -16,6 +16,7 @@
 
 #include "linker/relative_patcher.h"
 
+#include "debug/method_debug_info.h"
 #ifdef ART_ENABLE_CODEGEN_arm
 #include "linker/arm/relative_patcher_thumb2.h"
 #endif
@@ -81,6 +82,11 @@ std::unique_ptr<RelativePatcher> RelativePatcher::Create(
       LOG(FATAL) << "Unexpected baker read barrier branch patch.";
     }
 
+    std::vector<debug::MethodDebugInfo> GenerateThunkDebugInfo(
+        uint32_t executable_offset ATTRIBUTE_UNUSED) OVERRIDE {
+      return std::vector<debug::MethodDebugInfo>();  // No thunks added.
+    }
+
    private:
     DISALLOW_COPY_AND_ASSIGN(RelativePatcherNone);
   };
@@ -89,31 +95,31 @@ std::unique_ptr<RelativePatcher> RelativePatcher::Create(
   UNUSED(provider);
   switch (instruction_set) {
 #ifdef ART_ENABLE_CODEGEN_x86
-    case kX86:
+    case InstructionSet::kX86:
       return std::unique_ptr<RelativePatcher>(new X86RelativePatcher());
 #endif
 #ifdef ART_ENABLE_CODEGEN_x86_64
-    case kX86_64:
+    case InstructionSet::kX86_64:
       return std::unique_ptr<RelativePatcher>(new X86_64RelativePatcher());
 #endif
 #ifdef ART_ENABLE_CODEGEN_arm
-    case kArm:
+    case InstructionSet::kArm:
       // Fall through: we generate Thumb2 code for "arm".
-    case kThumb2:
+    case InstructionSet::kThumb2:
       return std::unique_ptr<RelativePatcher>(new Thumb2RelativePatcher(provider));
 #endif
 #ifdef ART_ENABLE_CODEGEN_arm64
-    case kArm64:
+    case InstructionSet::kArm64:
       return std::unique_ptr<RelativePatcher>(
           new Arm64RelativePatcher(provider, features->AsArm64InstructionSetFeatures()));
 #endif
 #ifdef ART_ENABLE_CODEGEN_mips
-    case kMips:
+    case InstructionSet::kMips:
       return std::unique_ptr<RelativePatcher>(
           new MipsRelativePatcher(features->AsMipsInstructionSetFeatures()));
 #endif
 #ifdef ART_ENABLE_CODEGEN_mips64
-    case kMips64:
+    case InstructionSet::kMips64:
       return std::unique_ptr<RelativePatcher>(new Mips64RelativePatcher());
 #endif
     default:

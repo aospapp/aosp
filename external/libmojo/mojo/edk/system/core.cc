@@ -44,8 +44,8 @@ namespace {
 // This is an unnecessarily large limit that is relatively easy to enforce.
 const uint32_t kMaxHandlesPerMessage = 1024 * 1024;
 
-// TODO: Maybe we could negotiate a debugging pipe ID for cross-process pipes
-// too; for now we just use a constant. This only affects bootstrap pipes.
+// TODO(rockot): Maybe we could negotiate a debugging pipe ID for cross-process
+// pipes too; for now we just use a constant. This only affects bootstrap pipes.
 const uint64_t kUnknownPipeIdForDebug = 0x7f7f7f7f7f7f7f7fUL;
 
 void CallWatchCallback(MojoWatchCallback callback,
@@ -166,13 +166,17 @@ scoped_refptr<Dispatcher> Core::GetDispatcher(MojoHandle handle) {
   return handles_.GetDispatcher(handle);
 }
 
+void Core::SetDefaultProcessErrorCallback(
+    const ProcessErrorCallback& callback) {
+  default_process_error_callback_ = callback;
+}
+
 void Core::AddChild(base::ProcessHandle process_handle,
-                    ScopedPlatformHandle platform_handle,
+                    ConnectionParams connection_params,
                     const std::string& child_token,
                     const ProcessErrorCallback& process_error_callback) {
   GetNodeController()->ConnectToChild(process_handle,
-                                      std::move(platform_handle),
-                                      child_token,
+                                      std::move(connection_params), child_token,
                                       process_error_callback);
 }
 
@@ -181,8 +185,26 @@ void Core::ChildLaunchFailed(const std::string& child_token) {
   GetNodeController()->CloseChildPorts(child_token);
 }
 
-void Core::InitChild(ScopedPlatformHandle platform_handle) {
-  GetNodeController()->ConnectToParent(std::move(platform_handle));
+ScopedMessagePipeHandle Core::ConnectToPeerProcess(
+    ScopedPlatformHandle pipe_handle,
+    const std::string& peer_token) {
+  RequestContext request_context;
+  ports::PortRef port0, port1;
+  GetNodeController()->node()->CreatePortPair(&port0, &port1);
+  MojoHandle handle = AddDispatcher(new MessagePipeDispatcher(
+      GetNodeController(), port0, kUnknownPipeIdForDebug, 0));
+  ConnectionParams connection_params(std::move(pipe_handle));
+  GetNodeController()->ConnectToPeer(std::move(connection_params), port1,
+                                     peer_token);
+  return ScopedMessagePipeHandle(MessagePipeHandle(handle));
+}
+
+void Core::ClosePeerConnection(const std::string& peer_token) {
+  GetNodeController()->ClosePeerConnection(peer_token);
+}
+
+void Core::InitChild(ConnectionParams connection_params) {
+  GetNodeController()->ConnectToParent(std::move(connection_params));
 }
 
 void Core::SetMachPortProvider(base::PortProvider* port_provider) {
@@ -310,15 +332,7 @@ MojoResult Core::PassSharedMemoryHandle(
 }
 
 void Core::RequestShutdown(const base::Closure& callback) {
-  base::Closure on_shutdown;
-  if (base::ThreadTaskRunnerHandle::IsSet()) {
-    on_shutdown = base::Bind(base::IgnoreResult(&base::TaskRunner::PostTask),
-                             base::ThreadTaskRunnerHandle::Get(),
-                             FROM_HERE, callback);
-  } else {
-    on_shutdown = callback;
-  }
-  GetNodeController()->RequestShutdown(on_shutdown);
+  GetNodeController()->RequestShutdown(callback);
 }
 
 ScopedMessagePipeHandle Core::CreateParentMessagePipe(
@@ -754,6 +768,8 @@ MojoResult Core::NotifyBadMessage(MojoMessageHandle message,
       reinterpret_cast<MessageForTransit*>(message)->ports_message();
   if (ports_message.source_node() == ports::kInvalidNodeName) {
     DVLOG(1) << "Received invalid message from unknown node.";
+    if (!default_process_error_callback_.is_null())
+      default_process_error_callback_.Run(std::string(error, error_num_bytes));
     return MOJO_RESULT_OK;
   }
 
@@ -774,12 +790,12 @@ MojoResult Core::CreateDataPipe(
   create_options.struct_size = sizeof(MojoCreateDataPipeOptions);
   create_options.flags = options ? options->flags : 0;
   create_options.element_num_bytes = options ? options->element_num_bytes : 1;
-  // TODO: Use Configuration to get default data pipe capacity.
+  // TODO(rockot): Use Configuration to get default data pipe capacity.
   create_options.capacity_num_bytes =
       options && options->capacity_num_bytes ? options->capacity_num_bytes
                                              : 64 * 1024;
 
-  // TODO: Broker through the parent when necessary.
+  // TODO(rockot): Broker through the parent when necessary.
   scoped_refptr<PlatformSharedBuffer> ring_buffer =
       GetNodeController()->CreateSharedBuffer(
           create_options.capacity_num_bytes);
@@ -1085,7 +1101,7 @@ MojoResult Core::WaitManyInternal(const MojoHandle* handles,
                                   const MojoHandleSignals* signals,
                                   uint32_t num_handles,
                                   MojoDeadline deadline,
-                                  uint32_t *result_index,
+                                  uint32_t* result_index,
                                   HandleSignalsState* signals_states) {
   CHECK(handles);
   CHECK(signals);

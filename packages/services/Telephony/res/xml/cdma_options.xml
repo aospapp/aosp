@@ -38,7 +38,7 @@
     <PreferenceCategory
         android:key="category_cdma_apn_key">
         <!-- The launching Intent will be defined thru code as we need to pass some Extra -->
-        <Preference
+        <com.android.phone.RestrictedPreference
             android:key="button_cdma_apn_key"
             android:title="@string/apn_settings"
             android:persistent="false"/>

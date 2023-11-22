@@ -38,25 +38,15 @@ enum {
   CE_T3T_NDEF_UPDATE_START_EVT = CE_T3T_FIRST_EVT,
   CE_T3T_NDEF_UPDATE_CPLT_EVT,
   CE_T3T_UPDATE_EVT,
-  CE_T3T_CHECK_EVT,
   CE_T3T_RAW_FRAME_EVT,
-  CE_T3T_MAX_EVT,
 
   CE_T4T_NDEF_UPDATE_START_EVT = CE_T4T_FIRST_EVT,
   CE_T4T_NDEF_UPDATE_CPLT_EVT,
   CE_T4T_NDEF_UPDATE_ABORT_EVT,
-  CE_T4T_RAW_FRAME_EVT,
-  CE_T4T_MAX_EVT
+  CE_T4T_RAW_FRAME_EVT
 };
 
-#define CE_RAW_FRAME_EVT 0xFF
-
 typedef uint8_t tCE_EVENT;
-
-typedef struct {
-  tNFC_STATUS status;
-  NFC_HDR* p_data;
-} tCE_T2T_DATA;
 
 typedef struct {
   tNFC_STATUS status;
@@ -194,33 +184,6 @@ extern void CE_T4tDeregisterAID(tCE_T4T_AID_HANDLE aid_handle);
 
 /*******************************************************************************
 **
-** Function         CE_T4TTestSetCC
-**
-** Description      Set fields in Capability Container File for testing
-**
-** Returns          NFC_STATUS_OK if success
-**
-*******************************************************************************/
-extern tNFC_STATUS CE_T4TTestSetCC(uint16_t cc_len, uint8_t version,
-                                   uint16_t max_le, uint16_t max_lc);
-
-/*******************************************************************************
-**
-** Function         CE_T4TTestSetNDEFCtrlTLV
-**
-** Description      Set fields in NDEF File Control TLV for testing
-**
-** Returns          NFC_STATUS_OK if success
-**
-*******************************************************************************/
-extern tNFC_STATUS CE_T4TTestSetNDEFCtrlTLV(uint8_t type, uint8_t length,
-                                            uint16_t file_id,
-                                            uint16_t max_file_size,
-                                            uint8_t read_access,
-                                            uint8_t write_access);
-
-/*******************************************************************************
-**
 ** Function         CE_SendRawFrame
 **
 ** Description      This function sends a raw frame to the peer device.
@@ -242,18 +205,4 @@ extern tNFC_STATUS CE_SendRawFrame(uint8_t* p_raw_data, uint16_t data_len);
 extern tNFC_STATUS CE_SetActivatedTagType(tNFC_ACTIVATE_DEVT* p_activate_params,
                                           uint16_t t3t_system_code,
                                           tCE_CBACK* p_cback);
-
-/*******************************************************************************
-**
-** Function         CE_SetTraceLevel
-**
-** Description      This function sets the trace level for Card Emulation mode.
-**                  If called with a value of 0xFF,
-**                  it simply returns the current trace level.
-**
-** Returns          The new or current trace level
-**
-*******************************************************************************/
-extern uint8_t CE_SetTraceLevel(uint8_t new_level);
-
 #endif /* CE_API_H */

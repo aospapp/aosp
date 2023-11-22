@@ -23,15 +23,16 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.support.annotation.Keep;
 import android.support.v14.preference.SwitchPreference;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceGroup;
 import android.support.v7.preference.TwoStatePreference;
 import android.text.TextUtils;
 import android.view.accessibility.AccessibilityManager;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.accessibility.AccessibilityUtils;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.List;
 import java.util.Set;
@@ -40,7 +41,7 @@ import java.util.Set;
  * Fragment for Accessibility settings
  */
 @Keep
-public class AccessibilityFragment extends LeanbackPreferenceFragment {
+public class AccessibilityFragment extends SettingsPreferenceFragment {
     private static final String TOGGLE_HIGH_TEXT_CONTRAST_KEY = "toggle_high_text_contrast";
     private static final String ACCESSIBILITY_SERVICES_KEY = "system_accessibility_services";
 
@@ -126,4 +127,8 @@ public class AccessibilityFragment extends LeanbackPreferenceFragment {
         }
     }
 
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.ACCESSIBILITY;
+    }
 }

@@ -93,11 +93,53 @@ class RunCallTest(mox.MoxTestBase):
         self.mox.StubOutWithMock(urllib2, 'urlopen')
         self.mox.StubOutWithMock(utils, 'run')
 
+        sleep = mock.patch('time.sleep', autospec=True)
+        sleep.start()
+        self.addCleanup(sleep.stop)
+
 
     def tearDown(self):
         """Tear down the test"""
         dev_server.ENABLE_SSH_CONNECTION_FOR_DEVSERVER = self.save_ssh_config
         super(RunCallTest, self).tearDown()
+
+
+    def testRunCallHTTPWithDownDevserver(self):
+        """Test dev_server.ImageServerBase.run_call using http with arg:
+        (call)."""
+        dev_server.ENABLE_SSH_CONNECTION_FOR_DEVSERVER = False
+
+        urllib2.urlopen(mox.StrContains(self.test_call)).AndReturn(
+                StringIO.StringIO(dev_server.ERR_MSG_FOR_DOWN_DEVSERVER))
+        time.sleep(mox.IgnoreArg())
+        urllib2.urlopen(mox.StrContains(self.test_call)).AndReturn(
+                StringIO.StringIO(self.contents))
+        self.mox.ReplayAll()
+        response = dev_server.ImageServerBase.run_call(self.test_call)
+        self.assertEquals(self.contents, response)
+
+
+    def testRunCallSSHWithDownDevserver(self):
+        """Test dev_server.ImageServerBase.run_call using http with arg:
+        (call)."""
+        dev_server.ENABLE_SSH_CONNECTION_FOR_DEVSERVER = True
+        self.mox.StubOutWithMock(utils, 'get_restricted_subnet')
+        utils.get_restricted_subnet(
+                self.hostname, utils.RESTRICTED_SUBNETS).AndReturn(
+                self.hostname)
+
+        to_return1 = MockSshResponse(dev_server.ERR_MSG_FOR_DOWN_DEVSERVER)
+        to_return2 = MockSshResponse(self.contents)
+        utils.run(mox.StrContains(self.test_call),
+                  timeout=mox.IgnoreArg()).AndReturn(to_return1)
+        time.sleep(mox.IgnoreArg())
+        utils.run(mox.StrContains(self.test_call),
+                  timeout=mox.IgnoreArg()).AndReturn(to_return2)
+
+        self.mox.ReplayAll()
+        response = dev_server.ImageServerBase.run_call(self.test_call)
+        self.assertEquals(self.contents, response)
+        dev_server.ENABLE_SSH_CONNECTION_FOR_DEVSERVER = False
 
 
     def testRunCallWithSingleCallHTTP(self):
@@ -614,6 +656,25 @@ class DevServerTest(mox.MoxTestBase):
                           self.dev_server.auto_update,
                           '', '')
 
+    def testBadBuildInAutoUpdate(self):
+        """Devsever raises BadBuildException when DUT raises RootfsUpdateError.
+        """
+        kwargs = {
+            'cros_au_error': False, 'get_au_status_error': True,
+            'handler_cleanup_error': False,
+            'kill_au_proc_error': False,
+            'raised_error': urllib2.HTTPError(
+                code=httplib.INTERNAL_SERVER_ERROR, msg='', url='', hdrs=None,
+                fp=StringIO.StringIO(
+                    'RootfsUpdateError: Build xyz failed to boot on dut.'))
+        }
+        for _ in range(dev_server.AU_RETRY_LIMIT):
+            self._preSetupForAutoUpdate(**kwargs)
+        self.mox.ReplayAll()
+        self.assertRaises(
+            dev_server.BadBuildException,
+            self.dev_server.auto_update, '100.0.0.0', ''
+        )
 
     def testGetAUStatusErrorInAutoUpdate(self):
         """Verify devserver's auto_update() logics for handling get_au_status

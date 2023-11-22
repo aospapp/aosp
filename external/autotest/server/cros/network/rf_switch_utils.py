@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import common
 import logging
 
 from autotest_lib.server import frontend
@@ -44,5 +45,5 @@ def deallocate_rf_switch(rf_switch_host):
     afe = frontend.AFE(
             debug=True, server=site_utils.get_global_afe_hostname())
     afe.unlock_hosts([rf_switch_host.hostname])
-    rf_switch = afe.get_hosts(hostnames=[rf_switch_host.hostname])
-    return not rf_switch.locked
+    rf_switch = afe.get_hosts(hostnames=(rf_switch_host.hostname,))
+    return not rf_switch[0].locked

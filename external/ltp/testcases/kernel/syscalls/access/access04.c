@@ -121,14 +121,12 @@ static void setup(void)
 }
 
 static struct tst_test test = {
-	.tid = "access04",
 	.tcnt = ARRAY_SIZE(tcases),
 	.needs_tmpdir = 1,
 	.needs_root = 1,
 	.forks_child = 1,
-	.mount_device = 1,
+	.needs_rofs = 1,
 	.mntpoint = MNT_POINT,
-	.mnt_flags = MS_RDONLY,
 	.setup = setup,
 	.test = verify_access,
 };

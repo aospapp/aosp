@@ -15,16 +15,11 @@
  */
 package libcore.java.nio.file;
 
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Rule;
 
-import java.io.IOException;
-import java.nio.file.FileStore;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -78,16 +73,25 @@ public class WatchServiceTest {
         }
     }
 
-    static public void assertWatchServiceEvent(WatchService watchService,
-            WatchKey expectedWatchKey,
-            List<WatchEventResult> expectedEvents,
+    private static void checkWatchServiceEventMultipleKeys(WatchService watchService,
+            Map<WatchKey, List<WatchEventResult>> expectedResults,
             boolean expectedResetResult) throws InterruptedException {
-        Iterator<WatchEventResult> expectedEventsIterator = expectedEvents.iterator();
 
-        while (expectedEventsIterator.hasNext()) {
+        // Make a deep copy
+        HashMap<WatchKey, ArrayList<WatchEventResult>> expectedResultsCopy
+                = new HashMap<>();
+        for (Map.Entry<WatchKey, List<WatchEventResult>> entry : expectedResults.entrySet()) {
+            expectedResultsCopy.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+        }
+
+        while (!expectedResultsCopy.isEmpty()) {
             WatchKey watchKey = watchService.poll(2, TimeUnit.SECONDS);
-            assertEquals(expectedWatchKey, watchKey);
+            assertNotNull(watchKey);
 
+            List<WatchEventResult> expectedEvents = expectedResultsCopy.get(watchKey);
+            assertNotNull(expectedEvents);
+
+            Iterator<WatchEventResult> expectedEventsIterator = expectedEvents.iterator();
             for (WatchEvent<?> event : watchKey.pollEvents()) {
                 WatchEventResult expectedEventResult = expectedEventsIterator.next();
                 assertNotNull(expectedEventResult);
@@ -96,10 +100,22 @@ public class WatchServiceTest {
                 if (expectedEventResult.testCount) {
                     assertEquals(expectedEventResult.expectedCount, event.count());
                 }
+                expectedEventsIterator.remove();
             }
-
             assertEquals(expectedResetResult, watchKey.reset());
+            if (!expectedEventsIterator.hasNext()) {
+                expectedResultsCopy.remove(watchKey);
+            }
         }
+    }
+
+    private static void checkWatchServiceEvent(WatchService watchService,
+            WatchKey expectedWatchKey,
+            List<WatchEventResult> expectedEvents,
+            boolean expectedResetResult) throws InterruptedException {
+        Map<WatchKey, List<WatchEventResult>> expected = new HashMap<>();
+        expected.put(expectedWatchKey, expectedEvents);
+        checkWatchServiceEventMultipleKeys(watchService, expected, expectedResetResult);
     }
 
     @Test
@@ -113,13 +129,13 @@ public class WatchServiceTest {
 
         // emit EVENT_CREATE
         Files.createFile(file);
-        assertWatchServiceEvent(watchService, directoryKey1,
+        checkWatchServiceEvent(watchService, directoryKey1,
             Arrays.asList(new WatchEventResult(ENTRY_CREATE, 1)), true);
         assertNull(watchService.poll());
-      
+
         // emit EVENT_MODIFY
         Files.write(file, "hello1".getBytes());
-        assertWatchServiceEvent(watchService, directoryKey1,
+        checkWatchServiceEvent(watchService, directoryKey1,
             Arrays.asList(new WatchEventResult(ENTRY_MODIFY)), true);
 
         // http:///b/35346596
@@ -133,11 +149,11 @@ public class WatchServiceTest {
             assertEquals(ENTRY_MODIFY, event.get(0).kind());
             doubleModifyKey.reset();
         }
-        assertNull(watchService.poll());      
+        assertNull(watchService.poll());
 
         // emit EVENT_DELETE
         Files.delete(file);
-        assertWatchServiceEvent(watchService, directoryKey1,
+        checkWatchServiceEvent(watchService, directoryKey1,
             Arrays.asList(new WatchEventResult(ENTRY_DELETE, 1)), true);
 
         // Assert no more events
@@ -162,7 +178,7 @@ public class WatchServiceTest {
         // emit EVENT_DELETE (masked)
         Files.delete(file);
 
-        assertWatchServiceEvent(watchService, directoryKey1,
+        checkWatchServiceEvent(watchService, directoryKey1,
                 Arrays.asList(new WatchEventResult(ENTRY_DELETE, 1)), true);
         assertNull(watchService.poll());
         watchService.close();
@@ -188,7 +204,7 @@ public class WatchServiceTest {
         // emit EVENT_DELETE
         Files.delete(dirInDir);
 
-        assertWatchServiceEvent(watchService, directoryKey1,
+        checkWatchServiceEvent(watchService, directoryKey1,
                 Arrays.asList(new WatchEventResult(ENTRY_CREATE, 1),
                               new WatchEventResult(ENTRY_DELETE, 1)), true);
         assertNull(watchService.poll());
@@ -221,7 +237,7 @@ public class WatchServiceTest {
         Files.write(file, "hello1".getBytes());
         Files.delete(file);
 
-        assertWatchServiceEvent(watchService, directoryKey1,
+        checkWatchServiceEvent(watchService, directoryKey1,
                 Arrays.asList(new WatchEventResult(ENTRY_CREATE, 1)), false);
         assertNull(watchService.poll());
         watchService.close();
@@ -250,7 +266,7 @@ public class WatchServiceTest {
             Thread.sleep(500);
         }
 
-        assertWatchServiceEvent(watchService, directoryKey1,
+        checkWatchServiceEvent(watchService, directoryKey1,
                 Arrays.asList(new WatchEventResult(ENTRY_CREATE, 1),
                               new WatchEventResult(ENTRY_DELETE, 1)), false);
         assertNull(watchService.poll());
@@ -282,13 +298,17 @@ public class WatchServiceTest {
             Files.delete(path);
         }
 
-        assertWatchServiceEvent(watchService1, directoryKey1,
-                                Arrays.asList(new WatchEventResult(ENTRY_CREATE, 1),
-                                              new WatchEventResult(ENTRY_DELETE, 1)), true);
-        assertWatchServiceEvent(watchService1, directoryKey2,
-                                Arrays.asList(new WatchEventResult(ENTRY_CREATE, 1),
-                                              new WatchEventResult(ENTRY_DELETE, 1)), true);
+        Map<WatchKey, List<WatchEventResult>> expected = new HashMap<>();
+        expected.put(directoryKey1,
+                Arrays.asList(
+                        new WatchEventResult(ENTRY_CREATE, 1),
+                        new WatchEventResult(ENTRY_DELETE, 1)));
+        expected.put(directoryKey2,
+                Arrays.asList(
+                        new WatchEventResult(ENTRY_CREATE, 1),
+                        new WatchEventResult(ENTRY_DELETE, 1)));
 
+        checkWatchServiceEventMultipleKeys(watchService1, expected, true);
         assertNull(watchService1.poll());
         watchService1.close();
     }
@@ -319,10 +339,10 @@ public class WatchServiceTest {
             Files.delete(path);
         }
 
-        assertWatchServiceEvent(watchService1, directoryKey1,
+        checkWatchServiceEvent(watchService1, directoryKey1,
                                 Arrays.asList(new WatchEventResult(ENTRY_CREATE, 1),
                                               new WatchEventResult(ENTRY_DELETE, 1)), true);
-        assertWatchServiceEvent(watchService2, directoryKey2,
+        checkWatchServiceEvent(watchService2, directoryKey2,
                                 Arrays.asList(new WatchEventResult(ENTRY_CREATE, 1),
                                               new WatchEventResult(ENTRY_DELETE, 1)), true);
 
@@ -332,10 +352,10 @@ public class WatchServiceTest {
             Files.createFile(dir1file1);
             Files.delete(dir1file1);
         }
-        assertWatchServiceEvent(watchService1, directoryKey1,
+        checkWatchServiceEvent(watchService1, directoryKey1,
                                 Arrays.asList(new WatchEventResult(ENTRY_CREATE, 1),
                                               new WatchEventResult(ENTRY_DELETE, 1)), true);
-        assertWatchServiceEvent(watchService2, directoryKey3,
+        checkWatchServiceEvent(watchService2, directoryKey3,
                                 Arrays.asList(new WatchEventResult(ENTRY_CREATE, 1),
                                               new WatchEventResult(ENTRY_DELETE, 1)), true);
 

@@ -10,11 +10,11 @@ ATTRIBUTES = 'suite:cts_N'
 DEPENDENCIES = 'arc'
 JOB_RETRIES = 2
 TEST_TYPE = 'server'
-TIME = 'LENGTHY'
+TIME = 'LONG'
+MAX_RESULT_SIZE_KB = 307200
 
 DOC = ('Run module CtsUsageStatsTestCases of the '
-       'Android 7.1_r7 Compatibility Test Suite (CTS), build 4120758,'
-       'using arm ABI in the ARC++ container.')
+       'Android Compatibility Test Suite (CTS) using arm ABI in the ARC++ container.')
 
 def run_CTS(machine):
     host = hosts.create_host(machine)
@@ -22,12 +22,17 @@ def run_CTS(machine):
         'cheets_CTS_N',
         host=host,
         iterations=1,
-        max_retry=3,
+        max_retry=10,
         needs_push_media=False,
         tag='CtsUsageStatsTestCases',
         target_module='CtsUsageStatsTestCases',
         bundle='arm',
         warn_on_test_retry=False,
+        retry_manual_tests=True,
+        precondition_commands=[
+    '/usr/local/autotest/cros/scripts/wifi connect %s %s' % (ssid, wifipass),
+    '/usr/local/autotest/cros/scripts/reorder-services-moblab.sh wifi',
+],
         timeout=3600)
 
 parallel_simple(run_CTS, machines)

@@ -23,18 +23,15 @@ import android.support.v17.leanback.widget.Presenter;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
-
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.dvr.ui.DvrUiHelper;
-
 import java.util.HashSet;
 import java.util.Set;
 
 /**
  * An abstract class to present DVR items in {@link RecordingCardView}, which is mainly used in
- * {@link DvrBrowseFragment}. DVR items might include:
- * {@link com.android.tv.dvr.data.ScheduledRecording},
- * {@link com.android.tv.dvr.data.RecordedProgram}, and
+ * {@link DvrBrowseFragment}. DVR items might include: {@link
+ * com.android.tv.dvr.data.ScheduledRecording}, {@link com.android.tv.dvr.data.RecordedProgram}, and
  * {@link com.android.tv.dvr.data.SeriesRecording}.
  */
 public abstract class DvrItemPresenter<T> extends Presenter {
@@ -51,9 +48,9 @@ public abstract class DvrItemPresenter<T> extends Presenter {
             return (RecordingCardView) view;
         }
 
-        protected void onBound(T item) { }
+        protected void onBound(T item) {}
 
-        protected void onUnbound() { }
+        protected void onUnbound() {}
     }
 
     DvrItemPresenter(Context context) {
@@ -94,9 +91,7 @@ public abstract class DvrItemPresenter<T> extends Presenter {
         viewHolder.view.setOnClickListener(null);
     }
 
-    /**
-     * Unbinds all bound view holders.
-     */
+    /** Unbinds all bound view holders. */
     public void unbindAllViewHolders() {
         // When browse fragments are destroyed, RecyclerView would not call presenters'
         // onUnbindViewHolder(). We should handle it by ourselves to prevent resources leaks.
@@ -105,34 +100,26 @@ public abstract class DvrItemPresenter<T> extends Presenter {
         }
     }
 
-    /**
-     * This method will be called when a {@link DvrItemViewHolder} is needed to be created.
-     */
-    abstract protected DvrItemViewHolder onCreateDvrItemViewHolder();
+    /** This method will be called when a {@link DvrItemViewHolder} is needed to be created. */
+    protected abstract DvrItemViewHolder onCreateDvrItemViewHolder();
 
-    /**
-     * This method will be called when a {@link DvrItemViewHolder} is bound to a DVR item.
-     */
-    abstract protected void onBindDvrItemViewHolder(DvrItemViewHolder viewHolder, T item);
+    /** This method will be called when a {@link DvrItemViewHolder} is bound to a DVR item. */
+    protected abstract void onBindDvrItemViewHolder(DvrItemViewHolder viewHolder, T item);
 
-    /**
-     * Returns context.
-     */
+    /** Returns context. */
     protected Context getContext() {
         return mContext;
     }
 
-    /**
-     * Creates {@link OnClickListener} for DVR library's card views.
-     */
+    /** Creates {@link OnClickListener} for DVR library's card views. */
     protected OnClickListener onCreateOnClickListener() {
         return new OnClickListener() {
             @Override
             public void onClick(View view) {
                 if (view instanceof RecordingCardView) {
                     RecordingCardView v = (RecordingCardView) view;
-                    DvrUiHelper.startDetailsActivity((Activity) v.getContext(),
-                            v.getTag(), v.getImageView(), false);
+                    DvrUiHelper.startDetailsActivity(
+                            (Activity) v.getContext(), v.getTag(), v.getImageView(), false);
                 }
             }
         };

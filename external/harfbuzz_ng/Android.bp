@@ -105,7 +105,7 @@ cc_library_shared {
 
     export_include_dirs: ["src"],
     cflags: [
-        "-DHB_NO_MT",
+        "-DHAVE_INTEL_ATOMIC_PRIMITIVES",
         "-DHAVE_OT",
         "-DHAVE_ICU",
         "-DHAVE_ICU_BUILTIN",

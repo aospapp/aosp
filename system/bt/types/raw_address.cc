@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2017 The Android Open Source Project
+ *  Copyright 2017 The Android Open Source Project
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -61,6 +61,11 @@ bool RawAddress::FromString(const std::string& from, RawAddress& to) {
   to = new_addr;
   return true;
 }
+
+size_t RawAddress::FromOctets(const uint8_t* from) {
+  std::copy(from, from + kLength, address);
+  return kLength;
+};
 
 bool RawAddress::IsValidAddress(const std::string& address) {
   RawAddress tmp;

@@ -383,7 +383,7 @@ tJBL_STATUS JcopOsDwnld::GetInfo(JcopOs_ImageInfo_t* pImageInfo, tJBL_STATUS sta
 #endif
             {
                 ALOGE("Starting 3-Step update");
-                memcpy(pImageInfo->fls_path, path[pImageInfo->index], sizeof(path[pImageInfo->index]));
+                memcpy(pImageInfo->fls_path, (char *)path[pImageInfo->index], sizeof(path[pImageInfo->index]));
                 pImageInfo->index++;
             }
             status = STATUS_OK;

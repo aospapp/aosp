@@ -23,8 +23,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import android.annotation.ColorInt;
-import android.annotation.Nullable;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
@@ -32,6 +30,8 @@ import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import androidx.annotation.ColorInt;
+import androidx.annotation.Nullable;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.MediumTest;
@@ -1215,6 +1215,32 @@ public class LinearLayoutTest {
                 LinearLayout.SHOW_DIVIDER_BEGINNING | LinearLayout.SHOW_DIVIDER_MIDDLE
                         | LinearLayout.SHOW_DIVIDER_END,
                 dividerSize, Color.RED, dividerPadding);
+    }
+
+    @Test
+    public void testZeroWeightDistributionHorizontal() throws Throwable {
+        // Ensure that weight is correctly distributed when there is no excess space.
+        final View content = mActivity.findViewById(android.R.id.content);
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, content,
+                () -> mActivity.setContentView(R.layout.linearlayout_zero_weight_horizontal));
+
+        final View parent = mActivity.findViewById(R.id.container1);
+        assertEquals(0, mActivity.findViewById(R.id.view1).getWidth());
+        assertEquals(0, mActivity.findViewById(R.id.view2).getWidth());
+        assertEquals(parent.getWidth(), mActivity.findViewById(R.id.view3).getWidth());
+    }
+
+    @Test
+    public void testZeroWeightDistributionVertical() throws Throwable {
+        // Ensure that weight is correctly distributed when there is no excess space.
+        final View content = mActivity.findViewById(android.R.id.content);
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, content,
+                () -> mActivity.setContentView(R.layout.linearlayout_zero_weight_vertical));
+
+        final View parent = mActivity.findViewById(R.id.container1);
+        assertEquals(0, mActivity.findViewById(R.id.view1).getHeight());
+        assertEquals(0, mActivity.findViewById(R.id.view2).getHeight());
+        assertEquals(parent.getHeight(), mActivity.findViewById(R.id.view3).getHeight());
     }
 
     private class MockListView extends ListView {

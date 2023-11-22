@@ -4,6 +4,7 @@
 
 import datetime
 import mox
+import time
 import unittest
 
 import common
@@ -32,6 +33,10 @@ class ShardClientTest(mox.MoxTestBase,
                 'SHARD', 'global_afe_hostname', self.GLOBAL_AFE_HOSTNAME)
 
         self._frontend_common_setup(fill_data=False)
+
+
+    def tearDown(self):
+        self.mox.UnsetStubs()
 
 
     def setup_mocks(self):
@@ -358,8 +363,29 @@ class ShardClientTest(mox.MoxTestBase,
 
         self.mox.ReplayAll()
         sut = shard_client.get_shard_client()
-        sut.loop()
+        sut.loop(None)
 
+        self.mox.VerifyAll()
+
+
+    def testLoopWithDeadline(self):
+        """Test looping over heartbeats with a timeout."""
+        self.setup_mocks()
+        self.setup_global_config()
+        self.mox.StubOutWithMock(time, 'time')
+
+        global_config.global_config.override_config_value(
+                'SHARD', 'heartbeat_pause_sec', '0.01')
+        time.time().AndReturn(1516894000)
+        time.time().AndReturn(1516894000)
+        self.expect_heartbeat()
+        # Set expectation that heartbeat took 1 minute.
+        time.time().MultipleTimes().AndReturn(1516894000 + 60)
+
+        self.mox.ReplayAll()
+        sut = shard_client.get_shard_client()
+        # 36 seconds
+        sut.loop(lifetime_hours=0.01)
         self.mox.VerifyAll()
 
 

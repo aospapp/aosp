@@ -16,15 +16,14 @@
 
 package com.android.dialer.calllog.datasources;
 
-import com.android.dialer.calllog.datasources.systemcalllog.SystemCallLogDataSource;
-import java.util.List;
+import com.google.common.collect.ImmutableList;
 
 /** Immutable lists of data sources used to populate the annotated call log. */
 public interface DataSources {
 
-  SystemCallLogDataSource getSystemCallLogDataSource();
+  CallLogDataSource getSystemCallLogDataSource();
 
-  List<CallLogDataSource> getDataSourcesIncludingSystemCallLog();
+  ImmutableList<CallLogDataSource> getDataSourcesIncludingSystemCallLog();
 
-  List<CallLogDataSource> getDataSourcesExcludingSystemCallLog();
+  ImmutableList<CallLogDataSource> getDataSourcesExcludingSystemCallLog();
 }

@@ -33,7 +33,7 @@
 #include <termios.h>
 #include <unistd.h>
 
-#include <utils/Log.h>
+#include <log/log.h>
 #include <cutils/properties.h>
 #include "bt_vendor_qcom.h"
 #include "hci_uart.h"

@@ -74,4 +74,10 @@ interface ICarDiagnostic {
      * Returns whether the underlying HAL supports clearing freeze frames.
      */
      boolean isClearFreezeFramesSupported() = 10;
+
+    /**
+     * Returns whether the underlying HAL supports clearing specific freeze frames specified
+     * by means of their timestamps.
+     */
+     boolean isSelectiveClearFreezeFramesSupported() = 11;
 }

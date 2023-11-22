@@ -19,6 +19,8 @@ package android.accessibilityservice.cts;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 import android.provider.Settings;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.MediumTest;
@@ -29,9 +31,11 @@ import java.util.List;
  * This test case is responsible to verify that the intent for launching
  * accessibility settings has an activity that handles it.
  */
+@Presubmit
 public class AccessibilitySettingsTest extends AndroidTestCase {
 
     @MediumTest
+    @AppModeFull
     public void testAccessibilitySettingsIntentHandled() throws Throwable {
         PackageManager packageManager = mContext.getPackageManager();
         Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);

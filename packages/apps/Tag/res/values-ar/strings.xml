@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"‏بيانات من علامة NFC"</string>
     <string name="vcard_title" msgid="7122634780732426007">"معلومات الاتصال لـ ^1"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"يحتاج هذا التطبيق إلى إمكانية الوصول لإذن الهاتف حتى يتمكن من  إجراء مكالمات. يمكنك إدارة إذن \"العلامة\" من \"الإعدادات\""</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"يحتاج هذا التطبيق إلى إذن \"التخزين الخارجي\" للوصول إلى الملفات. يمكنك إدارة إذن \"وضع العلامات\" في \"الإعدادات\"."</string>
 </resources>

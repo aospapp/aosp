@@ -1,7 +1,7 @@
 #ifndef LOCATION_LBS_CONTEXTHUB_NANOAPPS_UTIL_NANO_ASSERT_H_
 #define LOCATION_LBS_CONTEXTHUB_NANOAPPS_UTIL_NANO_ASSERT_H_
 
-#if defined(__NANOHUB__) || defined(_OS_BUILD_)
+#ifndef GOOGLE3
 
 // For external nanoapps (__NANOHUB__ defined), use SRC_FILENAME provided
 // by the build system, which has the directory stripped. But allow the
@@ -32,7 +32,7 @@
 #include <assert.h>
 #define ASSERT_IMPL(x) assert(x)
 
-#endif
+#endif  // GOOGLE3
 
 #ifndef ASSERT
 #ifdef NANO_ASSERT_ENABLED

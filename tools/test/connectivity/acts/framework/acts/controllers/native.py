@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3.4
 #
 # Copyright (C) 2009 Google Inc.
 #
@@ -14,7 +14,7 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from acts.controllers.sl4a_client import Sl4aClient
+from acts.controllers.sl4a_lib.rpc_connection import RpcConnection
 import json
 import os
 import socket
@@ -33,7 +33,7 @@ class SL4NAPIError(SL4NException):
 
 
 class SL4NProtocolError(SL4NException):
-    """Raised when there is some error in exchanging data with server on device."""
+    """Raised when there is an error exchanging data with the device server."""
     NO_RESPONSE_FROM_HANDSHAKE = "No response from handshake."
     NO_RESPONSE_FROM_SERVER = "No response from server."
     MISMATCHED_API_ID = "Mismatched API id."
@@ -46,7 +46,7 @@ def IDCounter():
         i += 1
 
 
-class NativeAndroid(Sl4aClient):
+class NativeAndroid(RpcConnection):
     COUNTER = IDCounter()
 
     def _rpc(self, method, *args):

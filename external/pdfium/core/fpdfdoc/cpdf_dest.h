@@ -9,21 +9,28 @@
 
 #include "core/fxcrt/fx_string.h"
 #include "core/fxcrt/fx_system.h"
+#include "core/fxcrt/unowned_ptr.h"
 
 class CPDF_Document;
 class CPDF_Object;
 
 class CPDF_Dest {
  public:
-  CPDF_Dest() : m_pObj(nullptr) {}
-  explicit CPDF_Dest(CPDF_Object* pObj) : m_pObj(pObj) {}
+  CPDF_Dest();
+  CPDF_Dest(const CPDF_Dest& that);
+  explicit CPDF_Dest(CPDF_Object* pObj);
+  ~CPDF_Dest();
 
-  CPDF_Object* GetObject() const { return m_pObj; }
-  CFX_ByteString GetRemoteName();
-  int GetPageIndex(CPDF_Document* pDoc);
-  uint32_t GetPageObjNum();
-  int GetZoomMode();
-  FX_FLOAT GetParam(int index);
+  CPDF_Object* GetObject() const { return m_pObj.Get(); }
+  ByteString GetRemoteName() const;
+  int GetPageIndex(CPDF_Document* pDoc) const;
+  uint32_t GetPageObjNum() const;
+
+  // Returns the zoom mode, as one of the PDFDEST_VIEW_* values in fpdf_doc.h.
+  int GetZoomMode() const;
+
+  unsigned long GetNumParams() const;
+  float GetParam(int index) const;
 
   bool GetXYZ(bool* pHasX,
               bool* pHasY,
@@ -33,7 +40,7 @@ class CPDF_Dest {
               float* pZoom) const;
 
  private:
-  CPDF_Object* m_pObj;
+  UnownedPtr<CPDF_Object> m_pObj;
 };
 
 #endif  // CORE_FPDFDOC_CPDF_DEST_H_

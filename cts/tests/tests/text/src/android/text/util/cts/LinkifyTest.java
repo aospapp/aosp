@@ -37,6 +37,7 @@ import android.widget.TextView;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentMatcher;
 
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -988,5 +989,19 @@ public class LinkifyTest {
         URLSpan[] spans = spannable.getSpans(0, spannable.length(), URLSpan.class);
         assertTrue(msg, linksAdded);
         assertEquals(msg, expected, spans[0].getURL().toString());
+    }
+
+    /** Helper to match a CharSequence based on String equivalence. */
+    class EqStringMatcher implements ArgumentMatcher<CharSequence> {
+        private final String mReference;
+
+        EqStringMatcher(CharSequence reference) {
+            mReference = reference.toString();
+        }
+
+        @Override
+        public boolean matches(CharSequence arg) {
+            return mReference.equals(arg.toString());
+        }
     }
 }

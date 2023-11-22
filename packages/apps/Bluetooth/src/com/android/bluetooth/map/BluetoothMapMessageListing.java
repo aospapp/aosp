@@ -14,34 +14,37 @@
 */
 package com.android.bluetooth.map;
 
+import android.util.Log;
+import android.util.Xml;
+
+import com.android.bluetooth.DeviceWorkArounds;
+import com.android.internal.util.FastXmlSerializer;
+
+import org.xmlpull.v1.XmlSerializer;
+
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import com.android.internal.util.FastXmlSerializer;
-
-import org.xmlpull.v1.XmlSerializer;
-
-import android.util.Log;
 
 public class BluetoothMapMessageListing {
-    private boolean hasUnread = false;
+    private boolean mHasUnread = false;
     private static final String TAG = "BluetoothMapMessageListing";
     private static final boolean D = BluetoothMapService.DEBUG;
 
     private List<BluetoothMapMessageListingElement> mList;
 
-    public BluetoothMapMessageListing(){
+    public BluetoothMapMessageListing() {
         mList = new ArrayList<BluetoothMapMessageListingElement>();
     }
+
     public void add(BluetoothMapMessageListingElement element) {
         mList.add(element);
         /* update info regarding whether the list contains unread messages */
-        if (element.getReadBool())
-        {
-            hasUnread = true;
+        if (!element.getReadBool()) {
+            mHasUnread = true;
         }
     }
 
@@ -50,8 +53,7 @@ public class BluetoothMapMessageListing {
      * @return the number of elements in the list.
      */
     public int getCount() {
-        if(mList != null)
-        {
+        if (mList != null) {
             return mList.size();
         }
         return 0;
@@ -61,9 +63,8 @@ public class BluetoothMapMessageListing {
      * does the list contain any unread messages
      * @return true if unread messages have been added to the list, else false
      */
-    public boolean hasUnread()
-    {
-        return hasUnread;
+    public boolean hasUnread() {
+        return mHasUnread;
     }
 
 
@@ -71,7 +72,7 @@ public class BluetoothMapMessageListing {
      *  returns the entire list as a list
      * @return list
      */
-    public List<BluetoothMapMessageListingElement> getList(){
+    public List<BluetoothMapMessageListingElement> getList() {
         return mList;
     }
 
@@ -87,13 +88,27 @@ public class BluetoothMapMessageListing {
      *             if UTF-8 encoding is unsupported on the platform.
      */
     // TODO: Remove includeThreadId when MAP-IM is adopted
-    public byte[] encode(boolean includeThreadId, String version) throws UnsupportedEncodingException {
+    public byte[] encode(boolean includeThreadId, String version)
+            throws UnsupportedEncodingException {
         StringWriter sw = new StringWriter();
-        XmlSerializer xmlMsgElement = new FastXmlSerializer();
+        XmlSerializer xmlMsgElement = null;
+        boolean isBenzCarkit = DeviceWorkArounds.addressStartsWith(
+                BluetoothMapService.getRemoteDevice().getAddress(),
+                DeviceWorkArounds.MERCEDES_BENZ_CARKIT);
         try {
-            xmlMsgElement.setOutput(sw);
-            xmlMsgElement.startDocument("UTF-8", true);
-            xmlMsgElement.setFeature("http://xmlpull.org/v1/doc/features.html#indent-output", true);
+            if (isBenzCarkit) {
+                Log.d(TAG, "java_interop: Remote is Mercedes Benz, "
+                        + "using Xml Workaround.");
+                xmlMsgElement = Xml.newSerializer();
+                xmlMsgElement.setOutput(sw);
+                xmlMsgElement.text("\n");
+            } else {
+                xmlMsgElement = new FastXmlSerializer();
+                xmlMsgElement.setOutput(sw);
+                xmlMsgElement.startDocument("UTF-8", true);
+                xmlMsgElement.setFeature(
+                        "http://xmlpull.org/v1/doc/features.html#indent-output", true);
+            }
             xmlMsgElement.startTag(null, "MAP-msg-listing");
             xmlMsgElement.attribute(null, "version", version);
             // Do the XML encoding of list
@@ -109,6 +124,15 @@ public class BluetoothMapMessageListing {
         } catch (IOException e) {
             Log.w(TAG, e);
         }
+        /* Fix IOT issue to replace '&amp;' by '&', &lt; by < and '&gt; by '>' in MessageListing */
+        if (DeviceWorkArounds.addressStartsWith(BluetoothMapService.getRemoteDevice().getAddress(),
+                    DeviceWorkArounds.BREZZA_ZDI_CARKIT)) {
+            return sw.toString()
+                    .replaceAll("&amp;", "&")
+                    .replaceAll("&lt;", "<")
+                    .replaceAll("&gt;", ">")
+                    .getBytes("UTF-8");
+        }
         return sw.toString().getBytes("UTF-8");
     }
 
@@ -120,15 +144,15 @@ public class BluetoothMapMessageListing {
         count = Math.min(count, mList.size() - offset);
         if (count > 0) {
             mList = mList.subList(offset, offset + count);
-            if(mList == null) {
+            if (mList == null) {
                 mList = new ArrayList<BluetoothMapMessageListingElement>(); // Return an empty list
             }
         } else {
-            if(offset > mList.size()) {
-               mList = new ArrayList<BluetoothMapMessageListingElement>();
-               Log.d(TAG, "offset greater than list size. Returning empty list");
+            if (offset > mList.size()) {
+                mList = new ArrayList<BluetoothMapMessageListingElement>();
+                Log.d(TAG, "offset greater than list size. Returning empty list");
             } else {
-               mList = mList.subList(offset, mList.size());
+                mList = mList.subList(offset, mList.size());
             }
         }
     }

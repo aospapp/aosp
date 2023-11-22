@@ -16,24 +16,18 @@
 
 package com.android.tv.dvr.recorder;
 
-import static org.mockito.Mockito.verify;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Intent;
 import android.os.Build;
 import android.support.test.filters.SdkSuppress;
 import android.support.test.filters.SmallTest;
 import android.test.ServiceTestCase;
-
 import com.android.tv.common.feature.CommonFeatures;
 import com.android.tv.common.feature.TestableFeature;
-
-import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
-/**
- * Tests for {@link DvrRecordingService}.
- */
+/** Tests for {@link DvrRecordingService}. */
 @SmallTest
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.N)
 public class DvrRecordingServiceTest
@@ -61,13 +55,13 @@ public class DvrRecordingServiceTest
     public void testStartService_null() throws Exception {
         // Not recording
         startService(null);
-        assertFalse(getService().mInForeground);
+    assertThat(getService().mInForeground).isFalse();
 
         // Recording
         getService().startRecording();
         startService(null);
-        assertTrue(getService().mInForeground);
-        assertTrue(getService().mIsRecording);
+    assertThat(getService().mInForeground).isTrue();
+    assertThat(getService().mIsRecording).isTrue();
         getService().reset();
     }
 
@@ -77,38 +71,38 @@ public class DvrRecordingServiceTest
 
         // Not recording
         startService(intent);
-        assertTrue(getService().mInForeground);
-        assertFalse(getService().mForegroundForUpcomingRecording);
+    assertThat(getService().mInForeground).isTrue();
+    assertThat(getService().mForegroundForUpcomingRecording).isFalse();
         getService().stopForegroundIfNotRecordingInternal();
-        assertFalse(getService().mInForeground);
+    assertThat(getService().mInForeground).isFalse();
 
         // Recording, ended quickly
         getService().startRecording();
         startService(intent);
-        assertTrue(getService().mInForeground);
-        assertTrue(getService().mForegroundForUpcomingRecording);
-        assertTrue(getService().mIsRecording);
+    assertThat(getService().mInForeground).isTrue();
+    assertThat(getService().mForegroundForUpcomingRecording).isTrue();
+    assertThat(getService().mIsRecording).isTrue();
         getService().stopRecording();
-        assertFalse(getService().mInForeground);
-        assertFalse(getService().mIsRecording);
+    assertThat(getService().mInForeground).isFalse();
+    assertThat(getService().mIsRecording).isFalse();
         getService().stopForegroundIfNotRecordingInternal();
-        assertFalse(getService().mInForeground);
-        assertFalse(getService().mIsRecording);
+    assertThat(getService().mInForeground).isFalse();
+    assertThat(getService().mIsRecording).isFalse();
         getService().reset();
 
         // Recording, ended later
         getService().startRecording();
         startService(intent);
-        assertTrue(getService().mInForeground);
-        assertTrue(getService().mForegroundForUpcomingRecording);
-        assertTrue(getService().mIsRecording);
+    assertThat(getService().mInForeground).isTrue();
+    assertThat(getService().mForegroundForUpcomingRecording).isTrue();
+    assertThat(getService().mIsRecording).isTrue();
         getService().stopForegroundIfNotRecordingInternal();
-        assertTrue(getService().mInForeground);
-        assertTrue(getService().mForegroundForUpcomingRecording);
-        assertTrue(getService().mIsRecording);
+    assertThat(getService().mInForeground).isTrue();
+    assertThat(getService().mForegroundForUpcomingRecording).isTrue();
+    assertThat(getService().mIsRecording).isTrue();
         getService().stopRecording();
-        assertFalse(getService().mInForeground);
-        assertFalse(getService().mIsRecording);
+    assertThat(getService().mInForeground).isFalse();
+    assertThat(getService().mIsRecording).isFalse();
         getService().reset();
     }
 
@@ -118,38 +112,39 @@ public class DvrRecordingServiceTest
 
         // Not recording
         startService(intent);
-        assertTrue(getService().mInForeground);
-        assertTrue(getService().mForegroundForUpcomingRecording);
-        assertFalse(getService().mIsRecording);
+    assertThat(getService().mInForeground).isTrue();
+    assertThat(getService().mForegroundForUpcomingRecording).isTrue();
+    assertThat(getService().mIsRecording).isFalse();
         getService().startRecording();
-        assertTrue(getService().mInForeground);
-        assertTrue(getService().mForegroundForUpcomingRecording);
-        assertTrue(getService().mIsRecording);
+    assertThat(getService().mInForeground).isTrue();
+    assertThat(getService().mForegroundForUpcomingRecording).isTrue();
+    assertThat(getService().mIsRecording).isTrue();
         getService().stopRecording();
-        assertFalse(getService().mInForeground);
-        assertFalse(getService().mIsRecording);
+    assertThat(getService().mInForeground).isFalse();
+    assertThat(getService().mIsRecording).isFalse();
         getService().reset();
 
         // Recording
         getService().startRecording();
         startService(intent);
-        assertTrue(getService().mInForeground);
-        assertTrue(getService().mForegroundForUpcomingRecording);
-        assertTrue(getService().mIsRecording);
+    assertThat(getService().mInForeground).isTrue();
+    assertThat(getService().mForegroundForUpcomingRecording).isTrue();
+    assertThat(getService().mIsRecording).isTrue();
         getService().startRecording();
-        assertTrue(getService().mInForeground);
-        assertTrue(getService().mForegroundForUpcomingRecording);
-        assertTrue(getService().mIsRecording);
+    assertThat(getService().mInForeground).isTrue();
+    assertThat(getService().mForegroundForUpcomingRecording).isTrue();
+    assertThat(getService().mIsRecording).isTrue();
         getService().stopRecording();
-        assertTrue(getService().mInForeground);
-        assertTrue(getService().mForegroundForUpcomingRecording);
-        assertTrue(getService().mIsRecording);
+    assertThat(getService().mInForeground).isTrue();
+    assertThat(getService().mForegroundForUpcomingRecording).isTrue();
+    assertThat(getService().mIsRecording).isTrue();
         getService().stopRecording();
-        assertFalse(getService().mInForeground);
-        assertFalse(getService().mIsRecording);
+    assertThat(getService().mInForeground).isFalse();
+    assertThat(getService().mIsRecording).isFalse();
         getService().reset();
     }
 
+  /** Mock {@link DvrRecordingService}. */
     public static class MockDvrRecordingService extends DvrRecordingService {
         private int mRecordingCount = 0;
         private boolean mInForeground;

@@ -45,7 +45,9 @@
 #define MAX_DOWNLOAD_RETRIES    4
 #define UNINSTALL_CMD           "uninstall"
 
-#define NANOHUB_EXT_APP_DELETE  2
+#define NANOHUB_HAL_EXT_APPS_ON     0
+#define NANOHUB_HAL_EXT_APPS_OFF    1
+#define NANOHUB_HAL_EXT_APP_DELETE  2
 
 #define LOGE(fmt, ...) do { \
         __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, fmt, ##__VA_ARGS__); \
@@ -72,6 +74,13 @@ struct ConfigCmd
     uint8_t data[];
 } __attribute__((packed));
 
+struct HalCmd
+{
+    struct HostMsgHdr hdr;
+    uint8_t cmd;
+    uint64_t appId;
+} __attribute__((packed));
+
 struct App
 {
     uint32_t num;
@@ -93,6 +102,8 @@ static int setType(struct ConfigCmd *cmd, char *sensor)
         cmd->sensorType = SENS_TYPE_GYRO;
     } else if (strcmp(sensor, "mag") == 0) {
         cmd->sensorType = SENS_TYPE_MAG;
+    } else if (strcmp(sensor, "uncal_accel") == 0) {
+        cmd->sensorType = SENS_TYPE_ACCEL;
     } else if (strcmp(sensor, "uncal_gyro") == 0) {
         cmd->sensorType = SENS_TYPE_GYRO;
     } else if (strcmp(sensor, "uncal_mag") == 0) {
@@ -105,6 +116,8 @@ static int setType(struct ConfigCmd *cmd, char *sensor)
         cmd->sensorType = SENS_TYPE_BARO;
     } else if (strcmp(sensor, "temp") == 0) {
         cmd->sensorType = SENS_TYPE_TEMP;
+    } else if (strcmp(sensor, "ambient_temp") == 0) {
+        cmd->sensorType = SENS_TYPE_AMBIENT_TEMP;
     } else if (strcmp(sensor, "orien") == 0) {
         cmd->sensorType = SENS_TYPE_ORIENTATION;
     } else if (strcmp(sensor, "gravity") == 0) {
@@ -234,6 +247,38 @@ struct App *findApp(uint64_t appId)
     return NULL;
 }
 
+int findAppIdByName(char *name, uint64_t *appId)
+{
+    FILE *fp;
+    char *line = NULL;
+    size_t len;
+    ssize_t numRead;
+    int ret = 0;
+
+    fp = openFile("/vendor/firmware/napp_list.cfg", "r");
+    if (!fp)
+        return -1;
+
+    while ((numRead = getline(&line, &len, fp)) != -1) {
+        char entry[MAX_APP_NAME_LEN+1];
+        uint32_t appVersion;
+
+        sscanf(line, "%" STRINGIFY(MAX_APP_NAME_LEN) "s %" PRIx64 " %" PRIx32 "\n", entry, appId, &appVersion);
+
+        if (strncmp(entry, name, MAX_APP_NAME_LEN) == 0) {
+            ret = 1;
+            break;
+        }
+    }
+
+    fclose(fp);
+
+    if (line)
+        free(line);
+
+    return ret;
+}
+
 int parseConfigAppInfo(int *installCnt, int *uninstallCnt)
 {
     FILE *fp;
@@ -305,23 +350,62 @@ void downloadNanohub()
         printf("done\n");
 }
 
+bool sendCmd(uint8_t cmd, uint64_t appId)
+{
+    struct HalCmd msg;
+
+    msg.hdr.eventId = EVT_APP_FROM_HOST;
+    msg.hdr.appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0);
+    msg.hdr.len = sizeof(msg) - sizeof(msg.hdr); // payload length
+    msg.cmd = cmd;
+    memcpy(&msg.appId, &appId, sizeof(uint64_t));
+
+    return fileWriteData("/dev/nanohub", &msg, sizeof(msg));
+}
+
+int halCmd(uint8_t cmd, char *arg)
+{
+    uint64_t appId;
+    char *endptr = arg + strlen(arg);
+
+    if (strcmp(arg, UNINSTALL_CMD) == 0) {
+        printf("%s is not a valid app name\n", arg);
+        return 1;
+    }
+
+    if ((findAppIdByName(arg, &appId) == 1) || (appId = strtoull(arg, &endptr, 16)) > 0) {
+        if (*endptr != '\0') {
+            printf("Couldn't find nanoapp '%s' in napp_list.cfg\n", arg);
+            return 1;
+        } else if (cmd == NANOHUB_HAL_EXT_APPS_ON)
+            printf("Loading ");
+        else if (cmd == NANOHUB_HAL_EXT_APPS_OFF)
+            printf("Unloading ");
+        else if (cmd == NANOHUB_HAL_EXT_APP_DELETE)
+            printf("Deleting ");
+        else {
+            printf("Unrecognized cmd: %d\n", cmd);
+            return 1;
+        }
+        printf("\"0x%016" PRIx64 "\"...", appId);
+        fflush(stdout);
+        if (sendCmd(cmd, appId))
+            printf("done\n");
+        return 0;
+    } else {
+        printf("Couldn't find nanoapp '%s' in napp_list.cfg\n", arg);
+        return 1;
+    }
+}
+
 void removeApps(int updateCnt)
 {
-    uint8_t buffer[sizeof(struct HostMsgHdr) + 1 + sizeof(uint64_t)];
-    struct HostMsgHdr *mHostMsgHdr = (struct HostMsgHdr *)(&buffer[0]);
-    uint8_t *cmd = (uint8_t *)(&buffer[sizeof(struct HostMsgHdr)]);
-    uint64_t *appId = (uint64_t *)(&buffer[sizeof(struct HostMsgHdr) + 1]);
     int i;
 
     for (i = 0; i < updateCnt; i++) {
-        mHostMsgHdr->eventId = EVT_APP_FROM_HOST;
-        mHostMsgHdr->appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0);
-        mHostMsgHdr->len = 1 + sizeof(uint64_t);
-        *cmd = NANOHUB_EXT_APP_DELETE;
-        memcpy(appId, &appsToUninstall[i], sizeof(uint64_t));
-        printf("Deleting \"%016" PRIx64 "\"...", appsToUninstall[i]);
+        printf("Deleting \"0x%016" PRIx64 "\"...", appsToUninstall[i]);
         fflush(stdout);
-        if (fileWriteData("/dev/nanohub", buffer, sizeof(buffer)))
+        if (sendCmd(NANOHUB_HAL_EXT_APP_DELETE, appsToUninstall[i]))
             printf("done\n");
     }
 }
@@ -368,17 +452,20 @@ int main(int argc, char *argv[])
 
     if (argc < 3 && (argc < 2 || strcmp(argv[1], "download") != 0)) {
         printf("usage: %s <action> <sensor> <data> -d\n", argv[0]);
-        printf("       action: config|cfgdata|calibrate|flush|download\n");
-        printf("       sensor: accel|(uncal_)gyro|(uncal_)mag|als|prox|baro|temp|orien\n");
+        printf("       action: config|cfgdata|calibrate|flush\n");
+        printf("       sensor: (uncal_)accel|(uncal_)gyro|(uncal_)mag|als|prox|baro|temp|orien\n");
         printf("               gravity|geomag|linear_acc|rotation|game\n");
         printf("               win_orien|tilt|step_det|step_cnt|double_tap\n");
         printf("               flat|anymo|nomo|sigmo|gesture|hall|vsync\n");
-        printf("               activity|twist|leds|leds_i2c|humidity\n");
+        printf("               activity|twist|leds|leds_i2c|humidity|ambient_temp\n");
         printf("       data: config: <true|false> <rate in Hz> <latency in u-sec>\n");
         printf("             cfgdata: leds: led_num value\n");
         printf("             calibrate: [N.A.]\n");
         printf("             flush: [N.A.]\n");
         printf("       -d: if specified, %s will keep draining /dev/nanohub until cancelled.\n", argv[0]);
+        printf("usage: %s <cmd> [app]\n", argv[0]);
+        printf("       cmd: download|load|unload|delete\n");
+        printf("       app: appId or name from napp_list.cfg\n");
 
         return 1;
     }
@@ -465,6 +552,27 @@ int main(int argc, char *argv[])
             printf("Unsupported sensor: %s For action: %s\n", argv[2], argv[1]);
             return 1;
         }
+    } else if (strcmp(argv[1], "load") == 0) {
+        if (argc != 3) {
+            printf("Wrong arg number\n");
+            return 1;
+        }
+
+        return halCmd(NANOHUB_HAL_EXT_APPS_ON, argv[2]);
+    } else if (strcmp(argv[1], "unload") == 0) {
+        if (argc != 3) {
+            printf("Wrong arg number\n");
+            return 1;
+        }
+
+        return halCmd(NANOHUB_HAL_EXT_APPS_OFF, argv[2]);
+    } else if (strcmp(argv[1], "delete") == 0) {
+        if (argc != 3) {
+            printf("Wrong arg number\n");
+            return 1;
+        }
+
+        return halCmd(NANOHUB_HAL_EXT_APP_DELETE, argv[2]);
     } else if (strcmp(argv[1], "download") == 0) {
         int installCnt, uninstallCnt;
 
@@ -492,8 +600,9 @@ int main(int argc, char *argv[])
 
         if (parseConfigAppInfo(&installCnt, &uninstallCnt) != 0) {
             LOGE("Failed to download all apps!");
+            return 1;
         }
-        return 1;
+        return 0;
     } else {
         printf("Unsupported action: %s\n", argv[1]);
         return 1;

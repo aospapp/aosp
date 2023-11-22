@@ -6,7 +6,8 @@ import time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import test
-
+from autotest_lib.server.cros.faft.rpc_proxy import RPCProxy
+from autotest_lib.server.cros.faft.config.config import Config as FAFTConfig
 
 class platform_ServoPowerStateController(test.test):
     """Test servo can power on and off DUT in recovery and non-recovery mode."""
@@ -15,8 +16,10 @@ class platform_ServoPowerStateController(test.test):
 
     def initialize(self, host):
         """Initialize DUT for testing."""
-        pass
-
+        self.faft_client=RPCProxy(host)
+        self.faft_config=FAFTConfig(self.faft_client.system.get_platform_name())
+        self.ec_capability=self.faft_config.ec_capability
+        self.no_reset_in_off = ('no_reset_in_off' in self.ec_capability)
 
     def cleanup(self):
         """Clean up DUT after servo actions."""
@@ -127,10 +130,19 @@ class platform_ServoPowerStateController(test.test):
         self.assert_dut_off('power_state:off failed after boot from '
                             'internal storage.')
 
-        logging.info('Power DUT off and reset. DUT should be on after '
+        # Seperate test cases for box/base and book
+        if self.no_reset_in_off or not self.ec_capability:
+            logging.info('Power DUT off and reset. DUT should not be on after '
                      'reset is completed.')
-        self.controller.reset()
-        self.assert_dut_on(rec_on=False)
+            self.controller.reset()
+            self.assert_dut_off('DUT should not be on after '
+                                'asserting reset signal')
+            self.controller.power_on(self.controller.REC_OFF)
+        else:
+            logging.info('Power DUT off and reset. DUT should be on after '
+                     'reset is completed.')
+            self.controller.reset()
+            self.assert_dut_on(rec_on=False)
 
         logging.info('Reset DUT when it\'s on. DUT should be on after '
                      'reset is completed.')

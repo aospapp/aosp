@@ -11,6 +11,5 @@ packages=(
 
 for package in "${packages[@]}"; do
     echo "Updating $package."
-    hidl-gen -Lmakefile -r android.hidl:system/libhidl/transport $package
     hidl-gen -Landroidbp -r android.hidl:system/libhidl/transport $package
 done

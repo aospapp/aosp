@@ -178,11 +178,15 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
         mConferenceObject.setConferenceableConnections(connectionList);
         assertCallConferenceableList(conf, callList);
 
+        // Consumed internally in Telecom; no verifiable manner to see the end point of this data
+        // through public APIs.
         mConferenceObject.setConnectionTime(0);
+        mConferenceObject.setConnectionStartElapsedRealTime(0);
 
         Bundle extras = new Bundle();
         extras.putString(TelecomManager.EXTRA_CALL_DISCONNECT_MESSAGE, "Test");
-        assertNull(conf.getDetails().getExtras());
+        assertFalse(conf.getDetails().getExtras().containsKey(
+                TelecomManager.EXTRA_CALL_DISCONNECT_MESSAGE));
         mConferenceObject.setExtras(extras);
         assertCallExtras(conf, TelecomManager.EXTRA_CALL_DISCONNECT_MESSAGE, "Test");
 
@@ -260,11 +264,14 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
         Bundle extras = new Bundle();
         extras.putString(TEST_EXTRA_KEY_1, TEST_EXTRA_VALUE_1);
         extras.putInt(TEST_EXTRA_KEY_2, TEST_EXTRA_VALUE_2);
+        int startInvokeCount = mOnExtrasChangedCounter.getInvokeCount();
         mConferenceObject.putExtras(extras);
+        mOnExtrasChangedCounter.waitForCount(startInvokeCount + 1,
+                WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
 
-        mOnExtrasChangedCounter.waitForCount(1);
-
-        assertTrue(areBundlesEqual(extras, conf.getDetails().getExtras()));
+        Bundle changedExtras = conf.getDetails().getExtras();
+        assertTrue(changedExtras.containsKey(TEST_EXTRA_KEY_1));
+        assertTrue(changedExtras.containsKey(TEST_EXTRA_KEY_2));
     }
 
     /**
@@ -280,8 +287,10 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
 
         setupExtras();
 
+        int startInvokeCount = mOnExtrasChangedCounter.getInvokeCount();
         mConferenceObject.removeExtras(Arrays.asList(TEST_EXTRA_KEY_1));
-        mOnExtrasChangedCounter.waitForCount(2);
+        mOnExtrasChangedCounter.waitForCount(startInvokeCount + 1,
+                WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
         Bundle extras = mConferenceObject.getExtras();
 
         assertFalse(extras.containsKey(TEST_EXTRA_KEY_1));
@@ -301,19 +310,24 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
 
         setupExtras();
 
+        int startInvokeCount = mOnExtrasChangedCounter.getInvokeCount();
         mConferenceObject.removeExtras(TEST_EXTRA_KEY_1, TEST_EXTRA_KEY_2);
-        mOnExtrasChangedCounter.waitForCount(2);
+        mOnExtrasChangedCounter.waitForCount(startInvokeCount + 1,
+                WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
         Bundle extras = mConferenceObject.getExtras();
 
-        assertTrue(extras == null || extras.isEmpty());
+        assertFalse(extras.containsKey(TEST_EXTRA_KEY_1));
+        assertFalse(extras.containsKey(TEST_EXTRA_KEY_2));
     }
 
     private void setupExtras() {
         Bundle extras = new Bundle();
         extras.putString(TEST_EXTRA_KEY_1, TEST_EXTRA_VALUE_1);
         extras.putInt(TEST_EXTRA_KEY_2, TEST_EXTRA_VALUE_2);
+        int startInvokeCount = mOnExtrasChangedCounter.getInvokeCount();
         mConferenceObject.putExtras(extras);
-        mOnExtrasChangedCounter.waitForCount(1);
+        mOnExtrasChangedCounter.waitForCount(startInvokeCount + 1,
+                WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
     }
 
     /**
@@ -333,7 +347,9 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
         conf.putExtras(extras);
         mConferenceVerficationObject.mOnExtrasChanged.waitForCount(1);
 
-        assertTrue(areBundlesEqual(extras, mConferenceObject.getExtras()));
+        Bundle changedExtras = mConferenceObject.getExtras();
+        assertTrue(changedExtras.containsKey(TEST_EXTRA_KEY_1));
+        assertTrue(changedExtras.containsKey(TEST_EXTRA_KEY_2));
     }
 
     public void testConferenceAddAndRemoveConnection() {
@@ -390,7 +406,7 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
         assertTrue(mConferenceObject.getConnections().contains(connection1));
         assertTrue(mConferenceObject.getConnections().contains(connection2));
         assertEquals(connection1.getDisconnectCause(), mConferenceObject.getDisconnectCause());
-        assertEquals(connection1.getExtras(), mConferenceObject.getExtras());
+        assertTrue(areBundlesEqual(connection1.getExtras(), mConferenceObject.getExtras()));
         assertEquals(connection1.getPhoneAccountHandle(), mConferenceObject.getPhoneAccountHandle());
         assertEquals(connection1.getStatusHints(), mConferenceObject.getStatusHints());
         assertEquals(VideoProfile.STATE_AUDIO_ONLY, mConferenceObject.getVideoState());

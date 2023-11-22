@@ -283,9 +283,10 @@
     <string name="exception_error">Network or SIM card error.</string>
     <!-- Status message displayed in the "Call settings error" dialog when
          current SS request is modified to a different request by STK CC -->
-    <string name="stk_cc_ss_to_dial_error">SS request modified to DIAL request.</string>
-    <string name="stk_cc_ss_to_ussd_error">SS request modified to USSD request.</string>
-    <string name="stk_cc_ss_to_ss_error">SS request modified to new SS request.</string>
+    <string name="stk_cc_ss_to_dial_error">SS request changed to regular call</string>
+    <string name="stk_cc_ss_to_ussd_error">SS request changed to USSD request</string>
+    <string name="stk_cc_ss_to_ss_error">Changed to new SS request</string>
+    <string name="stk_cc_ss_to_dial_video_error">SS request changed to video call</string>
 
     <!-- Status message displayed in the "Call settings error" dialog when operation fails due to FDN
          [CHAR LIMIT=NONE] -->
@@ -359,8 +360,6 @@
     <string name="vvm_unsupported_message_format">Unsupported message type, call <xliff:g id="number" example="*86">%s</xliff:g> to listen.</string>
 
     <!-- networks setting strings --><skip/>
-    <!-- Mobile network settings screen title -->
-    <string name="mobile_networks">Mobile network settings</string>
     <!-- Mobile network settings screen title/heading -->
     <string name="network_settings_title">Mobile network</string>
     <!-- Available networks screen title/heading -->
@@ -370,7 +369,7 @@
     <!-- Available networks screen, text when no networks are found -->
     <string name="empty_networks_list">No networks found.</string>
     <!-- Available networks screen, toast when an error is encountered when searching for networks -->
-    <string name="network_query_error">Error while searching for networks.</string>
+    <string name="network_query_error">Couldn\'t find networks. Try again.</string>
     <!-- Available networks screen, toast when registering on a specific network -->
     <string name="register_on_network">Registering on <xliff:g id="network">%s</xliff:g>\u2026</string>
     <!-- Available networks screen, toast when SIM card isn't allowed on a network -->
@@ -379,6 +378,8 @@
     <string name="connect_later">Can\'t connect to this network right now. Try again later.</string>
     <!-- Available networks screen, toast when registered on a specific network -->
     <string name="registration_done">Registered on network.</string>
+    <!-- Available networks, toast when user selects automatic selection  -->
+    <string name="already_auto">Already in automatic selection.</string>
     <!-- Available networks screen, name of switch button for whether to select network automatically -->
     <string name="select_automatically">Automatically select network</string>
     <!-- Available networks screen, name of button when user wants to select network manually  -->
@@ -388,71 +389,125 @@
     <string name="preferred_network_mode_summary">Change the network operating mode</string>
     <string name="preferred_network_mode_dialogtitle">Preferred network type</string>
     <string name="forbidden_network">(forbidden)</string>
-    <!-- Mobile network settings, summary for preferred network mode WCDMA preferred[CHAR LIMIT=100] -->
-    <string name="preferred_network_mode_wcdma_perf_summary">Preferred network mode: WCDMA preferred</string>
-    <!-- Mobile network settings, summary for preferred network mode GSM [CHAR LIMIT=100] -->
-    <string name="preferred_network_mode_gsm_only_summary">Preferred network mode: GSM only</string>
-    <!-- Mobile network settings, summary for preferred network mode WCDMA only [CHAR LIMIT=100] -->
-    <string name="preferred_network_mode_wcdma_only_summary">Preferred network mode: WCDMA only</string>
-    <!-- Mobile network settings, summary for preferred network mode GSM / UMTS [CHAR LIMIT=100] -->
-    <string name="preferred_network_mode_gsm_wcdma_summary">Preferred network mode: GSM / WCDMA</string>
-    <!-- Mobile network settings, summary for preferred network mode CDMA [CHAR LIMIT=100] -->
-    <string name="preferred_network_mode_cdma_summary">Preferred network mode: CDMA</string>
-    <!-- Mobile network settings, summary for preferred network mode CDMA / EvDo [CHAR LIMIT=100] -->
-    <string name="preferred_network_mode_cdma_evdo_summary">Preferred network mode: CDMA / EvDo</string>
-    <!-- Mobile network settings, summary for preferred network mode CDMA only [CHAR LIMIT=100] -->
-    <string name="preferred_network_mode_cdma_only_summary">Preferred network mode: CDMA only</string>
-    <!-- Mobile network settings, summary for preferred network mode EvDo only [CHAR LIMIT=100] -->
-    <string name="preferred_network_mode_evdo_only_summary">Preferred network mode: EvDo only</string>
-    <!-- Mobile network settings, summary for preferred network mode CDMA/EvDo/GSM/WCDMA[CHAR LIMIT=100] -->
-    <string name="preferred_network_mode_cdma_evdo_gsm_wcdma_summary">Preferred network mode: CDMA/EvDo/GSM/WCDMA</string>
-    <!-- Mobile network settings, summary for preferred network mode LTE [CHAR LIMIT=100] -->
-    <string name="preferred_network_mode_lte_summary">Preferred network mode: LTE </string>
-    <!-- Mobile network settings, summary for preferred network mode GSM/WCDMA/LTE [CHAR LIMIT=100] -->
-    <string name="preferred_network_mode_lte_gsm_wcdma_summary">Preferred network mode: GSM/WCDMA/LTE</string>
-    <!-- Mobile network settings, summary for preferred network mode CDMA+LTE/EVDO[CHAR LIMIT=100] -->
-    <string name="preferred_network_mode_lte_cdma_evdo_summary">Preferred network mode: CDMA+LTE/EVDO</string>
-    <!-- Mobile network settings, summary for preferred network mode Global[CHAR LIMIT=100] -->
-    <string name="preferred_network_mode_global_summary">Preferred network mode: Global</string>
-    <!-- Mobile network settings, summary for preferred network mode LTE / WCDMA[CHAR LIMIT=100] -->
-    <string name="preferred_network_mode_lte_wcdma_summary">Preferred network mode: LTE / WCDMA</string>
-     <!-- Mobile network settings, summary for preferred network mode LTE / GSM / UMTS [CHAR LIMIT=100] -->
-     <string name="preferred_network_mode_lte_gsm_umts_summary">Preferred network mode: LTE / GSM / UMTS</string>
-     <!-- Mobile network settings, summary for preferred network mode LTE / CDMA [CHAR LIMIT=100] -->
-     <string name="preferred_network_mode_lte_cdma_summary">Preferred network mode: LTE / CDMA</string>
-     <!-- Mobile network settings, summary for preferred network mode TDSCDMTA [CHAR LIMIT=100] -->
-     <string name="preferred_network_mode_tdscdma_summary">Preferred network mode: TDSCDMA</string>
+    <!-- Available networks screen, name of button when user wants to select network manually  -->
+    <string name="choose_network_title">Choose network</string>
+    <!-- Available networks screen, text when no networks connected -->
+    <string name="network_disconnected">Disconnected</string>
+    <!-- Available networks screen, text when network connected -->
+    <string name="network_connected">Connected</string>
+    <!-- Available networks screen, text when a network is connecting -->
+    <string name="network_connecting">Connecting...</string>
+    <!-- Available networks screen, text when a network cannot be connected -->
+    <string name="network_could_not_connect">Couldn’t connect</string>
 
+    <!-- The preferred network modes in Mobile network settings -->
     <string-array name="preferred_network_mode_choices">
-        <item>LTE / WCDMA</item>
-        <item>LTE</item>
-        <item>Global</item>
-        <item>GSM/WCDMA/LTE</item>
-        <item>CDMA + LTE/EvDo</item>
-        <item>CDMA/EvDo/GSM/WCDMA</item>
-        <item>EvDo only</item>
-        <item>CDMA w/o EvDo</item>
-        <item>CDMA/EvDo auto</item>
-        <item>GSM/WCDMA auto</item>
-        <item>WCDMA only</item>
-        <item>GSM only</item>
         <item>GSM/WCDMA preferred</item>
+        <item>GSM only</item>
+        <item>WCDMA only</item>
+        <item>GSM/WCDMA auto</item>
+        <item>CDMA/EvDo auto</item>
+        <item>CDMA w/o EvDo</item>
+        <item>EvDo only</item>
+        <item>CDMA/EvDo/GSM/WCDMA</item>
+        <item>CDMA + LTE/EvDo</item>
+        <item>GSM/WCDMA/LTE</item>
+        <item>Global</item>
+        <item>LTE</item>
+        <item>LTE / WCDMA</item>
+        <item>TDSCDMA only</item>
+        <item>TDSCDMA/WCDMA</item>
+        <item>LTE/TDSCDMA</item>
+        <item>TDSCDMA/GSM</item>
+        <item>LTE/TDSCDMA/GSM</item>
+        <item>TDSCDMA/GSM/WCDMA</item>
+        <item>LTE/TDSCDMA/WCDMA</item>
+        <item>LTE/TDSCDMA/GSM/WCDMA</item>
+        <item>TDSCDMA/CDMA/EVDO/GSM/WCDMA </item>
+        <item>LTE/TDSCDMA/CDMA/EVDO/GSM/WCDMA</item>
     </string-array>
+    <!-- The preferred network modes RIL constants, in order of the modes above,
+         e.g. the choice "GSM/WCDMA preferred" has the corresponding value "0" -->
     <string-array name="preferred_network_mode_values"  translatable="false">
-        <item>"12"</item>
-        <item>"11"</item>
-        <item>"10"</item>
-        <item>"9"</item>
-        <item>"8"</item>
-        <item>"7"</item>
-        <item>"6"</item>
-        <item>"5"</item>
-        <item>"4"</item>
-        <item>"3"</item>
-        <item>"2"</item>
-        <item>"1"</item>
         <item>"0"</item>
+        <item>"1"</item>
+        <item>"2"</item>
+        <item>"3"</item>
+        <item>"4"</item>
+        <item>"5"</item>
+        <item>"6"</item>
+        <item>"7"</item>
+        <item>"8"</item>
+        <item>"9"</item>
+        <item>"10"</item>
+        <item>"11"</item>
+        <item>"12"</item>
+        <item>"13"</item>
+        <item>"14"</item>
+        <item>"15"</item>
+        <item>"16"</item>
+        <item>"17"</item>
+        <item>"18"</item>
+        <item>"19"</item>
+        <item>"20"</item>
+        <item>"21"</item>
+        <item>"22"</item>
     </string-array>
+
+    <!-- The following strings are summaries for preferred network modes in Mobile network settings,
+         and have a character limit of 100 -->
+    <!-- WCDMA preferred -->
+    <string name="preferred_network_mode_wcdma_perf_summary">Preferred network mode: WCDMA preferred</string>
+    <!-- GSM only -->
+    <string name="preferred_network_mode_gsm_only_summary">Preferred network mode: GSM only</string>
+    <!-- WCDMA only -->
+    <string name="preferred_network_mode_wcdma_only_summary">Preferred network mode: WCDMA only</string>
+    <!-- GSM / WCDMA -->
+    <string name="preferred_network_mode_gsm_wcdma_summary">Preferred network mode: GSM / WCDMA</string>
+    <!-- CDMA -->
+    <string name="preferred_network_mode_cdma_summary">Preferred network mode: CDMA</string>
+    <!-- CDMA / EvDo -->
+    <string name="preferred_network_mode_cdma_evdo_summary">Preferred network mode: CDMA / EvDo</string>
+    <!-- CDMA only -->
+    <string name="preferred_network_mode_cdma_only_summary">Preferred network mode: CDMA only</string>
+    <!-- EvDo only -->
+    <string name="preferred_network_mode_evdo_only_summary">Preferred network mode: EvDo only</string>
+    <!-- CDMA/EvDo/GSM/WCDMA -->
+    <string name="preferred_network_mode_cdma_evdo_gsm_wcdma_summary">Preferred network mode: CDMA/EvDo/GSM/WCDMA</string>
+    <!-- LTE  -->
+    <string name="preferred_network_mode_lte_summary">Preferred network mode: LTE </string>
+    <!-- GSM/WCDMA/LTE -->
+    <string name="preferred_network_mode_lte_gsm_wcdma_summary">Preferred network mode: GSM/WCDMA/LTE</string>
+    <!-- CDMA+LTE/EVDO -->
+    <string name="preferred_network_mode_lte_cdma_evdo_summary">Preferred network mode: CDMA+LTE/EVDO</string>
+    <!-- Global -->
+    <string name="preferred_network_mode_global_summary">Preferred network mode: Global</string>
+    <!-- LTE / WCDMA -->
+    <string name="preferred_network_mode_lte_wcdma_summary">Preferred network mode: LTE / WCDMA</string>
+    <!-- LTE / GSM / UMTS -->
+    <string name="preferred_network_mode_lte_gsm_umts_summary">Preferred network mode: LTE / GSM / UMTS</string>
+    <!-- LTE / CDMA -->
+    <string name="preferred_network_mode_lte_cdma_summary">Preferred network mode: LTE / CDMA</string>
+    <!-- TDSCDMA -->
+    <string name="preferred_network_mode_tdscdma_summary">Preferred network mode: TDSCDMA</string>
+    <!-- TDSCDMA / WCDMA -->
+    <string name="preferred_network_mode_tdscdma_wcdma_summary">Preferred network mode: TDSCDMA / WCDMA</string>
+    <!-- LTE / TDSCDMA -->
+    <string name="preferred_network_mode_lte_tdscdma_summary">Preferred network mode: LTE / TDSCDMA</string>
+    <!-- TDSCDMA / GSM -->
+    <string name="preferred_network_mode_tdscdma_gsm_summary">Preferred network mode: TDSCDMA / GSM</string>
+    <!-- LTE/GSM/TDSCDMA -->
+    <string name="preferred_network_mode_lte_tdscdma_gsm_summary">Preferred network mode: LTE/GSM/TDSCDMA</string>
+    <!-- TDSCDMA/GSM/WCDMA -->
+    <string name="preferred_network_mode_tdscdma_gsm_wcdma_summary">Preferred network mode: TDSCDMA/GSM/WCDMA</string>
+    <!-- LTE/TDSCDMA/WCDMA -->
+    <string name="preferred_network_mode_lte_tdscdma_wcdma_summary">Preferred network mode: LTE/TDSCDMA/WCDMA</string>
+    <!-- LTE/TDSCDMA/GSM/WCDMA -->
+    <string name="preferred_network_mode_lte_tdscdma_gsm_wcdma_summary">Preferred network mode: LTE/TDSCDMA/GSM/WCDMA</string>
+    <!-- TDSCDMA/CDMA/EvDo/GSM/WCDMA -->
+    <string name="preferred_network_mode_tdscdma_cdma_evdo_gsm_wcdma_summary">Preferred network mode: TDSCDMA/CDMA/EvDo/GSM/WCDMA</string>
+    <!-- LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA -->
+    <string name="preferred_network_mode_lte_tdscdma_cdma_evdo_gsm_wcdma_summary">Preferred network mode: LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA</string>
 
     <!-- Mobile network settings screen, name for call settings category -->
     <string name="call_category">Calling</string>
@@ -481,13 +536,17 @@
     <!-- Mobile network settings UI: notification message shown when you
          lose data connectivity because you're roaming and you have the
          "data roaming" feature turned off. -->
-    <string name="roaming_reenable_message">You\'ve lost data connectivity because you left your home network with data roaming turned off.</string>
+    <string name="roaming_reenable_message">Data roaming is turned off. Tap to turn on.</string>
+    <!-- Roaming notification tile, notifying lost of roaming data connection -->
+    <string name="roaming_notification_title">Lost mobile data connection</string>
     <!-- Mobile network settings screen, dialog message when user selects the Data roaming check box -->
     <string name="roaming_warning">You may incur significant charges.</string>
+    <!-- Mobile network settings screen, message asking the user to check their pricing with their Carrier, when enabling Data roaming. -->
+    <string name="roaming_check_price_warning">Check with your network provider for pricing.</string>
     <!-- Mobile network settings screen, dialog message title when user selects the Data roaming check box -->
     <string name="roaming_alert_title">Allow data roaming?</string>
     <!-- Mobile network settings screen, data usage setting check box name -->
-    <string name="data_usage_title">Data usage</string>
+    <string name="data_usage_title">App data usage</string>
     <!-- Summary about how much data has been used in a date range [CHAR LIMIT=100] -->
     <string name="data_usage_template"><xliff:g name="amount" example="200 MB">%1$s</xliff:g> mobile data used <xliff:g name="date_range" example="Jan 1 -- Feb 2">%2$s</xliff:g></string>
     <!-- Mobile network settings screen, Advanced button to show more items when clicked [CHAR LIMIT=50] -->
@@ -495,7 +554,7 @@
     <!-- Mobile network settings screen, name of the option to manage carrier profiles on devices which support embedded carrier profiles -->
     <string name="carrier_settings_euicc">Carrier</string>
     <!-- Keywords used to search the carrier menu for managing carrier profiles on devices which support embedded carrier profiles. eSIM/eUICC is embedded SIM card used to store this data.  -->
-    <string name="keywords_carrier_settings_euicc">carrier, esim, sim, euicc</string>
+    <string name="keywords_carrier_settings_euicc">carrier, esim, sim, euicc, switch carriers, add carrier</string>
     <!-- Mobile network settings screen, summary of the option to manage carrier profiles on devices which support embedded carrier profiles -->
     <string name="carrier_settings_euicc_summary"><xliff:g id="carrier_name">%1$s</xliff:g> &#8212; <xliff:g id="phone_number">%2$s</xliff:g></string>
     <!-- Mobile network settings screen, title of Mobile Data switch preference -->
@@ -876,7 +935,7 @@
     <!-- FDN settings: error message displayed in a popup (toast) -->
     <string name="pin2_invalid">FDN wasn\'t updated because you typed an incorrect PIN.</string>
     <!-- FDN settings: error message displayed in a popup (toast) -->
-    <string name="fdn_invalid_number">FDN wasn\'t updated because the number is empty or exceeds 20 digits.</string>
+    <string name="fdn_invalid_number">FDN wasn\'t updated because the number exceeds 20 digits.</string>
     <!-- FDN settings: error message displayed in a popup (toast), when the entered
          FDN number was inappropriate, OR, PIN2 the user entered was incorrect.
          Because of API restriction, there's no way to determine which is the exact
@@ -1074,6 +1133,9 @@
     <string name="dial_emergency_error">Can\'t call. <xliff:g id="non_emergency_number">%s</xliff:g> is not an emergency number.</string>
     <!-- Emergency dialer: message displayed in an error dialog -->
     <string name="dial_emergency_empty_error">Can\'t call. Dial an emergency number.</string>
+    <!-- Message displayed over top of the emergency dialer dialpad indicating to the user that
+         emergency calling is not currently available. -->
+    <string name="dial_emergency_calling_not_available">Emergency calling not available</string>
 
     <!-- Displayed in the text entry box in the dialer when in landscape mode to guide the user
          to dial using the physical keyboard -->
@@ -1121,6 +1183,17 @@
     <!-- Hearing aid settings -->
     <string name="hac_mode_title">Hearing aids</string>
     <string name="hac_mode_summary">Turn on hearing aid compatibility</string>
+
+    <!-- RTT settings: used to turn on/off Real-Time Text, an accessibility feature similar to
+         TTY that allows users to send text over a phone call. -->
+    <string name="rtt_mode_title">Real-time text (RTT) call</string>
+    <string name="rtt_mode_summary">Allow messaging within a voice call</string>
+    <string name="rtt_mode_more_information">
+       RTT assists callers who are deaf, hard of hearing, have a speech disability,
+       or need more than voice alone.&lt;br>
+       &lt;a href="<xliff:g example="http://www.google.com" id="url">http://support.google.com/mobile?p=telephony_rtt</xliff:g>">Learn more&lt;/a>
+       &lt;br>&lt;br> - RTT calls are saved as a message transcript
+       &lt;br> - RTT is not available for video calls</string>
 
     <!-- Service option entries.  -->
     <string-array name="tty_mode_entries">
@@ -1446,4 +1519,233 @@
     <string name="mobile_data_activate_button">ADD DATA</string>
     <!-- activate data plan dialogue button for cancel further actions-->
     <string name="mobile_data_activate_cancel_button">CANCEL</string>
+
+    <!-- Call failed messages -->
+    <!-- In-call screen: status label displayed briefly after a call ends -->
+    <string name="clh_card_title_call_ended_txt">Call ended</string>
+    <!-- In-call screen: call failure reason (radio is off) -->
+    <string name="clh_callFailed_powerOff_txt">Radio off</string>
+    <!-- In-call screen: call failure reason (SIM error) -->
+    <string name="clh_callFailed_simError_txt">No SIM card or SIM card error</string>
+    <!-- In-call screen: call failure message displayed in an error dialog -->
+    <string name="clh_incall_error_out_of_service_txt">Mobile network not available</string>
+
+    <!-- See CallFailCause for details on what causes each message -->
+    <!-- In-call screen: call failure reason (Cause Number 1) -->
+    <string name="clh_callFailed_unassigned_number_txt">Unassigned (unallocated) number</string>
+    <!-- In-call screen: call failure reason (Cause Number 3) -->
+    <string name="clh_callFailed_no_route_to_destination_txt">No route to destination</string>
+    <!-- In-call screen: call failure reason (Cause Number 6) -->
+    <string name="clh_callFailed_channel_unacceptable_txt">Channel unacceptable</string>
+    <!-- In-call screen: call failure reason (Cause Number 8) -->
+    <string name="clh_callFailed_operator_determined_barring_txt">Operator determined barring</string>
+    <!-- In-call screen: call failure reason (Cause Number 16) -->
+    <string name="clh_callFailed_normal_call_clearing_txt">Normal call clearing</string>
+    <!-- In-call screen: call failure reason (Cause Number 17) -->
+    <string name="clh_callFailed_user_busy_txt">User busy</string>
+    <!-- In-call screen: call failure reason (Cause Number 18) -->
+    <string name="clh_callFailed_no_user_responding_txt">No user responding</string>
+    <!-- In-call screen: call failure reason (Cause Number 19) -->
+    <string name="clh_callFailed_user_alerting_txt">User alerting, no answer</string>
+    <!-- In-call screen: call failure reason (Cause Number 21) -->
+    <string name="clh_callFailed_call_rejected_txt">Call rejected</string>
+    <!-- In-call screen: call failure reason (Cause Number 22) -->
+    <string name="clh_callFailed_number_changed_txt">Number changed</string>
+    <!-- In-call screen: call failure reason (Cause Number 25) -->
+    <string name="clh_callFailed_pre_emption_txt">Pre-emption</string>
+    <!-- In-call screen: call failure reason (Cause Number 26) -->
+    <string name="clh_callFailed_non_selected_user_clearing_txt">Non selected user clearing</string>
+    <!-- In-call screen: call failure reason (Cause Number 27) -->
+    <string name="clh_callFailed_destination_out_of_order_txt">Destination out of order</string>
+    <!-- In-call screen: call failure reason (Cause Number 28) -->
+    <string name="clh_callFailed_invalid_number_format_txt">Invalid number format (incomplete number)</string>
+    <!-- In-call screen: call failure reason (Cause Number 29) -->
+    <string name="clh_callFailed_facility_rejected_txt">Facility rejected</string>
+    <!-- In-call screen: call failure reason (Cause Number 30) -->
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt">Response to STATUS ENQUIRY</string>
+    <!-- In-call screen: call failure reason (Cause Number 31) -->
+    <string name="clh_callFailed_normal_unspecified_txt">Normal, unspecified</string>
+    <!-- In-call screen: call failure reason (Cause Number 34) -->
+    <string name="clh_callFailed_no_circuit_available_txt">No circuit/channel available</string>
+    <!-- In-call screen: call failure reason (Cause Number 38) -->
+    <string name="clh_callFailed_network_out_of_order_txt">Network out of order</string>
+    <!-- In-call screen: call failure reason (Cause Number 41) -->
+    <string name="clh_callFailed_temporary_failure_txt">Temporary failure</string>
+    <!-- In-call screen: call failure reason (Cause Number 42) -->
+    <string name="clh_callFailed_switching_equipment_congestion_txt">Switching equipment congestion</string>
+    <!-- In-call screen: call failure reason (Cause Number 43) -->
+    <string name="clh_callFailed_access_information_discarded_txt">Access information discarded</string>
+    <!-- In-call screen: call failure reason (Cause Number 44) -->
+    <string name="clh_callFailed_requested_circuit_txt">Requested circuit/channel not available</string>
+    <!-- In-call screen: call failure reason (Cause Number 47) -->
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt">Resources unavailable, unspecified</string>
+    <!-- In-call screen: call failure reason (Cause Number 49) -->
+    <string name="clh_callFailed_quality_of_service_unavailable_txt">Quality of service unavailable</string>
+    <!-- In-call screen: call failure reason (Cause Number 50) -->
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt">Requested facility not subscribed</string>
+    <!-- In-call screen: call failure reason (Cause Number 55) -->
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt">Incoming calls barred within the CUG</string>
+    <!-- In-call screen: call failure reason (Cause Number 57) -->
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt">Bearer capability not authorized</string>
+    <!-- In-call screen: call failure reason (Cause Number 58) -->
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt">Bearer capability not presently available</string>
+    <!-- In-call screen: call failure reason (Cause Number 63) -->
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt">Service or option not available, unspecified</string>
+    <!-- In-call screen: call failure reason (Cause Number 65) -->
+    <string name="clh_callFailed_bearer_service_not_implemented_txt">Bearer service not implemented</string>
+    <!-- In-call screen: call failure reason (Cause Number 68) -->
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt">ACM equal to or greater than ACMmax</string>
+    <!-- In-call screen: call failure reason (Cause Number 69) -->
+    <string name="clh_callFailed_requested_facility_not_implemented_txt">Requested facility not implemented</string>
+    <!-- In-call screen: call failure reason (Cause Number 70) -->
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt">Only restricted digital information bearer capability is available</string>
+    <!-- In-call screen: call failure reason (Cause Number 79) -->
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt">Service or option not implemented, unspecified</string>
+    <!-- In-call screen: call failure reason (Cause Number 81) -->
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt">Invalid transaction identifier value</string>
+    <!-- In-call screen: call failure reason (Cause Number 87) -->
+    <string name="clh_callFailed_user_not_member_of_CUG_txt">User not member of CUG</string>
+    <!-- In-call screen: call failure reason (Cause Number 88) -->
+    <string name="clh_callFailed_incompatible_destination_txt">Incompatible destination</string>
+    <!-- In-call screen: call failure reason (Cause Number 91) -->
+    <string name="clh_callFailed_invalid_transit_network_selection_txt">Invalid transit network selection</string>
+    <!-- In-call screen: call failure reason (Cause Number 95) -->
+    <string name="clh_callFailed_semantically_incorrect_message_txt">Semantically incorrect message</string>
+    <!-- In-call screen: call failure reason (Cause Number 96) -->
+    <string name="clh_callFailed_invalid_mandatory_information_txt">Invalid mandatory information</string>
+    <!-- In-call screen: call failure reason (Cause Number 97) -->
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt">Message type non-existent or not implemented</string>
+    <!-- In-call screen: call failure reason (Cause Number 98) -->
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt">Message type not compatible with protocol state</string>
+    <!-- In-call screen: call failure reason (Cause Number 99) -->
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt">Information element non-existent or not implemented</string>
+    <!-- In-call screen: call failure reason (Cause Number 100) -->
+    <string name="clh_callFailed_conditional_IE_error_txt">Conditional IE error</string>
+    <!-- In-call screen: call failure reason (Cause Number 101) -->
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt">Message not compatible with protocol state</string>
+    <!-- In-call screen: call failure reason (Cause Number 102) -->
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt">Recovery on timer expiry</string>
+    <!-- In-call screen: call failure reason (Cause Number 111) -->
+    <string name="clh_callFailed_protocol_Error_unspecified_txt">Protocol error, unspecified</string>
+    <!-- In-call screen: call failure reason (Cause Number 127) -->
+    <string name="clh_callFailed_interworking_unspecified_txt">Interworking, unspecified</string>
+    <!-- Call settings screen, setting option name -->
+    <string name="labelCallBarring">Call barring</string>
+    <!-- Call barring settings screen, setting summary text when a call barring option is activated -->
+    <string name="sum_call_barring_enabled">On</string>
+    <!-- Call barring settings screen, setting summary text when a call barring option is deactivated -->
+    <string name="sum_call_barring_disabled">Off</string>
+    <!-- Call barring settings screen, setting option name -->
+    <string name="call_barring_baoc">All outgoing</string>
+    <!-- Call barring settings screen, Disable blocking of all outgoing calls -->
+    <string name="call_barring_baoc_enabled">Disable blocking of all outgoing calls?</string>
+    <!-- Call barring settings screen, Block all outgoing calls -->
+    <string name="call_barring_baoc_disabled">Block all outgoing calls?</string>
+    <!-- Call barring settings screen, setting option name -->
+    <string name="call_barring_baoic">Outgoing international</string>
+    <!-- Call barring settings screen, Disable blocking of outgoing international calls -->
+    <string name="call_barring_baoic_enabled">Disable blocking of outgoing international calls?</string>
+    <!-- Call barring settings screen, Block outgoing international calls-->
+    <string name="call_barring_baoic_disabled">Block outgoing international calls?</string>
+    <!-- Call barring settings screen, setting option name -->
+    <string name="call_barring_baoicr">Outgoing international roaming</string>
+    <!-- Call barring settings screen, Disable blocking of outgoing international roaming -->
+    <string name="call_barring_baoicr_enabled">Disable blocking of outgoing international roaming?</string>
+    <!-- Call barring settings screen, Block outgoing international roaming -->
+    <string name="call_barring_baoicr_disabled">Block outgoing international roaming?</string>
+    <!-- Call barring settings screen, setting option name -->
+    <string name="call_barring_baic">All incoming</string>
+    <!-- Call barring settings screen, Disable blocking of all incoming calls -->
+    <string name="call_barring_baic_enabled">Disable blocking of all incoming calls?</string>
+    <!-- Call barring settings screen, Block all incoming calls -->
+    <string name="call_barring_baic_disabled">Block all incoming calls?</string>
+    <!-- Call barring settings screen, setting option name -->
+    <string name="call_barring_baicr">Incoming international roaming</string>
+    <!-- Call barring settings screen, Disable blocking of all incoming international roaming -->
+    <string name="call_barring_baicr_enabled">Disable blocking of all incoming international roaming?</string>
+    <!-- Call barring settings screen, Block incoming international roaming-->
+    <string name="call_barring_baicr_disabled">Block incoming international roaming?</string>
+    <!-- Call barring settings screen, setting option name -->
+    <string name="call_barring_deactivate_all">Deactivate all</string>
+    <!-- Call barring settings screen, setting summary text when BAAll check box is selected -->
+    <string name="call_barring_deactivate_all_description">Deactivate all call barring settings</string>
+    <!-- Call barring settings screen, deactivate all successfully -->
+    <string name="call_barring_deactivate_success">Call barring deactivated</string>
+    <!-- Call barring settings screen, change password -->
+    <string name="call_barring_change_pwd">Change password</string>
+    <!-- Call barring settings screen, change password -->
+    <string name="call_barring_change_pwd_description">Change call barring password</string>
+    <!-- Call barring settings screen, not possible to change call barring password -->
+    <string name="call_barring_change_pwd_description_disabled">Cannot change call barring password.</string>
+    <!-- Call barring settings screen, change password -->
+    <string name="call_barring_pwd_not_match">Passwords do not match</string>
+    <!-- Call barring settings screen, change password -->
+    <string name="call_barring_right_pwd_number">Enter a password with 4 numbers</string>
+    <!-- Call barring settings screen, change password -->
+    <string name="call_barring_change_pwd_success">Password changed</string>
+    <!-- Call barring settings screen, change password -->
+    <string name="call_barring_old_pwd">Old password</string>
+    <!-- Call barring settings screen, change password -->
+    <string name="call_barring_new_pwd">New password</string>
+    <!-- Call barring settings screen, change password -->
+    <string name="call_barring_confirm_pwd">Confirm password</string>
+    <!-- Call forwarding dialog box, text field label -->
+    <string name="messageCallBarring">Enter password</string>
+    <!-- Call barring settings screen, section heading -->
+    <string name="call_barring_settings">Call barring settings</string>
+    <!-- Call barring settings screen, deactivate all call barring settings -->
+    <string name="call_barring_deactivate_all_no_password">Deactivate all call barring settings?</string>
+    <!-- Message displayed to the user when an outgoing call is deflected.  This means that the
+         party the user is calling has chosen to send the call to another phone number. -->
+    <string name="supp_service_notification_call_deflected">Call deflected.</string>
+    <!-- Message displayed to the user when an outgoing call is forwarded to another number.
+         This happens because the party the user is calling has call forwarding active. -->
+    <string name="supp_service_notification_call_forwarded">Call forwarded.</string>
+    <!-- Message displayed to the user when an outgoing call is waiting.  This happens when the
+         party the user is calling is already in another call. -->
+    <string name="supp_service_notification_call_waiting">Call is waiting.</string>
+    <!-- Message displayed to the user when they have chosen to block their phone number for an
+         outgoing call, but the network has rejected that request. -->
+    <string name="supp_service_clir_suppression_rejected">Number blocking is rejected.</string>
+    <!-- Message displayed to the user to inform them that the call is to or from a number which is
+         part of a closed user group.  A closed user group is a network feature which restricts
+         calls on a device to members of the closed user group. -->
+    <string name="supp_service_closed_user_group_call">Closed user group call.</string>
+    <!-- Message displayed to the user when incoming call barring is active.  This means that the
+         user has enabled the network feature which prevents all incoming calls. -->
+    <string name="supp_service_incoming_calls_barred">Incoming calls barred.</string>
+    <!-- Message displayed to the user when outgoing call barring is active.  This means that the
+         user has enabled the network feature which prevents all outgoing calls. -->
+    <string name="supp_service_outgoing_calls_barred">Outgoing calls barred.</string>
+    <!-- Message displayed to the user to indicate that call forwarding is active. -->
+    <string name="supp_service_call_forwarding_active">Call forwarding active.</string>
+    <!-- Message displayed to the user when they receive multiple incoming calls at the same time
+         and one of them is forwarded to the network.  Phones can't handle multiple incoming calls
+         so the network will typically forward one of the calls to voicemail or another number
+         defined by the user. -->
+    <string name="supp_service_additional_call_forwarded">Additional call forwarded.</string>
+    <!-- Message displayed to the user to indicate that a call has been successfully transferred
+         to another phone number. -->
+    <string name="supp_service_additional_ect_connected">Explicit call transfer complete.</string>
+    <!-- Message displayed to the user to indicate that the call is in the process of being
+         transferred to another phone number.-->
+    <string name="supp_service_additional_ect_connecting">Explicit call transfer in progress.</string>
+    <!-- Message displayed to the user to indicate that the remote party has put the user
+         on hold. -->
+    <string name="supp_service_call_on_hold">Call on hold.</string>
+    <!-- Message displayed to the user to indicate that the remote party has taken the user
+         off hold. -->
+    <string name="supp_service_call_resumed">Call resumed.</string>
+    <!-- Message displayed to the user to indicate that an incoming call was deflected from another
+         number.  This means that the call originated as a result of the original caller choosing
+         to forward the call to the current user rather than answering it themselves. -->
+    <string name="supp_service_deflected_call">Call was deflected.</string>
+    <!-- Message displayed to the user to indicate that an incoming call was forwarded from another
+         number. -->
+    <string name="supp_service_forwarded_call">Forwarded call.</string>
+    <!-- Message displayed to the user to indicate that they are joining a conference call. -->
+    <string name="supp_service_conference_call">Joining conference call.</string>
+    <!-- Message displayed to the user to indicate that a held call has been released /
+         disconnected. -->
+    <string name="supp_service_held_call_released">Held call has been released.</string>
 </resources>

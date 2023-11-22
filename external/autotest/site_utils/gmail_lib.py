@@ -22,6 +22,7 @@ import httplib2
 import logging
 import sys
 import os
+import random
 from email.mime.text import MIMEText
 
 import common
@@ -139,8 +140,8 @@ def send_email(to, subject, message_text, retry=True, creds_path=None):
     auth_creds = server_utils.get_creds_abspath(
         creds_path or DEFAULT_CREDS_FILE)
     if not auth_creds or not os.path.isfile(auth_creds):
-        logging.error('Failed to send email to %s: Credential file does not'
-                      'exist: %s. If this is a prod server, puppet should'
+        logging.error('Failed to send email to %s: Credential file does not '
+                      'exist: %s. If this is a prod server, puppet should '
                       'install it. If you need to be able to send email, '
                       'find the credential file from chromeos-admin repo and '
                       'copy it to %s', to, auth_creds, auth_creds)
@@ -186,6 +187,11 @@ if __name__ == '__main__':
             description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-s', '--subject', type=str, dest='subject',
                         required=True, help='Subject of the mail')
+    parser.add_argument('-p', type=float, dest='probability',
+                        required=False, default=0,
+                        help='(optional) per-addressee probability '
+                             'with which to send email. If not specified '
+                             'all addressees will receive message.')
     parser.add_argument('recipients', nargs='*',
                         help='Email addresses separated by space.')
     args = parser.parse_args()
@@ -195,5 +201,19 @@ if __name__ == '__main__':
 
     message_text = sys.stdin.read()
 
+    if args.probability:
+        recipients = []
+        for r in args.recipients:
+            if random.random() < args.probability:
+                recipients.append(r)
+        if recipients:
+            print 'Randomly selected recipients %s' % recipients
+        else:
+            print 'Random filtering removed all recipients. Sending nothing.'
+            sys.exit(0)
+    else:
+        recipients = args.recipients
+
+
     with site_utils.SetupTsMonGlobalState('gmail_lib', short_lived=True):
-        send_email(','.join(args.recipients), args.subject , message_text)
+        send_email(','.join(recipients), args.subject , message_text)

@@ -17,31 +17,34 @@ package com.android.tradefed.testtype;
 
 import static org.junit.Assert.assertTrue;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.build.IFolderBuildInfo;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.IRunUtil.EnvPriority;
+import com.android.tradefed.util.SystemUtil.EnvVariable;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.util.Collections;
+import java.util.HashMap;
 
-/**
- * Unit tests for {@link TfTestLauncher}
- */
+/** Unit tests for {@link TfTestLauncher} */
+@RunWith(JUnit4.class)
 public class TfTestLauncherTest {
 
     private static final String CONFIG_NAME = "FAKE_CONFIG";
@@ -86,6 +89,7 @@ public class TfTestLauncherTest {
                                 (FileOutputStream) EasyMock.anyObject(),
                                 EasyMock.eq("java"),
                                 (String) EasyMock.anyObject(),
+                                EasyMock.eq("--add-opens=java.base/java.nio=ALL-UNNAMED"),
                                 EasyMock.eq("-cp"),
                                 (String) EasyMock.anyObject(),
                                 EasyMock.eq("com.android.tradefed.command.CommandRunner"),
@@ -104,6 +108,8 @@ public class TfTestLauncherTest {
                 .andReturn(cr);
 
         mMockRunUtil.unsetEnvVariable(SubprocessTfLauncher.TF_GLOBAL_CONFIG);
+        mMockRunUtil.unsetEnvVariable(EnvVariable.ANDROID_HOST_OUT_TESTCASES.name());
+        mMockRunUtil.unsetEnvVariable(EnvVariable.ANDROID_TARGET_OUT_TESTCASES.name());
         mMockRunUtil.setEnvVariablePriority(EnvPriority.SET);
         mMockRunUtil.setEnvVariable(SubprocessTfLauncher.TF_GLOBAL_CONFIG, SUB_GLOBAL_CONFIG);
 
@@ -120,15 +126,18 @@ public class TfTestLauncherTest {
         mMockListener.testRunStarted("temporaryFiles", 1);
         mMockListener.testRunStarted("StdErr", 1);
         for (int i = 0; i < 2; i++) {
-            mMockListener.testStarted((TestIdentifier)EasyMock.anyObject());
-            mMockListener.testEnded((TestIdentifier)EasyMock.anyObject(),
-                    EasyMock.eq(Collections.<String, String>emptyMap()));
-            mMockListener.testRunEnded(0, Collections.emptyMap());
+            mMockListener.testStarted((TestDescription) EasyMock.anyObject());
+            mMockListener.testEnded(
+                    (TestDescription) EasyMock.anyObject(),
+                    EasyMock.eq(new HashMap<String, Metric>()));
+            mMockListener.testRunEnded(0, new HashMap<String, Metric>());
         }
         mMockListener.testRunStarted("elapsed-time", 1);
         mMockListener.testStarted(EasyMock.anyObject());
-        mMockListener.testEnded(EasyMock.anyObject(), EasyMock.anyObject());
-        mMockListener.testRunEnded(EasyMock.anyLong(), EasyMock.anyObject());
+        mMockListener.testEnded(
+                EasyMock.anyObject(), (HashMap<String, Metric>) EasyMock.anyObject());
+        mMockListener.testRunEnded(
+                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
 
         EasyMock.replay(mMockBuildInfo, mMockRunUtil, mMockListener, mMockConfig);
         mTfTestLauncher.run(mMockListener);
@@ -141,10 +150,10 @@ public class TfTestLauncherTest {
     @Test
     public void testTestTmpDirClean_success() {
         mMockListener.testRunStarted("temporaryFiles", 1);
-        mMockListener.testStarted((TestIdentifier)EasyMock.anyObject());
-        mMockListener.testEnded((TestIdentifier)EasyMock.anyObject(),
-                EasyMock.eq(Collections.<String, String>emptyMap()));
-        mMockListener.testRunEnded(0, Collections.emptyMap());
+        mMockListener.testStarted((TestDescription) EasyMock.anyObject());
+        mMockListener.testEnded(
+                (TestDescription) EasyMock.anyObject(), EasyMock.eq(new HashMap<String, Metric>()));
+        mMockListener.testRunEnded(0, new HashMap<String, Metric>());
         File tmpDir = Mockito.mock(File.class);
         Mockito.when(tmpDir.list())
                 .thenReturn(new String[] {"inv_123", "tradefed_global_log_123", "lc_cache",
@@ -162,12 +171,12 @@ public class TfTestLauncherTest {
     @Test
     public void testTestTmpDirClean_failExtraFile() {
         mMockListener.testRunStarted("temporaryFiles", 1);
-        mMockListener.testStarted((TestIdentifier)EasyMock.anyObject());
-        mMockListener.testFailed((TestIdentifier)EasyMock.anyObject(),
-                (String)EasyMock.anyObject());
-        mMockListener.testEnded((TestIdentifier)EasyMock.anyObject(),
-                EasyMock.eq(Collections.<String, String>emptyMap()));
-        mMockListener.testRunEnded(0, Collections.emptyMap());
+        mMockListener.testStarted((TestDescription) EasyMock.anyObject());
+        mMockListener.testFailed(
+                (TestDescription) EasyMock.anyObject(), (String) EasyMock.anyObject());
+        mMockListener.testEnded(
+                (TestDescription) EasyMock.anyObject(), EasyMock.eq(new HashMap<String, Metric>()));
+        mMockListener.testRunEnded(0, new HashMap<String, Metric>());
         File tmpDir = Mockito.mock(File.class);
         Mockito.when(tmpDir.list()).thenReturn(new String[] {"extra_file"});
         EasyMock.replay(mMockListener);
@@ -183,12 +192,12 @@ public class TfTestLauncherTest {
     @Test
     public void testTestTmpDirClean_failMultipleFiles() {
         mMockListener.testRunStarted("temporaryFiles", 1);
-        mMockListener.testStarted((TestIdentifier)EasyMock.anyObject());
-        mMockListener.testFailed((TestIdentifier)EasyMock.anyObject(),
-                (String)EasyMock.anyObject());
-        mMockListener.testEnded((TestIdentifier)EasyMock.anyObject(),
-                EasyMock.eq(Collections.<String, String>emptyMap()));
-        mMockListener.testRunEnded(0, Collections.emptyMap());
+        mMockListener.testStarted((TestDescription) EasyMock.anyObject());
+        mMockListener.testFailed(
+                (TestDescription) EasyMock.anyObject(), (String) EasyMock.anyObject());
+        mMockListener.testEnded(
+                (TestDescription) EasyMock.anyObject(), EasyMock.eq(new HashMap<String, Metric>()));
+        mMockListener.testRunEnded(0, new HashMap<String, Metric>());
         File tmpDir = Mockito.mock(File.class);
         Mockito.when(tmpDir.list()).thenReturn(new String[] {"inv_1", "inv_2"});
         EasyMock.replay(mMockListener);
@@ -207,6 +216,8 @@ public class TfTestLauncherTest {
         EasyMock.expect(mMockBuildInfo.getBuildFlavor()).andReturn(BUILD_FLAVOR).times(2);
         EasyMock.expect(mMockBuildInfo.getBuildId()).andReturn(BUILD_ID).times(2);
         mMockRunUtil.unsetEnvVariable(TfTestLauncher.TF_GLOBAL_CONFIG);
+        mMockRunUtil.unsetEnvVariable(EnvVariable.ANDROID_HOST_OUT_TESTCASES.name());
+        mMockRunUtil.unsetEnvVariable(EnvVariable.ANDROID_TARGET_OUT_TESTCASES.name());
         mMockRunUtil.setEnvVariablePriority(EnvPriority.SET);
         mMockRunUtil.setEnvVariable(SubprocessTfLauncher.TF_GLOBAL_CONFIG, SUB_GLOBAL_CONFIG);
         EasyMock.replay(mMockBuildInfo, mMockRunUtil, mMockListener);

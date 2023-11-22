@@ -1,5 +1,7 @@
 exe,euser,egroup,pidns,caps,nonewprivs,filter
 
+# See the baseline file for docs.
+
 ap-av,root,root,No,No,No,No,No
 ap-ecm-manager,root,root,No,No,No,No,No
 ap-pipe-reader,root,root,No,No,No,No,No

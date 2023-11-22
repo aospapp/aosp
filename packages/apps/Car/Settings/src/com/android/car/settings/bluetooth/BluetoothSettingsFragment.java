@@ -21,22 +21,19 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.View;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.RecyclerView;
 import android.support.v4.widget.SwipeRefreshLayout;
+import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.ViewSwitcher;
 
-import com.android.car.settings.common.BaseFragment;
-import com.android.car.settings.R;
-import com.android.car.view.PagedListView;
+import androidx.car.widget.PagedListView;
 
+import com.android.car.settings.R;
+import com.android.car.settings.common.BaseFragment;
+import com.android.car.settings.common.Logger;
 import com.android.settingslib.bluetooth.BluetoothCallback;
-import com.android.settingslib.bluetooth.BluetoothDeviceFilter;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.LocalBluetoothAdapter;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
@@ -45,7 +42,7 @@ import com.android.settingslib.bluetooth.LocalBluetoothManager;
  * Hosts Bluetooth related preferences.
  */
 public class BluetoothSettingsFragment extends BaseFragment implements BluetoothCallback {
-    private static final String TAG = "BluetoothSettingsFragment";
+    private static final Logger LOG = new Logger(BluetoothSettingsFragment.class);
 
     private SwipeRefreshLayout mSwipeRefreshLayout;
     private Switch mBluetoothSwitch;
@@ -116,19 +113,13 @@ public class BluetoothSettingsFragment extends BaseFragment implements Bluetooth
         mViewSwitcher = getView().findViewById(R.id.view_switcher);
         mMessageView = getView().findViewById(R.id.bt_message);
 
-        mLocalManager = LocalBluetoothManager.getInstance(getContext(), null /* listener */);
+        mLocalManager =
+                LocalBluetoothManager.getInstance(getContext(), /* onInitCallback= */ null);
         if (mLocalManager == null) {
-            Log.e(TAG, "Bluetooth is not supported on this device");
+            LOG.e("Bluetooth is not supported on this device");
             return;
         }
         mLocalAdapter = mLocalManager.getBluetoothAdapter();
-
-        // Set this to light mode, since the scroll bar buttons always appear
-        // on top of a dark scrim.
-        mDeviceListView.setDarkMode();
-        mDeviceAdapter = new BluetoothDeviceListAdapter(
-                getContext() , mLocalManager, mFragmentController);
-        mDeviceListView.setAdapter(mDeviceAdapter);
     }
 
     @Override
@@ -158,6 +149,9 @@ public class BluetoothSettingsFragment extends BaseFragment implements Bluetooth
                 mViewSwitcher.showNext();
             }
         }
+        mDeviceAdapter = new BluetoothDeviceListAdapter(
+                getContext() , mLocalManager, getFragmentController());
+        mDeviceListView.setAdapter(mDeviceAdapter);
         mDeviceAdapter.start();
     }
 
@@ -223,6 +217,16 @@ public class BluetoothSettingsFragment extends BaseFragment implements Bluetooth
 
     @Override
     public void onConnectionStateChanged(CachedBluetoothDevice cachedDevice, int state) {
+        // no-op
+    }
+
+    @Override
+    public void onActiveDeviceChanged(CachedBluetoothDevice activeDevice, int bluetoothProfile) {
+        // no-op
+    }
+
+    @Override
+    public void onAudioModeChanged() {
         // no-op
     }
 

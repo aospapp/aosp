@@ -27,6 +27,8 @@ cc_library_static {
         "wrapper_output.cpp",
     ],
 
+    cflags: ["-Wall", "-Werror"],
+
     target: {
         host: {
             cflags: ["-D__HOST__"],

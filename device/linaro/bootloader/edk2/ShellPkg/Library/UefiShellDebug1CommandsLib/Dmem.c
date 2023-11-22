@@ -1,7 +1,7 @@
 /** @file
   Main file for Dmem shell Debug1 function.
 
-  Copyright (c) 2010 - 2011, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved.<BR>
   (C) Copyright 2015 Hewlett-Packard Development Company, L.P.<BR>  
   (C) Copyright 2015 Hewlett Packard Enterprise Development LP<BR>  
   This program and the accompanying materials
@@ -31,7 +31,6 @@
   @return A printable character representing Char.
 **/
 CHAR16
-EFIAPI
 MakePrintable(
   IN CONST CHAR16 Char
   )
@@ -49,7 +48,6 @@ MakePrintable(
   @param[in] Size       The length of memory to display.
 **/
 SHELL_STATUS
-EFIAPI
 DisplayMmioMemory(
   IN CONST VOID   *Address,
   IN CONST UINTN  Size
@@ -68,7 +66,9 @@ DisplayMmioMemory(
     return (SHELL_NOT_FOUND);
   }
   Buffer = AllocateZeroPool(Size);
-  ASSERT(Buffer != NULL);
+  if (Buffer == NULL) {
+    return SHELL_OUT_OF_RESOURCES;
+  }
 
   Status = PciRbIo->Mem.Read(PciRbIo, EfiPciWidthUint8, (UINT64)(UINTN)Address, Size, Buffer);
   if (EFI_ERROR(Status)) {

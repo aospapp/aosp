@@ -17,24 +17,12 @@
 package android.support.test.launcherhelper;
 
 import android.app.Instrumentation;
-import android.app.UiAutomation;
-import android.content.pm.PackageManager;
-import android.content.Context;
-import android.os.RemoteException;
 import android.support.test.InstrumentationRegistry;
-import android.support.test.launcherhelper.ILauncherStrategy;
-import android.support.test.launcherhelper.LauncherStrategyFactory;
 import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.Until;
 import android.system.helpers.ActivityHelper;
-import android.test.InstrumentationTestCase;
-
-import java.io.File;
-import java.io.IOException;
 
 import org.junit.Assert;
 
@@ -63,7 +51,7 @@ public class AllAppsScreenHelper {
 
     public void launchAllAppsScreen() {
         mDevice.pressHome();
-        mDevice.findObject(mLauncherStrategy.getAllAppsButtonSelector()).click();
+        mLauncherStrategy.openAllApps(false);
         mDevice.wait(Until.hasObject(By.res(getLauncherPackage(), allApps)), TIMEOUT);
     }
 

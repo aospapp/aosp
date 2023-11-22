@@ -1,7 +1,6 @@
 /** @file
 *
-*  Copyright (c) 2014-2015, Linaro Limited. All rights reserved.
-*  Copyright (c) 2014-2015, Hisilicon Limited. All rights reserved.
+*  Copyright (c) 2014-2017, Linaro Limited. All rights reserved.
 *
 *  This program and the accompanying materials
 *  are licensed and made available under the terms and conditions of the BSD License
@@ -24,4 +23,4 @@
 //
 #define SYS_CFG_RTC                             0
 
-#endif	/* __PLATFORM_H__ */
+#endif /* __PLATFORM_H__ */

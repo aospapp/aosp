@@ -51,6 +51,10 @@ class audio_LoopbackLatency(test.test):
                          'reported %d uS, diff %d us\n', _NOISE_THRESHOLD,
                          result[0], result[1], diff)
 
+            self.output_perf_value(
+                description='loopback_latency', value=result[0],
+                units='uS', higher_is_better=False)
+
             # Difference between measured and reported latency should
             # within _LATENCY_DIFF_LIMIT_US.
             if diff < _LATENCY_DIFF_LIMIT_US:

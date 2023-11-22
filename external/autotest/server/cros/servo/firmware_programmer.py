@@ -36,6 +36,7 @@ class _BaseProgrammer(object):
 
     Private attributes:
       _servo: a servo object controlling the servo device
+      _servo_host: a host object running commands like 'flashrom'
       _servo_prog_state: a tuple of strings of "<control>:<value>" pairs,
                          listing servo controls and their required values for
                          programming
@@ -48,19 +49,25 @@ class _BaseProgrammer(object):
                     firmware/hardware type, set by subclasses.
     """
 
-    def __init__(self, servo, req_list):
+    def __init__(self, servo, req_list, servo_host=None):
         """Base constructor.
         @param servo: a servo object controlling the servo device
         @param req_list: a list of strings, names of the utilities required
                          to be in the path for the programmer to succeed
+        @param servo_host: a host object to execute commands. Default to None,
+                           using the host object from the above servo object
         """
         self._servo = servo
         self._servo_prog_state = ()
         self._servo_prog_state_delay = 0
         self._servo_saved_state = []
         self._program_cmd = ''
+        self._servo_host = servo_host
+        if self._servo_host is None:
+            self._servo_host = self._servo._servo_host
+
         try:
-            self._servo.system('which %s' % ' '.join(req_list))
+            self._servo_host.run('which %s' % ' '.join(req_list))
         except error.AutoservRunError:
             # TODO: We turn this exception into a warn since the fw programmer
             # is not working right now, and some systems do not package the
@@ -102,8 +109,8 @@ class _BaseProgrammer(object):
         self._set_servo_state()
         try:
             logging.debug("Programmer command: %s", self._program_cmd)
-            self._servo.system(self._program_cmd,
-                               timeout=FIRMWARE_PROGRAM_TIMEOUT_SEC)
+            self._servo_host.run(self._program_cmd,
+                                 timeout=FIRMWARE_PROGRAM_TIMEOUT_SEC)
         finally:
             self._restore_servo_state()
 
@@ -171,14 +178,14 @@ class FlashromProgrammer(_BaseProgrammer):
                                 self._servo_version)
             # Save needed sections from current firmware
             for section in preserved_sections + gbb_section:
-                self._servo.system(' '.join([
+                self._servo_host.run(' '.join([
                     'flashrom', '-V', '-p', programmer,
                     '-r', self._fw_main, '-i', '%s:%s' % section]),
                     timeout=FIRMWARE_PROGRAM_TIMEOUT_SEC)
 
             # Pack the saved VPD into new firmware
-            self._servo.system('cp %s %s' % (self._fw_path, self._fw_main))
-            img_size = self._servo.system_output(
+            self._servo_host.run('cp %s %s' % (self._fw_path, self._fw_main))
+            img_size = self._servo_host.run_output(
                     "stat -c '%%s' %s" % self._fw_main)
             pack_cmd = ['flashrom',
                     '-p', 'dummy:image=%s,size=%s,emulate=VARIABLE_SIZE' % (
@@ -186,23 +193,23 @@ class FlashromProgrammer(_BaseProgrammer):
                     '-w', self._fw_main]
             for section in preserved_sections:
                 pack_cmd.extend(['-i', '%s:%s' % section])
-            self._servo.system(' '.join(pack_cmd),
-                               timeout=FIRMWARE_PROGRAM_TIMEOUT_SEC)
+            self._servo_host.run(' '.join(pack_cmd),
+                                 timeout=FIRMWARE_PROGRAM_TIMEOUT_SEC)
 
             # HWID is inside the RO portion. Don't preserve HWID if we keep RO.
             if not self._keep_ro:
                 # Read original HWID. The output format is:
                 #    hardware_id: RAMBI TEST A_A 0128
-                gbb_hwid_output = self._servo.system_output(
+                gbb_hwid_output = self._servo_host.run_output(
                         'gbb_utility -g --hwid %s' % self._gbb)
                 original_hwid = gbb_hwid_output.split(':', 1)[1].strip()
 
                 # Write HWID to new firmware
-                self._servo.system("gbb_utility -s --hwid='%s' %s" %
+                self._servo_host.run("gbb_utility -s --hwid='%s' %s" %
                         (original_hwid, self._fw_main))
 
             # Flash the new firmware
-            self._servo.system(' '.join([
+            self._servo_host.run(' '.join([
                     'flashrom', '-V', '-p', programmer,
                     '-w', self._fw_main]), timeout=FIRMWARE_PROGRAM_TIMEOUT_SEC)
         finally:
@@ -233,20 +240,36 @@ class FlashromProgrammer(_BaseProgrammer):
 class FlashECProgrammer(_BaseProgrammer):
     """Class for programming AP flashrom."""
 
-    def __init__(self, servo):
-        """Configure required servo state."""
-        super(FlashECProgrammer, self).__init__(servo, ['flash_ec',])
-        self._servo = servo
+    def __init__(self, servo, host=None, ec_chip=None):
+        """Configure required servo state.
+
+        @param servo: a servo object controlling the servo device
+        @param host: a host object to execute commands. Default to None,
+                     using the host object from the above servo object, i.e.
+                     a servo host. A CrOS host object can be passed here
+                     such that it executes commands on the CrOS device.
+        @param ec_chip: a string of EC chip. Default to None, using the
+                        EC chip name reported by servo, the primary EC.
+                        Can pass a different chip name, for the case of
+                        the base EC.
+
+        """
+        super(FlashECProgrammer, self).__init__(servo, ['flash_ec'], host)
         self._servo_version = self._servo.get_servo_version()
+        if ec_chip is None:
+            self._ec_chip = servo.get('ec_chip')
+        else:
+            self._ec_chip = ec_chip
 
     def prepare_programmer(self, image):
         """Prepare programmer for programming.
 
         @param image: string with the location of the image file
         """
+        # Get the port of servod. flash_ec may use it to talk to servod.
         port = self._servo._servo_host.servo_port
         self._program_cmd = ('flash_ec --chip=%s --image=%s --port=%d' %
-                             (self._servo.get('ec_chip'), image, port))
+                             (self._ec_chip, image, port))
         if self._servo_version == 'servo_v4_with_ccd_cr50':
             self._program_cmd += ' --raiden'
 
@@ -475,3 +498,43 @@ class ProgrammerV3RwOnly(ProgrammerV3):
         """
         # Do nothing. EC software sync will update the EC RW.
         pass
+
+
+class ProgrammerDfu(object):
+    """Main programmer class which provides programmer for Base EC via DFU.
+
+    It programs through the DUT, i.e. running the flash_ec script on DUT
+    instead of running it in beaglebone (a host of the servo board).
+    It is independent of the version of servo board as long as the servo
+    board has the ec_boot_mode interface.
+
+    """
+
+    def __init__(self, servo, cros_host):
+        self._servo = servo
+        self._cros_host = cros_host
+        # Get the chip name of the base EC and append '_dfu' to it, like
+        # 'stm32' -> 'stm32_dfu'.
+        ec_chip = servo.get(servo.get_base_board() + '_ec_chip') + '_dfu'
+        self._ec_programmer = FlashECProgrammer(servo, cros_host, ec_chip)
+
+
+    def program_ec(self, image):
+        """Programs the DUT with provide ec image.
+
+        @param image: (required) location of ec image file.
+
+        """
+        self._ec_programmer.prepare_programmer(image)
+        ec_boot_mode = self._servo.get_base_board() + '_ec_boot_mode'
+        try:
+            self._servo.set(ec_boot_mode, 'on')
+            # Power cycle the base to enter DFU mode
+            self._cros_host.run('ectool gpioset PP3300_DX_BASE 0')
+            self._cros_host.run('ectool gpioset PP3300_DX_BASE 1')
+            self._ec_programmer.program()
+        finally:
+            self._servo.set(ec_boot_mode, 'off')
+            # Power cycle the base to back normal mode
+            self._cros_host.run('ectool gpioset PP3300_DX_BASE 0')
+            self._cros_host.run('ectool gpioset PP3300_DX_BASE 1')

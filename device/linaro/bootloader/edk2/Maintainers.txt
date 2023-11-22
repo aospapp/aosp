@@ -30,9 +30,9 @@ EDK II
 W: http://www.tianocore.org/edk2/
 L: https://lists.sourceforge.net/lists/listinfo/edk2-devel
 T: git - https://github.com/tianocore/edk2.git
-T: git - https://bitbucket.org/tianocore/edk2.git
-T: git - http://git.code.sf.net/p/tianocore/edk2
-T: svn - https://svn.code.sf.net/p/edk2/code/trunk/edk2
+T: git (mirror) - https://bitbucket.org/tianocore/edk2.git
+T: git (mirror) - http://git.code.sf.net/p/tianocore/edk2
+T: svn (read-only, deprecated) - https://svn.code.sf.net/p/edk2/code/trunk/edk2
 
 Responsible Disclosure, Reporting Security Issues
 -------------------------------------------------
@@ -85,6 +85,7 @@ S: Maintained
 CryptoPkg
 W: https://github.com/tianocore/tianocore.github.io/wiki/CryptoPkg
 M: Qin Long <qin.long@intel.com>
+M: Ting Ye <ting.ye@intel.com>
 
 DuetPkg
 W: https://github.com/tianocore/tianocore.github.io/wiki/DuetPkg
@@ -126,6 +127,16 @@ W: https://github.com/tianocore/tianocore.github.io/wiki/IntelFrameworkPkg
 M: Michael D Kinney <michael.d.kinney@intel.com>
 M: Jeff Fan <jeff.fan@intel.com>
 
+IntelFsp2Pkg
+W: https://github.com/tianocore/tianocore.github.io/wiki/IntelFsp2Pkg
+M: Jiewen Yao <jiewen.yao@intel.com>
+M: Giri P Mudusuru <giri.p.mudusuru@intel.com>
+
+IntelFsp2WrapperPkg
+W: https://github.com/tianocore/tianocore.github.io/wiki/IntelFsp2WrapperPkg
+M: Jiewen Yao <jiewen.yao@intel.com>
+M: Giri P Mudusuru <giri.p.mudusuru@intel.com>
+
 IntelFspPkg
 W: https://github.com/tianocore/tianocore.github.io/wiki/IntelFspPkg
 M: Jiewen Yao <jiewen.yao@intel.com>
@@ -134,9 +145,15 @@ IntelFspWrapperPkg
 W: https://github.com/tianocore/tianocore.github.io/wiki/IntelFspWrapperPkg
 M: Jiewen Yao <jiewen.yao@intel.com>
 
+IntelSiliconPkg
+W: https://github.com/tianocore/tianocore.github.io/wiki/IntelSiliconPkg
+M: Jiewen Yao <jiewen.yao@intel.com>
+M: Giri P Mudusuru <giri.p.mudusuru@intel.com>
+
 MdeModulePkg
 W: https://github.com/tianocore/tianocore.github.io/wiki/MdeModulePkg
 M: Feng Tian <feng.tian@intel.com>
+M: Star Zeng <star.zeng@intel.com>
 
 MdePkg
 W: https://github.com/tianocore/tianocore.github.io/wiki/MdePkg
@@ -146,6 +163,7 @@ M: Liming Gao <liming.gao@intel.com>
 NetworkPkg
 W: https://github.com/tianocore/tianocore.github.io/wiki/NetworkPkg
 M: Siyuan Fu <siyuan.fu@intel.com>
+M: Jiaxin Wu <jiaxin.wu@intel.com>
 
 Nt32Pkg
 W: https://github.com/tianocore/tianocore.github.io/wiki/Nt32Pkg
@@ -183,14 +201,22 @@ SecurityPkg
 W: https://github.com/tianocore/tianocore.github.io/wiki/SecurityPkg
 M: Chao Zhang <chao.b.zhang@intel.com>
 
-ShellPkg, ShellBinPkg
+ShellBinPkg
+W: https://github.com/tianocore/tianocore.github.io/wiki/ShellPkg
+M: Jaben Carsey <jaben.carsey@intel.com>      (Ia32/X64)
+M: Ruiyu Ni <ruiyu.ni@intel.com>          (Ia32/X64)
+M: Leif Lindholm <leif.lindholm@linaro.org>   (ARM/AArch64)
+M: Ard Biesheuvel <ard.biesheuvel@linaro.org> (ARM/AArch64)
+
+ShellPkg
 W: https://github.com/tianocore/tianocore.github.io/wiki/ShellPkg
 M: Jaben Carsey <jaben.carsey@intel.com>
-M: Shumin Qiu <shumin.qiu@intel.com>
+M: Ruiyu Ni <ruiyu.ni@intel.com>
 
 SourceLevelDebugPkg
 W: https://github.com/tianocore/tianocore.github.io/wiki/SourceLevelDebugPkg
 M: Jeff Fan <jeff.fan@intel.com>
+M: Hao Wu <hao.a.wu@intel.com>
 
 StdLib, StdLibPrivateInternalFiles
 W: https://github.com/tianocore/tianocore.github.io/wiki/StdLib
@@ -207,8 +233,8 @@ S: Obsolete (Use EmulatorPkg instead)
 
 Vlv2DeviceRefCodePkg
 M: David Wei <david.wei@intel.com>
-M: Tim He <tim.he@intel.com>
+M: Mang Guo <mang.guo@intel.com>
 
 Vlv2TbltDevicePkg
 M: David Wei <david.wei@intel.com>
-M: Tim He <tim.he@intel.com>
+M: Mang Guo <mang.guo@intel.com>

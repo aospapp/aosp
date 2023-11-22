@@ -48,13 +48,15 @@ class CoverageReportTest(unittest.TestCase):
         Runs GenerateLineCoverageVector on sample file and checks
         result.
         """
+        coverage_dict = dict()
+        exclude_paths = []
         src_lines_counts = coverage_report.GenerateLineCoverageVector(
-            'sample.c', self.gcno_summary)
-        expected = [-1, -1, -1, -1, 2, -1, -1, -1, -1, -1, 2,
+            self.gcno_summary, exclude_paths, coverage_dict)
+        expected = {'sample.c': [-1, -1, -1, -1, 2, -1, -1, -1, -1, -1, 2,
                     2, 2, -1, 2, -1, 2, 0, -1, 2, -1, -1, 2, 2, 502,
                     500, -1, -1, 2, -1, 2, -1, -1, -1, 2, -1,
-                    -1, -1, -1, 2, 2, 2]
-        self.assertEqual(src_lines_counts, expected)
+                    -1, -1, -1, 2, 2, 2]}
+        self.assertEqual(coverage_dict, expected)
 
 
 if __name__ == "__main__":

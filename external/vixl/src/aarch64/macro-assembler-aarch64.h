@@ -123,6 +123,9 @@ class LiteralPool : public Pool {
   }
 
   void CheckEmitFor(size_t amount, EmitOption option = kBranchRequired);
+  // Check whether we need to emit the literal pool in order to be able to
+  // safely emit a branch with a given range.
+  void CheckEmitForBranch(size_t range);
   void Emit(EmitOption option = kNoBranchRequired);
 
   void SetNextRecommendedCheckpoint(ptrdiff_t offset);
@@ -187,13 +190,13 @@ class VeneerPool : public Pool {
   class BranchInfo {
    public:
     BranchInfo()
-        : max_reachable_pc_(0),
+        : first_unreacheable_pc_(0),
           pc_offset_(0),
           label_(NULL),
           branch_type_(UnknownBranchType) {}
     BranchInfo(ptrdiff_t offset, Label* label, ImmBranchType branch_type)
         : pc_offset_(offset), label_(label), branch_type_(branch_type) {
-      max_reachable_pc_ =
+      first_unreacheable_pc_ =
           pc_offset_ + Instruction::GetImmBranchForwardRange(branch_type_);
     }
 
@@ -209,9 +212,9 @@ class VeneerPool : public Pool {
       // the operators may also be used to *search* for a branch info in the
       // set.
       bool same_offsets = (branch_1.pc_offset_ == branch_2.pc_offset_);
-      return (!same_offsets ||
-              ((branch_1.label_ == branch_2.label_) &&
-               (branch_1.max_reachable_pc_ == branch_2.max_reachable_pc_)));
+      return (!same_offsets || ((branch_1.label_ == branch_2.label_) &&
+                                (branch_1.first_unreacheable_pc_ ==
+                                 branch_2.first_unreacheable_pc_)));
     }
 
     // We must provide comparison operators to work with InvalSet.
@@ -232,8 +235,9 @@ class VeneerPool : public Pool {
       return pc_offset_ > other.pc_offset_;
     }
 
-    // Maximum position reachable by the branch using a positive branch offset.
-    ptrdiff_t max_reachable_pc_;
+    // First instruction position that is not reachable by the branch using a
+    // positive branch offset.
+    ptrdiff_t first_unreacheable_pc_;
     // Offset of the branch in the code generation buffer.
     ptrdiff_t pc_offset_;
     // The label branched to.
@@ -250,7 +254,7 @@ class VeneerPool : public Pool {
                                 ImmBranchType branch_type);
   void DeleteUnresolvedBranchInfoForLabel(Label* label);
 
-  bool ShouldEmitVeneer(int64_t max_reachable_pc, size_t amount);
+  bool ShouldEmitVeneer(int64_t first_unreacheable_pc, size_t amount);
   bool ShouldEmitVeneers(size_t amount) {
     return ShouldEmitVeneer(unresolved_branches_.GetFirstLimit(), amount);
   }
@@ -299,7 +303,8 @@ class VeneerPool : public Pool {
                    ptrdiff_t,
                    kInvalidOffset,
                    kReclaimFrom,
-                   kReclaimFactor> BranchInfoTypedSetBase;
+                   kReclaimFactor>
+      BranchInfoTypedSetBase;
   typedef InvalSetIterator<BranchInfoTypedSetBase> BranchInfoTypedSetIterBase;
 
   class BranchInfoTypedSet : public BranchInfoTypedSetBase {
@@ -564,6 +569,21 @@ enum BranchType {
 
 enum DiscardMoveMode { kDontDiscardForSameWReg, kDiscardForSameWReg };
 
+// The macro assembler supports moving automatically pre-shifted immediates for
+// arithmetic and logical instructions, and then applying a post shift in the
+// instruction to undo the modification, in order to reduce the code emitted for
+// an operation. For example:
+//
+//  Add(x0, x0, 0x1f7de) => movz x16, 0xfbef; add x0, x0, x16, lsl #1.
+//
+// This optimisation can be only partially applied when the stack pointer is an
+// operand or destination, so this enumeration is used to control the shift.
+enum PreShiftImmMode {
+  kNoShift,          // Don't pre-shift.
+  kLimitShiftForSP,  // Limit pre-shift for add/sub extend use.
+  kAnyShift          // Allow any pre-shift.
+};
+
 
 class MacroAssembler : public Assembler, public MacroAssemblerInterface {
  public:
@@ -576,9 +596,20 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
                  PositionIndependentCodeOption pic = PositionIndependentCode);
   ~MacroAssembler();
 
+  enum FinalizeOption {
+    kFallThrough,  // There may be more code to execute after calling Finalize.
+    kUnreachable   // Anything generated after calling Finalize is unreachable.
+  };
+
   virtual vixl::internal::AssemblerBase* AsAssemblerBase() VIXL_OVERRIDE {
     return this;
   }
+
+  // TODO(pools): implement these functions.
+  virtual void EmitPoolHeader() VIXL_OVERRIDE {}
+  virtual void EmitPoolFooter() VIXL_OVERRIDE {}
+  virtual void EmitPaddingBytes(int n) VIXL_OVERRIDE { USE(n); }
+  virtual void EmitNopBytes(int n) VIXL_OVERRIDE { USE(n); }
 
   // Start generating code from the beginning of the buffer, discarding any code
   // and data that has already been emitted into the buffer.
@@ -588,8 +619,11 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   void Reset();
 
   // Finalize a code buffer of generated instructions. This function must be
-  // called before executing or copying code from the buffer.
-  void FinalizeCode();
+  // called before executing or copying code from the buffer. By default,
+  // anything generated after this should not be reachable (the last instruction
+  // generated is an unconditional branch). If you need to generate more code,
+  // then set `option` to kFallThrough.
+  void FinalizeCode(FinalizeOption option = kUnreachable);
 
 
   // Constant generation helpers.
@@ -680,7 +714,9 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   // into dst is not necessarily equal to imm; it may have had a shifting
   // operation applied to it that will be subsequently undone by the shift
   // applied in the Operand.
-  Operand MoveImmediateForShiftedOp(const Register& dst, int64_t imm);
+  Operand MoveImmediateForShiftedOp(const Register& dst,
+                                    int64_t imm,
+                                    PreShiftImmMode mode);
 
   void Move(const GenericOperand& dst, const GenericOperand& src);
 
@@ -3022,7 +3058,17 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
 
 #ifdef VIXL_HAS_MACROASSEMBLER_RUNTIME_CALL_SUPPORT
   template <typename R, typename... P>
-  void CallRuntime(R (*function)(P...));
+  void CallRuntimeHelper(R (*function)(P...), RuntimeCallType call_type);
+
+  template <typename R, typename... P>
+  void CallRuntime(R (*function)(P...)) {
+    CallRuntimeHelper(function, kCallRuntime);
+  }
+
+  template <typename R, typename... P>
+  void TailCallRuntime(R (*function)(P...)) {
+    CallRuntimeHelper(function, kTailCallRuntime);
+  }
 #endif  // #ifdef VIXL_HAS_MACROASSEMBLER_RUNTIME_CALL_SUPPORT
 
  protected:
@@ -3378,7 +3424,8 @@ class UseScratchRegisterScope {
 
 // `R` stands for 'return type', and `P` for 'parameter types'.
 template <typename R, typename... P>
-void MacroAssembler::CallRuntime(R (*function)(P...)) {
+void MacroAssembler::CallRuntimeHelper(R (*function)(P...),
+                                       RuntimeCallType call_type) {
   if (generate_simulator_code_) {
 #ifdef VIXL_HAS_SIMULATED_RUNTIME_CALL_SUPPORT
     uintptr_t runtime_call_wrapper_address = reinterpret_cast<uintptr_t>(
@@ -3386,7 +3433,7 @@ void MacroAssembler::CallRuntime(R (*function)(P...)) {
     uintptr_t function_address = reinterpret_cast<uintptr_t>(function);
 
     EmissionCheckScope guard(this,
-                             kInstructionSize + 2 * kRuntimeCallAddressSize,
+                             kRuntimeCallLength,
                              CodeBufferCheckScope::kExactSize);
     Label start;
     bind(&start);
@@ -3400,8 +3447,9 @@ void MacroAssembler::CallRuntime(R (*function)(P...)) {
     VIXL_ASSERT(GetSizeOfCodeGeneratedSince(&start) ==
                 kRuntimeCallFunctionOffset);
     dc(function_address);
-    VIXL_ASSERT(GetSizeOfCodeGeneratedSince(&start) ==
-                kRuntimeCallFunctionOffset + kRuntimeCallAddressSize);
+    VIXL_ASSERT(GetSizeOfCodeGeneratedSince(&start) == kRuntimeCallTypeOffset);
+    dc32(call_type);
+    VIXL_ASSERT(GetSizeOfCodeGeneratedSince(&start) == kRuntimeCallLength);
 #else
     VIXL_UNREACHABLE();
 #endif  // #ifdef VIXL_HAS_SIMULATED_RUNTIME_CALL_SUPPORT
@@ -3409,7 +3457,12 @@ void MacroAssembler::CallRuntime(R (*function)(P...)) {
     UseScratchRegisterScope temps(this);
     Register temp = temps.AcquireX();
     Mov(temp, reinterpret_cast<uint64_t>(function));
-    Blr(temp);
+    if (call_type == kTailCallRuntime) {
+      Br(temp);
+    } else {
+      VIXL_ASSERT(call_type == kCallRuntime);
+      Blr(temp);
+    }
   }
 }
 
@@ -3429,7 +3482,7 @@ inline ptrdiff_t InvalSet<aarch64::VeneerPool::BranchInfo,
                           aarch64::VeneerPool::kReclaimFrom,
                           aarch64::VeneerPool::kReclaimFactor>::
     GetKey(const aarch64::VeneerPool::BranchInfo& branch_info) {
-  return branch_info.max_reachable_pc_;
+  return branch_info.first_unreacheable_pc_;
 }
 template <>
 inline void InvalSet<aarch64::VeneerPool::BranchInfo,
@@ -3439,7 +3492,7 @@ inline void InvalSet<aarch64::VeneerPool::BranchInfo,
                      aarch64::VeneerPool::kReclaimFrom,
                      aarch64::VeneerPool::kReclaimFactor>::
     SetKey(aarch64::VeneerPool::BranchInfo* branch_info, ptrdiff_t key) {
-  branch_info->max_reachable_pc_ = key;
+  branch_info->first_unreacheable_pc_ = key;
 }
 
 }  // namespace vixl

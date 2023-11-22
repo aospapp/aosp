@@ -16,7 +16,12 @@
 
 package android.admin.cts;
 
+import static org.junit.Assert.assertNotEquals;
+
+import android.app.NotificationManager;
+import android.app.NotificationManager.Policy;
 import android.app.admin.DevicePolicyManager;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -26,13 +31,23 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
+import android.os.Process;
 import android.os.UserManager;
 import android.provider.Settings;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.Suppress;
 import android.util.Log;
 
+import java.io.ByteArrayInputStream;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * TODO: Make sure DO APIs are not called by PO.
@@ -49,6 +64,7 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
     private boolean mDeviceAdmin;
     private boolean mManagedProfiles;
     private PackageManager mPackageManager;
+    private NotificationManager mNotificationManager;
 
     private static final String TEST_CA_STRING1 =
             "-----BEGIN CERTIFICATE-----\n" +
@@ -75,6 +91,8 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
         mDevicePolicyManager = (DevicePolicyManager)
                 mContext.getSystemService(Context.DEVICE_POLICY_SERVICE);
         mComponent = DeviceAdminInfoTest.getReceiverComponent();
+        mNotificationManager =
+                    (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
         mPackageManager = mContext.getPackageManager();
         mDeviceAdmin = mPackageManager.hasSystemFeature(PackageManager.FEATURE_DEVICE_ADMIN);
         mManagedProfiles = mDeviceAdmin
@@ -218,7 +236,7 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
             return;
         }
         try {
-            mDevicePolicyManager.removeUser(mComponent, null);
+            mDevicePolicyManager.removeUser(mComponent, Process.myUserHandle());
             fail("did not throw expected SecurityException");
         } catch (SecurityException e) {
             assertDeviceOwnerMessage(e.getMessage());
@@ -746,8 +764,7 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
     }
 
     private void assertProfileOwnerMessage(String message) {
-        assertTrue("message is: "+ message,
-                message.contains("does not own the profile"));
+        assertTrue("message is: "+ message, message.contains("does not own the profile"));
     }
 
     public void testSetDelegatedCertInstaller_failIfNotProfileOwner() {
@@ -899,6 +916,124 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
             fail("did not throw expected SecurityException");
         } catch (SecurityException e) {
             assertProfileOwnerMessage(e.getMessage());
+        }
+    }
+
+    public void testIsUsingUnifiedPassword_failIfNotProfileOwner() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testIsUsingUnifiedPassword_failIfNotProfileOwner");
+            return;
+        }
+        try {
+            mDevicePolicyManager.isUsingUnifiedPassword(mComponent);
+            fail("did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertProfileOwnerMessage(e.getMessage());
+        }
+    }
+
+    public void testGenerateKeyPair_failIfNotProfileOwner() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testGenerateKeyPair_failIfNotProfileOwner");
+            return;
+        }
+        try {
+            KeyGenParameterSpec spec = new KeyGenParameterSpec.Builder(
+                    "gen-should-fail",
+                    KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
+                    .setKeySize(2048)
+                    .setDigests(KeyProperties.DIGEST_SHA256)
+                    .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PSS,
+                        KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                    .build();
+
+            mDevicePolicyManager.generateKeyPair(mComponent, "RSA", spec, 0);
+            fail("did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertProfileOwnerMessage(e.getMessage());
+        }
+    }
+
+    public void testSetKeyPairCertificate_failIfNotProfileOwner() throws CertificateException {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testSetKeyPairCertificate_failIfNotProfileOwner");
+            return;
+        }
+        try {
+            CertificateFactory cf = CertificateFactory.getInstance("X.509");
+            Certificate cert  = cf.generateCertificate(
+                    new ByteArrayInputStream(TEST_CA_STRING1.getBytes()));
+            List<Certificate> certs = new ArrayList();
+            certs.add(cert);
+            mDevicePolicyManager.setKeyPairCertificate(mComponent, "set-should-fail", certs, true);
+            fail("did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertProfileOwnerMessage(e.getMessage());
+        }
+    }
+
+    public void testNotificationPolicyAccess() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testNotificationPolicyAccess_failIfNotProfileOwner");
+            return;
+        }
+        try {
+            NotificationManager notificationManager =
+                    (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
+
+            assertTrue("Notification policy access was not granted ",
+            mNotificationManager.isNotificationPolicyAccessGranted());
+
+            // Clear out the old policy
+            mNotificationManager.setNotificationPolicy(new Policy(0, 0, 0, -1));
+
+            Policy expected = new Policy(Policy.PRIORITY_CATEGORY_CALLS,
+                    Policy.PRIORITY_SENDERS_STARRED,
+                    Policy.PRIORITY_SENDERS_STARRED,
+                    Policy.SUPPRESSED_EFFECT_STATUS_BAR);
+
+            assertNotEquals(mNotificationManager.getNotificationPolicy(), expected);
+
+            mNotificationManager.setNotificationPolicy(expected);
+            assertEquals(mNotificationManager.getNotificationPolicy(), expected);
+        } catch (SecurityException e) {
+            assertProfileOwnerMessage(e.getMessage());
+        }
+    }
+
+    private void setInterruptionFilter(int interruptionFilter) throws Exception {
+        final CountDownLatch latch = new CountDownLatch(1);
+        final BroadcastReceiver receiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                latch.countDown();
+            }
+        };
+
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED);
+        mContext.registerReceiver(receiver, intentFilter);
+
+        try {
+            mNotificationManager.setInterruptionFilter(interruptionFilter);
+            latch.await(5, TimeUnit.SECONDS);
+            assertEquals(mNotificationManager.getCurrentInterruptionFilter(), interruptionFilter);
+        } finally {
+            mContext.unregisterReceiver(receiver);
+        }
+    }
+
+    public void testSetInterruptionFilter() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testNotificationPolicyAccess_failIfNotProfileOwner");
+            return;
+        }
+
+        try {
+            setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE);
+            setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
+        } catch (Exception tolerated) {
+            assertProfileOwnerMessage(tolerated.getMessage());
         }
     }
 }

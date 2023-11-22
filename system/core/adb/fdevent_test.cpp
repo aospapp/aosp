@@ -26,6 +26,7 @@
 
 #include "adb_io.h"
 #include "fdevent_test.h"
+#include "sysdeps/memory.h"
 
 class FdHandler {
   public:
@@ -99,7 +100,7 @@ static void FdEventThreadFunc(ThreadArg* arg) {
 
     std::vector<std::unique_ptr<FdHandler>> fd_handlers;
     for (size_t i = 0; i < read_fds.size(); ++i) {
-        fd_handlers.push_back(std::unique_ptr<FdHandler>(new FdHandler(read_fds[i], write_fds[i])));
+        fd_handlers.push_back(std::make_unique<FdHandler>(read_fds[i], write_fds[i]));
     }
 
     fdevent_loop();
@@ -180,12 +181,46 @@ TEST_F(FdeventTest, run_on_main_thread) {
     PrepareThread();
     std::thread thread(fdevent_loop);
 
-    for (int i = 0; i < 100; ++i) {
+    // Block the main thread for a long time while we queue our callbacks.
+    fdevent_run_on_main_thread([]() {
+        check_main_thread();
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    });
+
+    for (int i = 0; i < 1000000; ++i) {
         fdevent_run_on_main_thread([i, &vec]() {
             check_main_thread();
             vec.push_back(i);
         });
     }
+
+    TerminateThread(thread);
+
+    ASSERT_EQ(1000000u, vec.size());
+    for (int i = 0; i < 1000000; ++i) {
+        ASSERT_EQ(i, vec[i]);
+    }
+}
+
+static std::function<void()> make_appender(std::vector<int>* vec, int value) {
+    return [vec, value]() {
+        check_main_thread();
+        if (value == 100) {
+            return;
+        }
+
+        vec->push_back(value);
+        fdevent_run_on_main_thread(make_appender(vec, value + 1));
+    };
+}
+
+TEST_F(FdeventTest, run_on_main_thread_reentrant) {
+    std::vector<int> vec;
+
+    PrepareThread();
+    std::thread thread(fdevent_loop);
+
+    fdevent_run_on_main_thread(make_appender(&vec, 0));
 
     TerminateThread(thread);
 

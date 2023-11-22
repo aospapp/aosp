@@ -19,7 +19,6 @@ package com.android.tv.settings.system;
 import android.content.Intent;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.preference.ListPreference;
 import android.support.v7.preference.Preference;
@@ -28,12 +27,17 @@ import android.support.v7.preference.TwoStatePreference;
 import android.text.TextUtils;
 
 import com.android.internal.app.LocalePicker;
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RadioPreference;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.List;
 
-public class CaptionFragment extends LeanbackPreferenceFragment implements
+/**
+ * The "Captions" screen in TV settings.
+ */
+public class CaptionFragment extends SettingsPreferenceFragment implements
         Preference.OnPreferenceChangeListener {
 
     private static final String KEY_CAPTIONS_DISPLAY = "captions_display";
@@ -244,5 +248,10 @@ public class CaptionFragment extends LeanbackPreferenceFragment implements
     private void setCaptionsTextSize(String textSize) {
         Settings.Secure.putFloat(getContext().getContentResolver(),
                 Settings.Secure.ACCESSIBILITY_CAPTIONING_FONT_SCALE, Float.parseFloat(textSize));
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.ACCESSIBILITY_CAPTION_PROPERTIES;
     }
 }

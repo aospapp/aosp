@@ -25,19 +25,6 @@ cc_binary {
     srcs: ["llvm-spirv.cpp"],
 
     target: {
-        linux: {
-            host_ldlibs: [
-                "-lrt",
-                "-ldl",
-                "-lpthread",
-            ],
-        },
-        darwin: {
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
-            ],
-        },
         android: {
             cflags: [
                 "-DNDEBUG=1",
@@ -52,7 +39,7 @@ cc_binary {
     },
 
     shared_libs: [
-        "libLLVM",
+        "libLLVM_android",
         "libSPIRV",
     ],
 

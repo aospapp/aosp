@@ -19,7 +19,7 @@
 
   <uses-sdk
       android:minSdkVersion="23"
-      android:targetSdkVersion="26"/>
+      android:targetSdkVersion="27"/>
 
   <uses-permission android:name="android.permission.CONTROL_INCALL_EXPERIENCE"/>
   <!-- We use this to disable the status bar buttons of home, back and recent
@@ -28,6 +28,9 @@
   reset state of the app. -->
   <uses-permission android:name="android.permission.STATUS_BAR"/>
   <uses-permission android:name="android.permission.CAMERA"/>
+
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+
   <!-- Warning: setting the required boolean to true would prevent installation of Dialer on
        devices which do not support a camera. -->
   <uses-feature
@@ -47,17 +50,21 @@
         android:name="android.telephony.hide_voicemail_settings_menu"
         android:value="true"/>
 
+    <!-- Go variants need hardware acceleration for IMS video calls even though it is disabled at
+    the application level -->
     <activity
         android:directBootAware="true"
         android:excludeFromRecents="true"
         android:exported="false"
+        android:hardwareAccelerated="true"
         android:label="@string/phoneAppLabel"
         android:launchMode="singleInstance"
         android:name="com.android.incallui.InCallActivity"
         android:resizeableActivity="true"
         android:screenOrientation="nosensor"
         android:taskAffinity="com.android.incallui"
-        android:theme="@style/Theme.InCallScreen">
+        android:theme="@style/Theme.InCallScreen"
+        android:windowSoftInputMode="adjustResize">
     </activity>
 
     <activity
@@ -92,21 +99,6 @@
       </intent-filter>
     </service>
 
-    <!--
-       Comments for attributes in SpamNotificationActivity:
-       taskAffinity=""             -> Open the dialog without opening the dialer app behind it
-       noHistory="true"            -> Navigating away finishes activity
-       excludeFromRecents="true"   -> Don't show in "recent apps" screen
-       -->
-    <activity
-        android:excludeFromRecents="true"
-        android:exported="false"
-        android:name="com.android.incallui.spam.SpamNotificationActivity"
-        android:noHistory="true"
-        android:taskAffinity=""
-        android:theme="@style/AfterCallNotificationTheme">
-    </activity>
-
     <activity
         android:excludeFromRecents="true"
         android:exported="false"
@@ -114,10 +106,6 @@
         android:noHistory="true"
         android:theme="@style/Theme.Incall.DialogHolder"
         />
-
-    <service
-        android:exported="false"
-        android:name="com.android.incallui.spam.SpamNotificationService"/>
 
     <!-- BroadcastReceiver for receiving Intents from Notification mechanism. -->
     <receiver
@@ -127,7 +115,7 @@
 
     <receiver
         android:exported="false"
-        android:name=".ReturnToCallActionReceiver"/>
+        android:name=".NewReturnToCallActionReceiver"/>
 
   </application>
 

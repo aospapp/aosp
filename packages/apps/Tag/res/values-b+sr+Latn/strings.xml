@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"Podaci iz NFC oznake"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Kontakt informacije za ^1"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Ova aplikacija mora da pristupi Dozvoli za telefon da bi upućivala pozive. Možete da upravljate Dozvolom za oznake u Podešavanjima"</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Ova aplikacija mora da pristupi dozvoli za spoljnu memoriju da bi pristupala datotekama. Možete da upravljate dozvolom za oznake u Podešavanjima"</string>
 </resources>

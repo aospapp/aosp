@@ -1,6 +1,6 @@
 /*
  * Internal WPA/RSN supplicant state machine definitions
- * Copyright (c) 2004-2015, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2004-2017, Jouni Malinen <j@w1.fi>
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -11,7 +11,6 @@
 
 #include "utils/list.h"
 
-struct wpa_peerkey;
 struct wpa_tdls_peer;
 struct wpa_eapol_key;
 
@@ -57,7 +56,6 @@ struct wpa_sm {
 	int fast_reauth; /* whether EAP fast re-authentication is enabled */
 
 	void *network_ctx;
-	int peerkey_enabled;
 	int allowed_pairwise_cipher; /* bitfield of WPA_CIPHER_* */
 	int proactive_key_caching;
 	int eap_workaround;
@@ -94,9 +92,6 @@ struct wpa_sm {
 	u8 *ap_wpa_ie, *ap_rsn_ie;
 	size_t ap_wpa_ie_len, ap_rsn_ie_len;
 
-#ifdef CONFIG_PEERKEY
-	struct wpa_peerkey *peerkey;
-#endif /* CONFIG_PEERKEY */
 #ifdef CONFIG_TDLS
 	struct wpa_tdls_peer *tdls;
 	int tdls_prohibited;
@@ -154,8 +149,21 @@ struct wpa_sm {
 	size_t fils_key_auth_len;
 	unsigned int fils_completed:1;
 	unsigned int fils_erp_pmkid_set:1;
+	unsigned int fils_cache_id_set:1;
 	u8 fils_erp_pmkid[PMKID_LEN];
+	u8 fils_cache_id[FILS_CACHE_ID_LEN];
+	struct crypto_ecdh *fils_ecdh;
+	int fils_dh_group;
+	size_t fils_dh_elem_len;
+	struct wpabuf *fils_ft_ies;
+	u8 fils_ft[FILS_FT_MAX_LEN];
+	size_t fils_ft_len;
 #endif /* CONFIG_FILS */
+
+#ifdef CONFIG_OWE
+	struct crypto_ecdh *owe_ecdh;
+	u16 owe_group;
+#endif /* CONFIG_OWE */
 };
 
 
@@ -228,17 +236,22 @@ static inline u8 * wpa_sm_alloc_eapol(struct wpa_sm *sm, u8 type,
 }
 
 static inline int wpa_sm_add_pmkid(struct wpa_sm *sm, void *network_ctx,
-				   const u8 *bssid, const u8 *pmkid)
+				   const u8 *bssid, const u8 *pmkid,
+				   const u8 *cache_id, const u8 *pmk,
+				   size_t pmk_len)
 {
 	WPA_ASSERT(sm->ctx->add_pmkid);
-	return sm->ctx->add_pmkid(sm->ctx->ctx, network_ctx, bssid, pmkid);
+	return sm->ctx->add_pmkid(sm->ctx->ctx, network_ctx, bssid, pmkid,
+				  cache_id, pmk, pmk_len);
 }
 
 static inline int wpa_sm_remove_pmkid(struct wpa_sm *sm, void *network_ctx,
-				      const u8 *bssid, const u8 *pmkid)
+				      const u8 *bssid, const u8 *pmkid,
+				      const u8 *cache_id)
 {
 	WPA_ASSERT(sm->ctx->remove_pmkid);
-	return sm->ctx->remove_pmkid(sm->ctx->ctx, network_ctx, bssid, pmkid);
+	return sm->ctx->remove_pmkid(sm->ctx->ctx, network_ctx, bssid, pmkid,
+				     cache_id);
 }
 
 static inline int wpa_sm_mlme_setprotection(struct wpa_sm *sm, const u8 *addr,

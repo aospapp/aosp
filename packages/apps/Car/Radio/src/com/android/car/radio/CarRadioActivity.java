@@ -16,18 +16,19 @@
 
 package com.android.car.radio;
 
+import android.annotation.Nullable;
 import android.content.Intent;
+import android.hardware.radio.ProgramSelector;
 import android.hardware.radio.RadioManager;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.util.Log;
+import android.util.Pair;
 
-import com.android.car.app.CarDrawerActivity;
-import com.android.car.app.CarDrawerAdapter;
-import com.android.car.app.DrawerItemViewHolder;
-import com.android.car.radio.service.RadioStation;
+import androidx.car.drawer.CarDrawerActivity;
+import androidx.car.drawer.CarDrawerAdapter;
+import androidx.car.drawer.DrawerItemViewHolder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,8 +45,7 @@ public class CarRadioActivity extends CarDrawerActivity implements
     private static final String MANUAL_TUNER_BACKSTACK = "MANUAL_TUNER_BACKSTACK";
     private static final String CONTENT_FRAGMENT_TAG = "CONTENT_FRAGMENT_TAG";
 
-    private static final int[] SUPPORTED_RADIO_BANDS = new int[] {
-        RadioManager.BAND_AM, RadioManager.BAND_FM };
+    private static final List<Pair<Integer, String>> SUPPORTED_RADIO_BANDS = new ArrayList<>();
 
     /**
      * Intent action for notifying that the radio state has changed.
@@ -73,7 +73,13 @@ public class CarRadioActivity extends CarDrawerActivity implements
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        SUPPORTED_RADIO_BANDS.add(
+                new Pair<>(RadioManager.BAND_AM, getString(R.string.radio_am_text)));
+        SUPPORTED_RADIO_BANDS.add(
+                new Pair<>(RadioManager.BAND_FM, getString(R.string.radio_fm_text)));
+
         super.onCreate(savedInstanceState);
+        setToolbarElevation(0f);
 
         mRadioController = new RadioController(this);
         setContentFragment(
@@ -121,7 +127,7 @@ public class CarRadioActivity extends CarDrawerActivity implements
     }
 
     @Override
-    public void onStationSelected(RadioStation station) {
+    public void onStationSelected(ProgramSelector sel) {
         maybeDismissManualTuner();
 
         Fragment fragment = getCurrentFragment();
@@ -129,8 +135,8 @@ public class CarRadioActivity extends CarDrawerActivity implements
             ((FragmentWithFade) fragment).fadeInContent();
         }
 
-        if (station != null) {
-            mRadioController.tuneToRadioChannel(station);
+        if (sel != null) {
+            mRadioController.tune(sel);
         }
     }
 
@@ -223,16 +229,14 @@ public class CarRadioActivity extends CarDrawerActivity implements
      */
     private class RadioDrawerAdapter extends CarDrawerAdapter {
         private final List<String> mDrawerOptions =
-                new ArrayList<>(SUPPORTED_RADIO_BANDS.length + 1);
+                new ArrayList<>(SUPPORTED_RADIO_BANDS.size() + 1);
 
         RadioDrawerAdapter() {
             super(CarRadioActivity.this, false /* showDisabledListOnEmpty */);
             setTitle(getString(R.string.app_name));
             // The ordering of options is hardcoded. The click handler below depends on it.
-            for (int band : SUPPORTED_RADIO_BANDS) {
-                String bandText =
-                        RadioChannelFormatter.formatRadioBand(CarRadioActivity.this, band);
-                mDrawerOptions.add(bandText);
+            for (Pair<Integer, String> band : SUPPORTED_RADIO_BANDS) {
+                mDrawerOptions.add(band.second);
             }
             mDrawerOptions.add(getString(R.string.manual_tuner_drawer_entry));
         }
@@ -249,10 +253,10 @@ public class CarRadioActivity extends CarDrawerActivity implements
 
         @Override
         public void onItemClick(int position) {
-            closeDrawer();
-            if (position < SUPPORTED_RADIO_BANDS.length) {
-                mRadioController.openRadioBand(SUPPORTED_RADIO_BANDS[position]);
-            } else if (position == SUPPORTED_RADIO_BANDS.length) {
+            getDrawerController().closeDrawer();
+            if (position < SUPPORTED_RADIO_BANDS.size()) {
+                mRadioController.switchBand(SUPPORTED_RADIO_BANDS.get(position).first);
+            } else if (position == SUPPORTED_RADIO_BANDS.size()) {
                 startManualTuner();
             } else {
                 Log.w(TAG, "Unexpected position: " + position);

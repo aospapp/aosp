@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"Bluetooth-ääni liitetty"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Bluetooth-ääni katkaistu"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth-ääni"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"Yli 4 Gt:n kokoisia tiedostoja ei voi siirtää."</string>
 </resources>

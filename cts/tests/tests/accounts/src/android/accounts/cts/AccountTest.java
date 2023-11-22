@@ -44,6 +44,8 @@ public class AccountTest extends TestCase {
         // and verify it is equivalent to the original account.
         Account newAccount = new Account(parcel);
         assertEquals(account, newAccount);
+
+        parcel.recycle();
     }
 
 }

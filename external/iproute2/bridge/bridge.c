@@ -18,11 +18,11 @@
 
 struct rtnl_handle rth = { .fd = -1 };
 int preferred_family = AF_UNSPEC;
-int resolve_hosts;
 int oneline;
 int show_stats;
 int show_details;
 int compress_vlans;
+int json_output;
 int timestamp;
 char *batch_file;
 int force;
@@ -38,7 +38,7 @@ static void usage(void)
 "where	OBJECT := { link | fdb | mdb | vlan | monitor }\n"
 "	OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] |\n"
 "		     -o[neline] | -t[imestamp] | -n[etns] name |\n"
-"		     -c[ompressvlans] }\n");
+"		     -c[ompressvlans] -j{son} }\n");
 	exit(-1);
 }
 
@@ -173,6 +173,8 @@ main(int argc, char **argv)
 			++compress_vlans;
 		} else if (matches(opt, "-force") == 0) {
 			++force;
+		} else if (matches(opt, "-json") == 0) {
+			++json_output;
 		} else if (matches(opt, "-batch") == 0) {
 			argc--;
 			argv++;

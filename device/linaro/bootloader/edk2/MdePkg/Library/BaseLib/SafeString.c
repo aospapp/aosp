@@ -1,7 +1,7 @@
 /** @file
   Safe String functions.
 
-  Copyright (c) 2014, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2014 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -106,6 +106,8 @@ InternalSafeStringNoAsciiStrOverlap (
 /**
   Returns the length of a Null-terminated Unicode string.
 
+  This function is similar as strlen_s defined in C11.
+
   If String is not aligned on a 16-bit boundary, then ASSERT().
 
   @param  String   A pointer to a Null-terminated Unicode string.
@@ -141,8 +143,12 @@ StrnLenS (
   // String then StrnLenS returns MaxSize. At most the first MaxSize characters of String shall
   // be accessed by StrnLenS.
   //
-  for (Length = 0; (Length < MaxSize) && (*String != 0); String++, Length++) {
-    ;
+  Length = 0;
+  while (String[Length] != 0) {
+    if (Length >= MaxSize - 1) {
+      return MaxSize;
+    }
+    Length++;
   }
   return Length;
 }
@@ -151,9 +157,13 @@ StrnLenS (
   Copies the string pointed to by Source (including the terminating null char)
   to the array pointed to by Destination.
 
+  This function is similar as strcpy_s defined in C11.
+
   If Destination is not aligned on a 16-bit boundary, then ASSERT().
   If Source is not aligned on a 16-bit boundary, then ASSERT().
   If an error would be returned, then the function will also ASSERT().
+
+  If an error is returned, then the Destination is unmodified.
 
   @param  Destination              A pointer to a Null-terminated Unicode string.
   @param  DestMax                  The maximum number of Destination Unicode
@@ -229,9 +239,13 @@ StrCpyS (
   Source to the array pointed to by Destination. If no null char is copied from
   Source, then Destination[Length] is always set to null.
 
+  This function is similar as strncpy_s defined in C11.
+
   If Length > 0 and Destination is not aligned on a 16-bit boundary, then ASSERT().
   If Length > 0 and Source is not aligned on a 16-bit boundary, then ASSERT().
   If an error would be returned, then the function will also ASSERT().
+
+  If an error is returned, then the Destination is unmodified.
 
   @param  Destination              A pointer to a Null-terminated Unicode string.
   @param  DestMax                  The maximum number of Destination Unicode
@@ -318,9 +332,13 @@ StrnCpyS (
   Appends a copy of the string pointed to by Source (including the terminating
   null char) to the end of the string pointed to by Destination.
 
+  This function is similar as strcat_s defined in C11.
+
   If Destination is not aligned on a 16-bit boundary, then ASSERT().
   If Source is not aligned on a 16-bit boundary, then ASSERT().
   If an error would be returned, then the function will also ASSERT().
+
+  If an error is returned, then the Destination is unmodified.
 
   @param  Destination              A pointer to a Null-terminated Unicode string.
   @param  DestMax                  The maximum number of Destination Unicode
@@ -415,9 +433,13 @@ StrCatS (
   copied from Source, then Destination[StrLen(Destination) + Length] is always
   set to null.
 
+  This function is similar as strncat_s defined in C11.
+
   If Destination is not aligned on a 16-bit boundary, then ASSERT().
   If Source is not aligned on a 16-bit boundary, then ASSERT().
   If an error would be returned, then the function will also ASSERT().
+
+  If an error is returned, then the Destination is unmodified.
 
   @param  Destination              A pointer to a Null-terminated Unicode string.
   @param  DestMax                  The maximum number of Destination Unicode
@@ -520,6 +542,8 @@ StrnCatS (
 /**
   Returns the length of a Null-terminated Ascii string.
 
+  This function is similar as strlen_s defined in C11.
+
   @param  String   A pointer to a Null-terminated Ascii string.
   @param  MaxSize  The maximum number of Destination Ascii
                    char, including terminating null char.
@@ -551,8 +575,12 @@ AsciiStrnLenS (
   // String then AsciiStrnLenS returns MaxSize. At most the first MaxSize characters of String shall
   // be accessed by AsciiStrnLenS.
   //
-  for (Length = 0; (Length < MaxSize) && (*String != 0); String++, Length++) {
-    ;
+  Length = 0;
+  while (String[Length] != 0) {
+    if (Length >= MaxSize - 1) {
+      return MaxSize;
+    }
+    Length++;
   }
   return Length;
 }
@@ -561,7 +589,11 @@ AsciiStrnLenS (
   Copies the string pointed to by Source (including the terminating null char)
   to the array pointed to by Destination.
 
+  This function is similar as strcpy_s defined in C11.
+
   If an error would be returned, then the function will also ASSERT().
+
+  If an error is returned, then the Destination is unmodified.
 
   @param  Destination              A pointer to a Null-terminated Ascii string.
   @param  DestMax                  The maximum number of Destination Ascii
@@ -634,7 +666,11 @@ AsciiStrCpyS (
   Source to the array pointed to by Destination. If no null char is copied from
   Source, then Destination[Length] is always set to null.
 
+  This function is similar as strncpy_s defined in C11.
+
   If an error would be returned, then the function will also ASSERT().
+
+  If an error is returned, then the Destination is unmodified.
 
   @param  Destination              A pointer to a Null-terminated Ascii string.
   @param  DestMax                  The maximum number of Destination Ascii
@@ -718,7 +754,11 @@ AsciiStrnCpyS (
   Appends a copy of the string pointed to by Source (including the terminating
   null char) to the end of the string pointed to by Destination.
 
+  This function is similar as strcat_s defined in C11.
+
   If an error would be returned, then the function will also ASSERT().
+
+  If an error is returned, then the Destination is unmodified.
 
   @param  Destination              A pointer to a Null-terminated Ascii string.
   @param  DestMax                  The maximum number of Destination Ascii
@@ -810,7 +850,11 @@ AsciiStrCatS (
   copied from Source, then Destination[StrLen(Destination) + Length] is always
   set to null.
 
+  This function is similar as strncat_s defined in C11.
+
   If an error would be returned, then the function will also ASSERT().
+
+  If an error is returned, then the Destination is unmodified.
 
   @param  Destination              A pointer to a Null-terminated Ascii string.
   @param  DestMax                  The maximum number of Destination Ascii
@@ -903,6 +947,200 @@ AsciiStrnCatS (
     SourceLen--;
   }
   *Destination = 0;
+
+  return RETURN_SUCCESS;
+}
+
+/**
+  Convert a Null-terminated Unicode string to a Null-terminated
+  ASCII string.
+
+  This function is similar to AsciiStrCpyS.
+
+  This function converts the content of the Unicode string Source
+  to the ASCII string Destination by copying the lower 8 bits of
+  each Unicode character. The function terminates the ASCII string
+  Destination by appending a Null-terminator character at the end.
+
+  The caller is responsible to make sure Destination points to a buffer with size
+  equal or greater than ((StrLen (Source) + 1) * sizeof (CHAR8)) in bytes.
+
+  If any Unicode characters in Source contain non-zero value in
+  the upper 8 bits, then ASSERT().
+
+  If Source is not aligned on a 16-bit boundary, then ASSERT().
+  If an error would be returned, then the function will also ASSERT().
+
+  If an error is returned, then the Destination is unmodified.
+
+  @param  Source        The pointer to a Null-terminated Unicode string.
+  @param  Destination   The pointer to a Null-terminated ASCII string.
+  @param  DestMax       The maximum number of Destination Ascii
+                        char, including terminating null char.
+
+  @retval RETURN_SUCCESS           String is converted.
+  @retval RETURN_BUFFER_TOO_SMALL  If DestMax is NOT greater than StrLen(Source).
+  @retval RETURN_INVALID_PARAMETER If Destination is NULL.
+                                   If Source is NULL.
+                                   If PcdMaximumAsciiStringLength is not zero,
+                                    and DestMax is greater than
+                                    PcdMaximumAsciiStringLength.
+                                   If PcdMaximumUnicodeStringLength is not zero,
+                                    and DestMax is greater than
+                                    PcdMaximumUnicodeStringLength.
+                                   If DestMax is 0.
+  @retval RETURN_ACCESS_DENIED     If Source and Destination overlap.
+
+**/
+RETURN_STATUS
+EFIAPI
+UnicodeStrToAsciiStrS (
+  IN      CONST CHAR16              *Source,
+  OUT     CHAR8                     *Destination,
+  IN      UINTN                     DestMax
+  )
+{
+  UINTN            SourceLen;
+
+  ASSERT (((UINTN) Source & BIT0) == 0);
+
+  //
+  // 1. Neither Destination nor Source shall be a null pointer.
+  //
+  SAFE_STRING_CONSTRAINT_CHECK ((Destination != NULL), RETURN_INVALID_PARAMETER);
+  SAFE_STRING_CONSTRAINT_CHECK ((Source != NULL), RETURN_INVALID_PARAMETER);
+
+  //
+  // 2. DestMax shall not be greater than ASCII_RSIZE_MAX or RSIZE_MAX.
+  //
+  if (ASCII_RSIZE_MAX != 0) {
+    SAFE_STRING_CONSTRAINT_CHECK ((DestMax <= ASCII_RSIZE_MAX), RETURN_INVALID_PARAMETER);
+  }
+  if (RSIZE_MAX != 0) {
+    SAFE_STRING_CONSTRAINT_CHECK ((DestMax <= RSIZE_MAX), RETURN_INVALID_PARAMETER);
+  }
+
+  //
+  // 3. DestMax shall not equal zero.
+  //
+  SAFE_STRING_CONSTRAINT_CHECK ((DestMax != 0), RETURN_INVALID_PARAMETER);
+
+  //
+  // 4. DestMax shall be greater than StrnLenS (Source, DestMax).
+  //
+  SourceLen = StrnLenS (Source, DestMax);
+  SAFE_STRING_CONSTRAINT_CHECK ((DestMax > SourceLen), RETURN_BUFFER_TOO_SMALL);
+
+  //
+  // 5. Copying shall not take place between objects that overlap.
+  //
+  SAFE_STRING_CONSTRAINT_CHECK (!InternalSafeStringIsOverlap (Destination, DestMax, (VOID *)Source, (SourceLen + 1) * sizeof(CHAR16)), RETURN_ACCESS_DENIED);
+
+  //
+  // convert string
+  //
+  while (*Source != '\0') {
+    //
+    // If any Unicode characters in Source contain
+    // non-zero value in the upper 8 bits, then ASSERT().
+    //
+    ASSERT (*Source < 0x100);
+    *(Destination++) = (CHAR8) *(Source++);
+  }
+  *Destination = '\0';
+
+  return RETURN_SUCCESS;
+}
+
+
+/**
+  Convert one Null-terminated ASCII string to a Null-terminated
+  Unicode string.
+
+  This function is similar to StrCpyS.
+
+  This function converts the contents of the ASCII string Source to the Unicode
+  string Destination. The function terminates the Unicode string Destination by
+  appending a Null-terminator character at the end.
+
+  The caller is responsible to make sure Destination points to a buffer with size
+  equal or greater than ((AsciiStrLen (Source) + 1) * sizeof (CHAR16)) in bytes.
+
+  If Destination is not aligned on a 16-bit boundary, then ASSERT().
+  If an error would be returned, then the function will also ASSERT().
+
+  If an error is returned, then the Destination is unmodified.
+
+  @param  Source        The pointer to a Null-terminated ASCII string.
+  @param  Destination   The pointer to a Null-terminated Unicode string.
+  @param  DestMax       The maximum number of Destination Unicode
+                        char, including terminating null char.
+
+  @retval RETURN_SUCCESS           String is converted.
+  @retval RETURN_BUFFER_TOO_SMALL  If DestMax is NOT greater than StrLen(Source).
+  @retval RETURN_INVALID_PARAMETER If Destination is NULL.
+                                   If Source is NULL.
+                                   If PcdMaximumUnicodeStringLength is not zero,
+                                    and DestMax is greater than
+                                    PcdMaximumUnicodeStringLength.
+                                   If PcdMaximumAsciiStringLength is not zero,
+                                    and DestMax is greater than
+                                    PcdMaximumAsciiStringLength.
+                                   If DestMax is 0.
+  @retval RETURN_ACCESS_DENIED     If Source and Destination overlap.
+
+**/
+RETURN_STATUS
+EFIAPI
+AsciiStrToUnicodeStrS (
+  IN      CONST CHAR8               *Source,
+  OUT     CHAR16                    *Destination,
+  IN      UINTN                     DestMax
+  )
+{
+  UINTN            SourceLen;
+
+  ASSERT (((UINTN) Destination & BIT0) == 0);
+
+  //
+  // 1. Neither Destination nor Source shall be a null pointer.
+  //
+  SAFE_STRING_CONSTRAINT_CHECK ((Destination != NULL), RETURN_INVALID_PARAMETER);
+  SAFE_STRING_CONSTRAINT_CHECK ((Source != NULL), RETURN_INVALID_PARAMETER);
+
+  //
+  // 2. DestMax shall not be greater than RSIZE_MAX or ASCII_RSIZE_MAX.
+  //
+  if (RSIZE_MAX != 0) {
+    SAFE_STRING_CONSTRAINT_CHECK ((DestMax <= RSIZE_MAX), RETURN_INVALID_PARAMETER);
+  }
+  if (ASCII_RSIZE_MAX != 0) {
+    SAFE_STRING_CONSTRAINT_CHECK ((DestMax <= ASCII_RSIZE_MAX), RETURN_INVALID_PARAMETER);
+  }
+
+  //
+  // 3. DestMax shall not equal zero.
+  //
+  SAFE_STRING_CONSTRAINT_CHECK ((DestMax != 0), RETURN_INVALID_PARAMETER);
+
+  //
+  // 4. DestMax shall be greater than AsciiStrnLenS(Source, DestMax).
+  //
+  SourceLen = AsciiStrnLenS (Source, DestMax);
+  SAFE_STRING_CONSTRAINT_CHECK ((DestMax > SourceLen), RETURN_BUFFER_TOO_SMALL);
+
+  //
+  // 5. Copying shall not take place between objects that overlap.
+  //
+  SAFE_STRING_CONSTRAINT_CHECK (!InternalSafeStringIsOverlap (Destination, DestMax * sizeof(CHAR16), (VOID *)Source, SourceLen + 1), RETURN_ACCESS_DENIED);
+
+  //
+  // Convert string
+  //
+  while (*Source != '\0') {
+    *(Destination++) = (CHAR16)*(Source++);
+  }
+  *Destination = '\0';
 
   return RETURN_SUCCESS;
 }

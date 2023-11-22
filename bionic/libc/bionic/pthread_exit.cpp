@@ -33,6 +33,8 @@
 #include <string.h>
 #include <sys/mman.h>
 
+#include "private/bionic_defs.h"
+#include "private/ScopedSignalBlocker.h"
 #include "pthread_internal.h"
 
 extern "C" __noreturn void _exit_with_stack_teardown(void*, size_t);
@@ -44,6 +46,7 @@ extern "C" void __cxa_thread_finalize();
  *         and thread cancelation
  */
 
+__BIONIC_WEAK_FOR_NATIVE_BRIDGE
 void __pthread_cleanup_push(__pthread_cleanup_t* c, __pthread_cleanup_func_t routine, void* arg) {
   pthread_internal_t* thread = __get_thread();
   c->__cleanup_routine = routine;
@@ -52,6 +55,7 @@ void __pthread_cleanup_push(__pthread_cleanup_t* c, __pthread_cleanup_func_t rou
   thread->cleanup_stack = c;
 }
 
+__BIONIC_WEAK_FOR_NATIVE_BRIDGE
 void __pthread_cleanup_pop(__pthread_cleanup_t* c, int execute) {
   pthread_internal_t* thread = __get_thread();
   thread->cleanup_stack = c->__cleanup_prev;
@@ -60,6 +64,13 @@ void __pthread_cleanup_pop(__pthread_cleanup_t* c, int execute) {
   }
 }
 
+static void __pthread_unmap_tls(pthread_internal_t* thread) {
+  // Unmap the bionic TLS, including guard pages.
+  void* allocation = reinterpret_cast<char*>(thread->bionic_tls) - PTHREAD_GUARD_SIZE;
+  munmap(allocation, BIONIC_TLS_SIZE + 2 * PTHREAD_GUARD_SIZE);
+}
+
+__BIONIC_WEAK_FOR_NATIVE_BRIDGE
 void pthread_exit(void* return_value) {
   // Call dtors for thread_local objects first.
   __cxa_thread_finalize();
@@ -92,10 +103,6 @@ void pthread_exit(void* return_value) {
     thread->alternate_signal_stack = NULL;
   }
 
-  // Unmap the bionic TLS, including guard pages.
-  void* allocation = reinterpret_cast<char*>(thread->bionic_tls) - PAGE_SIZE;
-  munmap(allocation, BIONIC_TLS_SIZE + 2 * PAGE_SIZE);
-
   ThreadJoinState old_state = THREAD_NOT_JOINED;
   while (old_state == THREAD_NOT_JOINED &&
          !atomic_compare_exchange_weak(&thread->join_state, &old_state, THREAD_EXITED_NOT_JOINED)) {
@@ -116,16 +123,15 @@ void pthread_exit(void* return_value) {
       // That's not something we can do in C.
 
       // We don't want to take a signal after we've unmapped the stack.
-      // That's one last thing we can handle in C.
-      sigset_t mask;
-      sigfillset(&mask);
-      sigprocmask(SIG_SETMASK, &mask, NULL);
-
+      // That's one last thing we can do before dropping to assembler.
+      ScopedSignalBlocker ssb;
+      __pthread_unmap_tls(thread);
       _exit_with_stack_teardown(thread->attr.stack_base, thread->mmap_size);
     }
   }
 
   // No need to free mapped space. Either there was no space mapped, or it is left for
   // the pthread_join caller to clean up.
+  __pthread_unmap_tls(thread);
   __exit(0);
 }

@@ -105,7 +105,7 @@ void SendEventTest::completeCallback(uint16_t eventType, void *data) {
   if (expectedCallbackIndex != kCallbackIndex) {
     sendFatalFailureToHost("Incorrect callback function called.");
   }
-  uint8_t mask = 1 << num;
+  uint8_t mask = static_cast<uint8_t>(1 << num);
   if ((sCallbacksInvoked & mask) != 0) {
     sendFatalFailureToHost("Complete callback invoked multiple times for ",
                            &num);

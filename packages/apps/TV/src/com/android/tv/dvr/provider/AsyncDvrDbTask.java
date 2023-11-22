@@ -20,27 +20,23 @@ import android.content.Context;
 import android.database.Cursor;
 import android.os.AsyncTask;
 import android.support.annotation.Nullable;
-
+import com.android.tv.common.concurrent.NamedThreadFactory;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.provider.DvrContract.Schedules;
 import com.android.tv.dvr.provider.DvrContract.SeriesRecordings;
-import com.android.tv.util.NamedThreadFactory;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * {@link AsyncTask} that defaults to executing on its own single threaded Executor Service.
- */
+/** {@link AsyncTask} that defaults to executing on its own single threaded Executor Service. */
 public abstract class AsyncDvrDbTask<Params, Progress, Result>
         extends AsyncTask<Params, Progress, Result> {
-    private static final NamedThreadFactory THREAD_FACTORY = new NamedThreadFactory(
-            AsyncDvrDbTask.class.getSimpleName());
-    private static final ExecutorService DB_EXECUTOR = Executors
-            .newSingleThreadExecutor(THREAD_FACTORY);
+    private static final NamedThreadFactory THREAD_FACTORY =
+            new NamedThreadFactory(AsyncDvrDbTask.class.getSimpleName());
+    private static final ExecutorService DB_EXECUTOR =
+            Executors.newSingleThreadExecutor(THREAD_FACTORY);
 
     private static DvrDatabaseHelper sDbHelper;
 
@@ -57,9 +53,7 @@ public abstract class AsyncDvrDbTask<Params, Progress, Result>
         mContext = context;
     }
 
-    /**
-     * Execute the task on the {@link #DB_EXECUTOR} thread.
-     */
+    /** Execute the task on the {@link #DB_EXECUTOR} thread. */
     @SafeVarargs
     public final void executeOnDbThread(Params... params) {
         executeOnExecutor(DB_EXECUTOR, params);
@@ -71,15 +65,11 @@ public abstract class AsyncDvrDbTask<Params, Progress, Result>
         return doInDvrBackground(params);
     }
 
-    /**
-     * Executes in the background after {@link #initializeDbHelper(Context)}
-     */
+    /** Executes in the background after {@link #initializeDbHelper(Context)} */
     @Nullable
     protected abstract Result doInDvrBackground(Params... params);
 
-     /**
-     * Inserts schedules.
-     */
+    /** Inserts schedules. */
     public static class AsyncAddScheduleTask
             extends AsyncDvrDbTask<ScheduledRecording, Void, Void> {
         public AsyncAddScheduleTask(Context context) {
@@ -93,9 +83,7 @@ public abstract class AsyncDvrDbTask<Params, Progress, Result>
         }
     }
 
-    /**
-     * Update schedules.
-     */
+    /** Update schedules. */
     public static class AsyncUpdateScheduleTask
             extends AsyncDvrDbTask<ScheduledRecording, Void, Void> {
         public AsyncUpdateScheduleTask(Context context) {
@@ -109,9 +97,7 @@ public abstract class AsyncDvrDbTask<Params, Progress, Result>
         }
     }
 
-    /**
-     * Delete schedules.
-     */
+    /** Delete schedules. */
     public static class AsyncDeleteScheduleTask
             extends AsyncDvrDbTask<ScheduledRecording, Void, Void> {
         public AsyncDeleteScheduleTask(Context context) {
@@ -125,9 +111,7 @@ public abstract class AsyncDvrDbTask<Params, Progress, Result>
         }
     }
 
-    /**
-     * Returns all {@link ScheduledRecording}s.
-     */
+    /** Returns all {@link ScheduledRecording}s. */
     public abstract static class AsyncDvrQueryScheduleTask
             extends AsyncDvrDbTask<Void, Void, List<ScheduledRecording>> {
         public AsyncDvrQueryScheduleTask(Context context) {
@@ -150,9 +134,7 @@ public abstract class AsyncDvrDbTask<Params, Progress, Result>
         }
     }
 
-    /**
-     * Inserts series recordings.
-     */
+    /** Inserts series recordings. */
     public static class AsyncAddSeriesRecordingTask
             extends AsyncDvrDbTask<SeriesRecording, Void, Void> {
         public AsyncAddSeriesRecordingTask(Context context) {
@@ -166,9 +148,7 @@ public abstract class AsyncDvrDbTask<Params, Progress, Result>
         }
     }
 
-    /**
-     * Update series recordings.
-     */
+    /** Update series recordings. */
     public static class AsyncUpdateSeriesRecordingTask
             extends AsyncDvrDbTask<SeriesRecording, Void, Void> {
         public AsyncUpdateSeriesRecordingTask(Context context) {
@@ -182,9 +162,7 @@ public abstract class AsyncDvrDbTask<Params, Progress, Result>
         }
     }
 
-    /**
-     * Delete series recordings.
-     */
+    /** Delete series recordings. */
     public static class AsyncDeleteSeriesRecordingTask
             extends AsyncDvrDbTask<SeriesRecording, Void, Void> {
         public AsyncDeleteSeriesRecordingTask(Context context) {
@@ -198,9 +176,7 @@ public abstract class AsyncDvrDbTask<Params, Progress, Result>
         }
     }
 
-    /**
-     * Returns all {@link SeriesRecording}s.
-     */
+    /** Returns all {@link SeriesRecording}s. */
     public abstract static class AsyncDvrQuerySeriesRecordingTask
             extends AsyncDvrDbTask<Void, Void, List<SeriesRecording>> {
         public AsyncDvrQuerySeriesRecordingTask(Context context) {
@@ -214,8 +190,8 @@ public abstract class AsyncDvrDbTask<Params, Progress, Result>
                 return null;
             }
             List<SeriesRecording> scheduledRecordings = new ArrayList<>();
-            try (Cursor c = sDbHelper.query(SeriesRecordings.TABLE_NAME,
-                    SeriesRecording.PROJECTION)) {
+            try (Cursor c =
+                    sDbHelper.query(SeriesRecordings.TABLE_NAME, SeriesRecording.PROJECTION)) {
                 while (c.moveToNext() && !isCancelled()) {
                     scheduledRecordings.add(SeriesRecording.fromCursor(c));
                 }

@@ -357,7 +357,7 @@ class EnergyModel(object):
 
         max_cap = max(n.max_capacity for n in self.cpu_nodes)
         if max_cap != self.capacity_scale:
-            self._log.warning(
+            self._log.debug(
                 'Unusual max capacity (%s), overriding capacity_scale', max_cap)
             self.capacity_scale = max_cap
 
@@ -861,7 +861,7 @@ class EnergyModel(object):
         remaining_cpus = set(cpus)
         while remaining_cpus:
             cpu = next(iter(remaining_cpus))
-            dom = target.cpufreq.get_domain_cpus(cpu)
+            dom = target.cpufreq.get_related_cpus(cpu)
             freq_domains.append(dom)
             remaining_cpus = remaining_cpus.difference(dom)
 

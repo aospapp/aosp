@@ -117,9 +117,19 @@ int wpa_supplicant_enabled_networks(struct wpa_supplicant *wpa_s)
 static void wpa_supplicant_assoc_try(struct wpa_supplicant *wpa_s,
 				     struct wpa_ssid *ssid)
 {
+	int min_temp_disabled = 0;
+
 	while (ssid) {
-		if (!wpas_network_disabled(wpa_s, ssid))
-			break;
+		if (!wpas_network_disabled(wpa_s, ssid)) {
+			int temp_disabled = wpas_temp_disabled(wpa_s, ssid);
+
+			if (temp_disabled <= 0)
+				break;
+
+			if (!min_temp_disabled ||
+			    temp_disabled < min_temp_disabled)
+				min_temp_disabled = temp_disabled;
+		}
 		ssid = ssid->next;
 	}
 
@@ -128,7 +138,7 @@ static void wpa_supplicant_assoc_try(struct wpa_supplicant *wpa_s,
 		wpa_dbg(wpa_s, MSG_DEBUG, "wpa_supplicant_assoc_try: Reached "
 			"end of scan list - go back to beginning");
 		wpa_s->prev_scan_ssid = WILDCARD_SSID_SCAN;
-		wpa_supplicant_req_scan(wpa_s, 0, 0);
+		wpa_supplicant_req_scan(wpa_s, min_temp_disabled, 0);
 		return;
 	}
 	if (ssid->next) {
@@ -190,7 +200,8 @@ static void wpas_trigger_scan_cb(struct wpa_radio_work *work, int deinit)
 	wpa_scan_free_params(params);
 	work->ctx = NULL;
 	if (ret) {
-		int retry = wpa_s->last_scan_req != MANUAL_SCAN_REQ;
+		int retry = wpa_s->last_scan_req != MANUAL_SCAN_REQ &&
+			!wpa_s->beacon_rep_data.token;
 
 		if (wpa_s->disconnected)
 			retry = 0;
@@ -208,7 +219,14 @@ static void wpas_trigger_scan_cb(struct wpa_radio_work *work, int deinit)
 			/* Restore scan_req since we will try to scan again */
 			wpa_s->scan_req = wpa_s->last_scan_req;
 			wpa_supplicant_req_scan(wpa_s, 1, 0);
+		} else if (wpa_s->scan_res_handler) {
+			/* Clear the scan_res_handler */
+			wpa_s->scan_res_handler = NULL;
 		}
+
+		if (wpa_s->beacon_rep_data.token)
+			wpas_rrm_refuse_request(wpa_s);
+
 		return;
 	}
 
@@ -458,8 +476,8 @@ void wpa_supplicant_set_default_scan_ies(struct wpa_supplicant *wpa_s)
 		wpabuf_put_data(default_ies, ext_capab, ext_capab_len);
 
 #ifdef CONFIG_MBO
-	/* Send cellular capabilities for potential MBO STAs */
-	if (wpabuf_resize(&default_ies, 9) == 0)
+	/* Send MBO and OCE capabilities */
+	if (wpabuf_resize(&default_ies, 12) == 0)
 		wpas_mbo_scan_ie(wpa_s, default_ies);
 #endif /* CONFIG_MBO */
 
@@ -540,8 +558,8 @@ static struct wpabuf * wpa_supplicant_extra_ies(struct wpa_supplicant *wpa_s)
 #endif /* CONFIG_FST */
 
 #ifdef CONFIG_MBO
-	/* Send cellular capabilities for potential MBO STAs */
-	if (wpabuf_resize(&extra_ie, 9) == 0)
+	/* Send MBO and OCE capabilities */
+	if (wpabuf_resize(&extra_ie, 12) == 0)
 		wpas_mbo_scan_ie(wpa_s, extra_ie);
 #endif /* CONFIG_MBO */
 
@@ -1016,6 +1034,13 @@ ssid_list_set:
 		wpa_dbg(wpa_s, MSG_DEBUG, "Limit manual scan to specified channels");
 		params.freqs = wpa_s->manual_scan_freqs;
 		wpa_s->manual_scan_freqs = NULL;
+	}
+
+	if (params.freqs == NULL && wpa_s->select_network_scan_freqs) {
+		wpa_dbg(wpa_s, MSG_DEBUG,
+			"Limit select_network scan to specified channels");
+		params.freqs = wpa_s->select_network_scan_freqs;
+		wpa_s->select_network_scan_freqs = NULL;
 	}
 
 	if (params.freqs == NULL && wpa_s->next_scan_freqs) {
@@ -1502,13 +1527,18 @@ scan:
 		params.sched_scan_plans_num = 1;
 	}
 
+	params.sched_scan_start_delay = wpa_s->conf->sched_scan_start_delay;
+
 	if (ssid || !wpa_s->first_sched_scan) {
 		wpa_dbg(wpa_s, MSG_DEBUG,
-			"Starting sched scan: interval %u timeout %d",
+			"Starting sched scan after %u seconds: interval %u timeout %d",
+			params.sched_scan_start_delay,
 			params.sched_scan_plans[0].interval,
 			wpa_s->sched_scan_timeout);
 	} else {
-		wpa_dbg(wpa_s, MSG_DEBUG, "Starting sched scan (no timeout)");
+		wpa_dbg(wpa_s, MSG_DEBUG,
+			"Starting sched scan after %u seconds (no timeout)",
+			params.sched_scan_start_delay);
 	}
 
 	wpa_setband_scan_freqs(wpa_s, scan_params);
@@ -2331,11 +2361,10 @@ wpa_scan_clone_params(const struct wpa_driver_scan_params *src)
 
 	for (i = 0; i < src->num_ssids; i++) {
 		if (src->ssids[i].ssid) {
-			n = os_malloc(src->ssids[i].ssid_len);
+			n = os_memdup(src->ssids[i].ssid,
+				      src->ssids[i].ssid_len);
 			if (n == NULL)
 				goto failed;
-			os_memcpy(n, src->ssids[i].ssid,
-				  src->ssids[i].ssid_len);
 			params->ssids[i].ssid = n;
 			params->ssids[i].ssid_len = src->ssids[i].ssid_len;
 		}
@@ -2343,30 +2372,26 @@ wpa_scan_clone_params(const struct wpa_driver_scan_params *src)
 	params->num_ssids = src->num_ssids;
 
 	if (src->extra_ies) {
-		n = os_malloc(src->extra_ies_len);
+		n = os_memdup(src->extra_ies, src->extra_ies_len);
 		if (n == NULL)
 			goto failed;
-		os_memcpy(n, src->extra_ies, src->extra_ies_len);
 		params->extra_ies = n;
 		params->extra_ies_len = src->extra_ies_len;
 	}
 
 	if (src->freqs) {
 		int len = int_array_len(src->freqs);
-		params->freqs = os_malloc((len + 1) * sizeof(int));
+		params->freqs = os_memdup(src->freqs, (len + 1) * sizeof(int));
 		if (params->freqs == NULL)
 			goto failed;
-		os_memcpy(params->freqs, src->freqs, (len + 1) * sizeof(int));
 	}
 
 	if (src->filter_ssids) {
-		params->filter_ssids = os_malloc(sizeof(*params->filter_ssids) *
+		params->filter_ssids = os_memdup(src->filter_ssids,
+						 sizeof(*params->filter_ssids) *
 						 src->num_filter_ssids);
 		if (params->filter_ssids == NULL)
 			goto failed;
-		os_memcpy(params->filter_ssids, src->filter_ssids,
-			  sizeof(*params->filter_ssids) *
-			  src->num_filter_ssids);
 		params->num_filter_ssids = src->num_filter_ssids;
 	}
 
@@ -2379,14 +2404,12 @@ wpa_scan_clone_params(const struct wpa_driver_scan_params *src)
 
 	if (src->sched_scan_plans_num > 0) {
 		params->sched_scan_plans =
-			os_malloc(sizeof(*src->sched_scan_plans) *
+			os_memdup(src->sched_scan_plans,
+				  sizeof(*src->sched_scan_plans) *
 				  src->sched_scan_plans_num);
 		if (!params->sched_scan_plans)
 			goto failed;
 
-		os_memcpy(params->sched_scan_plans, src->sched_scan_plans,
-			  sizeof(*src->sched_scan_plans) *
-			  src->sched_scan_plans_num);
 		params->sched_scan_plans_num = src->sched_scan_plans_num;
 	}
 
@@ -2411,10 +2434,9 @@ wpa_scan_clone_params(const struct wpa_driver_scan_params *src)
 	if (src->bssid) {
 		u8 *bssid;
 
-		bssid = os_malloc(ETH_ALEN);
+		bssid = os_memdup(src->bssid, ETH_ALEN);
 		if (!bssid)
 			goto failed;
-		os_memcpy(bssid, src->bssid, ETH_ALEN);
 		params->bssid = bssid;
 	}
 
@@ -2585,6 +2607,8 @@ int wpas_start_pno(struct wpa_supplicant *wpa_s)
 		params.sched_scan_plans = &scan_plan;
 		params.sched_scan_plans_num = 1;
 	}
+
+	params.sched_scan_start_delay = wpa_s->conf->sched_scan_start_delay;
 
 	if (params.freqs == NULL && wpa_s->manual_sched_scan_freqs) {
 		wpa_dbg(wpa_s, MSG_DEBUG, "Limit sched scan to specified channels");

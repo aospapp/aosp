@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2016 Broadcom Corporation
+ *  Copyright 2003-2016 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@
 #include "avrc_api.h"
 #include "avrc_int.h"
 #include "bt_common.h"
+
+using bluetooth::Uuid;
 
 /*****************************************************************************
  *  Global data
@@ -59,7 +61,7 @@ static void avrc_sdp_cback(uint16_t status) {
   avrc_cb.service_uuid = 0;
 
   /* return info from sdp record in app callback function */
-  (*avrc_cb.p_cback)(status);
+  avrc_cb.find_cback.Run(status);
 
   return;
 }
@@ -105,14 +107,13 @@ static void avrc_sdp_cback(uint16_t status) {
  *****************************************************************************/
 uint16_t AVRC_FindService(uint16_t service_uuid, const RawAddress& bd_addr,
                           tAVRC_SDP_DB_PARAMS* p_db,
-                          tAVRC_FIND_CBACK* p_cback) {
-  tSDP_UUID uuid_list;
+                          const tAVRC_FIND_CBACK& find_cback) {
   bool result = true;
 
   AVRC_TRACE_API("%s uuid: %x", __func__, service_uuid);
   if ((service_uuid != UUID_SERVCLASS_AV_REM_CTRL_TARGET &&
        service_uuid != UUID_SERVCLASS_AV_REMOTE_CONTROL) ||
-      p_db == NULL || p_db->p_db == NULL || p_cback == NULL)
+      p_db == NULL || p_db->p_db == NULL || find_cback.is_null())
     return AVRC_BAD_PARAM;
 
   /* check if it is busy */
@@ -120,23 +121,21 @@ uint16_t AVRC_FindService(uint16_t service_uuid, const RawAddress& bd_addr,
       avrc_cb.service_uuid == UUID_SERVCLASS_AV_REMOTE_CONTROL)
     return AVRC_NO_RESOURCES;
 
-  /* set up discovery database */
-  uuid_list.len = LEN_UUID_16;
-  uuid_list.uu.uuid16 = service_uuid;
 
   if (p_db->p_attrs == NULL || p_db->num_attr == 0) {
     p_db->p_attrs = a2dp_attr_list_sdp;
     p_db->num_attr = AVRC_NUM_ATTR;
   }
 
+  Uuid uuid_list = Uuid::From16Bit(service_uuid);
   result = SDP_InitDiscoveryDb(p_db->p_db, p_db->db_len, 1, &uuid_list,
                                p_db->num_attr, p_db->p_attrs);
 
-  if (result == true) {
+  if (result) {
     /* store service_uuid and discovery db pointer */
     avrc_cb.p_db = p_db->p_db;
     avrc_cb.service_uuid = service_uuid;
-    avrc_cb.p_cback = p_cback;
+    avrc_cb.find_cback = find_cback;
 
     /* perform service search */
     result =
@@ -210,7 +209,17 @@ uint16_t AVRC_AddRecord(uint16_t service_uuid, const char* p_service_name,
   }
   result &= SDP_AddServiceClassIdList(sdp_handle, count, class_list);
 
-  /* add protocol descriptor list   */
+  uint16_t protocol_reported_version;
+  /* AVRCP versions 1.3 to 1.5 report (version - 1) in the protocol
+     descriptor list. Oh, and 1.6 and 1.6.1 report version 1.4.
+     /because-we-smart */
+  if (profile_version < AVRC_REV_1_6) {
+    protocol_reported_version = profile_version - 1;
+  } else {
+    protocol_reported_version = AVCT_REV_1_4;
+  }
+
+  /* add protocol descriptor list */
   tSDP_PROTOCOL_ELEM avrc_proto_desc_list[AVRC_NUM_PROTO_ELEMS];
   avrc_proto_desc_list[0].num_params = 1;
   avrc_proto_desc_list[0].protocol_uuid = UUID_PROTOCOL_L2CAP;
@@ -219,13 +228,13 @@ uint16_t AVRC_AddRecord(uint16_t service_uuid, const char* p_service_name,
   for (index = 1; index < AVRC_NUM_PROTO_ELEMS; index++) {
     avrc_proto_desc_list[index].num_params = 1;
     avrc_proto_desc_list[index].protocol_uuid = UUID_PROTOCOL_AVCTP;
-    avrc_proto_desc_list[index].params[0] = AVCT_REV_1_4;
+    avrc_proto_desc_list[index].params[0] = protocol_reported_version;
     avrc_proto_desc_list[index].params[1] = 0;
   }
   result &= SDP_AddProtocolList(sdp_handle, AVRC_NUM_PROTO_ELEMS,
-                                (tSDP_PROTOCOL_ELEM*)avrc_proto_desc_list);
+                                &avrc_proto_desc_list[0]);
 
-  /* additional protocal descriptor, required only for version > 1.3    */
+  /* additional protocal descriptor, required only for version > 1.3 */
   if ((profile_version > AVRC_REV_1_3) && (browse_supported)) {
     tSDP_PROTO_LIST_ELEM avrc_add_proto_desc_list;
     avrc_add_proto_desc_list.num_elems = 2;
@@ -235,11 +244,11 @@ uint16_t AVRC_AddRecord(uint16_t service_uuid, const char* p_service_name,
     avrc_add_proto_desc_list.list_elem[0].params[1] = 0;
     avrc_add_proto_desc_list.list_elem[1].num_params = 1;
     avrc_add_proto_desc_list.list_elem[1].protocol_uuid = UUID_PROTOCOL_AVCTP;
-    avrc_add_proto_desc_list.list_elem[1].params[0] = AVCT_REV_1_4;
+    avrc_add_proto_desc_list.list_elem[1].params[0] = protocol_reported_version;
     avrc_add_proto_desc_list.list_elem[1].params[1] = 0;
 
-    result &= SDP_AddAdditionProtoLists(
-        sdp_handle, 1, (tSDP_PROTO_LIST_ELEM*)&avrc_add_proto_desc_list);
+    result &=
+        SDP_AddAdditionProtoLists(sdp_handle, 1, &avrc_add_proto_desc_list);
   }
   /* add profile descriptor list   */
   result &= SDP_AddProfileDescriptorList(

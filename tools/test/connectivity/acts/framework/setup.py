@@ -17,7 +17,6 @@
 from distutils import cmd
 from distutils import log
 import os
-import pip
 import shutil
 import setuptools
 from setuptools.command import test
@@ -29,11 +28,14 @@ install_requires = [
     # mock-1.0.1 is the last version compatible with setuptools <17.1,
     # which is what comes with Ubuntu 14.04 LTS.
     'mock<=1.0.1',
+    'numpy',
     'pyserial',
     'shellescape',
     'protobuf',
     'roman',
     'scapy-python3',
+    'pylibftdi',
+    'xlsxwriter'
 ]
 
 if sys.version_info < (3, ):
@@ -85,7 +87,7 @@ class ActsInstallDependencies(cmd.Command):
 
         for package in required_packages:
             self.announce('Installing %s...' % package, log.INFO)
-            pip.main(['install', package])
+            pip.main(['install', '-v', '--no-cache-dir', package])
 
         self.announce('Dependencies installed.')
 
@@ -122,7 +124,7 @@ class ActsUninstall(cmd.Command):
     def run(self):
         """Entry point for the uninstaller."""
         # Remove the working directory from the python path. This ensures that
-        # Source code is not accidently tarageted.
+        # Source code is not accidentally targeted.
         our_dir = os.path.abspath(os.path.dirname(__file__))
         if our_dir in sys.path:
             sys.path.remove(our_dir)
@@ -166,6 +168,13 @@ def main():
             'uninstall': ActsUninstall
         },
         url="http://www.android.com/")
+
+    if {'-u', '--uninstall', 'uninstall'}.intersection(sys.argv):
+        act_path = '/usr/local/bin/act.py'
+        if os.path.islink(act_path):
+            os.unlink(act_path)
+        elif os.path.exists(act_path):
+            os.remove(act_path)
 
 
 if __name__ == '__main__':

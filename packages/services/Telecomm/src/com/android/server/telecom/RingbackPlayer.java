@@ -16,6 +16,9 @@
 
 package com.android.server.telecom;
 
+import static com.android.server.telecom.LogUtils.Events.START_RINBACK;
+import static com.android.server.telecom.LogUtils.Events.STOP_RINGBACK;
+
 import com.android.internal.util.Preconditions;
 import android.telecom.Log;
 
@@ -64,7 +67,8 @@ public class RingbackPlayer {
 
         mCall = call;
         if (mTonePlayer == null) {
-            Log.d(this, "Playing the ringback tone for %s.", call);
+            Log.i(this, "Playing the ringback tone for %s.", call);
+            Log.addEvent(call, START_RINBACK);
             mTonePlayer = mPlayerFactory.createPlayer(InCallTonePlayer.TONE_RING_BACK);
             mTonePlayer.startTone();
         }
@@ -85,6 +89,7 @@ public class RingbackPlayer {
                 Log.w(this, "No player found to stop.");
             } else {
                 Log.i(this, "Stopping the ringback tone for %s.", call);
+                Log.addEvent(call, STOP_RINGBACK);
                 mTonePlayer.stopTone();
                 mTonePlayer = null;
             }

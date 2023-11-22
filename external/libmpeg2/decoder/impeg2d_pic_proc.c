@@ -271,6 +271,8 @@ IMPEG2D_ERROR_CODES_T impeg2d_init_video_state(dec_state_t *ps_dec, e_video_type
         ps_dec->u2_progressive_frame            = 1;
         ps_dec->u2_frame_rate_extension_n       = 0;
         ps_dec->u2_frame_rate_extension_d       = 0;
+        ps_dec->u2_forw_f_code                  = 7;
+        ps_dec->u2_back_f_code                  = 7;
 
         ps_dec->pf_vld_inv_quant                  = impeg2d_vld_inv_quant_mpeg1;
         /*-------------------------------------------------------------------*/

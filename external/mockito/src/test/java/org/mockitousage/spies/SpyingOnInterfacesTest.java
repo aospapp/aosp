@@ -7,7 +7,6 @@ package org.mockitousage.spies;
 
 import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.ClassFileVersion;
-import net.bytebuddy.description.modifier.TypeManifestation;
 import net.bytebuddy.description.modifier.Visibility;
 import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.bytebuddy.implementation.FixedValue;
@@ -20,7 +19,7 @@ import org.mockitoutil.TestBase;
 
 import java.util.List;
 
-import static junit.framework.TestCase.fail;
+import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;

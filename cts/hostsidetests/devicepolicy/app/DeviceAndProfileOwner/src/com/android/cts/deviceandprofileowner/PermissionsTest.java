@@ -22,7 +22,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.os.UserManager;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
@@ -47,6 +46,7 @@ public class PermissionsTest extends BaseDeviceAdminTest {
     private static final String SIMPLE_PRE_M_APP_PACKAGE_NAME =
             "com.android.cts.launcherapps.simplepremapp";
     private static final String PERMISSION_NAME = "android.permission.READ_CONTACTS";
+    private static final String DEVELOPMENT_PERMISSION = "android.permission.INTERACT_ACROSS_USERS";
 
     private static final String PERMISSIONS_ACTIVITY_NAME
             = PERMISSION_APP_PACKAGE_NAME + ".PermissionActivity";
@@ -227,6 +227,15 @@ public class PermissionsTest extends BaseDeviceAdminTest {
         assertSetPermissionGrantStatePreMApp(DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED);
     }
 
+    public void testPermissionGrantState_developmentPermission() throws Exception {
+        assertFailedToSetDevelopmentPermissionGrantState(
+                DevicePolicyManager.PERMISSION_GRANT_STATE_DENIED);
+        assertFailedToSetDevelopmentPermissionGrantState(
+                DevicePolicyManager.PERMISSION_GRANT_STATE_DEFAULT);
+        assertFailedToSetDevelopmentPermissionGrantState(
+                DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED);
+    }
+
     private void assertPermissionRequest(int expected) throws Exception {
         assertPermissionRequest(expected, null);
     }
@@ -273,6 +282,18 @@ public class PermissionsTest extends BaseDeviceAdminTest {
                 PERMISSION_APP_PACKAGE_NAME, PERMISSION_NAME),
                 value);
     }
+
+    private void assertFailedToSetDevelopmentPermissionGrantState(int value) throws Exception {
+        assertFalse(mDevicePolicyManager.setPermissionGrantState(ADMIN_RECEIVER_COMPONENT,
+                PERMISSION_APP_PACKAGE_NAME, DEVELOPMENT_PERMISSION, value));
+        assertEquals(mDevicePolicyManager.getPermissionGrantState(ADMIN_RECEIVER_COMPONENT,
+                PERMISSION_APP_PACKAGE_NAME, DEVELOPMENT_PERMISSION),
+                DevicePolicyManager.PERMISSION_GRANT_STATE_DEFAULT);
+        assertEquals(mPackageManager.checkPermission(DEVELOPMENT_PERMISSION,
+                PERMISSION_APP_PACKAGE_NAME),
+                PackageManager.PERMISSION_DENIED);
+    }
+
 
     private void assertSetPermissionGrantStatePreMApp(int value) throws Exception {
         assertFalse(mDevicePolicyManager.setPermissionGrantState(ADMIN_RECEIVER_COMPONENT,

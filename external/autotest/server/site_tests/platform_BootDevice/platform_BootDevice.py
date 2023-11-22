@@ -3,14 +3,15 @@
 # found in the LICENSE file.
 
 import logging
-from autotest_lib.server import test, autotest
+from autotest_lib.server import test
 
 class platform_BootDevice(test.test):
-   version = 1
+    version = 1
 
-   def run_once(self, host=None):
-     self.client = host
-
-     # Reboot the client
-     logging.info('BootDevice: reboot %s' % self.client.hostname)
-     self.client.reboot()
+    def run_once(self, reboot_iterations=1, host=None):
+        for i in xrange(reboot_iterations):
+            logging.info('======== Running BOOTDEVICE REBOOT ITERATION %d/%d '
+                         '========', i+1, reboot_iterations)
+            # Reboot the client
+            logging.info('BootDevice: reboot %s', host.hostname)
+            host.reboot()

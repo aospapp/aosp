@@ -34,6 +34,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "test.h"
+#include "safe_macros.h"
 
 #define TEST_MSG_IN "world"
 #define TEST_MSG_OUT "hello"
@@ -66,10 +67,7 @@ int main(int argc, char *argv[])
 		if (TEST_RETURN == -1)
 			tst_brkm(TBROK | TTERRNO, cleanup, "sendfile() failed");
 
-		ret = lseek(out_fd, 0, SEEK_SET);
-		if (ret == -1)
-			tst_brkm(TBROK | TERRNO, cleanup, "lseek %s failed",
-				 out_file);
+		ret = SAFE_LSEEK(cleanup, out_fd, 0, SEEK_SET);
 		ret = read(out_fd, buf, BUFSIZ);
 		if (ret == -1)
 			tst_brkm(TBROK | TERRNO, cleanup, "read %s failed",
@@ -101,22 +99,16 @@ static void setup(void)
 
 	tst_tmpdir();
 
-	in_fd = creat(in_file, 0700);
-	if (in_fd == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "Create %s failed", in_file);
+	in_fd = SAFE_CREAT(cleanup, in_file, 0700);
 
 	ret = write(in_fd, TEST_MSG_IN, strlen(TEST_MSG_IN));
 	if (ret == -1)
 		tst_brkm(TBROK | TERRNO, cleanup, "Write %s failed", in_file);
 	close(in_fd);
 
-	in_fd = open(in_file, O_RDONLY);
-	if (in_fd == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "Open %s failed", in_file);
+	in_fd = SAFE_OPEN(cleanup, in_file, O_RDONLY);
+	out_fd = SAFE_OPEN(cleanup, out_file, O_TRUNC | O_CREAT | O_RDWR, 0777);
 
-	out_fd = open(out_file, O_TRUNC | O_CREAT | O_RDWR, 0777);
-	if (out_fd == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "Open %s failed", out_file);
 	ret = write(out_fd, TEST_MSG_OUT, strlen(TEST_MSG_OUT));
 	if (ret == -1)
 		tst_brkm(TBROK | TERRNO, cleanup, "Write %s failed", out_file);

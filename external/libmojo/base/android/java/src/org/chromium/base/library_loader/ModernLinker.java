@@ -251,8 +251,6 @@ class ModernLinker extends Linker {
             Log.i(TAG, "disableSharedRelros() called");
         }
         synchronized (mLock) {
-            assert !mPrepareLibraryLoadCalled;
-
             // Mark this as a service process, and disable wait for shared RELRO.
             mInBrowserProcess = false;
             mWaitForSharedRelros = false;
@@ -388,7 +386,7 @@ class ModernLinker extends Linker {
                 // We are in the browser, and with a current load address that indicates that
                 // there is enough address space for shared RELRO to operate. Create the
                 // shared RELRO, and store it in the map.
-                String relroPath = PathUtils.getDataDirectory(null) + "/RELRO:" + libFilePath;
+                String relroPath = PathUtils.getDataDirectory() + "/RELRO:" + libFilePath;
                 if (nativeCreateSharedRelro(dlopenExtPath,
                                             mCurrentLoadAddress, relroPath, libInfo)) {
                     mSharedRelros.put(dlopenExtPath, libInfo);

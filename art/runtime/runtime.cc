@@ -23,9 +23,10 @@
 #include <sys/prctl.h>
 #endif
 
+#include <fcntl.h>
 #include <signal.h>
 #include <sys/syscall.h>
-#include "base/memory_tool.h"
+
 #if defined(__APPLE__)
 #include <crt_externs.h>  // for _NSGetEnviron
 #endif
@@ -33,9 +34,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
-#include <memory_representation.h>
 #include <vector>
-#include <fcntl.h>
 
 #include "android-base/strings.h"
 
@@ -57,16 +56,25 @@
 #include "art_method-inl.h"
 #include "asm_support.h"
 #include "asm_support_check.h"
-#include "atomic.h"
+#include "base/aborting.h"
 #include "base/arena_allocator.h"
+#include "base/atomic.h"
 #include "base/dumpable.h"
 #include "base/enums.h"
+#include "base/file_utils.h"
+#include "base/memory_tool.h"
+#include "base/mutex.h"
+#include "base/os.h"
+#include "base/quasi_atomic.h"
 #include "base/stl_util.h"
 #include "base/systrace.h"
 #include "base/unix_file/fd_file.h"
+#include "base/utils.h"
 #include "class_linker-inl.h"
 #include "compiler_callbacks.h"
 #include "debugger.h"
+#include "dex/art_dex_file_loader.h"
+#include "dex/dex_file_loader.h"
 #include "elf_file.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
 #include "experimental_flags.h"
@@ -78,6 +86,7 @@
 #include "gc/space/space-inl.h"
 #include "gc/system_weak.h"
 #include "handle_scope-inl.h"
+#include "hidden_api.h"
 #include "image-inl.h"
 #include "instrumentation.h"
 #include "intern_table.h"
@@ -88,6 +97,7 @@
 #include "jit/profile_saver.h"
 #include "jni_internal.h"
 #include "linear_alloc.h"
+#include "memory_representation.h"
 #include "mirror/array.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_ext.h"
@@ -100,6 +110,7 @@
 #include "mirror/method_type.h"
 #include "mirror/stack_trace_element.h"
 #include "mirror/throwable.h"
+#include "mirror/var_handle.h"
 #include "monitor.h"
 #include "native/dalvik_system_DexFile.h"
 #include "native/dalvik_system_VMDebug.h"
@@ -114,7 +125,6 @@
 #include "native/java_lang_Thread.h"
 #include "native/java_lang_Throwable.h"
 #include "native/java_lang_VMClassLoader.h"
-#include "native/java_lang_Void.h"
 #include "native/java_lang_invoke_MethodHandleImpl.h"
 #include "native/java_lang_ref_FinalizerReference.h"
 #include "native/java_lang_ref_Reference.h"
@@ -132,16 +142,15 @@
 #include "native/sun_misc_Unsafe.h"
 #include "native_bridge_art_interface.h"
 #include "native_stack_dump.h"
-#include "nativehelper/JniConstants.h"
-#include "nativehelper/ScopedLocalRef.h"
+#include "nativehelper/scoped_local_ref.h"
 #include "oat_file.h"
 #include "oat_file_manager.h"
 #include "object_callbacks.h"
-#include "os.h"
 #include "parsed_options.h"
 #include "quick/quick_method_frame_info.h"
 #include "reflection.h"
 #include "runtime_callbacks.h"
+#include "runtime_intrinsics.h"
 #include "runtime_options.h"
 #include "scoped_thread_state_change-inl.h"
 #include "sigchain.h"
@@ -152,7 +161,6 @@
 #include "ti/agent.h"
 #include "trace.h"
 #include "transaction.h"
-#include "utils.h"
 #include "vdex_file.h"
 #include "verifier/method_verifier.h"
 #include "well_known_classes.h"
@@ -205,7 +213,7 @@ Runtime::Runtime()
     : resolution_method_(nullptr),
       imt_conflict_method_(nullptr),
       imt_unimplemented_method_(nullptr),
-      instruction_set_(kNone),
+      instruction_set_(InstructionSet::kNone),
       compiler_callbacks_(nullptr),
       is_zygote_(false),
       must_relocate_(false),
@@ -242,10 +250,10 @@ Runtime::Runtime()
       system_thread_group_(nullptr),
       system_class_loader_(nullptr),
       dump_gc_performance_on_shutdown_(false),
-      preinitialization_transaction_(nullptr),
+      preinitialization_transactions_(),
       verify_(verifier::VerifyMode::kNone),
       allow_dex_file_fallback_(true),
-      target_sdk_version_(0),
+      target_sdk_version_(kUnsetSdkVersion),
       implicit_null_checks_(false),
       implicit_so_checks_(false),
       implicit_suspend_checks_(false),
@@ -253,12 +261,18 @@ Runtime::Runtime()
       force_native_bridge_(false),
       is_native_bridge_loaded_(false),
       is_native_debuggable_(false),
+      async_exceptions_thrown_(false),
       is_java_debuggable_(false),
       zygote_max_failed_boots_(0),
       experimental_flags_(ExperimentalFlags::kNone),
       oat_file_manager_(nullptr),
       is_low_memory_mode_(false),
       safe_mode_(false),
+      hidden_api_policy_(hiddenapi::EnforcementPolicy::kNoChecks),
+      pending_hidden_api_warning_(false),
+      dedupe_hidden_api_warnings_(true),
+      always_set_hidden_api_warning_flag_(false),
+      hidden_api_access_event_log_rate_(0),
       dump_native_stack_on_sig_quit_(true),
       pruned_dalvik_cache_(false),
       // Initially assume we perceive jank in case the process state is never updated.
@@ -285,13 +299,29 @@ Runtime::~Runtime() {
   Thread* self = Thread::Current();
   const bool attach_shutdown_thread = self == nullptr;
   if (attach_shutdown_thread) {
-    CHECK(AttachCurrentThread("Shutdown thread", false, nullptr, false));
+    // We can only create a peer if the runtime is actually started. This is only not true during
+    // some tests. If there is extreme memory pressure the allocation of the thread peer can fail.
+    // In this case we will just try again without allocating a peer so that shutdown can continue.
+    // Very few things are actually capable of distinguishing between the peer & peerless states so
+    // this should be fine.
+    bool thread_attached = AttachCurrentThread("Shutdown thread",
+                                               /* as_daemon */ false,
+                                               GetSystemThreadGroup(),
+                                               /* Create peer */ IsStarted());
+    if (UNLIKELY(!thread_attached)) {
+      LOG(WARNING) << "Failed to attach shutdown thread. Trying again without a peer.";
+      CHECK(AttachCurrentThread("Shutdown thread (no java peer)",
+                                /* as_daemon */   false,
+                                /* thread_group*/ nullptr,
+                                /* Create peer */ false));
+    }
     self = Thread::Current();
   } else {
     LOG(WARNING) << "Current thread not detached in Runtime shutdown";
   }
 
   if (dump_gc_performance_on_shutdown_) {
+    ScopedLogSeverity sls(LogSeverity::INFO);
     // This can't be called from the Heap destructor below because it
     // could call RosAlloc::InspectAll() which needs the thread_list
     // to be still alive.
@@ -349,7 +379,7 @@ Runtime::~Runtime() {
   }
 
   // Make sure our internal threads are dead before we start tearing down things they're using.
-  Dbg::StopJdwp();
+  GetRuntimeCallbacks()->StopDebugger();
   delete signal_catcher_;
 
   // Make sure all other non-daemon threads have terminated, and all daemon threads are suspended.
@@ -360,7 +390,7 @@ Runtime::~Runtime() {
 
   // TODO Maybe do some locking.
   for (auto& agent : agents_) {
-    agent.Unload();
+    agent->Unload();
   }
 
   // TODO Maybe do some locking
@@ -404,6 +434,11 @@ Runtime::~Runtime() {
   // TODO: acquire a static mutex on Runtime to avoid racing.
   CHECK(instance_ == nullptr || instance_ == this);
   instance_ = nullptr;
+
+  // Well-known classes must be deleted or it is impossible to successfully start another Runtime
+  // instance. We rely on a small initialization order issue in Runtime::Start() that requires
+  // elements of WellKnownClasses to be null, see b/65500943.
+  WellKnownClasses::Clear();
 }
 
 struct AbortState {
@@ -590,6 +625,7 @@ void Runtime::SweepSystemWeaks(IsMarkedVisitor* visitor) {
 bool Runtime::ParseOptions(const RuntimeOptions& raw_options,
                            bool ignore_unrecognized,
                            RuntimeArgumentMap* runtime_options) {
+  Locks::Init();
   InitLogging(/* argv */ nullptr, Abort);  // Calls Locks::Init() as a side effect.
   bool parsed = ParsedOptions::Parse(raw_options, ignore_unrecognized, runtime_options);
   if (!parsed) {
@@ -732,6 +768,11 @@ bool Runtime::Start() {
     InitNativeMethods();
   }
 
+  // IntializeIntrinsics needs to be called after the WellKnownClasses::Init in InitNativeMethods
+  // because in checking the invocation types of intrinsic methods ArtMethod::GetInvokeType()
+  // needs the SignaturePolymorphic annotation class which is initialized in WellKnownClasses::Init.
+  InitializeIntrinsics();
+
   // Initialize well known thread group values that may be accessed threads while attaching.
   InitThreadGroups(self);
 
@@ -791,7 +832,7 @@ bool Runtime::Start() {
 
   {
     ScopedObjectAccess soa(self);
-    self->GetJniEnv()->locals.AssertEmpty();
+    self->GetJniEnv()->AssertLocalsEmpty();
   }
 
   VLOG(startup) << "Runtime::Start exiting";
@@ -808,6 +849,18 @@ bool Runtime::Start() {
                  0);
   }
 
+  // In case we have a profile path passed as a command line argument,
+  // register the current class path for profiling now. Note that we cannot do
+  // this before we create the JIT and having it here is the most convenient way.
+  // This is used when testing profiles with dalvikvm command as there is no
+  // framework to register the dex files for profiling.
+  if (jit_.get() != nullptr && jit_options_->GetSaveProfilingInfo() &&
+      !jit_options_->GetProfileSaverOptions().GetProfilePath().empty()) {
+    std::vector<std::string> dex_filenames;
+    Split(class_path_string_, ':', &dex_filenames);
+    RegisterAppInfo(dex_filenames, jit_options_->GetProfileSaverOptions().GetProfilePath());
+  }
+
   return true;
 }
 
@@ -820,7 +873,11 @@ void Runtime::EndThreadBirth() REQUIRES(Locks::runtime_shutdown_lock_) {
 }
 
 void Runtime::InitNonZygoteOrPostFork(
-    JNIEnv* env, bool is_system_server, NativeBridgeAction action, const char* isa) {
+    JNIEnv* env,
+    bool is_system_server,
+    NativeBridgeAction action,
+    const char* isa,
+    bool profile_system_server) {
   is_zygote_ = false;
 
   if (is_native_bridge_loaded_) {
@@ -843,8 +900,15 @@ void Runtime::InitNonZygoteOrPostFork(
   heap_->ResetGcPerformanceInfo();
 
   // We may want to collect profiling samples for system server, but we never want to JIT there.
-  if ((!is_system_server || !jit_options_->UseJitCompilation()) &&
-      !safe_mode_ &&
+  if (is_system_server) {
+    jit_options_->SetUseJitCompilation(false);
+    jit_options_->SetSaveProfilingInfo(profile_system_server);
+    if (profile_system_server) {
+      jit_options_->SetWaitForJitNotificationsToSaveProfile(false);
+      VLOG(profiler) << "Enabling system server profiles";
+    }
+  }
+  if (!safe_mode_ &&
       (jit_options_->UseJitCompilation() || jit_options_->GetSaveProfilingInfo()) &&
       jit_ == nullptr) {
     // Note that when running ART standalone (not zygote, nor zygote fork),
@@ -855,8 +919,10 @@ void Runtime::InitNonZygoteOrPostFork(
   StartSignalCatcher();
 
   // Start the JDWP thread. If the command-line debugger flags specified "suspend=y",
-  // this will pause the runtime, so we probably want this to come last.
-  Dbg::StartJdwp();
+  // this will pause the runtime (in the internal debugger implementation), so we probably want
+  // this to come last.
+  ScopedObjectAccess soa(Thread::Current());
+  GetRuntimeCallbacks()->StartDebugger();
 }
 
 void Runtime::StartSignalCatcher() {
@@ -959,7 +1025,8 @@ static bool OpenDexFilesFromImage(const std::string& image_location,
       return false;
     }
     std::unique_ptr<const OatFile> oat_file(
-        OatFile::OpenWithElfFile(elf_file.release(),
+        OatFile::OpenWithElfFile(/* zip_fd */ -1,
+                                 elf_file.release(),
                                  vdex_file.release(),
                                  oat_location,
                                  nullptr,
@@ -1008,6 +1075,7 @@ static size_t OpenDexFiles(const std::vector<std::string>& dex_filenames,
   if (!image_location.empty() && OpenDexFilesFromImage(image_location, dex_files, &failure_count)) {
     return failure_count;
   }
+  const ArtDexFileLoader dex_file_loader;
   failure_count = 0;
   for (size_t i = 0; i < dex_filenames.size(); i++) {
     const char* dex_filename = dex_filenames[i].c_str();
@@ -1018,7 +1086,12 @@ static size_t OpenDexFiles(const std::vector<std::string>& dex_filenames,
       LOG(WARNING) << "Skipping non-existent dex file '" << dex_filename << "'";
       continue;
     }
-    if (!DexFile::Open(dex_filename, dex_location, kVerifyChecksum, &error_msg, dex_files)) {
+    if (!dex_file_loader.Open(dex_filename,
+                              dex_location,
+                              Runtime::Current()->IsVerificationEnabled(),
+                              kVerifyChecksum,
+                              &error_msg,
+                              dex_files)) {
       LOG(WARNING) << "Failed to open .dex from file '" << dex_filename << "': " << error_msg;
       ++failure_count;
     }
@@ -1038,9 +1111,15 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
   // Take a snapshot of the environment at the time the runtime was created, for use by Exec, etc.
   env_snapshot_.TakeSnapshot();
 
-  RuntimeArgumentMap runtime_options(std::move(runtime_options_in));
+  using Opt = RuntimeArgumentMap;
+  Opt runtime_options(std::move(runtime_options_in));
   ScopedTrace trace(__FUNCTION__);
   CHECK_EQ(sysconf(_SC_PAGE_SIZE), kPageSize);
+
+  // Early override for logging output.
+  if (runtime_options.Exists(Opt::UseStderrLogger)) {
+    android::base::SetLogger(android::base::StderrLogger);
+  }
 
   MemMap::Init();
 
@@ -1068,7 +1147,6 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
     }
   }
 
-  using Opt = RuntimeArgumentMap;
   VLOG(startup) << "Runtime::Init -verbose:startup enabled";
 
   QuasiAtomic::Startup();
@@ -1126,6 +1204,21 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
   verify_ = runtime_options.GetOrDefault(Opt::Verify);
   allow_dex_file_fallback_ = !runtime_options.Exists(Opt::NoDexFileFallback);
 
+  target_sdk_version_ = runtime_options.GetOrDefault(Opt::TargetSdkVersion);
+
+  // Check whether to enforce hidden API access checks. The checks are disabled
+  // by default and we only enable them if:
+  // (a) runtime was started with a flag that enables the checks, or
+  // (b) Zygote forked a new process that is not exempt (see ZygoteHooks).
+  bool do_hidden_api_checks = runtime_options.Exists(Opt::HiddenApiChecks);
+  DCHECK(!is_zygote_ || !do_hidden_api_checks);
+  // TODO pass the actual enforcement policy in, rather than just a single bit.
+  // As is, we're encoding some logic here about which specific policy to use, which would be better
+  // controlled by the framework.
+  hidden_api_policy_ = do_hidden_api_checks
+      ? hiddenapi::EnforcementPolicy::kDarkGreyAndBlackList
+      : hiddenapi::EnforcementPolicy::kNoChecks;
+
   no_sig_chain_ = runtime_options.Exists(Opt::NoSigChain);
   force_native_bridge_ = runtime_options.Exists(Opt::ForceNativeBridge);
 
@@ -1143,7 +1236,7 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
   madvise_random_access_ = runtime_options.GetOrDefault(Opt::MadviseRandomAccess);
 
   plugins_ = runtime_options.ReleaseOrDefault(Opt::Plugins);
-  agents_ = runtime_options.ReleaseOrDefault(Opt::AgentPath);
+  agent_specs_ = runtime_options.ReleaseOrDefault(Opt::AgentPath);
   // TODO Add back in -agentlib
   // for (auto lib : runtime_options.ReleaseOrDefault(Opt::AgentLib)) {
   //   agents_.push_back(lib);
@@ -1200,8 +1293,42 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
 
   dump_gc_performance_on_shutdown_ = runtime_options.Exists(Opt::DumpGCPerformanceOnShutdown);
 
-  if (runtime_options.Exists(Opt::JdwpOptions)) {
-    Dbg::ConfigureJdwp(runtime_options.GetOrDefault(Opt::JdwpOptions));
+  jdwp_options_ = runtime_options.GetOrDefault(Opt::JdwpOptions);
+  jdwp_provider_ = runtime_options.GetOrDefault(Opt::JdwpProvider);
+  switch (jdwp_provider_) {
+    case JdwpProvider::kNone: {
+      VLOG(jdwp) << "Disabling all JDWP support.";
+      if (!jdwp_options_.empty()) {
+        bool has_transport = jdwp_options_.find("transport") != std::string::npos;
+        const char* transport_internal = !has_transport ? "transport=dt_android_adb," : "";
+        std::string adb_connection_args =
+            std::string("  -XjdwpProvider:adbconnection -XjdwpOptions:") + jdwp_options_;
+        LOG(WARNING) << "Jdwp options given when jdwp is disabled! You probably want to enable "
+                     << "jdwp with one of:" << std::endl
+                     << "  -XjdwpProvider:internal "
+                     << "-XjdwpOptions:" << transport_internal << jdwp_options_ << std::endl
+                     << "  -Xplugin:libopenjdkjvmti" << (kIsDebugBuild ? "d" : "") << ".so "
+                     << "-agentpath:libjdwp.so=" << jdwp_options_ << std::endl
+                     << (has_transport ? "" : adb_connection_args);
+      }
+      break;
+    }
+    case JdwpProvider::kInternal: {
+      if (runtime_options.Exists(Opt::JdwpOptions)) {
+        JDWP::JdwpOptions ops;
+        if (!JDWP::ParseJdwpOptions(runtime_options.GetOrDefault(Opt::JdwpOptions), &ops)) {
+          LOG(ERROR) << "failed to parse jdwp options!";
+          return false;
+        }
+        Dbg::ConfigureJdwp(ops);
+      }
+      break;
+    }
+    case JdwpProvider::kAdbConnection: {
+      constexpr const char* plugin_name = kIsDebugBuild ? "libadbconnectiond.so"
+                                                        : "libadbconnection.so";
+      plugins_.push_back(Plugin::Create(plugin_name));
+    }
   }
   callbacks_->AddThreadLifecycleCallback(Dbg::GetThreadLifecycleCallback());
   callbacks_->AddClassLoadCallback(Dbg::GetClassLoadCallback());
@@ -1234,13 +1361,13 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
 
   // Change the implicit checks flags based on runtime architecture.
   switch (kRuntimeISA) {
-    case kArm:
-    case kThumb2:
-    case kX86:
-    case kArm64:
-    case kX86_64:
-    case kMips:
-    case kMips64:
+    case InstructionSet::kArm:
+    case InstructionSet::kThumb2:
+    case InstructionSet::kX86:
+    case InstructionSet::kArm64:
+    case InstructionSet::kX86_64:
+    case InstructionSet::kMips:
+    case InstructionSet::kMips64:
       implicit_null_checks_ = true;
       // Installing stack protection does not play well with valgrind.
       implicit_so_checks_ = !(RUNNING_ON_MEMORY_TOOL && kMemoryToolIsValgrind);
@@ -1454,16 +1581,32 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
 
   // Startup agents
   // TODO Maybe we should start a new thread to run these on. Investigate RI behavior more.
-  for (auto& agent : agents_) {
+  for (auto& agent_spec : agent_specs_) {
     // TODO Check err
     int res = 0;
     std::string err = "";
-    ti::Agent::LoadError result = agent.Load(&res, &err);
-    if (result == ti::Agent::kInitializationError) {
-      LOG(FATAL) << "Unable to initialize agent!";
-    } else if (result != ti::Agent::kNoError) {
-      LOG(ERROR) << "Unable to load an agent: " << err;
+    ti::LoadError error;
+    std::unique_ptr<ti::Agent> agent = agent_spec.Load(&res, &error, &err);
+
+    if (agent != nullptr) {
+      agents_.push_back(std::move(agent));
+      continue;
     }
+
+    switch (error) {
+      case ti::LoadError::kInitializationError:
+        LOG(FATAL) << "Unable to initialize agent!";
+        UNREACHABLE();
+
+      case ti::LoadError::kLoadingError:
+        LOG(ERROR) << "Unable to load an agent: " << err;
+        continue;
+
+      case ti::LoadError::kNoError:
+        break;
+    }
+    LOG(FATAL) << "Unreachable";
+    UNREACHABLE();
   }
   {
     ScopedObjectAccess soa(self);
@@ -1471,6 +1614,11 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
   }
 
   VLOG(startup) << "Runtime::Init exiting";
+
+  // Set OnlyUseSystemOatFiles only after boot classpath has been set up.
+  if (runtime_options.Exists(Opt::OnlyUseSystemOatFiles)) {
+    oat_file_manager_->SetOnlyUseSystemOatFiles();
+  }
 
   return true;
 }
@@ -1487,9 +1635,13 @@ static bool EnsureJvmtiPlugin(Runtime* runtime,
     }
   }
 
-  // Is the process debuggable? Otherwise, do not attempt to load the plugin.
-  if (!runtime->IsJavaDebuggable()) {
-    *error_msg = "Process is not debuggable.";
+  // TODO Rename Dbg::IsJdwpAllowed is IsDebuggingAllowed.
+  DCHECK(Dbg::IsJdwpAllowed() || !runtime->IsJavaDebuggable())
+      << "Being debuggable requires that jdwp (i.e. debugging) is allowed.";
+  // Is the process debuggable? Otherwise, do not attempt to load the plugin unless we are
+  // specifically allowed.
+  if (!Dbg::IsJdwpAllowed()) {
+    *error_msg = "Process is not allowed to load openjdkjvmti plugin. Process must be debuggable";
     return false;
   }
 
@@ -1509,7 +1661,7 @@ static bool EnsureJvmtiPlugin(Runtime* runtime,
 //   revisit this and make sure we're doing this on the right thread
 //   (and we synchronize access to any shared data structures like "agents_")
 //
-void Runtime::AttachAgent(const std::string& agent_arg) {
+void Runtime::AttachAgent(JNIEnv* env, const std::string& agent_arg, jobject class_loader) {
   std::string error_msg;
   if (!EnsureJvmtiPlugin(this, &plugins_, &error_msg)) {
     LOG(WARNING) << "Could not load plugin: " << error_msg;
@@ -1518,15 +1670,16 @@ void Runtime::AttachAgent(const std::string& agent_arg) {
     return;
   }
 
-  ti::Agent agent(agent_arg);
+  ti::AgentSpec agent_spec(agent_arg);
 
   int res = 0;
-  ti::Agent::LoadError result = agent.Attach(&res, &error_msg);
+  ti::LoadError error;
+  std::unique_ptr<ti::Agent> agent = agent_spec.Attach(env, class_loader, &res, &error, &error_msg);
 
-  if (result == ti::Agent::kNoError) {
+  if (agent != nullptr) {
     agents_.push_back(std::move(agent));
   } else {
-    LOG(WARNING) << "Agent attach failed (result=" << result << ") : " << error_msg;
+    LOG(WARNING) << "Agent attach failed (result=" << error << ") : " << error_msg;
     ScopedObjectAccess soa(Thread::Current());
     ThrowIOException("%s", error_msg.c_str());
   }
@@ -1540,11 +1693,7 @@ void Runtime::InitNativeMethods() {
   // Must be in the kNative state for calling native methods (JNI_OnLoad code).
   CHECK_EQ(self->GetState(), kNative);
 
-  // First set up JniConstants, which is used by both the runtime's built-in native
-  // methods and libcore.
-  JniConstants::init(env);
-
-  // Then set up the native methods provided by the runtime itself.
+  // Set up the native methods provided by the runtime itself.
   RegisterRuntimeNativeMethods(env);
 
   // Initialize classes used in JNI. The initialization requires runtime native
@@ -1556,7 +1705,7 @@ void Runtime::InitNativeMethods() {
   // libcore can't because it's the library that implements System.loadLibrary!
   {
     std::string error_msg;
-    if (!java_vm_->LoadNativeLibrary(env, "libjavacore.so", nullptr, nullptr, &error_msg)) {
+    if (!java_vm_->LoadNativeLibrary(env, "libjavacore.so", nullptr, &error_msg)) {
       LOG(FATAL) << "LoadNativeLibrary failed for \"libjavacore.so\": " << error_msg;
     }
   }
@@ -1565,7 +1714,7 @@ void Runtime::InitNativeMethods() {
                                                 ? "libopenjdkd.so"
                                                 : "libopenjdk.so";
     std::string error_msg;
-    if (!java_vm_->LoadNativeLibrary(env, kOpenJdkLibrary, nullptr, nullptr, &error_msg)) {
+    if (!java_vm_->LoadNativeLibrary(env, kOpenJdkLibrary, nullptr, &error_msg)) {
       LOG(FATAL) << "LoadNativeLibrary failed for \"" << kOpenJdkLibrary << "\": " << error_msg;
     }
   }
@@ -1634,7 +1783,6 @@ void Runtime::RegisterRuntimeNativeMethods(JNIEnv* env) {
   register_java_lang_Thread(env);
   register_java_lang_Throwable(env);
   register_java_lang_VMClassLoader(env);
-  register_java_lang_Void(env);
   register_java_util_concurrent_atomic_AtomicLong(env);
   register_libcore_util_CharsetUtils(env);
   register_org_apache_harmony_dalvik_ddmc_DdmServer(env);
@@ -1767,7 +1915,13 @@ void Runtime::BlockSignals() {
 bool Runtime::AttachCurrentThread(const char* thread_name, bool as_daemon, jobject thread_group,
                                   bool create_peer) {
   ScopedTrace trace(__FUNCTION__);
-  return Thread::Attach(thread_name, as_daemon, thread_group, create_peer) != nullptr;
+  Thread* self = Thread::Attach(thread_name, as_daemon, thread_group, create_peer);
+  // Run ThreadGroup.add to notify the group that this thread is now started.
+  if (self != nullptr && create_peer && !IsAotCompiler()) {
+    ScopedObjectAccess soa(self);
+    self->NotifyThreadGroup(soa, thread_group);
+  }
+  return self != nullptr;
 }
 
 void Runtime::DetachCurrentThread() {
@@ -1815,6 +1969,11 @@ void Runtime::VisitConstantRoots(RootVisitor* visitor) {
   mirror::EmulatedStackFrame::VisitRoots(visitor);
   mirror::ClassExt::VisitRoots(visitor);
   mirror::CallSite::VisitRoots(visitor);
+  mirror::VarHandle::VisitRoots(visitor);
+  mirror::FieldVarHandle::VisitRoots(visitor);
+  mirror::ArrayElementVarHandle::VisitRoots(visitor);
+  mirror::ByteArrayViewVarHandle::VisitRoots(visitor);
+  mirror::ByteBufferViewVarHandle::VisitRoots(visitor);
   // Visit all the primitive array types classes.
   mirror::PrimitiveArray<uint8_t>::VisitRoots(visitor);   // BooleanArray
   mirror::PrimitiveArray<int8_t>::VisitRoots(visitor);    // ByteArray
@@ -1857,8 +2016,8 @@ void Runtime::VisitConcurrentRoots(RootVisitor* visitor, VisitRootFlags flags) {
 }
 
 void Runtime::VisitTransactionRoots(RootVisitor* visitor) {
-  if (preinitialization_transaction_ != nullptr) {
-    preinitialization_transaction_->VisitRoots(visitor);
+  for (auto& transaction : preinitialization_transactions_) {
+    transaction->VisitRoots(visitor);
   }
 }
 
@@ -1912,7 +2071,7 @@ static ArtMethod* CreateRuntimeMethod(ClassLinker* class_linker, LinearAlloc* li
       1);
   ArtMethod* method = &method_array->At(0, method_size, method_alignment);
   CHECK(method != nullptr);
-  method->SetDexMethodIndex(DexFile::kDexNoIndex);
+  method->SetDexMethodIndex(dex::kDexNoIndex);
   CHECK(method->IsRuntimeMethod());
   return method;
 }
@@ -1955,7 +2114,7 @@ ArtMethod* Runtime::CreateCalleeSaveMethod() {
   auto* method = CreateRuntimeMethod(GetClassLinker(), GetLinearAlloc());
   PointerSize pointer_size = GetInstructionSetPointerSize(instruction_set_);
   method->SetEntryPointFromQuickCompiledCodePtrSize(nullptr, pointer_size);
-  DCHECK_NE(instruction_set_, kNone);
+  DCHECK_NE(instruction_set_, InstructionSet::kNone);
   DCHECK(method->IsRuntimeMethod());
   return method;
 }
@@ -2012,32 +2171,32 @@ void Runtime::BroadcastForNewSystemWeaks(bool broadcast_for_checkpoint) {
 
 void Runtime::SetInstructionSet(InstructionSet instruction_set) {
   instruction_set_ = instruction_set;
-  if ((instruction_set_ == kThumb2) || (instruction_set_ == kArm)) {
+  if ((instruction_set_ == InstructionSet::kThumb2) || (instruction_set_ == InstructionSet::kArm)) {
     for (int i = 0; i != kCalleeSaveSize; ++i) {
       CalleeSaveType type = static_cast<CalleeSaveType>(i);
       callee_save_method_frame_infos_[i] = arm::ArmCalleeSaveMethodFrameInfo(type);
     }
-  } else if (instruction_set_ == kMips) {
+  } else if (instruction_set_ == InstructionSet::kMips) {
     for (int i = 0; i != kCalleeSaveSize; ++i) {
       CalleeSaveType type = static_cast<CalleeSaveType>(i);
       callee_save_method_frame_infos_[i] = mips::MipsCalleeSaveMethodFrameInfo(type);
     }
-  } else if (instruction_set_ == kMips64) {
+  } else if (instruction_set_ == InstructionSet::kMips64) {
     for (int i = 0; i != kCalleeSaveSize; ++i) {
       CalleeSaveType type = static_cast<CalleeSaveType>(i);
       callee_save_method_frame_infos_[i] = mips64::Mips64CalleeSaveMethodFrameInfo(type);
     }
-  } else if (instruction_set_ == kX86) {
+  } else if (instruction_set_ == InstructionSet::kX86) {
     for (int i = 0; i != kCalleeSaveSize; ++i) {
       CalleeSaveType type = static_cast<CalleeSaveType>(i);
       callee_save_method_frame_infos_[i] = x86::X86CalleeSaveMethodFrameInfo(type);
     }
-  } else if (instruction_set_ == kX86_64) {
+  } else if (instruction_set_ == InstructionSet::kX86_64) {
     for (int i = 0; i != kCalleeSaveSize; ++i) {
       CalleeSaveType type = static_cast<CalleeSaveType>(i);
       callee_save_method_frame_infos_[i] = x86_64::X86_64CalleeSaveMethodFrameInfo(type);
     }
-  } else if (instruction_set_ == kArm64) {
+  } else if (instruction_set_ == InstructionSet::kArm64) {
     for (int i = 0; i != kCalleeSaveSize; ++i) {
       CalleeSaveType type = static_cast<CalleeSaveType>(i);
       callee_save_method_frame_infos_[i] = arm64::Arm64CalleeSaveMethodFrameInfo(type);
@@ -2077,7 +2236,7 @@ void Runtime::RegisterAppInfo(const std::vector<std::string>& code_paths,
     LOG(WARNING) << "JIT profile information will not be recorded: profile filename is empty.";
     return;
   }
-  if (!FileExists(profile_output_filename)) {
+  if (!OS::FileExists(profile_output_filename.c_str(), false /*check_file_type*/)) {
     LOG(WARNING) << "JIT profile information will not be recorded: profile file does not exits.";
     return;
   }
@@ -2090,17 +2249,32 @@ void Runtime::RegisterAppInfo(const std::vector<std::string>& code_paths,
 }
 
 // Transaction support.
-void Runtime::EnterTransactionMode(Transaction* transaction) {
+bool Runtime::IsActiveTransaction() const {
+  return !preinitialization_transactions_.empty() && !GetTransaction()->IsRollingBack();
+}
+
+void Runtime::EnterTransactionMode() {
   DCHECK(IsAotCompiler());
-  DCHECK(transaction != nullptr);
   DCHECK(!IsActiveTransaction());
-  preinitialization_transaction_ = transaction;
+  preinitialization_transactions_.push_back(std::make_unique<Transaction>());
+}
+
+void Runtime::EnterTransactionMode(bool strict, mirror::Class* root) {
+  DCHECK(IsAotCompiler());
+  preinitialization_transactions_.push_back(std::make_unique<Transaction>(strict, root));
 }
 
 void Runtime::ExitTransactionMode() {
   DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
-  preinitialization_transaction_ = nullptr;
+  preinitialization_transactions_.pop_back();
+}
+
+void Runtime::RollbackAndExitTransactionMode() {
+  DCHECK(IsAotCompiler());
+  DCHECK(IsActiveTransaction());
+  preinitialization_transactions_.back()->Rollback();
+  preinitialization_transactions_.pop_back();
 }
 
 bool Runtime::IsTransactionAborted() const {
@@ -2108,8 +2282,25 @@ bool Runtime::IsTransactionAborted() const {
     return false;
   } else {
     DCHECK(IsAotCompiler());
-    return preinitialization_transaction_->IsAborted();
+    return GetTransaction()->IsAborted();
   }
+}
+
+void Runtime::RollbackAllTransactions() {
+  // If transaction is aborted, all transactions will be kept in the list.
+  // Rollback and exit all of them.
+  while (IsActiveTransaction()) {
+    RollbackAndExitTransactionMode();
+  }
+}
+
+bool Runtime::IsActiveStrictTransactionMode() const {
+  return IsActiveTransaction() && GetTransaction()->IsStrict();
+}
+
+const std::unique_ptr<Transaction>& Runtime::GetTransaction() const {
+  DCHECK(!preinitialization_transactions_.empty());
+  return preinitialization_transactions_.back();
 }
 
 void Runtime::AbortTransactionAndThrowAbortError(Thread* self, const std::string& abort_message) {
@@ -2118,57 +2309,59 @@ void Runtime::AbortTransactionAndThrowAbortError(Thread* self, const std::string
   // Throwing an exception may cause its class initialization. If we mark the transaction
   // aborted before that, we may warn with a false alarm. Throwing the exception before
   // marking the transaction aborted avoids that.
-  preinitialization_transaction_->ThrowAbortError(self, &abort_message);
-  preinitialization_transaction_->Abort(abort_message);
+  // But now the transaction can be nested, and abort the transaction will relax the constraints
+  // for constructing stack trace.
+  GetTransaction()->Abort(abort_message);
+  GetTransaction()->ThrowAbortError(self, &abort_message);
 }
 
 void Runtime::ThrowTransactionAbortError(Thread* self) {
   DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
   // Passing nullptr means we rethrow an exception with the earlier transaction abort message.
-  preinitialization_transaction_->ThrowAbortError(self, nullptr);
+  GetTransaction()->ThrowAbortError(self, nullptr);
 }
 
 void Runtime::RecordWriteFieldBoolean(mirror::Object* obj, MemberOffset field_offset,
                                       uint8_t value, bool is_volatile) const {
   DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
-  preinitialization_transaction_->RecordWriteFieldBoolean(obj, field_offset, value, is_volatile);
+  GetTransaction()->RecordWriteFieldBoolean(obj, field_offset, value, is_volatile);
 }
 
 void Runtime::RecordWriteFieldByte(mirror::Object* obj, MemberOffset field_offset,
                                    int8_t value, bool is_volatile) const {
   DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
-  preinitialization_transaction_->RecordWriteFieldByte(obj, field_offset, value, is_volatile);
+  GetTransaction()->RecordWriteFieldByte(obj, field_offset, value, is_volatile);
 }
 
 void Runtime::RecordWriteFieldChar(mirror::Object* obj, MemberOffset field_offset,
                                    uint16_t value, bool is_volatile) const {
   DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
-  preinitialization_transaction_->RecordWriteFieldChar(obj, field_offset, value, is_volatile);
+  GetTransaction()->RecordWriteFieldChar(obj, field_offset, value, is_volatile);
 }
 
 void Runtime::RecordWriteFieldShort(mirror::Object* obj, MemberOffset field_offset,
                                     int16_t value, bool is_volatile) const {
   DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
-  preinitialization_transaction_->RecordWriteFieldShort(obj, field_offset, value, is_volatile);
+  GetTransaction()->RecordWriteFieldShort(obj, field_offset, value, is_volatile);
 }
 
 void Runtime::RecordWriteField32(mirror::Object* obj, MemberOffset field_offset,
                                  uint32_t value, bool is_volatile) const {
   DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
-  preinitialization_transaction_->RecordWriteField32(obj, field_offset, value, is_volatile);
+  GetTransaction()->RecordWriteField32(obj, field_offset, value, is_volatile);
 }
 
 void Runtime::RecordWriteField64(mirror::Object* obj, MemberOffset field_offset,
                                  uint64_t value, bool is_volatile) const {
   DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
-  preinitialization_transaction_->RecordWriteField64(obj, field_offset, value, is_volatile);
+  GetTransaction()->RecordWriteField64(obj, field_offset, value, is_volatile);
 }
 
 void Runtime::RecordWriteFieldReference(mirror::Object* obj,
@@ -2177,7 +2370,7 @@ void Runtime::RecordWriteFieldReference(mirror::Object* obj,
                                         bool is_volatile) const {
   DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
-  preinitialization_transaction_->RecordWriteFieldReference(obj,
+  GetTransaction()->RecordWriteFieldReference(obj,
                                                             field_offset,
                                                             value.Ptr(),
                                                             is_volatile);
@@ -2186,38 +2379,38 @@ void Runtime::RecordWriteFieldReference(mirror::Object* obj,
 void Runtime::RecordWriteArray(mirror::Array* array, size_t index, uint64_t value) const {
   DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
-  preinitialization_transaction_->RecordWriteArray(array, index, value);
+  GetTransaction()->RecordWriteArray(array, index, value);
 }
 
 void Runtime::RecordStrongStringInsertion(ObjPtr<mirror::String> s) const {
   DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
-  preinitialization_transaction_->RecordStrongStringInsertion(s);
+  GetTransaction()->RecordStrongStringInsertion(s);
 }
 
 void Runtime::RecordWeakStringInsertion(ObjPtr<mirror::String> s) const {
   DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
-  preinitialization_transaction_->RecordWeakStringInsertion(s);
+  GetTransaction()->RecordWeakStringInsertion(s);
 }
 
 void Runtime::RecordStrongStringRemoval(ObjPtr<mirror::String> s) const {
   DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
-  preinitialization_transaction_->RecordStrongStringRemoval(s);
+  GetTransaction()->RecordStrongStringRemoval(s);
 }
 
 void Runtime::RecordWeakStringRemoval(ObjPtr<mirror::String> s) const {
   DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
-  preinitialization_transaction_->RecordWeakStringRemoval(s);
+  GetTransaction()->RecordWeakStringRemoval(s);
 }
 
 void Runtime::RecordResolveString(ObjPtr<mirror::DexCache> dex_cache,
                                   dex::StringIndex string_idx) const {
   DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
-  preinitialization_transaction_->RecordResolveString(dex_cache, string_idx);
+  GetTransaction()->RecordResolveString(dex_cache, string_idx);
 }
 
 void Runtime::SetFaultMessage(const std::string& message) {
@@ -2255,18 +2448,6 @@ void Runtime::CreateJit() {
     LOG(WARNING) << "Failed to create JIT " << error_msg;
     return;
   }
-
-  // In case we have a profile path passed as a command line argument,
-  // register the current class path for profiling now. Note that we cannot do
-  // this before we create the JIT and having it here is the most convenient way.
-  // This is used when testing profiles with dalvikvm command as there is no
-  // framework to register the dex files for profiling.
-  if (jit_options_->GetSaveProfilingInfo() &&
-      !jit_options_->GetProfileSaverOptions().GetProfilePath().empty()) {
-    std::vector<std::string> dex_filenames;
-    Split(class_path_string_, ':', &dex_filenames);
-    RegisterAppInfo(dex_filenames, jit_options_->GetProfileSaverOptions().GetProfilePath());
-  }
 }
 
 bool Runtime::CanRelocate() const {
@@ -2302,6 +2483,10 @@ void Runtime::FixupConflictTables() {
           ClassLinker::CreateImtConflictTable(/*count*/0u, GetLinearAlloc(), pointer_size),
           pointer_size);
   }
+}
+
+void Runtime::DisableVerifier() {
+  verify_ = verifier::VerifyMode::kNone;
 }
 
 bool Runtime::IsVerificationEnabled() const {
@@ -2435,5 +2620,4 @@ void Runtime::DeoptimizeBootImage() {
     GetClassLinker()->VisitClasses(&visitor);
   }
 }
-
 }  // namespace art

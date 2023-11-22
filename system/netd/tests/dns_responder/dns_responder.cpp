@@ -33,6 +33,9 @@
 
 #define LOG_TAG "DNSResponder"
 #include <log/log.h>
+#include <netdutils/SocketOption.h>
+
+using android::netdutils::enableSockopt;
 
 namespace test {
 
@@ -370,6 +373,7 @@ struct DNSHeader {
     bool aa;
     bool tr;
     bool rd;
+    bool ad;
     std::vector<DNSQuestion> questions;
     std::vector<DNSRecord> answers;
     std::vector<DNSRecord> authorities;
@@ -459,7 +463,10 @@ char* DNSHeader::write(char* buffer, const char* buffer_end) const {
     // byte 2: 7:qr, 3-6:opcode, 2:aa, 1:tr, 0:rd
     header.flags0 = (qr << 7) | (opcode << 3) | (aa << 2) | (tr << 1) | rd;
     // byte 3: 7:ra, 6:zero, 5:ad, 4:cd, 0-3:rcode
-    header.flags1 = rcode;
+    // Fake behavior: if the query set the "ad" bit, set it in the response too.
+    // In a real server, this should be set only if the data is authentic and the
+    // query contained an "ad" bit or DNSSEC extensions.
+    header.flags1 = (ad << 5) | rcode;
     // rest of header
     header.qdcount = htons(questions.size());
     header.ancount = htons(answers.size());
@@ -506,6 +513,7 @@ const char* DNSHeader::readHeader(const char* buffer, const char* buffer_end,
     rd = header.flags0 & 1;
     // byte 3: 7:ra, 6:zero, 5:ad, 4:cd, 0-3:rcode
     ra = header.flags1 >> 7;
+    ad = (header.flags1 >> 5) & 1;
     rcode = header.flags1 & 0xF;
     // rest of header
     *qdcount = ntohs(header.qdcount);
@@ -523,6 +531,7 @@ DNSResponder::DNSResponder(std::string listen_address,
     listen_address_(std::move(listen_address)), listen_service_(std::move(listen_service)),
     poll_timeout_ms_(poll_timeout_ms), error_rcode_(error_rcode),
     response_probability_(response_probability),
+    fail_on_edns_(false),
     socket_(-1), epoll_fd_(-1), terminate_(false) { }
 
 DNSResponder::~DNSResponder() {
@@ -586,8 +595,8 @@ bool DNSResponder::startServer() {
     for (const addrinfo* ai = ai_res ; ai ; ai = ai->ai_next) {
         s = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
         if (s < 0) continue;
-        const int one = 1;
-        setsockopt(s, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one));
+        enableSockopt(s, SOL_SOCKET, SO_REUSEPORT);
+        enableSockopt(s, SOL_SOCKET, SO_REUSEADDR);
         if (bind(s, ai->ai_addr, ai->ai_addrlen)) {
             APLOGI("bind failed for socket %d", s);
             close(s);
@@ -751,6 +760,12 @@ bool DNSResponder::handleDNSRequest(const char* buffer, ssize_t len,
         return makeErrorResponse(&header, ns_rcode::ns_r_formerr, response,
                                  response_len);
     }
+    if (!header.additionals.empty() && fail_on_edns_) {
+        ALOGI("DNS request has an additional section (assumed EDNS). "
+              "Simulating an ancient (pre-EDNS) server.");
+        return makeErrorResponse(&header, ns_rcode::ns_r_formerr, response,
+                                 response_len);
+    }
     {
         std::lock_guard<std::mutex> lock(queries_mutex_);
         for (const DNSQuestion& question : header.questions) {
@@ -790,6 +805,7 @@ bool DNSResponder::handleDNSRequest(const char* buffer, ssize_t len,
 
 bool DNSResponder::addAnswerRecords(const DNSQuestion& question,
                                     std::vector<DNSRecord>* answers) const {
+    std::lock_guard<std::mutex> guard(mappings_mutex_);
     auto it = mappings_.find(QueryKey(question.qname.name, question.qtype));
     if (it == mappings_.end()) {
         // TODO(imaipi): handle correctly

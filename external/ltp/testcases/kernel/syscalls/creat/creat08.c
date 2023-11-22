@@ -52,6 +52,7 @@
 #include <grp.h>
 #include <pwd.h>
 #include "test.h"
+#include "safe_macros.h"
 
 char *TCID = "creat08";
 int TST_TOTAL = 1;
@@ -126,11 +127,8 @@ int main(int ac, char **av)
 		}
 		group1_gid = group->gr_gid;
 		if ((group = getgrnam("bin")) == NULL) {
-			if ((group = getgrnam("shell")) == NULL) {
-				tst_brkm(TBROK | TERRNO, cleanup,
-					 "getgrnam(\"bin\") and "
-					 "getgrnam(\"shell\") failed");
-			}
+			tst_brkm(TBROK | TERRNO, cleanup,
+				 "getgrnam(\"bin\") failed");
 		}
 		group2_gid = group->gr_gid;
 
@@ -444,22 +442,11 @@ static void cleanup(void)
 	if (unlink(nosetgid_A) == -1) {
 		tst_resm(TBROK, "unlink %s failed", nosetgid_A);
 	}
-	if (rmdir(DIR_A) == -1) {
-		tst_brkm(TBROK | TERRNO, NULL, "rmdir %s failed", DIR_A);
-	}
-	if (unlink(setgid_B) == -1) {
-		tst_brkm(TBROK | TERRNO, NULL, "unlink %s failed", setgid_B);
-	}
-	if (unlink(root_setgid_B) == -1) {
-		tst_brkm(TBROK | TERRNO, NULL, "unlink %s failed",
-			 root_setgid_B);
-	}
-	if (unlink(nosetgid_B) == -1) {
-		tst_brkm(TBROK | TERRNO, NULL, "unlink %s failed", nosetgid_B);
-	}
-	if (rmdir(DIR_B) == -1) {
-		tst_brkm(TBROK | TERRNO, NULL, "rmdir %s failed", DIR_B);
-	}
+	SAFE_RMDIR(NULL, DIR_A);
+	SAFE_UNLINK(NULL, setgid_B);
+	SAFE_UNLINK(NULL, root_setgid_B);
+	SAFE_UNLINK(NULL, nosetgid_B);
+	SAFE_RMDIR(NULL, DIR_B);
 
 	tst_rmdir();
 }

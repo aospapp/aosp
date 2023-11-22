@@ -19,7 +19,6 @@
 #define STRING_HELPER_H_
 
 #include <string>
-#include <android-base/macros.h>
 #include <vector>
 
 namespace android {
@@ -80,12 +79,10 @@ struct StringHelper {
         const std::string &separator);
 
 private:
-    StringHelper() {}
+    StringHelper() = delete;
 
     static void Tokenize(const std::string &in,
         std::vector<std::string> *vec);
-
-    DISALLOW_COPY_AND_ASSIGN(StringHelper);
 };
 
 }  // namespace android

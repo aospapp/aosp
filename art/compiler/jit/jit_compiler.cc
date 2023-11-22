@@ -21,7 +21,9 @@
 #include "arch/instruction_set.h"
 #include "arch/instruction_set_features.h"
 #include "art_method-inl.h"
+#include "base/logging.h"  // For VLOG
 #include "base/stringpiece.h"
+#include "base/systrace.h"
 #include "base/time_utils.h"
 #include "base/timing_logger.h"
 #include "base/unix_file/fd_file.h"
@@ -74,35 +76,32 @@ extern "C" void jit_types_loaded(void* handle, mirror::Class** types, size_t cou
     const ArrayRef<mirror::Class*> types_array(types, count);
     std::vector<uint8_t> elf_file = debug::WriteDebugElfFileForClasses(
         kRuntimeISA, jit_compiler->GetCompilerDriver()->GetInstructionSetFeatures(), types_array);
-    CreateJITCodeEntry(std::move(elf_file));
+    MutexLock mu(Thread::Current(), *Locks::native_debug_interface_lock_);
+    // We never free debug info for types, so we don't need to provide a handle
+    // (which would have been otherwise used as identifier to remove it later).
+    AddNativeDebugInfoForJit(nullptr /* handle */, elf_file);
   }
-}
-
-// Callers of this method assume it has NO_RETURN.
-NO_RETURN static void Usage(const char* fmt, ...) {
-  va_list ap;
-  va_start(ap, fmt);
-  std::string error;
-  android::base::StringAppendV(&error, fmt, ap);
-  LOG(FATAL) << error;
-  va_end(ap);
-  exit(EXIT_FAILURE);
 }
 
 JitCompiler::JitCompiler() {
   compiler_options_.reset(new CompilerOptions());
-  for (const std::string& argument : Runtime::Current()->GetCompilerOptions()) {
-    compiler_options_->ParseCompilerOption(argument, Usage);
+  // Special case max code units for inlining, whose default is "unset" (implictly
+  // meaning no limit). Do this before parsing the actuall passed options.
+  compiler_options_->SetInlineMaxCodeUnits(CompilerOptions::kDefaultInlineMaxCodeUnits);
+  {
+    std::string error_msg;
+    if (!compiler_options_->ParseCompilerOptions(Runtime::Current()->GetCompilerOptions(),
+                                                 true /* ignore_unrecognized */,
+                                                 &error_msg)) {
+      LOG(FATAL) << error_msg;
+      UNREACHABLE();
+    }
   }
   // JIT is never PIC, no matter what the runtime compiler options specify.
   compiler_options_->SetNonPic();
 
   // Set debuggability based on the runtime value.
   compiler_options_->SetDebuggable(Runtime::Current()->IsJavaDebuggable());
-
-  // Special case max code units for inlining, whose default is "unset" (implictly
-  // meaning no limit).
-  compiler_options_->SetInlineMaxCodeUnits(CompilerOptions::kDefaultInlineMaxCodeUnits);
 
   const InstructionSet instruction_set = kRuntimeISA;
   for (const StringPiece option : Runtime::Current()->GetCompilerOptions()) {
@@ -136,7 +135,6 @@ JitCompiler::JitCompiler() {
   if (instruction_set_features_ == nullptr) {
     instruction_set_features_ = InstructionSetFeatures::FromCppDefines();
   }
-  cumulative_logger_.reset(new CumulativeLogger("jit times"));
   compiler_driver_.reset(new CompilerDriver(
       compiler_options_.get(),
       /* verification_results */ nullptr,
@@ -147,9 +145,6 @@ JitCompiler::JitCompiler() {
       /* compiled_classes */ nullptr,
       /* compiled_methods */ nullptr,
       /* thread_count */ 1,
-      /* dump_stats */ false,
-      /* dump_passes */ false,
-      cumulative_logger_.get(),
       /* swap_fd */ -1,
       /* profile_compilation_info */ nullptr));
   // Disable dedupe so we can remove compiled methods.
@@ -172,10 +167,13 @@ JitCompiler::~JitCompiler() {
 }
 
 bool JitCompiler::CompileMethod(Thread* self, ArtMethod* method, bool osr) {
+  SCOPED_TRACE << "JIT compiling " << method->PrettyMethod();
+
   DCHECK(!method->IsProxyMethod());
   DCHECK(method->GetDeclaringClass()->IsResolved());
 
-  TimingLogger logger("JIT compiler timing logger", true, VLOG_IS_ON(jit));
+  TimingLogger logger(
+      "JIT compiler timing logger", true, VLOG_IS_ON(jit), TimingLogger::TimingKind::kThreadCpu);
   self->AssertNoPendingException();
   Runtime* runtime = Runtime::Current();
 

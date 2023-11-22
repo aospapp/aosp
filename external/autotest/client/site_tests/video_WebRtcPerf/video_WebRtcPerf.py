@@ -10,8 +10,8 @@ from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.common_lib.cros import chrome
-from autotest_lib.client.cros import power_status, power_utils
 from autotest_lib.client.cros import service_stopper
+from autotest_lib.client.cros.power import power_status, power_utils
 from autotest_lib.client.cros.video import histogram_verifier
 from autotest_lib.client.cros.video import constants
 from autotest_lib.client.cros.video import helper_logger
@@ -81,10 +81,10 @@ ADD_STATS_JAVASCRIPT = (
         '  }'
         '}')
 
-# Measure the stats until getting 10 samples or exceeding 15 seconds. addStats
+# Measure the stats until getting 10 samples or exceeding 30 seconds. addStats
 # is called once per second for now.
 NUM_DECODE_TIME_SAMPLES = 10
-TIMEOUT = 15
+TIMEOUT = 60
 
 
 class video_WebRtcPerf(test.test):
@@ -226,6 +226,14 @@ class video_WebRtcPerf(test.test):
                 DISABLE_ACCELERATED_VIDEO_DECODE_BROWSER_ARGS +
                 EXTRA_BROWSER_ARGS, arc_mode=self.arc_mode,
                 init_network_controller=True) as cr:
+
+            # crbug/753292 - enforce the idle checks after login
+            if not utils.wait_for_idle_cpu(WAIT_FOR_IDLE_CPU_TIMEOUT,
+                                           CPU_IDLE_USAGE):
+                logging.warning('Could not get idle CPU post login.')
+            if not utils.wait_for_cool_machine():
+                logging.warning('Could not get cold machine post login.')
+
             if utils.get_board() == 'daisy':
               logging.warning('Delay 30s for issue 588579 on daisy')
               time.sleep(30)
@@ -259,11 +267,17 @@ class video_WebRtcPerf(test.test):
             cpu_usage_end = utils.get_cpu_usage()
             return utils.compute_active_cpu_time(cpu_usage_start,
                                                       cpu_usage_end) * 100
+
+        # crbug/753292 - APNG login pictures increase CPU usage. Move the more
+        # strict idle checks after the login phase.
+        utils.wait_for_idle_cpu(WAIT_FOR_IDLE_CPU_TIMEOUT, CPU_IDLE_USAGE)
+        utils.wait_for_cool_machine()
         if not utils.wait_for_idle_cpu(WAIT_FOR_IDLE_CPU_TIMEOUT,
                                        CPU_IDLE_USAGE):
-            raise error.TestError('Could not get idle CPU.')
+            logging.warning('Could not get idle CPU pre login.')
         if not utils.wait_for_cool_machine():
-            raise error.TestError('Could not get cool machine.')
+            logging.warning('Could not get cold machine pre login.')
+
         # Stop the thermal service that may change the cpu frequency.
         self._service_stopper = service_stopper.ServiceStopper(THERMAL_SERVICES)
         self._service_stopper.stop_services()

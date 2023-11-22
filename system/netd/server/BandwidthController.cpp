@@ -52,10 +52,11 @@
 
 #include <netdutils/Syscalls.h>
 #include "BandwidthController.h"
+#include "Controllers.h"
 #include "FirewallController.h" /* For makeCriticalCommands */
-#include "NatController.h" /* For LOCAL_TETHER_COUNTERS_CHAIN */
+#include "Fwmark.h"
 #include "NetdConstants.h"
-#include "ResponseCode.h"
+#include "bpf/BpfUtils.h"
 
 /* Alphabetical */
 #define ALERT_IPT_TEMPLATE "%s %s -m quota2 ! --quota %" PRId64" --name %s\n"
@@ -70,18 +71,15 @@ auto BandwidthController::iptablesRestoreFunction = execIptablesRestoreWithOutpu
 using android::base::Join;
 using android::base::StringAppendF;
 using android::base::StringPrintf;
+using android::bpf::XT_BPF_EGRESS_PROG_PATH;
+using android::bpf::XT_BPF_INGRESS_PROG_PATH;
 using android::netdutils::StatusOr;
 using android::netdutils::UniqueFile;
 
 namespace {
 
 const char ALERT_GLOBAL_NAME[] = "globalAlert";
-const int  MAX_IPT_OUTPUT_LINE_LEN = 256;
 const std::string NEW_CHAIN_COMMAND = "-N ";
-const std::string GET_TETHER_STATS_COMMAND = StringPrintf(
-    "*filter\n"
-    "-nvx -L %s\n"
-    "COMMIT\n", NatController::LOCAL_TETHER_COUNTERS_CHAIN);
 
 const char NAUGHTY_CHAIN[] = "bw_penalty_box";
 const char NICE_CHAIN[] = "bw_happy_box";
@@ -175,25 +173,88 @@ static const std::vector<std::string> IPT_FLUSH_COMMANDS = {
     COMMIT_AND_CLOSE
 };
 
-static const std::vector<std::string> IPT_BASIC_ACCOUNTING_COMMANDS = {
-    "*filter",
-    "-A bw_INPUT -m owner --socket-exists", /* This is a tracking rule. */
-    "-A bw_OUTPUT -m owner --socket-exists", /* This is a tracking rule. */
-    "-A bw_costly_shared --jump bw_penalty_box",
-    "-A bw_penalty_box --jump bw_happy_box",
-    "-A bw_happy_box --jump bw_data_saver",
-    "-A bw_data_saver -j RETURN",
-    HAPPY_BOX_WHITELIST_COMMAND,
-    "COMMIT",
+static const uint32_t uidBillingMask = Fwmark::getUidBillingMask();
 
-    "*raw",
-    "-A bw_raw_PREROUTING -m owner --socket-exists", /* This is a tracking rule. */
-    "COMMIT",
+/**
+ * Basic commands for creation of hooks into data accounting and data boxes.
+ *
+ * Included in these commands are rules to prevent the double-counting of IPsec
+ * packets. The general overview is as follows:
+ * > All interface counters (counted in PREROUTING, POSTROUTING) must be
+ *     completely accurate, and count only the outer packet. As such, the inner
+ *     packet must be ignored, which is done through the use of two rules: use
+ *     of the policy module (for tunnel mode), and VTI interface checks (for
+ *     tunnel or transport-in-tunnel mode). The VTI interfaces should be named
+ *     ipsec*
+ * > Outbound UID billing can always be done with the outer packets, due to the
+ *     ability to always find the correct UID (based on the skb->sk). As such,
+ *     the inner packets should be ignored based on the policy module, or the
+ *     output interface if a VTI (ipsec+)
+ * > Inbound UDP-encap-ESP packets can be correctly mapped to the UID that
+ *     opened the encap socket, and as such, should be billed as early as
+ *     possible (for transport mode; tunnel mode usage should be billed to
+ *     sending/receiving application). Due to the inner packet being
+ *     indistinguishable from the inner packet of ESP, a uidBillingDone mark
+ *     has to be applied to prevent counting a second time.
+ * > Inbound ESP has no socket, and as such must be accounted later. ESP
+ *     protocol packets are skipped via a blanket rule.
+ * > Note that this solution is asymmetrical. Adding the VTI or policy matcher
+ *     ignore rule in the input chain would actually break the INPUT chain;
+ *     Those rules are designed to ignore inner packets, and in the tunnel
+ *     mode UDP, or any ESP case, we would not have billed the outer packet.
+ *
+ * See go/ipsec-data-accounting for more information.
+ */
 
-    "*mangle",
-    "-A bw_mangle_POSTROUTING -m owner --socket-exists", /* This is a tracking rule. */
-    COMMIT_AND_CLOSE
-};
+const std::vector<std::string> getBasicAccountingCommands() {
+    bool useBpf = BandwidthController::getBpfStatsStatus();
+    const std::vector<std::string> ipt_basic_accounting_commands = {
+        "*filter",
+        // Prevents IPSec double counting (ESP and UDP-encap-ESP respectively)
+        "-A bw_INPUT -p esp -j RETURN",
+        StringPrintf("-A bw_INPUT -m mark --mark 0x%x/0x%x -j RETURN",
+                     uidBillingMask, uidBillingMask),
+        "-A bw_INPUT -m owner --socket-exists", /* This is a tracking rule. */
+        StringPrintf("-A bw_INPUT -j MARK --or-mark 0x%x", uidBillingMask),
+
+        // Prevents IPSec double counting (Tunnel mode and Transport mode,
+        // respectively)
+        "-A bw_OUTPUT -o " IPSEC_IFACE_PREFIX "+ -j RETURN",
+        "-A bw_OUTPUT -m policy --pol ipsec --dir out -j RETURN",
+        "-A bw_OUTPUT -m owner --socket-exists", /* This is a tracking rule. */
+
+        "-A bw_costly_shared --jump bw_penalty_box",
+        "-A bw_penalty_box --jump bw_happy_box",
+        "-A bw_happy_box --jump bw_data_saver",
+        "-A bw_data_saver -j RETURN",
+        HAPPY_BOX_WHITELIST_COMMAND,
+        "COMMIT",
+
+        "*raw",
+        // Prevents IPSec double counting (Tunnel mode and Transport mode,
+        // respectively)
+        "-A bw_raw_PREROUTING -i " IPSEC_IFACE_PREFIX "+ -j RETURN",
+        "-A bw_raw_PREROUTING -m policy --pol ipsec --dir in -j RETURN",
+        "-A bw_raw_PREROUTING -m owner --socket-exists", /* This is a tracking rule. */
+        useBpf ? StringPrintf("-A bw_raw_PREROUTING -m bpf --object-pinned %s",
+                              XT_BPF_INGRESS_PROG_PATH):"",
+        "COMMIT",
+
+        "*mangle",
+        // Prevents IPSec double counting (Tunnel mode and Transport mode,
+        // respectively)
+        "-A bw_mangle_POSTROUTING -o " IPSEC_IFACE_PREFIX "+ -j RETURN",
+        "-A bw_mangle_POSTROUTING -m policy --pol ipsec --dir out -j RETURN",
+        "-A bw_mangle_POSTROUTING -m owner --socket-exists", /* This is a tracking rule. */
+        StringPrintf("-A bw_mangle_POSTROUTING -j MARK --set-mark 0x0/0x%x",
+                     uidBillingMask), // Clear the mark before sending this packet
+        useBpf ? StringPrintf("-A bw_mangle_POSTROUTING -m bpf --object-pinned %s",
+                              XT_BPF_EGRESS_PROG_PATH):"",
+        COMMIT_AND_CLOSE
+    };
+    return ipt_basic_accounting_commands;
+}
+
 
 std::vector<std::string> toStrVec(int num, char* strs[]) {
     std::vector<std::string> tmp;
@@ -204,6 +265,11 @@ std::vector<std::string> toStrVec(int num, char* strs[]) {
 }
 
 }  // namespace
+
+bool BandwidthController::getBpfStatsStatus() {
+    return (access(XT_BPF_INGRESS_PROG_PATH, F_OK) != -1) &&
+           (access(XT_BPF_EGRESS_PROG_PATH, F_OK) != -1);
+}
 
 BandwidthController::BandwidthController() {
 }
@@ -239,7 +305,8 @@ int BandwidthController::enableBandwidthControl(bool force) {
     mSharedQuotaBytes = mSharedAlertBytes = 0;
 
     flushCleanTables(false);
-    std::string commands = Join(IPT_BASIC_ACCOUNTING_COMMANDS, '\n');
+
+    std::string commands = Join(getBasicAccountingCommands(), '\n');
     return iptablesRestoreFunction(V4V6, commands, nullptr);
 }
 
@@ -328,6 +395,7 @@ int BandwidthController::setInterfaceSharedQuota(const std::string& iface, int64
             "*filter",
             StringPrintf("-I bw_INPUT %d -i %s --jump %s", ruleInsertPos, iface.c_str(), chain),
             StringPrintf("-I bw_OUTPUT %d -o %s --jump %s", ruleInsertPos, iface.c_str(), chain),
+            StringPrintf("-A bw_FORWARD -i %s --jump %s", iface.c_str(), chain),
             StringPrintf("-A bw_FORWARD -o %s --jump %s", iface.c_str(), chain),
         };
         if (mSharedQuotaIfaces.empty()) {
@@ -378,6 +446,7 @@ int BandwidthController::removeInterfaceSharedQuota(const std::string& iface) {
         "*filter",
         StringPrintf("-D bw_INPUT -i %s --jump %s", iface.c_str(), chain),
         StringPrintf("-D bw_OUTPUT -o %s --jump %s", iface.c_str(), chain),
+        StringPrintf("-D bw_FORWARD -i %s --jump %s", iface.c_str(), chain),
         StringPrintf("-D bw_FORWARD -o %s --jump %s", iface.c_str(), chain),
     };
     if (mSharedQuotaIfaces.size() == 1) {
@@ -446,6 +515,7 @@ int BandwidthController::setInterfaceQuota(const std::string& iface, int64_t max
                      chain.c_str()),
         StringPrintf("-I bw_OUTPUT %d -o %s --jump %s", ruleInsertPos, iface.c_str(),
                      chain.c_str()),
+        StringPrintf("-A bw_FORWARD -i %s --jump %s", iface.c_str(), chain.c_str()),
         StringPrintf("-A bw_FORWARD -o %s --jump %s", iface.c_str(), chain.c_str()),
         StringPrintf("-A %s -m quota2 ! --quota %" PRId64 " --name %s --jump REJECT",
                      chain.c_str(), maxBytes, cost.c_str()),
@@ -502,6 +572,7 @@ int BandwidthController::removeInterfaceQuota(const std::string& iface) {
         "*filter",
         StringPrintf("-D bw_INPUT -i %s --jump %s", iface.c_str(), chain.c_str()),
         StringPrintf("-D bw_OUTPUT -o %s --jump %s", iface.c_str(), chain.c_str()),
+        StringPrintf("-D bw_FORWARD -i %s --jump %s", iface.c_str(), chain.c_str()),
         StringPrintf("-D bw_FORWARD -o %s --jump %s", iface.c_str(), chain.c_str()),
         StringPrintf("-F %s", chain.c_str()),
         StringPrintf("-X %s", chain.c_str()),
@@ -757,185 +828,6 @@ int BandwidthController::removeCostlyAlert(const std::string& costName, int64_t*
 
     *alertBytes = 0;
     return 0;
-}
-
-void BandwidthController::addStats(TetherStatsList& statsList, const TetherStats& stats) {
-    for (TetherStats& existing : statsList) {
-        if (existing.addStatsIfMatch(stats)) {
-            return;
-        }
-    }
-    // No match. Insert a new interface pair.
-    statsList.push_back(stats);
-}
-
-/*
- * Parse the ptks and bytes out of:
- *   Chain natctrl_tether_counters (4 references)
- *       pkts      bytes target     prot opt in     out     source               destination
- *         26     2373 RETURN     all  --  wlan0  rmnet0  0.0.0.0/0            0.0.0.0/0
- *         27     2002 RETURN     all  --  rmnet0 wlan0   0.0.0.0/0            0.0.0.0/0
- *       1040   107471 RETURN     all  --  bt-pan rmnet0  0.0.0.0/0            0.0.0.0/0
- *       1450  1708806 RETURN     all  --  rmnet0 bt-pan  0.0.0.0/0            0.0.0.0/0
- * or:
- *   Chain natctrl_tether_counters (0 references)
- *       pkts      bytes target     prot opt in     out     source               destination
- *          0        0 RETURN     all      wlan0  rmnet_data0  ::/0                 ::/0
- *          0        0 RETURN     all      rmnet_data0 wlan0   ::/0                 ::/0
- *
- * It results in an error if invoked and no tethering counter rules exist. The constraint
- * helps detect complete parsing failure.
- */
-int BandwidthController::addForwardChainStats(const TetherStats& filter,
-                                              TetherStatsList& statsList,
-                                              const std::string& statsOutput,
-                                              std::string &extraProcessingInfo) {
-    int res;
-    std::string statsLine;
-    char iface0[MAX_IPT_OUTPUT_LINE_LEN];
-    char iface1[MAX_IPT_OUTPUT_LINE_LEN];
-    char rest[MAX_IPT_OUTPUT_LINE_LEN];
-
-    TetherStats stats;
-    const char *buffPtr;
-    int64_t packets, bytes;
-    int statsFound = 0;
-
-    bool filterPair = filter.intIface[0] && filter.extIface[0];
-
-    ALOGV("filter: %s",  filter.getStatsLine().c_str());
-
-    stats = filter;
-
-    std::stringstream stream(statsOutput);
-    while (std::getline(stream, statsLine, '\n')) {
-        buffPtr = statsLine.c_str();
-
-        /* Clean up, so a failed parse can still print info */
-        iface0[0] = iface1[0] = rest[0] = packets = bytes = 0;
-        if (strstr(buffPtr, "0.0.0.0")) {
-            // IPv4 has -- indicating what to do with fragments...
-            //       26     2373 RETURN     all  --  wlan0  rmnet0  0.0.0.0/0            0.0.0.0/0
-            res = sscanf(buffPtr, "%" SCNd64" %" SCNd64" RETURN all -- %s %s 0.%s",
-                    &packets, &bytes, iface0, iface1, rest);
-        } else {
-            // ... but IPv6 does not.
-            //       26     2373 RETURN     all      wlan0  rmnet0  ::/0                 ::/0
-            res = sscanf(buffPtr, "%" SCNd64" %" SCNd64" RETURN all %s %s ::/%s",
-                    &packets, &bytes, iface0, iface1, rest);
-        }
-        ALOGV("parse res=%d iface0=<%s> iface1=<%s> pkts=%" PRId64" bytes=%" PRId64" rest=<%s> orig line=<%s>", res,
-             iface0, iface1, packets, bytes, rest, buffPtr);
-        extraProcessingInfo += buffPtr;
-        extraProcessingInfo += "\n";
-
-        if (res != 5) {
-            continue;
-        }
-        /*
-         * The following assumes that the 1st rule has in:extIface out:intIface,
-         * which is what NatController sets up.
-         * If not filtering, the 1st match rx, and sets up the pair for the tx side.
-         */
-        if (filter.intIface[0] && filter.extIface[0]) {
-            if (filter.intIface == iface0 && filter.extIface == iface1) {
-                ALOGV("2Filter RX iface_in=%s iface_out=%s rx_bytes=%" PRId64" rx_packets=%" PRId64" ", iface0, iface1, bytes, packets);
-                stats.rxPackets = packets;
-                stats.rxBytes = bytes;
-            } else if (filter.intIface == iface1 && filter.extIface == iface0) {
-                ALOGV("2Filter TX iface_in=%s iface_out=%s rx_bytes=%" PRId64" rx_packets=%" PRId64" ", iface0, iface1, bytes, packets);
-                stats.txPackets = packets;
-                stats.txBytes = bytes;
-            }
-        } else if (filter.intIface[0] || filter.extIface[0]) {
-            if (filter.intIface == iface0 || filter.extIface == iface1) {
-                ALOGV("1Filter RX iface_in=%s iface_out=%s rx_bytes=%" PRId64" rx_packets=%" PRId64" ", iface0, iface1, bytes, packets);
-                stats.intIface = iface0;
-                stats.extIface = iface1;
-                stats.rxPackets = packets;
-                stats.rxBytes = bytes;
-            } else if (filter.intIface == iface1 || filter.extIface == iface0) {
-                ALOGV("1Filter TX iface_in=%s iface_out=%s rx_bytes=%" PRId64" rx_packets=%" PRId64" ", iface0, iface1, bytes, packets);
-                stats.intIface = iface1;
-                stats.extIface = iface0;
-                stats.txPackets = packets;
-                stats.txBytes = bytes;
-            }
-        } else /* if (!filter.intFace[0] && !filter.extIface[0]) */ {
-            if (!stats.intIface[0]) {
-                ALOGV("0Filter RX iface_in=%s iface_out=%s rx_bytes=%" PRId64" rx_packets=%" PRId64" ", iface0, iface1, bytes, packets);
-                stats.intIface = iface0;
-                stats.extIface = iface1;
-                stats.rxPackets = packets;
-                stats.rxBytes = bytes;
-            } else if (stats.intIface == iface1 && stats.extIface == iface0) {
-                ALOGV("0Filter TX iface_in=%s iface_out=%s rx_bytes=%" PRId64" rx_packets=%" PRId64" ", iface0, iface1, bytes, packets);
-                stats.txPackets = packets;
-                stats.txBytes = bytes;
-            }
-        }
-        if (stats.rxBytes != -1 && stats.txBytes != -1) {
-            ALOGV("rx_bytes=%" PRId64" tx_bytes=%" PRId64" filterPair=%d", stats.rxBytes, stats.txBytes, filterPair);
-            addStats(statsList, stats);
-            if (filterPair) {
-                return 0;
-            } else {
-                statsFound++;
-                stats = filter;
-            }
-        }
-    }
-
-    /* It is always an error to find only one side of the stats. */
-    /* It is an error to find nothing when not filtering. */
-    if (((stats.rxBytes == -1) != (stats.txBytes == -1)) ||
-        (!statsFound && !filterPair)) {
-        return -1;
-    }
-    return 0;
-}
-
-std::string BandwidthController::TetherStats::getStatsLine() const {
-    std::string msg;
-    StringAppendF(&msg, "%s %s %" PRId64" %" PRId64" %" PRId64" %" PRId64, intIface.c_str(),
-                  extIface.c_str(), rxBytes, rxPackets, txBytes, txPackets);
-    return msg;
-}
-
-int BandwidthController::getTetherStats(SocketClient *cli, TetherStats& filter,
-                                        std::string &extraProcessingInfo) {
-    int res = 0;
-
-    TetherStatsList statsList;
-
-    for (const IptablesTarget target : {V4, V6}) {
-        std::string statsString;
-        res = iptablesRestoreFunction(target, GET_TETHER_STATS_COMMAND, &statsString);
-        if (res != 0) {
-            ALOGE("Failed to run %s err=%d", GET_TETHER_STATS_COMMAND.c_str(), res);
-            return -1;
-        }
-
-        res = addForwardChainStats(filter, statsList, statsString, extraProcessingInfo);
-        if (res != 0) {
-            return res;
-        }
-    }
-
-    if (filter.intIface[0] && filter.extIface[0] && statsList.size() == 1) {
-        cli->sendMsg(ResponseCode::TetheringStatsResult,
-                     statsList[0].getStatsLine().c_str(), false);
-    } else {
-        for (const auto& stats: statsList) {
-            cli->sendMsg(ResponseCode::TetheringStatsListResult,
-                         stats.getStatsLine().c_str(), false);
-        }
-        if (res == 0) {
-            cli->sendMsg(ResponseCode::CommandOkay, "Tethering stats list completed", false);
-        }
-    }
-
-    return res;
 }
 
 void BandwidthController::flushExistingCostlyTables(bool doClean) {

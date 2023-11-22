@@ -88,7 +88,7 @@ class CommandProcessorTest : public ::testing::Test {
         tag.length() + ascii_message_tag_len_adjustment;
     const size_t adjusted_data_len =
         message.length() + ascii_message_data_len_adjustment;
-    const auto& ascii_message_header =
+    const auto ascii_message_header =
         protocol::AsciiMessage()
             .set_tag_len(SAFELY_CLAMP(
                 adjusted_tag_len, uint8_t, 0,
@@ -103,7 +103,7 @@ class CommandProcessorTest : public ::testing::Test {
     const size_t payload_len = sizeof(ascii_message_header) + tag.length() +
                                message.length() +
                                command_payload_len_adjustment;
-    const auto& command =
+    const auto command =
         protocol::Command()
             .set_opcode(protocol::Opcode::kWriteAsciiMessage)
             .set_payload_len(SAFELY_CLAMP(
@@ -143,10 +143,10 @@ class CommandProcessorTest : public ::testing::Test {
   }
 
   bool SendDumpBuffers() {
-    const auto& command = protocol::Command()
-                              .set_opcode(protocol::Opcode::kDumpBuffers)
-                              .set_payload_len(0);
-    const auto& buf = CommandBuffer().AppendOrDie(&command, sizeof(command));
+    const auto command = protocol::Command()
+                             .set_opcode(protocol::Opcode::kDumpBuffers)
+                             .set_payload_len(0);
+    const auto buf = CommandBuffer().AppendOrDie(&command, sizeof(command));
     constexpr int kFakeFd = 100;
     return command_processor_->ProcessCommand(buf.data(), buf.size(), kFakeFd);
   }
@@ -220,12 +220,12 @@ TEST_F(CommandProcessorTest, ProcessCommandInvalidOpcodeReturnsFailure) {
   using opcode_integral_t = std::underlying_type<opcode_enum_t>::type;
   constexpr auto invalid_opcode = GetMaxVal<opcode_integral_t>();
 
-  const auto& command =
+  const auto command =
       protocol::Command()
           .set_opcode(local_utils::CopyFromBufferOrDie<opcode_enum_t>(
               &invalid_opcode, sizeof(invalid_opcode)))
           .set_payload_len(0);
-  const auto& buf = CommandBuffer().AppendOrDie(&command, sizeof(command));
+  const auto buf = CommandBuffer().AppendOrDie(&command, sizeof(command));
   constexpr int kFakeFd = 100;
   EXPECT_FALSE(
       command_processor_->ProcessCommand(buf.data(), buf.size(), kFakeFd));

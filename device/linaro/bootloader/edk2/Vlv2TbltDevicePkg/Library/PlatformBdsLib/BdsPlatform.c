@@ -1,15 +1,15 @@
 /** @file
 
-  Copyright (c) 2004  - 2015, Intel Corporation. All rights reserved.<BR>
-                                                                                   
-  This program and the accompanying materials are licensed and made available under
-  the terms and conditions of the BSD License that accompanies this distribution.  
-  The full text of the license may be found at                                     
-  http://opensource.org/licenses/bsd-license.php.                                  
-                                                                                   
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,            
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.    
-                                                                                   
+  Copyright (c) 2004  - 2016, Intel Corporation. All rights reserved.<BR>
+                                                                                   
+  This program and the accompanying materials are licensed and made available under
+  the terms and conditions of the BSD License that accompanies this distribution.  
+  The full text of the license may be found at                                     
+  http://opensource.org/licenses/bsd-license.php.                                  
+                                                                                   
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,            
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.    
+                                                                                   
 
 
 Module Name:
@@ -44,6 +44,9 @@ Abstract:
 #include <Library/GenericBdsLib/InternalBdsLib.h>
 #include <Library/GenericBdsLib/String.h>
 #include <Library/NetLib.h>
+
+#include <Library/CapsuleLib.h>
+#include <Protocol/EsrtManagement.h>
 
 EFI_GUID *ConnectDriverTable[] = {
   &gEfiMmioDeviceProtocolGuid,
@@ -181,6 +184,11 @@ InstallReadyToLock (
                     );
     ASSERT_EFI_ERROR (Status);
 
+    //
+    // Signal EndOfDxe PI Event
+    //
+    EfiEventGroupSignal (&gEfiEndOfDxeEventGroupGuid);
+
     Handle = NULL;
     Status = gBS->InstallProtocolInterface (
                     &Handle,
@@ -209,7 +217,7 @@ ShellImageCallback (
 // BDS Platform Functions
 //
 /**
-  Platform Bds init. Incude the platform firmware vendor, revision
+  Platform Bds init. Include the platform firmware vendor, revision
   and so crc check.
 
   @param VOID
@@ -305,7 +313,7 @@ GetGopDevicePath (
   }
 
   //
-  // Try to connect this handle, so that GOP dirver could start on this
+  // Try to connect this handle, so that GOP driver could start on this
   // device and create child handles with GraphicsOutput Protocol installed
   // on them, then we get device paths of these child handles and select
   // them as possible console device.
@@ -422,7 +430,7 @@ GetGopDevicePath (
         // In current implementation, we only enable one of the child handles
         // as console device, i.e. sotre one of the child handle's device
         // path to variable "ConOut"
-        // In futhure, we could select all child handles to be console device
+        // In future, we could select all child handles to be console device
         //
         *GopDevicePath = TempDevicePath;
       }
@@ -775,7 +783,7 @@ UpdateConsoleResolution(
   Connect the predefined platform default console device. Always try to find
   and enable the vga device if have.
 
-  @param PlatformConsole    Predfined platform default console device array.
+  @param PlatformConsole    Predefined platform default console device array.
 
   @retval EFI_SUCCESS       Success connect at least one ConIn and ConOut
                             device, there must have one ConOut device is
@@ -814,7 +822,7 @@ PlatformBdsConnectConsole (
   if (VarConout == NULL || VarConin == NULL) {
     //
     // Have chance to connect the platform default console,
-    // the platform default console is the minimue device group
+    // the platform default console is the minimum device group
     // the platform should support
     //
     while (PlatformConsole[Index].DevicePath != NULL) {
@@ -861,7 +869,7 @@ PlatformBdsConnectConsole (
 }
 
 /**
-  Connect with predeined platform connect sequence,
+  Connect with predefined platform connect sequence,
   the OEM/IBV can customize with their own connect sequence.
 
   @param None.
@@ -1563,7 +1571,7 @@ PlatformBdsLibEnumerateAllBootOption (
 
 /**
 
-  The function will excute with as the platform policy, current policy
+  The function will execute with as the platform policy, current policy
   is driven by boot mode. IBV/OEM can customize this code for their specific
   policy action.
 
@@ -1580,7 +1588,7 @@ EFIAPI
 PlatformBdsPolicyBehavior (
   IN OUT LIST_ENTRY                  *DriverOptionList,
   IN OUT LIST_ENTRY                  *BootOptionList,
-  IN PROCESS_CAPSULES                ProcessCapsules,
+  IN PROCESS_CAPSULES                BdsProcessCapsules,
   IN BASEM_MEMORY_TEST               BaseMemoryTest
   )
 {
@@ -1589,11 +1597,8 @@ PlatformBdsPolicyBehavior (
   EFI_BOOT_MODE                      BootMode;
   BOOLEAN                            DeferredImageExist;
   UINTN                              Index;
-  CHAR16                             CapsuleVarName[36];
-  CHAR16                             *TempVarName;
   SYSTEM_CONFIGURATION               SystemConfiguration;
   UINTN                              VarSize;
-  BOOLEAN                            SetVariableFlag;
   PLATFORM_PCI_DEVICE_PATH           *EmmcBootDevPath;
   EFI_GLOBAL_NVS_AREA_PROTOCOL       *GlobalNvsArea;
   EFI_HANDLE                         FvProtocolHandle;
@@ -1607,13 +1612,14 @@ PlatformBdsPolicyBehavior (
   BOOLEAN                            IsFirstBoot;
   UINT16                             *BootOrder;
   UINTN                              BootOrderSize;
+  ESRT_MANAGEMENT_PROTOCOL           *EsrtManagement;
 
   Timeout = PcdGet16 (PcdPlatformBootTimeOut);
   if (Timeout > 10 ) {
     //we think the Timeout variable is corrupted
     Timeout = 10;
   }
-  	
+
   VarSize = sizeof(SYSTEM_CONFIGURATION);
   Status = gRT->GetVariable(
                   NORMAL_SETUP_NAME,
@@ -1634,7 +1640,7 @@ PlatformBdsPolicyBehavior (
               &SystemConfiguration
               );
     ASSERT_EFI_ERROR (Status);
-  }  
+  }
 
   //
   // Load the driver option as the driver option list
@@ -1645,37 +1651,6 @@ PlatformBdsPolicyBehavior (
   // Get current Boot Mode
   //
   BootMode = GetBootModeHob();
-
-  //
-  // Clear all the capsule variables CapsuleUpdateData, CapsuleUpdateData1, CapsuleUpdateData2...
-  // as early as possible which will avoid the next time boot after the capsule update
-  // will still into the capsule loop
-  //
-  StrCpy (CapsuleVarName, EFI_CAPSULE_VARIABLE_NAME);
-  TempVarName = CapsuleVarName + StrLen (CapsuleVarName);
-  Index = 0;
-  SetVariableFlag = TRUE;
-  while (SetVariableFlag) {
-    if (Index > 0) {
-      UnicodeValueToString (TempVarName, 0, Index, 0);
-    }
-    Status = gRT->SetVariable (
-                    CapsuleVarName,
-                    &gEfiCapsuleVendorGuid,
-                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_RUNTIME_ACCESS |
-                    EFI_VARIABLE_BOOTSERVICE_ACCESS,
-                    0,
-                    (VOID *)NULL
-                    );
-    if (EFI_ERROR (Status)) {
-      //
-      // There is no capsule variables, quit
-      //
-      SetVariableFlag = FALSE;
-      continue;
-    }
-    Index++;
-  }
 
   //
   // No deferred images exist by default
@@ -1726,6 +1701,11 @@ PlatformBdsPolicyBehavior (
                       &RegistrationExitPmAuth
                       );
     }
+  }
+
+  Status = gBS->LocateProtocol(&gEsrtManagementProtocolGuid, NULL, (VOID **)&EsrtManagement);
+  if (EFI_ERROR(Status)) {
+    EsrtManagement = NULL;
   }
 
   switch (BootMode) {
@@ -1817,13 +1797,18 @@ PlatformBdsPolicyBehavior (
     #ifdef FTPM_ENABLE
     TrEEPhysicalPresenceLibProcessRequest(NULL);
     #endif
+
+    if (EsrtManagement != NULL) {
+      EsrtManagement->LockEsrtRepository();
+    }
+
     //
     // Close boot script and install ready to lock
     //
     InstallReadyToLock ();
 
     //
-    // Give one chance to enter the setup if we 
+    // Give one chance to enter the setup if we
     // select Gummiboot "Reboot Into Firmware Interface" and Fast Boot is enabled.
     //
     BootIntoFirmwareInterface();
@@ -1858,6 +1843,10 @@ PlatformBdsPolicyBehavior (
       }
     }
 
+    if (EsrtManagement != NULL) {
+      EsrtManagement->LockEsrtRepository();
+    }
+
     //
     // Close boot script and install ready to lock
     //
@@ -1882,6 +1871,16 @@ PlatformBdsPolicyBehavior (
     //
     PlatformBdsConnectConsole (gPlatformConsole);
     PlatformBdsDiagnostics (EXTENSIVE, FALSE, BaseMemoryTest);
+
+    DEBUG((DEBUG_INFO, "ProcessCapsules Before EndOfDxe......\n"));
+    ProcessCapsules ();
+    DEBUG((DEBUG_INFO, "ProcessCapsules Done\n"));
+
+    //
+    // Close boot script and install ready to lock
+    //
+    InstallReadyToLock ();
+
     BdsLibConnectAll ();
 
     //
@@ -1898,12 +1897,13 @@ PlatformBdsPolicyBehavior (
       }
     }
 
-    //
-    // Close boot script and install ready to lock
-    //
-    InstallReadyToLock ();
+    if (EsrtManagement != NULL) {
+      EsrtManagement->SyncEsrtFmp();
+    }
 
-    ProcessCapsules (BOOT_ON_FLASH_UPDATE);
+    DEBUG((DEBUG_INFO, "ProcessCapsules After ConnectAll......\n"));
+    ProcessCapsules();
+    DEBUG((DEBUG_INFO, "ProcessCapsules Done\n"));
     break;
 
   case BOOT_IN_RECOVERY_MODE:
@@ -2007,6 +2007,10 @@ FULL_CONFIGURATION:
    #ifdef FTPM_ENABLE
    TrEEPhysicalPresenceLibProcessRequest(NULL);
    #endif
+
+    if (EsrtManagement != NULL) {
+      EsrtManagement->SyncEsrtFmp();
+    }
     //
     // Close boot script and install ready to lock
     //
@@ -2024,7 +2028,7 @@ FULL_CONFIGURATION:
     PlatformBdsEnterFrontPageWithHotKey (Timeout, FALSE);
 
 	//
-	// Give one chance to enter the setup if we 
+	// Give one chance to enter the setup if we
 	// select Gummiboot "Reboot Into Firmware Interface"
 	//
 	BootIntoFirmwareInterface();
@@ -2042,7 +2046,7 @@ FULL_CONFIGURATION:
       return;
     }
 
-    
+
     break;
   }
 
@@ -2158,7 +2162,6 @@ BdsLockFv (
   EFI_FV_BLOCK_MAP_ENTRY      *BlockMap;
   EFI_FIRMWARE_VOLUME_HEADER  *FvHeader;
   EFI_PHYSICAL_ADDRESS        BaseAddress;
-  UINT8                       Data;
   UINT32                      BlockLength;
   UINTN                       Index;
 
@@ -2169,7 +2172,7 @@ BdsLockFv (
   while ((BlockMap->NumBlocks != 0) && (BlockMap->Length != 0)) {
     BlockLength = BlockMap->Length;
     for (Index = 0; Index < BlockMap->NumBlocks; Index++) {
-      Data = MmioOr8 ((UINTN) BaseAddress, 0x03);
+      MmioOr8 ((UINTN) BaseAddress, 0x03);
       BaseAddress += BlockLength;
     }
     BlockMap++;
@@ -2408,6 +2411,12 @@ ShowProgressHotKey (
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL Background;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL Color;
   UINT32                        GpioValue;
+  CHAR16                        *TmpStr1;
+  CHAR16                        *TmpStr2;
+  CHAR16                        *TmpStr3;
+  UINTN                         TmpStrSize;
+  VOID                          *Buffer;
+  UINTN                         Size;
 
   if (TimeoutDefault == 0) {
     return EFI_TIMEOUT;
@@ -2431,10 +2440,76 @@ ShowProgressHotKey (
   SetMem (&Background, sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL), 0x0);
   SetMem (&Color, sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL), 0xff);
 
+  TmpStr2 = NULL;
+  TmpStr3 = NULL;
+
+  //
+  // Check if the platform is using test key.
+  //
+  Status = GetSectionFromAnyFv(
+             PcdGetPtr(PcdEdkiiRsa2048Sha256TestPublicKeyFileGuid),
+             EFI_SECTION_RAW,
+             0,
+             &Buffer,
+             &Size
+             );
+  if (!EFI_ERROR(Status)) {
+    if ((Size == PcdGetSize(PcdRsa2048Sha256PublicKeyBuffer)) &&
+        (CompareMem(Buffer, PcdGetPtr(PcdRsa2048Sha256PublicKeyBuffer), Size) == 0)) {
+      TmpStr2 = L"WARNING: Recovery Test Key is used.\r\n";
+      if (DebugAssertEnabled()) {
+        DEBUG ((DEBUG_INFO, "\n\nWARNING: Recovery Test Key is used.\n"));
+      } else {
+        SerialPortWrite((UINT8 *)"\n\nWARNING: Recovery Test Key is used.", sizeof("\n\nWARNING: Recovery Test Key is used."));
+      }
+      PcdSetBoolS(PcdTestKeyUsed, TRUE);
+    }
+    FreePool(Buffer);
+  }
+  Status = GetSectionFromAnyFv(
+             PcdGetPtr(PcdEdkiiPkcs7TestPublicKeyFileGuid),
+             EFI_SECTION_RAW,
+             0,
+             &Buffer,
+             &Size
+             );
+  if (!EFI_ERROR(Status)) {
+    if ((Size == PcdGetSize(PcdPkcs7CertBuffer)) &&
+        (CompareMem(Buffer, PcdGetPtr(PcdPkcs7CertBuffer), Size) == 0)) {
+      TmpStr3 = L"WARNING: Capsule Test Key is used.\r\n";
+      if (DebugAssertEnabled()) {
+        DEBUG ((DEBUG_INFO, "\n\nWARNING: Capsule Test Key is used.\r\n"));
+      } else {
+        SerialPortWrite((UINT8 *)"\n\nWARNING: Capsule Test Key is used.", sizeof("\n\nWARNING: Capsule Test Key is used."));
+      }
+      PcdSetBoolS(PcdTestKeyUsed, TRUE);
+    }
+    FreePool(Buffer);
+  }
+
   //
   // Clear the progress status bar first
   //
-  TmpStr = L"Start boot option, Press <F2> or <DEL> to enter setup page.";
+  TmpStr1 = L"Start boot option, Press <F2> or <DEL> to enter setup page.\r\n";
+  TmpStrSize = StrSize(TmpStr1);
+  if (TmpStr2 != NULL) {
+    TmpStrSize += StrSize(TmpStr2);
+  }
+  if (TmpStr3 != NULL) {
+    TmpStrSize += StrSize(TmpStr3);
+  }
+  TmpStr = AllocatePool (TmpStrSize);
+  if (TmpStr == NULL) {
+    TmpStr = TmpStr1;
+  } else {
+    StrCpyS(TmpStr, TmpStrSize/sizeof(CHAR16), TmpStr1);
+    if (TmpStr2 != NULL) {
+      StrCatS(TmpStr, TmpStrSize/sizeof(CHAR16), TmpStr2);
+    }
+    if (TmpStr3 != NULL) {
+      StrCatS(TmpStr, TmpStrSize/sizeof(CHAR16), TmpStr3);
+    }
+  }
   PlatformBdsShowProgress (Foreground, Background, TmpStr, Color, 0, 0);
 
   TimeoutRemain = TimeoutDefault;
@@ -2835,7 +2910,7 @@ PlatformBdsConnectSimpleConsole (
   if (VarConout == NULL || VarConin == NULL) {
     //
     // Have chance to connect the platform default console,
-    // the platform default console is the minimue device group
+    // the platform default console is the minimum device group
     // the platform should support
     //
     while (PlatformConsole[Index].DevicePath != NULL) {

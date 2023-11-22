@@ -105,15 +105,24 @@ public class TestLocationManager {
      *
      * @param locationListener location listener for request
      */
-    public void requestLocationUpdates(LocationListener locationListener) {
+    public void requestLocationUpdates(LocationListener locationListener, int minTimeMsec) {
         if (mLocationManager.getProvider(LocationManager.GPS_PROVIDER) != null) {
             Log.i(TAG, "Request Location updates.");
             mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
-                    0 /* minTime*/,
+                    minTimeMsec,
                     0 /* minDistance */,
                     locationListener,
                     Looper.getMainLooper());
         }
+    }
+
+    /**
+     * See {@code LocationManager#requestLocationUpdates}.
+     *
+     * @param locationListener location listener for request
+     */
+    public void requestLocationUpdates(LocationListener locationListener) {
+        requestLocationUpdates(locationListener, 0 /* minTimeMsec */);
     }
 
     /**

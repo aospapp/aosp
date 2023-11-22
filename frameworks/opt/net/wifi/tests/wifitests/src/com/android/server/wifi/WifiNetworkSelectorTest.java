@@ -16,6 +16,7 @@
 
 package com.android.server.wifi;
 
+import static com.android.server.wifi.WifiConfigurationTestUtil.SECURITY_EAP;
 import static com.android.server.wifi.WifiConfigurationTestUtil.SECURITY_NONE;
 import static com.android.server.wifi.WifiConfigurationTestUtil.SECURITY_PSK;
 
@@ -28,8 +29,7 @@ import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiConfiguration.NetworkSelectionStatus;
 import android.net.wifi.WifiInfo;
 import android.os.SystemClock;
-import android.test.mock.MockResources;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 import android.util.LocalLog;
 import android.util.Pair;
 
@@ -65,12 +65,14 @@ public class WifiNetworkSelectorTest {
         setupWifiInfo();
         mLocalLog = new LocalLog(512);
 
-        mWifiNetworkSelector = new WifiNetworkSelector(mContext, mWifiConfigManager, mClock,
+        mWifiNetworkSelector = new WifiNetworkSelector(mContext,
+                new ScoringParams(mContext),
+                mWifiConfigManager, mClock,
                 mLocalLog);
         mWifiNetworkSelector.registerNetworkEvaluator(mDummyEvaluator, 1);
         mDummyEvaluator.setEvaluatorToSelectCandidate(true);
         when(mClock.getElapsedSinceBootMillis()).thenReturn(SystemClock.elapsedRealtime());
-
+        when(mCarrierNetworkConfig.isCarrierNetwork(any())).thenReturn(true);
     }
 
     /** Cleans up test. */
@@ -132,6 +134,7 @@ public class WifiNetworkSelectorTest {
     private DummyNetworkEvaluator mDummyEvaluator = new DummyNetworkEvaluator();
     @Mock private WifiConfigManager mWifiConfigManager;
     @Mock private Context mContext;
+    @Mock private CarrierNetworkConfig mCarrierNetworkConfig;
 
     // For simulating the resources, we use a Spy on a MockResource
     // (which is really more of a stub than a mock, in spite if its name).
@@ -178,6 +181,7 @@ public class WifiNetworkSelectorTest {
         // simulate a disconnected state
         when(mWifiInfo.is24GHz()).thenReturn(true);
         when(mWifiInfo.is5GHz()).thenReturn(false);
+        when(mWifiInfo.getFrequency()).thenReturn(2400);
         when(mWifiInfo.getRssi()).thenReturn(-70);
         when(mWifiInfo.getNetworkId()).thenReturn(WifiConfiguration.INVALID_NETWORK_ID);
         when(mWifiInfo.getBSSID()).thenReturn(null);
@@ -360,6 +364,7 @@ public class WifiNetworkSelectorTest {
         when(mWifiInfo.getBSSID()).thenReturn(bssids[0]);
         when(mWifiInfo.is24GHz()).thenReturn(false);
         when(mWifiInfo.is5GHz()).thenReturn(true);
+        when(mWifiInfo.getFrequency()).thenReturn(5000);
 
         when(mClock.getElapsedSinceBootMillis()).thenReturn(SystemClock.elapsedRealtime()
                 + WifiNetworkSelector.MINIMUM_NETWORK_SELECTION_INTERVAL_MS + 2000);
@@ -406,10 +411,61 @@ public class WifiNetworkSelectorTest {
         when(mWifiInfo.getBSSID()).thenReturn(bssids[0]);
         when(mWifiInfo.is24GHz()).thenReturn(false);
         when(mWifiInfo.is5GHz()).thenReturn(true);
+        when(mWifiInfo.getFrequency()).thenReturn(5000);
         when(mWifiInfo.getRssi()).thenReturn(levels[0]);
 
         when(mClock.getElapsedSinceBootMillis()).thenReturn(SystemClock.elapsedRealtime()
                 + WifiNetworkSelector.MINIMUM_NETWORK_SELECTION_INTERVAL_MS + 2000);
+
+        // Do another network selection.
+        WifiConfiguration candidate = mWifiNetworkSelector.selectNetwork(scanDetails,
+                blacklist, mWifiInfo, true, false, false);
+
+        ScanResult chosenScanResult = scanDetails.get(0).getScanResult();
+        WifiNetworkSelectorTestUtil.verifySelectedScanResult(mWifiConfigManager,
+                chosenScanResult, candidate);
+    }
+
+    /**
+     * New network selection is performed if the currently connected network
+     * has no internet access and the user did not explicitly choose to stay connected.
+     *
+     * WifiStateMachine is connected to a network with no internet connectivity.
+     * scanDetails contains a valid networks.
+     * Perform a network selection after the first one.
+     *
+     * Expected behavior: the first network is recommended by Network Selector
+     */
+    @Test
+    public void noInternetAccessNetworkIsNotSufficient() {
+        String[] ssids = {"\"test1\""};
+        String[] bssids = {"6c:f3:7f:ae:8c:f3"};
+        int[] freqs = {5180};
+        String[] caps = {"[WPA2-EAP-CCMP][ESS]"};
+        int[] levels = {mThresholdQualifiedRssi5G + 5};
+        int[] securities = {SECURITY_PSK};
+
+        ScanDetailsAndWifiConfigs scanDetailsAndConfigs =
+                WifiNetworkSelectorTestUtil.setupScanDetailsAndConfigStore(ssids, bssids,
+                        freqs, caps, levels, securities, mWifiConfigManager, mClock);
+        List<ScanDetail> scanDetails = scanDetailsAndConfigs.getScanDetails();
+        HashSet<String> blacklist = new HashSet<String>();
+        WifiConfiguration[] savedConfigs = scanDetailsAndConfigs.getWifiConfigs();
+
+        // connect to test1
+        mWifiNetworkSelector.selectNetwork(scanDetails, blacklist, mWifiInfo, false, true, false);
+        when(mWifiInfo.getNetworkId()).thenReturn(0);
+        when(mWifiInfo.getBSSID()).thenReturn(bssids[0]);
+        when(mWifiInfo.is24GHz()).thenReturn(false);
+        when(mWifiInfo.is5GHz()).thenReturn(true);
+        when(mWifiInfo.getFrequency()).thenReturn(5000);
+        when(mWifiInfo.getRssi()).thenReturn(levels[0]);
+
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(SystemClock.elapsedRealtime()
+                + WifiNetworkSelector.MINIMUM_NETWORK_SELECTION_INTERVAL_MS + 2000);
+
+        // Increment the network's no internet access reports.
+        savedConfigs[0].numNoInternetAccessReports = 5;
 
         // Do another network selection.
         WifiConfiguration candidate = mWifiNetworkSelector.selectNetwork(scanDetails,
@@ -482,6 +538,7 @@ public class WifiNetworkSelectorTest {
         when(mWifiInfo.getBSSID()).thenReturn(bssids[0]);
         when(mWifiInfo.is24GHz()).thenReturn(true);
         when(mWifiInfo.is5GHz()).thenReturn(false);
+        when(mWifiInfo.getFrequency()).thenReturn(2400);
         when(mWifiInfo.getRssi()).thenReturn(levels[0]);
         when(mClock.getElapsedSinceBootMillis()).thenReturn(SystemClock.elapsedRealtime()
                 + WifiNetworkSelector.MINIMUM_NETWORK_SELECTION_INTERVAL_MS + 2000);
@@ -613,8 +670,8 @@ public class WifiNetworkSelectorTest {
         // Rssi after connected.
         when(mWifiInfo.getRssi()).thenReturn(mThresholdQualifiedRssi2G + 1);
         // No streaming traffic.
-        when(mWifiInfo.getTxSuccessRatePps()).thenReturn(0.0);
-        when(mWifiInfo.getRxSuccessRatePps()).thenReturn(0.0);
+        mWifiInfo.txSuccessRate = 0.0;
+        mWifiInfo.rxSuccessRate = 0.0;
 
         // Do not perform selection on 2GHz if current network is good and no 5GHz available
         testStayOrTryToSwitch(
@@ -640,8 +697,8 @@ public class WifiNetworkSelectorTest {
         // Rssi after connected.
         when(mWifiInfo.getRssi()).thenReturn(mThresholdQualifiedRssi2G + 1);
         // No streaming traffic.
-        when(mWifiInfo.getTxSuccessRatePps()).thenReturn(0.0);
-        when(mWifiInfo.getRxSuccessRatePps()).thenReturn(0.0);
+        mWifiInfo.txSuccessRate = 0.0;
+        mWifiInfo.rxSuccessRate = 0.0;
 
         // When on 2GHz, even with "good" signal strength, run selection if 5GHz available
         testStayOrTryToSwitch(
@@ -670,8 +727,8 @@ public class WifiNetworkSelectorTest {
         // Rssi after connected.
         when(mWifiInfo.getRssi()).thenReturn(mThresholdQualifiedRssi5G - 1);
         // No streaming traffic.
-        when(mWifiInfo.getTxSuccessRatePps()).thenReturn(0.0);
-        when(mWifiInfo.getRxSuccessRatePps()).thenReturn(0.0);
+        mWifiInfo.txSuccessRate = 0.0;
+        mWifiInfo.rxSuccessRate = 0.0;
 
         // Run Selection when the current 5Ghz network has low RSSI.
         testStayOrTryToSwitch(
@@ -695,8 +752,8 @@ public class WifiNetworkSelectorTest {
         // Rssi after connected.
         when(mWifiInfo.getRssi()).thenReturn(mThresholdQualifiedRssi5G + 1);
         // No streaming traffic.
-        when(mWifiInfo.getTxSuccessRatePps()).thenReturn(0.0);
-        when(mWifiInfo.getRxSuccessRatePps()).thenReturn(0.0);
+        mWifiInfo.txSuccessRate = 0.0;
+        mWifiInfo.rxSuccessRate = 0.0;
 
         // Connected to a high quality 5Ghz network, so the other result is irrelevant
         testStayOrTryToSwitch(
@@ -719,8 +776,8 @@ public class WifiNetworkSelectorTest {
         // Rssi after connected.
         when(mWifiInfo.getRssi()).thenReturn(mThresholdQualifiedRssi2G + 1);
         // No streaming traffic.
-        when(mWifiInfo.getTxSuccessRatePps()).thenReturn(0.0);
-        when(mWifiInfo.getRxSuccessRatePps()).thenReturn(0.0);
+        mWifiInfo.txSuccessRate = 0.0;
+        mWifiInfo.rxSuccessRate = 0.0;
 
         testStayOrTryToSwitch(
                 // Parameters for network1:
@@ -747,8 +804,8 @@ public class WifiNetworkSelectorTest {
         // Rssi after connected.
         when(mWifiInfo.getRssi()).thenReturn(mThresholdQualifiedRssi2G - 1);
         // No streaming traffic.
-        when(mWifiInfo.getTxSuccessRatePps()).thenReturn(0.0);
-        when(mWifiInfo.getRxSuccessRatePps()).thenReturn(0.0);
+        mWifiInfo.txSuccessRate = 0.0;
+        mWifiInfo.rxSuccessRate = 0.0;
 
         testStayOrTryToSwitch(
                 mThresholdQualifiedRssi2G + 1 /* rssi before connected */,
@@ -769,9 +826,8 @@ public class WifiNetworkSelectorTest {
         // Rssi after connected.
         when(mWifiInfo.getRssi()).thenReturn(mThresholdQualifiedRssi2G + 1);
         // Streaming traffic
-        when(mWifiInfo.getTxSuccessRatePps()).thenReturn(
-                (double) (mStayOnNetworkMinimumTxRate + 1));
-        when(mWifiInfo.getRxSuccessRatePps()).thenReturn(0.0);
+        mWifiInfo.txSuccessRate = ((double) (mStayOnNetworkMinimumTxRate + 1));
+        mWifiInfo.rxSuccessRate = 0.0;
 
         testStayOrTryToSwitch(
                 mThresholdQualifiedRssi2G + 1 /* rssi before connected */,
@@ -792,9 +848,8 @@ public class WifiNetworkSelectorTest {
         // Rssi after connected.
         when(mWifiInfo.getRssi()).thenReturn(mThresholdQualifiedRssi2G + 1);
         // Streaming traffic
-        when(mWifiInfo.getTxSuccessRatePps()).thenReturn(0.0);
-        when(mWifiInfo.getRxSuccessRatePps()).thenReturn(
-                (double) (mStayOnNetworkMinimumRxRate + 1));
+        mWifiInfo.txSuccessRate = 0.0;
+        mWifiInfo.rxSuccessRate = ((double) (mStayOnNetworkMinimumRxRate + 1));
 
         testStayOrTryToSwitch(
                 mThresholdQualifiedRssi2G + 1 /* rssi before connected */,
@@ -815,9 +870,8 @@ public class WifiNetworkSelectorTest {
         // Rssi after connected.
         when(mWifiInfo.getRssi()).thenReturn(mThresholdQualifiedRssi5G + 1);
         // Streaming traffic
-        when(mWifiInfo.getTxSuccessRatePps()).thenReturn(
-                (double) (mStayOnNetworkMinimumTxRate + 1));
-        when(mWifiInfo.getRxSuccessRatePps()).thenReturn(0.0);
+        mWifiInfo.txSuccessRate = ((double) (mStayOnNetworkMinimumTxRate + 1));
+        mWifiInfo.rxSuccessRate = 0.0;
 
         testStayOrTryToSwitch(
                 mThresholdQualifiedRssi5G + 1 /* rssi before connected */,
@@ -838,9 +892,8 @@ public class WifiNetworkSelectorTest {
         // Rssi after connected.
         when(mWifiInfo.getRssi()).thenReturn(mThresholdQualifiedRssi5G + 1);
         // Streaming traffic
-        when(mWifiInfo.getTxSuccessRatePps()).thenReturn(0.0);
-        when(mWifiInfo.getRxSuccessRatePps()).thenReturn(
-                (double) (mStayOnNetworkMinimumRxRate + 1));
+        mWifiInfo.txSuccessRate = 0.0;
+        mWifiInfo.rxSuccessRate = ((double) (mStayOnNetworkMinimumRxRate + 1));
 
         testStayOrTryToSwitch(
                 mThresholdQualifiedRssi5G + 1 /* rssi before connected */,
@@ -913,6 +966,7 @@ public class WifiNetworkSelectorTest {
         when(mWifiInfo.getBSSID()).thenReturn(bssids[0]);
         when(mWifiInfo.is24GHz()).thenReturn(!ScanResult.is5GHz(freqs[0]));
         when(mWifiInfo.is5GHz()).thenReturn(ScanResult.is5GHz(freqs[0]));
+        when(mWifiInfo.getFrequency()).thenReturn(freqs[0]);
 
         when(mClock.getElapsedSinceBootMillis()).thenReturn(SystemClock.elapsedRealtime()
                 + WifiNetworkSelector.MINIMUM_NETWORK_SELECTION_INTERVAL_MS + 2000);
@@ -1058,6 +1112,166 @@ public class WifiNetworkSelectorTest {
     @Test
     public void getfilterOpenUnsavedNetworks_returnsEmptyListWhenNoNetworkSelectionMade() {
         assertTrue(mWifiNetworkSelector.getFilteredScanDetailsForOpenUnsavedNetworks().isEmpty());
+    }
+
+    /**
+     * {@link WifiNetworkSelector#getFilteredScanDetailsForCarrierUnsavedNetworks()} should filter
+     * out networks that are not EAP after network selection is made.
+     *
+     * Expected behavior: return EAP networks only
+     */
+    @Test
+    public void getfilterCarrierUnsavedNetworks_filtersForEapNetworks() {
+        String[] ssids = {"\"test1\"", "\"test2\""};
+        String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
+        int[] freqs = {2437, 5180};
+        String[] caps = {"[WPA2-EAP-CCMP][ESS]", "[ESS]"};
+        int[] levels = {mThresholdMinimumRssi2G + RSSI_BUMP, mThresholdMinimumRssi5G + RSSI_BUMP};
+        mDummyEvaluator.setEvaluatorToSelectCandidate(false);
+
+        List<ScanDetail> scanDetails = WifiNetworkSelectorTestUtil.buildScanDetails(
+                ssids, bssids, freqs, caps, levels, mClock);
+        HashSet<String> blacklist = new HashSet<>();
+
+        mWifiNetworkSelector.selectNetwork(scanDetails, blacklist, mWifiInfo, false, true, false);
+        List<ScanDetail> expectedCarrierUnsavedNetworks = new ArrayList<>();
+        expectedCarrierUnsavedNetworks.add(scanDetails.get(0));
+        assertEquals("Expect carrier unsaved networks",
+                expectedCarrierUnsavedNetworks,
+                mWifiNetworkSelector.getFilteredScanDetailsForCarrierUnsavedNetworks(
+                        mCarrierNetworkConfig));
+    }
+
+    /**
+     * {@link WifiNetworkSelector#getFilteredScanDetailsForCarrierUnsavedNetworks()} should filter
+     * out saved networks after network selection is made. This should return an empty list when
+     * there are no unsaved networks available.
+     *
+     * Expected behavior: return unsaved networks only. Return empty list if there are no unsaved
+     * networks.
+     */
+    @Test
+    public void getfilterCarrierUnsavedNetworks_filtersOutSavedNetworks() {
+        String[] ssids = {"\"test1\""};
+        String[] bssids = {"6c:f3:7f:ae:8c:f3"};
+        int[] freqs = {2437, 5180};
+        String[] caps = {"[EAP][ESS]"};
+        int[] levels = {mThresholdMinimumRssi2G + RSSI_BUMP};
+        int[] securities = {SECURITY_EAP};
+        mDummyEvaluator.setEvaluatorToSelectCandidate(false);
+
+        List<ScanDetail> unSavedScanDetails = WifiNetworkSelectorTestUtil.buildScanDetails(
+                ssids, bssids, freqs, caps, levels, mClock);
+        HashSet<String> blacklist = new HashSet<>();
+
+        mWifiNetworkSelector.selectNetwork(
+                unSavedScanDetails, blacklist, mWifiInfo, false, true, false);
+        assertEquals("Expect carrier unsaved networks",
+                unSavedScanDetails,
+                mWifiNetworkSelector.getFilteredScanDetailsForCarrierUnsavedNetworks(
+                        mCarrierNetworkConfig));
+
+        ScanDetailsAndWifiConfigs scanDetailsAndConfigs =
+                WifiNetworkSelectorTestUtil.setupScanDetailsAndConfigStore(ssids, bssids,
+                        freqs, caps, levels, securities, mWifiConfigManager, mClock);
+        List<ScanDetail> savedScanDetails = scanDetailsAndConfigs.getScanDetails();
+
+        mWifiNetworkSelector.selectNetwork(
+                savedScanDetails, blacklist, mWifiInfo, false, true, false);
+        // Saved networks are filtered out.
+        assertTrue(mWifiNetworkSelector.getFilteredScanDetailsForCarrierUnsavedNetworks(
+                mCarrierNetworkConfig).isEmpty());
+    }
+
+    /**
+     * {@link WifiNetworkSelector#getFilteredScanDetailsForCarrierUnsavedNetworks()} should filter
+     * out bssid blacklisted networks.
+     *
+     * Expected behavior: do not return blacklisted network
+     */
+    @Test
+    public void getfilterCarrierUnsavedNetworks_filtersOutBlacklistedNetworks() {
+        String[] ssids = {"\"test1\"", "\"test2\""};
+        String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
+        int[] freqs = {2437, 5180};
+        String[] caps = {"[EAP][ESS]", "[EAP]"};
+        int[] levels = {mThresholdMinimumRssi2G + RSSI_BUMP, mThresholdMinimumRssi5G + RSSI_BUMP};
+        mDummyEvaluator.setEvaluatorToSelectCandidate(false);
+
+        List<ScanDetail> scanDetails = WifiNetworkSelectorTestUtil.buildScanDetails(
+                ssids, bssids, freqs, caps, levels, mClock);
+        HashSet<String> blacklist = new HashSet<>();
+        blacklist.add(bssids[0]);
+
+        mWifiNetworkSelector.selectNetwork(scanDetails, blacklist, mWifiInfo, false, true, false);
+        List<ScanDetail> expectedCarrierUnsavedNetworks = new ArrayList<>();
+        expectedCarrierUnsavedNetworks.add(scanDetails.get(1));
+        assertEquals("Expect carrier unsaved networks",
+                expectedCarrierUnsavedNetworks,
+                mWifiNetworkSelector.getFilteredScanDetailsForCarrierUnsavedNetworks(
+                        mCarrierNetworkConfig));
+    }
+
+    /**
+     * {@link WifiNetworkSelector#getFilteredScanDetailsForCarrierUnsavedNetworks()} should return
+     * empty list when there are no EAP encrypted networks after network selection is made.
+     *
+     * Expected behavior: return empty list
+     */
+    @Test
+    public void getfilterCarrierUnsavedNetworks_returnsEmptyListWhenNoEAPNetworksPresent() {
+        String[] ssids = {"\"test1\"", "\"test2\""};
+        String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
+        int[] freqs = {2437, 5180};
+        String[] caps = {"[ESS]", "[WPA2-CCMP][ESS]"};
+        int[] levels = {mThresholdMinimumRssi2G + RSSI_BUMP, mThresholdMinimumRssi5G + RSSI_BUMP};
+        mDummyEvaluator.setEvaluatorToSelectCandidate(false);
+
+        List<ScanDetail> scanDetails = WifiNetworkSelectorTestUtil.buildScanDetails(
+                ssids, bssids, freqs, caps, levels, mClock);
+        HashSet<String> blacklist = new HashSet<>();
+
+        mWifiNetworkSelector.selectNetwork(scanDetails, blacklist, mWifiInfo, false, true, false);
+        assertTrue(mWifiNetworkSelector.getFilteredScanDetailsForCarrierUnsavedNetworks(
+                mCarrierNetworkConfig).isEmpty());
+    }
+
+    /**
+     * {@link WifiNetworkSelector#getFilteredScanDetailsForCarrierUnsavedNetworks()} should return
+     * empty list when there are no carrier networks after network selection is made.
+     *
+     * Expected behavior: return empty list
+     */
+    @Test
+    public void getfilterCarrierUnsavedNetworks_returnsEmptyListWhenNoCarrierNetworksPresent() {
+        String[] ssids = {"\"test1\"", "\"test2\""};
+        String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
+        int[] freqs = {2437, 5180};
+        String[] caps = {"[EAP][ESS]", "[WPA2-EAP-CCMP][ESS]"};
+        int[] levels = {mThresholdMinimumRssi2G + RSSI_BUMP, mThresholdMinimumRssi5G + RSSI_BUMP};
+        mDummyEvaluator.setEvaluatorToSelectCandidate(false);
+
+        List<ScanDetail> scanDetails = WifiNetworkSelectorTestUtil.buildScanDetails(
+                ssids, bssids, freqs, caps, levels, mClock);
+        HashSet<String> blacklist = new HashSet<>();
+
+        mWifiNetworkSelector.selectNetwork(scanDetails, blacklist, mWifiInfo, false, true, false);
+
+        when(mCarrierNetworkConfig.isCarrierNetwork(any())).thenReturn(false);
+        assertTrue(mWifiNetworkSelector.getFilteredScanDetailsForCarrierUnsavedNetworks(
+                mCarrierNetworkConfig).isEmpty());
+    }
+
+    /**
+     * {@link WifiNetworkSelector#getFilteredScanDetailsForCarrierUnsavedNetworks()} should return
+     * empty list when no network selection has been made.
+     *
+     * Expected behavior: return empty list
+     */
+    @Test
+    public void getfilterCarrierUnsavedNetworks_returnsEmptyListWhenNoNetworkSelectionMade() {
+        assertTrue(mWifiNetworkSelector.getFilteredScanDetailsForCarrierUnsavedNetworks(
+                mCarrierNetworkConfig).isEmpty());
     }
 }
 

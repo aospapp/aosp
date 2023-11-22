@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"គ្មាន​ស៊ីមកាត ឬ​កំហុស​ស៊ីមកាត"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"បណ្តាញចល័តមិនមានទេ។"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"បាន​កំណត់​​កម្រិត​ការ​ហៅ​ចេញ​តាម FDN ។"</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"សំណើនៃការហៅត្រូវបានកែសម្រួលទៅសំណើសារ USSD។"</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"សំណើនៃការហៅត្រូវបានកែសម្រួលទៅសំណើ SS។"</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"សំណើនៃការហៅត្រូវបានកែសម្រួលទៅការហៅដោយប្រើលេខផ្សេង។"</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"ការហៅ​ទូរសព្ទ​បាន​ប្ដូរ​ទៅ​សំណើ USSD"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"ការហៅ​ទូរសព្ទ​បាន​ប្ដូរ​ទៅ​សំណើ SS"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"បាន​ប្ដូរ​ទៅ​លេខ​ផ្សេង"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"បាន​ប្ដូរ​ទៅ​ការហៅ​ជា​វីដេអូ"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"ការហៅ​ជា​វីដេអូ​បាន​ប្ដូរ​ទៅ​សំណើ SS"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"ការហៅ​ជា​វីដេអូ​បាន​ប្ដូរ​ទៅ​សំណើ USSD"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"បាន​ប្ដូរ​ទៅ​ការហៅ​ជាប្រចាំ"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"បាន​ប្ដូរ​ទៅ​លេខ​ផ្សេង"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"មិនអាចធ្វើការហៅចេញបានទេ ខណៈពេលដែលរបានៃការហៅបើក។"</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"រឹតបណ្តឹងការហៅដោយការគ្រប់គ្រងការចូលប្រើ។"</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"ការហៅពេលមានអាសន្នត្រូវបានរឹតបណ្តឹងដោយការគ្រប់គ្រងការចូលប្រើ។"</string>

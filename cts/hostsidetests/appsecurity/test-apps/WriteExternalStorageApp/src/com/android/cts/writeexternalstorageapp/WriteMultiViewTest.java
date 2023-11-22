@@ -21,10 +21,11 @@ import static android.test.MoreAsserts.assertNotEqual;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_READ;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertFileReadWriteAccess;
 
+import android.os.SystemClock;
 import android.system.Os;
 
 import android.test.AndroidTestCase;
-
+import android.text.format.DateUtils;
 
 import android.util.Log;
 
@@ -64,6 +65,9 @@ public class WriteMultiViewTest extends AndroidTestCase {
         final File afterFile = new File(otherTestDir, "test.probe");
 
         Os.rename(ourTestDir.getAbsolutePath(), otherTestDir.getAbsolutePath());
+
+        // Sit around long enough for VFS cache to expire
+        SystemClock.sleep(15 * DateUtils.SECOND_IN_MILLIS);
 
         assertNotEqual(Os.getuid(), Os.stat(otherCache.getAbsolutePath()).st_uid);
         assertNotEqual(Os.getuid(), Os.stat(otherTestDir.getAbsolutePath()).st_uid);

@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#include <cutils/log.h>
+#include "FileUtils.h"
 
-#include <stdio.h>
 #include <sys/stat.h>
-
+#include <cstdio>
 #include <string>
 #include <vector>
+
+#include <cutils/log.h>
 
 std::vector<uint8_t> readWholeFile(const std::string& filePath) {
     FILE* fp = fopen(filePath.c_str(), "r");

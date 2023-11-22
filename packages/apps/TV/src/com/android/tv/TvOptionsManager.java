@@ -20,9 +20,7 @@ import android.content.Context;
 import android.media.tv.TvTrackInfo;
 import android.support.annotation.IntDef;
 import android.util.SparseArray;
-
 import com.android.tv.data.DisplayMode;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Locale;
@@ -33,9 +31,17 @@ import java.util.Locale;
  */
 public class TvOptionsManager {
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef({OPTION_CLOSED_CAPTIONS, OPTION_DISPLAY_MODE, OPTION_SYSTEMWIDE_PIP, OPTION_MULTI_AUDIO,
-            OPTION_MORE_CHANNELS, OPTION_DEVELOPER, OPTION_SETTINGS})
+    @IntDef({
+        OPTION_CLOSED_CAPTIONS,
+        OPTION_DISPLAY_MODE,
+        OPTION_SYSTEMWIDE_PIP,
+        OPTION_MULTI_AUDIO,
+        OPTION_MORE_CHANNELS,
+        OPTION_DEVELOPER,
+        OPTION_SETTINGS
+    })
     public @interface OptionType {}
+
     public static final int OPTION_CLOSED_CAPTIONS = 0;
     public static final int OPTION_DISPLAY_MODE = 1;
     public static final int OPTION_SYSTEMWIDE_PIP = 2;
@@ -57,6 +63,7 @@ public class TvOptionsManager {
 
     /**
      * Returns a suitable displayed string for the given option type under current settings.
+     *
      * @param option the type of option, should be one of {@link OptionType}.
      */
     public String getOptionString(@OptionType int option) {
@@ -67,8 +74,9 @@ public class TvOptionsManager {
                 }
                 return new Locale(mClosedCaptionsLanguage).getDisplayName();
             case OPTION_DISPLAY_MODE:
-                return ((MainActivity) mContext).getTvViewUiManager()
-                        .isDisplayModeAvailable(mDisplayMode)
+                return ((MainActivity) mContext)
+                                .getTvViewUiManager()
+                                .isDisplayModeAvailable(mDisplayMode)
                         ? DisplayMode.getLabel(mDisplayMode, mContext)
                         : DisplayMode.getLabel(DisplayMode.MODE_NORMAL, mContext);
             case OPTION_MULTI_AUDIO:
@@ -77,27 +85,25 @@ public class TvOptionsManager {
         return "";
     }
 
-    /**
-     * Handles changing selection of closed caption.
-     */
+    /** Handles changing selection of closed caption. */
     public void onClosedCaptionsChanged(TvTrackInfo track, int trackIndex) {
-        mClosedCaptionsLanguage = (track == null) ?
-                null : (track.getLanguage() != null) ? track.getLanguage()
-                : mContext.getString(R.string.closed_caption_unknown_language, trackIndex + 1);
+        mClosedCaptionsLanguage =
+                (track == null)
+                        ? null
+                        : (track.getLanguage() != null)
+                                ? track.getLanguage()
+                                : mContext.getString(
+                                        R.string.closed_caption_unknown_language, trackIndex + 1);
         notifyOptionChanged(OPTION_CLOSED_CAPTIONS);
     }
 
-    /**
-     * Handles changing selection of display mode.
-     */
+    /** Handles changing selection of display mode. */
     public void onDisplayModeChanged(int displayMode) {
         mDisplayMode = displayMode;
         notifyOptionChanged(OPTION_DISPLAY_MODE);
     }
 
-    /**
-     * Handles changing selection of multi-audio.
-     */
+    /** Handles changing selection of multi-audio. */
     public void onMultiAudioChanged(String multiAudio) {
         mMultiAudio = multiAudio;
         notifyOptionChanged(OPTION_MULTI_AUDIO);
@@ -110,16 +116,12 @@ public class TvOptionsManager {
         }
     }
 
-    /**
-     * Sets listeners to changes of the given option type.
-     */
+    /** Sets listeners to changes of the given option type. */
     public void setOptionChangedListener(int option, OptionChangedListener listener) {
         mOptionChangedListeners.put(option, listener);
     }
 
-    /**
-     * An interface used to monitor option changes.
-     */
+    /** An interface used to monitor option changes. */
     public interface OptionChangedListener {
         void onOptionChanged(@OptionType int optionType, String newString);
     }

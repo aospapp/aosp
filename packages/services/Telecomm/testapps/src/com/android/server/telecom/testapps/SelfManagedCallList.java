@@ -40,12 +40,15 @@ public class SelfManagedCallList {
         public void onCreateIncomingConnectionFailed(ConnectionRequest request) {};
         public void onCreateOutgoingConnectionFailed(ConnectionRequest request) {};
         public void onConnectionListChanged() {};
+        public void onConnectionServiceFocusLost() {};
+        public void onConnectionServiceFocusGained() {};
     }
 
     public static String SELF_MANAGED_ACCOUNT_1 = "1";
     public static String SELF_MANAGED_ACCOUNT_2 = "2";
     public static String SELF_MANAGED_NAME_1 = "SuperCall";
     public static String SELF_MANAGED_NAME_2 = "Mega Call";
+    public static String CUSTOM_URI_SCHEME = "custom";
 
     private static SelfManagedCallList sInstance;
     private static ComponentName COMPONENT_NAME = new ComponentName(
@@ -110,6 +113,7 @@ public class SelfManagedCallList {
         PhoneAccount.Builder builder = PhoneAccount.builder(handle, name)
                 .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
                 .addSupportedUriScheme(PhoneAccount.SCHEME_SIP)
+                .addSupportedUriScheme(CUSTOM_URI_SCHEME)
                 .setAddress(address)
                 .setCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED |
                         PhoneAccount.CAPABILITY_VIDEO_CALLING |
@@ -133,6 +137,18 @@ public class SelfManagedCallList {
     public void notifyCreateOutgoingConnectionFailed(ConnectionRequest request) {
         if (mListener != null) {
             mListener.onCreateOutgoingConnectionFailed(request);
+        }
+    }
+
+    public void notifyConnectionServiceFocusGained() {
+        if (mListener != null) {
+            mListener.onConnectionServiceFocusGained();
+        }
+    }
+
+    public void notifyConnectionServiceFocusLost() {
+        if (mListener != null) {
+            mListener.onConnectionServiceFocusLost();
         }
     }
 

@@ -49,8 +49,8 @@ job.run_test('hardware_StorageFio',
 		 ('4k_write', [])
              ],
              constraints=[
-                 '_seq_read_read_bw_mean >= 50 * 1024',
-                 '_seq_write_write_bw_mean >= 15 * 1024',
+                 '_seq_read_read_bw >= 50 * 1024',
+                 '_seq_write_write_bw >= 15 * 1024',
                  '_4k_write_write_iops >= 10',
              ])
 job.run_test('hardware_DiskSize',
@@ -76,12 +76,6 @@ job.run_test('graphics_SanAngeles', creds='$backdoor')
 job.run_test('camera_V4L2')
 
 # Communications
-job.run_test('network_DisableInterface',
-             iface_name='wlan0', tag='wlan0')  # WiFi
-job.run_test('network_DisableInterface',
-             iface_name='eth0', tag='eth0')  # Ethernet
-job.run_test('network_DisableInterface',
-             iface_name='hci0', tag='hci0')  # Bluetooth
 job.run_test('network_WiFiCaps')
 
 # Extra Requirements

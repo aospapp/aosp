@@ -60,10 +60,10 @@ ANativeWindow *getNativeWindow_()
     CHECK(control != NULL);
     CHECK(control->isValid());
 
-    SurfaceComposerClient::openGlobalTransaction();
-    CHECK_EQ(control->setLayer(30000), (status_t)OK);
-    CHECK_EQ(control->show(), (status_t)OK);
-    SurfaceComposerClient::closeGlobalTransaction();
+    SurfaceComposerClient::Transaction{}
+            .setLayer(control, 30000)
+            .show(control)
+            .apply();
 
     sp<Surface> surface = control->getSurface();
     CHECK(surface != NULL);

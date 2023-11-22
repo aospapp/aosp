@@ -22,6 +22,7 @@ import static org.junit.Assert.fail;
 
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IDeviceBuildInfo;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.FileUtil;
@@ -210,8 +211,9 @@ public class InstallAllTestZipAppsSetupTest {
 
     @Test
     public void testDisable() throws Exception {
+        OptionSetter setter = new OptionSetter(mPrep);
+        setter.setOptionValue("disable", "true");
         EasyMock.replay(mMockBuildInfo, mMockTestDevice);
-        mPrep.setDisable(true);
         mPrep.setUp(mMockTestDevice, mMockBuildInfo);
         mPrep.tearDown(mMockTestDevice, mMockBuildInfo, null);
         EasyMock.verify(mMockBuildInfo, mMockTestDevice);

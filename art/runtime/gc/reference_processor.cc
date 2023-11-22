@@ -17,18 +17,18 @@
 #include "reference_processor.h"
 
 #include "base/time_utils.h"
+#include "base/utils.h"
 #include "collector/garbage_collector.h"
 #include "java_vm_ext.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/reference-inl.h"
-#include "nativehelper/ScopedLocalRef.h"
+#include "nativehelper/scoped_local_ref.h"
 #include "object_callbacks.h"
 #include "reference_processor-inl.h"
 #include "reflection.h"
 #include "scoped_thread_state_change-inl.h"
 #include "task_processor.h"
-#include "utils.h"
 #include "well_known_classes.h"
 
 namespace art {
@@ -273,7 +273,7 @@ void ReferenceProcessor::EnqueueClearedReferences(Thread* self) {
       jobject cleared_references;
       {
         ReaderMutexLock mu(self, *Locks::mutator_lock_);
-        cleared_references = self->GetJniEnv()->vm->AddGlobalRef(
+        cleared_references = self->GetJniEnv()->GetVm()->AddGlobalRef(
             self, cleared_references_.GetList());
       }
       if (kAsyncReferenceQueueAdd) {

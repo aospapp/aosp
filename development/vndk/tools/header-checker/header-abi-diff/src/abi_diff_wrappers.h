@@ -15,52 +15,42 @@
 #ifndef ABI_DIFF_WRAPPERS_H
 #define ABI_DIFF_WRAPPERS_H
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-parameter"
-#pragma clang diagnostic ignored "-Wnested-anon-types"
-#include "proto/abi_dump.pb.h"
-#include "proto/abi_diff.pb.h"
-#pragma clang diagnostic pop
+#include <abi_diff_helpers.h>
+#include <ir_representation.h>
+
+#include <deque>
 
 namespace abi_diff_wrappers {
 
-template <typename T>
+using abi_util::AbiElementMap;
+using abi_util::AbiDiffHelper;
+using abi_util::DiffStatus;
+
+template <typename T, typename F>
 static bool IgnoreSymbol(const T *element,
-                         const std::set<std::string> &ignored_symbols) {
-  return ignored_symbols.find(element->basic_abi().linker_set_key()) !=
+                         const std::set<std::string> &ignored_symbols,
+                         F func) {
+  return ignored_symbols.find(func(element)) !=
       ignored_symbols.end();
 }
 
-template <typename T, typename TDiff>
-class DiffWrapperBase {
+template <typename T>
+class DiffWrapper : public AbiDiffHelper {
+
  public:
-  virtual std::unique_ptr<TDiff> Get() = 0 ;
- protected:
-  DiffWrapperBase(const T *oldp, const T *newp) : oldp_(oldp), newp_(newp) { }
-  template <typename Element, typename ElementDiff>
-  bool GetElementDiffs(
-      google::protobuf::RepeatedPtrField<ElementDiff> *dst,
-      const google::protobuf::RepeatedPtrField<Element> &old_elements,
-      const google::protobuf::RepeatedPtrField<Element> &new_elements);
+  DiffWrapper(const T *oldp, const T *newp,
+              abi_util::IRDiffDumper *ir_diff_dumper,
+              const AbiElementMap<const abi_util::TypeIR *> &old_types,
+              const AbiElementMap<const abi_util::TypeIR *> &new_types,
+              std::set<std::string> *type_cache)
+      : AbiDiffHelper(old_types, new_types, type_cache, ir_diff_dumper),
+        oldp_(oldp), newp_(newp) { }
+
+  bool DumpDiff(abi_util::IRDiffDumper::DiffKind diff_kind);
 
  private:
-  template <typename Element, typename ElementDiff>
-  void GetExtraElementDiffs(
-      google::protobuf::RepeatedPtrField<ElementDiff> *dst, int i, int j,
-      const google::protobuf::RepeatedPtrField<Element> &old_elements,
-      const google::protobuf::RepeatedPtrField<Element> &new_elements);
-
- protected:
   const T *oldp_;
   const T *newp_;
-};
-
-template <typename T, typename TDiff>
-class DiffWrapper : public DiffWrapperBase<T, TDiff> {
- public:
-  DiffWrapper(const T *oldp, const T *newp)
-      : DiffWrapperBase<T, TDiff>(oldp, newp) { }
-  std::unique_ptr<TDiff> Get() override;
 };
 
 } // abi_diff_wrappers

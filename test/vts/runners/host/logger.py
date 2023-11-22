@@ -32,6 +32,12 @@ log_line_timestamp_len = 18
 
 logline_timestamp_re = re.compile("\d\d-\d\d \d\d:\d\d:\d\d.\d\d\d")
 
+log_severity_map = {
+    "ERROR": logging.ERROR,
+    "WARNING": logging.WARNING,
+    "INFO": logging.INFO,
+    "DEBUG": logging.DEBUG,
+}
 
 def _parse_logline_timestamp(t):
     """Parses a logline timestamp into a tuple.
@@ -119,24 +125,25 @@ def getLogFileTimestamp(delta=None):
     return _get_timestamp("%m-%d-%Y_%H-%M-%S-%f", delta)
 
 
-def _initiateTestLogger(log_path, prefix=None, filename=None):
+def _initiateTestLogger(log_path, prefix=None, filename=None, log_severity="INFO"):
     """Customizes the root logger for a test run.
 
-    The logger object has a stream handler and a file handler. The stream
-    handler logs INFO level to the terminal, the file handler logs DEBUG
-    level to files.
+    The logger object has a stream handler and a file handler. Both handler logs data
+    according to the log severty level.
 
     Args:
         log_path: Location of the log file.
         prefix: A prefix for each log line in terminal.
         filename: Name of the log file. The default is the time the logger
                   is requested.
+        log_severity: string, set the log severity level, default is INFO.
     """
     log = logging.getLogger()
     # Clean up any remaining handlers.
     killTestLogger(log)
     log.propagate = False
-    log.setLevel(logging.DEBUG)
+
+    log.setLevel(log_severity_map.get(log_severity, logging.INFO))
     # Log info to stream
     terminal_format = log_line_format
     if prefix:
@@ -144,7 +151,7 @@ def _initiateTestLogger(log_path, prefix=None, filename=None):
     c_formatter = logging.Formatter(terminal_format, log_line_time_format)
     ch = logging.StreamHandler(sys.stdout)
     ch.setFormatter(c_formatter)
-    ch.setLevel(logging.INFO)
+    ch.setLevel(log_severity_map.get(log_severity, logging.INFO))
     # Log everything to file
     f_formatter = logging.Formatter(log_line_format, log_line_time_format)
     # All the logs of this test class go into one directory
@@ -153,7 +160,7 @@ def _initiateTestLogger(log_path, prefix=None, filename=None):
         utils.create_dir(log_path)
     fh = logging.FileHandler(os.path.join(log_path, 'test_run_details.txt'))
     fh.setFormatter(f_formatter)
-    fh.setLevel(logging.DEBUG)
+    fh.setLevel(log_severity_map.get(log_severity, logging.INFO))
     log.addHandler(ch)
     log.addHandler(fh)
     log.log_path = log_path
@@ -193,7 +200,7 @@ def createLatestLogAlias(actual_path):
     os.symlink(actual_path, link_path)
 
 
-def setupTestLogger(log_path, prefix=None, filename=None):
+def setupTestLogger(log_path, prefix=None, filename=None, log_severity="INFO"):
     """Customizes the root logger for a test run.
 
     Args:
@@ -205,7 +212,7 @@ def setupTestLogger(log_path, prefix=None, filename=None):
     if filename is None:
         filename = getLogFileTimestamp()
     utils.create_dir(log_path)
-    logger = _initiateTestLogger(log_path, prefix, filename)
+    logger = _initiateTestLogger(log_path, prefix, filename, log_severity)
     if isSymlinkSupported():
         createLatestLogAlias(log_path)
 

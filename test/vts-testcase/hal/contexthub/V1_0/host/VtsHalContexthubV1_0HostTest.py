@@ -20,10 +20,8 @@ import threading
 import time
 
 from vts.runners.host import asserts
-from vts.runners.host import base_test
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
-from vts.utils.python.precondition import precondition_utils
+from vts.testcases.template.hal_hidl_host_test import hal_hidl_host_test
 
 
 class ContextHubCallback:
@@ -64,26 +62,15 @@ class ContextHubCallback:
         self.event.set()
 
 
-class ContexthubHidlTest(base_test.BaseTestClass):
+class ContexthubHidlTest(hal_hidl_host_test.HalHidlHostTest):
     """A set of test cases for the context hub HIDL HAL"""
+    TEST_HAL_SERVICES = {
+        "android.hardware.contexthub@1.0::IContexthub",
+    }
 
     def setUpClass(self):
         """Creates a mirror and turns on the framework-layer CONTEXTHUB service."""
-        self.dut = self.registerController(android_device)[0]
-
-        self.dut.shell.InvokeTerminal("one")
-        self.dut.shell.one.Execute("setenforce 0")  # SELinux permissive mode
-        if not precondition_utils.CanRunHidlHalTest(
-            self, self.dut, self.dut.shell.one):
-            self._skip_all_testcases = True
-            return
-
-        if self.profiling.enabled:
-            self.profiling.EnableVTSProfiling(self.dut.shell.one)
-
-        # Bring down the Android runtime so it doesn't interfere with the test
-        #self.dut.shell.one.Execute("stop")
-
+        super(ContexthubHidlTest, self).setUpClass()
         self.dut.hal.InitHidlHal(
             target_type="contexthub",
             target_basepaths=self.dut.libPaths,
@@ -94,19 +81,6 @@ class ContexthubHidlTest(base_test.BaseTestClass):
 
         self.types = self.dut.hal.contexthub.GetHidlTypeInterface("types")
         logging.info("types: %s", self.types)
-
-    def tearDownClass(self):
-        # Restart the Android runtime
-        #self.dut.shell.one.Execute("start")
-        if not self._skip_all_testcases and self.profiling.enabled:
-            self.profiling.ProcessAndUploadTraceData()
-
-    def tearDown(self):
-        """Process trace data.
-        """
-        if self.profiling.enabled:
-            self.profiling.ProcessTraceDataForTestCase(self.dut)
-            self.profiling.DisableVTSProfiling(self.dut.shell.one)
 
     def testContexthubBasic(self):
         logging.info("About to call gethubs!!!")

@@ -24,6 +24,11 @@ module_prebuilt := efivarfs/efivarfs
 module_src_files := efivarfs/efivarfs.sh
 include $(build_kselftest_prebuilt)
 
+# Exec test
+module_prebuilt := exec/execveat.sh
+module_src_files := exec/execveat.sh
+include $(build_kselftest_prebuilt)
+
 # Firmware test
 
 module_prebuilt := firmware/fw_fallback
@@ -71,6 +76,11 @@ module_prebuilt := ftrace/test.d/instances/instance-event
 module_src_files := ftrace/test.d/instances/instance-event.tc
 include $(build_kselftest_prebuilt)
 
+# futex test
+module_prebuilt := futex/functional/run.sh
+module_src_files := futex/functional/run.sh
+include $(build_kselftest_prebuilt)
+
 # intel_pstate test
 module_prebuilt := intel_pstate/run.sh
 module_src_files := intel_pstate/run.sh
@@ -95,11 +105,6 @@ module_prebuilt := net/test_bpf
 module_src_files := net/test_bpf.sh
 include $(build_kselftest_prebuilt)
 
-# ntb tests
-module_prebuilt := ntb/ntb_test.sh
-module_src_files := ntb/ntb_test.sh
-include $(build_kselftest_prebuilt)
-
 # Pstore test
 module_prebuilt := pstore/pstore_tests
 module_src_files := pstore/pstore_tests
@@ -118,27 +123,24 @@ module_src_files := pstore/pstore_crash_test
 include $(build_kselftest_prebuilt)
 
 
+# splice test
+module_prebuilt := splice/default_file_splice_read.sh
+module_src_files := splice/default_file_splice_read.sh
+include $(build_kselftest_prebuilt)
+
 # Static keys test
 module_prebuilt := static_keys/test_static_keys
 module_src_files := static_keys/test_static_keys.sh
 include $(build_kselftest_prebuilt)
 
-# Sysctl
-module_prebuilt := sysctl/run_numerictests
-module_src_files := sysctl/run_numerictests
-include $(build_kselftest_prebuilt)
-
-module_prebuilt := sysctl/run_stringtests
-module_src_files := sysctl/run_stringtests
-include $(build_kselftest_prebuilt)
-
-module_prebuilt := sysctl/common_tests
-module_src_files := sysctl/common_tests
-include $(build_kselftest_prebuilt)
-
 # User test
 module_prebuilt := user/test_user_copy
 module_src_files := user/test_user_copy.sh
+include $(build_kselftest_prebuilt)
+
+# vm test
+module_prebuilt := vm/run_vmtests
+module_src_files := vm/run_vmtests
 include $(build_kselftest_prebuilt)
 
 # zram tests

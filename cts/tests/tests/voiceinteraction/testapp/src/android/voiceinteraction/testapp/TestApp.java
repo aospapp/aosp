@@ -135,6 +135,7 @@ public class TestApp extends Activity {
 
     private void broadcastResults() {
         Intent intent = new Intent(Utils.BROADCAST_INTENT);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         intent.putExtras(mTotalInfo);
         Log.i(TAG, "broadcasting: " + intent.toString() + ", Bundle = " + mTotalInfo.toString());
         sendOrderedBroadcast(intent, null, new DoneReceiver(),

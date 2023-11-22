@@ -44,7 +44,14 @@ LOCAL_SRC_FILES := libvncserver/auth.c \
                    test/bmp.c
 
 LOCAL_STATIC_LIBRARIES := libz libpng libjpeg libssl
-LOCAL_CFLAGS := -D__ANDROID__ -DHAVE_LIBSSL -DWITH_WEBSOCKETS
+LOCAL_CFLAGS := \
+    -D__ANDROID__ -DHAVE_LIBSSL -DWITH_WEBSOCKETS \
+    -Wall -Werror \
+    -Wno-missing-field-initializers \
+    -Wno-sign-compare \
+    -Wno-tautological-compare \
+    -Wno-unused-parameter \
+    -Wno-user-defined-warnings \
 
 #LOCAL_SDK_VERSION := 14
 

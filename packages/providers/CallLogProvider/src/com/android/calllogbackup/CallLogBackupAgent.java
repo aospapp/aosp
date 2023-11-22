@@ -181,7 +181,7 @@ public class CallLogBackupAgent extends BackupAgent {
 
         while (data.readNextHeader()) {
             Call call = readCallFromData(data);
-            if (call != null) {
+            if (call != null && call.type != Calls.VOICEMAIL_TYPE) {
                 writeCallToProvider(call);
                 if (isDebug()) {
                     Log.d(TAG, "Restored call: " + call);
@@ -238,7 +238,7 @@ public class CallLogBackupAgent extends BackupAgent {
             try {
                 while (cursor.moveToNext()) {
                     Call call = readCallFromCursor(cursor);
-                    if (call != null) {
+                    if (call != null && call.type != Calls.VOICEMAIL_TYPE) {
                         calls.add(call);
                     }
                 }

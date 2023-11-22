@@ -20,6 +20,7 @@ import com.android.loganalysis.item.LogcatItem;
 import com.android.loganalysis.item.MiscLogcatItem;
 import com.android.loganalysis.parser.LogcatParser;
 import com.android.tradefed.device.ILogcatReceiver;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.InputStreamSource;
 
 import java.io.BufferedReader;
@@ -27,10 +28,9 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.HashMap;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 /**
  * Parse logcat input for system updater related events.
@@ -41,8 +41,12 @@ import java.util.regex.Pattern;
  */
 public class LogcatUpdaterEventParser implements Closeable {
 
-    private static final String ERR_REGEX = "onPayloadApplicationComplete\\(ErrorCode\\.*$";
-    private Map<UpdaterEventTrigger, UpdaterEventType> mEventTriggerMap;
+    // define a custom logcat parser category for events of our interests
+    private static final String UPDATER_CUSTOM_CATEGORY = "updaterEvent";
+    // wait time before trying to reobtain logcat stream
+    private static final long LOGCAT_REFRESH_WAIT_TIME_MS = 50L;
+
+    private EventTriggerMap mEventTriggerMap;
     private ILogcatReceiver mLogcatReceiver;
     private LogcatParser mInternalParser;
     private BufferedReader mStreamReader = null;
@@ -50,56 +54,33 @@ public class LogcatUpdaterEventParser implements Closeable {
     private InputStream mCurrentInputStream = null;
     private InputStreamReader mCurrentStreamReader = null;
 
-    private class UpdaterEventTrigger {
-        public String mTag;
-        public String mMsg;
+    /**
+     * Helper class to store (logcat tag, message) with the corresponding {@link UpdaterEventType}.
+     *
+     * <p>The message registered with {@link #put(String, String, UpdaterEventType)} may be a
+     * substring of the actual logcat message.
+     */
+    private class EventTriggerMap {
+        // a map that each tag corresponds to multiple entry of (partial message, response)
+        private MultiMap<String, SimpleEntry<String, UpdaterEventType>> mResponses =
+                new MultiMap<>();
 
-        public UpdaterEventTrigger(String tag, String msg) {
-            mTag = tag;
-            mMsg = msg;
+        /** Register a {@link UpdaterEventType} with a specific logcat tag and message. */
+        public void put(String tag, String partialMessage, UpdaterEventType response) {
+            mResponses.put(tag, new SimpleEntry<>(partialMessage, response));
         }
 
-        @Override
-        public boolean equals(Object other) {
-            if (!(other instanceof UpdaterEventTrigger)) {
-                return false;
-            }
-            UpdaterEventTrigger u = (UpdaterEventTrigger) other;
-            // Allow either this.mMsg or u.mMsg to be a substring, since we can't rely on precisely
-            // matching log lines all the time
-            return mTag.equals(u.mTag) && (u.mMsg.contains(mMsg) || mMsg.contains(u.mMsg));
-        }
-
-        /*
-         * Lines received from logcat will not always exactly match triggers, since the messages
-         * may contain things like execution times, context-dependent variable values etc. This
-         * implementation of hashCode will look for substring matches between {@code this.mMsg} and
-         * the triggers in {@code mEventTriggerMap}; if any are found, it returns a value based on
-         * the matching trigger. This allows substring matches to cause a hit from
-         * {@code mEventTriggerMap#get}.
-         *
-         * TODO: overriding hashCode with a non-constant operation could have performance
-         * implications.
-         *
+        /**
+         * Return an {@link UpdaterEventType} with exactly matching tag and partially matching
+         * message.
          */
-        @Override
-        public int hashCode() {
-            for (UpdaterEventTrigger t : mEventTriggerMap.keySet()) {
-                String r = t.mMsg;
-                if (mMsg.contains(r) || r.contains(mMsg)) {
-                    return mTag.hashCode() + r.hashCode();
+        public UpdaterEventType get(String tag, String message) {
+            for (Map.Entry<String, UpdaterEventType> entry : mResponses.get(tag)) {
+                if (message.contains(entry.getKey())) {
+                    return entry.getValue();
                 }
             }
-            return mTag.hashCode() + mMsg.hashCode();
-        }
-
-        @Override
-        public String toString() {
-            return "UpdaterEventTrigger[" + mTag + "," + mMsg + "]";
-        }
-
-        public boolean isUpdateEngineFailure() {
-            return Pattern.matches(ERR_REGEX, mMsg);
+            return null;
         }
     }
 
@@ -109,50 +90,92 @@ public class LogcatUpdaterEventParser implements Closeable {
     public class AsyncUpdaterEvent {
 
         private boolean mIsCompleted;
-        private boolean mIsWaiting;
+        private UpdaterEventType mResult;
 
         public AsyncUpdaterEvent() {
             mIsCompleted = false;
-            mIsWaiting = false;
         }
 
-        public boolean isCompleted() {
-            synchronized(this) {
-                return mIsCompleted;
+        public synchronized boolean isCompleted() {
+            return mIsCompleted;
+        }
+
+        public synchronized void setCompleted(UpdaterEventType result) {
+            if (isCompleted()) {
+                throw new IllegalStateException("Wait thread already completed!");
+            }
+            mIsCompleted = true;
+            mResult = result;
+        }
+
+        public synchronized void waitUntilCompleted(long timeoutMs) {
+            try {
+                while (!isCompleted()) {
+                    wait(timeoutMs);
+                }
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
             }
         }
 
-        public void setCompleted(boolean isCompleted) {
-            synchronized(this) {
-                mIsCompleted = isCompleted;
+        public synchronized UpdaterEventType getResult() {
+            if (!isCompleted()) {
+                throw new IllegalStateException("Wait thread not yet completed.");
             }
-        }
-
-        public boolean isWaiting() {
-            synchronized(this) {
-                return mIsWaiting;
-            }
-        }
-
-        public void setWaiting(boolean isWaiting) {
-            synchronized(this) {
-                mIsWaiting = isWaiting;
-            }
+            return mResult;
         }
     }
 
+    /** Create a new {@link LogcatUpdaterEventParser} */
     public LogcatUpdaterEventParser(ILogcatReceiver logcatReceiver) {
-        mEventTriggerMap = new HashMap<>();
+        mEventTriggerMap = new EventTriggerMap();
         mLogcatReceiver = logcatReceiver;
         mInternalParser = new LogcatParser();
 
-        registerEventTrigger("update_verifier", "Leaving update_verifier.",
-                UpdaterEventType.UPDATE_VERIFIER_COMPLETE);
-        registerEventTrigger("update_engine", "Update successfully applied",
-                UpdaterEventType.UPDATE_COMPLETE);
-        // TODO: confirm that the actual log tag is dex2oat
-        registerEventTrigger("dex2oat", "dex2oat took ",
+        // events registered first are matched first
+        registerEventTrigger(
+                "update_engine", "Using this install plan:", UpdaterEventType.UPDATE_START);
+        registerEventTrigger(
+                "update_engine",
+                "ActionProcessor: finished DownloadAction with code ErrorCode::kSuccess",
+                UpdaterEventType.DOWNLOAD_COMPLETE);
+        registerEventTrigger(
+                "update_engine",
+                "ActionProcessor: finished DownloadAction with code ErrorCode",
+                UpdaterEventType.ERROR);
+        registerEventTrigger(
+                "update_engine",
+                "ActionProcessor: finished FilesystemVerifierAction with code ErrorCode::kSuccess",
+                UpdaterEventType.PATCH_COMPLETE);
+        registerEventTrigger(
+                "update_engine",
+                "ActionProcessor: finished FilesystemVerifierAction with code ErrorCode",
+                UpdaterEventType.ERROR);
+        registerEventTrigger(
+                "update_engine",
+                "All post-install commands succeeded",
                 UpdaterEventType.D2O_COMPLETE);
+        registerEventTrigger(
+                "update_engine",
+                "Update successfully applied",
+                UpdaterEventType.UPDATE_COMPLETE);
+        registerEventTrigger(
+                "update_engine_client",
+                "onPayloadApplicationComplete(ErrorCode::kSuccess (0))",
+                UpdaterEventType.UPDATE_COMPLETE);
+        // kNewRootfsVerificationError is often caused by flaky flashing - b/66996067 (#6)
+        registerEventTrigger(
+                "update_engine_client",
+                "onPayloadApplicationComplete(ErrorCode::kNewRootfsVerificationError (15))",
+                UpdaterEventType.ERROR_FLAKY);
+        registerEventTrigger(
+                "update_engine_client",
+                "onPayloadApplicationComplete(ErrorCode",
+                UpdaterEventType.ERROR);
+        registerEventTrigger(
+                "update_verifier",
+                "Leaving update_verifier.",
+                UpdaterEventType.UPDATE_VERIFIER_COMPLETE);
 
         mCurrentLogcatData = mLogcatReceiver.getLogcatData();
         mCurrentInputStream = mCurrentLogcatData.createInputStream();
@@ -160,111 +183,109 @@ public class LogcatUpdaterEventParser implements Closeable {
         mStreamReader = new BufferedReader(mCurrentStreamReader);
     }
 
+    /**
+     * Register an event of given logcat tag and message with the desired response. Message may be
+     * partial.
+     */
     protected void registerEventTrigger(String tag, String msg, UpdaterEventType response) {
-        mEventTriggerMap.put(new UpdaterEventTrigger(tag, msg), response);
-        mInternalParser.addPattern(null, "I", tag, "updaterEvents");
+        mEventTriggerMap.put(tag, msg, response);
+        mInternalParser.addPattern(null, "I", tag, UPDATER_CUSTOM_CATEGORY);
     }
 
     /**
-     * Block until any event is encountered, then return.
+     * Internal call that blacks until the specific event is encountered or the timeout is reached.
+     * Return the expected event or an error code.
      */
-    public void waitForEvent() {
-        try {
-            String lastLine = mStreamReader.readLine();
-            while(!mEventTriggerMap.containsValue(parseEventType(lastLine))) {
-                lastLine = mStreamReader.readLine();
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public void waitForEvent(UpdaterEventType expectedEvent) {
-        waitForEvent(expectedEvent, 0);
-    }
-
-    /**
-     * Block until the specified event is encountered or the timeout is reached, then return.
-     * @param expectedEvent the event to wait for
-     * @param timeout the maximum time in milliseconds to wait
-     */
-    public UpdaterEventType waitForEvent(UpdaterEventType expectedEvent, long timeout) {
+    private UpdaterEventType internalWaitForEvent(
+            final UpdaterEventType expectedEvent, long timeoutMs) throws IOException {
         // Parse only a single line at a time, otherwise the LogcatParser won't return until
         // the logcat stream is over
-        try {
-            long startTime = System.currentTimeMillis();
-            while (timeout == 0 || System.currentTimeMillis() - startTime <= timeout) {
-                String lastLine;
-                while ((lastLine = mStreamReader.readLine()) != null) {
-                    UpdaterEventType parsedEvent = parseEventType(lastLine);
-                    if (parsedEvent == UpdaterEventType.ERROR ||
-                            expectedEvent.equals(parsedEvent)) {
-                        return parsedEvent;
-                    }
+        long startTime = System.currentTimeMillis();
+        while (System.currentTimeMillis() - startTime < timeoutMs) {
+            String lastLine;
+            while ((lastLine = mStreamReader.readLine()) != null) {
+                UpdaterEventType parsedEvent = parseEventType(lastLine);
+                if (parsedEvent == UpdaterEventType.ERROR
+                        || parsedEvent == UpdaterEventType.ERROR_FLAKY
+                        || expectedEvent.equals(parsedEvent)) {
+                    return parsedEvent;
                 }
-                // if the stream returns null, we lost our logcat. Wait for a small amount
-                // of time, then try to reobtain it.
-                refreshLogcatStream();
             }
+            // if the stream returns null, we lost our logcat. Wait for a small amount
+            // of time, then try to reobtain it.
+            CLog.v("Failed to read logcat stream. Attempt to reconnect.");
+            RunUtil.getDefault().sleep(LOGCAT_REFRESH_WAIT_TIME_MS);
+            refreshLogcatStream();
+        }
+        CLog.e(
+                "waitForEvent():"
+                        + expectedEvent.toString()
+                        + " timed out after "
+                        + TimeUtil.formatElapsedTime(timeoutMs));
+        return UpdaterEventType.INFRA_TIMEOUT;
+    }
+
+    /** Block until the specified event is encountered or the timeout is reached. */
+    public UpdaterEventType waitForEvent(UpdaterEventType expectedEvent, long timeoutMs) {
+        try {
+            return internalWaitForEvent(expectedEvent, timeoutMs);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return UpdaterEventType.ERROR;
     }
 
     /**
-     * Wait for an event but do not block.
-     * @param expectedEvent the event type which will trigger a message sent to the caller
-     * @return an {@link AsyncUpdaterEvent} monitor which the caller may wait on
+     * Wait for an event but do not block. Return an {@link AsyncUpdaterEvent} monitor which the
+     * caller may wait on and query.
      */
-    public AsyncUpdaterEvent waitForEventAsync(final UpdaterEventType expectedEvent) {
+    public AsyncUpdaterEvent waitForEventAsync(
+            final UpdaterEventType expectedEvent, long timeoutMs) {
         final AsyncUpdaterEvent event = new AsyncUpdaterEvent();
         final Thread callingThread = Thread.currentThread();
 
-        Thread waitThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    String lastLine = mStreamReader.readLine();
-                    while (!expectedEvent.equals(parseEventType(lastLine))) {
-                        lastLine = mStreamReader.readLine();
-                    }
-                } catch (IOException e) {
-                    // Unblock calling thread
-                    callingThread.interrupt();
-                    throw new RuntimeException(e);
-                } finally {
-                    // ensure that the waiting thread drops out of the wait loop
-                    synchronized(event) {
-                        event.setCompleted(true);
-                        event.notifyAll();
-                    }
-                }
-            }
-        });
+        Thread waitThread =
+                new Thread(
+                        () -> {
+                            UpdaterEventType result = UpdaterEventType.INFRA_TIMEOUT;
+                            try {
+                                result = internalWaitForEvent(expectedEvent, timeoutMs);
+                            } catch (IOException e) {
+                                // Unblock calling thread
+                                callingThread.interrupt();
+                                throw new RuntimeException(e);
+                            } finally {
+                                // ensure that the waiting thread drops out of the wait loop
+                                synchronized (event) {
+                                    event.setCompleted(result);
+                                    event.notifyAll();
+                                }
+                            }
+                        });
         waitThread.setName(getClass().getCanonicalName());
+        waitThread.setDaemon(true);
         waitThread.start();
         return event;
     }
 
+    /**
+     * Parse a logcat line and return the captured event (that were registered with {@link
+     * #registerEventTrigger(String, String, UpdaterEventType)}) or null.
+     */
     protected UpdaterEventType parseEventType(String lastLine) {
         LogcatItem item = mInternalParser.parse(ArrayUtil.list(lastLine));
         if (item == null) {
             return null;
         }
-        List<MiscLogcatItem> miscItems = item.getMiscEvents("updaterEvents");
+        List<MiscLogcatItem> miscItems = item.getMiscEvents(UPDATER_CUSTOM_CATEGORY);
         if (miscItems.size() == 0) {
             return null;
         }
         MiscLogcatItem mi = miscItems.get(0);
-        UpdaterEventTrigger trigger = new UpdaterEventTrigger(mi.getTag(), mi.getStack());
-        if (trigger.isUpdateEngineFailure()) {
-            return UpdaterEventType.ERROR;
-        }
         mInternalParser.clear();
-        return mEventTriggerMap.get(trigger);
+        return mEventTriggerMap.get(mi.getTag(), mi.getStack());
     }
 
+    /** Reobtain logcat stream when it's lost */
     private void refreshLogcatStream() throws IOException {
         mStreamReader.close();
         StreamUtil.cancel(mCurrentLogcatData);
@@ -274,6 +295,7 @@ public class LogcatUpdaterEventParser implements Closeable {
         mStreamReader = new BufferedReader(mCurrentStreamReader);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void close() throws IOException {
         StreamUtil.close(mStreamReader);

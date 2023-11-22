@@ -60,8 +60,8 @@ bool Dso::read_kernel_symbols_from_proc_;
 std::unordered_map<std::string, BuildId> Dso::build_id_map_;
 size_t Dso::dso_count_;
 uint32_t Dso::g_dump_id_;
-std::unique_ptr<TemporaryFile> Dso::vdso_64bit_;
-std::unique_ptr<TemporaryFile> Dso::vdso_32bit_;
+std::string Dso::vdso_64bit_;
+std::string Dso::vdso_32bit_;
 
 void Dso::SetDemangle(bool demangle) { demangle_ = demangle; }
 
@@ -121,11 +121,11 @@ void Dso::SetBuildIds(
   build_id_map_ = std::move(map);
 }
 
-void Dso::SetVdsoFile(std::unique_ptr<TemporaryFile> vdso_file, bool is_64bit) {
+void Dso::SetVdsoFile(const std::string& vdso_file, bool is_64bit) {
   if (is_64bit) {
-    vdso_64bit_ = std::move(vdso_file);
+    vdso_64bit_ = vdso_file;
   } else {
-    vdso_32bit_ = std::move(vdso_file);
+    vdso_32bit_ = vdso_file;
   }
 }
 
@@ -153,7 +153,8 @@ Dso::Dso(DsoType type, const std::string& path, bool force_64bit)
       min_vaddr_(std::numeric_limits<uint64_t>::max()),
       is_loaded_(false),
       dump_id_(UINT_MAX),
-      symbol_dump_id_(0) {
+      symbol_dump_id_(0),
+      symbol_warning_loglevel_(android::base::WARNING) {
   if (type_ == DSO_KERNEL) {
     min_vaddr_ = 0;
   }
@@ -169,10 +170,10 @@ Dso::Dso(DsoType type, const std::string& path, bool force_64bit)
       debug_file_path_ = path_in_symfs;
     }
   } else if (path == "[vdso]") {
-    if (force_64bit && vdso_64bit_ != nullptr) {
-      debug_file_path_ = vdso_64bit_->path;
-    } else if (!force_64bit && vdso_32bit_ != nullptr) {
-      debug_file_path_ = vdso_32bit_->path;
+    if (force_64bit && !vdso_64bit_.empty()) {
+      debug_file_path_ = vdso_64bit_;
+    } else if (!force_64bit && !vdso_32bit_.empty()) {
+      debug_file_path_ = vdso_32bit_;
     }
   }
   size_t pos = path.find_last_of("/\\");
@@ -195,8 +196,6 @@ Dso::~Dso() {
     read_kernel_symbols_from_proc_ = false;
     build_id_map_.clear();
     g_dump_id_ = 0;
-    vdso_64bit_ = nullptr;
-    vdso_32bit_ = nullptr;
   }
 }
 
@@ -287,6 +286,8 @@ void Dso::Load() {
     // dumped_symbols,  so later we can merge them with symbols read from file system.
     dumped_symbols = std::move(symbols_);
     symbols_.clear();
+    // Don't warn missing symbol table if we have dumped symbols in perf.data.
+    symbol_warning_loglevel_ = android::base::DEBUG;
   }
   bool result = false;
   switch (type_) {
@@ -354,11 +355,10 @@ bool Dso::CheckReadSymbolResult(ElfStatus result, const std::string& filename) {
       return true;
     }
     // Lacking symbol table isn't considered as an error but worth reporting.
-    LOG(WARNING) << filename << " doesn't contain symbol table";
+    LOG(symbol_warning_loglevel_) << filename << " doesn't contain symbol table";
     return true;
   } else {
-    LOG(WARNING) << "failed to read symbols from " << filename
-                 << ": " << result;
+    LOG(symbol_warning_loglevel_) << "failed to read symbols from " << filename << ": " << result;
     return false;
   }
 }
@@ -380,7 +380,7 @@ bool Dso::LoadKernel() {
       }
     }
     if (all_zero) {
-      LOG(WARNING)
+      LOG(symbol_warning_loglevel_)
           << "Symbol addresses in /proc/kallsyms on device are all zero. "
              "`echo 0 >/proc/sys/kernel/kptr_restrict` if possible.";
       symbols_.clear();
@@ -396,8 +396,8 @@ bool Dso::LoadKernel() {
       }
       bool match = (build_id == real_build_id);
       if (!match) {
-        LOG(WARNING) << "failed to read symbols from /proc/kallsyms: Build id "
-                     << "mismatch";
+        LOG(symbol_warning_loglevel_) << "failed to read symbols from /proc/kallsyms: Build id "
+                                      << "mismatch";
         return false;
       }
     }
@@ -417,8 +417,8 @@ bool Dso::LoadKernel() {
       }
     }
     if (all_zero) {
-      LOG(WARNING) << "Symbol addresses in /proc/kallsyms are all zero. "
-                      "`echo 0 >/proc/sys/kernel/kptr_restrict` if possible.";
+      LOG(symbol_warning_loglevel_) << "Symbol addresses in /proc/kallsyms are all zero. "
+                                       "`echo 0 >/proc/sys/kernel/kptr_restrict` if possible.";
       symbols_.clear();
       return false;
     }
@@ -491,7 +491,7 @@ void Dso::FixupSymbolLength() {
     if (prev_symbol != nullptr && prev_symbol->len == 0) {
       prev_symbol->len = symbol.addr - prev_symbol->addr;
     }
-    prev_symbol = const_cast<Symbol*>(&symbol);
+    prev_symbol = &symbol;
   }
   if (prev_symbol != nullptr && prev_symbol->len == 0) {
     prev_symbol->len = std::numeric_limits<uint64_t>::max() - prev_symbol->addr;

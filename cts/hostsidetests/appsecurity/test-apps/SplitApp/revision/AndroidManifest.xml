@@ -16,7 +16,8 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.android.cts.splitapp"
-        android:revisionCode="12">
+        android:revisionCode="12"
+        android:targetSandboxVersion="2">
 
     <uses-permission android:name="android.permission.CAMERA" />
 

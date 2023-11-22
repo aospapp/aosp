@@ -342,8 +342,8 @@ public class FileUtilFuncTest extends TestCase {
         }
     }
 
-    /** Test that {@link FileUtil#recursiveSimlink(File, File)} properly simlink files. */
-    public void testRecursiveSimlink() throws IOException {
+    /** Test that {@link FileUtil#recursiveSymlink(File, File)} properly simlink files. */
+    public void testRecursiveSymlink() throws IOException {
         File dir1 = null;
         File dest = null;
         try {
@@ -351,9 +351,36 @@ public class FileUtilFuncTest extends TestCase {
             File subdir1 = FileUtil.createTempDir("sub-dir", dir1);
             File testFile = FileUtil.createTempFile("test", "file", subdir1);
             dest = FileUtil.createTempDir("dest-dir");
-            FileUtil.recursiveSimlink(dir1, dest);
+            FileUtil.recursiveSymlink(dir1, dest);
             // check that file is in dest dir
             assertNotNull(FileUtil.findFile(dest, testFile.getName()));
+        } finally {
+            FileUtil.recursiveDelete(dir1);
+            FileUtil.recursiveDelete(dest);
+        }
+    }
+
+    /**
+     * Test that when a symlink dir is encountered by {@link FileUtil#recursiveDelete(File)}. The
+     * link itself is deleted but not followed.
+     */
+    public void testSymlinkDeletion() throws IOException {
+        File dir1 = null;
+        File dest = null;
+        try {
+            dir1 = FileUtil.createTempDir("orig-dir");
+            File subdir1 = FileUtil.createTempDir("sub-dir", dir1);
+            File testFile = FileUtil.createTempFile("test", "file", subdir1);
+            dest = FileUtil.createTempDir("dest-dir");
+            dest.delete();
+            FileUtil.symlinkFile(dir1, dest);
+            // Check that file is in dest dir
+            assertNotNull(FileUtil.findFile(dest, testFile.getName()));
+            // Now delete the symlink
+            FileUtil.recursiveDelete(dest);
+            assertFalse(dest.exists());
+            // Ensure the orignal directory was not deleted (symlink was not followed).
+            assertTrue(subdir1.exists());
         } finally {
             FileUtil.recursiveDelete(dir1);
             FileUtil.recursiveDelete(dest);

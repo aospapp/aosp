@@ -21,16 +21,16 @@ class network_ShillInitScripts(test.test):
     version = 1
     save_directories = [ '/var/cache/shill',
                          '/var/cache/flimflam',
-                         '/var/run/shill',
-                         '/var/run/state/logged-in',
-                         '/var/run/dhcpcd',
+                         '/run/shill',
+                         '/run/state/logged-in',
+                         '/run/dhcpcd',
                          '/var/lib/dhcpcd',
                          '/home/chronos/.disable_shill' ]
     fake_user = 'not-a-real-user@chromium.org'
     saved_config = '/tmp/network_ShillInitScripts_saved_config.tgz'
     cryptohome_path_command = 'cryptohome-path'
-    guest_shill_user_profile_dir = '/var/run/shill/guest_user_profile/shill'
-    guest_shill_user_log_dir = '/var/run/shill/guest_user_profile/shill_logs'
+    guest_shill_user_profile_dir = '/run/shill/guest_user_profile/shill'
+    guest_shill_user_log_dir = '/run/shill/guest_user_profile/shill_logs'
     magic_header = '# --- shill init file test magic header ---'
 
 
@@ -411,13 +411,13 @@ class network_ShillInitScripts(test.test):
         """
         self.touch('/home/chronos/.disable_shill')
         self.start_shill()
-        self.assure_is_dir('/var/run/shill', 'Shill run directory')
+        self.assure_is_dir('/run/shill', 'Shill run directory')
         self.assure_is_dir('/var/lib/dhcpcd', 'dhcpcd lib directory')
         self.assure_path_owner('/var/lib/dhcpcd', 'dhcp')
         self.assure_path_group('/var/lib/dhcpcd', 'dhcp')
-        self.assure_is_dir('/var/run/dhcpcd', 'dhcpcd run directory')
-        self.assure_path_owner('/var/run/dhcpcd', 'dhcp')
-        self.assure_path_group('/var/run/dhcpcd', 'dhcp')
+        self.assure_is_dir('/run/dhcpcd', 'dhcpcd run directory')
+        self.assure_path_owner('/run/dhcpcd', 'dhcp')
+        self.assure_path_group('/run/dhcpcd', 'dhcp')
         self.assure(not os.path.exists('/home/chronos/.disable_shill'),
                     'Shill disable file does not exist')
         self.assure('--push=~chronos/shill' not in self.get_commandline(),
@@ -431,16 +431,16 @@ class network_ShillInitScripts(test.test):
         while a user is logged in.
 
         """
-        os.mkdir('/var/run/shill')
-        os.mkdir('/var/run/shill/user_profiles')
+        os.mkdir('/run/shill')
+        os.mkdir('/run/shill/user_profiles')
         self.create_new_shill_user_profile('')
         os.symlink(self.new_shill_user_profile_dir,
-                   '/var/run/shill/user_profiles/chronos')
-        self.touch('/var/run/state/logged-in')
+                   '/run/shill/user_profiles/chronos')
+        self.touch('/run/state/logged-in')
         self.start_shill()
         self.assure('--push=~chronos/shill' not in self.get_commandline(),
                     'Shill command line does not contain push argument')
-        os.unlink('/var/run/state/logged-in')
+        os.unlink('/run/state/logged-in')
 
 
     def test_start_port_flimflam_profile(self):
@@ -490,7 +490,7 @@ class network_ShillInitScripts(test.test):
         a user profile, given no previous state.
 
         """
-        os.mkdir('/var/run/shill')
+        os.mkdir('/run/shill')
         self.login()
         self.assure(not os.path.exists(self.flimflam_user_profile),
                     'Flimflam user profile does not exist')
@@ -503,14 +503,14 @@ class network_ShillInitScripts(test.test):
         # should not have actually been created.
         self.assure_is_dir(self.new_shill_user_profile_dir,
                            'New shill user profile directory')
-        self.assure_is_dir('/var/run/shill/user_profiles',
+        self.assure_is_dir('/run/shill/user_profiles',
                            'Shill profile root')
-        self.assure_is_link_to('/var/run/shill/user_profiles/chronos',
+        self.assure_is_link_to('/run/shill/user_profiles/chronos',
                                self.new_shill_user_profile_dir,
                                'Shill profile link')
         self.assure_is_dir(self.user_cryptohome_log_dir,
                            'shill user log directory')
-        self.assure_is_link_to('/var/run/shill/log',
+        self.assure_is_link_to('/run/shill/log',
                                self.user_cryptohome_log_dir,
                                'Shill logs link')
         self.assure_method_calls([[ 'CreateProfile', '~chronos/shill' ],
@@ -523,11 +523,11 @@ class network_ShillInitScripts(test.test):
     def test_login_guest(self):
         """ Tests the guest login process.
 
-        Login should create a temporary profile directory in /var/run,
+        Login should create a temporary profile directory in /run,
         instead of using one within the root directory for normal users.
 
         """
-        os.mkdir('/var/run/shill')
+        os.mkdir('/run/shill')
         self.login_guest()
         self.assure(not os.path.exists(self.flimflam_user_profile),
                     'Flimflam user profile does not exist')
@@ -539,14 +539,14 @@ class network_ShillInitScripts(test.test):
                     'New shill user profile directory')
         self.assure_is_dir(self.guest_shill_user_profile_dir,
                            'shill guest user profile directory')
-        self.assure_is_dir('/var/run/shill/user_profiles',
+        self.assure_is_dir('/run/shill/user_profiles',
                            'Shill profile root')
-        self.assure_is_link_to('/var/run/shill/user_profiles/chronos',
+        self.assure_is_link_to('/run/shill/user_profiles/chronos',
                                self.guest_shill_user_profile_dir,
                                'Shill profile link')
         self.assure_is_dir(self.guest_shill_user_log_dir,
                            'shill guest user log directory')
-        self.assure_is_link_to('/var/run/shill/log',
+        self.assure_is_link_to('/run/shill/log',
                                self.guest_shill_user_log_dir,
                                'Shill logs link')
         self.assure_method_calls([[ 'CreateProfile', '~chronos/shill' ],
@@ -562,7 +562,7 @@ class network_ShillInitScripts(test.test):
         Login script should only push (and not create) the user profile
         if a user profile already exists.
         """
-        os.mkdir('/var/run/shill')
+        os.mkdir('/run/shill')
         os.mkdir(self.new_shill_user_profile_dir)
         self.touch(self.new_shill_user_profile)
         self.login()
@@ -577,7 +577,7 @@ class network_ShillInitScripts(test.test):
         Login script should move an old shill user profile into place
         if a new one does not exist.
         """
-        os.mkdir('/var/run/shill')
+        os.mkdir('/run/shill')
         self.create_old_shill_user_profile(self.magic_header)
         self.login()
         self.assure(not os.path.exists(self.old_shill_user_profile),
@@ -629,7 +629,7 @@ class network_ShillInitScripts(test.test):
         by the correct user.  The original file should be removed.
 
         """
-        os.mkdir('/var/run/shill')
+        os.mkdir('/run/shill')
         for file_creation_method in (self.make_symlink,
                                      self.make_special_file,
                                      os.mkdir,
@@ -649,7 +649,7 @@ class network_ShillInitScripts(test.test):
                                          self.fake_user_hash) ]],
                                      'CreateProfile and InsertUserProfile '
                                      'are called')
-            os.unlink('/var/run/shill/user_profiles/chronos')
+            os.unlink('/run/shill/user_profiles/chronos')
 
 
     def test_login_ignore_old_shill_profile(self):
@@ -659,7 +659,7 @@ class network_ShillInitScripts(test.test):
         exists.
 
         """
-        os.mkdir('/var/run/shill')
+        os.mkdir('/run/shill')
         self.create_new_shill_user_profile('')
         self.create_old_shill_user_profile(self.magic_header)
         self.login()
@@ -682,7 +682,7 @@ class network_ShillInitScripts(test.test):
         if a shill one does not exist.
 
         """
-        os.mkdir('/var/run/shill')
+        os.mkdir('/run/shill')
         self.create_flimflam_user_profile(self.magic_header)
         self.login()
         self.assure(not os.path.exists(self.flimflam_user_profile),
@@ -706,7 +706,7 @@ class network_ShillInitScripts(test.test):
         one exists.
 
         """
-        os.mkdir('/var/run/shill')
+        os.mkdir('/run/shill')
         self.create_flimflam_user_profile(self.magic_header)
         self.create_new_shill_user_profile('')
         self.login()
@@ -728,7 +728,7 @@ class network_ShillInitScripts(test.test):
         exist.
 
         """
-        os.mkdir('/var/run/shill')
+        os.mkdir('/run/shill')
         self.create_flimflam_user_profile('')
         self.create_old_shill_user_profile(self.magic_header)
         self.login()
@@ -754,7 +754,7 @@ class network_ShillInitScripts(test.test):
         the initial user profile should be created.
 
         """
-        os.mkdir('/var/run/shill')
+        os.mkdir('/run/shill')
         self.create_new_shill_user_profile('')
 
         # First logged-in user should create a profile (tested above).
@@ -766,23 +766,23 @@ class network_ShillInitScripts(test.test):
         for attempt in range(5):
             self.login()
             self.assure_method_calls([], 'No more profiles are added to shill')
-            profile_links = os.listdir('/var/run/shill/user_profiles')
+            profile_links = os.listdir('/run/shill/user_profiles')
             self.assure(len(profile_links) == 1, 'Only one profile exists')
             self.assure(profile_links[0] == 'chronos',
                         'The profile link is for the chronos user')
-            self.assure_is_link_to('/var/run/shill/log',
+            self.assure_is_link_to('/run/shill/log',
                                    self.user_cryptohome_log_dir,
                                    'Shill log link for chronos')
 
 
     def test_logout(self):
         """ Test the logout process. """
-        os.makedirs('/var/run/shill/user_profiles')
+        os.makedirs('/run/shill/user_profiles')
         os.makedirs(self.guest_shill_user_profile_dir)
         os.makedirs(self.guest_shill_user_log_dir)
-        self.touch('/var/run/state/logged-in')
+        self.touch('/run/state/logged-in')
         self.logout()
-        self.assure(not os.path.exists('/var/run/shill/user_profiles'),
+        self.assure(not os.path.exists('/run/shill/user_profiles'),
                     'User profile directory was removed')
         self.assure(not os.path.exists(self.guest_shill_user_profile_dir),
                     'Guest user profile directory was removed')

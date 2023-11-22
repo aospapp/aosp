@@ -17,7 +17,6 @@
 package com.android.storagemanager.overlay;
 
 import android.app.job.JobParameters;
-import android.content.ContentResolver;
 import android.content.Context;
 
 /**
@@ -40,5 +39,5 @@ public interface StorageManagementJobProvider {
     boolean onStopJob(Context context, JobParameters params);
 
     /** Returns the threshold in millis for when to disable the storage manager. */
-    long getDisableThresholdMillis(ContentResolver contentResolver);
+    long getDisableThresholdMillis(Context context);
 }

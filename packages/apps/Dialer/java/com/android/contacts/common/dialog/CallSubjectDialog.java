@@ -43,13 +43,14 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.QuickContactBadge;
 import android.widget.TextView;
-import com.android.contacts.common.ContactPhotoManager;
 import com.android.contacts.common.R;
-import com.android.contacts.common.lettertiles.LetterTileDrawable;
 import com.android.dialer.animation.AnimUtils;
 import com.android.dialer.callintent.CallInitiationType;
 import com.android.dialer.callintent.CallIntentBuilder;
 import com.android.dialer.common.LogUtil;
+import com.android.dialer.contactphoto.ContactPhotoManager;
+import com.android.dialer.lettertile.LetterTileDrawable;
+import com.android.dialer.precall.PreCall;
 import com.android.dialer.util.ViewUtil;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -148,13 +149,12 @@ public class CallSubjectDialog extends Activity {
         @Override
         public void onClick(View v) {
           String subject = mCallSubjectView.getText().toString();
-          Intent intent =
+          PreCall.start(
+              CallSubjectDialog.this,
               new CallIntentBuilder(mNumber, CallInitiationType.Type.CALL_SUBJECT_DIALOG)
                   .setPhoneAccountHandle(mPhoneAccountHandle)
-                  .setCallSubject(subject)
-                  .build();
+                  .setCallSubject(subject));
 
-          getSystemService(TelecomManager.class).placeCall(intent.getData(), intent.getExtras());
           mSubjectHistory.add(subject);
           saveSubjectHistory(mSubjectHistory);
           finish();

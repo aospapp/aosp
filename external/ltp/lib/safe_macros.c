@@ -699,6 +699,23 @@ int safe_rename(const char *file, const int lineno, void (*cleanup_fn)(void),
 	return rval;
 }
 
+static const char *const fuse_fs_types[] = {
+	"exfat",
+	"ntfs",
+};
+
+static int is_fuse(const char *fs_type)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(fuse_fs_types); i++) {
+		if (!strcmp(fuse_fs_types[i], fs_type))
+			return 1;
+	}
+
+	return 0;
+}
+
 int safe_mount(const char *file, const int lineno, void (*cleanup_fn)(void),
 	       const char *source, const char *target,
 	       const char *filesystemtype, unsigned long mountflags,
@@ -706,8 +723,30 @@ int safe_mount(const char *file, const int lineno, void (*cleanup_fn)(void),
 {
 	int rval;
 
-	rval = mount(source, target, filesystemtype, mountflags, data);
+	/*
+	 * The FUSE filesystem executes mount.fuse helper, which tries to
+	 * execute corresponding binary name which is encoded at the start of
+	 * the source string and separated by # from the device name.
+         *
+	 * The mount helpers are called mount.$fs_type.
+	 */
+	if (is_fuse(filesystemtype)) {
+		char buf[1024];
 
+		tst_resm(TINFO, "Trying FUSE...");
+		snprintf(buf, sizeof(buf), "mount.%s '%s' '%s'",
+			 filesystemtype, source, target);
+
+		rval = tst_system(buf);
+		if (WIFEXITED(rval) && WEXITSTATUS(rval) == 0)
+			return 0;
+
+		tst_brkm(TBROK, cleanup_fn, "mount.%s failed with %i",
+			 filesystemtype, rval);
+		return -1;
+	}
+
+	rval = mount(source, target, filesystemtype, mountflags, data);
 	if (rval == -1) {
 		tst_brkm(TBROK | TERRNO, cleanup_fn,
 			 "%s:%d: mount(%s, %s, %s, %lu, %p) failed",
@@ -891,6 +930,33 @@ int safe_fsync(const char *file, const int lineno, int fd)
 	if (rval) {
 		tst_brkm(TBROK | TERRNO, NULL,
 			"%s:%d: fsync(%i) failed", file, lineno, fd);
+	}
+
+	return rval;
+}
+
+pid_t safe_setsid(const char *file, const int lineno)
+{
+	pid_t rval;
+
+	rval = setsid();
+	if (rval == -1) {
+		tst_brkm(TBROK | TERRNO, NULL,
+			 "%s:%d: setsid() failed", file, lineno);
+	}
+
+	return rval;
+}
+
+int safe_mknod(const char *file, const int lineno, const char *pathname,
+	mode_t mode, dev_t dev)
+{
+	int rval;
+
+	rval = mknod(pathname, mode, dev);
+	if (rval == -1) {
+		tst_brkm(TBROK | TERRNO, NULL,
+			 "%s:%d: mknod() failed", file, lineno);
 	}
 
 	return rval;

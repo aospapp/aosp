@@ -21,9 +21,10 @@
 
 #include <memory>
 
-#include "atomic.h"
+#include <android-base/logging.h>
+
+#include "base/atomic.h"
 #include "base/bit_utils.h"
-#include "base/logging.h"
 
 namespace art {
 namespace gc {
@@ -42,8 +43,7 @@ inline bool Bitmap::AtomicTestAndSetBit(uintptr_t bit_index) {
       DCHECK(TestBit(bit_index));
       return true;
     }
-  } while (!atomic_entry->CompareExchangeWeakSequentiallyConsistent(old_word,
-                                                                    old_word | word_mask));
+  } while (!atomic_entry->CompareAndSetWeakSequentiallyConsistent(old_word, old_word | word_mask));
   DCHECK(TestBit(bit_index));
   return false;
 }

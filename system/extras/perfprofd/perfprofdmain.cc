@@ -15,9 +15,46 @@
 ** limitations under the License.
 */
 
-extern int perfprofd_main(int argc, char** argv);
+#include <string.h>
+
+#include <android-base/logging.h>
+
+#include "config.h"
+#include "perfprofd_binder.h"
+#include "perfprofd_cmdline.h"
+#include "perfprofdcore.h"
+
+extern int perfprofd_main(int argc, char** argv, Config* config);
 
 int main(int argc, char** argv)
 {
-  return perfprofd_main(argc, argv);
+  if (argc > 1 && strcmp(argv[1], "--binder") == 0) {
+    return android::perfprofd::binder::Main();
+  }
+
+  struct PosixSleepConfig : public Config {
+    void Sleep(size_t seconds) override {
+      sleep(seconds);
+    }
+    bool IsProfilingEnabled() const override {
+      //
+      // Check for existence of semaphore file in config directory
+      //
+      if (access(config_directory.c_str(), F_OK) == -1) {
+        PLOG(WARNING) << "unable to open config directory " << config_directory;
+        return false;
+      }
+
+      // Check for existence of semaphore file
+      std::string semaphore_filepath = config_directory
+          + "/" + SEMAPHORE_FILENAME;
+      if (access(semaphore_filepath.c_str(), F_OK) == -1) {
+        return false;
+      }
+
+      return true;
+    }
+  };
+  PosixSleepConfig config;
+  return perfprofd_main(argc, argv, &config);
 }

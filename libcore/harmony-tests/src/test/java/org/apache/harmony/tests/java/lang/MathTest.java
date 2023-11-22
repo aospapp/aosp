@@ -1145,34 +1145,31 @@ public class MathTest extends junit.framework.TestCase {
 
         for (int x = 0; x < values.length; x++) {
             double dval = values[x];
-            double nagateDval = negateDouble(dval);
-            if (nagateDval == Double.NaN) {
-                continue;
-            }
+            double negateDval = negateDouble(dval);
 
             // If the second argument is positive or negative zero, then the
             // result is 1.0.
             assertEquals("Result should be Math.pow(" + dval
                     + ",-0.0)=+1.0", 1.0, Math.pow(dval, NZERO));
-            assertEquals("Result should be Math.pow(" + nagateDval
-                    + ",-0.0)=+1.0", 1.0, Math.pow(nagateDval, NZERO));
+            assertEquals("Result should be Math.pow(" + negateDval
+                    + ",-0.0)=+1.0", 1.0, Math.pow(negateDval, NZERO));
             assertEquals("Result should be Math.pow(" + dval
                     + ",+0.0)=+1.0", 1.0, Math.pow(dval, +0.0));
-            assertEquals("Result should be Math.pow(" + nagateDval
-                    + ",+0.0)=+1.0", 1.0, Math.pow(nagateDval, +0.0));
+            assertEquals("Result should be Math.pow(" + negateDval
+                    + ",+0.0)=+1.0", 1.0, Math.pow(negateDval, +0.0));
 
             // If the second argument is 1.0, then the result is the same as the
             // first argument.
             assertEquals("Result should be Math.pow(" + dval + "," + 1.0 + ")="
                     + dval, dval, Math.pow(dval, 1.0));
-            assertEquals("Result should be Math.pow(" + nagateDval + "," + 1.0
-                    + ")=" + nagateDval, nagateDval, Math.pow(nagateDval, 1.0));
+            assertEquals("Result should be Math.pow(" + negateDval + "," + 1.0
+                    + ")=" + negateDval, negateDval, Math.pow(negateDval, 1.0));
 
             // If the second argument is NaN, then the result is NaN.
             assertEquals("Result should be Math.pow(" + dval + "," + Double.NaN
                     + ")=" + Double.NaN, Double.NaN, Math.pow(dval, Double.NaN));
-            assertEquals("Result should be Math.pow(" + nagateDval + ","
-                    + Double.NaN + ")=" + Double.NaN, Double.NaN, Math.pow(nagateDval,
+            assertEquals("Result should be Math.pow(" + negateDval + ","
+                    + Double.NaN + ")=" + Double.NaN, Double.NaN, Math.pow(negateDval,
                     Double.NaN));
 
             if (dval > 1) {
@@ -1182,8 +1179,8 @@ public class MathTest extends junit.framework.TestCase {
                 assertEquals("Result should be Math.pow(" + Double.NaN + ","
                         + dval + ")=" + Double.NaN, Double.NaN, Math.pow(Double.NaN, dval));
                 assertEquals("Result should be Math.pow(" + Double.NaN + ","
-                        + nagateDval + ")=" + Double.NaN, Double.NaN, Math.pow(Double.NaN,
-                        nagateDval));
+                        + negateDval + ")=" + Double.NaN, Double.NaN, Math.pow(Double.NaN,
+                        negateDval));
 
                 /*
                  * If the first argument is positive zero and the second
@@ -1194,8 +1191,8 @@ public class MathTest extends junit.framework.TestCase {
                 assertEquals("Result should be Math.pow(" + 0.0 + "," + dval
                         + ")=" + 0.0, +0.0, Math.pow(0.0, dval));
                 assertEquals("Result should be Math.pow("
-                        + Double.POSITIVE_INFINITY + "," + nagateDval + ")="
-                        + 0.0, +0.0, Math.pow(Double.POSITIVE_INFINITY, nagateDval));
+                        + Double.POSITIVE_INFINITY + "," + negateDval + ")="
+                        + 0.0, +0.0, Math.pow(Double.POSITIVE_INFINITY, negateDval));
 
                 /*
                  * If the first argument is positive zero and the second
@@ -1204,8 +1201,8 @@ public class MathTest extends junit.framework.TestCase {
                  * the result is positive infinity.
                  */
                 assertEquals("Result should be Math.pow(" + 0.0 + ","
-                        + nagateDval + ")=" + Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY,
-                        Math.pow(0.0, nagateDval));
+                        + negateDval + ")=" + Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY,
+                        Math.pow(0.0, negateDval));
                 assertEquals("Result should be Math.pow("
                         + Double.POSITIVE_INFINITY + "," + dval + ")="
                         + Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, Math.pow(
@@ -1223,9 +1220,9 @@ public class MathTest extends junit.framework.TestCase {
                     assertEquals("Result should be Math.pow(" + NZERO + ","
                             + dval + ")=" + 0.0, +0.0, Math.pow(NZERO, dval));
                     assertEquals("Result should be Math.pow("
-                            + Double.NEGATIVE_INFINITY + "," + nagateDval
+                            + Double.NEGATIVE_INFINITY + "," + negateDval
                             + ")=" + 0.0, +0.0, Math.pow(Double.NEGATIVE_INFINITY,
-                            nagateDval));
+                            negateDval));
 
                     /*
                      * If the first argument is negative zero and the second
@@ -1235,8 +1232,8 @@ public class MathTest extends junit.framework.TestCase {
                      * integer, then the result is positive infinity.
                      */
                     assertEquals("Result should be Math.pow(" + NZERO + ","
-                            + nagateDval + ")=" + Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY,
-                            Math.pow(NZERO, nagateDval));
+                            + negateDval + ")=" + Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY,
+                            Math.pow(NZERO, negateDval));
                     assertEquals("Result should be Math.pow("
                             + Double.NEGATIVE_INFINITY + "," + dval + ")="
                             + Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, Math.pow(
@@ -1255,9 +1252,9 @@ public class MathTest extends junit.framework.TestCase {
                     assertEquals("Result should be Math.pow(" + NZERO + ","
                             + dval + ")=" + NZERO, NZERO, Math.pow(NZERO, dval));
                     assertEquals("Result should be Math.pow("
-                            + Double.NEGATIVE_INFINITY + "," + nagateDval
+                            + Double.NEGATIVE_INFINITY + "," + negateDval
                             + ")=" + NZERO, NZERO, Math.pow(Double.NEGATIVE_INFINITY,
-                            nagateDval));
+                            negateDval));
                     /*
                      * If the first argument is negative zero and the second
                      * argument is a negative finite odd integer, or the first
@@ -1266,8 +1263,8 @@ public class MathTest extends junit.framework.TestCase {
                      * infinity.
                      */
                     assertEquals("Result should be Math.pow(" + NZERO + ","
-                            + nagateDval + ")=" + Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY,
-                            Math.pow(NZERO, nagateDval));
+                            + negateDval + ")=" + Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY,
+                            Math.pow(NZERO, negateDval));
                     assertEquals("Result should be Math.pow("
                             + Double.NEGATIVE_INFINITY + "," + dval + ")="
                             + Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY, Math.pow(
@@ -1278,11 +1275,11 @@ public class MathTest extends junit.framework.TestCase {
                  * 1. If the first argument is finite and less than zero if the
                  * second argument is a finite even integer, the result is equal
                  * to the result of raising the absolute value of the first
-                 * argument to the power of the second argument 
+                 * argument to the power of the second argument
                  *
                  * 2. if the second argument is a finite odd integer, the result is equal to the
                  * negative of the result of raising the absolute value of the
-                 * first argument to the power of the second argument 
+                 * first argument to the power of the second argument
                  *
                  * 3. if the second argument is finite and not an integer, then the result
                  * is NaN.
@@ -1290,16 +1287,16 @@ public class MathTest extends junit.framework.TestCase {
                 for (int j = 1; j < values.length; j++) {
                     double jval = values[j];
                     if (jval % 2.0 == 0.0) {
-                        assertEquals("" + nagateDval + " " + jval, Math.pow(
-                                dval, jval), Math.pow(nagateDval, jval));
+                        assertEquals("" + negateDval + " " + jval, Math.pow(
+                                dval, jval), Math.pow(negateDval, jval));
                     } else {
-                        assertEquals("" + nagateDval + " " + jval, -1.0
-                                * Math.pow(dval, jval), Math.pow(nagateDval,
+                        assertEquals("" + negateDval + " " + jval, -1.0
+                                * Math.pow(dval, jval), Math.pow(negateDval,
                                 jval));
                     }
                     assertEquals(Double.NaN, Math
-                            .pow(nagateDval, jval / 0.5467));
-                    assertEquals(Double.NaN, Math.pow(nagateDval, -1.0 * jval
+                            .pow(negateDval, jval / 0.5467));
+                    assertEquals(Double.NaN, Math.pow(negateDval, -1.0 * jval
                             / 0.5467));
                 }
             }
@@ -1314,12 +1311,12 @@ public class MathTest extends junit.framework.TestCase {
                         + Double.NEGATIVE_INFINITY + ")=" + Double.NaN, Double.NaN, Math
                         .pow(dval, Double.NEGATIVE_INFINITY));
 
-                assertEquals("Result should be Math.pow(" + nagateDval + ","
+                assertEquals("Result should be Math.pow(" + negateDval + ","
                         + Double.POSITIVE_INFINITY + ")=" + Double.NaN, Double.NaN, Math
-                        .pow(nagateDval, Double.POSITIVE_INFINITY));
-                assertEquals("Result should be Math.pow(" + nagateDval + ","
+                        .pow(negateDval, Double.POSITIVE_INFINITY));
+                assertEquals("Result should be Math.pow(" + negateDval + ","
                         + Double.NEGATIVE_INFINITY + ")=" + Double.NaN, Double.NaN, Math
-                        .pow(nagateDval, Double.NEGATIVE_INFINITY));
+                        .pow(negateDval, Double.NEGATIVE_INFINITY));
             }
 
             if (dval > 1) {
@@ -1335,7 +1332,7 @@ public class MathTest extends junit.framework.TestCase {
                         + Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, Math.pow(dval,
                         Double.POSITIVE_INFINITY));
 
-                assertEquals("Result should be Math.pow(" + nagateDval + ","
+                assertEquals("Result should be Math.pow(" + negateDval + ","
                         + Double.NEGATIVE_INFINITY + ")="
                         + Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, Math.pow(-0.13456,
                         Double.NEGATIVE_INFINITY));
@@ -1350,7 +1347,7 @@ public class MathTest extends junit.framework.TestCase {
                 assertEquals("Result should be Math.pow(" + dval + ","
                         + Double.NEGATIVE_INFINITY + ")= +0.0", +0.0, Math.pow(dval,
                         Double.NEGATIVE_INFINITY));
-                assertEquals("Result should be Math.pow(" + nagateDval + ","
+                assertEquals("Result should be Math.pow(" + negateDval + ","
                         + Double.POSITIVE_INFINITY + ")= +0.0", +0.0, Math.pow(
                         -0.13456, Double.POSITIVE_INFINITY));
             }
@@ -1988,7 +1985,7 @@ public class MathTest extends junit.framework.TestCase {
 
                 // normal to sub-normal
                 new Tuple(0x00000002, 0x01a00000, -24),
-                // round to even 
+                // round to even
                 new Tuple(0x00000004, 0x01e00000, -24),
                 // round to even
                 new Tuple(0x00000003, 0x01c80000, -24),

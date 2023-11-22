@@ -19,6 +19,8 @@ package com.android.cts.verifier.widget;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
+import com.android.compatibility.common.util.CddTest;
+
 import android.content.Context;
 import android.hardware.Sensor;
 import android.hardware.SensorEventListener;
@@ -29,6 +31,7 @@ import android.os.Bundle;
 /**
  * CTS Verifier case for verifying basic widget framework functionality.
  */
+@CddTest(requirement="3.8.2/C-1-2,C-1-3")
 public class WidgetTestActivity extends PassFailButtons.Activity {
 
     @Override

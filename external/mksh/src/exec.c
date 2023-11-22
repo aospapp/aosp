@@ -23,7 +23,7 @@
 
 #include "sh.h"
 
-__RCSID("$MirOS: src/bin/mksh/exec.c,v 1.196 2017/04/12 16:46:21 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/exec.c,v 1.201 2017/10/11 21:09:24 tg Exp $");
 
 #ifndef MKSH_DEFAULT_EXECSHELL
 #define MKSH_DEFAULT_EXECSHELL	MKSH_UNIXROOT "/bin/sh"
@@ -554,6 +554,9 @@ comexec(struct op *t, struct tbl * volatile tp, const char **ap,
 				}
 			ap += builtin_opt.optind;
 			flags |= XEXEC;
+			/* POSuX demands ksh88-like behaviour here */
+			if (Flag(FPOSIX))
+				fcflags = FC_PATH;
 		} else if (tp->val.f == c_command) {
 			bool saw_p = false;
 
@@ -885,7 +888,9 @@ scriptexec(struct op *tp, const char **ap)
 #ifndef MKSH_SMALL
 	if ((fd = binopen2(tp->str, O_RDONLY)) >= 0) {
 		unsigned char *cp;
+#ifndef MKSH_EBCDIC
 		unsigned short m;
+#endif
 		ssize_t n;
 
 #if defined(__OS2__) && defined(MKSH_WITH_TEXTMODE)
@@ -905,7 +910,7 @@ scriptexec(struct op *tp, const char **ap)
 		    (buf[2] == 0xBF)) ? 3 : 0);
 
 		/* scan for newline or NUL (end of buffer) */
-		while (*cp && *cp != '\n')
+		while (!ctype(*cp, C_NL | C_NUL))
 			++cp;
 		/* if the shebang line is longer than MAXINTERP, bail out */
 		if (!*cp)
@@ -920,13 +925,13 @@ scriptexec(struct op *tp, const char **ap)
 			cp += 2;
 #ifdef __OS2__
 		else if (!strncmp(cp, Textproc, 7) &&
-		    (cp[7] == ' ' || cp[7] == '\t'))
+		    ctype(cp[7], C_BLANK))
 			cp += 8;
 #endif
 		else
 			goto noshebang;
 		/* skip whitespace before shell name */
-		while (*cp == ' ' || *cp == '\t')
+		while (ctype(*cp, C_BLANK))
 			++cp;
 		/* just whitespace on the line? */
 		if (*cp == '\0')
@@ -934,13 +939,13 @@ scriptexec(struct op *tp, const char **ap)
 		/* no, we actually found an interpreter name */
 		sh = (char *)cp;
 		/* look for end of shell/interpreter name */
-		while (*cp != ' ' && *cp != '\t' && *cp != '\0')
+		while (!ctype(*cp, C_BLANK | C_NUL))
 			++cp;
 		/* any arguments? */
 		if (*cp) {
 			*cp++ = '\0';
 			/* skip spaces before arguments */
-			while (*cp == ' ' || *cp == '\t')
+			while (ctype(*cp, C_BLANK))
 				++cp;
 			/* pass it all in ONE argument (historic reasons) */
 			if (*cp)
@@ -948,8 +953,12 @@ scriptexec(struct op *tp, const char **ap)
 		}
 #ifdef __OS2__
 		/*
-		 * Search shell/interpreter name without directory in PATH
-		 * if specified path does not exist
+		 * On OS/2, the directory structure differs from normal
+		 * Unix, which can make many scripts whose shebang
+		 * hardcodes the path to an interpreter fail (and there
+		 * might be no /usr/bin/env); for user convenience, if
+		 * the specified interpreter is not usable, do a PATH
+		 * search to find it.
 		 */
 		if (mksh_vdirsep(sh) && !search_path(sh, path, X_OK, NULL)) {
 			cp = search_path(_getname(sh), path, X_OK, NULL);
@@ -959,6 +968,7 @@ scriptexec(struct op *tp, const char **ap)
 #endif
 		goto nomagic;
  noshebang:
+#ifndef MKSH_EBCDIC
 		m = buf[0] << 8 | buf[1];
 		if (m == 0x7F45 && buf[2] == 'L' && buf[3] == 'F')
 			errorf("%s: not executable: %d-bit ELF file", tp->str,
@@ -977,6 +987,7 @@ scriptexec(struct op *tp, const char **ap)
 		    buf[4] == 'Z') || (m == /* 7zip */ 0x377A) ||
 		    (m == /* gzip */ 0x1F8B) || (m == /* .Z */ 0x1F9D))
 			errorf("%s: not executable: magic %04X", tp->str, m);
+#endif
 #ifdef __OS2__
 		cp = _getext(tp->str);
 		if (cp && (!stricmp(cp, ".cmd") || !stricmp(cp, ".bat"))) {
@@ -1161,11 +1172,7 @@ findcom(const char *name, int flags)
 	char *fpath;
 	union mksh_cchack npath;
 
-	if (mksh_vdirsep(name)
-#ifdef MKSH_DOSPATH
-	    && (strcmp(name, T_builtin) != 0)
-#endif
-	    ) {
+	if (mksh_vdirsep(name)) {
 		insert = 0;
 		/* prevent FPATH search below */
 		flags &= ~FC_FUNC;
@@ -1337,7 +1344,7 @@ search_path(const char *name, const char *lpath,
 	while (sp != NULL) {
 		xp = Xstring(xs, xp);
 		if (!(p = cstrchr(sp, MKSH_PATHSEPC)))
-			p = sp + strlen(sp);
+			p = strnul(sp);
 		if (p != sp) {
 			XcheckN(xs, xp, p - sp);
 			memcpy(xp, sp, p - sp);

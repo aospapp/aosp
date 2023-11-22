@@ -16,12 +16,8 @@
 
 package com.android.tv.util;
 
-/**
- * Interface to decide whether an input is filtered out or not.
- */
+/** Interface to decide whether an input is filtered out or not. */
 public interface Filter<T> {
-    /**
-     * Returns true, if {@code input} is acceptable.
-     */
+    /** Returns true, if {@code input} is acceptable. */
     boolean filter(T input);
 }

@@ -16,9 +16,7 @@
 
 package com.android.tv.dvr.data;
 
-/**
- * Series information.
- */
+/** Series information. */
 public class SeriesInfo {
     private final String mId;
     private final String mTitle;
@@ -28,8 +26,14 @@ public class SeriesInfo {
     private final String mPosterUri;
     private final String mPhotoUri;
 
-    public SeriesInfo(String id, String title, String description, String longDescription,
-            int[] canonicalGenreIds, String posterUri, String photoUri) {
+    public SeriesInfo(
+            String id,
+            String title,
+            String description,
+            String longDescription,
+            int[] canonicalGenreIds,
+            String posterUri,
+            String photoUri) {
         this.mId = id;
         this.mTitle = title;
         this.mDescription = description;
@@ -39,37 +43,37 @@ public class SeriesInfo {
         this.mPhotoUri = photoUri;
     }
 
-    /** Returns the ID. **/
+    /** Returns the ID. * */
     public String getId() {
         return mId;
     }
 
-    /** Returns the title. **/
+    /** Returns the title. * */
     public String getTitle() {
         return mTitle;
     }
 
-    /** Returns the description. **/
+    /** Returns the description. * */
     public String getDescription() {
         return mDescription;
     }
 
-    /** Returns the description. **/
+    /** Returns the description. * */
     public String getLongDescription() {
         return mLongDescription;
     }
 
-    /** Returns the canonical genre IDs. **/
+    /** Returns the canonical genre IDs. * */
     public int[] getCanonicalGenreIds() {
         return mCanonicalGenreIds;
     }
 
-    /** Returns the poster URI. **/
+    /** Returns the poster URI. * */
     public String getPosterUri() {
         return mPosterUri;
     }
 
-    /** Returns the photo URI. **/
+    /** Returns the photo URI. * */
     public String getPhotoUri() {
         return mPhotoUri;
     }

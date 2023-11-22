@@ -19,156 +19,118 @@ package com.android.bips.discovery;
 
 import android.net.Uri;
 import android.text.TextUtils;
-import android.util.JsonReader;
-import android.util.JsonWriter;
 import android.util.Log;
 
 import com.android.bips.BuiltInPrintService;
 import com.android.bips.ipp.CapabilitiesCache;
 import com.android.bips.jni.LocalPrinterCapabilities;
+import com.android.bips.util.WifiMonitor;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Manage a list of printers manually added by the user.
  */
-public class ManualDiscovery extends Discovery implements AutoCloseable {
+public class ManualDiscovery extends SavedDiscovery {
     private static final String TAG = ManualDiscovery.class.getSimpleName();
     private static final boolean DEBUG = false;
 
-    private static final String CACHE_FILE = TAG + ".json";
-
     // Likely paths at which a print service may be found
-    private static final Uri[] IPP_URIS = { Uri.parse("ipp://path:631/ipp/print"),
-            Uri.parse("ipp://path:80/ipp/print"), Uri.parse("ipp://path:631/ipp/printer"),
-            Uri.parse("ipp://path:631/ipp"), Uri.parse("ipp://path:631/")};
+    private static final Uri[] IPP_URIS = {Uri.parse("ipp://host:631/ipp/print"),
+            Uri.parse("ipp://host:80/ipp/print"), Uri.parse("ipp://host:631/ipp/printer"),
+            Uri.parse("ipp://host:631/ipp"), Uri.parse("ipp://host:631/"),
+            Uri.parse("ipps://host:631/ipp/print"), Uri.parse("ipps://host:443/ipp/print"),
+            Uri.parse("ipps://host:10443/ipp/print")};
 
-    private final List<DiscoveredPrinter> mManualPrinters = new ArrayList<>();
+    private WifiMonitor mWifiMonitor;
+    private CapabilitiesCache mCapabilitiesCache;
+    private List<CapabilitiesFinder> mAddRequests = new ArrayList<>();
 
     public ManualDiscovery(BuiltInPrintService printService) {
         super(printService);
-        load();
+        mCapabilitiesCache = getPrintService().getCapabilitiesCache();
     }
 
     @Override
     void onStart() {
         if (DEBUG) Log.d(TAG, "onStart");
-        for (DiscoveredPrinter printer : mManualPrinters) {
-            if (DEBUG) Log.d(TAG, "reporting " + printer);
-            getPrintService().getCapabilitiesCache().evictOnNetworkChange(printer.getUri());
-            printerFound(printer);
-        }
+
+        // Upon any network change scan for all manually added printers
+        mWifiMonitor = new WifiMonitor(getPrintService(), isConnected -> {
+            if (isConnected) {
+                for (DiscoveredPrinter printer : getSavedPrinters()) {
+                    mCapabilitiesCache.request(printer, false, capabilities -> {
+                        if (capabilities != null) {
+                            printerFound(printer);
+                        }
+                    });
+                }
+            } else {
+                allPrintersLost();
+            }
+        });
     }
 
     @Override
     void onStop() {
         if (DEBUG) Log.d(TAG, "onStop");
-    }
-
-    @Override
-    public void close() {
-        if (DEBUG) Log.d(TAG, "close");
-        save();
+        mWifiMonitor.close();
+        allPrintersLost();
     }
 
     /**
-     * Asynchronously attempt to add a new manual printer, calling back with success
+     * Asynchronously attempt to add a new manual printer, calling back with success if
+     * printer capabilities were discovered.
+     *
+     * The supplied URI must include a hostname and may also include a scheme (either ipp:// or
+     * ipps://), a port (such as :443), and/or a path (like /ipp/print). If any parts are missing,
+     * typical known values are substituted and searched until success is found, or all are
+     * tried unsuccessfully.
+     *
+     * @param printerUri URI to search
      */
-    public void addManualPrinter(String hostname, PrinterAddCallback callback) {
-        if (DEBUG) Log.d(TAG, "addManualPrinter " + hostname);
-        new CapabilitiesFinder(hostname, callback);
-    }
+    public void addManualPrinter(Uri printerUri, PrinterAddCallback callback) {
+        if (DEBUG) Log.d(TAG, "addManualPrinter " + printerUri);
 
-    private void addManualPrinter(DiscoveredPrinter printer) {
-        // Remove any prior printer with the same uri or path
-        for (DiscoveredPrinter other : new ArrayList<>(mManualPrinters)) {
-            if (other.getUri().equals(printer.getUri())) {
-                printerLost(other.getUri());
-                mManualPrinters.remove(other);
+        int givenPort = printerUri.getPort();
+        String givenPath = printerUri.getPath();
+        String hostname = printerUri.getHost();
+        String givenScheme = printerUri.getScheme();
+
+        // Use LinkedHashSet to eliminate duplicates but maintain order
+        Set<Uri> uris = new LinkedHashSet<>();
+        for (Uri uri : IPP_URIS) {
+            String scheme = uri.getScheme();
+            if (!TextUtils.isEmpty(givenScheme) && !scheme.equals(givenScheme)) {
+                // If scheme was supplied and doesn't match this uri template, skip
+                continue;
             }
+            String authority = hostname + ":" + (givenPort == -1 ? uri.getPort() : givenPort);
+            String path = TextUtils.isEmpty(givenPath) ? uri.getPath() : givenPath;
+            Uri targetUri = uri.buildUpon().scheme(scheme).encodedAuthority(authority).path(path)
+                    .build();
+            uris.add(targetUri);
         }
 
-        // Add new printer at top
-        mManualPrinters.add(0, printer);
-
-        // Notify if necessary
-        if (isStarted()) printerFound(printer);
-    }
-
-    /**
-     * Remove an existing manual printer
-     */
-    public void removeManualPrinter(DiscoveredPrinter toRemove) {
-        for (DiscoveredPrinter printer : mManualPrinters) {
-            if (printer.path.equals(toRemove.path)) {
-                mManualPrinters.remove(printer);
-                if (isStarted()) {
-                    printerLost(printer.getUri());
-                }
-                break;
-            }
-        }
-    }
-
-    /**
-     * Persist the current set of manual printers to storage
-     */
-    private void save() {
-        File cachedPrintersFile = new File(getPrintService().getCacheDir(), CACHE_FILE);
-        if (cachedPrintersFile.exists()) {
-            cachedPrintersFile.delete();
-        }
-
-        try (JsonWriter writer = new JsonWriter(new BufferedWriter(
-                new FileWriter(cachedPrintersFile)))) {
-            writer.beginObject();
-            writer.name("manualPrinters");
-            writer.beginArray();
-            for (DiscoveredPrinter printer : mManualPrinters) {
-                if (DEBUG) Log.d(TAG, "Writing " + printer);
-                printer.write(writer);
-            }
-            writer.endArray();
-            writer.endObject();
-        } catch (NullPointerException | IOException e) {
-            Log.w(TAG, "Error while storing", e);
-        }
+        mAddRequests.add(new CapabilitiesFinder(uris, callback));
     }
 
     /**
-     * Load the current set of manual printers from storage
+     * Cancel a prior {@link #addManualPrinter(Uri, PrinterAddCallback)} attempt having the same
+     * callback
      */
-    private void load() {
-        File cachedPrintersFile = new File(getPrintService().getCacheDir(), CACHE_FILE);
-        if (!cachedPrintersFile.exists()) return;
-
-        try (JsonReader reader = new JsonReader(new BufferedReader(
-                new FileReader(cachedPrintersFile)))) {
-            reader.beginObject();
-            while (reader.hasNext()) {
-                String itemName = reader.nextName();
-                if (itemName.equals("manualPrinters")) {
-                    reader.beginArray();
-                    while (reader.hasNext()) {
-                        addManualPrinter(new DiscoveredPrinter(reader));
-                    }
-                    reader.endArray();
-                }
+    public void cancelAddManualPrinter(PrinterAddCallback callback) {
+        for (CapabilitiesFinder finder : mAddRequests) {
+            if (finder.mFinalCallback == callback) {
+                mAddRequests.remove(finder);
+                finder.cancel();
+                return;
             }
-            reader.endObject();
-        } catch (IllegalStateException | IOException ignored) {
-            Log.w(TAG, "Error while restoring", ignored);
         }
-        if (DEBUG) Log.d(TAG, "After load we have " + mManualPrinters.size() + " manual printers");
     }
 
     /** Used to convey response to {@link #addManualPrinter} */
@@ -192,57 +154,80 @@ public class ManualDiscovery extends Discovery implements AutoCloseable {
     /**
      * Search common printer paths for a successful response
      */
-    private class CapabilitiesFinder implements CapabilitiesCache.OnLocalPrinterCapabilities {
-        private final LinkedList<Uri> mUris = new LinkedList<>();
+    private class CapabilitiesFinder {
         private final PrinterAddCallback mFinalCallback;
-        private final String mHostname;
+        private final List<CapabilitiesCache.OnLocalPrinterCapabilities> mRequests =
+                new ArrayList<>();
 
         /**
          * Constructs a new finder
          *
-         * @param hostname Hostname to crawl for IPP endpoints
+         * @param uris     Locations to check for IPP endpoints
          * @param callback Callback to issue when the first successful response arrives, or
          *                 when all responses have failed.
          */
-        CapabilitiesFinder(String hostname, PrinterAddCallback callback) {
+        CapabilitiesFinder(Collection<Uri> uris, PrinterAddCallback callback) {
             mFinalCallback = callback;
-            mHostname = hostname;
+            for (Uri uri : uris) {
+                CapabilitiesCache.OnLocalPrinterCapabilities capabilitiesCallback =
+                        new CapabilitiesCache.OnLocalPrinterCapabilities() {
+                            @Override
+                            public void onCapabilities(LocalPrinterCapabilities capabilities) {
+                                mRequests.remove(this);
+                                handleCapabilities(uri, capabilities);
+                            }
+                        };
+                mRequests.add(capabilitiesCallback);
 
-            for (Uri uri : IPP_URIS) {
-                uri = uri.buildUpon().encodedAuthority(mHostname + ":" + uri.getPort()).build();
-                mUris.add(uri);
-                DiscoveredPrinter printer = new DiscoveredPrinter(null, "unknown", uri, null);
-                getPrintService().getCapabilitiesCache().request(printer, true, this);
+                // Force a clean attempt from scratch
+                mCapabilitiesCache.remove(uri);
+                mCapabilitiesCache.request(new DiscoveredPrinter(null, "", uri, null),
+                        true, capabilitiesCallback);
             }
         }
 
-        @Override
-        public void onCapabilities(DiscoveredPrinter printer, LocalPrinterCapabilities capabilities) {
-            if (DEBUG) Log.d(TAG, "onCapabilities: " + capabilities);
-            mUris.remove(printer.getUri());
+        /** Capabilities have arrived (or not) for the printer at a given path */
+        void handleCapabilities(Uri printerPath, LocalPrinterCapabilities capabilities) {
+            if (DEBUG) Log.d(TAG, "request " + printerPath + " cap=" + capabilities);
+
             if (capabilities == null) {
-                if (mUris.isEmpty()) {
+                if (mRequests.isEmpty()) {
+                    mAddRequests.remove(this);
                     mFinalCallback.onNotFound();
                 }
                 return;
             }
 
             // Success, so cancel all other requests
-            getPrintService().getCapabilitiesCache().cancel(this);
+            for (CapabilitiesCache.OnLocalPrinterCapabilities request : mRequests) {
+                mCapabilitiesCache.cancel(request);
+            }
+            mRequests.clear();
 
             // Deliver a successful response
             Uri uuid = TextUtils.isEmpty(capabilities.uuid) ? null : Uri.parse(capabilities.uuid);
-            String name = TextUtils.isEmpty(capabilities.name) ? printer.getUri().getHost() : capabilities.name;
+            String name = TextUtils.isEmpty(capabilities.name) ? printerPath.getHost()
+                    : capabilities.name;
 
-            DiscoveredPrinter resolvedPrinter = new DiscoveredPrinter(uuid, name, printer.getUri(),
+            DiscoveredPrinter resolvedPrinter = new DiscoveredPrinter(uuid, name, printerPath,
                     capabilities.location);
 
             // Only add supported printers
             if (capabilities.isSupported) {
-                addManualPrinter(resolvedPrinter);
+                if (addSavedPrinter(resolvedPrinter)) {
+                    printerFound(resolvedPrinter);
+                }
             }
-
+            mAddRequests.remove(this);
             mFinalCallback.onFound(resolvedPrinter, capabilities.isSupported);
+        }
+
+        /** Stop all in-progress capability requests that are in progress */
+        public void cancel() {
+            for (CapabilitiesCache.OnLocalPrinterCapabilities callback : mRequests) {
+                mCapabilitiesCache.cancel(callback);
+            }
+            mRequests.clear();
         }
     }
 }

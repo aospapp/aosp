@@ -2,10 +2,15 @@
 #
 # Define the server-side test class
 #
+# pylint: disable=missing-docstring
 
-import os, tempfile, logging
+import logging
+import os
+import tempfile
 
-from autotest_lib.client.common_lib import log, utils, test as common_test
+from autotest_lib.client.common_lib import log
+from autotest_lib.client.common_lib import test as common_test
+from autotest_lib.client.common_lib import utils
 
 
 class test(common_test.base_test):
@@ -175,12 +180,10 @@ class _sysinfo_logger(object):
     @install_autotest_and_run
     def before_hook(self, mytest, host, at, outputdir):
         # run the pre-test sysinfo script
-        logging.debug('before_hook starts running for test %r.', mytest)
         at.run(_sysinfo_before_test_script % outputdir,
                results_dir=self.job.resultdir)
 
         self._pull_pickle(host, outputdir)
-        logging.debug('before_hook ends running.')
 
 
     @log.log_and_ignore_errors("pre-test iteration server sysinfo error:")
@@ -188,8 +191,6 @@ class _sysinfo_logger(object):
     def before_iteration_hook(self, mytest, host, at, outputdir):
         # this function is called after before_hook() se we have sysinfo state
         # to push to the server
-        logging.debug('before_iteration_hook starts running for test %r.',
-                      mytest)
         self._push_pickle(host, outputdir);
         # run the pre-test iteration sysinfo script
         at.run(_sysinfo_iteration_script %
@@ -199,15 +200,12 @@ class _sysinfo_logger(object):
 
         # get the new sysinfo state from the client
         self._pull_pickle(host, outputdir)
-        logging.debug('before_iteration_hook ends running.')
 
 
     @log.log_and_ignore_errors("post-test iteration server sysinfo error:")
     @install_autotest_and_run
     def after_iteration_hook(self, mytest, host, at, outputdir):
         # push latest sysinfo state to the client
-        logging.debug('after_iteration_hook starts running for test %r.',
-                      mytest)
         self._push_pickle(host, outputdir);
         # run the post-test iteration sysinfo script
         at.run(_sysinfo_iteration_script %
@@ -217,20 +215,17 @@ class _sysinfo_logger(object):
 
         # get the new sysinfo state from the client
         self._pull_pickle(host, outputdir)
-        logging.debug('after_iteration_hook ends running.')
 
 
     @log.log_and_ignore_errors("post-test server sysinfo error:")
     @install_autotest_and_run
     def after_hook(self, mytest, host, at, outputdir):
-        logging.debug('after_hook starts running for test %r.', mytest)
         self._push_pickle(host, outputdir);
         # run the post-test sysinfo script
         at.run(_sysinfo_after_test_script % (outputdir, mytest.success),
                results_dir=self.job.resultdir)
 
         self._pull_sysinfo_keyval(host, outputdir, mytest)
-        logging.debug('after_hook ends running.')
 
 
     def cleanup(self, host_close=True):
@@ -269,7 +264,15 @@ def runtest(job, url, tag, args, dargs):
     disable_after_iteration_hook = dargs.pop(
             'disable_after_iteration_sysinfo', False)
 
-    if not dargs.pop('disable_sysinfo', False):
+    disable_sysinfo = dargs.pop('disable_sysinfo', False)
+    if job.fast and not disable_sysinfo:
+        # Server job will be executed in fast mode, which means
+        # 1) if job succeeds, no hook will be executed.
+        # 2) if job failed, after_hook will be executed.
+        logger = _sysinfo_logger(job)
+        logging_args = [None, logger.after_hook, None,
+                        logger.after_iteration_hook]
+    elif not disable_sysinfo:
         logger = _sysinfo_logger(job)
         logging_args = [
             logger.before_hook if not disable_before_test_hook else None,

@@ -52,18 +52,18 @@ def setup_gatt_connection(cen_ad,
         event = cen_ad.ed.pop_event(expected_event, default_timeout)
     except Empty:
         close_gatt_client(cen_ad, bluetooth_gatt)
-        raise GattTestUtilsError("Could not establish a connection to "
-                                 "peripheral. Expected event: {}".format(
-                                     expected_event))
+        raise GattTestUtilsError(
+            "Could not establish a connection to "
+            "peripheral. Expected event: {}".format(expected_event))
     if event['data']['State'] != gatt_connection_state['connected']:
         close_gatt_client(cen_ad, bluetooth_gatt)
         try:
             cen_ad.droid.gattClientClose(bluetooth_gatt)
         except Exception:
             self.log.debug("Failed to close gatt client.")
-        raise GattTestUtilsError(
-            "Could not establish a connection to "
-            "peripheral. Expected event: {}".format(expected_event))
+        raise GattTestUtilsError("Could not establish a connection to "
+                                 "peripheral. Event Details: {}".format(
+                                     pprint.pformat(event)))
     return bluetooth_gatt, gatt_callback
 
 
@@ -85,8 +85,8 @@ def wait_for_gatt_disconnect_event(cen_ad, gatt_callback):
     try:
         event = cen_ad.ed.pop_event(expected_event, default_timeout)
     except Empty:
-        raise GattTestUtilsError(gatt_cb_err['gatt_conn_change_err'].format(
-            expected_event))
+        raise GattTestUtilsError(
+            gatt_cb_err['gatt_conn_change_err'].format(expected_event))
     found_state = event['data']['State']
     expected_state = gatt_connection_state['disconnected']
     if found_state != expected_state:
@@ -106,7 +106,7 @@ def orchestrate_gatt_connection(cen_ad,
     if mac_address is None:
         if transport == gatt_transport['le']:
             try:
-                mac_address, adv_callback = (
+                mac_address, adv_callback, scan_callback = (
                     get_mac_address_of_generic_advertisement(cen_ad, per_ad))
             except BtTestUtilsError as err:
                 raise GattTestUtilsError(
@@ -119,17 +119,23 @@ def orchestrate_gatt_connection(cen_ad,
     return bluetooth_gatt, gatt_callback, adv_callback
 
 
-def run_continuous_write_descriptor(cen_droid, cen_ed, per_droid, per_ed,
-                                    gatt_server, gatt_server_callback,
-                                    bluetooth_gatt, services_count,
-                                    discovered_services_index):
+def run_continuous_write_descriptor(cen_droid,
+                                    cen_ed,
+                                    per_droid,
+                                    per_ed,
+                                    gatt_server,
+                                    gatt_server_callback,
+                                    bluetooth_gatt,
+                                    services_count,
+                                    discovered_services_index,
+                                    number_of_iterations=100000):
     log.info("Starting continuous write")
     bt_device_id = 0
     status = 1
     offset = 1
-    test_value = "1,2,3,4,5,6,7"
-    test_value_return = "1,2,3"
-    for x in range(100000):
+    test_value = [1, 2, 3, 4, 5, 6, 7]
+    test_value_return = [1, 2, 3]
+    for _ in range(number_of_iterations):
         try:
             for i in range(services_count):
                 characteristic_uuids = (
@@ -142,8 +148,6 @@ def run_continuous_write_descriptor(cen_droid, cen_ed, per_droid, per_ed,
                             discovered_services_index, i, characteristic))
                     log.info(descriptor_uuids)
                     for descriptor in descriptor_uuids:
-                        log.info("descriptor to be written {}".format(
-                            descriptor))
                         cen_droid.gattClientDescriptorSetValue(
                             bluetooth_gatt, discovered_services_index, i,
                             characteristic, descriptor, test_value)
@@ -175,7 +179,7 @@ def run_continuous_write_descriptor(cen_droid, cen_ed, per_droid, per_ed,
                         except Empty:
                             log.error(gatt_cb_strings['desc_write_err'].format(
                                 expected_event))
-                            return False
+                            raise Exception("Thread ended prematurely.")
         except Exception as err:
             log.error("Continuing but found exception: {}".format(err))
 
@@ -183,32 +187,45 @@ def run_continuous_write_descriptor(cen_droid, cen_ed, per_droid, per_ed,
 def setup_characteristics_and_descriptors(droid):
     characteristic_input = [
         {
-            'uuid': "aa7edd5a-4d1d-4f0e-883a-d145616a1630",
-            'property': gatt_characteristic['property_write'] |
-            gatt_characteristic['property_write_no_response'],
-            'permission': gatt_characteristic['permission_write']
+            'uuid':
+            "aa7edd5a-4d1d-4f0e-883a-d145616a1630",
+            'property':
+            gatt_characteristic['property_write']
+            | gatt_characteristic['property_write_no_response'],
+            'permission':
+            gatt_characteristic['permission_write']
         },
         {
-            'uuid': "21c0a0bf-ad51-4a2d-8124-b74003e4e8c8",
-            'property': gatt_characteristic['property_notify'] |
-            gatt_characteristic['property_read'],
-            'permission': gatt_characteristic['permission_read']
+            'uuid':
+            "21c0a0bf-ad51-4a2d-8124-b74003e4e8c8",
+            'property':
+            gatt_characteristic['property_notify']
+            | gatt_characteristic['property_read'],
+            'permission':
+            gatt_characteristic['permission_read']
         },
         {
-            'uuid': "6774191f-6ec3-4aa2-b8a8-cf830e41fda6",
-            'property': gatt_characteristic['property_notify'] |
-            gatt_characteristic['property_read'],
-            'permission': gatt_characteristic['permission_read']
+            'uuid':
+            "6774191f-6ec3-4aa2-b8a8-cf830e41fda6",
+            'property':
+            gatt_characteristic['property_notify']
+            | gatt_characteristic['property_read'],
+            'permission':
+            gatt_characteristic['permission_read']
         },
     ]
     descriptor_input = [{
-        'uuid': "aa7edd5a-4d1d-4f0e-883a-d145616a1630",
-        'property': gatt_descriptor['permission_read'] |
-        gatt_descriptor['permission_write'],
+        'uuid':
+        "aa7edd5a-4d1d-4f0e-883a-d145616a1630",
+        'property':
+        gatt_descriptor['permission_read']
+        | gatt_descriptor['permission_write'],
     }, {
-        'uuid': "76d5ed92-ca81-4edb-bb6b-9f019665fb32",
-        'property': gatt_descriptor['permission_read'] |
-        gatt_characteristic['permission_write'],
+        'uuid':
+        "76d5ed92-ca81-4edb-bb6b-9f019665fb32",
+        'property':
+        gatt_descriptor['permission_read']
+        | gatt_characteristic['permission_write'],
     }]
     characteristic_list = setup_gatt_characteristics(droid,
                                                      characteristic_input)
@@ -241,8 +258,8 @@ def setup_multiple_services(per_ad):
         per_ed.pop_event(expected_event, default_timeout)
     except Empty:
         per_ad.droid.gattServerClose(gatt_server)
-        raise GattTestUtilsError(gatt_cb_strings['serv_added_err'].format(
-            expected_event))
+        raise GattTestUtilsError(
+            gatt_cb_strings['serv_added_err'].format(expected_event))
     for characteristic in characteristic_list:
         per_droid.gattServerAddCharacteristicToService(gattService2,
                                                        characteristic)
@@ -251,8 +268,8 @@ def setup_multiple_services(per_ad):
         per_ed.pop_event(expected_event, default_timeout)
     except Empty:
         per_ad.droid.gattServerClose(gatt_server)
-        raise GattTestUtilsError(gatt_cb_strings['serv_added_err'].format(
-            expected_event))
+        raise GattTestUtilsError(
+            gatt_cb_strings['serv_added_err'].format(expected_event))
     for characteristic in characteristic_list:
         per_droid.gattServerAddCharacteristicToService(gattService3,
                                                        characteristic)
@@ -261,40 +278,53 @@ def setup_multiple_services(per_ad):
         per_ed.pop_event(expected_event, default_timeout)
     except Empty:
         per_ad.droid.gattServerClose(gatt_server)
-        raise GattTestUtilsError(gatt_cb_strings['serv_added_err'].format(
-            expected_event))
+        raise GattTestUtilsError(
+            gatt_cb_strings['serv_added_err'].format(expected_event))
     return gatt_server_callback, gatt_server
 
 
 def setup_characteristics_and_descriptors(droid):
     characteristic_input = [
         {
-            'uuid': "aa7edd5a-4d1d-4f0e-883a-d145616a1630",
-            'property': gatt_characteristic['property_write'] |
-            gatt_characteristic['property_write_no_response'],
-            'permission': gatt_characteristic['property_write']
+            'uuid':
+            "aa7edd5a-4d1d-4f0e-883a-d145616a1630",
+            'property':
+            gatt_characteristic['property_write']
+            | gatt_characteristic['property_write_no_response'],
+            'permission':
+            gatt_characteristic['property_write']
         },
         {
-            'uuid': "21c0a0bf-ad51-4a2d-8124-b74003e4e8c8",
-            'property': gatt_characteristic['property_notify'] |
-            gatt_characteristic['property_read'],
-            'permission': gatt_characteristic['permission_read']
+            'uuid':
+            "21c0a0bf-ad51-4a2d-8124-b74003e4e8c8",
+            'property':
+            gatt_characteristic['property_notify']
+            | gatt_characteristic['property_read'],
+            'permission':
+            gatt_characteristic['permission_read']
         },
         {
-            'uuid': "6774191f-6ec3-4aa2-b8a8-cf830e41fda6",
-            'property': gatt_characteristic['property_notify'] |
-            gatt_characteristic['property_read'],
-            'permission': gatt_characteristic['permission_read']
+            'uuid':
+            "6774191f-6ec3-4aa2-b8a8-cf830e41fda6",
+            'property':
+            gatt_characteristic['property_notify']
+            | gatt_characteristic['property_read'],
+            'permission':
+            gatt_characteristic['permission_read']
         },
     ]
     descriptor_input = [{
-        'uuid': "aa7edd5a-4d1d-4f0e-883a-d145616a1630",
-        'property': gatt_descriptor['permission_read'] |
-        gatt_descriptor['permission_write'],
+        'uuid':
+        "aa7edd5a-4d1d-4f0e-883a-d145616a1630",
+        'property':
+        gatt_descriptor['permission_read']
+        | gatt_descriptor['permission_write'],
     }, {
-        'uuid': "76d5ed92-ca81-4edb-bb6b-9f019665fb32",
-        'property': gatt_descriptor['permission_read'] |
-        gatt_characteristic['permission_write'],
+        'uuid':
+        "76d5ed92-ca81-4edb-bb6b-9f019665fb32",
+        'property':
+        gatt_descriptor['permission_read']
+        | gatt_characteristic['permission_write'],
     }]
     characteristic_list = setup_gatt_characteristics(droid,
                                                      characteristic_input)
@@ -316,7 +346,8 @@ def setup_gatt_descriptors(droid, input):
     for item in input:
         index = droid.gattServerCreateBluetoothGattDescriptor(
             item['uuid'],
-            item['property'], )
+            item['property'],
+        )
         descriptor_list.append(index)
     log.info("setup descriptor list: {}".format(descriptor_list))
     return descriptor_list
@@ -344,8 +375,8 @@ def setup_gatt_mtu(cen_ad, bluetooth_gatt, gatt_callback, mtu):
         mtu_event = cen_ad.ed.pop_event(expected_event, default_timeout)
         mtu_size_found = mtu_event['data']['MTU']
         if mtu_size_found != mtu:
-            log.error("MTU size found: {}, expected: {}".format(mtu_size_found,
-                                                                mtu))
+            log.error("MTU size found: {}, expected: {}".format(
+                mtu_size_found, mtu))
             return False
     except Empty:
         log.error(gatt_cb_err['mtu_changed_err'].format(expected_event))

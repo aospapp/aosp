@@ -16,7 +16,6 @@ import fcntl
 import getpass
 import itertools
 import logging
-import multiprocessing
 import os
 import pickle
 import platform
@@ -27,6 +26,7 @@ import sys
 import tempfile
 import time
 import traceback
+import uuid
 import warnings
 
 from autotest_lib.client.bin import sysinfo
@@ -39,13 +39,14 @@ from autotest_lib.client.common_lib import packages
 from autotest_lib.client.common_lib import utils
 from autotest_lib.server import profilers
 from autotest_lib.server import site_gtest_runner
-from autotest_lib.server import site_server_job_utils
 from autotest_lib.server import subcommand
 from autotest_lib.server import test
 from autotest_lib.server import utils as server_utils
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.server.hosts import abstract_ssh
 from autotest_lib.server.hosts import afe_store
+from autotest_lib.server.hosts import file_store
+from autotest_lib.server.hosts import shadowing_store
 from autotest_lib.server.hosts import factory as host_factory
 from autotest_lib.server.hosts import host_info
 from autotest_lib.server.hosts import ssh_multiplex
@@ -54,6 +55,11 @@ from autotest_lib.tko import models as tko_models
 from autotest_lib.tko import status_lib
 from autotest_lib.tko import parser_lib
 from autotest_lib.tko import utils as tko_utils
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
 
 
 INCREMENTAL_TKO_PARSING = global_config.global_config.get_config_value(
@@ -82,11 +88,17 @@ RESET_CONTROL_FILE = _control_segment_path('reset')
 GET_NETWORK_STATS_CONTROL_FILE = _control_segment_path('get_network_stats')
 
 
-def get_machine_dicts(machine_names, in_lab, host_attributes=None,
+def get_machine_dicts(machine_names, workdir, in_lab, host_attributes=None,
                       connection_pool=None):
     """Converts a list of machine names to list of dicts.
 
+    TODO(crbug.com/678430): This function temporarily has a side effect of
+    creating files under workdir for backing a FileStore. This side-effect will
+    go away once callers of autoserv start passing in the FileStore.
+
     @param machine_names: A list of machine names.
+    @param workdir: A directory where any on-disk files related to the machines
+            may be created.
     @param in_lab: A boolean indicating whether we're running in lab.
     @param host_attributes: Optional list of host attributes to add for each
             host.
@@ -119,7 +131,7 @@ def get_machine_dicts(machine_names, in_lab, host_attributes=None,
                     % (in_lab, host_attributes))
         else:
             afe_host = _create_afe_host(machine)
-            host_info_store = _create_host_info_store(machine)
+            host_info_store = _create_host_info_store(machine, workdir)
 
         machine_dict_list.append({
                 'hostname' : machine,
@@ -351,7 +363,7 @@ class server_job(base_job.base_job):
         self.parent_job_id = parent_job_id
         self.in_lab = in_lab
         self.machine_dict_list = get_machine_dicts(
-                self.machines, self.in_lab, host_attributes,
+                self.machines, self.resultdir, self.in_lab, host_attributes,
                 self._connection_pool)
 
         # TODO(jrbarnette) The harness attribute is only relevant to
@@ -363,9 +375,12 @@ class server_job(base_job.base_job):
         self.harness = None
 
         if control:
-            self.max_result_size_KB = control_data.parse_control(
-                    control, raise_warnings=False).max_result_size_KB
+            parsed_control = control_data.parse_control(
+                    control, raise_warnings=False)
+            self.fast = parsed_control.fast
+            self.max_result_size_KB = parsed_control.max_result_size_KB
         else:
+            self.fast = False
             # Set the maximum result size to be the default specified in
             # global config, if the job has no control file associated.
             self.max_result_size_KB = control_data.DEFAULT_MAX_RESULT_SIZE_KB
@@ -431,8 +446,15 @@ class server_job(base_job.base_job):
         the database connection and inserts the basic job object into
         the database if necessary.
         """
+        if self.fast and not self._using_parser:
+            self.parser = parser_lib.parser(self._STATUS_VERSION)
+            self.job_model = self.parser.make_job(self.resultdir)
+            self.parser.start(self.job_model)
+            return
+
         if not self._using_parser:
             return
+
         # redirect parser debugging to .parse.log
         parse_log = os.path.join(self.resultdir, '.parse.log')
         parse_log = open(parse_log, 'w', 0)
@@ -460,8 +482,16 @@ class server_job(base_job.base_job):
         to carry out any remaining cleanup (e.g. flushing any
         remaining test results to the results db)
         """
+        if self.fast and not self._using_parser:
+            final_tests = self.parser.end()
+            for test in final_tests:
+                if status_lib.is_worse_than_or_equal_to(test.status, 'FAIL'):
+                    self.num_tests_failed += 1
+            return
+
         if not self._using_parser:
             return
+
         final_tests = self.parser.end()
         for test in final_tests:
             self.__insert_test(test)
@@ -652,9 +682,10 @@ class server_job(base_job.base_job):
         @raises error.AutotestError: If any of the functions failed.
         """
         wrapper = self._make_parallel_wrapper(function, machines, log)
-        return subcommand.parallel_simple(wrapper, machines,
-                                          log=log, timeout=timeout,
-                                          return_results=return_results)
+        return subcommand.parallel_simple(
+                wrapper, machines,
+                subdir_name_constructor=server_utils.get_hostname_from_machine,
+                log=log, timeout=timeout, return_results=return_results)
 
 
     def parallel_on_machines(self, function, machines, timeout=None):
@@ -673,83 +704,6 @@ class server_job(base_job.base_job):
             if not isinstance(result, Exception):
                 success_machines.append(machine)
         return success_machines
-
-
-    def distribute_across_machines(self, tests, machines,
-                                   continuous_parsing=False):
-        """Run each test in tests once using machines.
-
-        Instead of running each test on each machine like parallel_on_machines,
-        run each test once across all machines. Put another way, the total
-        number of tests run by parallel_on_machines is len(tests) *
-        len(machines). The number of tests run by distribute_across_machines is
-        len(tests).
-
-        Args:
-            tests: List of tests to run.
-            machines: List of machines to use.
-            continuous_parsing: Bool, if true parse job while running.
-        """
-        # The Queue is thread safe, but since a machine may have to search
-        # through the queue to find a valid test the lock provides exclusive
-        # queue access for more than just the get call.
-        test_queue = multiprocessing.JoinableQueue()
-        test_queue_lock = multiprocessing.Lock()
-
-        unique_machine_attributes = []
-        sub_commands = []
-        work_dir = self.resultdir
-
-        for machine in machines:
-            if 'group' in self.resultdir:
-                work_dir = os.path.join(self.resultdir, machine)
-
-            mw = site_server_job_utils.machine_worker(self,
-                                                      machine,
-                                                      work_dir,
-                                                      test_queue,
-                                                      test_queue_lock,
-                                                      continuous_parsing)
-
-            # Create the subcommand instance to run this machine worker.
-            sub_commands.append(subcommand.subcommand(mw.run,
-                                                      [],
-                                                      work_dir))
-
-            # To (potentially) speed up searching for valid tests create a list
-            # of unique attribute sets present in the machines for this job. If
-            # sets were hashable we could just use a dictionary for fast
-            # verification. This at least reduces the search space from the
-            # number of machines to the number of unique machines.
-            if not mw.attribute_set in unique_machine_attributes:
-                unique_machine_attributes.append(mw.attribute_set)
-
-        # Only queue tests which are valid on at least one machine.  Record
-        # skipped tests in the status.log file using record_skipped_test().
-        for test_entry in tests:
-            # Check if it's an old style test entry.
-            if len(test_entry) > 2 and not isinstance(test_entry[2], dict):
-                test_attribs = {'include': test_entry[2]}
-                if len(test_entry) > 3:
-                    test_attribs['exclude'] = test_entry[3]
-                if len(test_entry) > 4:
-                    test_attribs['attributes'] = test_entry[4]
-
-                test_entry = list(test_entry[:2])
-                test_entry.append(test_attribs)
-
-            ti = site_server_job_utils.test_item(*test_entry)
-            machine_found = False
-            for ma in unique_machine_attributes:
-                if ti.validate(ma):
-                    test_queue.put(ti)
-                    machine_found = True
-                    break
-            if not machine_found:
-                self.record_skipped_test(ti)
-
-        # Run valid tests and wait for completion.
-        subcommand.parallel(sub_commands)
 
 
     def record_skipped_test(self, skipped_test, message=None):
@@ -880,8 +834,14 @@ class server_job(base_job.base_job):
         temp_control_file_dir = None
         try:
             try:
-                namespace['network_stats_label'] = 'at-start'
-                self._execute_code(GET_NETWORK_STATS_CONTROL_FILE, namespace)
+                if not self.fast:
+                    with metrics.SecondsTimer(
+                            'chromeos/autotest/job/get_network_stats',
+                            fields = {'stage': 'start'}):
+                        namespace['network_stats_label'] = 'at-start'
+                        self._execute_code(GET_NETWORK_STATS_CONTROL_FILE,
+                                           namespace)
+
                 if install_before and machines:
                     self._execute_code(INSTALL_CONTROL_FILE, namespace)
 
@@ -928,6 +888,9 @@ class server_job(base_job.base_job):
                 collect_crashinfo = self.failed_with_device_error
             except Exception as e:
                 try:
+                    # Add num_tests_failed if any extra exceptions are raised
+                    # outside _execute_code().
+                    self.num_tests_failed += 1
                     logging.exception(
                             'Exception escaped control file, job aborting:')
                     reason = re.sub(base_job.status_log_entry.BAD_CHAR_REGEX,
@@ -947,23 +910,31 @@ class server_job(base_job.base_job):
                                  temp_control_file_dir, e)
 
             if machines and (collect_crashdumps or collect_crashinfo):
-                if skip_crash_collection:
+                if skip_crash_collection or self.fast:
                     logging.info('Skipping crash dump/info collection '
                                  'as requested.')
                 else:
-                    namespace['test_start_time'] = test_start_time
-                    # Remove crash files for passing tests.
-                    # TODO(ayatane): Tests that create crash files should be
-                    # reported.
-                    namespace['has_failed_tests'] = self._has_failed_tests()
-                    self._collect_crashes(namespace, collect_crashinfo)
+                    with metrics.SecondsTimer(
+                            'chromeos/autotest/job/collect_crashinfo'):
+                        namespace['test_start_time'] = test_start_time
+                        # Remove crash files for passing tests.
+                        # TODO(ayatane): Tests that create crash files should be
+                        # reported.
+                        namespace['has_failed_tests'] = self._has_failed_tests()
+                        self._collect_crashes(namespace, collect_crashinfo)
             self.disable_external_logging()
             if self._uncollected_log_file and created_uncollected_logs:
                 os.remove(self._uncollected_log_file)
             if install_after and machines:
                 self._execute_code(INSTALL_CONTROL_FILE, namespace)
-            namespace['network_stats_label'] = 'at-end'
-            self._execute_code(GET_NETWORK_STATS_CONTROL_FILE, namespace)
+
+            if not self.fast:
+                with metrics.SecondsTimer(
+                        'chromeos/autotest/job/get_network_stats',
+                        fields = {'stage': 'end'}):
+                    namespace['network_stats_label'] = 'at-end'
+                    self._execute_code(GET_NETWORK_STATS_CONTROL_FILE,
+                                       namespace)
 
 
     def run_test(self, url, *args, **dargs):
@@ -1379,7 +1350,7 @@ class server_job(base_job.base_job):
         # Inject ourself as the job object into other classes within the API.
         # (Yuck, this injection is a gross thing be part of a public API. -gps)
         #
-        # XXX Base & SiteAutotest do not appear to use .job.  Who does?
+        # XXX Autotest does not appear to use .job.  Who does?
         namespace['autotest'].Autotest.job = self
         # server.hosts.base_classes.Host uses .job.
         namespace['hosts'].Host.job = self
@@ -1426,8 +1397,16 @@ class server_job(base_job.base_job):
 
 
     def _parse_status(self, new_line):
+        if self.fast and not self._using_parser:
+            logging.info('Parsing lines in fast mode')
+            new_tests = self.parser.process_lines([new_line])
+            for test in new_tests:
+                if status_lib.is_worse_than_or_equal_to(test.status, 'FAIL'):
+                    self.num_tests_failed += 1
+
         if not self._using_parser:
             return
+
         new_tests = self.parser.process_lines([new_line])
         for test in new_tests:
             self.__insert_test(test)
@@ -1601,16 +1580,44 @@ def _create_afe_host(hostname):
     return hosts[0]
 
 
-def _create_host_info_store(hostname):
-    """Create a real or stub afe_store.AfeStore object.
+def _create_host_info_store(hostname, workdir):
+    """Create a CachingHostInfo store backed by the AFE.
 
     @param hostname: Name of the host for which we want the store.
-    @returns: An object of type afe_store.AfeStore
+    @param workdir: A directory where any on-disk files related to the machines
+            may be created.
+    @returns: An object of type shadowing_store.ShadowingStore
     """
-    host_info_store = afe_store.AfeStore(hostname)
+    primary_store = afe_store.AfeStore(hostname)
     try:
-        host_info_store.get(force_refresh=True)
+        primary_store.get(force_refresh=True)
     except host_info.StoreError:
         raise error.AutoservError('Could not obtain HostInfo for hostname %s' %
                                   hostname)
-    return host_info_store
+    backing_file_path = _file_store_unique_file_path(workdir)
+    logging.info('Shadowing AFE store with a FileStore at %s',
+                 backing_file_path)
+    shadow_store = file_store.FileStore(backing_file_path)
+    return shadowing_store.ShadowingStore(primary_store, shadow_store)
+
+
+def _file_store_unique_file_path(workdir):
+    """Returns a unique filepath for the on-disk FileStore.
+
+    Also makes sure that the workdir exists.
+
+    @param: Top level working directory.
+    """
+    store_dir = os.path.join(workdir, 'host_info_store')
+    _make_dirs_if_needed(store_dir)
+    file_path = os.path.join(store_dir, 'store_%s' % uuid.uuid4())
+    return file_path
+
+
+def _make_dirs_if_needed(path):
+    """os.makedirs, but ignores failure because the leaf directory exists"""
+    try:
+        os.makedirs(path)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise

@@ -24,6 +24,8 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_CFLAGS += \
 	-Wall \
+	-Werror \
+	-Wno-unused-parameter \
 	-DENABLE_AKMDEBUG=1 \
 	-DOUTPUT_STDOUT=1 \
 	-DDBG_LEVEL=2 \

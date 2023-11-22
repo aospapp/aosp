@@ -26,6 +26,10 @@ public abstract class SimulatorComponent {
 
   public abstract Simulator getSimulator();
 
+  public abstract SimulatorEnrichedCall getSimulatorEnrichedCall();
+
+  public abstract SimulatorConnectionsBank getSimulatorConnectionsBank();
+
   public static SimulatorComponent get(Context context) {
     return ((HasComponent) ((HasRootComponent) context.getApplicationContext()).component())
         .simulatorComponent();

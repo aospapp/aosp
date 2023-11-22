@@ -15,7 +15,6 @@
 LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
-#LOCAL_32_BIT_ONLY = true
 LOCAL_MODULE_HOST_OS := linux
 LOCAL_SRC_FILES := ioshark_bench.c ioshark_bench_subr.c ioshark_bench_mmap.c
 LOCAL_CFLAGS := -g -O2 -Wall  -Werror
@@ -25,7 +24,6 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
-#LOCAL_32_BIT_ONLY = true
 LOCAL_MODULE_HOST_OS := linux
 LOCAL_SRC_FILES := compile_ioshark.c compile_ioshark_subr.c
 LOCAL_CFLAGS := -g -O2 -Wall -Werror -D_GNU_SOURCE
@@ -34,7 +32,6 @@ LOCAL_MODULE_TAGS := debug
 include $(BUILD_HOST_EXECUTABLE)
 
 include $(CLEAR_VARS)
-#LOCAL_32_BIT_ONLY = true
 LOCAL_MODULE_HOST_OS := linux
 LOCAL_SRC_FILES := dump_ioshark_filenames.c
 LOCAL_CFLAGS := -g -O2 -Wall -Werror -D_GNU_SOURCE
@@ -42,3 +39,10 @@ LOCAL_MODULE := dump_ioshark_filenames
 LOCAL_MODULE_TAGS := debug
 include $(BUILD_HOST_EXECUTABLE)
 
+include $(CLEAR_VARS)
+LOCAL_MODULE_HOST_OS := linux
+LOCAL_SRC_FILES := convert_format.c
+LOCAL_CFLAGS := -g -O2 -Wall -Werror -D_GNU_SOURCE
+LOCAL_MODULE := convert_format
+LOCAL_MODULE_TAGS := debug
+include $(BUILD_HOST_EXECUTABLE)

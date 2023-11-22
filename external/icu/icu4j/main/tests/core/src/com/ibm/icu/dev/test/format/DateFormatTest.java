@@ -37,7 +37,10 @@ import java.util.ResourceBundle;
 import java.util.Set;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
+import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.impl.ICUData;
 import com.ibm.icu.impl.ICUResourceBundle;
 import com.ibm.icu.text.ChineseDateFormat;
@@ -63,7 +66,8 @@ import com.ibm.icu.util.ULocale;
 import com.ibm.icu.util.UResourceBundle;
 import com.ibm.icu.util.VersionInfo;
 
-public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
+@RunWith(JUnit4.class)
+public class DateFormatTest extends TestFmwk {
     /**
      * Verify that patterns have the correct values and could produce the
      * the DateFormat instances that contain the correct localized patterns.
@@ -1268,24 +1272,24 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         { "bg", "Australia/ACT", "2004-01-15T00:00:00Z", "Z", "+1100", "+11:00" },
         { "bg", "Australia/ACT", "2004-01-15T00:00:00Z", "ZZZZ", GMT_BG+"+11:00", "+11:00" },
         { "bg", "Australia/ACT", "2004-01-15T00:00:00Z", "z", GMT_BG+"+11", "+11:00" },
-        { "bg", "Australia/ACT", "2004-01-15T00:00:00Z", "zzzz", "\u0410\u0432\u0441\u0442\u0440\u0430\u043B\u0438\u044F \u2013 \u0438\u0437\u0442\u043E\u0447\u043D\u043E \u043B\u044F\u0442\u043D\u043E \u0447\u0430\u0441\u043E\u0432\u043E \u0432\u0440\u0435\u043C\u0435", "+11:00" },
+        { "bg", "Australia/ACT", "2004-01-15T00:00:00Z", "zzzz", "\u0418\u0437\u0442\u043E\u0447\u043D\u043E\u0430\u0432\u0441\u0442\u0440\u0430\u043B\u0438\u0439\u0441\u043A\u043E \u043B\u044F\u0442\u043D\u043E \u0447\u0430\u0441\u043E\u0432\u043E \u0432\u0440\u0435\u043C\u0435", "+11:00" },
         { "bg", "Australia/ACT", "2004-07-15T00:00:00Z", "Z", "+1000", "+10:00" },
         { "bg", "Australia/ACT", "2004-07-15T00:00:00Z", "ZZZZ", GMT_BG+"+10:00", "+10:00" },
         { "bg", "Australia/ACT", "2004-07-15T00:00:00Z", "z", GMT_BG+"+10", "+10:00" },
-        { "bg", "Australia/ACT", "2004-07-15T00:00:00Z", "zzzz", "\u0410\u0432\u0441\u0442\u0440\u0430\u043B\u0438\u044F \u2013 \u0438\u0437\u0442\u043E\u0447\u043D\u043E \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u043E \u0432\u0440\u0435\u043C\u0435", "+10:00" },
+        { "bg", "Australia/ACT", "2004-07-15T00:00:00Z", "zzzz", "\u0418\u0437\u0442\u043E\u0447\u043D\u043E\u0430\u0432\u0441\u0442\u0440\u0430\u043B\u0438\u0439\u0441\u043A\u043E \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u043E \u0432\u0440\u0435\u043C\u0435", "+10:00" },
         { "bg", "Australia/ACT", "2004-07-15T00:00:00Z", "v", "\u0421\u0438\u0434\u043D\u0438", "Australia/Sydney" },
-        { "bg", "Australia/ACT", "2004-07-15T00:00:00Z", "vvvv", "\u0410\u0432\u0441\u0442\u0440\u0430\u043B\u0438\u044F \u2013 \u0438\u0437\u0442\u043E\u0447\u043D\u043E \u0432\u0440\u0435\u043C\u0435", "Australia/Sydney" },
+        { "bg", "Australia/ACT", "2004-07-15T00:00:00Z", "vvvv", "\u0418\u0437\u0442\u043E\u0447\u043D\u043E\u0430\u0432\u0441\u0442\u0440\u0430\u043B\u0438\u0439\u0441\u043A\u043E \u0432\u0440\u0435\u043C\u0435", "Australia/Sydney" },
 
         { "bg", "Australia/Sydney", "2004-01-15T00:00:00Z", "Z", "+1100", "+11:00" },
         { "bg", "Australia/Sydney", "2004-01-15T00:00:00Z", "ZZZZ", GMT_BG+"+11:00", "+11:00" },
         { "bg", "Australia/Sydney", "2004-01-15T00:00:00Z", "z", GMT_BG+"+11", "+11:00" },
-        { "bg", "Australia/Sydney", "2004-01-15T00:00:00Z", "zzzz", "\u0410\u0432\u0441\u0442\u0440\u0430\u043B\u0438\u044F \u2013 \u0438\u0437\u0442\u043E\u0447\u043D\u043E \u043B\u044F\u0442\u043D\u043E \u0447\u0430\u0441\u043E\u0432\u043E \u0432\u0440\u0435\u043C\u0435", "+11:00" },
+        { "bg", "Australia/Sydney", "2004-01-15T00:00:00Z", "zzzz", "\u0418\u0437\u0442\u043E\u0447\u043D\u043E\u0430\u0432\u0441\u0442\u0440\u0430\u043B\u0438\u0439\u0441\u043A\u043E \u043B\u044F\u0442\u043D\u043E \u0447\u0430\u0441\u043E\u0432\u043E \u0432\u0440\u0435\u043C\u0435", "+11:00" },
         { "bg", "Australia/Sydney", "2004-07-15T00:00:00Z", "Z", "+1000", "+10:00" },
         { "bg", "Australia/Sydney", "2004-07-15T00:00:00Z", "ZZZZ", GMT_BG+"+10:00", "+10:00" },
         { "bg", "Australia/Sydney", "2004-07-15T00:00:00Z", "z", GMT_BG+"+10", "+10:00" },
-        { "bg", "Australia/Sydney", "2004-07-15T00:00:00Z", "zzzz", "\u0410\u0432\u0441\u0442\u0440\u0430\u043B\u0438\u044F \u2013 \u0438\u0437\u0442\u043E\u0447\u043D\u043E \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u043E \u0432\u0440\u0435\u043C\u0435", "+10:00" },
+        { "bg", "Australia/Sydney", "2004-07-15T00:00:00Z", "zzzz", "\u0418\u0437\u0442\u043E\u0447\u043D\u043E\u0430\u0432\u0441\u0442\u0440\u0430\u043B\u0438\u0439\u0441\u043A\u043E \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u043E \u0432\u0440\u0435\u043C\u0435", "+10:00" },
         { "bg", "Australia/Sydney", "2004-07-15T00:00:00Z", "v", "\u0421\u0438\u0434\u043D\u0438", "Australia/Sydney" },
-        { "bg", "Australia/Sydney", "2004-07-15T00:00:00Z", "vvvv", "\u0410\u0432\u0441\u0442\u0440\u0430\u043B\u0438\u044F \u2013 \u0438\u0437\u0442\u043E\u0447\u043D\u043E \u0432\u0440\u0435\u043C\u0435", "Australia/Sydney" },
+        { "bg", "Australia/Sydney", "2004-07-15T00:00:00Z", "vvvv", "\u0418\u0437\u0442\u043E\u0447\u043D\u043E\u0430\u0432\u0441\u0442\u0440\u0430\u043B\u0438\u0439\u0441\u043A\u043E \u0432\u0440\u0435\u043C\u0435", "Australia/Sydney" },
 
         { "bg", "Europe/London", "2004-01-15T00:00:00Z", "Z", "+0000", "+0:00" },
         { "bg", "Europe/London", "2004-01-15T00:00:00Z", "ZZZZ", GMT_BG, "+0:00" },
@@ -1313,13 +1317,13 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         { "bg", "Asia/Calcutta", "2004-01-15T00:00:00Z", "Z", "+0530", "+5:30" },
         { "bg", "Asia/Calcutta", "2004-01-15T00:00:00Z", "ZZZZ", GMT_BG+"+05:30", "+5:30" },
         { "bg", "Asia/Calcutta", "2004-01-15T00:00:00Z", "z", GMT_BG+"+5:30", "+5:30" },
-        { "bg", "Asia/Calcutta", "2004-01-15T00:00:00Z", "zzzz", "\u0418\u043D\u0434\u0438\u0439\u0441\u043A\u043E \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u043E \u0432\u0440\u0435\u043C\u0435", "+5:30" },
+        { "bg", "Asia/Calcutta", "2004-01-15T00:00:00Z", "zzzz", "\u0418\u043D\u0434\u0438\u0439\u0441\u043A\u043E \u0432\u0440\u0435\u043c\u0435", "+5:30" },
         { "bg", "Asia/Calcutta", "2004-07-15T00:00:00Z", "Z", "+0530", "+5:30" },
         { "bg", "Asia/Calcutta", "2004-07-15T00:00:00Z", "ZZZZ", GMT_BG+"+05:30", "+5:30" },
         { "bg", "Asia/Calcutta", "2004-07-15T00:00:00Z", "z", GMT_BG+"+5:30", "+05:30" },
-        { "bg", "Asia/Calcutta", "2004-07-15T00:00:00Z", "zzzz", "\u0418\u043D\u0434\u0438\u0439\u0441\u043A\u043E \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u043E \u0432\u0440\u0435\u043C\u0435", "+5:30" },
+        { "bg", "Asia/Calcutta", "2004-07-15T00:00:00Z", "zzzz", "\u0418\u043D\u0434\u0438\u0439\u0441\u043A\u043E \u0432\u0440\u0435\u043c\u0435", "+5:30" },
         { "bg", "Asia/Calcutta", "2004-07-15T00:00:00Z", "v", "\u0418\u043D\u0434\u0438\u044F", "Asia/Calcutta" },
-        { "bg", "Asia/Calcutta", "2004-07-15T00:00:00Z", "vvvv", "\u0418\u043D\u0434\u0438\u0439\u0441\u043A\u043E \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u043E \u0432\u0440\u0435\u043C\u0435", "Asia/Calcutta" },
+        { "bg", "Asia/Calcutta", "2004-07-15T00:00:00Z", "vvvv", "\u0418\u043D\u0434\u0438\u0439\u0441\u043A\u043E \u0432\u0440\u0435\u043c\u0435", "Asia/Calcutta" },
 
     // ==========
 
@@ -1475,8 +1479,8 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         { "ti", "America/Havana", "2004-07-15T00:00:00Z", "ZZZZ", "GMT-04:00", "-4:00" },
         { "ti", "America/Havana", "2004-07-15T00:00:00Z", "z", "GMT-4", "-4:00" },
         { "ti", "America/Havana", "2004-07-15T00:00:00Z", "zzzz", "GMT-04:00", "-4:00" },
-        { "ti", "America/Havana", "2004-07-15T00:00:00Z", "v", "CU", "America/Havana" },
-        { "ti", "America/Havana", "2004-07-15T00:00:00Z", "vvvv", "CU", "America/Havana" },
+        { "ti", "America/Havana", "2004-07-15T00:00:00Z", "v", "\u12A9\u1263", "America/Havana" },
+        { "ti", "America/Havana", "2004-07-15T00:00:00Z", "vvvv", "\u12A9\u1263", "America/Havana" },
 
         { "ti", "Australia/ACT", "2004-01-15T00:00:00Z", "Z", "+1100", "+11:00" },
         { "ti", "Australia/ACT", "2004-01-15T00:00:00Z", "ZZZZ", "GMT+11:00", "+11:00" },
@@ -1508,8 +1512,8 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         { "ti", "Europe/London", "2004-07-15T00:00:00Z", "ZZZZ", "GMT+01:00", "+1:00" },
         { "ti", "Europe/London", "2004-07-15T00:00:00Z", "z", "GMT+1", "+1:00" },
         { "ti", "Europe/London", "2004-07-15T00:00:00Z", "zzzz", "GMT+01:00", "+1:00" },
-        { "ti", "Europe/London", "2004-07-15T00:00:00Z", "v", "GB", "Europe/London" },
-        { "ti", "Europe/London", "2004-07-15T00:00:00Z", "vvvv", "GB", "Europe/London" },
+        { "ti", "Europe/London", "2004-07-15T00:00:00Z", "v", "\u12A5\u1295\u130D\u120A\u12DD", "Europe/London" },
+        { "ti", "Europe/London", "2004-07-15T00:00:00Z", "vvvv", "\u12A5\u1295\u130D\u120A\u12DD", "Europe/London" },
 
         { "ti", "Etc/GMT+3", "2004-01-15T00:00:00Z", "Z", "-0300", "-3:00" },
         { "ti", "Etc/GMT+3", "2004-01-15T00:00:00Z", "ZZZZ", "GMT-03:00", "-3:00" },
@@ -1531,8 +1535,8 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         { "ti", "Asia/Calcutta", "2004-07-15T00:00:00Z", "ZZZZ", "GMT+05:30", "+5:30" },
         { "ti", "Asia/Calcutta", "2004-07-15T00:00:00Z", "z", "GMT+5:30", "+05:30" },
         { "ti", "Asia/Calcutta", "2004-07-15T00:00:00Z", "zzzz", "GMT+05:30", "+5:30" },
-        { "ti", "Asia/Calcutta", "2004-07-15T00:00:00Z", "v", "IN", "Asia/Calcutta" },
-        { "ti", "Asia/Calcutta", "2004-07-15T00:00:00Z", "vvvv", "IN", "Asia/Calcutta" },
+        { "ti", "Asia/Calcutta", "2004-07-15T00:00:00Z", "v", "\u1205\u1295\u12F2", "Asia/Calcutta" },
+        { "ti", "Asia/Calcutta", "2004-07-15T00:00:00Z", "vvvv", "\u1205\u1295\u12F2", "Asia/Calcutta" },
 
         // Ticket#8589 Partial location name to use country name if the zone is the golden
         // zone for the time zone's country.
@@ -2394,9 +2398,9 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
 
         f.format((Object)cal, buf, pos);
         f.format((Object)now, buf, pos);
-        f.format((Object)new Long(now.getTime()), buf, pos);
+        f.format(new Long(now.getTime()), buf, pos);
         try {
-            f.format((Object)"Howdy", buf, pos);
+            f.format("Howdy", buf, pos);
         }
         catch (Exception e) {
         }
@@ -4000,7 +4004,7 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
             String expected = data[i + 1];
             if (!out.equals(expected))
             {
-                errln((String)"FAIL: " + in + " -> " + out + " expected -> " + expected);
+                errln("FAIL: " + in + " -> " + out + " expected -> " + expected);
             }
         }
     }
@@ -4023,7 +4027,7 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         String res1 = result.toString();
         String expected = "\u4e8c\u3007\u3007\u4e5d\u5e74\u4e03\u6708\u4e8c\u5341\u516b\u65e5";
         if (! res1.equals(expected)) {
-            errln((String)"FAIL: -> " + result.toString() + " expected -> " + expected);
+            errln("FAIL: -> " + result.toString() + " expected -> " + expected);
         }
         ParsePosition pp = new ParsePosition(0);
         Date parsedate = sdf.parse(expected, pp);
@@ -4090,7 +4094,7 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
             String expected  = DATA[i][1];
 
             if (!result.equals(expected))
-                errln((String) "FAIL: -> " + result.toString() + " expected -> " + expected);
+                errln("FAIL: -> " + result.toString() + " expected -> " + expected);
         }
     }
 
@@ -4935,19 +4939,19 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         long k180000 = 1447437600000L;
 
         // Short.
-        SimpleDateFormat sdf = new SimpleDateFormat("hh:mm:ss bbb");
+        SimpleDateFormat sdf = new SimpleDateFormat("hh:mm:ss bbb", Locale.ENGLISH);
         sdf.setTimeZone(TimeZone.GMT_ZONE);
 
         // Note: "midnight" can be ambiguous as to whether it refers to beginning of day or end of day.
         // For ICU 57 output of "midnight" is temporarily suppressed.
 
-//        assertEquals("hh:mm:ss bbbb | 00:00:00", "12:00:00 midnight", sdf.format(k000000));
-        assertEquals("hh:mm:ss bbbb | 00:00:00", "12:00:00 AM", sdf.format(k000000));
-        assertEquals("hh:mm:ss bbbb | 00:00:30", "12:00:30 AM", sdf.format(k000030));
-        assertEquals("hh:mm:ss bbbb | 00:30:00", "12:30:00 AM", sdf.format(k003000));
-        assertEquals("hh:mm:ss bbbb | 06:00:00", "06:00:00 AM", sdf.format(k060000));
-        assertEquals("hh:mm:ss bbbb | 12:00:00", "12:00:00 noon", sdf.format(k120000));
-        assertEquals("hh:mm:ss bbbb | 18:00:00", "06:00:00 PM", sdf.format(k180000));
+//        assertEquals("hh:mm:ss bbb | 00:00:00", "12:00:00 midnight", sdf.format(k000000));
+        assertEquals("hh:mm:ss bbb | 00:00:00", "12:00:00 AM", sdf.format(k000000));
+        assertEquals("hh:mm:ss bbb | 00:00:30", "12:00:30 AM", sdf.format(k000030));
+        assertEquals("hh:mm:ss bbb | 00:30:00", "12:30:00 AM", sdf.format(k003000));
+        assertEquals("hh:mm:ss bbb | 06:00:00", "06:00:00 AM", sdf.format(k060000));
+        assertEquals("hh:mm:ss bbb | 12:00:00", "12:00:00 noon", sdf.format(k120000));
+        assertEquals("hh:mm:ss bbb | 18:00:00", "06:00:00 PM", sdf.format(k180000));
 
         sdf.applyPattern("hh:mm bbb");
 
@@ -4956,6 +4960,7 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
 //        assertEquals("hh:mm bbb | 00:00:30", "12:00 midnight", sdf.format(k000030));
         assertEquals("hh:mm bbb | 00:00:30", "12:00 AM", sdf.format(k000030));
         assertEquals("hh:mm bbb | 00:30:00", "12:30 AM", sdf.format(k003000));
+        assertEquals("hh:mm bbb | 12:00:00", "12:00 noon", sdf.format(k120000));
 
         sdf.applyPattern("hh bbb");
 
@@ -4965,6 +4970,26 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         assertEquals("hh bbb | 00:00:30", "12 AM", sdf.format(k000030));
 //        assertEquals("hh bbb | 00:30:00", "12 midnight", sdf.format(k003000));
         assertEquals("hh bbb | 00:30:00", "12 AM", sdf.format(k003000));
+        assertEquals("hh bbb | 12:00:00", "12 noon", sdf.format(k120000));
+
+        sdf.applyPattern("hh:mm b");
+
+//        assertEquals("hh:mm b | 00:00:00", "12:00 midnight", sdf.format(k000000));
+        assertEquals("hh:mm b | 00:00:00", "12:00 AM", sdf.format(k000000));
+//        assertEquals("hh:mm b | 00:00:30", "12:00 midnight", sdf.format(k000030));
+        assertEquals("hh:mm b | 00:00:30", "12:00 AM", sdf.format(k000030));
+        assertEquals("hh:mm b | 00:30:00", "12:30 AM", sdf.format(k003000));
+        assertEquals("hh:mm b | 12:00:00", "12:00 noon", sdf.format(k120000));
+
+        sdf.applyPattern("hh b");
+
+//        assertEquals("hh b | 00:00:00", "12 midnight", sdf.format(k000000));
+        assertEquals("hh b | 00:00:00", "12 AM", sdf.format(k000000));
+//        assertEquals("hh b | 00:00:30", "12 midnight", sdf.format(k000030));
+        assertEquals("hh b | 00:00:30", "12 AM", sdf.format(k000030));
+//        assertEquals("hh b | 00:30:00", "12 midnight", sdf.format(k003000));
+        assertEquals("hh b | 00:30:00", "12 AM", sdf.format(k003000));
+        assertEquals("hh b | 12:00:00", "12 noon", sdf.format(k120000));
 
         // Wide.
         sdf.applyPattern("hh:mm:ss bbbb");
@@ -5022,6 +5047,7 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         assertEquals("hh bbbbb | 00:30:00", "12 a", sdf.format(k003000));
     }
 
+    @Test
     public void TestFlexibleDayPeriod() {
         // Some times on 2015-11-13.
         long k000000 = 1447372800000L;
@@ -5120,6 +5146,7 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         assertEquals("hh BBBBB | 00:30:00", "12 at night", sdf.format(k003000));
     }
 
+    @Test
     public void TestDayPeriodWithLocales() {
         // Some times on 2015-11-13 (UTC+0).
         long k000000 = 1447372800000L;
@@ -5193,8 +5220,17 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
 
         sdf.applyPattern("hh:mm:ss BBBB");
         assertEquals("hh:mm:ss BBBB | 01:00:00 | es", "01:00:00 de la madrugada", sdf.format(k010000));
+
+        // #13215: for locales with keywords, check hang in DayPeriodRules.getInstance(ULocale),
+        // which is called in SimpleDateFormat.format for patterns that include 'B'.
+        sdf = new SimpleDateFormat("", new ULocale("en@calendar=buddhist"));
+        sdf.setTimeZone(TimeZone.GMT_ZONE);
+
+        sdf.applyPattern("hh:mm:ss BBBB");
+        assertEquals("hh:mm:ss BBBB | 01:00:00 | en@calendar=buddhist", "01:00:00 at night", sdf.format(k010000));
     }
 
+    @Test
     public void TestMinuteSecondFieldsInOddPlaces() {
         // Some times on 2015-11-13 (UTC+0).
         long k000000 = 1447372800000L;
@@ -5262,6 +5298,7 @@ public class DateFormatTest extends com.ibm.icu.dev.test.TestFmwk {
         assertEquals("BBBB hh:mm:ss | 00:00:30", "at night 12:00:30", sdf.format(k000030));
     }
 
+    @Test
     public void TestDayPeriodParsing() throws ParseException {
         // Some times on 2015-11-13 (UTC+0).
         Date k000000 = new Date(1447372800000L);

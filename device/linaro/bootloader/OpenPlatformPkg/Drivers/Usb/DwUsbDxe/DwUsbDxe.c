@@ -1,7 +1,6 @@
 /** @file
 
-  Copyright (c) 2015-2016, Linaro Limited. All rights reserved.
-  Copyright (c) 2015-2016, Hisilicon Limited. All rights reserved.
+  Copyright (c) 2015-2017, Linaro. All rights reserved.
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -14,6 +13,7 @@
 **/
 
 #include <IndustryStandard/Usb.h>
+#include <Library/ArmLib.h>
 #include <Library/TimerLib.h>
 #include <Library/DebugLib.h>
 #include <Library/UefiBootServicesTableLib.h>
@@ -30,21 +30,25 @@
 
 #include "DwUsbDxe.h"
 
+#define USB_TYPE_LENGTH               16
+#define USB_BLOCK_HIGH_SPEED_SIZE     512
+#define DATA_SIZE                     32768
+#define CMD_SIZE                      512
+#define MATCH_CMD_LITERAL(Cmd, Buf)   !AsciiStrnCmp (Cmd, Buf, sizeof (Cmd) - 1)
+
+// The time between interrupt polls, in units of 100 nanoseconds
+// 10 Microseconds
+#define DW_INTERRUPT_POLL_PERIOD      10000
+
 EFI_GUID  gDwUsbProtocolGuid = DW_USB_PROTOCOL_GUID;
 
-STATIC dwc_otg_dev_dma_desc_t *g_dma_desc,*g_dma_desc_ep0,*g_dma_desc_in;
-STATIC USB_DEVICE_REQUEST *p_ctrlreq;
-STATIC VOID *rx_buf;
-STATIC UINTN rx_desc_bytes = 0;
+STATIC dwc_otg_dev_dma_desc_t *gDmaDesc,*gDmaDescEp0,*gDmaDescIn;
+STATIC USB_DEVICE_REQUEST *gCtrlReq;
+STATIC VOID *RxBuf;
+STATIC UINTN RxDescBytes = 0;
 STATIC UINTN mNumDataBytes;
 
 STATIC DW_USB_PROTOCOL          *DwUsb;
-
-#define USB_TYPE_LENGTH              16
-#define USB_BLOCK_HIGH_SPEED_SIZE    512
-#define DATA_SIZE 32768
-#define CMD_SIZE 512
-#define MATCH_CMD_LITERAL(Cmd, Buf) !AsciiStrnCmp (Cmd, Buf, sizeof (Cmd) - 1)
 
 STATIC USB_DEVICE_DESCRIPTOR    *mDeviceDescriptor;
 
@@ -59,164 +63,160 @@ STATIC USB_ENDPOINT_DESCRIPTOR  *mEndpointDescriptors;
 STATIC USB_DEVICE_RX_CALLBACK   mDataReceivedCallback;
 STATIC USB_DEVICE_TX_CALLBACK   mDataSentCallback;
 
-STATIC EFI_USB_STRING_DESCRIPTOR *mLangStringDescriptor;
-STATIC EFI_USB_STRING_DESCRIPTOR *mManufacturerStringDescriptor;
-STATIC EFI_USB_STRING_DESCRIPTOR *mProductStringDescriptor;
-STATIC EFI_USB_STRING_DESCRIPTOR *mSerialStringDescriptor;
 
-STATIC CHAR16 mLangString[] = { 0x409 };
-
-STATIC CHAR16 mManufacturerString[] = {
-  '9', '6', 'B', 'o', 'a', 'r', 'd', 's'
-};
-
-STATIC CHAR16 mProductString[] = {
-  'H', 'i', 'K', 'e', 'y'
-};
-
-STATIC CHAR16 mSerialString[] = {
-  '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
-};
-
-// The time between interrupt polls, in units of 100 nanoseconds
-// 10 Microseconds
-#define DW_INTERRUPT_POLL_PERIOD 10000
-STATIC int usb_drv_port_speed(void) /*To detect which mode was run, high speed or full speed*/
+/* To detect which mode was run, high speed or full speed */
+STATIC
+UINTN
+UsbDrvPortSpeed (
+  VOID
+  )
 {
-    /*
-    * 2'b00: High speed (PHY clock is running at 30 or 60 MHz)
-    */
-    UINT32 val = READ_REG32(DSTS) & 2;
-    return (!val);
+  /*
+  * 2'b00: High speed (PHY clock is running at 30 or 60 MHz)
+  */
+  UINT32          Val = READ_REG32 (DSTS) & 2;
+  return (!Val);
 }
 
-STATIC VOID reset_endpoints(void)
+STATIC
+VOID
+ResetEndpoints (
+  VOID
+  )
 {
   /* EP0 IN ACTIVE NEXT=1 */
-  WRITE_REG32(DIEPCTL0, 0x8800);
+  WRITE_REG32 (DIEPCTL0, DXEPCTL_USBACTEP | BIT11);
 
   /* EP0 OUT ACTIVE */
-  WRITE_REG32(DOEPCTL0, 0x8000);
+  WRITE_REG32 (DOEPCTL0, DXEPCTL_USBACTEP);
 
   /* Clear any pending OTG Interrupts */
-  WRITE_REG32(GOTGINT, 0xFFFFFFFF);
+  WRITE_REG32 (GOTGINT, ~0);
 
   /* Clear any pending interrupts */
-  WRITE_REG32(GINTSTS, 0xFFFFFFFF);
-  WRITE_REG32(DIEPINT0, 0xFFFFFFFF);
-  WRITE_REG32(DOEPINT0, 0xFFFFFFFF);
-  WRITE_REG32(DIEPINT1, 0xFFFFFFFF);
-  WRITE_REG32(DOEPINT1, 0xFFFFFFFF);
+  WRITE_REG32 (GINTSTS, ~0);
+  WRITE_REG32 (DIEPINT0, ~0);
+  WRITE_REG32 (DOEPINT0, ~0);
+  WRITE_REG32 (DIEPINT1, ~0);
+  WRITE_REG32 (DOEPINT1, ~0);
 
   /* IN EP interrupt mask */
-  WRITE_REG32(DIEPMSK, 0x0D);
+  WRITE_REG32 (DIEPMSK, DXEPMSK_TIMEOUTMSK | DXEPMSK_AHBERMSK | DXEPMSK_XFERCOMPLMSK);
   /* OUT EP interrupt mask */
-  WRITE_REG32(DOEPMSK, 0x0D);
+  WRITE_REG32 (DOEPMSK, DXEPMSK_TIMEOUTMSK | DXEPMSK_AHBERMSK | DXEPMSK_XFERCOMPLMSK);
   /* Enable interrupts on Ep0 */
-  WRITE_REG32(DAINTMSK, 0x00010001);
+  WRITE_REG32 (DAINTMSK, (1 << DAINTMSK_OUTEPMSK_SHIFT) | (1 << DAINTMSK_INEPMSK_SHIFT));
 
   /* EP0 OUT Transfer Size:64 Bytes, 1 Packet, 3 Setup Packet, Read to receive setup packet*/
-  WRITE_REG32(DOEPTSIZ0, 0x60080040);
+  WRITE_REG32 (DOEPTSIZ0, DXEPTSIZ_SUPCNT(3) | DXEPTSIZ_PKTCNT(1) | DXEPTSIZ_XFERSIZE(64));
 
   //notes that:the compulsive conversion is expectable.
-  g_dma_desc_ep0->status.b.bs = 0x3;
-  g_dma_desc_ep0->status.b.mtrf = 0;
-  g_dma_desc_ep0->status.b.sr = 0;
-  g_dma_desc_ep0->status.b.l = 1;
-  g_dma_desc_ep0->status.b.ioc = 1;
-  g_dma_desc_ep0->status.b.sp = 0;
-  g_dma_desc_ep0->status.b.bytes = 64;
-  g_dma_desc_ep0->buf = (UINT32)(UINTN)(p_ctrlreq);
-  g_dma_desc_ep0->status.b.sts = 0;
-  g_dma_desc_ep0->status.b.bs = 0x0;
-  WRITE_REG32(DOEPDMA0, (unsigned long)(g_dma_desc_ep0));
+  gDmaDescEp0->status.b.bs = 0x3;
+  gDmaDescEp0->status.b.mtrf = 0;
+  gDmaDescEp0->status.b.sr = 0;
+  gDmaDescEp0->status.b.l = 1;
+  gDmaDescEp0->status.b.ioc = 1;
+  gDmaDescEp0->status.b.sp = 0;
+  gDmaDescEp0->status.b.bytes = 64;
+  gDmaDescEp0->buf = (UINT32)(UINTN)(gCtrlReq);
+  gDmaDescEp0->status.b.sts = 0;
+  gDmaDescEp0->status.b.bs = 0x0;
+  WRITE_REG32 (DOEPDMA0, (UINT32)(UINTN)(gDmaDescEp0));
   /* EP0 OUT ENABLE CLEARNAK */
-  WRITE_REG32(DOEPCTL0, (READ_REG32(DOEPCTL0) | 0x84000000));
+  WRITE_REG32 (DOEPCTL0, (READ_REG32 (DOEPCTL0) | DXEPCTL_EPENA | DXEPCTL_CNAK));
 }
 
-STATIC VOID ep_tx(IN UINT8 ep, CONST VOID *ptr, UINTN len)
+STATIC
+VOID
+EpTx (
+  IN UINT8          Ep,
+  IN CONST VOID    *Ptr,
+  IN UINTN          Len
+  )
 {
-    UINT32 blocksize;
-    UINT32 packets;
+    UINT32          BlockSize;
+    UINT32          Packets;
 
     /* EPx OUT ACTIVE */
-    WRITE_REG32(DIEPCTL(ep), (READ_REG32(DIEPCTL(ep))) | 0x8000);
-    if(!ep) {
-        blocksize = 64;
+    WRITE_REG32 (DIEPCTL (Ep), (READ_REG32 (DIEPCTL (Ep))) | DXEPCTL_USBACTEP);
+    if (!Ep) {
+        BlockSize = 64;
     } else {
-        blocksize = usb_drv_port_speed() ? USB_BLOCK_HIGH_SPEED_SIZE : 64;
+        BlockSize = UsbDrvPortSpeed () ? USB_BLOCK_HIGH_SPEED_SIZE : 64;
     }
-    packets = (len + blocksize - 1) / blocksize;
+    Packets = (Len + BlockSize - 1) / BlockSize;
 
-    if (!len) { //send a null packet
-        /* one empty packet */
-        g_dma_desc_in->status.b.bs = 0x3;
-        g_dma_desc_in->status.b.l = 1;
-        g_dma_desc_in->status.b.ioc = 1;
-        g_dma_desc_in->status.b.sp = 1;
-        g_dma_desc_in->status.b.bytes = 0;
-        g_dma_desc_in->buf = 0;
-        g_dma_desc_in->status.b.sts = 0;
-        g_dma_desc_in->status.b.bs = 0x0;
+    if (!Len) {
+      /* send one empty packet */
+      gDmaDescIn->status.b.bs = 0x3;
+      gDmaDescIn->status.b.l = 1;
+      gDmaDescIn->status.b.ioc = 1;
+      gDmaDescIn->status.b.sp = 1;
+      gDmaDescIn->status.b.bytes = 0;
+      gDmaDescIn->buf = 0;
+      gDmaDescIn->status.b.sts = 0;
+      gDmaDescIn->status.b.bs = 0x0;
 
-        WRITE_REG32(DIEPDMA(ep), (UINT32)(UINTN)(g_dma_desc_in));             // DMA Address (DMAAddr) is zero
-    } else { //prepare to send a packet
-        /*WRITE_REG32((len | (packets << 19)), DIEPTSIZ(ep));*/  // packets+transfer size
-	WRITE_REG32(DIEPTSIZ(ep), len | (packets << 19));
+      WRITE_REG32 (DIEPDMA (Ep), (UINT32)(UINTN)(gDmaDescIn));             // DMA Address (DMAAddr) is zero
+    } else {
+      WRITE_REG32 (DIEPTSIZ (Ep), Len | (Packets << 19));
 
-	//flush cache
-	WriteBackDataCacheRange ((void*)ptr, len);
+      //flush cache
+      WriteBackDataCacheRange ((VOID *)Ptr, Len);
 
-        g_dma_desc_in->status.b.bs = 0x3;
-        g_dma_desc_in->status.b.l = 1;
-        g_dma_desc_in->status.b.ioc = 1;
-        g_dma_desc_in->status.b.sp = 1;
-        g_dma_desc_in->status.b.bytes = len;
-        g_dma_desc_in->buf = (UINT32)((UINTN)ptr);
-        g_dma_desc_in->status.b.sts = 0;
-        g_dma_desc_in->status.b.bs = 0x0;
-        WRITE_REG32(DIEPDMA(ep), (UINT32)(UINTN)(g_dma_desc_in));         // ptr is DMA address
+      gDmaDescIn->status.b.bs = 0x3;
+      gDmaDescIn->status.b.l = 1;
+      gDmaDescIn->status.b.ioc = 1;
+      gDmaDescIn->status.b.sp = 1;
+      gDmaDescIn->status.b.bytes = Len;
+      gDmaDescIn->buf = (UINT32)((UINTN)Ptr);
+      gDmaDescIn->status.b.sts = 0;
+      gDmaDescIn->status.b.bs = 0x0;
+      WRITE_REG32 (DIEPDMA (Ep), (UINT32)(UINTN)(gDmaDescIn));         // Ptr is DMA address
     }
-    asm("dsb  sy");
-    asm("isb  sy");
-    /* epena & cnak*/
-    WRITE_REG32(DIEPCTL(ep), READ_REG32(DIEPCTL(ep)) | 0x84000800);
-    return;
+    ArmDataSynchronizationBarrier ();
+    /* epena & cnak */
+    WRITE_REG32 (DIEPCTL (Ep), READ_REG32 (DIEPCTL (Ep)) | DXEPCTL_EPENA | DXEPCTL_CNAK | BIT11);
 }
 
-STATIC VOID ep_rx(unsigned ep, UINTN len)
+STATIC
+VOID
+EpRx (
+  IN UINTN            Ep,
+  IN UINTN            Len
+  )
 {
-    /* EPx UNSTALL */
-    WRITE_REG32(DOEPCTL(ep), ((READ_REG32(DOEPCTL(ep))) & (~0x00200000)));
-    /* EPx OUT ACTIVE */
-    WRITE_REG32(DOEPCTL(ep), (READ_REG32(DOEPCTL(ep)) | 0x8000));
+  /* EPx UNSTALL */
+  WRITE_REG32 (DOEPCTL (Ep), ((READ_REG32 (DOEPCTL (Ep))) & (~DXEPCTL_STALL)));
+  /* EPx OUT ACTIVE */
+  WRITE_REG32 (DOEPCTL (Ep), (READ_REG32 (DOEPCTL (Ep)) | DXEPCTL_USBACTEP));
 
-    if (len >= DATA_SIZE)
-	    rx_desc_bytes = DATA_SIZE;
-    else
-	    rx_desc_bytes = len;
+  if (Len >= DATA_SIZE) {
+    RxDescBytes = DATA_SIZE;
+  } else {
+    RxDescBytes = Len;
+  }
 
-    rx_buf = AllocatePool (DATA_SIZE);
-    ASSERT (rx_buf != NULL);
+  RxBuf = AllocatePool (DATA_SIZE);
+  ASSERT (RxBuf != NULL);
 
-    InvalidateDataCacheRange (rx_buf, len);
+  InvalidateDataCacheRange (RxBuf, Len);
 
-    g_dma_desc->status.b.bs = 0x3;
-    g_dma_desc->status.b.mtrf = 0;
-    g_dma_desc->status.b.sr = 0;
-    g_dma_desc->status.b.l = 1;
-    g_dma_desc->status.b.ioc = 1;
-    g_dma_desc->status.b.sp = 0;
-    g_dma_desc->status.b.bytes = (UINT32)rx_desc_bytes;
-    g_dma_desc->buf = (UINT32)((UINTN)rx_buf);
-    g_dma_desc->status.b.sts = 0;
-    g_dma_desc->status.b.bs = 0x0;
+  gDmaDesc->status.b.bs = 0x3;
+  gDmaDesc->status.b.mtrf = 0;
+  gDmaDesc->status.b.sr = 0;
+  gDmaDesc->status.b.l = 1;
+  gDmaDesc->status.b.ioc = 1;
+  gDmaDesc->status.b.sp = 0;
+  gDmaDesc->status.b.bytes = (UINT32)RxDescBytes;
+  gDmaDesc->buf = (UINT32)((UINTN)RxBuf);
+  gDmaDesc->status.b.sts = 0;
+  gDmaDesc->status.b.bs = 0x0;
 
-    asm("dsb  sy");
-    asm("isb  sy");
-    WRITE_REG32(DOEPDMA(ep), (UINT32)((UINTN)g_dma_desc));
-    /* EPx OUT ENABLE CLEARNAK */
-    WRITE_REG32(DOEPCTL(ep), (READ_REG32(DOEPCTL(ep)) | 0x84000000));
+  ArmDataSynchronizationBarrier ();
+  WRITE_REG32 (DOEPDMA (Ep), (UINT32)((UINTN)gDmaDesc));
+  /* EPx OUT ENABLE CLEARNAK */
+  WRITE_REG32 (DOEPCTL (Ep), (READ_REG32 (DOEPCTL (Ep)) | DXEPCTL_EPENA | DXEPCTL_CNAK));
 }
 
 STATIC
@@ -228,6 +228,8 @@ HandleGetDescriptor (
   UINT8       DescriptorType;
   UINTN       ResponseSize;
   VOID       *ResponseData;
+  EFI_USB_STRING_DESCRIPTOR        *Descriptor = NULL;
+  UINTN                             DescriptorSize;
 
   ResponseSize = 0;
   ResponseData = NULL;
@@ -239,39 +241,66 @@ HandleGetDescriptor (
   DescriptorType = Request->Value >> 8;
   switch (DescriptorType) {
   case USB_DESC_TYPE_DEVICE:
-    DEBUG ((EFI_D_INFO, "USB: Got a request for device descriptor\n"));
+    DEBUG ((DEBUG_INFO, "USB: Got a request for device descriptor\n"));
     ResponseSize = sizeof (USB_DEVICE_DESCRIPTOR);
     ResponseData = mDeviceDescriptor;
     break;
   case USB_DESC_TYPE_CONFIG:
-    DEBUG ((EFI_D_INFO, "USB: Got a request for config descriptor\n"));
+    DEBUG ((DEBUG_INFO, "USB: Got a request for config descriptor\n"));
     ResponseSize = mConfigDescriptor->TotalLength;
     ResponseData = mDescriptors;
     break;
   case USB_DESC_TYPE_STRING:
-    DEBUG ((EFI_D_INFO, "USB: Got a request for String descriptor %d\n", Request->Value & 0xFF));
+    DEBUG ((DEBUG_INFO, "USB: Got a request for String descriptor %d\n", Request->Value & 0xFF));
     switch (Request->Value & 0xff) {
     case 0:
-      ResponseSize = mLangStringDescriptor->Length;
-      ResponseData = mLangStringDescriptor;
+      DescriptorSize = sizeof (EFI_USB_STRING_DESCRIPTOR) +
+                       LANG_LENGTH * sizeof (CHAR16) + 1;
+      Descriptor = (EFI_USB_STRING_DESCRIPTOR *)AllocateZeroPool (DescriptorSize);
+      ASSERT (Descriptor != NULL);
+      Descriptor->Length = LANG_LENGTH * sizeof (CHAR16);
+      Descriptor->DescriptorType = USB_DESC_TYPE_STRING;
+      DwUsb->GetLang (Descriptor->String, &Descriptor->Length);
+      ResponseSize = Descriptor->Length;
+      ResponseData = Descriptor;
       break;
     case 1:
-      ResponseSize = mManufacturerStringDescriptor->Length;
-      ResponseData = mManufacturerStringDescriptor;
+      DescriptorSize = sizeof (EFI_USB_STRING_DESCRIPTOR) +
+                       MANU_FACTURER_STRING_LENGTH * sizeof (CHAR16) + 1;
+      Descriptor = (EFI_USB_STRING_DESCRIPTOR *)AllocateZeroPool (DescriptorSize);
+      ASSERT (Descriptor != NULL);
+      Descriptor->Length = MANU_FACTURER_STRING_LENGTH * sizeof (CHAR16);
+      Descriptor->DescriptorType = USB_DESC_TYPE_STRING;
+      DwUsb->GetManuFacturer (Descriptor->String, &Descriptor->Length);
+      ResponseSize = Descriptor->Length;
+      ResponseData = Descriptor;
       break;
     case 2:
-      ResponseSize = mProductStringDescriptor->Length;
-      ResponseData = mProductStringDescriptor;
+      DescriptorSize = sizeof (EFI_USB_STRING_DESCRIPTOR) +
+                       PRODUCT_STRING_LENGTH * sizeof (CHAR16) + 1;
+      Descriptor = (EFI_USB_STRING_DESCRIPTOR *)AllocateZeroPool (DescriptorSize);
+      ASSERT (Descriptor != NULL);
+      Descriptor->Length = PRODUCT_STRING_LENGTH * sizeof (CHAR16);
+      Descriptor->DescriptorType = USB_DESC_TYPE_STRING;
+      DwUsb->GetProduct (Descriptor->String, &Descriptor->Length);
+      ResponseSize = Descriptor->Length;
+      ResponseData = Descriptor;
       break;
     case 3:
-      DwUsb->Get (mSerialStringDescriptor->String, &mSerialStringDescriptor->Length);
-      ResponseSize = mSerialStringDescriptor->Length;
-      ResponseData = mSerialStringDescriptor;
+      DescriptorSize = sizeof (EFI_USB_STRING_DESCRIPTOR) +
+                       SERIAL_STRING_LENGTH * sizeof (CHAR16) + 1;
+      Descriptor = (EFI_USB_STRING_DESCRIPTOR *)AllocateZeroPool (DescriptorSize);
+      ASSERT (Descriptor != NULL);
+      Descriptor->Length = SERIAL_STRING_LENGTH * sizeof (CHAR16);
+      Descriptor->DescriptorType = USB_DESC_TYPE_STRING;
+      DwUsb->GetSerialNo (Descriptor->String, &Descriptor->Length);
+      ResponseSize = Descriptor->Length;
+      ResponseData = Descriptor;
       break;
     }
     break;
   default:
-    DEBUG ((EFI_D_INFO, "USB: Didn't understand request for descriptor 0x%04x\n", Request->Value));
+    DEBUG ((DEBUG_INFO, "USB: Didn't understand request for descriptor 0x%04x\n", Request->Value));
     break;
   }
 
@@ -283,10 +312,13 @@ HandleGetDescriptor (
       // Truncate response
       ResponseSize = Request->Length;
     } else if (Request->Length > ResponseSize) {
-      DEBUG ((EFI_D_INFO, "USB: Info: ResponseSize < wLength\n"));
+      DEBUG ((DEBUG_INFO, "USB: Info: ResponseSize < wLength\n"));
     }
 
-    ep_tx(0, ResponseData, ResponseSize);
+    EpTx (0, ResponseData, ResponseSize);
+  }
+  if (Descriptor) {
+    FreePool (Descriptor);
   }
 
   return EFI_SUCCESS;
@@ -300,38 +332,42 @@ HandleSetAddress (
 {
   // Pretty confused if bmRequestType is anything but this:
   ASSERT (Request->RequestType == USB_DEV_SET_ADDRESS_REQ_TYPE);
-  DEBUG ((EFI_D_INFO, "USB: Setting address to %d\n", Request->Value));
-  reset_endpoints();
+  DEBUG ((DEBUG_INFO, "USB: Setting address to %d\n", Request->Value));
+  ResetEndpoints ();
 
-  WRITE_REG32(DCFG, (READ_REG32(DCFG) & ~0x7F0) | (Request->Value << 4));
-  ep_tx(0, 0, 0);
+  WRITE_REG32 (DCFG, (READ_REG32 (DCFG) & ~DCFG_DEVADDR_MASK) | DCFG_DEVADDR(Request->Value));
+  EpTx (0, 0, 0);
 
   return EFI_SUCCESS;
 }
 
-int usb_drv_request_endpoint(unsigned int type, int dir)
+STATIC
+UINTN
+UsbDrvRequestEndpoint (
+  IN UINTN           Type,
+  IN UINTN           Dir
+  )
 {
-  unsigned int ep = 1;    /*FIXME*/
-  int ret;
-  unsigned long newbits;
+  UINTN              Ep = 1;
+  UINTN              Ret, NewBits;
 
-  ret = (int)ep | dir;
-  newbits = (type << 18) | 0x10000000;
+  Ret = Ep | Dir;
+  NewBits = (Type << 18) | 0x10000000;
 
   /*
-   * (type << 18):Endpoint Type (EPType)
+   * (Type << 18):Endpoint Type (EPType)
    * 0x10000000:Endpoint Enable (EPEna)
    * 0x000C000:Endpoint Type (EPType);Hardcoded to 00 for control.
    * (ep<<22):TxFIFO Number (TxFNum)
    * 0x20000:NAK Status (NAKSts);The core is transmitting NAK handshakes on this endpoint.
    */
-  if (dir) {  // IN: to host
-    WRITE_REG32(DIEPCTL(ep), ((READ_REG32(DIEPCTL(ep)))& ~0x000C0000) | newbits | (ep<<22)|0x20000);
+  if (Dir) {  // IN: to host
+    WRITE_REG32 (DIEPCTL (Ep), ((READ_REG32 (DIEPCTL (Ep))) & ~DXEPCTL_EPTYPE_MASK) | NewBits | (Ep << 22) | DXEPCTL_NAKSTS);
   } else {    // OUT: to device
-    WRITE_REG32(DOEPCTL(ep), ((READ_REG32(DOEPCTL(ep))) & ~0x000C0000) | newbits);
+    WRITE_REG32 (DOEPCTL (Ep), ((READ_REG32 (DOEPCTL (Ep))) & ~DXEPCTL_EPTYPE_MASK) | NewBits);
   }
 
-  return ret;
+  return Ret;
 }
 
 STATIC
@@ -343,18 +379,18 @@ HandleSetConfiguration (
   ASSERT (Request->RequestType == USB_DEV_SET_CONFIGURATION_REQ_TYPE);
 
   // Cancel all transfers
-  reset_endpoints();
+  ResetEndpoints ();
 
-  usb_drv_request_endpoint(2, 0);
-  usb_drv_request_endpoint(2, 0x80);
+  UsbDrvRequestEndpoint (2, 0);
+  UsbDrvRequestEndpoint (2, 0x80);
 
-  WRITE_REG32(DIEPCTL1, (READ_REG32(DIEPCTL1)) | 0x10088800);
+  WRITE_REG32 (DIEPCTL1, (READ_REG32 (DIEPCTL1)) | BIT28 | BIT19 | DXEPCTL_USBACTEP | BIT11);
 
   /* Enable interrupts on all endpoints */
-  WRITE_REG32(DAINTMSK, 0xFFFFFFFF);
+  WRITE_REG32 (DAINTMSK, ~0);
 
-  ep_rx(1, CMD_SIZE);
-  ep_tx(0, 0, 0);
+  EpRx (1, CMD_SIZE);
+  EpTx (0, 0, 0);
   return EFI_SUCCESS;
 }
 
@@ -378,7 +414,7 @@ HandleDeviceRequest (
     Status = HandleSetConfiguration (Request);
     break;
   default:
-    DEBUG ((EFI_D_ERROR,
+    DEBUG ((DEBUG_ERROR,
       "Didn't understand RequestType 0x%x Request 0x%x\n",
       Request->RequestType, Request->Request));
       Status = EFI_INVALID_PARAMETER;
@@ -394,20 +430,23 @@ HandleDeviceRequest (
 STATIC
 VOID
 CheckInterrupts (
-  IN EFI_EVENT  Event,
-  IN VOID      *Context
+  IN EFI_EVENT        Event,
+  IN VOID            *Context
   )
 {
-  UINT32 ints = READ_REG32(GINTSTS);    // interrupt register
-  UINT32 epints;
+  UINT32              Ints, EpInts;
+
+
+  // interrupt register
+  Ints = READ_REG32 (GINTSTS);
 
   /*
    * bus reset
    * The core sets this bit to indicate that a reset is detected on the USB.
    */
-  if (ints & 0x1000) {
-	  WRITE_REG32(DCFG, 0x800004);
-	  reset_endpoints();
+  if (Ints & GINTSTS_USBRST) {
+    WRITE_REG32 (DCFG, DCFG_DESCDMA | DCFG_NZ_STS_OUT_HSHK);
+    ResetEndpoints ();
   }
 
   /*
@@ -416,129 +455,131 @@ CheckInterrupts (
    * application must read the Device Status (DSTS) register to obtain the
    * enumerated speed.
    */
-  if (ints & 0x2000) {
-	  /* Set up the maximum packet sizes accordingly */
-	  unsigned long maxpacket = usb_drv_port_speed() ? USB_BLOCK_HIGH_SPEED_SIZE : 64;
-	  //Set Maximum In Packet Size (MPS)
-	  WRITE_REG32(DIEPCTL1, ((READ_REG32(DIEPCTL1)) & ~0x000003FF) | maxpacket);
-	  //Set Maximum Out Packet Size (MPS)
-	  WRITE_REG32(DOEPCTL1, ((READ_REG32(DOEPCTL1)) & ~0x000003FF) | maxpacket);
+  if (Ints & GINTSTS_ENUMDONE) {
+    /* Set up the maximum packet sizes accordingly */
+    UINTN MaxPacket = UsbDrvPortSpeed () ? USB_BLOCK_HIGH_SPEED_SIZE : 64;
+    //Set Maximum In Packet Size (MPS)
+    WRITE_REG32 (DIEPCTL1, ((READ_REG32 (DIEPCTL1)) & ~DXEPCTL_MPS_MASK) | MaxPacket);
+    //Set Maximum Out Packet Size (MPS)
+    WRITE_REG32 (DOEPCTL1, ((READ_REG32 (DOEPCTL1)) & ~DXEPCTL_MPS_MASK) | MaxPacket);
   }
 
   /*
    * IN EP event
    * The core sets this bit to indicate that an interrupt is pending on one of the IN
-   * endpoints of the core (in Device mode). The application must read the
-   * Device All Endpoints Interrupt (DAINT) register to determine the exact
+   * endpoInts of the core (in Device mode). The application must read the
+   * Device All EndpoInts Interrupt (DAINT) register to determine the exact
    * number of the IN endpoint on which the interrupt occurred, and then read
    * the corresponding Device IN Endpoint-n Interrupt (DIEPINTn) register to
    * determine the exact cause of the interrupt. The application must clear the
    * appropriate status bit in the corresponding DIEPINTn register to clear this bit.
    */
-  if (ints & 0x40000) {
-	  epints = READ_REG32(DIEPINT0);
-	  WRITE_REG32(DIEPINT0, epints);
-	  if (epints & 0x1) /* Transfer Completed Interrupt (XferCompl) */
-		  DEBUG ((EFI_D_INFO, "INT: IN TX completed.DIEPTSIZ(0) = 0x%x.\n", READ_REG32(DIEPTSIZ0)));
+  if (Ints & GINTSTS_IEPINT) {
+    EpInts = READ_REG32 (DIEPINT0);
+    WRITE_REG32 (DIEPINT0, EpInts);
+    if (EpInts & DXEPINT_XFERCOMPL) {
+      DEBUG ((DEBUG_INFO, "INT: IN TX completed.DIEPTSIZ (0) = 0x%x.\n", READ_REG32 (DIEPTSIZ0)));
+    }
 
-	  epints = READ_REG32(DIEPINT1);
-	  WRITE_REG32(DIEPINT1, epints);
-	  if (epints & 0x1)
-		  DEBUG ((EFI_D_INFO, "ep1: IN TX completed\n"));
+    EpInts = READ_REG32 (DIEPINT1);
+    WRITE_REG32 (DIEPINT1, EpInts);
+    if (EpInts & DXEPINT_XFERCOMPL) {
+      DEBUG ((DEBUG_INFO, "ep1: IN TX completed\n"));
+    }
   }
 
   /*
    * OUT EP event
    * The core sets this bit to indicate that an interrupt is pending on one of the
    * OUT endpoints of the core (in Device mode). The application must read the
-   * Device All Endpoints Interrupt (DAINT) register to determine the exact
+   * Device All EndpoInts Interrupt (DAINT) register to determine the exact
    * number of the OUT endpoint on which the interrupt occurred, and then read
    * the corresponding Device OUT Endpoint-n Interrupt (DOEPINTn) register
    * to determine the exact cause of the interrupt. The application must clear the
    * appropriate status bit in the corresponding DOEPINTn register to clear this bit.
    */
-  if (ints & 0x80000) {
-	  /* indicates the status of an endpoint
-	   * with respect to USB- and AHB-related events. */
-	  epints = READ_REG32(DOEPINT0);
-	  if(epints) {
-		  WRITE_REG32(DOEPINT0, epints);
-		  if (epints & 0x1)
-			  DEBUG ((EFI_D_INFO,"INT: EP0 RX completed. DOEPTSIZ(0) = 0x%x.\n", READ_REG32(DOEPTSIZ0)));
-		  /*
-		   *
-		   IN Token Received When TxFIFO is Empty (INTknTXFEmp)
-		   * Indicates that an IN token was received when the associated TxFIFO (periodic/nonperiodic)
-		   * was empty. This interrupt is asserted on the endpoint for which the IN token
-		   * was received.
-		   */
-		  if (epints & 0x8) { /* SETUP phase done */
-			  // PRINT_DEBUG("Setup phase \n");
-			  WRITE_REG32(DIEPCTL0, READ_REG32(DIEPCTL0) | 0x08000000);
-			  WRITE_REG32(DOEPCTL0, READ_REG32(DOEPCTL0) | 0x08000000);
-			  /*clear IN EP intr*/
-			  WRITE_REG32(DIEPINT0, 0xffffffff);
-			  HandleDeviceRequest((USB_DEVICE_REQUEST *)p_ctrlreq);
-		  }
+  if (Ints & GINTSTS_OEPINT) {
+    /* indicates the status of an endpoint
+     * with respect to USB- and AHB-related events. */
+    EpInts = READ_REG32 (DOEPINT0);
+    if (EpInts) {
+      WRITE_REG32 (DOEPINT0, EpInts);
+      if (EpInts & DXEPINT_XFERCOMPL) {
+        DEBUG ((DEBUG_INFO, "INT: EP0 RX completed. DOEPTSIZ(0) = 0x%x.\n", READ_REG32 (DOEPTSIZ0)));
+      }
+      /*
+       *
+       IN Token Received When TxFIFO is Empty (INTknTXFEmp)
+       * Indicates that an IN token was received when the associated TxFIFO (periodic/nonperiodic)
+       * was empty. This interrupt is asserted on the endpoint for which the IN token
+       * was received.
+       */
+      if (EpInts & BIT3) { /* SETUP phase done */
+        WRITE_REG32 (DIEPCTL0, READ_REG32 (DIEPCTL0) | DXEPCTL_SNAK);
+        WRITE_REG32 (DOEPCTL0, READ_REG32 (DOEPCTL0) | DXEPCTL_SNAK);
+        /*clear IN EP intr*/
+        WRITE_REG32 (DIEPINT0, ~0);
+        HandleDeviceRequest((USB_DEVICE_REQUEST *)gCtrlReq);
+      }
 
-		  /* Make sure EP0 OUT is set up to accept the next request */
-		  /* memset(p_ctrlreq, 0, NUM_ENDPOINTS*8); */
-		  WRITE_REG32(DOEPTSIZ0, 0x60080040);
-		  /*
-		   * IN Token Received When TxFIFO is Empty (INTknTXFEmp)
-		   * Indicates that an IN token was received when the associated TxFIFO (periodic/nonperiodic)
-		   * was empty. This interrupt is asserted on the endpoint for which the IN token
-		   * was received.
-		   */
-		  g_dma_desc_ep0->status.b.bs = 0x3;
-		  g_dma_desc_ep0->status.b.mtrf = 0;
-		  g_dma_desc_ep0->status.b.sr = 0;
-		  g_dma_desc_ep0->status.b.l = 1;
-		  g_dma_desc_ep0->status.b.ioc = 1;
-		  g_dma_desc_ep0->status.b.sp = 0;
-		  g_dma_desc_ep0->status.b.bytes = 64;
-		  g_dma_desc_ep0->buf = (UINT32)(UINTN)(p_ctrlreq);
-		  g_dma_desc_ep0->status.b.sts = 0;
-		  g_dma_desc_ep0->status.b.bs = 0x0;
-		  WRITE_REG32(DOEPDMA0, (unsigned long)(g_dma_desc_ep0));
-		  // endpoint enable; clear NAK
-		  WRITE_REG32(DOEPCTL0, 0x84000000);
-	  }
+      /* Make sure EP0 OUT is set up to accept the next request */
+      WRITE_REG32 (DOEPTSIZ0, DXEPTSIZ_SUPCNT(3) | DXEPTSIZ_PKTCNT(1) | DXEPTSIZ_XFERSIZE(64));
+      /*
+       * IN Token Received When TxFIFO is Empty (INTknTXFEmp)
+       * Indicates that an IN token was received when the associated TxFIFO (periodic/nonperiodic)
+       * was empty. This interrupt is asserted on the endpoint for which the IN token
+       * was received.
+       */
+      gDmaDescEp0->status.b.bs = 0x3;
+      gDmaDescEp0->status.b.mtrf = 0;
+      gDmaDescEp0->status.b.sr = 0;
+      gDmaDescEp0->status.b.l = 1;
+      gDmaDescEp0->status.b.ioc = 1;
+      gDmaDescEp0->status.b.sp = 0;
+      gDmaDescEp0->status.b.bytes = 64;
+      gDmaDescEp0->buf = (UINT32)(UINTN)(gCtrlReq);
+      gDmaDescEp0->status.b.sts = 0;
+      gDmaDescEp0->status.b.bs = 0x0;
+      WRITE_REG32 (DOEPDMA0, (UINT32)(UINTN)(gDmaDescEp0));
+      // endpoint enable; clear NAK
+      WRITE_REG32 (DOEPCTL0, DXEPCTL_EPENA | DXEPCTL_CNAK);
+    }
 
-	  epints = (READ_REG32(DOEPINT1));
-	  if(epints) {
-		  WRITE_REG32(DOEPINT1, epints);
-		  /* Transfer Completed Interrupt (XferCompl);Transfer completed */
-		  if (epints & 0x1) {
-			  asm("dsb  sy");
-			  asm("isb  sy");
+    EpInts = (READ_REG32 (DOEPINT1));
+    if (EpInts) {
+      WRITE_REG32 (DOEPINT1, EpInts);
+      /* Transfer Completed Interrupt (XferCompl);Transfer completed */
+      if (EpInts & DXEPINT_XFERCOMPL) {
 
-			  UINTN bytes = rx_desc_bytes - g_dma_desc->status.b.bytes;
-			  UINTN len = 0;
+        UINTN Bytes = RxDescBytes - gDmaDesc->status.b.bytes;
+        UINTN Len = 0;
 
-			  if (MATCH_CMD_LITERAL ("download", rx_buf)) {
-				  mNumDataBytes = AsciiStrHexToUint64 (rx_buf + sizeof ("download"));
-			  } else {
-				if (mNumDataBytes != 0)
-					mNumDataBytes -= bytes;
-			  }
+        ArmDataSynchronizationBarrier ();
+        if (MATCH_CMD_LITERAL ("download:", RxBuf)) {
+          mNumDataBytes = AsciiStrHexToUint64 (RxBuf + sizeof ("download:"));
+        } else {
+          if (mNumDataBytes != 0) {
+            mNumDataBytes -= Bytes;
+          }
+        }
 
-			  mDataReceivedCallback (bytes, rx_buf);
+        mDataReceivedCallback (Bytes, RxBuf);
 
-			  if (mNumDataBytes == 0)
-				  len = CMD_SIZE;
-			  else if (mNumDataBytes > DATA_SIZE)
-				  len = DATA_SIZE;
-			  else
-				  len = mNumDataBytes;
+        if (mNumDataBytes == 0) {
+          Len = CMD_SIZE;
+        } else if (mNumDataBytes > DATA_SIZE) {
+          Len = DATA_SIZE;
+        } else {
+          Len = mNumDataBytes;
+        }
 
-			  ep_rx(1, len);
-		  }
-	  }
+        EpRx (1, Len);
+      }
+    }
   }
 
   //WRITE_REG32 clear ints
-  WRITE_REG32(GINTSTS, ints);
+  WRITE_REG32 (GINTSTS, Ints);
 }
 
 EFI_STATUS
@@ -548,30 +589,34 @@ DwUsbSend (
   IN  CONST VOID  *Buffer
   )
 {
-    ep_tx(EndpointIndex, Buffer, Size);
-    return 0;
+    EpTx (EndpointIndex, Buffer, Size);
+    return EFI_SUCCESS;
 }
 
-STATIC VOID usb_init()
+STATIC
+VOID
+DwUsbInit (
+  VOID
+  )
 {
-  VOID     *buf;
-  UINT32   data;
+  VOID     *Buf;
+  UINT32   Data;
 
-  buf = UncachedAllocatePages (16);
-  g_dma_desc = buf;
-  g_dma_desc_ep0 = g_dma_desc + sizeof(struct dwc_otg_dev_dma_desc);
-  g_dma_desc_in = g_dma_desc_ep0 + sizeof(struct dwc_otg_dev_dma_desc);
-  p_ctrlreq = (USB_DEVICE_REQUEST *)g_dma_desc_in + sizeof(struct dwc_otg_dev_dma_desc);
+  Buf = UncachedAllocatePages (16);
+  gDmaDesc = Buf;
+  gDmaDescEp0 = gDmaDesc + sizeof (dwc_otg_dev_dma_desc_t);
+  gDmaDescIn = gDmaDescEp0 + sizeof (dwc_otg_dev_dma_desc_t);
+  gCtrlReq = (USB_DEVICE_REQUEST *)gDmaDescIn + sizeof (dwc_otg_dev_dma_desc_t);
 
-  SetMem(g_dma_desc, sizeof(struct dwc_otg_dev_dma_desc), 0);
-  SetMem(g_dma_desc_ep0, sizeof(struct dwc_otg_dev_dma_desc), 0);
-  SetMem(g_dma_desc_in, sizeof(struct dwc_otg_dev_dma_desc), 0);
+  ZeroMem (gDmaDesc, sizeof (dwc_otg_dev_dma_desc_t));
+  ZeroMem (gDmaDescEp0, sizeof (dwc_otg_dev_dma_desc_t));
+  ZeroMem (gDmaDescIn, sizeof (dwc_otg_dev_dma_desc_t));
 
   /*Reset usb controller.*/
   /* Wait for OTG AHB master idle */
   do {
-    data = READ_REG32 (GRSTCTL) & GRSTCTL_AHBIDLE;
-  } while (data == 0);
+    Data = READ_REG32 (GRSTCTL) & GRSTCTL_AHBIDLE;
+  } while (Data == 0);
 
   /* OTG: Assert Software Reset */
   WRITE_REG32 (GRSTCTL, GRSTCTL_CSFTRST);
@@ -613,44 +658,44 @@ STATIC VOID usb_init()
 
   /* Detect usb work mode,host or device? */
   do {
-    data = READ_REG32 (GINTSTS);
-  } while (data & GINTSTS_CURMODE_HOST);
-  MicroSecondDelay(3);
+    Data = READ_REG32 (GINTSTS);
+  } while (Data & GINTSTS_CURMODE_HOST);
+  MicroSecondDelay (3);
 
   /*Init global and device mode csr register.*/
   /*set Non-Zero-Length status out handshake */
-  data = (0x20 << DCFG_EPMISCNT_SHIFT) | DCFG_NZ_STS_OUT_HSHK;
-  WRITE_REG32 (DCFG, data);
+  Data = (0x20 << DCFG_EPMISCNT_SHIFT) | DCFG_NZ_STS_OUT_HSHK;
+  WRITE_REG32 (DCFG, Data);
 
   /* Interrupt unmask: IN event, OUT event, bus reset */
-  data = GINTSTS_OEPINT | GINTSTS_IEPINT | GINTSTS_ENUMDONE | GINTSTS_USBRST;
-  WRITE_REG32 (GINTMSK, data);
+  Data = GINTSTS_OEPINT | GINTSTS_IEPINT | GINTSTS_ENUMDONE | GINTSTS_USBRST;
+  WRITE_REG32 (GINTMSK, Data);
 
   do {
-    data = READ_REG32 (GINTSTS) & GINTSTS_ENUMDONE;
-  } while (data);
+    Data = READ_REG32 (GINTSTS) & GINTSTS_ENUMDONE;
+  } while (Data);
 
   /* Clear any pending OTG Interrupts */
   WRITE_REG32 (GOTGINT, ~0);
   /* Clear any pending interrupts */
   WRITE_REG32 (GINTSTS, ~0);
   WRITE_REG32 (GINTMSK, ~0);
-  data = READ_REG32 (GOTGINT);
-  data &= ~0x3000;
-  WRITE_REG32 (GOTGINT, data);
+  Data = READ_REG32 (GOTGINT);
+  Data &= ~0x3000;
+  WRITE_REG32 (GOTGINT, Data);
 
-  /*endpoint settings cfg*/
-  reset_endpoints();
+  /* endpoint settings cfg */
+  ResetEndpoints ();
   MicroSecondDelay (1);
 
-  /*init finish. and ready to transfer data*/
+  /* init finish. and ready to transfer data */
 
   /* Soft Disconnect */
-  WRITE_REG32(DCTL, 0x802);
-  MicroSecondDelay(10000);
+  WRITE_REG32 (DCTL, DCTL_PWRONPRGDONE | DCTL_SFTDISCON);
+  MicroSecondDelay (10000);
 
   /* Soft Reconnect */
-  WRITE_REG32(DCTL, 0x800);
+  WRITE_REG32 (DCTL, DCTL_PWRONPRGDONE);
 }
 
 EFI_STATUS
@@ -665,50 +710,13 @@ DwUsbStart (
   UINT8                    *Ptr;
   EFI_STATUS                Status;
   EFI_EVENT                 TimerEvent;
-  UINTN                     StringDescriptorSize;
 
   ASSERT (DeviceDescriptor != NULL);
   ASSERT (Descriptors[0] != NULL);
   ASSERT (RxCallback != NULL);
   ASSERT (TxCallback != NULL);
 
-  StringDescriptorSize = sizeof (EFI_USB_STRING_DESCRIPTOR) +
-	                 sizeof (mLangString) + 1;
-  mLangStringDescriptor = AllocateZeroPool (StringDescriptorSize);
-  ASSERT (mLangStringDescriptor != NULL);
-  mLangStringDescriptor->Length = sizeof (mLangString);
-  mLangStringDescriptor->DescriptorType = USB_DESC_TYPE_STRING;
-  CopyMem (mLangStringDescriptor->String, mLangString,
-	   mLangStringDescriptor->Length);
-
-  StringDescriptorSize = sizeof (EFI_USB_STRING_DESCRIPTOR) +
-	                 sizeof (mManufacturerString) + 1;
-  mManufacturerStringDescriptor = AllocateZeroPool (StringDescriptorSize);
-  ASSERT (mManufacturerStringDescriptor != NULL);
-  mManufacturerStringDescriptor->Length = sizeof (mManufacturerString);
-  mManufacturerStringDescriptor->DescriptorType = USB_DESC_TYPE_STRING;
-  CopyMem (mManufacturerStringDescriptor->String, mManufacturerString,
-	   mManufacturerStringDescriptor->Length);
-
-  StringDescriptorSize = sizeof (EFI_USB_STRING_DESCRIPTOR) +
-	                 sizeof (mProductString) + 1;
-  mProductStringDescriptor = AllocateZeroPool (StringDescriptorSize);
-  ASSERT (mProductStringDescriptor != NULL);
-  mProductStringDescriptor->Length = sizeof (mProductString);
-  mProductStringDescriptor->DescriptorType = USB_DESC_TYPE_STRING;
-  CopyMem (mProductStringDescriptor->String, mProductString,
-	   mProductStringDescriptor->Length);
-
-  StringDescriptorSize = sizeof (EFI_USB_STRING_DESCRIPTOR) +
-	                 sizeof (mSerialString) + 1;
-  mSerialStringDescriptor = AllocateZeroPool (StringDescriptorSize);
-  ASSERT (mSerialStringDescriptor != NULL);
-  mSerialStringDescriptor->Length = sizeof (mSerialString);
-  mSerialStringDescriptor->DescriptorType = USB_DESC_TYPE_STRING;
-  CopyMem (mSerialStringDescriptor->String, mSerialString,
-	   mSerialStringDescriptor->Length);
-
-  usb_init();
+  DwUsbInit();
 
   mDeviceDescriptor = DeviceDescriptor;
   mDescriptors = Descriptors[0];
@@ -768,24 +776,21 @@ DwUsbEntryPoint (
   )
 {
   EFI_STATUS      Status;
-  UINT8                     UsbMode;
 
   Status = gBS->LocateProtocol (&gDwUsbProtocolGuid, NULL, (VOID **) &DwUsb);
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
-  //Mode: 1 for device, 0 for Host
-  UsbMode = USB_DEVICE_MODE;
-  Status = DwUsb->PhyInit(UsbMode);
+  Status = DwUsb->PhyInit(USB_DEVICE_MODE);
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
   return gBS->InstallProtocolInterface (
-		  &ImageHandle,
-		  &gUsbDeviceProtocolGuid,
-		  EFI_NATIVE_INTERFACE,
-		  &mUsbDevice
-		  );
+                &ImageHandle,
+                &gUsbDeviceProtocolGuid,
+                EFI_NATIVE_INTERFACE,
+                &mUsbDevice
+                );
 }

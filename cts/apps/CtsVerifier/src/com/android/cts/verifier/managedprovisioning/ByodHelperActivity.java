@@ -33,8 +33,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.UserManager;
 import android.provider.MediaStore;
-import android.support.v4.content.FileProvider;
-import android.support.v4.util.Pair;
+import androidx.core.content.FileProvider;
+import androidx.core.util.Pair;
 import android.util.Log;
 
 import com.android.cts.verifier.R;

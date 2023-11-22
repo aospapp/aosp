@@ -60,6 +60,7 @@ import sys
 import time
 
 import common
+from autotest_lib.client.common_lib import utils
 from autotest_lib.frontend import setup_django_environment
 
 # This import needs to come earlier to avoid using autotest's version of
@@ -72,7 +73,6 @@ except ImportError:
     ts_mon_config = utils.metrics_mock
 
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib import utils
 from autotest_lib.scheduler import email_manager
 from autotest_lib.scheduler import query_managers
 from autotest_lib.scheduler import rdb_lib
@@ -80,7 +80,6 @@ from autotest_lib.scheduler import rdb_utils
 from autotest_lib.scheduler import scheduler_lib
 from autotest_lib.scheduler import scheduler_models
 from autotest_lib.site_utils import job_overhead
-from autotest_lib.site_utils import metadata_reporter
 from autotest_lib.site_utils import server_manager_utils
 
 
@@ -452,6 +451,21 @@ def parse_arguments(argv):
                               'scheduler will fail if database is not in '
                               'localhost.'),
                         action='store_true', default=False)
+    parser.add_argument(
+            '--lifetime-hours',
+            type=float,
+            default=None,
+            help='If provided, number of hours the scheduler should run for. '
+                 'At the expiry of this time, the process will exit '
+                 'gracefully.',
+    )
+    parser.add_argument(
+            '--metrics-file',
+            help='If provided, drop metrics to this local file instead of '
+                 'reporting to ts_mon',
+            type=str,
+            default=None,
+    )
     options = parser.parse_args(argv)
 
     return options
@@ -461,9 +475,6 @@ def main():
     if _monitor_db_host_acquisition:
         logging.info('Please set inline_host_acquisition=False in the shadow '
                      'config before starting the host scheduler.')
-        # The upstart job for the host scheduler understands exit(0) to mean
-        # 'don't respawn'. This is desirable when the job scheduler is acquiring
-        # hosts inline.
         sys.exit(0)
     try:
         options = parse_arguments(sys.argv[1:])
@@ -478,22 +489,28 @@ def main():
 
         initialize(options.testing)
 
-        # Start the thread to report metadata.
-        metadata_reporter.start()
-
-        ts_mon_config.SetupTsMonGlobalState('autotest_host_scheduler')
-
-        host_scheduler = HostScheduler()
-        minimum_tick_sec = global_config.global_config.get_config_value(
-                'SCHEDULER', 'host_scheduler_minimum_tick_sec', type=float)
-        while not _shutdown:
-            start = time.time()
-            host_scheduler.tick()
-            curr_tick_sec = time.time() - start
-            if (minimum_tick_sec > curr_tick_sec):
-                time.sleep(minimum_tick_sec - curr_tick_sec)
-            else:
-                time.sleep(0.0001)
+        with ts_mon_config.SetupTsMonGlobalState(
+                'autotest_host_scheduler',
+                indirect=True,
+                debug_file=options.metrics_file,
+        ):
+            metrics.Counter('%s/start' % _METRICS_PREFIX).increment()
+            process_start_time = time.time()
+            host_scheduler = HostScheduler()
+            minimum_tick_sec = global_config.global_config.get_config_value(
+                    'SCHEDULER', 'host_scheduler_minimum_tick_sec', type=float)
+            while not _shutdown:
+                if _lifetime_expired(options.lifetime_hours,
+                                     process_start_time):
+                    break
+                start = time.time()
+                host_scheduler.tick()
+                curr_tick_sec = time.time() - start
+                if (minimum_tick_sec > curr_tick_sec):
+                    time.sleep(minimum_tick_sec - curr_tick_sec)
+                else:
+                    time.sleep(0.0001)
+            logging.info('Shutdown request recieved. Bye! Bye!')
     except server_manager_utils.ServerActionError:
         # This error is expected when the server is not in primary status
         # for host-scheduler role. Thus do not send email for it.
@@ -505,7 +522,23 @@ def main():
         email_manager.manager.send_queued_emails()
         if _db_manager:
             _db_manager.disconnect()
-        metadata_reporter.abort()
+
+
+def _lifetime_expired(lifetime_hours, process_start_time):
+    """Returns True if we've expired the process lifetime, False otherwise.
+
+    Also sets the global _shutdown so that any background processes also take
+    the cue to exit.
+    """
+    if lifetime_hours is None:
+        return False
+    if time.time() - process_start_time > lifetime_hours * 3600:
+        logging.info('Process lifetime %0.3f hours exceeded. Shutting down.',
+                     lifetime_hours)
+        global _shutdown
+        _shutdown = True
+        return True
+    return False
 
 
 if __name__ == '__main__':

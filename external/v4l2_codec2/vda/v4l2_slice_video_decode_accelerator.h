@@ -1,6 +1,7 @@
 // Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 85fdf90
 
 #ifndef V4L2_SLICE_VIDEO_DECODE_ACCELERATOR_H_
 #define V4L2_SLICE_VIDEO_DECODE_ACCELERATOR_H_
@@ -47,7 +48,8 @@ class V4L2SliceVideoDecodeAccelerator
   void AssignPictureBuffers(const std::vector<PictureBuffer>& buffers) override;
   void ImportBufferForPicture(
       int32_t picture_buffer_id,
-      const std::vector<base::FileDescriptor>& dmabuf_fds) override;
+      VideoPixelFormat pixel_format,
+      const NativePixmapHandle& native_pixmap_handle) override;
   void ReusePictureBuffer(int32_t picture_buffer_id) override;
   void Flush() override;
   void Reset() override;
@@ -77,6 +79,7 @@ class V4L2SliceVideoDecodeAccelerator
   // Record for output buffers.
   struct OutputRecord {
     OutputRecord();
+    OutputRecord(OutputRecord&&) = default;
     bool at_device;
     bool at_client;
     int32_t picture_id;
@@ -234,9 +237,9 @@ class V4L2SliceVideoDecodeAccelerator
   // file descriptors.
   void ImportBufferForPictureTask(
       int32_t picture_buffer_id,
-      // TODO(posciak): (crbug.com/561749) we should normally be able to pass
-      // the vector by itself via std::move, but it's not possible to do this
-      // if this method is used as a callback.
+      // TODO(posciak): (https://crbug.com/561749) we should normally be able to
+      // pass the vector by itself via std::move, but it's not possible to do
+      // this if this method is used as a callback.
       std::unique_ptr<std::vector<base::ScopedFD>> passed_dmabuf_fds);
 
   // Performed on decoder_thread_ as a consequence of poll() on decoder_thread_
@@ -366,7 +369,6 @@ class V4L2SliceVideoDecodeAccelerator
   VideoCodecProfile video_profile_;
   uint32_t input_format_fourcc_;
   uint32_t output_format_fourcc_;
-  Size visible_size_;
   Size coded_size_;
 
   struct BitstreamBufferRef;
@@ -417,6 +419,7 @@ class V4L2SliceVideoDecodeAccelerator
     bool cleared;  // Whether the texture is cleared and safe to render from.
     Picture picture;  // The decoded picture.
   };
+
   // Pictures that are ready but not sent to PictureReady yet.
   std::queue<PictureRecord> pending_picture_ready_;
 

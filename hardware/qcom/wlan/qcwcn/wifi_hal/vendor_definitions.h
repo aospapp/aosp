@@ -106,6 +106,8 @@
 #define QCA_NL80211_VENDOR_SUBCMD_GET_BUS_SIZE 84
 /* Get wake reason stats */
 #define QCA_NL80211_VENDOR_SUBCMD_GET_WAKE_REASON_STATS 85
+/* Radio Mode change */
+#define QCA_NL80211_VENDOR_SUBCMD_WLAN_MAC_MODE 165
 #endif
 
 enum qca_wlan_vendor_attr_tdls_enable
@@ -369,7 +371,17 @@ enum qca_wlan_vendor_attr_ndp_params
     QCA_WLAN_VENDOR_ATTR_NDP_PASSPHRASE,
     /* Array of u8: len = NAN_MAX_SERVICE_NAME_LEN */
     QCA_WLAN_VENDOR_ATTR_NDP_SERVICE_NAME,
+    /* Unsigned 32-bit value indicating schedule update */
+    QCA_WLAN_VENDOR_ATTR_NDP_SCHEDULE_UPDATE_REASON,
+    /* Unsigned 32-bit value for NSS */
+    QCA_WLAN_VENDOR_ATTR_NDP_NSS,
+    /* Unsigned 32-bit value for NUMBER NDP CHANNEL */
+    QCA_WLAN_VENDOR_ATTR_NDP_NUM_CHANNELS,
+    /* Unsigned 32-bit value for CHANNEL BANDWIDTH */
+    QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_WIDTH,
 
+    /* Array of channel/band width */
+    QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_INFO,
 
     /* KEEP LAST */
     QCA_WLAN_VENDOR_ATTR_NDP_AFTER_LAST,
@@ -406,7 +418,8 @@ enum qca_wlan_vendor_attr_ndp_sub_cmd_value
    QCA_WLAN_VENDOR_ATTR_NDP_END_RESPONSE = 8,
    QCA_WLAN_VENDOR_ATTR_NDP_DATA_REQUEST_IND = 9,
    QCA_WLAN_VENDOR_ATTR_NDP_CONFIRM_IND = 10,
-   QCA_WLAN_VENDOR_ATTR_NDP_END_IND = 11
+   QCA_WLAN_VENDOR_ATTR_NDP_END_IND = 11,
+   QCA_WLAN_VENDOR_ATTR_NDP_SCHEDULE_UPDATE_IND = 12
 };
 
 #define PACKET_FILTER_ID 0
@@ -415,6 +428,14 @@ enum packet_filter_sub_cmd
 {
     QCA_WLAN_SET_PACKET_FILTER = 1,
     QCA_WLAN_GET_PACKET_FILTER_SIZE = 2,
+    /* For writing packet filter program + data */
+    QCA_WLAN_WRITE_PACKET_FILTER = 3,
+    /* For reading packet filter data */
+    QCA_WLAN_READ_PACKET_FILTER = 4,
+    /* Enable APF faeature */
+    QCA_WLAN_ENABLE_PACKET_FILTER = 5,
+    /* Disable APF faeature */
+    QCA_WLAN_DISABLE_PACKET_FILTER = 6,
 };
 
 enum qca_wlan_vendor_attr_packet_filter
@@ -427,6 +448,10 @@ enum qca_wlan_vendor_attr_packet_filter
     QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_TOTAL_LENGTH,
     QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_CURRENT_OFFSET,
     QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_PROGRAM,
+    /* The length of the program in the write buffer,
+     * the write buffer may have program+data
+     */
+    QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_PROG_LENGTH,
 
     /* keep last */
     QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_AFTER_LAST,
@@ -489,5 +514,61 @@ enum qca_wlan_vendor_attr_wake_stats
     QCA_WLAN_VENDOR_ATTR_WAKE_STATS_AFTER_LAST,
     QCA_WLAN_VENDOR_ATTR_WAKE_STATS_MAX =
         QCA_WLAN_VENDOR_ATTR_WAKE_STATS_AFTER_LAST - 1,
+};
+
+/**
+ * enum qca_wlan_vendor_attr_mac - Used by the vendor command
+ * QCA_NL80211_VENDOR_SUBCMD_WLAN_MAC_INFO.
+ */
+enum qca_wlan_vendor_attr_mac {
+    QCA_WLAN_VENDOR_ATTR_MAC_INVALID = 0,
+    /* MAC mode info list which has an array of nested values as
+     * per attributes in enum qca_wlan_vendor_attr_mac_info.
+     */
+    QCA_WLAN_VENDOR_ATTR_MAC_INFO = 1,
+    /* keep last */
+    QCA_WLAN_VENDOR_ATTR_MAC_AFTER_LAST,
+    QCA_WLAN_VENDOR_ATTR_MAC_MAX =
+    QCA_WLAN_VENDOR_ATTR_MAC_AFTER_LAST - 1,
+};
+
+/**
+ * enum qca_wlan_vendor_attr_mac_iface_info - Information of the connected
+ * WiFi netdev interface on a respective MAC.
+ * Used by the attribute QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO.
+ */
+enum qca_wlan_vendor_attr_mac_iface_info {
+    QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_INVALID = 0,
+    /* Wi-Fi Netdev's interface id.u32. */
+    QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_ID = 1,
+    /* Associated frequency in MHz of the connected Wi-Fi interface. u32 */
+    QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_FREQ = 2,
+    /* keep last */
+    QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_AFTER_LAST,
+    QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_MAX =
+    QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_AFTER_LAST - 1,
+};
+
+/**
+ * enum qca_wlan_vendor_attr_mac_info - Points to MAC the information.
+ * Used by the attribute QCA_WLAN_VENDOR_ATTR_MAC_INFO of the
+ * vendor command QCA_NL80211_VENDOR_SUBCMD_WLAN_MAC_INFO.
+ */
+enum qca_wlan_vendor_attr_mac_info {
+    QCA_WLAN_VENDOR_ATTR_MAC_INFO_INVALID = 0,
+    /* Hardware MAC ID associated for the MAC (u32) */
+    QCA_WLAN_VENDOR_ATTR_MAC_INFO_MAC_ID = 1,
+    /* Band supported by the respective MAC at a given point.
+     * Represented by enum qca_wlan_vendor_mac_info_band.
+     */
+    QCA_WLAN_VENDOR_ATTR_MAC_INFO_BAND = 2,
+    /* Refers to list of WLAN net dev interfaces associated with this MAC.
+     * Represented by enum qca_wlan_vendor_attr_mac_iface_info.
+     */
+    QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO = 3,
+    /* keep last */
+    QCA_WLAN_VENDOR_ATTR_MAC_INFO_AFTER_LAST,
+    QCA_WLAN_VENDOR_ATTR_MAC_INFO_MAX =
+    QCA_WLAN_VENDOR_ATTR_MAC_INFO_AFTER_LAST - 1,
 };
 #endif

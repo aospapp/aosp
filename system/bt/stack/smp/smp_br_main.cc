@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2014-2015 Broadcom Corporation
+ *  Copyright 2014-2015 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #include "bt_target.h"
 
 #include <string.h>
+#include "log/log.h"
 #include "smp_int.h"
 
 const char* const smp_br_state_name[SMP_BR_STATE_MAX + 1] = {
@@ -71,23 +72,25 @@ enum {
   SMP_BR_SM_NO_ACTION
 };
 
-static const tSMP_ACT smp_br_sm_action[] = {smp_send_pair_req,
-                                            smp_br_send_pair_response,
-                                            smp_send_pair_fail,
-                                            smp_send_id_info,
-                                            smp_br_process_pairing_command,
-                                            smp_proc_pair_fail,
-                                            smp_proc_id_info,
-                                            smp_proc_id_addr,
-                                            smp_proc_srk_info,
-                                            smp_br_process_security_grant,
-                                            smp_br_process_slave_keys_response,
-                                            smp_br_select_next_key,
-                                            smp_br_pairing_complete,
-                                            smp_send_app_cback,
-                                            smp_br_check_authorization_request,
-                                            smp_pair_terminate,
-                                            smp_idle_terminate};
+static const tSMP_ACT smp_br_sm_action[] = {
+    smp_send_pair_req,                  /* SMP_SEND_PAIR_REQ */
+    smp_br_send_pair_response,          /* SMP_BR_SEND_PAIR_RSP */
+    smp_send_pair_fail,                 /* SMP_SEND_PAIR_FAIL */
+    smp_send_id_info,                   /* SMP_SEND_ID_INFO */
+    smp_br_process_pairing_command,     /* SMP_BR_PROC_PAIR_CMD */
+    smp_proc_pair_fail,                 /* SMP_PROC_PAIR_FAIL */
+    smp_proc_id_info,                   /* SMP_PROC_ID_INFO */
+    smp_proc_id_addr,                   /* SMP_PROC_ID_ADDR */
+    smp_proc_srk_info,                  /* SMP_PROC_SRK_INFO */
+    smp_br_process_security_grant,      /* SMP_BR_PROC_SEC_GRANT */
+    smp_br_process_slave_keys_response, /* SMP_BR_PROC_SL_KEYS_RSP */
+    smp_br_select_next_key,             /* SMP_BR_KEY_DISTRIBUTION */
+    smp_br_pairing_complete,            /* SMP_BR_PAIRING_COMPLETE */
+    smp_send_app_cback,                 /* SMP_SEND_APP_CBACK */
+    smp_br_check_authorization_request, /* SMP_BR_CHECK_AUTH_REQ */
+    smp_pair_terminate,                 /* SMP_PAIR_TERMINATE */
+    smp_idle_terminate                  /* SMP_IDLE_TERMINATE */
+};
 
 static const uint8_t smp_br_all_table[][SMP_BR_SM_NUM_COLS] = {
     /* Event              Action                   Next State */
@@ -296,7 +299,7 @@ const char* smp_get_br_event_name(tSMP_BR_EVENT event) {
  *
  ******************************************************************************/
 void smp_br_state_machine_event(tSMP_CB* p_cb, tSMP_BR_EVENT event,
-                                void* p_data) {
+                                tSMP_INT_DATA* p_data) {
   tSMP_BR_STATE curr_state = p_cb->br_state;
   tSMP_BR_SM_TBL state_table;
   uint8_t action, entry;
@@ -305,6 +308,12 @@ void smp_br_state_machine_event(tSMP_CB* p_cb, tSMP_BR_EVENT event,
   SMP_TRACE_EVENT("main %s", __func__);
   if (curr_state >= SMP_BR_STATE_MAX) {
     SMP_TRACE_DEBUG("Invalid br_state: %d", curr_state);
+    return;
+  }
+
+  if (p_cb->role > HCI_ROLE_SLAVE) {
+    SMP_TRACE_ERROR("%s: invalid role %d", __func__, p_cb->role);
+    android_errorWriteLog(0x534e4554, "80145946");
     return;
   }
 
@@ -343,7 +352,7 @@ void smp_br_state_machine_event(tSMP_CB* p_cb, tSMP_BR_EVENT event,
   for (uint8_t i = 0; i < SMP_BR_NUM_ACTIONS; i++) {
     action = state_table[entry - 1][i];
     if (action != SMP_BR_SM_NO_ACTION) {
-      (*smp_br_sm_action[action])(p_cb, (tSMP_INT_DATA*)p_data);
+      (*smp_br_sm_action[action])(p_cb, p_data);
     } else {
       break;
     }

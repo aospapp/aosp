@@ -16,7 +16,7 @@
 
 package android.cts.backup;
 
-import static junit.framework.Assert.assertNull;
+import static org.junit.Assert.assertNull;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -26,8 +26,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import java.io.FileNotFoundException;
 
 /**
  * Test for checking that key/value backup and restore works correctly.
@@ -60,6 +58,7 @@ public class KeyValueBackupRestoreHostSideTest extends BaseBackupHostSideTest {
 
 
     @Before
+    @Override
     public void setUp() throws Exception {
         super.setUp();
         installPackage(KEY_VALUE_RESTORE_APP_APK);
@@ -70,6 +69,7 @@ public class KeyValueBackupRestoreHostSideTest extends BaseBackupHostSideTest {
     }
 
     @After
+    @Override
     public void tearDown() throws Exception {
         super.tearDown();
 
@@ -138,6 +138,11 @@ public class KeyValueBackupRestoreHostSideTest extends BaseBackupHostSideTest {
      */
     @Test
     public void testSharedPreferencesRestore() throws Exception {
+        if (!mIsBackupSupported) {
+            CLog.i("android.software.backup feature is not supported on this device");
+            return;
+        }
+
         checkDeviceTest("launchSharedPrefActivity");
 
         backupNowAndAssertSuccess(SHARED_PREFERENCES_RESTORE_APP_PACKAGE);

@@ -36,32 +36,30 @@ class DvbManager {
     static const int DVB_API_VERSION5 = 5;
 
     static const int FILTER_TYPE_OTHER =
-            com_android_tv_tuner_TunerHal_FILTER_TYPE_OTHER;
+        com_android_tv_tuner_TunerHal_FILTER_TYPE_OTHER;
     static const int FILTER_TYPE_AUDIO =
-            com_android_tv_tuner_TunerHal_FILTER_TYPE_AUDIO;
+        com_android_tv_tuner_TunerHal_FILTER_TYPE_AUDIO;
     static const int FILTER_TYPE_VIDEO =
-            com_android_tv_tuner_TunerHal_FILTER_TYPE_VIDEO;
+        com_android_tv_tuner_TunerHal_FILTER_TYPE_VIDEO;
     static const int FILTER_TYPE_PCR =
-            com_android_tv_tuner_TunerHal_FILTER_TYPE_PCR;
+        com_android_tv_tuner_TunerHal_FILTER_TYPE_PCR;
 
     static const int DELIVERY_SYSTEM_UNDEFINED =
-            com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_UNDEFINED;
+        com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_UNDEFINED;
     static const int DELIVERY_SYSTEM_ATSC =
-            com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_ATSC;
+        com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_ATSC;
     static const int DELIVERY_SYSTEM_DVBC =
-            com_android_tv_tuner_TunerHal_DDELIVERY_SYSTEM_DVBC;
+        com_android_tv_tuner_TunerHal_DDELIVERY_SYSTEM_DVBC;
     static const int DELIVERY_SYSTEM_DVBS =
-            com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBS;
+        com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBS;
     static const int DELIVERY_SYSTEM_DVBS2 =
-            com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBS2;
+        com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBS2;
     static const int DELIVERY_SYSTEM_DVBT =
-            com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBT;
+        com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBT;
     static const int DELIVERY_SYSTEM_DVBT2 =
-            com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBT2;
-
+        com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBT2;
 
     int mFeFd;
-    int mDemuxFd;
     int mDvrFd;
     int mPatFilterFd;
     int mDvbApiVersion;

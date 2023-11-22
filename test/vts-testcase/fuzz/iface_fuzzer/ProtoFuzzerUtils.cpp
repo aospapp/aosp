@@ -23,8 +23,8 @@
 
 #include "utils/InterfaceSpecUtil.h"
 
-using std::cout;
 using std::cerr;
+using std::cout;
 using std::string;
 using std::unordered_map;
 using std::vector;
@@ -34,25 +34,26 @@ namespace vts {
 namespace fuzzer {
 
 static void usage() {
-  fprintf(
-      stdout,
-      "Usage:\n"
-      "\n"
-      "./vts_proto_fuzzer <vts flags> -- <libfuzzer flags>\n"
-      "\n"
-      "VTS flags (strictly in form --flag=value):\n"
-      "\n"
-      "\tvts_binder_mode: if set, fuzzer will open the HAL in binder mode.\n"
-      "\tvts_exec_size: number of function calls per 1 run of "
-      "LLVMFuzzerTestOneInput.\n"
-      "\tvts_spec_dir: \":\"-separated list of directories on the target "
-      "containing .vts spec files.\n"
-      "\tvts_target_iface: name of interface targeted for fuzz, e.g. "
-      "\"INfc\".\n"
-      "\n"
-      "libfuzzer flags (strictly in form -flag=value):\n"
-      "\tUse -help=1 to see libfuzzer flags\n"
-      "\n");
+  cout
+      << "Usage:\n"
+         "\n"
+         "./vts_proto_fuzzer <vts flags> -- <libfuzzer flags>\n"
+         "\n"
+         "VTS flags (strictly in form --flag=value):\n"
+         "\n"
+         "\tvts_binder_mode: if set, fuzzer will open the HAL in binder mode.\n"
+         "\tvts_exec_size: number of function calls per 1 run of "
+         "LLVMFuzzerTestOneInput.\n"
+         "\tvts_spec_dir: \":\"-separated list of directories on the target "
+         "containing .vts spec files.\n"
+         "\tvts_target_iface: name of interface targeted for fuzz, e.g. "
+         "\"INfc\".\n"
+         "\tvts_seed: optional integral argument used to initalize the random "
+         "number generator.\n"
+         "\n"
+         "libfuzzer flags (strictly in form -flag=value):\n"
+         "\tUse -help=1 to see libfuzzer flags\n"
+         "\n";
 }
 
 static struct option long_options[] = {
@@ -60,6 +61,7 @@ static struct option long_options[] = {
     {"vts_binder_mode", no_argument, 0, 'b'},
     {"vts_spec_dir", required_argument, 0, 'd'},
     {"vts_exec_size", required_argument, 0, 'e'},
+    {"vts_seed", required_argument, 0, 's'},
     {"vts_target_iface", required_argument, 0, 't'}};
 
 // Removes information from CompSpec not needed by fuzzer.
@@ -86,12 +88,11 @@ static vector<CompSpec> ExtractCompSpecs(string arg) {
     struct dirent *ent;
     if (!(dir = opendir(dir_path.c_str()))) {
       cerr << "Could not open directory: " << dir_path << endl;
-      exit(1);
+      std::abort();
     }
     while ((ent = readdir(dir))) {
       string vts_spec_name{ent->d_name};
       if (vts_spec_name.find(".vts") != string::npos) {
-        cout << "Loading: " << vts_spec_name << endl;
         string vts_spec_path = dir_path + "/" + vts_spec_name;
         CompSpec comp_spec{};
         ParseInterfaceSpec(vts_spec_path.c_str(), &comp_spec);
@@ -107,7 +108,12 @@ static void ExtractPredefinedTypesFromVar(
     const TypeSpec &var_spec,
     unordered_map<string, TypeSpec> &predefined_types) {
   predefined_types[var_spec.name()] = var_spec;
+  // Find all nested struct declarations.
   for (const auto &sub_var_spec : var_spec.sub_struct()) {
+    ExtractPredefinedTypesFromVar(sub_var_spec, predefined_types);
+  }
+  // Find all nested union declarations.
+  for (const auto &sub_var_spec : var_spec.sub_union()) {
     ExtractPredefinedTypesFromVar(sub_var_spec, predefined_types);
   }
 }
@@ -120,7 +126,7 @@ ProtoFuzzerParams ExtractProtoFuzzerParams(int argc, char **argv) {
     switch (opt) {
       case 'h':
         usage();
-        exit(0);
+        std::abort();
       case 'b':
         params.binder_mode_ = true;
         break;
@@ -128,7 +134,10 @@ ProtoFuzzerParams ExtractProtoFuzzerParams(int argc, char **argv) {
         params.comp_specs_ = ExtractCompSpecs(optarg);
         break;
       case 'e':
-        params.exec_size_ = atoi(optarg);
+        params.exec_size_ = std::stoul(optarg);
+        break;
+      case 's':
+        params.seed_ = std::stoull(optarg);
         break;
       case 't':
         params.target_iface_ = optarg;
@@ -139,6 +148,19 @@ ProtoFuzzerParams ExtractProtoFuzzerParams(int argc, char **argv) {
     }
   }
   return params;
+}
+
+string ProtoFuzzerParams::DebugString() const {
+  std::stringstream ss;
+  ss << "Execution size: " << exec_size_ << endl;
+  ss << "Target interface: " << target_iface_ << endl;
+  ss << "Binder mode: " << binder_mode_ << endl;
+  ss << "Seed: " << seed_ << endl;
+  ss << "Loaded specs: " << endl;
+  for (const auto &spec : comp_specs_) {
+    ss << spec.component_name() << endl;
+  }
+  return ss.str();
 }
 
 unordered_map<string, TypeSpec> ExtractPredefinedTypes(

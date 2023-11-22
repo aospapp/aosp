@@ -12,6 +12,8 @@ import android.content.res.TypedArray;
 import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Message;
+import android.os.PersistableBundle;
+import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.TelephonyManager;
 import android.text.BidiFormatter;
@@ -160,7 +162,18 @@ public class CallForwardEditPreference extends EditPhoneNumberPreference {
         }
 
         setToggled(callForwardInfo.status == 1);
-        setPhoneNumber(callForwardInfo.number);
+        boolean displayVoicemailNumber = false;
+        if (TextUtils.isEmpty(callForwardInfo.number)) {
+            PersistableBundle carrierConfig =
+                    PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
+            if (carrierConfig != null) {
+                displayVoicemailNumber = carrierConfig.getBoolean(CarrierConfigManager
+                        .KEY_DISPLAY_VOICEMAIL_NUMBER_AS_DEFAULT_CALL_FORWARDING_NUMBER_BOOL);
+                Log.d(LOG_TAG, "display voicemail number as default");
+            }
+        }
+        String voicemailNumber = mPhone.getVoiceMailNumber();
+        setPhoneNumber(displayVoicemailNumber ? voicemailNumber : callForwardInfo.number);
     }
 
     private void updateSummaryText() {
@@ -264,6 +277,13 @@ public class CallForwardEditPreference extends EditPhoneNumberPreference {
                             if (msg.arg2 == MESSAGE_SET_CF &&
                                     msg.arg1 == CommandsInterface.CF_ACTION_DISABLE &&
                                     info.status == 1) {
+                                // Skip showing error dialog since some operators return
+                                // active status even if disable call forward succeeded.
+                                // And they don't like the error dialog.
+                                if (isSkipCFFailToDisableDialog()) {
+                                    Log.d(LOG_TAG, "Skipped Callforwarding fail-to-disable dialog");
+                                    continue;
+                                }
                                 CharSequence s;
                                 switch (reason) {
                                     case CommandsInterface.CF_REASON_BUSY:
@@ -303,6 +323,24 @@ public class CallForwardEditPreference extends EditPhoneNumberPreference {
             Log.d(LOG_TAG, "handleSetCFResponse: re get");
             mPhone.getCallForwardingOption(reason,
                     obtainMessage(MESSAGE_GET_CF, msg.arg1, MESSAGE_SET_CF, ar.exception));
+        }
+    }
+
+    /*
+     * Get the config of whether skip showing CF fail-to-disable dialog
+     * from carrier config manager.
+     *
+     * @return boolean value of the config
+     */
+    private boolean isSkipCFFailToDisableDialog() {
+        PersistableBundle carrierConfig =
+                PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
+        if (carrierConfig != null) {
+            return carrierConfig.getBoolean(
+                    CarrierConfigManager.KEY_SKIP_CF_FAIL_TO_DISABLE_DIALOG_BOOL);
+        } else {
+            // by default we should not skip
+            return false;
         }
     }
 }

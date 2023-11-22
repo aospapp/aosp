@@ -12,10 +12,15 @@ package android.icu.dev.test.format;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.RuleBasedNumberFormat;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class RbnfRoundTripTest extends TestFmwk {
     /**
      * Perform an exhaustive round-trip test on the English spellout rules

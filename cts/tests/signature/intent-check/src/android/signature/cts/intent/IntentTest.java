@@ -127,24 +127,20 @@ public class IntentTest {
 
         Set<String> androidIntents = new HashSet<>();
 
-        ApiDocumentParser apiDocumentParser = new ApiDocumentParser(TAG,
-                new ApiDocumentParser.Listener() {
-                    @Override
-                    public void completedClass(JDiffClassDescription classDescription) {
-                        for (JDiffField diffField : classDescription.getFieldList()) {
-                            String fieldValue = diffField.getValueString();
-                            if (fieldValue != null) {
-                                fieldValue = fieldValue.replace("\"", "");
-                                if (fieldValue.startsWith(ANDROID_INTENT_PREFIX)) {
-                                    androidIntents.add(fieldValue);
-                                }
+        ApiDocumentParser apiDocumentParser = new ApiDocumentParser(TAG);
+
+        apiDocumentParser.parseAsStream(new FileInputStream(new File(apiFileName))).forEach(
+                classDescription -> {
+                    for (JDiffField diffField : classDescription.getFieldList()) {
+                        String fieldValue = diffField.getValueString();
+                        if (fieldValue != null) {
+                            fieldValue = fieldValue.replace("\"", "");
+                            if (fieldValue.startsWith(ANDROID_INTENT_PREFIX)) {
+                                androidIntents.add(fieldValue);
                             }
                         }
-
                     }
                 });
-
-        apiDocumentParser.parse(new FileInputStream(new File(apiFileName)));
 
         return androidIntents;
     }

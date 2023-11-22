@@ -15,7 +15,7 @@
  */
 
 #include "builder.h"
-#include "dex_instruction.h"
+#include "dex/dex_instruction.h"
 #include "nodes.h"
 #include "optimizing_unit_test.h"
 #include "pretty_printer.h"
@@ -28,10 +28,13 @@ namespace art {
  * Check that the HGraphBuilder adds suspend checks to backward branches.
  */
 
-static void TestCode(const uint16_t* data) {
-  ArenaPool pool;
-  ArenaAllocator allocator(&pool);
-  HGraph* graph = CreateCFG(&allocator, data);
+class SuspendCheckTest : public OptimizingUnitTest {
+ protected:
+  void TestCode(const std::vector<uint16_t>& data);
+};
+
+void SuspendCheckTest::TestCode(const std::vector<uint16_t>& data) {
+  HGraph* graph = CreateCFG(data);
   HBasicBlock* first_block = graph->GetEntryBlock()->GetSingleSuccessor();
   HBasicBlock* loop_header = first_block->GetSingleSuccessor();
   ASSERT_TRUE(loop_header->IsLoopHeader());
@@ -39,10 +42,8 @@ static void TestCode(const uint16_t* data) {
   ASSERT_TRUE(loop_header->GetFirstInstruction()->IsSuspendCheck());
 }
 
-class SuspendCheckTest : public CommonCompilerTest {};
-
 TEST_F(SuspendCheckTest, CFG1) {
-  const uint16_t data[] = ZERO_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ZERO_REGISTER_CODE_ITEM(
     Instruction::NOP,
     Instruction::GOTO | 0xFF00);
 
@@ -50,14 +51,14 @@ TEST_F(SuspendCheckTest, CFG1) {
 }
 
 TEST_F(SuspendCheckTest, CFG2) {
-  const uint16_t data[] = ZERO_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ZERO_REGISTER_CODE_ITEM(
     Instruction::GOTO_32, 0, 0);
 
   TestCode(data);
 }
 
 TEST_F(SuspendCheckTest, CFG3) {
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQ, 0xFFFF,
     Instruction::RETURN_VOID);
@@ -66,7 +67,7 @@ TEST_F(SuspendCheckTest, CFG3) {
 }
 
 TEST_F(SuspendCheckTest, CFG4) {
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_NE, 0xFFFF,
     Instruction::RETURN_VOID);
@@ -75,7 +76,7 @@ TEST_F(SuspendCheckTest, CFG4) {
 }
 
 TEST_F(SuspendCheckTest, CFG5) {
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_EQZ, 0xFFFF,
     Instruction::RETURN_VOID);
@@ -84,7 +85,7 @@ TEST_F(SuspendCheckTest, CFG5) {
 }
 
 TEST_F(SuspendCheckTest, CFG6) {
-  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+  const std::vector<uint16_t> data = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
     Instruction::IF_NEZ, 0xFFFF,
     Instruction::RETURN_VOID);

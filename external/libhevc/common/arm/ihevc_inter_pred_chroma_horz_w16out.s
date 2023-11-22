@@ -90,6 +90,9 @@
 @r2 =>  src_strd
 @r3 =>  dst_strd
 
+.equ    coeff_offset,   104
+.equ    ht_offset,      108
+.equ    wd_offset,      112
 
 .text
 .align 4
@@ -105,10 +108,11 @@
 ihevc_inter_pred_chroma_horz_w16out_a9q:
 
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
+    vpush        {d8 - d15}
 
-    ldr         r4,[sp,#40]                 @loads pi1_coeff
-    ldr         r6,[sp,#44]                 @loads ht
-    ldr         r10,[sp,#48]                @loads wd
+    ldr         r4,[sp,#coeff_offset]                 @loads pi1_coeff
+    ldr         r6,[sp,#ht_offset]                 @loads ht
+    ldr         r10,[sp,#wd_offset]                @loads wd
 
     vld1.8      {d0},[r4]                   @coeff = vld1_s8(pi1_coeff)
     subs        r14,r6,#0                   @checks for ht == 0
@@ -362,7 +366,7 @@ epilog_end:
     vst1.16     {q10},[r1],r6               @store the result pu1_dst
 
 
-    ldr         r6,[sp,#44]                 @loads ht
+    ldr         r6,[sp,#ht_offset]                 @loads ht
 
     and         r7,r6,#1
 
@@ -710,6 +714,7 @@ loop_residue:
 
 end_loops:
 
+    vpop         {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 

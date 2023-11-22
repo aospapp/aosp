@@ -87,6 +87,61 @@ const uint8_t kXzCompressedData[] = {
     0x00, 0x00, 0x59, 0x5a,
 };
 
+const uint8_t src_deflates[] = {
+  /* raw      0  */ 0x11, 0x22,
+  /* deflate  2  */ 0x63, 0x64, 0x62, 0x66, 0x61, 0x05, 0x00,
+  /* raw      9  */ 0x33,
+  /* deflate  10 */ 0x03, 0x00,
+  /* raw      12 */
+  /* deflate  12 */ 0x63, 0x04, 0x00,
+  /* raw      15 */ 0x44, 0x55
+};
+
+const uint8_t dst_deflates[] = {
+  /* deflate  0  */ 0x63, 0x64, 0x62, 0x66, 0x61, 0x05, 0x00,
+  /* raw      7  */ 0x33, 0x66,
+  /* deflate  9  */ 0x01, 0x05, 0x00, 0xFA, 0xFF, 0x01, 0x02, 0x03, 0x04, 0x05,
+  /* deflate  19 */ 0x63, 0x04, 0x00
+};
+
+// To generate this patch either:
+// - Use puffin/src/patching_unittest.cc:TestPatching
+// Or
+// - Use the following approach:
+// * Make src_deflate a string of hex with only spaces. (e.g. "0XTE 0xST")
+// * echo "0XTE 0xST" | xxd -r -p > src.bin
+// * Find the location of deflates in src_deflates (in bytes) in the format of
+//   "offset:length,...". (e.g. "2:7,10:2,12:3")
+// * Do previous three steps for dst_deflates.
+// * puffin --operation=puffdiff --src_file=src.bin --dst_file=dst.bin \
+//   --src_deflates_byte="2:7,10:2,12:3" --dst_deflates_byte="0:7,9:10,19:3" \
+//   --patch_file=patch.bin
+// * hexdump -ve '"  " 12/1 "0x%02x, " "\n"' patch.bin
+const uint8_t puffdiff_patch[] = {
+  0x50, 0x55, 0x46, 0x31, 0x00, 0x00, 0x00, 0x51, 0x08, 0x01, 0x12, 0x27,
+  0x0A, 0x04, 0x08, 0x10, 0x10, 0x32, 0x0A, 0x04, 0x08, 0x50, 0x10, 0x0A,
+  0x0A, 0x04, 0x08, 0x60, 0x10, 0x12, 0x12, 0x04, 0x08, 0x10, 0x10, 0x58,
+  0x12, 0x04, 0x08, 0x78, 0x10, 0x28, 0x12, 0x05, 0x08, 0xA8, 0x01, 0x10,
+  0x38, 0x18, 0x1F, 0x1A, 0x24, 0x0A, 0x02, 0x10, 0x32, 0x0A, 0x04, 0x08,
+  0x48, 0x10, 0x50, 0x0A, 0x05, 0x08, 0x98, 0x01, 0x10, 0x12, 0x12, 0x02,
+  0x10, 0x58, 0x12, 0x04, 0x08, 0x70, 0x10, 0x58, 0x12, 0x05, 0x08, 0xC8,
+  0x01, 0x10, 0x38, 0x18, 0x21, 0x42, 0x53, 0x44, 0x49, 0x46, 0x46, 0x34,
+  0x30, 0x38, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x34, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x42, 0x5A, 0x68, 0x39, 0x31, 0x41, 0x59, 0x26, 0x53, 0x59, 0x65,
+  0x29, 0x8C, 0x9B, 0x00, 0x00, 0x03, 0x60, 0x40, 0x7A, 0x0E, 0x08, 0x00,
+  0x40, 0x00, 0x20, 0x00, 0x21, 0x22, 0x9A, 0x3D, 0x4F, 0x50, 0x40, 0x0C,
+  0x3B, 0xC7, 0x9B, 0xB2, 0x21, 0x0E, 0xE9, 0x15, 0x98, 0x7A, 0x7C, 0x5D,
+  0xC9, 0x14, 0xE1, 0x42, 0x41, 0x94, 0xA6, 0x32, 0x6C, 0x42, 0x5A, 0x68,
+  0x39, 0x31, 0x41, 0x59, 0x26, 0x53, 0x59, 0xF1, 0x20, 0x5F, 0x0D, 0x00,
+  0x00, 0x02, 0x41, 0x15, 0x42, 0x08, 0x20, 0x00, 0x40, 0x00, 0x00, 0x02,
+  0x40, 0x00, 0x20, 0x00, 0x22, 0x3D, 0x23, 0x10, 0x86, 0x03, 0x96, 0x54,
+  0x11, 0x16, 0x5F, 0x17, 0x72, 0x45, 0x38, 0x50, 0x90, 0xF1, 0x20, 0x5F,
+  0x0D, 0x42, 0x5A, 0x68, 0x39, 0x31, 0x41, 0x59, 0x26, 0x53, 0x59, 0x07,
+  0xD4, 0xCB, 0x6E, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x20, 0x00,
+  0x21, 0x18, 0x46, 0x82, 0xEE, 0x48, 0xA7, 0x0A, 0x12, 0x00, 0xFA, 0x99,
+  0x6D, 0xC0};
+
 }  // namespace
 
 class DeltaPerformerTest : public ::testing::Test {
@@ -262,20 +317,20 @@ class DeltaPerformerTest : public ::testing::Test {
 
     install_plan_.hash_checks_mandatory = hash_checks_mandatory;
 
-    DeltaPerformer::MetadataParseResult expected_result, actual_result;
+    MetadataParseResult expected_result, actual_result;
     ErrorCode expected_error, actual_error;
 
     // Fill up the metadata signature in install plan according to the test.
     switch (metadata_signature_test) {
       case kEmptyMetadataSignature:
         payload_.metadata_signature.clear();
-        expected_result = DeltaPerformer::kMetadataParseError;
+        expected_result = MetadataParseResult::kError;
         expected_error = ErrorCode::kDownloadMetadataSignatureMissingError;
         break;
 
       case kInvalidMetadataSignature:
         payload_.metadata_signature = kBogusMetadataSignature1;
-        expected_result = DeltaPerformer::kMetadataParseError;
+        expected_result = MetadataParseResult::kError;
         expected_error = ErrorCode::kDownloadMetadataSignatureMismatch;
         break;
 
@@ -290,14 +345,14 @@ class DeltaPerformerTest : public ::testing::Test {
             GetBuildArtifactsPath(kUnittestPrivateKeyPath),
             &payload_.metadata_signature));
         EXPECT_FALSE(payload_.metadata_signature.empty());
-        expected_result = DeltaPerformer::kMetadataParseSuccess;
+        expected_result = MetadataParseResult::kSuccess;
         expected_error = ErrorCode::kSuccess;
         break;
     }
 
     // Ignore the expected result/error if hash checks are not mandatory.
     if (!hash_checks_mandatory) {
-      expected_result = DeltaPerformer::kMetadataParseSuccess;
+      expected_result = MetadataParseResult::kSuccess;
       expected_error = ErrorCode::kSuccess;
     }
 
@@ -317,7 +372,7 @@ class DeltaPerformerTest : public ::testing::Test {
 
     // Check that the parsed metadata size is what's expected. This test
     // implicitly confirms that the metadata signature is valid, if required.
-    EXPECT_EQ(payload_.metadata_size, performer_.GetMetadataSize());
+    EXPECT_EQ(payload_.metadata_size, performer_.metadata_size_);
   }
 
   void SetSupportedMajorVersion(uint64_t major_version) {
@@ -334,7 +389,8 @@ class DeltaPerformerTest : public ::testing::Test {
                             &fake_hardware_,
                             &mock_delegate_,
                             &install_plan_,
-                            &payload_};
+                            &payload_,
+                            false /* is_interactive*/};
 };
 
 TEST_F(DeltaPerformerTest, FullPayloadWriteTest) {
@@ -375,7 +431,7 @@ TEST_F(DeltaPerformerTest, ShouldCancelTest) {
   testing::Mock::VerifyAndClearExpectations(&mock_delegate_);
   EXPECT_CALL(mock_delegate_, ShouldCancel(_))
       .WillOnce(
-          testing::DoAll(testing::SetArgumentPointee<0>(ErrorCode::kError),
+          testing::DoAll(testing::SetArgPointee<0>(ErrorCode::kError),
                          testing::Return(true)));
 
   ApplyPayload(payload_data, "/dev/null", false);
@@ -483,6 +539,32 @@ TEST_F(DeltaPerformerTest, SourceCopyOperationTest) {
                                expected_data.size()));
 
   EXPECT_EQ(expected_data, ApplyPayload(payload_data, source_path, true));
+}
+
+TEST_F(DeltaPerformerTest, PuffdiffOperationTest) {
+  AnnotatedOperation aop;
+  *(aop.op.add_src_extents()) = ExtentForRange(0, 1);
+  *(aop.op.add_dst_extents()) = ExtentForRange(0, 1);
+  brillo::Blob puffdiff_payload(std::begin(puffdiff_patch),
+                                std::end(puffdiff_patch));
+  aop.op.set_data_offset(0);
+  aop.op.set_data_length(puffdiff_payload.size());
+  aop.op.set_type(InstallOperation::PUFFDIFF);
+  brillo::Blob src(std::begin(src_deflates), std::end(src_deflates));
+  src.resize(4096);  // block size
+  brillo::Blob src_hash;
+  EXPECT_TRUE(HashCalculator::RawHashOfData(src, &src_hash));
+  aop.op.set_src_sha256_hash(src_hash.data(), src_hash.size());
+
+  brillo::Blob payload_data = GeneratePayload(puffdiff_payload, {aop}, false);
+
+  string source_path;
+  EXPECT_TRUE(utils::MakeTempFile("Source-XXXXXX", &source_path, nullptr));
+  ScopedPathUnlinker path_unlinker(source_path);
+  EXPECT_TRUE(utils::WriteFile(source_path.c_str(), src.data(), src.size()));
+
+  brillo::Blob dst(std::begin(dst_deflates), std::end(dst_deflates));
+  EXPECT_EQ(dst, ApplyPayload(payload_data, source_path, true));
 }
 
 TEST_F(DeltaPerformerTest, SourceHashMismatchTest) {
@@ -639,46 +721,52 @@ TEST_F(DeltaPerformerTest, ValidateManifestBadMinorVersion) {
                         ErrorCode::kUnsupportedMinorPayloadVersion);
 }
 
+TEST_F(DeltaPerformerTest, ValidateManifestDowngrade) {
+  // The Manifest we are validating.
+  DeltaArchiveManifest manifest;
+
+  manifest.set_minor_version(kFullPayloadMinorVersion);
+  manifest.set_max_timestamp(1);
+  fake_hardware_.SetBuildTimestamp(2);
+
+  RunManifestValidation(manifest,
+                        DeltaPerformer::kSupportedMajorPayloadVersion,
+                        InstallPayloadType::kFull,
+                        ErrorCode::kPayloadTimestampError);
+}
+
 TEST_F(DeltaPerformerTest, BrilloMetadataSignatureSizeTest) {
   EXPECT_TRUE(performer_.Write(kDeltaMagic, sizeof(kDeltaMagic)));
 
   uint64_t major_version = htobe64(kBrilloMajorPayloadVersion);
   EXPECT_TRUE(performer_.Write(&major_version, 8));
 
-  uint64_t manifest_size = rand() % 256;
+  uint64_t manifest_size = 222;
   uint64_t manifest_size_be = htobe64(manifest_size);
   EXPECT_TRUE(performer_.Write(&manifest_size_be, 8));
 
-  uint32_t metadata_signature_size = rand() % 256;
+  uint32_t metadata_signature_size = 111;
   uint32_t metadata_signature_size_be = htobe32(metadata_signature_size);
   EXPECT_TRUE(performer_.Write(&metadata_signature_size_be, 4));
 
   EXPECT_LT(performer_.Close(), 0);
 
   EXPECT_TRUE(performer_.IsHeaderParsed());
-  EXPECT_EQ(kBrilloMajorPayloadVersion, performer_.GetMajorVersion());
-  uint64_t manifest_offset;
-  EXPECT_TRUE(performer_.GetManifestOffset(&manifest_offset));
-  EXPECT_EQ(24U, manifest_offset);  // 4 + 8 + 8 + 4
-  EXPECT_EQ(manifest_offset + manifest_size, performer_.GetMetadataSize());
+  EXPECT_EQ(kBrilloMajorPayloadVersion, performer_.major_payload_version_);
+  EXPECT_EQ(24 + manifest_size, performer_.metadata_size_);  // 4 + 8 + 8 + 4
   EXPECT_EQ(metadata_signature_size, performer_.metadata_signature_size_);
 }
 
-TEST_F(DeltaPerformerTest, BrilloVerifyMetadataSignatureTest) {
+TEST_F(DeltaPerformerTest, BrilloParsePayloadMetadataTest) {
   brillo::Blob payload_data = GeneratePayload({}, {}, true,
                                               kBrilloMajorPayloadVersion,
                                               kSourceMinorPayloadVersion);
   install_plan_.hash_checks_mandatory = true;
-  // Just set these value so that we can use ValidateMetadataSignature directly.
-  performer_.major_payload_version_ = kBrilloMajorPayloadVersion;
-  performer_.metadata_size_ = payload_.metadata_size;
-  uint64_t signature_length;
-  EXPECT_TRUE(PayloadSigner::SignatureBlobLength(
-      {GetBuildArtifactsPath(kUnittestPrivateKeyPath)}, &signature_length));
-  performer_.metadata_signature_size_ = signature_length;
   performer_.set_public_key_path(GetBuildArtifactsPath(kUnittestPublicKeyPath));
-  EXPECT_EQ(ErrorCode::kSuccess,
-            performer_.ValidateMetadataSignature(payload_data));
+  ErrorCode error;
+  EXPECT_EQ(MetadataParseResult::kSuccess,
+            performer_.ParsePayloadMetadata(payload_data, &error));
+  EXPECT_EQ(ErrorCode::kSuccess, error);
 }
 
 TEST_F(DeltaPerformerTest, BadDeltaMagicTest) {
@@ -752,14 +840,15 @@ TEST_F(DeltaPerformerTest, UsePublicKeyFromResponse) {
 
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-  string non_existing_file = temp_dir.path().Append("non-existing").value();
-  string existing_file = temp_dir.path().Append("existing").value();
+  string non_existing_file = temp_dir.GetPath().Append("non-existing").value();
+  string existing_file = temp_dir.GetPath().Append("existing").value();
   EXPECT_EQ(0, System(base::StringPrintf("touch %s", existing_file.c_str())));
 
   // Non-official build, non-existing public-key, key in response -> true
   fake_hardware_.SetIsOfficialBuild(false);
   performer_.public_key_path_ = non_existing_file;
-  install_plan_.public_key_rsa = "VGVzdAo="; // result of 'echo "Test" | base64'
+  // result of 'echo "Test" | base64'
+  install_plan_.public_key_rsa = "VGVzdAo=";
   EXPECT_TRUE(performer_.GetPublicKeyFromResponse(&key_path));
   EXPECT_FALSE(key_path.empty());
   EXPECT_EQ(unlink(key_path.value().c_str()), 0);
@@ -770,7 +859,8 @@ TEST_F(DeltaPerformerTest, UsePublicKeyFromResponse) {
   // Non-official build, existing public-key, key in response -> false
   fake_hardware_.SetIsOfficialBuild(false);
   performer_.public_key_path_ = existing_file;
-  install_plan_.public_key_rsa = "VGVzdAo="; // result of 'echo "Test" | base64'
+  // result of 'echo "Test" | base64'
+  install_plan_.public_key_rsa = "VGVzdAo=";
   EXPECT_FALSE(performer_.GetPublicKeyFromResponse(&key_path));
   // Same with official build -> false
   fake_hardware_.SetIsOfficialBuild(true);
@@ -816,22 +906,6 @@ TEST_F(DeltaPerformerTest, ConfVersionsMatch) {
   EXPECT_TRUE(store.GetString("PAYLOAD_MAJOR_VERSION", &major_version_str));
   EXPECT_TRUE(base::StringToUint64(major_version_str, &major_version));
   EXPECT_EQ(DeltaPerformer::kSupportedMajorPayloadVersion, major_version);
-}
-
-// Test that we recognize our own zlib compressor implementation as supported.
-// All other equivalent implementations should be added to
-// kCompatibleZlibFingerprint.
-TEST_F(DeltaPerformerTest, ZlibFingerprintMatch) {
-  string fingerprint;
-#ifdef __ANDROID__
-  const std::string kZlibFingerprintPath =
-      test_utils::GetBuildArtifactsPath("zlib_fingerprint");
-#else
-  const std::string kZlibFingerprintPath = "/etc/zlib_fingerprint";
-#endif  // __ANDROID__
-  EXPECT_TRUE(base::ReadFileToString(base::FilePath(kZlibFingerprintPath),
-                                     &fingerprint));
-  EXPECT_TRUE(utils::IsZlibCompatible(fingerprint));
 }
 
 }  // namespace chromeos_update_engine

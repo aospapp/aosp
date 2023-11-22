@@ -8,7 +8,7 @@
  *******************************************************************************
  */
 
-/** 
+/**
  * Port From:   ICU4C v2.1 : collate/CollationIteratorTest
  * Source File: $ICU4CRoot/source/test/intltest/itercoll.cpp
  **/
@@ -21,6 +21,8 @@ import java.util.Arrays;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.lang.UCharacter;
@@ -29,12 +31,15 @@ import android.icu.text.Collator;
 import android.icu.text.RuleBasedCollator;
 import android.icu.text.UCharacterIterator;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class CollationIteratorTest extends TestFmwk {
-    
+
     String test1 = "What subset of all possible test cases?";
     String test2 = "has the highest probability of detecting";
-   
+
     /*
      * @bug 4157299
      */
@@ -47,7 +52,7 @@ public class CollationIteratorTest extends TestFmwk {
             warnln("Couldn't create a RuleBasedCollator.");
             return;
         }
-    
+
         String source = "abcd";
         CollationElementIterator i = c.getCollationElementIterator(source);
         int e0 = 0;
@@ -57,27 +62,27 @@ public class CollationIteratorTest extends TestFmwk {
             errln("call to i.next() failed.");
             return;
         }
-            
+
         try {
             i.setOffset(3);        // go to the expanding character
         } catch (Exception e) {
             errln("call to i.setOffset(3) failed.");
             return;
         }
-        
+
         try {
             i.next();                // but only use up half of it
         } catch (Exception e) {
             errln("call to i.next() failed.");
             return;
         }
-            
+
         try {
             i.setOffset(0);        // go back to the beginning
         } catch (Exception e) {
             errln("call to i.setOffset(0) failed. ");
         }
-        
+
         int e = 0;
         try {
             e = i.next();    // and get this one again
@@ -85,12 +90,12 @@ public class CollationIteratorTest extends TestFmwk {
             errln("call to i.next() failed. ");
             return;
         }
-        
+
         if (e != e0) {
             errln("got 0x" + Integer.toHexString(e) + ", expected 0x" + Integer.toHexString(e0));
         }
     }
-    
+
     /** @bug 4108762
      * Test for getMaxExpansion()
      */
@@ -107,37 +112,37 @@ public class CollationIteratorTest extends TestFmwk {
         }
         char ch = 0;
         String str = String.valueOf(ch);
-    
+
         CollationElementIterator iter = coll.getCollationElementIterator(str);
-    
+
         while (ch < 0xFFFF) {
             int count = 1;
             ch ++;
             str = String.valueOf(ch);
             iter.setText(str);
             int order = iter.previous();
-    
-            // thai management 
+
+            // thai management
             if (order == 0) {
                 order = iter.previous();
             }
-    
+
             while (iter.previous() != CollationElementIterator.NULLORDER) {
-                count ++; 
+                count ++;
             }
-    
+
             if (iter.getMaxExpansion(order) < count) {
                 errln("Failure at codepoint " + ch + ", maximum expansion count < " + count);
             }
         }
-        
-        // testing for exact max expansion 
+
+        // testing for exact max expansion
         ch = 0;
         while (ch < 0x61) {
             str = String.valueOf(ch);
             iter.setText(str);
             int order = iter.previous();
-            
+
             if (iter.getMaxExpansion(order) != 1) {
                 errln("Failure at codepoint 0x" + Integer.toHexString(ch)
                       + " maximum expansion count == 1");
@@ -149,7 +154,7 @@ public class CollationIteratorTest extends TestFmwk {
         str = String.valueOf(ch);
         iter.setText(str);
         int temporder = iter.previous();
-            
+
         if (iter.getMaxExpansion(temporder) != 3) {
             errln("Failure at codepoint 0x" + Integer.toHexString(ch)
                                   + " maximum expansion count == 3");
@@ -159,7 +164,7 @@ public class CollationIteratorTest extends TestFmwk {
         str = String.valueOf(ch);
         iter.setText(str);
         temporder = iter.previous();
-            
+
         if (iter.getMaxExpansion(temporder) != 1) {
             errln("Failure at codepoint 0x" + Integer.toHexString(ch)
                                   + " maximum expansion count == 1");
@@ -168,7 +173,7 @@ public class CollationIteratorTest extends TestFmwk {
         str = UCharacter.toString(unassigned);
         iter.setText(str);
         temporder = iter.previous();
-            
+
         if (iter.getMaxExpansion(temporder) != 2) {
             errln("Failure at codepoint 0x" + Integer.toHexString(ch)
                                   + " maximum expansion count == 2");
@@ -180,7 +185,7 @@ public class CollationIteratorTest extends TestFmwk {
         str = String.valueOf(ch);
         iter.setText(str);
         temporder = iter.previous();
-            
+
         if (iter.getMaxExpansion(temporder) > 3) {
             errln("Failure at codepoint 0x" + Integer.toHexString(ch)
                                           + " maximum expansion count < 3");
@@ -196,15 +201,15 @@ public class CollationIteratorTest extends TestFmwk {
             return;
         }
         iter = coll.getCollationElementIterator(str);
-        
+
         temporder = iter.previous();
-            
+
         if (iter.getMaxExpansion(temporder) != 6) {
             errln("Failure at codepoint 0x" + Integer.toHexString(ch)
                                          + " maximum expansion count == 6");
         }
     }
-    
+
     /**
      * Test for getOffset() and setOffset()
      */
@@ -212,7 +217,7 @@ public class CollationIteratorTest extends TestFmwk {
     public void TestOffset(/* char* par */) {
         RuleBasedCollator en_us;
         try {
-            en_us = (RuleBasedCollator)Collator.getInstance(Locale.US);    
+            en_us = (RuleBasedCollator)Collator.getInstance(Locale.US);
         } catch (Exception e) {
             warnln("ERROR: in creation of collator of ENGLISH locale");
             return;
@@ -227,32 +232,32 @@ public class CollationIteratorTest extends TestFmwk {
         }
         iter.setOffset(test1.length());
         if (iter.next() != CollationElementIterator.NULLORDER) {
-            errln("Error: After setting offset to the end of the string, we " 
+            errln("Error: After setting offset to the end of the string, we "
                   + "should be at the end of the forwards iteration");
         }
-    
+
         // Run all the way through the iterator, then get the offset
         int[] orders = CollationTest.getOrders(iter);
         logln("orders.length = " + orders.length);
-        
+
         int offset = iter.getOffset();
-    
+
         if (offset != test1.length()) {
             String msg1 = "offset at end != length: ";
             String msg2 = " vs ";
             errln(msg1 + offset + msg2 + test1.length());
         }
-    
+
         // Now set the offset back to the beginning and see if it works
         CollationElementIterator pristine = en_us.getCollationElementIterator(test1);
-        
+
         try {
             iter.setOffset(0);
         } catch(Exception e) {
             errln("setOffset failed.");
         }
         assertEqual(iter, pristine);
-    
+
         // setting offset in the middle of a contraction
         String contraction = "change";
         RuleBasedCollator tailored = null;
@@ -298,8 +303,8 @@ public class CollationIteratorTest extends TestFmwk {
         }
         // TODO: try iterating halfway through a messy string.
     }
-    
-    
+
+
 
     void assertEqual(CollationElementIterator i1, CollationElementIterator i2) {
         int c1, c2, count = 0;
@@ -307,7 +312,7 @@ public class CollationIteratorTest extends TestFmwk {
             c1 = i1.next();
             c2 = i2.next();
             if (c1 != c2) {
-                errln("    " + count + ": strength(0x" + 
+                errln("    " + count + ": strength(0x" +
                     Integer.toHexString(c1) + ") != strength(0x" + Integer.toHexString(c2) + ")");
                 break;
             }
@@ -316,21 +321,21 @@ public class CollationIteratorTest extends TestFmwk {
         CollationTest.backAndForth(this, i1);
         CollationTest.backAndForth(this, i2);
     }
-    
+
     /**
      * Test for CollationElementIterator.previous()
      *
      * @bug 4108758 - Make sure it works with contracting characters
-     * 
+     *
      */
     @Test
     public void TestPrevious(/* char* par */) {
         RuleBasedCollator en_us = (RuleBasedCollator)Collator.getInstance(Locale.US);
         CollationElementIterator iter = en_us.getCollationElementIterator(test1);
-    
+
         // A basic test to see if it's working at all
         CollationTest.backAndForth(this, iter);
-    
+
         // Test with a contracting character sequence
         String source;
         RuleBasedCollator c1 = null;
@@ -340,11 +345,11 @@ public class CollationIteratorTest extends TestFmwk {
             errln("Couldn't create a RuleBasedCollator with a contracting sequence.");
             return;
         }
-    
+
         source = "abchdcba";
         iter = c1.getCollationElementIterator(source);
         CollationTest.backAndForth(this, iter);
-    
+
         // Test with an expanding character sequence
         RuleBasedCollator c2 = null;
         try {
@@ -353,11 +358,11 @@ public class CollationIteratorTest extends TestFmwk {
             errln("Couldn't create a RuleBasedCollator with an expanding sequence.");
             return;
         }
-    
+
         source = "abcd";
         iter = c2.getCollationElementIterator(source);
         CollationTest.backAndForth(this, iter);
-    
+
         // Now try both
         RuleBasedCollator c3 = null;
         try {
@@ -366,11 +371,11 @@ public class CollationIteratorTest extends TestFmwk {
             errln("Couldn't create a RuleBasedCollator with both an expanding and a contracting sequence.");
             return;
         }
-        
+
         source = "abcdbchdc";
         iter = c3.getCollationElementIterator(source);
         CollationTest.backAndForth(this, iter);
-    
+
         source= "\u0e41\u0e02\u0e41\u0e02\u0e27abc";
         Collator c4 = null;
         try {
@@ -379,10 +384,10 @@ public class CollationIteratorTest extends TestFmwk {
             errln("Couldn't create a collator");
             return;
         }
-        
+
         iter = ((RuleBasedCollator)c4).getCollationElementIterator(source);
         CollationTest.backAndForth(this, iter);
-       
+
         source= "\u0061\u30CF\u3099\u30FC";
         Collator c5 = null;
         try {
@@ -392,12 +397,12 @@ public class CollationIteratorTest extends TestFmwk {
             return;
         }
         iter = ((RuleBasedCollator)c5).getCollationElementIterator(source);
-        
+
         CollationTest.backAndForth(this, iter);
     }
-    
-    
-    
+
+
+
     /**
      * Test for setText()
      */
@@ -406,11 +411,11 @@ public class CollationIteratorTest extends TestFmwk {
         RuleBasedCollator en_us = (RuleBasedCollator)Collator.getInstance(Locale.US);
         CollationElementIterator iter1 = en_us.getCollationElementIterator(test1);
         CollationElementIterator iter2 = en_us.getCollationElementIterator(test2);
-    
+
         // Run through the second iterator just to exercise it
         int c = iter2.next();
         int i = 0;
-    
+
         while ( ++i < 10 && c != CollationElementIterator.NULLORDER) {
             try {
                 c = iter2.next();
@@ -419,7 +424,7 @@ public class CollationIteratorTest extends TestFmwk {
                 break;
             }
         }
-    
+
         // Now set it to point to the same string as the first iterator
         try {
             iter2.setText(test1);
@@ -428,7 +433,7 @@ public class CollationIteratorTest extends TestFmwk {
             return;
         }
         assertEqual(iter1, iter2);
-        
+
         iter1.reset();
         //now use the overloaded setText(ChracterIterator&, UErrorCode) function to set the text
         CharacterIterator chariter = new StringCharacterIterator(test1);
@@ -439,7 +444,7 @@ public class CollationIteratorTest extends TestFmwk {
             return;
         }
         assertEqual(iter1, iter2);
-        
+
         iter1.reset();
         //now use the overloaded setText(ChracterIterator&, UErrorCode) function to set the text
         UCharacterIterator uchariter = UCharacterIterator.getInstance(test1);
@@ -465,7 +470,7 @@ public class CollationIteratorTest extends TestFmwk {
         source.append("\u0e4d\u0e4e\u0e4f");
         // source.append("\u04e8\u04e9");
         iter = en_us.getCollationElementIterator(source.toString());
-        // A basic test to see if it's working at all 
+        // A basic test to see if it's working at all
         CollationTest.backAndForth(this, iter);
         for (codepoint = 1; codepoint < 0xFFFE;) {
             source.delete(0, source.length());
@@ -475,11 +480,11 @@ public class CollationIteratorTest extends TestFmwk {
                 }
                 codepoint ++;
             }
-            
+
             if (UCharacter.isDefined(codepoint)) {
                 source.append(codepoint);
             }
-            
+
             if (codepoint != 0xFFFF) {
                 codepoint ++;
             }
@@ -487,18 +492,18 @@ public class CollationIteratorTest extends TestFmwk {
                 System.out.println("codepoint " + Integer.toHexString(codepoint));
                 String str = source.substring(230, 232);
                 System.out.println(android.icu.impl.Utility.escape(str));
-                System.out.println("codepoint " + Integer.toHexString(codepoint) 
+                System.out.println("codepoint " + Integer.toHexString(codepoint)
                                    + "length " + str.length());
                 iter = en_us.getCollationElementIterator(str);
                 CollationTest.backAndForth(this, iter);
             }
             */
             iter = en_us.getCollationElementIterator(source.toString());
-            // A basic test to see if it's working at all 
+            // A basic test to see if it's working at all
             CollationTest.backAndForth(this, iter);
         }
     }
-    
+
     /**
      * Test for CollationElementIterator previous and next for the whole set of
      * unicode characters with normalization on.
@@ -517,7 +522,7 @@ public class CollationIteratorTest extends TestFmwk {
         }
         StringBuffer source = new StringBuffer();
         source.append('\uFDFA');
-        CollationElementIterator iter 
+        CollationElementIterator iter
                         = th_th.getCollationElementIterator(source.toString());
         CollationTest.backAndForth(this, iter);
         for (char codepoint = 0x1; codepoint < 0xfffe;) {
@@ -528,35 +533,35 @@ public class CollationIteratorTest extends TestFmwk {
                 }
                 codepoint ++;
             }
-            
+
             if (UCharacter.isDefined(codepoint)) {
                 source.append(codepoint);
             }
-            
+
             if (codepoint != 0xFFFF) {
                 codepoint ++;
             }
-            
+
             /*if (((int)codepoint) >= 0xfe00) {
                 String str = source.substring(185, 190);
                 System.out.println(android.icu.impl.Utility.escape(str));
-                System.out.println("codepoint " 
-                                   + Integer.toHexString(codepoint) 
+                System.out.println("codepoint "
+                                   + Integer.toHexString(codepoint)
                                    + "length " + str.length());
                 iter = th_th.getCollationElementIterator(str);
                 CollationTest.backAndForth(this, iter);
             */
             iter = th_th.getCollationElementIterator(source.toString());
-            // A basic test to see if it's working at all 
+            // A basic test to see if it's working at all
             CollationTest.backAndForth(this, iter);
         }
     }
-    
+
     /**
     * Testing the discontiguous contractions
     */
     @Test
-    public void TestDiscontiguous() 
+    public void TestDiscontiguous()
     {
         String rulestr ="&z < AB < X\u0300 < ABC < X\u0300\u0315";
         String src[] = {"ADB", "ADBC", "A\u0315B", "A\u0315BC",
@@ -567,11 +572,11 @@ public class CollationIteratorTest extends TestFmwk {
                         // blocking combining character
                         "X\u0314\u0300", "X\u0314\u0300\u0315",
                         // contraction prefix
-                        "ABDC", "AB\u0315C","X\u0300D\u0315", 
+                        "ABDC", "AB\u0315C","X\u0300D\u0315",
                         "X\u0300\u0319\u0315", "X\u0300\u031A\u0315",
                         // ends not with a contraction character
-                        "X\u0319\u0300D", "X\u0319\u0300\u0315D", 
-                        "X\u0300D\u0315D", "X\u0300\u0319\u0315D", 
+                        "X\u0319\u0300D", "X\u0319\u0300\u0315D",
+                        "X\u0300D\u0315D", "X\u0300\u0319\u0315D",
                         "X\u0300\u031A\u0315D"
         };
         String tgt[] = {// non blocking combining character
@@ -583,20 +588,20 @@ public class CollationIteratorTest extends TestFmwk {
                         // blocking combining character
                         "X \u0314 \u0300", "X \u0314 \u0300\u0315",
                         // contraction prefix
-                        "AB DC", "AB \u0315 C","X\u0300 D \u0315", 
+                        "AB DC", "AB \u0315 C","X\u0300 D \u0315",
                         "X\u0300\u0315 \u0319", "X\u0300 \u031A \u0315",
                         // ends not with a contraction character
-                        "X\u0300 \u0319D", "X\u0300\u0315 \u0319D", 
-                        "X\u0300 D\u0315D", "X\u0300\u0315 \u0319D", 
+                        "X\u0300 \u0319D", "X\u0300\u0315 \u0319D",
+                        "X\u0300 D\u0315D", "X\u0300\u0315 \u0319D",
                         "X\u0300 \u031A\u0315D"
         };
         int count = 0;
         try {
             RuleBasedCollator coll = new RuleBasedCollator(rulestr);
-            CollationElementIterator iter 
+            CollationElementIterator iter
                                         = coll.getCollationElementIterator("");
-            CollationElementIterator resultiter 
-                                        = coll.getCollationElementIterator("");    
+            CollationElementIterator resultiter
+                                        = coll.getCollationElementIterator("");
             while (count < src.length) {
                 iter.setText(src[count]);
                 int s = 0;
@@ -610,7 +615,7 @@ public class CollationIteratorTest extends TestFmwk {
                     int ce = resultiter.next();
                     while (ce != CollationElementIterator.NULLORDER) {
                         if (ce != iter.next()) {
-                            errln("Discontiguos contraction test mismatch at" 
+                            errln("Discontiguos contraction test mismatch at"
                                   + count);
                             return;
                         }
@@ -650,7 +655,7 @@ public class CollationIteratorTest extends TestFmwk {
             warnln("ERROR: in creation of collator using rules " + rules);
             return;
         }
-        
+
         CollationElementIterator iter = coll.getCollationElementIterator("testing");
         for (int count = 0; count < testdata.length; count ++) {
             iter.setText(testdata[count]);
@@ -684,7 +689,7 @@ public class CollationIteratorTest extends TestFmwk {
             " \u00E6" +              // small letter ae, expands
             " \u1E4D" +              // small letter o with tilde and acute, decomposes
             " ";
-        
+
         int[] rootStandardOffsets = {
             0,  1,2,
             2,  3,4,4,
@@ -699,7 +704,7 @@ public class CollationIteratorTest extends TestFmwk {
             28,
             29
         };
-        
+
         int[] rootSearchOffsets = {
             0,  1,2,
             2,  3,4,4,
@@ -725,7 +730,7 @@ public class CollationIteratorTest extends TestFmwk {
             public String getLocaleString() { return localeString; }
             public int[] getOffsets() { return offsets; }
         }
-        final TSCEItem[] tsceItems = { 
+        final TSCEItem[] tsceItems = {
             new TSCEItem( "root",                  rootStandardOffsets ),
             new TSCEItem( "root@collation=search", rootSearchOffsets   ),
         };

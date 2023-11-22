@@ -31,17 +31,20 @@ class network_WiFi_VisibleScan(wifi_cell_test_base.WiFiCellTestBase):
     def run_once(self):
         """Test body."""
         ap_config = hostap_config.HostapConfig(channel=1)
-        # Set up the router and associate the client with it.
-        self.context.configure(ap_config)
+
+        # Start capture before starting anything else.
         self.context.capture_host.start_capture(
                     ap_config.frequency,
                     ht_type=ap_config.ht_packet_capture_mode,
                     snaplen=packet_capturer.SNAPLEN_WIFI_PROBE_REQUEST)
-        assoc_params = xmlrpc_datatypes.AssociationParameters(
-                ssid=self.context.router.get_ssid())
 
         # We're looking for the MAC address, so disable randomization.
         with self.context.client.mac_address_randomization(False):
+            # Set up the router and associate the client with it.
+            self.context.configure(ap_config)
+            assoc_params = xmlrpc_datatypes.AssociationParameters(
+                ssid=self.context.router.get_ssid())
+
             self.context.assert_connect_wifi(assoc_params)
             results = self.context.capture_host.stop_capture()
 
@@ -52,13 +55,10 @@ class network_WiFi_VisibleScan(wifi_cell_test_base.WiFiCellTestBase):
         probe_ssids = tcpdump_analyzer.get_probe_ssids(
                 results[0].local_pcap_path,
                 probe_sender=self.context.client.wifi_mac)
+        # We expect a broadcast probe, but it's not guaranteed.
         expected_ssids = frozenset([self.BROADCAST_SSID])
         permitted_ssids = (expected_ssids |
                 frozenset([self.context.router.get_ssid()]))
-        # Verify expected ssids are contained in the probe result
-        if expected_ssids - probe_ssids:
-            raise error.TestError('Expected SSIDs %s, but got %s' %
-                                  (expected_ssids, probe_ssids))
         # Verify probe result does not contain any unpermitted ssids
         if probe_ssids - permitted_ssids:
             raise error.TestError('Permitted SSIDs %s, but got %s' %

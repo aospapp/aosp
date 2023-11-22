@@ -12,10 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-LOCAL_PATH:= $(call my-dir)
+LOCAL_PATH := $(call my-dir)
+
 include $(CLEAR_VARS)
 
+LOCAL_PACKAGE_NAME := EmergencyInfo
+LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_MODULE_TAGS := eng
+LOCAL_PROGUARD_FLAG_FILES := proguard.flags
+
+LOCAL_PRIVILEGED_MODULE := true
+
 LOCAL_STATIC_ANDROID_LIBRARIES := \
     android-support-v14-preference \
     android-support-v13 \
@@ -23,24 +30,19 @@ LOCAL_STATIC_ANDROID_LIBRARIES := \
     android-support-v7-preference \
     android-support-v7-recyclerview \
     android-support-v4 \
-    android-support-design \
+    $(ANDROID_SUPPORT_DESIGN_TARGETS) \
     android-support-transition
-
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
-LOCAL_RESOURCE_DIR += $(LOCAL_PATH)/res
 
 LOCAL_USE_AAPT2 := true
 
-LOCAL_PACKAGE_NAME := EmergencyInfo
+LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
+
+LOCAL_SRC_FILES := $(call all-java-files-under, src)
+
 LOCAL_CERTIFICATE := platform
-LOCAL_PRIVILEGED_MODULE := true
-
-LOCAL_JACK_COVERAGE_INCLUDE_FILTER := com.android.emergency.*
-
-LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 
 include frameworks/base/packages/SettingsLib/common.mk
 
 include $(BUILD_PACKAGE)
 
-include $(call all-makefiles-under,$(LOCAL_PATH))
+include $(call first-makefiles-under, $(LOCAL_PATH))

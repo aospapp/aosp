@@ -27,7 +27,7 @@
 #include <utils/Log.h>
 
 #include "jni.h"
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 extern int parse(JNIEnv *env, jstring jAddress, int port, sockaddr_storage *ss);
 

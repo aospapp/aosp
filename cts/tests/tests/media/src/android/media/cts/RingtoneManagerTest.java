@@ -15,6 +15,7 @@
  */
 package android.media.cts;
 
+import android.app.ActivityManager;
 import android.media.cts.R;
 
 
@@ -27,10 +28,12 @@ import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
 
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class RingtoneManagerTest
         extends ActivityInstrumentationTestCase2<RingtonePickerActivity> {
 
@@ -63,31 +66,36 @@ public class RingtoneManagerTest
         mDefaultUri = RingtoneManager.getActualDefaultRingtoneUri(mContext,
                 RingtoneManager.TYPE_RINGTONE);
 
-        try {
-            Utils.toggleNotificationPolicyAccess(
-                    mContext.getPackageName(), getInstrumentation(), true);
-            mAudioManager.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_RAISE,
-                    AudioManager.FLAG_ALLOW_RINGER_MODES);
-        } finally {
-            Utils.toggleNotificationPolicyAccess(
-                    mContext.getPackageName(), getInstrumentation(), false);
+        if (mAudioManager.getRingerMode() == AudioManager.RINGER_MODE_SILENT
+                && !ActivityManager.isLowRamDeviceStatic()) {
+            try {
+                Utils.toggleNotificationPolicyAccess(
+                        mContext.getPackageName(), getInstrumentation(), true);
+                mAudioManager.adjustStreamVolume(AudioManager.STREAM_RING,
+                        AudioManager.ADJUST_RAISE,
+                        AudioManager.FLAG_ALLOW_RINGER_MODES);
+            } finally {
+                Utils.toggleNotificationPolicyAccess(
+                        mContext.getPackageName(), getInstrumentation(), false);
+            }
         }
-
     }
 
     @Override
     protected void tearDown() throws Exception {
-        try {
-            Utils.toggleNotificationPolicyAccess(
-                    mContext.getPackageName(), getInstrumentation(), true);
-            // restore original ringer settings
-            if (mAudioManager != null) {
-                mAudioManager.setStreamVolume(AudioManager.STREAM_RING, mOriginalVolume,
-                        AudioManager.FLAG_ALLOW_RINGER_MODES);
+        if (!ActivityManager.isLowRamDeviceStatic()) {
+            try {
+                Utils.toggleNotificationPolicyAccess(
+                        mContext.getPackageName(), getInstrumentation(), true);
+                // restore original ringer settings
+                if (mAudioManager != null) {
+                    mAudioManager.setStreamVolume(AudioManager.STREAM_RING, mOriginalVolume,
+                            AudioManager.FLAG_ALLOW_RINGER_MODES);
+                }
+            } finally {
+                Utils.toggleNotificationPolicyAccess(
+                        mContext.getPackageName(), getInstrumentation(), false);
             }
-        } finally {
-            Utils.toggleNotificationPolicyAccess(
-                    mContext.getPackageName(), getInstrumentation(), false);
         }
         RingtoneManager.setActualDefaultRingtoneUri(mContext, RingtoneManager.TYPE_RINGTONE,
                 mDefaultUri);

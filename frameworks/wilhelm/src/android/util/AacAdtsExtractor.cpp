@@ -15,10 +15,11 @@
  */
 
 #include "sllog.h"
+#include <media/stagefright/MediaBuffer.h>
+#include <media/stagefright/MetaDataUtils.h>
 #include <utils/Log.h>
 
 #include "android/include/AacAdtsExtractor.h"
-#include <avc_utils.h>
 
 
 namespace android {
@@ -92,6 +93,7 @@ static size_t getFrameSize(const sp<DataSource> &source, off64_t offset) {
 
 AacAdtsExtractor::AacAdtsExtractor(const sp<DataSource> &source)
     : mDataSource(source),
+      mMeta(new MetaData),
       mInitCheck(NO_INIT),
       mFrameDurationUs(0) {
 
@@ -123,7 +125,7 @@ AacAdtsExtractor::AacAdtsExtractor(const sp<DataSource> &source)
     SL_LOGV("AacAdtsExtractor has found sr=%d channel=%d", sr, channel);
 
     // Never fails
-    mMeta = MakeAACCodecSpecificData(profile, sf_index, channel);
+    MakeAACCodecSpecificData(*mMeta, profile, sf_index, channel);
 
     // Round up and get the duration of each frame
     mFrameDurationUs = (1024 * 1000000ll + (sr - 1)) / sr;
@@ -165,40 +167,12 @@ AacAdtsExtractor::AacAdtsExtractor(const sp<DataSource> &source)
 AacAdtsExtractor::~AacAdtsExtractor() {
 }
 
-
-sp<MetaData> AacAdtsExtractor::getMetaData() {
-    sp<MetaData> meta = new MetaData;
-
-    if (mInitCheck != OK) {
-        return meta;
-    }
-
-    meta->setCString(kKeyMIMEType, MEDIA_MIMETYPE_AUDIO_AAC_ADTS);
-
-    return meta;
-}
-
-
-size_t AacAdtsExtractor::countTracks() {
-    return mInitCheck == OK ? 1 : 0;
-}
-
-
-sp<IMediaSource> AacAdtsExtractor::getTrack(size_t index) {
+sp<MediaSource> AacAdtsExtractor::getTrack(size_t index) {
     if (mInitCheck != OK || index != 0) {
         return NULL;
     }
 
     return new AacAdtsSource(mDataSource, mMeta, mFrameDurationUs);
-}
-
-
-sp<MetaData> AacAdtsExtractor::getTrackMetaData(size_t index, uint32_t flags) {
-    if (mInitCheck != OK || index != 0) {
-        return NULL;
-    }
-
-    return mMeta;
 }
 
 
@@ -257,7 +231,7 @@ sp<MetaData> AacAdtsSource::getFormat() {
 
 
 status_t AacAdtsSource::read(
-        MediaBuffer **out, const ReadOptions *options) {
+        MediaBufferBase **out, const ReadOptions *options) {
     *out = NULL;
 
     int64_t seekTimeUs;
@@ -275,7 +249,7 @@ status_t AacAdtsSource::read(
         return ERROR_END_OF_STREAM;
     }
 
-    MediaBuffer *buffer;
+    MediaBufferBase *buffer;
     status_t err = mGroup->acquire_buffer(&buffer);
     if (err != OK) {
         return err;
@@ -293,8 +267,8 @@ status_t AacAdtsSource::read(
     }
 
     buffer->set_range(0, frameSizeWithoutHeader);
-    buffer->meta_data()->setInt64(kKeyTime, mCurrentTimeUs);
-    buffer->meta_data()->setInt32(kKeyIsSyncFrame, 1);
+    buffer->meta_data().setInt64(kKeyTime, mCurrentTimeUs);
+    buffer->meta_data().setInt32(kKeyIsSyncFrame, 1);
 
     mOffset += frameSize;
     mCurrentTimeUs += mFrameDurationUs;

@@ -25,30 +25,18 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 
-/**
- * A {@link ITargetPreparer} that wipes userdata
- */
+/** A {@link ITargetPreparer} that wipes userdata */
 @OptionClass(alias = "device-wiper")
-public class DeviceWiper implements ITargetPreparer {
-
-    @Option(name = "disable", description = "disables the device wiper")
-    protected boolean mDisable = false;
+public class DeviceWiper extends BaseTargetPreparer {
 
     @Option(name = "use-erase", description =
             "instruct wiper to use fastboot erase instead of format")
     protected boolean mUseErase = false;
 
-    /**
-     * Return True if this target preparer has been disabled and will do nothing. False otherwise.
-     */
-    public boolean isDisabled() {
-        return mDisable;
-    }
-
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError,
             DeviceNotAvailableException {
-        if (mDisable) {
+        if (isDisabled()) {
             return;
         }
         CLog.i("Wiping device");

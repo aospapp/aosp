@@ -68,7 +68,7 @@
         <item name="android:textAllCaps">false</item>
         <item name="android:textColor">@color/pad_button_text_color</item>
 
-        <!-- Attributes from android.support.v7.gridlayout -->
+        <!-- Attributes from androidx.appcompat.gridlayout -->
         <item name="layout_gravity">fill</item>
         <item name="layout_rowWeight">1</item>
         <item name="layout_columnWeight">1</item>

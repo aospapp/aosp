@@ -30,7 +30,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := arcts cts vts general-tests
 
 LOCAL_PACKAGE_NAME := CtsFullbackupApp
 

@@ -15,16 +15,16 @@
  */
 package com.android.tradefed.testtype;
 
-import com.android.ddmlib.testrunner.ITestRunListener;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -56,7 +56,7 @@ public class FakeTest implements IDeviceTest, IRemoteTest {
     /** A pattern to identify a run-length-encoded character specification */
     private static final Pattern RLE_SEGMENT = Pattern.compile("^(([PFE])(\\d+)?)");
 
-    static final Map<String, String> EMPTY_MAP = Collections.emptyMap();
+    static final HashMap<String, Metric> EMPTY_MAP = new HashMap<String, Metric>();
 
     private ITestDevice mDevice = null;
 
@@ -163,10 +163,10 @@ public class FakeTest implements IDeviceTest, IRemoteTest {
      * @param listener The test listener to use to report results
      * @param runName The test run name to use
      * @param spec A string consisting solely of the characters "P"(ass), "F"(ail), or "E"(rror).
-     *        Each character will map to a testcase in the output.  Method names will be of the
-     *        format "testMethod%d".
+     *     Each character will map to a testcase in the output. Method names will be of the format
+     *     "testMethod%d".
      */
-    void executeTestRun(ITestRunListener listener, String runName, String spec)
+    void executeTestRun(ITestInvocationListener listener, String runName, String spec)
             throws IllegalArgumentException {
         listener.testRunStarted(runName, spec.length());
         int i = 0;
@@ -178,7 +178,7 @@ public class FakeTest implements IDeviceTest, IRemoteTest {
 
             i++;
             final String testName = String.format("testMethod%d", i);
-            final TestIdentifier test = new TestIdentifier(runName, testName);
+            final TestDescription test = new TestDescription(runName, testName);
 
             listener.testStarted(test);
             switch (c) {

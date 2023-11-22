@@ -20,7 +20,7 @@ after you set all attributes of each object. If this test suite doesn't pass,
 then other test suites utilising Ble Advertisements will also fail.
 """
 
-from acts.controllers import sl4a_client
+from acts.controllers.sl4a_lib import rpc_client
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.bt_test_utils import adv_fail
@@ -77,8 +77,8 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         if adv_mode != exp_adv_mode:
             test_result = False
             self.log.debug("exp filtering mode: {},"
-                           " found filtering mode: {}".format(exp_adv_mode,
-                                                              adv_mode))
+                           " found filtering mode: {}".format(
+                               exp_adv_mode, adv_mode))
         if tx_power_level != exp_tx_power_level:
             test_result = False
             self.log.debug("exp tx power level: {},"
@@ -366,8 +366,9 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         self.log.debug("Step 1: Setup environment.")
         droid = self.ad_dut.droid
         exp_adv_tx_power = (ble_advertise_settings_tx_powers['low'])
-        self.log.debug("Step 2: Set the filtering settings object's value to ".
-                       format(exp_adv_tx_power))
+        self.log.debug(
+            "Step 2: Set the filtering settings object's value to ".format(
+                exp_adv_tx_power))
         return self.verify_adv_settings_tx_power_level(droid, exp_adv_tx_power)
 
     @BluetoothBaseTest.bt_test_wrap
@@ -397,8 +398,9 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         self.log.debug("Step 1: Setup environment.")
         droid = self.ad_dut.droid
         exp_adv_tx_power = ble_advertise_settings_tx_powers['ultra_low']
-        self.log.debug("Step 2: Set the filtering settings object's value to ".
-                       format(exp_adv_tx_power))
+        self.log.debug(
+            "Step 2: Set the filtering settings object's value to ".format(
+                exp_adv_tx_power))
         return self.verify_adv_settings_tx_power_level(droid, exp_adv_tx_power)
 
     @BluetoothBaseTest.bt_test_wrap
@@ -618,8 +620,8 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         exp_service_uuids = ["0"]
         self.log.debug("Step 2: Set the filtering data service uuids to " +
                        str(exp_service_uuids))
-        return self.verify_invalid_adv_data_service_uuids(droid,
-                                                          exp_service_uuids)
+        return self.verify_invalid_adv_data_service_uuids(
+            droid, exp_service_uuids)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='51d634e7-6271-4cc0-a57b-3c1b632a7db6')
@@ -1030,7 +1032,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         droid.bleStartBleAdvertising(advcallback, adv_data, adv_settings)
         try:
             ed.pop_event(adv_fail.format(advcallback))
-        except sl4a_client.Sl4aApiError:
+        except rpc_client.Sl4aApiError:
             self.log.info("{} event was not found.".format(
                 adv_fail.format(advcallback)))
             return False
@@ -1107,8 +1109,9 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             self.log.debug("exp value: {}, Actual value: {}".format(
                 exp_service_uuids, service_uuids))
             return False
-        self.log.debug("Advertise Data's service uuids {}, value test Passed.".
-                       format(exp_service_uuids))
+        self.log.debug(
+            "Advertise Data's service uuids {}, value test Passed.".format(
+                exp_service_uuids))
         return True
 
     def verify_adv_data_service_data(self, droid, exp_service_data_uuid,
@@ -1151,8 +1154,8 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                            ", Actual value: " + str(manu_specific_data))
             return False
         self.log.debug("Advertise Data's manu id: " + str(exp_manu_id) +
-                       ", manu's specific data: " + str(
-                           exp_manu_specific_data) + "  value test Passed.")
+                       ", manu's specific data: " +
+                       str(exp_manu_specific_data) + "  value test Passed.")
         return True
 
     def verify_adv_data_include_tx_power_level(self, droid,
@@ -1204,10 +1207,10 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             self.log.debug("Set Advertise settings invalid filtering mode "
                            "passed with input as {}".format(exp_adv_mode))
             return False
-        except sl4a_client.Sl4aApiError:
-            self.log.debug("Set Advertise settings invalid filtering mode "
-                           "failed successfully with input as {}".format(
-                               exp_adv_mode))
+        except rpc_client.Sl4aApiError:
+            self.log.debug(
+                "Set Advertise settings invalid filtering mode "
+                "failed successfully with input as {}".format(exp_adv_mode))
             return True
 
     def verify_invalid_adv_settings_tx_power_level(self, droid,
@@ -1218,10 +1221,10 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             self.log.debug("Set Advertise settings invalid tx power level " +
                            " with input as {}".format(exp_adv_tx_power))
             return False
-        except sl4a_client.Sl4aApiError:
-            self.log.debug("Set Advertise settings invalid tx power level "
-                           "failed successfullywith input as {}".format(
-                               exp_adv_tx_power))
+        except rpc_client.Sl4aApiError:
+            self.log.debug(
+                "Set Advertise settings invalid tx power level "
+                "failed successfullywith input as {}".format(exp_adv_tx_power))
             return True
 
     def verify_invalid_adv_data_service_uuids(self, droid, exp_service_uuids):
@@ -1231,10 +1234,10 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             self.log.debug("Set Advertise Data service uuids " +
                            " with input as {}".format(exp_service_uuids))
             return False
-        except sl4a_client.Sl4aApiError:
-            self.log.debug("Set Advertise Data invalid service uuids failed "
-                           "successfully with input as {}".format(
-                               exp_service_uuids))
+        except rpc_client.Sl4aApiError:
+            self.log.debug(
+                "Set Advertise Data invalid service uuids failed "
+                "successfully with input as {}".format(exp_service_uuids))
             return True
 
     def verify_invalid_adv_data_service_data(
@@ -1247,10 +1250,10 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                            ", service data: {}".format(exp_service_data_uuid,
                                                        exp_service_data))
             return False
-        except sl4a_client.Sl4aApiError:
-            self.log.debug("Set Advertise Data service data uuid: " + str(
-                exp_service_data_uuid) + ", service data: " + str(
-                    exp_service_data) + " failed successfully.")
+        except rpc_client.Sl4aApiError:
+            self.log.debug("Set Advertise Data service data uuid: " +
+                           str(exp_service_data_uuid) + ", service data: " +
+                           str(exp_service_data) + " failed successfully.")
             return True
 
     def verify_invalid_adv_data_manu_id(self, droid, exp_manu_id,
@@ -1259,11 +1262,11 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             droid.bleAddAdvertiseDataManufacturerId(exp_manu_id,
                                                     exp_manu_specific_data)
             droid.bleBuildAdvertiseData()
-            self.log.debug("Set Advertise Data manu id: " + str(exp_manu_id) +
-                           ", manu specific data: " + str(
-                               exp_manu_specific_data))
+            self.log.debug(
+                "Set Advertise Data manu id: " + str(exp_manu_id) +
+                ", manu specific data: " + str(exp_manu_specific_data))
             return False
-        except sl4a_client.Sl4aApiError:
+        except rpc_client.Sl4aApiError:
             self.log.debug("Set Advertise Data manu id: {},"
                            " manu specific data: {},".format(
                                exp_manu_id, exp_manu_specific_data))

@@ -118,58 +118,6 @@ def extract_tarball(tarball):
         raise NameError('extracting tarball produced no dir')
 
 
-def unmap_url_cache(cachedir, url, expected_hash, method="md5"):
-    """
-    Downloads a file from a URL to a cache directory. If the file is already
-    at the expected position and has the expected hash, let's not download it
-    again.
-
-    @param cachedir: Directory that might hold a copy of the file we want to
-            download.
-    @param url: URL for the file we want to download.
-    @param expected_hash: Hash string that we expect the file downloaded to
-            have.
-    @param method: Method used to calculate the hash string (md5, sha1).
-    """
-    # Let's convert cachedir to a canonical path, if it's not already
-    cachedir = os.path.realpath(cachedir)
-    if not os.path.isdir(cachedir):
-        try:
-            os.makedirs(cachedir)
-        except:
-            raise ValueError('Could not create cache directory %s' % cachedir)
-    file_from_url = os.path.basename(url)
-    file_local_path = os.path.join(cachedir, file_from_url)
-
-    file_hash = None
-    failure_counter = 0
-    while not file_hash == expected_hash:
-        if os.path.isfile(file_local_path):
-            file_hash = hash_file(file_local_path, method)
-            if file_hash == expected_hash:
-                # File is already at the expected position and ready to go
-                src = file_from_url
-            else:
-                # Let's download the package again, it's corrupted...
-                logging.error("Seems that file %s is corrupted, trying to "
-                              "download it again", file_from_url)
-                src = url
-                failure_counter += 1
-        else:
-            # File is not there, let's download it
-            src = url
-        if failure_counter > 1:
-            raise EnvironmentError("Consistently failed to download the "
-                                   "package %s. Aborting further download "
-                                   "attempts. This might mean either the "
-                                   "network connection has problems or the "
-                                   "expected hash string that was determined "
-                                   "for this file is wrong", file_from_url)
-        file_path = utils.unmap_url(cachedir, src, cachedir)
-
-    return file_path
-
-
 def force_copy(src, dest):
     """Replace dest with a new copy of src, even if it exists"""
     if os.path.isfile(dest):
@@ -368,18 +316,26 @@ def get_cpu_soc_family():
 
 
 INTEL_UARCH_TABLE = {
+    '06_4C': 'Airmont',
     '06_1C': 'Atom',
     '06_26': 'Atom',
+    '06_27': 'Atom',
+    '06_35': 'Atom',
     '06_36': 'Atom',
-    '06_4C': 'Braswell',
     '06_3D': 'Broadwell',
+    '06_47': 'Broadwell',
+    '06_4F': 'Broadwell',
+    '06_56': 'Broadwell',
     '06_0D': 'Dothan',
-    '06_3A': 'IvyBridge',
-    '06_3E': 'IvyBridge',
+    '06_5C': 'Goldmont',
     '06_3C': 'Haswell',
-    '06_3F': 'Haswell',
     '06_45': 'Haswell',
     '06_46': 'Haswell',
+    '06_3F': 'Haswell-E',
+    '06_3A': 'Ivy Bridge',
+    '06_3E': 'Ivy Bridge-E',
+    '06_8E': 'Kaby Lake',
+    '06_9E': 'Kaby Lake',
     '06_0F': 'Merom',
     '06_16': 'Merom',
     '06_17': 'Nehalem',
@@ -388,12 +344,19 @@ INTEL_UARCH_TABLE = {
     '06_1E': 'Nehalem',
     '06_1F': 'Nehalem',
     '06_2E': 'Nehalem',
-    '06_2A': 'SandyBridge',
-    '06_2D': 'SandyBridge',
-    '06_4E': 'Skylake',
     '0F_03': 'Prescott',
     '0F_04': 'Prescott',
     '0F_06': 'Presler',
+    '06_2A': 'Sandy Bridge',
+    '06_2D': 'Sandy Bridge',
+    '06_37': 'Silvermont',
+    '06_4A': 'Silvermont',
+    '06_4D': 'Silvermont',
+    '06_5A': 'Silvermont',
+    '06_5D': 'Silvermont',
+    '06_4E': 'Skylake',
+    '06_5E': 'Skylake',
+    '06_55': 'Skylake',
     '06_25': 'Westmere',
     '06_2C': 'Westmere',
     '06_2F': 'Westmere',
@@ -495,6 +458,8 @@ def usable_memtotal():
     # Reserved 5% for OS use
     return int(read_from_meminfo('MemFree') * 0.95)
 
+def swaptotal():
+    return read_from_meminfo('SwapTotal')
 
 def rounded_memtotal():
     # Get total of all physical mem, in kbytes
@@ -566,6 +531,19 @@ def where_art_thy_filehandles():
     """Dump the current list of filehandles"""
     os.system("ls -l /proc/%d/fd >> /dev/tty" % os.getpid())
 
+
+def get_num_allocated_file_handles():
+    """
+    Returns the number of currently allocated file handles.
+
+    Gets this information by parsing /proc/sys/fs/file-nr.
+    See https://www.kernel.org/doc/Documentation/sysctl/fs.txt
+    for details on this file.
+    """
+    with _open_file('/proc/sys/fs/file-nr') as f:
+        line = f.readline()
+    allocated_handles = int(line.split()[0])
+    return allocated_handles
 
 def print_to_tty(string):
     """Output string straight to the tty"""
@@ -895,6 +873,20 @@ def is_disk_harddisk(disk_name):
     # For harddisk rtt > 0
     return rtt and int(rtt) > 0
 
+def concat_partition(disk_name, partition_number):
+    """
+    Return the name of a partition:
+    sda, 3 --> sda3
+    mmcblk0, 3 --> mmcblk0p3
+
+    @param disk_name: diskname string
+    @param partition_number: integer
+    """
+    if disk_name.endswith(tuple(str(i) for i in range(0, 10))):
+        sep = 'p'
+    else:
+        sep = ''
+    return disk_name + sep + str(partition_number)
 
 def verify_hdparm_feature(disk_name, feature):
     """
@@ -1083,8 +1075,11 @@ def suspend_to_disk():
     set_power_state('disk')
 
 
-_AMD_PCI_IDS_FILE_PATH = '/usr/local/autotest/bin/amd_pci_ids.json'
-_INTEL_PCI_IDS_FILE_PATH = '/usr/local/autotest/bin/intel_pci_ids.json'
+_AUTOTEST_CLIENT_PATH = os.path.join(os.path.dirname(__file__), '..')
+_AMD_PCI_IDS_FILE_PATH = os.path.join(_AUTOTEST_CLIENT_PATH,
+                                      'bin/amd_pci_ids.json')
+_INTEL_PCI_IDS_FILE_PATH = os.path.join(_AUTOTEST_CLIENT_PATH,
+                                        'bin/intel_pci_ids.json')
 _UI_USE_FLAGS_FILE_PATH = '/etc/ui_use_flags.txt'
 
 # Command to check if a package is installed. If the package is not installed
@@ -1180,12 +1175,17 @@ def get_chrome_remote_debugging_port():
     """Returns remote debugging port for Chrome.
 
     Parse chrome process's command line argument to get the remote debugging
-    port.
+    port. if it is 0, look at DevToolsActivePort for the ephemeral port.
     """
     _, command = get_oldest_by_name('chrome')
     matches = re.search('--remote-debugging-port=([0-9]+)', command)
-    if matches:
-        return int(matches.group(1))
+    if not matches:
+      return 0
+    port = int(matches.group(1))
+    if port:
+      return port
+    with open('/home/chronos/DevToolsActivePort') as f:
+      return int(f.readline().rstrip())
 
 
 def get_process_list(name, command_line=None):
@@ -1512,40 +1512,57 @@ def get_cpu_usage():
 
     This function uses /proc/stat to identify CPU usage.
     Returns:
-        A dictionary with 'user', 'nice', 'system' and 'idle' values.
+        A dictionary with values for all columns in /proc/stat
         Sample dictionary:
         {
             'user': 254544,
             'nice': 9,
             'system': 254768,
             'idle': 2859878,
+            'iowait': 1,
+            'irq': 2,
+            'softirq': 3,
+            'steal': 4,
+            'guest': 5,
+            'guest_nice': 6
         }
+        If a column is missing or malformed in /proc/stat (typically on older
+        systems), the value for that column is set to 0.
     """
-    proc_stat = open('/proc/stat')
-    cpu_usage_str = proc_stat.readline().split()
-    proc_stat.close()
-    return {
-        'user': int(cpu_usage_str[1]),
-        'nice': int(cpu_usage_str[2]),
-        'system': int(cpu_usage_str[3]),
-        'idle': int(cpu_usage_str[4])
-    }
-
+    with _open_file('/proc/stat') as proc_stat:
+        cpu_usage_str = proc_stat.readline().split()
+    columns = ('user', 'nice', 'system', 'idle', 'iowait', 'irq', 'softirq',
+               'steal', 'guest', 'guest_nice')
+    d = {}
+    for index, col in enumerate(columns, 1):
+        try:
+            d[col] = int(cpu_usage_str[index])
+        except:
+            d[col] = 0
+    return d
 
 def compute_active_cpu_time(cpu_usage_start, cpu_usage_end):
     """Computes the fraction of CPU time spent non-idling.
 
     This function should be invoked using before/after values from calls to
     get_cpu_usage().
+
+    See https://stackoverflow.com/a/23376195 and
+    https://unix.stackexchange.com/a/303224 for some more context how
+    to calculate usage given two /proc/stat snapshots.
     """
-    time_active_end = (
-        cpu_usage_end['user'] + cpu_usage_end['nice'] + cpu_usage_end['system'])
-    time_active_start = (cpu_usage_start['user'] + cpu_usage_start['nice'] +
-                         cpu_usage_start['system'])
-    total_time_end = (cpu_usage_end['user'] + cpu_usage_end['nice'] +
-                      cpu_usage_end['system'] + cpu_usage_end['idle'])
-    total_time_start = (cpu_usage_start['user'] + cpu_usage_start['nice'] +
-                        cpu_usage_start['system'] + cpu_usage_start['idle'])
+    idle_cols = ('idle', 'iowait')  # All other cols are calculated as active.
+    time_active_start = sum([x[1] for x in cpu_usage_start.iteritems()
+                             if x[0] not in idle_cols])
+    time_active_end = sum([x[1] for x in cpu_usage_end.iteritems()
+                           if x[0] not in idle_cols])
+    total_time_start = sum(cpu_usage_start.values())
+    total_time_end = sum(cpu_usage_end.values())
+    # Avoid bogus division which has been observed on Tegra.
+    if total_time_end <= total_time_start:
+        logging.warning('compute_active_cpu_time observed bogus data')
+        # We pretend to be busy, this will force a longer wait for idle CPU.
+        return 1.0
     return ((float(time_active_end) - time_active_start) /
             (total_time_end - total_time_start))
 
@@ -1574,8 +1591,8 @@ def wait_for_idle_cpu(timeout, utilization):
         time_passed += sleep_time
         sleep_time = min(16.0, 2.0 * sleep_time)
         cpu_usage_end = get_cpu_usage()
-        fraction_active_time = \
-                compute_active_cpu_time(cpu_usage_start, cpu_usage_end)
+        fraction_active_time = compute_active_cpu_time(cpu_usage_start,
+                                                       cpu_usage_end)
         logging.info('After waiting %.1fs CPU utilization is %.3f.',
                      time_passed, fraction_active_time)
         if time_passed > timeout:
@@ -1645,13 +1662,21 @@ _KERNEL_MAX = '/sys/devices/system/cpu/kernel_max'
 _MEMINFO = '/proc/meminfo'
 _TEMP_SENSOR_RE = 'Reading temperature...([0-9]*)'
 
+def _open_file(path):
+    """
+    Opens a file and returns the file object.
+
+    This method is intended to be mocked by tests.
+    @return The open file object.
+    """
+    return open(path)
 
 def _get_line_from_file(path, line):
     """
     line can be an integer or
     line can be a string that matches the beginning of the line
     """
-    with open(path) as f:
+    with _open_file(path) as f:
         if isinstance(line, int):
             l = f.readline()
             for _ in range(0, line):
@@ -1762,13 +1787,18 @@ def get_thermal_zone_temperatures():
 def get_ec_temperatures():
     """
     Uses ectool to return a list of all sensor temperatures in Celsius.
+
+    Output from ectool is either '0: 300' or '0: 300 K' (newer ectool
+    includes the unit).
     """
     temperatures = []
     try:
         full_cmd = 'ectool temps all'
         lines = utils.run(full_cmd, verbose=False).stdout.splitlines()
+        pattern = re.compile('.*: (\d+)')
         for line in lines:
-            temperature = int(line.split(': ')[1]) - 273
+            matched = pattern.match(line)
+            temperature = int(matched.group(1)) - 273
             temperatures.append(temperature)
     except Exception:
         logging.warning('Unable to read temperature sensors using ectool.')
@@ -1893,6 +1923,92 @@ def get_board_type():
     return get_board_property('DEVICETYPE')
 
 
+def get_ec_version():
+    """Get the ec version as strings.
+
+    @returns a string representing this host's ec version.
+    """
+    command = 'mosys ec info -s fw_version'
+    result = utils.run(command, ignore_status=True)
+    if result.exit_status != 0:
+        return ''
+    return result.stdout.strip()
+
+
+def get_firmware_version():
+    """Get the firmware version as strings.
+
+    @returns a string representing this host's firmware version.
+    """
+    return utils.run('crossystem fwid').stdout.strip()
+
+
+def get_hardware_revision():
+    """Get the hardware revision as strings.
+
+    @returns a string representing this host's hardware revision.
+    """
+    command = 'mosys platform version'
+    result = utils.run(command, ignore_status=True)
+    if result.exit_status != 0:
+        return ''
+    return result.stdout.strip()
+
+
+def get_kernel_version():
+    """Get the kernel version as strings.
+
+    @returns a string representing this host's kernel version.
+    """
+    return utils.run('uname -r').stdout.strip()
+
+
+def get_cpu_name():
+    """Get the cpu name as strings.
+
+    @returns a string representing this host's cpu name.
+    """
+
+    # Try get cpu name from device tree first
+    if os.path.exists("/proc/device-tree/compatible"):
+        command = "sed -e 's/\\x0/\\n/g' /proc/device-tree/compatible | tail -1"
+        return utils.run(command).stdout.strip().replace(',', ' ')
+
+
+    # Get cpu name from uname -p
+    command = "uname -p"
+    ret = utils.run(command).stdout.strip()
+
+    # 'uname -p' return variant of unknown or amd64 or x86_64 or i686
+    # Try get cpu name from /proc/cpuinfo instead
+    if re.match("unknown|amd64|[ix][0-9]?86(_64)?", ret, re.IGNORECASE):
+        command = "grep model.name /proc/cpuinfo | cut -f 2 -d: | head -1"
+        ret = utils.run(command).stdout.strip()
+
+    # Remove bloat from CPU name, for example
+    # 'Intel(R) Core(TM) i5-7Y57 CPU @ 1.20GHz'       -> 'Intel Core i5-7Y57'
+    # 'Intel(R) Xeon(R) CPU E5-2690 v4 @ 2.60GHz'     -> 'Intel Xeon E5-2690 v4'
+    # 'AMD A10-7850K APU with Radeon(TM) R7 Graphics' -> 'AMD A10-7850K'
+    # 'AMD GX-212JC SOC with Radeon(TM) R2E Graphics' -> 'AMD GX-212JC'
+    trim_re = " (@|processor|apu|soc|radeon).*|\(.*?\)| cpu"
+    return re.sub(trim_re, '', ret, flags=re.IGNORECASE)
+
+
+def get_screen_resolution():
+    """Get the screen(s) resolution as strings.
+    In case of more than 1 monitor, return resolution for each monitor separate
+    with plus sign.
+
+    @returns a string representing this host's screen(s) resolution.
+    """
+    command = 'for f in /sys/class/drm/*/*/modes; do head -1 $f; done'
+    ret = utils.run(command, ignore_status=True)
+    # We might have Chromebox without a screen
+    if ret.exit_status != 0:
+        return ''
+    return ret.stdout.strip().replace('\n', '+')
+
+
 def get_board_with_frequency_and_memory():
     """
     Returns a board name modified with CPU frequency and memory size to
@@ -1903,8 +2019,7 @@ def get_board_with_frequency_and_memory():
     if is_virtual_machine():
         board = '%s_VM' % board_name
     else:
-        # Rounded to nearest GB and GHz.
-        memory = int(round(get_mem_total() / 1024.0))
+        memory = get_mem_total_gb()
         # Convert frequency to GHz with 1 digit accuracy after the
         # decimal point.
         frequency = int(round(get_cpu_max_frequency() * 1e-8)) * 0.1
@@ -1922,6 +2037,13 @@ def get_mem_total():
     return mem_total / 1024
 
 
+def get_mem_total_gb():
+    """
+    Returns the total memory available in the system in GBytes.
+    """
+    return int(round(get_mem_total() / 1024.0))
+
+
 def get_mem_free():
     """
     Returns the currently free memory in the system in MBytes.
@@ -1929,6 +2051,22 @@ def get_mem_free():
     mem_free = _get_float_from_file(_MEMINFO, 'MemFree:', 'MemFree:', ' kB')
     return mem_free / 1024
 
+def get_mem_free_plus_buffers_and_cached():
+    """
+    Returns the free memory in MBytes, counting buffers and cached as free.
+
+    This is most often the most interesting number since buffers and cached
+    memory can be reclaimed on demand. Note however, that there are cases
+    where this as misleading as well, for example used tmpfs space
+    count as Cached but can not be reclaimed on demand.
+    See https://www.kernel.org/doc/Documentation/filesystems/tmpfs.txt.
+    """
+    free_mb = get_mem_free()
+    cached_mb = (_get_float_from_file(
+        _MEMINFO, 'Cached:', 'Cached:', ' kB') / 1024)
+    buffers_mb = (_get_float_from_file(
+        _MEMINFO, 'Buffers:', 'Buffers:', ' kB') / 1024)
+    return free_mb + buffers_mb + cached_mb
 
 def get_kernel_max():
     """
@@ -2253,3 +2391,4 @@ def run_sql_cmd(server, user, password, command, database=''):
            (user, password, server, database, command))
     # Set verbose to False so the command line won't be logged, as it includes
     # database credential.
+    return utils.run(cmd, verbose=False).stdout

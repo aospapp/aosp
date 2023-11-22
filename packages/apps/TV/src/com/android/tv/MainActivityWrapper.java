@@ -20,14 +20,12 @@ import android.support.annotation.MainThread;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.ArraySet;
-
-import com.android.tv.data.Channel;
-
+import com.android.tv.data.api.Channel;
 import java.util.Set;
 
 /**
- * A wrapper for safely getting the current {@link MainActivity}.
- * Note that this class is not thread-safe. All the public methods should be called on main thread.
+ * A wrapper for safely getting the current {@link MainActivity}. Note that this class is not
+ * thread-safe. All the public methods should be called on main thread.
  */
 @MainThread
 public final class MainActivityWrapper {
@@ -36,39 +34,31 @@ public final class MainActivityWrapper {
     private final Set<OnCurrentChannelChangeListener> mListeners = new ArraySet<>();
 
     /**
-     * Returns the current main activity.
-     * <b>WARNING</b> do not keep a reference to MainActivity, leaking activities is expensive.
+     * Returns the current main activity. <b>WARNING</b> do not keep a reference to MainActivity,
+     * leaking activities is expensive.
      */
     MainActivity getMainActivity() {
         return mActivity;
     }
 
-    /**
-     * Checks if the given {@code activity} is the current main activity.
-     */
+    /** Checks if the given {@code activity} is the current main activity. */
     boolean isCurrent(MainActivity activity) {
         return activity != null && mActivity == activity;
     }
 
-    /**
-     * Sets the currently created main activity instance.
-     */
+    /** Sets the currently created main activity instance. */
     public void onMainActivityCreated(@NonNull MainActivity activity) {
         mActivity = activity;
     }
 
-    /**
-     * Unsets the main activity instance.
-     */
+    /** Unsets the main activity instance. */
     public void onMainActivityDestroyed(@NonNull MainActivity activity) {
         if (mActivity == activity) {
             mActivity = null;
         }
     }
 
-    /**
-     * Notifies the current channel change.
-     */
+    /** Notifies the current channel change. */
     void notifyCurrentChannelChange(@NonNull MainActivity caller, @Nullable Channel channel) {
         if (mActivity == caller) {
             for (OnCurrentChannelChangeListener listener : mListeners) {
@@ -77,48 +67,34 @@ public final class MainActivityWrapper {
         }
     }
 
-    /**
-     * Checks if the main activity is created.
-     */
+    /** Checks if the main activity is created. */
     public boolean isCreated() {
         return mActivity != null;
     }
 
-    /**
-     * Checks if the main activity is started.
-     */
+    /** Checks if the main activity is started. */
     public boolean isStarted() {
         return mActivity != null && mActivity.isActivityStarted();
     }
 
-    /**
-     * Checks if the main activity is resumed.
-     */
+    /** Checks if the main activity is resumed. */
     public boolean isResumed() {
         return mActivity != null && mActivity.isActivityResumed();
     }
 
-    /**
-     * Adds OnCurrentChannelChangeListener.
-     */
+    /** Adds OnCurrentChannelChangeListener. */
     public void addOnCurrentChannelChangeListener(OnCurrentChannelChangeListener listener) {
         mListeners.add(listener);
     }
 
-    /**
-     * Removes OnCurrentChannelChangeListener.
-     */
+    /** Removes OnCurrentChannelChangeListener. */
     public void removeOnCurrentChannelChangeListener(OnCurrentChannelChangeListener listener) {
         mListeners.remove(listener);
     }
 
-    /**
-     * Listener for the current channel change in main activity.
-     */
+    /** Listener for the current channel change in main activity. */
     public interface OnCurrentChannelChangeListener {
-        /**
-         * Called when the current channel changes.
-         */
+        /** Called when the current channel changes. */
         void onCurrentChannelChange(@Nullable Channel channel);
     }
 }

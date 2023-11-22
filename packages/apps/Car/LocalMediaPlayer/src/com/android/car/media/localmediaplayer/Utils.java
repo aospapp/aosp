@@ -17,6 +17,7 @@ package com.android.car.media.localmediaplayer;
 
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.net.Uri;
@@ -41,5 +42,13 @@ public class Utils {
             }
         }
         return true;
+    }
+
+    static void startPermissionRequest(Context context) {
+        if (!Utils.hasRequiredPermissions(context)) {
+            Intent intent = new Intent(context, PermissionsActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+        }
     }
 }

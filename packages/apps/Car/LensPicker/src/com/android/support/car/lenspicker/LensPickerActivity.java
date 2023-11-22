@@ -25,9 +25,9 @@ import android.os.Bundle;
 import android.service.media.MediaBrowserService;
 import android.text.TextUtils;
 import android.util.Log;
-import android.view.View;
 
-import com.android.car.view.PagedListView;
+import androidx.car.widget.DayNightStyle;
+import androidx.car.widget.PagedListView;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -60,14 +60,9 @@ public class LensPickerActivity extends Activity implements LensPickerSelectionH
         mPagedListView = (PagedListView) findViewById(R.id.list_view);
         // Set this to light mode, since the scroll bar buttons always appear
         // on top of a dark scrim.
-        mPagedListView.setLightMode();
+        mPagedListView.setDayNightStyle(DayNightStyle.ALWAYS_LIGHT);
 
-        findViewById(R.id.dismiss_area).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                finish();
-            }
-        });
+        findViewById(R.id.dismiss_area).setOnClickListener(v -> finish());
     }
 
     @Override

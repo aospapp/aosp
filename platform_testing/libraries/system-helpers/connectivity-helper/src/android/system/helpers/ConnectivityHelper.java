@@ -25,14 +25,15 @@ import android.net.NetworkInfo;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.support.test.InstrumentationRegistry;
-import android.system.helpers.CommandsHelper;
 import android.telecom.TelecomManager;
 import android.telephony.TelephonyManager;
 import android.util.Log;
+
+import junit.framework.Assert;
+
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import junit.framework.Assert;
 
 /**
  * Implement common helper methods for connectivity.
@@ -44,11 +45,9 @@ public class ConnectivityHelper {
     public static final int TIMEOUT = 1000;
     private static ConnectivityHelper sInstance = null;
     private Context mContext = null;
-    private CommandsHelper mCommandsHelper = null;
 
     public ConnectivityHelper() {
         mContext = InstrumentationRegistry.getTargetContext();
-        mCommandsHelper = CommandsHelper.getInstance();
     }
 
     public static ConnectivityHelper getInstance() {

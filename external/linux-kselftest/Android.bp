@@ -63,7 +63,6 @@ cc_test {
     name: "kselftest_breakpoints_tests",
     relative_install_path: "linux-kselftest/breakpoints",
     srcs: [
-        "tools/testing/selftests/breakpoints/breakpoint_test.c",
         "tools/testing/selftests/breakpoints/step_after_suspend_test.c",
     ],
     defaults: ["kselftest_defaults"],
@@ -72,9 +71,28 @@ cc_test {
             enabled: false,
         },
         arm64: {
-            enabled: false,
+            srcs: [
+                "tools/testing/selftests/breakpoints/breakpoint_test_arm64.c",
+            ],
+        },
+        x86: {
+            srcs: [
+                "tools/testing/selftests/breakpoints/breakpoint_test.c",
+            ],
         },
     },
+}
+
+// capabilities test
+cc_test {
+    name: "kselftest_capabilities_test",
+    relative_install_path: "linux-kselftest/capabilities",
+    srcs: [
+        "tools/testing/selftests/capabilities/test_execve.c",
+        "tools/testing/selftests/capabilities/validate_cap.c",
+    ],
+    defaults: ["kselftest_defaults"],
+    static_libs: ["libcap-ng"],
 }
 
 // Efivarfs test
@@ -86,7 +104,16 @@ cc_test {
         "tools/testing/selftests/efivarfs/create-read.c",
     ],
     defaults: ["kselftest_defaults"],
-    // TODO: test_data: efivarfs/efivarfs.sh
+}
+
+// Exec test
+cc_test {
+    name: "kselftest_exec_test",
+    relative_install_path: "linux-kselftest/exec",
+    srcs: [
+        "tools/testing/selftests/exec/execveat.c",
+    ],
+    defaults: ["kselftest_defaults"],
 }
 
 // Futex test
@@ -94,11 +121,13 @@ cc_test {
     name: "kselftest_futex_tests",
     relative_install_path: "linux-kselftest/futex/functional",
     srcs: [
-        "tools/testing/selftests/futex/functional/futex_wait_timeout.c",
-        "tools/testing/selftests/futex/functional/futex_wait_wouldblock.c",
+        "tools/testing/selftests/futex/functional/futex_requeue_pi.c",
         "tools/testing/selftests/futex/functional/futex_requeue_pi_mismatched_ops.c",
-        "tools/testing/selftests/futex/functional/futex_wait_uninitialized_heap.c",
+        "tools/testing/selftests/futex/functional/futex_requeue_pi_signal_restart.c",
         "tools/testing/selftests/futex/functional/futex_wait_private_mapped_file.c",
+        "tools/testing/selftests/futex/functional/futex_wait_timeout.c",
+        "tools/testing/selftests/futex/functional/futex_wait_uninitialized_heap.c",
+        "tools/testing/selftests/futex/functional/futex_wait_wouldblock.c",
     ],
     local_include_dirs: [
         "tools/testing/selftests/futex/include",
@@ -171,6 +200,7 @@ cc_test {
         "tools/testing/selftests/net/psock_fanout.c",
         "tools/testing/selftests/net/psock_tpacket.c",
         "tools/testing/selftests/net/reuseport_dualstack.c",
+        "tools/testing/selftests/net/reuseaddr_conflict.c",
     ],
     defaults: ["kselftest_defaults"],
     // TODO: test_data: net/test_bpf.sh
@@ -192,36 +222,67 @@ cc_test {
     defaults: ["kselftest_defaults"],
 }
 
+// size test
+cc_test {
+    name: "kselftest_size_test",
+    relative_install_path: "linux-kselftest/size",
+    srcs: ["tools/testing/selftests/size/get_size.c"],
+    defaults: ["kselftest_defaults"],
+    nocrt: true,
+}
+
+// splice test
+cc_test {
+    name: "kselftest_splice_test",
+    relative_install_path: "linux-kselftest/splice",
+    srcs: ["tools/testing/selftests/splice/default_file_splice_read.c"],
+    defaults: ["kselftest_defaults"],
+}
+
 // Timer test
 cc_test {
     name: "kselftest_timer_tests",
     relative_install_path: "linux-kselftest/timers",
     srcs: [
-        "tools/testing/selftests/timers/posix_timers.c",
-        "tools/testing/selftests/timers/nanosleep.c",
-        "tools/testing/selftests/timers/nsleep-lat.c",
-        "tools/testing/selftests/timers/set-timer-lat.c",
-        "tools/testing/selftests/timers/inconsistency-check.c",
-        "tools/testing/selftests/timers/raw_skew.c",
-        "tools/testing/selftests/timers/threadtest.c",
-        "tools/testing/selftests/timers/rtctest.c",
-        "tools/testing/selftests/timers/alarmtimer-suspend.c",
-        "tools/testing/selftests/timers/valid-adjtimex.c",
         "tools/testing/selftests/timers/adjtick.c",
+        "tools/testing/selftests/timers/alarmtimer-suspend.c",
         "tools/testing/selftests/timers/change_skew.c",
-        "tools/testing/selftests/timers/skew_consistency.c",
         "tools/testing/selftests/timers/clocksource-switch.c",
+        "tools/testing/selftests/timers/freq-step.c",
+        "tools/testing/selftests/timers/inconsistency-check.c",
         "tools/testing/selftests/timers/leap-a-day.c",
         "tools/testing/selftests/timers/leapcrash.c",
-        "tools/testing/selftests/timers/set-tai.c",
+        "tools/testing/selftests/timers/nanosleep.c",
+        "tools/testing/selftests/timers/nsleep-lat.c",
+        "tools/testing/selftests/timers/posix_timers.c",
+        "tools/testing/selftests/timers/raw_skew.c",
+        "tools/testing/selftests/timers/rtctest.c",
+        "tools/testing/selftests/timers/rtctest_setdate.c",
         "tools/testing/selftests/timers/set-2038.c",
+        "tools/testing/selftests/timers/set-tai.c",
+        "tools/testing/selftests/timers/set-timer-lat.c",
         "tools/testing/selftests/timers/set-tz.c",
+        "tools/testing/selftests/timers/skew_consistency.c",
+        "tools/testing/selftests/timers/threadtest.c",
+        "tools/testing/selftests/timers/valid-adjtimex.c",
     ],
     cflags: [
         "-O3",
         "-DKTEST",
     ],
     defaults: ["kselftest_defaults"],
+}
+
+// vdso test
+cc_test {
+    name: "kselftest_vdso_test",
+    relative_install_path: "linux-kselftest/vDSO",
+    srcs: [
+        "tools/testing/selftests/vDSO/parse_vdso.c",
+        "tools/testing/selftests/vDSO/vdso_test.c",
+    ],
+    defaults: ["kselftest_defaults"],
+    test_per_src: false,
 }
 
 // Vm test
@@ -233,11 +294,30 @@ cc_test {
         "tools/testing/selftests/vm/hugepage-mmap.c",
         "tools/testing/selftests/vm/hugepage-shm.c",
         "tools/testing/selftests/vm/map_hugetlb.c",
+        "tools/testing/selftests/vm/mlock-random-test.c",
         "tools/testing/selftests/vm/mlock2-tests.c",
         "tools/testing/selftests/vm/on-fault-limit.c",
+        "tools/testing/selftests/vm/thuge-gen.c",
         "tools/testing/selftests/vm/transhuge-stress.c",
     ],
     defaults: ["kselftest_defaults"],
+    static_libs: ["libcap"],
+}
+
+cc_test {
+    name: "kselftest_vm64_tests",
+    relative_install_path: "linux-kselftest/vm",
+    srcs: [
+        "tools/testing/selftests/vm/virtual_address_range.c",
+    ],
+    defaults: ["kselftest_defaults"],
+    enabled: false,
+    arch: {
+        arm64: {
+            enabled: true,
+            cflags: ["-D__aarch64__"],
+        }
+    }
 }
 
 // x86 test

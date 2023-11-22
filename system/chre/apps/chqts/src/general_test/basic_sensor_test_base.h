@@ -102,7 +102,7 @@ class BasicSensorTestBase : public Test {
   bool mExternalSamplingStatusChange;
   bool mDoneWithPassiveConfigure;
   State mState;
-  uint16_t mInstanceId;
+  uint32_t mInstanceId;
   uint32_t mSensorHandle;
   uint64_t mPreTimestamp;
   uint64_t mFirstEventTimestamp;

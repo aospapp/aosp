@@ -1,6 +1,7 @@
 cc_library_static {
     name: "libwebm",
     srcs: ["mkvparser/mkvparser.cc"],
+    cflags: ["-Wall", "-Werror"],
     export_include_dirs: ["."],
     sanitize: {
         cfi: true,

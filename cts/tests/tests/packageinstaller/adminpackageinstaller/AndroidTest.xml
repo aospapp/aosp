@@ -15,6 +15,7 @@
 -->
 
 <configuration description="Config for CTS Admin Package Installer test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
 
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">

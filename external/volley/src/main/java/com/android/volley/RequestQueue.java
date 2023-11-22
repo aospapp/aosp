@@ -20,12 +20,8 @@ import android.os.Handler;
 import android.os.Looper;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -40,26 +36,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class RequestQueue {
 
     /** Callback interface for completed requests. */
-    public static interface RequestFinishedListener<T> {
+    public interface RequestFinishedListener<T> {
         /** Called when a request has finished processing. */
-        public void onRequestFinished(Request<T> request);
+        void onRequestFinished(Request<T> request);
     }
 
     /** Used for generating monotonically-increasing sequence numbers for requests. */
-    private AtomicInteger mSequenceGenerator = new AtomicInteger();
-
-    /**
-     * Staging area for requests that already have a duplicate request in flight.
-     *
-     * <ul>
-     *     <li>containsKey(cacheKey) indicates that there is a request in flight for the given cache
-     *          key.</li>
-     *     <li>get(cacheKey) returns waiting requests for the given cache key. The in flight request
-     *          is <em>not</em> contained in that list. Is null if no requests are staged.</li>
-     * </ul>
-     */
-    private final Map<String, Queue<Request<?>>> mWaitingRequests =
-            new HashMap<String, Queue<Request<?>>>();
+    private final AtomicInteger mSequenceGenerator = new AtomicInteger();
 
     /**
      * The set of all requests currently being processed by this RequestQueue. A Request
@@ -70,11 +53,11 @@ public class RequestQueue {
 
     /** The cache triage queue. */
     private final PriorityBlockingQueue<Request<?>> mCacheQueue =
-        new PriorityBlockingQueue<Request<?>>();
+            new PriorityBlockingQueue<>();
 
     /** The queue of requests that are actually going out to the network. */
     private final PriorityBlockingQueue<Request<?>> mNetworkQueue =
-        new PriorityBlockingQueue<Request<?>>();
+            new PriorityBlockingQueue<>();
 
     /** Number of network request dispatcher threads to start. */
     private static final int DEFAULT_NETWORK_THREAD_POOL_SIZE = 4;
@@ -89,13 +72,13 @@ public class RequestQueue {
     private final ResponseDelivery mDelivery;
 
     /** The network dispatchers. */
-    private NetworkDispatcher[] mDispatchers;
+    private final NetworkDispatcher[] mDispatchers;
 
     /** The cache dispatcher. */
     private CacheDispatcher mCacheDispatcher;
 
-    private List<RequestFinishedListener> mFinishedListeners =
-            new ArrayList<RequestFinishedListener>();
+    private final List<RequestFinishedListener> mFinishedListeners =
+            new ArrayList<>();
 
     /**
      * Creates the worker pool. Processing will not begin until {@link #start()} is called.
@@ -160,9 +143,9 @@ public class RequestQueue {
         if (mCacheDispatcher != null) {
             mCacheDispatcher.quit();
         }
-        for (int i = 0; i < mDispatchers.length; i++) {
-            if (mDispatchers[i] != null) {
-                mDispatchers[i].quit();
+        for (final NetworkDispatcher mDispatcher : mDispatchers) {
+            if (mDispatcher != null) {
+                mDispatcher.quit();
             }
         }
     }
@@ -186,7 +169,7 @@ public class RequestQueue {
      * {@link RequestQueue#cancelAll(RequestFilter)}.
      */
     public interface RequestFilter {
-        public boolean apply(Request<?> request);
+        boolean apply(Request<?> request);
     }
 
     /**
@@ -240,37 +223,13 @@ public class RequestQueue {
             mNetworkQueue.add(request);
             return request;
         }
-
-        // Insert request into stage if there's already a request with the same cache key in flight.
-        synchronized (mWaitingRequests) {
-            String cacheKey = request.getCacheKey();
-            if (mWaitingRequests.containsKey(cacheKey)) {
-                // There is already a request in flight. Queue up.
-                Queue<Request<?>> stagedRequests = mWaitingRequests.get(cacheKey);
-                if (stagedRequests == null) {
-                    stagedRequests = new LinkedList<Request<?>>();
-                }
-                stagedRequests.add(request);
-                mWaitingRequests.put(cacheKey, stagedRequests);
-                if (VolleyLog.DEBUG) {
-                    VolleyLog.v("Request for cacheKey=%s is in flight, putting on hold.", cacheKey);
-                }
-            } else {
-                // Insert 'null' queue for this cacheKey, indicating there is now a request in
-                // flight.
-                mWaitingRequests.put(cacheKey, null);
-                mCacheQueue.add(request);
-            }
-            return request;
-        }
-    }
+        mCacheQueue.add(request);
+        return request;
+     }
 
     /**
      * Called from {@link Request#finish(String)}, indicating that processing of the given request
      * has finished.
-     *
-     * <p>Releases waiting requests for <code>request.getCacheKey()</code> if
-     *      <code>request.shouldCache()</code>.</p>
      */
     <T> void finish(Request<T> request) {
         // Remove from the set of requests currently being processed.
@@ -283,21 +242,6 @@ public class RequestQueue {
           }
         }
 
-        if (request.shouldCache()) {
-            synchronized (mWaitingRequests) {
-                String cacheKey = request.getCacheKey();
-                Queue<Request<?>> waitingRequests = mWaitingRequests.remove(cacheKey);
-                if (waitingRequests != null) {
-                    if (VolleyLog.DEBUG) {
-                        VolleyLog.v("Releasing %d waiting requests for cacheKey=%s.",
-                                waitingRequests.size(), cacheKey);
-                    }
-                    // Process all queued up requests. They won't be considered as in flight, but
-                    // that's not a problem as the cache has been primed by 'request'.
-                    mCacheQueue.addAll(waitingRequests);
-                }
-            }
-        }
     }
 
     public  <T> void addRequestFinishedListener(RequestFinishedListener<T> listener) {

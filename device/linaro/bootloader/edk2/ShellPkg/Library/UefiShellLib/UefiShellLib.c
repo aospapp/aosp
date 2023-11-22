@@ -1,7 +1,9 @@
 /** @file
   Provides interface to shell functionality for shell commands and applications.
 
-  Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+  (C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
+  Copyright 2016 Dell Inc.
+  Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -13,7 +15,6 @@
 **/
 
 #include "UefiShellLib.h"
-#include <ShellBase.h>
 #include <Library/SortLib.h>
 #include <Library/BaseLib.h>
 
@@ -35,6 +36,7 @@ EFI_SHELL_PROTOCOL            *gEfiShellProtocol;
 EFI_SHELL_PARAMETERS_PROTOCOL *gEfiShellParametersProtocol;
 EFI_HANDLE                    mEfiShellEnvironment2Handle;
 FILE_HANDLE_FUNCTION_MAP      FileFunctionMap;
+EFI_UNICODE_COLLATION_PROTOCOL  *mUnicodeCollationProtocol;
 
 /**
   Check if a Unicode character is a hexadecimal character.
@@ -89,7 +91,6 @@ ShellIsDecimalDigitCharacter (
   @retval EFI_OUT_OF_RESOURCES    Memory allocation failed.
 **/
 EFI_STATUS
-EFIAPI
 ShellFindSE2 (
   IN EFI_HANDLE        ImageHandle
   )
@@ -173,7 +174,6 @@ ShellFindSE2 (
   @retval EFI_SUCCESS   The operationw as successful.
 **/
 EFI_STATUS
-EFIAPI
 ShellLibConstructorWorker (
   IN EFI_HANDLE        ImageHandle,
   IN EFI_SYSTEM_TABLE  *SystemTable
@@ -294,6 +294,7 @@ ShellLibConstructor (
   gEfiShellParametersProtocol = NULL;
   mEfiShellInterface          = NULL;
   mEfiShellEnvironment2Handle = NULL;
+  mUnicodeCollationProtocol   = NULL;
 
   //
   // verify that auto initialize is not set false
@@ -372,6 +373,8 @@ EFIAPI
 ShellInitialize (
   )
 {
+  EFI_STATUS Status;
+
   //
   // if auto initialize is not false then skip
   //
@@ -382,7 +385,8 @@ ShellInitialize (
   //
   // deinit the current stuff
   //
-  ASSERT_EFI_ERROR(ShellLibDestructor(gImageHandle, gST));
+  Status = ShellLibDestructor (gImageHandle, gST);
+  ASSERT_EFI_ERROR (Status);
 
   //
   // init the new stuff
@@ -716,7 +720,21 @@ ShellOpenFileByName(
     Status = gEfiShellProtocol->OpenFileByName(FileName,
                                                FileHandle,
                                                OpenMode);
-    if (StrCmp(FileName, L"NUL") != 0 && !EFI_ERROR(Status) && ((OpenMode & EFI_FILE_MODE_CREATE) != 0)){
+    if (EFI_ERROR(Status)) {
+      return Status;
+    }
+
+    if (mUnicodeCollationProtocol == NULL) {
+      Status = gBS->LocateProtocol (&gEfiUnicodeCollation2ProtocolGuid, NULL, (VOID**)&mUnicodeCollationProtocol);
+      if (EFI_ERROR (Status)) {
+        gEfiShellProtocol->CloseFile (*FileHandle);
+        return Status;
+      }
+    }
+
+    if ((mUnicodeCollationProtocol->StriColl (mUnicodeCollationProtocol, (CHAR16*)FileName, L"NUL") != 0) &&
+        (mUnicodeCollationProtocol->StriColl (mUnicodeCollationProtocol, (CHAR16*)FileName, L"NULL") != 0) &&
+         !EFI_ERROR(Status) && ((OpenMode & EFI_FILE_MODE_CREATE) != 0)){
       FileInfo = FileFunctionMap.GetFileInfo(*FileHandle);
       ASSERT(FileInfo != NULL);
       FileInfo->Attribute = Attributes;
@@ -1402,7 +1420,6 @@ typedef struct {
   @retval the resultant head of the double linked new format list;
 **/
 LIST_ENTRY*
-EFIAPI
 InternalShellConvertFileListType (
   IN LIST_ENTRY                 *FileList,
   IN OUT LIST_ENTRY             *ListHead
@@ -1872,7 +1889,6 @@ typedef struct {
   @retval FALSE                 the Parameter was not found.  Type is not valid.
 **/
 BOOLEAN
-EFIAPI
 InternalIsOnCheckList (
   IN CONST CHAR16               *Name,
   IN CONST SHELL_PARAM_ITEM     *CheckList,
@@ -1941,7 +1957,6 @@ InternalIsOnCheckList (
   @retval FALSE                 the Parameter not a flag.
 **/
 BOOLEAN
-EFIAPI
 InternalIsFlag (
   IN CONST CHAR16               *Name,
   IN CONST BOOLEAN              AlwaysAllowNumbers,
@@ -1998,7 +2013,6 @@ InternalIsFlag (
                                 ProblemParam if provided.
 **/
 EFI_STATUS
-EFIAPI
 InternalCommandLineParse (
   IN CONST SHELL_PARAM_ITEM     *CheckList,
   OUT LIST_ENTRY                **CheckPackage,
@@ -2017,6 +2031,7 @@ InternalCommandLineParse (
   UINTN                         Count;
   CONST CHAR16                  *TempPointer;
   UINTN                         CurrentValueSize;
+  CHAR16                        *NewValue;
 
   CurrentItemPackage = NULL;
   GetItemValue = 0;
@@ -2115,8 +2130,15 @@ InternalCommandLineParse (
       // get the item VALUE for a previous flag
       //
       CurrentValueSize = ValueSize + StrSize(Argv[LoopCounter]) + sizeof(CHAR16);
-      CurrentItemPackage->Value = ReallocatePool(ValueSize, CurrentValueSize, CurrentItemPackage->Value);
-      ASSERT(CurrentItemPackage->Value != NULL);
+      NewValue = ReallocatePool(ValueSize, CurrentValueSize, CurrentItemPackage->Value);
+      if (NewValue == NULL) {
+        SHELL_FREE_NON_NULL (CurrentItemPackage->Value);
+        SHELL_FREE_NON_NULL (CurrentItemPackage);
+        ShellCommandLineFreeVarList (*CheckPackage);
+        *CheckPackage = NULL;
+        return EFI_OUT_OF_RESOURCES;
+      }
+      CurrentItemPackage->Value = NewValue;
       if (ValueSize == 0) {
         StrCpyS( CurrentItemPackage->Value, 
                   CurrentValueSize/sizeof(CHAR16), 
@@ -2679,7 +2701,6 @@ ShellCopySearchAndReplace(
   @retval !EFI_SUCCESS    The operation failed.
 **/
 EFI_STATUS
-EFIAPI
 InternalPrintTo (
   IN CONST CHAR16 *String
   )
@@ -2735,7 +2756,6 @@ InternalPrintTo (
   @return EFI_DEVICE_ERROR      The console device reported an error.
 **/
 EFI_STATUS
-EFIAPI
 InternalShellPrintWorker(
   IN INT32                Col OPTIONAL,
   IN INT32                Row OPTIONAL,
@@ -2964,13 +2984,14 @@ ShellPrintHiiEx(
   CHAR16            *HiiFormatString;
   EFI_STATUS        RetVal;
 
+  RetVal = EFI_DEVICE_ERROR;
+
   VA_START (Marker, HiiFormatHandle);
   HiiFormatString = HiiGetString(HiiFormatHandle, HiiFormatStringId, Language);
-  ASSERT(HiiFormatString != NULL);
-
-  RetVal = InternalShellPrintWorker(Col, Row, HiiFormatString, Marker);
-
-  SHELL_FREE_NON_NULL(HiiFormatString);
+  if (HiiFormatString != NULL) {
+    RetVal = InternalShellPrintWorker (Col, Row, HiiFormatString, Marker);
+    SHELL_FREE_NON_NULL (HiiFormatString);
+  }
   VA_END(Marker);
 
   return (RetVal);
@@ -3282,7 +3303,7 @@ StrnCatGrow (
   Prompt the user and return the resultant answer to the requestor.
 
   This function will display the requested question on the shell prompt and then
-  wait for an apropriate answer to be input from the console.
+  wait for an appropriate answer to be input from the console.
 
   if the SHELL_PROMPT_REQUEST_TYPE is SHELL_PROMPT_REQUEST_TYPE_YESNO, ShellPromptResponseTypeQuitContinue
   or SHELL_PROMPT_REQUEST_TYPE_YESNOCANCEL then *Response is of type SHELL_PROMPT_RESPONSE.
@@ -3382,7 +3403,8 @@ ShellPromptForResponse (
             break;
         }
       }
-      break;    case ShellPromptResponseTypeYesNoAllCancel:
+      break;
+      case ShellPromptResponseTypeYesNoAllCancel:
        if (Prompt != NULL) {
         ShellPrintEx(-1, -1, L"%s", Prompt);
       }
@@ -3400,7 +3422,11 @@ ShellPromptForResponse (
         if (EFI_ERROR(Status)) {
           break;
         }
-        ShellPrintEx(-1, -1, L"%c", Key.UnicodeChar);
+
+        if (Key.UnicodeChar <= 127 && Key.UnicodeChar >= 32) {
+          ShellPrintEx (-1, -1, L"%c", Key.UnicodeChar);
+        }
+
         switch (Key.UnicodeChar) {
           case L'Y':
           case L'y':
@@ -3584,7 +3610,6 @@ ShellPromptForResponseHii (
   @retval FALSE       There is a non-numeric character.
 **/
 BOOLEAN
-EFIAPI
 InternalShellIsHexOrDecimalNumber (
   IN CONST CHAR16   *String,
   IN CONST BOOLEAN  ForceHex,
@@ -3697,7 +3722,6 @@ ShellFileExists(
 
 **/
 CHAR16
-EFIAPI
 InternalShellCharToUpper (
   IN      CHAR16                    Char
   )
@@ -3723,7 +3747,6 @@ InternalShellCharToUpper (
 
 **/
 UINTN
-EFIAPI
 InternalShellHexCharToUintn (
   IN      CHAR16                    Char
   )
@@ -3766,7 +3789,6 @@ InternalShellHexCharToUintn (
   @retval EFI_DEVICE_ERROR        An overflow occured.
 **/
 EFI_STATUS
-EFIAPI
 InternalShellStrHexToUint64 (
   IN CONST CHAR16   *String,
      OUT   UINT64   *Value,
@@ -3868,7 +3890,6 @@ InternalShellStrHexToUint64 (
   @retval EFI_DEVICE_ERROR        An overflow occured.
 **/
 EFI_STATUS
-EFIAPI
 InternalShellStrDecimalToUint64 (
   IN CONST CHAR16 *String,
      OUT   UINT64 *Value,
@@ -4070,6 +4091,9 @@ ShellFileHandleReturnLine(
     Status = ShellFileHandleReadLine(Handle, RetVal, &Size, FALSE, Ascii);
 
   }
+  if (Status == EFI_END_OF_FILE && RetVal != NULL && *RetVal != CHAR_NULL) {
+    Status = EFI_SUCCESS;
+  }
   if (EFI_ERROR(Status) && (RetVal != NULL)) {
     FreePool(RetVal);
     RetVal = NULL;
@@ -4083,9 +4107,20 @@ ShellFileHandleReturnLine(
   If the position upon start is 0, then the Ascii Boolean will be set.  This should be
   maintained and not changed for all operations with the same file.
 
+  NOTE: LINES THAT ARE RETURNED BY THIS FUNCTION ARE UCS2, EVEN IF THE FILE BEING READ
+        IS IN ASCII FORMAT.
+
   @param[in]       Handle        SHELL_FILE_HANDLE to read from.
-  @param[in, out]  Buffer        The pointer to buffer to read into.
-  @param[in, out]  Size          The pointer to number of bytes in Buffer.
+  @param[in, out]  Buffer        The pointer to buffer to read into. If this function
+                                 returns EFI_SUCCESS, then on output Buffer will
+                                 contain a UCS2 string, even if the file being
+                                 read is ASCII.
+  @param[in, out]  Size          On input, pointer to number of bytes in Buffer.
+                                 On output, unchanged unless Buffer is too small
+                                 to contain the next line of the file. In that
+                                 case Size is set to the number of bytes needed
+                                 to hold the next line of the file (as a UCS2
+                                 string, even if it is an ASCII file).
   @param[in]       Truncate      If the buffer is large enough, this has no effect.
                                  If the buffer is is too small and Truncate is TRUE,
                                  the line will be truncated.
@@ -4097,6 +4132,7 @@ ShellFileHandleReturnLine(
 
   @retval EFI_SUCCESS           The operation was successful.  The line is stored in
                                 Buffer.
+  @retval EFI_END_OF_FILE       There are no more lines in the file.
   @retval EFI_INVALID_PARAMETER Handle was NULL.
   @retval EFI_INVALID_PARAMETER Size was NULL.
   @retval EFI_BUFFER_TOO_SMALL  Size was not large enough to store the line.
@@ -4142,19 +4178,22 @@ ShellFileHandleReadLine(
     }
   }
 
+  if (*Ascii) {
+    CharSize = sizeof(CHAR8);
+  } else {
+    CharSize = sizeof(CHAR16);
+  }
   for (CountSoFar = 0;;CountSoFar++){
     CharBuffer = 0;
-    if (*Ascii) {
-      CharSize = sizeof(CHAR8);
-    } else {
-      CharSize = sizeof(CHAR16);
-    }
     Status = gEfiShellProtocol->ReadFile(Handle, &CharSize, &CharBuffer);
     if (  EFI_ERROR(Status)
        || CharSize == 0
        || (CharBuffer == L'\n' && !(*Ascii))
        || (CharBuffer ==  '\n' && *Ascii)
      ){
+      if (CharSize == 0) {
+        Status = EFI_END_OF_FILE;
+      }
       break;
     }
     //
@@ -4302,7 +4341,6 @@ ShellDeleteFileByName(
   @retval EFI_SUCCESS   The operation was successful.
 **/
 EFI_STATUS
-EFIAPI
 InternalShellStripQuotes (
   IN  CONST CHAR16     *OriginalString,
   OUT CHAR16           **CleanString

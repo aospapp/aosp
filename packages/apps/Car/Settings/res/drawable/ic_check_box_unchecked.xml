@@ -15,8 +15,8 @@
   -->
 
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-        android:width="@dimen/stream_button_icon_size"
-        android:height="@dimen/stream_button_icon_size"
+        android:width="@dimen/car_primary_icon_size"
+        android:height="@dimen/car_primary_icon_size"
         android:tint="@color/car_tint"
         android:viewportWidth="24.0"
         android:viewportHeight="24.0">

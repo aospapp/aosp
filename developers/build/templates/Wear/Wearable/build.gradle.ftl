@@ -16,10 +16,11 @@
 buildscript {
     repositories {
         jcenter()
+        google()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.3.3'
+        classpath 'com.android.tools.build:gradle:3.0.1'
     }
 }
 
@@ -27,9 +28,7 @@ apply plugin: 'com.android.application'
 
 repositories {
     jcenter()
-    maven {
-        url 'https://maven.google.com'
-    }
+    google()
 <#if sample.repository?has_content>
   <#list sample.repository as rep>
     ${rep}
@@ -78,11 +77,11 @@ List<String> dirs = [
 
 android {
 
-      <#if sample.compileSdkVersionWear?? && sample.compileSdkVersionWear?has_content>
-        compileSdkVersion ${sample.compileSdkVersionWear}
-      <#else>
-        compileSdkVersion ${compile_sdk}
-      </#if>
+  <#if sample.compileSdkVersionWear?? && sample.compileSdkVersionWear?has_content>
+    compileSdkVersion ${sample.compileSdkVersionWear}
+  <#else>
+    compileSdkVersion ${compile_sdk}
+  </#if>
 
     buildToolsVersion ${build_tools_version}
 

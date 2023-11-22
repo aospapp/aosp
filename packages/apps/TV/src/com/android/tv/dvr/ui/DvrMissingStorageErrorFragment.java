@@ -24,10 +24,8 @@ import android.provider.Settings;
 import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
 import android.support.v17.leanback.widget.GuidedAction;
 import android.util.Log;
-
 import com.android.tv.R;
 import com.android.tv.dvr.ui.browse.DvrDetailsActivity;
-
 import java.util.List;
 
 public class DvrMissingStorageErrorFragment extends DvrGuidedStepFragment {
@@ -44,22 +42,24 @@ public class DvrMissingStorageErrorFragment extends DvrGuidedStepFragment {
     @Override
     public Guidance onCreateGuidance(Bundle savedInstanceState) {
         String title = getResources().getString(R.string.dvr_error_missing_storage_title);
-        String description = getResources().getString(
-                R.string.dvr_error_missing_storage_description);
+        String description =
+                getResources().getString(R.string.dvr_error_missing_storage_description);
         return new Guidance(title, description, null, null);
     }
 
     @Override
     public void onCreateActions(List<GuidedAction> actions, Bundle savedInstanceState) {
         Activity activity = getActivity();
-        actions.add(new GuidedAction.Builder(activity)
-                .id(ACTION_OK)
-                .title(android.R.string.ok)
-                .build());
-        actions.add(new GuidedAction.Builder(activity)
-                .id(ACTION_OPEN_STORAGE_SETTINGS)
-                .title(getResources().getString(R.string.dvr_action_error_storage_settings))
-                .build());
+        actions.add(
+                new GuidedAction.Builder(activity)
+                        .id(ACTION_OK)
+                        .title(android.R.string.ok)
+                        .build());
+        actions.add(
+                new GuidedAction.Builder(activity)
+                        .id(ACTION_OPEN_STORAGE_SETTINGS)
+                        .title(getResources().getString(R.string.dvr_action_error_storage_settings))
+                        .build());
     }
 
     @Override

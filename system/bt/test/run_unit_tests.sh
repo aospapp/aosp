@@ -3,11 +3,13 @@
 known_tests=(
   bluetoothtbd_test
   net_test_audio_a2dp_hw
+  net_test_avrcp
   net_test_bluetooth
   net_test_btcore
   net_test_bta
   net_test_btif
   net_test_btif_profile_queue
+  net_test_btif_state_machine
   net_test_device
   net_test_hci
   net_test_stack
@@ -17,11 +19,12 @@ known_tests=(
   net_test_types
   net_test_btu_message_loop
   net_test_osi
-  performance_test
+  net_test_performance
+  net_test_stack_rfcomm
 )
 
 known_remote_tests=(
-  net_test_rfcomm
+  net_test_rfcomm_suite
 )
 
 
@@ -102,11 +105,18 @@ if [ -n "${device}" ]; then
   adb+=( "-s" "${device}" )
 fi
 
+source ${ANDROID_BUILD_TOP}/build/envsetup.sh
+target_arch=$(gettargetarch)
+
 failed_tests=()
 for spec in "${tests[@]}"
 do
   name="${spec%%.*}"
-  binary="/data/nativetest/${name}/${name}"
+  if [[ $target_arch == *"64"* ]]; then
+    binary="/data/nativetest64/${name}/${name}"
+  else
+    binary="/data/nativetest/${name}/${name}"
+  fi
 
   push_command=( "${adb[@]}" push {"${ANDROID_PRODUCT_OUT}",}"${binary}" )
   test_command=( "${adb[@]}" shell "${binary}" )

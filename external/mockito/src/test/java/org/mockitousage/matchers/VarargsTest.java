@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockitousage.matchers;
 
 import static org.junit.Assert.fail;
@@ -11,6 +15,7 @@ import static org.mockito.Mockito.when;
 import org.assertj.core.api.AbstractListAssert;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Condition;
+import org.assertj.core.api.ObjectAssert;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -305,8 +310,6 @@ public class VarargsTest {
      * <li>#565 ArgumentCaptor should be type aware' are fixed this test must
      * succeed
      * </ul>
-     *
-     * @throws Exception
      */
     @Test
     @Ignore("Blocked by github issue: #584 & #565")
@@ -335,7 +338,7 @@ public class VarargsTest {
         Assertions.assertThat(mock.varargsObject(1)).isNull();
     }
 
-    private static <T> AbstractListAssert<?, ?, T> assertThat(ArgumentCaptor<T> captor) {
+    private static <T> AbstractListAssert<?, ?, T, ObjectAssert<T>> assertThat(ArgumentCaptor<T> captor) {
         return Assertions.assertThat(captor.getAllValues());
     }
 }

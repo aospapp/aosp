@@ -35,8 +35,6 @@ public class WorkSourceTest extends AndroidTestCase {
     private Object[] mAddReturningNewbsArgs = new Object[1];
     private Method mSetReturningDiffs;
     private Object[] mSetReturningDiffsArgs = new Object[1];
-    private Method mStripNames;
-    private Object[] mStripNamesArgs = new Object[0];
 
     @Override
     protected void setUp() throws Exception {
@@ -46,7 +44,6 @@ public class WorkSourceTest extends AndroidTestCase {
         mAddUidName = WorkSource.class.getMethod("add", new Class[] { int.class, String.class });
         mAddReturningNewbs = WorkSource.class.getMethod("addReturningNewbs", new Class[] { WorkSource.class });
         mSetReturningDiffs = WorkSource.class.getMethod("setReturningDiffs", new Class[] { WorkSource.class });
-        mStripNames = WorkSource.class.getMethod("stripNames", new Class[] {  });
     }
 
     private WorkSource wsNew(int uid) throws IllegalArgumentException,
@@ -98,11 +95,6 @@ public class WorkSourceTest extends AndroidTestCase {
             InstantiationException, IllegalAccessException, InvocationTargetException {
         mSetReturningDiffsArgs[0] = other;
         return (WorkSource[])mSetReturningDiffs.invoke(ws, mSetReturningDiffsArgs);
-    }
-
-    private WorkSource wsStripNames(WorkSource ws) throws IllegalArgumentException,
-            InstantiationException, IllegalAccessException, InvocationTargetException {
-        return (WorkSource)mStripNames.invoke(ws);
     }
 
     private void printArrays(StringBuilder sb, int[] uids, String[] names) {
@@ -528,32 +520,5 @@ public class WorkSourceTest extends AndroidTestCase {
                 new int[] { 10, 20, 30, 40 },
                 new int[] { },
                 true);
-    }
-
-    private void doTestStripNames(int[] uids, String[] names, int[] expected) throws Exception {
-        WorkSource ws1 = wsNew(uids, names);
-        WorkSource res = wsStripNames(ws1);
-        checkWorkSource("StripNames", res, expected);
-    }
-
-    public void testStripNamesSimple() throws Exception {
-        doTestStripNames(
-                new int[]    { 10,  20,  30,  40 },
-                new String[] { "A", "A", "A", "A" },
-                new int[]    { 10, 20, 30, 40 });
-    }
-
-    public void testStripNamesFull() throws Exception {
-        doTestStripNames(
-                new int[]    { 10,  10,  10,  10 },
-                new String[] { "A", "B", "C", "D" },
-                new int[]    { 10 });
-    }
-
-    public void testStripNamesComplex() throws Exception {
-        doTestStripNames(
-                new int[]    { 10,  20,  20,  30,  40,  40 },
-                new String[] { "A", "A", "B", "A", "A", "B" },
-                new int[]    { 10, 20, 30, 40 });
     }
 }

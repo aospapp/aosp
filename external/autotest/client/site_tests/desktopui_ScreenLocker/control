@@ -12,7 +12,7 @@ or if the screen is unlocked with an incorrect password.
 """
 # TODO(jdufault): Stop running this in the bvt suite once crbug.com/452599 is
 # resolved.
-ATTRIBUTES = "suite:smoke, suite:bvt-perbuild"
+ATTRIBUTES = "suite:bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "desktopui"

@@ -80,8 +80,8 @@ class ExperimentStatus(object):
     strings.append('Current time: %s Elapsed: %s ETA: %s' %
                    (datetime.datetime.now(),
                     datetime.timedelta(seconds=int(elapsed_time)), eta))
-    strings.append(self._GetProgressBar(self.experiment.num_complete,
-                                        self.num_total))
+    strings.append(
+        self._GetProgressBar(self.experiment.num_complete, self.num_total))
     return '\n'.join(strings)
 
   def GetStatusString(self):
@@ -107,8 +107,8 @@ class ExperimentStatus(object):
           self.experiment.machine_manager.AsString())
     elif self.experiment.schedv2():
       # In schedv2 mode, we always print out thread status.
-      thread_status = thread_status_format.format(self.experiment.schedv2(
-      ).threads_status_as_string())
+      thread_status = thread_status_format.format(
+          self.experiment.schedv2().threads_status_as_string())
 
     result = '{}{}'.format(thread_status, '\n'.join(status_strings))
 

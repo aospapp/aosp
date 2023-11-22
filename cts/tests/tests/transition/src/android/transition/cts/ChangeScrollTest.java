@@ -28,6 +28,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class ChangeScrollTest extends BaseTransitionTest {
@@ -45,15 +48,22 @@ public class ChangeScrollTest extends BaseTransitionTest {
     @Test
     public void testChangeScroll() throws Throwable {
         enterScene(R.layout.scene5);
+        final CountDownLatch scrollChanged = new CountDownLatch(1);
+        final View.OnScrollChangeListener listener = (v, newX, newY, oldX, oldY) -> {
+            if (newX != 0 && newY != 0) {
+                scrollChanged.countDown();
+            }
+        };
         mActivityRule.runOnUiThread(() -> {
             final View view = mActivity.findViewById(R.id.text);
             assertEquals(0, view.getScrollX());
             assertEquals(0, view.getScrollY());
             TransitionManager.beginDelayedTransition(mSceneRoot, mChangeScroll);
             view.scrollTo(150, 300);
+            view.setOnScrollChangeListener(listener);
         });
         waitForStart();
-        Thread.sleep(150);
+        assertTrue(scrollChanged.await(1, TimeUnit.SECONDS));
         mActivityRule.runOnUiThread(() -> {
             final View view = mActivity.findViewById(R.id.text);
             final int scrollX = view.getScrollX();
@@ -63,7 +73,7 @@ public class ChangeScrollTest extends BaseTransitionTest {
             assertTrue(scrollY > 0);
             assertTrue(scrollY < 300);
         });
-        waitForEnd(400);
+        waitForEnd(800);
         mActivityRule.runOnUiThread(() -> {
             final View view = mActivity.findViewById(R.id.text);
             assertEquals(150, view.getScrollX());

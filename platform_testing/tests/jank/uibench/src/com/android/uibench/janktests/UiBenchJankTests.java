@@ -204,6 +204,39 @@ public class UiBenchJankTests extends JankTestBase {
         mHelper.flingUpDown(mHelper.mContents, 2);
     }
 
+    public void openInflatingEmojiListView() {
+        mHelper.launchActivityAndAssert("InflatingEmojiListActivity",
+                "Inflation/Inflating ListView with Emoji");
+    }
+
+    @JankTest(beforeTest = "openInflatingEmojiListView", expectedFrames = EXPECTED_FRAMES)
+    @GfxMonitor(processName = PACKAGE_NAME)
+    public void testInflatingEmojiListViewFling() {
+        mHelper.flingUpDown(mHelper.mContents, 2);
+    }
+
+    public void openInflatingHanListView() {
+        mHelper.launchActivityAndAssert("InflatingHanListActivity",
+                "Inflation/Inflating ListView with Han Characters");
+    }
+
+    @JankTest(beforeTest = "openInflatingHanListView", expectedFrames = EXPECTED_FRAMES)
+    @GfxMonitor(processName = PACKAGE_NAME)
+    public void testInflatingHanListViewFling() {
+        mHelper.flingUpDown(mHelper.mContents, 2);
+    }
+
+    public void openInflatingLongStringListView() {
+        mHelper.launchActivityAndAssert("InflatingLongStringListActivity",
+                "Inflation/Inflating ListView with long string");
+    }
+
+    @JankTest(beforeTest = "openInflatingLongStringListView", expectedFrames = EXPECTED_FRAMES)
+    @GfxMonitor(processName = PACKAGE_NAME)
+    public void testInflatingLongStringListViewFling() {
+        mHelper.flingUpDown(mHelper.mContents, 2);
+    }
+
     public void openNavigationDrawerActivity() {
         mHelper.launchActivityAndAssert("NavigationDrawerActivity", "Navigation Drawer Activity");
         mHelper.mContents.setGestureMargins(0, 0, 10, 0);

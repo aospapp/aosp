@@ -44,7 +44,10 @@ import java.util.function.Consumer;
  * and controller connection and callbacks. On each stage of the connection, error, or disconnect
  * this model will call back to the presenter. All call backs to the presenter will be done on the
  * main thread. Intended to provide a much more usable model interface to UI code.
+ *
+ * @deprecated This model is being replaced by {@link com.android.car.media.common.PlaybackModel}.
  */
+@Deprecated
 public class MediaPlaybackModel {
     private static final String TAG = "MediaPlaybackModel";
 
@@ -296,6 +299,11 @@ public class MediaPlaybackModel {
                     mController.unregisterCallback(mMediaControllerCallback);
                     mController = null;
                 }
+
+                final ComponentName currentName = mCurrentComponentName;
+                notifyListeners((listener) -> listener.onMediaAppChanged(currentName, name));
+                mCurrentComponentName = name;
+
                 mBrowser.connect();
 
                 // reset the colors and views if we switch to another app.
@@ -303,10 +311,6 @@ public class MediaPlaybackModel {
                 mPrimaryColor = manager.getMediaClientPrimaryColor();
                 mAccentColor = manager.getMediaClientAccentColor();
                 mPrimaryColorDark = manager.getMediaClientPrimaryColorDark();
-
-                final ComponentName currentName = mCurrentComponentName;
-                notifyListeners((listener) -> listener.onMediaAppChanged(currentName, name));
-                mCurrentComponentName = name;
             });
         }
 
@@ -322,45 +326,38 @@ public class MediaPlaybackModel {
             new MediaBrowser.ConnectionCallback() {
                 @Override
                 public void onConnected() {
-                    mHandler.post(()->{
-                        // Existing mController has already been disconnected before we call
-                        // MediaBrowser.connect()
-                        // getSessionToken returns a non null token
-                        MediaSession.Token token = mBrowser.getSessionToken();
-                        if (mController != null) {
-                            mController.unregisterCallback(mMediaControllerCallback);
-                        }
-                        mController = new MediaController(mContext, token);
-                        mController.registerCallback(mMediaControllerCallback);
-                        notifyListeners(Listener::onMediaConnected);
-                    });
+                    // Existing mController has already been disconnected before we call
+                    // MediaBrowser.connect()
+                    // getSessionToken returns a non null token
+                    MediaSession.Token token = mBrowser.getSessionToken();
+                    if (mController != null) {
+                        mController.unregisterCallback(mMediaControllerCallback);
+                    }
+                    mController = new MediaController(mContext, token);
+                    mController.registerCallback(mMediaControllerCallback);
+                    notifyListeners(Listener::onMediaConnected);
                 }
 
                 @Override
                 public void onConnectionSuspended() {
-                    mHandler.post(() -> {
-                        if (Log.isLoggable(TAG, Log.VERBOSE)) {
-                            Log.v(TAG, "Media browser service connection suspended."
-                                    + " Waiting to be reconnected....");
-                        }
-                        notifyListeners(Listener::onMediaConnectionSuspended);
-                    });
+                    if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                        Log.v(TAG, "Media browser service connection suspended."
+                                + " Waiting to be reconnected....");
+                    }
+                    notifyListeners(Listener::onMediaConnectionSuspended);
                 }
 
                 @Override
                 public void onConnectionFailed() {
-                    mHandler.post(() -> {
-                        Log.e(TAG, "Media browser service connection FAILED!");
-                        // disconnect anyway to make sure we get into a sanity state
-                        mBrowser.disconnect();
-                        mBrowser = null;
-                        mCurrentComponentName = null;
+                    // disconnect anyway to make sure we get into a sanity state
+                    mBrowser.disconnect();
+                    mBrowser = null;
+                    mCurrentComponentName = null;
 
-                        CharSequence failedClientName = MediaManager.getInstance(mContext)
-                                .getMediaClientName();
-                        notifyListeners(
-                                (listener) -> listener.onMediaConnectionFailed(failedClientName));
-                    });
+                    CharSequence failedClientName = MediaManager.getInstance(mContext)
+                            .getMediaClientName();
+                    notifyListeners(
+                            (listener) -> listener.onMediaConnectionFailed(failedClientName));
                 }
             };
 

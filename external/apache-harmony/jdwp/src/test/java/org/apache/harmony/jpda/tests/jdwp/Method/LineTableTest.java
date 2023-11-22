@@ -25,6 +25,7 @@
  */
 package org.apache.harmony.jpda.tests.jdwp.Method;
 
+import org.apache.harmony.jpda.tests.framework.jdwp.Method;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
@@ -46,7 +47,7 @@ public class LineTableTest extends JDWPMethodTestCase {
 
         long classID = getClassIDBySignature("L"+getDebuggeeClassName().replace('.', '/')+";");
 
-        MethodInfo[] methodsInfo = jdwpGetMethodsInfo(classID);
+        Method[] methodsInfo = debuggeeWrapper.vmMirror.getMethods(classID);
         assertFalse("Invalid number of methods: 0", methodsInfo.length == 0);
 
         for (int i = 0; i < methodsInfo.length; i++) {

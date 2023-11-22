@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <utility>
 
-#include "core/fxcrt/fx_ext.h"
+#include "core/fxcrt/fx_extension.h"
 #include "third_party/base/ptr_util.h"
 #include "third_party/base/stl_util.h"
 #include "xfa/fwl/cfwl_app.h"
@@ -31,18 +31,12 @@ CFWL_NoteDriver::CFWL_NoteDriver()
   PushNoteLoop(m_pNoteLoop.get());
 }
 
-CFWL_NoteDriver::~CFWL_NoteDriver() {
-  ClearEventTargets(true);
-}
+CFWL_NoteDriver::~CFWL_NoteDriver() {}
 
 void CFWL_NoteDriver::SendEvent(CFWL_Event* pNote) {
-  if (m_eventTargets.empty())
-    return;
-
   for (const auto& pair : m_eventTargets) {
-    CFWL_EventTarget* pEventTarget = pair.second;
-    if (pEventTarget && !pEventTarget->IsInvalid())
-      pEventTarget->ProcessEvent(pNote);
+    if (pair.second->IsValid())
+      pair.second->ProcessEvent(pNote);
   }
 }
 
@@ -56,7 +50,7 @@ void CFWL_NoteDriver::RegisterEventTarget(CFWL_Widget* pListener,
     pListener->SetEventKey(key);
   }
   if (!m_eventTargets[key])
-    m_eventTargets[key] = new CFWL_EventTarget(pListener);
+    m_eventTargets[key] = pdfium::MakeUnique<CFWL_EventTarget>(pListener);
 
   m_eventTargets[key]->SetEventSource(pEventSource);
 }
@@ -112,15 +106,14 @@ bool CFWL_NoteDriver::SetFocus(CFWL_Widget* pFocus) {
 }
 
 void CFWL_NoteDriver::Run() {
-#if (_FX_OS_ == _FX_LINUX_DESKTOP_ || _FX_OS_ == _FX_WIN32_DESKTOP_ || \
-     _FX_OS_ == _FX_WIN64_)
+#if _FX_OS_ == _FX_OS_LINUX_ || _FX_PLATFORM_ == _FX_PLATFORM_WINDOWS_
   for (;;) {
     CFWL_NoteLoop* pTopLoop = GetTopLoop();
     if (!pTopLoop || !pTopLoop->ContinueModal())
       break;
     UnqueueMessageAndProcess(pTopLoop);
   }
-#endif
+#endif  // _FX_OS_ == _FX_OS_LINUX_ || _FX_PLATFORM_ == _FX_PLATFORM_WINDOWS_
 }
 
 void CFWL_NoteDriver::NotifyTargetHide(CFWL_Widget* pNoteTarget) {
@@ -294,7 +287,7 @@ bool CFWL_NoteDriver::DoKillFocus(CFWL_Message* pMessage,
 
 bool CFWL_NoteDriver::DoKey(CFWL_Message* pMessage, CFWL_Widget* pMessageForm) {
   CFWL_MessageKey* pMsg = static_cast<CFWL_MessageKey*>(pMessage);
-#if (_FX_OS_ != _FX_MACOSX_)
+#if (_FX_OS_ != _FX_OS_MACOSX_)
   if (pMsg->m_dwCmd == FWL_KeyCommand::KeyDown &&
       pMsg->m_dwKeyCode == FWL_VKEY_Tab) {
     CFWL_WidgetMgr* pWidgetMgr = pMessageForm->GetOwnerApp()->GetWidgetMgr();
@@ -445,13 +438,11 @@ CFWL_Widget* CFWL_NoteDriver::GetMessageForm(CFWL_Widget* pDstTarget) {
   return pMessageForm;
 }
 
-void CFWL_NoteDriver::ClearEventTargets(bool bRemoveAll) {
+void CFWL_NoteDriver::ClearEventTargets() {
   auto it = m_eventTargets.begin();
   while (it != m_eventTargets.end()) {
     auto old = it++;
-    if (old->second && (bRemoveAll || old->second->IsInvalid())) {
-      delete old->second;
+    if (!old->second->IsValid())
       m_eventTargets.erase(old);
-    }
   }
 }

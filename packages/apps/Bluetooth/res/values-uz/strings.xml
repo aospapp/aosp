@@ -106,7 +106,7 @@
     <string name="upload_success" msgid="4014469387779648949">"To‘liq yuborildi: <xliff:g id="FILE_SIZE">%1$s</xliff:g>"</string>
     <string name="inbound_history_title" msgid="6940914942271327563">"Kiruvchi o‘tkazmalar"</string>
     <string name="outbound_history_title" msgid="4279418703178140526">"Chiquvchi o‘tkazmalar"</string>
-    <string name="no_transfers" msgid="3482965619151865672">"O‘tkazmalar tarixi bo‘m-bo‘sh."</string>
+    <string name="no_transfers" msgid="3482965619151865672">"Hech narsa topilmadi."</string>
     <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"Barcha qaydlar ro‘yxatdan o‘chirib tashlanadi."</string>
     <string name="outbound_noti_title" msgid="8051906709452260849">"Bluetooth orqali yuborildi"</string>
     <string name="inbound_noti_title" msgid="4143352641953027595">"Bluetooth orqali olindi"</string>
@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"Bluetooth orqali ovoz yoqildi"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Bluetooth orqali ovoz o‘chirildi"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth orqali ovoz"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4 GBdan katta hajmli videolar o‘tkazilmaydi"</string>
 </resources>

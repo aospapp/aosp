@@ -34,14 +34,25 @@ public class VrTemperatureTest extends BaseDeviceOwnerTest {
 
     private void checkDeviceTemp(float temp, float throttlingTemp, float shutdownTemp,
         float vrThrottlingTemp) {
-        // Compare current temperature and shutdown threshold.
-        assertTrue(temp <= shutdownTemp ||
-                shutdownTemp == HardwarePropertiesManager.UNDEFINED_TEMPERATURE);
 
-        // Compare throttling and shutdown thresholds.
-        assertTrue(throttlingTemp <= shutdownTemp ||
-                shutdownTemp == HardwarePropertiesManager.UNDEFINED_TEMPERATURE ||
-                throttlingTemp == HardwarePropertiesManager.UNDEFINED_TEMPERATURE);
+        // Compare current temperature and shutdown threshold to determine direction.
+        if (shutdownTemp != HardwarePropertiesManager.UNDEFINED_TEMPERATURE
+                && throttlingTemp != HardwarePropertiesManager.UNDEFINED_TEMPERATURE) {
+
+            // Cold (lower) thresholds.
+            if (throttlingTemp > shutdownTemp) {
+                // Compare current temperature and shutdown threshold.
+                assertTrue(temp > shutdownTemp
+                        || temp == HardwarePropertiesManager.UNDEFINED_TEMPERATURE);
+            }
+
+            // Warm (upper) thresholds.
+            else if (throttlingTemp < shutdownTemp) {
+                // Compare current temperature and shutdown threshold.
+                assertTrue(temp < shutdownTemp
+                        || temp == HardwarePropertiesManager.UNDEFINED_TEMPERATURE);
+            }
+        }
 
         // Compare VR throttling and shutdown thresholds.
         assertTrue(vrThrottlingTemp <= MIN_DEVICE_TEMPERATURE ||

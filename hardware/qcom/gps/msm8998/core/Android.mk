@@ -34,8 +34,21 @@ LOCAL_SRC_FILES += \
     SystemStatus.cpp
 
 LOCAL_CFLAGS += \
-     -fno-short-enums \
-     -D_ANDROID_
+    -fno-short-enums \
+    -D_ANDROID_ \
+    -Wall \
+    -Werror \
+    -Wno-format \
+    -Wno-sign-compare \
+    -Wno-unneeded-internal-declaration \
+    -Wno-unused-const-variable \
+    -Wno-unused-parameter \
+    -Wno-delete-incomplete \
+    -Wno-switch \
+
+LOCAL_CPPFLAGS += \
+    -Wno-overloaded-virtual \
+    -Wno-reorder \
 
 LOCAL_C_INCLUDES:= \
     $(TARGET_OUT_HEADERS)/gps.utils \

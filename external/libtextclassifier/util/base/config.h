@@ -19,7 +19,7 @@
 #ifndef LIBTEXTCLASSIFIER_UTIL_BASE_CONFIG_H_
 #define LIBTEXTCLASSIFIER_UTIL_BASE_CONFIG_H_
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 // Define LANG_CXX11 to 1 if current compiler supports C++11.
 //
@@ -38,6 +38,6 @@ namespace libtextclassifier {
 #define LANG_CXX11 1
 #endif
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
 #endif  // LIBTEXTCLASSIFIER_UTIL_BASE_CONFIG_H_

@@ -16,34 +16,7 @@
 
 package com.googlecode.android_scripting.jsonrpc;
 
-import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.URL;
-import java.security.PrivateKey;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-
-import org.apache.commons.codec.binary.Base64Codec;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import com.android.internal.net.LegacyVpnInfo;
-import com.googlecode.android_scripting.ConvertUtils;
-import com.googlecode.android_scripting.Log;
-import com.googlecode.android_scripting.event.Event;
-//FIXME: Refactor classes, constants and conversions out of here
-import com.googlecode.android_scripting.facade.telephony.InCallServiceImpl;
-import com.googlecode.android_scripting.facade.telephony.TelephonyConstants;
-import com.googlecode.android_scripting.facade.telephony.TelephonyUtils;
+import static com.googlecode.android_scripting.ConvertUtils.toNonNullString;
 
 import android.annotation.NonNull;
 import android.bluetooth.BluetoothDevice;
@@ -57,13 +30,16 @@ import android.graphics.Point;
 import android.location.Address;
 import android.location.Location;
 import android.net.DhcpInfo;
+import android.net.IpPrefix;
+import android.net.LinkAddress;
+import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkInfo;
+import android.net.RouteInfo;
 import android.net.Uri;
 import android.net.wifi.RttManager.RttCapabilities;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiActivityEnergyInfo;
-import android.net.wifi.WifiChannel;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiInfo;
@@ -103,7 +79,35 @@ import android.util.Base64;
 import android.util.DisplayMetrics;
 import android.util.SparseArray;
 
-import static com.googlecode.android_scripting.ConvertUtils.toNonNullString;
+import com.android.internal.net.LegacyVpnInfo;
+
+import com.googlecode.android_scripting.ConvertUtils;
+import com.googlecode.android_scripting.Log;
+import com.googlecode.android_scripting.event.Event;
+import com.googlecode.android_scripting.facade.DataUsageController.DataUsageInfo;
+import com.googlecode.android_scripting.facade.telephony.InCallServiceImpl;
+import com.googlecode.android_scripting.facade.telephony.TelephonyConstants;
+import com.googlecode.android_scripting.facade.telephony.TelephonyUtils;
+
+import org.apache.commons.codec.binary.Base64Codec;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.URL;
+import java.security.PrivateKey;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 public class JsonBuilder {
 
@@ -242,6 +246,9 @@ public class JsonBuilder {
         if (data instanceof SubscriptionInfo) {
             return buildSubscriptionInfoRecord((SubscriptionInfo) data);
         }
+        if (data instanceof DataUsageInfo) {
+            return buildDataUsageInfo((DataUsageInfo) data);
+        }
         if (data instanceof DhcpInfo) {
             return buildDhcpInfo((DhcpInfo) data);
         }
@@ -254,9 +261,6 @@ public class JsonBuilder {
         if (data instanceof WifiActivityEnergyInfo) {
             return buildWifiActivityEnergyInfo((WifiActivityEnergyInfo) data);
         }
-        if (data instanceof WifiChannel) {
-            return buildWifiChannel((WifiChannel) data);
-        }
         if (data instanceof WifiConfiguration) {
             return buildWifiConfiguration((WifiConfiguration) data);
         }
@@ -268,6 +272,18 @@ public class JsonBuilder {
         }
         if (data instanceof WifiP2pGroup) {
             return buildWifiP2pGroup((WifiP2pGroup) data);
+        }
+        if (data instanceof LinkProperties) {
+            return buildLinkProperties((LinkProperties) data);
+        }
+        if (data instanceof LinkAddress) {
+            return buildLinkAddress((LinkAddress) data);
+        }
+        if (data instanceof RouteInfo) {
+            return buildRouteInfo((RouteInfo) data);
+        }
+        if (data instanceof IpPrefix) {
+            return buildIpPrefix((IpPrefix) data);
         }
         if (data instanceof byte[]) {
             JSONArray result = new JSONArray();
@@ -590,16 +606,13 @@ public class JsonBuilder {
         result.put("level", scanResult.level);
         result.put("capabilities", scanResult.capabilities);
         result.put("timestamp", scanResult.timestamp);
-        result.put("blackListTimestamp", scanResult.blackListTimestamp);
         result.put("centerFreq0", scanResult.centerFreq0);
         result.put("centerFreq1", scanResult.centerFreq1);
         result.put("channelWidth", scanResult.channelWidth);
         result.put("distanceCm", scanResult.distanceCm);
         result.put("distanceSdCm", scanResult.distanceSdCm);
         result.put("is80211McRTTResponder", scanResult.is80211mcResponder());
-        result.put("numConnection", scanResult.numConnection);
         result.put("passpointNetwork", scanResult.isPasspointNetwork());
-        result.put("numIpConfigFailures", scanResult.numIpConfigFailures);
         result.put("numUsage", scanResult.numUsage);
         result.put("seen", scanResult.seen);
         result.put("untrusted", scanResult.untrusted);
@@ -610,12 +623,24 @@ public class JsonBuilder {
             for (ScanResult.InformationElement ie : scanResult.informationElements) {
                 JSONObject infoEle = new JSONObject();
                 infoEle.put("id", ie.id);
-                infoEle.put("bytes", Base64Codec.encodeBase64(ie.bytes).toString());
+                infoEle.put("bytes", Base64Codec.encodeBase64String(ie.bytes));
                 infoEles.put(infoEle);
             }
-            result.put("InfomationElements", infoEles);
+            result.put("InformationElements", infoEles);
         } else {
-            result.put("InfomationElements", null);
+            result.put("InformationElements", null);
+        }
+        if (scanResult.radioChainInfos != null) {
+            JSONArray radioChainEles = new JSONArray();
+            for (ScanResult.RadioChainInfo item : scanResult.radioChainInfos) {
+                JSONObject radioChainEle = new JSONObject();
+                radioChainEle.put("id", item.id);
+                radioChainEle.put("level", item.level);
+                radioChainEles.put(radioChainEle);
+            }
+            result.put("radioChainInfos", radioChainEles);
+        } else {
+            result.put("radioChainInfos", null);
         }
         return result;
     }
@@ -643,6 +668,7 @@ public class JsonBuilder {
         result.put("rssi", data.getRssi());
         result.put("BSSID", data.getBSSID());
         result.put("mac_address", data.getMacAddress());
+        result.put("frequency", data.getFrequency());
         // Trim the double quotes if exist
         String ssid = data.getSSID();
         if (ssid.charAt(0) == '"'
@@ -719,6 +745,7 @@ public class JsonBuilder {
         result.put("cid", cellidentity.getCi());
         result.put("pcid", cellidentity.getPci());
         result.put("tac", cellidentity.getTac());
+        result.put("bandwidth", cellidentity.getBandwidth());
         result.put("rsrp", signalstrength.getDbm());
         result.put("asulevel", signalstrength.getAsuLevel());
         result.put("timing_advance", signalstrength.getTimingAdvance());
@@ -832,6 +859,28 @@ public class JsonBuilder {
     }
 
     /**
+     * Builds a json representation of a {@link DataUsageInfo}.
+     * @param data The DataUsageInfo convert to JSON.
+     * @return A JSONObject representation of a {@link DataUsageInfo}.
+     * @throws JSONException
+     */
+    private static JSONObject buildDataUsageInfo(@NonNull DataUsageInfo data)
+            throws JSONException {
+        JSONObject usage = new JSONObject();
+        usage.put("SubscriberId", data.subscriberId);
+        usage.put("Period", data.period);
+        usage.put("StartEpochMilli", data.startEpochMilli);
+        usage.put("EndEpochMilli", data.endEpochMilli);
+        usage.put("CycleStart", data.cycleStart);
+        usage.put("CycleEnd", data.cycleEnd);
+        usage.put("LimitLevel", data.limitLevel);
+        usage.put("WarningLevel", data.warningLevel);
+        usage.put("UsageLevel", data.usageLevel);
+        usage.put("Uid", data.uId);
+        return usage;
+    }
+
+    /**
      * Builds a json representation of a {@link PhoneAccount}.
      * @param data The PhoneAccount convert to JSON.
      * @return A JSONObject representation of a {@link PhoneAccount}.
@@ -909,15 +958,6 @@ public class JsonBuilder {
         result.put("StackState", data.getStackState());
         result.put("TimeStamp", data.getTimeStamp());
         return result;
-    }
-
-    private static Object buildWifiChannel(WifiChannel data) throws JSONException {
-        JSONObject channel = new JSONObject();
-        channel.put("channelNum", data.channelNum);
-        channel.put("freqMHz", data.freqMHz);
-        channel.put("isDFS", data.isDFS);
-        channel.put("isValid", data.isValid());
-        return channel;
     }
 
     private static Object buildWifiConfiguration(WifiConfiguration data)
@@ -1000,6 +1040,45 @@ public class JsonBuilder {
         info.put("groupFormed", data.groupFormed);
         info.put("isGroupOwner", data.isGroupOwner);
         info.put("groupOwnerAddress", data.groupOwnerAddress);
+        return info;
+    }
+
+    private static JSONObject buildLinkProperties(LinkProperties data) throws JSONException {
+        JSONObject info = new JSONObject();
+        info.put("InterfaceName", data.getInterfaceName());
+        info.put("LinkAddresses", build(data.getLinkAddresses()));
+        info.put("DnsServers", build(data.getDnsServers()));
+        info.put("Domains", data.getDomains());
+        info.put("Mtu", data.getMtu());
+        info.put("Routes", build(data.getRoutes()));
+        info.put("IsPrivateDnsActive", data.isPrivateDnsActive());
+        info.put("PrivateDnsServerName", data.getPrivateDnsServerName());
+        info.put("ValidatedPrivateDnsServers", build(data.getValidatedPrivateDnsServers()));
+        return info;
+    }
+
+    private static JSONObject buildLinkAddress(LinkAddress data) throws JSONException {
+        JSONObject info = new JSONObject();
+        info.put("Address", build(data.getAddress()));
+        info.put("PrefixLength", data.getPrefixLength());
+        info.put("Scope", data.getScope());
+        info.put("Flags", data.getFlags());
+        return info;
+    }
+
+    private static JSONObject buildRouteInfo(RouteInfo data) throws JSONException {
+        JSONObject info = new JSONObject();
+        info.put("Destination", build(data.getDestination()));
+        info.put("Gateway", build(data.getGateway()));
+        info.put("Interface", data.getInterface());
+        info.put("IsDefaultRoute", data.isDefaultRoute());
+        return info;
+    }
+
+    private static JSONObject buildIpPrefix(IpPrefix data) throws JSONException {
+        JSONObject info = new JSONObject();
+        info.put("Address", data.getAddress());
+        info.put("PrefixLength", data.getPrefixLength());
         return info;
     }
 

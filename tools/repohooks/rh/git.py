@@ -26,6 +26,7 @@ if sys.path[0] != _path:
     sys.path.insert(0, _path)
 del _path
 
+# pylint: disable=wrong-import-position
 import rh.utils
 
 
@@ -144,7 +145,7 @@ def raw_diff(path, target):
     """
     entries = []
 
-    cmd = ['git', 'diff', '-M', '--raw', target]
+    cmd = ['git', 'diff', '--no-ext-diff', '-M', '--raw', target]
     diff = rh.utils.run_command(cmd, cwd=path, capture_output=True).output
     diff_lines = diff.strip().splitlines()
     for line in diff_lines:

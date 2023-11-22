@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <stdint.h>
+
 #ifndef _LINUX_PLAT_H_
 #define _LINUX_PLAT_H_
 
@@ -21,9 +23,19 @@
 extern "C" {
 #endif
 
-static inline void platWake(void)
+const struct AppHdr* platGetInternalAppList(uint32_t *numAppsP);
+
+// External apps not supported
+static inline uint8_t* platGetSharedAreaInfo(uint32_t *areaSzP)
 {
+    // Note: current seos.c code assumes that it will be able to read at least
+    // 4 bytes. This will be addressed, but using this workaround for now.
+    static uint8_t appHdr[4] = {0xff, 0xff, 0xff, 0xff};
+    *areaSzP = 0;
+    return appHdr;
 }
+
+static inline void platWake(void) {}
 
 #ifdef __cplusplus
 }

@@ -1,7 +1,7 @@
 /** @file
   UEFI PropertiesTable support
 
-Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2015 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -79,6 +79,8 @@ EFI_PROPERTIES_TABLE  mPropertiesTable = {
 };
 
 EFI_LOCK           mPropertiesTableLock = EFI_INITIALIZE_LOCK_VARIABLE (TPL_NOTIFY);
+
+BOOLEAN            mPropertiesTableEnable;
 
 //
 // Below functions are for MemoryMap
@@ -221,14 +223,24 @@ MergeMemoryMap (
     CopyMem (NewMemoryMapEntry, MemoryMapEntry, sizeof(EFI_MEMORY_DESCRIPTOR));
     NextMemoryMapEntry = NEXT_MEMORY_DESCRIPTOR (MemoryMapEntry, DescriptorSize);
 
-    MemoryBlockLength = (UINT64) (EfiPagesToSize (MemoryMapEntry->NumberOfPages));
-    if (((UINTN)NextMemoryMapEntry < (UINTN)MemoryMapEnd) &&
-        (MemoryMapEntry->Type == NextMemoryMapEntry->Type) &&
-        (MemoryMapEntry->Attribute == NextMemoryMapEntry->Attribute) &&
-        ((MemoryMapEntry->PhysicalStart + MemoryBlockLength) == NextMemoryMapEntry->PhysicalStart)) {
-      NewMemoryMapEntry->NumberOfPages += NextMemoryMapEntry->NumberOfPages;
-      MemoryMapEntry = NextMemoryMapEntry;
-    }
+    do {
+      MemoryBlockLength = (UINT64) (EfiPagesToSize (MemoryMapEntry->NumberOfPages));
+      if (((UINTN)NextMemoryMapEntry < (UINTN)MemoryMapEnd) &&
+          (MemoryMapEntry->Type == NextMemoryMapEntry->Type) &&
+          (MemoryMapEntry->Attribute == NextMemoryMapEntry->Attribute) &&
+          ((MemoryMapEntry->PhysicalStart + MemoryBlockLength) == NextMemoryMapEntry->PhysicalStart)) {
+        MemoryMapEntry->NumberOfPages += NextMemoryMapEntry->NumberOfPages;
+        if (NewMemoryMapEntry != MemoryMapEntry) {
+          NewMemoryMapEntry->NumberOfPages += NextMemoryMapEntry->NumberOfPages;
+        }
+
+        NextMemoryMapEntry = NEXT_MEMORY_DESCRIPTOR (NextMemoryMapEntry, DescriptorSize);
+        continue;
+      } else {
+        MemoryMapEntry = PREVIOUS_MEMORY_DESCRIPTOR (NextMemoryMapEntry, DescriptorSize);
+        break;
+      }
+    } while (TRUE);
 
     MemoryMapEntry = NEXT_MEMORY_DESCRIPTOR (MemoryMapEntry, DescriptorSize);
     NewMemoryMapEntry = NEXT_MEMORY_DESCRIPTOR (NewMemoryMapEntry, DescriptorSize);
@@ -374,7 +386,11 @@ SetNewRecord (
       //
       // DATA
       //
-      NewRecord->Type = EfiRuntimeServicesData;
+      if (!mPropertiesTableEnable) {
+        NewRecord->Type = TempRecord.Type;
+      } else {
+        NewRecord->Type = EfiRuntimeServicesData;
+      }
       NewRecord->PhysicalStart = TempRecord.PhysicalStart;
       NewRecord->VirtualStart  = 0;
       NewRecord->NumberOfPages = EfiSizeToPages(ImageRecordCodeSection->CodeSegmentBase - NewRecord->PhysicalStart);
@@ -387,7 +403,11 @@ SetNewRecord (
       //
       // CODE
       //
-      NewRecord->Type = EfiRuntimeServicesCode;
+      if (!mPropertiesTableEnable) {
+        NewRecord->Type = TempRecord.Type;
+      } else {
+        NewRecord->Type = EfiRuntimeServicesCode;
+      }
       NewRecord->PhysicalStart = ImageRecordCodeSection->CodeSegmentBase;
       NewRecord->VirtualStart  = 0;
       NewRecord->NumberOfPages = EfiSizeToPages(ImageRecordCodeSection->CodeSegmentSize);
@@ -411,7 +431,11 @@ SetNewRecord (
   // Final DATA
   //
   if (TempRecord.PhysicalStart < ImageEnd) {
-    NewRecord->Type = EfiRuntimeServicesData;
+    if (!mPropertiesTableEnable) {
+      NewRecord->Type = TempRecord.Type;
+    } else {
+      NewRecord->Type = EfiRuntimeServicesData;
+    }
     NewRecord->PhysicalStart = TempRecord.PhysicalStart;
     NewRecord->VirtualStart  = 0;
     NewRecord->NumberOfPages = EfiSizeToPages (ImageEnd - TempRecord.PhysicalStart);
@@ -493,6 +517,7 @@ SplitRecord (
   UINT64                  PhysicalEnd;
   UINTN                   NewRecordCount;
   UINTN                   TotalNewRecordCount;
+  BOOLEAN                 IsLastRecordData;
 
   if (MaxSplitRecordCount == 0) {
     CopyMem (NewRecord, OldRecord, DescriptorSize);
@@ -520,7 +545,17 @@ SplitRecord (
         // If this is still address in this record, need record.
         //
         NewRecord = PREVIOUS_MEMORY_DESCRIPTOR (NewRecord, DescriptorSize);
-        if (NewRecord->Type == EfiRuntimeServicesData) {
+        IsLastRecordData = FALSE;
+        if (!mPropertiesTableEnable) {
+          if ((NewRecord->Attribute & EFI_MEMORY_XP) != 0) {
+            IsLastRecordData = TRUE;
+          }
+        } else {
+          if (NewRecord->Type == EfiRuntimeServicesData) {
+            IsLastRecordData = TRUE;
+          }
+        }
+        if (IsLastRecordData) {
           //
           // Last record is DATA, just merge it.
           //
@@ -530,7 +565,11 @@ SplitRecord (
           // Last record is CODE, create a new DATA entry.
           //
           NewRecord = NEXT_MEMORY_DESCRIPTOR (NewRecord, DescriptorSize);
-          NewRecord->Type = EfiRuntimeServicesData;
+          if (!mPropertiesTableEnable) {
+            NewRecord->Type = TempRecord.Type;
+          } else {
+            NewRecord->Type = EfiRuntimeServicesData;
+          }
           NewRecord->PhysicalStart = TempRecord.PhysicalStart;
           NewRecord->VirtualStart  = 0;
           NewRecord->NumberOfPages = TempRecord.NumberOfPages;
@@ -686,7 +725,7 @@ SplitTable (
 }
 
 /**
-  This function for GetMemoryMap() with properties table.
+  This function for GetMemoryMap() with properties table capability.
 
   It calls original GetMemoryMap() to get the original memory map information. Then
   plus the additional memory map entries for PE Code/Data seperation.
@@ -717,10 +756,9 @@ SplitTable (
   @retval EFI_INVALID_PARAMETER  One of the parameters has an invalid value.
 
 **/
-STATIC
 EFI_STATUS
 EFIAPI
-CoreGetMemoryMapPropertiesTable (
+CoreGetMemoryMapWithSeparatedImageSection (
   IN OUT UINTN                  *MemoryMapSize,
   IN OUT EFI_MEMORY_DESCRIPTOR  *MemoryMap,
   OUT UINTN                     *MapKey,
@@ -752,6 +790,7 @@ CoreGetMemoryMapPropertiesTable (
   if (Status == EFI_BUFFER_TOO_SMALL) {
     *MemoryMapSize = *MemoryMapSize + (*DescriptorSize) * AdditionalRecordCount;
   } else if (Status == EFI_SUCCESS) {
+    ASSERT (MemoryMap != NULL);
     if (OldMemoryMapSize - *MemoryMapSize < (*DescriptorSize) * AdditionalRecordCount) {
       *MemoryMapSize = *MemoryMapSize + (*DescriptorSize) * AdditionalRecordCount;
       //
@@ -1325,13 +1364,15 @@ InstallPropertiesTable (
       return ;
     }
 
-    gBS->GetMemoryMap = CoreGetMemoryMapPropertiesTable;
+    gBS->GetMemoryMap = CoreGetMemoryMapWithSeparatedImageSection;
     gBS->Hdr.CRC32 = 0;
     gBS->CalculateCrc32 ((UINT8 *)gBS, gBS->Hdr.HeaderSize, &gBS->Hdr.CRC32);
 
     DEBUG ((EFI_D_VERBOSE, "Total Image Count - 0x%x\n", mImagePropertiesPrivateData.ImageRecordCount));
     DEBUG ((EFI_D_VERBOSE, "Dump ImageRecord:\n"));
     DumpImageRecord ();
+
+    mPropertiesTableEnable = TRUE;
   }
 }
 

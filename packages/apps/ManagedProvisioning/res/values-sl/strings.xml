@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"Nastavljanje delovne naprave …"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Obdelava podatkov za nastavitev …"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Vzpostavljanje povezave z omrežjem Wi-Fi …"</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Povezovanje z mobilnim omrežjem …"</string>
     <string name="progress_download" msgid="3522436271691064624">"Prenašanje skrbniške aplikacije …"</string>
     <string name="progress_install" msgid="2258045670385866183">"Nameščanje skrbniške aplikacije …"</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Odstranjevanje neobveznih sistem. aplikacij …"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Ustvarili boste delovni profil, ki ga bo upravljala in nadzirala vaša organizacija. Zanj bodo veljali pogoji za <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"Za vaše delovne aplikacije bo ustvarjen profil. Ta profil in ostalo v napravi bo upravljala in nadzirala vaša organizacija. Zanj bodo veljali pogoji."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"Za vaše delovne aplikacije bo ustvarjen profil. Ta profil in ostalo v napravi bo upravljala in nadzirala vaša organizacija. Zanj bodo veljali pogoji za <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"To napravo bo upravljala organizacija <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>, ki bo hkrati skrbela za njeno varnost. Pri tem bodo veljali pogoji. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"To napravo bo upravljala organizacija <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>, ki bo hkrati skrbela za njeno varnost. Pri tem bodo veljali pogoji za <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"To napravo bo upravljala organizacija <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>, ki jo bo hkrati nadzirala in skrbela za njeno varnost. Pri tem bodo veljali pogoji. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"To napravo bo upravljala organizacija <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>, ki jo bo hkrati nadzirala in skrbela za njeno varnost. Pri tem bodo veljali pogoji za <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Ta povezava ni varna in je ni mogoče odpreti, dokler nastavljanje naprave ni končano: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"Če imate vprašanja, se obrnite na: <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"Če imate vprašanja, se obrnite na skrbnika organizacije."</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> in <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"To lahko traja nekaj minut"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"V tem profilu bodo vaše delovne aplikacije, ki jih bo upravljala vaša organizacija"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"Za varnost in upravljanje te naprave bo skrbela vaša organizacija."</string>
 </resources>

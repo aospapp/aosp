@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Configuration for app.usage Tests">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -22,5 +23,6 @@
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.app.usage.cts" />
         <option name="runtime-hint" value="1m47s" />
+        <option name="hidden-api-checks" value="false" />
     </test>
 </configuration>

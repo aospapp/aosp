@@ -174,6 +174,10 @@ ro{
             "CLP",
             "peso chilian",
         }
+        CNH{
+            "CNH",
+            "yuan chinezesc (offshore)",
+        }
         CNY{
             "CNY",
             "yuan chinezesc",
@@ -616,7 +620,7 @@ ro{
         }
         PEN{
             "PEN",
-            "sol nou peruvian",
+            "sol peruvian",
         }
         PES{
             "PES",
@@ -1168,9 +1172,9 @@ ro{
             other{"mărci convertibile din Bosnia și Herțegovina"}
         }
         BBD{
-            few{"dolari Barbados"}
-            one{"dolar Barbados"}
-            other{"dolari Barbados"}
+            few{"dolari din Barbados"}
+            one{"dolar din Barbados"}
+            other{"dolari din Barbados"}
         }
         BDT{
             few{"taka din Bangladesh"}
@@ -1281,6 +1285,11 @@ ro{
             few{"pesos chilieni"}
             one{"peso chilian"}
             other{"pesos chilieni"}
+        }
+        CNH{
+            few{"yuani chinezești (offshore)"}
+            one{"yuan chinezesc (offshore)"}
+            other{"yuani chinezești (offshore)"}
         }
         CNY{
             few{"yuani chinezești"}
@@ -1788,14 +1797,14 @@ ro{
             other{"balboa panameze"}
         }
         PEN{
-            few{"soli noi peruvieni"}
-            one{"sol nou peruvian"}
-            other{"soli noi peruvieni"}
+            few{"soli peruvieni"}
+            one{"sol peruvian"}
+            other{"soli peruvieni"}
         }
         PES{
-            few{"soli Peru (1863–1965)"}
+            few{"soli peruvieni (1863–1965)"}
             one{"sol peruvian (1863–1965)"}
-            other{"soli Peru (1863–1965)"}
+            other{"soli peruvieni (1863–1965)"}
         }
         PGK{
             few{"kina din Papua-Noua Guinee"}
@@ -2188,5 +2197,5 @@ ro{
         one{"{0} {1}"}
         other{"{0} de {1}"}
     }
-    Version{"2.1.28.79"}
+    Version{"2.1.37.5"}
 }

@@ -26,6 +26,7 @@
 
 #include "command.h"
 #include "event_attr.h"
+#include "event_type.h"
 #include "perf_regs.h"
 #include "record.h"
 #include "record_file.h"
@@ -48,7 +49,7 @@ class DumpRecordCommand : public Command {
   bool ParseOptions(const std::vector<std::string>& args);
   void DumpFileHeader();
   void DumpAttrSection();
-  void DumpDataSection();
+  bool DumpDataSection();
   bool DumpFeatureSection();
 
   std::string record_filename_;
@@ -72,14 +73,23 @@ bool DumpRecordCommand::Run(const std::vector<std::string>& args) {
     }
   }
   ScopedCurrentArch scoped_arch(record_file_arch_);
+  std::unique_ptr<ScopedEventTypes> scoped_event_types;
+  if (record_file_reader_->HasFeature(PerfFileFormat::FEAT_META_INFO)) {
+    std::unordered_map<std::string, std::string> meta_info;
+    if (!record_file_reader_->ReadMetaInfoFeature(&meta_info)) {
+      return false;
+    }
+    auto it = meta_info.find("event_type_info");
+    if (it != meta_info.end()) {
+      scoped_event_types.reset(new ScopedEventTypes(it->second));
+    }
+  }
   DumpFileHeader();
   DumpAttrSection();
-  DumpDataSection();
-  if (!DumpFeatureSection()) {
+  if (!DumpDataSection()) {
     return false;
   }
-
-  return true;
+  return DumpFeatureSection();
 }
 
 bool DumpRecordCommand::ParseOptions(const std::vector<std::string>& args) {
@@ -92,7 +102,10 @@ bool DumpRecordCommand::ParseOptions(const std::vector<std::string>& args) {
   return true;
 }
 
-static const std::string GetFeatureName(int feature);
+static const std::string GetFeatureNameOrUnknown(int feature) {
+  std::string name = GetFeatureName(feature);
+  return name.empty() ? android::base::StringPrintf("unknown_feature(%d)", feature) : name;
+}
 
 void DumpRecordCommand::DumpFileHeader() {
   const FileHeader& header = record_file_reader_->FileHeader();
@@ -127,36 +140,8 @@ void DumpRecordCommand::DumpFileHeader() {
     }
   }
   for (auto& feature : features) {
-    printf("feature: %s\n", GetFeatureName(feature).c_str());
+    printf("feature: %s\n", GetFeatureNameOrUnknown(feature).c_str());
   }
-}
-
-static const std::string GetFeatureName(int feature) {
-  static std::map<int, std::string> feature_name_map = {
-      {FEAT_TRACING_DATA, "tracing_data"},
-      {FEAT_BUILD_ID, "build_id"},
-      {FEAT_HOSTNAME, "hostname"},
-      {FEAT_OSRELEASE, "osrelease"},
-      {FEAT_VERSION, "version"},
-      {FEAT_ARCH, "arch"},
-      {FEAT_NRCPUS, "nrcpus"},
-      {FEAT_CPUDESC, "cpudesc"},
-      {FEAT_CPUID, "cpuid"},
-      {FEAT_TOTAL_MEM, "total_mem"},
-      {FEAT_CMDLINE, "cmdline"},
-      {FEAT_EVENT_DESC, "event_desc"},
-      {FEAT_CPU_TOPOLOGY, "cpu_topology"},
-      {FEAT_NUMA_TOPOLOGY, "numa_topology"},
-      {FEAT_BRANCH_STACK, "branch_stack"},
-      {FEAT_PMU_MAPPINGS, "pmu_mappings"},
-      {FEAT_GROUP_DESC, "group_desc"},
-      {FEAT_FILE, "file"},
-  };
-  auto it = feature_name_map.find(feature);
-  if (it != feature_name_map.end()) {
-    return it->second;
-  }
-  return android::base::StringPrintf("unknown_feature(%d)", feature);
 }
 
 void DumpRecordCommand::DumpAttrSection() {
@@ -175,11 +160,53 @@ void DumpRecordCommand::DumpAttrSection() {
   }
 }
 
-void DumpRecordCommand::DumpDataSection() {
-  record_file_reader_->ReadDataSection([](std::unique_ptr<Record> record) {
-    record->Dump();
+bool DumpRecordCommand::DumpDataSection() {
+  ThreadTree thread_tree;
+  thread_tree.ShowIpForUnknownSymbol();
+  record_file_reader_->LoadBuildIdAndFileFeatures(thread_tree);
+
+  auto get_symbol_function = [&](uint32_t pid, uint32_t tid, uint64_t ip, std::string& dso_name,
+                                 std::string& symbol_name, uint64_t& vaddr_in_file) {
+    ThreadEntry* thread = thread_tree.FindThreadOrNew(pid, tid);
+    const MapEntry* map = thread_tree.FindMap(thread, ip);
+    Dso* dso;
+    const Symbol* symbol = thread_tree.FindSymbol(map, ip, &vaddr_in_file, &dso);
+    dso_name = dso->Path();
+    symbol_name = symbol->DemangledName();
+  };
+
+  auto record_callback = [&](std::unique_ptr<Record> r) {
+    r->Dump();
+    thread_tree.Update(*r);
+    if (r->type() == PERF_RECORD_SAMPLE) {
+      SampleRecord& sr = *static_cast<SampleRecord*>(r.get());
+      if (sr.sample_type & PERF_SAMPLE_CALLCHAIN) {
+        PrintIndented(1, "callchain:\n");
+        for (size_t i = 0; i < sr.callchain_data.ip_nr; ++i) {
+          std::string dso_name;
+          std::string symbol_name;
+          uint64_t vaddr_in_file;
+          get_symbol_function(sr.tid_data.pid, sr.tid_data.tid, sr.callchain_data.ips[i],
+                              dso_name, symbol_name, vaddr_in_file);
+          PrintIndented(2, "%s (%s[+%" PRIx64 "])\n", symbol_name.c_str(), dso_name.c_str(),
+                        vaddr_in_file);
+        }
+      }
+    } else if (r->type() == SIMPLE_PERF_RECORD_CALLCHAIN) {
+      CallChainRecord& cr = *static_cast<CallChainRecord*>(r.get());
+      PrintIndented(1, "callchain:\n");
+      for (size_t i = 0; i < cr.ip_nr; ++i) {
+        std::string dso_name;
+        std::string symbol_name;
+        uint64_t vaddr_in_file;
+        get_symbol_function(cr.pid, cr.tid, cr.ips[i], dso_name, symbol_name, vaddr_in_file);
+        PrintIndented(2, "%s (%s[+%" PRIx64 "])\n", symbol_name.c_str(), dso_name.c_str(),
+                      vaddr_in_file);
+      }
+    }
     return true;
-  }, false);
+  };
+  return record_file_reader_->ReadDataSection(record_callback, false);
 }
 
 bool DumpRecordCommand::DumpFeatureSection() {
@@ -188,7 +215,7 @@ bool DumpRecordCommand::DumpFeatureSection() {
     int feature = pair.first;
     const auto& section = pair.second;
     printf("feature section for %s: offset %" PRId64 ", size %" PRId64 "\n",
-           GetFeatureName(feature).c_str(), section.offset, section.size);
+           GetFeatureNameOrUnknown(feature).c_str(), section.offset, section.size);
     if (feature == FEAT_BUILD_ID) {
       std::vector<BuildIdRecord> records = record_file_reader_->ReadBuildIdFeature();
       for (auto& r : records) {

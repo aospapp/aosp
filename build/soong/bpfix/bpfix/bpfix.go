@@ -18,15 +18,37 @@ package bpfix
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
+	"path/filepath"
+	"strings"
+
 	"github.com/google/blueprint/parser"
 )
+
+// Reformat takes a blueprint file as a string and returns a formatted version
+func Reformat(input string) (string, error) {
+	tree, err := parse("<string>", bytes.NewBufferString(input))
+	if err != nil {
+		return "", err
+	}
+
+	res, err := parser.Print(tree)
+	if err != nil {
+		return "", err
+	}
+
+	return string(res), nil
+}
 
 // A FixRequest specifies the details of which fixes to apply to an individual file
 // A FixRequest doesn't specify whether to do a dry run or where to write the results; that's in cmd/bpfix.go
 type FixRequest struct {
-	simplifyKnownRedundantVariables bool
-	removeEmptyLists                bool
+	simplifyKnownRedundantVariables           bool
+	rewriteIncorrectAndroidmkPrebuilts        bool
+	rewriteIncorrectAndroidmkAndroidLibraries bool
+	mergeMatchingModuleProperties             bool
 }
 
 func NewFixRequest() FixRequest {
@@ -36,24 +58,38 @@ func NewFixRequest() FixRequest {
 func (r FixRequest) AddAll() (result FixRequest) {
 	result = r
 	result.simplifyKnownRedundantVariables = true
-	result.removeEmptyLists = true
+	result.rewriteIncorrectAndroidmkPrebuilts = true
+	result.rewriteIncorrectAndroidmkAndroidLibraries = true
+	result.mergeMatchingModuleProperties = true
 	return result
 }
 
-// FixTree repeatedly applies the fixes listed in the given FixRequest to the given File
+type Fixer struct {
+	tree *parser.File
+}
+
+func NewFixer(tree *parser.File) *Fixer {
+	fixer := &Fixer{tree}
+
+	// make a copy of the tree
+	fixer.reparse()
+
+	return fixer
+}
+
+// Fix repeatedly applies the fixes listed in the given FixRequest to the given File
 // until there is no fix that affects the tree
-func FixTree(tree *parser.File, config FixRequest) (fixed *parser.File, err error) {
-	prevIdentifier, err := fingerprint(tree)
+func (f *Fixer) Fix(config FixRequest) (*parser.File, error) {
+	prevIdentifier, err := f.fingerprint()
 	if err != nil {
 		return nil, err
 	}
 
-	fixed = tree
 	maxNumIterations := 20
 	i := 0
 	for {
-		fixed, err = fixTreeOnce(fixed, config)
-		newIdentifier, err := fingerprint(tree)
+		err = f.fixTreeOnce(config)
+		newIdentifier, err := f.fingerprint()
 		if err != nil {
 			return nil, err
 		}
@@ -66,42 +102,260 @@ func FixTree(tree *parser.File, config FixRequest) (fixed *parser.File, err erro
 		// detect infinite loop
 		i++
 		if i >= maxNumIterations {
-			return nil, fmt.Errorf("Applied fixes %s times and yet the tree continued to change. Is there an infinite loop?", i)
+			return nil, fmt.Errorf("Applied fixes %d times and yet the tree continued to change. Is there an infinite loop?", i)
 			break
 		}
 	}
-	return fixed, err
+	return f.tree, err
 }
 
 // returns a unique identifier for the given tree that can be used to determine whether the tree changed
-func fingerprint(tree *parser.File) (fingerprint []byte, err error) {
-	bytes, err := parser.Print(tree)
+func (f *Fixer) fingerprint() (fingerprint []byte, err error) {
+	bytes, err := parser.Print(f.tree)
 	if err != nil {
 		return nil, err
 	}
 	return bytes, nil
 }
 
-func fixTreeOnce(tree *parser.File, config FixRequest) (fixed *parser.File, err error) {
-	if config.simplifyKnownRedundantVariables {
-		tree, err = simplifyKnownPropertiesDuplicatingEachOther(tree)
-		if err != nil {
-			return nil, err
-		}
+func (f *Fixer) reparse() ([]byte, error) {
+	buf, err := parser.Print(f.tree)
+	if err != nil {
+		return nil, err
 	}
-	if config.removeEmptyLists {
-		tree, err = removePropertiesHavingTheirDefaultValues(tree)
-		if err != nil {
-			return nil, err
-		}
+	newTree, err := parse(f.tree.Name, bytes.NewReader(buf))
+	if err != nil {
+		return nil, err
 	}
-	return tree, err
+	f.tree = newTree
+	return buf, nil
 }
 
-func simplifyKnownPropertiesDuplicatingEachOther(tree *parser.File) (fixed *parser.File, err error) {
+func parse(name string, r io.Reader) (*parser.File, error) {
+	tree, errs := parser.Parse(name, r, parser.NewScope(nil))
+	if errs != nil {
+		s := "parse error: "
+		for _, err := range errs {
+			s += "\n" + err.Error()
+		}
+		return nil, errors.New(s)
+	}
+	return tree, nil
+}
+
+func (f *Fixer) fixTreeOnce(config FixRequest) error {
+	if config.simplifyKnownRedundantVariables {
+		err := f.simplifyKnownPropertiesDuplicatingEachOther()
+		if err != nil {
+			return err
+		}
+	}
+	if config.rewriteIncorrectAndroidmkPrebuilts {
+		err := f.rewriteIncorrectAndroidmkPrebuilts()
+		if err != nil {
+			return err
+		}
+	}
+
+	if config.rewriteIncorrectAndroidmkAndroidLibraries {
+		err := f.rewriteIncorrectAndroidmkAndroidLibraries()
+		if err != nil {
+			return err
+		}
+	}
+
+	if config.mergeMatchingModuleProperties {
+		err := f.mergeMatchingModuleProperties()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (f *Fixer) simplifyKnownPropertiesDuplicatingEachOther() error {
 	// remove from local_include_dirs anything in export_include_dirs
-	fixed, err = removeMatchingModuleListProperties(tree, "export_include_dirs", "local_include_dirs")
-	return fixed, err
+	return f.removeMatchingModuleListProperties("export_include_dirs", "local_include_dirs")
+}
+
+func (f *Fixer) rewriteIncorrectAndroidmkPrebuilts() error {
+	for _, def := range f.tree.Defs {
+		mod, ok := def.(*parser.Module)
+		if !ok {
+			continue
+		}
+		if mod.Type != "java_import" {
+			continue
+		}
+		srcs, ok := getLiteralListProperty(mod, "srcs")
+		if !ok {
+			continue
+		}
+		if len(srcs.Values) == 0 {
+			continue
+		}
+		src, ok := srcs.Values[0].(*parser.String)
+		if !ok {
+			continue
+		}
+		switch filepath.Ext(src.Value) {
+		case ".jar":
+			renameProperty(mod, "srcs", "jars")
+
+		case ".aar":
+			renameProperty(mod, "srcs", "aars")
+			mod.Type = "android_library_import"
+
+			// An android_library_import doesn't get installed, so setting "installable = false" isn't supported
+			removeProperty(mod, "installable")
+		}
+	}
+
+	return nil
+}
+
+func (f *Fixer) rewriteIncorrectAndroidmkAndroidLibraries() error {
+	for _, def := range f.tree.Defs {
+		mod, ok := def.(*parser.Module)
+		if !ok {
+			continue
+		}
+
+		if !strings.HasPrefix(mod.Type, "java_") && !strings.HasPrefix(mod.Type, "android_") {
+			continue
+		}
+
+		hasAndroidLibraries := hasNonEmptyLiteralListProperty(mod, "android_libs")
+		hasStaticAndroidLibraries := hasNonEmptyLiteralListProperty(mod, "android_static_libs")
+		hasResourceDirs := hasNonEmptyLiteralListProperty(mod, "resource_dirs")
+
+		if hasAndroidLibraries || hasStaticAndroidLibraries || hasResourceDirs {
+			if mod.Type == "java_library_static" {
+				mod.Type = "android_library"
+			}
+		}
+
+		if mod.Type == "java_import" && !hasStaticAndroidLibraries {
+			removeProperty(mod, "android_static_libs")
+		}
+
+		// These may conflict with existing libs and static_libs properties, but the
+		// mergeMatchingModuleProperties pass will fix it.
+		renameProperty(mod, "shared_libs", "libs")
+		renameProperty(mod, "android_libs", "libs")
+		renameProperty(mod, "android_static_libs", "static_libs")
+	}
+
+	return nil
+}
+
+func (f *Fixer) mergeMatchingModuleProperties() error {
+	// Make sure all the offsets are accurate
+	buf, err := f.reparse()
+	if err != nil {
+		return err
+	}
+
+	var patchlist parser.PatchList
+	for _, def := range f.tree.Defs {
+		mod, ok := def.(*parser.Module)
+		if !ok {
+			continue
+		}
+
+		err := mergeMatchingProperties(&mod.Properties, buf, &patchlist)
+		if err != nil {
+			return err
+		}
+	}
+
+	newBuf := new(bytes.Buffer)
+	err = patchlist.Apply(bytes.NewReader(buf), newBuf)
+	if err != nil {
+		return err
+	}
+
+	newTree, err := parse(f.tree.Name, newBuf)
+	if err != nil {
+		return err
+	}
+
+	f.tree = newTree
+
+	return nil
+}
+
+func mergeMatchingProperties(properties *[]*parser.Property, buf []byte, patchlist *parser.PatchList) error {
+	seen := make(map[string]*parser.Property)
+	for i := 0; i < len(*properties); i++ {
+		property := (*properties)[i]
+		if prev, exists := seen[property.Name]; exists {
+			err := mergeProperties(prev, property, buf, patchlist)
+			if err != nil {
+				return err
+			}
+			*properties = append((*properties)[:i], (*properties)[i+1:]...)
+		} else {
+			seen[property.Name] = property
+			if mapProperty, ok := property.Value.(*parser.Map); ok {
+				err := mergeMatchingProperties(&mapProperty.Properties, buf, patchlist)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func mergeProperties(a, b *parser.Property, buf []byte, patchlist *parser.PatchList) error {
+	if a.Value.Type() != b.Value.Type() {
+		return fmt.Errorf("type mismatch when merging properties %q: %s and %s", a.Name, a.Value.Type(), b.Value.Type())
+	}
+
+	switch a.Value.Type() {
+	case parser.StringType:
+		return fmt.Errorf("conflicting definitions of string property %q", a.Name)
+	case parser.ListType:
+		return mergeListProperties(a, b, buf, patchlist)
+	}
+
+	return nil
+}
+
+func mergeListProperties(a, b *parser.Property, buf []byte, patchlist *parser.PatchList) error {
+	aval, oka := a.Value.(*parser.List)
+	bval, okb := b.Value.(*parser.List)
+	if !oka || !okb {
+		// Merging expressions not supported yet
+		return nil
+	}
+
+	s := string(buf[bval.LBracePos.Offset+1 : bval.RBracePos.Offset])
+	if bval.LBracePos.Line != bval.RBracePos.Line {
+		if s[0] != '\n' {
+			panic("expected \n")
+		}
+		// If B is a multi line list, skip the first "\n" in case A already has a trailing "\n"
+		s = s[1:]
+	}
+	if aval.LBracePos.Line == aval.RBracePos.Line {
+		// A is a single line list with no trailing comma
+		if len(aval.Values) > 0 {
+			s = "," + s
+		}
+	}
+
+	err := patchlist.Add(aval.RBracePos.Offset, aval.RBracePos.Offset, s)
+	if err != nil {
+		return err
+	}
+	err = patchlist.Add(b.NamePos.Offset, b.End().Offset+2, "")
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // removes from <items> every item present in <removals>
@@ -128,58 +382,53 @@ func filterExpressionList(items *parser.List, removals *parser.List) {
 }
 
 // Remove each modules[i].Properties[<legacyName>][j] that matches a modules[i].Properties[<canonicalName>][k]
-func removeMatchingModuleListProperties(tree *parser.File, canonicalName string, legacyName string) (fixed *parser.File, err error) {
-	for _, def := range tree.Defs {
+func (f *Fixer) removeMatchingModuleListProperties(canonicalName string, legacyName string) error {
+	for _, def := range f.tree.Defs {
 		mod, ok := def.(*parser.Module)
 		if !ok {
 			continue
 		}
-		legacy, ok := mod.GetProperty(legacyName)
+		legacyList, ok := getLiteralListProperty(mod, legacyName)
 		if !ok {
 			continue
 		}
-		legacyList, ok := legacy.Value.(*parser.List)
-		if !ok {
-			continue
-		}
-		canonical, ok := mod.GetProperty(canonicalName)
-		if !ok {
-			continue
-		}
-		canonicalList, ok := canonical.Value.(*parser.List)
+		canonicalList, ok := getLiteralListProperty(mod, canonicalName)
 		if !ok {
 			continue
 		}
 		filterExpressionList(legacyList, canonicalList)
 	}
-	return tree, nil
+	return nil
 }
 
-func removePropertiesHavingTheirDefaultValues(tree *parser.File) (fixed *parser.File, err error) {
-	for _, def := range tree.Defs {
-		mod, ok := def.(*parser.Module)
-		if !ok {
-			continue
-		}
-		writeIndex := 0
-		for _, prop := range mod.Properties {
-			val := prop.Value
-			keep := true
-			switch val := val.(type) {
-			case *parser.List:
-				if len(val.Values) == 0 {
-					keep = false
-				}
-				break
-			default:
-				keep = true
-			}
-			if keep {
-				mod.Properties[writeIndex] = prop
-				writeIndex++
-			}
-		}
-		mod.Properties = mod.Properties[:writeIndex]
+func hasNonEmptyLiteralListProperty(mod *parser.Module, name string) bool {
+	list, found := getLiteralListProperty(mod, name)
+	return found && len(list.Values) > 0
+}
+
+func getLiteralListProperty(mod *parser.Module, name string) (list *parser.List, found bool) {
+	prop, ok := mod.GetProperty(name)
+	if !ok {
+		return nil, false
 	}
-	return tree, nil
+	list, ok = prop.Value.(*parser.List)
+	return list, ok
+}
+
+func renameProperty(mod *parser.Module, from, to string) {
+	for _, prop := range mod.Properties {
+		if prop.Name == from {
+			prop.Name = to
+		}
+	}
+}
+
+func removeProperty(mod *parser.Module, propertyName string) {
+	newList := make([]*parser.Property, 0, len(mod.Properties))
+	for _, prop := range mod.Properties {
+		if prop.Name != propertyName {
+			newList = append(newList, prop)
+		}
+	}
+	mod.Properties = newList
 }

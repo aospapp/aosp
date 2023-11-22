@@ -13,14 +13,12 @@ import mock
 import common
 from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.server import site_utils
-from autotest_lib.server.cros.dynamic_suite import reporting
 
 
 # Mock retry.retry used in test_push before importing test_push.
 retry.retry = mock.create_autospec(retry.retry, return_value=lambda func: func)
 from autotest_lib.site_utils import test_push
 
-AUTOFILED_COUNT_2 = '%s2' % reporting.Reporter.AUTOFILED_COUNT
 
 class TestPushUnittests(mox.MoxTestBase):
     """Unittest for test_push script."""

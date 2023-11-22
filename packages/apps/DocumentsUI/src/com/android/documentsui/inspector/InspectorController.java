@@ -15,59 +15,69 @@
  */
 package com.android.documentsui.inspector;
 
-import static android.provider.DocumentsContract.Document.FLAG_SUPPORTS_SETTINGS;
 import static com.android.internal.util.Preconditions.checkArgument;
 
+import android.annotation.StringRes;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Bundle;
 import android.provider.DocumentsContract;
 import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
 import android.view.View;
 import android.view.View.OnClickListener;
+
 import com.android.documentsui.DocumentsApplication;
 import com.android.documentsui.ProviderExecutor;
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
-import com.android.documentsui.base.Lookup;
+import com.android.documentsui.base.Shared;
 import com.android.documentsui.inspector.actions.Action;
 import com.android.documentsui.inspector.actions.ClearDefaultAppAction;
 import com.android.documentsui.inspector.actions.ShowInProviderAction;
 import com.android.documentsui.roots.ProvidersAccess;
 import com.android.documentsui.ui.Snackbars;
-import java.util.concurrent.Executor;
+
 import java.util.function.Consumer;
 /**
  * A controller that coordinates retrieving document information and sending it to the view.
  */
 public final class InspectorController {
 
-    private final Loader mLoader;
-    private final Consumer<DocumentInfo> mHeader;
+    private final DataSupplier mLoader;
+    private final HeaderDisplay mHeader;
     private final DetailsDisplay mDetails;
+    private final MediaDisplay mMedia;
     private final ActionDisplay mShowProvider;
     private final ActionDisplay mAppDefaults;
-    private final Consumer<DocumentInfo> mDebugView;
-    private final boolean mShowDebug;
+    private final DebugDisplay mDebugView;
     private final Context mContext;
     private final PackageManager mPackageManager;
     private final ProvidersAccess mProviders;
-    private final Runnable mShowSnackbar;
-    private final Lookup<String, Executor> mExecutors;
+    private final Runnable mErrorSnackbar;
+    private Bundle mArgs;
 
     /**
      * InspectorControllerTest relies on this controller.
      */
     @VisibleForTesting
-    public InspectorController(Context context, Loader loader, PackageManager pm,
-            ProvidersAccess providers, boolean showDebug, Consumer<DocumentInfo> header,
-            DetailsDisplay details, ActionDisplay showProvider, ActionDisplay appDefaults,
-            Consumer<DocumentInfo> debugView, Lookup<String, Executor> executors,
-            Runnable showSnackbar) {
+    public InspectorController(
+            Context context,
+            DataSupplier loader,
+            PackageManager pm,
+            ProvidersAccess providers,
+            HeaderDisplay header,
+            DetailsDisplay details,
+            MediaDisplay media,
+            ActionDisplay showProvider,
+            ActionDisplay appDefaults,
+            DebugDisplay debugView,
+            Bundle args,
+            Runnable errorRunnable) {
 
         checkArgument(context != null);
         checkArgument(loader != null);
@@ -75,46 +85,57 @@ public final class InspectorController {
         checkArgument(providers != null);
         checkArgument(header != null);
         checkArgument(details != null);
+        checkArgument(media != null);
         checkArgument(showProvider != null);
         checkArgument(appDefaults != null);
         checkArgument(debugView != null);
-        checkArgument(showSnackbar != null);
-        checkArgument(executors != null);
+        checkArgument(args != null);
+        checkArgument(errorRunnable != null);
 
         mContext = context;
         mLoader = loader;
         mPackageManager = pm;
-        mShowDebug = showDebug;
         mProviders = providers;
         mHeader = header;
         mDetails = details;
+        mMedia = media;
         mShowProvider = showProvider;
         mAppDefaults = appDefaults;
+        mArgs = args;
         mDebugView = debugView;
-        mExecutors = executors;
-        mShowSnackbar = showSnackbar;
+
+        mErrorSnackbar = errorRunnable;
     }
 
-    public InspectorController(Activity activity, Loader loader, View layout, boolean showDebug) {
-
+    /**
+     * @param activity
+     * @param loader
+     * @param layout
+     * @param args Bundle of arguments passed to our host {@link InspectorFragment}. These
+     *     can include extras that enable debug mode ({@link Shared#EXTRA_SHOW_DEBUG}
+     *     and override the file title (@link {@link Intent#EXTRA_TITLE}).
+     */
+    public InspectorController(Activity activity, DataSupplier loader, View layout, Bundle args) {
         this(activity,
-                loader,
-                activity.getPackageManager(),
-                DocumentsApplication.getProvidersCache (activity),
-                showDebug,
-                (HeaderView) layout.findViewById(R.id.inspector_header_view),
-                (DetailsView) layout.findViewById(R.id.inspector_details_view),
-                (ActionDisplay) layout.findViewById(R.id.inspector_show_in_provider_view),
-                (ActionDisplay) layout.findViewById(R.id.inspector_app_defaults_view),
-                (DebugView) layout.findViewById(R.id.inspector_debug_view),
-                ProviderExecutor::forAuthority,
-                () -> {
-                    // using a runnable to support unit testing this feature.
-                    Snackbars.showInspectorError(activity);
-                }
+            loader,
+            activity.getPackageManager(),
+            DocumentsApplication.getProvidersCache (activity),
+            (HeaderView) layout.findViewById(R.id.inspector_header_view),
+            (DetailsView) layout.findViewById(R.id.inspector_details_view),
+            (MediaView) layout.findViewById(R.id.inspector_media_view),
+            (ActionDisplay) layout.findViewById(R.id.inspector_show_in_provider_view),
+            (ActionDisplay) layout.findViewById(R.id.inspector_app_defaults_view),
+            (DebugView) layout.findViewById(R.id.inspector_debug_view),
+            args,
+            () -> {
+                // using a runnable to support unit testing this feature.
+                Snackbars.showInspectorError(activity);
+            }
         );
-        if (showDebug) {
-            layout.findViewById(R.id.inspector_debug_view).setVisibility(View.VISIBLE);
+
+        if (args.getBoolean(Shared.EXTRA_SHOW_DEBUG)) {
+            DebugView view = (DebugView) layout.findViewById(R.id.inspector_debug_view);
+            view.init(ProviderExecutor::forAuthority);
         }
     }
 
@@ -129,13 +150,11 @@ public final class InspectorController {
     /**
      * Updates the view with documentInfo.
      */
-    @Nullable
-    public void updateView(@Nullable DocumentInfo docInfo) {
-
+    private void updateView(@Nullable DocumentInfo docInfo) {
         if (docInfo == null) {
-            mShowSnackbar.run();
+            mErrorSnackbar.run();
         } else {
-            mHeader.accept(docInfo);
+            mHeader.accept(docInfo, mArgs.getString(Intent.EXTRA_TITLE, docInfo.displayName));
             mDetails.accept(docInfo);
 
             if (docInfo.isDirectory()) {
@@ -147,28 +166,62 @@ public final class InspectorController {
                     Action showProviderAction =
                         new ShowInProviderAction(mContext, mPackageManager, docInfo, mProviders);
                     mShowProvider.init(
-                            showProviderAction,
-                            (view) -> {
-                                showInProvider(docInfo.derivedUri);
-                            });
+                        showProviderAction,
+                        (view) -> {
+                            showInProvider(docInfo.derivedUri);
+                        });
                 }
 
                 Action defaultAction =
-                        new ClearDefaultAppAction(mContext, mPackageManager, docInfo);
+                    new ClearDefaultAppAction(mContext, mPackageManager, docInfo);
 
                 mAppDefaults.setVisible(defaultAction.canPerformAction());
                 if (defaultAction.canPerformAction()) {
                     mAppDefaults.init(
-                            defaultAction,
-                            (View) -> {
-                                clearDefaultApp(defaultAction.getPackageName());
-                            });
+                        defaultAction,
+                        (View) -> {
+                            clearDefaultApp(defaultAction.getPackageName());
+                        });
                 }
             }
 
-            if (mShowDebug) {
+            if (docInfo.isMetadataSupported()) {
+                mLoader.getDocumentMetadata(
+                        docInfo.derivedUri,
+                        (Bundle bundle) -> {
+                            onDocumentMetadataLoaded(docInfo, bundle);
+                        });
+            }
+            mMedia.setVisible(!mMedia.isEmpty());
+
+            if (mArgs.getBoolean(Shared.EXTRA_SHOW_DEBUG)) {
                 mDebugView.accept(docInfo);
             }
+            mDebugView.setVisible(mArgs.getBoolean(Shared.EXTRA_SHOW_DEBUG)
+                    && !mDebugView.isEmpty());
+        }
+    }
+
+    private void onDocumentMetadataLoaded(DocumentInfo doc, @Nullable Bundle metadata) {
+        if (metadata == null) {
+            return;
+        }
+
+        Runnable geoClickListener = null;
+        if (MetadataUtils.hasGeoCoordinates(metadata)) {
+            float[] coords = MetadataUtils.getGeoCoordinates(metadata);
+            final Intent intent = createGeoIntent(coords[0], coords[1], doc.displayName);
+            if (hasHandler(intent)) {
+                geoClickListener = () -> {
+                    startActivity(intent);
+                };
+            }
+        }
+
+        mMedia.accept(doc, metadata, geoClickListener);
+
+        if (mArgs.getBoolean(Shared.EXTRA_SHOW_DEBUG)) {
+            mDebugView.accept(metadata);
         }
     }
 
@@ -179,6 +232,31 @@ public final class InspectorController {
      */
     private void displayChildCount(Integer count) {
         mDetails.setChildrenCount(count);
+    }
+
+    private void startActivity(Intent intent) {
+        assert hasHandler(intent);
+        mContext.startActivity(intent);
+    }
+
+    /**
+     * checks that we can handle a geo-intent.
+     */
+    private boolean hasHandler(Intent intent) {
+        return mPackageManager.resolveActivity(intent, 0) != null;
+    }
+
+    /**
+     * Creates a geo-intent for opening a location in maps.
+     *
+     * @see https://developer.android.com/guide/components/intents-common.html#Maps
+     */
+    private static Intent createGeoIntent(
+            float latitude, float longitude, @Nullable String label) {
+        label = Uri.encode(label == null ? "" : label);
+        String data = "geo:0,0?q=" + latitude + " " + longitude + "(" + label + ")";
+        Uri uri = Uri.parse(data);
+        return new Intent(Intent.ACTION_VIEW, uri);
     }
 
     /**
@@ -210,9 +288,10 @@ public final class InspectorController {
     }
 
     /**
-     * Interface for loading document metadata.
+     * Interface for loading all the various forms of document data. This primarily
+     * allows us to easily supply test data in tests.
      */
-    public interface Loader {
+    public interface DataSupplier {
 
         /**
          * Starts the Asynchronous process of loading file data.
@@ -235,12 +314,28 @@ public final class InspectorController {
          * Deletes all loader id's when android lifecycle ends.
          */
         void reset();
+
+        /**
+         * @param uri
+         * @param callback
+         */
+        void getDocumentMetadata(Uri uri, Consumer<Bundle> callback);
     }
 
     /**
      * This interface is for unit testing.
      */
-    public interface ActionDisplay {
+    public interface Display {
+        /**
+         * Makes the action visible.
+         */
+        void setVisible(boolean visible);
+    }
+
+    /**
+     * This interface is for unit testing.
+     */
+    public interface ActionDisplay extends Display {
 
         /**
          * Initializes the view based on the action.
@@ -248,11 +343,6 @@ public final class InspectorController {
          * @param listener - listener for when the action is pressed.
          */
         void init(Action action, OnClickListener listener);
-
-        /**
-         * Makes the action visible.
-         */
-        void setVisible(boolean visible);
 
         void setActionHeader(String header);
 
@@ -266,10 +356,63 @@ public final class InspectorController {
     /**
      * Provides details about a file.
      */
+    public interface HeaderDisplay {
+        void accept(DocumentInfo info, String displayName);
+    }
+
+    /**
+     * Provides basic details about a file.
+     */
     public interface DetailsDisplay {
 
         void accept(DocumentInfo info);
 
         void setChildrenCount(int count);
+    }
+
+    /**
+     * Provides details about a media file.
+     */
+    public interface MediaDisplay extends Display {
+        void accept(DocumentInfo info, Bundle metadata, @Nullable Runnable geoClickListener);
+
+        /**
+         * Returns true if there are now rows in the display. Does not consider the title.
+         */
+        boolean isEmpty();
+    }
+
+    /**
+     * Provides details about a media file.
+     */
+    public interface DebugDisplay extends Display {
+        void accept(DocumentInfo info);
+        void accept(Bundle metadata);
+
+        /**
+         * Returns true if there are now rows in the display. Does not consider the title.
+         */
+        boolean isEmpty();
+    }
+
+    /**
+     * Displays a table of image metadata.
+     */
+    public interface TableDisplay extends Display {
+
+        /**
+         * Adds a row in the table.
+         */
+        void put(@StringRes int keyId, CharSequence value);
+
+        /**
+         * Adds a row in the table and makes it clickable.
+         */
+        void put(@StringRes int keyId, CharSequence value, OnClickListener callback);
+
+        /**
+         * Returns true if there are now rows in the display. Does not consider the title.
+         */
+        boolean isEmpty();
     }
 }

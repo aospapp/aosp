@@ -57,6 +57,7 @@
     <uses-permission android:name="android.permission.ACCESS_VR_MANAGER"/>
     <uses-permission android:name="android.permission.USER_ACTIVITY" />
     <uses-permission android:name="android.permission.BIND_RESOLVER_RANKER_SERVICE" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application android:name=".NfcApplication"
                  android:icon="@drawable/icon"

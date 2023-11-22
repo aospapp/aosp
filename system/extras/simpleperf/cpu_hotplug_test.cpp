@@ -19,7 +19,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #if defined(__BIONIC__)
-#include <sys/system_properties.h>
+#include <android-base/properties.h>
 #endif
 
 #include <atomic>
@@ -59,25 +59,22 @@ class ScopedMpdecisionKiller {
 
  private:
   bool IsMpdecisionRunning() {
-    char value[PROP_VALUE_MAX];
-    int len = __system_property_get("init.svc.mpdecision", value);
-    if (len == 0 || (len > 0 && strstr(value, "stopped") != nullptr)) {
+    std::string value = android::base::GetProperty("init.svc.mpdecision", "");
+    if (value.empty() || value.find("stopped") != std::string::npos) {
       return false;
     }
     return true;
   }
 
   void DisableMpdecision() {
-    int ret = __system_property_set("ctl.stop", "mpdecision");
-    CHECK_EQ(0, ret);
+    CHECK(android::base::SetProperty("ctl.stop", "mpdecision"));
     // Need to wait until mpdecision is actually stopped.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     CHECK(!IsMpdecisionRunning());
   }
 
   void EnableMpdecision() {
-    int ret = __system_property_set("ctl.start", "mpdecision");
-    CHECK_EQ(0, ret);
+    CHECK(android::base::SetProperty("ctl.start", "mpdecision"));
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     CHECK(IsMpdecisionRunning());
   }

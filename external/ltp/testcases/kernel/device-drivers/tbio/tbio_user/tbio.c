@@ -46,6 +46,7 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <linux/kernel.h>
 #include <unistd.h>
@@ -132,11 +133,7 @@ void setup(void)
 			tst_brkm(TBROK | TERRNO, cleanup, "mknod() failed");
 	}
 
-	tbio_fd = open(DEVICE_NAME, O_RDWR);
-	if (tbio_fd < 0) {
-		tst_brkm(TBROK | TERRNO, cleanup, "open of %s failed",
-			DEVICE_NAME);
-	}
+	tbio_fd = SAFE_OPEN(cleanup, DEVICE_NAME, O_RDWR);
 
 	tst_resm(TINFO, "Device opened successfully ");
 }

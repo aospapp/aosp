@@ -19,7 +19,7 @@
 
 #include "util/base/config.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 
 #if LANG_CXX11
 #define TC_DISALLOW_COPY_AND_ASSIGN(TypeName) \
@@ -68,16 +68,18 @@ namespace libtextclassifier {
 //
 //  In either case this macro has no effect on runtime behavior and performance
 //  of code.
-#if defined(__clang__) && defined(LANG_CXX11) && defined(__has_warning)
+#if defined(__clang__) && defined(__has_warning)
 #if __has_feature(cxx_attributes) && __has_warning("-Wimplicit-fallthrough")
-#define TC_FALLTHROUGH_INTENDED [[clang::fallthrough]]  // NOLINT
+#define TC_FALLTHROUGH_INTENDED [[clang::fallthrough]]
 #endif
+#elif defined(__GNUC__) && __GNUC__ >= 7
+#define TC_FALLTHROUGH_INTENDED [[gnu::fallthrough]]
 #endif
 
 #ifndef TC_FALLTHROUGH_INTENDED
 #define TC_FALLTHROUGH_INTENDED do { } while (0)
 #endif
 
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
 #endif  // LIBTEXTCLASSIFIER_UTIL_BASE_MACROS_H_

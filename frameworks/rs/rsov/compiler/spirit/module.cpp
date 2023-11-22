@@ -446,6 +446,7 @@ EntryPointDefinition::EntryPointDefinition(Builder *builder,
       mExecutionModel(execModel) {
   mName = strndup(name, strlen(name));
   mEntryPointInst = mBuilder->MakeEntryPoint(execModel, mFunction, mName);
+  (void)mExecutionModel; // suppress unused private field warning
 }
 
 bool EntryPointDefinition::DeserializeInternal(InputWordStream &IS) {
@@ -908,13 +909,13 @@ VariableInst *GlobalSection::getNumWorkgroups() {
 }
 
 bool FunctionDeclaration::DeserializeInternal(InputWordStream &IS) {
-  if (!Deserialize<FunctionInst>(IS)) {
+  if (!(mFunc = Deserialize<FunctionInst>(IS))) {
     return false;
   }
 
   DeserializeZeroOrMore<FunctionParameterInst>(IS, mParams);
 
-  if (!Deserialize<FunctionEndInst>(IS)) {
+  if (!(mFuncEnd = Deserialize<FunctionEndInst>(IS))) {
     return false;
   }
 

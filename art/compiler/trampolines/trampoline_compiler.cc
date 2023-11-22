@@ -57,11 +57,11 @@ namespace arm {
 #endif
 
 static std::unique_ptr<const std::vector<uint8_t>> CreateTrampoline(
-    ArenaAllocator* arena, EntryPointCallingConvention abi, ThreadOffset32 offset) {
+    ArenaAllocator* allocator, EntryPointCallingConvention abi, ThreadOffset32 offset) {
   using vixl::aarch32::MemOperand;
   using vixl::aarch32::pc;
   using vixl::aarch32::r0;
-  ArmVIXLAssembler assembler(arena);
+  ArmVIXLAssembler assembler(allocator);
 
   switch (abi) {
     case kInterpreterAbi:  // Thread* is first argument (R0) in interpreter ABI.
@@ -98,8 +98,8 @@ static std::unique_ptr<const std::vector<uint8_t>> CreateTrampoline(
 #ifdef ART_ENABLE_CODEGEN_arm64
 namespace arm64 {
 static std::unique_ptr<const std::vector<uint8_t>> CreateTrampoline(
-    ArenaAllocator* arena, EntryPointCallingConvention abi, ThreadOffset64 offset) {
-  Arm64Assembler assembler(arena);
+    ArenaAllocator* allocator, EntryPointCallingConvention abi, ThreadOffset64 offset) {
+  Arm64Assembler assembler(allocator);
 
   switch (abi) {
     case kInterpreterAbi:  // Thread* is first argument (X0) in interpreter ABI.
@@ -137,8 +137,8 @@ static std::unique_ptr<const std::vector<uint8_t>> CreateTrampoline(
 #ifdef ART_ENABLE_CODEGEN_mips
 namespace mips {
 static std::unique_ptr<const std::vector<uint8_t>> CreateTrampoline(
-    ArenaAllocator* arena, EntryPointCallingConvention abi, ThreadOffset32 offset) {
-  MipsAssembler assembler(arena);
+    ArenaAllocator* allocator, EntryPointCallingConvention abi, ThreadOffset32 offset) {
+  MipsAssembler assembler(allocator);
 
   switch (abi) {
     case kInterpreterAbi:  // Thread* is first argument (A0) in interpreter ABI.
@@ -169,8 +169,8 @@ static std::unique_ptr<const std::vector<uint8_t>> CreateTrampoline(
 #ifdef ART_ENABLE_CODEGEN_mips64
 namespace mips64 {
 static std::unique_ptr<const std::vector<uint8_t>> CreateTrampoline(
-    ArenaAllocator* arena, EntryPointCallingConvention abi, ThreadOffset64 offset) {
-  Mips64Assembler assembler(arena);
+    ArenaAllocator* allocator, EntryPointCallingConvention abi, ThreadOffset64 offset) {
+  Mips64Assembler assembler(allocator);
 
   switch (abi) {
     case kInterpreterAbi:  // Thread* is first argument (A0) in interpreter ABI.
@@ -200,9 +200,9 @@ static std::unique_ptr<const std::vector<uint8_t>> CreateTrampoline(
 
 #ifdef ART_ENABLE_CODEGEN_x86
 namespace x86 {
-static std::unique_ptr<const std::vector<uint8_t>> CreateTrampoline(ArenaAllocator* arena,
+static std::unique_ptr<const std::vector<uint8_t>> CreateTrampoline(ArenaAllocator* allocator,
                                                                     ThreadOffset32 offset) {
-  X86Assembler assembler(arena);
+  X86Assembler assembler(allocator);
 
   // All x86 trampolines call via the Thread* held in fs.
   __ fs()->jmp(Address::Absolute(offset));
@@ -221,9 +221,9 @@ static std::unique_ptr<const std::vector<uint8_t>> CreateTrampoline(ArenaAllocat
 
 #ifdef ART_ENABLE_CODEGEN_x86_64
 namespace x86_64 {
-static std::unique_ptr<const std::vector<uint8_t>> CreateTrampoline(ArenaAllocator* arena,
+static std::unique_ptr<const std::vector<uint8_t>> CreateTrampoline(ArenaAllocator* allocator,
                                                                     ThreadOffset64 offset) {
-  x86_64::X86_64Assembler assembler(arena);
+  x86_64::X86_64Assembler assembler(allocator);
 
   // All x86 trampolines call via the Thread* held in gs.
   __ gs()->jmp(x86_64::Address::Absolute(offset, true));
@@ -244,19 +244,19 @@ std::unique_ptr<const std::vector<uint8_t>> CreateTrampoline64(InstructionSet is
                                                                EntryPointCallingConvention abi,
                                                                ThreadOffset64 offset) {
   ArenaPool pool;
-  ArenaAllocator arena(&pool);
+  ArenaAllocator allocator(&pool);
   switch (isa) {
 #ifdef ART_ENABLE_CODEGEN_arm64
-    case kArm64:
-      return arm64::CreateTrampoline(&arena, abi, offset);
+    case InstructionSet::kArm64:
+      return arm64::CreateTrampoline(&allocator, abi, offset);
 #endif
 #ifdef ART_ENABLE_CODEGEN_mips64
-    case kMips64:
-      return mips64::CreateTrampoline(&arena, abi, offset);
+    case InstructionSet::kMips64:
+      return mips64::CreateTrampoline(&allocator, abi, offset);
 #endif
 #ifdef ART_ENABLE_CODEGEN_x86_64
-    case kX86_64:
-      return x86_64::CreateTrampoline(&arena, offset);
+    case InstructionSet::kX86_64:
+      return x86_64::CreateTrampoline(&allocator, offset);
 #endif
     default:
       UNUSED(abi);
@@ -270,21 +270,21 @@ std::unique_ptr<const std::vector<uint8_t>> CreateTrampoline32(InstructionSet is
                                                                EntryPointCallingConvention abi,
                                                                ThreadOffset32 offset) {
   ArenaPool pool;
-  ArenaAllocator arena(&pool);
+  ArenaAllocator allocator(&pool);
   switch (isa) {
 #ifdef ART_ENABLE_CODEGEN_arm
-    case kArm:
-    case kThumb2:
-      return arm::CreateTrampoline(&arena, abi, offset);
+    case InstructionSet::kArm:
+    case InstructionSet::kThumb2:
+      return arm::CreateTrampoline(&allocator, abi, offset);
 #endif
 #ifdef ART_ENABLE_CODEGEN_mips
-    case kMips:
-      return mips::CreateTrampoline(&arena, abi, offset);
+    case InstructionSet::kMips:
+      return mips::CreateTrampoline(&allocator, abi, offset);
 #endif
 #ifdef ART_ENABLE_CODEGEN_x86
-    case kX86:
+    case InstructionSet::kX86:
       UNUSED(abi);
-      return x86::CreateTrampoline(&arena, offset);
+      return x86::CreateTrampoline(&allocator, offset);
 #endif
     default:
       LOG(FATAL) << "Unexpected InstructionSet: " << isa;

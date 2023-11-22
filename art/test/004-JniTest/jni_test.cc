@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
-#include <iostream>
 #include <pthread.h>
-#include <stdio.h>
+
+#include <cstdio>
+#include <iostream>
 #include <vector>
 
+#include <android-base/logging.h>
+
 #include "art_method-inl.h"
-#include "base/logging.h"
+#include "base/runtime_debug.h"
 #include "jni.h"
 
 namespace art {
@@ -85,6 +88,14 @@ static void testFindClassOnAttachedNativeThread(JNIEnv* env) {
   jobjectArray array = env->NewObjectArray(0, clazz, nullptr);
   CHECK(array != nullptr);
   CHECK(!env->ExceptionCheck());
+}
+
+extern "C" JNIEXPORT jint JNICALL Java_Main_getFieldSubclass(JNIEnv* env,
+                                                             jclass,
+                                                             jobject f_obj,
+                                                             jclass sub) {
+  jfieldID f = env->FromReflectedField(f_obj);
+  return env->GetStaticIntField(sub, f);
 }
 
 // http://b/10994325
@@ -773,6 +784,18 @@ static jint Java_Main_intFastNativeMethod(JNIEnv*, jclass, jint a, jint b, jint 
 static jint Java_Main_intCriticalNativeMethod(jint a, jint b, jint c) {
   // Note that unlike a "Fast Native" method this excludes JNIEnv and the jclass parameters.
   return a + b + c;
+}
+
+extern "C" JNIEXPORT jobject JNICALL Java_Main_lookupClinit(JNIEnv* env, jclass, jclass kls) {
+  jmethodID clinit_id = env->GetStaticMethodID(kls, "<clinit>", "()V");
+
+  if (clinit_id != nullptr) {
+    jobject obj = env->ToReflectedMethod(kls, clinit_id, /*isStatic*/ true);
+    CHECK(obj != nullptr);
+    return obj;
+  } else {
+    return nullptr;
+  }
 }
 
 extern "C" JNIEXPORT jboolean JNICALL Java_Main_isSlowDebug(JNIEnv*, jclass) {

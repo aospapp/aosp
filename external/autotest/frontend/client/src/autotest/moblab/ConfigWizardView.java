@@ -6,6 +6,7 @@ import autotest.common.ui.TabView;
 import autotest.moblab.wizard.CloudStorageCard;
 import autotest.moblab.wizard.ConfigWizard;
 import autotest.moblab.wizard.NetworkInfoCard;
+import autotest.moblab.wizard.WifiCard;
 import autotest.moblab.wizard.WizardCard;
 
 
@@ -21,6 +22,7 @@ public class ConfigWizardView extends TabView {
     WizardCard[] cards = new WizardCard[] {
       new NetworkInfoCard(),
       new CloudStorageCard(),
+      new WifiCard(),
     };
     wizard.setCards(cards);
   }

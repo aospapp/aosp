@@ -39,7 +39,7 @@ namespace {
 #endif  // CHRE_NANOAPP_INTERNAL
 
 uint32_t gCyclicTimerHandle;
-int gCyclicTimerCount;
+uint32_t gCyclicTimerCount;
 
 struct ashCalParams accCalParams = {
   .offset = {0.0, 1.0, 2.0},
@@ -86,6 +86,24 @@ struct ashCalParams magCalParams = {
   .crossAxisSource = 221,
 };
 
+struct ashCalInfo accCalInfo = {
+  .bias = {0.1f, -0.1f, 0.2f},
+  .compMatrix = {1.0f, 0.1f, -0.1f, 0.2f, -0.2f, 1.0f, 0.3f, -0.3f, 1.0f},
+  .accuracy = 1,
+};
+
+struct ashCalInfo gyrCalInfo = {
+  .bias = {0.2f, -0.2f, 0.1f},
+  .compMatrix = {1.0f, 0.2f, -0.2f, 0.4f, -0.4f, 1.0f, 0.6f, -0.6f, 1.0f},
+  .accuracy = 2,
+};
+
+struct ashCalInfo magCalInfo = {
+  .bias = {10, -10, 20},
+  .compMatrix = {1.0f, -0.1f, 0.1f, -0.2f, 0.2f, 1.0f, -0.3f, 0.3f, 1.0f},
+  .accuracy = 3,
+};
+
 bool nanoappStart() {
   LOGI("App started on platform ID %" PRIx64, chreGetPlatformId());
 
@@ -103,24 +121,27 @@ void handleTimerEvent(const void *eventData) {
 
   uint8_t sensor = CHRE_SENSOR_TYPE_ACCELEROMETER;
   struct ashCalParams *sensorCalParams = &accCalParams;
-  if ((gCyclicTimerCount / 2) == 1) {
+  struct ashCalInfo *sensorCalInfo = &accCalInfo;
+  if ((gCyclicTimerCount / 3) == 1) {
     sensor = CHRE_SENSOR_TYPE_GYROSCOPE;
     sensorCalParams = &gyrCalParams;
-  } else if ((gCyclicTimerCount / 2) == 2) {
+    sensorCalInfo = &gyrCalInfo;
+  } else if ((gCyclicTimerCount / 3) == 2) {
     sensor = CHRE_SENSOR_TYPE_GEOMAGNETIC_FIELD;
     sensorCalParams = &magCalParams;
+    sensorCalInfo = &magCalInfo;
   }
 
-  if (gCyclicTimerCount >= 6) {
+  if (gCyclicTimerCount >= 9) {
     chreTimerCancel(gCyclicTimerHandle);
     LOGI("Timer cancelled");
-  } else if (gCyclicTimerCount % 2 == 0) {
+  } else if (gCyclicTimerCount % 3 == 0) {
     tic = chreGetTime();
     success = ashSaveCalibrationParams(sensor, sensorCalParams);
     toc = chreGetTime();
     LOGI("*** save sensor %" PRIu8 ": %s, time %" PRIu64 " us",
          sensor, success ? "success" : "failure", (toc - tic) / 1000);
-  } else {
+  } else if (gCyclicTimerCount % 3 == 1) {
     struct ashCalParams p;
     tic = chreGetTime();
     success = ashLoadCalibrationParams(sensor, ASH_CAL_STORAGE_ASH, &p);
@@ -140,6 +161,12 @@ void handleTimerEvent(const void *eventData) {
     LOGI("%" PRIu8 " %" PRIu8 " %" PRIu8 " %" PRIu8 " %" PRIu8 " %" PRIu8,
          p.offsetSource, p.offsetTempCelsiusSource, p.tempSensitivitySource,
          p.tempInterceptSource, p.scaleFactorSource, p.crossAxisSource);
+  } else {
+    tic = chreGetTime();
+    success = ashSetCalibration(sensor, sensorCalInfo);
+    toc = chreGetTime();
+    LOGI("*** set sensor %" PRIu8 ": %s, time %" PRIu64 " us",
+         sensor, success ? "success" : "failure", (toc - tic) / 1000);
   }
 
   gCyclicTimerCount++;

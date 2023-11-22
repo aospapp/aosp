@@ -71,6 +71,8 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
     private static final String TAG = "TestingCamera2";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
     private CameraOps mCameraOps;
+    private String[] mAvailableCameraIds;
+    private String mCameraId;
     private static final int mSeekBarMax = 100;
     private static final long MAX_EXPOSURE = 200000000L; // 200ms
     private static final long MIN_EXPOSURE = 100000L; // 100us
@@ -85,10 +87,14 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
     private int mLastOrientation = ORIENTATION_UNINITIALIZED;
     private OrientationEventListener mOrientationEventListener;
     private SurfaceView mPreviewView;
+    private SurfaceView mPreviewView2;
     private ImageView mStillView;
 
     private SurfaceHolder mCurrentPreviewHolder = null;
+    private SurfaceHolder mCurrentPreviewHolder2 = null;
 
+    private Spinner mCameraIdSpinner;
+    private OnItemSelectedListener mCameraIdSelectionListener;
     private Button mInfoButton;
     private Button mFlushButton;
     private ToggleButton mFocusLockToggle;
@@ -127,8 +133,12 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
         mPreviewView = (SurfaceView) findViewById(R.id.preview_view);
         mPreviewView.getHolder().addCallback(this);
 
+        mPreviewView2 = (SurfaceView) findViewById(R.id.preview_view2);
+        mPreviewView2.getHolder().addCallback(this);
+
         mStillView = (ImageView) findViewById(R.id.still_view);
 
+        mCameraIdSpinner = (Spinner) findViewById(R.id.camera_id_spinner);
         mInfoButton  = (Button) findViewById(R.id.info_button);
         mInfoButton.setOnClickListener(mInfoButtonListener);
         mFlushButton  = (Button) findViewById(R.id.flush_button);
@@ -179,6 +189,25 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
         } catch(ApiFailureException e) {
             logException("Cannot create camera ops!",e);
         }
+
+        // Map available camera Ids to camera id spinner dropdown list of strings
+        try {
+            mAvailableCameraIds = mCameraOps.getDevices();
+            if (mAvailableCameraIds == null || mAvailableCameraIds.length == 0) {
+                throw new ApiFailureException("no devices");
+            }
+        } catch(ApiFailureException e) {
+            logException("CameraOps::getDevices failed!",e);
+        }
+        mCameraId = mAvailableCameraIds[0];
+        ArrayAdapter<String> cameraIdDataAdapter = new ArrayAdapter<>(TestingCamera2.this,
+                android.R.layout.simple_spinner_item, mAvailableCameraIds);
+        mCameraIdSpinner.setAdapter(cameraIdDataAdapter);
+
+        /*
+         * Change the camera ID and update preview when camera ID spinner's selected item changes
+         */
+        mCameraIdSpinner.setOnItemSelectedListener(mCameraIdSelectedListener);
 
         mOrientationEventListener = new OrientationEventListener(this) {
             @Override
@@ -237,8 +266,10 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
 
     private void setUpPreview() {
         try {
-            mCameraOps.minimalPreviewConfig(mPreviewView.getHolder());
+            mCameraOps.minimalPreviewConfig(mCameraId, mPreviewView.getHolder(),
+                    mPreviewView2.getHolder());
             mCurrentPreviewHolder = mPreviewView.getHolder();
+            mCurrentPreviewHolder2 = mPreviewView2.getHolder();
         } catch (ApiFailureException e) {
             logException("Can't configure preview surface: ",e);
         }
@@ -255,6 +286,7 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
             logException("Can't close device: ",e);
         }
         mCurrentPreviewHolder = null;
+        mCurrentPreviewHolder2 = null;
     }
 
     @Override
@@ -289,6 +321,7 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
 
     private void updatePreviewOrientation() {
         LayoutParams params = mPreviewView.getLayoutParams();
+        LayoutParams params2 = mPreviewView2.getLayoutParams();
         int width = params.width;
         int height = params.height;
 
@@ -323,8 +356,11 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
             }
             params.width = width;
             params.height = height;
-
             mPreviewView.setLayoutParams(params);
+
+            params2.width = width;
+            params2.height = height;
+            mPreviewView2.setLayoutParams(params2);
         }
     }
 
@@ -338,9 +374,11 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
             Log.v(TAG, String.format("surfaceChanged: format %x, width %d, height %d", format,
                     width, height));
         }
-        if (mCurrentPreviewHolder != null && holder == mCurrentPreviewHolder) {
+        if ((mCurrentPreviewHolder != null && holder == mCurrentPreviewHolder) ||
+                (mCurrentPreviewHolder2 != null && holder == mCurrentPreviewHolder2)) {
             try {
-                mCameraOps.minimalPreview(holder, mCameraControl);
+                mCameraOps.minimalPreview(mCurrentPreviewHolder, mCurrentPreviewHolder2,
+                        mCameraControl);
             } catch (ApiFailureException e) {
                 logException("Can't start minimal preview: ", e);
             }
@@ -366,8 +404,9 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
                     try {
                         mCameraOps.minimalJpegCapture(mCaptureCallback, mCaptureResultListener,
                                 uiHandler, mCameraControl);
-                        if (mCurrentPreviewHolder != null) {
-                            mCameraOps.minimalPreview(mCurrentPreviewHolder, mCameraControl);
+                        if (mCurrentPreviewHolder != null && mCurrentPreviewHolder2 != null) {
+                            mCameraOps.minimalPreview(mCurrentPreviewHolder,
+                                    mCurrentPreviewHolder2, mCameraControl);
                         }
                     } catch (ApiFailureException e) {
                         logException("Can't take a JPEG! ", e);
@@ -702,6 +741,36 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
         }
     };
 
+    private final OnItemSelectedListener mCameraIdSelectedListener =
+            new OnItemSelectedListener() {
+        @Override
+        public void onItemSelected(AdapterView<?> parent, View view, int position,
+                long id) {
+            String cameraId = mAvailableCameraIds[position];
+
+            if (cameraId != mCameraId) {
+                Log.i(TAG, "Switch to camera " + cameraId);
+                try {
+                    mCameraOps.minimalPreviewConfig(cameraId, mPreviewView.getHolder(),
+                            mPreviewView2.getHolder());
+
+                    if (mCurrentPreviewHolder != null && mCurrentPreviewHolder2 != null) {
+                        mCameraOps.minimalPreview(mCurrentPreviewHolder,
+                                mCurrentPreviewHolder2, mCameraControl);
+                    }
+                } catch (ApiFailureException e) {
+                    logException("Can't configure preview surface: ", e);
+                }
+                mCameraId = cameraId;
+            }
+        }
+
+        @Override
+        public void onNothingSelected(AdapterView<?> parent) {
+            // Do nothing
+        }
+    };
+
     private final CameraOps.Listener mCameraOpsListener = new CameraOps.Listener() {
         @Override
         public void onCameraOpened(String cameraId, CameraCharacteristics characteristics) {
@@ -726,7 +795,8 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
 
             ArrayAdapter<String> dataAdapter = new ArrayAdapter<>(TestingCamera2.this,
                     android.R.layout.simple_spinner_item, afModeList);
-            dataAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            dataAdapter.setDropDownViewResource(
+                    android.R.layout.simple_spinner_dropdown_item);
             mFocusModeSpinner.setAdapter(dataAdapter);
 
             /*

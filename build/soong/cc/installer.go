@@ -24,7 +24,7 @@ import (
 
 type InstallerProperties struct {
 	// install to a subdirectory of the default install path for the module
-	Relative_install_path string `android:"arch_variant"`
+	Relative_install_path *string `android:"arch_variant"`
 }
 
 type installLocation int
@@ -69,14 +69,15 @@ func (installer *baseInstaller) installDir(ctx ModuleContext) android.OutputPath
 	if !ctx.Host() && !ctx.Arch().Native {
 		dir = filepath.Join(dir, ctx.Arch().ArchType.String())
 	}
-	if installer.location == InstallInData && ctx.vndk() {
+	if installer.location == InstallInData && ctx.useVndk() {
 		dir = filepath.Join(dir, "vendor")
 	}
-	return android.PathForModuleInstall(ctx, dir, installer.subDir, installer.Properties.Relative_install_path, installer.relative)
+	return android.PathForModuleInstall(ctx, dir, installer.subDir,
+		String(installer.Properties.Relative_install_path), installer.relative)
 }
 
 func (installer *baseInstaller) install(ctx ModuleContext, file android.Path) {
-	installer.path = ctx.InstallFile(installer.installDir(ctx), file)
+	installer.path = ctx.InstallFile(installer.installDir(ctx), file.Base(), file)
 }
 
 func (installer *baseInstaller) inData() bool {

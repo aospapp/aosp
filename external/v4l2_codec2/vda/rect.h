@@ -1,6 +1,8 @@
 // Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 0e161fe
+// Note: only necessary functions are ported from gfx::Rect
 
 // Defines a simple integer rectangle class.  The containment semantics
 // are array-like; that is, the coordinate (x, y) is considered to be

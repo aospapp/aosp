@@ -47,3 +47,7 @@ minijail-init
 # When systemd starts an additional serial-getty, the process name is initially
 # '(agetty)', and it takes some time until the name changes to 'agetty'.
 (agetty)
+
+# Test images sometimes end up with an 'adb' process. https://crbug.com/792541.
+# Exclude for now, should eventually move to the baseline.
+adb

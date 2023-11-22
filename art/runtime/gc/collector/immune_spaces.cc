@@ -16,9 +16,10 @@
 
 #include "immune_spaces.h"
 
-#include <vector>
 #include <tuple>
+#include <vector>
 
+#include "base/logging.h"  // For VLOG.
 #include "gc/space/space-inl.h"
 #include "mirror/object.h"
 #include "oat_file.h"

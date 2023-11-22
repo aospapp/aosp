@@ -5,8 +5,8 @@
 import logging, time
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import power_status, power_utils
 from autotest_lib.client.cros.graphics import graphics_utils
+from autotest_lib.client.cros.power import power_status, power_utils
 
 
 def get_num_outputs_on():

@@ -17,6 +17,7 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := CtsLibcoreJsr166TestCases
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     cts-core-test-runner \

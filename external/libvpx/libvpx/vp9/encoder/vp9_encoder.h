@@ -138,6 +138,7 @@ typedef enum {
   kHighSadLowSumdiff = 3,
   kHighSadHighSumdiff = 4,
   kLowVarHighSumdiff = 5,
+  kVeryHighSad = 6,
 } CONTENT_STATE_SB;
 
 typedef struct VP9EncoderConfig {
@@ -208,6 +209,7 @@ typedef struct VP9EncoderConfig {
   int two_pass_vbrbias;  // two pass datarate control tweaks
   int two_pass_vbrmin_section;
   int two_pass_vbrmax_section;
+  int vbr_corpus_complexity;  // 0 indicates corpus vbr disabled
   // END DATARATE CONTROL OPTIONS
   // ----------------------------------------------------------------
 
@@ -359,6 +361,7 @@ typedef struct IMAGE_STAT {
 
 typedef enum {
   LEVEL_UNKNOWN = 0,
+  LEVEL_AUTO = 1,
   LEVEL_1 = 10,
   LEVEL_1_1 = 11,
   LEVEL_2 = 20,
@@ -380,6 +383,7 @@ typedef struct {
   VP9_LEVEL level;
   uint64_t max_luma_sample_rate;
   uint32_t max_luma_picture_size;
+  uint32_t max_luma_picture_breadth;
   double average_bitrate;  // in kilobits per second
   double max_cpb_size;     // in kilobits
   double compression_ratio;
@@ -419,14 +423,15 @@ typedef struct {
 
 typedef enum {
   BITRATE_TOO_LARGE = 0,
-  LUMA_PIC_SIZE_TOO_LARGE = 1,
-  LUMA_SAMPLE_RATE_TOO_LARGE = 2,
-  CPB_TOO_LARGE = 3,
-  COMPRESSION_RATIO_TOO_SMALL = 4,
-  TOO_MANY_COLUMN_TILE = 5,
-  ALTREF_DIST_TOO_SMALL = 6,
-  TOO_MANY_REF_BUFFER = 7,
-  TARGET_LEVEL_FAIL_IDS = 8
+  LUMA_PIC_SIZE_TOO_LARGE,
+  LUMA_PIC_BREADTH_TOO_LARGE,
+  LUMA_SAMPLE_RATE_TOO_LARGE,
+  CPB_TOO_LARGE,
+  COMPRESSION_RATIO_TOO_SMALL,
+  TOO_MANY_COLUMN_TILE,
+  ALTREF_DIST_TOO_SMALL,
+  TOO_MANY_REF_BUFFER,
+  TARGET_LEVEL_FAIL_IDS
 } TARGET_LEVEL_FAIL_ID;
 
 typedef struct {
@@ -541,6 +546,8 @@ typedef struct VP9_COMP {
 
   uint8_t *segmentation_map;
 
+  uint8_t *skin_map;
+
   // segment threashold for encode breakout
   int segment_encode_breakout[MAX_SEGMENTS];
 
@@ -548,7 +555,6 @@ typedef struct VP9_COMP {
   ActiveMap active_map;
 
   fractional_mv_step_fp *find_fractional_mv_step;
-  vp9_full_search_fn_t full_search_sad;
   vp9_diamond_search_fn_t diamond_search_sad;
   vp9_variance_fn_ptr_t fn_ptr[BLOCK_SIZES];
   uint64_t time_receive_data;
@@ -714,6 +720,9 @@ typedef struct VP9_COMP {
   int compute_source_sad_onepass;
 
   LevelConstraint level_constraint;
+
+  uint8_t *count_arf_frame_usage;
+  uint8_t *count_lastgolden_frame_usage;
 } VP9_COMP;
 
 void vp9_initialize_enc(void);
@@ -861,13 +870,14 @@ static INLINE int is_one_pass_cbr_svc(const struct VP9_COMP *const cpi) {
 static INLINE int denoise_svc(const struct VP9_COMP *const cpi) {
   return (!cpi->use_svc ||
           (cpi->use_svc &&
-           cpi->svc.spatial_layer_id == cpi->svc.number_spatial_layers - 1));
+           cpi->svc.spatial_layer_id >= cpi->svc.first_layer_denoise));
 }
 #endif
 
+#define MIN_LOOKAHEAD_FOR_ARFS 4
 static INLINE int is_altref_enabled(const VP9_COMP *const cpi) {
   return !(cpi->oxcf.mode == REALTIME && cpi->oxcf.rc_mode == VPX_CBR) &&
-         cpi->oxcf.lag_in_frames > 0 &&
+         cpi->oxcf.lag_in_frames >= MIN_LOOKAHEAD_FOR_ARFS &&
          (cpi->oxcf.enable_auto_arf &&
           (!is_two_pass_svc(cpi) ||
            cpi->oxcf.ss_enable_auto_arf[cpi->svc.spatial_layer_id]));
@@ -908,6 +918,22 @@ static INLINE int get_level_index(VP9_LEVEL level) {
     if (level == vp9_level_defs[i].level) return i;
   }
   return -1;
+}
+
+// Return the log2 value of max column tiles corresponding to the level that
+// the picture size fits into.
+static INLINE int log_tile_cols_from_picsize_level(uint32_t width,
+                                                   uint32_t height) {
+  int i;
+  const uint32_t pic_size = width * height;
+  const uint32_t pic_breadth = VPXMAX(width, height);
+  for (i = LEVEL_1; i < LEVEL_MAX; ++i) {
+    if (vp9_level_defs[i].max_luma_picture_size >= pic_size &&
+        vp9_level_defs[i].max_luma_picture_breadth >= pic_breadth) {
+      return get_msb(vp9_level_defs[i].max_col_tiles);
+    }
+  }
+  return INT_MAX;
 }
 
 VP9_LEVEL vp9_get_level(const Vp9LevelSpec *const level_spec);

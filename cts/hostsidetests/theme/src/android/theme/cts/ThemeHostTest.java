@@ -83,17 +83,14 @@ public class ThemeHostTest extends DeviceTestCase {
 
     private ExecutorCompletionService<Pair<String, File>> mCompletionService;
 
-    /** the string identifying the hardware type. */
-    private String mHardwareType;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
 
         mDevice = getDevice();
-        mHardwareType = mDevice.executeShellCommand(HARDWARE_TYPE_CMD).trim();
 
-        final String density = getDensityBucketForDevice(mDevice, mHardwareType);
+        final String density = getDensityBucketForDevice(mDevice);
         final String referenceZipAssetPath = String.format("/%s.zip", density);
         mReferences = extractReferenceImages(referenceZipAssetPath);
 
@@ -124,7 +121,7 @@ public class ThemeHostTest extends DeviceTestCase {
                 fail("Failed to unzip assets: " + zipFile);
             }
         } else {
-            if (checkHardwareTypeSkipTest(mHardwareType)) {
+            if (checkHardwareTypeSkipTest(mDevice.executeShellCommand(HARDWARE_TYPE_CMD).trim())) {
                 Log.logAndDisplay(LogLevel.WARN, LOG_TAG,
                         "Could not obtain resources for skipped themes test: " + zipFile);
             } else {
@@ -146,7 +143,7 @@ public class ThemeHostTest extends DeviceTestCase {
     }
 
     public void testThemes() throws Exception {
-        if (checkHardwareTypeSkipTest(mHardwareType)) {
+        if (checkHardwareTypeSkipTest(mDevice.executeShellCommand(HARDWARE_TYPE_CMD).trim())) {
             Log.logAndDisplay(LogLevel.INFO, LOG_TAG, "Skipped themes test for watch / TV");
             return;
         }
@@ -231,11 +228,7 @@ public class ThemeHostTest extends DeviceTestCase {
         return receiver.getOutput().contains("OK ");
     }
 
-    private static String getDensityBucketForDevice(ITestDevice device, String hardwareType) {
-        if (hardwareType.contains("android.hardware.type.television")) {
-            // references images for tv are under bucket "tvdpi".
-            return "tvdpi";
-        }
+    private static String getDensityBucketForDevice(ITestDevice device) {
         final int density;
         try {
             density = getDensityForDevice(device);
@@ -249,6 +242,9 @@ public class ThemeHostTest extends DeviceTestCase {
                 break;
             case 160:
                 bucket = "mdpi";
+                break;
+            case 213:
+                bucket = "tvdpi";
                 break;
             case 240:
                 bucket = "hdpi";

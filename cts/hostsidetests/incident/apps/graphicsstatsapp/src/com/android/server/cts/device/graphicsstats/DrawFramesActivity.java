@@ -114,7 +114,7 @@ public class DrawFramesActivity extends Activity implements Window.OnFrameMetric
     }
 
     private void jank() {
-        spinSleep(20);
+        spinSleep(24);
     }
 
     private void spinSleep(int durationMs) {
@@ -128,7 +128,7 @@ public class DrawFramesActivity extends Activity implements Window.OnFrameMetric
             jankIf(FRAME_JANK_ANIMATION);
         });
         if (isFrameFlagSet(FRAME_JANK_MISS_VSYNC)) {
-            spinSleep(32);
+            spinSleep(45);
         }
     }
 
@@ -161,7 +161,7 @@ public class DrawFramesActivity extends Activity implements Window.OnFrameMetric
         long timeoutDurationMs = 0;
         for (int frame : framesToDraw) {
             // 50ms base time + 20ms for every extra jank event
-            timeoutDurationMs += 50 + (20 * Integer.bitCount(frame));
+            timeoutDurationMs += 50 + (24 * Integer.bitCount(frame));
             if ((frame & FRAME_JANK_DAVEY_JR) != 0) {
                 timeoutDurationMs += 150;
             }

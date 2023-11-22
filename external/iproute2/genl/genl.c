@@ -30,7 +30,6 @@
 int show_stats = 0;
 int show_details = 0;
 int show_raw = 0;
-int resolve_hosts = 0;
 
 static void *BODY;
 static struct genl_util * genl_list;
@@ -86,9 +85,8 @@ reg:
 	return f;
 
 noexist:
-	f = malloc(sizeof(*f));
+	f = calloc(1, sizeof(*f));
 	if (f) {
-		memset(f, 0, sizeof(*f));
 		strncpy(f->name, str, 15);
 		f->parse_genlopt = parse_nofopt;
 		f->print_genlopt = print_nofopt;

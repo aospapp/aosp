@@ -4,18 +4,21 @@
 
 import logging
 import os
-from autotest_lib.client.bin import test
+from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib import utils
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.graphics import graphics_utils
 
 
 class DrmTest(object):
-    # Default argument dictionary
-    _command = None
 
-    def __init__(self, command, **kargs):
+    def __init__(self, name, command=None, **kargs):
+        """
+        @param name(str)
+        @param command(str): The shell command to run. If None, then reuse 'name'.
+        @param kargs: Test options
+        """
+
         self._opts = {
             'timeout': 20,
             'display_required': True,
@@ -23,7 +26,10 @@ class DrmTest(object):
             'min_kernel_version': None
         }
         self._opts.update(kargs)
+        self.name = name
         self._command = command
+        if self._command is None:
+            self._command = name
 
     def can_run(self):
         """Indicate if the test can be run on the configuration."""
@@ -38,6 +44,9 @@ class DrmTest(object):
         """Indicate if the test should be run on current configuration."""
         supported_apis = graphics_utils.GraphicsApiHelper().get_supported_apis()
         num_displays = graphics_utils.get_num_outputs_on()
+        gpu_type = utils.get_gpu_family()
+        soc = utils.get_cpu_soc_family()
+        kernel_version = os.uname()[2]
         if num_displays == 0 and self._opts['display_required']:
             # If a test needs a display and we don't have a display,
             # consider it a pass.
@@ -50,20 +59,23 @@ class DrmTest(object):
                             'available on system. Skipping test.')
             return False
         if self._opts['min_kernel_version']:
-            kernel_version = os.uname()[2]
             min_kernel_version = self._opts['min_kernel_version']
             if utils.compare_versions(kernel_version, min_kernel_version) < 0:
                 logging.warning('Test requires kernel version >= %s,'
                                 'have version %s. Skipping test.'
                                 % (min_kernel_version, kernel_version))
                 return False
+        if self.name == 'atomictest' and gpu_type == 'baytrail':
+            logging.warning('Baytrail is on kernel v4.4, but there is no '
+                            'intention to enable atomic.')
+            return False
         return True
 
     def run(self):
         try:
             # TODO(pwang): consider TEE to another file if drmtests keep
             # spewing so much output.
-            utils.run(
+            cmd_result = utils.run(
                 self._command,
                 timeout=self._opts['timeout'],
                 stderr_is_expected=True,
@@ -71,8 +83,13 @@ class DrmTest(object):
                 stdout_tee=utils.TEE_TO_LOGS,
                 stderr_tee=utils.TEE_TO_LOGS
             )
+            logging.info('Passed: %s', self._command)
+            logging.debug('Duration: %s: (%0.2fs)'
+                          % (self._command, cmd_result.duration))
+            return True
         except error.CmdTimeoutError as e:
-            logging.error('Failed: Timeout while running %s' % self._command)
+            logging.error('Failed: Timeout while running %s (timeout=%0.2fs)'
+                          % (self._command, self._opts['timeout']))
             logging.debug(e)
             return False
         except error.CmdError as e:
@@ -85,23 +102,21 @@ class DrmTest(object):
                           % self._command)
             logging.debug(e)
             return False
-        logging.info('Passed: %s', self._command)
-        return True
-
 
 drm_tests = {
-    'atomictest': DrmTest('atomictest -t primary_pageflip',
-                          min_kernel_version='4.4'),
-    'drm_cursor_test': DrmTest('drm_cursor_test'),
-    'gamma_test': DrmTest('gamma_test'),
-    'linear_bo_test': DrmTest('linear_bo_test'),
-    'mmap_test': DrmTest('mmap_test'),
-    'null_platform_test': DrmTest('null_platform_test'),
-    'swrast_test': DrmTest('swrast_test', display_required=False),
-    'vgem_test': DrmTest('vgem_test', display_required=False),
-    'vk_glow': DrmTest('vk_glow', vulkan_required=True),
+    test.name: test
+    for test in (
+        DrmTest('atomictest', 'atomictest -t all', min_kernel_version='4.4',
+                timeout=300),
+        DrmTest('drm_cursor_test'),
+        DrmTest('linear_bo_test'),
+        DrmTest('mmap_test', timeout=300),
+        DrmTest('null_platform_test'),
+        DrmTest('swrast_test', display_required=False),
+        DrmTest('vgem_test', display_required=False),
+        DrmTest('vk_glow', vulkan_required=True),
+    )
 }
-
 
 class graphics_Drm(graphics_utils.GraphicsTest):
     """Runs one, several or all of the drm-tests."""
@@ -121,24 +136,27 @@ class graphics_Drm(graphics_utils.GraphicsTest):
     # graphics_Drm runs all available tests if tests = None.
     def run_once(self, tests=None, perf_report=False):
         self._test_failure_report_enable = perf_report
-        for test_name in drm_tests:
-            if tests and test_name not in tests:
+        self._test_failure_report_subtest = perf_report
+        for test in drm_tests.itervalues():
+            if tests and test.name not in tests:
                 continue
 
-            test = drm_tests.get(test_name)
-            logging.info('-----------------[%s]-----------------' % test_name)
+            logging.info('-----------------[%s]-----------------' % test.name)
+            self.add_failures(test.name, subtest=test.name)
+            passed = False
             if test.should_run():
                 if test.can_run():
-                    logging.debug('Running test %s.', test_name)
+                    logging.debug('Running test %s.', test.name)
                     passed = test.run()
-                    if not passed:
-                        self.add_failures(test_name)
                 else:
-                    logging.info('Failed: test %s can not be run on current '
-                                 'configurations.' % test_name)
-                    self.add_failures(test_name)
+                    logging.info('Failed: test %s can not be run on current'
+                                 ' configurations.' % test.name)
             else:
-                logging.info('Skipping test: %s.' % test_name)
+                passed = True
+                logging.info('Skipping test: %s.' % test.name)
+
+            if passed:
+                self.remove_failures(test.name, subtest=test.name)
 
         if self.get_failures():
             raise error.TestFail('Failed: %s' % self.get_failures())

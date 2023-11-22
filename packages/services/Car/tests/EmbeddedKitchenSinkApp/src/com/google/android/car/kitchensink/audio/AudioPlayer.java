@@ -23,8 +23,6 @@ import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.util.Log;
 
-import com.google.android.car.kitchensink.R;
-
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 

@@ -76,15 +76,6 @@ class MockKeyStore {
             }
         });
 
-        when(mock.duplicate(anyString(), anyInt(), anyString(), anyInt()))
-                .thenAnswer(new Answer<Boolean>() {
-                    @Override
-                    public Boolean answer(InvocationOnMock invocation) throws Throwable {
-                        Object[] args = invocation.getArguments();
-                        return duplicate((String) args[0], (Integer) args[1], (String) args[2],
-                                (Integer) args[3]);
-                    }
-                });
         return mock;
     }
 
@@ -128,25 +119,6 @@ class MockKeyStore {
 
     private boolean contains(String key, int uid) {
         return access(uid, key, false) != null;
-    }
-
-    private boolean duplicate(String srcKey, int srcUid, String destKey, int destUid) {
-        for (int i = 0; i < mStore.size(); i++) {
-            int key = mStore.keyAt(i);
-            // Cannot copy to itself
-            if (srcKey.equals(destKey) && key == destUid) {
-                continue;
-            }
-            if (srcUid == -1 || srcUid == key) {
-                HashMap<String, KeyBlob> map = mStore.get(key);
-                if (map.containsKey(srcKey)) {
-                    KeyBlob blob = map.get(srcKey);
-                    access(destUid, destKey, true).update(blob.blob, blob.flag);
-                    break;
-                }
-            }
-        }
-        return true;
     }
 
     @Override

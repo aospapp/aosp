@@ -99,6 +99,14 @@ class Nanoapp : public PlatformNanoapp {
   void configureNanoappInfoEvents(bool enable);
 
   /**
+   * Configures whether host sleep events will be sent to the nanoapp. Nanoapps
+   * are not sent sleep/awake events by default.
+   *
+   * @param enable true if events are to be sent, false otherwise.
+   */
+  void configureHostSleepEvents(bool enable);
+
+  /**
    * Sends the next event in the queue to the nanoapp and returns the processed
    * event. The hasPendingEvent() method should be tested before invoking this.
    *

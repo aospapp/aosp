@@ -12,13 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-subdirs = [
-    "test",
-]
-
 cc_binary_host {
     name: "c2hal",
-    cflags: hidl_flags,
+    defaults: ["hidl-gen-defaults"],
     srcs: [
         "AST.cpp",
         "c2hal_l.ll",

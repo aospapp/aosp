@@ -16,6 +16,7 @@
 
 package android.appsecurity.cts;
 
+import android.platform.test.annotations.AppModeFull;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -25,6 +26,7 @@ import com.android.tradefed.testtype.IBuildReceiver;
 /**
  * Tests for the instant cookie APIs
  */
+@AppModeFull // Already handles instant installs when needed.
 public class InstantCookieHostTest extends DeviceTestCase implements IBuildReceiver {
     private static final String INSTANT_COOKIE_APP_APK = "CtsInstantCookieApp.apk";
     private static final String INSTANT_COOKIE_APP_PKG = "test.instant.cookie";

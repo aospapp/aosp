@@ -16,7 +16,7 @@
 
 package com.android.documentsui.roots;
 
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
 import android.app.Activity;
 import android.net.Uri;

@@ -45,15 +45,20 @@ import java.util.concurrent.TimeUnit;
 @RunWith(AndroidJUnit4.class)
 public class SplitAppTest {
     private static final String PACKAGE = "com.android.cts.isolatedsplitapp";
+
     private static final ComponentName FEATURE_A_ACTIVITY =
             ComponentName.createRelative(PACKAGE, ".feature_a.FeatureAActivity");
     private static final ComponentName FEATURE_B_ACTIVITY =
             ComponentName.createRelative(PACKAGE, ".feature_b.FeatureBActivity");
     private static final ComponentName FEATURE_C_ACTIVITY =
             ComponentName.createRelative(PACKAGE, ".feature_c.FeatureCActivity");
-    private static final String FEATURE_A_STRING = PACKAGE + ":string/feature_a_string";
-    private static final String FEATURE_B_STRING = PACKAGE + ":string/feature_b_string";
-    private static final String FEATURE_C_STRING = PACKAGE + ":string/feature_c_string";
+
+    private static final String FEATURE_A_STRING =
+            "com.android.cts.isolatedsplitapp.feature_a:string/feature_a_string";
+    private static final String FEATURE_B_STRING =
+            "com.android.cts.isolatedsplitapp.feature_b:string/feature_b_string";
+    private static final String FEATURE_C_STRING =
+            "com.android.cts.isolatedsplitapp.feature_c:string/feature_c_string";
 
     private static final Configuration PL = new Configuration();
     static {

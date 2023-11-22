@@ -37,6 +37,7 @@ class ExecutionPlan;
 class Memory;
 class ModelBuilder;
 class StepExecutor;
+class VersionedIDevice;
 
 // TODO move length out of DataLocation
 struct ModelArgumentInfo {
@@ -47,7 +48,7 @@ struct ModelArgumentInfo {
     //   dimensions is valid.
     //   buffer is valid
     // If MEMORY then:
-    //   locationAndLength.location.{poolIndex, offset, length} is valid.
+    //   locationAndLength.{poolIndex, offset, length} is valid.
     //   dimensions is valid.
     enum { POINTER, MEMORY, HAS_NO_VALUE, UNSPECIFIED } state = UNSPECIFIED;
     DataLocation locationAndLength;
@@ -83,6 +84,10 @@ private:
     const ModelBuilder* mModel;
     const ExecutionPlan* mPlan;
 
+    // This is a DeviceManager::kPartitioning* value captured from
+    // CompilationBuilder when the ExecutionBuilder is constructed.
+    uint32_t mPartitioning;
+
     // The information we'll send to the driver about the inputs and outputs.
     // Note that we build this in two steps:
     // 1. As the arguments are specified, set the corresponding mInputs or mOutputs element.
@@ -115,7 +120,7 @@ public:
     //     case of CPU.)
     StepExecutor(const ExecutionBuilder* executionBuilder,
                  const ModelBuilder* model,
-                 sp<IDevice> driver, sp<IPreparedModel> preparedModel);
+                 VersionedIDevice* driver, sp<IPreparedModel> preparedModel);
 
     // Map inputs and outputs from ExecutionBuilder to StepExecutor,
     // in the case where we have a single-"step" execution (i.e., the executor
@@ -132,6 +137,10 @@ public:
     void mapOutput(uint32_t builderIndex, uint32_t executorIndex) {
         mapInputOrOutput(mExecutionBuilder->mOutputs[builderIndex],
                          &mOutputs[executorIndex]);
+    }
+    void mapOutputToInput(uint32_t builderIndex, uint32_t executorIndex) {
+        mapInputOrOutput(mExecutionBuilder->mOutputs[builderIndex],
+                         &mInputs[executorIndex]);
     }
 
     // The input or output is assumed to have the size of the
@@ -173,7 +182,7 @@ private:
     // model to be executed on the executor, in both original and
     // compiled forms; and device on which to execute it
     const ModelBuilder* mModel;
-    sp<IDevice> mDriver;                // nullptr if CPU execution
+    VersionedIDevice* mDriver;          // nullptr if CPU execution
     sp<IPreparedModel> mPreparedModel;  // nullptr if CPU execution or if bypassing ExecutionPlan
 
     // The information we'll send to the driver about the inputs and outputs.

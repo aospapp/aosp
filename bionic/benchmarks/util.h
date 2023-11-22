@@ -14,18 +14,50 @@
  * limitations under the License.
  */
 
-#ifndef _BIONIC_BENCHMARKS_UTIL_H_
-#define _BIONIC_BENCHMARKS_UTIL_H_
+#pragma once
 
+#include <map>
+#include <mutex>
+#include <string>
+#include <utility>
 #include <vector>
 
+typedef void (*benchmark_func_t) (void);
+
+extern std::mutex g_map_lock;
+
+extern std::map<std::string, std::pair<benchmark_func_t, std::string>> g_str_to_func;
+
+static int  __attribute__((unused)) EmplaceBenchmark(const std::string& fn_name, benchmark_func_t fn_ptr, const std::string& arg = "") {
+  g_map_lock.lock();
+  g_str_to_func.emplace(std::string(fn_name), std::make_pair(fn_ptr, arg));
+  g_map_lock.unlock();
+  return 0;
+}
+
+#define BIONIC_BENCHMARK(n) \
+  int _bionic_benchmark_##n __attribute__((unused)) = EmplaceBenchmark(std::string(#n), reinterpret_cast<benchmark_func_t>(n))
+
+#define BIONIC_BENCHMARK_WITH_ARG(n, arg) \
+  int _bionic_benchmark_##n __attribute__((unused)) = EmplaceBenchmark(std::string(#n), reinterpret_cast<benchmark_func_t>(n), arg)
+
+
+constexpr auto KB = 1024;
+
+typedef struct {
+  long cpu_to_lock;
+  long num_iterations;
+  std::string xmlpath;
+  std::vector<std::string> extra_benchmarks;
+} bench_opts_t;
+
 // This function returns a pointer less than 2 * alignment + or_mask bytes into the array.
-char *GetAlignedMemory(char *orig_ptr, size_t alignment, size_t or_mask);
+char* GetAlignedMemory(char* orig_ptr, size_t alignment, size_t or_mask);
 
-char *GetAlignedPtr(std::vector<char>* buf, size_t alignment, size_t nbytes);
+char* GetAlignedPtr(std::vector<char>* buf, size_t alignment, size_t nbytes);
 
-char *GetAlignedPtrFilled(std::vector<char>* buf, size_t alignment, size_t nbytes, char fill_byte);
+wchar_t* GetAlignedPtr(std::vector<wchar_t>* buf, size_t alignment, size_t nbytes);
 
-bool LockToCPU(int cpu_to_lock);
+char* GetAlignedPtrFilled(std::vector<char>* buf, size_t alignment, size_t nbytes, char fill_byte);
 
-#endif // _BIONIC_BENCHMARKS_UTIL_H
+bool LockToCPU(long cpu_to_lock);

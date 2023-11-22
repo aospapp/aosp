@@ -26,6 +26,8 @@ endif
 # gscan.cpp: address of array 'cached_results[i].results' will always evaluate to 'true'
 LOCAL_CLANG_CFLAGS := -Wno-pointer-bool-conversion
 
+LOCAL_CFLAGS += -Wall -Werror
+
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH) \
 	external/libnl/include \
@@ -55,10 +57,11 @@ LOCAL_SRC_FILES := \
 	ring_buffer.cpp \
 	rb_wrapper.cpp \
 	rssi_monitor.cpp \
-	roam.cpp
+	roam.cpp \
+	radio_mode.cpp
 
 LOCAL_MODULE := libwifi-hal-qcom
-LOCAL_PROPRIETARY_MODULE := true
+LOCAL_VENDOR_MODULE := true
 LOCAL_CLANG := true
 LOCAL_SHARED_LIBRARIES += libnetutils liblog libwpa_client libcld80211
 
@@ -116,10 +119,12 @@ LOCAL_SRC_FILES := \
 	ring_buffer.cpp \
 	rb_wrapper.cpp \
 	rssi_monitor.cpp \
-	roam.cpp
+	roam.cpp \
+	radio_mode.cpp
 
+LOCAL_CFLAGS += -Wall -Werror
 LOCAL_MODULE := libwifi-hal-qcom
-LOCAL_PROPRIETARY_MODULE := true
+LOCAL_VENDOR_MODULE := true
 LOCAL_CLANG := true
 LOCAL_SHARED_LIBRARIES += libnetutils liblog
 LOCAL_SHARED_LIBRARIES += libdl libwpa_client libcld80211

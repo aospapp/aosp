@@ -16,13 +16,19 @@
 
 package com.android.dialer.contactsfragment;
 
+import static android.Manifest.permission.READ_CONTACTS;
+
 import android.app.Fragment;
 import android.app.LoaderManager.LoaderCallbacks;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
 import android.content.Loader;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.net.Uri;
 import android.os.Bundle;
-import android.provider.ContactsContract.Contacts;
+import android.support.annotation.IntDef;
 import android.support.annotation.Nullable;
 import android.support.v13.app.FragmentCompat;
 import android.support.v7.widget.LinearLayoutManager;
@@ -33,10 +39,12 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnScrollChangeListener;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 import com.android.contacts.common.preference.ContactsPreferences;
 import com.android.contacts.common.preference.ContactsPreferences.ChangeListener;
 import com.android.dialer.common.Assert;
+import com.android.dialer.common.FragmentUtils;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.performancereport.PerformanceReport;
 import com.android.dialer.util.DialerUtils;
@@ -44,6 +52,8 @@ import com.android.dialer.util.IntentUtil;
 import com.android.dialer.util.PermissionsUtil;
 import com.android.dialer.widget.EmptyContentView;
 import com.android.dialer.widget.EmptyContentView.OnEmptyViewActionButtonClickedListener;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
 
 /** Fragment containing a list of all contacts. */
@@ -53,7 +63,31 @@ public class ContactsFragment extends Fragment
         OnEmptyViewActionButtonClickedListener,
         ChangeListener {
 
+  /** An enum for the different types of headers that be inserted at position 0 in the list. */
+  @Retention(RetentionPolicy.SOURCE)
+  @IntDef({Header.NONE, Header.ADD_CONTACT})
+  public @interface Header {
+    int NONE = 0;
+    /** Header that allows the user to add a new contact. */
+    int ADD_CONTACT = 1;
+  }
+
   public static final int READ_CONTACTS_PERMISSION_REQUEST_CODE = 1;
+
+  private static final String EXTRA_HEADER = "extra_header";
+  private static final String EXTRA_HAS_PHONE_NUMBERS = "extra_has_phone_numbers";
+
+  /**
+   * Listen to broadcast events about permissions in order to be notified if the READ_CONTACTS
+   * permission is granted via the UI in another fragment.
+   */
+  private final BroadcastReceiver readContactsPermissionGrantedReceiver =
+      new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+          loadContacts();
+        }
+      };
 
   private FastScroller fastScroller;
   private TextView anchoredHeader;
@@ -62,13 +96,87 @@ public class ContactsFragment extends Fragment
   private ContactsAdapter adapter;
   private EmptyContentView emptyContentView;
 
-  private ContactsPreferences contactsPrefs;
+  private @Header int header;
 
+  private ContactsPreferences contactsPrefs;
+  private boolean hasPhoneNumbers;
+  private String query;
+
+  /**
+   * Used to get a configured instance of ContactsFragment.
+   *
+   * <p>Current example of this fragment are the contacts tab and in creating a new favorite
+   * contact. For example, the contacts tab we use:
+   *
+   * <ul>
+   *   <li>{@link Header#ADD_CONTACT} to insert a header that allows users to add a contact
+   *   <li>Open contact cards on click
+   * </ul>
+   *
+   * And for the add favorite contact screen we might use:
+   *
+   * <ul>
+   *   <li>{@link Header#NONE} so that all rows are contacts (i.e. no header inserted)
+   *   <li>Send a selected contact to the parent activity.
+   * </ul>
+   *
+   * @param header determines the type of header inserted at position 0 in the contacts list
+   */
+  public static ContactsFragment newInstance(@Header int header) {
+    ContactsFragment fragment = new ContactsFragment();
+    Bundle args = new Bundle();
+    args.putInt(EXTRA_HEADER, header);
+    fragment.setArguments(args);
+    return fragment;
+  }
+
+  /**
+   * Returns {@link ContactsFragment} with a list of contacts such that:
+   *
+   * <ul>
+   *   <li>Each contact has a phone number
+   *   <li>Contacts are filterable via {@link #updateQuery(String)}
+   *   <li>There is no list header (i.e. {@link Header#NONE}
+   *   <li>Clicking on a contact notifies the parent activity via {@link
+   *       OnContactSelectedListener#onContactSelected(ImageView, Uri, long)}.
+   * </ul>
+   */
+  public static ContactsFragment newAddFavoritesInstance() {
+    ContactsFragment fragment = new ContactsFragment();
+    Bundle args = new Bundle();
+    args.putInt(EXTRA_HEADER, Header.NONE);
+    args.putBoolean(EXTRA_HAS_PHONE_NUMBERS, true);
+    fragment.setArguments(args);
+    return fragment;
+  }
+
+  @SuppressWarnings("WrongConstant")
   @Override
   public void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     contactsPrefs = new ContactsPreferences(getContext());
     contactsPrefs.registerChangeListener(this);
+    header = getArguments().getInt(EXTRA_HEADER);
+    hasPhoneNumbers = getArguments().getBoolean(EXTRA_HAS_PHONE_NUMBERS);
+    if (savedInstanceState == null) {
+      // The onHiddenChanged callback does not get called the first time the fragment is
+      // attached, so call it ourselves here.
+      onHiddenChanged(false);
+    }
+  }
+
+  @Override
+  public void onStart() {
+    super.onStart();
+    PermissionsUtil.registerPermissionReceiver(
+        getActivity(), readContactsPermissionGrantedReceiver, READ_CONTACTS);
+  }
+
+  @Override
+  public void onStop() {
+    PermissionsUtil.unregisterPermissionReceiver(
+        getActivity(), readContactsPermissionGrantedReceiver);
+    super.onStop();
   }
 
   @Nullable
@@ -79,17 +187,37 @@ public class ContactsFragment extends Fragment
     fastScroller = view.findViewById(R.id.fast_scroller);
     anchoredHeader = view.findViewById(R.id.header);
     recyclerView = view.findViewById(R.id.recycler_view);
+    adapter =
+        new ContactsAdapter(
+            getContext(), header, FragmentUtils.getParent(this, OnContactSelectedListener.class));
+    recyclerView.setAdapter(adapter);
+    manager =
+        new LinearLayoutManager(getContext()) {
+          @Override
+          public void onLayoutChildren(Recycler recycler, State state) {
+            super.onLayoutChildren(recycler, state);
+            int itemsShown = findLastVisibleItemPosition() - findFirstVisibleItemPosition() + 1;
+            if (adapter.getItemCount() > itemsShown) {
+              fastScroller.setVisibility(View.VISIBLE);
+              recyclerView.setOnScrollChangeListener(ContactsFragment.this);
+            } else {
+              fastScroller.setVisibility(View.GONE);
+            }
+          }
+        };
+    recyclerView.setLayoutManager(manager);
 
     emptyContentView = view.findViewById(R.id.empty_list_view);
     emptyContentView.setImage(R.drawable.empty_contacts);
     emptyContentView.setActionClickedListener(this);
 
     if (PermissionsUtil.hasContactsReadPermissions(getContext())) {
-      getLoaderManager().initLoader(0, null, this);
+      loadContacts();
     } else {
       emptyContentView.setDescription(R.string.permission_no_contacts);
       emptyContentView.setActionLabel(R.string.permission_single_turn_on);
       emptyContentView.setVisibility(View.VISIBLE);
+      recyclerView.setVisibility(View.GONE);
     }
 
     return view;
@@ -97,7 +225,9 @@ public class ContactsFragment extends Fragment
 
   @Override
   public void onChange() {
-    if (getActivity() != null && isAdded()) {
+    if (getActivity() != null
+        && isAdded()
+        && PermissionsUtil.hasContactsReadPermissions(getContext())) {
       getLoaderManager().restartLoader(0, null, this);
     }
   }
@@ -105,20 +235,20 @@ public class ContactsFragment extends Fragment
   /** @return a loader according to sort order and display order. */
   @Override
   public Loader<Cursor> onCreateLoader(int id, Bundle args) {
-    boolean sortOrderPrimary =
-        (contactsPrefs.getSortOrder() == ContactsPreferences.SORT_ORDER_PRIMARY);
-    boolean displayOrderPrimary =
-        (contactsPrefs.getDisplayOrder() == ContactsPreferences.DISPLAY_ORDER_PRIMARY);
+    ContactsCursorLoader cursorLoader = new ContactsCursorLoader(getContext(), hasPhoneNumbers);
+    cursorLoader.setQuery(query);
+    return cursorLoader;
+  }
 
-    String sortKey = sortOrderPrimary ? Contacts.SORT_KEY_PRIMARY : Contacts.SORT_KEY_ALTERNATIVE;
-    return displayOrderPrimary
-        ? ContactsCursorLoader.createInstanceDisplayNamePrimary(getContext(), sortKey)
-        : ContactsCursorLoader.createInstanceDisplayNameAlternative(getContext(), sortKey);
+  public void updateQuery(String query) {
+    this.query = query;
+    getLoaderManager().restartLoader(0, null, this);
   }
 
   @Override
   public void onLoadFinished(Loader<Cursor> loader, Cursor cursor) {
-    if (cursor.getCount() == 0) {
+    LogUtil.enterBlock("ContactsFragment.onLoadFinished");
+    if (cursor == null || cursor.getCount() == 0) {
       emptyContentView.setDescription(R.string.all_contacts_empty);
       emptyContentView.setActionLabel(R.string.all_contacts_empty_add_contact_action);
       emptyContentView.setVisibility(View.VISIBLE);
@@ -126,24 +256,8 @@ public class ContactsFragment extends Fragment
     } else {
       emptyContentView.setVisibility(View.GONE);
       recyclerView.setVisibility(View.VISIBLE);
-      adapter = new ContactsAdapter(getContext(), cursor);
-      manager =
-          new LinearLayoutManager(getContext()) {
-            @Override
-            public void onLayoutChildren(Recycler recycler, State state) {
-              super.onLayoutChildren(recycler, state);
-              int itemsShown = findLastVisibleItemPosition() - findFirstVisibleItemPosition() + 1;
-              if (adapter.getItemCount() > itemsShown) {
-                fastScroller.setVisibility(View.VISIBLE);
-                recyclerView.setOnScrollChangeListener(ContactsFragment.this);
-              } else {
-                fastScroller.setVisibility(View.GONE);
-              }
-            }
-          };
+      adapter.updateCursor(cursor);
 
-      recyclerView.setLayoutManager(manager);
-      recyclerView.setAdapter(adapter);
       PerformanceReport.logOnScrollStateChange(recyclerView);
       fastScroller.setup(adapter, manager);
     }
@@ -177,6 +291,14 @@ public class ContactsFragment extends Fragment
       return;
     }
     String anchoredHeaderString = adapter.getHeaderString(firstCompletelyVisible);
+
+    OnContactsListScrolledListener listener =
+        FragmentUtils.getParent(this, OnContactsListScrolledListener.class);
+    if (listener != null) {
+      listener.onContactsListScrolled(
+          recyclerView.getScrollState() == RecyclerView.SCROLL_STATE_DRAGGING
+              || fastScroller.isDragStarted());
+    }
 
     // If the user swipes to the top of the list very quickly, there is some strange behavior
     // between this method updating headers and adapter#onBindViewHolder updating headers.
@@ -232,9 +354,41 @@ public class ContactsFragment extends Fragment
     if (requestCode == READ_CONTACTS_PERMISSION_REQUEST_CODE) {
       if (grantResults.length >= 1 && PackageManager.PERMISSION_GRANTED == grantResults[0]) {
         // Force a refresh of the data since we were missing the permission before this.
-        emptyContentView.setVisibility(View.GONE);
-        getLoaderManager().initLoader(0, null, this);
+        PermissionsUtil.notifyPermissionGranted(getContext(), permissions[0]);
       }
     }
+  }
+
+  @Override
+  public void onHiddenChanged(boolean hidden) {
+    super.onHiddenChanged(hidden);
+    OnContactsFragmentHiddenChangedListener listener =
+        FragmentUtils.getParent(this, OnContactsFragmentHiddenChangedListener.class);
+    if (listener != null) {
+      listener.onContactsFragmentHiddenChanged(hidden);
+    }
+  }
+
+  private void loadContacts() {
+    getLoaderManager().initLoader(0, null, this);
+    recyclerView.setVisibility(View.VISIBLE);
+    emptyContentView.setVisibility(View.GONE);
+  }
+
+  /** Listener for contacts list scroll state. */
+  public interface OnContactsListScrolledListener {
+    void onContactsListScrolled(boolean isDragging);
+  }
+
+  /** Listener to notify parents when a contact is selected. */
+  public interface OnContactSelectedListener {
+
+    /** Called when a contact is selected in {@link ContactsFragment}. */
+    void onContactSelected(ImageView photo, Uri contactUri, long contactId);
+  }
+
+  /** Listener for contacts fragment hidden state */
+  public interface OnContactsFragmentHiddenChangedListener {
+    void onContactsFragmentHiddenChanged(boolean hidden);
   }
 }

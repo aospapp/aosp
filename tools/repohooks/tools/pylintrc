@@ -79,6 +79,7 @@ confidence=
 # We leave many of the style warnings to judgement/peer review.
 disable=
     fixme,
+    file-ignored,
     invalid-name,
     locally-disabled,
     locally-enabled,

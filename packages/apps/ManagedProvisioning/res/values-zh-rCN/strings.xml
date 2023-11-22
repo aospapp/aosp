@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"正在设置工作设备…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"正在处理设置数据…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"正在连接到 WLAN 网络…"</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"正在连接到移动网络…"</string>
     <string name="progress_download" msgid="3522436271691064624">"正在下载管理应用…"</string>
     <string name="progress_install" msgid="2258045670385866183">"正在安装管理应用…"</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"正在移除不需要的系统应用…"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"您即将创建工作资料，该工作资料将由您所在的单位管理和监控。相应行为受“<xliff:g id="TERMS_HEADERS">%1$s</xliff:g>”的相关条款约束。"</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"系统将为您的工作应用创建工作资料。该工作资料和您设备的其他内容将由您所在的单位管理和监控。相应行为受相关条款约束。"</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"系统将为您的工作应用创建工作资料。此工作资料和您设备的其他内容将由您所在的单位管理和监控。相应行为受“<xliff:g id="TERMS_HEADERS">%1$s</xliff:g>”的相关条款约束。"</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"此设备将由<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>负责管理，并确保其安全。相应行为受相关条款约束。<xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"此设备将由<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>负责管理，并确保其安全。相应行为受“<xliff:g id="TERMS_HEADERS">%2$s</xliff:g>”的相关条款约束。<xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"此设备将由<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>负责管理、监控，并确保其安全。相应行为受相关条款约束。<xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"此设备将由<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>负责管理、监控，并确保其安全。相应行为受<xliff:g id="TERMS_HEADERS">%2$s</xliff:g>的相关条款约束。<xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"下面这个链接不安全，在设备设置完成之前都无法打开：<xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"如有疑问，请与您的<xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>联系。"</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"如有疑问，请与您所在单位的管理员联系"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>和<xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>、<xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>、<xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"这可能需要几分钟的时间"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"您的工作应用将保存在此工作资料中，并由贵单位管理"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"此设备将由贵单位确保其安全并负责管理"</string>
 </resources>

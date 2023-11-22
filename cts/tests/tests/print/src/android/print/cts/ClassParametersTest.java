@@ -16,16 +16,20 @@
 
 package android.print.cts;
 
+import static android.print.test.Utils.assertException;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.print.PrintAttributes;
 import android.print.PrintAttributes.MediaSize;
 import android.print.PrintAttributes.Resolution;
 import android.print.PrintDocumentInfo;
 import android.support.test.runner.AndroidJUnit4;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import static android.print.cts.Utils.*;
-import static org.junit.Assert.*;
 
 /**
  * Test that the print attributes can be constructed correctly. This does not test that the

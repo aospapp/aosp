@@ -58,23 +58,30 @@ PRODUCT_PACKAGES += \
     logd \
     logwrapper \
     mkshrc \
-    netd \
     qemu-props \
     reboot \
     service \
     servicemanager \
+    hwservicemanager \
+    vndservice \
+    vndservicemanager \
     sh \
     toolbox \
     toybox \
-    vold \
+    vold
+
+# SELinux packages are added as dependencies of the selinux_policy
+# phony package.
+PRODUCT_PACKAGES += \
+    selinux_policy \
 
 # SELinux packages
-PRODUCT_PACKAGES += \
-    sepolicy \
-    file_contexts \
-    seapp_contexts \
-    property_contexts \
-    mac_permissions.xml \
+#PRODUCT_PACKAGES += \
+#    sepolicy \
+#    file_contexts \
+#    seapp_contexts \
+#    property_contexts \
+#    mac_permissions.xml \
 
 PRODUCT_COPY_FILES += \
     system/core/rootdir/init.usb.rc:root/init.usb.rc \
@@ -82,8 +89,38 @@ PRODUCT_COPY_FILES += \
     system/core/rootdir/ueventd.rc:root/ueventd.rc \
     system/core/rootdir/etc/hosts:system/etc/hosts \
 
+PRODUCT_FULL_TREBLE_OVERRIDE := true
+
 PRODUCT_COPY_FILES += \
-    device/generic/goldfish/fstab.goldfish:root/fstab.goldfish \
-    device/generic/goldfish/init.goldfish.rc:root/init.goldfish.rc \
-    device/generic/goldfish/init.goldfish.sh:system/etc/init.goldfish.sh \
-    device/generic/goldfish/ueventd.goldfish.rc:root/ueventd.goldfish.rc \
+    device/generic/qemu/fstab.ranchu:root/fstab.ranchu \
+    device/generic/qemu/init.ranchu.rc:root/init.ranchu.rc \
+    device/generic/qemu/ueventd.ranchu.rc:root/ueventd.ranchu.rc \
+
+PRODUCT_COPY_FILES += \
+    device/generic/goldfish/data/etc/config.ini:config.ini \
+    device/generic/qemu/advancedFeatures.ini:advancedFeatures.ini \
+
+#$(call inherit-product, $(SRC_TARGET_DIR)/product/core_tiny.mk)
+ifeq ($(TARGET_CORE_JARS),)
+$(error TARGET_CORE_JARS is empty; cannot initialize PRODUCT_BOOT_JARS variable)
+endif
+
+# The order matters
+PRODUCT_BOOT_JARS := \
+    $(TARGET_CORE_JARS) \
+
+
+
+# The set of packages we want to force 'speed' compilation on.
+PRODUCT_DEXPREOPT_SPEED_APPS := \
+
+PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+    ro.zygote=zygote32
+PRODUCT_COPY_FILES += \
+    system/core/rootdir/init.zygote32.rc:root/init.zygote32.rc
+
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.carrier=unknown
+
+$(call inherit-product, $(SRC_TARGET_DIR)/product/runtime_libart.mk)
+

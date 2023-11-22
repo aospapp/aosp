@@ -39,8 +39,12 @@ import android.text.method.TextKeyListener.Capitalize;
 import android.view.KeyEvent;
 import android.widget.TextView.BufferType;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.io.IOException;
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
@@ -49,6 +53,17 @@ public class MultiTapKeyListenerTest extends KeyListenerTestCase {
      * time out of MultiTapKeyListener. longer than 2000ms in case the system is sluggish.
      */
     private static final long TIME_OUT = 3000;
+
+    @Before
+    public void setup() throws IOException {
+        super.setup();
+        enableAutoCapSettings();
+    }
+
+    @After
+    public void tearDown() throws IOException {
+        resetAutoCapSettings();
+    }
 
     @Test
     public void testConstructor() {

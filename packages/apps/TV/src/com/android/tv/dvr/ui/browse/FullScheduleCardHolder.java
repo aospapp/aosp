@@ -16,14 +16,10 @@
 
 package com.android.tv.dvr.ui.browse;
 
-/**
- * Special object for schedule preview;
- */
+/** Special object for schedule preview; */
 final class FullScheduleCardHolder {
-    /**
-     * Full schedule card holder.
-     */
+    /** Full schedule card holder. */
     static final FullScheduleCardHolder FULL_SCHEDULE_CARD_HOLDER = new FullScheduleCardHolder();
 
-    private FullScheduleCardHolder() { }
+    private FullScheduleCardHolder() {}
 }

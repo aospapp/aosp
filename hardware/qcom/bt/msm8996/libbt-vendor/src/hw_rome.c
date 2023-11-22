@@ -35,7 +35,7 @@ extern "C" {
 #define LOG_TAG "bt_vendor"
 
 #include <sys/socket.h>
-#include <utils/Log.h>
+#include <log/log.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>
@@ -50,6 +50,7 @@ extern "C" {
 #include <termios.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 #include "bt_hci_bdroid.h"
 #include "bt_vendor_qcom.h"
@@ -135,7 +136,6 @@ int get_vs_hci_event(unsigned char *rsp)
     int err = 0;
     unsigned char paramlen = 0;
     unsigned char EMBEDDED_MODE_CHECK = 0x02;
-    FILE *btversionfile = 0;
     unsigned int soc_id = 0;
     unsigned int productid = 0;
     unsigned short patchversion = 0;
@@ -321,7 +321,7 @@ failed:
 int read_vs_hci_event(int fd, unsigned char* buf, int size)
 {
     int remain, r;
-    int count = 0, i;
+    int count = 0;
 
     if (size <= 0) {
         ALOGE("Invalid size arguement!");
@@ -688,7 +688,7 @@ error:
 
 static int rome_download_rampatch(int fd)
 {
-    int c, tmp, size, index, ret = -1;
+    int c, size, index, ret = -1;
 
     ALOGI("%s: ", __FUNCTION__);
 
@@ -763,7 +763,6 @@ pdata_alloc_failed:
     free(phdr_buffer);
 phdr_alloc_failed:
     fclose(file);
-error:
     return ret;
 }
 
@@ -799,7 +798,7 @@ error:
 
 int rome_rampatch_reset(int fd)
 {
-    int size, err = 0, flags;
+    int size, err = 0;
     unsigned char cmd[HCI_MAX_CMD_SIZE];
     struct timespec tm = { 0, 100*1000*1000 }; /* 100 ms */
 
@@ -831,7 +830,7 @@ int rome_get_tlv_file(char *file_path)
 {
     FILE * pFile;
     long fileSize;
-    int readSize, err = 0, total_segment, remain_size, nvm_length, nvm_index, i;
+    int readSize, nvm_length, nvm_index, i;
     unsigned short nvm_tag_len;
     tlv_patch_info *ptlv_header;
     tlv_nvm_hdr *nvm_ptr;
@@ -1103,7 +1102,7 @@ int rome_download_tlv_file(int fd)
         goto default_download;
     }
 
-    strlcat(nvm_file_path_bid, board_id, sizeof(nvm_file_path_bid));
+    strlcat(nvm_file_path_bid, (const char*)board_id, sizeof(nvm_file_path_bid));
 
     if((tlv_size = rome_get_tlv_file(nvm_file_path_bid)) < 0) {
         ALOGI("%s: %s: file doesn't exist, falling back to default file", __FUNCTION__, nvm_file_path_bid);
@@ -1126,7 +1125,6 @@ error:
 int rome_1_0_nvm_tag_dnld(int fd)
 {
     int i, size, err = 0;
-    unsigned char cmd[HCI_MAX_CMD_SIZE];
     unsigned char rsp[HCI_MAX_EVENT_SIZE];
 
 #if (NVM_VERSION >= ROME_1_0_100019)
@@ -1583,7 +1581,6 @@ int rome_hci_reset(int fd)
     unsigned char cmd[HCI_MAX_CMD_SIZE];
     unsigned char rsp[HCI_MAX_EVENT_SIZE];
     hci_command_hdr *cmd_hdr;
-    int flags;
 
     ALOGI("%s: HCI RESET ", __FUNCTION__);
 
@@ -1621,7 +1618,6 @@ int rome_wipower_current_charging_status_req(int fd)
     unsigned char cmd[HCI_MAX_CMD_SIZE];
     unsigned char rsp[HCI_MAX_EVENT_SIZE];
     hci_command_hdr *cmd_hdr;
-    int flags;
 
     memset(cmd, 0x0, HCI_MAX_CMD_SIZE);
 
@@ -1699,7 +1695,6 @@ int addon_feature_req(int fd)
     unsigned char cmd[HCI_MAX_CMD_SIZE];
     unsigned char rsp[HCI_MAX_EVENT_SIZE];
     hci_command_hdr *cmd_hdr;
-    int flags;
 
     memset(cmd, 0x0, HCI_MAX_CMD_SIZE);
 
@@ -1762,7 +1757,6 @@ int rome_wipower_forward_handoff_req(int fd)
     unsigned char cmd[HCI_MAX_CMD_SIZE];
     unsigned char rsp[HCI_MAX_EVENT_SIZE];
     hci_command_hdr *cmd_hdr;
-    int flags;
 
     memset(cmd, 0x0, HCI_MAX_CMD_SIZE);
 

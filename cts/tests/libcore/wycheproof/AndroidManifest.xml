@@ -23,6 +23,9 @@
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.libcore.cts.wycheproof.conscrypt"
-                     android:label="CTS Libcore Wycheproof Conscrypt test cases" />
+                     android:label="CTS Libcore Wycheproof Conscrypt test cases">
+        <meta-data android:name="listener"
+                   android:value="com.android.cts.runner.CtsTestRunListener" />
+    </instrumentation>
 
 </manifest>

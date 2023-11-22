@@ -18,6 +18,10 @@
 #include <android/hardware/tests/memory/1.0/IMemoryTest.h>
 #include <hidl/HidlSupport.h>
 #include <android/hidl/base/1.0/types.h>
+#include <android/hidl/memory/block/1.0/types.h>
+#include <android/hidl/memory/block/1.0/types.vts.h>
+#include <android/hidl/memory/token/1.0/IMemoryToken.h>
+#include <android/hidl/memory/token/1.0/MemoryToken.vts.h>
 
 
 using namespace android::hardware::tests::memory::V1_0;
@@ -32,11 +36,20 @@ class Vts_android_hardware_tests_memory_V1_0_IMemoryTest : public ::android::har
     virtual ~Vts_android_hardware_tests_memory_V1_0_IMemoryTest() = default;
 
     ::android::hardware::Return<void> haveSomeMemory(
-        const ::android::hardware::hidl_memory& arg0, std::function<void(const ::android::hardware::hidl_memory& arg0)>) override;
+        const ::android::hardware::hidl_memory& arg0, std::function<void(const ::android::hardware::hidl_memory& arg0)> cb) override;
 
     ::android::hardware::Return<void> fillMemory(
         const ::android::hardware::hidl_memory& arg0,
         uint8_t arg1) override;
+
+    ::android::hardware::Return<void> haveSomeMemoryBlock(
+        const ::android::hidl::memory::block::V1_0::MemoryBlock& arg0, std::function<void(const ::android::hidl::memory::block::V1_0::MemoryBlock& arg0)> cb) override;
+
+    ::android::hardware::Return<void> set(
+        const ::android::hardware::hidl_memory& arg0) override;
+
+    ::android::hardware::Return<sp<::android::hidl::memory::token::V1_0::IMemoryToken>> get(
+        ) override;
 
 
  private:

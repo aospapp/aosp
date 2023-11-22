@@ -38,5 +38,8 @@ PRODUCT_PACKAGES += gralloc.hikey
 # PowerHAL
 PRODUCT_PACKAGES += power.hikey
 
+# Sensors HAL
+PRODUCT_PACKAGES += sensors.hikey
+
 # Include vendor binaries
 $(call inherit-product-if-exists, vendor/linaro/hikey/device-vendor.mk)

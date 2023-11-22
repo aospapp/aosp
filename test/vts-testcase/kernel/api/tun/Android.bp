@@ -17,6 +17,7 @@ cc_test {
     srcs: [
         "vts_kernel_tun_test.cpp",
     ],
+    cflags: ["-Wall", "-Werror"],
     shared_libs: [
         "libbase",
     ],

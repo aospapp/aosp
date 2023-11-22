@@ -31,7 +31,7 @@ $(COMPATIBILITY_TESTCASES_OUT_cts)/CtsUiHostTestCases.jar : $(COMPATIBILITY_TEST
 LOCAL_CTS_TEST_PACKAGE := android.ui.cts
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := general-tests cts_instant
 
 include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 

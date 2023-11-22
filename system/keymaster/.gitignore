@@ -5,6 +5,6 @@
 *.run
 *.memcheck
 *.massif
-/*_test
+/tests/*_test
 /coverage.info
 /coverage/

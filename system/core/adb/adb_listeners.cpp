@@ -29,6 +29,7 @@
 
 #include "socket_spec.h"
 #include "sysdeps.h"
+#include "sysdeps/memory.h"
 #include "transport.h"
 
 // A listener is an entity which binds to a local port and, upon receiving a connection on that
@@ -172,7 +173,7 @@ void close_smartsockets() EXCLUDES(listener_list_mutex) {
     auto pred = [](const std::unique_ptr<alistener>& listener) {
         return listener->local_name == "*smartsocket*";
     };
-    listener_list.erase(std::remove_if(listener_list.begin(), listener_list.end(), pred));
+    listener_list.remove_if(pred);
 }
 
 InstallStatus install_listener(const std::string& local_name, const char* connect_to,
@@ -203,7 +204,7 @@ InstallStatus install_listener(const std::string& local_name, const char* connec
         }
     }
 
-    std::unique_ptr<alistener> listener(new alistener(local_name, connect_to));
+    auto listener = std::make_unique<alistener>(local_name, connect_to);
 
     int resolved = 0;
     listener->fd = socket_spec_listen(listener->local_name, error, &resolved);

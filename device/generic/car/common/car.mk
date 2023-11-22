@@ -14,9 +14,6 @@
 # limitations under the License.
 #
 
-# TODO Remove this when AAE is fully treble ready
-PRODUCT_FULL_TREBLE_OVERRIDE := false
-
 # Auto modules
 PRODUCT_PACKAGES += \
     android.hardware.automotive.vehicle@2.0-service
@@ -37,6 +34,8 @@ PRODUCT_COPY_FILES += \
 # Overwrite handheld_core_hardware.xml with a dummy config.
 PRODUCT_COPY_FILES += \
     device/generic/car/common/android.hardware.dummy.xml:system/etc/permissions/handheld_core_hardware.xml \
+    device/generic/goldfish/data/etc/apns-conf.xml:system/etc/apns-conf.xml \
+    device/sample/etc/old-apns-conf.xml:system/etc/old-apns-conf.xml \
     device/generic/car/common/car_core_hardware.xml:system/etc/permissions/car_core_hardware.xml \
     frameworks/native/data/etc/android.hardware.type.automotive.xml:system/etc/permissions/android.hardware.type.automotive.xml
 
@@ -45,16 +44,8 @@ PRODUCT_COPY_FILES += \
     device/generic/car/common/manifest.xml:$(TARGET_COPY_OUT_VENDOR)/manifest.xml
 
 PRODUCT_PROPERTY_OVERRIDES += \
-    android.car.drawer.unlimited=true \
-    android.car.hvac.demo=true \
-    com.android.car.radio.demo=true \
-    com.android.car.radio.demo.dual=true
+    android.car.hvac.demo=true
 
 TARGET_USES_CAR_FUTURE_FEATURES := true
-
-# Add car related sepolicy.
-BOARD_SEPOLICY_DIRS += \
-    device/generic/car/common/sepolicy \
-    packages/services/Car/car_product/sepolicy
 
 $(call inherit-product, packages/services/Car/car_product/build/car.mk)

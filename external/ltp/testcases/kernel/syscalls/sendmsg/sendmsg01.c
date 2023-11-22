@@ -48,6 +48,7 @@
 #include <netinet/in.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 char *TCID = "sendmsg01";
 int testno;
@@ -441,8 +442,7 @@ static pid_t start_server(struct sockaddr_in *sin0, struct sockaddr_un *sun0)
 			 strerror(errno));
 		return -1;
 	}
-	if (getsockname(sfd, (struct sockaddr *)sin0, &slen) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "getsockname failed");
+	SAFE_GETSOCKNAME(cleanup, sfd, (struct sockaddr *)sin0, &slen);
 
 	/* set up UNIX-domain socket */
 	ufd = socket(PF_UNIX, SOCK_DGRAM, 0);
@@ -589,11 +589,8 @@ static void cleanup0(void)
 
 static void setup1(void)
 {
-	s = socket(tdat[testno].domain, tdat[testno].type, tdat[testno].proto);
-	if (s < 0) {
-		tst_brkm(TBROK, cleanup, "socket setup failed: %s",
-			 strerror(errno));
-	}
+	s = SAFE_SOCKET(cleanup, tdat[testno].domain, tdat[testno].type,
+			tdat[testno].proto);
 	if (tdat[testno].type == SOCK_STREAM &&
 	    connect(s, (struct sockaddr *)tdat[testno].to,
 		    tdat[testno].tolen) < 0) {
@@ -618,11 +615,8 @@ static void setup2(void)
 
 static void setup3(void)
 {
-	s = socket(tdat[testno].domain, tdat[testno].type, tdat[testno].proto);
-	if (s < 0) {
-		tst_brkm(TBROK, cleanup, "socket setup failed: %s",
-			 strerror(errno));
-	}
+	s = SAFE_SOCKET(cleanup, tdat[testno].domain, tdat[testno].type,
+		        tdat[testno].proto);
 }
 
 static char tmpfilename[1024];
@@ -659,14 +653,10 @@ static void cleanup4(void)
 
 static void setup5(void)
 {
-	s = socket(tdat[testno].domain, tdat[testno].type, tdat[testno].proto);
-	if (s < 0) {
-		tst_brkm(TBROK, cleanup, "socket setup failed: %s",
-			 strerror(errno));
-	}
+	s = SAFE_SOCKET(cleanup, tdat[testno].domain, tdat[testno].type,
+			tdat[testno].proto);
 
-	if (connect(s, (struct sockaddr *)&sin1, sizeof(sin1)) < 0)
-		tst_brkm(TBROK, cleanup, "connect failed: %s", strerror(errno));
+	SAFE_CONNECT(cleanup, s, (struct sockaddr *)&sin1, sizeof(sin1));
 
 	/* slight change destination (port) so connect() is to different
 	 * 5-tuple than already connected

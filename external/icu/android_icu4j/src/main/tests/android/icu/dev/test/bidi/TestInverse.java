@@ -16,6 +16,7 @@ import org.junit.Test;
 
 import android.icu.impl.Utility;
 import android.icu.text.Bidi;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Regression test for the basic "inverse" Bidi mode.
@@ -23,6 +24,7 @@ import android.icu.text.Bidi;
  * ported from C by Lina Kemmel, Matitiahu Allouche
  */
 
+@MainTestShard
 public class TestInverse extends BidiFmwk {
 
     private int countRoundtrips = 0;

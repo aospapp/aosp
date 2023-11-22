@@ -29,6 +29,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Trace;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.FloatRange;
 import android.support.annotation.NonNull;
@@ -56,6 +57,7 @@ import com.android.dialer.compat.ActivityCompat;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
 import com.android.dialer.multimedia.MultimediaData;
+import com.android.dialer.telecom.TelecomUtil;
 import com.android.dialer.util.ViewUtil;
 import com.android.incallui.answer.impl.CreateCustomSmsDialogFragment.CreateCustomSmsHolder;
 import com.android.incallui.answer.impl.SmsBottomSheetFragment.SmsSheetHolder;
@@ -77,6 +79,7 @@ import com.android.incallui.incall.protocol.InCallScreenDelegateFactory;
 import com.android.incallui.incall.protocol.PrimaryCallState;
 import com.android.incallui.incall.protocol.PrimaryInfo;
 import com.android.incallui.incall.protocol.SecondaryInfo;
+import com.android.incallui.incalluilock.InCallUiLock;
 import com.android.incallui.maps.MapsComponent;
 import com.android.incallui.sessiondata.AvatarPresenter;
 import com.android.incallui.sessiondata.MultimediaFragment;
@@ -99,6 +102,8 @@ public class AnswerFragment extends Fragment
 
   @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
   static final String ARG_CALL_ID = "call_id";
+
+  static final String ARG_IS_RTT_CALL = "is_rtt_call";
 
   @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
   static final String ARG_IS_VIDEO_CALL = "is_video_call";
@@ -144,7 +149,7 @@ public class AnswerFragment extends Fragment
   private boolean buttonAcceptClicked;
   private boolean buttonRejectClicked;
   private boolean hasAnimatedEntry;
-  private PrimaryInfo primaryInfo = PrimaryInfo.createEmptyPrimaryInfo();
+  private PrimaryInfo primaryInfo = PrimaryInfo.empty();
   private PrimaryCallState primaryCallState;
   private ArrayList<CharSequence> textResponses;
   private SmsBottomSheetFragment textResponsesFragment;
@@ -341,6 +346,7 @@ public class AnswerFragment extends Fragment
 
   public static AnswerFragment newInstance(
       String callId,
+      boolean isRttCall,
       boolean isVideoCall,
       boolean isVideoUpgradeRequest,
       boolean isSelfManagedCamera,
@@ -348,6 +354,7 @@ public class AnswerFragment extends Fragment
       boolean hasCallOnHold) {
     Bundle bundle = new Bundle();
     bundle.putString(ARG_CALL_ID, Assert.isNotNull(callId));
+    bundle.putBoolean(ARG_IS_RTT_CALL, isRttCall);
     bundle.putBoolean(ARG_IS_VIDEO_CALL, isVideoCall);
     bundle.putBoolean(ARG_IS_VIDEO_UPGRADE_REQUEST, isVideoUpgradeRequest);
     bundle.putBoolean(ARG_IS_SELF_MANAGED_CAMERA, isSelfManagedCamera);
@@ -516,13 +523,13 @@ public class AnswerFragment extends Fragment
       return;
     }
     contactGridManager.setPrimary(primaryInfo);
-    getAnswerMethod().setShowIncomingWillDisconnect(primaryInfo.answeringDisconnectsOngoingCall);
+    getAnswerMethod().setShowIncomingWillDisconnect(primaryInfo.answeringDisconnectsOngoingCall());
     getAnswerMethod()
         .setContactPhoto(
-            primaryInfo.photoType == ContactPhotoType.CONTACT ? primaryInfo.photo : null);
+            primaryInfo.photoType() == ContactPhotoType.CONTACT ? primaryInfo.photo() : null);
     updateDataFragment();
 
-    if (primaryInfo.shouldShowLocation) {
+    if (primaryInfo.shouldShowLocation()) {
       // Hide the avatar to make room for location
       contactGridManager.setAvatarHidden(true);
     }
@@ -555,8 +562,8 @@ public class AnswerFragment extends Fragment
             MultimediaFragment.newInstance(
                 multimediaData,
                 false /* isInteractive */,
-                !primaryInfo.isSpam /* showAvatar */,
-                primaryInfo.isSpam);
+                !primaryInfo.isSpam() /* showAvatar */,
+                primaryInfo.isSpam());
       }
     } else if (shouldShowAvatar()) {
       // Needs Avatar
@@ -657,8 +664,10 @@ public class AnswerFragment extends Fragment
   @Override
   public View onCreateView(
       LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+    Trace.beginSection("AnswerFragment.onCreateView");
     Bundle arguments = getArguments();
     Assert.checkState(arguments.containsKey(ARG_CALL_ID));
+    Assert.checkState(arguments.containsKey(ARG_IS_RTT_CALL));
     Assert.checkState(arguments.containsKey(ARG_IS_VIDEO_CALL));
     Assert.checkState(arguments.containsKey(ARG_IS_VIDEO_UPGRADE_REQUEST));
 
@@ -690,6 +699,8 @@ public class AnswerFragment extends Fragment
     updateImportanceBadgeVisibility();
 
     contactGridManager = new ContactGridManager(view, null, 0, false /* showAnonymousAvatar */);
+    boolean isInMultiWindowMode = ActivityCompat.isInMultiWindowMode(getActivity());
+    contactGridManager.onMultiWindowModeChanged(isInMultiWindowMode);
 
     Fragment answerMethod =
         getChildFragmentManager().findFragmentById(R.id.answer_method_container);
@@ -708,7 +719,7 @@ public class AnswerFragment extends Fragment
     initSecondaryButton();
 
     int flags = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
-    if (!ActivityCompat.isInMultiWindowMode(getActivity())
+    if (!isInMultiWindowMode
         && (getActivity().checkSelfPermission(permission.STATUS_BAR)
             == PackageManager.PERMISSION_GRANTED)) {
       LogUtil.i("AnswerFragment.onCreateView", "STATUS_BAR permission granted, disabling nav bar");
@@ -729,6 +740,7 @@ public class AnswerFragment extends Fragment
       }
     }
 
+    Trace.endSection();
     return view;
   }
 
@@ -740,6 +752,7 @@ public class AnswerFragment extends Fragment
 
   @Override
   public void onViewCreated(final View view, @Nullable Bundle savedInstanceState) {
+    Trace.beginSection("AnswerFragment.onViewCreated");
     super.onViewCreated(view, savedInstanceState);
     createInCallScreenDelegate();
     updateUI();
@@ -747,18 +760,22 @@ public class AnswerFragment extends Fragment
     if (savedInstanceState == null || !savedInstanceState.getBoolean(STATE_HAS_ANIMATED_ENTRY)) {
       ViewUtil.doOnGlobalLayout(view, this::animateEntry);
     }
+    Trace.endSection();
   }
 
   @Override
   public void onResume() {
+    Trace.beginSection("AnswerFragment.onResume");
     super.onResume();
     LogUtil.i("AnswerFragment.onResume", null);
     restoreSwipeHintTexts();
     inCallScreenDelegate.onInCallScreenResumed();
+    Trace.endSection();
   }
 
   @Override
   public void onStart() {
+    Trace.beginSection("AnswerFragment.onStart");
     super.onStart();
     LogUtil.i("AnswerFragment.onStart", null);
 
@@ -766,10 +783,12 @@ public class AnswerFragment extends Fragment
     if (answerVideoCallScreen != null) {
       answerVideoCallScreen.onVideoScreenStart();
     }
+    Trace.endSection();
   }
 
   @Override
   public void onStop() {
+    Trace.beginSection("AnswerFragment.onStop");
     super.onStop();
     LogUtil.i("AnswerFragment.onStop", null);
 
@@ -777,13 +796,16 @@ public class AnswerFragment extends Fragment
     if (answerVideoCallScreen != null) {
       answerVideoCallScreen.onVideoScreenStop();
     }
+    Trace.endSection();
   }
 
   @Override
   public void onPause() {
+    Trace.beginSection("AnswerFragment.onPause");
     super.onPause();
     LogUtil.i("AnswerFragment.onPause", null);
     inCallScreenDelegate.onInCallScreenPaused();
+    Trace.endSection();
   }
 
   @Override
@@ -819,6 +841,11 @@ public class AnswerFragment extends Fragment
   }
 
   @Override
+  public boolean isRttCall() {
+    return getArguments().getBoolean(ARG_IS_RTT_CALL);
+  }
+
+  @Override
   public boolean isVideoCall() {
     return getArguments().getBoolean(ARG_IS_VIDEO_CALL);
   }
@@ -831,7 +858,7 @@ public class AnswerFragment extends Fragment
   public void onAnswerProgressUpdate(@FloatRange(from = -1f, to = 1f) float answerProgress) {
     // Don't fade the window background for call waiting or video upgrades. Fading the background
     // shows the system wallpaper which looks bad because on reject we switch to another call.
-    if (primaryCallState.state == State.INCOMING && !isVideoCall()) {
+    if (primaryCallState.state() == State.INCOMING && !isVideoCall()) {
       answerScreenDelegate.updateWindowBackgroundColor(answerProgress);
     }
 
@@ -942,7 +969,7 @@ public class AnswerFragment extends Fragment
         if (hasCallOnHold()) {
           getAnswerMethod()
               .setHintText(getText(R.string.call_incoming_default_label_answer_and_release_third));
-        } else if (primaryCallState.supportsCallOnHold) {
+        } else if (primaryCallState.supportsCallOnHold()) {
           getAnswerMethod()
               .setHintText(getText(R.string.call_incoming_default_label_answer_and_release_second));
         }
@@ -954,7 +981,7 @@ public class AnswerFragment extends Fragment
 
   private void showMessageMenu() {
     LogUtil.i("AnswerFragment.showMessageMenu", "Show sms menu.");
-    if (getChildFragmentManager().isDestroyed()) {
+    if (getContext() == null || isDetached() || getChildFragmentManager().isDestroyed()) {
       return;
     }
 
@@ -971,6 +998,13 @@ public class AnswerFragment extends Fragment
                 secondaryButton.animate().alpha(1);
               }
             });
+
+    TelecomUtil.silenceRinger(getContext());
+  }
+
+  @Override
+  public InCallUiLock acquireInCallUiLock(String tag) {
+    return answerScreenDelegate.acquireInCallUiLock(tag);
   }
 
   @Override
@@ -994,7 +1028,6 @@ public class AnswerFragment extends Fragment
   public void smsDismissed() {
     LogUtil.i("AnswerFragment.smsDismissed", null);
     textResponsesFragment = null;
-    answerScreenDelegate.onDismissDialog();
   }
 
   @Override
@@ -1011,14 +1044,13 @@ public class AnswerFragment extends Fragment
   public void customSmsDismissed() {
     LogUtil.i("AnswerFragment.customSmsDismissed", null);
     createCustomSmsDialogFragment = null;
-    answerScreenDelegate.onDismissDialog();
   }
 
   private boolean canRejectCallWithSms() {
     return primaryCallState != null
-        && !(primaryCallState.state == State.DISCONNECTED
-            || primaryCallState.state == State.DISCONNECTING
-            || primaryCallState.state == State.IDLE);
+        && !(primaryCallState.state() == State.DISCONNECTED
+            || primaryCallState.state() == State.DISCONNECTING
+            || primaryCallState.state() == State.IDLE);
   }
 
   private void createInCallScreenDelegate() {
@@ -1035,7 +1067,7 @@ public class AnswerFragment extends Fragment
       return;
     }
 
-    if (!getResources().getBoolean(R.bool.answer_important_call_allowed) || primaryInfo.isSpam) {
+    if (!getResources().getBoolean(R.bool.answer_important_call_allowed) || primaryInfo.isSpam()) {
       importanceBadge.setVisibility(View.GONE);
       return;
     }
@@ -1056,7 +1088,7 @@ public class AnswerFragment extends Fragment
     if (isVideoUpgradeRequest()) {
       return null;
     }
-    return primaryInfo.multimediaData;
+    return primaryInfo.multimediaData();
   }
 
   /** Shows the Avatar image if available. */

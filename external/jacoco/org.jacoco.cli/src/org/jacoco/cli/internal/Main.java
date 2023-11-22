@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -55,7 +55,7 @@ public class Main extends Command {
 
 	@Override
 	public String usage(final CommandParser parser) {
-		return JAVACMD + "-help | <command>";
+		return JAVACMD + "--help | <command>";
 	}
 
 	@Override
@@ -66,9 +66,9 @@ public class Main extends Command {
 		try {
 			mainParser.parseArgument(args);
 		} catch (final CmdLineException e) {
-			err.println(e.getMessage());
-			err.println();
 			((CommandParser) e.getParser()).getCommand().printHelp(err);
+			err.println();
+			err.println(e.getMessage());
 			return -1;
 		}
 
@@ -99,8 +99,10 @@ public class Main extends Command {
 	 *             on the console
 	 */
 	public static void main(final String... args) throws Exception {
-		new Main(args).execute(new PrintWriter(System.out, true),
-				new PrintWriter(System.err, true));
+		final PrintWriter out = new PrintWriter(System.out, true);
+		final PrintWriter err = new PrintWriter(System.err, true);
+		final int returncode = new Main(args).execute(out, err);
+		System.exit(returncode);
 	}
 
 }

@@ -16,13 +16,6 @@
 
 package android.widget.cts.util;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import android.app.Activity;
 import android.graphics.Rect;
 import android.os.Bundle;
@@ -35,6 +28,13 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Utility base class for creating various List scenarios.  Configurable by the number
@@ -390,6 +390,7 @@ public abstract class ListScenario extends Activity {
             mLinearLayout.addView(mListView);
             setContentView(mLinearLayout);
         }
+        mLinearLayout.restoreDefaultFocus();
     }
 
     /**

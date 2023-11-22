@@ -14,20 +14,15 @@
 
 class CFPF_SkiaPathFont : public CFPF_SkiaFontDescriptor {
  public:
-  CFPF_SkiaPathFont() : m_pPath(nullptr) {}
-  ~CFPF_SkiaPathFont() override { FX_Free(m_pPath); }
+  CFPF_SkiaPathFont();
+  ~CFPF_SkiaPathFont() override;
 
   // CFPF_SkiaFontDescriptor
-  int32_t GetType() const override { return FPF_SKIAFONTTYPE_Path; }
+  int32_t GetType() const override;
 
-  void SetPath(const FX_CHAR* pPath) {
-    FX_Free(m_pPath);
-    int32_t iSize = FXSYS_strlen(pPath);
-    m_pPath = FX_Alloc(FX_CHAR, iSize + 1);
-    FXSYS_memcpy(m_pPath, pPath, iSize * sizeof(FX_CHAR));
-    m_pPath[iSize] = 0;
-  }
-  FX_CHAR* m_pPath;
+  void SetPath(const char* pPath);
+
+  char* m_pPath;
 };
 
 #endif  // CORE_FXGE_ANDROID_CFPF_SKIAPATHFONT_H_

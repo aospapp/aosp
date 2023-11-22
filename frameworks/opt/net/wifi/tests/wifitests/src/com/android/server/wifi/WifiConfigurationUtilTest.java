@@ -24,7 +24,7 @@ import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiScanner;
 import android.os.UserHandle;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import org.junit.Test;
 
@@ -44,6 +44,8 @@ public class WifiConfigurationUtilTest {
     static final int OTHER_USER_ID = 11;
     static final String TEST_SSID = "test_ssid";
     static final String TEST_SSID_1 = "test_ssid_1";
+    static final String TEST_BSSID = "aa:aa:11:22:cc:dd";
+    static final String TEST_BSSID_1 = "11:22:11:22:cc:dd";
     static final List<UserInfo> PROFILES = Arrays.asList(
             new UserInfo(CURRENT_USER_ID, "owner", 0),
             new UserInfo(CURRENT_USER_MANAGED_PROFILE_USER_ID, "managed profile", 0));
@@ -263,6 +265,20 @@ public class WifiConfigurationUtilTest {
     }
 
     /**
+     * Verify that the validate method fails to validate WifiConfiguration with bad ssid length.
+     */
+    @Test
+    public void testValidateNegativeCases_BadUtf8SsidLength() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
+        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+
+        config.SSID = "\"가하아너너ㅓ저저ㅓ어아아다자저ㅓ더타아어어러두어\"";
+        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        config.SSID = "\"\"";
+        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+    }
+
+    /**
      * Verify that the validate method fails to validate WifiConfiguration with malformed ssid
      * string.
      */
@@ -411,15 +427,78 @@ public class WifiConfigurationUtilTest {
     }
 
     /**
+     * Verify that the validate method fails to validate WifiConfiguration with bad KeyMgmt value.
+     */
+    @Test
+    public void testValidateNegativeCases_InvalidKeyMgmt() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
+        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+
+        config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.FT_EAP + 1);
+        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+    }
+
+    /**
+     * Verify that the validate method fails to validate WifiConfiguration with bad Protocol value.
+     */
+    @Test
+    public void testValidateNegativeCases_InvalidProtocol() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
+        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+
+        config.allowedProtocols.set(3);
+        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+    }
+
+    /**
+     * Verify that the validate method fails to validate WifiConfiguration with bad AuthAlgorithm
+     * value.
+     */
+    @Test
+    public void testValidateNegativeCases_InvalidAuthAlgorithm() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
+        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+
+        config.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.LEAP + 3);
+        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+    }
+
+    /**
+     * Verify that the validate method fails to validate WifiConfiguration with bad GroupCipher
+     * value.
+     */
+    @Test
+    public void testValidateNegativeCases_InvalidGroupCipher() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
+        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+
+        config.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.GTK_NOT_USED + 2);
+        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+    }
+
+    /**
+     * Verify that the validate method fails to validate WifiConfiguration with bad PairwiseCipher
+     * value.
+     */
+    @Test
+    public void testValidateNegativeCases_InvalidPairwiseCipher() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
+        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+
+        config.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP + 2);
+        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+    }
+
+    /**
      * Verify the instance of {@link android.net.wifi.WifiScanner.PnoSettings.PnoNetwork} created
      * for an open network using {@link WifiConfigurationUtil#createPnoNetwork(
-     * WifiConfiguration, int)}.
+     * WifiConfiguration)}.
      */
     @Test
     public void testCreatePnoNetworkWithOpenNetwork() {
         WifiConfiguration network = WifiConfigurationTestUtil.createOpenNetwork();
         WifiScanner.PnoSettings.PnoNetwork pnoNetwork =
-                WifiConfigurationUtil.createPnoNetwork(network, 1);
+                WifiConfigurationUtil.createPnoNetwork(network);
         assertEquals(network.SSID, pnoNetwork.ssid);
         assertEquals(
                 WifiScanner.PnoSettings.PnoNetwork.FLAG_A_BAND
@@ -430,13 +509,13 @@ public class WifiConfigurationUtilTest {
     /**
      * Verify the instance of {@link android.net.wifi.WifiScanner.PnoSettings.PnoNetwork} created
      * for an open hidden network using {@link WifiConfigurationUtil#createPnoNetwork(
-     * WifiConfiguration, int)}.
+     * WifiConfiguration)}.
      */
     @Test
     public void testCreatePnoNetworkWithOpenHiddenNetwork() {
         WifiConfiguration network = WifiConfigurationTestUtil.createOpenHiddenNetwork();
         WifiScanner.PnoSettings.PnoNetwork pnoNetwork =
-                WifiConfigurationUtil.createPnoNetwork(network, 1);
+                WifiConfigurationUtil.createPnoNetwork(network);
         assertEquals(network.SSID, pnoNetwork.ssid);
         assertEquals(
                 WifiScanner.PnoSettings.PnoNetwork.FLAG_A_BAND
@@ -447,14 +526,14 @@ public class WifiConfigurationUtilTest {
 
     /**
      * Verify the instance of {@link android.net.wifi.WifiScanner.PnoSettings.PnoNetwork} created
-     * for a PSK network using {@link WifiConfigurationUtil#createPnoNetwork(WifiConfiguration, int)
+     * for a PSK network using {@link WifiConfigurationUtil#createPnoNetwork(WifiConfiguration)
      * }.
      */
     @Test
     public void testCreatePnoNetworkWithPskNetwork() {
         WifiConfiguration network = WifiConfigurationTestUtil.createPskNetwork();
         WifiScanner.PnoSettings.PnoNetwork pnoNetwork =
-                WifiConfigurationUtil.createPnoNetwork(network, 1);
+                WifiConfigurationUtil.createPnoNetwork(network);
         assertEquals(network.SSID, pnoNetwork.ssid);
         assertEquals(
                 WifiScanner.PnoSettings.PnoNetwork.FLAG_A_BAND
@@ -470,6 +549,19 @@ public class WifiConfigurationUtilTest {
     public void testIsSameNetworkReturnsTrueOnSameNetwork() {
         WifiConfiguration network = WifiConfigurationTestUtil.createPskNetwork(TEST_SSID);
         WifiConfiguration network1 = WifiConfigurationTestUtil.createPskNetwork(TEST_SSID);
+        assertTrue(WifiConfigurationUtil.isSameNetwork(network, network1));
+    }
+
+    /**
+     * Verify that WifiConfigurationUtil.isSameNetwork returns true when two WifiConfiguration
+     * objects have the same parameters but different network selection BSSID's.
+     */
+    @Test
+    public void testIsSameNetworkReturnsTrueOnSameNetworkWithDifferentBSSID() {
+        WifiConfiguration network = WifiConfigurationTestUtil.createPskNetwork(TEST_SSID);
+        network.getNetworkSelectionStatus().setNetworkSelectionBSSID(TEST_BSSID);
+        WifiConfiguration network1 = WifiConfigurationTestUtil.createPskNetwork(TEST_SSID);
+        network1.getNetworkSelectionStatus().setNetworkSelectionBSSID(TEST_BSSID_1);
         assertTrue(WifiConfigurationUtil.isSameNetwork(network, network1));
     }
 
@@ -523,14 +615,14 @@ public class WifiConfigurationUtilTest {
 
     /**
      * Verify the instance of {@link android.net.wifi.WifiScanner.PnoSettings.PnoNetwork} created
-     * for a EAP network using {@link WifiConfigurationUtil#createPnoNetwork(WifiConfiguration, int)
+     * for a EAP network using {@link WifiConfigurationUtil#createPnoNetwork(WifiConfiguration)
      * }.
      */
     @Test
     public void testCreatePnoNetworkWithEapNetwork() {
         WifiConfiguration network = WifiConfigurationTestUtil.createEapNetwork();
         WifiScanner.PnoSettings.PnoNetwork pnoNetwork =
-                WifiConfigurationUtil.createPnoNetwork(network, 1);
+                WifiConfigurationUtil.createPnoNetwork(network);
         assertEquals(network.SSID, pnoNetwork.ssid);
         assertEquals(
                 WifiScanner.PnoSettings.PnoNetwork.FLAG_A_BAND

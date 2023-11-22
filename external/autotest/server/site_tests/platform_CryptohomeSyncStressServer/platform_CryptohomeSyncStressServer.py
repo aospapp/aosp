@@ -4,7 +4,7 @@
 
 import random, time
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import power_strip
+from autotest_lib.client.cros.power import power_strip
 from autotest_lib.server import autotest, test
 
 class platform_CryptohomeSyncStressServer(test.test):

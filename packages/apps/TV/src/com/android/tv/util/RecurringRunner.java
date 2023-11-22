@@ -22,10 +22,8 @@ import android.os.AsyncTask;
 import android.os.Handler;
 import android.support.annotation.WorkerThread;
 import android.util.Log;
-
-import com.android.tv.common.SharedPreferencesUtils;
 import com.android.tv.common.SoftPreconditions;
-
+import com.android.tv.common.util.SharedPreferencesUtils;
 import java.util.Date;
 
 /**
@@ -46,8 +44,8 @@ public final class RecurringRunner {
     private final String mName;
     private boolean mRunning;
 
-    public RecurringRunner(Context context, long intervalMs, Runnable runnable,
-            Runnable onStopRunnable) {
+    public RecurringRunner(
+            Context context, long intervalMs, Runnable runnable, Runnable onStopRunnable) {
         mContext = context.getApplicationContext();
         mRunnable = runnable;
         mOnStopRunnable = onStopRunnable;
@@ -99,18 +97,21 @@ public final class RecurringRunner {
         // Run it anyways even if it is in the past
         if (DEBUG) Log.i(TAG, "Next run of " + mName + " at " + new Date(next));
         long delay = Math.max(next - now, 0);
-        boolean posted = mHandler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    if (DEBUG) Log.i(TAG, "Starting " + mName);
-                    mRunnable.run();
-                } catch (Exception e) {
-                    Log.w(TAG, "Error running " + mName, e);
-                }
-                postAt(resetNextRunTime());
-            }
-        }, delay);
+        boolean posted =
+                mHandler.postDelayed(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    if (DEBUG) Log.i(TAG, "Starting " + mName);
+                                    mRunnable.run();
+                                } catch (Exception e) {
+                                    Log.w(TAG, "Error running " + mName, e);
+                                }
+                                postAt(resetNextRunTime());
+                            }
+                        },
+                        delay);
         if (!posted) {
             Log.w(TAG, "Scheduling a future run of " + mName + " at " + new Date(next) + "failed");
         }
@@ -118,8 +119,8 @@ public final class RecurringRunner {
     }
 
     private SharedPreferences getSharedPreferences() {
-        return mContext.getSharedPreferences(SharedPreferencesUtils.SHARED_PREF_RECURRING_RUNNER,
-                Context.MODE_PRIVATE);
+        return mContext.getSharedPreferences(
+                SharedPreferencesUtils.SHARED_PREF_RECURRING_RUNNER, Context.MODE_PRIVATE);
     }
 
     @WorkerThread

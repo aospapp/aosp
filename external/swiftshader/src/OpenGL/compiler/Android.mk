@@ -12,12 +12,22 @@ COMMON_C_INCLUDES := \
 
 # Marshmallow does not have stlport, but comes with libc++ by default
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -lt 23 && echo PreMarshmallow),PreMarshmallow)
-COMMON_C_INCLUDES += external/stlport/stlport
+COMMON_C_INCLUDES += \
+	$(LOCAL_PATH)/../../../third_party/stlport-cpp11-extension/ \
+	external/stlport/stlport/ \
+	external/stlport/
 endif
 
 COMMON_CFLAGS := \
 	-DLOG_TAG=\"swiftshader_compiler\" \
+	-Wall \
+	-Werror \
+	-Wno-format \
+	-Wno-sign-compare \
+	-Wno-unneeded-internal-declaration \
+	-Wno-unused-const-variable \
 	-Wno-unused-parameter \
+	-Wno-unused-variable \
 	-Wno-implicit-exception-spec-mismatch \
 	-Wno-overloaded-virtual \
 	-Wno-attributes \
@@ -37,8 +47,8 @@ COMMON_CFLAGS += -D__STDC_INT64__
 endif
 
 COMMON_SRC_FILES := \
-	preprocessor/Diagnostics.cpp \
-	preprocessor/DirectiveHandler.cpp \
+	preprocessor/DiagnosticsBase.cpp \
+	preprocessor/DirectiveHandlerBase.cpp \
 	preprocessor/DirectiveParser.cpp \
 	preprocessor/ExpressionParser.cpp \
 	preprocessor/Input.cpp \
@@ -72,8 +82,8 @@ COMMON_SRC_FILES := \
 	ValidateLimitations.cpp \
 	ValidateSwitch.cpp \
 
-# liblog_headers is introduced from O
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo O),O)
+# liblog_headers is introduced from O MR1
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 27 && echo OMR1),OMR1)
 COMMON_HEADER_LIBRARIES := liblog_headers
 else
 COMMON_HEADER_LIBRARIES :=

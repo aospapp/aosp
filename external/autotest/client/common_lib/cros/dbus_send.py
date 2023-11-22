@@ -42,6 +42,9 @@ def _parse_value(token_stream):
     @param token_stream: output from _build_token_stream() above.
 
     """
+    if len(token_stream) == 0:
+      # Return None for dbus-send output with no return values.
+      return None
     # Assumes properly tokenized output (strings with spaces handled).
     # Assumes tokens are pre-stripped
     token_type = token_stream.pop(0)

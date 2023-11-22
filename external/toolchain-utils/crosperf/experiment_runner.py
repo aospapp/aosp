@@ -26,14 +26,15 @@ from results_report import TextResultsReport
 from results_report import JSONResultsReport
 from schedv2 import Schedv2
 
+
 def _WriteJSONReportToFile(experiment, results_dir, json_report):
   """Writes a JSON report to a file in results_dir."""
   has_llvm = any('llvm' in l.compiler for l in experiment.labels)
   compiler_string = 'llvm' if has_llvm else 'gcc'
   board = experiment.labels[0].board
-  filename = 'report_%s_%s_%s.%s.json' % (
-      board, json_report.date, json_report.time.replace(':', '.'),
-      compiler_string)
+  filename = 'report_%s_%s_%s.%s.json' % (board, json_report.date,
+                                          json_report.time.replace(':', '.'),
+                                          compiler_string)
   fullname = os.path.join(results_dir, filename)
   report_text = json_report.GetReport()
   with open(fullname, 'w') as out_file:
@@ -151,9 +152,10 @@ class ExperimentRunner(object):
       cache.Init(br.label.chromeos_image, br.label.chromeos_root,
                  br.benchmark.test_name, br.iteration, br.test_args,
                  br.profiler_args, br.machine_manager, br.machine,
-                 br.label.board, br.cache_conditions, br._logger, br.log_level,
-                 br.label, br.share_cache, br.benchmark.suite,
-                 br.benchmark.show_all_results, br.benchmark.run_local)
+                 br.label.board, br.cache_conditions,
+                 br.logger(), br.log_level, br.label, br.share_cache,
+                 br.benchmark.suite, br.benchmark.show_all_results,
+                 br.benchmark.run_local)
       cache_dir = cache.GetCacheDirForWrite()
       if os.path.exists(cache_dir):
         self.l.LogOutput('Removing cache dir: %s' % cache_dir)
@@ -229,18 +231,19 @@ class ExperimentRunner(object):
     subject = '%s: %s' % (experiment.name, ' vs. '.join(label_names))
 
     text_report = TextResultsReport.FromExperiment(experiment, True).GetReport()
-    text_report += ('\nResults are stored in %s.\n' %
-                    experiment.results_directory)
+    text_report += (
+        '\nResults are stored in %s.\n' % experiment.results_directory)
     text_report = "<pre style='font-size: 13px'>%s</pre>" % text_report
     html_report = HTMLResultsReport.FromExperiment(experiment).GetReport()
     attachment = EmailSender.Attachment('report.html', html_report)
     email_to = experiment.email_to or []
     email_to.append(getpass.getuser())
-    EmailSender().SendEmail(email_to,
-                            subject,
-                            text_report,
-                            attachments=[attachment],
-                            msg_type='html')
+    EmailSender().SendEmail(
+        email_to,
+        subject,
+        text_report,
+        attachments=[attachment],
+        msg_type='html')
 
   def _StoreResults(self, experiment):
     if self._terminated:
@@ -256,8 +259,8 @@ class ExperimentRunner(object):
     results_table_path = os.path.join(results_directory, 'results.html')
     report = HTMLResultsReport.FromExperiment(experiment).GetReport()
     if self.json_report:
-      json_report = JSONResultsReport.FromExperiment(experiment,
-                                                     json_args={'indent': 2})
+      json_report = JSONResultsReport.FromExperiment(
+          experiment, json_args={'indent': 2})
       _WriteJSONReportToFile(experiment, results_directory, json_report)
 
     FileUtils().WriteFile(results_table_path, report)
@@ -265,8 +268,8 @@ class ExperimentRunner(object):
     self.l.LogOutput('Storing email message body in %s.' % results_directory)
     msg_file_path = os.path.join(results_directory, 'msg_body.html')
     text_report = TextResultsReport.FromExperiment(experiment, True).GetReport()
-    text_report += ('\nResults are stored in %s.\n' %
-                    experiment.results_directory)
+    text_report += (
+        '\nResults are stored in %s.\n' % experiment.results_directory)
     msg_body = "<pre style='font-size: 13px'>%s</pre>" % text_report
     FileUtils().WriteFile(msg_file_path, msg_body)
 
@@ -296,8 +299,8 @@ class MockExperimentRunner(ExperimentRunner):
     super(MockExperimentRunner, self).__init__(experiment, json_report)
 
   def _Run(self, experiment):
-    self.l.LogOutput("Would run the following experiment: '%s'." %
-                     experiment.name)
+    self.l.LogOutput(
+        "Would run the following experiment: '%s'." % experiment.name)
 
   def _PrintTable(self, experiment):
     self.l.LogOutput('Would print the experiment table.')

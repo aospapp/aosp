@@ -19,18 +19,13 @@ package com.android.tv.util;
 import android.content.Context;
 import android.support.annotation.MainThread;
 import android.widget.Toast;
-
 import java.lang.ref.WeakReference;
 
-/**
- * A utility class for the toast message.
- */
+/** A utility class for the toast message. */
 public class ToastUtils {
     private static WeakReference<Toast> sToast;
 
-    /**
-     * Shows the toast message after canceling the previous one.
-     */
+    /** Shows the toast message after canceling the previous one. */
     @MainThread
     public static void show(Context context, CharSequence text, int duration) {
         if (sToast != null && sToast.get() != null) {

@@ -15,12 +15,17 @@ from autotest_lib.client.bin.result_tools import runner as result_tools_runner
 from autotest_lib.client.common_lib import autotemp
 from autotest_lib.client.common_lib import base_job
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib import packages
 from autotest_lib.client.common_lib import global_config
+from autotest_lib.client.common_lib import packages
+from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.client.common_lib import utils as client_utils
+from autotest_lib.server import autoserv_parser
 from autotest_lib.server import installable_object
-from autotest_lib.server import prebuild
 from autotest_lib.server import utils
+from autotest_lib.server import utils as server_utils
+from autotest_lib.server.cros.dynamic_suite import tools
+from autotest_lib.server.cros.dynamic_suite.constants import JOB_REPO_URL
+
 
 try:
     from chromite.lib import metrics
@@ -31,12 +36,17 @@ except ImportError:
 AUTOTEST_SVN = 'svn://test.kernel.org/autotest/trunk/client'
 AUTOTEST_HTTP = 'http://test.kernel.org/svn/autotest/trunk/client'
 
-CONFIG = global_config.global_config
-AUTOSERV_PREBUILD = CONFIG.get_config_value(
+_PARSER = autoserv_parser.autoserv_parser
+
+_CONFIG = global_config.global_config
+AUTOSERV_PREBUILD = _CONFIG.get_config_value(
         'AUTOSERV', 'enable_server_prebuild', type=bool, default=False)
 
-ENABLE_RESULT_THROTTLING = CONFIG.get_config_value(
-        'AUTOSERV', 'enable_result_throttling', type=bool, default=False)
+# Match on a line like this:
+# FAIL test_name  test_name timestamp=1 localtime=Nov 15 12:43:10 <fail_msg>
+_FAIL_STATUS_RE = re.compile(
+    r'\s*FAIL.*localtime=.*\s*.*\s*[0-9]+:[0-9]+:[0-9]+\s*(?P<fail_msg>.*)')
+
 
 class AutodirNotFoundError(Exception):
     """No Autotest installation could be found."""
@@ -76,7 +86,7 @@ class AutotestDeviceRebooted(AutotestDeviceError):
     """Error for when a DUT rebooted unexpectedly."""
 
 
-class BaseAutotest(installable_object.InstallableObject):
+class Autotest(installable_object.InstallableObject):
     """
     This class represents the Autotest program.
 
@@ -93,7 +103,7 @@ class BaseAutotest(installable_object.InstallableObject):
         self.got = False
         self.installed = False
         self.serverdir = utils.get_server_dir()
-        super(BaseAutotest, self).__init__()
+        super(Autotest, self).__init__()
 
 
     install_in_tmpdir = False
@@ -174,14 +184,108 @@ class BaseAutotest(installable_object.InstallableObject):
 
 
     def get_fetch_location(self):
+        """Generate list of locations where autotest can look for packages.
+
+        Old n' busted: Autotest packages are always stored at a URL that can
+        be derived from the one passed via the voodoo magic --image argument.
+        New hotness: Hosts are tagged with an attribute containing the URL
+        from which to source packages when running a test on that host.
+
+        @returns the list of candidate locations to check for packages.
+        """
         c = global_config.global_config
         repos = c.get_config_value("PACKAGES", 'fetch_location', type=list,
                                    default=[])
         repos.reverse()
+
+        if _PARSER.options.image:
+            image_opt = _PARSER.options.image
+            if image_opt.startswith('http://'):
+                # A devserver HTTP url was specified, set that as the repo_url.
+                repos.append(image_opt.replace(
+                    'update', 'static').rstrip('/') + '/autotest')
+            else:
+                # An image_name like stumpy-release/R27-3437.0.0 was specified,
+                # set this as the repo_url for the host. If an AFE is not being
+                # run, this will ensure that the installed build uses the
+                # associated artifacts for the test specified when running
+                # autoserv with --image. However, any subsequent tests run on
+                # the host will no longer have the context of the image option
+                # and will revert back to utilizing test code/artifacts that are
+                # currently present in the users source checkout.
+                # devserver selected must be in the same subnet of self.host, if
+                # the host is in restricted subnet. Otherwise, host may not be
+                # able to reach the devserver and download packages from the
+                # repo_url.
+                hostname = self.host.hostname if self.host else None
+                devserver_url = dev_server.ImageServer.resolve(
+                        image_opt, hostname).url()
+                repo_url = tools.get_package_url(devserver_url, image_opt)
+                repos.append(repo_url)
+        elif not server_utils.is_inside_chroot():
+            # Only try to get fetch location from host attribute if the test
+            # is not running inside chroot.
+            # No --image option was specified, look for the repo url via
+            # the host attribute. If we are not running with a full AFE
+            # autoserv will fall back to serving packages itself from whatever
+            # source version it is sync'd to rather than using the proper
+            # artifacts for the build on the host.
+            found_repo = self._get_fetch_location_from_host_attribute()
+            if found_repo is not None:
+                # Add our new repo to the end, the package manager will
+                # later reverse the list of repositories resulting in ours
+                # being first
+                repos.append(found_repo)
+
         return repos
 
 
+    def _get_fetch_location_from_host_attribute(self):
+        """Get repo to use for packages from host attribute, if possible.
+
+        Hosts are tagged with an attribute containing the URL
+        from which to source packages when running a test on that host.
+        If self.host is set, attempt to look this attribute in the host info.
+
+        @returns value of the 'job_repo_url' host attribute, if present.
+        """
+        if not self.host:
+            return None
+
+        try:
+            info = self.host.host_info_store.get()
+        except Exception as e:
+            # TODO(pprabhu): We really want to catch host_info.StoreError here,
+            # but we can't import host_info from this module.
+            #   - autotest_lib.hosts.host_info pulls in (naturally)
+            #   autotest_lib.hosts.__init__
+            #   - This pulls in all the host classes ever defined
+            #   - That includes abstract_ssh, which depends on autotest
+            logging.warning('Failed to obtain host info: %r', e)
+            logging.warning('Skipping autotest fetch location based on %s',
+                            JOB_REPO_URL)
+            return None
+
+        job_repo_url = info.attributes.get(JOB_REPO_URL, '')
+        if not job_repo_url:
+            logging.warning("No %s for %s", JOB_REPO_URL, self.host)
+            return None
+
+        logging.info('Got job repo url from host attributes: %s',
+                        job_repo_url)
+        return job_repo_url
+
+
     def install(self, host=None, autodir=None, use_packaging=True):
+        """Install autotest.  If |host| is not None, stores it in |self.host|.
+
+        @param host A Host instance on which autotest will be installed
+        @param autodir Location on the remote host to install to
+        @param use_packaging Enable install modes that use the packaging system.
+
+        """
+        if host:
+            self.host = host
         self._install(host=host, autodir=autodir, use_packaging=use_packaging)
 
 
@@ -208,8 +312,9 @@ class BaseAutotest(installable_object.InstallableObject):
         # are fetched on that client. (for the tests,deps etc.
         # too apart from the client)
         pkg_dir = os.path.join(autodir, 'packages')
-        # clean up the autodir except for the packages directory
-        host.run('cd %s && ls | grep -v "^packages$"'
+        # clean up the autodir except for the packages and result_tools
+        # directory.
+        host.run('cd %s && ls | grep -v "^packages$" | grep -v "^result_tools$"'
                  ' | xargs rm -rf && rm -rf .[!.]*' % autodir)
         pkgmgr.install_pkg('autotest', 'client', pkg_dir, autodir,
                            preserve_install_dir=True)
@@ -301,18 +406,37 @@ class BaseAutotest(installable_object.InstallableObject):
             logging.info("Installation of autotest completed from %s",
                          self.source_material)
             self.installed = True
-            return
+        else:
+            # if that fails try to install using svn
+            if utils.run('which svn').exit_status:
+                raise error.AutoservError(
+                        'svn not found on target machine: %s' %
+                        host.hostname)
+            try:
+                host.run('svn checkout %s %s' % (AUTOTEST_SVN, autodir))
+            except error.AutoservRunError, e:
+                host.run('svn checkout %s %s' % (AUTOTEST_HTTP, autodir))
+            logging.info("Installation of autotest completed using SVN.")
+            self.installed = True
 
-        # if that fails try to install using svn
-        if utils.run('which svn').exit_status:
-            raise error.AutoservError('svn not found on target machine: %s' %
-                                      host.hostname)
-        try:
-            host.run('svn checkout %s %s' % (AUTOTEST_SVN, autodir))
-        except error.AutoservRunError, e:
-            host.run('svn checkout %s %s' % (AUTOTEST_HTTP, autodir))
-        logging.info("Installation of autotest completed using SVN.")
-        self.installed = True
+        # TODO(milleral): http://crbug.com/258161
+        # Send over the most recent global_config.ini after installation if one
+        # is available.
+        # This code is a bit duplicated from
+        # _Run._create_client_config_file, but oh well.
+        if self.installed and self.source_material:
+            self._send_shadow_config()
+
+    def _send_shadow_config(self):
+        logging.info('Installing updated global_config.ini.')
+        destination = os.path.join(self.host.get_autodir(),
+                                   'global_config.ini')
+        with tempfile.NamedTemporaryFile() as client_config:
+            config = global_config.global_config
+            client_section = config.get_section_values('CLIENT')
+            client_section.write(client_config)
+            client_config.flush()
+            self.host.send_file(client_config.name, destination)
 
 
     def uninstall(self, host=None):
@@ -340,21 +464,13 @@ class BaseAutotest(installable_object.InstallableObject):
         if not location:
             location = os.path.join(self.serverdir, '../client')
             location = os.path.abspath(location)
-        # If there's stuff run on our client directory already, it
-        # can cause problems. Try giving it a quick clean first.
-        cwd = os.getcwd()
-        os.chdir(location)
-        try:
-            utils.system('tools/make_clean', ignore_status=True)
-        finally:
-            os.chdir(cwd)
-        super(BaseAutotest, self).get(location)
+        installable_object.InstallableObject.get(self, location)
         self.got = True
 
 
     def run(self, control_file, results_dir='.', host=None, timeout=None,
-            tag=None, parallel_flag=False, client_disconnect_timeout=None,
-            use_packaging=True):
+            tag=None, parallel_flag=False, background=False,
+            client_disconnect_timeout=None, use_packaging=True):
         """
         Run an autotest job on the remote machine.
 
@@ -367,6 +483,9 @@ class BaseAutotest(installable_object.InstallableObject):
         @param tag: Tag name for the client side instance of autotest.
         @param parallel_flag: Flag set when multiple jobs are run at the
                 same time.
+        @param background: Indicates that the client should be launched as
+                a background job; the code calling run will be responsible
+                for monitoring the client and collecting the results.
         @param client_disconnect_timeout: Seconds to wait for the remote host
                 to come back after a reboot. Defaults to the host setting for
                 DEFAULT_REBOOT_TIMEOUT.
@@ -385,7 +504,7 @@ class BaseAutotest(installable_object.InstallableObject):
         if tag:
             results_dir = os.path.join(results_dir, tag)
 
-        atrun = _Run(host, results_dir, tag, parallel_flag)
+        atrun = _Run(host, results_dir, tag, parallel_flag, background)
         self._do_run(control_file, results_dir, host, atrun, timeout,
                      client_disconnect_timeout, use_packaging=use_packaging)
 
@@ -445,13 +564,14 @@ class BaseAutotest(installable_object.InstallableObject):
                 logging.error(e)
 
         # on full-size installs, turn on any profilers the server is using
-        running_profilers = host.job.profilers.add_log.iteritems()
-        for profiler, (args, dargs) in running_profilers:
-            call_args = [repr(profiler)]
-            call_args += [repr(arg) for arg in args]
-            call_args += ["%s=%r" % item for item in dargs.iteritems()]
-            prologue_lines.append("job.profilers.add(%s)\n"
-                                    % ", ".join(call_args))
+        if not atrun.background:
+            running_profilers = host.job.profilers.add_log.iteritems()
+            for profiler, (args, dargs) in running_profilers:
+                call_args = [repr(profiler)]
+                call_args += [repr(arg) for arg in args]
+                call_args += ["%s=%r" % item for item in dargs.iteritems()]
+                prologue_lines.append("job.profilers.add(%s)\n"
+                                      % ", ".join(call_args))
         cfile = "".join(prologue_lines)
 
         cfile += open(tmppath).read()
@@ -472,6 +592,24 @@ class BaseAutotest(installable_object.InstallableObject):
                 client_disconnect_timeout=client_disconnect_timeout)
 
 
+    @staticmethod
+    def extract_test_failure_msg(failure_status_line):
+        """Extract the test failure message from the status line.
+
+        @param failure_status_line:  String of test failure status line, it will
+            look like:
+          FAIL <test name>  <test name> timestamp=<ts> localtime=<lt> <reason>
+
+        @returns String of the reason, return empty string if we can't regex out
+            reason.
+        """
+        fail_msg = ''
+        match = _FAIL_STATUS_RE.match(failure_status_line)
+        if match:
+            fail_msg = match.group('fail_msg')
+        return fail_msg
+
+
     @classmethod
     def _check_client_test_result(cls, host, test_name):
         """
@@ -486,11 +624,20 @@ class BaseAutotest(installable_object.InstallableObject):
         status = host.run(command).stdout.strip()
         logging.info(status)
         if status[:8] != 'END GOOD':
-            raise error.TestFail('%s client test did not pass.' % test_name)
+            test_fail_status_line_cmd = (
+                    'grep "^\s*FAIL\s*%s" %s/status | tail -n 1' %
+                    (test_name, client_result_dir))
+            test_fail_msg = cls.extract_test_failure_msg(
+                    host.run(test_fail_status_line_cmd).stdout.strip())
+            test_fail_msg_reason = ('' if not test_fail_msg
+                                    else ' (reason: %s)' % test_fail_msg)
+            test_fail_status = '%s client test did not pass%s.' % (
+                    test_name, test_fail_msg_reason)
+            raise error.TestFail(test_fail_status)
 
 
     def run_timed_test(self, test_name, results_dir='.', host=None,
-                       timeout=None, parallel_flag=False,
+                       timeout=None, parallel_flag=False, background=False,
                        client_disconnect_timeout=None, *args, **dargs):
         """
         Assemble a tiny little control file to just run one test,
@@ -504,7 +651,7 @@ class BaseAutotest(installable_object.InstallableObject):
         cmd = ", ".join([repr(test_name)] + map(repr, args) + opts)
         control = "job.run_test(%s)\n" % cmd
         self.run(control, results_dir, host, timeout=timeout,
-                 parallel_flag=parallel_flag,
+                 parallel_flag=parallel_flag, background=background,
                  client_disconnect_timeout=client_disconnect_timeout)
 
         if dargs.get('check_client_result', False):
@@ -512,15 +659,40 @@ class BaseAutotest(installable_object.InstallableObject):
 
 
     def run_test(self, test_name, results_dir='.', host=None,
-                 parallel_flag=False,
+                 parallel_flag=False, background=False,
                  client_disconnect_timeout=None, *args, **dargs):
         self.run_timed_test(test_name, results_dir, host, timeout=None,
-                            parallel_flag=parallel_flag,
+                            parallel_flag=parallel_flag, background=background,
                             client_disconnect_timeout=client_disconnect_timeout,
                             *args, **dargs)
 
 
-class _BaseRun(object):
+    def run_static_method(self, module, method, results_dir='.', host=None,
+                          *args):
+        """Runs a non-instance method with |args| from |module| on the client.
+
+        This method runs a static/class/module autotest method on the client.
+        For example:
+          run_static_method("autotest_lib.client.cros.cros_ui", "reboot")
+
+        Will run autotest_lib.client.cros.cros_ui.reboot() on the client.
+
+        @param module: module name as you would refer to it when importing in a
+            control file. e.g. autotest_lib.client.common_lib.module_name.
+        @param method: the method you want to call.
+        @param results_dir: A str path where the results should be stored
+            on the local filesystem.
+        @param host: A Host instance on which the control file should
+            be run.
+        @param args: args to pass to the method.
+        """
+        control = "\n".join(["import %s" % module,
+                             "%s.%s(%s)\n" % (module, method,
+                                              ','.join(map(repr, args)))])
+        self.run(control, results_dir=results_dir, host=host)
+
+
+class _Run(object):
     """
     Represents a run of autotest control file.  This class maintains
     all the state necessary as an autotest control file is executed.
@@ -528,12 +700,13 @@ class _BaseRun(object):
     It is not intended to be used directly, rather control files
     should be run using the run method in Autotest.
     """
-    def __init__(self, host, results_dir, tag, parallel_flag):
+    def __init__(self, host, results_dir, tag, parallel_flag, background):
         self.host = host
         self.results_dir = results_dir
         self.env = host.env
         self.tag = tag
         self.parallel_flag = parallel_flag
+        self.background = background
         self.autodir = Autotest.get_installed_autodir(self.host)
         control = os.path.join(self.autodir, 'control')
         if tag:
@@ -558,8 +731,10 @@ class _BaseRun(object):
             self.host.run('umount %s' % download, ignore_status=True)
 
 
-    def get_base_cmd_args(self):
+    def get_base_cmd_args(self, section):
         args = ['--verbose']
+        if section > 0:
+            args.append('-c')
         if self.tag:
             args.append('-t %s' % self.tag)
         if self.host.job.use_external_logging():
@@ -572,10 +747,17 @@ class _BaseRun(object):
         return args
 
 
-    def get_daemon_cmd(self, monitor_dir):
+    def get_background_cmd(self, section):
+        cmd = ['nohup', os.path.join(self.autodir, 'bin/autotest_client')]
+        cmd += self.get_base_cmd_args(section)
+        cmd += ['>/dev/null', '2>/dev/null', '&']
+        return ' '.join(cmd)
+
+
+    def get_daemon_cmd(self, section, monitor_dir):
         cmd = ['nohup', os.path.join(self.autodir, 'bin/autotestd'),
                monitor_dir, '-H autoserv']
-        cmd += self.get_base_cmd_args()
+        cmd += self.get_base_cmd_args(section)
         cmd += ['>/dev/null', '2>/dev/null', '&']
         return ' '.join(cmd)
 
@@ -724,6 +906,24 @@ class _BaseRun(object):
             self.host.job.record('END ABORT', None, None, str(e))
 
 
+    def _execute_in_background(self, section, timeout):
+        full_cmd = self.get_background_cmd(section)
+        devnull = open(os.devnull, "w")
+
+        self.copy_client_config_file(self.get_client_log())
+
+        self.host.job.push_execution_context(self.results_dir)
+        try:
+            result = self.host.run(full_cmd, ignore_status=True,
+                                   timeout=timeout,
+                                   stdout_tee=devnull,
+                                   stderr_tee=devnull)
+        finally:
+            self.host.job.pop_execution_context()
+
+        return result
+
+
     @staticmethod
     def _strip_stderr_prologue(stderr):
         """Strips the 'standard' prologue that get pre-pended to every
@@ -737,10 +937,10 @@ class _BaseRun(object):
         return "\n".join(stderr_lines)
 
 
-    def _execute_daemon(self, timeout, stderr_redirector,
+    def _execute_daemon(self, section, timeout, stderr_redirector,
                         client_disconnect_timeout):
         monitor_dir = self.host.get_tmp_dir()
-        daemon_cmd = self.get_daemon_cmd(monitor_dir)
+        daemon_cmd = self.get_daemon_cmd(section, monitor_dir)
 
         # grab the location for the server-side client log file
         client_log_prefix = self.get_client_log()
@@ -792,23 +992,31 @@ class _BaseRun(object):
             self.host.job.pop_execution_context()
 
 
-    def _really_execute_control(self, timeout, stderr_redirector,
-                                client_disconnect_timeout):
-        logging.info("Executing %s/bin/autotest %s/controt",
-                     self.autodir, self.autodir)
+    def execute_section(self, section, timeout, stderr_redirector,
+                        client_disconnect_timeout):
+        # TODO(crbug.com/684311) The claim is that section is never more than 0
+        # in pratice. After validating for a week or so, delete all support of
+        # multiple sections.
+        metrics.Counter('chromeos/autotest/autotest/sections').increment(
+                fields={'is_first_section': (section == 0)})
+        logging.info("Executing %s/bin/autotest %s/control phase %d",
+                     self.autodir, self.autodir, section)
 
-        result = self._execute_daemon(timeout, stderr_redirector,
-                                        client_disconnect_timeout)
+        if self.background:
+            result = self._execute_in_background(section, timeout)
+        else:
+            result = self._execute_daemon(section, timeout, stderr_redirector,
+                                          client_disconnect_timeout)
 
         last_line = stderr_redirector.last_line
 
         # check if we failed hard enough to warrant an exception
         if result.exit_status == 1:
             err = error.AutotestRunError("client job was aborted")
-        elif not result.stderr:
+        elif not self.background and not result.stderr:
             err = error.AutotestRunError(
-                "_really_execute_control failed to return anything\n"
-                "stdout:%s\n" % result.stdout)
+                "execute_section %s failed to return anything\n"
+                "stdout:%s\n" % (section, result.stdout))
         else:
             err = None
 
@@ -822,84 +1030,123 @@ class _BaseRun(object):
             return stderr_redirector.last_line
 
 
-    def execute_control(self, timeout=None, client_disconnect_timeout=None):
-        collector = log_collector(self.host, self.tag, self.results_dir)
-        hostname = self.host.hostname
-        remote_results = collector.client_results_dir
-        local_results = collector.server_results_dir
-        self.host.job.add_client_log(hostname, remote_results,
-                                        local_results)
-        job_record_context = self.host.job.get_record_context()
-        logger = client_logger(self.host, self.tag, self.results_dir)
-
-        try:
-            boot_id = self.host.get_boot_id()
-            last = self._really_execute_control(timeout, logger,
-                                                client_disconnect_timeout)
-            if self.is_client_job_finished(last):
-                logging.info("Client complete")
-                return
-            elif self.is_client_job_rebooting(last):
-                # TODO(crbug.com/684311) This feature is never used. Validate
-                # and drop this case.
-                m = 'chromeos/autotest/errors/client_test_triggered_reboot'
-                metrics.Counter(m).increment()
-                self.host.job.record("ABORT", None, "reboot",
-                                     'client triggered reboot is unsupported')
-                self.host.job.record("END ABORT", None, None,
-                                     'client triggered reboot is unsupported')
-                return
-
-            # If a test fails without probable cause we try to bucket it's
-            # failure into one of 2 categories. If we can determine the
-            # current state of the device and it is suspicious, we close the
-            # status lines indicating a failure. If we either cannot
-            # determine the state of the device, or it appears totally
-            # healthy, we give up and abort.
+    def _wait_for_reboot(self, old_boot_id):
+        logging.info("Client is rebooting")
+        logging.info("Waiting for client to halt")
+        if not self.host.wait_down(self.host.WAIT_DOWN_REBOOT_TIMEOUT,
+                                   old_boot_id=old_boot_id):
+            err = "%s failed to shutdown after %d"
+            err %= (self.host.hostname, self.host.WAIT_DOWN_REBOOT_TIMEOUT)
+            raise error.AutotestRunError(err)
+        logging.info("Client down, waiting for restart")
+        if not self.host.wait_up(self.host.DEFAULT_REBOOT_TIMEOUT):
+            # since reboot failed
+            # hardreset the machine once if possible
+            # before failing this control file
+            warning = "%s did not come back up, hard resetting"
+            warning %= self.host.hostname
+            logging.warning(warning)
             try:
-                self._diagnose_dut(boot_id)
-            except AutotestDeviceError as e:
-                # The status lines of the test are pretty much tailed to
-                # our log, with indentation, from the client job on the DUT.
-                # So if the DUT goes down unexpectedly we'll end up with a
-                # malformed status log unless we manually unwind the status
-                # stack. Ideally we would want to write a nice wrapper like
-                # server_job methods run_reboot, run_group but they expect
-                # reboots and we don't.
-                self.host.job.record('FAIL', None, None, str(e))
-                self.host.job.record('END FAIL', None, None)
-                self.host.job.record('END GOOD', None, None)
-                self.host.job.failed_with_device_error = True
-                return
-            except AutotestAbort as e:
-                self.host.job.record('ABORT', None, None, str(e))
-                self.host.job.record('END ABORT', None, None)
+                self.host.hardreset(wait=False)
+            except (AttributeError, error.AutoservUnsupportedError):
+                warning = "Hard reset unsupported on %s"
+                warning %= self.host.hostname
+                logging.warning(warning)
+            raise error.AutotestRunError("%s failed to boot after %ds" %
+                                         (self.host.hostname,
+                                          self.host.DEFAULT_REBOOT_TIMEOUT))
+        self.host.reboot_followup()
 
-                # give the client machine a chance to recover from a crash
-                self.host.wait_up(
-                    self.host.HOURS_TO_WAIT_FOR_RECOVERY * 3600)
-                logging.debug('Unexpected final status message from '
-                                'client %s: %s', self.host.hostname, last)
-                # The line 'last' may have sensitive phrases, like
-                # 'END GOOD', which breaks the tko parser. So the error
-                # message will exclude it, since it will be recorded to
-                # status.log.
-                msg = ("Aborting - unexpected final status message from "
-                        "client on %s\n") % self.host.hostname
-                raise error.AutotestRunError(msg)
+
+    def execute_control(self, timeout=None, client_disconnect_timeout=None):
+        if not self.background:
+            collector = log_collector(self.host, self.tag, self.results_dir)
+            hostname = self.host.hostname
+            remote_results = collector.client_results_dir
+            local_results = collector.server_results_dir
+            self.host.job.add_client_log(hostname, remote_results,
+                                         local_results)
+            job_record_context = self.host.job.get_record_context()
+
+        section = 0
+        start_time = time.time()
+
+        logger = client_logger(self.host, self.tag, self.results_dir)
+        try:
+            while not timeout or time.time() < start_time + timeout:
+                if timeout:
+                    section_timeout = start_time + timeout - time.time()
+                else:
+                    section_timeout = None
+                boot_id = self.host.get_boot_id()
+                last = self.execute_section(section, section_timeout,
+                                            logger, client_disconnect_timeout)
+                if self.background:
+                    return
+                section += 1
+                if self.is_client_job_finished(last):
+                    logging.info("Client complete")
+                    return
+                elif self.is_client_job_rebooting(last):
+                    try:
+                        self._wait_for_reboot(boot_id)
+                    except error.AutotestRunError, e:
+                        self.host.job.record("ABORT", None, "reboot", str(e))
+                        self.host.job.record("END ABORT", None, None, str(e))
+                        raise
+                    continue
+
+                # If a test fails without probable cause we try to bucket it's
+                # failure into one of 2 categories. If we can determine the
+                # current state of the device and it is suspicious, we close the
+                # status lines indicating a failure. If we either cannot
+                # determine the state of the device, or it appears totally
+                # healthy, we give up and abort.
+                try:
+                    self._diagnose_dut(boot_id)
+                except AutotestDeviceError as e:
+                    # The status lines of the test are pretty much tailed to
+                    # our log, with indentation, from the client job on the DUT.
+                    # So if the DUT goes down unexpectedly we'll end up with a
+                    # malformed status log unless we manually unwind the status
+                    # stack. Ideally we would want to write a nice wrapper like
+                    # server_job methods run_reboot, run_group but they expect
+                    # reboots and we don't.
+                    self.host.job.record('FAIL', None, None, str(e))
+                    self.host.job.record('END FAIL', None, None)
+                    self.host.job.record('END GOOD', None, None)
+                    self.host.job.failed_with_device_error = True
+                    return
+                except AutotestAbort as e:
+                    self.host.job.record('ABORT', None, None, str(e))
+                    self.host.job.record('END ABORT', None, None)
+
+                    # give the client machine a chance to recover from a crash
+                    self.host.wait_up(
+                        self.host.HOURS_TO_WAIT_FOR_RECOVERY * 3600)
+                    logging.debug('Unexpected final status message from '
+                                  'client %s: %s', self.host.hostname, last)
+                    # The line 'last' may have sensitive phrases, like
+                    # 'END GOOD', which breaks the tko parser. So the error
+                    # message will exclude it, since it will be recorded to
+                    # status.log.
+                    msg = ("Aborting - unexpected final status message from "
+                           "client on %s\n") % self.host.hostname
+                    raise error.AutotestRunError(msg)
         finally:
             logging.debug('Autotest job finishes running. Below is the '
                           'post-processing operations.')
             logger.close()
-            collector.collect_client_job_results()
-            collector.remove_redundant_client_logs()
-            state_file = os.path.basename(self.remote_control_file
-                                            + '.state')
-            state_path = os.path.join(self.results_dir, state_file)
-            self.host.job.postprocess_client_state(state_path)
-            self.host.job.remove_client_log(hostname, remote_results,
-                                            local_results)
-            job_record_context.restore()
+            if not self.background:
+                collector.collect_client_job_results()
+                collector.remove_redundant_client_logs()
+                state_file = os.path.basename(self.remote_control_file
+                                              + '.state')
+                state_path = os.path.join(self.results_dir, state_file)
+                self.host.job.postprocess_client_state(state_path)
+                self.host.job.remove_client_log(hostname, remote_results,
+                                                local_results)
+                job_record_context.restore()
 
             logging.debug('Autotest job finishes.')
 
@@ -935,8 +1182,7 @@ class log_collector(object):
         try:
             # Build test result directory summary
             result_tools_runner.run_on_client(
-                    self.host, self.client_results_dir,
-                    ENABLE_RESULT_THROTTLING)
+                    self.host, self.client_results_dir)
 
             with metrics.SecondsTimer(
                     'chromeos/autotest/job/log_collection_duration',
@@ -966,7 +1212,7 @@ class log_collector(object):
 
 # a file-like object for catching stderr from an autotest client and
 # extracting status logs from it
-class BaseClientLogger(object):
+class client_logger(object):
     """Partial file object to write to both stdout and
     the status log file.  We only implement those methods
     utils.run() actually calls.
@@ -1054,10 +1300,40 @@ class BaseClientLogger(object):
 
 
     def _process_line(self, line):
-        """Write out a line of data to the appropriate stream. Status
-        lines sent by autotest will be prepended with
-        "AUTOTEST_STATUS", and all other lines are ssh error
-        messages."""
+        """Write out a line of data to the appropriate stream.
+
+        Returns the package checksum file if it exists.
+
+        Status lines sent by autotest will be prepended with
+        "AUTOTEST_STATUS", and all other lines are ssh error messages.
+        """
+        logging.debug(line)
+        fetch_package_match = self.fetch_package_parser.search(line)
+        if fetch_package_match:
+            pkg_name, dest_path, fifo_path = fetch_package_match.groups()
+            serve_packages = _CONFIG.get_config_value(
+                "PACKAGES", "serve_packages_from_autoserv", type=bool)
+            if serve_packages and pkg_name == 'packages.checksum':
+                try:
+                    checksum_file = os.path.join(
+                        self.job.pkgmgr.pkgmgr_dir, 'packages', pkg_name)
+                    if os.path.exists(checksum_file):
+                        self.host.send_file(checksum_file, dest_path)
+                except error.AutoservRunError:
+                    msg = "Package checksum file not found, continuing anyway"
+                    logging.exception(msg)
+
+                try:
+                    # When fetching a package, the client expects to be
+                    # notified when the fetching is complete. Autotest
+                    # does this pushing a B to a fifo queue to the client.
+                    self.host.run("echo B > %s" % fifo_path)
+                except error.AutoservRunError:
+                    msg = "Checksum installation failed, continuing anyway"
+                    logging.exception(msg)
+                finally:
+                    return
+
         status_match = self.status_parser.search(line)
         test_complete_match = self.test_complete_parser.search(line)
         fetch_package_match = self.fetch_package_parser.search(line)
@@ -1094,6 +1370,19 @@ class BaseClientLogger(object):
 
 
     def _send_tarball(self, pkg_name, remote_dest):
+        """Uses tarballs in package manager by default."""
+        try:
+            server_package = os.path.join(self.job.pkgmgr.pkgmgr_dir,
+                                          'packages', pkg_name)
+            if os.path.exists(server_package):
+              self.host.send_file(server_package, remote_dest)
+              return
+
+        except error.AutoservRunError:
+            msg = ("Package %s could not be sent from the package cache." %
+                   pkg_name)
+            logging.exception(msg)
+
         name, pkg_type = self.job.pkgmgr.parse_tarball_name(pkg_name)
         src_dirs = []
         if pkg_type == 'test':
@@ -1101,13 +1390,9 @@ class BaseClientLogger(object):
                 src_dir = os.path.join(self.job.clientdir, test_dir, name)
                 if os.path.exists(src_dir):
                     src_dirs += [src_dir]
-                    if AUTOSERV_PREBUILD:
-                        prebuild.setup(self.job.clientdir, src_dir)
                     break
         elif pkg_type == 'profiler':
             src_dirs += [os.path.join(self.job.clientdir, 'profilers', name)]
-            if AUTOSERV_PREBUILD:
-                prebuild.setup(self.job.clientdir, src_dir)
         elif pkg_type == 'dep':
             src_dirs += [os.path.join(self.job.clientdir, 'deps', name)]
         elif pkg_type == 'client':
@@ -1167,29 +1452,3 @@ class BaseClientLogger(object):
 
     def close(self):
         self.flush_all_buffers()
-
-
-SiteAutotest = client_utils.import_site_class(
-    __file__, "autotest_lib.server.site_autotest", "SiteAutotest",
-    BaseAutotest)
-
-
-_SiteRun = client_utils.import_site_class(
-    __file__, "autotest_lib.server.site_autotest", "_SiteRun", _BaseRun)
-
-
-SiteClientLogger = client_utils.import_site_class(
-    __file__, "autotest_lib.server.site_autotest", "SiteClientLogger",
-    BaseClientLogger)
-
-
-class Autotest(SiteAutotest):
-    pass
-
-
-class client_logger(SiteClientLogger):
-    pass
-
-
-class _Run(_SiteRun):
-    pass

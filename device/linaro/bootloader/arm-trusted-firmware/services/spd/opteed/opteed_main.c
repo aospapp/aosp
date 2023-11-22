@@ -1,31 +1,7 @@
 /*
- * Copyright (c) 2013-2014, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2017, ARM Limited and Contributors. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this
- * list of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * Neither the name of ARM nor the names of its contributors may be used
- * to endorse or promote products derived from this software without specific
- * prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 
@@ -40,36 +16,19 @@
  ******************************************************************************/
 #include <arch_helpers.h>
 #include <assert.h>
-#include <bl_common.h>
 #include <bl31.h>
+#include <bl_common.h>
 #include <context_mgmt.h>
 #include <debug.h>
 #include <errno.h>
 #include <platform.h>
 #include <runtime_svc.h>
 #include <stddef.h>
-#include <string.h>
 #include <uuid.h>
 #include "opteed_private.h"
-#include "teesmc_opteed_macros.h"
 #include "teesmc_opteed.h"
+#include "teesmc_opteed_macros.h"
 
-#define OPTEE_MAGIC		0x4554504f
-#define OPTEE_VERSION		1
-#define OPTEE_ARCH_ARM32	0
-#define OPTEE_ARCH_ARM64	1
-
-struct optee_header {
-	uint32_t magic;
-	uint8_t version;
-	uint8_t arch;
-	uint16_t flags;
-	uint32_t init_size;
-	uint32_t init_load_addr_hi;
-	uint32_t init_load_addr_lo;
-	uint32_t init_mem_usage;
-	uint32_t paged_size;
-};
 
 /*******************************************************************************
  * Address of the entrypoint vector table in OPTEE. It is
@@ -82,8 +41,6 @@ optee_vectors_t *optee_vectors;
  ******************************************************************************/
 optee_context_t opteed_sp_context[OPTEED_CORE_COUNT];
 uint32_t opteed_rw;
-
-
 
 static int32_t opteed_init(void);
 
@@ -98,26 +55,19 @@ static uint64_t opteed_sel1_interrupt_handler(uint32_t id,
 					    void *cookie)
 {
 	uint32_t linear_id;
-	uint64_t mpidr;
 	optee_context_t *optee_ctx;
 
 	/* Check the security state when the exception was generated */
 	assert(get_interrupt_src_ss(flags) == NON_SECURE);
 
-#if IMF_READ_INTERRUPT_ID
-	/* Check the security status of the interrupt */
-	assert(plat_ic_get_interrupt_type(id) == INTR_TYPE_S_EL1);
-#endif
-
 	/* Sanity check the pointer to this cpu's context */
-	mpidr = read_mpidr();
 	assert(handle == cm_get_context(NON_SECURE));
 
 	/* Save the non-secure context before entering the OPTEE */
 	cm_el1_sysregs_context_save(NON_SECURE);
 
 	/* Get a reference to this cpu's OPTEE context */
-	linear_id = platform_get_core_pos(mpidr);
+	linear_id = plat_my_core_pos();
 	optee_ctx = &opteed_sp_context[linear_id];
 	assert(&optee_ctx->cpu_ctx == cm_get_context(SECURE));
 
@@ -135,13 +85,6 @@ static uint64_t opteed_sel1_interrupt_handler(uint32_t id,
 	SMC_RET1(&optee_ctx->cpu_ctx, read_elr_el3());
 }
 
-
-static int is_mem_free(uint64_t free_base, size_t free_size,
-		       uint64_t addr, size_t size)
-{
-	return (addr >= free_base) && (addr + size <= free_base + free_size);
-}
-
 /*******************************************************************************
  * OPTEE Dispatcher setup. The OPTEED finds out the OPTEE entrypoint and type
  * (aarch32/aarch64) if not already known and initialises the context for entry
@@ -149,136 +92,47 @@ static int is_mem_free(uint64_t free_base, size_t free_size,
  ******************************************************************************/
 int32_t opteed_setup(void)
 {
-	entry_point_info_t *ep_info;
-	struct optee_header *header;
-	uint64_t mpidr = read_mpidr();
+	entry_point_info_t *optee_ep_info;
 	uint32_t linear_id;
-	uintptr_t init_load_addr;
-	size_t init_size;
-	size_t init_mem_usage;
-	uintptr_t payload_addr;
-	uintptr_t mem_limit;
-	uintptr_t paged_part;
-	uintptr_t paged_size;
+	uint64_t opteed_pageable_part;
+	uint64_t opteed_mem_limit;
+	uint64_t dt_addr;
 
-	linear_id = platform_get_core_pos(mpidr);
+	linear_id = plat_my_core_pos();
 
 	/*
 	 * Get information about the Secure Payload (BL32) image. Its
 	 * absence is a critical failure.  TODO: Add support to
 	 * conditionally include the SPD service
 	 */
-	ep_info = bl31_plat_get_next_image_ep_info(SECURE);
-	if (!ep_info) {
-		WARN("No OPTEE provided by BL2 boot loader.\n");
-		goto err;
+	optee_ep_info = bl31_plat_get_next_image_ep_info(SECURE);
+	if (!optee_ep_info) {
+		WARN("No OPTEE provided by BL2 boot loader, Booting device"
+			" without OPTEE initialization. SMC`s destined for OPTEE"
+			" will return SMC_UNK\n");
+		return 1;
 	}
-
-	header = (struct optee_header *)ep_info->pc;
-
-	if (header->magic != OPTEE_MAGIC || header->version != OPTEE_VERSION) {
-		WARN("Invalid OPTEE header.\n");
-		goto err;
-	}
-
-	if (header->arch == OPTEE_ARCH_ARM32)
-		opteed_rw = OPTEE_AARCH32;
-	else if (header->arch == OPTEE_ARCH_ARM64)
-		opteed_rw = OPTEE_AARCH64;
-	else {
-		WARN("Invalid OPTEE architecture (%d)\n", header->arch);
-		goto err;
-	}
-
-	init_load_addr = ((uint64_t)header->init_load_addr_hi << 32) |
-				header->init_load_addr_lo;
-	init_size = header->init_size;
-	init_mem_usage = header->init_mem_usage;
-	payload_addr = (uintptr_t)(header + 1);
-	paged_size = header->paged_size;
 
 	/*
-	 * Move OPTEE binary to the required location in memory.
-	 *
-	 * There's two ways OPTEE can be running in memory:
-	 * 1. A memory large enough to keep the entire OPTEE binary
-	 *    (DRAM currently)
-	 * 2. A part of OPTEE in a smaller (and more secure) memory
-	 *    (SRAM currently). This is achieved with demand paging
-	 *    of read-only data/code against a backing store in some
-	 *    larger memory (DRAM currently).
-	 *
-	 * In either case dictates init_load_addr in the OPTEE
-	 * header the address where what's after the header
-	 * (payload) should be residing when started. init_size in
-	 * the header tells how much of the payload that need to be
-	 * copied. init_mem_usage tells how much runtime memory in
-	 * total is needed by OPTEE.
-	 *
-	 * In alternative 2 there's additional data after
-	 * init_size, this is the rest of OPTEE which is demand
-	 * paged into memory.  A pointer to that data is supplied
-	 * to OPTEE when initializing.
-	 *
-	 * Alternative 1 only uses DRAM when executing OPTEE while
-	 * alternative 2 uses both SRAM and DRAM to execute.
-	 *
-	 * All data written which is later read by OPTEE must be flushed
-	 * out to memory since OPTEE starts with MMU turned off and caches
-	 * disabled.
+	 * If there's no valid entry point for SP, we return a non-zero value
+	 * signalling failure initializing the service. We bail out without
+	 * registering any handlers
 	 */
-	if (is_mem_free(BL32_SRAM_BASE,
-			 BL32_SRAM_LIMIT - BL32_SRAM_BASE,
-			 init_load_addr, init_mem_usage)) {
-		/* Running in SRAM, paging some code against DRAM */
-		memcpy((void *)init_load_addr, (void *)payload_addr,
-		       init_size);
-		flush_dcache_range(init_load_addr, init_size);
-		paged_part = payload_addr + init_size;
-		mem_limit = BL32_SRAM_LIMIT;
-	} else if (is_mem_free(BL32_DRAM_BASE,
-			       BL32_DRAM_LIMIT - BL32_DRAM_BASE,
-			       init_load_addr, init_mem_usage)) {
-		/*
-		 * Running in DRAM.
-		 *
-		 * The paged part normally empty, but if it isn't,
-		 * move it to the end of DRAM before moving the
-		 * init part in place.
-		 */
-		paged_part = BL32_DRAM_LIMIT - paged_size;
-		if (paged_size) {
-			if (!is_mem_free(BL32_DRAM_BASE,
-					 BL32_DRAM_LIMIT - BL32_DRAM_BASE,
-					 init_load_addr,
-					 init_mem_usage + paged_size)) {
-				WARN("Failed to reserve memory 0x%lx - 0x%lx\n",
-				      init_load_addr,
-				      init_load_addr + init_mem_usage +
-					paged_size);
-				goto err;
-			}
+	if (!optee_ep_info->pc)
+		return 1;
 
-			memcpy((void *)paged_part,
-				(void *)(payload_addr + init_size),
-				paged_size);
-			flush_dcache_range(paged_part, paged_size);
-		}
+	opteed_rw = optee_ep_info->args.arg0;
+	opteed_pageable_part = optee_ep_info->args.arg1;
+	opteed_mem_limit = optee_ep_info->args.arg2;
+	dt_addr = optee_ep_info->args.arg3;
 
-		memmove((void *)init_load_addr, (void *)payload_addr,
-			init_size);
-		flush_dcache_range(init_load_addr, init_size);
-		mem_limit = BL32_DRAM_LIMIT;
-	} else {
-		WARN("Failed to reserve memory 0x%lx - 0x%lx\n",
-			init_load_addr, init_load_addr + init_mem_usage);
-		goto err;
-	}
-
-
-	opteed_init_optee_ep_state(ep_info, opteed_rw, init_load_addr,
-				   paged_part, mem_limit,
-				   &opteed_sp_context[linear_id]);
+	opteed_init_optee_ep_state(optee_ep_info,
+				opteed_rw,
+				optee_ep_info->pc,
+				opteed_pageable_part,
+				opteed_mem_limit,
+				dt_addr,
+				&opteed_sp_context[linear_id]);
 
 	/*
 	 * All OPTEED initialization done. Now register our init function with
@@ -287,11 +141,6 @@ int32_t opteed_setup(void)
 	bl31_register_bl32_init(&opteed_init);
 
 	return 0;
-
-err:
-	WARN("Booting device without OPTEE initialization.\n");
-	WARN("SMC`s destined for OPTEE will return SMC_UNK\n");
-	return 1;
 }
 
 /*******************************************************************************
@@ -305,8 +154,7 @@ err:
  ******************************************************************************/
 static int32_t opteed_init(void)
 {
-	uint64_t mpidr = read_mpidr();
-	uint32_t linear_id = platform_get_core_pos(mpidr);
+	uint32_t linear_id = plat_my_core_pos();
 	optee_context_t *optee_ctx = &opteed_sp_context[linear_id];
 	entry_point_info_t *optee_entry_point;
 	uint64_t rc;
@@ -318,7 +166,7 @@ static int32_t opteed_init(void)
 	optee_entry_point = bl31_plat_get_next_image_ep_info(SECURE);
 	assert(optee_entry_point);
 
-	cm_init_context(mpidr, optee_entry_point);
+	cm_init_my_context(optee_entry_point);
 
 	/*
 	 * Arrange for an entry into OPTEE. It will be returned via
@@ -349,8 +197,7 @@ uint64_t opteed_smc_handler(uint32_t smc_fid,
 			 uint64_t flags)
 {
 	cpu_context_t *ns_cpu_context;
-	unsigned long mpidr = read_mpidr();
-	uint32_t linear_id = platform_get_core_pos(mpidr);
+	uint32_t linear_id = plat_my_core_pos();
 	optee_context_t *optee_ctx = &opteed_sp_context[linear_id];
 	uint64_t rc;
 
@@ -359,9 +206,6 @@ uint64_t opteed_smc_handler(uint32_t smc_fid,
 	 */
 
 	if (is_caller_non_secure(flags)) {
-		gp_regs_t *sec_gpregs = get_gpregs_ctx(&optee_ctx->cpu_ctx);
-		gp_regs_t *ns_gpregs = get_gpregs_ctx(handle);
-
 		/*
 		 * This is a fresh request from the non-secure client.
 		 * The parameters are in x1 and x2. Figure out which
@@ -395,21 +239,29 @@ uint64_t opteed_smc_handler(uint32_t smc_fid,
 					&optee_vectors->fast_smc_entry);
 		} else {
 			cm_set_elr_el3(SECURE, (uint64_t)
-					&optee_vectors->std_smc_entry);
+					&optee_vectors->yield_smc_entry);
 		}
 
 		cm_el1_sysregs_context_restore(SECURE);
 		cm_set_next_eret_context(SECURE);
 
-		/* Propagate X4-X7 */
-		write_ctx_reg(sec_gpregs, CTX_GPREG_X4,
-			      read_ctx_reg(ns_gpregs, CTX_GPREG_X4));
-		write_ctx_reg(sec_gpregs, CTX_GPREG_X5,
-			      read_ctx_reg(ns_gpregs, CTX_GPREG_X5));
-		write_ctx_reg(sec_gpregs, CTX_GPREG_X6,
-			      read_ctx_reg(ns_gpregs, CTX_GPREG_X6));
-		write_ctx_reg(sec_gpregs, CTX_GPREG_X7,
-			      read_ctx_reg(ns_gpregs, CTX_GPREG_X7));
+		write_ctx_reg(get_gpregs_ctx(&optee_ctx->cpu_ctx),
+			      CTX_GPREG_X4,
+			      read_ctx_reg(get_gpregs_ctx(handle),
+					   CTX_GPREG_X4));
+		write_ctx_reg(get_gpregs_ctx(&optee_ctx->cpu_ctx),
+			      CTX_GPREG_X5,
+			      read_ctx_reg(get_gpregs_ctx(handle),
+					   CTX_GPREG_X5));
+		write_ctx_reg(get_gpregs_ctx(&optee_ctx->cpu_ctx),
+			      CTX_GPREG_X6,
+			      read_ctx_reg(get_gpregs_ctx(handle),
+					   CTX_GPREG_X6));
+		/* Propagate hypervisor client ID */
+		write_ctx_reg(get_gpregs_ctx(&optee_ctx->cpu_ctx),
+			      CTX_GPREG_X7,
+			      read_ctx_reg(get_gpregs_ctx(handle),
+					   CTX_GPREG_X7));
 
 		SMC_RET4(&optee_ctx->cpu_ctx, smc_fid, x1, x2, x3);
 	}
@@ -553,13 +405,13 @@ DECLARE_RT_SVC(
 	opteed_smc_handler
 );
 
-/* Define an OPTEED runtime service descriptor for standard SMC calls */
+/* Define an OPTEED runtime service descriptor for yielding SMC calls */
 DECLARE_RT_SVC(
 	opteed_std,
 
 	OEN_TOS_START,
 	OEN_TOS_END,
-	SMC_TYPE_STD,
+	SMC_TYPE_YIELD,
 	NULL,
 	opteed_smc_handler
 );

@@ -28,7 +28,6 @@ extern "C" {
 #include <getopt.h>
 #include <openssl/sha.h>
 #include <pthread.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>

@@ -1,7 +1,7 @@
 /** @file
   This is THE shell (application)
 
-  Copyright (c) 2009 - 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2009 - 2016, Intel Corporation. All rights reserved.<BR>
   (C) Copyright 2013-2014 Hewlett-Packard Development Company, L.P.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -25,6 +25,7 @@ SHELL_INFO ShellInfoObject = {
   FALSE,
   {
     {{
+      0,
       0,
       0,
       0,
@@ -69,6 +70,9 @@ SHELL_INFO ShellInfoObject = {
 STATIC CONST CHAR16 mScriptExtension[]      = L".NSH";
 STATIC CONST CHAR16 mExecutableExtensions[] = L".NSH;.EFI";
 STATIC CONST CHAR16 mStartupScript[]        = L"startup.nsh";
+CONST CHAR16 mNoNestingEnvVarName[]         = L"nonesting";
+CONST CHAR16 mNoNestingTrue[]               = L"True";
+CONST CHAR16 mNoNestingFalse[]              = L"False";
 
 /**
   Cleans off leading and trailing spaces and tabs.
@@ -76,7 +80,6 @@ STATIC CONST CHAR16 mStartupScript[]        = L"startup.nsh";
   @param[in] String pointer to the string to trim them off.
 **/
 EFI_STATUS
-EFIAPI
 TrimSpaces(
   IN CHAR16 **String
   )
@@ -109,7 +112,6 @@ TrimSpaces(
   @param[in] CheckForEscapeCharacter  TRUE to skip escaped instances of FinfString, otherwise will return even escaped instances
 **/
 CHAR16*
-EFIAPI
 FindNextInstance(
   IN CONST CHAR16   *SourceString,
   IN CONST CHAR16   *FindString,
@@ -198,7 +200,6 @@ IsValidEnvironmentVariableName(
   @retval FALSE           CmdLine does not have a valid split.
 **/
 BOOLEAN
-EFIAPI
 ContainsSplit(
   IN CONST CHAR16 *CmdLine
   )
@@ -248,7 +249,6 @@ ContainsSplit(
   @retval EFI_OUT_OF_RESOURCES  There is not enough memory available.
 **/
 EFI_STATUS
-EFIAPI
 InternalEfiShellStartCtrlSMonitor(
   VOID
   )
@@ -338,6 +338,7 @@ UefiMain (
   UINTN                           Size;
   EFI_HANDLE                      ConInHandle;
   EFI_SIMPLE_TEXT_INPUT_PROTOCOL  *OldConIn;
+  SPLIT_LIST                      *Split;
 
   if (PcdGet8(PcdShellSupportLevel) > 3) {
     return (EFI_UNSUPPORTED);
@@ -441,6 +442,8 @@ UefiMain (
     Status = CommandInit();
     ASSERT_EFI_ERROR(Status);
 
+    Status = ShellInitEnvVarList ();
+
     //
     // Check the command line
     //
@@ -455,6 +458,29 @@ UefiMain (
     if (PcdGet8(PcdShellSupportLevel) >= 1) {
       Status = ShellCommandCreateInitialMappingsAndPaths();
     }
+
+    //
+    // Set the environment variable for nesting support
+    //
+    Size = 0;
+    TempString = NULL;
+    if (!ShellInfoObject.ShellInitSettings.BitUnion.Bits.NoNest) {
+      //
+      // No change.  require nesting in Shell Protocol Execute()
+      //
+      StrnCatGrow(&TempString,
+                  &Size,
+                  L"False",
+                  0);
+    } else {
+      StrnCatGrow(&TempString,
+                  &Size,
+                  mNoNestingTrue,
+                  0);
+    }
+    Status = InternalEfiShellSetEnv(mNoNestingEnvVarName, TempString, TRUE);
+    SHELL_FREE_NON_NULL(TempString);
+    Size = 0;
 
     //
     // save the device path for the loaded image and the device path for the filepath (under loaded image)
@@ -637,7 +663,7 @@ FreeResources:
     if (ShellInfoObject.NewEfiShellProtocol->IsRootShell()){
       InternalEfiShellSetEnv(L"cwd", NULL, TRUE);
     }
-    CleanUpShellProtocol(ShellInfoObject.NewEfiShellProtocol);
+    CleanUpShellEnvironment (ShellInfoObject.NewEfiShellProtocol);
     DEBUG_CODE(ShellInfoObject.NewEfiShellProtocol = NULL;);
   }
 
@@ -646,7 +672,17 @@ FreeResources:
   }
 
   if (!IsListEmpty(&ShellInfoObject.SplitList.Link)){
-    ASSERT(FALSE); ///@todo finish this de-allocation.
+    ASSERT(FALSE); ///@todo finish this de-allocation (free SplitStdIn/Out when needed).
+
+    for ( Split = (SPLIT_LIST*)GetFirstNode (&ShellInfoObject.SplitList.Link)
+        ; !IsNull (&ShellInfoObject.SplitList.Link, &Split->Link)
+        ; Split = (SPLIT_LIST *)GetNextNode (&ShellInfoObject.SplitList.Link, &Split->Link)
+     ) {
+      RemoveEntryList (&Split->Link);
+      FreePool (Split);
+    }
+
+    DEBUG_CODE (InitializeListHead (&ShellInfoObject.SplitList.Link););
   }
 
   if (ShellInfoObject.ShellInitSettings.FileName != NULL) {
@@ -675,6 +711,8 @@ FreeResources:
     DEBUG_CODE(ShellInfoObject.ConsoleInfo = NULL;);
   }
 
+  ShellFreeEnvVarList ();
+
   if (ShellCommandGetExit()) {
     return ((EFI_STATUS)ShellCommandGetExitCode());
   }
@@ -687,7 +725,6 @@ FreeResources:
   @retval EFI_SUCCESS           all init commands were run successfully.
 **/
 EFI_STATUS
-EFIAPI
 SetBuiltInAlias(
   )
 {
@@ -726,7 +763,6 @@ SetBuiltInAlias(
   @retval FALSE             The 2 command names are not the same.
 **/
 BOOLEAN
-EFIAPI
 IsCommand(
   IN CONST CHAR16 *Command1,
   IN CONST CHAR16 *Command2
@@ -747,7 +783,6 @@ IsCommand(
   @retval FALSE             The command is not a script only command.
 **/
 BOOLEAN
-EFIAPI
 IsScriptOnlyCommand(
   IN CONST CHAR16 *CommandName
   )
@@ -778,7 +813,6 @@ IsScriptOnlyCommand(
   @sa HandleProtocol
 **/
 EFI_STATUS
-EFIAPI
 GetDevicePathsForImageAndFile (
   IN OUT EFI_DEVICE_PATH_PROTOCOL **DevPath,
   IN OUT EFI_DEVICE_PATH_PROTOCOL **FilePath
@@ -854,7 +888,6 @@ GetDevicePathsForImageAndFile (
   @retval EFI_SUCCESS           The variable is initialized.
 **/
 EFI_STATUS
-EFIAPI
 ProcessCommandLine(
   VOID
   )
@@ -873,12 +906,19 @@ ProcessCommandLine(
   // like a shell option (which is assumed to be `file-name`).
 
   Status = gBS->LocateProtocol (
-                  &gEfiUnicodeCollationProtocolGuid,
+                  &gEfiUnicodeCollation2ProtocolGuid,
                   NULL,
                   (VOID **) &UnicodeCollation
                   );
   if (EFI_ERROR (Status)) {
-    return Status;
+    Status = gBS->LocateProtocol (
+                    &gEfiUnicodeCollationProtocolGuid,
+                    NULL,
+                    (VOID **) &UnicodeCollation
+                    );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
   }
 
   // Set default options
@@ -891,6 +931,7 @@ ProcessCommandLine(
   ShellInfoObject.ShellInitSettings.BitUnion.Bits.NoVersion    = FALSE;
   ShellInfoObject.ShellInitSettings.BitUnion.Bits.Delay        = FALSE;
   ShellInfoObject.ShellInitSettings.BitUnion.Bits.Exit         = FALSE;
+  ShellInfoObject.ShellInitSettings.BitUnion.Bits.NoNest       = FALSE;
   ShellInfoObject.ShellInitSettings.Delay = 5;
 
   //
@@ -949,6 +990,13 @@ ProcessCommandLine(
                                  CurrentArg
                                  ) == 0) {
       ShellInfoObject.ShellInitSettings.BitUnion.Bits.NoVersion    = TRUE;
+    }
+    else if (UnicodeCollation->StriColl (
+                                 UnicodeCollation,
+                                 L"-nonest",
+                                 CurrentArg
+                                 ) == 0) {
+      ShellInfoObject.ShellInitSettings.BitUnion.Bits.NoNest       = TRUE;
     }
     else if (UnicodeCollation->StriColl (
                                  UnicodeCollation,
@@ -1046,7 +1094,6 @@ ProcessCommandLine(
   @retval EFI_SUCCESS           the variable is initialized.
 **/
 EFI_STATUS
-EFIAPI
 DoStartupScript(
   IN EFI_DEVICE_PATH_PROTOCOL *ImagePath,
   IN EFI_DEVICE_PATH_PROTOCOL *FilePath
@@ -1194,7 +1241,6 @@ DoStartupScript(
   @retval RETURN_ABORTED
 **/
 EFI_STATUS
-EFIAPI
 DoShellPrompt (
   VOID
   )
@@ -1261,8 +1307,7 @@ DoShellPrompt (
   @param Buffer   Something to pass to FreePool when the shell is exiting.
 **/
 VOID*
-EFIAPI
-AddBufferToFreeList(
+AddBufferToFreeList (
   VOID *Buffer
   )
 {
@@ -1272,10 +1317,13 @@ AddBufferToFreeList(
     return (NULL);
   }
 
-  BufferListEntry = AllocateZeroPool(sizeof(BUFFER_LIST));
-  ASSERT(BufferListEntry != NULL);
+  BufferListEntry = AllocateZeroPool (sizeof (BUFFER_LIST));
+  if (BufferListEntry == NULL) {
+    return NULL;
+  }
+
   BufferListEntry->Buffer = Buffer;
-  InsertTailList(&ShellInfoObject.BufferToFreeList.Link, &BufferListEntry->Link);
+  InsertTailList (&ShellInfoObject.BufferToFreeList.Link, &BufferListEntry->Link);
   return (Buffer);
 }
 
@@ -1315,7 +1363,6 @@ RestoreBufferList (
   @param Buffer     The line buffer to add.
 **/
 VOID
-EFIAPI
 AddLineToCommandHistory(
   IN CONST CHAR16 *Buffer
   )
@@ -1324,7 +1371,7 @@ AddLineToCommandHistory(
   BUFFER_LIST *Walker;
   UINT16       MaxHistoryCmdCount;
   UINT16       Count;
-  
+
   Count = 0;
   MaxHistoryCmdCount = PcdGet16(PcdShellMaxHistoryCommandCount);
   
@@ -1334,9 +1381,15 @@ AddLineToCommandHistory(
 
 
   Node = AllocateZeroPool(sizeof(BUFFER_LIST));
-  ASSERT(Node != NULL);
-  Node->Buffer = AllocateCopyPool(StrSize(Buffer), Buffer);
-  ASSERT(Node->Buffer != NULL);
+  if (Node == NULL) {
+    return;
+  }
+
+  Node->Buffer = AllocateCopyPool (StrSize (Buffer), Buffer);
+  if (Node->Buffer == NULL) {
+    FreePool (Node);
+    return;
+  }
 
   for ( Walker = (BUFFER_LIST*)GetFirstNode(&ShellInfoObject.ViewingSettings.CommandHistory.Link)
       ; !IsNull(&ShellInfoObject.ViewingSettings.CommandHistory.Link, &Walker->Link)
@@ -1371,7 +1424,6 @@ AddLineToCommandHistory(
   @retval EFI_OUT_OF_RESOURCES    A memory allocation failed.
 **/
 EFI_STATUS
-EFIAPI
 ShellConvertAlias(
   IN OUT CHAR16 **CommandString
   )
@@ -1396,7 +1448,6 @@ ShellConvertAlias(
   @param[in,out] CmdLine   The command line to update.
 **/
 EFI_STATUS
-EFIAPI
 StripUnreplacedEnvironmentVariables(
   IN OUT CHAR16 *CmdLine
   )
@@ -1469,7 +1520,6 @@ StripUnreplacedEnvironmentVariables(
   @return                           The new command line with no environment variables present.
 **/
 CHAR16*
-EFIAPI
 ShellConvertVariables (
   IN CONST CHAR16 *OriginalCommandLine
   )
@@ -1605,7 +1655,6 @@ ShellConvertVariables (
   @retval other             Some error occurs when executing the split command.
 **/
 EFI_STATUS
-EFIAPI
 RunSplitCommand(
   IN CONST CHAR16             *CmdLine,
   IN       SHELL_FILE_HANDLE  *StdIn,
@@ -1664,7 +1713,9 @@ RunSplitCommand(
   // make a SPLIT_LIST item and add to list
   //
   Split = AllocateZeroPool(sizeof(SPLIT_LIST));
-  ASSERT(Split != NULL);
+  if (Split == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
   Split->SplitStdIn   = StdIn;
   Split->SplitStdOut  = ConvertEfiFileProtocolToShellHandle(CreateFileInterfaceMem(Unicode), NULL);
   ASSERT(Split->SplitStdOut != NULL);
@@ -1697,11 +1748,12 @@ RunSplitCommand(
   //
   // Note that the original StdIn is now the StdOut...
   //
-  if (Split->SplitStdOut != NULL && Split->SplitStdOut != StdIn) {
+  if (Split->SplitStdOut != NULL) {
     ShellInfoObject.NewEfiShellProtocol->CloseFile(ConvertShellHandleToEfiFileProtocol(Split->SplitStdOut));
   }
   if (Split->SplitStdIn != NULL) {
     ShellInfoObject.NewEfiShellProtocol->CloseFile(ConvertShellHandleToEfiFileProtocol(Split->SplitStdIn));
+    FreePool (Split->SplitStdIn);
   }
 
   FreePool(Split);
@@ -1721,7 +1773,6 @@ RunSplitCommand(
   @retval EFI_OUT_OF_RESOURCES  a memory allocation failed.
 **/
 EFI_STATUS
-EFIAPI
 ShellSubstituteVariables(
   IN CHAR16 **CmdLine
   )
@@ -1746,7 +1797,6 @@ ShellSubstituteVariables(
   @retval EFI_OUT_OF_RESOURCES  a memory allocation failed.
 **/
 EFI_STATUS
-EFIAPI
 ShellSubstituteAliases(
   IN CHAR16 **CmdLine
   )
@@ -1818,7 +1868,6 @@ ShellSubstituteAliases(
   @retval Efi_Application     the name is an application (.EFI).
 **/
 SHELL_OPERATION_TYPES
-EFIAPI
 GetOperationType(
   IN CONST CHAR16 *CmdName
   )
@@ -1887,7 +1936,6 @@ GetOperationType(
   @retval EFI_NOT_FOUND         The operation type is unknown or invalid.
 **/
 EFI_STATUS 
-EFIAPI
 IsValidSplit(
   IN CONST CHAR16 *CmdLine
   )
@@ -1946,7 +1994,6 @@ IsValidSplit(
   @retval EFI_ABORTED     CmdLine has at least one invalid command or application.
 **/
 EFI_STATUS
-EFIAPI
 VerifySplit(
   IN CONST CHAR16 *CmdLine
   )
@@ -1992,7 +2039,6 @@ VerifySplit(
   @return               an error occurred.
 **/
 EFI_STATUS
-EFIAPI
 ProcessNewSplitCommandLine(
   IN CONST CHAR16 *CmdLine
   )
@@ -2033,7 +2079,6 @@ ProcessNewSplitCommandLine(
   @retval EFI_SUCCESS The operation was successful.
 **/
 EFI_STATUS
-EFIAPI
 ChangeMappedDrive(
   IN CONST CHAR16 *CmdLine
   )
@@ -2069,7 +2114,6 @@ ChangeMappedDrive(
   @param[in,out] CmdLine        pointer to the command line to update
 **/
 EFI_STATUS
-EFIAPI
 DoHelpUpdate(
   IN OUT CHAR16 **CmdLine
   )
@@ -2123,7 +2167,6 @@ DoHelpUpdate(
   @param[in] ErrorCode      the error code to put into lasterror.
 **/
 EFI_STATUS
-EFIAPI
 SetLastError(
   IN CONST SHELL_STATUS   ErrorCode
   )
@@ -2150,7 +2193,6 @@ SetLastError(
   @return                       some other error occurred
 **/
 EFI_STATUS
-EFIAPI
 ProcessCommandLineToFinal(
   IN OUT CHAR16 **CmdLine
   )
@@ -2203,7 +2245,6 @@ ProcessCommandLineToFinal(
   @retval EFI_ABORTED     The command's operation was aborted.
 **/
 EFI_STATUS
-EFIAPI
 RunInternalCommand(
   IN CONST CHAR16                   *CmdLine,
   IN       CHAR16                   *FirstParameter,
@@ -2316,7 +2357,6 @@ RunInternalCommand(
   @retval EFI_ABORTED     The command's operation was aborted.
 **/
 EFI_STATUS
-EFIAPI
 RunCommandOrFile(
   IN       SHELL_OPERATION_TYPES    Type,
   IN CONST CHAR16                   *CmdLine,
@@ -2446,13 +2486,12 @@ RunCommandOrFile(
   @retval EFI_ABORTED     The command's operation was aborted.
 **/
 EFI_STATUS
-EFIAPI
 SetupAndRunCommandOrFile(
   IN   SHELL_OPERATION_TYPES          Type,
   IN   CHAR16                         *CmdLine,
   IN   CHAR16                         *FirstParameter,
   IN   EFI_SHELL_PARAMETERS_PROTOCOL  *ParamProtocol,
-  OUT EFI_STATUS                    *CommandStatus
+  OUT EFI_STATUS                      *CommandStatus
 )
 {
   EFI_STATUS                Status;
@@ -2460,6 +2499,7 @@ SetupAndRunCommandOrFile(
   SHELL_FILE_HANDLE         OriginalStdOut;
   SHELL_FILE_HANDLE         OriginalStdErr;
   SYSTEM_TABLE_INFO         OriginalSystemTableInfo;
+  CONST SCRIPT_FILE         *ConstScriptFile;
 
   //
   // Update the StdIn, StdOut, and StdErr for redirection to environment variables, files, etc... unicode and ASCII
@@ -2479,7 +2519,12 @@ SetupAndRunCommandOrFile(
   // Now print errors
   //
   if (EFI_ERROR(Status)) {
-    ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_SHELL_ERROR), ShellInfoObject.HiiHandle, (VOID*)(Status));
+    ConstScriptFile = ShellCommandGetCurrentScriptFile();
+    if (ConstScriptFile == NULL || ConstScriptFile->CurrentCommand == NULL) {
+      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_SHELL_ERROR), ShellInfoObject.HiiHandle, (VOID*)(Status));
+    } else {
+      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_SHELL_ERROR_SCRIPT), ShellInfoObject.HiiHandle, (VOID*)(Status), ConstScriptFile->CurrentCommand->Line);
+    }
   }
 
   //
@@ -2503,7 +2548,6 @@ SetupAndRunCommandOrFile(
   @retval EFI_ABORTED     The command's operation was aborted.
 **/
 EFI_STATUS
-EFIAPI
 RunShellCommand(
   IN CONST CHAR16   *CmdLine,
   OUT EFI_STATUS    *CommandStatus
@@ -2624,7 +2668,6 @@ RunShellCommand(
   @retval EFI_ABORTED     The command's operation was aborted.
 **/
 EFI_STATUS
-EFIAPI
 RunCommand(
   IN CONST CHAR16   *CmdLine
   )
@@ -2644,7 +2687,6 @@ STATIC CONST UINT16 InvalidChars[] = {L'*', L'?', L'<', L'>', L'\\', L'/', L'\"'
   @retval FALSE             CommandName could not be a valid command name
 **/
 BOOLEAN
-EFIAPI
 IsValidCommandName(
   IN CONST CHAR16     *CommandName
   )
@@ -2674,7 +2716,6 @@ IsValidCommandName(
   @retval EFI_SUCCESS           the script completed successfully
 **/
 EFI_STATUS
-EFIAPI
 RunScriptFileHandle (
   IN SHELL_FILE_HANDLE  Handle,
   IN CONST CHAR16       *Name
@@ -2992,7 +3033,6 @@ RunScriptFileHandle (
   @retval EFI_SUCCESS           the script completed successfully
 **/
 EFI_STATUS
-EFIAPI
 RunScriptFile (
   IN CONST CHAR16                   *ScriptPath,
   IN SHELL_FILE_HANDLE              Handle OPTIONAL,
@@ -3056,7 +3096,6 @@ RunScriptFile (
   @retval CHAR_NULL no instance of any character in CharacterList was found in String
 **/
 CONST CHAR16*
-EFIAPI
 FindFirstCharacter(
   IN CONST CHAR16 *String,
   IN CONST CHAR16 *CharacterList,

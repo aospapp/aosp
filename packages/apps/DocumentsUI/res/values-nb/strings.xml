@@ -41,7 +41,7 @@
     <string name="menu_compress" msgid="37539111904724188">"Komprimer"</string>
     <string name="menu_extract" msgid="8171946945982532262">"Pakk ut til …"</string>
     <string name="menu_rename" msgid="1883113442688817554">"Gi nytt navn"</string>
-    <string name="menu_inspector" msgid="8217713416277319588">"Hent inn informasjon"</string>
+    <string name="menu_inspect" msgid="7279855349299446224">"Hent inn informasjon"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"Se i <xliff:g id="SOURCE">%1$s</xliff:g>"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"Nytt vindu"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"Klipp ut"</string>
@@ -55,8 +55,10 @@
     <string name="button_compress" msgid="8951561310857223966">"Komprimer"</string>
     <string name="button_extract" msgid="1038674453689912247">"Pakk ut"</string>
     <string name="button_move" msgid="8596460499325291272">"Flytt"</string>
-    <string name="button_dismiss" msgid="7235249361023803349">"Avvis"</string>
+    <string name="button_dismiss" msgid="7235249361023803349">"Lukk"</string>
     <string name="button_retry" msgid="4011461781916631389">"Prøv på nytt"</string>
+    <string name="button_clear" msgid="5412304437764369441">"Fjern"</string>
+    <string name="button_show_provider" msgid="6905880493806292753">"Vis i leverandøren"</string>
     <string name="not_sorted" msgid="7813496644889115530">"Ikke sortert"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"Navn"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"Sammendrag"</string>
@@ -64,14 +66,6 @@
     <string name="sort_dimension_size" msgid="2190547351159472884">"Størrelse"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"Endret"</string>
     <string name="directory_items" msgid="6645621978998614003">"Antall elementer"</string>
-    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"Denne filtypen åpnes med"</string>
-    <string name="handler_app_belongs_to" msgid="5956928604521893459">"Denne filen tilhører"</string>
-    <string name="handler_app_button_info_1" msgid="4271199640671067569">"Andre apper kan åpne denne filtypen. Fjern"</string>
-    <string name="handler_app_button_info_2" msgid="4299969771512815898">"som standard."</string>
-    <string name="handler_app_clear" msgid="206579047716445033">"Fjern"</string>
-    <string name="handler_app_show_in" msgid="7923573101129079048">"Vis i leverandøren"</string>
-    <string name="handler_app_not_selected" msgid="8178393676227130360">"Ikke valgt"</string>
-    <string name="handler_app_unknown" msgid="56574249066388341">"Ukjent"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"Stigende"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"Synkende"</string>
     <string name="drawer_open" msgid="8071673398187261741">"Vis røtter"</string>
@@ -90,7 +84,6 @@
     <string name="toast_no_application" msgid="7555319548595113121">"Kan ikke åpne filen"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"Kan ikke åpne filer i arkiver"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"Kunne ikke slette enkelte dokumenter"</string>
-    <string name="file_inspector_load_error" msgid="1226344446677541109">"Kunne ikke laste inn egenskapene"</string>
     <string name="share_via" msgid="8725082736005677161">"Del via"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"Kopierer filer"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"Komprimerer filer"</string>
@@ -119,11 +112,11 @@
       <item quantity="one">Sletter <xliff:g id="COUNT_0">%1$d</xliff:g> element.</item>
     </plurals>
     <string name="undo" msgid="2902438994196400565">"Angre"</string>
-    <string name="copy_preparing" msgid="5326063807006898223">"Forbereder kopiering …"</string>
-    <string name="compress_preparing" msgid="6650018601382062672">"Forbereder komprimering …"</string>
-    <string name="extract_preparing" msgid="58266275455027829">"Forbereder utpakking …"</string>
-    <string name="move_preparing" msgid="8742573245485449429">"Forbereder flytting …"</string>
-    <string name="delete_preparing" msgid="6513863752916028147">"Forbereder sletting …"</string>
+    <string name="copy_preparing" msgid="4759516490222449324">"Forbereder …"</string>
+    <string name="compress_preparing" msgid="7401605598969019696">"Forbereder …"</string>
+    <string name="extract_preparing" msgid="4796626960061745796">"Forbereder …"</string>
+    <string name="move_preparing" msgid="6504239656430530761">"Forbereder …"</string>
+    <string name="delete_preparing" msgid="7339349837842802508">"Forbereder …"</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g> / <xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
       <item quantity="other">Kunne ikke kopiere <xliff:g id="COUNT_1">%1$d</xliff:g> element</item>
@@ -213,5 +206,4 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"arkiv<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"Vil du overskrive <xliff:g id="NAME">%1$s</xliff:g>?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Fortsett i bakgrunnen"</string>
-    <string name="inspector_debug_section" msgid="3447621501565766900">"Feilsøkingsinfo (bare for utviklere)"</string>
 </resources>

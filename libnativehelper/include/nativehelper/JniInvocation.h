@@ -45,6 +45,8 @@ class JniInvocation {
   static const char* GetLibrary(const char* library, char* buffer);
 
  private:
+  static const char* GetLibrary(const char* library, char* buffer, bool (*is_debuggable)(),
+                                int (*get_library_system_property)(char* buffer));
 
   bool FindSymbol(void** pointer, const char* symbol);
 
@@ -64,6 +66,8 @@ class JniInvocation {
   friend jint JNI_GetDefaultJavaVMInitArgs(void* vm_args);
   friend jint JNI_CreateJavaVM(JavaVM** p_vm, JNIEnv** p_env, void* vm_args);
   friend jint JNI_GetCreatedJavaVMs(JavaVM** vms, jsize size, jsize* vm_count);
+  friend class JNIInvocation_Debuggable_Test;
+  friend class JNIInvocation_NonDebuggable_Test;
 };
 
 #endif  // JNI_INVOCATION_H_included

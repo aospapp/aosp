@@ -75,3 +75,16 @@ class HealthyIfEquals(ConstantHealthAnalyzer):
           True if result is equal to constant
         """
         return metric_results[self.key] == self._constant
+
+
+class HealthyIfStartsWith(ConstantHealthAnalyzer):
+    def is_healthy(self, metric_results):
+        """Returns whether result starts with a constant
+
+        Args:
+          metric_results: a dictionary of metric results.
+
+        Returns:
+          True if result starts with a constant
+        """
+        return metric_results[self.key].startswith(str(self._constant))

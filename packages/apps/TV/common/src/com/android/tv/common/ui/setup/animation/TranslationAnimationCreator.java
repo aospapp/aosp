@@ -1,3 +1,18 @@
+/*
+ * Copyright (C) 2017 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.android.tv.common.ui.setup.animation;
 
 import android.animation.Animator;
@@ -5,18 +20,16 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.animation.TimeInterpolator;
 import android.graphics.Path;
+import android.support.v17.leanback.R;
 import android.transition.Transition;
 import android.transition.TransitionValues;
 import android.view.View;
 
-import com.android.tv.common.R;
-
 /**
  * This class is used by Slide and Explode to create an animator that goes from the start position
  * to the end position. It takes into account the canceled position so that it will not blink out or
- * shift suddenly when the transition is interrupted.
- * The original class is android.support.v17.leanback.transition.TranslationAnimationCreator which
- * is hidden.
+ * shift suddenly when the transition is interrupted. The original class is
+ * android.support.v17.leanback.transition.TranslationAnimationCreator which is hidden.
  */
 // Copied from android.support.v17.leanback.transition.TransltaionAnimationCreator
 class TranslationAnimationCreator {
@@ -31,11 +44,16 @@ class TranslationAnimationCreator {
      * @param endX The end translation x of view
      * @param interpolator The interpolator to use with this animator.
      * @return An animator that moves from (startX, startY) to (endX, endY) unless there was a
-     *         previous interruption, in which case it moves from the current position to (endX,
-     *         endY).
+     *     previous interruption, in which case it moves from the current position to (endX, endY).
      */
-    static Animator createAnimation(View view, TransitionValues values, int viewPosX, float startX,
-            float endX, TimeInterpolator interpolator, Transition transition) {
+    static Animator createAnimation(
+            View view,
+            TransitionValues values,
+            int viewPosX,
+            float startX,
+            float endX,
+            TimeInterpolator interpolator,
+            Transition transition) {
         float terminalX = view.getTranslationX();
         Integer startPosition = (Integer) values.view.getTag(R.id.transitionPosition);
         if (startPosition != null) {
@@ -74,8 +92,8 @@ class TranslationAnimationCreator {
         private float mPausedX;
         private final float mTerminalX;
 
-        private TransitionPositionListener(View movingView, View viewInHierarchy, int startX,
-                float terminalX) {
+        private TransitionPositionListener(
+                View movingView, View viewInHierarchy, int startX, float terminalX) {
             mMovingView = movingView;
             mViewInHierarchy = viewInHierarchy;
             mStartX = startX - Math.round(mMovingView.getTranslationX());
@@ -123,6 +141,4 @@ class TranslationAnimationCreator {
         @Override
         public void onTransitionResume(Transition transition) {}
     }
-
 }
-

@@ -19,7 +19,8 @@ package com.android.car.messenger;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothMapClient;
 import android.content.Intent;
-import android.support.annotation.Nullable;
+
+import androidx.annotation.Nullable;
 
 /**
  * Represents a message obtained via MAP service from a connected Bluetooth device.

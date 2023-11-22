@@ -26,6 +26,7 @@
 package org.apache.harmony.jpda.tests.jdwp.ClassType;
 
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
+import org.apache.harmony.jpda.tests.framework.jdwp.Field;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.Value;
@@ -51,16 +52,16 @@ public class SetValuesTest extends JDWPClassTypeTestCase {
 
         long classID = getClassIDBySignature(getDebuggeeSignature());
 
-        FieldInfo[] fields = jdwpGetFieldIDs(classID);
+        Field[] fields = jdwpGetFieldIDs(classID);
 
         for (int i = 0; i < fields.length; i++) {
-            FieldInfo field = fields[i];
+            Field field = fields[i];
             //logWriter.println(field.toString());
             testField(classID, field);
         }
     }
 
-    private void testField(long classID, FieldInfo fieldInfo) {
+    private void testField(long classID, Field fieldInfo) {
 
         //System.err.println("testField: "+fieldInfo.toString());
         // if field has primitive type
@@ -114,7 +115,7 @@ public class SetValuesTest extends JDWPClassTypeTestCase {
         }
     }
 
-    private void testField(long classID, FieldInfo fieldInfo, Value value) {
+    private void testField(long classID, Field fieldInfo, Value value) {
 
         logWriter.println("\n==> testField: ");
         logWriter.println("    classID = " + classID);
@@ -149,27 +150,8 @@ public class SetValuesTest extends JDWPClassTypeTestCase {
         logWriter.println("==> testField: OK");
     }
 
-    private FieldInfo[] jdwpGetFieldIDs(long classID) {
-        CommandPacket packet = new CommandPacket(
-                JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
-                JDWPCommands.ReferenceTypeCommandSet.FieldsCommand);
-        packet.setNextValueAsReferenceTypeID(classID);
-
-        ReplyPacket reply = debuggeeWrapper.vmMirror.performCommand(packet);
-        checkReplyPacket(reply, "ReferenceType::Fields command");
-
-        int declared = reply.getNextValueAsInt();
-        FieldInfo[] fields = new FieldInfo[declared];
-        for (int i = 0; i < declared; i++) {
-            fields[i] = new FieldInfo(
-                    reply.getNextValueAsFieldID(),
-                    reply.getNextValueAsString(),
-                    reply.getNextValueAsString(),
-                    reply.getNextValueAsInt()
-                    );
-        }
-
-        return fields;
+    private Field[] jdwpGetFieldIDs(long classID) {
+        return debuggeeWrapper.vmMirror.getFieldsInfo(classID);
     }
 
 }

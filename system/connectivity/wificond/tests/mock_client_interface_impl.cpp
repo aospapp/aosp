@@ -34,7 +34,6 @@ const uint32_t kTestWiphyIndex = 2;
 
 MockClientInterfaceImpl::MockClientInterfaceImpl(
       android::wifi_system::InterfaceTool* interface_tool,
-      android::wifi_system::SupplicantManager* supplicant_manager,
       NetlinkUtils* netlink_utils,
       ScanUtils* scan_utils)
     : ClientInterfaceImpl(
@@ -45,7 +44,6 @@ MockClientInterfaceImpl::MockClientInterfaceImpl(
             kTestInterfaceMacAddress,
             kTestInterfaceMacAddress + arraysize(kTestInterfaceMacAddress)),
         interface_tool,
-        supplicant_manager,
         netlink_utils,
         scan_utils) {}
 

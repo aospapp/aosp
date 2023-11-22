@@ -23,6 +23,7 @@ import subprocess
 import sys
 
 import i18nutil
+import ziputil
 
 def icuDir():
   """Returns the location of ICU in the Android source tree."""
@@ -138,8 +139,12 @@ def MakeAndCopyIcuDataFiles(icu_build_dir):
     print 'ERROR: Unexpectedly found %d .jar files (%s). Halting.' % (len(jarfiles), jarfiles)
     sys.exit(1)
   for jarfile in jarfiles:
-    print 'Copying %s to %s ...' % (jarfile, icu_jar_data_dir)
-    shutil.copy(jarfile, icu_jar_data_dir)
+    icu_jarfile = os.path.join(icu_jar_data_dir, os.path.basename(jarfile))
+    if ziputil.ZipCompare(jarfile, icu_jarfile):
+      print 'Ignoring %s which is identical to %s ...' % (jarfile, icu_jarfile)
+    else:
+      print 'Copying %s to %s ...' % (jarfile, icu_jar_data_dir)
+      shutil.copy(jarfile, icu_jar_data_dir)
 
   # Switch back to the original working cwd.
   os.chdir(original_working_dir)

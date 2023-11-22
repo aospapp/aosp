@@ -17,9 +17,13 @@
 package com.android.server.wifi.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.fail;
 
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Random;
 
 /**
@@ -67,7 +71,18 @@ public class MatrixTest {
     }
 
     /**
-     * Test multiplication.
+     * Test scalar multiplication.
+     */
+    @Test
+    public void testScalarMultiplication() throws Exception {
+        Matrix m1 = new Matrix(2, new double[]{1, 2, 3, 4});
+        double x = 1001;
+        Matrix m2 = new Matrix(2, new double[]{x * 1, x * 2, x * 3, x * 4});
+        assertEquals(m2, m1.times(x));
+    }
+
+    /**
+     * Test matrix multiplication.
      */
     @Test
     public void testMultiplication() throws Exception {
@@ -94,18 +109,75 @@ public class MatrixTest {
     }
 
     /**
+     * Generates a random permuation matrix
+     */
+    public Matrix generatePermutationMatrix(int size, Random random) {
+        Matrix matrix = new Matrix(size, size);
+        ArrayList<Integer> j = new ArrayList(size);
+        for (int i = 0; i < size; i++) {
+            j.add(i);
+        }
+        Collections.shuffle(j, random);
+        for (int i = 0; i < size; i++) {
+            matrix.put(i, j.get(i), 1.0);
+        }
+        return matrix;
+    }
+
+    /**
+     * Test that inverting a random permutaion matrix works
+     */
+    @Test
+    public void testInverseOfPermutation() throws Exception {
+        int size = 20;
+        Matrix m1 = generatePermutationMatrix(size, new Random(132));
+        Matrix m2 = m1.inverse();
+        Matrix m3 = m1.transpose();
+        assertEquals(m3, m2);
+    }
+
+    /**
      * Test that attempting to invert a singular matrix throws an exception.
      * @throws Exception
      */
-    @Test(expected = ArithmeticException.class)
+    @Test
     public void testSingularity() throws Exception {
         Matrix m1 = new Matrix(3, new double[]{10, 1, -1, 0, 0, 0, 0, 0, 0});
-        Matrix m2 = m1.inverse();
+        try {
+            m1.inverse();
+            fail("Expected ArithmeticException");
+        } catch (ArithmeticException e) {
+            return;
+        }
+    }
+
+    /**
+     * Test multiplication by a transpose
+     */
+    @Test
+    public void testMultiplicationByTranspose() throws Exception {
+        Matrix m1 = new Matrix(2, new double[]{1, 2, 3, 4, 5, 6});
+        Matrix m2 = new Matrix(2, new double[]{1, 2, 3, 4, 5, 6, 7, 8});
+        assertEquals(m1.dot(m2.transpose()), m1.dotTranspose(m2));
+    }
+
+    /**
+     * Test that exception is thrown for non-conformable dotTranspose
+     */
+    @Test
+    public void testMultiplicationByBadlyShapedTranspose() throws Exception {
+        Matrix m1 = new Matrix(2, new double[]{1, 2, 3, 4, 5, 6});
+        Matrix m2 = m1.transpose();
+        try {
+            m1.dotTranspose(m2);
+            fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
+        }
     }
 
     /**
      * Test that a copy is equal to the original, and that hash codes match,
-     * and that string versions match.
+     * and that string versions match; exercise equals in various ways.
      */
     @Test
     public void testCopy() throws Exception {
@@ -114,9 +186,16 @@ public class MatrixTest {
         for (int i = 0; i < m1.mem.length; i++) {
             m1.mem[i] = random.nextDouble();
         }
+        assertEquals(m1, m1);
         Matrix m2 = new Matrix(m1);
         assertEquals(m1, m2);
         assertEquals(m1.hashCode(), m2.hashCode());
         assertEquals(m1.toString(), m2.toString());
+        m2.put(2, 2, 2.0); // guaranteed change, because nextDouble() is between 0 and 1.
+        assertNotEquals(m1, m2);
+        assertNotEquals(m1, m1.transpose());
+        assertNotEquals(m1.toString(), m2.toString());
+        assertNotEquals(m1, null);
+        assertNotEquals(m1, "a");
     }
 }

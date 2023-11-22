@@ -33,11 +33,13 @@ define gmock-unit-test
     $(eval LOCAL_SRC_FILES := test/$(strip $(1)).cc $(2)) \
     $(eval LOCAL_C_INCLUDES := $(LOCAL_PATH)/include) \
     $(eval LOCAL_C_INCLUDES += $(LOCAL_PATH)/../googletest) \
+    $(eval LOCAL_CFLAGS += -Wall -Werror -Wno-sign-compare -Wno-unused-parameter) \
+    $(eval LOCAL_CFLAGS += -Wno-unused-private-field) \
     $(eval LOCAL_CPP_FEATURES := rtti) \
     $(eval LOCAL_STATIC_LIBRARIES := $(if $(3),$(3)$(4)) libgmock$(4)) \
     $(eval LOCAL_STATIC_LIBRARIES += libgtest$(4)) \
     $(if $(findstring _ndk,$(4)),$(eval LOCAL_SDK_VERSION := 9)) \
-    $(eval LOCAL_NDK_STL_VARIANT := stlport_static) \
+    $(eval LOCAL_NDK_STL_VARIANT := c++_static) \
     $(if $(findstring _host,$(4)),,\
         $(eval LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_NATIVE_TESTS))) \
     $(eval $(if $(findstring _host,$(4)), \

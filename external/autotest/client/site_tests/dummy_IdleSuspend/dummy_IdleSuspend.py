@@ -7,7 +7,7 @@ import os, time
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
-from autotest_lib.client.cros import power_suspend, power_utils
+from autotest_lib.client.cros.power import power_suspend, power_utils
 
 
 class dummy_IdleSuspend(test.test):

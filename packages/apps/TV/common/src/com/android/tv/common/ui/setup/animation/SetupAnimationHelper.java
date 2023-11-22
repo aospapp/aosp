@@ -27,12 +27,9 @@ import android.transition.TransitionSet;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.ImageView;
-
 import com.android.tv.common.R;
 
-/**
- * A helper class for setup animation.
- */
+/** A helper class for setup animation. */
 public final class SetupAnimationHelper {
     public static final long DELAY_BETWEEN_SIBLINGS_MS = applyAnimationTimeScale(33);
 
@@ -43,21 +40,21 @@ public final class SetupAnimationHelper {
     private static int sFragmentTransitionLongDistance;
     private static int sFragmentTransitionShortDistance;
 
-    private SetupAnimationHelper() { }
+    private SetupAnimationHelper() {}
 
-    /**
-     * Load initial parameters. This method should be called before using this class.
-     */
+    /** Load initial parameters. This method should be called before using this class. */
     public static void initialize(Context context) {
         if (sInitialized) {
             return;
         }
-        sFragmentTransitionDuration = context.getResources()
-                .getInteger(R.integer.setup_fragment_transition_duration);
-        sFragmentTransitionLongDistance = context.getResources()
-                .getDimensionPixelOffset(R.dimen.setup_fragment_transition_long_distance);
-        sFragmentTransitionShortDistance = context.getResources()
-                .getDimensionPixelOffset(R.dimen.setup_fragment_transition_short_distance);
+        sFragmentTransitionDuration =
+                context.getResources().getInteger(R.integer.setup_fragment_transition_duration);
+        sFragmentTransitionLongDistance =
+                context.getResources()
+                        .getDimensionPixelOffset(R.dimen.setup_fragment_transition_long_distance);
+        sFragmentTransitionShortDistance =
+                context.getResources()
+                        .getDimensionPixelOffset(R.dimen.setup_fragment_transition_short_distance);
         sInitialized = true;
     }
 
@@ -88,9 +85,7 @@ public final class SetupAnimationHelper {
             return this;
         }
 
-        /**
-         * Sets the duration of the transition.
-         */
+        /** Sets the duration of the transition. */
         public TransitionBuilder setDuration(long duration) {
             mDuration = duration;
             return this;
@@ -106,17 +101,13 @@ public final class SetupAnimationHelper {
             return this;
         }
 
-        /**
-         * Sets the ID's of the views which will not be included in the transition.
-         */
+        /** Sets the ID's of the views which will not be included in the transition. */
         public TransitionBuilder setExcludeIds(int[] excludeIds) {
             mExcludeIds = excludeIds;
             return this;
         }
 
-        /**
-         * Builds and returns the {@link android.transition.Transition}.
-         */
+        /** Builds and returns the {@link android.transition.Transition}. */
         public Transition build() {
             FadeAndShortSlide transition = new FadeAndShortSlide(mSlideEdge, mParentIdForDelay);
             transition.setDistance(mDistance);
@@ -130,25 +121,19 @@ public final class SetupAnimationHelper {
         }
     }
 
-    /**
-     * Changes the move distance of the {@code transition} to long distance.
-     */
+    /** Changes the move distance of the {@code transition} to long distance. */
     public static void setLongDistance(FadeAndShortSlide transition) {
         checkInitialized();
         transition.setDistance(sFragmentTransitionLongDistance);
     }
 
-    /**
-     * Changes the move distance of the {@code transition} to short distance.
-     */
+    /** Changes the move distance of the {@code transition} to short distance. */
     public static void setShortDistance(FadeAndShortSlide transition) {
         checkInitialized();
         transition.setDistance(sFragmentTransitionShortDistance);
     }
 
-    /**
-     * Applies the animation scale to the given {@code animator}.
-     */
+    /** Applies the animation scale to the given {@code animator}. */
     public static Animator applyAnimationTimeScale(Animator animator) {
         if (animator instanceof AnimatorSet) {
             for (Animator child : ((AnimatorSet) animator).getChildAnimations()) {
@@ -162,9 +147,7 @@ public final class SetupAnimationHelper {
         return animator;
     }
 
-    /**
-     * Applies the animation scale to the given {@code transition}.
-     */
+    /** Applies the animation scale to the given {@code transition}. */
     public static Transition applyAnimationTimeScale(Transition transition) {
         if (transition instanceof TransitionSet) {
             TransitionSet set = (TransitionSet) transition;
@@ -180,9 +163,7 @@ public final class SetupAnimationHelper {
         return transition;
     }
 
-    /**
-     * Applies the animation scale to the given {@code time}.
-     */
+    /** Applies the animation scale to the given {@code time}. */
     public static long applyAnimationTimeScale(long time) {
         return (long) (time * ANIMATION_TIME_SCALE);
     }
@@ -197,23 +178,25 @@ public final class SetupAnimationHelper {
     }
 
     /**
-     * Returns an animator which animates the source image of the {@link ImageView} with start delay.
+     * Returns an animator which animates the source image of the {@link ImageView} with start
+     * delay.
      *
      * <p>The frame rate is 60 fps.
      */
-    public static ObjectAnimator createFrameAnimatorWithDelay(ImageView imageView, int[] frames,
-            long startDelay) {
+    public static ObjectAnimator createFrameAnimatorWithDelay(
+            ImageView imageView, int[] frames, long startDelay) {
         ObjectAnimator animator = ObjectAnimator.ofInt(imageView, "imageResource", frames);
         // Make it 60 fps.
         animator.setDuration(frames.length * 1000 / 60);
         animator.setInterpolator(null);
         animator.setStartDelay(startDelay);
-        animator.setEvaluator(new TypeEvaluator<Integer>() {
-            @Override
-            public Integer evaluate(float fraction, Integer startValue, Integer endValue) {
-                return startValue;
-            }
-        });
+        animator.setEvaluator(
+                new TypeEvaluator<Integer>() {
+                    @Override
+                    public Integer evaluate(float fraction, Integer startValue, Integer endValue) {
+                        return startValue;
+                    }
+                });
         return animator;
     }
 
@@ -223,19 +206,20 @@ public final class SetupAnimationHelper {
      * @param view The view which will be animated.
      * @param duration The duration of the animation.
      * @param makeVisibleAfterAnimation If {@code true}, the view will become visible after the
-     * animation ends.
+     *     animation ends.
      */
-    public static Animator createFadeOutAnimator(final View view, long duration,
-            boolean makeVisibleAfterAnimation) {
+    public static Animator createFadeOutAnimator(
+            final View view, long duration, boolean makeVisibleAfterAnimation) {
         ObjectAnimator animator =
                 ObjectAnimator.ofFloat(view, View.ALPHA, 1.0f, 0.0f).setDuration(duration);
         if (makeVisibleAfterAnimation) {
-            animator.addListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    view.setAlpha(1.0f);
-                }
-            });
+            animator.addListener(
+                    new AnimatorListenerAdapter() {
+                        @Override
+                        public void onAnimationEnd(Animator animation) {
+                            view.setAlpha(1.0f);
+                        }
+                    });
         }
         return animator;
     }

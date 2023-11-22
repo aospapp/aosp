@@ -87,5 +87,5 @@ class JetstreamHost(cros_host.CrosHost):
         logging.debug('Jetstream: Prepare for update')
         try:
             self.cleanup_services()
-        except AutoservRunError:
+        except error.AutoservRunError:
             logging.exception('Failed to reset host')

@@ -16,7 +16,7 @@
 
 package com.android.documentsui;
 
-import static com.android.documentsui.base.Shared.VERBOSE;
+import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
 import android.annotation.Nullable;
 import android.graphics.drawable.Drawable;

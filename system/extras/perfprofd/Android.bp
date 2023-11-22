@@ -1,76 +1,189 @@
-perfprofd_cppflags = [
-    "-Wall",
-    "-Wno-sign-compare",
-    "-Wno-unused-parameter",
-    "-Werror",
-]
+//
+// Copyright (C) 2016 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+cc_defaults {
+    name: "perfprofd_defaults",
+
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+
+        // Try some more extreme warnings.
+        "-Wpedantic",
+        "-Wunreachable-code-aggressive",
+        // And disable some dumb things.
+        "-Wno-zero-length-array",
+        "-Wno-c99-extensions",
+        "-Wno-language-extension-token",
+        "-Wno-gnu-zero-variadic-macro-arguments",
+        "-Wno-nested-anon-types",
+        "-Wno-gnu-statement-expression",
+        "-Wno-vla-extension",
+        "-Wno-extended-offsetof",
+    ],
+    cppflags: [
+        "-Wno-sign-compare",
+        "-Wno-unused-parameter",
+    ],
+
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+}
+
+cc_defaults {
+    name: "perfprofd_debug_defaults",
+
+    cflags: [
+        "-O0",
+        "-g",
+        "-UNDEBUG",
+    ],
+}
+
+// Static library for the record proto and its I/O.
+
+cc_library_static {
+    name: "libperfprofd_record_proto",
+    defaults: [
+        "perfprofd_defaults",
+    ],
+    host_supported: true,
+
+    static_libs: [
+        "libbase",
+        "libprotobuf-cpp-lite",
+        "libquipper",
+        "libz",
+    ],
+    srcs: [
+        "perfprofd_io.cc",
+        "perfprofd_record.proto",
+    ],
+
+    proto: {
+        export_proto_headers: true,
+        include_dirs: ["external/perf_data_converter/src/quipper"],
+        type: "lite",
+    },
+
+    export_include_dirs: ["."],  // Really only the -fwd.h.
+    export_static_lib_headers: ["libquipper"],
+}
 
 //
 // Static library containing guts of AWP daemon.
 //
 
-cc_library_static {
-    name: "libperfprofdcore",
-    clang: true,
+cc_defaults {
+    name: "libperfprofdcore_defaults",
+    defaults: [
+        "perfprofd_defaults",
+    ],
+    host_supported: true,
 
-    local_include_dirs: ["quipper/kernel-headers"],
-    export_include_dirs: ["."],
-    static_libs: ["libbase"],
+    static_libs: [
+        "libbase",
+        "libsimpleperf_elf_read",
+    ],
+    whole_static_libs: [
+        "libperfprofd_dropbox",
+        "libperfprofd_record_proto",
+        "libquipper",
+    ],
     srcs: [
-        "perf_profile.proto",
-        "quipper/perf_utils.cc",
-        "quipper/base/logging.cc",
-        "quipper/address_mapper.cc",
-        "quipper/perf_reader.cc",
-        "quipper/perf_parser.cc",
         "perf_data_converter.cc",
         "configreader.cc",
         "cpuconfig.cc",
         "perfprofdcore.cc",
+        "perfprofd_cmdline.cc",
+        "symbolizer.cc"
     ],
 
-    cppflags: perfprofd_cppflags,
+    cflags: [
+        "-Wno-gnu-anonymous-struct",
+    ],
 
-    proto: {
-        export_proto_headers: true,
-    },
+    export_include_dirs: ["."],
 }
 
-//
-// Static library with primary utilities layer (called by perfprofd core)
-//
 cc_library_static {
-    name: "libperfprofdutils",
-    clang: true,
-
-        cppflags: perfprofd_cppflags,
-    srcs: ["perfprofdutils.cc"],
+    name: "libperfprofdcore",
+    defaults: [
+        "libperfprofdcore_defaults",
+    ],
 }
+
+// Debug version.
+cc_library_static {
+    name: "libperfprofdcored",
+    defaults: [
+        "libperfprofdcore_defaults",
+        "perfprofd_debug_defaults",
+    ],
+}
+
 
 //
 // Main daemon
 //
 cc_binary {
     name: "perfprofd",
-    clang: true,
+    defaults: [
+        "perfprofd_defaults",
+    ],
 
-    srcs: ["perfprofdmain.cc"],
+    srcs: [
+        "perfprofdmain.cc",
+    ],
+
     static_libs: [
         "libperfprofdcore",
-        "libperfprofdutils",
+        "libperfprofd_binder",
+        "libsimpleperf_elf_read",
     ],
+    group_static_libs: true,
+
     shared_libs: [
         "liblog",
         "libprotobuf-cpp-lite",
         "libbase",
-        "libcutils"
+        "libbinder",
+        "libservices",
+        "libutils",
     ],
-    system_shared_libs: [
-        "libc", "libdl",
-    ],
-    cppflags: perfprofd_cppflags,
 
     init_rc: ["perfprofd.rc"],
+
+    product_variables: {
+        pdk: {
+            enabled: false,
+        },
+    },
+
+    // We're technically independent, but ensure simpleperf is there.
+    required: [
+        "simpleperf",
+    ],
 }
 
-subdirs = ["tests"]
+subdirs = [
+    "binder_interface",
+    "tests",
+]

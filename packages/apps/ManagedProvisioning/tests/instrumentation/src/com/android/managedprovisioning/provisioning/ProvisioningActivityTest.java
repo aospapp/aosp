@@ -17,7 +17,8 @@
 package com.android.managedprovisioning.provisioning;
 
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
-import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
+import static android.app.admin.DevicePolicyManager
+        .ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 import static android.app.admin.DevicePolicyManager.ACTION_STATE_USER_SETUP_COMPLETE;
 import static android.support.test.espresso.Espresso.onView;
@@ -30,10 +31,11 @@ import static android.support.test.espresso.intent.matcher.IntentMatchers.hasCom
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
+
 import static com.android.managedprovisioning.common.LogoUtils.saveOrganisationLogo;
-import static com.android.managedprovisioning.model.CustomizationParams.DEFAULT_COLOR_ID_DO;
-import static com.android.managedprovisioning.model.CustomizationParams.DEFAULT_COLOR_ID_MP;
-import static java.util.Arrays.asList;
+import static com.android.managedprovisioning.model.CustomizationParams.DEFAULT_STATUS_BAR_COLOR_ID;
+
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.core.AllOf.allOf;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -44,6 +46,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+
+import static java.util.Arrays.asList;
 
 import android.Manifest.permission;
 import android.app.Activity;
@@ -57,10 +61,10 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.support.test.InstrumentationRegistry;
-import android.support.test.espresso.intent.Intents;
 import android.support.test.espresso.intent.rule.IntentsTestRule;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.lifecycle.Stage;
+
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.TestInstrumentationRunner;
 import com.android.managedprovisioning.common.CustomizationVerifier;
@@ -69,22 +73,26 @@ import com.android.managedprovisioning.common.UriBitmap;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.testcommon.ActivityLifecycleWaiter;
-import java.util.ArrayList;
-import java.util.List;
+
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import org.mockito.hamcrest.MockitoHamcrest;
+import org.mockito.junit.MockitoJUnitRunner;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Unit tests for {@link ProvisioningActivity}.
  */
 @SmallTest
+@RunWith(MockitoJUnitRunner.class)
 public class ProvisioningActivityTest {
     private static final String ADMIN_PACKAGE = "com.test.admin";
     private static final String TEST_PACKAGE = "com.android.managedprovisioning.tests";
@@ -111,6 +119,7 @@ public class ProvisioningActivityTest {
             .putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, DEVICE_OWNER_PARAMS);
     private static final Intent NFC_INTENT = new Intent()
             .putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, NFC_PARAMS);
+    private static final int DEFAULT_MAIN_COLOR = Color.rgb(1, 2, 3);
 
     private static class CustomIntentsTestRule extends IntentsTestRule<ProvisioningActivity> {
         private boolean mIsActivityRunning = false;
@@ -154,6 +163,11 @@ public class ProvisioningActivityTest {
                 Settings.System.ACCELEROMETER_ROTATION, 0);
     }
 
+    @Before
+    public void setup() {
+        when(mUtils.getAccentColor(any())).thenReturn(DEFAULT_MAIN_COLOR);
+    }
+
     @AfterClass
     public static void tearDownClass() {
         // Reset the rotation value back to what it was before the test
@@ -165,8 +179,6 @@ public class ProvisioningActivityTest {
 
     @Before
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
-
         TestInstrumentationRunner.registerReplacedActivity(ProvisioningActivity.class,
                 (classLoader, className, intent) ->
                         new ProvisioningActivity(mProvisioningManager, mUtils) {
@@ -202,10 +214,16 @@ public class ProvisioningActivityTest {
         Context context = InstrumentationRegistry.getTargetContext();
 
         // default color Managed Profile (MP)
-        assertColorsCorrect(PROFILE_OWNER_INTENT, context.getColor(DEFAULT_COLOR_ID_MP));
+        assertColorsCorrect(
+                PROFILE_OWNER_INTENT,
+                DEFAULT_MAIN_COLOR,
+                context.getColor(DEFAULT_STATUS_BAR_COLOR_ID));
 
         // default color Device Owner (DO)
-        assertColorsCorrect(DEVICE_OWNER_INTENT, context.getColor(DEFAULT_COLOR_ID_DO));
+        assertColorsCorrect(
+                DEVICE_OWNER_INTENT,
+                DEFAULT_MAIN_COLOR,
+                context.getColor(DEFAULT_STATUS_BAR_COLOR_ID));
 
         // custom color for both cases (MP, DO)
         int targetColor = Color.parseColor("#d40000"); // any color (except default) would do
@@ -216,19 +234,20 @@ public class ProvisioningActivityTest {
                     .setDeviceAdminComponentName(ADMIN)
                     .setMainColor(targetColor)
                     .build();
-            assertColorsCorrect(new Intent().putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS,
-                    provisioningParams), targetColor);
+            Intent intent = new Intent();
+            intent.putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, provisioningParams);
+            assertColorsCorrect(intent, targetColor, targetColor);
         }
     }
 
-    private void assertColorsCorrect(Intent intent, int color) throws Throwable {
+    private void assertColorsCorrect(Intent intent, int mainColor, int statusBarColor)
+            throws Throwable {
         launchActivityAndWait(intent);
         Activity activity = mActivityRule.getActivity();
 
         CustomizationVerifier customizationVerifier = new CustomizationVerifier(activity);
-        customizationVerifier.assertStatusBarColorCorrect(color);
-        customizationVerifier.assertDefaultLogoCorrect(color);
-        customizationVerifier.assertProgressBarColorCorrect(color);
+        customizationVerifier.assertStatusBarColorCorrect(statusBarColor);
+        customizationVerifier.assertDefaultLogoCorrect(mainColor);
 
         finishAndWait();
     }
@@ -491,6 +510,32 @@ public class ProvisioningActivityTest {
         intended(allOf(hasComponent(TEST_ACTIVITY), hasAction(ACTION_STATE_USER_SETUP_COMPLETE)));
         // THEN the activity should finish
         assertTrue(mActivityRule.getActivity().isFinishing());
+    }
+
+    @Test
+    public void testInitializeUi_profileOwner() throws Throwable {
+        // GIVEN the activity was launched with a profile owner intent
+        launchActivityAndWait(PROFILE_OWNER_INTENT);
+
+        // THEN the profile owner description should be present
+        onView(withId(R.id.description))
+                .check(matches(withText(R.string.work_profile_description)));
+
+        // THEN the animation is shown.
+        onView(withId(R.id.animation)).check(matches(isDisplayed()));
+    }
+
+    @Test
+    public void testInitializeUi_deviceOwner() throws Throwable {
+        // GIVEN the activity was launched with a device owner intent
+        launchActivityAndWait(DEVICE_OWNER_INTENT);
+
+        // THEN the description should be empty
+        onView(withId(R.id.description))
+                .check(matches(withText(R.string.device_owner_description)));
+
+        // THEN the animation is shown.
+        onView(withId(R.id.animation)).check(matches(isDisplayed()));
     }
 
     private void launchActivityAndWait(Intent intent) {

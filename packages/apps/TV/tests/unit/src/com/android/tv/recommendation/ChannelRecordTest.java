@@ -17,22 +17,20 @@
 package com.android.tv.recommendation;
 
 import static android.support.test.InstrumentationRegistry.getContext;
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.support.test.filters.SmallTest;
-
-import com.android.tv.testing.Utils;
-
-import org.junit.Before;
-import org.junit.Test;
-
+import android.support.test.runner.AndroidJUnit4;
+import com.android.tv.testing.utils.Utils;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-/**
- * Unit tests for {@link ChannelRecord}.
- */
+/** Unit tests for {@link ChannelRecord}. */
 @SmallTest
+@RunWith(AndroidJUnit4.class)
 public class ChannelRecordTest {
     private static final int CHANNEL_RECORD_MAX_HISTORY_SIZE = ChannelRecord.MAX_HISTORY_SIZE;
 
@@ -49,14 +47,14 @@ public class ChannelRecordTest {
 
     @Test
     public void testGetLastWatchEndTime_noHistory() {
-        assertEquals(0, mChannelRecord.getLastWatchEndTimeMs());
+    assertThat(mChannelRecord.getLastWatchEndTimeMs()).isEqualTo(0);
     }
 
     @Test
     public void testGetLastWatchEndTime_oneHistory() {
         addWatchLog();
 
-        assertEquals(mLatestWatchEndTimeMs, mChannelRecord.getLastWatchEndTimeMs());
+    assertThat(mChannelRecord.getLastWatchEndTimeMs()).isEqualTo(mLatestWatchEndTimeMs);
     }
 
     @Test
@@ -65,7 +63,7 @@ public class ChannelRecordTest {
             addWatchLog();
         }
 
-        assertEquals(mLatestWatchEndTimeMs, mChannelRecord.getLastWatchEndTimeMs());
+    assertThat(mChannelRecord.getLastWatchEndTimeMs()).isEqualTo(mLatestWatchEndTimeMs);
     }
 
     @Test
@@ -74,19 +72,19 @@ public class ChannelRecordTest {
             addWatchLog();
         }
 
-        assertEquals(mLatestWatchEndTimeMs, mChannelRecord.getLastWatchEndTimeMs());
+    assertThat(mChannelRecord.getLastWatchEndTimeMs()).isEqualTo(mLatestWatchEndTimeMs);
     }
 
     @Test
     public void testGetTotalWatchDuration_noHistory() {
-        assertEquals(0, mChannelRecord.getTotalWatchDurationMs());
+    assertThat(mChannelRecord.getTotalWatchDurationMs()).isEqualTo(0);
     }
 
     @Test
     public void testGetTotalWatchDuration_oneHistory() {
         long durationMs = addWatchLog();
 
-        assertEquals(durationMs, mChannelRecord.getTotalWatchDurationMs());
+    assertThat(mChannelRecord.getTotalWatchDurationMs()).isEqualTo(durationMs);
     }
 
     @Test
@@ -97,7 +95,7 @@ public class ChannelRecordTest {
             totalWatchTimeMs += durationMs;
         }
 
-        assertEquals(totalWatchTimeMs, mChannelRecord.getTotalWatchDurationMs());
+    assertThat(mChannelRecord.getTotalWatchDurationMs()).isEqualTo(totalWatchTimeMs);
     }
 
     @Test
@@ -112,8 +110,9 @@ public class ChannelRecordTest {
             }
         }
 
-        // Only latest CHANNEL_RECORD_MAX_HISTORY_SIZE logs are remained.
-        assertEquals(totalWatchTimeMs - firstDurationMs, mChannelRecord.getTotalWatchDurationMs());
+    // Only latest CHANNEL_RECORD_MAX_HISTORY_SIZE logs are remained.
+    assertThat(mChannelRecord.getTotalWatchDurationMs())
+        .isEqualTo(totalWatchTimeMs - firstDurationMs);
     }
 
     /**
@@ -126,8 +125,9 @@ public class ChannelRecordTest {
         mLatestWatchEndTimeMs += TimeUnit.SECONDS.toMillis(mRandom.nextInt(60) + 1);
 
         long durationMs = TimeUnit.SECONDS.toMillis(mRandom.nextInt(60) + 1);
-        mChannelRecord.logWatchHistory(new WatchedProgram(null,
-                mLatestWatchEndTimeMs, mLatestWatchEndTimeMs + durationMs));
+        mChannelRecord.logWatchHistory(
+                new WatchedProgram(
+                        null, mLatestWatchEndTimeMs, mLatestWatchEndTimeMs + durationMs));
         mLatestWatchEndTimeMs += durationMs;
 
         return durationMs;

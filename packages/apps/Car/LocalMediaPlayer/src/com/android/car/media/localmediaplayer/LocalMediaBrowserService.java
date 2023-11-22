@@ -113,12 +113,8 @@ public class LocalMediaBrowserService extends MediaBrowserService {
     public void onCreate() {
         super.onCreate();
 
-        // TODO: This doesn't handle the case where the user revokes the permission very well, the
-        // prompt will only show up once this service has been recreated which is non-deterministic.
         if (!Utils.hasRequiredPermissions(this)) {
-            Intent intent = new Intent(this, PermissionsActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(intent);
+            Utils.startPermissionRequest(this);
         }
 
         mDataModel = new DataModel(this);

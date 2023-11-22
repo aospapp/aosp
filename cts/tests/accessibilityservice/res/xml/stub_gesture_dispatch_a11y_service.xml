@@ -16,9 +16,9 @@
 -->
 
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-                       android:description="@string/stub_gesture_dispatch_a11y_service_description"
-                       android:accessibilityEventTypes="typeAllMask"
-                       android:accessibilityFeedbackType="feedbackGeneric"
-                       android:accessibilityFlags="flagDefault"
-                       android:canPerformGestures="true"
-                       android:notificationTimeout="0" />
+        android:description="@string/stub_gesture_dispatch_a11y_service_description"
+        android:accessibilityEventTypes="typeAllMask"
+        android:accessibilityFeedbackType="feedbackGeneric"
+        android:accessibilityFlags="flagDefault"
+        android:canPerformGestures="true"
+        android:notificationTimeout="0" />

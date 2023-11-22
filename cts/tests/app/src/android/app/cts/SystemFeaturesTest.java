@@ -39,6 +39,7 @@ import android.location.LocationManager;
 import android.net.sip.SipManager;
 import android.net.wifi.WifiManager;
 import android.nfc.NfcAdapter;
+import android.os.Build;
 import android.telephony.TelephonyManager;
 import android.test.InstrumentationTestCase;
 
@@ -99,6 +100,11 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
 
         for (String featureName : notOfficialFeatures) {
             if (featureName != null) {
+                if (!Build.VERSION.CODENAME.equals("REL") &&
+                    featureName.equals("android.software.preview_sdk")) {
+                    // Skips preview_sdk in non-release build.
+                    continue;
+                }
                 assertFalse("Use a different namespace than 'android' for " + featureName,
                         featureName.startsWith("android"));
             }
@@ -125,6 +131,7 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
             assertNotAvailable(PackageManager.FEATURE_CAMERA_CAPABILITY_MANUAL_SENSOR);
             assertNotAvailable(PackageManager.FEATURE_CAMERA_CAPABILITY_MANUAL_POST_PROCESSING);
             assertNotAvailable(PackageManager.FEATURE_CAMERA_CAPABILITY_RAW);
+            assertNotAvailable(PackageManager.FEATURE_CAMERA_AR);
 
             assertFalse("Devices supporting external cameras must have a representative camera " +
                     "connected for testing",
@@ -142,6 +149,7 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         boolean fullCamera = false;
         boolean manualSensor = false;
         boolean manualPostProcessing = false;
+        boolean motionTracking = false;
         boolean raw = false;
         CameraCharacteristics[] cameraChars = new CameraCharacteristics[cameraIds.length];
         for (String cameraId : cameraIds) {
@@ -163,6 +171,9 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
                     case CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW:
                         raw = true;
                         break;
+                  case CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MOTION_TRACKING:
+                        motionTracking = true;
+                        break;
                     default:
                         // Capabilities don't have a matching system feature
                         break;
@@ -174,6 +185,7 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         assertFeature(manualPostProcessing,
                 PackageManager.FEATURE_CAMERA_CAPABILITY_MANUAL_POST_PROCESSING);
         assertFeature(raw, PackageManager.FEATURE_CAMERA_CAPABILITY_RAW);
+        assertFeature(motionTracking, PackageManager.FEATURE_CAMERA_AR);
     }
 
     private void checkFrontCamera() {
@@ -255,6 +267,14 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
             assertAvailable(PackageManager.FEATURE_LOCATION_NETWORK);
         } else {
             assertNotAvailable(PackageManager.FEATURE_LOCATION_NETWORK);
+        }
+    }
+
+    public void testLowRamFeature() {
+        if (mActivityManager.isLowRamDevice()) {
+            assertAvailable(PackageManager.FEATURE_RAM_LOW);
+        } else {
+            assertAvailable(PackageManager.FEATURE_RAM_NORMAL);
         }
     }
 
@@ -474,7 +494,8 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE) &&
                 !mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEVISION) &&
                 !mPackageManager.hasSystemFeature(PackageManager.FEATURE_WATCH) &&
-                !mPackageManager.hasSystemFeature(PackageManager.FEATURE_EMBEDDED)) {
+                !mPackageManager.hasSystemFeature(PackageManager.FEATURE_EMBEDDED) &&
+                !mPackageManager.hasSystemFeature(PackageManager.FEATURE_PC)) {
             // USB accessory mode is only a requirement for devices with USB ports supporting
             // peripheral mode. As there is no public API to distinguish a device with only host
             // mode support from having both peripheral and host support, the test may have

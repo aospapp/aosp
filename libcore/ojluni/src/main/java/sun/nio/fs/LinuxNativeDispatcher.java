@@ -121,6 +121,14 @@ class LinuxNativeDispatcher extends UnixNativeDispatcher {
     private static native void init();
 
     static {
+        // Android-removed: Code to load native libraries, doesn't make sense on Android.
+        /*
+        AccessController.doPrivileged(new PrivilegedAction<Void>() {
+            public Void run() {
+                System.loadLibrary("nio");
+                return null;
+        }});
+        */
         init();
     }
 }

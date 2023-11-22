@@ -29,7 +29,7 @@ class power_ProbeDriver(test.test):
             psu_type = utils.read_one_line(type_path)
             if any( [psu_type == 'Mains', psu_type == 'USB',
                      psu_type == 'USB_DCP', psu_type == 'USB_CDP',
-                     psu_type == 'USB_TYPE_C', psu_type == 'USB_PD',
+                     psu_type == 'USB_C', psu_type == 'USB_PD',
                      psu_type == 'USB_PD_DRP'] ):
                 ac_paths.append(path)
             elif psu_type == 'Battery':

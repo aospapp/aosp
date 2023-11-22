@@ -129,7 +129,7 @@ abstract class AbstractDozeModeTestCase extends AbstractRestrictBackgroundNetwor
 
     public void testBackgroundNetworkAccess_enabledButWhitelistedOnNotificationAction()
             throws Exception {
-        if (!isSupported()) return;
+        if (!isSupported() || isLowRamDevice()) return;
 
         setPendingIntentWhitelistDuration(NETWORK_TIMEOUT_MS);
         try {

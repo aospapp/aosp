@@ -20,21 +20,16 @@ import android.annotation.NonNull;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.graphics.PorterDuff;
-import android.widget.ImageView;
 
+import androidx.car.widget.TextListItem;
+
+import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
-import com.android.car.settings.common.IconTextLineItem;
 
 /**
  * Represents an application in application settings page.
  */
-public class ApplicationLineItem extends IconTextLineItem {
-    private final ResolveInfo mResolveInfo;
-    private final Context mContext;
-    private final PackageManager mPm;
-    private final boolean mClickable;
-    private final BaseFragment.FragmentController mFragmentController;
+public class ApplicationLineItem extends TextListItem {
 
     public ApplicationLineItem(
             @NonNull Context context,
@@ -50,39 +45,14 @@ public class ApplicationLineItem extends IconTextLineItem {
             ResolveInfo resolveInfo,
             BaseFragment.FragmentController fragmentController,
             boolean clickable) {
-        super(resolveInfo.loadLabel(pm));
-        mContext = context;
-        mPm = pm;
-        mResolveInfo = resolveInfo;
-        mFragmentController = fragmentController;
-        mClickable = clickable;
-    }
-
-    @Override
-    public void onClick() {
-        if (mClickable) {
-            mFragmentController.launchFragment(ApplicationDetailFragment.getInstance(mResolveInfo));
+        super(context);
+        setTitle(resolveInfo.loadLabel(pm).toString());
+        setPrimaryActionIcon(resolveInfo.loadIcon(pm), /* useLargeIcon= */ false);
+        if (clickable) {
+            setSupplementalIcon(R.drawable.ic_chevron_right, /* showDivider= */ false);
+            setOnClickListener(v ->
+                    fragmentController.launchFragment(
+                            ApplicationDetailFragment.getInstance(resolveInfo)));
         }
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return true;
-    }
-
-    @Override
-    public boolean isExpandable() {
-        return mClickable;
-    }
-
-    @Override
-    public CharSequence getDesc() {
-        return null;
-    }
-
-    @Override
-    public void setIcon(ImageView iconView) {
-        iconView.setImageDrawable(mResolveInfo.loadIcon(mPm));
-        iconView.setImageTintMode(PorterDuff.Mode.DST);
     }
 }

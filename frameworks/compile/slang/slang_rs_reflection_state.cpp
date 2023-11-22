@@ -97,7 +97,8 @@ void ReflectionState::closeJava64() {
 
 llvm::StringRef ReflectionState::canon(const std::string &String) {
   slangAssert(isCollecting());
-  return mStringSet->insert(String).first->getKey();
+  // NOTE: llvm::StringSet does not permit the empty string as a member
+  return String.empty() ? llvm::StringRef() : mStringSet->insert(String).first->getKey();
 }
 
 std::string ReflectionState::getUniqueTypeName(const RSExportType *T) {

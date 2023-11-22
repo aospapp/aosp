@@ -20,5 +20,6 @@ LOCAL_MODULE := commands-helper
 LOCAL_JAVA_LIBRARIES := ub-uiautomator \
     android-support-test
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_SDK_VERSION := current
 
 include $(BUILD_STATIC_JAVA_LIBRARY)

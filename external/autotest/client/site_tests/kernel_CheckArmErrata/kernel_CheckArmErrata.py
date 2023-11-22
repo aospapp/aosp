@@ -7,7 +7,7 @@ import logging
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 
-from autotest_lib.client.cros import sys_power
+from autotest_lib.client.cros.power import sys_power
 
 
 class kernel_CheckArmErrata(test.test):
@@ -446,6 +446,9 @@ class kernel_CheckArmErrata(test.test):
             logging.info("Doctest ran %d tests, had %d failures",
                          test_count, failure_count)
             return
+
+        if utils.get_cpu_soc_family() != 'arm':
+            raise error.TestNAError('Applicable to ARM processors only')
 
         cpuinfo = self._parse_cpu_info(utils.read_file('/proc/cpuinfo'))
 

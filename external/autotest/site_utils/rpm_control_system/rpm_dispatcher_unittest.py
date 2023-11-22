@@ -4,6 +4,7 @@
 # found in the LICENSE file.
 
 import mox
+import socket
 import unittest
 
 from config import rpm_config
@@ -15,7 +16,7 @@ RPM_HOSTNAME = 'chromeos-rack8e-rpm1'
 DUT_DIFFERENT_RPM = 'chromeos-rack1-hostbs1'
 FAKE_DISPATCHER_URI = 'fake-dispatcher'
 FAKE_DISPATCHER_PORT = 9999
-FRONT_END_URI = rpm_config.get('RPM_INFRASTRUCTURE', 'frontend_uri')
+FRONT_END_PORT = rpm_config.getint('RPM_INFRASTRUCTURE', 'frontend_port')
 PROPER_URI_FORMAT = 'http://%s:%d'
 
 
@@ -38,7 +39,8 @@ class TestRPMDispatcher(mox.MoxTestBase):
                                             FAKE_DISPATCHER_PORT)
         self.frontend_mock.register_dispatcher(expected_uri)
         rpm_dispatcher.xmlrpclib.ServerProxy = self.mox.CreateMockAnything()
-        rpm_dispatcher.xmlrpclib.ServerProxy(FRONT_END_URI).AndReturn(
+        frontend_uri = 'http://%s:%d' % (socket.gethostname(), FRONT_END_PORT)
+        rpm_dispatcher.xmlrpclib.ServerProxy(frontend_uri).AndReturn(
                 self.frontend_mock)
         rpm_dispatcher.atexit = self.mox.CreateMockAnything()
         rpm_dispatcher.atexit.register(mox.IgnoreArg())

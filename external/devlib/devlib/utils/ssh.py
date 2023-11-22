@@ -160,7 +160,8 @@ class SshConnection(object):
                  telnet=False,
                  password_prompt=None,
                  original_prompt=None,
-                 platform=None
+                 platform=None,
+                 sudo_cmd="sudo -- sh -c '{}'"
                  ):
         self.host = host
         self.username = username
@@ -169,6 +170,7 @@ class SshConnection(object):
         self.port = port
         self.lock = threading.Lock()
         self.password_prompt = password_prompt if password_prompt is not None else self.default_password_prompt
+        self.sudo_cmd = sudo_cmd
         logger.debug('Logging in {}@{}'.format(username, host))
         timeout = timeout if timeout is not None else self.default_timeout
         self.conn = ssh_get_shell(host, username, password, self.keyfile, port, timeout, False, None)
@@ -212,7 +214,7 @@ class SshConnection(object):
             port_string = '-p {}'.format(self.port) if self.port else ''
             keyfile_string = '-i {}'.format(self.keyfile) if self.keyfile else ''
             if as_root:
-                command = "sudo -- sh -c '{}'".format(command)
+                command = self.sudo_cmd.format(command)
             command = '{} {} {} {}@{} {}'.format(ssh, keyfile_string, port_string, self.username, self.host, command)
             logger.debug(command)
             if self.password:
@@ -240,7 +242,7 @@ class SshConnection(object):
             # As we're already root, there is no need to use sudo.
             as_root = False
         if as_root:
-            command = "sudo -- sh -c '{}'".format(escape_single_quotes(command))
+            command = self.sudo_cmd.format(escape_single_quotes(command))
             if log:
                 logger.debug(command)
             self.conn.sendline(command)
@@ -282,16 +284,18 @@ class SshConnection(object):
         port_string = '-P {}'.format(self.port) if (self.port and self.port != 22) else ''
         keyfile_string = '-i {}'.format(self.keyfile) if self.keyfile else ''
         command = '{} -r {} {} {} {}'.format(scp, keyfile_string, port_string, source, dest)
-        pass_string = ''
+        command_redacted = command
         logger.debug(command)
         if self.password:
             command = _give_password(self.password, command)
+            command_redacted = command.replace(self.password, '<redacted>')
         try:
             check_output(command, timeout=timeout, shell=True)
         except subprocess.CalledProcessError as e:
-            raise subprocess.CalledProcessError(e.returncode, e.cmd.replace(pass_string, ''), e.output)
+            raise HostError("Failed to copy file with '{}'. Output:\n{}".format(
+                command_redacted, e.output))
         except TimeoutError as e:
-            raise TimeoutError(e.command.replace(pass_string, ''), e.output)
+            raise TimeoutError(command_redacted, e.output)
 
 
 class TelnetConnection(SshConnection):
@@ -440,7 +444,7 @@ class Gem5Connection(TelnetConnection):
         self._check_ready()
 
         result = self._gem5_shell("ls {}".format(source))
-        files = result.split()
+        files = strip_bash_colors(result).split()
 
         for filename in files:
             dest_file = os.path.basename(filename)

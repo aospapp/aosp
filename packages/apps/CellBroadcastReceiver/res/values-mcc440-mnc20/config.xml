@@ -16,10 +16,10 @@
 
 <resources>
     <string-array name="additional_cbs_channels_strings" translatable="false">
-        <item>0xA800:type=earthquake, emergency=true</item>
-        <item>0xAFEE:type=tsunami, emergency=true</item>
-        <item>0xAC00-0xAFED:type=other, emergency=true</item>
-        <item>0xA802:type=etws_default, emergency=true</item>
-        <item>0xA804:type=etws_default, emergency=true</item>
+        <item>0xA800:type=etws_earthquake, emergency=true, scope=carrier</item>
+        <item>0xAFEE:type=etws_tsunami, emergency=true, scope=carrier</item>
+        <item>0xAC00-0xAFED:type=other, emergency=true, scope=carrier</item>
+        <item>0xA802:type=test, emergency=true, scope=carrier</item>
+        <item>0xA804:type=test, emergency=true, scope=carrier</item>
     </string-array>
 </resources>

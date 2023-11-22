@@ -5,7 +5,7 @@
 import hashlib, logging, multiprocessing, os, re, time
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import sys_power
+from autotest_lib.client.cros.power import sys_power
 
 SUSPEND_BURN_SECONDS = 10
 RESUME_BURN_SECONDS = 5

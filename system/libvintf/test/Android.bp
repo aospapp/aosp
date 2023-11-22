@@ -14,9 +14,13 @@
 
 cc_test {
     name: "libvintf_test",
+    defaults: ["libvintf-defaults"],
     host_supported: true,
     gtest: false,
-    srcs: ["main.cpp"],
+    srcs: [
+        "AssembleVintfTest.cpp",
+        "LibVintfTest.cpp",
+    ],
 
     shared_libs: [
         "libbase",
@@ -24,38 +28,57 @@ cc_test {
         "liblog",
         "libvintf",
     ],
-    static_libs: ["libgtest"],
+    static_libs: [
+        "libgtest",
+        "libassemblevintf",
+        "libhidl-gen-utils",
+    ],
 
     cflags: [
         "-O0",
         "-g",
+        "-Wno-deprecated-declarations",
     ],
     target: {
-        host: {
-            cflags: ["-DLIBVINTF_HOST"],
-        }
+        android: {
+            cflags: ["-DLIBVINTF_TARGET"],
+        },
     }
 }
 
 cc_test {
     name: "vintf_object_test",
+    defaults: ["libvintf-defaults"],
     host_supported: true,
     native_coverage: true,
     srcs: [
+        "RuntimeInfo-fake.cpp",
+        "utils-fake.cpp",
         "vintf_object_tests.cpp",
     ],
     shared_libs: [
         "libbase",
         "libcutils",
         "liblog",
-        "libvintftest",
+        "libselinux",
+        "libtinyxml2",
     ],
     static_libs: [
         "libgtest",
         "libgmock",
+        "libvintf_common",
+        "libhidl-gen-utils",
+        "libz",
     ],
     cflags: [
         "-O0",
         "-g",
+        // Unexpected logging of string pointer warning from gmock
+        "-Wno-user-defined-warnings"
     ],
+    target: {
+        android: {
+            cflags: ["-DLIBVINTF_TARGET"],
+        },
+    }
 }

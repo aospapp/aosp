@@ -33,6 +33,7 @@ import android.util.Log;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.Socket;
+import java.net.ServerSocket;
 import java.security.KeyFactory;
 import java.security.KeyStore;
 import java.security.PrivateKey;
@@ -65,22 +66,29 @@ public class DownloadManagerTest extends AndroidTestCase {
     private static final long TIMEOUT = 3 * DateUtils.SECOND_IN_MILLIS;
 
     public void testConfigTrustedCaAccepted() throws Exception {
-        runDownloadManagerTest(R.raw.valid_chain, R.raw.test_key);
+        SSLServerSocket serverSocket = bindTLSServer(R.raw.valid_chain, R.raw.test_key);
+        runDownloadManagerTest(serverSocket, true);
     }
 
     public void testUntrustedCaRejected() throws Exception {
         try {
-            runDownloadManagerTest(R.raw.invalid_chain, R.raw.test_key);
+            SSLServerSocket serverSocket = bindTLSServer(R.raw.invalid_chain, R.raw.test_key);
+            runDownloadManagerTest(serverSocket, true);
             fail("Invalid CA should be rejected");
         } catch (Exception expected) {
         }
     }
 
-    private void runDownloadManagerTest(int chainResId, int keyResId) throws Exception {
+    public void testPerDomainCleartextAccepted() throws Exception {
+        ServerSocket serverSocket = new ServerSocket();
+        serverSocket.bind(null);
+        runDownloadManagerTest(serverSocket, false);
+    }
+
+    private void runDownloadManagerTest(ServerSocket serverSocket, boolean https) throws Exception {
         DownloadManager dm =
                 (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
         DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
-        final SSLServerSocket serverSocket = bindTLSServer(chainResId, keyResId);
         FutureTask<Void> serverFuture = new FutureTask<Void>(new Callable() {
             @Override
             public Void call() throws Exception {
@@ -92,7 +100,8 @@ public class DownloadManagerTest extends AndroidTestCase {
             IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
             getContext().registerReceiver(receiver, filter);
             new Thread(serverFuture).start();
-            Uri destination = Uri.parse("https://localhost:" + serverSocket.getLocalPort());
+            String host = (https ? "https" : "http") + "://localhost";
+            Uri destination = Uri.parse(host + ":" + serverSocket.getLocalPort());
             long id = dm.enqueue(new DownloadManager.Request(destination));
             try {
                 serverFuture.get(TIMEOUT, TimeUnit.MILLISECONDS);
@@ -114,7 +123,7 @@ public class DownloadManagerTest extends AndroidTestCase {
         }
     }
 
-    private void runServer(SSLServerSocket server) throws Exception {
+    private void runServer(ServerSocket server) throws Exception {
         Socket s = server.accept();
         s.getOutputStream().write(HTTP_RESPONSE.getBytes());
         s.getOutputStream().flush();

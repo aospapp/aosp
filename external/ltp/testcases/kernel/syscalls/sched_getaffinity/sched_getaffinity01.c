@@ -50,7 +50,8 @@
 #include <unistd.h>
 
 #include "test.h"
-#include "linux_syscall_numbers.h"
+#include "safe_macros.h"
+#include "lapi/syscalls.h"
 
 char *TCID = "sched_getaffinity01";
 int TST_TOTAL = 1;
@@ -162,9 +163,7 @@ static void setup(void)
 	TEST_PAUSE;
 	tst_tmpdir();
 
-	num = sysconf(_SC_NPROCESSORS_CONF);
-	if (num == -1)
-		tst_brkm(TBROK | TERRNO, NULL, "sysconf");
+	num = SAFE_SYSCONF(NULL, _SC_NPROCESSORS_CONF);
 	tst_resm(TINFO, "system has %ld processor(s).", num);
 }
 

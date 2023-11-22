@@ -18,12 +18,12 @@
 
 #include <binder/ProcessState.h>
 
-#include <utils/Atomic.h>
 #include <binder/BpBinder.h>
 #include <binder/IPCThreadState.h>
+#include <binder/IServiceManager.h>
+#include <cutils/atomic.h>
 #include <utils/Log.h>
 #include <utils/String8.h>
-#include <binder/IServiceManager.h>
 #include <utils/String8.h>
 #include <utils/threads.h>
 
@@ -86,6 +86,12 @@ sp<ProcessState> ProcessState::initWithDriver(const char* driver)
         }
         LOG_ALWAYS_FATAL("ProcessState was already initialized.");
     }
+
+    if (access(driver, R_OK) == -1) {
+        ALOGE("Binder driver %s is unavailable. Using /dev/binder instead.", driver);
+        driver = "/dev/binder";
+    }
+
     gProcess = new ProcessState(driver);
     return gProcess;
 }
@@ -276,7 +282,7 @@ sp<IBinder> ProcessState::getStrongProxyForHandle(int32_t handle)
                    return NULL;
             }
 
-            b = new BpBinder(handle); 
+            b = BpBinder::create(handle);
             e->binder = b;
             if (b) e->refs = b->getWeakRefs();
             result = b;
@@ -310,7 +316,7 @@ wp<IBinder> ProcessState::getWeakProxyForHandle(int32_t handle)
         // arriving from the driver.
         IBinder* b = e->binder;
         if (b == NULL || !e->refs->attemptIncWeak(this)) {
-            b = new BpBinder(handle);
+            b = BpBinder::create(handle);
             result = b;
             e->binder = b;
             if (b) e->refs = b->getWeakRefs();
@@ -420,7 +426,7 @@ ProcessState::ProcessState(const char *driver)
         mVMStart = mmap(0, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, 0);
         if (mVMStart == MAP_FAILED) {
             // *sigh*
-            ALOGE("Using /dev/binder failed: unable to mmap transaction memory.\n");
+            ALOGE("Using %s failed: unable to mmap transaction memory.\n", mDriverName.c_str());
             close(mDriverFD);
             mDriverFD = -1;
             mDriverName.clear();

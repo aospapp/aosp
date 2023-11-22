@@ -131,10 +131,12 @@ LOCAL_C_INCLUDES += \
     external/libxml2/include \
     external/icu/icu4c/source/common
 
-LOCAL_CFLAGS := -frtti -fexceptions
+LOCAL_CFLAGS := -Wall -Werror
+
+LOCAL_CPPFLAGS := \
+    -frtti -fexceptions \
+    -Wno-instantiation-after-specialization \
 
 LOCAL_STATIC_LIBRARIES := \
     libpfw_utility$(SUFFIX) \
     libxml2
-
-LOCAL_CLANG := true

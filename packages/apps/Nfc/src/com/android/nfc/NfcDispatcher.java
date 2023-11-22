@@ -31,6 +31,7 @@ import android.app.AlertDialog;
 import android.app.IActivityManager;
 import android.app.PendingIntent;
 import android.app.PendingIntent.CanceledException;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -48,6 +49,9 @@ import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.nfc.tech.Ndef;
 import android.nfc.tech.NfcBarcode;
+import android.os.Handler;
+import android.os.Message;
+import android.os.Messenger;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.util.Log;
@@ -61,6 +65,7 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -86,6 +91,9 @@ class NfcDispatcher {
     private final ScreenStateHelper mScreenStateHelper;
     private final NfcUnlockManager mNfcUnlockManager;
     private final boolean mDeviceSupportsBluetooth;
+    private final Handler mMessageHandler = new MessageHandler();
+    private final Messenger mMessenger = new Messenger(mMessageHandler);
+    private AtomicBoolean mBluetoothEnabledByNfc = new AtomicBoolean();
 
     // Locked on this
     private PendingIntent mOverrideIntent;
@@ -133,6 +141,15 @@ class NfcDispatcher {
             }
         }
         mLiveCaseMimes = liveCaseMimes;
+
+        IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+        mContext.registerReceiver(mBluetoothStatusReceiver, filter);
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+        mContext.unregisterReceiver(mBluetoothStatusReceiver);
+        super.finalize();
     }
 
     public synchronized void setForegroundDispatch(PendingIntent intent,
@@ -207,7 +224,8 @@ class NfcDispatcher {
         }
 
         public boolean isWebIntent() {
-            return ndefUri != null && ndefUri.normalizeScheme().getScheme().startsWith("http");
+            return ndefUri != null && ndefUri.normalizeScheme().getScheme() != null &&
+                ndefUri.normalizeScheme().getScheme().startsWith("http");
         }
 
         public String getUri() {
@@ -538,9 +556,13 @@ class NfcDispatcher {
                 return false;
             }
             Intent appLaunchIntent = pm.getLaunchIntentForPackage(firstPackage);
-            if (appLaunchIntent != null && dispatch.tryStartActivity(appLaunchIntent)) {
-                if (DBG) Log.i(TAG, "matched AAR to application launch");
-                return true;
+            if (appLaunchIntent != null) {
+                ResolveInfo ri = pm.resolveActivity(appLaunchIntent, 0);
+                if (ri != null && ri.activityInfo != null && ri.activityInfo.exported &&
+                        dispatch.tryStartActivity(appLaunchIntent)) {
+                    if (DBG) Log.i(TAG, "matched AAR to application launch");
+                    return true;
+                }
             }
             // Find the package in Market:
             Intent marketIntent = getAppSearchIntent(firstPackage);
@@ -559,9 +581,18 @@ class NfcDispatcher {
             return true;
         }
 
-        if (dispatch.tryStartActivity()) {
-            if (DBG) Log.i(TAG, "matched NDEF");
-            return true;
+        try {
+            UserHandle currentUser = new UserHandle(ActivityManager.getCurrentUser());
+            PackageManager pm = mContext.createPackageContextAsUser("android", 0,
+                        currentUser).getPackageManager();
+            ResolveInfo ri = pm.resolveActivity(intent, 0);
+
+            if (ri != null && ri.activityInfo != null && ri.activityInfo.exported && dispatch.tryStartActivity()) {
+                if (DBG) Log.i(TAG, "matched NDEF");
+                return true;
+            }
+        } catch (NameNotFoundException ignore) {
+            Log.e(TAG, "Could not create user package context");
         }
 
         return false;
@@ -603,7 +634,9 @@ class NfcDispatcher {
             if (filterMatch(tagTechs, info.techs) &&
                     isComponentEnabled(pm, info.resolveInfo)) {
                 // Add the activity as a match if it's not already in the list
-                if (!matches.contains(info.resolveInfo)) {
+                // Check if exported flag is not explicitly set to false to prevent
+                // SecurityExceptions.
+                if (!matches.contains(info.resolveInfo) && info.resolveInfo.activityInfo.exported) {
                     matches.add(info.resolveInfo);
                 }
             }
@@ -659,6 +692,8 @@ class NfcDispatcher {
         if (handover.btClass != null) {
             intent.putExtra(PeripheralHandoverService.EXTRA_PERIPHERAL_CLASS, handover.btClass);
         }
+        intent.putExtra(PeripheralHandoverService.EXTRA_BT_ENABLED, mBluetoothEnabledByNfc.get());
+        intent.putExtra(PeripheralHandoverService.EXTRA_CLIENT, mMessenger);
         mContext.startServiceAsUser(intent, UserHandle.CURRENT);
 
         return true;
@@ -763,4 +798,38 @@ class NfcDispatcher {
             pw.println("mOverrideTechLists=" + mOverrideTechLists);
         }
     }
+
+    private class MessageHandler extends Handler {
+        @Override
+        public void handleMessage(Message msg) {
+            if (DBG) Log.d(TAG, "handleMessage: msg=" + msg);
+
+            switch (msg.what) {
+                case PeripheralHandoverService.MSG_HEADSET_CONNECTED:
+                case PeripheralHandoverService.MSG_HEADSET_NOT_CONNECTED:
+                    mBluetoothEnabledByNfc.set(msg.arg1 != 0);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    final BroadcastReceiver mBluetoothStatusReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
+                handleBluetoothStateChanged(intent);
+            }
+        }
+
+        private void handleBluetoothStateChanged(Intent intent) {
+            int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
+                    BluetoothAdapter.ERROR);
+            if (state == BluetoothAdapter.STATE_OFF) {
+                mBluetoothEnabledByNfc.set(false);
+            }
+        }
+    };
 }

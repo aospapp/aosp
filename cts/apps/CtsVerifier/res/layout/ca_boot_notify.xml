@@ -47,12 +47,29 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/caboot_if_not_installed" />
+            <TextView
+                android:id="@+id/need_to_install_cert_instructions"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/cacert_install_cert" />
 
             <Button
                 android:id="@+id/install"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/caboot_install_cert" />
+
+            <TextView
+                android:id="@+id/remove_screen_lock_description"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/cacert_remove_screen_lock" />
+
+            <Button
+                android:id="@+id/remove_screen_lock"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/caboot_remove_screen_lock" />
 
             <TextView
                 android:id="@+id/reboot"

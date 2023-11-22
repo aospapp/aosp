@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -55,17 +55,6 @@ enum {
 };
 
 typedef uint8_t tBTM_STATUS;
-
-#if (BTA_HOST_INTERLEAVE_SEARCH == TRUE)
-typedef enum {
-  BTM_BR_ONE,         /*0 First state or BR/EDR scan 1*/
-  BTM_BLE_ONE,        /*1BLE scan 1*/
-  BTM_BR_TWO,         /*2 BR/EDR scan 2*/
-  BTM_BLE_TWO,        /*3 BLE scan 2*/
-  BTM_FINISH,         /*4 End of Interleave Scan, or normal scan*/
-  BTM_NO_INTERLEAVING /*5 No Interleaving*/
-} btm_inq_state;
-#endif
 
 /*************************
  *  Device Control Types
@@ -608,10 +597,6 @@ typedef struct /* contains the parameters passed to the inquiry functions */
                       */
   uint8_t filter_cond_type; /* new devices, BD ADDR, COD, or No filtering */
   tBTM_INQ_FILT_COND filter_cond; /* filter value based on filter cond type */
-#if (BTA_HOST_INTERLEAVE_SEARCH == TRUE)
-  uint8_t intl_duration
-      [4]; /*duration array storing the interleave scan's time portions*/
-#endif
 } tBTM_INQ_PARMS;
 
 #define BTM_INQ_RESULT_BR 0x01
@@ -1602,7 +1587,7 @@ typedef uint8_t tBTM_LE_EVT;
 typedef uint8_t tBTM_LE_KEY_TYPE;
 
 #define BTM_LE_AUTH_REQ_NO_BOND SMP_AUTH_NO_BOND /* 0 */
-#define BTM_LE_AUTH_REQ_BOND SMP_AUTH_GEN_BOND   /* 1 << 0 */
+#define BTM_LE_AUTH_REQ_BOND SMP_AUTH_BOND       /* 1 << 0 */
 #define BTM_LE_AUTH_REQ_MITM SMP_AUTH_YN_BIT     /* 1 << 2 */
 typedef uint8_t tBTM_LE_AUTH_REQ;
 #define BTM_LE_SC_SUPPORT_BIT SMP_SC_SUPPORT_BIT /* (1 << 3) */

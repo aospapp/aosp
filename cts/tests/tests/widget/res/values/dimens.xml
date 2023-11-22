@@ -45,6 +45,17 @@
     <dimen name="textview_padding_bottom">4dip</dimen>
     <dimen name="textview_drawable_padding">2dip</dimen>
 
+    <dimen name="textview_firstBaselineToTopHeight">100dp</dimen>
+    <dimen name="textview_lastBaselineToBottomHeight">30dp</dimen>
+    <dimen name="textview_lineHeight">60dp</dimen>
+
     <dimen name="radiogroup_margin">4dip</dimen>
     <dimen name="listrow_height">40dp</dimen>
+
+    <dimen name="calendarview_holo_height">320dip</dimen>
+
+    <dimen name="imageview_regular_height">240dip</dimen>
+
+    <dimen name="listviewfixed_layout_width">300dp</dimen>
+    <dimen name="listviewfixed_layout_height">300dp</dimen>
 </resources>

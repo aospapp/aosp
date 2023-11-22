@@ -18,6 +18,7 @@
 from struct import *
 from GenFdsGlobalVariable import GenFdsGlobalVariable
 import StringIO
+import string
 from CommonDataClass.FdfClass import RegionClassObject
 import Common.LongFilePathOs as os
 from stat import *
@@ -38,6 +39,25 @@ class Region(RegionClassObject):
     def __init__(self):
         RegionClassObject.__init__(self)
 
+
+    ## PadBuffer()
+    #
+    #   Add padding bytes to the Buffer
+    #
+    #   @param Buffer         The buffer the generated region data will be put
+    #                         in
+    #   @param ErasePolarity  Flash erase polarity
+    #   @param Size           Number of padding bytes requested
+    #
+
+    def PadBuffer(self, Buffer, ErasePolarity, Size):
+        if Size > 0:
+            if (ErasePolarity == '1') :
+                PadByte = pack('B', 0xFF)
+            else:
+                PadByte = pack('B', 0)
+            PadData = ''.join(PadByte for i in xrange(0, Size))
+            Buffer.write(PadData)
 
     ## AddToBuffer()
     #
@@ -128,20 +148,14 @@ class Region(RegionClassObject):
                         EdkLogger.error("GenFds", GENFDS_ERROR,
                                         "Size of FV File (%s) is larger than Region Size 0x%X specified." \
                                         % (RegionData, Size))
-                    BinFile = open(FileName, 'r+b')
+                    BinFile = open(FileName, 'rb')
                     Buffer.write(BinFile.read())
                     BinFile.close()
                     Size = Size - FileLength
             #
             # Pad the left buffer
             #
-            if Size > 0:
-                if (ErasePolarity == '1') :
-                    PadData = 0xFF
-                else :
-                    PadData = 0
-                for i in range(0, Size):
-                    Buffer.write(pack('B', PadData))
+            self.PadBuffer(Buffer, ErasePolarity, Size)
 
         if self.RegionType == 'CAPSULE':
             #
@@ -187,20 +201,14 @@ class Region(RegionClassObject):
                     EdkLogger.error("GenFds", GENFDS_ERROR,
                                     "Size 0x%X of Capsule File (%s) is larger than Region Size 0x%X specified." \
                                     % (FileLength, RegionData, Size))
-                BinFile = open(FileName, 'r+b')
+                BinFile = open(FileName, 'rb')
                 Buffer.write(BinFile.read())
                 BinFile.close()
                 Size = Size - FileLength
             #
             # Pad the left buffer
             #
-            if Size > 0:
-                if (ErasePolarity == '1') :
-                    PadData = 0xFF
-                else :
-                    PadData = 0
-                for i in range(0, Size):
-                    Buffer.write(pack('B', PadData))
+            self.PadBuffer(Buffer, ErasePolarity, Size)
 
         if self.RegionType in ('FILE', 'INF'):
             for RegionData in self.RegionDataList:
@@ -232,13 +240,7 @@ class Region(RegionClassObject):
             #
             # Pad the left buffer
             #
-            if Size > 0:
-                if (ErasePolarity == '1') :
-                    PadData = 0xFF
-                else :
-                    PadData = 0
-                for i in range(0, Size):
-                    Buffer.write(pack('B', PadData))
+            self.PadBuffer(Buffer, ErasePolarity, Size)
 
         if self.RegionType == 'DATA' :
             GenFdsGlobalVariable.InfLogger('   Region Name = DATA')
@@ -255,22 +257,11 @@ class Region(RegionClassObject):
             #
             # Pad the left buffer
             #
-            if Size > 0:
-                if (ErasePolarity == '1') :
-                    PadData = 0xFF
-                else :
-                    PadData = 0
-                for i in range(0, Size):
-                    Buffer.write(pack('B', PadData))
+            self.PadBuffer(Buffer, ErasePolarity, Size)
 
         if self.RegionType == None:
             GenFdsGlobalVariable.InfLogger('   Region Name = None')
-            if (ErasePolarity == '1') :
-                PadData = 0xFF
-            else :
-                PadData = 0
-            for i in range(0, Size):
-                Buffer.write(pack('B', PadData))
+            self.PadBuffer(Buffer, ErasePolarity, Size)
 
     def GetFvAlignValue(self, Str):
         AlignValue = 1

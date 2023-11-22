@@ -1,5 +1,5 @@
 # evs_mock mock hardware driver service
-type hal_evs_driver, domain;
+type hal_evs_driver, domain, coredomain;
 hal_server_domain(hal_evs_driver, hal_evs)
 
 # allow init to launch processes in this context

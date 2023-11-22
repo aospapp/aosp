@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2015 Google, Inc.
+//  Copyright 2015 Google, Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -330,9 +330,9 @@ class AdapterImpl : public Adapter, public hal::BluetoothInterface::Observer {
     }
 
     lock_guard<mutex> lock(observers_lock_);
-    FOR_EACH_OBSERVER(
-        Adapter::Observer, observers_,
-        OnDeviceConnectionStateChanged(this, device_address, connected));
+    for (auto& observer : observers_) {
+      observer.OnDeviceConnectionStateChanged(this, device_address, connected);
+    }
   }
 
   // Sends a request to set the given HAL adapter property type and value.
@@ -362,8 +362,9 @@ class AdapterImpl : public Adapter, public hal::BluetoothInterface::Observer {
     if (prev_state == new_state) return;
 
     lock_guard<mutex> lock(observers_lock_);
-    FOR_EACH_OBSERVER(Adapter::Observer, observers_,
-                      OnAdapterStateChanged(this, prev_state, new_state));
+    for (auto& observer : observers_) {
+      observer.OnAdapterStateChanged(this, prev_state, new_state);
+    }
   }
 
  private:

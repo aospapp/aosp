@@ -71,7 +71,7 @@ SerialPortGetBaseAddress (
   UINTN               UartBase;
   RETURN_STATUS       Status;
 
-  DeviceTreeBase = (VOID *)(UINTN)FixedPcdGet64 (PcdDeviceTreeInitialBaseAddress);
+  DeviceTreeBase = (VOID *)(UINTN)PcdGet64 (PcdDeviceTreeInitialBaseAddress);
 
   if ((DeviceTreeBase == NULL) || (fdt_check_header (DeviceTreeBase) != 0)) {
     return 0;
@@ -112,7 +112,13 @@ SerialPortGetBaseAddress (
 
         Status = PL011UartInitializePort (
                    UartBase,
-                   &BaudRate, &ReceiveFifoDepth, &Parity, &DataBits, &StopBits);
+                   FixedPcdGet32 (PL011UartClkInHz),
+                   &BaudRate,
+                   &ReceiveFifoDepth,
+                   &Parity,
+                   &DataBits,
+                   &StopBits
+                   );
         if (!EFI_ERROR (Status)) {
           return UartBase;
         }

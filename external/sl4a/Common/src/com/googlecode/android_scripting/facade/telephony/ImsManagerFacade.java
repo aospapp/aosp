@@ -51,28 +51,28 @@ public class ImsManagerFacade extends RpcReceiver {
     */
     @Rpc(description = "Resets ImsManager settings to factory default.")
     public void imsFactoryReset() {
-        mImsManager.factoryResetSlot();
+        mImsManager.factoryReset();
     }
 
     @Rpc(description = "Return True if Enhanced 4g Lte mode is enabled by platform.")
     public boolean imsIsEnhanced4gLteModeSettingEnabledByPlatform() {
-        return mImsManager.isVolteEnabledByPlatformForSlot();
+        return mImsManager.isVolteEnabledByPlatform();
     }
 
     @Rpc(description = "Return True if Enhanced 4g Lte mode is enabled by user.")
     public boolean imsIsEnhanced4gLteModeSettingEnabledByUser() {
-        return mImsManager.isEnhanced4gLteModeSettingEnabledByUserForSlot();
+        return mImsManager.isEnhanced4gLteModeSettingEnabledByUser();
     }
 
     @Rpc(description = "Set Enhanced 4G mode.")
     public void imsSetEnhanced4gMode(
             @RpcParameter(name = "enable") Boolean enable) {
-        mImsManager.setEnhanced4gLteModeSettingForSlot(enable);
+        mImsManager.setEnhanced4gLteModeSetting(enable);
     }
 
     @Rpc(description = "Check for VoLTE Provisioning.")
     public boolean imsIsVolteProvisionedOnDevice() {
-        return mImsManager.isVolteProvisionedOnDeviceForSlot();
+        return mImsManager.isVolteProvisionedOnDevice();
     }
 
     @Rpc(description = "Set Modem Provisioning for VoLTE")
@@ -103,7 +103,7 @@ public class ImsManagerFacade extends RpcReceiver {
 
     @Rpc(description = "Return True if WiFi Calling is enabled during roaming.")
     public boolean imsIsWfcRoamingEnabledByUser() {
-        return mImsManager.isWfcEnabledByPlatformForSlot();
+        return mImsManager.isWfcEnabledByPlatform();
     }
 
     @Rpc(description = "Set the Wifi Calling Mode of operation")
@@ -128,42 +128,42 @@ public class ImsManagerFacade extends RpcReceiver {
                         ImsConfig.WfcModeFeatureValueConstants.WIFI_PREFERRED;
                 break;
             case TelephonyConstants.WFC_MODE_DISABLED:
-                if (mImsManager.isWfcEnabledByPlatformForSlot()
-                        && mImsManager.isWfcEnabledByUserForSlot()) {
-                    mImsManager.setWfcSettingForSlot(false);
+                if (mImsManager.isWfcEnabledByPlatform()
+                        && mImsManager.isWfcEnabledByUser()) {
+                    mImsManager.setWfcSetting(false);
                 }
                 return;
             default:
                 throw new IllegalArgumentException("Invalid WfcMode");
         }
 
-        if (mImsManager.isWfcEnabledByPlatformForSlot()
-                && !mImsManager.isWfcEnabledByUserForSlot()) {
-            mImsManager.setWfcSettingForSlot(true);
+        if (mImsManager.isWfcEnabledByPlatform()
+                && !mImsManager.isWfcEnabledByUser()) {
+            mImsManager.setWfcSetting(true);
         }
-        mImsManager.setWfcModeForSlot(mode_val);
+        mImsManager.setWfcMode(mode_val);
 
         return;
     }
 
     @Rpc(description = "Return current WFC Mode if Enabled.")
     public String imsGetWfcMode() {
-        if (!mImsManager.isWfcEnabledByUserForSlot()) {
+        if (!mImsManager.isWfcEnabledByUser()) {
             return TelephonyConstants.WFC_MODE_DISABLED;
         }
         return TelephonyUtils.getWfcModeString(
-            mImsManager.getWfcModeForSlot());
+            mImsManager.getWfcMode());
     }
 
     @Rpc(description = "Return True if WiFi Calling is enabled by user.")
     public boolean imsIsWfcEnabledByUser() {
-        return mImsManager.isWfcEnabledByUserForSlot();
+        return mImsManager.isWfcEnabledByUser();
     }
 
     @Rpc(description = "Set whether or not WFC is enabled")
     public void imsSetWfcSetting(
                         @RpcParameter(name = "enable")  Boolean enable) {
-        mImsManager.setWfcSettingForSlot(enable);
+        mImsManager.setWfcSetting(enable);
     }
 
     /**************************
@@ -172,22 +172,22 @@ public class ImsManagerFacade extends RpcReceiver {
 
     @Rpc(description = "Return True if Video Calling is enabled by the platform.")
     public boolean imsIsVtEnabledByPlatform() {
-        return mImsManager.isVtEnabledByPlatformForSlot();
+        return mImsManager.isVtEnabledByPlatform();
     }
 
     @Rpc(description = "Return True if Video Calling is provisioned for this device.")
     public boolean imsIsVtProvisionedOnDevice() {
-        return mImsManager.isVtProvisionedOnDeviceForSlot();
+        return mImsManager.isVtProvisionedOnDevice();
     }
 
     @Rpc(description = "Set Video Telephony Enabled")
     public void imsSetVtSetting(Boolean enabled) {
-        mImsManager.setVtSettingForSlot(enabled);
+        mImsManager.setVtSetting(enabled);
     }
 
     @Rpc(description = "Return user enabled status for Video Telephony")
     public boolean imsIsVtEnabledByUser() {
-        return mImsManager.isVtEnabledByUserForSlot();
+        return mImsManager.isVtEnabledByUser();
     }
 
     @Override

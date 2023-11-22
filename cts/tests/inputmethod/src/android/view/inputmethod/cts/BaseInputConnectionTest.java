@@ -22,88 +22,61 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import android.app.Instrumentation;
 import android.content.ClipDescription;
-import android.content.Context;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.text.Editable;
 import android.text.Selection;
 import android.text.Spannable;
 import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextUtils;
-import android.view.KeyCharacterMap;
-import android.view.KeyEvent;
 import android.view.View;
-import android.view.Window;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputContentInfo;
 import android.view.inputmethod.InputMethodManager;
-import android.view.inputmethod.cts.R;
 import android.view.inputmethod.cts.util.InputConnectionTestUtils;
-import android.widget.EditText;
 
-import com.android.compatibility.common.util.PollingCheck;
-
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class BaseInputConnectionTest {
-    /** Extended timeout in case the system is sluggish */
-    private static final long WINDOW_FOCUS_TIMEOUT = 10000;
 
-    private Instrumentation mInstrumentation;
-    private InputMethodCtsActivity mActivity;
-    private Window mWindow;
-    private EditText mView;
-    private BaseInputConnection mConnection;
-
-    @Rule
-    public ActivityTestRule<InputMethodCtsActivity> mActivityRule =
-            new ActivityTestRule<>(InputMethodCtsActivity.class);
-
-    @Before
-    public void setup() {
-        mInstrumentation = InstrumentationRegistry.getInstrumentation();
-        mActivity = mActivityRule.getActivity();
-        PollingCheck.waitFor(WINDOW_FOCUS_TIMEOUT, mActivity::hasWindowFocus);
-        mWindow = mActivity.getWindow();
-        mView = (EditText) mWindow.findViewById(R.id.entry);
-        mConnection = new BaseInputConnection(mView, true);
+    private static BaseInputConnection createBaseInputConnection() {
+        final View view = new View(InstrumentationRegistry.getTargetContext());
+        return new BaseInputConnection(view, true);
     }
 
     @Test
     public void testDefaultMethods() {
         // These methods are default to return fixed result.
+        final BaseInputConnection connection = createBaseInputConnection();
 
-        assertFalse(mConnection.beginBatchEdit());
-        assertFalse(mConnection.endBatchEdit());
+        assertFalse(connection.beginBatchEdit());
+        assertFalse(connection.endBatchEdit());
 
         // only fit for test default implementation of commitCompletion.
         int completionId = 1;
         String completionString = "commitCompletion test";
-        assertFalse(mConnection.commitCompletion(new CompletionInfo(completionId,
+        assertFalse(connection.commitCompletion(new CompletionInfo(completionId,
                 0, completionString)));
 
-        assertNull(mConnection.getExtractedText(new ExtractedTextRequest(), 0));
+        assertNull(connection.getExtractedText(new ExtractedTextRequest(), 0));
 
         // only fit for test default implementation of performEditorAction.
         int actionCode = 1;
         int actionId = 2;
         String action = "android.intent.action.MAIN";
-        assertTrue(mConnection.performEditorAction(actionCode));
-        assertFalse(mConnection.performContextMenuAction(actionId));
-        assertFalse(mConnection.performPrivateCommand(action, new Bundle()));
+        assertTrue(connection.performEditorAction(actionCode));
+        assertFalse(connection.performContextMenuAction(actionId));
+        assertFalse(connection.performPrivateCommand(action, new Bundle()));
     }
 
     @Test
@@ -123,124 +96,76 @@ public class BaseInputConnectionTest {
      * clearMetaKeyStates: Default implementation uses
      *              MetaKeyKeyListener#clearMetaKeyState(long, int) to clear the state.
      *              BugId:1738511
-     * commitText: 1. Default implementation replaces any existing composing text with the given
-     *                text.
-     *             2. In addition, only if dummy mode, a key event is sent for the new text and the
-     *                current editable buffer cleared.
+     * commitText: Default implementation replaces any existing composing text with the given
+     *             text.
      * deleteSurroundingText: The default implementation performs the deletion around the current
      *              selection position of the editable text.
-     * getCursorCapsMode: 1. The default implementation uses TextUtils.getCapsMode to get the
+     * getCursorCapsMode: The default implementation uses TextUtils.getCapsMode to get the
      *                  cursor caps mode for the current selection position in the editable text.
      *                  TextUtils.getCapsMode is tested fully in TextUtilsTest#testGetCapsMode.
-     *                    2. In dummy mode in which case 0 is always returned.
      * getTextBeforeCursor, getTextAfterCursor: The default implementation performs the deletion
      *                          around the current selection position of the editable text.
      * setSelection: changes the selection position in the current editable text.
      */
     @Test
-    public void testOpTextMethods() throws Throwable {
+    public void testOpTextMethods() {
+        final BaseInputConnection connection = createBaseInputConnection();
+
         // return is an default Editable instance with empty source
-        final Editable text = mConnection.getEditable();
+        final Editable text = connection.getEditable();
         assertNotNull(text);
         assertEquals(0, text.length());
 
         // Test commitText, not dummy mode
         CharSequence str = "TestCommit ";
         Editable inputText = Editable.Factory.getInstance().newEditable(str);
-        mConnection.commitText(inputText, inputText.length());
-        final Editable text2 = mConnection.getEditable();
+        connection.commitText(inputText, inputText.length());
+        final Editable text2 = connection.getEditable();
         int strLength = str.length();
         assertEquals(strLength, text2.length());
         assertEquals(str.toString(), text2.toString());
         assertEquals(TextUtils.CAP_MODE_WORDS,
-                mConnection.getCursorCapsMode(TextUtils.CAP_MODE_WORDS));
+                connection.getCursorCapsMode(TextUtils.CAP_MODE_WORDS));
         int offLength = 3;
         CharSequence expected = str.subSequence(strLength - offLength, strLength);
-        assertEquals(expected.toString(), mConnection.getTextBeforeCursor(offLength,
+        assertEquals(expected.toString(), connection.getTextBeforeCursor(offLength,
                 BaseInputConnection.GET_TEXT_WITH_STYLES).toString());
-        mConnection.setSelection(0, 0);
+        connection.setSelection(0, 0);
         expected = str.subSequence(0, offLength);
-        assertEquals(expected.toString(), mConnection.getTextAfterCursor(offLength,
+        assertEquals(expected.toString(), connection.getTextAfterCursor(offLength,
                 BaseInputConnection.GET_TEXT_WITH_STYLES).toString());
-
-        mActivityRule.runOnUiThread(() -> {
-            assertTrue(mView.requestFocus());
-            assertTrue(mView.isFocused());
-        });
-
-        // dummy mode
-        BaseInputConnection dummyConnection = new BaseInputConnection(mView, false);
-        dummyConnection.commitText(inputText, inputText.length());
-        PollingCheck.waitFor(() -> text2.toString().equals(mView.getText().toString()));
-        assertEquals(0, dummyConnection.getCursorCapsMode(TextUtils.CAP_MODE_WORDS));
 
         // Test deleteSurroundingText
         int end = text2.length();
-        mConnection.setSelection(end, end);
+        connection.setSelection(end, end);
         // Delete the ending space
-        assertTrue(mConnection.deleteSurroundingText(1, 2));
-        Editable text3 = mConnection.getEditable();
+        assertTrue(connection.deleteSurroundingText(1, 2));
+        Editable text3 = connection.getEditable();
         assertEquals(strLength - 1, text3.length());
         String expectedDelString = "TestCommit";
         assertEquals(expectedDelString, text3.toString());
     }
 
     /**
-     * finishComposingText: 1. The default implementation removes the composing state from the
-     *                         current editable text.
-     *                      2. In addition, only if dummy mode, a key event is sent for the new
-     *                         text and the current editable buffer cleared.
+     * finishComposingText: The default implementation removes the composing state from the
+     *                      current editable text.
      * setComposingText: The default implementation places the given text into the editable,
      *                  replacing any existing composing text
      */
     @Test
-    public void testFinishComposingText() throws Throwable {
+    public void testFinishComposingText() {
+        final BaseInputConnection connection = createBaseInputConnection();
         CharSequence str = "TestFinish";
         Editable inputText = Editable.Factory.getInstance().newEditable(str);
-        mConnection.commitText(inputText, inputText.length());
-        final Editable text = mConnection.getEditable();
+        connection.commitText(inputText, inputText.length());
+        final Editable text = connection.getEditable();
         // Test finishComposingText, not dummy mode
         BaseInputConnection.setComposingSpans(text);
         assertTrue(BaseInputConnection.getComposingSpanStart(text) > -1);
         assertTrue(BaseInputConnection.getComposingSpanEnd(text) > -1);
-        mConnection.finishComposingText();
+        connection.finishComposingText();
         assertTrue(BaseInputConnection.getComposingSpanStart(text) == -1);
         assertTrue(BaseInputConnection.getComposingSpanEnd(text) == -1);
-
-        mActivityRule.runOnUiThread(() -> {
-            assertTrue(mView.requestFocus());
-            assertTrue(mView.isFocused());
-        });
-
-        // dummy mode
-        BaseInputConnection dummyConnection = new BaseInputConnection(mView, false);
-        dummyConnection.setComposingText(str, str.length());
-        dummyConnection.finishComposingText();
-        PollingCheck.waitFor(() -> text.toString().equals(mView.getText().toString()));
-    }
-
-    /**
-     * Provides standard implementation for sending a key event to the window
-     * attached to the input connection's view
-     */
-    @Test
-    public void testSendKeyEvent() throws Throwable {
-        mActivityRule.runOnUiThread(() -> {
-            assertTrue(mView.requestFocus());
-            assertTrue(mView.isFocused());
-        });
-
-        // 12-key support
-        KeyCharacterMap keymap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
-        if (keymap.getKeyboardType() == KeyCharacterMap.NUMERIC) {
-            // 'Q' in case of 12-key(NUMERIC) keyboard
-            mConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_7));
-            mConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_7));
-        } else {
-            mInstrumentation.sendStringSync("q");
-            mInstrumentation.waitForIdleSync();
-        }
-        PollingCheck.waitFor(() -> "q".equals(mView.getText().toString()));
     }
 
     /**
@@ -248,31 +173,32 @@ public class BaseInputConnectionTest {
      */
     @Test
     public void testReportFullscreenMode() {
-        InputMethodManager imManager = (InputMethodManager) mInstrumentation.getTargetContext()
-                .getSystemService(Context.INPUT_METHOD_SERVICE);
-        mConnection.reportFullscreenMode(false);
-        assertFalse(imManager.isFullscreenMode());
-        mConnection.reportFullscreenMode(true);
+        final InputMethodManager imm = InstrumentationRegistry.getInstrumentation()
+                .getTargetContext().getSystemService(InputMethodManager.class);
+        final BaseInputConnection connection = createBaseInputConnection();
+        connection.reportFullscreenMode(false);
+        assertFalse(imm.isFullscreenMode());
+        connection.reportFullscreenMode(true);
         // Only IMEs are allowed to report full-screen mode.  Calling this method from the
         // application should have no effect.
-        assertFalse(imManager.isFullscreenMode());
+        assertFalse(imm.isFullscreenMode());
     }
 
     /**
-     * An utility method to create an instance of {@link BaseInputConnection} in dummy mode with
-     * an initial text and selection range.
-     * @param view the {@link View} to be associated with the {@link BaseInputConnection}.
+     * An utility method to create an instance of {@link BaseInputConnection} in the full editor
+     * mode with an initial text and selection range.
+     *
      * @param source the initial text.
-     * @return {@link BaseInputConnection} instantiated in dummy mode with {@code source} and
-     * selection range from {@code selectionStart} to {@code selectionEnd}
+     * @return {@link BaseInputConnection} instantiated in the full editor mode with {@code source}
+     *         and selection range from {@code selectionStart} to {@code selectionEnd}
      */
-    private static BaseInputConnection createDummyConnectionWithSelection(
-            final View view, final CharSequence source) {
+    private static BaseInputConnection createConnectionWithSelection(CharSequence source) {
         final int selectionStart = Selection.getSelectionStart(source);
         final int selectionEnd = Selection.getSelectionEnd(source);
         final Editable editable = Editable.Factory.getInstance().newEditable(source);
         Selection.setSelection(editable, selectionStart, selectionEnd);
-        return new BaseInputConnection(view, false) {
+        final View view = new View(InstrumentationRegistry.getTargetContext());
+        return new BaseInputConnection(view, true) {
             @Override
             public Editable getEditable() {
                 return editable;
@@ -280,10 +206,10 @@ public class BaseInputConnectionTest {
         };
     }
 
-    private void verifyDeleteSurroundingTextMain(final String initialState,
+    private static void verifyDeleteSurroundingTextMain(final String initialState,
             final int deleteBefore, final int deleteAfter, final String expectedState) {
         final CharSequence source = InputConnectionTestUtils.formatString(initialState);
-        final BaseInputConnection ic = createDummyConnectionWithSelection(mView, source);
+        final BaseInputConnection ic = createConnectionWithSelection(source);
         ic.deleteSurroundingText(deleteBefore, deleteAfter);
 
         final CharSequence expectedString = InputConnectionTestUtils.formatString(expectedState);
@@ -318,7 +244,7 @@ public class BaseInputConnectionTest {
      * Tests {@link BaseInputConnection#deleteSurroundingText(int, int)} comprehensively.
      */
     @Test
-    public void testDeleteSurroundingText() throws Throwable {
+    public void testDeleteSurroundingText() {
         verifyDeleteSurroundingTextMain("012[]3456789", 0, 0, "012[]3456789");
         verifyDeleteSurroundingTextMain("012[]3456789", -1, -1, "012[]3456789");
         verifyDeleteSurroundingTextMain("012[]3456789", 1, 2, "01[]56789");
@@ -358,11 +284,10 @@ public class BaseInputConnectionTest {
         verifyDeleteSurroundingTextMain("012[]>>56789", 0, 3, "012[]6789");
     }
 
-    private void verifyDeleteSurroundingTextInCodePointsMain(final String initialState,
-            final int deleteBeforeInCodePoints, final int deleteAfterInCodePoints,
-            final String expectedState) {
+    private static void verifyDeleteSurroundingTextInCodePointsMain(String initialState,
+            int deleteBeforeInCodePoints, int deleteAfterInCodePoints, String expectedState) {
         final CharSequence source = InputConnectionTestUtils.formatString(initialState);
-        final BaseInputConnection ic = createDummyConnectionWithSelection(mView, source);
+        final BaseInputConnection ic = createConnectionWithSelection(source);
         ic.deleteSurroundingTextInCodePoints(deleteBeforeInCodePoints, deleteAfterInCodePoints);
 
         final CharSequence expectedString = InputConnectionTestUtils.formatString(expectedState);
@@ -399,7 +324,7 @@ public class BaseInputConnectionTest {
      * comprehensively.
      */
     @Test
-    public void testDeleteSurroundingTextInCodePoints() throws Throwable {
+    public void testDeleteSurroundingTextInCodePoints() {
         verifyDeleteSurroundingTextInCodePointsMain("012[]3456789", 0, 0, "012[]3456789");
         verifyDeleteSurroundingTextInCodePointsMain("012[]3456789", -1, -1, "012[]3456789");
         verifyDeleteSurroundingTextInCodePointsMain("012[]3456789", 1, 2, "01[]56789");
@@ -491,32 +416,50 @@ public class BaseInputConnectionTest {
 
     @Test
     public void testCloseConnection() {
+        final BaseInputConnection connection = createBaseInputConnection();
+
         final CharSequence source = "0123456789";
-        mConnection.commitText(source, source.length());
-        final Editable text = mConnection.getEditable();
-        BaseInputConnection.setComposingSpans(text, 2, 5);
+        connection.commitText(source, source.length());
+        connection.setComposingRegion(2, 5);
+        final Editable text = connection.getEditable();
         assertEquals(2, BaseInputConnection.getComposingSpanStart(text));
         assertEquals(5, BaseInputConnection.getComposingSpanEnd(text));
 
         // BaseInputConnection#closeConnection() must clear the on-going composition.
-        mConnection.closeConnection();
+        connection.closeConnection();
         assertEquals(-1, BaseInputConnection.getComposingSpanStart(text));
         assertEquals(-1, BaseInputConnection.getComposingSpanEnd(text));
     }
 
     @Test
     public void testGetHandler() {
+        final BaseInputConnection connection = createBaseInputConnection();
+
         // BaseInputConnection must not implement getHandler().
-        assertNull(mConnection.getHandler());
+        assertNull(connection.getHandler());
     }
 
     @Test
     public void testCommitContent() {
+        final BaseInputConnection connection = createBaseInputConnection();
+
         final InputContentInfo inputContentInfo = new InputContentInfo(
                 Uri.parse("content://com.example/path"),
                 new ClipDescription("sample content", new String[]{"image/png"}),
                 Uri.parse("https://example.com"));
         // The default implementation should do nothing and just return false.
-        assertFalse(mConnection.commitContent(inputContentInfo, 0 /* flags */, null /* opts */));
+        assertFalse(connection.commitContent(inputContentInfo, 0 /* flags */, null /* opts */));
+    }
+
+    @Test
+    public void testGetSelectedText_wrongSelection() {
+        final BaseInputConnection connection = createBaseInputConnection();
+        Editable editable = connection.getEditable();
+        editable.append("hello");
+        editable.setSpan(Selection.SELECTION_START, 4, 4, Spanned.SPAN_POINT_POINT);
+        editable.removeSpan(Selection.SELECTION_END);
+
+        // Should not crash.
+        connection.getSelectedText(0);
     }
 }

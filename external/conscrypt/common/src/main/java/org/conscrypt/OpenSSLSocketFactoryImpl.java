@@ -16,6 +16,9 @@
 
 package org.conscrypt;
 
+import static org.conscrypt.Platform.createEngineSocket;
+import static org.conscrypt.Platform.createFileDescriptorSocket;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
@@ -85,19 +88,19 @@ final class OpenSSLSocketFactoryImpl extends SSLSocketFactory {
             throw instantiationException;
         }
         if (useEngineSocket) {
-            return new ConscryptEngineSocket((SSLParametersImpl) sslParameters.clone());
+            return createEngineSocket((SSLParametersImpl) sslParameters.clone());
         } else {
-            return new ConscryptFileDescriptorSocket((SSLParametersImpl) sslParameters.clone());
+            return createFileDescriptorSocket((SSLParametersImpl) sslParameters.clone());
         }
     }
 
     @Override
     public Socket createSocket(String hostname, int port) throws IOException, UnknownHostException {
         if (useEngineSocket) {
-            return new ConscryptEngineSocket(
+            return createEngineSocket(
                     hostname, port, (SSLParametersImpl) sslParameters.clone());
         } else {
-            return new ConscryptFileDescriptorSocket(
+            return createFileDescriptorSocket(
                     hostname, port, (SSLParametersImpl) sslParameters.clone());
         }
     }
@@ -106,21 +109,21 @@ final class OpenSSLSocketFactoryImpl extends SSLSocketFactory {
     public Socket createSocket(String hostname, int port, InetAddress localHost, int localPort)
             throws IOException, UnknownHostException {
         if (useEngineSocket) {
-            return new ConscryptEngineSocket(hostname, port, localHost, localPort,
-                    (SSLParametersImpl) sslParameters.clone());
+            return createEngineSocket(hostname, port, localHost,
+                    localPort, (SSLParametersImpl) sslParameters.clone());
         } else {
-            return new ConscryptFileDescriptorSocket(hostname, port, localHost, localPort,
-                    (SSLParametersImpl) sslParameters.clone());
+            return createFileDescriptorSocket(hostname, port, localHost,
+                    localPort, (SSLParametersImpl) sslParameters.clone());
         }
     }
 
     @Override
     public Socket createSocket(InetAddress address, int port) throws IOException {
         if (useEngineSocket) {
-            return new ConscryptEngineSocket(
+            return createEngineSocket(
                     address, port, (SSLParametersImpl) sslParameters.clone());
         } else {
-            return new ConscryptFileDescriptorSocket(
+            return createFileDescriptorSocket(
                     address, port, (SSLParametersImpl) sslParameters.clone());
         }
     }
@@ -129,11 +132,11 @@ final class OpenSSLSocketFactoryImpl extends SSLSocketFactory {
     public Socket createSocket(InetAddress address, int port, InetAddress localAddress,
             int localPort) throws IOException {
         if (useEngineSocket) {
-            return new ConscryptEngineSocket(address, port, localAddress, localPort,
-                    (SSLParametersImpl) sslParameters.clone());
+            return createEngineSocket(address, port, localAddress,
+                    localPort, (SSLParametersImpl) sslParameters.clone());
         } else {
-            return new ConscryptFileDescriptorSocket(address, port, localAddress, localPort,
-                    (SSLParametersImpl) sslParameters.clone());
+            return createFileDescriptorSocket(address, port, localAddress,
+                    localPort, (SSLParametersImpl) sslParameters.clone());
         }
     }
 
@@ -146,10 +149,10 @@ final class OpenSSLSocketFactoryImpl extends SSLSocketFactory {
         }
 
         if (hasFileDescriptor(socket) && !useEngineSocket) {
-            return new ConscryptFileDescriptorSocket(
+            return createFileDescriptorSocket(
                     socket, hostname, port, autoClose, (SSLParametersImpl) sslParameters.clone());
         } else {
-            return new ConscryptEngineSocket(
+            return createEngineSocket(
                     socket, hostname, port, autoClose, (SSLParametersImpl) sslParameters.clone());
         }
     }

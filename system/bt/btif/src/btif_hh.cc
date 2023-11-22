@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -503,6 +503,7 @@ void btif_hh_remove_device(RawAddress bd_addr) {
 
 bool btif_hh_copy_hid_info(tBTA_HH_DEV_DSCP_INFO* dest,
                            tBTA_HH_DEV_DSCP_INFO* src) {
+  memset(dest, 0, sizeof(tBTA_HH_DEV_DSCP_INFO));
   dest->descriptor.dl_len = 0;
   if (src->descriptor.dl_len > 0) {
     dest->descriptor.dsc_list = (uint8_t*)osi_malloc(src->descriptor.dl_len);
@@ -533,10 +534,6 @@ bool btif_hh_copy_hid_info(tBTA_HH_DEV_DSCP_INFO* dest,
 bt_status_t btif_hh_virtual_unplug(const RawAddress* bd_addr) {
   BTIF_TRACE_DEBUG("%s", __func__);
   btif_hh_device_t* p_dev;
-  char bd_str[18];
-  snprintf(bd_str, sizeof(bd_str), "%02X:%02X:%02X:%02X:%02X:%02X",
-           bd_addr->address[0], bd_addr->address[1], bd_addr->address[2],
-           bd_addr->address[3], bd_addr->address[4], bd_addr->address[5]);
   p_dev = btif_hh_find_dev_by_bda(*bd_addr);
   if ((p_dev != NULL) && (p_dev->dev_status == BTHH_CONN_STATE_CONNECTED) &&
       (p_dev->attr_mask & HID_VIRTUAL_CABLE)) {
@@ -547,7 +544,13 @@ bt_status_t btif_hh_virtual_unplug(const RawAddress* bd_addr) {
     BTA_HhSendCtrl(p_dev->dev_handle, BTA_HH_CTRL_VIRTUAL_CABLE_UNPLUG);
     return BT_STATUS_SUCCESS;
   } else {
-    BTIF_TRACE_ERROR("%s: Error, device %s not opened.", __func__, bd_str);
+    BTIF_TRACE_ERROR("%s: Error, device %s not opened, status = %d", __func__,
+                     bd_addr->ToString().c_str(), btif_hh_cb.status);
+    if ((btif_hh_cb.pending_conn_address == *bd_addr) &&
+       (btif_hh_cb.status == BTIF_HH_DEV_CONNECTING)) {
+          btif_hh_cb.status = (BTIF_HH_STATUS)BTIF_HH_DEV_DISCONNECTED;
+          btif_hh_cb.pending_conn_address = RawAddress::kEmpty;
+    }
     return BT_STATUS_FAIL;
   }
 }
@@ -602,6 +605,7 @@ bt_status_t btif_hh_connect(const RawAddress* bd_addr) {
    pagescan mode, we will do 2 retries to connect before giving up */
   tBTA_SEC sec_mask = BTUI_HH_SECURITY;
   btif_hh_cb.status = BTIF_HH_DEV_CONNECTING;
+  btif_hh_cb.pending_conn_address = *bd_addr;
   BTA_HhOpen(*bd_addr, BTA_HH_PROTO_RPT_MODE, sec_mask);
 
   // TODO(jpawlowski); make cback accept const and remove tmp!
@@ -749,6 +753,7 @@ static void btif_hh_upstreams_evt(uint16_t event, char* p_param) {
     case BTA_HH_OPEN_EVT:
       BTIF_TRACE_WARNING("%s: BTA_HH_OPN_EVT: handle=%d, status =%d", __func__,
                          p_data->conn.handle, p_data->conn.status);
+      btif_hh_cb.pending_conn_address = RawAddress::kEmpty;
       if (p_data->conn.status == BTA_HH_OK) {
         p_dev = btif_hh_find_connected_dev_by_handle(p_data->conn.handle);
         if (p_dev == NULL) {
@@ -1264,17 +1269,14 @@ static bt_status_t virtual_unplug(RawAddress* bd_addr) {
   CHECK_BTHH_INIT();
   BTIF_TRACE_EVENT("BTHH: %s", __func__);
   btif_hh_device_t* p_dev;
-  char bd_str[18];
-  snprintf(bd_str, sizeof(bd_str), "%02X:%02X:%02X:%02X:%02X:%02X",
-           bd_addr->address[0], bd_addr->address[1], bd_addr->address[2],
-           bd_addr->address[3], bd_addr->address[4], bd_addr->address[5]);
   if (btif_hh_cb.status == BTIF_HH_DISABLED) {
     BTIF_TRACE_ERROR("%s: Error, HH status = %d", __func__, btif_hh_cb.status);
     return BT_STATUS_FAIL;
   }
   p_dev = btif_hh_find_dev_by_bda(*bd_addr);
   if (!p_dev) {
-    BTIF_TRACE_ERROR("%s: Error, device %s not opened.", __func__, bd_str);
+    BTIF_TRACE_ERROR("%s: Error, device %s not opened.", __func__,
+                     bd_addr->ToString().c_str());
     return BT_STATUS_FAIL;
   }
   btif_transfer_context(btif_hh_handle_evt, BTIF_HH_VUP_REQ_EVT, (char*)bd_addr,
@@ -1364,6 +1366,7 @@ static bt_status_t set_info(RawAddress* bd_addr, bthh_hid_info_t hid_info) {
     return BT_STATUS_FAIL;
   }
 
+  memset(&dscp_info, 0, sizeof(dscp_info));
   dscp_info.vendor_id = hid_info.vendor_id;
   dscp_info.product_id = hid_info.product_id;
   dscp_info.version = hid_info.version;
@@ -1480,7 +1483,7 @@ static bt_status_t get_report(RawAddress* bd_addr,
     return BT_STATUS_FAIL;
   } else if (((int)reportType) <= BTA_HH_RPTT_RESRV ||
              ((int)reportType) > BTA_HH_RPTT_FEATURE) {
-    LOG(ERROR) << " Error, device" << *bd_addr << " not opened";
+    LOG(ERROR) << " Error, report type=" << +reportType << " not supported";
     return BT_STATUS_FAIL;
   } else {
     BTA_HhGetReport(p_dev->dev_handle, reportType, reportId, bufferSize);
@@ -1517,7 +1520,7 @@ static bt_status_t set_report(RawAddress* bd_addr,
     return BT_STATUS_FAIL;
   } else if (((int)reportType) <= BTA_HH_RPTT_RESRV ||
              ((int)reportType) > BTA_HH_RPTT_FEATURE) {
-    LOG(ERROR) << " Error, device" << *bd_addr << " not opened";
+    LOG(ERROR) << " Error, report type=" << +reportType << " not supported";
     return BT_STATUS_FAIL;
   } else {
     int hex_bytes_filled;

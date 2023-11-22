@@ -31,12 +31,10 @@ namespace nn {
 class CompilationBuilder;
 class Device;
 class ExecutionPlan;
-class ExecutionStep;
 class Memory;
 
 class ModelBuilder {
 public:
-    virtual ~ModelBuilder() {}
     // Adds an operand to the model.
     int addOperand(const ANeuralNetworksOperandType& type);
     int setOperandValue(uint32_t index, const void* buffer, size_t length);
@@ -47,6 +45,8 @@ public:
                      uint32_t outputCount, const uint32_t* outputs);
     int identifyInputsAndOutputs(uint32_t inputCount, const uint32_t* inputs, uint32_t outputCount,
                                  const uint32_t* outputs);
+    int relaxComputationFloat32toFloat16(bool allow);
+    bool isComputationFloat32RelaxedToFloat16() const { return mRelaxComputationFloat32toFloat16; }
 
     int finish();
     bool isFinished() const { return mCompletedModel; }
@@ -90,11 +90,13 @@ public:
 
     int findBestDeviceForEachOperation(uint32_t preference,
                                        const std::vector<std::shared_ptr<Device>>& devices,
-                                       const size_t operationCount,
                                        const size_t deviceCount,
                                        std::vector<int>* bestDeviceForOperation) const;
     PerformanceInfo getPerformanceInfo(const std::shared_ptr<Device> device,
                                        uint32_t operationIndex) const;
+
+    // Return true if either mCompleteModel or mInvalidModel is true.
+    bool badState(const char* name);
 
     // Sorts the operations to be in the correct order for single threaded
     // node-at-a-time execution.
@@ -131,6 +133,16 @@ public:
     // Once the model has been finished, we should not allow further
     // modifications to the model.
     mutable bool mCompletedModel = false;
+
+    // Any invalid manipulation of the model will mark the model invalid.
+    // No further modifications are allowed to the model.
+    mutable bool mInvalidModel = false;
+
+    // 'true' indicates TENSOR_FLOAT32 may be calculated with range and/or
+    // precision as low as that of the IEEE 754 16-bit floating-point format.
+    // 'false' indicates TENSOR_FLOAT32 must be calculated using at least the
+    // range and precision of the IEEE 754 32-bit floating-point format.
+    bool mRelaxComputationFloat32toFloat16 = false;
 };
 
 }  // namespace nn

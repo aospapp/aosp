@@ -7,7 +7,7 @@
     TicketSigningKey /etc/apache2/google_sso/login.crt
     ServiceRoot /
     LoginServer https://login.corp.google.com
-    Require group eng eng-intern chromeos-testing job-castaudiozone-testengineer android-comms-tvc nonconf
+    Require group eng eng-intern chromeos-testing job-castaudiozone-testengineer android-comms-tvc nonconf daydream-infra-access
     Order allow,deny
     allow from all
 </LocationMatch>

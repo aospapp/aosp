@@ -20,17 +20,12 @@
  * Interpreter entry point.
  * On entry:
  *  x0  Thread* self/
- *  x1  code_item
+ *  x1  insns_
  *  x2  ShadowFrame
  *  x3  JValue* result_register
  *
  */
-    .global ExecuteMterpImpl
-    .type   ExecuteMterpImpl, %function
-    .balign 16
-
-ExecuteMterpImpl:
-    .cfi_startproc
+ENTRY ExecuteMterpImpl
     SAVE_TWO_REGS_INCREASE_FRAME xPROFILE, x27, 80
     SAVE_TWO_REGS                xIBASE, xREFS, 16
     SAVE_TWO_REGS                xSELF, xINST, 32
@@ -41,8 +36,8 @@ ExecuteMterpImpl:
     /* Remember the return register */
     str     x3, [x2, #SHADOWFRAME_RESULT_REGISTER_OFFSET]
 
-    /* Remember the code_item */
-    str     x1, [x2, #SHADOWFRAME_CODE_ITEM_OFFSET]
+    /* Remember the dex instruction pointer */
+    str     x1, [x2, #SHADOWFRAME_DEX_INSTRUCTIONS_OFFSET]
 
     /* set up "named" registers */
     mov     xSELF, x0
@@ -50,8 +45,8 @@ ExecuteMterpImpl:
     add     xFP, x2, #SHADOWFRAME_VREGS_OFFSET     // point to vregs.
     add     xREFS, xFP, w0, lsl #2                 // point to reference array in shadow frame
     ldr     w0, [x2, #SHADOWFRAME_DEX_PC_OFFSET]   // Get starting dex_pc.
-    add     xPC, x1, #CODEITEM_INSNS_OFFSET        // Point to base of insns[]
-    add     xPC, xPC, w0, lsl #1                   // Create direct pointer to 1st dex opcode
+    add     xPC, x1, w0, lsl #1                    // Create direct pointer to 1st dex opcode
+    CFI_DEFINE_DEX_PC_WITH_OFFSET(CFI_TMP, CFI_DEX, 0)
     EXPORT_PC
 
     /* Starting ibase */
@@ -60,6 +55,7 @@ ExecuteMterpImpl:
     /* Set up for backwards branches & osr profiling */
     ldr     x0, [xFP, #OFF_FP_METHOD]
     add     x1, xFP, #OFF_FP_SHADOWFRAME
+    mov     x2, xSELF
     bl      MterpSetUpHotnessCountdown
     mov     wPROFILE, w0                // Starting hotness countdown to xPROFILE
 

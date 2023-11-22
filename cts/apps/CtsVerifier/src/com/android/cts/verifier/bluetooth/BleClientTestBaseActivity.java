@@ -35,6 +35,7 @@ import com.android.cts.verifier.R;
 
 import java.util.ArrayList;
 import java.util.List;
+import android.util.Log;
 
 public class BleClientTestBaseActivity extends PassFailButtons.Activity {
     public static final String TAG = "BleClientTestBase";
@@ -62,7 +63,7 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
     private static final int PASS_FLAG_ALL = 0x3FFFF;
 
     private final int BLE_CLIENT_CONNECT = 0;
-    private final int BLE_BLE_DISVOCER_SERVICE = 1;
+    private final int BLE_BLE_DISCOVER_SERVICE = 1;
     private final int BLE_READ_CHARACTERISTIC = 2;
     private final int BLE_WRITE_CHARACTERISTIC = 3;
     private final int BLE_REQUEST_MTU_23BYTES = 4;
@@ -90,8 +91,6 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.ble_server_start);
         setPassFailButtonClickListeners();
-        setInfoResources(R.string.ble_client_test_name,
-                R.string.ble_client_test_info, -1);
         getPassButton().setEnabled(false);
 
         mTestAdapter = new TestAdapter(this, setupTestList());
@@ -212,7 +211,11 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
             String action = intent.getAction();
             String newAction = null;
             String actionName = null;
+            long previousPassed = mPassed;
             final Intent startIntent = new Intent(BleClientTestBaseActivity.this, BleClientService.class);
+            if (action != null) {
+                Log.d(TAG, "Processing " + action);
+            }
             switch (action) {
             case BleClientService.BLE_BLUETOOTH_DISABLED:
                 showErrorDialog(R.string.ble_bluetooth_disable_title, R.string.ble_bluetooth_disable_message, true);
@@ -222,11 +225,11 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
                 mTestAdapter.setTestPass(BLE_CLIENT_CONNECT);
                 mPassed |= PASS_FLAG_CONNECT;
                 // execute service discovery test
-                newAction = BleClientService.BLE_CLIENT_ACTION_BLE_DISVOCER_SERVICE;
+                newAction = BleClientService.BLE_CLIENT_ACTION_BLE_DISCOVER_SERVICE;
                 break;
             case BleClientService.BLE_SERVICES_DISCOVERED:
                 actionName = getString(R.string.ble_discover_service_name);
-                mTestAdapter.setTestPass(BLE_BLE_DISVOCER_SERVICE);
+                mTestAdapter.setTestPass(BLE_BLE_DISCOVER_SERVICE);
                 mPassed |= PASS_FLAG_DISCOVER;
                 // execute MTU requesting test (23bytes)
                 newAction = BleClientService.BLE_CLIENT_ACTION_READ_CHARACTERISTIC;
@@ -283,6 +286,7 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
 
                 // skip Reliable write (bad response) test
                 mPassed |= PASS_FLAG_RELIABLE_WRITE_BAD_RESP;
+                Log.d(TAG, "Skip PASS_FLAG_RELIABLE_WRITE_BAD_RESP.");
                 newAction = BleClientService.BLE_CLIENT_ACTION_NOTIFY_CHARACTERISTIC;
                 showProgressDialog = true;
                 break;
@@ -342,6 +346,7 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
                 // newAction = BleClientService.BLE_CLIENT_ACTION_READ_RSSI;
                 // execute disconnection test
                 mPassed |= PASS_FLAG_READ_RSSI;
+                Log.d(TAG, "Skip PASS_FLAG_READ_RSSI.");
                 newAction = BleClientService.BLE_CLIENT_ACTION_CLIENT_DISCONNECT;
                 break;
             case BleClientService.BLE_READ_REMOTE_RSSI:
@@ -365,9 +370,16 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
                 break;
             }
 
+            if (previousPassed != mPassed) {
+                String logMessage = String.format("Passed Flags has changed from 0x%08X to 0x%08X. Delta=0x%08X",
+                                                  previousPassed, mPassed, mPassed ^ previousPassed);
+                Log.d(TAG, logMessage);
+            }
+
             mTestAdapter.notifyDataSetChanged();
 
             if (newAction != null) {
+                Log.d(TAG, "Starting " + newAction);
                 startIntent.setAction(newAction);
                 if (STEP_EXECUTION) {
                     closeDialog();
@@ -399,6 +411,7 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
             }
 
             if (mPassed == PASS_FLAG_ALL) {
+                Log.d(TAG, "All Tests Passed.");
                 if (shouldRebootBluetoothAfterTest()) {
                     mBtPowerSwitcher.executeSwitching();
                 } else {

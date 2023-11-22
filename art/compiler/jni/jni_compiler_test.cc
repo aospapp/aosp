@@ -24,7 +24,7 @@
 #include "class_linker.h"
 #include "common_compiler_test.h"
 #include "compiler.h"
-#include "dex_file.h"
+#include "dex/dex_file.h"
 #include "gtest/gtest.h"
 #include "indirect_reference_table.h"
 #include "java_vm_ext.h"
@@ -55,10 +55,10 @@ extern "C" JNIEXPORT jint JNICALL Java_MyClassNatives_sbar(JNIEnv*, jclass, jint
 namespace art {
 
 enum class JniKind {
-  kNormal   = Compiler::kNone,               // Regular kind of un-annotated natives.
-  kFast     = Compiler::kFastNative,         // Native method annotated with @FastNative.
-  kCritical = Compiler::kCriticalNative,     // Native method annotated with @CriticalNative.
-  kCount    = Compiler::kCriticalNative + 1  // How many different types of JNIs we can have.
+  kNormal,      // Regular kind of un-annotated natives.
+  kFast,        // Native method annotated with @FastNative.
+  kCritical,    // Native method annotated with @CriticalNative.
+  kCount        // How many different types of JNIs we can have.
 };
 
 // Used to initialize array sizes that want to have different state per current jni.
@@ -76,7 +76,7 @@ static bool IsCurrentJniNormal() {
   return gCurrentJni == static_cast<uint32_t>(JniKind::kNormal);
 }
 
-// Signifify that a different kind of JNI is about to be tested.
+// Signify that a different kind of JNI is about to be tested.
 static void UpdateCurrentJni(JniKind kind) {
   gCurrentJni = static_cast<uint32_t>(kind);
 }
@@ -299,7 +299,6 @@ class JniCompilerTest : public CommonCompilerTest {
     }
     // JNI operations after runtime start.
     env_ = Thread::Current()->GetJniEnv();
-    library_search_path_ = env_->NewStringUTF("");
     jklass_ = env_->FindClass("MyClassNatives");
     ASSERT_TRUE(jklass_ != nullptr) << method_name << " " << method_sig;
 
@@ -380,7 +379,6 @@ class JniCompilerTest : public CommonCompilerTest {
   void CriticalNativeImpl();
 
   JNIEnv* env_;
-  jstring library_search_path_;
   jmethodID jmethod_;
 
  private:
@@ -525,7 +523,8 @@ struct ScopedDisableCheckNumStackReferences {
 
 bool ScopedDisableCheckNumStackReferences::sCheckNumStackReferences = true;
 
-// Check that the handle scope at the start of this block is the same as the handle scope at the end of the block.
+// Check that the handle scope at the start of this block is the same
+// as the handle scope at the end of the block.
 struct ScopedCheckHandleScope {
   ScopedCheckHandleScope() : handle_scope_(Thread::Current()->GetTopHandleScope()) {
   }
@@ -660,7 +659,7 @@ void JniCompilerTest::CompileAndRunIntMethodThroughStubImpl() {
 
   std::string reason;
   ASSERT_TRUE(Runtime::Current()->GetJavaVM()->
-                  LoadNativeLibrary(env_, "", class_loader_, library_search_path_, &reason))
+                  LoadNativeLibrary(env_, "", class_loader_, &reason))
       << reason;
 
   jint result = env_->CallNonvirtualIntMethod(jobj_, jklass_, jmethod_, 24);
@@ -676,7 +675,7 @@ void JniCompilerTest::CompileAndRunStaticIntMethodThroughStubImpl() {
 
   std::string reason;
   ASSERT_TRUE(Runtime::Current()->GetJavaVM()->
-                  LoadNativeLibrary(env_, "", class_loader_, library_search_path_, &reason))
+                  LoadNativeLibrary(env_, "", class_loader_, &reason))
       << reason;
 
   jint result = env_->CallStaticIntMethod(jklass_, jmethod_, 42);
@@ -2205,8 +2204,8 @@ void JniCompilerTest::NormalNativeImpl() {
   ArtMethod* method = jni::DecodeArtMethod(jmethod_);
   ASSERT_TRUE(method != nullptr);
 
-  EXPECT_FALSE(method->IsAnnotatedWithCriticalNative());
-  EXPECT_FALSE(method->IsAnnotatedWithFastNative());
+  EXPECT_FALSE(method->IsCriticalNative());
+  EXPECT_FALSE(method->IsFastNative());
 }
 
 // TODO: just rename the java functions  to the standard convention and remove duplicated tests
@@ -2227,8 +2226,8 @@ void JniCompilerTest::FastNativeImpl() {
   ArtMethod* method = jni::DecodeArtMethod(jmethod_);
   ASSERT_TRUE(method != nullptr);
 
-  EXPECT_FALSE(method->IsAnnotatedWithCriticalNative());
-  EXPECT_TRUE(method->IsAnnotatedWithFastNative());
+  EXPECT_FALSE(method->IsCriticalNative());
+  EXPECT_TRUE(method->IsFastNative());
 }
 
 // TODO: just rename the java functions  to the standard convention and remove duplicated tests
@@ -2256,8 +2255,8 @@ void JniCompilerTest::CriticalNativeImpl() {
   ArtMethod* method = jni::DecodeArtMethod(jmethod_);
   ASSERT_TRUE(method != nullptr);
 
-  EXPECT_TRUE(method->IsAnnotatedWithCriticalNative());
-  EXPECT_FALSE(method->IsAnnotatedWithFastNative());
+  EXPECT_TRUE(method->IsCriticalNative());
+  EXPECT_FALSE(method->IsFastNative());
 
   EXPECT_EQ(0, gJava_myClassNatives_criticalNative_calls[gCurrentJni]);
   env_->CallStaticVoidMethod(jklass_, jmethod_);

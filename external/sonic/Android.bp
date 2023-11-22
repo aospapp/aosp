@@ -6,7 +6,9 @@ cc_library_shared {
     cflags: [
         "-Wno-sequence-point",
         "-Wno-extra",
+        "-Wall",
+        "-Werror",
     ],
-
-    cppflags: ["-std=c++98"],
+    export_include_dirs: ["."],
+    cpp_std: "c++98",
 }

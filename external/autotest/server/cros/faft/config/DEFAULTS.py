@@ -114,3 +114,6 @@ class Values(object):
 
     # Time in second to wait after changing servo state for programming
     servo_prog_state_delay = 0
+
+    # Timeout of confirming DUT doesn't boot on USB image in Recovery screen
+    usb_image_boot_timeout = 180

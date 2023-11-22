@@ -490,6 +490,240 @@ class MoblabRpcInterfaceTest(mox.MoxTestBase,
         self.mox.ReplayAll()
         moblab_rpc_interface._enable_notification_using_credentials_in_bucket()
 
+    def testInstallSystemUpdate(self):
+        update_engine_client = moblab_rpc_interface._UPDATE_ENGINE_CLIENT
+
+        self.mox.StubOutWithMock(moblab_rpc_interface.subprocess, 'check_call')
+        moblab_rpc_interface.subprocess.check_call(['sudo',
+                update_engine_client, '--update'])
+        moblab_rpc_interface.subprocess.check_call(['sudo',
+                update_engine_client, '--is_reboot_needed'])
+
+        self.mox.StubOutWithMock(moblab_rpc_interface.subprocess, 'call')
+        moblab_rpc_interface.subprocess.call(['sudo', update_engine_client,
+                '--reboot'])
+
+        self.mox.ReplayAll()
+        moblab_rpc_interface._install_system_update()
+
+    def testInstallSystemUpdateError(self):
+        update_engine_client = moblab_rpc_interface._UPDATE_ENGINE_CLIENT
+
+        error_message = ('ERROR_CODE=37\n'
+            'ERROR_MESSAGE=ErrorCode::kOmahaErrorInHTTPResponse')
+
+        self.mox.StubOutWithMock(moblab_rpc_interface.subprocess, 'check_call')
+        moblab_rpc_interface.subprocess.check_call(['sudo',
+                update_engine_client, '--update']).AndRaise(
+                    moblab_rpc_interface.subprocess.CalledProcessError(1,
+                        'sudo'))
+
+        self.mox.StubOutWithMock(moblab_rpc_interface.subprocess,
+                'check_output')
+        moblab_rpc_interface.subprocess.check_output(['sudo',
+                update_engine_client, '--last_attempt_error']).AndReturn(
+                error_message)
+
+        self.mox.ReplayAll()
+        try:
+            moblab_rpc_interface._install_system_update()
+        except moblab_rpc_interface.error.RPCException as e:
+            self.assertEquals(str(e), error_message)
+
+
+    def testGetSystemUpdateStatus(self):
+        update_engine_client = moblab_rpc_interface._UPDATE_ENGINE_CLIENT
+        update_status = ('LAST_CHECKED_TIME=1516753795\n'
+                         'PROGRESS=0.220121\n'
+                         'CURRENT_OP=UPDATE_STATUS_DOWNLOADING\n'
+                         'NEW_VERSION=10032.89.0\n'
+                         'NEW_SIZE=782805733')
+
+        self.mox.StubOutWithMock(moblab_rpc_interface.subprocess,
+                'check_output')
+        moblab_rpc_interface.subprocess.check_output(['sudo',
+                update_engine_client, '--status']).AndReturn(
+                        update_status)
+
+        self.mox.ReplayAll()
+        output = moblab_rpc_interface._get_system_update_status()
+
+        self.assertEquals(output['PROGRESS'], '0.220121')
+        self.assertEquals(output['CURRENT_OP'], 'UPDATE_STATUS_DOWNLOADING')
+        self.assertEquals(output['NEW_VERSION'], '10032.89.0')
+        self.assertEquals(output['NEW_SIZE'], '782805733')
+
+    def testCheckForSystemUpdate(self):
+        update_engine_client = moblab_rpc_interface._UPDATE_ENGINE_CLIENT
+
+        self.mox.StubOutWithMock(moblab_rpc_interface.subprocess, 'call')
+        moblab_rpc_interface.subprocess.call(['sudo', update_engine_client,
+                '--check_for_update'])
+
+        self.mox.StubOutWithMock(moblab_rpc_interface,
+                '_get_system_update_status')
+        for i in range(0,4):
+            moblab_rpc_interface._get_system_update_status().AndReturn(
+                    dict({'CURRENT_OP': 'UPDATE_STATUS_CHECKING_FOR_UPDATE'})
+            )
+        moblab_rpc_interface._get_system_update_status().AndReturn(
+                dict({'CURRENT_OP': 'UPDATE_STATUS_DOWNLOADING'})
+        )
+        self.mox.ReplayAll()
+        moblab_rpc_interface._check_for_system_update()
+
+    def testGetConnectedDutBoardModels(self):
+        # setting up mocks for 2 duts with different boards and models
+        mock_minnie_labels = [
+            self.mox.CreateMockAnything(),
+            self.mox.CreateMockAnything(),
+        ]
+        mock_minnie_labels[0].name = 'board:veyron_minnie'
+        mock_minnie_labels[1].name = 'model:veyron_minnie'
+        mock_minnie = self.mox.CreateMockAnything()
+        mock_minnie.label_list = mock_minnie_labels
+
+        mock_bruce_labels = [
+            self.mox.CreateMockAnything(),
+            self.mox.CreateMockAnything()
+        ]
+        mock_bruce_labels[0].name = 'board:carl'
+        mock_bruce_labels[1].name = 'model:bruce'
+        mock_bruce = self.mox.CreateMockAnything()
+        mock_bruce.label_list = mock_bruce_labels
+        hosts = [mock_minnie, mock_bruce]
+
+        # stub out the host query calls
+        self.mox.StubOutWithMock(moblab_rpc_interface.rpc_utils,
+                'get_host_query')
+        moblab_rpc_interface.rpc_utils.get_host_query(
+                (), False, True, {}).AndReturn(hosts)
+
+        self.mox.StubOutWithMock(moblab_rpc_interface.models.Host.objects,
+                'populate_relationships'),
+        moblab_rpc_interface.models.Host.objects.populate_relationships(hosts,
+                moblab_rpc_interface.models.Label, 'label_list')
+
+        expected = [{
+            'model': 'bruce',
+            'board': 'carl'
+        },
+        {
+            'model': 'veyron_minnie',
+            'board': 'veyron_minnie'
+        }]
+
+        self.mox.ReplayAll()
+        output = moblab_rpc_interface._get_connected_dut_board_models()
+        self.assertEquals(output, expected)
+        # test sorting
+        self.assertEquals(output[0]['model'], 'bruce')
+
+    def testAllDutConnections(self):
+        leases = {
+            '192.168.0.20': '3c:52:82:5f:15:20',
+            '192.168.0.30': '3c:52:82:5f:15:21'
+        }
+
+        # stub out all of the multiprocessing
+        mock_value = self.mox.CreateMockAnything()
+        mock_value.value = True
+        mock_process = self.mox.CreateMockAnything()
+
+        for key in leases:
+            mock_process.start()
+        for key in leases:
+            mock_process.join()
+
+        self.mox.StubOutWithMock(
+                moblab_rpc_interface, 'multiprocessing')
+
+        for key in leases:
+            moblab_rpc_interface.multiprocessing.Value(
+                    mox.IgnoreArg()).AndReturn(mock_value)
+            moblab_rpc_interface.multiprocessing.Process(
+                    target=mox.IgnoreArg(), args=mox.IgnoreArg()).AndReturn(
+                        mock_process)
+
+        self.mox.ReplayAll()
+
+        expected = {
+            '192.168.0.20': {
+                'mac_address': '3c:52:82:5f:15:20',
+                'ssh_connection_ok': True
+            },
+            '192.168.0.30': {
+                'mac_address': '3c:52:82:5f:15:21',
+                'ssh_connection_ok': True
+            }
+        }
+
+        connected_duts = moblab_rpc_interface._test_all_dut_connections(leases)
+        self.assertDictEqual(expected, connected_duts)
+
+    def testAllDutConnectionsFailure(self):
+        leases = {
+            '192.168.0.20': '3c:52:82:5f:15:20',
+            '192.168.0.30': '3c:52:82:5f:15:21'
+        }
+
+        # stub out all of the multiprocessing
+        mock_value = self.mox.CreateMockAnything()
+        mock_value.value = False
+        mock_process = self.mox.CreateMockAnything()
+
+        for key in leases:
+            mock_process.start()
+        for key in leases:
+            mock_process.join()
+
+        self.mox.StubOutWithMock(
+                moblab_rpc_interface, 'multiprocessing')
+
+        for key in leases:
+            moblab_rpc_interface.multiprocessing.Value(
+                    mox.IgnoreArg()).AndReturn(mock_value)
+            moblab_rpc_interface.multiprocessing.Process(
+                    target=mox.IgnoreArg(), args=mox.IgnoreArg()).AndReturn(
+                        mock_process)
+
+        self.mox.ReplayAll()
+
+        expected = {
+            '192.168.0.20': {
+                'mac_address': '3c:52:82:5f:15:20',
+                'ssh_connection_ok': False
+            },
+            '192.168.0.30': {
+                'mac_address': '3c:52:82:5f:15:21',
+                'ssh_connection_ok': False
+            }
+        }
+
+        connected_duts = moblab_rpc_interface._test_all_dut_connections(leases)
+        self.assertDictEqual(expected, connected_duts)
+
+    def testDutSshConnection(self):
+        good_ip = '192.168.0.20'
+        bad_ip = '192.168.0.30'
+        cmd = ('ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no '
+                "root@%s 'timeout 2 cat /etc/lsb-release'")
+
+        self.mox.StubOutWithMock(moblab_rpc_interface.subprocess,
+                'check_output')
+        moblab_rpc_interface.subprocess.check_output(
+                cmd % good_ip, shell=True).AndReturn('CHROMEOS_RELEASE_APPID')
+
+        moblab_rpc_interface.subprocess.check_output(
+                cmd % bad_ip, shell=True).AndRaise(
+                moblab_rpc_interface.subprocess.CalledProcessError(1, cmd))
+
+        self.mox.ReplayAll()
+        self.assertEquals(
+            moblab_rpc_interface._test_dut_ssh_connection(good_ip), True)
+        self.assertEquals(
+            moblab_rpc_interface._test_dut_ssh_connection(bad_ip), False)
+
 
 if __name__ == '__main__':
     unittest.main()

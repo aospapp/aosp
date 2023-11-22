@@ -43,9 +43,12 @@ class firmware_CorruptBothKernelAB(FirmwareTest):
         self.setup_kernel('a')
 
     def cleanup(self):
-        self.ensure_kernel_on_non_recovery('a')
-        self.restore_cgpt_attributes()
-        self.restore_kernel()
+        try:
+            self.ensure_kernel_on_non_recovery('a')
+            self.restore_cgpt_attributes()
+            self.restore_kernel()
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_CorruptBothKernelAB, self).cleanup()
 
     def run_once(self, dev_mode=False):
@@ -61,9 +64,13 @@ class firmware_CorruptBothKernelAB(FirmwareTest):
         logging.info("Corrupt kernel A and B.")
         self.check_state((self.check_root_part_on_non_recovery, 'a'))
         self.faft_client.kernel.corrupt_sig(('a', 'b'))
+
+        # Older devices (without BROKEN screen) didn't wait for removal in
+        # dev mode. Make sure the USB key is not plugged in so they won't
+        # start booting immediately and get interrupted by unplug/replug.
+        self.servo.switch_usbkey('host')
         self.switcher.mode_aware_reboot(wait_for_dut_up=False)
-        if not dev_mode:
-            self.switcher.bypass_rec_mode()
+        self.switcher.bypass_rec_mode()
         self.switcher.wait_for_client()
 
         logging.info("Expected recovery boot and restore the OS image.")

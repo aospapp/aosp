@@ -1,43 +1,48 @@
+/*
+ * Copyright 2018 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.android.bluetooth.avrcp;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.PendingIntent;
 import android.content.Context;
-import android.content.pm.ParceledListSlice;
-import android.media.AudioAttributes;
-import android.media.AudioManager;
-import android.media.MediaMetadata;
 import android.media.MediaDescription;
+import android.media.MediaMetadata;
 import android.media.Rating;
-import android.media.VolumeProvider;
-import android.media.session.PlaybackState;
 import android.media.session.MediaSession;
-import android.media.session.MediaSession.QueueItem;
+import android.media.session.PlaybackState;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Looper;
-import android.os.Message;
-import android.os.RemoteException;
 import android.os.ResultReceiver;
-import android.text.TextUtils;
-import android.util.Log;
 import android.view.KeyEvent;
 
-import java.lang.ref.WeakReference;
-import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Provide a mockable interface in order to test classes that use MediaController.
+ * We need this class due to the fact that the MediaController class is marked as final and
+ * there is no way to currently mock final classes in Android. Once this is possible this class
+ * can be deleted.
+ */
 public class MediaController {
-    public @NonNull android.media.session.MediaController mDelegate;
+    @NonNull public android.media.session.MediaController mDelegate;
     public android.media.session.MediaController.TransportControls mTransportDelegate;
     public TransportControls mTransportControls;
-
-    @Nullable
-    public static MediaController wrap(@Nullable android.media.session.MediaController delegate) {
-      return (delegate != null) ? new MediaController(delegate) : null;
-    }
 
     public MediaController(@NonNull android.media.session.MediaController delegate) {
         mDelegate = delegate;
@@ -45,11 +50,18 @@ public class MediaController {
         mTransportControls = new TransportControls();
     }
 
+    public MediaController(Context context, MediaSession.Token token) {
+        mDelegate = new android.media.session.MediaController(context, token);
+        mTransportDelegate = mDelegate.getTransportControls();
+        mTransportControls = new TransportControls();
+    }
+
     public android.media.session.MediaController getWrappedInstance() {
         return mDelegate;
     }
 
-    public @NonNull TransportControls getTransportControls() {
+    @NonNull
+    public TransportControls getTransportControls() {
         return mTransportControls;
     }
 
@@ -57,23 +69,28 @@ public class MediaController {
         return mDelegate.dispatchMediaButtonEvent(keyEvent);
     }
 
-    public @Nullable PlaybackState getPlaybackState() {
+    @Nullable
+    public PlaybackState getPlaybackState() {
         return mDelegate.getPlaybackState();
     }
 
-    public @Nullable MediaMetadata getMetadata() {
+    @Nullable
+    public MediaMetadata getMetadata() {
         return mDelegate.getMetadata();
     }
 
-    public @Nullable List<MediaSession.QueueItem> getQueue() {
+    @Nullable
+    public List<MediaSession.QueueItem> getQueue() {
         return mDelegate.getQueue();
     }
 
-    public @Nullable CharSequence getQueueTitle() {
+    @Nullable
+    public CharSequence getQueueTitle() {
         return mDelegate.getQueueTitle();
     }
 
-    public @Nullable Bundle getExtras() {
+    @Nullable
+    public Bundle getExtras() {
         return mDelegate.getExtras();
     }
 
@@ -85,15 +102,18 @@ public class MediaController {
         return mDelegate.getFlags();
     }
 
-    public @Nullable android.media.session.MediaController.PlaybackInfo getPlaybackInfo() {
+    @Nullable
+    public android.media.session.MediaController.PlaybackInfo getPlaybackInfo() {
         return mDelegate.getPlaybackInfo();
     }
 
-    public @Nullable PendingIntent getSessionActivity() {
+    @Nullable
+    public PendingIntent getSessionActivity() {
         return mDelegate.getSessionActivity();
     }
 
-    public @NonNull MediaSession.Token getSessionToken() {
+    @NonNull
+    public MediaSession.Token getSessionToken() {
         return mDelegate.getSessionToken();
     }
 
@@ -155,11 +175,11 @@ public class MediaController {
     public String toString() {
         MediaMetadata data = getMetadata();
         MediaDescription desc = (data == null) ? null : data.getDescription();
-        return "MediaController (" + getPackageName() + "@"
-                + Integer.toHexString(mDelegate.hashCode()) + ") " + desc;
+        return "MediaController (" + getPackageName() + "@" + Integer.toHexString(
+                mDelegate.hashCode()) + ") " + desc;
     }
 
-    public static abstract class Callback extends android.media.session.MediaController.Callback { }
+    public abstract static class Callback extends android.media.session.MediaController.Callback {}
 
     public class TransportControls {
 

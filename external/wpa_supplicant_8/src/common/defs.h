@@ -55,6 +55,8 @@ typedef enum { FALSE = 0, TRUE = 1 } Boolean;
 #define WPA_KEY_MGMT_FILS_SHA384 BIT(19)
 #define WPA_KEY_MGMT_FT_FILS_SHA256 BIT(20)
 #define WPA_KEY_MGMT_FT_FILS_SHA384 BIT(21)
+#define WPA_KEY_MGMT_OWE BIT(22)
+#define WPA_KEY_MGMT_DPP BIT(23)
 
 static inline int wpa_key_mgmt_wpa_ieee8021x(int akm)
 {
@@ -136,7 +138,9 @@ static inline int wpa_key_mgmt_wpa(int akm)
 	return wpa_key_mgmt_wpa_ieee8021x(akm) ||
 		wpa_key_mgmt_wpa_psk(akm) ||
 		wpa_key_mgmt_fils(akm) ||
-		wpa_key_mgmt_sae(akm);
+		wpa_key_mgmt_sae(akm) ||
+		akm == WPA_KEY_MGMT_OWE ||
+		akm == WPA_KEY_MGMT_DPP;
 }
 
 static inline int wpa_key_mgmt_wpa_any(int akm)
@@ -161,7 +165,12 @@ static inline int wpa_key_mgmt_cckm(int akm)
 #define WPA_AUTH_ALG_FT BIT(3)
 #define WPA_AUTH_ALG_SAE BIT(4)
 #define WPA_AUTH_ALG_FILS BIT(5)
+#define WPA_AUTH_ALG_FILS_SK_PFS BIT(6)
 
+static inline int wpa_auth_alg_fils(int alg)
+{
+	return !!(alg & (WPA_AUTH_ALG_FILS | WPA_AUTH_ALG_FILS_SK_PFS));
+}
 
 enum wpa_alg {
 	WPA_ALG_NONE,
@@ -379,5 +388,9 @@ enum beacon_rate_type {
 enum eap_proxy_sim_state {
 	SIM_STATE_ERROR,
 };
+
+#define OCE_STA BIT(0)
+#define OCE_STA_CFON BIT(1)
+#define OCE_AP BIT(2)
 
 #endif /* DEFS_H */

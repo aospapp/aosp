@@ -14,6 +14,7 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(call all-subdir-java-files)
 
 LOCAL_PACKAGE_NAME := GLJNI
+LOCAL_SDK_VERSION := current
 
 LOCAL_JNI_SHARED_LIBRARIES := libgljni
 
@@ -36,12 +37,13 @@ LOCAL_SRC_FILES:= \
   gl_code.cpp
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	liblog \
 	libEGL \
 	libGLESv1_CM
 
 LOCAL_MODULE := libgljni
+
+LOCAL_SDK_VERSION := current
 
 LOCAL_ARM_MODE := arm
 

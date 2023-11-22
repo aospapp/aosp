@@ -23,13 +23,15 @@ import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
 import android.os.Handler;
 import android.support.annotation.Nullable;
-import com.android.car.app.DrawerItemViewHolder;
+
 import com.android.car.media.MediaPlaybackModel;
 import com.android.car.media.R;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import androidx.car.drawer.DrawerItemViewHolder;
 
 /**
  * {@link MediaItemsFetcher} implementation that fetches items from the {@link MediaController}'s
@@ -76,7 +78,7 @@ class MediaQueueItemsFetcher implements MediaItemsFetcher {
         MediaSession.QueueItem item = mItems.get(position);
         MediaItemsFetcher.populateViewHolderFrom(holder, item.getDescription());
 
-        if (holder.getRightIcon() == null) {
+        if (holder.getEndIcon() == null) {
             return;
         }
 
@@ -85,9 +87,9 @@ class MediaQueueItemsFetcher implements MediaItemsFetcher {
             Drawable drawable =
                     mContext.getDrawable(R.drawable.ic_music_active);
             drawable.setColorFilter(primaryColor, PorterDuff.Mode.SRC_IN);
-            holder.getRightIcon().setImageDrawable(drawable);
+            holder.getEndIcon().setImageDrawable(drawable);
         } else {
-            holder.getRightIcon().setImageBitmap(null);
+            holder.getEndIcon().setImageBitmap(null);
         }
     }
 

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -73,6 +73,10 @@ void sdp_init(void) {
   /* Clears all structures and local SDP database (if Server is enabled) */
   memset(&sdp_cb, 0, sizeof(tSDP_CB));
 
+  for (int i = 0; i < SDP_MAX_CONNECTIONS; i++) {
+    sdp_cb.ccb[i].sdp_conn_timer = alarm_new("sdp.sdp_conn_timer");
+  }
+
   /* Initialize the L2CAP configuration. We only care about MTU and flush */
   sdp_cb.l2cap_my_cfg.mtu_present = true;
   sdp_cb.l2cap_my_cfg.mtu = SDP_MTU_SIZE;
@@ -119,6 +123,13 @@ void sdp_init(void) {
   /* Now, register with L2CAP */
   if (!L2CA_Register(SDP_PSM, &sdp_cb.reg_info)) {
     SDP_TRACE_ERROR("SDP Registration failed");
+  }
+}
+
+void sdp_free(void) {
+  for (int i = 0; i < SDP_MAX_CONNECTIONS; i++) {
+    alarm_free(sdp_cb.ccb[i].sdp_conn_timer);
+    sdp_cb.ccb[i].sdp_conn_timer = NULL;
   }
 }
 
@@ -508,18 +519,19 @@ tCONN_CB* sdp_conn_originate(const RawAddress& p_bd_addr) {
   /* Allocate a new CCB. Return if none available. */
   p_ccb = sdpu_allocate_ccb();
   if (p_ccb == NULL) {
-    SDP_TRACE_WARNING("SDP - no spare CCB for orig");
+    SDP_TRACE_WARNING("%s: no spare CCB for peer %s", __func__,
+                      p_bd_addr.ToString().c_str());
     return (NULL);
   }
 
-  SDP_TRACE_EVENT("SDP - Originate started");
+  SDP_TRACE_EVENT("%s: SDP - Originate started for peer %s", __func__,
+                  p_bd_addr.ToString().c_str());
 
   /* We are the originator of this connection */
   p_ccb->con_flags |= SDP_FLAGS_IS_ORIG;
 
   /* Save the BD Address and Channel ID. */
   p_ccb->device_address = p_bd_addr;
-  ;
 
   /* Transition to the next appropriate state, waiting for connection confirm.
    */
@@ -528,15 +540,14 @@ tCONN_CB* sdp_conn_originate(const RawAddress& p_bd_addr) {
   cid = L2CA_ConnectReq(SDP_PSM, p_bd_addr);
 
   /* Check if L2CAP started the connection process */
-  if (cid != 0) {
-    p_ccb->connection_id = cid;
-
-    return (p_ccb);
-  } else {
-    SDP_TRACE_WARNING("SDP - Originate failed");
+  if (cid == 0) {
+    SDP_TRACE_WARNING("%s: SDP - Originate failed for peer %s", __func__,
+                      p_bd_addr.ToString().c_str());
     sdpu_release_ccb(p_ccb);
     return (NULL);
   }
+  p_ccb->connection_id = cid;
+  return (p_ccb);
 }
 
 /*******************************************************************************

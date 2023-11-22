@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"ውሂብ ከNFC መለያ"</string>
     <string name="vcard_title" msgid="7122634780732426007">"ለ^1 ዕውቂያ መረጃ"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"ይህ መተግበሪያ ጥሪዎችን ማድረግ እንዲችል የስልክ ፈቃድ መድረስ ያስፈልገዋል። የመለያ ፈቃድን በቅንብሮች ውስጥ ማቀናበር ይችላሉ"</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"ይህ መተግበሪያ ፋይሎች ላይ ለመድረስ እንዲችል ውጫዊ ማከማቻ ፈቃድን መድረስ ያስፈልገዋል። የመለያ ፈቃድን በቅንብሮች ውስጥ ማቀናበር ይችላሉ"</string>
 </resources>

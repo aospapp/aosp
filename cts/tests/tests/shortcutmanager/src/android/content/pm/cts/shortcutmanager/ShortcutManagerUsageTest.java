@@ -27,6 +27,9 @@ import android.content.pm.cts.shortcutmanager.common.Constants;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.text.format.Time;
 
+import com.android.compatibility.common.util.CddTest;
+
+@CddTest(requirement="3.8.1/C-4-1")
 @SmallTest
 public class ShortcutManagerUsageTest extends ShortcutManagerCtsTestsBase {
     private static final String APPOPS_SET_SHELL_COMMAND = "appops set {0} " +
@@ -75,7 +78,7 @@ public class ShortcutManagerUsageTest extends ShortcutManagerCtsTestsBase {
 
     public void testReportShortcutUsed() throws InterruptedException {
 
-        runWithCaller(mPackageContext1, () -> {
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
             enableManifestActivity("Launcher_manifest_2", true);
 
             retryUntil(() -> getManager().getManifestShortcuts().size() > 0,
@@ -89,13 +92,13 @@ public class ShortcutManagerUsageTest extends ShortcutManagerCtsTestsBase {
         final String idManifest = "ms21";
         final String idNonexistance = "nonexistence";
 
-        runWithCaller(mPackageContext1, () -> {
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
             assertTrue(getManager().setDynamicShortcuts(list(
                     makeShortcut(id1),
                     makeShortcut(id2)
             )));
         });
-        runWithCaller(mPackageContext2, () -> {
+        runWithCallerWithStrictMode(mPackageContext2, () -> {
             assertTrue(getManager().setDynamicShortcuts(list(
                     makeShortcut(id1),
                     makeShortcut(id3)
@@ -106,7 +109,7 @@ public class ShortcutManagerUsageTest extends ShortcutManagerCtsTestsBase {
 
         // Report usage.
         final long start1 = System.currentTimeMillis() - USAGE_STATS_RANGE_ALLOWANCE;
-        runWithCaller(mPackageContext2, () -> getManager().reportShortcutUsed(id3));
+        runWithCallerWithStrictMode(mPackageContext2, () -> getManager().reportShortcutUsed(id3));
         final long end1 = System.currentTimeMillis() + USAGE_STATS_RANGE_ALLOWANCE;
 
         // Check the log.
@@ -115,7 +118,7 @@ public class ShortcutManagerUsageTest extends ShortcutManagerCtsTestsBase {
 
         // Report usage.
         final long start2 = System.currentTimeMillis() - USAGE_STATS_RANGE_ALLOWANCE;
-        runWithCaller(mPackageContext1, () -> getManager().reportShortcutUsed(id1));
+        runWithCallerWithStrictMode(mPackageContext1, () -> getManager().reportShortcutUsed(id1));
         final long end2 = System.currentTimeMillis() + USAGE_STATS_RANGE_ALLOWANCE;
 
         // Check the log.
@@ -124,8 +127,8 @@ public class ShortcutManagerUsageTest extends ShortcutManagerCtsTestsBase {
 
         // Report usage.
         final long start3 = System.currentTimeMillis() - USAGE_STATS_RANGE_ALLOWANCE;
-        runWithCaller(mPackageContext1, () -> getManager().reportShortcutUsed(idNonexistance));
-        runWithCaller(mPackageContext1, () -> getManager().reportShortcutUsed(idManifest));
+        runWithCallerWithStrictMode(mPackageContext1, () -> getManager().reportShortcutUsed(idNonexistance));
+        runWithCallerWithStrictMode(mPackageContext1, () -> getManager().reportShortcutUsed(idManifest));
         final long end3 = System.currentTimeMillis() + USAGE_STATS_RANGE_ALLOWANCE;
 
         // Check the log.

@@ -34,6 +34,7 @@
 
 [LibraryClasses.common]
   ArmLib|Include/Library/ArmLib.h
+  ArmMmuLib|Include/Library/ArmMmuLib.h
   SemihostLib|Include/Library/Semihosting.h
   UncachedMemoryAllocationLib|Include/Library/UncachedMemoryAllocationLib.h
   DefaultExceptionHandlerLib|Include/Library/DefaultExceptionHandlerLib.h
@@ -60,7 +61,7 @@
   # On ARM Architecture with the Security Extension, the address for the
   # Vector Table can be mapped anywhere in the memory map. It means we can
   # point the Exception Vector Table to its location in CpuDxe.
-  # By default we copy the Vector Table at  PcdGet32(PcdCpuVectorBaseAddress)
+  # By default we copy the Vector Table at  PcdGet64(PcdCpuVectorBaseAddress)
   gArmTokenSpaceGuid.PcdRelocateVectorTable|TRUE|BOOLEAN|0x00000022
   # Set this PCD to TRUE if the Exception Vector is changed to add debugger support before
   # it has been configured by the CPU DXE
@@ -90,7 +91,7 @@
   # This PCD will free the unallocated buffers if their size reach this threshold.
   # We set the default value to 512MB.
   gArmTokenSpaceGuid.PcdArmFreeUncachedMemorySizeThreshold|0x20000000|UINT64|0x00000003
-  gArmTokenSpaceGuid.PcdCpuVectorBaseAddress|0xffff0000|UINT32|0x00000004
+  gArmTokenSpaceGuid.PcdCpuVectorBaseAddress|0xffff0000|UINT64|0x00000004
   gArmTokenSpaceGuid.PcdCpuResetAddress|0x00000000|UINT32|0x00000005
 
   #
@@ -132,6 +133,14 @@
   #
   gArmTokenSpaceGuid.PcdFdSize|0|UINT32|0x0000002C
   gArmTokenSpaceGuid.PcdFvSize|0|UINT32|0x0000002E
+
+  #
+  # Value to add to a host address to obtain a device address, using
+  # unsigned 64-bit integer arithmetic on both ARM and AArch64. This
+  # means we can rely on truncation on overflow to specify negative
+  # offsets.
+  #
+  gArmTokenSpaceGuid.PcdArmDmaDeviceOffset|0x0|UINT64|0x0000044
 
 [PcdsFixedAtBuild.common, PcdsPatchableInModule.common]
   gArmTokenSpaceGuid.PcdFdBaseAddress|0|UINT64|0x0000002B
@@ -250,8 +259,70 @@
   #
   # ARM Generic Interrupt Controller
   #
-  gArmTokenSpaceGuid.PcdGicDistributorBase|0|UINT32|0x0000000C
+  gArmTokenSpaceGuid.PcdGicDistributorBase|0|UINT64|0x0000000C
   # Base address for the GIC Redistributor region that contains the boot CPU
-  gArmTokenSpaceGuid.PcdGicRedistributorsBase|0|UINT32|0x0000000E
-  gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase|0|UINT32|0x0000000D
+  gArmTokenSpaceGuid.PcdGicRedistributorsBase|0|UINT64|0x0000000E
+  gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase|0|UINT64|0x0000000D
   gArmTokenSpaceGuid.PcdGicSgiIntId|0|UINT32|0x00000025
+
+  #
+  # Bases, sizes and translation offsets of IO and MMIO spaces, respectively.
+  # Note that "IO" is just another MMIO range that simulates IO space; there
+  # are no special instructions to access it.
+  #
+  # The base addresses PcdPciIoBase, PcdPciMmio32Base and PcdPciMmio64Base are
+  # specific to their containing address spaces. In order to get the physical
+  # address for the CPU, for a given access, the respective translation value
+  # has to be added.
+  #
+  # The translations always have to be initialized like this, using UINT64:
+  #
+  #   UINT64 IoCpuBase;     // mapping target in 64-bit cpu-physical space
+  #   UINT64 Mmio32CpuBase; // mapping target in 64-bit cpu-physical space
+  #   UINT64 Mmio64CpuBase; // mapping target in 64-bit cpu-physical space
+  #
+  #   PcdPciIoTranslation     = IoCpuBase     - PcdPciIoBase;
+  #   PcdPciMmio32Translation = Mmio32CpuBase - (UINT64)PcdPciMmio32Base;
+  #   PcdPciMmio64Translation = Mmio64CpuBase - PcdPciMmio64Base;
+  #
+  # because (a) the target address space (ie. the cpu-physical space) is
+  # 64-bit, and (b) the translation values are meant as offsets for *modular*
+  # arithmetic.
+  #
+  # Accordingly, the translation itself needs to be implemented as:
+  #
+  #   UINT64 UntranslatedIoAddress;     // input parameter
+  #   UINT32 UntranslatedMmio32Address; // input parameter
+  #   UINT64 UntranslatedMmio64Address; // input parameter
+  #
+  #   UINT64 TranslatedIoAddress;       // output parameter
+  #   UINT64 TranslatedMmio32Address;   // output parameter
+  #   UINT64 TranslatedMmio64Address;   // output parameter
+  #
+  #   TranslatedIoAddress     = UntranslatedIoAddress +
+  #                             PcdPciIoTranslation;
+  #   TranslatedMmio32Address = (UINT64)UntranslatedMmio32Address +
+  #                             PcdPciMmio32Translation;
+  #   TranslatedMmio64Address = UntranslatedMmio64Address +
+  #                             PcdPciMmio64Translation;
+  #
+  #  The modular arithmetic performed in UINT64 ensures that the translation
+  #  works correctly regardless of the relation between IoCpuBase and
+  #  PcdPciIoBase, Mmio32CpuBase and PcdPciMmio32Base, and Mmio64CpuBase and
+  #  PcdPciMmio64Base.
+  #
+  gArmTokenSpaceGuid.PcdPciIoBase|0x0|UINT64|0x00000050
+  gArmTokenSpaceGuid.PcdPciIoSize|0x0|UINT64|0x00000051
+  gArmTokenSpaceGuid.PcdPciIoTranslation|0x0|UINT64|0x00000052
+  gArmTokenSpaceGuid.PcdPciMmio32Base|0x0|UINT32|0x00000053
+  gArmTokenSpaceGuid.PcdPciMmio32Size|0x0|UINT32|0x00000054
+  gArmTokenSpaceGuid.PcdPciMmio32Translation|0x0|UINT64|0x00000055
+  gArmTokenSpaceGuid.PcdPciMmio64Base|0x0|UINT64|0x00000056
+  gArmTokenSpaceGuid.PcdPciMmio64Size|0x0|UINT64|0x00000057
+  gArmTokenSpaceGuid.PcdPciMmio64Translation|0x0|UINT64|0x00000058
+
+  #
+  # Inclusive range of allowed PCI buses.
+  #
+  gArmTokenSpaceGuid.PcdPciBusMin|0x0|UINT32|0x00000059
+  gArmTokenSpaceGuid.PcdPciBusMax|0x0|UINT32|0x0000005A

@@ -874,8 +874,13 @@ public class DateIntervalFormat extends UFormat {
                 otherPos.setEndIndex(0);
                 datePortion = fDateFormat.format(fromCalendar, datePortion, otherPos);
                 adjustPosition(fDateTimeFormat, fallbackRange, pos, datePortion.toString(), otherPos, pos);
-                fallbackRange = SimpleFormatterImpl.formatRawPattern(
-                        fDateTimeFormat, 2, 2, fallbackRange, datePortion);
+                // Android patch (CLDR ticket #10321) begin.
+                MessageFormat msgFmt = new MessageFormat("");
+                msgFmt.applyPattern(fDateTimeFormat, MessagePattern.ApostropheMode.DOUBLE_REQUIRED);
+                StringBuffer fallbackRangeBuffer = new StringBuffer(128);
+                fallbackRange = msgFmt.format(new Object[] { fallbackRange, datePortion },
+                    fallbackRangeBuffer, new FieldPosition(0)).toString();
+                // Android patch (CLDR ticket #10321) end.
             }
             appendTo.append(fallbackRange);
             if (formatDatePlusTimeRange) {

@@ -17,7 +17,7 @@
 package com.android.cts.devicepolicy;
 
 /**
- * Tests for emphemeral users and profiles.
+ * Tests for ephemeral users and profiles.
  */
 public class EphemeralUserTest extends BaseDevicePolicyTest {
 
@@ -35,7 +35,7 @@ public class EphemeralUserTest extends BaseDevicePolicyTest {
 
     /** The user should have the ephemeral flag set if it was created as ephemeral. */
     public void testCreateEphemeralUser() throws Exception {
-        if (!mHasFeature || !hasUserSplit()) {
+        if (!mHasFeature) {
             return;
         }
         int userId = createUser(FLAG_EPHEMERAL);
@@ -59,7 +59,8 @@ public class EphemeralUserTest extends BaseDevicePolicyTest {
      */
     public void testProfileInheritsEphemeral() throws Exception {
         if (!mHasFeature || !hasDeviceFeature("android.software.managed_users")
-                || !hasUserSplit() || !canCreateAdditionalUsers(2)) {
+                || !canCreateAdditionalUsers(2)
+                || !hasUserSplit()) {
             return;
         }
         int userId = createUser(FLAG_EPHEMERAL);
@@ -72,7 +73,7 @@ public class EphemeralUserTest extends BaseDevicePolicyTest {
      * Ephemeral user should be automatically removed after it is stopped.
      */
     public void testRemoveEphemeralOnStop() throws Exception {
-        if (!mHasFeature || !hasUserSplit()) {
+        if (!mHasFeature) {
             return;
         }
         int userId = createUser(FLAG_EPHEMERAL);
@@ -87,7 +88,7 @@ public class EphemeralUserTest extends BaseDevicePolicyTest {
      * and not ephemeral when the feature is not set.
      */
     public void testEphemeralGuestFeature() throws Exception {
-        if (!mHasFeature || !hasUserSplit()) {
+        if (!mHasFeature) {
             return;
         }
         // Create a guest user.
@@ -101,20 +102,6 @@ public class EphemeralUserTest extends BaseDevicePolicyTest {
             // The guest should not be ephemeral.
             assertTrue("ephemeral flag must not be set for guest", 0 == (flags & FLAG_EPHEMERAL));
         }
-    }
-
-    /**
-     * Test that creating an ephemeral user fails on systems without the split system user.
-     */
-    public void testCreateEphemeralWithoutUserSplitFails() throws Exception {
-        if (!mHasFeature || hasUserSplit()) {
-            return;
-        }
-        String command ="pm create-user --ephemeral " + "TestUser_" + System.currentTimeMillis();
-        String commandOutput = getDevice().executeShellCommand(command);
-
-        assertEquals("Creating the epehemeral user should fail.",
-                "Error: couldn't create User.", commandOutput.trim());
     }
 
     private boolean getGuestUsersEphemeral() throws Exception {

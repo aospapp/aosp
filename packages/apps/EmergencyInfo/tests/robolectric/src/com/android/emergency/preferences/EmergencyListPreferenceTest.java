@@ -16,19 +16,16 @@
 package com.android.emergency.preferences;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.nullable;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
-
-import android.test.suitebuilder.annotation.SmallTest;
 
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.support.v7.preference.PreferenceGroup;
 import android.support.v7.preference.PreferenceManager;
 import android.support.v7.preference.PreferenceScreen;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.text.TextUtils;
 
 import com.android.emergency.PreferenceKeys;
@@ -47,7 +44,6 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link EmergencyListPreference}. */
-@SmallTest
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION)
 public final class EmergencyListPreferenceTest {
@@ -76,7 +72,8 @@ public final class EmergencyListPreferenceTest {
         CharSequence[] organDonorValues =
                 RuntimeEnvironment.application.getResources().getStringArray(
                         R.array.organ_donor_entries);
-        when(mSharedPreferences.getString(eq(PreferenceKeys.KEY_ORGAN_DONOR), anyString()))
+        when(mSharedPreferences.getString(
+                eq(PreferenceKeys.KEY_ORGAN_DONOR), nullable(String.class)))
                 .thenReturn((String) organDonorValues[0]);
 
         mPreference.setKey(PreferenceKeys.KEY_ORGAN_DONOR);
@@ -98,7 +95,8 @@ public final class EmergencyListPreferenceTest {
         mPreference.setKey(PreferenceKeys.KEY_ORGAN_DONOR);
         mPreference.setEntries(organDonorEntries);
         mPreference.setEntryValues(organDonorValues);
-        when(mSharedPreferences.getString(eq(PreferenceKeys.KEY_ORGAN_DONOR), anyString()))
+        when(mSharedPreferences.getString(
+                eq(PreferenceKeys.KEY_ORGAN_DONOR), nullable(String.class)))
                 .thenAnswer(new CyclingStringArrayAnswer(organDonorValues));
 
         for (int i = 0; i < mPreference.getEntryValues().length; i++) {

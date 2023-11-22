@@ -21,19 +21,24 @@ import java.util.MissingResourceException;
 import java.util.Set;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.Collator;
 import android.icu.text.Collator.CollatorFactory;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class CollationServiceTest extends TestFmwk {
     @Test
     public void TestRegister() {
         // register a singleton
         Collator frcol = Collator.getInstance(ULocale.FRANCE);
         Collator uscol = Collator.getInstance(ULocale.US);
-            
+
         { // try override en_US collator
             Object key = Collator.registerInstance(frcol, ULocale.US);
             Collator ncol = Collator.getInstance(ULocale.US);
@@ -65,7 +70,7 @@ public class CollationServiceTest extends TestFmwk {
             if (!frcol.equals(ncol)) {
                 errln("register of fr collator for fu_FU failed");
             }
-            
+
             ULocale[] locales = Collator.getAvailableULocales();
             boolean found = false;
             for (int i = 0; i < locales.length; ++i) {
@@ -84,7 +89,7 @@ public class CollationServiceTest extends TestFmwk {
                     errln("found " + name + " for fu_FU");
                 }
             }catch(MissingResourceException ex){
-                warnln("Could not load locale data."); 
+                warnln("Could not load locale data.");
             }
             try{
                 String name = Collator.getDisplayName(fu_FU, fu_FU);
@@ -93,7 +98,7 @@ public class CollationServiceTest extends TestFmwk {
                     errln("found " + name + " for fu_FU");
                 }
             }catch(MissingResourceException ex){
-                warnln("Could not load locale data."); 
+                warnln("Could not load locale data.");
             }
 
             if (!Collator.unregister(key)) {
@@ -106,9 +111,9 @@ public class CollationServiceTest extends TestFmwk {
         }
 
         {
-            // coverage after return to default 
+            // coverage after return to default
             ULocale[] locales = Collator.getAvailableULocales();
-    
+
             for (int i = 0; i < locales.length; ++i) {
                 if (locales[i].equals(fu_FU)) {
                     errln("new locale fu_FU not reported as supported locale");
@@ -152,7 +157,7 @@ public class CollationServiceTest extends TestFmwk {
         class TestFactory extends CollatorFactory {
             private Map map;
             private Set ids;
-            
+
             TestFactory(CollatorInfo[] info) {
                 map = new HashMap();
                 for (int i = 0; i < info.length; ++i) {
@@ -161,6 +166,7 @@ public class CollationServiceTest extends TestFmwk {
                 }
             }
 
+            @Override
             public Collator createCollator(ULocale loc) {
                 CollatorInfo ci = (CollatorInfo)map.get(loc);
                 if (ci != null) {
@@ -169,6 +175,7 @@ public class CollationServiceTest extends TestFmwk {
                 return null;
             }
 
+            @Override
             public String getDisplayName(ULocale objectLocale, ULocale displayLocale) {
                 CollatorInfo ci = (CollatorInfo)map.get(objectLocale);
                 if (ci != null) {
@@ -177,6 +184,7 @@ public class CollationServiceTest extends TestFmwk {
                 return null;
             }
 
+            @Override
             public Set getSupportedLocaleIDs() {
                 if (ids == null) {
                     HashSet set = new HashSet();
@@ -191,20 +199,22 @@ public class CollationServiceTest extends TestFmwk {
                 return ids;
             }
         }
-    
+
         class TestFactoryWrapper extends CollatorFactory {
             CollatorFactory delegate;
-    
+
             TestFactoryWrapper(CollatorFactory delegate) {
                 this.delegate = delegate;
             }
-    
+
+            @Override
             public Collator createCollator(ULocale loc) {
                 return delegate.createCollator(loc);
             }
-    
+
             // use CollatorFactory getDisplayName(ULocale, ULocale) for coverage
-    
+
+            @Override
             public Set getSupportedLocaleIDs() {
                 return delegate.getSupportedLocaleIDs();
             }
@@ -223,7 +233,7 @@ public class CollationServiceTest extends TestFmwk {
         Collator gecol = Collator.getInstance(ULocale.GERMANY);
         Collator jpcol = Collator.getInstance(ULocale.JAPAN);
         Collator fucol = Collator.getInstance(fu_FU);
-        
+
         CollatorInfo[] info = {
             new CollatorInfo(ULocale.US, frcol, null),
             new CollatorInfo(ULocale.FRANCE, gecol, null),
@@ -233,7 +243,7 @@ public class CollationServiceTest extends TestFmwk {
         try{
             factory = new TestFactory(info);
         }catch(MissingResourceException ex){
-            warnln("Could not load locale data."); 
+            warnln("Could not load locale data.");
         }
         // coverage
         {
@@ -243,11 +253,11 @@ public class CollationServiceTest extends TestFmwk {
             try{
                 name = Collator.getDisplayName(fu_FU, fu_FU_FOO);
             }catch(MissingResourceException ex){
-                warnln("Could not load locale data."); 
+                warnln("Could not load locale data.");
             }
             logln("*** default name: " + name);
             Collator.unregister(key);
-    
+
             ULocale bar_BAR = new ULocale("bar_BAR");
             Collator col = Collator.getInstance(bar_BAR);
             ULocale valid = col.getLocale(ULocale.VALID_LOCALE);
@@ -258,12 +268,12 @@ public class CollationServiceTest extends TestFmwk {
         }
 
         int n1 = checkAvailable("before registerFactory");
-        
+
         {
             Object key = Collator.registerFactory(factory);
-            
+
             int n2 = checkAvailable("after registerFactory");
-            
+
             Collator ncol = Collator.getInstance(ULocale.US);
             if (!frcol.equals(ncol)) {
                 errln("frcoll for en_US failed");
@@ -273,7 +283,7 @@ public class CollationServiceTest extends TestFmwk {
             if (!jpcol.equals(ncol)) {
                 errln("jpcol for fu_FU_FOO failed, got: " + ncol);
             }
-            
+
             ULocale[] locales = Collator.getAvailableULocales();
             boolean found = false;
             for (int i = 0; i < locales.length; ++i) {
@@ -285,7 +295,7 @@ public class CollationServiceTest extends TestFmwk {
             if (!found) {
                 errln("new locale fu_FU not reported as supported locale");
             }
-            
+
             String name = Collator.getDisplayName(fu_FU);
             if (!"little bunny Foo Foo".equals(name)) {
                 errln("found " + name + " for fu_FU");
@@ -303,7 +313,7 @@ public class CollationServiceTest extends TestFmwk {
             int n3 = checkAvailable("after unregister");
             assertTrue("register increases count", n2>n1);
             assertTrue("unregister restores count", n3==n1);
-            
+
             ncol = Collator.getInstance(fu_FU);
             if (!fucol.equals(ncol)) {
                 errln("collator after unregister does not match original fu_FU");
@@ -322,12 +332,12 @@ public class CollationServiceTest extends TestFmwk {
         ULocale ulocs[] = Collator.getAvailableULocales();
         if (!assertTrue("getAvailableULocales != null", ulocs!=null)) return -1;
         checkArray(msg, ulocs, null);
-        // This is not true because since ULocale objects with script code cannot be 
+        // This is not true because since ULocale objects with script code cannot be
         // converted to Locale objects
         //assertTrue("getAvailableLocales().length == getAvailableULocales().length", locs.length == ulocs.length);
         return locs.length;
     }
-    
+
     private static final String KW[] = {
         "collation"
     };
@@ -342,7 +352,7 @@ public class CollationServiceTest extends TestFmwk {
         String kw[] = Collator.getKeywords();
         if (!assertTrue("getKeywords != null", kw!=null)) return;
         checkArray("getKeywords", kw, KW);
-        
+
         String kwval[] = Collator.getKeywordValues(KW[0]);
         if (!assertTrue("getKeywordValues != null", kwval!=null)) return;
         checkArray("getKeywordValues", kwval, KWVAL);
@@ -356,7 +366,7 @@ public class CollationServiceTest extends TestFmwk {
         }
         assertTrue("getFunctionalEquivalent(de).isAvailable==true",
                    isAvailable[0] == true);
-        
+
         equiv = Collator.getFunctionalEquivalent(KW[0],
                                                  new ULocale("de_DE"),
                                                  isAvailable);
@@ -371,11 +381,11 @@ public class CollationServiceTest extends TestFmwk {
             assertEquals("getFunctionalEquivalent(zh_Hans)", "zh", equiv.toString());
         }
     }
-    
+
     @Test
     public void TestGetFunctionalEquivalent() {
         String kw[] = Collator.getKeywords();
-        final String DATA[] = { 
+        final String DATA[] = {
                           "sv", "sv", "t",
                           "sv@collation=direct", "sv", "t",
                           "sv@collation=traditional", "sv", "t",
@@ -407,7 +417,7 @@ public class CollationServiceTest extends TestFmwk {
                           "en_US_VALLEYGIRL","root","f"
                         };
         final int DATA_COUNT=(DATA.length/3);
-        
+
         for(int i=0;i<DATA_COUNT;i++) {
             boolean isAvailable[] = new boolean[1];
             ULocale input = new ULocale(DATA[(i*3)+0]);
@@ -441,8 +451,8 @@ public class CollationServiceTest extends TestFmwk {
 //                for (int i = 0; i < Collator.getKeywords().length; ++i) {
 //                        ULocale base = Collator.getFunctionalEquivalent(keywords[i],locales[k]);
 //                        String[] values = Collator.getKeywordValues(keywords[i]);
-//                        for (int j = 0; j < Collator.getKeywordValues(keywords[i]).length;++j) {                          
-//                                ULocale other = Collator.getFunctionalEquivalent(keywords[i], 
+//                        for (int j = 0; j < Collator.getKeywordValues(keywords[i]).length;++j) {
+//                                ULocale other = Collator.getFunctionalEquivalent(keywords[i],
 //                                        new ULocale(locales[k] + "@" + keywords[i] + "=" + values[j]),
 //                                        isAvailable);
 //                                if (isAvailable[0] && !other.equals(base)) {
@@ -493,7 +503,7 @@ public class CollationServiceTest extends TestFmwk {
                     errln("Keyword value " + expected[j] + " missing for locale: " + locale);
                 }
             }
- 
+
             // Collator.getKeywordValues return the same contents for both commonlyUsed
             // true and false.
             String[] all = Collator.getKeywordValuesForLocale("collation", loc, false);

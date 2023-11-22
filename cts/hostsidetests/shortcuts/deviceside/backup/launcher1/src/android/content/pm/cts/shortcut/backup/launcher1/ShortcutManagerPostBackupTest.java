@@ -17,6 +17,7 @@ package android.content.pm.cts.shortcut.backup.launcher1;
 
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.assertWith;
 
+import android.content.pm.ShortcutInfo;
 import android.content.pm.cts.shortcut.device.common.ShortcutManagerDeviceTestBase;
 
 public class ShortcutManagerPostBackupTest extends ShortcutManagerDeviceTestBase {
@@ -57,9 +58,22 @@ public class ShortcutManagerPostBackupTest extends ShortcutManagerDeviceTestBase
                 .selectByIds("ms1")
                 .areAllNotPinned();
 
+        // Package3 doesn't support backup&restore.
+        // However, the manifest-shortcuts will be republished anyway, so they're still pinned.
+        // The dynamic shortcuts can't be restored, but we'll still restore them as disabled
+        // shortcuts that are not visible to the publisher.
         assertWith(getPackageShortcuts(ShortcutManagerPreBackupTest.PUBLISHER3_PKG))
-                .haveIds("ms1", "ms2")
+                .haveIds("ms1", "ms2", "s1", "s2")
+                .areAllPinned()
+
+                .selectByIds("ms1", "ms2")
                 .areAllEnabled()
-                .areAllNotPinned(); // P3 doesn't get backed up, so no longer pinned.
+                .areAllWithDisabledReason(ShortcutInfo.DISABLED_REASON_NOT_DISABLED)
+
+                .revertToOriginalList()
+                .selectByIds("s1", "s2")
+                .areAllDisabled()
+                .areAllWithDisabledReason(ShortcutInfo.DISABLED_REASON_BACKUP_NOT_SUPPORTED)
+                ;
     }
 }

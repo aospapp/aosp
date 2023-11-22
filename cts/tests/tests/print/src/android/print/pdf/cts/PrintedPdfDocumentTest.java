@@ -16,6 +16,10 @@
 
 package android.print.pdf.cts;
 
+import static android.print.test.Utils.assertException;
+
+import static org.junit.Assert.assertEquals;
+
 import android.content.Context;
 import android.graphics.Rect;
 import android.graphics.pdf.PdfDocument;
@@ -23,12 +27,10 @@ import android.print.PrintAttributes;
 import android.print.pdf.PrintedPdfDocument;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.runner.AndroidJUnit4;
+
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import static android.print.cts.Utils.assertException;
-import static org.junit.Assert.assertEquals;
 
 /**
  * Tests {@link PrintedPdfDocument}. This class is a subclass of {@link PdfDocument}, hence only the

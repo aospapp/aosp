@@ -72,7 +72,7 @@ $(coverage_report): $(api_coverage_dep) | $(ACP)
 	$(hide) mkdir -p $(dir $@)
 	$(hide) $(PRIVATE_API_COVERAGE_EXE) -d $(PRIVATE_DEXDEPS_EXE) \
 		-a $(PRIVATE_API_XML) -t $(PRIVATE_REPORT_TITLE) -f html -o $@ $(PRIVATE_TEST_APKS)
-	@ echo $(PRIVATE_REPORT_TITLE): file://$(ANDROID_BUILD_TOP)/$@
+	@ echo $(PRIVATE_REPORT_TITLE): file://$$(cd $(dir $@); pwd)/$(notdir $@)
 
 .PHONY: continuous_instrumentation_tests_api_coverage
 continuous_instrumentation_tests_api_coverage : $(coverage_report)

@@ -23,8 +23,10 @@
 #include <limits>
 #include <string>
 
+#include <android-base/logging.h>
+
 #include "base/bit_utils.h"
-#include "base/logging.h"
+#include "base/macros.h"
 #include "base/mutex.h"
 #include "gc_root.h"
 #include "obj_ptr.h"
@@ -185,6 +187,8 @@ class IrtIterator {
  public:
   IrtIterator(IrtEntry* table, size_t i, size_t capacity) REQUIRES_SHARED(Locks::mutator_lock_)
       : table_(table), i_(i), capacity_(capacity) {
+    // capacity_ is used in some target; has warning with unused attribute.
+    UNUSED(capacity_);
   }
 
   IrtIterator& operator++() REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -244,8 +248,10 @@ class IndirectReferenceTable {
   bool IsValid() const;
 
   // Add a new entry. "obj" must be a valid non-null object reference. This function will
-  // abort if the table is full (max entries reached, or expansion failed).
-  IndirectRef Add(IRTSegmentState previous_state, ObjPtr<mirror::Object> obj)
+  // return null if an error happened (with an appropriate error message set).
+  IndirectRef Add(IRTSegmentState previous_state,
+                  ObjPtr<mirror::Object> obj,
+                  std::string* error_msg)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Given an IndirectRef in the table, return the Object it refers to.
@@ -276,7 +282,9 @@ class IndirectReferenceTable {
 
   void AssertEmpty() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  void Dump(std::ostream& os) const REQUIRES_SHARED(Locks::mutator_lock_);
+  void Dump(std::ostream& os) const
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(!Locks::alloc_tracker_lock_);
 
   // Return the #of entries in the entire table.  This includes holes, and
   // so may be larger than the actual number of "live" entries.
@@ -289,7 +297,7 @@ class IndirectReferenceTable {
       REQUIRES_SHARED(Locks::mutator_lock_);
   // See implementation of EnsureFreeCapacity. We'll only state here how much is trivially free,
   // without recovering holes. Thus this is a conservative estimate.
-  size_t FreeCapacity() REQUIRES_SHARED(Locks::mutator_lock_);
+  size_t FreeCapacity() const;
 
   // Note IrtIterator does not have a read barrier as it's used to visit roots.
   IrtIterator begin() {

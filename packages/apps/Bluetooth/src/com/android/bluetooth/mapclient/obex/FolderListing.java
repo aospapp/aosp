@@ -32,7 +32,7 @@ class FolderListing {
 
     private final ArrayList<String> mFolders;
 
-    public FolderListing(InputStream in) {
+    FolderListing(InputStream in) {
         mFolders = new ArrayList<String>();
 
         parse(in);

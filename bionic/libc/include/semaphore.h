@@ -44,19 +44,26 @@ typedef struct {
 
 #define SEM_FAILED __BIONIC_CAST(reinterpret_cast, sem_t*, 0)
 
-int sem_destroy(sem_t*);
-int sem_getvalue(sem_t*, int*);
-int sem_init(sem_t*, int, unsigned int);
-int sem_post(sem_t*);
-int sem_timedwait(sem_t*, const struct timespec*);
-int sem_trywait(sem_t*);
-int sem_wait(sem_t*);
+int sem_destroy(sem_t* __sem);
+int sem_getvalue(sem_t* __sem, int* __value);
+int sem_init(sem_t* __sem, int __shared, unsigned int __value);
+int sem_post(sem_t* __sem);
+int sem_timedwait(sem_t* __sem, const struct timespec* __ts);
+/*
+ * POSIX only supports using sem_timedwait() with CLOCK_REALTIME, however that is typically
+ * inappropriate, since that clock can change dramatically, causing the timeout to either
+ * expire earlier or much later than intended.  This function is added to use a timespec based
+ * on CLOCK_MONOTONIC that does not suffer from this issue.
+ */
+int sem_timedwait_monotonic_np(sem_t* __sem, const struct timespec* __ts) __INTRODUCED_IN(28);
+int sem_trywait(sem_t* __sem);
+int sem_wait(sem_t* __sem);
 
 /* These aren't actually implemented. */
-sem_t* sem_open(const char*, int, ...);
-int sem_close(sem_t*);
-int sem_unlink(const char*);
+sem_t* sem_open(const char* __name, int _flags, ...);
+int sem_close(sem_t* __sem);
+int sem_unlink(const char* __name);
 
 __END_DECLS
 
-#endif /* _SEMAPHORE_H */
+#endif

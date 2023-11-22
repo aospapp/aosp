@@ -110,10 +110,16 @@ bool ConfirmUtf8InCppStringArrayReverse(const sp<ITestService>& s) {
   return true;
 }
 
-bool ConfirmUtf8InCppStringListReverse(const sp<ITestService>& s) {
+namespace {
+
+bool ConfirmUtf8InCppStringCollectionReverse(const sp<ITestService>& s,
+     Status (ITestService::*m)(const unique_ptr<vector<unique_ptr<string>>>&,
+                               unique_ptr<vector<unique_ptr<string>>>*,
+                               unique_ptr<vector<unique_ptr<string>>>*)) {
+  (void)m;
   LOG(INFO) << "Confirming reversing a list of utf8 strings works";
   unique_ptr<vector<unique_ptr<string>>> input, reversed, repeated;
-  Status status = s->ReverseUtf8CppStringList(input, &reversed, &repeated);
+  Status status = (s.get()->*m)(input, &reversed, &repeated);
   if (!status.isOk() || reversed || repeated) {
     LOG(ERROR) << "Reversing null list of utf8 strings failed.";
     return false;
@@ -160,6 +166,17 @@ bool ConfirmUtf8InCppStringListReverse(const sp<ITestService>& s) {
   return true;
 }
 
+}  // namespace
+
+bool ConfirmUtf8InCppStringListReverse(const sp<ITestService>& s) {
+  return ConfirmUtf8InCppStringCollectionReverse(s,
+      &ITestService::ReverseUtf8CppStringList);
+}
+
+bool ConfirmUtf8InCppNullableStringArrayReverse(const sp<ITestService>& s) {
+  return ConfirmUtf8InCppStringCollectionReverse(s,
+      &ITestService::ReverseNullableUtf8CppString);
+}
 
 }  // namespace client
 }  // namespace tests

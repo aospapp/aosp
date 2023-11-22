@@ -30,7 +30,10 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.telephony.embms.cts.permission.TEST_BROADCAST"/>
 
+    <permission android:name="android.telephony.embms.cts.permission.TEST_BROADCAST"
+                android:protectionLevel="signature"/>
     <application>
         <provider android:name="android.telephony.cts.MmsPduProvider"
                   android:authorities="telephonyctstest"
@@ -126,7 +129,35 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="android.telephony.euicc.cts.EuiccTestResolutionActivity"/>
+
+        <activity android:name="android.telephony.euicc.cts.EuiccResolutionActivity"/>
+
         <uses-library android:name="android.test.runner" />
+
+
+        <!-- This is the receiver defined by the MBMS api. -->
+        <receiver
+            android:name="android.telephony.mbms.MbmsDownloadReceiver"
+            android:permission="android.telephony.cts.embmstestapp.CTS_DOWNLOAD_PERMISSION"
+            android:enabled="true"
+            android:exported="true">
+        </receiver>
+
+        <provider
+            android:name="android.telephony.mbms.MbmsTempFileProvider"
+            android:authorities="android.telephony.mbms.cts"
+            android:exported="false"
+            android:grantUriPermissions="true">
+        </provider>
+
+        <meta-data android:name="mbms-streaming-service-override"
+                   android:value="android.telephony.cts.embmstestapp/.CtsStreamingService"/>
+        <meta-data android:name="mbms-download-service-override"
+                   android:value="android.telephony.cts.embmstestapp/.CtsDownloadService"/>
+        <meta-data
+            android:name="mbms-file-provider-authority"
+            android:value="android.telephony.mbms.cts"/>
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

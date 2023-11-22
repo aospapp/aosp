@@ -68,7 +68,7 @@ public class DeviceNameSetFragment extends GuidedStepFragment {
     public GuidanceStylist.Guidance onCreateGuidance(Bundle savedInstanceState) {
         return new GuidanceStylist.Guidance(
                 getString(R.string.select_device_name_title, Build.MODEL),
-                getString(R.string.select_device_name_description, Build.MODEL),
+                getString(R.string.select_device_name_description),
                 null,
                 null);
     }
@@ -128,7 +128,8 @@ public class DeviceNameSetFragment extends GuidedStepFragment {
             if (getActivity() instanceof DeviceNameFlowStartActivity) {
                 ((DeviceNameFlowStartActivity) getActivity()).setResultOk(true);
             }
-
+            DeviceNameSuggestionStatus.getInstance(
+                    getActivity().getApplicationContext()).setFinished();
             getActivity().setResult(Activity.RESULT_OK);
             getActivity().finish();
         } else if (id == mDeviceNames.size()) {

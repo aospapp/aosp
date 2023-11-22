@@ -16,6 +16,10 @@
 
 package android.view.accessibility.cts;
 
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.core.IsEqual.equalTo;
+import static org.junit.Assert.assertThat;
+
 import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.content.ContentResolver;
@@ -28,12 +32,13 @@ import android.view.accessibility.AccessibilityManager;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Utility methods for enabling and disabling the services used in this package
  */
 public class ServiceControlUtils {
-    private static final int TIMEOUT_FOR_SERVICE_ENABLE = 10000; // millis; 10s
+    public static final int TIMEOUT_FOR_SERVICE_ENABLE = 10000; // millis; 10s
 
     private static final String SETTING_ENABLE_SPEAKING_AND_VIBRATING_SERVICES =
             "android.view.accessibility.cts/.SpeakingAccessibilityService:"
@@ -181,28 +186,32 @@ public class ServiceControlUtils {
         final Object waitLockForA11yOff = new Object();
         AccessibilityManager manager = (AccessibilityManager) instrumentation
                 .getContext().getSystemService(Context.ACCESSIBILITY_SERVICE);
-        manager.addAccessibilityStateChangeListener(
-                new AccessibilityManager.AccessibilityStateChangeListener() {
-                    @Override
-                    public void onAccessibilityStateChanged(boolean b) {
-                        synchronized (waitLockForA11yOff) {
-                            waitLockForA11yOff.notifyAll();
-                        }
-                    }
-                });
-        long timeoutTimeMillis = SystemClock.uptimeMillis() + TIMEOUT_FOR_SERVICE_ENABLE;
-        while (SystemClock.uptimeMillis() < timeoutTimeMillis) {
+        // Updates to manager.isEnabled() aren't synchronized
+        AtomicBoolean accessibilityEnabled = new AtomicBoolean(manager.isEnabled());
+        AccessibilityManager.AccessibilityStateChangeListener listener = (boolean b) -> {
             synchronized (waitLockForA11yOff) {
-                if (!manager.isEnabled()) {
-                    return;
-                }
-                try {
-                    waitLockForA11yOff.wait(timeoutTimeMillis - SystemClock.uptimeMillis());
-                } catch (InterruptedException e) {
-                    // Ignored; loop again
+                waitLockForA11yOff.notifyAll();
+                accessibilityEnabled.set(b);
+            }
+        };
+        manager.addAccessibilityStateChangeListener(listener);
+        try {
+            long timeoutTimeMillis = SystemClock.uptimeMillis() + TIMEOUT_FOR_SERVICE_ENABLE;
+            while (SystemClock.uptimeMillis() < timeoutTimeMillis) {
+                synchronized (waitLockForA11yOff) {
+                    if (!accessibilityEnabled.get()) {
+                        return;
+                    }
+                    try {
+                        waitLockForA11yOff.wait(timeoutTimeMillis - SystemClock.uptimeMillis());
+                    } catch (InterruptedException e) {
+                        // Ignored; loop again
+                    }
                 }
             }
+        } finally {
+            manager.removeAccessibilityStateChangeListener(listener);
         }
-        throw new RuntimeException("Unable to turn accessibility off");
+        assertThat("Unable to turn accessibility off", manager.isEnabled(), is(equalTo(false)));
     }
 }

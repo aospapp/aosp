@@ -16,11 +16,10 @@
 
 package com.android.tv.perf;
 
-import android.support.annotation.StringDef;
-
-import java.lang.annotation.Retention;
-
 import static java.lang.annotation.RetentionPolicy.SOURCE;
+
+import android.support.annotation.StringDef;
+import java.lang.annotation.Retention;
 
 /**
  * Constants for performance event names.
@@ -47,8 +46,8 @@ public final class EventNames {
     public static final String MAIN_ACTIVITY_ONSTART = "MainActivity.onStart";
     public static final String MAIN_ACTIVITY_ONRESUME = "MainActivity.onResume";
     /**
-     * Event name for query running time of on-device search in
-     * {@link com.android.tv.search.LocalSearchProvider}.
+     * Event name for query running time of on-device search in {@link
+     * com.android.tv.search.LocalSearchProvider}.
      */
     public static final String ON_DEVICE_SEARCH = "OnDeviceSearch";
 

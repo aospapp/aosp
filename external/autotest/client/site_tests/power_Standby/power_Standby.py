@@ -6,7 +6,8 @@ import logging, math, time
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import power_status, rtc, sys_power
+from autotest_lib.client.cros import rtc
+from autotest_lib.client.cros.power import power_status, sys_power
 
 class power_Standby(test.test):
     """Measure Standby(S3) power test."""

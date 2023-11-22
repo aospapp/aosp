@@ -16,7 +16,6 @@
 
 package com.android.server.wifi.util;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -28,24 +27,20 @@ import static org.mockito.Mockito.when;
 
 import android.Manifest;
 import android.app.AppOpsManager;
-import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
-import android.net.NetworkScoreManager;
-import android.net.NetworkScorerAppData;
-import android.net.wifi.WifiConfiguration;
 import android.os.Build;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings;
+import android.support.test.filters.SmallTest;
 
 import com.android.server.wifi.BinderUtil;
 import com.android.server.wifi.FakeWifiLog;
-import com.android.server.wifi.FrameworkFacade;
 import com.android.server.wifi.WifiInjector;
 import com.android.server.wifi.WifiSettingsStore;
 
@@ -64,6 +59,7 @@ import java.util.HashMap;
 
 /** Unit tests for {@link WifiPermissionsUtil}. */
 @RunWith(JUnit4.class)
+@SmallTest
 public class WifiPermissionsUtilTest {
     public static final String TAG = "WifiPermissionsUtilTest";
 
@@ -77,10 +73,7 @@ public class WifiPermissionsUtilTest {
     @Mock private UserManager mMockUserManager;
     @Mock private WifiSettingsStore mMockWifiSettingsStore;
     @Mock private ContentResolver mMockContentResolver;
-    @Mock private NetworkScoreManager mMockNetworkScoreManager;
-    @Mock private WifiInjector mMockWifiInjector;
-    @Mock private FrameworkFacade mMockFrameworkFacade;
-    @Mock private WifiConfiguration mMockWifiConfig;
+    @Mock private WifiInjector mWifiInjector;
     @Spy private FakeWifiLog mWifiLog;
 
     private static final String TEST_PACKAGE_NAME = "com.google.somePackage";
@@ -104,14 +97,8 @@ public class WifiPermissionsUtilTest {
     private int mCurrentUser;
     private int mLocationModeSetting;
     private boolean mThrowSecurityException;
-    private int mTargetVersion;
-    private boolean mActiveNwScorer;
     private Answer<Integer> mReturnPermission;
     private HashMap<String, Integer> mPermissionsList = new HashMap<String, Integer>();
-    private String mUseOpenWifiPackage;
-    private NetworkScorerAppData mNetworkScorerAppData;
-    private boolean mGetActiveScorerThrowsSecurityException;
-    private boolean mConfigIsOpen;
 
     /**
     * Set up Mockito tests
@@ -135,8 +122,7 @@ public class WifiPermissionsUtilTest {
         mUid = MANAGED_PROFILE_UID;  // do not really care about this value
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
         when(mMockPermissionsWrapper.getOverrideWifiConfigPermission(anyInt()))
                 .thenReturn(PackageManager.PERMISSION_GRANTED);
         assertTrue(codeUnderTest.checkConfigOverridePermission(mUid));
@@ -150,8 +136,7 @@ public class WifiPermissionsUtilTest {
         mUid = OTHER_USER_UID;  // do not really care about this value
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
         when(mMockPermissionsWrapper.getOverrideWifiConfigPermission(anyInt()))
                 .thenReturn(PackageManager.PERMISSION_DENIED);
         assertFalse(codeUnderTest.checkConfigOverridePermission(mUid));
@@ -165,8 +150,7 @@ public class WifiPermissionsUtilTest {
         mUid = OTHER_USER_UID;  // do not really care about this value
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
         doThrow(new RemoteException("Failed to check permissions for " + mUid))
                 .when(mMockPermissionsWrapper).getOverrideWifiConfigPermission(mUid);
         assertFalse(codeUnderTest.checkConfigOverridePermission(mUid));
@@ -174,110 +158,92 @@ public class WifiPermissionsUtilTest {
 
     /**
      * Test case setting: Package is valid
+     *                    Location mode is enabled
      *                    Caller can read peers mac address
      *                    This App has permission to request WIFI_SCAN
      *                    User is current
-     * Validate result is true
+     * Validate no Exceptions are thrown
      * - User has all the permissions
      */
     @Test
     public void testCanReadPeersMacAddressCurrentUserAndAllPermissions() throws Exception {
-        boolean output = false;
         mThrowSecurityException = false;
         mUid = MANAGED_PROFILE_UID;
         mPermissionsList.put(mMacAddressPermission, mUid);
         mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
         mCurrentUser = UserHandle.USER_CURRENT_OR_SELF;
+        mLocationModeSetting = Settings.Secure.LOCATION_MODE_HIGH_ACCURACY;
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-        try {
-            output = codeUnderTest.canAccessScanResults(TEST_PACKAGE_NAME, mUid, mTargetVersion);
-        } catch (SecurityException e) {
-            throw e;
-        }
-        assertEquals(output, true);
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
+        codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
     }
 
     /**
      * Test case setting: Package is valid
+     *                    Location mode is enabled
      *                    Caller can read peers mac address
      *                    This App has permission to request WIFI_SCAN
      *                    User profile is current
-     * Validate result is true
+     * Validate no Exceptions are thrown
      * - User has all the permissions
      */
     @Test
     public void testCanReadPeersMacAddressCurrentProfileAndAllPermissions() throws Exception {
-        boolean output = false;
         mThrowSecurityException = false;
         mUid = MANAGED_PROFILE_UID;
         mPermissionsList.put(mMacAddressPermission, mUid);
         mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
         mMockUserInfo.id = mCallingUser;
+        mLocationModeSetting = Settings.Secure.LOCATION_MODE_HIGH_ACCURACY;
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-        try {
-            output = codeUnderTest.canAccessScanResults(TEST_PACKAGE_NAME, mUid, mTargetVersion);
-        } catch (SecurityException e) {
-            throw e;
-        }
-        assertEquals(output, true);
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
+        codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
     }
 
     /**
      * Test case setting: Package is valid
      *                    Caller can read peers mac address
-     * Validate result is false
+     * Validate that a SecurityException is thrown
      * - This App doesn't have permission to request Wifi Scan
      */
     @Test
     public void testCannotAccessScanResult_AppNotAllowed() throws Exception {
-        boolean output = true;
         mThrowSecurityException = false;
         mPermissionsList.put(mMacAddressPermission, mUid);
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
         try {
-            output = codeUnderTest.canAccessScanResults(TEST_PACKAGE_NAME, mUid, mTargetVersion);
+            codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
+            fail("Expected SecurityException is not thrown");
         } catch (SecurityException e) {
-            throw e;
         }
-        assertEquals(output, false);
     }
 
     /**
      * Test case setting: Package is valid
+     *                    Location mode is enabled
      *                    Caller can read peers mac address
      *                    This App has permission to request WIFI_SCAN
      *                    User or profile is not current but the uid has
      *                    permission to INTERACT_ACROSS_USERS_FULL
-     * Validate result is true
+     * Validate no Exceptions are thrown
      * - User has all the permissions
      */
     @Test
-    public void testCanAccessScanResults_UserOrProfileNotCurrent() throws Exception {
-        boolean output = false;
+    public void testenforceCanAccessScanResults_UserOrProfileNotCurrent() throws Exception {
         mThrowSecurityException = false;
         mUid = MANAGED_PROFILE_UID;
         mPermissionsList.put(mMacAddressPermission, mUid);
         mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
         mPermissionsList.put(mInteractAcrossUsersFullPermission, mUid);
+        mLocationModeSetting = Settings.Secure.LOCATION_MODE_HIGH_ACCURACY;
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-        try {
-            output = codeUnderTest.canAccessScanResults(TEST_PACKAGE_NAME, mUid, mTargetVersion);
-        } catch (SecurityException e) {
-            throw e;
-        }
-        assertEquals(output, true);
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
+        codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
     }
 
     /**
@@ -285,413 +251,34 @@ public class WifiPermissionsUtilTest {
      *                    Caller can read peers mac address
      *                    This App has permission to request WIFI_SCAN
      *                    User or profile is not Current
-     * Validate result is false
+     * Validate that a SecurityException is thrown
      * - Calling uid doesn't have INTERACT_ACROSS_USERS_FULL permission
      */
     @Test
     public void testCannotAccessScanResults_NoInteractAcrossUsersFullPermission() throws Exception {
-        boolean output = true;
         mThrowSecurityException = false;
         mUid = MANAGED_PROFILE_UID;
         mPermissionsList.put(mMacAddressPermission, mUid);
         mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
         try {
-            output = codeUnderTest.canAccessScanResults(TEST_PACKAGE_NAME, mUid, mTargetVersion);
+            codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
+            fail("Expected SecurityException is not thrown");
         } catch (SecurityException e) {
-            throw e;
-        }
-        assertEquals(output, false);
-    }
-
-    /**
-     * Test case setting: Package is valid
-     *                    Caller is active network scorer
-     *                    This App has permission to request WIFI_SCAN
-     *                    User is current
-     * Validate result is true
-     */
-    @Test
-    public void testCanAccessScanResults_CallerIsActiveNwScorer() throws Exception {
-        boolean output = false;
-        mThrowSecurityException = false;
-        mActiveNwScorer = true;
-        mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
-        mCurrentUser = UserHandle.USER_CURRENT_OR_SELF;
-        setupTestCase();
-        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-        try {
-            output = codeUnderTest.canAccessScanResults(TEST_PACKAGE_NAME, mUid, mTargetVersion);
-        } catch (SecurityException e) {
-            throw e;
-        }
-        assertEquals(output, true);
-    }
-
-    /**
-     * Test case setting: Package is valid because it matches the USE_OPEN_WIFI_PACKAGE.
-     *                    User is current
-     *                    The current config is for an open network.
-     * Validate result is true
-     */
-    @Test
-    public void testCanAccessFullConnectionInfo_PackageIsUseOpenWifiPackage() throws Exception {
-        final boolean output;
-        mThrowSecurityException = false;
-        mCurrentUser = UserHandle.USER_CURRENT_OR_SELF;
-        mUseOpenWifiPackage = TEST_PACKAGE_NAME;
-        ComponentName useOpenWifiComponent = new ComponentName(TEST_PACKAGE_NAME, "TestClass");
-        mNetworkScorerAppData = new NetworkScorerAppData(0 /*packageUid*/,
-                null /*recommendationServiceComp*/, null /*recommendationServiceLabel*/,
-                useOpenWifiComponent, null /*networkAvailableNotificationChannelId*/);
-        setupTestCase();
-        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-
-        output = codeUnderTest.canAccessFullConnectionInfo(mMockWifiConfig, TEST_PACKAGE_NAME,
-                mUid, mTargetVersion);
-
-        assertEquals(true, output);
-    }
-
-    /**
-     * Test case setting: Package is valid because the caller has access to scan results.
-     *                    Location mode is ON
-     *                    User is current
-     *                    The current config is not for an open network.
-     * Validate result is true
-     */
-    @Test
-    public void testCanAccessFullConnectionInfo_HasAccessToScanResults() throws Exception {
-        final boolean output;
-        mThrowSecurityException = false;
-        mMockApplInfo.targetSdkVersion = Build.VERSION_CODES.GINGERBREAD;
-        mLocationModeSetting = Settings.Secure.LOCATION_MODE_HIGH_ACCURACY;
-        mCoarseLocationPermission = PackageManager.PERMISSION_GRANTED;
-        mAllowCoarseLocationApps = AppOpsManager.MODE_ALLOWED;
-        mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
-        mCurrentUser = UserHandle.USER_CURRENT_OR_SELF;
-        mConfigIsOpen = false;
-
-        setupTestCase();
-        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-
-        output = codeUnderTest.canAccessFullConnectionInfo(mMockWifiConfig, TEST_PACKAGE_NAME,
-                mUid, mTargetVersion);
-
-        assertEquals(true, output);
-    }
-
-    /**
-     * Test case setting: Package is valid because it matches the USE_OPEN_WIFI_PACKAGE.
-     *                    User or profile is not current but the uid has
-     *                    permission to INTERACT_ACROSS_USERS_FULL
-     *                    The current config is for an open network.
-     * Validate result is true
-     */
-    @Test
-    public void testCanAccessFullConnectionInfo_UserNotCurrentButHasInteractAcrossUsers()
-            throws Exception {
-        final boolean output;
-        mThrowSecurityException = false;
-        mUid = MANAGED_PROFILE_UID;
-        mPermissionsList.put(mInteractAcrossUsersFullPermission, mUid);
-        mUseOpenWifiPackage = TEST_PACKAGE_NAME;
-        ComponentName useOpenWifiComponent = new ComponentName(TEST_PACKAGE_NAME, "TestClass");
-        mNetworkScorerAppData = new NetworkScorerAppData(0 /*packageUid*/,
-                null /*recommendationServiceComp*/, null /*recommendationServiceLabel*/,
-                useOpenWifiComponent, null /*networkAvailableNotificationChannelId*/);
-        setupTestCase();
-        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-
-        output = codeUnderTest.canAccessFullConnectionInfo(mMockWifiConfig, TEST_PACKAGE_NAME,
-                mUid, mTargetVersion);
-
-        assertEquals(true, output);
-    }
-
-    /**
-     * Test case setting: Package is valid because it matches the USE_OPEN_WIFI_PACKAGE.
-     *                    User or profile is NOT current
-     *                    INTERACT_ACROSS_USERS_FULL NOT granted
-     *                    The current config is for an open network.
-     * Validate result is false
-     */
-    @Test
-    public void testCanAccessFullConnectionInfo_UserNotCurrentNoInteractAcrossUsers()
-            throws Exception {
-        final boolean output;
-        mThrowSecurityException = false;
-        mUid = MANAGED_PROFILE_UID;
-        mUseOpenWifiPackage = TEST_PACKAGE_NAME;
-        setupTestCase();
-        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-
-        output = codeUnderTest.canAccessFullConnectionInfo(mMockWifiConfig, TEST_PACKAGE_NAME,
-                mUid, mTargetVersion);
-
-        assertEquals(false, output);
-    }
-
-    /**
-     * Test case setting: Package is valid because it matches the USE_OPEN_WIFI_PACKAGE.
-     *                    User is current
-     *                    The current config is NULL.
-     * Validate result is false
-     */
-    @Test
-    public void testCanAccessFullConnectionInfo_WiFiConfigIsNull() throws Exception {
-        final boolean output;
-        mThrowSecurityException = false;
-        mCurrentUser = UserHandle.USER_CURRENT_OR_SELF;
-        mUseOpenWifiPackage = TEST_PACKAGE_NAME;
-        ComponentName useOpenWifiComponent = new ComponentName(TEST_PACKAGE_NAME, "TestClass");
-        mNetworkScorerAppData = new NetworkScorerAppData(0 /*packageUid*/,
-                null /*recommendationServiceComp*/, null /*recommendationServiceLabel*/,
-                useOpenWifiComponent, null /*networkAvailableNotificationChannelId*/);
-        setupTestCase();
-        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-
-        output = codeUnderTest.canAccessFullConnectionInfo(null /*config*/, TEST_PACKAGE_NAME,
-                mUid, mTargetVersion);
-
-        assertEquals(false, output);
-    }
-
-    /**
-     * Test case setting: Package is valid because it matches the USE_OPEN_WIFI_PACKAGE.
-     *                    User is current
-     *                    The current config is not for an open network.
-     * Validate result is false
-     */
-    @Test
-    public void testCanAccessFullConnectionInfo_WiFiConfigIsNotOpen() throws Exception {
-        final boolean output;
-        mThrowSecurityException = false;
-        mCurrentUser = UserHandle.USER_CURRENT_OR_SELF;
-        mUseOpenWifiPackage = TEST_PACKAGE_NAME;
-        ComponentName useOpenWifiComponent = new ComponentName(TEST_PACKAGE_NAME, "TestClass");
-        mNetworkScorerAppData = new NetworkScorerAppData(0 /*packageUid*/,
-                null /*recommendationServiceComp*/, null /*recommendationServiceLabel*/,
-                useOpenWifiComponent, null /*networkAvailableNotificationChannelId*/);
-        mConfigIsOpen = false;
-        setupTestCase();
-        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-
-        output = codeUnderTest.canAccessFullConnectionInfo(mMockWifiConfig, TEST_PACKAGE_NAME,
-                mUid, mTargetVersion);
-
-        assertEquals(false, output);
-    }
-
-    /**
-     * Test case setting: Package is valid because it matches the USE_OPEN_WIFI_PACKAGE.
-     *                    User is current
-     *                    The current config is for an open network.
-     *                    There is no active scorer
-     * Validate result is false
-     */
-    @Test
-    public void testCanAccessFullConnectionInfo_UseOpenWifiPackageIsSetButNoActiveScorer()
-            throws Exception {
-        final boolean output;
-        mThrowSecurityException = false;
-        mCurrentUser = UserHandle.USER_CURRENT_OR_SELF;
-        mUseOpenWifiPackage = TEST_PACKAGE_NAME;
-        mNetworkScorerAppData = null; // getActiveScorer() will return null
-        setupTestCase();
-        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-
-        output = codeUnderTest.canAccessFullConnectionInfo(mMockWifiConfig, TEST_PACKAGE_NAME,
-                mUid, mTargetVersion);
-
-        assertEquals(false, output);
-    }
-
-    /**
-     * Test case setting: Package is valid because it matches the USE_OPEN_WIFI_PACKAGE.
-     *                    User is current
-     *                    The current config is for an open network.
-     *                    The scorer is active but the useOpenWiFi component name doesn't match
-     *                    the provided package.
-     * Validate result is false
-     */
-    @Test
-    public void testCanAccessFullConnectionInfo_MismatchBetweenUseOpenWifiPackages()
-            throws Exception {
-        final boolean output;
-        mThrowSecurityException = false;
-        mCurrentUser = UserHandle.USER_CURRENT_OR_SELF;
-        mUseOpenWifiPackage = TEST_PACKAGE_NAME;
-        ComponentName useOpenWifiComponent =
-                new ComponentName(mUseOpenWifiPackage + ".nomatch", "TestClass");
-        mNetworkScorerAppData = new NetworkScorerAppData(0 /*packageUid*/,
-                null /*recommendationServiceComp*/, null /*recommendationServiceLabel*/,
-                useOpenWifiComponent, null /*networkAvailableNotificationChannelId*/);
-        setupTestCase();
-        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-
-        output = codeUnderTest.canAccessFullConnectionInfo(mMockWifiConfig, TEST_PACKAGE_NAME,
-                mUid, mTargetVersion);
-
-        assertEquals(false, output);
-    }
-
-    /**
-     * Test case setting: Package is valid because it matches the USE_OPEN_WIFI_PACKAGE.
-     *                    User is current
-     *                    The current config is for an open network.
-     *                    The scorer is active but the useOpenWiFi component name is null.
-     * Validate result is false
-     */
-    @Test
-    public void testCanAccessFullConnectionInfo_UseOpenWifiPackageFromScorerIsNull()
-            throws Exception {
-        final boolean output;
-        mThrowSecurityException = false;
-        mCurrentUser = UserHandle.USER_CURRENT_OR_SELF;
-        mUseOpenWifiPackage = TEST_PACKAGE_NAME;
-        mNetworkScorerAppData = new NetworkScorerAppData(0 /*packageUid*/,
-                null /*recommendationServiceComp*/, null /*recommendationServiceLabel*/,
-                null /*useOpenWifiComponent*/, null /*networkAvailableNotificationChannelId*/);
-        setupTestCase();
-        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-
-        output = codeUnderTest.canAccessFullConnectionInfo(mMockWifiConfig, TEST_PACKAGE_NAME,
-                mUid, mTargetVersion);
-
-        assertEquals(false, output);
-    }
-
-    /**
-     * Test case setting: Package is invalid because USE_OPEN_WIFI_PACKAGE is an empty string.
-     *                    Location mode is ON
-     *                    User is current
-     *                    The current config is for an open network.
-     * Validate result is false
-     */
-    @Test
-    public void testCanAccessFullConnectionInfo_UseOpenWifiPackageIsEmpty() throws Exception {
-        final boolean output;
-        mThrowSecurityException = false;
-        mLocationModeSetting = Settings.Secure.LOCATION_MODE_HIGH_ACCURACY;
-        mCurrentUser = UserHandle.USER_CURRENT_OR_SELF;
-        mUseOpenWifiPackage = "";
-        setupTestCase();
-        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-
-        output = codeUnderTest.canAccessFullConnectionInfo(mMockWifiConfig, TEST_PACKAGE_NAME,
-                mUid, mTargetVersion);
-
-        assertEquals(false, output);
-    }
-
-    /**
-     * Test case setting: Package is invalid because it does not match the USE_OPEN_WIFI_PACKAGE.
-     *                    User is current
-     *                    The current config is for an open network.
-     * Validate result is false
-     */
-    @Test
-    public void testCanAccessFullConnectionInfo_DoesNotMatchUseOpenWifiPackage() throws Exception {
-        final boolean output;
-        mThrowSecurityException = false;
-        mCurrentUser = UserHandle.USER_CURRENT_OR_SELF;
-        mUseOpenWifiPackage = TEST_PACKAGE_NAME + ".nomatch";
-        setupTestCase();
-        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-
-        output = codeUnderTest.canAccessFullConnectionInfo(mMockWifiConfig, TEST_PACKAGE_NAME,
-                mUid, mTargetVersion);
-
-        assertEquals(false, output);
-    }
-
-    /**
-     * Test case setting: The caller is invalid because its UID does not match the provided package.
-     *
-     * Validate a SecurityException is thrown.
-     */
-    @Test
-    public void testCanAccessFullConnectionInfo_UidPackageCheckFails() throws Exception {
-        mThrowSecurityException = true;
-        setupTestCase();
-        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-
-        try {
-            codeUnderTest.canAccessFullConnectionInfo(mMockWifiConfig, TEST_PACKAGE_NAME, mUid,
-                    mTargetVersion);
-            fail("SecurityException not thrown.");
-        } catch (SecurityException e) {
-            // expected
-        }
-    }
-
-    /**
-     * Test case setting: The getActiveScorer() call fails with a SecurityException.
-     *
-     * Validate a SecurityException is thrown.
-     */
-    @Test
-    public void testCanAccessFullConnectionInfo_GetActiveScorerFails() throws Exception {
-        mThrowSecurityException = false;
-        mGetActiveScorerThrowsSecurityException = true;
-        mLocationModeSetting = Settings.Secure.LOCATION_MODE_HIGH_ACCURACY;
-        mCurrentUser = UserHandle.USER_CURRENT_OR_SELF;
-        mUseOpenWifiPackage = TEST_PACKAGE_NAME;
-        setupTestCase();
-        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-
-        try {
-            codeUnderTest.canAccessFullConnectionInfo(mMockWifiConfig, TEST_PACKAGE_NAME, mUid,
-                    mTargetVersion);
-            fail("SecurityException not thrown.");
-        } catch (SecurityException e) {
-            // expected
         }
     }
 
     /**
      * Test case Setting: Package is valid
-     *                    Legacy App
      *                    Foreground
      *                    This App has permission to request WIFI_SCAN
      *                    User is current
-     *  Validate result is true - has all permissions
+     *  Validate that a SecurityException is thrown - app does not have location permission
      */
     @Test
-    public void testLegacyForegroundAppAndAllPermissions() throws Exception {
-        boolean output = false;
+    public void testLegacyForegroundAppWithOtherPermissionsDenied() throws Exception {
         mThrowSecurityException = false;
         mMockApplInfo.targetSdkVersion = Build.VERSION_CODES.GINGERBREAD;
         mPkgNameOfTopActivity = TEST_PACKAGE_NAME;
@@ -700,28 +287,24 @@ public class WifiPermissionsUtilTest {
         mCurrentUser = UserHandle.USER_CURRENT_OR_SELF;
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
         try {
-            output = codeUnderTest.canAccessScanResults(TEST_PACKAGE_NAME, mUid, mTargetVersion);
+            codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
+            fail("Expected SecurityException is not thrown");
         } catch (SecurityException e) {
-            throw e;
         }
-        assertEquals(output, true);
     }
 
     /**
      * Test case Setting: Package is valid
-     *                    Legacy App
      *                    Location Mode Enabled
      *                    Coarse Location Access
      *                    This App has permission to request WIFI_SCAN
      *                    User profile is current
-     *  Validate result is true - has all permissions
+     *  Validate no Exceptions are thrown - has all permissions
      */
     @Test
     public void testLegacyAppHasLocationAndAllPermissions() throws Exception {
-        boolean output = false;
         mThrowSecurityException = false;
         mMockApplInfo.targetSdkVersion = Build.VERSION_CODES.GINGERBREAD;
         mLocationModeSetting = Settings.Secure.LOCATION_MODE_HIGH_ACCURACY;
@@ -732,20 +315,14 @@ public class WifiPermissionsUtilTest {
         mMockUserInfo.id = mCallingUser;
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
-        try {
-            output = codeUnderTest.canAccessScanResults(TEST_PACKAGE_NAME, mUid, mTargetVersion);
-        } catch (SecurityException e) {
-            throw e;
-        }
-        assertEquals(output, true);
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
+        codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
     }
 
     /**
      * Test case setting: Package is valid
      *                    Location Mode Enabled
-     * Validate result is false
+     * Validate that a SecurityException is thrown
      * - Doesn't have Peer Mac Address read permission
      * - Uid is not an active network scorer
      * - Location Mode is enabled but the uid
@@ -754,36 +331,266 @@ public class WifiPermissionsUtilTest {
      */
     @Test
     public void testCannotAccessScanResults_NoCoarseLocationPermission() throws Exception {
-        boolean output = true;
         mThrowSecurityException = false;
         mLocationModeSetting = Settings.Secure.LOCATION_MODE_HIGH_ACCURACY;
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
         try {
-            output = codeUnderTest.canAccessScanResults(TEST_PACKAGE_NAME, mUid, mTargetVersion);
+            codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
+            fail("Expected SecurityException is not thrown");
         } catch (SecurityException e) {
-            throw e;
         }
-        assertEquals(output, false);
+    }
+
+    /**
+     * Test case setting: Package is valid
+     *                    Location Mode Disabled
+     *                    Caller has location permission
+     * Validate an Exception is thrown
+     * - Uid is not an active network scorer
+     * - Uid doesn't have Coarse Location Access
+     * - which implies No Location Permission
+     */
+    @Test
+    public void testCannotAccessScanResults_LocationModeDisabled() throws Exception {
+        mThrowSecurityException = false;
+        mUid = MANAGED_PROFILE_UID;
+        mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
+        mPermissionsList.put(mInteractAcrossUsersFullPermission, mUid);
+        mLocationModeSetting = Settings.Secure.LOCATION_MODE_OFF;
+
+        setupTestCase();
+        when(mMockPermissionsWrapper.getChangeWifiConfigPermission(mUid))
+                .thenReturn(PackageManager.PERMISSION_DENIED);
+
+        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
+        try {
+            codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
+            fail("Expected SecurityException is not thrown");
+        } catch (SecurityException e) {
+        }
+    }
+
+    /**
+     * Test case setting: Package is valid
+     *                    Location Mode Disabled
+     *                    Caller has location permisson
+     *                    Caller has CHANGE_WIFI_STATE
+     * Validate SecurityException is thrown
+     * - Doesn't have Peer Mac Address read permission
+     * - Uid is not an active network scorer
+     * - Location Mode is disabled
+     * - which implies no scan result access
+     */
+    @Test
+    public void testEnforceCannotAccessScanResults_LocationModeDisabledHasChangeWifiState()
+            throws Exception {
+        mThrowSecurityException = false;
+        mUid = MANAGED_PROFILE_UID;
+        mPermissionsList.put(mMacAddressPermission, mUid);
+        mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
+        mPermissionsList.put(mInteractAcrossUsersFullPermission, mUid);
+        mLocationModeSetting = Settings.Secure.LOCATION_MODE_OFF;
+
+        setupTestCase();
+        when(mMockPermissionsWrapper.getChangeWifiConfigPermission(mUid))
+                .thenReturn(PackageManager.PERMISSION_GRANTED);
+
+        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
+        try {
+            codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
+            fail("Expected SecurityException is not thrown");
+        } catch (SecurityException e) {
+        }
+    }
+
+    /**
+     * Test case setting: Package is valid
+     *                    Location Mode Disabled
+     *                    Caller has location permisson
+     *                    Caller has ACCESS_WIFI_STATE
+     * Validate Exception is thrown
+     * - Doesn't have Peer Mac Address read permission
+     * - Uid is not an active network scorer
+     * - Location Mode is disabled
+     * - doesn't have Coarse Location Access
+     * - which implies no scan result access
+     */
+    @Test
+    public void testEnforceCannotAccessScanResults_LocationModeDisabledHasAccessWifiState()
+            throws Exception {
+        mThrowSecurityException = false;
+        mUid = MANAGED_PROFILE_UID;
+        mPermissionsList.put(mMacAddressPermission, mUid);
+        mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
+        mPermissionsList.put(mInteractAcrossUsersFullPermission, mUid);
+        mLocationModeSetting = Settings.Secure.LOCATION_MODE_OFF;
+
+        setupTestCase();
+        when(mMockPermissionsWrapper.getAccessWifiStatePermission(mUid))
+                .thenReturn(PackageManager.PERMISSION_GRANTED);
+
+        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
+        try {
+            codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
+            fail("Expected SecurityException is not thrown");
+        } catch (SecurityException e) {
+        }
+    }
+
+    /**
+     * Test case setting: Package is valid
+     *                    Location Mode Disabled
+     *                    Caller has location permisson
+     *                    Caller does not have NETWORK_SETTINGS
+     * Validate Exception is thrown
+     * - Doesn't have Peer Mac Address read permission
+     * - Uid is not an active network scorer
+     * - Location Mode is disabled
+     * - doesn't have Coarse Location Access
+     * - which implies no scan result access
+     */
+    @Test
+    public void testEnforceCannotAccessScanResults_LocationModeDisabledHasNoNetworkSettings()
+            throws Exception {
+        mThrowSecurityException = false;
+        mUid = MANAGED_PROFILE_UID;
+        mPermissionsList.put(mMacAddressPermission, mUid);
+        mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
+        mPermissionsList.put(mInteractAcrossUsersFullPermission, mUid);
+        mLocationModeSetting = Settings.Secure.LOCATION_MODE_OFF;
+
+        setupTestCase();
+        when(mMockPermissionsWrapper.getUidPermission(
+                Manifest.permission.NETWORK_SETTINGS, MANAGED_PROFILE_UID))
+                .thenReturn(PackageManager.PERMISSION_DENIED);
+
+        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
+        try {
+            codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
+            fail("Expected SecurityException is not thrown");
+        } catch (SecurityException e) {
+        }
+    }
+
+    /**
+     * Test case setting: Package is valid
+     *                    Location Mode Disabled
+     *                    Caller has location permisson
+     *                    Caller has NETWORK_SETTINGS
+     * Validate Exception is thrown
+     * - Doesn't have Peer Mac Address read permission
+     * - Uid is not an active network scorer
+     * - Location Mode is disabled
+     * - doesn't have Coarse Location Access
+     * - which implies no scan result access
+     */
+    @Test
+    public void testEnforceCanAccessScanResults_LocationModeDisabledHasNetworkSettings()
+            throws Exception {
+        mThrowSecurityException = false;
+        mUid = MANAGED_PROFILE_UID;
+        mPermissionsList.put(mMacAddressPermission, mUid);
+        mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
+        mPermissionsList.put(mInteractAcrossUsersFullPermission, mUid);
+        mLocationModeSetting = Settings.Secure.LOCATION_MODE_OFF;
+
+        setupTestCase();
+        when(mMockPermissionsWrapper.getUidPermission(
+                Manifest.permission.NETWORK_SETTINGS, MANAGED_PROFILE_UID))
+                .thenReturn(PackageManager.PERMISSION_GRANTED);
+
+        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
+        codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
+    }
+
+    /**
+     * Test case setting: Package is valid
+     *                    Location Mode Disabled
+     *                    Caller has location permisson
+     *                    Caller does not have NETWORK_SETUP_WIZARD
+     * Validate Exception is thrown
+     * - Doesn't have Peer Mac Address read permission
+     * - Uid is not an active network scorer
+     * - Location Mode is disabled
+     * - doesn't have Coarse Location Access
+     * - which implies no scan result access
+     */
+    @Test
+    public void testEnforceCannotAccessScanResults_LocationModeDisabledHasNoNetworkSetupWizard()
+            throws Exception {
+        mThrowSecurityException = false;
+        mUid = MANAGED_PROFILE_UID;
+        mPermissionsList.put(mMacAddressPermission, mUid);
+        mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
+        mPermissionsList.put(mInteractAcrossUsersFullPermission, mUid);
+        mLocationModeSetting = Settings.Secure.LOCATION_MODE_OFF;
+
+        setupTestCase();
+        when(mMockPermissionsWrapper.getUidPermission(
+                android.Manifest.permission.NETWORK_SETUP_WIZARD, MANAGED_PROFILE_UID))
+                .thenReturn(PackageManager.PERMISSION_DENIED);
+
+        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
+        try {
+            codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
+            fail("Expected SecurityException is not thrown");
+        } catch (SecurityException e) {
+        }
+    }
+
+    /**
+     * Test case setting: Package is valid
+     *                    Location Mode Disabled
+     *                    Caller has location permisson
+     *                    Caller has NETWORK_SETUP_WIZARD
+     * Validate Exception is thrown
+     * - Doesn't have Peer Mac Address read permission
+     * - Uid is not an active network scorer
+     * - Location Mode is disabled
+     * - doesn't have Coarse Location Access
+     * - which implies no scan result access
+     */
+    @Test
+    public void testEnforceCanAccessScanResults_LocationModeDisabledHasNetworkSetupWizard()
+            throws Exception {
+        mThrowSecurityException = false;
+        mUid = MANAGED_PROFILE_UID;
+        mPermissionsList.put(mMacAddressPermission, mUid);
+        mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
+        mPermissionsList.put(mInteractAcrossUsersFullPermission, mUid);
+        mLocationModeSetting = Settings.Secure.LOCATION_MODE_OFF;
+
+        setupTestCase();
+        when(mMockPermissionsWrapper.getUidPermission(
+                android.Manifest.permission.NETWORK_SETUP_WIZARD, MANAGED_PROFILE_UID))
+                .thenReturn(PackageManager.PERMISSION_GRANTED);
+
+        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
+        codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
     }
 
     /**
      * Test case setting: Invalid Package
      * Expect a securityException
      */
-    @Test (expected = SecurityException.class)
+    @Test
     public void testInvalidPackage() throws Exception {
-        boolean output = false;
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
         try {
-            output = codeUnderTest.canAccessScanResults(TEST_PACKAGE_NAME, mUid, mTargetVersion);
+            codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, mUid);
+            fail("Expected SecurityException is not thrown");
         } catch (SecurityException e) {
-            throw e;
         }
     }
 
@@ -803,9 +610,28 @@ public class WifiPermissionsUtilTest {
         mMockUserInfo.id = mCallingUser;
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
         codeUnderTest.enforceLocationPermission(TEST_PACKAGE_NAME, mUid);
+    }
+
+    /**
+     * Verifies the helper method exposed for checking NETWORK_SETUP_WIZARD permission.
+     */
+    @Test
+    public void testCheckNetworkSetupWizard() throws Exception {
+        setupMocks();
+        WifiPermissionsUtil wifiPermissionsUtil = new WifiPermissionsUtil(mMockPermissionsWrapper,
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
+
+        when(mMockPermissionsWrapper.getUidPermission(
+                android.Manifest.permission.NETWORK_SETUP_WIZARD, MANAGED_PROFILE_UID))
+                .thenReturn(PackageManager.PERMISSION_DENIED);
+        assertFalse(wifiPermissionsUtil.checkNetworkSetupWizardPermission(MANAGED_PROFILE_UID));
+
+        when(mMockPermissionsWrapper.getUidPermission(
+                android.Manifest.permission.NETWORK_SETUP_WIZARD, MANAGED_PROFILE_UID))
+                .thenReturn(PackageManager.PERMISSION_GRANTED);
+        assertTrue(wifiPermissionsUtil.checkNetworkSetupWizardPermission(MANAGED_PROFILE_UID));
     }
 
     /**
@@ -816,8 +642,7 @@ public class WifiPermissionsUtilTest {
     public void testEnforceLocationPermissionExpectSecurityException() throws Exception {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
-                mMockContext, mMockWifiSettingsStore, mMockUserManager, mMockNetworkScoreManager,
-                mMockWifiInjector);
+                mMockContext, mMockWifiSettingsStore, mMockUserManager, mWifiInjector);
         codeUnderTest.enforceLocationPermission(TEST_PACKAGE_NAME, mUid);
     }
 
@@ -859,15 +684,7 @@ public class WifiPermissionsUtilTest {
         when(mMockContext.getContentResolver()).thenReturn(mMockContentResolver);
         when(mMockContext.getSystemService(Context.USER_SERVICE))
             .thenReturn(mMockUserManager);
-        when(mMockWifiInjector.makeLog(anyString())).thenReturn(mWifiLog);
-        when(mMockWifiInjector.getFrameworkFacade()).thenReturn(mMockFrameworkFacade);
-        if (mGetActiveScorerThrowsSecurityException) {
-            when(mMockNetworkScoreManager.getActiveScorer()).thenThrow(
-                    new SecurityException("Caller is neither the system process nor a "
-                            + "score requester."));
-        } else {
-            when(mMockNetworkScoreManager.getActiveScorer()).thenReturn(mNetworkScorerAppData);
-        }
+        when(mWifiInjector.makeLog(anyString())).thenReturn(mWifiLog);
     }
 
     private void initTestVars() {
@@ -878,17 +695,11 @@ public class WifiPermissionsUtilTest {
         mThrowSecurityException = true;
         mMockUserInfo.id = UserHandle.USER_NULL;
         mMockApplInfo.targetSdkVersion = Build.VERSION_CODES.M;
-        mTargetVersion = Build.VERSION_CODES.M;
         mPkgNameOfTopActivity = INVALID_PACKAGE;
         mLocationModeSetting = Settings.Secure.LOCATION_MODE_OFF;
         mCurrentUser = UserHandle.USER_SYSTEM;
         mCoarseLocationPermission = PackageManager.PERMISSION_DENIED;
         mAllowCoarseLocationApps = AppOpsManager.MODE_ERRORED;
-        mActiveNwScorer = false;
-        mUseOpenWifiPackage = null;
-        mNetworkScorerAppData = null;
-        mGetActiveScorerThrowsSecurityException = false;
-        mConfigIsOpen = true;
     }
 
     private void setupMockInterface() {
@@ -899,14 +710,10 @@ public class WifiPermissionsUtilTest {
                         anyString(), anyInt());
         when(mMockPermissionsWrapper.getCallingUserId(mUid)).thenReturn(mCallingUser);
         when(mMockPermissionsWrapper.getCurrentUser()).thenReturn(mCurrentUser);
-        when(mMockNetworkScoreManager.isCallerActiveScorer(mUid)).thenReturn(mActiveNwScorer);
         when(mMockPermissionsWrapper.getUidPermission(mManifestStringCoarse, mUid))
             .thenReturn(mCoarseLocationPermission);
         when(mMockWifiSettingsStore.getLocationModeSetting(mMockContext))
             .thenReturn(mLocationModeSetting);
         when(mMockPermissionsWrapper.getTopPkgName()).thenReturn(mPkgNameOfTopActivity);
-        when(mMockFrameworkFacade.getStringSetting(mMockContext,
-                Settings.Global.USE_OPEN_WIFI_PACKAGE)).thenReturn(mUseOpenWifiPackage);
-        when(mMockWifiConfig.isOpenNetwork()).thenReturn(mConfigIsOpen);
     }
 }

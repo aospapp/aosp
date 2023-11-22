@@ -16,5 +16,5 @@
 */
 -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
-        android:color="@color/car_card_ripple_light_color_background">
+        android:color="@color/car_card_ripple_background">
 </ripple>

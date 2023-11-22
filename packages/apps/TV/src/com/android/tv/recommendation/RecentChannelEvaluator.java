@@ -51,9 +51,12 @@ public class RecentChannelEvaluator extends Recommender.Evaluator {
             if (watchDuration < WATCH_DURATION_MS_LOWER_BOUND) {
                 watchDurationScore = MAX_SCORE_FOR_LOWER_BOUND;
             } else if (watchDuration < WATCH_DURATION_MS_UPPER_BOUND) {
-                watchDurationScore = (watchDuration - WATCH_DURATION_MS_LOWER_BOUND)
-                        / (WATCH_DURATION_MS_UPPER_BOUND - WATCH_DURATION_MS_LOWER_BOUND)
-                        * (1 - MAX_SCORE_FOR_LOWER_BOUND) + MAX_SCORE_FOR_LOWER_BOUND;
+                watchDurationScore =
+                        (watchDuration - WATCH_DURATION_MS_LOWER_BOUND)
+                                        / (WATCH_DURATION_MS_UPPER_BOUND
+                                                - WATCH_DURATION_MS_LOWER_BOUND)
+                                        * (1 - MAX_SCORE_FOR_LOWER_BOUND)
+                                + MAX_SCORE_FOR_LOWER_BOUND;
             } else {
                 watchDurationScore = 1.0;
             }

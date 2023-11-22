@@ -16,27 +16,24 @@
 package com.android.tv.util;
 
 import android.media.tv.TvTrackInfo;
-
 import java.util.Comparator;
 import java.util.List;
 
-/**
- * Static utilities for {@link TvTrackInfo}.
- */
+/** Static utilities for {@link TvTrackInfo}. */
 public class TvTrackInfoUtils {
 
     /**
      * Compares how closely two {@link android.media.tv.TvTrackInfo}s match {@code language}, {@code
      * channelCount} and {@code id} in that precedence.
      *
-     * @param id           The track id to match.
-     * @param language     The language to match.
+     * @param id The track id to match.
+     * @param language The language to match.
      * @param channelCount The channel count to match.
      * @return -1 if lhs is a worse match, 0 if lhs and rhs match equally and 1 if lhs is a better
-     * match.
+     *     match.
      */
-    public static Comparator<TvTrackInfo> createComparator(final String id, final String language,
-            final int channelCount) {
+    public static Comparator<TvTrackInfo> createComparator(
+            final String id, final String language, final int channelCount) {
         return new Comparator<TvTrackInfo>() {
 
             @Override
@@ -52,15 +49,17 @@ public class TvTrackInfoUtils {
                 }
                 // Assumes {@code null} language matches to any language since it means user hasn't
                 // selected any track before or selected a track without language information.
-                boolean lhsLangMatch = language == null || Utils.isEqualLanguage(lhs.getLanguage(),
-                        language);
-                boolean rhsLangMatch = language == null || Utils.isEqualLanguage(rhs.getLanguage(),
-                        language);
+                boolean lhsLangMatch =
+                        language == null || Utils.isEqualLanguage(lhs.getLanguage(), language);
+                boolean rhsLangMatch =
+                        language == null || Utils.isEqualLanguage(rhs.getLanguage(), language);
                 if (lhsLangMatch && rhsLangMatch) {
-                    boolean lhsCountMatch = lhs.getType() != TvTrackInfo.TYPE_AUDIO
-                            || lhs.getAudioChannelCount() == channelCount;
-                    boolean rhsCountMatch = rhs.getType() != TvTrackInfo.TYPE_AUDIO
-                            || rhs.getAudioChannelCount() == channelCount;
+                    boolean lhsCountMatch =
+                            lhs.getType() != TvTrackInfo.TYPE_AUDIO
+                                    || lhs.getAudioChannelCount() == channelCount;
+                    boolean rhsCountMatch =
+                            rhs.getType() != TvTrackInfo.TYPE_AUDIO
+                                    || rhs.getAudioChannelCount() == channelCount;
                     if (lhsCountMatch && rhsCountMatch) {
                         return Boolean.compare(lhs.getId().equals(id), rhs.getId().equals(id));
                     } else {
@@ -74,16 +73,16 @@ public class TvTrackInfoUtils {
     }
 
     /**
-     * Selects the  best TvTrackInfo available or the first if none matches.
+     * Selects the best TvTrackInfo available or the first if none matches.
      *
-     * @param tracks       The tracks to choose from
-     * @param id           The track id to match.
-     * @param language     The language to match.
+     * @param tracks The tracks to choose from
+     * @param id The track id to match.
+     * @param language The language to match.
      * @param channelCount The channel count to match.
      * @return the best matching track or the first one if none matches.
      */
-    public static TvTrackInfo getBestTrackInfo(List<TvTrackInfo> tracks, String id, String language,
-            int channelCount) {
+    public static TvTrackInfo getBestTrackInfo(
+            List<TvTrackInfo> tracks, String id, String language, int channelCount) {
         if (tracks == null) {
             return null;
         }
@@ -97,6 +96,5 @@ public class TvTrackInfoUtils {
         return best;
     }
 
-    private TvTrackInfoUtils() {
-    }
+    private TvTrackInfoUtils() {}
 }

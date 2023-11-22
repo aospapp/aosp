@@ -1,7 +1,6 @@
 /** @file
 
-  Copyright (c) 2015-2016, Linaro. All rights reserved.
-  Copyright (c) 2015-2016, Hisilicon Limited. All rights reserved.
+  Copyright (c) 2015-2017, Linaro. All rights reserved.
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -26,9 +25,35 @@
 //
 typedef struct _DW_USB_PROTOCOL  DW_USB_PROTOCOL;
 
-#define USB_HOST_MODE    0
-#define USB_DEVICE_MODE  1
-#define USB_CABLE_NOT_ATTACHED  2
+#define USB_HOST_MODE                 0
+#define USB_DEVICE_MODE               1
+#define USB_CABLE_NOT_ATTACHED        2
+
+#define LANG_LENGTH                   8
+#define MANU_FACTURER_STRING_LENGTH   32
+#define PRODUCT_STRING_LENGTH         32
+#define SERIAL_STRING_LENGTH          17
+
+typedef
+EFI_STATUS
+(EFIAPI *DW_USB_GET_LANG) (
+  OUT CHAR16                           *Lang,
+  OUT UINT8                            *Length
+  );
+
+typedef
+EFI_STATUS
+(EFIAPI *DW_USB_GET_MANU_FACTURER) (
+  OUT CHAR16                           *ManuFacturer,
+  OUT UINT8                            *Length
+  );
+
+typedef
+EFI_STATUS
+(EFIAPI *DW_USB_GET_PRODUCT) (
+  OUT CHAR16                           *Product,
+  OUT UINT8                            *Length
+  );
 
 typedef
 EFI_STATUS
@@ -40,11 +65,14 @@ EFI_STATUS
 typedef
 EFI_STATUS
 (EFIAPI *DW_USB_PHY_INIT) (
-  IN UINT8                           Mode
+  IN UINT8                             Mode
   );
 
 struct _DW_USB_PROTOCOL {
-  DW_USB_GET_SERIAL_NO                 Get;
+  DW_USB_GET_LANG                      GetLang;
+  DW_USB_GET_MANU_FACTURER             GetManuFacturer;
+  DW_USB_GET_PRODUCT                   GetProduct;
+  DW_USB_GET_SERIAL_NO                 GetSerialNo;
   DW_USB_PHY_INIT                      PhyInit;
 };
 

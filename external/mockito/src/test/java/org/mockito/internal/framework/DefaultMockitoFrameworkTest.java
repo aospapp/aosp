@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockito.internal.framework;
 
 import org.junit.After;
@@ -14,7 +18,6 @@ import org.mockitoutil.TestBase;
 import java.util.List;
 import java.util.Set;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.mockitoutil.ThrowableAssert.assertThat;
 

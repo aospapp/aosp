@@ -236,6 +236,13 @@ void ObjectBase::zeroAllUserRef(Context *rsc) {
     while (o) {
         //ALOGE("o %p", o);
         if (o->zeroUserRef()) {
+#ifdef __clang_analyzer__
+            // Assure the static analyzer that we updated mObjHead. Otherwise,
+            // it complains about a use-after-free here. Needed for b/27101951.
+            if (o == rsc->mObjHead) {
+                abort();
+            }
+#endif
             // deleted the object and possibly others, restart from head.
             o = rsc->mObjHead;
             //ALOGE("o head %p", o);

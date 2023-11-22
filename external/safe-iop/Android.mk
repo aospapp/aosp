@@ -21,6 +21,10 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_SRC_FILES := src/safe_iop.c
 
+LOCAL_CFLAGS := \
+    -Wall -Werror \
+    -Wno-unused-parameter \
+
 LOCAL_MODULE := libsafe_iop
 
 include $(BUILD_STATIC_LIBRARY)

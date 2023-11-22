@@ -17,6 +17,8 @@
 #ifndef SIMPLE_PERF_RECORD_FILE_FORMAT_H_
 #define SIMPLE_PERF_RECORD_FILE_FORMAT_H_
 
+#include <string>
+
 #include "perf_event.h"
 
 /*
@@ -90,6 +92,9 @@ enum {
   FEAT_META_INFO,
   FEAT_MAX_NUM = 256,
 };
+
+std::string GetFeatureName(int feature_id);
+int GetFeatureId(const std::string& feature_name);
 
 struct SectionDesc {
   uint64_t offset;

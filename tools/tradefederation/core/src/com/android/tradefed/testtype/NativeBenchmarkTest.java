@@ -18,13 +18,13 @@ package com.android.tradefed.testtype;
 
 import com.android.ddmlib.FileListingService;
 import com.android.ddmlib.Log;
-import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.IFileEntry;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -167,8 +167,9 @@ public class NativeBenchmarkTest implements IDeviceTest, IRemoteTest {
      * @throws DeviceNotAvailableException
      */
     @VisibleForTesting
-    void doRunAllTestsInSubdirectory(IFileEntry rootEntry, ITestDevice testDevice,
-            ITestRunListener listener) throws DeviceNotAvailableException {
+    void doRunAllTestsInSubdirectory(
+            IFileEntry rootEntry, ITestDevice testDevice, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
 
         if (rootEntry.isDirectory()) {
             // recursively run tests in all subdirectories
@@ -210,7 +211,7 @@ public class NativeBenchmarkTest implements IDeviceTest, IRemoteTest {
                 // TODO: is catching exceptions, and reporting testRunFailed necessary?
             } finally {
                 final long elapsedTime = System.currentTimeMillis() - startTime;
-                listener.testRunEnded(elapsedTime, metricMap);
+                listener.testRunEnded(elapsedTime, TfMetricProtoUtil.upgradeConvert(metricMap));
             }
         }
     }

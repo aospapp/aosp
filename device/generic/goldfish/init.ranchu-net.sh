@@ -1,24 +1,15 @@
 #!/vendor/bin/sh
 
-# Setup networking when boot starts
-ifconfig eth0 10.0.2.15 netmask 255.255.255.0 up
-route add default gw 10.0.2.2 dev eth0
-
-
-# Setup additionnal DNS servers if needed
-num_dns=`getprop ro.kernel.ndns`
-case "$num_dns" in
-    2) setprop net.eth0.dns2 10.0.2.4
+# Check if WiFi is enabled. If it is run the WiFi init script. If not we just
+# have to run the DHCP client in the default namespace and that will set up
+# all the networking.
+wifi=`getprop ro.kernel.qemu.wifi`
+case "$wifi" in
+    1) /vendor/bin/init.wifi.sh
        ;;
-    3) setprop net.eth0.dns2 10.0.2.4
-       setprop net.eth0.dns3 10.0.2.5
-       ;;
-    4) setprop net.eth0.dns2 10.0.2.4
-       setprop net.eth0.dns3 10.0.2.5
-       setprop net.eth0.dns4 10.0.2.6
+    *) setprop ctl.start dhcpclient_def
        ;;
 esac
-
 
 # set up the second interface (for inter-emulator connections)
 # if required

@@ -27,4 +27,6 @@ public class Constants {
     public static final String EXTRA_PACKAGE = "PACKAGE_NAME";
     public static final String EXTRA_REQUEST = "REQUEST";
 
+    public static final String ACTION_APPLY_OVERRIDE =
+            "android.appwidget.cts.widgetprovider.APPLY_OVERRIDE";
 }

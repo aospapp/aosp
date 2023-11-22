@@ -137,10 +137,6 @@ struct PayloadVersion {
 
   // The minor version of the payload.
   uint32_t minor;
-
-  // Wheter the IMGDIFF operation is allowed based on the available compressor
-  // in the delta_generator and the one supported by the target.
-  bool imgdiff_allowed = false;
 };
 
 // The PayloadGenerationConfig struct encapsulates all the configuration to
@@ -190,6 +186,9 @@ struct PayloadGenerationConfig {
 
   // The block size used for all the operations in the manifest.
   size_t block_size = 4096;
+
+  // The maximum timestamp of the OS allowed to apply this payload.
+  int64_t max_timestamp = 0;
 };
 
 }  // namespace chromeos_update_engine

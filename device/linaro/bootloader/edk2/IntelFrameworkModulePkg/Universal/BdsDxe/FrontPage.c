@@ -1,7 +1,7 @@
 /** @file
   FrontPage routines to handle the callbacks and browser calls
 
-Copyright (c) 2004 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -300,6 +300,7 @@ InitializeFrontPage (
   EFI_STATUS                  Status;
   CHAR8                       *LangCode;
   CHAR8                       *Lang;
+  UINTN                       LangSize;
   CHAR8                       *CurrentLang;
   UINTN                       OptionCount;
   CHAR16                      *StringBuffer;
@@ -448,9 +449,10 @@ InitializeFrontPage (
       }
 
       if (EFI_ERROR (Status)) {
-        StringBuffer = AllocatePool (AsciiStrSize (Lang) * sizeof (CHAR16));
+        LangSize = AsciiStrSize (Lang);
+        StringBuffer = AllocatePool (LangSize * sizeof (CHAR16));
         ASSERT (StringBuffer != NULL);
-        AsciiStrToUnicodeStr (Lang, StringBuffer);
+        AsciiStrToUnicodeStrS (Lang, StringBuffer, LangSize);
       }
 
       ASSERT (StringBuffer != NULL);
@@ -702,7 +704,7 @@ GetOptionalStringByIndex (
     *String = GetStringById (STRING_TOKEN (STR_MISSING_STRING));
   } else {
     *String = AllocatePool (StrSize * sizeof (CHAR16));
-    AsciiStrToUnicodeStr (OptionalStrStart, *String);
+    AsciiStrToUnicodeStrS (OptionalStrStart, *String, StrSize);
   }
 
   return EFI_SUCCESS;
@@ -720,7 +722,6 @@ UpdateFrontPageStrings (
 {
   UINT8                             StrIndex;
   CHAR16                            *NewString;
-  BOOLEAN                           Find[5];
   EFI_STATUS                        Status;
   EFI_STRING_ID                     TokenToUpdate;
   EFI_SMBIOS_HANDLE                 SmbiosHandle;
@@ -730,8 +731,9 @@ UpdateFrontPageStrings (
   SMBIOS_TABLE_TYPE4                *Type4Record;
   SMBIOS_TABLE_TYPE19               *Type19Record;
   EFI_SMBIOS_TABLE_HEADER           *Record;
-
-  ZeroMem (Find, sizeof (Find));
+  UINT64                            InstalledMemory;
+  
+  InstalledMemory = 0;
 
   //
   // Update Front Page strings
@@ -743,64 +745,64 @@ UpdateFrontPageStrings (
                   );
   if (!EFI_ERROR (Status)) {
     SmbiosHandle = SMBIOS_HANDLE_PI_RESERVED;
-    do {
-      Status = Smbios->GetNext (Smbios, &SmbiosHandle, NULL, &Record, NULL);
-      if (EFI_ERROR(Status)) {
-        break;
-      }
-
-      if (Record->Type == EFI_SMBIOS_TYPE_BIOS_INFORMATION) {
+    Status = Smbios->GetNext (Smbios, &SmbiosHandle, NULL, &Record, NULL);
+    while (!EFI_ERROR(Status)) {
+      if (Record->Type == SMBIOS_TYPE_BIOS_INFORMATION) {
         Type0Record = (SMBIOS_TABLE_TYPE0 *) Record;
         StrIndex = Type0Record->BiosVersion;
         GetOptionalStringByIndex ((CHAR8*)((UINT8*)Type0Record + Type0Record->Hdr.Length), StrIndex, &NewString);
         TokenToUpdate = STRING_TOKEN (STR_FRONT_PAGE_BIOS_VERSION);
         HiiSetString (gFrontPagePrivate.HiiHandle, TokenToUpdate, NewString, NULL);
         FreePool (NewString);
-        Find[0] = TRUE;
       }
 
-      if (Record->Type == EFI_SMBIOS_TYPE_SYSTEM_INFORMATION) {
+      if (Record->Type == SMBIOS_TYPE_SYSTEM_INFORMATION) {
         Type1Record = (SMBIOS_TABLE_TYPE1 *) Record;
         StrIndex = Type1Record->ProductName;
         GetOptionalStringByIndex ((CHAR8*)((UINT8*)Type1Record + Type1Record->Hdr.Length), StrIndex, &NewString);
         TokenToUpdate = STRING_TOKEN (STR_FRONT_PAGE_COMPUTER_MODEL);
         HiiSetString (gFrontPagePrivate.HiiHandle, TokenToUpdate, NewString, NULL);
         FreePool (NewString);
-        Find[1] = TRUE;
       }
 
-      if (Record->Type == EFI_SMBIOS_TYPE_PROCESSOR_INFORMATION) {
+      if (Record->Type == SMBIOS_TYPE_PROCESSOR_INFORMATION) {
         Type4Record = (SMBIOS_TABLE_TYPE4 *) Record;
         StrIndex = Type4Record->ProcessorVersion;
         GetOptionalStringByIndex ((CHAR8*)((UINT8*)Type4Record + Type4Record->Hdr.Length), StrIndex, &NewString);
         TokenToUpdate = STRING_TOKEN (STR_FRONT_PAGE_CPU_MODEL);
         HiiSetString (gFrontPagePrivate.HiiHandle, TokenToUpdate, NewString, NULL);
         FreePool (NewString);
-        Find[2] = TRUE;
       }
 
-      if (Record->Type == EFI_SMBIOS_TYPE_PROCESSOR_INFORMATION) {
+      if (Record->Type == SMBIOS_TYPE_PROCESSOR_INFORMATION) {
         Type4Record = (SMBIOS_TABLE_TYPE4 *) Record;
         ConvertProcessorToString(Type4Record->CurrentSpeed, 6, &NewString);
         TokenToUpdate = STRING_TOKEN (STR_FRONT_PAGE_CPU_SPEED);
         HiiSetString (gFrontPagePrivate.HiiHandle, TokenToUpdate, NewString, NULL);
         FreePool (NewString);
-        Find[3] = TRUE;
       }
 
-      if ( Record->Type == EFI_SMBIOS_TYPE_MEMORY_ARRAY_MAPPED_ADDRESS ) {
+      if ( Record->Type == SMBIOS_TYPE_MEMORY_ARRAY_MAPPED_ADDRESS ) {
         Type19Record = (SMBIOS_TABLE_TYPE19 *) Record;
-        ConvertMemorySizeToString (
-          (UINT32)(RShiftU64((Type19Record->EndingAddress - Type19Record->StartingAddress + 1), 10)),
-          &NewString
-          );
-        TokenToUpdate = STRING_TOKEN (STR_FRONT_PAGE_MEMORY_SIZE);
-        HiiSetString (gFrontPagePrivate.HiiHandle, TokenToUpdate, NewString, NULL);
-        FreePool (NewString);
-        Find[4] = TRUE;
+        if (Type19Record->StartingAddress != 0xFFFFFFFF ) {
+          InstalledMemory += RShiftU64(Type19Record->EndingAddress -
+                                       Type19Record->StartingAddress + 1, 10);
+        } else {
+          InstalledMemory += RShiftU64(Type19Record->ExtendedEndingAddress -
+                                       Type19Record->ExtendedStartingAddress + 1, 20);
+        }
       }
-    } while ( !(Find[0] && Find[1] && Find[2] && Find[3] && Find[4]));
+
+      Status = Smbios->GetNext (Smbios, &SmbiosHandle, NULL, &Record, NULL);
+    }
+
+    // now update the total installed RAM size
+    ConvertMemorySizeToString ((UINT32)InstalledMemory, &NewString );
+    TokenToUpdate = STRING_TOKEN (STR_FRONT_PAGE_MEMORY_SIZE);
+    HiiSetString (gFrontPagePrivate.HiiHandle, TokenToUpdate, NewString, NULL);
+    FreePool (NewString);
   }
+
   return ;
 }
 
@@ -1325,7 +1327,7 @@ BdsSetConsoleMode (
 
   if (IsSetupMode) {
     //
-    // The requried resolution and text mode is setup mode.
+    // The required resolution and text mode is setup mode.
     //
     NewHorizontalResolution = mSetupHorizontalResolution;
     NewVerticalResolution   = mSetupVerticalResolution;
@@ -1381,7 +1383,7 @@ BdsSetConsoleMode (
             return EFI_SUCCESS;
           } else {
             //
-            // If current text mode is different from requried text mode.  Set new video mode
+            // If current text mode is different from required text mode.  Set new video mode
             //
             for (Index = 0; Index < MaxTextMode; Index++) {
               Status = SimpleTextOut->QueryMode (SimpleTextOut, Index, &CurrentColumn, &CurrentRow);
@@ -1406,7 +1408,7 @@ BdsSetConsoleMode (
             }
             if (Index == MaxTextMode) {
               //
-              // If requried text mode is not supported, return error.
+              // If required text mode is not supported, return error.
               //
               FreePool (Info);
               return EFI_UNSUPPORTED;

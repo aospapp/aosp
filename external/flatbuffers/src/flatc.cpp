@@ -16,7 +16,9 @@
 
 #include "flatbuffers/flatc.h"
 
-#define FLATC_VERSION "1.6.0 (" __DATE__ ")"
+#include <list>
+
+#define FLATC_VERSION "1.8.0 (" __DATE__ ")"
 
 namespace flatbuffers {
 
@@ -46,7 +48,7 @@ void FlatCompiler::Error(const std::string &err, bool usage,
 
 std::string FlatCompiler::GetUsageString(const char* program_name) const {
   std::stringstream ss;
-  ss << "Usageaa: " << program_name << " [OPTION]... FILE... [-- FILE...]\n";
+  ss << "Usage: " << program_name << " [OPTION]... FILE... [-- FILE...]\n";
   for (size_t i = 0; i < params_.num_generators; ++i) {
     const Generator& g = params_.generators[i];
 
@@ -81,13 +83,21 @@ std::string FlatCompiler::GetUsageString(const char* program_name) const {
       "  --no-includes      Don\'t generate include statements for included\n"
       "                     schemas the generated file depends on (C++).\n"
       "  --gen-mutable      Generate accessors that can mutate buffers in-place.\n"
-      "  --gen-onefile      Generate single output file for C#.\n"
+      "  --gen-onefile      Generate single output file for C# and Go.\n"
       "  --gen-name-strings Generate type name functions for C++.\n"
-      "  --escape-proto-ids Disable appending '_' in namespaces names.\n"
       "  --gen-object-api   Generate an additional object-based API.\n"
       "  --cpp-ptr-type T   Set object API pointer type (default std::unique_ptr)\n"
+      "  --cpp-str-type T   Set object API string type (default std::string)\n"
+      "                     T::c_str() and T::length() must be supported\n"
+      "  --gen-nullable     Add Clang _Nullable for C++ pointer. or @Nullable for Java\n"
+      "  --object-prefix    Customise class prefix for C++ object-based API.\n"
+      "  --object-suffix    Customise class suffix for C++ object-based API.\n"
+      "                     Default value is \"T\"\n"
       "  --no-js-exports    Removes Node.js style export lines in JS.\n"
       "  --goog-js-export   Uses goog.exports* for closure compiler exporting in JS.\n"
+      "  --go-namespace     Generate the overrided namespace in Golang.\n"
+      "  --go-import        Generate the overrided import for flatbuffers in Golang.\n"
+      "                     (default is \"github.com/google/flatbuffers/go\")\n"
       "  --raw-binary       Allow binaries without file_indentifier to be read.\n"
       "                     This may crash flatc given a mismatched schema.\n"
       "  --proto            Input is a .proto, translate to .fbs.\n"
@@ -100,8 +110,13 @@ std::string FlatCompiler::GetUsageString(const char* program_name) const {
       "    PATH             \n"
       "  --include-prefix   Prefix this path to any generated include statements.\n"
       "    PATH\n"
-      "FILEs may be schemas, or JSON files (conforming to preceding schema)\n"
-      "FILEs after the -- must be binary flatbuffer format files.\n"
+      "  --keep-prefix      Keep original prefix of schema include statement.\n"
+      "  --no-fb-import     Don't include flatbuffers import statement for TypeScript.\n"
+      "  --no-ts-reexport   Don't re-export imported dependencies for TypeScript.\n"
+      "  --reflect-types    Add minimal type reflection to code generation.\n"
+      "  --reflect-names    Add minimal type/name reflection.\n"
+      "FILEs may be schemas (must end in .fbs), or JSON files (conforming to preceding\n"
+      "schema). FILEs after the -- must be binary flatbuffer format files.\n"
       "Output files are named using the base file name of the input,\n"
       "and written to the current directory or the path given by -o.\n"
       "example: " << program_name << " -c -b schema1.fbs schema2.fbs data.json\n";
@@ -122,6 +137,7 @@ int FlatCompiler::Compile(int argc, const char** argv) {
   bool schema_binary = false;
   bool grpc_enabled = false;
   std::vector<std::string> filenames;
+  std::list<std::string> include_directories_storage;
   std::vector<const char *> include_directories;
   std::vector<const char *> conform_include_directories;
   std::vector<bool> generator_enabled(params_.num_generators, false);
@@ -135,21 +151,29 @@ int FlatCompiler::Compile(int argc, const char** argv) {
         Error("invalid option location: " + arg, true);
       if (arg == "-o") {
         if (++argi >= argc) Error("missing path following: " + arg, true);
-        output_path = flatbuffers::ConCatPathFileName(argv[argi], "");
+        output_path = flatbuffers::ConCatPathFileName(
+                        flatbuffers::PosixPath(argv[argi]), "");
       } else if(arg == "-I") {
         if (++argi >= argc) Error("missing path following" + arg, true);
-        include_directories.push_back(argv[argi]);
+        include_directories_storage.push_back(
+                                      flatbuffers::PosixPath(argv[argi]));
+        include_directories.push_back(
+                              include_directories_storage.back().c_str());
       } else if(arg == "--conform") {
         if (++argi >= argc) Error("missing path following" + arg, true);
-        conform_to_schema = argv[argi];
+        conform_to_schema = flatbuffers::PosixPath(argv[argi]);
       } else if (arg == "--conform-includes") {
         if (++argi >= argc) Error("missing path following" + arg, true);
-        conform_include_directories.push_back(argv[argi]);
+        include_directories_storage.push_back(
+                                      flatbuffers::PosixPath(argv[argi]));
+        conform_include_directories.push_back(
+                                    include_directories_storage.back().c_str());
       } else if (arg == "--include-prefix") {
         if (++argi >= argc) Error("missing path following" + arg, true);
-        opts.include_prefix = argv[argi];
-        if (opts.include_prefix.back() != '/' &&
-            opts.include_prefix.back() != '\\') opts.include_prefix += "/";
+        opts.include_prefix = flatbuffers::ConCatPathFileName(
+                                flatbuffers::PosixPath(argv[argi]), "");
+      } else if(arg == "--keep-prefix") {
+        opts.keep_include_path = true;
       } else if(arg == "--strict-json") {
         opts.strict_json = true;
       } else if(arg == "--allow-non-utf8") {
@@ -158,6 +182,12 @@ int FlatCompiler::Compile(int argc, const char** argv) {
         opts.skip_js_exports = true;
       } else if(arg == "--goog-js-export") {
         opts.use_goog_js_export_format = true;
+      } else if(arg == "--go-namespace") {
+        if (++argi >= argc) Error("missing golang namespace" + arg, true);
+        opts.go_namespace = argv[argi];
+      } else if(arg == "--go-import") {
+        if (++argi >= argc) Error("missing golang import" + arg, true);
+        opts.go_import = argv[argi];
       } else if(arg == "--defaults-json") {
         opts.output_default_scalars_in_json = true;
       } else if (arg == "--unknown-json") {
@@ -178,6 +208,17 @@ int FlatCompiler::Compile(int argc, const char** argv) {
       } else if (arg == "--cpp-ptr-type") {
         if (++argi >= argc) Error("missing type following" + arg, true);
         opts.cpp_object_api_pointer_type = argv[argi];
+      } else if (arg == "--cpp-str-type") {
+        if (++argi >= argc) Error("missing type following" + arg, true);
+        opts.cpp_object_api_string_type = argv[argi];
+      } else if (arg == "--gen-nullable") {
+        opts.gen_nullable = true;
+      } else if (arg == "--object-prefix") {
+        if (++argi >= argc) Error("missing prefix following" + arg, true);
+        opts.object_prefix = argv[argi];
+      } else if (arg == "--object-suffix") {
+        if (++argi >= argc) Error("missing suffix following" + arg, true);
+        opts.object_suffix = argv[argi];
       } else if(arg == "--gen-all") {
         opts.generate_all = true;
         opts.include_dependence_headers = false;
@@ -194,8 +235,6 @@ int FlatCompiler::Compile(int argc, const char** argv) {
         binary_files_from = filenames.size();
       } else if(arg == "--proto") {
         opts.proto_mode = true;
-      } else if(arg == "--escape-proto-ids") {
-        opts.escape_proto_identifiers = true;
       } else if(arg == "--schema") {
         schema_binary = true;
       } else if(arg == "-M") {
@@ -207,6 +246,14 @@ int FlatCompiler::Compile(int argc, const char** argv) {
         grpc_enabled = true;
       } else if(arg == "--bfbs-comments") {
         opts.binary_schema_comments = true;
+      } else if(arg == "--no-fb-import") {
+        opts.skip_flatbuffers_import = true;
+      } else if(arg == "--no-ts-reexport") {
+        opts.reexport_ts_modules = false;
+      } else if(arg == "--reflect-types") {
+        opts.mini_reflect = IDLOptions::kTypes;
+      } else if(arg == "--reflect-names") {
+        opts.mini_reflect = IDLOptions::kTypesAndNames;
       } else {
         for (size_t i = 0; i < params_.num_generators; ++i) {
           if (arg == params_.generators[i].generator_opt_long ||
@@ -222,7 +269,7 @@ int FlatCompiler::Compile(int argc, const char** argv) {
         found:;
       }
     } else {
-      filenames.push_back(argv[argi]);
+      filenames.push_back(flatbuffers::PosixPath(argv[argi]));
     }
   }
 
@@ -249,101 +296,110 @@ int FlatCompiler::Compile(int argc, const char** argv) {
   for (auto file_it = filenames.begin();
             file_it != filenames.end();
           ++file_it) {
-      std::string contents;
-      if (!flatbuffers::LoadFile(file_it->c_str(), true, &contents))
-        Error("unable to load file: " + *file_it);
+    auto &filename = *file_it;
+    std::string contents;
+    if (!flatbuffers::LoadFile(filename.c_str(), true, &contents))
+      Error("unable to load file: " + filename);
 
-      bool is_binary = static_cast<size_t>(file_it - filenames.begin()) >=
-                       binary_files_from;
-      if (is_binary) {
-        parser->builder_.Clear();
-        parser->builder_.PushFlatBuffer(
-          reinterpret_cast<const uint8_t *>(contents.c_str()),
-          contents.length());
-        if (!raw_binary) {
-          // Generally reading binaries that do not correspond to the schema
-          // will crash, and sadly there's no way around that when the binary
-          // does not contain a file identifier.
-          // We'd expect that typically any binary used as a file would have
-          // such an identifier, so by default we require them to match.
-          if (!parser->file_identifier_.length()) {
-            Error("current schema has no file_identifier: cannot test if \"" +
-                 *file_it +
-                 "\" matches the schema, use --raw-binary to read this file"
-                 " anyway.");
-          } else if (!flatbuffers::BufferHasIdentifier(contents.c_str(),
-                         parser->file_identifier_.c_str())) {
-            Error("binary \"" +
-                 *file_it +
-                 "\" does not have expected file_identifier \"" +
-                 parser->file_identifier_ +
-                 "\", use --raw-binary to read this file anyway.");
-          }
-        }
-      } else {
-        // Check if file contains 0 bytes.
-        if (contents.length() != strlen(contents.c_str())) {
-          Error("input file appears to be binary: " + *file_it, true);
-        }
-        auto is_schema = flatbuffers::GetExtension(*file_it) == "fbs";
-        if (is_schema) {
-          // If we're processing multiple schemas, make sure to start each
-          // one from scratch. If it depends on previous schemas it must do
-          // so explicitly using an include.
-          parser.reset(new flatbuffers::Parser(opts));
-        }
-        ParseFile(*parser.get(), *file_it, contents, include_directories);
-        if (is_schema && !conform_to_schema.empty()) {
-          auto err = parser->ConformTo(conform_parser);
-          if (!err.empty()) Error("schemas don\'t conform: " + err);
-        }
-        if (schema_binary) {
-          parser->Serialize();
-          parser->file_extension_ = reflection::SchemaExtension();
+    bool is_binary = static_cast<size_t>(file_it - filenames.begin()) >=
+                     binary_files_from;
+    auto ext = flatbuffers::GetExtension(filename);
+    auto is_schema = ext == "fbs" || ext == "proto";
+    if (is_binary) {
+      parser->builder_.Clear();
+      parser->builder_.PushFlatBuffer(
+        reinterpret_cast<const uint8_t *>(contents.c_str()),
+        contents.length());
+      if (!raw_binary) {
+        // Generally reading binaries that do not correspond to the schema
+        // will crash, and sadly there's no way around that when the binary
+        // does not contain a file identifier.
+        // We'd expect that typically any binary used as a file would have
+        // such an identifier, so by default we require them to match.
+        if (!parser->file_identifier_.length()) {
+          Error("current schema has no file_identifier: cannot test if \"" +
+               filename +
+               "\" matches the schema, use --raw-binary to read this file"
+               " anyway.");
+        } else if (!flatbuffers::BufferHasIdentifier(contents.c_str(),
+                       parser->file_identifier_.c_str())) {
+          Error("binary \"" +
+               filename +
+               "\" does not have expected file_identifier \"" +
+               parser->file_identifier_ +
+               "\", use --raw-binary to read this file anyway.");
         }
       }
+    } else {
+      // Check if file contains 0 bytes.
+      if (contents.length() != strlen(contents.c_str())) {
+        Error("input file appears to be binary: " + filename, true);
+      }
+      if (is_schema) {
+        // If we're processing multiple schemas, make sure to start each
+        // one from scratch. If it depends on previous schemas it must do
+        // so explicitly using an include.
+        parser.reset(new flatbuffers::Parser(opts));
+      }
+      ParseFile(*parser.get(), filename, contents, include_directories);
+      if (!is_schema && !parser->builder_.GetSize()) {
+        // If a file doesn't end in .fbs, it must be json/binary. Ensure we
+        // didn't just parse a schema with a different extension.
+        Error("input file is neither json nor a .fbs (schema) file: " +
+              filename, true);
+      }
+      if (is_schema && !conform_to_schema.empty()) {
+        auto err = parser->ConformTo(conform_parser);
+        if (!err.empty()) Error("schemas don\'t conform: " + err);
+      }
+      if (schema_binary) {
+        parser->Serialize();
+        parser->file_extension_ = reflection::SchemaExtension();
+      }
+    }
 
-      std::string filebase = flatbuffers::StripPath(
-                               flatbuffers::StripExtension(*file_it));
+    std::string filebase = flatbuffers::StripPath(
+                             flatbuffers::StripExtension(filename));
 
-      for (size_t i = 0; i < params_.num_generators; ++i) {
-        parser->opts.lang = params_.generators[i].lang;
-        if (generator_enabled[i]) {
-          if (!print_make_rules) {
-            flatbuffers::EnsureDirExists(output_path);
-            if (!params_.generators[i].generate(*parser.get(), output_path, filebase)) {
-              Error(std::string("Unable to generate ") +
-                    params_.generators[i].lang_name +
-                    " for " +
-                    filebase);
+    for (size_t i = 0; i < params_.num_generators; ++i) {
+      parser->opts.lang = params_.generators[i].lang;
+      if (generator_enabled[i]) {
+        if (!print_make_rules) {
+          flatbuffers::EnsureDirExists(output_path);
+          if ((!params_.generators[i].schema_only || is_schema) &&
+              !params_.generators[i].generate(*parser.get(), output_path, filebase)) {
+            Error(std::string("Unable to generate ") +
+                  params_.generators[i].lang_name +
+                  " for " +
+                  filebase);
+          }
+        } else {
+          std::string make_rule = params_.generators[i].make_rule(
+              *parser.get(), output_path, filename);
+          if (!make_rule.empty())
+            printf("%s\n", flatbuffers::WordWrap(
+                make_rule, 80, " ", " \\").c_str());
+        }
+        if (grpc_enabled) {
+          if (params_.generators[i].generateGRPC != nullptr) {
+            if (!params_.generators[i].generateGRPC(*parser.get(), output_path,
+                                            filebase)) {
+              Error(std::string("Unable to generate GRPC interface for") +
+                    params_.generators[i].lang_name);
             }
           } else {
-            std::string make_rule = params_.generators[i].make_rule(
-                *parser.get(), output_path, *file_it);
-            if (!make_rule.empty())
-              printf("%s\n", flatbuffers::WordWrap(
-                  make_rule, 80, " ", " \\").c_str());
-          }
-          if (grpc_enabled) {
-            if (params_.generators[i].generateGRPC != nullptr) {
-              if (!params_.generators[i].generateGRPC(*parser.get(), output_path,
-                                              filebase)) {
-                Error(std::string("Unable to generate GRPC interface for") +
-                      params_.generators[i].lang_name);
-              }
-            } else {
-              Warn(std::string("GRPC interface generator not implemented for ")
-                   + params_.generators[i].lang_name);
-            }
+            Warn(std::string("GRPC interface generator not implemented for ")
+                 + params_.generators[i].lang_name);
           }
         }
       }
+    }
 
-      if (opts.proto_mode) GenerateFBS(*parser.get(), output_path, filebase);
+    if (opts.proto_mode) GenerateFBS(*parser.get(), output_path, filebase);
 
-      // We do not want to generate code for the definitions in this file
-      // in any files coming up next.
-      parser->MarkGenerated();
+    // We do not want to generate code for the definitions in this file
+    // in any files coming up next.
+    parser->MarkGenerated();
   }
   return 0;
 }

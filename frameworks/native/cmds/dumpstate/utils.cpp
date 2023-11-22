@@ -48,10 +48,10 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
-#include <android/hidl/manager/1.0/IServiceManager.h>
 #include <cutils/properties.h>
 #include <cutils/sockets.h>
 #include <debuggerd/client.h>
+#include <dumputils/dump_utils.h>
 #include <log/log.h>
 #include <private/android_filesystem_config.h>
 
@@ -75,34 +75,6 @@ static int RunCommand(const std::string& title, const std::vector<std::string>& 
                       const CommandOptions& options = CommandOptions::DEFAULT) {
     return ds.RunCommand(title, full_command, options);
 }
-
-/* list of native processes to include in the native dumps */
-// This matches the /proc/pid/exe link instead of /proc/pid/cmdline.
-static const char* native_processes_to_dump[] = {
-        "/system/bin/audioserver",
-        "/system/bin/cameraserver",
-        "/system/bin/drmserver",
-        "/system/bin/mediadrmserver",
-        "/system/bin/mediaextractor", // media.extractor
-        "/system/bin/mediaserver",
-        "/system/bin/sdcard",
-        "/system/bin/surfaceflinger",
-        "/system/bin/vehicle_network_service",
-        "/vendor/bin/hw/android.hardware.media.omx@1.0-service", // media.codec
-        NULL,
-};
-
-/* list of hal interface to dump containing process during native dumps */
-static const char* hal_interfaces_to_dump[] {
-        "android.hardware.audio@2.0::IDevicesFactory",
-        "android.hardware.bluetooth@1.0::IBluetoothHci",
-        "android.hardware.camera.provider@2.4::ICameraProvider",
-        "android.hardware.graphics.composer@2.1::IComposer",
-        "android.hardware.media.omx@1.0::IOmx",
-        "android.hardware.sensors@1.0::ISensors",
-        "android.hardware.vr@1.0::IVr",
-        NULL,
-};
 
 // Reasonable value for max stats.
 static const int STATS_MAX_N_RUNS = 1000;
@@ -215,10 +187,10 @@ int32_t Progress::Get() const {
     return progress_;
 }
 
-bool Progress::Inc(int32_t delta) {
+bool Progress::Inc(int32_t delta_sec) {
     bool changed = false;
-    if (delta >= 0) {
-        progress_ += delta;
+    if (delta_sec >= 0) {
+        progress_ += delta_sec;
         if (progress_ > max_) {
             int32_t old_max = max_;
             max_ = floor((float)progress_ * growth_factor_);
@@ -628,7 +600,7 @@ int dump_files(const std::string& title, const char* dir, bool (*skip)(const cha
     struct dirent *d;
     char *newpath = NULL;
     const char *slash = "/";
-    int fd, retval = 0;
+    int retval = 0;
 
     if (!title.empty()) {
         printf("------ %s (%s) ------\n", title.c_str(), dir);
@@ -670,13 +642,13 @@ int dump_files(const std::string& title, const char* dir, bool (*skip)(const cha
             }
             continue;
         }
-        fd = TEMP_FAILURE_RETRY(open(newpath, O_RDONLY | O_NONBLOCK | O_CLOEXEC));
-        if (fd < 0) {
-            retval = fd;
+        android::base::unique_fd fd(TEMP_FAILURE_RETRY(open(newpath, O_RDONLY | O_NONBLOCK | O_CLOEXEC)));
+        if (fd.get() < 0) {
+            retval = -1;
             printf("*** %s: %s\n", newpath, strerror(errno));
             continue;
         }
-        (*dump_from_fd)(NULL, newpath, fd);
+        (*dump_from_fd)(NULL, newpath, fd.get());
     }
     closedir(dirp);
     if (!title.empty()) {
@@ -695,11 +667,9 @@ int dump_file_from_fd(const char *title, const char *path, int fd) {
     int flags = fcntl(fd, F_GETFL);
     if (flags == -1) {
         printf("*** %s: failed to get flags on fd %d: %s\n", path, fd, strerror(errno));
-        close(fd);
         return -1;
     } else if (!(flags & O_NONBLOCK)) {
         printf("*** %s: fd must have O_NONBLOCK set.\n", path);
-        close(fd);
         return -1;
     }
     return DumpFileFromFdToFd(title, path, fd, STDOUT_FILENO, PropertiesHelper::IsDryRun());
@@ -721,9 +691,9 @@ int Dumpstate::RunCommand(const std::string& title, const std::vector<std::strin
 }
 
 void Dumpstate::RunDumpsys(const std::string& title, const std::vector<std::string>& dumpsys_args,
-                           const CommandOptions& options, long dumpsysTimeout) {
-    long timeout = dumpsysTimeout > 0 ? dumpsysTimeout : options.Timeout();
-    std::vector<std::string> dumpsys = {"/system/bin/dumpsys", "-t", std::to_string(timeout)};
+                           const CommandOptions& options, long dumpsysTimeoutMs) {
+    long timeout_ms = dumpsysTimeoutMs > 0 ? dumpsysTimeoutMs : options.TimeoutInMs();
+    std::vector<std::string> dumpsys = {"/system/bin/dumpsys", "-T", std::to_string(timeout_ms)};
     dumpsys.insert(dumpsys.end(), dumpsys_args.begin(), dumpsys_args.end());
     RunCommand(title, dumpsys, options);
 }
@@ -809,53 +779,6 @@ void redirect_to_existing_file(FILE *redirect, char *path) {
     _redirect_to_file(redirect, path, O_APPEND);
 }
 
-static bool should_dump_hal_interface(const char* interface) {
-    for (const char** i = hal_interfaces_to_dump; *i; i++) {
-        if (!strcmp(*i, interface)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static bool should_dump_native_traces(const char* path) {
-    for (const char** p = native_processes_to_dump; *p; p++) {
-        if (!strcmp(*p, path)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-std::set<int> get_interesting_hal_pids() {
-    using android::hidl::manager::V1_0::IServiceManager;
-    using android::sp;
-    using android::hardware::Return;
-
-    sp<IServiceManager> manager = IServiceManager::getService();
-    std::set<int> pids;
-
-    Return<void> ret = manager->debugDump([&](auto& hals) {
-        for (const auto &info : hals) {
-            if (info.pid == static_cast<int>(IServiceManager::PidConstant::NO_PID)) {
-                continue;
-            }
-
-            if (!should_dump_hal_interface(info.interfaceName.c_str())) {
-                continue;
-            }
-
-            pids.insert(info.pid);
-        }
-    });
-
-    if (!ret.isOk()) {
-        MYLOGE("Could not get list of HAL PIDs: %s\n", ret.description().c_str());
-    }
-
-    return pids; // whether it was okay or not
-}
-
 const char* DumpTraces(const std::string& traces_path);
 const char* DumpTracesTombstoned(const std::string& traces_dir);
 
@@ -874,18 +797,6 @@ const char *dump_traces() {
     }
 
     return nullptr;
-}
-
-static bool IsZygote(int pid) {
-    static const std::string kZygotePrefix = "zygote";
-
-    std::string cmdline;
-    if (!android::base::ReadFileToString(android::base::StringPrintf("/proc/%d/cmdline", pid),
-                                         &cmdline)) {
-        return true;
-    }
-
-    return (cmdline.find(kZygotePrefix) == 0);
 }
 
 const char* DumpTracesTombstoned(const std::string& traces_dir) {
@@ -1163,14 +1074,14 @@ void dump_route_tables() {
 }
 
 // TODO: make this function thread safe if sections are generated in parallel.
-void Dumpstate::UpdateProgress(int32_t delta) {
+void Dumpstate::UpdateProgress(int32_t delta_sec) {
     if (progress_ == nullptr) {
         MYLOGE("UpdateProgress: progress_ not set\n");
         return;
     }
 
     // Always update progess so stats can be tuned...
-    bool max_changed = progress_->Inc(delta);
+    bool max_changed = progress_->Inc(delta_sec);
 
     // ...but only notifiy listeners when necessary.
     if (!update_progress_) return;

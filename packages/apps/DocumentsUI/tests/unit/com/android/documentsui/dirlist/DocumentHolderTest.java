@@ -20,9 +20,9 @@ import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Rect;
 import android.os.SystemClock;
+import android.support.test.filters.SmallTest;
 import android.support.test.filters.Suppress;
 import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -30,6 +30,7 @@ import android.view.MotionEvent.PointerCoords;
 import android.view.MotionEvent.PointerProperties;
 
 import com.android.documentsui.R;
+import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
 
 @SmallTest
 public class DocumentHolderTest extends AndroidTestCase {
@@ -98,9 +99,9 @@ public class DocumentHolderTest extends AndroidTestCase {
                 );
     }
 
-    private class TestListener implements DocumentHolder.KeyboardEventListener {
+    private class TestListener extends KeyboardEventListener {
         @Override
-        public boolean onKey(DocumentHolder doc, int keyCode, KeyEvent event) {
+        public boolean onKey(ItemDetails item, int keyCode, KeyEvent event) {
             return false;
         }
 

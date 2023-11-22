@@ -266,10 +266,26 @@ class GatherLogsTask(PostJobTask):
     def epilog(self):
         super(GatherLogsTask, self).epilog()
         self._parse_results(self.queue_entries)
-        self._reboot_hosts()
+        final_success, num_tests_failed = self._get_monitor_info()
+        reset_after_failure = (
+                not self._job.run_reset and (
+                    not final_success or num_tests_failed > 0))
+        self._reboot_hosts(final_success, num_tests_failed, reset_after_failure)
+        if reset_after_failure:
+            m = metrics.Counter('chromeos/autotest/scheduler/postjob_tasks/'
+                                'reset_after_failure')
+            m.increment(fields={'autoserv_process_success': final_success,
+                                'num_tests_failed': num_tests_failed > 0})
+            self._reset_after_failure()
 
 
-    def _reboot_hosts(self):
+    def _get_monitor_info(self):
+        """Read monitor info from pidfile.
+
+        @returns: a tuple including
+            final_success: whether the monitor is successfully finished;
+            num_tests_failed: how many failed tests in the process.
+        """
         if self._autoserv_monitor.has_process():
             final_success = (self._final_status() ==
                              models.HostQueueEntry.Status.COMPLETED)
@@ -277,6 +293,18 @@ class GatherLogsTask(PostJobTask):
         else:
             final_success = False
             num_tests_failed = 0
+
+        return final_success, num_tests_failed
+
+
+    def _reboot_hosts(self, final_success, num_tests_failed,
+                      reset_after_failure):
+        """Reboot hosts by scheduling a CLEANUP task on host if needed.
+
+        @param final_success: whether the monitor successfully exits.
+        @param num_tests_failed: how many failed tests in total.
+        @param reset_after_failure: whether to schedule RESET task later.
+        """
         reboot_after = self._job.reboot_after
         do_reboot = (
                 # always reboot after aborted jobs
@@ -284,7 +312,7 @@ class GatherLogsTask(PostJobTask):
                 or reboot_after == model_attributes.RebootAfter.ALWAYS
                 or (reboot_after == model_attributes.RebootAfter.IF_ALL_TESTS_PASSED
                     and final_success and num_tests_failed == 0)
-                or num_tests_failed > 0)
+                or (num_tests_failed > 0 and not reset_after_failure))
 
         for queue_entry in self.queue_entries:
             if do_reboot:
@@ -296,6 +324,18 @@ class GatherLogsTask(PostJobTask):
                         requested_by=self._job.owner_model())
             else:
                 queue_entry.host.set_status(models.Host.Status.READY)
+
+
+    def _reset_after_failure(self):
+        """Queue a RESET job for the host if job fails.
+
+        The current hqe entry is not passed into the RESET job.
+        """
+        for queue_entry in self.queue_entries:
+            models.SpecialTask.objects.create(
+                        host=models.Host.objects.get(id=queue_entry.host.id),
+                        task=models.SpecialTask.Task.RESET,
+                        requested_by=self._job.owner_model())
 
 
     def run(self):
@@ -317,8 +357,9 @@ class FinalReparseTask(SelfThrottledPostJobTask):
 
 
     def _generate_command(self, results_dir):
-        return [_parser_path, '--write-pidfile', '--record-duration',
-                '--suite-report', '-l', '2', '-r', '-o', results_dir]
+        return [_parser_path, '--detach', '--write-pidfile',
+                '--record-duration', '--suite-report', '-l', '2', '-r', '-o',
+                results_dir]
 
 
     @property

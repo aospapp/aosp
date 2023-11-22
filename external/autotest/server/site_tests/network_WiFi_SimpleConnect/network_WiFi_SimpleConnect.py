@@ -23,17 +23,6 @@ class network_WiFi_SimpleConnect(wifi_cell_test_base.WiFiCellTestBase):
         self._configurations = additional_params
 
 
-    def test_cleanup(self, client_conf):
-        """Cleanup method for the test.
-
-        @param client_conf: association parameters for test.
-
-        """
-        self.context.client.shill.delete_entries_for_ssid(client_conf.ssid)
-        self.context.router.deconfig()
-        self.context.capture_host.stop_capture()
-
-
     def run_once(self):
         """Sets up a router, connects to it, pings it, and repeats."""
         client_mac = self.context.client.wifi_mac
@@ -47,19 +36,7 @@ class network_WiFi_SimpleConnect(wifi_cell_test_base.WiFiCellTestBase):
             self.context.capture_host.start_capture(router_conf.frequency,
                     ht_type=router_conf.ht_packet_capture_mode)
             client_conf.ssid = self.context.router.get_ssid()
-            # TODO(crbug/621146): Remove adb log collection from this test,
-            # once a general solution is available.
-            e = None
-            try:
-                assoc_result = self.context.assert_connect_wifi(client_conf)
-            except Exception as e:
-                logging.debug('Caught exception during Connect')
-            finally:
-                self.context.client.collect_debug_info(client_conf.ssid)
-                if e:
-                    self.test_cleanup(client_conf)
-                    raise e
-
+            assoc_result = self.context.assert_connect_wifi(client_conf)
             if client_conf.expect_failure:
                 logging.info('Skipping ping because we expected this '
                              'attempt to fail.')
@@ -81,4 +58,6 @@ class network_WiFi_SimpleConnect(wifi_cell_test_base.WiFiCellTestBase):
                         units='seconds',
                         higher_is_better=False,
                         graph=router_conf.perf_loggable_description)
-            self.test_cleanup(client_conf)
+            self.context.client.shill.delete_entries_for_ssid(client_conf.ssid)
+            self.context.router.deconfig()
+            self.context.capture_host.stop_capture()

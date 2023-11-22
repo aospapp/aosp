@@ -60,5 +60,20 @@ done
 
 cat <<-ENDCLASS
   };
+ENDCLASS
+
+cat <<-STARTCLASS
+
+  static final String[] WFA_CERTIFICATE_DATA = {
+STARTCLASS
+
+CERT_DIRECTORY=$ANDROID_BUILD_TOP/system/ca-certificates/wfa_certs/files/
+for FILE in `ls $CERT_DIRECTORY`; do
+  FINGERPRINT=`cat $CERT_DIRECTORY/$FILE | grep "SHA1 Fingerprint=" | cut -d '=' -f 2`
+  echo "      \"${FINGERPRINT}\","
+done
+
+cat <<-ENDCLASS
+  };
 }
 ENDCLASS

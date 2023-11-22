@@ -66,13 +66,15 @@ typedef UINT32 MMC_CMD;
 #define MMC_CMD35             (MMC_INDX(35) | MMC_CMD_WAIT_RESPONSE)
 #define MMC_CMD36             (MMC_INDX(36) | MMC_CMD_WAIT_RESPONSE)
 #define MMC_CMD38             (MMC_INDX(38) | MMC_CMD_WAIT_RESPONSE)
-#define MMC_CMD51             (MMC_INDX(51) | MMC_CMD_WAIT_RESPONSE)
 #define MMC_CMD55             (MMC_INDX(55) | MMC_CMD_WAIT_RESPONSE)
 #define MMC_ACMD41            (MMC_INDX(41) | MMC_CMD_WAIT_RESPONSE | MMC_CMD_NO_CRC_RESPONSE)
+#define MMC_ACMD51            (MMC_INDX(51) | MMC_CMD_WAIT_RESPONSE)
 
 // Valid responses for CMD1 in eMMC
 #define EMMC_CMD1_CAPACITY_LESS_THAN_2GB 0x00FF8080 // Capacity <= 2GB, byte addressing used
 #define EMMC_CMD1_CAPACITY_GREATER_THAN_2GB 0x40FF8080 // Capacity > 2GB, 512-byte sector addressing used
+
+#define MMC_STATUS_APP_CMD    (1 << 5)
 
 typedef enum _MMC_STATE {
     MmcInvalidState = 0,
@@ -158,7 +160,6 @@ typedef BOOLEAN (EFIAPI *MMC_ISMULTIBLOCK) (
   IN  EFI_MMC_HOST_PROTOCOL     *This
   );
 
-
 struct _EFI_MMC_HOST_PROTOCOL {
 
   UINT32                  Revision;
@@ -179,7 +180,12 @@ struct _EFI_MMC_HOST_PROTOCOL {
 
 };
 
-#define MMC_HOST_PROTOCOL_REVISION    0x00010001    // 1.1
+#define MMC_HOST_PROTOCOL_REVISION    0x00010002    // 1.2
+
+#define MMC_HOST_HAS_SETIOS(Host)     (Host->Revision >= MMC_HOST_PROTOCOL_REVISION && \
+                                       Host->SetIos != NULL)
+#define MMC_HOST_HAS_ISMULTIBLOCK(Host) (Host->Revision >= MMC_HOST_PROTOCOL_REVISION && \
+                                         Host->IsMultiBlock != NULL)
 
 extern EFI_GUID gEfiMmcHostProtocolGuid;
 

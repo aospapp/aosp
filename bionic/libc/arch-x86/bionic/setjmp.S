@@ -42,10 +42,10 @@
 // 3      ebp
 // 4      esi
 // 5      edi
-// 6      sigmask         signal mask (not used with _setjmp / _longjmp)
-// 7      sigflag/cookie  setjmp cookie in top 31 bits, signal mask flag in low bit
-// 8      checksum        checksum of the core registers, to give better error messages.
-// 9      reserved
+// 6      sigmask         64-bit signal mask (not used with _setjmp / _longjmp)
+// 7      "               "
+// 8      sigflag/cookie  setjmp cookie in top 31 bits, signal mask flag in low bit
+// 9      checksum        checksum of the core registers, to give better error messages.
 
 #define _JB_EDX 0
 #define _JB_EBX 1
@@ -54,8 +54,8 @@
 #define _JB_ESI 4
 #define _JB_EDI 5
 #define _JB_SIGMASK 6
-#define _JB_SIGFLAG 7
-#define _JB_CHECKSUM 8
+#define _JB_SIGFLAG 8
+#define _JB_CHECKSUM 9
 
 .macro m_mangle_registers reg
   xorl \reg,%edx
@@ -78,18 +78,21 @@
 .endm
 
 ENTRY(setjmp)
+__BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(setjmp)
   movl 4(%esp),%ecx
   mov $1,%eax
   jmp .L_sigsetjmp
 END(setjmp)
 
 ENTRY(_setjmp)
+__BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(_setjmp)
   movl 4(%esp),%ecx
   movl $0,%eax
   jmp .L_sigsetjmp
 END(_setjmp)
 
 ENTRY(sigsetjmp)
+__BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(sigsetjmp)
   movl 4(%esp),%ecx
   movl 8(%esp),%eax
 
@@ -107,16 +110,17 @@ ENTRY(sigsetjmp)
   testl $1,%eax
   jz 1f
 
-  // Get the current signal mask.
+  // Save the current signal mask.
+  pushl %ecx
   PIC_PROLOGUE
-  pushl $0
-  call PIC_PLT(sigblock)
-  addl $4,%esp
+  leal (_JB_SIGMASK * 4)(%ecx),%eax
+  pushl %eax
+  pushl $0 // NULL
+  pushl $2 // SIG_SETMASK
+  call PIC_PLT(sigprocmask64)
+  addl $12,%esp
   PIC_EPILOGUE
-
-  // Save the signal mask.
-  movl 4(%esp),%ecx
-  movl %eax,(_JB_SIGMASK * 4)(%ecx)
+  popl %ecx
 
 1:
   // Fetch the setjmp cookie and clear the signal flag bit.
@@ -142,6 +146,7 @@ ENTRY(sigsetjmp)
 END(sigsetjmp)
 
 ENTRY(siglongjmp)
+__BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(siglongjmp)
   movl 4(%esp),%edx
 
   // Check the checksum before doing anything.
@@ -155,10 +160,13 @@ ENTRY(siglongjmp)
   jz 1f
 
   // Restore the signal mask.
+  leal (_JB_SIGMASK * 4)(%edx),%eax
   PIC_PROLOGUE
-  pushl (_JB_SIGMASK * 4)(%edx)
-  call PIC_PLT(sigsetmask)
-  addl $4,%esp
+  pushl $0 // NULL
+  pushl %eax
+  pushl $2 // SIG_SETMASK
+  call PIC_PLT(sigprocmask64)
+  addl $12,%esp
   PIC_EPILOGUE
 
 1:
@@ -205,4 +213,6 @@ ENTRY(siglongjmp)
 END(siglongjmp)
 
 ALIAS_SYMBOL(longjmp, siglongjmp)
+__BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(longjmp)
 ALIAS_SYMBOL(_longjmp, siglongjmp)
+__BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(_longjmp)

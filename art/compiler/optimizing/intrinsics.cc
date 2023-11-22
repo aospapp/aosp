@@ -18,17 +18,27 @@
 
 #include "art_field-inl.h"
 #include "art_method-inl.h"
+#include "base/utils.h"
 #include "class_linker.h"
+#include "dex/invoke_type.h"
 #include "driver/compiler_driver.h"
 #include "driver/compiler_options.h"
-#include "invoke_type.h"
 #include "mirror/dex_cache-inl.h"
 #include "nodes.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread-current-inl.h"
-#include "utils.h"
 
 namespace art {
+
+// Check that intrinsic enum values fit within space set aside in ArtMethod modifier flags.
+#define CHECK_INTRINSICS_ENUM_VALUES(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions, ...) \
+  static_assert( \
+      static_cast<uint32_t>(Intrinsics::k ## Name) <= (kAccIntrinsicBits >> CTZ(kAccIntrinsicBits)), \
+      "Instrinsics enumeration space overflow.");
+#include "intrinsics_list.h"
+  INTRINSICS_LIST(CHECK_INTRINSICS_ENUM_VALUES)
+#undef INTRINSICS_LIST
+#undef CHECK_INTRINSICS_ENUM_VALUES
 
 // Function that returns whether an intrinsic is static/direct or virtual.
 static inline InvokeType GetIntrinsicInvokeType(Intrinsics i) {
@@ -39,7 +49,7 @@ static inline InvokeType GetIntrinsicInvokeType(Intrinsics i) {
     case Intrinsics::k ## Name: \
       return IsStatic;
 #include "intrinsics_list.h"
-INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
+      INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 #undef INTRINSICS_LIST
 #undef OPTIMIZING_INTRINSICS
   }
@@ -55,7 +65,7 @@ static inline IntrinsicNeedsEnvironmentOrCache NeedsEnvironmentOrCache(Intrinsic
     case Intrinsics::k ## Name: \
       return NeedsEnvironmentOrCache;
 #include "intrinsics_list.h"
-INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
+      INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 #undef INTRINSICS_LIST
 #undef OPTIMIZING_INTRINSICS
   }
@@ -71,7 +81,7 @@ static inline IntrinsicSideEffects GetSideEffects(Intrinsics i) {
     case Intrinsics::k ## Name: \
       return SideEffects;
 #include "intrinsics_list.h"
-INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
+      INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 #undef INTRINSICS_LIST
 #undef OPTIMIZING_INTRINSICS
   }
@@ -87,14 +97,15 @@ static inline IntrinsicExceptions GetExceptions(Intrinsics i) {
     case Intrinsics::k ## Name: \
       return Exceptions;
 #include "intrinsics_list.h"
-INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
+      INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 #undef INTRINSICS_LIST
 #undef OPTIMIZING_INTRINSICS
   }
   return kCanThrow;
 }
 
-static bool CheckInvokeType(Intrinsics intrinsic, HInvoke* invoke) {
+static bool CheckInvokeType(Intrinsics intrinsic, HInvoke* invoke)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   // Whenever the intrinsic is marked as static, report an error if we find an InvokeVirtual.
   //
   // Whenever the intrinsic is marked as direct and we find an InvokeVirtual, a devirtualization
@@ -109,6 +120,7 @@ static bool CheckInvokeType(Intrinsics intrinsic, HInvoke* invoke) {
   // InvokeStaticOrDirect.
   InvokeType intrinsic_type = GetIntrinsicInvokeType(intrinsic);
   InvokeType invoke_type = invoke->GetInvokeType();
+
   switch (intrinsic_type) {
     case kStatic:
       return (invoke_type == kStatic);
@@ -119,18 +131,51 @@ static bool CheckInvokeType(Intrinsics intrinsic, HInvoke* invoke) {
       }
       if (invoke_type == kVirtual) {
         ArtMethod* art_method = invoke->GetResolvedMethod();
-        ScopedObjectAccess soa(Thread::Current());
         return (art_method->IsFinal() || art_method->GetDeclaringClass()->IsFinal());
       }
       return false;
 
     case kVirtual:
       // Call might be devirtualized.
-      return (invoke_type == kVirtual || invoke_type == kDirect);
+      return (invoke_type == kVirtual || invoke_type == kDirect || invoke_type == kInterface);
 
-    default:
+    case kSuper:
+    case kInterface:
+    case kPolymorphic:
       return false;
   }
+  LOG(FATAL) << "Unknown intrinsic invoke type: " << intrinsic_type;
+  UNREACHABLE();
+}
+
+bool IntrinsicsRecognizer::Recognize(HInvoke* invoke,
+                                     ArtMethod* art_method,
+                                     /*out*/ bool* wrong_invoke_type) {
+  if (art_method == nullptr) {
+    art_method = invoke->GetResolvedMethod();
+  }
+  *wrong_invoke_type = false;
+  if (art_method == nullptr || !art_method->IsIntrinsic()) {
+    return false;
+  }
+
+  // TODO: b/65872996 The intent is that polymorphic signature methods should
+  // be compiler intrinsics. At present, they are only interpreter intrinsics.
+  if (art_method->IsPolymorphicSignature()) {
+    return false;
+  }
+
+  Intrinsics intrinsic = static_cast<Intrinsics>(art_method->GetIntrinsic());
+  if (CheckInvokeType(intrinsic, invoke) == false) {
+    *wrong_invoke_type = true;
+    return false;
+  }
+
+  invoke->SetIntrinsic(intrinsic,
+                       NeedsEnvironmentOrCache(intrinsic),
+                       GetSideEffects(intrinsic),
+                       GetExceptions(intrinsic));
+  return true;
 }
 
 void IntrinsicsRecognizer::Run() {
@@ -140,22 +185,14 @@ void IntrinsicsRecognizer::Run() {
          inst_it.Advance()) {
       HInstruction* inst = inst_it.Current();
       if (inst->IsInvoke()) {
-        HInvoke* invoke = inst->AsInvoke();
-        ArtMethod* art_method = invoke->GetResolvedMethod();
-        if (art_method != nullptr && art_method->IsIntrinsic()) {
-          Intrinsics intrinsic = static_cast<Intrinsics>(art_method->GetIntrinsic());
-          if (!CheckInvokeType(intrinsic, invoke)) {
-            LOG(WARNING) << "Found an intrinsic with unexpected invoke type: "
-                << static_cast<uint32_t>(intrinsic) << " for "
-                << art_method->PrettyMethod()
-                << invoke->DebugName();
-          } else {
-            invoke->SetIntrinsic(intrinsic,
-                                 NeedsEnvironmentOrCache(intrinsic),
-                                 GetSideEffects(intrinsic),
-                                 GetExceptions(intrinsic));
-            MaybeRecordStat(MethodCompilationStat::kIntrinsicRecognized);
-          }
+        bool wrong_invoke_type = false;
+        if (Recognize(inst->AsInvoke(), /* art_method */ nullptr, &wrong_invoke_type)) {
+          MaybeRecordStat(stats_, MethodCompilationStat::kIntrinsicRecognized);
+        } else if (wrong_invoke_type) {
+          LOG(WARNING)
+              << "Found an intrinsic with unexpected invoke type: "
+              << inst->AsInvoke()->GetResolvedMethod()->PrettyMethod() << " "
+              << inst->DebugName();
         }
       }
     }
@@ -172,7 +209,7 @@ std::ostream& operator<<(std::ostream& os, const Intrinsics& intrinsic) {
       os << # Name; \
       break;
 #include "intrinsics_list.h"
-INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
+      INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 #undef STATIC_INTRINSICS_LIST
 #undef VIRTUAL_INTRINSICS_LIST
 #undef OPTIMIZING_INTRINSICS
@@ -208,7 +245,7 @@ void IntrinsicVisitor::ComputeIntegerValueOfLocations(HInvoke* invoke,
   }
 
   // The intrinsic will call if it needs to allocate a j.l.Integer.
-  LocationSummary* locations = new (invoke->GetBlock()->GetGraph()->GetArena()) LocationSummary(
+  LocationSummary* locations = new (invoke->GetBlock()->GetGraph()->GetAllocator()) LocationSummary(
       invoke, LocationSummary::kCallOnMainOnly, kIntrinsified);
   if (!invoke->InputAt(0)->IsConstant()) {
     locations->SetInAt(0, Location::RequiresRegister());

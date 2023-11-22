@@ -25,12 +25,13 @@
 #include <list>
 #include <vector>
 
-#include "atomic.h"
 #include "base/allocator.h"
+#include "base/atomic.h"
 #include "base/mutex.h"
 #include "gc_root.h"
 #include "lock_word.h"
 #include "read_barrier_option.h"
+#include "runtime_callbacks.h"
 #include "thread_state.h"
 
 namespace art {
@@ -44,8 +45,13 @@ class Thread;
 typedef uint32_t MonitorId;
 
 namespace mirror {
-  class Object;
+class Object;
 }  // namespace mirror
+
+enum class LockReason {
+  kForWait,
+  kForLock,
+};
 
 class Monitor {
  public:
@@ -88,7 +94,9 @@ class Monitor {
                    bool interruptShouldThrow, ThreadState why)
       REQUIRES_SHARED(Locks::mutator_lock_) NO_THREAD_SAFETY_ANALYSIS;
 
-  static void DescribeWait(std::ostream& os, const Thread* thread)
+  static ThreadState FetchState(const Thread* thread,
+                                /* out */ mirror::Object** monitor_object,
+                                /* out */ uint32_t* lock_owner_tid)
       REQUIRES(!Locks::thread_suspend_count_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -205,9 +213,11 @@ class Monitor {
       REQUIRES(monitor_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
+  template<LockReason reason = LockReason::kForLock>
   void Lock(Thread* self)
       REQUIRES(!monitor_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
+
   bool Unlock(Thread* thread)
       REQUIRES(!monitor_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);

@@ -34,6 +34,10 @@ import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Spliterator;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
@@ -42,10 +46,7 @@ import org.xmlpull.v1.XmlPullParserFactory;
  * Parses an XML api definition file and constructs and populates an {@link JDiffClassDescription}
  * for every class.
  *
- * <p>Once it has completely populated the members (so does not include nested/inner classes) of a
- * {@link JDiffClassDescription} it notifies the {@link #listener} by calling
- * {@link Listener#completedClass(JDiffClassDescription)} with the completed
- * {@link JDiffClassDescription}.
+ * <p>The definition file is converted into a {@link Stream} of {@link JDiffClassDescription}.
  */
 public class ApiDocumentParser {
 
@@ -66,132 +67,156 @@ public class ApiDocumentParser {
 
     private final String tag;
 
-    private final Listener listener;
+    private final XmlPullParserFactory factory;
 
-    private final XmlPullParser parser;
-
-    public ApiDocumentParser(String tag, Listener listener) throws XmlPullParserException {
+    public ApiDocumentParser(String tag) throws XmlPullParserException {
         this.tag = tag;
-        this.listener = listener;
-
-        XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
-        parser = factory.newPullParser();
+        factory = XmlPullParserFactory.newInstance();
     }
 
-    public void parse(InputStream inputStream) throws XmlPullParserException, IOException {
-        parser.setInput(inputStream, null);
-        start(parser);
-    }
-
-    public interface Listener {
-
-        /**
-         * Invoked when a {@link JDiffClassDescription} has been completely populated.
-         *
-         * @param classDescription the description of the class as read from the XML API file.
-         */
-        void completedClass(JDiffClassDescription classDescription);
-    }
-
-
-    private void beginDocument(XmlPullParser parser, String firstElementName)
+    public Stream<JDiffClassDescription> parseAsStream(InputStream inputStream)
             throws XmlPullParserException, IOException {
-        int type;
-        do {
-            type = parser.next();
-        } while (type != XmlPullParser.START_TAG && type != XmlPullParser.END_DOCUMENT);
-
-        if (type != XmlPullParser.START_TAG) {
-            throw new XmlPullParserException("No start tag found");
-        }
-
-        if (!parser.getName().equals(firstElementName)) {
-            throw new XmlPullParserException("Unexpected start tag: found " + parser.getName() +
-                    ", expected " + firstElementName);
-        }
+        XmlPullParser parser = factory.newPullParser();
+        parser.setInput(inputStream, null);
+        return StreamSupport.stream(new ClassDescriptionSpliterator(parser), false);
     }
 
-    /**
-     * Signature test entry point.
-     */
-    private void start(XmlPullParser parser) throws XmlPullParserException, IOException {
-        logd(String.format("Name: %s", parser.getName()));
-        logd(String.format("Text: %s", parser.getText()));
-        logd(String.format("Namespace: %s", parser.getNamespace()));
-        logd(String.format("Line Number: %s", parser.getLineNumber()));
-        logd(String.format("Column Number: %s", parser.getColumnNumber()));
-        logd(String.format("Position Description: %s", parser.getPositionDescription()));
+    private class ClassDescriptionSpliterator implements Spliterator<JDiffClassDescription> {
+
+        private final XmlPullParser parser;
+
         JDiffClassDescription currentClass = null;
         String currentPackage = "";
         JDiffClassDescription.JDiffMethod currentMethod = null;
 
-        beginDocument(parser, TAG_ROOT);
-        int type;
-        while (true) {
+        ClassDescriptionSpliterator(XmlPullParser parser) throws IOException, XmlPullParserException {
+            this.parser = parser;
+            logd(String.format("Name: %s", parser.getName()));
+            logd(String.format("Text: %s", parser.getText()));
+            logd(String.format("Namespace: %s", parser.getNamespace()));
+            logd(String.format("Line Number: %s", parser.getLineNumber()));
+            logd(String.format("Column Number: %s", parser.getColumnNumber()));
+            logd(String.format("Position Description: %s", parser.getPositionDescription()));
+            beginDocument(parser, TAG_ROOT);
+        }
+
+        @Override
+        public boolean tryAdvance(Consumer<? super JDiffClassDescription> action) {
+            JDiffClassDescription classDescription;
+            try {
+                classDescription = next();
+            } catch (IOException|XmlPullParserException e) {
+                throw new RuntimeException(e);
+            }
+
+            if (classDescription == null) {
+                return false;
+            }
+            action.accept(classDescription);
+            return true;
+        }
+
+        @Override
+        public Spliterator<JDiffClassDescription> trySplit() {
+            return null;
+        }
+
+        @Override
+        public long estimateSize() {
+            return Long.MAX_VALUE;
+        }
+
+        @Override
+        public int characteristics() {
+            return ORDERED | DISTINCT | NONNULL | IMMUTABLE;
+        }
+
+        private void beginDocument(XmlPullParser parser, String firstElementName)
+                throws XmlPullParserException, IOException {
+            int type;
             do {
                 type = parser.next();
-            } while (type != XmlPullParser.START_TAG && type != XmlPullParser.END_DOCUMENT
-                    && type != XmlPullParser.END_TAG);
+            } while (type != XmlPullParser.START_TAG && type != XmlPullParser.END_DOCUMENT);
 
-            if (type == XmlPullParser.END_TAG) {
-                if (TAG_CLASS.equals(parser.getName())
-                        || TAG_INTERFACE.equals(parser.getName())) {
-                    if (listener != null) {
-                        listener.completedClass(currentClass);
-                    }
-                } else if (TAG_PACKAGE.equals(parser.getName())) {
-                    currentPackage = "";
+            if (type != XmlPullParser.START_TAG) {
+                throw new XmlPullParserException("No start tag found");
+            }
+
+            if (!parser.getName().equals(firstElementName)) {
+                throw new XmlPullParserException("Unexpected start tag: found " + parser.getName() +
+                        ", expected " + firstElementName);
+            }
+        }
+
+        private JDiffClassDescription next() throws IOException, XmlPullParserException {
+            int type;
+            while (true) {
+                do {
+                    type = parser.next();
+                } while (type != XmlPullParser.START_TAG && type != XmlPullParser.END_DOCUMENT
+                        && type != XmlPullParser.END_TAG);
+
+                if (type == XmlPullParser.END_DOCUMENT) {
+                    logd("Reached end of document");
+                    break;
                 }
-                continue;
+
+                String tagname = parser.getName();
+                if (type == XmlPullParser.END_TAG) {
+                    if (TAG_CLASS.equals(tagname) || TAG_INTERFACE.equals(tagname)) {
+                        logd("Reached end of class: " + currentClass);
+                        return currentClass;
+                    } else if (TAG_PACKAGE.equals(tagname)) {
+                        currentPackage = "";
+                    }
+                    continue;
+                }
+
+                if (!KEY_TAG_SET.contains(tagname)) {
+                    continue;
+                }
+
+                if (tagname.equals(TAG_PACKAGE)) {
+                    currentPackage = parser.getAttributeValue(null, ATTRIBUTE_NAME);
+                } else if (tagname.equals(TAG_CLASS)) {
+                    currentClass = CurrentApi.loadClassInfo(
+                            parser, false, currentPackage);
+                } else if (tagname.equals(TAG_INTERFACE)) {
+                    currentClass = CurrentApi.loadClassInfo(
+                            parser, true, currentPackage);
+                } else if (tagname.equals(TAG_IMPLEMENTS)) {
+                    currentClass.addImplInterface(parser.getAttributeValue(null, ATTRIBUTE_NAME));
+                } else if (tagname.equals(TAG_CONSTRUCTOR)) {
+                    JDiffClassDescription.JDiffConstructor constructor =
+                            CurrentApi.loadConstructorInfo(parser, currentClass);
+                    currentClass.addConstructor(constructor);
+                    currentMethod = constructor;
+                } else if (tagname.equals(TAG_METHOD)) {
+                    currentMethod = CurrentApi.loadMethodInfo(currentClass.getClassName(), parser);
+                    currentClass.addMethod(currentMethod);
+                } else if (tagname.equals(TAG_PARAM)) {
+                    currentMethod.addParam(parser.getAttributeValue(null, ATTRIBUTE_TYPE));
+                } else if (tagname.equals(TAG_EXCEPTION)) {
+                    currentMethod.addException(parser.getAttributeValue(null, ATTRIBUTE_TYPE));
+                } else if (tagname.equals(TAG_FIELD)) {
+                    JDiffClassDescription.JDiffField field = CurrentApi.loadFieldInfo(currentClass.getClassName(), parser);
+                    currentClass.addField(field);
+                } else {
+                    throw new RuntimeException(
+                            "unknown tag exception:" + tagname);
+                }
+                if (currentPackage != null) {
+                    logd(String.format("currentPackage: %s", currentPackage));
+                }
+                if (currentClass != null) {
+                    logd(String.format("currentClass: %s", currentClass.toSignatureString()));
+                }
+                if (currentMethod != null) {
+                    logd(String.format("currentMethod: %s", currentMethod.toSignatureString()));
+                }
             }
 
-            if (type == XmlPullParser.END_DOCUMENT) {
-                break;
-            }
-
-            String tagname = parser.getName();
-            if (!KEY_TAG_SET.contains(tagname)) {
-                continue;
-            }
-
-            if (type == XmlPullParser.START_TAG && tagname.equals(TAG_PACKAGE)) {
-                currentPackage = parser.getAttributeValue(null, ATTRIBUTE_NAME);
-            } else if (tagname.equals(TAG_CLASS)) {
-                currentClass = CurrentApi.loadClassInfo(
-                        parser, false, currentPackage);
-            } else if (tagname.equals(TAG_INTERFACE)) {
-                currentClass = CurrentApi.loadClassInfo(
-                        parser, true, currentPackage);
-            } else if (tagname.equals(TAG_IMPLEMENTS)) {
-                currentClass.addImplInterface(parser.getAttributeValue(null, ATTRIBUTE_NAME));
-            } else if (tagname.equals(TAG_CONSTRUCTOR)) {
-                JDiffClassDescription.JDiffConstructor constructor =
-                        CurrentApi.loadConstructorInfo(parser, currentClass);
-                currentClass.addConstructor(constructor);
-                currentMethod = constructor;
-            } else if (tagname.equals(TAG_METHOD)) {
-                currentMethod = CurrentApi.loadMethodInfo(currentClass.getClassName(), parser);
-                currentClass.addMethod(currentMethod);
-            } else if (tagname.equals(TAG_PARAM)) {
-                currentMethod.addParam(parser.getAttributeValue(null, ATTRIBUTE_TYPE));
-            } else if (tagname.equals(TAG_EXCEPTION)) {
-                currentMethod.addException(parser.getAttributeValue(null, ATTRIBUTE_TYPE));
-            } else if (tagname.equals(TAG_FIELD)) {
-                JDiffClassDescription.JDiffField field = CurrentApi.loadFieldInfo(currentClass.getClassName(), parser);
-                currentClass.addField(field);
-            } else {
-                throw new RuntimeException(
-                        "unknown tag exception:" + tagname);
-            }
-            if (currentPackage != null) {
-                logd(String.format("currentPackage: %s", currentPackage));
-            }
-            if (currentClass != null) {
-                logd(String.format("currentClass: %s", currentClass.toSignatureString()));
-            }
-            if (currentMethod != null) {
-                logd(String.format("currentMethod: %s", currentMethod.toSignatureString()));
-            }
+            return null;
         }
     }
 

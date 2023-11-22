@@ -1,7 +1,7 @@
 /** @file
   Master header file for SecCore.
 
-  Copyright (c) 2008 - 2013, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2008 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -18,6 +18,7 @@
 #include <PiPei.h>
 
 #include <Ppi/SecPlatformInformation.h>
+#include <Ppi/SecPlatformInformation2.h>
 #include <Ppi/TemporaryRamDone.h>
 
 #include <Library/BaseLib.h>
@@ -31,7 +32,9 @@
 #include <Library/DebugAgentLib.h>
 #include <Library/CpuExceptionHandlerLib.h>
 #include <Library/ReportStatusCodeLib.h>
-
+#include <Library/PeiServicesTablePointerLib.h>
+#include <Library/HobLib.h>
+#include <Library/PeiServicesLib.h>
 
 #define SEC_IDT_ENTRY_COUNT  34
 
@@ -103,6 +106,54 @@ FindAndReportEntryPoints (
 VOID
 EFIAPI
 ProcessLibraryConstructorList (
+  VOID
+  );
+
+/**
+  Implementation of the PlatformInformation service in EFI_SEC_PLATFORM_INFORMATION_PPI.
+
+  @param  PeiServices                Pointer to the PEI Services Table.
+  @param  StructureSize              Pointer to the variable describing size of the input buffer.
+  @param  PlatformInformationRecord  Pointer to the EFI_SEC_PLATFORM_INFORMATION_RECORD.
+
+  @retval EFI_SUCCESS                The data was successfully returned.
+  @retval EFI_BUFFER_TOO_SMALL       The buffer was too small.
+
+**/
+EFI_STATUS
+EFIAPI
+SecPlatformInformationBist (
+  IN CONST EFI_PEI_SERVICES                  **PeiServices,
+  IN OUT UINT64                              *StructureSize,
+     OUT EFI_SEC_PLATFORM_INFORMATION_RECORD *PlatformInformationRecord
+  );
+
+/**
+  Implementation of the PlatformInformation2 service in EFI_SEC_PLATFORM_INFORMATION2_PPI.
+
+  @param  PeiServices                The pointer to the PEI Services Table.
+  @param  StructureSize              The pointer to the variable describing size of the input buffer.
+  @param  PlatformInformationRecord2 The pointer to the EFI_SEC_PLATFORM_INFORMATION_RECORD2.
+
+  @retval EFI_SUCCESS                The data was successfully returned.
+  @retval EFI_BUFFER_TOO_SMALL       The buffer was too small. The current buffer size needed to
+                                     hold the record is returned in StructureSize.
+
+**/
+EFI_STATUS
+EFIAPI
+SecPlatformInformation2Bist (
+  IN CONST EFI_PEI_SERVICES                   **PeiServices,
+  IN OUT UINT64                               *StructureSize,
+     OUT EFI_SEC_PLATFORM_INFORMATION_RECORD2 *PlatformInformationRecord2
+  );
+
+/**
+  Republish SecPlatformInformationPpi/SecPlatformInformation2Ppi.
+
+**/
+VOID
+RepublishSecPlatformInformationPpi (
   VOID
   );
 

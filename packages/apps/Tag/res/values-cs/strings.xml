@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"Data ze štítku NFC"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Kontaktní údaje uživatele ^1"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Aplikace k volání potřebuje přístup k telefonu. Oprávnění můžete spravovat v Nastavení."</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Aby tato aplikace mohla získat přístup k souborům, potřebuje oprávnění Externí úložiště. Oprávnění můžete spravovat v Nastavení."</string>
 </resources>

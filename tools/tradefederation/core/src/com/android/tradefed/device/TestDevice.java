@@ -18,6 +18,7 @@ package com.android.tradefed.device;
 import com.android.ddmlib.AdbCommandRejectedException;
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.InstallException;
+import com.android.ddmlib.InstallReceiver;
 import com.android.ddmlib.RawImage;
 import com.android.ddmlib.ShellCommandUnresponsiveException;
 import com.android.ddmlib.SyncException;
@@ -95,6 +96,13 @@ public class TestDevice extends NativeDevice {
     /** Time given to a file to be dumped on device side */
     private static final long DUMPHEAP_TIME = 5000l;
 
+    /** Timeout in minutes for the package installation */
+    static final long INSTALL_TIMEOUT_MINUTES = 4;
+    /** Max timeout to output for package installation */
+    static final long INSTALL_TIMEOUT_TO_OUTPUT_MINUTES = 3;
+
+    private boolean mWasWifiHelperInstalled = false;
+
     /**
      * @param device
      * @param stateMonitor
@@ -119,22 +127,49 @@ public class TestDevice extends NativeDevice {
                     throws DeviceNotAvailableException {
         // use array to store response, so it can be returned to caller
         final String[] response = new String[1];
-        DeviceAction installAction = new DeviceAction() {
-            @Override
-            public boolean run() throws InstallException {
-                try {
-                    getIDevice().installPackage(packageFile.getAbsolutePath(),
-                            reinstall, extraArgs.toArray(new String[]{}));
-                    response[0] = null;
-                } catch (InstallException e) {
-                    response[0] = e.getMessage();
-                }
-                return response[0] == null;
-            }
-        };
+        DeviceAction installAction =
+                new DeviceAction() {
+                    @Override
+                    public boolean run() throws InstallException {
+                        try {
+                            InstallReceiver receiver = createInstallReceiver();
+                            getIDevice()
+                                    .installPackage(
+                                            packageFile.getAbsolutePath(),
+                                            reinstall,
+                                            receiver,
+                                            INSTALL_TIMEOUT_MINUTES,
+                                            INSTALL_TIMEOUT_TO_OUTPUT_MINUTES,
+                                            TimeUnit.MINUTES,
+                                            extraArgs.toArray(new String[] {}));
+                            if (receiver.isSuccessfullyCompleted()) {
+                                response[0] = null;
+                            } else if (receiver.getErrorMessage() == null) {
+                                response[0] =
+                                        String.format(
+                                                "Installation of %s timed out",
+                                                packageFile.getAbsolutePath());
+                            } else {
+                                response[0] = receiver.getErrorMessage();
+                            }
+                        } catch (InstallException e) {
+                            response[0] = e.getMessage();
+                        }
+                        return response[0] == null;
+                    }
+                };
         performDeviceAction(String.format("install %s", packageFile.getAbsolutePath()),
                 installAction, MAX_RETRY_ATTEMPTS);
         return response[0];
+    }
+
+    /**
+     * Creates and return an {@link InstallReceiver} for {@link #internalInstallPackage(File,
+     * boolean, List)} and {@link #installPackage(File, File, boolean, String...)} testing.
+     */
+    @VisibleForTesting
+    InstallReceiver createInstallReceiver() {
+        return new InstallReceiver();
     }
 
     /**
@@ -204,34 +239,55 @@ public class TestDevice extends NativeDevice {
             final boolean reinstall, final String... extraArgs) throws DeviceNotAvailableException {
         // use array to store response, so it can be returned to caller
         final String[] response = new String[1];
-        DeviceAction installAction = new DeviceAction() {
-            @Override
-            public boolean run() throws InstallException, SyncException, IOException,
-            TimeoutException, AdbCommandRejectedException {
-                // TODO: create a getIDevice().installPackage(File, File...) method when the dist
-                // cert functionality is ready to be open sourced
-                String remotePackagePath = getIDevice().syncPackageToDevice(
-                        packageFile.getAbsolutePath());
-                String remoteCertPath = getIDevice().syncPackageToDevice(
-                        certFile.getAbsolutePath());
-                // trick installRemotePackage into issuing a 'pm install <apk> <cert>' command,
-                // by adding apk path to extraArgs, and using cert as the 'apk file'
-                String[] newExtraArgs = new String[extraArgs.length + 1];
-                System.arraycopy(extraArgs, 0, newExtraArgs, 0, extraArgs.length);
-                newExtraArgs[newExtraArgs.length - 1] = String.format("\"%s\"", remotePackagePath);
-                try {
-                     getIDevice().installRemotePackage(remoteCertPath, reinstall,
-                            newExtraArgs);
-                     response[0] = null;
-                } catch (InstallException e) {
-                    response[0] = e.getMessage();
-                } finally {
-                    getIDevice().removeRemotePackage(remotePackagePath);
-                    getIDevice().removeRemotePackage(remoteCertPath);
-                }
-                return true;
-            }
-        };
+        DeviceAction installAction =
+                new DeviceAction() {
+                    @Override
+                    public boolean run()
+                            throws InstallException, SyncException, IOException, TimeoutException,
+                                    AdbCommandRejectedException {
+                        // TODO: create a getIDevice().installPackage(File, File...) method when the
+                        // dist cert functionality is ready to be open sourced
+                        String remotePackagePath =
+                                getIDevice().syncPackageToDevice(packageFile.getAbsolutePath());
+                        String remoteCertPath =
+                                getIDevice().syncPackageToDevice(certFile.getAbsolutePath());
+                        // trick installRemotePackage into issuing a 'pm install <apk> <cert>'
+                        // command, by adding apk path to extraArgs, and using cert as the
+                        // 'apk file'.
+                        String[] newExtraArgs = new String[extraArgs.length + 1];
+                        System.arraycopy(extraArgs, 0, newExtraArgs, 0, extraArgs.length);
+                        newExtraArgs[newExtraArgs.length - 1] =
+                                String.format("\"%s\"", remotePackagePath);
+                        try {
+                            InstallReceiver receiver = createInstallReceiver();
+                            getIDevice()
+                                    .installRemotePackage(
+                                            remoteCertPath,
+                                            reinstall,
+                                            receiver,
+                                            INSTALL_TIMEOUT_MINUTES,
+                                            INSTALL_TIMEOUT_TO_OUTPUT_MINUTES,
+                                            TimeUnit.MINUTES,
+                                            newExtraArgs);
+                            if (receiver.isSuccessfullyCompleted()) {
+                                response[0] = null;
+                            } else if (receiver.getErrorMessage() == null) {
+                                response[0] =
+                                        String.format(
+                                                "Installation of %s timed out.",
+                                                packageFile.getAbsolutePath());
+                            } else {
+                                response[0] = receiver.getErrorMessage();
+                            }
+                        } catch (InstallException e) {
+                            response[0] = e.getMessage();
+                        } finally {
+                            getIDevice().removeRemotePackage(remotePackagePath);
+                            getIDevice().removeRemotePackage(remoteCertPath);
+                        }
+                        return true;
+                    }
+                };
         performDeviceAction(String.format("install %s", packageFile.getAbsolutePath()),
                 installAction, MAX_RETRY_ATTEMPTS);
         return response[0];
@@ -712,9 +768,6 @@ public class TestDevice extends NativeDevice {
     @Override
     public ArrayList<Integer> listUsers() throws DeviceNotAvailableException {
         ArrayList<String[]> users = tokenizeListUsers();
-        if (users == null) {
-            return null;
-        }
         ArrayList<Integer> userIds = new ArrayList<Integer>(users.size());
         for (String[] user : users) {
             userIds.add(Integer.parseInt(user[1]));
@@ -734,13 +787,9 @@ public class TestDevice extends NativeDevice {
         String commandOutput = executeShellCommand(command);
         // Extract the id of all existing users.
         String[] lines = commandOutput.split("\\r?\\n");
-        if (lines.length < 1) {
-            CLog.e("%s should contain at least one line", commandOutput);
-            return null;
-        }
         if (!lines[0].equals("Users:")) {
-            CLog.e("%s in not a valid output for 'pm list users'", commandOutput);
-            return null;
+            throw new DeviceRuntimeException(
+                    String.format("'%s' in not a valid output for 'pm list users'", commandOutput));
         }
         ArrayList<String[]> users = new ArrayList<String[]>(lines.length - 1);
         for (int i = 1; i < lines.length; i++) {
@@ -748,8 +797,11 @@ public class TestDevice extends NativeDevice {
             // \tUserInfo{$id$:$name$:$Integer.toHexString(flags)$} [running]
             String[] tokens = lines[i].split("\\{|\\}|:");
             if (tokens.length != 4 && tokens.length != 5) {
-                CLog.e("%s doesn't contain 4 or 5 tokens", lines[i]);
-                return null;
+                throw new DeviceRuntimeException(
+                        String.format(
+                                "device output: '%s' \nline: '%s' was not in the expected "
+                                        + "format for user info.",
+                                commandOutput, lines[i]));
             }
             users.add(tokens);
         }
@@ -762,6 +814,20 @@ public class TestDevice extends NativeDevice {
     @Override
     public int getMaxNumberOfUsersSupported() throws DeviceNotAvailableException {
         String command = "pm get-max-users";
+        String commandOutput = executeShellCommand(command);
+        try {
+            return Integer.parseInt(commandOutput.substring(commandOutput.lastIndexOf(" ")).trim());
+        } catch (NumberFormatException e) {
+            CLog.e("Failed to parse result: %s", commandOutput);
+        }
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int getMaxNumberOfRunningUsersSupported() throws DeviceNotAvailableException {
+        checkApiLevelAgainstNextRelease("get-max-running-users", 28);
+        String command = "pm get-max-running-users";
         String commandOutput = executeShellCommand(command);
         try {
             return Integer.parseInt(commandOutput.substring(commandOutput.lastIndexOf(" ")).trim());
@@ -886,9 +952,6 @@ public class TestDevice extends NativeDevice {
     @Override
     public Integer getPrimaryUserId() throws DeviceNotAvailableException {
         ArrayList<String[]> users = tokenizeListUsers();
-        if (users == null) {
-            return null;
-        }
         for (String[] user : users) {
             int flag = Integer.parseInt(user[3], 16);
             if ((flag & FLAG_PRIMARY) != 0) {
@@ -1149,7 +1212,44 @@ public class TestDevice extends NativeDevice {
      */
     @Override
     IWifiHelper createWifiHelper() throws DeviceNotAvailableException {
+        mWasWifiHelperInstalled = true;
         return new WifiHelper(this, mOptions.getWifiUtilAPKPath());
+    }
+
+    /**
+     * Alternative to {@link #createWifiHelper()} where we can choose whether to do the wifi helper
+     * setup or not.
+     */
+    @VisibleForTesting
+    IWifiHelper createWifiHelper(boolean doSetup) throws DeviceNotAvailableException {
+        if (doSetup) {
+            mWasWifiHelperInstalled = true;
+        }
+        return new WifiHelper(this, mOptions.getWifiUtilAPKPath(), doSetup);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void postInvocationTearDown() {
+        super.postInvocationTearDown();
+        // If wifi was installed and it's a real device, attempt to clean it.
+        if (mWasWifiHelperInstalled) {
+            mWasWifiHelperInstalled = false;
+            if (getIDevice() instanceof StubDevice) {
+                return;
+            }
+            if (!TestDeviceState.ONLINE.equals(getDeviceState())) {
+                return;
+            }
+            try {
+                // Uninstall the wifi utility if it was installed.
+                IWifiHelper wifi = createWifiHelper(false);
+                wifi.cleanUp();
+            } catch (DeviceNotAvailableException e) {
+                CLog.e("Device became unavailable while uninstalling wifi util.");
+                CLog.e(e);
+            }
+        }
     }
 
     /** {@inheritDoc} */

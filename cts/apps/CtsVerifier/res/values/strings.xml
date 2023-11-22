@@ -168,6 +168,7 @@
     <string name="sec_fp_dialog_message">Authenticate now with fingerprint</string>
     <string name="sec_fp_auth_failed">Authentication failed</string>
     <string name="sec_start_test">Start Test</string>
+    <string name="sec_fingerprint_dialog_bound_key_test">Fingerprint Bound Keys Test (System Dialog)</string>
 
     <!-- Strings for BluetoothActivity -->
     <string name="bluetooth_test">Bluetooth Test</string>
@@ -191,6 +192,7 @@
     <string name="bt_control">Bluetooth Control</string>
     <string name="bt_device_communication">Device Communication</string>
     <string name="bt_le">Bluetooth LE</string>
+    <string name="bt_hid">Bluetooth HID</string>
 
     <string name="bt_toggle_bluetooth">Toggle Bluetooth</string>
     <string name="bt_toggle_instructions">Disable and enable Bluetooth to successfully complete this test.</string>
@@ -222,6 +224,44 @@
         \n\nUse the \"Make Discoverable\" and \"Pick Server\" buttons to connect the two Bluetooth
         devices together and start the test.
     </string>
+
+    <!-- Strings for HidHost and HidDevice activity -->
+    <string name="bt_hid_host_test_name">Bluetooth HID Host Test</string>
+    <string name="bt_hid_host_test_info">
+        Start the CTS Verifier on another device, start the Bluetooth test, and choose
+        \"Bluetooth HID Device\" to complete the test.
+        \n\nClick \"Register app\" and \"Make discoverable\" on another device first, and click
+        \"Select device\". Choose the device from device picker. If the remote device is already
+        paired, unpair it first from system Settings.
+        \n\nAfter the remote device completes the \"Send_report\" command, text \"bluetooth\" should
+        appear in the EditText. Mark the test as passed.
+        \n\n If the device under test (DUT) does not have Bluetooth HID Host service or HID Device
+        service enabled, mark the test as passed.
+    </string>
+    <string name="bt_hid_host">Bluetooth HID Host</string>
+    <string name="bt_hid_host_select_device">Select device</string>
+
+    <string name="bt_hid_device_test_name">Bluetooth HID Device Test</string>
+    <string name="bt_hid_device_test_info">
+        Start the CTS Verifier on another device, start the Bluetooth test, and choose
+        \"Bluetooth HID Host\" to complete the test.
+        \n\nFirst, click the \"Register app\" button, and click the \"Make discoverable\" button.
+        \n\nThen, on another device, click the \"Select device" button, and choose this device.
+        \n\nWait until the dialog shows up for pairing two devices.
+        \n\nFinally, click the \"Test send_report\", \"Test reply_report\", \"Test report_error\".
+        \n\nIf all the commands are successful, then click \"Unregister app\" and mark the test as
+        passed.
+        \n\n If the device under test (DUT) does not have Bluetooth HID Host service or HID Device
+        service enabled, mark the test as passed.
+    </string>
+
+    <string name="bt_hid_device">Bluetooth HID Device</string>
+    <string name="bt_hid_device_register">Register app</string>
+    <string name="bt_hid_device_unregister">Unregister app</string>
+    <string name="bt_hid_device_send_report">Test Send_report</string>
+    <string name="bt_hid_device_reply_report">Test Reply_report</string>
+    <string name="bt_hid_device_report_error">Test Report_error</string>
+
 
     <string name="bt_secure_server">Secure Server</string>
     <string name="bt_secure_server_instructions">Start the CTS Verifier on another device, start the Bluetooth test, and choose \"Secure Client\" to complete the test.</string>
@@ -271,9 +311,9 @@
     <string name="ble_write_descriptor_name">Bluetooth LE Write Descriptor</string>
     <string name="ble_read_rssi_name">Bluetooth LE Read RSSI</string>
     <string name="ble_client_disconnect_name">Bluetooth LE Client Disconnect</string>
-    <string name="ble_client_test_info">
+    <string name="ble_insecure_client_test_info">
         The Bluetooth LE test must be done simultaneously on two devices. This device is the client.
-        All tests listed here must be done with out pairing.
+        All tests listed here must be done without pairing.
     </string>
     <string name="ble_client_send_connect_info">Type in the Bluetooth address of the remote device to connect to, and verify that the devices are connected.</string>
     <string name="ble_discover_service_info">Verify that the service is discovered when you press the "Discover Service" button.</string>
@@ -566,25 +606,94 @@
         (for example, stationary on a windowsill.  If needed, try again, outside, also with the
         device stationary, and with at least some view of the sky.) and then press Next to run
         the automated tests.</string>
+    <string name="location_emergency_call_test_info">This test verifies whether basic features
+        (wifi, sms, gps) works correctly during the emergency call. Make sure the device is using
+        a special white listed sim card. The wifi and GPS should be on and have internet connection.
+        Press the pass button to skip this test if outside US/Canada.
+    </string>
+    <string name="emergency_call_confirm_info">This test will dial 911! Please make sure to use a
+        whitelisted sim card to run this test!
+    </string>
+    <string name="emergency_call_skip_info">Current device doesn\'t support cellular network. Skipping the Test.
+    </string>
+    <string name="emergency_call_emergency_number_hint_text">
+        Emergency Number:
+    </string>
+    <string name="emergency_call_current_number_hint_text">
+        Current Number:
+    </string>
+    <string name="emergency_call_dial_text">
+        Dial 911
+    </string>
+    <string name="emergency_call_emergency_number_text">
+        911
+    </string>
     <string name="location_gnss_test_retry_info">If this test fails, please make sure the device
         has line of sight to GNSS satellites (for example, stationary on a windowsill. If needed,
         try again, outside, also with the device stationary, with as much view of the sky as
         possible.) </string>
+    <string name="location_emergency_call_gps_test">Emergency Call GPS Test</string>
+    <string name="location_emergency_call_message_test">Emergency Call Message Test</string>
+    <string name="location_emergency_call_wifi_test">Emergency Call Wifi Test</string>
 
-    <!-- Strings for net.ConnectivityScreenOffTestActivity -->
-    <string name="network_screen_off_test">Network Connectivity Screen Off Test</string>
-    <string name="network_screen_off_test_instructions">
+    <!-- Strings for ConnectivityBackgroundTestActivity -->
+    <string name="network_background_test">Network Background Connectivity Test</string>
+    <string name="network_background_test_instructions">
         This test verifies that IPv6 network connectivity continues to work
-        when the screen is off.\n\n
+        when the screen is off or is idle for some time.\n\n
 
         1. Join a Wi-Fi network with IPv6 Internet access.\n
         2. If the device has battery power, disconnect all power connectors.\n
-        3. Turn the screen off.\n
-        4. Wait until the screen turns on (it will take at least two minutes).\n
+        3. Turn the screen off if possible.\n
+        4. Wait until the screen turns on or the test result is displayed (it will take at least two minutes).\n
         5. If necessary, unlock the device.\n
         6. Please mark the test according to the result status indicated.\n
     </string>
-    <string name="network_screen_off_test_start">Start</string>
+    <string name="network_background_test_start">Start</string>
+
+    <!-- Strings for net.MultiNetworkConnectivityTestActivity -->
+    <string name="multinetwork_connectivity_test">Multinetwork connectivity Test</string>
+    <string name="multinetwork_connectivity_test_instructions">
+        This test verifies that, when a phone has internet connectivity via mobile network
+        is connected to a Wi-Fi access point that doesn\'t have internet or loses internet access,
+        it restores the internet activity over the mobile cell network, while connected to the
+        Wi-Fi access point. \n\n
+
+        1. Setup a wireless access point with ability to turn on and off internet access.
+        2. Have SIM or cellular data connectivity on the phone being tested.
+        3. Execute the tests with the instructions outlined in the test
+        4. When the test completes, it will finish and mark it passed. If it fails, it will mark it \n
+           as failed.
+
+    </string>
+    <string name="multinetwork_connectivity_test_pre_requisites">Prerequisite - Setup a Wi-Fi access point with WPA PSK in which we can turn on or off internet access. </string>
+    <string name="multinetwork_connectivity_test_start">Start</string>
+    <string name="multinetwork_connectivity_test_ap_name">Wi-Fi SSID</string>
+    <string name="multinetwork_connectivity_test_ap_passphrase">WPA 2 passphrase</string>
+    <string name="multinetwork_connectivity_test_continue">Confirm and continue with test.</string>
+    <string name="multinetwork_connectivity_test_rerun">Completed. Re-run.</string>
+    <string name="multinetwork_connectivity_test_running">Running.</string>
+    <string name="multinetwork_connectivity_test_connect_cellular">Connecting to cellular network.</string>
+    <string name="multinetwork_connectivity_test_connect_wifi">Connecting to Wi-Fi network.</string>
+    <string name="multinetwork_connectivity_test_complete">Test completed.</string>
+    <string name="multinetwork_connectivity_test_progress_1">Waiting for Wi-Fi to lose connectivity.</string>
+    <string name="multinetwork_connectivity_test_progress_2">Waiting to check connectivity.</string>
+    <string name="multinetwork_connectivity_test_progress_3">Waiting to make sure Wi-Fi has connectivity.</string>
+    <string name="multinetwork_connectivity_test_1_desc">Test 1 - Connect to Wi-Fi with no internet doesnt disable current connectivity</string>
+    <string name="multinetwork_connectivity_test_2_desc">Test 2 - When connected to Wi-Fi, on losing connectivity, restores mobile connectivity</string>
+    <string name="multinetwork_status_wifi_connect_success">Wi-Fi connect success.</string>
+    <string name="multinetwork_status_mobile_connect_success">Mobile net connect success.</string>
+    <string name="multinetwork_status_wifi_connect_timed_out">Wi-Fi connect timed out.</string>
+    <string name="multinetwork_status_wifi_connect_wrong_ap">Wi-Fi connected to wrong access point.</string>
+    <string name="multinetwork_status_mobile_connect_timed_out">Mobile network connect timed out.</string>
+    <string name="multinetwork_status_mobile_restore_success">Mobile restore succeeded.</string>
+    <string name="multinetwork_status_mobile_restore_failed">Mobile restore failed.</string>
+    <string name="multinetwork_connectivity_test_1_prereq">Make sure that the Hotspot does not have internet access.</string>
+    <string name="multinetwork_connectivity_test_2_prereq_1">Make sure that the Hotspot has internet access.</string>
+    <string name="multinetwork_connectivity_test_2_prereq_2">Make sure that the Hotspot does not have internet access. When prompted to go back to using mobile data, choose ok.</string>
+    <string name="multinetwork_connectivity_test_all_prereq_1">Looks like your device does not support telephony or mobile data. If yes, you can mark test passed and proceed.</string>
+    <string name="multinetwork_connectivity_test_all_prereq_2">Need mobile data to proceed. Please insert a mobile data capable sim and repeat the test. By marking test as passed, you acknowledge that the device cannot do mobile data.</string>
+    <string name="multinetwork_status_wifi_connectivity_failed">Wi-Fi connectivity failed.</string>
 
     <!-- Strings for NfcTestActivity -->
     <string name="nfc_test">NFC Test</string>
@@ -869,7 +978,7 @@
     <string name="snsr_mag_verify_calibrated_uncalibrated">Verifying the relationship between
         calibrated and uncalibrated measurements...</string>
     <string name="snsr_mag_calibration_description">Please calibrate the Magnetometer by moving
-        it in 8 shapes in different orientations.</string>
+        it in 8 shapes in different orientations. Click \"Next\" to start and click \"Next\" once again to end calibration.</string>
     <string name="snsr_mag_calibration_complete">When done, leave the device in a flat surface, far
         from all metallic objects (if the test does not pass, try re-running it outdoors).</string>
     <string name="snsr_mag_measurement">-&gt; (%1$.2f, %2$.2f, %3$.2f) : %4$.2f uT</string>
@@ -926,6 +1035,17 @@
     You will need to walk to ensure that Significant Motion triggers. The screen will turn on and a sound will be played once the test completes.</string>
     <string name="snsr_device_did_not_wake_up_at_trigger">Device did not wakeup at trigger time. wakeTime=%1$d ms triggerTime=%2$d ms</string>
 
+    <!-- Event sanitization for idle UIDs -->
+    <string name="snsr_event_sanitization_test">Event sanitization for idle UID test</string>
+    <string name="snsr_event_sanitization_test_setup">Run the \'adb shell cmd sensorservice set-uid-state com.android.cts.verifier idle\' shell command
+        to emulate the CtsVerifier UID being idle.</string>
+    <string name="snsr_event_sanitization_test_cleanup">Run the \'adb shell cmd sensorservice reset-uid-state com.android.cts.verifier\' shell command
+        to stop emulating the CtsVerifier UID being idle. Failing to do that would lead to other tests failing!</string>
+    <string name="snsr_significant_motion_test_uid_idle">Move around with the device to try triggering significant motion</string>
+    <string name="snsr_significant_motion_test_uid_idle_expectation">No trigger events should be generated while idle</string>
+    <string name="snsr_proximity_test_uid_idle">Touch the proximity sensor to try triggering it</string>
+    <string name="snsr_proximity_test_uid_idle_expectation">No on-change events should be generated while idle</string>
+
     <!-- Low Latency Off-Body Detect -->
     <string name="snsr_offbody_sensor_test">Off Body Sensor Tests</string>
     <string name="snsr_offbody_sensor_registration">Registration failed for low latency offbody detect sensor.\n</string>
@@ -959,17 +1079,15 @@
     <string name="sample_test_info">This test verifies that bluetooth sharing is working properly.\nThe test assumes the Device Under Test has bluetooth enabled and is already paired with a second device, also with bluetooth enabled.\nStart this test by clicking share, choose bluetooth from the options, and then select a device to share with.\nNote: This is a sample test, used to demonstrate how to write CTS Verifier tests, so just click pass.</string>
 
     <!-- Strings for UsbDebuggingDialogTapjackingTest -->
-    <string name="usb_tapjacking_button_text">Escalate</string>
+    <string name="usb_tapjacking_button_text">Show overlay</string>
     <string name="usb_tapjacking_test">Usb Debugging Dialog Tapjacking Test</string>
     <string name="usb_tapjacking_test_info">This test verifies that tapjacking on the usb dialog is not possible by disallowing users from accepting usb debugging pemissions when dialog is obscured.</string>
     <string name="usb_tapjacking_test_instructions">
         1. Connect device via usb to computer.\n
-        2. Unroot device: adb unroot\n
-        3. Connect over tcpip: adb tcpip 5555\n
-        4. Click "Escalate".  Settings may appear if the CTS Verifier app doesn\'t have display over apps permission.  Enable this permission and then click back to navigate back to the app.\n
-        5. Wait for a USB debugging dialog to appear and for the text \"This message covers the USB debugging RSA prompt\" to appear.  There is around a 5 second delay.\n
-        ** If no dialog appears, close the CTS Verifier app and try again. \n
-        6. Try clicking OK. \n
+        2. Click \"Show overlay\" button.  Settings may appear if the CTS Verifier app doesn\'t have display over apps permission.  Enable this permission and then click back to navigate back to the app.\n
+        3. Trigger USB debugging dialog (from computer terminal): \"adb shell am start -e fingerprints placeholder -e key placeholder com.android.systemui/.UsbDebuggingActivityAlias\"\n
+        4. USB debugging dialog should appear with the overlay on top saying \"This message covers the USB debugging RSA prompt\" to appear.\n
+        5. Try clicking OK. \n
         Test pass if you cannot click OK when the text quoted above is on top of the USB debugging dialog.  Toast should appear saying there is an overlay so Settings cannot verify your response. \n
         Note: Fake message overlay may remain on screen until you leave the test. This is working as intended. \n
     </string>
@@ -1375,9 +1493,9 @@
         start in a role, and the other should start in the complementary
         role. Your device must pass the tests in all roles.
     </string>
-    <string name="aware_not_enabled">Wi-Fi is not enabled</string>
-    <string name="aware_not_enabled_message">These tests require Wi-Fi to be enabled.
-        Click the button below to go to system settings and enable Wi-Fi.</string>
+    <string name="aware_not_enabled">Wi-Fi / Location Mode is not enabled</string>
+    <string name="aware_not_enabled_message">These tests require Wi-Fi and Location Mode to be enabled.
+        Click the button below to go to system settings and enable Wi-Fi and Location Mode.</string>
     <string name="aware_settings">Wi-Fi Settings</string>
     <string name="aware_setup_error">
         Test failed.\n\nSet up error. Check whether Wi-Fi is enabled.</string>
@@ -1388,6 +1506,7 @@
     <string name="aware_dp_ib_passphrase_unsolicited">Data Path: Passphrase: Unsolicited/Passive</string>
     <string name="aware_dp_ib_open_solicited">Data Path: Open: Solicited/Active</string>
     <string name="aware_dp_ib_passphrase_solicited">Data Path: Passphrase: Solicited/Active</string>
+    <string name="aware_discovery_ranging">Discovery with Ranging</string>
     <string name="aware_publish">Publish</string>
     <string name="aware_subscribe">Subscribe</string>
 
@@ -1410,6 +1529,7 @@
     <string name="aware_status_publish_timeout">Publish failure - timed out!</string>
     <string name="aware_status_publish_null_session">Publish failure - null session!</string>
     <string name="aware_status_discovery">Service discovered ...</string>
+    <string name="aware_status_discovery_with_info">Service discovered ... peer MAC : %1$s</string>
     <string name="aware_status_discovery_timeout">Service discovery failure - timed out!</string>
     <string name="aware_status_discovery_fail">Service discovery failure - parameter mismatch!</string>
     <string name="aware_status_send_success">Sent message successfully ...</string>
@@ -1417,6 +1537,9 @@
     <string name="aware_status_send_timeout">Send message failure - timed out!</string>
     <string name="aware_status_send_fail_parameter">Send message failure - mismatched ids!</string>
     <string name="aware_status_received">Received message ...</string>
+    <string name="aware_status_starting_rtt">Starting RTT operations ...</string>
+    <string name="aware_status_waiting_for_peer_rtt">Pausing to let other device perform RTT ...</string>
+    <string name="aware_status_received_peer_rtt_done">Other device done with RTT ...</string>
     <string name="aware_status_received_mac">Received peer MAC address: %1$s ...</string>
     <string name="aware_status_receive_timeout">Receive message failure - timed out!</string>
     <string name="aware_status_receive_failure">Receive message failure - didn\'t receive expected message!</string>
@@ -1424,6 +1547,11 @@
     <string name="aware_status_network_success">Network formed ...</string>
     <string name="aware_status_network_failed">Network request failure - timed out!</string>
     <string name="aware_status_sleeping_wait_for_responder">Pausing to let Responder time to set up ...</string>
+    <string name="aware_status_ranging_peer_failure">Ranging to PeerHandle failure: %1$d failures of %2$d attempts!</string>
+    <string name="aware_status_ranging_mac_failure">Ranging to MAC address failure: %1$d failures of %2$d attempts!</string>
+    <string name="aware_status_ranging_peer_success">Ranging to PeerHandle success: %1$d successes of %2$d attempts!</string>
+    <string name="aware_status_ranging_mac_success">Ranging to MAC address success: %1$d successes of %2$d attempts!</string>
+    <string name="aware_status_lifecycle_failed">Discovery lifecycle FAILURE!</string>
     <string name="aware_status_lifecycle_ok">Discovery lifecycle validated!</string>
 
     <string name="aware_data_path_open_unsolicited_publish">Data Path: Open: Unsolicited Publish</string>
@@ -1449,6 +1577,10 @@
     <string name="aware_data_path_oob_passphrase_responder">Data Path (OOB): Passphrase: Responder</string>
     <string name="aware_data_path_oob_passphrase_responder_info">The responder is now ready.\n\nOn the other device: start the \'Data Path (OOB): Passphrase\' / \'Initiator\' test.</string>
     <string name="aware_data_path_oob_passphrase_initiator">Data Path (OOB): Passphrase: Initiator</string>
+
+    <string name="aware_discovery_ranging_publish">Discovery with Ranging: Publish</string>
+    <string name="aware_discovery_ranging_publish_info">The publisher is now ready.\n\nOn the other device: start the \'Discovery with Ranging\' / \'Subscribe\' test.</string>
+    <string name="aware_discovery_ranging_subscribe">Discovery with Ranging: Subscribe</string>
 
     <string name="camera_fov_calibration">Camera FOV Calibration</string>
     <string name="camera_fov_calibration_done">Done</string>
@@ -1508,13 +1640,29 @@
     <string name="attention_info">This test checks that the NotificationManagerService is
         respecting user preferences about notification ranking and filtering.
     </string>
+    <string name="ringer_mode_tests">Ringer Mode Tests</string>
+    <string name="ringer_mode_info">This test checks that Audio manager functionality that requires
+        particular ringer mode states works properly.
+    </string>
+    <string name="ringer_mode_pass_test">These tests are handled by CTS.</string>
+    <string name="test_sound_effects">Test sound effects</string>
+    <string name="test_vibrate_notification">Test vibrate notification</string>
+    <string name="test_vibrate_ringer">Test vibrate ringer</string>
+    <string name="test_access_ringer_mode">Test access ringer mode</string>
+    <string name="test_ringer_mode_policy_access">Test ringer mode policy access</string>
+    <string name="test_volume_dnd_affected_stream">Test volume change</string>
+    <string name="test_mute_dnd_affected_streams">Test mute streams</string>
+    <string name="test_ringer_manager">Test RingtoneManager</string>
+    <string name="enable_sound_effects">Please enable sound effects in Sound settings.</string>
     <string name="attention_ready">I\'m done</string>
+    <string name="attention_filter_any">Please enable \"Do not disturb\" by tapping the Quick Settings tile.</string>
     <string name="attention_filter_all">Please disable \"Do not disturb\" by tapping the Quick Settings tile.</string>
-    <string name="attention_filter_priority">Please select \"Priority only\" in the dialog that appears
-        when you tap the \"Do not disturb\" tile in Quick Settings, and customize the setting to allow messages from
-        starred contacts only by tapping "More settings".</string>
-    <string name="attention_filter_none">Please select \"Total silence\" in the dialog that appears
-        when you tap the \"Do not disturb\" tile in Quick Settings.</string>
+    <string name="attention_filter_priority">Please enable \"Do not disturb\" by tapping the Quick
+        Settings tile.  Then, long press the same tile and customize the setting to allow messages
+        from starred contacts only.</string>
+    <string name="attention_filter_priority_mimic_alarms_only">Please enable Priority-Only \"Do not disturb\"
+        by tapping the Quick Settings tile.  Then, long press the same tile and customize the setting to allow sounds
+        from Alarms and Media (if applicable) only.</string>
     <string name="attention_create_contacts">Create contacts for notification annotations.</string>
     <string name="attention_delete_contacts">Delete test contacts.</string>
     <string name="attention_default_order">Check that ranker defaults to time order.</string>
@@ -1525,9 +1673,13 @@
     <string name="attention_phone_order">Check that ranker respects telephone URIs for contacts.</string>
     <string name="attention_interruption_order">Check that ranker temporarily boosts interruptions.
     This test takes 30 seconds to complete.</string>
-    <string name="attention_none_are_filtered">Check that \"All\" mode doesn\'t filter any notifications.</string>
-    <string name="attention_some_are_filtered">Check that \"Priority\" mode doesn\'t filter priority notifications.</string>
+    <string name="attention_none_are_filtered_messages">Check that \"All\" mode doesn\'t filter any notifications (messages).</string>
+    <string name="attention_none_are_filtered_diff_categories">Check that \"All\" mode doesn\'t filter any notifications (event, reminder, alarm).</string>
+    <string name="attention_some_are_filtered_messages">Check that \"Priority\" mode doesn\'t filter priority notifications (messages from starred contacts).</string>
+    <string name="attention_some_are_filtered_alarms">Check that \"Priority\" mode doesn\'t filter priority notifications (alarms).</string>
+    <string name="attention_some_are_filtered_media_system_other">Check that \"Priority\" mode doesn\'t filter priority notifications (media, system, other).</string>
     <string name="attention_all_are_filtered">Check that \"None\" mode filters all notifications.</string>
+    <string name="attention_cannot_disallow_alarms_or_media">Check that apps targeted with Pre-P SDK can\'t disallow alarms or media from bypassing DND.</string>
     <string name="nls_test">Notification Listener Test</string>
     <string name="nas_test">Notification Assistant Test</string>
     <string name="nls_service_name">Notification Listener for CTS Verifier</string>
@@ -1564,6 +1716,12 @@
         under Apps > Gear Icon > Default > Notification Assistant and return here.</string>
     <string name="nls_enable_service">Please enable \"Notification Listener for CTS Verifier\"
         under Apps > Gear Icon > Special Access > Notification Access and return here.</string>
+    <string name="nls_block_app">Please block the linked application and return here.</string>
+    <string name="nls_unblock_app">Please unblock the linked application and return here.</string>
+    <string name="nls_block_channel">Please block the linked notification channel and return here.</string>
+    <string name="nls_block_group">Please block the linked notification channel group and return here.</string>
+    <string name="nls_cannot_enable_service">Please make sure you cannot enable
+        \"Notification Listener for CTS Verifier\" and return here.</string>
     <string name="nls_disable_service">Please disable \"Notification Listener for CTS Verifier\"
         under Apps > Gear Icon > Special Access > Notification Access and return here.</string>
     <string name="nls_start_settings">Launch Settings</string>
@@ -1580,6 +1738,7 @@
     <string name="nas_snooze_context">Check that the Assistant can snooze a notification until a given context.</string>
     <string name="nls_clear_one">Check that service can clear a notification.</string>
     <string name="nls_clear_one_reason">Check that service can clear a notification and receive the correct reason for dismissal.</string>
+    <string name="nls_clear_one_stats">Check that service does not receive notification stats.</string>
     <string name="nls_clear_all">Check that service can clear all notifications.</string>
     <string name="nls_service_stopped">Service should stop once disabled.</string>
     <string name="nls_note_missed">Check that notification was not received.</string>
@@ -1593,10 +1752,11 @@
     <string name="nas_note_missed_enqueued">Check that notification was not enqueued.</string>
     <string name="cp_test">Condition Provider test</string>
     <string name="cp_service_name">Condition Provider for CTS Verifier</string>
-    <string name="cp_info">This test checks that a ConditionProviderService can be enabled
+    <string name="cp_info">This test checks that on non-low ram a ConditionProviderService can be enabled
         and disabled, and that once enabled the service is able to create, query, edit, and delete
-        automatic zen rules.
+        automatic zen rules. On low ram devices condition providers should not be bound.
     </string>
+    <string name="cp_cannot_enable_service">Please make sure you cannot enable \"CTS Verifier\" under Do Not Disturb access and return here.</string>
     <string name="cp_enable_service">Please enable \"CTS Verifier\" under Do Not Disturb access and return here.</string>
     <string name="cp_disable_service">Please disable \"CTS Verifier\" under Do Not Disturb access and return here.</string>
     <string name="cp_start_settings">Launch Settings</string>
@@ -1609,57 +1769,6 @@
     <string name="cp_delete_rule">Deleting Automatic Zen Rule</string>
     <string name="cp_get_rules">Retrieving Automatic Zen Rules</string>
     <string name="cp_get_rule">Retrieving Automatic Zen Rule</string>
-
-    <string name="location_mode_high_accuracy_test">High Accuracy Mode Test</string>
-    <string name="location_mode_high_accuracy_info">
-        This test checks that the Location Mode API is consistent with the
-        Location Provider API when the device is in High Accuracy location mode.
-    </string>
-    <string name="location_mode_select_high_accuracy">
-        Please select the \"High accuracy\" mode at Settings > Location
-        (hint: tap the "Mode" item) and return here.
-    </string>
-    <string name="location_mode_battery_saving_test">Battery Saving Mode Test</string>
-    <string name="location_mode_battery_saving_info">
-        This test checks that the Location Mode API is consistent with the
-        Location Provider API when the device is in Battery Saving location mode.
-    </string>
-    <string name="location_mode_select_battery_saving">
-        Please select the \"Battery Saving\" mode at Settings > Location
-        (hint: tap the "Mode" item) and return here.
-    </string>
-    <string name="location_mode_device_only_test">Device Only Mode Test</string>
-    <string name="location_mode_device_only_info">
-        This test checks that the Location Mode API is consistent with the
-        Location Provider API when the device is in Device Only location mode.
-    </string>
-    <string name="location_mode_select_device_only">
-        Please select the \"Device Only\" mode at
-        Settings > Location (hint: tap the "Mode" item) and return here.
-    </string>
-    <string name="location_mode_off_test">Location Mode Off Test</string>
-    <string name="location_mode_off_info">
-        This test checks that the Location Mode API is consistent with the
-        Location Provider API when the device is in the Off location mode.
-    </string>
-
-    <string name="location_mode_start_settings">Launch Settings</string>
-    <string name="location_mode_turn_on">
-        Please turn ON location access (the switch at the top of Settings > Location)
-        and return here.
-    </string>
-    <string name="location_mode_turn_off">
-        Please turn OFF location access (the switch at the top of Settings > Location)
-        and return here.
-    </string>
-    <string name="location_mode_secure_gps_on">GPS provider should be ON in secure settings.</string>
-    <string name="location_mode_secure_gps_off">GPS provider should be OFF in secure settings.</string>
-    <string name="location_mode_secure_nlp_on">Network location provider should be ON in secure settings.</string>
-    <string name="location_mode_secure_nlp_off">Network location provider should be OFF in secure settings.</string>
-    <string name="location_mode_manager_gps_on">GPS provider should be ON in LocationManager.</string>
-    <string name="location_mode_manager_gps_off">GPS provider should be OFF in LocationManager.</string>
-    <string name="location_mode_manager_nlp_on">Network location provider should be ON in LocationManager.</string>
-    <string name="location_mode_manager_nlp_off">Network location provider should be OFF in LocationManager.</string>
 
     <string name="cacert_test">CA Cert Notification Test</string>
     <string name="cacert_info">This test checks that when a CA Certificate is installed, the user is notified.</string>
@@ -1676,10 +1785,11 @@
 
     <string name="caboot_test">CA Cert Notification on Boot test</string>
     <string name="caboot_info">This test is to confirm that when the user has installed a trusted credential, the system notifies the user when it boots.</string>
-    <string name="caboot_check_cert_installed">Please check here to see whether a certificate is already installed. (If this button does nothing, pass the test and move on.)</string>
+    <string name="caboot_check_cert_installed">Please check here to see whether a certificate is already installed. If this button does nothing, pass the test and move on.</string>
     <string name="caboot_check_creds">Check Credentials</string>
-    <string name="caboot_if_not_installed">Only if there is no credential currently installed, install one. (If this button does nothing, pass the test and move on.)</string>
+    <string name="caboot_if_not_installed">Only if there is no credential currently installed, install one.</string>
     <string name="caboot_install_cert">Install credential</string>
+    <string name="caboot_remove_screen_lock">Remove screen lock</string>
     <string name="caboot_reboot_desc">Please reboot the device and return to this test.</string>
     <string name="caboot_after_boot">AFTER REBOOTING: Check that there is a notification that the network may be monitored. Opening that notification should show a dialog box giving more information, with a button to check trusted credentials. This should open up the same view of trusted credentials that you get via the "Check credentials" button.</string>
 
@@ -1770,7 +1880,9 @@ You should be prompted to select credentials; choose the ones you just installed
         This test verifies keystore cryptographic keys can be bound to device lockscreen challenge or fingerprints (if available).
         These keys should only be available if there was a recent enough authentication. \n
 
-        1. Press "Set up" to open Security settings. Create a lockscreen password and if available, enroll a fingerprint under "Work profile security".\n
+        1. Press "Set up" to open Security settings. (If this device has a separate app for work
+        settings, ignore this button and open that app manually from the launcher.) Create a
+        lockscreen password and if available, enroll a fingerprint under "Work profile security".\n
         2. Go through the list of tests.\n
         3. Mark the overall test pass or fail.\n
         4. Once the set of tests are completed, remove the lockscreen challenge.
@@ -1856,10 +1968,11 @@ You should be prompted to select credentials; choose the ones you just installed
 
         1. Open a work app.\n
         2. Verify that a screen asking you for your work credentials is shown.\n
-        3. Verify that the background image contains an orange suitcase.\n
+        3. Verify that the background image contains a suitcase.\n
         4. Verify that the background color of the remaining image is blue.\n
         5. Verify that the header text says \"CtsVerifier\".\n
         6. Confirm your credentials and verify that the credentials you entered previously work.
+        7. The work app should be launched.
     </string>
     <string name="provisioning_byod_confirm_work_credentials_header">
         CtsVerifier
@@ -1874,7 +1987,8 @@ You should be prompted to select credentials; choose the ones you just installed
         This test verifies that if a work profile is locked with a separate password, Recents views
         for applications in the work profile are redacted.\n
         Some devices may not lock as soon as the screen is turned off by default. On such devices,
-        use the button below when requested to lock the work profile.
+        use the button below when requested to lock the work profile. Please skip these tests if
+        "Recents" is absent.
     </string>
     <string name="provisioning_byod_recents_lock_now">Lock now</string>
 
@@ -1901,6 +2015,35 @@ You should be prompted to select credentials; choose the ones you just installed
     </string>
     <string name="provisioning_byod_recents_remove_password">
         The work profile still has a separate password. Please remove this before continuing.
+    </string>
+
+    <string name="provisioning_byod_keychain">KeyChain test</string>
+    <string name="provisioning_byod_keychain_info_start">
+        In this test, you\'ll verify that keys generated by KeyChain keys are as usable as keys
+        installed into KeyChain and that they can be hidden from users.\n
+        The test has two parts:\n
+        1) Testing that a generated key can be selectable by the user.\n
+        2) Testing that a generated key can be hidden from users.\n
+        \n
+        Tap \"Prepare Test\" button below to begin.\n
+        \n
+        NOTE: A screen lock must be configured for this test. Otherwise, test preparation
+        will fail to generate a key for use by the test.
+    </string>
+    <string name="provisioning_byod_keychain_info_first_test">
+        Once you press \'Go\', a prompt titled \"Choose certificate\" should appear.\n
+        Verify that the list in this dialog has one item, starting with \'cts-verifier-gen\'.
+        Press \'Select\' to select it.\n
+        If the test passes, you\'ll see the text \"Second test ready\" at the bottom.\n
+        \n
+        Press \'Go\'.\n
+    </string>
+    <string name="provisioning_byod_keychain_info_second_test">
+        Once you press \'Run 2nd test\', the same prompt should appear again.\n
+        This time, verify that the title is \"No certificates found\" and the list is empty,
+        then press \'Cancel\'.\n
+        \n
+        Mark the test as passed if the text at the bottom shows \"PASSED (2/2)\"\n
     </string>
 
     <!-- Strings for DeskClock -->
@@ -2230,20 +2373,26 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="provisioning_byod_disallow_apps_control_prepare_button">Prepare test</string>
     <string name="provisioning_byod_disabled_uninstall_button">Disabled uninstall button</string>
     <string name="provisioning_byod_disabled_uninstall_button_instruction">
-        Please press the Go button to go to Settings > Apps. Choose a managed app. Check that performing either \"Uninstall\" or \"Disable\" is not possible and triggers a support message when trying to do so.
-        Then please press Back and mark the test as \"Pass\" or \"Fail\".
+        Please press the Go button to go to Settings > Apps.
+        (If this device has a separate app for work settings, ignore the Go button and open that app manually from the launcher).\n
+        Choose a managed app. Check that performing either \"Uninstall\" or \"Disable\" is not possible and triggers a support message when trying to do so.
+        Then please press Back (or navigate back to this app using Recents) and mark the test as \"Pass\" or \"Fail\".
     </string>
     <string name="provisioning_byod_disabled_force_stop_button">Disabled force stop button</string>
     <string name="provisioning_byod_disabled_force_stop_button_instruction">
-        Please press the Go button to go to Settings > Apps. Choose a managed app. Check that performing \"Force stop\" is not possible and triggers a support message when trying to do so.
-        Then please press Back and mark the test as \"Pass\" or \"Fail\".
+        Please press the Go button to go to Settings > Apps.
+        (If this device has a separate app for work settings, ignore the Go button and open that app manually from the launcher).\n
+        Choose a managed app. Check that performing \"Force stop\" is not possible and triggers a support message when trying to do so.
+        Then please press Back (or navigate back to this app using Recents) and mark the test as \"Pass\" or \"Fail\".
     </string>
     <string name="provisioning_byod_disabled_app_storage_buttons">Disabled app storage buttons</string>
     <string name="provisioning_byod_disabled_app_storage_buttons_instruction">
-        Please press the Go button to go to Settings > Apps. Choose a managed (badged) app. Select \"Storage\". Check that performing \"Clear Data\" and \"Clear Cache\" is not possible and triggers a support message when trying to do so.
+        Please press the Go button to go to Settings > Apps.
+        (If this device has a separate app for work settings, ignore the Go button and open that app manually from the launcher).\n
+        Choose a managed (badged) app. Select \"Storage\". Check that performing \"Clear Data\" and \"Clear Cache\" is not possible and triggers a support message when trying to do so.
         Note: if an app has no data then tapping the clear data button has no effect anyway. Make sure you have selected
         the badged version of app with non-zero app data. Badged \"Settings\" may be a good candidate.
-        Then please press Back and mark the test as \"Pass\" or \"Fail\".
+        Then please press Back (or navigate back to this app using Recents) and mark the test as \"Pass\" or \"Fail\".
     </string>
 
     <string name="provisioning_byod_work_status_icon">Work status icon is displayed</string>
@@ -2274,66 +2423,77 @@ You should be prompted to select credentials; choose the ones you just installed
     </string>
     <string name="provisioning_byod_profile_visible_instruction">
         Please press the Go button to open the Settings page.
+        (If this device has a separate app for work settings, ignore the Go button and open that app manually from the launcher).\n
         Navigate to Accounts and confirm that:\n
         \n
         - Both Personal and Work categories exist.\n
-        - \"Remove work profile\" exists under the Work category.\n
+        - \"Remove work profile\" or \"Uninstall\" exists under the Work category.\n
         \n
-        Furthermore, verify that:\n
+        Use the Back button (or navigate back to this app using Recents) to return to this page.
+    </string>
+    <string name="provisioning_byod_user_settings">Profile-aware user settings</string>
+    <string name="provisioning_byod_user_settings_instruction">
+        Please press the Go button to open the Settings page.
+        (If this device has a separate app for work settings, ignore the Go button and open that app manually from the launcher.)\n
+        Navigate to Users (or \"Multiple Users\") and confirm that:\n
         - There are two auto-sync options present, one for personal and one for work data (either on the screen or in the overflow menu).\n
         - De-selecting either option prompts a warning dialog.\n
         \n
-        Use the Back button to return to this page.
+        Use the Back button (or navigate back to this app using Recents) to return to this page.
     </string>
     <string name="provisioning_byod_admin_visible_instruction">
         Please press the Go button to open the Security page in Settings.
+        (If this device has a separate app for work settings, ignore the Go button and open that app manually from the launcher).\n
         Navigate to Device admin apps and confirm that:\n
         \n
         - Device administrators outside of the work profile (if any) appear in the list, and the managed profile administrators are badged correctly.\n
         - A badged \"CTS Verifier\" exists, and is activated.\n
         - There is no option to deactivate the badged \"CTS Verifier\" version, only an option to \"Remove work profile\".\n
         \n
-        Use the Back button to return to this page.
+        Use the Back button (or navigate back to this app using Recents) to return to this page.
     </string>
     <string name="provisioning_byod_workapps_visible_instruction">
         Please press the Go button to start the launcher.
         Go to All Apps screen and scroll through it to confirm that:\n
         \n
         - A new set of work apps including CTS Verifier appear in the list.\n
-        - Work badge overlay appears on work app\'s icon (see example icon below).\n
+        - Work badge overlay appears on work app\'s icon (see example icon below, color and style may vary).\n
         \n
         Then navigate back to this screen using Recents button.
     </string>
 
     <string name="provisioning_byod_app_settings">Profile-aware app settings</string>
     <string name="provisioning_byod_app_settings_instruction">
-        Please press the Go button to open Apps page in settings.\n
+        Please press the Go button to open Apps page in settings.
+        (If this device has a separate app for work settings, ignore the Go button and open that app manually from the launcher).\n
         \n
         Verify that work profile exists in the dropdown list and selecting it will
         bring up apps setting in the work profile.\n
         \n
-        Then use the Back button to return to this test and mark accordingly.
+        Then use the Back button (or navigate back to this app using Recents) to return to this test and mark accordingly.
     </string>
 
     <string name="provisioning_byod_location_settings">Profile-aware location settings</string>
     <string name="provisioning_byod_location_settings_instruction">
-        Please press the Go button to open Location page in settings.\n
+        Please press the Go button to open Location page in settings.
+        (If this device has a separate app for work settings, ignore the Go button and navigate to that app manually, if necessary).\n
         \n
         Verify that work profile entry exists in the page and it has a toggleable switch.\n
         Switch the main location switch at the top of the screen off. You should see the work profile location switch go disabled and into \'off\' state.\n
         Then switch the main location switch on again. You should see the work profile location switch go enabled and into its previous state.\n
         \n
-        Then use the Back button to return to this test and mark accordingly.
+        Then use the Back button (or navigate back to this app using Recents) to return to this test and mark accordingly.
     </string>
 
     <string name="provisioning_byod_wifi_data_usage_settings">Profile-aware data usage settings (Wi-Fi)</string>
     <string name="provisioning_byod_wifi_data_usage_settings_instruction">
-        Please press the Go button to open the Settings page.\n
+        Please press the Go button to open the Settings page.
+        (If this device has a separate app for work settings, ignore the Go button and navigate to that app manually).\n
         \n
         Navigate to \"Data usage\" page and then into the \"Wi-Fi data usage\" category.\n
         Confirm that \"All work apps\" section is present and that it is possible to see the data usage for work (badged) apps.\n
         \n
-        Then use the Back button to return to this test and mark accordingly.
+        Then use the Back button (or navigate back to this app using Recents) to return to this test and mark accordingly.
     </string>
 
     <string name="provisioning_byod_cellular_data_usage_settings">Profile-aware data usage settings (Mobile)</string>
@@ -2342,12 +2502,13 @@ You should be prompted to select credentials; choose the ones you just installed
         Please make sure you have added a SIM card with data plan to your phone, have enabled data over mobile and in case of dual SIM devices, have selected the right SIM for data connection.\n
         Please carry out operations that will use mobile data using both badged and unbadged apps (e.g. visit a page in a browser).\n
         \n
-        Please press the Go button to open the Settings page.\n
+        Please press the Go button to open the Settings page.
+        (If this device has a separate app for work settings, ignore the Go button and navigate to that app manually).\n
         \n
         Navigate to \"Data usage\" page and then into the \"Mobile data usage\" category.\n
         Confirm that \"All work apps\" section is present and that it is possible to see the data usage for work (badged) apps.\n
         \n
-        Then use the Back button to return to this test and mark accordingly.
+        Then use the Back button (or navigate back to this app using Recents) to return to this test and mark accordingly.
     </string>
 
     <string name="provisioning_byod_cred_settings">Profile-aware trusted credential settings</string>
@@ -2364,11 +2525,12 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="provisioning_byod_print_settings">Profile-aware printing settings</string>
     <string name="provisioning_byod_print_settings_instruction">
         Please press the Go button to open the Printing settings.
+        (If this device has a separate app for work settings, ignore the Go button and open that app manually from the launcher).\n
         \n
         Verify that work profile exists in the dropdown list and selecting it will
         bring up printing setting in the work profile.\n
         \n
-        Then use the Back button to return to this test and mark accordingly.
+        Then use the Back button (or navigate back to this app using Recents) to return to this test and mark accordingly.
     </string>
 
     <string name="provisioning_byod_cross_profile_intent_filters">Cross profile intent filters are set</string>
@@ -2377,9 +2539,9 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="provisioning_byod_nfc_beam_allowed_instruction">
         Please press the Go button to test if Nfc beam can be triggered in the work profile.\n
         \n
-        For the first test, press \"Send manual beam\" to trigger a beam, then bump into another device to send the file. Verify that the file is successfully received.\n
+        For the first test, press \"Send manual beam\" to trigger a beam, then bump into another device to send the tag. Verify that the tag is successfully received.\n
         \n
-        For the second test, press \"Send share intent\" to trigger a beam, then bump into another device to send the file. Verify that the file is successfully received.\n
+        For the second test, press \"Send share intent\" to trigger a beam, then bump into another device to send the tag. Verify that the tag is successfully received.\n
         \n
         Then use the Back button to return to this test and mark accordingly.
     </string>
@@ -2440,56 +2602,52 @@ You should be prompted to select credentials; choose the ones you just installed
         3. Go back to the cts-verifier tests using the back button, then mark the test accordingly.\n
     </string>
 
-    <string name="provisioning_byod_turn_off_work">Turn off work mode</string>
-    <string name="provisioning_byod_turn_off_work_info">This test verifies device behaviors when turning off work mode.</string>
+    <string name="provisioning_byod_turn_off_work">Turn off work profile</string>
+    <string name="provisioning_byod_turn_off_work_info">This test verifies device behaviors when turning off work profile.</string>
     <string name="provisioning_byod_turn_off_work_instructions">
         This test verifies the device behavior when work profile is turned off.\n
         Please exercise the following tests in sequence.\n
-        The button below can be used to open the Settings page where you can toggle work mode.
+        The button below can be used to open the Settings page where you can toggle work profile.\n
+        (If this device has a separate app for work settings, ignore the button and open that app manually from the launcher).\n
     </string>
-    <string name="provisioning_byod_turn_off_work_prepare_button">Open Settings to toggle work mode</string>
+    <string name="provisioning_byod_turn_off_work_prepare_button">Open Settings to toggle work profile</string>
 
     <string name="provisioning_byod_turn_off_work_prepare_notifications">Prepare a work notification</string>
     <string name="provisioning_byod_turn_off_work_prepare_notifications_instruction">
         This is a test setup step.\n
         1. Press the go button to send a work notification.\n
         2. Verify that the notification is displayed and mark this test as passed.\n
-        (Note: in the following test, you will be asked to verify the notification disappears after work mode is turned off.)
+        (Note: in the following test, you will be asked to verify the notification disappears after work profile is turned off.)
     </string>
 
-    <string name="provisioning_byod_turn_off_work_turned_off">Please turn off work mode</string>
-    <string name="provisioning_byod_turn_off_work_turned_off_toast">Open settings to turn off work mode, using the button above.</string>
+    <string name="provisioning_byod_turn_off_work_turned_off">Please turn off work profile</string>
+    <string name="provisioning_byod_turn_off_work_turned_off_toast">Open settings to turn off work profile, using the button above.</string>
 
-    <string name="provisioning_byod_turn_off_work_notifications">Notifications when work mode is off</string>
+    <string name="provisioning_byod_turn_off_work_notifications">Notifications when work profile is off</string>
     <string name="provisioning_byod_turn_off_work_notifications_instruction">
         Verify that the previously-shown work notification has now disappeared.
     </string>
 
-    <string name="provisioning_byod_turn_off_work_icon">Status bar icon when work mode is off</string>
-    <string name="provisioning_byod_turn_off_work_icon_instruction">
-        Now that work mode is off, please verify that the status bar shows an icon indicating that work mode is off.\n
-    </string>
-
-    <string name="provisioning_byod_turn_off_work_launcher">Starting work apps when work mode is off</string>
+    <string name="provisioning_byod_turn_off_work_launcher">Starting work apps when work profile is off</string>
     <string name="provisioning_byod_turn_off_work_launcher_instruction">
-        This test verifies that work applications cannot be started if work mode is off.\n
+        This test verifies that work applications cannot be started if work profile is off.\n
         1. Press home to go to the launcher.\n
         2. Verify that work applications are greyed out.\n
         3. Tap on a work application.\n
         4. Verify that the application does not start.\n
     </string>
 
-    <string name="provisioning_byod_turn_off_work_turned_on">Please turn work mode back on</string>
-    <string name="provisioning_byod_turn_off_work_turned_on_toast">Open settings to turn work mode back on, using the button above.</string>
+    <string name="provisioning_byod_turn_off_work_turned_on">Please turn work profile back on</string>
+    <string name="provisioning_byod_turn_off_work_turned_on_toast">Open settings to turn work profile back on, either manually or using the button above.</string>
 
-    <string name="provisioning_byod_turn_on_work_icon">Status bar icon when work mode is on</string>
+    <string name="provisioning_byod_turn_on_work_icon">Status bar icon when work profile is on</string>
     <string name="provisioning_byod_turn_on_work_icon_instruction">
-        Now that work mode is back on, please verify that the status bar icon for work mode off is no longer visible.
+        Now that work profile is back on, please verify that the status bar icon for work profile off is no longer visible.
     </string>
 
-    <string name="provisioning_byod_turn_on_work_launcher">Starting work apps when work mode is on</string>
+    <string name="provisioning_byod_turn_on_work_launcher">Starting work apps when work profile is on</string>
     <string name="provisioning_byod_turn_on_work_launcher_instruction">
-        Now that work mode is back on, please go to the launcher and verify that you can start a work application.
+        Now that work profile is back on, please go to the launcher and verify that you can start a work application.
     </string>
 
     <string name="provisioning_byod_organization_info">Organization Info</string>
@@ -2503,6 +2661,7 @@ You should be prompted to select credentials; choose the ones you just installed
         2. Enter a valid color code.\n
         3. Press the Set button to set organization Info.\n
         4. Press the Go button to open a dialog to confirm work credentials.\n
+        (If this device has a separate app for work settings, ignore the Go button and open the work lock screen manually to confirm, if necessary.)\n
         5. Verify that the background color of the resulting dialog is as set by you.\n
         6. Verify that the header text has organization name as set by you.\n
     </string>
@@ -2515,6 +2674,15 @@ You should be prompted to select credentials; choose the ones you just installed
 
         1. Press the Go button to set a new password for the personal side.\n
         2. Lock and unlock the screen to verify that the personal side password was set correctly.\n
+    </string>
+    <string name="provisioning_byod_work_profile_widget">Work profile widget</string>
+    <string name="provisioning_byod_work_profile_widget_info">Verify that work profile widget can be added into launcher</string>
+    <string name="provisioning_byod_work_profile_widget_description">
+        This test verifies that the widget in work profile can be added into Launcher.\n
+
+        1. Go to home screen.\n
+        2. Add the widget titled \"CTS Verifier\" and badged with work profile briefcase to the home screen.\n
+        3. If you can add the widget to the home screen, please select \"pass\". Otherwise, select \"fail\".
     </string>
 
     <!-- Strings for DeviceOwnerNegativeTestActivity -->
@@ -2572,8 +2740,9 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="set_device_owner_button_label">Set up device owner</string>
     <string name="set_device_owner_dialog_title">Set up device owner</string>
     <string name="set_device_owner_dialog_text">
+            This test requires CtsEmptyDeviceOwner.apk to be installed on the device.
             Please set the device owner by enabling USB debugging on the device and issuing the following command on the host:\n
-            adb shell dpm set-device-owner \'com.android.cts.verifier/com.android.cts.verifier.managedprovisioning.DeviceAdminTestReceiver\'
+            adb shell dpm set-device-owner com.android.cts.emptydeviceowner/.EmptyDeviceAdmin
     </string>
     <string name="device_owner_remove_device_owner_test">Remove device owner</string>
     <string name="device_owner_remove_device_owner_test_info">
@@ -2648,6 +2817,144 @@ You should be prompted to select credentials; choose the ones you just installed
     </string>
     <string name="device_owner_disable_keyguard_button">Disable keyguard</string>
     <string name="device_owner_reenable_keyguard_button">Reenable keyguard</string>
+    <string name="device_owner_lock_task_ui_test">LockTask UI</string>
+    <string name="device_owner_lock_task_ui_test_info">
+            The following tests verify the configurable UI during LockTask, a special mode that
+            prevents the user from leaving the current application.\n\n
+            Please make sure the lock screen is turned on before the test. Press the button below to
+            start LockTask mode. Then mark each item as \'pass\' or \'fail\' according to the
+            instructions.\n\n
+            Finally, execute the last test item to leave LockTask mode.
+    </string>
+    <string name="start_lock_task_button_label">Start LockTask mode</string>
+    <string name="device_owner_lock_task_ui_default_test">Default LockTask UI</string>
+    <string name="device_owner_lock_task_ui_default_test_info">
+            Press the button below to reset to default LockTask UI.
+            Observe the following UI restrictions. Mark the test as \'pass\' only if ALL of the
+            requirements below are met.\n\n
+            1) Nothing is shown in the status bar, including notification icons, connectivity icons,
+            battery status, clock, etc.\n
+            2) The status bar can\'t be expanded. That is, the \'swipe-down\' gesture doesn\'t work
+            for the status bar.\n
+            3) The Home button is hidden.\n
+            4) The Overview button is hidden and the Overview gesture (swipe-up) does not work.\n
+            5) Long-press the power button. The power button menu, which usually shows the power-off
+            button, etc., isn\'t shown.\n
+            6) Press the power button to turn off the screen, and press it again to turn the screen
+            back on. Lock screen shouldn\'t be shown.\n
+            7) The assist gesture isn\'t available.
+    </string>
+    <string name="device_owner_lock_task_ui_system_info_test">Enable system info</string>
+    <string name="device_owner_lock_task_ui_system_info_test_info">
+            Press the button below to enable system info. Observe the system info area of the status
+            bar is now enabled. This includes the clock, connectivity info, battery info, etc.\n\n
+            The rest of the UI restrictions should still apply:\n
+            1) Notification icons are still hidden on the status bar.\n
+            2) The status bar can\'t be expanded. That is, the \'swipe-down\' gesture doesn\'t work
+            for the status bar.\n
+            3) The Home button is hidden.\n
+            4) The Overview button is hidden and the Overview gesture (swipe-up) does not work.\n
+            5) Long-press the power button. The power button menu, which usually shows the power-off
+            button, etc., isn\'t shown.\n
+            6) Press the power button to turn off the screen, and press it again to turn the screen
+            back on. Lock screen shouldn\'t be shown.\n
+            7) The assist gesture isn\'t available.\n\n
+            Mark the test as \'pass\' only if ALL of the above requirements are met.
+    </string>
+    <string name="device_owner_lock_task_ui_notifications_test">Enable notifications</string>
+    <string name="device_owner_lock_task_ui_notifications_test_info">
+            Press the button below to enable notifications. Observe the notification icons on the
+            status bar are now enabled and the Home button is shown. The status bar can also be
+            expanded to show the notifications. However, all Settings UI should remain invisible,
+            including Quick Settings and any link to the Settings app.\n\n
+            The rest of the UI restrictions should still apply:\n
+            1) System info area is still hidden on the status bar.\n
+            2) The Overview button is hidden and the Overview gesture (swipe-up) does not work.\n
+            3) Holding the Home button and swiping to the right does not bring up other tasks.\n
+            4) Long-press the power button. The power button menu, which usually shows the power-off
+            button, etc., isn\'t shown.\n
+            5) Press the power button to turn off the screen, and press it again to turn the screen
+            back on. Lock screen shouldn\'t be shown.\n
+            6) The assist gesture isn\'t available.\n\n
+            Mark the test as \'pass\' only if ALL of the above requirements are met.
+    </string>
+    <string name="device_owner_lock_task_ui_home_test">Enable Home button</string>
+    <string name="device_owner_lock_task_ui_home_test_info">
+            Press the button below to enable the Home button. Observe the Home button is now
+            enabled.\n\n
+            The rest of the UI restrictions should still apply:\n
+            1) Nothing is shown in the status bar, including notification icons, connectivity icons,
+            battery status, clock, etc.\n
+            2) The status bar can\'t be expanded. That is, the \'swipe-down\' gesture doesn\'t work
+            for the status bar.\n
+            3) The Overview button is hidden and the Overview gesture (swipe-up) does not work.\n
+            4) Holding the Home button and swiping to the right does not bring up other tasks.\n
+            5) Long-press the power button. The power button menu, which usually shows the power-off
+            button, etc., isn\'t shown.\n
+            6) Press the power button to turn off the screen, and press it again to turn the screen
+            back on. Lock screen shouldn\'t be shown.\n
+            7) The assist gesture isn\'t available.\n\n
+            Mark the test as \'pass\' only if ALL of the above requirements are met.
+    </string>
+    <string name="device_owner_lock_task_ui_recents_test">Enable Overview button</string>
+    <string name="device_owner_lock_task_ui_recents_test_info">
+            Press the button below to enable the Overview button. Observe the Home button is now
+            enabled. Press the Overview button or perform the Overview gesture
+            (swipe up) and verify the Overview view can be opened.\n\n
+            The rest of the UI restrictions should still apply:\n
+            1) Nothing is shown in the status bar, including notification icons, connectivity icons,
+            battery status, clock, etc.\n
+            2) The status bar can\'t be expanded. That is, the \'swipe-down\' gesture doesn\'t work
+            for the status bar.\n
+            3) Long-press the power button. The power button menu, which usually shows the power-off
+            button, etc., isn\'t shown.\n
+            4) Press the power button to turn off the screen, and press it again to turn the screen
+            back on. Lock screen shouldn\'t be shown.\n
+            5) The assist gesture isn\'t available.\n\n
+            Mark the test as \'pass\' only if ALL of the above requirements are met.
+    </string>
+    <string name="device_owner_lock_task_ui_global_actions_test">Enable global actions</string>
+    <string name="device_owner_lock_task_ui_global_actions_test_info">
+            Press the button below to enable global actions (a.k.a. power button menu). Long-press
+            the power button and verify a menu containing power-off and restart buttons is shown.
+            This menu can\'t contain any UI that allows the user to change system settings (such as
+            airplane mode switch) or access the Settings app.\n\n
+            The rest of the UI restrictions should still apply:\n
+            1) Nothing is shown in the status bar, including notification icons, connectivity icons,
+            battery status, clock, etc.\n
+            2) The status bar can\'t be expanded. That is, the \'swipe-down\' gesture doesn\'t work
+            for the status bar.\n
+            3) The Home button is hidden.\n
+            4) The Overview button is hidden and the Overview gesture (swipe-up) does not work.\n
+            5) Press the power button to turn off the screen, and press it again to turn the screen
+            back on. Lock screen shouldn\'t be shown.\n
+            6) The assist gesture isn\'t available.\n\n
+            Mark the test as \'pass\' only if ALL of the above requirements are met.
+    </string>
+    <string name="device_owner_lock_task_ui_keyguard_test">Enable keyguard</string>
+    <string name="device_owner_lock_task_ui_keyguard_test_info">
+            Press the button below to enable keyguard. Press the power button to turn off the screen
+            and press it again to turn the screen back on. Verify that the lock screen is shown.\n\n
+            The rest of the UI restrictions should still apply, both on the lock screen and after
+            the lock screen is dismissed:\n
+            1) Nothing is shown in the status bar, including notification icons, connectivity icons,
+            battery status, clock, etc.\n
+            2) The status bar can\'t be expanded. That is, the \'swipe-down\' gesture doesn\'t work
+            for the status bar, even on the lock screen.\n
+            3) The Home button is hidden.\n
+            4) The Overview button is hidden and the Overview gesture (swipe-up) does not work.\n
+            5) Long-press the power button. The power button menu, which usually shows the power-off
+            button, etc., isn\'t shown.\n
+            6) The assist gesture isn\'t available.\n\n
+            Mark the test as \'pass\' only if ALL of the above requirements are met.
+    </string>
+    <string name="device_owner_lock_task_ui_stop_lock_task_test">Stop LockTask mode</string>
+    <string name="device_owner_lock_task_ui_stop_lock_task_test_info">
+            Press the button below to exit LockTask mode.\n\n
+            Observe that the UI has returned to the normal, unrestricted state, and is no longer
+            subject to any LockTask restriction.\n\n
+            Mark the test as \'pass\' or \'fail\' accordingly.
+    </string>
     <string name="device_owner_lockscreen_secure">Please remove lockscreen password</string>
     <string name="device_profile_owner_permission_lockdown_test">Permissions lockdown</string>
     <string name="device_profile_owner_permission_lockdown_test_instructions">
@@ -2907,11 +3214,11 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="dummy_accessibility_service_label">Dummy accessibility service</string>
     <string name="policy_transparency_test_instructions">
         1. <xliff:g id="set_step" example="Set policy by turning the switch on">%1$s</xliff:g>\n
-        2. Open Settings app by clicking the "Open settings" button below.\n
+        2. Open Settings app by clicking the "Open settings" button below. (If this device has a separate app for work settings, ignore the button and open that app manually from the launcher, if necessary)\n
         3. Verify that performing the following action will trigger a support dialog:\n
            <xliff:g id="user_action" example="Adding an account">%2$s</xliff:g>.\n
         4. Verify that the support dialog displays the short support message set earlier.\n
-        5. Verify that clicking the "More details" link will redirect to Device administrators
+        5. Verify that clicking the "Learn more" link will redirect to Device administrators
            page in Settings app which displays the long support message set earlier.\n
     </string>
     <string name="user_restriction_set_step">
@@ -2921,10 +3228,22 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="disallow_add_user_action">Adding a new user</string>
     <string name="disallow_adjust_volume">Disallow adjust volume</string>
     <string name="disallow_adjust_volume_action">Adjusting the volume</string>
+    <string name="disallow_config_date_time">Disallow config date and time settings</string>
+    <string name="disallow_config_date_time_action">Configuring auto time, time, auto date or date</string>
+    <string name="disallow_config_location">Disallow config location</string>
+    <string name="disallow_config_location_action">Enabling or disabling location in settings or quick settings</string>
+    <string name="disallow_airplane_mode">Disallow airplane mode</string>
+    <string name="disallow_airplane_mode_action">Toggling airplane mode switch bar or changing airplane mode state in quick settings</string>
+    <string name="disallow_config_screen_timeout">Disallow config sleep options settings</string>
+    <string name="disallow_config_screen_timeout_action">Configuring sleep options in Display or Battery page.</string>
+    <string name="disallow_config_brightness">Disallow config brightness settings</string>
+    <string name="disallow_config_brightness_action">Configuring brightness level or adaptive brightness in Display or Battery page, or toggling brightness slider in quick settings</string>
+    <string name="disallow_ambient_display">Disallow ambient display</string>
+    <string name="disallow_ambient_display_action">Configuring ambient display in Display or Battery page</string>
     <string name="disallow_apps_control">Disallow controlling apps</string>
     <string name="disallow_apps_control_action">DISABLE/UNINSTALL/FORCE STOP-ing any app in the managed device/profile other than CtsVerifier</string>
     <string name="disallow_config_cell_broadcasts">Disallow config cell broadcasts</string>
-    <string name="disallow_config_cell_broadcasts_action">Configuring cell broadcasts</string>
+    <string name="disallow_config_cell_broadcasts_action">Configuring emergency alerts(cell broadcasts)</string>
     <string name="disallow_config_credentials">Disallow config credentials</string>
     <string name="disallow_config_credentials_action">Configuring user credentials</string>
     <string name="disallow_config_mobile_networks">Disallow config mobile networks</string>
@@ -2954,7 +3273,9 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="disallow_share_location">Disallow share location</string>
     <string name="disallow_share_location_action">Turning on location sharing</string>
     <string name="disallow_uninstall_apps">Disallow uninstall apps</string>
-    <string name="disallow_uninstall_apps_action">Uninstalling applications other CtsVerifier</string>
+    <string name="disallow_uninstall_apps_action">Uninstalling applications from the work profile (badged applications) other than CtsVerifier</string>
+    <string name="disallow_unified_challenge">Disallow unified challenge</string>
+    <string name="disallow_unified_challenge_action">Setting one lock for both personal and work profiles. IMPORTANT: Separate work lock should be set prior to this test in Set work lock test</string>
     <string name="disallow_keyguard_unredacted_notifications">Disallow lockscreen unredacted notification</string>
     <string name="disallow_keyguard_unredacted_notifications_set_step">Disallow unredacted notifications when device is locked by turning on the switch below</string>
     <string name="disallow_keyguard_unredacted_notifications_action">Selecting show all notification content when device is locked</string>
@@ -2997,10 +3318,10 @@ You should be prompted to select credentials; choose the ones you just installed
     </string>
     <string name="set_permitted_input_methods">Set permitted input methods</string>
     <string name="permitted_input_methods_set_step">
-        Check that \'Dummy Input method\' is not enabled in Settings and disallow \'Dummy Input method\' from permitted input methods by turning on the switch below.
+        Check that \'Dummy Input method\', along with all other non-system apps, are not enabled in Settings. Then disallow \'Dummy Input method\' from permitted input methods by turning on the switch below.
     </string>
     <string name="set_permitted_input_methods_action">
-        Enabling \'Dummy Input method\' in the list of accessibility services
+        Enabling \'Dummy Input method\' in the list of input methods
     </string>
     <string name="set_permitted_input_methods_widget_label">
         Allow only system input methods:
@@ -3312,6 +3633,69 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="comp_provision_profile_dialog_title">Provision work profile</string>
     <string name="comp_provision_profile_dialog_text">Press the OK button to start the managed provisioning flow, and complete the flow to create a work profile</string>
 
+    <string name="managed_user_test">Managed User</string>
+    <string name="managed_user_positive_tests">Managed User positive tests</string>
+    <string name="managed_user_positive_tests_instructions">
+        The positive managed user tests verify policies on a managed user created by a device owner.
+        \n
+        Press Go button to create a managed user, and you will be switched to the managed user
+        automatically. Dismiss the keyguard and a \'Managed User Tests\' should launch.\n
+        Follow the test instructions and press \'pass\' or \'fail\' to return to this screen.\n
+    </string>
+    <string name="managed_user_positive_tests_info">
+        The positive managed user tests verify policies on a managed user created by a device owner.
+        Proceed to the test cases, then press \'pass\' or \'fail\' to finish this test.
+    </string>
+    <string name="managed_user_positive_category">Managed User Tests</string>
+    <string name="managed_user_check_managed_user_test">Check affiliated profile owner</string>
+    <string name="managed_user_incorrect_managed_user">Missing or incorrect affiliated profile owner: CTSVerifier is not affilaited PO!</string>
+
+    <string name="device_owner_disallow_user_switch">Disallow user switch</string>
+    <string name="device_owner_disallow_user_switch_info">
+        Press \'Create uninitialized user\' to create a user that is not setup.
+        Then press Set restriction button to set the user restriction.
+        Then press Go to open the Settings, and manually find and open user settings section.
+        Confirm that:\n
+        \n
+        - Selecting uninitialized user should not trigger user switch.\n
+        \n
+        In additional, if quick settings is available, confirm that user switcher is hidden or
+        disabled.
+        Use the Back button to return to this page.
+    </string>
+    <string name="device_owner_disallow_user_switch_create_user">Create uninitialized user</string>
+
+    <string name="device_owner_user_switcher_message">User switcher message</string>
+    <string name="device_owner_user_switcher_message_info">
+        1. Please press the \'With user switcher message\' button to set the user switcher message.
+        You will then be automatically switched to a secondary user. If a user switcher dialog shows
+        up, it should read \'Start user session\'. Wait until you are automatically switched back to
+        primary, if a user switcher dialog shows up, it should read \'End user session\'.
+
+        \n
+        2. Please press the \'Without user switcher message\' button to clear the user switcher
+        message. You will then be automatically switched to a secondary user. If a user switcher
+        dialog shows up, it should read \'Switching to managed user\'. Wait until you are
+        automatically switched back to primary, if a user switcher dialog shows up, it should read
+        \'Switching to (name of primary user)\'.
+    </string>
+    <string name="device_owner_with_user_switcher_message">With user switcher message</string>
+    <string name="device_owner_without_user_switcher_message">Without user switcher message</string>
+
+    <string name="device_owner_enable_logout">Logout</string>
+    <string name="device_owner_enable_logout_info">
+        Please press the Go button to enable logout. You will then be switched to a newly created
+        user.
+        Look for a way to logout the current user without unlocking the lock screen. The control is
+        usually named \'End session\'.\n
+        The location may vary depending on manufacturer, typical locations are:\n
+        - In power button menu by long pressing power button.\n
+        - On the lock screen.\n
+        \n
+        When successfully logout and switched back to primary user, confirm that the logout control
+        is not available in primary user.
+    </string>
+
     <!-- Strings for JobScheduler Tests -->
     <string name="js_test_description">This test is mostly automated, but requires some user interaction. You can pass this test once the list items below are checked.</string>
 
@@ -3502,6 +3886,35 @@ You should be prompted to select credentials; choose the ones you just installed
     1) You should see the poster art image, but the color may be different.\n
     2) You should see the text \"Cts App-Link Text\".\n
     </string>
+
+    <string name="tv_microphone_device_test">Microphone device test</string>
+    <string name="tv_microphone_device_test_info">
+    This test checks if InputDevice.hasMicrophone of the Media API reports a
+    correct value on every input device (including remote controls).
+    </string>
+    <string name="tv_microphone_device_test_prep_question">
+    Before continuing, please make sure that you pair all primary input
+    devices intended to be used by the device, including bluetooth
+    remotes and companion remote-control apps such as the Android TV Remote Control.
+    Have you paired every primary input device with the device under test (DUT)?
+    </string>
+    <string name="tv_microphone_device_test_mic_question">
+    Does input device \"%1$s\" have a microphone?
+    </string>
+    <string name="tv_microphone_device_test_negative_mismatch">
+    InputDevice.hasMicrophone reports that this input device DOES have a
+    microphone whereas you selected that it does not.  Please correct it by
+    declaring \"audio.mic = 0\" in the device\'s input device configuration
+    (.idc) file.
+    </string>
+    <string name="tv_microphone_device_test_positive_mismatch">
+    InputDevice.hasMicrophone reports that this input device does NOT have a
+    microphone whereas you selected that it does.  Please correct it by
+    declaring \"audio.mic = 1\" in the device\'s input device configuration
+    (.idc) file and make sure that relevant files such as key layout (.kl)
+    and key character map (.kcm) files are found by the system accordingly.
+    </string>
+    <string name="tv_microphone_device_test_no_input_devices">No input devices found.</string>
 
     <string name="overlay_view_text">Overlay View Dummy Text</string>
     <string name="custom_rating">Example of input app specific custom rating.</string>
@@ -3873,6 +4286,7 @@ Follow the instructions on the screen to measure the frequency response for the 
     <!-- Strings for voicemail broadcast test -->
     <string name="voicemail_broadcast_test">Voicemail Broadcast Test</string>
     <string name="voicemail_broadcast_instructions">This test verifies that the default dialer can intercept the voicemail notification. The test must be conducted on a SIM with visual voicemail disabled</string>
+    <string name="voicemail_broadcast_no_carrier_support">The carrier does not support voicemail, this test is not applicable.</string>
     <string name="voicemail_leave_voicemail">Send a voicemail to the device, CTS verifier should receive a voicemail notification broadcast</string>
     <string name="voicemail_broadcast_received">Voicemail broadcast Received</string>
 
@@ -3972,7 +4386,7 @@ Follow the instructions on the screen to measure the frequency response for the 
         This test requires that you have connected a mandated USB Audio Interface peripheral.
         Connect the outputs to the inputs (with patch cables). Start playback by pressing the
         \"Record Loopback\" button and verify that the recorded signal is displayed in the wave
-        display view. ()It may be necessary to adjust the input controls on the peripheral).
+        display view. (It may be necessary to adjust the input controls on the peripheral).
        </string>
 
     <!-- USB Audio Peripheral Buttons Test -->

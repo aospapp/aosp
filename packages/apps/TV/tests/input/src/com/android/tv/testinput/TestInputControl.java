@@ -21,28 +21,26 @@ import android.net.Uri;
 import android.os.RemoteException;
 import android.util.Log;
 import android.util.LongSparseArray;
-
-import com.android.tv.testing.ChannelInfo;
-import com.android.tv.testing.ChannelUtils;
+import com.android.tv.testing.data.ChannelInfo;
+import com.android.tv.testing.data.ChannelUtils;
 import com.android.tv.testing.testinput.ChannelState;
 import com.android.tv.testing.testinput.ChannelStateData;
 import com.android.tv.testing.testinput.ITestInputControl;
-
 import java.util.Map;
 
 /**
  * Maintains state for the {@link TestTvInputService}.
  *
- * <p>Maintains the current state for every channel.  A default is sent if the state is not
+ * <p>Maintains the current state for every channel. A default is sent if the state is not
  * explicitly set. The state is versioned so TestTvInputService can tell if onNotifyXXX events need
  * to be sent.
  *
- * <p> Test update the state using @{link ITestInputControl} via {@link TestInputControlService}.
+ * <p>Test update the state using @{link ITestInputControl} via {@link TestInputControlService}.
  */
 class TestInputControl extends ITestInputControl.Stub {
 
-    private final static String TAG = "TestInputControl";
-    private final static TestInputControl INSTANCE = new TestInputControl();
+    private static final String TAG = "TestInputControl";
+    private static final TestInputControl INSTANCE = new TestInputControl();
 
     private final LongSparseArray<ChannelInfo> mId2ChannelInfoMap = new LongSparseArray<>();
     private final LongSparseArray<ChannelState> mOrigId2StateMap = new LongSparseArray<>();
@@ -50,8 +48,7 @@ class TestInputControl extends ITestInputControl.Stub {
     private java.lang.String mInputId;
     private boolean initialized;
 
-    private TestInputControl() {
-    }
+    private TestInputControl() {}
 
     public static TestInputControl getInstance() {
         return INSTANCE;
@@ -73,8 +70,13 @@ class TestInputControl extends ITestInputControl.Stub {
         for (Long channelId : channelIdToInfoMap.keySet()) {
             mId2ChannelInfoMap.put(channelId, channelIdToInfoMap.get(channelId));
         }
-        Log.i(TAG, "Initialized channel map for " + mInputId + " with " + mId2ChannelInfoMap.size()
-                + " channels");
+        Log.i(
+                TAG,
+                "Initialized channel map for "
+                        + mInputId
+                        + " with "
+                        + mId2ChannelInfoMap.size()
+                        + " channels");
     }
 
     public ChannelInfo getChannelInfo(Uri channelUri) {

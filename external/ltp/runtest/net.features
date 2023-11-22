@@ -11,6 +11,12 @@ busy_poll02_ipv6 busy_poll02.sh -6
 busy_poll03 busy_poll03.sh
 busy_poll03_ipv6 busy_poll03.sh -6
 
+dccp01 dccp01.sh
+dccp01_ipv6 dccp01.sh -6
+
+sctp01 sctp01.sh
+sctp01_ipv6 sctp01.sh -6
+
 tcp_fastopen tcp_fastopen_run.sh
 tcp_fastopen6 tcp_fastopen_run.sh -6
 
@@ -30,6 +36,9 @@ vlan03 vlan03.sh
 
 macvlan01 macvlan01.sh
 macvtap01 macvtap01.sh
+
+macsec01 macsec01.sh
+macsec02 macsec02.sh
 
 ipvlan01 ipvlan01.sh
 

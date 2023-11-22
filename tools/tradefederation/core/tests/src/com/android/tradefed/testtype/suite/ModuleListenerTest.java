@@ -17,16 +17,17 @@ package com.android.tradefed.testtype.suite;
 
 import static org.junit.Assert.assertEquals;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Collections;
+import java.util.HashMap;
 
 /** Unit tests for {@link ModuleListener} * */
 @RunWith(JUnit4.class)
@@ -37,7 +38,6 @@ public class ModuleListenerTest {
 
     @Before
     public void setUp() {
-        // We pipe all the events to nowhere
         mStubListener = new ITestInvocationListener() {};
         mListener = new ModuleListener(mStubListener);
     }
@@ -48,25 +48,25 @@ public class ModuleListenerTest {
         final int numTests = 5;
         mListener.testRunStarted("run1", numTests);
         for (int i = 0; i < numTests; i++) {
-            TestIdentifier tid = new TestIdentifier("class", "test" + i);
+            TestDescription tid = new TestDescription("class", "test" + i);
             mListener.testStarted(tid);
-            mListener.testEnded(tid, Collections.emptyMap());
+            mListener.testEnded(tid, new HashMap<String, Metric>());
         }
-        mListener.testRunEnded(0, Collections.emptyMap());
+        mListener.testRunEnded(0, new HashMap<String, Metric>());
         assertEquals(numTests, mListener.getNumTotalTests());
         assertEquals(numTests, mListener.getNumTestsInState(TestStatus.PASSED));
     }
 
-    /** All the tests did not execute, so the amount of TestIdentifier seen is lower. */
+    /** All the tests did not execute, so the amount of TestDescription seen is lower. */
     @Test
     public void testRun_missingTests() {
         final int numTests = 5;
         mListener.testRunStarted("run1", numTests);
-        TestIdentifier tid = new TestIdentifier("class", "test" + numTests);
+        TestDescription tid = new TestDescription("class", "test" + numTests);
         // Only one test execute
         mListener.testStarted(tid);
-        mListener.testEnded(tid, Collections.emptyMap());
-        mListener.testRunEnded(0, Collections.emptyMap());
+        mListener.testEnded(tid, new HashMap<String, Metric>());
+        mListener.testRunEnded(0, new HashMap<String, Metric>());
 
         assertEquals(numTests, mListener.getNumTotalTests());
         assertEquals(1, mListener.getNumTestsInState(TestStatus.PASSED));
@@ -80,20 +80,20 @@ public class ModuleListenerTest {
     public void testInternalRerun() {
         final int numTests = 5;
         mListener.testRunStarted("run1", numTests);
-        TestIdentifier tid = new TestIdentifier("class", "test" + numTests);
+        TestDescription tid = new TestDescription("class", "test" + numTests);
         // Only one test execute the first time
         mListener.testStarted(tid);
-        mListener.testEnded(tid, Collections.emptyMap());
-        mListener.testRunEnded(0, Collections.emptyMap());
+        mListener.testEnded(tid, new HashMap<String, Metric>());
+        mListener.testRunEnded(0, new HashMap<String, Metric>());
 
         // Runner restart to execute all the remaining
         mListener.testRunStarted("run1", numTests - 1);
         for (int i = 0; i < numTests - 1; i++) {
-            TestIdentifier tid2 = new TestIdentifier("class", "test" + i);
+            TestDescription tid2 = new TestDescription("class", "test" + i);
             mListener.testStarted(tid2);
-            mListener.testEnded(tid2, Collections.emptyMap());
+            mListener.testEnded(tid2, new HashMap<String, Metric>());
         }
-        mListener.testRunEnded(0, Collections.emptyMap());
+        mListener.testRunEnded(0, new HashMap<String, Metric>());
 
         assertEquals(numTests, mListener.getNumTotalTests());
         assertEquals(numTests, mListener.getNumTestsInState(TestStatus.PASSED));
@@ -105,19 +105,19 @@ public class ModuleListenerTest {
         final int numTests = 5;
         mListener.testRunStarted("run1", numTests);
         for (int i = 0; i < numTests; i++) {
-            TestIdentifier tid = new TestIdentifier("class", "test" + i);
+            TestDescription tid = new TestDescription("class", "test" + i);
             mListener.testStarted(tid);
-            mListener.testEnded(tid, Collections.emptyMap());
+            mListener.testEnded(tid, new HashMap<String, Metric>());
         }
-        mListener.testRunEnded(0, Collections.emptyMap());
+        mListener.testRunEnded(0, new HashMap<String, Metric>());
 
         mListener.testRunStarted("run2", numTests);
         for (int i = 0; i < numTests; i++) {
-            TestIdentifier tid = new TestIdentifier("class2", "test" + i);
+            TestDescription tid = new TestDescription("class2", "test" + i);
             mListener.testStarted(tid);
-            mListener.testEnded(tid, Collections.emptyMap());
+            mListener.testEnded(tid, new HashMap<String, Metric>());
         }
-        mListener.testRunEnded(0, Collections.emptyMap());
+        mListener.testRunEnded(0, new HashMap<String, Metric>());
         assertEquals(numTests * 2, mListener.getNumTotalTests());
         assertEquals(numTests * 2, mListener.getNumTestsInState(TestStatus.PASSED));
     }

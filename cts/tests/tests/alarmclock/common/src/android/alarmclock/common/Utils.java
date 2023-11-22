@@ -24,8 +24,10 @@ public class Utils {
 
     public enum TestcaseType {
         DISMISS_ALARM,
+        DISMISS_TIMER,
         SET_ALARM,
         SET_ALARM_FOR_DISMISSAL,
+        SET_TIMER_FOR_DISMISSAL,
         SNOOZE_ALARM,
     }
     public static final String TESTCASE_TYPE = "Testcase_type";

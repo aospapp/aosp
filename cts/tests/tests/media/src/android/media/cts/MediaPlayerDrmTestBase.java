@@ -30,7 +30,7 @@ import android.media.MediaPlayer;
 import android.media.MediaPlayer.DrmInfo;
 import android.media.ResourceBusyException;
 import android.media.UnsupportedSchemeException;
-import android.media.cts.MediaPlayerTestBase.Monitor;
+import android.media.cts.TestUtils.Monitor;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;

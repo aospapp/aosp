@@ -1,5 +1,5 @@
 /*
- * Copyright (C)2009-2014, 2016 D. R. Commander.  All Rights Reserved.
+ * Copyright (C)2009-2014, 2016-2017 D. R. Commander.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,8 +34,8 @@ import org.libjpegturbo.turbojpeg.*;
 
 class TJBench {
 
-  static int flags = 0, quiet = 0, pf = TJ.PF_BGR, yuvpad = 1, warmup = 1;
-  static boolean compOnly, decompOnly, doTile, doYUV, write;
+  static int flags = 0, quiet = 0, pf = TJ.PF_BGR, yuvpad = 1;
+  static boolean compOnly, decompOnly, doTile, doYUV, write = true;
 
   static final String[] pixFormatStr = {
     "RGB", "BGR", "RGBX", "BGRX", "XBGR", "XRGB", "GRAY"
@@ -55,7 +55,7 @@ class TJBench {
 
   static TJScalingFactor sf;
   static int xformOp = TJTransform.OP_NONE, xformOpt = 0;
-  static double benchTime = 5.0;
+  static double benchTime = 5.0, warmup = 1.0;
 
 
   static final double getTime() {
@@ -162,7 +162,7 @@ class TJBench {
     }
 
     /* Benchmark */
-    iter -= warmup;
+    iter = -1;
     elapsed = elapsedDecode = 0.0;
     while (true) {
       int tile = 0;
@@ -184,11 +184,14 @@ class TJBench {
             tjd.decompress(dstBuf, x, y, width, pitch, height, pf, flags);
         }
       }
-      iter++;
-      if (iter >= 1) {
-        elapsed += getTime() - start;
+      elapsed += getTime() - start;
+      if (iter >= 0) {
+        iter++;
         if (elapsed >= benchTime)
           break;
+      } else if (elapsed >= warmup) {
+        iter = 0;
+        elapsed = elapsedDecode = 0.0;
       }
     }
     if(doYUV)
@@ -321,7 +324,7 @@ class TJBench {
       }
 
       /* Benchmark */
-      iter = -warmup;
+      iter = -1;
       elapsed = elapsedEncode = 0.0;
       while (true) {
         int tile = 0;
@@ -346,11 +349,14 @@ class TJBench {
             totalJpegSize += jpegSize[tile];
           }
         }
-        iter++;
-        if (iter >= 1) {
-          elapsed += getTime() - start;
+        elapsed += getTime() - start;
+        if (iter >= 0) {
+          iter++;
           if (elapsed >= benchTime)
             break;
+        } else if (elapsed >= warmup) {
+          iter = 0;
+          elapsed = elapsedEncode = 0.0;
         }
       }
       if (doYUV)
@@ -541,17 +547,20 @@ class TJBench {
           }
         }
 
-        iter = -warmup;
+        iter = -1;
         elapsed = 0.;
         while (true) {
           start = getTime();
           tjt.transform(jpegBuf, t, flags);
           jpegSize = tjt.getTransformedSizes();
-          iter++;
-          if (iter >= 1) {
-            elapsed += getTime() - start;
+          elapsed += getTime() - start;
+          if (iter >= 0) {
+            iter++;
             if (elapsed >= benchTime)
               break;
+          } else if (elapsed >= warmup) {
+            iter = 0;
+            elapsed = 0.0;
           }
         }
         t = null;
@@ -582,8 +591,8 @@ class TJBench {
           System.out.print("N/A     N/A     ");
         jpegBuf = new byte[1][TJ.bufSize(_tilew, _tileh, subsamp)];
         jpegSize = new int[1];
+        jpegBuf[0] = srcBuf;
         jpegSize[0] = srcSize;
-        System.arraycopy(srcBuf, 0, jpegBuf[0], 0, srcSize);
       }
 
       if (w == tilew)
@@ -659,8 +668,9 @@ class TJBench {
     System.out.println("-grayscale = Perform lossless grayscale conversion prior to decompression");
     System.out.println("     test (can be combined with the other transforms above)");
     System.out.println("-benchtime <t> = Run each benchmark for at least <t> seconds (default = 5.0)");
-    System.out.println("-warmup <w> = Execute each benchmark <w> times to prime the cache before");
-    System.out.println("     taking performance measurements (default = 1)");
+    System.out.println("-warmup <t> = Run each benchmark for <t> seconds (default = 1.0) prior to");
+    System.out.println("     starting the timer, in order to prime the caches and thus improve the");
+    System.out.println("     consistency of the results.");
     System.out.println("-componly = Stop after running compression tests.  Do not test decompression.");
     System.out.println("-nowrite = Do not write reference or output images (improves consistency");
     System.out.println("     of performance measurements.)\n");
@@ -711,37 +721,37 @@ class TJBench {
           if (argv[i].equalsIgnoreCase("-tile")) {
             doTile = true;  xformOpt |= TJTransform.OPT_CROP;
           }
-          if (argv[i].equalsIgnoreCase("-fastupsample")) {
+          else if (argv[i].equalsIgnoreCase("-fastupsample")) {
             System.out.println("Using fast upsampling code\n");
             flags |= TJ.FLAG_FASTUPSAMPLE;
           }
-          if (argv[i].equalsIgnoreCase("-fastdct")) {
+          else if (argv[i].equalsIgnoreCase("-fastdct")) {
             System.out.println("Using fastest DCT/IDCT algorithm\n");
             flags |= TJ.FLAG_FASTDCT;
           }
-          if (argv[i].equalsIgnoreCase("-accuratedct")) {
+          else if (argv[i].equalsIgnoreCase("-accuratedct")) {
             System.out.println("Using most accurate DCT/IDCT algorithm\n");
             flags |= TJ.FLAG_ACCURATEDCT;
           }
-          if (argv[i].equalsIgnoreCase("-rgb"))
+          else if (argv[i].equalsIgnoreCase("-rgb"))
             pf = TJ.PF_RGB;
-          if (argv[i].equalsIgnoreCase("-rgbx"))
+          else if (argv[i].equalsIgnoreCase("-rgbx"))
             pf = TJ.PF_RGBX;
-          if (argv[i].equalsIgnoreCase("-bgr"))
+          else if (argv[i].equalsIgnoreCase("-bgr"))
             pf = TJ.PF_BGR;
-          if (argv[i].equalsIgnoreCase("-bgrx"))
+          else if (argv[i].equalsIgnoreCase("-bgrx"))
             pf = TJ.PF_BGRX;
-          if (argv[i].equalsIgnoreCase("-xbgr"))
+          else if (argv[i].equalsIgnoreCase("-xbgr"))
             pf = TJ.PF_XBGR;
-          if (argv[i].equalsIgnoreCase("-xrgb"))
+          else if (argv[i].equalsIgnoreCase("-xrgb"))
             pf = TJ.PF_XRGB;
-          if (argv[i].equalsIgnoreCase("-bottomup"))
+          else if (argv[i].equalsIgnoreCase("-bottomup"))
             flags |= TJ.FLAG_BOTTOMUP;
-          if (argv[i].equalsIgnoreCase("-quiet"))
+          else if (argv[i].equalsIgnoreCase("-quiet"))
             quiet = 1;
-          if (argv[i].equalsIgnoreCase("-qq"))
+          else if (argv[i].equalsIgnoreCase("-qq"))
             quiet = 2;
-          if (argv[i].equalsIgnoreCase("-scale") && i < argv.length - 1) {
+          else if (argv[i].equalsIgnoreCase("-scale") && i < argv.length - 1) {
             int temp1 = 0, temp2 = 0;
             boolean match = false, scanned = true;
             Scanner scanner = new Scanner(argv[++i]).useDelimiter("/");
@@ -764,25 +774,25 @@ class TJBench {
             } else
               usage();
           }
-          if (argv[i].equalsIgnoreCase("-hflip"))
+          else if (argv[i].equalsIgnoreCase("-hflip"))
             xformOp = TJTransform.OP_HFLIP;
-          if (argv[i].equalsIgnoreCase("-vflip"))
+          else if (argv[i].equalsIgnoreCase("-vflip"))
             xformOp = TJTransform.OP_VFLIP;
-          if (argv[i].equalsIgnoreCase("-transpose"))
+          else if (argv[i].equalsIgnoreCase("-transpose"))
             xformOp = TJTransform.OP_TRANSPOSE;
-          if (argv[i].equalsIgnoreCase("-transverse"))
+          else if (argv[i].equalsIgnoreCase("-transverse"))
             xformOp = TJTransform.OP_TRANSVERSE;
-          if (argv[i].equalsIgnoreCase("-rot90"))
+          else if (argv[i].equalsIgnoreCase("-rot90"))
             xformOp = TJTransform.OP_ROT90;
-          if (argv[i].equalsIgnoreCase("-rot180"))
+          else if (argv[i].equalsIgnoreCase("-rot180"))
             xformOp = TJTransform.OP_ROT180;
-          if (argv[i].equalsIgnoreCase("-rot270"))
+          else if (argv[i].equalsIgnoreCase("-rot270"))
             xformOp = TJTransform.OP_ROT270;
-          if (argv[i].equalsIgnoreCase("-grayscale"))
+          else if (argv[i].equalsIgnoreCase("-grayscale"))
             xformOpt |= TJTransform.OPT_GRAY;
-          if (argv[i].equalsIgnoreCase("-nooutput"))
+          else if (argv[i].equalsIgnoreCase("-nooutput"))
             xformOpt |= TJTransform.OPT_NOOUTPUT;
-          if (argv[i].equalsIgnoreCase("-benchtime") && i < argv.length - 1) {
+          else if (argv[i].equalsIgnoreCase("-benchtime") && i < argv.length - 1) {
             double temp = -1;
             try {
               temp = Double.parseDouble(argv[++i]);
@@ -792,11 +802,11 @@ class TJBench {
             else
               usage();
           }
-          if (argv[i].equalsIgnoreCase("-yuv")) {
+          else if (argv[i].equalsIgnoreCase("-yuv")) {
             System.out.println("Testing YUV planar encoding/decoding\n");
             doYUV = true;
           }
-          if (argv[i].equalsIgnoreCase("-yuvpad") && i < argv.length - 1) {
+          else if (argv[i].equalsIgnoreCase("-yuvpad") && i < argv.length - 1) {
             int temp = 0;
             try {
              temp = Integer.parseInt(argv[++i]);
@@ -804,7 +814,7 @@ class TJBench {
             if (temp >= 1)
               yuvpad = temp;
           }
-          if (argv[i].equalsIgnoreCase("-subsamp") && i < argv.length - 1) {
+          else if (argv[i].equalsIgnoreCase("-subsamp") && i < argv.length - 1) {
             i++;
             if (argv[i].toUpperCase().startsWith("G"))
               subsamp = TJ.SAMP_GRAY;
@@ -819,22 +829,22 @@ class TJBench {
             else if (argv[i].equals("411"))
               subsamp = TJ.SAMP_411;
           }
-          if (argv[i].equalsIgnoreCase("-componly"))
+          else if (argv[i].equalsIgnoreCase("-componly"))
             compOnly = true;
-          if (argv[i].equalsIgnoreCase("-nowrite"))
+          else if (argv[i].equalsIgnoreCase("-nowrite"))
             write = false;
-          if (argv[i].equalsIgnoreCase("-warmup") && i < argv.length - 1) {
-            int temp = -1;
+          else if (argv[i].equalsIgnoreCase("-warmup") && i < argv.length - 1) {
+            double temp = -1;
             try {
-             temp = Integer.parseInt(argv[++i]);
+             temp = Double.parseDouble(argv[++i]);
             } catch (NumberFormatException e) {}
-            if (temp >= 0) {
+            if (temp >= 0.0) {
               warmup = temp;
-              System.out.format("Warmup runs = %d\n\n", warmup);
-            }
+              System.out.format("Warmup time = %.1f seconds\n\n", warmup);
+            } else
+              usage();
           }
-          if (argv[i].equalsIgnoreCase("-?"))
-            usage();
+          else usage();
         }
       }
 

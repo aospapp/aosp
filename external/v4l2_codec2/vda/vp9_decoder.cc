@@ -1,7 +1,9 @@
 // Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 7441087
 
+#include "rect.h"
 #include "vp9_decoder.h"
 
 #include <memory>
@@ -136,6 +138,18 @@ VP9Decoder::DecodeResult VP9Decoder::Decode() {
     if (!pic)
       return kRanOutOfSurfaces;
 
+    Rect new_render_rect(curr_frame_hdr_->render_width,
+                         curr_frame_hdr_->render_height);
+    // For safety, check the validity of render size or leave it as (0, 0).
+    if (!Rect(pic_size_).Contains(new_render_rect)) {
+      DVLOG(1) << "Render size exceeds picture size. render size: "
+               << new_render_rect.ToString()
+               << ", picture size: " << pic_size_.ToString();
+      new_render_rect = Rect();
+    }
+    DVLOG(2) << "Render resolution: " << new_render_rect.ToString();
+
+    pic->visible_rect = new_render_rect;
     pic->frame_hdr.reset(curr_frame_hdr_.release());
 
     if (!DecodeAndOutputPicture(pic)) {

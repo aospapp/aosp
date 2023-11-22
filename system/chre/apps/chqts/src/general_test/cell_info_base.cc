@@ -29,7 +29,7 @@ bool CellInfoBase::isBoundedInt32(int32_t value, int32_t lower,
 }
 
 void CellInfoBase::sendFatalFailureInt32(const char *message, int32_t value) {
-  uint32_t val = value;
+  uint32_t val = static_cast<uint32_t>(value);
   nanoapp_testing::sendFatalFailureToHost(message, &val);
 }
 

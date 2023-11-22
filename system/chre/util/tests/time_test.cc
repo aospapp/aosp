@@ -25,12 +25,14 @@ using chre::Nanoseconds;
 using chre::kOneSecondInNanoseconds;
 using chre::kOneMillisecondInNanoseconds;
 using chre::kOneMicrosecondInNanoseconds;
+using chre::kOneMillisecondInMicroseconds;
 
 // Tests for Time constants
 TEST(Time, CheckTimeConversionConstants) {
   EXPECT_EQ(kOneSecondInNanoseconds, 1e9);
   EXPECT_EQ(kOneMillisecondInNanoseconds, 1e6);
   EXPECT_EQ(kOneMicrosecondInNanoseconds, 1e3);
+  EXPECT_EQ(kOneMillisecondInMicroseconds, 1e3);
 }
 
 // Tests for Seconds
@@ -59,6 +61,11 @@ TEST(Time, InitializeMillisecFromNanosec) {
   Nanoseconds tNano(5 * kOneMillisecondInNanoseconds);
   Milliseconds tMilli(tNano);
   EXPECT_EQ(tMilli.getMilliseconds(), 5);
+}
+
+TEST(Time, ConcertMillisecToMicrosec) {
+  Milliseconds t(5);
+  EXPECT_EQ(t.getMicroseconds(), 5 * kOneMillisecondInMicroseconds);
 }
 
 TEST(Time, ConvertMillisecToNanosec) {
@@ -97,6 +104,11 @@ TEST(Time, ConvertMicrosecToNanosec) {
 TEST(Time, ConvertMicrosecToNanosecOverflowIsUint64Max) {
   Milliseconds t(UINT64_MAX / kOneMicrosecondInNanoseconds + 1);
   EXPECT_EQ(t.toRawNanoseconds(), UINT64_MAX);
+}
+
+TEST(Time, ConvertMicrosecToMillisec) {
+  Microseconds t(5120);
+  EXPECT_EQ(t.getMilliseconds(), 5);
 }
 
 // Tests for Nanoseconds
@@ -175,6 +187,13 @@ TEST(Time, NanosecGreaterThanEqual) {
   EXPECT_TRUE(t2 >= t1);
   EXPECT_TRUE(t3 >= t1);
   EXPECT_FALSE(t1 >= t3);
+}
+
+TEST(Time, NanosecLessThanEqual) {
+  Nanoseconds t1(5), t2(5), t3(6);
+  EXPECT_TRUE(t2 <= t1);
+  EXPECT_TRUE(t1 <= t3);
+  EXPECT_FALSE(t3 <= t1);
 }
 
 TEST(Time, NanosecLessThan) {

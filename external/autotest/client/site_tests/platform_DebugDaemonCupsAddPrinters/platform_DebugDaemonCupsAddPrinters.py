@@ -55,8 +55,8 @@ class platform_DebugDaemonCupsAddPrinters(test.test):
         # There's no printer at this address.  Autoconf failure expected.
         # CUPS_AUTOCONF_FAILURE.
         if autoconfig_result != _CUPS_AUTOCONF_FAILURE:
-            raise error.TestFail('Incorrect error code received: %i' %
-                                 autoconfig_result)
+            raise error.TestFail('autoconf - Incorrect error code received: '
+                '%i' % autoconfig_result)
 
     def test_ppd_error(self):
         """
@@ -73,7 +73,8 @@ class platform_DebugDaemonCupsAddPrinters(test.test):
                 ppd_contents)
         # PPD is invalid.  Expect a CUPS_INVALID_PPD error.
         if result != _CUPS_INVALID_PPD_ERROR:
-            raise error.TestFail('Incorrect error code received %d' % result)
+            raise error.TestFail('ppd_error - Incorrect error code received '
+                '%d' % result)
 
     def test_valid_config(self):
         """
@@ -93,7 +94,8 @@ class platform_DebugDaemonCupsAddPrinters(test.test):
         # PPD is valid.  Printer doesn't need to be reachable.  This is
         # expected to pass with CUPS_SUCCESS.
         if result != _CUPS_SUCCESS:
-            raise error.TestFail('Could not setup valid printer %d' % result)
+            raise error.TestFail('valid_config - Could not setup valid '
+                'printer %d' % result)
 
     def test_lpadmin(self):
         """
@@ -111,7 +113,8 @@ class platform_DebugDaemonCupsAddPrinters(test.test):
                  ppd_contents)
         if result != _CUPS_LPADMIN_ERROR:
             raise error.TestFail(
-                'Names with spaces should be rejected by CUPS %d' % result)
+                'lpadmin - Names with spaces should be rejected by CUPS '
+                '%d' % result)
 
         result = debugd_util.iface().CupsAddManuallyConfiguredPrinter(
                  'UnrecognizedProtocol',
@@ -119,10 +122,11 @@ class platform_DebugDaemonCupsAddPrinters(test.test):
                   ppd_contents)
         if result != _CUPS_LPADMIN_ERROR:
             raise error.TestFail(
-                  'Unrecognized protocols should be rejected by CUPS. %d' %
+                  'lpadmin - Unrecognized protocols should be rejected by '
+                  'CUPS. %d' %
                   result)
 
-    def run_once(self, situation):
+    def run_once(self):
         """
         Runs tests based on the designated situation.
 
@@ -132,14 +136,7 @@ class platform_DebugDaemonCupsAddPrinters(test.test):
         # Exits test if platform does not have CUPS
         cups.has_cups_or_die()
 
-        if situation == 'valid_config':
-            self.test_valid_config()
-        elif situation == 'lpadmin':
-            self.test_lpadmin()
-        elif situation == 'ppd_error':
-            self.test_ppd_error()
-        elif situation == 'autoconf':
-            self.test_autoconf()
-        else:
-            raise error.TestError('situation must be autoconf, valid_config, '
-                                  'lpadmin, or ppd_error')
+        self.test_valid_config()
+        self.test_lpadmin()
+        self.test_ppd_error()
+        self.test_autoconf()

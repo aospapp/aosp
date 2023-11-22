@@ -66,6 +66,17 @@ public class DirectoryAddonsAdapterTest extends AndroidTestCase {
         assertEquals(mEnv.model.getItemCount() + 1, mAdapter.getItemCount());
     }
 
+    public void testGetPosition() {
+        mEnv.model.createFolder("a");  // id will be "1"...derived from insert position.
+        mEnv.model.createFile("b");  // id will be "2"
+        mEnv.model.update();
+
+        assertEquals(0, mAdapter.getPosition("1"));
+        // adapter inserts a view between item 0 and 1 to force layout
+        // break between folders and files. This is reflected by an offset position.
+        assertEquals(2, mAdapter.getPosition("2"));
+    }
+
     // Tests that the item count is correct for a directory containing only subdirs.
     public void testItemCount_allDirs() {
         String[] names = {"Trader Joe's", "Alphabeta", "Lucky", "Vons", "Gelson's"};
@@ -187,8 +198,11 @@ public class DirectoryAddonsAdapterTest extends AndroidTestCase {
     }
 
     private static class DummyAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+        @Override
         public int getItemCount() { return 0; }
+        @Override
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {}
+        @Override
         public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
             return null;
         }

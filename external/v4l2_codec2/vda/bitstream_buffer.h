@@ -1,6 +1,7 @@
 // Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 39a7f93
 
 #ifndef MEDIA_BASE_BITSTREAM_BUFFER_H_
 #define MEDIA_BASE_BITSTREAM_BUFFER_H_

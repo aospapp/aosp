@@ -31,6 +31,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
 LOCAL_RESOURCE_DIR := cts/hostsidetests/appsecurity/test-apps/UsePermissionApp23/res
 
 LOCAL_PACKAGE_NAME := CtsUsePermissionApp26
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 # tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests

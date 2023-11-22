@@ -28,8 +28,8 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"নিম্নলিখিত অ্যাপ্লিকেশানটি আপনার ডিভাইস পরিচালনা করবে:"</string>
     <string name="next" msgid="1004321437324424398">"পরবর্তী"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"কর্মস্থলের প্রোফাইল সেট-আপ করা হচ্ছে…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"আপনার প্রশাসক আপনার প্রোফাইলের সেটিংস, কর্পোরেট অ্যাক্সেস, অ্যাপ, অনুমতি, এবং নেটওয়ার্ক কার্যকলাপ সহ আপনার প্রোফাইলের সাথে সম্পর্কিত ডেটা, এবং আপনার ডিভাইসের অবস্থান, এবং কল ও পরিচিতি অনুসন্ধানের ইতিহাসের উপরে নজর রাখতে ও সেগুলি পরিচালনা করতে পারেন।<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>আপনার প্রতিষ্ঠানের গোপনীয়তা নীতি সহ আরও তথ্যের জন্য আপনার প্রশাসকের সাথে যোগাযোগ করুন।"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"আপনার প্রশাসক আপনার ডিভাইসের সেটিংস, কর্পোরেট অ্যাক্সেস, অ্যাপ, অনুমতি, এবং নেটওয়ার্ক কার্যকলাপ সহ ডিভাইসের সাথে সম্পর্কিত ডেটা, ডিভাইসের অবস্থান, এবং কল ও পরিচিতি অনুসন্ধানের ইতিহাসের উপরে নজর রাখতে ও সেগুলি পরিচালনা করতে পারেন।<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>আপনার প্রতিষ্ঠানের গোপনীয়তা নীতি সহ আরও তথ্যের জন্য আপনার প্রশাসকের সাথে যোগাযোগ করুন।"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"আপনার প্রশাসক আপনার প্রোফাইলের সেটিংস, কর্পোরেট অ্যাক্সেস, অ্যাপ, অনুমতি, এবং নেটওয়ার্ক কার্যকলাপ সহ আপনার প্রোফাইলের সাথে সম্পর্কিত ডেটা, এবং আপনার ডিভাইসের লোকেশন, এবং কল ও পরিচিতি অনুসন্ধানের ইতিহাসের উপরে নজর রাখতে ও সেগুলি পরিচালনা করতে পারেন।<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>আপনার প্রতিষ্ঠানের গোপনীয়তা নীতি সহ আরও তথ্যের জন্য আপনার প্রশাসকের সাথে যোগাযোগ করুন।"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"আপনার প্রশাসক আপনার ডিভাইসের সেটিংস, কর্পোরেট অ্যাক্সেস, অ্যাপ, অনুমতি, এবং নেটওয়ার্ক কার্যকলাপ সহ ডিভাইসের সাথে সম্পর্কিত ডেটা, ডিভাইসের লোকেশন, এবং কল ও পরিচিতি অনুসন্ধানের ইতিহাসের উপরে নজর রাখতে ও সেগুলি পরিচালনা করতে পারেন।<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>আপনার প্রতিষ্ঠানের গোপনীয়তা নীতি সহ আরও তথ্যের জন্য আপনার প্রশাসকের সাথে যোগাযোগ করুন।"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"চুরির-সুরক্ষা বৈশিষ্ট্যগুলি ব্যবহার করতে আপনার ডিভাইসে অবশ্যই একটি পাসওয়ার্ড দ্বারা সুরক্ষিত স্ক্রিন লক ব্যবস্থাটিকে সক্ষম রাখতে হবে৷"</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"আপনার প্রতিষ্ঠানের গোপনীয়তা নীতিগুলি সহ আরও তথ্যের জন্য আপনার প্রশাসকের সাথে যোগাযোগ করুন।"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"আরও জানুন"</string>
@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"কর্মস্থলের ডিভাইস সেট-আপ করা হচ্ছে…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"সেটআপ ডেটার প্রক্রিয়া হচ্ছে..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"ওয়াই-ফাই -এ সংযুক্ত হচ্ছে..."</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"মোবাইল নেটওয়ার্কে কানেক্ট করা হচ্ছে…"</string>
     <string name="progress_download" msgid="3522436271691064624">"প্রশাসক অ্যাপ্লিকেশান ডাউনলোড হচ্ছে..."</string>
     <string name="progress_install" msgid="2258045670385866183">"প্রশাসক অ্যাপ্লিকেশান ইনস্টল হচ্ছে..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"অ-প্রয়োজনীয় সিস্টেম অ্যাপ্সকে সরানো হচ্ছে…"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"আপনি এমন একটি কর্মস্থলের প্রোফাইল তৈরি করতে চলেছেন যেটি আপনার প্রতিষ্ঠান পরিচালনা এবং নিরীক্ষণ করবে। <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> এর শর্তাবলী প্রযোজ্য।"</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"আপনার কর্মস্থলের অ্যাপগুলির জন্য একটি প্রোফাইল তৈরি করা হবে। আপনার প্রতিষ্ঠান এই প্রোফাইলটি ও আপনার ডিভাইসের অন্যান্য ক্রিয়াকলাপ পরিচালনা এবং নিরীক্ষণ করবে। শর্তাবলী প্রযোজ্য।"</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"আপনার কর্মস্থলের অ্যাপগুলির জন্য একটি প্রোফাইল তৈরি করা হবে। আপনার প্রতিষ্ঠান এই প্রোফাইলটি ও আপনার ডিভাইসের অন্যান্য ক্রিয়াকলাপ পরিচালনা এবং নিরীক্ষণ করবে। <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> এর শর্তাবলী প্রযোজ্য।"</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> এই ডিভাইসটি পরিচালনা করবে ও নিরাপদ রাখবে। শর্তাবলী প্রযোজ্য। <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> এই ডিভাইসটি. পরিচালনা করবে ও নিরাপদ রাখবে। <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> এ থাকা শর্তাবলী প্রযোজ্য। <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> এই ডিভাইসটি পরিচালনা করবে, এর ব্যবহারের উপরে নজর রাখবে এবং এটি সুরক্ষিত রাখবে। শর্তাবলী প্রযোজ্য। <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> এই ডিভাইসটি পরিচালনা করবে, এর ব্যবহারের উপরে নজর রাখবে এবং এটি সুরক্ষিত রাখবে। <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>-এর শর্তাবলী প্রযোজ্য। <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"এই লিঙ্কটি নিরাপদ নয় এবং ডিভাইস সেট আপ সম্পূর্ণ না হওয়া পর্যন্ত খোলা যাবে না: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"কোনও প্রশ্ন থাকলে <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> এর সাথে যোগাযোগ করুন।"</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"কোনও প্রশ্ন থাকলে আপনার প্রতিষ্ঠানের প্রশাসকের সাথে যোগাযোগ করুন"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>, এবং <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"কয়েক মিনিট সময় লাগতে পারে"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"আপনার কাজের অ্যাপগুলি এই প্রোফাইলে রাখা হবে এবং আপনার প্রতিষ্ঠান সেগুলি পরিচালনা করবে"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"আপনার প্রতিষ্ঠান এই ডিভাইসটি সুরক্ষিত রাখবে এবং পরিচালনা করবে"</string>
 </resources>

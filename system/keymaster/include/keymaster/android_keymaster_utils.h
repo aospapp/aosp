@@ -214,99 +214,167 @@ template <typename T> T hton(T t) {
     return retval;
 }
 
+inline
+const uint8_t* const & accessBlobData(const keymaster_key_blob_t* blob) {
+    return blob->key_material;
+}
+inline
+const uint8_t*& accessBlobData(keymaster_key_blob_t* blob) {
+    return blob->key_material;
+}
+inline
+const size_t& accessBlobSize(const keymaster_key_blob_t* blob) {
+    return blob->key_material_size;
+}
+inline
+size_t& accessBlobSize(keymaster_key_blob_t* blob) {
+    return blob->key_material_size;
+}
+
+inline
+const uint8_t* const & accessBlobData(const keymaster_blob_t* blob) {
+    return blob->data;
+}
+inline
+const uint8_t*& accessBlobData(keymaster_blob_t* blob) {
+    return blob->data;
+}
+inline
+const size_t & accessBlobSize(const keymaster_blob_t* blob) {
+    return blob->data_length;
+}
+inline
+size_t& accessBlobSize(keymaster_blob_t* blob) {
+    return blob->data_length;
+}
+
 /**
- * KeymasterKeyBlob is a very simple extension of the C struct keymaster_key_blob_t.  It manages its
- * own memory, which makes avoiding memory leaks much easier.
+ * TKeymasterBlob is a very simple extension of the C structs keymaster_blob_t and
+ * keymaster_key_blob_t.  It manages its own memory, which makes avoiding memory leaks
+ * much easier.
  */
-struct KeymasterKeyBlob : public keymaster_key_blob_t {
-    KeymasterKeyBlob() {
-        key_material = nullptr;
-        key_material_size = 0;
+template <typename BlobType>
+struct TKeymasterBlob : public BlobType {
+    TKeymasterBlob() {
+        accessBlobData(this) = nullptr;
+        accessBlobSize(this) = 0;
     }
 
-    KeymasterKeyBlob(const uint8_t* data, size_t size) {
-        key_material_size = 0;
-        key_material = dup_buffer(data, size);
-        if (key_material)
-            key_material_size = size;
+    TKeymasterBlob(const uint8_t* data, size_t size) {
+        accessBlobSize(this) = 0;
+        accessBlobData(this) = dup_buffer(data, size);
+        if (accessBlobData(this))
+            accessBlobSize(this) = size;
     }
 
-    explicit KeymasterKeyBlob(size_t size) {
-        key_material_size = 0;
-        key_material = new (std::nothrow) uint8_t[size];
-        if (key_material)
-            key_material_size = size;
+    explicit TKeymasterBlob(size_t size) {
+        accessBlobSize(this) = 0;
+        accessBlobData(this) = new (std::nothrow) uint8_t[size];
+        if (accessBlobData(this))
+            accessBlobSize(this) = size;
     }
 
-    explicit KeymasterKeyBlob(const keymaster_key_blob_t& blob) {
-        key_material_size = 0;
-        key_material = dup_buffer(blob.key_material, blob.key_material_size);
-        if (key_material)
-            key_material_size = blob.key_material_size;
+    explicit TKeymasterBlob(const BlobType& blob) {
+        accessBlobSize(this) = 0;
+        accessBlobData(this) = dup_buffer(accessBlobData(&blob), accessBlobSize(&blob));
+        if (accessBlobData(this))
+            accessBlobSize(this) = accessBlobSize(&blob);
     }
 
-    KeymasterKeyBlob(const KeymasterKeyBlob& blob) {
-        key_material_size = 0;
-        key_material = dup_buffer(blob.key_material, blob.key_material_size);
-        if (key_material)
-            key_material_size = blob.key_material_size;
+    template<size_t N>
+    explicit TKeymasterBlob(const uint8_t (&data)[N]) {
+        accessBlobSize(this) = 0;
+        accessBlobData(this) = dup_buffer(data, N);
+        if (accessBlobData(this))
+            accessBlobSize(this) = N;
     }
 
-    void operator=(const KeymasterKeyBlob& blob) {
-        Clear();
-        key_material = dup_buffer(blob.key_material, blob.key_material_size);
-        key_material_size = blob.key_material_size;
+    TKeymasterBlob(const TKeymasterBlob& blob) {
+        accessBlobSize(this) = 0;
+        accessBlobData(this) = dup_buffer(accessBlobData(&blob), accessBlobSize(&blob));
+        if (accessBlobData(this))
+            accessBlobSize(this) = accessBlobSize(&blob);
     }
 
-    ~KeymasterKeyBlob() { Clear(); }
+    TKeymasterBlob(TKeymasterBlob&& rhs) {
+        accessBlobSize(this) = accessBlobSize(&rhs);
+        accessBlobData(this) = accessBlobData(&rhs);
+        accessBlobSize(&rhs) = 0;
+        accessBlobData(&rhs) = nullptr;
+    }
 
-    const uint8_t* begin() const { return key_material; }
-    const uint8_t* end() const { return key_material + key_material_size; }
+    TKeymasterBlob& operator=(const TKeymasterBlob& blob) {
+        if (this != &blob) {
+            Clear();
+            accessBlobData(this) = dup_buffer(accessBlobData(&blob), accessBlobSize(&blob));
+            accessBlobSize(this) = accessBlobSize(&blob);
+        }
+        return *this;
+    }
+
+    TKeymasterBlob& operator=(TKeymasterBlob&& rhs) {
+        if (this != &rhs) {
+            Clear();
+            accessBlobSize(this) = accessBlobSize(&rhs);
+            accessBlobData(this) = accessBlobData(&rhs);
+            accessBlobSize(&rhs) = 0;
+            accessBlobData(&rhs) = nullptr;
+        }
+        return *this;
+    }
+
+    ~TKeymasterBlob() { Clear(); }
+
+    const uint8_t* begin() const { return accessBlobData(this); }
+    const uint8_t* end() const { return accessBlobData(this) + accessBlobSize(this); }
 
     void Clear() {
-        memset_s(const_cast<uint8_t*>(key_material), 0, key_material_size);
-        delete[] key_material;
-        key_material = nullptr;
-        key_material_size = 0;
+        memset_s(const_cast<uint8_t*>(accessBlobData(this)), 0, accessBlobSize(this));
+        delete[] accessBlobData(this);
+        accessBlobData(this) = nullptr;
+        accessBlobSize(this) = 0;
     }
 
     const uint8_t* Reset(size_t new_size) {
         Clear();
-        key_material = new (std::nothrow) uint8_t[new_size];
-        if (key_material)
-            key_material_size = new_size;
-        return key_material;
+        accessBlobData(this) = new (std::nothrow) uint8_t[new_size];
+        if (accessBlobData(this))
+            accessBlobSize(this) = new_size;
+        return accessBlobData(this);
     }
 
     // The key_material in keymaster_key_blob_t is const, which is the right thing in most
     // circumstances, but occasionally we do need to write into it.  This method exposes a non-const
     // version of the pointer.  Use sparingly.
-    uint8_t* writable_data() { return const_cast<uint8_t*>(key_material); }
+    uint8_t* writable_data() { return const_cast<uint8_t*>(accessBlobData(this)); }
 
-    keymaster_key_blob_t release() {
-        keymaster_key_blob_t tmp = {key_material, key_material_size};
-        key_material = nullptr;
-        key_material_size = 0;
+    BlobType release() {
+        BlobType tmp = {accessBlobData(this), accessBlobSize(this)};
+        accessBlobData(this) = nullptr;
+        accessBlobSize(this) = 0;
         return tmp;
     }
 
-    size_t SerializedSize() const { return sizeof(uint32_t) + key_material_size; }
+    size_t SerializedSize() const { return sizeof(uint32_t) + accessBlobSize(this); }
     uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const {
-        return append_size_and_data_to_buf(buf, end, key_material, key_material_size);
+        return append_size_and_data_to_buf(buf, end, accessBlobData(this), accessBlobSize(this));
     }
 
     bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) {
         Clear();
         UniquePtr<uint8_t[]> tmp;
-        if (!copy_size_and_data_from_buf(buf_ptr, end, &key_material_size, &tmp)) {
-            key_material = nullptr;
-            key_material_size = 0;
+        if (!copy_size_and_data_from_buf(buf_ptr, end, &accessBlobSize(this), &tmp)) {
+            accessBlobData(this) = nullptr;
+            accessBlobSize(this) = 0;
             return false;
         }
-        key_material = tmp.release();
+        accessBlobData(this) = tmp.release();
         return true;
     }
 };
+
+typedef TKeymasterBlob<keymaster_blob_t> KeymasterBlob;
+typedef TKeymasterBlob<keymaster_key_blob_t> KeymasterKeyBlob;
 
 struct Characteristics_Delete {
     void operator()(keymaster_key_characteristics_t* p) {
@@ -330,8 +398,42 @@ struct CertificateChainDelete {
     }
 };
 
+typedef UniquePtr<keymaster_cert_chain_t, CertificateChainDelete> CertChainPtr;
+
 keymaster_error_t EcKeySizeToCurve(uint32_t key_size_bits, keymaster_ec_curve_t* curve);
 keymaster_error_t EcCurveToKeySize(keymaster_ec_curve_t curve, uint32_t* key_size_bits);
+
+template<typename T> struct remove_reference      {typedef T type;};
+template<typename T> struct remove_reference<T&>  {typedef T type;};
+template<typename T> struct remove_reference<T&&> {typedef T type;};
+template<typename T>
+using remove_reference_t = typename remove_reference<T>::type;
+template<typename T>
+remove_reference_t<T>&& move(T&& x) {
+    return static_cast<remove_reference_t<T>&&>(x);
+}
+
+template<typename T>
+constexpr T&& forward(remove_reference_t<T>& x) {
+    return static_cast<T&&>(x);
+}
+template<typename T>
+constexpr T&& forward(remove_reference_t<T>&& x) {
+    return static_cast<T&&>(x);
+}
+
+template <class F> class final_action {
+  public:
+    explicit final_action(F f) : f_(move(f)) {}
+    ~final_action() { f_(); }
+
+  private:
+    F f_;
+};
+
+template <class F> inline final_action<F> finally(const F& f) {
+    return final_action<F>(f);
+}
 
 }  // namespace keymaster
 

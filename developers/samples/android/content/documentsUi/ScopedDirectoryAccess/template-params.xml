@@ -22,12 +22,11 @@
     <package>com.example.android.scopeddirectoryaccess</package>
 
     <minSdk>24</minSdk>
-    <compileSdkVersion>24</compileSdkVersion>
+    <compileSdkVersion>27</compileSdkVersion>
     <targetSdkVersion>24</targetSdkVersion>
 
     <!-- Include additional dependencies here.-->
-    <dependency>com.android.support:recyclerview-v7:24.0.0</dependency>
-    <dependency>com.android.support:support-v4:24.0.0</dependency>
+    <dependency>com.android.support:recyclerview-v7:27.0.2</dependency>
 
     <template src="base" />
 

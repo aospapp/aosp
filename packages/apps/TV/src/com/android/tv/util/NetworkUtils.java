@@ -20,21 +20,16 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.support.annotation.Nullable;
 import android.support.annotation.WorkerThread;
-
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-/**
- * A utility class to check the connectivity.
- */
+/** A utility class to check the connectivity. */
 @WorkerThread
 public class NetworkUtils {
     private static final String GENERATE_204 = "http://clients3.google.com/generate_204";
 
-    /**
-     * Checks if the internet connection is available.
-     */
+    /** Checks if the internet connection is available. */
     public static boolean isNetworkAvailable(@Nullable ConnectivityManager connectivityManager) {
         if (connectivityManager == null) {
             return false;
@@ -62,5 +57,5 @@ public class NetworkUtils {
         return false;
     }
 
-    private NetworkUtils() { }
+    private NetworkUtils() {}
 }

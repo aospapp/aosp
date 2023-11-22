@@ -56,8 +56,11 @@ class firmware_ShellBall(FirmwareTest):
                                             % self._shellball_name)
 
     def cleanup(self):
-        if os.path.exists(self._shellball_name):
-            os.remove(self._shellball_name)
+        try:
+            if os.path.exists(self._shellball_name):
+                os.remove(self._shellball_name)
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_ShellBall, self).cleanup()
 
     def run_once(self):

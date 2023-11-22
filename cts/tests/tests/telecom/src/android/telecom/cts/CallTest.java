@@ -19,7 +19,10 @@ package android.telecom.cts;
 import static android.telecom.Call.Details.*;
 
 import android.telecom.Call;
+import android.telecom.CallAudioState;
 import android.test.AndroidTestCase;
+
+import java.util.Arrays;
 
 public class CallTest extends AndroidTestCase {
 
@@ -108,5 +111,18 @@ public class CallTest extends AndroidTestCase {
                 + "PROPERTY_HIGH_DEF_AUDIO"
                 + "]",
                 Call.Details.propertiesToString(properties));
+    }
+
+    public void testCallAudioState() {
+        if (!TestUtils.HAS_BLUETOOTH) return;
+        CallAudioState cas = new CallAudioState(false, CallAudioState.ROUTE_BLUETOOTH,
+                CallAudioState.ROUTE_BLUETOOTH + CallAudioState.ROUTE_SPEAKER
+                        + CallAudioState.ROUTE_EARPIECE,
+                TestUtils.BLUETOOTH_DEVICE1,
+                Arrays.asList(TestUtils.BLUETOOTH_DEVICE1, TestUtils.BLUETOOTH_DEVICE2));
+        assertEquals(TestUtils.BLUETOOTH_DEVICE1, cas.getActiveBluetoothDevice());
+        assertEquals(2, cas.getSupportedBluetoothDevices().size());
+        assertTrue(cas.getSupportedBluetoothDevices().contains(TestUtils.BLUETOOTH_DEVICE1));
+        assertTrue(cas.getSupportedBluetoothDevices().contains(TestUtils.BLUETOOTH_DEVICE2));
     }
 }

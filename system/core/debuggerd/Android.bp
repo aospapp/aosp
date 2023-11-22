@@ -4,16 +4,19 @@ cc_defaults {
         "-Wall",
         "-Wextra",
         "-Werror",
+        "-Wno-unused-argument",
+        "-Wno-unused-function",
         "-Wno-nullability-completeness",
         "-Os",
     ],
+    cpp_std: "gnu++17",
 
     local_include_dirs: ["include"],
 }
 
 cc_library_headers {
     name: "libdebuggerd_common_headers",
-    export_include_dirs: ["common/include"]
+    export_include_dirs: ["common/include"],
 }
 
 cc_library_shared {
@@ -36,7 +39,7 @@ cc_library_shared {
     ],
 
     export_header_lib_headers: ["libdebuggerd_common_headers"],
-    export_include_dirs: ["tombstoned/include"]
+    export_include_dirs: ["tombstoned/include"],
 }
 
 // Utility library to tombstoned and get an output fd.
@@ -57,7 +60,7 @@ cc_library_static {
     ],
 
     export_header_lib_headers: ["libdebuggerd_common_headers"],
-    export_include_dirs: ["tombstoned/include"]
+    export_include_dirs: ["tombstoned/include"],
 }
 
 // Core implementation, linked into libdebuggerd_handler and the dynamic linker.
@@ -66,10 +69,14 @@ cc_library_static {
     defaults: ["debuggerd_defaults"],
     srcs: ["handler/debuggerd_handler.cpp"],
 
-    header_libs: ["libdebuggerd_common_headers"],
+    header_libs: [
+        "libbase_headers",
+        "libdebuggerd_common_headers",
+    ],
 
     whole_static_libs: [
         "libasync_safe",
+        "libcutils",
         "libdebuggerd",
     ],
 
@@ -106,6 +113,8 @@ cc_library_static {
         "libdebuggerd",
         "libbacktrace",
         "libunwind",
+        "libunwindstack",
+        "libdexfile",
         "liblzma",
         "libcutils",
     ],
@@ -144,33 +153,13 @@ cc_library_static {
         "libdebuggerd/utility.cpp",
     ],
 
-    target: {
-        android_arm: {
-            srcs: ["libdebuggerd/arm/machine.cpp"],
-        },
-        android_arm64: {
-            srcs: ["libdebuggerd/arm64/machine.cpp"],
-        },
-        android_mips: {
-            srcs: ["libdebuggerd/mips/machine.cpp"],
-        },
-        android_mips64: {
-            srcs: ["libdebuggerd/mips64/machine.cpp"],
-        },
-        android_x86: {
-            srcs: ["libdebuggerd/x86/machine.cpp"],
-        },
-        android_x86_64: {
-            srcs: ["libdebuggerd/x86_64/machine.cpp"],
-        },
-    },
-
     local_include_dirs: ["libdebuggerd/include"],
     export_include_dirs: ["libdebuggerd/include"],
 
     static_libs: [
         "libbacktrace",
         "libunwind",
+        "libunwindstack",
         "liblzma",
         "libbase",
         "libcutils",
@@ -188,8 +177,6 @@ cc_test {
         "libdebuggerd/test/elf_fake.cpp",
         "libdebuggerd/test/log_fake.cpp",
         "libdebuggerd/test/open_files_list_test.cpp",
-        "libdebuggerd/test/property_fake.cpp",
-        "libdebuggerd/test/ptrace_fake.cpp",
         "libdebuggerd/test/tombstone_test.cpp",
     ],
 
@@ -199,7 +186,10 @@ cc_test {
                 "client/debuggerd_client_test.cpp",
                 "debuggerd_test.cpp",
             ],
-            static_libs: ["libasync_safe", "libtombstoned_client_static"],
+            static_libs: [
+                "libasync_safe",
+                "libtombstoned_client_static",
+            ],
         },
     },
 
@@ -209,11 +199,13 @@ cc_test {
         "libcutils",
         "libdebuggerd_client",
         "liblog",
-        "libnativehelper"
+        "libminijail",
+        "libnativehelper",
     ],
 
     static_libs: [
         "libdebuggerd",
+        "libunwindstack",
     ],
 
     local_include_dirs: [
@@ -229,6 +221,16 @@ cc_test {
             stem: "debuggerd_test64",
         },
     },
+}
+
+cc_benchmark {
+    name: "debuggerd_benchmark",
+    defaults: ["debuggerd_defaults"],
+    srcs: ["debuggerd_benchmark.cpp"],
+    shared_libs: [
+        "libbase",
+        "libdebuggerd_client",
+    ],
 }
 
 cc_binary {
@@ -260,6 +262,7 @@ cc_binary {
         "libbase",
         "liblog",
         "libprocinfo",
+        "libunwindstack",
     ],
 }
 
@@ -298,7 +301,7 @@ cc_binary {
         "liblog",
     ],
 
-    init_rc: ["tombstoned/tombstoned.rc"]
+    init_rc: ["tombstoned/tombstoned.rc"],
 }
 
 subdirs = [

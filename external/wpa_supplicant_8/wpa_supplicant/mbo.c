@@ -154,7 +154,8 @@ int wpas_mbo_ie(struct wpa_supplicant *wpa_s, u8 *buf, size_t len)
 	struct wpabuf *mbo;
 	int res;
 
-	if (len < MBO_IE_HEADER + 3 + 7)
+	if (len < MBO_IE_HEADER + 3 + 7 +
+	    ((wpa_s->enable_oce & OCE_STA) ? 3 : 0))
 		return 0;
 
 	/* Leave room for the MBO IE header */
@@ -173,9 +174,16 @@ int wpas_mbo_ie(struct wpa_supplicant *wpa_s, u8 *buf, size_t len)
 	wpabuf_put_u8(mbo, 1);
 	wpabuf_put_u8(mbo, wpa_s->conf->mbo_cell_capa);
 
+	/* Add OCE capability indication attribute if OCE is enabled */
+	if (wpa_s->enable_oce & OCE_STA) {
+		wpabuf_put_u8(mbo, OCE_ATTR_ID_CAPA_IND);
+		wpabuf_put_u8(mbo, 1);
+		wpabuf_put_u8(mbo, OCE_RELEASE);
+	}
+
 	res = mbo_add_ie(buf, len, wpabuf_head_u8(mbo), wpabuf_len(mbo));
 	if (!res)
-		wpa_printf(MSG_ERROR, "Failed to add MBO IE");
+		wpa_printf(MSG_ERROR, "Failed to add MBO/OCE IE");
 
 	wpabuf_free(mbo);
 	return res;
@@ -277,11 +285,10 @@ int wpas_mbo_update_non_pref_chan(struct wpa_supplicant *wpa_s,
 		   non_pref_chan ? non_pref_chan : "N/A");
 
 	/*
-	 * The shortest channel configuration is 10 characters - commas, 3
-	 * colons, and 4 values that one of them (oper_class) is 2 digits or
-	 * more.
+	 * The shortest channel configuration is 7 characters - 3 colons and
+	 * 4 values.
 	 */
-	if (!non_pref_chan || os_strlen(non_pref_chan) < 10)
+	if (!non_pref_chan || os_strlen(non_pref_chan) < 7)
 		goto update;
 
 	cmd = os_strdup(non_pref_chan);
@@ -369,21 +376,30 @@ fail:
 
 void wpas_mbo_scan_ie(struct wpa_supplicant *wpa_s, struct wpabuf *ie)
 {
+	u8 *len;
+
 	wpabuf_put_u8(ie, WLAN_EID_VENDOR_SPECIFIC);
-	wpabuf_put_u8(ie, 7);
+	len = wpabuf_put(ie, 1);
+
 	wpabuf_put_be24(ie, OUI_WFA);
 	wpabuf_put_u8(ie, MBO_OUI_TYPE);
 
 	wpabuf_put_u8(ie, MBO_ATTR_ID_CELL_DATA_CAPA);
 	wpabuf_put_u8(ie, 1);
 	wpabuf_put_u8(ie, wpa_s->conf->mbo_cell_capa);
+	if (wpa_s->enable_oce & OCE_STA) {
+		wpabuf_put_u8(ie, OCE_ATTR_ID_CAPA_IND);
+		wpabuf_put_u8(ie, 1);
+		wpabuf_put_u8(ie, OCE_RELEASE);
+	}
+	*len = (u8 *) wpabuf_put(ie, 0) - len - 1;
 }
 
 
 void wpas_mbo_ie_trans_req(struct wpa_supplicant *wpa_s, const u8 *mbo_ie,
 			   size_t len)
 {
-	const u8 *pos, *cell_pref = NULL, *reason = NULL;
+	const u8 *pos, *cell_pref = NULL;
 	u8 id, elen;
 	u16 disallowed_sec = 0;
 
@@ -418,7 +434,8 @@ void wpas_mbo_ie_trans_req(struct wpa_supplicant *wpa_s, const u8 *mbo_ie,
 			if (elen != 1)
 				goto fail;
 
-			reason = pos;
+			wpa_s->wnm_mbo_trans_reason_present = 1;
+			wpa_s->wnm_mbo_transition_reason = *pos;
 			break;
 		case MBO_ATTR_ID_ASSOC_RETRY_DELAY:
 			if (elen != 2)
@@ -432,6 +449,9 @@ void wpas_mbo_ie_trans_req(struct wpa_supplicant *wpa_s, const u8 *mbo_ie,
 			} else if (wpa_s->wnm_mode &
 				   WNM_BSS_TM_REQ_DISASSOC_IMMINENT) {
 				disallowed_sec = WPA_GET_LE16(pos);
+				wpa_printf(MSG_DEBUG,
+					   "MBO: Association retry delay: %u",
+					   disallowed_sec);
 			} else {
 				wpa_printf(MSG_DEBUG,
 					   "MBO: Association retry delay attribute not in disassoc imminent mode");
@@ -461,9 +481,9 @@ void wpas_mbo_ie_trans_req(struct wpa_supplicant *wpa_s, const u8 *mbo_ie,
 		wpa_msg(wpa_s, MSG_INFO, MBO_CELL_PREFERENCE "preference=%u",
 			*cell_pref);
 
-	if (reason)
+	if (wpa_s->wnm_mbo_trans_reason_present)
 		wpa_msg(wpa_s, MSG_INFO, MBO_TRANSITION_REASON "reason=%u",
-			*reason);
+			wpa_s->wnm_mbo_transition_reason);
 
 	if (disallowed_sec && wpa_s->current_bss)
 		wpa_bss_tmp_disallow(wpa_s, wpa_s->current_bss->bssid,
@@ -515,10 +535,11 @@ void wpas_mbo_update_cell_capa(struct wpa_supplicant *wpa_s, u8 mbo_cell_capa)
 
 
 struct wpabuf * mbo_build_anqp_buf(struct wpa_supplicant *wpa_s,
-				   struct wpa_bss *bss)
+				   struct wpa_bss *bss, u32 mbo_subtypes)
 {
 	struct wpabuf *anqp_buf;
 	u8 *len_pos;
+	u8 i;
 
 	if (!wpa_bss_get_vendor_ie(bss, MBO_IE_VENDOR_TYPE)) {
 		wpa_printf(MSG_INFO, "MBO: " MACSTR
@@ -527,7 +548,8 @@ struct wpabuf * mbo_build_anqp_buf(struct wpa_supplicant *wpa_s,
 		return NULL;
 	}
 
-	anqp_buf = wpabuf_alloc(10);
+	/* Allocate size for the maximum case - all MBO subtypes are set */
+	anqp_buf = wpabuf_alloc(9 + MAX_MBO_ANQP_SUBTYPE);
 	if (!anqp_buf)
 		return NULL;
 
@@ -535,8 +557,43 @@ struct wpabuf * mbo_build_anqp_buf(struct wpa_supplicant *wpa_s,
 	wpabuf_put_be24(anqp_buf, OUI_WFA);
 	wpabuf_put_u8(anqp_buf, MBO_ANQP_OUI_TYPE);
 
-	wpabuf_put_u8(anqp_buf, MBO_ANQP_SUBTYPE_CELL_CONN_PREF);
+	wpabuf_put_u8(anqp_buf, MBO_ANQP_SUBTYPE_QUERY_LIST);
+
+	/* The first valid MBO subtype is 1 */
+	for (i = 1; i <= MAX_MBO_ANQP_SUBTYPE; i++) {
+		if (mbo_subtypes & BIT(i))
+			wpabuf_put_u8(anqp_buf, i);
+	}
+
 	gas_anqp_set_element_len(anqp_buf, len_pos);
 
 	return anqp_buf;
+}
+
+
+void mbo_parse_rx_anqp_resp(struct wpa_supplicant *wpa_s,
+			    struct wpa_bss *bss, const u8 *sa,
+			    const u8 *data, size_t slen)
+{
+	const u8 *pos = data;
+	u8 subtype;
+
+	if (slen < 1)
+		return;
+
+	subtype = *pos++;
+	slen--;
+
+	switch (subtype) {
+	case MBO_ANQP_SUBTYPE_CELL_CONN_PREF:
+		if (slen < 1)
+			break;
+		wpa_msg(wpa_s, MSG_INFO, RX_MBO_ANQP MACSTR
+			" cell_conn_pref=%u", MAC2STR(sa), *pos);
+		break;
+	default:
+		wpa_printf(MSG_DEBUG, "MBO: Unsupported ANQP subtype %u",
+			   subtype);
+		break;
+	}
 }

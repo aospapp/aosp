@@ -30,7 +30,7 @@ LOCAL_SRC_FILES := \
     $(call all-java-files-under, ../../common)
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 LOCAL_PACKAGE_NAME := CtsMediaSessionTestHelper
 

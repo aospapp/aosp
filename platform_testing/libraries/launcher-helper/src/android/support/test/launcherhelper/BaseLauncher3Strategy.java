@@ -15,9 +15,6 @@
  */
 package android.support.test.launcherhelper;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Direction;
@@ -26,7 +23,11 @@ import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
 import android.util.Log;
 import android.widget.TextView;
+
 import junit.framework.Assert;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 public abstract class BaseLauncher3Strategy implements ILauncherStrategy {
     private static final String LOG_TAG = BaseLauncher3Strategy.class.getSimpleName();
@@ -147,8 +148,7 @@ public abstract class BaseLauncher3Strategy implements ILauncherStrategy {
      */
     @Override
     public long launch(String appName, String packageName) {
-        BySelector app = By.res(
-                getSupportedLauncherPackage(), "icon").clazz(TextView.class).desc(appName);
+        BySelector app = By.clazz(TextView.class).text(appName);
         return CommonLauncherHelper.getInstance(mDevice).launchApp(this, app, packageName);
     }
 
@@ -181,7 +181,7 @@ public abstract class BaseLauncher3Strategy implements ILauncherStrategy {
      */
     @Override
     public BySelector getHotSeatSelector() {
-        return By.res(getSupportedLauncherPackage(), "hotseat");
+        return By.res(getSupportedLauncherPackage(), "search_container_hotseat");
     }
 
     /**

@@ -14,13 +14,35 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Permission test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
+
+    <!-- Install main test suite apk -->
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsPermissionTestCases.apk" />
     </target_preparer>
+
+    <!-- Create place to store apks -->
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="mkdir -p /data/local/tmp/cts/permissions" />
+        <option name="teardown-command" value="rm -rf /data/local/tmp/cts"/>
+    </target_preparer>
+
+    <!-- Load additional APKs onto device -->
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="push" value="CtsAppThatRequestsPermissionAandB.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsPermissionAandB.apk" />
+        <option name="push" value="CtsAppThatRequestsPermissionAandC.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsPermissionAandC.apk" />
+    </target_preparer>
+
+    <!-- Remove additional apps if installed -->
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="teardown-command" value="pm uninstall android.permission.cts.appthatrequestpermission" />
+    </target_preparer>
+
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.permission.cts" />
         <option name="runtime-hint" value="13m" />
+        <option name="hidden-api-checks" value="false" />
     </test>
 </configuration>

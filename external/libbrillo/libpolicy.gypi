@@ -12,6 +12,8 @@
             'policy/libpolicy.h',
             'policy/mock_libpolicy.h',
             'policy/mock_device_policy.h',
+            'policy/policy_util.h',
+            'policy/resilient_policy_util.h',
           ],
         },
       ],

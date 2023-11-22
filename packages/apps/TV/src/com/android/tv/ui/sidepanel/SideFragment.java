@@ -28,18 +28,16 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextView;
-
 import com.android.tv.MainActivity;
 import com.android.tv.R;
-import com.android.tv.TvApplication;
-import com.android.tv.util.DurationTimer;
+import com.android.tv.TvSingletons;
 import com.android.tv.analytics.HasTrackerLabel;
 import com.android.tv.analytics.Tracker;
+import com.android.tv.common.util.DurationTimer;
+import com.android.tv.common.util.SystemProperties;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.ProgramDataManager;
-import com.android.tv.util.SystemProperties;
 import com.android.tv.util.ViewCache;
-
 import java.util.List;
 
 public abstract class SideFragment<T extends Item> extends Fragment implements HasTrackerLabel {
@@ -74,8 +72,8 @@ public abstract class SideFragment<T extends Item> extends Fragment implements H
 
     /**
      * @param hideKey the KeyCode used to hide the fragment
-     * @param debugHideKey the KeyCode used to hide the fragment if
-     *            {@link SystemProperties#USE_DEBUG_KEYS}.
+     * @param debugHideKey the KeyCode used to hide the fragment if {@link
+     *     SystemProperties#USE_DEBUG_KEYS}.
      */
     public SideFragment(int hideKey, int debugHideKey) {
         mHideKey = hideKey;
@@ -87,14 +85,15 @@ public abstract class SideFragment<T extends Item> extends Fragment implements H
         super.onAttach(context);
         mChannelDataManager = getMainActivity().getChannelDataManager();
         mProgramDataManager = getMainActivity().getProgramDataManager();
-        mTracker = TvApplication.getSingletons(context).getTracker();
+        mTracker = TvSingletons.getSingletons(context).getTracker();
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
-        View view = ViewCache.getInstance().getOrCreateView(
-                inflater, getFragmentLayoutResourceId(), container);
+    public View onCreateView(
+            LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        View view =
+                ViewCache.getInstance()
+                        .getOrCreateView(inflater, getFragmentLayoutResourceId(), container);
 
         TextView textView = (TextView) view.findViewById(R.id.side_panel_title);
         textView.setText(getTitle());
@@ -131,8 +130,8 @@ public abstract class SideFragment<T extends Item> extends Fragment implements H
 
     public final boolean isHideKeyForThisPanel(int keyCode) {
         boolean debugKeysEnabled = SystemProperties.USE_DEBUG_KEYS.getValue();
-        return mHideKey != KeyEvent.KEYCODE_UNKNOWN &&
-                (mHideKey == keyCode || (debugKeysEnabled && mDebugHideKey == keyCode));
+        return mHideKey != KeyEvent.KEYCODE_UNKNOWN
+                && (mHideKey == keyCode || (debugKeysEnabled && mDebugHideKey == keyCode));
     }
 
     @Override
@@ -195,16 +194,14 @@ public abstract class SideFragment<T extends Item> extends Fragment implements H
         item.notifyUpdated();
     }
 
-    /**
-     * Notifies all items of ItemAdapter has changed without structural changes.
-     */
+    /** Notifies all items of ItemAdapter has changed without structural changes. */
     protected void notifyItemsChanged() {
         notifyItemsChanged(0, mAdapter.getItemCount());
     }
 
     /**
-     * Notifies some items of ItemAdapter has changed starting from position
-     * <code>positionStart</code> to the end without structural changes.
+     * Notifies some items of ItemAdapter has changed starting from position <code>positionStart
+     * </code> to the end without structural changes.
      */
     protected void notifyItemsChanged(int positionStart) {
         notifyItemsChanged(positionStart, mAdapter.getItemCount() - positionStart);
@@ -225,20 +222,20 @@ public abstract class SideFragment<T extends Item> extends Fragment implements H
     }
 
     protected abstract String getTitle();
+
     @Override
     public abstract String getTrackerLabel();
+
     protected abstract List<T> getItemList();
 
     public interface SideFragmentListener {
         void onSideFragmentViewDestroyed();
     }
 
-    /**
-     * Preloads the item views.
-     */
+    /** Preloads the item views. */
     public static void preloadItemViews(Context context) {
-        ViewCache.getInstance().putView(
-                context, R.layout.option_fragment, new FrameLayout(context), 1);
+        ViewCache.getInstance()
+                .putView(context, R.layout.option_fragment, new FrameLayout(context), 1);
         VerticalGridView fakeParent = new VerticalGridView(context);
         for (int id : PRELOAD_VIEW_IDS) {
             sRecycledViewPool.setMaxRecycledViews(id, PRELOAD_VIEW_SIZE);
@@ -246,9 +243,7 @@ public abstract class SideFragment<T extends Item> extends Fragment implements H
         }
     }
 
-    /**
-     * Releases the recycled view pool.
-     */
+    /** Releases the recycled view pool. */
     public static void releaseRecycledViewPool() {
         sRecycledViewPool.clear();
     }

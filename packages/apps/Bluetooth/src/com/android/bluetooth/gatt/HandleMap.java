@@ -16,6 +16,7 @@
 package com.android.bluetooth.gatt;
 
 import android.util.Log;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -33,16 +34,16 @@ class HandleMap {
     public static final int TYPE_DESCRIPTOR = 3;
 
     class Entry {
-        int serverIf = 0;
-        int type = TYPE_UNDEFINED;
-        int handle = 0;
-        UUID uuid = null;
-        int instance = 0;
-        int serviceType = 0;
-        int serviceHandle = 0;
-        int charHandle = 0;
-        boolean started = false;
-        boolean advertisePreferred = false;
+        public int serverIf = 0;
+        public int type = TYPE_UNDEFINED;
+        public int handle = 0;
+        public UUID uuid = null;
+        public int instance = 0;
+        public int serviceType = 0;
+        public int serviceHandle = 0;
+        public int charHandle = 0;
+        public boolean started = false;
+        public boolean advertisePreferred = false;
 
         Entry(int serverIf, int handle, UUID uuid, int serviceType, int instance) {
             this.serverIf = serverIf;
@@ -54,7 +55,7 @@ class HandleMap {
         }
 
         Entry(int serverIf, int handle, UUID uuid, int serviceType, int instance,
-            boolean advertisePreferred) {
+                boolean advertisePreferred) {
             this.serverIf = serverIf;
             this.type = TYPE_SERVICE;
             this.handle = handle;
@@ -97,7 +98,7 @@ class HandleMap {
     }
 
     void addService(int serverIf, int handle, UUID uuid, int serviceType, int instance,
-        boolean advertisePreferred) {
+            boolean advertisePreferred) {
         mEntries.add(new Entry(serverIf, handle, uuid, serviceType, instance, advertisePreferred));
     }
 
@@ -107,15 +108,16 @@ class HandleMap {
     }
 
     void addDescriptor(int serverIf, int handle, UUID uuid, int serviceHandle) {
-        mEntries.add(new Entry(serverIf, TYPE_DESCRIPTOR, handle, uuid, serviceHandle, mLastCharacteristic));
+        mEntries.add(new Entry(serverIf, TYPE_DESCRIPTOR, handle, uuid, serviceHandle,
+                mLastCharacteristic));
     }
 
     void setStarted(int serverIf, int handle, boolean started) {
-        for(Entry entry : mEntries) {
-            if (entry.type != TYPE_SERVICE ||
-                entry.serverIf != serverIf ||
-                entry.handle != handle)
+        for (Entry entry : mEntries) {
+            if (entry.type != TYPE_SERVICE || entry.serverIf != serverIf
+                    || entry.handle != handle) {
                 continue;
+            }
 
             entry.started = started;
             return;
@@ -123,49 +125,34 @@ class HandleMap {
     }
 
     Entry getByHandle(int handle) {
-        for(Entry entry : mEntries) {
-            if (entry.handle == handle)
+        for (Entry entry : mEntries) {
+            if (entry.handle == handle) {
                 return entry;
+            }
         }
         Log.e(TAG, "getByHandle() - Handle " + handle + " not found!");
         return null;
     }
 
-    int getServiceHandle(UUID uuid, int serviceType, int instance) {
-        for(Entry entry : mEntries) {
-            if (entry.type == TYPE_SERVICE &&
-                entry.serviceType == serviceType &&
-                entry.instance == instance &&
-                entry.uuid.equals(uuid)) {
-                return entry.handle;
+    boolean checkServiceExists(UUID uuid, int handle) {
+        for (Entry entry : mEntries) {
+            if (entry.type == TYPE_SERVICE && entry.handle == handle && entry.uuid.equals(uuid)) {
+                return true;
             }
         }
-        Log.e(TAG, "getServiceHandle() - UUID " + uuid + " not found!");
-        return 0;
-    }
-
-    int getCharacteristicHandle(int serviceHandle, UUID uuid, int instance) {
-        for(Entry entry : mEntries) {
-            if (entry.type == TYPE_CHARACTERISTIC &&
-                entry.serviceHandle == serviceHandle &&
-                entry.instance == instance &&
-                entry.uuid.equals(uuid)) {
-                return entry.handle;
-            }
-        }
-        Log.e(TAG, "getCharacteristicHandle() - Service " + serviceHandle
-                    + ", UUID " + uuid + " not found!");
-        return 0;
+        return false;
     }
 
     void deleteService(int serverIf, int serviceHandle) {
-        for(Iterator <Entry> it = mEntries.iterator(); it.hasNext();) {
+        for (Iterator<Entry> it = mEntries.iterator(); it.hasNext(); ) {
             Entry entry = it.next();
-            if (entry.serverIf != serverIf) continue;
+            if (entry.serverIf != serverIf) {
+                continue;
+            }
 
-            if (entry.handle == serviceHandle ||
-                entry.serviceHandle == serviceHandle)
+            if (entry.handle == serviceHandle || entry.serviceHandle == serviceHandle) {
                 it.remove();
+            }
         }
     }
 
@@ -200,7 +187,7 @@ class HandleMap {
 
         for (Entry entry : mEntries) {
             sb.append("  " + entry.serverIf + ": [" + entry.handle + "] ");
-            switch(entry.type) {
+            switch (entry.type) {
                 case TYPE_SERVICE:
                     sb.append("Service " + entry.uuid);
                     sb.append(", started " + entry.started);

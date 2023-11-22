@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Không có SIM hoặc lỗi SIM"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Không có mạng di động"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Cuộc gọi đi bị hạn chế bởi FDN."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"Yêu cầu DIAL được sửa đổi thành yêu cầu USSD."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"Yêu cầu DIAL được sửa đổi thành yêu cầu SS."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"Yêu cầu DIAL được sửa đổi thành yêu cầu DIAL với số khác."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Cuộc gọi đã thay đổi thành yêu cầu USSD"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Cuộc gọi đã thay đổi thành yêu cầu SS"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Đã đổi sang số khác"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Đã đổi sang cuộc gọi video"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Cuộc gọi video đã thay đổi thành yêu cầu SS"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Cuộc gọi video đã thay đổi thành yêu cầu USSD"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Đã đổi sang cuộc gọi thông thường"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Đã đổi sang số khác"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Không thực hiện được cuộc gọi đi khi đang bật chế độ chặn cuộc gọi."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Cuộc gọi bị hạn chế bởi kiểm soát truy cập."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Cuộc gọi khẩn cấp bị hạn chế bởi kiểm soát truy cập."</string>

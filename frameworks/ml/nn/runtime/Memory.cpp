@@ -29,7 +29,7 @@ int Memory::create(uint32_t size) {
     mMemory = mapMemory(mHidlMemory);
     if (mMemory == nullptr) {
         LOG(ERROR) << "Memory::create failed";
-        return ANEURALNETWORKS_OP_FAILED;
+        return ANEURALNETWORKS_OUT_OF_MEMORY;
     }
     return ANEURALNETWORKS_NO_ERROR;
 }
@@ -44,6 +44,10 @@ bool Memory::validateSize(uint32_t offset, uint32_t length) const {
 }
 
 MemoryFd::~MemoryFd() {
+    // Unmap the memory.
+    if (mMapping) {
+        munmap(mMapping, mHidlMemory.size());
+    }
     // Delete the native_handle.
     if (mHandle) {
         int fd = mHandle->data[0];
@@ -69,6 +73,13 @@ int MemoryFd::set(size_t size, int prot, int fd, size_t offset) {
         return ANEURALNETWORKS_UNEXPECTED_NULL;
     }
 
+    if (mMapping) {
+        if (munmap(mMapping, mHidlMemory.size()) != 0) {
+            LOG(ERROR) << "Failed to remove the existing mapping";
+            // This is not actually fatal.
+        }
+        mMapping = nullptr;
+    }
     if (mHandle) {
         native_handle_delete(mHandle);
     }
@@ -90,6 +101,11 @@ int MemoryFd::set(size_t size, int prot, int fd, size_t offset) {
 }
 
 int MemoryFd::getPointer(uint8_t** buffer) const {
+    if (mMapping) {
+        *buffer = mMapping;
+        return ANEURALNETWORKS_NO_ERROR;
+    }
+
     if (mHandle == nullptr) {
         LOG(ERROR) << "Memory not initialized";
         return ANEURALNETWORKS_UNEXPECTED_NULL;
@@ -100,16 +116,16 @@ int MemoryFd::getPointer(uint8_t** buffer) const {
     size_t offset = getSizeFromInts(mHandle->data[2], mHandle->data[3]);
     void* data = mmap(nullptr, mHidlMemory.size(), prot, MAP_SHARED, fd, offset);
     if (data == MAP_FAILED) {
-        LOG(ERROR) << "Can't mmap the file descriptor.";
+        LOG(ERROR) << "MemoryFd::getPointer(): Can't mmap the file descriptor.";
         return ANEURALNETWORKS_UNMAPPABLE;
     } else {
-        *buffer = static_cast<uint8_t*>(data);
+        mMapping = *buffer = static_cast<uint8_t*>(data);
         return ANEURALNETWORKS_NO_ERROR;
     }
 }
 
 uint32_t MemoryTracker::add(const Memory* memory) {
-    VLOG(MODEL) << __func__ << " for " << memory;
+    VLOG(MODEL) << __func__ << "(" << SHOW_IF_DEBUG(memory) << ")";
     // See if we already have this memory. If so,
     // return its index.
     auto i = mKnown.find(memory);

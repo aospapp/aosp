@@ -28,7 +28,9 @@ import android.icu.text.Transliterator;
 import android.icu.text.UTF16;
 import android.icu.text.UnicodeSet;
 import android.icu.text.UnicodeSetIterator;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
 public class WriteCharts {
     public static void main(String[] args) throws IOException {
         if (false) {

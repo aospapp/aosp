@@ -1,0 +1,51 @@
+#/** @file
+#
+#  Copyright (c) 2017, Linaro Limited. All rights reserved.
+#
+#  This program and the accompanying materials
+#  are licensed and made available under the terms and conditions of the BSD License
+#  which accompanies this distribution. The full text of the license may be found at
+#  http://opensource.org/licenses/bsd-license.php
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x00010019
+  BASE_NAME                      = DwUsb3Dxe
+  FILE_GUID                      = 0879cd34-c399-4315-9891-56024072e711
+  MODULE_TYPE                    = UEFI_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = DwUsb3EntryPoint
+
+[Sources.common]
+  DwUsb3Dxe.c
+
+[LibraryClasses]
+  DebugLib
+  IoLib
+  MemoryAllocationLib
+  TimerLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UncachedMemoryAllocationLib
+  CacheMaintenanceLib
+
+[Protocols]
+  gEfiDriverBindingProtocolGuid
+  gUsbDeviceProtocolGuid
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  OpenPlatformPkg/Drivers/Usb/DwUsb3Dxe/DwUsb3Dxe.dec
+
+[Pcd]
+  gDwUsb3DxeTokenSpaceGuid.PcdDwUsb3DxeBaseAddress
+
+[Depex]
+  BEFORE gAndroidFastbootUsbGuid

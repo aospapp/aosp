@@ -1,5 +1,6 @@
 package com.android.cts.verifier.security;
 
+import android.app.admin.DevicePolicyManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.os.Bundle;
@@ -32,6 +33,9 @@ public class CANotifyOnBootActivity extends PassFailButtons.Activity {
         Button installButton = (Button) view.findViewById(R.id.install);
         checkCredsButton.setOnClickListener(new OpenTrustedCredentials());
         installButton.setOnClickListener(new InstallCert());
+        Button removeScreenLockButton = (Button) view.findViewById(R.id.remove_screen_lock);
+        removeScreenLockButton.setOnClickListener(
+                v -> startActivity(new Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD)));
 
         setContentView(view);
 

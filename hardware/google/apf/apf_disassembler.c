@@ -50,6 +50,8 @@ static const char* opcode_names [] = {
     [JLT_OPCODE] = "jlt",
     [JSET_OPCODE] = "jset",
     [JNEBS_OPCODE] = "jnebs",
+    [LDDW_OPCODE] = "lddw",
+    [STDW_OPCODE] = "stdw",
 };
 
 static void print_jump_target(uint32_t target, uint32_t program_len) {
@@ -206,6 +208,12 @@ int main(void) {
                       break;
               }
               break;
+          case LDDW_OPCODE:
+          case STDW_OPCODE:
+              PRINT_OPCODE();
+              printf("r%u, [%d+r%u]", reg_num, signed_imm, reg_num ^ 1);
+              break;
+
           // Unknown opcode
           default:
               printf("unknown %u", opcode);

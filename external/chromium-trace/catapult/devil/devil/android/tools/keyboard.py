@@ -19,7 +19,7 @@ if __name__ == '__main__':
 from devil import base_error
 from devil.android.sdk import keyevent
 from devil.android.tools import script_common
-from devil.utils import run_tests_helper
+from devil.utils import logging_common
 
 
 _KEY_MAPPING = {
@@ -80,12 +80,6 @@ def Keyboard(device, stream_itr):
     pass
 
 
-def AddArguments(parser):
-  parser.add_argument('-d', '--device', action='append', dest='devices',
-                      metavar='DEVICE', help='device serial')
-  parser.add_argument('-v', '--verbose', action='count', help='print more')
-
-
 class MultipleDevicesError(base_error.BaseError):
   def __init__(self, devices):
     super(MultipleDevicesError, self).__init__(
@@ -95,10 +89,11 @@ class MultipleDevicesError(base_error.BaseError):
 def main(raw_args):
   parser = argparse.ArgumentParser(
       description="Use your keyboard as your phone's keyboard.")
-  AddArguments(parser)
+  logging_common.AddLoggingArguments(parser)
+  script_common.AddDeviceArguments(parser)
   args = parser.parse_args(raw_args)
 
-  run_tests_helper.SetLogLevel(args.verbose)
+  logging_common.InitializeLogging(args)
 
   devices = script_common.GetDevices(args.devices, None)
   if len(devices) > 1:

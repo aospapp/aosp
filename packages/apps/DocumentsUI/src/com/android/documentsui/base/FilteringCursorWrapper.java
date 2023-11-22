@@ -18,8 +18,8 @@ package com.android.documentsui.base;
 
 import static com.android.documentsui.base.DocumentInfo.getCursorLong;
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
-import static com.android.documentsui.base.Shared.DEBUG;
-import static com.android.documentsui.base.Shared.TAG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.TAG;
 
 import android.database.AbstractCursor;
 import android.database.Cursor;

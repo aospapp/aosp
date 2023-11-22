@@ -24,7 +24,9 @@ cc_defaults {
             shared_libs: ["libcutils"],
         },
     },
-    include_dirs: ["art/cmdline"],
+    header_libs: [
+        "art_cmdlineparser_headers",
+    ],
 }
 
 art_cc_binary {
@@ -34,6 +36,7 @@ art_cc_binary {
         "libart",
         "libart-compiler",
         "libart-disassembler",
+        "libdexfile",
         "libbase",
     ],
 }
@@ -48,6 +51,7 @@ art_cc_binary {
         "libartd",
         "libartd-compiler",
         "libartd-disassembler",
+        "libdexfiled",
         "libbase",
     ],
 }
@@ -72,6 +76,7 @@ art_cc_binary {
     ],
     static_libs: [
         "libart",
+        "libdexfile",
         "libart-compiler",
         "libart-disassembler",
         "libvixl-arm",
@@ -102,6 +107,7 @@ art_cc_binary {
     ],
     static_libs: [
         "libartd",
+        "libdexfiled",
         "libartd-compiler",
         "libartd-disassembler",
         "libvixld-arm",
@@ -115,6 +121,7 @@ art_cc_test {
         "art_gtest_defaults",
     ],
     srcs: [
+        "oatdump_app_test.cc",
         "oatdump_test.cc",
         "oatdump_image_test.cc",
     ],

@@ -37,17 +37,4 @@ int tagSocket(JNIEnv* env, int fd) {
     return fd;
 }
 
-void untagSocket(JNIEnv* env, int fd) {
-    if (env->ExceptionOccurred()) { return; }
-    jmethodID get = env->GetStaticMethodID(JniConstants::socketTaggerClass,
-                                           "get", "()Ldalvik/system/SocketTagger;");
-    jobject socketTagger =
-        env->CallStaticObjectMethod(JniConstants::socketTaggerClass, get);
-    jmethodID untag = env->GetMethodID(JniConstants::socketTaggerClass,
-                                       "untag", "(Ljava/io/FileDescriptor;)V");
-
-    jobject fileDescriptor = jniCreateFileDescriptor(env, fd);
-    env->CallVoidMethod(socketTagger, untag, fileDescriptor);
-}
-
 }

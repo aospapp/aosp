@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Copyright 2017, The Android Open Source Project
+  Copyright 2018, The Android Open Source Project
 
   Licensed under the Apache License, Version 2.0 (the "License")
   you may not use this file except in compliance with the License.
@@ -14,6 +14,13 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
+
+<!-- Car customizations
+     - Added title "Enter your PIN" under the entry field
+     - Put backspace and enter buttons in row 4
+     - Hid the emergency call at the bottom
+-->
+
 <com.android.keyguard.KeyguardPINView
         xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -21,18 +28,54 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-    <FrameLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginLeft="@dimen/num_pad_margin_left"
-        android:layout_marginRight="@dimen/num_pad_margin_right">
+        android:layout_marginRight="@dimen/num_pad_margin_right"
+        android:orientation="vertical"
+        android:gravity="center">
 
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <com.android.keyguard.PasswordTextView
+                android:id="@+id/pinEntry"
+                android:layout_width="@dimen/keyguard_security_width"
+                android:layout_height="@dimen/pin_entry_height"
+                android:gravity="center"
+                app:scaledTextSize="@integer/password_text_view_scale"
+                android:contentDescription="@string/keyguard_accessibility_pin_area" />
+
+            <View
+                android:id="@+id/divider"
+                android:layout_width="@dimen/keyguard_security_width"
+                android:layout_height="@dimen/divider_height"
+                android:background="@android:color/white" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="@dimen/car_padding_2"
+                android:gravity="center"
+                android:textColor="@android:color/white"
+                android:textSize="@dimen/car_body1_size"
+                android:text="@string/keyguard_enter_your_pin" />
+
+            <include
+                layout="@layout/keyguard_message_area"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+        </LinearLayout>
 
         <GridLayout
             android:id="@+id/container"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical|left"
+            android:layout_marginVertical="@dimen/pin_pattern_pad_margin_vertical"
             android:columnCount="3">
 
             <!-- Row 1 -->
@@ -78,95 +121,71 @@
                 app:digit="@string/nine" />
 
             <!-- Row 4 -->
-            <Space
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+            <ImageButton
+                android:id="@+id/delete_button"
+                style="@style/NumPadKeyButton"
+                android:gravity="center_vertical"
+                android:src="@drawable/ic_backspace"
+                android:clickable="true"
+                android:tint="@android:color/white"
+                android:background="@drawable/ripple_drawable"
+                android:contentDescription="@string/keyboardview_keycode_delete" />
             <com.android.keyguard.NumPadKey
                 android:id="@+id/key0"
                 style="@style/NumPadKeyButton"
                 app:digit="@string/zero" />
             <ImageButton
-                android:id="@+id/delete_button"
+                android:id="@+id/key_enter"
                 style="@style/NumPadKeyButton"
-                android:gravity="center_vertical"
-                android:src="@drawable/ic_backspace_black_24dp"
-                android:clickable="true"
+                android:src="@drawable/ic_done"
+                android:tint="@android:color/white"
                 android:background="@drawable/ripple_drawable"
-                android:contentDescription="@string/keyboardview_keycode_delete"
-                android:layout_alignParentRight="true" />
+                android:contentDescription="@string/keyboardview_keycode_enter" />
         </GridLayout>
 
-        <LinearLayout
+        <Button
+            android:id="@+id/cancel_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical|right"
-            android:gravity="center"
-            android:orientation="vertical">
+            android:layout_gravity="center"
+            style="@style/KeyguardButton"
+            android:text="@string/cancel"/>
 
-            <com.android.keyguard.PasswordTextView
-                android:id="@+id/pinEntry"
-                android:layout_width="@dimen/keyguard_security_width"
-                android:layout_height="@dimen/pin_entry_height"
-                android:gravity="center"
-                app:scaledTextSize="@integer/password_text_view_scale"
-                android:contentDescription="@string/keyguard_accessibility_pin_area" />
-
-            <View
-                android:id="@+id/divider"
-                android:layout_width="@dimen/keyguard_security_width"
-                android:layout_height="@dimen/divider_height"
-                android:background="@android:color/white" />
-
-            <com.android.keyguard.AlphaOptimizedImageButton
-                android:id="@+id/key_enter"
-                android:layout_width="@dimen/num_pad_key_width"
-                android:layout_height="@dimen/num_pad_key_height"
-                android:src="@drawable/ic_done_wht"
-                android:background="@drawable/ripple_drawable"
-                android:layout_marginTop="@dimen/key_enter_margin_top"
-                android:contentDescription="@string/keyboardview_keycode_enter" />
-
-            <include layout="@layout/keyguard_message_area"
-                 android:layout_width="wrap_content"
-                 android:layout_height="wrap_content"/>
-        </LinearLayout>
-    </FrameLayout>
+    </LinearLayout>
 
     <!-- KeyguardPinView references these resources ids in code so removing them will cause the
          keyguard to crash. Instead put them down here where they are out of the way and set their
          visibility to gone. -->
     <com.android.keyguard.AlphaOptimizedRelativeLayout
         android:id="@+id/row0"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         android:visibility="gone" />
     <LinearLayout
         android:id="@+id/row1"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         android:visibility="gone" />
     <LinearLayout
         android:id="@+id/row2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         android:visibility="gone" />
     <LinearLayout
         android:id="@+id/row3"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         android:visibility="gone" />
     <LinearLayout
         android:id="@+id/row4"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         android:visibility="gone" />
 
-    <include layout="@layout/keyguard_eca"
-             android:id="@+id/keyguard_selector_fade_container"
-             android:layout_width="match_parent"
-             android:layout_height="wrap_content"
-             android:orientation="vertical"
-             android:layout_gravity="bottom|center_horizontal"
-             android:gravity="center_horizontal"
-             android:visibility="gone" />
+    <include
+        layout="@layout/keyguard_eca"
+        android:id="@+id/keyguard_selector_fade_container"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone" />
 </com.android.keyguard.KeyguardPINView>

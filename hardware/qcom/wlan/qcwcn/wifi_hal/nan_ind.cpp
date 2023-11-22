@@ -886,21 +886,20 @@ int NanCommand::getNanFurtherAvailabilityMap(const u8 *pInValue,
     return 0;
 }
 
-int NanCommand::getNanStaParameter(wifi_interface_handle iface,
+wifi_error NanCommand::getNanStaParameter(wifi_interface_handle iface,
                                    NanStaParameter *pRsp)
 {
-    int ret = WIFI_ERROR_NONE;
-    int res = -1;
+    wifi_error ret = WIFI_ERROR_NONE;
     transaction_id id = 1;
     interface_info *ifaceInfo = getIfaceInfo(iface);
 
     ret = create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Set the interface Id of the message. */
     ret = set_iface_id(ifaceInfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /*
@@ -914,7 +913,7 @@ int NanCommand::getNanStaParameter(wifi_interface_handle iface,
 
     mStaParam = pRsp;
     ret = putNanStats(id, &syncStats);
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: putNanStats Error:%d",__func__, ret);
         goto cleanup;
     }
@@ -927,11 +926,10 @@ int NanCommand::getNanStaParameter(wifi_interface_handle iface,
     struct timespec abstime;
     abstime.tv_sec = 4;
     abstime.tv_nsec = 0;
-    res = mCondition.wait(abstime);
-    if (res == ETIMEDOUT)
+    ret = mCondition.wait(abstime);
+    if (ret == WIFI_ERROR_TIMED_OUT)
     {
         ALOGE("%s: Time out happened.", __func__);
-        ret = WIFI_ERROR_TIMED_OUT;
         goto cleanup;
     }
     ALOGV("%s: NanStaparameter Master_pref:%x," \
@@ -942,7 +940,7 @@ int NanCommand::getNanStaParameter(wifi_interface_handle iface,
           pRsp->hop_count, pRsp->beacon_transmit_time, pRsp->ndp_channel_freq);
 cleanup:
     mStaParam = NULL;
-    return (int)ret;
+    return ret;
 }
 
 int NanCommand::getNanTransmitFollowupInd(NanTransmitFollowupInd *event)
@@ -1021,6 +1019,47 @@ int NanCommand::handleNdpIndication(u32 ndpCmdType, struct nlattr **tb_vendor)
         free(ndpEndInd);
         break;
     }
+
+    case QCA_WLAN_VENDOR_ATTR_NDP_SCHEDULE_UPDATE_IND:
+    {
+        NanDataPathScheduleUpdateInd *pNdpScheduleUpdateInd;
+        u32 num_channels = 0, num_ndp_ids = 0;
+
+        if ((!tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_PEER_DISCOVERY_MAC_ADDR]) ||
+            (!tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_SCHEDULE_UPDATE_REASON]) ||
+            (!tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_INSTANCE_ID_ARRAY])) {
+            ALOGE("%s: QCA_WLAN_VENDOR_ATTR_NDP not found", __FUNCTION__);
+            return WIFI_ERROR_INVALID_ARGS;
+        }
+        if (tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_NUM_CHANNELS]) {
+             num_channels = nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_NUM_CHANNELS]);
+             ALOGD("%s: num_channels = %d", __FUNCTION__, num_channels);
+             if ((num_channels > NAN_MAX_CHANNEL_INFO_SUPPORTED) &&
+                 (!tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_INFO])) {
+                 ALOGE("%s: QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_INFO not found", __FUNCTION__);
+                 return WIFI_ERROR_INVALID_ARGS;
+            }
+        }
+        num_ndp_ids = (u8)(nla_len(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_INSTANCE_ID_ARRAY])/sizeof(u32));
+        ALOGD("%s: NDP Num Instance Ids : val %d", __FUNCTION__, num_ndp_ids);
+
+        pNdpScheduleUpdateInd =
+            (NanDataPathScheduleUpdateInd *)malloc(sizeof(NanDataPathScheduleUpdateInd)
+            + (sizeof(u32) * num_ndp_ids));
+        if (!pNdpScheduleUpdateInd) {
+            ALOGE("%s: NdpScheduleUpdate malloc Failed", __FUNCTION__);
+            return WIFI_ERROR_OUT_OF_MEMORY;
+        }
+        pNdpScheduleUpdateInd->num_channels = num_channels;
+        pNdpScheduleUpdateInd->num_ndp_instances = num_ndp_ids;
+
+        res = getNdpScheduleUpdate(tb_vendor, pNdpScheduleUpdateInd);
+        if (!res && mHandler.EventScheduleUpdate) {
+            (*mHandler.EventScheduleUpdate)(pNdpScheduleUpdateInd);
+        }
+        free(pNdpScheduleUpdateInd);
+        break;
+    }
     default:
         ALOGE("handleNdpIndication error invalid ndpCmdType:%u", ndpCmdType);
         res = (int)WIFI_ERROR_INVALID_REQUEST_ID;
@@ -1071,6 +1110,10 @@ int NanCommand::getNdpConfirm(struct nlattr **tb_vendor,
 {
     u32 len = 0;
     NanInternalStatusType drv_reason_code;
+    struct nlattr *chInfo;
+    NanChannelInfo *pChInfo;
+    int rem;
+    u32 i = 0;
 
     if (event == NULL || tb_vendor == NULL) {
         ALOGE("%s: Invalid input argument event:%p tb_vendor:%p",
@@ -1116,6 +1159,113 @@ int NanCommand::getNdpConfirm(struct nlattr **tb_vendor,
             break;
     }
     ALOGD("%s: Reason code %d", __FUNCTION__, event->reason_code);
+
+    if (tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_NUM_CHANNELS]) {
+        event->num_channels =
+            nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_NUM_CHANNELS]);
+        ALOGD("%s: num_channels = %d", __FUNCTION__, event->num_channels);
+        if ((event->num_channels > NAN_MAX_CHANNEL_INFO_SUPPORTED) &&
+            (!tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_INFO])) {
+            ALOGE("%s: QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_INFO not found", __FUNCTION__);
+            return WIFI_ERROR_INVALID_ARGS;
+        }
+    }
+
+    if (event->num_channels != 0) {
+        for (chInfo =
+            (struct nlattr *) nla_data(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_INFO]),
+            rem = nla_len(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_INFO]);
+            (i < NAN_MAX_CHANNEL_INFO_SUPPORTED && nla_ok(chInfo, rem));
+            chInfo = nla_next(chInfo, &(rem))) {
+             struct nlattr *tb2[QCA_WLAN_VENDOR_ATTR_NDP_MAX + 1];
+
+             pChInfo =
+                 (NanChannelInfo *) ((u8 *)event->channel_info + (i++ * (sizeof(NanChannelInfo))));
+             nla_parse(tb2, QCA_WLAN_VENDOR_ATTR_NDP_MAX,
+                 (struct nlattr *) nla_data(chInfo), nla_len(chInfo), NULL);
+
+            if (!tb2[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL]) {
+                ALOGE("%s: QCA_WLAN_VENDOR_ATTR_CHANNEL not found", __FUNCTION__);
+                return WIFI_ERROR_INVALID_ARGS;
+            }
+            pChInfo->channel = nla_get_u32(tb2[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL]);
+            ALOGD("%s: Channel = %d", __FUNCTION__, pChInfo->channel);
+
+            if (!tb2[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_WIDTH]) {
+                ALOGE("%s: QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_WIDTH not found", __FUNCTION__);
+                return WIFI_ERROR_INVALID_ARGS;
+            }
+            pChInfo->bandwidth = nla_get_u32(tb2[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_WIDTH]);
+            ALOGD("%s: Channel BW = %d", __FUNCTION__, pChInfo->bandwidth);
+
+            if (!tb2[QCA_WLAN_VENDOR_ATTR_NDP_NSS]) {
+                ALOGE("%s: QCA_WLAN_VENDOR_ATTR_NDP_NSS not found", __FUNCTION__);
+                return WIFI_ERROR_INVALID_ARGS;
+            }
+            pChInfo->nss = nla_get_u32(tb2[QCA_WLAN_VENDOR_ATTR_NDP_NSS]);
+            ALOGD("%s: No. Spatial Stream = %d", __FUNCTION__, pChInfo->nss);
+        }
+    }
+    return WIFI_SUCCESS;
+}
+
+int NanCommand::getNdpScheduleUpdate(struct nlattr **tb_vendor,
+                                     NanDataPathScheduleUpdateInd *event)
+{
+    u32 len = 0;
+    struct nlattr *chInfo;
+    NanChannelInfo *pChInfo;
+    int rem;
+    u32 i = 0;
+
+    len = nla_len(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_PEER_DISCOVERY_MAC_ADDR]);
+    len = ((sizeof(event->peer_mac_addr) <= len) ? sizeof(event->peer_mac_addr) : len);
+    memcpy(&event->peer_mac_addr[0], nla_data(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_PEER_DISCOVERY_MAC_ADDR]), len);
+
+    event->schedule_update_reason_code = nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_SCHEDULE_UPDATE_REASON]);
+    ALOGD("%s: Reason code %d", __FUNCTION__, event->schedule_update_reason_code);
+
+    if (event->num_channels != 0) {
+        for (chInfo =
+            (struct nlattr *) nla_data(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_INFO]),
+            rem = nla_len(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_INFO]);
+            (i < NAN_MAX_CHANNEL_INFO_SUPPORTED && nla_ok(chInfo, rem));
+            chInfo = nla_next(chInfo, &(rem))) {
+            struct nlattr *tb2[QCA_WLAN_VENDOR_ATTR_NDP_MAX + 1];
+
+            pChInfo =
+                (NanChannelInfo *) ((u8 *)event->channel_info + (i++ * (sizeof(NanChannelInfo))));
+            nla_parse(tb2, QCA_WLAN_VENDOR_ATTR_NDP_MAX,
+                (struct nlattr *) nla_data(chInfo), nla_len(chInfo), NULL);
+
+            if (!tb2[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL]) {
+                ALOGE("%s: QCA_WLAN_VENDOR_ATTR_CHANNEL not found", __FUNCTION__);
+                return WIFI_ERROR_INVALID_ARGS;
+            }
+            pChInfo->channel = nla_get_u32(tb2[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL]);
+            ALOGD("%s: Channel = %d", __FUNCTION__, pChInfo->channel);
+
+            if (!tb2[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_WIDTH]) {
+                ALOGE("%s: QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_WIDTH not found", __FUNCTION__);
+                return WIFI_ERROR_INVALID_ARGS;
+            }
+            pChInfo->bandwidth = nla_get_u32(tb2[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_WIDTH]);
+            ALOGD("%s: Channel BW = %d", __FUNCTION__, pChInfo->bandwidth);
+
+           if (!tb2[QCA_WLAN_VENDOR_ATTR_NDP_NSS]) {
+                ALOGE("%s: QCA_WLAN_VENDOR_ATTR_NDP_NSS not found", __FUNCTION__);
+                return WIFI_ERROR_INVALID_ARGS;
+            }
+            pChInfo->nss = nla_get_u32(tb2[QCA_WLAN_VENDOR_ATTR_NDP_NSS]);
+            ALOGD("%s: No. Spatial Stream = %d", __FUNCTION__, pChInfo->nss);
+        }
+    }
+
+    if (event->num_ndp_instances) {
+        nla_memcpy(event->ndp_instance_id,
+                   tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_INSTANCE_ID_ARRAY],
+                   sizeof(u32) * event->num_ndp_instances);
+    }
     return WIFI_SUCCESS;
 }
 
@@ -1210,7 +1360,7 @@ int NanCommand::getNanRangeReportInd(NanRangeReportInd *event)
                 outputTlv.length = sizeof(NanFWRangeReportParams);
             }
             memcpy(&range_params, outputTlv.value, outputTlv.length);
-            event->range_measurement_cm = range_params.range_measurement;
+            event->range_measurement_mm = range_params.range_measurement;
             event->publish_id = range_params.publish_id;
 //          event->event_type = range_params.event_type;
             break;

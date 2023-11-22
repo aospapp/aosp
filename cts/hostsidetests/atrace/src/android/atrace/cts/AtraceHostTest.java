@@ -143,7 +143,6 @@ public class AtraceHostTest extends DeviceTestCase implements IBuildReceiver {
             "video",
             "camera",
             "hal",
-            "app",
             "res",
             "dalvik",
             "rs",

@@ -40,16 +40,15 @@ struct gl2_client_context_t;
 // capability, and we will use a fence fd to synchronize buffer swaps.
 enum SyncImpl {
     SYNC_IMPL_NONE = 0,
-    SYNC_IMPL_NATIVE_SYNC = 1
+    SYNC_IMPL_NATIVE_SYNC_V2 = 1,
+    SYNC_IMPL_NATIVE_SYNC_V3 = 2,
 };
 
 // Interface:
-// If this GL extension string shows up, we use
-// SYNC_IMPL_NATIVE_SYNC, otherwise we use SYNC_IMPL_NONE.
-// This string is always updated to require the _latest_
-// version of Android emulator native sync in this system image;
-// otherwise, we do not use the feature.
-static const char kRCNativeSync[] = "ANDROID_EMU_native_sync_v2";
+// Use the highest of v2 or v3 that show up, making us
+// SYNC_IMPL_NATIVE_SYNC_V2 or SYNC_IMPL_NATIVE_SYNC_V3.
+static const char kRCNativeSyncV2[] = "ANDROID_EMU_native_sync_v2";
+static const char kRCNativeSyncV3[] = "ANDROID_EMU_native_sync_v3";
 
 // DMA for OpenGL
 enum DmaImpl {
@@ -72,6 +71,9 @@ static const char kGLESMaxVersion_3_0[] = "ANDROID_EMU_gles_max_version_3_0";
 static const char kGLESMaxVersion_3_1[] = "ANDROID_EMU_gles_max_version_3_1";
 static const char kGLESMaxVersion_3_2[] = "ANDROID_EMU_gles_max_version_3_2";
 
+// No querying errors from host extension
+static const char kGLESNoHostError[] = "ANDROID_EMU_gles_no_host_error";
+
 // ExtendedRCEncoderContext is an extended version of renderControl_encoder_context_t
 // that will be used to track SyncImpl.
 class ExtendedRCEncoderContext : public renderControl_encoder_context_t {
@@ -82,7 +84,8 @@ public:
         }
     void setSyncImpl(SyncImpl syncImpl) { m_syncImpl = syncImpl; }
     void setDmaImpl(DmaImpl dmaImpl) { m_dmaImpl = dmaImpl; }
-    bool hasNativeSync() const { return m_syncImpl == SYNC_IMPL_NATIVE_SYNC; }
+    bool hasNativeSync() const { return m_syncImpl >= SYNC_IMPL_NATIVE_SYNC_V2; }
+    bool hasNativeSyncV3() const { return m_syncImpl >= SYNC_IMPL_NATIVE_SYNC_V3; }
     DmaImpl getDmaVersion() const { return m_dmaImpl; }
     void bindDmaContext(struct goldfish_dma_context* cxt) { m_dmaCxt = cxt; }
     virtual uint64_t lockAndWriteDma(void* data, uint32_t size) {
@@ -148,6 +151,7 @@ private:
     void queryAndSetSyncImpl(ExtendedRCEncoderContext *rcEnc);
     void queryAndSetDmaImpl(ExtendedRCEncoderContext *rcEnc);
     void queryAndSetGLESMaxVersion(ExtendedRCEncoderContext *rcEnc);
+    void queryAndSetNoErrorState(ExtendedRCEncoderContext *rcEnc);
 
 private:
     IOStream *m_stream;
@@ -158,6 +162,7 @@ private:
     std::string m_glExtensions;
     bool m_grallocOnly;
     int m_pipeFd;
+    bool m_noHostError;
 };
 
 #endif

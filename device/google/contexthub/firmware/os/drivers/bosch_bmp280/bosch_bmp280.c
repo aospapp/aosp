@@ -32,7 +32,7 @@
 
 #define BMP280_APP_ID APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 5)
 
-#define BMP280_APP_VERSION 3
+#define BMP280_APP_VERSION 4
 
 #ifndef BMP280_I2C_BUS_ID
 #define BMP280_I2C_BUS_ID  0
@@ -44,12 +44,14 @@
 
 #define BOSCH_BMP280_ID                 0x58
 
-#define BOSCH_BMP280_REG_RESET          0x60
+#define BOSCH_BMP280_REG_RESET          0xE0
 #define BOSCH_BMP280_REG_DIG_T1         0x88
 #define BOSCH_BMP280_REG_ID             0xd0
 #define BOSCH_BMP280_REG_CTRL_MEAS      0xf4
 #define BOSCH_BMP280_REG_CONFIG         0xf5
 #define BOSCH_BMP280_REG_PRES_MSB       0xf7
+
+#define BOSCH_BMP280_SOFT_RESET_CMD     0xB6
 
 #define BOSCH_BMP280_MAX_PENDING_I2C_REQUESTS   4
 #define BOSCH_BMP280_MAX_I2C_TRANSFER_SIZE      6
@@ -62,22 +64,28 @@
 #define CTRL_ON    ((2 << 5) | (5 << 2) | 3)
 // temp: 2x oversampling, baro: 16x oversampling, power: sleep
 #define CTRL_SLEEP ((2 << 5) | (5 << 2))
+// config: standby time: 62.5ms, IIR filter coefficient: 4
+#define CTRL_CFG   ((1 << 5) | (2 << 2))
 
 enum BMP280SensorEvents
 {
     EVT_SENSOR_I2C = EVT_APP_START + 1,
     EVT_SENSOR_BARO_TIMER,
     EVT_SENSOR_TEMP_TIMER,
+    EVT_SENSOR_SOFTRESET_TIMER,
 };
 
 enum BMP280TaskState
 {
     STATE_RESET,
+    STATE_SOFTRESET,
+    STATE_SOFTRESET_MODE,
     STATE_VERIFY_ID,
     STATE_AWAITING_COMP_PARAMS,
     STATE_CONFIG,
     STATE_FINISH_INIT,
     STATE_IDLE,
+    STATE_ENABLING_BARO_TEMP,
     STATE_ENABLING_BARO,
     STATE_ENABLING_TEMP,
     STATE_DISABLING_BARO,
@@ -114,11 +122,14 @@ static struct BMP280Task
     uint32_t tempHandle;
     uint32_t baroTimerHandle;
     uint32_t tempTimerHandle;
+    uint32_t resetHandle;
 
     float offset;
 
     struct I2cTransfer transfers[BOSCH_BMP280_MAX_PENDING_I2C_REQUESTS];
 
+    bool tmpbaroOn;
+    bool tmptempOn;
     bool baroOn;
     bool tempOn;
     bool baroReading;
@@ -262,6 +273,16 @@ static void tempTimerCallback(uint32_t timerId, void *cookie)
     osEnqueuePrivateEvt(EVT_SENSOR_TEMP_TIMER, cookie, NULL, mTask.id);
 }
 
+static void softresetCallback(uint32_t timerId, void *cookie)
+{
+    osEnqueuePrivateEvt(EVT_SENSOR_SOFTRESET_TIMER, cookie, NULL, mTask.id);
+}
+
+static void softreset()
+{
+    writeRegister(BOSCH_BMP280_REG_RESET, BOSCH_BMP280_SOFT_RESET_CMD, STATE_SOFTRESET);
+}
+
 static void setMode(bool on, uint8_t state)
 {
     writeRegister(BOSCH_BMP280_REG_CTRL_MEAS, (on) ? CTRL_ON : CTRL_SLEEP, state);
@@ -298,12 +319,37 @@ static bool sensorPowerBaro(bool on, void *cookie)
         mTask.baroReading = false;
     }
 
-    if (oldMode != newMode)
-        setMode(newMode, (on ? STATE_ENABLING_BARO : STATE_DISABLING_BARO));
-    else
-        sensorSignalInternalEvt(mTask.baroHandle, SENSOR_INTERNAL_EVT_POWER_STATE_CHG, on, 0);
+    if (!on && mTask.tmpbaroOn && mTask.resetHandle)
+    {
+        if (!mTask.tmptempOn) {
+            timTimerCancel(mTask.resetHandle);
+            mTask.resetHandle = 0;
+        }
+        mTask.tmpbaroOn = 0;
+        sensorSignalInternalEvt(mTask.baroHandle, SENSOR_INTERNAL_EVT_POWER_STATE_CHG, true, 0);
+    }
 
-    mTask.baroOn = on;
+    if (oldMode != newMode)
+    {
+        if (newMode == 0)
+        {
+            setMode(newMode, STATE_DISABLING_BARO);
+            mTask.baroOn = false;
+        }
+        else
+        {
+            mTask.tmpbaroOn = true;
+            if (!mTask.tmptempOn) {
+                // do soft reset first when newMode is on
+                softreset();
+            }
+        }
+    }
+    else
+    {
+        sensorSignalInternalEvt(mTask.baroHandle, SENSOR_INTERNAL_EVT_POWER_STATE_CHG, on, 0);
+        mTask.baroOn = on;
+    }
 
     return true;
 }
@@ -362,12 +408,38 @@ static bool sensorPowerTemp(bool on, void *cookie)
         mTask.tempReading = false;
     }
 
-    if (oldMode != newMode)
-        setMode(newMode, (on ? STATE_ENABLING_TEMP : STATE_DISABLING_TEMP));
-    else
-        sensorSignalInternalEvt(mTask.tempHandle, SENSOR_INTERNAL_EVT_POWER_STATE_CHG, on, 0);
+    if (!on && mTask.tmptempOn && mTask.resetHandle)
+    {
+        if(!mTask.tmpbaroOn) {
+            timTimerCancel(mTask.resetHandle);
+            mTask.resetHandle = 0;
+        }
+        mTask.tmptempOn = 0;
+        sensorSignalInternalEvt(mTask.tempHandle, SENSOR_INTERNAL_EVT_POWER_STATE_CHG, true, 0);
+    }
 
-    mTask.tempOn = on;
+    if (oldMode != newMode)
+    {
+        if (newMode == 0)
+        {
+            setMode(newMode, STATE_DISABLING_TEMP);
+            mTask.tempOn = false;
+        }
+        else
+        {
+            mTask.tmptempOn = true;
+            if (!mTask.tmpbaroOn) {
+                // do soft reset first when newMode is on
+                softreset();
+            }
+        }
+    }
+    else
+    {
+        sensorSignalInternalEvt(mTask.tempHandle, SENSOR_INTERNAL_EVT_POWER_STATE_CHG, on, 0);
+        mTask.tempOn = on;
+    }
+
 
     return true;
 }
@@ -495,6 +567,31 @@ static void handleI2cEvent(struct I2cTransfer *xfer)
             break;
         }
 
+        case STATE_SOFTRESET: {
+            //create timer for 2ms delay
+            mTask.resetHandle = timTimerSet(2000000ull, 0, 50, softresetCallback, NULL, true);
+            break;
+        }
+
+        case STATE_SOFTRESET_MODE: {
+            if (mTask.tmpbaroOn && mTask.tmptempOn) {
+                setMode(true,STATE_ENABLING_BARO_TEMP);
+                mTask.tmpbaroOn = false;
+                mTask.baroOn = true;
+                mTask.tmptempOn = false;
+                mTask.tempOn = true;
+            } else if (mTask.tmpbaroOn) {
+                setMode(true,STATE_ENABLING_BARO);
+                mTask.tmpbaroOn = false;
+                mTask.baroOn = true;
+            } else if (mTask.tmptempOn) {
+                setMode(true,STATE_ENABLING_TEMP);
+                mTask.tmptempOn = false;
+                mTask.tempOn = true;
+            }
+            break;
+        }
+
         case STATE_VERIFY_ID: {
             /* Check the sensor ID */
             if (xfer->err != 0 || xfer->txrxBuf[0] != BOSCH_BMP280_ID) {
@@ -521,7 +618,14 @@ static void handleI2cEvent(struct I2cTransfer *xfer)
 
         case STATE_CONFIG: {
             // standby time: 62.5ms, IIR filter coefficient: 4
-            writeRegister(BOSCH_BMP280_REG_CONFIG, (1 << 5) | (2 << 2), STATE_FINISH_INIT);
+            writeRegister(BOSCH_BMP280_REG_CONFIG, CTRL_CFG, STATE_FINISH_INIT);
+            break;
+        }
+
+        case STATE_ENABLING_BARO_TEMP: {
+            sensorSignalInternalEvt(mTask.baroHandle, SENSOR_INTERNAL_EVT_POWER_STATE_CHG, true, 0);
+            sensorSignalInternalEvt(mTask.tempHandle, SENSOR_INTERNAL_EVT_POWER_STATE_CHG, true, 0);
+            break;
         }
 
         case STATE_ENABLING_BARO: {
@@ -605,7 +709,7 @@ static void handleEvent(uint32_t evtType, const void* evtData)
             i2cMasterRequest(I2C_BUS_ID, I2C_SPEED);
 
             /* Reset chip */
-            writeRegister(BOSCH_BMP280_REG_RESET, 0xB6, STATE_RESET);
+            writeRegister(BOSCH_BMP280_REG_RESET, BOSCH_BMP280_SOFT_RESET_CMD, STATE_RESET);
             break;
         }
 
@@ -646,6 +750,12 @@ static void handleEvent(uint32_t evtType, const void* evtData)
             }
 
             mTask.tempReading = true;
+            break;
+        }
+
+        case EVT_SENSOR_SOFTRESET_TIMER:
+        {
+            writeRegister(BOSCH_BMP280_REG_CONFIG, CTRL_CFG, STATE_SOFTRESET_MODE);
             break;
         }
     }

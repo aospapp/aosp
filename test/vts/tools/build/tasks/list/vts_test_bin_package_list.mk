@@ -27,7 +27,10 @@ vts_test_bin_packages := \
     libhwbinder_latency \
     libbinder_benchmark \
     vts_codelab_target_binary \
+    vts_selftest_flaky_test \
+    vts_selftest_zero_testcase_binary_test \
     vts_test_binary_crash_app \
+    vts_test_binary_seg_fault \
     vts_test_binary_syscall_exists \
     simpleperf_cpu_hotplug_test \
     binderThroughputTest \
@@ -38,11 +41,7 @@ vts_test_bin_packages := \
     stressapptest \
     libcutils_test \
     vts_test_binary_qtaguid_module \
-
-# some CTS packages for record-and-replay test development purpose
-vts_test_bin_packages += \
-    CtsAccelerationTestCases \
-    CtsSensorTestCases \
+    vts_test_binary_bpf_module \
 
 # Proto fuzzer executable
 vts_test_bin_packages += \
@@ -50,14 +49,19 @@ vts_test_bin_packages += \
 
 # VTS Treble VINTF Test
 vts_test_bin_packages += \
-    vts_treble_vintf_test \
+    vts_ibase_test \
+    vts_treble_vintf_test_o_mr1 \
+    vts_treble_vintf_framework_test \
+    vts_treble_vintf_vendor_test  \
 
 # Netd tests
 vts_test_bin_packages += \
     netd_integration_test \
 
-# Tun device tests.
+# Kernel tests.
 vts_test_bin_packages += \
+    dt_early_mount_test \
+    kernel_net_tests \
     vts_kernel_tun_test \
 
 # Binder tests.
@@ -69,6 +73,7 @@ vts_test_bin_packages += \
     binderLibTest_IPC_32 \
     binderTextOutputTest \
     binderSafeInterfaceTest \
+    memunreachable_binder_test \
 
 # VTS security PoC tests
 vts_test_bin_packages += \
@@ -76,4 +81,8 @@ vts_test_bin_packages += \
     28838221 \
     32219453 \
     31707909 \
-    32402310
+    32402310 \
+
+# VTS DTBO verification tests
+vts_test_bin_packages += \
+    ufdt_verify_overlay

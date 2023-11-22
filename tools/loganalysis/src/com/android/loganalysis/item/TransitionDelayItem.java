@@ -30,9 +30,19 @@ public class TransitionDelayItem extends GenericItem {
     public static final String START_WINDOW_DELAY = "START_WINDOW_DELAY";
     /** Constant for JSON output */
     public static final String TRANSITION_DELAY = "TRANSITION_DELAY";
+    /** Constant for JSON output */
+    public static final String DATE_TIME = "DATE_TIME";
+    /** Constant for JSON output */
+    public static final String WINDOW_DRAWN_DELAY = "WINDOW_DRAWN_DELAY";
 
-    private static final Set<String> ATTRIBUTES = new HashSet<String>(Arrays.asList(
-            COMPONENT_NAME, START_WINDOW_DELAY, TRANSITION_DELAY));
+    private static final Set<String> ATTRIBUTES =
+            new HashSet<String>(
+                    Arrays.asList(
+                            COMPONENT_NAME,
+                            START_WINDOW_DELAY,
+                            TRANSITION_DELAY,
+                            DATE_TIME,
+                            WINDOW_DRAWN_DELAY));
 
     /**
      * The constructor for {@link TransitionDelayItem}.
@@ -49,20 +59,42 @@ public class TransitionDelayItem extends GenericItem {
         setAttribute(COMPONENT_NAME, componentName);
     }
 
-    public long getStartingWindowDelay() {
-        return (long) getAttribute(START_WINDOW_DELAY);
+    public Long getStartingWindowDelay() {
+        return getAttribute(START_WINDOW_DELAY) != null ? (Long) getAttribute(START_WINDOW_DELAY)
+                : null;
     }
 
     public void setStartingWindowDelay(long startingWindowDelay) {
         setAttribute(START_WINDOW_DELAY, startingWindowDelay);
     }
 
-    public long getTransitionDelay() {
-        return (long) getAttribute(TRANSITION_DELAY);
+    public Long getTransitionDelay() {
+        return (Long) getAttribute(TRANSITION_DELAY);
     }
 
     public void setTransitionDelay(long transitionDelay) {
         setAttribute(TRANSITION_DELAY, transitionDelay);
     }
 
+    /**
+     * @return date and time (MM-DD HH:MM:SS.mmm) in string format parsed from events log
+     *         and used in AUPT test.
+     */
+    public String getDateTime() {
+        return (String) getAttribute(DATE_TIME);
+    }
+
+    public void setDateTime(String dateTime) {
+        setAttribute(DATE_TIME, dateTime);
+    }
+
+    public Long getWindowDrawnDelay() {
+        return getAttribute(WINDOW_DRAWN_DELAY) != null
+                ? (Long) getAttribute(WINDOW_DRAWN_DELAY)
+                : null;
+    }
+
+    public void setWindowDrawnDelay(long windowDrawnDelay) {
+        setAttribute(WINDOW_DRAWN_DELAY, windowDrawnDelay);
+    }
 }

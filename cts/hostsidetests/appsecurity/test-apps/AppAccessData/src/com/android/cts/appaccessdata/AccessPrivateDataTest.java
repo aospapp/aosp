@@ -16,17 +16,25 @@
 
 package com.android.cts.appaccessdata;
 
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
+import android.net.TrafficStats;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.ParcelFileDescriptor;
+import android.os.SystemClock;
+import android.test.AndroidTestCase;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.test.AndroidTestCase;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketAddress;
 
 /**
  * Test that another app's private data cannot be accessed, while its public data can.
@@ -51,6 +59,10 @@ public class AccessPrivateDataTest extends AndroidTestCase {
      */
     private static final String PUBLIC_FILE_NAME = "public_file.txt";
 
+    private static final String QTAGUID_STATS_FILE = "/proc/net/xt_qtaguid/stats";
+
+    private static final Uri PRIVATE_TARGET = Uri.parse("content://com.android.cts.appwithdata/");
+
     /**
      * Tests that another app's private data cannot be accessed. It includes file
      * and detailed traffic stats.
@@ -68,7 +80,6 @@ public class AccessPrivateDataTest extends AndroidTestCase {
         } catch (FileNotFoundException | SecurityException e) {
             // expected
         }
-        accessPrivateTrafficStats();
     }
 
     private ApplicationInfo getApplicationInfo(String packageName) {
@@ -97,7 +108,15 @@ public class AccessPrivateDataTest extends AndroidTestCase {
         }
     }
 
-    private void accessPrivateTrafficStats() throws IOException {
+    public void testAccessProcQtaguidTrafficStatsFailed() {
+        // For untrusted app with SDK P or above, proc/net/xt_qtaguid files are no long readable.
+        // They can only read their own stats from TrafficStats API. The test for TrafficStats API
+        // will ensure they cannot read other apps stats.
+        assertFalse("untrusted app should not be able to read qtaguid profile",
+            new File(QTAGUID_STATS_FILE).canRead());
+    }
+
+    public void testAccessPrivateTrafficStats() {
         int otherAppUid = -1;
         try {
             otherAppUid = getContext()
@@ -106,19 +125,53 @@ public class AccessPrivateDataTest extends AndroidTestCase {
         } catch (NameNotFoundException e) {
             fail("Was not able to find other app");
         }
+
+        final int UNSUPPORTED = -1;
+        assertEquals(UNSUPPORTED, TrafficStats.getUidRxBytes(otherAppUid));
+        assertEquals(UNSUPPORTED, TrafficStats.getUidRxPackets(otherAppUid));
+        assertEquals(UNSUPPORTED, TrafficStats.getUidTxBytes(otherAppUid));
+        assertEquals(UNSUPPORTED, TrafficStats.getUidTxPackets(otherAppUid));
+    }
+
+    public void testTrafficStatsStatsUidSelf() throws Exception {
+        final int uid = android.os.Process.myUid();
+        final long rxb = TrafficStats.getUidRxBytes(uid);
+        final long rxp = TrafficStats.getUidRxPackets(uid);
+        final long txb = TrafficStats.getUidTxBytes(uid);
+        final long txp = TrafficStats.getUidTxPackets(uid);
+
+        // Start remote server
+        final int port = getContext().getContentResolver().call(PRIVATE_TARGET, "start", null, null)
+                .getInt("port");
+
+        // Try talking to them, but shift blame
         try {
-            BufferedReader qtaguidReader = new BufferedReader(new FileReader("/proc/net/xt_qtaguid/stats"));
-            String line;
-            while ((line = qtaguidReader.readLine()) != null) {
-                String tokens[] = line.split(" ");
-                if (tokens.length > 3 && tokens[3].equals(String.valueOf(otherAppUid))) {
-                    // CreatePrivateDataTest:testCreatePrivateData ensures we can access our own stats data
-                    fail("Other apps detailed traffic stats leaked");
-                }
-            }
-            qtaguidReader.close();
-        } catch (FileNotFoundException e) {
-            fail("Was not able to access qtaguid/stats: " + e);
+            final Socket socket = new Socket();
+            socket.setTcpNoDelay(true);
+
+            Bundle extras = new Bundle();
+            extras.putParcelable("fd", ParcelFileDescriptor.fromSocket(socket));
+            getContext().getContentResolver().call(PRIVATE_TARGET, "tag", null, extras);
+
+            socket.connect(new InetSocketAddress("localhost", port));
+
+            socket.getOutputStream().write(42);
+            socket.getOutputStream().flush();
+            final int val = socket.getInputStream().read();
+            assertEquals(42, val);
+            socket.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            getContext().getContentResolver().call(PRIVATE_TARGET, "stop", null, null);
         }
+
+        SystemClock.sleep(1000);
+
+        // Since we shifted blame, our stats shouldn't have changed
+        assertEquals(rxb, TrafficStats.getUidRxBytes(uid));
+        assertEquals(rxp, TrafficStats.getUidRxPackets(uid));
+        assertEquals(txb, TrafficStats.getUidTxBytes(uid));
+        assertEquals(txp, TrafficStats.getUidTxPackets(uid));
     }
 }

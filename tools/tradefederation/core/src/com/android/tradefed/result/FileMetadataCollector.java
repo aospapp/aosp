@@ -75,7 +75,7 @@ public class FileMetadataCollector implements ILogSaverListener, ITestInvocation
         InputStream stream = null;
         try {
             stream = source.createInputStream();
-            mLogSaver.saveLogDataRaw("metadata", "textproto", stream);
+            mLogSaver.saveLogDataRaw("metadata", LogDataType.TEXTPB, stream);
         } catch (IOException e) {
             CLog.e(e);
             CLog.e("Failed to save metadata.");

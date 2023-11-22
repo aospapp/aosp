@@ -20,6 +20,7 @@ import android.util.Log;
 import android.view.autofill.AutofillManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.GridLayout;
 
 import java.util.ArrayList;
 import java.util.concurrent.BlockingQueue;
@@ -45,6 +46,7 @@ public class GridActivity extends AbstractAutoFillActivity {
     public static final String ID_L4C1 = getResourceId(4, 1);
     public static final String ID_L4C2 = getResourceId(4, 2);
 
+    private GridLayout mGrid;
     private final EditText[][] mCells = new EditText[4][2];
     private Button mSaveButton;
     private Button mClearButton;
@@ -55,16 +57,17 @@ public class GridActivity extends AbstractAutoFillActivity {
 
         setContentView(R.layout.grid_activity);
 
-        mCells[0][0] = (EditText) findViewById(R.id.l1c1);
-        mCells[0][1] = (EditText) findViewById(R.id.l1c2);
-        mCells[1][0] = (EditText) findViewById(R.id.l2c1);
-        mCells[1][1] = (EditText) findViewById(R.id.l2c2);
-        mCells[2][0] = (EditText) findViewById(R.id.l3c1);
-        mCells[2][1] = (EditText) findViewById(R.id.l3c2);
-        mCells[3][0] = (EditText) findViewById(R.id.l4c1);
-        mCells[3][1] = (EditText) findViewById(R.id.l4c2);
-        mSaveButton = (Button) findViewById(R.id.save);
-        mClearButton = (Button) findViewById(R.id.clear);
+        mGrid = findViewById(R.id.grid);
+        mCells[0][0] = findViewById(R.id.l1c1);
+        mCells[0][1] = findViewById(R.id.l1c2);
+        mCells[1][0] = findViewById(R.id.l2c1);
+        mCells[1][1] = findViewById(R.id.l2c2);
+        mCells[2][0] = findViewById(R.id.l3c1);
+        mCells[2][1] = findViewById(R.id.l3c2);
+        mCells[3][0] = findViewById(R.id.l4c1);
+        mCells[3][1] = findViewById(R.id.l4c2);
+        mSaveButton = findViewById(R.id.save);
+        mClearButton = findViewById(R.id.clear);
 
         mSaveButton.setOnClickListener((v) -> save());
         mClearButton.setOnClickListener((v) -> resetFields());
@@ -83,7 +86,7 @@ public class GridActivity extends AbstractAutoFillActivity {
         getSystemService(AutofillManager.class).cancel();
     }
 
-    private EditText getCell(int row, int column) {
+    EditText getCell(int row, int column) {
         return mCells[row - 1][column - 1];
     }
 
@@ -110,6 +113,16 @@ public class GridActivity extends AbstractAutoFillActivity {
 
     public void forceAutofill(int row, int column) {
         onCell(row, column, (c) -> getAutofillManager().requestAutofill(c));
+    }
+
+    public void removeCell(int row, int column) {
+        onCell(row, column, (c) -> mGrid.removeView(c));
+    }
+
+    public void addCell(int row, int column, EditText cell) {
+        mCells[row - 1][column - 1] = cell;
+        // TODO: ideally it should be added in the right place...
+        syncRunOnUiThread(() -> mGrid.addView(cell));
     }
 
     public void triggerAutofill(boolean manually, int row, int column) {

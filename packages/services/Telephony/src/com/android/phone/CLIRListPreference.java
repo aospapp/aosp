@@ -52,6 +52,7 @@ public class CLIRListPreference extends ListPreference {
         mPhone = phone;
         mTcpListener = listener;
         if (!skipReading) {
+            Log.i(LOG_TAG, "init: requesting CLIR");
             mPhone.getOutgoingCallerIdDisplay(mHandler.obtainMessage(MyHandler.MESSAGE_GET_CLIR,
                     MyHandler.MESSAGE_GET_CLIR, MyHandler.MESSAGE_GET_CLIR));
             if (mTcpListener != null) {
@@ -135,20 +136,19 @@ public class CLIRListPreference extends ListPreference {
             }
             clirArray = null;
             if (ar.exception != null) {
-                if (DBG) Log.d(LOG_TAG, "handleGetCLIRResponse: ar.exception="+ar.exception);
+                Log.i(LOG_TAG, "handleGetCLIRResponse: ar.exception=" + ar.exception);
                 mTcpListener.onException(CLIRListPreference.this, (CommandException) ar.exception);
             } else if (ar.userObj instanceof Throwable) {
+                Log.i(LOG_TAG, "handleGetCLIRResponse: ar.throwable=" + ar.userObj);
                 mTcpListener.onError(CLIRListPreference.this, RESPONSE_ERROR);
             } else {
                 int clirArray[] = (int[]) ar.result;
                 if (clirArray.length != 2) {
                     mTcpListener.onError(CLIRListPreference.this, RESPONSE_ERROR);
                 } else {
-                    if (DBG) {
-                        Log.d(LOG_TAG, "handleGetCLIRResponse: CLIR successfully queried,"
+                    Log.i(LOG_TAG, "handleGetCLIRResponse: CLIR successfully queried,"
                                 + " clirArray[0]=" + clirArray[0]
                                 + ", clirArray[1]=" + clirArray[1]);
-                    }
                     handleGetCLIRResult(clirArray);
                 }
             }

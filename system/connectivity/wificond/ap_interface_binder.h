@@ -19,7 +19,10 @@
 
 #include <android-base/macros.h>
 
+#include "wificond/net/netlink_manager.h"
+
 #include "android/net/wifi/BnApInterface.h"
+#include "android/net/wifi/IApInterfaceEventCallback.h"
 
 namespace android {
 namespace wificond {
@@ -31,25 +34,31 @@ class ApInterfaceBinder : public android::net::wifi::BnApInterface {
   explicit ApInterfaceBinder(ApInterfaceImpl* impl);
   ~ApInterfaceBinder() override;
 
-  // Called by |impl_| its destruction.
+  // Called by |impl_| on its destruction.
   // This informs the binder proxy that no future manipulations of |impl_|
   // by remote processes are possible.
   void NotifyImplDead() { impl_ = nullptr; }
 
-  binder::Status startHostapd(bool* out_success) override;
+  // Called by |impl_| everytime number of associated stations changes.
+  void NotifyNumAssociatedStationsChanged(int num_stations);
+
+  // Called by |impl_| on every channel switch event.
+  void NotifySoftApChannelSwitched(int frequency,
+                                   ChannelBandwidth channel_bandwidth);
+
+  binder::Status startHostapd(
+      const sp<net::wifi::IApInterfaceEventCallback>& callback,
+      bool* out_success) override;
   binder::Status stopHostapd(bool* out_success) override;
-  binder::Status writeHostapdConfig(const std::vector<uint8_t>& ssid,
-                                    bool is_hidden,
-                                    int32_t channel,
-                                    int32_t encryption_type,
-                                    const std::vector<uint8_t>& passphrase,
-                                    bool* out_success) override;
   binder::Status getInterfaceName(std::string* out_name) override;
   binder::Status getNumberOfAssociatedStations(
       int* out_num_of_stations) override;
 
  private:
   ApInterfaceImpl* impl_;
+
+  android::sp<net::wifi::IApInterfaceEventCallback>
+      ap_interface_event_callback_;
 
   DISALLOW_COPY_AND_ASSIGN(ApInterfaceBinder);
 };

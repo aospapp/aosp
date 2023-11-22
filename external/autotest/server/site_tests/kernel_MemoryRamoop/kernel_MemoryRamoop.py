@@ -10,22 +10,25 @@ from autotest_lib.server import test
 
 class kernel_MemoryRamoop(test.test):
     """
-    This test verify that /dev/pstore/console-ramoops is preserved correctly
-    after system reboot/kernel crash and also verify that there is no memory
-    corrupt in that log.
+    This test verifies that /sys/fs/pstore/console-ramoops is preserved
+    after system reboot/kernel crash and also verifies that there is no memory
+    corruption in that log.
 
-    There is also platform_KernelErrorPaths test that test kernel crash. But
-    this test focuses on verify that kernel create console-ramoops file
-    correctly and its content is not corrupt. Contrary to the other test
-    that test at the bigger scope, i.e. the whole error reporting mechanism.
+    There is also platform_KernelErrorPaths test that tests kernel crashes. But
+    this test focuses on verifying that the kernel creates the console-ramoops
+    file correctly and its content is not corrupt. Contrary to the other test
+    that tests a bigger scope, i.e. the whole error reporting mechanism.
     """
     version = 1
 
-    _RAMOOP_PATH = '/dev/pstore/console-ramoops'
+    # The name of this file has changed starting with linux-3.19.
+    # Use a glob to match all existing records.
+    _RAMOOP_PATH_GLOB = '/sys/fs/pstore/console-ramoops*'
     _KMSG_PATH = '/dev/kmsg'
     _LKDTM_PATH = '/sys/kernel/debug/provoke-crash/DIRECT'
 
-    # ramopp have size of 128K so we will generate about 100K of random message
+    # ramoops have a max size of 128K, so we will generate about 100K of random
+    # messages.
     _MSG_LINE_COUNT = 1000
     _MSG_LINE_LENGTH = 80
     _MSG_MAGIC = 'ramoop_test'
@@ -68,7 +71,7 @@ class kernel_MemoryRamoop(test.test):
 
         test_function()
 
-        cmd = 'cat %s' % self._RAMOOP_PATH
+        cmd = 'cat %s' % self._RAMOOP_PATH_GLOB
         ramoop = self._client.run(cmd).stdout
 
         self._verify_random_msg(ramoop, msg, sig_pattern)

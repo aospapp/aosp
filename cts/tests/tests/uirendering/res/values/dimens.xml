@@ -15,4 +15,7 @@
 <resources>
     <dimen name="test_width">90px</dimen>
     <dimen name="test_height">90px</dimen>
+
+    <item type="dimen" format="float" name="expected_ambient_shadow_alpha">0.039</item>
+    <item type="dimen" format="float" name="expected_spot_shadow_alpha">0.19</item>
 </resources>

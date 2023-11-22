@@ -18,9 +18,7 @@ package com.android.tv.testing.uihelper;
 import android.content.res.Resources;
 import android.support.test.uiautomator.UiDevice;
 
-/**
- * Base class for building UiAutomator Helper classes.
- */
+/** Base class for building UiAutomator Helper classes. */
 public abstract class BaseUiDeviceHelper {
     protected final UiDevice mUiDevice;
     protected final Resources mTargetResources;

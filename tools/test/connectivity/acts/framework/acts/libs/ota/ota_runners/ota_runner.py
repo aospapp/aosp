@@ -14,7 +14,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import logging
 import time
 
 SL4A_SERVICE_SETUP_TIME = 5
@@ -33,23 +32,39 @@ class OtaRunner(object):
         self.serial = self.android_device.serial
 
     def _update(self):
-        logging.info('Stopping services.')
+        log = self.android_device.log
+        old_info = self.android_device.adb.getprop('ro.build.fingerprint')
+        log.info('Starting Update. Beginning build info: %s', old_info)
+        log.info('Stopping services.')
         self.android_device.stop_services()
-        logging.info('Beginning tool.')
+        log.info('Beginning tool.')
         self.ota_tool.update(self)
-        logging.info('Tool finished. Waiting for boot completion.')
+        log.info('Tool finished. Waiting for boot completion.')
         self.android_device.wait_for_boot_completion()
-        logging.info('Boot completed. Rooting adb.')
+        new_info = self.android_device.adb.getprop('ro.build.fingerprint')
+        if not old_info or old_info == new_info:
+            raise OtaError('The device was not updated to a new build. '
+                           'Previous build: %s. New build: %s' % (old_info,
+                                                                  new_info))
+        log.info('Boot completed. Rooting adb.')
         self.android_device.root_adb()
-        logging.info('Root complete. Installing new SL4A.')
-        output = self.android_device.adb.install('-r %s' % self.get_sl4a_apk())
-        logging.info('SL4A install output: %s' % output)
-        time.sleep(SL4A_SERVICE_SETUP_TIME)
-        logging.info('Starting services.')
+        log.info('Root complete.')
+        if self.android_device.skip_sl4a:
+            self.android_device.log.info('Skipping SL4A install.')
+        else:
+            for _ in range(3):
+                self.android_device.log.info('Re-installing SL4A from "%s".',
+                                             self.get_sl4a_apk())
+                self.android_device.adb.install(
+                    '-r -g %s' % self.get_sl4a_apk(), ignore_status=True)
+                time.sleep(SL4A_SERVICE_SETUP_TIME)
+                if self.android_device.is_sl4a_installed():
+                    break
+        log.info('Starting services.')
         self.android_device.start_services()
-        logging.info('Services started. Running ota tool cleanup.')
+        log.info('Services started. Running ota tool cleanup.')
         self.ota_tool.cleanup(self)
-        logging.info('Cleanup complete.')
+        log.info('Cleanup complete.')
 
     def can_update(self):
         """Whether or not an update package is available for the device."""

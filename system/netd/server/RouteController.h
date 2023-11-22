@@ -20,6 +20,7 @@
 #include "NetdConstants.h"
 #include "Permission.h"
 
+#include <map>
 #include <sys/types.h>
 #include <linux/netlink.h>
 
@@ -43,6 +44,15 @@ public:
     static const char* const LOCAL_MANGLE_INPUT;
 
     static int Init(unsigned localNetId) WARN_UNUSED_RESULT;
+
+    // Returns an ifindex given the interface name, by looking up in sInterfaceToTable.
+    // This is currently only used by NetworkController::addInterfaceToNetwork
+    // and should probabaly be changed to passing the ifindex into RouteController instead.
+    // We do this instead of calling if_nametoindex because the same interface name can
+    // correspond to different interface indices over time. This way, even if the interface
+    // index has changed, we can still free any map entries indexed by the ifindex that was
+    // used to add them.
+    static uint32_t getIfIndex(const char* interface);
 
     static int addInterfaceToLocalNetwork(unsigned netId, const char* interface) WARN_UNUSED_RESULT;
     static int removeInterfaceFromLocalNetwork(unsigned netId,
@@ -97,6 +107,32 @@ public:
     // For testing.
     static int (*iptablesRestoreCommandFunction)(IptablesTarget, const std::string&,
                                                  const std::string&, std::string *);
+
+private:
+    friend class RouteControllerTest;
+
+    // Protects access to interfaceToTable.
+    static android::RWLock sInterfaceToTableLock;
+    static std::map<std::string, uint32_t> sInterfaceToTable;
+
+    static int configureDummyNetwork();
+    static int flushRoutes(const char* interface);
+    static int flushRoutes(uint32_t table);
+    static uint32_t getRouteTableForInterfaceLocked(const char *interface);
+    static uint32_t getRouteTableForInterface(const char *interface);
+    static int modifyDefaultNetwork(uint16_t action, const char* interface, Permission permission);
+    static int modifyPhysicalNetwork(unsigned netId, const char* interface, Permission permission,
+                                     bool add);
+    static int modifyRoute(uint16_t action, const char* interface, const char* destination,
+                           const char* nexthop, TableType tableType);
+    static int modifyTetheredNetwork(uint16_t action, const char* inputInterface,
+                                     const char* outputInterface);
+    static int modifyVpnFallthroughRule(uint16_t action, unsigned vpnNetId,
+                                        const char* physicalInterface, Permission permission);
+    static int modifyVirtualNetwork(unsigned netId, const char* interface,
+                                    const UidRanges& uidRanges, bool secure, bool add,
+                                    bool modifyNonUidBasedRules);
+    static void updateTableNamesFile();
 };
 
 // Public because they are called by by RouteControllerTest.cpp.

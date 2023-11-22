@@ -1,7 +1,7 @@
 ## @file
 # process FV image section generation
 #
-#  Copyright (c) 2007 - 2014, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -60,10 +60,35 @@ class FvImageSection(FvImageSectionClassObject):
 
             Num = SecNum
 
-            for FileName in FileList:
+            MaxFvAlignment = 0
+            for FvFileName in FileList:
+                FvAlignmentValue = 0
+                if os.path.isfile(FvFileName):
+                    FvFileObj = open (FvFileName,'rb')
+                    FvFileObj.seek(0)
+                    # PI FvHeader is 0x48 byte
+                    FvHeaderBuffer = FvFileObj.read(0x48)
+                    # FV alignment position.
+                    FvAlignmentValue = 1 << (ord (FvHeaderBuffer[0x2E]) & 0x1F)
+                    FvFileObj.close()
+                if FvAlignmentValue > MaxFvAlignment:
+                    MaxFvAlignment = FvAlignmentValue
+
                 OutputFile = os.path.join(OutputPath, ModuleName + 'SEC' + Num + Ffs.SectionSuffix.get("FV_IMAGE"))
                 GenFdsGlobalVariable.GenerateSection(OutputFile, [FvFileName], 'EFI_SECTION_FIRMWARE_VOLUME_IMAGE')
                 OutputFileList.append(OutputFile)
+
+            # MaxFvAlignment is larger than or equal to 1K
+            if MaxFvAlignment >= 0x400:
+                if MaxFvAlignment >= 0x10000:
+                    #The max alignment supported by FFS is 64K.
+                    self.Alignment = "64K"
+                else:
+                    self.Alignment = str (MaxFvAlignment / 0x400) + "K"
+            else:
+                # MaxFvAlignment is less than 1K
+                self.Alignment = str (MaxFvAlignment)
+
             return OutputFileList, self.Alignment
         #
         # Generate Fv
@@ -83,6 +108,24 @@ class FvImageSection(FvImageSectionClassObject):
             else:
                 if self.FvFileName != None:
                     FvFileName = GenFdsGlobalVariable.ReplaceWorkspaceMacro(self.FvFileName)
+                    if os.path.isfile(FvFileName):
+                        FvFileObj = open (FvFileName,'rb')
+                        FvFileObj.seek(0)
+                        # PI FvHeader is 0x48 byte
+                        FvHeaderBuffer = FvFileObj.read(0x48)
+                        # FV alignment position.
+                        FvAlignmentValue = 1 << (ord (FvHeaderBuffer[0x2E]) & 0x1F)
+                        # FvAlignmentValue is larger than or equal to 1K
+                        if FvAlignmentValue >= 0x400:
+                            if FvAlignmentValue >= 0x10000:
+                                #The max alignment supported by FFS is 64K.
+                                self.Alignment = "64K"
+                            else:
+                                self.Alignment = str (FvAlignmentValue / 0x400) + "K"
+                        else:
+                            # FvAlignmentValue is less than 1K
+                            self.Alignment = str (FvAlignmentValue)
+                        FvFileObj.close()
                 else:
                     EdkLogger.error("GenFds", GENFDS_ERROR, "FvImageSection Failed! %s NOT found in FDF" % self.FvName)
 

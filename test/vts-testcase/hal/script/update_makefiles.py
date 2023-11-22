@@ -25,13 +25,11 @@ Usage:
 """
 
 from build.build_rule_gen import BuildRuleGen
-import os
-import sys
+from utils.const import Constant
 
 if __name__ == "__main__":
     print 'Updating build rules.'
-    warning_header = (
-        '// This file was auto-generated. Do not edit manually.\n'
-        '// Use test/vts-testcase/hal/update_makefiles.py to generate this file.\n\n')
-    build_rule_gen = BuildRuleGen(warning_header)
-    build_rule_gen.UpdateBuildRule()
+    build_rule_gen = BuildRuleGen(Constant.BP_WARNING_HEADER,
+                                  Constant.HAL_PACKAGE_PREFIX,
+                                  Constant.HAL_INTERFACE_PATH)
+    build_rule_gen.UpdateBuildRule(Constant.VTS_HAL_TEST_CASE_PATH)

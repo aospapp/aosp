@@ -11,7 +11,12 @@ cc_library {
     sdk_version: "9",
     stl: "none",
 
-    cflags: ["-D_7ZIP_ST", "-Wno-empty-body"],
+    cflags: [
+        "-D_7ZIP_ST",
+        "-Wall",
+        "-Werror",
+        "-Wno-empty-body",
+    ],
     clang_cflags: ["-Wno-self-assign", "-Werror"],
 
     export_include_dirs: ["."],

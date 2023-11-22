@@ -27,6 +27,7 @@
 #include <cutils/bitops.h>
 
 #include "audio-base.h"
+#include "audio-base-utils.h"
 
 __BEGIN_DECLS
 
@@ -42,20 +43,6 @@ __BEGIN_DECLS
 
 /* AudioFlinger and AudioPolicy services use I/O handles to identify audio sources and sinks */
 typedef int audio_io_handle_t;
-
-/* Do not change these values without updating their counterparts
- * in frameworks/base/media/java/android/media/AudioAttributes.java
- */
-typedef enum {
-    AUDIO_CONTENT_TYPE_UNKNOWN      = 0,
-    AUDIO_CONTENT_TYPE_SPEECH       = 1,
-    AUDIO_CONTENT_TYPE_MUSIC        = 2,
-    AUDIO_CONTENT_TYPE_MOVIE        = 3,
-    AUDIO_CONTENT_TYPE_SONIFICATION = 4,
-
-    AUDIO_CONTENT_TYPE_CNT,
-    AUDIO_CONTENT_TYPE_MAX          = AUDIO_CONTENT_TYPE_CNT - 1,
-} audio_content_type_t;
 
 typedef uint32_t audio_flags_mask_t;
 
@@ -84,7 +71,7 @@ typedef struct {
     audio_source_t       source;
     audio_flags_mask_t   flags;
     char                 tags[AUDIO_ATTRIBUTES_TAGS_MAX_SIZE]; /* UTF8 */
-} audio_attributes_t;
+} __attribute__((packed)) audio_attributes_t; // sent through Binder;
 
 /* a unique ID allocated by AudioFlinger for use as an audio_io_handle_t, audio_session_t,
  * effect ID (int), audio_module_handle_t, and audio_patch_handle_t.
@@ -198,6 +185,21 @@ static inline audio_channel_mask_t audio_channel_mask_from_representation_and_bi
     return (audio_channel_mask_t) ((representation << AUDIO_CHANNEL_COUNT_MAX) | bits);
 }
 
+/**
+ * Expresses the convention when stereo audio samples are stored interleaved
+ * in an array.  This should improve readability by allowing code to use
+ * symbolic indices instead of hard-coded [0] and [1].
+ *
+ * For multi-channel beyond stereo, the platform convention is that channels
+ * are interleaved in order from least significant channel mask bit to most
+ * significant channel mask bit, with unused bits skipped.  Any exceptions
+ * to this convention will be noted at the appropriate API.
+ */
+enum {
+    AUDIO_INTERLEAVE_LEFT = 0,
+    AUDIO_INTERLEAVE_RIGHT = 1,
+};
+
 /* This enum is deprecated */
 typedef enum {
     AUDIO_IN_ACOUSTICS_NONE          = 0,
@@ -225,6 +227,7 @@ typedef uint32_t audio_devices_t;
  * hardware playback
  * The version and size fields must be initialized by the caller by using
  * one of the constants defined here.
+ * Must be aligned to transmit as raw memory through Binder.
  */
 typedef struct {
     uint16_t version;                   // version of the info structure
@@ -240,7 +243,7 @@ typedef struct {
     uint32_t bit_width;
     uint32_t offload_buffer_size;       // offload fragment size
     audio_usage_t usage;
-} audio_offload_info_t;
+} __attribute__((aligned(8))) audio_offload_info_t;
 
 #define AUDIO_MAKE_OFFLOAD_INFO_VERSION(maj,min) \
             ((((maj) & 0xff) << 8) | ((min) & 0xff))
@@ -267,13 +270,14 @@ static const audio_offload_info_t AUDIO_INFO_INITIALIZER = {
 /* common audio stream configuration parameters
  * You should memset() the entire structure to zero before use to
  * ensure forward compatibility
+ * Must be aligned to transmit as raw memory through Binder.
  */
-struct audio_config {
+struct __attribute__((aligned(8))) audio_config {
     uint32_t sample_rate;
     audio_channel_mask_t channel_mask;
     audio_format_t  format;
     audio_offload_info_t offload_info;
-    size_t frame_count;
+    uint32_t frame_count;
 };
 typedef struct audio_config audio_config_t;
 
@@ -319,6 +323,11 @@ typedef int audio_module_handle_t;
 /******************************
  *  Volume control
  *****************************/
+
+/** 3 dB headroom are allowed on float samples (3db = 10^(3/20) = 1.412538).
+* See: https://developer.android.com/reference/android/media/AudioTrack.html#write(float[], int, int, int)
+*/
+#define FLOAT_NOMINAL_RANGE_HEADROOM 1.412538
 
 /* If the audio hardware supports gain control on some audio paths,
  * the platform can expose them in the audio_policy.conf file. The audio HAL
@@ -524,6 +533,24 @@ struct audio_mmap_position {
                                     is called */
 };
 
+/** Metadata of a record track for an in stream. */
+typedef struct playback_track_metadata {
+    audio_usage_t usage;
+    audio_content_type_t content_type;
+    float gain; // Normalized linear volume. 0=silence, 1=0dbfs...
+} playback_track_metadata_t;
+
+/** Metadata of a playback track for an out stream. */
+typedef struct record_track_metadata {
+    audio_source_t source;
+    float gain; // Normalized linear volume. 0=silence, 1=0dbfs...
+} record_track_metadata_t;
+
+
+/******************************
+ *  Helper functions
+ *****************************/
+
 static inline bool audio_is_output_device(audio_devices_t device)
 {
     if (((device & AUDIO_DEVICE_BIT_IN) == 0) &&
@@ -584,6 +611,11 @@ static inline bool audio_is_bluetooth_sco_device(audio_devices_t device)
     }
 
     return false;
+}
+
+static inline bool audio_is_hearing_aid_out_device(audio_devices_t device)
+{
+    return device == AUDIO_DEVICE_OUT_HEARING_AID;
 }
 
 static inline bool audio_is_usb_out_device(audio_devices_t device)
@@ -805,6 +837,28 @@ static inline audio_channel_mask_t audio_channel_in_mask_from_count(uint32_t cha
             AUDIO_CHANNEL_REPRESENTATION_POSITION, bits);
 }
 
+static inline audio_channel_mask_t audio_channel_mask_in_to_out(audio_channel_mask_t in)
+{
+    switch (in) {
+    case AUDIO_CHANNEL_IN_MONO:
+        return AUDIO_CHANNEL_OUT_MONO;
+    case AUDIO_CHANNEL_IN_STEREO:
+        return AUDIO_CHANNEL_OUT_STEREO;
+    case AUDIO_CHANNEL_IN_5POINT1:
+        return AUDIO_CHANNEL_OUT_5POINT1;
+    case AUDIO_CHANNEL_IN_3POINT1POINT2:
+        return AUDIO_CHANNEL_OUT_3POINT1POINT2;
+    case AUDIO_CHANNEL_IN_3POINT0POINT2:
+        return AUDIO_CHANNEL_OUT_3POINT0POINT2;
+    case AUDIO_CHANNEL_IN_2POINT1POINT2:
+        return AUDIO_CHANNEL_OUT_2POINT1POINT2;
+    case AUDIO_CHANNEL_IN_2POINT0POINT2:
+        return AUDIO_CHANNEL_OUT_2POINT0POINT2;
+    default:
+        return AUDIO_CHANNEL_INVALID;
+    }
+}
+
 static inline bool audio_is_valid_format(audio_format_t format)
 {
     switch (format & AUDIO_FORMAT_MAIN_MASK) {
@@ -828,6 +882,8 @@ static inline bool audio_is_valid_format(audio_format_t format)
     case AUDIO_FORMAT_AAC_ADTS:
     case AUDIO_FORMAT_HE_AAC_V1:
     case AUDIO_FORMAT_HE_AAC_V2:
+    case AUDIO_FORMAT_AAC_ELD:
+    case AUDIO_FORMAT_AAC_XHE:
     case AUDIO_FORMAT_VORBIS:
     case AUDIO_FORMAT_OPUS:
     case AUDIO_FORMAT_AC3:
@@ -852,6 +908,10 @@ static inline bool audio_is_valid_format(audio_format_t format)
     case AUDIO_FORMAT_DSD:
     case AUDIO_FORMAT_AC4:
     case AUDIO_FORMAT_LDAC:
+    case AUDIO_FORMAT_E_AC3_JOC:
+    case AUDIO_FORMAT_MAT_1_0:
+    case AUDIO_FORMAT_MAT_2_0:
+    case AUDIO_FORMAT_MAT_2_1:
         return true;
     default:
         return false;
@@ -919,6 +979,12 @@ static inline size_t audio_bytes_per_sample(audio_format_t format)
     return size;
 }
 
+static inline size_t audio_bytes_per_frame(uint32_t channel_count, audio_format_t format)
+{
+    // cannot overflow for reasonable channel_count
+    return channel_count * audio_bytes_per_sample(format);
+}
+
 /* converts device address to string sent to audio HAL via set_parameters */
 static inline char *audio_device_address_to_parameter(audio_devices_t device, const char *address)
 {
@@ -965,6 +1031,84 @@ typedef struct audio_uuid_s {
     uint8_t node[6];
 } audio_uuid_t;
 
+//TODO: audio_microphone_location_t need to move to HAL v4.0
+typedef enum {
+    AUDIO_MICROPHONE_LOCATION_UNKNOWN = 0,
+    AUDIO_MICROPHONE_LOCATION_MAINBODY = 1,
+    AUDIO_MICROPHONE_LOCATION_MAINBODY_MOVABLE = 2,
+    AUDIO_MICROPHONE_LOCATION_PERIPHERAL = 3,
+    AUDIO_MICROPHONE_LOCATION_CNT = 4,
+} audio_microphone_location_t;
+
+//TODO: audio_microphone_directionality_t need to move to HAL v4.0
+typedef enum {
+    AUDIO_MICROPHONE_DIRECTIONALITY_UNKNOWN = 0,
+    AUDIO_MICROPHONE_DIRECTIONALITY_OMNI = 1,
+    AUDIO_MICROPHONE_DIRECTIONALITY_BI_DIRECTIONAL = 2,
+    AUDIO_MICROPHONE_DIRECTIONALITY_CARDIOID = 3,
+    AUDIO_MICROPHONE_DIRECTIONALITY_HYPER_CARDIOID = 4,
+    AUDIO_MICROPHONE_DIRECTIONALITY_SUPER_CARDIOID = 5,
+    AUDIO_MICROPHONE_DIRECTIONALITY_CNT = 6,
+} audio_microphone_directionality_t;
+
+/* A 3D point which could be used to represent geometric location
+ * or orientation of a microphone.
+ */
+struct audio_microphone_coordinate {
+    float x;
+    float y;
+    float z;
+};
+
+/* An number to indicate which group the microphone locate. Main body is
+ * usually group 0. Developer could use this value to group the microphones
+ * that locate on the same peripheral or attachments.
+ */
+typedef int audio_microphone_group_t;
+
+typedef enum {
+    AUDIO_MICROPHONE_CHANNEL_MAPPING_UNUSED = 0,
+    AUDIO_MICROPHONE_CHANNEL_MAPPING_DIRECT = 1,
+    AUDIO_MICROPHONE_CHANNEL_MAPPING_PROCESSED = 2,
+    AUDIO_MICROPHONE_CHANNEL_MAPPING_CNT = 3,
+} audio_microphone_channel_mapping_t;
+
+/* the maximum length for the microphone id */
+#define AUDIO_MICROPHONE_ID_MAX_LEN 32
+/* max number of frequency responses in a frequency response table */
+#define AUDIO_MICROPHONE_MAX_FREQUENCY_RESPONSES 256
+/* max number of microphone */
+#define AUDIO_MICROPHONE_MAX_COUNT 32
+/* the value of unknown spl */
+#define AUDIO_MICROPHONE_SPL_UNKNOWN -FLT_MAX
+/* the value of unknown sensitivity */
+#define AUDIO_MICROPHONE_SENSITIVITY_UNKNOWN -FLT_MAX
+/* the value of unknown coordinate */
+#define AUDIO_MICROPHONE_COORDINATE_UNKNOWN -FLT_MAX
+/* the value used as address when the address of bottom microphone is empty */
+#define AUDIO_BOTTOM_MICROPHONE_ADDRESS "bottom"
+/* the value used as address when the address of back microphone is empty */
+#define AUDIO_BACK_MICROPHONE_ADDRESS "back"
+
+struct audio_microphone_characteristic_t {
+    char                               device_id[AUDIO_MICROPHONE_ID_MAX_LEN];
+    audio_port_handle_t                id;
+    audio_devices_t                    device;
+    char                               address[AUDIO_DEVICE_MAX_ADDRESS_LEN];
+    audio_microphone_channel_mapping_t channel_mapping[AUDIO_CHANNEL_COUNT_MAX];
+    audio_microphone_location_t        location;
+    audio_microphone_group_t           group;
+    unsigned int                       index_in_the_group;
+    float                              sensitivity;
+    float                              max_spl;
+    float                              min_spl;
+    audio_microphone_directionality_t  directionality;
+    unsigned int                       num_frequency_responses;
+    float frequency_responses[2][AUDIO_MICROPHONE_MAX_FREQUENCY_RESPONSES];
+    struct audio_microphone_coordinate geometric_location;
+    struct audio_microphone_coordinate orientation;
+};
+
 __END_DECLS
 
 /**
@@ -982,6 +1126,21 @@ __END_DECLS
 #define AUDIO_HARDWARE_MODULE_ID_REMOTE_SUBMIX "r_submix"
 #define AUDIO_HARDWARE_MODULE_ID_CODEC_OFFLOAD "codec_offload"
 #define AUDIO_HARDWARE_MODULE_ID_STUB "stub"
+#define AUDIO_HARDWARE_MODULE_ID_HEARING_AID "hearing_aid"
+
+/**
+ * Multi-Stream Decoder (MSD) HAL service name. MSD HAL is used to mix
+ * encoded streams together with PCM streams, producing re-encoded
+ * streams or PCM streams.
+ *
+ * The service must register itself using this name, and audioserver
+ * tries to instantiate a device factory using this name as well.
+ * Note that the HIDL implementation library file name *must* have the
+ * suffix "msd" in order to be picked up by HIDL that is:
+ *
+ *   android.hardware.audio@x.x-implmsd.so
+ */
+#define AUDIO_HAL_SERVICE_NAME_MSD "msd"
 
 /**
  * Parameter definitions.
@@ -1019,6 +1178,12 @@ __END_DECLS
 #define AUDIO_PARAMETER_STREAM_INPUT_SOURCE "input_source"   /* audio_source_t */
 #define AUDIO_PARAMETER_STREAM_SAMPLING_RATE "sampling_rate" /* uint32_t */
 
+/* Request the presentation id to be decoded by a next gen audio decoder */
+#define AUDIO_PARAMETER_STREAM_PRESENTATION_ID "presentation_id" /* int32_t */
+
+/* Request the program id to be decoded by a next gen audio decoder */
+#define AUDIO_PARAMETER_STREAM_PROGRAM_ID "program_id"           /* int32_t */
+
 #define AUDIO_PARAMETER_DEVICE_CONNECT "connect"            /* audio_devices_t */
 #define AUDIO_PARAMETER_DEVICE_DISCONNECT "disconnect"      /* audio_devices_t */
 
@@ -1040,6 +1205,11 @@ __END_DECLS
 
 #define AUDIO_PARAMETER_VALUE_LIST_SEPARATOR "|"
 
+/* Reconfigure offloaded A2DP codec */
+#define AUDIO_PARAMETER_RECONFIG_A2DP "reconfigA2dp"
+/* Query if HwModule supports reconfiguration of offloaded A2DP codec */
+#define AUDIO_PARAMETER_A2DP_RECONFIG_SUPPORTED "isReconfigA2dpSupported"
+
 /**
  * audio codec parameters
  */
@@ -1056,6 +1226,5 @@ __END_DECLS
 #define AUDIO_OFFLOAD_CODEC_DOWN_SAMPLING  "music_offload_down_sampling"
 #define AUDIO_OFFLOAD_CODEC_DELAY_SAMPLES  "delay_samples"
 #define AUDIO_OFFLOAD_CODEC_PADDING_SAMPLES  "padding_samples"
-
 
 #endif  // ANDROID_AUDIO_CORE_H

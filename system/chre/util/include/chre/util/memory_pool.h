@@ -75,6 +75,11 @@ class MemoryPool : public NonCopyable {
    */
   void deallocate(ElementType *element);
 
+  /**
+   * @return the number of unused blocks in this memory pool.
+   */
+  size_t getFreeBlockCount() const;
+
  private:
   /**
    * The unused storage for this MemoryPool maintains the list of free slots.

@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"无SIM卡或SIM卡出错"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"无法连接到移动网络"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"外拨电话受固定拨号限制。"</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL 请求已修改为 USSD 请求。"</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL 请求已修改为 SS 请求。"</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL 请求已修改为其他号码的 DIAL 请求。"</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"通话已更改为 USSD 请求"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"通话已更改为 SS 请求"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"已更改为其他号码"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"已更改为视频通话"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"视频通话已更改为 SS 请求"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"视频通话已更改为 USSD 请求"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"已更改为常规通话"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"已更改为其他号码"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"您无法在开启了通话限制的情况下拨出电话。"</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"权限控制设置不允许拨打电话。"</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"权限控制设置不允许拨打紧急呼救电话。"</string>

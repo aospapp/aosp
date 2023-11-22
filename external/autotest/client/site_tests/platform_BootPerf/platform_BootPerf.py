@@ -29,7 +29,6 @@ class platform_BootPerf(test.test):
       * seconds_kernel_to_signin_start
       * seconds_kernel_to_signin_wait
       * seconds_kernel_to_signin_users
-      * seconds_kernel_to_signin_seen
       * seconds_kernel_to_login
       * seconds_kernel_to_network
       * rdbytes_kernel_to_startup
@@ -43,6 +42,7 @@ class platform_BootPerf(test.test):
       * seconds_power_on_to_lk_start
       * seconds_power_on_to_lk_end
       * seconds_power_on_to_kernel
+      * seconds_power_on_to_login
       * seconds_shutdown_time
       * seconds_reboot_time
       * seconds_reboot_error
@@ -71,9 +71,7 @@ class platform_BootPerf(test.test):
     #     screen initialization and now waits until JS sends "ready" event.
     #   kernel_to_signin_users - The moment when UI thread receives "ready" from
     #     JS code. So V8 is initialized and running, etc...
-    #   kernel_to_signin_seen - The moment when user can actually see signin UI.
-    #   boot-complete - Completion of boot after Chrome presents the
-    #     login screen.
+    #   kernel_to_login - The moment when user can actually see signin UI.
     #   kernel_to_android_start - The moment when Android is started.
     _EVENT_KEYVALS = [
         # N.B.  Keyval attribute names go into a database that
@@ -92,8 +90,8 @@ class platform_BootPerf(test.test):
             'login-wait-for-signin-state-initialize',                  False),
         # This event doesn't happen if device has no users.
         ('kernel_to_signin_users',  'login-send-user-list',            False),
-        ('kernel_to_signin_seen',   'login-prompt-visible',            True),
-        ('kernel_to_login',         'boot-complete',                   True),
+        ('kernel_to_login',         'login-prompt-visible',            True),
+        # Not all boards support ARC.
         ('kernel_to_android_start', 'android-start',                   False)
     ]
 
@@ -109,7 +107,9 @@ class platform_BootPerf(test.test):
     _UPTIME_FILE_GLOB = os.path.join('/tmp', _UPTIME_PREFIX + '*')
     _DISK_FILE_GLOB = os.path.join('/tmp', _DISK_PREFIX + '*')
 
-    _RAMOOPS_FILE = "/dev/pstore/console-ramoops"
+    # The name of this file has changed starting with linux-3.19.
+    # Use a glob to snarf up all existing records.
+    _RAMOOPS_FILE_GLOB = "/sys/fs/pstore/console-ramoops*"
 
 
     def _copy_timestamp_files(self):
@@ -126,10 +126,12 @@ class platform_BootPerf(test.test):
     def _copy_console_ramoops(self):
         """Copy console_ramoops from previous reboot."""
         # If reboot was misbehaving, looking at ramoops may provide clues.
-        try:
-            shutil.copy(self._RAMOOPS_FILE, self.resultsdir)
-        except Exception:
-            pass
+        for path in glob.glob(self._RAMOOPS_FILE_GLOB):
+            try:
+                shutil.copy(path, self.resultsdir)
+                break
+            except Exception:
+                pass
 
     def _parse_bootstat(self, filename, fieldnum):
         """Read values from a bootstat event file.

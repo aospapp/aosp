@@ -19,10 +19,13 @@ package android.database.sqlite.cts;
 
 import android.content.Context;
 import android.database.AbstractCursor;
+import android.database.AbstractWindowedCursor;
 import android.database.Cursor;
 import android.database.CursorWindow;
 import android.database.DataSetObserver;
+import android.database.SQLException;
 import android.database.StaleDataException;
+import android.database.sqlite.SQLiteBlobTooBigException;
 import android.database.sqlite.SQLiteCursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteDirectCursorDriver;
@@ -208,6 +211,46 @@ public class SQLiteCursorTest extends AndroidTestCase {
         cursor.setSelectionArguments(new String[] { Integer.toString(TEST_ARG2) });
         cursor.requery();
         assertEquals(TEST_COUNT - TEST_ARG2, cursor.getCount());
+    }
+
+    public void testRowTooBig() {
+        mDatabase.execSQL("CREATE TABLE Tst (Txt BLOB NOT NULL);");
+        byte[] testArr = new byte[10000];
+        Arrays.fill(testArr, (byte) 1);
+        for (int i = 0; i < 10; i++) {
+            mDatabase.execSQL("INSERT INTO Tst VALUES (?)", new Object[]{testArr});
+        }
+
+        // Now reduce window size, so that no rows can fit
+        Cursor cursor = mDatabase.rawQuery("SELECT * FROM TST", null);
+        CursorWindow cw = new CursorWindow("test", 5000);
+        AbstractWindowedCursor ac = (AbstractWindowedCursor) cursor;
+        ac.setWindow(cw);
+
+        try {
+            ac.moveToNext();
+            fail("Exception is expected when row exceeds CursorWindow size");
+        } catch (SQLiteBlobTooBigException expected) {
+        }
+    }
+
+    public void testFillWindowForwardOnly() {
+        mDatabase.execSQL("CREATE TABLE Tst (Num Integer NOT NULL);");
+        mDatabase.beginTransaction();
+        for (int i = 0; i < 100; i++) {
+            mDatabase.execSQL("INSERT INTO Tst VALUES (?)", new Object[]{i});
+        }
+        mDatabase.setTransactionSuccessful();
+        mDatabase.endTransaction();
+        Cursor cursor = mDatabase.rawQuery("SELECT * FROM TST", null);
+        SQLiteCursor ac = (SQLiteCursor) cursor;
+        CursorWindow window = new CursorWindow("test", 1000);
+        ac.setFillWindowForwardOnly(true);
+        ac.setWindow(window);
+        assertTrue(ac.moveToFirst());
+        // Now skip 70 rows and check that the window start position corresponds to row 70
+        ac.move(70);
+        assertEquals(70, window.getStartPosition());
     }
 
     public void testOnMove() {

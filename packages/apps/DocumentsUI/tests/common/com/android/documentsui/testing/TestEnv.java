@@ -15,10 +15,12 @@
  */
 package com.android.documentsui.testing;
 
+import android.content.Context;
 import android.provider.DocumentsContract.Document;
 import android.support.test.InstrumentationRegistry;
 import android.test.mock.MockContentResolver;
 
+import com.android.documentsui.DocsSelectionHelper;
 import com.android.documentsui.FocusManager;
 import com.android.documentsui.Injector;
 import com.android.documentsui.archives.ArchivesProvider;
@@ -27,11 +29,8 @@ import com.android.documentsui.base.Features;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
 import com.android.documentsui.dirlist.TestFocusHandler;
-import com.android.documentsui.selection.SelectionManager;
 import com.android.documentsui.sorting.SortModel;
 import com.android.documentsui.ui.TestDialogController;
-
-import junit.framework.Assert;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,6 +48,7 @@ public class TestEnv {
     public static DocumentInfo FILE_JPG;
     public static DocumentInfo FILE_GIF;
     public static DocumentInfo FILE_PDF;
+    public static DocumentInfo FILE_MP4;
     public static DocumentInfo FILE_APK;
     public static DocumentInfo FILE_PARTIAL;
     public static DocumentInfo FILE_ARCHIVE;
@@ -64,29 +64,27 @@ public class TestEnv {
     public final TestDialogController dialogs = new TestDialogController();
     public final TestModel model;
     public final TestModel archiveModel;
-    public final SelectionManager selectionMgr;
+    public final DocsSelectionHelper selectionMgr;
     public final TestSearchViewManager searchViewManager;
-    public final Injector injector;
+    public final Injector<?> injector;
     public final Features features;
 
     public final MockContentResolver contentResolver;
     public final Map<String, TestDocumentsProvider> mockProviders;
 
-    private TestEnv(String authority) {
+    private TestEnv(Context context, Features features, String authority) {
+        this.features = features;
         state.sortModel = SortModel.createModel();
         mExecutor = new TestScheduledExecutorService();
-        features = new Features.RuntimeFeatures(
-                InstrumentationRegistry.getInstrumentation().getTargetContext().getResources(),
-                null);
         model = new TestModel(authority, features);
         archiveModel = new TestModel(ArchivesProvider.AUTHORITY, features);
-        selectionMgr = SelectionManagers.createTestInstance();
+        selectionMgr = SelectionHelpers.createTestInstance();
         searchViewManager = new TestSearchViewManager();
         injector = new Injector(
                 features,
                 new TestActivityConfig(),
-                null,       //ScopedPreferences are not required for tests
-                null,   //a MessageBuilder is not required for tests
+                null,       // ScopedPreferences are not currently required for tests
+                null,       // MessageBuilder is not currently required for tests
                 dialogs,
                 new TestFileTypeLookup(),
                 (roots) -> {},  // not sure why, but java gets angry when I declare roots type.
@@ -111,12 +109,28 @@ public class TestEnv {
         }
     }
 
+    // Many terrible creational permutations == easy to user for test authors!
+    public static TestEnv create(Features features) {
+        return create(features, TestProvidersAccess.HOME.authority);
+    }
+
     public static TestEnv create() {
         return create(TestProvidersAccess.HOME.authority);
     }
 
+    public static TestEnv create(Features features, String authority) {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        return create(context, features, authority);
+    }
+
     public static TestEnv create(String authority) {
-        TestEnv env = new TestEnv(authority);
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Features features = new Features.RuntimeFeatures(context.getResources(), null);
+        return create(context, features, authority);
+    }
+
+    private static TestEnv create(Context context, Features features, String authority) {
+        TestEnv env = new TestEnv(context, features, authority);
         env.reset();
         return env;
     }
@@ -136,6 +150,7 @@ public class TestEnv {
         FILE_JPG = model.createFile("jiffy.jpg");
         FILE_GIF = model.createFile("glibby.gif");
         FILE_PDF = model.createFile("busy.pdf");
+        FILE_MP4 = model.createFile("cameravideo.mp4");
         FILE_APK = model.createFile("becareful.apk");
         FILE_PARTIAL = model.createFile(
                 "UbuntuFlappyBird.iso",
@@ -157,8 +172,11 @@ public class TestEnv {
 
     public void populateStack() {
         DocumentInfo rootDoc = model.getDocument("1");
-        Assert.assertNotNull(rootDoc);
-        Assert.assertEquals(rootDoc.displayName, FOLDER_0.displayName);
+
+        // These are test setup sanity checks, not test assertions.
+        assert rootDoc != null;
+        assert rootDoc.isDirectory();
+        assert FOLDER_0.equals(rootDoc);
 
         state.stack.changeRoot(TestProvidersAccess.HOME);
         state.stack.push(rootDoc);
@@ -176,5 +194,22 @@ public class TestEnv {
         List<String> ids = new ArrayList<>(1);
         ids.add(info.documentId);
         selectionMgr.setItemsSelected(ids, true);
+    }
+
+    // Easily copy docs, so we don't pollute static data across tests.
+    public static DocumentInfo clone(DocumentInfo a) {
+        DocumentInfo b = new DocumentInfo();
+        b.authority = a.authority;
+        b.documentId = a.documentId;
+        b.mimeType = a.mimeType;
+        b.displayName = a.displayName;
+        b.lastModified = a.lastModified;
+        b.flags = a.flags;
+        b.summary = a.summary;
+        b.size = a.size;
+        b.icon = a.icon;
+        b.derivedUri = a.derivedUri;
+
+        return b;
     }
 }

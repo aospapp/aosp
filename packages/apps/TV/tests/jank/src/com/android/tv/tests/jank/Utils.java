@@ -15,19 +15,16 @@
  */
 package com.android.tv.tests.jank;
 
-import com.android.tv.testing.uihelper.UiDeviceUtils;
-
 import android.support.test.uiautomator.UiDevice;
+import com.android.tv.testing.uihelper.UiDeviceUtils;
 
 public final class Utils {
     /** Live TV process name */
     public static final String LIVE_CHANNELS_PROCESS_NAME = "com.android.tv";
 
-    private Utils() { }
+    private Utils() {}
 
-    /**
-     * Presses channel number to tune to {@code channel}.
-     */
+    /** Presses channel number to tune to {@code channel}. */
     public static void pressKeysForChannelNumber(String channel, UiDevice uiDevice) {
         UiDeviceUtils.pressKeys(uiDevice, channel);
         uiDevice.pressDPadCenter();

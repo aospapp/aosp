@@ -168,7 +168,8 @@ class BleStressTest(BluetoothBaseTest):
             self.adv_ad.droid.bleStartBleAdvertising(
                 advertise_callback, advertise_data, advertise_settings)
             expected_advertise_event_name = "".join(
-                ["BleAdvertise", str(advertise_callback), "onSuccess"])
+                ["BleAdvertise",
+                 str(advertise_callback), "onSuccess"])
             worker = self.adv_ad.ed.handle_event(
                 self.bleadvertise_verify_onsuccess_handler,
                 expected_advertise_event_name, ([]), self.default_timeout)
@@ -176,7 +177,8 @@ class BleStressTest(BluetoothBaseTest):
                 self.log.debug(worker.result(self.default_timeout))
             except Empty as error:
                 self.log.debug(" ".join(
-                    ["Test failed with Empty error:", str(error)]))
+                    ["Test failed with Empty error:",
+                     str(error)]))
                 test_result = False
             except concurrent.futures._base.TimeoutError as error:
                 self.log.debug(" ".join([
@@ -219,7 +221,8 @@ class BleStressTest(BluetoothBaseTest):
         self.adv_ad.droid.bleStartBleAdvertising(
             advertise_callback, advertise_data, advertise_settings)
         expected_advertise_event_name = "".join(
-            ["BleAdvertise", str(advertise_callback), "onSuccess"])
+            ["BleAdvertise",
+             str(advertise_callback), "onSuccess"])
         worker = self.adv_ad.ed.handle_event(
             self.bleadvertise_verify_onsuccess_handler,
             expected_advertise_event_name, ([]), self.default_timeout)
@@ -227,7 +230,8 @@ class BleStressTest(BluetoothBaseTest):
             self.log.debug(worker.result(self.default_timeout))
         except Empty as error:
             self.log.debug(" ".join(
-                ["Test failed with Empty error:", str(error)]))
+                ["Test failed with Empty error:",
+                 str(error)]))
             test_result = False
         except concurrent.futures._base.TimeoutError as error:
             self.log.debug(" ".join([
@@ -247,7 +251,8 @@ class BleStressTest(BluetoothBaseTest):
             self.log.debug(worker.result(self.default_timeout))
         except Empty as error:
             self.log.debug(" ".join(
-                ["Test failed with Empty error:", str(error)]))
+                ["Test failed with Empty error:",
+                 str(error)]))
             test_result = False
         except concurrent.futures._base.TimeoutError as error:
             self.log.debug(" ".join([
@@ -318,7 +323,7 @@ class BleStressTest(BluetoothBaseTest):
         iterations = 100
         for i in range(iterations):
             try:
-                target_address, adv_callback = get_mac_address_of_generic_advertisement(
+                target_address, adv_callback, scan_callback = get_mac_address_of_generic_advertisement(
                     self.scn_ad, self.adv_ad)
             except BtTestUtilsError as err:
                 self.log.error(err)
@@ -339,6 +344,7 @@ class BleStressTest(BluetoothBaseTest):
                 self.log.error("Failed to unbond device from advertiser.")
                 return False
             self.adv_ad.droid.bleStopBleAdvertising(adv_callback)
+            self.scn_ad.droid.bleStopBleScan(scan_callback)
             # Magic sleep to let unbonding finish
             time.sleep(2)
         return True

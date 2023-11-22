@@ -18,6 +18,7 @@ import android.icu.lang.UCharacter;
 import android.icu.text.Bidi;
 import android.icu.text.BidiRun;
 import android.icu.util.VersionInfo;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * A base class for the Bidi test suite.
@@ -25,6 +26,7 @@ import android.icu.util.VersionInfo;
  * @author Lina Kemmel, Matitiahu Allouche
  */
 
+@MainTestShard
 public class BidiFmwk extends TestFmwk {
 
     protected static final char[] charFromDirProp = {

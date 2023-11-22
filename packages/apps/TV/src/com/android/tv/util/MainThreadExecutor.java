@@ -18,7 +18,6 @@ package com.android.tv.util;
 
 import android.os.Handler;
 import android.os.Looper;
-
 import java.util.List;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -26,11 +25,11 @@ import java.util.concurrent.TimeUnit;
 /**
  * An executor service that executes its tasks on the main thread.
  *
- * Shutting down this executor is not supported.
+ * <p>Shutting down this executor is not supported.
  */
 public class MainThreadExecutor extends AbstractExecutorService {
 
-    private final static MainThreadExecutor INSTANCE = new MainThreadExecutor();
+    private static final MainThreadExecutor INSTANCE = new MainThreadExecutor();
 
     public static MainThreadExecutor getInstance() {
         return INSTANCE;
@@ -47,18 +46,14 @@ public class MainThreadExecutor extends AbstractExecutorService {
         }
     }
 
-    /**
-     * Not supported and throws an exception when used.
-     */
+    /** Not supported and throws an exception when used. */
     @Override
     @Deprecated
     public void shutdown() {
         throw new UnsupportedOperationException();
     }
 
-    /**
-     * Not supported and throws an exception when used.
-     */
+    /** Not supported and throws an exception when used. */
     @Override
     @Deprecated
     public List<Runnable> shutdownNow() {
@@ -75,9 +70,7 @@ public class MainThreadExecutor extends AbstractExecutorService {
         return false;
     }
 
-    /**
-     * Not supported and throws an exception when used.
-     */
+    /** Not supported and throws an exception when used. */
     @Override
     @Deprecated
     public boolean awaitTermination(long l, TimeUnit timeUnit) throws InterruptedException {

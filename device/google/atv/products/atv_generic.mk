@@ -32,10 +32,5 @@ PRODUCT_LOCALES := en_US
 PRODUCT_AAPT_CONFIG := normal large xlarge tvdpi hdpi xhdpi xxhdpi
 PRODUCT_AAPT_PREF_CONFIG := xhdpi
 
-# From build/target/product/full_base.mk
-PRODUCT_PACKAGES += \
-    LiveWallpapersPicker \
-    PhotoTable
-
-$(call inherit-product, $(SRC_TARGET_DIR)/product/locales_full.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/languages_full.mk)
 $(call inherit-product, device/google/atv/products/atv_base.mk)

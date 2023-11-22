@@ -15,9 +15,9 @@
  */
 
 #include "Operations.h"
-#include "OperationsUtils.h"
+#include "CpuOperationUtils.h"
 
-#include "internal/optimized/optimized_ops.h"
+#include "tensorflow/contrib/lite/kernels/internal/optimized/optimized_ops.h"
 
 namespace android {
 namespace nn {
@@ -26,14 +26,14 @@ bool concatenationFloat32(const std::vector<const float*>& inputDataPtrs,
                           const std::vector<Shape>& inputShapes, int32_t axis,
                           float* outputData, const Shape& outputShape) {
     int num_inputs = inputShapes.size();
-    std::vector<Dims<4>*> inputDimsPtr(num_inputs);
-    std::vector<Dims<4> > inputDims(num_inputs);
+    std::vector<tflite::Dims<4>*> inputDimsPtr(num_inputs);
+    std::vector<tflite::Dims<4> > inputDims(num_inputs);
     for (int i=0; i<num_inputs; i++) {
         inputDims[i] = convertShapeToDims(inputShapes[i]);
         inputDimsPtr[i] = &inputDims[i];
     }
 
-    optimized_ops::Concatenation<FusedActivationFunctionType::kNone, float>(
+    tflite::optimized_ops::Concatenation<tflite::FusedActivationFunctionType::kNone, float>(
             getNumberOfDimensions(outputShape) - axis - 1,
             inputDataPtrs.data(), inputDimsPtr.data(), num_inputs,
             outputData, convertShapeToDims(outputShape));
@@ -45,14 +45,14 @@ bool concatenationQuant8(const std::vector<const uint8_t*>& inputDataPtrs,
                          const std::vector<Shape>& inputShapes, int32_t axis,
                          uint8_t* outputData, const Shape& outputShape) {
     int num_inputs = inputShapes.size();
-    std::vector<Dims<4>*> inputDimsPtr(num_inputs);
-    std::vector<Dims<4> > inputDims(num_inputs);
+    std::vector<tflite::Dims<4>*> inputDimsPtr(num_inputs);
+    std::vector<tflite::Dims<4> > inputDims(num_inputs);
     for (int i=0; i<num_inputs; i++) {
         inputDims[i] = convertShapeToDims(inputShapes[i]);
         inputDimsPtr[i] = &inputDims[i];
     }
 
-    optimized_ops::Concatenation<FusedActivationFunctionType::kNone, uint8_t>(
+    tflite::optimized_ops::Concatenation<tflite::FusedActivationFunctionType::kNone, uint8_t>(
             getNumberOfDimensions(outputShape) - axis - 1,
             inputDataPtrs.data(), inputDimsPtr.data(), num_inputs,
             outputData, convertShapeToDims(outputShape));

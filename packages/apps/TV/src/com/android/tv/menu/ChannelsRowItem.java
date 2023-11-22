@@ -17,14 +17,10 @@
 package com.android.tv.menu;
 
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-
 import com.android.tv.R;
-import com.android.tv.data.Channel;
+import com.android.tv.data.api.Channel;
 
-/**
- * A class for the items in channels row.
- */
+/** A class for the items in channels row. */
 public class ChannelsRowItem {
     /** The item ID for guide item */
     public static final int GUIDE_ITEM_ID = -1;
@@ -62,31 +58,23 @@ public class ChannelsRowItem {
         mLayoutId = layoutId;
     }
 
-    /**
-     * Returns the channel for this item.
-     */
+    /** Returns the channel for this item. */
     @NonNull
     public Channel getChannel() {
         return mChannel;
     }
 
-    /**
-     * Sets the channel.
-     */
+    /** Sets the channel. */
     public void setChannel(@NonNull Channel channel) {
         mChannel = channel;
     }
 
-    /**
-     * Returns the layout resource ID to represent this item.
-     */
+    /** Returns the layout resource ID to represent this item. */
     public int getLayoutId() {
         return mLayoutId;
     }
 
-    /**
-     * Returns the unique ID for this item.
-     */
+    /** Returns the unique ID for this item. */
     public long getItemId() {
         return mItemId;
     }
@@ -94,8 +82,12 @@ public class ChannelsRowItem {
     @Override
     public String toString() {
         return "ChannelsRowItem{"
-                + "itemId=" + mItemId
-                + ", layoutId=" + mLayoutId
-                + ", channel=" + mChannel + "}";
+                + "itemId="
+                + mItemId
+                + ", layoutId="
+                + mLayoutId
+                + ", channel="
+                + mChannel
+                + "}";
     }
 }

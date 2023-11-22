@@ -43,6 +43,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import static com.android.server.telecom.testapps.CallServiceNotifier.SIM_SUBSCRIPTION_ID2;
+
 /**
  * Service which provides fake calls to test the ConnectionService interface.
  * TODO: Rename all classes in the directory to Dummy* (e.g., DummyConnectionService).
@@ -56,6 +58,9 @@ public class TestConnectionService extends ConnectionService {
     public static final String EXTRA_HANDLE = "extra_handle";
 
     private static final String LOG_TAG = TestConnectionService.class.getSimpleName();
+
+    private static TestConnectionService INSTANCE;
+
     /**
      * Random number generator used to generate phone numbers.
      */
@@ -332,6 +337,11 @@ public class TestConnectionService extends ConnectionService {
     private MediaPlayer mMediaPlayer;
 
     @Override
+    public void onCreate() {
+        INSTANCE = this;
+    }
+
+    @Override
     public boolean onUnbind(Intent intent) {
         log("onUnbind");
         mMediaPlayer = null;
@@ -476,6 +486,36 @@ public class TestConnectionService extends ConnectionService {
         } else {
             return Connection.createFailedConnection(new DisconnectCause(DisconnectCause.ERROR,
                     "Invalid inputs: " + accountHandle + " " + componentName));
+        }
+    }
+
+    public static TestConnectionService getInstance() {
+        return INSTANCE;
+    }
+
+    public void switchPhoneAccount() {
+        if (!mCalls.isEmpty()) {
+            TestConnection c = mCalls.get(0);
+            c.notifyPhoneAccountChanged(CallServiceNotifier.getInstance()
+                    .getPhoneAccountHandle(SIM_SUBSCRIPTION_ID2));
+        } else {
+            Log.i(this, "Couldn't switch PhoneAccount, call is null!");
+        }
+    }
+    public void switchPhoneAccountWrong() {
+        PhoneAccountHandle pah = new PhoneAccountHandle(
+                new ComponentName("com.android.phone",
+                "com.android.services.telephony.TelephonyConnectionService"), "TEST");
+        if (!mCalls.isEmpty()) {
+            TestConnection c = mCalls.get(0);
+            try {
+                c.notifyPhoneAccountChanged(pah);
+            } catch (SecurityException e) {
+                Toast.makeText(getApplicationContext(), "SwitchPhoneAccount: Pass",
+                        Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            Log.i(this, "Couldn't switch PhoneAccount, call is null!");
         }
     }
 

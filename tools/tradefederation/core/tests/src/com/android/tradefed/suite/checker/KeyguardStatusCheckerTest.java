@@ -15,10 +15,11 @@
  */
 package com.android.tradefed.suite.checker;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.suite.checker.StatusCheckerResult.CheckStatus;
 import com.android.tradefed.util.KeyguardControllerState;
 
 import org.easymock.EasyMock;
@@ -52,7 +53,7 @@ public class KeyguardStatusCheckerTest {
         EasyMock.expect(mMockDevice.getKeyguardState())
                 .andReturn(createKeyguardState(false, false));
         EasyMock.replay(mMockDevice);
-        assertTrue(mKsc.postExecutionCheck(mMockDevice));
+        assertEquals(CheckStatus.SUCCESS, mKsc.postExecutionCheck(mMockDevice).getStatus());
         EasyMock.verify(mMockDevice);
     }
 
@@ -66,7 +67,7 @@ public class KeyguardStatusCheckerTest {
         mMockDevice.disableKeyguard();
         EasyMock.expectLastCall();
         EasyMock.replay(mMockDevice);
-        assertFalse(mKsc.postExecutionCheck(mMockDevice));
+        assertEquals(CheckStatus.FAILED, mKsc.postExecutionCheck(mMockDevice).getStatus());
         EasyMock.verify(mMockDevice);
     }
 
@@ -78,7 +79,7 @@ public class KeyguardStatusCheckerTest {
     public void testPostExecutionCheck_notSupported() throws DeviceNotAvailableException {
         EasyMock.expect(mMockDevice.getKeyguardState()).andReturn(null);
         EasyMock.replay(mMockDevice);
-        assertTrue(mKsc.postExecutionCheck(mMockDevice));
+        assertEquals(CheckStatus.SUCCESS, mKsc.postExecutionCheck(mMockDevice).getStatus());
         EasyMock.verify(mMockDevice);
     }
 

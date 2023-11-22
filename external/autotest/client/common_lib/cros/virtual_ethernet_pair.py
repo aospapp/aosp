@@ -221,9 +221,9 @@ class VirtualEthernetPair(object):
         Remove the virtual ethernet device installed by
         _create_test_interface().
         """
-        self._run('ifconfig %s down' % self._interface_name,
+        self._run('ip link set %s down' % self._interface_name,
                   ignore_status=self._ignore_shutdown_errors)
-        self._run('ifconfig %s down' % self._peer_interface_name,
+        self._run('ip link set %s down' % self._peer_interface_name,
                   ignore_status=self._ignore_shutdown_errors)
         self._run('ip link delete %s >/dev/null 2>&1' % self._interface_name,
                   ignore_status=self._ignore_shutdown_errors)
@@ -247,11 +247,11 @@ class VirtualEthernetPair(object):
         self._run('ip link set %s up' % self._interface_name)
         self._run('ip link set %s up' % self._peer_interface_name)
         if self._interface_ip is not None:
-            self._run('ifconfig %s %s' % (self._interface_name,
-                                          self._interface_ip))
+            self._run('ip addr add %s dev %s' % (self._interface_ip,
+                                                 self._interface_name))
         if self._peer_interface_ip is not None:
-            self._run('ifconfig %s %s' % (self._peer_interface_name,
-                                          self._peer_interface_ip))
+            self._run('ip addr add %s dev %s' % (self._peer_interface_ip,
+                                                 self._peer_interface_name))
         if self._interface_ipv6 is not None:
             self._run('ip -6 addr add %s dev %s' % (self._interface_ipv6,
                                                     self._interface_name))

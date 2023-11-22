@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 2007 Mockito contributors This program is made available under the terms of the MIT License.
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
  */
 
 package org.mockitousage.verification;
 
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -20,8 +20,9 @@ import org.mockitoutil.RetryRule;
 import org.mockitoutil.Stopwatch;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static junit.framework.TestCase.assertEquals;
+import static org.junit.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.fail;
 import static org.junit.rules.ExpectedException.none;
 import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.times;
@@ -107,7 +108,7 @@ public class VerificationAfterDelayTest {
 
         try {
             verify(mock, after(100).atLeast(2)).oneArg('1');
-            Assert.fail("Expected behavior was to throw an exception, and never reach this line");
+            fail("Expected behavior was to throw an exception, and never reach this line");
         } catch (MockitoAssertionError ignored) {
         }
 

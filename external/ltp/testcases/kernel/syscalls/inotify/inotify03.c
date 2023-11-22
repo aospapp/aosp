@@ -42,7 +42,8 @@
 #include <sys/syscall.h>
 #include <signal.h>
 #include "test.h"
-#include "linux_syscall_numbers.h"
+#include "safe_macros.h"
+#include "lapi/syscalls.h"
 #include "inotify.h"
 
 char *TCID = "inotify03";
@@ -182,10 +183,7 @@ static void setup(void)
 
 	tst_mkfs(cleanup, device, fs_type, NULL, NULL);
 
-	if (mkdir(mntpoint, DIR_MODE) < 0) {
-		tst_brkm(TBROK | TERRNO, cleanup, "mkdir(%s, %#o) failed",
-			 mntpoint, DIR_MODE);
-	}
+	SAFE_MKDIR(cleanup, mntpoint, DIR_MODE);
 
 	/* Call mount(2) */
 	tst_resm(TINFO, "mount %s to %s fs_type=%s", device, mntpoint, fs_type);
@@ -198,11 +196,7 @@ static void setup(void)
 	mount_flag = 1;
 
 	sprintf(fname, "%s/tfile_%d", mntpoint, getpid());
-	fd = open(fname, O_RDWR | O_CREAT, 0700);
-	if (fd == -1) {
-		tst_brkm(TBROK | TERRNO, cleanup,
-			 "open(%s, O_RDWR|O_CREAT,0700) failed", fname);
-	}
+	fd = SAFE_OPEN(cleanup, fname, O_RDWR | O_CREAT, 0700);
 
 	ret = write(fd, fname, 1);
 	if (ret == -1) {
@@ -211,8 +205,7 @@ static void setup(void)
 	}
 
 	/* close the file we have open */
-	if (close(fd) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "close(%s) failed", fname);
+	SAFE_CLOSE(cleanup, fd);
 
 	fd_notify = myinotify_init();
 

@@ -65,7 +65,7 @@ void EstimatedHostTimeTest::handleEvent(uint32_t senderInstanceId,
                                     sizeof(givenHostTime));
 
     nanoapp_testing::memcpy(&givenHostTime, message, sizeof(givenHostTime));
-    nanoapp_testing::littleEndianToHost(&givenHostTime);
+    givenHostTime = nanoapp_testing::littleEndianToHost(givenHostTime);
 
     if (currentHostTime >= givenHostTime) {
       if ((currentHostTime - givenHostTime) <= timeDelta) {

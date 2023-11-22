@@ -1466,6 +1466,7 @@ public class RegionTest {
         p.setDataPosition(0);
         Region dst = Region.CREATOR.createFromParcel(p);
         assertTrue(dst.isEmpty());
+        p.recycle();
 
         // test reading/writing a single rect parcel
         p = Parcel.obtain();
@@ -1478,6 +1479,7 @@ public class RegionTest {
         assertEquals(oriRect.left, dst.getBounds().left);
         assertEquals(oriRect.bottom, dst.getBounds().bottom);
         assertEquals(oriRect.right, dst.getBounds().right);
+        p.recycle();
 
         // test reading/writing a multiple rect parcel
         p = Parcel.obtain();
@@ -1495,6 +1497,8 @@ public class RegionTest {
         assertEquals(0, dst.getBounds().left);
         assertEquals(15, dst.getBounds().bottom);
         assertEquals(15, dst.getBounds().right);
+
+        p.recycle();
     }
 
     @Test

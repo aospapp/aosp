@@ -28,18 +28,20 @@ using helpers::Int64ConstantFrom;
 using helpers::InputDRegisterAt;
 using helpers::InputRegisterAt;
 using helpers::OutputDRegister;
+using helpers::OutputRegister;
 using helpers::RegisterFrom;
 
 #define __ GetVIXLAssembler()->
 
 void LocationsBuilderARMVIXL::VisitVecReplicateScalar(HVecReplicateScalar* instruction) {
-  LocationSummary* locations = new (GetGraph()->GetArena()) LocationSummary(instruction);
+  LocationSummary* locations = new (GetGraph()->GetAllocator()) LocationSummary(instruction);
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimBoolean:
-    case Primitive::kPrimByte:
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
-    case Primitive::kPrimInt:
+    case DataType::Type::kBool:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
+    case DataType::Type::kInt32:
       locations->SetInAt(0, Location::RequiresRegister());
       locations->SetOut(Location::RequiresFpuRegister());
       break;
@@ -53,17 +55,18 @@ void InstructionCodeGeneratorARMVIXL::VisitVecReplicateScalar(HVecReplicateScala
   LocationSummary* locations = instruction->GetLocations();
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimBoolean:
-    case Primitive::kPrimByte:
+    case DataType::Type::kBool:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
       DCHECK_EQ(8u, instruction->GetVectorLength());
       __ Vdup(Untyped8, dst, InputRegisterAt(instruction, 0));
       break;
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
       DCHECK_EQ(4u, instruction->GetVectorLength());
       __ Vdup(Untyped16, dst, InputRegisterAt(instruction, 0));
       break;
-    case Primitive::kPrimInt:
+    case DataType::Type::kInt32:
       DCHECK_EQ(2u, instruction->GetVectorLength());
       __ Vdup(Untyped32, dst, InputRegisterAt(instruction, 0));
       break;
@@ -73,36 +76,48 @@ void InstructionCodeGeneratorARMVIXL::VisitVecReplicateScalar(HVecReplicateScala
   }
 }
 
-void LocationsBuilderARMVIXL::VisitVecSetScalars(HVecSetScalars* instruction) {
-  LOG(FATAL) << "No SIMD for " << instruction->GetId();
+void LocationsBuilderARMVIXL::VisitVecExtractScalar(HVecExtractScalar* instruction) {
+  LocationSummary* locations = new (GetGraph()->GetAllocator()) LocationSummary(instruction);
+  switch (instruction->GetPackedType()) {
+    case DataType::Type::kInt32:
+      locations->SetInAt(0, Location::RequiresFpuRegister());
+      locations->SetOut(Location::RequiresRegister());
+      break;
+    default:
+      LOG(FATAL) << "Unsupported SIMD type";
+      UNREACHABLE();
+  }
 }
 
-void InstructionCodeGeneratorARMVIXL::VisitVecSetScalars(HVecSetScalars* instruction) {
-  LOG(FATAL) << "No SIMD for " << instruction->GetId();
-}
-
-void LocationsBuilderARMVIXL::VisitVecSumReduce(HVecSumReduce* instruction) {
-  LOG(FATAL) << "No SIMD for " << instruction->GetId();
-}
-
-void InstructionCodeGeneratorARMVIXL::VisitVecSumReduce(HVecSumReduce* instruction) {
-  LOG(FATAL) << "No SIMD for " << instruction->GetId();
+void InstructionCodeGeneratorARMVIXL::VisitVecExtractScalar(HVecExtractScalar* instruction) {
+  LocationSummary* locations = instruction->GetLocations();
+  vixl32::DRegister src = DRegisterFrom(locations->InAt(0));
+  switch (instruction->GetPackedType()) {
+    case DataType::Type::kInt32:
+      DCHECK_EQ(2u, instruction->GetVectorLength());
+      __ Vmov(OutputRegister(instruction), DRegisterLane(src, 0));
+      break;
+    default:
+      LOG(FATAL) << "Unsupported SIMD type";
+      UNREACHABLE();
+  }
 }
 
 // Helper to set up locations for vector unary operations.
-static void CreateVecUnOpLocations(ArenaAllocator* arena, HVecUnaryOperation* instruction) {
-  LocationSummary* locations = new (arena) LocationSummary(instruction);
+static void CreateVecUnOpLocations(ArenaAllocator* allocator, HVecUnaryOperation* instruction) {
+  LocationSummary* locations = new (allocator) LocationSummary(instruction);
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimBoolean:
+    case DataType::Type::kBool:
       locations->SetInAt(0, Location::RequiresFpuRegister());
       locations->SetOut(Location::RequiresFpuRegister(),
                         instruction->IsVecNot() ? Location::kOutputOverlap
                                                 : Location::kNoOutputOverlap);
       break;
-    case Primitive::kPrimByte:
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
-    case Primitive::kPrimInt:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
+    case DataType::Type::kInt32:
       locations->SetInAt(0, Location::RequiresFpuRegister());
       locations->SetOut(Location::RequiresFpuRegister(), Location::kNoOutputOverlap);
       break;
@@ -112,8 +127,37 @@ static void CreateVecUnOpLocations(ArenaAllocator* arena, HVecUnaryOperation* in
   }
 }
 
+void LocationsBuilderARMVIXL::VisitVecReduce(HVecReduce* instruction) {
+  CreateVecUnOpLocations(GetGraph()->GetAllocator(), instruction);
+}
+
+void InstructionCodeGeneratorARMVIXL::VisitVecReduce(HVecReduce* instruction) {
+  LocationSummary* locations = instruction->GetLocations();
+  vixl32::DRegister src = DRegisterFrom(locations->InAt(0));
+  vixl32::DRegister dst = DRegisterFrom(locations->Out());
+  switch (instruction->GetPackedType()) {
+    case DataType::Type::kInt32:
+      DCHECK_EQ(2u, instruction->GetVectorLength());
+      switch (instruction->GetKind()) {
+        case HVecReduce::kSum:
+          __ Vpadd(DataTypeValue::I32, dst, src, src);
+          break;
+        case HVecReduce::kMin:
+          __ Vpmin(DataTypeValue::S32, dst, src, src);
+          break;
+        case HVecReduce::kMax:
+          __ Vpmax(DataTypeValue::S32, dst, src, src);
+          break;
+      }
+      break;
+    default:
+      LOG(FATAL) << "Unsupported SIMD type";
+      UNREACHABLE();
+  }
+}
+
 void LocationsBuilderARMVIXL::VisitVecCnv(HVecCnv* instruction) {
-  CreateVecUnOpLocations(GetGraph()->GetArena(), instruction);
+  CreateVecUnOpLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecCnv(HVecCnv* instruction) {
@@ -121,7 +165,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecCnv(HVecCnv* instruction) {
 }
 
 void LocationsBuilderARMVIXL::VisitVecNeg(HVecNeg* instruction) {
-  CreateVecUnOpLocations(GetGraph()->GetArena(), instruction);
+  CreateVecUnOpLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecNeg(HVecNeg* instruction) {
@@ -129,16 +173,17 @@ void InstructionCodeGeneratorARMVIXL::VisitVecNeg(HVecNeg* instruction) {
   vixl32::DRegister src = DRegisterFrom(locations->InAt(0));
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimByte:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
       DCHECK_EQ(8u, instruction->GetVectorLength());
       __ Vneg(DataTypeValue::S8, dst, src);
       break;
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
       DCHECK_EQ(4u, instruction->GetVectorLength());
       __ Vneg(DataTypeValue::S16, dst, src);
       break;
-    case Primitive::kPrimInt:
+    case DataType::Type::kInt32:
       DCHECK_EQ(2u, instruction->GetVectorLength());
       __ Vneg(DataTypeValue::S32, dst, src);
       break;
@@ -149,7 +194,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecNeg(HVecNeg* instruction) {
 }
 
 void LocationsBuilderARMVIXL::VisitVecAbs(HVecAbs* instruction) {
-  CreateVecUnOpLocations(GetGraph()->GetArena(), instruction);
+  CreateVecUnOpLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecAbs(HVecAbs* instruction) {
@@ -157,16 +202,15 @@ void InstructionCodeGeneratorARMVIXL::VisitVecAbs(HVecAbs* instruction) {
   vixl32::DRegister src = DRegisterFrom(locations->InAt(0));
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimByte:
+    case DataType::Type::kInt8:
       DCHECK_EQ(8u, instruction->GetVectorLength());
       __ Vabs(DataTypeValue::S8, dst, src);
       break;
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
+    case DataType::Type::kInt16:
       DCHECK_EQ(4u, instruction->GetVectorLength());
       __ Vabs(DataTypeValue::S16, dst, src);
       break;
-    case Primitive::kPrimInt:
+    case DataType::Type::kInt32:
       DCHECK_EQ(2u, instruction->GetVectorLength());
       __ Vabs(DataTypeValue::S32, dst, src);
       break;
@@ -177,7 +221,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecAbs(HVecAbs* instruction) {
 }
 
 void LocationsBuilderARMVIXL::VisitVecNot(HVecNot* instruction) {
-  CreateVecUnOpLocations(GetGraph()->GetArena(), instruction);
+  CreateVecUnOpLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecNot(HVecNot* instruction) {
@@ -185,15 +229,16 @@ void InstructionCodeGeneratorARMVIXL::VisitVecNot(HVecNot* instruction) {
   vixl32::DRegister src = DRegisterFrom(locations->InAt(0));
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimBoolean:  // special case boolean-not
+    case DataType::Type::kBool:  // special case boolean-not
       DCHECK_EQ(8u, instruction->GetVectorLength());
       __ Vmov(I8, dst, 1);
       __ Veor(dst, dst, src);
       break;
-    case Primitive::kPrimByte:
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
-    case Primitive::kPrimInt:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
+    case DataType::Type::kInt32:
       __ Vmvn(I8, dst, src);  // lanes do not matter
       break;
     default:
@@ -203,14 +248,15 @@ void InstructionCodeGeneratorARMVIXL::VisitVecNot(HVecNot* instruction) {
 }
 
 // Helper to set up locations for vector binary operations.
-static void CreateVecBinOpLocations(ArenaAllocator* arena, HVecBinaryOperation* instruction) {
-  LocationSummary* locations = new (arena) LocationSummary(instruction);
+static void CreateVecBinOpLocations(ArenaAllocator* allocator, HVecBinaryOperation* instruction) {
+  LocationSummary* locations = new (allocator) LocationSummary(instruction);
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimBoolean:
-    case Primitive::kPrimByte:
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
-    case Primitive::kPrimInt:
+    case DataType::Type::kBool:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
+    case DataType::Type::kInt32:
       locations->SetInAt(0, Location::RequiresFpuRegister());
       locations->SetInAt(1, Location::RequiresFpuRegister());
       locations->SetOut(Location::RequiresFpuRegister(), Location::kNoOutputOverlap);
@@ -222,7 +268,7 @@ static void CreateVecBinOpLocations(ArenaAllocator* arena, HVecBinaryOperation* 
 }
 
 void LocationsBuilderARMVIXL::VisitVecAdd(HVecAdd* instruction) {
-  CreateVecBinOpLocations(GetGraph()->GetArena(), instruction);
+  CreateVecBinOpLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecAdd(HVecAdd* instruction) {
@@ -231,16 +277,17 @@ void InstructionCodeGeneratorARMVIXL::VisitVecAdd(HVecAdd* instruction) {
   vixl32::DRegister rhs = DRegisterFrom(locations->InAt(1));
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimByte:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
       DCHECK_EQ(8u, instruction->GetVectorLength());
       __ Vadd(I8, dst, lhs, rhs);
       break;
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
       DCHECK_EQ(4u, instruction->GetVectorLength());
       __ Vadd(I16, dst, lhs, rhs);
       break;
-    case Primitive::kPrimInt:
+    case DataType::Type::kInt32:
       DCHECK_EQ(2u, instruction->GetVectorLength());
       __ Vadd(I32, dst, lhs, rhs);
       break;
@@ -251,7 +298,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecAdd(HVecAdd* instruction) {
 }
 
 void LocationsBuilderARMVIXL::VisitVecHalvingAdd(HVecHalvingAdd* instruction) {
-  CreateVecBinOpLocations(GetGraph()->GetArena(), instruction);
+  CreateVecBinOpLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecHalvingAdd(HVecHalvingAdd* instruction) {
@@ -260,30 +307,29 @@ void InstructionCodeGeneratorARMVIXL::VisitVecHalvingAdd(HVecHalvingAdd* instruc
   vixl32::DRegister rhs = DRegisterFrom(locations->InAt(1));
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimByte:
+    case DataType::Type::kUint8:
       DCHECK_EQ(8u, instruction->GetVectorLength());
-      if (instruction->IsUnsigned()) {
-        instruction->IsRounded()
-            ? __ Vrhadd(DataTypeValue::U8, dst, lhs, rhs)
-            : __ Vhadd(DataTypeValue::U8, dst, lhs, rhs);
-      } else {
-        instruction->IsRounded()
-            ? __ Vrhadd(DataTypeValue::S8, dst, lhs, rhs)
-            : __ Vhadd(DataTypeValue::S8, dst, lhs, rhs);
-      }
+      instruction->IsRounded()
+          ? __ Vrhadd(DataTypeValue::U8, dst, lhs, rhs)
+          : __ Vhadd(DataTypeValue::U8, dst, lhs, rhs);
       break;
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
+    case DataType::Type::kInt8:
+      DCHECK_EQ(8u, instruction->GetVectorLength());
+      instruction->IsRounded()
+          ? __ Vrhadd(DataTypeValue::S8, dst, lhs, rhs)
+          : __ Vhadd(DataTypeValue::S8, dst, lhs, rhs);
+      break;
+    case DataType::Type::kUint16:
       DCHECK_EQ(4u, instruction->GetVectorLength());
-      if (instruction->IsUnsigned()) {
-        instruction->IsRounded()
-            ? __ Vrhadd(DataTypeValue::U16, dst, lhs, rhs)
-            : __ Vhadd(DataTypeValue::U16, dst, lhs, rhs);
-      } else {
-        instruction->IsRounded()
-            ? __ Vrhadd(DataTypeValue::S16, dst, lhs, rhs)
-            : __ Vhadd(DataTypeValue::S16, dst, lhs, rhs);
-      }
+      instruction->IsRounded()
+          ? __ Vrhadd(DataTypeValue::U16, dst, lhs, rhs)
+          : __ Vhadd(DataTypeValue::U16, dst, lhs, rhs);
+      break;
+    case DataType::Type::kInt16:
+      DCHECK_EQ(4u, instruction->GetVectorLength());
+      instruction->IsRounded()
+          ? __ Vrhadd(DataTypeValue::S16, dst, lhs, rhs)
+          : __ Vhadd(DataTypeValue::S16, dst, lhs, rhs);
       break;
     default:
       LOG(FATAL) << "Unsupported SIMD type";
@@ -292,7 +338,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecHalvingAdd(HVecHalvingAdd* instruc
 }
 
 void LocationsBuilderARMVIXL::VisitVecSub(HVecSub* instruction) {
-  CreateVecBinOpLocations(GetGraph()->GetArena(), instruction);
+  CreateVecBinOpLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecSub(HVecSub* instruction) {
@@ -301,16 +347,17 @@ void InstructionCodeGeneratorARMVIXL::VisitVecSub(HVecSub* instruction) {
   vixl32::DRegister rhs = DRegisterFrom(locations->InAt(1));
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimByte:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
       DCHECK_EQ(8u, instruction->GetVectorLength());
       __ Vsub(I8, dst, lhs, rhs);
       break;
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
       DCHECK_EQ(4u, instruction->GetVectorLength());
       __ Vsub(I16, dst, lhs, rhs);
       break;
-    case Primitive::kPrimInt:
+    case DataType::Type::kInt32:
       DCHECK_EQ(2u, instruction->GetVectorLength());
       __ Vsub(I32, dst, lhs, rhs);
       break;
@@ -321,7 +368,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecSub(HVecSub* instruction) {
 }
 
 void LocationsBuilderARMVIXL::VisitVecMul(HVecMul* instruction) {
-  CreateVecBinOpLocations(GetGraph()->GetArena(), instruction);
+  CreateVecBinOpLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecMul(HVecMul* instruction) {
@@ -330,16 +377,17 @@ void InstructionCodeGeneratorARMVIXL::VisitVecMul(HVecMul* instruction) {
   vixl32::DRegister rhs = DRegisterFrom(locations->InAt(1));
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimByte:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
       DCHECK_EQ(8u, instruction->GetVectorLength());
       __ Vmul(I8, dst, lhs, rhs);
       break;
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
       DCHECK_EQ(4u, instruction->GetVectorLength());
       __ Vmul(I16, dst, lhs, rhs);
       break;
-    case Primitive::kPrimInt:
+    case DataType::Type::kInt32:
       DCHECK_EQ(2u, instruction->GetVectorLength());
       __ Vmul(I32, dst, lhs, rhs);
       break;
@@ -350,7 +398,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecMul(HVecMul* instruction) {
 }
 
 void LocationsBuilderARMVIXL::VisitVecDiv(HVecDiv* instruction) {
-  CreateVecBinOpLocations(GetGraph()->GetArena(), instruction);
+  CreateVecBinOpLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecDiv(HVecDiv* instruction) {
@@ -358,7 +406,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecDiv(HVecDiv* instruction) {
 }
 
 void LocationsBuilderARMVIXL::VisitVecMin(HVecMin* instruction) {
-  CreateVecBinOpLocations(GetGraph()->GetArena(), instruction);
+  CreateVecBinOpLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecMin(HVecMin* instruction) {
@@ -367,30 +415,29 @@ void InstructionCodeGeneratorARMVIXL::VisitVecMin(HVecMin* instruction) {
   vixl32::DRegister rhs = DRegisterFrom(locations->InAt(1));
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimByte:
+    case DataType::Type::kUint8:
       DCHECK_EQ(8u, instruction->GetVectorLength());
-      if (instruction->IsUnsigned()) {
-        __ Vmin(DataTypeValue::U8, dst, lhs, rhs);
-      } else {
-        __ Vmin(DataTypeValue::S8, dst, lhs, rhs);
-      }
+      __ Vmin(DataTypeValue::U8, dst, lhs, rhs);
       break;
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
+    case DataType::Type::kInt8:
+      DCHECK_EQ(8u, instruction->GetVectorLength());
+      __ Vmin(DataTypeValue::S8, dst, lhs, rhs);
+      break;
+    case DataType::Type::kUint16:
       DCHECK_EQ(4u, instruction->GetVectorLength());
-      if (instruction->IsUnsigned()) {
-        __ Vmin(DataTypeValue::U16, dst, lhs, rhs);
-      } else {
-        __ Vmin(DataTypeValue::S16, dst, lhs, rhs);
-      }
+      __ Vmin(DataTypeValue::U16, dst, lhs, rhs);
       break;
-    case Primitive::kPrimInt:
+    case DataType::Type::kInt16:
+      DCHECK_EQ(4u, instruction->GetVectorLength());
+      __ Vmin(DataTypeValue::S16, dst, lhs, rhs);
+      break;
+    case DataType::Type::kUint32:
       DCHECK_EQ(2u, instruction->GetVectorLength());
-      if (instruction->IsUnsigned()) {
-        __ Vmin(DataTypeValue::U32, dst, lhs, rhs);
-      } else {
-        __ Vmin(DataTypeValue::S32, dst, lhs, rhs);
-      }
+      __ Vmin(DataTypeValue::U32, dst, lhs, rhs);
+      break;
+    case DataType::Type::kInt32:
+      DCHECK_EQ(2u, instruction->GetVectorLength());
+      __ Vmin(DataTypeValue::S32, dst, lhs, rhs);
       break;
     default:
       LOG(FATAL) << "Unsupported SIMD type";
@@ -399,7 +446,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecMin(HVecMin* instruction) {
 }
 
 void LocationsBuilderARMVIXL::VisitVecMax(HVecMax* instruction) {
-  CreateVecBinOpLocations(GetGraph()->GetArena(), instruction);
+  CreateVecBinOpLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecMax(HVecMax* instruction) {
@@ -408,30 +455,29 @@ void InstructionCodeGeneratorARMVIXL::VisitVecMax(HVecMax* instruction) {
   vixl32::DRegister rhs = DRegisterFrom(locations->InAt(1));
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimByte:
+    case DataType::Type::kUint8:
       DCHECK_EQ(8u, instruction->GetVectorLength());
-      if (instruction->IsUnsigned()) {
-        __ Vmax(DataTypeValue::U8, dst, lhs, rhs);
-      } else {
-        __ Vmax(DataTypeValue::S8, dst, lhs, rhs);
-      }
+      __ Vmax(DataTypeValue::U8, dst, lhs, rhs);
       break;
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
+    case DataType::Type::kInt8:
+      DCHECK_EQ(8u, instruction->GetVectorLength());
+      __ Vmax(DataTypeValue::S8, dst, lhs, rhs);
+      break;
+    case DataType::Type::kUint16:
       DCHECK_EQ(4u, instruction->GetVectorLength());
-      if (instruction->IsUnsigned()) {
-        __ Vmax(DataTypeValue::U16, dst, lhs, rhs);
-      } else {
-        __ Vmax(DataTypeValue::S16, dst, lhs, rhs);
-      }
+      __ Vmax(DataTypeValue::U16, dst, lhs, rhs);
       break;
-    case Primitive::kPrimInt:
+    case DataType::Type::kInt16:
+      DCHECK_EQ(4u, instruction->GetVectorLength());
+      __ Vmax(DataTypeValue::S16, dst, lhs, rhs);
+      break;
+    case DataType::Type::kUint32:
       DCHECK_EQ(2u, instruction->GetVectorLength());
-      if (instruction->IsUnsigned()) {
-        __ Vmax(DataTypeValue::U32, dst, lhs, rhs);
-      } else {
-        __ Vmax(DataTypeValue::S32, dst, lhs, rhs);
-      }
+      __ Vmax(DataTypeValue::U32, dst, lhs, rhs);
+      break;
+    case DataType::Type::kInt32:
+      DCHECK_EQ(2u, instruction->GetVectorLength());
+      __ Vmax(DataTypeValue::S32, dst, lhs, rhs);
       break;
     default:
       LOG(FATAL) << "Unsupported SIMD type";
@@ -440,7 +486,8 @@ void InstructionCodeGeneratorARMVIXL::VisitVecMax(HVecMax* instruction) {
 }
 
 void LocationsBuilderARMVIXL::VisitVecAnd(HVecAnd* instruction) {
-  CreateVecBinOpLocations(GetGraph()->GetArena(), instruction);
+  // TODO: Allow constants supported by VAND (immediate).
+  CreateVecBinOpLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecAnd(HVecAnd* instruction) {
@@ -449,11 +496,12 @@ void InstructionCodeGeneratorARMVIXL::VisitVecAnd(HVecAnd* instruction) {
   vixl32::DRegister rhs = DRegisterFrom(locations->InAt(1));
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimBoolean:
-    case Primitive::kPrimByte:
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
-    case Primitive::kPrimInt:
+    case DataType::Type::kBool:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
+    case DataType::Type::kInt32:
       __ Vand(I8, dst, lhs, rhs);
       break;
     default:
@@ -463,7 +511,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecAnd(HVecAnd* instruction) {
 }
 
 void LocationsBuilderARMVIXL::VisitVecAndNot(HVecAndNot* instruction) {
-  CreateVecBinOpLocations(GetGraph()->GetArena(), instruction);
+  CreateVecBinOpLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecAndNot(HVecAndNot* instruction) {
@@ -471,7 +519,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecAndNot(HVecAndNot* instruction) {
 }
 
 void LocationsBuilderARMVIXL::VisitVecOr(HVecOr* instruction) {
-  CreateVecBinOpLocations(GetGraph()->GetArena(), instruction);
+  CreateVecBinOpLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecOr(HVecOr* instruction) {
@@ -480,11 +528,12 @@ void InstructionCodeGeneratorARMVIXL::VisitVecOr(HVecOr* instruction) {
   vixl32::DRegister rhs = DRegisterFrom(locations->InAt(1));
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimBoolean:
-    case Primitive::kPrimByte:
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
-    case Primitive::kPrimInt:
+    case DataType::Type::kBool:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
+    case DataType::Type::kInt32:
       __ Vorr(I8, dst, lhs, rhs);
       break;
     default:
@@ -494,7 +543,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecOr(HVecOr* instruction) {
 }
 
 void LocationsBuilderARMVIXL::VisitVecXor(HVecXor* instruction) {
-  CreateVecBinOpLocations(GetGraph()->GetArena(), instruction);
+  CreateVecBinOpLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecXor(HVecXor* instruction) {
@@ -503,11 +552,12 @@ void InstructionCodeGeneratorARMVIXL::VisitVecXor(HVecXor* instruction) {
   vixl32::DRegister rhs = DRegisterFrom(locations->InAt(1));
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimBoolean:
-    case Primitive::kPrimByte:
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
-    case Primitive::kPrimInt:
+    case DataType::Type::kBool:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
+    case DataType::Type::kInt32:
       __ Veor(I8, dst, lhs, rhs);
       break;
     default:
@@ -517,13 +567,14 @@ void InstructionCodeGeneratorARMVIXL::VisitVecXor(HVecXor* instruction) {
 }
 
 // Helper to set up locations for vector shift operations.
-static void CreateVecShiftLocations(ArenaAllocator* arena, HVecBinaryOperation* instruction) {
-  LocationSummary* locations = new (arena) LocationSummary(instruction);
+static void CreateVecShiftLocations(ArenaAllocator* allocator, HVecBinaryOperation* instruction) {
+  LocationSummary* locations = new (allocator) LocationSummary(instruction);
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimByte:
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
-    case Primitive::kPrimInt:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
+    case DataType::Type::kInt32:
       locations->SetInAt(0, Location::RequiresFpuRegister());
       locations->SetInAt(1, Location::ConstantLocation(instruction->InputAt(1)->AsConstant()));
       locations->SetOut(Location::RequiresFpuRegister(), Location::kNoOutputOverlap);
@@ -535,7 +586,7 @@ static void CreateVecShiftLocations(ArenaAllocator* arena, HVecBinaryOperation* 
 }
 
 void LocationsBuilderARMVIXL::VisitVecShl(HVecShl* instruction) {
-  CreateVecShiftLocations(GetGraph()->GetArena(), instruction);
+  CreateVecShiftLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecShl(HVecShl* instruction) {
@@ -544,16 +595,17 @@ void InstructionCodeGeneratorARMVIXL::VisitVecShl(HVecShl* instruction) {
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   int32_t value = locations->InAt(1).GetConstant()->AsIntConstant()->GetValue();
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimByte:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
       DCHECK_EQ(8u, instruction->GetVectorLength());
       __ Vshl(I8, dst, lhs, value);
       break;
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
       DCHECK_EQ(4u, instruction->GetVectorLength());
       __ Vshl(I16, dst, lhs, value);
       break;
-    case Primitive::kPrimInt:
+    case DataType::Type::kInt32:
       DCHECK_EQ(2u, instruction->GetVectorLength());
       __ Vshl(I32, dst, lhs, value);
       break;
@@ -564,7 +616,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecShl(HVecShl* instruction) {
 }
 
 void LocationsBuilderARMVIXL::VisitVecShr(HVecShr* instruction) {
-  CreateVecShiftLocations(GetGraph()->GetArena(), instruction);
+  CreateVecShiftLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecShr(HVecShr* instruction) {
@@ -573,16 +625,17 @@ void InstructionCodeGeneratorARMVIXL::VisitVecShr(HVecShr* instruction) {
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   int32_t value = locations->InAt(1).GetConstant()->AsIntConstant()->GetValue();
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimByte:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
       DCHECK_EQ(8u, instruction->GetVectorLength());
       __ Vshr(DataTypeValue::S8, dst, lhs, value);
       break;
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
       DCHECK_EQ(4u, instruction->GetVectorLength());
       __ Vshr(DataTypeValue::S16, dst, lhs, value);
       break;
-    case Primitive::kPrimInt:
+    case DataType::Type::kInt32:
       DCHECK_EQ(2u, instruction->GetVectorLength());
       __ Vshr(DataTypeValue::S32, dst, lhs, value);
       break;
@@ -593,7 +646,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecShr(HVecShr* instruction) {
 }
 
 void LocationsBuilderARMVIXL::VisitVecUShr(HVecUShr* instruction) {
-  CreateVecShiftLocations(GetGraph()->GetArena(), instruction);
+  CreateVecShiftLocations(GetGraph()->GetAllocator(), instruction);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecUShr(HVecUShr* instruction) {
@@ -602,16 +655,17 @@ void InstructionCodeGeneratorARMVIXL::VisitVecUShr(HVecUShr* instruction) {
   vixl32::DRegister dst = DRegisterFrom(locations->Out());
   int32_t value = locations->InAt(1).GetConstant()->AsIntConstant()->GetValue();
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimByte:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
       DCHECK_EQ(8u, instruction->GetVectorLength());
       __ Vshr(DataTypeValue::U8, dst, lhs, value);
       break;
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
       DCHECK_EQ(4u, instruction->GetVectorLength());
       __ Vshr(DataTypeValue::U16, dst, lhs, value);
       break;
-    case Primitive::kPrimInt:
+    case DataType::Type::kInt32:
       DCHECK_EQ(2u, instruction->GetVectorLength());
       __ Vshr(DataTypeValue::U32, dst, lhs, value);
       break;
@@ -621,12 +675,119 @@ void InstructionCodeGeneratorARMVIXL::VisitVecUShr(HVecUShr* instruction) {
   }
 }
 
-void LocationsBuilderARMVIXL::VisitVecMultiplyAccumulate(HVecMultiplyAccumulate* instr) {
-  LOG(FATAL) << "No SIMD for " << instr->GetId();
+void LocationsBuilderARMVIXL::VisitVecSetScalars(HVecSetScalars* instruction) {
+  LocationSummary* locations = new (GetGraph()->GetAllocator()) LocationSummary(instruction);
+
+  DCHECK_EQ(1u, instruction->InputCount());  // only one input currently implemented
+
+  HInstruction* input = instruction->InputAt(0);
+  bool is_zero = IsZeroBitPattern(input);
+
+  switch (instruction->GetPackedType()) {
+    case DataType::Type::kInt32:
+      locations->SetInAt(0, is_zero ? Location::ConstantLocation(input->AsConstant())
+                                    : Location::RequiresRegister());
+      locations->SetOut(Location::RequiresFpuRegister());
+      break;
+    default:
+      LOG(FATAL) << "Unsupported SIMD type";
+      UNREACHABLE();
+  }
 }
 
-void InstructionCodeGeneratorARMVIXL::VisitVecMultiplyAccumulate(HVecMultiplyAccumulate* instr) {
-  LOG(FATAL) << "No SIMD for " << instr->GetId();
+void InstructionCodeGeneratorARMVIXL::VisitVecSetScalars(HVecSetScalars* instruction) {
+  LocationSummary* locations = instruction->GetLocations();
+  vixl32::DRegister dst = DRegisterFrom(locations->Out());
+
+  DCHECK_EQ(1u, instruction->InputCount());  // only one input currently implemented
+
+  // Zero out all other elements first.
+  __ Vmov(I32, dst, 0);
+
+  // Shorthand for any type of zero.
+  if (IsZeroBitPattern(instruction->InputAt(0))) {
+    return;
+  }
+
+  // Set required elements.
+  switch (instruction->GetPackedType()) {
+    case DataType::Type::kInt32:
+      DCHECK_EQ(2u, instruction->GetVectorLength());
+      __ Vmov(Untyped32, DRegisterLane(dst, 0), InputRegisterAt(instruction, 0));
+      break;
+    default:
+      LOG(FATAL) << "Unsupported SIMD type";
+      UNREACHABLE();
+  }
+}
+
+// Helper to set up locations for vector accumulations.
+static void CreateVecAccumLocations(ArenaAllocator* allocator, HVecOperation* instruction) {
+  LocationSummary* locations = new (allocator) LocationSummary(instruction);
+  switch (instruction->GetPackedType()) {
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
+    case DataType::Type::kInt32:
+    case DataType::Type::kInt64:
+      locations->SetInAt(0, Location::RequiresFpuRegister());
+      locations->SetInAt(1, Location::RequiresFpuRegister());
+      locations->SetInAt(2, Location::RequiresFpuRegister());
+      locations->SetOut(Location::SameAsFirstInput());
+      break;
+    default:
+      LOG(FATAL) << "Unsupported SIMD type";
+      UNREACHABLE();
+  }
+}
+
+void LocationsBuilderARMVIXL::VisitVecMultiplyAccumulate(HVecMultiplyAccumulate* instruction) {
+  CreateVecAccumLocations(GetGraph()->GetAllocator(), instruction);
+}
+
+void InstructionCodeGeneratorARMVIXL::VisitVecMultiplyAccumulate(HVecMultiplyAccumulate* instruction) {
+  LOG(FATAL) << "No SIMD for " << instruction->GetId();
+}
+
+void LocationsBuilderARMVIXL::VisitVecSADAccumulate(HVecSADAccumulate* instruction) {
+  CreateVecAccumLocations(GetGraph()->GetAllocator(), instruction);
+}
+
+void InstructionCodeGeneratorARMVIXL::VisitVecSADAccumulate(HVecSADAccumulate* instruction) {
+  LocationSummary* locations = instruction->GetLocations();
+  vixl32::DRegister acc = DRegisterFrom(locations->InAt(0));
+  vixl32::DRegister left = DRegisterFrom(locations->InAt(1));
+  vixl32::DRegister right = DRegisterFrom(locations->InAt(2));
+
+  DCHECK(locations->InAt(0).Equals(locations->Out()));
+
+  // Handle all feasible acc_T += sad(a_S, b_S) type combinations (T x S).
+  HVecOperation* a = instruction->InputAt(1)->AsVecOperation();
+  HVecOperation* b = instruction->InputAt(2)->AsVecOperation();
+  DCHECK_EQ(a->GetPackedType(), b->GetPackedType());
+  switch (a->GetPackedType()) {
+    case DataType::Type::kInt32:
+      DCHECK_EQ(2u, a->GetVectorLength());
+      switch (instruction->GetPackedType()) {
+        case DataType::Type::kInt32: {
+          DCHECK_EQ(2u, instruction->GetVectorLength());
+          UseScratchRegisterScope temps(GetVIXLAssembler());
+          vixl32::DRegister tmp = temps.AcquireD();
+          __ Vsub(DataTypeValue::I32, tmp, left, right);
+          __ Vabs(DataTypeValue::S32, tmp, tmp);
+          __ Vadd(DataTypeValue::I32, acc, acc, tmp);
+          break;
+        }
+        default:
+          LOG(FATAL) << "Unsupported SIMD type";
+          UNREACHABLE();
+      }
+      break;
+    default:
+      LOG(FATAL) << "Unsupported SIMD type";
+      UNREACHABLE();
+  }
 }
 
 // Return whether the vector memory access operation is guaranteed to be word-aligned (ARM word
@@ -636,16 +797,17 @@ static bool IsWordAligned(HVecMemoryOperation* instruction) {
 }
 
 // Helper to set up locations for vector memory operations.
-static void CreateVecMemLocations(ArenaAllocator* arena,
+static void CreateVecMemLocations(ArenaAllocator* allocator,
                                   HVecMemoryOperation* instruction,
                                   bool is_load) {
-  LocationSummary* locations = new (arena) LocationSummary(instruction);
+  LocationSummary* locations = new (allocator) LocationSummary(instruction);
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimBoolean:
-    case Primitive::kPrimByte:
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
-    case Primitive::kPrimInt:
+    case DataType::Type::kBool:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
+    case DataType::Type::kInt32:
       locations->SetInAt(0, Location::RequiresRegister());
       locations->SetInAt(1, Location::RegisterOrConstant(instruction->InputAt(1)));
       if (is_load) {
@@ -671,7 +833,7 @@ MemOperand InstructionCodeGeneratorARMVIXL::VecAddress(
   vixl32::Register base = InputRegisterAt(instruction, 0);
 
   Location index = locations->InAt(1);
-  size_t size = Primitive::ComponentSize(instruction->GetPackedType());
+  size_t size = DataType::Size(instruction->GetPackedType());
   uint32_t offset = mirror::Array::DataOffset(size).Uint32Value();
   size_t shift = ComponentSizeShiftWidth(size);
 
@@ -697,7 +859,7 @@ AlignedMemOperand InstructionCodeGeneratorARMVIXL::VecAddressUnaligned(
   vixl32::Register base = InputRegisterAt(instruction, 0);
 
   Location index = locations->InAt(1);
-  size_t size = Primitive::ComponentSize(instruction->GetPackedType());
+  size_t size = DataType::Size(instruction->GetPackedType());
   uint32_t offset = mirror::Array::DataOffset(size).Uint32Value();
   size_t shift = ComponentSizeShiftWidth(size);
 
@@ -716,7 +878,7 @@ AlignedMemOperand InstructionCodeGeneratorARMVIXL::VecAddressUnaligned(
 }
 
 void LocationsBuilderARMVIXL::VisitVecLoad(HVecLoad* instruction) {
-  CreateVecMemLocations(GetGraph()->GetArena(), instruction, /*is_load*/ true);
+  CreateVecMemLocations(GetGraph()->GetAllocator(), instruction, /*is_load*/ true);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecLoad(HVecLoad* instruction) {
@@ -724,11 +886,12 @@ void InstructionCodeGeneratorARMVIXL::VisitVecLoad(HVecLoad* instruction) {
   UseScratchRegisterScope temps(GetVIXLAssembler());
   vixl32::Register scratch;
 
-  DCHECK(instruction->GetPackedType() != Primitive::kPrimChar || !instruction->IsStringCharAt());
+  DCHECK(instruction->GetPackedType() != DataType::Type::kUint16 || !instruction->IsStringCharAt());
 
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimBoolean:
-    case Primitive::kPrimByte:
+    case DataType::Type::kBool:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
       DCHECK_EQ(8u, instruction->GetVectorLength());
       if (IsWordAligned(instruction)) {
         __ Vldr(reg, VecAddress(instruction, &temps, &scratch));
@@ -738,8 +901,8 @@ void InstructionCodeGeneratorARMVIXL::VisitVecLoad(HVecLoad* instruction) {
             VecAddressUnaligned(instruction, &temps, &scratch));
       }
       break;
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
       DCHECK_EQ(4u, instruction->GetVectorLength());
       if (IsWordAligned(instruction)) {
         __ Vldr(reg, VecAddress(instruction, &temps, &scratch));
@@ -749,7 +912,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecLoad(HVecLoad* instruction) {
             VecAddressUnaligned(instruction, &temps, &scratch));
       }
       break;
-    case Primitive::kPrimInt:
+    case DataType::Type::kInt32:
       DCHECK_EQ(2u, instruction->GetVectorLength());
       if (IsWordAligned(instruction)) {
         __ Vldr(reg, VecAddress(instruction, &temps, &scratch));
@@ -766,7 +929,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecLoad(HVecLoad* instruction) {
 }
 
 void LocationsBuilderARMVIXL::VisitVecStore(HVecStore* instruction) {
-  CreateVecMemLocations(GetGraph()->GetArena(), instruction, /*is_load*/ false);
+  CreateVecMemLocations(GetGraph()->GetAllocator(), instruction, /*is_load*/ false);
 }
 
 void InstructionCodeGeneratorARMVIXL::VisitVecStore(HVecStore* instruction) {
@@ -774,8 +937,9 @@ void InstructionCodeGeneratorARMVIXL::VisitVecStore(HVecStore* instruction) {
   UseScratchRegisterScope temps(GetVIXLAssembler());
   vixl32::Register scratch;
   switch (instruction->GetPackedType()) {
-    case Primitive::kPrimBoolean:
-    case Primitive::kPrimByte:
+    case DataType::Type::kBool:
+    case DataType::Type::kUint8:
+    case DataType::Type::kInt8:
       DCHECK_EQ(8u, instruction->GetVectorLength());
       if (IsWordAligned(instruction)) {
         __ Vstr(reg, VecAddress(instruction, &temps, &scratch));
@@ -785,8 +949,8 @@ void InstructionCodeGeneratorARMVIXL::VisitVecStore(HVecStore* instruction) {
                 VecAddressUnaligned(instruction, &temps, &scratch));
       }
       break;
-    case Primitive::kPrimChar:
-    case Primitive::kPrimShort:
+    case DataType::Type::kUint16:
+    case DataType::Type::kInt16:
       DCHECK_EQ(4u, instruction->GetVectorLength());
       if (IsWordAligned(instruction)) {
         __ Vstr(reg, VecAddress(instruction, &temps, &scratch));
@@ -796,7 +960,7 @@ void InstructionCodeGeneratorARMVIXL::VisitVecStore(HVecStore* instruction) {
                 VecAddressUnaligned(instruction, &temps, &scratch));
       }
       break;
-    case Primitive::kPrimInt:
+    case DataType::Type::kInt32:
       DCHECK_EQ(2u, instruction->GetVectorLength());
       if (IsWordAligned(instruction)) {
         __ Vstr(reg, VecAddress(instruction, &temps, &scratch));

@@ -16,29 +16,48 @@
 
 package android.appwidget.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assume.assumeTrue;
+
+import android.app.Instrumentation;
 import android.appwidget.AppWidgetProviderInfo;
 import android.appwidget.cts.provider.FirstAppWidgetProvider;
 import android.appwidget.cts.provider.SecondAppWidgetProvider;
 import android.content.ComponentName;
 import android.content.pm.PackageManager;
 import android.os.ParcelFileDescriptor;
-import android.test.InstrumentationTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.runner.AndroidJUnit4;
+
+import org.junit.Before;
+import org.junit.runner.RunWith;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class AppWidgetTestCase extends InstrumentationTestCase {
+@RunWith(AndroidJUnit4.class)
+public abstract class AppWidgetTestCase {
+    private static final String TAG = "AppWidgetTest";
     private static final String FIRST_APP_WIDGET_CONFIGURE_ACTIVITY =
             "android.appwidget.cts.provider.FirstAppWidgetConfigureActivity";
 
     private static final String SECOND_APP_WIDGET_CONFIGURE_ACTIVITY =
             "android.appwidget.cts.provider.SecondAppWidgetConfigureActivity";
 
+    @Before
+    public void assumeHasWidgets() {
+        assumeTrue(hasAppWidgets());
+    }
+
     public boolean hasAppWidgets() {
         return getInstrumentation().getTargetContext().getPackageManager()
                 .hasSystemFeature(PackageManager.FEATURE_APP_WIDGETS);
+    }
+
+    protected Instrumentation getInstrumentation() {
+        return InstrumentationRegistry.getInstrumentation();
     }
 
     public boolean[] verifyInstalledProviders(List<AppWidgetProviderInfo> providers) {

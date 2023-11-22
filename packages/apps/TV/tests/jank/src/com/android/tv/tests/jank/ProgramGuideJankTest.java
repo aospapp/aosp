@@ -21,23 +21,21 @@ import android.support.test.filters.MediumTest;
 import android.support.test.jank.GfxMonitor;
 import android.support.test.jank.JankTest;
 import android.support.test.uiautomator.Until;
-
 import com.android.tv.R;
 import com.android.tv.testing.uihelper.ByResource;
 import com.android.tv.testing.uihelper.Constants;
 import com.android.tv.testing.uihelper.MenuHelper;
 
-/**
- * Jank tests for the program guide.
- */
+/** Jank tests for the program guide. */
 @MediumTest
 public class ProgramGuideJankTest extends LiveChannelsTestCase {
     private static final String STARTING_CHANNEL = "13";
 
     /**
-     * The minimum number of frames expected during each jank test.
-     * If there is less the test will fail.  To be safe we loop the action in each test to create
-     * twice this many frames under normal conditions.
+     * The minimum number of frames expected during each jank test. If there is less the test will
+     * fail. To be safe we loop the action in each test to create twice this many frames under
+     * normal conditions.
+     *
      * <p>200 is chosen so there will be enough frame for the 90th, 95th, and 98th percentile
      * measurements are significant.
      *
@@ -54,8 +52,7 @@ public class ProgramGuideJankTest extends LiveChannelsTestCase {
         Utils.pressKeysForChannelNumber(STARTING_CHANNEL, mDevice);
     }
 
-    @JankTest(expectedFrames = EXPECTED_FRAMES,
-            beforeTest = "warmProgramGuide")
+    @JankTest(expectedFrames = EXPECTED_FRAMES, beforeTest = "warmProgramGuide")
     @GfxMonitor(processName = Utils.LIVE_CHANNELS_PROCESS_NAME)
     public void testShowClearProgramGuide() {
         int frames = 53; // measured by hand
@@ -66,24 +63,28 @@ public class ProgramGuideJankTest extends LiveChannelsTestCase {
         }
     }
 
-    @JankTest(expectedFrames = EXPECTED_FRAMES,
-            beforeLoop = "showAndFocusProgramGuide",
-            afterLoop = "clearProgramGuide")
+    @JankTest(
+        expectedFrames = EXPECTED_FRAMES,
+        beforeLoop = "showAndFocusProgramGuide",
+        afterLoop = "clearProgramGuide"
+    )
     @GfxMonitor(processName = Utils.LIVE_CHANNELS_PROCESS_NAME)
     public void testScrollDown() {
-        int frames = 20;  // measured by hand
+        int frames = 20; // measured by hand
         int repeat = EXPECTED_FRAMES * 2 / frames;
         for (int i = 0; i < repeat; i++) {
             mDevice.pressDPadDown();
         }
     }
 
-    @JankTest(expectedFrames = EXPECTED_FRAMES,
-            beforeLoop = "showAndFocusProgramGuide",
-            afterLoop = "clearProgramGuide")
+    @JankTest(
+        expectedFrames = EXPECTED_FRAMES,
+        beforeLoop = "showAndFocusProgramGuide",
+        afterLoop = "clearProgramGuide"
+    )
     @GfxMonitor(processName = Utils.LIVE_CHANNELS_PROCESS_NAME)
     public void testScrollRight() {
-        int frames = 30;  // measured by hand
+        int frames = 30; // measured by hand
         int repeat = EXPECTED_FRAMES * 2 / frames;
         for (int i = 0; i < repeat; i++) {
             mDevice.pressDPadRight();
@@ -92,8 +93,8 @@ public class ProgramGuideJankTest extends LiveChannelsTestCase {
 
     private void selectProgramGuideMenuItem() {
         mMenuHelper.showMenu();
-        mMenuHelper.assertNavigateToMenuItem(R.string.menu_title_channels,
-                R.string.channels_item_program_guide);
+        mMenuHelper.assertNavigateToMenuItem(
+                R.string.menu_title_channels, R.string.channels_item_program_guide);
         mDevice.waitForIdle();
     }
 

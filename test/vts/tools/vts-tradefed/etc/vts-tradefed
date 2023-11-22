@@ -16,6 +16,16 @@
 
 # launcher script for vts-tradefed harness
 # can be used from an Android build environment, or a standalone vts zip
+#
+# Usage:
+#   # to test a device with system.img = v9.0 and vendor.img = v9.0
+#       $ vts-tradefed
+#
+#   # to test a device with system.img = v9.0 and vendor.img = v8.1
+#       $ vts-tradefed -v=8.1
+#
+#   # all other cases are unsupported
+#
 
 checkFile() {
     if [ ! -f "$1" ]; then
@@ -35,18 +45,10 @@ checkPath adb
 checkPath java
 
 # check java version
-if [ "${EXPERIMENTAL_USE_OPENJDK9}" == "" ]; then
-    JAVA_VERSION=$(java -version 2>&1 | head -n 2 | grep '[ "]1\.[678][\. "$$]')
-    if [ "${JAVA_VERSION}" == "" ]; then
-        echo "Wrong java version. 1.6, 1.7 or 1.8 is required."
-        exit
-    fi
-else
-    JAVA_VERSION=$(java -version 2>&1 | head -n 2 | grep '^java .* "9.*')
-    if [ "${JAVA_VERSION}" == "" ]; then
-        echo "Wrong java version. Version 9 is required."
-        exit
-    fi
+JAVA_VERSION=$(java -version 2>&1 | head -n 1 | grep 'version [ "]\(1\.8\|9\).*[ "]')
+if [ "${JAVA_VERSION}" == "" ]; then
+    echo "Wrong java version. 1.8 or 9 is required."
+    exit
 fi
 
 # check debug flag and set up remote debugging
@@ -86,16 +88,32 @@ if [ -z ${VTS_ROOT} ]; then
     VTS_ROOT="$(dirname $(readlink -e $0))/../.."
 fi;
 
-JAR_DIR=${VTS_ROOT}/android-vts/tools
+VTS_JAR_DIR=${VTS_ROOT}/android-vts/tools
+STANDALONE_JAR_DIR=${ANDROID_HOST_OUT}/framework
+JAR_DIRS="$VTS_JAR_DIR
+  $STANDALONE_JAR_DIR"
 
+JAR_DIR=""
+# Wherever we find the tradefed jar is where we expect the other jars to be.
 TRADEFED_JAR="tradefed"
-if [ ! -f ${JAR_DIR}/${TRADEFED_JAR}.jar ]; then
+for CHECK_JAR_DIR in $JAR_DIRS; do
+  if [ -f ${CHECK_JAR_DIR}/${TRADEFED_JAR}.jar ]; then
+    JAR_DIR=$CHECK_JAR_DIR
+    break
+  fi;
+done
+
+# If we didn't find the TF jar, resort to tf prebuilt in VTS_JAR_DIR.
+if [ -z $JAR_DIR ]; then
+  JAR_DIR=$VTS_JAR_DIR
   TRADEFED_JAR="tradefed-prebuilt"
-fi;
+fi
 
 JARS="${TRADEFED_JAR}
+  loganalysis
   hosttestlib
   vts-tradefed
+  vts-tradefed-tests
   compatibility-host-util"
 
 for JAR in $JARS; do
@@ -108,13 +126,17 @@ OPTIONAL_JARS="
   android-vts/tools/google-tradefed-vts-prebuilt
   google-tradefed-prebuilt
   google-tradefed-tests
-  google-tf-prod-tests"
+  google-tf-prod-tests
+  google-tradefed"
 
 for JAR in $OPTIONAL_JARS; do
-    if [ -f "${VTS_ROOT}/${JAR}.jar" ]; then
-        echo "Including optional JAR: $VTS_ROOT/$JAR.jar"
-        JAR_PATH=${JAR_PATH}:${VTS_ROOT}/${JAR}.jar
-    fi;
+    for OPT_JAR_DIR in $VTS_ROOT $JAR_DIR; do
+        if [ -f "${OPT_JAR_DIR}/${JAR}.jar" ]; then
+            echo "Including optional JAR: ${OPT_JAR_DIR}/${JAR}.jar"
+            JAR_PATH=${JAR_PATH}:${OPT_JAR_DIR}/${JAR}.jar
+            break
+        fi;
+    done
 done
 
 # load any shared libraries for host-side executables
@@ -132,4 +154,30 @@ for j in ${VTS_ROOT}/android-vts/testcases/*.jar; do
     JAR_PATH=${JAR_PATH}:$j
 done
 
-cd ${VTS_ROOT}/android-vts/testcases/; java $RDBG_FLAG -cp ${JAR_PATH} -DVTS_ROOT=${VTS_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "$@"
+ARGS=()
+for var in "$@"
+do
+case $var in
+    -v=*|--vendor-image=*)
+    VENDOR="${var#*=}"
+    if [ "${VENDOR}" == "9.0" ]; then
+        VENDOR=""
+    elif [ "${VENDOR}" != "8.1" ]; then
+        echo "Supports only --vendor-image=8.1."
+        echo "By default, 9.0 is the supported vendor.img version."
+        exit 1
+    fi
+    ;;
+    *)
+    ARGS+=("$var")
+    ;;
+esac
+done
+
+if [ -z "${VENDOR}" ]; then
+    VTS_TESTCASES=${VTS_ROOT}/android-vts/testcases/
+else
+    VTS_TESTCASES=${VTS_ROOT}/android-vts/${VENDOR}/testcases/
+fi
+
+cd ${VTS_TESTCASES}; VTS_TESTCASES=${VTS_TESTCASES} java $RDBG_FLAG -cp ${JAR_PATH} -DVTS_ROOT=${VTS_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "${ARGS[@]}"

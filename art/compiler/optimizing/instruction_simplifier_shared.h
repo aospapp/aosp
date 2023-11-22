@@ -26,10 +26,10 @@ namespace helpers {
 inline bool CanFitInShifterOperand(HInstruction* instruction) {
   if (instruction->IsTypeConversion()) {
     HTypeConversion* conversion = instruction->AsTypeConversion();
-    Primitive::Type result_type = conversion->GetResultType();
-    Primitive::Type input_type = conversion->GetInputType();
+    DataType::Type result_type = conversion->GetResultType();
+    DataType::Type input_type = conversion->GetInputType();
     // We don't expect to see the same type as input and result.
-    return Primitive::IsIntegralType(result_type) && Primitive::IsIntegralType(input_type) &&
+    return DataType::IsIntegralType(result_type) && DataType::IsIntegralType(input_type) &&
         (result_type != input_type);
   } else {
     return (instruction->IsShl() && instruction->AsShl()->InputAt(1)->IsIntConstant()) ||
@@ -41,7 +41,8 @@ inline bool CanFitInShifterOperand(HInstruction* instruction) {
 inline bool HasShifterOperand(HInstruction* instr, InstructionSet isa) {
   // On ARM64 `neg` instructions are an alias of `sub` using the zero register
   // as the first register input.
-  bool res = instr->IsAdd() || instr->IsAnd() || (isa == kArm64 && instr->IsNeg()) ||
+  bool res = instr->IsAdd() || instr->IsAnd() ||
+      (isa == InstructionSet::kArm64 && instr->IsNeg()) ||
       instr->IsOr() || instr->IsSub() || instr->IsXor();
   return res;
 }
@@ -58,7 +59,6 @@ bool TryExtractArrayAccessAddress(HInstruction* access,
                                   HInstruction* index,
                                   size_t data_offset);
 
-bool TryCombineVecMultiplyAccumulate(HVecMul* mul, InstructionSet isa);
 bool TryExtractVecArrayAccessAddress(HVecMemoryOperation* access, HInstruction* index);
 
 }  // namespace art

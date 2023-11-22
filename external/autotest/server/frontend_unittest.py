@@ -38,6 +38,8 @@ class RpcClientTest(BaseRpcClientTest):
     def test_init(self):
         os.environ['LOGNAME'] = 'unittest-user'
         GLOBAL_CONFIG.override_config_value('SERVER', 'hostname', 'test-host')
+        rpc_client_lib.add_protocol.expect_call('test-host').and_return(
+                'http://test-host')
         rpc_client_lib.get_proxy.expect_call(
                 'http://test-host/path',
                 headers={'AUTHORIZATION': 'unittest-user'})

@@ -49,6 +49,20 @@ struct CountersInfo {
   std::vector<CounterInfo> counters;
 };
 
+struct SampleSpeed {
+  // There are two ways to set sample speed:
+  // 1. sample_freq: take [sample_freq] samples every second.
+  // 2. sample_period: take one sample every [sample_period] events happen.
+  uint64_t sample_freq;
+  uint64_t sample_period;
+  SampleSpeed(uint64_t freq = 0, uint64_t period = 0) : sample_freq(freq), sample_period(period) {}
+  bool UseFreq() const {
+    // Only use one way to set sample speed.
+    CHECK_NE(sample_freq != 0u, sample_period != 0u);
+    return sample_freq != 0u;
+  }
+};
+
 // EventSelectionSet helps to monitor events. It is used in following steps:
 // 1. Create an EventSelectionSet, and add event types to monitor by calling
 //    AddEventType() or AddEventGroup().
@@ -71,22 +85,23 @@ class EventSelectionSet {
 
   bool empty() const { return groups_.empty(); }
 
-  bool AddEventType(const std::string& event_name);
-  bool AddEventGroup(const std::vector<std::string>& event_names);
+  bool AddEventType(const std::string& event_name, size_t* group_id = nullptr);
+  bool AddEventGroup(const std::vector<std::string>& event_names, size_t* group_id = nullptr);
+  std::vector<const EventType*> GetEvents() const;
   std::vector<const EventType*> GetTracepointEvents() const;
+  bool ExcludeKernel() const;
   bool HasInplaceSampler() const;
   std::vector<EventAttrWithId> GetEventAttrWithId() const;
 
   void SetEnableOnExec(bool enable);
   bool GetEnableOnExec();
   void SampleIdAll();
-  void SetSampleFreq(uint64_t sample_freq);
-  void SetSamplePeriod(uint64_t sample_period);
-  void UseDefaultSampleFreq();
+  void SetSampleSpeed(size_t group_id, const SampleSpeed& speed);
   bool SetBranchSampling(uint64_t branch_sample_type);
   void EnableFpCallChainSampling();
   bool EnableDwarfCallChainSampling(uint32_t dump_stack_size);
   void SetInherit(bool enable);
+  void SetClockId(int clock_id);
   bool NeedKernelSymbol() const;
 
   void AddMonitoredProcesses(const std::set<pid_t>& processes) {
@@ -186,5 +201,7 @@ class EventSelectionSet {
 
 bool IsBranchSamplingSupported();
 bool IsDwarfCallChainSamplingSupported();
+bool IsDumpingRegsForTracepointEventsSupported();
+bool IsSettingClockIdSupported();
 
 #endif  // SIMPLE_PERF_EVENT_SELECTION_SET_H_

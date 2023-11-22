@@ -38,7 +38,8 @@ def main():
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
         its.caps.skip_unless(its.caps.compute_target_exposure(props) and
-                             its.caps.per_frame_control(props))
+                             its.caps.per_frame_control(props) and
+                             not its.caps.mono_camera(props))
 
         # Baseline request
         debug = its.caps.debug_mode()

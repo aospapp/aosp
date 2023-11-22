@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -52,7 +52,7 @@ public final class PreMain {
 
 	private static IRuntime createRuntime(final Instrumentation inst)
 			throws Exception {
-		return ModifiedSystemClassRuntime.createFor(inst, "java/util/UUID");
+		return ModifiedSystemClassRuntime.createFor(inst, "java/lang/UnknownError");
 	}
 
 }

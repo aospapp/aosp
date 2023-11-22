@@ -17,7 +17,7 @@
 #ifndef MINIKIN_CMAP_COVERAGE_H
 #define MINIKIN_CMAP_COVERAGE_H
 
-#include <minikin/SparseBitSet.h>
+#include "minikin/SparseBitSet.h"
 
 #include <memory>
 #include <vector>
@@ -27,7 +27,7 @@ namespace minikin {
 class CmapCoverage {
 public:
     static SparseBitSet getCoverage(const uint8_t* cmap_data, size_t cmap_size,
-            std::vector<std::unique_ptr<SparseBitSet>>* out);
+                                    std::vector<std::unique_ptr<SparseBitSet>>* out);
 };
 
 }  // namespace minikin

@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Apelul nu poate fi inițiat din cauza unui apel din altă aplicație."</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Apeluri primite"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Apeluri nepreluate"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Blocarea apelurilor"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Dacă inițiați acest apel, cel din <xliff:g id="OTHER_APP">%1$s</xliff:g> va fi încheiat."</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Blocarea apelurilor"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Numere care nu sunt în Agendă"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Blocați numerele care nu sunt înregistrate în Agendă"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"Privat"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"Blocați apelanții care nu își afișează numărul"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"Telefon public"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"Blocați apelurile de la telefoane publice"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"Necunoscut"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"Blocați apelurile de la apelanți neidentificați"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"Blocarea apelurilor"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Blocarea apelurilor este dezactivată."</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"S-a efectuat un apel de urgență."</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Blocarea apelurilor a fost dezactivată pentru a permite serviciilor de urgență să vă contacteze."</string>
 </resources>

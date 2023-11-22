@@ -26,10 +26,18 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.TimeZone;
 
 public class DateFormatSymbolsTest extends junit.framework.TestCase {
+    /**
+     * The list of time zone ids formatted as "UTC".
+     */
+    private static final String[] UTC_ZONE_IDS = new String[] {
+            "Etc/UCT", "Etc/UTC", "Etc/Universal", "Etc/Zulu", "UCT", "UTC", "Universal", "Zulu"
+    };
+
     private void assertLocaleIsEquivalentToRoot(Locale locale) {
         DateFormatSymbols dfs = DateFormatSymbols.getInstance(locale);
         assertEquals(DateFormatSymbols.getInstance(Locale.ROOT), dfs);
@@ -107,26 +115,26 @@ public class DateFormatSymbolsTest extends junit.framework.TestCase {
     }
 
     public void test_getZoneStrings_UTC() throws Exception {
-        HashMap<String, String[]> zoneStrings = new HashMap<String, String[]>();
-        for (String[] row : DateFormatSymbols.getInstance(Locale.US).getZoneStrings()) {
-            zoneStrings.put(row[0], row);
-        }
-
-        assertUtc(zoneStrings.get("Etc/UCT"));
-        assertUtc(zoneStrings.get("Etc/UTC"));
-        assertUtc(zoneStrings.get("Etc/Universal"));
-        assertUtc(zoneStrings.get("Etc/Zulu"));
-
-        assertUtc(zoneStrings.get("UCT"));
-        assertUtc(zoneStrings.get("UTC"));
-        assertUtc(zoneStrings.get("Universal"));
-        assertUtc(zoneStrings.get("Zulu"));
+        assertUtc(Locale.US);
+        assertUtc(Locale.FRANCE);
+        assertUtc(Locale.CHINA);
     }
-    private static void assertUtc(String[] row) {
-        // Element 0 is the Olson id. The short names should be "UTC".
-        // On the RI, the long names are localized. ICU doesn't have those, so we just use UTC.
-        assertEquals(Arrays.toString(row), "UTC", row[2]);
-        assertEquals(Arrays.toString(row), "UTC", row[4]);
+
+    private static void assertUtc(Locale locale) {
+        HashSet<String> utcZones = new HashSet<>(Arrays.asList(UTC_ZONE_IDS));
+        for (String[] row : DateFormatSymbols.getInstance(locale).getZoneStrings()) {
+            if (utcZones.contains(row[0])) {
+                // Element 0 is the Olson id.
+
+                // The long name (1) can be anything providing it isn't GMT+00:00.
+                assertFalse(Arrays.toString(row), row[1].startsWith("GMT"));
+
+                // The short name (2) is always "UTC".
+                assertEquals(Arrays.toString(row), "UTC", row[2]);
+
+                // The _DST variants (3) and (4) do not apply for UTC so ICU won't provide strings.
+            }
+        }
     }
 
     // http://b/8128460

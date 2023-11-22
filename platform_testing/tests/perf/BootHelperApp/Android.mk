@@ -21,7 +21,8 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := BootHelperApp
-LOCAL_JAVA_LIBRARIES := android.test.runner
+LOCAL_SDK_VERSION := current
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs
 LOCAL_STATIC_JAVA_LIBRARIES := android-support-test ub-uiautomator
 
 LOCAL_COMPATIBILITY_SUITE := device-tests

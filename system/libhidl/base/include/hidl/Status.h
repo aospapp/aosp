@@ -143,7 +143,7 @@ namespace details {
         void assertOk() const;
     public:
         return_status() {}
-        return_status(Status s) : mStatus(s) {}
+        return_status(const Status& s) : mStatus(s) {}
 
         return_status(const return_status &) = delete;
         return_status &operator=(const return_status &) = delete;
@@ -154,6 +154,11 @@ namespace details {
         return_status &operator=(return_status &&other);
 
         ~return_status();
+
+        bool isOkUnchecked() const {
+            // someone else will have to check
+            return mStatus.isOk();
+        }
 
         bool isOk() const {
             mCheckedStatus = true;
@@ -240,7 +245,7 @@ public:
 template<> class Return<void> : public details::return_status {
 public:
     Return() : details::return_status() {}
-    Return(Status s) : details::return_status(s) {}
+    Return(const Status& s) : details::return_status(s) {}
 
     // move-able.
     // precondition: "this" has checked status

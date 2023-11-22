@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include "linux_syscall_numbers.h"
+#include "lapi/syscalls.h"
 #include "ltp_signal.h"
 #include "tst_sig_proc.h"
 #include "tst_test.h"
@@ -268,7 +268,6 @@ static void do_test(unsigned int i)
 }
 
 static struct tst_test test = {
-	.tid = "ppoll01",
 	.tcnt = ARRAY_SIZE(tcase),
 	.test = do_test,
 	.setup = setup,

@@ -22,11 +22,9 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.RunUtil;
 
-/**
- * Target preparer that waits until an ip address is asigned to any of the specified interfaces.
- */
-@OptionClass(alias="connection-checker")
-public class ConnectionChecker implements ITargetPreparer {
+/** Target preparer that waits until an ip address is asigned to any of the specified interfaces. */
+@OptionClass(alias = "connection-checker")
+public class ConnectionChecker extends BaseTargetPreparer {
 
     @Option(name="max-wait", description="How long to wait for the device to connect, in seconds")
     private long mTimeout = 600;

@@ -16,7 +16,6 @@
 #ifndef ANDROID_HIDL_TASK_RUNNER_H
 #define ANDROID_HIDL_TASK_RUNNER_H
 
-#include "SynchronizedQueue.h"
 #include <memory>
 #include <thread>
 
@@ -24,13 +23,17 @@ namespace android {
 namespace hardware {
 namespace details {
 
+using Task = std::function<void(void)>;
+
+template <typename T>
+struct SynchronizedQueue;
+
 /*
  * A background infinite loop that runs the Tasks push()'ed.
  * Equivalent to a simple single-threaded Looper.
  */
 class TaskRunner {
 public:
-    using Task = std::function<void(void)>;
 
     /* Create an empty task runner. Nothing will be done until start() is called. */
     TaskRunner();
@@ -44,7 +47,9 @@ public:
 
     /*
      * Sets the queue limit. Fails the push operation once the limit is reached.
-     * Then kicks off the loop.
+     * This function is named start for legacy reasons and to maintain ABI
+     * stability, but the underlying thread running tasks isn't started until
+     * the first task is pushed.
      */
     void start(size_t limit);
 

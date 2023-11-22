@@ -22,6 +22,16 @@
     android:padding="?android:dialogPreferredPadding">
 
     <TextView
+        android:id="@+id/connect_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dip"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:visibility="gone"
+        android:text="@string/connect_hint_text"/>
+
+    <TextView
+        android:id="@+id/labelHostname"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/hostname_or_ip"

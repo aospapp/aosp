@@ -44,9 +44,4 @@ cc_binary {
         "libutils",
         "libvintf",
     ],
-    product_variables: {
-        binder32bit: {
-            cflags: ["-DBINDER_IPC_32BIT=1"],
-        },
-    },
 }

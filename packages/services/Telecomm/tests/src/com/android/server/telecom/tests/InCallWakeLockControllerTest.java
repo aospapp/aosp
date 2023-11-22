@@ -30,8 +30,14 @@ import com.android.server.telecom.CallsManager;
 import com.android.server.telecom.InCallWakeLockController;
 import com.android.server.telecom.TelecomWakeLock;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 
+@RunWith(JUnit4.class)
 public class InCallWakeLockControllerTest extends TelecomTestCase {
 
     @Mock CallsManager mCallsManager;
@@ -40,6 +46,7 @@ public class InCallWakeLockControllerTest extends TelecomTestCase {
     private InCallWakeLockController mInCallWakeLockController;
 
     @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         TelecomWakeLock telecomWakeLock = new TelecomWakeLock(
@@ -50,12 +57,14 @@ public class InCallWakeLockControllerTest extends TelecomTestCase {
     }
 
     @Override
+    @After
     public void tearDown() throws Exception {
         mInCallWakeLockController = null;
         super.tearDown();
     }
 
     @SmallTest
+    @Test
     public void testRingingCallAdded() throws Exception {
         when(mCallsManager.getRingingCall()).thenReturn(mCall);
         when(mWakeLockAdapter.isHeld()).thenReturn(false);
@@ -66,6 +75,7 @@ public class InCallWakeLockControllerTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testNonRingingCallAdded() throws Exception {
         when(mCallsManager.getRingingCall()).thenReturn(null);
         when(mWakeLockAdapter.isHeld()).thenReturn(false);
@@ -76,6 +86,7 @@ public class InCallWakeLockControllerTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testRingingCallTransition() throws Exception {
         when(mCallsManager.getRingingCall()).thenReturn(mCall);
         when(mWakeLockAdapter.isHeld()).thenReturn(false);
@@ -86,6 +97,7 @@ public class InCallWakeLockControllerTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testRingingCallRemoved() throws Exception {
         when(mCallsManager.getRingingCall()).thenReturn(null);
         when(mWakeLockAdapter.isHeld()).thenReturn(false);
@@ -96,6 +108,7 @@ public class InCallWakeLockControllerTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testWakeLockReleased() throws Exception {
         when(mCallsManager.getRingingCall()).thenReturn(null);
         when(mWakeLockAdapter.isHeld()).thenReturn(true);
@@ -106,6 +119,7 @@ public class InCallWakeLockControllerTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testAcquireWakeLockWhenHeld() throws Exception {
         when(mCallsManager.getRingingCall()).thenReturn(mCall);
         when(mWakeLockAdapter.isHeld()).thenReturn(true);

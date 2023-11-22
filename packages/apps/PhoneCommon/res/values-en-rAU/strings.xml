@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"No SIM or SIM error"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Mobile network not available"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Outgoing calls are restricted by FDN."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL request modified to USSD request."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL request modified to SS request."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL request modified to DIAL with different number."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Call changed to USSD request"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Call changed to SS request"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Changed to different number"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Changed to video call"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Video call changed to SS request"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Video call changed to USSD request"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Changed to regular call"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Changed to different number"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Can\'t make outgoing calls while call barring is on."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Calls restricted by access control."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Emergency calls restricted by access control."</string>

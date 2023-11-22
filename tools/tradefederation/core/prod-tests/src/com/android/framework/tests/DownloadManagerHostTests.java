@@ -17,7 +17,6 @@
 package com.android.framework.tests;
 
 import com.android.ddmlib.Log;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -27,6 +26,7 @@ import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.ResultForwarder;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.DeviceTestCase;
 
 import java.util.Hashtable;
@@ -219,11 +219,9 @@ public class DownloadManagerHostTests extends DeviceTestCase {
             super(listener);
         }
 
-        /**
-         * Take dumpsys wifi when test fails.
-         */
+        /** Take dumpsys wifi when test fails. */
         @Override
-        public void testFailed(TestIdentifier test, String trace) {
+        public void testFailed(TestDescription test, String trace) {
             try {
                 String output = mDevice.executeShellCommand("dumpsys wifi");
                 if (output == null) {

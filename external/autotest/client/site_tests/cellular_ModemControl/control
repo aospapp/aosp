@@ -1,14 +1,14 @@
-# Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 AUTHOR = "ChromeOS Team"
-NAME = "cellular_3GModemControl"
+NAME = "cellular_ModemControl"
 PURPOSE = "Verify commands sent to a modem manager are reflected in flimflam."
 CRITERIA = """
 This test will fail if modem manager state differs from flimflam state.
 """
-ATTRIBUTES = "suite:cell_emulator"
+ATTRIBUTES = "suite:cellular_qual"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
@@ -22,16 +22,10 @@ DOC = """
   if the commands are sent to the modem manager instead of flimflam.
 """
 
-from autotest_lib.client.cros.cellular import labconfig
+from autotest_lib.client.cros.cellular import test_environment
 
-config = labconfig.Configuration(args)
-
-variations = [(False, 'no-autoconnect'), (True, 'autoconnect')]
-
-for technology in config.get_technologies():
-    for autoconnect, tag in variations:
-        job.run_test('network_3GModemControl',
-                     config=config,
-                     technology=technology,
-                     tag='%s-%s' % (technology, tag),
-                     autoconnect=autoconnect)
+test_env = test_environment.CellularOTATestEnvironment()
+job.run_test('cellular_ModemControl', test_env=test_env, autoconnect=False,
+             tag='no-autoconnect')
+job.run_test('cellular_ModemControl', test_env=test_env, autoconnect=True,
+             tag='autoconnect')

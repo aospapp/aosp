@@ -25,8 +25,7 @@ LOCAL_JAVACFLAGS += -g -Xlint
 
 LOCAL_MODULE := tf-prod-metatests
 LOCAL_MODULE_TAGS := optional
-LOCAL_STATIC_JAVA_LIBRARIES := easymock
-LOCAL_JAVA_LIBRARIES := tradefed tf-prod-tests
+LOCAL_JAVA_LIBRARIES := tradefed tf-prod-tests easymock
 
 LOCAL_JAR_MANIFEST := MANIFEST.mf
 

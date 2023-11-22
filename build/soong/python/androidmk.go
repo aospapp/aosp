@@ -23,10 +23,10 @@ import (
 )
 
 type subAndroidMkProvider interface {
-	AndroidMk(*pythonBaseModule, *android.AndroidMkData)
+	AndroidMk(*Module, *android.AndroidMkData)
 }
 
-func (p *pythonBaseModule) subAndroidMk(data *android.AndroidMkData, obj interface{}) {
+func (p *Module) subAndroidMk(data *android.AndroidMkData, obj interface{}) {
 	if p.subAndroidMkOnce == nil {
 		p.subAndroidMkOnce = make(map[subAndroidMkProvider]bool)
 	}
@@ -38,30 +38,46 @@ func (p *pythonBaseModule) subAndroidMk(data *android.AndroidMkData, obj interfa
 	}
 }
 
-func (p *pythonBaseModule) AndroidMk() (ret android.AndroidMkData, err error) {
+func (p *Module) AndroidMk() android.AndroidMkData {
+	ret := android.AndroidMkData{OutputFile: p.installSource}
+
 	p.subAndroidMk(&ret, p.installer)
 
-	return ret, nil
+	return ret
 }
 
-func (p *pythonBinaryHostDecorator) AndroidMk(base *pythonBaseModule, ret *android.AndroidMkData) {
+func (p *binaryDecorator) AndroidMk(base *Module, ret *android.AndroidMkData) {
 	ret.Class = "EXECUTABLES"
-	base.subAndroidMk(ret, p.pythonDecorator.baseInstaller)
+
+	ret.Extra = append(ret.Extra, func(w io.Writer, outputFile android.Path) {
+		if len(p.binaryProperties.Test_suites) > 0 {
+			fmt.Fprintln(w, "LOCAL_COMPATIBILITY_SUITE :=",
+				strings.Join(p.binaryProperties.Test_suites, " "))
+		}
+	})
+	base.subAndroidMk(ret, p.pythonInstaller)
 }
 
-func (p *pythonTestHostDecorator) AndroidMk(base *pythonBaseModule, ret *android.AndroidMkData) {
+func (p *testDecorator) AndroidMk(base *Module, ret *android.AndroidMkData) {
 	ret.Class = "NATIVE_TESTS"
-	base.subAndroidMk(ret, p.pythonDecorator.baseInstaller)
+
+	ret.Extra = append(ret.Extra, func(w io.Writer, outputFile android.Path) {
+		if len(p.binaryDecorator.binaryProperties.Test_suites) > 0 {
+			fmt.Fprintln(w, "LOCAL_COMPATIBILITY_SUITE :=",
+				strings.Join(p.binaryDecorator.binaryProperties.Test_suites, " "))
+		}
+	})
+	base.subAndroidMk(ret, p.binaryDecorator.pythonInstaller)
 }
 
-func (installer *pythonInstaller) AndroidMk(base *pythonBaseModule, ret *android.AndroidMkData) {
+func (installer *pythonInstaller) AndroidMk(base *Module, ret *android.AndroidMkData) {
 	// Soong installation is only supported for host modules. Have Make
 	// installation trigger Soong installation.
 	if base.Target().Os.Class == android.Host {
 		ret.OutputFile = android.OptionalPathForPath(installer.path)
 	}
 
-	ret.Extra = append(ret.Extra, func(w io.Writer, outputFile android.Path) error {
+	ret.Extra = append(ret.Extra, func(w io.Writer, outputFile android.Path) {
 		path := installer.path.RelPathString()
 		dir, file := filepath.Split(path)
 		stem := strings.TrimSuffix(file, filepath.Ext(file))
@@ -69,6 +85,5 @@ func (installer *pythonInstaller) AndroidMk(base *pythonBaseModule, ret *android
 		fmt.Fprintln(w, "LOCAL_MODULE_SUFFIX := "+filepath.Ext(file))
 		fmt.Fprintln(w, "LOCAL_MODULE_PATH := $(OUT_DIR)/"+filepath.Clean(dir))
 		fmt.Fprintln(w, "LOCAL_MODULE_STEM := "+stem)
-		return nil
 	})
 }

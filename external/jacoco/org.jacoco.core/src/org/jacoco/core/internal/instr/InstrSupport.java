@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -25,7 +25,7 @@ public final class InstrSupport {
 	}
 
 	/** ASM API version */
-	public static final int ASM_API_VERSION = Opcodes.ASM5;
+	public static final int ASM_API_VERSION = Opcodes.ASM6;
 
 	// === Data Field ===
 

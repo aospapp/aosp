@@ -15,10 +15,22 @@
 LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
-LOCAL_PREBUILT_STATIC_JAVA_LIBRARIES := \
-    guava-20.0-prebuilt:libs/guava-20.0.jar \
-    guava-testlib-20.0-prebuilt:libs/guava-testlib-20.0.jar
-include $(BUILD_MULTI_PREBUILT)
+LOCAL_MODULE := guava-20.0-prebuilt
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := JAVA_LIBRARIES
+LOCAL_SRC_FILES := libs/guava-20.0.jar
+LOCAL_UNINSTALLABLE_MODULE := true
+LOCAL_SDK_VERSION := current
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := guava-testlib-20.0-prebuilt
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := JAVA_LIBRARIES
+LOCAL_SRC_FILES := libs/guava-testlib-20.0.jar
+LOCAL_UNINSTALLABLE_MODULE := true
+LOCAL_SDK_VERSION := current
+include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
@@ -29,6 +41,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     guava-testlib-20.0-prebuilt
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_PACKAGE_NAME := CtsLibcoreJavaUtilCollectionsTestCases
+LOCAL_SDK_VERSION := current
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_PACKAGE)

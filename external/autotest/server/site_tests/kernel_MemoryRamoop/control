@@ -11,7 +11,7 @@ TEST_TYPE = 'server'
 ATTRIBUTES = "suite:experimental"
 
 DOC = """
-This test verify that /dev/pstore/console-ramoops is preserved correctly
+This test verify that /sys/fs/pstore/console-ramoops is preserved correctly
 after system reboot/kernel crash and also verify integrity of that log.
 """
 

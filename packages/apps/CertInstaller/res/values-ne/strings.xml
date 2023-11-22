@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN र अनुप्रयोगहरू"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"टिपोट: यो प्रमाणपत्रको जारीकर्ताले यो यन्त्रमा आउने र यहाँबाट जाने सबै ट्राफिकको निरीक्षण गर्न सक्नुहुन्छ।"</string>
     <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi प्रोफाइल"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%s को लागि विवरणहरू"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"विवरणहरू"</string>
@@ -69,7 +70,7 @@
     <string name="install_done" msgid="1522718684172097080">"सुरक्षित Wi-Fi नेटवर्कमा <xliff:g id="NAME">%1$s</xliff:g> प्रमाणहरू थपिएका छन्।"</string>
     <string name="done_label" msgid="5597425930652904250">"सम्पन्‍न भयो"</string>
     <string name="wifi_installer_detail" msgid="63879632832701669">"<xliff:g id="NAME">%1$s</xliff:g> मार्फत उपलब्ध नेटवर्क जडान गर्नेमा Wi-Fi प्रमाणहरू स्थापना गर्नुहोस्।"</string>
-    <string name="wifi_installer_download_error" msgid="5429453090956277692">"डाउनलोड भएको फाइलमा समस्या हुनाले स्थापना गर्न सकिएन। सुनिश्चित गर्नुहोस् तपाईँले ठीक स्रोतबाट फाइल डाउनलोड गर्नु भयो।"</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"डाउनलोड भएको फाइलमा समस्या हुनाले स्थापना गर्न सकिएन। सुनिश्चित गर्नुहोस् तपाईँले ठिक स्रोतबाट फाइल डाउनलोड गर्नु भयो।"</string>
     <string name="wifi_installer_fail" msgid="894483173306576331">"Wi-Fi प्रमाणहरू स्थापना गर्न सकिदैन। फाइल पुन: डाउनलोड गर्ने प्रयास गर्नुहोस्।"</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"स्थापना रद्द गरियो"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"स्थापना गर्न सक्दैन"</string>

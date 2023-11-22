@@ -24,8 +24,15 @@
 #include <sys/types.h>
 #include <jni.h>
 
-#include <ScopedLocalRef.h>
-#include <JNIHelp.h>
+// workaround for using ScopedLocalRef with system runtime
+// TODO: Remove this after b/74632104 is fixed
+namespace std
+{
+  typedef decltype(nullptr) nullptr_t;
+}
+
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/ScopedLocalRef.h>
 
 #include <math.h>
 

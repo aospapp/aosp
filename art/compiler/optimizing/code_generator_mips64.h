@@ -18,10 +18,10 @@
 #define ART_COMPILER_OPTIMIZING_CODE_GENERATOR_MIPS64_H_
 
 #include "code_generator.h"
+#include "dex/type_reference.h"
 #include "driver/compiler_options.h"
 #include "nodes.h"
 #include "parallel_move_resolver.h"
-#include "type_reference.h"
 #include "utils/mips64/assembler_mips64.h"
 
 namespace art {
@@ -79,8 +79,8 @@ class InvokeDexCallingConventionVisitorMIPS64 : public InvokeDexCallingConventio
   InvokeDexCallingConventionVisitorMIPS64() {}
   virtual ~InvokeDexCallingConventionVisitorMIPS64() {}
 
-  Location GetNextLocation(Primitive::Type type) OVERRIDE;
-  Location GetReturnLocation(Primitive::Type type) const OVERRIDE;
+  Location GetNextLocation(DataType::Type type) OVERRIDE;
+  Location GetReturnLocation(DataType::Type type) const OVERRIDE;
   Location GetMethodLocation() const OVERRIDE;
 
  private:
@@ -98,7 +98,7 @@ class InvokeRuntimeCallingConvention : public CallingConvention<GpuRegister, Fpu
                           kRuntimeParameterFpuRegistersLength,
                           kMips64PointerSize) {}
 
-  Location GetReturnLocation(Primitive::Type return_type);
+  Location GetReturnLocation(DataType::Type return_type);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(InvokeRuntimeCallingConvention);
@@ -114,16 +114,16 @@ class FieldAccessCallingConventionMIPS64 : public FieldAccessCallingConvention {
   Location GetFieldIndexLocation() const OVERRIDE {
     return Location::RegisterLocation(A0);
   }
-  Location GetReturnLocation(Primitive::Type type ATTRIBUTE_UNUSED) const OVERRIDE {
+  Location GetReturnLocation(DataType::Type type ATTRIBUTE_UNUSED) const OVERRIDE {
     return Location::RegisterLocation(V0);
   }
-  Location GetSetValueLocation(Primitive::Type type ATTRIBUTE_UNUSED,
+  Location GetSetValueLocation(DataType::Type type ATTRIBUTE_UNUSED,
                                bool is_instance) const OVERRIDE {
     return is_instance
         ? Location::RegisterLocation(A2)
         : Location::RegisterLocation(A1);
   }
-  Location GetFpuLocation(Primitive::Type type ATTRIBUTE_UNUSED) const OVERRIDE {
+  Location GetFpuLocation(DataType::Type type ATTRIBUTE_UNUSED) const OVERRIDE {
     return Location::FpuRegisterLocation(F0);
   }
 
@@ -142,6 +142,7 @@ class ParallelMoveResolverMIPS64 : public ParallelMoveResolverWithSwap {
   void RestoreScratch(int reg) OVERRIDE;
 
   void Exchange(int index1, int index2, bool double_slot);
+  void ExchangeQuadSlots(int index1, int index2);
 
   Mips64Assembler* GetAssembler() const;
 
@@ -281,7 +282,8 @@ class InstructionCodeGeneratorMIPS64 : public InstructionCodeGenerator {
                                Location root,
                                GpuRegister obj,
                                uint32_t offset,
-                               ReadBarrierOption read_barrier_option);
+                               ReadBarrierOption read_barrier_option,
+                               Mips64Label* label_low = nullptr);
 
   void GenerateTestAndBranch(HInstruction* instruction,
                              size_t condition_input_index,
@@ -292,17 +294,32 @@ class InstructionCodeGeneratorMIPS64 : public InstructionCodeGenerator {
   void GenerateDivRemWithAnyConstant(HBinaryOperation* instruction);
   void GenerateDivRemIntegral(HBinaryOperation* instruction);
   void GenerateIntLongCompare(IfCondition cond, bool is64bit, LocationSummary* locations);
+  // When the function returns `false` it means that the condition holds if `dst` is non-zero
+  // and doesn't hold if `dst` is zero. If it returns `true`, the roles of zero and non-zero
+  // `dst` are exchanged.
+  bool MaterializeIntLongCompare(IfCondition cond,
+                                 bool is64bit,
+                                 LocationSummary* input_locations,
+                                 GpuRegister dst);
   void GenerateIntLongCompareAndBranch(IfCondition cond,
                                        bool is64bit,
                                        LocationSummary* locations,
                                        Mips64Label* label);
   void GenerateFpCompare(IfCondition cond,
                          bool gt_bias,
-                         Primitive::Type type,
+                         DataType::Type type,
                          LocationSummary* locations);
+  // When the function returns `false` it means that the condition holds if `dst` is non-zero
+  // and doesn't hold if `dst` is zero. If it returns `true`, the roles of zero and non-zero
+  // `dst` are exchanged.
+  bool MaterializeFpCompare(IfCondition cond,
+                            bool gt_bias,
+                            DataType::Type type,
+                            LocationSummary* input_locations,
+                            FpuRegister dst);
   void GenerateFpCompareAndBranch(IfCondition cond,
                                   bool gt_bias,
-                                  Primitive::Type type,
+                                  DataType::Type type,
                                   LocationSummary* locations,
                                   Mips64Label* label);
   void HandleGoto(HInstruction* got, HBasicBlock* successor);
@@ -319,6 +336,7 @@ class InstructionCodeGeneratorMIPS64 : public InstructionCodeGenerator {
   int32_t VecAddress(LocationSummary* locations,
                      size_t size,
                      /* out */ GpuRegister* adjusted_base);
+  void GenConditionalMove(HSelect* select);
 
   Mips64Assembler* const assembler_;
   CodeGeneratorMIPS64* const codegen_;
@@ -357,7 +375,7 @@ class CodeGeneratorMIPS64 : public CodeGenerator {
   const Mips64Assembler& GetAssembler() const OVERRIDE { return assembler_; }
 
   // Emit linker patches.
-  void EmitLinkerPatches(ArenaVector<LinkerPatch>* linker_patches) OVERRIDE;
+  void EmitLinkerPatches(ArenaVector<linker::LinkerPatch>* linker_patches) OVERRIDE;
   void EmitJitRootPatches(uint8_t* code, const uint8_t* roots_data) OVERRIDE;
 
   // Fast path implementation of ReadBarrier::Barrier for a heap
@@ -480,14 +498,14 @@ class CodeGeneratorMIPS64 : public CodeGenerator {
   void Finalize(CodeAllocator* allocator) OVERRIDE;
 
   // Code generation helpers.
-  void MoveLocation(Location dst, Location src, Primitive::Type dst_type) OVERRIDE;
+  void MoveLocation(Location dst, Location src, DataType::Type dst_type) OVERRIDE;
 
   void MoveConstant(Location destination, int32_t value) OVERRIDE;
 
   void AddLocationAsTemp(Location location, LocationSummary* locations) OVERRIDE;
 
 
-  void SwapLocations(Location loc1, Location loc2, Primitive::Type type);
+  void SwapLocations(Location loc1, Location loc2, DataType::Type type);
 
   // Generate code to invoke a runtime entry point.
   void InvokeRuntime(QuickEntrypointEnum entrypoint,
@@ -505,7 +523,7 @@ class CodeGeneratorMIPS64 : public CodeGenerator {
 
   ParallelMoveResolver* GetMoveResolver() OVERRIDE { return &move_resolver_; }
 
-  bool NeedsTwoRegisters(Primitive::Type type ATTRIBUTE_UNUSED) const OVERRIDE { return false; }
+  bool NeedsTwoRegisters(DataType::Type type ATTRIBUTE_UNUSED) const OVERRIDE { return false; }
 
   // Check if the desired_string_load_kind is supported. If it is, return it,
   // otherwise return a fall-back kind that should be used instead.
@@ -529,7 +547,7 @@ class CodeGeneratorMIPS64 : public CodeGenerator {
       HInvokeVirtual* invoke, Location temp, SlowPathCode* slow_path = nullptr) OVERRIDE;
 
   void MoveFromReturnRegister(Location trg ATTRIBUTE_UNUSED,
-                              Primitive::Type type ATTRIBUTE_UNUSED) OVERRIDE {
+                              DataType::Type type ATTRIBUTE_UNUSED) OVERRIDE {
     UNIMPLEMENTED(FATAL) << "Not implemented on MIPS64";
   }
 
@@ -537,9 +555,9 @@ class CodeGeneratorMIPS64 : public CodeGenerator {
   void GenerateImplicitNullCheck(HNullCheck* instruction) OVERRIDE;
   void GenerateExplicitNullCheck(HNullCheck* instruction) OVERRIDE;
 
-  // The PcRelativePatchInfo is used for PC-relative addressing of dex cache arrays,
-  // boot image strings and method calls. The only difference is the interpretation of
-  // the offset_or_index.
+  // The PcRelativePatchInfo is used for PC-relative addressing of methods/strings/types,
+  // whether through .data.bimg.rel.ro, .bss, or directly in the boot image.
+  //
   // The 16-bit halves of the 32-bit PC-relative offset are patched separately, necessitating
   // two patches/infos. There can be more than two patches/infos if the instruction supplying
   // the high half is shared with e.g. a slow path, while the low half is supplied by separate
@@ -553,20 +571,13 @@ class CodeGeneratorMIPS64 : public CodeGenerator {
   //     ...
   //     sw    r2, low(r1)    // patch
   //     bc    back
-  struct PcRelativePatchInfo {
-    PcRelativePatchInfo(const DexFile& dex_file,
+  struct PcRelativePatchInfo : PatchInfo<Mips64Label> {
+    PcRelativePatchInfo(const DexFile* dex_file,
                         uint32_t off_or_idx,
                         const PcRelativePatchInfo* info_high)
-        : target_dex_file(dex_file),
-          offset_or_index(off_or_idx),
-          label(),
+        : PatchInfo<Mips64Label>(dex_file, off_or_idx),
           patch_info_high(info_high) { }
 
-    const DexFile& target_dex_file;
-    // Either the dex cache array element offset or the string/type/method index.
-    uint32_t offset_or_index;
-    // Label for the instruction to patch.
-    Mips64Label label;
     // Pointer to the info for the high half patch or nullptr if this is the high half patch info.
     const PcRelativePatchInfo* patch_info_high;
 
@@ -575,24 +586,27 @@ class CodeGeneratorMIPS64 : public CodeGenerator {
     DISALLOW_COPY_AND_ASSIGN(PcRelativePatchInfo);
   };
 
-  PcRelativePatchInfo* NewPcRelativeMethodPatch(MethodReference target_method,
-                                                const PcRelativePatchInfo* info_high = nullptr);
+  PcRelativePatchInfo* NewBootImageMethodPatch(MethodReference target_method,
+                                               const PcRelativePatchInfo* info_high = nullptr);
   PcRelativePatchInfo* NewMethodBssEntryPatch(MethodReference target_method,
                                               const PcRelativePatchInfo* info_high = nullptr);
-  PcRelativePatchInfo* NewPcRelativeTypePatch(const DexFile& dex_file,
-                                              dex::TypeIndex type_index,
-                                              const PcRelativePatchInfo* info_high = nullptr);
+  PcRelativePatchInfo* NewBootImageTypePatch(const DexFile& dex_file,
+                                             dex::TypeIndex type_index,
+                                             const PcRelativePatchInfo* info_high = nullptr);
   PcRelativePatchInfo* NewTypeBssEntryPatch(const DexFile& dex_file,
                                             dex::TypeIndex type_index,
                                             const PcRelativePatchInfo* info_high = nullptr);
-  PcRelativePatchInfo* NewPcRelativeStringPatch(const DexFile& dex_file,
-                                                dex::StringIndex string_index,
-                                                const PcRelativePatchInfo* info_high = nullptr);
+  PcRelativePatchInfo* NewBootImageStringPatch(const DexFile& dex_file,
+                                               dex::StringIndex string_index,
+                                               const PcRelativePatchInfo* info_high = nullptr);
+  PcRelativePatchInfo* NewStringBssEntryPatch(const DexFile& dex_file,
+                                              dex::StringIndex string_index,
+                                              const PcRelativePatchInfo* info_high = nullptr);
   Literal* DeduplicateBootImageAddressLiteral(uint64_t address);
 
   void EmitPcRelativeAddressPlaceholderHigh(PcRelativePatchInfo* info_high,
                                             GpuRegister out,
-                                            PcRelativePatchInfo* info_low);
+                                            PcRelativePatchInfo* info_low = nullptr);
 
   void PatchJitRootUse(uint8_t* code,
                        const uint8_t* roots_data,
@@ -618,14 +632,14 @@ class CodeGeneratorMIPS64 : public CodeGenerator {
   Literal* DeduplicateUint32Literal(uint32_t value, Uint32ToLiteralMap* map);
   Literal* DeduplicateUint64Literal(uint64_t value);
 
-  PcRelativePatchInfo* NewPcRelativePatch(const DexFile& dex_file,
+  PcRelativePatchInfo* NewPcRelativePatch(const DexFile* dex_file,
                                           uint32_t offset_or_index,
                                           const PcRelativePatchInfo* info_high,
                                           ArenaDeque<PcRelativePatchInfo>* patches);
 
-  template <LinkerPatch (*Factory)(size_t, const DexFile*, uint32_t, uint32_t)>
+  template <linker::LinkerPatch (*Factory)(size_t, const DexFile*, uint32_t, uint32_t)>
   void EmitPcRelativeLinkerPatches(const ArenaDeque<PcRelativePatchInfo>& infos,
-                                   ArenaVector<LinkerPatch>* linker_patches);
+                                   ArenaVector<linker::LinkerPatch>* linker_patches);
 
   // Labels for each block that will be compiled.
   Mips64Label* block_labels_;  // Indexed by block id.
@@ -642,15 +656,17 @@ class CodeGeneratorMIPS64 : public CodeGenerator {
   // address.
   Uint64ToLiteralMap uint64_literals_;
   // PC-relative method patch info for kBootImageLinkTimePcRelative.
-  ArenaDeque<PcRelativePatchInfo> pc_relative_method_patches_;
+  ArenaDeque<PcRelativePatchInfo> boot_image_method_patches_;
   // PC-relative method patch info for kBssEntry.
   ArenaDeque<PcRelativePatchInfo> method_bss_entry_patches_;
   // PC-relative type patch info for kBootImageLinkTimePcRelative.
-  ArenaDeque<PcRelativePatchInfo> pc_relative_type_patches_;
+  ArenaDeque<PcRelativePatchInfo> boot_image_type_patches_;
   // PC-relative type patch info for kBssEntry.
   ArenaDeque<PcRelativePatchInfo> type_bss_entry_patches_;
-  // PC-relative String patch info; type depends on configuration (app .bss or boot image PIC).
-  ArenaDeque<PcRelativePatchInfo> pc_relative_string_patches_;
+  // PC-relative String patch info; type depends on configuration (intern table or boot image PIC).
+  ArenaDeque<PcRelativePatchInfo> boot_image_string_patches_;
+  // PC-relative type patch info for kBssEntry.
+  ArenaDeque<PcRelativePatchInfo> string_bss_entry_patches_;
 
   // Patches for string root accesses in JIT compiled code.
   StringToLiteralMap jit_string_patches_;

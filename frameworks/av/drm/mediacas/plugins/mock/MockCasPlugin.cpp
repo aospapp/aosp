@@ -49,8 +49,8 @@ status_t MockCasFactory::queryPlugins(
 
 status_t MockCasFactory::createPlugin(
         int32_t CA_system_id,
-        uint64_t appData,
-        CasPluginCallback callback,
+        void* /*appData*/,
+        CasPluginCallback /*callback*/,
         CasPlugin **plugin) {
     if (!isSystemIdSupported(CA_system_id)) {
         return BAD_VALUE;
@@ -98,7 +98,7 @@ MockCasPlugin::~MockCasPlugin() {
     MockSessionLibrary::get()->destroyPlugin(this);
 }
 
-status_t MockCasPlugin::setPrivateData(const CasData &data) {
+status_t MockCasPlugin::setPrivateData(const CasData& /*data*/) {
     ALOGV("setPrivateData");
     return OK;
 }
@@ -123,7 +123,7 @@ status_t MockCasPlugin::closeSession(const CasSessionId &sessionId) {
 }
 
 status_t MockCasPlugin::setSessionPrivateData(
-        const CasSessionId &sessionId, const CasData &data) {
+        const CasSessionId &sessionId, const CasData& /*data*/) {
     ALOGV("setSessionPrivateData: sessionId=%s",
             arrayToString(sessionId).string());
     Mutex::Autolock lock(mLock);
@@ -146,7 +146,7 @@ status_t MockCasPlugin::processEcm(
     if (session == NULL) {
         return BAD_VALUE;
     }
-    ALOGV("ECM: size=%d", ecm.size());
+    ALOGV("ECM: size=%zu", ecm.size());
     ALOGV("ECM: data=%s", arrayToString(ecm).string());
 
     return OK;
@@ -156,14 +156,14 @@ status_t MockCasPlugin::processEmm(const CasEmm& emm) {
     ALOGV("processEmm");
     Mutex::Autolock lock(mLock);
 
-    ALOGV("EMM: size=%d", emm.size());
+    ALOGV("EMM: size=%zu", emm.size());
     ALOGV("EMM: data=%s", arrayToString(emm).string());
 
     return OK;
 }
 
 status_t MockCasPlugin::sendEvent(
-        int32_t event, int arg, const CasData &eventData) {
+        int32_t event, int /*arg*/, const CasData& /*eventData*/) {
     ALOGV("sendEvent: event=%d", event);
     Mutex::Autolock lock(mLock);
 
@@ -178,7 +178,7 @@ status_t MockCasPlugin::provision(const String8 &str) {
 }
 
 status_t MockCasPlugin::refreshEntitlements(
-        int32_t refreshType, const CasData &refreshData) {
+        int32_t /*refreshType*/, const CasData &refreshData) {
     ALOGV("refreshEntitlements: refreshData=%s", arrayToString(refreshData).string());
     Mutex::Autolock lock(mLock);
 
@@ -216,7 +216,7 @@ ssize_t MockDescramblerPlugin::descramble(
         int32_t srcOffset,
         void *dstPtr,
         int32_t dstOffset,
-        AString *errorDetailMsg) {
+        AString* /*errorDetailMsg*/) {
     ALOGV("MockDescramblerPlugin::descramble(secure=%d, sctrl=%d,"
           "subSamples=%s, srcPtr=%p, dstPtr=%p, srcOffset=%d, dstOffset=%d)",
           (int)secure, (int)scramblingControl,

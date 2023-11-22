@@ -16,7 +16,7 @@ TEST_CLASS = 'platform'
 TEST_TYPE = 'client'
 JOB_RETRIES = 2
 
-ATTRIBUTES = "suite:bvt-cq"
+ATTRIBUTES = 'suite:bvt-perbuild'
 
 DOC = """
 Runs 'perf record' and 'perf report'.

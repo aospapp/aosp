@@ -18,12 +18,12 @@
 #define LOG_TAG "libvintf"
 #include <android-base/logging.h>
 
-#include "RuntimeInfo.h"
+#include <vintf/RuntimeInfo.h>
 
 namespace android {
 namespace vintf {
 
-status_t RuntimeInfo::fetchAllInformation() {
+status_t RuntimeInfo::fetchAllInformation(RuntimeInfo::FetchFlags /* flags */) {
     LOG(WARNING) << "Should not run fetchAllInformation on host.";
     return OK;
 }

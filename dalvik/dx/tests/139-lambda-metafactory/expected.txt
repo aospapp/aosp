@@ -1,9 +1,7 @@
-Note: Main.java uses unchecked or unsafe operations.
-Note: Recompile with -Xlint:unchecked for details.
 000000: 6465 780a 3033 3800     |magic: "dex\n038\0"
-000008: 9607 cfef               |checksum
-00000c: 1d6a 9f47 2cbc a11c 1e0f|signature
-000016: f188 46fc 9b74 db32 2eab|
+000008: 590b 1a16               |checksum
+00000c: 8798 f7ff b191 97b1 2e9c|signature
+000016: f739 ab2b 8ae4 9ef9 73a8|
 000020: 3c07 0000               |file_size:       0000073c
 000024: 7000 0000               |header_size:     00000070
 000028: 7856 3412               |endian_tag:      12345678
@@ -280,14 +278,16 @@ Note: Recompile with -Xlint:unchecked for details.
 00029c: 0000 0000               |
                                 |
                                 |method_handles:
-0002a0: 0400                    |kind: 0004
-0002a2: 0000                    |reserved:0000
-0002a4: 0a00                    |methodId: 10
-0002a6: 0000                    |reserved:0000
-0002a8: 0700                    |kind: 0007
-0002aa: 0000                    |reserved:0000
-0002ac: 0300                    |methodId: 3
-0002ae: 0000                    |reserved:0000
+                                |[0] method-handle{invoke-static,method{java.lang.invoke.LambdaMetafactory.metafactory:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;}}
+0002a0: 0400                    |type:     0004 // invoke-static
+0002a2: 0000                    |reserved: 0000
+0002a4: 0a00                    |methodId: 000a // method{java.lang.invoke.LambdaMetafactory.metafactory:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;}
+0002a6: 0000                    |reserved: 0000
+                                |[1] method-handle{invoke-direct,method{Foo.lambda$bar$0:(ILjava/lang/Object;)V}}
+0002a8: 0700                    |type:     0007 // invoke-direct
+0002aa: 0000                    |reserved: 0000
+0002ac: 0300                    |methodId: 0003 // method{Foo.lambda$bar$0:(ILjava/lang/Object;)V}
+0002ae: 0000                    |reserved: 0000
                                 |
                                 |word_data:
                                 |[2b0] annotation set
@@ -339,7 +339,7 @@ Note: Recompile with -Xlint:unchecked for details.
                                 |  debug info
                                 |    line_start: 24
                                 |    parameters_size: 0002
-                                |    parameter <unnamed> v4
+                                |    parameter j v4
                                 |    parameter k v5
                                 |    0000: prologue end
                                 |    0000: line 24
@@ -622,7 +622,7 @@ Note: Recompile with -Xlint:unchecked for details.
                                 |[5e3] debug info
 0005e3: 18                      |line_start: 24
 0005e4: 02                      |parameters_size: 0002
-0005e5: 00                      |parameter <unnamed> v4
+0005e5: 23                      |parameter j v4
 0005e6: 24                      |parameter k v5
 0005e7: 07                      |0000: prologue end
 0005e8: 0e                      |0000: line 24

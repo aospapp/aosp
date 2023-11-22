@@ -44,10 +44,10 @@ import com.android.contacts.common.model.dataitem.PhoneDataItem;
 import com.android.contacts.common.model.dataitem.PhotoDataItem;
 import com.android.contacts.common.util.Constants;
 import com.android.contacts.common.util.ContactLoaderUtils;
-import com.android.contacts.common.util.UriUtils;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.location.GeoUtil;
 import com.android.dialer.util.PermissionsUtil;
+import com.android.dialer.util.UriUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -218,7 +218,7 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
 
   @Override
   public Contact loadInBackground() {
-    LogUtil.e(TAG, "loadInBackground=" + mLookupUri);
+    LogUtil.v(TAG, "loadInBackground=" + mLookupUri);
     try {
       final ContentResolver resolver = getContext().getContentResolver();
       final Uri uriCurrentFormat = ContactLoaderUtils.ensureIsContactUri(resolver, mLookupUri);
@@ -669,7 +669,7 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
         final DataItem dataItem = dataItems.get(dataIndex);
         if (dataItem instanceof PhoneDataItem) {
           final PhoneDataItem phoneDataItem = (PhoneDataItem) dataItem;
-          phoneDataItem.computeFormattedPhoneNumber(countryIso);
+          phoneDataItem.computeFormattedPhoneNumber(getContext(), countryIso);
         }
       }
     }
@@ -731,6 +731,7 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
         intent.setClassName(servicePackageName, serviceName);
         intent.setAction(Intent.ACTION_VIEW);
         intent.setDataAndType(uri, RawContacts.CONTENT_ITEM_TYPE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         try {
           context.startService(intent);
         } catch (Exception e) {

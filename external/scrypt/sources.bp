@@ -25,6 +25,10 @@ cc_defaults {
     cflags: [
         "-DHAVE_CONFIG_H",
         "-DUSE_OPENSSL_PBKDF2",
+        "-Wall",
+        "-Werror",
+        "-Wno-error=implicit-function-declaration",
+        "-Wno-error=unused-variable",
     ],
 
     export_include_dirs: [

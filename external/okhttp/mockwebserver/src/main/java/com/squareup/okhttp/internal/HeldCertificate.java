@@ -129,13 +129,15 @@ public final class HeldCertificate {
             new BasicConstraints(maxIntermediateCas));
       }
 
+      // Android-changed: Use AndroidOpenSSL provider instead of BC.
       X509Certificate certificate = generator.generateX509Certificate(
-          signedByKeyPair.getPrivate(), "BC");
+          signedByKeyPair.getPrivate(), "AndroidOpenSSL");
       return new HeldCertificate(certificate, heldKeyPair);
     }
 
     public KeyPair generateKeyPair() throws GeneralSecurityException {
-      KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA", "BC");
+      // Android-changed: Don't specify provider for KeyPairGenerator instance.
+      KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
       keyPairGenerator.initialize(1024, new SecureRandom());
       return keyPairGenerator.generateKeyPair();
     }

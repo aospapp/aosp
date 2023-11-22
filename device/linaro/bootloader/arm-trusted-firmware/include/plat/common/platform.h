@@ -1,47 +1,36 @@
 /*
- * Copyright (c) 2013-2014, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2017, ARM Limited and Contributors. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this
- * list of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * Neither the name of ARM nor the names of its contributors may be used
- * to endorse or promote products derived from this software without specific
- * prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #ifndef __PLATFORM_H__
 #define __PLATFORM_H__
 
+#include <psci.h>
 #include <stdint.h>
+#include <types.h>
 
 
 /*******************************************************************************
  * Forward declarations
  ******************************************************************************/
-struct plat_pm_ops;
+struct auth_img_desc_s;
 struct meminfo;
 struct image_info;
 struct entry_point_info;
 struct bl31_params;
+struct image_desc;
+struct bl_load_info;
+struct bl_params;
+
+/*******************************************************************************
+ * plat_get_rotpk_info() flags
+ ******************************************************************************/
+#define ROTPK_IS_HASH			(1 << 0)
+/* Flag used to skip verification of the certificate ROTPK while the platform
+   ROTPK is not deployed */
+#define ROTPK_NOT_DEPLOYED		(1 << 1)
 
 /*******************************************************************************
  * Function declarations
@@ -49,11 +38,25 @@ struct bl31_params;
 /*******************************************************************************
  * Mandatory common functions
  ******************************************************************************/
-uint64_t plat_get_syscnt_freq(void);
-int plat_get_image_source(const char *image_name,
+unsigned long long plat_get_syscnt_freq(void) __deprecated;
+unsigned int plat_get_syscnt_freq2(void);
+
+int plat_get_image_source(unsigned int image_id,
 			uintptr_t *dev_handle,
 			uintptr_t *image_spec);
-unsigned long plat_get_ns_image_entrypoint(void);
+uintptr_t plat_get_ns_image_entrypoint(void);
+unsigned int plat_my_core_pos(void);
+int plat_core_pos_by_mpidr(u_register_t mpidr);
+
+#if STACK_PROTECTOR_ENABLED
+/*
+ * Return a new value to be used for the stack protection's canary.
+ *
+ * Ideally, this value is a random number that is impossible to predict by an
+ * attacker.
+ */
+u_register_t plat_get_stack_protector_canary(void);
+#endif /* STACK_PROTECTOR_ENABLED */
 
 /*******************************************************************************
  * Mandatory interrupt management functions
@@ -67,13 +70,38 @@ uint32_t plat_interrupt_type_to_line(uint32_t type,
 				     uint32_t security_state);
 
 /*******************************************************************************
+ * Optional interrupt management functions, depending on chosen EL3 components.
+ ******************************************************************************/
+unsigned int plat_ic_get_running_priority(void);
+int plat_ic_is_spi(unsigned int id);
+int plat_ic_is_ppi(unsigned int id);
+int plat_ic_is_sgi(unsigned int id);
+unsigned int plat_ic_get_interrupt_active(unsigned int id);
+void plat_ic_disable_interrupt(unsigned int id);
+void plat_ic_enable_interrupt(unsigned int id);
+int plat_ic_has_interrupt_type(unsigned int type);
+void plat_ic_set_interrupt_type(unsigned int id, unsigned int type);
+void plat_ic_set_interrupt_priority(unsigned int id, unsigned int priority);
+void plat_ic_raise_el3_sgi(int sgi_num, u_register_t target);
+void plat_ic_set_spi_routing(unsigned int id, unsigned int routing_mode,
+		u_register_t mpidr);
+void plat_ic_set_interrupt_pending(unsigned int id);
+void plat_ic_clear_interrupt_pending(unsigned int id);
+unsigned int plat_ic_set_priority_mask(unsigned int mask);
+
+/*******************************************************************************
  * Optional common functions (may be overridden)
  ******************************************************************************/
-unsigned int platform_get_core_pos(unsigned long mpidr);
-unsigned long platform_get_stack(unsigned long mpidr);
-void plat_report_exception(unsigned long);
+uintptr_t plat_get_my_stack(void);
+void plat_report_exception(unsigned int exception_type);
 int plat_crash_console_init(void);
 int plat_crash_console_putc(int c);
+int plat_crash_console_flush(void);
+void plat_error_handler(int err) __dead2;
+void plat_panic_handler(void) __dead2;
+const char *plat_log_get_prefix(unsigned int log_level);
+void bl2_plat_preload_setup(void);
+int plat_try_next_boot_source(void);
 
 /*******************************************************************************
  * Mandatory BL1 functions
@@ -84,17 +112,36 @@ void bl1_platform_setup(void);
 struct meminfo *bl1_plat_sec_mem_layout(void);
 
 /*
- * This function allows the platform to change the entrypoint information for
- * BL2, after BL1 has loaded BL2 into memory but before BL2 is executed.
+ * The following function is mandatory when the
+ * firmware update feature is used.
  */
-void bl1_plat_set_bl2_ep_info(struct image_info *image,
-			      struct entry_point_info *ep);
+int bl1_plat_mem_check(uintptr_t mem_base, unsigned int mem_size,
+		unsigned int flags);
 
 /*******************************************************************************
  * Optional BL1 functions (may be overridden)
  ******************************************************************************/
 void bl1_init_bl2_mem_layout(const struct meminfo *bl1_mem_layout,
 			     struct meminfo *bl2_mem_layout);
+
+/*
+ * The following functions are used for image loading process in BL1.
+ */
+void bl1_plat_set_ep_info(unsigned int image_id,
+		struct entry_point_info *ep_info);
+/*
+ * The following functions are mandatory when firmware update
+ * feature is used and optional otherwise.
+ */
+unsigned int bl1_plat_get_next_image_id(void);
+struct image_desc *bl1_plat_get_image_desc(unsigned int image_id);
+
+/*
+ * The following functions are used by firmware update
+ * feature and may optionally be overridden.
+ */
+__dead2 void bl1_plat_fwu_done(void *client_cookie, void *reserved);
+
 
 /*******************************************************************************
  * Mandatory BL2 functions
@@ -104,9 +151,18 @@ void bl2_plat_arch_setup(void);
 void bl2_platform_setup(void);
 struct meminfo *bl2_plat_sec_mem_layout(void);
 
+#if LOAD_IMAGE_V2
+/*
+ * This function can be used by the platforms to update/use image
+ * information for given `image_id`.
+ */
+int bl2_plat_handle_post_image_load(unsigned int image_id);
+
+#else /* LOAD_IMAGE_V2 */
+
 /*
  * This function returns a pointer to the shared memory that the platform has
- * kept aside to pass trusted firmware related information that BL3-1
+ * kept aside to pass trusted firmware related information that BL31
  * could need
  */
 struct bl31_params *bl2_plat_get_bl31_params(void);
@@ -119,14 +175,14 @@ struct entry_point_info *bl2_plat_get_bl31_ep_info(void);
 
 /*
  * This function flushes to main memory all the params that are
- * passed to BL3-1
+ * passed to BL31
  */
 void bl2_plat_flush_bl31_params(void);
 
 /*
  * The next 2 functions allow the platform to change the entrypoint information
- * for the mandatory 3rd level BL images, BL3-1 and BL3-3. This is done after
- * BL2 has loaded those images into memory but before BL3-1 is executed.
+ * for the mandatory 3rd level BL images, BL31 and BL33. This is done after
+ * BL2 has loaded those images into memory but before BL31 is executed.
  */
 void bl2_plat_set_bl31_ep_info(struct image_info *image,
 			       struct entry_point_info *ep);
@@ -134,67 +190,161 @@ void bl2_plat_set_bl31_ep_info(struct image_info *image,
 void bl2_plat_set_bl33_ep_info(struct image_info *image,
 			       struct entry_point_info *ep);
 
-/* Gets the memory layout for BL3-3 */
+/* Gets the memory layout for BL33 */
 void bl2_plat_get_bl33_meminfo(struct meminfo *mem_info);
 
 /*******************************************************************************
- * Conditionally mandatory BL2 functions: must be implemented if BL3-0 image
+ * Conditionally mandatory BL2 functions: must be implemented if SCP_BL2 image
  * is supported
  ******************************************************************************/
-/* Gets the memory layout for BL3-0 */
-void bl2_plat_get_bl30_meminfo(struct meminfo *mem_info);
+/* Gets the memory layout for SCP_BL2 */
+void bl2_plat_get_scp_bl2_meminfo(struct meminfo *mem_info);
 
 /*
- * This function is called after loading BL3-0 image and it is used to perform
+ * This function is called after loading SCP_BL2 image and it is used to perform
  * any platform-specific actions required to handle the SCP firmware.
  */
-int bl2_plat_handle_bl30(struct image_info *bl30_image_info);
+int bl2_plat_handle_scp_bl2(struct image_info *scp_bl2_image_info);
 
 /*******************************************************************************
- * Conditionally mandatory BL2 functions: must be implemented if BL3-2 image
+ * Conditionally mandatory BL2 functions: must be implemented if BL32 image
  * is supported
  ******************************************************************************/
 void bl2_plat_set_bl32_ep_info(struct image_info *image,
 			       struct entry_point_info *ep);
 
-/* Gets the memory layout for BL3-2 */
+/* Gets the memory layout for BL32 */
 void bl2_plat_get_bl32_meminfo(struct meminfo *mem_info);
+
+#endif /* LOAD_IMAGE_V2 */
 
 /*******************************************************************************
  * Optional BL2 functions (may be overridden)
  ******************************************************************************/
 
 /*******************************************************************************
- * Mandatory BL3-1 functions
+ * Mandatory BL2U functions.
  ******************************************************************************/
+void bl2u_early_platform_setup(struct meminfo *mem_layout,
+		void *plat_info);
+void bl2u_plat_arch_setup(void);
+void bl2u_platform_setup(void);
+
+/*******************************************************************************
+ * Conditionally mandatory BL2U functions for CSS platforms.
+ ******************************************************************************/
+/*
+ * This function is used to perform any platform-specific actions required to
+ * handle the BL2U_SCP firmware.
+ */
+int bl2u_plat_handle_scp_bl2u(void);
+
+/*******************************************************************************
+ * Mandatory BL31 functions
+ ******************************************************************************/
+#if LOAD_IMAGE_V2
+void bl31_early_platform_setup(void *from_bl2,
+				void *plat_params_from_bl2);
+#else
 void bl31_early_platform_setup(struct bl31_params *from_bl2,
 				void *plat_params_from_bl2);
+#endif
 void bl31_plat_arch_setup(void);
 void bl31_platform_setup(void);
+void bl31_plat_runtime_setup(void);
 struct entry_point_info *bl31_plat_get_next_image_ep_info(uint32_t type);
-struct image_info *bl31_plat_get_next_image_image_info(uint32_t type);
 
 /*******************************************************************************
- * Mandatory PSCI functions (BL3-1)
+ * Mandatory PSCI functions (BL31)
  ******************************************************************************/
-int platform_setup_pm(const struct plat_pm_ops **);
-int plat_get_max_afflvl(void);
-unsigned int plat_get_aff_count(unsigned int, unsigned long);
-unsigned int plat_get_aff_state(unsigned int, unsigned long);
+int plat_setup_psci_ops(uintptr_t sec_entrypoint,
+			const struct plat_psci_ops **);
+const unsigned char *plat_get_power_domain_tree_desc(void);
 
 /*******************************************************************************
- * Optional BL3-1 functions (may be overridden)
+ * Optional PSCI functions (BL31).
+ ******************************************************************************/
+void plat_psci_stat_accounting_start(const psci_power_state_t *state_info);
+void plat_psci_stat_accounting_stop(const psci_power_state_t *state_info);
+u_register_t plat_psci_stat_get_residency(unsigned int lvl,
+			const psci_power_state_t *state_info,
+			int last_cpu_index);
+plat_local_state_t plat_get_target_pwr_state(unsigned int lvl,
+			const plat_local_state_t *states,
+			unsigned int ncpu);
+
+/*******************************************************************************
+ * Optional BL31 functions (may be overridden)
  ******************************************************************************/
 void bl31_plat_enable_mmu(uint32_t flags);
 
 /*******************************************************************************
- * Optional BL3-2 functions (may be overridden)
+ * Optional BL32 functions (may be overridden)
  ******************************************************************************/
 void bl32_plat_enable_mmu(uint32_t flags);
 
 /*******************************************************************************
- * Trusted Boot functions
+ * Trusted Board Boot functions
  ******************************************************************************/
-int plat_match_rotpk(const unsigned char *, unsigned int);
+int plat_get_rotpk_info(void *cookie, void **key_ptr, unsigned int *key_len,
+			unsigned int *flags);
+int plat_get_nv_ctr(void *cookie, unsigned int *nv_ctr);
+int plat_set_nv_ctr(void *cookie, unsigned int nv_ctr);
+int plat_set_nv_ctr2(void *cookie, const struct auth_img_desc_s *img_desc,
+		unsigned int nv_ctr);
+
+#if LOAD_IMAGE_V2
+/*******************************************************************************
+ * Mandatory BL image load functions(may be overridden).
+ ******************************************************************************/
+/*
+ * This function returns pointer to the list of images that the
+ * platform has populated to load.
+ */
+struct bl_load_info *plat_get_bl_image_load_info(void);
+
+/*
+ * This function returns a pointer to the shared memory that the
+ * platform has kept aside to pass trusted firmware related
+ * information that next BL image could need.
+ */
+struct bl_params *plat_get_next_bl_params(void);
+
+/*
+ * This function flushes to main memory all the params that are
+ * passed to next image.
+ */
+void plat_flush_next_bl_params(void);
+
+#endif /* LOAD_IMAGE_V2 */
+
+#if ENABLE_PLAT_COMPAT
+/*
+ * The below declarations are to enable compatibility for the platform ports
+ * using the old platform interface.
+ */
+
+/*******************************************************************************
+ * Optional common functions (may be overridden)
+ ******************************************************************************/
+unsigned int platform_get_core_pos(unsigned long mpidr);
+
+/*******************************************************************************
+ * Mandatory PSCI Compatibility functions (BL31)
+ ******************************************************************************/
+int platform_setup_pm(const plat_pm_ops_t **);
+
+unsigned int plat_get_aff_count(unsigned int, unsigned long);
+unsigned int plat_get_aff_state(unsigned int, unsigned long);
+#else /* __ENABLE_PLAT_COMPAT__ */
+/*
+ * The below function enable Trusted Firmware components like SPDs which
+ * haven't migrated to the new platform API to compile on platforms which
+ * have the compatibility layer disabled.
+ */
+unsigned int platform_get_core_pos(unsigned long mpidr) __deprecated;
+
+#endif /* __ENABLE_PLAT_COMPAT__ */
 
 #endif /* __PLATFORM_H__ */
+

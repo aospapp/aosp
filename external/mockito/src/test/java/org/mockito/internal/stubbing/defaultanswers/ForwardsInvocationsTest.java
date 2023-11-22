@@ -1,9 +1,13 @@
+/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockito.internal.stubbing.defaultanswers;
 
 import org.junit.Test;
 import org.mockitoutil.TestBase;
 
-import static junit.framework.TestCase.assertEquals;
+import static org.junit.Assert.assertEquals;
 
 public class ForwardsInvocationsTest extends TestBase {
 

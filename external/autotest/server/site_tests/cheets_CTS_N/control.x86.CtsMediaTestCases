@@ -7,14 +7,15 @@
 AUTHOR = 'ARC++ Team'
 NAME = 'cheets_CTS_N.x86.CtsMediaTestCases'
 ATTRIBUTES = 'suite:cts_N'
-DEPENDENCIES = 'arc, cts_abi_x86'
+DEPENDENCIES = 'arc, cts_abi_x86, noloopback'
 JOB_RETRIES = 2
 TEST_TYPE = 'server'
 TIME = 'LENGTHY'
+PRIORITY = 50
+MAX_RESULT_SIZE_KB = 307200
 
 DOC = ('Run module CtsMediaTestCases of the '
-       'Android 7.1_r7 Compatibility Test Suite (CTS), build 4120758,'
-       'using x86 ABI in the ARC++ container.')
+       'Android Compatibility Test Suite (CTS) using x86 ABI in the ARC++ container.')
 
 def run_CTS(machine):
     host = hosts.create_host(machine)
@@ -28,6 +29,7 @@ def run_CTS(machine):
         target_module='CtsMediaTestCases',
         bundle='x86',
         warn_on_test_retry=False,
+        retry_manual_tests=True,
         timeout=21600)
 
 parallel_simple(run_CTS, machines)

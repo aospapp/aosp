@@ -4,7 +4,7 @@
 // It also provides the definitions(including PPIs/PROTOCOLs/GUIDs and library classes)
 // and libraries instances, which are used for those modules.
 //
-// Copyright (c) 2007 - 2015, Intel Corporation. All rights reserved.<BR>
+// Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 //
 // This program and the accompanying materials are licensed and made available under
 // the terms and conditions of the BSD License that accompanies this distribution.
@@ -149,7 +149,16 @@
 
 #string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdMaxPeiPerformanceLogEntries_PROMPT  #language en-US "Maximum number of PEI performance log entries"
 
-#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdMaxPeiPerformanceLogEntries_HELP  #language en-US "Maximum number of performance log entries during PEI phase."
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdMaxPeiPerformanceLogEntries_HELP  #language en-US "Maximum number of performance log entries during PEI phase.\n"
+                                                                                                "Use PcdMaxPeiPerformanceLogEntries16 if the number of entries required is\n"
+                                                                                                "more than 255."
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdMaxPeiPerformanceLogEntries16_PROMPT  #language en-US "Maximum number of PEI performance log entries"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdMaxPeiPerformanceLogEntries16_HELP  #language en-US "Maximum number of performance log entries during PEI phase.\n"
+                                                                                                  "If set to 0, then PcdMaxPeiPerformanceLogEntries determines the number of\n"
+                                                                                                  "entries. If greater than 0, then this PCD determines the number of entries,\n"
+                                                                                                  "and PcdMaxPeiPerformanceLogEntries is ignored."
 
 #string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdRealTimeClockUpdateTimeout_PROMPT  #language en-US "RTC Update Timeout Value"
 
@@ -257,7 +266,8 @@
 
 #string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdMemoryProfilePropertyMask_HELP  #language en-US "The mask is used to control memory profile behavior.<BR><BR>\n"
                                                                                            "BIT0 - Enable UEFI memory profile.<BR>\n"
-                                                                                           "BIT1 - Enable SMRAM profile.<BR>"
+                                                                                           "BIT1 - Enable SMRAM profile.<BR>\n"
+                                                                                           "BIT7 - Disable recording at the start.<BR>"
 
 #string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdMemoryProfileMemoryType_PROMPT  #language en-US "Memory profile memory type"
 
@@ -282,6 +292,20 @@
                                                                                    " OEM Reserved               0x40000000<BR>\n"
                                                                                    " OS Reserved                0x80000000<BR>\n"
                                                                                    "e.g. Reserved+ACPINvs+ACPIReclaim+RuntimeCode+RuntimeData are needed, 0x661 should be used.<BR>\n"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdMemoryProfileDriverPath_PROMPT  #language en-US "Memory profile driver path"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdMemoryProfileDriverPath_HELP  #language en-US "This PCD is to control which drivers need memory profile data.<BR><BR>\n"
+                                                                                   "For example:<BR>\n"
+                                                                                   "One image only (Shell):<BR>\n"
+                                                                                   "    Header                    GUID<BR>\n"
+                                                                                   "    {0x04, 0x06, 0x14, 0x00,  0x83, 0xA5, 0x04, 0x7C, 0x3E, 0x9E, 0x1C, 0x4F, 0xAD, 0x65, 0xE0, 0x52, 0x68, 0xD0, 0xB4, 0xD1,<BR>\n"
+                                                                                   "     0x7F, 0xFF, 0x04, 0x00}<BR>\n"
+                                                                                   "Two or more images (Shell + WinNtSimpleFileSystem):<BR>\n"
+                                                                                   "    {0x04, 0x06, 0x14, 0x00,  0x83, 0xA5, 0x04, 0x7C, 0x3E, 0x9E, 0x1C, 0x4F, 0xAD, 0x65, 0xE0, 0x52, 0x68, 0xD0, 0xB4, 0xD1,<BR>\n"
+                                                                                   "     0x7F, 0x01, 0x04, 0x00,<BR>\n"
+                                                                                   "     0x04, 0x06, 0x14, 0x00,  0x8B, 0xE1, 0x25, 0x9C, 0xBA, 0x76, 0xDA, 0x43, 0xA1, 0x32, 0xDB, 0xB0, 0x99, 0x7C, 0xEF, 0xEF,<BR>\n"
+                                                                                   "     0x7F, 0xFF, 0x04, 0x00}<BR>\n"
 
 #string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdSerialClockRate_PROMPT  #language en-US "Serial Port Clock Rate"
 
@@ -315,6 +339,16 @@
                                                                                   "IA32 PAE is supported and Execute Disable Bit is available.<BR>"
                                                                                   "TRUE  - to set NX for stack.<BR>"
                                                                                   "FALSE - Not to set NX for stack.<BR>"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdAcpiS3Enable_PROMPT  #language en-US "ACPI S3 Enable"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdAcpiS3Enable_HELP  #language en-US "Indicates if ACPI S3 will be enabled.<BR><BR>"
+                                                                                  "TRUE  - ACPI S3 will be enabled.<BR>"
+                                                                                  "FALSE - ACPI S3 will be disabled.<BR>"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdS3BootScriptStackSize_PROMPT  #language en-US "Reserved S3 Boot Script Stack ACPI Memory Size"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdS3BootScriptStackSize_HELP  #language en-US "Specify memory size for boot script executor stack usage in S3 phase. The default size 32K. When changing the value make sure the memory size is large enough to meet boot script executor requirement in the S3 phase."
 
 #string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdVarCheckVfrDriverGuidArray_PROMPT  #language en-US "Driver guid array of VFR drivers for VarCheckHiiBin generation"
 
@@ -915,3 +949,129 @@
                                                                                         "equal to 8.<BR>\n"
                                                                                         "For certain UART whose register needs to be accessed in DWORD aligned address,\n"
                                                                                         "RegisterStride equals to 4.\n"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdAcpiExposedTableVersions_PROMPT  #language en-US "Exposed ACPI table versions."
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdAcpiExposedTableVersions_HELP  #language en-US "Indicates which ACPI versions are targeted by the ACPI tables exposed to the OS\n"
+                                                                                             "These values are aligned with the definitions in MdePkg/Include/Protocol/AcpiSystemDescriptionTable.h\n"
+                                                                                             "BIT 1 - EFI_ACPI_TABLE_VERSION_1_0B.<BR>\n"
+                                                                                             "BIT 2 - EFI_ACPI_TABLE_VERSION_2_0.<BR>\n"
+                                                                                             "BIT 3 - EFI_ACPI_TABLE_VERSION_3_0.<BR>\n"
+                                                                                             "BIT 4 - EFI_ACPI_TABLE_VERSION_4_0.<BR>\n"
+                                                                                             "BIT 5 - EFI_ACPI_TABLE_VERSION_5_0.<BR>"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdHiiOsRuntimeSupport_PROMPT  #language en-US "Enable export HII data and configuration to be used in OS runtime."
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdHiiOsRuntimeSupport_HELP  #language en-US "Indicates if HII data and configuration has been exported.<BR><BR>\n"
+                                                                                        "Add this PCD mainly consider the use case of simulator. This PCD maybe set to FALSE for\n"
+                                                                                        "simulator platform because the performance cost for this feature.\n"
+                                                                                        "TRUE  - Export HII data and configuration data.<BR>\n"
+                                                                                        "FALSE - Does not export HII data and configuration.<BR>"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdPs2KbdExtendedVerification_PROMPT  #language en-US "Turn on PS2 Keyboard Extended Verification"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdPs2KbdExtendedVerification_HELP  #language en-US "Indicates if PS2 keyboard does a extended verification during start.\n"
+                                                                                               "Add this PCD mainly consider the use case of simulator. This PCD maybe set to FALSE for\n"
+                                                                                               "Extended verification will take some performance. It can be set to FALSE for boot performance.<BR><BR>\n"
+                                                                                               "TRUE  - Turn on PS2 keyboard extended verification.<BR>\n"
+                                                                                               "FALSE - Turn off PS2 keyboard extended verification.<BR>"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdPs2MouseExtendedVerification_PROMPT  #language en-US "Turn on PS2 Mouse Extended Verification"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdPs2MouseExtendedVerification_HELP  #language en-US "Indicates if PS2 mouse does a extended verification during start.\n"
+                                                                                                 "Extended verification will take some performance. It can be set to FALSE for boot performance.<BR><BR>\n"
+                                                                                                 "TRUE  - Turn on PS2 mouse extended verification. <BR>\n"
+                                                                                                 "FALSE - Turn off PS2 mouse extended verification. <BR>"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdFastPS2Detection_PROMPT  #language en-US "Enable fast PS2 detection"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdFastPS2Detection_HELP  #language en-US "Indicates if to use the optimized timing for best PS2 detection performance.\n"
+                                                                                     "Note this PCD could be set to TRUE for best boot performance and set to FALSE for best device compatibility.<BR><BR>\n"
+                                                                                     "TRUE  - Use the optimized timing for best PS2 detection performance.<BR>\n"
+                                                                                     "FALSE - Use the normal timing to detect PS2.<BR>"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdSdMmcPciHostControllerMmioBase_PROMPT  #language en-US "Mmio base address of pci-based SD/MMC host controller"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdSdMmcPciHostControllerMmioBase_HELP  #language en-US "This PCD specifies the PCI-based SD/MMC host controller mmio base address. Define the mmio base address of the pci-based SD/MMC host controller. If there are multiple SD/MMC host controllers, their mmio base addresses are calculated one by one from this base address.<BR>"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdMaxRepairCount_PROMPT  #language en-US "MAX repair count"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdMaxRepairCount_HELP  #language en-US "This PCD defines the MAX repair count. The default value is 0 that means infinite.<BR>"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdPciDegradeResourceForOptionRom_PROMPT  #language en-US "Degrade 64-bit PCI MMIO BARs for legacy BIOS option ROMs"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdPciDegradeResourceForOptionRom_HELP  #language en-US "Indicates whether 64-bit PCI MMIO BARs should degrade to 32-bit in the presence of an option ROM.<BR>"
+                                                                                                   "On X64 platforms, Option ROMs may contain code that executes in the context of a legacy BIOS (CSM),"
+                                                                                                   "which requires that all PCI MMIO BARs are located below 4 GB.<BR>"
+                                                                                                   "TRUE  - All PCI MMIO BARs of a device will be located below 4 GB if it has an option ROM.<BR>"
+                                                                                                   "FALSE - PCI MMIO BARs of a device may be located above 4 GB even if it has an option ROM.<BR>"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdStatusCodeSubClassCapsule_PROMPT  #language en-US "Status Code for Capsule subclass definitions"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdStatusCodeSubClassCapsule_HELP  #language en-US "Status Code for Capsule subclass definitions.<BR><BR>\n"
+                                                                                              "EFI_OEM_SPECIFIC_SUBCLASS_CAPSULE  = 0x00810000<BR>\n"
+                                                                                              "NOTE: The default value of this PCD may collide with other OEM specific status codes.\n"
+                                                                                              "Override the value of this PCD in the platform DSC file as needed."
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdCapsuleStatusCodeProcessCapsulesBegin_PROMPT  #language en-US "Status Code for Capsule Process Begin"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdCapsuleStatusCodeProcessCapsulesBegin_HELP  #language en-US "Status Code for Capsule Process Begin.<BR><BR>\n"
+                                                                                                          "EFI_CAPSULE_PROCESS_CAPSULES_BEGIN  = (EFI_OEM_SPECIFIC | 0x00000001) = 0x00008001<BR>\n"
+                                                                                                          "NOTE: The default value of this PCD may collide with other OEM specific status codes.\n"
+                                                                                                          "Override the value of this PCD in the platform DSC file as needed."
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdCapsuleStatusCodeProcessCapsulesEnd_PROMPT  #language en-US "Status Code for Capsule Process End"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdCapsuleStatusCodeProcessCapsulesEnd_HELP  #language en-US "Status Code for Capsule Process End.<BR><BR>\n"
+                                                                                                        "EFI_CAPSULE_PROCESS_CAPSULES_END    = (EFI_OEM_SPECIFIC | 0x00000002) = 0x00008002<BR>\n"
+                                                                                                        "NOTE: The default value of this PCD may collide with other OEM specific status codes.\n"
+                                                                                                        "Override the value of this PCD in the platform DSC file as needed."
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdCapsuleStatusCodeUpdatingFirmware_PROMPT  #language en-US "Status Code for Capsule Process Updating Firmware"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdCapsuleStatusCodeUpdatingFirmware_HELP  #language en-US "Status Code for Capsule Process Updating Firmware.<BR><BR>\n"
+                                                                                                      "EFI_CAPSULE_UPDATING_FIRMWARE       = (EFI_OEM_SPECIFIC | 0x00000003) = 0x00008003<BR>\n"
+                                                                                                      "NOTE: The default value of this PCD may collide with other OEM specific status codes.\n"
+                                                                                                      "Override the value of this PCD in the platform DSC file as needed."
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdCapsuleStatusCodeUpdateFirmwareSuccess_PROMPT  #language en-US "Status Code for Capsule Process Update Firmware Success"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdCapsuleStatusCodeUpdateFirmwareSuccess_HELP  #language en-US "Status Code for Capsule Process Update Firmware Success.<BR><BR>\n"
+                                                                                                           "EFI_CAPSULE_UPDATE_FIRMWARE_SUCCESS = (EFI_OEM_SPECIFIC | 0x00000004) = 0x00008004<BR>\n"
+                                                                                                           "NOTE: The default value of this PCD may collide with other OEM specific status codes.\n"
+                                                                                                           "Override the value of this PCD in the platform DSC file as needed."
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdCapsuleStatusCodeUpdateFirmwareFailed_PROMPT  #language en-US "Status Code for Capsule Process Update Firmware Failed"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdCapsuleStatusCodeUpdateFirmwareFailed_HELP  #language en-US "Status Code for Capsule Process Update Firmware Failed.<BR><BR>\n"
+                                                                                                          "EFI_CAPSULE_UPDATE_FIRMWARE_FAILED  = (EFI_OEM_SPECIFIC | 0x00000005) = 0x00008005<BR>\n"
+                                                                                                          "NOTE: The default value of this PCD may collide with other OEM specific status codes.\n"
+                                                                                                          "Override the value of this PCD in the platform DSC file as needed."
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdCapsuleStatusCodeResettingSystem_PROMPT  #language en-US "Status Code for Capsule Resetting System"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdCapsuleStatusCodeResettingSystem_HELP  #language en-US "Status Code for Capsule Resetting System.<BR><BR>\n"
+                                                                                                     "EFI_CAPSULE_RESETTING_SYSTEM        = (EFI_OEM_SPECIFIC | 0x00000006) = 0x00008006<BR>\n"
+                                                                                                     "NOTE: The default value of this PCD may collide with other OEM specific status codes.\n"
+                                                                                                     "Override the value of this PCD in the platform DSC file as needed."
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdCapsuleMax_PROMPT  #language en-US "CapsuleMax value in capsule report variable."
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdCapsuleMax_HELP  #language en-US "CapsuleMax value in capsule report variable."
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdRecoveryFileName_PROMPT  #language en-US "Recover file name in PEI phase"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdRecoveryFileName_HELP  #language en-US "This is recover file name in PEI phase.\n"
+                                                                                     "The file must be in the root directory.\n"
+                                                                                     "The file name must be the 8.3 format.\n"
+                                                                                     "The PCD data must be in UNICODE format."
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdSystemFmpCapsuleImageTypeIdGuid_PROMPT  #language en-US "A list of system FMP ImageTypeId GUIDs"
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdSystemFmpCapsuleImageTypeIdGuid_HELP  #language en-US "This PCD hold a list GUIDs for the ImageTypeId to indicate the\n"
+                                                                                                    "FMP capsule is a system FMP."
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdTestKeyUsed_PROMPT  #language en-US "If there is any test key used by the platform."
+
+#string STR_gEfiMdeModulePkgTokenSpaceGuid_PcdTestKeyUsed_HELP  #language en-US "This dynamic PCD holds the information if there is any test key used by the platform."
+

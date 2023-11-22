@@ -22,11 +22,13 @@ import com.android.tradefed.command.CommandScheduler.CommandTrackerIdComparator;
 import com.android.tradefed.command.ICommandScheduler.IScheduledInvocationListener;
 import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.ConfigurationFactory;
 import com.android.tradefed.config.DeviceConfigurationHolder;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IConfigurationFactory;
 import com.android.tradefed.config.IDeviceConfiguration;
 import com.android.tradefed.config.IGlobalConfiguration;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceSelectionOptions;
 import com.android.tradefed.device.FreeDeviceState;
@@ -41,12 +43,14 @@ import com.android.tradefed.device.TestDeviceState;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.IRescheduler;
 import com.android.tradefed.invoker.ITestInvocation;
+import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.log.ILogRegistry.EventType;
 import com.android.tradefed.log.ITerribleFailureHandler;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.RunUtil;
+import com.android.tradefed.util.keystore.DryRunKeyStore;
 import com.android.tradefed.util.keystore.IKeyStoreClient;
 
 import junit.framework.TestCase;
@@ -86,6 +90,55 @@ public class CommandSchedulerTest extends TestCase {
     private CommandFileParser mMockCmdFileParser;
     private List<IDeviceConfiguration> mMockDeviceConfig;
     private ConfigurationDescriptor mMockConfigDescriptor;
+    private IInvocationContext mContext;
+
+    class TestableCommandScheduler extends CommandScheduler {
+
+        @Override
+        ITestInvocation createRunInstance() {
+            return mMockInvocation;
+        }
+
+        @Override
+        protected IDeviceManager getDeviceManager() {
+            return mMockManager;
+        }
+
+        @Override
+        protected IConfigurationFactory getConfigFactory() {
+            return mMockConfigFactory;
+        }
+
+        @Override
+        protected IInvocationContext createInvocationContext() {
+            return mContext;
+        }
+
+        @Override
+        protected void initLogging() {
+            // ignore
+        }
+
+        @Override
+        protected void cleanUp() {
+            // ignore
+        }
+
+        @Override
+        void logEvent(EventType event, Map<String, String> args) {
+            // ignore
+        }
+
+        @Override
+        void checkInvocations() {
+            // ignore
+        }
+
+        @Override
+        CommandFileParser createCommandFileParser() {
+            return mMockCmdFileParser;
+        }
+    }
 
     /**
      * {@inheritDoc}
@@ -102,50 +155,9 @@ public class CommandSchedulerTest extends TestCase {
         mDeviceOptions = new DeviceSelectionOptions();
         mMockDeviceConfig = new ArrayList<IDeviceConfiguration>();
         mMockConfigDescriptor = new ConfigurationDescriptor();
+        mContext = new InvocationContext();
 
-        mScheduler =
-                new CommandScheduler() {
-
-                    @Override
-                    ITestInvocation createRunInstance() {
-                        return mMockInvocation;
-                    }
-
-                    @Override
-                    protected IDeviceManager getDeviceManager() {
-                        return mMockManager;
-                    }
-
-                    @Override
-                    protected IConfigurationFactory getConfigFactory() {
-                        return mMockConfigFactory;
-                    }
-
-                    @Override
-                    protected void initLogging() {
-                        // ignore
-                    }
-
-                    @Override
-                    protected void cleanUp() {
-                        // ignore
-                    }
-
-                    @Override
-                    void logEvent(EventType event, Map<String, String> args) {
-                        // ignore
-                    }
-
-                    @Override
-                    void checkInvocations() {
-                        // ignore
-                    }
-
-                    @Override
-                    CommandFileParser createCommandFileParser() {
-                        return mMockCmdFileParser;
-                    }
-                };
+        mScheduler = new TestableCommandScheduler();
         // not starting the CommandScheduler yet because test methods need to setup mocks first
     }
 
@@ -288,6 +300,32 @@ public class CommandSchedulerTest extends TestCase {
     }
 
     /**
+     * Test {@link CommandScheduler#run()} when one config has been added in noisy-dry-run or
+     * dry-run mode the keystore is properly faked by a {@link DryRunKeyStore}.
+     */
+    public void testRun_dryRun_keystore() throws Throwable {
+        mScheduler =
+                new TestableCommandScheduler() {
+                    @Override
+                    protected IConfigurationFactory getConfigFactory() {
+                        // Use the real factory for that loading test.
+                        return ConfigurationFactory.getInstance();
+                    }
+                };
+        String[] dryRunArgs =
+                new String[] {"empty", "--noisy-dry-run", "--min-loop-time", "USE_KEYSTORE@fake"};
+        mMockManager.setNumDevices(2);
+        //setCreateConfigExpectations(dryRunArgs, 1);
+
+        replayMocks();
+        mScheduler.start();
+        assertFalse(mScheduler.addCommand(dryRunArgs));
+        mScheduler.shutdownOnEmpty();
+        mScheduler.join();
+        verifyMocks();
+    }
+
+    /**
      * Test simple case for
      * {@link CommandScheduler#execCommand(IScheduledInvocationListener, ITestDevice, String[])}
      */
@@ -307,6 +345,7 @@ public class CommandSchedulerTest extends TestCase {
         EasyMock.expect(mockDevice.getIDevice()).andStubReturn(mockIDevice);
         IScheduledInvocationListener mockListener = EasyMock
                 .createMock(IScheduledInvocationListener.class);
+        mockListener.invocationInitiated((IInvocationContext) EasyMock.anyObject());
         mockListener.invocationComplete((IInvocationContext)EasyMock.anyObject(),
                 (Map<ITestDevice, FreeDeviceState>)EasyMock.anyObject());
         EasyMock.expect(mockDevice.waitForDeviceShell(EasyMock.anyLong())).andReturn(true);
@@ -1028,6 +1067,7 @@ public class CommandSchedulerTest extends TestCase {
                 (IScheduledInvocationListener)EasyMock.anyObject());
         IScheduledInvocationListener mockListener = EasyMock
                 .createMock(IScheduledInvocationListener.class);
+        mockListener.invocationInitiated((IInvocationContext) EasyMock.anyObject());
         mockListener.invocationComplete((IInvocationContext)EasyMock.anyObject(),
                 (Map<ITestDevice, FreeDeviceState>)EasyMock.anyObject());
         replayMocks(mockListener);
@@ -1066,5 +1106,43 @@ public class CommandSchedulerTest extends TestCase {
         mScheduler.shutdownOnEmpty();
         mScheduler.join(2 * 1000);
         verifyMocks(mockListener);
+    }
+
+    /**
+     * Test that when a command runs in the versioned subprocess with --invocation-data option we do
+     * not add the attributes again
+     */
+    public void testExecCommand_versioning() throws Throwable {
+        String[] args =
+                new String[] {
+                    "foo", "--invocation-data", "test",
+                };
+        setCreateConfigExpectations(args, 1);
+        OptionSetter setter = new OptionSetter(mCommandOptions);
+        // If invocation-data are added and we are in a versioned invocation, the data should not
+        // be added again.
+        setter.setOptionValue("invocation-data", "key", "value");
+        mMockConfigDescriptor.setSandboxed(true);
+        setExpectedInvokeCalls(1);
+        mMockConfiguration.validateOptions();
+        IDevice mockIDevice = EasyMock.createMock(IDevice.class);
+        ITestDevice mockDevice = EasyMock.createMock(ITestDevice.class);
+        EasyMock.expect(mockDevice.getSerialNumber()).andStubReturn("serial");
+        EasyMock.expect(mockDevice.getDeviceState()).andStubReturn(TestDeviceState.ONLINE);
+        mockDevice.setRecoveryMode(EasyMock.eq(RecoveryMode.AVAILABLE));
+        EasyMock.expect(mockDevice.getIDevice()).andStubReturn(mockIDevice);
+        IScheduledInvocationListener mockListener =
+                EasyMock.createMock(IScheduledInvocationListener.class);
+        mockListener.invocationInitiated((InvocationContext) EasyMock.anyObject());
+        mockListener.invocationComplete(
+                (IInvocationContext) EasyMock.anyObject(), EasyMock.anyObject());
+        EasyMock.expect(mockDevice.waitForDeviceShell(EasyMock.anyLong())).andReturn(true);
+        replayMocks(mockDevice, mockListener);
+        mScheduler.start();
+        mScheduler.execCommand(mockListener, mockDevice, args);
+        mScheduler.shutdownOnEmpty();
+        mScheduler.join(2 * 1000);
+        verifyMocks(mockListener);
+        assertTrue(mContext.getAttributes().isEmpty());
     }
 }

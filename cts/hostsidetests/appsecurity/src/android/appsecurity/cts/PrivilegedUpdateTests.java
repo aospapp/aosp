@@ -16,7 +16,9 @@
 
 package android.appsecurity.cts;
 
+import android.platform.test.annotations.AppModeFull;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
+import com.android.ddmlib.Log;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
@@ -24,12 +26,15 @@ import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.util.AbiFormatter;
 import com.android.tradefed.util.AbiUtils;
 
 /**
  * Tests that verify intent filters.
  */
+@AppModeFull // TODO: Needs porting to instant
 public class PrivilegedUpdateTests extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
+    private static final String TAG = "PrivilegedUpdateTests";
     private static final String SHIM_PKG = "com.android.cts.priv.ctsshim";
     /** Package name of the tests to be run */
     private static final String TEST_PKG = "com.android.cts.privilegedupdate";
@@ -48,6 +53,11 @@ public class PrivilegedUpdateTests extends DeviceTestCase implements IAbiReceive
 
     private IAbi mAbi;
     private CompatibilityBuildHelper mBuildHelper;
+
+    private boolean isDefaultAbi() throws Exception {
+        String defaultAbi = AbiFormatter.getDefaultAbi(getDevice(), mAbi.getBitness());
+        return mAbi.getName().equals(defaultAbi);
+    }
 
     @Override
     public void setAbi(IAbi abi) {
@@ -98,6 +108,11 @@ public class PrivilegedUpdateTests extends DeviceTestCase implements IAbiReceive
     }
 
     public void testPrivilegedAppUpgradePriorities() throws Exception {
+        if (!isDefaultAbi()) {
+            Log.w(TAG, "Skipping test for non-default abi.");
+            return;
+        }
+
         getDevice().uninstallPackage(SHIM_PKG);
         
         try {
@@ -117,6 +132,11 @@ public class PrivilegedUpdateTests extends DeviceTestCase implements IAbiReceive
     }
 
     public void testDisableUpdatedSystemApp() throws Exception {
+        if (!isDefaultAbi()) {
+            Log.w(TAG, "Skipping test for non-default abi.");
+            return;
+        }
+
         getDevice().executeShellCommand("pm enable " + SHIM_PKG);
         runDeviceTests(TEST_PKG, ".PrivilegedAppDisableTest", "testPrivAppAndEnabled");
         try {

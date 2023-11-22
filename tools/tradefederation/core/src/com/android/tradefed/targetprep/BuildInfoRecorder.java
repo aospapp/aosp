@@ -28,15 +28,15 @@ import java.io.IOException;
 
 /**
  * An {@link ITargetPreparer} that writes build info meta data into a specified file.
- * <p>
- * The file is written in simple key-value pair format; each line of the file has:<br>
+ *
+ * <p>The file is written in simple key-value pair format; each line of the file has:<br>
  * <code>key=value</code><br>
  * where <code>key</code> is a meta data field from {@link IBuildInfo}
- * <p>
- * Currently, only build id is written.
+ *
+ * <p>Currently, only build id is written.
  */
 @OptionClass(alias = "build-info-recorder")
-public class BuildInfoRecorder implements ITargetPreparer {
+public class BuildInfoRecorder extends BaseTargetPreparer {
 
     @Option(name = "build-info-file", description = "when specified, build info will be written "
             + "into the file specified. Any existing file will be overwritten.")

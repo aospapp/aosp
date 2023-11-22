@@ -16,9 +16,14 @@
 
 package android.appsecurity.cts;
 
-import com.android.compatibility.common.tradefed.testtype.CompatibilityHostTestBase;
+import android.platform.test.annotations.AppModeFull;
+import com.android.ddmlib.testrunner.TestResult.TestStatus;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.TestResult;
+import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
 import junit.framework.AssertionFailedError;
 
@@ -27,13 +32,13 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.util.concurrent.TimeUnit;
+import java.util.Map;
 
 /**
  * Tests that exercise various storage APIs.
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class StorageHostTest extends CompatibilityHostTestBase {
+public class StorageHostTest extends BaseHostJUnit4Test {
     private static final String PKG_STATS = "com.android.cts.storagestatsapp";
     private static final String PKG_A = "com.android.cts.storageapp_a";
     private static final String PKG_B = "com.android.cts.storageapp_b";
@@ -69,15 +74,20 @@ public class StorageHostTest extends CompatibilityHostTestBase {
     }
 
     @Test
-    public void testVerifyQuota() throws Exception {
-        Utils.runDeviceTests(getDevice(), PKG_STATS, CLASS_STATS, "testVerifyQuota");
+    @AppModeFull // TODO: Needs porting to instant
+    public void testVerify() throws Exception {
+        Utils.runDeviceTests(getDevice(), PKG_STATS, CLASS_STATS, "testVerify");
     }
 
     @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testVerifyAppStats() throws Exception {
         for (int user : mUsers) {
             runDeviceTests(PKG_A, CLASS, "testAllocate", user);
         }
+
+        // for fuse file system
+        Thread.sleep(10000);
 
         // TODO: remove this once 34723223 is fixed
         getDevice().executeShellCommand("sync");
@@ -89,6 +99,7 @@ public class StorageHostTest extends CompatibilityHostTestBase {
     }
 
     @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testVerifyAppQuota() throws Exception {
         for (int user : mUsers) {
             runDeviceTests(PKG_A, CLASS, "testVerifyQuotaApi", user);
@@ -96,6 +107,7 @@ public class StorageHostTest extends CompatibilityHostTestBase {
     }
 
     @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testVerifyAppAllocate() throws Exception {
         for (int user : mUsers) {
             runDeviceTests(PKG_A, CLASS, "testVerifyAllocateApi", user);
@@ -103,6 +115,7 @@ public class StorageHostTest extends CompatibilityHostTestBase {
     }
 
     @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testVerifySummary() throws Exception {
         for (int user : mUsers) {
             runDeviceTests(PKG_STATS, CLASS_STATS, "testVerifySummary", user);
@@ -110,6 +123,7 @@ public class StorageHostTest extends CompatibilityHostTestBase {
     }
 
     @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testVerifyStats() throws Exception {
         for (int user : mUsers) {
             runDeviceTests(PKG_STATS, CLASS_STATS, "testVerifyStats", user);
@@ -117,6 +131,7 @@ public class StorageHostTest extends CompatibilityHostTestBase {
     }
 
     @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testVerifyStatsMultiple() throws Exception {
         for (int user : mUsers) {
             runDeviceTests(PKG_A, CLASS, "testAllocate", user);
@@ -131,6 +146,7 @@ public class StorageHostTest extends CompatibilityHostTestBase {
     }
 
     @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testVerifyStatsExternal() throws Exception {
         for (int user : mUsers) {
             runDeviceTests(PKG_STATS, CLASS_STATS, "testVerifyStatsExternal", user);
@@ -138,6 +154,7 @@ public class StorageHostTest extends CompatibilityHostTestBase {
     }
 
     @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testVerifyStatsExternalConsistent() throws Exception {
         for (int user : mUsers) {
             runDeviceTests(PKG_STATS, CLASS_STATS, "testVerifyStatsExternalConsistent", user);
@@ -145,6 +162,7 @@ public class StorageHostTest extends CompatibilityHostTestBase {
     }
 
     @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testVerifyCategory() throws Exception {
         for (int user : mUsers) {
             runDeviceTests(PKG_STATS, CLASS_STATS, "testVerifyCategory", user);
@@ -152,6 +170,7 @@ public class StorageHostTest extends CompatibilityHostTestBase {
     }
 
     @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testCache() throws Exception {
         // To make the cache clearing logic easier to verify, ignore any cache
         // and low space reserved space.
@@ -178,6 +197,7 @@ public class StorageHostTest extends CompatibilityHostTestBase {
     }
 
     @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testFullDisk() throws Exception {
         // Clear all other cached and external storage data to give ourselves a
         // clean slate to test against
@@ -236,7 +256,22 @@ public class StorageHostTest extends CompatibilityHostTestBase {
 
     public void runDeviceTests(String packageName, String testClassName, String testMethodName,
             int userId) throws DeviceNotAvailableException {
-        Utils.runDeviceTests(getDevice(), packageName, testClassName, testMethodName, userId, null,
-                20L, TimeUnit.MINUTES);
+        if (!runDeviceTests(getDevice(), packageName, testClassName, testMethodName, userId, 20 * 60 * 1000L)) {
+            TestRunResult res = getLastDeviceRunResults();
+            if (res != null) {
+                StringBuilder errorBuilder = new StringBuilder("on-device tests failed:\n");
+                for (Map.Entry<TestDescription, TestResult> resultEntry :
+                    res.getTestResults().entrySet()) {
+                    if (!resultEntry.getValue().getStatus().equals(TestStatus.PASSED)) {
+                        errorBuilder.append(resultEntry.getKey().toString());
+                        errorBuilder.append(":\n");
+                        errorBuilder.append(resultEntry.getValue().getStackTrace());
+                    }
+                }
+                throw new AssertionError(errorBuilder.toString());
+            } else {
+                throw new AssertionFailedError("Error when running device tests.");
+            }
+        }
     }
 }

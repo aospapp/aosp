@@ -16,7 +16,7 @@
 
 package com.android.documentsui;
 
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.base.Shared.EXTRA_BENCHMARK;
 import static com.android.documentsui.base.State.MODE_GRID;
 
@@ -425,12 +425,10 @@ public abstract class BaseActivity
         }
 
         mNavigator.update();
+
         // Causes talkback to announce the activity's new title
-        if (mState.stack.isRecents()) {
-            setTitle(mProviders.getRecentsRoot().title);
-        } else {
-            setTitle(mState.stack.getTitle());
-        }
+        setTitle(mState.stack.getTitle());
+
         invalidateOptionsMenu();
     }
 

@@ -320,8 +320,7 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
         ArrayList<Decoder> result = new ArrayList<Decoder>();
 
         for (MediaCodecInfo info : mcl.getCodecInfos()) {
-            if (info.isEncoder()
-                    || info.getName().toLowerCase().startsWith("omx.google.") != goog) {
+            if (info.isEncoder() || MediaUtils.isGoogle(info.getName()) != goog) {
                 continue;
             }
             CodecCapabilities caps = null;

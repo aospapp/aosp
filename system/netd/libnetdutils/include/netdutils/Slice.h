@@ -125,7 +125,7 @@ inline size_t extract(const Slice src, Head& head) {
 // is less than the sum of all data pointers a suffix of data will be
 // left unmodified. Return the number of bytes copied.
 template <typename Head, typename... Tail>
-inline size_t extract(const Slice src, Head& head, Tail... tail) {
+inline size_t extract(const Slice src, Head& head, Tail&... tail) {
     const auto extracted = extract(src, head);
     return extracted + extract(drop(src, extracted), tail...);
 }
@@ -146,6 +146,14 @@ inline bool operator!=(const Slice& lhs, const Slice& rhs) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Slice& slice);
+
+// Return suffix of Slice s starting at the first match of byte c. If no matched
+// byte, return an empty Slice.
+inline const Slice findFirstMatching(const Slice s, uint8_t c) {
+    uint8_t* match = (uint8_t*)memchr(s.base(), c, s.size());
+    if (!match) return Slice();
+    return drop(s, match - s.base());
+}
 
 }  // namespace netdutils
 }  // namespace android

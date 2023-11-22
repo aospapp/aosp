@@ -41,6 +41,12 @@ bool IsRoot();
     }                                                                                              \
   } while (0)
 
+#if defined(__ANDROID__)
+#define TEST_REQUIRE_HOST_ROOT()
+#else
+#define TEST_REQUIRE_HOST_ROOT()  if (!IsRoot()) return
+#endif
+
 bool IsInNativeAbi();
 // Used to skip tests not supposed to run on non-native ABIs.
 #define OMIT_TEST_ON_NON_NATIVE_ABIS()  \

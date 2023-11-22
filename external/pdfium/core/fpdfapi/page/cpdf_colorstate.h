@@ -8,9 +8,8 @@
 #define CORE_FPDFAPI_PAGE_CPDF_COLORSTATE_H_
 
 #include "core/fpdfapi/page/cpdf_color.h"
-#include "core/fxcrt/cfx_shared_copy_on_write.h"
-#include "core/fxcrt/fx_basic.h"
 #include "core/fxcrt/fx_system.h"
+#include "core/fxcrt/shared_copy_on_write.h"
 
 class CPDF_Color;
 class CPDF_ColorSpace;
@@ -39,23 +38,19 @@ class CPDF_ColorState {
   CPDF_Color* GetMutableStrokeColor();
   bool HasStrokeColor() const;
 
-  void SetFillColor(CPDF_ColorSpace* pCS, FX_FLOAT* pValue, uint32_t nValues);
-  void SetStrokeColor(CPDF_ColorSpace* pCS, FX_FLOAT* pValue, uint32_t nValues);
-  void SetFillPattern(CPDF_Pattern* pattern,
-                      FX_FLOAT* pValue,
-                      uint32_t nValues);
-  void SetStrokePattern(CPDF_Pattern* pattern,
-                        FX_FLOAT* pValue,
-                        uint32_t nValues);
+  void SetFillColor(CPDF_ColorSpace* pCS, float* pValue, uint32_t nValues);
+  void SetStrokeColor(CPDF_ColorSpace* pCS, float* pValue, uint32_t nValues);
+  void SetFillPattern(CPDF_Pattern* pattern, float* pValue, uint32_t nValues);
+  void SetStrokePattern(CPDF_Pattern* pattern, float* pValue, uint32_t nValues);
 
-  explicit operator bool() const { return !!m_Ref; }
+  bool HasRef() const { return !!m_Ref; }
 
  private:
-  class ColorData {
+  class ColorData : public Retainable {
    public:
     ColorData();
     ColorData(const ColorData& src);
-    ~ColorData();
+    ~ColorData() override;
 
     void SetDefault();
 
@@ -68,10 +63,10 @@ class CPDF_ColorState {
   void SetColor(CPDF_Color& color,
                 uint32_t& rgb,
                 CPDF_ColorSpace* pCS,
-                FX_FLOAT* pValue,
+                float* pValue,
                 uint32_t nValues);
 
-  CFX_SharedCopyOnWrite<ColorData> m_Ref;
+  SharedCopyOnWrite<ColorData> m_Ref;
 };
 
 #endif  // CORE_FPDFAPI_PAGE_CPDF_COLORSTATE_H_

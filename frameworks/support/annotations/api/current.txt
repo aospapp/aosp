@@ -1,4 +1,4 @@
-package android.support.annotation {
+package androidx.annotation {
 
   public abstract class AnimRes implements java.lang.annotation.Annotation {
   }
@@ -87,10 +87,16 @@ package android.support.annotation {
   public abstract class LayoutRes implements java.lang.annotation.Annotation {
   }
 
+  public abstract class LongDef implements java.lang.annotation.Annotation {
+  }
+
   public abstract class MainThread implements java.lang.annotation.Annotation {
   }
 
   public abstract class MenuRes implements java.lang.annotation.Annotation {
+  }
+
+  public abstract class NavigationRes implements java.lang.annotation.Annotation {
   }
 
   public abstract class NonNull implements java.lang.annotation.Annotation {
@@ -111,6 +117,9 @@ package android.support.annotation {
   public abstract class RequiresApi implements java.lang.annotation.Annotation {
   }
 
+  public abstract class RequiresFeature implements java.lang.annotation.Annotation {
+  }
+
   public abstract class RequiresPermission implements java.lang.annotation.Annotation {
   }
 
@@ -124,13 +133,13 @@ package android.support.annotation {
   }
 
   public static final class RestrictTo.Scope extends java.lang.Enum {
-    method public static android.support.annotation.RestrictTo.Scope valueOf(java.lang.String);
-    method public static final android.support.annotation.RestrictTo.Scope[] values();
-    enum_constant public static final deprecated android.support.annotation.RestrictTo.Scope GROUP_ID;
-    enum_constant public static final android.support.annotation.RestrictTo.Scope LIBRARY;
-    enum_constant public static final android.support.annotation.RestrictTo.Scope LIBRARY_GROUP;
-    enum_constant public static final android.support.annotation.RestrictTo.Scope SUBCLASSES;
-    enum_constant public static final android.support.annotation.RestrictTo.Scope TESTS;
+    method public static androidx.annotation.RestrictTo.Scope valueOf(java.lang.String);
+    method public static final androidx.annotation.RestrictTo.Scope[] values();
+    enum_constant public static final deprecated androidx.annotation.RestrictTo.Scope GROUP_ID;
+    enum_constant public static final androidx.annotation.RestrictTo.Scope LIBRARY;
+    enum_constant public static final androidx.annotation.RestrictTo.Scope LIBRARY_GROUP;
+    enum_constant public static final androidx.annotation.RestrictTo.Scope SUBCLASSES;
+    enum_constant public static final androidx.annotation.RestrictTo.Scope TESTS;
   }
 
   public abstract class Size implements java.lang.annotation.Annotation {

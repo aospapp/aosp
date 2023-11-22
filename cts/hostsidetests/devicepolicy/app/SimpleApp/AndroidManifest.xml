@@ -19,6 +19,7 @@
     package="com.android.cts.launcherapps.simpleapp">
 
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application>
         <activity android:name=".SimpleActivity" >

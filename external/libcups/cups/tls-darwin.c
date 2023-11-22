@@ -1,7 +1,7 @@
 /*
  * TLS support code for CUPS on macOS.
  *
- * Copyright 2007-2016 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
@@ -21,7 +21,7 @@
 
 #include <spawn.h>
 
-extern char **environ;
+extern char **environ; /* @private@ */
 
 
 /*
@@ -1141,7 +1141,8 @@ _httpTLSRead(http_t *http,		/* I - HTTP connection */
 void
 _httpTLSSetOptions(int options)		/* I - Options */
 {
-  tls_options = options;
+  if (!(options & _HTTP_TLS_SET_DEFAULT) || tls_options < 0)
+    tls_options = options;
 }
 
 
@@ -1227,6 +1228,12 @@ _httpTLSStart(http_t *http)		/* I - HTTP connection */
 
     error = SSLSetProtocolVersionMin(http->tls, minProtocol);
     DEBUG_printf(("4_httpTLSStart: SSLSetProtocolVersionMin(%d), error=%d", minProtocol, (int)error));
+
+    if (!error && (tls_options & _HTTP_TLS_ONLY_TLS10))
+    {
+      error = SSLSetProtocolVersionMax(http->tls, kTLSProtocol1);
+      DEBUG_printf(("4_httpTLSStart: SSLSetProtocolVersionMax(kTLSProtocol1), error=%d", (int)error));
+    }
   }
 
 #  if HAVE_SSLSETENABLEDCIPHERS
@@ -1324,7 +1331,6 @@ _httpTLSStart(http_t *http)		/* I - HTTP connection */
           case TLS_DHE_RSA_WITH_AES_256_CBC_SHA :
           case TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA :
           case TLS_DH_RSA_WITH_3DES_EDE_CBC_SHA :
-//          case TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA :
           case TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA :
           case TLS_DH_DSS_WITH_AES_128_CBC_SHA256 :
           case TLS_DH_RSA_WITH_AES_128_CBC_SHA256 :
@@ -1337,6 +1343,14 @@ _httpTLSStart(http_t *http)		/* I - HTTP connection */
           case TLS_DHE_PSK_WITH_3DES_EDE_CBC_SHA :
           case TLS_DHE_PSK_WITH_AES_128_CBC_SHA :
           case TLS_DHE_PSK_WITH_AES_256_CBC_SHA :
+          case TLS_DHE_PSK_WITH_AES_128_CBC_SHA256 :
+          case TLS_DHE_PSK_WITH_AES_256_CBC_SHA384 :
+	      if (tls_options & _HTTP_TLS_DENY_CBC)
+	      {
+	        DEBUG_printf(("4_httpTLSStart: Excluding CBC cipher suite %d", supported[i]));
+	        break;
+	      }
+
 //          case TLS_DHE_RSA_WITH_AES_128_GCM_SHA256 :
 //          case TLS_DHE_RSA_WITH_AES_256_GCM_SHA384 :
           case TLS_DH_RSA_WITH_AES_128_GCM_SHA256 :
@@ -1347,15 +1361,31 @@ _httpTLSStart(http_t *http)		/* I - HTTP connection */
           case TLS_DH_DSS_WITH_AES_256_GCM_SHA384 :
           case TLS_DHE_PSK_WITH_AES_128_GCM_SHA256 :
           case TLS_DHE_PSK_WITH_AES_256_GCM_SHA384 :
-          case TLS_DHE_PSK_WITH_AES_128_CBC_SHA256 :
-          case TLS_DHE_PSK_WITH_AES_256_CBC_SHA384 :
               if (tls_options & _HTTP_TLS_ALLOW_DH)
 	        enabled[num_enabled ++] = supported[i];
 	      else
 		DEBUG_printf(("4_httpTLSStart: Excluding DH/DHE cipher suite %d", supported[i]));
               break;
 
-          /* Anything else we'll assume is secure */
+          case TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA :
+          case TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 :
+          case TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384 :
+          case TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256 :
+          case TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384 :
+          case TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256 :
+          case TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384 :
+          case TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256 :
+          case TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384 :
+          case TLS_RSA_WITH_3DES_EDE_CBC_SHA :
+          case TLS_RSA_WITH_AES_128_CBC_SHA :
+          case TLS_RSA_WITH_AES_256_CBC_SHA :
+              if (tls_options & _HTTP_TLS_DENY_CBC)
+	      {
+	        DEBUG_printf(("4_httpTLSStart: Excluding CBC cipher suite %d", supported[i]));
+	        break;
+	      }
+
+          /* Anything else we'll assume is "secure" */
           default :
 	      enabled[num_enabled ++] = supported[i];
 	      break;

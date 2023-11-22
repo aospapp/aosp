@@ -16,12 +16,13 @@
 
 package com.android.documentsui.services;
 
-import static com.android.documentsui.services.FileOperationService.OPERATION_COPY;
 import static com.android.documentsui.services.FileOperationService.OPERATION_COMPRESS;
-import static com.android.documentsui.services.FileOperationService.OPERATION_EXTRACT;
+import static com.android.documentsui.services.FileOperationService.OPERATION_COPY;
 import static com.android.documentsui.services.FileOperationService.OPERATION_DELETE;
+import static com.android.documentsui.services.FileOperationService.OPERATION_EXTRACT;
 import static com.android.documentsui.services.FileOperationService.OPERATION_MOVE;
 import static com.android.documentsui.services.FileOperationService.OPERATION_UNKNOWN;
+import static com.android.internal.util.Preconditions.checkArgument;
 
 import android.content.Context;
 import android.net.Uri;
@@ -57,8 +58,8 @@ public abstract class FileOperation implements Parcelable {
 
     @VisibleForTesting
     FileOperation(@OpType int opType, UrisSupplier srcs, DocumentStack destination) {
-        assert(opType != OPERATION_UNKNOWN);
-        assert(srcs.getItemCount() > 0);
+        checkArgument(opType != OPERATION_UNKNOWN);
+        checkArgument(srcs.getItemCount() > 0);
 
         mOpType = opType;
         mSrcs = srcs;
@@ -133,6 +134,7 @@ public abstract class FileOperation implements Parcelable {
             return builder.toString();
         }
 
+        @Override
         CopyJob createJob(Context service, Job.Listener listener, String id, Features features) {
             return new CopyJob(
                     service, listener, id, getDestination(), getSrc(), getMessenger(), features);
@@ -173,6 +175,7 @@ public abstract class FileOperation implements Parcelable {
             return builder.toString();
         }
 
+        @Override
         CopyJob createJob(Context service, Job.Listener listener, String id, Features features) {
             return new CompressJob(service, listener, id, getDestination(), getSrc(),
                     getMessenger(), features);
@@ -214,6 +217,7 @@ public abstract class FileOperation implements Parcelable {
         }
 
         // TODO: Replace CopyJob with ExtractJob.
+        @Override
         CopyJob createJob(Context service, Job.Listener listener, String id, Features features) {
             return new CopyJob(
                     service, listener, id, getDestination(), getSrc(), getMessenger(), features);

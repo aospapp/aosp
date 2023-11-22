@@ -53,6 +53,9 @@ struct hapd_interfaces {
 #ifndef CONFIG_NO_VLAN
 	struct dynamic_iface *vlan_priv;
 #endif /* CONFIG_NO_VLAN */
+#ifdef CONFIG_ETH_P_OUI
+	struct dl_list eth_p_oui; /* OUI Extended EtherType handlers */
+#endif /* CONFIG_ETH_P_OUI */
 	int eloop_initialized;
 };
 
@@ -185,6 +188,17 @@ struct hostapd_data {
 #endif /* CONFIG_FULL_DYNAMIC_VLAN */
 
 	struct l2_packet_data *l2;
+
+#ifdef CONFIG_IEEE80211R_AP
+	struct dl_list l2_queue;
+	struct dl_list l2_oui_queue;
+	struct eth_p_oui_ctx *oui_pull;
+	struct eth_p_oui_ctx *oui_resp;
+	struct eth_p_oui_ctx *oui_push;
+	struct eth_p_oui_ctx *oui_sreq;
+	struct eth_p_oui_ctx *oui_sresp;
+#endif /* CONFIG_IEEE80211R_AP */
+
 	struct wps_context *wps;
 
 	int beacon_set_done;
@@ -290,10 +304,27 @@ struct hostapd_data {
 	unsigned int ext_eapol_frame_io:1;
 
 	struct l2_packet_data *l2_test;
+
+	enum wpa_alg last_gtk_alg;
+	int last_gtk_key_idx;
+	u8 last_gtk[WPA_GTK_MAX_LEN];
+	size_t last_gtk_len;
+
+#ifdef CONFIG_IEEE80211W
+	enum wpa_alg last_igtk_alg;
+	int last_igtk_key_idx;
+	u8 last_igtk[WPA_IGTK_MAX_LEN];
+	size_t last_igtk_len;
+#endif /* CONFIG_IEEE80211W */
 #endif /* CONFIG_TESTING_OPTIONS */
 
 #ifdef CONFIG_MBO
 	unsigned int mbo_assoc_disallow;
+	/**
+	 * enable_oce - Enable OCE if it is enabled by user and device also
+	 *		supports OCE.
+	 */
+	u8 enable_oce;
 #endif /* CONFIG_MBO */
 
 	struct dl_list nr_db;
@@ -305,6 +336,29 @@ struct hostapd_data {
 	unsigned int range_req_active:1;
 
 	int dhcp_sock; /* UDP socket used with the DHCP server */
+
+#ifdef CONFIG_DPP
+	struct dl_list dpp_bootstrap; /* struct dpp_bootstrap_info */
+	struct dl_list dpp_configurator; /* struct dpp_configurator */
+	int dpp_init_done;
+	struct dpp_authentication *dpp_auth;
+	u8 dpp_allowed_roles;
+	int dpp_qr_mutual;
+	int dpp_auth_ok_on_ack;
+	struct gas_query_ap *gas;
+	struct dpp_pkex *dpp_pkex;
+	struct dpp_bootstrap_info *dpp_pkex_bi;
+	char *dpp_pkex_code;
+	char *dpp_pkex_identifier;
+	char *dpp_pkex_auth_cmd;
+	char *dpp_configurator_params;
+#ifdef CONFIG_TESTING_OPTIONS
+	char *dpp_config_obj_override;
+	char *dpp_discovery_override;
+	char *dpp_groups_override;
+	unsigned int dpp_ignore_netaccesskey_mismatch:1;
+#endif /* CONFIG_TESTING_OPTIONS */
+#endif /* CONFIG_DPP */
 };
 
 
@@ -318,6 +372,16 @@ struct hostapd_sta_info {
 #endif /* CONFIG_TAXONOMY */
 };
 
+enum hostapd_iface_state {
+	HAPD_IFACE_UNINITIALIZED,
+	HAPD_IFACE_DISABLED,
+	HAPD_IFACE_COUNTRY_UPDATE,
+	HAPD_IFACE_ACS,
+	HAPD_IFACE_HT_SCAN,
+	HAPD_IFACE_DFS,
+	HAPD_IFACE_ENABLED
+};
+
 /**
  * struct hostapd_iface - hostapd per-interface data structure
  */
@@ -328,16 +392,7 @@ struct hostapd_iface {
 	struct hostapd_config *conf;
 	char phy[16]; /* Name of the PHY (radio) */
 
-	enum hostapd_iface_state {
-		HAPD_IFACE_UNINITIALIZED,
-		HAPD_IFACE_DISABLED,
-		HAPD_IFACE_COUNTRY_UPDATE,
-		HAPD_IFACE_ACS,
-		HAPD_IFACE_HT_SCAN,
-		HAPD_IFACE_DFS,
-		HAPD_IFACE_ENABLED
-	} state;
-
+        enum hostapd_iface_state state;
 #ifdef CONFIG_MESH
 	struct mesh_conf *mconf;
 #endif /* CONFIG_MESH */
@@ -461,6 +516,8 @@ struct hostapd_iface {
 
 	struct dl_list sta_seen; /* struct hostapd_sta_info */
 	unsigned int num_sta_seen;
+
+	u8 dfs_domain;
 };
 
 /* hostapd.c */
@@ -501,6 +558,7 @@ hostapd_switch_channel_fallback(struct hostapd_iface *iface,
 				const struct hostapd_freq_params *freq_params);
 void hostapd_cleanup_cs_params(struct hostapd_data *hapd);
 void hostapd_periodic_iface(struct hostapd_iface *iface);
+int hostapd_owe_trans_get_info(struct hostapd_data *hapd);
 
 /* utils.c */
 int hostapd_register_probereq_cb(struct hostapd_data *hapd,
@@ -512,6 +570,8 @@ int hostapd_register_probereq_cb(struct hostapd_data *hapd,
 void hostapd_prune_associations(struct hostapd_data *hapd, const u8 *addr);
 
 /* drv_callbacks.c (TODO: move to somewhere else?) */
+void hostapd_notify_assoc_fils_finish(struct hostapd_data *hapd,
+				      struct sta_info *sta);
 int hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
 			const u8 *ie, size_t ielen, int reassoc);
 void hostapd_notif_disassoc(struct hostapd_data *hapd, const u8 *addr);

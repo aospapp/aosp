@@ -114,7 +114,7 @@ static void output_table_header(FILE *out_fp, const struct dt_table_header *head
   output_prop_int(out_fp, "dt_entry_count", header->dt_entry_count);
   output_prop_int(out_fp, "dt_entries_offset", header->dt_entries_offset);
   output_prop_int(out_fp, "page_size", header->page_size);
-  output_prop_hex(out_fp, "reserved[0]", header->reserved[0]);
+  output_prop_int(out_fp, "version", header->version);
 }
 
 static void output_table_entry(FILE *out_fp, int index, const struct dt_table_entry *entry) {
@@ -163,7 +163,10 @@ static int dump_image_from_fp(FILE *out_fp, FILE *img_fp,
   for (i = 0; i < entry_count; i++) {
     struct dt_table_entry entry;
     fseek(img_fp, entry_offset, SEEK_SET);
-    fread(&entry, sizeof(entry), 1, img_fp);
+    if (fread(&entry, sizeof(entry), 1, img_fp) != 1) {
+      fprintf(stderr, "Read dt_table_entry error.\n");
+      return -1;
+    }
     output_table_entry(out_fp, i, &entry);
 
     uint32_t dt_size = fdt32_to_cpu(entry.dt_size);

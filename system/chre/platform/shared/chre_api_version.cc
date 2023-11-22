@@ -20,7 +20,7 @@
 #include "chre/util/macros.h"
 
 DLL_EXPORT uint32_t chreGetApiVersion(void) {
-  return CHRE_API_VERSION_1_1;
+  return CHRE_API_VERSION;
 }
 
 DLL_EXPORT uint32_t chreGetVersion(void) {

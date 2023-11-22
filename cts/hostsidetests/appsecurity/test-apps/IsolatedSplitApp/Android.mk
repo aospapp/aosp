@@ -18,20 +18,25 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
+LOCAL_PACKAGE_NAME := CtsIsolatedSplitApp
 LOCAL_USE_AAPT2 := true
 LOCAL_MODULE_TAGS := tests
-LOCAL_SDK_VERSION := current
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
-LOCAL_EXPORT_PACKAGE_RESOURCES := true
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner android-support-test
+LOCAL_SDK_VERSION := current
 
+# Feature splits are dependent on this base, so it must be exported.
+LOCAL_EXPORT_PACKAGE_RESOURCES := true
+
+# Make sure our test locale polish is not stripped.
+LOCAL_AAPT_INCLUDE_ALL_RESOURCES := true
+
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner android-support-test
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_PACKAGE_NAME := CtsIsolatedSplitApp
+# Generate a locale split.
 LOCAL_PACKAGE_SPLITS := pl
-
-# Tag this module as a cts test artifact
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)
 
+# Build the other splits.
 include $(call first-makefiles-under,$(LOCAL_PATH))

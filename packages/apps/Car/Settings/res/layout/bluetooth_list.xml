@@ -16,6 +16,7 @@
 
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical" >
@@ -34,9 +35,10 @@
             android:id="@+id/swiperefresh"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
-            <com.android.car.view.PagedListView
+            <androidx.car.widget.PagedListView
                 android:id="@+id/list"
-                style="@style/SettingPagedList"
+                style="@style/SettingList"
+                app:showPagedListViewDivider="false"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
         </android.support.v4.widget.SwipeRefreshLayout>
@@ -46,6 +48,6 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/bluetooth_disabled"
-            style="@style/CarBody1" />
+            style="@style/TextAppearance.Car.Body1" />
     </ViewSwitcher>
 </LinearLayout>

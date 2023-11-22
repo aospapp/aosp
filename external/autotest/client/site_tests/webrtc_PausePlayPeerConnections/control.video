@@ -2,12 +2,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "kerl@google.com, hangouts-engprod-sto@google.com"
+AUTHOR = "kerl@google.com, chromeos-meetings@google.com"
 NAME = "webrtc_PausePlayPeerConnections.video"
 PURPOSE = "Ensures frequent pause and plays of peer connection streams work"
 CRITERIA = "Fails if the tab freezes during the test"
-ATTRIBUTES = "suite:hotrod, suite:bluestreak"
-TIME = "MEDIUM"
+ATTRIBUTES = ("suite:hotrod, suite:bluestreak, suite:bluestreak-release, "
+        "suite:bluestreak-perbuild, suite:bluestreak-pre-cq")
+TIME = "SHORT"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
@@ -23,5 +24,5 @@ streams. The tests randomly pauses and plays the streams.
 This is a regression test for bug 718369.
 """
 
-job.run_test("webrtc_PausePlayPeerConnections", element_type='video')
+job.run_test("webrtc_PausePlayPeerConnections", element_type='video', tag='video')
 

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -29,13 +29,13 @@ public abstract class Command {
 	/**
 	 * Flag whether help should be printed for this command.
 	 */
-	@Option(name = "-help", usage = "show help", help = true)
+	@Option(name = "--help", usage = "show help", help = true)
 	public boolean help = false;
 
 	/**
 	 * Flag whether output to stdout should be suppressed.
 	 */
-	@Option(name = "-quiet", usage = "suppress all output on stdout")
+	@Option(name = "--quiet", usage = "suppress all output on stdout")
 	public boolean quiet = false;
 
 	/**
@@ -83,8 +83,9 @@ public abstract class Command {
 	 */
 	protected void printHelp(final PrintWriter writer) {
 		final CommandParser parser = new CommandParser(this);
-		writer.println("Usage: " + parser.getCommand().usage(parser));
 		writer.println(description());
+		writer.println();
+		writer.println("Usage: " + parser.getCommand().usage(parser));
 		parser.printUsage(writer, null);
 	}
 

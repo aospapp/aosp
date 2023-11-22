@@ -18,16 +18,16 @@ package com.android.tv.testing.testinput;
 import android.content.ComponentName;
 import android.content.Intent;
 
-/**
- * Static utils for {@link ITestInputControl}.
- */
+/** Static utils for {@link ITestInputControl}. */
 public final class TestInputControlUtils {
 
     public static Intent createIntent() {
-        return new Intent().setComponent(new ComponentName("com.android.tv.testinput",
-                        "com.android.tv.testinput.TestInputControlService"));
+        return new Intent()
+                .setComponent(
+                        new ComponentName(
+                                "com.android.tv.testinput",
+                                "com.android.tv.testinput.TestInputControlService"));
     }
 
-    private TestInputControlUtils() {
-    }
+    private TestInputControlUtils() {}
 }

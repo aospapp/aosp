@@ -20,7 +20,7 @@
     <!-- We add an application tag here just to indicate the authorities -->
     <application>
         <provider android:name="PartnerBookmarksProvider"
-            android:authorities="com.android.partnerbookmarks" />
+            android:authorities="com.android.partnerbookmarks"
+            android:exported="true" />
     </application>
-    <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="14" />
 </manifest>

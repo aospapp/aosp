@@ -31,12 +31,12 @@
 #include <sys/syscall.h>
 #include <dlfcn.h>
 #include <pthread.h>
+#include <cutils/atomic.h>
 #include <cutils/log.h>
 #include <utils/KeyedVector.h>
 #include <utils/String8.h>
 #include <string.h>
 #include <linux/input.h>
-#include <utils/Atomic.h>
 
 #include "MPLSensor.h"
 #include "PressureSensor.IIO.secondary.h"

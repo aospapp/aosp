@@ -113,16 +113,18 @@ void ProfilerCodeGenBase::GenerateSourceFile(
     // Generate code for sanity check.
     GenerateProfilerSanityCheck(out, message);
 
-    // Generate code to define local variables.
-    GenerateLocalVariableDefinition(out, message);
+    if (interface.api_size() > 0) {
+      // Generate code to define local variables.
+      GenerateLocalVariableDefinition(out, message);
 
-    // Generate the profiler code for each method.
-    for (const FunctionSpecificationMessage api : interface.api()) {
-      out << "if (strcmp(method, \"" << api.name() << "\") == 0) {\n";
-      out.indent();
-      GenerateProfilerForMethod(out, api);
-      out.unindent();
-      out << "}\n";
+      // Generate the profiler code for each method.
+      for (const FunctionSpecificationMessage api : interface.api()) {
+        out << "if (strcmp(method, \"" << api.name() << "\") == 0) {\n";
+        out.indent();
+        GenerateProfilerForMethod(out, api);
+        out.unindent();
+        out << "}\n";
+      }
     }
 
     out.unindent();

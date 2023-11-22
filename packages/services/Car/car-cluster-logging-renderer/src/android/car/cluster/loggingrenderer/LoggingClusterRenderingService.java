@@ -43,34 +43,6 @@ public class LoggingClusterRenderingService extends InstrumentClusterRenderingSe
                 return config;
             }
 
-
-            @Override
-            public void onStartNavigation() {
-                Log.i(TAG, "onStartNavigation");
-            }
-
-            @Override
-            public void onStopNavigation() {
-                Log.i(TAG, "onStopNavigation");
-            }
-
-            @Override
-            public void onNextTurnChanged(int event, CharSequence eventName, int turnAngle,
-                    int turnNumber, Bitmap image, int turnSide) {
-                Log.i(TAG, "event: " + event + ", eventName: " + eventName +
-                        ", turnAngle: " + turnAngle + ", turnNumber: " + turnNumber +
-                        ", image: " + image + ", turnSide: " + turnSide);
-            }
-
-            @Override
-            public void onNextTurnDistanceChanged(int distanceMeters, int timeSeconds,
-                    int displayDistanceMillis, int displayDistanceUnit) {
-                Log.i(TAG, "onNextTurnDistanceChanged, distanceMeters: " + distanceMeters
-                        + ", timeSeconds: " + timeSeconds
-                        + ", displayDistanceMillis: " + displayDistanceMillis
-                        + ", displayDistanceUnit: " + displayDistanceUnit);
-            }
-
             @Override
             public void onEvent(int eventType, Bundle bundle) {
                 Log.i(TAG, "onEvent, eventType: " + eventType + ", bundle: " + bundle);

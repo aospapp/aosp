@@ -7,20 +7,20 @@
 #ifndef CORE_FPDFDOC_CPDF_OCCONTEXT_H_
 #define CORE_FPDFDOC_CPDF_OCCONTEXT_H_
 
-#include <unordered_map>
+#include <map>
 
-#include "core/fxcrt/cfx_retain_ptr.h"
 #include "core/fxcrt/fx_string.h"
+#include "core/fxcrt/retain_ptr.h"
 
 class CPDF_Array;
 class CPDF_Dictionary;
 class CPDF_Document;
 class CPDF_PageObject;
 
-class CPDF_OCContext : public CFX_Retainable {
+class CPDF_OCContext : public Retainable {
  public:
   template <typename T, typename... Args>
-  friend CFX_RetainPtr<T> pdfium::MakeRetain(Args&&... args);
+  friend RetainPtr<T> pdfium::MakeRetain(Args&&... args);
 
   enum UsageType { View = 0, Design, Print, Export };
 
@@ -31,16 +31,16 @@ class CPDF_OCContext : public CFX_Retainable {
   CPDF_OCContext(CPDF_Document* pDoc, UsageType eUsageType);
   ~CPDF_OCContext() override;
 
-  bool LoadOCGStateFromConfig(const CFX_ByteString& csConfig,
+  bool LoadOCGStateFromConfig(const ByteString& csConfig,
                               const CPDF_Dictionary* pOCGDict) const;
   bool LoadOCGState(const CPDF_Dictionary* pOCGDict) const;
   bool GetOCGVisible(const CPDF_Dictionary* pOCGDict);
   bool GetOCGVE(CPDF_Array* pExpression, int nLevel);
   bool LoadOCMDState(const CPDF_Dictionary* pOCMDDict);
 
-  CPDF_Document* const m_pDocument;
+  UnownedPtr<CPDF_Document> const m_pDocument;
   const UsageType m_eUsageType;
-  std::unordered_map<const CPDF_Dictionary*, bool> m_OCGStates;
+  std::map<const CPDF_Dictionary*, bool> m_OCGStates;
 };
 
 #endif  // CORE_FPDFDOC_CPDF_OCCONTEXT_H_

@@ -62,6 +62,7 @@ public class SanityTest {
             intent.setComponent(SIMPLE_APP_ACTIVITY);
             // Finish the activity after that.
             intent.putExtra("finish", true);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             mContext.startActivity(intent);
             Intent receivedBroadcast = receiver.awaitForBroadcast();
             assertNotNull(receivedBroadcast);

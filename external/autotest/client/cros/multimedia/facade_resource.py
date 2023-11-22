@@ -135,7 +135,8 @@ class FacadeResource(object):
         if utils.get_board_property(self.ARC_VERSION):
             arc_mode = self.ARC_ENABLED
         kwargs = {
-            'extension_paths': [constants.MULTIMEDIA_TEST_EXTENSION],
+            'extension_paths': [constants.AUDIO_TEST_EXTENSION,
+                                constants.DISPLAY_TEST_EXTENSION],
             'extra_browser_args': self.EXTRA_BROWSER_ARGS,
             'clear_enterprise_policy': not restart,
             'arc_mode': arc_mode,

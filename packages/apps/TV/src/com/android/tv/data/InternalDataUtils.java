@@ -19,10 +19,8 @@ package com.android.tv.data;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
-
 import com.android.tv.data.Program.CriticScore;
 import com.android.tv.dvr.data.RecordedProgram;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -31,22 +29,22 @@ import java.io.ObjectOutputStream;
 import java.util.List;
 
 /**
- * A utility class to parse and store data from the
- * {@link android.media.tv.TvContract.Programs#COLUMN_INTERNAL_PROVIDER_DATA} field in the
- * {@link android.media.tv.TvContract.Programs}.
+ * A utility class to parse and store data from the {@link
+ * android.media.tv.TvContract.Programs#COLUMN_INTERNAL_PROVIDER_DATA} field in the {@link
+ * android.media.tv.TvContract.Programs}.
  */
 public final class InternalDataUtils {
     private static final boolean DEBUG = false;
     private static final String TAG = "InternalDataUtils";
 
     private InternalDataUtils() {
-        //do nothing
+        // do nothing
     }
 
     /**
      * Deserializes a byte array into objects to be stored in the Program class.
      *
-     * <p> Series ID and critic scores are loaded from the bytes.
+     * <p>Series ID and critic scores are loaded from the bytes.
      *
      * @param bytes the bytes to be deserialized
      * @param builder the builder for the Program class
@@ -70,6 +68,7 @@ public final class InternalDataUtils {
     /**
      * Convenience method for converting relevant data in Program class to a serialized blob type
      * for storage in internal_provider_data field.
+     *
      * @param program the program which contains the objects to be serialized
      * @return serialized blob-type data
      */
@@ -83,8 +82,10 @@ public final class InternalDataUtils {
                 return bos.toByteArray();
             }
         } catch (IOException e) {
-            Log.e(TAG, "Could not serialize internal provider contents for program: "
-                    + program.getTitle());
+            Log.e(
+                    TAG,
+                    "Could not serialize internal provider contents for program: "
+                            + program.getTitle());
         }
         return null;
     }
@@ -92,13 +93,13 @@ public final class InternalDataUtils {
     /**
      * Deserializes a byte array into objects to be stored in the RecordedProgram class.
      *
-     * <p> Series ID is loaded from the bytes.
+     * <p>Series ID is loaded from the bytes.
      *
      * @param bytes the bytes to be deserialized
      * @param builder the builder for the RecordedProgram class
      */
-    public static void deserializeInternalProviderData(byte[] bytes,
-            RecordedProgram.Builder builder) {
+    public static void deserializeInternalProviderData(
+            byte[] bytes, RecordedProgram.Builder builder) {
         if (bytes == null || bytes.length == 0) {
             return;
         }
@@ -115,6 +116,7 @@ public final class InternalDataUtils {
 
     /**
      * Serializes relevant objects in {@link android.media.tv.TvContract.Programs} to byte array.
+     *
      * @return the serialized byte array
      */
     public static byte[] serializeInternalProviderData(RecordedProgram program) {
@@ -125,8 +127,10 @@ public final class InternalDataUtils {
                 return bos.toByteArray();
             }
         } catch (IOException e) {
-            Log.e(TAG, "Could not serialize internal provider contents for program: "
-                    + program.getTitle());
+            Log.e(
+                    TAG,
+                    "Could not serialize internal provider contents for program: "
+                            + program.getTitle());
         }
         return null;
     }

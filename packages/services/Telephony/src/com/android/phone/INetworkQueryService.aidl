@@ -31,8 +31,14 @@ oneway interface INetworkQueryService {
      * object on query completion.  If there is an existing request,
      * then just add the callback to the list of notifications
      * that will be sent upon query completion.
+     *
+     * It will send the network query with the use of
+     * <code>TelephonyManager.requestNetworkScan()</code> if the
+     * isIncrementalResult is true. And if the isIncrementalResult
+     * is set as false, it will try to send network query through
+     * <code>Phone.getAvailableNetworks()</code>.
      */
-    void startNetworkQuery(in INetworkQueryServiceCallback cb, in int phoneId);
+    void startNetworkQuery(in INetworkQueryServiceCallback cb, in int phoneId, boolean isIncrementalResult);
 
     /**
      * Tells the service that the requested query is to be ignored.
@@ -40,7 +46,7 @@ oneway interface INetworkQueryService {
      * underlying RIL, but it ensures that the callback is removed
      * from the list of notifications.
      */
-    void stopNetworkQuery(in INetworkQueryServiceCallback cb);
+    void stopNetworkQuery();
 
     /**
      * Tells the service to unregister the network query callback.

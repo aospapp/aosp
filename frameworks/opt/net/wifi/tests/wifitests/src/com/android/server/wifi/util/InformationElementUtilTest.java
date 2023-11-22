@@ -22,7 +22,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.net.wifi.ScanResult.InformationElement;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import com.android.server.wifi.hotspot2.NetworkDetail;
 
@@ -692,8 +692,8 @@ public class InformationElementUtilTest {
         InformationElementUtil.RoamingConsortium roamingConsortium =
                 InformationElementUtil.getRoamingConsortiumIE(new InformationElement[] {ie});
         assertEquals(1, roamingConsortium.anqpOICount);
-        assertEquals(1, roamingConsortium.roamingConsortiums.length);
-        assertEquals(0x112233, roamingConsortium.roamingConsortiums[0]);
+        assertEquals(1, roamingConsortium.getRoamingConsortiums().length);
+        assertEquals(0x112233, roamingConsortium.getRoamingConsortiums()[0]);
     }
 
     /**
@@ -727,12 +727,12 @@ public class InformationElementUtilTest {
 
     /**
      * Verify that the expected Interworking information element is parsed and retrieved from the
-     * list of IEs.
+     * list of IEs. Uses an IE w/o the optional Venue Info.
      *
      * @throws Exception
      */
     @Test
-    public void getInterworkingElementIE() throws Exception {
+    public void getInterworkingElementNoVenueIE() throws Exception {
         InformationElement ie = new InformationElement();
         ie.id = InformationElement.EID_INTERWORKING;
         /**
@@ -753,4 +753,34 @@ public class InformationElementUtilTest {
         assertEquals(NetworkDetail.Ant.Private, interworking.ant);
         assertEquals(0x112233445566L, interworking.hessid);
     }
+
+    /**
+     * Verify that the expected Interworking information element is parsed and retrieved from the
+     * list of IEs. Uses an IE with the optional Venue Info.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void getInterworkingElementWithVenueIE() throws Exception {
+        InformationElement ie = new InformationElement();
+        ie.id = InformationElement.EID_INTERWORKING;
+        /**
+         * Interworking Format:
+         * | Access Network Option | Venue Info (optional) | HESSID (optional) |
+         *           1                       2                     6
+         *
+         * Access Network Option Format:
+         *
+         * B0                   B3    B4       B5    B6     B7
+         * | Access Network Type | Internet | ASRA | ESR | UESA |
+         */
+        ie.bytes = new byte[]{(byte) 0x10, (byte) 0xAA, (byte) 0xBB, (byte) 0x11, (byte) 0x22,
+                (byte) 0x33, (byte) 0x44, (byte) 0x55, (byte) 0x66};
+        InformationElementUtil.Interworking interworking =
+                InformationElementUtil.getInterworkingIE(new InformationElement[] {ie});
+        assertTrue(interworking.internet);
+        assertEquals(NetworkDetail.Ant.Private, interworking.ant);
+        assertEquals(0x112233445566L, interworking.hessid);
+    }
+
 }

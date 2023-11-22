@@ -47,17 +47,19 @@ public class SignedLongLong implements Comparable<SignedLongLong> {
         long lsb = 0, msb = 0;
 
         lsbStr = msbStr = null;
-        if(value == null) throw new NullPointerException();
-        value=value.trim();
+        if (value == null) {
+            throw new NullPointerException();
+        }
+        value = value.trim();
         int valueLength = value.length();
-        if(valueLength == 0 || valueLength > 32) {
+        if (valueLength == 0 || valueLength > 32) {
             throw new NumberFormatException("invalid string length: " + valueLength);
         }
-        if(valueLength <= 16){
+        if (valueLength <= 16) {
             lsbStr = value;
         } else {
-            lsbStr = value.substring(valueLength-16, valueLength);
-            msbStr = value.substring(0, valueLength-16);
+            lsbStr = value.substring(valueLength - 16, valueLength);
+            msbStr = value.substring(0, valueLength - 16);
             msb = BluetoothMapUtils.getLongFromString(msbStr);
         }
         lsb = BluetoothMapUtils.getLongFromString(lsbStr);
@@ -66,16 +68,16 @@ public class SignedLongLong implements Comparable<SignedLongLong> {
 
     @Override
     public int compareTo(SignedLongLong another) {
-        if(mMostSigBits == another.mMostSigBits) {
-            if(mLeastSigBits == another.mLeastSigBits) {
+        if (mMostSigBits == another.mMostSigBits) {
+            if (mLeastSigBits == another.mLeastSigBits) {
                 return 0;
             }
-            if(mLeastSigBits < another.mLeastSigBits) {
+            if (mLeastSigBits < another.mLeastSigBits) {
                 return -1;
             }
             return 1;
         }
-        if(mMostSigBits < another.mMostSigBits) {
+        if (mMostSigBits < another.mMostSigBits) {
             return -1;
         }
         return 1;
@@ -90,7 +92,7 @@ public class SignedLongLong implements Comparable<SignedLongLong> {
      *
      * @return a hex-string representation of the object values
      */
-    public String toHexString(){
+    public String toHexString() {
         return BluetoothMapUtils.getLongLongAsString(mLeastSigBits, mMostSigBits);
     }
 

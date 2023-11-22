@@ -68,8 +68,8 @@ class BooleanField(Field):
       return True
     elif value.lower() == 'false':
       return False
-    raise TypeError("Invalid value for '%s'. Must be true or false." %
-                    self.name)
+    raise TypeError(
+        "Invalid value for '%s'. Must be true or false." % self.name)
 
 
 class IntegerField(Field):

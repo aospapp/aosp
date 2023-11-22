@@ -34,6 +34,7 @@ class policy_NotificationsBlockedForUrls(
     version = 1
 
     def initialize(self, **kwargs):
+        """Initialize this test."""
         self._initialize_test_constants()
         super(policy_NotificationsBlockedForUrls, self).initialize(**kwargs)
         self.start_webserver()
@@ -58,7 +59,7 @@ class policy_NotificationsBlockedForUrls(
         self.SUPPORTING_POLICIES = {
             'DefaultNotificationsSetting': 1,
             'BookmarkBarEnabled': True,
-            'EditBookmarkEnabled': True,
+            'EditBookmarksEnabled': True,
             'RestoreOnStartupURLs': self.STARTUP_URLS,
             'RestoreOnStartup': 4
         }
@@ -117,12 +118,13 @@ class policy_NotificationsBlockedForUrls(
         tab.Close()
 
 
-    def run_test_case(self, case):
+    def run_once(self, case):
         """Setup and run the test configured for the specified test case.
 
         @param case: Name of the test case to run.
 
         """
         case_value = self.TEST_CASES[case]
-        self.setup_case(self.POLICY_NAME, case_value, self.SUPPORTING_POLICIES)
+        self.SUPPORTING_POLICIES[self.POLICY_NAME] = case_value
+        self.setup_case(user_policies=self.SUPPORTING_POLICIES)
         self._test_notifications_blocked_for_urls(case_value)

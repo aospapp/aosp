@@ -133,12 +133,26 @@ EFI_STATUS
   IN  CHAR8   *Command
   );
 
+/*
+  Flash the partition named (according to a platform-specific scheme)
+  PartitionName, with partition offset and the image pointed to by Buffer,
+  whose size is BufferSize.
+
+  @param[in] PartitionName  Null-terminated name of partition to write.
+  @param[in] Offset         Offset of partition.
+  @param[in] BufferSize     Size of Buffer in byets.
+  @param[in] Buffer         Data to write to partition.
+
+  @retval EFI_NOT_FOUND     No such partition.
+  @retval EFI_DEVICE_ERROR  Flashing failed.
+*/
 typedef
 EFI_STATUS
-(*FASTBOOT_PLATFORM_READ) (
-  IN CHAR8     *PartitionName,
-  IN OUT UINTN *BufferSize,
-  OUT VOID    **Buffer
+(*FASTBOOT_PLATFORM_FLASH_EX) (
+  IN CHAR8   *PartitionName,
+  IN UINTN    Offset,
+  IN UINTN    BufferSize,
+  IN VOID    *Buffer
   );
 
 typedef struct _FASTBOOT_PLATFORM_PROTOCOL {
@@ -148,33 +162,7 @@ typedef struct _FASTBOOT_PLATFORM_PROTOCOL {
   FASTBOOT_PLATFORM_ERASE         ErasePartition;
   FASTBOOT_PLATFORM_GETVAR        GetVar;
   FASTBOOT_PLATFORM_OEM_COMMAND   DoOemCommand;
-  FASTBOOT_PLATFORM_READ          ReadPartition;
+  FASTBOOT_PLATFORM_FLASH_EX      FlashPartitionEx;
 } FASTBOOT_PLATFORM_PROTOCOL;
-
-/* See sparse_format.h in AOSP  */
-#define SPARSE_HEADER_MAGIC 0xed26ff3a
-#define CHUNK_TYPE_RAW      0xCAC1
-#define CHUNK_TYPE_FILL     0xCAC2
-#define CHUNK_TYPE_DONT_CARE    0xCAC3
-#define CHUNK_TYPE_CRC32    0xCAC4
-
-typedef struct _SPARSE_HEADER {
-  UINT32    Magic;
-  UINT16    MajorVersion;
-  UINT16    MinorVersion;
-  UINT16    FileHeaderSize;
-  UINT16    ChunkHeaderSize;
-  UINT32    BlockSize;
-  UINT32    TotalBlocks;
-  UINT32    TotalChunks;
-  UINT32    ImageChecksum;
-} SPARSE_HEADER;
-
-typedef struct _CHUNK_HEADER {
-  UINT16    ChunkType;
-  UINT16    Reserved1;
-  UINT32    ChunkSize;
-  UINT32    TotalSize;
-} CHUNK_HEADER;
 
 #endif

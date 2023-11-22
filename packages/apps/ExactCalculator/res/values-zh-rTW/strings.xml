@@ -76,12 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"在結果中顯示前導數"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"以分數顯示結果"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"開放原始碼授權"</string>
-    <string name="menu_history" msgid="9006222701220105452">"紀錄"</string>
+    <string name="menu_history" msgid="9006222701220105452">"記錄"</string>
     <string name="menu_clear_history" msgid="2336526604226069572">"清除"</string>
-    <string name="title_history" msgid="7820912156315181539">"紀錄"</string>
+    <string name="title_history" msgid="7820912156315181539">"記錄"</string>
     <string name="desc_navigate_up" msgid="6208699569165589623">"向上瀏覽"</string>
     <string name="dialog_timeout" msgid="9069768442342329065">"逾時"</string>
-    <string name="dialog_clear" msgid="7137395395908350702">"要清除歷史紀錄和儲存內容嗎？"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"要清除歷史記錄和儲存內容嗎？"</string>
     <string name="title_current_expression" msgid="2442754548537900591">"目前的運算式"</string>
-    <string name="no_history" msgid="4331262030447527188">"沒有任何紀錄"</string>
+    <string name="no_history" msgid="4331262030447527188">"沒有任何記錄"</string>
 </resources>

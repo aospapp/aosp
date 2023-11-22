@@ -27,13 +27,16 @@
 #include "debug/elf_compilation_unit.h"
 #include "debug/elf_debug_loc_writer.h"
 #include "debug/method_debug_info.h"
-#include "dex_file-inl.h"
-#include "dex_file.h"
-#include "elf_builder.h"
+#include "dex/code_item_accessors-inl.h"
+#include "dex/dex_file-inl.h"
+#include "dex/dex_file.h"
+#include "heap_poisoning.h"
 #include "linear_alloc.h"
+#include "linker/elf_builder.h"
 #include "mirror/array.h"
 #include "mirror/class-inl.h"
 #include "mirror/class.h"
+#include "oat_file.h"
 
 namespace art {
 namespace debug {
@@ -46,9 +49,10 @@ static void LocalInfoCallback(void* ctx, const DexFile::LocalInfo& entry) {
 
 static std::vector<const char*> GetParamNames(const MethodDebugInfo* mi) {
   std::vector<const char*> names;
-  if (mi->code_item != nullptr) {
+  CodeItemDebugInfoAccessor accessor(*mi->dex_file, mi->code_item, mi->dex_method_index);
+  if (accessor.HasCodeItem()) {
     DCHECK(mi->dex_file != nullptr);
-    const uint8_t* stream = mi->dex_file->GetDebugInfoStream(mi->code_item);
+    const uint8_t* stream = mi->dex_file->GetDebugInfoStream(accessor.DebugInfoOffset());
     if (stream != nullptr) {
       DecodeUnsignedLeb128(&stream);  // line.
       uint32_t parameters_size = DecodeUnsignedLeb128(&stream);
@@ -67,7 +71,7 @@ class ElfDebugInfoWriter {
   using Elf_Addr = typename ElfTypes::Addr;
 
  public:
-  explicit ElfDebugInfoWriter(ElfBuilder<ElfTypes>* builder)
+  explicit ElfDebugInfoWriter(linker::ElfBuilder<ElfTypes>* builder)
       : builder_(builder),
         debug_abbrev_(&debug_abbrev_buffer_) {
   }
@@ -92,7 +96,7 @@ class ElfDebugInfoWriter {
   }
 
  private:
-  ElfBuilder<ElfTypes>* builder_;
+  linker::ElfBuilder<ElfTypes>* builder_;
   std::vector<uintptr_t> debug_info_patches_;
   std::vector<uint8_t> debug_abbrev_buffer_;
   dwarf::DebugAbbrevWriter<> debug_abbrev_;
@@ -122,22 +126,44 @@ class ElfCompilationUnitWriter {
     const Elf_Addr base_address = compilation_unit.is_code_address_text_relative
         ? owner_->builder_->GetText()->GetAddress()
         : 0;
-    const uint64_t cu_size = compilation_unit.code_end - compilation_unit.code_address;
+    const bool is64bit = Is64BitInstructionSet(owner_->builder_->GetIsa());
     using namespace dwarf;  // NOLINT. For easy access to DWARF constants.
 
     info_.StartTag(DW_TAG_compile_unit);
     info_.WriteString(DW_AT_producer, "Android dex2oat");
     info_.WriteData1(DW_AT_language, DW_LANG_Java);
     info_.WriteString(DW_AT_comp_dir, "$JAVA_SRC_ROOT");
+    // The low_pc acts as base address for several other addresses/ranges.
     info_.WriteAddr(DW_AT_low_pc, base_address + compilation_unit.code_address);
-    info_.WriteUdata(DW_AT_high_pc, dchecked_integral_cast<uint32_t>(cu_size));
     info_.WriteSecOffset(DW_AT_stmt_list, compilation_unit.debug_line_offset);
+
+    // Write .debug_ranges entries covering code ranges of the whole compilation unit.
+    dwarf::Writer<> debug_ranges(&owner_->debug_ranges_);
+    info_.WriteSecOffset(DW_AT_ranges, owner_->debug_ranges_.size());
+    for (auto mi : compilation_unit.methods) {
+      uint64_t low_pc = mi->code_address - compilation_unit.code_address;
+      uint64_t high_pc = low_pc + mi->code_size;
+      if (is64bit) {
+        debug_ranges.PushUint64(low_pc);
+        debug_ranges.PushUint64(high_pc);
+      } else {
+        debug_ranges.PushUint32(low_pc);
+        debug_ranges.PushUint32(high_pc);
+      }
+    }
+    if (is64bit) {
+      debug_ranges.PushUint64(0);  // End of list.
+      debug_ranges.PushUint64(0);
+    } else {
+      debug_ranges.PushUint32(0);  // End of list.
+      debug_ranges.PushUint32(0);
+    }
 
     const char* last_dex_class_desc = nullptr;
     for (auto mi : compilation_unit.methods) {
       DCHECK(mi->dex_file != nullptr);
       const DexFile* dex = mi->dex_file;
-      const DexFile::CodeItem* dex_code = mi->code_item;
+      CodeItemDebugInfoAccessor accessor(*dex, mi->code_item, mi->dex_method_index);
       const DexFile::MethodId& dex_method = dex->GetMethodId(mi->dex_method_index);
       const DexFile::ProtoId& dex_proto = dex->GetMethodPrototype(dex_method);
       const DexFile::TypeList* dex_params = dex->GetProtoParameters(dex_proto);
@@ -179,13 +205,13 @@ class ElfCompilationUnitWriter {
       // Decode dex register locations for all stack maps.
       // It might be expensive, so do it just once and reuse the result.
       std::vector<DexRegisterMap> dex_reg_maps;
-      if (mi->code_info != nullptr) {
+      if (accessor.HasCodeItem() && mi->code_info != nullptr) {
         const CodeInfo code_info(mi->code_info);
         CodeInfoEncoding encoding = code_info.ExtractEncoding();
         for (size_t s = 0; s < code_info.GetNumberOfStackMaps(encoding); ++s) {
           const StackMap& stack_map = code_info.GetStackMapAt(s, encoding);
           dex_reg_maps.push_back(code_info.GetDexRegisterMapOf(
-              stack_map, encoding, dex_code->registers_size_));
+              stack_map, encoding, accessor.RegistersSize()));
         }
       }
 
@@ -199,9 +225,9 @@ class ElfCompilationUnitWriter {
         WriteName("this");
         info_.WriteFlagPresent(DW_AT_artificial);
         WriteLazyType(dex_class_desc);
-        if (dex_code != nullptr) {
+        if (accessor.HasCodeItem()) {
           // Write the stack location of the parameter.
-          const uint32_t vreg = dex_code->registers_size_ - dex_code->ins_size_ + arg_reg;
+          const uint32_t vreg = accessor.RegistersSize() - accessor.InsSize() + arg_reg;
           const bool is64bitValue = false;
           WriteRegLocation(mi, dex_reg_maps, vreg, is64bitValue, compilation_unit.code_address);
         }
@@ -219,28 +245,27 @@ class ElfCompilationUnitWriter {
           const char* type_desc = dex->StringByTypeIdx(dex_params->GetTypeItem(i).type_idx_);
           WriteLazyType(type_desc);
           const bool is64bitValue = type_desc[0] == 'D' || type_desc[0] == 'J';
-          if (dex_code != nullptr) {
+          if (accessor.HasCodeItem()) {
             // Write the stack location of the parameter.
-            const uint32_t vreg = dex_code->registers_size_ - dex_code->ins_size_ + arg_reg;
+            const uint32_t vreg = accessor.RegistersSize() - accessor.InsSize() + arg_reg;
             WriteRegLocation(mi, dex_reg_maps, vreg, is64bitValue, compilation_unit.code_address);
           }
           arg_reg += is64bitValue ? 2 : 1;
           info_.EndTag();
         }
-        if (dex_code != nullptr) {
-          DCHECK_EQ(arg_reg, dex_code->ins_size_);
+        if (accessor.HasCodeItem()) {
+          DCHECK_EQ(arg_reg, accessor.InsSize());
         }
       }
 
       // Write local variables.
       LocalInfos local_infos;
-      if (dex->DecodeDebugLocalInfo(dex_code,
-                                    is_static,
-                                    mi->dex_method_index,
-                                    LocalInfoCallback,
-                                    &local_infos)) {
+      if (accessor.DecodeDebugLocalInfo(is_static,
+                                        mi->dex_method_index,
+                                        LocalInfoCallback,
+                                        &local_infos)) {
         for (const DexFile::LocalInfo& var : local_infos) {
-          if (var.reg_ < dex_code->registers_size_ - dex_code->ins_size_) {
+          if (var.reg_ < accessor.RegistersSize() - accessor.InsSize()) {
             info_.StartTag(DW_TAG_variable);
             WriteName(var.name_);
             WriteLazyType(var.descriptor_);
@@ -269,7 +294,7 @@ class ElfCompilationUnitWriter {
     CHECK_EQ(info_.Depth(), 0);
     std::vector<uint8_t> buffer;
     buffer.reserve(info_.data()->size() + KB);
-    const size_t offset = owner_->builder_->GetDebugInfo()->GetSize();
+    const size_t offset = owner_->builder_->GetDebugInfo()->GetPosition();
     // All compilation units share single table which is at the start of .debug_abbrev.
     const size_t debug_abbrev_offset = 0;
     WriteDebugInfoCU(debug_abbrev_offset, info_, offset, &buffer, &owner_->debug_info_patches_);
@@ -434,7 +459,7 @@ class ElfCompilationUnitWriter {
     CHECK_EQ(info_.Depth(), 0);
     std::vector<uint8_t> buffer;
     buffer.reserve(info_.data()->size() + KB);
-    const size_t offset = owner_->builder_->GetDebugInfo()->GetSize();
+    const size_t offset = owner_->builder_->GetDebugInfo()->GetPosition();
     // All compilation units share single table which is at the start of .debug_abbrev.
     const size_t debug_abbrev_offset = 0;
     WriteDebugInfoCU(debug_abbrev_offset, info_, offset, &buffer, &owner_->debug_info_patches_);

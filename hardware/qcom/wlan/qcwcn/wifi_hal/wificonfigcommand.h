@@ -60,14 +60,14 @@ public:
      * This function implements creation of WiFiConfigCommand specific Request
      * based on the QCA vendor specific request type.
      */
-    virtual int create();
+    virtual wifi_error create();
     /*
      * This function implements creation of WiFiConfigCommand specific Request
      * based on the generic NL request type.
      */
-    virtual int create_generic(u8 cmdId);
+    virtual wifi_error create_generic(u8 cmdId);
     virtual void waitForRsp(bool wait);
-    virtual int requestEvent();
+    virtual wifi_error requestEvent();
 };
 
 #ifdef __cplusplus

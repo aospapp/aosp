@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2016 Broadcom Corporation
+ *  Copyright 2003-2016 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@
 /*****************************************************************************
  *  Global data
  ****************************************************************************/
-#if (AVRC_METADATA_INCLUDED == TRUE)
 #define AVRC_ITEM_PLAYER_IS_VALID(_p_player)                 \
   ((_p_player)->name.p_str &&                                \
    ((_p_player)->major_type & AVRC_MJ_TYPE_INVALID) == 0 &&  \
@@ -955,7 +954,7 @@ static tAVRC_STS avrc_bld_get_folder_items_rsp(tAVRC_GET_ITEMS_RSP* p_rsp,
   /* min len required = item_type(1) + item len(2) + min item (14) = 17 */
   for (xx = 0;
        xx < p_rsp->item_count && len_left > AVRC_MIN_LEN_GET_FOLDER_ITEMS_RSP &&
-       multi_items_add_fail == false;
+       !multi_items_add_fail;
        xx++) {
     p_item_start = p_data;
     UINT8_TO_BE_STREAM(p_data, p_item_list[xx].item_type);
@@ -970,8 +969,7 @@ static tAVRC_STS avrc_bld_get_folder_items_rsp(tAVRC_GET_ITEMS_RSP* p_rsp,
         p_player = &p_item_list[xx].u.player;
         item_len = AVRC_FEATURE_MASK_SIZE + p_player->name.str_len + 12;
 
-        if ((len_left <= item_len) ||
-            AVRC_ITEM_PLAYER_IS_VALID(p_player) == false) {
+        if ((len_left <= item_len) || !AVRC_ITEM_PLAYER_IS_VALID(p_player)) {
           p_data = p_item_start;
         } else {
           UINT16_TO_BE_STREAM(p_data, p_player->player_id);
@@ -1058,7 +1056,7 @@ static tAVRC_STS avrc_bld_get_folder_items_rsp(tAVRC_GET_ITEMS_RSP* p_rsp,
       /* fill in variable item lenth */
       UINT16_TO_BE_STREAM(p_item_len, item_len);
     } else {
-      if (multi_items_add_fail == false) {
+      if (!multi_items_add_fail) {
         /* some item is not added properly - set an error status */
         if (len_left < item_len)
           status = AVRC_STS_INTERNAL_ERR;
@@ -1066,7 +1064,7 @@ static tAVRC_STS avrc_bld_get_folder_items_rsp(tAVRC_GET_ITEMS_RSP* p_rsp,
           status = AVRC_STS_BAD_PARAM;
       }
     }
-    if (multi_items_add_fail == false) {
+    if (!multi_items_add_fail) {
       len += item_len;
       len += 3; /* the item_type(1) and item_len(2) */
     }
@@ -1519,5 +1517,3 @@ tAVRC_STS AVRC_BldResponse(uint8_t handle, tAVRC_RESPONSE* p_rsp,
   AVRC_TRACE_API("%s returning %d", __func__, status);
   return status;
 }
-
-#endif /* (AVRC_METADATA_INCLUDED == true)*/

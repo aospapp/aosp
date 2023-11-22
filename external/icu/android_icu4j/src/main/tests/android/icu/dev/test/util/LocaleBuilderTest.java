@@ -12,15 +12,20 @@ package android.icu.dev.test.util;
 import java.util.Arrays;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.util.IllformedLocaleException;
 import android.icu.util.ULocale;
 import android.icu.util.ULocale.Builder;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Test cases for ULocale.LocaleBuilder
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class LocaleBuilderTest extends TestFmwk {
     @Test
     public void TestLocaleBuilder() {
@@ -179,12 +184,12 @@ public class LocaleBuilderTest extends TestFmwk {
             if (expected != null) {
                 ULocale loc = bld.build();
                 if (!expected[1].equals(loc.toString())) {
-                    errln("FAIL: Wrong locale ID - " + loc + 
+                    errln("FAIL: Wrong locale ID - " + loc +
                             " for test case: " + Arrays.toString(TESTCASE[tidx]));
                 }
                 String langtag = loc.toLanguageTag();
                 if (!expected[0].equals(langtag)) {
-                    errln("FAIL: Wrong language tag - " + langtag + 
+                    errln("FAIL: Wrong language tag - " + langtag +
                             " for test case: " + Arrays.toString(TESTCASE[tidx]));
                 }
                 ULocale loc1 = ULocale.forLanguageTag(langtag);
@@ -210,7 +215,7 @@ public class LocaleBuilderTest extends TestFmwk {
             ULocale loc2 = bld.build();
             if (!loc.equals(loc2)) {
                 errln("FAIL: Locale loc2 " + loc2 + " was returned by the builder.  Expected " + loc);
-            }            
+            }
         } catch (IllformedLocaleException e) {
             errln("FAIL: IllformedLocaleException: " + e.getMessage());
         }

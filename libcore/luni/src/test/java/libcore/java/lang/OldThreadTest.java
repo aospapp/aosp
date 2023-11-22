@@ -46,6 +46,7 @@ public class OldThreadTest extends junit.framework.TestCase {
         }
     }
 
+    @SuppressWarnings("DeadThread")
     public void test_ConstructorLjava_lang_ThreadGroupLjava_lang_RunnableLjava_lang_StringL$L() {
         ThreadGroup tg = new ThreadGroup("Test Group2");
         st = new Thread(tg, new SimpleThread(1), "SimpleThread3", 1);

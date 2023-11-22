@@ -16,7 +16,31 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.permission.cts">
+    package="android.permission.cts" android:targetSandboxVersion="2">
+
+    <!-- for android.permission.cts.PermissionGroupChange -->
+    <permission android:name="android.permission.cts.B"
+                android:protectionLevel="dangerous"
+                android:label="@string/perm_b"
+                android:permissionGroup="android.permission.cts.groupB"
+                android:description="@string/perm_b" />
+
+    <!-- for android.permission.cts.PermissionGroupChange -->
+    <permission android:name="android.permission.cts.C"
+                android:protectionLevel="dangerous"
+                android:label="@string/perm_c"
+                android:permissionGroup="android.permission.cts.groupC"
+                android:description="@string/perm_c" />
+
+    <!-- for android.permission.cts.PermissionGroupChange -->
+    <permission-group android:description="@string/perm_group_b"
+                      android:label="@string/perm_group_b"
+                      android:name="android.permission.cts.groupB" />
+
+    <!-- for android.permission.cts.PermissionGroupChange -->
+    <permission-group android:description="@string/perm_group_c"
+                      android:label="@string/perm_group_c"
+                      android:name="android.permission.cts.groupC" />
 
     <uses-permission android:name="android.permission.INJECT_EVENTS" />
     <application>

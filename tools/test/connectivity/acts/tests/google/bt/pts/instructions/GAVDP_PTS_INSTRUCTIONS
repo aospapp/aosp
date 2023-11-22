@@ -17,24 +17,24 @@ GAVDP
 
 TC_ACP_APP_CON_BV_01_C
   bta_start_pairing_helper
-  bta_set_scan_mode SCAN_MODE_CONNECTABLE_DISCOVERABLE
+  bta_set_scan_mode connectable_discoverable
   bta_tts_speak
 
 TC_ACP_APP_TRC_BV_02_C
   bta_start_pairing_helper
-  bta_set_scan_mode SCAN_MODE_CONNECTABLE_DISCOVERABLE
+  bta_set_scan_mode connectable_discoverable
   bta_connect_profiles
   bta_tts_speak
 
 TC_INT_APP_CONN_BV_01_C
   bta_start_pairing_helper
-  bta_set_scan_mode SCAN_MODE_CONNECTABLE_DISCOVERABLE
+  bta_set_scan_mode connectable_discoverable
   bta_connect_profiles
   bta_tts_speak
 
 TC_INT_APP_TRC_BV_02_C
   bta_start_pairing_helper
-  bta_set_scan_mode SCAN_MODE_CONNECTABLE_DISCOVERABLE
+  bta_set_scan_mode connectable_discoverable
   bta_connect_profiles
   bta_tts_speak
   bta_tts_speak

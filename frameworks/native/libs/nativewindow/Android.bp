@@ -30,13 +30,24 @@ ndk_library {
 
 cc_library {
     name: "libnativewindow",
-    export_include_dirs: ["include"],
+    export_include_dirs: [
+        "include",
+        "include-private",
+    ],
 
     clang: true,
+
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-function",
+    ],
 
     cppflags: [
         "-std=c++1z"
     ],
+
+    version_script: "libnativewindow.map.txt",
 
     srcs: [
         "AHardwareBuffer.cpp",
@@ -49,7 +60,7 @@ cc_library {
         "liblog",
         "libutils",
         "libui",
-        "android.hardware.graphics.common@1.0",
+        "android.hardware.graphics.common@1.1",
     ],
 
     static_libs: [

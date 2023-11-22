@@ -1,7 +1,7 @@
 /** @file
   The header file for Tcg2 SMM driver.
   
-Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2015 - 2017, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials 
 are licensed and made available under the terms and conditions of the BSD License 
 which accompanies this distribution.  The full text of the license may be found at 
@@ -35,8 +35,12 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/DxeServicesLib.h>
 #include <Library/TpmMeasurementLib.h>
-#include <Library/Tpm2DeviceLib.h>
+#include <Library/Tpm2CommandLib.h>
 #include <Library/Tcg2PhysicalPresenceLib.h>
+#include <Library/IoLib.h>
+#include <Library/PrintLib.h>
+
+#include <IndustryStandard/TpmPtp.h>
 
 #pragma pack(1)
 typedef struct {
@@ -59,6 +63,7 @@ typedef struct {
 typedef struct {
   PHYSICAL_PRESENCE_NVS  PhysicalPresence;
   MEMORY_CLEAR_NVS       MemoryClear;
+  UINT32                 PPRequestUserConfirm;
 } TCG_NVS;
 
 typedef struct {
@@ -83,5 +88,18 @@ typedef struct {
 //
 #define MOR_REQUEST_SUCCESS                                        0
 #define MOR_REQUEST_GENERAL_FAILURE                                1
+
+//
+// Physical Presence Interface Version supported by Platform
+//
+#define PHYSICAL_PRESENCE_VERSION_TAG                              "$PV"
+#define PHYSICAL_PRESENCE_VERSION_SIZE                             4
+
+//
+// PNP _HID for TPM2 device
+//
+#define TPM_HID_TAG                                                "NNNN0000"
+#define TPM_HID_PNP_SIZE                                           8
+#define TPM_HID_ACPI_SIZE                                          9
 
 #endif  // __TCG_SMM_H__

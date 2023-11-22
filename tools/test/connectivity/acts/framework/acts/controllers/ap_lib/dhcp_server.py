@@ -12,18 +12,9 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import collections
-import itertools
-import os
 import time
-
-from acts.controllers.ap_lib import dhcp_config
 from acts.controllers.utils_lib.commands import shell
 
-# The router wan interface will be hard set since this the default for the
-# whirlwind.  In the future it maybe desireable to see which interface has a
-# public address and assign it dynamically.
-_ROUTER_WAN_INTERFACE = 'eth2'
 _ROUTER_DNS = '8.8.8.8, 4.4.4.4'
 
 
@@ -38,7 +29,7 @@ class NoInterfaceError(Exception):
 class DhcpServer(object):
     """Manages the dhcp server program.
 
-    Only one of these can run in an enviroment at a time.
+    Only one of these can run in an environment at a time.
 
     Attributes:
         config: The dhcp server configuration that is being used.
@@ -81,21 +72,13 @@ class DhcpServer(object):
         if self.is_alive():
             self.stop()
 
-        # The following three commands are needed to enable bridging between
-        # the WAN and LAN/WLAN ports.  This means anyone connecting to the
-        # WLAN/LAN ports will be able to access the internet if the WAN port
-        # is connected to the internet.
-        self._runner.run('iptables -t nat -F')
-        self._runner.run('iptables -t nat -A POSTROUTING -o %s -j MASQUERADE' %
-                         _ROUTER_WAN_INTERFACE)
-        self._runner.run('echo 1 > /proc/sys/net/ipv4/ip_forward')
-
         self._write_configs(config)
         self._shell.delete_file(self._log_file)
         self._shell.touch_file(self._lease_file)
 
-        dhcpd_command = '%s -cf "%s" -lf %s -f""' % (
-            self.PROGRAM_FILE, self._config_file, self._lease_file)
+        dhcpd_command = '%s -cf "%s" -lf %s -f""' % (self.PROGRAM_FILE,
+                                                     self._config_file,
+                                                     self._lease_file)
         base_command = 'cd "%s"; %s' % (self._working_dir, dhcpd_command)
         job_str = '%s > "%s" 2>&1' % (base_command, self._log_file)
         self._runner.run_async(job_str)
@@ -114,7 +97,7 @@ class DhcpServer(object):
     def is_alive(self):
         """
         Returns:
-            True if the deamon is running.
+            True if the daemon is running.
         """
         return self._shell.is_alive(self._identifier)
 

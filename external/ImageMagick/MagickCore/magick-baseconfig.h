@@ -578,9 +578,7 @@
 #endif
 
 /* Define to 1 if you have the `readdir_r' function. */
-#ifndef MAGICKCORE_HAVE_READDIR_R
-#define MAGICKCORE_HAVE_READDIR_R 1
-#endif
+/* #undef MAGICKCORE_HAVE_READDIR_R */
 
 /* Define to 1 if you have the `readlink' function. */
 #ifndef MAGICKCORE_HAVE_READLINK

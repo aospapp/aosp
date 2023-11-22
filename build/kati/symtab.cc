@@ -30,9 +30,7 @@
 #include "var.h"
 
 struct SymbolData {
-  SymbolData()
-      : gv(kUndefined) {
-  }
+  SymbolData() : gv(kUndefined) {}
 
   Var* gv;
 };
@@ -43,8 +41,13 @@ static vector<SymbolData> g_symbol_data;
 Symbol kEmptySym = Symbol(Symbol::IsUninitialized());
 Symbol kShellSym = Symbol(Symbol::IsUninitialized());
 
-Symbol::Symbol(int v)
-    : v_(v) {
+Symbol::Symbol(int v) : v_(v) {}
+
+Var* Symbol::PeekGlobalVar() const {
+  if (static_cast<size_t>(v_) >= g_symbol_data.size()) {
+    return kUndefined;
+  }
+  return g_symbol_data[v_].gv;
 }
 
 Var* Symbol::GetGlobalVar() const {
@@ -73,13 +76,12 @@ void Symbol::SetGlobalVar(Var* v, bool is_override, bool* readonly) const {
   } else if (readonly != nullptr) {
     *readonly = false;
   }
-  if (!is_override &&
-      (orig->Origin() == VarOrigin::OVERRIDE ||
-       orig->Origin() == VarOrigin::ENVIRONMENT_OVERRIDE)) {
+  if (!is_override && (orig->Origin() == VarOrigin::OVERRIDE ||
+                       orig->Origin() == VarOrigin::ENVIRONMENT_OVERRIDE)) {
     return;
   }
   if (orig->Origin() == VarOrigin::COMMAND_LINE &&
-         v->Origin() == VarOrigin::FILE) {
+      v->Origin() == VarOrigin::FILE) {
     return;
   }
   if (orig->Origin() == VarOrigin::AUTOMATIC) {

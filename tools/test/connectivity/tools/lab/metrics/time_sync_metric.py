@@ -28,7 +28,7 @@ class TimeSyncMetric(Metric):
 
         Returns:
             A dict with the following fields:
-              is_synchronized: True if synchronized, fales otherwise
+              is_synchronized: True if synchronized
 
         """
         # Run shell command

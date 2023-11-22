@@ -14,18 +14,17 @@
 */
 package com.android.bluetooth.map;
 
-import java.io.IOException;
-
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import com.android.bluetooth.DeviceWorkArounds;
+import com.android.bluetooth.map.BluetoothMapUtils.TYPE;
 
 import org.xmlpull.v1.XmlSerializer;
 
-import com.android.bluetooth.map.BluetoothMapUtils.TYPE;
-import com.android.bluetooth.util.Interop;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class BluetoothMapMessageListingElement
-    implements Comparable<BluetoothMapMessageListingElement> {
+        implements Comparable<BluetoothMapMessageListingElement> {
 
     private static final String TAG = "BluetoothMapMessageListingElement";
     private static final boolean D = false;
@@ -204,11 +203,13 @@ public class BluetoothMapMessageListingElement
     }
 
     public String getRead() {
-        return (mRead?"yes":"no");
+        return (mRead ? "yes" : "no");
     }
+
     public boolean getReadBool() {
         return mRead;
     }
+
     public void setRead(boolean read, boolean reportRead) {
         this.mRead = read;
         this.mReportRead = reportRead;
@@ -231,7 +232,7 @@ public class BluetoothMapMessageListingElement
     }
 
     public void setThreadId(long threadId, TYPE type) {
-        if(threadId != -1) {
+        if (threadId != -1) {
             this.mThreadId = BluetoothMapUtils.getMapConvoHandle(threadId, type);
         }
     }
@@ -252,6 +253,7 @@ public class BluetoothMapMessageListingElement
         this.mFolderType = folderType;
     }
 
+    @Override
     public int compareTo(BluetoothMapMessageListingElement e) {
         if (this.mDateTime < e.mDateTime) {
             return 1;
@@ -265,70 +267,90 @@ public class BluetoothMapMessageListingElement
     /* Encode the MapMessageListingElement into the StringBuilder reference.
      * */
     public void encode(XmlSerializer xmlMsgElement, boolean includeThreadId)
-            throws IllegalArgumentException, IllegalStateException, IOException
-    {
-            // contruct the XML tag for a single msg in the msglisting
-            xmlMsgElement.startTag(null, "msg");
-            xmlMsgElement.attribute(null, "handle",
-                    BluetoothMapUtils.getMapHandle(mCpHandle, mType));
-            if(mSubject != null){
-                String stripped = BluetoothMapUtils.stripInvalidChars(mSubject);
+            throws IllegalArgumentException, IllegalStateException, IOException {
+        // contruct the XML tag for a single msg in the msglisting
+        xmlMsgElement.startTag(null, "msg");
+        xmlMsgElement.attribute(null, "handle", BluetoothMapUtils.getMapHandle(mCpHandle, mType));
+        if (mSubject != null) {
+            String stripped = BluetoothMapUtils.stripInvalidChars(mSubject);
 
-                if (Interop.matchByAddress(Interop.INTEROP_MAP_ASCIIONLY,
-                        BluetoothMapService.getRemoteDevice().getAddress())) {
-                    stripped = stripped.replaceAll("[\\P{ASCII}&\"><]", "");
-                    if (stripped.isEmpty()) stripped = "---";
+            if (DeviceWorkArounds.addressStartsWith(BluetoothMapService
+                    .getRemoteDevice().getAddress(), DeviceWorkArounds
+                    .MERCEDES_BENZ_CARKIT)) {
+                stripped = stripped.replaceAll("[\\P{ASCII}&\"><]", "");
+                if (stripped.isEmpty()) {
+                    stripped = "---";
                 }
-
-                xmlMsgElement.attribute(null, "subject",
-                        stripped.substring(0,  stripped.length() < 256 ? stripped.length() : 256));
             }
 
-            if(mDateTime != 0)
-                xmlMsgElement.attribute(null, "datetime", this.getDateTimeString());
-            if(mSenderName != null)
-                xmlMsgElement.attribute(null, "sender_name",
-                        BluetoothMapUtils.stripInvalidChars(mSenderName));
-            if(mSenderAddressing != null)
-                xmlMsgElement.attribute(null, "sender_addressing", mSenderAddressing);
-            if(mReplytoAddressing != null)
-                xmlMsgElement.attribute(null, "replyto_addressing",mReplytoAddressing);
-            if(mRecipientName != null)
-                xmlMsgElement.attribute(null, "recipient_name",
-                        BluetoothMapUtils.stripInvalidChars(mRecipientName));
-            if(mRecipientAddressing != null)
-                xmlMsgElement.attribute(null, "recipient_addressing", mRecipientAddressing);
+            xmlMsgElement.attribute(null, "subject",
+                    stripped.substring(0, stripped.length() < 256 ? stripped.length() : 256));
+        }
+
+        if (mDateTime != 0) {
+            xmlMsgElement.attribute(null, "datetime", this.getDateTimeString());
+        }
+        if (mSenderName != null) {
+            xmlMsgElement.attribute(null, "sender_name",
+                    BluetoothMapUtils.stripInvalidChars(mSenderName));
+        }
+        if (mSenderAddressing != null) {
+            xmlMsgElement.attribute(null, "sender_addressing", mSenderAddressing);
+        }
+        if (mReplytoAddressing != null) {
+            xmlMsgElement.attribute(null, "replyto_addressing", mReplytoAddressing);
+        }
+        if (mRecipientName != null) {
+            xmlMsgElement.attribute(null, "recipient_name",
+                    BluetoothMapUtils.stripInvalidChars(mRecipientName));
+        }
+        if (mRecipientAddressing != null) {
+            xmlMsgElement.attribute(null, "recipient_addressing", mRecipientAddressing);
+        }
             /* Avoid NPE for possible "null" value of mType */
-            if(mMsgTypeAppParamSet == true && mType != null)
-                xmlMsgElement.attribute(null, "type", mType.name());
-            if(mSize != -1)
-                xmlMsgElement.attribute(null, "size", Integer.toString(mSize));
-            if(mText != null)
-                xmlMsgElement.attribute(null, "text", mText);
-            if(mReceptionStatus != null)
-                xmlMsgElement.attribute(null, "reception_status", mReceptionStatus);
-            if(mDeliveryStatus != null)
-                xmlMsgElement.attribute(null, "delivery_status", mDeliveryStatus);
-            if(mAttachmentSize != -1)
-                xmlMsgElement.attribute(null, "attachment_size",
-                        Integer.toString(mAttachmentSize));
-            if(mAttachmentMimeTypes != null)
-                xmlMsgElement.attribute(null, "attachment_mime_types", mAttachmentMimeTypes);
-            if(mPriority != null)
-                xmlMsgElement.attribute(null, "priority", mPriority);
-            if(mReportRead)
-                xmlMsgElement.attribute(null, "read", getRead());
-            if(mSent != null)
-                xmlMsgElement.attribute(null, "sent", mSent);
-            if(mProtect != null)
-                xmlMsgElement.attribute(null, "protected", mProtect);
-            if(mThreadId != null && includeThreadId == true)
-                xmlMsgElement.attribute(null, "conversation_id", mThreadId);
-            if(mThreadName != null && includeThreadId == true)
-                xmlMsgElement.attribute(null, "conversation_name", mThreadName);
-            if(mFolderType != null )
-                xmlMsgElement.attribute(null, "folder_type", mFolderType);
-            xmlMsgElement.endTag(null, "msg");
+        if (mMsgTypeAppParamSet && mType != null) {
+            xmlMsgElement.attribute(null, "type", mType.name());
+        }
+        if (mSize != -1) {
+            xmlMsgElement.attribute(null, "size", Integer.toString(mSize));
+        }
+        if (mText != null) {
+            xmlMsgElement.attribute(null, "text", mText);
+        }
+        if (mReceptionStatus != null) {
+            xmlMsgElement.attribute(null, "reception_status", mReceptionStatus);
+        }
+        if (mDeliveryStatus != null) {
+            xmlMsgElement.attribute(null, "delivery_status", mDeliveryStatus);
+        }
+        if (mAttachmentSize != -1) {
+            xmlMsgElement.attribute(null, "attachment_size", Integer.toString(mAttachmentSize));
+        }
+        if (mAttachmentMimeTypes != null) {
+            xmlMsgElement.attribute(null, "attachment_mime_types", mAttachmentMimeTypes);
+        }
+        if (mPriority != null) {
+            xmlMsgElement.attribute(null, "priority", mPriority);
+        }
+        if (mReportRead) {
+            xmlMsgElement.attribute(null, "read", getRead());
+        }
+        if (mSent != null) {
+            xmlMsgElement.attribute(null, "sent", mSent);
+        }
+        if (mProtect != null) {
+            xmlMsgElement.attribute(null, "protected", mProtect);
+        }
+        if (mThreadId != null && includeThreadId) {
+            xmlMsgElement.attribute(null, "conversation_id", mThreadId);
+        }
+        if (mThreadName != null && includeThreadId) {
+            xmlMsgElement.attribute(null, "conversation_name", mThreadName);
+        }
+        if (mFolderType != null) {
+            xmlMsgElement.attribute(null, "folder_type", mFolderType);
+        }
+        xmlMsgElement.endTag(null, "msg");
 
     }
 }

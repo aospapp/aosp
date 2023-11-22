@@ -20,61 +20,40 @@ include art/build/Android.common_test.mk
 # Dependencies for actually running a run-test.
 TEST_ART_RUN_TEST_DEPENDENCIES := \
   $(HOST_OUT_EXECUTABLES)/dx \
+  $(HOST_OUT_EXECUTABLES)/d8 \
+  $(HOST_OUT_EXECUTABLES)/hiddenapi \
   $(HOST_OUT_EXECUTABLES)/jasmin \
   $(HOST_OUT_EXECUTABLES)/smali \
   $(HOST_OUT_EXECUTABLES)/dexmerger \
-  $(JACK)
+  $(HOST_OUT_JAVA_LIBRARIES)/desugar.jar
 
-# Convert's a rule name to the form used in variables, e.g. no-relocate to NO_RELOCATE
-define name-to-var
-$(shell echo $(1) | tr '[:lower:]' '[:upper:]' | tr '-' '_')
-endef  # name-to-var
+# Add d8 dependency, if enabled.
+ifeq ($(USE_D8),true)
+TEST_ART_RUN_TEST_DEPENDENCIES += \
+  $(HOST_OUT_EXECUTABLES)/d8-compat-dx
+endif
 
 # We need dex2oat and dalvikvm on the target as well as the core images (all images as we sync
 # only once).
 TEST_ART_TARGET_SYNC_DEPS += $(ART_TARGET_EXECUTABLES) $(TARGET_CORE_IMG_OUTS)
 
 # Also need libartagent.
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_ARCH)_libartagent)
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_ARCH)_libartagentd)
-ifdef TARGET_2ND_ARCH
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_2ND_ARCH)_libartagent)
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_2ND_ARCH)_libartagentd)
-endif
+TEST_ART_TARGET_SYNC_DEPS += libartagent-target libartagentd-target
 
 # Also need libtiagent.
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_ARCH)_libtiagent)
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_ARCH)_libtiagentd)
-ifdef TARGET_2ND_ARCH
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_2ND_ARCH)_libtiagent)
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_2ND_ARCH)_libtiagentd)
-endif
+TEST_ART_TARGET_SYNC_DEPS += libtiagent-target libtiagentd-target
 
 # Also need libtistress.
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_ARCH)_libtistress)
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_ARCH)_libtistressd)
-ifdef TARGET_2ND_ARCH
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_2ND_ARCH)_libtistress)
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_2ND_ARCH)_libtistressd)
-endif
+TEST_ART_TARGET_SYNC_DEPS += libtistress-target libtistressd-target
 
 # Also need libarttest.
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_ARCH)_libarttest)
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_ARCH)_libarttestd)
-ifdef TARGET_2ND_ARCH
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_2ND_ARCH)_libarttest)
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_2ND_ARCH)_libarttestd)
-endif
+TEST_ART_TARGET_SYNC_DEPS += libarttest-target libarttestd-target
 
 # Also need libnativebridgetest.
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_ARCH)_libnativebridgetest)
-ifdef TARGET_2ND_ARCH
-TEST_ART_TARGET_SYNC_DEPS += $(OUT_DIR)/$(ART_TEST_LIST_device_$(TARGET_2ND_ARCH)_libnativebridgetest)
-endif
+TEST_ART_TARGET_SYNC_DEPS += libnativebridgetest-target
 
 # Also need libopenjdkjvmti.
-TEST_ART_TARGET_SYNC_DEPS += libopenjdkjvmti
-TEST_ART_TARGET_SYNC_DEPS += libopenjdkjvmtid
+TEST_ART_TARGET_SYNC_DEPS += libopenjdkjvmti-target libopenjdkjvmtid-target
 
 TEST_ART_TARGET_SYNC_DEPS += $(TARGET_OUT_JAVA_LIBRARIES)/core-libart-testdex.jar
 TEST_ART_TARGET_SYNC_DEPS += $(TARGET_OUT_JAVA_LIBRARIES)/core-oj-testdex.jar
@@ -124,18 +103,8 @@ endif
 # Host executables.
 host_prereq_rules := $(ART_TEST_HOST_RUN_TEST_DEPENDENCIES)
 
-ifeq ($(ANDROID_COMPILE_WITH_JACK),true)
-# Classpath for Jack compilation for host.
-host_prereq_rules += $(HOST_JACK_CLASSPATH_DEPENDENCIES)
-endif
-
-# Required for dx, jasmin, smali, dexmerger, jack.
+# Required for dx, jasmin, smali, dexmerger.
 host_prereq_rules += $(TEST_ART_RUN_TEST_DEPENDENCIES)
-
-ifeq ($(ANDROID_COMPILE_WITH_JACK),true)
-# Classpath for Jack compilation for target.
-target_prereq_rules := $(TARGET_JACK_CLASSPATH_DEPENDENCIES)
-endif
 
 # Sync test files to the target, depends upon all things that must be pushed
 #to the target.
@@ -151,13 +120,13 @@ define core-image-dependencies
     endif
   endif
   ifeq ($(2),no-image)
-    $(1)_prereq_rules += $$($(call name-to-var,$(1))_CORE_IMAGE_$$(image_suffix)_$(4))
+    $(1)_prereq_rules += $$($(call to-upper,$(1))_CORE_IMAGE_$$(image_suffix)_$(4))
   else
     ifeq ($(2),picimage)
-      $(1)_prereq_rules += $$($(call name-to-var,$(1))_CORE_IMAGE_$$(image_suffix)_$(4))
+      $(1)_prereq_rules += $$($(call to-upper,$(1))_CORE_IMAGE_$$(image_suffix)_$(4))
     else
       ifeq ($(2),multipicimage)
-        $(1)_prereq_rules += $$($(call name-to-var,$(1))_CORE_IMAGE_$$(image_suffix)_multi_$(4))
+        $(1)_prereq_rules += $$($(call to-upper,$(1))_CORE_IMAGE_$$(image_suffix)_multi_$(4))
       endif
     endif
   endif
@@ -201,7 +170,6 @@ test-art-run-test : test-art-host-run-test test-art-target-run-test
 host_prereq_rules :=
 target_prereq_rules :=
 core-image-dependencies :=
-name-to-var :=
 define-test-art-host-or-target-run-test-group :=
 TARGET_TYPES :=
 COMPILER_TYPES :=

@@ -56,7 +56,7 @@ class display_SuspendStress(test.test):
                 chameleon_board, display_facade)
         for chameleon_port in finder.iterate_all_ports():
             screen_test = chameleon_screen_test.ChameleonScreenTest(
-                    chameleon_port, display_facade, self.outputdir)
+                    host, chameleon_port, display_facade, self.outputdir)
 
             logging.info('Use EDID: %s', test_name)
             with chameleon_port.use_edid_file(edid_path):

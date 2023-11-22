@@ -17,11 +17,17 @@
 // For the host only
 // =====================================================
 
+/*
+// This module is disabled while switching the name of libLLVM for the target
+// (and host renderscript tools) to libLLVM_android.so.  This tool need not be
+// built in Android build system as we move to the toolchain branch.  Leaving
+// the file here for posterity.
 cc_library_host_shared {
     name: "LLVMgold",
     defaults: ["llvm-defaults"],
     srcs: ["gold-plugin.cpp"],
     shared_libs: ["libLLVM"],
-    include_dirs: ["toolchain/binutils/binutils-2.25/include"],
+    include_dirs: ["toolchain/binutils/binutils-2.27/include"],
     compile_multilib: "first",
 }
+*/

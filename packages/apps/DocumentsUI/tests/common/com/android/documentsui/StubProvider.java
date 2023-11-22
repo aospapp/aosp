@@ -74,7 +74,7 @@ public class StubProvider extends DocumentsProvider {
     private static final String TAG = "StubProvider";
 
     private static final String STORAGE_SIZE_KEY = "documentsui.stubprovider.size";
-    private static int DEFAULT_ROOT_SIZE = 1024 * 1024 * 100; // 100 MB.
+    private static int DEFAULT_ROOT_SIZE = 1024 * 1024 * 500; // 500 MB.
 
     private static final String[] DEFAULT_ROOT_PROJECTION = new String[] {
             Root.COLUMN_ROOT_ID, Root.COLUMN_FLAGS, Root.COLUMN_TITLE, Root.COLUMN_DOCUMENT_ID,
@@ -357,6 +357,10 @@ public class StubProvider extends DocumentsProvider {
         if ("w".equals(mode)) {
             return startWrite(document);
         }
+        if ("wa".equals(mode)) {
+            return startWrite(document, true);
+        }
+
 
         throw new FileNotFoundException();
     }
@@ -423,6 +427,11 @@ public class StubProvider extends DocumentsProvider {
 
     private ParcelFileDescriptor startWrite(final StubDocument document)
             throws FileNotFoundException {
+        return startWrite(document, false);
+    }
+
+    private ParcelFileDescriptor startWrite(final StubDocument document, boolean append)
+            throws FileNotFoundException {
         ParcelFileDescriptor[] pipe;
         try {
             pipe = ParcelFileDescriptor.createReliablePipe();
@@ -438,7 +447,7 @@ public class StubProvider extends DocumentsProvider {
             try {
                 Log.d(TAG, "Opening write stream on file " + document.documentId);
                 inputStream = new ParcelFileDescriptor.AutoCloseInputStream(readPipe);
-                outputStream = new FileOutputStream(document.file);
+                outputStream = new FileOutputStream(document.file, append);
                 byte[] buffer = new byte[32 * 1024];
                 int bytesToRead;
                 int bytesRead = 0;

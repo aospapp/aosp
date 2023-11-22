@@ -12,15 +12,20 @@ package android.icu.dev.test.stringprep;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.StringPrep;
 import android.icu.text.StringPrepParseException;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author ram
  *
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class TestStringPrep extends TestFmwk {
     /*
        There are several special identifiers ("who") which need to be
@@ -52,13 +57,13 @@ public class TestStringPrep extends TestFmwk {
     */
     private String[] mixed_prep_data ={
         "OWNER@",
-        "GROUP@",        
-        "EVERYONE@",     
-        "INTERACTIVE@",  
-        "NETWORK@",      
-        "DIALUP@",       
-        "BATCH@",        
-        "ANONYMOUS@",    
+        "GROUP@",
+        "EVERYONE@",
+        "INTERACTIVE@",
+        "NETWORK@",
+        "DIALUP@",
+        "BATCH@",
+        "ANONYMOUS@",
         "AUTHENTICATED@",
         "\u0930\u094D\u092E\u094D\u0915\u094D\u0937\u0947\u0924\u094D@slip129-37-118-146.nc.us.ibm.net",
         "\u0936\u094d\u0930\u0940\u092e\u0926\u094d@saratoga.pe.utexas.edu",
@@ -115,7 +120,7 @@ public class TestStringPrep extends TestFmwk {
             }catch(Exception e){
                 errln("mixed_prepare for string: " + mixed_prep_data[i] +" failed with " + e.toString());
             }
-        } 
+        }
         /* test the error condition */
         {
             String src = "OWNER@oss.software.ibm.com";
@@ -148,14 +153,14 @@ public class TestStringPrep extends TestFmwk {
                 if(!expected.equals(e)){
                     errln("Did not get the expected exception");
                 }
-            } 
+            }
 
         }
     }
 
     @Test
     public void TestCSPrep(){
-        
+
         // Checking for bidi is turned off
         String src = "\uC138\uACC4\uC758\uBAA8\uB4E0\uC0AC\uB78C\uB4E4\uC774\u0644\u064A\u0647\uD55C\uAD6D\uC5B4\uB97C\uC774\uD574\uD55C\uB2E4\uBA74";
         try{
@@ -163,7 +168,7 @@ public class TestStringPrep extends TestFmwk {
         }catch(Exception e){
             errln("Got unexpected exception: " + e.toString());
         }
-        
+
         // normalization is turned off
         try{
             src = "www.\u00E0\u00B3\u00AF.com";
@@ -176,7 +181,7 @@ public class TestStringPrep extends TestFmwk {
         }catch(Exception e){
             errln("Got unexpected exception: " + e.toString());
         }
-        
+
         // test case insensitive string
         try{
             src = "THISISATEST";
@@ -202,14 +207,14 @@ public class TestStringPrep extends TestFmwk {
             errln("Got unexpected exception: " + e.toString());
         }
     }
-    
+
     @Test
     public void TestCoverage(){
         if (new StringPrepParseException("coverage", 0, "", 0,0) == null){
             errln("Construct StringPrepParseException(String, int, String, int, int)");
         }
     }
-    
+
     /* Tests the method public static StringPrep getInstance(int profile) */
     @Test
     public void TestGetInstance(){
@@ -223,7 +228,7 @@ public class TestStringPrep extends TestFmwk {
             } catch(Exception e){
             }
         }
-        
+
         int[] max_profile_cases = {StringPrep.RFC4518_LDAP_CI+1, StringPrep.RFC4518_LDAP_CI+2, StringPrep.RFC4518_LDAP_CI+5, StringPrep.RFC4518_LDAP_CI+10};
         for(int i=0; i<max_profile_cases.length; i++){
             try{
@@ -233,7 +238,7 @@ public class TestStringPrep extends TestFmwk {
             } catch(Exception e){
             }
         }
-        
+
         // Tests when "if (instance == null)", "if (stream != null)", "if (instance != null)", and "if (ref != null)" is true
         int[] cases = {0, 1, StringPrep.RFC4518_LDAP_CI};
         for(int i=0; i<cases.length; i++){
@@ -245,7 +250,7 @@ public class TestStringPrep extends TestFmwk {
             }
         }
     }
-    
+
     /* Test the method public String prepare(String src, int options) */
     @Test
     public void TestPrepare() {
@@ -258,7 +263,7 @@ public class TestStringPrep extends TestFmwk {
             errln("StringPrep.prepare(String,int) was not suppose to return " + "an exception.");
         }
     }
-    
+
     /*
      * Tests the constructor public StringPrepParseException(String message, int error, String rules, int pos, int
      * lineNumber)
@@ -273,14 +278,14 @@ public class TestStringPrep extends TestFmwk {
             exceptions[i] = new StringPrepParseException(locales[i].toString(), i, rules, i, i);
         }
     }
-    
+
     /* Tests the method public boolean equals(Object other) for StringPrepParseException */
     @Test
     public void TestStringPrepParseExceptionEquals(){
         StringPrepParseException sppe = new StringPrepParseException("dummy",0,"dummy",0,0);
         StringPrepParseException sppe_clone = new StringPrepParseException("dummy",0,"dummy",0,0);
         StringPrepParseException sppe1 = new StringPrepParseException("dummy1",1,"dummy1",0,0);
-        
+
         // Tests when "if(!(other instanceof StringPrepParseException))" is true
         if(sppe.equals(0)){
             errln("StringPrepParseException.equals(Object) is suppose to return false when " +
@@ -294,7 +299,7 @@ public class TestStringPrep extends TestFmwk {
             errln("StringPrepParseException.equals(Object) is suppose to return false when " +
                     "passing string '0'");
         }
-        
+
         // Tests when "if(!(other instanceof StringPrepParseException))" is true
         if(!sppe.equals(sppe)){
             errln("StringPrepParseException.equals(Object) is suppose to return true when " +
@@ -309,7 +314,7 @@ public class TestStringPrep extends TestFmwk {
             "comparing to another object that isn't the same");
         }
     }
-    
+
     /* Tests the method public int getError() */
     @Test
     public void TestGetError(){
@@ -320,7 +325,7 @@ public class TestStringPrep extends TestFmwk {
             }
         }
     }
-    
+
     /* Tests the private void setPreContext(char[] str, int pos) */
     @Test
     public void TestSetPreContext(){

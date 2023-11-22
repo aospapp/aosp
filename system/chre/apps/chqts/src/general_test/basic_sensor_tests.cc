@@ -29,14 +29,15 @@ static void checkFloat(float value, float extremeLow, float extremeHigh) {
   }
 }
 
-static void checkTimestampDelta(uint32_t delta, uint32_t index) {
+static void checkTimestampDelta(uint32_t delta, size_t index) {
   if (index == 0) {
     // This delta is allowed (and expected, but not required) to be 0.
     return;
   }
   if (delta == 0) {
+    uint32_t indexInt = static_cast<uint32_t>(index);
     sendFatalFailureToHost("timestampDelta was 0 for reading index ",
-                           &index);
+                           &indexInt);
   }
 }
 
@@ -98,7 +99,11 @@ void BasicProximityTest::confirmDataIsSane(const void* eventData) {
   auto data = static_cast<const chreSensorByteData*>(eventData);
   for (size_t i = 0; i < data->header.readingCount; i++) {
     checkTimestampDelta(data->readings[i].timestampDelta, i);
-    // 'invalid' is a sane reading.  But our padding should be zero'd.
+    // 'invalid' is a sane reading for v1.1 or lower.  But our padding should
+    // always be zero'd.
+    if (mApiVersion >= CHRE_API_VERSION_1_2 && data->readings[i].invalid) {
+      sendFatalFailureToHost("Invalid flag must not be set for proximity");
+    }
     if (data->readings[i].padding0 != 0) {
       uint32_t padding = data->readings[i].padding0;
       sendFatalFailureToHost("padding0 is data is non-zero:", &padding);

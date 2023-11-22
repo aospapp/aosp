@@ -1,7 +1,7 @@
 /*
  * TLS support code for CUPS using GNU TLS.
  *
- * Copyright 2007-2016 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
@@ -397,7 +397,7 @@ httpCredentialsAreValidForName(
         for (i = 0; i < count; i ++)
 	{
 	  rserial_size = sizeof(rserial);
-          if (!gnutls_x509_crl_get_crt_serial(tls_crl, i, rserial, &rserial_size, NULL) && cserial_size == rserial_size && !memcmp(cserial, rserial, rserial_size))
+          if (!gnutls_x509_crl_get_crt_serial(tls_crl, (unsigned)i, rserial, &rserial_size, NULL) && cserial_size == rserial_size && !memcmp(cserial, rserial, rserial_size))
 	  {
 	    result = 0;
 	    break;
@@ -1226,7 +1226,8 @@ _httpTLSSetCredentials(http_t *http)	/* I - Connection to server */
 void
 _httpTLSSetOptions(int options)		/* I - Options */
 {
-  tls_options = options;
+  if (!(options & _HTTP_TLS_SET_DEFAULT) || tls_options < 0)
+    tls_options = options;
 }
 
 
@@ -1242,7 +1243,7 @@ _httpTLSStart(http_t *http)		/* I - Connection to server */
   int			status;		/* Status of handshake */
   gnutls_certificate_credentials_t *credentials;
 					/* TLS credentials */
-  char			priority_string[1024];
+  char			priority_string[2048];
 					/* Priority string */
 
 
@@ -1508,15 +1509,21 @@ _httpTLSStart(http_t *http)		/* I - Connection to server */
   if (tls_options & _HTTP_TLS_DENY_TLS10)
     strlcat(priority_string, ":+VERS-TLS-ALL:-VERS-TLS1.0:-VERS-SSL3.0", sizeof(priority_string));
   else if (tls_options & _HTTP_TLS_ALLOW_SSL3)
-    strlcat(priority_string, ":+VERS-TLS-ALL", sizeof(priority_string));
+    strlcat(priority_string, ":+VERS-TLS-ALL:+VERS-SSL3.0", sizeof(priority_string));
+  else if (tls_options & _HTTP_TLS_ONLY_TLS10)
+    strlcat(priority_string, ":-VERS-TLS-ALL:-VERS-SSL3.0:+VERS-TLS1.0", sizeof(priority_string));
   else
     strlcat(priority_string, ":+VERS-TLS-ALL:-VERS-SSL3.0", sizeof(priority_string));
 
-  if (!(tls_options & _HTTP_TLS_ALLOW_RC4))
-    strlcat(priority_string, ":-ARCFOUR-128", sizeof(priority_string));
+  if (tls_options & _HTTP_TLS_ALLOW_RC4)
+    strlcat(priority_string, ":+ARCFOUR-128", sizeof(priority_string));
+  else
+    strlcat(priority_string, ":!ARCFOUR-128", sizeof(priority_string));
 
-  if (!(tls_options & _HTTP_TLS_ALLOW_DH))
-    strlcat(priority_string, ":!ANON-DH", sizeof(priority_string));
+  strlcat(priority_string, ":!ANON-DH", sizeof(priority_string));
+
+  if (tls_options & _HTTP_TLS_DENY_CBC)
+    strlcat(priority_string, ":!AES-128-CBC:!AES-256-CBC:!CAMELLIA-128-CBC:!CAMELLIA-256-CBC:!3DES-CBC", sizeof(priority_string));
 
 #ifdef HAVE_GNUTLS_PRIORITY_SET_DIRECT
   gnutls_priority_set_direct(http->tls, priority_string, NULL);

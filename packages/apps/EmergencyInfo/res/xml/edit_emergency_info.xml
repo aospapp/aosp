@@ -15,6 +15,7 @@
 -->
 <PreferenceScreen
         xmlns:android="http://schemas.android.com/apk/res/android"
+        android:key="edit_emergency_info_settings"
         android:title="@string/app_label">
     <PreferenceCategory
             android:key="medical_info"
@@ -22,7 +23,7 @@
         <com.android.emergency.preferences.NameAutoCompletePreference
             android:enabled="false"
             android:focusable="true"
-            android:icon="@drawable/ic_account_circle"
+            android:icon="@drawable/ic_account_circle_filled_24dp"
             android:inputType="textCapWords|textPersonName"
             android:key="name"
             android:selectable="false"
@@ -33,7 +34,7 @@
         <com.android.emergency.preferences.EmergencyEditTextPreference
             android:enabled="false"
             android:focusable="true"
-            android:icon="@drawable/ic_address_black_24dp"
+            android:icon="@drawable/ic_home_24dp"
             android:key="address"
             android:selectable="false"
             android:shouldDisableView="false"
@@ -43,7 +44,7 @@
             xmlns:app="http://schemas.android.com/apk/res/com.android.emergency"
             android:enabled="false"
             android:focusable="true"
-            android:icon="@drawable/ic_bloodtype_black_24dp"
+            android:icon="@drawable/ic_bloodtype_24dp"
             android:entries="@array/blood_type_entries"
             android:entryValues="@array/blood_type_values"
             android:key="blood_type"
@@ -73,7 +74,7 @@
         <com.android.emergency.preferences.EmergencyListPreference
             android:enabled="false"
             android:focusable="true"
-            android:icon="@drawable/ic_heart_black_24dp"
+            android:icon="@drawable/ic_favorite_border_24dp"
             android:entries="@array/organ_donor_entries"
             android:entryValues="@array/organ_donor_values"
             android:key="organ_donor"
@@ -84,7 +85,7 @@
         <com.android.emergency.preferences.EmergencyEditTextPreference
             android:enabled="false"
             android:focusable="true"
-            android:icon="@drawable/ic_notes_black_24dp"
+            android:icon="@drawable/ic_note_alt_24dp"
             android:key="medical_conditions"
             android:selectable="false"
             android:shouldDisableView="false"
@@ -92,7 +93,7 @@
 
         <Preference
             android:key="edit_medical_info"
-            android:icon="@drawable/ic_mode_edit_googblue_24dp"
+            android:icon="@drawable/ic_mode_edit"
             android:title="@string/edit_medical_info">
             <intent android:action="android.emergency.EDIT_MEDICAL_INFO"/>
         </Preference>
@@ -108,5 +109,6 @@
 
     <com.android.settingslib.widget.FooterPreference
         android:title="@string/emergency_info_footer"
+        android:key="footer_preference"
         android:selectable="false"/>
 </PreferenceScreen>

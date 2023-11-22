@@ -17,7 +17,8 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.appwidget.cts">
+    package="android.appwidget.cts"
+    android:targetSandboxVersion="2">
 
   <application>
       <uses-library android:name="android.test.runner"/>
@@ -36,6 +37,30 @@
           </intent-filter>
           <meta-data android:name="android.appwidget.provider"
               android:resource="@xml/second_appwidget_info" />
+      </receiver>
+
+      <receiver android:name="android.appwidget.cts.provider.AppWidgetProviderWithFeatures$Provider1" >
+          <intent-filter>
+              <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+          </intent-filter>
+          <meta-data android:name="android.appwidget.provider"
+              android:resource="@xml/appwidget_info_with_feature1" />
+      </receiver>
+
+      <receiver android:name="android.appwidget.cts.provider.AppWidgetProviderWithFeatures$Provider2" >
+          <intent-filter>
+              <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+          </intent-filter>
+          <meta-data android:name="android.appwidget.provider"
+              android:resource="@xml/appwidget_info_with_feature2" />
+      </receiver>
+
+      <receiver android:name="android.appwidget.cts.provider.AppWidgetProviderWithFeatures$Provider3" >
+          <intent-filter>
+              <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+          </intent-filter>
+          <meta-data android:name="android.appwidget.provider"
+              android:resource="@xml/appwidget_info_with_feature3" />
       </receiver>
 
       <service android:name="android.appwidget.cts.service.MyAppWidgetService"

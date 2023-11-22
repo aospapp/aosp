@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2012 Broadcom Corporation
+ *  Copyright 2003-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
  *
  ******************************************************************************/
 
+#include <base/bind.h>
 #include <base/logging.h>
 #include <string.h>
 
@@ -47,7 +48,9 @@ static void bta_dm_pm_btm_cback(const RawAddress& bd_addr,
 static bool bta_dm_pm_park(const RawAddress& peer_addr);
 static bool bta_dm_pm_sniff(tBTA_DM_PEER_DEVICE* p_peer_dev, uint8_t index);
 static bool bta_dm_pm_is_sco_active();
+#if (BTM_SSR_INCLUDED == TRUE)
 static int bta_dm_get_sco_index();
+#endif
 static void bta_dm_pm_hid_check(bool bScoActive);
 static void bta_dm_pm_set_sniff_policy(tBTA_DM_PEER_DEVICE* p_dev,
                                        bool bDisable);
@@ -83,7 +86,7 @@ void bta_dm_init_pm(void) {
 
   /* if there are no power manger entries, so not register */
   if (p_bta_dm_pm_cfg[0].app_id != 0) {
-    bta_sys_pm_register((tBTA_SYS_CONN_CBACK*)bta_dm_pm_cback);
+    bta_sys_pm_register(bta_dm_pm_cback);
 
     BTM_PmRegister((BTM_PM_REG_SET | BTM_PM_REG_NOTIF), &bta_dm_cb.pm_id,
                    bta_dm_pm_btm_cback);
@@ -113,7 +116,7 @@ void bta_dm_disable_pm(void) {
    * Deregister the PM callback from the system handling to prevent
    * re-enabling the PM timers after this call if the callback is invoked.
    */
-  bta_sys_pm_register((tBTA_SYS_CONN_CBACK*)NULL);
+  bta_sys_pm_register(NULL);
 
   /* Need to stop all active timers. */
   for (int i = 0; i < BTA_DM_NUM_PM_TIMER; i++) {
@@ -331,13 +334,8 @@ static void bta_dm_pm_stop_timer_by_index(tBTA_PM_TIMER* p_timer,
 static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
                             uint8_t app_id, const RawAddress& peer_addr) {
   uint8_t i, j;
-  uint8_t* p = NULL;
   tBTA_DM_PEER_DEVICE* p_dev;
   tBTA_DM_PM_REQ pm_req = BTA_DM_PM_NEW_REQ;
-
-#if (BTM_SSR_INCLUDED == TRUE)
-  int index = BTA_DM_PM_SSR0;
-#endif
 
   APPL_TRACE_DEBUG("bta_dm_pm_cback: st(%d), id(%d), app(%d)", status, id,
                    app_id);
@@ -360,6 +358,7 @@ static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
 
 #if (BTM_SSR_INCLUDED == TRUE)
   /* set SSR parameters on SYS CONN OPEN */
+  int index = BTA_DM_PM_SSR0;
   if ((BTA_SYS_CONN_OPEN == status) && p_dev &&
       (p_dev->info & BTA_DM_DI_USE_SSR)) {
     index = p_bta_dm_pm_spec[p_bta_dm_pm_cfg[i].spec_idx].ssr;
@@ -448,6 +447,7 @@ static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
       ) {
     bta_dm_pm_ssr(peer_addr);
   } else {
+    uint8_t* p = NULL;
     if (((NULL != (p = BTM_ReadLocalFeatures())) &&
          HCI_SNIFF_SUB_RATE_SUPPORTED(p)) &&
         ((NULL != (p = BTM_ReadRemoteFeatures(peer_addr))) &&
@@ -506,9 +506,10 @@ static void bta_dm_pm_set_mode(const RawAddress& peer_addr,
   tBTA_DM_PEER_DEVICE* p_peer_device = NULL;
   tBTA_DM_PM_ACTION allowed_modes = 0;
   tBTA_DM_PM_ACTION pref_modes = 0;
-  tBTA_DM_PM_CFG* p_pm_cfg;
-  tBTA_DM_PM_SPEC* p_pm_spec;
-  tBTA_DM_PM_ACTN *p_act0, *p_act1;
+  const tBTA_DM_PM_CFG* p_pm_cfg;
+  const tBTA_DM_PM_SPEC* p_pm_spec;
+  const tBTA_DM_PM_ACTN* p_act0;
+  const tBTA_DM_PM_ACTN* p_act1;
   tBTA_DM_SRVCS* p_srvcs = NULL;
   bool timer_started = false;
   uint8_t timer_idx, available_timer = BTA_DM_PM_MODE_TIMER_MAX;
@@ -691,25 +692,16 @@ static bool bta_dm_pm_sniff(tBTA_DM_PEER_DEVICE* p_peer_dev, uint8_t index) {
   tBTM_PM_MODE mode = BTM_PM_STS_ACTIVE;
   tBTM_PM_PWR_MD pwr_md;
   tBTM_STATUS status;
-#if (BTM_SSR_INCLUDED == TRUE)
-  uint8_t* p_rem_feat = NULL;
-#endif
 
   BTM_ReadPowerMode(p_peer_dev->peer_bdaddr, &mode);
-  p_rem_feat = BTM_ReadRemoteFeatures(p_peer_dev->peer_bdaddr);
 #if (BTM_SSR_INCLUDED == TRUE)
+  uint8_t* p_rem_feat = BTM_ReadRemoteFeatures(p_peer_dev->peer_bdaddr);
   APPL_TRACE_DEBUG("bta_dm_pm_sniff cur:%d, idx:%d, info:x%x", mode, index,
                    p_peer_dev->info);
   if (mode != BTM_PM_MD_SNIFF ||
       (HCI_SNIFF_SUB_RATE_SUPPORTED(BTM_ReadLocalFeatures()) && p_rem_feat &&
        HCI_SNIFF_SUB_RATE_SUPPORTED(p_rem_feat) &&
-       !(p_peer_dev->info & BTA_DM_DI_USE_SSR)))
-#else
-  APPL_TRACE_DEBUG("bta_dm_pm_sniff cur:%d, idx:%d", mode, index);
-  if (mode != BTM_PM_MD_SNIFF)
-#endif
-  {
-#if (BTM_SSR_INCLUDED == TRUE)
+       !(p_peer_dev->info & BTA_DM_DI_USE_SSR))) {
     /* Dont initiate Sniff if controller has alreay accepted
      * remote sniff params. This avoid sniff loop issue with
      * some agrresive headsets who use sniff latencies more than
@@ -718,6 +710,9 @@ static bool bta_dm_pm_sniff(tBTA_DM_PEER_DEVICE* p_peer_dev, uint8_t index) {
       APPL_TRACE_DEBUG("%s: already in remote initiate sniff", __func__);
       return true;
     }
+#else
+  APPL_TRACE_DEBUG("bta_dm_pm_sniff cur:%d, idx:%d", mode, index);
+  if (mode != BTM_PM_MD_SNIFF) {
 #endif
     /* if the current mode is not sniff, issue the sniff command.
      * If sniff, but SSR is not used in this link, still issue the command */
@@ -756,53 +751,48 @@ static bool bta_dm_pm_sniff(tBTA_DM_PEER_DEVICE* p_peer_dev, uint8_t index) {
  ******************************************************************************/
 #if (BTM_SSR_INCLUDED == TRUE)
 static void bta_dm_pm_ssr(const RawAddress& peer_addr) {
-  tBTA_DM_SSR_SPEC *p_spec, *p_spec_cur;
-  uint8_t i, j;
-  int ssr = BTA_DM_PM_SSR0;
+  int current_ssr_index;
+  int ssr_index = BTA_DM_PM_SSR0;
+  tBTA_DM_SSR_SPEC* p_spec = &p_bta_dm_ssr_spec[ssr_index];
 
   /* go through the connected services */
-  for (i = 0; i < bta_dm_conn_srvcs.count; i++) {
-    if (bta_dm_conn_srvcs.conn_srvc[i].peer_bdaddr == peer_addr) {
-      /* p_bta_dm_pm_cfg[0].app_id is the number of entries */
-      for (j = 1; j <= p_bta_dm_pm_cfg[0].app_id; j++) {
-        /* find the associated p_bta_dm_pm_cfg */
-        if ((p_bta_dm_pm_cfg[j].id == bta_dm_conn_srvcs.conn_srvc[i].id) &&
-            ((p_bta_dm_pm_cfg[j].app_id == BTA_ALL_APP_ID) ||
-             (p_bta_dm_pm_cfg[j].app_id ==
-              bta_dm_conn_srvcs.conn_srvc[i].app_id))) {
-          APPL_TRACE_WARNING("bta_dm_pm_ssr conn_srvc id:%d, app_id:%d",
-                             bta_dm_conn_srvcs.conn_srvc[i].id,
-                             bta_dm_conn_srvcs.conn_srvc[i].app_id);
-          break;
-        }
+  for (int i = 0; i < bta_dm_conn_srvcs.count; i++) {
+    const tBTA_DM_SRVCS& service = bta_dm_conn_srvcs.conn_srvc[i];
+    if (service.peer_bdaddr != peer_addr) {
+      continue;
+    }
+    /* p_bta_dm_pm_cfg[0].app_id is the number of entries */
+    for (int j = 1; j <= p_bta_dm_pm_cfg[0].app_id; j++) {
+      /* find the associated p_bta_dm_pm_cfg */
+      const tBTA_DM_PM_CFG& config = p_bta_dm_pm_cfg[j];
+      current_ssr_index = p_bta_dm_pm_spec[config.spec_idx].ssr;
+      if ((config.id == service.id) && ((config.app_id == BTA_ALL_APP_ID) ||
+                                        (config.app_id == service.app_id))) {
+        APPL_TRACE_WARNING("%s: conn_srvc id:%d, app_id:%d", __func__,
+                           service.id, service.app_id);
+        break;
       }
-
-      /* find the ssr index with the smallest max latency. */
-      p_spec_cur =
-          &p_bta_dm_ssr_spec[p_bta_dm_pm_spec[p_bta_dm_pm_cfg[j].spec_idx].ssr];
-      p_spec = &p_bta_dm_ssr_spec[ssr];
-
+    }
+    /* find the ssr index with the smallest max latency. */
+    tBTA_DM_SSR_SPEC* p_spec_cur = &p_bta_dm_ssr_spec[current_ssr_index];
 #if (BTA_HH_INCLUDED == TRUE)
-      /* HH has the per connection SSR preference, already read the SSR params
-       * from BTA HH */
-      if (p_bta_dm_pm_spec[p_bta_dm_pm_cfg[j].spec_idx].ssr ==
-          BTA_DM_PM_SSR_HH) {
-        if (bta_hh_read_ssr_param(peer_addr, &p_spec_cur->max_lat,
-                                  &p_spec_cur->min_rmt_to) == BTA_HH_ERR)
-          continue;
+    /* HH has the per connection SSR preference, already read the SSR params
+     * from BTA HH */
+    if (current_ssr_index == BTA_DM_PM_SSR_HH) {
+      if (bta_hh_read_ssr_param(peer_addr, &p_spec_cur->max_lat,
+                                &p_spec_cur->min_rmt_to) == BTA_HH_ERR) {
+        continue;
       }
+    }
 #endif
-      if (p_spec_cur->max_lat < p_spec->max_lat ||
-          (ssr == BTA_DM_PM_SSR0 &&
-           p_bta_dm_pm_spec[p_bta_dm_pm_cfg[j].spec_idx].ssr !=
-               BTA_DM_PM_SSR0)) {
-        ssr = p_bta_dm_pm_spec[p_bta_dm_pm_cfg[j].spec_idx].ssr;
-      }
+    if (p_spec_cur->max_lat < p_spec->max_lat ||
+        (ssr_index == BTA_DM_PM_SSR0 && current_ssr_index != BTA_DM_PM_SSR0)) {
+      ssr_index = current_ssr_index;
+      p_spec = &p_bta_dm_ssr_spec[ssr_index];
     }
   }
 
-  p_spec = &p_bta_dm_ssr_spec[ssr];
-  APPL_TRACE_WARNING("%s ssr:%d, lat:%d", __func__, ssr, p_spec->max_lat);
+  APPL_TRACE_WARNING("%s ssr:%d, lat:%d", __func__, ssr_index, p_spec->max_lat);
 
   if (p_spec->max_lat) {
     /* Avoid SSR reset on device which has SCO connected */
@@ -843,29 +833,12 @@ void bta_dm_pm_active(const RawAddress& peer_addr) {
   BTM_SetPowerMode(bta_dm_cb.pm_id, peer_addr, &pm);
 }
 
-/*******************************************************************************
- *
- * Function         bta_dm_pm_btm_cback
- *
- * Description      BTM power manager callback.
- *
- *
- * Returns          void
- *
- ******************************************************************************/
+/** BTM power manager callback */
 static void bta_dm_pm_btm_cback(const RawAddress& bd_addr,
                                 tBTM_PM_STATUS status, uint16_t value,
                                 uint8_t hci_status) {
-  tBTA_DM_PM_BTM_STATUS* p_buf =
-      (tBTA_DM_PM_BTM_STATUS*)osi_malloc(sizeof(tBTA_DM_PM_BTM_STATUS));
-
-  p_buf->hdr.event = BTA_DM_PM_BTM_STATUS_EVT;
-  p_buf->status = status;
-  p_buf->value = value;
-  p_buf->hci_status = hci_status;
-  p_buf->bd_addr = bd_addr;
-
-  bta_sys_sendmsg(p_buf);
+  do_in_bta_thread(FROM_HERE, base::Bind(bta_dm_pm_btm_status, bd_addr, status,
+                                         value, hci_status));
 }
 
 /*******************************************************************************
@@ -905,51 +878,35 @@ static void bta_dm_pm_timer_cback(void* data) {
   /* no more timers */
   if (i == BTA_DM_NUM_PM_TIMER) return;
 
-  tBTA_DM_PM_TIMER* p_buf =
-      (tBTA_DM_PM_TIMER*)osi_malloc(sizeof(tBTA_DM_PM_TIMER));
-  p_buf->hdr.event = BTA_DM_PM_TIMER_EVT;
-  p_buf->pm_request = bta_dm_cb.pm_timer[i].pm_action[j];
-  p_buf->bd_addr = bta_dm_cb.pm_timer[i].peer_bdaddr;
-
-  bta_sys_sendmsg(p_buf);
+  do_in_bta_thread(
+      FROM_HERE, base::Bind(bta_dm_pm_timer, bta_dm_cb.pm_timer[i].peer_bdaddr,
+                            bta_dm_cb.pm_timer[i].pm_action[j]));
 }
 
-/*******************************************************************************
- *
- * Function         bta_dm_pm_btm_status
- *
- * Description      Process pm status event from btm
- *
- *
- * Returns          void
- *
- ******************************************************************************/
-void bta_dm_pm_btm_status(tBTA_DM_MSG* p_data) {
-  APPL_TRACE_DEBUG("%s status: %d", __func__, p_data->pm_status.status);
+/** Process pm status event from btm */
+void bta_dm_pm_btm_status(const RawAddress& bd_addr, tBTM_PM_STATUS status,
+                          uint16_t value, uint8_t hci_status) {
+  APPL_TRACE_DEBUG("%s status: %d", __func__, status);
 
-  tBTA_DM_PEER_DEVICE* p_dev =
-      bta_dm_find_peer_device(p_data->pm_status.bd_addr);
+  tBTA_DM_PEER_DEVICE* p_dev = bta_dm_find_peer_device(bd_addr);
   if (NULL == p_dev) return;
 
   tBTA_DM_DEV_INFO info = p_dev->info;
   /* check new mode */
-  switch (p_data->pm_status.status) {
+  switch (status) {
     case BTM_PM_STS_ACTIVE:
       /* if our sniff or park attempt failed
       we should not try it again*/
-      if (p_data->pm_status.hci_status != 0) {
-        APPL_TRACE_ERROR("%s hci_status=%d", __func__,
-                         p_data->pm_status.hci_status);
+      if (hci_status != 0) {
+        APPL_TRACE_ERROR("%s hci_status=%d", __func__, hci_status);
         p_dev->info &=
             ~(BTA_DM_DI_INT_SNIFF | BTA_DM_DI_ACP_SNIFF | BTA_DM_DI_SET_SNIFF);
 
         if (p_dev->pm_mode_attempted & (BTA_DM_PM_PARK | BTA_DM_PM_SNIFF)) {
           p_dev->pm_mode_failed |=
               ((BTA_DM_PM_PARK | BTA_DM_PM_SNIFF) & p_dev->pm_mode_attempted);
-          bta_dm_pm_stop_timer_by_mode(p_data->pm_status.bd_addr,
-                                       p_dev->pm_mode_attempted);
-          bta_dm_pm_set_mode(p_data->pm_status.bd_addr, BTA_DM_PM_NO_ACTION,
-                             BTA_DM_PM_RESTART);
+          bta_dm_pm_stop_timer_by_mode(bd_addr, p_dev->pm_mode_attempted);
+          bta_dm_pm_set_mode(bd_addr, BTA_DM_PM_NO_ACTION, BTA_DM_PM_RESTART);
         }
       } else {
 #if (BTM_SSR_INCLUDED == TRUE)
@@ -961,9 +918,8 @@ void bta_dm_pm_btm_status(tBTA_DM_MSG* p_data) {
 #endif
         /* link to active mode, need to restart the timer for next low power
          * mode if needed */
-        bta_dm_pm_stop_timer(p_data->pm_status.bd_addr);
-        bta_dm_pm_set_mode(p_data->pm_status.bd_addr, BTA_DM_PM_NO_ACTION,
-                           BTA_DM_PM_RESTART);
+        bta_dm_pm_stop_timer(bd_addr);
+        bta_dm_pm_set_mode(bd_addr, BTA_DM_PM_NO_ACTION, BTA_DM_PM_RESTART);
       }
       break;
 
@@ -973,26 +929,25 @@ void bta_dm_pm_btm_status(tBTA_DM_MSG* p_data) {
       /* save the previous low power mode - for SSR.
        * SSR parameters are sent to controller on "conn open".
        * the numbers stay good until park/hold/detach */
-      if (p_dev->info & BTA_DM_DI_USE_SSR)
-        p_dev->prev_low = p_data->pm_status.status;
+      if (p_dev->info & BTA_DM_DI_USE_SSR) p_dev->prev_low = status;
       break;
 
     case BTM_PM_STS_SSR:
-      if (p_data->pm_status.value)
+      if (value)
         p_dev->info |= BTA_DM_DI_USE_SSR;
       else
         p_dev->info &= ~BTA_DM_DI_USE_SSR;
       break;
 #endif
     case BTM_PM_STS_SNIFF:
-      if (p_data->pm_status.hci_status == 0) {
+      if (hci_status == 0) {
         /* Stop PM timer now if already active for
          * particular device since link is already
          * put in sniff mode by remote device, and
          * PM timer sole purpose is to put the link
          * in sniff mode from host side.
          */
-        bta_dm_pm_stop_timer(p_data->pm_status.bd_addr);
+        bta_dm_pm_stop_timer(bd_addr);
       } else {
         p_dev->info &=
             ~(BTA_DM_DI_SET_SNIFF | BTA_DM_DI_INT_SNIFF | BTA_DM_DI_ACP_SNIFF);
@@ -1012,20 +967,10 @@ void bta_dm_pm_btm_status(tBTA_DM_MSG* p_data) {
   }
 }
 
-/*******************************************************************************
- *
- * Function         bta_dm_pm_timer
- *
- * Description      Process pm timer event from btm
- *
- *
- * Returns          void
- *
- ******************************************************************************/
-void bta_dm_pm_timer(tBTA_DM_MSG* p_data) {
+/** Process pm timer event from btm */
+void bta_dm_pm_timer(const RawAddress& bd_addr, tBTA_DM_PM_ACTION pm_request) {
   APPL_TRACE_EVENT("%s", __func__);
-  bta_dm_pm_set_mode(p_data->pm_timer.bd_addr, p_data->pm_timer.pm_request,
-                     BTA_DM_PM_EXECUTE);
+  bta_dm_pm_set_mode(bd_addr, pm_request, BTA_DM_PM_EXECUTE);
 }
 
 /*******************************************************************************
@@ -1075,6 +1020,7 @@ static bool bta_dm_pm_is_sco_active() {
   return bScoActive;
 }
 
+#if (BTM_SSR_INCLUDED == TRUE)
 /*******************************************************************************
  *
  * Function        bta_dm_get_sco_index
@@ -1094,6 +1040,7 @@ static int bta_dm_get_sco_index() {
   }
   return -1;
 }
+#endif
 
 /*******************************************************************************
  *

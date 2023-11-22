@@ -18,10 +18,11 @@ package com.android.tradefed.invoker;
 import static org.mockito.Mockito.doReturn;
 
 import com.android.ddmlib.IDevice;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.build.BuildInfo;
+import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
 import com.android.tradefed.build.BuildRetrievalError;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.build.IBuildInfo.BuildInfoProperties;
 import com.android.tradefed.build.IBuildProvider;
 import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.build.IDeviceBuildProvider;
@@ -36,6 +37,7 @@ import com.android.tradefed.config.DeviceConfigurationHolder;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IConfigurationFactory;
 import com.android.tradefed.config.IDeviceConfiguration;
+import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceAllocationState;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -46,16 +48,16 @@ import com.android.tradefed.device.ITestDevice.RecoveryMode;
 import com.android.tradefed.device.StubDevice;
 import com.android.tradefed.device.TestDeviceOptions;
 import com.android.tradefed.device.metric.BaseDeviceMetricCollector;
-import com.android.tradefed.device.metric.IMetricCollector;
 import com.android.tradefed.device.metric.DeviceMetricData;
+import com.android.tradefed.device.metric.IMetricCollector;
+import com.android.tradefed.guice.InvocationScope;
 import com.android.tradefed.invoker.shard.IShardHelper;
 import com.android.tradefed.invoker.shard.ShardHelper;
 import com.android.tradefed.invoker.shard.StrictShardHelper;
 import com.android.tradefed.log.ILeveledLogOutput;
 import com.android.tradefed.log.ILogRegistry;
-import com.android.tradefed.profiler.IAggregatingTestProfiler;
-import com.android.tradefed.profiler.ITestProfiler;
-import com.android.tradefed.profiler.MetricOutputData;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Measurements;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.ILogSaver;
 import com.android.tradefed.result.ILogSaverListener;
@@ -65,6 +67,7 @@ import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.InvocationStatus;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.LogFile;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.result.TestSummary;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetCleaner;
@@ -78,6 +81,7 @@ import com.android.tradefed.testtype.IShardableTest;
 import com.android.tradefed.testtype.IStrictShardableTest;
 import com.android.tradefed.testtype.StubTest;
 import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.SystemUtil.EnvVariable;
 
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -93,12 +97,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-/**
- * Unit tests for {@link TestInvocation}.
- */
+/** Unit tests for {@link TestInvocation}. */
+@SuppressWarnings("MustBeClosedChecker")
 public class TestInvocationTest extends TestCase {
 
     private static final String SERIAL = "serial";
@@ -166,6 +172,9 @@ public class TestInvocationTest extends TestCase {
         mStubConfiguration.setTargetPreparer(mMockPreparer);
         mStubConfiguration.setBuildProvider(mMockBuildProvider);
 
+        EasyMock.expect(mMockPreparer.isDisabled()).andStubReturn(false);
+        EasyMock.expect(mMockPreparer.isTearDownDisabled()).andStubReturn(false);
+
         List<IDeviceConfiguration> deviceConfigs = new ArrayList<IDeviceConfiguration>();
         IDeviceConfiguration device1 =
                 new DeviceConfigurationHolder(ConfigurationDef.DEFAULT_DEVICE_NAME);
@@ -201,6 +210,7 @@ public class TestInvocationTest extends TestCase {
         EasyMock.expect(mMockBuildInfo.getBuildAttributes()).andStubReturn(EMPTY_MAP);
         EasyMock.expect(mMockBuildInfo.getBuildBranch()).andStubReturn("branch");
         EasyMock.expect(mMockBuildInfo.getBuildFlavor()).andStubReturn("flavor");
+        EasyMock.expect(mMockBuildInfo.getProperties()).andStubReturn(new HashSet<>());
 
         // always expect logger initialization and cleanup calls
         mMockLogRegistry.registerLogger(mMockLogger);
@@ -224,13 +234,24 @@ public class TestInvocationTest extends TestCase {
                     }
 
                     @Override
-                    protected IShardHelper createShardHelper() {
-                        return new ShardHelper();
+                    public IInvocationExecution createInvocationExec(boolean isSandboxed) {
+                        return new InvocationExecution() {
+                            @Override
+                            protected IShardHelper createShardHelper() {
+                                return new ShardHelper();
+                            }
+                        };
                     }
 
                     @Override
                     protected void setExitCode(ExitCode code, Throwable stack) {
                         // empty on purpose
+                    }
+
+                    @Override
+                    InvocationScope getInvocationScope() {
+                        // Avoid re-entry in the current TF invocation scope for unit tests.
+                        return new InvocationScope();
                     }
                 };
     }
@@ -515,25 +536,25 @@ public class TestInvocationTest extends TestCase {
                                 EasyMock.eq(LOGCAT_NAME_SETUP),
                                 EasyMock.eq(LogDataType.LOGCAT),
                                 (InputStream) EasyMock.anyObject()))
-                .andReturn(new LogFile(PATH, URL, false /* compressed */, true /* text */));
+                .andReturn(new LogFile(PATH, URL, LogDataType.TEXT));
         EasyMock.expect(
                         mMockLogSaver.saveLogData(
                                 EasyMock.eq(LOGCAT_NAME_TEST),
                                 EasyMock.eq(LogDataType.LOGCAT),
                                 (InputStream) EasyMock.anyObject()))
-                .andReturn(new LogFile(PATH, URL, false /* compressed */, true /* text */));
+                .andReturn(new LogFile(PATH, URL, LogDataType.TEXT));
         EasyMock.expect(
                         mMockLogSaver.saveLogData(
                                 EasyMock.eq(LOGCAT_NAME_TEARDOWN),
                                 EasyMock.eq(LogDataType.LOGCAT),
                                 (InputStream) EasyMock.anyObject()))
-                .andReturn(new LogFile(PATH, URL, false /* compressed */, true /* text */));
+                .andReturn(new LogFile(PATH, URL, LogDataType.TEXT));
         EasyMock.expect(
                         mMockLogSaver.saveLogData(
                                 EasyMock.eq(TestInvocation.TRADEFED_LOG_NAME),
                                 EasyMock.eq(LogDataType.TEXT),
                                 (InputStream) EasyMock.anyObject()))
-                .andReturn(new LogFile(PATH, URL, false /* compressed */, true /* text */));
+                .andReturn(new LogFile(PATH, URL, LogDataType.TEXT));
         resumeListener.testLog(
                 EasyMock.eq(LOGCAT_NAME_SETUP),
                 EasyMock.eq(LogDataType.LOGCAT),
@@ -556,8 +577,9 @@ public class TestInvocationTest extends TestCase {
         Capture<IConfiguration> capturedConfig = new Capture<IConfiguration>();
         EasyMock.expect(mockRescheduler.scheduleConfig(EasyMock.capture(capturedConfig)))
                 .andReturn(Boolean.TRUE);
+        // When resuming the original build provider is still going to handle the clean up.
         mMockBuildProvider.cleanUp(mMockBuildInfo);
-        EasyMock.expectLastCall().times(2);
+        EasyMock.expectLastCall().times(4);
         mMockDevice.clearLastConnectedWifiNetwork();
         mMockDevice.stopLogcat();
 
@@ -583,25 +605,25 @@ public class TestInvocationTest extends TestCase {
                                 EasyMock.eq(LOGCAT_NAME_SETUP),
                                 EasyMock.eq(LogDataType.LOGCAT),
                                 (InputStream) EasyMock.anyObject()))
-                .andReturn(new LogFile(PATH, URL, false /* compressed */, true /* text */));
+                .andReturn(new LogFile(PATH, URL, LogDataType.TEXT));
         EasyMock.expect(
                         mMockLogSaver.saveLogData(
                                 EasyMock.eq(LOGCAT_NAME_TEST),
                                 EasyMock.eq(LogDataType.LOGCAT),
                                 (InputStream) EasyMock.anyObject()))
-                .andReturn(new LogFile(PATH, URL, false /* compressed */, true /* text */));
+                .andReturn(new LogFile(PATH, URL, LogDataType.TEXT));
         EasyMock.expect(
                         mMockLogSaver.saveLogData(
                                 EasyMock.eq(LOGCAT_NAME_TEARDOWN),
                                 EasyMock.eq(LogDataType.LOGCAT),
                                 (InputStream) EasyMock.anyObject()))
-                .andReturn(new LogFile(PATH, URL, false /* compressed */, true /* text */));
+                .andReturn(new LogFile(PATH, URL, LogDataType.TEXT));
         EasyMock.expect(
                         mMockLogSaver.saveLogData(
                                 EasyMock.eq(TestInvocation.TRADEFED_LOG_NAME),
                                 EasyMock.eq(LogDataType.TEXT),
                                 (InputStream) EasyMock.anyObject()))
-                .andReturn(new LogFile(PATH, URL, false /* compressed */, true /* text */));
+                .andReturn(new LogFile(PATH, URL, LogDataType.TEXT));
         resumeListener.testLog(
                 EasyMock.eq(LOGCAT_NAME_SETUP),
                 EasyMock.eq(LogDataType.LOGCAT),
@@ -621,8 +643,6 @@ public class TestInvocationTest extends TestCase {
         resumeListener.invocationEnded(EasyMock.anyLong());
         mMockLogSaver.invocationEnded(EasyMock.anyLong());
         EasyMock.expect(resumeListener.getSummary()).andReturn(null);
-        mMockBuildInfo.cleanUp();
-        EasyMock.expectLastCall().times(2);
         mMockLogger.closeLog();
         EasyMock.expectLastCall().times(3);
         mMockDevice.clearLastConnectedWifiNetwork();
@@ -674,6 +694,8 @@ public class TestInvocationTest extends TestCase {
     public void testInvoke_tearDown() throws Throwable {
          IRemoteTest test = EasyMock.createNiceMock(IRemoteTest.class);
          ITargetCleaner mockCleaner = EasyMock.createMock(ITargetCleaner.class);
+        EasyMock.expect(mockCleaner.isDisabled()).andReturn(false).times(2);
+        EasyMock.expect(mockCleaner.isTearDownDisabled()).andReturn(false);
          mockCleaner.setUp(mMockDevice, mMockBuildInfo);
          mockCleaner.tearDown(mMockDevice, mMockBuildInfo, null);
          mStubConfiguration.getTargetPreparers().add(mockCleaner);
@@ -697,6 +719,8 @@ public class TestInvocationTest extends TestCase {
         test.run((ITestInvocationListener)EasyMock.anyObject());
         EasyMock.expectLastCall().andThrow(exception);
         ITargetCleaner mockCleaner = EasyMock.createMock(ITargetCleaner.class);
+        EasyMock.expect(mockCleaner.isDisabled()).andReturn(false).times(2);
+        EasyMock.expect(mockCleaner.isTearDownDisabled()).andReturn(false);
         mockCleaner.setUp(mMockDevice, mMockBuildInfo);
         EasyMock.expectLastCall();
         mockCleaner.tearDown(mMockDevice, mMockBuildInfo, exception);
@@ -730,6 +754,8 @@ public class TestInvocationTest extends TestCase {
         test.run((ITestInvocationListener)EasyMock.anyObject());
         EasyMock.expectLastCall().andThrow(exception);
         ITargetCleaner mockCleaner = EasyMock.createMock(ITargetCleaner.class);
+        EasyMock.expect(mockCleaner.isDisabled()).andReturn(false).times(2);
+        EasyMock.expect(mockCleaner.isTearDownDisabled()).andReturn(false);
         mockCleaner.setUp(mMockDevice, mMockBuildInfo);
         // tearDown should be called
         mockCleaner.tearDown(mMockDevice, mMockBuildInfo, exception);
@@ -772,6 +798,7 @@ public class TestInvocationTest extends TestCase {
                 EasyMock.eq(LogDataType.LOGCAT),
                 (InputStreamSource) EasyMock.anyObject(),
                 (LogFile) EasyMock.anyObject());
+        logSaverListener.logAssociation(EasyMock.eq(LOGCAT_NAME_SETUP), EasyMock.anyObject());
         logSaverListener.testLog(
                 EasyMock.eq(LOGCAT_NAME_TEST),
                 EasyMock.eq(LogDataType.LOGCAT),
@@ -781,6 +808,7 @@ public class TestInvocationTest extends TestCase {
                 EasyMock.eq(LogDataType.LOGCAT),
                 (InputStreamSource) EasyMock.anyObject(),
                 (LogFile) EasyMock.anyObject());
+        logSaverListener.logAssociation(EasyMock.eq(LOGCAT_NAME_TEST), EasyMock.anyObject());
         logSaverListener.testLog(
                 EasyMock.eq(LOGCAT_NAME_TEARDOWN),
                 EasyMock.eq(LogDataType.LOGCAT),
@@ -790,6 +818,7 @@ public class TestInvocationTest extends TestCase {
                 EasyMock.eq(LogDataType.LOGCAT),
                 (InputStreamSource) EasyMock.anyObject(),
                 (LogFile) EasyMock.anyObject());
+        logSaverListener.logAssociation(EasyMock.eq(LOGCAT_NAME_TEARDOWN), EasyMock.anyObject());
         logSaverListener.testLog(
                 EasyMock.eq(TestInvocation.TRADEFED_LOG_NAME),
                 EasyMock.eq(LogDataType.TEXT),
@@ -799,6 +828,8 @@ public class TestInvocationTest extends TestCase {
                 EasyMock.eq(LogDataType.TEXT),
                 (InputStreamSource) EasyMock.anyObject(),
                 (LogFile) EasyMock.anyObject());
+        logSaverListener.logAssociation(
+                EasyMock.eq(TestInvocation.TRADEFED_LOG_NAME), EasyMock.anyObject());
         logSaverListener.invocationEnded(EasyMock.anyLong());
         EasyMock.expect(logSaverListener.getSummary()).andReturn(mSummary);
 
@@ -826,13 +857,24 @@ public class TestInvocationTest extends TestCase {
                     }
 
                     @Override
-                    protected IShardHelper createShardHelper() {
-                        return new StrictShardHelper();
+                    public IInvocationExecution createInvocationExec(boolean isSandboxed) {
+                        return new InvocationExecution() {
+                            @Override
+                            protected IShardHelper createShardHelper() {
+                                return new StrictShardHelper();
+                            }
+                        };
                     }
 
                     @Override
                     protected void setExitCode(ExitCode code, Throwable stack) {
                         // empty on purpose
+                    }
+
+                    @Override
+                    InvocationScope getInvocationScope() {
+                        // Avoid re-entry in the current TF invocation scope for unit tests.
+                        return new InvocationScope();
                     }
                 };
         String[] commandLine = {"config", "arg"};
@@ -905,13 +947,24 @@ public class TestInvocationTest extends TestCase {
                     }
 
                     @Override
-                    protected IShardHelper createShardHelper() {
-                        return new StrictShardHelper();
+                    public IInvocationExecution createInvocationExec(boolean isSandboxed) {
+                        return new InvocationExecution() {
+                            @Override
+                            protected IShardHelper createShardHelper() {
+                                return new StrictShardHelper();
+                            }
+                        };
                     }
 
                     @Override
                     protected void setExitCode(ExitCode code, Throwable stack) {
                         // empty on purpose
+                    }
+
+                    @Override
+                    InvocationScope getInvocationScope() {
+                        // Avoid re-entry in the current TF invocation scope for unit tests.
+                        return new InvocationScope();
                     }
                 };
         String[] commandLine = {"config", "arg"};
@@ -1076,28 +1129,6 @@ public class TestInvocationTest extends TestCase {
     }
 
     /**
-     * Test that a config with an {@link ITestProfiler} attempts to setup and teardown the
-     * profiler.
-     */
-    public void testInvoke_profiler() throws Throwable {
-        IAggregatingTestProfiler mockProfiler = EasyMock.createMock(IAggregatingTestProfiler.class);
-        mStubConfiguration.setProfiler(mockProfiler);
-        setupInvoke();
-        EasyMock.expect(mMockBuildProvider.getBuild()).andReturn(mMockBuildInfo);
-        mMockPreparer.setUp(mMockDevice, mMockBuildInfo);
-        setupInvokeWithBuild();
-        setupMockSuccessListeners();
-        EasyMock.expectLastCall();
-        mockProfiler.setUp((IInvocationContext)EasyMock.anyObject());
-        EasyMock.expectLastCall();
-        EasyMock.expect(mockProfiler.getMetricOutputUtil()).andReturn(new MetricOutputData());
-        mockProfiler.reportAllMetrics(((ITestInvocationListener)EasyMock.anyObject()));
-        EasyMock.expectLastCall();
-        replayMocks(mockProfiler);
-        mTestInvocation.invoke(mStubInvocationMetadata, mStubConfiguration, mockRescheduler);
-        verifyMocks(mockProfiler);
-    }
-    /**
      * Set up expected conditions for normal run up to the part where tests are run.
      *
      * @param test the {@link Test} to use.
@@ -1174,13 +1205,13 @@ public class TestInvocationTest extends TestCase {
         mMockTestListener.invocationStarted(mStubInvocationMetadata);
         mMockSummaryListener.invocationStarted(mStubInvocationMetadata);
 
-        if (!(throwable instanceof BuildRetrievalError || throwable instanceof BuildError)) {
+        if (!(throwable instanceof BuildRetrievalError)) {
             EasyMock.expect(
                             mMockLogSaver.saveLogData(
                                     EasyMock.eq(LOGCAT_NAME_SETUP),
                                     EasyMock.eq(LogDataType.LOGCAT),
                                     (InputStream) EasyMock.anyObject()))
-                    .andReturn(new LogFile(PATH, URL, false /* compressed */, true /* text */));
+                    .andReturn(new LogFile(PATH, URL, LogDataType.TEXT));
             mMockTestListener.testLog(
                     EasyMock.eq(LOGCAT_NAME_SETUP),
                     EasyMock.eq(LogDataType.LOGCAT),
@@ -1204,7 +1235,7 @@ public class TestInvocationTest extends TestCase {
                                     EasyMock.eq(LOGCAT_NAME_ERROR),
                                     EasyMock.eq(LogDataType.LOGCAT),
                                     (InputStream) EasyMock.anyObject()))
-                    .andReturn(new LogFile(PATH, URL, false /* compressed */, true /* text */));
+                    .andReturn(new LogFile(PATH, URL, LogDataType.TEXT));
             mMockTestListener.testLog(
                     EasyMock.eq(LOGCAT_NAME_ERROR),
                     EasyMock.eq(LogDataType.LOGCAT),
@@ -1220,7 +1251,7 @@ public class TestInvocationTest extends TestCase {
                                     EasyMock.eq(LOGCAT_NAME_TEST),
                                     EasyMock.eq(LogDataType.LOGCAT),
                                     (InputStream) EasyMock.anyObject()))
-                    .andReturn(new LogFile(PATH, URL, false /* compressed */, true /* text */));
+                    .andReturn(new LogFile(PATH, URL, LogDataType.TEXT));
             mMockTestListener.testLog(
                     EasyMock.eq(LOGCAT_NAME_TEST),
                     EasyMock.eq(LogDataType.LOGCAT),
@@ -1232,22 +1263,13 @@ public class TestInvocationTest extends TestCase {
             // Handle build error bugreport listeners
             if (throwable instanceof BuildError) {
                 EasyMock.expect(
-                                mMockLogSaver.saveLogData(
+                                mMockDevice.logBugreport(
                                         EasyMock.eq(
                                                 TestInvocation.BUILD_ERROR_BUGREPORT_NAME
                                                         + "_"
                                                         + SERIAL),
-                                        EasyMock.eq(LogDataType.BUGREPORT),
-                                        (InputStream) EasyMock.anyObject()))
-                        .andReturn(new LogFile(PATH, URL, false /* compressed */, true /* text */));
-                mMockTestListener.testLog(
-                        EasyMock.eq(TestInvocation.BUILD_ERROR_BUGREPORT_NAME + "_" + SERIAL),
-                        EasyMock.eq(LogDataType.BUGREPORT),
-                        (InputStreamSource) EasyMock.anyObject());
-                mMockSummaryListener.testLog(
-                        EasyMock.eq(TestInvocation.BUILD_ERROR_BUGREPORT_NAME + "_" + SERIAL),
-                        EasyMock.eq(LogDataType.BUGREPORT),
-                        (InputStreamSource) EasyMock.anyObject());
+                                        EasyMock.anyObject()))
+                        .andReturn(true);
             }
             // Handle teardown logcat listeners
             EasyMock.expect(
@@ -1255,7 +1277,7 @@ public class TestInvocationTest extends TestCase {
                                     EasyMock.eq(LOGCAT_NAME_TEARDOWN),
                                     EasyMock.eq(LogDataType.LOGCAT),
                                     (InputStream) EasyMock.anyObject()))
-                    .andReturn(new LogFile(PATH, URL, false /* compressed */, true /* text */));
+                    .andReturn(new LogFile(PATH, URL, LogDataType.TEXT));
             mMockTestListener.testLog(
                     EasyMock.eq(LOGCAT_NAME_TEARDOWN),
                     EasyMock.eq(LogDataType.LOGCAT),
@@ -1271,7 +1293,7 @@ public class TestInvocationTest extends TestCase {
                                 EasyMock.eq(TestInvocation.TRADEFED_LOG_NAME),
                                 EasyMock.eq(LogDataType.TEXT),
                                 (InputStream) EasyMock.anyObject()))
-                .andReturn(new LogFile(PATH, URL, false /* compressed */, true /* text */));
+                .andReturn(new LogFile(PATH, URL, LogDataType.TEXT));
         mMockTestListener.testLog(EasyMock.eq(TestInvocation.TRADEFED_LOG_NAME),
                 EasyMock.eq(LogDataType.TEXT), (InputStreamSource)EasyMock.anyObject());
         mMockSummaryListener.testLog(EasyMock.eq(TestInvocation.TRADEFED_LOG_NAME),
@@ -1445,8 +1467,6 @@ public class TestInvocationTest extends TestCase {
         EasyMock.expect(mMockBuildProvider.getBuild()).andReturn(mMockBuildInfo);
         EasyMock.expect(mMockBuildInfo.getTestTag()).andStubReturn("");
         mMockBuildInfo.addBuildAttribute("command_line_args", commandLine);
-        mMockLogSaver.invocationStarted((IInvocationContext)EasyMock.anyObject());
-        EasyMock.expectLastCall();
         mMockTestListener.invocationStarted((IInvocationContext)EasyMock.anyObject());
         EasyMock.expectLastCall();
         mMockSummaryListener.invocationStarted((IInvocationContext)EasyMock.anyObject());
@@ -1531,15 +1551,19 @@ public class TestInvocationTest extends TestCase {
         setter.setOptionValue("skip-pre-device-setup", "false");
         mStubConfiguration.setCommandOptions(commandOption);
 
+        EasyMock.expect(mMockPreparer.isDisabled()).andReturn(true);
+        // Not expect isTearDownDisabled.
+
         ITestInvocationListener listener = EasyMock.createStrictMock(ITestInvocationListener.class);
         listener.testLog(
                 EasyMock.eq(LOGCAT_NAME_SETUP),
                 EasyMock.eq(LogDataType.LOGCAT),
                 (InputStreamSource) EasyMock.anyObject());
 
-        EasyMock.replay(device1, listener);
-        mTestInvocation.doSetup(context, mStubConfiguration, listener);
-        EasyMock.verify(device1, listener);
+        EasyMock.replay(device1, listener, mMockPreparer);
+        new InvocationExecution().doSetup(context, mStubConfiguration, listener);
+        EasyMock.verify(device1, listener, mMockPreparer);
+
     }
 
     /**
@@ -1562,15 +1586,18 @@ public class TestInvocationTest extends TestCase {
         setter.setOptionValue("skip-pre-device-setup", "true");
         mStubConfiguration.setCommandOptions(commandOption);
 
+        EasyMock.expect(mMockPreparer.isDisabled()).andReturn(true);
+        // Not expect isTearDownDisabled
+
         ITestInvocationListener listener = EasyMock.createStrictMock(ITestInvocationListener.class);
         listener.testLog(
                 EasyMock.eq(LOGCAT_NAME_SETUP),
                 EasyMock.eq(LogDataType.LOGCAT),
                 (InputStreamSource) EasyMock.anyObject());
 
-        EasyMock.replay(device1, listener);
-        mTestInvocation.doSetup(context, mStubConfiguration, listener);
-        EasyMock.verify(device1, listener);
+        EasyMock.replay(device1, listener, mMockPreparer);
+        new InvocationExecution().doSetup(context, mStubConfiguration, listener);
+        EasyMock.verify(device1, listener, mMockPreparer);
     }
 
     /**
@@ -1578,9 +1605,46 @@ public class TestInvocationTest extends TestCase {
      * directories when there is none coming from environment.
      */
     public void testInvoke_deviceInfoBuild_noEnv() throws Throwable {
+        mTestInvocation =
+                new TestInvocation() {
+                    @Override
+                    ILogRegistry getLogRegistry() {
+                        return mMockLogRegistry;
+                    }
+
+                    @Override
+                    public IInvocationExecution createInvocationExec(boolean isSandboxed) {
+                        return new InvocationExecution() {
+                            @Override
+                            protected IShardHelper createShardHelper() {
+                                return new ShardHelper();
+                            }
+
+                            @Override
+                            File getExternalTestCasesDirs(EnvVariable envVar) {
+                                // Return empty list to ensure we do not have any environment loaded
+                                return null;
+                            }
+                        };
+                    }
+
+                    @Override
+                    protected void setExitCode(ExitCode code, Throwable stack) {
+                        // empty on purpose
+                    }
+
+                    @Override
+                    InvocationScope getInvocationScope() {
+                        // Avoid re-entry in the current TF invocation scope for unit tests.
+                        return new InvocationScope();
+                    }
+                };
         mMockBuildInfo = EasyMock.createMock(IDeviceBuildInfo.class);
+        EasyMock.expect(mMockBuildInfo.getProperties()).andStubReturn(new HashSet<>());
         IRemoteTest test = EasyMock.createNiceMock(IRemoteTest.class);
         ITargetCleaner mockCleaner = EasyMock.createMock(ITargetCleaner.class);
+        EasyMock.expect(mockCleaner.isDisabled()).andReturn(false).times(2);
+        EasyMock.expect(mockCleaner.isTearDownDisabled()).andReturn(false);
         mockCleaner.setUp(mMockDevice, mMockBuildInfo);
         mockCleaner.tearDown(mMockDevice, mMockBuildInfo, null);
         mStubConfiguration.getTargetPreparers().add(mockCleaner);
@@ -1617,8 +1681,21 @@ public class TestInvocationTest extends TestCase {
                         }
 
                         @Override
-                        protected IShardHelper createShardHelper() {
-                            return new ShardHelper();
+                        public IInvocationExecution createInvocationExec(boolean isSandboxed) {
+                            return new InvocationExecution() {
+                                @Override
+                                protected IShardHelper createShardHelper() {
+                                    return new ShardHelper();
+                                }
+
+                                @Override
+                                File getExternalTestCasesDirs(EnvVariable envVar) {
+                                    if (EnvVariable.ANDROID_TARGET_OUT_TESTCASES.equals(envVar)) {
+                                        return tmpExternalTestsDir;
+                                    }
+                                    return null;
+                                }
+                            };
                         }
 
                         @Override
@@ -1627,21 +1704,27 @@ public class TestInvocationTest extends TestCase {
                         }
 
                         @Override
-                        List<File> getExternalTestCasesDirs() {
-                            List<File> list = new ArrayList<>();
-                            list.add(tmpExternalTestsDir);
-                            return list;
+                        InvocationScope getInvocationScope() {
+                            // Avoid re-entry in the current TF invocation scope for unit tests.
+                            return new InvocationScope();
                         }
                     };
             mMockBuildInfo = EasyMock.createMock(IDeviceBuildInfo.class);
             IRemoteTest test = EasyMock.createNiceMock(IRemoteTest.class);
             ITargetCleaner mockCleaner = EasyMock.createMock(ITargetCleaner.class);
+            EasyMock.expect(mockCleaner.isDisabled()).andReturn(false).times(2);
+            EasyMock.expect(mockCleaner.isTearDownDisabled()).andReturn(false);
             mockCleaner.setUp(mMockDevice, mMockBuildInfo);
             mockCleaner.tearDown(mMockDevice, mMockBuildInfo, null);
             mStubConfiguration.getTargetPreparers().add(mockCleaner);
 
+            mMockBuildInfo.setFile(
+                    EasyMock.contains(BuildInfoFileKey.TARGET_LINKED_DIR.getFileKey()),
+                    EasyMock.anyObject(),
+                    EasyMock.eq("v1"));
             EasyMock.expect(((IDeviceBuildInfo) mMockBuildInfo).getTestsDir())
                     .andReturn(tmpTestsDir);
+            EasyMock.expect(mMockBuildInfo.getProperties()).andStubReturn(new HashSet<>());
 
             setupMockSuccessListeners();
             setupNormalInvoke(test);
@@ -1651,8 +1734,12 @@ public class TestInvocationTest extends TestCase {
             verifySummaryListener();
             // Check that the external directory was copied in the testsDir.
             assertTrue(tmpTestsDir.listFiles().length == 1);
-            // external-tf-dir
-            assertEquals(tmpExternalTestsDir.getName(), tmpTestsDir.listFiles()[0].getName());
+            // external-tf-dir - the symlink is the original file name + randomized sequence
+            assertTrue(
+                    tmpTestsDir
+                            .listFiles()[0]
+                            .getName()
+                            .startsWith(BuildInfoFileKey.TARGET_LINKED_DIR.getFileKey()));
             // testsfile.txt
             assertTrue(tmpTestsDir.listFiles()[0].listFiles().length == 1);
             assertEquals(
@@ -1663,17 +1750,94 @@ public class TestInvocationTest extends TestCase {
         }
     }
 
-    private class TestableCollector extends BaseDeviceMetricCollector {
+    /**
+     * Test when a {@link IDeviceBuildInfo} is passing through we do not attempt to add the external
+     * directories to it, since {@link BuildInfoProperties} is set to skip the linking.
+     */
+    public void testInvoke_deviceInfoBuild_withEnv_andSkipProperty() throws Throwable {
+        File tmpTestsDir = FileUtil.createTempDir("invocation-tests-dir");
+        File tmpExternalTestsDir = FileUtil.createTempDir("external-tf-dir");
+        FileUtil.createTempFile("testsfile", "txt", tmpExternalTestsDir);
+        try {
+            mTestInvocation =
+                    new TestInvocation() {
+                        @Override
+                        ILogRegistry getLogRegistry() {
+                            return mMockLogRegistry;
+                        }
 
+                        @Override
+                        public IInvocationExecution createInvocationExec(boolean isSandboxed) {
+                            return new InvocationExecution() {
+                                @Override
+                                protected IShardHelper createShardHelper() {
+                                    return new ShardHelper();
+                                }
+
+                                @Override
+                                File getExternalTestCasesDirs(EnvVariable envVar) {
+                                    return tmpExternalTestsDir;
+                                }
+                            };
+                        }
+
+                        @Override
+                        protected void setExitCode(ExitCode code, Throwable stack) {
+                            // empty on purpose
+                        }
+
+                        @Override
+                        InvocationScope getInvocationScope() {
+                            // Avoid re-entry in the current TF invocation scope for unit tests.
+                            return new InvocationScope();
+                        }
+                    };
+            mMockBuildInfo = EasyMock.createMock(IDeviceBuildInfo.class);
+            IRemoteTest test = EasyMock.createNiceMock(IRemoteTest.class);
+            ITargetCleaner mockCleaner = EasyMock.createMock(ITargetCleaner.class);
+            EasyMock.expect(mockCleaner.isDisabled()).andReturn(false).times(2);
+            EasyMock.expect(mockCleaner.isTearDownDisabled()).andReturn(false);
+            mockCleaner.setUp(mMockDevice, mMockBuildInfo);
+            mockCleaner.tearDown(mMockDevice, mMockBuildInfo, null);
+            mStubConfiguration.getTargetPreparers().add(mockCleaner);
+
+            Set<BuildInfoProperties> prop = new HashSet<>();
+            prop.add(BuildInfoProperties.DO_NOT_LINK_TESTS_DIR);
+            EasyMock.expect(mMockBuildInfo.getProperties()).andStubReturn(prop);
+
+            setupMockSuccessListeners();
+            setupNormalInvoke(test);
+            EasyMock.replay(mockCleaner, mockRescheduler);
+            mTestInvocation.invoke(mStubInvocationMetadata, mStubConfiguration, mockRescheduler);
+            verifyMocks(mockCleaner, mockRescheduler);
+            verifySummaryListener();
+            // Check that the external directory was NOT copied in the testsDir.
+            assertTrue(tmpTestsDir.listFiles().length == 0);
+        } finally {
+            FileUtil.recursiveDelete(tmpTestsDir);
+            FileUtil.recursiveDelete(tmpExternalTestsDir);
+        }
+    }
+
+    public static class TestableCollector extends BaseDeviceMetricCollector {
+
+        @Option(name = "name")
         private String mName;
+
+        public TestableCollector() {}
 
         public TestableCollector(String name) {
             mName = name;
         }
 
         @Override
-        public void onTestRunEnd(DeviceMetricData runData) {
-            runData.addStringMetric(mName, mName);
+        public void onTestRunEnd(
+                DeviceMetricData runData, final Map<String, Metric> currentRunMetrics) {
+            runData.addMetric(
+                    mName,
+                    Metric.newBuilder()
+                            .setMeasurements(
+                                    Measurements.newBuilder().setSingleString(mName).build()));
         }
     }
 
@@ -1696,17 +1860,21 @@ public class TestInvocationTest extends TestCase {
         configuration.setDeviceMetricCollectors(collectors);
 
         mMockTestListener.testRunStarted("TestStub", 1);
-        TestIdentifier testId = new TestIdentifier("StubTest", "StubMethod");
+        TestDescription testId = new TestDescription("StubTest", "StubMethod");
         mMockTestListener.testStarted(EasyMock.eq(testId), EasyMock.anyLong());
         mMockTestListener.testEnded(
-                EasyMock.eq(testId), EasyMock.anyLong(), EasyMock.eq(Collections.emptyMap()));
-        Capture<Map<String, String>> captured = new Capture<>();
+                EasyMock.eq(testId),
+                EasyMock.anyLong(),
+                EasyMock.eq(new HashMap<String, Metric>()));
+        Capture<HashMap<String, Metric>> captured = new Capture<>();
         mMockTestListener.testRunEnded(EasyMock.anyLong(), EasyMock.capture(captured));
         EasyMock.replay(mMockTestListener);
-        mTestInvocation.runTests(mStubInvocationMetadata, configuration, mMockTestListener);
+        new InvocationExecution()
+                .runTests(mStubInvocationMetadata, configuration, mMockTestListener);
         EasyMock.verify(mMockTestListener);
         // The collectors are called in sequence
         List<String> listKeys = new ArrayList<>(captured.getValue().keySet());
+        assertEquals(4, listKeys.size());
         assertEquals("collector4", listKeys.get(0));
         assertEquals("collector3", listKeys.get(1));
         assertEquals("collector2", listKeys.get(2));

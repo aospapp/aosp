@@ -30,16 +30,15 @@
  * can, in the hope of catching one.  We also test with the "user" key type for
  * good measure, although it was one of the types that failed with EINVAL rather
  * than dereferencing NULL.
+ *
+ * This has been assigned CVE-2017-15274.
  */
 
-#include "config.h"
-#ifdef HAVE_LINUX_KEYCTL_H
-# include <linux/keyctl.h>
-#endif
-#include "tst_test.h"
-#include "linux_syscall_numbers.h"
+#include <errno.h>
 
-#ifdef HAVE_LINUX_KEYCTL_H
+#include "tst_test.h"
+#include "lapi/keyctl.h"
+
 struct tcase {
 	const char *type;
 	size_t plen;
@@ -56,14 +55,13 @@ struct tcase {
 	{ "rxrpc",		64 },
 	{ "rxrpc_s",		 8 },
 	{ "user",		64 },
+	{ "logon",              64 },
 };
-#endif /* HAVE_LINUX_KEYCTL_H */
 
 static void verify_add_key(unsigned int i)
 {
-#ifdef HAVE_LINUX_KEYCTL_H
-	TEST(tst_syscall(__NR_add_key, tcases[i].type, "abc:def",
-			 NULL, tcases[i].plen, KEY_SPEC_PROCESS_KEYRING));
+	TEST(add_key(tcases[i].type,
+		"abc:def", NULL, tcases[i].plen, KEY_SPEC_PROCESS_KEYRING));
 
 	if (TEST_RETURN != -1) {
 		tst_res(TFAIL,
@@ -96,13 +94,9 @@ static void verify_add_key(unsigned int i)
 
 	tst_res(TFAIL | TTERRNO, "unexpected error with key type '%s'",
 		tcases[i].type);
-#else
-	tst_brk(TCONF, "linux/keyctl.h was missing upon compilation.");
-#endif /* HAVE_LINUX_KEYCTL_H */
 }
 
 static struct tst_test test = {
-	.tid = "add_key02",
 	.tcnt = ARRAY_SIZE(tcases),
 	.test = verify_add_key,
 };

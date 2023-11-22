@@ -23,7 +23,6 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Shader;
 import android.support.test.filters.LargeTest;
-import android.support.test.filters.MediumTest;
 import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.bitmapcomparers.BitmapComparer;
 import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
@@ -125,8 +124,7 @@ public class SweepTests extends ActivityTestBase {
             TestCaseBuilder builder = createTest();
             String debugString = modifierAccessor.getDebugString();
             if (debugString.contains("bitmapMesh")) {
-                // picture mode is disabled due to bug:34871089
-                builder.addCanvasClientWithoutUsingPicture(debugString, canvasClient);
+                builder.addCanvasClient(debugString, canvasClient);
             } else {
                 builder.addCanvasClient(debugString, canvasClient);
             }

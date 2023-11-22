@@ -84,6 +84,9 @@ public class VCardRecord extends ParsedNdefRecord implements OnClickListener {
     public View getView(Activity activity, LayoutInflater inflater, ViewGroup parent, int offset) {
 
         Uri uri = activity.getIntent().getData();
+        if (uri == null) {
+            return null;
+        }
         uri = Uri.withAppendedPath(uri, Integer.toString(offset));
         uri = Uri.withAppendedPath(uri, "mime");
 

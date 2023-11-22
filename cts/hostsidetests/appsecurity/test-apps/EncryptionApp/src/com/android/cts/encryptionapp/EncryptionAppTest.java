@@ -27,6 +27,7 @@ import android.content.IntentFilter;
 import android.content.pm.ComponentInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.os.Environment;
 import android.os.SystemClock;
 import android.os.UserManager;
 import android.provider.Settings;
@@ -172,6 +173,9 @@ public class EncryptionAppTest extends InstrumentationTestCase {
         mDevice.pressMenu();
         mDevice.waitForIdle();
         enterTestPin();
+        mDevice.waitForIdle();
+        mDevice.pressHome();
+        mDevice.waitForIdle();
     }
 
     public void assertLocked() throws Exception {
@@ -205,6 +209,14 @@ public class EncryptionAppTest extends InstrumentationTestCase {
         assertQuery(1, MATCH_DIRECT_BOOT_AWARE);
         assertQuery(1, MATCH_DIRECT_BOOT_UNAWARE);
         assertQuery(2, MATCH_DIRECT_BOOT_AWARE | MATCH_DIRECT_BOOT_UNAWARE);
+
+        if (Environment.isExternalStorageEmulated()) {
+            assertEquals(Environment.MEDIA_UNMOUNTED, Environment.getExternalStorageState());
+
+            final File expected = null;
+            assertEquals(expected, mCe.getExternalCacheDir());
+            assertEquals(expected, mDe.getExternalCacheDir());
+        }
     }
 
     public void assertUnlocked() throws Exception {
@@ -239,6 +251,15 @@ public class EncryptionAppTest extends InstrumentationTestCase {
         assertQuery(1, MATCH_DIRECT_BOOT_AWARE);
         assertQuery(1, MATCH_DIRECT_BOOT_UNAWARE);
         assertQuery(2, MATCH_DIRECT_BOOT_AWARE | MATCH_DIRECT_BOOT_UNAWARE);
+
+        if (Environment.isExternalStorageEmulated()) {
+            assertEquals(Environment.MEDIA_MOUNTED, Environment.getExternalStorageState());
+
+            final File expected = new File(
+                    "/sdcard/Android/data/com.android.cts.encryptionapp/cache");
+            assertCanonicalEquals(expected, mCe.getExternalCacheDir());
+            assertCanonicalEquals(expected, mDe.getExternalCacheDir());
+        }
     }
 
     private void assertQuery(int count, int flags) throws Exception {
@@ -255,6 +276,10 @@ public class EncryptionAppTest extends InstrumentationTestCase {
 
     private void assertGetAware(boolean visible, int flags) throws Exception {
         assertGet(visible, true, flags);
+    }
+
+    private void assertCanonicalEquals(File expected, File actual) throws Exception {
+        assertEquals(expected.getCanonicalFile(), actual.getCanonicalFile());
     }
 
     private ComponentName buildName(String prefix, String type) {

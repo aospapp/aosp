@@ -23,7 +23,6 @@ BUG_TEMPLATE = {
 DOC = """
 This test verifies H.264 decode acceleration works for MSE videos.
 """
-
 video = 'http://crosvideo.appspot.com/?codec=h264&cycle=true&mute=true'
 job.run_test('video_ChromeHWDecodeUsed', codec='h264', is_mse=1,
              video_file=video, tag='h264')

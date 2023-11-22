@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Выклік немагчыма выканаць, бо ідзе выклік у іншай праграме."</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Уваходныя выклікі"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Прапушчаныя выклікі"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Блакіраванне выклікаў"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Калі зрабіць гэты выклік, ваш выклік праз праграму <xliff:g id="OTHER_APP">%1$s</xliff:g> скончыцца."</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Блакіраванне выклікаў"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Нумары не ў спісе кантактаў"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Блакіраваць нумары, якіх няма ў спісе вашых кантактаў"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"Схаваныя нумары"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"Блакіраваць абанентаў, якія не раскрываюць свой нумар"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"Таксафон"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"Блакіраваць выклікі з таксафонаў"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"Невядомыя нумары"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"Блакіраваць выклікі ад неапазнаных абанентаў"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"Блакіраванне выклікаў"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Блакіраванне выклікаў адключана"</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Зроблены экстранны выклік"</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Блакіраванне выклікаў было адключана, каб дазволіць аварыйнай брыгадзе звязацца з вамі."</string>
 </resources>

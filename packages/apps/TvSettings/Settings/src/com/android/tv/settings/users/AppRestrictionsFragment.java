@@ -18,6 +18,7 @@ package com.android.tv.settings.users;
 
 import android.app.Activity;
 import android.app.AppGlobals;
+import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -42,31 +43,39 @@ import android.os.UserManager;
 import android.support.annotation.NonNull;
 import android.support.v14.preference.MultiSelectListPreference;
 import android.support.v14.preference.SwitchPreference;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v4.util.ArrayMap;
 import android.support.v7.preference.ListPreference;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceGroup;
 import android.support.v7.preference.PreferenceScreen;
 import android.support.v7.preference.PreferenceViewHolder;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.Checkable;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.users.AppRestrictionsHelper;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-public class AppRestrictionsFragment extends LeanbackPreferenceFragment implements
+/**
+ * The screen in TV settings to configure restricted profile app & content access.
+ */
+public class AppRestrictionsFragment extends SettingsPreferenceFragment implements
         Preference.OnPreferenceChangeListener,
         AppRestrictionsHelper.OnDisableUiForPackageListener {
 
@@ -107,6 +116,8 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
     private static final int CUSTOM_REQUEST_CODE_START = 1000;
     private int mCustomRequestCode = CUSTOM_REQUEST_CODE_START;
 
+    private static final String STATE_CUSTOM_REQUEST_MAP_KEYS = "customRequestMapKeys";
+    private static final String STATE_CUSTOM_REQUEST_MAP_VALUES = "customRequestMapValues";
     private Map<Integer, String> mCustomRequestMap = new ArrayMap<>();
 
     private AsyncTask mAppLoadingTask;
@@ -241,6 +252,12 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
         super.onCreate(savedInstanceState);
         if (savedInstanceState != null) {
             mUser = new UserHandle(savedInstanceState.getInt(EXTRA_USER_ID));
+            final ArrayList<Integer> keys =
+                    savedInstanceState.getIntegerArrayList(STATE_CUSTOM_REQUEST_MAP_KEYS);
+            final List<String> values = Arrays.asList(
+                    savedInstanceState.getStringArray(STATE_CUSTOM_REQUEST_MAP_VALUES));
+            mCustomRequestMap.putAll(IntStream.range(0, keys.size()).boxed().collect(
+                    Collectors.toMap(keys::get, values::get)));
         } else {
             Bundle args = getArguments();
             if (args != null) {
@@ -283,6 +300,12 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putInt(EXTRA_USER_ID, mUser.getIdentifier());
+        final ArrayList<Integer> keys = new ArrayList<>(mCustomRequestMap.keySet());
+        final List<String> values =
+                keys.stream().map(mCustomRequestMap::get).collect(Collectors.toList());
+        outState.putIntegerArrayList(STATE_CUSTOM_REQUEST_MAP_KEYS, keys);
+        outState.putStringArray(STATE_CUSTOM_REQUEST_MAP_VALUES,
+                values.toArray(new String[values.size()]));
     }
 
     @Override
@@ -573,8 +596,12 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
         } else if (preference.getIntent() != null) {
             assertSafeToStartCustomActivity(preference.getIntent(),
                     getPackageFromKey(preference.getKey()));
-            startActivityForResult(preference.getIntent(),
-                    generateCustomActivityRequestCode(preference));
+            try {
+                startActivityForResult(preference.getIntent(),
+                        generateCustomActivityRequestCode(preference));
+            } catch (ActivityNotFoundException e) {
+                Log.e(TAG, "Activity not found", e);
+            }
             return true;
         } else {
             return super.onPreferenceTreeClick(preference);
@@ -660,9 +687,10 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
         @Override
         public void onReceive(Context context, Intent intent) {
             Bundle results = getResultExtras(true);
-            final ArrayList<RestrictionEntry> restrictions = results.getParcelableArrayList(
-                    Intent.EXTRA_RESTRICTIONS_LIST);
-            Intent restrictionsIntent = results.getParcelable(CUSTOM_RESTRICTIONS_INTENT);
+            final ArrayList<RestrictionEntry> restrictions = results != null
+                    ? results.getParcelableArrayList(Intent.EXTRA_RESTRICTIONS_LIST) : null;
+            Intent restrictionsIntent = results != null
+                    ? results.getParcelable(CUSTOM_RESTRICTIONS_INTENT) : null;
             if (restrictions != null && restrictionsIntent == null) {
                 onRestrictionsReceived(mPreference, restrictions);
                 if (mRestrictedProfile) {
@@ -763,8 +791,11 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        AppRestrictionsPreference pref =
-                (AppRestrictionsPreference) findPreference(mCustomRequestMap.get(requestCode));
+        final String key = mCustomRequestMap.get(requestCode);
+        AppRestrictionsPreference pref = null;
+        if (!TextUtils.isEmpty(key)) {
+            pref = (AppRestrictionsPreference) findPreference(key);
+        }
         if (pref == null) {
             Log.w(TAG, "Unknown requestCode " + requestCode);
             return;
@@ -814,5 +845,10 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
             }
         }
         return null;
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.USERS_APP_RESTRICTIONS;
     }
 }

@@ -17,6 +17,7 @@ from autotest_lib.client.common_lib import hosts
 from autotest_lib.client.common_lib import lsbrelease_utils
 from autotest_lib.client.common_lib.cros import autoupdater
 from autotest_lib.client.common_lib.cros import dev_server
+from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.client.cros import constants as client_constants
 from autotest_lib.client.cros import cros_ui
 from autotest_lib.client.cros.audio import cras_utils
@@ -31,6 +32,7 @@ from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import constants as ds_constants
 from autotest_lib.server.cros.dynamic_suite import tools, frontend_wrappers
 from autotest_lib.server.cros.faft.config.config import Config as FAFTConfig
+from autotest_lib.server.cros.servo import firmware_programmer
 from autotest_lib.server.cros.servo import plankton
 from autotest_lib.server.hosts import abstract_ssh
 from autotest_lib.server.hosts import base_label
@@ -53,8 +55,6 @@ CONFIG = global_config.global_config
 ENABLE_DEVSERVER_TRIGGER_AUTO_UPDATE = CONFIG.get_config_value(
         'CROS', 'enable_devserver_trigger_auto_update', type=bool,
         default=False)
-
-LUCID_SLEEP_BOARDS = ['samus', 'lulu']
 
 
 class FactoryImageCheckerException(error.AutoservError):
@@ -120,9 +120,6 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
     # _POWER_CYCLE_TIMEOUT: Time to allow for manual power cycle.
     _USB_POWER_TIMEOUT = 5
     _POWER_CYCLE_TIMEOUT = 10
-
-    _RPM_RECOVERY_BOARDS = CONFIG.get_config_value('CROS',
-            'rpm_recovery_boards', type=str).split(',')
 
     _LAB_MACHINE_FILE = '/mnt/stateful_partition/.labmachine'
     _RPM_HOSTNAME_REGEX = ('chromeos(\d+)(-row(\d+))?-rack(\d+[a-z]*)'
@@ -195,8 +192,12 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
                 lsb_release_content = host.run(
                     'grep CHROMEOS_RELEASE_BOARD /etc/lsb-release',
                     timeout=timeout).stdout
-                return not lsbrelease_utils.is_jetstream(
-                    lsb_release_content=lsb_release_content)
+                return not (
+                    lsbrelease_utils.is_jetstream(
+                        lsb_release_content=lsb_release_content) or
+                    lsbrelease_utils.is_gce_board(
+                        lsb_release_content=lsb_release_content))
+
         except (error.AutoservRunError, error.AutoservSSHTimeout):
             return False
 
@@ -258,9 +259,14 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
         servo_attrs = (servo_host.SERVO_HOST_ATTR,
                        servo_host.SERVO_PORT_ATTR,
                        servo_host.SERVO_BOARD_ATTR)
-        return {key: args_dict[key]
-                for key in servo_attrs
-                if key in args_dict}
+        servo_args = {key: args_dict[key]
+                      for key in servo_attrs
+                      if key in args_dict}
+        return (
+            None
+            if servo_host.SERVO_HOST_ATTR in servo_args
+                and not servo_args[servo_host.SERVO_HOST_ATTR]
+            else servo_args)
 
 
     def _initialize(self, hostname, chameleon_args=None, servo_args=None,
@@ -343,6 +349,19 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
                                       'No board label value found')
 
         return afe_utils.get_stable_cros_image_name(info.board)
+
+
+    def host_version_prefix(self, image):
+        """Return version label prefix.
+
+        In case the CrOS provisioning version is something other than the
+        standard CrOS version e.g. CrOS TH version, this function will
+        find the prefix from provision.py.
+
+        @param image: The image name to find its version prefix.
+        @returns: A prefix string for the image type.
+        """
+        return provision.get_version_label_prefix(image)
 
 
     def verify_job_repo_url(self, tag=''):
@@ -513,9 +532,8 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
         # the stateful update.
         folders_to_check = ['/var', '/home', '/mnt/stateful_partition']
         test_file = '.test_file_to_be_deleted'
-        for folder in folders_to_check:
-            touch_path = os.path.join(folder, test_file)
-            self.run('touch %s' % touch_path)
+        paths = [os.path.join(folder, test_file) for folder in folders_to_check]
+        self.run('touch %s' % ' '.join(paths))
 
         updater.run_update(update_root=False)
 
@@ -657,7 +675,7 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
 
     def _retry_auto_update_with_new_devserver(self, build, last_devserver,
                                               force_update, force_full_update,
-                                              force_original):
+                                              force_original, quick_provision):
         """Kick off auto-update by devserver and send metrics.
 
         @param build: the build to update.
@@ -668,6 +686,7 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
                                   force_full_update for details.
         @param force_original: Whether to force stateful update with the
                                original payload.
+        @param quick_provision: Attempt to use quick provision path first.
 
         @return the result of |auto_update| in dev_server.
         """
@@ -699,7 +718,8 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
                 log_dir=self.job.resultdir,
                 force_update=force_update,
                 full_update=force_full_update,
-                force_original=force_original)
+                force_original=force_original,
+                quick_provision=quick_provision)
 
 
     def machine_install_by_devserver(self, update_url=None, force_update=False,
@@ -791,6 +811,11 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
 
         force_original = self.get_chromeos_release_milestone() is None
 
+        build_re = CONFIG.get_config_value(
+                'CROS', 'quick_provision_build_regex', type=str, default='')
+        quick_provision = (len(build_re) != 0 and
+                           re.match(build_re, build) is not None)
+
         try:
             devserver.auto_update(
                     self.hostname, build,
@@ -800,7 +825,8 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
                     log_dir=self.job.resultdir,
                     force_update=force_update,
                     full_update=force_full_update,
-                    force_original=force_original)
+                    force_original=force_original,
+                    quick_provision=quick_provision)
         except dev_server.RetryableProvisionException:
             # It indicates that last provision failed due to devserver load
             # issue, so another devserver is resolved to kick off provision
@@ -814,7 +840,7 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
             if utils.ping(self.hostname, tries=1, deadline=1) == 0:
                 self._retry_auto_update_with_new_devserver(
                         build, devserver, force_update, force_full_update,
-                        force_original)
+                        force_original, quick_provision)
             else:
                 raise error.AutoservError(
                         'No answer to ping from %s' % self.hostname)
@@ -1103,26 +1129,23 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
             tmpd.clean()
 
 
+    def program_base_ec(self, image_path):
+        """Program Base EC on DUT with the given image.
+
+        @param image_path: a string, file name of the EC image to program
+                           on the DUT.
+
+        """
+        dest_path = os.path.join('/tmp', os.path.basename(image_path))
+        self.send_file(image_path, dest_path)
+        programmer = firmware_programmer.ProgrammerDfu(self.servo, self)
+        programmer.program_ec(dest_path)
+
+
     def show_update_engine_log(self):
         """Output update engine log."""
         logging.debug('Dumping %s', client_constants.UPDATE_ENGINE_LOG)
         self.run('cat %s' % client_constants.UPDATE_ENGINE_LOG)
-
-
-    def _get_board_from_afe(self):
-        """Retrieve this host's board from its labels stored locally.
-
-        Looks for a host label of the form "board:<board>", and
-        returns the "<board>" part of the label.  `None` is returned
-        if there is not a single, unique label matching the pattern.
-
-        @returns board from label, or `None`.
-        """
-        board = afe_utils.get_board(self)
-        if board is None:
-            raise error.AutoservError('DUT cannot be repaired, '
-                                      'there is no board attribute.')
-        return board
 
 
     def servo_install(self, image_url=None, usb_boot_timeout=USB_BOOT_TIMEOUT,
@@ -1218,9 +1241,21 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
         repair steps needed to get the DUT working.
         """
         self._repair_strategy.repair(self)
+        # Sometimes, hosts with certain ethernet dongles get stuck in a
+        # bad network state where they're reachable from this code, but
+        # not from the devservers during provisioning.  Rebooting the
+        # DUT fixes it.
+        #
+        # TODO(jrbarnette):  Ideally, we'd get rid of the problem
+        # dongles, and drop this code.  Failing that, we could be smart
+        # enough not to reboot if repair rebooted the DUT (e.g. by
+        # looking at DUT uptime after repair completes).
+
+        self.reboot()
 
 
     def close(self):
+        """Close connection."""
         super(CrosHost, self).close()
         if self._chameleon_host:
             self._chameleon_host.close()
@@ -1379,6 +1414,16 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
                 lsb_release_content=self._get_lsb_release_content())
 
 
+    def get_release_builder_path(self):
+        """Get the value of CHROMEOS_RELEASE_BUILDER_PATH from lsb-release.
+
+        @returns The version string in lsb-release, under attribute
+                 CHROMEOS_RELEASE_BUILDER_PATH.
+        """
+        return lsbrelease_utils.get_chromeos_release_builder_path(
+                lsb_release_content=self._get_lsb_release_content())
+
+
     def get_chromeos_release_milestone(self):
         """Get the value of attribute CHROMEOS_RELEASE_BUILD_TYPE
         from lsb-release.
@@ -1406,20 +1451,28 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
                 host__hostname=self.hostname)
         mismatch_found = False
         if labels:
-            # Get CHROMEOS_RELEASE_VERSION from lsb-release, e.g., 6908.0.0.
-            # Note that it's different from cros-version label, which has
-            # builder and branch info, e.g.,
-            # cros-version:peppy-release/R43-6908.0.0
-            release_version = self.get_release_version()
+            # Ask the DUT for its canonical image name.  This will be in
+            # a form like this:  kevin-release/R66-10405.0.0
+            release_builder_path = self.get_release_builder_path()
             host_list = [self.hostname]
             for label in labels:
                 # Remove any cros-version label that does not match
-                # release_version.
+                # the DUT's installed image.
+                #
+                # TODO(jrbarnette):  Tests sent to the `arc-presubmit`
+                # pool install images matching the format above, but
+                # then apply a label with `-cheetsth` appended.  Probably,
+                # it's wrong for ARC presubmit testing to make that change,
+                # but until it's fixed, this code specifically excuses that
+                # behavior.
                 build_version = label.name[len(ds_constants.VERSION_PREFIX):]
-                if not utils.version_match(build_version, release_version):
-                    logging.warn('cros-version label "%s" does not match '
-                                 'release version %s. Removing the label.',
-                                 label.name, release_version)
+                if build_version.endswith('-cheetsth'):
+                    build_version = build_version[:-len('-cheetsth')]
+                if build_version != release_builder_path:
+                    logging.warn(
+                        'cros-version label "%s" does not match '
+                        'release_builder_path %s. Removing the label.',
+                        label.name, release_builder_path)
                     label.remove_hosts(hosts=host_list)
                     mismatch_found = True
         if mismatch_found:
@@ -1445,6 +1498,7 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
 
 
     def cleanup(self):
+        """Cleanup state on device."""
         self.run('rm -f %s' % client_constants.CLEANUP_LOGS_PAUSED_FILE)
         try:
             self.cleanup_services()
@@ -1535,8 +1589,8 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
 
         @returns True if the service is running, False otherwise.
         """
-        return self.run('status %s | grep start/running' %
-                        service_name).stdout.strip() != ''
+        return 'start/running' in self.run('status %s' % service_name,
+                                           ignore_status=True).stdout
 
 
     def verify_software(self):
@@ -1572,9 +1626,7 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
                     'SERVER', 'gb_encrypted_diskspace_required', type=float,
                     default=0.1))
 
-        if not self.upstart_status('system-services'):
-            raise error.AutoservError('Chrome failed to reach login. '
-                                      'System services not running.')
+        self.wait_for_system_services()
 
         # Factory images don't run update engine,
         # goofy controls dbus on these DUTs.
@@ -1584,12 +1636,27 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
         self.verify_cros_version_label()
 
 
+    @retry.retry(error.AutoservError, timeout_min=5, delay_sec=10)
+    def wait_for_system_services(self):
+        """Waits for system-services to be running.
+
+        Sometimes, update_engine will take a while to update firmware, so we
+        should give this some time to finish. See crbug.com/765686#c38 for
+        details.
+        """
+        if not self.upstart_status('system-services'):
+            raise error.AutoservError('Chrome failed to reach login. '
+                                      'System services not running.')
+
+
     def verify(self):
+        """Verify Chrome OS system is in good state."""
         self._repair_strategy.verify(self)
 
 
     def make_ssh_command(self, user='root', port=22, opts='', hosts_file=None,
-                         connect_timeout=None, alive_interval=None):
+                         connect_timeout=None, alive_interval=None,
+                         alive_count_max=None, connection_attempts=None):
         """Override default make_ssh_command to use options tuned for Chrome OS.
 
         Tuning changes:
@@ -1621,15 +1688,16 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
         @param hosts_file Ignored.
         @param connect_timeout Ignored.
         @param alive_interval Ignored.
+        @param alive_count_max Ignored.
+        @param connection_attempts Ignored.
         """
-        base_command = ('/usr/bin/ssh -a -x %s %s %s'
-                        ' -o StrictHostKeyChecking=no'
-                        ' -o UserKnownHostsFile=/dev/null -o BatchMode=yes'
-                        ' -o ConnectTimeout=30 -o ServerAliveInterval=900'
-                        ' -o ServerAliveCountMax=3 -o ConnectionAttempts=4'
-                        ' -o Protocol=2 -l %s -p %d')
-        return base_command % (self._ssh_verbosity_flag, self._ssh_options,
-                               opts, user, port)
+        options = ' '.join([opts, '-o Protocol=2'])
+        return super(CrosHost, self).make_ssh_command(
+            user=user, port=port, opts=options, hosts_file='/dev/null',
+            connect_timeout=30, alive_interval=900, alive_count_max=3,
+            connection_attempts=4)
+
+
     def syslog(self, message, tag='autotest'):
         """Logs a message to syslog on host.
 
@@ -1947,14 +2015,22 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
 
         @returns a string representing this host's platform.
         """
-        crossystem = utils.Crossystem(self)
-        crossystem.init()
-        # Extract fwid value and use the leading part as the platform id.
-        # fwid generally follow the format of {platform}.{firmware version}
-        # Example: Alex.X.YYY.Z or Google_Alex.X.YYY.Z
-        platform = crossystem.fwid().split('.')[0].lower()
-        # Newer platforms start with 'Google_' while the older ones do not.
-        return platform.replace('google_', '')
+        cmd = 'mosys platform model'
+        result = self.run(command=cmd, ignore_status=True)
+        if result.exit_status == 0:
+            return result.stdout.strip()
+        else:
+            # $(mosys platform model) should support all platforms, but it
+            # currently doesn't, so this reverts to parsing the fw
+            # for any unsupported mosys platforms.
+            crossystem = utils.Crossystem(self)
+            crossystem.init()
+            # Extract fwid value and use the leading part as the platform id.
+            # fwid generally follow the format of {platform}.{firmware version}
+            # Example: Alex.X.YYY.Z or Google_Alex.X.YYY.Z
+            platform = crossystem.fwid().split('.')[0].lower()
+            # Newer platforms start with 'Google_' while the older ones do not.
+            return platform.replace('google_', '')
 
 
     def get_architecture(self):
@@ -1982,6 +2058,48 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
         """
         version_string = self.run(client_constants.CHROME_VERSION_COMMAND).stdout
         return utils.parse_chrome_version(version_string)
+
+
+    def get_ec_version(self):
+        """Get the ec version as strings.
+
+        @returns a string representing this host's ec version.
+        """
+        command = 'mosys ec info -s fw_version'
+        result = self.run(command, ignore_status=True)
+        if result.exit_status != 0:
+            return ''
+        return result.stdout.strip()
+
+
+    def get_firmware_version(self):
+        """Get the firmware version as strings.
+
+        @returns a string representing this host's firmware version.
+        """
+        crossystem = utils.Crossystem(self)
+        crossystem.init()
+        return crossystem.fwid()
+
+
+    def get_hardware_revision(self):
+        """Get the hardware revision as strings.
+
+        @returns a string representing this host's hardware revision.
+        """
+        command = 'mosys platform version'
+        result = self.run(command, ignore_status=True)
+        if result.exit_status != 0:
+            return ''
+        return result.stdout.strip()
+
+
+    def get_kernel_version(self):
+        """Get the kernel version as strings.
+
+        @returns a string representing this host's kernel version.
+        """
+        return self.run('uname -r').stdout.strip()
 
 
     def is_chrome_switch_present(self, switch):
@@ -2020,7 +2138,14 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
         return (ds_constants.BOARD_PREFIX +
                 release_info['CHROMEOS_RELEASE_BOARD'])
 
+    def get_channel(self):
+        """Determine the correct channel label for this host.
 
+        @returns: a string represeting this host's build channel.
+                  (stable, dev, beta). None on fail.
+        """
+        return lsbrelease_utils.get_chromeos_channel(
+                lsb_release_content=self._get_lsb_release_content())
 
     def has_lightsensor(self):
         """Determine the correct board label for this host.
@@ -2317,15 +2442,6 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
             common_utils.read_file = original_read_file
 
 
-    def has_lucid_sleep_support(self):
-        """Determine if the device under test has support for lucid sleep.
-
-        @return 'lucidsleep' if this board supports lucid sleep; None otherwise
-        """
-        board = self.get_board().replace(ds_constants.BOARD_PREFIX, '')
-        return 'lucidsleep' if board in LUCID_SLEEP_BOARDS else None
-
-
     def is_boot_from_usb(self):
         """Check if DUT is boot from USB.
 
@@ -2377,6 +2493,18 @@ class CrosHost(abstract_ssh.AbstractSSHHost):
         if device_type:
             return device_type.split('=')[-1].strip()
         return ''
+
+
+    def get_arc_version(self):
+        """Return ARC version installed on the DUT.
+
+        @returns ARC version as string if the CrOS build has ARC, else None.
+        """
+        arc_version = self.run('grep CHROMEOS_ARC_VERSION /etc/lsb-release',
+                               ignore_status=True).stdout
+        if arc_version:
+            return arc_version.split('=')[-1].strip()
+        return None
 
 
     def get_os_type(self):

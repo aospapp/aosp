@@ -18,16 +18,20 @@
 
 from __future__ import print_function
 
-import mock
 import os
 import sys
 import unittest
+
+import mock
 
 _path = os.path.realpath(__file__ + '/../..')
 if sys.path[0] != _path:
     sys.path.insert(0, _path)
 del _path
 
+# We have to import our local modules after the sys.path tweak.  We can't use
+# relative imports because this is an executable program, not a module.
+# pylint: disable=wrong-import-position
 import rh
 import rh.hooks
 import rh.config

@@ -23,10 +23,12 @@
 #include "android/net/wifi/IApInterface.h"
 #include "android/net/wifi/IWificond.h"
 #include "wificond/tests/integration/process_utils.h"
+#include "wificond/tests/mock_ap_interface_event_callback.h"
 
 using android::net::wifi::IApInterface;
 using android::net::wifi::IWificond;
 using android::wifi_system::InterfaceTool;
+using android::wificond::MockApInterfaceEventCallback;
 using android::wificond::tests::integration::HostapdIsDead;
 using android::wificond::tests::integration::HostapdIsRunning;
 using android::wificond::tests::integration::ScopedDevModeWificond;
@@ -37,17 +39,9 @@ using std::vector;
 namespace android {
 namespace wificond {
 namespace {
-
+const char kInterfaceName[] = "wlan0";
 constexpr int kHostapdStartupTimeoutSeconds = 3;
 constexpr int kHostapdDeathTimeoutSeconds = 3;
-
-const char kValidSsid[] = "foobar";
-const char kInvalidSsid[] = "0123456789"
-                            "0123456789"
-                            "0123456789"
-                            "012";  // 33 bytes is too long
-const char kValidPassphrase[] = "super secret";
-
 }  // namespace
 
 TEST(ApInterfaceTest, CanCreateApInterfaces) {
@@ -56,7 +50,7 @@ TEST(ApInterfaceTest, CanCreateApInterfaces) {
 
   // We should be able to create an AP interface.
   sp<IApInterface> ap_interface;
-  EXPECT_TRUE(service->createApInterface(&ap_interface).isOk());
+  EXPECT_TRUE(service->createApInterface(kInterfaceName, &ap_interface).isOk());
   EXPECT_NE(nullptr, ap_interface.get());
 
   // The interface should start out down.
@@ -66,18 +60,24 @@ TEST(ApInterfaceTest, CanCreateApInterfaces) {
   InterfaceTool if_tool;
   EXPECT_FALSE(if_tool.GetUpState(if_name.c_str()));
 
-  // Mark the interface as up, just to test that we mark it down on teardown.
+  // Mark the interface as up, just to test that we mark it down on tearDown.
   EXPECT_TRUE(if_tool.SetUpState(if_name.c_str(), true));
   EXPECT_TRUE(if_tool.GetUpState(if_name.c_str()));
 
   // We should not be able to create two AP interfaces.
   sp<IApInterface> ap_interface2;
-  EXPECT_TRUE(service->createApInterface(&ap_interface2).isOk());
+  EXPECT_TRUE(service->createApInterface(
+      kInterfaceName, &ap_interface2).isOk());
   EXPECT_EQ(nullptr, ap_interface2.get());
 
   // We can tear down the created interface.
-  EXPECT_TRUE(service->tearDownInterfaces().isOk());
+  bool success = false;
+  EXPECT_TRUE(service->tearDownApInterface(kInterfaceName, &success).isOk());
+  EXPECT_TRUE(success);
   EXPECT_FALSE(if_tool.GetUpState(if_name.c_str()));
+
+  // Teardown everything at the end of the test.
+  EXPECT_TRUE(service->tearDownInterfaces().isOk());
 }
 
 // TODO: b/30311493 this test fails because hostapd fails to set the driver
@@ -86,7 +86,7 @@ TEST(ApInterfaceTest, CanStartStopHostapd) {
   ScopedDevModeWificond dev_mode;
   sp<IWificond> service = dev_mode.EnterDevModeOrDie();
   sp<IApInterface> ap_interface;
-  EXPECT_TRUE(service->createApInterface(&ap_interface).isOk());
+  EXPECT_TRUE(service->createApInterface(kInterfaceName, &ap_interface).isOk());
   ASSERT_NE(nullptr, ap_interface.get());
 
   // Interface should start out down.
@@ -96,20 +96,15 @@ TEST(ApInterfaceTest, CanStartStopHostapd) {
   InterfaceTool if_tool;
   EXPECT_FALSE(if_tool.GetUpState(if_name.c_str()));
 
-  bool wrote_config = false;
-  EXPECT_TRUE(ap_interface->writeHostapdConfig(
-      vector<uint8_t>(kValidSsid, kValidSsid + sizeof(kValidSsid) - 1),
-      false,
-      6,
-      IApInterface::ENCRYPTION_TYPE_WPA2,
-      vector<uint8_t>(kValidPassphrase,
-                      kValidPassphrase + sizeof(kValidPassphrase) - 1),
-      &wrote_config).isOk());
-  ASSERT_TRUE(wrote_config);
+  sp<MockApInterfaceEventCallback> ap_interface_event_callback(
+      new MockApInterfaceEventCallback());
 
   for (int iteration = 0; iteration < 4; iteration++) {
     bool hostapd_started = false;
-    EXPECT_TRUE(ap_interface->startHostapd(&hostapd_started).isOk());
+    EXPECT_TRUE(
+        ap_interface
+            ->startHostapd(ap_interface_event_callback, &hostapd_started)
+            .isOk());
     EXPECT_TRUE(hostapd_started);
 
     EXPECT_TRUE(WaitForTrue(HostapdIsRunning, kHostapdStartupTimeoutSeconds))
@@ -138,37 +133,5 @@ TEST(ApInterfaceTest, CanStartStopHostapd) {
         << "Failed on iteration " << iteration;
   }
 }
-
-TEST(ApInterfaceTest, CanWriteHostapdConfig) {
-  ScopedDevModeWificond dev_mode;
-  sp<IWificond> service = dev_mode.EnterDevModeOrDie();
-  sp<IApInterface> ap_interface;
-  EXPECT_TRUE(service->createApInterface(&ap_interface).isOk());
-  ASSERT_NE(nullptr, ap_interface.get());
-
-  bool success = false;
-  // Should be able to write out a valid configuration
-  EXPECT_TRUE(ap_interface->writeHostapdConfig(
-      vector<uint8_t>(kValidSsid, kValidSsid + sizeof(kValidSsid) - 1),
-      false,
-      2,
-      IApInterface::ENCRYPTION_TYPE_WPA2,
-      vector<uint8_t>(kValidPassphrase,
-                      kValidPassphrase + sizeof(kValidPassphrase) - 1),
-      &success).isOk());
-  EXPECT_TRUE(success) << "Expected to write out a valid config.";
-
-  // SSIDs have to be 32 bytes or less
-  EXPECT_TRUE(ap_interface->writeHostapdConfig(
-      vector<uint8_t>(kInvalidSsid, kInvalidSsid + sizeof(kInvalidSsid) - 1),
-      false,
-      2,
-      IApInterface::ENCRYPTION_TYPE_WPA2,
-      vector<uint8_t>(kValidPassphrase,
-                      kValidPassphrase + sizeof(kValidPassphrase) - 1),
-      &success).isOk());
-  EXPECT_FALSE(success) << "Did not expect to write out an invalid config.";
-}
-
 }  // namespace wificond
 }  // namespace android

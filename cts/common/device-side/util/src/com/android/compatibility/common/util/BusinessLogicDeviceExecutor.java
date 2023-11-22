@@ -17,6 +17,7 @@
 package com.android.compatibility.common.util;
 
 import android.content.Context;
+import android.util.Log;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -41,6 +42,14 @@ public class BusinessLogicDeviceExecutor extends BusinessLogicExecutor {
     @Override
     protected Object getTestObject() {
         return mTestObj;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void logInfo(String format, Object... args) {
+        Log.i(LOG_TAG, String.format(format, args));
     }
 
     /**

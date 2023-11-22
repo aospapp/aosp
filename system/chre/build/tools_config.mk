@@ -19,10 +19,11 @@ COMMON_CFLAGS += -Wno-unused-parameter
 
 # Additional warnings. Even more! :]
 COMMON_CFLAGS += -Wshadow
+COMMON_CFLAGS += -Wdouble-promotion
 
 # Disable exceptions and RTTI.
-COMMON_CFLAGS += -fno-exceptions
-COMMON_CFLAGS += -fno-rtti
+COMMON_CXX_CFLAGS += -fno-exceptions
+COMMON_CXX_CFLAGS += -fno-rtti
 
 # Enable the linker to garbage collect unused code and variables.
 COMMON_CFLAGS += -fdata-sections
@@ -32,8 +33,7 @@ COMMON_CFLAGS += -ffunction-sections
 COMMON_DEBUG_CFLAGS += -g
 
 # Dependency Resolution
-DEP_CFLAGS = -MM -MG -MP -MF $$(basename $$@).Td
-DEP_POST_COMPILE = @mv -f $$(basename $$@).Td $$(basename $$@).d && touch $$@
+DEP_CFLAGS = -MM -MG -MP -MF $$(basename $$@).d
 
 # Compile with hidden visibility by default.
 COMMON_CFLAGS += -fvisibility=hidden

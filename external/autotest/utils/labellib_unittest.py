@@ -5,22 +5,10 @@
 # found in the LICENSE file.
 
 import copy
-import logging
 import unittest
 
 import common
 from autotest_lib.utils import labellib
-
-
-_nullhandler = logging.NullHandler()
-
-
-def setUpModule():
-    labellib.logger.addHandler(_nullhandler)
-
-
-def tearDownModule():
-    labellib.logger.removeHandler(_nullhandler)
 
 
 class KeyvalLabelTestCase(unittest.TestCase):

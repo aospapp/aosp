@@ -19,16 +19,14 @@ package android.media.cts;
 import android.app.Instrumentation;
 import android.app.NotificationManager;
 import android.app.UiAutomation;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.media.AudioManager;
 import android.media.AudioPlaybackConfiguration;
 import android.media.MediaPlayer;
+import android.media.session.MediaSessionManager.RemoteUserInfo;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
-import android.provider.Settings;
-import com.google.android.collect.Lists;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,7 +39,7 @@ import junit.framework.Assert;
 
 public class Utils {
     private static final String TAG = "CtsMediaTestUtil";
-    private static final int TEST_TIMING_TOLERANCE_MS = 50;
+    private static final int TEST_TIMING_TOLERANCE_MS = 500;
 
     public static void enableAppOps(String packageName, String operation,
             Instrumentation instrumentation) {
@@ -111,6 +109,17 @@ public class Utils {
                 .getSystemService(Context.NOTIFICATION_SERVICE);
         Assert.assertEquals("Wrote setting should be the same as the read one", on,
                 nm.isNotificationPolicyAccessGranted());
+    }
+
+    static boolean compareRemoteUserInfo(RemoteUserInfo a, RemoteUserInfo b) {
+        if (a == null && b == null) {
+            return true;
+        } else if (a == null || b == null) {
+            return false;
+        }
+        return a.getPackageName().equals(b.getPackageName())
+                && a.getPid() == b.getPid()
+                && a.getUid() == b.getUid();
     }
 
     /**

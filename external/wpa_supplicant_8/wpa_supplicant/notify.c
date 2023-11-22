@@ -887,6 +887,12 @@ void wpas_notify_eap_status(struct wpa_supplicant *wpa_s, const char *status,
 		     status, parameter);
 }
 
+void wpas_notify_eap_error(struct wpa_supplicant *wpa_s, int error_code)
+{
+	wpa_dbg(wpa_s, MSG_ERROR,
+		"EAP Error code = %d", error_code);
+	wpas_hidl_notify_eap_error(wpa_s, error_code);
+}
 
 void wpas_notify_network_bssid_set_changed(struct wpa_supplicant *wpa_s,
 					   struct wpa_ssid *ssid)
@@ -972,3 +978,49 @@ void wpas_notify_hs20_rx_deauth_imminent_notice(struct wpa_supplicant *wpa_s,
 							url);
 #endif /* CONFIG_HS20 */
 }
+
+
+#ifdef CONFIG_MESH
+
+void wpas_notify_mesh_group_started(struct wpa_supplicant *wpa_s,
+				    struct wpa_ssid *ssid)
+{
+	if (wpa_s->p2p_mgmt)
+		return;
+
+	wpas_dbus_signal_mesh_group_started(wpa_s, ssid);
+}
+
+
+void wpas_notify_mesh_group_removed(struct wpa_supplicant *wpa_s,
+				    const u8 *meshid, u8 meshid_len,
+				    int reason_code)
+{
+	if (wpa_s->p2p_mgmt)
+		return;
+
+	wpas_dbus_signal_mesh_group_removed(wpa_s, meshid, meshid_len,
+					    reason_code);
+}
+
+
+void wpas_notify_mesh_peer_connected(struct wpa_supplicant *wpa_s,
+				     const u8 *peer_addr)
+{
+	if (wpa_s->p2p_mgmt)
+		return;
+
+	wpas_dbus_signal_mesh_peer_connected(wpa_s, peer_addr);
+}
+
+
+void wpas_notify_mesh_peer_disconnected(struct wpa_supplicant *wpa_s,
+					const u8 *peer_addr, int reason_code)
+{
+	if (wpa_s->p2p_mgmt)
+		return;
+
+	wpas_dbus_signal_mesh_peer_disconnected(wpa_s, peer_addr, reason_code);
+}
+
+#endif /* CONFIG_MESH */

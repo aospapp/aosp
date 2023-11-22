@@ -44,9 +44,14 @@ import android.telephony.TelephonyManager;
 import android.util.ArrayMap;
 import android.util.Log;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
+import com.android.internal.telephony.SubscriptionController;
 
 /**
  * Phone app module that listens for phone state changes and various other
@@ -68,7 +73,8 @@ public class CallNotifier extends Handler {
 
     private Map<Integer, CallNotifierPhoneStateListener> mPhoneStateListeners =
             new ArrayMap<Integer, CallNotifierPhoneStateListener>();
-
+    private Map<Integer, Boolean> mCFIStatus = new ArrayMap<Integer, Boolean>();
+    private Map<Integer, Boolean> mMWIStatus = new ArrayMap<Integer, Boolean>();
     private PhoneGlobals mApplication;
     private CallManager mCM;
     private BluetoothHeadset mBluetoothHeadset;
@@ -98,6 +104,10 @@ public class CallNotifier extends Handler {
     // We should store all the possible event type values in one place to make sure that
     // they don't step on each others' toes.
     public static final int INTERNAL_SHOW_MESSAGE_NOTIFICATION_DONE = 22;
+
+    public static final int UPDATE_TYPE_MWI = 0;
+    public static final int UPDATE_TYPE_CFI = 1;
+    public static final int UPDATE_TYPE_MWI_CFI = 2;
 
     /**
      * Initialize the singleton CallNotifier instance.
@@ -140,7 +150,7 @@ public class CallNotifier extends Handler {
                 new OnSubscriptionsChangedListener() {
                     @Override
                     public void onSubscriptionsChanged() {
-                        updatePhoneStateListeners();
+                        updatePhoneStateListeners(true);
                     }
                 });
     }
@@ -571,14 +581,31 @@ public class CallNotifier extends Handler {
                 SHOW_MESSAGE_NOTIFICATION_TIME);
     }
 
-    public void updatePhoneStateListeners() {
+    public void updatePhoneStateListeners(boolean isRefresh) {
+        updatePhoneStateListeners(isRefresh, UPDATE_TYPE_MWI_CFI,
+                SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+    }
+
+    public void updatePhoneStateListeners(boolean isRefresh, int updateType, int subIdToUpdate) {
         List<SubscriptionInfo> subInfos = mSubscriptionManager.getActiveSubscriptionInfoList();
 
-        // Unregister phone listeners for inactive subscriptions.
-        Iterator<Integer> itr = mPhoneStateListeners.keySet().iterator();
-        while (itr.hasNext()) {
-            int subId = itr.next();
+        // Sort sub id list based on slot id, so that CFI/MWI notifications will be updated for
+        // slot 0 first then slot 1. This is needed to ensure that when CFI or MWI is enabled for
+        // both slots, user always sees icon related to slot 0 on left side followed by that of
+        // slot 1.
+        List<Integer> subIdList = new ArrayList<Integer>(mPhoneStateListeners.keySet());
+        Collections.sort(subIdList, new Comparator<Integer>() {
+            public int compare(Integer sub1, Integer sub2) {
+                int slotId1 = SubscriptionController.getInstance().getSlotIndex(sub1);
+                int slotId2 = SubscriptionController.getInstance().getSlotIndex(sub2);
+                return slotId1 > slotId2 ? 0 : -1;
+            }
+        });
+
+        for (int subIdCounter = (subIdList.size() - 1); subIdCounter >= 0; subIdCounter--) {
+            int subId = subIdList.get(subIdCounter);
             if (subInfos == null || !containsSubId(subInfos, subId)) {
+                Log.d(LOG_TAG, "updatePhoneStateListeners: Hide the outstanding notifications.");
                 // Hide the outstanding notifications.
                 mApplication.notificationMgr.updateMwi(subId, false);
                 mApplication.notificationMgr.updateCfi(subId, false);
@@ -586,7 +613,26 @@ public class CallNotifier extends Handler {
                 // Listening to LISTEN_NONE removes the listener.
                 mTelephonyManager.listen(
                         mPhoneStateListeners.get(subId), PhoneStateListener.LISTEN_NONE);
-                itr.remove();
+                mPhoneStateListeners.remove(subId);
+            } else {
+                Log.d(LOG_TAG, "updatePhoneStateListeners: update CF notifications.");
+
+                if (mCFIStatus.containsKey(subId)) {
+                    if ((updateType == UPDATE_TYPE_CFI) && (subId == subIdToUpdate)) {
+                        mApplication.notificationMgr.updateCfi(subId, mCFIStatus.get(subId),
+                                isRefresh);
+                    } else {
+                        mApplication.notificationMgr.updateCfi(subId, mCFIStatus.get(subId), true);
+                    }
+                }
+                if (mMWIStatus.containsKey(subId)) {
+                    if ((updateType == UPDATE_TYPE_MWI) && (subId == subIdToUpdate)) {
+                        mApplication.notificationMgr.updateMwi(subId, mMWIStatus.get(subId),
+                            isRefresh);
+                    } else {
+                        mApplication.notificationMgr.updateMwi(subId, mMWIStatus.get(subId), true);
+                    }
+                }
             }
         }
 
@@ -757,14 +803,16 @@ public class CallNotifier extends Handler {
         @Override
         public void onMessageWaitingIndicatorChanged(boolean visible) {
             if (VDBG) log("onMessageWaitingIndicatorChanged(): " + this.mSubId + " " + visible);
-            mApplication.notificationMgr.updateMwi(this.mSubId, visible);
+            mMWIStatus.put(this.mSubId, visible);
+            updatePhoneStateListeners(false, UPDATE_TYPE_MWI, this.mSubId);
         }
 
         @Override
         public void onCallForwardingIndicatorChanged(boolean visible) {
             Log.i(LOG_TAG, "onCallForwardingIndicatorChanged(): subId=" + this.mSubId
                     + ", visible=" + (visible ? "Y" : "N"));
-            mApplication.notificationMgr.updateCfi(this.mSubId, visible);
+            mCFIStatus.put(this.mSubId, visible);
+            updatePhoneStateListeners(false, UPDATE_TYPE_CFI, this.mSubId);
         }
     };
 

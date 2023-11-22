@@ -130,12 +130,14 @@ struct MessageQueue {
      * The method will return false without blocking if any of the following
      * conditions are true:
      * - If 'evFlag' is nullptr and the FMQ does not own an EventFlag object.
-     * - If the flavor of the FMQ is synchronized and the 'readNotification' bit mask is zero.
+     * - If the 'readNotification' bit mask is zero.
      * - If 'count' is greater than the FMQ size.
      *
-     * If the flavor of the FMQ is synchronized and there is insufficient space
-     * available to write into it, the EventFlag bit mask 'readNotification' is
-     * is waited upon.
+     * If the there is insufficient space available to write into it, the
+     * EventFlag bit mask 'readNotification' is is waited upon.
+     *
+     * This method should only be used with a MessageQueue of the flavor
+     * 'kSynchronizedReadWrite'.
      *
      * Upon a successful write, wake is called on 'writeNotification' (if
      * non-zero).
@@ -186,6 +188,9 @@ struct MessageQueue {
      * -If the 'writeNotification' bit mask is zero.
      * -If 'count' is greater than the FMQ size.
      *
+     * This method should only be used with a MessageQueue of the flavor
+     * 'kSynchronizedReadWrite'.
+
      * If FMQ does not contain 'count' items, the eventFlag bit mask
      * 'writeNotification' is waited upon. Upon a successful read from the FMQ,
      * wake is called on 'readNotification' (if non-zero).
@@ -425,10 +430,10 @@ private:
 
     enum DefaultEventNotification : uint32_t {
         /*
-         * These are only used internally by the blockingRead()/blockingWrite()
+         * These are only used internally by the readBlocking()/writeBlocking()
          * methods and hence once other bit combinations are not required.
          */
-        FMQ_NOT_FULL  = 0x01,
+        FMQ_NOT_FULL = 0x01,
         FMQ_NOT_EMPTY = 0x02
     };
 
@@ -729,6 +734,9 @@ bool MessageQueue<T, flavor>::writeBlocking(const T* data,
                                             uint32_t writeNotification,
                                             int64_t timeOutNanos,
                                             android::hardware::EventFlag* evFlag) {
+    static_assert(flavor == kSynchronizedReadWrite,
+                  "writeBlocking can only be used with the "
+                  "kSynchronizedReadWrite flavor.");
     /*
      * If evFlag is null and the FMQ does not have its own EventFlag object
      * return false;
@@ -740,25 +748,25 @@ bool MessageQueue<T, flavor>::writeBlocking(const T* data,
     if (evFlag == nullptr) {
         evFlag = mEventFlag;
         if (evFlag == nullptr) {
+            details::logError(
+                "writeBlocking failed: called on MessageQueue with no Eventflag"
+                "configured or provided");
             return false;
         }
     }
 
-    if ((readNotification == 0 && flavor == kSynchronizedReadWrite) ||
-        (count > getQuantumCount())) {
+    if (readNotification == 0 || (count > getQuantumCount())) {
         return false;
     }
 
     /*
-     * There is no need to wait for a readNotification if the flavor
-     * of the queue is kUnsynchronizedWrite or sufficient space to write
-     * is already present in the FMQ. The latter would be the case when
-     * read operations read more number of messages than
-     * write operations write. In other words, a single large read may clear the FMQ
-     * after multiple small writes. This would fail to clear a pending
-     * readNotification bit since EventFlag bits can only be cleared
-     * by a wait() call, however the bit would be correctly cleared by the next
-     * blockingWrite() call.
+     * There is no need to wait for a readNotification if there is sufficient
+     * space to write is already present in the FMQ. The latter would be the case when
+     * read operations read more number of messages than write operations write.
+     * In other words, a single large read may clear the FMQ after multiple small
+     * writes. This would fail to clear a pending readNotification bit since
+     * EventFlag bits can only be cleared by a wait() call, however the bit would
+     * be correctly cleared by the next writeBlocking() call.
      */
 
     bool result = write(data, count);
@@ -847,6 +855,10 @@ bool MessageQueue<T, flavor>::readBlocking(T* data,
                                            uint32_t writeNotification,
                                            int64_t timeOutNanos,
                                            android::hardware::EventFlag* evFlag) {
+    static_assert(flavor == kSynchronizedReadWrite,
+                  "readBlocking can only be used with the "
+                  "kSynchronizedReadWrite flavor.");
+
     /*
      * If evFlag is null and the FMQ does not own its own EventFlag object
      * return false;
@@ -857,6 +869,9 @@ bool MessageQueue<T, flavor>::readBlocking(T* data,
     if (evFlag == nullptr) {
         evFlag = mEventFlag;
         if (evFlag == nullptr) {
+            details::logError(
+                "readBlocking failed: called on MessageQueue with no Eventflag"
+                "configured or provided");
             return false;
         }
     }

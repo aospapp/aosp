@@ -11,7 +11,6 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <limits.h>
@@ -44,7 +43,7 @@ paretovalue(int i)
 	if (dvalue > 32767)
 		dvalue = 32767;
 	return (int)rint(dvalue);
-}	
+}
 
 int
 main(int argc, char **argv)

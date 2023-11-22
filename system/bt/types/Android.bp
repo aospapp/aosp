@@ -1,4 +1,11 @@
 // Bluetooth types
+cc_library_headers {
+    name: "libbluetooth-types-header",
+    export_include_dirs: ["./"],
+    vendor_available: true,
+    host_supported: true,
+}
+
 cc_library_static {
     name: "libbluetooth-types",
     vendor_available: true,
@@ -10,8 +17,10 @@ cc_library_static {
     host_supported: true,
     srcs: [
         "raw_address.cc",
+        "bluetooth/uuid.cc",
     ],
-    export_include_dirs: ["./"],
+    header_libs: ["libbluetooth-types-header"],
+    export_header_lib_headers: ["libbluetooth-types-header"],
 }
 
 // ========================================================
@@ -22,5 +31,6 @@ cc_test {
     host_supported: true,
     srcs: [
         "test/raw_address_unittest.cc",
+        "test/bluetooth/uuid_unittest.cc",
     ],
 }

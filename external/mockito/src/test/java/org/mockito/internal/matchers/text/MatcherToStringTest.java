@@ -1,10 +1,14 @@
+/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockito.internal.matchers.text;
 
 import org.junit.Test;
 import org.mockito.ArgumentMatcher;
 import org.mockitoutil.TestBase;
 
-import static junit.framework.TestCase.assertEquals;
+import static org.junit.Assert.assertEquals;
 
 public class MatcherToStringTest extends TestBase {
 

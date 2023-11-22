@@ -29,8 +29,6 @@ def main():
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
-        w_map = props["android.lens.info.shadingMapSize"]["width"]
-        h_map = props["android.lens.info.shadingMapSize"]["height"]
 
         # TODO: Test for 3A convergence, and exit this test once converged.
 
@@ -50,7 +48,10 @@ def main():
             gains = cap["metadata"]["android.colorCorrection.gains"]
             transform = cap["metadata"]["android.colorCorrection.transform"]
             exp_time = cap["metadata"]['android.sensor.exposureTime']
-            lsc_map = cap["metadata"]["android.statistics.lensShadingMap"]
+            lsc_obj = cap_res["android.statistics.lensShadingCorrectionMap"]
+            lsc_map = lsc_obj["map"]
+            w_map = lsc_obj["width"]
+            h_map = lsc_obj["height"]
             foc_dist = cap["metadata"]['android.lens.focusDistance']
             foc_range = cap["metadata"]['android.lens.focusRange']
 

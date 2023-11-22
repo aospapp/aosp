@@ -46,12 +46,14 @@
             <TextView
                 android:id="@+id/textview_password"
                 android:password="true"
+                android:minWidth="1dp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"/>
 
             <TextView
                 android:id="@+id/textview_singleLine"
                 android:singleLine="true"
+                android:minWidth="1dp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"/>
 
@@ -59,12 +61,14 @@
                 android:id="@+id/textview_text"
                 android:text="@string/text_view_hello"
                 android:breakStrategy="simple"
+                android:minWidth="1dp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"/>
 
             <TextView
                 android:id="@+id/textview_text_two_lines"
                 android:text="@string/text_view_hello_two_lines"
+                android:minWidth="1dp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"/>
 
@@ -382,6 +386,66 @@
                 android:layout_height="wrap_content"
                 android:text="@string/sample_text"
                 android:justificationMode="inter_word" />
+
+            <TextView
+                android:id="@+id/textview_textappearance_attrs1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sample_text"
+                style="@null"
+                android:textAppearance="@style/TextAppearance.Xml1" />
+
+            <TextView
+                android:id="@+id/textview_textappearance_attrs2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sample_text"
+                style="@null"
+                android:textAppearance="@style/TextAppearance.Xml2" />
+
+            <TextView
+                android:id="@+id/textview_textappearance_attrs3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sample_text"
+                android:textAppearance="@style/TextAppearance.Xml2"
+                style="@style/TextAppearance.Xml3" />
+
+            <TextView
+                android:id="@+id/textview_textappearance_attrs4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sample_text"
+                style="@style/TextAppearance.Xml3" />
+
+            <TextView
+                android:id="@+id/textview_textappearance_attrs_allcaps_password"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sample_text"
+                style="@style/AllCapsPassword" />
+
+            <TextView
+                android:id="@+id/textview_textappearance_attrs_serif_fontfamily"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sample_text"
+                android:typeface="serif"
+                android:textAppearance="@style/TextAppearance.Xml2" />
+
+            <TextView
+                android:id="@+id/textview_baseline"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sample_text"
+                android:textSize="20dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:firstBaselineToTopHeight="@dimen/textview_firstBaselineToTopHeight"
+                android:lastBaselineToBottomHeight="@dimen/textview_lastBaselineToBottomHeight"
+                android:lineSpacingExtra="1dp"
+                android:lineSpacingMultiplier="0.5"
+                android:lineHeight="@dimen/textview_lineHeight" />
 
         </LinearLayout>
 

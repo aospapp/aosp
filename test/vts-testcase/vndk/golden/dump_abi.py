@@ -16,6 +16,7 @@
 #
 
 import argparse
+import csv
 import importlib
 import os
 import subprocess
@@ -29,6 +30,7 @@ class ExternalModules(object):
     are outside the search path and thus have to be imported dynamically.
 
     Attribtues:
+        ar_parser: The ar_parser module.
         elf_parser: The elf_parser module.
         vtable_parser: The vtable_parser module.
     """
@@ -40,36 +42,65 @@ class ExternalModules(object):
             import_dir: The directory containing vts.utils.python.library.*.
         """
         sys.path.append(import_dir)
+        cls.ar_parser = importlib.import_module(
+            "vts.utils.python.library.ar_parser")
         cls.elf_parser = importlib.import_module(
-                "vts.utils.python.library.elf_parser")
+            "vts.utils.python.library.elf_parser")
         cls.vtable_parser = importlib.import_module(
-                "vts.utils.python.library.vtable_parser")
+            "vts.utils.python.library.vtable_parser")
 
 
-def GetBuildVariable(build_top_dir, var):
-    """Gets value of a variable from build config.
+def _CreateAndWrite(path, data):
+    """Creates directories on a file path and writes data to it.
+
+    Args:
+        path: The path to the file.
+        data: The data to write.
+    """
+    dir_name = os.path.dirname(path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    with open(path, "w") as f:
+        f.write(data)
+
+
+def _ExecuteCommand(cmd, **kwargs):
+    """Executes a command and returns stdout.
+
+    Args:
+        cmd: A list of strings, the command to execute.
+        **kwargs: The arguments passed to subprocess.Popen.
+
+    Returns:
+        A string, the stdout.
+    """
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
+    stdout, stderr = proc.communicate()
+    if proc.returncode:
+        sys.exit("Command failed: %s\nstdout=%s\nstderr=%s" % (
+                 cmd, stdout, stderr))
+    if stderr:
+        print("Warning: cmd=%s\nstdout=%s\nstderr=%s" % (cmd, stdout, stderr))
+    return stdout.strip()
+
+
+def GetBuildVariables(build_top_dir, abs_path, vars):
+    """Gets values of variables from build config.
 
     Args:
         build_top_dir: The path to root directory of Android source.
-        var: The name of the variable.
+        abs_path: A boolean, whether to convert the values to absolute paths.
+        vars: A list of strings, the names of the variables.
 
     Returns:
-        A string which is the value of the variable.
+        A list of strings which are the values of the variables.
     """
-    build_core = os.path.join(build_top_dir, "build", "core")
-    env = dict(os.environ)
-    env["CALLED_FROM_SETUP"] = "true"
-    env["BUILD_SYSTEM"] = build_core
-    cmd = ["make", "--no-print-directory",
-           "-f", os.path.join(build_core, "config.mk"),
-           "dumpvar-" + var]
-    proc = subprocess.Popen(cmd, env=env, cwd=build_top_dir,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = proc.communicate()
-    if stderr:
-        sys.exit("Cannot get variable: cmd=%s\nstdout=%s\nstderr=%s" % (
-                 cmd, stdout, stderr))
-    return stdout.strip()
+    cmd = ["build/soong/soong_ui.bash", "--dumpvars-mode",
+           ("--abs-vars" if abs_path else "--vars"), " ".join(vars)]
+    stdout = _ExecuteCommand(cmd, cwd=build_top_dir)
+    print(stdout)
+    return [line.split("=", 1)[1].strip("'") for line in stdout.splitlines()]
 
 
 def FindBinary(file_name):
@@ -81,16 +112,10 @@ def FindBinary(file_name):
     Returns:
         A string which is the path to the binary.
     """
-    cmd = ["which", file_name]
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = proc.communicate()
-    if proc.returncode:
-        sys.exit("Cannot find file: cmd=%s\nstdout=%s\nstderr=%s" % (
-                 cmd, stdout, stderr))
-    return stdout
+    return _ExecuteCommand(["which", file_name])
 
 
-def DumpSymbols(lib_path, dump_path):
+def DumpSymbols(lib_path, dump_path, exclude_symbols):
     """Dump symbols from a library to a dump file.
 
     The dump file is a sorted list of symbols. Each line contains one symbol.
@@ -98,9 +123,11 @@ def DumpSymbols(lib_path, dump_path):
     Args:
         lib_path: The path to the library.
         dump_path: The path to the dump file.
+        exclude_symbols: A set of strings, the symbols that should not be
+                         written to the dump file.
 
     Returns:
-        A string which is the description about the result.
+        A list of strings which are the symbols written to the dump file.
 
     Raises:
         elf_parser.ElfError if fails to load the library.
@@ -110,19 +137,18 @@ def DumpSymbols(lib_path, dump_path):
     parser = None
     try:
         parser = elf_parser.ElfParser(lib_path)
-        symbols = parser.ListGlobalDynamicSymbols()
+        symbols = [x for x in parser.ListGlobalDynamicSymbols()
+                   if x not in exclude_symbols]
     finally:
         if parser:
             parser.Close()
-    if not symbols:
-        return "No symbols"
-    symbols.sort()
-    with open(dump_path, "w") as dump_file:
-        dump_file.write("\n".join(symbols) + "\n")
-    return "Output: " + dump_path
+    if symbols:
+        symbols.sort()
+        _CreateAndWrite(dump_path, "\n".join(symbols) + "\n")
+    return symbols
 
 
-def DumpVtables(lib_path, dump_path, dumper_dir):
+def DumpVtables(lib_path, dump_path, dumper_dir, include_symbols):
     """Dump vtables from a library to a dump file.
 
     The dump file is the raw output of vndk-vtable-dumper.
@@ -132,9 +158,11 @@ def DumpVtables(lib_path, dump_path, dumper_dir):
         dump_path: The path to the text file.
         dumper_dir: The path to the directory containing the dumper executable
                     and library.
+        include_symbols: A set of strings. A vtable is written to the dump file
+                         only if its symbol is in the set.
 
     Returns:
-        A string which is the description about the result.
+        A string which is the content written to the dump file.
 
     Raises:
         vtable_parser.VtableError if fails to load the library.
@@ -142,104 +170,180 @@ def DumpVtables(lib_path, dump_path, dumper_dir):
     """
     vtable_parser = ExternalModules.vtable_parser
     parser = vtable_parser.VtableParser(dumper_dir)
-    vtables = parser.CallVtableDumper(lib_path)
-    if not vtables:
-        return "No vtables"
-    with open(dump_path, "w+") as dump_file:
-        dump_file.write(vtables)
-    return "Output: " + dump_path
+
+    def GenerateLines():
+        for line in parser.CallVtableDumper(lib_path).split("\n"):
+            parsed_lines.append(line)
+            yield line
+
+    lines = GenerateLines()
+    dump_lines = []
+    try:
+        while True:
+            parsed_lines = []
+            vtable, entries = parser.ParseOneVtable(lines)
+            if vtable in include_symbols:
+                dump_lines.extend(parsed_lines)
+    except StopIteration:
+        pass
+
+    dump_string = "\n".join(dump_lines).strip("\n")
+    if dump_string:
+        dump_string += "\n"
+        _CreateAndWrite(dump_path, dump_string)
+    return dump_string
 
 
-def GetSystemLibDirByArch(product_dir, arch_name):
-    """Returns the directory containing libraries for specific architecture.
+def _LoadLibraryNamesFromCsv(csv_file):
+    """Loads VNDK and VNDK-SP library names from an eligible list.
 
     Args:
-        product_dir: The path to the product output directory in Android source.
-        arch_name: The name of the CPU architecture.
+        csv_file: A file object of eligible-list.csv.
 
     Returns:
-        The path to the directory containing the libraries.
+        A list of strings, the VNDK and VNDK-SP library names with vndk/vndk-sp
+        directory prefixes.
     """
-    if arch_name in ("arm", "x86", "mips"):
-        src_dir = os.path.join(product_dir, "system", "lib")
-    elif arch_name in ("arm64", "x86_64", "mips64"):
-        src_dir = os.path.join(product_dir, "system", "lib64")
-    else:
-        sys.exit("Unknown target arch " + str(target_arch))
-    return src_dir
+    lib_names = []
+    # Skip header
+    next(csv_file)
+    reader = csv.reader(csv_file)
+    for cells in reader:
+        if cells[1] not in ("VNDK", "VNDK-SP"):
+            continue
+        lib_name = os.path.normpath(cells[0]).replace("/system/${LIB}/", "", 1)
+        if not (lib_name.startswith("vndk") or lib_name.startswith("vndk-sp")):
+            continue
+        lib_name = lib_name.replace("${VNDK_VER}", "{VNDK_VER}")
+        lib_names.append(lib_name)
+    return lib_names
 
 
-def DumpAbi(output_dir, input_files, product_dir, archs, dumper_dir):
+def _LoadLibraryNames(file_names):
+    """Loads library names from files.
+
+    Each element in the input list can be a .so file, a text file, or a .csv
+    file. The returned list consists of:
+    - The .so file names in the input list.
+    - The non-empty lines in the text files.
+    - The libraries tagged with VNDK or VNDK-SP in the CSV.
+
+    Args:
+        file_names: A list of strings, the library or text file names.
+
+    Returns:
+        A list of strings, the library names (probably with vndk/vndk-sp
+        directory prefixes).
+    """
+    lib_names = []
+    for file_name in file_names:
+        if file_name.endswith(".so"):
+            lib_names.append(file_name)
+        elif file_name.endswith(".csv"):
+            with open(file_name, "r") as csv_file:
+                lib_names.extend(_LoadLibraryNamesFromCsv(csv_file))
+        else:
+            with open(file_name, "r") as lib_list:
+                lib_names.extend(line.strip() for line in lib_list
+                                 if line.strip())
+    return lib_names
+
+
+def DumpAbi(output_dir, lib_names, lib_dir, object_dir, dumper_dir):
     """Generates dump from libraries.
 
     Args:
         output_dir: The output directory of dump files.
-        input_files: A list of strings. Each element can be .so file or a text
-                     file which contains list of libraries.
-        product_dir: The path to the product output directory in Android source.
-        archs: A list of strings which are the CPU architectures of the
-               libraries.
+        lib_names: The names of the libraries to dump.
+        lib_dir: The path to the directory containing the libraries to dump.
+        object_dir: The path to the directory containing intermediate objects.
         dumper_dir: The path to the directory containing the vtable dumper
                     executable and library.
+
+    Returns:
+        A list of strings, the paths to the libraries not found in lib_dir.
     """
-    # Get names of the libraries to dump
-    lib_names = []
-    for input_file in input_files:
-        if input_file.endswith(".so"):
-            lib_names.append(input_file)
-        else:
-            with open(input_file, "r") as lib_list:
-                lib_names.extend(line.strip() for line in lib_list
-                                 if line.strip())
-    # Create the dumps
-    for arch in archs:
-        lib_dir = GetSystemLibDirByArch(product_dir, arch)
-        dump_dir = os.path.join(output_dir, arch)
-        if not os.path.exists(dump_dir):
-            os.makedirs(dump_dir)
-        for lib_name in lib_names:
-            lib_path = os.path.join(lib_dir, lib_name)
-            symbol_dump_path = os.path.join(dump_dir, lib_name + "_symbol.dump")
-            vtable_dump_path = os.path.join(dump_dir, lib_name + "_vtable.dump")
-            print(lib_path)
-            print(DumpSymbols(lib_path, symbol_dump_path))
-            print(DumpVtables(lib_path, vtable_dump_path, dumper_dir))
+    ar_parser = ExternalModules.ar_parser
+    static_symbols = set()
+    for ar_name in ("libgcc", "libatomic", "libcompiler_rt-extras"):
+        ar_path = os.path.join(
+            object_dir, "STATIC_LIBRARIES", ar_name + "_intermediates",
+            ar_name + ".a")
+        static_symbols.update(ar_parser.ListGlobalSymbols(ar_path))
+
+    missing_libs = []
+    dump_dir = os.path.join(output_dir, os.path.basename(lib_dir))
+    for lib_name in lib_names:
+        lib_path = os.path.join(lib_dir, lib_name)
+        symbol_dump_path = os.path.join(dump_dir, lib_name + "_symbol.dump")
+        vtable_dump_path = os.path.join(dump_dir, lib_name + "_vtable.dump")
+        print(lib_path)
+        if not os.path.isfile(lib_path):
+            missing_libs.append(lib_path)
+            print("Warning: Not found")
             print("")
+            continue
+        symbols = DumpSymbols(lib_path, symbol_dump_path, static_symbols)
+        if symbols:
+            print("Output: " + symbol_dump_path)
+        else:
+            print("No symbols")
+        vtables = DumpVtables(
+            lib_path, vtable_dump_path, dumper_dir, set(symbols))
+        if vtables:
+            print("Output: " + vtable_dump_path)
+        else:
+            print("No vtables")
+        print("")
+    return missing_libs
 
 
 def main():
     # Parse arguments
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("file", nargs="*",
-                            help="the library to dump. Can be .so file or a"
-                                 "text file containing list of libraries.")
+                            help="the libraries to dump. Each file can be "
+                                 ".so, text, or .csv. The text file contains "
+                                 "a list of paths. The CSV file follows the"
+                                 "format of eligible list output from VNDK"
+                                 "definition tool. {VNDK_VER} in the library"
+                                 "paths is replaced with "
+                                 "\"-\" + PLATFORM_VNDK_VERSION.")
     arg_parser.add_argument("--dumper-dir", "-d", action="store",
                             help="the path to the directory containing "
                                  "bin/vndk-vtable-dumper.")
     arg_parser.add_argument("--import-path", "-i", action="store",
                             help="the directory for VTS python modules. "
                                  "Default value is $ANDROID_BUILD_TOP/test")
-    arg_parser.add_argument("--output", "-o", action="store", required=True,
-                            help="output directory for ABI reference dump.")
+    arg_parser.add_argument("--output", "-o", action="store",
+                            help="output directory for ABI reference dump. "
+                                 "Default value is PLATFORM_VNDK_VERSION.")
     args = arg_parser.parse_args()
-
-    # Get product directory
-    product_dir = os.getenv("ANDROID_PRODUCT_OUT")
-    if not product_dir:
-        sys.exit("env var ANDROID_PRODUCT_OUT is not set")
-    print("ANDROID_PRODUCT_OUT=" + product_dir)
 
     # Get target architectures
     build_top_dir = os.getenv("ANDROID_BUILD_TOP")
     if not build_top_dir:
         sys.exit("env var ANDROID_BUILD_TOP is not set")
-    target_arch = GetBuildVariable(build_top_dir, "TARGET_ARCH")
-    target_2nd_arch = GetBuildVariable(build_top_dir, "TARGET_2ND_ARCH")
-    print("TARGET_ARCH=" + target_arch)
-    print("TARGET_2ND_ARCH=" + target_2nd_arch)
-    archs = [target_arch]
-    if target_2nd_arch:
-        archs.append(target_2nd_arch)
+
+    (binder_32_bit,
+     vndk_version,
+     target_arch,
+     target_2nd_arch) = GetBuildVariables(
+        build_top_dir, abs_path=False, vars=(
+            "BINDER32BIT",
+            "PLATFORM_VNDK_VERSION",
+            "TARGET_ARCH",
+            "TARGET_2ND_ARCH"))
+
+    (target_lib_dir,
+     target_obj_dir,
+     target_2nd_lib_dir,
+     target_2nd_obj_dir) = GetBuildVariables(
+        build_top_dir, abs_path=True, vars=(
+            "TARGET_OUT_SHARED_LIBRARIES",
+            "TARGET_OUT_INTERMEDIATES",
+            "2ND_TARGET_OUT_SHARED_LIBRARIES",
+            "2ND_TARGET_OUT_INTERMEDIATES"))
 
     # Import elf_parser and vtable_parser
     ExternalModules.ImportParsers(args.import_path if args.import_path else
@@ -249,11 +353,29 @@ def main():
     if args.dumper_dir:
         dumper_dir = args.dumper_dir
     else:
-        dumper_path = FindBinary(vtable_parser.VtableParser.VNDK_VTABLE_DUMPER)
+        dumper_path = FindBinary(
+            ExternalModules.vtable_parser.VtableParser.VNDK_VTABLE_DUMPER)
         dumper_dir = os.path.dirname(os.path.dirname(dumper_path))
     print("DUMPER_DIR=" + dumper_dir)
 
-    DumpAbi(args.output, args.file, product_dir, archs, dumper_dir)
+    output_dir = os.path.join((args.output if args.output else vndk_version),
+                              ("binder32" if binder_32_bit else "binder64"),
+                              target_arch)
+    print("OUTPUT_DIR=" + output_dir)
+
+    lib_names = [name.format(VNDK_VER="-" + vndk_version) for
+                 name in _LoadLibraryNames(args.file)]
+
+    missing_libs = DumpAbi(output_dir, lib_names, target_lib_dir,
+                           target_obj_dir, dumper_dir)
+    if target_2nd_arch:
+        missing_libs += DumpAbi(output_dir, lib_names, target_2nd_lib_dir,
+                                target_2nd_obj_dir, dumper_dir)
+
+    if missing_libs:
+        print("Warning: Could not find libraries:")
+        for lib_path in missing_libs:
+            print(lib_path)
 
 
 if __name__ == "__main__":

@@ -29,7 +29,7 @@ import java.io.IOException;
 /**
  * Tests for multinetwork sysctl functionality.
  */
-public class MultinetworkSysctlTest extends AndroidTestCase {
+public class MultinetworkSysctlTest extends SysctlBaseTest {
 
     // Global sysctls. Must be present and set to 1.
     private static final String[] GLOBAL_SYSCTLS = {
@@ -41,30 +41,6 @@ public class MultinetworkSysctlTest extends AndroidTestCase {
     // Per-interface IPv6 autoconf sysctls.
     private static final String IPV6_SYSCTL_DIR = "/proc/sys/net/ipv6/conf";
     private static final String AUTOCONF_SYSCTL = "accept_ra_rt_table";
-
-    // Expected mode, UID, and GID of sysctl files.
-    private static final int SYSCTL_MODE = 0100644;
-    private static final int SYSCTL_UID = 0;
-    private static final int SYSCTL_GID = 0;
-
-    private void checkSysctlPermissions(String fileName) throws ErrnoException {
-        StructStat stat = Os.stat(fileName);
-        assertEquals("mode of " + fileName + ":", SYSCTL_MODE, stat.st_mode);
-        assertEquals("UID of " + fileName + ":", SYSCTL_UID, stat.st_uid);
-        assertEquals("GID of " + fileName + ":", SYSCTL_GID, stat.st_gid);
-    }
-
-    private void assertLess(String what, int a, int b) {
-        assertTrue(what + " expected < " + b + " but was: " + a, a < b);
-    }
-
-    private String readFile(String fileName) throws ErrnoException, IOException {
-        byte[] buf = new byte[1024];
-        FileDescriptor fd = Os.open(fileName, 0, OsConstants.O_RDONLY);
-        int bytesRead = Os.read(fd, buf, 0, buf.length);
-        assertLess("length of " + fileName + ":", bytesRead, buf.length);
-        return new String(buf);
-    }
 
     /**
      * Checks that the sysctls for multinetwork kernel features are present and
@@ -80,9 +56,8 @@ public class MultinetworkSysctlTest extends AndroidTestCase {
      */
      public void testProcFiles() throws ErrnoException, IOException, NumberFormatException {
          for (String sysctl : GLOBAL_SYSCTLS) {
-             checkSysctlPermissions(sysctl);
-             int value = Integer.parseInt(readFile(sysctl).trim());
-             assertEquals("value of " + sysctl + ":", 1, value);
+             int value = getIntValue(sysctl);
+             assertEquals(sysctl, 1, value);
          }
 
          File[] interfaceDirs = new File(IPV6_SYSCTL_DIR).listFiles();
@@ -91,9 +66,8 @@ public class MultinetworkSysctlTest extends AndroidTestCase {
                  continue;
              }
              String sysctl = new File(interfaceDir, AUTOCONF_SYSCTL).getAbsolutePath();
-             checkSysctlPermissions(sysctl);
-             int value = Integer.parseInt(readFile(sysctl).trim());
-             assertLess("value of " + sysctl + ":", value, 0);
+             int value = getIntValue(sysctl);
+             assertLess(sysctl, value, 0);
          }
      }
 }

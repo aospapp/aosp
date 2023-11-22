@@ -78,11 +78,13 @@ crosbolt_perf_tests = [
     'power_Resume',
     'video_PlaybackPerf.h264',
     'build_RootFilesystemSize',
+]
+
 #    'cheets_AntutuTest',
 #    'cheets_PerfBootServer',
 #    'cheets_CandyCrushTest',
 #    'cheets_LinpackTest',
-]
+#]
 
 
 class ExperimentFactory(object):
@@ -98,10 +100,9 @@ class ExperimentFactory(object):
                          show_all_results, retries, run_local):
     """Add all the tests in a set to the benchmarks list."""
     for test_name in benchmark_list:
-      telemetry_benchmark = Benchmark(test_name, test_name, test_args,
-                                      iterations, rm_chroot_tmp, perf_args,
-                                      suite, show_all_results, retries,
-                                      run_local)
+      telemetry_benchmark = Benchmark(
+          test_name, test_name, test_args, iterations, rm_chroot_tmp, perf_args,
+          suite, show_all_results, retries, run_local)
       benchmarks.append(telemetry_benchmark)
 
   def GetExperiment(self, experiment_file, working_directory, log_dir):
@@ -210,20 +211,33 @@ class ExperimentFactory(object):
           benchmarks.append(benchmark)
       else:
         if test_name == 'all_graphics_perf':
-          self.AppendBenchmarkSet(benchmarks,
-                                  graphics_perf_tests, '',
-                                  iterations, rm_chroot_tmp, perf_args, '',
-                                  show_all_results, retries, run_local=False)
+          self.AppendBenchmarkSet(
+              benchmarks,
+              graphics_perf_tests,
+              '',
+              iterations,
+              rm_chroot_tmp,
+              perf_args,
+              '',
+              show_all_results,
+              retries,
+              run_local=False)
         elif test_name == 'all_crosbolt_perf':
-          self.AppendBenchmarkSet(benchmarks,
-                                  telemetry_crosbolt_perf_tests, test_args,
-                                  iterations, rm_chroot_tmp, perf_args,
-                                  'telemetry_Crosperf', show_all_results,
-                                  retries, run_local)
-          self.AppendBenchmarkSet(benchmarks,
-                                  crosbolt_perf_tests, '',
-                                  iterations, rm_chroot_tmp, perf_args, '',
-                                  show_all_results, retries, run_local=False)
+          self.AppendBenchmarkSet(benchmarks, telemetry_crosbolt_perf_tests,
+                                  test_args, iterations, rm_chroot_tmp,
+                                  perf_args, 'telemetry_Crosperf',
+                                  show_all_results, retries, run_local)
+          self.AppendBenchmarkSet(
+              benchmarks,
+              crosbolt_perf_tests,
+              '',
+              iterations,
+              rm_chroot_tmp,
+              perf_args,
+              '',
+              show_all_results,
+              retries,
+              run_local=False)
         else:
           # Add the single benchmark.
           benchmark = Benchmark(
@@ -265,11 +279,8 @@ class ExperimentFactory(object):
         build = label_settings.GetField('build')
         if len(build) == 0:
           raise RuntimeError("Can not have empty 'build' field!")
-        image, autotest_path = label_settings.GetXbuddyPath(build,
-                                                            autotest_path,
-                                                            board,
-                                                            chromeos_root,
-                                                            log_level)
+        image, autotest_path = label_settings.GetXbuddyPath(
+            build, autotest_path, board, chromeos_root, log_level)
 
       cache_dir = label_settings.GetField('cache_dir')
       chrome_src = label_settings.GetField('chrome_src')
@@ -277,8 +288,8 @@ class ExperimentFactory(object):
       # TODO(yunlian): We should consolidate code in machine_manager.py
       # to derermine whether we are running from within google or not
       if ('corp.google.com' in socket.gethostname() and
-          (not my_remote or my_remote == remote and
-           global_settings.GetField('board') != board)):
+          (not my_remote or
+           my_remote == remote and global_settings.GetField('board') != board)):
         my_remote = self.GetDefaultRemotes(board)
       if global_settings.GetField('same_machine') and len(my_remote) > 1:
         raise RuntimeError('Only one remote is allowed when same_machine '

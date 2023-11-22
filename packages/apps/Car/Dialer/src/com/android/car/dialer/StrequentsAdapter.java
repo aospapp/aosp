@@ -19,6 +19,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
 import android.graphics.PorterDuff;
+import android.os.Handler;
 import android.provider.CallLog;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.RecyclerView;
@@ -28,10 +29,11 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.car.widget.PagedListView;
+
 import com.android.car.dialer.telecom.PhoneLoader;
 import com.android.car.dialer.telecom.TelecomUtils;
 import com.android.car.dialer.telecom.UiCallManager;
-import com.android.car.view.PagedListView;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -43,8 +45,8 @@ import java.util.List;
  * It handles two types of contacts:
  * <p>
  * <ul>
- *     <li>Strequent contacts (starred and/or frequent)
- *     <li>Last call contact
+ * <li>Strequent contacts (starred and/or frequent)
+ * <li>Last call contact
  * </ul>
  */
 public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
@@ -53,12 +55,16 @@ public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
     private static final int VIEW_TYPE_EMPTY = 0;
     private static final int VIEW_TYPE_LASTCALL = 1;
     private static final int VIEW_TYPE_STREQUENT = 2;
+    private static final long LAST_CALL_REFRESH_INTERVAL_MILLIS = 60 * 1000L;
 
     private final Context mContext;
     private final UiCallManager mUiCallManager;
     private List<ContactEntry> mData;
+    private Handler mMainThreadHandler = new Handler();
 
     private LastCallData mLastCallData;
+    private Cursor mLastCallCursor;
+    private LastCallPeriodicalUpdater mLastCallPeriodicalUpdater = new LastCallPeriodicalUpdater();
 
     private final ContentResolver mContentResolver;
 
@@ -84,7 +90,15 @@ public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
     }
 
     public void setLastCallCursor(@Nullable Cursor cursor) {
+        mLastCallCursor = cursor;
         mLastCallData = convertLastCallCursor(cursor);
+        if (cursor != null) {
+            mMainThreadHandler.postDelayed(mLastCallPeriodicalUpdater,
+                    LAST_CALL_REFRESH_INTERVAL_MILLIS);
+        } else {
+            mMainThreadHandler.removeCallbacks(mLastCallPeriodicalUpdater);
+        }
+
         notifyDataSetChanged();
     }
 
@@ -138,16 +152,12 @@ public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
     public CallLogViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         View view;
         switch (viewType) {
-            case VIEW_TYPE_LASTCALL:
-                view = LayoutInflater.from(parent.getContext())
-                        .inflate(R.layout.call_log_last_call_item_card, parent, false);
-                return new CallLogViewHolder(view);
-
             case VIEW_TYPE_EMPTY:
                 view = LayoutInflater.from(parent.getContext())
-                        .inflate(R.layout.car_list_item_empty, parent, false);
+                        .inflate(R.layout.call_log_list_item_empty, parent, false);
                 return new CallLogViewHolder(view);
 
+            case VIEW_TYPE_LASTCALL:
             case VIEW_TYPE_STREQUENT:
             default:
                 view = LayoutInflater.from(parent.getContext())
@@ -235,24 +245,26 @@ public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
         String primaryText = mLastCallData.getPrimaryText();
         String number = mLastCallData.getNumber();
 
-        viewHolder.title.setText(mLastCallData.getPrimaryText());
-        viewHolder.text.setText(mLastCallData.getSecondaryText());
-        viewHolder.itemView.setTag(number);
-        viewHolder.callTypeIconsView.clear();
-        viewHolder.callTypeIconsView.setVisibility(View.VISIBLE);
+        if (!number.equals(viewHolder.itemView.getTag())) {
+            viewHolder.title.setText(mLastCallData.getPrimaryText());
+            viewHolder.itemView.setTag(number);
+            viewHolder.callTypeIconsView.clear();
+            viewHolder.callTypeIconsView.setVisibility(View.VISIBLE);
 
-        // mHasFirstItem is true only in main screen, or else it is in drawer, then we need to add
-        // call type icons for call history items.
-        viewHolder.smallIcon.setVisibility(View.GONE);
-        int[] callTypes = mLastCallData.getCallTypes();
-        int icons = Math.min(callTypes.length, CallTypeIconsView.MAX_CALL_TYPE_ICONS);
-        for (int i = 0; i < icons; i++) {
-            viewHolder.callTypeIconsView.add(callTypes[i]);
+            // mHasFirstItem is true only in main screen, or else it is in drawer, then we need
+            // to add
+            // call type icons for call history items.
+            viewHolder.smallIcon.setVisibility(View.GONE);
+            int[] callTypes = mLastCallData.getCallTypes();
+            int icons = Math.min(callTypes.length, CallTypeIconsView.MAX_CALL_TYPE_ICONS);
+            for (int i = 0; i < icons; i++) {
+                viewHolder.callTypeIconsView.add(callTypes[i]);
+            }
+
+            TelecomUtils.setContactBitmapAsync(mContext, viewHolder.icon, primaryText, number);
         }
 
-        setBackground(viewHolder);
-
-        TelecomUtils.setContactBitmapAsync(mContext, viewHolder.icon, primaryText, number);
+        viewHolder.text.setText(mLastCallData.getSecondaryText());
     }
 
     /**
@@ -321,10 +333,9 @@ public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
     private void onBindView(final CallLogViewHolder viewHolder, final ContactEntry entry) {
         viewHolder.itemView.setOnClickListener(v -> onViewClicked(viewHolder));
 
-        final String number = entry.number;
-        // TODO(mcrico): Why is being a voicemail related to not having a name?
-        boolean isVoicemail = (entry.name == null)
-                && (number.equals(TelecomUtils.getVoicemailNumber(mContext)));
+        final String number = entry.getNumber();
+        // TODO: Why is being a voicemail related to not having a name?
+        boolean isVoicemail = entry.isVoicemail();
         String secondaryText = "";
         if (!isVoicemail) {
             secondaryText = String.valueOf(TelecomUtils.getTypeFromNumber(mContext, number));
@@ -339,7 +350,7 @@ public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
 
         TelecomUtils.setContactBitmapAsync(mContext, viewHolder.icon, displayName, number);
 
-        if (entry.isStarred) {
+        if (entry.isStarred()) {
             viewHolder.smallIcon.setVisibility(View.VISIBLE);
             final int iconColor = mContext.getColor(android.R.color.white);
             viewHolder.smallIcon.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
@@ -348,31 +359,6 @@ public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
             viewHolder.smallIcon.setVisibility(View.GONE);
         }
 
-        setBackground(viewHolder);
-    }
-
-    /**
-     * Appropriately sets the background for the View that is being bound. This method will allow
-     * for rounded corners on either the top or bottom of a card.
-     */
-    private void setBackground(CallLogViewHolder viewHolder) {
-        int itemCount = getItemCount();
-        int adapterPosition = viewHolder.getAdapterPosition();
-
-        if (itemCount == 1) {
-            // Only element - all corners are rounded
-            viewHolder.card.setBackgroundResource(
-                    R.drawable.car_card_rounded_top_bottom_background);
-        } else if (adapterPosition == 0) {
-            // First element gets rounded top
-            viewHolder.card.setBackgroundResource(R.drawable.car_card_rounded_top_background);
-        } else if (adapterPosition == itemCount - 1) {
-            // Last one has a rounded bottom
-            viewHolder.card.setBackgroundResource(R.drawable.car_card_rounded_bottom_background);
-        } else {
-            // Middle have no rounded corners
-            viewHolder.card.setBackgroundResource(R.color.car_card);
-        }
     }
 
     /**
@@ -420,6 +406,16 @@ public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
 
         public int[] getCallTypes() {
             return mCallTypes;
+        }
+    }
+
+    private class LastCallPeriodicalUpdater implements Runnable {
+
+        @Override
+        public void run() {
+            mLastCallData = convertLastCallCursor(mLastCallCursor);
+            notifyItemChanged(0);
+            mMainThreadHandler.postDelayed(this, LAST_CALL_REFRESH_INTERVAL_MILLIS);
         }
     }
 }

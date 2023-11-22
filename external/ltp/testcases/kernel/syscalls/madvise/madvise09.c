@@ -305,8 +305,11 @@ retry:
 		goto retry;
 	}
 
-	if (WIFEXITED(status) && WEXITSTATUS(status))
-		tst_brk(TBROK, "Child exitted unexpectedly");
+	if (WIFEXITED(status) && WEXITSTATUS(status) == TCONF)
+		tst_brk(TCONF, "MADV_FREE is not supported");
+
+	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+		tst_brk(TBROK, "Child %s", tst_strstatus(status));
 }
 
 static void setup(void)
@@ -331,11 +334,9 @@ static void setup(void)
 }
 
 static struct tst_test test = {
-	.tid = "madvise09",
 	.setup = setup,
 	.cleanup = cleanup,
 	.test_all = run,
-	.min_kver = "4.5",
 	.needs_root = 1,
 	.forks_child = 1,
 };

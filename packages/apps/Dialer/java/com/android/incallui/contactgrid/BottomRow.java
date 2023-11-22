@@ -74,39 +74,32 @@ public class BottomRow {
 
   public static Info getInfo(Context context, PrimaryCallState state, PrimaryInfo primaryInfo) {
     CharSequence label;
-    boolean isTimerVisible = state.state == State.ACTIVE;
-    boolean isForwardIconVisible = state.isForwardedNumber;
-    boolean isWorkIconVisible = state.isWorkCall;
-    boolean isHdIconVisible = state.isHdAudioCall && !isForwardIconVisible;
-    boolean isHdAttemptingIconVisible = state.isHdAttempting;
+    boolean isTimerVisible = state.state() == State.ACTIVE;
+    boolean isForwardIconVisible = state.isForwardedNumber();
+    boolean isWorkIconVisible = state.isWorkCall();
+    boolean isHdIconVisible = state.isHdAudioCall() && !isForwardIconVisible;
+    boolean isHdAttemptingIconVisible = state.isHdAttempting();
     boolean isSpamIconVisible = false;
     boolean shouldPopulateAccessibilityEvent = true;
 
-    if (isIncoming(state) && primaryInfo.isSpam) {
+    if (isIncoming(state) && primaryInfo.isSpam()) {
       label = context.getString(R.string.contact_grid_incoming_suspected_spam);
       isSpamIconVisible = true;
       isHdIconVisible = false;
-    } else if (state.state == State.DISCONNECTING) {
+    } else if (state.state() == State.DISCONNECTING) {
       // While in the DISCONNECTING state we display a "Hanging up" message in order to make the UI
       // feel more responsive.  (In GSM it's normal to see a delay of a couple of seconds while
       // negotiating the disconnect with the network, so the "Hanging up" state at least lets the
       // user know that we're doing something.  This state is currently not used with CDMA.)
       label = context.getString(R.string.incall_hanging_up);
-    } else if (state.state == State.DISCONNECTED) {
-      label = state.disconnectCause.getLabel();
+    } else if (state.state() == State.DISCONNECTED) {
+      label = state.disconnectCause().getLabel();
       if (TextUtils.isEmpty(label)) {
         label = context.getString(R.string.incall_call_ended);
       }
-    } else if (!TextUtils.isEmpty(state.callbackNumber)) {
-      // This is used for carriers like Project Fi to show the callback number for emergency calls.
-      label =
-          context.getString(
-              R.string.contact_grid_callback_number,
-              PhoneNumberUtils.formatNumber(state.callbackNumber));
-      isTimerVisible = false;
     } else {
       label = getLabelForPhoneNumber(primaryInfo);
-      shouldPopulateAccessibilityEvent = primaryInfo.nameIsNumber;
+      shouldPopulateAccessibilityEvent = primaryInfo.nameIsNumber();
     }
 
     return new Info(
@@ -121,15 +114,15 @@ public class BottomRow {
   }
 
   private static CharSequence getLabelForPhoneNumber(PrimaryInfo primaryInfo) {
-    if (primaryInfo.location != null) {
-      return primaryInfo.location;
+    if (primaryInfo.location() != null) {
+      return primaryInfo.location();
     }
-    if (!primaryInfo.nameIsNumber && !TextUtils.isEmpty(primaryInfo.number)) {
-      CharSequence spannedNumber = spanDisplayNumber(primaryInfo.number);
-      if (primaryInfo.label == null) {
+    if (!primaryInfo.nameIsNumber() && !TextUtils.isEmpty(primaryInfo.number())) {
+      CharSequence spannedNumber = spanDisplayNumber(primaryInfo.number());
+      if (primaryInfo.label() == null) {
         return spannedNumber;
       } else {
-        return TextUtils.concat(primaryInfo.label, " ", spannedNumber);
+        return TextUtils.concat(primaryInfo.label(), " ", spannedNumber);
       }
     }
     return null;
@@ -141,6 +134,6 @@ public class BottomRow {
   }
 
   private static boolean isIncoming(PrimaryCallState state) {
-    return state.state == State.INCOMING || state.state == State.CALL_WAITING;
+    return state.state() == State.INCOMING || state.state() == State.CALL_WAITING;
   }
 }

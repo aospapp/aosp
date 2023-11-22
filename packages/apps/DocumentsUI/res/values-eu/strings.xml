@@ -41,7 +41,7 @@
     <string name="menu_compress" msgid="37539111904724188">"Konprimatu"</string>
     <string name="menu_extract" msgid="8171946945982532262">"Atera hona…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"Aldatu izena"</string>
-    <string name="menu_inspector" msgid="8217713416277319588">"Lortu informazioa"</string>
+    <string name="menu_inspect" msgid="7279855349299446224">"Lortu informazioa"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"Ikusi <xliff:g id="SOURCE">%1$s</xliff:g> zerbitzuan"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"Leiho berria"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"Ebaki"</string>
@@ -57,6 +57,8 @@
     <string name="button_move" msgid="8596460499325291272">"Mugitu"</string>
     <string name="button_dismiss" msgid="7235249361023803349">"Baztertu"</string>
     <string name="button_retry" msgid="4011461781916631389">"Saiatu berriro"</string>
+    <string name="button_clear" msgid="5412304437764369441">"Garbitu"</string>
+    <string name="button_show_provider" msgid="6905880493806292753">"Erakutsi hornitzailean"</string>
     <string name="not_sorted" msgid="7813496644889115530">"Ordenatu gabe"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"Izena"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"Laburpena"</string>
@@ -64,14 +66,6 @@
     <string name="sort_dimension_size" msgid="2190547351159472884">"Tamaina"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"Aldatze-ordua"</string>
     <string name="directory_items" msgid="6645621978998614003">"Elementu kopurua"</string>
-    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"Mota honetako fitxategiak aplikazio honekin ireki daitezke:"</string>
-    <string name="handler_app_belongs_to" msgid="5956928604521893459">"Fitxategiaren jabea:"</string>
-    <string name="handler_app_button_info_1" msgid="4271199640671067569">"Beste aplikazio batzuekin ere ireki daitezke mota honetako fitxategiak. Garbitu"</string>
-    <string name="handler_app_button_info_2" msgid="4299969771512815898">"aplikazioaren lehenespena."</string>
-    <string name="handler_app_clear" msgid="206579047716445033">"Garbitu"</string>
-    <string name="handler_app_show_in" msgid="7923573101129079048">"Erakutsi hornitzailean"</string>
-    <string name="handler_app_not_selected" msgid="8178393676227130360">"Hautatu gabe"</string>
-    <string name="handler_app_unknown" msgid="56574249066388341">"Ezezaguna"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"Gorantz"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"Beherantz"</string>
     <string name="drawer_open" msgid="8071673398187261741">"Erakutsi erroko karpetak"</string>
@@ -89,8 +83,7 @@
     <string name="no_results" msgid="2371026325236359209">"Ez da aurkitu ezer %1$s atalean"</string>
     <string name="toast_no_application" msgid="7555319548595113121">"Ezin da ireki fitxategia"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"Ezin dira ireki artxiboetako fitxategiak"</string>
-    <string name="toast_failed_delete" msgid="3453846588205817591">"Ezin izan dira ezabatu dokumentu batzuk"</string>
-    <string name="file_inspector_load_error" msgid="1226344446677541109">"Ezin izan dira kargatu propietateak"</string>
+    <string name="toast_failed_delete" msgid="3453846588205817591">"Ezin dira ezabatu dokumentu batzuk"</string>
     <string name="share_via" msgid="8725082736005677161">"Partekatu honekin:"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"Kopiatu fitxategiak"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"Fitxategiak konprimatzen"</string>
@@ -119,11 +112,11 @@
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> elementu ezabatzen.</item>
     </plurals>
     <string name="undo" msgid="2902438994196400565">"Desegin"</string>
-    <string name="copy_preparing" msgid="5326063807006898223">"Kopiatzeko prestatzen…"</string>
-    <string name="compress_preparing" msgid="6650018601382062672">"Konprimatzeko prestatzen…"</string>
-    <string name="extract_preparing" msgid="58266275455027829">"Ateratzeko prestatzen…"</string>
-    <string name="move_preparing" msgid="8742573245485449429">"Mugitzeko prestatzen…"</string>
-    <string name="delete_preparing" msgid="6513863752916028147">"Ezabatzeko prestatzen…"</string>
+    <string name="copy_preparing" msgid="4759516490222449324">"Prestatzen…"</string>
+    <string name="compress_preparing" msgid="7401605598969019696">"Prestatzen…"</string>
+    <string name="extract_preparing" msgid="4796626960061745796">"Prestatzen…"</string>
+    <string name="move_preparing" msgid="6504239656430530761">"Prestatzen…"</string>
+    <string name="delete_preparing" msgid="7339349837842802508">"Prestatzen…"</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
       <item quantity="other">Ezin izan dira kopiatu <xliff:g id="COUNT_1">%1$d</xliff:g> elementu</item>
@@ -176,7 +169,7 @@
     <string name="rename_error" msgid="6700093173508118635">"Ezin izan zaio aldatu izena dokumentuari"</string>
     <string name="menu_eject_root" msgid="9215040039374893613">"Atera"</string>
     <string name="notification_copy_files_converted_title" msgid="6916768494891833365">"Artxibo batzuk bihurtu dira"</string>
-    <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> aplikazioari <xliff:g id="STORAGE"><i>^3</i></xliff:g> unitateko <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> direktorioa atzitzeko baimena eman nahi diozu?"</string>
+    <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> aplikazioari <xliff:g id="STORAGE"><i>^3</i></xliff:g> unitateko <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> direktoriorako sarbidea eman nahi diozu?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> aplikazioari <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> direktoriorako sarbidea eman nahi diozu?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> aplikazioari zure datuak atzitzea baimendu nahi diozu, besteak beste, <xliff:g id="STORAGE"><i>^2</i></xliff:g> biltegian dituzun argazkiak eta bideoak?"</string>
     <string name="never_ask_again" msgid="525908236522201138">"Ez galdetu berriro"</string>
@@ -213,5 +206,4 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"artxiboa<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g> gainidatzi nahi duzu?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Jarraitu atzeko planoan"</string>
-    <string name="inspector_debug_section" msgid="3447621501565766900">"Arazte-informazioa (garatzaileentzat soilik)"</string>
 </resources>

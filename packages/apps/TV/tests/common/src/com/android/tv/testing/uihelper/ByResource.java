@@ -19,9 +19,7 @@ import android.content.res.Resources;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 
-/**
- * Convenience methods for creating {@link BySelector}s using resource ids.
- */
+/** Convenience methods for creating {@link BySelector}s using resource ids. */
 public final class ByResource {
 
     /**
@@ -44,6 +42,5 @@ public final class ByResource {
         return By.text(text);
     }
 
-    private ByResource() {
-    }
+    private ByResource() {}
 }

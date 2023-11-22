@@ -1,5 +1,5 @@
 /*
- * Copyright 2016, The Android Open Source Project
+ * Copyright 2018, The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
+#ifndef ANDROID_APF_APF_H
+#define ANDROID_APF_APF_H
+
 // A brief overview of APF:
 //
 // APF machine is composed of:
 //  1. A read-only program consisting of bytecodes as described below.
 //  2. Two 32-bit registers, called R0 and R1.
-//  3. Sixteen 32-bit memory slots.
+//  3. Sixteen 32-bit temporary memory slots (cleared between packets).
 //  4. A read-only packet.
 // The program is executed by the interpreter below and parses the packet
 // to determine if the application processor (AP) should be woken up to
@@ -47,7 +50,7 @@
 //    They load either 1, 2 or 4 bytes, as determined by the "opcode" field.
 //    They load into the register specified by the "register" field.
 //    The immediate value that follows the first byte of the instruction is
-//    the byte offset from the begining of the packet to load from.
+//    the byte offset from the beginning of the packet to load from.
 //    There are "indexing" loads which add the value in R1 to the byte offset
 //    to load from. The "opcode" field determines which loads are "indexing".
 //  Arithmetic instructions
@@ -79,10 +82,12 @@
 //
 //  Miscellaneous details:
 //
-//  Pre-filled memory slot values
+//  Pre-filled temporary memory slot values
 //    When the APF program begins execution, three of the sixteen memory slots
 //    are pre-filled by the interpreter with values that may be useful for
 //    programs:
+//      Slot #11 contains the size (in bytes) of the APF program.
+//      Slot #12 contains the total size of the APF buffer (program + data).
 //      Slot #13 is filled with the IPv4 header length. This value is calculated
 //               by loading the first byte of the IPv4 header and taking the
 //               bottom 4 bits and multiplying their value by 4. This value is
@@ -91,7 +96,7 @@
 //      Slot #14 is filled with size of the packet in bytes, including the
 //               link-layer header if any.
 //      Slot #15 is filled with the filter age in seconds. This is the number of
-//               seconds since the AP send the program to the chipset. This may
+//               seconds since the AP sent the program to the chipset. This may
 //               be used by filters that should have a particular lifetime. For
 //               example, it can be used to rate-limit particular packets to one
 //               every N seconds.
@@ -116,9 +121,11 @@
 //        position specified by the value of the register specified by the
 //        "register" field of the instruction.
 
-// Number of memory slots, see ldm/stm instructions.
+// Number of temporary memory slots, see ldm/stm instructions.
 #define MEMORY_ITEMS 16
-// Upon program execution starting some memory slots are prefilled:
+// Upon program execution, some temporary memory slots are prefilled:
+#define MEMORY_OFFSET_PROGRAM_SIZE 11     // Size of program (in bytes)
+#define MEMORY_OFFSET_DATA_SIZE 12        // Total size of program + data
 #define MEMORY_OFFSET_IPV4_HEADER_SIZE 13 // 4*([APF_FRAME_HEADER_SIZE]&15)
 #define MEMORY_OFFSET_PACKET_SIZE 14      // Size of packet in bytes.
 #define MEMORY_OFFSET_FILTER_AGE 15       // Age since filter installed in seconds.
@@ -127,16 +134,16 @@
 #define LDB_OPCODE 1    // Load 1 byte from immediate offset, e.g. "ldb R0, [5]"
 #define LDH_OPCODE 2    // Load 2 bytes from immediate offset, e.g. "ldh R0, [5]"
 #define LDW_OPCODE 3    // Load 4 bytes from immediate offset, e.g. "ldw R0, [5]"
-#define LDBX_OPCODE 4   // Load 1 byte from immediate offset plus register, e.g. "ldbx R0, [5]R0"
-#define LDHX_OPCODE 5   // Load 2 byte from immediate offset plus register, e.g. "ldhx R0, [5]R0"
-#define LDWX_OPCODE 6   // Load 4 byte from immediate offset plus register, e.g. "ldwx R0, [5]R0"
+#define LDBX_OPCODE 4   // Load 1 byte from immediate offset plus register, e.g. "ldbx R0, [5+R0]"
+#define LDHX_OPCODE 5   // Load 2 byte from immediate offset plus register, e.g. "ldhx R0, [5+R0]"
+#define LDWX_OPCODE 6   // Load 4 byte from immediate offset plus register, e.g. "ldwx R0, [5+R0]"
 #define ADD_OPCODE 7    // Add, e.g. "add R0,5"
 #define MUL_OPCODE 8    // Multiply, e.g. "mul R0,5"
 #define DIV_OPCODE 9    // Divide, e.g. "div R0,5"
 #define AND_OPCODE 10   // And, e.g. "and R0,5"
 #define OR_OPCODE 11    // Or, e.g. "or R0,5"
 #define SH_OPCODE 12    // Left shift, e.g, "sh R0, 5" or "sh R0, -5" (shifts right)
-#define LI_OPCODE 13    // Load immediate, e.g. "li R0,5" (immediate encoded as signed value)
+#define LI_OPCODE 13    // Load signed immediate, e.g. "li R0,5"
 #define JMP_OPCODE 14   // Unconditional jump, e.g. "jmp label"
 #define JEQ_OPCODE 15   // Compare equal and branch, e.g. "jeq R0,5,label"
 #define JNE_OPCODE 16   // Compare not equal and branch, e.g. "jne R0,5,label"
@@ -145,12 +152,15 @@
 #define JSET_OPCODE 19  // Compare any bits set and branch, e.g. "jset R0,5,label"
 #define JNEBS_OPCODE 20 // Compare not equal byte sequence, e.g. "jnebs R0,5,label,0x1122334455"
 #define EXT_OPCODE 21   // Immediate value is one of *_EXT_OPCODE
+#define LDDW_OPCODE 22  // Load 4 bytes from data address (register + simm): "lddw R0, [5+R1]"
+#define STDW_OPCODE 23  // Store 4 bytes to data address (register + simm): "stdw R0, [5+R1]"
+
 // Extended opcodes. These all have an opcode of EXT_OPCODE
 // and specify the actual opcode in the immediate field.
-#define LDM_EXT_OPCODE 0   // Load from memory, e.g. "ldm R0,5"
-  // Values 0-15 represent loading the different memory slots.
-#define STM_EXT_OPCODE 16  // Store to memory, e.g. "stm R0,5"
-  // Values 16-31 represent storing to the different memory slots.
+#define LDM_EXT_OPCODE 0   // Load from temporary memory, e.g. "ldm R0,5"
+  // Values 0-15 represent loading the different temporary memory slots.
+#define STM_EXT_OPCODE 16  // Store to temporary memory, e.g. "stm R0,5"
+  // Values 16-31 represent storing to the different temporary memory slots.
 #define NOT_EXT_OPCODE 32  // Not, e.g. "not R0"
 #define NEG_EXT_OPCODE 33  // Negate, e.g. "neg R0"
 #define SWAP_EXT_OPCODE 34 // Swap, e.g. "swap R0,R1"
@@ -159,3 +169,5 @@
 #define EXTRACT_OPCODE(i) (((i) >> 3) & 31)
 #define EXTRACT_REGISTER(i) ((i) & 1)
 #define EXTRACT_IMM_LENGTH(i) (((i) >> 1) & 3)
+
+#endif  // ANDROID_APF_APF_H

@@ -20,14 +20,12 @@ import android.os.Bundle;
 import android.support.test.runner.AndroidJUnitRunner;
 import android.util.Log;
 
-import static org.mockito.Mockito.mock;
-
 public class CustomTestRunner extends AndroidJUnitRunner {
     @Override
     public void onCreate(Bundle arguments) {
         // Override the default TerribleFailureHandler, as that handler might terminate
         // the process (if we're on an eng build).
-        Log.setWtfHandler(mock(Log.TerribleFailureHandler.class));
+        Log.setWtfHandler((tag, what, system) -> Log.e(tag, "WTF", what));
         super.onCreate(arguments);
     }
 }

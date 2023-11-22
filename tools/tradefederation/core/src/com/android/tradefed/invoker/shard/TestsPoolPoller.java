@@ -22,6 +22,8 @@ import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceUnresponsiveException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.device.metric.IMetricCollector;
+import com.android.tradefed.device.metric.IMetricCollectorReceiver;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.ILogRegistry.EventType;
 import com.android.tradefed.log.LogRegistry;
@@ -57,7 +59,8 @@ public class TestsPoolPoller
                 IMultiDeviceTest,
                 IInvocationContextReceiver,
                 ISystemStatusCheckerReceiver,
-                ITestCollector {
+                ITestCollector,
+                IMetricCollectorReceiver {
 
     private static final long WAIT_RECOVERY_TIME = 15 * 60 * 1000;
 
@@ -70,6 +73,7 @@ public class TestsPoolPoller
     private Map<ITestDevice, IBuildInfo> mDeviceInfos;
     private IConfiguration mConfig;
     private List<ISystemStatusChecker> mSystemStatusCheckers;
+    private List<IMetricCollector> mCollectors;
     private boolean mShouldCollectTest = false;
 
     /**
@@ -99,6 +103,10 @@ public class TestsPoolPoller
     @Override
     public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
         try {
+            ITestInvocationListener listenerWithCollectors = listener;
+            for (IMetricCollector collector : mCollectors) {
+                listenerWithCollectors = collector.init(mContext, listenerWithCollectors);
+            }
             while (true) {
                 IRemoteTest test = poll();
                 if (test == null) {
@@ -128,15 +136,21 @@ public class TestsPoolPoller
                 }
                 // Run the test itself and prevent random exception from stopping the poller.
                 try {
-                    test.run(listener);
+                    if (test instanceof IMetricCollectorReceiver) {
+                        ((IMetricCollectorReceiver) test).setMetricCollectors(mCollectors);
+                        // If test can receive collectors then let it handle the how to set them up
+                        test.run(listener);
+                    } else {
+                        test.run(listenerWithCollectors);
+                    }
                 } catch (RuntimeException e) {
                     CLog.e(
                             "Caught an Exception in a test: %s. Proceeding to next test.",
                             test.getClass());
                     CLog.e(e);
                 } catch (DeviceUnresponsiveException due) {
-                    // being able to catch a DeviceUnresponsiveException here implies that recovery was
-                    // successful, and test execution should proceed to next test.
+                    // being able to catch a DeviceUnresponsiveException here implies that recovery
+                    // was successful, and test execution should proceed to next test.
                     CLog.w(
                             "Ignored DeviceUnresponsiveException because recovery was "
                                     + "successful, proceeding with next test. Stack trace:");
@@ -228,5 +242,10 @@ public class TestsPoolPoller
     @Override
     public void setCollectTestsOnly(boolean shouldCollectTest) {
         mShouldCollectTest = shouldCollectTest;
+    }
+
+    @Override
+    public void setMetricCollectors(List<IMetricCollector> collectors) {
+        mCollectors = collectors;
     }
 }

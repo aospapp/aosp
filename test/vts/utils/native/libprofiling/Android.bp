@@ -53,6 +53,15 @@ cc_library_shared {
         "-Wall",
     ],
 
+    multilib: {
+        lib32: {
+            ldflags: ["-Wl,--rpath,/data/local/tmp/32"],
+        },
+        lib64: {
+            ldflags: ["-Wl,--rpath,/data/local/tmp/64"],
+        },
+    },
+
     export_include_dirs: ["."],
 }
 
@@ -60,6 +69,8 @@ cc_binary {
     name: "vts_profiling_configure",
 
     srcs: ["VtsProfilingConfigureMain.cpp"],
+
+    cflags: ["-Wall", "-Werror"],
 
     shared_libs: [
         "libbase",

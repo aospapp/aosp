@@ -21,7 +21,7 @@ import acts.base_test
 import acts.test_utils.wifi.wifi_test_utils as wutils
 import acts.utils
 from acts import asserts
-from acts.controllers import sl4a_client
+from acts.controllers.sl4a_lib import rpc_client
 
 WifiEnums = wutils.WifiEnums
 
@@ -118,11 +118,11 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
     def invalid_params_logic(self, rtt_params):
         try:
             self.dut.droid.wifiRttStartRanging([rtt_params])
-        except sl4a_client.Sl4aApiError as e:
+        except rpc_client.Sl4aApiError as e:
             e_str = str(e)
-            asserts.assert_true("IllegalArgumentException" in e_str,
-                                "Missing IllegalArgumentException in %s." %
-                                e_str)
+            asserts.assert_true(
+                "IllegalArgumentException" in e_str,
+                "Missing IllegalArgumentException in %s." % e_str)
             msg = "Got expected exception with invalid param %s." % rtt_params
             self.log.info(msg)
 
@@ -286,8 +286,8 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
                         if not is_d_valid:
                             self.log.warning(
                                 ("Reported distance %.2fm is out of the"
-                                 " acceptable range %.2f±%.2fm.") %
-                                (d, acd, margin))
+                                 " acceptable range %.2f±%.2fm.") % (d, acd,
+                                                                     margin))
                             out_of_range += 1
                         continue
                     # Check if the RTT value is in range.
@@ -407,24 +407,34 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
     def test_invalid_params(self):
         """Tests the sanity check function in RttManager.
         """
-        param_list = [
-            {RttParam.device_type: 3}, {RttParam.device_type: 1,
-                                        RttParam.request_type: 3}, {
-                                            RttParam.device_type: 1,
-                                            RttParam.request_type: 1,
-                                            RttParam.BSSID: None
-                                        }, {RttParam.BSSID: "xxxxxxxx",
-                                            RttParam.number_burst: 1},
-            {RttParam.number_burst: 0,
-             RttParam.num_samples_per_burst: -1},
-            {RttParam.num_samples_per_burst: 32}, {
-                RttParam.num_samples_per_burst: 5,
-                RttParam.num_retries_per_measurement_frame: -1
-            }, {RttParam.num_retries_per_measurement_frame: 4}, {
-                RttParam.num_retries_per_measurement_frame: 2,
-                RttParam.num_retries_per_FTMR: -1
-            }, {RttParam.num_retries_per_FTMR: 4}
-        ]
+        param_list = [{
+            RttParam.device_type: 3
+        }, {
+            RttParam.device_type: 1,
+            RttParam.request_type: 3
+        }, {
+            RttParam.device_type: 1,
+            RttParam.request_type: 1,
+            RttParam.BSSID: None
+        }, {
+            RttParam.BSSID: "xxxxxxxx",
+            RttParam.number_burst: 1
+        }, {
+            RttParam.number_burst: 0,
+            RttParam.num_samples_per_burst: -1
+        }, {
+            RttParam.num_samples_per_burst: 32
+        }, {
+            RttParam.num_samples_per_burst: 5,
+            RttParam.num_retries_per_measurement_frame: -1
+        }, {
+            RttParam.num_retries_per_measurement_frame: 4
+        }, {
+            RttParam.num_retries_per_measurement_frame: 2,
+            RttParam.num_retries_per_FTMR: -1
+        }, {
+            RttParam.num_retries_per_FTMR: 4
+        }]
         for param in param_list:
             self.invalid_params_logic(param)
         return True
@@ -434,21 +444,20 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
         devices support device-to-ap RTT.
         """
         model = acts.utils.trim_model_name(self.dut.model)
-        asserts.assert_true(
-            self.dut.droid.wifiIsDeviceToDeviceRttSupported(),
-            "Device to device is supposed to be supported.")
+        asserts.assert_true(self.dut.droid.wifiIsDeviceToDeviceRttSupported(),
+                            "Device to device is supposed to be supported.")
         if any([model in m for m in self.support_models]):
             asserts.assert_true(self.dut.droid.wifiIsDeviceToApRttSupported(),
                                 "%s should support device-to-ap RTT." % model)
             self.log.info("%s supports device-to-ap RTT as expected." % model)
         else:
-            asserts.assert_false(self.dut.droid.wifiIsDeviceToApRttSupported(),
-                                 "%s should not support device-to-ap RTT." %
-                                 model)
-            self.log.info((
-                "%s does not support device-to-ap RTT as expected.") % model)
-            asserts.abort_class("Device %s does not support RTT, abort." %
-                                model)
+            asserts.assert_false(
+                self.dut.droid.wifiIsDeviceToApRttSupported(),
+                "%s should not support device-to-ap RTT." % model)
+            self.log.info(
+                ("%s does not support device-to-ap RTT as expected.") % model)
+            asserts.abort_class(
+                "Device %s does not support RTT, abort." % model)
         return True
 
     def test_capability_check(self):
@@ -458,8 +467,8 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
         asserts.assert_true(caps, "Unable to get rtt capabilities.")
         self.log.debug("Got rtt capabilities %s" % caps)
         model = acts.utils.trim_model_name(self.dut.model)
-        asserts.assert_true(model in self.rtt_cap_table, "Unknown model %s" %
-                            model)
+        asserts.assert_true(model in self.rtt_cap_table,
+                            "Unknown model %s" % model)
         expected_caps = self.rtt_cap_table[model]
         for k, v in expected_caps.items():
             asserts.assert_true(k in caps, "%s missing in capabilities." % k)

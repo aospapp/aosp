@@ -16,10 +16,10 @@
 
 package com.android.dreams.basic;
 
-import android.graphics.SurfaceTexture;
 import android.service.dreams.DreamService;
 import android.util.Log;
-import android.view.TextureView;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.os.Handler;
 import android.os.HandlerThread;
 
@@ -29,7 +29,7 @@ import android.os.HandlerThread;
  * This dream performs its rendering using OpenGL on a separate rendering thread.
  * </p>
  */
-public class Colors extends DreamService implements TextureView.SurfaceTextureListener {
+public class Colors extends DreamService implements SurfaceHolder.Callback {
     static final String TAG = Colors.class.getSimpleName();
     static final boolean DEBUG = false;
 
@@ -38,7 +38,7 @@ public class Colors extends DreamService implements TextureView.SurfaceTextureLi
         Log.v(TAG, String.format(fmt, args));
     }
 
-    private TextureView mTextureView;
+    private SurfaceView mSurfaceView;
 
     // The handler thread and handler on which the GL renderer is running.
     private HandlerThread mRendererHandlerThread;
@@ -53,8 +53,8 @@ public class Colors extends DreamService implements TextureView.SurfaceTextureLi
 
         setInteractive(false);
 
-        mTextureView = new TextureView(this);
-        mTextureView.setSurfaceTextureListener(this);
+        mSurfaceView = new SurfaceView(this);
+        mSurfaceView.getHolder().addCallback(this);
 
         if (mRendererHandlerThread == null) {
             mRendererHandlerThread = new HandlerThread(TAG);
@@ -69,13 +69,13 @@ public class Colors extends DreamService implements TextureView.SurfaceTextureLi
         setInteractive(false);
         setLowProfile(true);
         setFullscreen(true);
-        setContentView(mTextureView);
+        setContentView(mSurfaceView);
     }
 
     @Override
-    public void onSurfaceTextureAvailable(final SurfaceTexture surface,
-            final int width, final int height) {
-        LOG("onSurfaceTextureAvailable(%s, %d, %d)", surface, width, height);
+    public void surfaceCreated(SurfaceHolder holder) {
+        LOG("surfaceCreated(%s, %d, %d)", holder.getSurface(),
+                holder.getSurfaceFrame().width(), holder.getSurfaceFrame().height());
 
         mRendererHandler.post(new Runnable() {
             @Override
@@ -83,16 +83,16 @@ public class Colors extends DreamService implements TextureView.SurfaceTextureLi
                 if (mRenderer != null) {
                     mRenderer.stop();
                 }
-                mRenderer = new ColorsGLRenderer(surface, width, height);
+                mRenderer = new ColorsGLRenderer(holder.getSurface(),
+                        holder.getSurfaceFrame().width(), holder.getSurfaceFrame().height());
                 mRenderer.start();
             }
         });
     }
 
     @Override
-    public void onSurfaceTextureSizeChanged(SurfaceTexture surface,
-            final int width, final int height) {
-        LOG("onSurfaceTextureSizeChanged(%s, %d, %d)", surface, width, height);
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        LOG("surfaceChanged(%s, %d,  %d, %d)", holder.getSurface(), format, width, height);
 
         mRendererHandler.post(new Runnable() {
             @Override
@@ -105,8 +105,8 @@ public class Colors extends DreamService implements TextureView.SurfaceTextureLi
     }
 
     @Override
-    public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-        LOG("onSurfaceTextureDestroyed(%s)", surface);
+    public void surfaceDestroyed(SurfaceHolder holder) {
+        LOG("surfaceDestroyed(%s)", holder.getSurface());
 
         mRendererHandler.post(new Runnable() {
             @Override
@@ -124,12 +124,5 @@ public class Colors extends DreamService implements TextureView.SurfaceTextureLi
         } catch (InterruptedException e) {
             LOG("Error while waiting for renderer", e);
         }
-
-        return true;
-    }
-
-    @Override
-    public void onSurfaceTextureUpdated(SurfaceTexture surface) {
-        LOG("onSurfaceTextureUpdated(%s)", surface);
     }
 }

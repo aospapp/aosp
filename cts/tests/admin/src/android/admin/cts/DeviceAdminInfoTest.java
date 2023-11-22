@@ -30,6 +30,7 @@ public class DeviceAdminInfoTest extends AndroidTestCase {
     private PackageManager mPackageManager;
     private ComponentName mComponent;
     private ComponentName mSecondComponent;
+    private ComponentName mThirdComponent;
     private boolean mDeviceAdmin;
 
     @Override
@@ -38,6 +39,7 @@ public class DeviceAdminInfoTest extends AndroidTestCase {
         mPackageManager = mContext.getPackageManager();
         mComponent = getReceiverComponent();
         mSecondComponent = getSecondReceiverComponent();
+        mThirdComponent = getThirdReceiverComponent();
         mDeviceAdmin =
                 mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_DEVICE_ADMIN);
     }
@@ -48,6 +50,10 @@ public class DeviceAdminInfoTest extends AndroidTestCase {
 
     static ComponentName getSecondReceiverComponent() {
         return new ComponentName("android.admin.app", "android.admin.app.CtsDeviceAdminReceiver2");
+    }
+
+    static ComponentName getThirdReceiverComponent() {
+        return new ComponentName("android.admin.app", "android.admin.app.CtsDeviceAdminReceiver3");
     }
 
     static ComponentName getProfileOwnerComponent() {
@@ -68,6 +74,7 @@ public class DeviceAdminInfoTest extends AndroidTestCase {
         assertEquals(mComponent.getPackageName(), info.getPackageName());
         assertEquals(mComponent.getClassName(), info.getReceiverName());
 
+        assertFalse(info.supportsTransferOwnership());
         assertTrue(info.usesPolicy(DeviceAdminInfo.USES_POLICY_FORCE_LOCK));
         assertTrue(info.usesPolicy(DeviceAdminInfo.USES_POLICY_LIMIT_PASSWORD));
         assertTrue(info.usesPolicy(DeviceAdminInfo.USES_POLICY_RESET_PASSWORD));
@@ -100,6 +107,7 @@ public class DeviceAdminInfoTest extends AndroidTestCase {
         assertEquals(mSecondComponent.getPackageName(), info.getPackageName());
         assertEquals(mSecondComponent.getClassName(), info.getReceiverName());
 
+        assertFalse(info.supportsTransferOwnership());
         assertFalse(info.usesPolicy(DeviceAdminInfo.USES_POLICY_FORCE_LOCK));
         assertTrue(info.usesPolicy(DeviceAdminInfo.USES_POLICY_LIMIT_PASSWORD));
         assertTrue(info.usesPolicy(DeviceAdminInfo.USES_POLICY_RESET_PASSWORD));
@@ -116,5 +124,18 @@ public class DeviceAdminInfoTest extends AndroidTestCase {
                 info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_WATCH_LOGIN));
         assertEquals("wipe-data",
                 info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_WIPE_DATA));
+    }
+
+    public void testDeviceAdminInfo3() throws Exception {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testDeviceAdminInfo3");
+            return;
+        }
+        ResolveInfo resolveInfo = new ResolveInfo();
+        resolveInfo.activityInfo = mPackageManager.getReceiverInfo(mThirdComponent,
+                PackageManager.GET_META_DATA);
+
+        DeviceAdminInfo info = new DeviceAdminInfo(mContext, resolveInfo);
+        assertTrue(info.supportsTransferOwnership());
     }
 }

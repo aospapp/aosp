@@ -16,6 +16,7 @@
 #define _LIBMINIJAIL_H_
 
 #include <stdint.h>
+#include <sys/resource.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus
@@ -29,6 +30,34 @@ enum {
 };
 
 struct minijail;
+
+/*
+ * A hook that can be used to execute code at various events during minijail
+ * setup in the forked process. These can only be used if the jailed process is
+ * not going to be invoked with LD_PRELOAD.
+ *
+ * If the return value is non-zero, it will be interpreted as -errno and the
+ * process will abort.
+ */
+typedef int (*minijail_hook_t)(void *context);
+
+/*
+ * The events during minijail setup in which hooks can run. All the events are
+ * run in the new process.
+ */
+typedef enum {
+	/* The hook will run just before dropping capabilities. */
+	MINIJAIL_HOOK_EVENT_PRE_DROP_CAPS,
+
+	/* The hook will run just before calling execve(2). */
+	MINIJAIL_HOOK_EVENT_PRE_EXECVE,
+
+        /* The hook will run just before calling chroot(2) / pivot_root(2). */
+	MINIJAIL_HOOK_EVENT_PRE_CHROOT,
+
+	/* Sentinel for error checking. Must be last. */
+	MINIJAIL_HOOK_EVENT_MAX,
+} minijail_hook_event_t;
 
 /* Allocates a new minijail with no restrictions. */
 struct minijail *minijail_new(void);
@@ -72,6 +101,7 @@ void minijail_skip_setting_securebits(struct minijail *j,
  * minijail_namespace_vfs(). You very likely don't need this.
  */
 void minijail_skip_remount_private(struct minijail *j);
+void minijail_remount_mode(struct minijail *j, unsigned long mode);
 void minijail_namespace_ipc(struct minijail *j);
 void minijail_namespace_uts(struct minijail *j);
 int minijail_namespace_set_hostname(struct minijail *j, const char *name);
@@ -100,7 +130,7 @@ void minijail_inherit_usergroups(struct minijail *j);
 int minijail_use_alt_syscall(struct minijail *j, const char *table);
 
 /* Sets the given runtime limit. See getrlimit(2). */
-int minijail_rlimit(struct minijail *j, int type, uint32_t cur, uint32_t max);
+int minijail_rlimit(struct minijail *j, int type, rlim_t cur, rlim_t max);
 
 /*
  * Adds the jailed process to the cgroup given by |path|.  |path| should be the
@@ -156,6 +186,13 @@ void minijail_mount_tmp(struct minijail *j);
 void minijail_mount_tmp_size(struct minijail *j, size_t size);
 
 /*
+ * minijail_mount_dev: enables mounting of a tmpfs filesystem on /dev.
+ * It will then be seeded with a basic set of device nodes.  For the exact
+ * list, consult the minijail(0) man page.
+ */
+void minijail_mount_dev(struct minijail *j);
+
+/*
  * minijail_mount_with_data: when entering minijail @j,
  *   mounts @src at @dst with @flags and @data.
  * @j         minijail to bind inside
@@ -200,6 +237,30 @@ int minijail_bind(struct minijail *j, const char *src, const char *dest,
 		  int writeable);
 
 /*
+ * minijail_add_hook: adds @hook to the list of hooks that will be
+ * invoked when @event is reached during minijail setup. The caller is
+ * responsible for the lifetime of @payload.
+ * @j         minijail to add the hook to
+ * @hook      the function that will be invoked
+ * @payload   an opaque pointer
+ * @event     the event that will trigger the hook
+ */
+int minijail_add_hook(struct minijail *j,
+		      minijail_hook_t hook, void *payload,
+		      minijail_hook_event_t event);
+
+/*
+ * minijail_preserve_fd: preserves @parent_fd and makes it available as
+ * @child_fd in the child process. @parent_fd will be closed if no other
+ * redirect has claimed it as a @child_fd.  This works even if
+ * minijail_close_open_fds() is invoked.
+ * @j         minijail to add the fd to
+ * @parent_fd the fd in the parent process
+ * @child_fd  the fd that will be available in the child process
+ */
+int minijail_preserve_fd(struct minijail *j, int parent_fd, int child_fd);
+
+/*
  * Lock this process into the given minijail. Note that this procedure cannot
  * fail, since there is no way to undo privilege-dropping; therefore, if any
  * part of the privilege-drop fails, minijail_enter() will abort the entire
@@ -211,8 +272,9 @@ int minijail_bind(struct minijail *j, const char *src, const char *dest,
 void minijail_enter(const struct minijail *j);
 
 /*
- * Run the specified command in the given minijail, execve(2)-style. This is
- * required if minijail_namespace_pids() was used.
+ * Run the specified command in the given minijail, execve(2)-style.
+ * If minijail_namespace_pids() or minijail_namespace_user() are used,
+ * this or minijail_fork() is required instead of minijail_enter().
  */
 int minijail_run(struct minijail *j, const char *filename,
 		 char *const argv[]);
@@ -270,6 +332,17 @@ int minijail_run_pid_pipes_no_preload(struct minijail *j, const char *filename,
 				      int *pstderr_fd);
 
 /*
+ * Fork, jail the child, and return. This behaves similar to fork(2), except it
+ * puts the child process in a jail before returning.
+ * `minijail_fork` returns in both the parent and the child. The pid of the
+ * child is returned to the parent. Zero is returned in the child. LD_PRELOAD
+ * is not supported.
+ * If minijail_namespace_pids() or minijail_namespace_user() are used,
+ * this or minijail_run*() is required instead of minijail_enter().
+ */
+pid_t minijail_fork(struct minijail *j);
+
+/*
  * Kill the specified minijail. The minijail must have been created with pid
  * namespacing; if it was, all processes inside it are atomically killed.
  */
@@ -286,6 +359,16 @@ int minijail_wait(struct minijail *j);
  * minijail or not.
  */
 void minijail_destroy(struct minijail *j);
+
+/*
+ * minijail_log_to_fd: redirects the module-wide logging to an FD instead of
+ * syslog.
+ * @fd           FD to log to. Caller must ensure this is available after
+ *               jailing (e.g. with minijail_preserve_fd()).
+ * @min_priority the minimum logging priority. Same as the priority argument
+ *               to syslog(2).
+ */
+void minijail_log_to_fd(int fd, int min_priority);
 
 #ifdef __cplusplus
 }; /* extern "C" */

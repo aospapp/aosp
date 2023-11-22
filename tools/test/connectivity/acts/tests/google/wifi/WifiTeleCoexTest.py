@@ -127,9 +127,11 @@ class WifiTeleCoexTest(TelephonyBaseTest):
 
         self.log.debug("Toggling wifi ON")
         wifi_utils.wifi_toggle_state(self.dut, True)
+        # Sleep for 1s before getting new WiFi state.
+        time.sleep(1)
         if not self.dut.droid.wifiGetisWifiEnabled():
             raise signals.TestFailure("WiFi did not turn on after turning ON"
-                                      "Airplane mode")
+                                      " Airplane mode")
         asserts.assert_true(
             acts.utils.force_airplane_mode(self.dut, False),
             "Can not turn on airplane mode on: %s" % self.dut.serial)
@@ -159,6 +161,8 @@ class WifiTeleCoexTest(TelephonyBaseTest):
             3. Make a short sequence voice call between Phone A and B.
 
         """
+        # Sleep for 5s before getting new WiFi state.
+        time.sleep(5)
         wifi_info = self.dut.droid.wifiGetConnectionInfo()
         if wifi_info[WifiEnums.SSID_KEY] != self.wifi_network_ssid:
             raise signals.TestFailure("Phone failed to connect to %s network on"
@@ -191,6 +195,7 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         self.connect_to_wifi(self.dut, self.network)
         wifi_utils.toggle_wifi_off_and_on(self.dut)
         self.validate_cellular_and_wifi()
+        return True
 
 
     @test_tracker_info(uuid="caf22447-6354-4a2e-99e5-0ff235fc8f20")
@@ -212,6 +217,7 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         self.connect_to_wifi(self.dut, self.network)
         wifi_utils.toggle_airplane_mode_on_and_off(self.dut)
         self.validate_cellular_and_wifi()
+        return True
 
 
     @test_tracker_info(uuid="dd888b35-f820-409a-89af-4b0f6551e4d6")
@@ -235,6 +241,7 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         self.connect_to_wifi(self.dut, self.network)
         self.stress_toggle_airplane_and_wifi(1)
         self.validate_cellular_and_wifi()
+        return True
 
 
     @test_tracker_info(uuid="15db5b7e-827e-4bc8-8e77-7fcce343a323")
@@ -256,6 +263,7 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         self.connect_to_wifi(self.dut, self.network)
         self.stress_toggle_wifi(self.stress_count)
         self.validate_cellular_and_wifi()
+        return True
 
 
     @test_tracker_info(uuid="80a2f1bf-5e41-453a-9b8e-be3b41d4d313")
@@ -277,6 +285,7 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         self.connect_to_wifi(self.dut, self.network)
         self.stress_toggle_airplane(self.stress_count)
         self.validate_cellular_and_wifi()
+        return True
 
 
     @test_tracker_info(uuid="b88ad3e7-6462-4280-ad57-22d0ac91fdd8")
@@ -301,3 +310,4 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         self.connect_to_wifi(self.dut, self.network)
         self.stress_toggle_airplane_and_wifi(self.stress_count)
         self.validate_cellular_and_wifi()
+        return True

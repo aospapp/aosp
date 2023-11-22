@@ -23,35 +23,6 @@ static volatile int mem_recover = 0;
 static jmp_buf mem_jmp;
 static void one_file(char *file, int nest, int hard_opt);
 
-/* Solaris headers don't have facility names. */
-#ifdef HAVE_SOLARIS_NETWORK
-static const struct {
-  char *c_name;
-  unsigned int c_val;
-}  facilitynames[] = {
-  { "kern",   LOG_KERN },
-  { "user",   LOG_USER },
-  { "mail",   LOG_MAIL },
-  { "daemon", LOG_DAEMON },
-  { "auth",   LOG_AUTH },
-  { "syslog", LOG_SYSLOG },
-  { "lpr",    LOG_LPR },
-  { "news",   LOG_NEWS },
-  { "uucp",   LOG_UUCP },
-  { "audit",  LOG_AUDIT },
-  { "cron",   LOG_CRON },
-  { "local0", LOG_LOCAL0 },
-  { "local1", LOG_LOCAL1 },
-  { "local2", LOG_LOCAL2 },
-  { "local3", LOG_LOCAL3 },
-  { "local4", LOG_LOCAL4 },
-  { "local5", LOG_LOCAL5 },
-  { "local6", LOG_LOCAL6 },
-  { "local7", LOG_LOCAL7 },
-  { NULL, 0 }
-};
-#endif
-
 #ifndef HAVE_GETOPT_LONG
 struct myoption {
   const char *name;
@@ -116,7 +87,7 @@ static const struct myoption opts[] =
     { "help", 0, 0, 'w' },
     { "no-daemon", 0, 0, 'd' },
     { "log-queries", 0, 0, 'q' },
-    { "user", 2, 0, 'u' },
+    { "user", 1, 0, 'u' },
     { "group", 2, 0, 'g' },
     { "resolv-file", 2, 0, 'r' },
     { "mx-host", 1, 0, 'm' },
@@ -155,7 +126,6 @@ static const struct myoption opts[] =
     { "domain-needed", 0, 0, 'D' },
     { "dhcp-lease-max", 1, 0, 'X' },
     { "bind-interfaces", 0, 0, 'z' },
-    { "read-ethers", 0, 0, 'Z' },
     { "alias", 1, 0, 'V' },
     { "dhcp-vendorclass", 1, 0, 'U' },
     { "dhcp-userclass", 1, 0, 'j' },
@@ -291,7 +261,6 @@ static struct {
   { LOPT_PTR, ARG_DUP, "name,target", gettext_noop("Specify PTR DNS record."), NULL },
   { LOPT_INTNAME, ARG_DUP, "name,interface", gettext_noop("Give DNS name to IPv4 address of interface."), NULL },
   { 'z', OPT_NOWILD, NULL, gettext_noop("Bind only to interfaces in use."), NULL },
-  { 'Z', OPT_ETHERS, NULL, gettext_noop("Read DHCP static host information from %s."), ETHERSFILE },
   { '1', OPT_DBUS, NULL, gettext_noop("Enable the DBus interface for setting upstream servers, etc."), NULL },
   { '2', ARG_DUP, "interface", gettext_noop("Do not provide DHCP on this interface, only provide DNS."), NULL },
   { '3', ARG_DUP, "[=<id>[,<id>]]", gettext_noop("Enable dynamic address allocation for bootp."), NULL },

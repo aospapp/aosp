@@ -19,7 +19,8 @@
     </target_preparer>
 
     <option name="test-tag" value="AndroidTVJankTests" />
-    <test class="com.android.tradefed.testtype.InstrumentationTest" >
+    <test class="com.android.tradefed.testtype.UiAutomatorTest">
+        <option name="instrumentation" value="true"/>
         <option name="package" value="com.android.androidtv.janktests" />
         <option name="runner" value="android.test.InstrumentationTestRunner" />
     </test>

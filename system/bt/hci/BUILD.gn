@@ -1,5 +1,5 @@
 #
-#  Copyright (C) 2015 Google, Inc.
+#  Copyright 2015 Google, Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ static_library("hci") {
   include_dirs = [
     "include",
     "//",
-    "//include",
+    "//internal_include",
     "//bta/include",
     "//btcore/include",
     "//stack/include",
@@ -52,7 +52,7 @@ executable("net_test_hci") {
 
   include_dirs = [
     "//",
-    "//include",
+    "//internal_include",
     "//btcore/include",
     "//hci/include",
     "//osi/test",

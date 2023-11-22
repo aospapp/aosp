@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import errno
 import grp
 import logging
 import os
@@ -22,6 +23,18 @@ class security_SysLogPermissions(test.test):
             raise error.TestFail('/var/log is not sticky')
         if st.st_gid != syslog_gid:
             raise error.TestFail('/var/log is not group syslog')
-        st = os.stat('/var/log/messages')
-        if st.st_uid != syslog_uid:
+
+        # The /var/log/messages file might be rotated while this test runs.
+        # Be a bit forgiving when it comes to slightly-off settings.
+        try:
+            st = os.stat('/var/log/messages')
+        except OSError as e:
+            # Ignore missing (middle of rotation) files.
+            if e.errno == errno.ENOENT:
+                return
+            raise
+        if st.st_uid == 0 and st.st_size == 0:
+            # Ignore freshly created files.
+            pass
+        elif st.st_uid != syslog_uid:
             raise error.TestFail('/var/log/messages is not user syslog')

@@ -102,10 +102,11 @@
     <string name="permission_revoked_none" msgid="2059511550181271342">"ਕਿਸੇ ਨੂੰ ਵੀ ਅਯੋਗ ਨਹੀਂ ਬਣਾਇਆ ਗਿਆ ਹੈ"</string>
     <string name="grant_dialog_button_allow" msgid="4616529495342337095">"ਆਗਿਆ ਦਿਓ"</string>
     <string name="app_permissions_breadcrumb" msgid="3390836200791539264">"ਐਪਾਂ"</string>
-    <string name="app_permissions" msgid="3146758905824597178">"ਐਪ ਅਨੁਮਤੀਆਂ"</string>
+    <string name="app_permissions" msgid="3146758905824597178">"ਐਪ ਇਜਾਜ਼ਤਾਂ"</string>
     <string name="never_ask_again" msgid="1089938738199748687">"ਦੁਬਾਰਾ ਨਾ ਪੁੱਛੋ"</string>
-    <string name="no_permissions" msgid="3210542466245591574">"ਕੋਈ ਅਨੁਮਤੀਆਂ ਨਹੀਂ ਹਨ"</string>
-    <string name="additional_permissions" msgid="6667573114240111763">"ਅਤਿਰਿਕਤ ਅਨੁਮਤੀਆਂ"</string>
+    <string name="no_permissions" msgid="3210542466245591574">"ਕੋਈ ਇਜਾਜ਼ਤਾਂ ਨਹੀਂ ਹਨ"</string>
+    <string name="additional_permissions" msgid="6667573114240111763">"ਵਧੀਕ ਇਜਾਜ਼ਤਾਂ"</string>
+    <string name="app_permissions_info_button_label" msgid="7789812060395257748">"ਐਪ ਜਾਣਕਾਰੀ ਖੋਲ੍ਹੋ"</string>
     <plurals name="additional_permissions_more" formatted="false" msgid="945127158155064388">
       <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> ਹੋਰ</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> ਹੋਰ</item>
@@ -144,7 +145,7 @@
     <string name="untrusted_external_source_warning" product="default" msgid="2223486836232706553">"ਤੁਹਾਡੀ ਸੁਰੱਖਿਆ ਲਈ, ਤੁਹਾਡੇ ਫ਼ੋਨ ਨੂੰ ਇਸ ਸਰੋਤ ਤੋਂ ਅਗਿਆਤ ਐਪਾਂ ਸਥਾਪਤ ਕਰਨ ਦੀ ਇਜਾਜ਼ਤ ਨਹੀਂ ਹੈ।"</string>
     <string name="anonymous_source_warning" product="default" msgid="7700263729981815614">"ਤੁਹਾਡਾ ਫ਼ੋਨ ਅਤੇ ਨਿੱਜੀ ਡਾਟਾ ਅਗਿਆਤ ਐਪਾਂ ਤੋਂ ਹਮਲੇ ਪ੍ਰਤੀ ਵਧੇਰੇ ਵਿੰਨਣਸ਼ੀਲ ਹਨ। ਇਹ ਐਪ ਸਥਾਪਤ ਕਰਕੇ, ਤੁਸੀਂ ਸਹਿਮਤੀ ਦਿੰਦੇ ਹੋ ਕਿ ਆਪਣੇ ਫ਼ੋਨ ਨੂੰ ਹੋਣ ਵਾਲੇ ਕਿਸੇ ਵੀ ਨੁਕਸਾਨ ਜਾਂ ਡਾਟੇ ਦੀ ਹਾਨੀ ਲਈ ਤੁਸੀਂ ਜ਼ਿੰਮੇਵਾਰ ਹੋ ਜੋ ਸ਼ਾਇਦ ਇਸ ਐਪ ਨੂੰ ਵਰਤਣ ਦੇ ਨਤੀਜੇ ਵਜੋਂ ਹੋ ਸਕਦਾ ਹੈ।"</string>
     <string name="anonymous_source_warning" product="tablet" msgid="8854462805499848630">"ਤੁਹਾਡਾ ਟੈਬਲੈੱਟ ਅਤੇ ਨਿੱਜੀ ਡਾਟਾ ਅਗਿਆਤ ਐਪਾਂ ਤੋਂ ਹਮਲੇ ਪ੍ਰਤੀ ਵਧੇਰੇ ਕਮਜ਼ੋਰ ਹੈ। ਇਹ ਐਪ ਸਥਾਪਤ ਕਰਕੇ, ਤੁਸੀਂ ਸਹਿਮਤੀ ਦਿੰਦੇ ਹੋ ਕਿ ਆਪਣੇ ਟੈਬਲੈੱਟ ਨੂੰ ਹੋਣ ਵਾਲੇ ਕਿਸੇ ਵੀ ਨੁਕਸਾਨ ਜਾਂ ਡਾਟੇ ਦੀ ਹਾਨੀ ਲਈ ਤੁਸੀਂ ਜ਼ਿੰਮੇਵਾਰ ਹੋ ਜੋ ਸ਼ਾਇਦ ਇਸ ਐਪ ਨੂੰ ਵਰਤਣ ਦੇ ਨਤੀਜੇ ਵਜੋਂ ਹੋ ਸਕਦਾ ਹੈ।"</string>
-    <string name="anonymous_source_warning" product="tv" msgid="1291472686734385872">"ਤੁਹਾਡਾ ਟੀਵੀ ਅਤੇ ਨਿੱਜੀ  ਡਾਟਾ  ਅਗਿਆਤ ਐਪਾਂ ਤੋਂ ਹਮਲੇ ਪ੍ਰਤੀ ਵਧੇਰੇ ਵਿੰਨਣਸ਼ੀਲ ਹਨ। ਇਹ ਐਪ ਸਥਾਪਤ ਕਰਕੇ, ਤੁਸੀਂ ਸਹਿਮਤੀ ਦਿੰਦੇ ਹੋ ਕਿ ਆਪਣੇ ਟੀਵੀ ਨੂੰ ਹੋਣ ਵਾਲੇ ਕਿਸੇ ਵੀ ਨੁਕਸਾਨ ਜਾਂ ਡੈਟੇ ਦੀ ਹਾਨੀ ਲਈ ਤੁਸੀਂ ਜ਼ਿੰਮੇਵਾਰ ਹੋ ਜੋ ਸ਼ਾਇਦ ਇਸ ਐਪ ਨੂੰ ਵਰਤਣ ਦੇ ਨਤੀਜੇ ਵਜੋਂ ਹੋ ਸਕਦਾ ਹੈ।"</string>
+    <string name="anonymous_source_warning" product="tv" msgid="1291472686734385872">"ਤੁਹਾਡਾ ਟੀਵੀ ਅਤੇ ਨਿੱਜੀ  ਡਾਟਾ  ਅਗਿਆਤ ਐਪਾਂ ਤੋਂ ਹਮਲੇ ਪ੍ਰਤੀ ਵਧੇਰੇ ਵਿੰਨਣਸ਼ੀਲ ਹਨ। ਇਹ ਐਪ ਸਥਾਪਤ ਕਰਕੇ, ਤੁਸੀਂ ਸਹਿਮਤੀ ਦਿੰਦੇ ਹੋ ਕਿ ਆਪਣੇ ਟੀਵੀ ਨੂੰ ਹੋਣ ਵਾਲੇ ਕਿਸੇ ਵੀ ਨੁਕਸਾਨ ਜਾਂ  ਡਾਟੇ  ਦੀ ਹਾਨੀ ਲਈ ਤੁਸੀਂ ਜ਼ਿੰਮੇਵਾਰ ਹੋ ਜੋ ਸ਼ਾਇਦ ਇਸ ਐਪ ਨੂੰ ਵਰਤਣ ਦੇ ਨਤੀਜੇ ਵਜੋਂ ਹੋ ਸਕਦਾ ਹੈ।"</string>
     <string name="anonymous_source_continue" msgid="2094381167954332292">"ਜਾਰੀ ਰੱਖੋ"</string>
     <string name="external_sources_settings" msgid="8601453744517291632">"ਸੈਟਿੰਗਾਂ"</string>
     <string name="wear_app_channel" msgid="6200840123672949356">"ਵੀਅਰ ਐਪਾਂ ਨੂੰ ਸਥਾਪਤ/ਅਣਸਥਾਪਤ ਕਰਨਾ"</string>

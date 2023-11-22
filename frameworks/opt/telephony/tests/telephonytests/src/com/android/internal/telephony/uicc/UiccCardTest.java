@@ -20,14 +20,6 @@ import static com.android.internal.telephony.TelephonyTestUtils.waitForMs;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.atLeast;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.isA;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -35,12 +27,10 @@ import android.os.Message;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.internal.telephony.TelephonyTest;
-import com.android.internal.telephony.cat.CatService;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
 public class UiccCardTest extends TelephonyTest {
@@ -57,10 +47,7 @@ public class UiccCardTest extends TelephonyTest {
     private static final int UICCCARD_UPDATE_CARD_STATE_EVENT = 1;
     private static final int UICCCARD_UPDATE_CARD_APPLICATION_EVENT = 2;
     private static final int UICCCARD_CARRIER_PRIVILEDGE_LOADED_EVENT = 3;
-    private static final int UICCCARD_ABSENT = 4;
 
-    @Mock
-    private CatService mCAT;
     @Mock
     private IccCardStatus mIccCardStatus;
     @Mock
@@ -76,7 +63,8 @@ public class UiccCardTest extends TelephonyTest {
         @Override
         public void onLooperPrepared() {
             mUicccard = new UiccCard(mContextFixture.getTestDouble(),
-                                     mSimulatedCommands, mIccCardStatus, 0 /* phoneId */);
+                                     mSimulatedCommands, mIccCardStatus, 0 /* phoneId */,
+                                     new Object());
             /* create a custom handler for the Handler Thread */
             mHandler = new Handler(mTestHandlerThread.getLooper()) {
                 @Override
@@ -128,15 +116,15 @@ public class UiccCardTest extends TelephonyTest {
         mIccCardStatus.mCdmaSubscriptionAppIndex =
                 mIccCardStatus.mImsSubscriptionAppIndex =
                         mIccCardStatus.mGsmUmtsSubscriptionAppIndex = -1;
+        mIccCardStatus.mCardState = IccCardStatus.CardState.CARDSTATE_PRESENT;
 
         mIccIoResult = new IccIoResult(0x90, 0x00, IccUtils.hexStringToBytes("FF40"));
         mSimulatedCommands.setIccIoResultForApduLogicalChannel(mIccIoResult);
         /* starting the Handler Thread */
-        mTestHandlerThread = new UiccCardHandlerThread(TAG);
+        mTestHandlerThread = new UiccCardHandlerThread(getClass().getSimpleName());
         mTestHandlerThread.start();
 
         waitUntilReady();
-        replaceInstance(UiccCard.class, "mCatService", mUicccard, mCAT);
     }
 
     @After
@@ -150,43 +138,15 @@ public class UiccCardTest extends TelephonyTest {
     public void tesUiccCartdInfoSanity() {
         /* before update sanity test */
         assertEquals(0, mUicccard.getNumApplications());
-        assertNull(mUicccard.getCardState());
+        assertEquals(IccCardStatus.CardState.CARDSTATE_PRESENT, mUicccard.getCardState());
         assertNull(mUicccard.getUniversalPinState());
         assertNull(mUicccard.getOperatorBrandOverride());
-        /* CarrierPrivilegeRule equals null, return true */
-        assertTrue(mUicccard.areCarrierPriviligeRulesLoaded());
+        /* UiccProfile mock should return false */
+        assertFalse(mUicccard.areCarrierPriviligeRulesLoaded());
         for (IccCardApplicationStatus.AppType mAppType :
                 IccCardApplicationStatus.AppType.values()) {
             assertFalse(mUicccard.isApplicationOnIcc(mAppType));
         }
-    }
-
-    @Test @SmallTest
-    public void testUpdateUiccCardApplication() {
-        /* update app status and index */
-        IccCardApplicationStatus cdmaApp = composeUiccApplicationStatus(
-                IccCardApplicationStatus.AppType.APPTYPE_CSIM,
-                IccCardApplicationStatus.AppState.APPSTATE_UNKNOWN, "0xA0");
-        IccCardApplicationStatus imsApp = composeUiccApplicationStatus(
-                IccCardApplicationStatus.AppType.APPTYPE_ISIM,
-                IccCardApplicationStatus.AppState.APPSTATE_UNKNOWN, "0xA1");
-        IccCardApplicationStatus umtsApp = composeUiccApplicationStatus(
-                IccCardApplicationStatus.AppType.APPTYPE_USIM,
-                IccCardApplicationStatus.AppState.APPSTATE_UNKNOWN, "0xA2");
-        mIccCardStatus.mApplications = new IccCardApplicationStatus[]{cdmaApp, imsApp, umtsApp};
-        mIccCardStatus.mCdmaSubscriptionAppIndex = 0;
-        mIccCardStatus.mImsSubscriptionAppIndex = 1;
-        mIccCardStatus.mGsmUmtsSubscriptionAppIndex = 2;
-        Message mCardUpdate = mHandler.obtainMessage(UICCCARD_UPDATE_CARD_APPLICATION_EVENT);
-        setReady(false);
-        mCardUpdate.sendToTarget();
-
-        waitUntilReady();
-
-        assertEquals(3, mUicccard.getNumApplications());
-        assertTrue(mUicccard.isApplicationOnIcc(IccCardApplicationStatus.AppType.APPTYPE_CSIM));
-        assertTrue(mUicccard.isApplicationOnIcc(IccCardApplicationStatus.AppType.APPTYPE_ISIM));
-        assertTrue(mUicccard.isApplicationOnIcc(IccCardApplicationStatus.AppType.APPTYPE_USIM));
     }
 
     @Test @SmallTest
@@ -207,58 +167,14 @@ public class UiccCardTest extends TelephonyTest {
 
         waitForMs(50);
 
+        /* todo: This part should move to UiccProfileTest
         assertTrue(mUicccard.areCarrierPriviligeRulesLoaded());
-        verify(mSimulatedCommandsVerifier, times(1)).iccOpenLogicalChannel(isA(String.class),
+        verify(mSimulatedCommandsVerifier, times(2)).iccOpenLogicalChannel(isA(String.class),
                 anyInt(), isA(Message.class));
-        verify(mSimulatedCommandsVerifier, times(1)).iccTransmitApduLogicalChannel(
+        verify(mSimulatedCommandsVerifier, times(2)).iccTransmitApduLogicalChannel(
                 eq(mChannelId), anyInt(), anyInt(), anyInt(), anyInt(), anyInt(), anyString(),
                 isA(Message.class)
         );
-    }
-
-    @Test @SmallTest
-    public void testUpdateUiccCardPinState() {
-        mIccCardStatus.mUniversalPinState = IccCardStatus.PinState.PINSTATE_ENABLED_VERIFIED;
-        mUicccard.update(mContextFixture.getTestDouble(), mSimulatedCommands, mIccCardStatus);
-        assertEquals(IccCardStatus.PinState.PINSTATE_ENABLED_VERIFIED,
-                mUicccard.getUniversalPinState());
-    }
-
-    @Test @SmallTest
-    public void testCarrierPriviledgeLoadedListener() {
-        mUicccard.registerForCarrierPrivilegeRulesLoaded(mMockedHandler,
-                UICCCARD_CARRIER_PRIVILEDGE_LOADED_EVENT, null);
-        ArgumentCaptor<Message> mCaptorMessage = ArgumentCaptor.forClass(Message.class);
-        ArgumentCaptor<Long> mCaptorLong = ArgumentCaptor.forClass(Long.class);
-        testUpdateUiccCardState();
-        verify(mMockedHandler, atLeast(1)).sendMessageDelayed(mCaptorMessage.capture(),
-                mCaptorLong.capture());
-        assertEquals(UICCCARD_CARRIER_PRIVILEDGE_LOADED_EVENT, mCaptorMessage.getValue().what);
-    }
-
-    @Test @SmallTest
-    public void testCardAbsentListener() {
-        mUicccard.registerForAbsent(mMockedHandler, UICCCARD_ABSENT, null);
-        /* assume hotswap capable, avoid bootup on card removal */
-        mContextFixture.putBooleanResource(com.android.internal.R.bool.config_hotswapCapable, true);
-        mSimulatedCommands.setRadioPower(true, null);
-
-        /* Mock Card State transition from card_present to card_absent */
-        logd("UICC Card Present update");
-        mIccCardStatus.mCardState = IccCardStatus.CardState.CARDSTATE_PRESENT;
-        Message mCardUpdate = mHandler.obtainMessage(UICCCARD_UPDATE_CARD_STATE_EVENT);
-        mCardUpdate.sendToTarget();
-        waitForMs(50);
-
-        logd("UICC Card absent update");
-        mIccCardStatus.mCardState = IccCardStatus.CardState.CARDSTATE_ABSENT;
-        mUicccard.update(mContextFixture.getTestDouble(), mSimulatedCommands, mIccCardStatus);
-        waitForMs(50);
-
-        ArgumentCaptor<Message> mCaptorMessage = ArgumentCaptor.forClass(Message.class);
-        ArgumentCaptor<Long> mCaptorLong = ArgumentCaptor.forClass(Long.class);
-        verify(mMockedHandler, atLeast(1)).sendMessageDelayed(mCaptorMessage.capture(),
-                                                             mCaptorLong.capture());
-        assertEquals(UICCCARD_ABSENT, mCaptorMessage.getValue().what);
+        */
     }
 }

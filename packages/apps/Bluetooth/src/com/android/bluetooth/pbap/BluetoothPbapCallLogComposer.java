@@ -15,8 +15,6 @@
  */
 package com.android.bluetooth.pbap;
 
-import com.android.bluetooth.R;
-
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
@@ -28,6 +26,7 @@ import android.text.TextUtils;
 import android.text.format.Time;
 import android.util.Log;
 
+import com.android.bluetooth.R;
 import com.android.vcard.VCardBuilder;
 import com.android.vcard.VCardConfig;
 import com.android.vcard.VCardConstants;
@@ -42,24 +41,28 @@ public class BluetoothPbapCallLogComposer {
     private static final String TAG = "CallLogComposer";
 
     private static final String FAILURE_REASON_FAILED_TO_GET_DATABASE_INFO =
-        "Failed to get database information";
+            "Failed to get database information";
 
-    private static final String FAILURE_REASON_NO_ENTRY =
-        "There's no exportable in the database";
+    private static final String FAILURE_REASON_NO_ENTRY = "There's no exportable in the database";
 
     private static final String FAILURE_REASON_NOT_INITIALIZED =
-        "The vCard composer object is not correctly initialized";
+            "The vCard composer object is not correctly initialized";
 
     /** Should be visible only from developers... (no need to translate, hopefully) */
     private static final String FAILURE_REASON_UNSUPPORTED_URI =
-        "The Uri vCard composer received is not supported by the composer.";
+            "The Uri vCard composer received is not supported by the composer.";
 
     private static final String NO_ERROR = "No error";
 
     /** The projection to use when querying the call log table */
-    private static final String[] sCallLogProjection = new String[] {
-            Calls.NUMBER, Calls.DATE, Calls.TYPE, Calls.CACHED_NAME, Calls.CACHED_NUMBER_TYPE,
-            Calls.CACHED_NUMBER_LABEL, Calls.NUMBER_PRESENTATION
+    private static final String[] sCallLogProjection = new String[]{
+            Calls.NUMBER,
+            Calls.DATE,
+            Calls.TYPE,
+            Calls.CACHED_NAME,
+            Calls.CACHED_NUMBER_TYPE,
+            Calls.CACHED_NUMBER_LABEL,
+            Calls.NUMBER_PRESENTATION
     };
     private static final int NUMBER_COLUMN_INDEX = 0;
     private static final int DATE_COLUMN_INDEX = 1;
@@ -88,8 +91,8 @@ public class BluetoothPbapCallLogComposer {
         mContentResolver = context.getContentResolver();
     }
 
-    public boolean init(final Uri contentUri, final String selection,
-            final String[] selectionArgs, final String sortOrder) {
+    public boolean init(final Uri contentUri, final String selection, final String[] selectionArgs,
+            final String sortOrder) {
         final String[] projection;
         if (CallLog.Calls.CONTENT_URI.equals(contentUri)) {
             projection = sCallLogProjection;
@@ -98,8 +101,8 @@ public class BluetoothPbapCallLogComposer {
             return false;
         }
 
-        mCursor = mContentResolver.query(
-                contentUri, projection, selection, selectionArgs, sortOrder);
+        mCursor =
+                mContentResolver.query(contentUri, projection, selection, selectionArgs, sortOrder);
 
         if (mCursor == null) {
             mErrorReason = FAILURE_REASON_FAILED_TO_GET_DATABASE_INFO;
@@ -134,9 +137,9 @@ public class BluetoothPbapCallLogComposer {
     }
 
     private String createOneCallLogEntryInternal(boolean vcardVer21) {
-        final int vcardType = (vcardVer21 ? VCardConfig.VCARD_TYPE_V21_GENERIC :
-                VCardConfig.VCARD_TYPE_V30_GENERIC) |
-                VCardConfig.FLAG_REFRAIN_PHONE_NUMBER_FORMATTING;
+        final int vcardType = (vcardVer21 ? VCardConfig.VCARD_TYPE_V21_GENERIC
+                : VCardConfig.VCARD_TYPE_V30_GENERIC)
+                | VCardConfig.FLAG_REFRAIN_PHONE_NUMBER_FORMATTING;
         final VCardBuilder builder = new VCardBuilder(vcardType);
         String name = mCursor.getString(CALLER_NAME_COLUMN_INDEX);
         String number = mCursor.getString(NUMBER_COLUMN_INDEX);
@@ -169,12 +172,11 @@ public class BluetoothPbapCallLogComposer {
     /**
      * This static function is to compose vCard for phone own number
      */
-    public String composeVCardForPhoneOwnNumber(int phonetype, String phoneName,
-            String phoneNumber, boolean vcardVer21) {
-        final int vcardType = (vcardVer21 ?
-                VCardConfig.VCARD_TYPE_V21_GENERIC :
-                    VCardConfig.VCARD_TYPE_V30_GENERIC) |
-                VCardConfig.FLAG_REFRAIN_PHONE_NUMBER_FORMATTING;
+    public String composeVCardForPhoneOwnNumber(int phonetype, String phoneName, String phoneNumber,
+            boolean vcardVer21) {
+        final int vcardType = (vcardVer21 ? VCardConfig.VCARD_TYPE_V21_GENERIC
+                : VCardConfig.VCARD_TYPE_V30_GENERIC)
+                | VCardConfig.FLAG_REFRAIN_PHONE_NUMBER_FORMATTING;
         final VCardBuilder builder = new VCardBuilder(vcardType);
         boolean needCharset = false;
         if (!(VCardUtils.containsOnlyPrintableAscii(phoneName))) {
@@ -195,7 +197,7 @@ public class BluetoothPbapCallLogComposer {
      * Format according to RFC 2445 DATETIME type.
      * The format is: ("%Y%m%dT%H%M%S").
      */
-    private final String toRfc2455Format(final long millSecs) {
+    private String toRfc2455Format(final long millSecs) {
         Time startDate = new Time();
         startDate.set(millSecs);
         return startDate.format2445();
@@ -237,8 +239,8 @@ public class BluetoothPbapCallLogComposer {
         }
 
         final long dateAsLong = mCursor.getLong(DATE_COLUMN_INDEX);
-        builder.appendLine(VCARD_PROPERTY_X_TIMESTAMP,
-                Arrays.asList(callLogTypeStr), toRfc2455Format(dateAsLong));
+        builder.appendLine(VCARD_PROPERTY_X_TIMESTAMP, Arrays.asList(callLogTypeStr),
+                toRfc2455Format(dateAsLong));
     }
 
     public void terminate() {

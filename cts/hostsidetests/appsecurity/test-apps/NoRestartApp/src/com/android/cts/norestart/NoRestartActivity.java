@@ -16,35 +16,38 @@
 
 package com.android.cts.norestart;
 
+import android.content.Intent;
+import android.os.RemoteCallback;
 import com.android.cts.norestart.R;
 
 import android.app.Activity;
-import android.content.Intent;
 import android.os.Bundle;
 
 public class NoRestartActivity extends Activity {
-    private int mCreateCount;
+    private static int sCreateCount;
     private int mNewIntentCount;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.no_restart_activity);
-        mCreateCount++;
-        sendBroadcast();
+        sCreateCount++;
+        final RemoteCallback callback = getIntent().getParcelableExtra("RESPONSE");
+        sendResponse(callback);
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         mNewIntentCount++;
-        sendBroadcast();
+        final RemoteCallback callback = intent.getParcelableExtra("RESPONSE");
+        sendResponse(callback);
     }
 
-    private void sendBroadcast() {
-        final Intent intent = new Intent("com.android.cts.norestart.BROADCAST");
-        intent.putExtra("CREATE_COUNT", mCreateCount);
-        intent.putExtra("NEW_INTENT_COUNT", mNewIntentCount);
-        sendBroadcast(intent);
+    private void sendResponse(RemoteCallback callback) {
+        final Bundle payload = new Bundle();
+        payload.putInt("CREATE_COUNT", sCreateCount);
+        payload.putInt("NEW_INTENT_COUNT", mNewIntentCount);
+        callback.sendResult(payload);
     }
 }

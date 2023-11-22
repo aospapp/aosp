@@ -16,8 +16,8 @@
 
 package com.android.documentsui.roots;
 
-import static com.android.documentsui.base.Shared.DEBUG;
-import static com.android.documentsui.base.Shared.VERBOSE;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
 import android.util.Log;
 

@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+ifneq ($(TARGET_BUILD_PDK),true)
+
 LOCAL_PATH := $(my-dir)
 
 # Default values for the USE flags. Override these USE flags from your product
@@ -22,18 +24,18 @@ LOCAL_PATH := $(my-dir)
 local_use_binder := $(if $(BRILLO_USE_BINDER),$(BRILLO_USE_BINDER),1)
 local_use_hwid_override := \
     $(if $(BRILLO_USE_HWID_OVERRIDE),$(BRILLO_USE_HWID_OVERRIDE),0)
-# "libcros" gates the LibCrosService exposed by the Chrome OS' chrome browser to
-# the system layer.
-local_use_libcros := $(if $(BRILLO_USE_LIBCROS),$(BRILLO_USE_LIBCROS),0)
 local_use_mtd := $(if $(BRILLO_USE_MTD),$(BRILLO_USE_MTD),0)
+local_use_chrome_network_proxy := 0
+local_use_chrome_kiosk_app := 0
 
 # IoT devices use Omaha for updates.
 local_use_omaha := $(if $(filter true,$(PRODUCT_IOT)),1,0)
 
 ue_common_cflags := \
     -DUSE_BINDER=$(local_use_binder) \
+    -DUSE_CHROME_NETWORK_PROXY=$(local_use_chrome_network_proxy) \
+    -DUSE_CHROME_KIOSK_APP=$(local_use_chrome_kiosk_app) \
     -DUSE_HWID_OVERRIDE=$(local_use_hwid_override) \
-    -DUSE_LIBCROS=$(local_use_libcros) \
     -DUSE_MTD=$(local_use_mtd) \
     -DUSE_OMAHA=$(local_use_omaha) \
     -D_FILE_OFFSET_BITS=64 \
@@ -82,6 +84,7 @@ LOCAL_IS_HOST_MODULE := true
 generated_sources_dir := $(call local-generated-sources-dir)
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(generated_sources_dir)/proto/system
 LOCAL_SRC_FILES := $(ue_update_metadata_protos_src_files)
+LOCAL_CFLAGS := -Wall -Werror
 include $(BUILD_HOST_STATIC_LIBRARY)
 
 # Build for the target.
@@ -91,6 +94,7 @@ LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 generated_sources_dir := $(call local-generated-sources-dir)
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(generated_sources_dir)/proto/system
 LOCAL_SRC_FILES := $(ue_update_metadata_protos_src_files)
+LOCAL_CFLAGS := -Wall -Werror
 include $(BUILD_STATIC_LIBRARY)
 
 # libpayload_consumer (type: static_library)
@@ -101,6 +105,8 @@ ue_libpayload_consumer_exported_static_libraries := \
     libxz \
     libbz \
     libbspatch \
+    libbrotli \
+    libpuffpatch \
     $(ue_update_metadata_protos_exported_static_libraries)
 ue_libpayload_consumer_exported_shared_libraries := \
     libcrypto \
@@ -125,14 +131,19 @@ ue_libpayload_consumer_src_files := \
     common/terminator.cc \
     common/utils.cc \
     payload_consumer/bzip_extent_writer.cc \
+    payload_consumer/cached_file_descriptor.cc \
     payload_consumer/delta_performer.cc \
     payload_consumer/download_action.cc \
+    payload_consumer/extent_reader.cc \
     payload_consumer/extent_writer.cc \
     payload_consumer/file_descriptor.cc \
+    payload_consumer/file_descriptor_utils.cc \
     payload_consumer/file_writer.cc \
     payload_consumer/filesystem_verifier_action.cc \
     payload_consumer/install_plan.cc \
+    payload_consumer/mount_history.cc \
     payload_consumer/payload_constants.cc \
+    payload_consumer/payload_metadata.cc \
     payload_consumer/payload_verifier.cc \
     payload_consumer/postinstall_runner_action.cc \
     payload_consumer/xz_extent_writer.cc
@@ -143,7 +154,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libpayload_consumer
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CLANG := true
 LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
@@ -167,7 +177,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libpayload_consumer
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CLANG := true
 LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
@@ -203,7 +212,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libupdate_engine_boot_control
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CLANG := true
 LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
@@ -261,7 +269,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libupdate_engine
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CLANG := true
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(ue_libupdate_engine_exported_c_includes)
 LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
@@ -291,7 +298,7 @@ LOCAL_SRC_FILES := \
     hardware_android.cc \
     image_properties_android.cc \
     libcurl_http_fetcher.cc \
-    metrics.cc \
+    metrics_reporter_omaha.cc \
     metrics_utils.cc \
     omaha_request_action.cc \
     omaha_request_params.cc \
@@ -303,10 +310,15 @@ LOCAL_SRC_FILES := \
     proxy_resolver.cc \
     real_system_state.cc \
     update_attempter.cc \
+    update_manager/android_things_policy.cc \
+    update_manager/api_restricted_downloads_policy_impl.cc \
     update_manager/boxed_value.cc \
-    update_manager/chromeos_policy.cc \
     update_manager/default_policy.cc \
+    update_manager/enough_slots_ab_updates_policy_impl.cc \
     update_manager/evaluation_context.cc \
+    update_manager/interactive_update_policy_impl.cc \
+    update_manager/next_update_check_policy_impl.cc \
+    update_manager/official_build_check_policy_impl.cc \
     update_manager/policy.cc \
     update_manager/real_config_provider.cc \
     update_manager/real_device_policy_provider.cc \
@@ -326,10 +338,10 @@ LOCAL_SRC_FILES += \
     binder_service_brillo.cc \
     parcelable_update_engine_status.cc
 endif  # local_use_binder == 1
-ifeq ($(local_use_libcros),1)
+ifeq ($(local_use_chrome_network_proxy),1)
 LOCAL_SRC_FILES += \
     chrome_browser_proxy_resolver.cc
-endif  # local_use_libcros == 1
+endif  # local_use_chrome_network_proxy == 1
 include $(BUILD_STATIC_LIBRARY)
 
 else  # local_use_omaha == 1
@@ -359,6 +371,7 @@ ue_libupdate_engine_android_exported_shared_libraries := \
     libbrillo-binder \
     libcutils \
     libcurl \
+    libmetricslogger \
     libssl \
     libutils
 
@@ -366,7 +379,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libupdate_engine_android
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CLANG := true
 LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
@@ -393,6 +405,8 @@ LOCAL_SRC_FILES += \
     daemon_state_android.cc \
     hardware_android.cc \
     libcurl_http_fetcher.cc \
+    metrics_reporter_android.cc \
+    metrics_utils.cc \
     network_selector_android.cc \
     proxy_resolver.cc \
     update_attempter_android.cc \
@@ -411,7 +425,6 @@ LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_REQUIRED_MODULES := \
     cacerts_google
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CLANG := true
 LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
@@ -453,7 +466,6 @@ LOCAL_FORCE_STATIC_EXECUTABLE := true
 LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CLANG := true
 LOCAL_CFLAGS := \
     $(ue_common_cflags) \
     -D_UE_SIDELOAD
@@ -469,6 +481,8 @@ LOCAL_C_INCLUDES += \
 LOCAL_SRC_FILES := \
     boot_control_recovery.cc \
     hardware_android.cc \
+    metrics_reporter_stub.cc \
+    metrics_utils.cc \
     network_selector_stub.cc \
     proxy_resolver.cc \
     sideload_main.cc \
@@ -489,7 +503,7 @@ LOCAL_STATIC_LIBRARIES := \
 # library dependencies of these static libraries.
 LOCAL_STATIC_LIBRARIES += \
     $(ue_common_shared_libraries) \
-    libcutils \
+    libbase \
     liblog \
     $(ue_libpayload_consumer_exported_shared_libraries:-host=) \
     $(ue_update_metadata_protos_exported_shared_libraries) \
@@ -522,7 +536,6 @@ LOCAL_CFLAGS := \
     -Werror \
     -Wno-unused-parameter \
     -DUSE_BINDER=$(local_use_binder)
-LOCAL_CLANG := true
 LOCAL_CPP_EXTENSION := .cc
 # TODO(deymo): Remove "external/cros/system_api/dbus" when dbus is not used.
 LOCAL_C_INCLUDES := \
@@ -560,7 +573,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := update_engine_client
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CLANG := true
 LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
@@ -599,9 +611,15 @@ include $(BUILD_EXECUTABLE)
 # server-side code. This is used for delta_generator and unittests but not
 # for any client code.
 ue_libpayload_generator_exported_static_libraries := \
-    libpayload_consumer \
-    update_metadata-protos \
+    libbsdiff \
+    libdivsufsort \
+    libdivsufsort64 \
+    libbrotli \
     liblzma \
+    libpayload_consumer \
+    libpuffdiff \
+    libz \
+    update_metadata-protos \
     $(ue_libpayload_consumer_exported_static_libraries) \
     $(ue_update_metadata_protos_exported_static_libraries)
 ue_libpayload_generator_exported_shared_libraries := \
@@ -616,6 +634,7 @@ ue_libpayload_generator_src_files := \
     payload_generator/block_mapping.cc \
     payload_generator/bzip.cc \
     payload_generator/cycle_breaker.cc \
+    payload_generator/deflate_utils.cc \
     payload_generator/delta_diff_generator.cc \
     payload_generator/delta_diff_utils.cc \
     payload_generator/ext2_filesystem.cc \
@@ -630,6 +649,7 @@ ue_libpayload_generator_src_files := \
     payload_generator/payload_generation_config.cc \
     payload_generator/payload_signer.cc \
     payload_generator/raw_filesystem.cc \
+    payload_generator/squashfs_filesystem.cc \
     payload_generator/tarjan.cc \
     payload_generator/topological_sort.cc \
     payload_generator/xz_android.cc
@@ -640,15 +660,18 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libpayload_generator
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CLANG := true
 LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
 LOCAL_C_INCLUDES := $(ue_common_c_includes)
 LOCAL_STATIC_LIBRARIES := \
-    libpayload_consumer \
-    update_metadata-protos \
+    libbsdiff \
+    libdivsufsort \
+    libdivsufsort64 \
     liblzma \
+    libpayload_consumer \
+    libpuffdiff \
+    update_metadata-protos \
     $(ue_common_static_libraries) \
     $(ue_libpayload_consumer_exported_static_libraries) \
     $(ue_update_metadata_protos_exported_static_libraries)
@@ -666,12 +689,14 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libpayload_generator
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CLANG := true
 LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
 LOCAL_C_INCLUDES := $(ue_common_c_includes)
 LOCAL_STATIC_LIBRARIES := \
+    libbsdiff \
+    libdivsufsort \
+    libdivsufsort64 \
     libpayload_consumer \
     update_metadata-protos \
     liblzma \
@@ -696,12 +721,8 @@ ifeq ($(HOST_OS),linux)
 # Build for the host.
 include $(CLEAR_VARS)
 LOCAL_MODULE := delta_generator
-LOCAL_REQUIRED_MODULES := \
-    bsdiff \
-    imgdiff
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CLANG := true
 LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
@@ -727,7 +748,6 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_NATIVE_TESTS)/update_engine_unittests
 LOCAL_MODULE_STEM := delta_generator
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CLANG := true
 LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
@@ -755,7 +775,6 @@ define ue-unittest-keys
     $(eval include $(CLEAR_VARS)) \
     $(eval LOCAL_MODULE := ue_$(1).pem) \
     $(eval LOCAL_MODULE_CLASS := ETC) \
-    $(eval $(ifeq $(BRILLO), 1, LOCAL_MODULE_TAGS := eng)) \
     $(eval LOCAL_SRC_FILES := $(1).pem) \
     $(eval LOCAL_MODULE_PATH := \
         $(TARGET_OUT_DATA_NATIVE_TESTS)/update_engine_unittests) \
@@ -765,7 +784,6 @@ define ue-unittest-keys
     $(eval include $(CLEAR_VARS)) \
     $(eval LOCAL_MODULE := ue_$(1).pub.pem) \
     $(eval LOCAL_MODULE_CLASS := ETC) \
-    $(eval $(ifeq $(BRILLO), 1, LOCAL_MODULE_TAGS := eng)) \
     $(eval LOCAL_MODULE_PATH := \
         $(TARGET_OUT_DATA_NATIVE_TESTS)/update_engine_unittests) \
     $(eval LOCAL_MODULE_STEM := $(1).pub.pem) \
@@ -787,7 +805,6 @@ define ue-unittest-sample-image
     $(eval include $(CLEAR_VARS)) \
     $(eval LOCAL_MODULE := ue_unittest_$(1)) \
     $(eval LOCAL_MODULE_CLASS := EXECUTABLES) \
-    $(eval $(ifeq $(BRILLO), 1, LOCAL_MODULE_TAGS := eng)) \
     $(eval LOCAL_MODULE_PATH := \
         $(TARGET_OUT_DATA_NATIVE_TESTS)/update_engine_unittests/gen) \
     $(eval LOCAL_MODULE_STEM := $(1)) \
@@ -801,15 +818,6 @@ $(call ue-unittest-sample-image,disk_ext2_1k.img)
 $(call ue-unittest-sample-image,disk_ext2_4k.img)
 $(call ue-unittest-sample-image,disk_ext2_4k_empty.img)
 $(call ue-unittest-sample-image,disk_ext2_unittest.img)
-
-# Zlib Fingerprint
-# ========================================================
-include $(CLEAR_VARS)
-LOCAL_MODULE := zlib_fingerprint
-LOCAL_MODULE_CLASS := ETC
-LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_NATIVE_TESTS)/update_engine_unittests
-LOCAL_PREBUILT_MODULE_FILE := $(TARGET_OUT_COMMON_GEN)/zlib_fingerprint
-include $(BUILD_PREBUILT)
 
 # update_engine.conf
 # ========================================================
@@ -829,7 +837,6 @@ LOCAL_MODULE := test_http_server
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_NATIVE_TESTS)/update_engine_unittests
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CLANG := true
 LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
@@ -841,28 +848,6 @@ LOCAL_SRC_FILES := \
     test_http_server.cc
 include $(BUILD_EXECUTABLE)
 
-# bsdiff (type: executable)
-# ========================================================
-# We need bsdiff in the update_engine_unittests directory, so we build it here.
-include $(CLEAR_VARS)
-LOCAL_MODULE := ue_unittest_bsdiff
-LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_NATIVE_TESTS)/update_engine_unittests
-LOCAL_MODULE_STEM := bsdiff
-LOCAL_CPP_EXTENSION := .cc
-LOCAL_SRC_FILES := ../../external/bsdiff/bsdiff_main.cc
-LOCAL_CFLAGS := \
-    -D_FILE_OFFSET_BITS=64 \
-    -Wall \
-    -Werror \
-    -Wextra \
-    -Wno-unused-parameter
-LOCAL_STATIC_LIBRARIES := \
-    libbsdiff \
-    libbz \
-    libdivsufsort64 \
-    libdivsufsort
-include $(BUILD_EXECUTABLE)
-
 # test_subprocess (type: executable)
 # ========================================================
 # Test helper subprocess program.
@@ -871,7 +856,6 @@ LOCAL_MODULE := test_subprocess
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_NATIVE_TESTS)/update_engine_unittests
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CLANG := true
 LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
@@ -889,7 +873,6 @@ LOCAL_MODULE := update_engine_unittests
 LOCAL_REQUIRED_MODULES := \
     test_http_server \
     test_subprocess \
-    ue_unittest_bsdiff \
     ue_unittest_delta_generator \
     ue_unittest_disk_ext2_1k.img \
     ue_unittest_disk_ext2_4k.img \
@@ -899,10 +882,8 @@ LOCAL_REQUIRED_MODULES := \
     ue_unittest_key.pub.pem \
     ue_unittest_key2.pem \
     ue_unittest_key2.pub.pem \
-    ue_unittest_update_engine.conf \
-    zlib_fingerprint
+    ue_unittest_update_engine.conf
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CLANG := true
 LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
@@ -937,9 +918,13 @@ LOCAL_SRC_FILES := \
     common/test_utils.cc \
     common/utils_unittest.cc \
     payload_consumer/bzip_extent_writer_unittest.cc \
+    payload_consumer/cached_file_descriptor_unittest.cc \
     payload_consumer/delta_performer_integration_test.cc \
     payload_consumer/delta_performer_unittest.cc \
+    payload_consumer/extent_reader_unittest.cc \
     payload_consumer/extent_writer_unittest.cc \
+    payload_consumer/fake_file_descriptor.cc \
+    payload_consumer/file_descriptor_utils_unittest.cc \
     payload_consumer/file_writer_unittest.cc \
     payload_consumer/filesystem_verifier_action_unittest.cc \
     payload_consumer/postinstall_runner_action_unittest.cc \
@@ -948,6 +933,7 @@ LOCAL_SRC_FILES := \
     payload_generator/blob_file_writer_unittest.cc \
     payload_generator/block_mapping_unittest.cc \
     payload_generator/cycle_breaker_unittest.cc \
+    payload_generator/deflate_utils_unittest.cc \
     payload_generator/delta_diff_utils_unittest.cc \
     payload_generator/ext2_filesystem_unittest.cc \
     payload_generator/extent_ranges_unittest.cc \
@@ -960,6 +946,7 @@ LOCAL_SRC_FILES := \
     payload_generator/payload_file_unittest.cc \
     payload_generator/payload_generation_config_unittest.cc \
     payload_generator/payload_signer_unittest.cc \
+    payload_generator/squashfs_filesystem_unittest.cc \
     payload_generator/tarjan_unittest.cc \
     payload_generator/topological_sort_unittest.cc \
     payload_generator/zip_unittest.cc \
@@ -977,6 +964,7 @@ LOCAL_SRC_FILES += \
     common_service_unittest.cc \
     fake_system_state.cc \
     image_properties_android_unittest.cc \
+    metrics_reporter_omaha_unittest.cc \
     metrics_utils_unittest.cc \
     omaha_request_action_unittest.cc \
     omaha_request_params_unittest.cc \
@@ -985,11 +973,18 @@ LOCAL_SRC_FILES += \
     p2p_manager_unittest.cc \
     payload_consumer/download_action_unittest.cc \
     payload_state_unittest.cc \
+    parcelable_update_engine_status_unittest.cc \
     update_attempter_unittest.cc \
+    update_manager/android_things_policy_unittest.cc \
     update_manager/boxed_value_unittest.cc \
+    update_manager/chromeos_policy.cc \
     update_manager/chromeos_policy_unittest.cc \
+    update_manager/enterprise_device_policy_impl.cc \
     update_manager/evaluation_context_unittest.cc \
     update_manager/generic_variables_unittest.cc \
+    update_manager/next_update_check_policy_impl_unittest.cc \
+    update_manager/out_of_box_experience_policy_impl.cc \
+    update_manager/policy_test_utils.cc \
     update_manager/prng_unittest.cc \
     update_manager/real_device_policy_provider_unittest.cc \
     update_manager/real_random_provider_unittest.cc \
@@ -1005,11 +1000,9 @@ LOCAL_STATIC_LIBRARIES += \
     $(ue_libupdate_engine_android_exported_static_libraries:-host=)
 LOCAL_SHARED_LIBRARIES += \
     $(ue_libupdate_engine_android_exported_shared_libraries:-host=)
-endif  # local_use_omaha == 1
-ifeq ($(local_use_libcros),1)
 LOCAL_SRC_FILES += \
-    chrome_browser_proxy_resolver_unittest.cc
-endif  # local_use_libcros == 1
+    update_attempter_android_unittest.cc
+endif  # local_use_omaha == 1
 include $(BUILD_NATIVE_TEST)
 
 # Update payload signing public key.
@@ -1036,6 +1029,9 @@ LOCAL_IS_HOST_MODULE := true
 LOCAL_MODULE_TAGS := optional
 LOCAL_REQUIRED_MODULES := \
     delta_generator \
-    shflags
+    shflags \
+    simg2img
 include $(BUILD_PREBUILT)
 endif  # HOST_OS == linux
+
+endif  # ifneq ($(TARGET_BUILD_PDK),true)

@@ -20,6 +20,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <ctype.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <asm/types.h>
@@ -35,7 +36,20 @@
 #include "utils.h"
 #include "namespace.h"
 
-int timestamp_short = 0;
+int resolve_hosts;
+int timestamp_short;
+
+int get_hex(char c)
+{
+	if (c >= 'A' && c <= 'F')
+		return c - 'A' + 10;
+	if (c >= 'a' && c <= 'f')
+		return c - 'a' + 10;
+	if (c >= '0' && c <= '9')
+		return c - '0';
+
+	return -1;
+}
 
 int get_integer(int *val, const char *arg, int base)
 {
@@ -48,7 +62,7 @@ int get_integer(int *val, const char *arg, int base)
 	res = strtol(arg, &ptr, base);
 
 	/* If there were no digits at all, strtol()  stores
-         * the original value of nptr in *endptr (and returns 0).
+	 * the original value of nptr in *endptr (and returns 0).
 	 * In particular, if *nptr is not '\0' but **endptr is '\0' on return,
 	 * the entire string is valid.
 	 */
@@ -72,7 +86,7 @@ int get_integer(int *val, const char *arg, int base)
 
 int mask2bits(__u32 netmask)
 {
-	unsigned bits = 0;
+	unsigned int bits = 0;
 	__u32 mask = ntohl(netmask);
 	__u32 host = ~mask;
 
@@ -85,7 +99,7 @@ int mask2bits(__u32 netmask)
 	return bits;
 }
 
-static int get_netmask(unsigned *val, const char *arg, int base)
+static int get_netmask(unsigned int *val, const char *arg, int base)
 {
 	inet_prefix addr;
 
@@ -95,7 +109,7 @@ static int get_netmask(unsigned *val, const char *arg, int base)
 	/* try coverting dotted quad to CIDR */
 	if (!get_addr_1(&addr, arg, AF_INET) && addr.family == AF_INET) {
 		int b = mask2bits(addr.data[0]);
-		
+
 		if (b >= 0) {
 			*val = b;
 			return 0;
@@ -105,7 +119,7 @@ static int get_netmask(unsigned *val, const char *arg, int base)
 	return -1;
 }
 
-int get_unsigned(unsigned *val, const char *arg, int base)
+int get_unsigned(unsigned int *val, const char *arg, int base)
 {
 	unsigned long res;
 	char *ptr;
@@ -138,7 +152,7 @@ int get_unsigned(unsigned *val, const char *arg, int base)
  * pass milliseconds (standard unit for rtt values since 2.6.27), and
  * have a different assumption for the units of a "raw" number.
  */
-int get_time_rtt(unsigned *val, const char *arg, int *raw)
+int get_time_rtt(unsigned int *val, const char *arg, int *raw)
 {
 	double t;
 	unsigned long res;
@@ -176,23 +190,24 @@ int get_time_rtt(unsigned *val, const char *arg, int *raw)
 
 	if (*p) {
 		*raw = 0;
-                if (strcasecmp(p, "s") == 0 || strcasecmp(p, "sec")==0 ||
-                    strcasecmp(p, "secs")==0)
-                        t *= 1000;
-                else if (strcasecmp(p, "ms") == 0 || strcasecmp(p, "msec")==0 ||
-                         strcasecmp(p, "msecs") == 0)
+		if (strcasecmp(p, "s") == 0 ||
+		    strcasecmp(p, "sec") == 0 ||
+		    strcasecmp(p, "secs") == 0)
+			t *= 1000;
+		else if (strcasecmp(p, "ms") == 0 ||
+			 strcasecmp(p, "msec") == 0 ||
+			 strcasecmp(p, "msecs") == 0)
 			t *= 1.0; /* allow suffix, do nothing */
-                else
-                        return -1;
-        }
+		else
+			return -1;
+	}
 
 	/* emulate ceil() without having to bring-in -lm and always be >= 1 */
-
 	*val = t;
 	if (*val < t)
 		*val += 1;
-	
-        return 0;
+
+	return 0;
 
 }
 
@@ -218,8 +233,8 @@ int get_u64(__u64 *val, const char *arg, int base)
 	if (res > 0xFFFFFFFFFFFFFFFFULL)
 		return -1;
 
- 	*val = res;
- 	return 0;
+	*val = res;
+	return 0;
 }
 
 int get_u32(__u32 *val, const char *arg, int base)
@@ -353,6 +368,39 @@ int get_s8(__s8 *val, const char *arg, int base)
 	return 0;
 }
 
+int get_be64(__be64 *val, const char *arg, int base)
+{
+	__u64 v;
+	int ret = get_u64(&v, arg, base);
+
+	if (!ret)
+		*val = htonll(v);
+
+	return ret;
+}
+
+int get_be32(__be32 *val, const char *arg, int base)
+{
+	__u32 v;
+	int ret = get_u32(&v, arg, base);
+
+	if (!ret)
+		*val = htonl(v);
+
+	return ret;
+}
+
+int get_be16(__be16 *val, const char *arg, int base)
+{
+	__u16 v;
+	int ret = get_u16(&v, arg, base);
+
+	if (!ret)
+		*val = htons(v);
+
+	return ret;
+}
+
 /* This uses a non-standard parsing (ie not inet_aton, or inet_pton)
  * because of legacy choice to parse 10.8 as 10.8.0.0 not 10.0.0.8
  */
@@ -363,7 +411,7 @@ static int get_addr_ipv4(__u8 *ap, const char *cp)
 	for (i = 0; i < 4; i++) {
 		unsigned long n;
 		char *endp;
-		
+
 		n = strtoul(cp, &endp, 0);
 		if (n > 255)
 			return -1;	/* bogus network value */
@@ -377,7 +425,7 @@ static int get_addr_ipv4(__u8 *ap, const char *cp)
 			break;
 
 		if (i == 3 || *endp != '.')
-			return -1; 	/* extra characters */
+			return -1;	/* extra characters */
 		cp = endp + 1;
 	}
 
@@ -436,7 +484,9 @@ int get_addr_1(inet_prefix *addr, const char *name, int family)
 
 	if (family == AF_PACKET) {
 		int len;
-		len = ll_addr_a2n((char *)&addr->data, sizeof(addr->data), name);
+
+		len = ll_addr_a2n((char *) &addr->data, sizeof(addr->data),
+				  name);
 		if (len < 0)
 			return -1;
 
@@ -460,6 +510,7 @@ int get_addr_1(inet_prefix *addr, const char *name, int family)
 #ifndef ANDROID
 	if (family == AF_DECnet) {
 		struct dn_naddr dna;
+
 		addr->family = AF_DECnet;
 		if (dnet_pton(AF_DECnet, name, &dna) <= 0)
 			return -1;
@@ -471,14 +522,18 @@ int get_addr_1(inet_prefix *addr, const char *name, int family)
 #endif
 
 	if (family == AF_MPLS) {
+		unsigned int maxlabels;
 		int i;
+
 		addr->family = AF_MPLS;
-		if (mpls_pton(AF_MPLS, name, addr->data) <= 0)
+		if (mpls_pton(AF_MPLS, name, addr->data,
+			      sizeof(addr->data)) <= 0)
 			return -1;
 		addr->bytelen = 4;
 		addr->bitlen = 20;
 		/* How many bytes do I need? */
-		for (i = 0; i < 8; i++) {
+		maxlabels = sizeof(addr->data) / sizeof(struct mpls_label);
+		for (i = 0; i < maxlabels; i++) {
 			if (ntohl(addr->data[i]) & MPLS_LS_S_MASK) {
 				addr->bytelen = (i + 1)*4;
 				break;
@@ -525,7 +580,7 @@ int af_byte_len(int af)
 int get_prefix_1(inet_prefix *dst, char *arg, int family)
 {
 	int err;
-	unsigned plen;
+	unsigned int plen;
 	char *slash;
 
 	memset(dst, 0, sizeof(*dst));
@@ -565,11 +620,19 @@ done:
 	return err;
 }
 
+static const char *family_name_verbose(int family)
+{
+	if (family == AF_UNSPEC)
+		return "any valid";
+	return family_name(family);
+}
+
 int get_addr(inet_prefix *dst, const char *arg, int family)
 {
 	if (get_addr_1(dst, arg, family)) {
-		fprintf(stderr, "Error: %s address is expected rather than \"%s\".\n",
-				family_name(family) ,arg);
+		fprintf(stderr,
+			"Error: %s address is expected rather than \"%s\".\n",
+			family_name_verbose(family), arg);
 		exit(1);
 	}
 	return 0;
@@ -578,12 +641,16 @@ int get_addr(inet_prefix *dst, const char *arg, int family)
 int get_prefix(inet_prefix *dst, char *arg, int family)
 {
 	if (family == AF_PACKET) {
-		fprintf(stderr, "Error: \"%s\" may be inet prefix, but it is not allowed in this context.\n", arg);
+		fprintf(stderr,
+			"Error: \"%s\" may be inet prefix, but it is not allowed in this context.\n",
+			arg);
 		exit(1);
 	}
+
 	if (get_prefix_1(dst, arg, family)) {
-		fprintf(stderr, "Error: %s prefix is expected rather than \"%s\".\n",
-				family_name(family) ,arg);
+		fprintf(stderr,
+			"Error: %s prefix is expected rather than \"%s\".\n",
+			family_name_verbose(family), arg);
 		exit(1);
 	}
 	return 0;
@@ -592,8 +659,11 @@ int get_prefix(inet_prefix *dst, char *arg, int family)
 __u32 get_addr32(const char *name)
 {
 	inet_prefix addr;
+
 	if (get_addr_1(&addr, name, AF_INET)) {
-		fprintf(stderr, "Error: an IP address is expected rather than \"%s\"\n", name);
+		fprintf(stderr,
+			"Error: an IP address is expected rather than \"%s\"\n",
+			name);
 		exit(1);
 	}
 	return addr.data[0];
@@ -619,19 +689,52 @@ void invarg(const char *msg, const char *arg)
 
 void duparg(const char *key, const char *arg)
 {
-	fprintf(stderr, "Error: duplicate \"%s\": \"%s\" is the second value.\n", key, arg);
+	fprintf(stderr,
+		"Error: duplicate \"%s\": \"%s\" is the second value.\n",
+		key, arg);
 	exit(-1);
 }
 
 void duparg2(const char *key, const char *arg)
 {
-	fprintf(stderr, "Error: either \"%s\" is duplicate, or \"%s\" is a garbage.\n", key, arg);
+	fprintf(stderr,
+		"Error: either \"%s\" is duplicate, or \"%s\" is a garbage.\n",
+		key, arg);
 	exit(-1);
+}
+
+int check_ifname(const char *name)
+{
+	/* These checks mimic kernel checks in dev_valid_name */
+	if (*name == '\0')
+		return -1;
+	if (strlen(name) >= IFNAMSIZ)
+		return -1;
+
+	while (*name) {
+		if (*name == '/' || isspace(*name))
+			return -1;
+		++name;
+	}
+	return 0;
+}
+
+/* buf is assumed to be IFNAMSIZ */
+int get_ifname(char *buf, const char *name)
+{
+	int ret;
+
+	ret = check_ifname(name);
+	if (ret == 0)
+		strncpy(buf, name, IFNAMSIZ);
+
+	return ret;
 }
 
 int matches(const char *cmd, const char *pattern)
 {
 	int len = strlen(cmd);
+
 	if (len > strlen(pattern))
 		return -1;
 	return memcmp(pattern, cmd, len);
@@ -676,17 +779,20 @@ int __get_hz(void)
 	if (getenv("HZ"))
 		return atoi(getenv("HZ")) ? : HZ;
 
-	if (getenv("PROC_NET_PSCHED")) {
-		snprintf(name, sizeof(name)-1, "%s", getenv("PROC_NET_PSCHED"));
-	} else if (getenv("PROC_ROOT")) {
-		snprintf(name, sizeof(name)-1, "%s/net/psched", getenv("PROC_ROOT"));
-	} else {
+	if (getenv("PROC_NET_PSCHED"))
+		snprintf(name, sizeof(name)-1,
+			 "%s", getenv("PROC_NET_PSCHED"));
+	else if (getenv("PROC_ROOT"))
+		snprintf(name, sizeof(name)-1,
+			 "%s/net/psched", getenv("PROC_ROOT"));
+	else
 		strcpy(name, "/proc/net/psched");
-	}
+
 	fp = fopen(name, "r");
 
 	if (fp) {
-		unsigned nom, denom;
+		unsigned int nom, denom;
+
 		if (fscanf(fp, "%*08x%*08x%08x%08x", &nom, &denom) == 2)
 			if (nom == 1000000)
 				hz = denom;
@@ -704,7 +810,8 @@ int __get_user_hz(void)
 	return sysconf(_SC_CLK_TCK);
 }
 
-const char *rt_addr_n2a(int af, int len, const void *addr, char *buf, int buflen)
+const char *rt_addr_n2a_r(int af, int len,
+			  const void *addr, char *buf, int buflen)
 {
 	switch (af) {
 	case AF_INET:
@@ -717,7 +824,8 @@ const char *rt_addr_n2a(int af, int len, const void *addr, char *buf, int buflen
 		return ipx_ntop(af, addr, buf, buflen);
 	case AF_DECnet:
 	{
-		struct dn_naddr dna = { 2, { 0, 0, }};
+		struct dn_naddr dna = { 2, { 0, 0, } };
+
 		memcpy(dna.a_addr, addr, 2);
 		return dnet_ntop(af, &dna, buf, buflen);
 	}
@@ -729,9 +837,17 @@ const char *rt_addr_n2a(int af, int len, const void *addr, char *buf, int buflen
 	}
 }
 
+const char *rt_addr_n2a(int af, int len, const void *addr)
+{
+	static char buf[256];
+
+	return rt_addr_n2a_r(af, len, addr, buf, 256);
+}
+
 int read_family(const char *name)
 {
 	int family = AF_UNSPEC;
+
 	if (strcmp(name, "inet") == 0)
 		family = AF_INET;
 	else if (strcmp(name, "inet6") == 0)
@@ -769,8 +885,7 @@ const char *family_name(int family)
 }
 
 #ifdef RESOLVE_HOSTNAMES
-struct namerec
-{
+struct namerec {
 	struct namerec *next;
 	const char *name;
 	inet_prefix addr;
@@ -783,12 +898,12 @@ static const char *resolve_address(const void *addr, int len, int af)
 {
 	struct namerec *n;
 	struct hostent *h_ent;
-	unsigned hash;
+	unsigned int hash;
 	static int notfirst;
 
 
-	if (af == AF_INET6 && ((__u32*)addr)[0] == 0 &&
-	    ((__u32*)addr)[1] == 0 && ((__u32*)addr)[2] == htonl(0xffff)) {
+	if (af == AF_INET6 && ((__u32 *)addr)[0] == 0 &&
+	    ((__u32 *)addr)[1] == 0 && ((__u32 *)addr)[2] == htonl(0xffff)) {
 		af = AF_INET;
 		addr += 12;
 		len = 4;
@@ -802,7 +917,8 @@ static const char *resolve_address(const void *addr, int len, int af)
 		    memcmp(n->addr.data, addr, len) == 0)
 			return n->name;
 	}
-	if ((n = malloc(sizeof(*n))) == NULL)
+	n = malloc(sizeof(*n));
+	if (n == NULL)
 		return NULL;
 	n->addr.family = af;
 	n->addr.bytelen = len;
@@ -814,7 +930,8 @@ static const char *resolve_address(const void *addr, int len, int af)
 		sethostent(1);
 	fflush(stdout);
 
-	if ((h_ent = gethostbyaddr(addr, len, af)) != NULL)
+	h_ent = gethostbyaddr(addr, len, af);
+	if (h_ent != NULL)
 		n->name = strdup(h_ent->h_name);
 
 	/* Even if we fail, "negative" entry is remembered. */
@@ -822,7 +939,7 @@ static const char *resolve_address(const void *addr, int len, int af)
 }
 #endif
 
-const char *format_host(int af, int len, const void *addr,
+const char *format_host_r(int af, int len, const void *addr,
 			char *buf, int buflen)
 {
 #ifdef RESOLVE_HOSTNAMES
@@ -836,7 +953,14 @@ const char *format_host(int af, int len, const void *addr,
 			return n;
 	}
 #endif
-	return rt_addr_n2a(af, len, addr, buf, buflen);
+	return rt_addr_n2a_r(af, len, addr, buf, buflen);
+}
+
+const char *format_host(int af, int len, const void *addr)
+{
+	static char buf[256];
+
+	return format_host_r(af, len, addr, buf, 256);
 }
 
 
@@ -845,7 +969,7 @@ char *hexstring_n2a(const __u8 *str, int len, char *buf, int blen)
 	char *ptr = buf;
 	int i;
 
-	for (i=0; i<len; i++) {
+	for (i = 0; i < len; i++) {
 		if (blen < 3)
 			break;
 		sprintf(ptr, "%02x", str[i]);
@@ -855,9 +979,9 @@ char *hexstring_n2a(const __u8 *str, int len, char *buf, int blen)
 	return buf;
 }
 
-__u8* hexstring_a2n(const char *str, __u8 *buf, int blen)
+__u8 *hexstring_a2n(const char *str, __u8 *buf, int blen, unsigned int *len)
 {
-	int cnt = 0;
+	unsigned int cnt = 0;
 	char *endptr;
 
 	if (strlen(str) % 2)
@@ -868,13 +992,40 @@ __u8* hexstring_a2n(const char *str, __u8 *buf, int blen)
 
 		strncpy(tmpstr, str, 2);
 		tmpstr[2] = '\0';
+		errno = 0;
 		tmp = strtoul(tmpstr, &endptr, 16);
 		if (errno != 0 || tmp > 0xFF || *endptr != '\0')
 			return NULL;
 		buf[cnt++] = tmp;
 		str += 2;
 	}
+
+	if (len)
+		*len = cnt;
+
 	return buf;
+}
+
+int hex2mem(const char *buf, uint8_t *mem, int count)
+{
+	int i, j;
+	int c;
+
+	for (i = 0, j = 0; i < count; i++, j += 2) {
+		c = get_hex(buf[j]);
+		if (c < 0)
+			return -1;
+
+		mem[i] = c << 4;
+
+		c = get_hex(buf[j + 1]);
+		if (c < 0)
+			return -1;
+
+		mem[i] |= c;
+	}
+
+	return 0;
 }
 
 int addr64_n2a(__u64 addr, char *buff, size_t len)
@@ -899,6 +1050,20 @@ int addr64_n2a(__u64 addr, char *buff, size_t len)
 	}
 
 	return written;
+}
+
+/* Print buffer and escape bytes that are !isprint or among 'escape' */
+void print_escape_buf(const __u8 *buf, size_t len, const char *escape)
+{
+	size_t i;
+
+	for (i = 0; i < len; ++i) {
+		if (isprint(buf[i]) && buf[i] != '\\' &&
+		    !strchr(escape, buf[i]))
+			printf("%c", buf[i]);
+		else
+			printf("\\%03o", buf[i]);
+	}
 }
 
 int print_timestamp(FILE *fp)
@@ -933,7 +1098,8 @@ ssize_t getcmdline(char **linep, size_t *lenp, FILE *in)
 	ssize_t cc;
 	char *cp;
 
-	if ((cc = getline(linep, lenp, in)) < 0)
+	cc = getline(linep, lenp, in);
+	if (cc < 0)
 		return cc;	/* eof or error */
 	++cmdlineno;
 
@@ -946,7 +1112,8 @@ ssize_t getcmdline(char **linep, size_t *lenp, FILE *in)
 		size_t len1 = 0;
 		ssize_t cc1;
 
-		if ((cc1 = getline(&line1, &len1, in)) < 0) {
+		cc1 = getline(&line1, &len1, in);
+		if (cc1 < 0) {
 			fprintf(stderr, "Missing continuation line\n");
 			return cc1;
 		}
@@ -1021,8 +1188,9 @@ int inet_get_addr(const char *src, __u32 *dst, struct in6_addr *dst6)
 void print_nlmsg_timestamp(FILE *fp, const struct nlmsghdr *n)
 {
 	char *tstr;
-	time_t secs = ((__u32*)NLMSG_DATA(n))[0];
-	long usecs = ((__u32*)NLMSG_DATA(n))[1];
+	time_t secs = ((__u32 *)NLMSG_DATA(n))[0];
+	long usecs = ((__u32 *)NLMSG_DATA(n))[1];
+
 	tstr = asctime(localtime(&secs));
 	tstr[strlen(tstr)-1] = 0;
 	fprintf(fp, "Timestamp: %s %lu us\n", tstr, usecs);
@@ -1060,3 +1228,78 @@ char *int_to_str(int val, char *buf)
 	sprintf(buf, "%d", val);
 	return buf;
 }
+
+int get_guid(__u64 *guid, const char *arg)
+{
+	unsigned long int tmp;
+	char *endptr;
+	int i;
+
+#define GUID_STR_LEN 23
+	/* Verify strict format: format string must be
+	 * xx:xx:xx:xx:xx:xx:xx:xx where xx can be an arbitrary
+	 * hex digit
+	 */
+
+	if (strlen(arg) != GUID_STR_LEN)
+		return -1;
+
+	/* make sure columns are in place */
+	for (i = 0; i < 7; i++)
+		if (arg[2 + i * 3] != ':')
+			return -1;
+
+	*guid = 0;
+	for (i = 0; i < 8; i++) {
+		tmp = strtoul(arg + i * 3, &endptr, 16);
+		if (endptr != arg + i * 3 + 2)
+			return -1;
+
+		if (tmp > 255)
+			return -1;
+
+		 *guid |= tmp << (56 - 8 * i);
+	}
+
+	return 0;
+}
+
+/* This is a necessary workaround for multicast route dumps */
+int get_real_family(int rtm_type, int rtm_family)
+{
+	if (rtm_type != RTN_MULTICAST)
+		return rtm_family;
+
+	if (rtm_family == RTNL_FAMILY_IPMR)
+		return AF_INET;
+
+	if (rtm_family == RTNL_FAMILY_IP6MR)
+		return AF_INET6;
+
+	return rtm_family;
+}
+
+#ifdef NEED_STRLCPY
+size_t strlcpy(char *dst, const char *src, size_t size)
+{
+	size_t srclen = strlen(src);
+
+	if (size) {
+		size_t minlen = min(srclen, size - 1);
+
+		memcpy(dst, src, minlen);
+		dst[minlen] = '\0';
+	}
+	return srclen;
+}
+
+size_t strlcat(char *dst, const char *src, size_t size)
+{
+	size_t dlen = strlen(dst);
+
+	if (dlen >= size)
+		return dlen + strlen(src);
+
+	return dlen + strlcpy(dst + dlen, src, size - dlen);
+}
+#endif

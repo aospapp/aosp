@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -47,28 +47,28 @@ public class Report extends Command {
 	@Argument(usage = "list of JaCoCo *.exec files to read", metaVar = "<execfiles>")
 	List<File> execfiles = new ArrayList<File>();
 
-	@Option(name = "-classfiles", usage = "location of Java class files", metaVar = "<path>", required = true)
+	@Option(name = "--classfiles", usage = "location of Java class files", metaVar = "<path>", required = true)
 	List<File> classfiles = new ArrayList<File>();
 
-	@Option(name = "-sourcefiles", usage = "location of the source files", metaVar = "<path>")
+	@Option(name = "--sourcefiles", usage = "location of the source files", metaVar = "<path>")
 	List<File> sourcefiles = new ArrayList<File>();
 
-	@Option(name = "-tabwith", usage = "tab stop width for the source pages (default 4)", metaVar = "<n>")
+	@Option(name = "--tabwith", usage = "tab stop width for the source pages (default 4)", metaVar = "<n>")
 	int tabwidth = 4;
 
-	@Option(name = "-name", usage = "name used for this report", metaVar = "<name>")
+	@Option(name = "--name", usage = "name used for this report", metaVar = "<name>")
 	String name = "JaCoCo Coverage Report";
 
-	@Option(name = "-encoding", usage = "source file encoding (default platform encoding)", metaVar = "<charset>")
+	@Option(name = "--encoding", usage = "source file encoding (by default platform encoding is used)", metaVar = "<charset>")
 	String encoding;
 
-	@Option(name = "-xml", usage = "output file for the XML report", metaVar = "<file>")
+	@Option(name = "--xml", usage = "output file for the XML report", metaVar = "<file>")
 	File xml;
 
-	@Option(name = "-csv", usage = "output file for the CSV report", metaVar = "<file>")
+	@Option(name = "--csv", usage = "output file for the CSV report", metaVar = "<file>")
 	File csv;
 
-	@Option(name = "-html", usage = "output directory for the HTML report", metaVar = "<dir>")
+	@Option(name = "--html", usage = "output directory for the HTML report", metaVar = "<dir>")
 	File html;
 
 	@Override
@@ -89,10 +89,14 @@ public class Report extends Command {
 	private ExecFileLoader loadExecutionData(final PrintWriter out)
 			throws IOException {
 		final ExecFileLoader loader = new ExecFileLoader();
-		for (final File file : execfiles) {
-			out.printf("[INFO] Loading execution data file %s.%n",
-					file.getAbsolutePath());
-			loader.load(file);
+		if (execfiles.isEmpty()) {
+			out.println("[WARN] No execution data files provided.");
+		} else {
+			for (final File file : execfiles) {
+				out.printf("[INFO] Loading execution data file %s.%n",
+						file.getAbsolutePath());
+				loader.load(file);
+			}
 		}
 		return loader;
 	}
@@ -126,7 +130,7 @@ public class Report extends Command {
 	private void writeReports(final IBundleCoverage bundle,
 			final ExecFileLoader loader, final PrintWriter out)
 			throws IOException {
-		out.printf("[INFO] Writing report with %s classes.%n",
+		out.printf("[INFO] Analyzing %s classes.%n",
 				Integer.valueOf(bundle.getClassCounter().getTotalCount()));
 		final IReportVisitor visitor = createReportVisitor();
 		visitor.visitInfo(loader.getSessionInfoStore().getInfos(),

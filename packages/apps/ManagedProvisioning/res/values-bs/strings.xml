@@ -28,7 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Sljedeća aplikacija će upravljati vašim uređajem:"</string>
     <string name="next" msgid="1004321437324424398">"Naprijed"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Postavljanje radnog profila…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Vaš administrator može pratiti i upravljati postavkama, korporativnim pristupom, aplikacijama, dozvolama i podacima povezanim s ovim profilom, uključujući vašu aktivnost na mreži kao i lokaciju vašeg uređaja, historiju poziva i historiju pretraživanja kontakata.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Za više informacija, uključujući i pravila privatnosti vaše organizacije, obratite se administratoru."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Vaš administrator može pratiti i upravljati postavkama, korporativnim pristupom, aplikacijama, odobrenjima i podacima povezanim s ovim profilom, uključujući vašu aktivnost na mreži kao i lokaciju vašeg uređaja, historiju poziva i historiju pretraživanja kontakata.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Za više informacija, uključujući i pravila privatnosti vaše organizacije, obratite se administratoru."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Vaš administrator može pratiti i upravljati postavkama, korporativnim pristupom, aplikacijama, odobrenjima i podacima povezanim s ovim uređajem, uključujući vašu aktivnost na mreži, kao i lokaciju vašeg uređaja, historiju poziva i historiju pretraživanja kontakata.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Za više informacija, uključujući i pravila privatnosti vaše organizacije, obratite se administratoru."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Da biste koristili funkciju za zaštitu od krađe, zaključani ekran vašeg uređaja mora biti zaštićen lozinkom."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Za više informacija, uključujući pravila vaše organizacije o privatnosti, obratite se svom administratoru."</string>
@@ -66,7 +66,8 @@
     <string name="default_owned_device_username" msgid="3915120202811807955">"Korisnik poslovnog uređaja"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Postavljanje radnog uređaja…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Obrađuju se podaci za postavljanje..."</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Povezuje se na Wi-Fi..."</string>
+    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Povezuje se na WiFi..."</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Povezivanje na mobilnu mrežu…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Preuzima se aplikacija za administratora..."</string>
     <string name="progress_install" msgid="2258045670385866183">"Instalira se aplikacija za administratora..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Uklanjanje suvišnih sistemskih aplikacija…"</string>
@@ -85,10 +86,10 @@
     <string name="couldnt_set_up_device" msgid="60699158233724802">"Uređaj nije postavljen. Obratite se administratoru za pomoć."</string>
     <string name="contact_your_admin_for_help" msgid="8045606258802719235">"Obratite se administratoru za pomoć"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Uređaj je već postavljen"</string>
-    <string name="device_owner_error_wifi" msgid="4256310285761332378">"Nije moguće povezivanje na Wi-Fi"</string>
+    <string name="device_owner_error_wifi" msgid="4256310285761332378">"Nije moguće povezivanje na WiFi"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"Na vašem uređaju je uključena opcija za ponovno postavljanje zaštite. Obratite se administratoru za pomoć."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"Briše se"</string>
-    <string name="frp_clear_progress_text" msgid="1740164332830598827">"Sačekajte..."</string>
+    <string name="frp_clear_progress_text" msgid="1740164332830598827">"Pričekajte..."</string>
     <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"Aplikacija administratora nije korištena zbog greške prilikom kontrolne provjere. Obratite se administratoru za pomoć."</string>
     <string name="device_owner_error_download_failed" msgid="4520111971592657116">"Nije moguće preuzeti aplikaciju administratora"</string>
     <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"Nije moguće koristiti aplikaciju administratora. Nedostaju joj komponente ili je neispravna. Obratite se administratoru za pomoć."</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Kreirat ćete novi radni profil kojim će upravljati i kojeg će pratiti vaša organizacija. Važit će uslovi iz: <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"Kreirat će se profil za vaše radne aplikacije. Tim profilom i ostatkom uređaja upravljat će i pratit će vaša organizacija. Važit će uslovi."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"Kreirat će se profil za vaše radne aplikacije. Tim profilom i ostatkom uređaja upravljat će vaša organizacija. Važit će uslovi iz: <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"Ovim uređajem će upravljati i sigurnost mu održavati <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Važit će uslovi. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"Ovim uređajem će upravljati i sigurnost mu održavati <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Važit će uslovi iz: <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"Ovim uređajem će upravljati, nadzirati i sigurnost mu održavati  <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Važit će uslovi. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Ovim uređajem će upravljati, nadzirati i sigurnost mu održavati  <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Važit će uslovi iz <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Ovaj link nije siguran i ne može se otvoriti dok se ne završi postavljanje uređaja: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"Ako imate pitanja, kontaktirajte: <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"Ako imate pitanja, obratite se administratoru organizacije."</string>
@@ -140,7 +141,7 @@
     <string name="section_heading" msgid="3924666803774291908">"Zaglavlje odjeljka <xliff:g id="SECTION_HEADING">%1$s</xliff:g>."</string>
     <string name="section_content" msgid="8875502515704374394">"Sadržaj odjeljka <xliff:g id="SECTION_HEADING">%1$s</xliff:g>: <xliff:g id="SECTION_CONTENT">%2$s</xliff:g>"</string>
     <string name="expand" msgid="37188292156131304">"Proširi"</string>
-    <string name="collapse" msgid="7817530505064432580">"Skupi"</string>
+    <string name="collapse" msgid="7817530505064432580">"Suzi"</string>
     <string name="access_list_of_links" msgid="7094123315959323372">"Pristupite spisku linkova"</string>
     <string name="access_links" msgid="7991363727326168600">"Pristupite linkovima"</string>
     <string name="access_terms" msgid="1982500872249763745">"Pristupite uslovima"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> i <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"Ovo može potrajati nekoliko minuta"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"Vaše poslovne aplikacije će ostati na ovom profilu i njima će upravljati vaša organizacija"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"Vaša organizacija će upravljati i održavati sigurnost ovog uređaja"</string>
 </resources>

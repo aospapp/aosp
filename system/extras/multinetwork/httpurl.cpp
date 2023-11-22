@@ -52,7 +52,7 @@ bool parseUrl(const struct Arguments& args, struct Parameters* parameters) {
     }
 
     parameters->host = std::string(args.arg1).substr(strlen(HTTP_PREFIX));
-    const auto first_slash = parameters->host.find_first_of("/");
+    const auto first_slash = parameters->host.find_first_of('/');
     if (first_slash != std::string::npos) {
         parameters->path = parameters->host.substr(first_slash);
         parameters->host.erase(first_slash);
@@ -64,7 +64,7 @@ bool parseUrl(const struct Arguments& args, struct Parameters* parameters) {
     }
 
     if (parameters->host[0] == '[') {
-        const auto closing_bracket = parameters->host.find_first_of("]");
+        const auto closing_bracket = parameters->host.find_first_of(']');
         if (closing_bracket == std::string::npos) {
             std::cerr << "Missing closing bracket." << std::endl;
             return false;
@@ -80,7 +80,7 @@ bool parseUrl(const struct Arguments& args, struct Parameters* parameters) {
             parameters->port = parameters->host.substr(closing_bracket + 2);
         }
     } else {
-        const auto first_colon = parameters->host.find_first_of(":");
+        const auto first_colon = parameters->host.find_first_of(':');
         if (first_colon != std::string::npos) {
             parameters->port = parameters->host.substr(first_colon + 1);
             parameters->hostname = parameters->host.substr(0, first_colon);

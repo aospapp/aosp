@@ -31,6 +31,7 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.RadioButton;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.server.telecom.testapps.R;
@@ -50,10 +51,12 @@ public class SelfManagedCallingActivity extends Activity {
     private Button mHandoverFrom;
     private RadioButton mUseAcct1Button;
     private RadioButton mUseAcct2Button;
-    private RadioButton mVideoCallButton;
-    private RadioButton mAudioCallButton;
+    private CheckBox mHoldableCheckbox;
+    private CheckBox mVideoCallCheckbox;
     private EditText mNumber;
     private ListView mListView;
+    private TextView mHasFocus;
+
     private SelfManagedCallListAdapter mListAdapter;
 
     private SelfManagedCallList.Listener mCallListListener = new SelfManagedCallList.Listener() {
@@ -75,6 +78,16 @@ public class SelfManagedCallingActivity extends Activity {
         public void onConnectionListChanged() {
             Log.i(TAG, "onConnectionListChanged");
             mListAdapter.updateConnections();
+        };
+
+        @Override
+        public void onConnectionServiceFocusLost() {
+            mHasFocus.setText("\uD83D\uDC4E No Focus \uD83D\uDC4E");
+        };
+
+        @Override
+        public void onConnectionServiceFocusGained() {
+            mHasFocus.setText("\uD83D\uDC4D Has Focus \uD83D\uDC4D");
         };
     };
 
@@ -109,10 +122,11 @@ public class SelfManagedCallingActivity extends Activity {
             placeIncomingCall(true /* isHandoverFrom */);
         }));
 
-        mUseAcct1Button = (RadioButton) findViewById(R.id.useAcct1Button);
-        mUseAcct2Button = (RadioButton) findViewById(R.id.useAcct2Button);
-        mVideoCallButton = (RadioButton) findViewById(R.id.videoCallButton);
-        mAudioCallButton = (RadioButton) findViewById(R.id.audioCallButton);
+        mUseAcct1Button = findViewById(R.id.useAcct1Button);
+        mUseAcct2Button = findViewById(R.id.useAcct2Button);
+        mHasFocus = findViewById(R.id.hasFocus);
+        mVideoCallCheckbox = findViewById(R.id.videoCall);
+        mHoldableCheckbox = findViewById(R.id.holdable);
         mNumber = (EditText) findViewById(R.id.phoneNumber);
         mListView = (ListView) findViewById(R.id.callList);
         mCallList.setListener(mCallListListener);
@@ -146,10 +160,14 @@ public class SelfManagedCallingActivity extends Activity {
         Bundle extras = new Bundle();
         extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE,
                 getSelectedPhoneAccountHandle());
-        if (mVideoCallButton.isChecked()) {
+        if (mVideoCallCheckbox.isChecked()) {
             extras.putInt(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
                     VideoProfile.STATE_BIDIRECTIONAL);
         }
+        Bundle clientExtras = new Bundle();
+        clientExtras.putBoolean(SelfManagedConnectionService.EXTRA_HOLDABLE,
+                mHoldableCheckbox.isChecked());
+        extras.putBundle(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS, clientExtras);
         tm.placeCall(Uri.parse(mNumber.getText().toString()), extras);
     }
 
@@ -167,7 +185,9 @@ public class SelfManagedCallingActivity extends Activity {
         Bundle extras = new Bundle();
         extras.putParcelable(TelecomManager.EXTRA_INCOMING_CALL_ADDRESS,
                 Uri.parse(mNumber.getText().toString()));
-        if (mVideoCallButton.isChecked()) {
+        extras.putBoolean(SelfManagedConnectionService.EXTRA_HOLDABLE,
+                mHoldableCheckbox.isChecked());
+        if (mVideoCallCheckbox.isChecked()) {
             extras.putInt(TelecomManager.EXTRA_INCOMING_VIDEO_STATE,
                     VideoProfile.STATE_BIDIRECTIONAL);
         }

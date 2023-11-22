@@ -17,8 +17,8 @@
 #ifndef NETD_SERVER_FWMARK_SERVER_H
 #define NETD_SERVER_FWMARK_SERVER_H
 
-#include "android/net/metrics/INetdEventListener.h"
 #include "EventReporter.h"
+#include "TrafficController.h"
 #include "sysutils/SocketListener.h"
 
 namespace android {
@@ -28,9 +28,10 @@ class NetworkController;
 
 class FwmarkServer : public SocketListener {
 public:
-    explicit FwmarkServer(NetworkController* networkController, EventReporter* eventReporter);
+  explicit FwmarkServer(NetworkController* networkController, EventReporter* eventReporter,
+                        TrafficController* trafficCtrl);
 
-    static constexpr const char* SOCKET_NAME = "fwmarkd";
+  static constexpr const char* SOCKET_NAME = "fwmarkd";
 
 private:
     // Overridden from SocketListener:
@@ -41,6 +42,7 @@ private:
 
     NetworkController* const mNetworkController;
     EventReporter* mEventReporter;
+    TrafficController* mTrafficCtrl;
 };
 
 }  // namespace net

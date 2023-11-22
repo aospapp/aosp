@@ -110,7 +110,7 @@ public class StoreUtils {
      */
     public static String localeToString(Locale locale) {
         if (locale != null) {
-            return locale.getLanguage() + "_" + locale.getCountry();
+            return locale.toLanguageTag();
         } else {
             return null;
         }

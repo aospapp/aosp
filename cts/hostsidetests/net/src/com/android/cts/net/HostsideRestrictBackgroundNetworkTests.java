@@ -146,6 +146,11 @@ public class HostsideRestrictBackgroundNetworkTests extends HostsideNetworkTestC
                 "testBackgroundNetworkAccess_whitelisted");
     }
 
+    public void testAppIdleMetered_tempWhitelisted() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".AppIdleMeteredTest",
+                "testBackgroundNetworkAccess_tempWhitelisted");
+    }
+
     public void testAppIdleMetered_enabled() throws Exception {
         runDeviceTests(TEST_PKG, TEST_PKG + ".AppIdleMeteredTest",
                 "testBackgroundNetworkAccess_enabled");
@@ -164,6 +169,11 @@ public class HostsideRestrictBackgroundNetworkTests extends HostsideNetworkTestC
     public void testAppIdleNonMetered_whitelisted() throws Exception {
         runDeviceTests(TEST_PKG, TEST_PKG + ".AppIdleNonMeteredTest",
                 "testBackgroundNetworkAccess_whitelisted");
+    }
+
+    public void testAppIdleNonMetered_tempWhitelisted() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".AppIdleNonMeteredTest",
+                "testBackgroundNetworkAccess_tempWhitelisted");
     }
 
     public void testAppIdleNonMetered_enabled() throws Exception {
@@ -259,6 +269,16 @@ public class HostsideRestrictBackgroundNetworkTests extends HostsideNetworkTestC
     public void testDozeAndAppIdle_powerSaveWhitelists() throws Exception {
         runDeviceTests(TEST_PKG, TEST_PKG + ".MixedModesTest",
                 "testDozeAndAppIdle_powerSaveWhitelists");
+    }
+
+    public void testAppIdleAndDoze_tempPowerSaveWhitelists() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".MixedModesTest",
+                "testAppIdleAndDoze_tempPowerSaveWhitelists");
+    }
+
+    public void testAppIdleAndBatterySaver_tempPowerSaveWhitelists() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".MixedModesTest",
+                "testAppIdleAndBatterySaver_tempPowerSaveWhitelists");
     }
 
     /*******************

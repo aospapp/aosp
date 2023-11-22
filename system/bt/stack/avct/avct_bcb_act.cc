@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2016 Broadcom Corporation
+ *  Copyright 2003-2016 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,14 +17,15 @@
  ******************************************************************************/
 
 /*****************************************************************************
-*
-*  Name:           avct_bcb_act.cc
-*
-*  Description:    This module contains action functions of the browsing control
-*                  state machine.
-*
+ *
+ *  Name:           avct_bcb_act.cc
+ *
+ *  Description:    This module contains action functions of the browsing
+ *                  control state machine.
+ *
  *****************************************************************************/
 
+#include <log/log.h>
 #include <string.h>
 #include "avct_api.h"
 #include "avct_int.h"
@@ -67,6 +68,12 @@ const tAVCT_BCB_ACTION avct_bcb_action[] = {
 static BT_HDR* avct_bcb_msg_asmbl(UNUSED_ATTR tAVCT_BCB* p_bcb, BT_HDR* p_buf) {
   uint8_t* p;
   uint8_t pkt_type;
+
+  if (p_buf->len == 0) {
+    osi_free_and_reset((void**)&p_buf);
+    android_errorWriteLog(0x534e4554, "79944113");
+    return nullptr;
+  }
 
   /* parse the message header */
   p = (uint8_t*)(p_buf + 1) + p_buf->offset;
@@ -180,7 +187,7 @@ void avct_bcb_open_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data) {
   }
 
   /* if no ccbs bound to this lcb, disconnect */
-  if (bind == false) {
+  if (!bind) {
     avct_bcb_event(p_bcb, AVCT_LCB_INT_CLOSE_EVT, p_data);
     return;
   }
@@ -517,6 +524,14 @@ void avct_bcb_msg_ind(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data) {
    */
   p_data->p_buf = avct_bcb_msg_asmbl(p_bcb, p_data->p_buf);
   if (p_data->p_buf == NULL) {
+    return;
+  }
+
+  if (p_data->p_buf->len < AVCT_HDR_LEN_SINGLE) {
+    AVCT_TRACE_WARNING("Invalid AVCTP packet length %d: must be at least %d",
+                       p_data->p_buf->len, AVCT_HDR_LEN_SINGLE);
+    osi_free_and_reset((void**)&p_data->p_buf);
+    android_errorWriteLog(0x534e4554, "79944113");
     return;
   }
 

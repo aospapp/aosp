@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <benchmark/benchmark.h>
-
-#include <cutils/log.h>
 
 #include "minikin/GraphemeBreak.h"
+
+#include <benchmark/benchmark.h>
+#include <cutils/log.h>
+
 #include "UnicodeUtils.h"
 
 namespace minikin {
@@ -42,9 +43,9 @@ static void BM_GraphemeBreak_Ascii(benchmark::State& state) {
     }
 }
 BENCHMARK(BM_GraphemeBreak_Ascii)
-    ->Arg(0)  // Begining of the text.
-    ->Arg(1)  // Middle of the text.
-    ->Arg(12);  // End of the text.
+        ->Arg(0)    // Begining of the text.
+        ->Arg(1)    // Middle of the text.
+        ->Arg(12);  // End of the text.
 
 static void BM_GraphemeBreak_Emoji(benchmark::State& state) {
     size_t result_size;
@@ -57,9 +58,9 @@ static void BM_GraphemeBreak_Emoji(benchmark::State& state) {
     }
 }
 BENCHMARK(BM_GraphemeBreak_Emoji)
-    ->Arg(1)  // Middle of emoji modifier sequence.
-    ->Arg(2)  // Middle of the surrogate pairs.
-    ->Arg(3);  // After emoji modifier sequence. Here is boundary of grapheme cluster.
+        ->Arg(1)   // Middle of emoji modifier sequence.
+        ->Arg(2)   // Middle of the surrogate pairs.
+        ->Arg(3);  // After emoji modifier sequence. Here is boundary of grapheme cluster.
 
 static void BM_GraphemeBreak_Emoji_Flags(benchmark::State& state) {
     size_t result_size;
@@ -72,8 +73,8 @@ static void BM_GraphemeBreak_Emoji_Flags(benchmark::State& state) {
     }
 }
 BENCHMARK(BM_GraphemeBreak_Emoji_Flags)
-    ->Arg(2)  // Middle of flag sequence.
-    ->Arg(4)  // After flag sequence. Here is boundary of grapheme cluster.
-    ->Arg(10); // Middle of 3rd flag sequence.
+        ->Arg(2)    // Middle of flag sequence.
+        ->Arg(4)    // After flag sequence. Here is boundary of grapheme cluster.
+        ->Arg(10);  // Middle of 3rd flag sequence.
 
 }  // namespace minikin

@@ -60,9 +60,8 @@ LOCAL_C_INCLUDES += \
     $(LOCAL_PATH)/support/android/asio
 
 LOCAL_CFLAGS :=  \
+    -Wall -Werror \
     -frtti -fexceptions \
     -isystem $(LOCAL_PATH)/asio/include
 
 endif #ifeq ($(PFW_NETWORKING),false)
-
-LOCAL_CLANG := true

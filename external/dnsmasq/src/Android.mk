@@ -3,7 +3,7 @@ LOCAL_PATH := $(call my-dir)
 #########################
 
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES :=  bpf.c cache.c dhcp.c dnsmasq.c forward.c helper.c lease.c log.c \
+LOCAL_SRC_FILES :=  cache.c dhcp.c dnsmasq.c forward.c helper.c lease.c log.c \
                     netlink.c network.c option.c rfc1035.c rfc2131.c util.c
 
 LOCAL_MODULE := dnsmasq

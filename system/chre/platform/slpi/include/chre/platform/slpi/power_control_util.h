@@ -42,7 +42,7 @@ inline bool slpiForceBigImage() {
   bool success = false;
   if (isSlpiUimgSupported() && slpiInUImage()) {
     success = EventLoopManagerSingleton::get()->getEventLoop().
-        getPowerControlManager().votePowerMode(SNS_IMG_MODE_BIG);
+        getPowerControlManager().voteBigImage(true);
   }
 
   return success;
@@ -56,7 +56,7 @@ inline bool slpiForceBigImage() {
  */
 inline bool slpiRemoveBigImageVote() {
   return EventLoopManagerSingleton::get()->getEventLoop().
-      getPowerControlManager().votePowerMode(SNS_IMG_MODE_NOCLIENT);
+      getPowerControlManager().voteBigImage(false);
 }
 
 } // namespace chre

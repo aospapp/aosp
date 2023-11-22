@@ -35,18 +35,21 @@ class ProcVmallocInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
     t_VMAP = literal_token('vmap')
     t_USER = literal_token('user')
     t_VPAGES = literal_token('vpages')
+    t_VM_AREA = literal_token('vm_area')
+    t_UNPURGED = literal_token('unpurged')
+    t_VM_MAP_RAM = literal_token('vm_map_ram')
 
     t_ignore = ' '
 
     def t_PHYS(self, t):
-        r'phys=[a-f0-9]+'
+        r'phys=(0x)?[a-f0-9]+'
         t.value = [t.value[:4], int(t.value[5:], 16)]
         return t
 
     p_lines = repeat_rule('line')
 
     def p_line(self, p):
-        'line : addr_range NUMBER caller module pages phys ioremap vmalloc vmap user vpages NEWLINE'
+        'line : addr_range NUMBER caller module pages phys ioremap vmalloc vmap user vpages vm_vm_area NEWLINE'
         p[0] = p[1:]
 
     def p_addr_range(self, p):
@@ -92,6 +95,15 @@ class ProcVmallocInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
         '''vpages : VPAGES
                   | empty'''
         p[0] = p[1]
+
+    def p_vm_vm_area(self, p):
+        '''vm_vm_area : UNPURGED VM_AREA
+                      | VM_MAP_RAM
+                      | empty'''
+        if len(p) == 2:
+            p[0] = []
+        else:
+            p[0] = p[1:]
 
     def p_caller(self, p):
         '''caller : CALLER

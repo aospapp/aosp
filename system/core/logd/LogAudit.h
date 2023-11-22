@@ -17,7 +17,7 @@
 #ifndef _LOGD_LOG_AUDIT_H__
 #define _LOGD_LOG_AUDIT_H__
 
-#include <queue>
+#include <map>
 
 #include <sysutils/SocketListener.h>
 
@@ -33,11 +33,6 @@ class LogAudit : public SocketListener {
     bool events;
     bool initialized;
 
-    bool tooFast;
-    int mSock;
-    std::queue<log_time> bucket;
-    void checkRateLimit();
-
    public:
     LogAudit(LogBuffer* buf, LogReader* reader, int fdDmesg);
     int log(char* buf, size_t len);
@@ -50,6 +45,10 @@ class LogAudit : public SocketListener {
 
    private:
     static int getLogSocket();
+    std::map<std::string, std::string> populateDenialMap();
+    std::string denialParse(const std::string& denial, char terminator,
+                            const std::string& search_term);
+    void logParse(const std::string& string, std::string* bug_num);
     int logPrint(const char* fmt, ...)
         __attribute__((__format__(__printf__, 2, 3)));
 };

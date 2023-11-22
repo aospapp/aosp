@@ -21,5 +21,7 @@
 
   <!-- For Proof-of-Concept (PoC) Tests -->
   <option name="compatibility:include-filter" value="SecurityPoCKernelTest" />
+  <!-- For system property Tests -->
+  <option name="compatibility:include-filter" value="VtsTrebleSysProp" />
 
 </configuration>

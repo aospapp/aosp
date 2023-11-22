@@ -97,6 +97,7 @@
 #include <pwd.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 #define DEBUG 0
 
@@ -198,16 +199,13 @@ void setup(void)
 	 * mode permissions and change the gid of test directory to nobody's
 	 * gid.
 	 */
-	if (mkdir(TESTDIR, MODE_RWX) < 0)
-		tst_brkm(TBROK | TERRNO, cleanup, "mkdir(%s) failed", TESTDIR);
+	SAFE_MKDIR(cleanup, TESTDIR, MODE_RWX);
 
 	if (setgroups(1, &nobody_u->pw_gid) == -1)
 		tst_brkm(TBROK | TERRNO, cleanup,
 			 "setgroups to nobody's gid failed");
 
-	if (chown(TESTDIR, nobody_u->pw_uid, bin_group->gr_gid) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup,
-			 "chowning testdir to nobody:bin failed");
+	SAFE_CHOWN(cleanup, TESTDIR, nobody_u->pw_uid, bin_group->gr_gid);
 
 	/* change to nobody:nobody */
 	if (setegid(nobody_u->pw_gid) == -1 || seteuid(nobody_u->pw_uid) == -1)

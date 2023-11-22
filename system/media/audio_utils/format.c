@@ -34,7 +34,10 @@ void memcpy_by_audio_format(void *dst, audio_format_t dst_format,
         case AUDIO_FORMAT_PCM_24_BIT_PACKED:
         case AUDIO_FORMAT_PCM_32_BIT:
         case AUDIO_FORMAT_PCM_8_24_BIT:
-            memcpy(dst, src, count * audio_bytes_per_sample(dst_format));
+            if (dst != src) {
+                // TODO: should assert if memory regions overlap.
+                memcpy(dst, src, count * audio_bytes_per_sample(dst_format));
+            }
             return;
         default:
             break;

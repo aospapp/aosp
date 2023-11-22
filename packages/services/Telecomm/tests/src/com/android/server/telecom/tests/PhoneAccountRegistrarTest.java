@@ -26,6 +26,8 @@ import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Process;
 import android.os.UserHandle;
+import android.os.UserManager;
+import android.support.test.InstrumentationRegistry;
 import android.telecom.Log;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
@@ -39,6 +41,11 @@ import com.android.server.telecom.DefaultDialerCache;
 import com.android.server.telecom.PhoneAccountRegistrar;
 import com.android.server.telecom.PhoneAccountRegistrar.DefaultPhoneAccountHandle;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -52,12 +59,20 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.when;
 
+@RunWith(JUnit4.class)
 public class PhoneAccountRegistrarTest extends TelecomTestCase {
 
     private static final int MAX_VERSION = Integer.MAX_VALUE;
@@ -69,6 +84,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     @Mock private PhoneAccountRegistrar.AppLabelProxy mAppLabelProxy;
 
     @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         MockitoAnnotations.initMocks(this);
@@ -87,6 +103,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @Override
+    @After
     public void tearDown() throws Exception {
         mRegistrar = null;
         new File(
@@ -97,6 +114,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testPhoneAccountHandle() throws Exception {
         PhoneAccountHandle input = new PhoneAccountHandle(new ComponentName("pkg0", "cls0"), "id0");
         PhoneAccountHandle result = roundTripXml(this, input,
@@ -111,6 +129,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testPhoneAccount() throws Exception {
         Bundle testBundle = new Bundle();
         testBundle.putInt("EXTRA_INT_1", 1);
@@ -133,9 +152,14 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testDefaultPhoneAccountHandleEmptyGroup() throws Exception {
         DefaultPhoneAccountHandle input = new DefaultPhoneAccountHandle(Process.myUserHandle(),
                 makeQuickAccountHandle("i1"), "");
+        when(UserManager.get(mContext).getSerialNumberForUser(input.userHandle))
+                .thenReturn(0L);
+        when(UserManager.get(mContext).getUserForSerialNumber(0L))
+                .thenReturn(input.userHandle);
         DefaultPhoneAccountHandle result = roundTripXml(this, input,
                 PhoneAccountRegistrar.sDefaultPhoneAcountHandleXml, mContext);
 
@@ -147,6 +171,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
      * @throws Exception
      */
     @MediumTest
+    @Test
     public void testPhoneAccountExtrasEdge() throws Exception {
         Bundle testBundle = new Bundle();
         // Ensure null values for string are not persisted.
@@ -176,6 +201,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testState() throws Exception {
         PhoneAccountRegistrar.State input = makeQuickState();
         PhoneAccountRegistrar.State result = roundTripXml(this, input,
@@ -190,6 +216,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testAccounts() throws Exception {
         int i = 0;
 
@@ -220,11 +247,13 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testSimCallManager() throws Exception {
         // TODO
     }
 
     @MediumTest
+    @Test
     public void testDefaultOutgoing() throws Exception {
         mComponentContextFixture.addConnectionService(makeQuickConnectionServiceComponentName(),
                 Mockito.mock(IConnectionService.class));
@@ -273,6 +302,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testReplacePhoneAccountByGroup() throws Exception {
         mComponentContextFixture.addConnectionService(makeQuickConnectionServiceComponentName(),
                 Mockito.mock(IConnectionService.class));
@@ -317,6 +347,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testAddSameDefault() throws Exception {
         mComponentContextFixture.addConnectionService(makeQuickConnectionServiceComponentName(),
                 Mockito.mock(IConnectionService.class));
@@ -361,6 +392,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testAddSameGroup() throws Exception {
         mComponentContextFixture.addConnectionService(makeQuickConnectionServiceComponentName(),
                 Mockito.mock(IConnectionService.class));
@@ -406,6 +438,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testAddSameGroupButDifferentComponent() throws Exception {
         mComponentContextFixture.addConnectionService(makeQuickConnectionServiceComponentName(),
                 Mockito.mock(IConnectionService.class));
@@ -444,6 +477,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testAddSameGroupButDifferentComponent2() throws Exception {
         mComponentContextFixture.addConnectionService(makeQuickConnectionServiceComponentName(),
                 Mockito.mock(IConnectionService.class));
@@ -496,6 +530,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testPhoneAccountParceling() throws Exception {
         PhoneAccountHandle handle = makeQuickAccountHandle("foo");
         roundTripPhoneAccount(new PhoneAccount.Builder(handle, null).build());
@@ -520,7 +555,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
                         .setHighlightColor(0xf0f0f0)
                         .setIcon(Icon.createWithBitmap(
                                 BitmapFactory.decodeResource(
-                                        getContext().getResources(),
+                                        InstrumentationRegistry.getContext().getResources(),
                                         R.drawable.stat_sys_phone_call)))
                         .setShortDescription("short description")
                         .setSubscriptionAddress(Uri.parse("tel:2345678"))
@@ -535,6 +570,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
      * @throws Exception
      */
     @MediumTest
+    @Test
     public void testSelfManagedPhoneAccount() throws Exception {
         mComponentContextFixture.addConnectionService(makeQuickConnectionServiceComponentName(),
                 Mockito.mock(IConnectionService.class));
@@ -558,6 +594,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
      * @throws Exception
      */
     @MediumTest
+    @Test
     public void testSelfManagedCapabilityOverride() throws Exception {
         mComponentContextFixture.addConnectionService(makeQuickConnectionServiceComponentName(),
                 Mockito.mock(IConnectionService.class));
@@ -579,6 +616,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testSortSimFirst() throws Exception {
         ComponentName componentA = new ComponentName("a", "a");
         ComponentName componentB = new ComponentName("b", "b");
@@ -609,6 +647,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testSortBySortOrder() throws Exception {
         ComponentName componentA = new ComponentName("a", "a");
         ComponentName componentB = new ComponentName("b", "b");
@@ -648,6 +687,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testSortByLabel() throws Exception {
         ComponentName componentA = new ComponentName("a", "a");
         ComponentName componentB = new ComponentName("b", "b");
@@ -685,6 +725,7 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @Test
     public void testSortAll() throws Exception {
         ComponentName componentA = new ComponentName("a", "a");
         ComponentName componentB = new ComponentName("b", "b");
@@ -762,6 +803,83 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
         // Other accts sorted by label next
         assertTrue(accounts.get(4).getLabel().toString().equals("a"));
         assertTrue(accounts.get(5).getLabel().toString().equals("b"));
+    }
+
+    /**
+     * Tests {@link PhoneAccountRegistrar#getCallCapablePhoneAccounts(String, boolean, UserHandle)}
+     * to ensure disabled accounts are filtered out of results when requested.
+     * @throws Exception
+     */
+    @MediumTest
+    @Test
+    public void testGetByEnabledState() throws Exception {
+        mComponentContextFixture.addConnectionService(makeQuickConnectionServiceComponentName(),
+                Mockito.mock(IConnectionService.class));
+        mRegistrar.registerPhoneAccount(makeQuickAccountBuilder("id1", 1)
+                .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER)
+                .build());
+
+        assertEquals(0, mRegistrar.getCallCapablePhoneAccounts(PhoneAccount.SCHEME_TEL,
+                false /* includeDisabled */, Process.myUserHandle()).size());
+        assertEquals(1, mRegistrar.getCallCapablePhoneAccounts(PhoneAccount.SCHEME_TEL,
+                true /* includeDisabled */, Process.myUserHandle()).size());
+    }
+
+    /**
+     * Tests {@link PhoneAccountRegistrar#getCallCapablePhoneAccounts(String, boolean, UserHandle)}
+     * to ensure scheme filtering operates.
+     * @throws Exception
+     */
+    @MediumTest
+    @Test
+    public void testGetByScheme() throws Exception {
+        mComponentContextFixture.addConnectionService(makeQuickConnectionServiceComponentName(),
+                Mockito.mock(IConnectionService.class));
+        registerAndEnableAccount(makeQuickAccountBuilder("id1", 1)
+                .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER)
+                .setSupportedUriSchemes(Arrays.asList(PhoneAccount.SCHEME_SIP))
+                .build());
+        registerAndEnableAccount(makeQuickAccountBuilder("id2", 2)
+                .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER)
+                .setSupportedUriSchemes(Arrays.asList(PhoneAccount.SCHEME_TEL))
+                .build());
+
+        assertEquals(1, mRegistrar.getCallCapablePhoneAccounts(PhoneAccount.SCHEME_SIP,
+                false /* includeDisabled */, Process.myUserHandle()).size());
+        assertEquals(1, mRegistrar.getCallCapablePhoneAccounts(PhoneAccount.SCHEME_TEL,
+                false /* includeDisabled */, Process.myUserHandle()).size());
+        assertEquals(2, mRegistrar.getCallCapablePhoneAccounts(null, false /* includeDisabled */,
+                Process.myUserHandle()).size());
+    }
+
+    /**
+     * Tests {@link PhoneAccountRegistrar#getCallCapablePhoneAccounts(String, boolean, UserHandle,
+     * int)} to ensure capability filtering operates.
+     * @throws Exception
+     */
+    @MediumTest
+    @Test
+    public void testGetByCapability() throws Exception {
+        mComponentContextFixture.addConnectionService(makeQuickConnectionServiceComponentName(),
+                Mockito.mock(IConnectionService.class));
+        registerAndEnableAccount(makeQuickAccountBuilder("id1", 1)
+                .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER
+                        | PhoneAccount.CAPABILITY_VIDEO_CALLING)
+                .setSupportedUriSchemes(Arrays.asList(PhoneAccount.SCHEME_SIP))
+                .build());
+        registerAndEnableAccount(makeQuickAccountBuilder("id2", 2)
+                .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER)
+                .setSupportedUriSchemes(Arrays.asList(PhoneAccount.SCHEME_SIP))
+                .build());
+
+        assertEquals(1, mRegistrar.getCallCapablePhoneAccounts(PhoneAccount.SCHEME_SIP,
+                false /* includeDisabled */, Process.myUserHandle()).size(),
+                PhoneAccount.CAPABILITY_VIDEO_CALLING);
+        assertEquals(2, mRegistrar.getCallCapablePhoneAccounts(PhoneAccount.SCHEME_SIP,
+                false /* includeDisabled */, Process.myUserHandle()).size(), 0 /* none extra */);
+        assertEquals(0, mRegistrar.getCallCapablePhoneAccounts(PhoneAccount.SCHEME_SIP,
+                false /* includeDisabled */, Process.myUserHandle()).size(),
+                PhoneAccount.CAPABILITY_RTT);
     }
 
     private static ComponentName makeQuickConnectionServiceComponentName() {
@@ -919,9 +1037,10 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
             PhoneAccountRegistrar.State a, PhoneAccountRegistrar.State b) {
         assertEquals(a.defaultOutgoingAccountHandles.size(),
                 b.defaultOutgoingAccountHandles.size());
-        for (int i = 0; i < a.defaultOutgoingAccountHandles.size(); i++) {
-            assertDefaultPhoneAccountHandleEquals(a.defaultOutgoingAccountHandles.get(i),
-                    b.defaultOutgoingAccountHandles.get(i));
+        for (Map.Entry<UserHandle, DefaultPhoneAccountHandle> e :
+                a.defaultOutgoingAccountHandles.entrySet()) {
+            assertDefaultPhoneAccountHandleEquals(e.getValue(),
+                    b.defaultOutgoingAccountHandles.get(e.getKey()));
         }
         assertEquals(a.accounts.size(), b.accounts.size());
         for (int i = 0; i < a.accounts.size(); i++) {
@@ -937,6 +1056,10 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
         PhoneAccountHandle phoneAccountHandle = new PhoneAccountHandle(
                 new ComponentName("pkg0", "cls0"), "id0");
         UserHandle userHandle = phoneAccountHandle.getUserHandle();
+        when(UserManager.get(mContext).getSerialNumberForUser(userHandle))
+                .thenReturn(0L);
+        when(UserManager.get(mContext).getUserForSerialNumber(0L))
+                .thenReturn(userHandle);
         s.defaultOutgoingAccountHandles
                 .put(userHandle, new DefaultPhoneAccountHandle(userHandle, phoneAccountHandle,
                         "testGroup"));

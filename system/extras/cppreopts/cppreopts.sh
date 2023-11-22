@@ -31,6 +31,7 @@ function do_copy() {
     sync
     if ! mv ${temp_dest_name} ${dest_name} ; then
       log -p w -t cppreopts "Unable to rename temporary file from ${temp_dest_name} to ${dest_name}"
+      rm ${temp_dest_name} || log -p w -t cppreopts "Unable to remove temporary file ${temp_dest_name}"
     else
       log -p i -t cppreopts "Renamed temporary file from ${temp_dest_name} to ${dest_name}"
     fi

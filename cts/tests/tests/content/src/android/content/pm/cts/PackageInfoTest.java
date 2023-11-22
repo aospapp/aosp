@@ -63,7 +63,7 @@ public class PackageInfoTest extends AndroidTestCase {
 
     private void checkPkgInfoSame(PackageInfo expected, PackageInfo actual) {
         assertEquals(expected.packageName, actual.packageName);
-        assertEquals(expected.versionCode, actual.versionCode);
+        assertEquals(expected.getLongVersionCode(), actual.getLongVersionCode());
         assertEquals(expected.versionName, actual.versionName);
         assertEquals(expected.sharedUserId, actual.sharedUserId);
         assertEquals(expected.sharedUserLabel, actual.sharedUserLabel);

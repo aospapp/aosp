@@ -18,18 +18,14 @@ package com.android.tv.dvr.ui.browse;
 
 import android.content.Context;
 import android.os.Handler;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.util.Utils;
-
 import java.util.concurrent.TimeUnit;
 
-/**
- * Presents a {@link ScheduledRecording} in the {@link DvrBrowseFragment}.
- */
+/** Presents a {@link ScheduledRecording} in the {@link DvrBrowseFragment}. */
 class ScheduledRecordingPresenter extends DvrItemPresenter<ScheduledRecording> {
     private static final long PROGRESS_UPDATE_INTERVAL_MS = TimeUnit.SECONDS.toMillis(5);
 
@@ -39,13 +35,14 @@ class ScheduledRecordingPresenter extends DvrItemPresenter<ScheduledRecording> {
     private final class ScheduledRecordingViewHolder extends DvrItemViewHolder {
         private final Handler mHandler = new Handler();
         private ScheduledRecording mScheduledRecording;
-        private final Runnable mProgressBarUpdater = new Runnable() {
-            @Override
-            public void run() {
-                updateProgressBar();
-                mHandler.postDelayed(this, PROGRESS_UPDATE_INTERVAL_MS);
-            }
-        };
+        private final Runnable mProgressBarUpdater =
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        updateProgressBar();
+                        mHandler.postDelayed(this, PROGRESS_UPDATE_INTERVAL_MS);
+                    }
+                };
 
         ScheduledRecordingViewHolder(RecordingCardView view, int progressBarColor) {
             super(view);
@@ -73,9 +70,17 @@ class ScheduledRecordingPresenter extends DvrItemPresenter<ScheduledRecording> {
             int recordingState = mScheduledRecording.getState();
             RecordingCardView cardView = (RecordingCardView) view;
             if (recordingState == ScheduledRecording.STATE_RECORDING_IN_PROGRESS) {
-                cardView.setProgressBar(Math.max(0, Math.min((int) (100 *
-                        (System.currentTimeMillis() - mScheduledRecording.getStartTimeMs())
-                        / mScheduledRecording.getDuration()), 100)));
+                cardView.setProgressBar(
+                        Math.max(
+                                0,
+                                Math.min(
+                                        (int)
+                                                (100
+                                                        * (System.currentTimeMillis()
+                                                                - mScheduledRecording
+                                                                        .getStartTimeMs())
+                                                        / mScheduledRecording.getDuration()),
+                                        100)));
             } else if (recordingState == ScheduledRecording.STATE_RECORDING_FINISHED) {
                 cardView.setProgressBar(100);
             } else {
@@ -95,9 +100,10 @@ class ScheduledRecordingPresenter extends DvrItemPresenter<ScheduledRecording> {
 
     public ScheduledRecordingPresenter(Context context) {
         super(context);
-        mDvrManager = TvApplication.getSingletons(mContext).getDvrManager();
-        mProgressBarColor = mContext.getResources()
-                .getColor(R.color.play_controls_recording_icon_color_on_focus);
+        mDvrManager = TvSingletons.getSingletons(mContext).getDvrManager();
+        mProgressBarColor =
+                mContext.getResources()
+                        .getColor(R.color.play_controls_recording_icon_color_on_focus);
     }
 
     @Override
@@ -106,33 +112,61 @@ class ScheduledRecordingPresenter extends DvrItemPresenter<ScheduledRecording> {
     }
 
     @Override
-    public void onBindDvrItemViewHolder(DvrItemViewHolder baseHolder,
-            ScheduledRecording recording) {
+    public void onBindDvrItemViewHolder(
+            DvrItemViewHolder baseHolder, ScheduledRecording recording) {
         final ScheduledRecordingViewHolder viewHolder = (ScheduledRecordingViewHolder) baseHolder;
         final RecordingCardView cardView = viewHolder.getView();
         DetailsContent details = DetailsContent.createFromScheduledRecording(mContext, recording);
         cardView.setTitle(details.getTitle());
         cardView.setImageUri(details.getLogoImageUri(), details.isUsingChannelLogo());
-        cardView.setAffiliatedIcon(mDvrManager.isConflicting(recording) ?
-                R.drawable.ic_warning_white_32dp : 0);
+        if (mDvrManager.isConflicting(recording)) {
+            cardView.setAffiliatedIcon(R.drawable.ic_warning_white_32dp);
+        } else if (recording.getState() == ScheduledRecording.STATE_RECORDING_FAILED) {
+            cardView.setAffiliatedIcon(R.drawable.ic_error_white_48dp);
+        } else {
+            cardView.setAffiliatedIcon(0);
+        }
         cardView.setContent(generateMajorContent(recording), null);
         cardView.setDetailBackgroundImageUri(details.getBackgroundImageUri());
     }
 
     private String generateMajorContent(ScheduledRecording recording) {
-        int dateDifference = Utils.computeDateDifference(System.currentTimeMillis(),
-                recording.getStartTimeMs());
+        if (recording.getState() == ScheduledRecording.STATE_RECORDING_FAILED) {
+            return mContext.getString(R.string.dvr_recording_failed);
+        }
+        int dateDifference =
+                Utils.computeDateDifference(System.currentTimeMillis(), recording.getStartTimeMs());
         if (dateDifference <= 0) {
-            return mContext.getString(R.string.dvr_date_today_time,
-                    Utils.getDurationString(mContext, recording.getStartTimeMs(),
-                            recording.getEndTimeMs(), false, false, true, 0));
+            return mContext.getString(
+                    R.string.dvr_date_today_time,
+                    Utils.getDurationString(
+                            mContext,
+                            recording.getStartTimeMs(),
+                            recording.getEndTimeMs(),
+                            false,
+                            false,
+                            true,
+                            0));
         } else if (dateDifference == 1) {
-            return mContext.getString(R.string.dvr_date_tomorrow_time,
-                    Utils.getDurationString(mContext, recording.getStartTimeMs(),
-                            recording.getEndTimeMs(), false, false, true, 0));
+            return mContext.getString(
+                    R.string.dvr_date_tomorrow_time,
+                    Utils.getDurationString(
+                            mContext,
+                            recording.getStartTimeMs(),
+                            recording.getEndTimeMs(),
+                            false,
+                            false,
+                            true,
+                            0));
         } else {
-            return Utils.getDurationString(mContext, recording.getStartTimeMs(),
-                    recording.getStartTimeMs(), false, true, false, 0);
+            return Utils.getDurationString(
+                    mContext,
+                    recording.getStartTimeMs(),
+                    recording.getStartTimeMs(),
+                    false,
+                    true,
+                    false,
+                    0);
         }
     }
 }

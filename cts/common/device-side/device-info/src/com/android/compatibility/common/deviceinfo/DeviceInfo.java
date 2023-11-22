@@ -64,15 +64,23 @@ public abstract class DeviceInfo extends InstrumentationTestCase {
 
     Set<String> mActivityList = new HashSet<String>();
 
+    static File makeResultDir() {
+        final File dir = new File(Environment.getExternalStorageDirectory(), "device-info-files");
+        if (!dir.mkdirs() && !dir.isDirectory()) {
+            return null;
+        }
+        return dir;
+    }
+
     public void testCollectDeviceInfo() throws Exception {
         if (!mActivityList.contains(getClass().getName())) {
             return;
         }
 
-        final File dir = new File(Environment.getExternalStorageDirectory(), "device-info-files");
+        final File dir;
         if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
             failed("External storage is not mounted");
-        } else if (!dir.mkdirs() && !dir.isDirectory()) {
+        } else if ((dir = makeResultDir()) == null) {
             failed("Cannot create directory for device info files");
         } else {
             try {

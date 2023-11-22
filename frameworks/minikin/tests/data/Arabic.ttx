@@ -18,8 +18,10 @@
   <GlyphOrder>
     <!-- The 'id' attribute is only for humans; it is ignored when parsed. -->
     <GlyphID id="0" name=".notdef"/>
-    <GlyphID id="1" name="uni061C"/>
-    <GlyphID id="2" name="uni200D"/>
+    <GlyphID id="1" name="uni000A"/>
+    <GlyphID id="2" name="uni000D"/>
+    <GlyphID id="3" name="uni061C"/>
+    <GlyphID id="4" name="uni200D"/>
   </GlyphOrder>
 
   <head>
@@ -66,7 +68,7 @@
   <maxp>
     <!-- Most of this table will be recalculated by the compiler -->
     <tableVersion value="0x10000"/>
-    <numGlyphs value="3"/>
+    <numGlyphs value="5"/>
     <maxPoints value="0"/>
     <maxContours value="0"/>
     <maxCompositePoints value="0"/>
@@ -137,6 +139,8 @@
 
   <hmtx>
     <mtx name=".notdef" width="500" lsb="93"/>
+    <mtx name="uni000A" width="0" lsb="0"/>
+    <mtx name="uni000D" width="0" lsb="0"/>
     <mtx name="uni061C" width="0" lsb="0"/>
     <mtx name="uni200D" width="0" lsb="0"/>
   </hmtx>
@@ -144,8 +148,10 @@
   <cmap>
     <tableVersion version="0"/>
     <cmap_format_4 platformID="3" platEncID="10" language="0">
-      <map code="0x61c" name="uni061C"/><!-- ARABIC LETTER MARK -->
-      <map code="0x200d" name="uni200D"/><!-- ZERO WIDTH JOINER -->
+      <map code="0x000A" name="uni000A"/><!-- LINE FEED -->
+      <map code="0x000D" name="uni000D"/><!-- CARRIAGE RETURN -->
+      <map code="0x061C" name="uni061C"/><!-- ARABIC LETTER MARK -->
+      <map code="0x200D" name="uni200D"/><!-- ZERO WIDTH JOINER -->
     </cmap_format_4>
   </cmap>
 
@@ -159,6 +165,10 @@
          will be recalculated by the compiler. -->
 
     <TTGlyph name=".notdef"/><!-- contains no outline data -->
+
+    <TTGlyph name="uni000A"/><!-- contains no outline data -->
+
+    <TTGlyph name="uni000D"/><!-- contains no outline data -->
 
     <TTGlyph name="uni061C"/><!-- contains no outline data -->
 

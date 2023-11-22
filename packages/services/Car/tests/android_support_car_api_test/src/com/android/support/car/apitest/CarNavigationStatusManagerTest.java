@@ -17,6 +17,7 @@ package com.android.support.car.apitest;
 
 import static android.support.car.CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION;
 
+import android.os.Bundle;
 import android.support.car.Car;
 import android.support.car.CarAppFocusManager;
 import android.support.car.CarAppFocusManager.OnAppFocusChangedListener;
@@ -71,8 +72,7 @@ public class CarNavigationStatusManagerTest extends CarApiTestBase {
         assertTrue(onStartLatch.await(DEFAULT_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS));
 
         try {
-            mCarNavigationStatusManager.sendNavigationStatus(CarNavigationStatusManager
-                    .STATUS_ACTIVE);
+            mCarNavigationStatusManager.sendEvent(1, new Bundle());
             fail();
         } catch (IllegalStateException expected) {
             // Expected. Client should acquire focus ownership for APP_FOCUS_TYPE_NAVIGATION.
@@ -103,6 +103,6 @@ public class CarNavigationStatusManagerTest extends CarApiTestBase {
 
         // TODO: we should use mocked HAL to be able to verify this, right now just make sure that
         // it is not crashing and logcat has appropriate traces.
-        mCarNavigationStatusManager.sendNavigationStatus(CarNavigationStatusManager.STATUS_ACTIVE);
+        mCarNavigationStatusManager.sendEvent(1, new Bundle());
     }
 }

@@ -94,13 +94,13 @@ public:
 
     // This function implements creation of LLStats specific Request
     // based on  the request type
-    virtual int create();
+    virtual wifi_error create();
 
     virtual void setSubCmd(u32 subcmd);
 
     virtual void initGetContext(u32 reqid);
 
-    virtual int requestResponse();
+    virtual wifi_error requestResponse();
 
     virtual wifi_error notifyResponse();
 

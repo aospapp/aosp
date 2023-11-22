@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package android.support.text.emoji.flatbuffer;
+package androidx.text.emoji.flatbuffer;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 import com.google.flatbuffers.Table;

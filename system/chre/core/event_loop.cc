@@ -20,6 +20,7 @@
 #include "chre/core/event_loop_manager.h"
 #include "chre/core/nanoapp.h"
 #include "chre/platform/context.h"
+#include "chre/platform/fatal_error.h"
 #include "chre/platform/log.h"
 #include "chre/util/conditional_lock_guard.h"
 #include "chre/util/lock_guard.h"
@@ -54,9 +55,6 @@ bool populateNanoappInfo(const Nanoapp *app, struct chreNanoappInfo *info) {
 }
 
 }  // anonymous namespace
-
-EventLoop::EventLoop()
-    : mTimerPool(*this) {}
 
 bool EventLoop::findNanoappInstanceIdByAppId(uint64_t appId,
                                              uint32_t *instanceId) const {
@@ -249,13 +247,33 @@ bool EventLoop::postEvent(uint16_t eventType, void *eventData,
     uint32_t targetInstanceId) {
   bool success = false;
 
+  if (mRunning && (senderInstanceId == kSystemInstanceId ||
+      mEventPool.getFreeBlockCount() > kMinReservedSystemEventCount)) {
+    success = allocateAndPostEvent(eventType, eventData, freeCallback,
+                                   senderInstanceId,targetInstanceId);
+    if (!success) {
+      // This can only happen if the event is a system event type. This
+      // postEvent method will fail if a non-system event is posted when the
+      // memory pool is close to full.
+      FATAL_ERROR("Failed to allocate system event type %" PRIu16, eventType);
+    }
+  }
+
+  return success;
+}
+
+bool EventLoop::postEventOrFree(uint16_t eventType, void *eventData,
+    chreEventCompleteFunction *freeCallback, uint32_t senderInstanceId,
+    uint32_t targetInstanceId) {
+  bool success = false;
+
   if (mRunning) {
-    Event *event = mEventPool.allocate(eventType, eventData, freeCallback,
-        senderInstanceId, targetInstanceId);
-    if (event != nullptr) {
-      success = mEvents.push(event);
-    } else {
-      LOGE("Failed to allocate event");
+    success = allocateAndPostEvent(eventType, eventData, freeCallback,
+                                   senderInstanceId,targetInstanceId);
+    if (!success) {
+      freeCallback(eventType, eventData);
+      LOGE("Failed to allocate event 0x%" PRIx16 " to instanceId %" PRIu32,
+           eventType, targetInstanceId);
     }
   }
 
@@ -303,6 +321,19 @@ bool EventLoop::logStateToBuffer(char *buffer, size_t *bufferPos,
   success &= debugDumpPrint(buffer, bufferPos, bufferSize,
                             "  Max event pool usage: %zu/%zu\n",
                             mMaxEventPoolUsage, kMaxEventCount);
+  return success;
+}
+
+bool EventLoop::allocateAndPostEvent(uint16_t eventType, void *eventData,
+    chreEventCompleteFunction *freeCallback, uint32_t senderInstanceId,
+    uint32_t targetInstanceId) {
+  bool success = false;
+
+  Event *event = mEventPool.allocate(eventType, eventData, freeCallback,
+                                     senderInstanceId, targetInstanceId);
+  if (event != nullptr) {
+    success = mEvents.push(event);
+  }
   return success;
 }
 
@@ -408,10 +439,7 @@ void EventLoop::notifyAppStatusChange(uint16_t eventType,
     info->version    = nanoapp.getAppVersion();
     info->instanceId = nanoapp.getInstanceId();
 
-    if (!postEvent(eventType, info, freeEventDataCallback)) {
-      LOGE("Couldn't post app status change event");
-      memoryFree(info);
-    }
+    postEvent(eventType, info, freeEventDataCallback);
   }
 }
 

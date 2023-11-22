@@ -29,11 +29,11 @@ class FX_PATHPOINT {
   bool m_CloseFigure;
 };
 
-class CFX_PathData {
+class CFX_PathData : public Retainable {
  public:
   CFX_PathData();
   CFX_PathData(const CFX_PathData& src);
-  ~CFX_PathData();
+  ~CFX_PathData() override;
 
   void Clear();
 
@@ -47,7 +47,7 @@ class CFX_PathData {
   std::vector<FX_PATHPOINT>& GetPoints() { return m_Points; }
 
   CFX_FloatRect GetBoundingBox() const;
-  CFX_FloatRect GetBoundingBox(FX_FLOAT line_width, FX_FLOAT miter_limit) const;
+  CFX_FloatRect GetBoundingBox(float line_width, float miter_limit) const;
 
   void Transform(const CFX_Matrix* pMatrix);
   bool IsRect() const;
@@ -59,7 +59,8 @@ class CFX_PathData {
   bool IsRect(const CFX_Matrix* pMatrix, CFX_FloatRect* rect) const;
 
   void Append(const CFX_PathData* pSrc, const CFX_Matrix* pMatrix);
-  void AppendRect(FX_FLOAT left, FX_FLOAT bottom, FX_FLOAT right, FX_FLOAT top);
+  void AppendRect(float left, float bottom, float right, float top);
+  void AppendLine(const CFX_PointF& pt1, const CFX_PointF& pt2);
   void AppendPoint(const CFX_PointF& pos, FXPT_TYPE type, bool closeFigure);
   void ClosePath();
 

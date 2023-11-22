@@ -25,13 +25,12 @@ import android.net.wifi.WifiManager;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.WorkSource;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import com.android.internal.app.IBatteryStats;
 
 import org.junit.Before;
 import org.junit.Test;
-
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
@@ -52,7 +51,9 @@ public class WifiLockManagerTest {
     WifiLockManager mWifiLockManager;
     @Mock IBatteryStats mBatteryStats;
     @Mock IBinder mBinder;
+    @Mock IBinder mBinder2;
     WorkSource mWorkSource;
+    WorkSource mChainedWorkSource;
     @Mock Context mContext;
 
     /**
@@ -62,6 +63,11 @@ public class WifiLockManagerTest {
     @Before
     public void setUp() {
         mWorkSource = new WorkSource(DEFAULT_TEST_UID_1);
+        mChainedWorkSource = new WorkSource();
+        mChainedWorkSource.createWorkChain()
+                .addNode(DEFAULT_TEST_UID_1, "tag1")
+                .addNode(DEFAULT_TEST_UID_2, "tag2");
+
         MockitoAnnotations.initMocks(this);
         mWifiLockManager = new WifiLockManager(mContext, mBatteryStats);
     }
@@ -225,6 +231,41 @@ public class WifiLockManagerTest {
     }
 
     /**
+     * Checks that WorkChains are preserved when merged WorkSources are created.
+     */
+    @Test
+    public void createMergedworkSourceWithChainsShouldSucceed() throws Exception {
+        acquireWifiLockSuccessful(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "", mBinder, mWorkSource);
+        acquireWifiLockSuccessful(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "", mBinder2,
+                mChainedWorkSource);
+
+        WorkSource merged = mWifiLockManager.createMergedWorkSource();
+        assertEquals(1, merged.size());
+        assertEquals(1, merged.getWorkChains().size());
+    }
+
+    /**
+     * A smoke test for acquiring, updating and releasing WifiLocks with chained WorkSources.
+     */
+    @Test
+    public void smokeTestLockLifecycleWithChainedWorkSource() throws Exception {
+        acquireWifiLockSuccessful(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "", mBinder,
+                mChainedWorkSource);
+
+        WorkSource updated = new WorkSource();
+        updated.set(mChainedWorkSource);
+        updated.createWorkChain().addNode(
+                DEFAULT_TEST_UID_1, "chain2");
+
+        mWifiLockManager.updateWifiLockWorkSource(mBinder, updated);
+        InOrder inOrder = inOrder(mBatteryStats);
+        inOrder.verify(mBatteryStats).noteFullWifiLockAcquiredFromSource(eq(updated));
+        inOrder.verify(mBatteryStats).noteFullWifiLockReleasedFromSource(mChainedWorkSource);
+
+        releaseWifiLockSuccessful(mBinder);
+    }
+
+    /**
      * Test the ability to update a WifiLock WorkSource with a new WorkSource.
      *
      * Steps: acquire a WifiLock with the default test worksource, then attempt to update it.
@@ -239,8 +280,8 @@ public class WifiLockManagerTest {
 
         mWifiLockManager.updateWifiLockWorkSource(mBinder, newWorkSource);
         InOrder inOrder = inOrder(mBatteryStats);
-        inOrder.verify(mBatteryStats).noteFullWifiLockReleasedFromSource(mWorkSource);
         inOrder.verify(mBatteryStats).noteFullWifiLockAcquiredFromSource(eq(newWorkSource));
+        inOrder.verify(mBatteryStats).noteFullWifiLockReleasedFromSource(mWorkSource);
     }
 
     /**
@@ -258,8 +299,8 @@ public class WifiLockManagerTest {
 
         mWifiLockManager.updateWifiLockWorkSource(mBinder, null);
         InOrder inOrder = inOrder(mBatteryStats);
-        inOrder.verify(mBatteryStats).noteFullWifiLockReleasedFromSource(mWorkSource);
         inOrder.verify(mBatteryStats).noteFullWifiLockAcquiredFromSource(eq(newWorkSource));
+        inOrder.verify(mBatteryStats).noteFullWifiLockReleasedFromSource(mWorkSource);
     }
 
     /**
@@ -314,6 +355,7 @@ public class WifiLockManagerTest {
         assertTrue(wifiLockManagerDumpString.contains("Locks held:"));
         assertTrue(wifiLockManagerDumpString.contains(
                 "WifiLock{" + TEST_WIFI_LOCK_TAG + " type=" + WifiManager.WIFI_MODE_FULL
-                + " uid=" + Binder.getCallingUid() + "}"));
+                + " uid=" + Binder.getCallingUid() + " workSource=WorkSource{"
+                        + DEFAULT_TEST_UID_1 + "}"));
     }
 }

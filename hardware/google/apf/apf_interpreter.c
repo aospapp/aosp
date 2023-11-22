@@ -1,5 +1,5 @@
 /*
- * Copyright 2016, The Android Open Source Project
+ * Copyright 2018, The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,30 +31,26 @@
 // superfluous ">= 0" with unsigned expressions generates compile warnings.
 #define ENFORCE_UNSIGNED(c) ((c)==(uint32_t)(c))
 
-/**
- * Runs a packet filtering program over a packet.
- *
- * @param program the program bytecode.
- * @param program_len the length of {@code apf_program} in bytes.
- * @param packet the packet bytes, starting from the 802.3 header and not
- *               including any CRC bytes at the end.
- * @param packet_len the length of {@code packet} in bytes.
- * @param filter_age the number of seconds since the filter was programmed.
- *
- * @return non-zero if packet should be passed to AP, zero if
- *         packet should be dropped.
- */
-int accept_packet(const uint8_t* program, uint32_t program_len,
+int accept_packet(uint8_t* program, uint32_t program_len, uint32_t ram_len,
                   const uint8_t* packet, uint32_t packet_len,
                   uint32_t filter_age) {
 // Is offset within program bounds?
 #define IN_PROGRAM_BOUNDS(p) (ENFORCE_UNSIGNED(p) && (p) < program_len)
 // Is offset within packet bounds?
 #define IN_PACKET_BOUNDS(p) (ENFORCE_UNSIGNED(p) && (p) < packet_len)
+// Is access to offset |p| length |size| within data bounds?
+#define IN_DATA_BOUNDS(p, size) (ENFORCE_UNSIGNED(p) && \
+                                 ENFORCE_UNSIGNED(size) && \
+                                 (p) + (size) <= ram_len && \
+                                 (p) >= program_len && \
+                                 (p) + (size) >= (p))  // catch wraparounds
 // Accept packet if not within program bounds
 #define ASSERT_IN_PROGRAM_BOUNDS(p) ASSERT_RETURN(IN_PROGRAM_BOUNDS(p))
 // Accept packet if not within packet bounds
 #define ASSERT_IN_PACKET_BOUNDS(p) ASSERT_RETURN(IN_PACKET_BOUNDS(p))
+// Accept packet if not within data bounds
+#define ASSERT_IN_DATA_BOUNDS(p, size) ASSERT_RETURN(IN_DATA_BOUNDS(p, size))
+
   // Program counter.
   uint32_t pc = 0;
 // Accept packet if not within program or not ahead of program counter
@@ -62,6 +58,8 @@ int accept_packet(const uint8_t* program, uint32_t program_len,
   // Memory slot values.
   uint32_t memory[MEMORY_ITEMS] = {};
   // Fill in pre-filled memory slot values.
+  memory[MEMORY_OFFSET_PROGRAM_SIZE] = program_len;
+  memory[MEMORY_OFFSET_DATA_SIZE] = ram_len;
   memory[MEMORY_OFFSET_PACKET_SIZE] = packet_len;
   memory[MEMORY_OFFSET_FILTER_AGE] = filter_age;
   ASSERT_IN_PACKET_BOUNDS(APF_FRAME_HEADER_SIZE);
@@ -268,6 +266,39 @@ int accept_packet(const uint8_t* program, uint32_t program_len,
                     return PASS_PACKET;
               }
               break;
+          case LDDW_OPCODE: {
+              uint32_t offs = OTHER_REG + signed_imm;
+              uint32_t size = 4;
+              uint32_t val = 0;
+              // Negative offsets wrap around the end of the address space.
+              // This allows us to efficiently access the end of the
+              // address space with one-byte immediates without using %=.
+              if (offs & 0x80000000) {
+                  offs = ram_len + offs;  // unsigned overflow intended
+              }
+              ASSERT_IN_DATA_BOUNDS(offs, size);
+              while (size--)
+                  val = (val << 8) | program[offs++];
+              REG = val;
+              break;
+          }
+          case STDW_OPCODE: {
+              uint32_t offs = OTHER_REG + signed_imm;
+              uint32_t size = 4;
+              uint32_t val = REG;
+              // Negative offsets wrap around the end of the address space.
+              // This allows us to efficiently access the end of the
+              // address space with one-byte immediates without using %=.
+              if (offs & 0x80000000) {
+                  offs = ram_len + offs;  // unsigned overflow intended
+              }
+              ASSERT_IN_DATA_BOUNDS(offs, size);
+              while (size--) {
+                  program[offs++] = (val >> 24);
+                  val <<= 8;
+              }
+              break;
+          }
           // Unknown opcode
           default:
               // Bail out

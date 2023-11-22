@@ -60,7 +60,6 @@ public class LoadDocStackTask extends PairedTask<Activity, Uri, DocumentStack> {
 
     @Override
     public @Nullable DocumentStack run(Uri... uris) {
-        // assert(Features.OMC_RUNTIME);
         if (mDocs.isDocumentUri(uris[0])) {
             final Uri docUri;
             if (DocumentsContract.isTreeUri(uris[0])) {

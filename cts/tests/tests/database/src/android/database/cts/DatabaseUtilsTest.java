@@ -519,6 +519,7 @@ public class DatabaseUtilsTest extends AndroidTestCase {
             // expected
         }
 
+        parcel.recycle();
         parcel = Parcel.obtain();
         DatabaseUtils.writeExceptionToParcel(parcel, new SQLiteAbortException());
         parcel.setDataPosition(0);
@@ -529,6 +530,7 @@ public class DatabaseUtilsTest extends AndroidTestCase {
             // expected
         }
 
+        parcel.recycle();
         parcel = Parcel.obtain();
         DatabaseUtils.writeExceptionToParcel(parcel, new FileNotFoundException());
         parcel.setDataPosition(0);
@@ -539,6 +541,7 @@ public class DatabaseUtilsTest extends AndroidTestCase {
             // expected
         }
 
+        parcel.recycle();
         parcel = Parcel.obtain();
         DatabaseUtils.writeExceptionToParcel(parcel, new FileNotFoundException());
         parcel.setDataPosition(0);

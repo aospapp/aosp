@@ -2,9 +2,9 @@
 
 ### 1.1.1\. Requirements by Device Type
 
-[Section 2](#2_device_types) contains all the MUST and STRONGLY RECOMMENDED
-requirements that apply to a specific device type. Each subsection of
-[Section 2](#2_device_types) is dedicated to a specific device type.
+[Section 2](#2_device_types) contains all of the requirements that apply to a
+specific device type. Each subsection of [Section 2](#2_device_types) is
+dedicated to a specific device type.
 
 All the other requirements, that universally apply to any Android device
 implementations, are listed in the sections after [Section 2](#2_device_types).
@@ -26,6 +26,7 @@ Each ID is defined as below:
      *    H: Android Handheld device
      *    T: Android Television device
      *    A: Android Automotive implementation
+     *    Tab: Android Tablet implementation
 *    Condition ID
      *    When the requirement is unconditional, this ID is set as 0.
      *    When the requirement is conditional, 1 is assinged for the 1st
@@ -34,3 +35,11 @@ Each ID is defined as below:
 *    Requirement ID
      *    This ID starts from 1 and increments by 1 within the same section and
           the same condition.
+
+### 1.1.3\. Requirement ID in Section 2
+
+The Requirement ID in [Section 2](#2_device_types) starts with the corresponding
+section ID that is followed by the Requirement ID described above.
+
+*    The ID in [Section 2](#2_device_types) consists of :
+Section ID / Device Type ID - Condition ID - Requirement ID (e.g. 7.4.3/A-0-1).

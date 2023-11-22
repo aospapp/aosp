@@ -26,7 +26,6 @@ import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
 import com.android.compatibility.common.util.BitmapUtils;
-import com.android.cts.deviceandprofileowner.R;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -119,6 +118,8 @@ public class CustomizationRestrictionsTest extends BaseDeviceAdminTest {
     public void testDisallowSetWallpaper_allowed() throws Exception {
         final WallpaperManager wallpaperManager = WallpaperManager.getInstance(mContext);
         final Bitmap originalWallpaper = BitmapUtils.getWallpaperBitmap(mContext);
+        final Bitmap originalWallpaperCopy =
+                originalWallpaper.copy(originalWallpaper.getConfig(), false);
 
         try (
             // Set restriction and subscribe for the broadcast.
@@ -130,7 +131,7 @@ public class CustomizationRestrictionsTest extends BaseDeviceAdminTest {
             assertTrue(mUserManager.hasUserRestriction(UserManager.DISALLOW_SET_WALLPAPER));
 
             // Checking setBitmap() method.
-            Bitmap oldWallpaper = originalWallpaper;
+            Bitmap oldWallpaper = originalWallpaperCopy;
             wallpaperManager.setBitmap(BitmapUtils.generateRandomBitmap(97, 73));
             bcast.waitForBroadcast();
             Bitmap newWallpaper = BitmapUtils.getWallpaperBitmap(mContext);
@@ -151,7 +152,7 @@ public class CustomizationRestrictionsTest extends BaseDeviceAdminTest {
             newWallpaper = BitmapUtils.getWallpaperBitmap(mContext);
             assertFalse(BitmapUtils.compareBitmaps(newWallpaper, oldWallpaper));
         } finally {
-            wallpaperManager.setBitmap(originalWallpaper);
+            wallpaperManager.setBitmap(originalWallpaperCopy);
         }
         assertFalse(mUserManager.hasUserRestriction(UserManager.DISALLOW_SET_WALLPAPER));
     }

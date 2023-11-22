@@ -18,6 +18,7 @@ package android.view.accessibility.cts;
 
 import android.os.Message;
 import android.os.Parcel;
+import android.platform.test.annotations.Presubmit;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.text.TextUtils;
 import android.view.accessibility.AccessibilityEvent;
@@ -29,22 +30,8 @@ import junit.framework.TestCase;
 /**
  * Class for testing {@link AccessibilityEvent}.
  */
+@Presubmit
 public class AccessibilityEventTest extends TestCase {
-
-    /** The number of properties of the {@link AccessibilityEvent} class. */
-    private static final int NON_STATIC_FIELD_COUNT = 29;
-
-    /**
-     * Test that no new fields have been added without updating the
-     * marshaling tests.
-     */
-    @SmallTest
-    public void testNoNewFieldsAddedWithoutUpdadingMarshallTests() {
-        // no new fields, so we are testing marshaling of all such
-        AccessibilityRecordTest.assertNoNewNonStaticFieldsAdded(AccessibilityEvent.class,
-                NON_STATIC_FIELD_COUNT);
-    }
-
     /**
      * Tests whether accessibility events are correctly written and
      * read from a parcel (version 1).
@@ -63,6 +50,8 @@ public class AccessibilityEventTest extends TestCase {
 
         // make sure all fields properly marshaled
         assertEqualsAccessiblityEvent(sentEvent, receivedEvent);
+
+        parcel.recycle();
     }
 
     /**
@@ -157,6 +146,8 @@ public class AccessibilityEventTest extends TestCase {
         AccessibilityEvent unmarshaledEvent = AccessibilityEvent.obtain();
         unmarshaledEvent.initFromParcel(parcel);
         assertEqualsAccessiblityEvent(marshaledEvent, unmarshaledEvent);
+
+        parcel.recycle();
     }
 
     /**
@@ -206,6 +197,8 @@ public class AccessibilityEventTest extends TestCase {
         sentEvent.setMaxScrollY(1);
         sentEvent.setScrollX(1);
         sentEvent.setScrollY(1);
+        sentEvent.setScrollDeltaX(3);
+        sentEvent.setScrollDeltaY(3);
         sentEvent.setToIndex(1);
         sentEvent.setScrollable(true);
         sentEvent.setAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS);
@@ -261,6 +254,10 @@ public class AccessibilityEventTest extends TestCase {
                 receivedEvent.getScrollX());
         assertSame("scrollY has incorect value", expectedEvent.getScrollY(),
                 receivedEvent.getScrollY());
+        assertSame("scrollDeltaX has incorect value", expectedEvent.getScrollDeltaX(),
+                receivedEvent.getScrollDeltaX());
+        assertSame("scrollDeltaY has incorect value", expectedEvent.getScrollDeltaY(),
+                receivedEvent.getScrollDeltaY());
         assertSame("toIndex has incorect value", expectedEvent.getToIndex(),
                 receivedEvent.getToIndex());
         assertSame("scrollable has incorect value", expectedEvent.isScrollable(),
@@ -269,6 +266,8 @@ public class AccessibilityEventTest extends TestCase {
                 receivedEvent.getMovementGranularity());
         assertSame("action has incorect value", expectedEvent.getAction(),
                 receivedEvent.getAction());
+        assertSame("windowChangeTypes has incorect value", expectedEvent.getWindowChanges(),
+                receivedEvent.getWindowChanges());
 
         assertSame("parcelableData has incorect value",
                 ((Message) expectedEvent.getParcelableData()).what,

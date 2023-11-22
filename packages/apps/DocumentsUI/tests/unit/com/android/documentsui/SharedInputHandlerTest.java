@@ -27,8 +27,8 @@ import android.view.MotionEvent;
 
 import com.android.documentsui.base.Procedure;
 import com.android.documentsui.dirlist.TestFocusHandler;
-import com.android.documentsui.selection.SelectionManager;
-import com.android.documentsui.testing.SelectionManagers;
+import com.android.documentsui.selection.SelectionHelper;
+import com.android.documentsui.testing.SelectionHelpers;
 import com.android.documentsui.testing.TestFeatures;
 
 import org.junit.Before;
@@ -40,7 +40,7 @@ import org.junit.runner.RunWith;
 public class SharedInputHandlerTest {
 
     private SharedInputHandler mSharedInputHandler;
-    private SelectionManager mSelectionMgr = SelectionManagers.createTestInstance();
+    private SelectionHelper mSelectionMgr = SelectionHelpers.createTestInstance();
     private TestFeatures mFeatures = new TestFeatures();
     private TestFocusHandler mFocusHandler = new TestFocusHandler();
     private boolean mDirPopHappened;
@@ -75,10 +75,10 @@ public class SharedInputHandlerTest {
 
     @Test
     public void testBackButton_CancelsSearch() {
-        mSelectionMgr.toggleSelection("1");
+        mSelectionMgr.select("1");
         mSharedInputHandler = new SharedInputHandler(
                 new TestFocusHandler(),
-                SelectionManagers.createTestInstance(),
+                SelectionHelpers.createTestInstance(),
                 () -> {
                         mCanceledSearch = true;
                         return true;
@@ -96,7 +96,7 @@ public class SharedInputHandlerTest {
 
     @Test
     public void testBackButton_ClearsSelection() {
-        mSelectionMgr.toggleSelection("1");
+        mSelectionMgr.select("1");
         assertEquals(mSelectionMgr.getSelection().size(), 1);
         KeyEvent backEvent =
                 new KeyEvent(0, 0, MotionEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0, 0);
@@ -120,10 +120,10 @@ public class SharedInputHandlerTest {
 
     @Test
     public void testEscButton_CancelsSearch() {
-        mSelectionMgr.toggleSelection("1");
+        mSelectionMgr.select("1");
         mSharedInputHandler = new SharedInputHandler(
                 new TestFocusHandler(),
-                SelectionManagers.createTestInstance(),
+                SelectionHelpers.createTestInstance(),
                 () -> {
                         mCanceledSearch = true;
                         return true;
@@ -141,7 +141,7 @@ public class SharedInputHandlerTest {
 
     @Test
     public void testEscButton_ClearsSelection() {
-        mSelectionMgr.toggleSelection("1");
+        mSelectionMgr.select("1");
         assertEquals(mSelectionMgr.getSelection().size(), 1);
         KeyEvent escapeEvent =
                 new KeyEvent(0, 0, MotionEvent.ACTION_DOWN, KeyEvent.KEYCODE_ESCAPE, 0, 0);

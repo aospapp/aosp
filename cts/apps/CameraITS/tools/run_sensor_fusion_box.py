@@ -82,10 +82,6 @@ def main():
         elif s[:8] == 'tmp_dir=' and len(s) > 8:
             tmp_dir = s[8:]
 
-    if camera_id not in ['0', '1']:
-        print 'Need to specify camera 0 or 1'
-        sys.exit()
-
     # Make output directories to hold the generated files.
     tmpdir = tempfile.mkdtemp(dir=tmp_dir)
     print 'Saving output files to:', tmpdir, '\n'
@@ -93,6 +89,12 @@ def main():
     device_id = its.device.get_device_id()
     device_id_arg = 'device=' + device_id
     print 'Testing device ' + device_id
+
+    # ensure camera_id is valid
+    avail_camera_ids = find_avail_camera_ids(device_id_arg, tmpdir)
+    if camera_id not in avail_camera_ids:
+        print 'Need to specify valid camera_id in ', avail_camera_ids
+        sys.exit()
 
     camera_id_arg = 'camera=' + camera_id
     if rotator_ids:
@@ -104,6 +106,7 @@ def main():
 
     fps_arg = 'fps=' + fps
     test_length_arg = 'test_length=' + test_length
+    print 'Capturing at %sfps' % fps
 
     os.mkdir(os.path.join(tmpdir, camera_id))
 
@@ -216,6 +219,19 @@ def find_matching_line(file_path, regex):
             if regex.match(line):
                 return line
     return None
+
+def find_avail_camera_ids(device_id_arg, tmpdir):
+    """Find the available camera IDs.
+
+    Args:
+        devices_id_arg(str):    device=###
+        tmpdir(str):            generated tmp dir for run
+    Returns:
+        list of available cameras
+    """
+    with its.device.ItsSession() as cam:
+        avail_camera_ids = cam.get_camera_ids()
+    return avail_camera_ids
 
 
 if __name__ == '__main__':

@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Iki-clear ba ang lahat ng impormasyon at contact?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Makakatulong ang pagdaragdag ng medikal na impormasyon at mga pang-emergency na contact sa mga unang reresponde sa isang emergency.\n\nMababasa ng sinuman ang impormasyong ito mula sa iyong lock screen, at mada-dial ang mga contact mo sa pamamagitan ng pag-tap sa kanilang mga pangalan, nang hindi ina-unlock ang iyong telepono."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Magdagdag ng impormasyong pang-emergency"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Tulungan ang mga unang tutugon na maghanap ng mahalagang impormasyon"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Hayaang makita ng unang reresponde ang impormasyon mo"</string>
 </resources>

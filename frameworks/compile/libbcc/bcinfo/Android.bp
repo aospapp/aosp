@@ -67,20 +67,12 @@ cc_library_shared {
     target: {
         windows: {
             enabled: true,
-            shared_libs: ["libLLVM"],
+            shared_libs: ["libLLVM_android"],
         },
         darwin: {
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
-            ],
-            shared_libs: ["libLLVM"],
+            shared_libs: ["libLLVM_android"],
         },
-        linux: {
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
-            ],
+        linux_glibc: {
             allow_undefined_symbols: true,
         },
         host: {

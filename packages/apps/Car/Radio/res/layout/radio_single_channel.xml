@@ -24,23 +24,20 @@ limitations under the License.
 
     <TextView
         android:id="@+id/radio_station_channel"
-        android:layout_marginEnd="@dimen/stream_content_keyline_1"
+        android:layout_marginEnd="@dimen/car_keyline_1"
         android:layout_marginTop="@dimen/car_radio_station_top_margin"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentTop="true"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         style="@style/RadioStationChannelText" />
 
     <!-- Using a negative margin start on this View so that it starts off flushed to the
          end of radio_station_channel. This is needed because radio_station_channel needs
-         to be a distance of stream_content_keyline_2 from the end of its parent. -->
+         to be a distance of car_keyline_2 from the end of its parent. -->
     <TextView
         android:id="@+id/radio_station_band"
         android:layout_alignBaseline="@id/radio_station_channel"
-        android:layout_gravity="bottom|end"
         android:layout_toEndOf="@id/radio_station_channel"
-        android:layout_marginStart="@dimen/stream_content_keyline_1_neg"
+        android:layout_marginStart="@dimen/car_keyline_1_neg"
         android:layout_marginTop="@dimen/car_radio_station_top_margin"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

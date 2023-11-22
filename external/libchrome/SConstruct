@@ -270,7 +270,6 @@ base_libs = [
     'name' : 'crypto',
     'sources' : """
                 hmac.cc
-                hmac_nss.cc
                 nss_key_util.cc
                 nss_util.cc
                 openssl_util.cc
@@ -283,57 +282,15 @@ base_libs = [
                 secure_hash.cc
                 secure_util.cc
                 sha2.cc
-                signature_creator_nss.cc
-                signature_verifier_nss.cc
-                symmetric_key_nss.cc
+                signature_creator.cc
+                signature_verifier.cc
+                symmetric_key.cc
                 third_party/nss/rsawrapr.c
                 third_party/nss/sha512.cc
                 """,
     'prefix' : 'crypto',
     'libs' : '%s-dl-%s' % (base_name, BASE_VER),
     'pc_libs' : 'nss openssl',
-  },
-  {
-    'name' : 'sandbox',
-    'sources' : """
-                linux/bpf_dsl/bpf_dsl.cc
-                linux/bpf_dsl/codegen.cc
-                linux/bpf_dsl/dump_bpf.cc
-                linux/bpf_dsl/policy.cc
-                linux/bpf_dsl/policy_compiler.cc
-                linux/bpf_dsl/syscall_set.cc
-                linux/bpf_dsl/verifier.cc
-                linux/seccomp-bpf/die.cc
-                linux/seccomp-bpf/sandbox_bpf.cc
-                linux/seccomp-bpf/syscall.cc
-                linux/seccomp-bpf/trap.cc
-
-                linux/seccomp-bpf-helpers/baseline_policy.cc
-                linux/seccomp-bpf-helpers/sigsys_handlers.cc
-                linux/seccomp-bpf-helpers/syscall_parameters_restrictions.cc
-                linux/seccomp-bpf-helpers/syscall_sets.cc
-
-                linux/services/init_process_reaper.cc
-                linux/services/proc_util.cc
-                linux/services/resource_limits.cc
-                linux/services/scoped_process.cc
-                linux/services/syscall_wrappers.cc
-                linux/services/thread_helpers.cc
-                linux/services/yama.cc
-                linux/syscall_broker/broker_channel.cc
-                linux/syscall_broker/broker_client.cc
-                linux/syscall_broker/broker_file_permission.cc
-                linux/syscall_broker/broker_host.cc
-                linux/syscall_broker/broker_policy.cc
-                linux/syscall_broker/broker_process.cc
-
-                linux/services/credentials.cc
-                linux/services/namespace_sandbox.cc
-                linux/services/namespace_utils.cc
-                """,
-    'prefix' : 'sandbox',
-    'libs' : '',
-    'pc_libs' : '',
   },
 ]
 

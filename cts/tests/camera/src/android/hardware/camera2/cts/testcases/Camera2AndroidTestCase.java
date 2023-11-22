@@ -27,6 +27,7 @@ import android.hardware.camera2.CameraCaptureSession.CaptureCallback;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.params.OutputConfiguration;
 import android.util.Size;
 import android.hardware.camera2.cts.CameraTestUtils;
 import android.hardware.camera2.cts.helpers.CameraErrorCollector;
@@ -48,6 +49,8 @@ import com.android.ex.camera2.blocking.BlockingStateCallback;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 public class Camera2AndroidTestCase extends AndroidTestCase {
@@ -66,6 +69,7 @@ public class Camera2AndroidTestCase extends AndroidTestCase {
     protected BlockingSessionCallback mCameraSessionListener;
     protected BlockingStateCallback mCameraListener;
     protected String[] mCameraIds;
+    protected HashMap<String, StaticMetadata> mAllStaticInfo;
     protected ImageReader mReader;
     protected Surface mReaderSurface;
     protected Handler mHandler;
@@ -109,10 +113,26 @@ public class Camera2AndroidTestCase extends AndroidTestCase {
         mHandler = new Handler(mHandlerThread.getLooper());
         mCameraListener = new BlockingStateCallback();
         mCollector = new CameraErrorCollector();
+
+        mAllStaticInfo = new HashMap<String, StaticMetadata>();
+        for (String cameraId : mCameraIds) {
+            StaticMetadata staticMetadata = new StaticMetadata(
+                    mCameraManager.getCameraCharacteristics(cameraId),
+                    CheckLevel.ASSERT, /*collector*/null);
+            mAllStaticInfo.put(cameraId, staticMetadata);
+        }
     }
 
     @Override
     protected void tearDown() throws Exception {
+        String[] cameraIdsPostTest = mCameraManager.getCameraIdList();
+        assertNotNull("Camera ids shouldn't be null", cameraIdsPostTest);
+        Log.i(TAG, "Camera ids in setup:" + Arrays.toString(mCameraIds));
+        Log.i(TAG, "Camera ids in tearDown:" + Arrays.toString(cameraIdsPostTest));
+        assertTrue(
+                "Number of cameras changed from " + mCameraIds.length + " to " +
+                cameraIdsPostTest.length,
+                mCameraIds.length == cameraIdsPostTest.length);
         mHandlerThread.quitSafely();
         mHandler = null;
         closeDefaultImageReader();
@@ -213,6 +233,18 @@ public class Camera2AndroidTestCase extends AndroidTestCase {
     protected void createSession(List<Surface> outputSurfaces) throws Exception {
         mCameraSessionListener = new BlockingSessionCallback();
         mCameraSession = CameraTestUtils.configureCameraSession(mCamera, outputSurfaces,
+                mCameraSessionListener, mHandler);
+    }
+
+    /**
+     * Create a {@link #CameraCaptureSession} using the currently open camera with
+     * OutputConfigurations.
+     *
+     * @param outputSurfaces The set of output surfaces to configure for this session
+     */
+    protected void createSessionByConfigs(List<OutputConfiguration> outputConfigs) throws Exception {
+        mCameraSessionListener = new BlockingSessionCallback();
+        mCameraSession = CameraTestUtils.configureCameraSessionWithConfig(mCamera, outputConfigs,
                 mCameraSessionListener, mHandler);
     }
 

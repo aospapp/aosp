@@ -37,7 +37,8 @@ HostConnection::HostConnection() :
     m_rcEnc(NULL),
     m_checksumHelper(),
     m_glExtensions(),
-    m_grallocOnly(true)
+    m_grallocOnly(true),
+    m_noHostError(false)
 {
 }
 
@@ -146,6 +147,7 @@ GL2Encoder *HostConnection::gl2Encoder()
         m_gl2Enc = new GL2Encoder(m_stream, checksumHelper());
         DBG("HostConnection::gl2Encoder new encoder %p, tid %d", m_gl2Enc, gettid());
         m_gl2Enc->setContextAccessor(s_getGL2Context);
+        m_gl2Enc->setNoHostError(m_noHostError);
     }
     return m_gl2Enc;
 }
@@ -158,6 +160,7 @@ ExtendedRCEncoderContext *HostConnection::rcEncoder()
         queryAndSetSyncImpl(m_rcEnc);
         queryAndSetDmaImpl(m_rcEnc);
         queryAndSetGLESMaxVersion(m_rcEnc);
+        queryAndSetNoErrorState(m_rcEnc);
         processPipeInit(m_rcEnc);
     }
     return m_rcEnc;
@@ -233,8 +236,10 @@ void HostConnection::queryAndSetSyncImpl(ExtendedRCEncoderContext *rcEnc) {
 #if PLATFORM_SDK_VERSION <= 16 || (!defined(__i386__) && !defined(__x86_64__))
     rcEnc->setSyncImpl(SYNC_IMPL_NONE);
 #else
-    if (glExtensions.find(kRCNativeSync) != std::string::npos) {
-        rcEnc->setSyncImpl(SYNC_IMPL_NATIVE_SYNC);
+    if (glExtensions.find(kRCNativeSyncV3) != std::string::npos) {
+        rcEnc->setSyncImpl(SYNC_IMPL_NATIVE_SYNC_V3);
+    } else if (glExtensions.find(kRCNativeSyncV2) != std::string::npos) {
+        rcEnc->setSyncImpl(SYNC_IMPL_NATIVE_SYNC_V2);
     } else {
         rcEnc->setSyncImpl(SYNC_IMPL_NONE);
     }
@@ -268,5 +273,12 @@ void HostConnection::queryAndSetGLESMaxVersion(ExtendedRCEncoderContext* rcEnc) 
         ALOGW("Unrecognized GLES max version string in extensions: %s",
               glExtensions.c_str());
         rcEnc->setGLESMaxVersion(GLES_MAX_VERSION_2);
+    }
+}
+
+void HostConnection::queryAndSetNoErrorState(ExtendedRCEncoderContext* rcEnc) {
+    std::string glExtensions = queryGLExtensions(rcEnc);
+    if (glExtensions.find(kGLESNoHostError) != std::string::npos) {
+        m_noHostError = true;
     }
 }

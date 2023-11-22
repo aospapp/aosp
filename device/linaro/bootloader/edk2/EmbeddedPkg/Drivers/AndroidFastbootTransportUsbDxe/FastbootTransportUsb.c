@@ -247,11 +247,24 @@ FastbootTransportUsbReceive (
   return EFI_SUCCESS;
 }
 
+EFI_STATUS
+FastbootTransportUsbRequestReceive (
+  IN UINTN   BufferSize
+  )
+{
+DEBUG ((DEBUG_ERROR, "#%a, %d, BufferSize:%d\n", __func__, __LINE__, BufferSize));
+  if (mUsbDevice->Request) {
+    return mUsbDevice->Request (BufferSize);
+  }
+  return EFI_SUCCESS;
+}
+
 STATIC FASTBOOT_TRANSPORT_PROTOCOL mTransportProtocol = {
   FastbootTransportUsbStart,
   FastbootTransportUsbStop,
   FastbootTransportUsbSend,
-  FastbootTransportUsbReceive
+  FastbootTransportUsbReceive,
+  FastbootTransportUsbRequestReceive
 };
 
 EFI_STATUS

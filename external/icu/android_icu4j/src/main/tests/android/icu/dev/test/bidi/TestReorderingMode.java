@@ -15,6 +15,7 @@ import java.util.Arrays;
 import org.junit.Test;
 
 import android.icu.text.Bidi;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Regression test for variants to the UBA.
@@ -22,6 +23,7 @@ import android.icu.text.Bidi;
  * @author Lina Kemmel, Matitiahu Allouche
  */
 
+@MainTestShard
 public class TestReorderingMode extends BidiFmwk {
 
     static final String[] textIn = {

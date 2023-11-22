@@ -20,16 +20,17 @@ import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
+import com.android.tradefed.util.IDisableable;
 
 /**
  * Prepares the test environment for several devices together. Only use for a setup that requires
  * multiple devices, otherwise use the regular {@link ITargetPreparer} on each device.
- * <p/>
- * Note that multiple {@link IMultiTargetPreparer}s can be specified in a configuration. It is
- * recommended that each IMultiTargetPreparer clearly document its expected environment
- * pre-setup and post-setUp.
+ *
+ * <p>Note that multiple {@link IMultiTargetPreparer}s can be specified in a configuration. It is
+ * recommended that each IMultiTargetPreparer clearly document its expected environment pre-setup
+ * and post-setUp.
  */
-public interface IMultiTargetPreparer {
+public interface IMultiTargetPreparer extends IDisableable {
 
     /**
      * Perform the targets setup for testing.

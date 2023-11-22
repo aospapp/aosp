@@ -15,13 +15,22 @@
 #
 
 LOCAL_PATH := $(call my-dir)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := LongevityHostLibSamples
+LOCAL_STATIC_JAVA_LIBRARIES := longevity-host-lib
+LOCAL_SRC_FILES := $(call all-java-files-under, src/android/longevity/core)
+include $(BUILD_HOST_JAVA_LIBRARY)
+
+######################################
+
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
-LOCAL_PACKAGE_NAME := LongevityLibSamples
+LOCAL_PACKAGE_NAME := LongevityPlatformLibSamples
 LOCAL_SDK_VERSION := 24
-LOCAL_STATIC_JAVA_LIBRARIES := longevity-lib guava
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
-
+LOCAL_STATIC_JAVA_LIBRARIES := longevity-device-lib
+LOCAL_SRC_FILES := $(call all-java-files-under, src/android/longevity/platform)
 include $(BUILD_PACKAGE)
 

@@ -20,6 +20,7 @@ package org.apache.harmony.jpda.tests.jdwp.StackFrame;
 
 import org.apache.harmony.jpda.tests.framework.TestErrorException;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
+import org.apache.harmony.jpda.tests.framework.jdwp.Frame;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
@@ -235,7 +236,7 @@ public class JDWPStackFrameAccessTest extends JDWPStackFrameTestCase {
             assertTrue("No method " + testMethodName, testMethodID != -1);
             boolean isSuspensionMethod = (methodInfo == suspensionMethodInfo);
 
-            VarInfo[] variables = jdwpGetVariableTable(classID, testMethodID);
+            Frame.Variable[] variables = jdwpGetVariableTable(classID, testMethodID);
             assertNotNull("No variable table for method " + testMethodName, variables);
 
             // Find the frame for the tested method.
@@ -250,7 +251,7 @@ public class JDWPStackFrameAccessTest extends JDWPStackFrameTestCase {
             for (VariableInfo variableInfo : testedVariables) {
                 String variableName = variableInfo.getVariableName();
 
-                VarInfo testVarInfo = getVariableInfo(variables, variableName);
+                Frame.Variable testVarInfo = getVariableInfo(variables, variableName);
                 assertNotNull("No variable info for \"" + variableName + "\"", testVarInfo);
 
                 logWriter.println("Checking value for variable \"" + variableName + "\"");
@@ -366,7 +367,7 @@ public class JDWPStackFrameAccessTest extends JDWPStackFrameTestCase {
     }
 
     /**
-     * Returns the {@link VarInfo} of the given variable in the given method.
+     * Returns the {@link Frame.Variable} of the given variable in the given method.
      *
      * @param classID
      *          the ID of the declaring class of the method
@@ -375,14 +376,14 @@ public class JDWPStackFrameAccessTest extends JDWPStackFrameTestCase {
      * @param variableName
      *          the name of the variable we look for
      */
-    protected VarInfo getVariableInfo(long classID, long methodID, String variableName) {
-        VarInfo[] variables = jdwpGetVariableTable(classID, methodID);
+    protected Frame.Variable getVariableInfo(long classID, long methodID, String variableName) {
+        Frame.Variable[] variables = jdwpGetVariableTable(classID, methodID);
         return getVariableInfo(variables, variableName);
     }
 
-    protected VarInfo getVariableInfo(VarInfo[] variables, String variableName) {
-        for (VarInfo variable : variables) {
-            if (variable.name.equals(variableName)) {
+    protected Frame.Variable getVariableInfo(Frame.Variable[] variables, String variableName) {
+        for (Frame.Variable variable : variables) {
+            if (variable.getName().equals(variableName)) {
                 return variable;
             }
         }

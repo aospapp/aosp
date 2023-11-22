@@ -23,8 +23,14 @@
     -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
     <application>
         <uses-library android:name="android.test.runner" />
+
+        <provider
+            android:name="com.android.cts.appwithdata.MyProvider"
+            android:authorities="com.android.cts.appwithdata"
+            android:exported="true" />
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

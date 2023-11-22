@@ -30,8 +30,9 @@ public class URLUtilTest extends AndroidTestCase {
     private final String VALID_CONTENT_URL = "content://test";
     private final String VALID_DATA_URL = "data://test";
     private final String VALID_ABOUT_URL = "about://test";
-    private final String VALID_FILE_URL = "file://test";
+    private final String VALID_FILE_URL = "file:///test";
     private final String VALID_FTP_URL = "ftp://www.domain.com";
+    private final String FILE_URL_NO_SLASH = "file:test";
 
     public void testIsAssetUrl() {
         assertFalse(URLUtil.isAssetUrl(null));
@@ -70,6 +71,9 @@ public class URLUtilTest extends AndroidTestCase {
         assertFalse(URLUtil.isFileUrl(VALID_ASSET_URL));
         assertFalse(URLUtil.isFileUrl(VALID_PROXY_URL));
         assertTrue(URLUtil.isFileUrl(VALID_FILE_URL));
+        // Because chromium treats this a file URL, we should make sure {@link URLUtil#isFileUrl}
+        // agrees.
+        assertTrue(URLUtil.isFileUrl(FILE_URL_NO_SLASH));
     }
 
     public void testIsHttpsUrl() {

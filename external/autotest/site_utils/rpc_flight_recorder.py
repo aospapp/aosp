@@ -225,7 +225,7 @@ class AfeMonitor(object):
         metric_fields['failure_reason'] = ''
 
         with metrics.SecondsTimer(METRIC_RPC_CALL_DURATIONS,
-                fields=dict(metric_fields)) as f:
+                fields=dict(metric_fields), scale=0.001) as f:
 
             msg_str = "%s:%s" % (self._hostname, cmd)
 

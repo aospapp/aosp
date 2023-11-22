@@ -6,6 +6,8 @@ import logging
 import os
 import sys
 
+from autotest_lib.client.common_lib import utils
+
 
 class ImageGenerator(object):
     """A class to generate the calibration images with different sizes.
@@ -34,14 +36,24 @@ class ImageGenerator(object):
 
         @param width: The width of the image.
         @param height: The height of the image.
-        @param filename: The filename to output.
+        @param filename: The filename to output, svg file or other format.
         """
-        with open(filename, 'w+') as f:
+        if filename.endswith('.svg'):
+            filename_svg = filename
+        else:
+            filename_svg = filename + '.svg'
+
+        with open(filename_svg, 'w+') as f:
             logging.debug('Generate the image with size %dx%d to %s',
-                          width, height, filename)
+                          width, height, filename_svg)
             f.write(self._image_template.format(
                     scale_width=float(width)/self.TEMPLATE_WIDTH,
                     scale_height=float(height)/self.TEMPLATE_HEIGHT))
+
+        # Convert to different format if needed.
+        if filename_svg != filename:
+            utils.run('convert %s %s' % (filename_svg, filename))
+
 
     @staticmethod
     def get_extrema(image):

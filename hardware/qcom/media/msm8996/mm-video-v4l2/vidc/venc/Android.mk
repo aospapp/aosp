@@ -89,9 +89,9 @@ LOCAL_ADDITIONAL_DEPENDENCIES   := $(libmm-venc-add-dep)
 
 LOCAL_PRELINK_MODULE      := false
 LOCAL_SHARED_LIBRARIES    := liblog libutils libbinder libcutils \
-                             libc2dcolorconvert libdl libgui
+                             libc2dcolorconvert libdl
 LOCAL_SHARED_LIBRARIES    += libqdMetaData
-LOCAL_HEADER_LIBRARIES    := copybit_headers gralloc_headers
+LOCAL_HEADER_LIBRARIES    := copybit_headers gralloc_headers media_plugin_headers
 LOCAL_STATIC_LIBRARIES    := libOmxVidcCommon
 
 LOCAL_SRC_FILES   := src/omx_video_base.cpp
@@ -119,7 +119,7 @@ LOCAL_ADDITIONAL_DEPENDENCIES   := $(libmm-venc-add-dep)
 
 LOCAL_PRELINK_MODULE      := false
 LOCAL_SHARED_LIBRARIES    := liblog libutils libbinder libcutils \
-                             libc2dcolorconvert libdl libgui
+                             libc2dcolorconvert libdl
 LOCAL_SHARED_LIBRARIES    += libMpeg4SwEncoder
 LOCAL_STATIC_LIBRARIES    := libOmxVidcCommon
 
@@ -146,8 +146,9 @@ LOCAL_ADDITIONAL_DEPENDENCIES   := $(libmm-venc-add-dep)
 
 LOCAL_PRELINK_MODULE      := false
 LOCAL_SHARED_LIBRARIES    := liblog libutils libbinder libcutils \
-                             libc2dcolorconvert libdl libgui
+                             libc2dcolorconvert libdl
 LOCAL_SHARED_LIBRARIES    += libHevcSwEncoder
+LOCAL_HEADER_LIBRARIES    := media_plugin_headers
 LOCAL_STATIC_LIBRARIES    := libOmxVidcCommon
 
 LOCAL_SRC_FILES   := src/omx_video_base.cpp

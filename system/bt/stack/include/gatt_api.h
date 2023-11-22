@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -63,6 +63,9 @@
 #define GATT_NOT_ENCRYPTED 0x8e
 #define GATT_CONGESTED 0x8f
 
+#define GATT_DUP_REG 0x90      /* 0x90 */
+#define GATT_ALREADY_OPEN 0x91 /* 0x91 */
+#define GATT_CANCEL 0x92       /* 0x92 */
 /* 0xE0 ~ 0xFC reserved for future use */
 
 /* Client Characteristic Configuration Descriptor Improperly Configured */
@@ -290,7 +293,6 @@ typedef struct {
 #define GATT_CLT_CONFIG_NONE 0x0000
 #define GATT_CLT_CONFIG_NOTIFICATION 0x0001
 #define GATT_CLT_CONFIG_INDICATION 0x0002
-typedef uint16_t tGATT_CLT_CHAR_CONFIG;
 
 /* characteristic descriptor: server configuration value
 */
@@ -411,7 +413,7 @@ typedef uint8_t tGATT_DISC_TYPE;
 /* Discover parameters of different discovery types
 */
 typedef struct {
-  tBT_UUID service;
+  bluetooth::Uuid service;
   uint16_t s_handle;
   uint16_t e_handle;
 } tGATT_DISC_PARAM;
@@ -434,7 +436,7 @@ typedef struct {
   tGATT_AUTH_REQ auth_req;
   uint16_t s_handle;
   uint16_t e_handle;
-  tBT_UUID uuid;
+  bluetooth::Uuid uuid;
 } tGATT_READ_BY_TYPE;
 
 /*   GATT_READ_MULTIPLE request data
@@ -499,20 +501,20 @@ typedef uint8_t tGATTC_OPTYPE;
 typedef struct {
   tGATT_CHAR_PROP char_prop; /* characterisitc properties */
   uint16_t val_handle;       /* characteristic value attribute handle */
-  tBT_UUID char_uuid;        /* characteristic UUID type */
+  bluetooth::Uuid char_uuid; /* characteristic UUID type */
 } tGATT_CHAR_DCLR_VAL;
 
 /* primary service group data
 */
 typedef struct {
   uint16_t e_handle;     /* ending handle of the group */
-  tBT_UUID service_type; /* group type */
+  bluetooth::Uuid service_type; /* group type */
 } tGATT_GROUP_VALUE;
 
 /* included service attribute value
 */
 typedef struct {
-  tBT_UUID service_type; /* included service UUID */
+  bluetooth::Uuid service_type; /* included service UUID */
   uint16_t s_handle;     /* starting handle */
   uint16_t e_handle;     /* ending handle */
 } tGATT_INCL_SRVC;
@@ -535,7 +537,7 @@ typedef union {
 /* discover result record
 */
 typedef struct {
-  tBT_UUID type;
+  bluetooth::Uuid type;
   uint16_t handle;
   tGATT_DISC_VALUE value;
 } tGATT_DISC_RES;
@@ -605,8 +607,8 @@ typedef struct {
 /*****************  Start Handle Management Definitions   *********************/
 
 typedef struct {
-  tBT_UUID app_uuid128;
-  tBT_UUID svc_uuid;
+  bluetooth::Uuid app_uuid128;
+  bluetooth::Uuid svc_uuid;
   uint16_t s_handle;
   uint16_t e_handle;
   bool is_primary; /* primary service or secondary */
@@ -687,10 +689,6 @@ extern void GATTS_AddHandleRange(tGATTS_HNDL_RANGE* p_hndl_range);
  ******************************************************************************/
 extern bool GATTS_NVRegister(tGATT_APPL_INFO* p_cb_info);
 
-/* Converts 16bit uuid to bt_uuid_t that can be used when adding
- * service/characteristic/descriptor with GATTS_AddService */
-void uuid_128_from_16(bt_uuid_t* uuid, uint16_t uuid16);
-
 /*******************************************************************************
  *
  * Function         BTA_GATTS_AddService
@@ -725,7 +723,7 @@ extern uint16_t GATTS_AddService(tGATT_IF gatt_if, btgatt_db_element_t* service,
  * Returns          true if operation succeed, else false
  *
  ******************************************************************************/
-extern bool GATTS_DeleteService(tGATT_IF gatt_if, tBT_UUID* p_svc_uuid,
+extern bool GATTS_DeleteService(tGATT_IF gatt_if, bluetooth::Uuid* p_svc_uuid,
                                 uint16_t svc_inst);
 
 /*******************************************************************************
@@ -931,7 +929,8 @@ extern void GATT_SetIdleTimeout(const RawAddress& bd_addr, uint16_t idle_tout,
  *                  with GATT
  *
  ******************************************************************************/
-extern tGATT_IF GATT_Register(tBT_UUID* p_app_uuid128, tGATT_CBACK* p_cb_info);
+extern tGATT_IF GATT_Register(const bluetooth::Uuid& p_app_uuid128,
+                              tGATT_CBACK* p_cb_info);
 
 /*******************************************************************************
  *

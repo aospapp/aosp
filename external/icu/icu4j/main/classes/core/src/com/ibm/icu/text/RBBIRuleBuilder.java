@@ -25,17 +25,17 @@ class RBBIRuleBuilder {
     //   This is the main class for building (compiling) break rules into the tables
     //    required by the runtime RBBI engine.
     //
-    
+
     String fDebugEnv;              // controls debug trace output
     String fRules;                 // The rule string that we are compiling
     RBBIRuleScanner fScanner;      // The scanner.
 
-    
+
     //
     //  There are four separate parse trees generated, one for each of the
     //    forward rules, reverse rules, safe forward rules and safe reverse rules.
     //  This array references the root of each of the trees.
-    //  
+    //
     RBBINode[]         fTreeRoots = new RBBINode[4];
     static final int   fForwardTree = 0;  // Indexes into the above fTreeRoots array
     static final int   fReverseTree = 1;  //   for each of the trees.
@@ -69,7 +69,7 @@ class RBBIRuleBuilder {
                                                                                    //  Map Value is the runtime array index.
 
     List<Integer> fRuleStatusVals;        // List of Integer objects.  Has same layout as the
-                                          //   runtime array of status (tag) values - 
+                                          //   runtime array of status (tag) values -
                                           //     number of values in group 1
                                           //        first status value in group 1
                                           //        2nd status value in group 1
@@ -84,50 +84,50 @@ class RBBIRuleBuilder {
     //
     static final int U_BRK_ERROR_START = 0x10200;
     /**< Start of codes indicating Break Iterator failures */
-    
+
     static final int U_BRK_INTERNAL_ERROR = 0x10201;
     /**< An internal error (bug) was detected.             */
-    
+
     static final int U_BRK_HEX_DIGITS_EXPECTED = 0x10202;
     /**< Hex digits expected as part of a escaped char in a rule. */
-    
+
     static final int U_BRK_SEMICOLON_EXPECTED = 0x10203;
     /**< Missing ';' at the end of a RBBI rule.            */
-    
+
     static final int U_BRK_RULE_SYNTAX = 0x10204;
     /**< Syntax error in RBBI rule.                        */
-    
+
     static final int U_BRK_UNCLOSED_SET = 0x10205;
     /**< UnicodeSet witing an RBBI rule missing a closing ']'.  */
-    
+
     static final int U_BRK_ASSIGN_ERROR = 0x10206;
     /**< Syntax error in RBBI rule assignment statement.   */
-    
+
     static final int U_BRK_VARIABLE_REDFINITION = 0x10207;
     /**< RBBI rule $Variable redefined.                    */
-    
+
     static final int U_BRK_MISMATCHED_PAREN = 0x10208;
     /**< Mis-matched parentheses in an RBBI rule.          */
-    
+
     static final int U_BRK_NEW_LINE_IN_QUOTED_STRING = 0x10209;
     /**< Missing closing quote in an RBBI rule.            */
-    
+
     static final int U_BRK_UNDEFINED_VARIABLE = 0x1020a;
     /**< Use of an undefined $Variable in an RBBI rule.    */
-    
+
     static final int U_BRK_INIT_ERROR = 0x1020b;
     /**< Initialization failure.  Probable missing ICU Data. */
-    
+
     static final int U_BRK_RULE_EMPTY_SET = 0x1020c;
     /**< Rule contains an empty Unicode Set.               */
-    
+
     static final int U_BRK_UNRECOGNIZED_OPTION = 0x1020d;
     /**< !!option in RBBI rules not recognized.            */
-    
+
     static final int U_BRK_MALFORMED_RULE_TAG = 0x1020e;
     /**< The {nnn} tag on a rule is mal formed             */
     static final int U_BRK_MALFORMED_SET = 0x1020f;
-    
+
     static final int U_BRK_ERROR_LIMIT = 0x10210;
     /**< This must always be the last value to indicate the limit for Break Iterator failures */
 
@@ -176,14 +176,18 @@ class RBBIRuleBuilder {
         int headerSize       = 24 * 4;     // align8(sizeof(RBBIDataHeader));
         int forwardTableSize = align8(fForwardTables.getTableSize());
         int reverseTableSize = align8(fReverseTables.getTableSize());
-        int safeFwdTableSize = align8(fSafeFwdTables.getTableSize());
+        // int safeFwdTableSize = align8(fSafeFwdTables.getTableSize());
         int safeRevTableSize = align8(fSafeRevTables.getTableSize());
         int trieSize         = align8(fSetBuilder.getTrieSize());
         int statusTableSize  = align8(fRuleStatusVals.size() * 4);
         int rulesSize        = align8((strippedRules.length()) * 2);
-        int totalSize        = headerSize + forwardTableSize + reverseTableSize
-                                + safeFwdTableSize + safeRevTableSize
-                                + statusTableSize + trieSize + rulesSize;
+
+        int totalSize = headerSize
+                + forwardTableSize
+                + /* reverseTableSize */ 0
+                + /* safeFwdTableSize */ 0
+                + (safeRevTableSize > 0 ? safeRevTableSize : reverseTableSize)
+                + statusTableSize + trieSize + rulesSize;
         int outputPos = 0;               // Track stream position, starting from RBBIDataHeader.
 
         //
@@ -196,21 +200,43 @@ class RBBIRuleBuilder {
         //
         int[] header = new int[RBBIDataWrapper.DH_SIZE];                 // sizeof struct RBBIDataHeader
         header[RBBIDataWrapper.DH_MAGIC]         = 0xb1a0;
-        header[RBBIDataWrapper.DH_FORMATVERSION] = 0x03010000;           // uint8_t fFormatVersion[4];
+        header[RBBIDataWrapper.DH_FORMATVERSION] = RBBIDataWrapper.FORMAT_VERSION;
         header[RBBIDataWrapper.DH_LENGTH]        = totalSize;            // fLength, the total size of all rule sections.
         header[RBBIDataWrapper.DH_CATCOUNT]      = fSetBuilder.getNumCharCategories(); // fCatCount.
+
+        // Only save the forward table and the safe reverse table,
+        // because these are the only ones used at run-time.
+        //
+        // For the moment, we still build the other tables if they are present in the rule source files,
+        // for backwards compatibility. Old rule files need to work, and this is the simplest approach.
+        //
+        // Additional backwards compatibility consideration: if no safe rules are provided, consider the
+        // reverse rules to actually be the safe reverse rules.
+
         header[RBBIDataWrapper.DH_FTABLE]        = headerSize;           // fFTable
         header[RBBIDataWrapper.DH_FTABLELEN]     = forwardTableSize;     // fTableLen
+
+        // Do not save Reverse Table.
         header[RBBIDataWrapper.DH_RTABLE]        = header[RBBIDataWrapper.DH_FTABLE] + forwardTableSize; // fRTable
-        header[RBBIDataWrapper.DH_RTABLELEN]     = reverseTableSize;     // fRTableLen
+        header[RBBIDataWrapper.DH_RTABLELEN]     = 0;                    // fRTableLen
+
+        // Do not save the Safe Forward table.
         header[RBBIDataWrapper.DH_SFTABLE]       = header[RBBIDataWrapper.DH_RTABLE]
-                                                     + reverseTableSize; // fSTable
-        header[RBBIDataWrapper.DH_SFTABLELEN]    = safeFwdTableSize;     // fSTableLen
+                                                     + 0;                // fSTable
+        header[RBBIDataWrapper.DH_SFTABLELEN]    = 0;                    // fSTableLen
+
+        // Safe reverse table. Use if present, otherwise save regular reverse table as the safe reverse.
         header[RBBIDataWrapper.DH_SRTABLE]       = header[RBBIDataWrapper.DH_SFTABLE]
-                                                     + safeFwdTableSize; // fSRTable
-        header[RBBIDataWrapper.DH_SRTABLELEN]    = safeRevTableSize;     // fSRTableLen
+                                                     + 0;                // fSRTable
+        if (safeRevTableSize > 0) {
+            header[RBBIDataWrapper.DH_SRTABLELEN] = safeRevTableSize;
+        } else {
+            assert reverseTableSize > 0;
+            header[RBBIDataWrapper.DH_SRTABLELEN] = reverseTableSize;
+        }
+
         header[RBBIDataWrapper.DH_TRIE]          = header[RBBIDataWrapper.DH_SRTABLE]
-                                                     + safeRevTableSize; // fTrie
+                                                     + header[RBBIDataWrapper.DH_SRTABLELEN]; // fTrie
         header[RBBIDataWrapper.DH_TRIELEN]       = fSetBuilder.getTrieSize(); // fTrieLen
         header[RBBIDataWrapper.DH_STATUSTABLE]   = header[RBBIDataWrapper.DH_TRIE]
                                                      + header[RBBIDataWrapper.DH_TRIELEN];
@@ -232,22 +258,32 @@ class RBBIRuleBuilder {
             outputPos += 2;
         }
 
+        /* do not write the reverse table
         tableData = fReverseTables.exportTable();
         Assert.assrt(outputPos == header[6]);
         for (i = 0; i < tableData.length; i++) {
             dos.writeShort(tableData[i]);
             outputPos += 2;
         }
+        */
 
+        /* do not write safe forwards table
         Assert.assrt(outputPos == header[8]);
         tableData = fSafeFwdTables.exportTable();
         for (i = 0; i < tableData.length; i++) {
             dos.writeShort(tableData[i]);
             outputPos += 2;
         }
+        */
 
+        // Write the safe reverse table.
+        // If not present, write the plain reverse table (old style rule compatibility)
         Assert.assrt(outputPos == header[10]);
-        tableData = fSafeRevTables.exportTable();
+        if (safeRevTableSize > 0) {
+            tableData = fSafeRevTables.exportTable();
+        } else {
+            tableData = fReverseTables.exportTable();
+        }
         for (i = 0; i < tableData.length; i++) {
             dos.writeShort(tableData[i]);
             outputPos += 2;

@@ -144,7 +144,7 @@ public class IsCollectedTest extends JDWPSyncTestCase {
         logWriter
                 .println("=> Send to Debuggee signal to continue and try to unload checked objects...");
         finalSyncMessage = null;
-        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
+        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE + "2");  // flag value
         String messageFromDebuggee = synchronizer.receiveMessage();
         logWriter.println("\n=> Received message from Debuggee = \""
                 + messageFromDebuggee + "\"");

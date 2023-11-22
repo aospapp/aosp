@@ -31,7 +31,6 @@
 #include <android-base/strings.h>
 #include <cutils/log.h>
 
-#include "Fwmark.h"
 #include "NetdConstants.h"
 #include "Permission.h"
 #include "SockDiag.h"
@@ -93,7 +92,7 @@ bool SockDiag::open() {
     return true;
 }
 
-int SockDiag::sendDumpRequest(uint8_t proto, uint8_t family, uint32_t states,
+int SockDiag::sendDumpRequest(uint8_t proto, uint8_t family, uint8_t extensions, uint32_t states,
                               iovec *iov, int iovcnt) {
     struct {
         nlmsghdr nlh;
@@ -106,6 +105,7 @@ int SockDiag::sendDumpRequest(uint8_t proto, uint8_t family, uint32_t states,
         .req = {
             .sdiag_family = family,
             .sdiag_protocol = proto,
+            .idiag_ext = extensions,
             .idiag_states = states,
         },
     };
@@ -129,7 +129,7 @@ int SockDiag::sendDumpRequest(uint8_t proto, uint8_t family, uint32_t states) {
     iovec iov[] = {
         { nullptr, 0 },
     };
-    return sendDumpRequest(proto, family, states, iov, ARRAY_SIZE(iov));
+    return sendDumpRequest(proto, family, 0, states, iov, ARRAY_SIZE(iov));
 }
 
 int SockDiag::sendDumpRequest(uint8_t proto, uint8_t family, const char *addrstr) {
@@ -200,7 +200,7 @@ int SockDiag::sendDumpRequest(uint8_t proto, uint8_t family, const char *addrstr
     };
 
     uint32_t states = ~(1 << TCP_TIME_WAIT);
-    return sendDumpRequest(proto, family, states, iov, ARRAY_SIZE(iov));
+    return sendDumpRequest(proto, family, 0, states, iov, ARRAY_SIZE(iov));
 }
 
 int SockDiag::readDiagMsg(uint8_t proto, const SockDiag::DestroyFilter& shouldDestroy) {
@@ -209,6 +209,35 @@ int SockDiag::readDiagMsg(uint8_t proto, const SockDiag::DestroyFilter& shouldDe
         if (shouldDestroy(proto, msg)) {
             sockDestroy(proto, msg);
         }
+    };
+
+    return processNetlinkDump(mSock, callback);
+}
+
+int SockDiag::readDiagMsgWithTcpInfo(const TcpInfoReader& tcpInfoReader) {
+    NetlinkDumpCallback callback = [tcpInfoReader] (nlmsghdr *nlh) {
+        if (nlh->nlmsg_type != SOCK_DIAG_BY_FAMILY) {
+            ALOGE("expected nlmsg_type=SOCK_DIAG_BY_FAMILY, got nlmsg_type=%d", nlh->nlmsg_type);
+            return;
+        }
+        Fwmark mark;
+        struct tcp_info *tcpinfo = nullptr;
+        uint32_t tcpinfoLength = 0;
+        inet_diag_msg *msg = reinterpret_cast<inet_diag_msg *>(NLMSG_DATA(nlh));
+        uint32_t attr_len = nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*msg));
+        struct rtattr *attr = reinterpret_cast<struct rtattr*>(msg+1);
+        while (RTA_OK(attr, attr_len)) {
+            if (attr->rta_type == INET_DIAG_INFO) {
+                tcpinfo = reinterpret_cast<struct tcp_info*>(RTA_DATA(attr));
+                tcpinfoLength = RTA_PAYLOAD(attr);
+            }
+            if (attr->rta_type == INET_DIAG_MARK) {
+                mark.intValue = *reinterpret_cast<uint32_t*>(RTA_DATA(attr));
+            }
+            attr = RTA_NEXT(attr, attr_len);
+        }
+
+        tcpInfoReader(mark, msg, tcpinfo, tcpinfoLength);
     };
 
     return processNetlinkDump(mSock, callback);
@@ -302,17 +331,41 @@ int SockDiag::destroySockets(const char *addrstr) {
 
 int SockDiag::destroyLiveSockets(DestroyFilter destroyFilter, const char *what,
                                  iovec *iov, int iovcnt) {
-    int proto = IPPROTO_TCP;
+    const int proto = IPPROTO_TCP;
+    const uint32_t states = (1 << TCP_ESTABLISHED) | (1 << TCP_SYN_SENT) | (1 << TCP_SYN_RECV);
 
     for (const int family : {AF_INET, AF_INET6}) {
         const char *familyName = (family == AF_INET) ? "IPv4" : "IPv6";
-        uint32_t states = (1 << TCP_ESTABLISHED) | (1 << TCP_SYN_SENT) | (1 << TCP_SYN_RECV);
-        if (int ret = sendDumpRequest(proto, family, states, iov, iovcnt)) {
+        if (int ret = sendDumpRequest(proto, family, 0, states, iov, iovcnt)) {
             ALOGE("Failed to dump %s sockets for %s: %s", familyName, what, strerror(-ret));
             return ret;
         }
         if (int ret = readDiagMsg(proto, destroyFilter)) {
             ALOGE("Failed to destroy %s sockets for %s: %s", familyName, what, strerror(-ret));
+            return ret;
+        }
+    }
+
+    return 0;
+}
+
+int SockDiag::getLiveTcpInfos(const TcpInfoReader& tcpInfoReader) {
+    const int proto = IPPROTO_TCP;
+    const uint32_t states = (1 << TCP_ESTABLISHED) | (1 << TCP_SYN_SENT) | (1 << TCP_SYN_RECV);
+    const uint8_t extensions = (1 << INET_DIAG_MEMINFO); // flag for dumping struct tcp_info.
+
+    iovec iov[] = {
+        { nullptr, 0 },
+    };
+
+    for (const int family : {AF_INET, AF_INET6}) {
+        const char *familyName = (family == AF_INET) ? "IPv4" : "IPv6";
+        if (int ret = sendDumpRequest(proto, family, extensions, states, iov, ARRAY_SIZE(iov))) {
+            ALOGE("Failed to dump %s sockets struct tcp_info: %s", familyName, strerror(-ret));
+            return ret;
+        }
+        if (int ret = readDiagMsgWithTcpInfo(tcpInfoReader)) {
+            ALOGE("Failed to read %s sockets struct tcp_info: %s", familyName, strerror(-ret));
             return ret;
         }
     }

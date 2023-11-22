@@ -30,7 +30,6 @@ import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.MediumTest;
 import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
-import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -51,6 +50,8 @@ public class View_FocusHandlingTest {
     @UiThreadTest
     @Test
     public void testFocusHandling() {
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        instrumentation.setInTouchMode(false);
         Activity activity = mActivityRule.getActivity();
 
         View v1 = activity.findViewById(R.id.view1);
@@ -151,7 +152,7 @@ public class View_FocusHandlingTest {
         v2.setVisibility(View.VISIBLE);
         v3.setVisibility(View.VISIBLE);
         v4.setVisibility(View.VISIBLE);
-        assertEquals(true, v1.isFocused());
+        assertTrue(v1.isFocused());
         assertFalse(v2.isFocused());
         assertFalse(v3.isFocused());
         assertFalse(v4.isFocused());
@@ -223,6 +224,194 @@ public class View_FocusHandlingTest {
         assertNull(v2.findFocus());
         assertNull(v3.findFocus());
         assertNull(v4.findFocus());
+
+        // test visibility with a nested focusable
+        ViewGroup vg = (ViewGroup) activity.findViewById(R.id.auto_test_area);
+        vg.setVisibility(View.INVISIBLE);
+        View sub = new View(activity);
+        vg.addView(sub, 10, 10);
+        sub.setFocusable(View.FOCUSABLE);
+        for (View v : new View[]{v1, v2, v3, v4}) {
+            v.setFocusable(false);
+        }
+        assertNull(vg.getRootView().findFocus());
+        vg.setVisibility(View.VISIBLE);
+        assertSame(sub, vg.getRootView().findFocus());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testEnabledHandling() {
+        Activity activity = mActivityRule.getActivity();
+
+        View v1 = activity.findViewById(R.id.view1);
+        View v2 = activity.findViewById(R.id.view2);
+        View v3 = activity.findViewById(R.id.view3);
+        View v4 = activity.findViewById(R.id.view4);
+
+        for (View v : new View[]{v1, v2, v3, v4}) v.setFocusable(true);
+
+        assertTrue(v1.requestFocus());
+
+        // disabled view should not be focusable
+        assertTrue(v1.hasFocus());
+        v1.setEnabled(false);
+        assertFalse(v1.hasFocus());
+        v1.requestFocus();
+        assertFalse(v1.hasFocus());
+        v1.setEnabled(true);
+        v1.requestFocus();
+        assertTrue(v1.hasFocus());
+
+        // an enabled view should not take focus if not visible OR not enabled
+        v1.setEnabled(false);
+        v1.setVisibility(View.INVISIBLE);
+        assertFalse(v1.hasFocus());
+        v1.setEnabled(true);
+        v1.requestFocus();
+        assertFalse(v1.hasFocus());
+        v1.setEnabled(false);
+        v1.setVisibility(View.VISIBLE);
+        v1.requestFocus();
+        assertFalse(v1.hasFocus());
+        v1.setEnabled(true);
+        v1.requestFocus();
+        assertTrue(v1.hasFocus());
+
+        // test hasFocusable
+        ViewGroup parent = (ViewGroup) v1.getParent();
+        assertTrue(parent.hasFocusable());
+        for (View v : new View[]{v1, v2, v3, v4}) v.setEnabled(false);
+        assertFalse(v1.isFocused());
+        assertFalse(v2.isFocused());
+        assertFalse(v3.isFocused());
+        assertFalse(v4.isFocused());
+        assertFalse(parent.hasFocusable());
+
+        // a view enabled while nothing has focus should get focus if not in touch mode.
+        InstrumentationRegistry.getInstrumentation().setInTouchMode(false);
+        for (View v : new View[]{v1, v2, v3, v4}) v.setEnabled(true);
+        assertEquals(true, v1.isFocused());
+
+        // enabled state is restricted to the view only (not children)
+        v2.requestFocus();
+        parent.setEnabled(false);
+        assertTrue(v2.isFocused());
+    }
+
+    @Test
+    public void testSizeHandling() {
+        Activity activity = mActivityRule.getActivity();
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+
+        View v5 = new Button(activity);
+        ViewGroup layout = activity.findViewById(R.id.auto_test_area);
+
+        // Test requestFocus before first layout focuses if non-0 size
+        activity.runOnUiThread(() -> {
+            layout.addView(v5, 30, 30);
+            assertTrue(isZeroSize(v5));
+            assertTrue(v5.requestFocus());
+        });
+        instrumentation.waitForIdleSync();
+        assertFalse(isZeroSize(v5));
+        assertTrue(v5.isFocused());
+
+        // Test resize to 0 defocuses
+        activity.runOnUiThread(() -> {
+            v5.setRight(v5.getLeft());
+            assertEquals(0, v5.getWidth());
+        });
+        instrumentation.waitForIdleSync();
+        assertTrue(isZeroSize(v5));
+        assertFalse(v5.isFocused());
+
+        // Test requestFocus on laid-out 0-size fails
+        activity.runOnUiThread(() -> assertFalse(v5.requestFocus()));
+
+        activity.runOnUiThread(() -> layout.removeAllViews());
+
+        // Test requestFocus before first layout focuses a child if non-0 size
+        LinearLayout ll0 = new LinearLayout(activity);
+        ll0.setFocusable(true);
+        ll0.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
+        View butInScroll = new Button(activity);
+        activity.runOnUiThread(() -> {
+            ll0.addView(butInScroll, 40, 40);
+            layout.addView(ll0, 100, 100);
+            assertTrue(isZeroSize(butInScroll));
+            assertTrue(ll0.requestFocus());
+        });
+        instrumentation.waitForIdleSync();
+        assertFalse(isZeroSize(butInScroll));
+        assertTrue(butInScroll.isFocused());
+
+        // Test focusableViewAvailable on resize to non-0 size
+        activity.runOnUiThread(() -> {
+            butInScroll.setRight(v5.getLeft());
+        });
+        instrumentation.waitForIdleSync();
+        assertTrue(isZeroSize(butInScroll));
+        assertTrue(ll0.isFocused());
+
+        activity.runOnUiThread(() -> layout.removeAllViews());
+        instrumentation.waitForIdleSync();
+
+        // Test requestFocus before first layout defocuses if still 0 size
+        LinearLayout ll = new LinearLayout(activity);
+        View zeroSizeBut = new Button(activity);
+        activity.runOnUiThread(() -> {
+            ll.addView(zeroSizeBut, 30, 0);
+            layout.addView(ll, 100, 100);
+            assertTrue(zeroSizeBut.requestFocus());
+        });
+        instrumentation.waitForIdleSync();
+        assertTrue(isZeroSize(zeroSizeBut));
+        assertFalse(zeroSizeBut.isFocused());
+
+        activity.runOnUiThread(() -> layout.removeAllViews());
+        instrumentation.waitForIdleSync();
+
+        // Test requestFocus before first layout focuses parent if child is still 0 size
+        LinearLayout ll2 = new LinearLayout(activity);
+        ll2.setFocusable(true);
+        ll2.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
+        View zeroButInAfter = new Button(activity);
+        activity.runOnUiThread(() -> {
+            ll2.addView(zeroButInAfter, 40, 0);
+            layout.addView(ll2, 100, 100);
+            assertTrue(ll2.requestFocus());
+            assertTrue(zeroButInAfter.isFocused());
+        });
+        instrumentation.waitForIdleSync();
+        assertTrue(isZeroSize(zeroButInAfter));
+        assertFalse(zeroButInAfter.isFocused());
+        assertTrue(ll2.isFocused());
+
+        activity.runOnUiThread(() -> layout.removeAllViews());
+        instrumentation.waitForIdleSync();
+
+        // Test that we don't focus anything above/outside of where we requested focus
+        LinearLayout ll3 = new LinearLayout(activity);
+        Button outside = new Button(activity);
+        LinearLayout sub = new LinearLayout(activity);
+        Button inside = new Button(activity);
+        activity.runOnUiThread(() -> {
+            ll3.addView(outside, 40, 40);
+            sub.addView(inside, 30, 0);
+            ll3.addView(sub, 40, 40);
+            layout.addView(ll3, 100, 100);
+            assertTrue(sub.requestFocus());
+            assertTrue(inside.isFocused());
+        });
+        instrumentation.waitForIdleSync();
+        assertTrue(isZeroSize(inside));
+        assertTrue(outside.isFocusable() && !isZeroSize(outside));
+        assertNull(layout.getRootView().findFocus());
+    }
+
+    private boolean isZeroSize(View view) {
+        return view.getWidth() <= 0 || view.getHeight() <= 0;
     }
 
     @UiThreadTest
@@ -326,20 +515,6 @@ public class View_FocusHandlingTest {
         view.setFocusableInTouchMode(true);
         assertTrue("single view doesn't hasFocusable", view.hasFocusable());
         assertTrue("single view doesn't hasExplicitFocusable", view.hasExplicitFocusable());
-    }
-
-    private View[] getInitialAndFirstFocus(int res) throws Throwable {
-        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
-        instrumentation.setInTouchMode(false);
-        final Activity activity = mActivityRule.getActivity();
-        mActivityRule.runOnUiThread(() -> activity.getLayoutInflater().inflate(res,
-                (ViewGroup) activity.findViewById(R.id.auto_test_area)));
-        instrumentation.waitForIdleSync();
-        View root = activity.findViewById(R.id.main_view);
-        View initial = root.findFocus();
-        instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_TAB);
-        View first = root.findFocus();
-        return new View[]{initial, first};
     }
 
     @UiThreadTest

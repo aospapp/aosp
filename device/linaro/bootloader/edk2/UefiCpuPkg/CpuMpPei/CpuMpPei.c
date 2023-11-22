@@ -1,7 +1,7 @@
 /** @file
   CPU PEI Module installs CPU Multiple Processor PPI.
 
-  Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2015 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -15,794 +15,397 @@
 #include "CpuMpPei.h"
 
 //
-// Global Descriptor Table (GDT)
+// CPU MP PPI to be installed
 //
-GLOBAL_REMOVE_IF_UNREFERENCED IA32_GDT mGdtEntries[] = {
-/* selector { Global Segment Descriptor                              } */
-/* 0x00 */  {{0,      0,  0,  0,    0,  0,  0,  0,    0,  0, 0,  0,  0}}, //null descriptor
-/* 0x08 */  {{0xffff, 0,  0,  0x2,  1,  0,  1,  0xf,  0,  0, 1,  1,  0}}, //linear data segment descriptor
-/* 0x10 */  {{0xffff, 0,  0,  0xf,  1,  0,  1,  0xf,  0,  0, 1,  1,  0}}, //linear code segment descriptor
-/* 0x18 */  {{0xffff, 0,  0,  0x3,  1,  0,  1,  0xf,  0,  0, 1,  1,  0}}, //system data segment descriptor
-/* 0x20 */  {{0xffff, 0,  0,  0xa,  1,  0,  1,  0xf,  0,  0, 1,  1,  0}}, //system code segment descriptor
-/* 0x28 */  {{0,      0,  0,  0,    0,  0,  0,  0,    0,  0, 0,  0,  0}}, //spare segment descriptor
-/* 0x30 */  {{0xffff, 0,  0,  0x2,  1,  0,  1,  0xf,  0,  0, 1,  1,  0}}, //system data segment descriptor
-/* 0x38 */  {{0xffff, 0,  0,  0xa,  1,  0,  1,  0xf,  0,  1, 0,  1,  0}}, //system code segment descriptor
-/* 0x40 */  {{0,      0,  0,  0,    0,  0,  0,  0,    0,  0, 0,  0,  0}}, //spare segment descriptor
+EFI_PEI_MP_SERVICES_PPI                mMpServicesPpi = {
+  PeiGetNumberOfProcessors,
+  PeiGetProcessorInfo,
+  PeiStartupAllAPs,
+  PeiStartupThisAP,
+  PeiSwitchBSP,
+  PeiEnableDisableAP,
+  PeiWhoAmI,
 };
 
-//
-// IA32 Gdt register
-//
-GLOBAL_REMOVE_IF_UNREFERENCED IA32_DESCRIPTOR mGdt = {
-  sizeof (mGdtEntries) - 1,
-  (UINTN) mGdtEntries
-  };
-
-GLOBAL_REMOVE_IF_UNREFERENCED EFI_PEI_NOTIFY_DESCRIPTOR mNotifyList = {
-  (EFI_PEI_PPI_DESCRIPTOR_NOTIFY_CALLBACK | EFI_PEI_PPI_DESCRIPTOR_TERMINATE_LIST),
-  &gEfiEndOfPeiSignalPpiGuid,
-  CpuMpEndOfPeiCallback
+EFI_PEI_PPI_DESCRIPTOR           mPeiCpuMpPpiDesc = {
+  (EFI_PEI_PPI_DESCRIPTOR_PPI | EFI_PEI_PPI_DESCRIPTOR_TERMINATE_LIST),
+  &gEfiPeiMpServicesPpiGuid,
+  &mMpServicesPpi
 };
 
 /**
-  Sort the APIC ID of all processors.
-
-  This function sorts the APIC ID of all processors so that processor number is
-  assigned in the ascending order of APIC ID which eases MP debugging.
-
-  @param PeiCpuMpData        Pointer to PEI CPU MP Data
-**/
-VOID
-SortApicId (
-  IN PEI_CPU_MP_DATA   *PeiCpuMpData
-  )
-{
-  UINTN             Index1;
-  UINTN             Index2;
-  UINTN             Index3;
-  UINT32            ApicId;
-  PEI_CPU_DATA      CpuData;
-  UINT32            ApCount;
-
-  ApCount = PeiCpuMpData->CpuCount - 1;
-
-  if (ApCount != 0) {
-    for (Index1 = 0; Index1 < ApCount; Index1++) {
-      Index3 = Index1;
-      //
-      // Sort key is the hardware default APIC ID
-      //
-      ApicId = PeiCpuMpData->CpuData[Index1].ApicId;
-      for (Index2 = Index1 + 1; Index2 <= ApCount; Index2++) {
-        if (ApicId > PeiCpuMpData->CpuData[Index2].ApicId) {
-          Index3 = Index2;
-          ApicId = PeiCpuMpData->CpuData[Index2].ApicId;
-        }
-      }
-      if (Index3 != Index1) {
-        CopyMem (&CpuData, &PeiCpuMpData->CpuData[Index3], sizeof (PEI_CPU_DATA));
-        CopyMem (
-          &PeiCpuMpData->CpuData[Index3],
-          &PeiCpuMpData->CpuData[Index1],
-          sizeof (PEI_CPU_DATA)
-          );
-        CopyMem (&PeiCpuMpData->CpuData[Index1], &CpuData, sizeof (PEI_CPU_DATA));
-      }
-    }
-
-    //
-    // Get the processor number for the BSP
-    //
-    ApicId = GetInitialApicId ();
-    for (Index1 = 0; Index1 < PeiCpuMpData->CpuCount; Index1++) {
-      if (PeiCpuMpData->CpuData[Index1].ApicId == ApicId) {
-        PeiCpuMpData->BspNumber = (UINT32) Index1;
-        break;
-      }
-    }
-  }
-}
-
-/**
-  Enable x2APIC mode on APs.
-
-  @param Buffer  Pointer to private data buffer.
-**/
-VOID
-EFIAPI
-ApFuncEnableX2Apic (
-  IN OUT VOID  *Buffer
-  )
-{
-  SetApicMode (LOCAL_APIC_MODE_X2APIC);
-}
-
-/**
-  Get AP loop mode.
-
-  @param MonitorFilterSize  Returns the largest monitor-line size in bytes.
-
-  @return The AP loop mode.
-**/
-UINT8
-GetApLoopMode (
-  OUT UINT16     *MonitorFilterSize
-  )
-{
-  UINT8          ApLoopMode;
-  UINT32         RegEbx;
-  UINT32         RegEcx;
-  UINT32         RegEdx;
-
-  ASSERT (MonitorFilterSize != NULL);
-
-  ApLoopMode = PcdGet8 (PcdCpuApLoopMode);
-  ASSERT (ApLoopMode >= ApInHltLoop && ApLoopMode <= ApInRunLoop);
-  if (ApLoopMode == ApInMwaitLoop) {
-    AsmCpuid (CPUID_VERSION_INFO, NULL, NULL, &RegEcx, NULL);
-    if ((RegEcx & BIT3) == 0) {
-      //
-      // If processor does not support MONITOR/MWAIT feature
-      // by CPUID.[EAX=01H]:ECX.BIT3, force AP in Hlt-loop mode
-      //
-      ApLoopMode = ApInHltLoop;
-    }
-  }
-
-  if (ApLoopMode == ApInHltLoop) {
-    *MonitorFilterSize = 0;
-  } else if (ApLoopMode == ApInRunLoop) {
-    *MonitorFilterSize = sizeof (UINT32);
-  } else if (ApLoopMode == ApInMwaitLoop) {
-    //
-    // CPUID.[EAX=05H]:EBX.BIT0-15: Largest monitor-line size in bytes
-    // CPUID.[EAX=05H].EDX: C-states supported using MWAIT
-    //
-    AsmCpuid (CPUID_MONITOR_MWAIT, NULL, &RegEbx, NULL, &RegEdx);
-    *MonitorFilterSize = RegEbx & 0xFFFF;
-  }
-
-  return ApLoopMode;
-}
-
-/**
-  Get CPU MP Data pointer from the Guided HOB.
-
-  @return  Pointer to Pointer to PEI CPU MP Data
-**/
-PEI_CPU_MP_DATA *
-GetMpHobData (
-  VOID
-  )
-{
-  EFI_HOB_GUID_TYPE       *GuidHob;
-  VOID                    *DataInHob;
-  PEI_CPU_MP_DATA         *CpuMpData;
-
-  CpuMpData = NULL;
-  GuidHob = GetFirstGuidHob (&gEfiCallerIdGuid);
-  if (GuidHob != NULL) {
-    DataInHob = GET_GUID_HOB_DATA (GuidHob);
-    CpuMpData = (PEI_CPU_MP_DATA *)(*(UINTN *)DataInHob);
-  }
-  ASSERT (CpuMpData != NULL);
-  return CpuMpData;
-}
-
-/**
-  Save the volatile registers required to be restored following INIT IPI.
-  
-  @param  VolatileRegisters    Returns buffer saved the volatile resisters
-**/
-VOID
-SaveVolatileRegisters (
-  OUT CPU_VOLATILE_REGISTERS    *VolatileRegisters
-  )
-{
-  UINT32                        RegEdx;
-
-  VolatileRegisters->Cr0 = AsmReadCr0 ();
-  VolatileRegisters->Cr3 = AsmReadCr3 ();
-  VolatileRegisters->Cr4 = AsmReadCr4 ();
-
-  AsmCpuid (CPUID_VERSION_INFO, NULL, NULL, NULL, &RegEdx);
-  if ((RegEdx & BIT2) != 0) {
-    //
-    // If processor supports Debugging Extensions feature
-    // by CPUID.[EAX=01H]:EDX.BIT2
-    //
-    VolatileRegisters->Dr0 = AsmReadDr0 ();
-    VolatileRegisters->Dr1 = AsmReadDr1 ();
-    VolatileRegisters->Dr2 = AsmReadDr2 ();
-    VolatileRegisters->Dr3 = AsmReadDr3 ();
-    VolatileRegisters->Dr6 = AsmReadDr6 ();
-    VolatileRegisters->Dr7 = AsmReadDr7 ();
-  }
-}
-
-/**
-  Restore the volatile registers following INIT IPI.
-  
-  @param  VolatileRegisters   Pointer to volatile resisters
-  @param  IsRestoreDr         TRUE:  Restore DRx if supported
-                              FALSE: Do not restore DRx
-**/
-VOID
-RestoreVolatileRegisters (
-  IN CPU_VOLATILE_REGISTERS    *VolatileRegisters,
-  IN BOOLEAN                   IsRestoreDr
-  )
-{
-  UINT32                        RegEdx;
-
-  AsmWriteCr0 (VolatileRegisters->Cr0);
-  AsmWriteCr3 (VolatileRegisters->Cr3);
-  AsmWriteCr4 (VolatileRegisters->Cr4);
-
-  if (IsRestoreDr) {
-    AsmCpuid (CPUID_VERSION_INFO, NULL, NULL, NULL, &RegEdx);
-    if ((RegEdx & BIT2) != 0) {
-      //
-      // If processor supports Debugging Extensions feature
-      // by CPUID.[EAX=01H]:EDX.BIT2
-      //
-      AsmWriteDr0 (VolatileRegisters->Dr0);
-      AsmWriteDr1 (VolatileRegisters->Dr1);
-      AsmWriteDr2 (VolatileRegisters->Dr2);
-      AsmWriteDr3 (VolatileRegisters->Dr3);
-      AsmWriteDr6 (VolatileRegisters->Dr6);
-      AsmWriteDr7 (VolatileRegisters->Dr7);
-    }
-  }
-}
-
-/**
-  This function will be called from AP reset code if BSP uses WakeUpAP.
-
-  @param ExchangeInfo     Pointer to the MP exchange info buffer
-  @param NumApsExecuting  Number of current executing AP
-**/
-VOID
-EFIAPI
-ApCFunction (
-  IN MP_CPU_EXCHANGE_INFO      *ExchangeInfo,
-  IN UINTN                     NumApsExecuting
-  )
-{
-  PEI_CPU_MP_DATA            *PeiCpuMpData;
-  UINTN                      ProcessorNumber;
-  EFI_AP_PROCEDURE           Procedure;
-  UINTN                      BistData;
-  volatile UINT32            *ApStartupSignalBuffer;
-
-  PeiCpuMpData = ExchangeInfo->PeiCpuMpData;
-  while (TRUE) {
-    if (PeiCpuMpData->InitFlag) {
-      ProcessorNumber = NumApsExecuting;
-      //
-      // Sync BSP's Control registers to APs
-      //
-      RestoreVolatileRegisters (&PeiCpuMpData->CpuData[0].VolatileRegisters, FALSE);
-      //
-      // This is first time AP wakeup, get BIST information from AP stack
-      //
-      BistData = *(UINTN *) (PeiCpuMpData->Buffer + ProcessorNumber * PeiCpuMpData->CpuApStackSize - sizeof (UINTN));
-      PeiCpuMpData->CpuData[ProcessorNumber].Health.Uint32 = (UINT32) BistData;
-      PeiCpuMpData->CpuData[ProcessorNumber].ApicId = GetInitialApicId ();
-      if (PeiCpuMpData->CpuData[ProcessorNumber].ApicId >= 0xFF) {
-        //
-        // Set x2APIC mode if there are any logical processor reporting
-        // an APIC ID of 255 or greater.
-        //
-        AcquireSpinLock(&PeiCpuMpData->MpLock);
-        PeiCpuMpData->X2ApicEnable = TRUE;
-        ReleaseSpinLock(&PeiCpuMpData->MpLock);
-      }
-      //
-      // Sync BSP's Mtrr table to all wakeup APs and load microcode on APs.
-      //
-      MtrrSetAllMtrrs (&PeiCpuMpData->MtrrTable);
-      MicrocodeDetect ();
-      PeiCpuMpData->CpuData[ProcessorNumber].State = CpuStateIdle;
-    } else {
-      //
-      // Execute AP function if AP is not disabled
-      //
-      GetProcessorNumber (PeiCpuMpData, &ProcessorNumber);
-      if (PeiCpuMpData->ApLoopMode == ApInHltLoop) {
-        //
-        // Restore AP's volatile registers saved
-        //
-        RestoreVolatileRegisters (&PeiCpuMpData->CpuData[ProcessorNumber].VolatileRegisters, TRUE);
-      }
-
-      if ((PeiCpuMpData->CpuData[ProcessorNumber].State != CpuStateDisabled) &&
-          (PeiCpuMpData->ApFunction != 0)) {
-        PeiCpuMpData->CpuData[ProcessorNumber].State = CpuStateBusy;
-        Procedure = (EFI_AP_PROCEDURE)(UINTN)PeiCpuMpData->ApFunction;
-        //
-        // Invoke AP function here
-        //
-        Procedure ((VOID *)(UINTN)PeiCpuMpData->ApFunctionArgument);
-        //
-        // Re-get the processor number due to BSP/AP maybe exchange in AP function
-        //
-        GetProcessorNumber (PeiCpuMpData, &ProcessorNumber);
-        PeiCpuMpData->CpuData[ProcessorNumber].State = CpuStateIdle;
-      }
-    }
-
-    //
-    // AP finished executing C code
-    //
-    InterlockedIncrement ((UINT32 *)&PeiCpuMpData->FinishedCount);
-
-    //
-    // Place AP is specified loop mode
-    //
-    if (PeiCpuMpData->ApLoopMode == ApInHltLoop) {
-      //
-      // Save AP volatile registers
-      //
-      SaveVolatileRegisters (&PeiCpuMpData->CpuData[ProcessorNumber].VolatileRegisters);
-      //
-      // Place AP in Hlt-loop
-      //
-      while (TRUE) {
-        DisableInterrupts ();
-        CpuSleep ();
-        CpuPause ();
-      }
-    }
-    ApStartupSignalBuffer = PeiCpuMpData->CpuData[ProcessorNumber].StartupApSignal;
-    //
-    // Clear AP start-up signal
-    //
-    *ApStartupSignalBuffer = 0;
-    while (TRUE) {
-      DisableInterrupts ();
-      if (PeiCpuMpData->ApLoopMode == ApInMwaitLoop) {
-        //
-        // Place AP in Mwait-loop
-        //
-        AsmMonitor ((UINTN)ApStartupSignalBuffer, 0, 0);
-        if (*ApStartupSignalBuffer != WAKEUP_AP_SIGNAL) {
-          //
-          // If AP start-up signal is not set, place AP into
-          // the maximum C-state
-          //
-          AsmMwait (PeiCpuMpData->ApTargetCState << 4, 0);
-        }
-      } else if (PeiCpuMpData->ApLoopMode == ApInRunLoop) {
-        //
-        // Place AP in Run-loop
-        //
-        CpuPause ();
-      } else {
-        ASSERT (FALSE);
-      }
-
-      //
-      // If AP start-up signal is written, AP is waken up
-      // otherwise place AP in loop again
-      //
-      if (*ApStartupSignalBuffer == WAKEUP_AP_SIGNAL) {
-        break;
-      }
-    }
-  }
-}
-
-/**
-  This function will be called by BSP to wakeup AP.
-
-  @param PeiCpuMpData       Pointer to PEI CPU MP Data
-  @param Broadcast          TRUE:  Send broadcast IPI to all APs
-                            FALSE: Send IPI to AP by ApicId
-  @param ProcessorNumber    The handle number of specified processor
-  @param Procedure          The function to be invoked by AP
-  @param ProcedureArgument  The argument to be passed into AP function
-**/
-VOID
-WakeUpAP (
-  IN PEI_CPU_MP_DATA           *PeiCpuMpData,
-  IN BOOLEAN                   Broadcast,
-  IN UINTN                     ProcessorNumber,
-  IN EFI_AP_PROCEDURE          Procedure,              OPTIONAL
-  IN VOID                      *ProcedureArgument      OPTIONAL
-  )
-{
-  volatile MP_CPU_EXCHANGE_INFO    *ExchangeInfo;
-  UINTN                            Index;
-
-  PeiCpuMpData->ApFunction         = (UINTN) Procedure;
-  PeiCpuMpData->ApFunctionArgument = (UINTN) ProcedureArgument;
-  PeiCpuMpData->FinishedCount      = 0;
-
-  ExchangeInfo                     = PeiCpuMpData->MpCpuExchangeInfo;
-  ExchangeInfo->Lock               = 0;
-  ExchangeInfo->StackStart         = PeiCpuMpData->Buffer;
-  ExchangeInfo->StackSize          = PeiCpuMpData->CpuApStackSize;
-  ExchangeInfo->BufferStart        = PeiCpuMpData->WakeupBuffer;
-  ExchangeInfo->PmodeOffset        = PeiCpuMpData->AddressMap.PModeEntryOffset;
-  ExchangeInfo->LmodeOffset        = PeiCpuMpData->AddressMap.LModeEntryOffset;
-  ExchangeInfo->Cr3                = AsmReadCr3 ();
-  ExchangeInfo->CFunction          = (UINTN) ApCFunction;
-  ExchangeInfo->NumApsExecuting    = 0;
-  ExchangeInfo->PeiCpuMpData       = PeiCpuMpData;
-
-  //
-  // Get the BSP's data of GDT and IDT
-  //
-  CopyMem ((VOID *)&ExchangeInfo->GdtrProfile, &mGdt, sizeof(mGdt));
-  AsmReadIdtr ((IA32_DESCRIPTOR *) &ExchangeInfo->IdtrProfile);
-
-  if (PeiCpuMpData->ApLoopMode == ApInMwaitLoop) {
-    //
-    // Get AP target C-state each time when waking up AP,
-    // for it maybe updated by platform again
-    //
-    PeiCpuMpData->ApTargetCState = PcdGet8 (PcdCpuApTargetCstate);
-  }
-
-  //
-  // Wakeup APs per AP loop state
-  //
-  if (PeiCpuMpData->ApLoopMode == ApInHltLoop || PeiCpuMpData->InitFlag) {
-    if (Broadcast) {
-      SendInitSipiSipiAllExcludingSelf ((UINT32) ExchangeInfo->BufferStart);
-    } else {
-      SendInitSipiSipi (
-        PeiCpuMpData->CpuData[ProcessorNumber].ApicId,
-        (UINT32) ExchangeInfo->BufferStart
-        );
-    }
-  } else if ((PeiCpuMpData->ApLoopMode == ApInMwaitLoop) ||
-             (PeiCpuMpData->ApLoopMode == ApInRunLoop)) {
-    if (Broadcast) {
-      for (Index = 0; Index < PeiCpuMpData->CpuCount; Index++) {
-        if (Index != PeiCpuMpData->BspNumber) {
-          *(PeiCpuMpData->CpuData[Index].StartupApSignal) = WAKEUP_AP_SIGNAL;
-        }
-      }
-    } else {
-      *(PeiCpuMpData->CpuData[ProcessorNumber].StartupApSignal) = WAKEUP_AP_SIGNAL;
-    }
-  } else {
-    ASSERT (FALSE);
-  }
-  return ;
-}
-
-/**
-  Get available system memory below 1MB by specified size.
-
-  @param  WakeupBufferSize   Wakeup buffer size required
-
-  @retval other   Return wakeup buffer address below 1MB.
-  @retval -1      Cannot find free memory below 1MB.
-**/
-UINTN
-GetWakeupBuffer (
-  IN UINTN                WakeupBufferSize
-  )
-{
-  EFI_PEI_HOB_POINTERS    Hob;
-  UINTN                   WakeupBufferStart;
-  UINTN                   WakeupBufferEnd;
-
-  //
-  // Get the HOB list for processing
-  //
-  Hob.Raw = GetHobList ();
-
-  //
-  // Collect memory ranges
-  //
-  while (!END_OF_HOB_LIST (Hob)) {
-    if (Hob.Header->HobType == EFI_HOB_TYPE_RESOURCE_DESCRIPTOR) {
-      if ((Hob.ResourceDescriptor->PhysicalStart < BASE_1MB) &&
-          (Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_SYSTEM_MEMORY) &&
-          ((Hob.ResourceDescriptor->ResourceAttribute &
-            (EFI_RESOURCE_ATTRIBUTE_READ_PROTECTED |
-             EFI_RESOURCE_ATTRIBUTE_WRITE_PROTECTED |
-             EFI_RESOURCE_ATTRIBUTE_EXECUTION_PROTECTED
-             )) == 0)
-           ) {
-        //
-        // Need memory under 1MB to be collected here
-        //
-        WakeupBufferEnd = (UINTN) (Hob.ResourceDescriptor->PhysicalStart + Hob.ResourceDescriptor->ResourceLength);
-        if (WakeupBufferEnd > BASE_1MB) {
-          //
-          // Wakeup buffer should be under 1MB
-          //
-          WakeupBufferEnd = BASE_1MB;
-        }
-        //
-        // Wakeup buffer should be aligned on 4KB
-        //
-        WakeupBufferStart = (WakeupBufferEnd - WakeupBufferSize) & ~(SIZE_4KB - 1);
-        if (WakeupBufferStart < Hob.ResourceDescriptor->PhysicalStart) {
-          continue;
-        }
-        //
-        // Create a memory allocation HOB.
-        //
-        BuildMemoryAllocationHob (
-          WakeupBufferStart,
-          WakeupBufferSize,
-          EfiBootServicesData
-          );
-        return WakeupBufferStart;
-      }
-    }
-    //
-    // Find the next HOB
-    //
-    Hob.Raw = GET_NEXT_HOB (Hob);
-  }
-
-  return (UINTN) -1;
-}
-
-/**
-  Get available system memory below 1MB by specified size.
-
-  @param PeiCpuMpData        Pointer to PEI CPU MP Data
-**/
-VOID
-BackupAndPrepareWakeupBuffer(
-  IN PEI_CPU_MP_DATA         *PeiCpuMpData
-  )
-{
-  CopyMem (
-    (VOID *) PeiCpuMpData->BackupBuffer,
-    (VOID *) PeiCpuMpData->WakeupBuffer,
-    PeiCpuMpData->BackupBufferSize
-    );
-  CopyMem (
-    (VOID *) PeiCpuMpData->WakeupBuffer,
-    (VOID *) PeiCpuMpData->AddressMap.RendezvousFunnelAddress,
-    PeiCpuMpData->AddressMap.RendezvousFunnelSize
-    );
-}
-
-/**
-  Restore wakeup buffer data.
-
-  @param PeiCpuMpData        Pointer to PEI CPU MP Data
-**/
-VOID
-RestoreWakeupBuffer(
-  IN PEI_CPU_MP_DATA         *PeiCpuMpData
-  )
-{
-  CopyMem ((VOID *) PeiCpuMpData->WakeupBuffer, (VOID *) PeiCpuMpData->BackupBuffer, PeiCpuMpData->BackupBufferSize);
-}
-
-/**
-  This function will get CPU count in the system.
-
-  @param PeiCpuMpData        Pointer to PEI CPU MP Data
-
-  @return  AP processor count
-**/
-UINT32
-CountProcessorNumber (
-  IN PEI_CPU_MP_DATA            *PeiCpuMpData
-  )
-{
-  //
-  // Load Microcode on BSP
-  //
-  MicrocodeDetect ();
-  //
-  // Store BSP's MTRR setting
-  //
-  MtrrGetAllMtrrs (&PeiCpuMpData->MtrrTable);
-
-  //
-  // Only perform AP detection if PcdCpuMaxLogicalProcessorNumber is greater than 1
-  //
-  if (PcdGet32 (PcdCpuMaxLogicalProcessorNumber) > 1) {
-    //
-    // Send 1st broadcast IPI to APs to wakeup APs
-    //
-    PeiCpuMpData->InitFlag     = TRUE;
-    PeiCpuMpData->X2ApicEnable = FALSE;
-    WakeUpAP (PeiCpuMpData, TRUE, 0, NULL, NULL);
-    //
-    // Wait for AP task to complete and then exit.
-    //
-    MicroSecondDelay (PcdGet32 (PcdCpuApInitTimeOutInMicroSeconds));
-    PeiCpuMpData->InitFlag  = FALSE;
-    PeiCpuMpData->CpuCount += (UINT32)PeiCpuMpData->MpCpuExchangeInfo->NumApsExecuting;
-    ASSERT (PeiCpuMpData->CpuCount <= PcdGet32 (PcdCpuMaxLogicalProcessorNumber));
-    //
-    // Wait for all APs finished the initialization
-    //
-    while (PeiCpuMpData->FinishedCount < (PeiCpuMpData->CpuCount - 1)) {
-      CpuPause ();
-    }
-
-    if (PeiCpuMpData->X2ApicEnable) {
-      DEBUG ((EFI_D_INFO, "Force x2APIC mode!\n"));
-      //
-      // Wakeup all APs to enable x2APIC mode
-      //
-      WakeUpAP (PeiCpuMpData, TRUE, 0, ApFuncEnableX2Apic, NULL);
-      //
-      // Wait for all known APs finished
-      //
-      while (PeiCpuMpData->FinishedCount < (PeiCpuMpData->CpuCount - 1)) {
-        CpuPause ();
-      }
-      //
-      // Enable x2APIC on BSP
-      //
-      SetApicMode (LOCAL_APIC_MODE_X2APIC);
-    }
-    DEBUG ((EFI_D_INFO, "APIC MODE is %d\n", GetApicMode ()));
-    //
-    // Sort BSP/Aps by CPU APIC ID in ascending order
-    //
-    SortApicId (PeiCpuMpData);
-  }
-
-  DEBUG ((EFI_D_INFO, "CpuMpPei: Find %d processors in system.\n", PeiCpuMpData->CpuCount));
-  return PeiCpuMpData->CpuCount;
-}
-
-/**
-  Prepare for AP wakeup buffer and copy AP reset code into it.
-
-  Get wakeup buffer below 1MB. Allocate memory for CPU MP Data and APs Stack.
-
-  @return   Pointer to PEI CPU MP Data
-**/
-PEI_CPU_MP_DATA *
-PrepareAPStartupVector (
-  VOID
-  )
-{
-  EFI_STATUS                    Status;
-  UINT32                        MaxCpuCount;
-  PEI_CPU_MP_DATA               *PeiCpuMpData;
-  EFI_PHYSICAL_ADDRESS          Buffer;
-  UINTN                         BufferSize;
-  UINTN                         WakeupBuffer;
-  UINTN                         WakeupBufferSize;
-  MP_ASSEMBLY_ADDRESS_MAP       AddressMap;
-  UINT8                         ApLoopMode;
-  UINT16                        MonitorFilterSize;
-  UINT8                         *MonitorBuffer;
-  UINTN                         Index;
-
-  AsmGetAddressMap (&AddressMap);
-  WakeupBufferSize = AddressMap.RendezvousFunnelSize + sizeof (MP_CPU_EXCHANGE_INFO);
-  WakeupBuffer     = GetWakeupBuffer ((WakeupBufferSize + SIZE_4KB - 1) & ~(SIZE_4KB - 1));
-  ASSERT (WakeupBuffer != (UINTN) -1);
-  DEBUG ((EFI_D_INFO, "CpuMpPei: WakeupBuffer = 0x%x\n", WakeupBuffer));
-
-  //
-  // Allocate Pages for APs stack, CPU MP Data, backup buffer for wakeup buffer,
-  // and monitor buffer if required.
-  //
-  MaxCpuCount = PcdGet32(PcdCpuMaxLogicalProcessorNumber);
-  BufferSize  = PcdGet32 (PcdCpuApStackSize) * MaxCpuCount + sizeof (PEI_CPU_MP_DATA)
-                  + WakeupBufferSize + sizeof (PEI_CPU_DATA) * MaxCpuCount;
-  ApLoopMode = GetApLoopMode (&MonitorFilterSize);
-  BufferSize += MonitorFilterSize * MaxCpuCount;
-  Status = PeiServicesAllocatePages (
-             EfiBootServicesData,
-             EFI_SIZE_TO_PAGES (BufferSize),
-             &Buffer
-             );
-  ASSERT_EFI_ERROR (Status);
-
-  PeiCpuMpData = (PEI_CPU_MP_DATA *) (UINTN) (Buffer + PcdGet32 (PcdCpuApStackSize) * MaxCpuCount);
-  PeiCpuMpData->Buffer            = (UINTN) Buffer;
-  PeiCpuMpData->CpuApStackSize    = PcdGet32 (PcdCpuApStackSize);
-  PeiCpuMpData->WakeupBuffer      = WakeupBuffer;
-  PeiCpuMpData->BackupBuffer      = (UINTN)PeiCpuMpData + sizeof (PEI_CPU_MP_DATA);
-  PeiCpuMpData->BackupBufferSize  = WakeupBufferSize;
-  PeiCpuMpData->MpCpuExchangeInfo = (MP_CPU_EXCHANGE_INFO *) (UINTN) (WakeupBuffer + AddressMap.RendezvousFunnelSize);
-
-  PeiCpuMpData->CpuCount                 = 1;
-  PeiCpuMpData->BspNumber                = 0;
-  PeiCpuMpData->CpuData                  = (PEI_CPU_DATA *) (PeiCpuMpData->BackupBuffer +
-                                                             PeiCpuMpData->BackupBufferSize);
-  PeiCpuMpData->CpuData[0].ApicId        = GetInitialApicId ();
-  PeiCpuMpData->CpuData[0].Health.Uint32 = 0;
-  PeiCpuMpData->EndOfPeiFlag             = FALSE;
-  InitializeSpinLock(&PeiCpuMpData->MpLock);
-  SaveVolatileRegisters (&PeiCpuMpData->CpuData[0].VolatileRegisters);
-  CopyMem (&PeiCpuMpData->AddressMap, &AddressMap, sizeof (MP_ASSEMBLY_ADDRESS_MAP));
-  //
-  // Initialize AP loop mode
-  //
-  PeiCpuMpData->ApLoopMode = ApLoopMode;
-  DEBUG ((EFI_D_INFO, "AP Loop Mode is %d\n", PeiCpuMpData->ApLoopMode));
-  MonitorBuffer = (UINT8 *)(PeiCpuMpData->CpuData + MaxCpuCount);
-  if (PeiCpuMpData->ApLoopMode != ApInHltLoop) {
-    //
-    // Set up APs wakeup signal buffer
-    //
-    for (Index = 0; Index < MaxCpuCount; Index++) {
-      PeiCpuMpData->CpuData[Index].StartupApSignal = 
-        (UINT32 *)(MonitorBuffer + MonitorFilterSize * Index);
-    }
-  }
-  //
-  // Backup original data and copy AP reset code in it
-  //
-  BackupAndPrepareWakeupBuffer(PeiCpuMpData);
-
-  return PeiCpuMpData;
-}
-
-/**
-  Notify function on End Of Pei PPI.
-
-  On S3 boot, this function will restore wakeup buffer data.
-  On normal boot, this function will flag wakeup buffer to be un-used type.
-
-  @param  PeiServices        The pointer to the PEI Services Table.
-  @param  NotifyDescriptor   Address of the notification descriptor data structure.
-  @param  Ppi                Address of the PPI that was installed.
-
-  @retval EFI_SUCCESS        When everything is OK.
-
+  This service retrieves the number of logical processor in the platform
+  and the number of those logical processors that are enabled on this boot.
+  This service may only be called from the BSP.
+
+  This function is used to retrieve the following information:
+    - The number of logical processors that are present in the system.
+    - The number of enabled logical processors in the system at the instant
+      this call is made.
+
+  Because MP Service Ppi provides services to enable and disable processors
+  dynamically, the number of enabled logical processors may vary during the
+  course of a boot session.
+
+  If this service is called from an AP, then EFI_DEVICE_ERROR is returned.
+  If NumberOfProcessors or NumberOfEnabledProcessors is NULL, then
+  EFI_INVALID_PARAMETER is returned. Otherwise, the total number of processors
+  is returned in NumberOfProcessors, the number of currently enabled processor
+  is returned in NumberOfEnabledProcessors, and EFI_SUCCESS is returned.
+
+  @param[in]  PeiServices         An indirect pointer to the PEI Services Table
+                                  published by the PEI Foundation.
+  @param[in]  This                Pointer to this instance of the PPI.
+  @param[out] NumberOfProcessors  Pointer to the total number of logical processors in
+                                  the system, including the BSP and disabled APs.
+  @param[out] NumberOfEnabledProcessors
+                                  Number of processors in the system that are enabled.
+
+  @retval EFI_SUCCESS             The number of logical processors and enabled
+                                  logical processors was retrieved.
+  @retval EFI_DEVICE_ERROR        The calling processor is an AP.
+  @retval EFI_INVALID_PARAMETER   NumberOfProcessors is NULL.
+                                  NumberOfEnabledProcessors is NULL.
 **/
 EFI_STATUS
 EFIAPI
-CpuMpEndOfPeiCallback (
-  IN      EFI_PEI_SERVICES        **PeiServices,
-  IN EFI_PEI_NOTIFY_DESCRIPTOR    *NotifyDescriptor,
-  IN VOID                         *Ppi
+PeiGetNumberOfProcessors (
+  IN  CONST EFI_PEI_SERVICES    **PeiServices,
+  IN  EFI_PEI_MP_SERVICES_PPI   *This,
+  OUT UINTN                     *NumberOfProcessors,
+  OUT UINTN                     *NumberOfEnabledProcessors
   )
 {
-  EFI_STATUS                Status;
-  EFI_BOOT_MODE             BootMode;
-  PEI_CPU_MP_DATA           *PeiCpuMpData;
-  EFI_PEI_HOB_POINTERS      Hob;
-  EFI_HOB_MEMORY_ALLOCATION *MemoryHob;
-
-  DEBUG ((EFI_D_INFO, "CpuMpPei: CpuMpEndOfPeiCallback () invoked\n"));
-
-  Status = PeiServicesGetBootMode (&BootMode);
-  ASSERT_EFI_ERROR (Status);
-
-  PeiCpuMpData = GetMpHobData ();
-  ASSERT (PeiCpuMpData != NULL);
-
-  if (BootMode != BOOT_ON_S3_RESUME) {
-    //
-    // Get the HOB list for processing
-    //
-    Hob.Raw = GetHobList ();
-    //
-    // Collect memory ranges
-    //
-    while (!END_OF_HOB_LIST (Hob)) {
-      if (Hob.Header->HobType == EFI_HOB_TYPE_MEMORY_ALLOCATION) {
-        MemoryHob = Hob.MemoryAllocation;
-        if(MemoryHob->AllocDescriptor.MemoryBaseAddress == PeiCpuMpData->WakeupBuffer) {
-          //
-          // Flag this HOB type to un-used
-          //
-          GET_HOB_TYPE (Hob) = EFI_HOB_TYPE_UNUSED;
-          break;
-        }
-      }
-      Hob.Raw = GET_NEXT_HOB (Hob);
-    }
-  } else {
-    RestoreWakeupBuffer (PeiCpuMpData);
-    PeiCpuMpData->EndOfPeiFlag = TRUE;
+  if ((NumberOfProcessors == NULL) || (NumberOfEnabledProcessors == NULL)) {
+    return EFI_INVALID_PARAMETER;
   }
-  return EFI_SUCCESS;
+
+  return MpInitLibGetNumberOfProcessors (
+           NumberOfProcessors,
+           NumberOfEnabledProcessors
+           );
+}
+
+/**
+  Gets detailed MP-related information on the requested processor at the
+  instant this call is made. This service may only be called from the BSP.
+
+  This service retrieves detailed MP-related information about any processor
+  on the platform. Note the following:
+    - The processor information may change during the course of a boot session.
+    - The information presented here is entirely MP related.
+
+  Information regarding the number of caches and their sizes, frequency of operation,
+  slot numbers is all considered platform-related information and is not provided
+  by this service.
+
+  @param[in]  PeiServices         An indirect pointer to the PEI Services Table
+                                  published by the PEI Foundation.
+  @param[in]  This                Pointer to this instance of the PPI.
+  @param[in]  ProcessorNumber     Pointer to the total number of logical processors in
+                                  the system, including the BSP and disabled APs.
+  @param[out] ProcessorInfoBuffer Number of processors in the system that are enabled.
+
+  @retval EFI_SUCCESS             Processor information was returned.
+  @retval EFI_DEVICE_ERROR        The calling processor is an AP.
+  @retval EFI_INVALID_PARAMETER   ProcessorInfoBuffer is NULL.
+  @retval EFI_NOT_FOUND           The processor with the handle specified by
+                                  ProcessorNumber does not exist in the platform.
+**/
+EFI_STATUS
+EFIAPI
+PeiGetProcessorInfo (
+  IN  CONST EFI_PEI_SERVICES     **PeiServices,
+  IN  EFI_PEI_MP_SERVICES_PPI    *This,
+  IN  UINTN                      ProcessorNumber,
+  OUT EFI_PROCESSOR_INFORMATION  *ProcessorInfoBuffer
+  )
+{
+  return MpInitLibGetProcessorInfo (ProcessorNumber, ProcessorInfoBuffer, NULL);
+}
+
+/**
+  This service executes a caller provided function on all enabled APs. APs can
+  run either simultaneously or one at a time in sequence. This service supports
+  both blocking requests only. This service may only
+  be called from the BSP.
+
+  This function is used to dispatch all the enabled APs to the function specified
+  by Procedure.  If any enabled AP is busy, then EFI_NOT_READY is returned
+  immediately and Procedure is not started on any AP.
+
+  If SingleThread is TRUE, all the enabled APs execute the function specified by
+  Procedure one by one, in ascending order of processor handle number. Otherwise,
+  all the enabled APs execute the function specified by Procedure simultaneously.
+
+  If the timeout specified by TimeoutInMicroSeconds expires before all APs return
+  from Procedure, then Procedure on the failed APs is terminated. All enabled APs
+  are always available for further calls to EFI_PEI_MP_SERVICES_PPI.StartupAllAPs()
+  and EFI_PEI_MP_SERVICES_PPI.StartupThisAP(). If FailedCpuList is not NULL, its
+  content points to the list of processor handle numbers in which Procedure was
+  terminated.
+
+  Note: It is the responsibility of the consumer of the EFI_PEI_MP_SERVICES_PPI.StartupAllAPs()
+  to make sure that the nature of the code that is executed on the BSP and the
+  dispatched APs is well controlled. The MP Services Ppi does not guarantee
+  that the Procedure function is MP-safe. Hence, the tasks that can be run in
+  parallel are limited to certain independent tasks and well-controlled exclusive
+  code. PEI services and Ppis may not be called by APs unless otherwise
+  specified.
+
+  In blocking execution mode, BSP waits until all APs finish or
+  TimeoutInMicroSeconds expires.
+
+  @param[in] PeiServices          An indirect pointer to the PEI Services Table
+                                  published by the PEI Foundation.
+  @param[in] This                 A pointer to the EFI_PEI_MP_SERVICES_PPI instance.
+  @param[in] Procedure            A pointer to the function to be run on enabled APs of
+                                  the system.
+  @param[in] SingleThread         If TRUE, then all the enabled APs execute the function
+                                  specified by Procedure one by one, in ascending order
+                                  of processor handle number. If FALSE, then all the
+                                  enabled APs execute the function specified by Procedure
+                                  simultaneously.
+  @param[in] TimeoutInMicroSeconds
+                                  Indicates the time limit in microseconds for APs to
+                                  return from Procedure, for blocking mode only. Zero
+                                  means infinity. If the timeout expires before all APs
+                                  return from Procedure, then Procedure on the failed APs
+                                  is terminated. All enabled APs are available for next
+                                  function assigned by EFI_PEI_MP_SERVICES_PPI.StartupAllAPs()
+                                  or EFI_PEI_MP_SERVICES_PPI.StartupThisAP(). If the
+                                  timeout expires in blocking mode, BSP returns
+                                  EFI_TIMEOUT.
+  @param[in] ProcedureArgument    The parameter passed into Procedure for all APs.
+
+  @retval EFI_SUCCESS             In blocking mode, all APs have finished before the
+                                  timeout expired.
+  @retval EFI_DEVICE_ERROR        Caller processor is AP.
+  @retval EFI_NOT_STARTED         No enabled APs exist in the system.
+  @retval EFI_NOT_READY           Any enabled APs are busy.
+  @retval EFI_TIMEOUT             In blocking mode, the timeout expired before all
+                                  enabled APs have finished.
+  @retval EFI_INVALID_PARAMETER   Procedure is NULL.
+**/
+EFI_STATUS
+EFIAPI
+PeiStartupAllAPs (
+  IN  CONST EFI_PEI_SERVICES    **PeiServices,
+  IN  EFI_PEI_MP_SERVICES_PPI   *This,
+  IN  EFI_AP_PROCEDURE          Procedure,
+  IN  BOOLEAN                   SingleThread,
+  IN  UINTN                     TimeoutInMicroSeconds,
+  IN  VOID                      *ProcedureArgument      OPTIONAL
+  )
+{
+  return MpInitLibStartupAllAPs (
+           Procedure,
+           SingleThread,
+           NULL,
+           TimeoutInMicroSeconds,
+           ProcedureArgument,
+           NULL
+           );
+}
+
+/**
+  This service lets the caller get one enabled AP to execute a caller-provided
+  function. The caller can request the BSP to wait for the completion
+  of the AP. This service may only be called from the BSP.
+
+  This function is used to dispatch one enabled AP to the function specified by
+  Procedure passing in the argument specified by ProcedureArgument.
+  The execution is in blocking mode. The BSP waits until the AP finishes or
+  TimeoutInMicroSecondss expires.
+
+  If the timeout specified by TimeoutInMicroseconds expires before the AP returns
+  from Procedure, then execution of Procedure by the AP is terminated. The AP is
+  available for subsequent calls to EFI_PEI_MP_SERVICES_PPI.StartupAllAPs() and
+  EFI_PEI_MP_SERVICES_PPI.StartupThisAP().
+
+  @param[in] PeiServices          An indirect pointer to the PEI Services Table
+                                  published by the PEI Foundation.
+  @param[in] This                 A pointer to the EFI_PEI_MP_SERVICES_PPI instance.
+  @param[in] Procedure            A pointer to the function to be run on enabled APs of
+                                  the system.
+  @param[in] ProcessorNumber      The handle number of the AP. The range is from 0 to the
+                                  total number of logical processors minus 1. The total
+                                  number of logical processors can be retrieved by
+                                  EFI_PEI_MP_SERVICES_PPI.GetNumberOfProcessors().
+  @param[in] TimeoutInMicroseconds
+                                  Indicates the time limit in microseconds for APs to
+                                  return from Procedure, for blocking mode only. Zero
+                                  means infinity. If the timeout expires before all APs
+                                  return from Procedure, then Procedure on the failed APs
+                                  is terminated. All enabled APs are available for next
+                                  function assigned by EFI_PEI_MP_SERVICES_PPI.StartupAllAPs()
+                                  or EFI_PEI_MP_SERVICES_PPI.StartupThisAP(). If the
+                                  timeout expires in blocking mode, BSP returns
+                                  EFI_TIMEOUT.
+  @param[in] ProcedureArgument    The parameter passed into Procedure for all APs.
+
+  @retval EFI_SUCCESS             In blocking mode, specified AP finished before the
+                                  timeout expires.
+  @retval EFI_DEVICE_ERROR        The calling processor is an AP.
+  @retval EFI_TIMEOUT             In blocking mode, the timeout expired before the
+                                  specified AP has finished.
+  @retval EFI_NOT_FOUND           The processor with the handle specified by
+                                  ProcessorNumber does not exist.
+  @retval EFI_INVALID_PARAMETER   ProcessorNumber specifies the BSP or disabled AP.
+  @retval EFI_INVALID_PARAMETER   Procedure is NULL.
+**/
+EFI_STATUS
+EFIAPI
+PeiStartupThisAP (
+  IN  CONST EFI_PEI_SERVICES    **PeiServices,
+  IN  EFI_PEI_MP_SERVICES_PPI   *This,
+  IN  EFI_AP_PROCEDURE          Procedure,
+  IN  UINTN                     ProcessorNumber,
+  IN  UINTN                     TimeoutInMicroseconds,
+  IN  VOID                      *ProcedureArgument      OPTIONAL
+  )
+{
+  return MpInitLibStartupThisAP (
+           Procedure,
+           ProcessorNumber,
+           NULL,
+           TimeoutInMicroseconds,
+           ProcedureArgument,
+           NULL
+           );
+}
+
+/**
+  This service switches the requested AP to be the BSP from that point onward.
+  This service changes the BSP for all purposes.   This call can only be performed
+  by the current BSP.
+
+  This service switches the requested AP to be the BSP from that point onward.
+  This service changes the BSP for all purposes. The new BSP can take over the
+  execution of the old BSP and continue seamlessly from where the old one left
+  off.
+
+  If the BSP cannot be switched prior to the return from this service, then
+  EFI_UNSUPPORTED must be returned.
+
+  @param[in] PeiServices          An indirect pointer to the PEI Services Table
+                                  published by the PEI Foundation.
+  @param[in] This                 A pointer to the EFI_PEI_MP_SERVICES_PPI instance.
+  @param[in] ProcessorNumber      The handle number of the AP. The range is from 0 to the
+                                  total number of logical processors minus 1. The total
+                                  number of logical processors can be retrieved by
+                                  EFI_PEI_MP_SERVICES_PPI.GetNumberOfProcessors().
+  @param[in] EnableOldBSP         If TRUE, then the old BSP will be listed as an enabled
+                                  AP. Otherwise, it will be disabled.
+
+  @retval EFI_SUCCESS             BSP successfully switched.
+  @retval EFI_UNSUPPORTED         Switching the BSP cannot be completed prior to this
+                                  service returning.
+  @retval EFI_UNSUPPORTED         Switching the BSP is not supported.
+  @retval EFI_SUCCESS             The calling processor is an AP.
+  @retval EFI_NOT_FOUND           The processor with the handle specified by
+                                  ProcessorNumber does not exist.
+  @retval EFI_INVALID_PARAMETER   ProcessorNumber specifies the current BSP or a disabled
+                                  AP.
+  @retval EFI_NOT_READY           The specified AP is busy.
+**/
+EFI_STATUS
+EFIAPI
+PeiSwitchBSP (
+  IN  CONST EFI_PEI_SERVICES   **PeiServices,
+  IN  EFI_PEI_MP_SERVICES_PPI  *This,
+  IN  UINTN                    ProcessorNumber,
+  IN  BOOLEAN                  EnableOldBSP
+  )
+{
+  return MpInitLibSwitchBSP (ProcessorNumber, EnableOldBSP);
+}
+
+/**
+  This service lets the caller enable or disable an AP from this point onward.
+  This service may only be called from the BSP.
+
+  This service allows the caller enable or disable an AP from this point onward.
+  The caller can optionally specify the health status of the AP by Health. If
+  an AP is being disabled, then the state of the disabled AP is implementation
+  dependent. If an AP is enabled, then the implementation must guarantee that a
+  complete initialization sequence is performed on the AP, so the AP is in a state
+  that is compatible with an MP operating system.
+
+  If the enable or disable AP operation cannot be completed prior to the return
+  from this service, then EFI_UNSUPPORTED must be returned.
+
+  @param[in] PeiServices          An indirect pointer to the PEI Services Table
+                                  published by the PEI Foundation.
+  @param[in] This                 A pointer to the EFI_PEI_MP_SERVICES_PPI instance.
+  @param[in] ProcessorNumber      The handle number of the AP. The range is from 0 to the
+                                  total number of logical processors minus 1. The total
+                                  number of logical processors can be retrieved by
+                                  EFI_PEI_MP_SERVICES_PPI.GetNumberOfProcessors().
+  @param[in] EnableAP             Specifies the new state for the processor for enabled,
+                                  FALSE for disabled.
+  @param[in] HealthFlag           If not NULL, a pointer to a value that specifies the
+                                  new health status of the AP. This flag corresponds to
+                                  StatusFlag defined in EFI_PEI_MP_SERVICES_PPI.GetProcessorInfo().
+                                  Only the PROCESSOR_HEALTH_STATUS_BIT is used. All other
+                                  bits are ignored. If it is NULL, this parameter is
+                                  ignored.
+
+  @retval EFI_SUCCESS             The specified AP was enabled or disabled successfully.
+  @retval EFI_UNSUPPORTED         Enabling or disabling an AP cannot be completed prior
+                                  to this service returning.
+  @retval EFI_UNSUPPORTED         Enabling or disabling an AP is not supported.
+  @retval EFI_DEVICE_ERROR        The calling processor is an AP.
+  @retval EFI_NOT_FOUND           Processor with the handle specified by ProcessorNumber
+                                  does not exist.
+  @retval EFI_INVALID_PARAMETER   ProcessorNumber specifies the BSP.
+**/
+EFI_STATUS
+EFIAPI
+PeiEnableDisableAP (
+  IN  CONST EFI_PEI_SERVICES    **PeiServices,
+  IN  EFI_PEI_MP_SERVICES_PPI   *This,
+  IN  UINTN                     ProcessorNumber,
+  IN  BOOLEAN                   EnableAP,
+  IN  UINT32                    *HealthFlag OPTIONAL
+  )
+{
+  return MpInitLibEnableDisableAP (ProcessorNumber, EnableAP, HealthFlag);
+}
+
+/**
+  This return the handle number for the calling processor.  This service may be
+  called from the BSP and APs.
+
+  This service returns the processor handle number for the calling processor.
+  The returned value is in the range from 0 to the total number of logical
+  processors minus 1. The total number of logical processors can be retrieved
+  with EFI_PEI_MP_SERVICES_PPI.GetNumberOfProcessors(). This service may be
+  called from the BSP and APs. If ProcessorNumber is NULL, then EFI_INVALID_PARAMETER
+  is returned. Otherwise, the current processors handle number is returned in
+  ProcessorNumber, and EFI_SUCCESS is returned.
+
+  @param[in]  PeiServices         An indirect pointer to the PEI Services Table
+                                  published by the PEI Foundation.
+  @param[in]  This                A pointer to the EFI_PEI_MP_SERVICES_PPI instance.
+  @param[out] ProcessorNumber     The handle number of the AP. The range is from 0 to the
+                                  total number of logical processors minus 1. The total
+                                  number of logical processors can be retrieved by
+                                  EFI_PEI_MP_SERVICES_PPI.GetNumberOfProcessors().
+
+  @retval EFI_SUCCESS             The current processor handle number was returned in
+                                  ProcessorNumber.
+  @retval EFI_INVALID_PARAMETER   ProcessorNumber is NULL.
+**/
+EFI_STATUS
+EFIAPI
+PeiWhoAmI (
+  IN  CONST EFI_PEI_SERVICES   **PeiServices,
+  IN  EFI_PEI_MP_SERVICES_PPI  *This,
+  OUT UINTN                    *ProcessorNumber
+  )
+{
+  return MpInitLibWhoAmI (ProcessorNumber);
 }
 
 /**
@@ -825,38 +428,36 @@ CpuMpPeimInit (
   )
 {
   EFI_STATUS           Status;
-  PEI_CPU_MP_DATA      *PeiCpuMpData;
-  UINT32               ProcessorCount;
+  EFI_VECTOR_HANDOFF_INFO         *VectorInfo;
+  EFI_PEI_VECTOR_HANDOFF_INFO_PPI *VectorHandoffInfoPpi;
 
   //
-  // Load new GDT table on BSP
+  // Get Vector Hand-off Info PPI
   //
-  AsmInitializeGdt (&mGdt);
+  VectorInfo = NULL;
+  Status = PeiServicesLocatePpi (
+             &gEfiVectorHandoffInfoPpiGuid,
+             0,
+             NULL,
+             (VOID **)&VectorHandoffInfoPpi
+             );
+  if (Status == EFI_SUCCESS) {
+    VectorInfo = VectorHandoffInfoPpi->Info;
+  }
+  Status = InitializeCpuExceptionHandlers (VectorInfo);
+  ASSERT_EFI_ERROR (Status);
+  
   //
-  // Get wakeup buffer and copy AP reset code in it
+  // Wakeup APs to do initialization
   //
-  PeiCpuMpData = PrepareAPStartupVector ();
-  //
-  // Count processor number and collect processor information
-  //
-  ProcessorCount = CountProcessorNumber (PeiCpuMpData);
-  //
-  // Build location of PEI CPU MP DATA buffer in HOB
-  //
-  BuildGuidDataHob (
-    &gEfiCallerIdGuid,
-    (VOID *)&PeiCpuMpData,
-    sizeof(UINT64)
-    );
+  Status = MpInitLibInitialize ();
+  ASSERT_EFI_ERROR (Status);
+
   //
   // Update and publish CPU BIST information
   //
-  CollectBistDataFromPpi (PeiServices, PeiCpuMpData);
-  //
-  // register an event for EndOfPei
-  //
-  Status  = PeiServicesNotifyPpi (&mNotifyList);
-  ASSERT_EFI_ERROR (Status);
+  CollectBistDataFromPpi (PeiServices);
+
   //
   // Install CPU MP PPI
   //

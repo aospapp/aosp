@@ -32,9 +32,9 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
-import java.nio.channels.SocketChannel;
 import java.security.PrivateKey;
 import javax.net.ssl.SSLEngineResult;
+import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSession;
@@ -42,7 +42,7 @@ import javax.net.ssl.SSLSession;
 /**
  * Implements crypto handling by delegating to {@link ConscryptEngine}.
  */
-final class ConscryptEngineSocket extends OpenSSLSocketImpl {
+class ConscryptEngineSocket extends OpenSSLSocketImpl {
     private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
 
     private final ConscryptEngine engine;
@@ -55,6 +55,8 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
     // @GuardedBy("stateLock");
     private int state = STATE_NEW;
 
+    // The constructors should not be called except from the Platform class, because we may
+    // want to construct a subclass instead.
     ConscryptEngineSocket(SSLParametersImpl sslParameters) throws IOException {
         engine = newEngine(sslParameters, this);
     }
@@ -111,23 +113,18 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
     }
 
     @Override
-    public SSLParameters getSSLParameters() {
+    public final SSLParameters getSSLParameters() {
         return engine.getSSLParameters();
     }
 
     @Override
-    public void setSSLParameters(SSLParameters sslParameters) {
+    public final void setSSLParameters(SSLParameters sslParameters) {
         engine.setSSLParameters(sslParameters);
     }
 
     @Override
-    public void startHandshake() throws IOException {
+    public final void startHandshake() throws IOException {
         checkOpen();
-
-        if (isHandshakeFinished()) {
-            // TODO(nmittler): Handle renegotiation.
-            return;
-        }
 
         try {
             synchronized (handshakeLock) {
@@ -143,37 +140,58 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
                     } else {
                         // We've either started the handshake already or have been closed.
                         // Do nothing in both cases.
+                        //
+                        // NOTE: BoringSSL does not support initiating renegotiation, so we always
+                        // ignore addition handshake calls.
                         return;
                     }
                 }
 
-                boolean finished = false;
-                while (!finished) {
-                    switch (engine.getHandshakeStatus()) {
-                        case NEED_UNWRAP:
-                            if (in.readInternal(EmptyArray.BYTE, 0, 0) < 0) {
-                                // Can't complete the handshake due to EOF.
-                                throw SSLUtils.toSSLHandshakeException(new EOFException());
-                            }
-                            break;
-                        case NEED_WRAP: {
-                            out.writeInternal(EMPTY_BUFFER);
-                            // Always flush handshake frames immediately.
-                            out.flushInternal();
-                            break;
+                doHandshake();
+            }
+        } catch (SSLException e) {
+            close();
+            throw e;
+        } catch (IOException e) {
+            close();
+            throw e;
+        } catch (Exception e) {
+            close();
+            // Convert anything else to a handshake exception.
+            throw SSLUtils.toSSLHandshakeException(e);
+        }
+    }
+
+    private void doHandshake() throws IOException {
+        try {
+            boolean finished = false;
+            while (!finished) {
+                switch (engine.getHandshakeStatus()) {
+                    case NEED_UNWRAP:
+                        if (in.readInternal(EmptyArray.BYTE, 0, 0) < 0) {
+                            // Can't complete the handshake due to EOF.
+                            throw SSLUtils.toSSLHandshakeException(new EOFException());
                         }
-                        case NEED_TASK:
-                            // Should never get here, since our engine never provides tasks.
-                            throw new IllegalStateException("Engine tasks are unsupported");
-                        case NOT_HANDSHAKING:
-                        case FINISHED:
-                            // Handshake is complete.
-                            finished = true;
-                            break;
-                        default: {
-                            throw new IllegalStateException(
-                                    "Unknown handshake status: " + engine.getHandshakeStatus());
-                        }
+                        break;
+                    case NEED_WRAP: {
+                        out.writeInternal(EMPTY_BUFFER);
+                        // Always flush handshake frames immediately.
+                        out.flushInternal();
+                        break;
+                    }
+                    case NEED_TASK: {
+                        // Should never get here, since our engine never provides tasks.
+                        throw new IllegalStateException("Engine tasks are unsupported");
+                    }
+                    case NOT_HANDSHAKING:
+                    case FINISHED: {
+                        // Handshake is complete.
+                        finished = true;
+                        break;
+                    }
+                    default: {
+                        throw new IllegalStateException(
+                            "Unknown handshake status: " + engine.getHandshakeStatus());
                     }
                 }
             }
@@ -191,7 +209,7 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
     }
 
     @Override
-    public InputStream getInputStream() throws IOException {
+    public final InputStream getInputStream() throws IOException {
         checkOpen();
 
         // Block waiting for a handshake without a lock held. It's possible that the socket
@@ -202,7 +220,7 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
     }
 
     @Override
-    public OutputStream getOutputStream() throws IOException {
+    public final OutputStream getOutputStream() throws IOException {
         checkOpen();
 
         // Block waiting for a handshake without a lock held. It's possible that the socket
@@ -214,12 +232,12 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
     }
 
     @Override
-    public SSLSession getHandshakeSession() {
+    public final SSLSession getHandshakeSession() {
         return engine.handshakeSession();
     }
 
     @Override
-    public SSLSession getSession() {
+    public final SSLSession getSession() {
         SSLSession session = engine.getSession();
         if (SSLNullSession.isNullSession(session)) {
             boolean handshakeCompleted = false;
@@ -242,47 +260,47 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
     }
 
     @Override
-    SSLSession getActiveSession() {
+    final SSLSession getActiveSession() {
         return engine.getSession();
     }
 
     @Override
-    public boolean getEnableSessionCreation() {
+    public final boolean getEnableSessionCreation() {
         return engine.getEnableSessionCreation();
     }
 
     @Override
-    public void setEnableSessionCreation(boolean flag) {
+    public final void setEnableSessionCreation(boolean flag) {
         engine.setEnableSessionCreation(flag);
     }
 
     @Override
-    public String[] getSupportedCipherSuites() {
+    public final String[] getSupportedCipherSuites() {
         return engine.getSupportedCipherSuites();
     }
 
     @Override
-    public String[] getEnabledCipherSuites() {
+    public final String[] getEnabledCipherSuites() {
         return engine.getEnabledCipherSuites();
     }
 
     @Override
-    public void setEnabledCipherSuites(String[] suites) {
+    public final void setEnabledCipherSuites(String[] suites) {
         engine.setEnabledCipherSuites(suites);
     }
 
     @Override
-    public String[] getSupportedProtocols() {
+    public final String[] getSupportedProtocols() {
         return engine.getSupportedProtocols();
     }
 
     @Override
-    public String[] getEnabledProtocols() {
+    public final String[] getEnabledProtocols() {
         return engine.getEnabledProtocols();
     }
 
     @Override
-    public void setEnabledProtocols(String[] protocols) {
+    public final void setEnabledProtocols(String[] protocols) {
         engine.setEnabledProtocols(protocols);
     }
 
@@ -292,65 +310,76 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
      * @param hostname the desired SNI hostname, or null to disable
      */
     @Override
-    public void setHostname(String hostname) {
+    public final void setHostname(String hostname) {
         engine.setHostname(hostname);
         super.setHostname(hostname);
     }
 
     @Override
-    public void setUseSessionTickets(boolean useSessionTickets) {
+    public final void setUseSessionTickets(boolean useSessionTickets) {
         engine.setUseSessionTickets(useSessionTickets);
     }
 
     @Override
-    public void setChannelIdEnabled(boolean enabled) {
+    public final void setChannelIdEnabled(boolean enabled) {
         engine.setChannelIdEnabled(enabled);
     }
 
     @Override
-    public byte[] getChannelId() throws SSLException {
+    public final byte[] getChannelId() throws SSLException {
         return engine.getChannelId();
     }
 
     @Override
-    public void setChannelIdPrivateKey(PrivateKey privateKey) {
+    public final void setChannelIdPrivateKey(PrivateKey privateKey) {
         engine.setChannelIdPrivateKey(privateKey);
     }
 
     @Override
-    public boolean getUseClientMode() {
+    byte[] getTlsUnique() {
+        return engine.getTlsUnique();
+    }
+
+    @Override
+    public final boolean getUseClientMode() {
         return engine.getUseClientMode();
     }
 
     @Override
-    public void setUseClientMode(boolean mode) {
+    public final void setUseClientMode(boolean mode) {
         engine.setUseClientMode(mode);
     }
 
     @Override
-    public boolean getWantClientAuth() {
+    public final boolean getWantClientAuth() {
         return engine.getWantClientAuth();
     }
 
     @Override
-    public boolean getNeedClientAuth() {
+    public final boolean getNeedClientAuth() {
         return engine.getNeedClientAuth();
     }
 
     @Override
-    public void setNeedClientAuth(boolean need) {
+    public final void setNeedClientAuth(boolean need) {
         engine.setNeedClientAuth(need);
     }
 
     @Override
-    public void setWantClientAuth(boolean want) {
+    public final void setWantClientAuth(boolean want) {
         engine.setWantClientAuth(want);
     }
 
     @Override
     @SuppressWarnings("UnsynchronizedOverridesSynchronized")
-    public void close() throws IOException {
+    public final void close() throws IOException {
         // TODO: Close SSL sockets using a background thread so they close gracefully.
+
+        if (stateLock == null) {
+            // close() has been called before we've initialized the socket, so just
+            // return.
+            return;
+        }
 
         synchronized (stateLock) {
             if (state == STATE_CLOSED) {
@@ -372,22 +401,34 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
     }
 
     @Override
-    public byte[] getAlpnSelectedProtocol() {
-        return engine.getAlpnSelectedProtocol();
+    final void setApplicationProtocols(String[] protocols) {
+        engine.setApplicationProtocols(protocols);
     }
 
     @Override
-    public void setAlpnProtocols(byte[] alpnProtocols) {
-        engine.setAlpnProtocols(alpnProtocols);
+    final String[] getApplicationProtocols() {
+        return engine.getApplicationProtocols();
     }
 
     @Override
-    public void setAlpnProtocols(String[] alpnProtocols) {
-        engine.setAlpnProtocols(alpnProtocols);
+    public final String getApplicationProtocol() {
+        return engine.getApplicationProtocol();
     }
 
-    private boolean isHandshakeFinished() {
-        return state >= STATE_READY_HANDSHAKE_CUT_THROUGH;
+    @Override
+    public final String getHandshakeApplicationProtocol() {
+        return engine.getHandshakeApplicationProtocol();
+    }
+
+    @Override
+    public final void setApplicationProtocolSelector(ApplicationProtocolSelector selector) {
+        setApplicationProtocolSelector(
+                selector == null ? null : new ApplicationProtocolSelectorAdapter(this, selector));
+    }
+
+    @Override
+    final void setApplicationProtocolSelector(ApplicationProtocolSelectorAdapter selector) {
+        engine.setApplicationProtocolSelector(selector);
     }
 
     private void onHandshakeFinished() {
@@ -443,20 +484,19 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
         return super.getInputStream();
     }
 
-    private SocketChannel getUnderlyingChannel() throws IOException {
-        return super.getChannel();
-    }
-
     /**
      * Wrap bytes written to the underlying socket.
      */
     private final class SSLOutputStream extends OutputStream {
         private final Object writeLock = new Object();
-        private ByteBuffer target;
+        private final ByteBuffer target;
+        private final int targetArrayOffset;
         private OutputStream socketOutputStream;
-        private SocketChannel socketChannel;
 
-        SSLOutputStream() {}
+        SSLOutputStream() {
+            target = ByteBuffer.allocate(engine.getSession().getPacketBufferSize());
+            targetArrayOffset = target.arrayOffset();
+        }
 
         @Override
         public void close() throws IOException {
@@ -536,30 +576,12 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
         private void init() throws IOException {
             if (socketOutputStream == null) {
                 socketOutputStream = getUnderlyingOutputStream();
-                socketChannel = getUnderlyingChannel();
-                if (socketChannel != null) {
-                    // Optimization. Using direct buffers wherever possible to avoid passing
-                    // arrays to JNI.
-                    target = ByteBuffer.allocateDirect(engine.getSession().getPacketBufferSize());
-                } else {
-                    target = ByteBuffer.allocate(engine.getSession().getPacketBufferSize());
-                }
             }
         }
 
         private void writeToSocket() throws IOException {
             // Write the data to the socket.
-            if (socketChannel != null) {
-                // Loop until all of the data is written to the channel. Typically,
-                // SocketChannel writes will return only after all bytes are written,
-                // so we won't really loop here.
-                while (target.hasRemaining()) {
-                    socketChannel.write(target);
-                }
-            } else {
-                // Target is a heap buffer.
-                socketOutputStream.write(target.array(), 0, target.limit());
-            }
+            socketOutputStream.write(target.array(), targetArrayOffset, target.limit());
         }
     }
 
@@ -570,14 +592,16 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
         private final Object readLock = new Object();
         private final byte[] singleByte = new byte[1];
         private final ByteBuffer fromEngine;
-        private ByteBuffer fromSocket;
+        private final ByteBuffer fromSocket;
+        private final int fromSocketArrayOffset;
         private InputStream socketInputStream;
-        private SocketChannel socketChannel;
 
         SSLInputStream() {
             fromEngine = ByteBuffer.allocateDirect(engine.getSession().getApplicationBufferSize());
             // Initially fromEngine.remaining() == 0.
             fromEngine.flip();
+            fromSocket = ByteBuffer.allocate(engine.getSession().getPacketBufferSize());
+            fromSocketArrayOffset = fromSocket.arrayOffset();
         }
 
         @Override
@@ -628,6 +652,17 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
             }
         }
 
+        private boolean isHandshaking(HandshakeStatus status) {
+            switch(status) {
+                case NEED_TASK:
+                case NEED_WRAP:
+                case NEED_UNWRAP:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         private int readInternal(byte[] b, int off, int len) throws IOException {
             Platform.blockGuardOnNetwork();
             checkOpen();
@@ -649,7 +684,10 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
                 // Unwrap the unencrypted bytes into the engine buffer.
                 fromSocket.flip();
                 fromEngine.clear();
+
+                boolean engineHandshaking = isHandshaking(engine.getHandshakeStatus());
                 SSLEngineResult engineResult = engine.unwrap(fromSocket, fromEngine);
+
                 // Shift any remaining data to the beginning of the buffer so that
                 // we can accommodate the next full packet. After this is called,
                 // limit will be restored to capacity and position will point just
@@ -668,7 +706,16 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
                         break;
                     }
                     case OK: {
-                        // We processed the entire packet successfully.
+                        // We processed the entire packet successfully...
+
+                        if (!engineHandshaking && isHandshaking(engineResult.getHandshakeStatus())
+                            && isHandshakeFinished()) {
+                            // The received packet is the beginning of a renegotiation handshake.
+                            // Perform another handshake.
+                            renegotiate();
+                            return 0;
+                        }
+
                         needMoreDataFromSocket = false;
                         break;
                     }
@@ -699,31 +746,43 @@ final class ConscryptEngineSocket extends OpenSSLSocketImpl {
             }
         }
 
+        private boolean isHandshakeFinished() {
+            synchronized (stateLock) {
+                return state >= STATE_READY_HANDSHAKE_CUT_THROUGH;
+            }
+        }
+
+        /**
+         * Processes a renegotiation received from the remote peer.
+         */
+        private void renegotiate() throws IOException {
+            synchronized (handshakeLock) {
+                doHandshake();
+            }
+        }
+
         private void init() throws IOException {
             if (socketInputStream == null) {
                 socketInputStream = getUnderlyingInputStream();
-                socketChannel = getUnderlyingChannel();
-                if (socketChannel != null) {
-                    fromSocket =
-                            ByteBuffer.allocateDirect(engine.getSession().getPacketBufferSize());
-                } else {
-                    fromSocket = ByteBuffer.allocate(engine.getSession().getPacketBufferSize());
-                }
             }
         }
 
         private int readFromSocket() throws IOException {
-            if (socketChannel != null) {
-                return socketChannel.read(fromSocket);
+            try {
+                // Read directly to the underlying array and increment the buffer position if
+                // appropriate.
+                int pos = fromSocket.position();
+                int lim = fromSocket.limit();
+                int read = socketInputStream.read(
+                    fromSocket.array(), fromSocketArrayOffset + pos, lim - pos);
+
+                if (read > 0) {
+                    fromSocket.position(pos + read);
+                }
+                return read;
+            } catch (EOFException e) {
+                return -1;
             }
-            // Read directly to the underlying array and increment the buffer position if
-            // appropriate.
-            int read = socketInputStream.read(
-                    fromSocket.array(), fromSocket.position(), fromSocket.remaining());
-            if (read > 0) {
-                fromSocket.position(fromSocket.position() + read);
-            }
-            return read;
         }
     }
 }

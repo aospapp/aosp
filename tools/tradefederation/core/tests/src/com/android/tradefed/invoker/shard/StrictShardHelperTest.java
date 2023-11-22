@@ -22,6 +22,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tradefed.build.BuildInfo;
+import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.command.CommandOptions;
 import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.ConfigurationException;
@@ -35,11 +36,15 @@ import com.android.tradefed.invoker.IRescheduler;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.result.ILogSaver;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.testtype.IInvocationContextReceiver;
+import com.android.tradefed.testtype.IMultiDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
+import com.android.tradefed.testtype.IShardableTest;
 import com.android.tradefed.testtype.StubTest;
 import com.android.tradefed.testtype.suite.ITestSuite;
 
 import org.easymock.EasyMock;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,8 +53,10 @@ import org.mockito.ArgumentMatcher;
 import org.mockito.Mockito;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Unit tests for {@link StrictShardHelper}. */
 @RunWith(JUnit4.class)
@@ -191,11 +198,17 @@ public class StrictShardHelperTest {
     public static class SplitITestSuite extends ITestSuite {
 
         private String mName;
+        private IRemoteTest mForceTest = null;
 
         public SplitITestSuite() {}
 
         public SplitITestSuite(String name) {
             mName = name;
+        }
+
+        public SplitITestSuite(String name, IRemoteTest test) {
+            this(name);
+            mForceTest = test;
         }
 
         @Override
@@ -207,6 +220,9 @@ public class StrictShardHelperTest {
                         ConfigurationFactory.getInstance()
                                 .createConfigurationFromArgs(
                                         new String[] {"empty", "--num-shards", "2"});
+                if (mForceTest != null) {
+                    configuration.setTest(mForceTest);
+                }
             } catch (ConfigurationException e) {
                 throw new RuntimeException(e);
             }
@@ -257,7 +273,7 @@ public class StrictShardHelperTest {
 
         assertTrue(res.get(1) instanceof ITestSuite);
         assertEquals("module1", ((ITestSuite) res.get(1)).getDirectModule().getId());
-        assertEquals(2, ((ITestSuite) res.get(1)).getDirectModule().numTests());
+        assertEquals(1, ((ITestSuite) res.get(1)).getDirectModule().numTests());
 
         assertTrue(res.get(2) instanceof ITestSuite);
         assertEquals("module2", ((ITestSuite) res.get(2)).getDirectModule().getId());
@@ -270,15 +286,15 @@ public class StrictShardHelperTest {
         assertEquals(3, res.size());
 
         assertTrue(res.get(0) instanceof ITestSuite);
-        assertEquals("module3", ((ITestSuite) res.get(0)).getDirectModule().getId());
+        assertEquals("module1", ((ITestSuite) res.get(0)).getDirectModule().getId());
         assertEquals(1, ((ITestSuite) res.get(0)).getDirectModule().numTests());
 
         assertTrue(res.get(1) instanceof ITestSuite);
-        assertEquals("module2", ((ITestSuite) res.get(1)).getDirectModule().getId());
-        assertEquals(2, ((ITestSuite) res.get(1)).getDirectModule().numTests());
+        assertEquals("module3", ((ITestSuite) res.get(1)).getDirectModule().getId());
+        assertEquals(1, ((ITestSuite) res.get(1)).getDirectModule().numTests());
 
         assertTrue(res.get(2) instanceof ITestSuite);
-        assertEquals("module1", ((ITestSuite) res.get(2)).getDirectModule().getId());
+        assertEquals("module2", ((ITestSuite) res.get(2)).getDirectModule().getId());
         assertEquals(2, ((ITestSuite) res.get(2)).getDirectModule().numTests());
     }
 
@@ -289,7 +305,7 @@ public class StrictShardHelperTest {
 
         assertTrue(res.get(0) instanceof ITestSuite);
         assertEquals("module1", ((ITestSuite) res.get(0)).getDirectModule().getId());
-        assertEquals(2, ((ITestSuite) res.get(0)).getDirectModule().numTests());
+        assertEquals(4, ((ITestSuite) res.get(0)).getDirectModule().numTests());
 
         assertTrue(res.get(1) instanceof ITestSuite);
         assertEquals("module2", ((ITestSuite) res.get(1)).getDirectModule().getId());
@@ -298,5 +314,142 @@ public class StrictShardHelperTest {
         assertTrue(res.get(1) instanceof ITestSuite);
         assertEquals("module3", ((ITestSuite) res.get(2)).getDirectModule().getId());
         assertEquals(1, ((ITestSuite) res.get(2)).getDirectModule().numTests());
+    }
+
+    @Test
+    public void testShardSuite() throws Exception {
+        //mConfig
+        mHelper.shardConfig(mConfig, mContext, mRescheduler);
+    }
+
+    /**
+     * Test class to ensure that when sharding interfaces are properly called and forwarded so the
+     * tests have all their information for sharding.
+     */
+    public static class TestInterfaceClass
+            implements IShardableTest, IMultiDeviceTest, IInvocationContextReceiver {
+
+        @Override
+        public void setInvocationContext(IInvocationContext invocationContext) {
+            Assert.assertNotNull(invocationContext);
+        }
+
+        @Override
+        public void setDeviceInfos(Map<ITestDevice, IBuildInfo> deviceInfos) {
+            Assert.assertNotNull(deviceInfos);
+        }
+
+        @Override
+        public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+            // ignore
+        }
+
+        @Override
+        public Collection<IRemoteTest> split(int hintShard) {
+            if (hintShard > 1) {
+                List<IRemoteTest> shards = new ArrayList<IRemoteTest>(hintShard);
+                for (int i = 0; i < hintShard; i++) {
+                    shards.add(new TestInterfaceClass());
+                }
+                return shards;
+            }
+            return null;
+        }
+    }
+
+    /** Test that no exception occurs when sharding for any possible interfaces. */
+    @Test
+    public void testSuite_withAllInterfaces() throws Exception {
+        mContext.addAllocatedDevice("default", EasyMock.createMock(ITestDevice.class));
+        IRemoteTest forceTest = new TestInterfaceClass();
+        IRemoteTest test = new SplitITestSuite("suite-interface", forceTest);
+
+        CommandOptions options = new CommandOptions();
+        OptionSetter setter = new OptionSetter(options);
+        setter.setOptionValue("disable-strict-sharding", "true");
+        setter.setOptionValue("shard-count", "3");
+        setter.setOptionValue("shard-index", Integer.toString(0));
+        mConfig.setCommandOptions(options);
+        mConfig.setTest(test);
+        mHelper.shardConfig(mConfig, mContext, mRescheduler);
+
+        List<IRemoteTest> res = mConfig.getTests();
+        assertEquals(1, res.size());
+
+        assertTrue(res.get(0) instanceof ITestSuite);
+        assertEquals("suite-interface", ((ITestSuite) res.get(0)).getDirectModule().getId());
+        assertEquals(1, ((ITestSuite) res.get(0)).getDirectModule().numTests());
+    }
+
+    /** Helper for distribution tests to simply populate a list of a given count. */
+    private List<IRemoteTest> createFakeTestList(int count) {
+        List<IRemoteTest> testList = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            testList.add(new StubTest());
+        }
+        return testList;
+    }
+
+    /**
+     * The distribution tests bellow expose an issue that arised with some combination of number of
+     * tests and shard-count. The number of tests allocated to each shard made us use the full list
+     * of tests before reaching the last shard, resulting in some OutOfBounds exception. Logic was
+     * added to detect these cases and properly handle them as well as ensuring a proper balancing.
+     */
+
+    /** Test that the special ratio 130 tests for 20 shards is properly redistributed. */
+    @Test
+    public void testDistribution_hightests_highcount() {
+        List<IRemoteTest> testList = createFakeTestList(130);
+        int shardCount = 20;
+        List<List<IRemoteTest>> res = mHelper.splitTests(testList, shardCount);
+        assertEquals(7, res.get(0).size());
+        assertEquals(7, res.get(1).size());
+        assertEquals(7, res.get(2).size());
+        assertEquals(7, res.get(3).size());
+        assertEquals(7, res.get(4).size());
+        assertEquals(7, res.get(5).size());
+        assertEquals(7, res.get(6).size());
+        assertEquals(7, res.get(7).size());
+        assertEquals(7, res.get(8).size());
+        assertEquals(7, res.get(9).size());
+        assertEquals(6, res.get(10).size());
+        assertEquals(6, res.get(11).size());
+        assertEquals(6, res.get(12).size());
+        assertEquals(6, res.get(13).size());
+        assertEquals(6, res.get(14).size());
+        assertEquals(6, res.get(15).size());
+        assertEquals(6, res.get(16).size());
+        assertEquals(6, res.get(17).size());
+        assertEquals(6, res.get(18).size());
+        assertEquals(6, res.get(19).size());
+    }
+
+    /** Test that the special ratio 7 tests for 6 shards is properly redistributed. */
+    @Test
+    public void testDistribution_lowtests_lowcount() {
+        List<IRemoteTest> testList = createFakeTestList(7);
+        int shardCount = 6;
+        List<List<IRemoteTest>> res = mHelper.splitTests(testList, shardCount);
+        assertEquals(2, res.get(0).size());
+        assertEquals(1, res.get(1).size());
+        assertEquals(1, res.get(2).size());
+        assertEquals(1, res.get(3).size());
+        assertEquals(1, res.get(4).size());
+        assertEquals(1, res.get(5).size());
+    }
+
+    /** Test that the special ratio 13 tests for 6 shards is properly redistributed. */
+    @Test
+    public void testDistribution_lowtests_lowcount2() {
+        List<IRemoteTest> testList = createFakeTestList(13);
+        int shardCount = 6;
+        List<List<IRemoteTest>> res = mHelper.splitTests(testList, shardCount);
+        assertEquals(3, res.get(0).size());
+        assertEquals(2, res.get(1).size());
+        assertEquals(2, res.get(2).size());
+        assertEquals(2, res.get(3).size());
+        assertEquals(2, res.get(4).size());
+        assertEquals(2, res.get(5).size());
     }
 }

@@ -21,7 +21,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.net.wifi.EAPConstants;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import com.android.server.wifi.IMSIParameter;
 import com.android.server.wifi.hotspot2.anqp.CellularNetwork;
@@ -155,6 +155,30 @@ public class ANQPMatcherTest {
                 Arrays.asList(new NAIRealmData[] {realmData}));
         assertEquals(AuthMatch.REALM, ANQPMatcher.matchNAIRealm(element, realm,
                 EAPConstants.EAP_TLS, null));
+    }
+
+    /**
+     * Verify that method match will be returned when the specified EAP
+     * method only matches a eap method in the NAI Realm ANQP element.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void matchNAIRealmWithMethodMatch() throws Exception {
+        // Test data.
+        String providerRealm = "test.com";
+        String anqpRealm = "test2.com";
+        int eapMethodID = EAPConstants.EAP_TLS;
+
+        // Setup NAI Realm element.
+        EAPMethod method = new EAPMethod(eapMethodID, new HashMap<Integer, Set<AuthParam>>());
+        NAIRealmData realmData = new NAIRealmData(
+            Arrays.asList(new String[] {anqpRealm}), Arrays.asList(new EAPMethod[] {method}));
+        NAIRealmElement element = new NAIRealmElement(
+            Arrays.asList(new NAIRealmData[] {realmData}));
+
+        assertEquals(AuthMatch.METHOD,
+            ANQPMatcher.matchNAIRealm(element, providerRealm, eapMethodID, null));
     }
 
     /**

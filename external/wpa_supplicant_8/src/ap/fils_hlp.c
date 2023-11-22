@@ -232,7 +232,7 @@ static void fils_dhcp_handler(int sd, void *eloop_ctx, void *sock_ctx)
 	sta = ap_get_sta(hapd, dhcp->hw_addr);
 	if (!sta || !sta->fils_pending_assoc_req) {
 		wpa_printf(MSG_DEBUG,
-			   "FILS: No pending HLP DHCP exchange with hw_addr"
+			   "FILS: No pending HLP DHCP exchange with hw_addr "
 			   MACSTR, MAC2STR(dhcp->hw_addr));
 		return;
 	}
@@ -263,14 +263,15 @@ static void fils_dhcp_handler(int sd, void *eloop_ctx, void *sock_ctx)
 	iph->ihl = sizeof(*iph) / 4;
 	iph->tot_len = htons(sizeof(*iph) + sizeof(*udph) + (end - pos));
 	iph->ttl = 1;
+	iph->protocol = 17; /* UDP */
 	iph->saddr = hapd->conf->dhcp_server.u.v4.s_addr;
 	iph->daddr = dhcp->client_ip;
 	iph->check = ip_checksum(iph, sizeof(*iph));
 	udph = wpabuf_put(resp, sizeof(*udph));
 	udph->uh_sport = htons(DHCP_SERVER_PORT);
 	udph->uh_dport = htons(DHCP_CLIENT_PORT);
-	udph->len = htons(sizeof(*udph) + (end - pos));
-	udph->check = htons(0x0000); /* TODO: calculate checksum */
+	udph->uh_ulen = htons(sizeof(*udph) + (end - pos));
+	udph->uh_sum = htons(0x0000); /* TODO: calculate checksum */
 	if (hapd->conf->dhcp_rapid_commit_proxy && msgtype == DHCPACK &&
 	    !rapid_commit && sta->fils_dhcp_rapid_commit_proxy && end_opt) {
 		/* Add rapid commit option */
@@ -313,7 +314,11 @@ static void fils_dhcp_handler(int sd, void *eloop_ctx, void *sock_ctx)
 		left -= len;
 	}
 	wpabuf_free(resp);
-	fils_hlp_finish_assoc(hapd, sta);
+
+	if (sta->fils_drv_assoc_finish)
+		hostapd_notify_assoc_fils_finish(hapd, sta);
+	else
+		fils_hlp_finish_assoc(hapd, sta);
 }
 
 

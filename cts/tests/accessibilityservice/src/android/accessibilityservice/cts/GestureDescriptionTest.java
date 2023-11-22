@@ -18,11 +18,15 @@ import android.accessibilityservice.GestureDescription;
 import android.accessibilityservice.GestureDescription.StrokeDescription;
 import android.graphics.Path;
 import android.graphics.PathMeasure;
+import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 import android.test.InstrumentationTestCase;
 
 /**
  * Tests for creating gesture descriptions.
  */
+@Presubmit
+@AppModeFull
 public class GestureDescriptionTest extends InstrumentationTestCase {
     static final int NOMINAL_PATH_DURATION = 100;
     private Path mNominalPath;

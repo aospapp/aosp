@@ -6,10 +6,22 @@
 <html<?cs if:devsite ?> devsite<?cs /if ?>>
 <?cs include:"head_tag.cs" ?>
 <?cs include:"body_tag.cs" ?>
+<div itemscope itemtype="http://developers.google.com/ReferenceObject" >
+<!-- This DIV closes at the end of the BODY -->
+  <meta itemprop="name" content="<?cs var:page.title ?>" />
+  <?cs if:(dac&&package.since)
+    ?><meta itemprop="path" content="API level <?cs var:package.since ?>" /><?cs
+  /if ?>
 <?cs include:"header.cs" ?>
 <?cs # Includes api-info-block DIV at top of page. Standard Devsite uses right nav. ?>
 <?cs if:dac ?><?cs include:"page_info.cs" ?><?cs /if ?>
-<div class="api apilevel-<?cs var:package.since ?>" id="jd-content">
+<div class="api apilevel-<?cs var:package.since ?>" id="jd-content"<?cs
+     if:package.since ?>
+     data-version-added="<?cs var:package.since ?>"<?cs
+     /if ?><?cs
+     if:package.deprecatedsince
+       ?> data-version-deprecated="<?cs var:package.deprecatedsince ?>"<?cs
+     /if ?> >
 
 <h1><?cs var:package.name ?></h1>
 
@@ -61,5 +73,6 @@
 <?cs include:"footer.cs" ?>
 <?cs include:"trailer.cs" ?>
 <?cs /if ?>
+</div><!-- end devsite ReferenceObject -->
 </body>
 </html>

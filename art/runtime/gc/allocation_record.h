@@ -21,8 +21,8 @@
 #include <memory>
 
 #include "base/mutex.h"
-#include "obj_ptr.h"
 #include "gc_root.h"
+#include "obj_ptr.h"
 
 namespace art {
 
@@ -31,8 +31,8 @@ class IsMarkedVisitor;
 class Thread;
 
 namespace mirror {
-  class Class;
-  class Object;
+class Class;
+class Object;
 }  // namespace mirror
 
 namespace gc {

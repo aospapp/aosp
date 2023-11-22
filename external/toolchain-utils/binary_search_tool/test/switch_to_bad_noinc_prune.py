@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """Switch part of the objects file in working set to (possible) bad ones.
 
 The "portion" is defined by the file (which is passed as the only argument to

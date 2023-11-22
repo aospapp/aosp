@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
+import java.util.regex.Pattern;
 
 import dalvik.annotation.optimization.CriticalNative;
 import dalvik.annotation.optimization.FastNative;
@@ -29,6 +33,7 @@ public class Main {
           throw new RuntimeException("Slow-debug flags unexpectedly off.");
         }
 
+        testFieldSubclass();
         testFindClassOnAttachedNativeThread();
         testFindFieldOnAttachedNativeThread();
         testReflectFieldGetFromAttachedNativeThreadNative();
@@ -56,7 +61,24 @@ public class Main {
         registerNativesJniTest();
         testFastNativeMethods();
         testCriticalNativeMethods();
+
+        testClinitMethodLookup();
+
+        testDoubleLoad(args[0]);
     }
+
+    static class ABC { public static int XYZ = 12; }
+    static class DEF extends ABC {}
+    public static void testFieldSubclass() {
+      try {
+        System.out.println("ABC.XYZ = " + ABC.XYZ + ", GetStaticIntField(DEF.class, 'XYZ') = " +
+            getFieldSubclass(ABC.class.getDeclaredField("XYZ"), DEF.class));
+      } catch (Exception e) {
+        throw new RuntimeException("Failed to test get static field on a subclass", e);
+      }
+    }
+
+    public static native int getFieldSubclass(Field f, Class sub);
 
     private static native boolean registerNativesJniTest();
 
@@ -314,6 +336,87 @@ public class Main {
     }
 
     private static native boolean isSlowDebug();
+
+    private static void testClinitMethodLookup() {
+      // Expect this to print <NSME Exception>
+      try {
+        System.out.println("Clinit Lookup: ClassWithoutClinit: " + methodString(lookupClinit(ClassWithoutClinit.class)));
+      } catch (NoSuchMethodError e) {
+        System.out.println("Clinit Lookup: ClassWithoutClinit: <NSME Exception>");
+      }
+      // Expect this to print <clinit>
+      try {
+        System.out.println("Clinit Lookup: ClassWithClinit: " + methodString(lookupClinit(ClassWithClinit.class)));
+      } catch (NoSuchMethodError e) {
+        System.out.println("Clinit Lookup: ClassWithClinit: <NSME Exception>");
+      }
+   }
+
+    private static String methodString(java.lang.reflect.Executable method) {
+      if (method == null) {
+        return "<<null>>";
+      } else {
+        return method.toString() + "(Class: " + method.getClass().toString() + ")";
+      }
+    }
+    private static native java.lang.reflect.Executable lookupClinit(Class kls);
+
+    private static class ClassWithoutClinit {
+    }
+    private static class ClassWithClinit {
+      static {}
+    }
+
+  private static void testDoubleLoad(String library) {
+    // Test that nothing observably happens on loading "library" again.
+    System.loadLibrary(library);
+
+    // Now load code in a separate classloader and try to let it load.
+    ClassLoader loader = createClassLoader();
+    try {
+      Class<?> aClass = loader.loadClass("A");
+      Method runMethod = aClass.getDeclaredMethod("run", String.class);
+      runMethod.invoke(null, library);
+    } catch (InvocationTargetException ite) {
+      if (ite.getCause() instanceof UnsatisfiedLinkError) {
+        if (!(loader instanceof java.net.URLClassLoader)) {
+          String msg = ite.getCause().getMessage();
+          String pattern = "^Shared library .*libarttest.* already opened by ClassLoader.*" +
+                           "004-JniTest.jar.*; can't open in ClassLoader.*004-JniTest-ex.jar.*";
+          if (!Pattern.matches(pattern, msg)) {
+            throw new RuntimeException("Could not find pattern in message", ite.getCause());
+          }
+        }
+        System.out.println("Got UnsatisfiedLinkError for duplicate loadLibrary");
+      } else {
+        throw new RuntimeException(ite);
+      }
+    } catch (Throwable t) {
+      // Anything else just let die.
+      throw new RuntimeException(t);
+    }
+  }
+
+  private static ClassLoader createClassLoader() {
+    String location = System.getenv("DEX_LOCATION");
+    try {
+      Class<?> class_loader_class = Class.forName("dalvik.system.PathClassLoader");
+      Constructor<?> ctor = class_loader_class.getConstructor(String.class, ClassLoader.class);
+
+      return (ClassLoader)ctor.newInstance(location + "/004-JniTest-ex.jar",
+                                           Main.class.getClassLoader());
+    } catch (ClassNotFoundException e) {
+      // Running on RI. Use URLClassLoader.
+      try {
+        return new java.net.URLClassLoader(
+            new java.net.URL[] { new java.net.URL("file://" + location + "/classes-ex/") });
+      } catch (Throwable t) {
+        throw new RuntimeException(t);
+      }
+    } catch (Throwable t) {
+      throw new RuntimeException(t);
+    }
+  }
 }
 
 @FunctionalInterface

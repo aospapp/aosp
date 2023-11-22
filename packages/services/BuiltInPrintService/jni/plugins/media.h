@@ -22,9 +22,9 @@
 #include "lib_wprint.h"
 
 #define STANDARD_SCALE_FOR_PDF    72.0
-#define _MI_TO_PIXELS(n, res)     ((n)*(res)+500)/1000.0
+#define _MI_TO_PIXELS(n, res)     (((n) * (res) + 500 ) / 1000.0)
 #define _MI_TO_POINTS(n)          _MI_TO_PIXELS(n, STANDARD_SCALE_FOR_PDF)
-#define _MI_TO_100MM(n)           (n/1000) * 2540 // Convert 1k inch to 100 mm
+#define _MI_TO_100MM(n)           ((n / 1000) * 2540) // Convert 1k inch to 100 mm
 #define UNKNOWN_VALUE             -1
 
 struct MediaSizeTableElement {

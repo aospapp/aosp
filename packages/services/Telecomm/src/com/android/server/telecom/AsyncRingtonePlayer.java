@@ -92,7 +92,7 @@ public class AsyncRingtonePlayer {
         HandlerThread thread = new HandlerThread("ringtone-player");
         thread.start();
 
-        return new Handler(thread.getLooper()) {
+        return new Handler(thread.getLooper(), null /*callback*/, true /*async*/) {
             @Override
             public void handleMessage(Message msg) {
                 switch(msg.what) {

@@ -27,7 +27,7 @@ public interface IObexConnectionHandler {
      * @return Shall return TRUE if the connection should be accepted.
      * FALSE otherwise
      */
-    public boolean onConnect(BluetoothDevice device, BluetoothSocket socket);
+    boolean onConnect(BluetoothDevice device, BluetoothSocket socket);
 
     /**
      * Will be called in case the accept call fails.
@@ -35,5 +35,5 @@ public interface IObexConnectionHandler {
      * The behavior needed is to shutdown the ObexServerSockets object, and create a
      * new one.
      */
-    public void onAcceptFailed();
+    void onAcceptFailed();
 }

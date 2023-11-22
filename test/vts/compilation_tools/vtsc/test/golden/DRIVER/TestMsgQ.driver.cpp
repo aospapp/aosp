@@ -1,9 +1,6 @@
 #include "android/hardware/tests/msgq/1.0/TestMsgQ.vts.h"
 #include "vts_measurement.h"
-#include <iostream>
-#include <hidl/HidlSupport.h>
-#include <android/hardware/tests/msgq/1.0/ITestMsgQ.h>
-#include <android/hidl/base/1.0/types.h>
+#include <android-base/logging.h>
 #include <android/hidl/allocator/1.0/IAllocator.h>
 #include <fmq/MessageQueue.h>
 #include <sys/stat.h>
@@ -18,8 +15,8 @@ namespace vts {
 }
 uint32_t Random__android__hardware__tests__msgq__V1_0__ITestMsgQ__EventFlagBits() {
     uint32_t choice = (uint32_t) rand() / 2;
-    if (choice == (uint32_t) 1) return static_cast<uint32_t>(::android::hardware::tests::msgq::V1_0::ITestMsgQ::EventFlagBits::FMQ_NOT_EMPTY);
-    if (choice == (uint32_t) 2) return static_cast<uint32_t>(::android::hardware::tests::msgq::V1_0::ITestMsgQ::EventFlagBits::FMQ_NOT_FULL);
+    if (choice == (uint32_t) 1UL) return static_cast<uint32_t>(::android::hardware::tests::msgq::V1_0::ITestMsgQ::EventFlagBits::FMQ_NOT_EMPTY);
+    if (choice == (uint32_t) 2UL) return static_cast<uint32_t>(::android::hardware::tests::msgq::V1_0::ITestMsgQ::EventFlagBits::FMQ_NOT_FULL);
     return static_cast<uint32_t>(::android::hardware::tests::msgq::V1_0::ITestMsgQ::EventFlagBits::FMQ_NOT_EMPTY);
 }
 bool Verify__android__hardware__tests__msgq__V1_0__ITestMsgQ__EventFlagBits(const VariableSpecificationMessage& expected_result __attribute__((__unused__)), const VariableSpecificationMessage& actual_result __attribute__((__unused__))){
@@ -36,16 +33,16 @@ void SetResult__android__hardware__tests__msgq__V1_0__ITestMsgQ__EventFlagBits(V
 bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::GetService(bool get_stub, const char* service_name) {
     static bool initialized = false;
     if (!initialized) {
-        cout << "[agent:hal] HIDL getService" << endl;
+        LOG(INFO) << "HIDL getService";
         if (service_name) {
-          cout << "  - service name: " << service_name << endl;
+          LOG(INFO) << "  - service name: " << service_name;
         }
         hw_binder_proxy_ = ::android::hardware::tests::msgq::V1_0::ITestMsgQ::getService(service_name, get_stub);
         if (hw_binder_proxy_ == nullptr) {
-            cerr << "getService() returned a null pointer." << endl;
+            LOG(ERROR) << "getService() returned a null pointer.";
             return false;
         }
-        cout << "[agent:hal] hw_binder_proxy_ = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "hw_binder_proxy_ = " << hw_binder_proxy_.get();
         initialized = true;
     }
     return true;
@@ -53,18 +50,19 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::GetService(bool 
 
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::configureFmqSyncReadWrite(
-    std::function<void(bool arg0,const ::android::hardware::MQDescriptorSync<uint16_t>& arg1)>) {
-    cout << "configureFmqSyncReadWrite called" << endl;
+    std::function<void(bool arg0,const ::android::hardware::MQDescriptorSync<uint16_t>& arg1)> cb) {
+    LOG(INFO) << "configureFmqSyncReadWrite called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("configureFmqSyncReadWrite"));
     callback_message.set_name("Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::configureFmqSyncReadWrite");
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(static_cast<bool>(0), ::android::hardware::MQDescriptorSync<uint16_t>());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::getFmqUnsyncWrite(
-    bool arg0 __attribute__((__unused__)), std::function<void(bool arg0,const ::android::hardware::MQDescriptorUnsync<uint16_t>& arg1)>) {
-    cout << "getFmqUnsyncWrite called" << endl;
+    bool arg0 __attribute__((__unused__)), std::function<void(bool arg0,const ::android::hardware::MQDescriptorUnsync<uint16_t>& arg1)> cb) {
+    LOG(INFO) << "getFmqUnsyncWrite called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("getFmqUnsyncWrite"));
     callback_message.set_name("Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::getFmqUnsyncWrite");
@@ -73,12 +71,13 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::GetService(bool 
     var_msg0->set_scalar_type("bool_t");
     var_msg0->mutable_scalar_value()->set_bool_t(arg0);
     RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(static_cast<bool>(0), ::android::hardware::MQDescriptorUnsync<uint16_t>());
     return ::android::hardware::Void();
 }
 
 ::android::hardware::Return<bool> Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::requestWriteFmqSync(
     int32_t arg0 __attribute__((__unused__))) {
-    cout << "requestWriteFmqSync called" << endl;
+    LOG(INFO) << "requestWriteFmqSync called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("requestWriteFmqSync"));
     callback_message.set_name("Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::requestWriteFmqSync");
@@ -92,7 +91,7 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::GetService(bool 
 
 ::android::hardware::Return<bool> Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::requestReadFmqSync(
     int32_t arg0 __attribute__((__unused__))) {
-    cout << "requestReadFmqSync called" << endl;
+    LOG(INFO) << "requestReadFmqSync called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("requestReadFmqSync"));
     callback_message.set_name("Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::requestReadFmqSync");
@@ -106,7 +105,7 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::GetService(bool 
 
 ::android::hardware::Return<bool> Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::requestWriteFmqUnsync(
     int32_t arg0 __attribute__((__unused__))) {
-    cout << "requestWriteFmqUnsync called" << endl;
+    LOG(INFO) << "requestWriteFmqUnsync called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("requestWriteFmqUnsync"));
     callback_message.set_name("Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::requestWriteFmqUnsync");
@@ -120,7 +119,7 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::GetService(bool 
 
 ::android::hardware::Return<bool> Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::requestReadFmqUnsync(
     int32_t arg0 __attribute__((__unused__))) {
-    cout << "requestReadFmqUnsync called" << endl;
+    LOG(INFO) << "requestReadFmqUnsync called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("requestReadFmqUnsync"));
     callback_message.set_name("Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::requestReadFmqUnsync");
@@ -134,7 +133,7 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::GetService(bool 
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::requestBlockingRead(
     int32_t arg0 __attribute__((__unused__))) {
-    cout << "requestBlockingRead called" << endl;
+    LOG(INFO) << "requestBlockingRead called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("requestBlockingRead"));
     callback_message.set_name("Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::requestBlockingRead");
@@ -148,7 +147,7 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::GetService(bool 
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::requestBlockingReadDefaultEventFlagBits(
     int32_t arg0 __attribute__((__unused__))) {
-    cout << "requestBlockingReadDefaultEventFlagBits called" << endl;
+    LOG(INFO) << "requestBlockingReadDefaultEventFlagBits called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("requestBlockingReadDefaultEventFlagBits"));
     callback_message.set_name("Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::requestBlockingReadDefaultEventFlagBits");
@@ -163,7 +162,7 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::GetService(bool 
 ::android::hardware::Return<void> Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::requestBlockingReadRepeat(
     int32_t arg0 __attribute__((__unused__)),
     int32_t arg1 __attribute__((__unused__))) {
-    cout << "requestBlockingReadRepeat called" << endl;
+    LOG(INFO) << "requestBlockingReadRepeat called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("requestBlockingReadRepeat"));
     callback_message.set_name("Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::requestBlockingReadRepeat");
@@ -193,7 +192,7 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::Fuzz(
 bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::GetAttribute(
     FunctionSpecificationMessage* /*func_msg*/,
     void** /*result*/) {
-    cerr << "attribute not found" << endl;
+    LOG(ERROR) << "attribute not found.";
     return false;
 }
 bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::CallFunction(
@@ -201,26 +200,19 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::CallFunction(
     const string& callback_socket_name __attribute__((__unused__)),
     FunctionSpecificationMessage* result_msg) {
     const char* func_name = func_msg.name().c_str();
-    cout << "Function: " << __func__ << " " << func_name << endl;
-    cout << "Callback socket name: " << callback_socket_name << endl;
     if (hw_binder_proxy_ == nullptr) {
-        cerr << "hw_binder_proxy_ is null. "<< endl;
+        LOG(ERROR) << "hw_binder_proxy_ is null. ";
         return false;
     }
     if (!strcmp(func_name, "configureFmqSyncReadWrite")) {
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         bool result0;
         std::unique_ptr<::android::hardware::MQDescriptorSync<uint16_t>> result1;
         hw_binder_proxy_->configureFmqSyncReadWrite([&](bool arg0,const ::android::hardware::MQDescriptorSync<uint16_t>& arg1){
-            cout << "callback configureFmqSyncReadWrite called" << endl;
+            LOG(INFO) << "callback configureFmqSyncReadWrite called";
             result0 = arg0;
             result1.reset(new (std::nothrow) ::android::hardware::MQDescriptorSync<uint16_t>(arg1));
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("configureFmqSyncReadWrite");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_SCALAR);
@@ -229,25 +221,19 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::CallFunction(
         VariableSpecificationMessage* result_val_1 = result_msg->add_return_type_hidl();
         result_val_1->set_type(TYPE_FMQ_SYNC);
         /* ERROR: TYPE_FMQ_SYNC is not supported yet. */
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "getFmqUnsyncWrite")) {
         bool arg0 = 0;
         arg0 = func_msg.arg(0).scalar_value().bool_t();
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         bool result0;
         std::unique_ptr<::android::hardware::MQDescriptorUnsync<uint16_t>> result1;
         hw_binder_proxy_->getFmqUnsyncWrite(arg0, [&](bool arg0,const ::android::hardware::MQDescriptorUnsync<uint16_t>& arg1){
-            cout << "callback getFmqUnsyncWrite called" << endl;
+            LOG(INFO) << "callback getFmqUnsyncWrite called";
             result0 = arg0;
             result1.reset(new (std::nothrow) ::android::hardware::MQDescriptorUnsync<uint16_t>(arg1));
         });
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("getFmqUnsyncWrite");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_SCALAR);
@@ -256,111 +242,74 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::CallFunction(
         VariableSpecificationMessage* result_val_1 = result_msg->add_return_type_hidl();
         result_val_1->set_type(TYPE_FMQ_UNSYNC);
         /* ERROR: TYPE_FMQ_UNSYNC is not supported yet. */
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "requestWriteFmqSync")) {
         int32_t arg0 = 0;
         arg0 = func_msg.arg(0).scalar_value().int32_t();
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         bool result0;
         result0 = hw_binder_proxy_->requestWriteFmqSync(arg0);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("requestWriteFmqSync");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_SCALAR);
         result_val_0->set_scalar_type("bool_t");
         result_val_0->mutable_scalar_value()->set_bool_t(result0);
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "requestReadFmqSync")) {
         int32_t arg0 = 0;
         arg0 = func_msg.arg(0).scalar_value().int32_t();
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         bool result0;
         result0 = hw_binder_proxy_->requestReadFmqSync(arg0);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("requestReadFmqSync");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_SCALAR);
         result_val_0->set_scalar_type("bool_t");
         result_val_0->mutable_scalar_value()->set_bool_t(result0);
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "requestWriteFmqUnsync")) {
         int32_t arg0 = 0;
         arg0 = func_msg.arg(0).scalar_value().int32_t();
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         bool result0;
         result0 = hw_binder_proxy_->requestWriteFmqUnsync(arg0);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("requestWriteFmqUnsync");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_SCALAR);
         result_val_0->set_scalar_type("bool_t");
         result_val_0->mutable_scalar_value()->set_bool_t(result0);
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "requestReadFmqUnsync")) {
         int32_t arg0 = 0;
         arg0 = func_msg.arg(0).scalar_value().int32_t();
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         bool result0;
         result0 = hw_binder_proxy_->requestReadFmqUnsync(arg0);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("requestReadFmqUnsync");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_SCALAR);
         result_val_0->set_scalar_type("bool_t");
         result_val_0->mutable_scalar_value()->set_bool_t(result0);
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "requestBlockingRead")) {
         int32_t arg0 = 0;
         arg0 = func_msg.arg(0).scalar_value().int32_t();
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         hw_binder_proxy_->requestBlockingRead(arg0);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("requestBlockingRead");
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "requestBlockingReadDefaultEventFlagBits")) {
         int32_t arg0 = 0;
         arg0 = func_msg.arg(0).scalar_value().int32_t();
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         hw_binder_proxy_->requestBlockingReadDefaultEventFlagBits(arg0);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("requestBlockingReadDefaultEventFlagBits");
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "requestBlockingReadRepeat")) {
@@ -368,22 +317,15 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::CallFunction(
         arg0 = func_msg.arg(0).scalar_value().int32_t();
         int32_t arg1 = 0;
         arg1 = func_msg.arg(1).scalar_value().int32_t();
-        VtsMeasurement vts_measurement;
-        vts_measurement.Start();
-        cout << "Call an API" << endl;
-        cout << "local_device = " << hw_binder_proxy_.get() << endl;
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         hw_binder_proxy_->requestBlockingReadRepeat(arg0, arg1);
-        vector<float>* measured = vts_measurement.Stop();
-        cout << "time " << (*measured)[0] << endl;
         result_msg->set_name("requestBlockingReadRepeat");
-        cout << "called" << endl;
         return true;
     }
     if (!strcmp(func_name, "notifySyspropsChanged")) {
-        cout << "Call notifySyspropsChanged" << endl;
+        LOG(INFO) << "Call notifySyspropsChanged";
         hw_binder_proxy_->notifySyspropsChanged();
         result_msg->set_name("notifySyspropsChanged");
-        cout << "called" << endl;
         return true;
     }
     return false;
@@ -448,7 +390,7 @@ android::vts::DriverBase* vts_func_4_android_hardware_tests_msgq_V1_0_ITestMsgQ_
     if (hw_binder_proxy) {
         arg = reinterpret_cast<::android::hardware::tests::msgq::V1_0::ITestMsgQ*>(hw_binder_proxy);
     } else {
-        cout << " Creating DriverBase with null proxy." << endl;
+        LOG(INFO) << " Creating DriverBase with null proxy.";
     }
     android::vts::DriverBase* result =
         new android::vts::FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ(

@@ -18,15 +18,15 @@
 
 #include "base/bit_utils.h"
 #include "base/length_prefixed_array.h"
-#include "mirror/object_array.h"
-#include "mirror/object_array-inl.h"
+#include "base/utils.h"
 #include "mirror/object-inl.h"
-#include "utils.h"
+#include "mirror/object_array-inl.h"
+#include "mirror/object_array.h"
 
 namespace art {
 
 const uint8_t ImageHeader::kImageMagic[] = { 'a', 'r', 't', '\n' };
-const uint8_t ImageHeader::kImageVersion[] = { '0', '4', '6', '\0' };  // Hash-based methods array.
+const uint8_t ImageHeader::kImageVersion[] = { '0', '5', '6', '\0' };  // ReachabilityFence.
 
 ImageHeader::ImageHeader(uint32_t image_begin,
                          uint32_t image_size,
@@ -138,11 +138,6 @@ ArtMethod* ImageHeader::GetImageMethod(ImageMethod index) const {
 void ImageHeader::SetImageMethod(ImageMethod index, ArtMethod* method) {
   CHECK_LT(static_cast<size_t>(index), kImageMethodsCount);
   image_methods_[index] = reinterpret_cast<uint64_t>(method);
-}
-
-const ImageSection& ImageHeader::GetImageSection(ImageSections index) const {
-  CHECK_LT(static_cast<size_t>(index), kSectionCount);
-  return sections_[index];
 }
 
 std::ostream& operator<<(std::ostream& os, const ImageSection& section) {

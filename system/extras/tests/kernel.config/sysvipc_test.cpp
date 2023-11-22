@@ -18,6 +18,10 @@
 #include <linux/kcmp.h>
 #include <sys/syscall.h>
 #endif
+#include <sys/ipc.h>
+#include <sys/msg.h>
+#include <sys/sem.h>
+#include <sys/shm.h>
 #include <unistd.h>
 
 #include <gtest/gtest.h>
@@ -36,9 +40,19 @@ TEST(kernel_config, NOT_CONFIG_SYSVIPC) {
   EXPECT_EQ(-1, kcmp(pid, pid, KCMP_SYSVSEM, 0, 0));
   EXPECT_EQ(EOPNOTSUPP, error);
 #endif
-  EXPECT_EQ(-1, access("/proc/sysvipc", F_OK));
+
+  EXPECT_EQ(-1, access("/proc/sysvipc", R_OK));
+
   EXPECT_EQ(-1, access("/proc/sysvipc/msg", F_OK));
+  EXPECT_EQ(-1, msgctl(-1, IPC_STAT, nullptr));
+  EXPECT_EQ(ENOSYS, errno);
+
   EXPECT_EQ(-1, access("/proc/sysvipc/sem", F_OK));
+  EXPECT_EQ(-1, semctl(-1, 0, IPC_STAT, nullptr));
+  EXPECT_EQ(ENOSYS, errno);
+
   EXPECT_EQ(-1, access("/proc/sysvipc/shm", F_OK));
+  EXPECT_EQ(-1, shmctl(-1, IPC_STAT, nullptr));
+  EXPECT_EQ(ENOSYS, errno);
 }
 

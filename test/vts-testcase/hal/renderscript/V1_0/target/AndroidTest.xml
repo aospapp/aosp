@@ -14,11 +14,11 @@
      limitations under the License.
 -->
 <configuration description="Config for VTS VtsHalRenderscriptV1_0Target test cases">
+    <option name="config-descriptor:metadata" key="plan" value="vts-hal" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="abort-on-push-failure" value="false"/>
         <option name="push-group" value="HalHidlTargetTest.push"/>
     </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer"/>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsHalRenderscriptV1_0Target"/>
         <option name="binary-test-working-directory" value="_32bit::/data/nativetest/" />
@@ -26,7 +26,9 @@
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalRenderscriptV1_0TargetTest/VtsHalRenderscriptV1_0TargetTest"/>
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalRenderscriptV1_0TargetTest/VtsHalRenderscriptV1_0TargetTest"/>
         <option name="binary-test-type" value="hal_hidl_gtest"/>
-        <option name="precondition-lshal" value="android.hardware.renderscript@1.0"/>
+        <option name="exclude-coverage-path" value="frameworks/av/media" />
+        <option name="exclude-coverage-path" value="hardware/interfaces/graphics/mapper/2.0" />
+        <option name="exclude-coverage-path" value="hardware/qcom/display" />
         <option name="test-timeout" value="5m"/>
     </test>
 </configuration>

@@ -20,6 +20,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
     msgq_benchmark_client.cpp
 
+LOCAL_CFLAGS := -Wall -Werror
+
 LOCAL_SHARED_LIBRARIES := \
     libhwbinder \
     libbase \

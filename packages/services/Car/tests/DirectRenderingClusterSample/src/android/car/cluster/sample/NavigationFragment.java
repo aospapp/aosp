@@ -26,7 +26,6 @@ import android.hardware.display.DisplayManager.DisplayListener;
 import android.hardware.display.VirtualDisplay;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.Display;
 import android.view.LayoutInflater;
@@ -36,6 +35,8 @@ import android.view.SurfaceHolder.Callback;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.fragment.app.Fragment;
 
 public class NavigationFragment extends Fragment {
     private final static String TAG = "Cluster.NavigationFragment";

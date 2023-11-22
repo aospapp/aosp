@@ -32,7 +32,6 @@
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
   ArmPlatformPkg/ArmPlatformPkg.dec
-  OpenPlatformPkg/Platforms/Hisilicon/HiKey/HiKey.dec
 
 [LibraryClasses]
   ArmLib
@@ -45,8 +44,6 @@
 
 [Guids]
   gEfiFileInfoGuid
-  gFdtTableGuid
-  gHiKeyVariableGuid
 
 [Protocols]
   gEfiBdsArchProtocolGuid
@@ -56,7 +53,6 @@
   gEfiFirmwareVolume2ProtocolGuid
   gEfiLoadFileProtocolGuid
   gEfiPxeBaseCodeProtocolGuid
-  gEfiBlockIoProtocolGuid
   gEfiDiskIoProtocolGuid
   gEfiUsbIoProtocolGuid
   gEfiLoadedImageProtocolGuid

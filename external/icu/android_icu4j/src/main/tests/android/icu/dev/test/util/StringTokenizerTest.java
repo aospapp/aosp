@@ -11,31 +11,36 @@
 package android.icu.dev.test.util;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.Utility;
 import android.icu.text.ReplaceableString;
 import android.icu.text.UnicodeSet;
 import android.icu.util.StringTokenizer;
+import android.icu.testsharding.MainTestShard;
 
 /**
 * Testing class for StringTokenizer class
 * @author Syn Wee Quek
 * @since oct 26 2002
 */
+@MainTestShard
+@RunWith(JUnit4.class)
 public final class StringTokenizerTest extends TestFmwk
-{ 
+{
       // constructor ===================================================
-  
+
       /**
       * Constructor
       */
       public StringTokenizerTest()
       {
       }
-  
+
       // public methods --------------------------------------------------------
-    
+
     /**
      * Testing constructors
      */
@@ -44,7 +49,7 @@ public final class StringTokenizerTest extends TestFmwk
     {
         String str = "this\tis\na\rstring\ftesting\tStringTokenizer\nconstructors!";
         String delimiter = " \t\n\r\f";
-        String expected[] = {"this", "is", "a", "string", "testing", 
+        String expected[] = {"this", "is", "a", "string", "testing",
                              "StringTokenizer", "constructors!"};
         StringTokenizer defaultst = new StringTokenizer(str);
         StringTokenizer stdelimiter = new StringTokenizer(str, delimiter);
@@ -52,11 +57,11 @@ public final class StringTokenizerTest extends TestFmwk
                                                                 false);
         UnicodeSet delimiterset = new UnicodeSet("[" + delimiter + "]", false);
         StringTokenizer stdelimiterset = new StringTokenizer(str, delimiterset);
-        StringTokenizer stdelimitersetreturn = new StringTokenizer(str, 
+        StringTokenizer stdelimitersetreturn = new StringTokenizer(str,
                                                                 delimiterset,
                                                                 false);
         for (int i = 0; i < expected.length; i ++) {
-            if (!(defaultst.nextElement().equals(expected[i]) 
+            if (!(defaultst.nextElement().equals(expected[i])
                   && stdelimiter.nextElement().equals(expected[i])
                   && stdelimiterreturn.nextElement().equals(expected[i])
                   && stdelimiterset.nextElement().equals(expected[i])
@@ -64,13 +69,13 @@ public final class StringTokenizerTest extends TestFmwk
                 errln("Constructor with default delimiter gives wrong results");
             }
         }
-        
+
         UnicodeSet delimiterset1 = new UnicodeSet("[" + delimiter + "]", true);
         StringTokenizer stdelimiterset1 = new StringTokenizer(str, delimiterset1);
         if(!(stdelimiterset1.nextElement().equals(str)))
             errln("Constructor with a UnicodeSet to ignoreWhiteSpace is " +
                     "to return the same string.");
-        
+
         String expected1[] = {"this", "\t", "is", "\n", "a", "\r", "string", "\f",
                             "testing", "\t", "StringTokenizer", "\n",
                             "constructors!"};
@@ -82,34 +87,34 @@ public final class StringTokenizerTest extends TestFmwk
                 errln("Constructor with default delimiter and delimiter tokens gives wrong results");
             }
         }
-                            
+
         stdelimiter = new StringTokenizer(str, (String)null);
         stdelimiterreturn = new StringTokenizer(str, (String)null, false);
         delimiterset = null;
         stdelimiterset = new StringTokenizer(str, delimiterset);
         stdelimitersetreturn = new StringTokenizer(str, delimiterset, false);
-        
+
         if (!(stdelimiter.nextElement().equals(str)
               && stdelimiterreturn.nextElement().equals(str)
               && stdelimiterset.nextElement().equals(str)
               && stdelimitersetreturn.nextElement().equals(str))) {
             errln("Constructor with null delimiter gives wrong results");
         }
-        
+
         delimiter = "";
         stdelimiter = new StringTokenizer(str, delimiter);
         stdelimiterreturn = new StringTokenizer(str, delimiter, false);
         delimiterset = new UnicodeSet();
         stdelimiterset = new StringTokenizer(str, delimiterset);
         stdelimitersetreturn = new StringTokenizer(str, delimiterset, false);
-        
+
         if (!(stdelimiter.nextElement().equals(str)
               && stdelimiterreturn.nextElement().equals(str)
               && stdelimiterset.nextElement().equals(str)
               && stdelimitersetreturn.nextElement().equals(str))) {
             errln("Constructor with empty delimiter gives wrong results");
         }
-        
+
         try {
             defaultst = new StringTokenizer(null);
             errln("null string should throw an exception");
@@ -142,7 +147,7 @@ public final class StringTokenizerTest extends TestFmwk
             logln("PASS: Constructor with null string failed as expected");
         }
     }
-    
+
     /**
      * Testing supplementary
      */
@@ -152,7 +157,7 @@ public final class StringTokenizerTest extends TestFmwk
         String str = "bmp string \ud800 with a unmatched surrogate character";
         String delimiter = "\ud800\udc00";
         String expected[] = {str};
-            
+
         StringTokenizer tokenizer = new StringTokenizer(str, delimiter);
         if (!tokenizer.nextElement().equals(expected[0])) {
             errln("Error parsing \"" + Utility.hex(str) + "\"");
@@ -161,7 +166,7 @@ public final class StringTokenizerTest extends TestFmwk
             errln("Number of tokens exceeded expected");
         }
         delimiter = "\ud800";
-        String expected1[] = {"bmp string ", 
+        String expected1[] = {"bmp string ",
                               " with a unmatched surrogate character"};
         tokenizer = new StringTokenizer(str, delimiter);
         int i = 0;
@@ -173,7 +178,7 @@ public final class StringTokenizerTest extends TestFmwk
         if (tokenizer.hasMoreElements()) {
             errln("Number of tokens exceeded expected");
         }
-        
+
         str = "string \ud800\udc00 with supplementary character";
         delimiter = "\ud800";
         String expected2[] = {str};
@@ -184,7 +189,7 @@ public final class StringTokenizerTest extends TestFmwk
         if (tokenizer.hasMoreElements()) {
             errln("Number of tokens exceeded expected");
         }
-  
+
         delimiter = "\ud800\udc00";
         String expected3[] = {"string ", " with supplementary character"};
         tokenizer = new StringTokenizer(str, delimiter);
@@ -197,7 +202,7 @@ public final class StringTokenizerTest extends TestFmwk
         if (tokenizer.hasMoreElements()) {
             errln("Number of tokens exceeded expected");
         }
-        
+
         str = "\ud800 \ud800\udc00 \ud800 \ud800\udc00";
         delimiter = "\ud800";
         String expected4[] = {" \ud800\udc00 ", " \ud800\udc00"};
@@ -210,7 +215,7 @@ public final class StringTokenizerTest extends TestFmwk
         if (tokenizer.hasMoreElements()) {
             errln("Number of tokens exceeded expected");
         }
-        
+
         delimiter = "\ud800\udc00";
         String expected5[] = {"\ud800 ", " \ud800 "};
         i = 0;
@@ -223,7 +228,7 @@ public final class StringTokenizerTest extends TestFmwk
             errln("Number of tokens exceeded expected");
         }
     }
-  
+
       /**
       * Testing next api
       */
@@ -231,10 +236,10 @@ public final class StringTokenizerTest extends TestFmwk
       public void TestNextNonDelimiterToken()
       {
         String str = "  ,  1 2 3  AHHHHH! 5.5 6 7    ,        8\n";
-        String expected[] = {",", "1", "2", "3", "AHHHHH!", "5.5", "6", "7", 
+        String expected[] = {",", "1", "2", "3", "AHHHHH!", "5.5", "6", "7",
                              ",", "8\n"};
         String delimiter = " ";
-                           
+
         StringTokenizer tokenizer = new StringTokenizer(str, delimiter);
         int currtoken = 0;
         while (tokenizer.hasMoreElements()) {
@@ -247,7 +252,7 @@ public final class StringTokenizerTest extends TestFmwk
         if (currtoken != expected.length) {
             errln("Didn't get correct number of tokens");
         }
-        
+
         tokenizer = new StringTokenizer("", delimiter);
         if (tokenizer.hasMoreElements()) {
             errln("Empty string should not have any tokens");
@@ -258,7 +263,7 @@ public final class StringTokenizerTest extends TestFmwk
         } catch (Exception e) {
             logln("PASS: empty string failed as expected");
         }
-        
+
         tokenizer = new StringTokenizer(", ,", ", ");
         if (tokenizer.hasMoreElements()) {
             errln("String with only delimiters should not have any tokens");
@@ -276,7 +281,7 @@ public final class StringTokenizerTest extends TestFmwk
         }
         if (!tokenizer.nextElement().equals("q")) {
             errln("String that does not begin with delimiters should have some tokens");
-        } 
+        }
         try {
             tokenizer.nextElement();
             errln("String has only one token");
@@ -336,7 +341,7 @@ public final class StringTokenizerTest extends TestFmwk
                              "AHHHHH!", " ", "5.5", " ", "6", " ", "7", "    ",
                              ",", "        ", "8\n"};
         String delimiter = " ";
-                           
+
         StringTokenizer tokenizer = new StringTokenizer(str, delimiter, true, true);
 
         int currtoken = 0;
@@ -350,7 +355,7 @@ public final class StringTokenizerTest extends TestFmwk
         if (currtoken != expected.length) {
             errln("Didn't get correct number of tokens");
         }
-        
+
         tokenizer = new StringTokenizer("", delimiter, true);
         if (tokenizer.hasMoreElements()) {
             errln("Empty string should not have any tokens");
@@ -361,7 +366,7 @@ public final class StringTokenizerTest extends TestFmwk
         } catch (Exception e) {
             logln("PASS: Empty string failed as expected");
         }
-        
+
         tokenizer = new StringTokenizer(", ,", ", ", true, true);
         if (!tokenizer.hasMoreElements()) {
             errln("String with only delimiters should have tokens when delimiter is treated as tokens");
@@ -371,14 +376,14 @@ public final class StringTokenizerTest extends TestFmwk
         }
 
         tokenizer = new StringTokenizer("q, ,", ", ", true, true);
-        
+
         if (!tokenizer.hasMoreElements()) {
             errln("String should have some tokens");
         }
-        if (!tokenizer.nextElement().equals("q") 
+        if (!tokenizer.nextElement().equals("q")
             || !tokenizer.nextElement().equals(", ,")) {
             errln("String tokens do not match expected results");
-        } 
+        }
 
         try {
             tokenizer = new StringTokenizer(null, delimiter, true);
@@ -392,7 +397,7 @@ public final class StringTokenizerTest extends TestFmwk
             errln("Should have recieved the same string when there are no delimiters");
         }
     }
-    
+
     /**
      * Testing count tokens
      */
@@ -401,10 +406,10 @@ public final class StringTokenizerTest extends TestFmwk
     {
         String str = "this\tis\na\rstring\ftesting\tStringTokenizer\nconstructors!";
         String delimiter = " \t\n\r\f";
-        String expected[] = {"this", "is", "a", "string", "testing", 
+        String expected[] = {"this", "is", "a", "string", "testing",
                              "StringTokenizer", "constructors!"};
-        String expectedreturn[] = {"this", "\t", "is", "\n", "a", "\r", 
-                                   "string", "\f", "testing", "\t", 
+        String expectedreturn[] = {"this", "\t", "is", "\n", "a", "\r",
+                                   "string", "\f", "testing", "\t",
                                    "StringTokenizer", "\n", "constructors!"};
         StringTokenizer st = new StringTokenizer(str, delimiter);
         StringTokenizer streturn = new StringTokenizer(str, delimiter, true);
@@ -425,9 +430,9 @@ public final class StringTokenizerTest extends TestFmwk
                 || streturn.countTokens() != expectedreturn.length - i - 1) {
                 errln("CountTokens with default delimiter and delimiter tokens gives wrong results");
             }
-        }    
+        }
     }
-        
+
     /**
      * Next token with new delimiters
      */
@@ -449,15 +454,15 @@ public final class StringTokenizerTest extends TestFmwk
                 if (!st.nextToken(delimiter[j]).equals(expected[j][i])) {
                     errln("nextToken() with delimiters error " + i + " " + j);
                 }
-                if (st.countTokens() != expected[j].length - i) {            
+                if (st.countTokens() != expected[j].length - i) {
                     errln("countTokens() after nextToken() with delimiters error"
                           + i + " " + j);
                 }
             }
-        }    
+        }
         st = new StringTokenizer(str);
         String delimiter1[] = {"0", "2", "4"};
-        String expected1[] = {"abc", "def1ghi", "jkl3mno", "pqr", "stu1vwx", 
+        String expected1[] = {"abc", "def1ghi", "jkl3mno", "pqr", "stu1vwx",
                               "yza3bcd", "efg", "hij1klm", "nop3qrs", "tuv"};
         for (int i = 0; i < expected1.length; i ++) {
             if (!st.nextToken(delimiter1[i % delimiter1.length]).equals(
@@ -466,7 +471,7 @@ public final class StringTokenizerTest extends TestFmwk
             }
         }
     }
-    
+
     @Test
     public void TestBug4423()
     {
@@ -475,7 +480,7 @@ public final class StringTokenizerTest extends TestFmwk
         String s1 = "This is a test";
         StringTokenizer tzr = new StringTokenizer(s1);
         int  tokenCount = 0;
-        
+
         int t = tzr.countTokens();
         if (t!= 4) {
             errln("tzr.countTokens() returned " + t + ".  Expected 4");
@@ -490,7 +495,7 @@ public final class StringTokenizerTest extends TestFmwk
         if (tokenCount != 4) {
             errln("Incorrect number of tokens found = " + tokenCount);
         }
-        
+
         // Precomputed tokens arrays can grow.  Check for edge cases around
         //  boundary where growth is forced.  Array grows in increments of 100 tokens.
         String s2 = "";
@@ -518,7 +523,7 @@ public final class StringTokenizerTest extends TestFmwk
                 break;
             }
         }
-        
+
     }
 
     @Test
@@ -562,13 +567,13 @@ public final class StringTokenizerTest extends TestFmwk
         } catch(Exception e){
             errln("UnicodeSet._generatePattern is not suppose to return an exception.");
         }
-        
+
         try{
             us._generatePattern(null, true);
             errln("UnicodeSet._generatePattern is suppose to return an exception.");
         } catch(Exception e){}
     }
-    
+
     /* Tests the method
      *      public int matches(Replaceable text, int[] offset, int limit, boolean incremental)
      */
@@ -578,20 +583,20 @@ public final class StringTokenizerTest extends TestFmwk
         ReplaceableString rs = new ReplaceableString("dummy");
         UnicodeSet us = new UnicodeSet(0,100000); // Create a large Unicode set
         us.add("dummy");
-        
+
         int[] offset = {0};
         int limit = 0;
-        
+
         if(us.matches(null, offset, limit, true) != UnicodeSet.U_PARTIAL_MATCH){
             errln("UnicodeSet.matches is suppose to return " + UnicodeSet.U_PARTIAL_MATCH +
                     " but got " + us.matches(null, offset, limit, true));
         }
-        
+
         if(us.matches(null, offset, limit, false) != UnicodeSet.U_MATCH){
             errln("UnicodeSet.matches is suppose to return " + UnicodeSet.U_MATCH +
                     " but got " + us.matches(null, offset, limit, false));
         }
-        
+
         // Tests when "int maxLen = forward ? limit-offset[0] : offset[0]-limit;" is true and false
         try{
             offset[0] = 0; // Takes the letter "d"
@@ -601,10 +606,10 @@ public final class StringTokenizerTest extends TestFmwk
         } catch(Exception e) {
             errln("UnicodeSet.matches is not suppose to return an exception");
         }
-        
+
         // TODO: Tests when "if (forward && length < highWaterLength)" is true
     }
-    
+
     /* Tests the method
      *      private static int matchRest (Replaceable text, int start, int limit, String s)
      * from public int matches(Replaceable text, ...
@@ -613,26 +618,26 @@ public final class StringTokenizerTest extends TestFmwk
     public void TestMatchRest(){
         // TODO: Tests when "if (maxLen > slen) maxLen = slen;" is true and false
     }
-    
+
     /* Tests the method
      *      public int matchesAt(CharSequence text, int offset)
      */
     @Test
     public void TestMatchesAt(){
         UnicodeSet us = new UnicodeSet();           // Empty set
-        us.matchesAt((CharSequence)"dummy", 0);
+        us.matchesAt("dummy", 0);
         us.add("dummy");                            // Add an item
-        
-        us.matchesAt((CharSequence)"dummy", 0);
+
+        us.matchesAt("dummy", 0);
         us.add("dummy2");                           // Add another item
-        
-        us.matchesAt((CharSequence)"yummy", 0);     //charAt(0) >
-        us.matchesAt((CharSequence)"amy", 0);       //charAt(0) <
-        
+
+        us.matchesAt("yummy", 0);     //charAt(0) >
+        us.matchesAt("amy", 0);       //charAt(0) <
+
         UnicodeSet us1 = new UnicodeSet(0,100000);  // Increase the set
-        us1.matchesAt((CharSequence)"dummy", 0);
+        us1.matchesAt("dummy", 0);
     }
-    
+
     /* Tests the method
      *      public int indexOf(int c)
      */
@@ -642,9 +647,9 @@ public final class StringTokenizerTest extends TestFmwk
         UnicodeSet us = new UnicodeSet();
         int[] invalid = {UnicodeSet.MIN_VALUE-1, UnicodeSet.MIN_VALUE-2,
                 UnicodeSet.MAX_VALUE+1, UnicodeSet.MAX_VALUE+2};
-        int[] valid = {UnicodeSet.MIN_VALUE, UnicodeSet.MIN_VALUE+1, 
+        int[] valid = {UnicodeSet.MIN_VALUE, UnicodeSet.MIN_VALUE+1,
                 UnicodeSet.MAX_VALUE, UnicodeSet.MAX_VALUE-1};
-        
+
         for(int i=0; i < invalid.length; i++){
             try{
                 us.indexOf(invalid[i]);
@@ -652,7 +657,7 @@ public final class StringTokenizerTest extends TestFmwk
                         "for a value of " + invalid[i]);
             } catch(Exception e){}
         }
-        
+
         for(int i=0; i < valid.length; i++){
             try{
                 us.indexOf(valid[i]);
@@ -662,14 +667,14 @@ public final class StringTokenizerTest extends TestFmwk
             }
         }
     }
-    
+
     /* Tests the method
      *      public int charAt(int index)
      */
     @Test
     public void TestCharAt(){
         UnicodeSet us = new UnicodeSet();
-        
+
         // Test when "if (index >= 0)" is false
         int[] invalid = {-100,-10,-5,-2,-1};
         for(int i=0; i < invalid.length; i++){
@@ -679,7 +684,7 @@ public final class StringTokenizerTest extends TestFmwk
             }
         }
     }
-    
+
     /* Tests the method
      *      private UnicodeSet add_unchecked(int start, int end)
      * from public UnicodeSet add(int start, int end)
@@ -689,7 +694,7 @@ public final class StringTokenizerTest extends TestFmwk
          UnicodeSet us = new UnicodeSet();
          int[] invalid = {UnicodeSet.MIN_VALUE-1, UnicodeSet.MIN_VALUE-2,
                  UnicodeSet.MAX_VALUE+1, UnicodeSet.MAX_VALUE+2};
-         
+
          // Tests when "if (start < MIN_VALUE || start > MAX_VALUE)" is true
          for(int i=0; i < invalid.length; i++){
              try{
@@ -699,7 +704,7 @@ public final class StringTokenizerTest extends TestFmwk
                          + invalid[i]);
              } catch (Exception e){}
          }
-         
+
          // Tests when "if (end < MIN_VALUE || end > MAX_VALUE)" is true
          for(int i=0; i < invalid.length; i++){
              try{
@@ -709,19 +714,19 @@ public final class StringTokenizerTest extends TestFmwk
                          + invalid[i]);
              } catch (Exception e){}
          }
-         
+
          // Tests when "else if (start == end)" is false
          if(!(us.add(UnicodeSet.MIN_VALUE+1, UnicodeSet.MIN_VALUE).equals(us)))
              errln("UnicodeSet.add(int start, int end) was suppose to return "
                      + "the same object because start of value " + (UnicodeSet.MIN_VALUE+1)
                      + " is greater than end of value " + UnicodeSet.MIN_VALUE);
-         
+
          if(!(us.add(UnicodeSet.MAX_VALUE, UnicodeSet.MAX_VALUE-1).equals(us)))
              errln("UnicodeSet.add(int start, int end) was suppose to return "
                      + "the same object because start of value " + UnicodeSet.MAX_VALUE
                      + " is greater than end of value " + (UnicodeSet.MAX_VALUE-1));
      }
-     
+
      /* Tests the method
       *     private final UnicodeSet add_unchecked(int c)
       * from public final UnicodeSet add(int c)
@@ -731,7 +736,7 @@ public final class StringTokenizerTest extends TestFmwk
          UnicodeSet us = new UnicodeSet();
          int[] invalid = {UnicodeSet.MIN_VALUE-1, UnicodeSet.MIN_VALUE-2,
                  UnicodeSet.MAX_VALUE+1, UnicodeSet.MAX_VALUE+2};
-         
+
          // Tests when "if (c < MIN_VALUE || c > MAX_VALUE)" is true
          for(int i=0; i < invalid.length; i++){
              try{
@@ -741,11 +746,11 @@ public final class StringTokenizerTest extends TestFmwk
                          + invalid[i]);
              } catch (Exception e){}
          }
-         
+
          // Tests when "if (c == MAX_VALUE)" is true
          // TODO: Check comment in UnicodeSet.java
      }
-     
+
      /* Tests the method
       *     private static int getSingleCP(String s)
       * from public final boolean contains(String s)
@@ -759,15 +764,15 @@ public final class StringTokenizerTest extends TestFmwk
              errln("UnicodeSet.getSingleCP is suppose to give an exception for " +
                      "an empty string.");
          } catch (Exception e){}
-         
+
          try{
              us.contains((String)null);
              errln("UnicodeSet.getSingleCP is suppose to give an exception for " +
              "a null string.");
          } catch (Exception e){}
-         
+
          // Tests when "if (cp > 0xFFFF)" is true
-         String[] cases = {"\uD811\uDC00","\uD811\uDC11","\uD811\uDC22"}; 
+         String[] cases = {"\uD811\uDC00","\uD811\uDC11","\uD811\uDC22"};
          for(int i=0; i<cases.length; i++){
              try{
                  us.contains(cases[i]);
@@ -777,7 +782,7 @@ public final class StringTokenizerTest extends TestFmwk
              }
          }
      }
-     
+
      /* Tests the method
       *     public final UnicodeSet removeAllStrings()
       */
@@ -792,7 +797,7 @@ public final class StringTokenizerTest extends TestFmwk
                      "exception for a strings size of 0");
          }
      }
-     
+
      /* Tests the method
       *     public UnicodeSet retain(int start, int end)
       */
@@ -801,7 +806,7 @@ public final class StringTokenizerTest extends TestFmwk
           UnicodeSet us = new UnicodeSet();
           int[] invalid = {UnicodeSet.MIN_VALUE-1, UnicodeSet.MIN_VALUE-2,
                   UnicodeSet.MAX_VALUE+1, UnicodeSet.MAX_VALUE+2};
-          
+
           // Tests when "if (start < MIN_VALUE || start > MAX_VALUE)" is true
           for(int i=0; i < invalid.length; i++){
               try{
@@ -811,7 +816,7 @@ public final class StringTokenizerTest extends TestFmwk
                           + invalid[i]);
               } catch (Exception e){}
           }
-          
+
           // Tests when "if (end < MIN_VALUE || end > MAX_VALUE)" is true
           for(int i=0; i < invalid.length; i++){
               try{
@@ -821,7 +826,7 @@ public final class StringTokenizerTest extends TestFmwk
                           + invalid[i]);
               } catch (Exception e){}
           }
-          
+
           // Tests when "if (start <= end)" is false
           try{
               us.retain(UnicodeSet.MIN_VALUE+1, UnicodeSet.MIN_VALUE);
@@ -829,7 +834,7 @@ public final class StringTokenizerTest extends TestFmwk
               errln("UnicodeSet.retain(int start, int end) was not suppose to give "
                       + "an exception.");
           }
-          
+
           try{
               us.retain(UnicodeSet.MAX_VALUE, UnicodeSet.MAX_VALUE-1);
           } catch(Exception e){
@@ -837,7 +842,7 @@ public final class StringTokenizerTest extends TestFmwk
                       + "an exception.");
           }
       }
-      
+
       /* Tests the method
        *        public final UnicodeSet retain(String s)
        */
@@ -851,7 +856,7 @@ public final class StringTokenizerTest extends TestFmwk
                       "same UnicodeSet since the string was found in the original.");
           }
       }
-      
+
       /* Tests the method
        *     public UnicodeSet remove(int start, int end)
        */
@@ -860,7 +865,7 @@ public final class StringTokenizerTest extends TestFmwk
            UnicodeSet us = new UnicodeSet();
            int[] invalid = {UnicodeSet.MIN_VALUE-1, UnicodeSet.MIN_VALUE-2,
                    UnicodeSet.MAX_VALUE+1, UnicodeSet.MAX_VALUE+2};
-           
+
            // Tests when "if (start < MIN_VALUE || start > MAX_VALUE)" is true
            for(int i=0; i < invalid.length; i++){
                try{
@@ -870,7 +875,7 @@ public final class StringTokenizerTest extends TestFmwk
                            + invalid[i]);
                } catch (Exception e){}
            }
-           
+
            // Tests when "if (end < MIN_VALUE || end > MAX_VALUE)" is true
            for(int i=0; i < invalid.length; i++){
                try{
@@ -880,7 +885,7 @@ public final class StringTokenizerTest extends TestFmwk
                            + invalid[i]);
                } catch (Exception e){}
            }
-           
+
            // Tests when "if (start <= end)" is false
            try{
                us.remove(UnicodeSet.MIN_VALUE+1, UnicodeSet.MIN_VALUE);
@@ -888,7 +893,7 @@ public final class StringTokenizerTest extends TestFmwk
                errln("UnicodeSet.remove(int start, int end) was not suppose to give "
                        + "an exception.");
            }
-           
+
            try{
                us.remove(UnicodeSet.MAX_VALUE, UnicodeSet.MAX_VALUE-1);
            } catch(Exception e){
@@ -896,7 +901,7 @@ public final class StringTokenizerTest extends TestFmwk
                        + "an exception.");
            }
        }
-       
+
        /* Tests the method
         *     public UnicodeSet complement(int start, int end)
         */
@@ -905,7 +910,7 @@ public final class StringTokenizerTest extends TestFmwk
             UnicodeSet us = new UnicodeSet();
             int[] invalid = {UnicodeSet.MIN_VALUE-1, UnicodeSet.MIN_VALUE-2,
                     UnicodeSet.MAX_VALUE+1, UnicodeSet.MAX_VALUE+2};
-            
+
             // Tests when "if (start < MIN_VALUE || start > MAX_VALUE)" is true
             for(int i=0; i < invalid.length; i++){
                 try{
@@ -915,7 +920,7 @@ public final class StringTokenizerTest extends TestFmwk
                             + invalid[i]);
                 } catch (Exception e){}
             }
-            
+
             // Tests when "if (end < MIN_VALUE || end > MAX_VALUE)" is true
             for(int i=0; i < invalid.length; i++){
                 try{
@@ -925,7 +930,7 @@ public final class StringTokenizerTest extends TestFmwk
                             + invalid[i]);
                 } catch (Exception e){}
             }
-            
+
             // Tests when "if (start <= end)" is false
             try{
                 us.complement(UnicodeSet.MIN_VALUE+1, UnicodeSet.MIN_VALUE);
@@ -933,7 +938,7 @@ public final class StringTokenizerTest extends TestFmwk
                 errln("UnicodeSet.complement(int start, int end) was not suppose to give "
                         + "an exception.");
             }
-            
+
             try{
                 us.complement(UnicodeSet.MAX_VALUE, UnicodeSet.MAX_VALUE-1);
             } catch(Exception e){
@@ -941,7 +946,7 @@ public final class StringTokenizerTest extends TestFmwk
                         + "an exception.");
             }
         }
-        
+
         /* Tests the method
          *      public final UnicodeSet complement(String s)
          */
@@ -956,7 +961,7 @@ public final class StringTokenizerTest extends TestFmwk
                 errln("UnicodeSet.complement(String s) was not suppose to give "
                         + "an exception for 'dummy'.");
             }
-            
+
             // Tests when "if (strings.contains(s))" is true
             us = new UnicodeSet();
             us.add("\uDC11");
@@ -967,7 +972,7 @@ public final class StringTokenizerTest extends TestFmwk
                         + "an exception for '\uDC11'.");
             }
         }
-        
+
         /* Tests the method
          *      public boolean contains(int c)
          */
@@ -976,7 +981,7 @@ public final class StringTokenizerTest extends TestFmwk
             UnicodeSet us = new UnicodeSet();
             int[] invalid = {UnicodeSet.MIN_VALUE-1, UnicodeSet.MIN_VALUE-2,
                     UnicodeSet.MAX_VALUE+1, UnicodeSet.MAX_VALUE+2};
-            
+
             // Tests when "if (c < MIN_VALUE || c > MAX_VALUE)" is true
             for(int i=0; i < invalid.length; i++){
                 try{
@@ -987,7 +992,7 @@ public final class StringTokenizerTest extends TestFmwk
                 } catch (Exception e){}
             }
         }
-        
+
         /* Tests the method
          *     public boolean contains(int start, int end)
          */
@@ -996,7 +1001,7 @@ public final class StringTokenizerTest extends TestFmwk
              UnicodeSet us = new UnicodeSet();
              int[] invalid = {UnicodeSet.MIN_VALUE-1, UnicodeSet.MIN_VALUE-2,
                      UnicodeSet.MAX_VALUE+1, UnicodeSet.MAX_VALUE+2};
-             
+
              // Tests when "if (start < MIN_VALUE || start > MAX_VALUE)" is true
              for(int i=0; i < invalid.length; i++){
                  try{
@@ -1006,7 +1011,7 @@ public final class StringTokenizerTest extends TestFmwk
                              + invalid[i]);
                  } catch (Exception e){}
              }
-             
+
              // Tests when "if (end < MIN_VALUE || end > MAX_VALUE)" is true
              for(int i=0; i < invalid.length; i++){
                  try{
@@ -1017,7 +1022,7 @@ public final class StringTokenizerTest extends TestFmwk
                  } catch (Exception e){}
              }
          }
-         
+
          /* Tests the method
           *     public String getRegexEquivalent()
           */
@@ -1029,7 +1034,7 @@ public final class StringTokenizerTest extends TestFmwk
                  errln("UnicodeSet.getRegexEquivalent is suppose to return '[]' " +
                          "but got " + res);
          }
-         
+
          /* Tests the method
           *     public boolean containsNone(int start, int end)
           */
@@ -1038,7 +1043,7 @@ public final class StringTokenizerTest extends TestFmwk
               UnicodeSet us = new UnicodeSet();
               int[] invalid = {UnicodeSet.MIN_VALUE-1, UnicodeSet.MIN_VALUE-2,
                       UnicodeSet.MAX_VALUE+1, UnicodeSet.MAX_VALUE+2};
-              
+
               // Tests when "if (start < MIN_VALUE || start > MAX_VALUE)" is true
               for(int i=0; i < invalid.length; i++){
                   try{
@@ -1048,7 +1053,7 @@ public final class StringTokenizerTest extends TestFmwk
                               + invalid[i]);
                   } catch (Exception e){}
               }
-              
+
               // Tests when "if (end < MIN_VALUE || end > MAX_VALUE)" is true
               for(int i=0; i < invalid.length; i++){
                   try{
@@ -1058,7 +1063,7 @@ public final class StringTokenizerTest extends TestFmwk
                               + invalid[i]);
                   } catch (Exception e){}
               }
-              
+
               // Tests when "if (start < list[++i])" is false
               try{
                   us.add(0);

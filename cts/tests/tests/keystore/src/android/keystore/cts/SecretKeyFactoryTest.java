@@ -21,6 +21,8 @@ import android.security.keystore.KeyInfo;
 import android.security.keystore.KeyProperties;
 import android.test.MoreAsserts;
 
+import com.google.common.collect.ObjectArrays;
+
 import junit.framework.TestCase;
 
 import java.security.InvalidKeyException;
@@ -44,7 +46,7 @@ import javax.crypto.spec.SecretKeySpec;
 public class SecretKeyFactoryTest extends TestCase {
     private static final String EXPECTED_PROVIDER_NAME = TestUtils.EXPECTED_PROVIDER_NAME;
 
-    private static final String[] EXPECTED_ALGORITHMS = {
+    private static String[] EXPECTED_ALGORITHMS = {
         "AES",
         "HmacSHA1",
         "HmacSHA224",
@@ -52,6 +54,12 @@ public class SecretKeyFactoryTest extends TestCase {
         "HmacSHA384",
         "HmacSHA512",
     };
+
+    {
+        if (TestUtils.supports3DES()) {
+            EXPECTED_ALGORITHMS = ObjectArrays.concat(EXPECTED_ALGORITHMS, "DESede");
+        }
+    }
 
     public void testAlgorithmList() {
         // Assert that Android Keystore Provider exposes exactly the expected SecretKeyFactory

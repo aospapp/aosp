@@ -16,7 +16,7 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.car.stream.ui">
+          package="com.android.car.view">
     <uses-sdk
             android:minSdkVersion="22"
             android:targetSdkVersion='23'/>

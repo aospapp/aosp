@@ -2,6 +2,10 @@ subdirs = [
     "androidmk",
     "bpfix",
     "cmd/*",
+    "fs",
+    "finder",
+    "jar",
+    "zip",
     "third_party/zip",
     "ui/*",
 ]
@@ -46,22 +50,31 @@ bootstrap_go_package {
         "android/makevars.go",
         "android/module.go",
         "android/mutator.go",
+        "android/namespace.go",
+        "android/neverallow.go",
         "android/onceper.go",
         "android/package_ctx.go",
         "android/paths.go",
         "android/prebuilt.go",
+        "android/proto.go",
         "android/register.go",
+        "android/singleton.go",
         "android/testing.go",
         "android/util.go",
         "android/variable.go",
+        "android/writedocs.go",
 
         // Lock down environment access last
         "android/env.go",
     ],
     testSrcs: [
+        "android/config_test.go",
         "android/expand_test.go",
+        "android/namespace_test.go",
+        "android/neverallow_test.go",
         "android/paths_test.go",
         "android/prebuilt_test.go",
+        "android/util_test.go",
         "android/variable_test.go",
     ],
 }
@@ -113,7 +126,9 @@ bootstrap_go_package {
         "cc/check.go",
         "cc/coverage.go",
         "cc/gen.go",
+        "cc/lto.go",
         "cc/makevars.go",
+        "cc/pgo.go",
         "cc/prebuilt.go",
         "cc/proto.go",
         "cc/relocation_packer.go",
@@ -125,6 +140,7 @@ bootstrap_go_package {
         "cc/tidy.go",
         "cc/util.go",
         "cc/vndk.go",
+        "cc/vndk_prebuilt.go",
 
         "cc/cmakelists.go",
         "cc/compiler.go",
@@ -145,9 +161,15 @@ bootstrap_go_package {
         "cc/llndk_library.go",
 
         "cc/kernel_headers.go",
+
+        "cc/genrule.go",
+
+        "cc/vendor_public_library.go",
     ],
     testSrcs: [
         "cc/cc_test.go",
+        "cc/gen_test.go",
+        "cc/library_test.go",
         "cc/test_data_test.go",
     ],
     pluginFor: ["soong_build"],
@@ -195,15 +217,26 @@ bootstrap_go_package {
         "soong-java-config",
     ],
     srcs: [
+        "java/aapt2.go",
+        "java/aar.go",
+        "java/android_resources.go",
         "java/androidmk.go",
         "java/app_builder.go",
         "java/app.go",
         "java/builder.go",
+        "java/dex.go",
+        "java/droiddoc.go",
         "java/gen.go",
+        "java/genrule.go",
+        "java/jacoco.go",
         "java/java.go",
-        "java/resources.go",
+        "java/java_resources.go",
+        "java/proto.go",
+        "java/support_libraries.go",
+        "java/system_modules.go",
     ],
     testSrcs: [
+        "java/app_test.go",
         "java/java_test.go",
     ],
     pluginFor: ["soong_build"],
@@ -218,6 +251,8 @@ bootstrap_go_package {
     ],
     srcs: [
         "java/config/config.go",
+        "java/config/error_prone.go",
+        "java/config/kotlin.go",
         "java/config/makevars.go",
     ],
 }
@@ -233,6 +268,7 @@ bootstrap_go_package {
         "python/androidmk.go",
         "python/binary.go",
         "python/builder.go",
+        "python/defaults.go",
         "python/installer.go",
         "python/library.go",
         "python/python.go",
@@ -301,7 +337,7 @@ toolchain_library {
     enabled: false,
     target: {
         windows: {
-            enabled: true
+            enabled: true,
         },
     },
 }
@@ -319,4 +355,46 @@ toolchain_library {
 kernel_headers {
     name: "device_kernel_headers",
     vendor: true,
+}
+
+cc_genrule {
+    name: "host_bionic_linker_asm",
+    host_supported: true,
+    device_supported: false,
+    target: {
+        linux_bionic: {
+            enabled: true,
+        },
+        linux_glibc: {
+            enabled: false,
+        },
+        darwin: {
+            enabled: false,
+        },
+    },
+    tools: ["extract_linker"],
+    cmd: "$(location) -s $(out) $(in)",
+    srcs: [":linker"],
+    out: ["linker.s"],
+}
+
+cc_genrule {
+    name: "host_bionic_linker_script",
+    host_supported: true,
+    device_supported: false,
+    target: {
+        linux_bionic: {
+            enabled: true,
+        },
+        linux_glibc: {
+            enabled: false,
+        },
+        darwin: {
+            enabled: false,
+        },
+    },
+    tools: ["extract_linker"],
+    cmd: "$(location) -T $(out) $(in)",
+    srcs: [":linker"],
+    out: ["linker.script"],
 }

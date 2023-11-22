@@ -22,21 +22,25 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.provider.Settings;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceCategory;
 import android.support.v7.preference.PreferenceManager;
 import android.support.v7.preference.TwoStatePreference;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.wifi.AccessPoint;
 import com.android.settingslib.wifi.AccessPointPreference;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
-public class NetworkFragment extends LeanbackPreferenceFragment implements
+/**
+ * Fragment for controlling network connectivity
+ */
+public class NetworkFragment extends SettingsPreferenceFragment implements
         ConnectivityListener.Listener, ConnectivityListener.WifiNetworkListener,
         AccessPoint.AccessPointListener {
 
@@ -44,7 +48,6 @@ public class NetworkFragment extends LeanbackPreferenceFragment implements
     private static final String KEY_WIFI_LIST = "wifi_list";
     private static final String KEY_WIFI_COLLAPSE = "wifi_collapse";
     private static final String KEY_WIFI_OTHER = "wifi_other";
-    private static final String KEY_WIFI_WPS = "wifi_wps";
     private static final String KEY_WIFI_ADD = "wifi_add";
     private static final String KEY_WIFI_ALWAYS_SCAN = "wifi_always_scan";
     private static final String KEY_ETHERNET = "ethernet";
@@ -60,7 +63,6 @@ public class NetworkFragment extends LeanbackPreferenceFragment implements
     private TwoStatePreference mEnableWifiPref;
     private CollapsibleCategory mWifiNetworksCategory;
     private Preference mCollapsePref;
-    private Preference mWpsPref;
     private Preference mAddPref;
     private TwoStatePreference mAlwaysScan;
     private PreferenceCategory mEthernetCategory;
@@ -84,7 +86,7 @@ public class NetworkFragment extends LeanbackPreferenceFragment implements
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        mConnectivityListener = new ConnectivityListener(getContext(), this);
+        mConnectivityListener = new ConnectivityListener(getContext(), this, getLifecycle());
         mUserBadgeCache =
                 new AccessPointPreference.UserBadgeCache(getContext().getPackageManager());
         super.onCreate(savedInstanceState);
@@ -93,7 +95,6 @@ public class NetworkFragment extends LeanbackPreferenceFragment implements
     @Override
     public void onStart() {
         super.onStart();
-        mConnectivityListener.start();
         mConnectivityListener.setWifiListener(this);
         mNoWifiUpdateBeforeMillis = SystemClock.elapsedRealtime() + INITIAL_UPDATE_DELAY;
         updateWifiList();
@@ -108,20 +109,6 @@ public class NetworkFragment extends LeanbackPreferenceFragment implements
     }
 
     @Override
-    public void onStop() {
-        super.onStop();
-        mConnectivityListener.stop();
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        if (mConnectivityListener != null) {
-            mConnectivityListener.destroy();
-        }
-    }
-
-    @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         getPreferenceManager().setPreferenceComparisonCallback(
                 new PreferenceManager.SimplePreferenceComparisonCallback());
@@ -130,7 +117,6 @@ public class NetworkFragment extends LeanbackPreferenceFragment implements
         mEnableWifiPref = (TwoStatePreference) findPreference(KEY_WIFI_ENABLE);
         mWifiNetworksCategory = (CollapsibleCategory) findPreference(KEY_WIFI_LIST);
         mCollapsePref = findPreference(KEY_WIFI_COLLAPSE);
-        mWpsPref = findPreference(KEY_WIFI_WPS);
         mAddPref = findPreference(KEY_WIFI_ADD);
         mAlwaysScan = (TwoStatePreference) findPreference(KEY_WIFI_ALWAYS_SCAN);
 
@@ -152,6 +138,17 @@ public class NetworkFragment extends LeanbackPreferenceFragment implements
         switch (preference.getKey()) {
             case KEY_WIFI_ENABLE:
                 mConnectivityListener.setWifiEnabled(mEnableWifiPref.isChecked());
+                if (mMetricsFeatureProvider != null) {
+                    if (mEnableWifiPref.isChecked()) {
+                        mMetricsFeatureProvider.action(getContext(),
+                                MetricsProto.MetricsEvent.ACTION_WIFI_ON);
+                    } else {
+                        // Log if user was connected at the time of switching off.
+                        mMetricsFeatureProvider.action(getContext(),
+                                MetricsProto.MetricsEvent.ACTION_WIFI_OFF,
+                                mConnectivityListener.isWifiConnected());
+                    }
+                }
                 return true;
             case KEY_WIFI_COLLAPSE:
                 final boolean collapse = !mWifiNetworksCategory.isCollapsed();
@@ -166,6 +163,10 @@ public class NetworkFragment extends LeanbackPreferenceFragment implements
                 return true;
             case KEY_ETHERNET_STATUS:
                 return true;
+            case KEY_WIFI_ADD:
+                mMetricsFeatureProvider.action(getActivity(),
+                        MetricsProto.MetricsEvent.ACTION_WIFI_ADD_NETWORK);
+                break;
         }
         return super.onPreferenceTreeClick(preference);
     }
@@ -180,7 +181,6 @@ public class NetworkFragment extends LeanbackPreferenceFragment implements
 
         mWifiNetworksCategory.setVisible(wifiEnabled);
         mCollapsePref.setVisible(wifiEnabled && mWifiNetworksCategory.shouldShowCollapsePref());
-        mWpsPref.setVisible(wifiEnabled);
         mAddPref.setVisible(wifiEnabled);
 
         if (!wifiEnabled) {
@@ -289,4 +289,8 @@ public class NetworkFragment extends LeanbackPreferenceFragment implements
         ((AccessPointPreference) accessPoint.getTag()).onLevelChanged();
     }
 
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.SETTINGS_NETWORK_CATEGORY;
+    }
 }

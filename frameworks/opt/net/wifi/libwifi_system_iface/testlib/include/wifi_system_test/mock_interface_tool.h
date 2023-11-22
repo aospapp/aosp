@@ -30,6 +30,8 @@ class MockInterfaceTool : public InterfaceTool {
   MOCK_METHOD1(GetUpState, bool(const char* if_name));
   MOCK_METHOD2(SetUpState, bool(const char* if_name, bool request_up));
   MOCK_METHOD1(SetWifiUpState, bool(bool request_up));
+  MOCK_METHOD2(SetMacAddress, bool(const char* if_name,
+    const std::array<uint8_t, ETH_ALEN>& address));
 
 };  // class MockInterfaceTool
 

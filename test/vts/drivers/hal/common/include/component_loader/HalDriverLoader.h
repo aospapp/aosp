@@ -43,7 +43,6 @@ class HalDriverLoader {
                                   const float version,
                                   const string& component_name,
                                   const int component_type,
-                                  const string& submodule_name,
                                   ComponentSpecificationMessage* spec_msg);
 
   // Create driver for given component.
@@ -52,14 +51,7 @@ class HalDriverLoader {
                         const string& hw_binder_service_name,
                         const uint64_t interface_pt,
                         bool with_interface_pointer,
-                        const string& dll_file_name,
-                        const string& target_func_name);
-
-  // Create driver for conventioanl HAL submodule.
-  // TODO (zhuoyao): consider to deprecate this method.
-  DriverBase* GetDriverForSubModule(
-      const string& spec_lib_file_path,
-      const ComponentSpecificationMessage& spec_msg, void* object_pointer);
+                        const string& dll_file_name);
 
   // Returns FuzzBase for a given interface specification, and adds all the
   // found functions to the fuzzing job queue.
@@ -80,11 +72,10 @@ class HalDriverLoader {
                const char* hal_service_name);
 
  private:
-  // Internal method to create driver for conventional HAL.
-  DriverBase* GetConventionalHalDriver(
-      const string& driver_lib_path,
-      const ComponentSpecificationMessage& spec_msg,
-      const string& dll_file_name, const string& target_func_name);
+  // Internal method to create driver for library.
+  DriverBase* GetLibDriver(const string& driver_lib_path,
+                           const ComponentSpecificationMessage& spec_msg,
+                           const string& dll_file_name);
 
   // Internal method to create driver for HIDL HAL.
   DriverBase* GetHidlHalDriver(const string& driver_lib_path,

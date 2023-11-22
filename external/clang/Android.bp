@@ -3,19 +3,23 @@ cc_defaults {
     defaults: [
         "llvm-defaults",
     ],
-    clang: true,
 
     header_libs: ["clang-headers"],
 
     cflags: [
         "-pedantic",
-        "-Wcast-qual",
+        "-Wno-cast-qual",
         "-Wno-long-long",
+        "-Wno-unused-private-field",
     ],
 
     include_dirs: [
         "external/clang/include",
         "external/clang/lib/CodeGen",
+    ],
+
+    tidy_checks: [
+        "-google-runtime-member-string-references",
     ],
 
     target: {
@@ -24,6 +28,11 @@ cc_defaults {
             cflags: [
                 // This triggers an assertion on cross Windows builds.
                 "-Wno-error=uninitialized",
+            ],
+        },
+        not_windows: {
+            cflags: [
+                "-Wno-unused-lambda-capture",
             ],
         },
     },
@@ -178,7 +187,7 @@ genrule {
 }
 
 cc_library_shared {
-    name: "libclang",
+    name: "libclang_android",
     defaults: [
         "clang-defaults",
         "force_build_llvm_components",
@@ -208,8 +217,8 @@ cc_library_shared {
         "libclangToolingCore",
     ],
 
-    export_shared_lib_headers: ["libLLVM"],
-    shared_libs: ["libLLVM"],
+    export_shared_lib_headers: ["libLLVM_android"],
+    shared_libs: ["libLLVM_android"],
     export_header_lib_headers: ["clang-headers"],
 
     target: {
@@ -220,21 +229,8 @@ cc_library_shared {
                 "-lversion",
             ],
         },
-        darwin: {
+        not_windows: {
             shared_libs: ["libc++"],
-
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
-            ],
-        },
-        linux: {
-            shared_libs: ["libc++"],
-
-            host_ldlibs: [
-                "-ldl",
-                "-lpthread",
-            ],
         },
     },
 

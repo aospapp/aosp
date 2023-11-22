@@ -1,7 +1,6 @@
 #!/usr/bin/env python2
 
 # Copyright 2015 Google Inc. All Rights Reserved.
-
 """Unit tests for the MachineImageManager class."""
 
 from __future__ import print_function
@@ -23,14 +22,14 @@ class MockLabel(object):
     """Provide hash function for label.
 
        This is required because Label object is used inside a dict as key.
-       """
+    """
     return hash(self.name)
 
   def __eq__(self, other):
     """Provide eq function for label.
 
        This is required because Label object is used inside a dict as key.
-       """
+    """
     return isinstance(other, MockLabel) and other.name == self.name
 
 
@@ -52,6 +51,7 @@ class MachineImageManagerTester(unittest.TestCase):
     return duts
 
   def print_matrix(self, matrix):
+    # pylint: disable=expression-not-assigned
     for r in matrix:
       for v in r:
         print('{} '.format('.' if v == ' ' else v)),
@@ -97,53 +97,63 @@ class MachineImageManagerTester(unittest.TestCase):
     self.assertTrue(mim.matrix_ == [['Y', 'Y', 'Y']])
 
   def test_case1(self):
-    labels = [MockLabel('l1', ['m1', 'm2']), MockLabel('l2', ['m2', 'm3']),
-              MockLabel('l3', ['m1'])]
+    labels = [
+        MockLabel('l1', ['m1', 'm2']), MockLabel('l2', ['m2', 'm3']), MockLabel(
+            'l3', ['m1'])
+    ]
     duts = [MockDut('m1'), MockDut('m2'), MockDut('m3')]
     mim = MachineImageManager(labels, duts)
-    self.assertTrue(mim.matrix_ == [[' ', ' ', 'X'], ['X', ' ', ' '], [' ', 'X',
-                                                                       'X']])
+    self.assertTrue(mim.matrix_ == [[' ', ' ', 'X'], ['X', ' ', ' '],
+                                    [' ', 'X', 'X']])
     mim.compute_initial_allocation()
-    self.assertTrue(mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'], ['Y', 'X',
-                                                                       'X']])
+    self.assertTrue(mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'],
+                                    ['Y', 'X', 'X']])
 
   def test_case2(self):
-    labels = [MockLabel('l1', ['m1', 'm2']), MockLabel('l2', ['m2', 'm3']),
-              MockLabel('l3', ['m1'])]
+    labels = [
+        MockLabel('l1', ['m1', 'm2']), MockLabel('l2', ['m2', 'm3']), MockLabel(
+            'l3', ['m1'])
+    ]
     duts = [MockDut('m1'), MockDut('m2'), MockDut('m3')]
     mim = MachineImageManager(labels, duts)
-    self.assertTrue(mim.matrix_ == [[' ', ' ', 'X'], ['X', ' ', ' '], [' ', 'X',
-                                                                       'X']])
+    self.assertTrue(mim.matrix_ == [[' ', ' ', 'X'], ['X', ' ', ' '],
+                                    [' ', 'X', 'X']])
     mim.compute_initial_allocation()
-    self.assertTrue(mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'], ['Y', 'X',
-                                                                       'X']])
+    self.assertTrue(mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'],
+                                    ['Y', 'X', 'X']])
 
   def test_case3(self):
-    labels = [MockLabel('l1', ['m1', 'm2']), MockLabel('l2', ['m2', 'm3']),
-              MockLabel('l3', ['m1'])]
+    labels = [
+        MockLabel('l1', ['m1', 'm2']), MockLabel('l2', ['m2', 'm3']), MockLabel(
+            'l3', ['m1'])
+    ]
     duts = [MockDut('m1', labels[0]), MockDut('m2'), MockDut('m3')]
     mim = MachineImageManager(labels, duts)
     mim.compute_initial_allocation()
-    self.assertTrue(mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'], ['Y', 'X',
-                                                                       'X']])
+    self.assertTrue(mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'],
+                                    ['Y', 'X', 'X']])
 
   def test_case4(self):
-    labels = [MockLabel('l1', ['m1', 'm2']), MockLabel('l2', ['m2', 'm3']),
-              MockLabel('l3', ['m1'])]
+    labels = [
+        MockLabel('l1', ['m1', 'm2']), MockLabel('l2', ['m2', 'm3']), MockLabel(
+            'l3', ['m1'])
+    ]
     duts = [MockDut('m1'), MockDut('m2', labels[0]), MockDut('m3')]
     mim = MachineImageManager(labels, duts)
     mim.compute_initial_allocation()
-    self.assertTrue(mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'], ['Y', 'X',
-                                                                       'X']])
+    self.assertTrue(mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'],
+                                    ['Y', 'X', 'X']])
 
   def test_case5(self):
-    labels = [MockLabel('l1', ['m3']), MockLabel('l2', ['m3']),
-              MockLabel('l3', ['m1'])]
+    labels = [
+        MockLabel('l1', ['m3']), MockLabel('l2', ['m3']), MockLabel(
+            'l3', ['m1'])
+    ]
     duts = self.gen_duts_by_name('m1', 'm2', 'm3')
     mim = MachineImageManager(labels, duts)
     self.assertTrue(mim.compute_initial_allocation())
-    self.assertTrue(mim.matrix_ == [['X', 'X', 'Y'], ['X', 'X', 'Y'], ['Y', 'X',
-                                                                       'X']])
+    self.assertTrue(mim.matrix_ == [['X', 'X', 'Y'], ['X', 'X', 'Y'],
+                                    ['Y', 'X', 'X']])
 
   def test_2x2_with_allocation(self):
     labels = [MockLabel('l0'), MockLabel('l1')]
@@ -193,29 +203,37 @@ class MachineImageManagerTester(unittest.TestCase):
     self.assertTrue(mim.compute_initial_allocation())
 
   def test_10x10_fully_random(self):
-    inp = ['X  .  .  .  X  X  .  X  X  .', 'X  X  .  X  .  X  .  X  X  .',
-           'X  X  X  .  .  X  .  X  .  X', 'X  .  X  X  .  .  X  X  .  X',
-           'X  X  X  X  .  .  .  X  .  .', 'X  X  .  X  .  X  .  .  X  .',
-           '.  X  .  X  .  X  X  X  .  .', '.  X  .  X  X  .  X  X  .  .',
-           'X  X  .  .  .  X  X  X  .  .', '.  X  X  X  X  .  .  .  .  X']
-    output = ['X  Y  .  .  X  X  .  X  X  .', 'X  X  Y  X  .  X  .  X  X  .',
-              'X  X  X  Y  .  X  .  X  .  X', 'X  .  X  X  Y  .  X  X  .  X',
-              'X  X  X  X  .  Y  .  X  .  .', 'X  X  .  X  .  X  Y  .  X  .',
-              'Y  X  .  X  .  X  X  X  .  .', '.  X  .  X  X  .  X  X  Y  .',
-              'X  X  .  .  .  X  X  X  .  Y', '.  X  X  X  X  .  .  Y  .  X']
+    inp = [
+        'X  .  .  .  X  X  .  X  X  .', 'X  X  .  X  .  X  .  X  X  .',
+        'X  X  X  .  .  X  .  X  .  X', 'X  .  X  X  .  .  X  X  .  X',
+        'X  X  X  X  .  .  .  X  .  .', 'X  X  .  X  .  X  .  .  X  .',
+        '.  X  .  X  .  X  X  X  .  .', '.  X  .  X  X  .  X  X  .  .',
+        'X  X  .  .  .  X  X  X  .  .', '.  X  X  X  X  .  .  .  .  X'
+    ]
+    output = [
+        'X  Y  .  .  X  X  .  X  X  .', 'X  X  Y  X  .  X  .  X  X  .',
+        'X  X  X  Y  .  X  .  X  .  X', 'X  .  X  X  Y  .  X  X  .  X',
+        'X  X  X  X  .  Y  .  X  .  .', 'X  X  .  X  .  X  Y  .  X  .',
+        'Y  X  .  X  .  X  X  X  .  .', '.  X  .  X  X  .  X  X  Y  .',
+        'X  X  .  .  .  X  X  X  .  Y', '.  X  X  X  X  .  .  Y  .  X'
+    ]
     self.pattern_based_test(inp, output)
 
   def test_10x10_fully_random2(self):
-    inp = ['X  .  X  .  .  X  .  X  X  X', 'X  X  X  X  X  X  .  .  X  .',
-           'X  .  X  X  X  X  X  .  .  X', 'X  X  X  .  X  .  X  X  .  .',
-           '.  X  .  X  .  X  X  X  X  X', 'X  X  X  X  X  X  X  .  .  X',
-           'X  .  X  X  X  X  X  .  .  X', 'X  X  X  .  X  X  X  X  .  .',
-           'X  X  X  .  .  .  X  X  X  X', '.  X  X  .  X  X  X  .  X  X']
-    output = ['X  .  X  Y  .  X  .  X  X  X', 'X  X  X  X  X  X  Y  .  X  .',
-              'X  Y  X  X  X  X  X  .  .  X', 'X  X  X  .  X  Y  X  X  .  .',
-              '.  X  Y  X  .  X  X  X  X  X', 'X  X  X  X  X  X  X  Y  .  X',
-              'X  .  X  X  X  X  X  .  Y  X', 'X  X  X  .  X  X  X  X  .  Y',
-              'X  X  X  .  Y  .  X  X  X  X', 'Y  X  X  .  X  X  X  .  X  X']
+    inp = [
+        'X  .  X  .  .  X  .  X  X  X', 'X  X  X  X  X  X  .  .  X  .',
+        'X  .  X  X  X  X  X  .  .  X', 'X  X  X  .  X  .  X  X  .  .',
+        '.  X  .  X  .  X  X  X  X  X', 'X  X  X  X  X  X  X  .  .  X',
+        'X  .  X  X  X  X  X  .  .  X', 'X  X  X  .  X  X  X  X  .  .',
+        'X  X  X  .  .  .  X  X  X  X', '.  X  X  .  X  X  X  .  X  X'
+    ]
+    output = [
+        'X  .  X  Y  .  X  .  X  X  X', 'X  X  X  X  X  X  Y  .  X  .',
+        'X  Y  X  X  X  X  X  .  .  X', 'X  X  X  .  X  Y  X  X  .  .',
+        '.  X  Y  X  .  X  X  X  X  X', 'X  X  X  X  X  X  X  Y  .  X',
+        'X  .  X  X  X  X  X  .  Y  X', 'X  X  X  .  X  X  X  X  .  Y',
+        'X  X  X  .  Y  .  X  X  X  X', 'Y  X  X  .  X  X  X  .  X  X'
+    ]
     self.pattern_based_test(inp, output)
 
   def test_3x4_with_allocation(self):
@@ -273,7 +291,7 @@ class MachineImageManagerTester(unittest.TestCase):
         l1   Y     X     X
 
         l2   Y     X     X
-        """
+    """
 
     inp = ['.  X  X', '.  X  X', '.  X  X']
     output = ['Y  X  X', 'Y  X  X', 'Y  X  X']

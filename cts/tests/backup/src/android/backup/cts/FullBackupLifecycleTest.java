@@ -31,7 +31,7 @@ public class FullBackupLifecycleTest extends BaseBackupCtsTest {
         if (!isBackupSupported()) {
             return;
         }
-        String backupSeparator = clearLogcat();
+        String backupSeparator = markLogcat();
 
         // Make sure there's something to backup
         createTestFileOfSize(BACKUP_APP_NAME, LOCAL_TRANSPORT_CONFORMING_FILE_SIZE);
@@ -45,7 +45,7 @@ public class FullBackupLifecycleTest extends BaseBackupCtsTest {
             "Full backup requested",
             "onDestroy");
 
-        String restoreSeparator = clearLogcat();
+        String restoreSeparator = markLogcat();
 
         // Now request restore and wait for it to complete
         exec("bmgr restore " + BACKUP_APP_NAME);

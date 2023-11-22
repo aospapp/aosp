@@ -18,12 +18,15 @@ _db: DatabaseConnection for this module.
 _drone_manager: reference to global DroneManager instance.
 """
 
+import base64
 import datetime
+import errno
 import itertools
 import logging
 import re
-import time
 import weakref
+
+import google.protobuf.internal.well_known_types as types
 
 from autotest_lib.client.common_lib import global_config, host_protections
 from autotest_lib.client.common_lib import time_utils
@@ -38,8 +41,11 @@ from autotest_lib.server.cros import provision
 
 try:
     from chromite.lib import metrics
+    from chromite.lib import cloud_trace
 except ImportError:
     metrics = utils.metrics_mock
+    import mock
+    cloud_trace = mock.Mock()
 
 
 _notify_email_statuses = []
@@ -47,6 +53,10 @@ _base_url = None
 
 _db = None
 _drone_manager = None
+
+RESPECT_STATIC_LABELS = global_config.global_config.get_config_value(
+        'SKYLAB', 'respect_static_labels', type=bool, default=False)
+
 
 def initialize():
     global _db
@@ -99,59 +109,6 @@ def get_job_metadata(job):
     except AttributeError as e:
         logging.error('Job has missing attribute: %s', e)
         return {}
-
-
-class DelayedCallTask(object):
-    """
-    A task object like AgentTask for an Agent to run that waits for the
-    specified amount of time to have elapsed before calling the supplied
-    callback once and finishing.  If the callback returns anything, it is
-    assumed to be a new Agent instance and will be added to the dispatcher.
-
-    @attribute end_time: The absolute posix time after which this task will
-            call its callback when it is polled and be finished.
-
-    Also has all attributes required by the Agent class.
-    """
-    def __init__(self, delay_seconds, callback, now_func=None):
-        """
-        @param delay_seconds: The delay in seconds from now that this task
-                will call the supplied callback and be done.
-        @param callback: A callable to be called by this task once after at
-                least delay_seconds time has elapsed.  It must return None
-                or a new Agent instance.
-        @param now_func: A time.time like function.  Default: time.time.
-                Used for testing.
-        """
-        assert delay_seconds > 0
-        assert callable(callback)
-        if not now_func:
-            now_func = time.time
-        self._now_func = now_func
-        self._callback = callback
-
-        self.end_time = self._now_func() + delay_seconds
-
-        # These attributes are required by Agent.
-        self.aborted = False
-        self.host_ids = ()
-        self.success = False
-        self.queue_entry_ids = ()
-        self.num_processes = 0
-
-
-    def poll(self):
-        if not self.is_done() and self._now_func() >= self.end_time:
-            self._callback()
-            self.success = True
-
-
-    def is_done(self):
-        return self.success or self.aborted
-
-
-    def abort(self):
-        self.aborted = True
 
 
 class DBError(Exception):
@@ -224,7 +181,8 @@ class DBObject(object):
 
 
     def _fetch_row_from_db(self, row_id):
-        sql = 'SELECT * FROM %s WHERE ID=%%s' % self.__table
+        fields = ', '.join(self._fields)
+        sql = 'SELECT %s FROM %s WHERE ID=%%s' % (fields, self.__table)
         rows = _db.execute(sql, (row_id,))
         if not rows:
             raise DBError("row not found (table=%s, row id=%s)"
@@ -355,8 +313,13 @@ class DBObject(object):
         """
         order_by = cls._prefix_with(order_by, 'ORDER BY ')
         where = cls._prefix_with(where, 'WHERE ')
-        query = ('SELECT %(table)s.* FROM %(table)s %(joins)s '
-                 '%(where)s %(order_by)s' % {'table' : cls._table_name,
+        fields = []
+        for field in cls._fields:
+            fields.append('%s.%s' % (cls._table_name, field))
+
+        query = ('SELECT %(fields)s FROM %(table)s %(joins)s '
+                 '%(where)s %(order_by)s' % {'fields' : ', '.join(fields),
+                                             'table' : cls._table_name,
                                              'joins' : joins,
                                              'where' : where,
                                              'order_by' : order_by})
@@ -410,21 +373,65 @@ class Host(DBObject):
         self.update_field('status',status)
 
 
+    def _get_labels_with_platform(self, non_static_rows, static_rows):
+        """Helper function to fetch labels & platform for a host."""
+        if not RESPECT_STATIC_LABELS:
+            return non_static_rows
+
+        combined_rows = []
+        replaced_labels = _db.execute(
+                'SELECT label_id FROM afe_replaced_labels')
+        replaced_label_ids = {l[0] for l in replaced_labels}
+
+        # We respect afe_labels more, which means:
+        #   * if non-static labels are replaced, we find its replaced static
+        #   labels from afe_static_labels by label name.
+        #   * if non-static labels are not replaced, we keep it.
+        #   * Drop static labels which don't have reference non-static labels.
+        static_label_names = []
+        for label_id, label_name, is_platform in non_static_rows:
+            if label_id not in replaced_label_ids:
+                combined_rows.append((label_id, label_name, is_platform))
+            else:
+                static_label_names.append(label_name)
+
+        # Only keep static labels who have replaced non-static labels.
+        for label_id, label_name, is_platform in static_rows:
+            if label_name in static_label_names:
+                combined_rows.append((label_id, label_name, is_platform))
+
+        return combined_rows
+
+
     def platform_and_labels(self):
         """
         Returns a tuple (platform_name, list_of_all_label_names).
         """
-        rows = _db.execute("""
-                SELECT afe_labels.name, afe_labels.platform
-                FROM afe_labels
-                INNER JOIN afe_hosts_labels ON
-                        afe_labels.id = afe_hosts_labels.label_id
-                WHERE afe_hosts_labels.host_id = %s
-                ORDER BY afe_labels.name
-                """, (self.id,))
+        template = ('SELECT %(label_table)s.id, %(label_table)s.name, '
+                    '%(label_table)s.platform FROM %(label_table)s INNER '
+                    'JOIN %(host_label_table)s '
+                    'ON %(label_table)s.id = %(host_label_table)s.%(column)s '
+                    'WHERE %(host_label_table)s.host_id = %(host_id)s '
+                    'ORDER BY %(label_table)s.name')
+        static_query = template % {
+                'host_label_table': 'afe_static_hosts_labels',
+                'label_table': 'afe_static_labels',
+                'column': 'staticlabel_id',
+                'host_id': self.id
+        }
+        non_static_query = template % {
+                'host_label_table': 'afe_hosts_labels',
+                'label_table': 'afe_labels',
+                'column': 'label_id',
+                'host_id': self.id
+        }
+        non_static_rows = _db.execute(non_static_query)
+        static_rows = _db.execute(static_query)
+
+        rows = self._get_labels_with_platform(non_static_rows, static_rows)
         platform = None
         all_labels = []
-        for label_name, is_platform in rows:
+        for _, label_name, is_platform in rows:
             if is_platform:
                 platform = label_name
             all_labels.append(label_name)
@@ -637,7 +644,6 @@ class HostQueueEntry(DBObject):
 
         active = (status in models.HostQueueEntry.ACTIVE_STATUSES)
         complete = (status in models.HostQueueEntry.COMPLETE_STATUSES)
-        assert not (active and complete)
 
         self.update_field('active', active)
 
@@ -680,6 +686,7 @@ class HostQueueEntry(DBObject):
             self.job.stop_if_necessary()
         if self.started_on:
             self.set_finished_on_now()
+            self._log_trace()
         if self.job.shard_id is not None:
             # If shard_id is None, the job will be synced back to the master
             self.job.update_field('shard_id', None)
@@ -690,6 +697,25 @@ class HostQueueEntry(DBObject):
             pidfile_id = _drone_manager.get_pidfile_id_from(
                     self.execution_path(), pidfile_name=pidfile_name)
             _drone_manager.unregister_pidfile(pidfile_id)
+
+    def _log_trace(self):
+        """Emits a Cloud Trace span for the HQE's duration."""
+        if self.started_on and self.finished_on:
+            span = cloud_trace.Span('HQE', spanId='0',
+                                    traceId=hqe_trace_id(self.id))
+            # TODO(phobbs) make a .SetStart() and .SetEnd() helper method
+            span.startTime = types.Timestamp()
+            span.startTime.FromDatetime(self.started_on)
+            span.endTime = types.Timestamp()
+            span.endTime.FromDatetime(self.finished_on)
+            # TODO(phobbs) any LogSpan calls need to be wrapped in this for
+            # safety during tests, so this should be caught within LogSpan.
+            try:
+                cloud_trace.LogSpan(span)
+            except IOError as e:
+                if e.errno == errno.ENOENT:
+                    logging.warning('Error writing to cloud trace results '
+                                    'directory: %s', e)
 
 
     def _get_status_email_contents(self, status, summary=None, hostname=None):
@@ -827,6 +853,11 @@ class HostQueueEntry(DBObject):
         them in PENDING.
         """
         self.set_status(models.HostQueueEntry.Status.PENDING)
+        if not self.host:
+            raise scheduler_lib.NoHostIdError(
+                    'Failed to recover a job whose host_queue_entry_id=%r due'
+                    ' to no host_id.'
+                    % self.id)
         self.host.set_status(models.Host.Status.PENDING)
 
         # Some debug code here: sends an email if an asynchronous job does not
@@ -920,6 +951,20 @@ class HostQueueEntry(DBObject):
     def is_hostless(self):
         return (self.host_id is None
                 and self.meta_host is None)
+
+
+def hqe_trace_id(hqe_id):
+    """Constructs the canonical trace id based on the HQE's id.
+
+    Encodes 'HQE' in base16 and concatenates with the hex representation
+    of the HQE's id.
+
+    @param hqe_id: The HostQueueEntry's id.
+
+    Returns:
+        A trace id (in hex format)
+    """
+    return base64.b16encode('HQE') + hex(hqe_id)[2:]
 
 
 class Job(DBObject):

@@ -15,6 +15,7 @@
  */
 package android.speech.tts.cts;
 
+import android.os.ConditionVariable;
 import android.media.AudioFormat;
 import android.os.ConditionVariable;
 import android.speech.tts.SynthesisCallback;
@@ -36,6 +37,10 @@ public class StubTextToSpeechService extends TextToSpeechService {
 
     // Object that onSynthesizeText will #block on, if set to non-null
     public static volatile ConditionVariable sSynthesizeTextWait;
+
+    // Condition variable that onSynthesizeText will #open when it started
+    // synethesizing, if set to non-null.
+    public static volatile ConditionVariable sSynthesizeTextStartEvent;
 
     private ArrayList<Locale> supportedLanguages = new ArrayList<Locale>();
     private ArrayList<Locale> supportedCountries = new ArrayList<Locale>();
@@ -80,6 +85,11 @@ public class StubTextToSpeechService extends TextToSpeechService {
             return;
         }
 
+        final ConditionVariable synthesizeTextStartEvent = sSynthesizeTextStartEvent;
+        if (synthesizeTextStartEvent != null) {
+            sSynthesizeTextStartEvent.open();
+        }
+
         final ConditionVariable synthesizeTextWait = sSynthesizeTextWait;
         if (synthesizeTextWait != null) {
             synthesizeTextWait.block(10000);  // 10s timeout
@@ -103,7 +113,7 @@ public class StubTextToSpeechService extends TextToSpeechService {
     public String onGetDefaultVoiceNameFor(String lang, String country, String variant) {
         Locale locale = new Locale(lang, country);
         if (supportedCountries.contains(locale)) {
-          return TtsEngines.normalizeTTSLocale(locale).toLanguageTag();
+            return locale.toLanguageTag();
         }
         if (lang.equals("eng")) {
             if (GBFallbacks.contains(new Locale(lang, country))) {

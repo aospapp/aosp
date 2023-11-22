@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -40,6 +40,7 @@ RelayBoard = relay_board.RelayBoard
 RelayDevice = relay_device.RelayDevice
 RelayRig = relay_rig.RelayRig
 SainSmartBoard = sain_smart_board.SainSmartBoard
+RelayDeviceConnectionError = errors.RelayDeviceConnectionError
 
 
 class MockBoard(RelayBoard):
@@ -323,6 +324,18 @@ class ActsSainSmartBoardTest(unittest.TestCase):
         os.utime(self.test_dir[7:] + '00', (0, 0))
         self.ss_board.set(self.r0.position, RelayState.NO)
         self.assertNotEqual(os.stat(self.test_dir[7:] + '00').st_atime, 0)
+
+    def test_connection_error_no_tux(self):
+        default_status_msg = self.STATUS_MSG
+        self.STATUS_MSG = self.STATUS_MSG.replace('TUX', '')
+        try:
+            self._set_status_page('1111111111111111')
+            self.ss_board.get_relay_status(0)
+        except RelayDeviceConnectionError:
+            self.STATUS_MSG = default_status_msg
+            return
+
+        self.fail('Should have thrown an error without TUX appearing.')
 
 
 class ActsRelayRigTest(unittest.TestCase):
@@ -700,7 +713,7 @@ class TestFuguRemote(unittest.TestCase):
         })
         self.mock_board = self.mock_rig.boards['MockBoard']
         self.fugu_config = {
-            'type': 'GenericRelayDevice',
+            'type': 'FuguRemote',
             'name': 'UniqueDeviceName',
             'mac_address': '00:00:00:00:00:00',
             'relays': {

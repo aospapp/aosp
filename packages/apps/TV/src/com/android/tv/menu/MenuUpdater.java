@@ -17,12 +17,11 @@
 package com.android.tv.menu;
 
 import android.support.annotation.Nullable;
-
 import com.android.tv.ChannelTuner;
 import com.android.tv.TvOptionsManager;
 import com.android.tv.TvOptionsManager.OptionChangedListener;
 import com.android.tv.TvOptionsManager.OptionType;
-import com.android.tv.data.Channel;
+import com.android.tv.data.api.Channel;
 import com.android.tv.menu.MenuRowFactory.TvOptionsRow;
 import com.android.tv.ui.TunableTvView;
 import com.android.tv.ui.TunableTvView.OnScreenBlockingChangedListener;
@@ -39,49 +38,52 @@ public class MenuUpdater {
     @Nullable private final TvOptionsManager mOptionsManager;
     private ChannelTuner mChannelTuner;
 
-    private final ChannelTuner.Listener mChannelTunerListener = new ChannelTuner.Listener() {
-        @Override
-        public void onLoadFinished() {}
+    private final ChannelTuner.Listener mChannelTunerListener =
+            new ChannelTuner.Listener() {
+                @Override
+                public void onLoadFinished() {}
 
-        @Override
-        public void onBrowsableChannelListChanged() {
-            mMenu.update(ChannelsRow.ID);
-        }
+                @Override
+                public void onBrowsableChannelListChanged() {
+                    mMenu.update(ChannelsRow.ID);
+                }
 
-        @Override
-        public void onCurrentChannelUnavailable(Channel channel) {}
+                @Override
+                public void onCurrentChannelUnavailable(Channel channel) {}
 
-        @Override
-        public void onChannelChanged(Channel previousChannel, Channel currentChannel) {
-            mMenu.update(ChannelsRow.ID);
-        }
-    };
-    private final OptionChangedListener mOptionChangeListener = new OptionChangedListener() {
-        @Override
-        public void onOptionChanged(@OptionType int optionType, String newString) {
-            mMenu.update(TvOptionsRow.ID);
-        }
-    };
+                @Override
+                public void onChannelChanged(Channel previousChannel, Channel currentChannel) {
+                    mMenu.update(ChannelsRow.ID);
+                }
+            };
+    private final OptionChangedListener mOptionChangeListener =
+            new OptionChangedListener() {
+                @Override
+                public void onOptionChanged(@OptionType int optionType, String newString) {
+                    mMenu.update(TvOptionsRow.ID);
+                }
+            };
 
     public MenuUpdater(Menu menu, TunableTvView tvView, TvOptionsManager optionsManager) {
         mMenu = menu;
         mTvView = tvView;
         mOptionsManager = optionsManager;
         if (mTvView != null) {
-            mTvView.setOnScreenBlockedListener(new OnScreenBlockingChangedListener() {
-                    @Override
-                    public void onScreenBlockingChanged(boolean blocked) {
-                        mMenu.update(PlayControlsRow.ID);
-                    }
-            });
+            mTvView.setOnScreenBlockedListener(
+                    new OnScreenBlockingChangedListener() {
+                        @Override
+                        public void onScreenBlockingChanged(boolean blocked) {
+                            mMenu.update(PlayControlsRow.ID);
+                        }
+                    });
         }
         if (mOptionsManager != null) {
-            mOptionsManager.setOptionChangedListener(TvOptionsManager.OPTION_CLOSED_CAPTIONS,
-                    mOptionChangeListener);
-            mOptionsManager.setOptionChangedListener(TvOptionsManager.OPTION_DISPLAY_MODE,
-                    mOptionChangeListener);
-            mOptionsManager.setOptionChangedListener(TvOptionsManager.OPTION_MULTI_AUDIO,
-                    mOptionChangeListener);
+            mOptionsManager.setOptionChangedListener(
+                    TvOptionsManager.OPTION_CLOSED_CAPTIONS, mOptionChangeListener);
+            mOptionsManager.setOptionChangedListener(
+                    TvOptionsManager.OPTION_DISPLAY_MODE, mOptionChangeListener);
+            mOptionsManager.setOptionChangedListener(
+                    TvOptionsManager.OPTION_MULTI_AUDIO, mOptionChangeListener);
         }
     }
 
@@ -98,16 +100,12 @@ public class MenuUpdater {
         }
     }
 
-    /**
-     * Called when the stream information changes.
-     */
+    /** Called when the stream information changes. */
     public void onStreamInfoChanged() {
         mMenu.update(TvOptionsRow.ID);
     }
 
-    /**
-     * Called at the end of the menu's lifetime.
-     */
+    /** Called at the end of the menu's lifetime. */
     public void release() {
         if (mChannelTuner != null) {
             mChannelTuner.removeListener(mChannelTunerListener);

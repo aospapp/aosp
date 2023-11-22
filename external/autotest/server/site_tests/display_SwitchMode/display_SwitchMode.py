@@ -68,7 +68,7 @@ class display_SwitchMode(test.test):
         for chameleon_port in finder.iterate_all_ports():
             self.chameleon_port = chameleon_port
             self.screen_test = chameleon_screen_test.ChameleonScreenTest(
-                    chameleon_port, self.display_facade, self.outputdir)
+                    host, chameleon_port, self.display_facade, self.outputdir)
 
             logging.debug('See the display on Chameleon: port %d (%s)',
                          self.chameleon_port.get_connector_id(),

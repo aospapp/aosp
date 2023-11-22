@@ -51,6 +51,7 @@ LOCAL_SRC_FILES := \
     H264MVCMasterFirmwareVBR_bin.c \
     H264MVCMasterFirmwareLLRC_bin.c
 
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := topazhp_bin
 

@@ -15,17 +15,17 @@
  */
 package com.android.car.dialer;
 
-import android.app.Fragment;
-import android.app.LoaderManager;
-import android.content.CursorLoader;
 import android.content.Intent;
-import android.content.Loader;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.support.annotation.ColorInt;
 import android.support.annotation.Nullable;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.CursorLoader;
+import android.support.v4.content.Loader;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.util.Pair;
@@ -36,10 +36,13 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.android.car.dialer.telecom.TelecomUtils;
-import com.android.car.view.PagedListView;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import androidx.car.utils.ListItemBackgroundResolver;
+import androidx.car.widget.DayNightStyle;
+import androidx.car.widget.PagedListView;
 
 /**
  * A fragment that shows the name of the contact, the photo and all listed phone numbers. It is
@@ -57,10 +60,10 @@ public class ContactDetailsFragment extends Fragment
     private static final String KEY_URI = "uri";
 
     private static final String[] CONTACT_DETAILS_PROJECTION = {
-        ContactsContract.Contacts._ID,
-        ContactsContract.Contacts.DISPLAY_NAME,
-        ContactsContract.Contacts.PHOTO_URI,
-        ContactsContract.Contacts.HAS_PHONE_NUMBER
+            ContactsContract.Contacts._ID,
+            ContactsContract.Contacts.DISPLAY_NAME,
+            ContactsContract.Contacts.PHOTO_URI,
+            ContactsContract.Contacts.HAS_PHONE_NUMBER
     };
 
     private PagedListView mListView;
@@ -69,7 +72,9 @@ public class ContactDetailsFragment extends Fragment
     public static ContactDetailsFragment newInstance(Uri uri,
             @Nullable RecyclerView.OnScrollListener listener) {
         ContactDetailsFragment fragment = new ContactDetailsFragment();
-        fragment.addOnScrollListener(listener);
+        if (listener != null) {
+            fragment.addOnScrollListener(listener);
+        }
 
         Bundle args = new Bundle();
         args.putParcelable(KEY_URI, uri);
@@ -87,7 +92,7 @@ public class ContactDetailsFragment extends Fragment
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         mListView = view.findViewById(R.id.list_view);
-        mListView.setLightMode();
+        mListView.setDayNightStyle(DayNightStyle.ALWAYS_LIGHT);
 
         RecyclerView recyclerView = mListView.getRecyclerView();
         for (RecyclerView.OnScrollListener listener : mOnScrollListeners) {
@@ -153,7 +158,8 @@ public class ContactDetailsFragment extends Fragment
     }
 
     @Override
-    public void onLoaderReset(Loader loader) {  }
+    public void onLoaderReset(Loader loader) {
+    }
 
     private boolean vdebug() {
         return Log.isLoggable(TAG, Log.DEBUG);
@@ -164,7 +170,8 @@ public class ContactDetailsFragment extends Fragment
         public ImageView leftIcon;
         public TextView title;
         public TextView text;
-        public ImageView rightIcon;
+        public ImageView avatar;
+        public View divier;
 
         public ContactDetailViewHolder(View v) {
             super(v);
@@ -172,7 +179,8 @@ public class ContactDetailsFragment extends Fragment
             leftIcon = v.findViewById(R.id.icon);
             title = v.findViewById(R.id.title);
             text = v.findViewById(R.id.text);
-            rightIcon = v.findViewById(R.id.right_icon);
+            avatar = v.findViewById(R.id.avatar);
+            divier = v.findViewById(R.id.divider);
         }
     }
 
@@ -183,7 +191,8 @@ public class ContactDetailsFragment extends Fragment
         private static final int ID_CONTENT = 2;
 
         private final String mContactName;
-        @ColorInt private int mIconTint;
+        @ColorInt
+        private int mIconTint;
 
         private List<Pair<String, String>> mPhoneNumbers = new ArrayList<>();
 
@@ -204,7 +213,8 @@ public class ContactDetailsFragment extends Fragment
             }
 
             // Fetch the phone number from the contacts db using another loader.
-            getLoaderManager().initLoader(PHONE_LOADER_QUERY_ID, null,
+            LoaderManager.getInstance(ContactDetailsFragment.this).initLoader(PHONE_LOADER_QUERY_ID,
+                    null,
                     new LoaderManager.LoaderCallbacks<Cursor>() {
                         @Override
                         public Loader<Cursor> onCreateLoader(int id, Bundle args) {
@@ -212,7 +222,7 @@ public class ContactDetailsFragment extends Fragment
                                     ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
                                     null, /* All columns **/
                                     ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
-                                    new String[] { contactId },
+                                    new String[]{contactId},
                                     null /* sortOrder */);
                         }
 
@@ -245,33 +255,9 @@ public class ContactDetailsFragment extends Fragment
                             notifyDataSetChanged();
                         }
 
-                        public void onLoaderReset(Loader loader) {  }
+                        public void onLoaderReset(Loader loader) {
+                        }
                     });
-        }
-
-        /**
-         * Appropriately sets the background for the View that is being bound. This method will
-         * allow for rounded corners on either the top or bottom of a card.
-         */
-        private void setBackground(ContactDetailViewHolder viewHolder) {
-            int itemCount = getItemCount();
-            int adapterPosition = viewHolder.getAdapterPosition();
-
-            if (itemCount == 1) {
-                // Only element - all corners are rounded
-                viewHolder.card.setBackgroundResource(
-                        R.drawable.car_card_rounded_top_bottom_background);
-            } else if (adapterPosition == 0) {
-                // First element gets rounded top
-                viewHolder.card.setBackgroundResource(R.drawable.car_card_rounded_top_background);
-            } else if (adapterPosition == itemCount - 1) {
-                // Last one has a rounded bottom
-                viewHolder.card.setBackgroundResource(
-                        R.drawable.car_card_rounded_bottom_background);
-            } else {
-                // Middle have no rounded corners
-                viewHolder.card.setBackgroundResource(R.color.car_card);
-            }
         }
 
         @Override
@@ -304,7 +290,8 @@ public class ContactDetailsFragment extends Fragment
                     return null;
             }
 
-            View view = LayoutInflater.from(parent.getContext()).inflate(layoutResId, null);
+            View view = LayoutInflater.from(parent.getContext()).inflate(layoutResId, parent,
+                    false);
             return new ContactDetailViewHolder(view);
         }
 
@@ -315,7 +302,7 @@ public class ContactDetailsFragment extends Fragment
                     viewHolder.title.setText(mContactName);
                     if (!mPhoneNumbers.isEmpty()) {
                         String firstNumber = mPhoneNumbers.get(0).second;
-                        TelecomUtils.setContactBitmapAsync(getContext(), viewHolder.rightIcon,
+                        TelecomUtils.setContactBitmapAsync(getContext(), viewHolder.avatar,
                                 mContactName, firstNumber);
                     }
                     // Just in case a viewholder object gets recycled.
@@ -323,8 +310,8 @@ public class ContactDetailsFragment extends Fragment
                     break;
                 case ID_CONTENT:
                     Pair<String, String> data = mPhoneNumbers.get(position - 1);
-                    viewHolder.title.setText(data.first);  // Type.
-                    viewHolder.text.setText(data.second);  // Number.
+                    viewHolder.title.setText(data.second);  // Type.
+                    viewHolder.text.setText(data.first);  // Number.
                     viewHolder.leftIcon.setImageResource(R.drawable.ic_phone);
                     viewHolder.leftIcon.setColorFilter(mIconTint);
                     viewHolder.card.setOnClickListener(v -> {
@@ -337,7 +324,15 @@ public class ContactDetailsFragment extends Fragment
                     Log.e(TAG, "Unknown view type " + viewHolder.getItemViewType());
                     return;
             }
-            setBackground(viewHolder);
+
+            if (position == (getItemCount() - 1)) {
+                // hide divider for last item.
+                viewHolder.divier.setVisibility(View.GONE);
+            } else {
+                viewHolder.divier.setVisibility(View.VISIBLE);
+            }
+            ListItemBackgroundResolver.setBackground(viewHolder.card,
+                    viewHolder.getAdapterPosition(), getItemCount());
         }
     }
 }

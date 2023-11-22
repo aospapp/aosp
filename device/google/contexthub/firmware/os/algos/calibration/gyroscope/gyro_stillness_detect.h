@@ -60,7 +60,7 @@ struct GyroStillDet {
   // is used to keep track of the window start time.
   bool start_new_window;
 
-  // Starting time stamp for the the current window.
+  // Starting time stamp for the current window.
   uint64_t window_start_time;
 
   // Accumulator variables for tracking the sample mean during
@@ -93,8 +93,8 @@ struct GyroStillDet {
 /////// FUNCTION PROTOTYPES //////////////////////////////////////////
 
 // Initialize the gyro_still_det_t structure.
-void gyroStillDetInit(struct GyroStillDet* gyro_still_det,
-                      float var_threshold, float confidence_delta);
+void gyroStillDetInit(struct GyroStillDet* gyro_still_det, float var_threshold,
+                      float confidence_delta);
 
 // Update the stillness detector with a new sample.
 void gyroStillDetUpdate(struct GyroStillDet* gyro_still_det,

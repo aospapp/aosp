@@ -64,7 +64,6 @@ public class CreateJobViewPresenter implements TestSelectorListener {
         public CheckBoxPanel.Display getCheckBoxPanelDisplay();
         public ControlTypeSelect.Display getControlTypeSelectDisplay();
         public TestSelector.Display getTestSelectorDisplay();
-        public IButton getEditControlButton();
         public HasText getJobName();
         public ExtendedListBox getPriorityList();
         public HasText getTimeout();
@@ -99,10 +98,10 @@ public class CreateJobViewPresenter implements TestSelectorListener {
         public ExtendedListBox getTestSourceBuildList();
     }
 
-    private static final String EDIT_CONTROL_STRING = "Edit control file";
-    private static final String UNEDIT_CONTROL_STRING= "Revert changes";
-    private static final String VIEW_CONTROL_STRING = "View control file";
-    private static final String HIDE_CONTROL_STRING = "Hide control file";
+    private static final String VIEW_CONTROL_STRING =
+            "View control file (editing support dropped: crbug.com/753607)";
+    private static final String HIDE_CONTROL_STRING =
+            "Hide control file (editing support dropped: crbug.com/753607)";
     private static final String FIRMWARE_RW_BUILD = "firmware_rw_build";
     private static final String FIRMWARE_RO_BUILD = "firmware_ro_build";
     private static final String TEST_SOURCE_BUILD = "test_source_build";
@@ -145,7 +144,6 @@ public class CreateJobViewPresenter implements TestSelectorListener {
     private RadioChooser rebootAfter = new RadioChooser();
     private HostSelector hostSelector;
 
-    private boolean controlEdited = false;
     private boolean controlReadyForSubmit = false;
     private JSONArray dependencies = new JSONArray();
 
@@ -177,7 +175,6 @@ public class CreateJobViewPresenter implements TestSelectorListener {
         testSelector.setListener(this);
 
         disableInputs();
-        openControlFileEditor();
         JSONObject cloneObject = cloneInfo.isObject();
         JSONObject jobObject = cloneObject.get("job").isObject();
 
@@ -274,15 +271,6 @@ public class CreateJobViewPresenter implements TestSelectorListener {
         }
 
         hostSelector.refresh();
-    }
-
-    private void openControlFileEditor() {
-        display.getControlFile().setReadOnly(false);
-        display.getEditControlButton().setText(UNEDIT_CONTROL_STRING);
-        display.setControlFilePanelOpen(true);
-        controlTypeSelect.setEnabled(true);
-        display.getSynchCountInput().setEnabled(true);
-        display.getEditControlButton().setEnabled(true);
     }
 
     private void populatePriorities(JSONArray priorities) {
@@ -545,7 +533,6 @@ public class CreateJobViewPresenter implements TestSelectorListener {
         rebootBefore.bindDisplay(display.getRebootBefore());
         rebootAfter.bindDisplay(display.getRebootAfter());
 
-        display.getEditControlButton().setText(EDIT_CONTROL_STRING);
         display.getViewLink().setText(VIEW_CONTROL_STRING);
 
         hostSelector = new HostSelector();
@@ -573,49 +560,6 @@ public class CreateJobViewPresenter implements TestSelectorListener {
 
         populateRebootChoices();
         onPreferencesChanged();
-
-        display.getEditControlButton().addClickHandler(new ClickHandler() {
-            public void onClick(ClickEvent event) {
-                DOM.eventCancelBubble(DOM.eventGetCurrentEvent(), true);
-
-                if (display.getEditControlButton().getText().equals(EDIT_CONTROL_STRING)) {
-                    disableInputs();
-                    display.getEditControlButton().setEnabled(false);
-                    SimpleCallback onGotControlFile = new SimpleCallback() {
-                        public void doCallback(Object source) {
-                            openControlFileEditor();
-                        }
-                    };
-                    SimpleCallback onControlFileError = new SimpleCallback() {
-                        public void doCallback(Object source) {
-                            setInputsEnabled();
-                            display.getEditControlButton().setEnabled(true);
-                        }
-                    };
-                    generateControlFile(true, onGotControlFile, onControlFileError);
-                }
-                else {
-                    if (controlEdited &&
-                        !Window.confirm("Are you sure you want to revert your" +
-                                        " changes?")) {
-                        return;
-                    }
-                    generateControlFile(false);
-                    display.getControlFile().setReadOnly(true);
-                    setInputsEnabled();
-                    display.getEditControlButton().setText(EDIT_CONTROL_STRING);
-                    controlTypeSelect.setEnabled(false);
-                    display.getSynchCountInput().setEnabled(false);
-                    controlEdited = false;
-                }
-            }
-        });
-
-        display.getControlFile().addChangeHandler(new ChangeHandler() {
-            public void onChange(ChangeEvent event) {
-                controlEdited = true;
-            }
-        });
 
         display.getControlFilePanelClose().addCloseHandler(new CloseHandler<DisclosurePanel>() {
             public void onClose(CloseEvent<DisclosurePanel> event) {
@@ -720,9 +664,7 @@ public class CreateJobViewPresenter implements TestSelectorListener {
         display.getSynchCountInput().setText("1");
         display.getControlFile().setText("");
         display.getControlFile().setReadOnly(true);
-        controlEdited = false;
         display.setControlFilePanelOpen(false);
-        display.getEditControlButton().setText(EDIT_CONTROL_STRING);
         hostSelector.reset();
         dependencies = new JSONArray();
         display.getPool().setText("");

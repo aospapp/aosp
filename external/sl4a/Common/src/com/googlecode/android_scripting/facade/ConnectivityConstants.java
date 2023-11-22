@@ -83,4 +83,11 @@ public class ConnectivityConstants {
      */
     public static final String TetheringStartedCallback = "ConnectivityManagerOnTetheringStarted";
     public static final String TetheringFailedCallback = "ConnectivityManagerOnTetheringFailed";
+
+    /**
+     * Constants for PrivateDnsMode
+     */
+    public static final String PrivateDnsModeOff = "off";
+    public static final String PrivateDnsModeOpportunistic = "opportunistic";
+    public static final String PrivateDnsModeStrict = "hostname";
 }

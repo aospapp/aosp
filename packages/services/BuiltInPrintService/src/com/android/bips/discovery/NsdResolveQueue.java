@@ -25,61 +25,46 @@ import android.util.Log;
 import java.util.LinkedList;
 
 /**
- * Nsd resolve requests for the same info cancel each other. Hence this class synchronizes the
- * resolutions to hide this effect.
+ * Queues Nsd resolve requests to prevent multiple simultaneous requests to NsdManager
  */
-class NsdResolveQueue {
+public class NsdResolveQueue {
     private static final String TAG = NsdResolveQueue.class.getSimpleName();
     private static final boolean DEBUG = false;
 
-    /** Lock for {@link #sInstance} */
-    private static final Object sLock = new Object();
-
-    /** Instance of this singleton */
-    private static NsdResolveQueue sInstance;
-
-    /** Current set of registered service info resolve attempts */
-    final LinkedList<NsdResolveRequest> mResolveRequests = new LinkedList<>();
-
+    private final NsdManager mNsdManager;
     private final Handler mMainHandler;
 
-    public static NsdResolveQueue getInstance(Context context) {
-        synchronized (sLock) {
-            if (sInstance == null) {
-                sInstance = new NsdResolveQueue(context);
-            }
-            return sInstance;
-        }
+    /** Current set of registered service info resolve attempts */
+    private LinkedList<NsdResolveRequest> mResolveRequests = new LinkedList<>();
+
+    public NsdResolveQueue(Context context, NsdManager nsdManager) {
+        mNsdManager = nsdManager;
+        mMainHandler = new Handler(context.getMainLooper());
     }
 
-    private NsdResolveQueue(Context context) {
-        mMainHandler = new Handler(context.getMainLooper());
+    /** Return the {@link NsdManager} used by this queue */
+    NsdManager getNsdManager() {
+        return mNsdManager;
     }
 
     /**
      * Resolve a serviceInfo or queue the request if there is a request currently in flight.
      *
-     * @param nsdManager  The nsd manager to use
      * @param serviceInfo The service info to resolve
      * @param listener    The listener to call back once the info is resolved.
      */
-    public void resolve(NsdManager nsdManager, NsdServiceInfo serviceInfo,
+    public NsdResolveRequest resolve(NsdServiceInfo serviceInfo,
             NsdManager.ResolveListener listener) {
         if (DEBUG) {
-            Log.d(TAG, "Adding resolve of " + serviceInfo.getServiceName() + " to queue size=" +
-                    mResolveRequests.size());
+            Log.d(TAG, "Adding resolve of " + serviceInfo.getServiceName() + " to queue size="
+                    + mResolveRequests.size());
         }
-        mResolveRequests.addLast(new NsdResolveRequest(nsdManager, serviceInfo, listener));
+        NsdResolveRequest request = new NsdResolveRequest(mNsdManager, serviceInfo, listener);
+        mResolveRequests.addLast(request);
         if (mResolveRequests.size() == 1) {
             resolveNextRequest();
         }
-    }
-
-    /** Immediately reject all unstarted requests */
-    void clear() {
-        while (mResolveRequests.size() > 1) {
-            mResolveRequests.remove(1);
-        }
+        return request;
     }
 
     /**
@@ -94,34 +79,41 @@ class NsdResolveQueue {
     /**
      * Holds a request to resolve a {@link NsdServiceInfo}
      */
-    private class NsdResolveRequest implements NsdManager.ResolveListener {
-        final NsdManager nsdManager;
-        final NsdServiceInfo serviceInfo;
-        final NsdManager.ResolveListener listener;
+    class NsdResolveRequest implements NsdManager.ResolveListener {
+        private final NsdManager mNsdManager;
+        private final NsdServiceInfo mServiceInfo;
+        private final NsdManager.ResolveListener mListener;
         private long mStartTime;
 
         private NsdResolveRequest(NsdManager nsdManager,
                 NsdServiceInfo serviceInfo,
                 NsdManager.ResolveListener listener) {
-            this.nsdManager = nsdManager;
-            this.serviceInfo = serviceInfo;
-            this.listener = listener;
+            mNsdManager = nsdManager;
+            mServiceInfo = serviceInfo;
+            mListener = listener;
         }
 
-        public void start() {
+        private void start() {
             mStartTime = System.currentTimeMillis();
-            if (DEBUG) Log.d(TAG, "resolveService " + serviceInfo.getServiceName());
-            nsdManager.resolveService(serviceInfo, this);
+            if (DEBUG) Log.d(TAG, "resolveService " + mServiceInfo.getServiceName());
+            mNsdManager.resolveService(mServiceInfo, this);
+        }
+
+        void cancel() {
+            // Note: resolve requests can only be cancelled if they have not yet begun
+            if (!mResolveRequests.isEmpty() && mResolveRequests.get(0) != this) {
+                mResolveRequests.remove(this);
+            }
         }
 
         @Override
         public void onResolveFailed(NsdServiceInfo serviceInfo, int errorCode) {
             if (DEBUG) {
-                Log.d(TAG, "onResolveFailed " + serviceInfo.getServiceName() + " errorCode=" +
-                        errorCode + " (" + (System.currentTimeMillis() - mStartTime) + " ms)");
+                Log.d(TAG, "onResolveFailed " + serviceInfo.getServiceName() + " errorCode="
+                        + errorCode + " (" + (System.currentTimeMillis() - mStartTime) + " ms)");
             }
             mMainHandler.post(() -> {
-                listener.onResolveFailed(serviceInfo, errorCode);
+                mListener.onResolveFailed(serviceInfo, errorCode);
                 mResolveRequests.pop();
                 resolveNextRequest();
             });
@@ -130,11 +122,11 @@ class NsdResolveQueue {
         @Override
         public void onServiceResolved(NsdServiceInfo serviceInfo) {
             if (DEBUG) {
-                Log.d(TAG, "onServiceResolved " + serviceInfo.getServiceName() +
-                        " (" + (System.currentTimeMillis() - mStartTime) + " ms)");
+                Log.d(TAG, "onServiceResolved " + serviceInfo.getServiceName()
+                        + " (" + (System.currentTimeMillis() - mStartTime) + " ms)");
             }
             mMainHandler.post(() -> {
-                listener.onServiceResolved(serviceInfo);
+                mListener.onServiceResolved(serviceInfo);
                 mResolveRequests.pop();
                 resolveNextRequest();
             });

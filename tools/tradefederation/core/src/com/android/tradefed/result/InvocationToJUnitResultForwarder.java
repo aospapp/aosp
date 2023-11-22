@@ -16,8 +16,8 @@
 package com.android.tradefed.result;
 
 import com.android.ddmlib.Log;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
@@ -26,7 +26,7 @@ import junit.framework.TestResult;
 
 import org.junit.AssumptionViolatedException;
 
-import java.util.Map;
+import java.util.HashMap;
 
 /**
  * A class that listens to {@link ITestInvocationListener} events and forwards them to a
@@ -46,36 +46,30 @@ import java.util.Map;
         return mJUnitListener;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void testEnded(TestIdentifier test, Map<String, String> testMetrics) {
+    public void testEnded(TestDescription test, HashMap<String, Metric> testMetrics) {
         mJUnitListener.endTest(new TestIdentifierResult(test));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void testFailed(TestIdentifier testId, String trace) {
+    public void testFailed(TestDescription testId, String trace) {
         Test test = new TestIdentifierResult(testId);
         // TODO: is it accurate to represent the trace as AssertionFailedError?
         mJUnitListener.addFailure(test, new AssertionFailedError(trace));
     }
 
     @Override
-    public void testAssumptionFailure(TestIdentifier testId, String trace) {
+    public void testAssumptionFailure(TestDescription testId, String trace) {
         Test test = new TestIdentifierResult(testId);
         AssumptionViolatedException throwable = new AssumptionViolatedException(trace);
         mJUnitListener.addError(test, throwable);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void testRunEnded(long elapsedTime, Map<String, String> runMetrics) {
+    public void testRunEnded(long elapsedTime, HashMap<String, Metric> runMetrics) {
        // TODO: no run ended method on TestListener - would be good to propagate the elaspedTime
        // info up
        Log.i(LOG_TAG, String.format("run ended %d ms", elapsedTime));
@@ -107,25 +101,23 @@ import java.util.Map;
         Log.i(LOG_TAG, String.format("run stopped: %d ms", elapsedTime));
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void testStarted(TestIdentifier test) {
+    public void testStarted(TestDescription test) {
         Log.d(LOG_TAG, test.toString());
         mJUnitListener.startTest(new TestIdentifierResult(test));
     }
 
     /**
-     * A class that converts a {@link TestIdentifier} to a JUnit {@link Test}
+     * A class that converts a {@link TestDescription} to a JUnit {@link Test}
      *
-     * TODO: The JUnit {@link TestListener} seems to assume a descriptive interface of some sort
+     * <p>TODO: The JUnit {@link TestListener} seems to assume a descriptive interface of some sort
      * for Test, that is not in its defined methods. Assume for now that its toString()
      */
     static class TestIdentifierResult implements Test {
-        private final TestIdentifier mTestId;
+        private final TestDescription mTestId;
 
-        private TestIdentifierResult(TestIdentifier testId) {
+        private TestIdentifierResult(TestDescription testId) {
             mTestId = testId;
         }
 
@@ -214,7 +206,7 @@ import java.util.Map;
     }
 
     @Override
-    public void testIgnored(TestIdentifier test) {
+    public void testIgnored(TestDescription test) {
         // ignore
     }
 }

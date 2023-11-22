@@ -26,15 +26,15 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_MULTILIB := both
 
-LOCAL_JAVA_LIBRARIES := android.test.runner cts-junit
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs cts-junit
 
 # Includes the jni code as a shared library
-LOCAL_JNI_SHARED_LIBRARIES := libcrash-jni libnativehelper
+LOCAL_JNI_SHARED_LIBRARIES := libcrash-jni
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     ctstestrunner \
     compatibility-device-util \
-    android-support-v4
+    androidx.legacy_legacy-support-v4
 
 LOCAL_SDK_VERSION := test_current
 

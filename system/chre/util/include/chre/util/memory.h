@@ -17,6 +17,8 @@
 #ifndef CHRE_UTIL_MEMORY_H_
 #define CHRE_UTIL_MEMORY_H_
 
+#include <cstddef>
+
 namespace chre {
 
 /**

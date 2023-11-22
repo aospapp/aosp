@@ -16,17 +16,17 @@
 
 #include "array-inl.h"
 
-#include "class.h"
+#include "base/utils.h"
 #include "class-inl.h"
+#include "class.h"
 #include "class_linker-inl.h"
 #include "common_throws.h"
-#include "dex_file-inl.h"
+#include "dex/dex_file-inl.h"
 #include "gc/accounting/card_table-inl.h"
+#include "handle_scope-inl.h"
 #include "object-inl.h"
 #include "object_array-inl.h"
-#include "handle_scope-inl.h"
 #include "thread.h"
-#include "utils.h"
 
 namespace art {
 namespace mirror {

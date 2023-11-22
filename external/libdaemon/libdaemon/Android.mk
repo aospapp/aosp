@@ -25,6 +25,8 @@ LOCAL_EXPORT_C_INCLUDE_DIRS:= $(LOCAL_PATH)/..
 # -MT testd.o -MD -MP -MF .deps/testd.Tpo -c -o testd.o testd.c
 
 LOCAL_CFLAGS+= \
+	-Wall -Werror \
+	-Wno-error=user-defined-warnings \
 	-Wno-unused-parameter \
 	-DHAVE_CONFIG_H \
 	-DLOCALSTATEDIR=\"/var\"

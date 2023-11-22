@@ -60,13 +60,13 @@ public class StreamingServiceTracker {
      * Start streaming using the provided streaming session
      */
     public boolean startStreaming(MbmsStreamingSession streamingManager) {
-        mStreamingService =
-                streamingManager.startStreaming(mStreamingServiceInfo, new Callback(), null);
+        mStreamingService = streamingManager.startStreaming(mStreamingServiceInfo,
+                mActivity.getMainThreadHandler()::post, new Callback());
         return true;
     }
 
     public void stopStreaming() {
-        mStreamingService.stopStreaming();
+        mStreamingService.close();
     }
 
     public String getServiceId() {

@@ -15,114 +15,145 @@
  */
 package android.content.res.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 import android.content.res.AssetManager;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
 
-public class AssetManager_AssetInputStreamTest extends AndroidTestCase {
-    private AssetManager.AssetInputStream mAssetInputStream;
-    private final String CONTENT_STRING = "OneTwoThreeFourFiveSixSevenEightNineTen";
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mAssetInputStream = (AssetManager.AssetInputStream)mContext.getAssets().open("text.txt");
+@SmallTest
+public class AssetManager_AssetInputStreamTest {
+    private static final byte[] EXPECTED_BYTES = "OneTwoThreeFourFiveSixSevenEightNineTen".getBytes(
+            StandardCharsets.UTF_8);
+    private InputStream mAssetInputStream;
+
+    @Before
+    public void setUp() throws Exception {
+        mAssetInputStream = InstrumentationRegistry.getContext().getAssets().open("text.txt");
     }
 
-    public void testClose() throws IOException {
+    @After
+    public void tearDown() throws Exception {
         mAssetInputStream.close();
+    }
 
+    @Test
+    public void testClose() throws Exception {
+        mAssetInputStream.close();
         try {
             mAssetInputStream.read();
-            fail("should throw exception");
-        } catch (NullPointerException e) {
+            fail("read after close should throw an exception");
+        } catch (IllegalStateException e) {
             // expected
         }
     }
 
+    @Test
     public void testGetAssetInt() {
+        AssetManager.AssetInputStream assetInputStream =
+                (AssetManager.AssetInputStream) mAssetInputStream;
         try {
             // getAssetInt is no longer supported.
-            mAssetInputStream.getAssetInt();
-            fail();
+            assetInputStream.getAssetInt();
+            fail("getAssetInt should throw an exception");
         } catch (UnsupportedOperationException expected) {
         }
     }
 
+    @Test
     public void testMarkReset() throws IOException {
         assertTrue(mAssetInputStream.markSupported());
-        final int readlimit = 10;
-        final byte[] bytes = CONTENT_STRING.getBytes();
-        for (int i = 0; i < readlimit; i++) {
-            assertEquals(bytes[i], mAssetInputStream.read());
+        for (int i = 0; i < 10; i++) {
+            assertEquals(EXPECTED_BYTES[i], mAssetInputStream.read());
         }
-        mAssetInputStream.mark(readlimit);
+        mAssetInputStream.mark(10);
         mAssetInputStream.reset();
-        for (int i = 0; i < readlimit; i++) {
-            assertEquals(bytes[i + readlimit], mAssetInputStream.read());
+        for (int i = 0; i < 10; i++) {
+            assertEquals(EXPECTED_BYTES[10 + i], mAssetInputStream.read());
         }
     }
 
-    public void testReadMethods() throws IOException {
-        // test available()
-        final byte[] bytes = CONTENT_STRING.getBytes();
-        int len = mAssetInputStream.available();
-        int end = -1;
-        assertEquals(CONTENT_STRING.length(), len);
-        for (int i = 0; i < len; i++) {
-            assertEquals(bytes[i], mAssetInputStream.read());
+    @Test
+    public void testSingleByteRead() throws Exception {
+        assertEquals(EXPECTED_BYTES.length, mAssetInputStream.available());
+        for (int i = 0; i < EXPECTED_BYTES.length; i++) {
+            assertEquals(EXPECTED_BYTES[i], mAssetInputStream.read());
+            assertEquals(EXPECTED_BYTES.length - i - 1, mAssetInputStream.available());
         }
-        assertEquals(end, mAssetInputStream.read());
 
-        // test read(byte[])
-        mAssetInputStream.reset();
-        int dataLength = 10;
-        byte[] data = new byte[dataLength];
-        int ret = mAssetInputStream.read(data);
-        assertEquals(dataLength, ret);
-        for (int i = 0; i < dataLength; i++) {
-            assertEquals(bytes[i], data[i]);
-        }
-        data = new byte[len - dataLength];
-        assertEquals(len - dataLength, mAssetInputStream.read(data));
-        for (int i = 0; i < len - dataLength; i++) {
-            assertEquals(bytes[i + dataLength], data[i]);
-        }
-        assertEquals(end, mAssetInputStream.read(data));
+        // Check end-of-file condition.
+        assertEquals(-1, mAssetInputStream.read());
+        assertEquals(0, mAssetInputStream.available());
+    }
 
-        // test read(bytep[], int, int)
-        mAssetInputStream.reset();
-        int offset = 0;
-        ret = mAssetInputStream.read(data, offset, dataLength);
-        assertEquals(dataLength, ret);
-        for (int i = offset; i < ret; i++) {
-            assertEquals(bytes[i], data[offset + i]);
+    @Test
+    public void testByteArrayRead() throws Exception {
+        byte[] buffer = new byte[10];
+        assertEquals(10, mAssetInputStream.read(buffer));
+        for (int i = 0; i < 10; i++) {
+            assertEquals(EXPECTED_BYTES[i], buffer[i]);
         }
-        mAssetInputStream.reset();
-        offset = 2;
-        ret = mAssetInputStream.read(data, offset, dataLength);
-        assertEquals(dataLength, ret);
-        for (int i = offset; i < ret; i++) {
-            assertEquals(bytes[i], data[offset + i]);
-        }
-        data = new byte[len + offset];
-        ret = mAssetInputStream.read(data, offset, len);
-        assertEquals(len - dataLength, ret);
-        for (int i = offset; i < ret; i++) {
-            assertEquals(bytes[i + dataLength], data[offset + i]);
-        }
-        assertEquals(end, mAssetInputStream.read(data, offset, len));
-        // test len is zero,
-        mAssetInputStream.reset();
-        assertEquals(0, mAssetInputStream.read(data, 0, 0));
-        // test skip(int)
-        int skipLenth = 8;
-        mAssetInputStream.reset();
-        mAssetInputStream.skip(skipLenth);
-        assertEquals(CONTENT_STRING.charAt(skipLenth), mAssetInputStream.read());
 
-        // test read(byte[] b), b is null
+        buffer = new byte[5];
+        assertEquals(5, mAssetInputStream.read(buffer));
+        for (int i = 0; i < 5; i++) {
+            assertEquals(EXPECTED_BYTES[10 + i], buffer[i]);
+        }
+
+        // Check end-of-file condition.
+        buffer = new byte[EXPECTED_BYTES.length - 15];
+        assertEquals(buffer.length, mAssetInputStream.read(buffer));
+        assertEquals(-1, mAssetInputStream.read(buffer));
+        assertEquals(0, mAssetInputStream.available());
+    }
+
+    @Test
+    public void testByteArrayReadOffset() throws Exception {
+        byte[] buffer = new byte[15];
+        assertEquals(10, mAssetInputStream.read(buffer, 0, 10));
+        assertEquals(EXPECTED_BYTES.length - 10, mAssetInputStream.available());
+        for (int i = 0; i < 10; i++) {
+            assertEquals(EXPECTED_BYTES[i], buffer[i]);
+        }
+
+        assertEquals(5, mAssetInputStream.read(buffer, 10, 5));
+        assertEquals(EXPECTED_BYTES.length - 15, mAssetInputStream.available());
+        for (int i = 0; i < 15; i++) {
+            assertEquals(EXPECTED_BYTES[i], buffer[i]);
+        }
+
+        // Check end-of-file condition.
+        buffer = new byte[EXPECTED_BYTES.length];
+        assertEquals(EXPECTED_BYTES.length - 15,
+                mAssetInputStream.read(buffer, 15, EXPECTED_BYTES.length - 15));
+        assertEquals(-1, mAssetInputStream.read(buffer, 0, 1));
+        assertEquals(0, mAssetInputStream.available());
+    }
+
+    @Test
+    public void testSkip() throws Exception {
+        assertEquals(8, mAssetInputStream.skip(8));
+        assertEquals(EXPECTED_BYTES.length - 8, mAssetInputStream.available());
+        assertEquals(EXPECTED_BYTES[8], mAssetInputStream.read());
+
+        // Check that skip respects the available space.
+        assertEquals(EXPECTED_BYTES.length - 8 - 1, mAssetInputStream.skip(1000));
+        assertEquals(0, mAssetInputStream.available());
+    }
+
+    @Test
+    public void testArgumentEdgeCases() throws Exception {
+        // test read(byte[]): byte[] is null
         try {
             mAssetInputStream.read(null);
             fail("should throw NullPointerException ");
@@ -130,34 +161,39 @@ public class AssetManager_AssetInputStreamTest extends AndroidTestCase {
             // expected
         }
 
+        // test read(byte[], int, int): byte[] is null
         try {
             mAssetInputStream.read(null, 0, mAssetInputStream.available());
             fail("should throw NullPointerException ");
         } catch (NullPointerException e) {
             // expected
         }
-        // test read(bytep[], int, int): offset is negative,
+
+        // test read(byte[]): byte[] is len 0
+        final int previousAvailable = mAssetInputStream.available();
+        assertEquals(0, mAssetInputStream.read(new byte[0]));
+        assertEquals(previousAvailable, mAssetInputStream.available());
+
+        // test read(byte[]): byte[] is len 0
+        assertEquals(0, mAssetInputStream.read(new byte[0], 0, 0));
+        assertEquals(previousAvailable, mAssetInputStream.available());
+
+        // test read(byte[], int, int): offset is negative
         try {
-            data = new byte[10];
+            byte[] data = new byte[10];
             mAssetInputStream.read(data, -1, mAssetInputStream.available());
             fail("should throw IndexOutOfBoundsException ");
         } catch (IndexOutOfBoundsException e) {
             // expected
         }
 
-        // test read(bytep[], int, int): len+offset greater than data length
+        // test read(byte[], int, int): len + offset greater than data length
         try {
-            data = new byte[10];
+            byte[] data = new byte[10];
             assertEquals(0, mAssetInputStream.read(data, 0, data.length + 2));
             fail("should throw IndexOutOfBoundsException ");
         } catch (IndexOutOfBoundsException e) {
+            // expected
         }
     }
-
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-        mAssetInputStream.close();
-    }
-
 }

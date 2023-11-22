@@ -16,7 +16,7 @@
 
 package com.android.documentsui.dirlist;
 
-import static com.android.documentsui.base.Shared.TAG;
+import static com.android.documentsui.base.SharedMinimal.TAG;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -107,6 +107,7 @@ public class RenameDocumentFragment extends DialogFragment {
                         return false;
                     }
                 });
+        mEditText.requestFocus();
         return dialog;
     }
 

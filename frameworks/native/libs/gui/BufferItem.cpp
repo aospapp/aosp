@@ -55,7 +55,8 @@ BufferItem::BufferItem() :
     mSurfaceDamage(),
     mAutoRefresh(false),
     mQueuedBuffer(true),
-    mIsStale(false) {
+    mIsStale(false),
+    mApi(0) {
 }
 
 BufferItem::~BufferItem() {}
@@ -84,6 +85,7 @@ size_t BufferItem::getPodSize() const {
     addAligned(size, mAutoRefresh);
     addAligned(size, mQueuedBuffer);
     addAligned(size, mIsStale);
+    addAligned(size, mApi);
     return size;
 }
 
@@ -98,6 +100,7 @@ size_t BufferItem::getFlattenedSize() const {
         size = FlattenableUtils::align<4>(size);
     }
     size += mSurfaceDamage.getFlattenedSize();
+    size += mHdrMetadata.getFlattenedSize();
     size = FlattenableUtils::align<8>(size);
     return size + getPodSize();
 }
@@ -151,6 +154,10 @@ status_t BufferItem::flatten(
     if (err) return err;
     FlattenableUtils::advance(buffer, size, mSurfaceDamage.getFlattenedSize());
 
+    err = mHdrMetadata.flatten(buffer, size);
+    if (err) return err;
+    FlattenableUtils::advance(buffer, size, mHdrMetadata.getFlattenedSize());
+
     // Check we still have enough space
     if (size < getPodSize()) {
         return NO_MEMORY;
@@ -172,6 +179,7 @@ status_t BufferItem::flatten(
     writeAligned(buffer, size, mAutoRefresh);
     writeAligned(buffer, size, mQueuedBuffer);
     writeAligned(buffer, size, mIsStale);
+    writeAligned(buffer, size, mApi);
 
     return NO_ERROR;
 }
@@ -212,6 +220,10 @@ status_t BufferItem::unflatten(
     if (err) return err;
     FlattenableUtils::advance(buffer, size, mSurfaceDamage.getFlattenedSize());
 
+    err = mHdrMetadata.unflatten(buffer, size);
+    if (err) return err;
+    FlattenableUtils::advance(buffer, size, mHdrMetadata.getFlattenedSize());
+
     // Check we still have enough space
     if (size < getPodSize()) {
         return NO_MEMORY;
@@ -238,6 +250,7 @@ status_t BufferItem::unflatten(
     readAligned(buffer, size, mAutoRefresh);
     readAligned(buffer, size, mQueuedBuffer);
     readAligned(buffer, size, mIsStale);
+    readAligned(buffer, size, mApi);
 
     return NO_ERROR;
 }

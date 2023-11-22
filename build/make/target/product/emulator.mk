@@ -26,6 +26,7 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     egl.cfg \
     gralloc.goldfish \
+    gralloc.goldfish.default \
     gralloc.ranchu \
     libGLESv1_CM_emulation \
     lib_renderControl_enc \
@@ -35,13 +36,14 @@ PRODUCT_PACKAGES += \
     libOpenglSystemCommon \
     libGLESv2_emulation \
     libGLESv1_enc \
+    libEGL_swiftshader \
+    libGLESv1_CM_swiftshader \
+    libGLESv2_swiftshader \
     qemu-props \
     camera.goldfish \
     camera.goldfish.jpeg \
     camera.ranchu \
     camera.ranchu.jpeg \
-    keystore.goldfish \
-    keystore.ranchu \
     gatekeeper.ranchu \
     lights.goldfish \
     gps.goldfish \
@@ -51,6 +53,7 @@ PRODUCT_PACKAGES += \
     audio.primary.goldfish \
     audio.primary.goldfish_legacy \
     android.hardware.audio@2.0-service \
+    android.hardware.wifi@1.0-service \
     vibrator.goldfish \
     power.goldfish \
     power.ranchu \
@@ -67,17 +70,25 @@ PRODUCT_PACKAGES += \
     sh_vendor \
     vintf \
     toybox_vendor \
-    CarrierConfig
+    CarrierConfig \
+    audio.primary.goldfish \
+    audio.r_submix.default \
+    local_time.default \
+    SdkSetup
 
 PRODUCT_PACKAGES += \
     android.hardware.audio@2.0-impl \
     android.hardware.audio.effect@2.0-impl \
+    android.hardware.broadcastradio@1.1-service \
     android.hardware.broadcastradio@1.0-impl \
     android.hardware.soundtrigger@2.0-impl
 
 PRODUCT_PACKAGES += \
     android.hardware.keymaster@3.0-impl \
     android.hardware.keymaster@3.0-service
+
+PRODUCT_PACKAGES += \
+    android.hardware.keymaster@4.0-strongbox-service
 
 PRODUCT_PACKAGES += \
     android.hardware.gnss@1.0-service \
@@ -107,47 +118,75 @@ PRODUCT_PACKAGES += \
 # need this for gles libraries to load properly
 # after moving to /vendor/lib/
 PRODUCT_PACKAGES += \
-    android.hardware.renderscript@1.0.vndk-sp\
-    android.hardware.graphics.allocator@2.0.vndk-sp\
-    android.hardware.graphics.mapper@2.0.vndk-sp\
-    android.hardware.graphics.common@1.0.vndk-sp\
-    libhwbinder.vndk-sp\
-    libbase.vndk-sp\
-    libcutils.vndk-sp\
-    libhardware.vndk-sp\
-    libhidlbase.vndk-sp\
-    libhidltransport.vndk-sp\
-    libutils.vndk-sp\
-    libc++.vndk-sp\
-    libRS_internal.vndk-sp\
-    libRSDriver.vndk-sp\
-    libRSCpuRef.vndk-sp\
-    libbcinfo.vndk-sp\
-    libblas.vndk-sp\
-    libft2.vndk-sp\
-    libpng.vndk-sp\
-    libcompiler_rt.vndk-sp\
-    libbacktrace.vndk-sp\
-    libunwind.vndk-sp\
-    liblzma.vndk-sp\
-    libz.vndk-sp\
+    vndk-sp
 
+# WiFi
+PRODUCT_PACKAGES += \
+	createns \
+	dhcpclient \
+	dhcpserver \
+	execns \
+	hostapd \
+	ip \
+	ipv6proxy \
+	iw \
+	wificond \
+	wpa_supplicant \
 
 PRODUCT_COPY_FILES += \
-    device/generic/goldfish/init.ranchu-core.sh:vendor/bin/init.ranchu-core.sh \
-    device/generic/goldfish/init.ranchu-net.sh:vendor/bin/init.ranchu-net.sh \
-    device/generic/goldfish/init.ranchu.rc:root/init.ranchu.rc \
-    device/generic/goldfish/fstab.ranchu:root/fstab.ranchu \
-    device/generic/goldfish/fstab.ranchu.early:root/fstab.ranchu.early \
-    device/generic/goldfish/ueventd.ranchu.rc:root/ueventd.ranchu.rc \
-    device/generic/goldfish/input/goldfish_rotary.idc:system/usr/idc/goldfish_rotary.idc \
+    device/generic/goldfish/data/etc/apns-conf.xml:data/misc/apns/apns-conf.xml \
+    device/generic/goldfish/init.ranchu-core.sh:$(TARGET_COPY_OUT_VENDOR)/bin/init.ranchu-core.sh \
+    device/generic/goldfish/init.ranchu-net.sh:$(TARGET_COPY_OUT_VENDOR)/bin/init.ranchu-net.sh \
+    device/generic/goldfish/wifi/init.wifi.sh:$(TARGET_COPY_OUT_VENDOR)/bin/init.wifi.sh \
+    device/generic/goldfish/init.ranchu.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.ranchu.rc \
+    device/generic/goldfish/fstab.ranchu:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.ranchu \
+    device/generic/goldfish/ueventd.ranchu.rc:$(TARGET_COPY_OUT_VENDOR)/ueventd.rc \
+    device/generic/goldfish/input/goldfish_rotary.idc:$(TARGET_COPY_OUT_VENDOR)/usr/idc/goldfish_rotary.idc \
     device/generic/goldfish/manifest.xml:$(TARGET_COPY_OUT_VENDOR)/manifest.xml \
-    device/generic/goldfish/data/etc/permissions/privapp-permissions-goldfish.xml:system/etc/permissions/privapp-permissions-goldfish.xml \
+    device/generic/goldfish/data/etc/permissions/privapp-permissions-goldfish.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/privapp-permissions-goldfish.xml \
     device/generic/goldfish/data/etc/config.ini:config.ini \
-    frameworks/native/data/etc/android.hardware.usb.accessory.xml:system/etc/permissions/android.hardware.usb.accessory.xml
+    device/generic/goldfish/wifi/simulated_hostapd.conf:$(TARGET_COPY_OUT_VENDOR)/etc/simulated_hostapd.conf \
+    device/generic/goldfish/wifi/wpa_supplicant.conf:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/wpa_supplicant.conf \
+    device/generic/goldfish/wifi/WifiConfigStore.xml:data/misc/wifi/WifiConfigStore.xml \
+    frameworks/native/data/etc/android.hardware.wifi.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.xml \
+    device/generic/goldfish/data/etc/handheld_core_hardware.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/handheld_core_hardware.xml \
+    device/generic/goldfish/camera/media_profiles.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_profiles_V1_0.xml \
+    frameworks/av/media/libstagefright/data/media_codecs_google_audio.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_google_audio.xml \
+    frameworks/av/media/libstagefright/data/media_codecs_google_telephony.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_google_telephony.xml \
+    device/generic/goldfish/camera/media_codecs_google_video.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_google_video.xml \
+    device/generic/goldfish/camera/media_codecs.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs.xml \
+    device/generic/goldfish/camera/media_codecs_performance.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_performance.xml \
+    frameworks/native/data/etc/android.hardware.touchscreen.multitouch.jazzhand.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.touchscreen.multitouch.jazzhand.xml \
+    frameworks/native/data/etc/android.hardware.camera.autofocus.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.autofocus.xml \
+    frameworks/native/data/etc/android.hardware.camera.full.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.full.xml \
+    frameworks/native/data/etc/android.hardware.fingerprint.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.fingerprint.xml \
+    frameworks/native/data/etc/android.software.autofill.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.autofill.xml \
+    frameworks/av/media/libeffects/data/audio_effects.conf:$(TARGET_COPY_OUT_VENDOR)/etc/audio_effects.conf \
+    device/generic/goldfish/audio_policy.conf:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy.conf
+
 
 PRODUCT_PACKAGE_OVERLAYS := device/generic/goldfish/overlay
 
 PRODUCT_CHARACTERISTICS := emulator
 
 PRODUCT_FULL_TREBLE_OVERRIDE := true
+
+#watchdog tiggers reboot because location service is not
+#responding, disble it for now.
+#still keep it on internal master as it is still working
+#once it is fixed in aosp, remove this block of comment.
+#PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+#config.disable_location=true
+
+# Enable Perfetto traced
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+    persist.traced.enable=1
+
+# enable Google-specific location features,
+# like NetworkLocationProvider and LocationCollector
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+    ro.com.google.locationfeatures=1
+
+# disable setupwizard
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+    ro.setupwizard.mode=DISABLED

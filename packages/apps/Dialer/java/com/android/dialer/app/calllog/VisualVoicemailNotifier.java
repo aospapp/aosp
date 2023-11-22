@@ -17,7 +17,6 @@
 package com.android.dialer.app.calllog;
 
 import android.app.Notification;
-import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
@@ -26,24 +25,27 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
-import android.service.notification.StatusBarNotification;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.os.BuildCompat;
+import android.support.v4.app.NotificationCompat;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import com.android.contacts.common.util.ContactDisplayUtils;
 import com.android.dialer.app.DialtactsActivity;
+import com.android.dialer.app.MainComponent;
 import com.android.dialer.app.R;
 import com.android.dialer.app.calllog.CallLogNotificationsQueryHelper.NewCall;
 import com.android.dialer.app.contactinfo.ContactPhotoLoader;
 import com.android.dialer.app.list.DialtactsPagerAdapter;
 import com.android.dialer.common.LogUtil;
+import com.android.dialer.compat.android.provider.VoicemailCompat;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
+import com.android.dialer.notification.DialerNotificationManager;
 import com.android.dialer.notification.NotificationChannelManager;
+import com.android.dialer.notification.NotificationManagerUtils;
 import com.android.dialer.phonenumbercache.ContactInfo;
 import com.android.dialer.telecom.TelecomUtil;
 import java.util.List;
@@ -51,15 +53,28 @@ import java.util.Map;
 
 /** Shows a notification in the status bar for visual voicemail. */
 final class VisualVoicemailNotifier {
-  private static final String NOTIFICATION_TAG_PREFIX = "VisualVoicemail_";
-  private static final String NOTIFICATION_GROUP = "VisualVoicemail";
-  private static final int NOTIFICATION_ID = 1;
+  /** Prefix used to generate a unique tag for each voicemail notification. */
+  static final String NOTIFICATION_TAG_PREFIX = "VisualVoicemail_";
+  /** Common ID for all voicemail notifications. */
+  static final int NOTIFICATION_ID = 1;
+  /** Tag for the group summary notification. */
+  static final String GROUP_SUMMARY_NOTIFICATION_TAG = "GroupSummary_VisualVoicemail";
+  /**
+   * Key used to associate all voicemail notifications and the summary as belonging to a single
+   * group.
+   */
+  private static final String GROUP_KEY = "VisualVoicemailGroup";
 
+  /**
+   * @param shouldAlert whether ringtone or vibration should be made when the notification is posted
+   *     or updated. Should only be true when there is a real new voicemail.
+   */
   public static void showNotifications(
       @NonNull Context context,
       @NonNull List<NewCall> newCalls,
       @NonNull Map<String, ContactInfo> contactInfos,
-      @Nullable String callers) {
+      @Nullable String callers,
+      boolean shouldAlert) {
     LogUtil.enterBlock("VisualVoicemailNotifier.showNotifications");
     PendingIntent deleteIntent =
         CallLogNotificationsService.createMarkAllNewVoicemailsAsOldIntent(context);
@@ -68,7 +83,7 @@ final class VisualVoicemailNotifier {
             .getResources()
             .getQuantityString(
                 R.plurals.notification_voicemail_title, newCalls.size(), newCalls.size());
-    Notification.Builder groupSummary =
+    NotificationCompat.Builder groupSummary =
         createNotificationBuilder(context)
             .setContentTitle(contentTitle)
             .setContentText(callers)
@@ -76,18 +91,26 @@ final class VisualVoicemailNotifier {
             .setGroupSummary(true)
             .setContentIntent(newVoicemailIntent(context, null));
 
-    if (BuildCompat.isAtLeastO()) {
-      groupSummary.setGroupAlertBehavior(Notification.GROUP_ALERT_CHILDREN);
+    if (VERSION.SDK_INT >= VERSION_CODES.O) {
+      if (shouldAlert) {
+        groupSummary.setOnlyAlertOnce(false);
+        // Group summary will alert when posted/updated
+        groupSummary.setGroupAlertBehavior(Notification.GROUP_ALERT_ALL);
+      } else {
+        // Only children will alert. but since all children are set to "only alert summary" it is
+        // effectively silenced.
+        groupSummary.setGroupAlertBehavior(Notification.GROUP_ALERT_CHILDREN);
+      }
       PhoneAccountHandle handle = getAccountForCall(context, newCalls.get(0));
       groupSummary.setChannelId(NotificationChannelManager.getVoicemailChannelId(context, handle));
     }
 
-    NotificationManager notificationManager = context.getSystemService(NotificationManager.class);
-    notificationManager.notify(
-        getNotificationTagForGroupSummary(), NOTIFICATION_ID, groupSummary.build());
+    DialerNotificationManager.notify(
+        context, GROUP_SUMMARY_NOTIFICATION_TAG, NOTIFICATION_ID, groupSummary.build());
 
     for (NewCall voicemail : newCalls) {
-      notificationManager.notify(
+      DialerNotificationManager.notify(
+          context,
           getNotificationTagForVoicemail(voicemail),
           NOTIFICATION_ID,
           createNotificationForVoicemail(context, voicemail, contactInfos));
@@ -96,13 +119,7 @@ final class VisualVoicemailNotifier {
 
   public static void cancelAllVoicemailNotifications(@NonNull Context context) {
     LogUtil.enterBlock("VisualVoicemailNotifier.cancelAllVoicemailNotifications");
-    NotificationManager notificationManager = context.getSystemService(NotificationManager.class);
-    for (StatusBarNotification notification : notificationManager.getActiveNotifications()) {
-      String tag = notification.getTag();
-      if (tag != null && tag.startsWith(NOTIFICATION_TAG_PREFIX)) {
-        notificationManager.cancel(tag, notification.getId());
-      }
-    }
+    NotificationManagerUtils.cancelAllInGroup(context, GROUP_KEY);
   }
 
   public static void cancelSingleVoicemailNotification(
@@ -112,27 +129,9 @@ final class VisualVoicemailNotifier {
       LogUtil.e("VisualVoicemailNotifier.cancelSingleVoicemailNotification", "uri is null");
       return;
     }
-    NotificationManager notificationManager = context.getSystemService(NotificationManager.class);
-    String voicemailTag = getNotificationTagForUri(voicemailUri);
-    String summaryTag = getNotificationTagForGroupSummary();
-    int notificationCount = 0;
-
-    for (StatusBarNotification notification : notificationManager.getActiveNotifications()) {
-      String currentTag = notification.getTag();
-      if (currentTag == null) {
-        continue;
-      }
-      if (currentTag.equals(voicemailTag)) {
-        notificationManager.cancel(notification.getTag(), notification.getId());
-      } else if (currentTag.startsWith(NOTIFICATION_TAG_PREFIX) && !currentTag.equals(summaryTag)) {
-        notificationCount++;
-      }
-    }
-
-    if (notificationCount == 0) {
-      // There are no more visual voicemail notifications. Remove the summary notification too.
-      notificationManager.cancel(summaryTag, NOTIFICATION_ID);
-    }
+    // This will also dismiss the group summary if there are no more voicemail notifications.
+    DialerNotificationManager.cancel(
+        context, getNotificationTagForUri(voicemailUri), NOTIFICATION_ID);
   }
 
   private static String getNotificationTagForVoicemail(@NonNull NewCall voicemail) {
@@ -143,33 +142,25 @@ final class VisualVoicemailNotifier {
     return NOTIFICATION_TAG_PREFIX + voicemailUri;
   }
 
-  private static String getNotificationTagForGroupSummary() {
-    return NOTIFICATION_TAG_PREFIX + "GroupSummary";
-  }
-
-  private static Notification.Builder createNotificationBuilder(@NonNull Context context) {
-    return new Notification.Builder(context)
+  private static NotificationCompat.Builder createNotificationBuilder(@NonNull Context context) {
+    return new NotificationCompat.Builder(context)
         .setSmallIcon(android.R.drawable.stat_notify_voicemail)
         .setColor(context.getColor(R.color.dialer_theme_color))
-        .setGroup(NOTIFICATION_GROUP)
+        .setGroup(GROUP_KEY)
         .setOnlyAlertOnce(true)
         .setAutoCancel(true);
   }
 
-  private static Notification createNotificationForVoicemail(
+  static Notification createNotificationForVoicemail(
       @NonNull Context context,
       @NonNull NewCall voicemail,
       @NonNull Map<String, ContactInfo> contactInfos) {
     PhoneAccountHandle handle = getAccountForCall(context, voicemail);
     ContactInfo contactInfo = contactInfos.get(voicemail.number);
 
-    Notification.Builder builder =
+    NotificationCompat.Builder builder =
         createNotificationBuilder(context)
             .setContentTitle(
-                context
-                    .getResources()
-                    .getQuantityString(R.plurals.notification_voicemail_title, 1, 1))
-            .setContentText(
                 ContactDisplayUtils.getTtsSpannedPhoneNumber(
                     context.getResources(),
                     R.string.notification_new_voicemail_ticker,
@@ -178,25 +169,61 @@ final class VisualVoicemailNotifier {
             .setSound(getVoicemailRingtoneUri(context, handle))
             .setDefaults(getNotificationDefaultFlags(context, handle));
 
+    if (!TextUtils.isEmpty(voicemail.transcription)) {
+      Logger.get(context)
+          .logImpression(DialerImpression.Type.VVM_NOTIFICATION_CREATED_WITH_TRANSCRIPTION);
+      builder
+          .setContentText(voicemail.transcription)
+          .setStyle(new NotificationCompat.BigTextStyle().bigText(voicemail.transcription));
+    } else {
+      switch (voicemail.transcriptionState) {
+        case VoicemailCompat.TRANSCRIPTION_IN_PROGRESS:
+          Logger.get(context)
+              .logImpression(DialerImpression.Type.VVM_NOTIFICATION_CREATED_WITH_IN_PROGRESS);
+          builder.setContentText(context.getString(R.string.voicemail_transcription_in_progress));
+          break;
+        case VoicemailCompat.TRANSCRIPTION_FAILED_NO_SPEECH_DETECTED:
+          Logger.get(context)
+              .logImpression(
+                  DialerImpression.Type.VVM_NOTIFICATION_CREATED_WITH_TRANSCRIPTION_FAILURE);
+          builder.setContentText(
+              context.getString(R.string.voicemail_transcription_failed_no_speech));
+          break;
+        case VoicemailCompat.TRANSCRIPTION_FAILED_LANGUAGE_NOT_SUPPORTED:
+          Logger.get(context)
+              .logImpression(
+                  DialerImpression.Type.VVM_NOTIFICATION_CREATED_WITH_TRANSCRIPTION_FAILURE);
+          builder.setContentText(
+              context.getString(R.string.voicemail_transcription_failed_language_not_supported));
+          break;
+        case VoicemailCompat.TRANSCRIPTION_FAILED:
+          Logger.get(context)
+              .logImpression(
+                  DialerImpression.Type.VVM_NOTIFICATION_CREATED_WITH_TRANSCRIPTION_FAILURE);
+          builder.setContentText(context.getString(R.string.voicemail_transcription_failed));
+          break;
+        default:
+          Logger.get(context)
+              .logImpression(DialerImpression.Type.VVM_NOTIFICATION_CREATED_WITH_NO_TRANSCRIPTION);
+          break;
+      }
+    }
+
     if (voicemail.voicemailUri != null) {
       builder.setDeleteIntent(
           CallLogNotificationsService.createMarkSingleNewVoicemailAsOldIntent(
               context, voicemail.voicemailUri));
     }
 
-    if (BuildCompat.isAtLeastO()) {
+    if (VERSION.SDK_INT >= VERSION_CODES.O) {
       builder.setChannelId(NotificationChannelManager.getVoicemailChannelId(context, handle));
+      builder.setGroupAlertBehavior(Notification.GROUP_ALERT_SUMMARY);
     }
 
     ContactPhotoLoader loader = new ContactPhotoLoader(context, contactInfo);
     Bitmap photoIcon = loader.loadPhotoIcon();
     if (photoIcon != null) {
       builder.setLargeIcon(photoIcon);
-    }
-    if (!TextUtils.isEmpty(voicemail.transcription)) {
-      Logger.get(context)
-          .logImpression(DialerImpression.Type.VVM_NOTIFICATION_CREATED_WITH_TRANSCRIPTION);
-      builder.setStyle(new Notification.BigTextStyle().bigText(voicemail.transcription));
     }
     builder.setContentIntent(newVoicemailIntent(context, voicemail));
     Logger.get(context).logImpression(DialerImpression.Type.VVM_NOTIFICATION_CREATED);
@@ -246,9 +273,14 @@ final class VisualVoicemailNotifier {
 
   private static PendingIntent newVoicemailIntent(
       @NonNull Context context, @Nullable NewCall voicemail) {
-    Intent intent =
-        DialtactsActivity.getShowTabIntent(context, DialtactsPagerAdapter.TAB_INDEX_VOICEMAIL);
-    // TODO (b/35486204): scroll to this voicemail
+    Intent intent;
+    if (MainComponent.isNuiComponentEnabled(context)) {
+      intent = MainComponent.getShowVoicemailIntent(context);
+    } else {
+      intent =
+          DialtactsActivity.getShowTabIntent(context, DialtactsPagerAdapter.TAB_INDEX_VOICEMAIL);
+    }
+    // TODO (a bug): scroll to this voicemail
     if (voicemail != null) {
       intent.setData(voicemail.voicemailUri);
     }

@@ -21,7 +21,7 @@
     <string name="shortcut_add_contact" msgid="7476283631356909204">"Contact toevoegen"</string>
     <string name="shortcutContact" msgid="749243779392912958">"Contacten"</string>
     <string name="shortcutDialContact" msgid="746622101599186779">"Direct bellen"</string>
-    <string name="shortcutMessageContact" msgid="2460337253595976198">"Direct bericht"</string>
+    <string name="shortcutMessageContact" msgid="2460337253595976198">"Privéchat"</string>
     <string name="shortcutActivityTitle" msgid="1504383567778497348">"Contact kiezen"</string>
     <string name="contactInsertOrEditActivityTitle" msgid="6527505405325862674">"Aan contact toevoegen"</string>
     <string name="contactPickerActivityTitle" msgid="4301062192337417640">"Een contact kiezen"</string>
@@ -529,4 +529,6 @@
     <string name="importing_sim_failed_message" msgid="3345258302998021066">"Kan geen contacten importeren van de simkaart"</string>
     <string name="importing_sim_in_progress_title" msgid="3638299581276676109">"Sim importeren"</string>
     <string name="contacts_default_notification_channel" msgid="4754058700611188581">"Meldingen"</string>
+    <string name="yes_button" msgid="1268479086848288060">"Ja"</string>
+    <string name="no_button" msgid="5742815694687835125">"Nee"</string>
 </resources>

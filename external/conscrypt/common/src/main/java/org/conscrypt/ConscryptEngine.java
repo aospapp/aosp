@@ -74,6 +74,7 @@ import java.security.InvalidKeyException;
 import java.security.PrivateKey;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.security.interfaces.ECKey;
 import java.security.spec.ECParameterSpec;
 import javax.crypto.SecretKey;
@@ -89,13 +90,14 @@ import javax.net.ssl.X509ExtendedKeyManager;
 import javax.net.ssl.X509KeyManager;
 import javax.net.ssl.X509TrustManager;
 import javax.security.auth.x500.X500Principal;
+import org.conscrypt.ExternalSession.Provider;
 import org.conscrypt.NativeRef.SSL_SESSION;
-import org.conscrypt.SslWrapper.BioWrapper;
+import org.conscrypt.NativeSsl.BioWrapper;
 
 /**
  * Implements the {@link SSLEngine} API using OpenSSL's non-blocking interfaces.
  */
-final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandshakeCallbacks,
+final class ConscryptEngine extends AbstractConscryptEngine implements NativeCrypto.SSLHandshakeCallbacks,
                                                          SSLParametersImpl.AliasChooser,
                                                          SSLParametersImpl.PSKCallbacks {
     private static final SSLEngineResult NEED_UNWRAP_OK =
@@ -124,32 +126,41 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
      */
     private String peerHostname;
 
-    /**
-     * Protects {@link #state} and {@link #handshakeFinished}.
-     */
-    private final Object stateLock = new Object();
-
-    // @GuardedBy("stateLock");
+    // @GuardedBy("ssl");
     private int state = STATE_NEW;
     private boolean handshakeFinished;
 
     /**
-     * Protected by synchronizing on stateLock. Starts as 0, set by startHandshake, reset to 0 on
-     * close.
+     * Wrapper around the underlying SSL object.
      */
-    // @GuardedBy("stateLock");
-    private final SslWrapper ssl;
+    private final NativeSsl ssl;
 
     /**
      * The BIO used for reading/writing encrypted bytes.
      */
-    // @GuardedBy("stateLock");
+    // @GuardedBy("ssl");
     private final BioWrapper networkBio;
 
     /**
      * Set during startHandshake.
      */
-    private final ActiveSession sslSession;
+    private final ActiveSession activeSession;
+
+    /**
+     * A snapshot of the active session when the engine was closed.
+     */
+    private SessionSnapshot closedSession;
+
+    /**
+     * The session object exposed externally from this class.
+     */
+    private final SSLSession externalSession =
+        Platform.wrapSSLSession(new ExternalSession(new Provider() {
+            @Override
+            public ConscryptSession provideSession() {
+                return ConscryptEngine.this.provideSession();
+            }
+        }));
 
     /**
      * Private key for the TLS Channel ID extension. This field is client-side only. Set during
@@ -172,7 +183,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
         peerInfoProvider = PeerInfoProvider.nullProvider();
         this.ssl = newSsl(sslParameters, this);
         this.networkBio = ssl.newBio();
-        sslSession = new ActiveSession(ssl, sslParameters.getSessionContext());
+        activeSession = new ActiveSession(ssl, sslParameters.getSessionContext());
     }
 
     ConscryptEngine(String host, int port, SSLParametersImpl sslParameters) {
@@ -180,7 +191,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
         this.peerInfoProvider = PeerInfoProvider.forHostAndPort(host, port);
         this.ssl = newSsl(sslParameters, this);
         this.networkBio = ssl.newBio();
-        sslSession = new ActiveSession(ssl, sslParameters.getSessionContext());
+        activeSession = new ActiveSession(ssl, sslParameters.getSessionContext());
     }
 
     ConscryptEngine(SSLParametersImpl sslParameters, PeerInfoProvider peerInfoProvider) {
@@ -188,19 +199,20 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
         this.peerInfoProvider = checkNotNull(peerInfoProvider, "peerInfoProvider");
         this.ssl = newSsl(sslParameters, this);
         this.networkBio = ssl.newBio();
-        sslSession = new ActiveSession(ssl, sslParameters.getSessionContext());
+        activeSession = new ActiveSession(ssl, sslParameters.getSessionContext());
     }
 
-    private static SslWrapper newSsl(SSLParametersImpl sslParameters, ConscryptEngine engine) {
+    private static NativeSsl newSsl(SSLParametersImpl sslParameters, ConscryptEngine engine) {
         try {
-            return SslWrapper.newInstance(sslParameters, engine, engine, engine);
+            return NativeSsl.newInstance(sslParameters, engine, engine, engine);
         } catch (SSLException e) {
             throw new RuntimeException(e);
         }
     }
 
+    @Override
     void setBufferAllocator(BufferAllocator bufferAllocator) {
-        synchronized (stateLock) {
+        synchronized (ssl) {
             if (isHandshakeStarted()) {
                 throw new IllegalStateException(
                         "Could not set buffer allocator after the initial handshake has begun.");
@@ -212,6 +224,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
     /**
      * Returns the maximum overhead, in bytes, of sealing a record with SSL.
      */
+    @Override
     int maxSealOverhead() {
         return maxSealOverhead;
     }
@@ -224,8 +237,9 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
      * @throws IllegalStateException if this is a client engine or if the handshake has already
      *         started.
      */
+    @Override
     void setChannelIdEnabled(boolean enabled) {
-        synchronized (stateLock) {
+        synchronized (ssl) {
             if (getUseClientMode()) {
                 throw new IllegalStateException("Not allowed in client mode");
             }
@@ -247,8 +261,9 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
      * completed.
      * @throws SSLException if channel ID is available but could not be obtained.
      */
+    @Override
     byte[] getChannelId() throws SSLException {
-        synchronized (stateLock) {
+        synchronized (ssl) {
             if (getUseClientMode()) {
                 throw new IllegalStateException("Not allowed in client mode");
             }
@@ -273,12 +288,13 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
      * @throws IllegalStateException if this is a server engine or if the handshake has already
      *         started.
      */
+    @Override
     void setChannelIdPrivateKey(PrivateKey privateKey) {
         if (!getUseClientMode()) {
             throw new IllegalStateException("Not allowed in server mode");
         }
 
-        synchronized (stateLock) {
+        synchronized (ssl) {
             if (isHandshakeStarted()) {
                 throw new IllegalStateException("Could not change Channel ID private key "
                         + "after the initial handshake has begun.");
@@ -312,8 +328,9 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
     /**
      * Sets the listener for the completion of the TLS handshake.
      */
+    @Override
     void setHandshakeListener(HandshakeListener handshakeListener) {
-        synchronized (stateLock) {
+        synchronized (ssl) {
             if (isHandshakeStarted()) {
                 throw new IllegalStateException(
                         "Handshake listener must be set before starting the handshake.");
@@ -336,6 +353,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
      * This method enables Server Name Indication (SNI) and overrides the {@link PeerInfoProvider}
      * supplied during engine creation.
      */
+    @Override
     void setHostname(String hostname) {
         sslParameters.setUseSni(hostname != null);
         this.peerHostname = hostname;
@@ -346,6 +364,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
      * {@link PeerInfoProvider} upon creation. No DNS resolution is attempted before
      * returning the hostname.
      */
+    @Override
     String getHostname() {
         return peerHostname != null ? peerHostname : peerInfoProvider.getHostname();
     }
@@ -362,27 +381,30 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
 
     @Override
     public void beginHandshake() throws SSLException {
-        synchronized (stateLock) {
+        synchronized (ssl) {
             beginHandshakeInternal();
         }
     }
 
     private void beginHandshakeInternal() throws SSLException {
         switch (state) {
-            case STATE_MODE_SET:
-                // This is the only allowed state.
+            case STATE_NEW: {
+                throw new IllegalStateException("Client/server mode must be set before handshake");
+            }
+            case STATE_MODE_SET: {
+                // We know what mode to handshake in but have not started the handshake, proceed
                 break;
-            case STATE_HANDSHAKE_STARTED:
-                throw new IllegalStateException("Handshake has already been started");
+            }
             case STATE_CLOSED_INBOUND:
             case STATE_CLOSED_OUTBOUND:
             case STATE_CLOSED:
                 throw new IllegalStateException("Engine has already been closed");
             default:
-                throw new IllegalStateException("Client/server mode must be set before handshake");
+                // We've already started the handshake, just return
+                return;
         }
 
-        state = STATE_HANDSHAKE_STARTED;
+        transitionTo(STATE_HANDSHAKE_STARTED);
 
         boolean releaseResources = true;
         try {
@@ -392,7 +414,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
             // For clients, offer to resume a previously cached session to avoid the
             // full TLS handshake.
             if (getUseClientMode()) {
-                SslSessionWrapper cachedSession = clientSessionContext().getCachedSession(
+                NativeSslSession cachedSession = clientSessionContext().getCachedSession(
                         getHostname(), getPeerPort(), sslParameters);
                 if (cachedSession != null) {
                     cachedSession.offerToResume(ssl);
@@ -413,43 +435,43 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
             throw SSLUtils.toSSLHandshakeException(e);
         } finally {
             if (releaseResources) {
-                state = STATE_CLOSED;
-                shutdownAndFreeSslNative();
+                closeAndFreeResources();
             }
         }
     }
 
     @Override
     public void closeInbound() throws SSLException {
-        synchronized (stateLock) {
-            if (state == STATE_CLOSED) {
+        synchronized (ssl) {
+            if (state == STATE_CLOSED || state == STATE_CLOSED_INBOUND) {
                 return;
             }
-            if (state == STATE_CLOSED_OUTBOUND) {
-                state = STATE_CLOSED;
+            if (isOutboundDone()) {
+                transitionTo(STATE_CLOSED);
             } else {
-                state = STATE_CLOSED_INBOUND;
+                transitionTo(STATE_CLOSED_INBOUND);
             }
         }
-        // TODO anything else to notify OpenSSL layer?
     }
 
     @Override
     public void closeOutbound() {
-        synchronized (stateLock) {
+        synchronized (ssl) {
             if (state == STATE_CLOSED || state == STATE_CLOSED_OUTBOUND) {
                 return;
             }
             if (isHandshakeStarted()) {
-                shutdownAndFreeSslNative();
-            }
-            if (state == STATE_CLOSED_INBOUND) {
-                state = STATE_CLOSED;
+                sendSSLShutdown();
+                if (isInboundDone()) {
+                    closeAndFreeResources();
+                } else {
+                    transitionTo(STATE_CLOSED_OUTBOUND);
+                }
             } else {
-                state = STATE_CLOSED_OUTBOUND;
+                // Never started the handshake. Just close now.
+                closeAndFreeResources();
             }
         }
-        shutdown();
     }
 
     @Override
@@ -488,7 +510,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
 
     @Override
     public HandshakeStatus getHandshakeStatus() {
-        synchronized (stateLock) {
+        synchronized (ssl) {
             return getHandshakeStatusInternal();
         }
     }
@@ -534,29 +556,46 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
         return sslParameters.getNeedClientAuth();
     }
 
-    /* @Override */
-    @SuppressWarnings("MissingOverride") // For compilation with Java 6.
-    public SSLSession getHandshakeSession() {
-        return handshakeSession();
-    }
-
     /**
      * Work-around to allow this method to be called on older versions of Android.
      */
+    @Override
     SSLSession handshakeSession() {
-        synchronized (stateLock) {
-            return state == STATE_HANDSHAKE_STARTED ? sslSession : null;
+        synchronized (ssl) {
+            if (state == STATE_HANDSHAKE_STARTED) {
+                return Platform.wrapSSLSession(new ExternalSession(new Provider() {
+                    @Override
+                    public ConscryptSession provideSession() {
+                        return ConscryptEngine.this.provideHandshakeSession();
+                    }
+                }));
+            }
+            return null;
         }
     }
 
     @Override
     public SSLSession getSession() {
-        synchronized (stateLock) {
+        return externalSession;
+    }
+
+    private ConscryptSession provideSession() {
+        synchronized (ssl) {
+            if (state == STATE_CLOSED) {
+                return closedSession != null ? closedSession : SSLNullSession.getNullSession();
+            }
             if (state < STATE_HANDSHAKE_COMPLETED) {
                 // Return an invalid session with invalid cipher suite of "SSL_NULL_WITH_NULL_NULL"
                 return SSLNullSession.getNullSession();
             }
-            return Platform.wrapSSLSession(sslSession);
+            return activeSession;
+        }
+    }
+
+    private ConscryptSession provideHandshakeSession() {
+        synchronized (ssl) {
+            return state == STATE_HANDSHAKE_STARTED ? activeSession
+                : SSLNullSession.getNullSession();
         }
     }
 
@@ -582,22 +621,17 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
 
     @Override
     public boolean isInboundDone() {
-        synchronized (stateLock) {
-            if (state == STATE_CLOSED || state == STATE_CLOSED_INBOUND) {
-                return true;
-            }
+        synchronized (ssl) {
+            return state == STATE_CLOSED || state == STATE_CLOSED_INBOUND
+                    || ssl.wasShutdownReceived();
         }
-        return ssl.wasShutdownReceived();
     }
 
     @Override
     public boolean isOutboundDone() {
-        synchronized (stateLock) {
-            if (state == STATE_CLOSED || state == STATE_CLOSED_OUTBOUND) {
-                return true;
-            }
+        synchronized (ssl) {
+            return state == STATE_CLOSED || state == STATE_CLOSED_OUTBOUND || ssl.wasShutdownSent();
         }
-        return ssl.wasShutdownSent();
     }
 
     @Override
@@ -622,14 +656,14 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
 
     @Override
     public void setUseClientMode(boolean mode) {
-        synchronized (stateLock) {
+        synchronized (ssl) {
             if (isHandshakeStarted()) {
                 throw new IllegalArgumentException(
                         "Can not change mode after handshake: state == " + state);
             }
-            state = STATE_MODE_SET;
+            transitionTo(STATE_MODE_SET);
+            sslParameters.setUseClientMode(mode);
         }
-        sslParameters.setUseClientMode(mode);
     }
 
     @Override
@@ -639,7 +673,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
 
     @Override
     public SSLEngineResult unwrap(ByteBuffer src, ByteBuffer dst) throws SSLException {
-        synchronized (stateLock) {
+        synchronized (ssl) {
             try {
                 return unwrap(singleSrcBuffer(src), singleDstBuffer(dst));
             } finally {
@@ -651,7 +685,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
 
     @Override
     public SSLEngineResult unwrap(ByteBuffer src, ByteBuffer[] dsts) throws SSLException {
-        synchronized (stateLock) {
+        synchronized (ssl) {
             try {
                 return unwrap(singleSrcBuffer(src), dsts);
             } finally {
@@ -663,7 +697,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
     @Override
     public SSLEngineResult unwrap(final ByteBuffer src, final ByteBuffer[] dsts, final int offset,
             final int length) throws SSLException {
-        synchronized (stateLock) {
+        synchronized (ssl) {
             try {
                 return unwrap(singleSrcBuffer(src), 0, 1, dsts, offset, length);
             } finally {
@@ -672,12 +706,14 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
         }
     }
 
+    @Override
     SSLEngineResult unwrap(final ByteBuffer[] srcs, final ByteBuffer[] dsts) throws SSLException {
         checkArgument(srcs != null, "srcs is null");
         checkArgument(dsts != null, "dsts is null");
         return unwrap(srcs, 0, srcs.length, dsts, 0, dsts.length);
     }
 
+    @Override
     SSLEngineResult unwrap(final ByteBuffer[] srcs, int srcsOffset, final int srcsLength,
             final ByteBuffer[] dsts, final int dstsOffset, final int dstsLength)
             throws SSLException {
@@ -693,7 +729,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
         final int srcsEndOffset = srcsOffset + srcsLength;
         final long srcLength = calcSrcsLength(srcs, srcsOffset, srcsEndOffset);
 
-        synchronized (stateLock) {
+        synchronized (ssl) {
             switch (state) {
                 case STATE_MODE_SET:
                     // Begin the handshake implicitly.
@@ -816,9 +852,20 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
                                 case -SSL_ERROR_WANT_WRITE: {
                                     return newResult(bytesConsumed, bytesProduced, handshakeStatus);
                                 }
+                                case -SSL_ERROR_ZERO_RETURN: {
+                                    // We received a close_notify from the peer, so mark the
+                                    // inbound direction as closed and shut down the SSL object
+                                    closeInbound();
+                                    sendSSLShutdown();
+                                    return new SSLEngineResult(Status.CLOSED,
+                                            pendingOutboundEncryptedBytes() > 0
+                                                    ? NEED_WRAP : NOT_HANDSHAKING,
+                                            bytesConsumed, bytesProduced);
+                                }
                                 default: {
                                     // Should never get here.
-                                    throw shutdownWithError("SSL_read");
+                                    sendSSLShutdown();
+                                    throw newSslExceptionWithMessage("SSL_read");
                                 }
                             }
                         }
@@ -842,7 +889,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
                 }
 
                 // Nothing to write, just shutdown and throw the exception.
-                shutdown();
+                sendSSLShutdown();
                 throw convertException(e);
             } catch (InterruptedIOException e) {
                 return newResult(bytesConsumed, bytesProduced, handshakeStatus);
@@ -850,7 +897,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
                 closeAll();
                 throw convertException(e);
             } catch (IOException e) {
-                shutdown();
+                sendSSLShutdown();
                 throw convertException(e);
             }
 
@@ -937,17 +984,17 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
                 }
 
                 // There is no pending alert to write - just shutdown and throw.
-                shutdown();
+                sendSSLShutdown();
                 throw e;
             } catch (IOException e) {
-                shutdown();
+                sendSSLShutdown();
                 throw e;
             }
 
             // The handshake has completed successfully...
 
             // Update the session from the current state of the SSL object.
-            sslSession.onSessionEstablished(getPeerHost(), getPeerPort());
+            activeSession.onPeerCertificateAvailable(getPeerHost(), getPeerPort());
 
             finishHandshake();
             return FINISHED;
@@ -1228,7 +1275,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
                     }
                 } else {
                     // The heap method will update the position on the dst buffer automatically.
-                    bytesRead = readEncryptedDataHeap(dst, pos, len);
+                    bytesRead = readEncryptedDataHeap(dst, len);
                 }
             }
 
@@ -1242,7 +1289,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
         return networkBio.readDirectByteBuffer(directByteBufferAddress(dst, pos), len);
     }
 
-    private int readEncryptedDataHeap(ByteBuffer dst, int pos, int len) throws IOException {
+    private int readEncryptedDataHeap(ByteBuffer dst, int len) throws IOException {
         AllocatedBuffer allocatedBuffer = null;
         try {
             final ByteBuffer buffer;
@@ -1257,7 +1304,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
             }
 
             int bytesToRead = min(len, buffer.remaining());
-            int bytesRead = readEncryptedDataDirect(buffer, pos, bytesToRead);
+            int bytesRead = readEncryptedDataDirect(buffer, 0, bytesToRead);
             if (bytesRead > 0) {
                 buffer.position(bytesRead);
                 buffer.flip();
@@ -1304,9 +1351,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
         closeInbound();
     }
 
-    private SSLException shutdownWithError(String err) {
-        // There was an internal error -- shutdown
-        shutdown();
+    private SSLException newSslExceptionWithMessage(String err) {
         if (!handshakeFinished) {
             return new SSLException(err);
         }
@@ -1321,8 +1366,8 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
     }
 
     @Override
-    public final SSLEngineResult wrap(ByteBuffer src, ByteBuffer dst) throws SSLException {
-        synchronized (stateLock) {
+    public SSLEngineResult wrap(ByteBuffer src, ByteBuffer dst) throws SSLException {
+        synchronized (ssl) {
             try {
                 return wrap(singleSrcBuffer(src), dst);
             } finally {
@@ -1341,7 +1386,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
             throw new ReadOnlyBufferException();
         }
 
-        synchronized (stateLock) {
+        synchronized (ssl) {
             switch (state) {
                 case STATE_MODE_SET:
                     // Begin the handshake implicitly.
@@ -1349,6 +1394,13 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
                     break;
                 case STATE_CLOSED_OUTBOUND:
                 case STATE_CLOSED:
+                    // We may have pending encrypted bytes from a close_notify alert, so
+                    // try to read them out
+                    SSLEngineResult pendingNetResult =
+                            readPendingBytesFromBIO(dst, 0, 0, HandshakeStatus.NOT_HANDSHAKING);
+                    if (pendingNetResult != null) {
+                        return pendingNetResult;
+                    }
                     return new SSLEngineResult(Status.CLOSED, getHandshakeStatusInternal(), 0, 0);
                 case STATE_NEW:
                     throw new IllegalStateException(
@@ -1395,7 +1447,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
 
             if (dst.remaining() < calculateOutNetBufSize(srcsLen)) {
                 return new SSLEngineResult(
-                        Status.BUFFER_OVERFLOW, getHandshakeStatusInternal(), 0, 0);
+                    Status.BUFFER_OVERFLOW, getHandshakeStatusInternal(), 0, 0);
             }
 
             int bytesProduced = 0;
@@ -1408,12 +1460,12 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
                     final SSLEngineResult pendingNetResult;
                     // Write plaintext application data to the SSL engine
                     int result = writePlaintextData(
-                            src, min(src.remaining(), SSL3_RT_MAX_PLAIN_LENGTH - bytesConsumed));
+                        src, min(src.remaining(), SSL3_RT_MAX_PLAIN_LENGTH - bytesConsumed));
                     if (result > 0) {
                         bytesConsumed += result;
 
                         pendingNetResult = readPendingBytesFromBIO(
-                                dst, bytesConsumed, bytesProduced, handshakeStatus);
+                            dst, bytesConsumed, bytesProduced, handshakeStatus);
                         if (pendingNetResult != null) {
                             if (pendingNetResult.getStatus() != OK) {
                                 return pendingNetResult;
@@ -1475,7 +1527,8 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
                                                                 : NEED_WRAP_CLOSED;
                             default:
                                 // Everything else is considered as error
-                                throw shutdownWithError("SSL_write");
+                                sendSSLShutdown();
+                                throw newSslExceptionWithMessage("SSL_write");
                         }
                     }
                 }
@@ -1509,12 +1562,12 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
 
     @Override
     public void onSSLStateChange(int type, int val) {
-        synchronized (stateLock) {
+        synchronized (ssl) {
             switch (type) {
                 case SSL_CB_HANDSHAKE_START: {
                     // For clients, this will allow the NEED_UNWRAP status to be
                     // returned.
-                    state = STATE_HANDSHAKE_STARTED;
+                    transitionTo(STATE_HANDSHAKE_STARTED);
                     break;
                 }
                 case SSL_CB_HANDSHAKE_DONE: {
@@ -1523,9 +1576,11 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
                         throw new IllegalStateException(
                                 "Completed handshake while in mode " + state);
                     }
-                    state = STATE_HANDSHAKE_COMPLETED;
+                    transitionTo(STATE_HANDSHAKE_COMPLETED);
                     break;
                 }
+                default:
+                    // Ignore
             }
         }
     }
@@ -1541,11 +1596,11 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
             // BoringSSL guarantees will not happen.
             NativeRef.SSL_SESSION ref = new SSL_SESSION(sslSessionNativePtr);
 
-            SslSessionWrapper sessionWrapper = SslSessionWrapper.newInstance(ref, sslSession);
+            NativeSslSession nativeSession = NativeSslSession.newInstance(ref, activeSession);
 
             // Cache the newly established session.
             AbstractSessionContext ctx = sessionContext();
-            ctx.cacheSession(sessionWrapper);
+            ctx.cacheSession(nativeSession);
         } catch (Exception ignored) {
             // Ignore.
         }
@@ -1558,21 +1613,21 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
     }
 
     @Override
-    public void verifyCertificateChain(long[] certRefs, String authMethod)
+    public void verifyCertificateChain(byte[][] certChain, String authMethod)
             throws CertificateException {
         try {
+            if (certChain == null || certChain.length == 0) {
+                throw new CertificateException("Peer sent no certificate");
+            }
+            X509Certificate[] peerCertChain = SSLUtils.decodeX509CertificateChain(certChain);
+
             X509TrustManager x509tm = sslParameters.getX509TrustManager();
             if (x509tm == null) {
                 throw new CertificateException("No X.509 TrustManager");
             }
-            if (certRefs == null || certRefs.length == 0) {
-                throw new SSLException("Peer sent no certificate");
-            }
-            OpenSSLX509Certificate[] peerCertChain =
-                    OpenSSLX509Certificate.createCertChain(certRefs);
 
             // Update the peer information on the session.
-            sslSession.onPeerCertificatesReceived(getPeerHost(), getPeerPort(), peerCertChain);
+            activeSession.onPeerCertificatesReceived(getPeerHost(), getPeerPort(), peerCertChain);
 
             if (getUseClientMode()) {
                 Platform.checkServerTrusted(x509tm, peerCertChain, authMethod, this);
@@ -1593,7 +1648,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
         ssl.chooseClientCertificate(keyTypeBytes, asn1DerEncodedPrincipals);
     }
 
-    private void shutdown() {
+    private void sendSSLShutdown() {
         try {
             ssl.shutdown();
         } catch (IOException ignored) {
@@ -1602,15 +1657,8 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
         }
     }
 
-    private void shutdownAndFreeSslNative() {
-        try {
-            shutdown();
-        } finally {
-            free();
-        }
-    }
-
-    private void free() {
+    private void closeAndFreeResources() {
+        transitionTo(STATE_CLOSED);
         if (!ssl.isClosed()) {
             ssl.close();
             networkBio.close();
@@ -1620,7 +1668,7 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
     @Override
     protected void finalize() throws Throwable {
         try {
-            free();
+            transitionTo(STATE_CLOSED);
         } finally {
             super.finalize();
         }
@@ -1670,34 +1718,46 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
      *
      * @param useSessionTickets True to enable session tickets
      */
+    @Override
     void setUseSessionTickets(boolean useSessionTickets) {
         sslParameters.setUseSessionTickets(useSessionTickets);
     }
 
-    /**
-     * Sets the list of ALPN protocols.
-     *
-     * @param alpnProtocols the list of ALPN protocols
-     */
-    void setAlpnProtocols(String[] alpnProtocols) {
-        sslParameters.setAlpnProtocols(alpnProtocols);
+    @Override
+    String[] getApplicationProtocols() {
+        return sslParameters.getApplicationProtocols();
     }
 
-    /**
-     * Sets the list of ALPN protocols.
-     *
-     * @param alpnProtocols the list of ALPN protocols
-     */
-    void setAlpnProtocols(byte[] alpnProtocols) {
-        sslParameters.setAlpnProtocols(alpnProtocols);
+    @Override
+    void setApplicationProtocols(String[] protocols) {
+        sslParameters.setApplicationProtocols(protocols);
     }
 
-    /**
-     * Returns the protocol agreed upon by client and server, or {@code null} if no protocol was
-     * agreed upon.
-     */
-    byte[] getAlpnSelectedProtocol() {
-        return ssl.getAlpnSelectedProtocol();
+    @Override
+    void setApplicationProtocolSelector(ApplicationProtocolSelector selector) {
+        setApplicationProtocolSelector(
+                selector == null ? null : new ApplicationProtocolSelectorAdapter(this, selector));
+    }
+
+    @Override
+    byte[] getTlsUnique() {
+        return ssl.getTlsUnique();
+    }
+
+    void setApplicationProtocolSelector(ApplicationProtocolSelectorAdapter adapter) {
+        sslParameters.setApplicationProtocolSelector(adapter);
+    }
+
+    @Override
+    public String getApplicationProtocol() {
+        return SSLUtils.toProtocolString(ssl.getApplicationProtocol());
+    }
+
+    @Override
+    public String getHandshakeApplicationProtocol() {
+        synchronized (ssl) {
+            return state == STATE_HANDSHAKE_STARTED ? getApplicationProtocol() : null;
+        }
     }
 
     private ByteBuffer[] singleSrcBuffer(ByteBuffer src) {
@@ -1724,5 +1784,26 @@ final class ConscryptEngine extends SSLEngine implements NativeCrypto.SSLHandsha
 
     private AbstractSessionContext sessionContext() {
         return sslParameters.getSessionContext();
+    }
+
+    private void transitionTo(int newState) {
+        switch (newState) {
+            case STATE_HANDSHAKE_STARTED: {
+                handshakeFinished = false;
+                break;
+            }
+            case STATE_CLOSED: {
+                if (!ssl.isClosed() && state >= STATE_HANDSHAKE_STARTED && state < STATE_CLOSED ) {
+                    closedSession = new SessionSnapshot(activeSession);
+                }
+                break;
+            }
+            default: {
+                break;
+            }
+        }
+
+        // Update the state
+        this.state = newState;
     }
 }

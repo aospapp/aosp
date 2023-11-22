@@ -130,8 +130,8 @@ class ShellCommand(object):
             True if the string or pattern was found, False otherwise.
         """
         try:
-            self.run('grep %s %s' %
-                     (shellescape.quote(search_string), file_name))
+            self.run('grep %s %s' % (shellescape.quote(search_string),
+                                     file_name))
             return True
         except job.Error:
             return False
@@ -195,7 +195,7 @@ class ShellCommand(object):
         that match the identifier until either all are dead or the timeout
         finishes.
 
-        Programs are guranteed to be killed after running this command.
+        Programs are guaranteed to be killed after running this command.
 
         Args:
             identifier: A string used to identify the program.
@@ -230,7 +230,7 @@ class ShellCommand(object):
 
         Args:
             pid: The process id of the program to kill.
-            sig: The singal to send.
+            sig: The signal to send.
 
         Raises:
             job.Error: Raised when the signal fail to reach

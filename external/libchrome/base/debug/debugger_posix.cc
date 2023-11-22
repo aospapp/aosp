@@ -18,6 +18,8 @@
 #include <vector>
 
 #include "base/macros.h"
+#include "base/threading/platform_thread.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 
 #if defined(__GLIBCXX__)
@@ -44,7 +46,7 @@
 #include "base/strings/string_piece.h"
 
 #if defined(USE_SYMBOLIZE)
-#error "symbolize support was removed from libchrome"
+#include "base/third_party/symbolize/symbolize.h"
 #endif
 
 #if defined(OS_ANDROID)

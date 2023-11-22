@@ -17,6 +17,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.cts.documentprovider">
     <application>
+        <uses-library android:name="android.test.runner" />
+
         <provider android:name=".MyDocumentsProvider"
                 android:authorities="com.android.cts.documentprovider"
                 android:exported="true"

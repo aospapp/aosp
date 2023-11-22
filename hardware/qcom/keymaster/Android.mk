@@ -20,6 +20,7 @@ LOCAL_SRC_FILES := keymaster_qcom.cpp
 LOCAL_C_INCLUDES := $(TARGET_OUT_HEADERS)/common/inc
 
 LOCAL_CFLAGS := $(keymaster-def)
+LOCAL_CFLAGS += -Wno-error
 
 LOCAL_SHARED_LIBRARIES := \
         libcrypto \

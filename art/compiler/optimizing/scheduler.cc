@@ -16,8 +16,12 @@
 
 #include <string>
 
-#include "prepare_for_register_allocation.h"
 #include "scheduler.h"
+
+#include "base/scoped_arena_allocator.h"
+#include "base/scoped_arena_containers.h"
+#include "data_type-inl.h"
+#include "prepare_for_register_allocation.h"
 
 #ifdef ART_ENABLE_CODEGEN_arm64
 #include "scheduler_arm64.h"
@@ -68,7 +72,7 @@ static bool MayHaveReorderingDependency(SideEffects node, SideEffects other) {
 
 size_t SchedulingGraph::ArrayAccessHeapLocation(HInstruction* array, HInstruction* index) const {
   DCHECK(heap_location_collector_ != nullptr);
-  size_t heap_loc = heap_location_collector_->GetArrayAccessHeapLocation(array, index);
+  size_t heap_loc = heap_location_collector_->GetArrayHeapLocation(array, index);
   // This array access should be analyzed and added to HeapLocationCollector before.
   DCHECK(heap_loc != HeapLocationCollector::kHeapLocationNotFound);
   return heap_loc;
@@ -149,12 +153,7 @@ size_t SchedulingGraph::FieldAccessHeapLocation(HInstruction* obj, const FieldIn
   DCHECK(field != nullptr);
   DCHECK(heap_location_collector_ != nullptr);
 
-  size_t heap_loc = heap_location_collector_->FindHeapLocationIndex(
-     heap_location_collector_->FindReferenceInfoOf(
-         heap_location_collector_->HuntForOriginalReference(obj)),
-     field->GetFieldOffset().SizeValue(),
-     nullptr,
-     field->GetDeclaringClassDefIndex());
+  size_t heap_loc = heap_location_collector_->GetFieldHeapLocation(obj, field);
   // This field access should be analyzed and added to HeapLocationCollector before.
   DCHECK(heap_loc != HeapLocationCollector::kHeapLocationNotFound);
 
@@ -399,17 +398,7 @@ bool SchedulingGraph::HasImmediateOtherDependency(const HInstruction* instructio
 }
 
 static const std::string InstructionTypeId(const HInstruction* instruction) {
-  std::string id;
-  Primitive::Type type = instruction->GetType();
-  if (type == Primitive::kPrimNot) {
-    id.append("l");
-  } else {
-    id.append(Primitive::Descriptor(instruction->GetType()));
-  }
-  // Use lower-case to be closer to the `HGraphVisualizer` output.
-  id[0] = std::tolower(id[0]);
-  id.append(std::to_string(instruction->GetId()));
-  return id;
+  return DataType::TypeId(instruction->GetType()) + std::to_string(instruction->GetId());
 }
 
 // Ideally we would reuse the graph visualizer code, but it is not available
@@ -450,7 +439,7 @@ static void DumpAsDotNode(std::ostream& output, const SchedulingNode* node) {
 }
 
 void SchedulingGraph::DumpAsDotGraph(const std::string& description,
-                                     const ArenaVector<SchedulingNode*>& initial_candidates) {
+                                     const ScopedArenaVector<SchedulingNode*>& initial_candidates) {
   // TODO(xueliang): ideally we should move scheduling information into HInstruction, after that
   // we should move this dotty graph dump feature to visualizer, and have a compiler option for it.
   std::ofstream output("scheduling_graphs.dot", std::ofstream::out | std::ofstream::app);
@@ -459,7 +448,7 @@ void SchedulingGraph::DumpAsDotGraph(const std::string& description,
   // Start the dot graph. Use an increasing index for easier differentiation.
   output << "digraph G {\n";
   for (const auto& entry : nodes_map_) {
-    SchedulingNode* node = entry.second;
+    SchedulingNode* node = entry.second.get();
     DumpAsDotNode(output, node);
   }
   // Create a fake 'end_of_scheduling' node to help visualization of critical_paths.
@@ -474,7 +463,7 @@ void SchedulingGraph::DumpAsDotGraph(const std::string& description,
 }
 
 SchedulingNode* CriticalPathSchedulingNodeSelector::SelectMaterializedCondition(
-    ArenaVector<SchedulingNode*>* nodes, const SchedulingGraph& graph) const {
+    ScopedArenaVector<SchedulingNode*>* nodes, const SchedulingGraph& graph) const {
   // Schedule condition inputs that can be materialized immediately before their use.
   // In following example, after we've scheduled HSelect, we want LessThan to be scheduled
   // immediately, because it is a materialized condition, and will be emitted right before HSelect
@@ -514,7 +503,7 @@ SchedulingNode* CriticalPathSchedulingNodeSelector::SelectMaterializedCondition(
 }
 
 SchedulingNode* CriticalPathSchedulingNodeSelector::PopHighestPriorityNode(
-    ArenaVector<SchedulingNode*>* nodes, const SchedulingGraph& graph) {
+    ScopedArenaVector<SchedulingNode*>* nodes, const SchedulingGraph& graph) {
   DCHECK(!nodes->empty());
   SchedulingNode* select_node = nullptr;
 
@@ -570,7 +559,7 @@ void HScheduler::Schedule(HGraph* graph) {
 }
 
 void HScheduler::Schedule(HBasicBlock* block) {
-  ArenaVector<SchedulingNode*> scheduling_nodes(arena_->Adapter(kArenaAllocScheduler));
+  ScopedArenaVector<SchedulingNode*> scheduling_nodes(allocator_->Adapter(kArenaAllocScheduler));
 
   // Build the scheduling graph.
   scheduling_graph_.Clear();
@@ -601,7 +590,7 @@ void HScheduler::Schedule(HBasicBlock* block) {
     }
   }
 
-  ArenaVector<SchedulingNode*> initial_candidates(arena_->Adapter(kArenaAllocScheduler));
+  ScopedArenaVector<SchedulingNode*> initial_candidates(allocator_->Adapter(kArenaAllocScheduler));
   if (kDumpDotSchedulingGraphs) {
     // Remember the list of initial candidates for debug output purposes.
     initial_candidates.assign(candidates_.begin(), candidates_.end());
@@ -724,8 +713,8 @@ bool HScheduler::IsSchedulable(const HInstruction* instruction) const {
       instruction->IsClassTableGet() ||
       instruction->IsCurrentMethod() ||
       instruction->IsDivZeroCheck() ||
-      instruction->IsInstanceFieldGet() ||
-      instruction->IsInstanceFieldSet() ||
+      (instruction->IsInstanceFieldGet() && !instruction->AsInstanceFieldGet()->IsVolatile()) ||
+      (instruction->IsInstanceFieldSet() && !instruction->AsInstanceFieldSet()->IsVolatile()) ||
       instruction->IsInstanceOf() ||
       instruction->IsInvokeInterface() ||
       instruction->IsInvokeStaticOrDirect() ||
@@ -741,14 +730,10 @@ bool HScheduler::IsSchedulable(const HInstruction* instruction) const {
       instruction->IsReturn() ||
       instruction->IsReturnVoid() ||
       instruction->IsSelect() ||
-      instruction->IsStaticFieldGet() ||
-      instruction->IsStaticFieldSet() ||
+      (instruction->IsStaticFieldGet() && !instruction->AsStaticFieldGet()->IsVolatile()) ||
+      (instruction->IsStaticFieldSet() && !instruction->AsStaticFieldSet()->IsVolatile()) ||
       instruction->IsSuspendCheck() ||
-      instruction->IsTypeConversion() ||
-      instruction->IsUnresolvedInstanceFieldGet() ||
-      instruction->IsUnresolvedInstanceFieldSet() ||
-      instruction->IsUnresolvedStaticFieldGet() ||
-      instruction->IsUnresolvedStaticFieldSet();
+      instruction->IsTypeConversion();
 }
 
 bool HScheduler::IsSchedulable(const HBasicBlock* block) const {
@@ -791,7 +776,7 @@ void HInstructionScheduling::Run(bool only_optimize_loop_blocks,
 #if defined(ART_ENABLE_CODEGEN_arm64) || defined(ART_ENABLE_CODEGEN_arm)
   // Phase-local allocator that allocates scheduler internal data structures like
   // scheduling nodes, internel nodes map, dependencies, etc.
-  ArenaAllocator arena_allocator(graph_->GetArena()->GetArenaPool());
+  ScopedArenaAllocator allocator(graph_->GetArenaStack());
   CriticalPathSchedulingNodeSelector critical_path_selector;
   RandomSchedulingNodeSelector random_selector;
   SchedulingNodeSelector* selector = schedule_randomly
@@ -806,18 +791,18 @@ void HInstructionScheduling::Run(bool only_optimize_loop_blocks,
 
   switch (instruction_set_) {
 #ifdef ART_ENABLE_CODEGEN_arm64
-    case kArm64: {
-      arm64::HSchedulerARM64 scheduler(&arena_allocator, selector);
+    case InstructionSet::kArm64: {
+      arm64::HSchedulerARM64 scheduler(&allocator, selector);
       scheduler.SetOnlyOptimizeLoopBlocks(only_optimize_loop_blocks);
       scheduler.Schedule(graph_);
       break;
     }
 #endif
 #if defined(ART_ENABLE_CODEGEN_arm)
-    case kThumb2:
-    case kArm: {
+    case InstructionSet::kThumb2:
+    case InstructionSet::kArm: {
       arm::SchedulingLatencyVisitorARM arm_latency_visitor(codegen_);
-      arm::HSchedulerARM scheduler(&arena_allocator, selector, &arm_latency_visitor);
+      arm::HSchedulerARM scheduler(&allocator, selector, &arm_latency_visitor);
       scheduler.SetOnlyOptimizeLoopBlocks(only_optimize_loop_blocks);
       scheduler.Schedule(graph_);
       break;

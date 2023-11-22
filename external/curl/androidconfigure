@@ -5,14 +5,15 @@ set -e
 if [[ "${TARGET_PRODUCT}" != "aosp_arm" ]]; then
   # Some of the include paths below assume that this is an arm 32bit configure
   # run.
-  echo "Run 'lunch aosp_arm-eng' first." >&2
+  echo "Run 'lunch aosp_arm-eng' and build the current version first." >&2
   exit 1
 fi
 
 cd $(dirname "$0")
 
-export CC="$(ls "${ANDROID_TOOLCHAIN}" | grep "\-gcc$" | grep -v kernel)"
-export LD="$(ls "${ANDROID_TOOLCHAIN}" | grep "\-ld$" | grep -v kernel)"
+HOST="arm-linux-androideabi"
+export CC="${ANDROID_TOOLCHAIN}/${HOST}-gcc"
+export LD="${ANDROID_TOOLCHAIN}/${HOST}-ld"
 
 T="${ANDROID_BUILD_TOP}"
 CFLAGS=(
@@ -36,20 +37,62 @@ CFLAGS=(
   "-fno-strict-aliasing"
   "-nostdlib"
 )
+CFLAGS="${CFLAGS[@]}"
+
+CONFIGURE_ARGS=(
+  --host="${HOST}"
+  CFLAGS="${CFLAGS}"
+  LIBS="-lc"
+  CPPFLAGS="${CFLAGS} -I${T}/external/zlib/src"
+  LDFLAGS="-L${ANDROID_PRODUCT_OUT}/system/lib/"
+
+  # Disable NTLM delegation to winbind's ntlm_auth.
+  --disable-ntlm-wb
+
+  ### Disable many protocols unused in Android systems:
+  --disable-telnet
+  --disable-tftp
+  --disable-smb
+  --disable-gopher
+
+  # Disable FTP and FTPS support.
+  --disable-ftp
+
+  # Disable LDAP and LDAPS support.
+  --disable-ldap
+  --disable-ldaps
+
+  # Disable mail protocols (IMAP, POP3).
+  --disable-pop3
+  --disable-imap
+  --disable-smtp
+
+  # Disable RTSP support (RFC 2326 / 7826).
+  --disable-rtsp
+
+  # Disable DICT support (RFC 2229).
+  --disable-dict
+
+
+  ### Enable HTTP, FTP and FILE explicitly. These are enabled by default but
+  # listed here as documentation.
+  --enable-http
+  --enable-file
+  --enable-proxy
+
+  # Enabled IPv6.
+  --enable-ipv6
+
+  --with-ssl="${T}/external/boringssl"
+  --with-zlib
+  --with-ca-path="/system/etc/security/cacerts"
+)
+
+# Show the commands on the terminal.
+set -x
 
 ./buildconf
-CFLAGS="${CFLAGS[@]}"
-./configure \
-  --host=arm-linux-androideabi \
-  CFLAGS="${CFLAGS}" \
-  LIBS="-lc" \
-  CPPFLAGS="${CFLAGS} -I${T}/external/zlib/src" \
-  LDFLAGS="-L${ANDROID_PRODUCT_OUT}/obj/lib/" \
-  --disable-ntlm-wb \
-  --enable-ipv6 \
-  --with-ssl="${T}/external/boringssl" \
-  --with-zlib \
-  --with-ca-path="/system/etc/security/cacerts"
+./configure "${CONFIGURE_ARGS[@]}"
 
 # Apply local changes to the default configure output.
 patch -p1 --no-backup-if-mismatch < local-configure.patch

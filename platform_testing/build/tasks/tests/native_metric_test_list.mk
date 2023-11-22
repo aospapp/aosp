@@ -15,11 +15,14 @@
 native_metric_tests := \
     binderAddInts \
     bionic-benchmarks \
+    buffer_transport_benchmark \
     crashcollector \
     hwuimacro \
     hwuimicro \
+    libandroidfw_benchmarks \
     libjavacore-benchmarks \
     minikin_perftests \
     mmapPerf \
     netd_benchmark \
-    perf-setup.sh
+    perf-setup.sh \
+    skia_nanobench

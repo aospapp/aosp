@@ -34,6 +34,7 @@ LOCAL_SRC_FILES := \
   SocketServerForDriver.cpp \
 
 LOCAL_SHARED_LIBRARIES := \
+  libbase \
   libutils \
   libcutils \
   libbinder \

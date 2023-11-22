@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Nėra SIM kortelės arba įvyko SIM kortelės klaida"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Mobiliojo ryšio tinklas nepasiekiamas"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Siunčiami skambučiai apriboti FDN."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL užklausa pakeista į USSD užklausą."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL užklausa pakeista į SS užklausą."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL užklausa pakeista į DIAL užklausą, kurios numeris kitoks."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Skambutis pakeistas į USSD užklausą"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Skambutis pakeistas į SS užklausą"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Pakeista į kitą numerį"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Pakeista į vaizdo skambutį"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Vaizdo skambutis pakeistas į SS užklausą"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Vaizdo skambutis pakeistas į USSD užklausą"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Pakeista į įprastą skambutį"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Pakeista į kitą numerį"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Negalima skambinti, kai įjungtas skambučių draudimas."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Skambučiai draudžiami pagal pasiekiamumo valdymo nustatymus."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Skambučiai pagalbos numeriu draudžiami pagal pasiekiamumo valdymo nustatymus."</string>

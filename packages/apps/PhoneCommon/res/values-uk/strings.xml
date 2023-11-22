@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Помилка SIM-карти або SIM-карта відсутня"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Мобільна мережа недоступна"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Вихідні дзвінки обмежено FDN."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"Запит DIAL перетворено на запит USSD."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"Запит DIAL перетворено на запит SS."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"Запит DIAL перетворено на запит DIAL з іншим номером."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Виклик змінено на запит USSD"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Виклик змінено на запит SS"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Змінено на інший номер"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Змінено на відеовиклик"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Відеовиклик змінено на запит SS"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Відеовиклик змінено на запит USSD"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Змінено на звичайний виклик"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Змінено на інший номер"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Не можна здійснювати вихідні дзвінки, коли ввімкнено заборону."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Дзвінки обмежено контролем доступу."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Екстрені дзвінки обмежено контролем доступу."</string>

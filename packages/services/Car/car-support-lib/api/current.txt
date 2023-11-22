@@ -50,6 +50,10 @@ package android.support.car {
   public abstract class CarInfoManager {
     ctor public CarInfoManager();
     method public abstract int getDriverPosition() throws android.support.car.CarNotConnectedException;
+    method public abstract float getEvBatteryCapacity() throws android.support.car.CarNotConnectedException;
+    method public abstract int[] getEvConnectorTypes() throws android.support.car.CarNotConnectedException;
+    method public abstract float getFuelCapacity() throws android.support.car.CarNotConnectedException;
+    method public abstract int[] getFuelTypes() throws android.support.car.CarNotConnectedException;
     method public abstract java.lang.String getHeadunitManufacturer() throws android.support.car.CarNotConnectedException;
     method public abstract java.lang.String getHeadunitModel() throws android.support.car.CarNotConnectedException;
     method public abstract java.lang.String getHeadunitSoftwareBuild() throws android.support.car.CarNotConnectedException;
@@ -148,11 +152,16 @@ package android.support.car.hardware {
     method public abstract boolean isSensorSupported(int) throws android.support.car.CarNotConnectedException;
     method public abstract void removeListener(android.support.car.hardware.CarSensorManager.OnSensorChangedListener);
     method public abstract void removeListener(android.support.car.hardware.CarSensorManager.OnSensorChangedListener, int);
-    field public static final int SENSOR_RATE_FASTEST = 0; // 0x0
-    field public static final int SENSOR_RATE_NORMAL = 3; // 0x3
+    field public static final int SENSOR_RATE_FASTEST = 100; // 0x64
+    field public static final int SENSOR_RATE_NORMAL = 1; // 0x1
     field public static final int SENSOR_TYPE_ABS_ACTIVE = 24; // 0x18
     field public static final int SENSOR_TYPE_COMPASS = 1; // 0x1
     field public static final int SENSOR_TYPE_DRIVING_STATUS = 11; // 0xb
+    field public static final int SENSOR_TYPE_EV_BATTERY_CHARGE_RATE = 31; // 0x1f
+    field public static final int SENSOR_TYPE_EV_BATTERY_LEVEL = 28; // 0x1c
+    field public static final int SENSOR_TYPE_EV_CHARGE_PORT_CONNECTED = 30; // 0x1e
+    field public static final int SENSOR_TYPE_EV_CHARGE_PORT_OPEN = 29; // 0x1d
+    field public static final int SENSOR_TYPE_FUEL_DOOR_OPEN = 27; // 0x1b
     field public static final int SENSOR_TYPE_NIGHT = 9; // 0x9
     field public static final int SENSOR_TYPE_PARKING_BRAKE = 6; // 0x6
     field public static final int SENSOR_TYPE_TRACTION_CONTROL_ACTIVE = 25; // 0x19
@@ -169,24 +178,11 @@ package android.support.car.media {
 
   public abstract class CarAudioManager {
     ctor public CarAudioManager();
-    method public abstract void abandonAudioFocus(android.media.AudioManager.OnAudioFocusChangeListener, android.media.AudioAttributes);
     method public abstract android.support.car.media.CarAudioRecord createCarAudioRecord(int) throws android.support.car.CarNotConnectedException, java.lang.SecurityException;
-    method public abstract android.media.AudioAttributes getAudioAttributesForCarUsage(int) throws android.support.car.CarNotConnectedException;
     method public abstract android.media.AudioFormat getAudioRecordAudioFormat() throws android.support.car.CarNotConnectedException;
     method public abstract int getAudioRecordMaxBufferSize() throws android.support.car.CarNotConnectedException;
     method public abstract int getAudioRecordMinBufferSize() throws android.support.car.CarNotConnectedException;
     method public abstract boolean isAudioRecordSupported() throws android.support.car.CarNotConnectedException;
-    method public abstract boolean isMediaMuted() throws android.support.car.CarNotConnectedException;
-    method public abstract int requestAudioFocus(android.media.AudioManager.OnAudioFocusChangeListener, android.media.AudioAttributes, int) throws android.support.car.CarNotConnectedException, java.lang.IllegalArgumentException;
-    field public static final int CAR_AUDIO_USAGE_ALARM = 6; // 0x6
-    field public static final int CAR_AUDIO_USAGE_DEFAULT = 0; // 0x0
-    field public static final int CAR_AUDIO_USAGE_MUSIC = 1; // 0x1
-    field public static final int CAR_AUDIO_USAGE_NAVIGATION_GUIDANCE = 3; // 0x3
-    field public static final int CAR_AUDIO_USAGE_NOTIFICATION = 7; // 0x7
-    field public static final int CAR_AUDIO_USAGE_SYSTEM_SAFETY_ALERT = 9; // 0x9
-    field public static final int CAR_AUDIO_USAGE_SYSTEM_SOUND = 8; // 0x8
-    field public static final int CAR_AUDIO_USAGE_VOICE_CALL = 4; // 0x4
-    field public static final int CAR_AUDIO_USAGE_VOICE_COMMAND = 5; // 0x5
   }
 
   public abstract class CarAudioRecord {
@@ -220,38 +216,7 @@ package android.support.car.navigation {
     ctor public CarNavigationStatusManager();
     method public abstract void addListener(android.support.car.navigation.CarNavigationStatusManager.CarNavigationCallback) throws android.support.car.CarNotConnectedException;
     method public abstract void removeListener();
-    method public abstract deprecated void sendNavigationStatus(int) throws android.support.car.CarNotConnectedException;
-    method public abstract deprecated void sendNavigationTurnDistanceEvent(int, int, int, int) throws android.support.car.CarNotConnectedException;
-    method public abstract deprecated void sendNavigationTurnEvent(int, java.lang.CharSequence, int, int, int) throws android.support.car.CarNotConnectedException;
-    field public static final int DISTANCE_FEET = 4; // 0x4
-    field public static final int DISTANCE_KILOMETERS = 2; // 0x2
-    field public static final int DISTANCE_METERS = 1; // 0x1
-    field public static final int DISTANCE_MILES = 3; // 0x3
-    field public static final int DISTANCE_YARDS = 5; // 0x5
-    field public static final int STATUS_ACTIVE = 1; // 0x1
-    field public static final int STATUS_INACTIVE = 2; // 0x2
-    field public static final int STATUS_UNAVAILABLE = 0; // 0x0
-    field public static final int TURN_DEPART = 1; // 0x1
-    field public static final int TURN_DESTINATION = 19; // 0x13
-    field public static final int TURN_FERRY_BOAT = 16; // 0x10
-    field public static final int TURN_FERRY_TRAIN = 17; // 0x11
-    field public static final int TURN_FORK = 9; // 0x9
-    field public static final int TURN_MERGE = 10; // 0xa
-    field public static final int TURN_NAME_CHANGE = 2; // 0x2
-    field public static final int TURN_OFF_RAMP = 8; // 0x8
-    field public static final int TURN_ON_RAMP = 7; // 0x7
-    field public static final int TURN_ROUNDABOUT_ENTER = 11; // 0xb
-    field public static final int TURN_ROUNDABOUT_ENTER_AND_EXIT = 13; // 0xd
-    field public static final int TURN_ROUNDABOUT_EXIT = 12; // 0xc
-    field public static final int TURN_SHARP_TURN = 5; // 0x5
-    field public static final int TURN_SIDE_LEFT = 1; // 0x1
-    field public static final int TURN_SIDE_RIGHT = 2; // 0x2
-    field public static final int TURN_SIDE_UNSPECIFIED = 3; // 0x3
-    field public static final int TURN_SLIGHT_TURN = 3; // 0x3
-    field public static final int TURN_STRAIGHT = 14; // 0xe
-    field public static final int TURN_TURN = 4; // 0x4
-    field public static final int TURN_UNKNOWN = 0; // 0x0
-    field public static final int TURN_U_TURN = 6; // 0x6
+    method public abstract void sendEvent(int, android.os.Bundle) throws android.support.car.CarNotConnectedException;
   }
 
   public static abstract interface CarNavigationStatusManager.CarNavigationCallback {

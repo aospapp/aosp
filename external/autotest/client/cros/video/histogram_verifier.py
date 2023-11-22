@@ -3,9 +3,33 @@
 # found in the LICENSE file.
 
 
+import logging
 import re
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
+
+
+def get_histogram_text(tab, histogram_name):
+     """
+     This returns contents of the given histogram.
+
+     @param tab: object, Chrome tab instance
+     @param histogram_name: string, name of the histogram
+     @returns string: contents of the histogram
+     """
+     docEle = 'document.documentElement'
+     tab.Navigate('chrome://histograms/%s' % histogram_name)
+     tab.WaitForDocumentReadyStateToBeComplete()
+     raw_text = tab.EvaluateJavaScript(
+          '{0} && {0}.innerText'.format(docEle))
+     # extract the contents of the histogram
+     histogram = raw_text[raw_text.find('Histogram:'):].strip()
+     if histogram:
+          logging.debug('chrome://histograms/%s:\n%s', histogram_name, histogram)
+     else:
+          logging.debug('No histogram is shown in chrome://histograms/%s',
+                        histogram_name)
+     return histogram
 
 
 def loaded(tab, histogram_name, pattern):
@@ -19,20 +43,18 @@ def loaded(tab, histogram_name, pattern):
               None otherwise
 
      """
-     docEle = 'document.documentElement'
-     tab.Navigate('chrome://histograms/%s' % histogram_name)
-     tab.WaitForDocumentReadyStateToBeComplete()
-     raw_text = tab.EvaluateJavaScript(
-          '{0} && {0}.innerText'.format(docEle))
-     return re.search(pattern, raw_text)
+     return re.search(pattern, get_histogram_text(tab, histogram_name))
 
 
 def  verify(cr, histogram_name, histogram_bucket_value):
      """
      Verifies histogram string and success rate in a parsed histogram bucket.
+     The histogram buckets are outputted in debug log regardless of the
+     verification result.
 
      Full histogram URL is used to load histogram. Example Histogram URL is :
      chrome://histograms/Media.GpuVideoDecoderInitializeStatus
+
      @param cr: object, the Chrome instance
      @param histogram_name: string, name of the histogram
      @param histogram_bucket_value: int, required bucket number to look for
@@ -94,19 +116,13 @@ def is_histogram_present(cr, histogram_name):
 
 
 def get_histogram(cr, histogram_name):
-     """"
+     """
      This returns contents of the given histogram.
+
      @param cr: object, the Chrome instance
      @param histogram_name: string, name of the histogram
      @returns string: contents of the histogram
 
      """
      tab = cr.browser.tabs.New()
-     docEle = 'document.documentElement'
-     tab.Navigate('chrome://histograms/%s' % histogram_name)
-     tab.WaitForDocumentReadyStateToBeComplete()
-     raw_text = tab.EvaluateJavaScript(
-          '{0} && {0}.innerText'.format(docEle))
-     # extract the contents of the histogram
-     histogram = raw_text[raw_text.find('Histogram:'):]
-     return histogram
+     return get_histogram_text(tab, histogram_name)

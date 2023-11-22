@@ -17,6 +17,7 @@
 
 #define LOG_TAG "SyncTest"
 
+#include <errno.h>
 #include <poll.h>
 #include <unistd.h>
 

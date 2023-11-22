@@ -16,10 +16,11 @@
 
 package com.android.phone;
 
+import static android.telephony.ServiceState.RIL_RADIO_TECHNOLOGY_UNKNOWN;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
-import android.app.StatusBarManager;
 import android.app.WallpaperManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -29,13 +30,17 @@ import android.graphics.Point;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.provider.Settings;
 import android.telecom.PhoneAccount;
+import android.telecom.TelecomManager;
 import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneNumberUtils;
+import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.Spannable;
@@ -45,19 +50,20 @@ import android.text.TextWatcher;
 import android.text.method.DialerKeyListener;
 import android.text.style.TtsSpan;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.EditText;
 
 import com.android.internal.colorextraction.ColorExtractor;
 import com.android.internal.colorextraction.ColorExtractor.GradientColors;
 import com.android.internal.colorextraction.drawable.GradientDrawable;
 import com.android.phone.common.dialpad.DialpadKeyButton;
 import com.android.phone.common.util.ViewUtil;
+import com.android.phone.common.widget.ResizingTextEditText;
 
 /**
  * EmergencyDialer is a special dialer that is used ONLY for dialing emergency calls.
@@ -110,7 +116,7 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
     /** 90% opacity, different from other gradients **/
     private static final int BACKGROUND_GRADIENT_ALPHA = 230;
 
-    EditText mDigits;
+    ResizingTextEditText mDigits;
     private View mDialButton;
     private View mDelete;
 
@@ -139,6 +145,9 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
     private GradientDrawable mBackgroundGradient;
     private boolean mSupportsDarkText;
 
+    private boolean mIsWfcEmergencyCallingWarningEnabled;
+    private float mDefaultDigitsTextSize;
+
     @Override
     public void beforeTextChanged(CharSequence s, int start, int count, int after) {
         // Do nothing
@@ -146,7 +155,7 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
 
     @Override
     public void onTextChanged(CharSequence input, int start, int before, int changeCount) {
-        // Do nothing
+        maybeChangeHintSize();
     }
 
     @Override
@@ -190,12 +199,13 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
 
         setContentView(R.layout.emergency_dialer);
 
-        mDigits = (EditText) findViewById(R.id.digits);
+        mDigits = (ResizingTextEditText) findViewById(R.id.digits);
         mDigits.setKeyListener(DialerKeyListener.getInstance());
         mDigits.setOnClickListener(this);
         mDigits.setOnKeyListener(this);
         mDigits.setLongClickable(false);
         mDigits.setInputType(InputType.TYPE_NULL);
+        mDefaultDigitsTextSize = mDigits.getScaledTextSize();
         maybeAddNumberFormatting();
 
         mBackgroundGradient = new GradientDrawable(this);
@@ -225,11 +235,16 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
                 (CarrierConfigManager) getSystemService(Context.CARRIER_CONFIG_SERVICE);
         PersistableBundle carrierConfig =
                 configMgr.getConfigForSubId(SubscriptionManager.getDefaultVoiceSubscriptionId());
+
         if (carrierConfig.getBoolean(CarrierConfigManager.KEY_SHOW_ONSCREEN_DIAL_BUTTON_BOOL)) {
             mDialButton.setOnClickListener(this);
         } else {
             mDialButton.setVisibility(View.GONE);
         }
+        mIsWfcEmergencyCallingWarningEnabled = carrierConfig.getInt(
+                CarrierConfigManager.KEY_EMERGENCY_NOTIFICATION_DELAY_INT) > -1;
+        maybeShowWfcEmergencyCallingWarning();
+
         ViewUtil.setupFloatingActionButton(mDialButton, getResources());
 
         if (icicle != null) {
@@ -521,13 +536,6 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
     @Override
     public void onPause() {
         super.onPause();
-
-        synchronized (mToneGeneratorLock) {
-            if (mToneGenerator != null) {
-                mToneGenerator.release();
-                mToneGenerator = null;
-            }
-        }
     }
 
     @Override
@@ -587,10 +595,8 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
                 playTone(ToneGenerator.TONE_PROP_NACK);
                 return;
             }
-            Intent intent = new Intent(Intent.ACTION_CALL_EMERGENCY);
-            intent.setData(Uri.fromParts(PhoneAccount.SCHEME_TEL, mLastNumber, null));
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(intent);
+            TelecomManager tm = (TelecomManager) getSystemService(TELECOM_SERVICE);
+            tm.placeCall(Uri.fromParts(PhoneAccount.SCHEME_TEL, mLastNumber, null), null);
         } else {
             if (DBG) Log.d(LOG_TAG, "rejecting bad requested number " + mLastNumber);
 
@@ -663,7 +669,7 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
 
             // blur stuff behind the dialog
             dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
-            dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
+            setShowWhenLocked(true);
         }
         return dialog;
     }
@@ -725,6 +731,70 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
                     ColorExtractor.TYPE_EXTRA_DARK);
             mBackgroundGradient.setColors(colors);
             updateTheme(colors.supportsDarkText());
+        }
+    }
+
+    /**
+     * Where a carrier requires a warning that emergency calling is not available while on WFC,
+     * add hint text above the dial pad which warns the user of this case.
+     */
+    private void maybeShowWfcEmergencyCallingWarning() {
+        if (!mIsWfcEmergencyCallingWarningEnabled) {
+            Log.i(LOG_TAG, "maybeShowWfcEmergencyCallingWarning: warning disabled by carrier.");
+            return;
+        }
+
+        // Use an async task rather than calling into Telephony on UI thread.
+        AsyncTask<Void, Void, Boolean> showWfcWarningTask = new AsyncTask<Void, Void, Boolean>() {
+            @Override
+            protected Boolean doInBackground(Void... voids) {
+                TelephonyManager tm = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
+                boolean isWfcAvailable = tm.isWifiCallingAvailable();
+                ServiceState ss = tm.getServiceState();
+                boolean isCellAvailable =
+                        ss.getRilVoiceRadioTechnology() != RIL_RADIO_TECHNOLOGY_UNKNOWN;
+                Log.i(LOG_TAG, "showWfcWarningTask: isWfcAvailable=" + isWfcAvailable
+                                + " isCellAvailable=" + isCellAvailable
+                                + "(rat=" + ss.getRilVoiceRadioTechnology() + ")");
+                return isWfcAvailable && !isCellAvailable;
+            }
+
+            @Override
+            protected void onPostExecute(Boolean result) {
+                if (result.booleanValue()) {
+                    Log.i(LOG_TAG, "showWfcWarningTask: showing ecall warning");
+                    mDigits.setHint(R.string.dial_emergency_calling_not_available);
+                } else {
+                    Log.i(LOG_TAG, "showWfcWarningTask: hiding ecall warning");
+                    mDigits.setHint("");
+                }
+                maybeChangeHintSize();
+            }
+        };
+        showWfcWarningTask.execute((Void) null);
+    }
+
+    /**
+     * Where a hint is applied and there are no digits dialed, disable autoresize of the dial digits
+     * edit view and set the font size to a smaller size appropriate for the emergency calling
+     * warning.
+     */
+    private void maybeChangeHintSize() {
+        if (TextUtils.isEmpty(mDigits.getHint())
+                || !TextUtils.isEmpty(mDigits.getText().toString())) {
+            // No hint or there are dialed digits, so use default size.
+            mDigits.setTextSize(TypedValue.COMPLEX_UNIT_SP, mDefaultDigitsTextSize);
+            // By default, the digits view auto-resizes to fit the text it contains, so
+            // enable that now.
+            mDigits.setResizeEnabled(true);
+            Log.i(LOG_TAG, "no hint - setting to " + mDigits.getScaledTextSize());
+        } else {
+            // Hint present and no dialed digits, set custom font size appropriate for the warning.
+            mDigits.setTextSize(TypedValue.COMPLEX_UNIT_PX, getResources().getDimensionPixelSize(
+                    R.dimen.emergency_call_warning_size));
+            // Since we're populating this with a static text string, disable auto-resize.
+            mDigits.setResizeEnabled(false);
+            Log.i(LOG_TAG, "hint - setting to " + mDigits.getScaledTextSize());
         }
     }
 }

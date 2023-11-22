@@ -24,15 +24,16 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.support.annotation.Keep;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v17.preference.LeanbackSettingsFragment;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.view.accessibility.AccessibilityManager;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RadioPreference;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.List;
 
@@ -40,7 +41,7 @@ import java.util.List;
  * Fragment imitating a single-selection list for picking the accessibility shortcut service
  */
 @Keep
-public class AccessibilityShortcutServiceFragment extends LeanbackPreferenceFragment implements
+public class AccessibilityShortcutServiceFragment extends SettingsPreferenceFragment implements
         AccessibilityServiceConfirmationFragment.OnAccessibilityServiceConfirmedListener {
     private static final String SERVICE_RADIO_GROUP = "service_group";
 
@@ -103,5 +104,10 @@ public class AccessibilityShortcutServiceFragment extends LeanbackPreferenceFrag
                 Settings.Secure.ACCESSIBILITY_SHORTCUT_TARGET_SERVICE,
                 componentString);
         getFragmentManager().popBackStack();
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.ACCESSIBILITY_SERVICE;
     }
 }

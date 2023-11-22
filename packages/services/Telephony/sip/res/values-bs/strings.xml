@@ -22,7 +22,7 @@
     <string name="sip_receive_calls" msgid="426678617137462173">"Primi dolazne pozive"</string>
     <string name="sip_receive_calls_summary" msgid="946161517528227523">"Troši više baterije"</string>
     <string name="sip_call_options_title" msgid="8421210494703869806">"Koristi SIP pozivanje"</string>
-    <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"Koristi SIP pozivanje (samo Wi-Fi)"</string>
+    <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"Koristi SIP pozivanje (samo WiFi)"</string>
     <string name="sip_call_options_entry_1" msgid="7217659161237099900">"Za sve pozive kada je podatkovna mreža dostupna"</string>
     <string name="sip_call_options_entry_2" msgid="1815335903940609729">"Samo za SIP pozive"</string>
     <string name="sip_call_options_wifi_only_entry_1" msgid="1358513095551847314">"Za sve pozive"</string>
@@ -41,7 +41,7 @@
     <string name="registration_status_still_trying" msgid="7648151061205513458">"Još uvijek pokušavamo…"</string>
     <string name="registration_status_not_receiving" msgid="7620333886153361090">"Ne prima pozive."</string>
     <string name="registration_status_no_data" msgid="2541999976218192413">"Registracija računa je zaustavljena jer niste povezani na internet."</string>
-    <string name="registration_status_no_wifi_data" msgid="9154717387473039546">"Registracija računa je zaustavljena jer nema Wi-Fi veze."</string>
+    <string name="registration_status_no_wifi_data" msgid="9154717387473039546">"Registracija računa je zaustavljena jer nema WiFi veze."</string>
     <string name="registration_status_not_running" msgid="514205414303796800">"Registracija računa neuspješna."</string>
     <string name="registration_status_done" msgid="3264961069247314253">"Primanje poziva."</string>
     <string name="registration_status_failed_try_later" msgid="2199970021756384317">"Registracija računa neuspješna: (<xliff:g id="REGISTRATION_ERROR_MESSAGE">%s</xliff:g>); pokušat ćemo kasnije"</string>
@@ -65,7 +65,7 @@
     <string name="default_preference_summary_password" msgid="4464464672997027904">"&lt;Nije postavljeno&gt;"</string>
     <string name="default_preference_summary_domain_address" msgid="4871971710197441673">"&lt;Nije postavljeno&gt;"</string>
     <string name="display_name_summary" msgid="7155076491675565407">"&lt;Isto kao korisničko ime&gt;"</string>
-    <string name="optional_summary" msgid="2363105560396317624">"&lt;Opcionalno&gt;"</string>
+    <string name="optional_summary" msgid="2363105560396317624">"&lt;Nije obavezno&gt;"</string>
     <string name="advanced_settings_show" msgid="7838761602853998622">"▷ Dodirnite da prikažete sve"</string>
     <string name="advanced_settings_hide" msgid="3480554978705290228">"▽ Dodirnite da sakrijete sve"</string>
     <string name="all_empty_alert" msgid="4087734950375192387">"Unesite detalje novog SIP računa."</string>

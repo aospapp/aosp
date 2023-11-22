@@ -1,6 +1,7 @@
 /** @file
 
   Copyright (c) 2014, ARM Ltd. All rights reserved.<BR>
+  Copyright (c) 2016, Linaro Ltd. All rights reserved.<BR>
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -135,11 +136,13 @@ ReadPartitionEntries (
 
 
 /*
-  Initialise: Open the Android NVM device and find the partitions on it. Save them in
-  a list along with the "PartitionName" fields for their GPT entries.
-  We will use these partition names as the key in
-  ArmFastbootPlatformFlashPartition.
+  Do any initialisation that needs to be done in order to be able to respond to
+  commands.
+
+  @retval EFI_SUCCESS   Initialised successfully.
+  @retval !EFI_SUCCESS  Error in initialisation.
 */
+STATIC
 EFI_STATUS
 ArmFastbootPlatformInit (
   VOID
@@ -164,6 +167,7 @@ ArmFastbootPlatformInit (
   //
   // Get EFI_HANDLES for all the partitions on the block devices pointed to by
   // PcdFastbootFlashDevicePath, also saving their GPT partition labels.
+  // We will use these labels as the key in ArmFastbootPlatformFlashPartition.
   // There's no way to find all of a device's children, so we get every handle
   // in the system supporting EFI_BLOCK_IO_PROTOCOL and then filter out ones
   // that don't represent partitions on the flash device.
@@ -269,7 +273,7 @@ ArmFastbootPlatformInit (
 
       // Copy handle and partition name
       Entry->PartitionHandle = AllHandles[LoopIndex];
-      StrnCpy (
+      CopyMem (
         Entry->PartitionName,
         PartitionEntries[PartitionNode->PartitionNumber - 1].PartitionName, // Partition numbers start from 1.
         PARTITION_NAME_MAX_LENGTH
@@ -296,6 +300,11 @@ Exit:
 
 }
 
+/*
+  To be called when Fastboot is finished and we aren't rebooting or booting an
+  image. Undo initialisation, free resrouces.
+*/
+STATIC
 VOID
 ArmFastbootPlatformUnInit (
   VOID
@@ -304,6 +313,18 @@ ArmFastbootPlatformUnInit (
   FreePartitionList ();
 }
 
+/*
+  Flash the partition named (according to a platform-specific scheme)
+  PartitionName, with the image pointed to by Buffer, whose size is BufferSize.
+
+  @param[in] PartitionName  Null-terminated name of partition to write.
+  @param[in] BufferSize     Size of Buffer in byets.
+  @param[in] Buffer         Data to write to partition.
+
+  @retval EFI_NOT_FOUND     No such partition.
+  @retval EFI_DEVICE_ERROR  Flashing failed.
+*/
+STATIC
 EFI_STATUS
 ArmFastbootPlatformFlashPartition (
   IN CHAR8  *PartitionName,
@@ -319,13 +340,9 @@ ArmFastbootPlatformFlashPartition (
   FASTBOOT_PARTITION_LIST *Entry;
   CHAR16                   PartitionNameUnicode[60];
   BOOLEAN                  PartitionFound;
-  SPARSE_HEADER           *SparseHeader;
-  CHUNK_HEADER            *ChunkHeader;
-  UINTN                    Offset = 0;
-  UINT32                   Chunk;
 
-
-  AsciiStrToUnicodeStr (PartitionName, PartitionNameUnicode);
+  AsciiStrToUnicodeStrS (PartitionName, PartitionNameUnicode,
+    ARRAY_SIZE (PartitionNameUnicode));
 
   PartitionFound = FALSE;
   Entry = (FASTBOOT_PARTITION_LIST *) GetFirstNode (&(mPartitionListHead));
@@ -355,22 +372,6 @@ ArmFastbootPlatformFlashPartition (
     return EFI_NOT_FOUND;
   }
 
-  SparseHeader=(SPARSE_HEADER *)Image;
-
-  if (SparseHeader->Magic == SPARSE_HEADER_MAGIC) {
-    DEBUG ((EFI_D_INFO, "Sparse Magic: 0x%x Major: %d Minor: %d fhs: %d chs: %d bs: %d tbs: %d tcs: %d checksum: %d \n",
-                SparseHeader->Magic, SparseHeader->MajorVersion, SparseHeader->MinorVersion,  SparseHeader->FileHeaderSize,
-                SparseHeader->ChunkHeaderSize, SparseHeader->BlockSize, SparseHeader->TotalBlocks,
-                SparseHeader->TotalChunks, SparseHeader->ImageChecksum));
-    if (SparseHeader->MajorVersion != 1) {
-        DEBUG ((EFI_D_ERROR, "Sparse image version %d.%d not supported.\n",
-                    SparseHeader->MajorVersion, SparseHeader->MinorVersion));
-        return EFI_INVALID_PARAMETER;
-    }
-
-    Size = SparseHeader->BlockSize * SparseHeader->TotalBlocks;
-  }
-
   // Check image will fit on device
   PartitionSize = (BlockIo->Media->LastBlock + 1) * BlockIo->Media->BlockSize;
   if (PartitionSize < Size) {
@@ -392,40 +393,9 @@ ArmFastbootPlatformFlashPartition (
                   );
   ASSERT_EFI_ERROR (Status);
 
-  if (SparseHeader->Magic == SPARSE_HEADER_MAGIC) {
-    Image += SparseHeader->FileHeaderSize;
-    for (Chunk = 0; Chunk < SparseHeader->TotalChunks; Chunk++) {
-      UINTN WriteSize;
-      ChunkHeader = (CHUNK_HEADER *)Image;
-      DEBUG ((EFI_D_INFO, "Chunk #%d - Type: 0x%x Size: %d TotalSize: %d Offset %d\n",
-                  (Chunk+1), ChunkHeader->ChunkType, ChunkHeader->ChunkSize,
-                  ChunkHeader->TotalSize, Offset));
-      Image += sizeof(CHUNK_HEADER);
-      WriteSize=(SparseHeader->BlockSize) * ChunkHeader->ChunkSize;
-      switch (ChunkHeader->ChunkType) {
-        case CHUNK_TYPE_RAW:
-          DEBUG ((EFI_D_INFO, "Writing %d at Offset %d\n", WriteSize, Offset));
-          Status = DiskIo->WriteDisk (DiskIo, MediaId, Offset, WriteSize, Image);
-          if (EFI_ERROR (Status)) {
-            return Status;
-          }
-          Image+=WriteSize;
-          break;
-        case CHUNK_TYPE_DONT_CARE:
-          break;
-        case CHUNK_TYPE_CRC32:
-          break;
-        default:
-          DEBUG ((EFI_D_ERROR, "Unknown Chunk Type: 0x%x"));
-          return EFI_PROTOCOL_ERROR;
-      }
-      Offset += WriteSize;
-    }
-  } else {
-    Status = DiskIo->WriteDisk (DiskIo, MediaId, 0, Size, Image);
-    if (EFI_ERROR (Status)) {
-      return Status;
-    }
+  Status = DiskIo->WriteDisk (DiskIo, MediaId, 0, Size, Image);
+  if (EFI_ERROR (Status)) {
+    return Status;
   }
 
   BlockIo->FlushBlocks(BlockIo);
@@ -433,6 +403,15 @@ ArmFastbootPlatformFlashPartition (
   return Status;
 }
 
+/*
+  Erase the partition named PartitionName.
+
+  @param[in] PartitionName  Null-terminated name of partition to erase.
+
+  @retval EFI_NOT_FOUND     No such partition.
+  @retval EFI_DEVICE_ERROR  Erasing failed.
+*/
+STATIC
 EFI_STATUS
 ArmFastbootPlatformErasePartition (
   IN CHAR8 *Partition
@@ -441,6 +420,25 @@ ArmFastbootPlatformErasePartition (
   return EFI_SUCCESS;
 }
 
+/*
+  If the variable referred to by Name exists, copy it (as a null-terminated
+  string) into Value. If it doesn't exist, put the Empty string in Value.
+
+  Variable names and values may not be larger than 60 bytes, excluding the
+  terminal null character. This is a limitation of the Fastboot protocol.
+
+  The Fastboot application will handle platform-nonspecific variables
+  (Currently "version" is the only one of these.)
+
+  @param[in]  Name   Null-terminated name of Fastboot variable to retrieve.
+  @param[out] Value  Caller-allocated buffer for null-terminated value of
+                     variable.
+
+  @retval EFI_SUCCESS       The variable was retrieved, or it doesn't exist.
+  @retval EFI_DEVICE_ERROR  There was an error looking up the variable. This
+                            does _not_ include the variable not existing.
+*/
+STATIC
 EFI_STATUS
 ArmFastbootPlatformGetVar (
   IN  CHAR8   *Name,
@@ -448,13 +446,33 @@ ArmFastbootPlatformGetVar (
   )
 {
   if (AsciiStrCmp (Name, "product")) {
-    AsciiStrCpy (Value, FixedPcdGetPtr (PcdFirmwareVendor));
+    AsciiStrCpyS (Value, 61, FixedPcdGetPtr (PcdFirmwareVendor));
   } else {
     *Value = '\0';
   }
   return EFI_SUCCESS;
 }
 
+/*
+  React to an OEM-specific command.
+
+  Future versions of this function might want to allow the platform to do some
+  extra communication with the host. A way to do this would be to add a function
+  to the FASTBOOT_TRANSPORT_PROTOCOL that allows the implementation of
+  DoOemCommand to replace the ReceiveEvent with its own, and to restore the old
+  one when it's finished.
+
+  However at the moment although the specification allows it, the AOSP fastboot
+  host application doesn't handle receiving any data from the client, and it
+  doesn't support a data phase for OEM commands.
+
+  @param[in] Command    Null-terminated command string.
+
+  @retval EFI_SUCCESS       The command executed successfully.
+  @retval EFI_NOT_FOUND     The command wasn't recognised.
+  @retval EFI_DEVICE_ERROR  There was an error executing the command.
+*/
+STATIC
 EFI_STATUS
 ArmFastbootPlatformOemCommand (
   IN  CHAR8   *Command
@@ -462,7 +480,7 @@ ArmFastbootPlatformOemCommand (
 {
   CHAR16 CommandUnicode[65];
 
-  AsciiStrToUnicodeStr (Command, CommandUnicode);
+  AsciiStrToUnicodeStrS (Command, CommandUnicode, ARRAY_SIZE (CommandUnicode));
 
   if (AsciiStrCmp (Command, "Demonstrate") == 0) {
     DEBUG ((EFI_D_ERROR, "ARM OEM Fastboot command 'Demonstrate' received.\n"));
@@ -476,7 +494,7 @@ ArmFastbootPlatformOemCommand (
   }
 }
 
-FASTBOOT_PLATFORM_PROTOCOL mPlatformProtocol = {
+STATIC FASTBOOT_PLATFORM_PROTOCOL mPlatformProtocol = {
   ArmFastbootPlatformInit,
   ArmFastbootPlatformUnInit,
   ArmFastbootPlatformFlashPartition,

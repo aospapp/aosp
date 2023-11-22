@@ -23,7 +23,7 @@ import android.graphics.Color;
 import android.graphics.Outline;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.SmallTest;
@@ -45,11 +45,18 @@ public class ViewOutlineProviderTest {
         mContext = InstrumentationRegistry.getTargetContext();
     }
 
+    private void setViewLeftTopRightBottom(View view, int left, int top, int right, int bottom) {
+        view.setLeft(left);
+        view.setTop(top);
+        view.setRight(right);
+        view.setBottom(bottom);
+    }
+
     @UiThreadTest
     @Test
     public void testBackground() {
         View view = new View(mContext);
-        view.setLeftTopRightBottom(100, 200, 300, 400);
+        setViewLeftTopRightBottom(view, 100, 200, 300, 400);
 
         Outline outline = new Outline();
         outline.setAlpha(1.0f);
@@ -84,13 +91,13 @@ public class ViewOutlineProviderTest {
         Rect queryRect = new Rect();
         outline.setAlpha(0.123f);
 
-        view.setLeftTopRightBottom(1, 2, 3, 4);
+        setViewLeftTopRightBottom(view, 1, 2, 3, 4);
         ViewOutlineProvider.BOUNDS.getOutline(view, outline);
         outline.getRect(queryRect);
         assertEquals(new Rect(0, 0, 2, 2), queryRect); // local width/height
         assertEquals(0.123f, outline.getAlpha(), 0f); // alpha not changed
 
-        view.setLeftTopRightBottom(100, 200, 300, 400);
+        setViewLeftTopRightBottom(view, 100, 200, 300, 400);
         ViewOutlineProvider.BOUNDS.getOutline(view, outline);
         outline.getRect(queryRect);
         assertEquals(new Rect(0, 0, 200, 200), queryRect); // local width/height
@@ -106,7 +113,7 @@ public class ViewOutlineProviderTest {
         Rect queryRect = new Rect();
         outline.setAlpha(0.123f);
 
-        view.setLeftTopRightBottom(10, 20, 30, 40);
+        setViewLeftTopRightBottom(view, 10, 20, 30, 40);
         view.setPadding(0, 0, 0, 0);
         ViewOutlineProvider.PADDED_BOUNDS.getOutline(view, outline);
         outline.getRect(queryRect);

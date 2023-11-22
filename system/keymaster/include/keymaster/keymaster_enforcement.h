@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 
+#include <keymaster/android_keymaster_messages.h>
 #include <keymaster/authorization_set.h>
 
 namespace keymaster {
@@ -35,6 +36,8 @@ class KeymasterEnforcementContext {
 
 class AccessTimeMap;
 class AccessCountMap;
+struct HmacSharingParameters;
+struct HmacSharingParametersArray;
 
 class KeymasterEnforcement {
   public:
@@ -50,7 +53,7 @@ class KeymasterEnforcement {
      * the given operation params and handle. Used for encrypt, decrypt sign, and verify.
      */
     keymaster_error_t AuthorizeOperation(const keymaster_purpose_t purpose, const km_id_t keyid,
-                                         const AuthorizationSet& auth_set,
+                                         const AuthProxy& auth_set,
                                          const AuthorizationSet& operation_params,
                                          keymaster_operation_handle_t op_handle,
                                          bool is_begin_operation);
@@ -61,7 +64,7 @@ class KeymasterEnforcement {
      * the given operation params. Used for encrypt, decrypt sign, and verify.
      */
     keymaster_error_t AuthorizeBegin(const keymaster_purpose_t purpose, const km_id_t keyid,
-                                     const AuthorizationSet& auth_set,
+                                     const AuthProxy& auth_set,
                                      const AuthorizationSet& operation_params);
 
     /**
@@ -69,7 +72,7 @@ class KeymasterEnforcement {
      * return KM_ERROR_OK if all criteria is met for the given purpose in the authorization set with
      * the given operation params and handle. Used for encrypt, decrypt sign, and verify.
      */
-    keymaster_error_t AuthorizeUpdate(const AuthorizationSet& auth_set,
+    keymaster_error_t AuthorizeUpdate(const AuthProxy& auth_set,
                                       const AuthorizationSet& operation_params,
                                       keymaster_operation_handle_t op_handle) {
         return AuthorizeUpdateOrFinish(auth_set, operation_params, op_handle);
@@ -80,20 +83,11 @@ class KeymasterEnforcement {
      * return KM_ERROR_OK if all criteria is met for the given purpose in the authorization set with
      * the given operation params and handle. Used for encrypt, decrypt sign, and verify.
      */
-    keymaster_error_t AuthorizeFinish(const AuthorizationSet& auth_set,
+    keymaster_error_t AuthorizeFinish(const AuthProxy& auth_set,
                                       const AuthorizationSet& operation_params,
                                       keymaster_operation_handle_t op_handle) {
         return AuthorizeUpdateOrFinish(auth_set, operation_params, op_handle);
     }
-
-    /**
-     * Creates a key ID for use in subsequent calls to AuthorizeOperation.  Clients needn't use this
-     * method of creating key IDs, as long as they use something consistent and unique.  This method
-     * hashes the key blob.
-     *
-     * Returns false if an error in the crypto library prevents creation of an ID.
-     */
-    static bool CreateKeyId(const keymaster_key_blob_t& key_blob, km_id_t* keyid);
 
     //
     // Methods that must be implemented by subclasses
@@ -127,15 +121,31 @@ class KeymasterEnforcement {
     virtual bool auth_token_timed_out(const hw_auth_token_t& token, uint32_t timeout) const = 0;
 
     /*
+     * Get current time in milliseconds from some starting point.  This value is used to compute
+     * relative times between events.  It must be monotonically increasing, and must not skip or
+     * lag.  It need not have any relation to any external time standard (other than the duration of
+     * "second").
+     *
+     * On Linux systems, it's recommended to use clock_gettime(CLOCK_BOOTTIME, ...) to implement
+     * this method.  On non-Linux POSIX systems, CLOCK_MONOTONIC is good, assuming the device does
+     * not suspend.
+     */
+    virtual uint64_t get_current_time_ms() const = 0;
+
+    /*
      * Get current time in seconds from some starting point.  This value is used to compute relative
      * times between events.  It must be monotonically increasing, and must not skip or lag.  It
      * need not have any relation to any external time standard (other than the duration of
      * "second").
-     *
-     * On POSIX systems, it's recommented to use clock_gettime(CLOCK_MONOTONIC, ...) to implement
-     * this method.
      */
-    virtual uint32_t get_current_time() const = 0;
+    uint32_t get_current_time() const {
+        return static_cast<uint32_t>(get_current_time_ms() / 1000);  // Will wrap every 136 years
+    }
+
+    /*
+     * Returns the security level of this implementation.
+     */
+    virtual keymaster_security_level_t SecurityLevel() const = 0;
 
     /*
      * Returns true if the specified auth_token has a valid signature, or if signature validation is
@@ -143,16 +153,42 @@ class KeymasterEnforcement {
      */
     virtual bool ValidateTokenSignature(const hw_auth_token_t& token) const = 0;
 
+    /**
+     * Get the sharing parameters used to negotiate a shared HMAC key among multiple parties.
+     */
+    virtual keymaster_error_t GetHmacSharingParameters(HmacSharingParameters* params) = 0;
+
+    /**
+     * Compute an HMAC key shared among multiple parties.
+     */
+    virtual keymaster_error_t ComputeSharedHmac(const HmacSharingParametersArray& params_array,
+                                                KeymasterBlob* sharingCheck) = 0;
+
+    /**
+     * Verify authorizations for another Keymaster instance.
+     */
+    virtual VerifyAuthorizationResponse
+    VerifyAuthorization(const VerifyAuthorizationRequest& request) = 0;
+
+    /**
+     * Creates a key ID for use in subsequent calls to AuthorizeOperation.  AndroidKeymaster uses
+     * this method for creating key IDs. The generated id must be stable in that the same key_blob
+     * bits yield the same keyid.
+     *
+     * Returns false if an error in the crypto library prevents creation of an ID.
+     */
+    virtual bool CreateKeyId(const keymaster_key_blob_t& key_blob, km_id_t* keyid) const = 0;
+
   private:
-    keymaster_error_t AuthorizeUpdateOrFinish(const AuthorizationSet& auth_set,
+    keymaster_error_t AuthorizeUpdateOrFinish(const AuthProxy& auth_set,
                                               const AuthorizationSet& operation_params,
                                               keymaster_operation_handle_t op_handle);
 
     bool MinTimeBetweenOpsPassed(uint32_t min_time_between, const km_id_t keyid);
     bool MaxUsesPerBootNotExceeded(const km_id_t keyid, uint32_t max_uses);
-    bool AuthTokenMatches(const AuthorizationSet& auth_set,
-                          const AuthorizationSet& operation_params, const uint64_t user_secure_id,
-                          const int auth_type_index, const int auth_timeout_index,
+    bool AuthTokenMatches(const AuthProxy& auth_set, const AuthorizationSet& operation_params,
+                          const uint64_t user_secure_id, const int auth_type_index,
+                          const int auth_timeout_index,
                           const keymaster_operation_handle_t op_handle,
                           bool is_begin_operation) const;
 

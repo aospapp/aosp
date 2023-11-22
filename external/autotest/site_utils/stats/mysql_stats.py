@@ -19,16 +19,10 @@ import time
 import common
 
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros import retry
 
-try:
-    from chromite.lib import metrics
-    from chromite.lib import ts_mon_config
-except ImportError:
-    metrics = utils.metrics_mock
-    ts_mon_config = utils.metrics_mock
-
+from chromite.lib import metrics
+from chromite.lib import ts_mon_config
 
 AT_DIR='/usr/local/autotest'
 DEFAULT_USER = global_config.global_config.get_config_value(
@@ -37,27 +31,31 @@ DEFAULT_PASSWD = global_config.global_config.get_config_value(
         'CROS', 'db_backup_password', type=str, default='')
 
 LOOP_INTERVAL = 60
-GET_STATUS_SLEEP_SECONDS = 20
-GET_STATUS_MAX_TIMEOUT_SECONDS = 60 * 60
 
 EMITTED_STATUSES_COUNTERS = [
-    'bytes_received',
-    'bytes_sent',
-    'connections',
-    'Innodb_buffer_pool_read_requests',
-    'Innodb_buffer_pool_reads',
-    'Innodb_row_lock_time_avg',
-    'Innodb_row_lock_current_waits',
-    'questions',
-    'slow_queries',
-    'threads_created',
+        'bytes_received',
+        'bytes_sent',
+        'connections',
+        'Innodb_buffer_pool_read_requests',
+        'Innodb_buffer_pool_reads',
+        'Innodb_row_lock_waits',
+        'questions',
+        'slow_queries',
+        'threads_created',
 ]
 
-EMITTED_STATUS_GAUGES = ['threads_running', 'threads_connected']
+EMITTED_STATUS_GAUGES = [
+        'Innodb_row_lock_time_avg',
+        'Innodb_row_lock_current_waits',
+        'threads_running',
+        'threads_connected',
+]
 
 
-class MySQLConnection(object):
+class RetryingConnection(object):
     """Maintains a db connection and a cursor."""
+    INITIAL_SLEEP_SECONDS = 20
+    MAX_TIMEOUT_SECONDS = 60 * 60
 
     def __init__(self, *args, **kwargs):
         self.args = args
@@ -71,39 +69,48 @@ class MySQLConnection(object):
         self.cursor = self.db.cursor()
 
     def Reconnect(self):
-       """Attempts to close the connection, then reconnects."""
-       try:
-           self.cursor.close()
-           self.db.close()
-       except MySQLdb.Error:
-           pass
-       self.Connect()
+        """Attempts to close the connection, then reconnects."""
+        try:
+            self.cursor.close()
+            self.db.close()
+        except MySQLdb.Error:
+            pass
+        self.Connect()
+
+    def RetryWith(self, func):
+        """Run a function, retrying on OperationalError."""
+        return retry.retry(
+            MySQLdb.OperationalError,
+            delay_sec=self.INITIAL_SLEEP_SECONDS,
+            timeout_min=self.MAX_TIMEOUT_SECONDS,
+            callback=self.Reconnect
+        )(func)()
+
+    def Execute(self, *args, **kwargs):
+        """Runs .execute on the cursor, reconnecting on failure."""
+        def _Execute():
+            return self.cursor.execute(*args, **kwargs)
+        return self.RetryWith(_Execute)
+
+    def Fetchall(self):
+        """Runs .fetchall on the cursor."""
+        return self.cursor.fetchall()
 
 
 def GetStatus(connection, status):
-  """Get the status variable from the database, retrying on failure.
+    """Get the status variable from the database, retrying on failure.
 
-  @param connection: MySQLdb cursor to query with.
-  @param status: Name of the status variable.
-  @returns The mysql query result.
-  """
-  def _GetStatusWithoutRetry(connection, s):
-      """Gets the status variable from the database."""
-      connection.cursor.execute('SHOW GLOBAL STATUS LIKE "%s";' % s)
-      output = connection.cursor.fetchone()[1]
+    @param connection: MySQLdb cursor to query with.
+    @param status: Name of the status variable.
+    @returns The mysql query result.
+    """
+    connection.Execute('SHOW GLOBAL STATUS LIKE "%s";' % status)
+    output = connection.Fetchall()[0][1]
 
-      if not output:
-          logging.error('Cannot find any global status like %s', s)
-      return int(output)
+    if not output:
+        logging.error('Cannot find any global status like %s', status)
 
-  get_status = retry.retry(
-      MySQLdb.OperationalError,
-      delay_sec=GET_STATUS_SLEEP_SECONDS,
-      timeout_min=GET_STATUS_MAX_TIMEOUT_SECONDS,
-      callback=connection.Reconnect
-  )(_GetStatusWithoutRetry)
-
-  return get_status(connection, status)
+    return int(output)
 
 
 def QueryAndEmit(baselines, conn):
@@ -135,10 +142,12 @@ def QueryAndEmit(baselines, conn):
 def main():
     """Sets up ts_mon and repeatedly queries MySQL stats"""
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-    conn = MySQLConnection('localhost', DEFAULT_USER, DEFAULT_PASSWD)
+    conn = RetryingConnection('localhost', DEFAULT_USER, DEFAULT_PASSWD)
     conn.Connect()
 
-    with ts_mon_config.SetupTsMonGlobalState('mysql_stats', indirect=True):
+    # TODO(crbug.com/803566) Use indirect=False to mitigate orphan mysql_stats
+    # processes overwhelming shards.
+    with ts_mon_config.SetupTsMonGlobalState('mysql_stats', indirect=False):
       QueryLoop(conn)
 
 

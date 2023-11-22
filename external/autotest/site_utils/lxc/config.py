@@ -92,7 +92,6 @@ import os
 import socket
 
 import common
-from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils
 from autotest_lib.site_utils.lxc import constants
@@ -108,7 +107,7 @@ SSP_DEPLOY_SHADOW_CONFIG_FILE = os.path.join(common.autotest_dir,
                                              'ssp_deploy_shadow_config.json')
 # A temp folder used to store files to be appended to the files inside
 # container.
-APPEND_FOLDER = 'usr/local/ssp_append'
+_APPEND_FOLDER = '/usr/local/ssp_append'
 
 DeployConfig = collections.namedtuple(
         'DeployConfig', ['source', 'target', 'append', 'permission'])
@@ -229,10 +228,11 @@ class DeployConfigManager(object):
                                if 'append' in c]
         self.mount_configs = [self.validate_mount(c) for c in deploy_configs
                               if 'mount' in c]
-        self.tmp_append = os.path.join(self.container.rootfs, APPEND_FOLDER)
-        if lxc_utils.path_exists(self.tmp_append):
-            utils.run('sudo rm -rf "%s"' % self.tmp_append)
-        utils.run('sudo mkdir -p "%s"' % self.tmp_append)
+        tmp_append = os.path.join(self.container.rootfs,
+                                  _APPEND_FOLDER.lstrip(os.path.sep))
+        if lxc_utils.path_exists(tmp_append):
+            utils.run('sudo rm -rf "%s"' % tmp_append)
+        utils.run('sudo mkdir -p "%s"' % tmp_append)
 
 
     def _deploy_config_pre_start(self, deploy_config):
@@ -243,28 +243,17 @@ class DeployConfigManager(object):
         function.
 
         @param deploy_config: Config to be deployed.
-
         """
         if not lxc_utils.path_exists(deploy_config.source):
             return
         # Path to the target file relative to host.
         if deploy_config.append:
-            target = os.path.join(self.tmp_append,
+            target = os.path.join(_APPEND_FOLDER,
                                   os.path.basename(deploy_config.target))
         else:
-            target = os.path.join(self.container.rootfs,
-                                  deploy_config.target[1:])
-        # Recursively copy files/folder to the target. `-L` to always follow
-        # symbolic links in source.
-        target_dir = os.path.dirname(target)
-        if not lxc_utils.path_exists(target_dir):
-            utils.run('sudo mkdir -p "%s"' % target_dir)
-        source = deploy_config.source
-        # Make sure the source ends with `/.` if it's a directory. Otherwise
-        # command cp will not work.
-        if os.path.isdir(source) and source[-1] != '.':
-            source += '/.' if source[-1] != '/' else '.'
-        utils.run('sudo cp -RL "%s" "%s"' % (source, target))
+            target = deploy_config.target
+
+        self.container.copy(deploy_config.source, target)
 
 
     def _deploy_config_post_start(self, deploy_config):
@@ -280,7 +269,7 @@ class DeployConfigManager(object):
 
         """
         if deploy_config.append:
-            source = os.path.join('/', APPEND_FOLDER,
+            source = os.path.join(_APPEND_FOLDER,
                                   os.path.basename(deploy_config.target))
             self.container.attach_run('cat \'%s\' >> \'%s\'' %
                                       (source, deploy_config.target))

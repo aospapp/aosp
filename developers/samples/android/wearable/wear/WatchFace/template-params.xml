@@ -23,15 +23,18 @@
     <package>com.example.android.wearable.watchface</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>25</targetSdkVersion>
+    <targetSdkVersion>27</targetSdkVersion>
 
     <minSdkVersionWear>24</minSdkVersionWear>
     <compileSdkVersionWear>26</compileSdkVersionWear>
     <targetSdkVersionWear>26</targetSdkVersionWear>
 
-    <dependency>com.google.android.support:wearable:2.0.3</dependency>
-    <dependency_wearable>com.android.support:palette-v7:26.0.0</dependency_wearable>
-    <dependency_wearable>com.android.support:wear:26.0.0</dependency_wearable>
+    <multiDexEnabled>true</multiDexEnabled>
+
+
+    <dependency>com.google.android.support:wearable:2.3.0</dependency>
+    <dependency_wearable>com.android.support:palette-v7:27.1.0</dependency_wearable>
+    <dependency_wearable>com.android.support:wear:27.1.0</dependency_wearable>
 
 
     <wearable>
@@ -41,8 +44,8 @@
     <strings>
         <intro>
 <![CDATA[
-This sample demonstrates how to create watch faces for android wear and use complications with your
-Wear 2.0 watch faces.
+This sample demonstrates how to create watch faces for Wear and use complications
+with your Wear 2.0 watch faces.
 ]]>
         </intro>
     </strings>
@@ -91,7 +94,7 @@ Wear 2.0 watch faces.
 
         <intro>
 <![CDATA[
-This sample demonstrates how to create watch faces for Android Wear.
+This sample demonstrates how to create watch faces for Wear.
 
 The analog watch face covers best practices for Wear 2.0 including complications and a new
 configuration Activity for configuring both the watch face styles and the complications themselves.

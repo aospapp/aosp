@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2002-2012 Broadcom Corporation
+ *  Copyright 2002-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -79,8 +79,13 @@ typedef uint16_t tBTA_HH_EVT;
 
 #if (BTA_HH_LE_INCLUDED == TRUE)
 /* GATT_MAX_PHY_CHANNEL can not exceed 14 for the design of BTA HH */
+#if GATT_MAX_PHY_CHANNEL > 14
+#define BTA_HH_LE_MAX_KNOWN 14
+#else
 #define BTA_HH_LE_MAX_KNOWN GATT_MAX_PHY_CHANNEL
-#define BTA_HH_MAX_DEVICE (HID_HOST_MAX_DEVICES + GATT_MAX_PHY_CHANNEL)
+#endif
+
+#define BTA_HH_MAX_DEVICE (HID_HOST_MAX_DEVICES + BTA_HH_LE_MAX_KNOWN)
 #else
 #define BTA_HH_MAX_DEVICE HID_HOST_MAX_DEVICES
 #endif

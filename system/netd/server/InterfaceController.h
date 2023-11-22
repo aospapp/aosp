@@ -21,6 +21,7 @@
 #include <string>
 
 #include <netdutils/Status.h>
+#include <netdutils/StatusOr.h>
 
 // TODO: move InterfaceController into android::net namespace.
 namespace android {
@@ -39,7 +40,6 @@ public:
     static int setAcceptIPv6Dad(const char *interface, const int on);
     static int setIPv6DadTransmits(const char *interface, const char *value);
     static int setIPv6PrivacyExtensions(const char *interface, const int on);
-    static int setIPv6NdOffload(char* interface, const int on);
     static int setMtu(const char *interface, const char *mtu);
     static int addAddress(const char *interface, const char *addrString, int prefixLength);
     static int delAddress(const char *interface, const char *addrString, int prefixLength);
@@ -52,6 +52,9 @@ public:
     static int setParameter(
             const char *family, const char *which, const char *interface, const char *parameter,
             const char *value);
+
+    static android::netdutils::StatusOr<std::vector<std::string>> getIfaceNames();
+    static android::netdutils::StatusOr<std::map<std::string, uint32_t>> getIfaceList();
 
 private:
   friend class android::net::StablePrivacyTest;

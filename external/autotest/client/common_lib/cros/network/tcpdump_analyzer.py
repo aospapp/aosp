@@ -11,6 +11,7 @@ PYSHARK_LOAD_TIMEOUT = 2
 FRAME_FIELD_RADIOTAP_DATARATE = 'radiotap.datarate'
 FRAME_FIELD_RADIOTAP_MCS_INDEX = 'radiotap.mcs_index'
 FRAME_FIELD_WLAN_FRAME_TYPE = 'wlan.fc_type_subtype'
+FRAME_FIELD_WLAN_SOURCE_ADDR = 'wlan.sa'
 FRAME_FIELD_WLAN_MGMT_SSID = 'wlan_mgt.ssid'
 RADIOTAP_KNOWN_BAD_FCS_REJECTOR = (
     'not radiotap.flags.badfcs or radiotap.flags.badfcs==0')
@@ -28,11 +29,12 @@ class Frame(object):
     TIME_FORMAT = "%H:%M:%S.%f"
 
 
-    def __init__(self, frametime, bit_rate, mcs_index, ssid):
+    def __init__(self, frametime, bit_rate, mcs_index, ssid, source_addr):
         self._datetime = frametime
         self._bit_rate = bit_rate
         self._mcs_index = mcs_index
         self._ssid = ssid
+        self._source_addr = source_addr
 
 
     @property
@@ -66,6 +68,12 @@ class Frame(object):
         The value may be None, if the frame does not have an SSID.
         """
         return self._ssid
+
+
+    @property
+    def source_addr(self):
+        """The source address of the frame, as a string."""
+        return self._source_addr
 
 
     @property
@@ -149,6 +157,9 @@ def get_frames(local_pcap_path, display_filter, bad_fcs):
         if mcs_index:
             mcs_index = int(mcs_index)
 
+        source_addr = _fetch_frame_field_value(
+            frame, FRAME_FIELD_WLAN_SOURCE_ADDR)
+
         # Get the SSID for any probe requests
         frame_type = _fetch_frame_field_value(
             frame, FRAME_FIELD_WLAN_FRAME_TYPE)
@@ -162,7 +173,7 @@ def get_frames(local_pcap_path, display_filter, bad_fcs):
         else:
             ssid = None
 
-        frames.append(Frame(frametime, rate, mcs_index, ssid))
+        frames.append(Frame(frametime, rate, mcs_index, ssid, source_addr))
 
     return frames
 

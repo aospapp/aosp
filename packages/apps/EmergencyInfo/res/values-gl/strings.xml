@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Queres borrar toda a información e os contactos?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Engadir contactos de urxencia e información médica pode resultar útil para os servizos de urxencias en caso dunha urxencia.\n\nCalquera persoa pode ler esta información na túa pantalla de bloqueo e tocar os nomes dos contactos para marcar os seus números sen necesidade de desbloquear o teléfono."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Engade información de urxencia"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Axuda aos servizos de urxencia a atopar información importante"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Permite que o servizo de urxencias vexa os teus datos"</string>
 </resources>

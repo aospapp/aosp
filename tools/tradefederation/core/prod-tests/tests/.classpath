@@ -6,5 +6,6 @@
 	<classpathentry combineaccessrules="false" kind="src" path="/tf-prod-tests"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/tradefederation"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/ddmlib"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/host/common/obj/JAVA_LIBRARIES/host-libprotobuf-java-full_intermediates/classes.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

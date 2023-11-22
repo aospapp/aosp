@@ -17,8 +17,10 @@
 #ifndef ART_COMPILER_UTILS_ARM_JNI_MACRO_ASSEMBLER_ARM_VIXL_H_
 #define ART_COMPILER_UTILS_ARM_JNI_MACRO_ASSEMBLER_ARM_VIXL_H_
 
+#include <android-base/logging.h>
+
 #include "base/arena_containers.h"
-#include "base/logging.h"
+#include "base/macros.h"
 #include "constants_arm.h"
 #include "offsets.h"
 #include "utils/arm/assembler_arm_shared.h"
@@ -35,9 +37,9 @@ class ArmVIXLJNIMacroAssembler FINAL
  private:
   class ArmException;
  public:
-  explicit ArmVIXLJNIMacroAssembler(ArenaAllocator* arena)
-      : JNIMacroAssemblerFwd(arena),
-        exception_blocks_(arena->Adapter(kArenaAllocAssembler)) {}
+  explicit ArmVIXLJNIMacroAssembler(ArenaAllocator* allocator)
+      : JNIMacroAssemblerFwd(allocator),
+        exception_blocks_(allocator->Adapter(kArenaAllocAssembler)) {}
 
   virtual ~ArmVIXLJNIMacroAssembler() {}
   void FinalizeCode() OVERRIDE;
@@ -54,7 +56,8 @@ class ArmVIXLJNIMacroAssembler FINAL
 
   // Emit code that will remove an activation from the stack.
   void RemoveFrame(size_t frame_size,
-                   ArrayRef<const ManagedRegister> callee_save_regs) OVERRIDE;
+                   ArrayRef<const ManagedRegister> callee_save_regs,
+                   bool may_suspend) OVERRIDE;
 
   void IncreaseFrameSize(size_t adjust) OVERRIDE;
   void DecreaseFrameSize(size_t adjust) OVERRIDE;
@@ -231,7 +234,7 @@ class ArmVIXLJNIMacroAssembler FINAL
 class ArmVIXLJNIMacroLabel FINAL
     : public JNIMacroLabelCommon<ArmVIXLJNIMacroLabel,
                                  vixl32::Label,
-                                 kArm> {
+                                 InstructionSet::kArm> {
  public:
   vixl32::Label* AsArm() {
     return AsPlatformLabel();

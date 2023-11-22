@@ -24,7 +24,7 @@ from PyQt4.QtGui import *
 
 import VehicleHalProto_pb2
 from vhal_emulator import Vhal
-import vhal_consts_2_1 as c
+import vhal_consts_2_0 as c
 
 
 # Define a simple thread that receives messages from a vhal object (v) and prints them

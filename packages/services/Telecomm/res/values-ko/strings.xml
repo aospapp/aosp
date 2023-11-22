@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"다른 앱에서 통화 중이므로 전화를 걸 수 없습니다."</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"수신 전화"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"부재중 전화"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"통화 차단"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"이 전화를 걸면 현재 <xliff:g id="OTHER_APP">%1$s</xliff:g>에서 진행 중인 통화가 종료됩니다."</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"통화 차단"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"연락처에 없는 번호"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"연락처에 없는 번호 차단"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"익명"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"전화번호를 공개하지 않는 발신자 차단"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"공중전화"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"공중전화에서 걸려 온 통화 차단"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"알 수 없는 발신자"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"신원을 확인할 수 없는 발신자로부터 걸려 온 통화 차단"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"통화 차단"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"통화 차단이 사용 중지됨"</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"긴급 통화가 사용됨"</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"응급 구조 요원이 연락할 수 있도록 통화 차단이 사용 중지되었습니다."</string>
 </resources>

@@ -42,15 +42,16 @@ import android.app.assist.AssistStructure.ViewNode;
 import android.autofillservice.cts.CannedFillResponse.CannedDataset;
 import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
 import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
+import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.CharSequenceTransformation;
 import android.service.autofill.CustomDescription;
+import android.service.autofill.ImageTransformation;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiObject2;
 import android.widget.ArrayAdapter;
 import android.widget.RemoteViews;
 import android.widget.Spinner;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -72,11 +73,6 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
     @Before
     public void setActivity() {
         mActivity = mActivityRule.getActivity();
-    }
-
-    @After
-    public void finishWelcomeActivity() {
-        WelcomeActivity.finishIt();
     }
 
     @Test
@@ -112,13 +108,14 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
                 .inOrder();
 
         // Auto-fill it.
-        sUiBot.selectDataset("ACME CC");
+        mUiBot.selectDataset("ACME CC");
 
         // Check the results.
         mActivity.assertAutoFilled();
     }
 
     @Test
+    @AppModeFull // testAutofill() is enough to test ephemeral apps support
     public void testAutofillDynamicAdapter() throws Exception {
         // Set activity.
         mActivity.onCcExpiration((v) -> v.setAdapter(new ArrayAdapter<String>(getContext(),
@@ -152,7 +149,7 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
         assertWithMessage("ccExpirationNode.getAutoFillOptions()").that(options).isNull();
 
         // Auto-fill it.
-        sUiBot.selectDataset("ACME CC");
+        mUiBot.selectDataset("ACME CC");
 
         // Check the results.
         mActivity.assertAutoFilled();
@@ -161,6 +158,7 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
     // TODO: this should be a pure unit test exercising onProvideAutofillStructure(),
     // but that would require creating a custom ViewStructure.
     @Test
+    @AppModeFull // Unit test
     public void testGetAutofillOptionsSorted() throws Exception {
         // Set service.
         enableService();
@@ -195,7 +193,7 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
                 .containsExactly("never", "today", "tomorrow", "yesterday").inOrder();
 
         // Auto-fill it.
-        sUiBot.selectDataset("ACME CC");
+        mUiBot.selectDataset("ACME CC");
 
         // Check the results.
         mActivity.assertAutoFilled();
@@ -235,7 +233,7 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
         mActivity.onAddress((v) -> v.check(R.id.work_address));
         mActivity.onSaveCc((v) -> v.setChecked(false));
         mActivity.tapBuy();
-        sUiBot.saveForAutofill(true, SAVE_DATA_TYPE_CREDIT_CARD);
+        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_CREDIT_CARD);
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
 
         // Assert sanitization on save: everything should be available!
@@ -249,11 +247,22 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
         assertToggleValue(findNodeByResourceId(saveRequest.structure, ID_SAVE_CC), false);
     }
 
+    @Test
+    @AppModeFull // Service-specific test
+    public void testCustomizedSaveUi() throws Exception {
+        customizedSaveUi(false);
+    }
+
+    @Test
+    @AppModeFull // Service-specific test
+    public void testCustomizedSaveUiWithContentDescription() throws Exception {
+        customizedSaveUi(true);
+    }
+
     /**
      * Tests that a spinner can be used on custom save descriptions.
      */
-    @Test
-    public void testCustomizedSaveUi() throws Exception {
+    private void customizedSaveUi(boolean withContentDescription) throws Exception {
         // Set service.
         enableService();
 
@@ -268,9 +277,18 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
         final CharSequenceTransformation trans2 = new CharSequenceTransformation
                 .Builder(mActivity.getCcExpiration().getAutofillId(), Pattern.compile("(.*)"), "$1")
                 .build();
+        final ImageTransformation trans3 = (withContentDescription
+                ? new ImageTransformation.Builder(mActivity.getCcNumber().getAutofillId(),
+                        Pattern.compile("(.*)"), R.drawable.android,
+                        "One image is worth thousand words")
+                : new ImageTransformation.Builder(mActivity.getCcNumber().getAutofillId(),
+                        Pattern.compile("(.*)"), R.drawable.android))
+                .build();
+
         final CustomDescription customDescription = new CustomDescription.Builder(presentation)
                 .addChild(R.id.first, trans1)
                 .addChild(R.id.second, trans2)
+                .addChild(R.id.img, trans3)
                 .build();
 
         sReplier.addResponse(new CannedFillResponse.Builder()
@@ -291,10 +309,10 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
         mActivity.tapBuy();
 
         // First make sure the UI is shown...
-        final UiObject2 saveUi = sUiBot.assertSaveShowing(SAVE_DATA_TYPE_CREDIT_CARD);
+        final UiObject2 saveUi = mUiBot.assertSaveShowing(SAVE_DATA_TYPE_CREDIT_CARD);
 
         // Then make sure it does have the custom views on it...
-        final UiObject2 staticText = saveUi.findObject(By.res(packageName, "static_text"));
+        final UiObject2 staticText = saveUi.findObject(By.res(packageName, Helper.ID_STATIC_TEXT));
         assertThat(staticText).isNotNull();
         assertThat(staticText.getText()).isEqualTo("YO:");
 
@@ -305,6 +323,15 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
         final UiObject2 expiration = saveUi.findObject(By.res(packageName, "second"));
         assertThat(expiration).isNotNull();
         assertThat(expiration.getText()).isEqualTo("today");
+
+        final UiObject2 image = saveUi.findObject(By.res(packageName, "img"));
+        assertThat(image).isNotNull();
+        final String contentDescription = image.getContentDescription();
+        if (withContentDescription) {
+            assertThat(contentDescription).isEqualTo("One image is worth thousand words");
+        } else {
+            assertThat(contentDescription).isNull();
+        }
     }
 
     /**
@@ -353,9 +380,9 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
         mActivity.tapBuy();
 
         // First make sure the UI is shown...
-        final UiObject2 saveUi = sUiBot.assertSaveShowing(SAVE_DATA_TYPE_CREDIT_CARD);
+        final UiObject2 saveUi = mUiBot.assertSaveShowing(SAVE_DATA_TYPE_CREDIT_CARD);
 
         // Then make sure it does not have the custom views on it...
-        assertThat(saveUi.findObject(By.res(packageName, "static_text"))).isNull();
+        assertThat(saveUi.findObject(By.res(packageName, Helper.ID_STATIC_TEXT))).isNull();
     }
 }

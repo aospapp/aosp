@@ -61,6 +61,14 @@
 @r9 =>  wd
 @r10=>  ht
 
+.equ    pu1_src_top_left_offset,    104
+.equ    sao_band_pos_u_offset,      108
+.equ    sao_band_pos_v_offset,      112
+.equ    pi1_sao_u_offset,           116
+.equ    pi1_sao_v_offset,           120
+.equ    wd_offset,                  124
+.equ    ht_offset,                  128
+
 .text
 .p2align 2
 
@@ -76,10 +84,11 @@ gu1_table_band_idx_addr_2:
 ihevc_sao_band_offset_chroma_a9q:
 
     STMFD       sp!, {r4-r12, r14}          @stack stores the values of the arguments
-    LDR         r4,[sp,#40]                 @Loads pu1_src_top_left
-    LDR         r10,[sp,#64]                @Loads ht
+    vpush       {d8  -  d15}
+    LDR         r4,[sp,#pu1_src_top_left_offset]    @Loads pu1_src_top_left
+    LDR         r10,[sp,#ht_offset]         @Loads ht
 
-    LDR         r9,[sp,#60]                 @Loads wd
+    LDR         r9,[sp,#wd_offset]          @Loads wd
     MOV         r11,r10                     @Move the ht to r9 for loop counter
 
     ADD         r12,r0,r9                   @pu1_src[row * src_strd + (wd)]
@@ -94,7 +103,7 @@ SRC_LEFT_LOOP:
     STRH        r5,[r2],#2                  @Store the value in pu1_src_left pointer
     BNE         SRC_LEFT_LOOP
 
-    LDR         r5,[sp,#44]                 @Loads sao_band_pos_u
+    LDR         r5,[sp,#sao_band_pos_u_offset]  @Loads sao_band_pos_u
     VLD1.8      D1,[r14]!                   @band_table_u.val[0]
     ADD         r12,r3,r9                   @pu1_src_top[wd]
 
@@ -104,7 +113,7 @@ SRC_LEFT_LOOP:
 
     STRH        r11,[r4]                    @store to pu1_src_top_left[0]
     VLD1.8      D3,[r14]!                   @band_table_u.val[2]
-    LDR         r7,[sp,#52]                 @Loads pi1_sao_offset_u
+    LDR         r7,[sp,#pi1_sao_u_offset]   @Loads pi1_sao_offset_u
 
     SUB         r4,r10,#1                   @ht-1
     VDUP.8      D31,r6                      @band_pos_u
@@ -147,7 +156,7 @@ ulbl2:
     VLD1.8      D10,[r14]!                  @band_table_v.val[1]
     VADD.I8     D3,D7,D27                   @band_table_u.val[2] = vadd_u8(band_table_u.val[2], vdup_n_u8(pi1_sao_offset_u[3]))
 
-    LDR         r6,[sp,#48]                 @Loads sao_band_pos_v
+    LDR         r6,[sp,#sao_band_pos_v_offset]  @Loads sao_band_pos_v
     VADD.I8     D4,D8,D26                   @band_table_u.val[3] = vadd_u8(band_table_u.val[3], vdup_n_u8(pi1_sao_offset_u[4]))
     LSL         r11,r6,#3                   @sao_band_pos_v
 
@@ -198,7 +207,7 @@ SAO_BAND_POS_U_0:
 
 SWITCH_BREAK_U:
     VDUP.8      D30,r11                     @band_pos_v
-    LDR         r8,[sp,#56]                 @Loads pi1_sao_offset_v
+    LDR         r8,[sp,#pi1_sao_v_offset]   @Loads pi1_sao_offset_v
 
     VLD1.8      D11,[r14]!                  @band_table_v.val[2]
     VADD.I8     D13,D9,D30                  @band_table_v.val[0] = vadd_u8(band_table_v.val[0], band_pos_v)
@@ -387,6 +396,7 @@ WIDTH_RESIDUE:                              @If width is not multiple of 16
     BNE         WIDTH_RESIDUE
 
 END_LOOP:
+    vpop        {d8  -  d15}
     LDMFD       sp!,{r4-r12,r15}            @Reload the registers from SP
 
 

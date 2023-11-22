@@ -59,11 +59,11 @@ public class JmhEngineWrapBenchmark {
     @Param
     public BufferType b_buffer;
 
-    @Param({"64", "512", "4096"})
+    @Param({"128", "4096"})
     public int c_message;
 
     @Param
-    public EngineType d_engine;
+    public OpenJdkEngineFactory d_engine;
 
     private EngineWrapBenchmark benchmark;
 
@@ -95,7 +95,7 @@ public class JmhEngineWrapBenchmark {
         }
 
         @Override
-        public EngineType engineType() {
+        public EngineFactory engineFactory() {
             return d_engine;
         }
 

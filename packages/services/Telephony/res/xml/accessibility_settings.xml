@@ -32,4 +32,14 @@
         android:persistent="true"
         android:summary="@string/hac_mode_summary"/>
 
+    <SwitchPreference
+        android:key="button_rtt_key"
+        android:title="@string/rtt_mode_title"
+        android:persistent="true"
+        android:summary="@string/rtt_mode_summary"/>
+
+    <com.android.phone.settings.TextViewPreference
+        android:key="button_rtt_more_information_key"
+        android:title="@string/rtt_mode_more_information"/>
+
 </PreferenceScreen>

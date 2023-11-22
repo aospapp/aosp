@@ -25,10 +25,8 @@ import com.android.tradefed.targetprep.TargetSetupError;
 import java.util.Map;
 import java.util.Map.Entry;
 
-/**
- * An example implementation of a {@link IMultiTargetPreparer}.
- */
-public class HelloWorldMultiTargetPreparer implements IMultiTargetPreparer {
+/** An example implementation of a {@link IMultiTargetPreparer}. */
+public class HelloWorldMultiTargetPreparer extends BaseMultiTargetPreparer {
 
     /**
      * {@inheritDoc}

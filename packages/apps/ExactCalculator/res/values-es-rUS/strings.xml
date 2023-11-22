@@ -21,9 +21,9 @@
     <string name="dec_point" msgid="8920102493070918054">"."</string>
     <string name="mode_deg" msgid="1146123354434332479">"º"</string>
     <string name="mode_rad" msgid="1434228830085760996">"rad"</string>
-    <string name="clr" msgid="6730945431543327337">"be"</string>
+    <string name="clr" msgid="6730945431543327337">"BT"</string>
     <string name="cleared" msgid="3952521190281880880">"borrados"</string>
-    <string name="del" msgid="5878069000864178910">"c"</string>
+    <string name="del" msgid="5878069000864178910">"BC"</string>
     <string name="desc_const_e" msgid="1889187337970539507">"número de Euler"</string>
     <string name="desc_const_pi" msgid="5430918714009441655">"pi"</string>
     <string name="desc_dec_point" msgid="5725254504360445023">"punto"</string>

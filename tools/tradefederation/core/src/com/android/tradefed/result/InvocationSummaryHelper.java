@@ -15,6 +15,8 @@
  */
 package com.android.tradefed.result;
 
+import com.android.tradefed.log.LogUtil.CLog;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,11 +38,18 @@ public class InvocationSummaryHelper {
              * value, we gather it to pass to the SummaryListeners below.
              */
             if (!(listener instanceof ITestSummaryListener)) {
-                listener.invocationEnded(elapsedTime);
-                TestSummary summary = listener.getSummary();
-                if (summary != null) {
-                    summary.setSource(listener.getClass().getName());
-                    summaries.add(summary);
+                try {
+                    listener.invocationEnded(elapsedTime);
+                    TestSummary summary = listener.getSummary();
+                    if (summary != null) {
+                        summary.setSource(listener.getClass().getName());
+                        summaries.add(summary);
+                    }
+                } catch (RuntimeException e) {
+                    CLog.e(
+                            "RuntimeException while invoking invocationEnded on %s",
+                            listener.getClass().getName());
+                    CLog.e(e);
                 }
             }
         }
@@ -52,8 +61,15 @@ public class InvocationSummaryHelper {
          */
         for (ITestInvocationListener listener : listeners) {
             if (listener instanceof ITestSummaryListener) {
-                ((ITestSummaryListener) listener).putSummary(summaries);
-                listener.invocationEnded(elapsedTime);
+                try {
+                    ((ITestSummaryListener) listener).putSummary(summaries);
+                    listener.invocationEnded(elapsedTime);
+                } catch (RuntimeException e) {
+                    CLog.e(
+                            "RuntimeException while invoking invocationEnded on %s",
+                            listener.getClass().getName());
+                    CLog.e(e);
+                }
             }
         }
     }

@@ -10,6 +10,11 @@
 #include "core/fpdfapi/parser/cpdf_dictionary.h"
 #include "core/fpdfdoc/cpdf_action.h"
 
+CPDF_ActionFields::CPDF_ActionFields(const CPDF_Action* pAction)
+    : m_pAction(pAction) {}
+
+CPDF_ActionFields::~CPDF_ActionFields() {}
+
 size_t CPDF_ActionFields::GetFieldsCount() const {
   if (!m_pAction)
     return 0;
@@ -18,7 +23,7 @@ size_t CPDF_ActionFields::GetFieldsCount() const {
   if (!pDict)
     return 0;
 
-  CFX_ByteString csType = pDict->GetStringFor("S");
+  ByteString csType = pDict->GetStringFor("S");
   CPDF_Object* pFields = nullptr;
   if (csType == "Hide")
     pFields = pDict->GetDirectObjectFor("T");
@@ -45,7 +50,7 @@ std::vector<CPDF_Object*> CPDF_ActionFields::GetAllFields() const {
   if (!pDict)
     return fields;
 
-  CFX_ByteString csType = pDict->GetStringFor("S");
+  ByteString csType = pDict->GetStringFor("S");
   CPDF_Object* pFields;
   if (csType == "Hide")
     pFields = pDict->GetDirectObjectFor("T");
@@ -75,7 +80,7 @@ CPDF_Object* CPDF_ActionFields::GetField(size_t iIndex) const {
   if (!pDict)
     return nullptr;
 
-  CFX_ByteString csType = pDict->GetStringFor("S");
+  ByteString csType = pDict->GetStringFor("S");
   CPDF_Object* pFields = nullptr;
   if (csType == "Hide")
     pFields = pDict->GetDirectObjectFor("T");

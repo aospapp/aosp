@@ -20,6 +20,7 @@ cc_library_shared {
         "ASensorEventQueue.cpp",
         "ASensorManager.cpp",
     ],
+    cflags: ["-Wall", "-Werror"],
     shared_libs: [
         "libbase",
         "libhidlbase",

@@ -45,7 +45,7 @@
 #define PWARNING PLOG(WARNING) << FS_MGR_TAG
 #define PERROR   PLOG(ERROR) << FS_MGR_TAG
 
-#define CRYPTO_TMPFS_OPTIONS "size=256m,mode=0771,uid=1000,gid=1000"
+#define CRYPTO_TMPFS_OPTIONS "size=512m,mode=0771,uid=1000,gid=1000"
 
 /* fstab has the following format:
  *
@@ -109,7 +109,8 @@
 #define MF_ERASEBLKSIZE     0x800000
 #define MF_LOGICALBLKSIZE  0X1000000
 #define MF_AVB             0X2000000
-#define MF_KEYDIRECTORY 0X4000000
+#define MF_KEYDIRECTORY    0X4000000
+#define MF_SYSFS           0X8000000
 
 #define DM_BUF_SIZE 4096
 
@@ -122,7 +123,6 @@ bool fs_mgr_update_for_slotselect(struct fstab *fstab);
 bool fs_mgr_is_device_unlocked();
 const std::string& get_android_dt_dir();
 bool is_dt_compatible();
-bool is_device_secure();
 int load_verity_state(struct fstab_rec* fstab, int* mode);
 
 #endif /* __CORE_FS_MGR_PRIV_H */

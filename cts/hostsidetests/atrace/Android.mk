@@ -28,6 +28,9 @@ LOCAL_CTS_TEST_PACKAGE := android.host.atrace
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
+# Enforce public / test api only
+LOCAL_SDK_VERSION := test_current
+
 include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

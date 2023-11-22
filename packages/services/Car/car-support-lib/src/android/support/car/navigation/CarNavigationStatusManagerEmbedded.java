@@ -36,39 +36,25 @@ public class CarNavigationStatusManagerEmbedded extends CarNavigationStatusManag
      */
     @Override
     public void sendNavigationStatus(int status) throws CarNotConnectedException {
-        try {
-            mManager.sendNavigationStatus(status);
-        } catch (android.car.CarNotConnectedException e) {
-           throw new CarNotConnectedException(e);
-        }
+        // Not implemented in embedded.
     }
 
     @Override
     public void sendNavigationTurnEvent(int event, CharSequence eventName, int turnAngle,
             int turnNumber, int turnSide) throws CarNotConnectedException {
-        sendNavigationTurnEvent(event, eventName, turnAngle, turnNumber, null, turnSide);
+        // Not implemented in embedded.
     }
 
     @Override
     public void sendNavigationTurnEvent(int event, CharSequence eventName, int turnAngle,
             int turnNumber, Bitmap image, int turnSide) throws CarNotConnectedException {
-        try {
-            mManager.sendNavigationTurnEvent(event, eventName, turnAngle, turnNumber, image,
-                    turnSide);
-        } catch (android.car.CarNotConnectedException e) {
-            throw new CarNotConnectedException(e);
-        }
+        // Not implemented in embedded.
     }
 
     @Override
     public void sendNavigationTurnDistanceEvent(int distanceMeters, int timeSeconds,
             int displayDistanceMillis, int displayDistanceUnit) throws CarNotConnectedException {
-        try {
-            mManager.sendNavigationTurnDistanceEvent(distanceMeters, timeSeconds,
-                    displayDistanceMillis, displayDistanceUnit);
-        } catch (android.car.CarNotConnectedException e) {
-            throw new CarNotConnectedException(e);
-        }
+        // Not implemented in embedded.
     }
 
     @Override

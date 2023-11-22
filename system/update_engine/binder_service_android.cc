@@ -24,6 +24,7 @@
 
 using android::binder::Status;
 using android::os::IUpdateEngineCallback;
+using update_engine::UpdateEngineStatus;
 
 namespace {
 Status ErrorPtrToStatus(const brillo::ErrorPtr& error) {
@@ -40,13 +41,9 @@ BinderUpdateEngineAndroidService::BinderUpdateEngineAndroidService(
 }
 
 void BinderUpdateEngineAndroidService::SendStatusUpdate(
-    int64_t /* last_checked_time */,
-    double progress,
-    update_engine::UpdateStatus status,
-    const std::string& /* new_version  */,
-    int64_t /* new_size */) {
-  last_status_ = static_cast<int>(status);
-  last_progress_ = progress;
+    const UpdateEngineStatus& update_engine_status) {
+  last_status_ = static_cast<int>(update_engine_status.status);
+  last_progress_ = update_engine_status.progress;
   for (auto& callback : callbacks_) {
     callback->onStatusUpdate(last_status_, last_progress_);
   }
@@ -138,6 +135,20 @@ Status BinderUpdateEngineAndroidService::cancel() {
 Status BinderUpdateEngineAndroidService::resetStatus() {
   brillo::ErrorPtr error;
   if (!service_delegate_->ResetStatus(&error))
+    return ErrorPtrToStatus(error);
+  return Status::ok();
+}
+
+Status BinderUpdateEngineAndroidService::verifyPayloadApplicable(
+    const android::String16& metadata_filename, bool* return_value) {
+  const std::string payload_metadata{
+      android::String8{metadata_filename}.string()};
+  LOG(INFO) << "Received a request of verifying payload metadata in "
+            << payload_metadata << ".";
+  brillo::ErrorPtr error;
+  *return_value =
+      service_delegate_->VerifyPayloadApplicable(payload_metadata, &error);
+  if (error != nullptr)
     return ErrorPtrToStatus(error);
   return Status::ok();
 }

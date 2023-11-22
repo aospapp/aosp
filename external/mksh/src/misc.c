@@ -5,6 +5,8 @@
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
  *		 2011, 2012, 2013, 2014, 2015, 2016, 2017
  *	mirabilos <m@mirbsd.org>
+ * Copyright (c) 2015
+ *	Daniel Richard G. <skunk@iSKUNK.ORG>
  *
  * Provided that these terms and disclaimer and all copyright notices
  * are retained or reproduced in an accompanying document, permission
@@ -30,7 +32,7 @@
 #include <grp.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/misc.c,v 1.255 2017/04/12 16:46:22 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/misc.c,v 1.291 2018/01/14 00:03:03 tg Exp $");
 
 #define KSH_CHVT_FLAG
 #ifdef MKSH_SMALL
@@ -47,7 +49,8 @@ unsigned char chtypes[UCHAR_MAX + 1];
 static const unsigned char *pat_scan(const unsigned char *,
     const unsigned char *, bool) MKSH_A_PURE;
 static int do_gmatch(const unsigned char *, const unsigned char *,
-    const unsigned char *, const unsigned char *) MKSH_A_PURE;
+    const unsigned char *, const unsigned char *,
+    const unsigned char *) MKSH_A_PURE;
 static const unsigned char *gmatch_cclass(const unsigned char *, unsigned char)
     MKSH_A_PURE;
 #ifdef KSH_CHVT_CODE
@@ -68,37 +71,6 @@ static int make_path(const char *, const char *, char **, XString *, int *);
 #define DO_SETUID(func, argvec) func argvec
 #endif
 
-/*
- * Fast character classes
- */
-void
-setctypes(const char *s, int t)
-{
-	if (t & C_IFS) {
-		unsigned int i = 0;
-
-		while (++i <= UCHAR_MAX)
-			chtypes[i] &= ~C_IFS;
-		/* include '\0' in C_IFS */
-		chtypes[0] |= C_IFS;
-	}
-	while (*s != 0)
-		chtypes[(unsigned char)*s++] |= t;
-}
-
-void
-initctypes(void)
-{
-	setctypes(letters_uc, C_ALPHX);
-	setctypes(letters_lc, C_ALPHX);
-	chtypes['_'] |= C_ALPHX;
-	setctypes("0123456789", C_DIGIT);
-	setctypes(TC_LEX1, C_LEX1);
-	setctypes("*@#!$-?", C_VAR1);
-	setctypes(TC_IFSWS, C_IFSWS);
-	setctypes("=-+?", C_SUBOP1);
-	setctypes("\t\n \"#$&'()*;<=>?[\\]`|", C_QUOTE);
-}
 
 /* called from XcheckN() to grow buffer */
 char *
@@ -147,7 +119,7 @@ option(const char *n)
 {
 	size_t i = 0;
 
-	if ((n[0] == '-' || n[0] == '+') && n[1] && !n[2])
+	if (ctype(n[0], C_MINUS | C_PLUS) && n[1] && !n[2])
 		while (i < NELEM(options)) {
 			if (OFC(i) == n[1])
 				return (i);
@@ -299,6 +271,11 @@ change_flag(enum sh_flag f, int what, bool newset)
 	} else if ((f == FPOSIX || f == FSH) && newval) {
 		/* Turning on -o posix or -o sh? */
 		Flag(FBRACEEXPAND) = 0;
+		/* Turning on -o posix? */
+		if (f == FPOSIX) {
+			/* C locale required for compliance */
+			UTFMODE = 0;
+		}
 	} else if (f == FTALKING) {
 		/* Changing interactive flag? */
 		if ((what == OF_CMDLINE || what == OF_SET) && procpid == kshpid)
@@ -483,7 +460,7 @@ parse_args(const char **argv,
 		}
 	}
 	if (!(go.info & GI_MINUSMINUS) && argv[go.optind] &&
-	    (argv[go.optind][0] == '-' || argv[go.optind][0] == '+') &&
+	    ctype(argv[go.optind][0], C_MINUS | C_PLUS) &&
 	    argv[go.optind][1] == '\0') {
 		/* lone - clears -v and -x flags */
 		if (argv[go.optind][0] == '-') {
@@ -512,7 +489,7 @@ parse_args(const char **argv,
 		for (i = go.optind; argv[i]; i++)
 			;
 		qsort(&argv[go.optind], i - go.optind, sizeof(void *),
-		    xstrcmp);
+		    ascpstrcmp);
 	}
 	if (arrayset)
 		go.optind += set_array(array, tobool(arrayset > 0),
@@ -533,7 +510,7 @@ getn(const char *s, int *ai)
 
 	do {
 		c = *s++;
-	} while (ksh_isspace(c));
+	} while (ctype(c, C_SPACE));
 
 	switch (c) {
 	case '-':
@@ -545,7 +522,7 @@ getn(const char *s, int *ai)
 	}
 
 	do {
-		if (!ksh_isdigit(c))
+		if (!ctype(c, C_DIGIT))
 			/* not numeric */
 			return (0);
 		if (num.u > 214748364U)
@@ -585,7 +562,7 @@ simplify_gmatch_pattern(const unsigned char *sp)
 	sp = cp;
  simplify_gmatch_pat1a:
 	dp = cp;
-	se = sp + strlen((const void *)sp);
+	se = strnul(sp);
 	while ((c = *sp++)) {
 		if (!ISMAGIC(c)) {
 			*dp++ = c;
@@ -657,29 +634,30 @@ gmatchx(const char *s, const char *p, bool isfile)
 	if (s == NULL || p == NULL)
 		return (0);
 
-	se = s + strlen(s);
-	pe = p + strlen(p);
+	pe = strnul(p);
 	/*
 	 * isfile is false iff no syntax check has been done on
-	 * the pattern. If check fails, just to a strcmp().
+	 * the pattern. If check fails, just do a strcmp().
 	 */
-	if (!isfile && !has_globbing(p, pe)) {
+	if (!isfile && !has_globbing(p)) {
 		size_t len = pe - p + 1;
 		char tbuf[64];
 		char *t = len <= sizeof(tbuf) ? tbuf : alloc(len, ATEMP);
 		debunk(t, p, len);
 		return (!strcmp(t, s));
 	}
+	se = strnul(s);
 
 	/*
 	 * since the do_gmatch() engine sucks so much, we must do some
 	 * pattern simplifications
 	 */
 	pnew = simplify_gmatch_pattern((const unsigned char *)p);
-	pe = pnew + strlen(pnew);
+	pe = strnul(pnew);
 
 	rv = do_gmatch((const unsigned char *)s, (const unsigned char *)se,
-	    (const unsigned char *)pnew, (const unsigned char *)pe);
+	    (const unsigned char *)pnew, (const unsigned char *)pe,
+	    (const unsigned char *)s);
 	afree(pnew, ATEMP);
 	return (rv);
 }
@@ -690,7 +668,7 @@ gmatchx(const char *s, const char *p, bool isfile)
  * Syntax errors are:
  *	- [ with no closing ]
  *	- imbalanced $(...) expression
- *	- [...] and *(...) not nested (eg, [a$(b|]c), *(a[b|c]d))
+ *	- [...] and *(...) not nested (eg, @(a[b|)c], *(a[b|c]d))
  */
 /*XXX
  * - if no magic,
@@ -701,76 +679,101 @@ gmatchx(const char *s, const char *p, bool isfile)
  *	return ?
  * - return ?
  */
-int
-has_globbing(const char *xp, const char *xpe)
+bool
+has_globbing(const char *pat)
 {
-	const unsigned char *p = (const unsigned char *) xp;
-	const unsigned char *pe = (const unsigned char *) xpe;
-	int c;
-	int nest = 0, bnest = 0;
+	unsigned char c, subc;
 	bool saw_glob = false;
-	/* inside [...] */
-	bool in_bracket = false;
+	unsigned int nest = 0;
+	const unsigned char *p = (const unsigned char *)pat;
+	const unsigned char *s;
 
-	for (; p < pe; p++) {
-		if (!ISMAGIC(*p))
+	while ((c = *p++)) {
+		/* regular character? ok. */
+		if (!ISMAGIC(c))
 			continue;
-		if ((c = *++p) == '*' || c == '?')
+		/* MAGIC + NUL? abort. */
+		if (!(c = *p++))
+			return (false);
+		/* some specials */
+		if (ord(c) == ORD('*') || ord(c) == ORD('?')) {
+			/* easy glob, accept */
 			saw_glob = true;
-		else if (c == '[') {
-			if (!in_bracket) {
-				saw_glob = true;
-				in_bracket = true;
-				if (ISMAGIC(p[1]) && p[2] == '!')
-					p += 2;
-				if (ISMAGIC(p[1]) && p[2] == ']')
-					p += 2;
+		} else if (ord(c) == ORD('[')) {
+			/* bracket expression; eat negation and initial ] */
+			if (ISMAGIC(p[0]) && ord(p[1]) == ORD('!'))
+				p += 2;
+			if (ISMAGIC(p[0]) && ord(p[1]) == ORD(']'))
+				p += 2;
+			/* check next string part */
+			s = p;
+			while ((c = *s++)) {
+				/* regular chars are ok */
+				if (!ISMAGIC(c))
+					continue;
+				/* MAGIC + NUL cannot happen */
+				if (!(c = *s++))
+					return (false);
+				/* terminating bracket? */
+				if (ord(c) == ORD(']')) {
+					/* accept and continue */
+					p = s;
+					saw_glob = true;
+					break;
+				}
+				/* sub-bracket expressions */
+				if (ord(c) == ORD('[') && (
+				    /* collating element? */
+				    ord(*s) == ORD('.') ||
+				    /* equivalence class? */
+				    ord(*s) == ORD('=') ||
+				    /* character class? */
+				    ord(*s) == ORD(':'))) {
+					/* must stop with exactly the same c */
+					subc = *s++;
+					/* arbitrarily many chars in betwixt */
+					while ((c = *s++))
+						/* but only this sequence... */
+						if (c == subc && ISMAGIC(*s) &&
+						    ord(s[1]) == ORD(']')) {
+							/* accept, terminate */
+							s += 2;
+							break;
+						}
+					/* EOS without: reject bracket expr */
+					if (!c)
+						break;
+					/* continue; */
+				}
+				/* anything else just goes on */
 			}
-			/*XXX Do we need to check ranges here? POSIX Q */
-		} else if (c == ']') {
-			if (in_bracket) {
-				if (bnest)
-					/* [a*(b]) */
-					return (0);
-				in_bracket = false;
-			}
-		} else if ((c & 0x80) && vstrchr("*+?@! ", c & 0x7f)) {
+		} else if ((c & 0x80) && ctype(c & 0x7F, C_PATMO | C_SPC)) {
+			/* opening pattern */
 			saw_glob = true;
-			if (in_bracket)
-				bnest++;
-			else
-				nest++;
-		} else if (c == '|') {
-			if (in_bracket && !bnest)
-				/* *(a[foo|bar]) */
-				return (0);
-		} else if (c == /*(*/ ')') {
-			if (in_bracket) {
-				if (!bnest--)
-					/* *(a[b)c] */
-					return (0);
-			} else if (nest)
-				nest--;
+			++nest;
+		} else if (ord(c) == ORD(/*(*/ ')')) {
+			/* closing pattern */
+			if (nest)
+				--nest;
 		}
-		/*
-		 * else must be a MAGIC-MAGIC, or MAGIC-!,
-		 * MAGIC--, MAGIC-], MAGIC-{, MAGIC-, MAGIC-}
-		 */
 	}
-	return (saw_glob && !in_bracket && !nest);
+	return (saw_glob && !nest);
 }
 
 /* Function must return either 0 or 1 (assumed by code for 0x80|'!') */
 static int
 do_gmatch(const unsigned char *s, const unsigned char *se,
-    const unsigned char *p, const unsigned char *pe)
+    const unsigned char *p, const unsigned char *pe,
+    const unsigned char *smin)
 {
-	unsigned char sc, pc;
+	unsigned char sc, pc, sl = 0;
 	const unsigned char *prest, *psub, *pnext;
 	const unsigned char *srest;
 
 	if (s == NULL || p == NULL)
 		return (0);
+	if (s > smin && s <= se)
+		sl = s[-1];
 	while (p < pe) {
 		pc = *p++;
 		sc = s < se ? *s : '\0';
@@ -778,15 +781,39 @@ do_gmatch(const unsigned char *s, const unsigned char *se,
 		if (!ISMAGIC(pc)) {
 			if (sc != pc)
 				return (0);
+			sl = sc;
 			continue;
 		}
-		switch (*p++) {
-		case '[':
+		switch (ord(*p++)) {
+		case ORD('['):
+			/* BSD cclass extension? */
+			if (ISMAGIC(p[0]) && ord(p[1]) == ORD('[') &&
+			    ord(p[2]) == ORD(':') &&
+			    ctype((pc = p[3]), C_ANGLE) &&
+			    ord(p[4]) == ORD(':') &&
+			    ISMAGIC(p[5]) && ord(p[6]) == ORD(']') &&
+			    ISMAGIC(p[7]) && ord(p[8]) == ORD(']')) {
+				/* zero-length match */
+				--s;
+				p += 9;
+				/* word begin? */
+				if (ord(pc) == ORD('<') &&
+				    !ctype(sl, C_ALNUX) &&
+				    ctype(sc, C_ALNUX))
+					break;
+				/* word end? */
+				if (ord(pc) == ORD('>') &&
+				    ctype(sl, C_ALNUX) &&
+				    !ctype(sc, C_ALNUX))
+					break;
+				/* neither */
+				return (0);
+			}
 			if (sc == 0 || (p = gmatch_cclass(p, sc)) == NULL)
 				return (0);
 			break;
 
-		case '?':
+		case ORD('?'):
 			if (sc == 0)
 				return (0);
 			if (UTFMODE) {
@@ -795,39 +822,39 @@ do_gmatch(const unsigned char *s, const unsigned char *se,
 			}
 			break;
 
-		case '*':
+		case ORD('*'):
 			if (p == pe)
 				return (1);
 			s--;
 			do {
-				if (do_gmatch(s, se, p, pe))
+				if (do_gmatch(s, se, p, pe, smin))
 					return (1);
 			} while (s++ < se);
 			return (0);
 
 		/**
-		 * [*+?@!](pattern|pattern|..)
+		 * [+*?@!](pattern|pattern|..)
 		 * This is also needed for ${..%..}, etc.
 		 */
 
 		/* matches one or more times */
-		case 0x80|'+':
+		case ORD('+') | 0x80:
 		/* matches zero or more times */
-		case 0x80|'*':
+		case ORD('*') | 0x80:
 			if (!(prest = pat_scan(p, pe, false)))
 				return (0);
 			s--;
 			/* take care of zero matches */
-			if (p[-1] == (0x80 | '*') &&
-			    do_gmatch(s, se, prest, pe))
+			if (ord(p[-1]) == (0x80 | ORD('*')) &&
+			    do_gmatch(s, se, prest, pe, smin))
 				return (1);
 			for (psub = p; ; psub = pnext) {
 				pnext = pat_scan(psub, pe, true);
 				for (srest = s; srest <= se; srest++) {
-					if (do_gmatch(s, srest, psub, pnext - 2) &&
-					    (do_gmatch(srest, se, prest, pe) ||
-					    (s != srest && do_gmatch(srest,
-					    se, p - 2, pe))))
+					if (do_gmatch(s, srest, psub, pnext - 2, smin) &&
+					    (do_gmatch(srest, se, prest, pe, smin) ||
+					    (s != srest &&
+					    do_gmatch(srest, se, p - 2, pe, smin))))
 						return (1);
 				}
 				if (pnext == prest)
@@ -836,24 +863,24 @@ do_gmatch(const unsigned char *s, const unsigned char *se,
 			return (0);
 
 		/* matches zero or once */
-		case 0x80|'?':
+		case ORD('?') | 0x80:
 		/* matches one of the patterns */
-		case 0x80|'@':
+		case ORD('@') | 0x80:
 		/* simile for @ */
-		case 0x80|' ':
+		case ORD(' ') | 0x80:
 			if (!(prest = pat_scan(p, pe, false)))
 				return (0);
 			s--;
 			/* Take care of zero matches */
-			if (p[-1] == (0x80 | '?') &&
-			    do_gmatch(s, se, prest, pe))
+			if (ord(p[-1]) == (0x80 | ORD('?')) &&
+			    do_gmatch(s, se, prest, pe, smin))
 				return (1);
 			for (psub = p; ; psub = pnext) {
 				pnext = pat_scan(psub, pe, true);
 				srest = prest == pe ? se : s;
 				for (; srest <= se; srest++) {
-					if (do_gmatch(s, srest, psub, pnext - 2) &&
-					    do_gmatch(srest, se, prest, pe))
+					if (do_gmatch(s, srest, psub, pnext - 2, smin) &&
+					    do_gmatch(srest, se, prest, pe, smin))
 						return (1);
 				}
 				if (pnext == prest)
@@ -862,7 +889,7 @@ do_gmatch(const unsigned char *s, const unsigned char *se,
 			return (0);
 
 		/* matches none of the patterns */
-		case 0x80|'!':
+		case ORD('!') | 0x80:
 			if (!(prest = pat_scan(p, pe, false)))
 				return (0);
 			s--;
@@ -872,7 +899,7 @@ do_gmatch(const unsigned char *s, const unsigned char *se,
 				for (psub = p; ; psub = pnext) {
 					pnext = pat_scan(psub, pe, true);
 					if (do_gmatch(s, srest, psub,
-					    pnext - 2)) {
+					    pnext - 2, smin)) {
 						matched = 1;
 						break;
 					}
@@ -880,7 +907,7 @@ do_gmatch(const unsigned char *s, const unsigned char *se,
 						break;
 				}
 				if (!matched &&
-				    do_gmatch(srest, se, prest, pe))
+				    do_gmatch(srest, se, prest, pe, smin))
 					return (1);
 			}
 			return (0);
@@ -890,55 +917,245 @@ do_gmatch(const unsigned char *s, const unsigned char *se,
 				return (0);
 			break;
 		}
+		sl = sc;
 	}
 	return (s == se);
 }
 
-static const unsigned char *
-gmatch_cclass(const unsigned char *p, unsigned char sub)
-{
-	unsigned char c, d;
-	bool notp, found = false;
-	const unsigned char *orig_p = p;
+/*XXX this is a prime example for bsearch or a const hashtable */
+static const struct cclass {
+	const char *name;
+	uint32_t value;
+} cclasses[] = {
+	/* POSIX */
+	{ "alnum",	C_ALNUM	},
+	{ "alpha",	C_ALPHA	},
+	{ "blank",	C_BLANK	},
+	{ "cntrl",	C_CNTRL	},
+	{ "digit",	C_DIGIT	},
+	{ "graph",	C_GRAPH	},
+	{ "lower",	C_LOWER	},
+	{ "print",	C_PRINT	},
+	{ "punct",	C_PUNCT	},
+	{ "space",	C_SPACE	},
+	{ "upper",	C_UPPER	},
+	{ "xdigit",	C_SEDEC	},
+	/* BSD */
+	/* "<" and ">" are handled inline */
+	/* GNU bash */
+	{ "ascii",	C_ASCII	},
+	{ "word",	C_ALNUX	},
+	/* mksh */
+	{ "sh_alias",	C_ALIAS	},
+	{ "sh_edq",	C_EDQ	},
+	{ "sh_ifs",	C_IFS	},
+	{ "sh_ifsws",	C_IFSWS	},
+	{ "sh_nl",	C_NL	},
+	{ "sh_quote",	C_QUOTE	},
+	/* sentinel */
+	{ NULL,		0	}
+};
 
-	if ((notp = tobool(ISMAGIC(*p) && *++p == '!')))
-		p++;
-	do {
-		c = *p++;
+static const unsigned char *
+gmatch_cclass(const unsigned char *pat, unsigned char sc)
+{
+	unsigned char c, subc, lc;
+	const unsigned char *p = pat, *s;
+	bool found = false;
+	bool negated = false;
+	char *subp;
+
+	/* check for negation */
+	if (ISMAGIC(p[0]) && ord(p[1]) == ORD('!')) {
+		p += 2;
+		negated = true;
+	}
+	/* make initial ] non-MAGIC */
+	if (ISMAGIC(p[0]) && ord(p[1]) == ORD(']'))
+		++p;
+	/* iterate over bracket expression, debunk()ing on the fly */
+	while ((c = *p++)) {
+ nextc:
+		/* non-regular character? */
 		if (ISMAGIC(c)) {
-			c = *p++;
-			if ((c & 0x80) && !ISMAGIC(c)) {
-				/* extended pattern matching: *+?@! */
-				c &= 0x7F;
-				/* XXX the ( char isn't handled as part of [] */
-				if (c == ' ')
-					/* simile for @: plain (..) */
-					c = '(' /*)*/;
+			/* MAGIC + NUL cannot happen */
+			if (!(c = *p++))
+				break;
+			/* terminating bracket? */
+			if (ord(c) == ORD(']')) {
+				/* accept and return */
+				return (found != negated ? p : NULL);
+			}
+			/* sub-bracket expressions */
+			if (ord(c) == ORD('[') && (
+			    /* collating element? */
+			    ord(*p) == ORD('.') ||
+			    /* equivalence class? */
+			    ord(*p) == ORD('=') ||
+			    /* character class? */
+			    ord(*p) == ORD(':'))) {
+				/* must stop with exactly the same c */
+				subc = *p++;
+				/* save away start of substring */
+				s = p;
+				/* arbitrarily many chars in betwixt */
+				while ((c = *p++))
+					/* but only this sequence... */
+					if (c == subc && ISMAGIC(*p) &&
+					    ord(p[1]) == ORD(']')) {
+						/* accept, terminate */
+						p += 2;
+						break;
+					}
+				/* EOS without: reject bracket expr */
+				if (!c)
+					break;
+				/* debunk substring */
+				strndupx(subp, s, p - s - 3, ATEMP);
+				debunk(subp, subp, p - s - 3 + 1);
+ cclass_common:
+				/* whither subexpression */
+				if (ord(subc) == ORD(':')) {
+					const struct cclass *cls = cclasses;
+
+					/* search for name in cclass list */
+					while (cls->name)
+						if (!strcmp(subp, cls->name)) {
+							/* found, match? */
+							if (ctype(sc,
+							    cls->value))
+								found = true;
+							/* break either way */
+							break;
+						} else
+							++cls;
+					/* that's all here */
+					afree(subp, ATEMP);
+					continue;
+				}
+				/* collating element or equivalence class */
+				/* Note: latter are treated as former */
+				if (ctype(subp[0], C_ASCII) && !subp[1])
+					/* [.a.] where a is one ASCII char */
+					c = subp[0];
+				else
+					/* force no match */
+					c = 0;
+				/* no longer needed */
+				afree(subp, ATEMP);
+			} else if (!ISMAGIC(c) && (c & 0x80)) {
+				/* 0x80|' ' is plain (...) */
+				if ((c &= 0x7F) != ' ') {
+					/* check single match NOW */
+					if (sc == c)
+						found = true;
+					/* next character is (...) */
+				}
+				c = '(' /*)*/;
 			}
 		}
-		if (c == '\0')
-			/* No closing ] - act as if the opening [ was quoted */
-			return (sub == '[' ? orig_p : NULL);
-		if (ISMAGIC(p[0]) && p[1] == '-' &&
-		    (!ISMAGIC(p[2]) || p[3] != ']')) {
-			/* MAGIC- */
-			p += 2;
-			d = *p++;
-			if (ISMAGIC(d)) {
-				d = *p++;
-				if ((d & 0x80) && !ISMAGIC(d))
-					d &= 0x7f;
-			}
-			/* POSIX says this is an invalid expression */
-			if (c > d)
-				return (NULL);
-		} else
-			d = c;
-		if (c == sub || (c <= sub && sub <= d))
-			found = true;
-	} while (!(ISMAGIC(p[0]) && p[1] == ']'));
+		/* range expression? */
+		if (!(ISMAGIC(p[0]) && ord(p[1]) == ORD('-') &&
+		    /* not terminating bracket? */
+		    (!ISMAGIC(p[2]) || ord(p[3]) != ORD(']')))) {
+			/* no, check single match */
+			if (sc == c)
+				/* note: sc is never NUL */
+				found = true;
+			/* do the next "first" character */
+			continue;
+		}
+		/* save lower range bound */
+		lc = c;
+		/* skip over the range operator */
+		p += 2;
+		/* do the same shit as above... almost */
+		subc = 0;
+		if (!(c = *p++))
+			break;
+		/* non-regular character? */
+		if (ISMAGIC(c)) {
+			/* MAGIC + NUL cannot happen */
+			if (!(c = *p++))
+				break;
+			/* sub-bracket expressions */
+			if (ord(c) == ORD('[') && (
+			    /* collating element? */
+			    ord(*p) == ORD('.') ||
+			    /* equivalence class? */
+			    ord(*p) == ORD('=') ||
+			    /* character class? */
+			    ord(*p) == ORD(':'))) {
+				/* must stop with exactly the same c */
+				subc = *p++;
+				/* save away start of substring */
+				s = p;
+				/* arbitrarily many chars in betwixt */
+				while ((c = *p++))
+					/* but only this sequence... */
+					if (c == subc && ISMAGIC(*p) &&
+					    ord(p[1]) == ORD(']')) {
+						/* accept, terminate */
+						p += 2;
+						break;
+					}
+				/* EOS without: reject bracket expr */
+				if (!c)
+					break;
+				/* debunk substring */
+				strndupx(subp, s, p - s - 3, ATEMP);
+				debunk(subp, subp, p - s - 3 + 1);
+				/* whither subexpression */
+				if (ord(subc) == ORD(':')) {
+					/* oops, not a range */
 
-	return ((found != notp) ? p+2 : NULL);
+					/* match single previous char */
+					if (lc && (sc == lc))
+						found = true;
+					/* match hyphen-minus */
+					if (ord(sc) == ORD('-'))
+						found = true;
+					/* handle cclass common part */
+					goto cclass_common;
+				}
+				/* collating element or equivalence class */
+				/* Note: latter are treated as former */
+				if (ctype(subp[0], C_ASCII) && !subp[1])
+					/* [.a.] where a is one ASCII char */
+					c = subp[0];
+				else
+					/* force no match */
+					c = 0;
+				/* no longer needed */
+				afree(subp, ATEMP);
+				/* other meaning below */
+				subc = 0;
+			} else if (c == (0x80 | ' ')) {
+				/* 0x80|' ' is plain (...) */
+				c = '(' /*)*/;
+			} else if (!ISMAGIC(c) && (c & 0x80)) {
+				c &= 0x7F;
+				subc = '(' /*)*/;
+			}
+		}
+		/* now do the actual range match check */
+		if (lc != 0 /* && c != 0 */ &&
+		    asciibetical(lc) <= asciibetical(sc) &&
+		    asciibetical(sc) <= asciibetical(c))
+			found = true;
+		/* forced next character? */
+		if (subc) {
+			c = subc;
+			goto nextc;
+		}
+		/* otherwise, just go on with the pattern string */
+	}
+	/* if we broke here, the bracket expression was invalid */
+	if (ord(sc) == ORD('['))
+		/* initial opening bracket as literal match */
+		return (pat);
+	/* or rather no match */
+	return (NULL);
 }
 
 /* Look for next ) or | (if match_sep) in *(foo|bar) pattern */
@@ -953,16 +1170,30 @@ pat_scan(const unsigned char *p, const unsigned char *pe, bool match_sep)
 		if ((*++p == /*(*/ ')' && nest-- == 0) ||
 		    (*p == '|' && match_sep && nest == 0))
 			return (p + 1);
-		if ((*p & 0x80) && vstrchr("*+?@! ", *p & 0x7f))
+		if ((*p & 0x80) && ctype(*p & 0x7F, C_PATMO | C_SPC))
 			nest++;
 	}
 	return (NULL);
 }
 
 int
-xstrcmp(const void *p1, const void *p2)
+ascstrcmp(const void *s1, const void *s2)
 {
-	return (strcmp(*(const char * const *)p1, *(const char * const *)p2));
+	const uint8_t *cp1 = s1, *cp2 = s2;
+
+	while (*cp1 == *cp2) {
+		if (*cp1++ == '\0')
+			return (0);
+		++cp2;
+	}
+	return ((int)asciibetical(*cp1) - (int)asciibetical(*cp2));
+}
+
+int
+ascpstrcmp(const void *pstr1, const void *pstr2)
+{
+	return (ascstrcmp(*(const char * const *)pstr1,
+	    *(const char * const *)pstr2));
 }
 
 /* Initialise a Getopt structure */
@@ -1032,7 +1263,7 @@ ksh_getopt(const char **argv, Getopt *go, const char *optionsp)
 		go->info |= flag == '-' ? GI_MINUS : GI_PLUS;
 	}
 	go->p++;
-	if (c == '?' || c == ':' || c == ';' || c == ',' || c == '#' ||
+	if (ctype(c, C_QUEST | C_COLON | C_HASH) || c == ';' || c == ',' ||
 	    !(o = cstrchr(optionsp, c))) {
 		if (optionsp[0] == ':') {
 			go->buf[0] = c;
@@ -1086,13 +1317,14 @@ ksh_getopt(const char **argv, Getopt *go, const char *optionsp)
 		 * argument is missing.
 		 */
 		if (argv[go->optind - 1][go->p]) {
-			if (ksh_isdigit(argv[go->optind - 1][go->p])) {
+			if (ctype(argv[go->optind - 1][go->p], C_DIGIT)) {
 				go->optarg = argv[go->optind - 1] + go->p;
 				go->p = 0;
 			} else
 				go->optarg = NULL;
 		} else {
-			if (argv[go->optind] && ksh_isdigit(argv[go->optind][0])) {
+			if (argv[go->optind] &&
+			    ctype(argv[go->optind][0], C_DIGIT)) {
 				go->optarg = argv[go->optind++];
 				go->p = 0;
 			} else
@@ -1115,8 +1347,8 @@ print_value_quoted(struct shf *shf, const char *s)
 	bool inquote = true;
 
 	/* first, check whether any quotes are needed */
-	while ((c = *p++) >= 32)
-		if (ctype(c, C_QUOTE))
+	while (rtt2asc(c = *p++) >= 32)
+		if (ctype(c, C_QUOTE | C_SPC))
 			inquote = false;
 
 	p = (const unsigned char *)s;
@@ -1154,6 +1386,7 @@ print_value_quoted(struct shf *shf, const char *s)
 		shf_putc('$', shf);
 		shf_putc('\'', shf);
 		while ((c = *p) != 0) {
+#ifndef MKSH_EBCDIC
 			if (c >= 0xC2) {
 				n = utf_mbtowc(&wc, (const char *)p);
 				if (n != (size_t)-1) {
@@ -1162,10 +1395,11 @@ print_value_quoted(struct shf *shf, const char *s)
 					continue;
 				}
 			}
+#endif
 			++p;
 			switch (c) {
 			/* see unbksl() in this file for comments */
-			case 7:
+			case KSH_BEL:
 				c = 'a';
 				if (0)
 					/* FALLTHROUGH */
@@ -1189,11 +1423,11 @@ print_value_quoted(struct shf *shf, const char *s)
 				  c = 't';
 				if (0)
 					/* FALLTHROUGH */
-			case 11:
+			case KSH_VTAB:
 				  c = 'v';
 				if (0)
 					/* FALLTHROUGH */
-			case '\033':
+			case KSH_ESC:
 				/* take E not e because \e is \ in *roff */
 				  c = 'E';
 				/* FALLTHROUGH */
@@ -1203,7 +1437,12 @@ print_value_quoted(struct shf *shf, const char *s)
 				if (0)
 					/* FALLTHROUGH */
 			default:
-				  if (c < 32 || c > 0x7E) {
+#if defined(MKSH_EBCDIC) || defined(MKSH_FAUX_EBCDIC)
+				  if (ksh_isctrl(c))
+#else
+				  if (!ctype(c, C_PRINT))
+#endif
+				    {
 					/* FALLTHROUGH */
 			case '\'':
 					shf_fprintf(shf, "\\%03o", c);
@@ -1422,6 +1661,15 @@ do_realpath(const char *upath)
 	if (mksh_abspath(upath)) {
 		/* upath is an absolute pathname */
 		strdupx(ipath, upath, ATEMP);
+#ifdef MKSH_DOSPATH
+	} else if (mksh_drvltr(upath)) {
+		/* upath is a drive-relative pathname */
+		if (getdrvwd(&ldest, ord(*upath)))
+			return (NULL);
+		/* A:foo -> A:/cwd/foo; A: -> A:/cwd */
+		ipath = shf_smprintf(Tf_sss, ldest,
+		    upath[2] ? "/" : "", upath + 2);
+#endif
 	} else {
 		/* upath is a relative pathname, prepend cwd */
 		if ((tp = ksh_get_wd()) == NULL || !mksh_abspath(tp))
@@ -1456,6 +1704,7 @@ do_realpath(const char *upath)
 				continue;
 			else if (len == 2 && tp[1] == '.') {
 				/* strip off last pathname component */
+				/*XXX consider a rooted pathname */
 				while (xp > Xstring(xs, xp))
 					if (mksh_cdirsep(*--xp))
 						break;
@@ -1523,11 +1772,23 @@ do_realpath(const char *upath)
 			 * restart if symlink target is an absolute path,
 			 * otherwise continue with currently resolved prefix
 			 */
+#ifdef MKSH_DOSPATH
+ assemble_symlink:
+#endif
 			/* append rest of current input path to link target */
 			tp = shf_smprintf(Tf_sss, ldest, *ip ? "/" : "", ip);
 			afree(ipath, ATEMP);
 			ip = ipath = tp;
-			if (!mksh_abspath(ldest)) {
+			if (!mksh_abspath(ipath)) {
+#ifdef MKSH_DOSPATH
+				/* symlink target might be drive-relative */
+				if (mksh_drvltr(ipath)) {
+					if (getdrvwd(&ldest, ord(*ipath)))
+						goto notfound;
+					ip += 2;
+					goto assemble_symlink;
+				}
+#endif
 				/* symlink target is a relative path */
 				xp = Xrestpos(xs, xp, pos);
 			} else
@@ -1536,7 +1797,7 @@ do_realpath(const char *upath)
 				/* symlink target is an absolute path */
 				xp = Xstring(xs, xp);
  beginning_of_a_pathname:
-				/* assert: mksh_cdirsep((ip == ipath)[0]) */
+				/* assert: mksh_abspath(ip == ipath) */
 				/* assert: xp == xs.beg => start of path */
 
 				/* exactly two leading slashes? (SUSv4 3.266) */
@@ -1544,6 +1805,14 @@ do_realpath(const char *upath)
 					/* keep them, e.g. for UNC pathnames */
 					Xput(xs, xp, '/');
 				}
+#ifdef MKSH_DOSPATH
+				/* drive letter? */
+				if (mksh_drvltr(ip)) {
+					/* keep it */
+					Xput(xs, xp, *ip++);
+					Xput(xs, xp, *ip++);
+				}
+#endif
 			}
 		}
 		/* otherwise (no symlink) merely go on */
@@ -1693,6 +1962,15 @@ make_path(const char *cwd, const char *file,
  * ..					..
  * ./foo				foo
  * foo/../../../bar			../../bar
+ * C:/foo/../..				C:/
+ * C:.					C:
+ * C:..					C:..
+ * C:foo/../../blah			C:../blah
+ *
+ * XXX consider a rooted pathname: we cannot really 'cd ..' for
+ * pathnames like: '/', 'c:/', '//foo', '//foo/', '/@unixroot/'
+ * (no effect), 'c:', 'c:.' (effect is retaining the '../') but
+ * we need to honour this throughout the shell
  */
 void
 simplify_path(char *p)
@@ -1700,6 +1978,17 @@ simplify_path(char *p)
 	char *dp, *ip, *sp, *tp;
 	size_t len;
 	bool needslash;
+#ifdef MKSH_DOSPATH
+	bool needdot = true;
+
+	/* keep drive letter */
+	if (mksh_drvltr(p)) {
+		p += 2;
+		needdot = false;
+	}
+#else
+#define needdot true
+#endif
 
 	switch (*p) {
 	case 0:
@@ -1738,7 +2027,7 @@ simplify_path(char *p)
 				/* just continue with the next one */
 				continue;
 			else if (len == 2 && tp[1] == '.') {
-				/* parent level, but how? */
+				/* parent level, but how? (see above) */
 				if (mksh_abspath(p))
 					/* absolute path, only one way */
 					goto strip_last_component;
@@ -1777,10 +2066,15 @@ simplify_path(char *p)
 		needslash = true;
 		/* try next component */
 	}
-	if (dp == p)
-		/* empty path -> dot */
-		*dp++ = needslash ? '/' : '.';
+	if (dp == p) {
+		/* empty path -> dot (or slash, when absolute) */
+		if (needslash)
+			*dp++ = '/';
+		else if (needdot)
+			*dp++ = '.';
+	}
 	*dp = '\0';
+#undef needdot
 }
 
 void
@@ -1893,6 +2187,18 @@ c_cd(const char **wp)
 		bi_errorf(Ttoo_many_args);
 		return (2);
 	}
+
+#ifdef MKSH_DOSPATH
+	tryp = NULL;
+	if (mksh_drvltr(dir) && !mksh_cdirsep(dir[2]) &&
+	    !getdrvwd(&tryp, ord(*dir))) {
+		dir = shf_smprintf(Tf_sss, tryp,
+		    dir[2] ? "/" : "", dir + 2);
+		afree(tryp, ATEMP);
+		afree(allocd, ATEMP);
+		allocd = dir;
+	}
+#endif
 
 #ifdef MKSH__NO_PATH_MAX
 	/* only a first guess; make_path will enlarge xs if necessary */
@@ -2154,13 +2460,7 @@ unbksl(bool cstyle, int (*fg)(void), void (*fp)(int))
 	fc = (*fg)();
 	switch (fc) {
 	case 'a':
-		/*
-		 * according to the comments in pdksh, \007 seems
-		 * to be more portable than \a (due to HP-UX cc,
-		 * Ultrix cc, old pcc, etc.) so we avoid the escape
-		 * sequence altogether in mksh and assume ASCII
-		 */
-		wc = 7;
+		wc = KSH_BEL;
 		break;
 	case 'b':
 		wc = '\b';
@@ -2169,11 +2469,11 @@ unbksl(bool cstyle, int (*fg)(void), void (*fp)(int))
 		if (!cstyle)
 			goto unknown_escape;
 		c = (*fg)();
-		wc = CTRL(c);
+		wc = ksh_toctrl(c);
 		break;
 	case 'E':
 	case 'e':
-		wc = 033;
+		wc = KSH_ESC;
 		break;
 	case 'f':
 		wc = '\f';
@@ -2188,8 +2488,7 @@ unbksl(bool cstyle, int (*fg)(void), void (*fp)(int))
 		wc = '\t';
 		break;
 	case 'v':
-		/* assume ASCII here as well */
-		wc = 11;
+		wc = KSH_VTAB;
 		break;
 	case '1':
 	case '2':
@@ -2212,7 +2511,7 @@ unbksl(bool cstyle, int (*fg)(void), void (*fp)(int))
 		wc = 0;
 		i = 3;
 		while (i--)
-			if ((c = (*fg)()) >= ord('0') && c <= ord('7'))
+			if (ctype((c = (*fg)()), C_OCTAL))
 				wc = (wc << 3) + ksh_numdig(c);
 			else {
 				(*fp)(c);
@@ -2240,17 +2539,17 @@ unbksl(bool cstyle, int (*fg)(void), void (*fp)(int))
 		n = 0;
 		while (n < i || i == -1) {
 			wc <<= 4;
-			if ((c = (*fg)()) >= ord('0') && c <= ord('9'))
-				wc += ksh_numdig(c);
-			else if (c >= ord('A') && c <= ord('F'))
-				wc += ksh_numuc(c) + 10;
-			else if (c >= ord('a') && c <= ord('f'))
-				wc += ksh_numlc(c) + 10;
-			else {
+			if (!ctype((c = (*fg)()), C_SEDEC)) {
 				wc >>= 4;
 				(*fp)(c);
 				break;
 			}
+			if (ctype(c, C_DIGIT))
+				wc += ksh_numdig(c);
+			else if (ctype(c, C_UPPER))
+				wc += ksh_numuc(c) + 10;
+			else
+				wc += ksh_numlc(c) + 10;
 			++n;
 		}
 		if (!n)

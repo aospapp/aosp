@@ -16,6 +16,7 @@
 
 package com.android.phone.settings;
 
+import android.app.ActionBar;
 import android.os.Bundle;
 import android.preference.PreferenceActivity;
 import android.view.MenuItem;
@@ -27,8 +28,10 @@ public class PhoneAccountSettingsActivity extends PreferenceActivity {
     @Override
     protected void onCreate(Bundle icicle) {
         super.onCreate(icicle);
-
-        getActionBar().setTitle(R.string.phone_accounts);
+        final ActionBar actionBar = getActionBar();
+        if (actionBar != null) {
+            actionBar.setTitle(R.string.phone_accounts);
+        }
         getFragmentManager().beginTransaction().replace(
                 android.R.id.content, new PhoneAccountSettingsFragment()).commit();
     }

@@ -24,6 +24,7 @@ import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.targetprep.BaseTargetPreparer;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
@@ -32,13 +33,13 @@ import com.android.tradefed.util.AaptParser;
 import org.junit.Assert;
 
 /**
- * A {@link ITargetPreparer} for {@link IAppBuildInfo}, that dynamically determines the app
- * package name given its apk file. This saves the user from having to manually specify the
- * --package arg when running monkey.
- * <p/>
- * Requires that aapt is on current path.
+ * A {@link ITargetPreparer} for {@link IAppBuildInfo}, that dynamically determines the app package
+ * name given its apk file. This saves the user from having to manually specify the --package arg
+ * when running monkey.
+ *
+ * <p>Requires that aapt is on current path.
  */
-public class AppPkgInjector implements ITargetPreparer, IConfigurationReceiver {
+public class AppPkgInjector extends BaseTargetPreparer implements IConfigurationReceiver {
 
     @Option(name = "skip-injector", description = "Set to true if we should skip automatically " +
             "adding all package names of installed packages. Default is false.")

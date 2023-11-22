@@ -15,13 +15,14 @@
  */
 package com.android.tradefed.testtype.suite;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.IRunUtil;
 
 import org.easymock.EasyMock;
@@ -31,7 +32,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
 /** Unit tests for {@link com.android.tradefed.testtype.suite.TestFailureListener} */
@@ -51,16 +52,15 @@ public class TestFailureListenerTest {
         mListDevice.add(mMockDevice);
         EasyMock.expect(mMockDevice.getSerialNumber()).andStubReturn("SERIAL");
         // Create base failure listener with all option ON and default logcat size.
-        mFailureListener =
-                new TestFailureListener(mMockListener, mListDevice, true, true, true, true, -1);
+        mFailureListener = new TestFailureListener(mListDevice, true, true, true, true, -1);
+        mFailureListener.setLogger(mMockListener);
     }
 
-    /**
-     * Test that on testFailed all the collection are triggered.
-     */
+    /** Test that on testFailed all the collection are triggered. */
     @Test
+    @SuppressWarnings("MustBeClosedChecker")
     public void testTestFailed() throws Exception {
-        TestIdentifier testId = new TestIdentifier("com.fake", "methodfake");
+        TestDescription testId = new TestDescription("com.fake", "methodfake");
         final String trace = "oups it failed";
         final long startDate = 1479917040l; // Wed Nov 23 16:04:00 GMT 2016
         final byte[] fakeData = "fakeData".getBytes();
@@ -72,12 +72,9 @@ public class TestFailureListenerTest {
                 EasyMock.eq(testId.toString() + "-SERIAL-screenshot"),
                 EasyMock.eq(LogDataType.PNG),
                 EasyMock.eq(fakeSource));
-        // Bugreport routine
-        EasyMock.expect(mMockDevice.getBugreportz()).andReturn(fakeSource);
-        mMockListener.testLog(
-                EasyMock.eq(testId.toString() + "-SERIAL-bugreport"),
-                EasyMock.eq(LogDataType.BUGREPORTZ),
-                EasyMock.eq(fakeSource));
+        // Bugreport routine - testLog is internal to it.
+        EasyMock.expect(mMockDevice.logBugreport(EasyMock.anyObject(), EasyMock.anyObject()))
+                .andReturn(true);
         // logcat routine
         EasyMock.expect(mMockDevice.getLogcatSince(EasyMock.eq(startDate))).andReturn(fakeSource);
         mMockListener.testLog(
@@ -91,24 +88,26 @@ public class TestFailureListenerTest {
         EasyMock.replay(mMockListener, mMockDevice);
         mFailureListener.testStarted(testId);
         mFailureListener.testFailed(testId, trace);
-        mFailureListener.testEnded(testId, Collections.emptyMap());
+        mFailureListener.testEnded(testId, new HashMap<String, Metric>());
         EasyMock.verify(mMockListener, mMockDevice);
     }
 
     /**
-     * Test that testFailed behave properly when device is unavailable: collection is attempted
-     * and properly handled.
+     * Test that testFailed behave properly when device is unavailable: collection is attempted and
+     * properly handled.
      */
     @Test
+    @SuppressWarnings("MustBeClosedChecker")
     public void testTestFailed_notAvailable() throws Exception {
         mFailureListener =
-                new TestFailureListener(mMockListener, mListDevice, false, true, true, true, -1) {
+                new TestFailureListener(mListDevice, false, true, true, true, -1) {
                     @Override
                     IRunUtil getRunUtil() {
                         return EasyMock.createMock(IRunUtil.class);
                     }
                 };
-        TestIdentifier testId = new TestIdentifier("com.fake", "methodfake");
+        mFailureListener.setLogger(mMockListener);
+        TestDescription testId = new TestDescription("com.fake", "methodfake");
         final String trace = "oups it failed";
         final byte[] fakeData = "fakeData".getBytes();
         InputStreamSource fakeSource = new ByteArrayInputStreamSource(fakeData);
@@ -130,7 +129,7 @@ public class TestFailureListenerTest {
         EasyMock.replay(mMockListener, mMockDevice);
         mFailureListener.testStarted(testId);
         mFailureListener.testFailed(testId, trace);
-        mFailureListener.testEnded(testId, Collections.emptyMap());
+        mFailureListener.testEnded(testId, new HashMap<String, Metric>());
         EasyMock.verify(mMockListener, mMockDevice);
     }
 
@@ -139,15 +138,15 @@ public class TestFailureListenerTest {
      */
     @Test
     public void testTestFailed_userBuild() throws Exception {
-        mFailureListener =
-                new TestFailureListener(mMockListener, mListDevice, false, false, false, true, -1);
+        mFailureListener = new TestFailureListener(mListDevice, false, false, false, true, -1);
+        mFailureListener.setLogger(mMockListener);
         final String trace = "oups it failed";
-        TestIdentifier testId = new TestIdentifier("com.fake", "methodfake");
+        TestDescription testId = new TestDescription("com.fake", "methodfake");
         EasyMock.expect(mMockDevice.getProperty(EasyMock.eq("ro.build.type"))).andReturn("user");
         EasyMock.replay(mMockListener, mMockDevice);
         mFailureListener.testStarted(testId);
         mFailureListener.testFailed(testId, trace);
-        mFailureListener.testEnded(testId, Collections.emptyMap());
+        mFailureListener.testEnded(testId, new HashMap<String, Metric>());
         EasyMock.verify(mMockListener, mMockDevice);
     }
 
@@ -159,10 +158,10 @@ public class TestFailureListenerTest {
     public void testFailed_multiDevice() throws Exception {
         ITestDevice device2 = EasyMock.createMock(ITestDevice.class);
         mListDevice.add(device2);
-        mFailureListener =
-                new TestFailureListener(mMockListener, mListDevice, false, false, false, true, -1);
+        mFailureListener = new TestFailureListener(mListDevice, false, false, false, true, -1);
+        mFailureListener.setLogger(mMockListener);
         final String trace = "oups it failed";
-        TestIdentifier testId = new TestIdentifier("com.fake", "methodfake");
+        TestDescription testId = new TestDescription("com.fake", "methodfake");
         EasyMock.expect(mMockDevice.getProperty(EasyMock.eq("ro.build.type"))).andReturn("debug");
         mMockDevice.reboot();
         EasyMock.expect(device2.getSerialNumber()).andStubReturn("SERIAL2");
@@ -172,7 +171,7 @@ public class TestFailureListenerTest {
         EasyMock.replay(mMockListener, mMockDevice, device2);
         mFailureListener.testStarted(testId);
         mFailureListener.testFailed(testId, trace);
-        mFailureListener.testEnded(testId, Collections.emptyMap());
+        mFailureListener.testEnded(testId, new HashMap<String, Metric>());
         EasyMock.verify(mMockListener, mMockDevice, device2);
     }
 }

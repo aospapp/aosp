@@ -17,6 +17,7 @@
 package libcore.util;
 
 import android.system.ErrnoException;
+import dalvik.annotation.optimization.ReachabilitySensitive;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -44,7 +45,7 @@ public final class ZoneInfoDB {
   private static final TzData DATA =
           TzData.loadTzDataWithFallback(TimeZoneDataFiles.getTimeZoneFilePaths(TZDATA_FILE));
 
-  public static class TzData {
+  public static class TzData implements AutoCloseable {
 
     // The database reserves 40 bytes for each id.
     private static final int SIZEOF_TZNAME = 40;
@@ -70,6 +71,8 @@ public final class ZoneInfoDB {
      * nice property that even if someone replaces the file under us (because multiple gservices
      * updates have gone out, say), we still get a consistent (if outdated) view of the world.
      */
+    // Android-added: @ReachabilitySensitive
+    @ReachabilitySensitive
     private MemoryMappedFile mappedFile;
 
     private String version;
@@ -370,7 +373,6 @@ public final class ZoneInfoDB {
         ids = null;
         byteOffsets = null;
         rawUtcOffsetsCache = null;
-        mappedFile = null;
         cache.evictAll();
 
         // Remove the mapped file (if needed).
@@ -379,6 +381,7 @@ public final class ZoneInfoDB {
             mappedFile.close();
           } catch (ErrnoException ignored) {
           }
+          mappedFile = null;
         }
       }
     }

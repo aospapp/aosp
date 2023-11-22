@@ -15,7 +15,7 @@ To use it as python module it's enough to call the get_all() function.
 |get_all()| output is human readable (as oppposite to python's data structures)
 """
 
-import os, re
+import logging, os, re
 
 # this script can be run at command line on DUT (ie /usr/local/autotest
 # contains only the client/ subtree), on a normal autotest
@@ -24,7 +24,13 @@ import common
 from autotest_lib.client.common_lib import utils
 
 INFO_PATH = "/sys/block"
-
+UDEV_CMD_FOR_SERIAL_NUMBER = "udevadm info -a -n %s | grep -iE 'ATTRS{" \
+                             "serial}' | head -n 1"
+LSUSB_CMD = "lsusb -v | grep -iE '^Device Desc|bcdUSB|iSerial'"
+DESC_PATTERN = r'Device Descriptor:'
+BCDUSB_PATTERN = r'bcdUSB\s+(\d+\.\d+)'
+ISERIAL_PATTERN = r'iSerial\s+\d\s(\S*)'
+UDEV_SERIAL_PATTERN = r'=="(.*)"'
 
 def get_udev_info(blockdev, method='udev'):
     """Get information about |blockdev|
@@ -63,6 +69,54 @@ def get_udev_info(blockdev, method='udev'):
 
     return ret
 
+
+def get_usbdevice_type_and_serial(device):
+    """Get USB device type and Serial number
+
+    @param device: USB device mount point Example: /dev/sda or /dev/sdb
+    @return: Returns the information about USB type and the serial number
+            of the device
+    """
+    usb_info_list = []
+    # Getting the USB type and Serial number info using 'lsusb -v'. Sample
+    # output is shown in below
+    # Device Descriptor:
+    #      bcdUSB               2.00
+    #      iSerial                 3 131BC7
+    #      bcdUSB               2.00
+    # Device Descriptor:
+    #      bcdUSB               2.10
+    #      iSerial                 3 001A4D5E8634B03169273995
+
+    lsusb_output = utils.system_output(LSUSB_CMD)
+    # we are parsing each line and getting the usb info
+    for line in lsusb_output.splitlines():
+        desc_matched = re.search(DESC_PATTERN, line)
+        bcdusb_matched = re.search(BCDUSB_PATTERN, line)
+        iserial_matched = re.search(ISERIAL_PATTERN, line)
+        if desc_matched:
+            usb_info = {}
+        elif bcdusb_matched:
+            # bcdUSB may appear multiple time. Drop the remaining.
+            usb_info['bcdUSB'] = bcdusb_matched.group(1)
+        elif iserial_matched:
+            usb_info['iSerial'] = iserial_matched.group(1)
+            usb_info_list.append(usb_info)
+    logging.debug('lsusb output is %s', usb_info_list)
+    # Comparing the lsusb serial number with udev output serial number
+    # Both serial numbers should be same. Sample udev command output is
+    # shown in below.
+    # ATTRS{serial}=="001A4D5E8634B03169273995"
+    udev_serial_output = utils.system_output(UDEV_CMD_FOR_SERIAL_NUMBER %
+                                             device)
+    udev_serial_matched = re.search(UDEV_SERIAL_PATTERN, udev_serial_output)
+    if udev_serial_matched:
+        udev_serial = udev_serial_matched.group(1)
+        logging.debug("udev serial number is %s", udev_serial)
+        for usb_details in usb_info_list:
+            if usb_details['iSerial'] == udev_serial:
+                return usb_details.get('bcdUSB'), udev_serial
+    return None, None
 
 def get_partition_info(part_path, bus, model, partid=None, fstype=None,
                        label=None, block_size=0, is_removable=False):
@@ -130,6 +184,8 @@ def get_partition_info(part_path, bus, model, partid=None, fstype=None,
                     dev['fstype'] = proc_fstype
                     dev['is_mounted'] = True
                     dev['mountpoint'] = mount
+                    dev['usb_type'], dev['serial'] = \
+                            get_usbdevice_type_and_serial(dev['device'])
                     ret.append(dev)
 
         # If not among mounted devices, it's just attached, print about the
@@ -137,13 +193,13 @@ def get_partition_info(part_path, bus, model, partid=None, fstype=None,
         # device instead
         if not seen:
             # we consider it if it's removable and and a partition id
-            # OR it's on the USB bus.
+            # OR it's on the USB bus or ATA bus.
             # Some USB HD do not get announced as removable, but they should be
             # showed.
             # There are good changes that if it's on a USB bus it's removable
             # and thus interesting for us, independently whether it's declared
             # removable
-            if (is_removable and partid) or bus == 'usb':
+            if (is_removable and partid) or bus in ['usb', 'ata']:
                 if not label:
                     info = get_udev_info(device, 'blkid')
                     label = info.get('ID_FS_LABEL', partid)
@@ -153,8 +209,9 @@ def get_partition_info(part_path, bus, model, partid=None, fstype=None,
                 dev['fstype'] = fstype
                 dev['is_mounted'] = False
                 dev['mountpoint'] = "/media/removable/%s" % label
+                dev['usb_type'], dev['serial'] = \
+                        get_usbdevice_type_and_serial(dev['device'])
                 ret.append(dev)
-
         return ret
 
 
@@ -222,7 +279,8 @@ def get_all():
 def main():
     for device in get_all():
         print ("%(device)s %(bus)s %(model)s %(size)d %(fs_uuid)s %(fstype)s "
-               "%(is_mounted)d %(mountpoint)s" % device)
+               "%(is_mounted)d %(mountpoint)s %(usb_type)s %(serial)s" %
+               device)
 
 
 if __name__ == "__main__":

@@ -64,6 +64,7 @@ static ElfW(Addr) get_elf_exec_load_bias(const ElfW(Ehdr)* elf);
 static soinfo* solist;
 static soinfo* sonext;
 static soinfo* somain; // main process, always the one after libdl_info
+static soinfo* vdso; // vdso if present
 
 void solist_add_soinfo(soinfo* si) {
   sonext->next = si;
@@ -104,6 +105,10 @@ soinfo* solist_get_somain() {
   return somain;
 }
 
+soinfo* solist_get_vdso() {
+  return vdso;
+}
+
 int g_ld_debug_verbosity;
 abort_msg_t* g_abort_message = nullptr; // For debuggerd.
 
@@ -129,9 +134,9 @@ static void parse_LD_PRELOAD(const char* path) {
   if (path != nullptr) {
     // We have historically supported ':' as well as ' ' in LD_PRELOAD.
     g_ld_preload_names = android::base::Split(path, " :");
-    std::remove_if(g_ld_preload_names.begin(),
-                   g_ld_preload_names.end(),
-                   [] (const std::string& s) { return s.empty(); });
+    g_ld_preload_names.erase(std::remove_if(g_ld_preload_names.begin(), g_ld_preload_names.end(),
+                                            [](const std::string& s) { return s.empty(); }),
+                             g_ld_preload_names.end());
   }
 }
 
@@ -154,6 +159,12 @@ static void add_vdso(KernelArgumentBlock& args) {
 
   si->prelink_image();
   si->link_image(g_empty_list, soinfo_list_t::make_list(si), nullptr);
+  // prevents accidental unloads...
+  si->set_dt_flags_1(si->get_dt_flags_1() | DF_1_NODELETE);
+  si->set_linked();
+  si->call_constructors();
+
+  vdso = si;
 }
 
 /* gdb expects the linker to be in the debug shared object list.
@@ -202,6 +213,20 @@ static char kLinkerPath[] = "/system/bin/linker64";
 #else
 static char kLinkerPath[] = "/system/bin/linker";
 #endif
+
+static void __linker_cannot_link(const char* argv0) {
+  async_safe_format_fd(STDERR_FILENO,
+                       "CANNOT LINK EXECUTABLE \"%s\": %s\n",
+                       argv0,
+                       linker_get_error_buffer());
+
+  async_safe_format_log(ANDROID_LOG_FATAL,
+                        "linker",
+                        "CANNOT LINK EXECUTABLE \"%s\": %s",
+                        argv0,
+                        linker_get_error_buffer());
+  _exit(EXIT_FAILURE);
+}
 
 /*
  * This code is called after the linker has linked itself and
@@ -262,6 +287,8 @@ static ElfW(Addr) __linker_init_post_relocation(KernelArgumentBlock& args) {
     }
   }
 
+  add_vdso(args);
+
   struct stat file_stat;
   // Stat "/proc/self/exe" instead of executable_path because
   // the executable could be unlinked by this point and it should
@@ -272,11 +299,8 @@ static ElfW(Addr) __linker_init_post_relocation(KernelArgumentBlock& args) {
 
   const char* executable_path = get_executable_path();
   soinfo* si = soinfo_alloc(&g_default_namespace, executable_path, &file_stat, 0, RTLD_GLOBAL);
-  if (si == nullptr) {
-    async_safe_fatal("Couldn't allocate soinfo: out of memory?");
-  }
 
-  /* bootstrap the link map, the main exe always needs to be first */
+  // Bootstrap the link map, the main exe always needs to be first.
   si->set_main_executable();
   link_map* map = &(si->link_map_head);
 
@@ -317,17 +341,17 @@ static ElfW(Addr) __linker_init_post_relocation(KernelArgumentBlock& args) {
 
   // We haven't supported non-PIE since Lollipop for security reasons.
   if (elf_hdr->e_type != ET_DYN) {
-    // We don't use __libc_fatal here because we don't want a tombstone: it's
-    // been several years now but we still find ourselves on app compatibility
+    // We don't use async_safe_fatal here because we don't want a tombstone:
+    // even after several years we still find ourselves on app compatibility
     // investigations because some app's trying to launch an executable that
     // hasn't worked in at least three years, and we've "helpfully" dropped a
     // tombstone for them. The tombstone never provided any detail relevant to
     // fixing the problem anyway, and the utility of drawing extra attention
     // to the problem is non-existent at this late date.
     async_safe_format_fd(STDERR_FILENO,
-                     "\"%s\": error: Android 5.0 and later only support "
-                     "position-independent executables (-fPIE).\n",
-                     g_argv[0]);
+                         "\"%s\": error: Android 5.0 and later only support "
+                         "position-independent executables (-fPIE).\n",
+                         g_argv[0]);
     exit(EXIT_FAILURE);
   }
 
@@ -339,9 +363,7 @@ static ElfW(Addr) __linker_init_post_relocation(KernelArgumentBlock& args) {
 
   std::vector<android_namespace_t*> namespaces = init_default_namespaces(executable_path);
 
-  if (!si->prelink_image()) {
-    async_safe_fatal("CANNOT LINK EXECUTABLE \"%s\": %s", g_argv[0], linker_get_error_buffer());
-  }
+  if (!si->prelink_image()) __linker_cannot_link(g_argv[0]);
 
   // add somain to global group
   si->set_dt_flags_1(si->get_dt_flags_1() | DF_1_GLOBAL);
@@ -369,9 +391,6 @@ static ElfW(Addr) __linker_init_post_relocation(KernelArgumentBlock& args) {
   const char** needed_library_names = &needed_library_name_list[0];
   size_t needed_libraries_count = needed_library_name_list.size();
 
-  // readers_map is shared across recursive calls to find_libraries so that we
-  // don't need to re-load elf headers.
-  std::unordered_map<const soinfo*, ElfReader> readers_map;
   if (needed_libraries_count > 0 &&
       !find_libraries(&g_default_namespace,
                       si,
@@ -384,21 +403,16 @@ static ElfW(Addr) __linker_init_post_relocation(KernelArgumentBlock& args) {
                       nullptr,
                       true /* add_as_children */,
                       true /* search_linked_namespaces */,
-                      readers_map,
                       &namespaces)) {
-    async_safe_fatal("CANNOT LINK EXECUTABLE \"%s\": %s", g_argv[0], linker_get_error_buffer());
+    __linker_cannot_link(g_argv[0]);
   } else if (needed_libraries_count == 0) {
     if (!si->link_image(g_empty_list, soinfo_list_t::make_list(si), nullptr)) {
-      async_safe_fatal("CANNOT LINK EXECUTABLE \"%s\": %s", g_argv[0], linker_get_error_buffer());
+      __linker_cannot_link(g_argv[0]);
     }
     si->increment_ref_count();
   }
 
-  add_vdso(args);
-
-  if (!get_cfi_shadow()->InitialLinkDone(solist)) {
-    async_safe_fatal("CANNOT LINK EXECUTABLE \"%s\": %s", g_argv[0], linker_get_error_buffer());
-  }
+  if (!get_cfi_shadow()->InitialLinkDone(solist)) __linker_cannot_link(g_argv[0]);
 
   si->call_pre_init_constructors();
 
@@ -478,10 +492,6 @@ static ElfW(Addr) get_elf_exec_load_bias(const ElfW(Ehdr)* elf) {
     }
   }
   return 0;
-}
-
-static void __linker_cannot_link(const char* argv0) {
-  async_safe_fatal("CANNOT LINK EXECUTABLE \"%s\": %s", argv0, linker_get_error_buffer());
 }
 
 /*
@@ -583,7 +593,7 @@ extern "C" ElfW(Addr) __linker_init(void* raw_args) {
   // Initialize static variables. Note that in order to
   // get correct libdl_info we need to call constructors
   // before get_libdl_info().
-  sonext = solist = get_libdl_info(kLinkerPath, linker_link_map);
+  sonext = solist = get_libdl_info(kLinkerPath, linker_so, linker_link_map);
   g_default_namespace.add_soinfo(solist);
 
   // We have successfully fixed our own relocations. It's safe to run

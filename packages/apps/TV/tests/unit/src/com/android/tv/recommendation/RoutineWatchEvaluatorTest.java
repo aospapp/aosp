@@ -16,23 +16,22 @@
 
 package com.android.tv.recommendation;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import android.support.test.filters.SmallTest;
-import android.test.MoreAsserts;
-
+import android.support.test.runner.AndroidJUnit4;
 import com.android.tv.data.Program;
 import com.android.tv.recommendation.RoutineWatchEvaluator.ProgramTime;
-
-import org.junit.Test;
-
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
-import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+/** Tests for {@link RoutineWatchEvaluator}. */
 @SmallTest
+@RunWith(AndroidJUnit4.class)
 public class RoutineWatchEvaluatorTest extends EvaluatorTestCase<RoutineWatchEvaluator> {
     private static class ScoredItem implements Comparable<ScoredItem> {
         private final String mBase;
@@ -67,13 +66,23 @@ public class RoutineWatchEvaluatorTest extends EvaluatorTestCase<RoutineWatchEva
 
     @Test
     public void testSplitTextToWords() {
-        assertSplitTextToWords("");
-        assertSplitTextToWords("Google", "Google");
-        assertSplitTextToWords("The Big Bang Theory", "The", "Big", "Bang", "Theory");
-        assertSplitTextToWords("Hello, world!", "Hello", "world");
-        assertSplitTextToWords("Adam's Rib", "Adam's", "Rib");
-        assertSplitTextToWords("G.I. Joe", "G.I", "Joe");
-        assertSplitTextToWords("A.I.", "A.I");
+        assertThat(RoutineWatchEvaluator.splitTextToWords("")).containsExactly().inOrder();
+        assertThat(RoutineWatchEvaluator.splitTextToWords("Google"))
+                .containsExactly("Google")
+                .inOrder();
+        assertThat(RoutineWatchEvaluator.splitTextToWords("The Big Bang Theory"))
+                .containsExactly("The", "Big", "Bang", "Theory")
+                .inOrder();
+        assertThat(RoutineWatchEvaluator.splitTextToWords("Hello, world!"))
+                .containsExactly("Hello", "world")
+                .inOrder();
+        assertThat(RoutineWatchEvaluator.splitTextToWords("Adam's Rib"))
+                .containsExactly("Adam's", "Rib")
+                .inOrder();
+        assertThat(RoutineWatchEvaluator.splitTextToWords("G.I. Joe"))
+                .containsExactly("G.I", "Joe")
+                .inOrder();
+        assertThat(RoutineWatchEvaluator.splitTextToWords("A.I.")).containsExactly("A.I").inOrder();
     }
 
     @Test
@@ -102,7 +111,6 @@ public class RoutineWatchEvaluatorTest extends EvaluatorTestCase<RoutineWatchEva
         assertEqualScores(0.0, RoutineWatchEvaluator.calculateTitleMatchScore(" ", "foo"));
     }
 
-
     @Test
     public void testCalculateTitleMatchScore_null() {
         assertEqualScores(0.0, RoutineWatchEvaluator.calculateTitleMatchScore(null, null));
@@ -113,11 +121,15 @@ public class RoutineWatchEvaluatorTest extends EvaluatorTestCase<RoutineWatchEva
     @Test
     public void testCalculateTitleMatchScore_longerMatchIsBetter() {
         String base = "foo bar baz";
-        assertInOrder(
-                score(base, ""),
-                score(base, "bar"),
-                score(base, "foo bar"),
-                score(base, "foo bar baz"));
+        assertThat(
+                        new ScoredItem[] {
+                            score(base, ""),
+                            score(base, "bar"),
+                            score(base, "foo bar"),
+                            score(base, "foo bar baz")
+                        })
+                .asList()
+                .isOrdered();
     }
 
     @Test
@@ -128,116 +140,154 @@ public class RoutineWatchEvaluatorTest extends EvaluatorTestCase<RoutineWatchEva
         int tomorrowDayOfWeek = (todayDayOfWeek % 7) + 1;
 
         // Today 00:00 - 01:00.
-        ProgramTime programTimeToday0000_0100 = ProgramTime.createFromProgram(
-                createDummyProgram(todayAtHourMin(0, 0), TimeUnit.HOURS.toMillis(1)));
-        assertProgramTime(todayDayOfWeek, hourMinuteToSec(0, 0), hourMinuteToSec(1, 0),
-                programTimeToday0000_0100);
+        ProgramTime programTimeToday0000to0100 =
+                ProgramTime.createFromProgram(
+                        createDummyProgram(todayAtHourMin(0, 0), TimeUnit.HOURS.toMillis(1)));
+        assertProgramTime(
+                todayDayOfWeek,
+                hourMinuteToSec(0, 0),
+                hourMinuteToSec(1, 0),
+                programTimeToday0000to0100);
 
         // Today 23:30 - 24:30.
-        ProgramTime programTimeToday2330_2430 = ProgramTime.createFromProgram(
-                createDummyProgram(todayAtHourMin(23, 30), TimeUnit.HOURS.toMillis(1)));
-        assertProgramTime(todayDayOfWeek, hourMinuteToSec(23, 30), hourMinuteToSec(24, 30),
-                programTimeToday2330_2430);
+        ProgramTime programTimeToday2330to2430 =
+                ProgramTime.createFromProgram(
+                        createDummyProgram(todayAtHourMin(23, 30), TimeUnit.HOURS.toMillis(1)));
+        assertProgramTime(
+                todayDayOfWeek,
+                hourMinuteToSec(23, 30),
+                hourMinuteToSec(24, 30),
+                programTimeToday2330to2430);
 
         // Tomorrow 00:00 - 01:00.
-        ProgramTime programTimeTomorrow0000_0100 = ProgramTime.createFromProgram(
-                createDummyProgram(tomorrowAtHourMin(0, 0), TimeUnit.HOURS.toMillis(1)));
-        assertProgramTime(tomorrowDayOfWeek, hourMinuteToSec(0, 0), hourMinuteToSec(1, 0),
-                programTimeTomorrow0000_0100);
+        ProgramTime programTimeTomorrow0000to0100 =
+                ProgramTime.createFromProgram(
+                        createDummyProgram(tomorrowAtHourMin(0, 0), TimeUnit.HOURS.toMillis(1)));
+        assertProgramTime(
+                tomorrowDayOfWeek,
+                hourMinuteToSec(0, 0),
+                hourMinuteToSec(1, 0),
+                programTimeTomorrow0000to0100);
 
         // Tomorrow 23:30 - 24:30.
-        ProgramTime programTimeTomorrow2330_2430 = ProgramTime.createFromProgram(
-                createDummyProgram(tomorrowAtHourMin(23, 30), TimeUnit.HOURS.toMillis(1)));
-        assertProgramTime(tomorrowDayOfWeek, hourMinuteToSec(23, 30), hourMinuteToSec(24, 30),
-                programTimeTomorrow2330_2430);
+        ProgramTime programTimeTomorrow2330to2430 =
+                ProgramTime.createFromProgram(
+                        createDummyProgram(tomorrowAtHourMin(23, 30), TimeUnit.HOURS.toMillis(1)));
+        assertProgramTime(
+                tomorrowDayOfWeek,
+                hourMinuteToSec(23, 30),
+                hourMinuteToSec(24, 30),
+                programTimeTomorrow2330to2430);
 
         // Today 18:00 - Tomorrow 12:00.
-        ProgramTime programTimeToday1800_3600 = ProgramTime.createFromProgram(
-                createDummyProgram(todayAtHourMin(18, 0), TimeUnit.HOURS.toMillis(18)));
+        ProgramTime programTimeToday1800to3600 =
+                ProgramTime.createFromProgram(
+                        createDummyProgram(todayAtHourMin(18, 0), TimeUnit.HOURS.toMillis(18)));
         // Maximum duration of ProgramTime is 12 hours.
         // So, this program looks like it ends at Tomorrow 06:00 (30:00).
-        assertProgramTime(todayDayOfWeek, hourMinuteToSec(18, 0), hourMinuteToSec(30, 0),
-                programTimeToday1800_3600);
+        assertProgramTime(
+                todayDayOfWeek,
+                hourMinuteToSec(18, 0),
+                hourMinuteToSec(30, 0),
+                programTimeToday1800to3600);
     }
 
     @Test
     public void testCalculateOverlappedIntervalScore() {
         // Today 21:00 - 24:00.
-        ProgramTime programTimeToday2100_2400 = ProgramTime.createFromProgram(
-                createDummyProgram(todayAtHourMin(21, 0), TimeUnit.HOURS.toMillis(3)));
+        ProgramTime programTimeToday2100to2400 =
+                ProgramTime.createFromProgram(
+                        createDummyProgram(todayAtHourMin(21, 0), TimeUnit.HOURS.toMillis(3)));
         // Today 22:00 - 01:00.
-        ProgramTime programTimeToday2200_0100 = ProgramTime.createFromProgram(
-                createDummyProgram(todayAtHourMin(22, 0), TimeUnit.HOURS.toMillis(3)));
+        ProgramTime programTimeToday2200to0100 =
+                ProgramTime.createFromProgram(
+                        createDummyProgram(todayAtHourMin(22, 0), TimeUnit.HOURS.toMillis(3)));
         // Tomorrow 00:00 - 03:00.
-        ProgramTime programTimeTomorrow0000_0300 = ProgramTime.createFromProgram(
-                createDummyProgram(tomorrowAtHourMin(0, 0), TimeUnit.HOURS.toMillis(3)));
+        ProgramTime programTimeTomorrow0000to0300 =
+                ProgramTime.createFromProgram(
+                        createDummyProgram(tomorrowAtHourMin(0, 0), TimeUnit.HOURS.toMillis(3)));
         // Tomorrow 20:00 - Tomorrow 23:00.
-        ProgramTime programTimeTomorrow2000_2300 = ProgramTime.createFromProgram(
-                createDummyProgram(tomorrowAtHourMin(20, 0), TimeUnit.HOURS.toMillis(3)));
+        ProgramTime programTimeTomorrow2000to2300 =
+                ProgramTime.createFromProgram(
+                        createDummyProgram(tomorrowAtHourMin(20, 0), TimeUnit.HOURS.toMillis(3)));
 
         // Check intersection time and commutative law in all cases.
         int oneHourInSec = hourMinuteToSec(1, 0);
-        assertOverlappedIntervalScore(2 * oneHourInSec, true, programTimeToday2100_2400,
-                programTimeToday2200_0100);
-        assertOverlappedIntervalScore(0, false, programTimeToday2100_2400,
-                programTimeTomorrow0000_0300);
-        assertOverlappedIntervalScore(2 * oneHourInSec, false, programTimeToday2100_2400,
-                programTimeTomorrow2000_2300);
-        assertOverlappedIntervalScore(oneHourInSec, true, programTimeToday2200_0100,
-                programTimeTomorrow0000_0300);
-        assertOverlappedIntervalScore(oneHourInSec, false, programTimeToday2200_0100,
-                programTimeTomorrow2000_2300);
-        assertOverlappedIntervalScore(0, false, programTimeTomorrow0000_0300,
-                programTimeTomorrow2000_2300);
+        assertOverlappedIntervalScore(
+                2 * oneHourInSec, true, programTimeToday2100to2400, programTimeToday2200to0100);
+        assertOverlappedIntervalScore(
+                0, false, programTimeToday2100to2400, programTimeTomorrow0000to0300);
+        assertOverlappedIntervalScore(
+                2 * oneHourInSec, false, programTimeToday2100to2400, programTimeTomorrow2000to2300);
+        assertOverlappedIntervalScore(
+                oneHourInSec, true, programTimeToday2200to0100, programTimeTomorrow0000to0300);
+        assertOverlappedIntervalScore(
+                oneHourInSec, false, programTimeToday2200to0100, programTimeTomorrow2000to2300);
+        assertOverlappedIntervalScore(
+                0, false, programTimeTomorrow0000to0300, programTimeTomorrow2000to2300);
     }
 
     @Test
     public void testGetTimeOfDayInSec() {
         // Time was set as 00:00:00. So, getTimeOfDay must returns 0 (= 0 * 60 * 60 + 0 * 60 + 0).
-        assertEquals("TimeOfDayInSec", hourMinuteToSec(0, 0),
+        assertEquals(
+                "TimeOfDayInSec",
+                hourMinuteToSec(0, 0),
                 RoutineWatchEvaluator.getTimeOfDayInSec(todayAtHourMin(0, 0)));
 
         // Time was set as 23:59:59. So, getTimeOfDay must returns 23 * 60 + 60 + 59 * 60 + 59.
-        assertEquals("TimeOfDayInSec", hourMinuteSecondToSec(23, 59, 59),
+        assertEquals(
+                "TimeOfDayInSec",
+                hourMinuteSecondToSec(23, 59, 59),
                 RoutineWatchEvaluator.getTimeOfDayInSec(todayAtHourMinSec(23, 59, 59)));
     }
 
-    private void assertSplitTextToWords(String text, String... words) {
-        List<String> wordList = RoutineWatchEvaluator.splitTextToWords(text);
-        MoreAsserts.assertContentsInOrder(wordList, words);
-    }
-
-    private void assertMaximumMatchedWordSequenceLength(int expectedLength, String text1,
-            String text2) {
+    private void assertMaximumMatchedWordSequenceLength(
+            int expectedLength, String text1, String text2) {
         List<String> wordList1 = RoutineWatchEvaluator.splitTextToWords(text1);
         List<String> wordList2 = RoutineWatchEvaluator.splitTextToWords(text2);
-        assertEquals("MaximumMatchedWordSequenceLength", expectedLength,
+        assertEquals(
+                "MaximumMatchedWordSequenceLength",
+                expectedLength,
                 RoutineWatchEvaluator.calculateMaximumMatchedWordSequenceLength(
                         wordList1, wordList2));
-        assertEquals("MaximumMatchedWordSequenceLength", expectedLength,
+        assertEquals(
+                "MaximumMatchedWordSequenceLength",
+                expectedLength,
                 RoutineWatchEvaluator.calculateMaximumMatchedWordSequenceLength(
                         wordList2, wordList1));
     }
 
-    private void assertProgramTime(int expectedWeekDay, int expectedStartTimeOfDayInSec,
-            int expectedEndTimeOfDayInSec, ProgramTime actualProgramTime) {
+    private void assertProgramTime(
+            int expectedWeekDay,
+            int expectedStartTimeOfDayInSec,
+            int expectedEndTimeOfDayInSec,
+            ProgramTime actualProgramTime) {
         assertEquals("Weekday", expectedWeekDay, actualProgramTime.weekDay);
-        assertEquals("StartTimeOfDayInSec", expectedStartTimeOfDayInSec,
+        assertEquals(
+                "StartTimeOfDayInSec",
+                expectedStartTimeOfDayInSec,
                 actualProgramTime.startTimeOfDayInSec);
-        assertEquals("EndTimeOfDayInSec", expectedEndTimeOfDayInSec,
+        assertEquals(
+                "EndTimeOfDayInSec",
+                expectedEndTimeOfDayInSec,
                 actualProgramTime.endTimeOfDayInSec);
     }
 
-    private void assertOverlappedIntervalScore(int expectedSeconds, boolean overlappedOnSameDay,
-            ProgramTime t1, ProgramTime t2) {
+    private void assertOverlappedIntervalScore(
+            int expectedSeconds, boolean overlappedOnSameDay, ProgramTime t1, ProgramTime t2) {
         double score = expectedSeconds;
         if (!overlappedOnSameDay) {
             score *= RoutineWatchEvaluator.MULTIPLIER_FOR_UNMATCHED_DAY_OF_WEEK;
         }
         // Two tests for testing commutative law.
-        assertEqualScores("OverlappedIntervalScore", score,
+        assertEqualScores(
+                "OverlappedIntervalScore",
+                score,
                 RoutineWatchEvaluator.calculateOverlappedIntervalScore(t1, t2));
-        assertEqualScores("OverlappedIntervalScore", score,
+        assertEqualScores(
+                "OverlappedIntervalScore",
+                score,
                 RoutineWatchEvaluator.calculateOverlappedIntervalScore(t2, t1));
     }
 
@@ -270,12 +320,9 @@ public class RoutineWatchEvaluatorTest extends EvaluatorTestCase<RoutineWatchEva
     private Program createDummyProgram(Calendar startTime, long programDurationMs) {
         long startTimeMs = startTime.getTimeInMillis();
 
-        return new Program.Builder().setStartTimeUtcMillis(startTimeMs)
-                .setEndTimeUtcMillis(startTimeMs + programDurationMs).build();
-    }
-
-    private static <T> void assertInOrder(T... items) {
-        TreeSet<T> copy = new TreeSet<>(Arrays.asList(items));
-        MoreAsserts.assertContentsInOrder(copy, items);
+        return new Program.Builder()
+                .setStartTimeUtcMillis(startTimeMs)
+                .setEndTimeUtcMillis(startTimeMs + programDurationMs)
+                .build();
     }
 }

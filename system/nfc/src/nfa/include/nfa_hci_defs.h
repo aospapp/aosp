@@ -31,12 +31,15 @@
 #define NFA_HCI_IDENTITY_MANAGEMENT_GATE 0x05
 
 #define NFA_HCI_FIRST_HOST_SPECIFIC_GENERIC_GATE 0x10
-#define NFA_HCI_LAST_HOST_SPECIFIC_GENERIC_GATE 0xEF
 #define NFA_HCI_FIRST_PROP_GATE 0xF0
 #define NFA_HCI_LAST_PROP_GATE 0xFF
 
 /* Generic Gates */
 #define NFA_HCI_CONNECTIVITY_GATE 0x41
+
+/* Proprietary Gates */
+#define NFA_HCI_PROP_GATE_FIRST 0xF0
+#define NFA_HCI_PROP_GATE_LAST 0xFF
 
 /* Static pipes */
 #define NFA_HCI_LINK_MANAGEMENT_PIPE 0x00
@@ -48,8 +51,6 @@
 
 /* host_table */
 #define NFA_HCI_HOST_CONTROLLER 0x00
-#define NFA_HCI_DH_HOST 0x01
-#define NFA_HCI_UICC_HOST 0x02
 
 /* Type of instruction */
 #define NFA_HCI_COMMAND_TYPE 0x00
@@ -105,12 +106,8 @@
 
 /* Host controller Admin gate registry identifiers */
 #define NFA_HCI_SESSION_IDENTITY_INDEX 0x01
-#define NFA_HCI_MAX_PIPE_INDEX 0x02
 #define NFA_HCI_WHITELIST_INDEX 0x03
 #define NFA_HCI_HOST_LIST_INDEX 0x04
-
-/* Host controller and DH Link management gate registry identifier */
-#define NFA_HCI_REC_ERROR_INDEX 0x02
 
 /* DH Identity management gate registry identifier */
 #define NFA_HCI_VERSION_SW_INDEX 0x01

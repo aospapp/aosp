@@ -19,6 +19,18 @@ cc_library_headers {
     vendor_available: true,
 }
 
+cc_library_headers {
+    name: "libnativehelper_header_only",
+    host_supported: true,
+    export_include_dirs: ["header_only_include"],
+}
+
+cc_library_headers {
+    name: "jni_platform_headers",
+    host_supported: true,
+    export_include_dirs: ["platform_include"],
+}
+
 cc_library {
     name: "libnativehelper",
     host_supported: true,
@@ -30,29 +42,31 @@ cc_library {
     ],
 
     target: {
-        android: {
-            srcs: ["AsynchronousCloseMonitor.cpp"],
-            shared_libs: ["libdl"],
-        },
         linux: {
             srcs: ["AsynchronousCloseMonitor.cpp"],
-            host_ldlibs: ["-ldl"],
         },
     },
 
-    header_libs: ["jni_headers"],
-    export_header_lib_headers: ["jni_headers"],
+    header_libs: [
+        "jni_headers",
+        "libnativehelper_header_only",
+        "jni_platform_headers"
+    ],
+    export_header_lib_headers: [
+        "jni_headers",
+        "libnativehelper_header_only",
+        "jni_platform_headers",
+    ],
 
     shared_libs: [
         "liblog",
     ],
-    clang: true,
     cflags: [
         "-Werror",
         "-fvisibility=protected",
     ],
 
-    export_include_dirs: ["include", "platform_include"],
+    export_include_dirs: ["include"],
 }
 
 //
@@ -63,10 +77,15 @@ cc_library {
 
 cc_library_shared {
     name: "libnativehelper_compat_libc++",
-    clang: true,
-    local_include_dirs: ["include/nativehelper"],
-    export_include_dirs: ["include/nativehelper"],
+    export_include_dirs: [
+        "header_only_include",
+        "include",
+    ],
     cflags: ["-Werror"],
+    include_dirs: [
+        "libnativehelper/header_only_include",
+        "libnativehelper/platform_include",
+    ],
     srcs: [
         "JNIHelp.cpp",
         "JniConstants.cpp",

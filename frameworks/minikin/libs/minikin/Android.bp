@@ -25,24 +25,29 @@ cc_library {
     srcs: [
         "Hyphenator.cpp",
     ],
+    cflags: ["-Wall", "-Werror"],
     target: {
         android: {
             srcs: [
+                "BidiUtils.cpp",
                 "CmapCoverage.cpp",
                 "Emoji.cpp",
                 "FontCollection.cpp",
                 "FontFamily.cpp",
-                "FontLanguage.cpp",
-                "FontLanguageListCache.cpp",
                 "FontUtils.cpp",
                 "GraphemeBreak.cpp",
-                "HbFontCache.cpp",
+                "GreedyLineBreaker.cpp",
+                "HyphenatorMap.cpp",
                 "Layout.cpp",
                 "LayoutUtils.cpp",
                 "LineBreaker.cpp",
+                "LineBreakerUtil.cpp",
+                "Locale.cpp",
+                "LocaleListCache.cpp",
+                "MeasuredText.cpp",
                 "Measurement.cpp",
                 "MinikinInternal.cpp",
-                "MinikinFont.cpp",
+                "OptimalLineBreaker.cpp",
                 "SparseBitSet.cpp",
                 "WordBreaker.cpp",
             ],
@@ -68,11 +73,12 @@ cc_library {
         "-Werror",
         "-Wall",
         "-Wextra",
+        "-Wthread-safety",
     ],
     product_variables: {
         debuggable: {
-            // Enable race detection on eng and userdebug build.
-            cppflags: ["-DENABLE_RACE_DETECTION"],
+            // Enable assertion on eng and userdebug build.
+            cppflags: ["-DENABLE_ASSERTION"],
         },
     },
     shared_libs: [

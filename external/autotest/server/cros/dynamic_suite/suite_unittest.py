@@ -70,7 +70,7 @@ class SuiteTest(mox.MoxTestBase):
 
         self.files = OrderedDict(
                 [('one', FakeControlData(self._TAG, self._ATTR, 'data_one',
-                                         'FAST')),
+                                         'FAST', job_retries=None)),
                  ('two', FakeControlData(self._TAG, self._ATTR, 'data_two',
                                          'SHORT', dependencies=['feta'])),
                  ('three', FakeControlData(self._TAG, self._ATTR, 'data_three',
@@ -325,6 +325,8 @@ class SuiteTest(mox.MoxTestBase):
                 timeout_mins=1440,
                 parent_job_id=None,
                 test_retry=0,
+                reboot_before=mox.IgnoreArg(),
+                run_reset=mox.IgnoreArg(),
                 priority=priorities.Priority.DEFAULT,
                 synch_count=test.sync_count,
                 require_ssp=test.require_ssp
@@ -458,9 +460,11 @@ class SuiteTest(mox.MoxTestBase):
         for n in range(len(all_files)):
             test = all_files[n][1]
             job_id = n + 1
-            expected_retry_map[job_id] = {
-                    'state': RetryHandler.States.NOT_ATTEMPTED,
-                    'retry_max': max(test.job_retries, 1)}
+            job_retries = 1 if test.job_retries is None else test.job_retries
+            if job_retries > 0:
+                expected_retry_map[job_id] = {
+                        'state': RetryHandler.States.NOT_ATTEMPTED,
+                        'retry_max': job_retries}
 
         self.mox.ReplayAll()
         suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
@@ -554,13 +558,21 @@ class SuiteTest(mox.MoxTestBase):
 
         @return Suite object, after mocking out behavior needed to create it.
         """
+        self.result_reporter = _MemoryResultReporter()
         self.expect_control_file_parsing()
         self.mox.ReplayAll()
-        suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
-                                       self.devserver,
-                                       self.getter,
-                                       afe=self.afe, tko=self.tko,
-                                       file_bugs=file_bugs, job_retry=True)
+        suite = Suite.create_from_name(
+                self._TAG,
+                self._BUILDS,
+                self._BOARD,
+                self.devserver,
+                self.getter,
+                afe=self.afe,
+                tko=self.tko,
+                file_bugs=file_bugs,
+                job_retry=True,
+                result_reporter=self.result_reporter,
+        )
         self.mox.ResetAll()
         return suite
 
@@ -637,10 +649,11 @@ class SuiteTest(mox.MoxTestBase):
         suite.schedule(recorder.record_entry)
         suite._retry_handler = RetryHandler({})
 
-        self.mox.StubOutWithMock(job_status, 'wait_for_results')
-        job_status.wait_for_results(
-                self.afe, self.tko, suite._jobs).AndReturn(
-                result_generator(results))
+        waiter_patch = mock.patch.object(
+                job_status.JobResultWaiter, 'wait_for_results', autospec=True)
+        waiter_mock = waiter_patch.start()
+        waiter_mock.return_value = result_generator(results)
+        self.addCleanup(waiter_patch.stop)
 
 
     def testRunAndWaitSuccess(self):
@@ -655,7 +668,7 @@ class SuiteTest(mox.MoxTestBase):
         self.mox.ReplayAll()
 
         suite.schedule(recorder.record_entry)
-        suite.wait(recorder.record_entry, dict())
+        suite.wait(recorder.record_entry)
 
 
     def testRunAndWaitFailure(self):
@@ -669,15 +682,14 @@ class SuiteTest(mox.MoxTestBase):
 
         self.mox.StubOutWithMock(suite, 'schedule')
         suite.schedule(recorder.record_entry)
-        self.mox.StubOutWithMock(job_status, 'wait_for_results')
-        job_status.wait_for_results(mox.IgnoreArg(),
-                                    mox.IgnoreArg(),
-                                    mox.IgnoreArg()).AndRaise(
-                                            Exception('Expected during test.'))
         self.mox.ReplayAll()
 
-        suite.schedule(recorder.record_entry)
-        suite.wait(recorder.record_entry, dict())
+        with mock.patch.object(
+                job_status.JobResultWaiter, 'wait_for_results',
+                autospec=True) as wait_mock:
+            wait_mock.side_effect = Exception
+            suite.schedule(recorder.record_entry)
+            suite.wait(recorder.record_entry)
 
 
     def testRunAndWaitScheduleFailure(self):
@@ -700,7 +712,7 @@ class SuiteTest(mox.MoxTestBase):
         self.mox.ReplayAll()
 
         suite.schedule(recorder.record_entry)
-        suite.wait(recorder.record_entry, dict())
+        suite.wait(recorder.record_entry)
 
 
     def testGetTestsSortedByTime(self):
@@ -736,42 +748,6 @@ class SuiteTest(mox.MoxTestBase):
                                    self._FAKE_JOB_ID, 'user', 'myhost'))
 
 
-    def testBugFiling(self):
-        """
-        Confirm that all the necessary predicates are passed on to the
-        bug reporter when a test fails.
-        """
-        test_results = self._createSuiteMockResults()
-        self.schedule_and_expect_these_results(
-            self.suite,
-            [test_results[0] + test_results[1]],
-            self.recorder)
-
-        self.mox.ReplayAll()
-
-        self.suite.schedule(self.recorder.record_entry)
-        self.suite._jobs_to_tests[self._FAKE_JOB_ID] = self.files['seven']
-        reporter = SuiteBase.MemoryResultReporter()
-        self.suite.wait(self.recorder.record_entry, reporter=reporter)
-
-
-    def testFailedBugFiling(self):
-        """
-        Make sure the suite survives even if we cannot file bugs.
-        """
-        test_results = self._createSuiteMockResults(self.tmpdir)
-        self.schedule_and_expect_these_results(
-            self.suite,
-            [test_results[0] + test_results[1]],
-            self.recorder)
-        self.mox.ReplayAll()
-
-        self.suite.schedule(self.recorder.record_entry)
-        self.suite._jobs_to_tests[self._FAKE_JOB_ID] = self.files['seven']
-        reporter = SuiteBase.MemoryResultReporter()
-        self.suite.wait(self.recorder.record_entry, reporter=reporter)
-
-
     def testJobRetryTestFail(self):
         """Test retry works."""
         test_to_retry = self.files['seven']
@@ -795,10 +771,7 @@ class SuiteTest(mox.MoxTestBase):
                                     'retry_max': 1}
                 }
         self.suite._jobs_to_tests[self._FAKE_JOB_ID] = test_to_retry
-        reporter = mock.create_autospec(SuiteBase.MemoryResultReporter,
-                                        instance=True)
-        reporter.report.side_effect = Exception
-        self.suite.wait(self.recorder.record_entry, reporter=reporter)
+        self.suite.wait(self.recorder.record_entry)
         expected_retry_map = {
                 self._FAKE_JOB_ID: {'state': RetryHandler.States.RETRIED,
                                     'retry_max': 1},
@@ -831,9 +804,8 @@ class SuiteTest(mox.MoxTestBase):
         self.suite._jobs_to_tests[self._FAKE_JOB_ID] = test_to_retry
         expected_jobs_to_tests = self.suite._jobs_to_tests.copy()
         expected_retry_map = self.suite._retry_handler._retry_map.copy()
-        reporter = SuiteBase.MemoryResultReporter()
-        self.suite.wait(self.recorder.record_entry, reporter=reporter)
-        self.assertTrue(reporter.results)
+        self.suite.wait(self.recorder.record_entry)
+        self.assertTrue(self.result_reporter.results)
         # Check retry map and _jobs_to_tests, ensure no retry was scheduled.
         self.assertEquals(self.suite._retry_handler._retry_map,
                           expected_retry_map)
@@ -866,8 +838,7 @@ class SuiteTest(mox.MoxTestBase):
                         'state': RetryHandler.States.NOT_ATTEMPTED,
                         'retry_max': 1}}
         self.suite._jobs_to_tests[self._FAKE_JOB_ID] = test_to_retry
-        reporter = SuiteBase.MemoryResultReporter()
-        self.suite.wait(self.recorder.record_entry, reporter=reporter)
+        self.suite.wait(self.recorder.record_entry)
         expected_retry_map = {
                 self._FAKE_JOB_ID: {
                         'state': RetryHandler.States.ATTEMPTED,
@@ -876,6 +847,16 @@ class SuiteTest(mox.MoxTestBase):
         self.assertEquals(self.suite._retry_handler._retry_map,
                           expected_retry_map)
         self.assertEquals(self.suite._jobs_to_tests, expected_jobs_to_tests)
+
+
+class _MemoryResultReporter(SuiteBase._ResultReporter):
+    """Reporter that stores results internally for testing."""
+    def __init__(self):
+        self.results = []
+
+    def report(self, result):
+        """Reports the result by storing it internally."""
+        self.results.append(result)
 
 
 if __name__ == '__main__':

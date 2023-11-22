@@ -28,6 +28,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(car_service_sources)
 
 LOCAL_PACKAGE_NAME := CarService
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 # Each update should be signed by OEMs
 LOCAL_CERTIFICATE := platform
@@ -39,9 +40,12 @@ LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_JAVA_LIBRARIES += android.car
 LOCAL_STATIC_JAVA_LIBRARIES += \
         android.hidl.base-V1.0-java \
+        android.hardware.automotive.audiocontrol-V1.0-java \
         android.hardware.automotive.vehicle-V2.0-java \
         vehicle-hal-support-lib \
+        car-frameworks-service \
         car-systemtest \
+        com.android.car.procfsinspector-client \
 
 include $(BUILD_PACKAGE)
 
@@ -51,16 +55,22 @@ include $(BUILD_PACKAGE)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(car_service_sources)
+
+LOCAL_USE_AAPT2 := true
+
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
 LOCAL_MODULE := car-service-lib-for-test
 
-LOCAL_JAVA_LIBRARIES += android.car
+LOCAL_JAVA_LIBRARIES += android.car \
+        car-frameworks-service
 LOCAL_STATIC_JAVA_LIBRARIES += \
         android.hidl.base-V1.0-java \
+        android.hardware.automotive.audiocontrol-V1.0-java \
         android.hardware.automotive.vehicle-V2.0-java \
         vehicle-hal-support-lib \
         car-systemtest \
+        com.android.car.procfsinspector-client \
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 

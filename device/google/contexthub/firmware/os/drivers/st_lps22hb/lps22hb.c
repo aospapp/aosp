@@ -343,7 +343,7 @@ static const struct SensorInfo lps22hbSensorInfo[NUM_OF_SENSOR] =
 {
     { DEC_INFO("Pressure", SENS_TYPE_BARO, NUM_AXIS_ONE, NANOHUB_INT_NONWAKEUP,
         300, lps22hbRates) },
-    { DEC_INFO("Temperature", SENS_TYPE_TEMP, NUM_AXIS_EMBEDDED, NANOHUB_INT_NONWAKEUP,
+    { DEC_INFO("Temperature", SENS_TYPE_AMBIENT_TEMP, NUM_AXIS_EMBEDDED, NANOHUB_INT_NONWAKEUP,
         20, lps22hbRates) },
 };
 
@@ -498,7 +498,7 @@ static bool tempSetRate(uint32_t rate, uint64_t latency, void *cookie)
 
 static bool tempFlush(void *cookie)
 {
-    return osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_TEMP), SENSOR_DATA_EVENT_FLUSH, NULL);
+    return osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_AMBIENT_TEMP), SENSOR_DATA_EVENT_FLUSH, NULL);
 }
 
 #define DEC_OPS(power, firmware, rate, flush, cal, cfg) \
@@ -621,7 +621,7 @@ static int handleCommDoneEvt(const void* evtData)
             mTask.tempReading = false;
             sample.fdata = LPS22HB_CENTIGRADES((float)temp_val);
             //osLog(LOG_INFO, "temp: %p\n", sample.vptr);
-            osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_TEMP), sample.vptr, NULL);
+            osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_AMBIENT_TEMP), sample.vptr, NULL);
         }
 
         break;

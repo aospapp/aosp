@@ -21,14 +21,47 @@ config("libfuzzer_config") {
 }
 
 group("libfuzzer") {
+  testonly = true
+  deps = [
+    ":pdf_cmap_fuzzer",
+    ":pdf_codec_a85_fuzzer",
+    ":pdf_codec_fax_fuzzer",
+    ":pdf_codec_icc_fuzzer",
+    ":pdf_codec_jbig2_fuzzer",
+    ":pdf_codec_rle_fuzzer",
+    ":pdf_font_fuzzer",
+    ":pdf_hint_table_fuzzer",
+    ":pdf_jpx_fuzzer",
+    ":pdf_psengine_fuzzer",
+    ":pdf_streamparser_fuzzer",
+  ]
+  if (pdf_enable_xfa) {
+    deps += [
+      ":pdf_cfx_barcode_fuzzer",
+      ":pdf_cfx_saxreader_fuzzer",
+      ":pdf_codec_bmp_fuzzer",
+      ":pdf_codec_gif_fuzzer",
+      ":pdf_codec_jpeg_fuzzer",
+      ":pdf_codec_png_fuzzer",
+      ":pdf_codec_tiff_fuzzer",
+      ":pdf_css_fuzzer",
+      ":pdf_fm2js_fuzzer",
+      ":pdf_formcalc_fuzzer",
+      ":pdf_lzw_fuzzer",
+      ":pdf_xml_fuzzer",
+    ]
+  }
 }
 
 template("pdfium_fuzzer") {
   source_set(target_name) {
-    sources = invoker.sources
+    sources = invoker.sources + [ "pdf_fuzzer_init.cc" ]
     deps = [
       "../..:pdfium",
     ]
+    if (defined(invoker.deps)) {
+      deps += invoker.deps
+    }
     testonly = true
     configs -= [ "//build/config/compiler:chromium_code" ]
     configs += [
@@ -39,6 +72,12 @@ template("pdfium_fuzzer") {
 }
 
 if (pdf_enable_xfa) {
+  pdfium_fuzzer("pdf_cfx_barcode_fuzzer") {
+    sources = [
+      "pdf_cfx_barcode_fuzzer.cc",
+    ]
+  }
+
   pdfium_fuzzer("pdf_cfx_saxreader_fuzzer") {
     sources = [
       "pdf_cfx_saxreader_fuzzer.cc",
@@ -92,6 +131,18 @@ if (pdf_enable_xfa) {
     ]
   }
 
+  pdfium_fuzzer("pdf_formcalc_fuzzer") {
+    sources = [
+      "pdf_formcalc_fuzzer.cc",
+    ]
+  }
+
+  pdfium_fuzzer("pdf_lzw_fuzzer") {
+    sources = [
+      "pdf_lzw_fuzzer.cc",
+    ]
+  }
+
   pdfium_fuzzer("pdf_xml_fuzzer") {
     sources = [
       "pdf_xml_fuzzer.cc",
@@ -118,6 +169,9 @@ pdfium_fuzzer("pdf_codec_fax_fuzzer") {
 }
 
 pdfium_fuzzer("pdf_codec_icc_fuzzer") {
+  deps = [
+    "../../third_party/:lcms2",
+  ]
   sources = [
     "pdf_codec_icc_fuzzer.cc",
   ]
@@ -132,6 +186,12 @@ pdfium_fuzzer("pdf_codec_jbig2_fuzzer") {
 pdfium_fuzzer("pdf_codec_rle_fuzzer") {
   sources = [
     "pdf_codec_rle_fuzzer.cc",
+  ]
+}
+
+pdfium_fuzzer("pdf_font_fuzzer") {
+  sources = [
+    "pdf_font_fuzzer.cc",
   ]
 }
 

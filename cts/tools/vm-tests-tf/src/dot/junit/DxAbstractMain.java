@@ -25,20 +25,19 @@ public class DxAbstractMain {
     private static void checkError(Class<?> expectedErrorClass, Throwable thrown,
                                    boolean in_invocation_exc) {
         if (expectedErrorClass != null && thrown == null) {
-            fail("Expected error of type " + expectedErrorClass);
+            fail("Expected error of type " + expectedErrorClass, null);
         } else if (expectedErrorClass == null && thrown != null) {
-            fail("Unexpected error " + thrown);
+            fail("Unexpected error " + thrown, thrown);
         } else if (expectedErrorClass != null && thrown != null) {
             if (in_invocation_exc) {
                 if (!(thrown instanceof java.lang.reflect.InvocationTargetException)) {
-                    fail("Expected invocation target exception, but got " + thrown);
+                    fail("Expected invocation target exception, but got " + thrown, thrown);
                 }
                 thrown = thrown.getCause();
             }
             if (!expectedErrorClass.equals(thrown.getClass())) {
-                thrown.printStackTrace(System.err);
                 fail("Expected error of type " + expectedErrorClass + ", but got " +
-                     thrown.getClass());
+                         thrown.getClass(), thrown);
             }
         }
     }
@@ -47,19 +46,19 @@ public class DxAbstractMain {
      * Try to load the class with the given name, and check for the expected error.
      */
     public static Class<?> load(String className, Class<?> expectedErrorClass) {
+        Class<?> c;
         try {
-            Class<?> c = Class.forName(className);
-            checkError(expectedErrorClass, null, false);
-            return c;
+            c = Class.forName(className);
         } catch (Throwable t) {
             if (expectedErrorClass != null) {
                 checkError(expectedErrorClass, t, false);
             } else {
-                t.printStackTrace(System.err);
-                fail("Could not load class " + className + ": " + t);
+                fail("Could not load class " + className, t);
             }
             return null;
         }
+        checkError(expectedErrorClass, null, false);
+        return c;
     }
 
     /**
@@ -80,7 +79,7 @@ public class DxAbstractMain {
             }
         }
         if (method == null) {
-            fail("Could not find method 'run'");
+            fail("Could not find method 'run'", null);
         }
 
         Object receiver = null;
@@ -88,16 +87,17 @@ public class DxAbstractMain {
             try {
                 receiver = c.newInstance();
             } catch (Exception exc) {
-                fail("Could not instantiate " + className + ": " + exc.getMessage());
+                fail("Could not instantiate " + className, exc);
             }
         }
 
         try {
             method.invoke(receiver, args);
-            checkError(expectedErrorClass, null, false);
         } catch (Throwable t) {
             checkError(expectedErrorClass, t, wrapped);
+            return;
         }
+        checkError(expectedErrorClass, null, false);
     }
 
     public static void loadAndRun(String className, Class<?> expectedErrorClass) {
@@ -109,19 +109,26 @@ public class DxAbstractMain {
     }
 
     static public void assertEquals(int expected, int actual) {
-        if (expected != actual) throw new RuntimeException("AssertionFailedError: not equals. Expected " + expected + " actual " + actual);
+        if (expected != actual)
+            throw new AssertionFailedException(
+                    "not equals. Expected " + expected + " actual " + actual);
     }
 
     static public void assertEquals(String message, int expected, int actual) {
-        if (expected != actual) throw new RuntimeException("AssertionFailedError: not equals: " + message + " Expected " + expected + " actual " + actual);
+        if (expected != actual)
+            throw new AssertionFailedException(
+                    "not equals: " + message + " Expected " + expected + " actual " + actual);
     }
 
     static public void assertEquals(long expected, long actual) {
-        if (expected != actual) throw new RuntimeException("AssertionFailedError: not equals. Expected " + expected + " actual " + actual);
+        if (expected != actual)
+            throw new AssertionFailedException(
+                    "not equals. Expected " + expected + " actual " + actual);
     }
 
     static public void assertEquals(double expected, double actual, double delta) {
-        if(!(Math.abs(expected-actual) <= delta)) throw new RuntimeException("AssertionFailedError: not within delta");
+        if (!(Math.abs(expected - actual) <= delta))
+            throw new AssertionFailedException("not within delta");
     }
 
     static public void assertEquals(Object expected, Object actual) {
@@ -129,26 +136,34 @@ public class DxAbstractMain {
             return;
         if (expected != null && expected.equals(actual))
             return;
-        throw new RuntimeException("AssertionFailedError: not the same");
+        throw new AssertionFailedException("not the same: " + expected + " vs " + actual);
     }
 
     static public void assertTrue(boolean condition) {
-        if (!condition) throw new RuntimeException("AssertionFailedError: condition was false");
+        if (!condition)
+            throw new AssertionFailedException("condition was false");
     }
 
     static public void assertFalse(boolean condition) {
-        if (condition) throw new RuntimeException("AssertionFailedError: condition was true");
+        if (condition)
+            throw new AssertionFailedException("condition was true");
     }
 
     static public void assertNotNull(Object object) {
-        if (object == null) throw new RuntimeException("AssertionFailedError: object was null");
+        if (object == null)
+            throw new AssertionFailedException("object was null");
     }
 
     static public void assertNull(Object object) {
-        if (object != null) throw new RuntimeException("AssertionFailedError: object was not null");
+        if (object != null)
+            throw new AssertionFailedException("object was not null");
     }
 
     static public void fail(String message) {
-        throw new RuntimeException("AssertionFailedError msg:"+message);
+        fail(message, null);
+    }
+
+    static public void fail(String message, Throwable cause) {
+        throw new AssertionFailedException(message, cause);
     }
 }

@@ -23,8 +23,9 @@
 #include <memory>
 #include <string>
 
-#include "atomic.h"
-#include "base/logging.h"
+#include <android-base/logging.h>
+
+#include "base/atomic.h"
 #include "base/macros.h"
 #include "mem_map.h"
 #include "stack_reference.h"
@@ -40,7 +41,7 @@ namespace art {
 namespace gc {
 namespace accounting {
 
-// Internal representation is StackReference<T>, so this only works with mirror::Object or it's
+// Internal representation is StackReference<T>, so this only works with mirror::Object or its
 // subclasses.
 template <typename T>
 class AtomicStack {
@@ -108,7 +109,7 @@ class AtomicStack {
         // Stack overflow.
         return false;
       }
-    } while (!back_index_.CompareExchangeWeakRelaxed(index, new_index));
+    } while (!back_index_.CompareAndSetWeakRelaxed(index, new_index));
     *start_address = begin_ + index;
     *end_address = begin_ + new_index;
     if (kIsDebugBuild) {
@@ -240,7 +241,7 @@ class AtomicStack {
         // Stack overflow.
         return false;
       }
-    } while (!back_index_.CompareExchangeWeakRelaxed(index, index + 1));
+    } while (!back_index_.CompareAndSetWeakRelaxed(index, index + 1));
     begin_[index].Assign(value);
     return true;
   }

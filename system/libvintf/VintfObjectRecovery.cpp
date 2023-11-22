@@ -16,7 +16,6 @@
 
 #include "VintfObjectRecovery.h"
 
-#include <android-base/properties.h>
 #include <sys/mount.h>
 #include <fs_mgr.h>
 
@@ -48,7 +47,7 @@ class RecoveryPartitionMounter : public PartitionMounter {
         if (fstab == NULL) {
             return UNKNOWN_ERROR;
         }
-        if (android::base::GetBoolProperty("ro.build.system_root_image", false)) {
+        if (getPropertyFetcher().getBoolProperty("ro.build.system_root_image", false)) {
             return mountAt(fstab, "/", "/system_root");
         } else {
             return mountAt(fstab, "/system", "/system");
@@ -64,7 +63,7 @@ class RecoveryPartitionMounter : public PartitionMounter {
     }
 
     status_t umountSystem() const override {
-        if (android::base::GetBoolProperty("ro.build.system_root_image", false)) {
+        if (getPropertyFetcher().getBoolProperty("ro.build.system_root_image", false)) {
             return umount("/system_root");
         } else {
             return umount("/system");

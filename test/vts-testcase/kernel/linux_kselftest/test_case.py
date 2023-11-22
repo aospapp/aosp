@@ -26,11 +26,10 @@ class LinuxKselftestTestcase(object):
         _supported_bits: int list, bit version (32 or 64) of the testcase that
             are currently supported, e.g. [32, 64].
     """
-    def __init__(self, testname, supported_arch, supported_bits):
-        items = testname.split("/", 1)
-        self._testname = testname
-        self._testsuite = items[0]
-        self._test_cmd = "./%s" % items[1]
+    def __init__(self, testsuite, test_cmd, supported_arch, supported_bits):
+        self._testsuite = testsuite
+        self._testname = "%s/%s" % (testsuite, test_cmd)
+        self._test_cmd = "./%s" % test_cmd
         self._supported_arch = supported_arch
         self._supported_bits = supported_bits
 

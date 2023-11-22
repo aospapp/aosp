@@ -15,22 +15,12 @@ BASE = global_config.get_config_value('AUTOSERV', 'container_base_name')
 # Path to folder that contains autotest code inside container.
 CONTAINER_AUTOTEST_DIR = '/usr/local/autotest'
 
-# Naming convention of test container, e.g., test_300_1422862512_2424, where:
-# 300:        The test job ID.
-# 1422862512: The tick when container is created.
-# 2424:       The PID of autoserv that starts the container.
-TEST_CONTAINER_NAME_FMT = 'test_%s_%d_%d'
 # Naming convention of the result directory in test container.
 RESULT_DIR_FMT = os.path.join(CONTAINER_AUTOTEST_DIR, 'results',
                               '%s')
 # Attributes to retrieve about containers.
 ATTRIBUTES = ['name', 'state']
 
-# Format for mount entry to share a directory in host with container.
-# source is the directory in host, destination is the directory in container.
-# readonly is a binding flag for readonly mount, its value should be `,ro`.
-MOUNT_FMT = ('lxc.mount.entry = %(source)s %(destination)s none '
-             'bind%(readonly)s 0 0')
 SSP_ENABLED = global_config.get_config_value('AUTOSERV', 'enable_ssp_container',
                                              type=bool, default=True)
 # url to the folder stores base container.
@@ -45,6 +35,16 @@ DEFAULT_CONTAINER_PATH = global_config.get_config_value('AUTOSERV',
 DEFAULT_SHARED_HOST_PATH = global_config.get_config_value(
         'AUTOSERV',
         'container_shared_host_path')
+
+# The name of the linux domain socket used by the container pool.  Just one
+# exists, so this is just a hard-coded string.
+DEFAULT_CONTAINER_POOL_SOCKET = 'container_pool_socket'
+
+# Default size for the lxc container pool.
+DEFAULT_CONTAINER_POOL_SIZE = 20
+
+# Location of the host mount point in the container.
+CONTAINER_HOST_DIR = '/host'
 
 # Path to drone_temp folder in the container, which stores the control file for
 # test job to run.
@@ -107,3 +107,5 @@ CONTAINER_RUN_TEST_METADB_TYPE = 'container_run_test'
 CONTAINER_UTSNAME_FORMAT = 'test-%s'
 
 STATS_KEY = 'chromeos/autotest/lxc'
+
+CONTAINER_POOL_METRICS_PREFIX = 'chromeos/autotest/container_pool'

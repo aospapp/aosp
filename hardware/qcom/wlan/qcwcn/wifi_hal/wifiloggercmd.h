@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2018 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,6 +55,10 @@ extern "C"
 #define FIRMWARE_PRINTS_RB_BUF_SIZE 32768
 #define FIRMWARE_PRINTS_NUM_BUFS    16
 
+#define LOGGER_RING_BUFFER (WIFI_LOGGER_CONNECT_EVENT_SUPPORTED \
+                            | WIFI_LOGGER_POWER_EVENT_SUPPORTED \
+                            | WIFI_LOGGER_PER_PACKET_TX_RX_STATUS_SUPPORTED)
+
 enum rb_info_indices {
     POWER_EVENTS_RB_ID = 0,
     CONNECTIVITY_EVENTS_RB_ID = 1,
@@ -90,16 +94,16 @@ public:
 
     // This function implements creation of WifiLogger specific Request
     // based on  the request type
-    virtual int create();
-    virtual int requestEvent();
-    virtual int requestResponse();
+    virtual wifi_error create();
+    virtual wifi_error requestEvent();
+    virtual wifi_error requestResponse();
     virtual int handleResponse(WifiEvent &reply);
     virtual int handleEvent(WifiEvent &event);
-    int setCallbackHandler(WifiLoggerCallbackHandler nHandler);
+    wifi_error setCallbackHandler(WifiLoggerCallbackHandler nHandler);
     virtual void unregisterHandler(u32 subCmd);
 
     /* Takes wait time in seconds. */
-    virtual int timed_wait(u16 wait_time);
+    virtual wifi_error timed_wait(u16 wait_time);
     virtual void waitForRsp(bool wait);
     virtual void setVersionInfo(char *buffer, int buffer_size);
     virtual void setFeatureSet(u32 *support);

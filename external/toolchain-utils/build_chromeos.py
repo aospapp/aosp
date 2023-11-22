@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 # Copyright 2010 Google Inc. All Rights Reserved.
 """Script to checkout the ChromeOS source.
@@ -35,73 +35,81 @@ def Main(argv):
   cmd_executer = command_executer.GetCommandExecuter()
 
   parser = argparse.ArgumentParser()
-  parser.add_argument('--chromeos_root',
-                      dest='chromeos_root',
-                      help='Target directory for ChromeOS installation.')
-  parser.add_argument('--clobber_chroot',
-                      dest='clobber_chroot',
-                      action='store_true',
-                      help='Delete the chroot and start fresh',
-                      default=False)
-  parser.add_argument('--clobber_board',
-                      dest='clobber_board',
-                      action='store_true',
-                      help='Delete the board and start fresh',
-                      default=False)
-  parser.add_argument('--rebuild',
-                      dest='rebuild',
-                      action='store_true',
-                      help='Rebuild all board packages except the toolchain.',
-                      default=False)
-  parser.add_argument('--cflags',
-                      dest='cflags',
-                      default='',
-                      help='CFLAGS for the ChromeOS packages')
-  parser.add_argument('--cxxflags',
-                      dest='cxxflags',
-                      default='',
-                      help='CXXFLAGS for the ChromeOS packages')
-  parser.add_argument('--ldflags',
-                      dest='ldflags',
-                      default='',
-                      help='LDFLAGS for the ChromeOS packages')
-  parser.add_argument('--board',
-                      dest='board',
-                      help='ChromeOS target board, e.g. x86-generic')
-  parser.add_argument('--package',
-                      dest='package',
-                      help='The package needs to be built')
-  parser.add_argument('--label',
-                      dest='label',
-                      help='Optional label symlink to point to build dir.')
-  parser.add_argument('--dev',
-                      dest='dev',
-                      default=False,
-                      action='store_true',
-                      help=('Make the final image in dev mode (eg writable, '
-                            'more space on image). Defaults to False.'))
-  parser.add_argument('--debug',
-                      dest='debug',
-                      default=False,
-                      action='store_true',
-                      help=("Optional. Build chrome browser with \"-g -O0\". "
-                            "Notice, this also turns on \'--dev\'. "
-                            'Defaults to False.'))
-  parser.add_argument('--env',
-                      dest='env',
-                      default='',
-                      help='Env to pass to build_packages.')
-  parser.add_argument('--vanilla',
-                      dest='vanilla',
-                      default=False,
-                      action='store_true',
-                      help='Use default ChromeOS toolchain.')
-  parser.add_argument('--vanilla_image',
-                      dest='vanilla_image',
-                      default=False,
-                      action='store_true',
-                      help=('Use prebuild packages for building the image. '
-                            'It also implies the --vanilla option is set.'))
+  parser.add_argument(
+      '--chromeos_root',
+      dest='chromeos_root',
+      help='Target directory for ChromeOS installation.')
+  parser.add_argument(
+      '--clobber_chroot',
+      dest='clobber_chroot',
+      action='store_true',
+      help='Delete the chroot and start fresh',
+      default=False)
+  parser.add_argument(
+      '--clobber_board',
+      dest='clobber_board',
+      action='store_true',
+      help='Delete the board and start fresh',
+      default=False)
+  parser.add_argument(
+      '--rebuild',
+      dest='rebuild',
+      action='store_true',
+      help='Rebuild all board packages except the toolchain.',
+      default=False)
+  parser.add_argument(
+      '--cflags',
+      dest='cflags',
+      default='',
+      help='CFLAGS for the ChromeOS packages')
+  parser.add_argument(
+      '--cxxflags',
+      dest='cxxflags',
+      default='',
+      help='CXXFLAGS for the ChromeOS packages')
+  parser.add_argument(
+      '--ldflags',
+      dest='ldflags',
+      default='',
+      help='LDFLAGS for the ChromeOS packages')
+  parser.add_argument(
+      '--board', dest='board', help='ChromeOS target board, e.g. x86-generic')
+  parser.add_argument(
+      '--package', dest='package', help='The package needs to be built')
+  parser.add_argument(
+      '--label',
+      dest='label',
+      help='Optional label symlink to point to build dir.')
+  parser.add_argument(
+      '--dev',
+      dest='dev',
+      default=False,
+      action='store_true',
+      help=('Make the final image in dev mode (eg writable, '
+            'more space on image). Defaults to False.'))
+  parser.add_argument(
+      '--debug',
+      dest='debug',
+      default=False,
+      action='store_true',
+      help=("Optional. Build chrome browser with \"-g -O0\". "
+            "Notice, this also turns on \'--dev\'. "
+            'Defaults to False.'))
+  parser.add_argument(
+      '--env', dest='env', default='', help='Env to pass to build_packages.')
+  parser.add_argument(
+      '--vanilla',
+      dest='vanilla',
+      default=False,
+      action='store_true',
+      help='Use default ChromeOS toolchain.')
+  parser.add_argument(
+      '--vanilla_image',
+      dest='vanilla_image',
+      default=False,
+      action='store_true',
+      help=('Use prebuild packages for building the image. '
+            'It also implies the --vanilla option is set.'))
 
   options = parser.parse_args(argv[1:])
 
@@ -134,12 +142,10 @@ def Main(argv):
   # Build with afdo_use by default.
   # To change the default use --env="USE=-afdo_use".
   build_packages_env = misc.MergeEnvStringWithDict(
-      build_packages_env, {'USE': 'chrome_internal afdo_use'})
+      build_packages_env, {'USE': 'chrome_internal afdo_use -cros-debug'})
 
   build_packages_command = misc.GetBuildPackagesCommand(
-      board=options.board,
-      usepkg=options.vanilla_image,
-      debug=options.debug)
+      board=options.board, usepkg=options.vanilla_image, debug=options.debug)
 
   if options.package:
     build_packages_command += ' {0}'.format(options.package)
@@ -147,9 +153,10 @@ def Main(argv):
   build_image_command = misc.GetBuildImageCommand(options.board, options.dev)
 
   if options.vanilla or options.vanilla_image:
-    command = misc.GetSetupBoardCommand(options.board,
-                                        usepkg=options.vanilla_image,
-                                        force=options.clobber_board)
+    command = misc.GetSetupBoardCommand(
+        options.board,
+        usepkg=options.vanilla_image,
+        force=options.clobber_board)
     command += '; ' + build_packages_env + ' ' + build_packages_command
     command += '&& ' + build_packages_env + ' ' + build_image_command
     ret = cmd_executer.ChrootRunCommand(options.chromeos_root, command)
@@ -237,10 +244,10 @@ def Main(argv):
       "LDFLAGS=\"$(portageq-%s envvar LDFLAGS) %s\" "
       'CHROME_ORIGIN=SERVER_SOURCE '
       '%s '
-      '%s --skip_chroot_upgrade' % (options.board, options.cflags,
-                                    options.board, options.cxxflags,
-                                    options.board, options.ldflags,
-                                    build_packages_env, build_packages_command))
+      '%s --skip_chroot_upgrade' %
+      (options.board, options.cflags, options.board, options.cxxflags,
+       options.board, options.ldflags, build_packages_env,
+       build_packages_command))
 
   logger.GetLogger().LogFatalIf(ret, 'build_packages failed')
   if options.package:
@@ -269,8 +276,8 @@ def Main(argv):
                 os.path.dirname(real_image_dir_path), options.label))
 
     ret = cmd_executer.RunCommand(command)
-    logger.GetLogger().LogFatalIf(ret, 'Failed to apply symlink label %s' %
-                                  options.label)
+    logger.GetLogger().LogFatalIf(
+        ret, 'Failed to apply symlink label %s' % options.label)
 
   return ret
 

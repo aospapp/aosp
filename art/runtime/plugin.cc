@@ -20,8 +20,6 @@
 
 #include "android-base/stringprintf.h"
 
-#include "base/logging.h"
-
 namespace art {
 
 using android::base::StringPrintf;
@@ -30,10 +28,7 @@ const char* PLUGIN_INITIALIZATION_FUNCTION_NAME = "ArtPlugin_Initialize";
 const char* PLUGIN_DEINITIALIZATION_FUNCTION_NAME = "ArtPlugin_Deinitialize";
 
 Plugin::Plugin(const Plugin& other) : library_(other.library_), dlopen_handle_(nullptr) {
-  if (other.IsLoaded()) {
-    std::string err;
-    Load(&err);
-  }
+  CHECK(!other.IsLoaded()) << "Should not copy loaded plugins.";
 }
 
 bool Plugin::Load(/*out*/std::string* error_msg) {
@@ -74,10 +69,8 @@ bool Plugin::Unload() {
     LOG(WARNING) << this << " does not include a deinitialization function";
   }
   dlopen_handle_ = nullptr;
-  if (dlclose(handle) != 0) {
-    LOG(ERROR) << this << " failed to dlclose: " << dlerror();
-    ret = false;
-  }
+  // Don't bother to actually dlclose since we are shutting down anyway and there might be small
+  // amounts of processing still being done.
   return ret;
 }
 

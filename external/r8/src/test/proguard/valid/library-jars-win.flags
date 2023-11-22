@@ -1,2 +1,0 @@
--libraryjars some/library.jar
--libraryjars some/library.jar;some/other/library.jar;yet/another/library.jar

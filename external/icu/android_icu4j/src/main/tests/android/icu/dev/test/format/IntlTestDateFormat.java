@@ -7,7 +7,7 @@
  *   Corporation and others.  All Rights Reserved.
  */
 
-/** 
+/**
  * Port From:   JDK 1.4b1 : java.text.Format.IntlTestDateFormat
  * Source File: java/text/format/IntlTestDateFormat.java
  **/
@@ -26,12 +26,18 @@ import java.util.Random;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
+import android.icu.dev.test.TestFmwk;
 import android.icu.text.DateFormat;
 import android.icu.text.SimpleDateFormat;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
-public class IntlTestDateFormat extends android.icu.dev.test.TestFmwk {
+@MainTestShard
+@RunWith(JUnit4.class)
+public class IntlTestDateFormat extends TestFmwk {
     // Values in milliseconds (== Date)
     private static final long ONESECOND = 1000;
     private static final long ONEMINUTE = 60 * ONESECOND;
@@ -53,12 +59,12 @@ public class IntlTestDateFormat extends android.icu.dev.test.TestFmwk {
     public IntlTestDateFormat() {
         //Constructure
     }
-    
+
     @Before
     public void init() throws Exception {
         fFormat = DateFormat.getInstance();
     }
-    
+
     @Test
     public void TestULocale() {
         localeTest(ULocale.getDefault(), "Default Locale");
@@ -74,7 +80,7 @@ public class IntlTestDateFormat extends android.icu.dev.test.TestFmwk {
         fLimit = 3;
 
         for(timeStyle = 0; timeStyle < 4; timeStyle++) {
-            fTestName = new String("Time test " + timeStyle + " (" + localeName + ")");
+            fTestName = "Time test " + timeStyle + " (" + localeName + ")";
             try {
                 fFormat = DateFormat.getTimeInstance(timeStyle, locale);
             }
@@ -82,13 +88,13 @@ public class IntlTestDateFormat extends android.icu.dev.test.TestFmwk {
                 errln("FAIL: localeTest time getTimeInstance exception");
                 throw e;
             }
-            TestFormat();
+            testDates();
         }
 
         fLimit = 2;
 
         for(dateStyle = 0; dateStyle < 4; dateStyle++) {
-            fTestName = new String("Date test " + dateStyle + " (" + localeName + ")");
+            fTestName = "Date test " + dateStyle + " (" + localeName + ")";
             try {
                 fFormat = DateFormat.getDateInstance(dateStyle, locale);
             }
@@ -96,12 +102,12 @@ public class IntlTestDateFormat extends android.icu.dev.test.TestFmwk {
                 errln("FAIL: localeTest date getTimeInstance exception");
                 throw e;
             }
-            TestFormat();
+            testDates();
         }
 
         for(dateStyle = 0; dateStyle < 4; dateStyle++) {
             for(timeStyle = 0; timeStyle < 4; timeStyle++) {
-                fTestName = new String("DateTime test " + dateStyle + "/" + timeStyle + " (" + localeName + ")");
+                fTestName = "DateTime test " + dateStyle + "/" + timeStyle + " (" + localeName + ")";
                 try {
                     fFormat = DateFormat.getDateTimeInstance(dateStyle, timeStyle, locale);
                 }
@@ -109,13 +115,12 @@ public class IntlTestDateFormat extends android.icu.dev.test.TestFmwk {
                     errln("FAIL: localeTest date/time getDateTimeInstance exception");
                     throw e;
                 }
-                TestFormat();
+                testDates();
             }
         }
     }
 
-    @Test
-    public void TestFormat() {
+    private void testDates() {
         if (fFormat == null) {
             errln("FAIL: DateFormat creation failed");
             return;
@@ -145,7 +150,7 @@ public class IntlTestDateFormat extends android.icu.dev.test.TestFmwk {
         SimpleDateFormat s = (SimpleDateFormat) fFormat;
         logln(fTestName + " Pattern " + s.toPattern());
     }
-    
+
     private void tryDate(Date theDate) {
         final int DEPTH = 10;
         Date[] date = new Date[DEPTH];
@@ -256,6 +261,7 @@ public class IntlTestDateFormat extends android.icu.dev.test.TestFmwk {
                     new ULocale("bg_BG"),
                     new ULocale("fr_CA"),
                     new ULocale("zh_TW"),
+                    new ULocale("ccp"),     // decimal digits are not in BMP
             };
         } else {
             locales = DateFormat.getAvailableULocales();

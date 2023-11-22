@@ -17,19 +17,22 @@ package com.android.tradefed.device;
 
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.IShellOutputReceiver;
+import com.android.ddmlib.Log.LogLevel;
 import com.android.ddmlib.testrunner.IRemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.command.remote.DeviceDescriptor;
 import com.android.tradefed.device.ITestDevice.MountPointInfo;
 import com.android.tradefed.device.ITestDevice.RecoveryMode;
 import com.android.tradefed.log.ITestLogger;
+import com.android.tradefed.result.ITestLifeCycleReceiver;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.util.Bugreport;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.ProcessInfo;
 import com.android.tradefed.util.TimeUtil;
+
+import com.google.errorprone.annotations.MustBeClosed;
 
 import java.io.File;
 import java.io.InputStream;
@@ -262,6 +265,55 @@ public interface INativeDevice {
     public String executeShellCommand(String command) throws DeviceNotAvailableException;
 
     /**
+     * Helper method which executes a adb shell command and returns the results as a {@link
+     * CommandResult} properly populated with the command status output, stdout and stderr.
+     *
+     * @param command The command that should be run.
+     * @return The result in {@link CommandResult}.
+     * @throws DeviceNotAvailableException if connection with device is lost and cannot be
+     *     recovered.
+     */
+    public CommandResult executeShellV2Command(String command) throws DeviceNotAvailableException;
+
+    /**
+     * Executes a adb shell command, with more parameters to control command behavior.
+     *
+     * @see #executeShellV2Command(String)
+     * @param command the adb shell command to run
+     * @param maxTimeoutForCommand the maximum timeout for the command to complete; unit as
+     *     specified in <code>timeUnit</code>
+     * @param timeUnit unit for <code>maxTimeToOutputShellResponse</code>
+     * @throws DeviceNotAvailableException if connection with device is lost and cannot be
+     *     recovered.
+     * @see TimeUtil
+     */
+    public CommandResult executeShellV2Command(
+            String command, final long maxTimeoutForCommand, final TimeUnit timeUnit)
+            throws DeviceNotAvailableException;
+
+    /**
+     * Executes a adb shell command, with more parameters to control command behavior.
+     *
+     * @see #executeShellV2Command(String)
+     * @param command the adb shell command to run
+     * @param maxTimeoutForCommand the maximum timeout for the command to complete; unit as
+     *     specified in <code>timeUnit</code>
+     * @param timeUnit unit for <code>maxTimeToOutputShellResponse</code>
+     * @param retryAttempts the maximum number of times to retry command if it fails due to a
+     *     exception. DeviceNotResponsiveException will be thrown if <var>retryAttempts</var> are
+     *     performed without success.
+     * @throws DeviceNotAvailableException if connection with device is lost and cannot be
+     *     recovered.
+     * @see TimeUtil
+     */
+    public CommandResult executeShellV2Command(
+            String command,
+            final long maxTimeoutForCommand,
+            final TimeUnit timeUnit,
+            int retryAttempts)
+            throws DeviceNotAvailableException;
+
+    /**
      * Helper method which executes a adb command as a system command.
      * <p/>
      * {@link #executeShellCommand(String)} should be used instead wherever possible, as that
@@ -351,54 +403,57 @@ public interface INativeDevice {
 
     /**
      * Runs instrumentation tests, and provides device recovery.
-     * <p/>
-     * If connection with device is lost before test run completes, and recovery succeeds, all
+     *
+     * <p>If connection with device is lost before test run completes, and recovery succeeds, all
      * listeners will be informed of testRunFailed and "false" will be returned. The test command
      * will not be rerun. It is left to callers to retry if necessary.
-     * <p/>
-     * If connection with device is lost before test run completes, and recovery fails, all
+     *
+     * <p>If connection with device is lost before test run completes, and recovery fails, all
      * listeners will be informed of testRunFailed and DeviceNotAvailableException will be thrown.
      *
      * @param runner the {@link IRemoteAndroidTestRunner} which runs the tests
      * @param listeners the test result listeners
      * @return <code>true</code> if test command completed. <code>false</code> if it failed to
-     *         complete due to device communication exception, but recovery succeeded
+     *     complete due to device communication exception, but recovery succeeded
      * @throws DeviceNotAvailableException if connection with device is lost and cannot be
-     *             recovered. ie test command failed to complete and recovery failed.
+     *     recovered. ie test command failed to complete and recovery failed.
      */
-    public boolean runInstrumentationTests(IRemoteAndroidTestRunner runner,
-            Collection<ITestRunListener> listeners) throws DeviceNotAvailableException;
+    public boolean runInstrumentationTests(
+            IRemoteAndroidTestRunner runner, Collection<ITestLifeCycleReceiver> listeners)
+            throws DeviceNotAvailableException;
 
     /**
-     * Convenience method for performing
-     * {@link #runInstrumentationTests(IRemoteAndroidTestRunner, Collection)} with one or more
-     * listeners passed as parameters.
+     * Convenience method for performing {@link #runInstrumentationTests(IRemoteAndroidTestRunner,
+     * Collection)} with one or more listeners passed as parameters.
      *
      * @param runner the {@link IRemoteAndroidTestRunner} which runs the tests
      * @param listeners the test result listener(s)
      * @return <code>true</code> if test command completed. <code>false</code> if it failed to
-     *         complete, but recovery succeeded
+     *     complete, but recovery succeeded
      * @throws DeviceNotAvailableException if connection with device is lost and cannot be
-     *             recovered. ie test command failed to complete and recovery failed.
+     *     recovered. ie test command failed to complete and recovery failed.
      */
-    public boolean runInstrumentationTests(IRemoteAndroidTestRunner runner,
-            ITestRunListener... listeners) throws DeviceNotAvailableException;
+    public boolean runInstrumentationTests(
+            IRemoteAndroidTestRunner runner, ITestLifeCycleReceiver... listeners)
+            throws DeviceNotAvailableException;
 
     /**
-     * Same as {@link ITestDevice#runInstrumentationTests(IRemoteAndroidTestRunner, Collection)}
-     * but runs the test for the given user.
+     * Same as {@link ITestDevice#runInstrumentationTests(IRemoteAndroidTestRunner, Collection)} but
+     * runs the test for the given user.
      */
-
-    public boolean runInstrumentationTestsAsUser(IRemoteAndroidTestRunner runner, int userId,
-            Collection<ITestRunListener> listeners) throws DeviceNotAvailableException;
+    public boolean runInstrumentationTestsAsUser(
+            IRemoteAndroidTestRunner runner,
+            int userId,
+            Collection<ITestLifeCycleReceiver> listeners)
+            throws DeviceNotAvailableException;
 
     /**
-     * Same as
-     * {@link ITestDevice#runInstrumentationTests(IRemoteAndroidTestRunner, ITestRunListener...)}
-     * but runs the test for a given user.
+     * Same as {@link ITestDevice#runInstrumentationTests(IRemoteAndroidTestRunner,
+     * ITestLifeCycleReceiver...)} but runs the test for a given user.
      */
-    public boolean runInstrumentationTestsAsUser(IRemoteAndroidTestRunner runner, int userId,
-            ITestRunListener... listeners) throws DeviceNotAvailableException;
+    public boolean runInstrumentationTestsAsUser(
+            IRemoteAndroidTestRunner runner, int userId, ITestLifeCycleReceiver... listeners)
+            throws DeviceNotAvailableException;
 
     /**
      * Check whether platform on device supports runtime permission granting
@@ -431,6 +486,15 @@ public interface INativeDevice {
      *             recovered.
      */
     public File pullFile(String remoteFilePath) throws DeviceNotAvailableException;
+
+    /**
+     * Retrieves a file off device, and returns the contents.
+     *
+     * @param remoteFilePath the absolute path to file on device.
+     * @return A {@link String} containing the contents of the device file, or {@code null} if the
+     *         copy failed for any reason (including problems with the host filesystem)
+     */
+    public String pullFileContents(String remoteFilePath) throws DeviceNotAvailableException;
 
     /**
      * A convenience method to retrieve a file from the device's external storage, stores it in a
@@ -563,6 +627,15 @@ public interface INativeDevice {
     public long getExternalStoreFreeSpace() throws DeviceNotAvailableException;
 
     /**
+     * Helper method to determine amount of free space on device partition.
+     *
+     * @return the amount of free space in KB
+     * @throws DeviceNotAvailableException if connection with device is lost and cannot be
+     *     recovered.
+     */
+    public long getPartitionFreeSpace(String partition) throws DeviceNotAvailableException;
+
+    /**
      * Returns a mount point.
      * <p/>
      * Queries the device directly if the cached info in {@link IDevice} is not available.
@@ -622,45 +695,51 @@ public interface INativeDevice {
 
     /**
      * Grabs a snapshot stream of the logcat data.
-     * <p/>
-     * Works in two modes:
-     * <li>If the logcat is currently being captured in the background, will return up to
-     * {@link TestDeviceOptions#getMaxLogcatDataSize()} bytes of the current
-     * contents of the background logcat capture
+     *
+     * <p>Works in two modes:
+     * <li>If the logcat is currently being captured in the background, will return up to {@link
+     *     TestDeviceOptions#getMaxLogcatDataSize()} bytes of the current contents of the background
+     *     logcat capture
      * <li>Otherwise, will return a static dump of the logcat data if device is currently responding
      */
+    @MustBeClosed
     public InputStreamSource getLogcat();
 
     /**
-     * Grabs a snapshot stream of captured logcat data starting the date provided.
-     * The time on the device should be used {@link #getDeviceDate}.
-     * <p/>
-     * @param date in epoch format of when to start the snapshot until present. (can be
-     *        be obtained using 'date +%s')
+     * Grabs a snapshot stream of captured logcat data starting the date provided. The time on the
+     * device should be used {@link #getDeviceDate}.
+     *
+     * <p>
+     *
+     * @param date in millisecond since epoch format of when to start the snapshot until present.
+     *     (can be be obtained using 'date +%s')
      */
+    @MustBeClosed
     public InputStreamSource getLogcatSince(long date);
 
     /**
      * Grabs a snapshot stream of the last <code>maxBytes</code> of captured logcat data.
-     * <p/>
-     * Useful for cases when you want to capture frequent snapshots of the captured logcat data
-     * without incurring the potentially big disk space penalty of getting the entire
-     * {@link #getLogcat()} snapshot.
+     *
+     * <p>Useful for cases when you want to capture frequent snapshots of the captured logcat data
+     * without incurring the potentially big disk space penalty of getting the entire {@link
+     * #getLogcat()} snapshot.
      *
      * @param maxBytes the maximum amount of data to return. Should be an amount that can
-     *            comfortably fit in memory
+     *     comfortably fit in memory
      */
+    @MustBeClosed
     public InputStreamSource getLogcat(int maxBytes);
 
     /**
-    * Get a dump of the current logcat for device. Unlike {@link #getLogcat()}, this method will
-    * always return a static dump of the logcat.
-    * <p/>
-    * Has the disadvantage that nothing will be returned if device is not reachable.
-    *
-    * @return a {@link InputStreamSource} of the logcat data. An empty stream is returned if fail to
-    *         capture logcat data.
-    */
+     * Get a dump of the current logcat for device. Unlike {@link #getLogcat()}, this method will
+     * always return a static dump of the logcat.
+     *
+     * <p>Has the disadvantage that nothing will be returned if device is not reachable.
+     *
+     * @return a {@link InputStreamSource} of the logcat data. An empty stream is returned if fail
+     *     to capture logcat data.
+     */
+    @MustBeClosed
     public InputStreamSource getLogcatDump();
 
     /**
@@ -968,6 +1047,14 @@ public interface INativeDevice {
     public int getApiLevel() throws DeviceNotAvailableException;
 
     /**
+     * Helper to get the time difference between the device and a given {@link Date}. Use Epoch time
+     * internally.
+     *
+     * @return the difference in milliseconds
+     */
+    public long getDeviceTimeOffset(Date date) throws DeviceNotAvailableException;
+
+    /**
      * Sets the date on device
      * <p>
      * Note: setting date on device requires root
@@ -977,8 +1064,10 @@ public interface INativeDevice {
     public void setDate(Date date) throws DeviceNotAvailableException;
 
     /**
-     * Return the date of the device.
-     * <p/>
+     * Return the date of the device in millisecond since epoch.
+     *
+     * <p>
+     *
      * @return the date of the device in epoch format.
      * @throws DeviceNotAvailableException
      */
@@ -1028,7 +1117,7 @@ public interface INativeDevice {
      *
      * @param dataName name under which the bugreport will be reported.
      * @param listener an {@link ITestLogger} to log the bugreport.
-     * @return True if the logging was sucessful, false otherwise.
+     * @return True if the logging was successful, false otherwise.
      */
     public boolean logBugreport(String dataName, ITestLogger listener);
 
@@ -1088,4 +1177,15 @@ public interface INativeDevice {
 
     /** Returns the pid of the service or null if something went wrong. */
     public String getProcessPid(String process) throws DeviceNotAvailableException;
+
+    /**
+     * Log a message in the logcat of the device. This is a safe call that will not throw even if
+     * the logging fails.
+     *
+     * @param tag The tag under which we log our message in the logcat.
+     * @param level The debug level of the message in the logcat.
+     * @param format The message format.
+     * @param args the args to be replaced via String.format().
+     */
+    public void logOnDevice(String tag, LogLevel level, String format, Object... args);
 }

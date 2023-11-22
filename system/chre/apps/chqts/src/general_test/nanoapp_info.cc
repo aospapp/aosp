@@ -37,12 +37,10 @@ NanoappInfo::NanoappInfo()
 }
 
 void NanoappInfo::sendToHost() {
-  AppInfo info;
-  info.appId = mAppId;
-  info.instanceId = mInstanceId;
-
-  nanoapp_testing::hostToLittleEndian(&info.appId);
-  nanoapp_testing::hostToLittleEndian(&info.instanceId);
+  AppInfo info = {
+    .appId = nanoapp_testing::hostToLittleEndian(mAppId),
+    .instanceId = nanoapp_testing::hostToLittleEndian(mInstanceId),
+  };
 
   sendMessageToHost(nanoapp_testing::MessageType::kContinue,
                     &info, sizeof(info));

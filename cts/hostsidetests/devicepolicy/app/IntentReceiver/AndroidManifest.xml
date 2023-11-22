@@ -35,6 +35,7 @@
                 <action android:name="com.android.cts.action.NOTIFY_URI_CHANGE"/>
                 <action android:name="com.android.cts.action.OBSERVE_URI_CHANGE"/>
                 <action android:name="com.android.cts.action.JUST_CREATE" />
+                <action android:name="com.android.cts.action.CREATE_AND_WAIT" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

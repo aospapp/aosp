@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"¿Quieres borrar toda la información y los contactos?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Agrega información médica y contactos de emergencia para ayudar a los rescatistas en caso de emergencia.\n\nCualquiera puede leer estos datos en tu pantalla bloqueada y llamar a tus contactos con solo presionar su nombre sin necesidad de desbloquear tu teléfono."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Agrega información de emergencia"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Ayuda a que los servicios de primeros auxilios encuentren información importante"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Permite que primeros auxilios vea tu información"</string>
 </resources>

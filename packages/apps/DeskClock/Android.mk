@@ -11,15 +11,12 @@ LOCAL_OVERRIDES_PACKAGES := AlarmClock
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src gen)
 
-LOCAL_PROGUARD_FLAG_FILES := ../../../frameworks/support/design/proguard-rules.pro
-LOCAL_PROGUARD_FLAG_FILES += ../../../frameworks/support/v7/preference/proguard-rules.pro
-LOCAL_PROGUARD_FLAG_FILES += ../../../frameworks/support/v7/recyclerview/proguard-rules.pro
-
 LOCAL_STATIC_ANDROID_LIBRARIES := \
-        android-support-design \
+        $(ANDROID_SUPPORT_DESIGN_TARGETS) \
         android-support-percent \
         android-support-transition \
         android-support-compat \
+        android-support-core-ui \
         android-support-media-compat \
         android-support-v13 \
         android-support-v14-preference \

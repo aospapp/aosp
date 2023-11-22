@@ -17,12 +17,15 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="android.libcore.cts">
     <uses-permission android:name="android.permission.INTERNET" />
-    <application>
+    <application android:usesCleartextTraffic="true">
         <uses-library android:name="android.test.runner" />
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.libcore.cts"
-                     android:label="CTS Libcore test cases" />
+                     android:label="CTS Libcore test cases">
+        <meta-data android:name="listener"
+                   android:value="com.android.cts.runner.CtsTestRunListener" />
+    </instrumentation>
 
 </manifest>

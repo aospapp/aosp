@@ -28,19 +28,23 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.UserHandle;
 import android.support.annotation.NonNull;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.ArrayList;
 
-public class AppManagementFragment extends LeanbackPreferenceFragment {
+/**
+ * Fragment for managing a single app
+ */
+public class AppManagementFragment extends SettingsPreferenceFragment {
     private static final String TAG = "AppManagementFragment";
 
     private static final String ARG_PACKAGE_NAME = "packageName";
@@ -79,17 +83,19 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
     private NotificationsPreference mNotificationsPreference;
 
     private final Handler mHandler = new Handler();
-    private Runnable mBailoutRunnable = new Runnable() {
-        @Override
-        public void run() {
-            if (isResumed() && !getFragmentManager().popBackStackImmediate()) {
-                getActivity().onBackPressed();
-            }
+    private Runnable mBailoutRunnable = () -> {
+        if (isResumed() && !getFragmentManager().popBackStackImmediate()) {
+            getActivity().onBackPressed();
         }
     };
 
     public static void prepareArgs(@NonNull Bundle args, String packageName) {
         args.putString(ARG_PACKAGE_NAME, packageName);
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsEvent.APPLICATIONS_INSTALLED_APP_DETAILS;
     }
 
     @Override
@@ -99,7 +105,7 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
         final Activity activity = getActivity();
         mPackageManager = activity.getPackageManager();
         mApplicationsState = ApplicationsState.getInstance(activity.getApplication());
-        mSession = mApplicationsState.newSession(mCallbacks);
+        mSession = mApplicationsState.newSession(mCallbacks, getLifecycle());
         mEntry = mApplicationsState.getEntry(mPackageName, UserHandle.myUserId());
 
         super.onCreate(savedInstanceState);
@@ -108,7 +114,6 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
     @Override
     public void onResume() {
         super.onResume();
-        mSession.resume();
 
         if (mEntry == null) {
             Log.w(TAG, "App not found, trying to bail out");
@@ -126,7 +131,6 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
     @Override
     public void onPause() {
         super.onPause();
-        mSession.pause();
         mHandler.removeCallbacks(mBailoutRunnable);
     }
 
@@ -141,7 +145,7 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
                 final int deleteResult = data != null
                         ? data.getIntExtra(Intent.EXTRA_INSTALL_RESULT, 0) : 0;
                 if (deleteResult == PackageManager.DELETE_SUCCEEDED) {
-                    final int userId =  UserHandle.getUserId(mEntry.info.uid);
+                    final int userId = UserHandle.getUserId(mEntry.info.uid);
                     mApplicationsState.removePackage(mPackageName, userId);
                     navigateBack();
                 } else {
@@ -150,7 +154,7 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
                 break;
             case REQUEST_MANAGE_SPACE:
                 mClearDataPreference.setClearingData(false);
-                if(resultCode == Activity.RESULT_OK) {
+                if (resultCode == Activity.RESULT_OK) {
                     final int userId = UserHandle.getUserId(mEntry.info.uid);
                     mApplicationsState.requestSize(mPackageName, userId);
                 } else {
@@ -175,6 +179,8 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
         if (intent != null) {
             try {
                 if (preference.equals(mUninstallPreference)) {
+                    mMetricsFeatureProvider.action(getContext(),
+                            MetricsEvent.ACTION_SETTINGS_UNINSTALL_APP);
                     startActivityForResult(intent, mUninstallPreference.canUninstall()
                             ? REQUEST_UNINSTALL : REQUEST_UNINSTALL_UPDATES);
                 } else {
@@ -355,6 +361,7 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
     }
 
     public void clearData() {
+        mMetricsFeatureProvider.action(getContext(), MetricsEvent.ACTION_SETTINGS_CLEAR_APP_DATA);
         mClearDataPreference.setClearingData(true);
         String spaceManagementActivityName = mEntry.info.manageSpaceActivityName;
         if (spaceManagementActivityName != null) {
@@ -364,6 +371,9 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
                 startActivityForResult(intent, REQUEST_MANAGE_SPACE);
             }
         } else {
+            // Disabling clear cache preference while clearing data is in progress. See b/77815256
+            // for details.
+            mClearCachePreference.setClearingCache(true);
             ActivityManager am = (ActivityManager) getActivity().getSystemService(
                     Context.ACTIVITY_SERVICE);
             boolean success = am.clearApplicationUserData(
@@ -374,6 +384,7 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
                                 @Override
                                 public void run() {
                                     mClearDataPreference.setClearingData(false);
+                                    mClearCachePreference.setClearingCache(false);
                                     if (succeeded) {
                                         dataCleared(true);
                                     } else {
@@ -402,6 +413,7 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
     }
 
     public void clearCache() {
+        mMetricsFeatureProvider.action(getContext(), MetricsEvent.ACTION_SETTINGS_CLEAR_APP_CACHE);
         mClearCachePreference.setClearingCache(true);
         mPackageManager.deleteApplicationCacheFiles(mEntry.info.packageName,
                 new IPackageDataObserver.Stub() {
@@ -440,7 +452,7 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
 
         @Override
         public void onPackageListChanged() {
-            if (mEntry == null) {
+            if (mEntry == null || mEntry.info == null) {
                 return;
             }
             final int userId = UserHandle.getUserId(mEntry.info.uid);
@@ -486,6 +498,8 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
 
         @Override
         public void onLoadEntriesCompleted() {
+            mEntry = mApplicationsState.getEntry(mPackageName, UserHandle.myUserId());
+            updatePrefs();
             if (mAppStoragePreference == null) {
                 // Nothing to do here.
                 return;

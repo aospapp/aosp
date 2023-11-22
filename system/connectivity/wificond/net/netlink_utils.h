@@ -20,10 +20,9 @@
 #include <string>
 #include <vector>
 
-#include <linux/nl80211.h>
-
 #include <android-base/macros.h>
 
+#include "wificond/net/kernel-header-latest/nl80211.h"
 #include "wificond/net/netlink_manager.h"
 
 namespace android {
@@ -94,18 +93,24 @@ struct ScanCapabilities {
 struct WiphyFeatures {
   WiphyFeatures()
       : supports_random_mac_oneshot_scan(false),
-        supports_random_mac_sched_scan(false) {}
-  WiphyFeatures(uint32_t feature_flags)
-      : supports_random_mac_oneshot_scan(
-            feature_flags & NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR),
-        supports_random_mac_sched_scan(
-            feature_flags & NL80211_FEATURE_SCHED_SCAN_RANDOM_MAC_ADDR) {}
+        supports_random_mac_sched_scan(false),
+        supports_low_span_oneshot_scan(false),
+        supports_low_power_oneshot_scan(false),
+        supports_high_accuracy_oneshot_scan(false) {}
+  WiphyFeatures(uint32_t feature_flags,
+                const std::vector<uint8_t>& ext_feature_flags_bytes);
   // This device/driver supports using a random MAC address during scan
   // (while not associated).
   bool supports_random_mac_oneshot_scan;
   // This device/driver supports using a random MAC address for every
   // scan iteration during scheduled scan (while not associated).
   bool supports_random_mac_sched_scan;
+  // This device/driver supports performing low-span/low-latency one-shot scans.
+  bool supports_low_span_oneshot_scan;
+  // This device/driver supports performing low-power one-shot scans.
+  bool supports_low_power_oneshot_scan;
+  // This device/driver supports performing high-accuracy one-shot scans.
+  bool supports_high_accuracy_oneshot_scan;
   // There are other flags included in NL80211_ATTR_FEATURE_FLAGS.
   // We will add them once we find them useful.
 };
@@ -182,6 +187,16 @@ class NetlinkUtils {
                               const std::vector<uint8_t>& mac_address,
                               StationInfo* out_station_info);
 
+  // Get a bitmap for nl80211 protocol features,
+  // i.e. features for the nl80211 protocol rather than device features.
+  // See enum nl80211_protocol_features in nl80211.h for decoding the bitmap.
+  // Returns true on success.
+  virtual bool GetProtocolFeatures(uint32_t* features);
+
+  // Get current alpha2 country code from kernel.
+  // Returns true on success.
+  virtual bool GetCountryCode(std::string* out_country_code);
+
   // Sign up to be notified when there is MLME event.
   // Only one handler can be registered per interface index.
   // New handler will replace the registered handler if they are for the
@@ -207,7 +222,7 @@ class NetlinkUtils {
   // from wiphy with index |wiphy_index|.
   virtual void UnsubscribeRegDomainChange(uint32_t wiphy_index);
 
-  // Sign up to be notified when there is an station event.
+  // Sign up to be notified when there is a station event.
   // Only one handler can be registered per interface index.
   // New handler will replace the registered handler if they are for the
   // same interface index.
@@ -217,11 +232,34 @@ class NetlinkUtils {
   // Cancel the sign-up of receiving station events.
   virtual void UnsubscribeStationEvent(uint32_t interface_index);
 
+  // Sign up to be notified when there is a channel switch event.
+  // Only one handler can be registered per interface index.
+  // New handler will replace the registered handler if they are for the
+  // same interface index.
+  virtual void SubscribeChannelSwitchEvent(uint32_t interface_index,
+                                           OnChannelSwitchEventHandler handler);
+
+  // Cancel the sign-up of receiving channel switch events.
+  virtual void UnsubscribeChannelSwitchEvent(uint32_t interface_index);
+
+  // Visible for testing.
+  bool supports_split_wiphy_dump_;
+
  private:
+  bool ParseWiphyInfoFromPacket(
+      const NL80211Packet& packet,
+      BandInfo* out_band_info,
+      ScanCapabilities* out_scan_capabilities,
+      WiphyFeatures* out_wiphy_features);
   bool ParseBandInfo(const NL80211Packet* const packet,
                      BandInfo* out_band_info);
   bool ParseScanCapabilities(const NL80211Packet* const packet,
                              ScanCapabilities* out_scan_capabilities);
+
+  bool MergePacketsForSplitWiphyDump(
+      const std::vector<std::unique_ptr<const NL80211Packet>>& split_dump_info,
+      std::vector<NL80211Packet>* packet_per_wiphy);
+
   NetlinkManager* netlink_manager_;
 
   DISALLOW_COPY_AND_ASSIGN(NetlinkUtils);

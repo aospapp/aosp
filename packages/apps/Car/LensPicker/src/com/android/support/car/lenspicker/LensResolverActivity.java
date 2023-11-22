@@ -27,15 +27,17 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.PatternMatcher;
 import android.provider.MediaStore;
-import android.support.annotation.StringRes;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.widget.CheckBox;
 import android.widget.TextView;
 
-import com.android.car.stream.ui.ColumnCalculator;
-import com.android.car.view.PagedListView;
+import androidx.annotation.StringRes;
+import androidx.car.utils.ColumnCalculator;
+import androidx.car.widget.DayNightStyle;
+import androidx.car.widget.PagedListView;
 
 import java.util.Iterator;
 import java.util.List;
@@ -107,11 +109,11 @@ public class LensResolverActivity extends Activity implements
             Log.d(TAG, "Found " + size + " matching activities.");
         }
 
-        // The title container should match the width of the StreamCards in the list. Those cards
+        // The title container should match the width of the ColumnCards in the list. Those cards
         // have their width set depending on the column span, which changes between screen sizes.
         // As a result, need to set the width of the title container programmatically.
         int defaultColumnSpan =
-                getResources().getInteger(R.integer.stream_card_default_column_span);
+                getResources().getInteger(R.integer.column_card_default_column_span);
         int cardWidth = ColumnCalculator.getInstance(this /* context */).getSizeForColumnSpan(
                 defaultColumnSpan);
         View titleAndCheckboxContainer = findViewById(R.id.title_checkbox_container);
@@ -120,7 +122,7 @@ public class LensResolverActivity extends Activity implements
         mAlwaysCheckbox = (CheckBox) findViewById(R.id.always_checkbox);
 
         PagedListView pagedListView = (PagedListView) findViewById(R.id.list_view);
-        pagedListView.setLightMode();
+        pagedListView.setDayNightStyle(DayNightStyle.FORCE_DAY);
 
         ResolverAdapter adapter = new ResolverAdapter(this /* context */, infos);
         adapter.setSelectionHandler(this);
@@ -168,8 +170,17 @@ public class LensResolverActivity extends Activity implements
         ComponentName component = item.getLaunchIntent().getComponent();
 
         if (mAlwaysCheckbox.isChecked()) {
+            PackageManager pm = getPackageManager();
+            if (info.handleAllWebDataURI) {
+                // Set default Browser if needed
+                int userId = getUserId();
+                String packageName = pm.getDefaultBrowserPackageNameAsUser(userId);
+                if (TextUtils.isEmpty(packageName)) {
+                    pm.setDefaultBrowserPackageNameAsUser(info.activityInfo.packageName, userId);
+                }
+            }
             IntentFilter filter = buildIntentFilterForResolveInfo(info);
-            getPackageManager().addPreferredActivity(filter, info.match, mComponentSet, component);
+            pm.addPreferredActivity(filter, info.match, mComponentSet, component);
         }
 
         // Now launch the original resolve intent but correctly set the component.

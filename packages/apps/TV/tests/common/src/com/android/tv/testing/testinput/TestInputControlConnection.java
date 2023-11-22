@@ -21,8 +21,7 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.util.Log;
-
-import com.android.tv.testing.ChannelInfo;
+import com.android.tv.testing.data.ChannelInfo;
 
 /**
  * Connection for controlling the Test TV Input Service.
@@ -47,9 +46,7 @@ public class TestInputControlConnection implements ServiceConnection {
         mControl = null;
     }
 
-    /**
-     * Is the service currently connected.
-     */
+    /** Is the service currently connected. */
     public boolean isBound() {
         return mControl != null;
     }
@@ -58,7 +55,7 @@ public class TestInputControlConnection implements ServiceConnection {
      * Update the state of the channel.
      *
      * @param channel the channel to update.
-     * @param data    the new state for the channel.
+     * @param data the new state for the channel.
      */
     public void updateChannelState(ChannelInfo channel, ChannelStateData data) {
         waitUntilBound();
@@ -69,9 +66,7 @@ public class TestInputControlConnection implements ServiceConnection {
         }
     }
 
-    /**
-     * Sleep until {@link #isBound()} is true;
-     */
+    /** Sleep until {@link #isBound()} is true; */
     public void waitUntilBound() {
         while (!isBound()) {
             SystemClock.sleep(BOUND_CHECK_INTERVAL_MS);

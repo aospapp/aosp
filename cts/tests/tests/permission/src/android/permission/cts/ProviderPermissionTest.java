@@ -21,6 +21,8 @@ import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.net.Uri;
+import android.platform.test.annotations.AppModeFull;
 import android.provider.CallLog;
 import android.provider.Contacts;
 import android.provider.Settings;
@@ -55,11 +57,28 @@ public class ProviderPermissionTest extends AndroidTestCase {
                 android.Manifest.permission.WRITE_CONTACTS);
     }
 
+    public void assertWritingContentUriRequiresPermission(Uri uri, String permission,
+            boolean allowIAE) {
+        try {
+            getContext().getContentResolver().insert(uri, new ContentValues());
+            fail("expected SecurityException requiring " + permission);
+        } catch (IllegalArgumentException e) {
+            if (!allowIAE) {
+                fail("expected SecurityException requiring " + permission + " got " + e);
+            }
+        } catch (SecurityException expected) {
+            assertNotNull("security exception's error message.", expected.getMessage());
+            assertTrue("error message should contain " + permission + ".",
+                    expected.getMessage().contains(permission));
+        }
+    }
+
     /**
      * Verify that reading call logs requires permissions.
      * <p>Tests Permission:
      *   {@link android.Manifest.permission#READ_CALL_LOG}
      */
+    @AppModeFull
     public void testReadCallLog() {
         assertReadingContentUriRequiresPermission(CallLog.CONTENT_URI,
                 android.Manifest.permission.READ_CALL_LOG);
@@ -72,7 +91,8 @@ public class ProviderPermissionTest extends AndroidTestCase {
      */
     public void testWriteCallLog() {
         assertWritingContentUriRequiresPermission(CallLog.CONTENT_URI,
-                android.Manifest.permission.WRITE_CALL_LOG);
+                android.Manifest.permission.WRITE_CALL_LOG,
+                getContext().getPackageManager().isInstantApp());
     }
 
     /**

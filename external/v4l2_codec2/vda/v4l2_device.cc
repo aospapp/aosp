@@ -1,6 +1,8 @@
 // Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 09ea0d2
+// Note: it's also merged with generic_v4l2_device.cc (head: a9d98e6)
 
 #include <errno.h>
 #include <fcntl.h>
@@ -14,6 +16,10 @@
 #include "base/posix/eintr_wrapper.h"
 #include "base/strings/stringprintf.h"
 #include "v4l2_device.h"
+
+#define DVLOGF(level) DVLOG(level) << __func__ << "(): "
+#define VLOGF(level) VLOG(level) << __func__ << "(): "
+#define VPLOGF(level) VPLOG(level) << __func__ << "(): "
 
 namespace media {
 
@@ -47,7 +53,7 @@ VideoPixelFormat V4L2Device::V4L2PixFmtToVideoPixelFormat(uint32_t pix_fmt) {
       return PIXEL_FORMAT_ARGB;
 
     default:
-      DVLOG(1) << "Add more cases as needed";
+      DVLOGF(1) << "Add more cases as needed";
       return PIXEL_FORMAT_UNKNOWN;
   }
 }
@@ -131,7 +137,7 @@ std::vector<VideoCodecProfile> V4L2Device::V4L2PixFmtToVideoCodecProfiles(
       break;
 
     default:
-      DVLOG(1) << "Unhandled pixelformat " << std::hex << "0x" << pix_fmt;
+      VLOGF(1) << "Unhandled pixelformat " << std::hex << "0x" << pix_fmt;
       return profiles;
   }
 
@@ -156,7 +162,7 @@ bool V4L2Device::Poll(bool poll_device, bool* event_pending) {
   nfds = 1;
 
   if (poll_device) {
-    DVLOG(3) << "Poll(): adding device fd to poll() set";
+    DVLOGF(5) << "Poll(): adding device fd to poll() set";
     pollfds[nfds].fd = device_fd_.get();
     pollfds[nfds].events = POLLIN | POLLOUT | POLLERR | POLLPRI;
     pollfd = nfds;
@@ -164,7 +170,7 @@ bool V4L2Device::Poll(bool poll_device, bool* event_pending) {
   }
 
   if (HANDLE_EINTR(poll(pollfds, nfds, -1)) == -1) {
-    DPLOG(ERROR) << "poll() failed";
+    VPLOGF(1) << "poll() failed";
     return false;
   }
   *event_pending = (pollfd != -1 && pollfds[pollfd].revents & POLLPRI);
@@ -185,19 +191,19 @@ void V4L2Device::Munmap(void* addr, unsigned int len) {
 }
 
 bool V4L2Device::SetDevicePollInterrupt() {
-  DVLOG(3) << "SetDevicePollInterrupt()";
+  DVLOGF(4);
 
   const uint64_t buf = 1;
   if (HANDLE_EINTR(write(device_poll_interrupt_fd_.get(), &buf, sizeof(buf))) ==
       -1) {
-    DPLOG(ERROR) << "SetDevicePollInterrupt(): write() failed";
+    VPLOGF(1) << "write() failed";
     return false;
   }
   return true;
 }
 
 bool V4L2Device::ClearDevicePollInterrupt() {
-  DVLOG(3) << "ClearDevicePollInterrupt()";
+  DVLOGF(5);
 
   uint64_t buf;
   if (HANDLE_EINTR(read(device_poll_interrupt_fd_.get(), &buf, sizeof(buf))) ==
@@ -206,7 +212,7 @@ bool V4L2Device::ClearDevicePollInterrupt() {
       // No interrupt flag set, and we're reading nonblocking.  Not an error.
       return true;
     } else {
-      DPLOG(ERROR) << "ClearDevicePollInterrupt(): read() failed";
+      VPLOGF(1) << "read() failed";
       return false;
     }
   }
@@ -214,22 +220,23 @@ bool V4L2Device::ClearDevicePollInterrupt() {
 }
 
 bool V4L2Device::Open(Type type, uint32_t v4l2_pixfmt) {
+  VLOGF(2);
   std::string path = GetDevicePathFor(type, v4l2_pixfmt);
 
   if (path.empty()) {
-    DVLOG(1) << "No devices supporting " << std::hex << "0x" << v4l2_pixfmt
+    VLOGF(1) << "No devices supporting " << std::hex << "0x" << v4l2_pixfmt
              << " for type: " << static_cast<int>(type);
     return false;
   }
 
   if (!OpenDevicePath(path, type)) {
-    LOG(ERROR) << "Failed opening " << path;
+    VLOGF(1) << "Failed opening " << path;
     return false;
   }
 
   device_poll_interrupt_fd_.reset(eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC));
   if (!device_poll_interrupt_fd_.is_valid()) {
-    LOG(ERROR) << "Failed creating a poll interrupt fd";
+    VLOGF(1) << "Failed creating a poll interrupt fd";
     return false;
   }
 
@@ -240,6 +247,7 @@ std::vector<base::ScopedFD> V4L2Device::GetDmabufsForV4L2Buffer(
     int index,
     size_t num_planes,
     enum v4l2_buf_type buf_type) {
+  VLOGF(2);
   DCHECK(V4L2_TYPE_IS_MULTIPLANAR(buf_type));
 
   std::vector<base::ScopedFD> dmabuf_fds;
@@ -270,7 +278,7 @@ V4L2Device::GetSupportedDecodeProfiles(const size_t num_formats,
   const auto& devices = GetDevicesForType(type);
   for (const auto& device : devices) {
     if (!OpenDevicePath(device.first, type)) {
-      LOG(ERROR) << "Failed opening " << device.first;
+      VLOGF(1) << "Failed opening " << device.first;
       continue;
     }
 
@@ -320,15 +328,15 @@ void V4L2Device::GetSupportedResolution(uint32_t pixelformat,
   }
   if (max_resolution->IsEmpty()) {
     max_resolution->SetSize(1920, 1088);
-    LOG(ERROR) << "GetSupportedResolution failed to get maximum resolution for "
-               << "fourcc " << std::hex << pixelformat
-               << ", fall back to " << max_resolution->ToString();
+    VLOGF(1) << "GetSupportedResolution failed to get maximum resolution for "
+             << "fourcc " << std::hex << pixelformat
+             << ", fall back to " << max_resolution->ToString();
   }
   if (min_resolution->IsEmpty()) {
     min_resolution->SetSize(16, 16);
-    LOG(ERROR) << "GetSupportedResolution failed to get minimum resolution for "
-               << "fourcc " << std::hex << pixelformat
-               << ", fall back to " << min_resolution->ToString();
+    VLOGF(1) << "GetSupportedResolution failed to get minimum resolution for "
+             << "fourcc " << std::hex << pixelformat
+             << ", fall back to " << min_resolution->ToString();
   }
 }
 
@@ -341,8 +349,8 @@ std::vector<uint32_t> V4L2Device::EnumerateSupportedPixelformats(
   fmtdesc.type = buf_type;
 
   for (; Ioctl(VIDIOC_ENUM_FMT, &fmtdesc) == 0; ++fmtdesc.index) {
-    DVLOG(1) << "Found " << fmtdesc.description << std::hex << " (0x"
-             << fmtdesc.pixelformat << ")";
+    DVLOGF(3) << "Found " << fmtdesc.description << std::hex << " (0x"
+              << fmtdesc.pixelformat << ")";
     pixelformats.push_back(fmtdesc.pixelformat);
   }
 
@@ -373,9 +381,9 @@ V4L2Device::EnumerateSupportedDecodeProfiles(const size_t num_formats,
       profile.profile = video_codec_profile;
       profiles.push_back(profile);
 
-      DVLOG(1) << "Found decoder profile " << GetProfileName(profile.profile)
-               << ", resolutions: " << profile.min_resolution.ToString() << " "
-               << profile.max_resolution.ToString();
+      DVLOGF(3) << "Found decoder profile " << GetProfileName(profile.profile)
+                << ", resolutions: " << profile.min_resolution.ToString() << " "
+                << profile.max_resolution.ToString();
     }
   }
 
@@ -394,6 +402,7 @@ bool V4L2Device::OpenDevicePath(const std::string& path, Type type) {
 }
 
 void V4L2Device::CloseDevice() {
+  VLOGF(2);
   device_fd_.reset();
 }
 
@@ -433,7 +442,7 @@ void V4L2Device::EnumerateDevicesForType(Type type) {
     const auto& supported_pixelformats =
         EnumerateSupportedPixelformats(buf_type);
     if (!supported_pixelformats.empty()) {
-      DVLOG(1) << "Found device: " << path;
+      DVLOGF(3) << "Found device: " << path;
       devices.push_back(std::make_pair(path, supported_pixelformats));
     }
 

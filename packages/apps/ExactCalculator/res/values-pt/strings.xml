@@ -75,7 +75,7 @@
     <string name="approximate" msgid="7117143366610670836">"(±1 no último dígito)"</string>
     <string name="menu_leading" msgid="2338520833272667740">"Resposta c/ dígitos iniciais"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"Responder como fração"</string>
-    <string name="menu_licenses" msgid="1890541368064108592">"Lic. cód. aberto"</string>
+    <string name="menu_licenses" msgid="1890541368064108592">"Licenças de código aberto"</string>
     <string name="menu_history" msgid="9006222701220105452">"Histórico"</string>
     <string name="menu_clear_history" msgid="2336526604226069572">"Limpar"</string>
     <string name="title_history" msgid="7820912156315181539">"Histórico"</string>

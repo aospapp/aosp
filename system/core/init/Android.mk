@@ -9,12 +9,14 @@ init_options += \
     -DALLOW_LOCAL_PROP_OVERRIDE=1 \
     -DALLOW_PERMISSIVE_SELINUX=1 \
     -DREBOOT_BOOTLOADER_ON_PANIC=1 \
+    -DWORLD_WRITABLE_KMSG=1 \
     -DDUMP_ON_UMOUNT_FAILURE=1
 else
 init_options += \
     -DALLOW_LOCAL_PROP_OVERRIDE=0 \
     -DALLOW_PERMISSIVE_SELINUX=0 \
     -DREBOOT_BOOTLOADER_ON_PANIC=0 \
+    -DWORLD_WRITABLE_KMSG=0 \
     -DDUMP_ON_UMOUNT_FAILURE=0
 endif
 
@@ -28,10 +30,6 @@ endif
 
 init_options += -DLOG_UEVENTS=0
 
-ifeq ($(TARGET_USER_MODE_LINUX), true)
-    init_cflags += -DUSER_MODE_LINUX
-endif
-
 init_cflags += \
     $(init_options) \
     -Wall -Wextra \
@@ -43,21 +41,9 @@ init_cflags += \
 
 include $(CLEAR_VARS)
 LOCAL_CPPFLAGS := $(init_cflags)
-LOCAL_SRC_FILES:= \
-    bootchart.cpp \
-    builtins.cpp \
-    init.cpp \
-    init_first_stage.cpp \
-    keychords.cpp \
-    property_service.cpp \
-    reboot.cpp \
-    signal_handler.cpp \
-    ueventd.cpp \
-    watchdogd.cpp \
+LOCAL_SRC_FILES := main.cpp
 
 LOCAL_MODULE:= init
-LOCAL_C_INCLUDES += \
-    system/core/mkbootimg
 
 LOCAL_FORCE_STATIC_EXECUTABLE := true
 LOCAL_MODULE_PATH := $(TARGET_ROOT_OUT)
@@ -69,12 +55,14 @@ LOCAL_STATIC_LIBRARIES := \
     libfs_mgr \
     libfec \
     libfec_rs \
+    libhidl-gen-utils \
     libsquashfs_utils \
     liblogwrap \
     libext4_utils \
     libcutils \
     libbase \
     libc \
+    libseccomp_policy \
     libselinux \
     liblog \
     libcrypto_utils \
@@ -86,10 +74,15 @@ LOCAL_STATIC_LIBRARIES := \
     libprocessgroup \
     libavb \
     libkeyutils \
+    libprotobuf-cpp-lite \
+    libpropertyinfoserializer \
+    libpropertyinfoparser \
 
 LOCAL_REQUIRED_MODULES := \
     e2fsdroid \
     mke2fs \
+    sload_f2fs \
+    make_f2fs \
 
 # Create symlinks.
 LOCAL_POST_INSTALL_CMD := $(hide) mkdir -p $(TARGET_ROOT_OUT)/sbin; \
@@ -97,5 +90,4 @@ LOCAL_POST_INSTALL_CMD := $(hide) mkdir -p $(TARGET_ROOT_OUT)/sbin; \
     ln -sf ../init $(TARGET_ROOT_OUT)/sbin/watchdogd
 
 LOCAL_SANITIZE := signed-integer-overflow
-LOCAL_CLANG := true
 include $(BUILD_EXECUTABLE)

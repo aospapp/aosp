@@ -89,7 +89,6 @@ public class CreatePrivateDataTest extends AndroidTestCase {
 
         writeToPreferences();
         writeToDatabase();
-        createTrafficStatsWithTags();
     }
 
     private void accessPublicData() throws IOException {
@@ -167,76 +166,6 @@ public class CreatePrivateDataTest extends AndroidTestCase {
                 db.close();
             }
         }
-    }
-
-    private void accessOwnTrafficStats() throws IOException {
-        final int ownAppUid = getContext().getApplicationInfo().uid;
-
-        boolean foundOwnDetailedStats = false;
-        try {
-            BufferedReader qtaguidReader = new BufferedReader(new FileReader("/proc/net/xt_qtaguid/stats"));
-            String line;
-            while ((line = qtaguidReader.readLine()) != null) {
-                String tokens[] = line.split(" ");
-                if (tokens.length > 3 && tokens[3].equals(String.valueOf(ownAppUid))) {
-                    if (!tokens[2].equals("0x0")) {
-                      foundOwnDetailedStats = true;
-                    }
-                }
-            }
-            qtaguidReader.close();
-        } catch (FileNotFoundException e) {
-            fail("Was not able to access qtaguid/stats: " + e);
-        }
-        assertTrue("Was expecting to find own traffic stats", foundOwnDetailedStats);
-    }
-
-    private void createTrafficStatsWithTags() throws IOException {
-
-        // Transfer 1MB of data across an explicitly localhost socket.
-        final int byteCount = 1024;
-        final int packetCount = 1024;
-
-        final ServerSocket server = new ServerSocket(0);
-        new Thread("CreatePrivateDataTest.createTrafficStatsWithTags") {
-            @Override
-            public void run() {
-                try {
-                    Socket socket = new Socket("localhost", server.getLocalPort());
-                    // Make sure that each write()+flush() turns into a packet:
-                    // disable Nagle.
-                    socket.setTcpNoDelay(true);
-                    OutputStream out = socket.getOutputStream();
-                    byte[] buf = new byte[byteCount];
-                    for (int i = 0; i < packetCount; i++) {
-                        TrafficStats.setThreadStatsTag(i % 10);
-                        TrafficStats.tagSocket(socket);
-                        out.write(buf);
-                        out.flush();
-                    }
-                    out.close();
-                    socket.close();
-                } catch (IOException e) {
-                  assertTrue("io exception" + e, false);
-                }
-            }
-        }.start();
-
-        try {
-            Socket socket = server.accept();
-            InputStream in = socket.getInputStream();
-            byte[] buf = new byte[byteCount];
-            int read = 0;
-            while (read < byteCount * packetCount) {
-                int n = in.read(buf);
-                assertTrue("Unexpected EOF", n > 0);
-                read += n;
-            }
-        } finally {
-            server.close();
-        }
-
-        accessOwnTrafficStats();
     }
 
     static class TestDatabaseOpenHelper extends SQLiteOpenHelper {

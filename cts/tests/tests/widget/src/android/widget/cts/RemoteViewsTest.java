@@ -52,7 +52,6 @@ import android.widget.AnalogClock;
 import android.widget.Button;
 import android.widget.Chronometer;
 import android.widget.DatePicker;
-import android.widget.DateTimeView;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.GridLayout;
@@ -412,7 +411,6 @@ public class RemoteViewsTest {
         assertTrue(mRemoteViews.onLoadClass(AnalogClock.class));
         assertTrue(mRemoteViews.onLoadClass(Button.class));
         assertTrue(mRemoteViews.onLoadClass(Chronometer.class));
-        assertTrue(mRemoteViews.onLoadClass(DateTimeView.class));
         assertTrue(mRemoteViews.onLoadClass(FrameLayout.class));
         assertTrue(mRemoteViews.onLoadClass(GridLayout.class));
         assertTrue(mRemoteViews.onLoadClass(GridView.class));

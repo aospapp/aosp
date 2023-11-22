@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="170210454004696382">"Брелок"</string>
+    <string name="app_name" msgid="170210454004696382">"Менеджер ключей"</string>
     <string name="title_no_certs" msgid="8350009443064722873">"Сертификаты не найдены"</string>
     <string name="title_select_cert" msgid="3588447616418041699">"Выбор сертификата"</string>
     <string name="requesting_application" msgid="1589142627467598421">"Приложение %s запросило сертификат. Выберите сертификат, чтобы разрешить приложению использовать это удостоверение для серверов сейчас и в будущем."</string>

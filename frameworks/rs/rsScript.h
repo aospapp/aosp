@@ -40,7 +40,7 @@ public:
     virtual ~IDBase() {}
 
     virtual void serialize(Context *rsc, OStream *stream) const {}
-    virtual RsA3DClassID getClassId() const;
+    virtual RsA3DClassID getClassId() const = 0;
 
     Script *mScript;
     int mSlot;

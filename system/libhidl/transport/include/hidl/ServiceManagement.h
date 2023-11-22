@@ -18,6 +18,8 @@
 #define ANDROID_HARDWARE_ISERVICE_MANAGER_H
 
 #include <string>
+
+#include <android/hidl/base/1.0/IBase.h>
 #include <utils/StrongPointer.h>
 
 namespace android {
@@ -45,6 +47,16 @@ void onRegistration(const std::string &packageName,
 void waitForHwService(const std::string &interface, const std::string &instanceName);
 
 void preloadPassthroughService(const std::string &descriptor);
+
+// Returns a service with the following constraints:
+// - retry => service is waited for and returned if available in this process
+// - getStub => internal only. Forces to get the unwrapped (no BsFoo) if available.
+// TODO(b/65843592)
+// If the service is a remote service, this function returns BpBase. If the service is
+// a passthrough service, this function returns the appropriately wrapped Bs child object.
+sp<::android::hidl::base::V1_0::IBase> getRawServiceInternal(const std::string& descriptor,
+                                                             const std::string& instance,
+                                                             bool retry, bool getStub);
 };
 
 // These functions are for internal use by hidl. If you want to get ahold

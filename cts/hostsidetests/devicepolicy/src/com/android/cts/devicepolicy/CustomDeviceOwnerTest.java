@@ -31,7 +31,7 @@ public class CustomDeviceOwnerTest extends BaseDevicePolicyTest {
     private static final String DEVICE_OWNER_PKG = "com.android.cts.deviceowner";
     private static final String DEVICE_OWNER_APK = "CtsDeviceOwnerApp.apk";
     private static final String DEVICE_OWNER_ADMIN
-            = DEVICE_OWNER_PKG + ".BaseDeviceOwnerTest$BasicAdminReceiver";
+            = DEVICE_OWNER_PKG + ".BasicAdminReceiver";
     private static final String DEVICE_OWNER_ADMIN_COMPONENT
             = DEVICE_OWNER_PKG + "/" + DEVICE_OWNER_ADMIN;
 

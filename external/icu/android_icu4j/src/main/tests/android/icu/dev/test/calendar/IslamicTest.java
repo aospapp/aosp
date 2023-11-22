@@ -18,6 +18,8 @@ import java.util.Date;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.LocaleUtility;
@@ -29,10 +31,13 @@ import android.icu.util.IslamicCalendar;
 import android.icu.util.IslamicCalendar.CalculationType;
 import android.icu.util.TimeZone;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Tests for the <code>IslamicCalendar</code> class.
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class IslamicTest extends CalendarTestFmwk {
     /** Constants to save typing. */
     public static final int MUHARRAM = IslamicCalendar.MUHARRAM;
@@ -53,7 +58,7 @@ public class IslamicTest extends CalendarTestFmwk {
         int[][] tests = new int[][] {
             //       input                roll by          output
             //  year  month     day     field amount    year  month     day
-    
+
             {   0001, QIDAH,     2,     MONTH,   1,     0001, HIJJAH,    2 },   // non-leap years
             {   0001, QIDAH,     2,     MONTH,   2,     0001, MUHARRAM,  2 },
             {   0001, QIDAH,     2,     MONTH,  -1,     0001, SHAWWAL,   2 },
@@ -67,10 +72,10 @@ public class IslamicTest extends CalendarTestFmwk {
             {   0001, MUHARRAM, 30,     MONTH,   1,     0001, SAFAR,    29 },
             {   0002, HIJJAH,   30,     YEAR,   -1,     0001, HIJJAH,   29 },
         };
-       
+
         IslamicCalendar cal = newCivil();
         doRollAdd(ROLL, cal, tests);
-        
+
         cal = newIslamicUmalqura();
         doRollAdd(ROLL, cal, tests);
     }
@@ -126,7 +131,7 @@ public class IslamicTest extends CalendarTestFmwk {
             new TestCase(2465737.5,  0,  1460,   10,  12,  WED,   0,  0,  0),
             new TestCase(2486076.5,  0,  1518,    3,   5,  SUN,   0,  0,  0),
         };
-        
+
         IslamicCalendar civilCalendar = newCivil();
         civilCalendar.setLenient(true);
         doTestCases(tests, civilCalendar);
@@ -139,13 +144,13 @@ public class IslamicTest extends CalendarTestFmwk {
         cal.set(1000, 0, 30);
         logln("1000/0/30 -> " +
               cal.get(YEAR) + "/" +
-              cal.get(MONTH) + "/" + 
+              cal.get(MONTH) + "/" +
               cal.get(DATE));
         cal.clear();
         cal.set(1, 0, 30);
         logln("1/0/30 -> " +
               cal.get(YEAR) + "/" +
-              cal.get(MONTH) + "/" + 
+              cal.get(MONTH) + "/" +
               cal.get(DATE));
     }
 
@@ -161,7 +166,7 @@ public class IslamicTest extends CalendarTestFmwk {
         doTheoreticalLimitsTest(islamic, true);
 
 
-        // number of days to test - Islamic calendar starts to exhibit 
+        // number of days to test - Islamic calendar starts to exhibit
         // rounding errors after year AH3954 - about 2500 years out.
 
         IslamicCalendar islamic2 = new IslamicCalendar();
@@ -181,11 +186,11 @@ public class IslamicTest extends CalendarTestFmwk {
         cal.add(IslamicCalendar.MONTH,1);
         if ( cal.get(IslamicCalendar.MONTH) != IslamicCalendar.MUHARRAM  ||
            ( cal.get(IslamicCalendar.YEAR) != 1432 )) {
-               errln("Error incrementing month at the end of a leap year.  Expected Month:0 Year:1432 - Got Month:" + 
+               errln("Error incrementing month at the end of a leap year.  Expected Month:0 Year:1432 - Got Month:" +
                        cal.get(IslamicCalendar.MONTH) + " Year:" + cal.get(IslamicCalendar.YEAR));
            }
     }
-    
+
     @Test
     public void TestCoverage() {
     {
@@ -203,7 +208,7 @@ public class IslamicTest extends CalendarTestFmwk {
             errln("could not create IslamicCalendar with ULocale");
         }
     }
-        
+
     {
         // new IslamicCalendar(Locale)
         IslamicCalendar cal = new IslamicCalendar(Locale.getDefault());
@@ -252,7 +257,7 @@ public class IslamicTest extends CalendarTestFmwk {
         if (cal.isCivil()) {
         errln("islamic calendar is civil");
         }
-        
+
         // ensure calculation type getter returns correct object and value
         cal.setCalculationType(CalculationType.ISLAMIC_UMALQURA);
         Object ctObj = cal.getCalculationType();
@@ -264,7 +269,7 @@ public class IslamicTest extends CalendarTestFmwk {
         } else {
             errln("wrong object type returned from getCalculationType");
         }
-        
+
 
         Date now = new Date();
         cal.setTime(now);
@@ -282,14 +287,14 @@ public class IslamicTest extends CalendarTestFmwk {
 
         logln(cal.getTime().toString());
     }
-    
+
     {
         // data
         IslamicCalendar cal = new IslamicCalendar(800, IslamicCalendar.RAMADAN, 1);
         Date time = cal.getTime();
 
         String[] calendarLocales = {
-        "ar_AE", "ar_BH", "ar_DZ", "ar_EG", "ar_JO", "ar_KW", "ar_OM", 
+        "ar_AE", "ar_BH", "ar_DZ", "ar_EG", "ar_JO", "ar_KW", "ar_OM",
         "ar_QA", "ar_SA", "ar_SY", "ar_YE", "ms_MY"
         };
 
@@ -321,7 +326,7 @@ public class IslamicTest extends CalendarTestFmwk {
         civilCalendar.setCalculationType(CalculationType.ISLAMIC);
         return civilCalendar;
     }
-    
+
     private static IslamicCalendar newIslamicUmalqura() {
         IslamicCalendar civilCalendar = new IslamicCalendar();
         civilCalendar.setCalculationType(CalculationType.ISLAMIC_UMALQURA);
@@ -340,8 +345,8 @@ public class IslamicTest extends CalendarTestFmwk {
         verifyType(newIslamic(),"islamic");
         verifyType(newCivil(),"islamic-civil");
         verifyType(newIslamicUmalqura(), "islamic-umalqura");
-    } 
-    
+    }
+
     private void setAndTestCalendar(IslamicCalendar cal, int initMonth, int initDay, int initYear) {
         cal.clear();
         cal.setLenient(false);
@@ -358,18 +363,18 @@ public class IslamicTest extends CalendarTestFmwk {
 
     private void setAndTestWholeYear(IslamicCalendar cal, int startYear) {
         for(int startMonth = 0; startMonth < 12; startMonth++) {
-            for(int startDay = 1; startDay < 31; startDay++ ) {                
+            for(int startDay = 1; startDay < 31; startDay++ ) {
                 try {
                     setAndTestCalendar(cal, startMonth, startDay, startYear);
                 } catch(IllegalArgumentException iae) {
                     if(startDay != 30) {
                         errln("unexpected exception that wasn't for trying to set a date to '30'. errmsg - " + iae.getLocalizedMessage());
-                    }                    
-                }                
+                    }
+                }
             }
         }
     }
-    
+
     @Test
     public void TestIslamicUmAlQura() {
 
@@ -805,15 +810,15 @@ public class IslamicTest extends CalendarTestFmwk {
         /*/
         int lastYear = 1480;    // the whole shootin' match
         //*/
-        
-        ULocale umalquraLoc = new ULocale("ar_SA@calendar=islamic-umalqura"); 
-        ULocale gregoLoc = new ULocale("ar_SA@calendar=gregorian"); 
+
+        ULocale umalquraLoc = new ULocale("ar_SA@calendar=islamic-umalqura");
+        ULocale gregoLoc = new ULocale("ar_SA@calendar=gregorian");
         TimeZone tzSA = TimeZone.getTimeZone("Asia/Riyadh");
         IslamicCalendar tstCal = new IslamicCalendar(tzSA, umalquraLoc);
         GregorianCalendar gregCal = new GregorianCalendar(tzSA, gregoLoc);
         tstCal.clear();
         tstCal.setLenient(false);
-        
+
         int day=0, month=0, year=0, initDay = 27, initMonth = IslamicCalendar.RAJAB, initYear = 1434;
 
         try {
@@ -841,7 +846,7 @@ public class IslamicTest extends CalendarTestFmwk {
         } catch(IllegalArgumentException iae) {
             errln("unexpected exception received!!!");
         }
-        
+
         try {
             tstCal.clear();
             initMonth = 2;
@@ -851,7 +856,7 @@ public class IslamicTest extends CalendarTestFmwk {
         } catch(IllegalArgumentException iae) {
             // expected this
         }
-        
+
         try {
             tstCal.clear();
             initMonth = 3;
@@ -860,9 +865,9 @@ public class IslamicTest extends CalendarTestFmwk {
         } catch(IllegalArgumentException iae) {
             errln("unexpected exception received!!!");
         }
-        
+
         try {
-            SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");            
+            SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
             Date date = formatter.parse("1975-05-06");
             IslamicCalendar is_cal = new IslamicCalendar();
             is_cal.setCalculationType(CalculationType.ISLAMIC_UMALQURA);
@@ -881,11 +886,11 @@ public class IslamicTest extends CalendarTestFmwk {
             String expectedFormatResult = "\u0661\u0663\u0669\u0665-\u0631\u0628\u064A\u0639 \u0627\u0644\u0622\u062E\u0631-\u0662\u0664";
             if(!str.equals(expectedFormatResult))
                 errln("unexpected formatted result: "+str);
-            
+
         }catch(Exception e){
             errln(e.getLocalizedMessage());
         }
-        
+
         // check against data
         gregCal.clear();
         tstCal.clear();
@@ -903,18 +908,18 @@ public class IslamicTest extends CalendarTestFmwk {
             }
         }
     }
-    
+
     @Test
     public void TestSerialization8449() {
         try {
             ByteArrayOutputStream icuStream = new ByteArrayOutputStream();
-    
+
             IslamicCalendar tstCalendar = new IslamicCalendar();
             tstCalendar.setCivil(false);
-            
+
             long expectMillis = 1187912520931L; // with seconds (not ms) cleared.
             tstCalendar.setTimeInMillis(expectMillis);
-            
+
             logln("instantiated: "+tstCalendar);
             logln("getMillis: "+tstCalendar.getTimeInMillis());
             tstCalendar.set(IslamicCalendar.SECOND, 0);
@@ -931,11 +936,11 @@ public class IslamicTest extends CalendarTestFmwk {
             icuOut.writeObject(tstCalendar);
             icuOut.flush();
             icuOut.close();
-            
+
             ObjectInputStream icuIn = new ObjectInputStream(new ByteArrayInputStream(icuStream.toByteArray()));
             tstCalendar = null;
             tstCalendar = (IslamicCalendar)icuIn.readObject();
-            
+
             logln("serialized back in: "+tstCalendar);
             {
                 long gotMillis = tstCalendar.getTimeInMillis();
@@ -945,9 +950,9 @@ public class IslamicTest extends CalendarTestFmwk {
                     logln("getMillis: "+gotMillis);
                 }
             }
-            
+
             tstCalendar.set(IslamicCalendar.SECOND, 0);
-                    
+
             logln("setSecond=0: "+tstCalendar);
             {
                 long gotMillis = tstCalendar.getTimeInMillis();
@@ -965,7 +970,7 @@ public class IslamicTest extends CalendarTestFmwk {
             cnf.printStackTrace();
         }
     }
-    
+
     @Test
     public void TestIslamicTabularDates() {
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
@@ -989,7 +994,7 @@ public class IslamicTest extends CalendarTestFmwk {
         int is_year2 = is_cal2.get(Calendar.YEAR);
         if( (is_month != is_month2) || (is_year != is_year2))
             errln("unexpected difference between islamic and tbla month "+is_month+" : "+is_month2+" and/or year "+is_year+" : "+is_year2);
-        
+
         int is_day = is_cal.get(Calendar.DAY_OF_MONTH);
         int is_day2 = is_cal2.get(Calendar.DAY_OF_MONTH);
         if(is_day2 - is_day != 1)
@@ -999,30 +1004,44 @@ public class IslamicTest extends CalendarTestFmwk {
 
     @Test
     public void TestCreationByLocale() {
-        ULocale islamicLoc = new ULocale("ar_SA@calendar=islamic-umalqura"); 
+        ULocale islamicLoc = new ULocale("ar_SA@calendar=islamic-umalqura");
         IslamicCalendar is_cal = new IslamicCalendar(islamicLoc);
-        String thisCalcType = is_cal.getType(); 
+        String thisCalcType = is_cal.getType();
         if(!"islamic-umalqura".equalsIgnoreCase(thisCalcType)) {
             errln("non umalqura calc type generated - " + thisCalcType);
         }
 
-        islamicLoc = new ULocale("ar_SA@calendar=islamic-civil"); 
+        islamicLoc = new ULocale("ar_SA@calendar=islamic-civil");
         is_cal = new IslamicCalendar(islamicLoc);
-        thisCalcType = is_cal.getType(); 
+        thisCalcType = is_cal.getType();
         if(!"islamic-civil".equalsIgnoreCase(thisCalcType)) {
             errln("non civil calc type generated - " + thisCalcType);
         }
 
-        islamicLoc = new ULocale("ar_SA@calendar=islamic-tbla"); 
+        islamicLoc = new ULocale("ar_SA@calendar=ISLAMIC-UMALQURA");
         is_cal = new IslamicCalendar(islamicLoc);
-        thisCalcType = is_cal.getType(); 
+        thisCalcType = is_cal.getType();
+        if (!"islamic-umalqura".equalsIgnoreCase(thisCalcType)) {
+            errln("non umalqura calc type generated - " + thisCalcType);
+        }
+
+        islamicLoc = new ULocale("ar_SA@calendar=ISLAMIC-CIVIL");
+        is_cal = new IslamicCalendar(islamicLoc);
+        thisCalcType = is_cal.getType();
+        if (!"islamic-civil".equalsIgnoreCase(thisCalcType)) {
+            errln("non civil calc type generated - " + thisCalcType);
+        }
+
+        islamicLoc = new ULocale("ar_SA@calendar=islamic-tbla");
+        is_cal = new IslamicCalendar(islamicLoc);
+        thisCalcType = is_cal.getType();
         if(!"islamic-tbla".equalsIgnoreCase(thisCalcType)) {
             errln("non tbla calc type generated - " + thisCalcType);
         }
 
-        islamicLoc = new ULocale("ar_SA@calendar=islamic-xyzzy"); 
+        islamicLoc = new ULocale("ar_SA@calendar=islamic-xyzzy");
         is_cal = new IslamicCalendar(islamicLoc);
-        thisCalcType = is_cal.getType(); 
+        thisCalcType = is_cal.getType();
         if(!"islamic".equalsIgnoreCase(thisCalcType)) {
             errln("incorrect default calc type generated - " + thisCalcType);
         }

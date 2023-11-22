@@ -53,20 +53,18 @@ void swapBytes(uint8_t *bytes, size_t size);
 // of this we compile with, and fail some of the tests.
 
 template<typename T>
-static inline void hostToLittleEndian(T *value) {
+static inline T hostToLittleEndian(T value) {
 #if (__BYTE_ORDER == __BIG_ENDIAN)
-  swapBytes(reinterpret_cast<uint8_t*>(value), sizeof(T));
-#else
-  // Nothing to do for little endian machines.
-  (void)value;
+  swapBytes(reinterpret_cast<uint8_t*>(&value), sizeof(T));
 #endif
+  return value;
 }
 
 template<typename T>
-static inline void littleEndianToHost(T *value) {
+static inline T littleEndianToHost(T value) {
   // This has identical behavior to hostToLittleEndian.  We provide both
   // so code reads more cleanly.
-  hostToLittleEndian(value);
+  return hostToLittleEndian(value);
 }
 
 }  // namespace nanoapp_testing

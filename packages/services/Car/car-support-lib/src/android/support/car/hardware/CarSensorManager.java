@@ -17,11 +17,12 @@
 package android.support.car.hardware;
 
 import android.Manifest;
-import android.support.annotation.IntDef;
-import android.support.annotation.RequiresPermission;
 import android.support.car.Car;
 import android.support.car.CarManagerBase;
 import android.support.car.CarNotConnectedException;
+
+import androidx.annotation.IntDef;
+import androidx.annotation.RequiresPermission;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -57,12 +58,8 @@ public abstract class CarSensorManager implements CarManagerBase {
      */
     public static final int SENSOR_TYPE_ODOMETER = 4;
     /**
-     * Represent the fuel level of the car. In {@link CarSensorEvent}, floatValues[{@link
-     * CarSensorEvent#INDEX_FUEL_LEVEL_IN_PERCENTILE}] represents fuel level in percentile (0 to
-     * 100) while floatValues[{@link CarSensorEvent#INDEX_FUEL_LEVEL_IN_DISTANCE}] represents
-     * estimated range in kilometers with the remaining fuel. The gas mileage used for the
-     * estimation may not represent the current driving condition. Requires {@link
-     * Car#PERMISSION_FUEL} permission.
+     * Represent the fuel level of the car. In {@link CarSensorEvent},  represents fuel level in
+     * milliliters.  Requires {@link Car#PERMISSION_ENERGY} permission.
      * @hide
      */
     public static final int SENSOR_TYPE_FUEL_LEVEL = 5;
@@ -141,6 +138,37 @@ public abstract class CarSensorManager implements CarManagerBase {
      * Requires {@link Car#PERMISSION_VEHICLE_DYNAMICS_STATE} permission.
      */
     public static final int SENSOR_TYPE_TRACTION_CONTROL_ACTIVE     = 25;
+    /** @hide */
+    public static final int SENSOR_TYPE_RESERVED26                  = 26;
+    /**
+     * Set to true if the fuel door is open.
+     */
+    public static final int SENSOR_TYPE_FUEL_DOOR_OPEN              = 27;
+
+    /**
+     * Indicates battery level of the car.
+     * In {@link CarSensorEvent}, represents battery level in WH.
+     * This requires {@link Car#PERMISSION_ENERGY} permission.
+     */
+    public static final int SENSOR_TYPE_EV_BATTERY_LEVEL            = 28;
+    /**
+     * Set to true if EV charging port is open.
+     */
+    public static final int SENSOR_TYPE_EV_CHARGE_PORT_OPEN         = 29;
+    /**
+     * Set to true if EV charging port is connected.
+     */
+    public static final int SENSOR_TYPE_EV_CHARGE_PORT_CONNECTED    = 30;
+    /**
+     *  Indicates the instantaneous battery charging rate in mW.
+     *  This requires {@link Car#PERMISSION_ENERGY} permission.
+     */
+    public static final int SENSOR_TYPE_EV_BATTERY_CHARGE_RATE      = 31;
+    /**
+     * Oil level sensor.
+     * @hide
+     */
+    public static final int SENSOR_TYPE_ENGINE_OIL_LEVEL            = 32;
 
     /**
      * Sensors defined in this range [{@link #SENSOR_TYPE_VENDOR_EXTENSION_START},
@@ -175,19 +203,25 @@ public abstract class CarSensorManager implements CarManagerBase {
         SENSOR_TYPE_GYROSCOPE,
         SENSOR_TYPE_WHEEL_TICK_DISTANCE,
         SENSOR_TYPE_ABS_ACTIVE,
-        SENSOR_TYPE_TRACTION_CONTROL_ACTIVE
+        SENSOR_TYPE_TRACTION_CONTROL_ACTIVE,
+        SENSOR_TYPE_FUEL_DOOR_OPEN,
+        SENSOR_TYPE_EV_BATTERY_LEVEL,
+        SENSOR_TYPE_EV_CHARGE_PORT_OPEN,
+        SENSOR_TYPE_EV_CHARGE_PORT_CONNECTED,
+        SENSOR_TYPE_EV_BATTERY_CHARGE_RATE,
+        SENSOR_TYPE_ENGINE_OIL_LEVEL,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface SensorType {}
 
     /** Read sensor at the default normal rate set for each sensors. This is default rate. */
-    public static final int SENSOR_RATE_NORMAL  = 3;
+    public static final int SENSOR_RATE_NORMAL  = 1;
     /**@hide*/
-    public static final int SENSOR_RATE_UI = 2;
+    public static final int SENSOR_RATE_UI = 5;
     /**@hide*/
-    public static final int SENSOR_RATE_FAST = 1;
+    public static final int SENSOR_RATE_FAST = 10;
     /** Read sensor at the maximum rate. Actual rate will be different depending on the sensor. */
-    public static final int SENSOR_RATE_FASTEST = 0;
+    public static final int SENSOR_RATE_FASTEST = 100;
 
     /** @hide */
     @IntDef({
@@ -250,7 +284,7 @@ public abstract class CarSensorManager implements CarManagerBase {
      * @throws SecurityException if missing the appropriate permission.
      */
     @RequiresPermission(anyOf={Manifest.permission.ACCESS_FINE_LOCATION, Car.PERMISSION_SPEED,
-            Car.PERMISSION_MILEAGE, Car.PERMISSION_FUEL, Car.PERMISSION_VEHICLE_DYNAMICS_STATE},
+            Car.PERMISSION_MILEAGE, Car.PERMISSION_ENERGY, Car.PERMISSION_VEHICLE_DYNAMICS_STATE},
             conditional=true)
     public abstract boolean addListener(OnSensorChangedListener listener,
             @SensorType int sensorType, @SensorRate int rate)

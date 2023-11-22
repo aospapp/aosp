@@ -1010,8 +1010,16 @@ static void p2p_search(struct p2p_data *p2p)
 	}
 	p2p->cfg->stop_listen(p2p->cfg->cb_ctx);
 
-	if (p2p->find_type == P2P_FIND_PROGRESSIVE &&
-	    (freq = p2p_get_next_prog_freq(p2p)) > 0) {
+	if (p2p->find_pending_full &&
+	    (p2p->find_type == P2P_FIND_PROGRESSIVE ||
+	     p2p->find_type == P2P_FIND_START_WITH_FULL)) {
+		type = P2P_SCAN_FULL;
+		p2p_dbg(p2p, "Starting search (pending full scan)");
+		p2p->find_pending_full = 0;
+	} else if ((p2p->find_type == P2P_FIND_PROGRESSIVE &&
+	    (freq = p2p_get_next_prog_freq(p2p)) > 0) ||
+	    (p2p->find_type == P2P_FIND_START_WITH_FULL &&
+	     (freq = p2p->find_specified_freq) > 0)) {
 		type = P2P_SCAN_SOCIAL_PLUS_ONE;
 		p2p_dbg(p2p, "Starting search (+ freq %u)", freq);
 	} else {
@@ -1173,12 +1181,11 @@ int p2p_find(struct p2p_data *p2p, unsigned int timeout,
 
 	p2p_free_req_dev_types(p2p);
 	if (req_dev_types && num_req_dev_types) {
-		p2p->req_dev_types = os_malloc(num_req_dev_types *
+		p2p->req_dev_types = os_memdup(req_dev_types,
+					       num_req_dev_types *
 					       WPS_DEV_TYPE_LEN);
 		if (p2p->req_dev_types == NULL)
 			return -1;
-		os_memcpy(p2p->req_dev_types, req_dev_types,
-			  num_req_dev_types * WPS_DEV_TYPE_LEN);
 		p2p->num_req_dev_types = num_req_dev_types;
 	}
 
@@ -1235,7 +1242,12 @@ int p2p_find(struct p2p_data *p2p, unsigned int timeout,
 		p2p->pending_listen_freq = 0;
 	}
 	p2p->cfg->stop_listen(p2p->cfg->cb_ctx);
+	p2p->find_pending_full = 0;
 	p2p->find_type = type;
+	if (freq != 2412 && freq != 2437 && freq != 2462 && freq != 60480)
+		p2p->find_specified_freq = freq;
+	else
+		p2p->find_specified_freq = 0;
 	p2p_device_clear_reported(p2p);
 	os_memset(p2p->sd_query_no_ack, 0, ETH_ALEN);
 	p2p_set_state(p2p, P2P_SEARCH);
@@ -1251,7 +1263,7 @@ int p2p_find(struct p2p_data *p2p, unsigned int timeout,
 		if (freq > 0) {
 			/*
 			 * Start with the specified channel and then move to
-			 * social channels only scans.
+			 * scans for social channels and this specific channel.
 			 */
 			res = p2p->cfg->p2p_scan(p2p->cfg->cb_ctx,
 						 P2P_SCAN_SPECIFIC, freq,
@@ -1280,6 +1292,9 @@ int p2p_find(struct p2p_data *p2p, unsigned int timeout,
 	if (res != 0 && p2p->p2p_scan_running) {
 		p2p_dbg(p2p, "Failed to start p2p_scan - another p2p_scan was already running");
 		/* wait for the previous p2p_scan to complete */
+		if (type == P2P_FIND_PROGRESSIVE ||
+		    (type == P2P_FIND_START_WITH_FULL && freq == 0))
+			p2p->find_pending_full = 1;
 		res = 0; /* do not report failure */
 	} else if (res != 0) {
 		p2p_dbg(p2p, "Failed to start p2p_scan");
@@ -2993,6 +3008,7 @@ void p2p_deinit(struct p2p_data *p2p)
 	wpabuf_free(p2p->wfd_dev_info);
 	wpabuf_free(p2p->wfd_assoc_bssid);
 	wpabuf_free(p2p->wfd_coupled_sink_info);
+	wpabuf_free(p2p->wfd_r2_dev_info);
 #endif /* CONFIG_WIFI_DISPLAY */
 
 	eloop_cancel_timeout(p2p_scan_timeout, p2p, NULL);
@@ -4817,11 +4833,10 @@ int p2p_set_pref_chan(struct p2p_data *p2p, unsigned int num_pref_chan,
 	struct p2p_channel *n;
 
 	if (pref_chan) {
-		n = os_malloc(num_pref_chan * sizeof(struct p2p_channel));
+		n = os_memdup(pref_chan,
+			      num_pref_chan * sizeof(struct p2p_channel));
 		if (n == NULL)
 			return -1;
-		os_memcpy(n, pref_chan,
-			  num_pref_chan * sizeof(struct p2p_channel));
 	} else
 		n = NULL;
 
@@ -5138,6 +5153,20 @@ int p2p_set_wfd_dev_info(struct p2p_data *p2p, const struct wpabuf *elem)
 			return -1;
 	} else
 		p2p->wfd_dev_info = NULL;
+
+	return 0;
+}
+
+
+int p2p_set_wfd_r2_dev_info(struct p2p_data *p2p, const struct wpabuf *elem)
+{
+	wpabuf_free(p2p->wfd_r2_dev_info);
+	if (elem) {
+		p2p->wfd_r2_dev_info = wpabuf_dup(elem);
+		if (p2p->wfd_r2_dev_info == NULL)
+			return -1;
+	} else
+		p2p->wfd_r2_dev_info = NULL;
 
 	return 0;
 }

@@ -16,18 +16,24 @@
 
 package org.conscrypt;
 
-import static org.conscrypt.Conscrypt.Engines.setBufferAllocator;
-import static org.conscrypt.TestUtils.PROTOCOL_TLS_V1_2;
-import static org.conscrypt.TestUtils.TEST_CIPHER;
-import static org.conscrypt.TestUtils.initEngine;
+import static org.conscrypt.TestUtils.getConscryptProvider;
+import static org.conscrypt.TestUtils.getJdkProvider;
+import static org.conscrypt.TestUtils.getProtocols;
 import static org.conscrypt.TestUtils.initSslContext;
 import static org.conscrypt.TestUtils.newTextMessage;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.same;
+import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
+import java.security.Provider;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -38,16 +44,22 @@ import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 import javax.net.ssl.SSLEngineResult.Status;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
-import libcore.java.security.TestKeyStore;
+import javax.net.ssl.SSLSession;
+import org.conscrypt.java.security.TestKeyStore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
+import org.mockito.Matchers;
+import org.mockito.Mockito;
 
 @RunWith(Parameterized.class)
 public class ConscryptEngineTest {
     private static final int MESSAGE_SIZE = 4096;
+    private static final int LARGE_MESSAGE_SIZE = 16413;
+    private static final String[] CIPHERS = TestUtils.getCommonCipherSuites();
+    private static final String RENEGOTIATION_CIPHER = CIPHERS[CIPHERS.length - 1];
 
     @SuppressWarnings("ImmutableEnumChecker")
     public enum BufferType {
@@ -115,10 +127,61 @@ public class ConscryptEngineTest {
 
     private SSLEngine clientEngine;
     private SSLEngine serverEngine;
-    private ByteBuffer clientApplicationBuffer;
-    private ByteBuffer clientPacketBuffer;
-    private ByteBuffer serverApplicationBuffer;
-    private ByteBuffer serverPacketBuffer;
+
+    @Test
+    public void closingOutboundBeforeHandshakeShouldCloseAll() throws Exception {
+        setupEngines(TestKeyStore.getClient(), TestKeyStore.getServer());
+        assertFalse(clientEngine.isInboundDone());
+        assertFalse(clientEngine.isOutboundDone());
+        assertFalse(serverEngine.isInboundDone());
+        assertFalse(serverEngine.isOutboundDone());
+
+        clientEngine.closeOutbound();
+        serverEngine.closeOutbound();
+
+        assertTrue(clientEngine.isInboundDone());
+        assertTrue(clientEngine.isOutboundDone());
+        assertTrue(serverEngine.isInboundDone());
+        assertTrue(serverEngine.isOutboundDone());
+    }
+
+    @Test
+    public void closingOutboundAfterHandshakeShouldOnlyCloseOutbound() throws Exception {
+        setupEngines(TestKeyStore.getClient(), TestKeyStore.getServer());
+        doHandshake(true);
+
+        assertFalse(clientEngine.isInboundDone());
+        assertFalse(clientEngine.isOutboundDone());
+        assertFalse(serverEngine.isInboundDone());
+        assertFalse(serverEngine.isOutboundDone());
+
+        clientEngine.closeOutbound();
+        serverEngine.closeOutbound();
+
+        assertFalse(clientEngine.isInboundDone());
+        assertTrue(clientEngine.isOutboundDone());
+        assertFalse(serverEngine.isInboundDone());
+        assertTrue(serverEngine.isOutboundDone());
+    }
+
+    @Test
+    public void closingInboundShouldOnlyCloseInbound() throws Exception {
+        setupEngines(TestKeyStore.getClient(), TestKeyStore.getServer());
+        doHandshake(true);
+
+        assertFalse(clientEngine.isInboundDone());
+        assertFalse(clientEngine.isOutboundDone());
+        assertFalse(serverEngine.isInboundDone());
+        assertFalse(serverEngine.isOutboundDone());
+
+        clientEngine.closeInbound();
+        serverEngine.closeInbound();
+
+        assertTrue(clientEngine.isInboundDone());
+        assertFalse(clientEngine.isOutboundDone());
+        assertTrue(serverEngine.isInboundDone());
+        assertFalse(serverEngine.isOutboundDone());
+    }
 
     @Test
     public void mutualAuthWithSameCertsShouldSucceed() throws Exception {
@@ -168,149 +231,303 @@ public class ConscryptEngineTest {
     @Test
     public void exchangeMessages() throws Exception {
         setupEngines(TestKeyStore.getClient(), TestKeyStore.getServer());
-        doHandshake();
+        doHandshake(true);
 
-        ByteBuffer clientCleartextBuffer = bufferType.newBuffer(MESSAGE_SIZE);
-        clientCleartextBuffer.put(newTextMessage(MESSAGE_SIZE));
-        clientCleartextBuffer.flip();
+        ByteBuffer message = newMessage(MESSAGE_SIZE);
+        byte[] messageBytes = toArray(message);
 
         // Wrap the original message and create the encrypted data.
         final int numMessages = 100;
         ByteBuffer[] encryptedBuffers = new ByteBuffer[numMessages];
         for (int i = 0; i < numMessages; ++i) {
-            clientCleartextBuffer.position(0);
-            ByteBuffer out = bufferType.newBuffer(clientEngine.getSession().getPacketBufferSize());
-            SSLEngineResult wrapResult = clientEngine.wrap(clientCleartextBuffer, out);
-            assertEquals(SSLEngineResult.Status.OK, wrapResult.getStatus());
-            out.flip();
-            encryptedBuffers[i] = out;
+            List<ByteBuffer> wrapped = wrap(message.duplicate(), clientEngine);
+            // Small message, we should only have 1 buffer created.
+            assertEquals(1, wrapped.size());
+            encryptedBuffers[i] = wrapped.get(0);
         }
 
-        // Create the expected cleartext message
-        clientCleartextBuffer.position(0);
-        byte[] expectedMessage = toArray(clientCleartextBuffer);
-
         // Unwrap the all of the encrypted messages.
+        byte[] actualBytes = unwrap(encryptedBuffers, serverEngine);
+        assertEquals(MESSAGE_SIZE * numMessages, actualBytes.length);
         for (int i = 0; i < numMessages; ++i) {
-            ByteBuffer out = bufferType.newBuffer(2 * MESSAGE_SIZE);
-            SSLEngineResult unwrapResult = Conscrypt.Engines.unwrap(
-                    serverEngine, encryptedBuffers, new ByteBuffer[] {out});
-            assertEquals(SSLEngineResult.Status.OK, unwrapResult.getStatus());
-            assertEquals(MESSAGE_SIZE, unwrapResult.bytesProduced());
-
-            out.flip();
-            byte[] actualMessage = toArray(out);
-            assertArrayEquals(expectedMessage, actualMessage);
+            int offset = i * MESSAGE_SIZE;
+            byte[] actualMessageBytes =
+                    Arrays.copyOfRange(actualBytes, offset, offset + MESSAGE_SIZE);
+            assertArrayEquals(messageBytes, actualMessageBytes);
         }
     }
 
     @Test
     public void exchangeLargeMessage() throws Exception {
         setupEngines(TestKeyStore.getClient(), TestKeyStore.getServer());
-        doHandshake();
+        doHandshake(true);
 
-        // Create the input message.
-        final int largeMessageSize = 16413;
-        final byte[] message = newTextMessage(largeMessageSize);
-        ByteBuffer inputBuffer = bufferType.newBuffer(largeMessageSize);
-        inputBuffer.put(message);
-        inputBuffer.flip();
+        ByteBuffer inputBuffer = newMessage(LARGE_MESSAGE_SIZE);
+        exchangeMessage(inputBuffer, clientEngine, serverEngine);
+    }
 
-        // Encrypt the input message.
-        List<ByteBuffer> encryptedBufferList = new ArrayList<ByteBuffer>();
-        while (inputBuffer.hasRemaining()) {
-            ByteBuffer encryptedBuffer =
-                    bufferType.newBuffer(clientEngine.getSession().getPacketBufferSize());
-            SSLEngineResult wrapResult = clientEngine.wrap(inputBuffer, encryptedBuffer);
-            assertEquals(SSLEngineResult.Status.OK, wrapResult.getStatus());
-            encryptedBuffer.flip();
-            encryptedBufferList.add(encryptedBuffer);
-        }
+    @Test
+    public void alpnWithProtocolListShouldSucceed() throws Exception {
+        setupEngines(TestKeyStore.getClient(), TestKeyStore.getServer());
 
-        // Unwrap the all of the encrypted messages.
-        ByteArrayOutputStream cleartextStream = new ByteArrayOutputStream();
-        ByteBuffer[] encryptedBuffers =
-                encryptedBufferList.toArray(new ByteBuffer[encryptedBufferList.size()]);
-        int decryptedBufferSize = 8192;
-        final ByteBuffer decryptedBuffer = bufferType.newBuffer(decryptedBufferSize);
-        for (ByteBuffer encryptedBuffer : encryptedBuffers) {
-            SSLEngineResult.Status status = SSLEngineResult.Status.OK;
-            while (encryptedBuffer.hasRemaining() || status.equals(Status.BUFFER_OVERFLOW)) {
-                if (!decryptedBuffer.hasRemaining()) {
-                    decryptedBuffer.clear();
-                }
-                int prevPos = decryptedBuffer.position();
-                SSLEngineResult unwrapResult = Conscrypt.Engines.unwrap(
-                        serverEngine, encryptedBuffers, new ByteBuffer[] {decryptedBuffer});
-                status = unwrapResult.getStatus();
-                int newPos = decryptedBuffer.position();
-                int bytesProduced = unwrapResult.bytesProduced();
-                assertEquals(bytesProduced, newPos - prevPos);
+        // Configure ALPN protocols
+        String[] clientAlpnProtocols = new String[]{"http/1.1", "foo", "spdy/2"};
+        String[] serverAlpnProtocols = new String[]{"spdy/2", "foo", "bar"};
 
-                // Add any generated bytes to the output stream.
-                if (bytesProduced > 0) {
-                    byte[] decryptedBytes = new byte[unwrapResult.bytesProduced()];
+        Conscrypt.setApplicationProtocols(clientEngine, clientAlpnProtocols);
+        Conscrypt.setApplicationProtocols(serverEngine, serverAlpnProtocols);
 
-                    // Read the chunk that was just written to the output array.
-                    int limit = decryptedBuffer.limit();
-                    decryptedBuffer.limit(newPos);
-                    decryptedBuffer.position(prevPos);
-                    decryptedBuffer.get(decryptedBytes);
+        doHandshake(true);
+        assertEquals("spdy/2", Conscrypt.getApplicationProtocol(clientEngine));
+        assertEquals("spdy/2", Conscrypt.getApplicationProtocol(serverEngine));
+    }
 
-                    // Restore the position and limit.
-                    decryptedBuffer.limit(limit);
+    @Test
+    public void alpnWithProtocolListShouldFail() throws Exception {
+        setupEngines(TestKeyStore.getClient(), TestKeyStore.getServer());
 
-                    // Write the decrypted bytes to the stream.
-                    cleartextStream.write(decryptedBytes);
-                }
-            }
-        }
-        byte[] actualMessage = cleartextStream.toByteArray();
-        assertArrayEquals(message, actualMessage);
+        // Configure ALPN protocols
+        String[] clientAlpnProtocols = new String[]{"http/1.1", "foo", "spdy/2"};
+        String[] serverAlpnProtocols = new String[]{"h2", "bar", "baz"};
+
+        Conscrypt.setApplicationProtocols(clientEngine, clientAlpnProtocols);
+        Conscrypt.setApplicationProtocols(serverEngine, serverAlpnProtocols);
+
+        doHandshake(true);
+        assertNull(Conscrypt.getApplicationProtocol(clientEngine));
+        assertNull(Conscrypt.getApplicationProtocol(serverEngine));
+    }
+
+    @Test
+    public void alpnWithServerProtocolSelectorShouldSucceed() throws Exception {
+        setupEngines(TestKeyStore.getClient(), TestKeyStore.getServer());
+
+        // Configure client protocols.
+        String[] clientAlpnProtocols = new String[]{"http/1.1", "foo", "spdy/2"};
+        Conscrypt.setApplicationProtocols(clientEngine, clientAlpnProtocols);
+
+        // Configure server selector
+        ApplicationProtocolSelector selector = Mockito.mock(ApplicationProtocolSelector.class);
+        when(selector.selectApplicationProtocol(same(serverEngine), Matchers.anyListOf(String.class)))
+                .thenReturn("spdy/2");
+        Conscrypt.setApplicationProtocolSelector(serverEngine, selector);
+
+        doHandshake(true);
+        assertEquals("spdy/2", Conscrypt.getApplicationProtocol(clientEngine));
+        assertEquals("spdy/2", Conscrypt.getApplicationProtocol(serverEngine));
+    }
+
+    @Test
+    public void alpnWithServerProtocolSelectorShouldFail() throws Exception {
+        setupEngines(TestKeyStore.getClient(), TestKeyStore.getServer());
+
+        // Configure client protocols.
+        String[] clientAlpnProtocols = new String[]{"http/1.1", "foo", "spdy/2"};
+        Conscrypt.setApplicationProtocols(clientEngine, clientAlpnProtocols);
+
+        // Configure server selector
+        ApplicationProtocolSelector selector = Mockito.mock(ApplicationProtocolSelector.class);
+        when(selector.selectApplicationProtocol(same(serverEngine), Matchers.anyListOf(String.class)))
+                .thenReturn("h2");
+        Conscrypt.setApplicationProtocolSelector(serverEngine, selector);
+
+        doHandshake(true);
+        assertNull(Conscrypt.getApplicationProtocol(clientEngine));
+        assertNull(Conscrypt.getApplicationProtocol(serverEngine));
+    }
+
+    /**
+     * BoringSSL server doesn't support renegotiation. BoringSSL clients do not support
+     * initiating a renegotiation, only processing a renegotiation initiated by the
+     * (non-BoringSSL) server. For this reason we test a server-initiated renegotiation with
+     * a Conscrypt client and a JDK server.
+     */
+    @Test
+    public void serverInitiatedRenegotiationShouldSucceed() throws Exception {
+        setupClientEngine(getConscryptProvider(), TestKeyStore.getClient());
+        setupServerEngine(getJdkProvider(), TestKeyStore.getServer());
+
+        // Perform the initial handshake.
+        doHandshake(true);
+
+        // Send a message from client->server.
+        exchangeMessage(newMessage(MESSAGE_SIZE), clientEngine, serverEngine);
+
+        // Trigger a renegotiation from the server and send a message back from Server->Client
+        serverEngine.setEnabledCipherSuites(new String[] {RENEGOTIATION_CIPHER});
+        serverEngine.beginHandshake();
+        doHandshake(false);
+
+        exchangeMessage(newMessage(MESSAGE_SIZE), serverEngine, clientEngine);
+    }
+
+    @Test
+    public void savedSessionWorksAfterClose() throws Exception {
+        setupEngines(TestKeyStore.getClient(), TestKeyStore.getServer());
+        doHandshake(true);
+
+        SSLSession session = clientEngine.getSession();
+        String cipherSuite = session.getCipherSuite();
+
+        clientEngine.closeOutbound();
+        clientEngine.closeInbound();
+
+        assertEquals(cipherSuite, session.getCipherSuite());
     }
 
     private void doMutualAuthHandshake(
             TestKeyStore clientKs, TestKeyStore serverKs, ClientAuth clientAuth) throws Exception {
         setupEngines(clientKs, serverKs);
         clientAuth.apply(serverEngine);
-        doHandshake();
+        doHandshake(true);
         assertEquals(HandshakeStatus.NOT_HANDSHAKING, clientEngine.getHandshakeStatus());
         assertEquals(HandshakeStatus.NOT_HANDSHAKING, serverEngine.getHandshakeStatus());
     }
 
-    private void doHandshake() throws SSLException {
+    private void doHandshake(boolean beginHandshake) throws SSLException {
+        ByteBuffer clientApplicationBuffer =
+                bufferType.newBuffer(clientEngine.getSession().getApplicationBufferSize());
+        ByteBuffer clientPacketBuffer =
+                bufferType.newBuffer(clientEngine.getSession().getPacketBufferSize());
+        ByteBuffer serverApplicationBuffer =
+                bufferType.newBuffer(serverEngine.getSession().getApplicationBufferSize());
+        ByteBuffer serverPacketBuffer =
+                bufferType.newBuffer(serverEngine.getSession().getPacketBufferSize());
         TestUtils.doEngineHandshake(clientEngine, serverEngine, clientApplicationBuffer,
-                clientPacketBuffer, serverApplicationBuffer, serverPacketBuffer);
+                clientPacketBuffer, serverApplicationBuffer, serverPacketBuffer, beginHandshake);
     }
 
-    private void setupEngines(TestKeyStore clientKeyStore, TestKeyStore serverKeyStore)
+    private void setupEngines(TestKeyStore clientKeyStore, TestKeyStore serverKeyStore) throws SSLException {
+        setupClientEngine(getConscryptProvider(), clientKeyStore);
+        setupServerEngine(getConscryptProvider(), serverKeyStore);
+    }
+
+    private void setupClientEngine(Provider provider, TestKeyStore clientKeyStore)
             throws SSLException {
-        SSLContext clientContext = initSslContext(newContext(), clientKeyStore);
-        SSLContext serverContext = initSslContext(newContext(), serverKeyStore);
+        clientEngine = newEngine(provider, clientKeyStore, true);
+    }
 
-        clientEngine = initEngine(clientContext.createSSLEngine(), TEST_CIPHER, true);
-        serverEngine = initEngine(serverContext.createSSLEngine(), TEST_CIPHER, false);
-        setBufferAllocator(clientEngine, bufferType.allocator);
-        setBufferAllocator(serverEngine, bufferType.allocator);
+    private void setupServerEngine(Provider provider, TestKeyStore serverKeyStore)
+            throws SSLException {
+        serverEngine = newEngine(provider, serverKeyStore, false);
+    }
 
-        // Create the application and packet buffers for both endpoints.
-        clientApplicationBuffer =
-            bufferType.newBuffer(clientEngine.getSession().getApplicationBufferSize());
-        serverApplicationBuffer =
-            bufferType.newBuffer(serverEngine.getSession().getApplicationBufferSize());
-        clientPacketBuffer = bufferType.newBuffer(clientEngine.getSession().getPacketBufferSize());
-        serverPacketBuffer = bufferType.newBuffer(serverEngine.getSession().getPacketBufferSize());
+    private SSLEngine newEngine(
+            Provider provider, TestKeyStore keyStore, boolean client) {
+        SSLContext serverContext = newContext(provider, keyStore);
+        SSLEngine engine = serverContext.createSSLEngine();
+        engine.setEnabledCipherSuites(CIPHERS);
+        engine.setUseClientMode(client);
+        if (Conscrypt.isConscrypt(engine)) {
+            Conscrypt.setBufferAllocator(engine, bufferType.allocator);
+        }
+        return engine;
+    }
+
+    private void exchangeMessage(ByteBuffer inputBuffer, SSLEngine src, SSLEngine dest)
+            throws IOException {
+        byte[] messageBytes = toArray(inputBuffer);
+
+        // Encrypt the input message.
+        List<ByteBuffer> encryptedBufferList = wrap(inputBuffer, src);
+
+        // Unwrap the all of the encrypted messages.
+        ByteBuffer[] encryptedBuffers =
+                encryptedBufferList.toArray(new ByteBuffer[encryptedBufferList.size()]);
+        byte[] actualBytes = unwrap(encryptedBuffers, dest);
+        assertArrayEquals(messageBytes, actualBytes);
+    }
+
+    private List<ByteBuffer> wrap(ByteBuffer input, SSLEngine engine) throws SSLException {
+        // Encrypt the input message.
+        List<ByteBuffer> wrapped = new ArrayList<ByteBuffer>();
+        while (input.hasRemaining()) {
+            ByteBuffer encryptedBuffer =
+                    bufferType.newBuffer(engine.getSession().getPacketBufferSize());
+            SSLEngineResult wrapResult = engine.wrap(input, encryptedBuffer);
+            assertEquals(SSLEngineResult.Status.OK, wrapResult.getStatus());
+            encryptedBuffer.flip();
+            wrapped.add(encryptedBuffer);
+        }
+        return wrapped;
+    }
+
+    private byte[] unwrap(ByteBuffer[] encryptedBuffers, SSLEngine engine) throws IOException {
+        ByteArrayOutputStream cleartextStream = new ByteArrayOutputStream();
+        int decryptedBufferSize = 8192;
+        final ByteBuffer encryptedBuffer = combine(encryptedBuffers);
+        final ByteBuffer decryptedBuffer = bufferType.newBuffer(decryptedBufferSize);
+        while (encryptedBuffer.hasRemaining()) {
+            if (!decryptedBuffer.hasRemaining()) {
+                decryptedBuffer.clear();
+            }
+            int prevPos = decryptedBuffer.position();
+            SSLEngineResult unwrapResult = engine.unwrap(encryptedBuffer, decryptedBuffer);
+            SSLEngineResult.Status status = unwrapResult.getStatus();
+            switch (status) {
+                case BUFFER_OVERFLOW:
+                case OK: {
+                    break;
+                }
+                default: { throw new RuntimeException("Unexpected SSLEngine status: " + status); }
+            }
+            int newPos = decryptedBuffer.position();
+            int bytesProduced = unwrapResult.bytesProduced();
+            assertEquals(bytesProduced, newPos - prevPos);
+
+            // Add any generated bytes to the output stream.
+            if (bytesProduced > 0 || status == Status.BUFFER_OVERFLOW) {
+                byte[] decryptedBytes = new byte[unwrapResult.bytesProduced()];
+
+                // Read the chunk that was just written to the output array.
+                int limit = decryptedBuffer.limit();
+                decryptedBuffer.limit(newPos);
+                decryptedBuffer.position(prevPos);
+                decryptedBuffer.get(decryptedBytes);
+
+                // Restore the position and limit.
+                decryptedBuffer.limit(limit);
+
+                // Write the decrypted bytes to the stream.
+                cleartextStream.write(decryptedBytes);
+            }
+        }
+
+        return cleartextStream.toByteArray();
+    }
+
+    private ByteBuffer combine(ByteBuffer[] buffers) {
+        int size = 0;
+        for (ByteBuffer buffer : buffers) {
+            size += buffer.remaining();
+        }
+        ByteBuffer combined = bufferType.newBuffer(size);
+        for (ByteBuffer buffer : buffers) {
+            combined.put(buffer);
+        }
+        combined.flip();
+        return combined;
+    }
+
+    private ByteBuffer newMessage(int size) {
+        ByteBuffer buffer = bufferType.newBuffer(size);
+        buffer.put(newTextMessage(size));
+        buffer.flip();
+        return buffer;
     }
 
     private static byte[] toArray(ByteBuffer buffer) {
-        byte[] data = new byte[buffer.remaining()];
-        buffer.get(data);
-        return data;
+        int pos = buffer.position();
+        byte[] bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
+        buffer.position(pos);
+        return bytes;
     }
 
-    private static SSLContext newContext() {
+    private static SSLContext newContext(Provider provider, TestKeyStore keyStore) {
         try {
-            return SSLContext.getInstance(PROTOCOL_TLS_V1_2, new OpenSSLProvider());
+            SSLContext ctx = SSLContext.getInstance(getProtocols()[0], provider);
+            return initSslContext(ctx, keyStore);
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }

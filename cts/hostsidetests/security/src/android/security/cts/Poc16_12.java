@@ -1,5 +1,5 @@
 /**
-0;256;0c * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,21 +16,7 @@
 
 package android.security.cts;
 
-import com.android.tradefed.device.CollectingOutputReceiver;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.testtype.DeviceTestCase;
-
-import android.platform.test.annotations.RootPermissionTest;
 import android.platform.test.annotations.SecurityTest;
-
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.Scanner;
 
 @SecurityTest
 public class Poc16_12 extends SecurityTestCase {
@@ -139,73 +125,6 @@ public class Poc16_12 extends SecurityTestCase {
     }
 
     /**
-     *  b/32700935
-     */
-    @SecurityTest
-    public void testPocCVE_2016_8435() throws Exception {
-        enableAdbRoot(getDevice());
-        if(containsDriver(getDevice(), "/dev/dri/renderD129")) {
-            AdbUtils.runPoc("CVE-2016-8435", getDevice(), 60);
-        }
-    }
-
-    /**
-     *  b/31568617
-     */
-    @SecurityTest
-    public void testPocCVE_2016_9120() throws Exception {
-        enableAdbRoot(getDevice());
-        if(containsDriver(getDevice(), "/dev/ion")) {
-            AdbUtils.runPoc("CVE-2016-9120", getDevice(), 60);
-        }
-    }
-
-    //Highs
-    /**
-     *  b/31225246
-     */
-    @SecurityTest
-    public void testPocCVE_2016_8412() throws Exception {
-        enableAdbRoot(getDevice());
-        if(containsDriver(getDevice(), "/dev/v4l-subdev7")) {
-            AdbUtils.runPoc("CVE-2016-8412", getDevice(), 60);
-        }
-    }
-
-    /**
-     *  b/31243641
-     */
-    @SecurityTest
-    public void testPocCVE_2016_8444() throws Exception {
-        enableAdbRoot(getDevice());
-        if(containsDriver(getDevice(), "/dev/v4l-subdev17")) {
-            AdbUtils.runPoc("CVE-2016-8444", getDevice(), 60);
-        }
-    }
-
-    /**
-     *  b/31791148
-     */
-    @SecurityTest
-    public void testPocCVE_2016_8448() throws Exception {
-        enableAdbRoot(getDevice());
-        if(containsDriver(getDevice(), "/dev/graphics/fb0")) {
-            AdbUtils.runPoc("CVE-2016-8448", getDevice(), 60);
-        }
-    }
-
-    /**
-     *  b/31798848
-     */
-    @SecurityTest
-    public void testPocCVE_2016_8449() throws Exception {
-        enableAdbRoot(getDevice());
-        if(containsDriver(getDevice(), "/dev/tegra_avpchannel")) {
-            AdbUtils.runPoc("CVE-2016-8449", getDevice(), 60);
-        }
-    }
-
-    /**
      *  b/31668540
      */
     @SecurityTest
@@ -214,37 +133,6 @@ public class Poc16_12 extends SecurityTestCase {
             String result = AdbUtils.runPoc("CVE-2016-8460", getDevice(), 60);
             assertTrue(!result.equals("Vulnerable"));
         }
-    }
-
-    /**
-     *  b/32402548
-     */
-    @SecurityTest
-    public void testPocCVE_2017_0403() throws Exception {
-        enableAdbRoot(getDevice());
-        AdbUtils.runPoc("CVE-2017-0403", getDevice(), 60);
-    }
-
-    /**
-     *  b/32510733
-     */
-    @SecurityTest
-    public void testPocCVE_2017_0404() throws Exception {
-        enableAdbRoot(getDevice());
-        if(containsDriver(getDevice(), "/proc/asound/version")) {
-            AdbUtils.runPoc("CVE-2017-0404", getDevice(), 60);
-        }
-    }
-
-    /**
-     *  b/32178033
-     */
-    @SecurityTest
-    public void testPocCVE_2016_8451() throws Exception {
-        enableAdbRoot(getDevice());
-        String command =
-            "echo AAAAAAAAA > /sys/devices/f9924000.i2c/i2c-2/2-0070/power_control";
-        AdbUtils.runCommandLine(command, getDevice());
     }
 
     /**

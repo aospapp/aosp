@@ -18,6 +18,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libdynamiclinker_native_lib_a
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := native_lib_a.cpp
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 LOCAL_SDK_VERSION := 25
 LOCAL_NDK_STL_VARIANT := c++_static
@@ -28,6 +29,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libdynamiclinker_native_lib_b
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := native_lib_b.cpp
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 LOCAL_SDK_VERSION := 25
 LOCAL_NDK_STL_VARIANT := c++_static
@@ -37,7 +39,7 @@ include $(BUILD_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner legacy-android-test
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner
 LOCAL_SRC_FILES := $(call all-java-files-under, .)
 LOCAL_MULTILIB := both
 LOCAL_JNI_SHARED_LIBRARIES := libdynamiclinker_native_lib_a libdynamiclinker_native_lib_b

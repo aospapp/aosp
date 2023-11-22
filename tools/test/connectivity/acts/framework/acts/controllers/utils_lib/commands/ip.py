@@ -15,6 +15,8 @@
 import ipaddress
 import re
 
+from acts.libs.proc import job
+
 
 class LinuxIpCommand(object):
     """Interface for doing standard IP commands on a linux system.
@@ -87,7 +89,7 @@ class LinuxIpCommand(object):
             self._runner.run('ip addr add %s dev %s' %
                              (address, net_interface))
 
-    def remove_ipv4_address(self, net_interface, address):
+    def remove_ipv4_address(self, net_interface, address, ignore_status=False):
         """Remove an ipv4 address.
 
         Removes an ipv4 address from a network interface.
@@ -97,8 +99,13 @@ class LinuxIpCommand(object):
                            ipv4 address from (eg. wlan0).
             address: ipaddress.IPv4Interface or ipaddress.IPv4Address,
                      The ip address to remove from the net_interface.
+            ignore_status: True if the exit status can be ignored
+        Returns:
+            The job result from a the command
         """
-        self._runner.run('ip addr del %s dev %s' % (address, net_interface))
+        return self._runner.run(
+            'ip addr del %s dev %s' % (address, net_interface),
+            ignore_status=ignore_status)
 
     def set_ipv4_address(self, net_interface, address, broadcast=None):
         """Set the ipv4 address.
@@ -127,4 +134,23 @@ class LinuxIpCommand(object):
         ip_info = self.get_ipv4_addresses(net_interface)
 
         for address, _ in ip_info:
-            self.remove_ipv4_address(net_interface, address)
+            result = self.remove_ipv4_address(net_interface, address,
+                                              ignore_status=True)
+            # It is possible that the address has already been removed by the
+            # time this command has been called. In such a case, we would get
+            # this error message.
+            error_msg = 'RTNETLINK answers: Cannot assign requested address'
+            if result.exit_status != 0:
+                if error_msg in result.stderr:
+                    # If it was removed by another process, log a warning
+                    if address not in self.get_ipv4_addresses(net_interface):
+                        self._runner.log.warning(
+                            'Unable to remove address %s. The address was '
+                            'removed by another process.' % address)
+                        continue
+                    # If it was not removed, raise an error
+                    self._runner.log.error(
+                        'Unable to remove address %s. The address is still '
+                        'registered to %s, despite call for removal.' %
+                        (address, net_interface))
+                raise job.Error(result)

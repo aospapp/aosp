@@ -19,11 +19,9 @@ package com.android.tv.common.feature;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
-import com.android.tv.common.SharedPreferencesUtils;
+import com.android.tv.common.util.SharedPreferencesUtils;
 
-/**
- * Feature controlled by shared preferences.
- */
+/** Feature controlled by shared preferences. */
 public final class SharedPreferencesFeature implements Feature {
     private static final String TAG = "SharedPrefFeature";
     private static final boolean DEBUG = false;
@@ -53,8 +51,9 @@ public final class SharedPreferencesFeature implements Feature {
             return false;
         }
         if (mSharedPreferences == null) {
-            mSharedPreferences = context.getSharedPreferences(
-                    SharedPreferencesUtils.SHARED_PREF_FEATURES, Context.MODE_PRIVATE);
+            mSharedPreferences =
+                    context.getSharedPreferences(
+                            SharedPreferencesUtils.SHARED_PREF_FEATURES, Context.MODE_PRIVATE);
             mEnabled = mSharedPreferences.getBoolean(mKey, mDefaultValue);
         }
         if (DEBUG) Log.d(TAG, mKey + " is " + mEnabled);
@@ -69,14 +68,14 @@ public final class SharedPreferencesFeature implements Feature {
     public void setEnabled(Context context, boolean enable) {
         if (DEBUG) Log.d(TAG, mKey + " is set to " + enable);
         if (mSharedPreferences == null) {
-            mSharedPreferences = context.getSharedPreferences(
-                    SharedPreferencesUtils.SHARED_PREF_FEATURES, Context.MODE_PRIVATE);
+            mSharedPreferences =
+                    context.getSharedPreferences(
+                            SharedPreferencesUtils.SHARED_PREF_FEATURES, Context.MODE_PRIVATE);
             mEnabled = enable;
             mSharedPreferences.edit().putBoolean(mKey, enable).apply();
         } else if (mEnabled != enable) {
             mEnabled = enable;
             mSharedPreferences.edit().putBoolean(mKey, enable).apply();
         }
-
     }
 }

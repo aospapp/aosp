@@ -38,6 +38,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
 import android.test.UiThreadTest;
 
@@ -1046,6 +1047,7 @@ public class LocationManagerTest extends BaseMockLocationTest {
         mManager.unregisterGnssStatusCallback(callback);
     }
 
+    @AppModeFull(reason = "Requires use of extra LocationManager commands")
     public void testSendExtraCommand() {
         // this test assumes TEST_MOCK_PROVIDER_NAME was created in setUp.
         assertNotNull(mManager.getProvider(TEST_MOCK_PROVIDER_NAME));

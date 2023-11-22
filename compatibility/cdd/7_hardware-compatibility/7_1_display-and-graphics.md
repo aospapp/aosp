@@ -23,18 +23,6 @@ be 854/480 = 1.779, or roughly “16:9”.
 
 #### 7.1.1.1\. Screen Size
 
-*   [H-0-1] Handheld device implementations MUST have a screen at least 2.5
-    inches in physical diagonal size.
-
-*   [A-0-1] Android Automotive devices MUST have a screen at least 6 inches
-    in physical diagonal size.
-
-*   [A-0-2] Android Automotive devices MUST have a screen size layout of
-at least 750 dp x 480 dp.
-
-*   [W-0-1] Android Watch device implementations MUST have a screen with the
-    physical diagonal size in the range from 1.1 to 2.5 inches.
-
 The Android UI framework supports a variety of different logical screen layout
 sizes, and allows applications to query the current configuration's screen
 layout size via `Configuration.screenLayout` with the `SCREENLAYOUT_SIZE_MASK`
@@ -84,7 +72,7 @@ API, MUST meet the following requirements:
      *  The app declares it is resizeable via the [android:resizeableActivity](
      https://developer.android.com/guide/topics/ui/multi-window.html#configuring)
      attribute.
-     *  The app is targeting API level 26 or higher and does not declare a
+     *  The app is targeting API level 24 or higher and does not declare a
      [`android:MaxAspectRatio`](
      https://developer.android.com/reference/android/R.attr.html#maxAspectRatio)
      that would restrict the allowed aspect ratio.
@@ -130,8 +118,6 @@ made by the user (for example, display size) set after initial boot.
      supported compatible screen size (320 dp width), device implementations SHOULD
      report the next lowest standard Android framework density.
 
-*    [H-SR] Device implementations are STRONGLY RECOMMENDED to provide users an
-     affordance to change the display size.
 
 If there is an affordance to change the display size of the device:
 
@@ -321,14 +307,16 @@ Device implementations:
 Android includes a TextureView object that lets developers directly integrate
 hardware-accelerated OpenGL ES textures as rendering targets in a UI hierarchy.
 
+Device implementations:
+
 *    [C-0-3] MUST support the TextureView API, and MUST exhibit
      consistent behavior with the upstream Android implementation.
 
 #### 7.1.4.5 Wide-gamut Displays
 
 If device implementations claim support for wide-gamut displays through
-[`Display.isWideColorGamut()`
-](https://developer.android.com/reference/android/view/Display.html#isWideColorGamut%28%29)
+[`Configuration.isScreenWideColorGamut()`
+](https://developer.android.com/reference/android/content/res/Configuration.html#isScreenWideColorGamut%28%29)
 , they:
 
 *   [C-1-1] MUST have a color-calibrated display.
@@ -354,12 +342,6 @@ Android specifies a “compatibility mode” in which the framework operates in 
 'normal' screen size equivalent (320dp width) mode for the benefit of legacy
 applications not developed for old versions of Android that pre-date
 screen-size independence.
-
-*   [H-0-1] Handheld device implementations MUST include support
-    for legacy application compatibility mode as implemented by the upstream
-    Android open source code. That is, device implementations MUST NOT alter the
-    triggers or thresholds at which compatibility mode is activated, and MUST
-    NOT alter the behavior of the compatibility mode itself.
 
 ### 7.1.6\. Screen Technology
 

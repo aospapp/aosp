@@ -198,8 +198,8 @@ public class CharsetEncoder2Test extends TestCase {
         byte[] orig = new byte[] { (byte) 0xed, (byte) 0xa0,
                 (byte) 0x80 };
         String s = new String(orig, "UTF-8");
-        assertEquals(1, s.length());
-        assertEquals(55296, s.charAt(0));
+        assertEquals(3, s.length());
+        assertEquals("\ufffd\ufffd\ufffd", s);
         Charset.forName("UTF-8").encode(CharBuffer.wrap(s));
 //        ByteBuffer buf = <result>
 //        for (byte o : orig) {

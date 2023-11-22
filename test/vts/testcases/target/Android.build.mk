@@ -58,6 +58,8 @@ ifneq ($($(module)_relative_path),)
     LOCAL_MODULE_RELATIVE_PATH := $($(module)_relative_path)
 endif
 
+common_cflags += -Wall -Werror
+
 LOCAL_CFLAGS := \
     $(common_cflags) \
     $($(module)_cflags) \

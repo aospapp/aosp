@@ -4,6 +4,7 @@ cc_library {
     name: "libext2_e2p",
     host_supported: true,
     unique_host_soname: true,
+    defaults: ["e2fsprogs-defaults"],
     srcs: [
         "feature.c",
         "fgetflags.c",
@@ -29,16 +30,19 @@ cc_library {
         "percent.c",
     ],
 
-    cflags: [
-        "-W",
-        "-Wall",
-        "-Wno-macro-redefined",
-    ],
+    cflags: ["-Wno-error=attributes"],
 
     target: {
         windows: {
             include_dirs: [ "external/e2fsprogs/include/mingw" ],
-            enabled: true
+            enabled: true,
+            cflags: [
+                "-Wno-unused-variable",
+                "-Wno-unused-parameter",
+            ],
+            clang_cflags: [
+                "-Wno-error=typedef-redefinition",
+            ],
         },
     },
 

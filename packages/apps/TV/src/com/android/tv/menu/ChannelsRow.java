@@ -17,7 +17,6 @@
 package com.android.tv.menu;
 
 import android.content.Context;
-
 import com.android.tv.R;
 import com.android.tv.data.ProgramDataManager;
 import com.android.tv.recommendation.RecentChannelEvaluator;
@@ -26,13 +25,9 @@ import com.android.tv.recommendation.Recommender;
 public class ChannelsRow extends ItemListRow {
     public static final String ID = ChannelsRow.class.getName();
 
-    /**
-     * Minimum count for recent channels.
-     */
+    /** Minimum count for recent channels. */
     public static final int MIN_COUNT_FOR_RECENT_CHANNELS = 5;
-    /**
-     * Maximum count for recent channels.
-     */
+    /** Maximum count for recent channels. */
     public static final int MAX_COUNT_FOR_RECENT_CHANNELS = 10;
 
     private Recommender mTvRecommendation;
@@ -41,25 +36,33 @@ public class ChannelsRow extends ItemListRow {
 
     public ChannelsRow(Context context, Menu menu, ProgramDataManager programDataManager) {
         super(context, menu, R.string.menu_title_channels, R.dimen.card_layout_height, null);
-        mTvRecommendation = new Recommender(getContext(), new Recommender.Listener() {
-            @Override
-            public void onRecommenderReady() {
-                mChannelsAdapter.update();
-                mChannelsPosterPrefetcher.prefetch();
-            }
+        mTvRecommendation =
+                new Recommender(
+                        getContext(),
+                        new Recommender.Listener() {
+                            @Override
+                            public void onRecommenderReady() {
+                                mChannelsAdapter.update();
+                                mChannelsPosterPrefetcher.prefetch();
+                            }
 
-            @Override
-            public void onRecommendationChanged() {
-                mChannelsAdapter.update();
-                mChannelsPosterPrefetcher.prefetch();
-            }
-        }, true);
+                            @Override
+                            public void onRecommendationChanged() {
+                                mChannelsAdapter.update();
+                                mChannelsPosterPrefetcher.prefetch();
+                            }
+                        },
+                        true);
         mTvRecommendation.registerEvaluator(new RecentChannelEvaluator());
-        mChannelsAdapter = new ChannelsRowAdapter(context, mTvRecommendation,
-                MIN_COUNT_FOR_RECENT_CHANNELS, MAX_COUNT_FOR_RECENT_CHANNELS);
+        mChannelsAdapter =
+                new ChannelsRowAdapter(
+                        context,
+                        mTvRecommendation,
+                        MIN_COUNT_FOR_RECENT_CHANNELS,
+                        MAX_COUNT_FOR_RECENT_CHANNELS);
         setAdapter(mChannelsAdapter);
-        mChannelsPosterPrefetcher = new ChannelsPosterPrefetcher(context, programDataManager,
-                mChannelsAdapter);
+        mChannelsPosterPrefetcher =
+                new ChannelsPosterPrefetcher(context, programDataManager, mChannelsAdapter);
     }
 
     @Override
@@ -72,9 +75,7 @@ public class ChannelsRow extends ItemListRow {
         mChannelsPosterPrefetcher.cancel();
     }
 
-    /**
-     * Handle the update event of the recent channel.
-     */
+    /** Handle the update event of the recent channel. */
     @Override
     public void onRecentChannelsChanged() {
         mChannelsPosterPrefetcher.prefetch();

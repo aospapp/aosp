@@ -20,7 +20,10 @@
 
 #include <chre.h>
 
+#include <general_test/basic_audio_test.h>
+#include <general_test/basic_gnss_test.h>
 #include <general_test/basic_sensor_tests.h>
+#include <general_test/basic_wifi_test.h>
 #include <general_test/estimated_host_time_test.h>
 #include <general_test/event_between_apps_test.h>
 #include <general_test/get_time_test.h>
@@ -28,6 +31,7 @@
 #include <general_test/heap_alloc_stress_test.h>
 #include <general_test/heap_exhaustion_stability_test.h>
 #include <general_test/hello_world_test.h>
+#include <general_test/host_awake_suspend_test.h>
 #include <general_test/logging_sanity_test.h>
 #include <general_test/nanoapp_info_by_app_id_test.h>
 #include <general_test/nanoapp_info_by_instance_id_test.h>
@@ -133,7 +137,8 @@ App::adjustHostMessageForNYC(const chreMessageFromHostData *data) {
   const uint8_t *messageBytes = static_cast<const uint8_t*>(data->message);
   nanoapp_testing::memcpy(&(ret.reservedMessageType), messageBytes,
                           sizeof(ret.reservedMessageType));
-  nanoapp_testing::littleEndianToHost(&(ret.reservedMessageType));
+  ret.reservedMessageType =
+      nanoapp_testing::littleEndianToHost(ret.reservedMessageType);
   ret.messageSize = data->messageSize - sizeof(ret.reservedMessageType);
   ret.message = messageBytes + sizeof(ret.reservedMessageType);
   return ret;
@@ -223,6 +228,10 @@ void App::createTest(const void *eventData) {
     CASE(kNanoappInfoByInstanceId, NanoappInfoByInstanceIdTest);
     CASE(kNanoAppInfoEventsPerformer, NanoAppInfoEventsTestPerformer);
     CASE(kNanoAppInfoEventsObserver, NanoAppInfoEventsTestObserver);
+    CASE(kBasicAudioTest, BasicAudioTest);
+    CASE(kHostAwakeSuspend, HostAwakeSuspendTest);
+    CASE(kBasicGnssTest, BasicGnssTest);
+    CASE(kBasicWifiTest, BasicWifiTest);
 
 #undef CASE
 

@@ -21,6 +21,17 @@
 #include <string>
 #include <type_traits>
 
+#if !defined(__ANDROID__)
+#ifndef CAP_BLOCK_SUSPEND
+#define CAP_BLOCK_SUSPEND 36
+#endif
+#ifndef CAP_AUDIT_READ
+#define CAP_AUDIT_READ 37
+#endif
+#undef CAP_LAST_CAP
+#define CAP_LAST_CAP CAP_AUDIT_READ
+#endif
+
 namespace android {
 namespace init {
 
@@ -35,6 +46,7 @@ int LookupCap(const std::string& cap_name);
 bool CapAmbientSupported();
 unsigned int GetLastValidCap();
 bool SetCapsForExec(const CapSet& to_keep);
+bool DropInheritableCaps();
 
 }  // namespace init
 }  // namespace android

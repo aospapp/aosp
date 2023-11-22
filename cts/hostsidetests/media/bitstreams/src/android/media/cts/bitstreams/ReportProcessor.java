@@ -16,13 +16,14 @@
 
 package android.media.cts.bitstreams;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.AndroidJUnitTest;
 import com.android.tradefed.util.FileUtil;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
@@ -117,12 +118,12 @@ abstract class ReportProcessor {
     private class MediaBitstreamsListener implements ITestInvocationListener {
 
         @Override
-        public void testEnded(TestIdentifier test, Map<String, String> metrics) {
+        public void testEnded(TestDescription test, Map<String, String> metrics) {
             mMetrics.putAll(metrics);
         }
 
         @Override
-        public void testFailed(TestIdentifier test, String trace) {
+        public void testFailed(TestDescription test, String trace) {
             mFailureStackTrace = trace;
         }
 
@@ -140,6 +141,8 @@ abstract class ReportProcessor {
         instrTest.addIncludeFilter(fullTestName);
         instrTest.setTestTimeout(testTimeout);
         instrTest.setShellTimeout(shellTimeout);
+        // disable rerun mode to avoid collecting tests first then running.
+        instrTest.setRerunMode(false);
         for (Entry<String, String> e : getArgs().entrySet()) {
             instrTest.addInstrumentationArg(e.getKey(), e.getValue());
         }

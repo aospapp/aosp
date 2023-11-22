@@ -22,16 +22,17 @@ import (
 
 func init() {
 	android.RegisterModuleType("python_library_host", PythonLibraryHostFactory)
+	android.RegisterModuleType("python_library", PythonLibraryFactory)
 }
-
-type PythonLibrary struct {
-	pythonBaseModule
-}
-
-var _ PythonSubModule = (*PythonLibrary)(nil)
 
 func PythonLibraryHostFactory() android.Module {
-	module := &PythonLibrary{}
+	module := newModule(android.HostSupportedNoCross, android.MultilibFirst)
 
-	return InitPythonBaseModule(&module.pythonBaseModule, module, android.HostSupportedNoCross)
+	return module.Init()
+}
+
+func PythonLibraryFactory() android.Module {
+	module := newModule(android.HostAndDeviceSupported, android.MultilibBoth)
+
+	return module.Init()
 }

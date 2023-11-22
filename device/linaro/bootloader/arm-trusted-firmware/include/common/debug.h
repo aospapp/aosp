@@ -1,37 +1,11 @@
 /*
- * Copyright (c) 2013-2014, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2017, ARM Limited and Contributors. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this
- * list of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * Neither the name of ARM nor the names of its contributors may be used
- * to endorse or promote products derived from this software without specific
- * prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #ifndef __DEBUG_H__
 #define __DEBUG_H__
-
-#include <stdio.h>
 
 /* The log output macros print output to the console. These macros produce
  * compiled log output only if the LOG_LEVEL defined in the makefile (or the
@@ -49,41 +23,63 @@
 #define LOG_LEVEL_INFO			40
 #define LOG_LEVEL_VERBOSE		50
 
+#ifndef __ASSEMBLY__
+#include <stdarg.h>
+#include <stdio.h>
+
+/*
+ * Define Log Markers corresponding to each log level which will
+ * be embedded in the format string and is expected by tf_log() to determine
+ * the log level.
+ */
+#define LOG_MARKER_ERROR		"\xa"	/* 10 */
+#define LOG_MARKER_NOTICE		"\x14"	/* 20 */
+#define LOG_MARKER_WARNING		"\x1e"	/* 30 */
+#define LOG_MARKER_INFO			"\x28"	/* 40 */
+#define LOG_MARKER_VERBOSE		"\x32"	/* 50 */
 
 #if LOG_LEVEL >= LOG_LEVEL_NOTICE
-# define NOTICE(...)	tf_printf("NOTICE:  " __VA_ARGS__)
+# define NOTICE(...)	tf_log(LOG_MARKER_NOTICE __VA_ARGS__)
 #else
 # define NOTICE(...)
 #endif
 
 #if LOG_LEVEL >= LOG_LEVEL_ERROR
-# define ERROR(...)	tf_printf("ERROR:   " __VA_ARGS__)
+# define ERROR(...)	tf_log(LOG_MARKER_ERROR __VA_ARGS__)
 #else
 # define ERROR(...)
 #endif
 
 #if LOG_LEVEL >= LOG_LEVEL_WARNING
-# define WARN(...)	tf_printf("WARNING: " __VA_ARGS__)
+# define WARN(...)	tf_log(LOG_MARKER_WARNING __VA_ARGS__)
 #else
 # define WARN(...)
 #endif
 
 #if LOG_LEVEL >= LOG_LEVEL_INFO
-# define INFO(...)	tf_printf("INFO:    " __VA_ARGS__)
+# define INFO(...)	tf_log(LOG_MARKER_INFO __VA_ARGS__)
 #else
 # define INFO(...)
 #endif
 
 #if LOG_LEVEL >= LOG_LEVEL_VERBOSE
-# define VERBOSE(...)	tf_printf("VERBOSE: " __VA_ARGS__)
+# define VERBOSE(...)	tf_log(LOG_MARKER_VERBOSE __VA_ARGS__)
 #else
 # define VERBOSE(...)
 #endif
 
-
 void __dead2 do_panic(void);
 #define panic()	do_panic()
 
-void tf_printf(const char *fmt, ...);
+/* Function called when stack protection check code detects a corrupted stack */
+void __dead2 __stack_chk_fail(void);
 
+void tf_log(const char *fmt, ...) __printflike(1, 2);
+void tf_printf(const char *fmt, ...) __printflike(1, 2);
+int tf_snprintf(char *s, size_t n, const char *fmt, ...) __printflike(3, 4);
+void tf_vprintf(const char *fmt, va_list args);
+void tf_string_print(const char *str);
+void tf_log_set_max_level(unsigned int log_level);
+
+#endif /* __ASSEMBLY__ */
 #endif /* __DEBUG_H__ */

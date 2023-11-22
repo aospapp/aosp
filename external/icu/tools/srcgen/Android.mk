@@ -30,7 +30,6 @@ LOCAL_MODULE := android_icu4j_srcgen
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 LOCAL_JAVA_LIBRARIES := currysrc
-LOCAL_JAVA_RESOURCE_FILES := $(LOCAL_PATH)/resources/replacements.txt
 LOCAL_SRC_FILES := $(call all-java-files-under, src/)
 include $(BUILD_HOST_JAVA_LIBRARY)
 

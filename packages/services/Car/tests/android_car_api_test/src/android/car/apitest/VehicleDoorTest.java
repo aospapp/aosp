@@ -15,8 +15,7 @@
  */
 package android.car.apitest;
 
-import android.car.VehicleDoor;
-import android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor;
+import android.car.VehicleAreaDoor;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
@@ -24,13 +23,21 @@ import android.test.suitebuilder.annotation.SmallTest;
 public class VehicleDoorTest extends AndroidTestCase {
 
     public void testMatchWithVehicleHal() {
-        assertEquals(VehicleAreaDoor.HOOD, VehicleDoor.DOOR_HOOD);
-        assertEquals(VehicleAreaDoor.REAR, VehicleDoor.DOOR_REAR);
-        assertEquals(VehicleAreaDoor.ROW_1_LEFT, VehicleDoor.DOOR_ROW_1_LEFT);
-        assertEquals(VehicleAreaDoor.ROW_1_RIGHT, VehicleDoor.DOOR_ROW_1_RIGHT);
-        assertEquals(VehicleAreaDoor.ROW_2_LEFT, VehicleDoor.DOOR_ROW_2_LEFT);
-        assertEquals(VehicleAreaDoor.ROW_2_RIGHT, VehicleDoor.DOOR_ROW_2_RIGHT);
-        assertEquals(VehicleAreaDoor.ROW_3_LEFT, VehicleDoor.DOOR_ROW_3_LEFT);
-        assertEquals(VehicleAreaDoor.ROW_3_RIGHT, VehicleDoor.DOOR_ROW_3_RIGHT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.HOOD,
+                VehicleAreaDoor.DOOR_HOOD);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.REAR,
+                VehicleAreaDoor.DOOR_REAR);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.ROW_1_LEFT,
+                VehicleAreaDoor.DOOR_ROW_1_LEFT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.ROW_1_RIGHT,
+                VehicleAreaDoor.DOOR_ROW_1_RIGHT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.ROW_2_LEFT,
+                VehicleAreaDoor.DOOR_ROW_2_LEFT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.ROW_2_RIGHT,
+                VehicleAreaDoor.DOOR_ROW_2_RIGHT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.ROW_3_LEFT,
+                VehicleAreaDoor.DOOR_ROW_3_LEFT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.ROW_3_RIGHT,
+                VehicleAreaDoor.DOOR_ROW_3_RIGHT);
     }
 }

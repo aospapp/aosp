@@ -36,12 +36,12 @@
 static char filename[40];
 static int fd;
 
-void setup(void)
+static void setup(void)
 {
 	sprintf(filename, "creat01.%d", getpid());
 }
 
-struct tcase {
+static struct tcase {
 	int mode;
 } tcases[] = {
 	{0644},
@@ -53,10 +53,7 @@ static void verify_creat(unsigned int i)
 	struct stat buf;
 	char c;
 
-	fd = creat(filename, tcases[i].mode);
-
-	if (fd == -1)
-		tst_brk(TBROK | TERRNO, "creat() failed");
+	fd = SAFE_CREAT(filename, tcases[i].mode);
 
 	SAFE_STAT(filename, &buf);
 
@@ -85,7 +82,6 @@ static void cleanup(void)
 }
 
 static struct tst_test test = {
-	.tid = "creat01",
 	.tcnt = 2,
 	.test = verify_creat,
 	.needs_tmpdir = 1,

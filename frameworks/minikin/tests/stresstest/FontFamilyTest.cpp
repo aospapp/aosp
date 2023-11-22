@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
+#include "minikin/FontFamily.h"
 
-#include "../util/FontTestUtils.h"
-#include "../util/MinikinFontForTest.h"
-#include "HbFontCache.h"
-#include "MinikinInternal.h"
+#include <gtest/gtest.h>
+#include <hb.h>
+
 #include "minikin/FontCollection.h"
-#include "minikin/Layout.h"
+
+#include "FontTestUtils.h"
+#include "FreeTypeMinikinFontForTest.h"
+#include "MinikinInternal.h"
 
 namespace minikin {
 
@@ -33,18 +35,18 @@ TEST_P(FontFamilyHarfBuzzCompatibilityTest, CoverageTest) {
     const std::string& fontPath = GetParam().first;
     int ttcIndex = GetParam().second;
 
-    std::shared_ptr<MinikinFont> font(new MinikinFontForTest(fontPath, ttcIndex));
-    std::shared_ptr<FontFamily> family =
-            std::make_shared<FontFamily>(std::vector<Font>({Font(font, FontStyle())}));
+    auto font = std::make_shared<FreeTypeMinikinFontForTest>(fontPath);
+    std::vector<Font> fonts;
+    fonts.push_back(Font::Builder(font).build());
+    std::shared_ptr<FontFamily> family = std::make_shared<FontFamily>(std::move(fonts));
 
-    android::AutoMutex _l(gMinikinLock);
-    hb_font_t* hbFont = getHbFontLocked(font.get());
+    hb_font_t* hbFont = family->getFont(0)->baseFont().get();
 
     for (uint32_t codePoint = 0; codePoint < MAX_UNICODE_CODE_POINT; ++codePoint) {
         uint32_t unusedGlyph;
         EXPECT_EQ(family->hasGlyph(codePoint, 0 /* variation selector */),
-                static_cast<bool>(hb_font_get_glyph(hbFont, codePoint, 0 /* variation selector */,
-                        &unusedGlyph)));
+                  static_cast<bool>(hb_font_get_glyph(hbFont, codePoint, 0 /* variation selector */,
+                                                      &unusedGlyph)));
     }
 
     for (uint32_t vs = VS1; vs < VS256; ++vs) {
@@ -55,21 +57,17 @@ TEST_P(FontFamilyHarfBuzzCompatibilityTest, CoverageTest) {
         for (uint32_t codePoint = 0; codePoint < MAX_UNICODE_CODE_POINT; ++codePoint) {
             uint32_t unusedGlyph;
             ASSERT_EQ(family->hasGlyph(codePoint, vs),
-                    static_cast<bool>(hb_font_get_glyph(hbFont, codePoint, vs, &unusedGlyph)))
-                << "Inconsistent Result: " << fontPath << "#" << ttcIndex
-                << ": U+" << std::hex << codePoint << " U+" << std::hex << vs
-                << " Minikin: " << family->hasGlyph(codePoint, vs)
-                << " HarfBuzz: "
-                << static_cast<bool>(hb_font_get_glyph(hbFont, codePoint, vs, &unusedGlyph));
-
+                      static_cast<bool>(hb_font_get_glyph(hbFont, codePoint, vs, &unusedGlyph)))
+                    << "Inconsistent Result: " << fontPath << "#" << ttcIndex << ": U+" << std::hex
+                    << codePoint << " U+" << std::hex << vs
+                    << " Minikin: " << family->hasGlyph(codePoint, vs) << " HarfBuzz: "
+                    << static_cast<bool>(hb_font_get_glyph(hbFont, codePoint, vs, &unusedGlyph));
         }
     }
     hb_font_destroy(hbFont);
 }
 
-INSTANTIATE_TEST_CASE_P(FontFamilyTest,
-        FontFamilyHarfBuzzCompatibilityTest,
-        ::testing::Values(
-                TestParam("/system/fonts/NotoSansCJK-Regular.ttc", 0),
-                TestParam("/system/fonts/NotoColorEmoji.ttf", 0)));
+INSTANTIATE_TEST_CASE_P(FontFamilyTest, FontFamilyHarfBuzzCompatibilityTest,
+                        ::testing::Values(TestParam("/system/fonts/NotoSansCJK-Regular.ttc", 0),
+                                          TestParam("/system/fonts/NotoColorEmoji.ttf", 0)));
 }  // namespace minikin

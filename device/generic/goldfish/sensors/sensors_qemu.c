@@ -147,6 +147,7 @@ typedef struct SensorDevice {
     int64_t                       timeOffset;
     uint32_t                      active_sensors;
     int                           fd;
+    int                           flush_count[MAX_NUM_SENSORS];
     pthread_mutex_t               lock;
 } SensorDevice;
 
@@ -226,12 +227,21 @@ static int sensor_device_pick_pending_event_locked(SensorDevice* d,
         *event = d->sensors[i];
 
         if (d->sensors[i].type == SENSOR_TYPE_META_DATA) {
-            // sensor_device_poll_event_locked() will leave
-            // the meta-data in place until we have it.
-            // Set |type| to something other than META_DATA
-            // so sensor_device_poll_event_locked() can
-            // continue.
-            d->sensors[i].type = SENSOR_TYPE_META_DATA + 1;
+            if (d->flush_count[i] > 0) {
+                // Another 'flush' is queued after this one.
+                // Don't clear this event; just decrement the count.
+                (d->flush_count[i])--;
+                // And re-mark it as pending
+                d->pendingSensors |= (1U << i);
+            } else {
+                // We are done flushing
+                // sensor_device_poll_event_locked() will leave
+                // the meta-data in place until we have it.
+                // Set |type| to something other than META_DATA
+                // so sensor_device_poll_event_locked() can
+                // continue.
+                d->sensors[i].type = SENSOR_TYPE_META_DATA + 1;
+            }
         } else {
             event->sensor = i;
             event->version = sizeof(*event);
@@ -277,6 +287,10 @@ static int sensor_device_poll_event_locked(SensorDevice* dev)
 
     int64_t event_time = -1;
     int ret = 0;
+
+    int64_t guest_event_time = -1;
+    int has_guest_event_time = 0;
+
 
     for (;;) {
         /* Release the lock since we're going to block on recv() */
@@ -422,6 +436,15 @@ static int sensor_device_poll_event_locked(SensorDevice* dev)
             continue;
         }
 
+        /* "guest-sync:<time>" is sent after a series of sensor events.
+         * where 'time' is expressed in micro-seconds and corresponds
+         * to the VM time when the real poll occured.
+         */
+        if (sscanf(buff, "guest-sync:%lld", &guest_event_time) == 1) {
+            has_guest_event_time = 1;
+            continue;
+        }
+
         /* "sync:<time>" is sent after a series of sensor events.
          * where 'time' is expressed in micro-seconds and corresponds
          * to the VM time when the real poll occured.
@@ -467,7 +490,8 @@ out:
         while (new_sensors) {
             uint32_t i = 31 - __builtin_clz(new_sensors);
             new_sensors &= ~(1U << i);
-            dev->sensors[i].timestamp = t;
+            dev->sensors[i].timestamp =
+                    has_guest_event_time ? guest_event_time : t;
         }
     }
     return ret;
@@ -610,13 +634,21 @@ static int sensor_device_default_flush(
     }
 
     pthread_mutex_lock(&dev->lock);
-    dev->sensors[handle].version = META_DATA_VERSION;
-    dev->sensors[handle].type = SENSOR_TYPE_META_DATA;
-    dev->sensors[handle].sensor = 0;
-    dev->sensors[handle].timestamp = 0;
-    dev->sensors[handle].meta_data.sensor = handle;
-    dev->sensors[handle].meta_data.what = META_DATA_FLUSH_COMPLETE;
-    dev->pendingSensors |= (1U << handle);
+    if ((dev->pendingSensors & (1U << handle)) &&
+        dev->sensors[handle].type == SENSOR_TYPE_META_DATA)
+    {
+        // A 'flush' operation is already pending. Just increment the count.
+        (dev->flush_count[handle])++;
+    } else {
+        dev->flush_count[handle] = 0;
+        dev->sensors[handle].version = META_DATA_VERSION;
+        dev->sensors[handle].type = SENSOR_TYPE_META_DATA;
+        dev->sensors[handle].sensor = 0;
+        dev->sensors[handle].timestamp = 0;
+        dev->sensors[handle].meta_data.sensor = handle;
+        dev->sensors[handle].meta_data.what = META_DATA_FLUSH_COMPLETE;
+        dev->pendingSensors |= (1U << handle);
+    }
     pthread_mutex_unlock(&dev->lock);
 
     return 0;
@@ -678,10 +710,10 @@ static const struct sensor_t sSensorListInit[] = {
           .resolution = 1.0f/4032.0f,
           .power      = 3.0f,
           .minDelay   = 10000,
-          .maxDelay   = 60 * 1000 * 1000,
+          .maxDelay   = 500 * 1000,
           .fifoReservedEventCount = 0,
           .fifoMaxEventCount =   0,
-          .stringType =         0,
+          .stringType = "android.sensor.accelerometer",
           .requiredPermission = 0,
           .flags = SENSOR_FLAG_CONTINUOUS_MODE,
           .reserved   = {}
@@ -696,7 +728,8 @@ static const struct sensor_t sSensorListInit[] = {
           .resolution = 1.0f/1000.0f,
           .power      = 3.0f,
           .minDelay   = 10000,
-          .maxDelay   = 60 * 1000 * 1000,
+          .maxDelay   = 500 * 1000,
+          .stringType = "android.sensor.gyroscope",
           .reserved   = {}
         },
 
@@ -709,10 +742,10 @@ static const struct sensor_t sSensorListInit[] = {
           .resolution = 1.0f,
           .power      = 6.7f,
           .minDelay   = 10000,
-          .maxDelay   = 60 * 1000 * 1000,
+          .maxDelay   = 500 * 1000,
           .fifoReservedEventCount = 0,
           .fifoMaxEventCount =   0,
-          .stringType =         0,
+          .stringType = "android.sensor.magnetic_field",
           .requiredPermission = 0,
           .flags = SENSOR_FLAG_CONTINUOUS_MODE,
           .reserved   = {}
@@ -727,16 +760,16 @@ static const struct sensor_t sSensorListInit[] = {
           .resolution = 1.0f,
           .power      = 9.7f,
           .minDelay   = 10000,
-          .maxDelay   = 60 * 1000 * 1000,
+          .maxDelay   = 500 * 1000,
           .fifoReservedEventCount = 0,
           .fifoMaxEventCount =   0,
-          .stringType =         0,
+          .stringType = "android.sensor.orientation",
           .requiredPermission = 0,
           .flags = SENSOR_FLAG_CONTINUOUS_MODE,
           .reserved   = {}
         },
 
-        { .name       = "Goldfish Temperature sensor",
+        { .name       = "Goldfish Ambient Temperature sensor",
           .vendor     = "The Android Open Source Project",
           .version    = 1,
           .handle     = ID_TEMPERATURE,
@@ -745,12 +778,12 @@ static const struct sensor_t sSensorListInit[] = {
           .resolution = 1.0f,
           .power      = 0.0f,
           .minDelay   = 10000,
-          .maxDelay   = 60 * 1000 * 1000,
+          .maxDelay   = 500 * 1000,
           .fifoReservedEventCount = 0,
           .fifoMaxEventCount =   0,
-          .stringType =         0,
+          .stringType = "android.sensor.ambient_temperature",
           .requiredPermission = 0,
-          .flags = SENSOR_FLAG_CONTINUOUS_MODE,
+          .flags = SENSOR_FLAG_ON_CHANGE_MODE,
           .reserved   = {}
         },
 
@@ -763,10 +796,10 @@ static const struct sensor_t sSensorListInit[] = {
           .resolution = 1.0f,
           .power      = 20.0f,
           .minDelay   = 10000,
-          .maxDelay   = 60 * 1000 * 1000,
+          .maxDelay   = 500 * 1000,
           .fifoReservedEventCount = 0,
           .fifoMaxEventCount =   0,
-          .stringType =         0,
+          .stringType = "android.sensor.proximity",
           .requiredPermission = 0,
           .flags = SENSOR_FLAG_WAKE_UP | SENSOR_FLAG_ON_CHANGE_MODE,
           .reserved   = {}
@@ -781,10 +814,10 @@ static const struct sensor_t sSensorListInit[] = {
           .resolution = 1.0f,
           .power      = 20.0f,
           .minDelay   = 10000,
-          .maxDelay   = 60 * 1000 * 1000,
+          .maxDelay   = 500 * 1000,
           .fifoReservedEventCount = 0,
           .fifoMaxEventCount =   0,
-          .stringType =         0,
+          .stringType = "android.sensor.light",
           .requiredPermission = 0,
           .flags = SENSOR_FLAG_ON_CHANGE_MODE,
           .reserved   = {}
@@ -799,10 +832,10 @@ static const struct sensor_t sSensorListInit[] = {
           .resolution = 1.0f,
           .power      = 20.0f,
           .minDelay   = 10000,
-          .maxDelay   = 60 * 1000 * 1000,
+          .maxDelay   = 500 * 1000,
           .fifoReservedEventCount = 0,
           .fifoMaxEventCount =   0,
-          .stringType =         0,
+          .stringType = "android.sensor.pressure",
           .requiredPermission = 0,
           .flags = SENSOR_FLAG_CONTINUOUS_MODE,
           .reserved   = {}
@@ -817,12 +850,12 @@ static const struct sensor_t sSensorListInit[] = {
           .resolution = 1.0f,
           .power      = 20.0f,
           .minDelay   = 10000,
-          .maxDelay   = 60 * 1000 * 1000,
+          .maxDelay   = 500 * 1000,
           .fifoReservedEventCount = 0,
           .fifoMaxEventCount =   0,
-          .stringType =         0,
+          .stringType = "android.sensor.relative_humidity",
           .requiredPermission = 0,
-          .flags = SENSOR_FLAG_CONTINUOUS_MODE,
+          .flags = SENSOR_FLAG_ON_CHANGE_MODE,
           .reserved   = {}
         },
 
@@ -835,7 +868,8 @@ static const struct sensor_t sSensorListInit[] = {
           .resolution = 1.0f,
           .power      = 6.7f,
           .minDelay   = 10000,
-          .maxDelay   = 60 * 1000 * 1000,
+          .maxDelay   = 500 * 1000,
+          .stringType = "android.sensor.magnetic_field_uncalibrated",
           .reserved   = {}
         },
 };
@@ -914,6 +948,7 @@ open_sensors(const struct hw_module_t* module,
         // sticky. Don't start off with that setting.
         for (int idx = 0; idx < MAX_NUM_SENSORS; idx++) {
             dev->sensors[idx].type = SENSOR_TYPE_META_DATA + 1;
+            dev->flush_count[idx] = 0;
         }
 
         // Version 1.3-specific functions
@@ -922,6 +957,11 @@ open_sensors(const struct hw_module_t* module,
 
         dev->fd = -1;
         pthread_mutex_init(&dev->lock, NULL);
+
+        int64_t now = now_ns();
+        char command[64];
+        sprintf(command, "time:%lld", now);
+        sensor_device_send_command_locked(dev, command);
 
         *device = &dev->device.common;
         status  = 0;

@@ -50,6 +50,7 @@
 #include <signal.h>
 #include <string.h>
 #include "test.h"
+#include "safe_macros.h"
 
 void setup();
 void cleanup();
@@ -83,12 +84,8 @@ int main(int ac, char **av)
 				continue;
 			}
 
-			if (fstat(fd[i], &oldbuf) == -1)
-				tst_brkm(TBROK, cleanup, "fstat() #1 "
-					 "failed");
-			if (fstat(nfd[i], &newbuf) == -1)
-				tst_brkm(TBROK, cleanup, "fstat() #2 "
-					 "failed");
+			SAFE_FSTAT(cleanup, fd[i], &oldbuf);
+			SAFE_FSTAT(cleanup, nfd[i], &newbuf);
 
 			if (oldbuf.st_ino != newbuf.st_ino)
 				tst_resm(TFAIL, "original and duped "
@@ -97,9 +94,7 @@ int main(int ac, char **av)
 				tst_resm(TPASS, "original and duped "
 					 "inodes are the same");
 
-			if (close(TEST_RETURN) == -1)
-				tst_brkm(TBROK | TERRNO, cleanup,
-					 "close failed");
+			SAFE_CLOSE(cleanup, TEST_RETURN);
 		}
 	}
 
@@ -117,8 +112,7 @@ void setup(void)
 
 	tst_tmpdir();
 
-	if (pipe(fd) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "pipe failed");
+	SAFE_PIPE(cleanup, fd);
 }
 
 void cleanup(void)

@@ -18,29 +18,28 @@ package com.android.managedprovisioning.task.nonrequiredapps;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.pm.IPackageManager;
+import android.os.FileUtils;
+import android.os.UserManager;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SmallTest;
 
 import com.android.managedprovisioning.common.Utils;
-import com.android.managedprovisioning.task.nonrequiredapps.SystemAppsSnapshot;
-
-import java.io.File;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashSet;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import java.io.File;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
 
 /**
  * Unit-tests for {@link SystemAppsSnapshot}.
@@ -50,10 +49,12 @@ public class SystemAppsSnapshotTest {
     private static final String TEST_PACKAGE_NAME_1 = "com.test.packagea";
     private static final String TEST_PACKAGE_NAME_2 = "com.test.packageb";
     private static final int TEST_USER_ID = 123;
+    private static final int TEST_USER_SERIAL_NUMBER = 456;
 
     @Mock private IPackageManager mockIPackageManager;
     @Mock private Context mContext;
     @Mock private Utils mUtils;
+    @Mock private UserManager mUserManager;
     private SystemAppsSnapshot mSystemAppsSnapshot;
 
     @Before
@@ -63,16 +64,16 @@ public class SystemAppsSnapshotTest {
         when(mContext.getFilesDir())
                 .thenReturn(InstrumentationRegistry.getTargetContext().getFilesDir());
 
+        when(mContext.getSystemService(Context.USER_SERVICE)).thenReturn(mUserManager);
+        when(mUserManager.getUserSerialNumber(TEST_USER_ID)).thenReturn(TEST_USER_SERIAL_NUMBER);
+
         mSystemAppsSnapshot = new SystemAppsSnapshot(mContext, mockIPackageManager, mUtils);
     }
 
     @After
     public void tearDown() {
-        File systemAppsFile = SystemAppsSnapshot.getSystemAppsFile(
-                InstrumentationRegistry.getTargetContext(), TEST_USER_ID);
-        if (systemAppsFile.exists()) {
-            systemAppsFile.delete();
-        }
+        File folder = SystemAppsSnapshot.getFolder(mContext);
+        FileUtils.deleteContentsAndDir(folder);
     }
 
     @Test

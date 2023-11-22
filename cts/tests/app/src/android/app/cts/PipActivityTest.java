@@ -17,6 +17,7 @@
 package android.app.cts;
 
 import android.app.Instrumentation;
+import android.app.PictureInPictureParams;
 import android.app.stubs.PipActivity;
 import android.test.ActivityInstrumentationTestCase2;
 
@@ -56,14 +57,8 @@ public class PipActivityTest extends ActivityInstrumentationTestCase2<PipActivit
                         }
                     });
                 } else {
-                    boolean pipSupportDisabled = false;
-                    try {
-                        mActivity.enterPictureInPictureMode();
-                    } catch (IllegalStateException e) {
-                        // Pip not supported
-                        pipSupportDisabled = true;
-                    }
-                    assertTrue(pipSupportDisabled);
+                    assertTrue(!mActivity.enterPictureInPictureMode(
+                            new PictureInPictureParams.Builder().build()));
 
                     // Entering PIP mode is not synchronous, so waiting for completion of all work
                     // on UI thread.

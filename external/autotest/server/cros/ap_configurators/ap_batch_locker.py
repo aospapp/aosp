@@ -4,6 +4,7 @@
 
 import logging
 import random
+import requests
 
 from time import sleep
 
@@ -17,6 +18,7 @@ from autotest_lib.server.cros.ap_configurators import ap_cartridge
 
 # Max number of retry attempts to lock an ap.
 MAX_RETRIES = 3
+CHAOS_URL = 'https://chaos-188802.appspot.com'
 
 
 class ApLocker(object):
@@ -149,6 +151,37 @@ class ApBatchLocker(object):
 
         return False
 
+    def lock_ap_in_datastore(self, ap_locker):
+        """Locks an AP host in datastore.
+
+        @param ap_locker: an ApLocker object, AP to be locked.
+        @return a boolean, True iff ap_locker is locked.
+        """
+        if not utils.host_is_in_lab_zone(ap_locker.configurator.host_name):
+            ap_locker.to_be_locked = False
+            return True
+
+        # Begin locking device in datastore.
+        locked_device = requests.put(CHAOS_URL + '/devices/lock', \
+                        json={"hostname":[ap_locker.configurator.host_name], \
+                        "locked_by":"TestRun"})
+        if locked_device.json()['result']:
+            self._locked_aps.append(ap_locker)
+            logging.info('locked %s', ap_locker.configurator.host_name)
+            ap_locker.to_be_locked = False
+            return True
+        else:
+            ap_locker.retries -= 1
+            logging.info('%d retries left for %s',
+                         ap_locker.retries,
+                         ap_locker.configurator.host_name)
+            if ap_locker.retries == 0:
+                logging.info('No more retries left. Remove %s from list',
+                             ap_locker.configurator.host_name)
+                ap_locker.to_be_locked = False
+
+        return False
+
 
     def get_ap_batch(self, batch_size=ap_cartridge.THREAD_MAX):
         """Allocates a batch of locked APs.
@@ -166,6 +199,8 @@ class ApBatchLocker(object):
 
             for ap_locker in self.aps_to_lock:
                 logging.info('checking %s', ap_locker.configurator.host_name)
+                # TODO(@rjahagir): Change method to datastore.
+                # if self.lock_ap_in_datastore(ap_locker):
                 if self.lock_ap_in_afe(ap_locker):
                     ap_batch.append(ap_locker.configurator)
                     if len(ap_batch) == batch_size:
@@ -208,6 +243,27 @@ class ApBatchLocker(object):
         logging.error('Tried to unlock a host we have not locked (%s)?',
                       host_name)
 
+    def unlock_one_ap_in_datastore(self, host_name):
+        """Unlock one AP from datastore after we're done.
+
+        @param host_name: a string, host name.
+        """
+        for ap_locker in self._locked_aps:
+            if host_name == ap_locker.configurator.host_name:
+                # Unlock in datastore
+                unlocked_device = requests.put(CHAOS_URL + '/devices/unlock', \
+                                  json={"hostname":host_name})
+                # TODO: Raise error if unable to unlock.
+                if !unlocked_device.json()['result']:
+                    raise error
+                    logging.debug(unlocked_device.content())
+                else:
+                    self._locked_aps.remove(ap_locker)
+                return
+
+        logging.error('Tried to unlock a host we have not locked (%s)?',
+                      host_name)
+
 
     def unlock_aps(self):
         """Unlock APs after we're done."""
@@ -216,6 +272,8 @@ class ApBatchLocker(object):
         for ap_locker in self._locked_aps:
             host_names.append(ap_locker.configurator.host_name)
         for host_name in host_names:
+            # TODO(@rjahagir): Change method to datastore.
+            # self.unlock_one_ap_in_datastore(host_name)
             self.unlock_one_ap(host_name)
 
 
@@ -227,6 +285,8 @@ class ApBatchLocker(object):
         for ap_locker in self._locked_aps:
             if host_name == ap_locker.configurator.host_name:
                 self.aps_to_lock.append(ap_locker)
+                # TODO(@rjahagir): Change method to datastore.
+                # self.unlock_one_ap_in_datastore(host_name)
                 self.unlock_one_ap(host_name)
                 return
 

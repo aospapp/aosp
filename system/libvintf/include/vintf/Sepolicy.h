@@ -43,7 +43,9 @@ struct Sepolicy {
     inline const std::vector<VersionRange> &sepolicyVersions() const {
         return mSepolicyVersionRanges;
     }
-private:
+
+   private:
+    friend class AssembleVintfImpl;
     friend struct SepolicyConverter;
     KernelSepolicyVersion mKernelSepolicyVersion;
     std::vector<VersionRange> mSepolicyVersionRanges;

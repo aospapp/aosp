@@ -127,9 +127,10 @@
     <string name="reverting_settings" msgid="4752151682666912828">"Stel tans instellings terug…"</string>
     <string name="response_error" msgid="6674110501330139405">"Onverwagte antwoord van netwerk."</string>
     <string name="exception_error" msgid="7027667130619518211">"Netwerk- of SIM-kaartfout."</string>
-    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"SS-versoek is gewysig tot DIAL-versoek."</string>
-    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"SS-versoek is gewysig tot USSD-versoek."</string>
-    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"SS-versoek is gewysig tot nuwe SS-versoek."</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="4440038807310535377">"SS-versoek is na gewone oproep verander"</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="6095812685884176176">"SS-versoek is na USSD-versoek verander"</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="7920654012697945858">"Na nuwe SS-versoek verander"</string>
+    <string name="stk_cc_ss_to_dial_video_error" msgid="3873905132181743781">"SS-versoek is na video-oproep verander"</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"Die instelling op jou foonprogram se belperking-nommers is aangeskakel. As gevolg hiervan werk sommige oproepverwante kenmerke nie."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"Skakel die radio aan voordat jy na hierdie instellings kyk."</string>
     <string name="close_dialog" msgid="2365884406356986917">"OK"</string>
@@ -158,16 +159,16 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"Die nuwe PIN bevat ongeldige karakters."</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"Kan nie PIN verander nie"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"Ongesteunde tipe boodskap, bel <xliff:g id="NUMBER">%s</xliff:g> om te luister."</string>
-    <string name="mobile_networks" msgid="5540397602919106177">"Mobiele netwerkinstellings"</string>
     <string name="network_settings_title" msgid="514120489499925574">"Mobiele netwerk"</string>
     <string name="label_available" msgid="1181658289009300430">"Beskikbare netwerke"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Soek tans…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Geen netwerke gevind nie."</string>
-    <string name="network_query_error" msgid="6828516148953325006">"Fout het voorgekom terwyl netwerke gesoek is."</string>
+    <string name="network_query_error" msgid="8466081377231178298">"Kon nie netwerke vind nie. Probeer weer."</string>
     <string name="register_on_network" msgid="9055203954040805084">"Registreer op <xliff:g id="NETWORK">%s</xliff:g>…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"Jou SIM-kaart laat nie \'n verbinding na hierdie netwerk toe nie."</string>
     <string name="connect_later" msgid="2308119155752343975">"Kan nie nou aan hierdie netwerk koppel nie. Probeer later weer."</string>
     <string name="registration_done" msgid="495135664535876612">"Geregistreer op die netwerk."</string>
+    <string name="already_auto" msgid="6067116884321285507">"Reeds in outomatiese seleksie."</string>
     <string name="select_automatically" msgid="1046727200631770962">"Kies outomaties netwerk"</string>
     <string name="network_select_title" msgid="7733107364757544558">"Netwerk"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Outomatiese registrasie..."</string>
@@ -175,6 +176,36 @@
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"Verander die netwerkbedryfsmodus"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Voorkeurnetwerktipe"</string>
     <string name="forbidden_network" msgid="4384929668343563440">"(verbode)"</string>
+    <string name="choose_network_title" msgid="4023911977543009350">"Kies netwerk"</string>
+    <string name="network_disconnected" msgid="2227251609006103194">"Ontkoppel"</string>
+    <string name="network_connected" msgid="1288589103624338857">"Gekoppel"</string>
+    <string name="network_connecting" msgid="4927203097283533783">"Koppel tans …"</string>
+    <string name="network_could_not_connect" msgid="8254009365807767243">"Kon nie koppel nie"</string>
+  <string-array name="preferred_network_mode_choices">
+    <item msgid="3628460389382468528">"GSM/WCDMA verkies"</item>
+    <item msgid="8442633436636425221">"Net GSM"</item>
+    <item msgid="2032314385791760810">"Net WCDMA"</item>
+    <item msgid="6334554401059422303">"GSM/WCDMA outomaties"</item>
+    <item msgid="1462198368200398663">"CDMA/EvDo outomaties"</item>
+    <item msgid="3611460019185359968">"CDMA sonder EvDo"</item>
+    <item msgid="545430093607698090">"Net EvDo"</item>
+    <item msgid="4286774020869405140">"CDMA/EvDo/GSM/WCDMA"</item>
+    <item msgid="4006002265696868538">"CDMA + LTE/EvDo"</item>
+    <item msgid="8973936140318359205">"GSM/WCDMA/LTE"</item>
+    <item msgid="3471059554252610472">"Wêreldwyd"</item>
+    <item msgid="2882615514545171802">"LTE"</item>
+    <item msgid="8076204422288290116">"LTE/WCDMA"</item>
+    <item msgid="3982984144824159726">"Net TDSCDMA"</item>
+    <item msgid="3686191974505922271">"TDSCDMA/WCDMA"</item>
+    <item msgid="7135671700201836475">"LTE/TDSCDMA"</item>
+    <item msgid="3736619459066330755">"TDSCDMA/GSM"</item>
+    <item msgid="4778666570887216861">"LTE/TDSCDMA/GSM"</item>
+    <item msgid="2952322596201849456">"TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="115984258536697617">"LTE/TDSCDMA/WCDMA"</item>
+    <item msgid="7957991936217192636">"LTE/TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="2828588917858484655">"TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+    <item msgid="4989979948139945854">"LTE/TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+  </string-array>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Voorkeurnetwerk-modus: WCDMA verkies"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Voorkeurnetwerk-modus: net GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Voorkeurnetwerk-modus: net WCDMA"</string>
@@ -192,21 +223,15 @@
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"Voorkeurnetwerkmodus: LTE / GSM / UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"Voorkeurnetwerk-modus: LTE / CDMA"</string>
     <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"Voorkeur-netwerkmodus: TDSCDMA"</string>
-  <string-array name="preferred_network_mode_choices">
-    <item msgid="7886739962255042385">"LTE / WCDMA"</item>
-    <item msgid="577652050447385699">"LTE"</item>
-    <item msgid="6813597571293773656">"Globaal"</item>
-    <item msgid="127064712132619032">"GSM/WCDMA/LTE"</item>
-    <item msgid="1126767511633425977">"CDMA + LTE/EvDo"</item>
-    <item msgid="6389676313771670660">"CDMA/EvDo/GSM/WCDMA"</item>
-    <item msgid="545430093607698090">"Net EvDo"</item>
-    <item msgid="1508557726283094448">"CDMA sonder EvDo"</item>
-    <item msgid="4341433122263841224">"CDMA/EvDo outomaties"</item>
-    <item msgid="5958053792390386668">"GSM/WCDMA outomaties"</item>
-    <item msgid="7913148405605373434">"Net WCDMA"</item>
-    <item msgid="1524224863879435516">"Net GSM"</item>
-    <item msgid="3817924849415716259">"GSM/WCDMA verkies"</item>
-  </string-array>
+    <string name="preferred_network_mode_tdscdma_wcdma_summary" msgid="2405154895437348623">"Voorkeurnetwerkmodus: TDSCDMA/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_summary" msgid="2104702896644235637">"Voorkeurnetwerkmodus: LTE/TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_summary" msgid="4893784445338396204">"Voorkeurnetwerkmodus: TDSCDMA/GSM"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_summary" msgid="1815169717046729757">"Voorkeurnetwerkmodus: LTE/GSM/TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_wcdma_summary" msgid="2195358773359424099">"Voorkeurnetwerkmodus: TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_wcdma_summary" msgid="1181424059695667803">"Voorkeurnetwerkmodus: LTE/TDSCDMA/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_wcdma_summary" msgid="2526539326505354382">"Voorkeurnetwerkmodus: LTE/TDSCDMA/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="8195248059196614939">"Voorkeurnetwerkmodus: TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="5596733053095592791">"Voorkeurnetwerkmodus: LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
     <string name="call_category" msgid="5863978196309462052">"Oproepe"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"Netwerk"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Verbeterde 4G LTE-modus"</string>
@@ -218,14 +243,16 @@
     <string name="roaming" msgid="7894878421600247140">"Swerwing"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Verbind met datadienste tydens swerwing"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Verbind met datadienste tydens swerwing"</string>
-    <string name="roaming_reenable_message" msgid="8913735676127858115">"Jy het dataverbinding verloor omdat jy wegbeweeg het van jou tuisnetwerk af sonder om dataswerwing weer aan te skakel."</string>
+    <string name="roaming_reenable_message" msgid="6843814381576397939">"Dataswerwing is afgeskakel. Tik om aan te skakel."</string>
+    <string name="roaming_notification_title" msgid="4749053220884743110">"Verlore mobiele dataverbinding"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"Dit kan baie duur wees."</string>
+    <string name="roaming_check_price_warning" msgid="7497570906830902550">"Bevestig met jou netwerkverskaffer vir prysberekening."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Laat dataswerwing toe?"</string>
-    <string name="data_usage_title" msgid="8759619109516889802">"Datagebruik"</string>
+    <string name="data_usage_title" msgid="4042209259808900283">"Programdatagebruik"</string>
     <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_1">%1$s</xliff:g> mobiele data gebruik <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="8074895510265488035">"Gevorderd"</string>
     <string name="carrier_settings_euicc" msgid="6714062862127226405">"Diensverskaffer"</string>
-    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"diensverskaffer, esim, sim, euicc"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="6861505396475991277">"diensverskaffer, e-sim, sim, euicc, verander diensverskaffers, voeg diensverskaffer by"</string>
     <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> – <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="mobile_data_settings_title" msgid="4661165467914727157">"Mobiele data"</string>
     <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Verkry toegang tot data deur selnetwerk te gebruik"</string>
@@ -403,7 +430,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"Verwyder belbeperking-nommer…"</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"Belbeperking-nommer uitgevee."</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"FDN is nie opgedateer nie omdat jy \'n verkeerde PIN ingevoer het."</string>
-    <string name="fdn_invalid_number" msgid="8602417141715473998">"FDN is nie opgedateer nie, omdat die getal leeg is of 20 syfers oorskry."</string>
+    <string name="fdn_invalid_number" msgid="2062898833049589309">"FDN is nie opgedateer nie, omdat die getal 20 syfers oorskry."</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN is nie bygewerk nie. Die PIN2 was verkeerd of die foonnommer is verwerp."</string>
     <string name="fdn_failed" msgid="540018079008319747">"FDN-bewerking het misluk."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"Lees tans van SIM-kaart af…"</string>
@@ -486,6 +513,7 @@
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Kan nie gedurende \'n noodoproep na vliegtuigmodus verander nie."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"Kan nie bel nie. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> is nie \'n noodnommer nie."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Kan nie bel nie. Skakel \'n noodnommer."</string>
+    <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"Noodoproepe is nie bekikbaar nie"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Gebruik sleutelbord om te bel"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"Hou aan"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"Einde"</string>
@@ -506,6 +534,9 @@
     <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"Kon nie kontak invoer nie"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"Gehoorapparate"</string>
     <string name="hac_mode_summary" msgid="6833851160514929341">"Skakel gehoorapparaat-versoenbaarheid aan"</string>
+    <string name="rtt_mode_title" msgid="6954652435543570121">"Intydse teksoproep (RTT)"</string>
+    <string name="rtt_mode_summary" msgid="5146344277246544580">"Laat boodskappe binne \'n stemoproep toe"</string>
+    <string name="rtt_mode_more_information" msgid="6080420780730383030">"RTT help bellers wat doof is, hardhorend is, \'n spraakgebrek het of meer as net stem benodig.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Kom meer te wete&lt;/a&gt;\n       &lt;br&amp;gtlt;br&gt; - RTT-oproepe word as \'n boodskaptranskripsie gestoor\n       &lt;br&amp;gt - RTT is nie vir video-oproepe beskikbaar nie"</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"TTY af"</item>
     <item msgid="3971695875449640648">"TTY vol"</item>
@@ -617,4 +648,107 @@
     <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Jy sal dalk data deur <xliff:g id="PROVIDER_NAME">%s</xliff:g> moet byvoeg"</string>
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"VOEG DATA BY"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"KANSELLEER"</string>
+    <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"Oproep beëindig"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"Radio af"</string>
+    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"Geen SIM-kaart nie of SIM-kaartfout"</string>
+    <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"Mobiele netwerk is nie beskikbaar nie"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"Nommer nie toegeken nie"</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"Geen roete na bestemming nie"</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"Kanaal onaanvaarbaar"</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"Operateur-bepaalde blokkering"</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"Normale oproep-skoonmaak"</string>
+    <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"Gebruiker besig"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"Geen gebruiker reageer nie"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"Gebruikerwaarskuwing, geen antwoord nie"</string>
+    <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"Oproep verwerp"</string>
+    <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"Nommer het verander"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"Voorkoop"</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"Nie-geselekteerde gebruiker-skoonmaak"</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"Bestemming buite werking"</string>
+    <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"Ongeldige nommerformaat (onvolledige nommer)"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"Fasiliteit is afgekeur"</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"Antwoord op STATUSNAVRAE"</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"Normaal, ongespesifiseer"</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"Geen verbinding/kanaal beskikbaar nie"</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"Netwerk buite werking"</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"Tydelike mislukking"</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"Kongestie met wisseling van toerusting"</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"Toegangsinligting weggegooi"</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"Versoekte verbinding/kanaal is nie beskikbaar nie"</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"Hulpbronne onbeskikbaar, ongespesifiseer"</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"Kwaliteit van diens is nie beskikbaar nie"</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"Versoekte fasiliteit nie ingeteken nie"</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"Inkomende oproepe binne die CUG versper"</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"Draervermoë nie gemagtig nie"</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"Draervermoë nie tans beskikbaar nie"</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"Diens of opsie nie beskikbaar nie, ongespesifiseer"</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"Draerdiens nie geïmplementeer nie"</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM gelyk aan of meer as ACMmax"</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"Versoekte fasiliteit nie geïmplementeer nie"</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"Slegs beperkte digitale inligting-draervermoë is beskikbaar"</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"Diens of opsie nie geïmplementeer nie, ongespesifiseer"</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"Ongeldige transaksie-idenfiseerderwaarde"</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"Gebruiker nie lid van CUG nie"</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"Onversoenbare bestemming"</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"Ongeldige deurgangsnetwerk-seleksie"</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"Boodskap is semanties verkeerd"</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"Ongeldige verpligte inligting"</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"Boodskaptipe bestaan nie of nie geïmplementeer nie"</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"Boodskaptipe werk nie met protokolstaat nie"</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"Inligtingselement bestaan nie of nie geïmplementeer nie"</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"Voorwaardelike IE-fout"</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"Boodskap werk nie met protokolstaat nie"</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"Herstel op tydhouerverval"</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"Protokolfout, ongespesifiseer"</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"Interwerkend, ongespesifiseer"</string>
+    <string name="labelCallBarring" msgid="3452870940716226978">"Oproepstuiting"</string>
+    <string name="sum_call_barring_enabled" msgid="6804489690436703488">"Aan"</string>
+    <string name="sum_call_barring_disabled" msgid="5900772179198857783">"Af"</string>
+    <string name="call_barring_baoc" msgid="1199843944333106035">"Alle uitgaande"</string>
+    <string name="call_barring_baoc_enabled" msgid="8112118391869380361">"Deaktiveer blokkering van alle uitgaande oproepe?"</string>
+    <string name="call_barring_baoc_disabled" msgid="7806697133004697974">"Blokkeer alle uitgaande oproepe?"</string>
+    <string name="call_barring_baoic" msgid="3162154267825211826">"Uitgaande internasionaal"</string>
+    <string name="call_barring_baoic_enabled" msgid="2634377543147258105">"Deaktiveer blokkering van alle uitgaande internasionale oproepe?"</string>
+    <string name="call_barring_baoic_disabled" msgid="5817895648306183464">"Blokkeer uitgaande internasionale oproepe?"</string>
+    <string name="call_barring_baoicr" msgid="8951699885885742076">"Uitgaande internasionale swerwing"</string>
+    <string name="call_barring_baoicr_enabled" msgid="2519630715322138317">"Deaktiveer blokkering van alle uitgaande internasionale swerwing?"</string>
+    <string name="call_barring_baoicr_disabled" msgid="5831267468931377699">"Blokkeer uitgaande internasionale swerwing?"</string>
+    <string name="call_barring_baic" msgid="5272726081458339912">"Alle inkomende"</string>
+    <string name="call_barring_baic_enabled" msgid="2457134916223203380">"Deaktiveer blokkering van alle inkomende oproepe?"</string>
+    <string name="call_barring_baic_disabled" msgid="6945604947500275636">"Blokkeer alle inkomende oproepe?"</string>
+    <string name="call_barring_baicr" msgid="5728784220691481693">"Inkomende internasionale swerwing"</string>
+    <string name="call_barring_baicr_enabled" msgid="6533336994391716127">"Deaktiveer blokkering van alle inkomende internasionale swerwing?"</string>
+    <string name="call_barring_baicr_disabled" msgid="6746329853943256566">"Blokkeer inkomende internasionale swerwing?"</string>
+    <string name="call_barring_deactivate_all" msgid="5269788384941003415">"Deaktiveer alles"</string>
+    <string name="call_barring_deactivate_all_description" msgid="4972365443287257704">"Deaktiveer alle oproepstuitinginstellings"</string>
+    <string name="call_barring_deactivate_success" msgid="8014685598632000936">"Oproepstuiting is gedeaktiveer"</string>
+    <string name="call_barring_change_pwd" msgid="6887420609726284232">"Verander wagwoord"</string>
+    <string name="call_barring_change_pwd_description" msgid="5505087790260233953">"Verander oproepstuitingwagwoord"</string>
+    <string name="call_barring_change_pwd_description_disabled" msgid="7630770327645349957">"Kan nie oproepstuitingwagwoord verander nie"</string>
+    <string name="call_barring_pwd_not_match" msgid="6716711689350314525">"Wagwoorde nie dieselfde nie"</string>
+    <string name="call_barring_right_pwd_number" msgid="2902966502520410446">"Voer \'n wagwoord met 4 syfers in"</string>
+    <string name="call_barring_change_pwd_success" msgid="3278310763742760321">"Wagwoord verander"</string>
+    <string name="call_barring_old_pwd" msgid="6080515987320238522">"Ou wagwoord"</string>
+    <string name="call_barring_new_pwd" msgid="7048532299150269547">"Nuwe wagwoord"</string>
+    <string name="call_barring_confirm_pwd" msgid="1947167278466285411">"Bevestig wagwoord"</string>
+    <string name="messageCallBarring" msgid="2412123220272136055">"Voer wagwoord in"</string>
+    <string name="call_barring_settings" msgid="80766145008623645">"Oproepstuitinginstellings"</string>
+    <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"Deaktiveer alle oproepstuitinginstellings?"</string>
+    <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"Oproep is afgelei."</string>
+    <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"Oproep is aangestuur."</string>
+    <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"Oproep wag."</string>
+    <string name="supp_service_clir_suppression_rejected" msgid="1581851661582189045">"Nommerblokkering is afgekeur."</string>
+    <string name="supp_service_closed_user_group_call" msgid="5761735840904590950">"Geslote gebruikergroepoproep."</string>
+    <string name="supp_service_incoming_calls_barred" msgid="3248813207307882723">"Inkomende oproepe is verbied."</string>
+    <string name="supp_service_outgoing_calls_barred" msgid="1962644621292054081">"Uitgaande oproepe is verbied."</string>
+    <string name="supp_service_call_forwarding_active" msgid="1253134771682248735">"Oproep-aanstuur is aktief."</string>
+    <string name="supp_service_additional_call_forwarded" msgid="5228624725214727315">"Bykomende oproep-aanstuur."</string>
+    <string name="supp_service_additional_ect_connected" msgid="6396964292513707102">"Eksplisiete oproepoordrag is voltooi."</string>
+    <string name="supp_service_additional_ect_connecting" msgid="5443373059716058480">"Besig met eksklisiewe oproepoordrag."</string>
+    <string name="supp_service_call_on_hold" msgid="1478976782361795422">"Oproep hou aan."</string>
+    <string name="supp_service_call_resumed" msgid="1656475289958070674">"Oproep is hervat."</string>
+    <string name="supp_service_deflected_call" msgid="138970419873492166">"Oproep is afgelei."</string>
+    <string name="supp_service_forwarded_call" msgid="4509980341645679803">"Aangestuurde oproep."</string>
+    <string name="supp_service_conference_call" msgid="4448616364004466832">"Sluit tans by konferensieoproep aan."</string>
+    <string name="supp_service_held_call_released" msgid="2030677825038709779">"Oproep wat aangehou is, is weer aktief."</string>
 </resources>

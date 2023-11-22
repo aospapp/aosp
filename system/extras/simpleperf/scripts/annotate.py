@@ -124,11 +124,11 @@ class Addr2Line(object):
                 (file, line) = items
                 line = line.split()[0]  # Remove comments after line number
                 out_pos += 1
-                if file.find('?') != -1:
+                if '?' in file:
                     file = 0
                 else:
                     file = self._get_file_id(file)
-                if line.find('?') != -1:
+                if '?' in line:
                     line = 0
                 else:
                     line = int(line)
@@ -538,15 +538,20 @@ class SourceFileAnnotator(object):
         source_files = self.source_file_dict.get(filename)
         if source_files is None:
             return None
-        match_count = 0
-        result = None
+        best_path_count = 0
+        best_path = None
+        best_suffix_len = 0
         for path in source_files:
-            if path.find(file) != -1:
-                match_count += 1
-                result = path
-        if match_count > 1:
-            log_warning('multiple source for %s, select %s' % (file, result))
-        return result
+            suffix_len = len(os.path.commonprefix((path[::-1], file[::-1])))
+            if suffix_len > best_suffix_len:
+                best_suffix_len = suffix_len
+                best_path = path
+                best_path_count = 1
+            elif suffix_len == best_suffix_len:
+                best_path_count += 1
+        if best_path_count > 1:
+            log_warning('multiple source for %s, select %s' % (file, best_path))
+        return best_path
 
 
     def _annotate_files(self):
@@ -568,7 +573,7 @@ class SourceFileAnnotator(object):
                 path = key
                 from_path = path
                 to_path = os.path.join(dest_dir, path[1:])
-            elif is_windows() and key.find(':\\') != -1 and os.path.isfile(key):
+            elif is_windows() and ':\\' in key and os.path.isfile(key):
                 from_path = key
                 to_path = os.path.join(dest_dir, key.replace(':\\', '\\'))
             else:

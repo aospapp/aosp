@@ -43,3 +43,7 @@ include $(LOCAL_PATH)/Android.build.mk
 module := simpleperf_runtest_function_indirect_recursive
 module_src_files := function_indirect_recursive.cpp
 include $(LOCAL_PATH)/Android.build.mk
+
+module := simpleperf_runtest_run_and_sleep
+module_src_files := run_and_sleep.cpp
+include $(LOCAL_PATH)/Android.build.mk

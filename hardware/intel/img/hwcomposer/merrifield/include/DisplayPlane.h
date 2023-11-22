@@ -87,7 +87,7 @@ public:
 
     // data source
     virtual bool setDataBuffer(buffer_handle_t handle);
-
+    virtual void resetCurrentBuffer();
     virtual void invalidateBufferCache();
 
     // display device

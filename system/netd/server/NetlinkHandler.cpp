@@ -30,6 +30,7 @@
 #include "NetlinkManager.h"
 #include "ResponseCode.h"
 #include "SockDiag.h"
+#include "Controllers.h"
 
 static const char *kUpdated = "updated";
 static const char *kRemoved = "removed";
@@ -54,6 +55,18 @@ int NetlinkHandler::stop() {
     return this->stopListener();
 }
 
+static long parseIfIndex(const char* ifIndex) {
+    if (ifIndex == nullptr) {
+        return 0;
+    }
+    long ifaceIndex = strtol(ifIndex, NULL, 10);
+    // strtol returns 0 on error, which is fine because 0 is not a valid ifindex.
+    if (errno == ERANGE && (ifaceIndex == LONG_MAX || ifaceIndex == LONG_MIN)) {
+        return 0;
+    }
+    return ifaceIndex;
+}
+
 void NetlinkHandler::onEvent(NetlinkEvent *evt) {
     const char *subsys = evt->getSubsystem();
     if (!subsys) {
@@ -64,6 +77,17 @@ void NetlinkHandler::onEvent(NetlinkEvent *evt) {
     if (!strcmp(subsys, "net")) {
         NetlinkEvent::Action action = evt->getAction();
         const char *iface = evt->findParam("INTERFACE");
+        if ((action == NetlinkEvent::Action::kAdd) ||
+            (action == NetlinkEvent::Action::kLinkUp) ||
+            (action == NetlinkEvent::Action::kLinkDown)) {
+            const char *ifIndex = evt->findParam("IFINDEX");
+            long ifaceIndex = parseIfIndex(ifIndex);
+            if (ifaceIndex) {
+                gCtls->trafficCtrl.addInterface(iface, ifaceIndex);
+            } else {
+                ALOGE("invalid interface index: %s(%s)", iface, ifIndex);
+            }
+        }
 
         if (action == NetlinkEvent::Action::kAdd) {
             notifyInterfaceAdded(iface);
@@ -81,25 +105,35 @@ void NetlinkHandler::onEvent(NetlinkEvent *evt) {
             const char *address = evt->findParam("ADDRESS");
             const char *flags = evt->findParam("FLAGS");
             const char *scope = evt->findParam("SCOPE");
-            if (action == NetlinkEvent::Action::kAddressRemoved && iface && address) {
-                // Note: if this interface was deleted, iface is "" and we don't notify.
-                SockDiag sd;
-                if (sd.open()) {
-                    char addrstr[INET6_ADDRSTRLEN];
-                    strncpy(addrstr, address, sizeof(addrstr));
-                    char *slash = strchr(addrstr, '/');
-                    if (slash) {
-                        *slash = '\0';
-                    }
+            const char *ifIndex = evt->findParam("IFINDEX");
+            char addrstr[INET6_ADDRSTRLEN + strlen("/128")];
+            strlcpy(addrstr, address, sizeof(addrstr));
+            char *slash = strchr(addrstr, '/');
+            if (slash) {
+                *slash = '\0';
+            }
 
-                    int ret = sd.destroySockets(addrstr);
-                    if (ret < 0) {
-                        ALOGE("Error destroying sockets: %s", strerror(ret));
+            long ifaceIndex = parseIfIndex(ifIndex);
+            if (!ifaceIndex) {
+                ALOGE("invalid interface index: %s(%s)", iface, ifIndex);
+            }
+            if (action == NetlinkEvent::Action::kAddressUpdated) {
+                gCtls->netCtrl.addInterfaceAddress(ifaceIndex, address);
+            } else {  // action == NetlinkEvent::Action::kAddressRemoved
+                bool shouldDestroy = gCtls->netCtrl.removeInterfaceAddress(ifaceIndex, address);
+                if (shouldDestroy) {
+                    SockDiag sd;
+                    if (sd.open()) {
+                        int ret = sd.destroySockets(addrstr);
+                        if (ret < 0) {
+                            ALOGE("Error destroying sockets: %s", strerror(-ret));
+                        }
+                    } else {
+                        ALOGE("Error opening NETLINK_SOCK_DIAG socket: %s", strerror(errno));
                     }
-                } else {
-                    ALOGE("Error opening NETLINK_SOCK_DIAG socket: %s", strerror(errno));
                 }
             }
+            // Note: if this interface was deleted, iface is "" and we don't notify.
             if (iface && iface[0] && address && flags && scope) {
                 notifyAddressChanged(action, address, iface, flags, scope);
             }

@@ -57,24 +57,25 @@
 #include <openssl/bn.h>
 
 #include <openssl/mem.h>
+#include <openssl/type_check.h>
 
 #include "internal.h"
+#include "../../internal.h"
 
 
 int BN_ucmp(const BIGNUM *a, const BIGNUM *b) {
-  int i;
-  BN_ULONG t1, t2, *ap, *bp;
-
-  i = a->top - b->top;
+  int a_width = bn_minimal_width(a);
+  int b_width = bn_minimal_width(b);
+  int i = a_width - b_width;
   if (i != 0) {
     return i;
   }
 
-  ap = a->d;
-  bp = b->d;
-  for (i = a->top - 1; i >= 0; i--) {
-    t1 = ap[i];
-    t2 = bp[i];
+  const BN_ULONG *ap = a->d;
+  const BN_ULONG *bp = b->d;
+  for (i = a_width - 1; i >= 0; i--) {
+    BN_ULONG t1 = ap[i];
+    BN_ULONG t2 = bp[i];
     if (t1 != t2) {
       return (t1 > t2) ? 1 : -1;
     }
@@ -112,14 +113,16 @@ int BN_cmp(const BIGNUM *a, const BIGNUM *b) {
     lt = 1;
   }
 
-  if (a->top > b->top) {
+  int a_width = bn_minimal_width(a);
+  int b_width = bn_minimal_width(b);
+  if (a_width > b_width) {
     return gt;
   }
-  if (a->top < b->top) {
+  if (a_width < b_width) {
     return lt;
   }
 
-  for (i = a->top - 1; i >= 0; i--) {
+  for (i = a_width - 1; i >= 0; i--) {
     t1 = a->d[i];
     t2 = b->d[i];
     if (t1 > t2) {
@@ -159,14 +162,14 @@ int bn_cmp_part_words(const BN_ULONG *a, const BN_ULONG *b, int cl, int dl) {
   if (dl < 0) {
     for (i = dl; i < 0; i++) {
       if (b[n - i] != 0) {
-        return -1; /* a < b */
+        return -1;  // a < b
       }
     }
   }
   if (dl > 0) {
     for (i = dl; i > 0; i--) {
       if (a[n + i] != 0) {
-        return 1; /* a > b */
+        return 1;  // a > b
       }
     }
   }
@@ -174,8 +177,43 @@ int bn_cmp_part_words(const BN_ULONG *a, const BN_ULONG *b, int cl, int dl) {
   return bn_cmp_words(a, b, cl);
 }
 
+static int bn_less_than_words_impl(const BN_ULONG *a, size_t a_len,
+                                   const BN_ULONG *b, size_t b_len) {
+  OPENSSL_COMPILE_ASSERT(sizeof(BN_ULONG) <= sizeof(crypto_word_t),
+                         crypto_word_t_too_small);
+  int ret = 0;
+  // Process the common words in little-endian order.
+  size_t min = a_len < b_len ? a_len : b_len;
+  for (size_t i = 0; i < min; i++) {
+    crypto_word_t eq = constant_time_eq_w(a[i], b[i]);
+    crypto_word_t lt = constant_time_lt_w(a[i], b[i]);
+    ret = constant_time_select_int(eq, ret, constant_time_select_int(lt, 1, 0));
+  }
+
+  // If |a| or |b| has non-zero words beyond |min|, they take precedence.
+  if (a_len < b_len) {
+    crypto_word_t mask = 0;
+    for (size_t i = a_len; i < b_len; i++) {
+      mask |= b[i];
+    }
+    ret = constant_time_select_int(constant_time_is_zero_w(mask), ret, 1);
+  } else if (b_len < a_len) {
+    crypto_word_t mask = 0;
+    for (size_t i = b_len; i < a_len; i++) {
+      mask |= a[i];
+    }
+    ret = constant_time_select_int(constant_time_is_zero_w(mask), ret, 0);
+  }
+
+  return ret;
+}
+
+int bn_less_than_words(const BN_ULONG *a, const BN_ULONG *b, size_t len) {
+  return bn_less_than_words_impl(a, len, b, len);
+}
+
 int BN_abs_is_word(const BIGNUM *bn, BN_ULONG w) {
-  switch (bn->top) {
+  switch (bn_minimal_width(bn)) {
     case 1:
       return bn->d[0] == w;
     case 0:
@@ -197,7 +235,7 @@ int BN_cmp_word(const BIGNUM *a, BN_ULONG b) {
 }
 
 int BN_is_zero(const BIGNUM *bn) {
-  return bn->top == 0;
+  return bn_minimal_width(bn) == 0;
 }
 
 int BN_is_one(const BIGNUM *bn) {
@@ -213,27 +251,52 @@ int BN_is_odd(const BIGNUM *bn) {
 }
 
 int BN_is_pow2(const BIGNUM *bn) {
-  if (bn->top == 0 || bn->neg) {
+  int width = bn_minimal_width(bn);
+  if (width == 0 || bn->neg) {
     return 0;
   }
 
-  for (int i = 0; i < bn->top - 1; i++) {
+  for (int i = 0; i < width - 1; i++) {
     if (bn->d[i] != 0) {
       return 0;
     }
   }
 
-  return 0 == (bn->d[bn->top-1] & (bn->d[bn->top-1] - 1));
+  return 0 == (bn->d[width-1] & (bn->d[width-1] - 1));
 }
 
 int BN_equal_consttime(const BIGNUM *a, const BIGNUM *b) {
-  if (a->top != b->top) {
+  BN_ULONG mask = 0;
+  // If |a| or |b| has more words than the other, all those words must be zero.
+  for (int i = a->top; i < b->top; i++) {
+    mask |= b->d[i];
+  }
+  for (int i = b->top; i < a->top; i++) {
+    mask |= a->d[i];
+  }
+  // Common words must match.
+  int min = a->top < b->top ? a->top : b->top;
+  for (int i = 0; i < min; i++) {
+    mask |= (a->d[i] ^ b->d[i]);
+  }
+  // The sign bit must match.
+  mask |= (a->neg ^ b->neg);
+  return mask == 0;
+}
+
+int BN_less_than_consttime(const BIGNUM *a, const BIGNUM *b) {
+  // We do not attempt to process the sign bit in constant time. Negative
+  // |BIGNUM|s should never occur in crypto, only calculators.
+  if (a->neg && !b->neg) {
+    return 1;
+  }
+  if (b->neg && !a->neg) {
     return 0;
   }
-
-  int limbs_are_equal =
-    CRYPTO_memcmp(a->d, b->d, (size_t)a->top * sizeof(a->d[0])) == 0;
-
-  return constant_time_select_int(constant_time_eq_int(a->neg, b->neg),
-                                  limbs_are_equal, 0);
+  if (a->neg && b->neg) {
+    const BIGNUM *tmp = a;
+    a = b;
+    b = tmp;
+  }
+  return bn_less_than_words_impl(a->d, a->top, b->d, b->top);
 }

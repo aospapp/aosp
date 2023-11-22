@@ -24,7 +24,6 @@
 namespace mojo {
 namespace edk {
 
-struct DataPipeControlMessage;
 class NodeController;
 
 // This is the Dispatcher implementation for the consumer handle for data
@@ -117,6 +116,9 @@ class MOJO_SYSTEM_IMPL_EXPORT DataPipeConsumerDispatcher final
 
   uint32_t read_offset_ = 0;
   uint32_t bytes_available_ = 0;
+
+  // Indicates whether any new data is available since the last read attempt.
+  bool new_data_available_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(DataPipeConsumerDispatcher);
 };

@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for VTS Audio V2_0 HIDL HAL's basic target-side, profiling test cases">
+    <option name="config-descriptor:metadata" key="plan" value="vts-hal-profiling" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="abort-on-push-failure" value="false"/>
         <option name="cleanup" value="true"/>
@@ -24,7 +25,6 @@
         <option name="push" value="DATA/lib64/android.hardware.audio.common@2.0-vts.profiler.so->/data/local/tmp/64/android.hardware.audio.common@2.0-vts.profiler.so"/>
         <option name="push" value="DATA/lib64/android.hardware.audio@2.0-vts.profiler.so->/data/local/tmp/64/android.hardware.audio@2.0-vts.profiler.so"/>
     </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer"/>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsHalAudioV2_0TargetProfiling"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalAudioV2_0TargetTest/VtsHalAudioV2_0TargetTest" />
@@ -33,7 +33,11 @@
         <option name="enable-profiling" value="true"/>
         <option name="binary-test-disable-framework" value="true"/>
         <option name="binary-test-stop-native-servers" value="true"/>
-        <option name="precondition-lshal" value="android.hardware.audio@2.0"/>
-        <option name="test-timeout" value="120m"/>
+        <option name="exclude-coverage-path" value="hardware/interfaces/audio/effect" />
+        <option name="exclude-coverage-path" value="hardware/qcom/audio/post_proc" />
+        <option name="exclude-coverage-path" value="hardware/qcom/audio/visualizer" />
+        <option name="exclude-coverage-path" value="hardware/qcom/audio/voice_processing/" />
+        <option name="test-timeout" value="60m"/>
+        <option name="gtest-batch-mode" value="true"/>
     </test>
 </configuration>

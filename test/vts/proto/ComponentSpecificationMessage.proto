@@ -21,11 +21,11 @@ option java_outer_classname = "VtsComponentSpecificationMessage";
 // Class of a target component.
 enum ComponentClass {
   UNKNOWN_CLASS = 0;
-  // For a HAL shared library.
+  // For a HAL shared library. Deprecated.
   HAL_CONVENTIONAL = 1;
-  // For a submodule of a shared library HAL .
+  // For a submodule of a shared library HAL. Deprecated.
   HAL_CONVENTIONAL_SUBMODULE = 2;
-  // For a legacy HAL.
+  // For a legacy HAL. Deprecated.
   HAL_LEGACY = 3;
   // For a HAL which uses HIDL (HAL Interface Definition Language).
   HAL_HIDL = 4;
@@ -188,11 +188,14 @@ message FunctionCallMessage {
   // Component type, e.g., BLUETOOTH, used for Conventional HAL only.
   optional ComponentType component_type = 22;
   // Component version (e.g., 1.0).
-  optional bytes component_type_version = 23;
+  optional bytes component_type_version = 23 [deprecated = true];
   // Component name (e.g., INfc), used for HIDL HALs only.
   optional bytes component_name = 24;
   // Component package name (e.g., android.hardware.nfc).
   optional bytes package_name = 25;
+  // Component major and minor versions stored separately.
+  optional uint32 component_type_version_major = 26;
+  optional uint32 component_type_version_minor = 27;
 
   // Specifies API function and inputs.
   optional FunctionSpecificationMessage api = 100;

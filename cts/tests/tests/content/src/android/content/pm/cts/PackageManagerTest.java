@@ -45,12 +45,12 @@ import java.util.List;
 public class PackageManagerTest extends AndroidTestCase {
     private PackageManager mPackageManager;
     private static final String PACKAGE_NAME = "android.content.cts";
-    private static final String CONTENT_PKG_NAME = "android.content.cts";
     private static final String ACTIVITY_ACTION_NAME = "android.intent.action.PMTEST";
     private static final String MAIN_ACTION_NAME = "android.intent.action.MAIN";
     private static final String SERVICE_ACTION_NAME =
                                 "android.content.pm.cts.activity.PMTEST_SERVICE";
-    private static final String PERMISSION_NAME = "android.permission.INTERNET";
+    private static final String GRANTED_PERMISSION_NAME = "android.permission.INTERNET";
+    private static final String NOT_GRANTED_PERMISSION_NAME = "android.permission.HARDWARE_TEST";
     private static final String ACTIVITY_NAME = "android.content.pm.cts.TestPmActivity";
     private static final String SERVICE_NAME = "android.content.pm.cts.TestPmService";
     private static final String RECEIVER_NAME = "android.content.pm.cts.PmTestReceiver";
@@ -230,7 +230,8 @@ public class PackageManagerTest extends AndroidTestCase {
         assertTrue(mPackageManager.getPackageGids(PACKAGE_NAME).length > 0);
 
         // Test getPermissionInfo
-        assertEquals(PERMISSION_NAME, mPackageManager.getPermissionInfo(PERMISSION_NAME, 0).name);
+        assertEquals(GRANTED_PERMISSION_NAME,
+                mPackageManager.getPermissionInfo(GRANTED_PERMISSION_NAME, 0).name);
 
         // Test getPermissionGroupInfo
         assertEquals(PERMISSIONGROUP_NAME, mPackageManager.getPermissionGroupInfo(
@@ -388,17 +389,6 @@ public class PackageManagerTest extends AndroidTestCase {
                 mPackageManager.getComponentEnabledSetting(componentName));
     }
 
-    public void testOpPermission() {
-        PermissionInfo permissionInfo = new PermissionInfo();
-        String permissionName = "android.content.cts.permission.TEST_DYNAMIC.ADD";
-        permissionInfo.name = permissionName;
-        permissionInfo.labelRes = R.string.permlab_testDynamic;
-        permissionInfo.nonLocalizedLabel = "Test Tree";
-
-        // TODO: Bug ID 1561181.
-        // Can't add permission in dynamic way
-    }
-
     public void testGetIcon() throws NameNotFoundException {
         assertNotNull(mPackageManager.getApplicationIcon(PACKAGE_NAME));
         assertNotNull(mPackageManager.getApplicationIcon(mPackageManager.getApplicationInfo(
@@ -415,11 +405,35 @@ public class PackageManagerTest extends AndroidTestCase {
         assertNotNull(mPackageManager.getDrawable(PACKAGE_NAME, iconRes, appInfo));
     }
 
-    public void testCheckMethods() {
+    public void testCheckSignaturesMatch() {
+        // Compare the signature of this package to another package installed by this test suite
+        // (see AndroidTest.xml). Their signatures must match.
         assertEquals(PackageManager.SIGNATURE_MATCH, mPackageManager.checkSignatures(PACKAGE_NAME,
-                CONTENT_PKG_NAME));
+                "com.android.cts.stub"));
+        // This package's signature should match its own signature.
+        assertEquals(PackageManager.SIGNATURE_MATCH, mPackageManager.checkSignatures(PACKAGE_NAME,
+                PACKAGE_NAME));
+    }
+
+    public void testCheckSignaturesNoMatch() {
+        // This test package's signature shouldn't match the system's signature.
+        assertEquals(PackageManager.SIGNATURE_NO_MATCH, mPackageManager.checkSignatures(
+                PACKAGE_NAME, "android"));
+    }
+
+    public void testCheckSignaturesUnknownPackage() {
+        assertEquals(PackageManager.SIGNATURE_UNKNOWN_PACKAGE, mPackageManager.checkSignatures(
+                PACKAGE_NAME, "this.package.does.not.exist"));
+    }
+
+    public void testCheckPermissionGranted() {
         assertEquals(PackageManager.PERMISSION_GRANTED,
-                mPackageManager.checkPermission(PERMISSION_NAME, PACKAGE_NAME));
+                mPackageManager.checkPermission(GRANTED_PERMISSION_NAME, PACKAGE_NAME));
+    }
+
+    public void testCheckPermissionNotGranted() {
+        assertEquals(PackageManager.PERMISSION_DENIED,
+                mPackageManager.checkPermission(NOT_GRANTED_PERMISSION_NAME, PACKAGE_NAME));
     }
 
     public void testResolveMethods() {

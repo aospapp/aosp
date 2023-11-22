@@ -14,6 +14,8 @@
 
 #include "abi_diff.h"
 
+#include <fstream>
+
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
@@ -49,6 +51,18 @@ static llvm::cl::opt<bool> advice_only(
     "advice-only", llvm::cl::desc("Advisory mode only"), llvm::cl::Optional,
     llvm::cl::cat(header_checker_category));
 
+static llvm::cl::opt<bool> elf_unreferenced_symbol_errors(
+    "elf-unreferenced-symbol-errors",
+    llvm::cl::desc("Display erors on removal of elf symbols, unreferenced by"
+                   "metadata in exported headers."),
+    llvm::cl::Optional, llvm::cl::cat(header_checker_category));
+
+static llvm::cl::opt<bool> check_all_apis(
+    "check-all-apis",
+    llvm::cl::desc("All apis, whether referenced or not, by exported symbols in"
+                   " the dynsym table of a shared library are checked"),
+    llvm::cl::Optional, llvm::cl::cat(header_checker_category));
+
 static llvm::cl::opt<bool> suppress_local_warnings(
     "suppress_local_warnings", llvm::cl::desc("suppress local warnings"),
     llvm::cl::Optional, llvm::cl::cat(header_checker_category));
@@ -57,6 +71,43 @@ static llvm::cl::opt<bool> allow_extensions(
     "allow-extensions",
     llvm::cl::desc("Do not return a non zero status on extensions"),
     llvm::cl::Optional, llvm::cl::cat(header_checker_category));
+
+static llvm::cl::opt<bool> allow_unreferenced_elf_symbol_changes(
+    "allow-unreferenced-elf-symbol-changes",
+    llvm::cl::desc("Do not return a non zero status on changes to elf symbols"
+                   "not referenced by metadata in exported headers"),
+    llvm::cl::Optional, llvm::cl::cat(header_checker_category));
+
+static llvm::cl::opt<bool> allow_unreferenced_changes(
+    "allow-unreferenced-changes",
+    llvm::cl::desc("Do not return a non zero status on changes to data"
+                   " structures which are not directly referenced by exported"
+                   " APIs."),
+    llvm::cl::Optional, llvm::cl::cat(header_checker_category));
+
+static llvm::cl::opt<abi_util::TextFormatIR> text_format_old(
+    "text-format-old", llvm::cl::desc("Specify text format of old abi dump"),
+    llvm::cl::values(clEnumValN(abi_util::TextFormatIR::ProtobufTextFormat,
+                                "ProtobufTextFormat","ProtobufTextFormat"),
+                     clEnumValEnd),
+    llvm::cl::init(abi_util::TextFormatIR::ProtobufTextFormat),
+    llvm::cl::cat(header_checker_category));
+
+static llvm::cl::opt<abi_util::TextFormatIR> text_format_new(
+    "text-format-new", llvm::cl::desc("Specify text format of new abi dump"),
+    llvm::cl::values(clEnumValN(abi_util::TextFormatIR::ProtobufTextFormat,
+                                "ProtobufTextFormat", "ProtobugTextFormat"),
+                     clEnumValEnd),
+    llvm::cl::init(abi_util::TextFormatIR::ProtobufTextFormat),
+    llvm::cl::cat(header_checker_category));
+
+static llvm::cl::opt<abi_util::TextFormatIR> text_format_diff(
+    "text-format-diff", llvm::cl::desc("Specify text format of abi-diff"),
+    llvm::cl::values(clEnumValN(abi_util::TextFormatIR::ProtobufTextFormat,
+                                "ProtobufTextFormat", "ProtobufTextFormat"),
+                     clEnumValEnd),
+    llvm::cl::init(abi_util::TextFormatIR::ProtobufTextFormat),
+    llvm::cl::cat(header_checker_category));
 
 static std::set<std::string> LoadIgnoredSymbols(std::string &symbol_list_path) {
   std::ifstream symbol_ifstream(symbol_list_path);
@@ -72,46 +123,80 @@ static std::set<std::string> LoadIgnoredSymbols(std::string &symbol_list_path) {
   return ignored_symbols;
 }
 
+static const char kWarn[] = "\033[36;1mwarning: \033[0m";
+static const char kError[] = "\033[31;1merror: \033[0m";
+
+bool ShouldEmitWarningMessage(abi_util::CompatibilityStatusIR status) {
+  return (!allow_extensions &&
+      (status & abi_util::CompatibilityStatusIR::Extension)) ||
+      (!allow_unreferenced_changes &&
+      (status & abi_util::CompatibilityStatusIR::UnreferencedChanges)) ||
+      (!allow_unreferenced_elf_symbol_changes &&
+      (status & abi_util::CompatibilityStatusIR::ElfIncompatible)) ||
+      (status & abi_util::CompatibilityStatusIR::Incompatible);
+}
+
 int main(int argc, const char **argv) {
-  GOOGLE_PROTOBUF_VERIFY_VERSION;
   llvm::cl::ParseCommandLineOptions(argc, argv, "header-checker");
   std::set<std::string> ignored_symbols;
   if (llvm::sys::fs::exists(ignore_symbol_list)) {
     ignored_symbols = LoadIgnoredSymbols(ignore_symbol_list);
   }
   HeaderAbiDiff judge(lib_name, arch, old_dump, new_dump, compatibility_report,
-                      ignored_symbols);
+                      ignored_symbols, check_all_apis, text_format_old,
+                      text_format_new, text_format_diff);
 
-  CompatibilityStatus status  = judge.GenerateCompatibilityReport();
+  abi_util::CompatibilityStatusIR status = judge.GenerateCompatibilityReport();
 
   std::string status_str = "";
+  std::string unreferenced_change_str = "";
+  std::string error_or_warning_str = kWarn;
+
   switch (status) {
-    case CompatibilityStatus::INCOMPATIBLE:
-      status_str = "broken";
+    case abi_util::CompatibilityStatusIR::Incompatible:
+      error_or_warning_str = kError;
+      status_str = "INCOMPATIBLE CHANGES";
       break;
-    case CompatibilityStatus::EXTENSION:
-      status_str = "extended";
+    case abi_util::CompatibilityStatusIR::ElfIncompatible:
+      if (elf_unreferenced_symbol_errors) {
+        error_or_warning_str = kError;
+      }
+      status_str = "ELF Symbols not referenced by exported headers removed";
       break;
     default:
       break;
   }
+  if (status & abi_util::CompatibilityStatusIR::Extension) {
+    if (!allow_extensions) {
+      error_or_warning_str = kError;
+    }
+    status_str = "EXTENDING CHANGES";
+  }
+  if (status & abi_util::CompatibilityStatusIR::UnreferencedChanges) {
+    unreferenced_change_str = ", changes in exported headers, which are";
+    unreferenced_change_str += " not directly referenced by exported symbols.";
+    unreferenced_change_str += " This MIGHT be an ABI breaking change due to";
+    unreferenced_change_str += " internal typecasts.";
+  }
 
-  if (!suppress_local_warnings && status) {
+  bool should_emit_warning_message = ShouldEmitWarningMessage(status);
+
+  if (should_emit_warning_message) {
     llvm::errs() << "******************************************************\n"
-                 << "VNDK Abi "
+                 << error_or_warning_str
+                 << "VNDK library: "
+                 << lib_name
+                 << "'s ABI has "
                  << status_str
-                 << ":"
+                 << unreferenced_change_str
                  << " Please check compatiblity report at : "
                  << compatibility_report << "\n"
-                 << "*****************************************************\n";
+                 << "******************************************************\n";
   }
 
-  if (advice_only) {
-    return CompatibilityStatus::COMPATIBLE;
+  if (!advice_only && should_emit_warning_message) {
+    return status;
   }
 
-  if (allow_extensions && status == CompatibilityStatus::EXTENSION) {
-    return CompatibilityStatus::COMPATIBLE;
-  }
-  return status;
+  return abi_util::CompatibilityStatusIR::Compatible;
 }

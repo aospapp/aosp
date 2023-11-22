@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -19,26 +19,18 @@ import org.objectweb.asm.tree.MethodNode;
 /**
  * Filters methods annotated with <code>@lombok.Generated</code>.
  */
-public class LombokGeneratedFilter implements IFilter {
+public final class LombokGeneratedFilter extends AbstractAnnotatedMethodFilter {
 
-	public void filter(final String className, final String superClassName,
-			final MethodNode methodNode, final IFilterOutput output) {
-		if (hasLombokGeneratedAnnotation(methodNode)) {
-			output.ignore(methodNode.instructions.getFirst(),
-					methodNode.instructions.getLast());
-		}
+	/**
+	 * New filter.
+	 */
+	public LombokGeneratedFilter() {
+		super("lombok/Generated");
 	}
 
-	private boolean hasLombokGeneratedAnnotation(final MethodNode methodNode) {
-		final List<AnnotationNode> runtimeInvisibleAnnotations = methodNode.invisibleAnnotations;
-		if (runtimeInvisibleAnnotations != null) {
-			for (final AnnotationNode annotation : runtimeInvisibleAnnotations) {
-				if ("Llombok/Generated;".equals(annotation.desc)) {
-					return true;
-				}
-			}
-		}
-		return false;
+	@Override
+	List<AnnotationNode> getAnnotations(final MethodNode methodNode) {
+		return methodNode.invisibleAnnotations;
 	}
 
 }

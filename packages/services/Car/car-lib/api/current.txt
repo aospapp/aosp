@@ -11,16 +11,23 @@ package android.car {
     method public boolean isConnecting();
     field public static final java.lang.String APP_FOCUS_SERVICE = "app_focus";
     field public static final java.lang.String AUDIO_SERVICE = "audio";
+    field public static final java.lang.String CAR_CONFIGURATION_SERVICE = "configuration";
     field public static final java.lang.String CAR_EXTRA_MEDIA_PACKAGE = "android.car.intent.extra.MEDIA_PACKAGE";
     field public static final java.lang.String CAR_INTENT_ACTION_MEDIA_TEMPLATE = "android.car.intent.action.MEDIA_TEMPLATE";
+    field public static final java.lang.String CAR_NAVIGATION_SERVICE = "car_navigation_service";
+    field public static final java.lang.String CAR_UX_RESTRICTION_SERVICE = "uxrestriction";
     field public static final int CONNECTION_TYPE_EMBEDDED = 5; // 0x5
     field public static final java.lang.String INFO_SERVICE = "info";
     field public static final java.lang.String PACKAGE_SERVICE = "package";
     field public static final java.lang.String PERMISSION_CAR_CONTROL_AUDIO_VOLUME = "android.car.permission.CAR_CONTROL_AUDIO_VOLUME";
-    field public static final java.lang.String PERMISSION_FUEL = "android.car.permission.CAR_FUEL";
-    field public static final java.lang.String PERMISSION_MILEAGE = "android.car.permission.CAR_MILEAGE";
+    field public static final java.lang.String PERMISSION_CAR_INFO = "android.car.permission.CAR_INFO";
+    field public static final java.lang.String PERMISSION_CAR_NAVIGATION_MANAGER = "android.car.permission.CAR_NAVIGATION_MANAGER";
+    field public static final java.lang.String PERMISSION_ENERGY = "android.car.permission.CAR_ENERGY";
+    field public static final java.lang.String PERMISSION_ENERGY_PORTS = "android.car.permission.CAR_ENERGY_PORTS";
+    field public static final java.lang.String PERMISSION_EXTERIOR_ENVIRONMENT = "android.car.permission.CAR_EXTERIOR_ENVIRONMENT";
+    field public static final java.lang.String PERMISSION_IDENTIFICATION = "android.car.permission.CAR_IDENTIFICATION";
+    field public static final java.lang.String PERMISSION_POWERTRAIN = "android.car.permission.CAR_POWERTRAIN";
     field public static final java.lang.String PERMISSION_SPEED = "android.car.permission.CAR_SPEED";
-    field public static final java.lang.String PERMISSION_VEHICLE_DYNAMICS_STATE = "android.car.permission.VEHICLE_DYNAMICS_STATE";
     field public static final java.lang.String SENSOR_SERVICE = "sensor";
     field public static final int VERSION = 3; // 0x3
   }
@@ -49,6 +56,10 @@ package android.car {
   }
 
   public final class CarInfoManager {
+    method public float getEvBatteryCapacity() throws android.car.CarNotConnectedException;
+    method public int[] getEvConnectorTypes() throws android.car.CarNotConnectedException;
+    method public float getFuelCapacity() throws android.car.CarNotConnectedException;
+    method public int[] getFuelTypes() throws android.car.CarNotConnectedException;
     method public java.lang.String getManufacturer() throws android.car.CarNotConnectedException;
     method public java.lang.String getModel() throws android.car.CarNotConnectedException;
     method public java.lang.String getModelYear() throws android.car.CarNotConnectedException;
@@ -172,8 +183,58 @@ package android.car.app.menu {
 package android.car.content.pm {
 
   public final class CarPackageManager {
-    method public boolean isActivityAllowedWhileDriving(java.lang.String, java.lang.String) throws android.car.CarNotConnectedException;
-    method public boolean isServiceAllowedWhileDriving(java.lang.String, java.lang.String) throws android.car.CarNotConnectedException;
+    method public boolean isActivityDistractionOptimized(java.lang.String, java.lang.String) throws android.car.CarNotConnectedException;
+    method public boolean isServiceDistractionOptimized(java.lang.String, java.lang.String) throws android.car.CarNotConnectedException;
+  }
+
+}
+
+package android.car.drivingstate {
+
+  public class CarUxRestrictions implements android.os.Parcelable {
+    ctor public CarUxRestrictions(android.car.drivingstate.CarUxRestrictions);
+    method public int describeContents();
+    method public int getActiveRestrictions();
+    method public int getMaxContentDepth();
+    method public int getMaxCumulativeContentItems();
+    method public int getMaxRestrictedStringLength();
+    method public long getTimeStamp();
+    method public boolean isRequiresDistractionOptimization();
+    method public boolean isSameRestrictions(android.car.drivingstate.CarUxRestrictions);
+    method public void writeToParcel(android.os.Parcel, int);
+    field public static final android.os.Parcelable.Creator<android.car.drivingstate.CarUxRestrictions> CREATOR;
+    field public static final int UX_RESTRICTIONS_BASELINE = 0; // 0x0
+    field public static final int UX_RESTRICTIONS_FULLY_RESTRICTED = 511; // 0x1ff
+    field public static final int UX_RESTRICTIONS_LIMIT_CONTENT = 32; // 0x20
+    field public static final int UX_RESTRICTIONS_LIMIT_STRING_LENGTH = 4; // 0x4
+    field public static final int UX_RESTRICTIONS_NO_DIALPAD = 1; // 0x1
+    field public static final int UX_RESTRICTIONS_NO_FILTERING = 2; // 0x2
+    field public static final int UX_RESTRICTIONS_NO_KEYBOARD = 8; // 0x8
+    field public static final int UX_RESTRICTIONS_NO_SETUP = 64; // 0x40
+    field public static final int UX_RESTRICTIONS_NO_TEXT_MESSAGE = 128; // 0x80
+    field public static final int UX_RESTRICTIONS_NO_VIDEO = 16; // 0x10
+    field public static final int UX_RESTRICTIONS_NO_VOICE_TRANSCRIPTION = 256; // 0x100
+  }
+
+  public static class CarUxRestrictions.Builder {
+    ctor public CarUxRestrictions.Builder(boolean, int, long);
+    method public android.car.drivingstate.CarUxRestrictions build();
+    method public android.car.drivingstate.CarUxRestrictions.Builder setMaxContentDepth(int);
+    method public android.car.drivingstate.CarUxRestrictions.Builder setMaxCumulativeContentItems(int);
+    method public android.car.drivingstate.CarUxRestrictions.Builder setMaxStringLength(int);
+  }
+
+  public static abstract class CarUxRestrictions.CarUxRestrictionsInfo implements java.lang.annotation.Annotation {
+  }
+
+  public final class CarUxRestrictionsManager {
+    method public android.car.drivingstate.CarUxRestrictions getCurrentCarUxRestrictions() throws android.car.CarNotConnectedException;
+    method public synchronized void registerListener(android.car.drivingstate.CarUxRestrictionsManager.OnUxRestrictionsChangedListener) throws android.car.CarNotConnectedException, java.lang.IllegalArgumentException;
+    method public synchronized void unregisterListener() throws android.car.CarNotConnectedException;
+  }
+
+  public static abstract interface CarUxRestrictionsManager.OnUxRestrictionsChangedListener {
+    method public abstract void onUxRestrictionsChanged(android.car.drivingstate.CarUxRestrictions);
   }
 
 }
@@ -184,27 +245,20 @@ package android.car.hardware {
     method public int describeContents();
     method public void writeToParcel(android.os.Parcel, int);
     field public static final android.os.Parcelable.Creator<android.car.hardware.CarSensorEvent> CREATOR;
-    field public static final int DRIVE_STATUS_FULLY_RESTRICTED = 31; // 0x1f
-    field public static final int DRIVE_STATUS_LIMIT_MESSAGE_LEN = 16; // 0x10
-    field public static final int DRIVE_STATUS_NO_CONFIG = 8; // 0x8
-    field public static final int DRIVE_STATUS_NO_KEYBOARD_INPUT = 2; // 0x2
-    field public static final int DRIVE_STATUS_NO_VIDEO = 1; // 0x1
-    field public static final int DRIVE_STATUS_NO_VOICE_INPUT = 4; // 0x4
-    field public static final int DRIVE_STATUS_UNRESTRICTED = 0; // 0x0
-    field public static final int GEAR_DRIVE = 100; // 0x64
-    field public static final int GEAR_EIGHTH = 8; // 0x8
-    field public static final int GEAR_FIFTH = 5; // 0x5
-    field public static final int GEAR_FIRST = 1; // 0x1
-    field public static final int GEAR_FOURTH = 4; // 0x4
-    field public static final int GEAR_NEUTRAL = 0; // 0x0
-    field public static final int GEAR_NINTH = 9; // 0x9
-    field public static final int GEAR_PARK = 101; // 0x65
-    field public static final int GEAR_REVERSE = 102; // 0x66
-    field public static final int GEAR_SECOND = 2; // 0x2
-    field public static final int GEAR_SEVENTH = 7; // 0x7
-    field public static final int GEAR_SIXTH = 6; // 0x6
-    field public static final int GEAR_TENTH = 10; // 0xa
-    field public static final int GEAR_THIRD = 3; // 0x3
+    field public static final int GEAR_DRIVE = 8; // 0x8
+    field public static final int GEAR_EIGHTH = 2048; // 0x800
+    field public static final int GEAR_FIFTH = 256; // 0x100
+    field public static final int GEAR_FIRST = 16; // 0x10
+    field public static final int GEAR_FOURTH = 128; // 0x80
+    field public static final int GEAR_NEUTRAL = 1; // 0x1
+    field public static final int GEAR_NINTH = 4096; // 0x1000
+    field public static final int GEAR_PARK = 4; // 0x4
+    field public static final int GEAR_REVERSE = 2; // 0x2
+    field public static final int GEAR_SECOND = 32; // 0x20
+    field public static final int GEAR_SEVENTH = 1024; // 0x400
+    field public static final int GEAR_SIXTH = 512; // 0x200
+    field public static final int GEAR_TENTH = 8192; // 0x2000
+    field public static final int GEAR_THIRD = 64; // 0x40
     field public static final int IGNITION_STATE_ACC = 3; // 0x3
     field public static final int IGNITION_STATE_LOCK = 1; // 0x1
     field public static final int IGNITION_STATE_OFF = 2; // 0x2
@@ -213,9 +267,6 @@ package android.car.hardware {
     field public static final int IGNITION_STATE_UNDEFINED = 0; // 0x0
     field public static final int INDEX_ENVIRONMENT_PRESSURE = 1; // 0x1
     field public static final int INDEX_ENVIRONMENT_TEMPERATURE = 0; // 0x0
-    field public static final int INDEX_FUEL_LEVEL_IN_DISTANCE = 1; // 0x1
-    field public static final int INDEX_FUEL_LEVEL_IN_PERCENTILE = 0; // 0x0
-    field public static final int INDEX_FUEL_LOW_WARNING = 0; // 0x0
     field public static final int INDEX_WHEEL_DISTANCE_FRONT_LEFT = 1; // 0x1
     field public static final int INDEX_WHEEL_DISTANCE_FRONT_RIGHT = 2; // 0x2
     field public static final int INDEX_WHEEL_DISTANCE_REAR_LEFT = 4; // 0x4
@@ -236,30 +287,34 @@ package android.car.hardware {
 
   public final class CarSensorManager {
     method public android.car.hardware.CarSensorEvent getLatestSensorEvent(int) throws android.car.CarNotConnectedException;
+    method public java.util.List<android.car.hardware.CarPropertyConfig> getPropertyList() throws android.car.CarNotConnectedException;
     method public int[] getSupportedSensors() throws android.car.CarNotConnectedException;
     method public boolean isSensorSupported(int) throws android.car.CarNotConnectedException;
     method public static boolean isSensorSupported(int[], int);
     method public boolean registerListener(android.car.hardware.CarSensorManager.OnSensorChangedListener, int, int) throws android.car.CarNotConnectedException, java.lang.IllegalArgumentException;
     method public void unregisterListener(android.car.hardware.CarSensorManager.OnSensorChangedListener);
     method public void unregisterListener(android.car.hardware.CarSensorManager.OnSensorChangedListener, int);
-    field public static final int SENSOR_RATE_FAST = 1; // 0x1
-    field public static final int SENSOR_RATE_FASTEST = 0; // 0x0
-    field public static final int SENSOR_RATE_NORMAL = 3; // 0x3
-    field public static final int SENSOR_RATE_UI = 2; // 0x2
-    field public static final int SENSOR_TYPE_ABS_ACTIVE = 24; // 0x18
-    field public static final int SENSOR_TYPE_CAR_SPEED = 2; // 0x2
-    field public static final int SENSOR_TYPE_DRIVING_STATUS = 11; // 0xb
+    field public static final int SENSOR_RATE_FAST = 10; // 0xa
+    field public static final int SENSOR_RATE_FASTEST = 100; // 0x64
+    field public static final int SENSOR_RATE_NORMAL = 1; // 0x1
+    field public static final int SENSOR_RATE_UI = 5; // 0x5
+    field public static final int SENSOR_TYPE_ABS_ACTIVE = 287310858; // 0x1120040a
+    field public static final int SENSOR_TYPE_CAR_SPEED = 291504647; // 0x11600207
     field public static final int SENSOR_TYPE_ENVIRONMENT = 12; // 0xc
-    field public static final int SENSOR_TYPE_FUEL_LEVEL = 5; // 0x5
-    field public static final int SENSOR_TYPE_GEAR = 7; // 0x7
-    field public static final int SENSOR_TYPE_IGNITION_STATE = 22; // 0x16
-    field public static final int SENSOR_TYPE_NIGHT = 9; // 0x9
-    field public static final int SENSOR_TYPE_ODOMETER = 4; // 0x4
-    field public static final int SENSOR_TYPE_PARKING_BRAKE = 6; // 0x6
-    field public static final int SENSOR_TYPE_RPM = 3; // 0x3
-    field public static final int SENSOR_TYPE_TRACTION_CONTROL_ACTIVE = 25; // 0x19
-    field public static final int SENSOR_TYPE_VENDOR_EXTENSION_END = 1879048191; // 0x6fffffff
-    field public static final int SENSOR_TYPE_WHEEL_TICK_DISTANCE = 23; // 0x17
+    field public static final int SENSOR_TYPE_EV_BATTERY_CHARGE_RATE = 291504908; // 0x1160030c
+    field public static final int SENSOR_TYPE_EV_BATTERY_LEVEL = 291504905; // 0x11600309
+    field public static final int SENSOR_TYPE_EV_CHARGE_PORT_CONNECTED = 287310603; // 0x1120030b
+    field public static final int SENSOR_TYPE_EV_CHARGE_PORT_OPEN = 287310602; // 0x1120030a
+    field public static final int SENSOR_TYPE_FUEL_DOOR_OPEN = 287310600; // 0x11200308
+    field public static final int SENSOR_TYPE_FUEL_LEVEL = 291504903; // 0x11600307
+    field public static final int SENSOR_TYPE_GEAR = 289408000; // 0x11400400
+    field public static final int SENSOR_TYPE_IGNITION_STATE = 289408009; // 0x11400409
+    field public static final int SENSOR_TYPE_NIGHT = 287310855; // 0x11200407
+    field public static final int SENSOR_TYPE_ODOMETER = 291504644; // 0x11600204
+    field public static final int SENSOR_TYPE_PARKING_BRAKE = 287310850; // 0x11200402
+    field public static final int SENSOR_TYPE_RPM = 291504901; // 0x11600305
+    field public static final int SENSOR_TYPE_TRACTION_CONTROL_ACTIVE = 287310859; // 0x1120040b
+    field public static final int SENSOR_TYPE_WHEEL_TICK_DISTANCE = 290521862; // 0x11510306
   }
 
   public static abstract interface CarSensorManager.OnSensorChangedListener {
@@ -271,29 +326,48 @@ package android.car.hardware {
 package android.car.media {
 
   public final class CarAudioManager {
-    method public void abandonAudioFocus(android.media.AudioManager.OnAudioFocusChangeListener, android.media.AudioAttributes);
-    method public android.media.AudioAttributes getAudioAttributesForCarUsage(int) throws android.car.CarNotConnectedException;
-    method public int getStreamMaxVolume(int) throws android.car.CarNotConnectedException;
-    method public int getStreamMinVolume(int) throws android.car.CarNotConnectedException;
-    method public int getStreamVolume(int) throws android.car.CarNotConnectedException;
-    method public int requestAudioFocus(android.media.AudioManager.OnAudioFocusChangeListener, android.media.AudioAttributes, int, int) throws android.car.CarNotConnectedException, java.lang.IllegalArgumentException;
-    method public void setStreamVolume(int, int, int) throws android.car.CarNotConnectedException;
-    field public static final int CAR_AUDIO_USAGE_ALARM = 6; // 0x6
-    field public static final int CAR_AUDIO_USAGE_DEFAULT = 0; // 0x0
-    field public static final int CAR_AUDIO_USAGE_MUSIC = 1; // 0x1
-    field public static final int CAR_AUDIO_USAGE_NAVIGATION_GUIDANCE = 3; // 0x3
-    field public static final int CAR_AUDIO_USAGE_NOTIFICATION = 7; // 0x7
-    field public static final int CAR_AUDIO_USAGE_RADIO = 2; // 0x2
-    field public static final int CAR_AUDIO_USAGE_RINGTONE = 10; // 0xa
-    field public static final int CAR_AUDIO_USAGE_SYSTEM_SAFETY_ALERT = 9; // 0x9
-    field public static final int CAR_AUDIO_USAGE_SYSTEM_SOUND = 8; // 0x8
-    field public static final int CAR_AUDIO_USAGE_VOICE_CALL = 4; // 0x4
-    field public static final int CAR_AUDIO_USAGE_VOICE_COMMAND = 5; // 0x5
+    method public android.car.media.CarAudioPatchHandle createAudioPatch(java.lang.String, int, int) throws android.car.CarNotConnectedException;
+    method public java.lang.String[] getExternalSources() throws android.car.CarNotConnectedException;
+    method public int getGroupMaxVolume(int) throws android.car.CarNotConnectedException;
+    method public int getGroupMinVolume(int) throws android.car.CarNotConnectedException;
+    method public int getGroupVolume(int) throws android.car.CarNotConnectedException;
+    method public int[] getUsagesForVolumeGroupId(int) throws android.car.CarNotConnectedException;
+    method public int getVolumeGroupCount() throws android.car.CarNotConnectedException;
+    method public int getVolumeGroupIdForUsage(int) throws android.car.CarNotConnectedException;
+    method public static java.lang.String getVolumeSettingsKeyForGroup(int);
+    method public void registerVolumeCallback(android.os.IBinder) throws android.car.CarNotConnectedException;
+    method public void registerVolumeChangeObserver(android.database.ContentObserver);
+    method public void releaseAudioPatch(android.car.media.CarAudioPatchHandle) throws android.car.CarNotConnectedException;
+    method public void setBalanceTowardRight(float) throws android.car.CarNotConnectedException;
+    method public void setFadeTowardFront(float) throws android.car.CarNotConnectedException;
+    method public void setGroupVolume(int, int, int) throws android.car.CarNotConnectedException;
+    method public void unregisterVolumeCallback(android.os.IBinder) throws android.car.CarNotConnectedException;
+    method public void unregisterVolumeChangeObserver(android.database.ContentObserver);
+  }
+
+  public final class CarAudioPatchHandle implements android.os.Parcelable {
+    ctor public CarAudioPatchHandle(android.media.AudioPatch);
+    method public int describeContents();
+    method public void writeToParcel(android.os.Parcel, int);
+    field public static final android.os.Parcelable.Creator<android.car.media.CarAudioPatchHandle> CREATOR;
+  }
+
+}
+
+package android.car.navigation {
+
+  public final class CarNavigationStatusManager {
+    method public android.car.navigation.CarNavigationInstrumentCluster getInstrumentClusterInfo() throws android.car.CarNotConnectedException;
+    method public void sendEvent(int, android.os.Bundle) throws android.car.CarNotConnectedException;
   }
 
 }
 
 package android.car.settings {
+
+  public class CarConfigurationManager {
+    method public android.car.settings.SpeedBumpConfiguration getSpeedBumpConfiguration() throws android.car.CarNotConnectedException;
+  }
 
   public class CarSettings {
     ctor public CarSettings();
@@ -304,6 +378,16 @@ package android.car.settings {
     field public static final java.lang.String KEY_GARAGE_MODE_ENABLED = "android.car.GARAGE_MODE_ENABLED";
     field public static final java.lang.String KEY_GARAGE_MODE_MAINTENANCE_WINDOW = "android.car.GARAGE_MODE_MAINTENANCE_WINDOW";
     field public static final java.lang.String KEY_GARAGE_MODE_WAKE_UP_TIME = "android.car.GARAGE_MODE_WAKE_UP_TIME";
+  }
+
+  public final class SpeedBumpConfiguration implements android.os.Parcelable {
+    ctor public SpeedBumpConfiguration(double, double, long);
+    method public int describeContents();
+    method public double getAcquiredPermitsPerSecond();
+    method public double getMaxPermitPool();
+    method public long getPermitFillDelay();
+    method public void writeToParcel(android.os.Parcel, int);
+    field public static final android.os.Parcelable.Creator<android.car.settings.SpeedBumpConfiguration> CREATOR;
   }
 
 }

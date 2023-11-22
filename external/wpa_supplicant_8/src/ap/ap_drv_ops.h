@@ -72,7 +72,7 @@ int hostapd_set_tx_queue_params(struct hostapd_data *hapd, int queue, int aifs,
 				int cw_min, int cw_max, int burst_time);
 struct hostapd_hw_modes *
 hostapd_get_hw_feature_data(struct hostapd_data *hapd, u16 *num_modes,
-			    u16 *flags);
+			    u16 *flags, u8 *dfs_domain);
 int hostapd_driver_commit(struct hostapd_data *hapd);
 int hostapd_drv_none(struct hostapd_data *hapd);
 int hostapd_driver_scan(struct hostapd_data *hapd,
@@ -274,8 +274,9 @@ static inline const char * hostapd_drv_get_radio_name(struct hostapd_data *hapd)
 static inline int hostapd_drv_switch_channel(struct hostapd_data *hapd,
 					     struct csa_settings *settings)
 {
-	if (hapd->driver == NULL || hapd->driver->switch_channel == NULL)
-		return -ENOTSUP;
+	if (hapd->driver == NULL || hapd->driver->switch_channel == NULL ||
+	    hapd->drv_priv == NULL)
+		return -1;
 
 	return hapd->driver->switch_channel(hapd->drv_priv, settings);
 }

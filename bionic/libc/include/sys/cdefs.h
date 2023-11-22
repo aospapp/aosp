@@ -37,6 +37,11 @@
 #ifndef	_SYS_CDEFS_H_
 #define	_SYS_CDEFS_H_
 
+#include <android/api-level.h>
+#include <android/versioning.h>
+
+#define __BIONIC__ 1
+
 /*
  * Testing against Clang-specific extensions.
  */
@@ -73,6 +78,8 @@
 #else
 #define __BIONIC_CAST(_k,_t,_v) ((_t) (_v))
 #endif
+
+#define __BIONIC_ALIGN(__value, __alignment) (((__value) + (__alignment)-1) & ~((__alignment)-1))
 
 /*
  * The __CONCAT macro is used to concatenate parts of symbol names, e.g.
@@ -111,41 +118,9 @@
 #define __unused __attribute__((__unused__))
 #define __used __attribute__((__used__))
 
-/*
- * _Nonnull is similar to the nonnull attribute in that it will instruct
- * compilers to warn the user if it can prove that a null argument is being
- * passed. Unlike the nonnull attribute, this annotation indicated that a value
- * *should not* be null, not that it *cannot* be null, or even that the behavior
- * is undefined. The important distinction is that the optimizer will perform
- * surprising optimizations like the following:
- *
- *     void foo(void*) __attribute__(nonnull, 1);
- *
- *     int bar(int* p) {
- *       foo(p);
- *
- *       // The following null check will be elided because nonnull attribute
- *       // means that, since we call foo with p, p can be assumed to not be
- *       // null. Thus this will crash if we are called with a null pointer.
- *       if (p != NULL) {
- *         return *p;
- *       }
- *       return 0;
- *     }
- *
- *     int main() {
- *       return bar(NULL);
- *     }
- *
- * http://clang.llvm.org/docs/AttributeReference.html#nonnull
- */
-#if !(defined(__clang__) && __has_feature(nullability))
-#define _Nonnull
-#define _Nullable
-#endif
-
 #define __printflike(x, y) __attribute__((__format__(printf, x, y)))
 #define __scanflike(x, y) __attribute__((__format__(scanf, x, y)))
+#define __strftimelike(x) __attribute__((__format__(strftime, x, 0)))
 
 /*
  * GNU C version 2.96 added explicit branch prediction so that
@@ -185,11 +160,16 @@
 #  define __warnattr(msg) __attribute__((deprecated(msg)))
 #  define __warnattr_real(msg) __attribute__((deprecated(msg)))
 #  define __enable_if(cond, msg) __attribute__((enable_if(cond, msg)))
+#  define __clang_error_if(cond, msg) __attribute__((diagnose_if(cond, msg, "error")))
+#  define __clang_warning_if(cond, msg) __attribute__((diagnose_if(cond, msg, "warning")))
 #else
 #  define __errorattr(msg) __attribute__((__error__(msg)))
 #  define __warnattr(msg) __attribute__((__warning__(msg)))
 #  define __warnattr_real __warnattr
 /* enable_if doesn't exist on other compilers; give an error if it's used. */
+/* diagnose_if doesn't exist either, but it's often tagged on non-clang-specific functions */
+#  define __clang_error_if(cond, msg)
+#  define __clang_warning_if(cond, msg)
 
 /* errordecls really don't work as well in clang as they do in GCC. */
 #  define __errordecl(name, msg) extern void name(void) __errorattr(msg)
@@ -226,24 +206,55 @@
  * In our header files we test against __USE_BSD and __USE_GNU.
  */
 #if defined(_GNU_SOURCE)
-# define __USE_BSD 1
-# define __USE_GNU 1
+#  define __USE_BSD 1
+#  define __USE_GNU 1
 #endif
 
 #if defined(_BSD_SOURCE)
-# define __USE_BSD 1
+#  define __USE_BSD 1
 #endif
 
-/* _FILE_OFFSET_BITS 64 support. */
+/*
+ * _FILE_OFFSET_BITS 64 support.
+ * See https://android.googlesource.com/platform/bionic/+/master/docs/32-bit-abi.md
+ */
 #if !defined(__LP64__) && defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS == 64
-#define __USE_FILE_OFFSET64 1
-#define __RENAME_IF_FILE_OFFSET64(func) __RENAME(func)
+#  define __USE_FILE_OFFSET64 1
+/*
+ * Note that __RENAME_IF_FILE_OFFSET64 is only valid if the off_t and off64_t
+ * functions were both added at the same API level because if you use this,
+ * you only have one declaration to attach __INTRODUCED_IN to.
+ */
+#  define __RENAME_IF_FILE_OFFSET64(func) __RENAME(func)
 #else
-#define __RENAME_IF_FILE_OFFSET64(func)
+#  define __RENAME_IF_FILE_OFFSET64(func)
 #endif
 
-#define  __BIONIC__   1
-#include <android/api-level.h>
+/*
+ * For LP32, `long double` == `double`. Historically many `long double` functions were incorrect
+ * on x86, missing on most architectures, and even if they are present and correct, linking to
+ * them just bloats your ELF file by adding extra relocations. The __BIONIC_LP32_USE_LONG_DOUBLE
+ * macro lets us test the headers both ways (and adds an escape valve).
+ *
+ * Note that some functions have their __RENAME_LDBL commented out as a sign that although we could
+ * use __RENAME_LDBL it would actually cause the function to be introduced later because the
+ * `long double` variant appeared before the `double` variant.
+ */
+#if defined(__LP64__) || defined(__BIONIC_LP32_USE_LONG_DOUBLE)
+#define __RENAME_LDBL(rewrite,rewrite_api_level,regular_api_level) __INTRODUCED_IN(regular_api_level)
+#else
+#define __RENAME_LDBL(rewrite,rewrite_api_level,regular_api_level) __RENAME(rewrite) __INTRODUCED_IN(rewrite_api_level)
+#endif
+
+/*
+ * On all architectures, `struct stat` == `struct stat64`, but LP32 didn't gain the *64 functions
+ * until API level 21.
+ */
+#if defined(__LP64__) || defined(__BIONIC_LP32_USE_STAT64)
+#define __RENAME_STAT64(rewrite,rewrite_api_level,regular_api_level) __INTRODUCED_IN(regular_api_level)
+#else
+#define __RENAME_STAT64(rewrite,rewrite_api_level,regular_api_level) __RENAME(rewrite) __INTRODUCED_IN(rewrite_api_level)
+#endif
 
 /* glibc compatibility. */
 #if defined(__LP64__)
@@ -262,15 +273,38 @@
 
 #define __BIONIC_FORTIFY_UNKNOWN_SIZE ((size_t) -1)
 
-#if defined(_FORTIFY_SOURCE) && _FORTIFY_SOURCE > 0 && defined(__OPTIMIZE__) && __OPTIMIZE__ > 0
-#  define __BIONIC_FORTIFY 1
+#if defined(_FORTIFY_SOURCE) && _FORTIFY_SOURCE > 0
+#  if defined(__clang__)
+/*
+ * FORTIFY's _chk functions effectively disable ASAN's stdlib interceptors.
+ * Additionally, the static analyzer/clang-tidy try to pattern match some
+ * standard library functions, and FORTIFY sometimes interferes with this. So,
+ * we turn FORTIFY off in both cases.
+ */
+#    if !__has_feature(address_sanitizer) && !defined(__clang_analyzer__)
+#      define __BIONIC_FORTIFY 1
+#    endif
+#  elif defined(__OPTIMIZE__) && __OPTIMIZE__ > 0
+#    define __BIONIC_FORTIFY 1
+#  endif
+#endif
+
+// As we move some FORTIFY checks to be always on, __bos needs to be
+// always available.
+#if defined(__BIONIC_FORTIFY)
 #  if _FORTIFY_SOURCE == 2
 #    define __bos_level 1
 #  else
 #    define __bos_level 0
 #  endif
-#  define __bosn(s, n) __builtin_object_size((s), (n))
-#  define __bos(s) __bosn((s), __bos_level)
+#else
+#  define __bos_level 0
+#endif
+
+#define __bosn(s, n) __builtin_object_size((s), (n))
+#define __bos(s) __bosn((s), __bos_level)
+
+#if defined(__BIONIC_FORTIFY)
 #  define __bos0(s) __bosn((s), 0)
 #  if defined(__clang__)
 #    define __pass_object_size_n(n) __attribute__((pass_object_size(n)))
@@ -285,6 +319,13 @@
  * inline` without making them available externally.
  */
 #    define __BIONIC_FORTIFY_INLINE static __inline__ __always_inline
+/*
+ * We should use __BIONIC_FORTIFY_VARIADIC instead of __BIONIC_FORTIFY_INLINE
+ * for variadic functions because compilers cannot inline them.
+ * The __always_inline attribute is useless, misleading, and could trigger
+ * clang compiler bug to incorrectly inline variadic functions.
+ */
+#    define __BIONIC_FORTIFY_VARIADIC static __inline__
 /* Error functions don't have bodies, so they can just be static. */
 #    define __BIONIC_ERROR_FUNCTION_VISIBILITY static
 #  else
@@ -296,6 +337,8 @@
 #    define __call_bypassing_fortify(fn) (fn)
 /* __BIONIC_FORTIFY_NONSTATIC_INLINE is pointless in GCC's FORTIFY */
 #    define __BIONIC_FORTIFY_INLINE extern __inline__ __always_inline __attribute__((gnu_inline)) __attribute__((__artificial__))
+/* __always_inline is probably okay and ignored by gcc in __BIONIC_FORTIFY_VARIADIC */
+#    define __BIONIC_FORTIFY_VARIADIC __BIONIC_FORTIFY_INLINE
 #  endif
 #else
 /* Further increase sharing for some inline functions */
@@ -303,6 +346,10 @@
 #endif
 #define __pass_object_size __pass_object_size_n(__bos_level)
 #define __pass_object_size0 __pass_object_size_n(0)
+
+#if defined(__BIONIC_FORTIFY) || defined(__BIONIC_DECLARE_FORTIFY_HELPERS)
+#  define __BIONIC_INCLUDE_FORTIFY_HEADERS 1
+#endif
 
 /*
  * Used to support clangisms with FORTIFY. Because these change how symbols are
@@ -320,11 +367,8 @@
  */
 #if defined(__clang__) && defined(__BIONIC_FORTIFY)
 #  define __overloadable __attribute__((overloadable))
-/* We don't use __RENAME directly because on gcc this could result in unnecessary renames. */
-#  define __RENAME_CLANG(x) __RENAME(x)
 #else
 #  define __overloadable
-#  define __RENAME_CLANG(x)
 #endif
 
 /* Used to tag non-static symbols that are private and never exposed by the shared library. */
@@ -342,8 +386,6 @@
 
 /* Used to rename functions so that the compiler emits a call to 'x' rather than the function this was applied to. */
 #define __RENAME(x) __asm__(#x)
-
-#include <android/versioning.h>
 
 #if __has_builtin(__builtin_umul_overflow) || __GNUC__ >= 5
 #if defined(__LP64__)

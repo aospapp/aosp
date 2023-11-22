@@ -68,7 +68,6 @@ files_db_get_filename(void *node)
 	return (((struct files_db_s *)node)->filename);
 }
 
-
 void *files_db_create_handle(void);
 void files_db_write_objects(FILE *fp);
 void *files_db_add(char *filename);
@@ -77,5 +76,6 @@ int files_db_get_total_obj(void);
 void init_filename_cache(void);
 void store_filename_cache(void);
 
-
-
+int ioshark_write_header(FILE *fp, struct ioshark_header *header);
+int ioshark_write_file_state(FILE *fp, struct ioshark_file_state *state);
+int ioshark_write_file_op(FILE *fp, struct ioshark_file_operation *file_op);

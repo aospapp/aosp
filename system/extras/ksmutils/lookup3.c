@@ -316,6 +316,7 @@ uint32_t hashlittle( const void *key, size_t length, uint32_t initval)
      */
 #ifndef VALGRIND
 
+    (void) k8; // unused
     switch(length)
     {
     case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
@@ -501,6 +502,7 @@ void hashlittle2(
      */
 #ifndef VALGRIND
 
+    (void) k8; // unused
     switch(length)
     {
     case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
@@ -678,6 +680,7 @@ uint32_t hashbig( const void *key, size_t length, uint32_t initval)
      */
 #ifndef VALGRIND
 
+    (void) k8; // unused
     switch(length)
     {
     case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;

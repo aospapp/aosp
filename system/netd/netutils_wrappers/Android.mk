@@ -22,16 +22,14 @@ include $(CLEAR_VARS)
 LOCAL_CFLAGS := -Wall -Werror
 LOCAL_CLANG := true
 LOCAL_MODULE := netutils-wrapper-1.0
-LOCAL_SHARED_LIBRARIES := libc libbase liblog
+LOCAL_SHARED_LIBRARIES := libbase liblog
 LOCAL_SRC_FILES := NetUtilsWrapper-1.0.cpp main.cpp
-LOCAL_MODULE_CLASS := EXECUTABLES
-
-LOCAL_POST_INSTALL_CMD := $(hide) mkdir -p $(TARGET_OUT)/bin; \
-    ln -sf netutils-wrapper-1.0 $(TARGET_OUT)/bin/iptables-wrapper-1.0; \
-    ln -sf netutils-wrapper-1.0 $(TARGET_OUT)/bin/ip6tables-wrapper-1.0; \
-    ln -sf netutils-wrapper-1.0 $(TARGET_OUT)/bin/ndc-wrapper-1.0; \
-    ln -sf netutils-wrapper-1.0 $(TARGET_OUT)/bin/tc-wrapper-1.0; \
-    ln -sf netutils-wrapper-1.0 $(TARGET_OUT)/bin/ip-wrapper-1.0;
+LOCAL_MODULE_SYMLINKS := \
+    iptables-wrapper-1.0 \
+    ip6tables-wrapper-1.0 \
+    ndc-wrapper-1.0 \
+    tc-wrapper-1.0 \
+    ip-wrapper-1.0
 
 include $(BUILD_EXECUTABLE)
 
@@ -43,8 +41,7 @@ include $(CLEAR_VARS)
 LOCAL_CFLAGS := -Wall -Werror
 LOCAL_CLANG := true
 LOCAL_MODULE := netutils_wrapper_test
-LOCAL_SHARED_LIBRARIES := libc libbase liblog
+LOCAL_SHARED_LIBRARIES := libbase liblog
 LOCAL_SRC_FILES := NetUtilsWrapper-1.0.cpp NetUtilsWrapperTest-1.0.cpp
-LOCAL_MODULE_CLASS := NATIVE_TESTS
 
 include $(BUILD_NATIVE_TEST)

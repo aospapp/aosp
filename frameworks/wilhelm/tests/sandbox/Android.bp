@@ -404,6 +404,7 @@ cc_test {
         "libutils",
         "liblog",
         "libOpenMAXAL",
+        "libui",
         "libgui",
         "libbinder",
         "libandroid",

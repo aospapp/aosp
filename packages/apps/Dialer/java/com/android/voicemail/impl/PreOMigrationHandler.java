@@ -18,12 +18,13 @@ package com.android.voicemail.impl;
 
 import android.content.Context;
 import android.os.Bundle;
+import android.support.annotation.VisibleForTesting;
 import android.support.annotation.WorkerThread;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
+import com.android.voicemail.VoicemailComponent;
 import com.android.voicemail.impl.settings.VisualVoicemailSettingsUtil;
-import com.android.voicemail.impl.settings.VoicemailChangePinActivity;
 import java.lang.reflect.Method;
 
 /** Handles migration of data from the visual voicemail client in telephony before O. */
@@ -49,7 +50,7 @@ public final class PreOMigrationHandler {
   private static final String EXTRA_VOICEMAIL_SCRAMBLED_PIN_STRING =
       "android.telephony.extra.VOICEMAIL_SCRAMBLED_PIN_STRING";
 
-  private static final String PRE_O_MIGRATION_FINISHED = "pre_o_migration_finished";
+  @VisibleForTesting static final String PRE_O_MIGRATION_FINISHED = "pre_o_migration_finished";
 
   @WorkerThread
   public static void migrate(Context context, PhoneAccountHandle phoneAccountHandle) {
@@ -95,7 +96,10 @@ public final class PreOMigrationHandler {
       String scrambledPin = legacySettings.getString(EXTRA_VOICEMAIL_SCRAMBLED_PIN_STRING);
       if (!TextUtils.isEmpty(scrambledPin)) {
         VvmLog.i("PreOMigrationHandler.migrateSettings", "migrating scrambled PIN");
-        VoicemailChangePinActivity.setDefaultOldPIN(context, phoneAccountHandle, scrambledPin);
+        VoicemailComponent.get(context)
+            .getVoicemailClient()
+            .createPinChanger(context, phoneAccountHandle)
+            .setScrambledPin(scrambledPin);
       }
     }
   }

@@ -19,6 +19,7 @@
     android:id="@+id/keylistener_textview"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:textSize="10dp"
-/>
+    android:textSize="10dp">
+    <requestFocus />
+</android.text.method.cts.EditTextNoIme>
 

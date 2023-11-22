@@ -73,7 +73,6 @@ void ExtentsFile::AdvancePos(uint64_t size) {
     if (curr_pos_ < acc_len_[curr_ex_idx_] + extents_[curr_ex_idx_].len)
       return;
   }
-  return;
 }
 
 template <typename T>

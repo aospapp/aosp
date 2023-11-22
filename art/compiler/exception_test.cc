@@ -19,27 +19,34 @@
 #include "base/arena_allocator.h"
 #include "base/callee_save_type.h"
 #include "base/enums.h"
+#include "base/leb128.h"
 #include "class_linker.h"
 #include "common_runtime_test.h"
-#include "dex_file.h"
-#include "dex_file-inl.h"
+#include "dex/code_item_accessors-inl.h"
+#include "dex/dex_file-inl.h"
+#include "dex/dex_file.h"
+#include "dex/dex_file_exception_helpers.h"
 #include "gtest/gtest.h"
-#include "leb128.h"
+#include "handle_scope-inl.h"
 #include "mirror/class-inl.h"
-#include "mirror/object_array-inl.h"
 #include "mirror/object-inl.h"
+#include "mirror/object_array-inl.h"
 #include "mirror/stack_trace_element.h"
 #include "oat_quick_method_header.h"
 #include "optimizing/stack_map_stream.h"
 #include "runtime-inl.h"
 #include "scoped_thread_state_change-inl.h"
-#include "handle_scope-inl.h"
 #include "thread.h"
 
 namespace art {
 
 class ExceptionTest : public CommonRuntimeTest {
  protected:
+  // Since various dexers may differ in bytecode layout, we play
+  // it safe and simply set the dex pc to the start of the method,
+  // which always points to the first source statement.
+  static constexpr const uint32_t kDexPc = 0;
+
   virtual void SetUp() {
     CommonRuntimeTest::SetUp();
 
@@ -61,9 +68,10 @@ class ExceptionTest : public CommonRuntimeTest {
     }
 
     ArenaPool pool;
-    ArenaAllocator allocator(&pool);
+    ArenaStack arena_stack(&pool);
+    ScopedArenaAllocator allocator(&arena_stack);
     StackMapStream stack_maps(&allocator, kRuntimeISA);
-    stack_maps.BeginStackMapEntry(/* dex_pc */ 3u,
+    stack_maps.BeginStackMapEntry(kDexPc,
                                   /* native_pc_offset */ 3u,
                                   /* register_mask */ 0u,
                                   /* sp_mask */ nullptr,
@@ -97,7 +105,7 @@ class ExceptionTest : public CommonRuntimeTest {
              static_cast<const void*>(fake_header_code_and_maps_.data() +
                                           (fake_header_code_and_maps_.size() - code_size)));
 
-    if (kRuntimeISA == kArm) {
+    if (kRuntimeISA == InstructionSet::kArm) {
       // Check that the Thumb2 adjustment will be a NOP, see EntryPointToCodePointer().
       CHECK_ALIGNED(stack_maps_offset, 2);
     }
@@ -127,19 +135,18 @@ class ExceptionTest : public CommonRuntimeTest {
 
 TEST_F(ExceptionTest, FindCatchHandler) {
   ScopedObjectAccess soa(Thread::Current());
-  const DexFile::CodeItem* code_item = dex_->GetCodeItem(method_f_->GetCodeItemOffset());
+  CodeItemDataAccessor accessor(*dex_, dex_->GetCodeItem(method_f_->GetCodeItemOffset()));
 
-  ASSERT_TRUE(code_item != nullptr);
+  ASSERT_TRUE(accessor.HasCodeItem());
 
-  ASSERT_EQ(2u, code_item->tries_size_);
-  ASSERT_NE(0u, code_item->insns_size_in_code_units_);
+  ASSERT_EQ(2u, accessor.TriesSize());
+  ASSERT_NE(0u, accessor.InsnsSizeInCodeUnits());
 
-  const DexFile::TryItem *t0, *t1;
-  t0 = dex_->GetTryItems(*code_item, 0);
-  t1 = dex_->GetTryItems(*code_item, 1);
-  EXPECT_LE(t0->start_addr_, t1->start_addr_);
+  const DexFile::TryItem& t0 = accessor.TryItems().begin()[0];
+  const DexFile::TryItem& t1 = accessor.TryItems().begin()[1];
+  EXPECT_LE(t0.start_addr_, t1.start_addr_);
   {
-    CatchHandlerIterator iter(*code_item, 4 /* Dex PC in the first try block */);
+    CatchHandlerIterator iter(accessor, 4 /* Dex PC in the first try block */);
     EXPECT_STREQ("Ljava/io/IOException;", dex_->StringByTypeIdx(iter.GetHandlerTypeIndex()));
     ASSERT_TRUE(iter.HasNext());
     iter.Next();
@@ -149,14 +156,14 @@ TEST_F(ExceptionTest, FindCatchHandler) {
     EXPECT_FALSE(iter.HasNext());
   }
   {
-    CatchHandlerIterator iter(*code_item, 8 /* Dex PC in the second try block */);
+    CatchHandlerIterator iter(accessor, 8 /* Dex PC in the second try block */);
     EXPECT_STREQ("Ljava/io/IOException;", dex_->StringByTypeIdx(iter.GetHandlerTypeIndex()));
     ASSERT_TRUE(iter.HasNext());
     iter.Next();
     EXPECT_FALSE(iter.HasNext());
   }
   {
-    CatchHandlerIterator iter(*code_item, 11 /* Dex PC not in any try block */);
+    CatchHandlerIterator iter(accessor, 11 /* Dex PC not in any try block */);
     EXPECT_FALSE(iter.HasNext());
   }
 }
@@ -179,11 +186,6 @@ TEST_F(ExceptionTest, StackTraceElement) {
   ASSERT_EQ(kStackAlignment, 16U);
   // ASSERT_EQ(sizeof(uintptr_t), sizeof(uint32_t));
 
-
-  // Create three fake stack frames with mapping data created in SetUp. We map offset 3 in the
-  // code to dex pc 3.
-  const uint32_t dex_pc = 3;
-
   // Create the stack frame for the callee save method, expected by the runtime.
   fake_stack.push_back(reinterpret_cast<uintptr_t>(save_method));
   for (size_t i = 0; i < frame_info.FrameSizeInBytes() - 2 * sizeof(uintptr_t);
@@ -192,14 +194,14 @@ TEST_F(ExceptionTest, StackTraceElement) {
   }
 
   fake_stack.push_back(method_g_->GetOatQuickMethodHeader(0)->ToNativeQuickPc(
-      method_g_, dex_pc, /* is_catch_handler */ false));  // return pc
+      method_g_, kDexPc, /* is_catch_handler */ false));  // return pc
 
   // Create/push fake 16byte stack frame for method g
   fake_stack.push_back(reinterpret_cast<uintptr_t>(method_g_));
   fake_stack.push_back(0);
   fake_stack.push_back(0);
   fake_stack.push_back(method_g_->GetOatQuickMethodHeader(0)->ToNativeQuickPc(
-      method_g_, dex_pc, /* is_catch_handler */ false));  // return pc
+      method_g_, kDexPc, /* is_catch_handler */ false));  // return pc
 
   // Create/push fake 16byte stack frame for method f
   fake_stack.push_back(reinterpret_cast<uintptr_t>(method_f_));
@@ -215,7 +217,7 @@ TEST_F(ExceptionTest, StackTraceElement) {
   fake_stack.push_back(0);
   fake_stack.push_back(0);
 
-  // Set up thread to appear as if we called out of method_g_ at pc dex 3
+  // Set up thread to appear as if we called out of method_g_ at given pc dex.
   thread->SetTopOfStack(reinterpret_cast<ArtMethod**>(&fake_stack[0]));
 
   jobject internal = thread->CreateInternalStackTrace<false>(soa);
@@ -231,7 +233,7 @@ TEST_F(ExceptionTest, StackTraceElement) {
   EXPECT_STREQ("ExceptionHandle.java",
                trace_array->Get(0)->GetFileName()->ToModifiedUtf8().c_str());
   EXPECT_STREQ("g", trace_array->Get(0)->GetMethodName()->ToModifiedUtf8().c_str());
-  EXPECT_EQ(37, trace_array->Get(0)->GetLineNumber());
+  EXPECT_EQ(36, trace_array->Get(0)->GetLineNumber());
 
   ASSERT_TRUE(trace_array->Get(1) != nullptr);
   EXPECT_STREQ("ExceptionHandle",

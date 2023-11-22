@@ -19,6 +19,7 @@
     package="com.android.cts.net.hostside.app2" >
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!--
@@ -33,7 +34,7 @@
          This application also provides a service, RemoteSocketFactoryService, that the test app can
          use to open sockets to remote hosts as a different user ID.
     -->
-    <application>
+    <application android:usesCleartextTraffic="true">
         <activity android:name=".MyActivity" android:exported="true"/>
         <service android:name=".MyService" android:exported="true"/>
         <service android:name=".MyForegroundService" android:exported="true"/>

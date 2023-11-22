@@ -126,7 +126,7 @@ func setupVisitTest(t *testing.T) *Context {
 		t.FailNow()
 	}
 
-	errs = ctx.ResolveDependencies(nil)
+	_, errs = ctx.ResolveDependencies(nil)
 	if len(errs) > 0 {
 		t.Errorf("unexpected dep errors:")
 		for _, err := range errs {
@@ -141,7 +141,7 @@ func setupVisitTest(t *testing.T) *Context {
 func TestVisit(t *testing.T) {
 	ctx := setupVisitTest(t)
 
-	topModule := ctx.modulesFromName("A")[0].logicModule.(*visitModule)
+	topModule := ctx.modulesFromName("A", nil)[0].logicModule.(*visitModule)
 	assertString(t, topModule.properties.VisitDepsDepthFirst, "EDCB")
 	assertString(t, topModule.properties.VisitDepsDepthFirstIf, "EDC")
 	assertString(t, topModule.properties.VisitDirectDeps, "B")

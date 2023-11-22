@@ -5,7 +5,7 @@
 // It also provides the definitions(including PPIs/PROTOCOLs/GUIDs and library classes)
 // and libraries instances, which are used for those features.
 //
-// Copyright (c) 2009 - 2015, Intel Corporation. All rights reserved.<BR>
+// Copyright (c) 2009 - 2017, Intel Corporation. All rights reserved.<BR>
 //
 // This program and the accompanying materials are licensed and made available under
 // the terms and conditions of the BSD License which accompanies this distribution.
@@ -180,6 +180,7 @@
 #string STR_gEfiSecurityPkgTokenSpaceGuid_PcdRsa2048Sha256PublicKeyBuffer_PROMPT  #language en-US "One or more SHA 256 Hashes of RSA 2048 bit public keys used to verify Recovery and Capsule Update images"
 
 #string STR_gEfiSecurityPkgTokenSpaceGuid_PcdRsa2048Sha256PublicKeyBuffer_HELP  #language en-US "Provides one or more SHA 256 Hashes of the RSA 2048 public keys used to verify Recovery and Capsule Update images\n"
+                                                                                                "WARNING: The default value is treated as test key. Please do not use default value in the production."
 
 #string STR_gEfiSecurityPkgTokenSpaceGuid_PcdTcg2NumberOfPCRBanks_PROMPT  #language en-US "OEM configurated number of PCR banks."
 
@@ -192,3 +193,35 @@
                                                                                            "Bios may choose to register a subset of PcdTpm2HashMask.\n"
                                                                                            "So this PCD is final value of how many hash algo is extended to PCR."
 
+#string STR_gEfiSecurityPkgTokenSpaceGuid_PcdTcgLogAreaMinLen_PROMPT  #language en-US "Minimum length(in bytes) of the system preboot TCG event log area(LAML)."
+
+#string STR_gEfiSecurityPkgTokenSpaceGuid_PcdTcgLogAreaMinLen_HELP  #language en-US "This PCD defines minimum length(in bytes) of the system preboot TCG event log area(LAML).\n"
+                                                                                    "For PC Client Implementation spec up to and including 1.2 the minimum log size is 64KB."
+
+#string STR_gEfiSecurityPkgTokenSpaceGuid_PcdTcg2FinalLogAreaLen_PROMPT  #language en-US "Length(in bytes) of the TCG2 Final event log area."
+
+#string STR_gEfiSecurityPkgTokenSpaceGuid_PcdTcg2FinalLogAreaLen_HELP  #language en-US "This PCD defines length(in bytes) of the TCG2 Final event log area."
+
+#string STR_gEfiSecurityPkgTokenSpaceGuid_PcdTcgPhysicalPresenceInterfaceVer_PROMPT  #language en-US "Version of Physical Presence interface supported by platform."
+
+#string STR_gEfiSecurityPkgTokenSpaceGuid_PcdTcgPhysicalPresenceInterfaceVer_HELP  #language en-US "Null-terminated string of the Version of Physical Presence interface supported by platform."
+
+#string STR_gEfiSecurityPkgTokenSpaceGuid_PcdUserPhysicalPresence_PROMPT
+#language en-US
+"A physical presence user status"
+
+#string STR_gEfiSecurityPkgTokenSpaceGuid_PcdUserPhysicalPresence_HELP
+#language en-US
+"Indicate whether a physical presence user exist. "
+"When it is configured to Dynamic or DynamicEx, it can be set through detection using "
+"a platform-specific method (e.g. Button pressed) in a actual platform in early boot phase.<BR><BR>"
+
+#string STR_gEfiSecurityPkgTokenSpaceGuid_PcdPkcs7CertBuffer_PROMPT  #language en-US "One PKCS7 cert used to verify Recovery and Capsule Update images"
+
+#string STR_gEfiSecurityPkgTokenSpaceGuid_PcdPkcs7CertBuffer_HELP  #language en-US "Provides one PKCS7 cert used to verify Recovery and Capsule Update images\n"
+                                                                                   "WARNING: The default value is treated as test key. Please do not use default value in the production."
+
+#string STR_gEfiSecurityPkgTokenSpaceGuid_PcdTcg2PhysicalPresenceFlags_PROMPT  #language en-US " Initial setting of TCG2 Persistent Firmware Management Flags"
+
+#string STR_gEfiSecurityPkgTokenSpaceGuid_PcdTcg2PhysicalPresenceFlags_HELP  #language en-US "This PCD defines initial setting of TCG2 Persistent Firmware Management Flags\n"
+                                                                                   "PCD can be configured for different settings in different scenarios."

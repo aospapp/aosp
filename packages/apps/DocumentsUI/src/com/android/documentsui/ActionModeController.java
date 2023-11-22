@@ -16,7 +16,7 @@
 
 package com.android.documentsui;
 
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
 import android.annotation.IdRes;
 import android.annotation.Nullable;
@@ -24,7 +24,6 @@ import android.app.Activity;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.ActionMode;
-import android.view.HapticFeedbackConstants;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -35,22 +34,20 @@ import com.android.documentsui.base.ConfirmationCallback.Result;
 import com.android.documentsui.base.EventHandler;
 import com.android.documentsui.base.Menus;
 import com.android.documentsui.selection.Selection;
-import com.android.documentsui.selection.SelectionManager;
+import com.android.documentsui.selection.SelectionHelper;
+import com.android.documentsui.selection.SelectionHelper.SelectionObserver;
 import com.android.documentsui.ui.MessageBuilder;
-
-import java.util.function.Consumer;
-import java.util.function.IntConsumer;
 
 /**
  * A controller that listens to selection changes and manages life cycles of action modes.
  */
-public class ActionModeController
-        implements SelectionManager.Callback, ActionMode.Callback, ActionModeAddons {
+public class ActionModeController extends SelectionObserver
+        implements ActionMode.Callback, ActionModeAddons {
 
     private static final String TAG = "ActionModeController";
 
     private final Activity mActivity;
-    private final SelectionManager mSelectionMgr;
+    private final SelectionHelper mSelectionMgr;
     private final MenuManager mMenuManager;
     private final MessageBuilder mMessages;
 
@@ -62,7 +59,7 @@ public class ActionModeController
 
     public ActionModeController(
             Activity activity,
-            SelectionManager selectionMgr,
+            SelectionHelper selectionMgr,
             MenuManager menuManager,
             MessageBuilder messages) {
 
@@ -74,7 +71,7 @@ public class ActionModeController
 
     @Override
     public void onSelectionChanged() {
-        mSelectionMgr.getSelection(mSelected);
+        mSelectionMgr.copySelection(mSelected);
         if (mSelected.size() > 0) {
             if (mActionMode == null) {
                 if (DEBUG) Log.d(TAG, "Starting action mode.");
@@ -99,27 +96,7 @@ public class ActionModeController
 
     @Override
     public void onSelectionRestored() {
-        mSelectionMgr.getSelection(mSelected);
-        if (mSelected.size() > 0) {
-            if (mActionMode == null) {
-                if (DEBUG) Log.d(TAG, "Starting action mode.");
-                mActionMode = mActivity.startActionMode(this);
-            }
-            updateActionMenu();
-        } else {
-            if (mActionMode != null) {
-                if (DEBUG) Log.d(TAG, "Finishing action mode.");
-                mActionMode.finish();
-            }
-        }
-
-        if (mActionMode != null) {
-            assert(!mSelected.isEmpty());
-            final String title = mMessages.getQuantityString(
-                    R.plurals.elements_selected, mSelected.size());
-            mActionMode.setTitle(title);
-            mActivity.getWindow().setTitle(title);
-        }
+        onSelectionChanged();
     }
 
     // Called when the user exits the action mode
@@ -135,9 +112,7 @@ public class ActionModeController
         mActionMode = null;
         mMenu = null;
 
-        // clear selection
         mSelectionMgr.clearSelection();
-        mSelected.clear();
 
         // Reset window title back to activity title, i.e. Root name
         mActivity.getWindow().setTitle(mActivity.getTitle());

@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"ກຳລັງຕັ້ງຄ່າອຸປະກອນບ່ອນເຮັດວຽກ..."</string>
     <string name="progress_data_process" msgid="1707745321954672971">"ກຳ​ລັງ​ປະ​ມວນ​ຜົນ​ຂໍ້​ມູນ​ການ​ຕັ້ງ​ຄ່າ..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"ກຳ​ລັງ​ເຊື່ອມ​ຕໍ່​ກັ​ບ Wi-Fi..."</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"ກຳລັງເຊື່ອມຕໍ່ຫາເຄືອຂ່າຍມືຖື…"</string>
     <string name="progress_download" msgid="3522436271691064624">"ກຳ​ລັງ​ດາວ​ໂຫລດ​ແອັບຯ​ຜູ້ຄວບ​ຄຸມ​ລະ​ບົບ..."</string>
     <string name="progress_install" msgid="2258045670385866183">"ກຳ​ລັງ​ຕິດ​ຕັ້ງ​ແອັບຯ​ຜູ້​ຄວບ​ຄຸມ​ລະ​ບົບ..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"ກຳລັງລຶບແອັບລະບົບທີ່ບໍ່ຕ້ອງໃຊ້ອອກ…"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"ທ່ານກຳລັງຈະສ້າງໂປຣໄຟລ໌ບ່ອນເຮັດວຽກທີ່ຖືກຈັດການ ແລະ ຕິດຕາມໂດຍອົງກອນຂອງທ່ານ. ມີການນຳໃຊ້ຂໍ້ກຳນົດຈາກ <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"ລະບົບຈະສ້າງໂປຣໄຟລ໌ສຳລັບແອັບບ່ອນເຮັດວຽກຂອງທ່ານ. ໂປຣໄຟລ໌ນີ້ ແລະ ສ່ວນທີ່ເຫຼືອຂອງອຸປະກອນທ່ານຈະຖືກຈັດການ ແລະ ຕິດຕາມໂດຍອົງກອນຂອງທ່ານ. ມີຂໍ້ກຳນົດຕ່າງໆ."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"ລະບົບຈະສ້າງໂປຣໄຟລ໌ສຳລັບແອັບບ່ອນເຮັດວຽກຂອງທ່ານ. ໂປຣໄຟລ໌ນີ້ ແລະ ສ່ວນທີ່ເຫຼືອຂອງອຸປະກອນທ່ານຈະຖືກຈັດການ ແລະ ຕິດຕາມໂດຍອົງກອນຂອງທ່ານ. ມີການນຳໃຊ້ຂໍ້ກຳນົດຈາກ <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"ອຸປະກອນນີ້ຈະຖືກຈັດການ ແລະ ຮັກສາຄວາມປອດໄພໂດຍ <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. ມີຂໍ້ກຳນົດນຳໃຊ້. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"ອຸປະກອນນີ້ຈະຖືກຈັດການ ແລະ ຮັກສາຄວາມປອດໄພໂດຍ <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. ມີຂໍ້ກຳນົດຈາກ <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> ນຳ. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"ອຸປະກອນນີ້ຈະຖືກຈັດການ, ຕິດຕາມ ແລະ ເກັບຮັກສາໃຫ້ປອດໄພໂດຍ <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. ມີຂໍ້ກຳນົດຕ່າງໆ. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"ອຸປະກອນນີ້ຈະຖືກຈັດການ, ຕິດຕາມ ແລະ ເກັບຮັກສາໃຫ້ປອດໄພໂດຍ <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. ມີຂໍ້ກຳນົດຕ່າງໆຈາກ <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> ຈະຖືກນຳໃຊ້. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"ລິ້ງນີ້ບໍ່ປອດໄພ ແລະ ບໍ່ສາມາດເປີດໄດ້ຈົນກວ່າຈະຕັ້ງຄ່າອຸປະກອນແລ້ວໆ: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"ຫາກທ່ານມີຄຳຖາມ, ໃຫ້ຕິດຕໍ່ <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> ຂອງທ່ານ."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"ຫາກທ່ານມີຄຳຖາມ, ໃຫ້ຕິດຕໍ່ຜູ້ເບິ່ງແຍງລະບົບອົງກອນຂອງທ່ານ"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> ແລະ <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"ຂັ້ນຕອນນີ້ອາດໃຊ້ເວລາສອງສາມນາທີ"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"ແອັບວຽກຂອງທ່ານຈະຖືກເກັບຮັກສາໄວ້ໃນໂປຣໄຟລ໌ນີ້ ແລະ ຈັດການໂດຍອົງກອນຂອງທ່ານ"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"ອຸປະກອນນີ້ຈະຖືກເກັບຮັກສາໄວ້ຢ່າງປອດໄພ ແລະ ຖືກຈັດການໂດຍອົງກອນຂອງທ່ານ"</string>
 </resources>

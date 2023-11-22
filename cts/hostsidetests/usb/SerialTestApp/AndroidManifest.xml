@@ -15,7 +15,12 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.usb.serialtest">
+        package="com.android.cts.usb.serialtest"
+        android:targetSandboxVersion="2">
+
+    <uses-sdk android:minSdkVersion="27" android:targetSdkVersion="28" />
+
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
     <application>
         <uses-library android:name="android.test.runner" />

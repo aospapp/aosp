@@ -22,27 +22,29 @@ expression.
 @param check_hosts: require appropriate live hosts to exist in the lab.
 @param SKIP_IMAGE: (optional) If present and True, don't re-image devices.
 """
-import ast, logging
+import ast
+import logging
 
 import common
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 from autotest_lib.server.cros.dynamic_suite import suite
 from autotest_lib.server.cros import provision
 
-suite_args_dict = ast.literal_eval(args_dict['suite_args'])
-
 # Get the predicate object from attr_filter argument
+
+# TODO(crbug.com/758427): suite_args needed to support being run by old Autotest
+if 'attr_filter' not in args_dict:
+    args_dict.update(ast.literal_eval(suite_args))
+
 try:
-    attr = suite_args_dict['attr_filter']
+    attr = args_dict['attr_filter']
     attr_predicate = suite.Suite.matches_attribute_expression_predicate(attr)
 except KeyError:
     logging.error('Unable to find the attribute boolean expression used to '
                   'trigger tests in suite_args %s, please use attr_filter '
-                  'keyword to specify it. suite aborting' % suite_args_dict)
+                  'keyword to specify it. suite aborting' % args_dict)
     raise
 
-# Update suite_args_dict into args_dict
-args_dict.update(suite_args_dict)
 args_dict['predicate'] = attr_predicate
 args_dict.setdefault('name', NAME)
 args_dict['job'] = job

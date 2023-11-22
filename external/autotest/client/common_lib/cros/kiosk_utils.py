@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file
 
+import logging
 import time
 
 from telemetry.core import exceptions
@@ -12,10 +13,41 @@ from autotest_lib.client.common_lib.cros import chrome
 DEFAULT_TIMEOUT = 30
 SHORT_TIMEOUT = 5
 
+
+def get_webview_contexts(browser, ext_id):
+    """Get all webview contexts for an extension.
+
+    @param browser: Telemetry browser object.
+    @param ext_id: Extension id of the kiosk app.
+    @return A list of webview contexts.
+    """
+    ext_contexts = wait_for_kiosk_ext(browser, ext_id)
+
+    for context in ext_contexts:
+        context.WaitForDocumentReadyStateToBeInteractiveOrBetter()
+        tagName = context.EvaluateJavaScript(
+            "document.querySelector('webview') ? 'WEBVIEW' : 'NOWEBVIEW'")
+        if tagName == "WEBVIEW":
+            def _webview_context():
+                try:
+                    return context.GetWebviewContexts()
+                except (chrome.Error):
+                    logging.exception(
+                        'An error occured while getting the webview contexts.')
+                return None
+
+            return utils.poll_for_condition(
+                    _webview_context,
+                    exception=error.TestFail('Webview not available.'),
+                    timeout=DEFAULT_TIMEOUT,
+                    sleep_interval=1)
+
+
+# TODO(dtosic): deprecate this method in favor of 'get_webview_contexts()'
 def get_webview_context(browser, ext_id):
     """Get context for CFM webview.
 
-    @param broswer: Telemetry broswer object.
+    @param browser: Telemetry browser object.
     @param ext_id: Extension id of the kiosk app.
     @return webview context.
     """

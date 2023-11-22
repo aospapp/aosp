@@ -19,6 +19,6 @@
 
 #define DVLOG_LOC(from_here, verbose_level)                                \
   LAZY_STREAM(VLOG_LOC_STREAM(from_here, verbose_level),                   \
-              ::logging::DEBUG_MODE && VLOG_IS_ON(verbose_level))
+              DCHECK_IS_ON() && VLOG_IS_ON(verbose_level))
 
 #endif  // LIBBRILLO_BRILLO_LOCATION_LOGGING_H_

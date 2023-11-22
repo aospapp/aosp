@@ -22,13 +22,14 @@ import android.media.tv.TvInputManager;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.provider.Settings;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceGroup;
 import android.support.v7.preference.TwoStatePreference;
 import android.text.TextUtils;
 
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.Map;
 import java.util.Set;
@@ -36,7 +37,7 @@ import java.util.Set;
 /**
  * Fragment to control TV input settings.
  */
-public class InputsFragment extends LeanbackPreferenceFragment {
+public class InputsFragment extends SettingsPreferenceFragment {
 
     private static final String KEY_CONNECTED_INPUTS = "connected_inputs";
     private static final String KEY_STANDBY_INPUTS = "standby_inputs";
@@ -212,5 +213,10 @@ public class InputsFragment extends LeanbackPreferenceFragment {
 
     public static String makeInputPrefKey(TvInputInfo inputInfo) {
         return "InputPref:" + inputInfo.getId();
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsEvent.SETTINGS_TV_INPUTS_CATEGORY;
     }
 }

@@ -2,134 +2,148 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import itertools, time
+import logging
+import time
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros import tpm_utils
-from autotest_lib.server import test
-from autotest_lib.server.cros.multimedia import remote_facade_factory
-
+from autotest_lib.server.cros.cfm import cfm_base_test
 
 _SHORT_TIMEOUT = 5
-_WAIT_DELAY = 15
+
+_CAMERA = 'Camera'
+_MICROPHONE = 'Microphone'
+_SPEAKER = 'Speaker'
 
 
-class enterprise_CFM_USBPeripheralHotplugStress(test.test):
-    """Uses servo to hotplug and unplug USB peripherals multiple times and
+class enterprise_CFM_USBPeripheralHotplugStress(cfm_base_test.CfmBaseTest):
+    """
+    Uses servo to hotplug and unplug USB peripherals multiple times and
     verify's that the hotrod app appropriately detects the peripherals using
-    app api's."""
+    app api's.
+    """
     version = 1
 
 
     def _set_hub_power(self, on=True):
-        """Setting USB hub power status
+        """
+        Setting USB hub power status
 
         @param on: To power on the servo usb hub or not.
-
         """
-        reset = 'off'
-        if not on:
-            reset = 'on'
-        self.client.servo.set('dut_hub1_rst1', reset)
-        time.sleep(_WAIT_DELAY)
-
-
-    def _enroll_device_and_skip_oobe(self):
-        """Enroll device into CFM and skip CFM oobe."""
-        self.cfm_facade.enroll_device()
-        self.cfm_facade.restart_chrome_for_cfm()
-        self.cfm_facade.wait_for_telemetry_commands()
-        self.cfm_facade.wait_for_oobe_start_page()
-
-        if not self.cfm_facade.is_oobe_start_page():
-            raise error.TestFail('CFM did not reach oobe screen.')
-
-        self.cfm_facade.skip_oobe_screen()
+        # To power on the hub means to turn reset off.
+        if on:
+            self._host.servo.set('dut_hub1_rst1', 'off')
+        else:
+            self._host.servo.set('dut_hub1_rst1', 'on')
         time.sleep(_SHORT_TIMEOUT)
 
 
-    def _set_peripheral(self, peripheral_dict):
-        """Set perferred peripherals.
+    def _set_preferred_peripheral(self, peripheral_dict):
+        """
+        Set perferred peripherals.
 
-        @param peripheral_dict: Dictionary of peripherals
+        @param peripheral_dict: Dictionary of peripherals.
         """
         avail_mics = self.cfm_facade.get_mic_devices()
         avail_speakers = self.cfm_facade.get_speaker_devices()
         avail_cameras = self.cfm_facade.get_camera_devices()
 
-        if peripheral_dict.get('Microphone') in avail_mics:
+        if peripheral_dict.get(_MICROPHONE) in avail_mics:
             self.cfm_facade.set_preferred_mic(
-                    peripheral_dict.get('Microphone'))
-        if peripheral_dict.get('Speaker') in avail_speakers:
+                    peripheral_dict.get(_MICROPHONE))
+        if peripheral_dict.get(_SPEAKER) in avail_speakers:
             self.cfm_facade.set_preferred_speaker(
-                    peripheral_dict.get('Speaker'))
-        if peripheral_dict.get('Camera') in avail_cameras:
+                    peripheral_dict.get(_SPEAKER))
+        if peripheral_dict.get(_CAMERA) in avail_cameras:
             self.cfm_facade.set_preferred_camera(
-                    peripheral_dict.get('Camera'))
+                    peripheral_dict.get(_CAMERA))
 
 
-    def _peripheral_detection(self, peripheral_dict, on_off):
-        """Detect attached peripheral.
-
-        @param peripheral_dict: Dictionary of peripherals
-        @param on_off: Is USB hub on or off.
+    def _check_peripheral(self, device_type, hub_on, peripheral_dict,
+                          get_preferred, get_all):
         """
-        if 'Microphone' in peripheral_dict.keys():
-            if (on_off and peripheral_dict.get('Microphone') not in
-                    self.cfm_facade.get_preferred_mic()):
-                raise error.TestFail('Microphone not detected.')
-            if (not on_off and peripheral_dict.get('Microphone') in
-                    self.cfm_facade.get_preferred_mic()):
-                raise error.TestFail('Microphone should not be detected.')
+        Checks a connected peripheral depending on the usb hub state.
 
-        if 'Speaker' in peripheral_dict.keys():
-            if (on_off and peripheral_dict.get('Speaker') not in
-                    self.cfm_facade.get_preferred_speaker()):
-                raise error.TestFail('Speaker not detected.')
-            if not on_off and self.cfm_facade.get_preferred_speaker():
-                raise error.TestFail('Speaker should not be detected.')
+        @param device_type: The type of the peripheral.
+        @param hub_on: wheter the USB hub is on or off.
+        @param peripheral_dict: A dictionary of connected peripherals, keyed
+            by type.
+        @param get_preferred: Function that gets the prefered device for the
+            specified type. Prefered means the CfM selects that device as active
+            even if other devices of the same type are conncted to it
+            (e.g. multiple cameras).
+        @param get_all: Function that gets all conncted devices for the
+            specified type.
+        """
+        device_name = peripheral_dict.get(device_type)
+        prefered_peripheral = get_preferred()
+        avail_devices = get_all()
 
-        if 'Camera' in peripheral_dict.keys():
-            if (on_off and peripheral_dict.get('Camera') not in
-                    self.cfm_facade.get_preferred_camera()):
-                raise error.TestFail('Camera not detected.')
-            if not on_off and self.cfm_facade.get_preferred_camera():
-                raise error.TestFail('Camera should not be detected.')
+        if hub_on:
+            if device_name != prefered_peripheral:
+                raise error.TestFail('%s not detected.' % device_type)
+        else:
+            if device_name == prefered_peripheral:
+                raise error.TestFail('%s should not be detected.' % device_type)
+
+        if avail_devices:
+            if prefered_peripheral is None:
+                raise error.TestFail('Available %s not selected.' % device_type)
+            if ((not hub_on and device_name != prefered_peripheral) and
+                (prefered_peripheral not in avail_devices)):
+                raise error.TestFail('Available %s not selected.' % device_type)
+
+        if hub_on:
+            logging.info("[SUCCESS] %s has been detected.", device_type)
+        else:
+            logging.info("[SUCCESS] %s has not been detected.", device_type)
 
 
-    def run_once(self, host, repeat, peripheral_whitelist_dict):
-        """Main function to run autotest.
+    def _check_peripherals(self, peripheral_dict, hub_on):
+        """
+        Sets the hub power and verifies the visibility of peripherals.
 
-        @param host: Host object representing the DUT.
+        @param peripheral_dict: Dictionary of peripherals to check.
+        @param hub_on: To turn the USB hub on or off.
+        """
+        self._set_hub_power(hub_on)
+
+        if _MICROPHONE in peripheral_dict:
+            self._check_peripheral(
+                _MICROPHONE,
+                hub_on,
+                peripheral_dict,
+                self.cfm_facade.get_preferred_mic,
+                self.cfm_facade.get_mic_devices)
+
+        if _SPEAKER in peripheral_dict:
+            self._check_peripheral(
+                _SPEAKER,
+                hub_on,
+                peripheral_dict,
+                self.cfm_facade.get_preferred_speaker,
+                self.cfm_facade.get_speaker_devices)
+
+        if _CAMERA in peripheral_dict:
+            self._check_peripheral(
+                _CAMERA,
+                hub_on,
+                peripheral_dict,
+                self.cfm_facade.get_preferred_camera,
+                self.cfm_facade.get_camera_devices)
+
+
+    def run_once(self, repeat, peripheral_whitelist_dict):
+        """
+        Main function to run autotest.
+
         @param repeat: Number of times peripheral should be hotplugged.
         @param peripheral_whitelist_dict: Dictionary of peripherals to test.
         """
-        self.client = host
-
-        factory = remote_facade_factory.RemoteFacadeFactory(
-                host, no_chrome=True)
-        self.cfm_facade = factory.create_cfm_facade()
-
-        tpm_utils.ClearTPMOwnerRequest(self.client)
-
-        if self.client.servo:
-            self.client.servo.switch_usbkey('dut')
-            self.client.servo.set('usb_mux_sel3', 'dut_sees_usbkey')
-            time.sleep(_SHORT_TIMEOUT)
-            self._set_hub_power(True)
-
-        try:
-            self._enroll_device_and_skip_oobe()
-            self._set_peripheral(peripheral_whitelist_dict)
-
-            on_off_list = [True, False]
-            on_off = itertools.cycle(on_off_list)
-            while repeat:
-                reset_ = on_off.next()
-                self._set_hub_power(reset_)
-                self._peripheral_detection(peripheral_whitelist_dict, reset_)
-                repeat -= 1
-        except Exception as e:
-            raise error.TestFail(str(e))
-
-        tpm_utils.ClearTPMOwnerRequest(self.client)
+        self.cfm_facade.wait_for_hangouts_telemetry_commands()
+        self._set_preferred_peripheral(peripheral_whitelist_dict)
+        for _ in xrange(repeat):
+            # Plug out.
+            self._check_peripherals(peripheral_whitelist_dict, False)
+            # Plug in.
+            self._check_peripherals(peripheral_whitelist_dict, True)

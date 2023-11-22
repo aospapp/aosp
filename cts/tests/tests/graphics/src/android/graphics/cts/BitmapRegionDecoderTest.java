@@ -562,6 +562,33 @@ public class BitmapRegionDecoderTest {
         region.recycle();
     }
 
+    @Test
+    public void testF16WithInBitmap() throws IOException {
+        // This image normally decodes to F16, but if there is an inBitmap,
+        // decoding will match the Config of that Bitmap.
+        InputStream is = obtainInputStream(ASSET_NAMES[0]); // F16
+        BitmapRegionDecoder decoder = BitmapRegionDecoder.newInstance(is, false);
+
+        Options opts = new BitmapFactory.Options();
+        for (Bitmap.Config config : new Bitmap.Config[] {
+                null, // Do not use inBitmap
+                Bitmap.Config.ARGB_8888,
+                Bitmap.Config.RGB_565}) {
+            Bitmap.Config expected = config;
+            if (expected == null) {
+                expected = Bitmap.Config.RGBA_F16;
+                opts.inBitmap = null;
+            } else {
+                opts.inBitmap = Bitmap.createBitmap(decoder.getWidth(),
+                        decoder.getHeight(), config);
+            }
+            Bitmap result = decoder.decodeRegion(new Rect(0, 0, decoder.getWidth(),
+                        decoder.getHeight()), opts);
+            assertNotNull(result);
+            assertEquals(expected, result.getConfig());
+        }
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void testInColorSpaceNotRgb() throws IOException {
         Options opts = new BitmapFactory.Options();

@@ -16,7 +16,8 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.view.cts">
+    package="android.view.cts"
+    android:targetSandboxVersion="2">
 
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
@@ -191,6 +192,13 @@
                   android:configChanges="orientation|screenSize"
                   android:colorMode="wideColorGamut" />
 
+        <activity android:name="android.view.cts.PixelCopyViewProducerDialogActivity"
+                  android:label="PixelCopyViewProducerDialogActivity"
+                  android:screenOrientation="portrait"
+                  android:rotationAnimation="jumpcut"
+                  android:theme="@android:style/Theme.Material.Dialog.NoActionBar"
+                  android:configChanges="orientation|screenSize" />
+
         <activity android:name="android.view.cts.FocusFinderCtsActivity"
                   android:screenOrientation="locked"
                   android:label="FocusFinderCtsActivity">
@@ -288,15 +296,6 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="android.view.cts.PanicPressBackActivity"
-                  android:screenOrientation="locked"
-                  android:label="PanicPressBackActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
-
         <activity android:name="android.view.cts.DragDropActivity"
                   android:screenOrientation="portrait"
                   android:label="DragDropActivity">
@@ -316,8 +315,7 @@
         </activity>
 
         <activity android:name="android.view.cts.HoverCtsActivity"
-                  android:screenOrientation="locked"
-                  android:theme="@style/WhiteBackgroundTheme">
+                  android:screenOrientation="locked">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -346,6 +344,18 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.KeyEventInterceptTestActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.TouchDelegateTestActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
             </intent-filter>
         </activity>
     </application>

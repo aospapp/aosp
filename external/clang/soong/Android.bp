@@ -3,6 +3,7 @@ bootstrap_go_package {
     pkgPath: "android/soong/external/clang",
     deps: [
         "blueprint",
+        "blueprint-proptools",
         "soong-android",
         "soong-cc",
         "soong-genrule",

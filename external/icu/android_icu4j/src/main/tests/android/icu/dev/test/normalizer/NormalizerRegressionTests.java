@@ -11,10 +11,15 @@
 package android.icu.dev.test.normalizer;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.Normalizer;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class NormalizerRegressionTests extends TestFmwk {
     @Test
     public void TestJB4472() {

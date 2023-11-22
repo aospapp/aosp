@@ -4,7 +4,7 @@
 # This SMM driver performs SMM initialization, deploy SMM Entry Vector,
 # provides CPU specific services in SMM.
 #
-# Copyright (c) 2009 - 2015, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2009 - 2016, Intel Corporation. All rights reserved.<BR>
 #
 # This program and the accompanying materials
 # are licensed and made available under the terms and conditions of the BSD License
@@ -44,6 +44,7 @@
   SmmProfile.h
   SmmProfileInternal.h
   SmramSaveState.c
+  SmmCpuMemoryManagement.c
 
 [Sources.Ia32]
   Ia32/Semaphore.c
@@ -51,20 +52,20 @@
   Ia32/SmmFuncsArch.c
   Ia32/SmmProfileArch.c
   Ia32/SmmProfileArch.h
-  Ia32/SmmInit.asm      | MSFT
-  Ia32/SmiEntry.asm     | MSFT
-  Ia32/SmiException.asm | MSFT
-  Ia32/MpFuncs.asm      | MSFT
+  Ia32/SmmInit.asm
+  Ia32/SmiEntry.asm
+  Ia32/SmiException.asm
+  Ia32/MpFuncs.asm
 
-  Ia32/SmmInit.asm      | INTEL
-  Ia32/SmiEntry.asm     | INTEL
-  Ia32/SmiException.asm | INTEL
-  Ia32/MpFuncs.asm      | INTEL
+  Ia32/SmmInit.nasm
+  Ia32/SmiEntry.nasm
+  Ia32/SmiException.nasm
+  Ia32/MpFuncs.nasm
 
-  Ia32/SmmInit.S        | GCC
-  Ia32/SmiEntry.S       | GCC
-  Ia32/SmiException.S   | GCC
-  Ia32/MpFuncs.S        | GCC
+  Ia32/SmmInit.S
+  Ia32/SmiEntry.S
+  Ia32/SmiException.S
+  Ia32/MpFuncs.S
 
 [Sources.X64]
   X64/Semaphore.c
@@ -72,20 +73,20 @@
   X64/SmmFuncsArch.c
   X64/SmmProfileArch.c
   X64/SmmProfileArch.h
-  X64/SmmInit.asm      | MSFT
-  X64/SmiEntry.asm     | MSFT
-  X64/SmiException.asm | MSFT
-  X64/MpFuncs.asm      | MSFT
+  X64/SmmInit.asm
+  X64/SmiEntry.asm
+  X64/SmiException.asm
+  X64/MpFuncs.asm
 
-  X64/SmmInit.asm      | INTEL
-  X64/SmiEntry.asm     | INTEL
-  X64/SmiException.asm | INTEL
-  X64/MpFuncs.asm      | INTEL
+  X64/SmmInit.nasm
+  X64/SmiEntry.nasm
+  X64/SmiException.nasm
+  X64/MpFuncs.nasm
 
-  X64/SmmInit.S        | GCC
-  X64/SmiEntry.S       | GCC
-  X64/SmiException.S   | GCC
-  X64/MpFuncs.S        | GCC
+  X64/SmmInit.S
+  X64/SmiEntry.S
+  X64/SmiException.S
+  X64/MpFuncs.S
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -133,6 +134,7 @@
   gEfiGlobalVariableGuid                   ## SOMETIMES_PRODUCES ## Variable:L"SmmProfileData"
   gEfiAcpi20TableGuid                      ## SOMETIMES_CONSUMES ## SystemTable
   gEfiAcpi10TableGuid                      ## SOMETIMES_CONSUMES ## SystemTable
+  gEdkiiPiSmmMemoryAttributesTableGuid     ## CONSUMES ## SystemTable
 
 [FeaturePcd]
   gUefiCpuPkgTokenSpaceGuid.PcdCpuSmmDebug                         ## CONSUMES
@@ -153,6 +155,8 @@
   gUefiCpuPkgTokenSpaceGuid.PcdCpuHotPlugDataAddress               ## SOMETIMES_PRODUCES
   gUefiCpuPkgTokenSpaceGuid.PcdCpuSmmCodeAccessCheckEnable         ## CONSUMES
   gUefiCpuPkgTokenSpaceGuid.PcdCpuSmmSyncMode                      ## CONSUMES
+  gUefiCpuPkgTokenSpaceGuid.PcdCpuSmmStaticPageTable               ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiS3Enable                   ## CONSUMES
 
 [Depex]
   gEfiMpServiceProtocolGuid

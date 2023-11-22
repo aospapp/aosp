@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <resources>
-    <!-- The default size for all FABs in the radio. -->
-    <dimen name="car_radio_fab_size">160dp</dimen>
+    <!-- The size of the manual tuner FAB. -->
+    <dimen name="manual_tuner_fab_size">160dp</dimen>
 
     <!-- The default spacing for padding and margins in the radio application. -->
     <dimen name="radio_default_spacing">16dp</dimen>
@@ -66,12 +66,12 @@ limitations under the License.
     <dimen name="car_preset_item_radius">64dp</dimen>
 
     <!-- The dimensions of the pill background behind each preset channel. -->
-    <dimen name="car_preset_number_bg_width">112dp</dimen>
+    <dimen name="car_preset_number_bg_width">160dp</dimen>
     <dimen name="car_preset_number_bg_height">76dp</dimen>
 
     <!-- The radius of the pill. This number should be half the value of
          car_preset_number_bg_height. -->
-    <dimen name="car_preset_number_bg_radius">38dp</dimen>
+    <dimen name="car_preset_number_bg_radius">8dp</dimen>
 
     <!-- The total height of the container that holds the current radio card in the preset list. -->
     <dimen name="car_preset_container_height">176dp</dimen>
@@ -81,6 +81,9 @@ limitations under the License.
 
     <!-- The size of the text displaying the current channel number in the presets activity. -->
     <dimen name="car_preset_current_channel_text_size">46sp</dimen>
+
+    <!-- The space between the currently playing icon and the radio band -->
+    <dimen name="car_preset_equalizer_padding">8dp</dimen>
 
     <!-- The spacing between the current radio channel and the current radio band in the preset
          list. -->
@@ -92,13 +95,8 @@ limitations under the License.
     <!-- The padding of the play button in the radio in the presets activity. -->
     <dimen name="car_presets_play_button_padding">16dp</dimen>
 
-    <!-- The corner radius for the cards in the preset list. This corner is only present on the
-         first and last card in the list and on the top and bottom respectively. -->
-    <dimen name="car_preset_card_radius">16dp</dimen>
-
-    <!-- The size of the equalizer next to a preset item that indicates it is the currently
-         playing radio station. -->
-    <dimen name="preset_equalizer_size">60dp</dimen>
+    <!-- The absolute size of the favorite button in the radio in the presets activity. -->
+    <dimen name="car_preset_favorite_button_size">64dp</dimen>
 
     <!-- The size of the icon indicating that there is an error with loading the radio. -->
     <dimen name="radio_error_icon_size">146dp</dimen>
@@ -116,7 +114,7 @@ limitations under the License.
     <dimen name="manual_tuner_channel_text_size">96sp</dimen>
 
     <!-- The height of the container corresponding to manual_tuner_container_width. This height
-         should equal to the height of the dialpad. This is equal to 4 * stream_button_size +
+         should equal to the height of the dialpad. This is equal to 4 * car_touch_target +
          3 * manual_tuner_dialpad_vertical_spacing. -->
     <dimen name="manual_tuner_container_height">288dp</dimen>
 
@@ -126,19 +124,13 @@ limitations under the License.
 
     <!-- The top padding before the content within the manual tuner. -->
     <dimen name="manual_tuner_top_padding">@dimen/radio_default_spacing</dimen>
+    <!-- The left padding before the content within the manual tuner. -->
+    <dimen name="manual_tuner_left_padding">@dimen/radio_default_spacing</dimen>
 
     <!-- The size of the numbers in the manual tuner dialpad. -->
-    <dimen name="manual_tuner_dialpad_text_size">50sp</dimen>
+    <dimen name="manual_tuner_dialpad_text_size">64sp</dimen>
 
     <!-- The top margin for the dialpad. This value is negative to pull the dialpad up a bit
          for visual purposes. -->
     <dimen name="manual_tuner_dialpad_top_margin">-16dp</dimen>
-
-    <!-- The spacing between the buttons on the dialpad. -->
-    <dimen name="manual_tuner_dialpad_horizontal_spacing">56dp</dimen>
-    <dimen name="manual_tuner_dialpad_vertical_spacing">0dp</dimen>
-
-    <!-- The size of the container that houses the back button in the manual tuner. The back button
-         is centered within this container. -->
-    <dimen name="manual_tuner_back_button_container_size">@dimen/stream_content_keyline_2</dimen>
 </resources>

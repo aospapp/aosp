@@ -31,27 +31,13 @@
 
 // Include this before open/close/unlink are defined as macros below.
 #include <android-base/errors.h>
+#include <android-base/macros.h>
 #include <android-base/unique_fd.h>
 #include <android-base/utf8.h>
 
 #include "sysdeps/errno.h"
 #include "sysdeps/network.h"
 #include "sysdeps/stat.h"
-
-/*
- * TEMP_FAILURE_RETRY is defined by some, but not all, versions of
- * <unistd.h>. (Alas, it is not as standard as we'd hoped!) So, if it's
- * not already defined, then define it here.
- */
-#ifndef TEMP_FAILURE_RETRY
-/* Used to retry syscalls that can return EINTR. */
-#define TEMP_FAILURE_RETRY(exp) ({         \
-    typeof (exp) _rc;                      \
-    do {                                   \
-        _rc = (exp);                       \
-    } while (_rc == -1 && errno == EINTR); \
-    _rc; })
-#endif
 
 // Some printf-like functions are implemented in terms of
 // android::base::StringAppendV, so they should use the same attribute for
@@ -125,14 +111,14 @@ extern int adb_mkdir(const std::string& path, int mode);
 #define  mkdir  ___xxx_mkdir
 
 // See the comments for the !defined(_WIN32) versions of adb_*().
-extern int  adb_open(const char*  path, int  options);
-extern int  adb_creat(const char*  path, int  mode);
-extern int  adb_read(int  fd, void* buf, int len);
-extern int  adb_write(int  fd, const void*  buf, int  len);
-extern int  adb_lseek(int  fd, int  pos, int  where);
-extern int  adb_shutdown(int  fd);
-extern int  adb_close(int  fd);
-extern int  adb_register_socket(SOCKET s);
+extern int adb_open(const char* path, int options);
+extern int adb_creat(const char* path, int mode);
+extern int adb_read(int fd, void* buf, int len);
+extern int adb_write(int fd, const void* buf, int len);
+extern int adb_lseek(int fd, int pos, int where);
+extern int adb_shutdown(int fd, int direction = SHUT_RDWR);
+extern int adb_close(int fd);
+extern int adb_register_socket(SOCKET s);
 
 // See the comments for the !defined(_WIN32) version of unix_close().
 static __inline__ int  unix_close(int fd)
@@ -433,14 +419,10 @@ static __inline__ int  adb_open( const char*  pathname, int  options )
 #undef   open
 #define  open    ___xxx_open
 
-static __inline__ int  adb_shutdown(int fd)
-{
-    return shutdown(fd, SHUT_RDWR);
-}
-static __inline__ int  adb_shutdown(int fd, int direction)
-{
+static __inline__ int adb_shutdown(int fd, int direction = SHUT_RDWR) {
     return shutdown(fd, direction);
 }
+
 #undef   shutdown
 #define  shutdown   ____xxx_shutdown
 

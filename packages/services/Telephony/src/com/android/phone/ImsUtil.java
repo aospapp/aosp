@@ -20,6 +20,7 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.telephony.CarrierConfigManager;
+import android.telephony.SubscriptionManager;
 import android.util.Log;
 
 import com.android.ims.ImsConfig;
@@ -52,8 +53,9 @@ public class ImsUtil {
      * @return {@code true} if WFC is supported by the platform and has been enabled by the user.
      */
     public static boolean isWfcEnabled(Context context) {
-        boolean isEnabledByPlatform = ImsManager.isWfcEnabledByPlatform(context);
-        boolean isEnabledByUser = ImsManager.isWfcEnabledByUser(context);
+        ImsManager imsManager = getDefaultImsManagerInstance(context);
+        boolean isEnabledByPlatform = imsManager.isWfcEnabledByPlatform();
+        boolean isEnabledByUser = imsManager.isWfcEnabledByUser();
         if (DBG) Log.d(LOG_TAG, "isWfcEnabled :: isEnabledByPlatform=" + isEnabledByPlatform);
         if (DBG) Log.d(LOG_TAG, "isWfcEnabled :: isEnabledByUser=" + isEnabledByUser);
         return isEnabledByPlatform && isEnabledByUser;
@@ -64,8 +66,8 @@ public class ImsUtil {
      * enabled, this will return {@code false}.
      */
     public static boolean isWfcModeWifiOnly(Context context) {
-        boolean isWifiOnlyMode =
-                ImsManager.getWfcMode(context) == ImsConfig.WfcModeFeatureValueConstants.WIFI_ONLY;
+        boolean isWifiOnlyMode = getDefaultImsManagerInstance(context).getWfcMode()
+                == ImsConfig.WfcModeFeatureValueConstants.WIFI_ONLY;
         if (DBG) Log.d(LOG_TAG, "isWfcModeWifiOnly :: isWifiOnlyMode" + isWifiOnlyMode);
         return isWfcEnabled(context) && isWifiOnlyMode;
     }
@@ -86,7 +88,7 @@ public class ImsUtil {
             return false;
         }
 
-        if (!ImsManager.isWfcProvisionedOnDevice(context)) {
+        if (!getDefaultImsManagerInstance(context).isWfcProvisionedOnDevice()) {
             return false;
         }
 
@@ -99,5 +101,9 @@ public class ImsUtil {
             }
         }
         return false;
+    }
+
+    private static ImsManager getDefaultImsManagerInstance(Context context) {
+        return ImsManager.getInstance(context, SubscriptionManager.getDefaultVoicePhoneId());
     }
 }

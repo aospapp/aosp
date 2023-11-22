@@ -18,7 +18,6 @@ from builtins import str
 
 import argparse
 import multiprocessing
-import os
 import signal
 import sys
 import traceback
@@ -91,8 +90,8 @@ def _run_tests_parallel(parsed_configs, test_identifiers, repeat):
     Each test run will be in its own process.
 
     Args:
-        parsed_config: A list of dicts, each is a set of configs for one
-                       test_runner.TestRunner.
+        parsed_configs: A list of dicts, each is a set of configs for one
+                        test_runner.TestRunner.
         test_identifiers: A list of tuples, each identifies what test case to
                           run on what test class.
         repeat: Number of times to iterate the specified tests.
@@ -121,8 +120,8 @@ def _run_tests_sequential(parsed_configs, test_identifiers, repeat):
     of their corresponding configs.
 
     Args:
-        parsed_config: A list of dicts, each is a set of configs for one
-                       test_runner.TestRunner.
+        parsed_configs: A list of dicts, each is a set of configs for one
+                        test_runner.TestRunner.
         test_identifiers: A list of tuples, each identifies what test case to
                           run on what test class.
         repeat: Number of times to iterate the specified tests.
@@ -135,9 +134,9 @@ def _run_tests_sequential(parsed_configs, test_identifiers, repeat):
         try:
             ret = _run_test(c, test_identifiers, repeat)
             ok = ok and ret
-        except:
-            print("Exception occurred when executing test bed %s" %
-                  c[keys.Config.key_testbed.value])
+        except Exception as e:
+            print("Exception occurred when executing test bed %s. %s" %
+                  (c[keys.Config.key_testbed.value], e))
     return ok
 
 
@@ -145,17 +144,12 @@ def main(argv):
     """This is a sample implementation of a cli entry point for ACTS test
     execution.
 
-    Alternatively, you could directly invoke an ACTS test script:
-
-        python3 MyTest.py -c my_config.json
-
-    See acts.test_runner.main for more details.
     Or you could implement your own cli entry point using acts.config_parser
     functions and acts.test_runner.execute_one_test_class.
     """
-    parser = argparse.ArgumentParser(description=(
-        "Specify tests to run. If "
-        "nothing specified, run all test cases found."))
+    parser = argparse.ArgumentParser(
+        description=("Specify tests to run. If nothing specified, "
+                     "run all test cases found."))
     parser.add_argument(
         '-c',
         '--config',
@@ -227,7 +221,7 @@ def main(argv):
         '-r',
         '--random',
         action="store_true",
-        help=("If set, tests will be executed in random order."))
+        help="If set, tests will be executed in random order.")
     parser.add_argument(
         '-ti',
         '--test_case_iterations',
@@ -250,12 +244,15 @@ def main(argv):
 
     # Execute test runners.
     if args.parallel and len(parsed_configs) > 1:
+        print('Running tests in parallel.')
         exec_result = _run_tests_parallel(parsed_configs, test_identifiers,
                                           args.campaign_iterations)
     else:
+        print('Running tests sequentially.')
         exec_result = _run_tests_sequential(parsed_configs, test_identifiers,
                                             args.campaign_iterations)
     if exec_result is False:
+        # return 1 upon test failure.
         sys.exit(1)
     sys.exit(0)
 

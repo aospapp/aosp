@@ -38,7 +38,12 @@
 #define I2C_BUS_ID                      0
 #endif
 
+#ifdef LP3943_I2C_SPEED
+#define I2C_SPEED                       LP3943_I2C_SPEED
+#else
 #define I2C_SPEED                       400000
+#endif
+
 #ifdef LP3943_I2C_ADDR
 #define I2C_ADDR                        LP3943_I2C_ADDR
 #else

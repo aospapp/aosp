@@ -75,8 +75,6 @@ public class DataModel {
     private static final String INTERNAL = "internal";
 
     private static final Uri ART_BASE_URI = Uri.parse("content://media/external/audio/albumart");
-    // Need a context to create this constant so it can't be static.
-    private final String DEFAULT_ALBUM_ART_URI;
 
     public static final String PATH_KEY = "PATH";
 
@@ -89,8 +87,6 @@ public class DataModel {
     public DataModel(Context context) {
         mContext = context;
         mResolver = context.getContentResolver();
-        DEFAULT_ALBUM_ART_URI =
-                Utils.getUriForResource(context, R.drawable.ic_sd_storage_black).toString();
     }
 
     public void onQueryByFolder(String parentId, Result<List<MediaItem>> result) {
@@ -174,7 +170,7 @@ public class DataModel {
                         metadata.putLong(MediaMetadata.METADATA_KEY_DURATION,
                                 cursor.getLong(duration));
 
-                        String albumArt = DEFAULT_ALBUM_ART_URI;
+                        String albumArt = null;
                         Uri albumArtUri = ContentUris.withAppendedId(ART_BASE_URI,
                                 cursor.getLong(albumId));
                         try {

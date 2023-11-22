@@ -16,9 +16,11 @@
 package com.android.emergency.preferences;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.nullable;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
@@ -26,7 +28,8 @@ import android.content.SharedPreferences;
 import android.support.v7.preference.PreferenceGroup;
 import android.support.v7.preference.PreferenceManager;
 import android.support.v7.preference.PreferenceScreen;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.text.Editable;
+import android.view.View;
 import android.widget.AutoCompleteTextView;
 
 import com.android.emergency.PreferenceKeys;
@@ -40,9 +43,9 @@ import org.mockito.MockitoAnnotations;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
+import org.robolectric.util.ReflectionHelpers;
 
 /** Unit tests for {@link NameAutoCompletePreference}. */
-@SmallTest
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION)
 public class NameAutoCompletePreferenceTest {
@@ -81,7 +84,8 @@ public class NameAutoCompletePreferenceTest {
         mPreference.setKey(PreferenceKeys.KEY_NAME);
 
         String name = "John";
-        when(mSharedPreferences.getString(eq(mPreference.getKey()), anyString())).thenReturn(name);
+        when(mSharedPreferences.getString(eq(mPreference.getKey()), nullable(String.class)))
+                .thenReturn(name);
 
         mPreference.reloadFromPreference();
         assertThat(mPreference.getText()).isEqualTo(name);
@@ -114,5 +118,18 @@ public class NameAutoCompletePreferenceTest {
         when(mAutoCompleteSuggestionProvider.hasNameToSuggest()).thenReturn(true);
         when(mAutoCompleteSuggestionProvider.getNameSuggestion()).thenReturn(name);
         assertThat(mPreference.createAutocompleteSuggestions()).isEqualTo(new String[] {name});
+    }
+
+    @Test
+    public void testBindDialog_shouldFocusOnEditText() {
+        final AutoCompleteTextView editText = mock(AutoCompleteTextView.class);
+        final Editable text = mock(Editable.class);
+        when(editText.getText()).thenReturn(text);
+        when(text.length()).thenReturn(0);
+        ReflectionHelpers.setField(mPreference, "mAutoCompleteTextView", editText);
+
+        mPreference.onBindDialogView(mock(View.class));
+
+        verify(editText).requestFocus();
     }
 }

@@ -174,7 +174,6 @@ static uint32_t parse_slot(int pos, int argc, char *argv[])
 int main(int argc, char *argv[])
 {
     sp<IBootControl> module;
-    int ret;
 
     if (argc < 2) {
         usage(stderr, argc, argv);

@@ -44,8 +44,9 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.android.settingslib.wifi.AccessPoint;
 import com.android.tv.settings.R;
-import com.android.tv.settings.connectivity.WifiSecurity;
+import com.android.tv.settings.connectivity.util.WifiSecurityUtil;
 import com.android.tv.settings.util.AccessibilityHelper;
 
 import java.util.ArrayList;
@@ -125,7 +126,7 @@ public class SelectFromListWizardFragment extends Fragment {
 
         public ListItem(ScanResult scanResult) {
             mName = scanResult.SSID;
-            mIconResource = WifiSecurity.NONE == WifiSecurity.getSecurity(scanResult)
+            mIconResource = AccessPoint.SECURITY_NONE == WifiSecurityUtil.getSecurity(scanResult)
                     ? R.drawable.setup_wifi_signal_open
                     : R.drawable.setup_wifi_signal_lock;
             mIconLevel = WifiManager.calculateSignalLevel(scanResult.level, 4);
@@ -156,7 +157,8 @@ public class SelectFromListWizardFragment extends Fragment {
         /**
          * Returns whether this item is pinned to the front/back of a sorted list.  Returns
          * PinnedListItem.UNPINNED if the item is not pinned.
-         * @return  the pinned/unpinned setting for this item.
+         *
+         * @return the pinned/unpinned setting for this item.
          */
         public int getPinnedPosition() {
             return PinnedListItem.UNPINNED;
@@ -208,8 +210,8 @@ public class SelectFromListWizardFragment extends Fragment {
                 }
                 return (mScanResult != null && li.mScanResult != null
                         && TextUtils.equals(mName, li.mName)
-                        && WifiSecurity.getSecurity(mScanResult)
-                                == WifiSecurity.getSecurity(li.mScanResult));
+                        && WifiSecurityUtil.getSecurity(mScanResult)
+                                == WifiSecurityUtil.getSecurity(li.mScanResult));
             }
             return false;
         }
@@ -239,7 +241,8 @@ public class SelectFromListWizardFragment extends Fragment {
          * Returns the priority for this item, which is used for ordering the item between pinned
          * items in a sorted list.  For example, if two items are pinned to the front of the list
          * (FIRST), the priority value is used to determine their ordering.
-         * @return  the sorting priority for this item
+         *
+         * @return the sorting priority for this item
          */
         public int getPinnedPriority() {
             return mPinnedPriority;
@@ -248,11 +251,13 @@ public class SelectFromListWizardFragment extends Fragment {
 
     public interface Listener {
         void onListSelectionComplete(ListItem listItem);
+
         void onListFocusChanged(ListItem listItem);
     }
 
     private static interface ActionListener {
         public void onClick(ListItem item);
+
         public void onFocus(ListItem item);
     }
 
@@ -388,17 +393,17 @@ public class SelectFromListWizardFragment extends Fragment {
 
         public void updateItems(List<ListItem> inputItems) {
             TreeSet<ListItem> newItemSet = new TreeSet<ListItem>(new ListItemComparator());
-            for (ListItem item: inputItems) {
+            for (ListItem item : inputItems) {
                 newItemSet.add(item);
             }
             ArrayList<ListItem> toRemove = new ArrayList<ListItem>();
-            for (int j = 0 ; j < mItems.size(); j++) {
+            for (int j = 0; j < mItems.size(); j++) {
                 ListItem oldItem = (ListItem) mItems.get(j);
                 if (!newItemSet.contains(oldItem)) {
                     toRemove.add(oldItem);
                 }
             }
-            for (ListItem item: toRemove) {
+            for (ListItem item : toRemove) {
                 mItems.remove(item);
             }
             mItems.addAll(inputItems.toArray(new ListItem[0]), true);

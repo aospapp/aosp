@@ -258,6 +258,10 @@ id{
             "CLP",
             "Peso Cile",
         }
+        CNH{
+            "CNH",
+            "Yuan Tiongkok (luar negeri)",
+        }
         CNY{
             "CN¥",
             "Yuan Tiongkok",
@@ -772,7 +776,7 @@ id{
         }
         PEN{
             "PEN",
-            "Nuevo Sol Peru",
+            "Sol Peru",
         }
         PES{
             "PES",
@@ -1250,6 +1254,7 @@ id{
         PKR{"Rs"}
         PLN{"zł"}
         PYG{"₲"}
+        RON{"lei"}
         RUB{"₽"}
         RWF{"RF"}
         SBD{"$"}
@@ -1424,6 +1429,9 @@ id{
         }
         CLP{
             other{"Peso Cile"}
+        }
+        CNH{
+            other{"Yuan Tiongkok (luar negeri)"}
         }
         CNY{
             other{"Yuan Tiongkok"}
@@ -1690,7 +1698,7 @@ id{
             other{"Balboa Panama"}
         }
         PEN{
-            other{"Nuevo Sol Peru"}
+            other{"Sol Peru"}
         }
         PES{
             other{"Sol Peru (1863–1965)"}
@@ -1906,5 +1914,5 @@ id{
     CurrencyUnitPatterns{
         other{"{0} {1}"}
     }
-    Version{"2.1.28.79"}
+    Version{"2.1.37.5"}
 }

@@ -17,8 +17,9 @@
 package android.media.cts;
 
 import android.content.res.AssetFileDescriptor;
-import android.media.cts.MediaPlayerTestBase.Monitor;
+import android.media.cts.TestUtils.Monitor;
 import android.media.MediaDataSource;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
 import java.io.FileInputStream;
@@ -28,6 +29,7 @@ import java.io.IOException;
 /**
  * A MediaDataSource that reads from a byte array for use in tests.
  */
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class TestMediaDataSource extends MediaDataSource {
     private static final String TAG = "TestMediaDataSource";
 

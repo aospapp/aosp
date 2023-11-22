@@ -16,12 +16,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="com.android.cts.norestart"
+    android:targetSandboxVersion="2"
     split="feature"
     tools:ignore="MissingVersion" >
-
-    <uses-sdk
-        android:minSdkVersion="8"
-        android:targetSdkVersion="23" />
 
     <application
         android:allowBackup="false"

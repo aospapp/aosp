@@ -52,7 +52,7 @@ class ActivationFunctor {
         __android_log_print(ANDROID_LOG_ERROR, "NN API",
                             "Invalid enum value for activation function: 0x%0X",
                             act_);
-        exit(1);
+        abort();
     }
   }
 

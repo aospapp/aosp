@@ -1125,12 +1125,15 @@ public class BitmapTest {
         } catch(RuntimeException e){
         }
 
+        p.recycle();
         // normal case
         p = Parcel.obtain();
         mBitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
         mBitmap.writeToParcel(p, 0);
         p.setDataPosition(0);
         assertTrue(mBitmap.sameAs(Bitmap.CREATOR.createFromParcel(p)));
+
+        p.recycle();
     }
 
     @Test
@@ -1141,6 +1144,8 @@ public class BitmapTest {
         p.setDataPosition(0);
         Bitmap expectedBitmap = BitmapFactory.decodeResource(mRes, R.drawable.robot);
         assertTrue(expectedBitmap.sameAs(Bitmap.CREATOR.createFromParcel(p)));
+
+        p.recycle();
     }
 
     @Test

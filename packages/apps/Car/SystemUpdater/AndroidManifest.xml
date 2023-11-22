@@ -15,38 +15,37 @@
   limitations under the License.
   -->
 
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.car.systemupdater" >
-    <uses-sdk android:minSdkVersion="21" />
+<manifest
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        package="com.android.car.systemupdater">
+
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_INTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.READ_INTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.ACCESS_CACHE_FILESYSTEM" />
-    <uses-permission android:name="android.permission.DELETE_CACHE_FILES" />
     <uses-permission android:name="android.permission.REBOOT" />
-    <uses-permission android:name="android.permission.RECOVERY" />
-    <uses-permission android:name="android.permission.WRITE_MEDIA_STORAGE" />
     <uses-feature android:name="android.hardware.usb.host" />
-    <uses-feature
-        android:glEsVersion="0x00020000"
-        android:required="true"/>
 
     <application
-        android:label="@string/app_name"
-        android:icon="@drawable/ic_launcher">
+            android:label="@string/title"
+            android:theme="@style/SystemUpdaterTheme">
         <activity
             android:name="com.android.car.systemupdater.SystemUpdaterActivity"
-            android:label="@string/app_name"
-            android:icon="@drawable/ic_launcher" >
+            android:label="@string/title">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="com.android.settings.action.EXTRA_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data android:name="com.android.settings.title"
+                       android:resource="@string/title" />
+            <meta-data android:name="com.android.settings.icon"
+                       android:resource="@drawable/ic_system_update_alt_black_48dp" />
+            <meta-data android:name="com.android.settings.category"
+                       android:value="com.android.settings.category.system" />
         </activity>
     </application>
-
 </manifest>

@@ -62,6 +62,9 @@ import android.security.keystore.KeyProperties;
 import android.test.AndroidTestCase;
 import android.util.ArraySet;
 
+import com.android.org.bouncycastle.asn1.x500.X500Name;
+import com.android.org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
+
 import java.security.GeneralSecurityException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -70,6 +73,7 @@ import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.ProviderException;
+import java.security.PublicKey;
 import java.security.SignatureException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
@@ -422,7 +426,7 @@ public class KeyAttestationTest extends AndroidTestCase {
 
         try {
             Certificate certificates[] = keyStore.getCertificateChain(keystoreAlias);
-            verifyCertificateSignatures(certificates);
+            verifyCertificateChain(certificates);
 
             X509Certificate attestationCert = (X509Certificate) certificates[0];
             Attestation attestation = new Attestation(attestationCert);
@@ -476,7 +480,7 @@ public class KeyAttestationTest extends AndroidTestCase {
 
         try {
             Certificate certificates[] = keyStore.getCertificateChain(keystoreAlias);
-            verifyCertificateSignatures(certificates);
+            verifyCertificateChain(certificates);
 
             X509Certificate attestationCert = (X509Certificate) certificates[0];
             Attestation attestation = new Attestation(attestationCert);
@@ -876,12 +880,36 @@ public class KeyAttestationTest extends AndroidTestCase {
         keyPairGenerator.generateKeyPair();
     }
 
-    private void verifyCertificateSignatures(Certificate[] certChain)
+    private void verifyCertificateChain(Certificate[] certChain)
             throws GeneralSecurityException {
         assertNotNull(certChain);
         for (int i = 1; i < certChain.length; ++i) {
             try {
-                certChain[i - 1].verify(certChain[i].getPublicKey());
+                PublicKey pubKey = certChain[i].getPublicKey();
+                certChain[i - 1].verify(pubKey);
+                if (i == certChain.length - 1) {
+                    // Last cert should be self-signed.
+                    certChain[i].verify(pubKey);
+                }
+
+                // Check that issuer in the signed cert matches subject in the signing cert.
+                X509Certificate x509CurrCert = (X509Certificate) certChain[i];
+                X509Certificate x509PrevCert = (X509Certificate) certChain[i - 1];
+                X500Name signingCertSubject =
+                        new JcaX509CertificateHolder(x509CurrCert).getSubject();
+                X500Name signedCertIssuer =
+                        new JcaX509CertificateHolder(x509PrevCert).getIssuer();
+                // Use .toASN1Object().equals() rather than .equals() because .equals() is case
+                // insensitive, and we want to verify an exact match.
+                assertTrue(
+                        signedCertIssuer.toASN1Object().equals(signingCertSubject.toASN1Object()));
+
+                if (i == 1) {
+                    // First cert should have subject "CN=Android Keystore Key".
+                    X500Name signedCertSubject =
+                            new JcaX509CertificateHolder(x509PrevCert).getSubject();
+                    assertEquals(signedCertSubject, new X500Name("CN=Android Keystore Key"));
+                }
             } catch (InvalidKeyException | CertificateException | NoSuchAlgorithmException
                     | NoSuchProviderException | SignatureException e) {
                 throw new GeneralSecurityException("Failed to verify certificate "

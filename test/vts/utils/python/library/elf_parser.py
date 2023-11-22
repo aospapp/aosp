@@ -30,13 +30,16 @@ class ElfParser(object):
 
     Attributes:
         _file: The ELF file object.
-        _file_size: Size of the ELF.
+        _begin_offset: The offset of the ELF object in the file. The value is
+                       non-zero if the ELF is in an archive, such as .a file.
+        _file_size: Size of the file.
         bitness: Bitness of the ELF.
+        _machine: The instruction set architecture of the ELF.
         _address_size: Size of address or offset in the ELF.
         _offsets: Offset of each entry in the ELF.
         _seek_read_address: The function to read an address or offset entry
                             from the ELF.
-        _sh_offset: Offset of section header table in the file.
+        _sh_offset: Offset of section header table in the ELF.
         _sh_size: Size of section header table entry.
         _sh_count: Number of section header table entries.
         _sh_strtab_index: Index of the section that contains section names.
@@ -50,7 +53,7 @@ class ElfParser(object):
             name_offset: Offset in the section header string table.
             type: Type of the section.
             address: The virtual memory address where the section is loaded.
-            offset: The offset of the section in the ELF file.
+            offset: The offset of the section in the ELF object.
             size: Size of the section.
             entry_size: Size of each entry in the section.
         """
@@ -63,27 +66,29 @@ class ElfParser(object):
                 offset: The starting offset of the section header.
             """
             self.name_offset = elf._SeekRead32(
-                    offset + elf._offsets.SECTION_NAME_OFFSET)
+                offset + elf._offsets.SECTION_NAME_OFFSET)
             self.type = elf._SeekRead32(
-                    offset + elf._offsets.SECTION_TYPE)
+                offset + elf._offsets.SECTION_TYPE)
             self.address = elf._seek_read_address(
-                    offset + elf._offsets.SECTION_ADDRESS)
+                offset + elf._offsets.SECTION_ADDRESS)
             self.offset = elf._seek_read_address(
-                    offset + elf._offsets.SECTION_OFFSET)
+                offset + elf._offsets.SECTION_OFFSET)
             self.size = elf._seek_read_address(
-                    offset + elf._offsets.SECTION_SIZE)
+                offset + elf._offsets.SECTION_SIZE)
             self.entry_size = elf._seek_read_address(
-                    offset + elf._offsets.SECTION_ENTRY_SIZE)
+                offset + elf._offsets.SECTION_ENTRY_SIZE)
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, begin_offset=0):
         """Creates a parser to open and read an ELF file.
 
         Args:
-            file_path: The path to the ELF.
+            file_path: The path to the file.
+            begin_offset: The offset of the ELF object in the file.
 
         Raises:
             ElfError if the file is not a valid ELF.
         """
+        self._begin_offset = begin_offset
         try:
             self._file = open(file_path, "rb")
         except IOError as e:
@@ -91,13 +96,20 @@ class ElfParser(object):
         try:
             self._LoadElfHeader()
             self._section_headers = [
-                    self.SectionHeader(self, self._sh_offset + i * self._sh_size)
-                    for i in range(self._sh_count)]
+                self.SectionHeader(self, self._sh_offset + i * self._sh_size)
+                for i in range(self._sh_count)]
         except:
             self._file.close()
             raise
 
     def __del__(self):
+        """Closes the ELF file."""
+        self.Close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
         """Closes the ELF file."""
         self.Close()
 
@@ -110,7 +122,7 @@ class ElfParser(object):
         """Reads a byte string at specific offset in the file.
 
         Args:
-            offset: An integer, the offset from the beginning of the file.
+            offset: An integer, the offset from the beginning of the ELF.
             read_size: An integer, number of bytes to read.
 
         Returns:
@@ -122,7 +134,7 @@ class ElfParser(object):
         if offset + read_size > self._file_size:
             raise ElfError("Read beyond end of file.")
         try:
-            self._file.seek(offset)
+            self._file.seek(self._begin_offset + offset)
             return self._file.read(read_size)
         except IOError as e:
             raise ElfError(e)
@@ -147,14 +159,14 @@ class ElfParser(object):
         """Reads a null-terminated string starting from specific offset.
 
         Args:
-            offset: The offset from the beginning of the file.
+            offset: The offset from the beginning of the ELF object.
 
         Returns:
             A byte string, excluding the null character.
         """
         ret = ""
         buf_size = 16
-        self._file.seek(offset)
+        self._file.seek(self._begin_offset + offset)
         while True:
             try:
                 buf = self._file.read(buf_size)
@@ -193,12 +205,13 @@ class ElfParser(object):
         else:
             raise ElfError("Wrong bitness value.")
 
+        self._machine = self._SeekRead16(elf_consts.MACHINE_OFFSET)
         self._sh_offset = self._seek_read_address(
-                self._offsets.SECTION_HEADER_OFFSET)
+            self._offsets.SECTION_HEADER_OFFSET)
         self._sh_size = self._SeekRead16(self._offsets.SECTION_HEADER_SIZE)
         self._sh_count = self._SeekRead16(self._offsets.SECTION_HEADER_COUNT)
         self._sh_strtab_index = self._SeekRead16(
-                self._offsets.SECTION_HEADER_STRTAB_INDEX)
+            self._offsets.SECTION_HEADER_STRTAB_INDEX)
         if self._sh_strtab_index >= self._sh_count:
             raise ElfError("Wrong section header string table index.")
 
@@ -219,7 +232,7 @@ class ElfParser(object):
 
         Args:
             offset: The offset of the dynamic section from the beginning of
-                    the file.
+                    the ELF object.
 
         Returns:
             A list of strings, the names of libraries.
@@ -252,6 +265,25 @@ class ElfParser(object):
                  for x in name_offsets]
         return names
 
+    def MatchCpuAbi(self, abi):
+        """Returns whether the ELF matches the ABI.
+
+        Args:
+            abi: A string, the name of the ABI.
+
+        Returns:
+            A boolean, whether the ELF matches the ABI.
+        """
+        for abi_prefix, machine in (("arm64", elf_consts.MACHINE_AARCH64),
+                                    ("arm", elf_consts.MACHINE_ARM),
+                                    ("mips64", elf_consts.MACHINE_MIPS),
+                                    ("mips", elf_consts.MACHINE_MIPS),
+                                    ("x86_64", elf_consts.MACHINE_X86_64),
+                                    ("x86", elf_consts.MACHINE_X86)):
+            if abi.startswith(abi_prefix):
+                return self._machine == machine
+        return False
+
     def ListDependencies(self):
         """Lists the shared libraries that the ELF depends on.
 
@@ -264,36 +296,64 @@ class ElfParser(object):
                 deps.extend(self._LoadDtNeeded(sh.offset))
         return deps
 
-    def ListGlobalDynamicSymbols(self):
+    def ListGlobalSymbols(self, include_weak=False,
+                          symtab_name=elf_consts.SYMTAB,
+                          strtab_name=elf_consts.STRTAB):
         """Lists the dynamic symbols defined in the ELF.
+
+        Args:
+            include_weak: A boolean, whether to include weak symbols.
+            symtab_name: A string, the name of the symbol table.
+            strtab_name: A string, the name of the string table.
 
         Returns:
             A list of strings, the names of the symbols.
         """
-        dynstr = None
-        dynsym = None
+        symtab = None
+        strtab = None
         for sh in self._section_headers:
             name = self._LoadSectionName(sh)
-            if name == elf_consts.DYNSYM:
-                dynsym = sh
-            elif name == elf_consts.DYNSTR:
-                dynstr = sh
-        if not dynsym or not dynstr or dynsym.size == 0:
-            raise ElfError("Cannot find dynamic symbol table.")
+            if name == symtab_name:
+                symtab = sh
+            elif name == strtab_name:
+                strtab = sh
+        if not symtab or not strtab or symtab.size == 0:
+            raise ElfError("Cannot find symbol table.")
+
+        include_bindings = [elf_consts.SYMBOL_BINDING_GLOBAL]
+        if include_weak:
+            include_bindings.append(elf_consts.SYMBOL_BINDING_WEAK)
 
         sym_names = []
         for offset in range(
-                dynsym.offset, dynsym.offset + dynsym.size, dynsym.entry_size):
+                symtab.offset, symtab.offset + symtab.size, symtab.entry_size):
+            # sym_info is a 1-byte field in symbol table entry.
+            # The lower 4 bits represent the type, such as function, object,
+            # and section.
+            # The higher 4 bits represent the binding. Global symbols can be
+            # defined at most once at link time, while weak symbols may have
+            # multiple definitions.
             sym_info = self._SeekRead8(offset + self._offsets.SYMBOL_INFO)
             if (sym_info & 0xf) == elf_consts.SYMBOL_NOTYPE:
                 continue
-            if sym_info >> 4 not in (elf_consts.SYMBOL_BINDING_GLOBAL,
-                                     elf_consts.SYMBOL_BINDING_WEAK):
+            if (sym_info >> 4) not in include_bindings:
                 continue
             sym_sh_index = self._SeekRead16(
-                    offset + self._offsets.SYMBOL_SECTION_INDEX)
+                offset + self._offsets.SYMBOL_SECTION_INDEX)
             if sym_sh_index == elf_consts.SHN_UNDEFINED:
                 continue
             name_offset = self._SeekRead32(offset + self._offsets.SYMBOL_NAME)
-            sym_names.append(self._SeekReadString(dynstr.offset + name_offset))
+            sym_names.append(self._SeekReadString(strtab.offset + name_offset))
         return sym_names
+
+    def ListGlobalDynamicSymbols(self, include_weak=False):
+        """Lists the global dynamic symbols defined in the ELF.
+
+        Args:
+            include_weak: A boolean, whether to include weak symbols.
+
+        Returns:
+            A list of strings, the names of the symbols.
+        """
+        return self.ListGlobalSymbols(
+            include_weak, elf_consts.DYNSYM, elf_consts.DYNSTR)

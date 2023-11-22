@@ -13,10 +13,12 @@
 package android.icu.dev.test.duration.languages;
 
 import android.icu.dev.test.duration.LanguageTestFmwk;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Test cases for es
  */
+@MainTestShard
 public class Test_es extends LanguageTestFmwk {
   public Test_es() {
     super("es", false);

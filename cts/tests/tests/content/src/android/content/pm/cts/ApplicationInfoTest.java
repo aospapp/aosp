@@ -16,28 +16,54 @@
 
 package android.content.pm.cts;
 
+import static android.content.pm.ApplicationInfo.CATEGORY_MAPS;
+import static android.content.pm.ApplicationInfo.CATEGORY_PRODUCTIVITY;
+import static android.content.pm.ApplicationInfo.CATEGORY_UNDEFINED;
+import static android.content.pm.ApplicationInfo.FLAG_MULTIARCH;
+import static android.content.pm.ApplicationInfo.FLAG_SUPPORTS_RTL;
+import static android.os.Process.FIRST_APPLICATION_UID;
+import static android.os.Process.LAST_APPLICATION_UID;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import android.content.Context;
 import android.content.cts.R;
-
-
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Parcel;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.StringBuilderPrinter;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link ApplicationInfo}.
  */
-public class ApplicationInfoTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class ApplicationInfoTest {
+    private static final String SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME = "com.android.cts.stub";
+
     private ApplicationInfo mApplicationInfo;
     private String mPackageName;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mPackageName = getContext().getPackageName();
     }
 
+    private Context getContext() {
+        return InstrumentationRegistry.getInstrumentation().getTargetContext();
+    }
+
+    @Test
     public void testConstructor() {
         ApplicationInfo info = new ApplicationInfo();
         // simple test to ensure packageName is copied by copy constructor
@@ -47,8 +73,9 @@ public class ApplicationInfoTest extends AndroidTestCase {
         assertEquals(info.packageName, copy.packageName);
     }
 
+    @Test
     public void testWriteToParcel() throws NameNotFoundException {
-        mApplicationInfo = mContext.getPackageManager().getApplicationInfo(mPackageName, 0);
+        mApplicationInfo = getContext().getPackageManager().getApplicationInfo(mPackageName, 0);
 
         Parcel p = Parcel.obtain();
         mApplicationInfo.writeToParcel(p, 0);
@@ -71,17 +98,20 @@ public class ApplicationInfoTest extends AndroidTestCase {
         assertEquals(mApplicationInfo.descriptionRes, info.descriptionRes);
     }
 
+    @Test
     public void testToString() {
         mApplicationInfo = new ApplicationInfo();
         assertNotNull(mApplicationInfo.toString());
     }
 
+    @Test
     public void testDescribeContents() throws NameNotFoundException {
-       mApplicationInfo = mContext.getPackageManager().getApplicationInfo(mPackageName, 0);
+       mApplicationInfo = getContext().getPackageManager().getApplicationInfo(mPackageName, 0);
 
         assertEquals(0, mApplicationInfo.describeContents());
     }
 
+    @Test
     public void testDump() {
         mApplicationInfo = new ApplicationInfo();
 
@@ -95,13 +125,73 @@ public class ApplicationInfoTest extends AndroidTestCase {
         assertTrue(sb.length() > 0);
     }
 
+    @Test
     public void testLoadDescription() throws NameNotFoundException {
-        mApplicationInfo = mContext.getPackageManager().getApplicationInfo(mPackageName, 0);
+        mApplicationInfo = getContext().getPackageManager().getApplicationInfo(mPackageName, 0);
 
-        assertNull(mApplicationInfo.loadDescription(mContext.getPackageManager()));
+        assertNull(mApplicationInfo.loadDescription(getContext().getPackageManager()));
 
         mApplicationInfo.descriptionRes = R.string.hello_world;
-        assertEquals(mContext.getResources().getString(R.string.hello_world),
-                mApplicationInfo.loadDescription(mContext.getPackageManager()));
+        assertEquals(getContext().getResources().getString(R.string.hello_world),
+                mApplicationInfo.loadDescription(getContext().getPackageManager()));
+    }
+
+    @Test
+    public void verifyOwnInfo() throws NameNotFoundException {
+        mApplicationInfo = getContext().getPackageManager().getApplicationInfo(mPackageName, 0);
+
+        assertEquals("Android TestCase", mApplicationInfo.nonLocalizedLabel);
+        assertEquals(R.drawable.size_48x48, mApplicationInfo.icon);
+        assertEquals("android.content.cts.MockApplication", mApplicationInfo.name);
+        int flags = FLAG_MULTIARCH | FLAG_SUPPORTS_RTL;
+        assertEquals(flags, mApplicationInfo.flags & flags);
+        assertEquals(CATEGORY_PRODUCTIVITY, mApplicationInfo.category);
+    }
+
+    @Test
+    public void verifyDefaultValues() throws NameNotFoundException {
+        // The application "com.android.cts.stub" does not have any attributes set
+        mApplicationInfo = getContext().getPackageManager().getApplicationInfo(
+                SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME, 0);
+
+        assertNull(mApplicationInfo.className);
+        assertNull(mApplicationInfo.permission);
+        assertEquals(SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME, mApplicationInfo.packageName);
+        assertEquals(SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME, mApplicationInfo.processName);
+        assertEquals(SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME, mApplicationInfo.taskAffinity);
+        assertTrue(FIRST_APPLICATION_UID <= mApplicationInfo.uid
+                && LAST_APPLICATION_UID >= mApplicationInfo.uid);
+        assertEquals(0, mApplicationInfo.theme);
+        assertEquals(0, mApplicationInfo.requiresSmallestWidthDp);
+        assertEquals(0, mApplicationInfo.compatibleWidthLimitDp);
+        assertEquals(0, mApplicationInfo.largestWidthLimitDp);
+        assertNotNull(mApplicationInfo.sourceDir);
+        assertEquals(mApplicationInfo.sourceDir, mApplicationInfo.publicSourceDir);
+        assertNull(mApplicationInfo.splitSourceDirs);
+        assertArrayEquals(mApplicationInfo.splitSourceDirs, mApplicationInfo.splitPublicSourceDirs);
+        assertEquals("/data/user/0/" + SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME,
+                mApplicationInfo.dataDir);
+        assertEquals("/data/user_de/0/" + SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME,
+                mApplicationInfo.deviceProtectedDataDir);
+        assertEquals("/data/user/0/" + SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME,
+                mApplicationInfo.credentialProtectedDataDir);
+        assertNull(mApplicationInfo.sharedLibraryFiles);
+        assertTrue(mApplicationInfo.enabled);
+        assertNull(mApplicationInfo.manageSpaceActivityName);
+        assertEquals(0, mApplicationInfo.descriptionRes);
+        assertEquals(0, mApplicationInfo.uiOptions);
+        assertEquals(CATEGORY_UNDEFINED, mApplicationInfo.category);
+    }
+
+    @Test(expected=IllegalArgumentException.class)
+    public void setOwnAppCategory() throws Exception {
+        getContext().getPackageManager().setApplicationCategoryHint(getContext().getPackageName(),
+                CATEGORY_MAPS);
+    }
+
+    @Test(expected=IllegalArgumentException.class)
+    public void setAppCategoryByNotInstaller() throws Exception {
+        getContext().getPackageManager().setApplicationCategoryHint(
+                SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME, CATEGORY_MAPS);
     }
 }

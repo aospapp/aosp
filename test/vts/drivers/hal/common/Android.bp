@@ -39,6 +39,7 @@ cc_library_shared {
     local_include_dirs: ["include"],
 
     shared_libs: [
+        "libbase",
         "libprotobuf-cpp-full",
         "libvts_multidevice_proto",
     ],

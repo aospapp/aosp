@@ -19,6 +19,7 @@ package android.database.sqlite.cts;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.Semaphore;
 
@@ -33,6 +34,7 @@ import android.database.sqlite.SQLiteCursorDriver;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteDatabase.CursorFactory;
 import android.database.sqlite.SQLiteDebug;
+import android.database.sqlite.SQLiteGlobal;
 import android.database.sqlite.SQLiteQuery;
 import android.database.sqlite.SQLiteStatement;
 import android.database.sqlite.SQLiteTransactionListener;
@@ -47,7 +49,11 @@ import static android.database.sqlite.cts.DatabaseTestUtils.getDbInfoOutput;
 import static android.database.sqlite.cts.DatabaseTestUtils.waitForConnectionToClose;
 
 public class SQLiteDatabaseTest extends AndroidTestCase {
+
     private static final String TAG = "SQLiteDatabaseTest";
+    private static final String EXPECTED_MAJOR_MINOR_VERSION = "3.22";
+    private static final int EXPECTED_MIN_PATCH_LEVEL = 0;
+
     private SQLiteDatabase mDatabase;
     private File mDatabaseFile;
     private String mDatabaseFilePath;
@@ -59,6 +65,7 @@ public class SQLiteDatabaseTest extends AndroidTestCase {
 
     private static final String DATABASE_FILE_NAME = "database_test.db";
     private static final String TABLE_NAME = "test";
+
     private static final int COLUMN_ID_INDEX = 0;
     private static final int COLUMN_NAME_INDEX = 1;
     private static final int COLUMN_AGE_INDEX = 2;
@@ -1390,6 +1397,16 @@ public class SQLiteDatabaseTest extends AndroidTestCase {
         assertFalse(mDatabase.isWriteAheadLoggingEnabled());
     }
 
+    public void testDisableWriteAheadLogging() {
+        assertFalse(mDatabase.isWriteAheadLoggingEnabled());
+        mDatabase.disableWriteAheadLogging();
+        assertFalse(mDatabase.isWriteAheadLoggingEnabled());
+        // Verify that default journal mode is set if WAL is disabled
+        String defaultJournalMode = SQLiteGlobal.getDefaultJournalMode();
+        assertTrue(DatabaseUtils.stringForQuery(mDatabase, "PRAGMA journal_mode", null)
+                .equalsIgnoreCase(defaultJournalMode));
+    }
+
     public void testEnableThenDisableWriteAheadLoggingUsingOpenFlag() {
         closeAndDeleteDatabase();
         mDatabase = SQLiteDatabase.openDatabase(mDatabaseFile.getPath(), null,
@@ -1584,4 +1601,118 @@ public class SQLiteDatabaseTest extends AndroidTestCase {
         } catch (IllegalArgumentException expected) {
         }
     }
+
+    public void testDefaultJournalModeNotWAL() {
+        String defaultJournalMode = SQLiteGlobal.getDefaultJournalMode();
+        assertFalse("Default journal mode should not be WAL",
+                "WAL".equalsIgnoreCase(defaultJournalMode));
+    }
+
+    public void testCompatibilityWALIsDefaultWhenSupported() {
+        if (!SQLiteGlobal.isCompatibilityWalSupported()) {
+            Log.i(TAG, "Compatibility WAL not supported. "
+                    + "Skipping testCompatibilityWALIsDefaultWhenSupported");
+            return;
+        }
+
+        assertTrue("Journal mode should be WAL if compatibility WAL is supported",
+                DatabaseUtils.stringForQuery(mDatabase, "PRAGMA journal_mode", null)
+                        .equalsIgnoreCase("WAL"));
+    }
+
+    /**
+     * Test that app can specify journal mode/synchronous mode
+     */
+    public void testJournalModeSynchronousModeOverride() {
+        mDatabase.close();
+        SQLiteDatabase.OpenParams params = new SQLiteDatabase.OpenParams.Builder()
+                .setJournalMode("DELETE").setSynchronousMode("OFF").build();
+        mDatabase = SQLiteDatabase.openDatabase(mDatabaseFile, params);
+
+        String journalMode = DatabaseUtils
+                .stringForQuery(mDatabase, "PRAGMA journal_mode", null);
+
+        assertEquals("DELETE", journalMode.toUpperCase());
+        String syncMode = DatabaseUtils
+                .stringForQuery(mDatabase, "PRAGMA synchronous", null);
+
+        assertEquals("0", syncMode);
+    }
+
+    /**
+     * Test that enableWriteAheadLogging is not affected by app's journal mode setting,
+     * but app can still control synchronous mode.
+     */
+    public void testEnableWalOverridesJournalModeSyncModePreserved() {
+        mDatabase.close();
+        SQLiteDatabase.OpenParams params = new SQLiteDatabase.OpenParams.Builder()
+                .setJournalMode("DELETE").setSynchronousMode("OFF").build();
+        mDatabase = SQLiteDatabase.openDatabase(mDatabaseFile, params);
+        mDatabase.enableWriteAheadLogging();
+
+        String journalMode = DatabaseUtils
+                .stringForQuery(mDatabase, "PRAGMA journal_mode", null);
+
+        assertEquals("WAL", journalMode.toUpperCase());
+        String syncMode = DatabaseUtils
+                .stringForQuery(mDatabase, "PRAGMA synchronous", null);
+
+        assertEquals("0" /* OFF */, syncMode);
+    }
+
+    /**
+     * This test starts a transaction and verifies that other threads are blocked on
+     * accessing the database. Waiting threads should be unblocked once transaction is complete.
+     *
+     * This is done to ensure that Compatibility WAL follows the original transaction semantics of
+     * {@link SQLiteDatabase} instance when {@link SQLiteDatabase#ENABLE_WRITE_AHEAD_LOGGING} flag
+     * is not set.
+     */
+    public void testActiveTransactionIsBlocking() throws Exception {
+        mDatabase.beginTransactionNonExclusive();
+        mDatabase.execSQL("CREATE TABLE t1 (i int);");
+        final List<Throwable> errors = new ArrayList<>();
+
+        Thread readThread = new Thread(
+                () -> {
+                    try {
+                        DatabaseUtils.longForQuery(mDatabase, "SELECT count(*) from t1", null);
+                    } catch (Throwable t) {
+                        Log.e(TAG, "ReadThread failed", t);
+                        errors.add(t);
+                    }
+                });
+        readThread.start();
+        readThread.join(500L);
+        assertTrue("ReadThread should be blocked while transaction is active",
+                readThread.isAlive());
+
+        mDatabase.setTransactionSuccessful();
+        mDatabase.endTransaction();
+
+        readThread.join(500L);
+        assertFalse("ReadThread should finish after transaction has ended",
+                readThread.isAlive());
+
+        assertTrue("ReadThread failed with errors: " + errors, errors.isEmpty());
+    }
+
+    public void testSqliteLibraryVersion() {
+        // SQLite uses semantic versioning in a form of MAJOR.MINOR.PATCH.
+        // Major/minor should match, while patch can be newer
+        String fullVersionStr = DatabaseUtils
+                .stringForQuery(mDatabase, "select sqlite_version()", null);
+        int lastDot = fullVersionStr.lastIndexOf('.');
+        assertTrue(
+                "Unexpected version format, expected MAJOR.MINOR.PATCH but was " + fullVersionStr,
+                lastDot > 0);
+        String majorMinor = fullVersionStr.substring(0, lastDot);
+        assertEquals(
+                "Expected SQLite library version " + EXPECTED_MAJOR_MINOR_VERSION + ", but was "
+                        + fullVersionStr, EXPECTED_MAJOR_MINOR_VERSION, majorMinor);
+        int patchLevel = Integer.valueOf(fullVersionStr.substring(lastDot + 1));
+        assertTrue("Expected minimum patch level " + EXPECTED_MIN_PATCH_LEVEL + ", but was "
+                + patchLevel, patchLevel >= EXPECTED_MIN_PATCH_LEVEL);
+    }
+
 }

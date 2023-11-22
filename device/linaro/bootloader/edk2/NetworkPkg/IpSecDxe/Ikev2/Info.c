@@ -2,7 +2,7 @@
   The Implementations for Information Exchange.
 
   (C) Copyright 2015 Hewlett-Packard Development Company, L.P.<BR>
-  Copyright (c) 2010, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved.<BR>
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -47,7 +47,9 @@ Ikev2InfoGenerator (
   InfoContext  = NULL;
   IkeSaSession = (IKEV2_SA_SESSION *) SaSession;
   IkePacket    = IkePacketAlloc ();
-  ASSERT (IkePacket != NULL);
+  if (IkePacket == NULL) {
+    return NULL;
+  }
 
   //
   // Fill IkePacket Header.
@@ -126,7 +128,11 @@ Ikev2InfoGenerator (
       // The input parameter is not correct.
       //
       goto ERROR_EXIT;
-    } 
+    }
+
+    if (IkeSaSession->SessionCommon.IsInitiator) {
+      IkePacket->Header->Flags = IKE_HEADER_FLAGS_INIT ;
+    }  
   } else {
     //
     // Delete the Child SA Information Exchagne
@@ -178,13 +184,16 @@ Ikev2InfoGenerator (
     // Change the IsOnDeleting Flag
     //
     ChildSaSession->SessionCommon.IsOnDeleting = TRUE;
+
+    if (ChildSaSession->SessionCommon.IsInitiator) {
+      IkePacket->Header->Flags = IKE_HEADER_FLAGS_INIT ;
+    }
   }
 
-  if (InfoContext == NULL) {
-    IkePacket->Header->Flags = IKE_HEADER_FLAGS_INIT;
-  } else {
-    IkePacket->Header->Flags = IKE_HEADER_FLAGS_RESPOND;
+  if (InfoContext != NULL) {
+    IkePacket->Header->Flags |= IKE_HEADER_FLAGS_RESPOND;
   }
+  
   return IkePacket;
 
 ERROR_EXIT:

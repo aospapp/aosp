@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-//#define LOG_DEBUG     1
-#define LOG_TAG "ring"
-#include <utils/Log.h>
-
 #include "ring.h"
 
 #include <stdlib.h>

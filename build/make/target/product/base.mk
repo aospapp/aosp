@@ -23,6 +23,7 @@ PRODUCT_PACKAGES += \
     appops \
     am \
     android.policy \
+    android.test.base \
     android.test.mock \
     android.test.runner \
     app_process \
@@ -31,6 +32,7 @@ PRODUCT_PACKAGES += \
     bit \
     blkid \
     bmgr \
+    bpfloader \
     bugreport \
     bugreportz \
     cameraserver \
@@ -44,6 +46,7 @@ PRODUCT_PACKAGES += \
     ime \
     incidentd \
     incident \
+    incident_helper \
     incident_report \
     input \
     javax.obex \
@@ -60,6 +63,7 @@ PRODUCT_PACKAGES += \
     libcamera2ndk \
     libdl \
     libdrmclearkeyplugin \
+    libdynproc \
     libclearkeycasplugin \
     libeffectproxy \
     libeffects \
@@ -114,6 +118,7 @@ PRODUCT_PACKAGES += \
     mtpd \
     ndc \
     netd \
+    perfetto \
     ping \
     ping6 \
     platform.xml \
@@ -129,12 +134,27 @@ PRODUCT_PACKAGES += \
     settings \
     sgdisk \
     sm \
+    statsd \
     svc \
     tc \
     telecom \
+    traced \
+    traced_probes \
     vdc \
     vold \
     wm
+
+# Add the compatibility library that is needed when org.apache.http.legacy
+# is removed from the bootclasspath.
+ifeq ($(REMOVE_OAHL_FROM_BCP),true)
+PRODUCT_PACKAGES += framework-oahl-backward-compatibility
+endif
+
+# Add the compatibility library that is needed when android.test.base
+# is removed from the bootclasspath.
+ifeq ($(REMOVE_ATB_FROM_BCP),true)
+PRODUCT_PACKAGES += framework-atb-backward-compatibility
+endif
 
 # Essential HAL modules
 PRODUCT_PACKAGES += \
@@ -147,8 +167,10 @@ PRODUCT_PACKAGES += \
 
 # Packages included only for eng or userdebug builds, previously debug tagged
 PRODUCT_PACKAGES_DEBUG := \
+    logpersist.start \
     perfprofd \
-    sqlite3
+    sqlite3 \
+    strace
 
 PRODUCT_COPY_FILES := $(call add-to-product-copy-files-if-exists,\
     frameworks/base/config/preloaded-classes:system/etc/preloaded-classes)

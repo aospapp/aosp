@@ -30,28 +30,26 @@ RoamCommand::~RoamCommand()
 }
 
 /* This function implements creation of Vendor command */
-int RoamCommand::create() {
-    int ret = mMsg.create(NL80211_CMD_VENDOR, 0, 0);
-    if (ret < 0) {
+wifi_error RoamCommand::create() {
+    wifi_error ret = mMsg.create(NL80211_CMD_VENDOR, 0, 0);
+    if (ret != WIFI_SUCCESS)
         return ret;
-    }
 
     /* Insert the oui in the msg */
     ret = mMsg.put_u32(NL80211_ATTR_VENDOR_ID, mVendor_id);
-    if (ret < 0)
-        goto out;
+    if (ret != WIFI_SUCCESS)
+        return ret;
     /* Insert the subcmd in the msg */
     ret = mMsg.put_u32(NL80211_ATTR_VENDOR_SUBCMD, mSubcmd);
-    if (ret < 0)
-        goto out;
+    if (ret != WIFI_SUCCESS)
+        return ret;
 
      ALOGV("%s: mVendor_id = %d, Subcmd = %d.",
         __FUNCTION__, mVendor_id, mSubcmd);
-out:
     return ret;
 }
 
-int RoamCommand::requestResponse()
+wifi_error RoamCommand::requestResponse()
 {
     return WifiCommand::requestResponse(mMsg);
 }
@@ -60,7 +58,8 @@ wifi_error wifi_set_bssid_blacklist(wifi_request_id id,
                                     wifi_interface_handle iface,
                                     wifi_bssid_params params)
 {
-    int ret = 0, i;
+    wifi_error ret;
+    int i;
     RoamCommand *roamCommand;
     struct nlattr *nlData, *nlBssids;
     interface_info *ifaceInfo = getIfaceInfo(iface);
@@ -92,12 +91,12 @@ wifi_error wifi_set_bssid_blacklist(wifi_request_id id,
 
     /* Create the NL message. */
     ret = roamCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Set the interface Id of the message. */
     ret = roamCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Add the vendor specific attributes for the NL command. */
@@ -105,27 +104,31 @@ wifi_error wifi_set_bssid_blacklist(wifi_request_id id,
     if (!nlData)
         goto cleanup;
 
-    if (roamCommand->put_u32(QCA_WLAN_VENDOR_ATTR_ROAMING_SUBCMD,
-            QCA_WLAN_VENDOR_ATTR_ROAM_SUBCMD_SET_BLACKLIST_BSSID) ||
-        roamCommand->put_u32(
-            QCA_WLAN_VENDOR_ATTR_ROAMING_REQ_ID,
-            id) ||
-        roamCommand->put_u32(
-            QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_SET_BSSID_PARAMS_NUM_BSSID,
-            params.num_bssid)) {
+    ret = roamCommand->put_u32(QCA_WLAN_VENDOR_ATTR_ROAMING_SUBCMD,
+                          QCA_WLAN_VENDOR_ATTR_ROAM_SUBCMD_SET_BLACKLIST_BSSID);
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
-    }
+
+    ret = roamCommand->put_u32( QCA_WLAN_VENDOR_ATTR_ROAMING_REQ_ID, id);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    ret = roamCommand->put_u32(
+                  QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_SET_BSSID_PARAMS_NUM_BSSID,
+                  params.num_bssid);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
 
     nlBssids = roamCommand->attr_start(
             QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_SET_BSSID_PARAMS);
     for (i = 0; i < params.num_bssid; i++) {
         struct nlattr *nl_ssid = roamCommand->attr_start(i);
 
-        if (roamCommand->put_addr(
-                QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_SET_BSSID_PARAMS_BSSID,
-                (u8 *)params.bssids[i])) {
+        ret = roamCommand->put_addr(
+                      QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_SET_BSSID_PARAMS_BSSID,
+                      (u8 *)params.bssids[i]);
+        if (ret != WIFI_SUCCESS)
             goto cleanup;
-        }
 
         roamCommand->attr_end(nl_ssid);
     }
@@ -134,21 +137,20 @@ wifi_error wifi_set_bssid_blacklist(wifi_request_id id,
     roamCommand->attr_end(nlData);
 
     ret = roamCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("wifi_set_bssid_blacklist(): requestResponse Error:%d", ret);
-    }
 
 cleanup:
     delete roamCommand;
-    return (wifi_error)ret;
+    return ret;
 
 }
 
 wifi_error wifi_set_ssid_white_list(wifi_request_id id, wifi_interface_handle iface,
                                     int num_networks, ssid_t *ssid_list)
 {
-    wifi_error result = WIFI_SUCCESS;
-    int ret = 0, i;
+    wifi_error ret;
+    int i;
     RoamCommand *roamCommand;
     struct nlattr *nlData, *nlSsids;
     interface_info *ifaceInfo = getIfaceInfo(iface);
@@ -169,36 +171,35 @@ wifi_error wifi_set_ssid_white_list(wifi_request_id id, wifi_interface_handle if
 
     /* Create the NL message. */
     ret = roamCommand->create();
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to create NL message,  Error: %d", __FUNCTION__, ret);
-        result = WIFI_ERROR_UNKNOWN;
         goto cleanup;
     }
 
     /* Set the interface Id of the message. */
     ret = roamCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to set interface Id of message, Error: %d", __FUNCTION__, ret);
-        result = WIFI_ERROR_UNKNOWN;
         goto cleanup;
     }
 
     /* Add the vendor specific attributes for the NL command. */
     nlData = roamCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
     if (!nlData) {
-        result = WIFI_ERROR_UNKNOWN;
         goto cleanup;
     }
 
-    if (roamCommand->put_u32(QCA_WLAN_VENDOR_ATTR_ROAMING_SUBCMD,
-                             QCA_WLAN_VENDOR_ATTR_ROAM_SUBCMD_SSID_WHITE_LIST) ||
-        roamCommand->put_u32(QCA_WLAN_VENDOR_ATTR_ROAMING_REQ_ID, id) ||
-        roamCommand->put_u32(QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_WHITE_LIST_SSID_NUM_NETWORKS,
-                             num_networks)) {
-        ALOGE("%s: Failed to add vendor atributes, Error: %d", __FUNCTION__, ret);
-        result = WIFI_ERROR_UNKNOWN;
+    ret = roamCommand->put_u32(QCA_WLAN_VENDOR_ATTR_ROAMING_SUBCMD,
+                              QCA_WLAN_VENDOR_ATTR_ROAM_SUBCMD_SSID_WHITE_LIST);
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
-    }
+    ret = roamCommand->put_u32(QCA_WLAN_VENDOR_ATTR_ROAMING_REQ_ID, id);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+    ret = roamCommand->put_u32(QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_WHITE_LIST_SSID_NUM_NETWORKS,
+                               num_networks);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
 
     nlSsids = roamCommand->attr_start(QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_WHITE_LIST_SSID_LIST);
     for (i = 0; i < num_networks; i++) {
@@ -208,10 +209,10 @@ wifi_error wifi_set_ssid_white_list(wifi_request_id id, wifi_interface_handle if
         ssid[ssid_list[i].length] = '\0';
         ALOGV("ssid[%d] : %s", i, ssid);
 
-        if (roamCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_WHITE_LIST_SSID, ssid,
-                                   (ssid_list[i].length + 1))) {
+        ret = roamCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_WHITE_LIST_SSID,
+                                     ssid, (ssid_list[i].length + 1));
+        if (ret != WIFI_SUCCESS) {
             ALOGE("%s: Failed to add ssid atribute, Error: %d", __FUNCTION__, ret);
-            result = WIFI_ERROR_UNKNOWN;
             goto cleanup;
         }
 
@@ -222,14 +223,12 @@ wifi_error wifi_set_ssid_white_list(wifi_request_id id, wifi_interface_handle if
     roamCommand->attr_end(nlData);
 
     ret = roamCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("%s: Failed to send request, Error:%d", __FUNCTION__, ret);
-        result = WIFI_ERROR_UNKNOWN;
-    }
 
 cleanup:
     delete roamCommand;
-    return result;
+    return ret;
 }
 
 wifi_error wifi_get_roaming_capabilities(wifi_interface_handle iface,
@@ -307,8 +306,8 @@ wifi_error wifi_configure_roaming(wifi_interface_handle iface, wifi_roaming_conf
 /* Enable/disable firmware roaming */
 wifi_error wifi_enable_firmware_roaming(wifi_interface_handle iface, fw_roaming_state_t state)
 {
-    wifi_error result = WIFI_SUCCESS;
-    int requestId, ret;
+    int requestId;
+    wifi_error ret;
     RoamCommand *roamCommand;
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
@@ -343,45 +342,38 @@ wifi_error wifi_enable_firmware_roaming(wifi_interface_handle iface, fw_roaming_
 
     /* Create the NL message. */
     ret = roamCommand->create();
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to create NL message,  Error: %d", __FUNCTION__, ret);
-        result = WIFI_ERROR_UNKNOWN;
         goto cleanup;
     }
 
     /* Set the interface Id of the message. */
     ret = roamCommand->set_iface_id(ifaceInfo->name);
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to set interface Id of message, Error: %d", __FUNCTION__, ret);
-        result = WIFI_ERROR_UNKNOWN;
         goto cleanup;
     }
 
     /* Add the vendor specific attributes for the NL command. */
     nlData = roamCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
     if (!nlData) {
-        result = WIFI_ERROR_UNKNOWN;
+        ret = WIFI_ERROR_UNKNOWN;
         goto cleanup;
     }
 
-    if (roamCommand->put_u32(QCA_WLAN_VENDOR_ATTR_ROAMING_POLICY, policy)) {
+    ret = roamCommand->put_u32(QCA_WLAN_VENDOR_ATTR_ROAMING_POLICY, policy);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to add roaming policy atribute, Error: %d", __FUNCTION__, ret);
-        result = WIFI_ERROR_UNKNOWN;
         goto cleanup;
     }
 
     roamCommand->attr_end(nlData);
 
     ret = roamCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("%s: Failed to send request, Error:%d", __FUNCTION__, ret);
-        if (ret == -EBUSY)
-            result = WIFI_ERROR_BUSY;
-        else
-            result = WIFI_ERROR_UNKNOWN;
-    }
 
 cleanup:
     delete roamCommand;
-    return result;
+    return ret;
 }

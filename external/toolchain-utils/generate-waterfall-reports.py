@@ -32,13 +32,9 @@ import time
 from cros_utils import command_executer
 
 # All the test suites whose data we might want for the reports.
-TESTS = (
-    ('bvt-inline', 'HWTest'),
-    ('bvt-cq', 'HWTest'),
-    ('toolchain-tests', 'HWTest'),
-    ('security', 'HWTest'),
-    ('kernel_daily_regression', 'HWTest'),
-    ('kernel_daily_benchmarks', 'HWTest'),)
+TESTS = (('bvt-inline', 'HWTest'), ('bvt-cq', 'HWTest'), ('security', 'HWTest'),
+         ('kernel_daily_regression', 'HWTest'), ('kernel_daily_benchmarks',
+                                                 'HWTest'),)
 
 # The main waterfall builders, IN THE ORDER IN WHICH WE WANT THEM
 # LISTED IN THE REPORT.
@@ -127,8 +123,8 @@ def PruneOldFailures(failure_dict, int_date):
 
 def GetBuildID(build_bot, date):
   """Get the build id for a build_bot at a given date."""
-  day = '{day:02d}'.format(day=date%100)
-  mon = MONTHS[date/100%100]
+  day = '{day:02d}'.format(day=date % 100)
+  mon = MONTHS[date / 100 % 100]
   date_string = mon + ' ' + day
   if build_bot in WATERFALL_BUILDERS:
     url = 'https://uberchromegw.corp.google.com/i/chromeos/' + \
@@ -136,7 +132,7 @@ def GetBuildID(build_bot, date):
   if build_bot in ROTATING_BUILDERS:
     url = 'https://uberchromegw.corp.google.com/i/chromiumos.tryserver/' + \
           'builders/%s?numbuilds=200' % build_bot
-  command = 'sso_client %s' %url
+  command = 'sso_client %s' % url
   retval = 1
   retry_time = 3
   while retval and retry_time:
@@ -237,13 +233,13 @@ def GenerateWaterfallReport(report_dict, fail_dict, waterfall_type, date,
     out_file.write('\nStatus of %s Waterfall Builds from %s\n\n' %
                    (waterfall_type, date_string))
     out_file.write('                                                          '
-                   '                          kernel       kernel\n')
+                   '                kernel       kernel\n')
     out_file.write('                         Build    bvt-         bvt-cq     '
-                   'toolchain-   security     daily        daily\n')
+                   ' security       daily        daily\n')
     out_file.write('                         status  inline                   '
-                   '  tests                 regression   benchmarks\n')
+                   '              regression   benchmarks\n')
     out_file.write('                               [P/ F/ DR]*   [P/ F /DR]*  '
-                   '[P/ F/ DR]* [P/ F/ DR]* [P/ F/ DR]* [P/ F/ DR]*\n\n')
+                   '[P/ F/ DR]* [P/ F/ DR]* [P/ F/ DR]*\n\n')
 
     # Write daily waterfall status section.
     for i in range(0, len(report_list)):
@@ -262,9 +258,7 @@ def GenerateWaterfallReport(report_dict, fail_dict, waterfall_type, date,
       inline_color = build_dict.get('bvt-inline-color', '')
       cq_color = build_dict.get('bvt-cq-color', '')
       if 'x86' not in builder:
-        toolchain = build_dict.get('toolchain-tests', '[??/ ?? /??]')
         security = build_dict.get('security', '[??/ ?? /??]')
-        toolchain_color = build_dict.get('toolchain-tests-color', '')
         security_color = build_dict.get('security-color', '')
         if 'gcc' in builder:
           regression = build_dict.get('kernel_daily_regression', '[??/ ?? /??]')
@@ -272,20 +266,18 @@ def GenerateWaterfallReport(report_dict, fail_dict, waterfall_type, date,
           regression_color = build_dict.get('kernel_daily_regression-color', '')
           bench_color = build_dict.get('kernel_daily_benchmarks-color', '')
           out_file.write('                                  %6s        %6s'
-                         '       %6s      %6s      %6s      %6s\n' %
-                         (inline_color, cq_color, toolchain_color,
-                          security_color, regression_color, bench_color))
-          out_file.write('%25s %3s  %s %s %s %s %s %s\n' % (builder, status,
-                                                            inline, cq,
-                                                            toolchain, security,
-                                                            regression, bench))
+                         '      %6s      %6s      %6s\n' %
+                         (inline_color, cq_color, security_color,
+                          regression_color, bench_color))
+          out_file.write('%25s %3s  %s %s %s %s %s\n' %
+                         (builder, status, inline, cq, security, regression,
+                          bench))
         else:
           out_file.write('                                  %6s        %6s'
-                         '       %6s      %6s\n' % (inline_color, cq_color,
-                                                    toolchain_color,
-                                                    security_color))
-          out_file.write('%25s %3s  %s %s %s %s\n' % (builder, status, inline,
-                                                      cq, toolchain, security))
+                         '      %6s\n' % (inline_color, cq_color,
+                                          security_color))
+          out_file.write('%25s %3s  %s %s %s\n' % (builder, status, inline, cq,
+                                                   security))
       else:
         out_file.write('                                  %6s        %6s\n' %
                        (inline_color, cq_color))
@@ -372,8 +364,9 @@ def UpdateReport(report_dict, builder, test, report_date, build_link,
     build_dict['date'] = report_date
 
   if 'board' in build_dict and build_dict['board'] != board:
-    raise RuntimeError('Error: Two different boards (%s,%s) in one build (%s)!'
-                       % (board, build_dict['board'], build_link))
+    raise RuntimeError(
+        'Error: Two different boards (%s,%s) in one build (%s)!' %
+        (board, build_dict['board'], build_link))
   build_dict['board'] = board
 
   color_key = '%s-color' % test
@@ -819,9 +812,8 @@ def Main(argv):
     EmailReport(main_report, 'Main', format_date(int_date))
     shutil.copy(main_report, ARCHIVE_DIR)
   if rotating_report_dict and not main_only and not failures_report:
-    rotating_report = GenerateWaterfallReport(rotating_report_dict,
-                                              failure_dict, 'rotating',
-                                              int_date, omit_failures)
+    rotating_report = GenerateWaterfallReport(
+        rotating_report_dict, failure_dict, 'rotating', int_date, omit_failures)
     EmailReport(rotating_report, 'Rotating', format_date(int_date))
     shutil.copy(rotating_report, ARCHIVE_DIR)
 

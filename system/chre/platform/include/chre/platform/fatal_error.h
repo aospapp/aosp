@@ -41,4 +41,10 @@
   FATAL_ERROR_QUIT();              \
 } while (0)
 
+/**
+ * Fatal error on out of memory error with file and line number.
+ */
+#define FATAL_ERROR_OOM() \
+    FATAL_ERROR("Out of memory")
+
 #endif  // CHRE_PLATFORM_FATAL_ERROR_H_

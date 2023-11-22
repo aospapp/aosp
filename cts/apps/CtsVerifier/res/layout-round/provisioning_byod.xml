@@ -12,7 +12,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<android.support.v4.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/main_layout"
     style="@style/RootLayoutPadding"
     android:layout_width="match_parent"
@@ -39,4 +39,4 @@
             android:layout_weight="3"/>
         <include layout="@layout/pass_fail_buttons"/>
     </LinearLayout>
-</android.support.v4.widget.NestedScrollView>
+</androidx.core.widget.NestedScrollView>

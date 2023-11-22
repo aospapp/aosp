@@ -18,9 +18,30 @@
 
 bt_default_timeout = 15
 default_rfcomm_timeout_ms = 10000
+default_bluetooth_socket_timeout_ms = 10000
 pan_connect_timeout = 5
 bt_discovery_timeout = 3
 small_timeout = 0.0001
+
+# Time delay (in seconds) at the end of each LE CoC Test to give sufficient time
+# for the ACL LE link to be disconnected. The ACL link stays connected after
+# L2CAP disconnects.  An example of the timeout is L2CAP_LINK_INACTIVITY_TOUT.
+# This delay must be greater than the maximum of these timeouts.
+# TODO: Investigate the use of broadcast intent
+# BluetoothDevice.ACTION_ACL_DISCONNECTED to replace this delay method.
+l2cap_max_inactivity_delay_after_disconnect = 5
+
+# LE specifications related constants
+le_connection_interval_time_step_ms = 1.25
+le_default_supervision_timeout = 2000
+default_le_data_length = 23
+default_le_connection_interval_ms = 30
+le_connection_event_time_step_ms = 0.625
+
+# Headers of LE L2CAP Connection-oriented Channels. See section 3.4, Vol 3, Part A, Version 5.0.
+l2cap_header_size = 4
+l2cap_coc_sdu_length_field_size = 2
+l2cap_coc_header_size = l2cap_header_size + l2cap_coc_sdu_length_field_size
 
 java_integer = {"min": -2147483648, "max": 2147483647}
 
@@ -41,7 +62,6 @@ mtu_changed = "GattConnect{}onMtuChanged"
 advertising_set_started = "AdvertisingSet{}onAdvertisingSetStarted"
 advertising_set_stopped = "AdvertisingSet{}onAdvertisingSetStopped"
 advertising_set_on_own_address_read = "AdvertisingSet{}onOwnAddressRead"
-advertising_set_stopped = "AdvertisingSet{}onAdvertisingSetStopped"
 advertising_set_enabled = "AdvertisingSet{}onAdvertisingEnabled"
 advertising_set_data_set = "AdvertisingSet{}onAdvertisingDataSet"
 advertising_set_scan_response_set = "AdvertisingSet{}onScanResponseDataSet"
@@ -71,6 +91,9 @@ batch_scan_not_supported_list = [
 # rfcomm test uuids
 rfcomm_secure_uuid = "fa87c0d0-afac-11de-8a39-0800200c9a66"
 rfcomm_insecure_uuid = "8ce255c0-200a-11e0-ac64-0800200c9a66"
+
+# bluetooth socket connection test uuid
+bluetooth_socket_conn_test_uuid = "12345678-1234-5678-9abc-123456789abc"
 
 # Bluetooth Adapter Scan Mode Types
 bt_scan_mode_types = {
@@ -159,6 +182,20 @@ bt_priority_levels = {
     "undefined": -1
 }
 
+# Bluetooth HID constants.
+hid_connection_timeout = 5
+
+# Bluetooth HID EventFacade constants.
+hid_on_set_report_event = "onSetReport"
+hid_on_get_report_event = "onGetReport"
+hid_on_set_protocol_event = "onSetProtocol"
+hid_on_intr_data_event = "onInterruptData"
+hid_on_virtual_cable_unplug_event = "onVirtualCableUnplug"
+hid_id_keyboard = 1
+hid_id_mouse = 2
+hid_default_event_timeout = 15
+hid_default_set_report_payload = "Haha"
+
 ### Bluetooth Constants End ###
 
 ### Bluetooth Low Energy Constants Begin ###
@@ -238,28 +275,40 @@ ble_advertise_error_code = {
 gatt_cb_err = {
     "char_write_req_err":
     "Characteristic Write Request event not found. Expected {}",
-    "char_write_err": "Characteristic Write event not found. Expected {}",
+    "char_write_err":
+    "Characteristic Write event not found. Expected {}",
     "desc_write_req_err":
     "Descriptor Write Request event not found. Expected {}",
-    "desc_write_err": "Descriptor Write event not found. Expected {}",
-    "char_read_err": "Characteristic Read event not found. Expected {}",
-    "char_read_req_err": "Characteristic Read Request not found. Expected {}",
-    "desc_read_err": "Descriptor Read event not found. Expected {}",
+    "desc_write_err":
+    "Descriptor Write event not found. Expected {}",
+    "char_read_err":
+    "Characteristic Read event not found. Expected {}",
+    "char_read_req_err":
+    "Characteristic Read Request not found. Expected {}",
+    "desc_read_err":
+    "Descriptor Read event not found. Expected {}",
     "desc_read_req_err":
     "Descriptor Read Request event not found. Expected {}",
-    "rd_remote_rssi_err": "Read Remote RSSI event not found. Expected {}",
+    "rd_remote_rssi_err":
+    "Read Remote RSSI event not found. Expected {}",
     "gatt_serv_disc_err":
     "GATT Services Discovered event not found. Expected {}",
-    "serv_added_err": "Service Added event not found. Expected {}",
-    "mtu_changed_err": "MTU Changed event not found. Expected {}",
-    "mtu_serv_changed_err": "MTU Server Changed event not found. Expected {}",
+    "serv_added_err":
+    "Service Added event not found. Expected {}",
+    "mtu_changed_err":
+    "MTU Changed event not found. Expected {}",
+    "mtu_serv_changed_err":
+    "MTU Server Changed event not found. Expected {}",
     "gatt_conn_changed_err":
     "GATT Connection Changed event not found. Expected {}",
     "char_change_err":
     "GATT Characteristic Changed event not fond. Expected {}",
-    "phy_read_err": "Phy Read event not fond. Expected {}",
-    "phy_update_err": "Phy Update event not fond. Expected {}",
-    "exec_write_err": "GATT Execute Write event not found. Expected {}"
+    "phy_read_err":
+    "Phy Read event not fond. Expected {}",
+    "phy_update_err":
+    "Phy Update event not fond. Expected {}",
+    "exec_write_err":
+    "GATT Execute Write event not found. Expected {}"
 }
 
 # GATT callback strings as defined in GattClientFacade.java and
@@ -511,3 +560,39 @@ gatt_server_responses = {
 }
 
 ### Bluetooth GATT Constants End ###
+
+### Chameleon Constants Begin ###
+
+# Chameleon audio bits per sample.
+audio_bits_per_sample_16 = 16
+audio_bits_per_sample_24 = 24
+audio_bits_per_sample_32 = 32
+
+# Chameleon audio sample rates.
+audio_sample_rate_44100 = 44100
+audio_sample_rate_48000 = 48000
+audio_sample_rate_88200 = 88200
+audio_sample_rate_96000 = 96000
+
+# Chameleon audio channel modes.
+audio_channel_mode_mono = 1
+audio_channel_mode_stereo = 2
+audio_channel_mode_8 = 8
+
+# Chameleon time delays.
+delay_after_binding_seconds = 0.5
+delay_before_record_seconds = 0.5
+silence_wait_seconds = 5
+
+# Chameleon bus endpoints.
+fpga_linein_bus_endpoint = 'Chameleon FPGA line-in'
+headphone_bus_endpoint = 'Cros device headphone'
+
+### Chameleon Constants End ###
+
+### Begin logcat strings dict"""
+logcat_strings = {
+    "media_playback_vol_changed": "onRouteVolumeChanged",
+}
+
+### End logcat strings dict"""

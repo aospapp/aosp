@@ -17,10 +17,7 @@
 #ifndef _OS_API_H_
 #define _OS_API_H_
 
-#include <stdint.h>
 #include <slab.h>
-
-#include <seos_priv.h>
 
 //EXTERNAL API
 //level 1 indices in the OS table
@@ -126,9 +123,6 @@
 
 //called by os entry point to export the api
 void osApiExport(struct SlabAllocator *mainSlubAllocator);
-
-
-
 
 #endif
 

@@ -84,10 +84,8 @@ void nanoappHandleEvent(uint32_t senderInstanceId,
   } else if (eventType == CHRE_EVENT_TIMER) {
     // We can't do the unload from the context of another nanoapp's handle
     // event callback, so get into the system context
-    if (!EventLoopManagerSingleton::get()->deferCallback(
-            SystemCallbackType::HandleUnloadNanoapp, nullptr, handleUnload)) {
-      LOGE("Couldn't defer callback");
-    }
+    EventLoopManagerSingleton::get()->deferCallback(
+        SystemCallbackType::HandleUnloadNanoapp, nullptr, handleUnload);
   } else if (eventType == CHRE_EVENT_NANOAPP_STARTED
       || eventType == CHRE_EVENT_NANOAPP_STOPPED) {
     const auto *info = static_cast<const chreNanoappInfo *>(eventData);

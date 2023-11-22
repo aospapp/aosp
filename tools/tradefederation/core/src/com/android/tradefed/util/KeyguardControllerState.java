@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 
 /** A container for the keyguard states. Inspired from ActivityManagerState.java. */
 public class KeyguardControllerState {
-    private static final Pattern NAME_PATTERN = Pattern.compile("KeyguardController:");
+    private static final Pattern NAME_PATTERN = Pattern.compile(".*KeyguardController:");
     private static final Pattern SHOWING_PATTERN = Pattern.compile("mKeyguardShowing=(\\S+)");
     private static final Pattern OCCLUDED_PATTERN = Pattern.compile("mOccluded=(\\S+)");
 

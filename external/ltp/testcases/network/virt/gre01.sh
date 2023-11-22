@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2015 Oracle and/or its affiliates. All Rights Reserved.
+# Copyright (c) 2015-2017 Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -22,6 +22,7 @@
 
 TCID=gre01
 TST_TOTAL=1
+TST_NEEDS_TMPDIR=1
 
 . test_net.sh
 
@@ -30,12 +31,7 @@ virt_type="gre"
 
 . virt_lib.sh
 
-cleanup()
-{
-	cleanup_vifaces
-	tst_rhost_run -c "ip link delete ltp_v0 2>/dev/null"
-}
-TST_CLEANUP="cleanup"
+TST_CLEANUP="virt_cleanup"
 
 if [ -z $ip_local -o -z $ip_remote ]; then
 	tst_brkm TBROK "you must specify IP address"
@@ -45,6 +41,6 @@ tst_resm TINFO "test $virt_type"
 virt_setup "local $(tst_ipaddr) remote $(tst_ipaddr rhost) dev $(tst_iface)" \
 "local $(tst_ipaddr rhost) remote $(tst_ipaddr) dev $(tst_iface rhost)"
 
-virt_compare_netperf
+virt_netperf_msg_sizes
 
 tst_exit

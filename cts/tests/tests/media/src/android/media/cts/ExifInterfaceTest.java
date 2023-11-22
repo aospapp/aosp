@@ -22,6 +22,7 @@ import android.graphics.BitmapFactory;
 import android.media.ExifInterface;
 import android.os.Environment;
 import android.os.FileUtils;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
 import android.system.ErrnoException;
@@ -42,6 +43,7 @@ import java.lang.reflect.Type;
 import libcore.io.IoUtils;
 import libcore.io.Streams;
 
+@AppModeFull(reason = "Instant apps cannot access the SD card")
 public class ExifInterfaceTest extends AndroidTestCase {
     private static final String TAG = ExifInterface.class.getSimpleName();
     private static final boolean VERBOSE = false;  // lots of logging

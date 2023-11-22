@@ -1,7 +1,7 @@
 /******************************************************************************
  *
- *  Copyright (C) 2016 The Android Open Source Project
- *  Copyright (C) 2005-2012 Broadcom Corporation
+ *  Copyright 2016 The Android Open Source Project
+ *  Copyright 2005-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -104,23 +104,20 @@ extern void BTA_HdRegisterApp(tBTA_HD_APP_INFO* p_app_info,
   p_buf->hdr.event = BTA_HD_API_REGISTER_APP_EVT;
 
   if (p_app_info->p_name) {
-    strncpy(p_buf->name, p_app_info->p_name, BTA_HD_APP_NAME_LEN);
-    p_buf->name[BTA_HD_APP_NAME_LEN] = '\0';
+    strlcpy(p_buf->name, p_app_info->p_name, BTA_HD_APP_NAME_LEN);
   } else {
     p_buf->name[0] = '\0';
   }
 
   if (p_app_info->p_description) {
-    strncpy(p_buf->description, p_app_info->p_description,
+    strlcpy(p_buf->description, p_app_info->p_description,
             BTA_HD_APP_DESCRIPTION_LEN);
-    p_buf->description[BTA_HD_APP_DESCRIPTION_LEN] = '\0';
   } else {
     p_buf->description[0] = '\0';
   }
 
   if (p_app_info->p_provider) {
-    strncpy(p_buf->provider, p_app_info->p_provider, BTA_HD_APP_PROVIDER_LEN);
-    p_buf->provider[BTA_HD_APP_PROVIDER_LEN] = '\0';
+    strlcpy(p_buf->provider, p_app_info->p_provider, BTA_HD_APP_PROVIDER_LEN);
   } else {
     p_buf->provider[0] = '\0';
   }

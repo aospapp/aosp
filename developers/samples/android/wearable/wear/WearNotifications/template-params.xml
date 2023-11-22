@@ -20,8 +20,8 @@
     <package>com.example.android.wearable.wear.wearnotifications</package>
 
     <minSdk>18</minSdk>
-    <compileSdkVersion>26</compileSdkVersion>
-    <targetSdkVersion>26</targetSdkVersion>
+    <compileSdkVersion>27</compileSdkVersion>
+    <targetSdkVersion>27</targetSdkVersion>
 
     <minSdkVersionWear>23</minSdkVersionWear>
     <compileSdkVersionWear>26</compileSdkVersionWear>
@@ -32,15 +32,15 @@
         <has_handheld_app>true</has_handheld_app>
     </wearable>
 
-    <dependency>com.android.support:appcompat-v7:26.0.0</dependency>
-    <dependency>com.android.support:cardview-v7:26.0.0</dependency>
-    <dependency>com.android.support:design:26.0.0</dependency>
+    <dependency>com.android.support:appcompat-v7:27.1.0</dependency>
+    <dependency>com.android.support:cardview-v7:27.1.0</dependency>
+    <dependency>com.android.support:design:27.1.0</dependency>
 
-    <dependency_shared>com.android.support:support-v4:26.0.0</dependency_shared>
+    <dependency_shared>com.android.support:support-v4:27.1.0</dependency_shared>
 
-    <dependency_wearable>com.android.support:appcompat-v7:26.0.0</dependency_wearable>
-    <dependency_wearable>com.android.support:wear:26.0.0</dependency_wearable>
-    <dependency_wearable>com.android.support:design:26.0.0</dependency_wearable>
+    <dependency_wearable>com.android.support:appcompat-v7:27.1.0</dependency_wearable>
+    <dependency_wearable>com.android.support:wear:27.1.0</dependency_wearable>
+    <dependency_wearable>com.android.support:design:27.1.0</dependency_wearable>
 
     <!-- Include additional dependencies here.-->
     <!-- dependency>com.google.android.gms:play-services:5.0.+</dependency -->
@@ -49,8 +49,8 @@
         <intro>
             <![CDATA[
             Sample demonstrates best practices for Notification Styles that support Android
-            phone/tablets and Android Wear. The phone app demonstrates best practices if you do not
-            have a dedicated Android Wear app for Notifications. While the Android Wear app
+            phone/tablets and Wear. The phone app demonstrates best practices if you
+            do not have a dedicated Wear app for Notifications. While the Wear app
             demonstrates best practices for a standalone Wear Notification experience without
             the Notifications showing on the phone/tablet.
             ]]>
@@ -119,7 +119,7 @@
             accomplish, and how does it do it? -->
         <description>
             Sample demonstrates best practices for using NotificationStyle Notifications (Inbox,
-            BigPicture, BigText, and Messaging) for both Mobile apps and native/local Android Wear
+            BigPicture, BigText, and Messaging) for both Mobile apps and native/local Wear
             apps. It also covers Notifications on Wear 1.+ and Wear 2.0.
         </description>
 
@@ -137,11 +137,11 @@ scenario).
 This sample demonstrate best practices for using [NotificationStyle][1]
 [Notifications][2] for two scenarios:
 
-1. Launching Notifications from a Mobile app WITHOUT a native Android Wear app.
+1. Launching Notifications from a Mobile app WITHOUT a native Wear app.
 Notifications appear both on mobile and Wear (bridged to appear like a local/native
 Wear app).
 
-2. Launching Notifications from a Native/Local Android Wear app. Notifications only
+2. Launching Notifications from a Native/Local Wear app. Notifications only
 appear on Wear device.
 
 The Mobile and Wear apps demonstrate [BigTextStyle][3], [BigPictureStyle][4],

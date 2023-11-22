@@ -25,7 +25,7 @@ import android.support.v7.widget.AppCompatTextView;
 import android.text.Annotation;
 import android.text.SpannableString;
 import android.text.Spanned;
-import android.text.method.LinkMovementMethod;
+import android.text.method.MovementMethod;
 import android.text.style.ClickableSpan;
 import android.text.style.TextAppearanceSpan;
 import android.util.AttributeSet;
@@ -36,6 +36,7 @@ import com.android.setupwizardlib.span.LinkSpan;
 import com.android.setupwizardlib.span.LinkSpan.OnLinkClickListener;
 import com.android.setupwizardlib.span.SpanHelper;
 import com.android.setupwizardlib.util.LinkAccessibilityHelper;
+import com.android.setupwizardlib.view.TouchableMovementMethod.TouchableLinkMovementMethod;
 
 /**
  * An extension of TextView that automatically replaces the annotation tags as specified in
@@ -121,7 +122,7 @@ public class RichTextView extends AppCompatTextView implements OnLinkClickListen
             // nullifying any return values of MovementMethod.onTouchEvent.
             // To still allow propagating touch events to the parent when this view doesn't have
             // links, we only set the movement method here if the text contains links.
-            setMovementMethod(LinkMovementMethod.getInstance());
+            setMovementMethod(TouchableLinkMovementMethod.getInstance());
         } else {
             setMovementMethod(null);
         }
@@ -130,6 +131,17 @@ public class RichTextView extends AppCompatTextView implements OnLinkClickListen
         // as individual TextViews consume touch events and thereby reducing the focus window
         // shown by Talkback. Disable focus if there are no links
         setFocusable(hasLinks);
+        // Do not "reveal" (i.e. scroll to) this view when this view is focused. Since this view is
+        // focusable in touch mode, we may be focused when the screen is first shown, and starting
+        // a screen halfway scrolled down is confusing to the user.
+        if (VERSION.SDK_INT >= VERSION_CODES.N_MR1) {
+            setRevealOnFocusHint(false);
+            // setRevealOnFocusHint is a new API added in SDK 25. For lower SDK versions, do not
+            // call setFocusableInTouchMode. We won't get touch effect on those earlier versions,
+            // but the link will still work, and will prevent the scroll view from starting halfway
+            // down the page.
+            setFocusableInTouchMode(hasLinks);
+        }
     }
 
     private boolean hasLinks(CharSequence text) {
@@ -139,6 +151,25 @@ public class RichTextView extends AppCompatTextView implements OnLinkClickListen
             return spans.length > 0;
         }
         return false;
+    }
+
+    @Override
+    @SuppressWarnings("ClickableViewAccessibility")  // super.onTouchEvent is called
+    public boolean onTouchEvent(MotionEvent event) {
+        // Since View#onTouchEvent always return true if the view is clickable (which is the case
+        // when a TextView has a movement method), override the implementation to allow the movement
+        // method, if it implements TouchableMovementMethod, to say that the touch is not handled,
+        // allowing the event to bubble up to the parent view.
+        boolean superResult = super.onTouchEvent(event);
+        MovementMethod movementMethod = getMovementMethod();
+        if (movementMethod instanceof TouchableMovementMethod) {
+            TouchableMovementMethod touchableMovementMethod =
+                    (TouchableMovementMethod) movementMethod;
+            if (touchableMovementMethod.getLastTouchEvent() == event) {
+                return touchableMovementMethod.isLastTouchEventHandled();
+            }
+        }
+        return superResult;
     }
 
     @Override

@@ -21,7 +21,6 @@ import android.app.admin.DevicePolicyManager;
 import android.content.Intent;
 import android.inputmethodservice.InputMethodService;
 import android.os.Bundle;
-import android.os.UserManager;
 import android.util.ArrayMap;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.View;
@@ -235,15 +234,14 @@ public class PolicyTransparencyTestActivity extends PassFailButtons.Activity imp
 
     @Override
     public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-        final Intent intent = new Intent(CommandReceiverActivity.ACTION_EXECUTE_COMMAND);
+        final Intent intent;
         if (TEST_CHECK_USER_RESTRICTION.equals(mTest)) {
             final String userRestriction = getIntent().getStringExtra(
                     CommandReceiverActivity.EXTRA_USER_RESTRICTION);
-            intent.putExtra(CommandReceiverActivity.EXTRA_COMMAND,
-                    CommandReceiverActivity.COMMAND_SET_USER_RESTRICTION);
-            intent.putExtra(CommandReceiverActivity.EXTRA_USER_RESTRICTION, userRestriction);
-            intent.putExtra(CommandReceiverActivity.EXTRA_ENFORCED, isChecked);
+            intent = CommandReceiverActivity.createSetUserRestrictionIntent(
+                    userRestriction, isChecked);
         } else {
+            intent = new Intent(CommandReceiverActivity.ACTION_EXECUTE_COMMAND);
             final PolicyTestItem testItem = POLICY_TEST_ITEMS.get(mTest);
             intent.putExtra(CommandReceiverActivity.EXTRA_COMMAND, testItem.command);
             intent.putExtra(CommandReceiverActivity.EXTRA_ENFORCED, isChecked);

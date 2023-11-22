@@ -42,12 +42,13 @@ class CrosperfTest(unittest.TestCase):
 
   def test_convert_options_to_settings(self):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-l',
-                        '--log_dir',
-                        dest='log_dir',
-                        default='',
-                        help='The log_dir, default is under '
-                             '<crosperf_logs>/logs')
+    parser.add_argument(
+        '-l',
+        '--log_dir',
+        dest='log_dir',
+        default='',
+        help='The log_dir, default is under '
+        '<crosperf_logs>/logs')
     crosperf.SetupParserOptions(parser)
     argv = ['crosperf/crosperf.py', 'temp.exp', '--rerun=True']
     options, _ = parser.parse_known_args(argv)

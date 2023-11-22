@@ -170,8 +170,7 @@ public class VideoViewTest {
         @Override
         public void onPlaybackConfigChanged(List<AudioPlaybackConfiguration> configs) {
             for (AudioPlaybackConfiguration apc : configs) {
-                if (apc.getPlayerState() == AudioPlaybackConfiguration.PLAYER_STATE_STARTED
-                        && apc.getAudioAttributes().getUsage() == AUDIO_ATTR.getUsage()
+                if (apc.getAudioAttributes().getUsage() == AUDIO_ATTR.getUsage()
                         && apc.getAudioAttributes().getContentType()
                                 == AUDIO_ATTR.getContentType()) {
                     mMatchingPlayerFound = true;
@@ -197,7 +196,7 @@ public class VideoViewTest {
         mVideoView.setAudioAttributes(AUDIO_ATTR);
         mVideoView.setAudioFocusRequest(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
 
-        final AudioManager am = new AudioManager(mActivity);
+        final AudioManager am = (AudioManager) mActivity.getSystemService(Context.AUDIO_SERVICE);
         final MyPlaybackCallback myCb = new MyPlaybackCallback();
         mActivityRule.runOnUiThread(() -> am.registerAudioPlaybackCallback(myCb, null));
         mActivityRule.runOnUiThread(() -> mVideoView.setVideoPath(mVideoPath));

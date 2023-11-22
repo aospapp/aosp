@@ -2,7 +2,7 @@
   Load option library functions which relate with creating and processing load options.
 
 Copyright (c) 2011 - 2016, Intel Corporation. All rights reserved.<BR>
-(C) Copyright 2015 Hewlett Packard Enterprise Development LP<BR>
+(C) Copyright 2015-2016 Hewlett Packard Enterprise Development LP<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -775,15 +775,20 @@ BmValidateOption (
   @retval FALSE The variable name is NOT valid.
 **/
 BOOLEAN
-BmIsValidLoadOptionVariableName (
+EFIAPI
+EfiBootManagerIsValidLoadOptionVariableName (
   IN CHAR16                             *VariableName,
-  OUT EFI_BOOT_MANAGER_LOAD_OPTION_TYPE *OptionType,
-  OUT UINT16                            *OptionNumber
+  OUT EFI_BOOT_MANAGER_LOAD_OPTION_TYPE *OptionType   OPTIONAL,
+  OUT UINT16                            *OptionNumber OPTIONAL
   )
 {
   UINTN                             VariableNameLen;
   UINTN                             Index;
   UINTN                             Uint;
+
+  if (VariableName == NULL) {
+    return FALSE;
+  }
 
   VariableNameLen = StrLen (VariableName);
 
@@ -791,7 +796,7 @@ BmIsValidLoadOptionVariableName (
     return FALSE;
   }
 
-  for (Index = 0; Index < sizeof (mBmLoadOptionName) / sizeof (mBmLoadOptionName[0]); Index++) {
+  for (Index = 0; Index < ARRAY_SIZE (mBmLoadOptionName); Index++) {
     if ((VariableNameLen - 4 == StrLen (mBmLoadOptionName[Index])) &&
         (StrnCmp (VariableName, mBmLoadOptionName[Index], VariableNameLen - 4) == 0)
         ) {
@@ -799,18 +804,23 @@ BmIsValidLoadOptionVariableName (
     }
   }
 
-  if (Index == sizeof (mBmLoadOptionName) / sizeof (mBmLoadOptionName[0])) {
+  if (Index == ARRAY_SIZE (mBmLoadOptionName)) {
     return FALSE;
   }
 
-  *OptionType = (EFI_BOOT_MANAGER_LOAD_OPTION_TYPE) Index;
-  *OptionNumber = 0;
-  for (Index = VariableNameLen - 4; Index < VariableNameLen; Index++) {
-    Uint = BmCharToUint (VariableName[Index]);
-    if (Uint == -1) {
-      break;
-    } else {
-      *OptionNumber = (UINT16) Uint + *OptionNumber * 0x10;
+  if (OptionType != NULL) {
+    *OptionType = (EFI_BOOT_MANAGER_LOAD_OPTION_TYPE) Index;
+  }
+
+  if (OptionNumber != NULL) {
+    *OptionNumber = 0;
+    for (Index = VariableNameLen - 4; Index < VariableNameLen; Index++) {
+      Uint = BmCharToUint (VariableName[Index]);
+      if (Uint == -1) {
+        break;
+      } else {
+        *OptionNumber = (UINT16) Uint + *OptionNumber * 0x10;
+      }
     }
   }
 
@@ -853,7 +863,7 @@ EfiBootManagerVariableToLoadOptionEx (
     return EFI_INVALID_PARAMETER;
   }
 
-  if (!BmIsValidLoadOptionVariableName (VariableName, &OptionType, &OptionNumber)) {
+  if (!EfiBootManagerIsValidLoadOptionVariableName (VariableName, &OptionType, &OptionNumber)) {
     return EFI_INVALID_PARAMETER;
   }
 
@@ -979,7 +989,7 @@ BmCollectLoadOptions (
 
   if (CompareGuid (Guid, Param->Guid) && (
       Param->OptionType == LoadOptionTypePlatformRecovery &&
-      BmIsValidLoadOptionVariableName (Name, &OptionType, &OptionNumber) &&
+      EfiBootManagerIsValidLoadOptionVariableName (Name, &OptionType, &OptionNumber) &&
       OptionType == LoadOptionTypePlatformRecovery
      )) {
     Status = EfiBootManagerVariableToLoadOptionEx (Name, Guid, &Option);
@@ -1267,11 +1277,12 @@ EfiBootManagerProcessLoadOption (
   // Load and start the load option.
   //
   DEBUG ((
-    DEBUG_INFO | DEBUG_LOAD, "Process Load Option (%s%04x) ...\n",
-    mBmLoadOptionName[LoadOption->OptionType], LoadOption->OptionNumber
+    DEBUG_INFO | DEBUG_LOAD, "Process %s%04x (%s) ...\n",
+    mBmLoadOptionName[LoadOption->OptionType], LoadOption->OptionNumber,
+    LoadOption->Description
     ));
   ImageHandle = NULL;
-  FileBuffer = BmGetLoadOptionBuffer (LoadOption->FilePath, &FilePath, &FileSize);
+  FileBuffer = EfiBootManagerGetLoadOptionBuffer (LoadOption->FilePath, &FilePath, &FileSize);
   DEBUG_CODE (
     if (FileBuffer != NULL && CompareMem (LoadOption->FilePath, FilePath, GetDevicePathSize (FilePath)) != 0) {
       DEBUG ((EFI_D_INFO, "[Bds] DevicePath expand: "));
@@ -1311,7 +1322,7 @@ EfiBootManagerProcessLoadOption (
 
     LoadOption->Status = gBS->StartImage (ImageHandle, &LoadOption->ExitDataSize, &LoadOption->ExitData);
     DEBUG ((
-      DEBUG_INFO | DEBUG_LOAD, "Load Option (%s%04x) Return Status = %r\n",
+      DEBUG_INFO | DEBUG_LOAD, "%s%04x Return Status = %r\n",
       mBmLoadOptionName[LoadOption->OptionType], LoadOption->OptionNumber, LoadOption->Status
       ));
 

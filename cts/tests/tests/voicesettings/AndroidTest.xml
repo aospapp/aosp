@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Voice Settings test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
     <option name="not-shardable" value="true" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
@@ -23,6 +24,10 @@
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="settings put secure voice_interaction_service android.voicesettings.service/.MainInteractionService" />
+
+        <!-- Close the "turn on battery saver?" dialog, and wait for the broadcast queue to drain. -->
+        <option name="teardown-command" value="am broadcast --receiver-foreground -a android.intent.action.CLOSE_SYSTEM_DIALOGS" />
+        <option name="teardown-command" value="am wait-for-broadcast-idle" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.voicesettings.cts" />

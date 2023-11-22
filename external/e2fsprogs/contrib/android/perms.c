@@ -131,7 +131,7 @@ static errcode_t set_perms_and_caps(ext2_filsys fs, ext2_ino_t ino,
 	if (!capabilities)
 		return 0;
 	memset(&cap_data, 0, sizeof(cap_data));
-	cap_data.magic_etc = VFS_CAP_REVISION | VFS_CAP_FLAGS_EFFECTIVE;
+	cap_data.magic_etc = VFS_CAP_REVISION_2 | VFS_CAP_FLAGS_EFFECTIVE;
 	cap_data.data[0].permitted = (uint32_t) (capabilities & 0xffffffff);
 	cap_data.data[1].permitted = (uint32_t) (capabilities >> 32);
 	return ino_add_xattr(fs, ino,  "security." XATTR_CAPS_SUFFIX,
@@ -288,8 +288,8 @@ errcode_t __android_configure_fs(ext2_filsys fs, char *src_dir,
 
 errcode_t android_configure_fs(ext2_filsys fs, char *src_dir, char *target_out,
 			       char *mountpoint,
-			       struct selinux_opt *seopts,
-			       unsigned int nopt,
+			       struct selinux_opt *seopts EXT2FS_ATTR((unused)),
+			       unsigned int nopt EXT2FS_ATTR((unused)),
 			       char *fs_config_file, time_t fixed_time)
 {
 	errcode_t retval;

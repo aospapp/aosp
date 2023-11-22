@@ -63,13 +63,17 @@ public class PdfRenderService extends Service {
     private final IPdfRender.Stub mBinder = new IPdfRender.Stub() {
         @Override
         public int openDocument(ParcelFileDescriptor pfd) throws RemoteException {
-            if (!open(pfd)) return 0;
+            if (!open(pfd)) {
+                return 0;
+            }
             return mRenderer.getPageCount();
         }
 
         @Override
         public SizeD getPageSize(int page) throws RemoteException {
-            if (!openPage(page)) return null;
+            if (!openPage(page)) {
+                return null;
+            }
             return new SizeD(mPage.getWidth(), mPage.getHeight());
         }
 
@@ -77,10 +81,12 @@ public class PdfRenderService extends Service {
         public ParcelFileDescriptor renderPageStripe(int page, int y, int width, int height,
                 double zoomFactor)
                 throws RemoteException {
-            if (!openPage(page)) return null;
+            if (!openPage(page)) {
+                return null;
+            }
 
             // Create a pipe with input and output sides
-            ParcelFileDescriptor pipes[];
+            ParcelFileDescriptor[] pipes;
             try {
                 pipes = ParcelFileDescriptor.createPipe();
             } catch (IOException e) {
@@ -121,7 +127,9 @@ public class PdfRenderService extends Service {
          * returning true if successful.
          */
         private boolean openPage(int page) {
-            if (mRenderer == null) return false;
+            if (mRenderer == null) {
+                return false;
+            }
 
             // Close old page if this is a new page
             if (mPage != null && mPage.getIndex() != page) {
@@ -190,7 +198,7 @@ public class PdfRenderService extends Service {
             Bitmap bitmap = null;
 
             // Make sure nobody closes page while we're using it
-            synchronized(mPageOpenLock) {
+            synchronized (mPageOpenLock) {
                 try (OutputStream outputStream = new ParcelFileDescriptor.AutoCloseOutputStream(
                         mOutput)) {
                     if (mPage == null) {
@@ -211,7 +219,9 @@ public class PdfRenderService extends Service {
                 } catch (IOException e) {
                     Log.e(TAG, "Failed to write", e);
                 } finally {
-                    if (bitmap != null) bitmap.recycle();
+                    if (bitmap != null) {
+                        bitmap.recycle();
+                    }
                 }
             }
         }
@@ -236,7 +246,7 @@ public class PdfRenderService extends Service {
             int alphaPixelSize = mWidth * rows * 4;
 
             // Chop out the alpha byte
-            byte array[] = mBuffer.array();
+            byte[] array = mBuffer.array();
             int from, to;
             for (from = 0, to = 0; from < alphaPixelSize; from += 4, to += 3) {
                 array[to] = array[from];

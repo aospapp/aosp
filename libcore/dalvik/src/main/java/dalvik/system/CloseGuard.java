@@ -24,6 +24,7 @@ package dalvik.system;
  * A simple example: <pre>   {@code
  *   class Foo {
  *
+ *       {@literal @}ReachabilitySensitive
  *       private final CloseGuard guard = CloseGuard.get();
  *
  *       ...
@@ -52,11 +53,12 @@ package dalvik.system;
  *   }
  * }</pre>
  *
- * In usage where the resource to be explicitly cleaned up are
+ * In usage where the resource to be explicitly cleaned up is
  * allocated after object construction, CloseGuard protection can
  * be deferred. For example: <pre>   {@code
  *   class Bar {
  *
+ *       {@literal @}ReachabilitySensitive
  *       private final CloseGuard guard = CloseGuard.get();
  *
  *       ...
@@ -89,108 +91,104 @@ package dalvik.system;
  *   }
  * }</pre>
  *
- * When used in a constructor calls to {@code open} should occur at
+ * When used in a constructor, calls to {@code open} should occur at
  * the end of the constructor since an exception that would cause
  * abrupt termination of the constructor will mean that the user will
  * not have a reference to the object to cleanup explicitly. When used
  * in a method, the call to {@code open} should occur just after
  * resource acquisition.
  *
+ * The @ReachabilitySensitive annotation ensures that finalize() cannot be
+ * called during the explicit call to cleanup(), prior to the guard.close call.
+ * There is an extremely small chance that, for code that neglects to call
+ * cleanup(), finalize() and thus cleanup() will be called while a method on
+ * the object is still active, but the "this" reference is no longer required.
+ * If missing cleanup() calls are expected, additional @ReachabilitySensitive
+ * annotations or reachabilityFence() calls may be required.
+ *
  * @hide
  */
 public final class CloseGuard {
 
     /**
-     * Instance used when CloseGuard is disabled to avoid allocation.
-     */
-    private static final CloseGuard NOOP = new CloseGuard();
-
-    /**
-     * Enabled by default so we can catch issues early in VM startup.
+     * True if collection of call-site information (the expensive operation
+     * here)  and tracking via a Tracker (see below) are enabled.
+     * Enabled by default so we can diagnose issues early in VM startup.
      * Note, however, that Android disables this early in its startup,
      * but enables it with DropBoxing for system apps on debug builds.
      */
-    private static volatile boolean ENABLED = true;
+    private static volatile boolean stackAndTrackingEnabled = true;
 
     /**
      * Hook for customizing how CloseGuard issues are reported.
+     * Bypassed if stackAndTrackingEnabled was false when open was called.
      */
-    private static volatile Reporter REPORTER = new DefaultReporter();
-
-    /**
-     * The default {@link Tracker}.
-     */
-    private static final DefaultTracker DEFAULT_TRACKER = new DefaultTracker();
+    private static volatile Reporter reporter = new DefaultReporter();
 
     /**
      * Hook for customizing how CloseGuard issues are tracked.
      */
-    private static volatile Tracker currentTracker = DEFAULT_TRACKER;
+    private static volatile Tracker currentTracker = null; // Disabled by default.
 
     /**
-     * Returns a CloseGuard instance. If CloseGuard is enabled, {@code
-     * #open(String)} can be used to set up the instance to warn on
-     * failure to close. If CloseGuard is disabled, a non-null no-op
-     * instance is returned.
+     * Returns a CloseGuard instance. {@code #open(String)} can be used to set
+     * up the instance to warn on failure to close.
      */
     public static CloseGuard get() {
-        if (!ENABLED) {
-            return NOOP;
-        }
         return new CloseGuard();
     }
 
     /**
-     * Used to enable or disable CloseGuard. Note that CloseGuard only
-     * warns if it is enabled for both allocation and finalization.
+     * Enables/disables stack capture and tracking. A call stack is captured
+     * during open(), and open/close events are reported to the Tracker, only
+     * if enabled is true. If a stack trace was captured, the {@link
+     * #getReporter() reporter} is informed of unclosed resources; otherwise a
+     * one-line warning is logged.
      */
     public static void setEnabled(boolean enabled) {
-        ENABLED = enabled;
+        CloseGuard.stackAndTrackingEnabled = enabled;
     }
 
     /**
-     * True if CloseGuard mechanism is enabled.
+     * True if CloseGuard stack capture and tracking are enabled.
      */
     public static boolean isEnabled() {
-        return ENABLED;
+        return stackAndTrackingEnabled;
     }
 
     /**
      * Used to replace default Reporter used to warn of CloseGuard
-     * violations. Must be non-null.
+     * violations when stack tracking is enabled. Must be non-null.
      */
-    public static void setReporter(Reporter reporter) {
-        if (reporter == null) {
+    public static void setReporter(Reporter rep) {
+        if (rep == null) {
             throw new NullPointerException("reporter == null");
         }
-        REPORTER = reporter;
+        CloseGuard.reporter = rep;
     }
 
     /**
      * Returns non-null CloseGuard.Reporter.
      */
     public static Reporter getReporter() {
-        return REPORTER;
+        return reporter;
     }
 
     /**
      * Sets the {@link Tracker} that is notified when resources are allocated and released.
+     * The Tracker is invoked only if CloseGuard {@link #isEnabled()} held when {@link #open()}
+     * was called. A null argument disables tracking.
      *
      * <p>This is only intended for use by {@code dalvik.system.CloseGuardSupport} class and so
      * MUST NOT be used for any other purposes.
-     *
-     * @throws NullPointerException if tracker is null
      */
     public static void setTracker(Tracker tracker) {
-        if (tracker == null) {
-            throw new NullPointerException("tracker == null");
-        }
         currentTracker = tracker;
     }
 
     /**
-     * Returns {@link #setTracker(Tracker) last Tracker that was set}, or otherwise a default
-     * Tracker that does nothing.
+     * Returns {@link #setTracker(Tracker) last Tracker that was set}, or null to indicate
+     * there is none.
      *
      * <p>This is only intended for use by {@code dalvik.system.CloseGuardSupport} class and so
      * MUST NOT be used for any other purposes.
@@ -202,55 +200,70 @@ public final class CloseGuard {
     private CloseGuard() {}
 
     /**
-     * If CloseGuard is enabled, {@code open} initializes the instance
-     * with a warning that the caller should have explicitly called the
-     * {@code closer} method instead of relying on finalization.
+     * {@code open} initializes the instance with a warning that the caller
+     * should have explicitly called the {@code closer} method instead of
+     * relying on finalization.
      *
-     * @param closer non-null name of explicit termination method
-     * @throws NullPointerException if closer is null, regardless of
-     * whether or not CloseGuard is enabled
+     * @param closer non-null name of explicit termination method. Printed by warnIfOpen.
+     * @throws NullPointerException if closer is null.
      */
     public void open(String closer) {
         // always perform the check for valid API usage...
         if (closer == null) {
             throw new NullPointerException("closer == null");
         }
-        // ...but avoid allocating an allocationSite if disabled
-        if (this == NOOP || !ENABLED) {
+        // ...but avoid allocating an allocation stack if "disabled"
+        if (!stackAndTrackingEnabled) {
+            closerNameOrAllocationInfo = closer;
             return;
         }
         String message = "Explicit termination method '" + closer + "' not called";
-        allocationSite = new Throwable(message);
-        currentTracker.open(allocationSite);
+        Throwable stack = new Throwable(message);
+        closerNameOrAllocationInfo = stack;
+        Tracker tracker = currentTracker;
+        if (tracker != null) {
+            tracker.open(stack);
+        }
     }
 
-    private Throwable allocationSite;
+    // We keep either an allocation stack containing the closer String or, when
+    // in disabled state, just the closer String.
+    // We keep them in a single field only to minimize overhead.
+    private Object /* String or Throwable */ closerNameOrAllocationInfo;
 
     /**
      * Marks this CloseGuard instance as closed to avoid warnings on
      * finalization.
      */
     public void close() {
-        currentTracker.close(allocationSite);
-        allocationSite = null;
+        Tracker tracker = currentTracker;
+        if (tracker != null && closerNameOrAllocationInfo instanceof Throwable) {
+            // Invoke tracker on close only if we invoked it on open. Tracker may have changed.
+            tracker.close((Throwable) closerNameOrAllocationInfo);
+        }
+        closerNameOrAllocationInfo = null;
     }
 
     /**
-     * If CloseGuard is enabled, logs a warning if the caller did not
-     * properly cleanup by calling an explicit close method
-     * before finalization. If CloseGuard is disabled, no action is
-     * performed.
+     * Logs a warning if the caller did not properly cleanup by calling an
+     * explicit close method before finalization. If CloseGuard was enabled
+     * when the CloseGuard was created, passes the stacktrace associated with
+     * the allocation to the current reporter. If it was not enabled, it just
+     * directly logs a brief message.
      */
     public void warnIfOpen() {
-        if (allocationSite == null || !ENABLED) {
-            return;
+        if (closerNameOrAllocationInfo != null) {
+            if (closerNameOrAllocationInfo instanceof String) {
+                System.logW("A resource failed to call "
+                        + (String) closerNameOrAllocationInfo + ". ");
+            } else {
+                String message =
+                        "A resource was acquired at attached stack trace but never released. ";
+                message += "See java.io.Closeable for information on avoiding resource leaks.";
+                Throwable stack = (Throwable) closerNameOrAllocationInfo;
+                reporter.report(message, stack);
+            }
         }
-
-        String message =
-                ("A resource was acquired at attached stack trace but never released. "
-                 + "See java.io.Closeable for information on avoiding resource leaks.");
-
-        REPORTER.report(message, allocationSite);
     }
 
     /**
@@ -262,20 +275,6 @@ public final class CloseGuard {
     public interface Tracker {
         void open(Throwable allocationSite);
         void close(Throwable allocationSite);
-    }
-
-    /**
-     * Default tracker which does nothing special and simply leaves it up to the GC to detect a
-     * leak.
-     */
-    private static final class DefaultTracker implements Tracker {
-        @Override
-        public void open(Throwable allocationSite) {
-        }
-
-        @Override
-        public void close(Throwable allocationSite) {
-        }
     }
 
     /**

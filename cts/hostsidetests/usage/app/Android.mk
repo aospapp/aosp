@@ -29,3 +29,23 @@ LOCAL_PACKAGE_NAME := CtsAppUsageTestApp
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)
+
+# Build a second one similar to the first
+
+include $(CLEAR_VARS)
+
+# Don't include this package in any target.
+LOCAL_MODULE_TAGS := tests
+
+LOCAL_SRC_FILES := $(call all-java-files-under, src)
+
+LOCAL_SDK_VERSION := current
+
+LOCAL_PACKAGE_NAME := CtsAppUsageTestAppToo
+
+# tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+
+LOCAL_AAPT_FLAGS += --rename-manifest-package android.app.usage.apptoo
+
+include $(BUILD_CTS_SUPPORT_PACKAGE)

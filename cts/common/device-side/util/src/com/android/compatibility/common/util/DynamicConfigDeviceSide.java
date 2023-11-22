@@ -17,7 +17,6 @@
 package com.android.compatibility.common.util;
 
 import android.os.Environment;
-import android.util.Log;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -28,14 +27,16 @@ import java.io.IOException;
  * Load dynamic config for device side test cases
  */
 public class DynamicConfigDeviceSide extends DynamicConfig {
-
-    private static String LOG_TAG = DynamicConfigDeviceSide.class.getSimpleName();
-
     public DynamicConfigDeviceSide(String moduleName) throws XmlPullParserException, IOException {
+        this(moduleName, new File(CONFIG_FOLDER_ON_DEVICE));
+    }
+
+    public DynamicConfigDeviceSide(String moduleName, File configFolder)
+            throws XmlPullParserException, IOException {
         if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
             throw new IOException("External storage is not mounted");
         }
-        File configFile = getConfigFile(new File(CONFIG_FOLDER_ON_DEVICE), moduleName);
+        File configFile = getConfigFile(configFolder, moduleName);
         initializeConfig(configFile);
     }
 }

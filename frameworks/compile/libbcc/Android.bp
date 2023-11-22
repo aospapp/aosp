@@ -22,7 +22,6 @@ cc_defaults {
         "libbcc-targets",
     ],
 
-    clang: true,
     cflags: [
         "-Wall",
         "-Wno-unused-parameter",
@@ -71,7 +70,7 @@ cc_defaults {
                 "-DFORCE_ARM_CODEGEN",
                 "-DARCH_ARM_HAVE_VFP",
             ],
-            armv7_a_neon: {
+            neon: {
                 cflags: [
                     "-DARCH_ARM_HAVE_VFP_D32",
                     "-DARCH_ARM_HAVE_NEON",

@@ -30,14 +30,17 @@ AALGO="sha1"
 # Compression algorithm
 CALGO="deflate"
 
-while getopts "hl:m:p:s:S:k:A:e:a:c:6" opt; do
+IPSEC_REQUESTS="500"
+IPSEC_SIZE_ARRAY="${IPSEC_SIZE_ARRAY:-10 100 1000 2000 10000 65000}"
+
+while getopts "hl:m:p:s:S:k:A:e:a:c:r:6" opt; do
 	case "$opt" in
 	h)
 		echo "Usage:"
 		echo "h        help"
 		echo "l n      n is the number of test link when tests run"
 		echo "m x      x is ipsec mode, could be transport / tunnel"
-		echo "p x      x is ipsec protocol, could be ah / esp / ipcomp"
+		echo "p x      x is ipsec protocol, could be ah / esp / comp"
 		echo "s x      x is icmp messge size array"
 		echo "S n      n is IPsec SPI value"
 		echo "k x      key for vti interface"
@@ -45,6 +48,7 @@ while getopts "hl:m:p:s:S:k:A:e:a:c:6" opt; do
 		echo "e x      Encryption algorithm"
 		echo "a x      Authentication algorithm"
 		echo "c x      Compression algorithm"
+		echo "r x      Num of requests, PING_MAX or netstress' '-r' opt"
 		echo "6        run over IPv6"
 		exit 0
 	;;
@@ -58,6 +62,7 @@ while getopts "hl:m:p:s:S:k:A:e:a:c:6" opt; do
 	e) EALGO=$OPTARG ;;
 	a) AALGO=$OPTARG ;;
 	c) CALGO=$OPTARG ;;
+	r) IPSEC_REQUESTS="$OPTARG" ;;
 	6) # skip, test_net library already processed it
 	;;
 	*) tst_brkm TBROK "unknown option: $opt" ;;
@@ -114,6 +119,8 @@ tst_ipsec_cleanup()
 		ip li del $cleanup_vti 2>/dev/null
 		tst_rhost_run -c "ip li del $cleanup_vti 2>/dev/null"
 	fi
+
+	[ "$TST_NEEDS_TMPDIR" = 1 ] && tst_rmdir
 }
 
 ipsec_set_algoline()
@@ -153,6 +160,21 @@ ipsec_set_algoline()
 	esac
 }
 
+ipsec_try()
+{
+	local output="$($@ 2>&1 || echo 'TERR')"
+
+	if echo "$output" | grep -q "TERR"; then
+		echo "$output" | grep -q \
+			'RTNETLINK answers: Function not implemented' && \
+			tst_brkm TCONF "'$@': not implemented"
+		echo "$output" | grep -q \
+			'RTNETLINK answers: Operation not supported' && \
+			tst_brkm TCONF "'$@': not supported (maybe missing 'ip${TST_IPV6}_vti' kernel module)"
+		tst_brkm TBROK "$@ failed: $output"
+	fi
+}
+
 # tst_ipsec target src_addr dst_addr: config ipsec
 #
 # target: target of the configuration host ( lhost / rhost )
@@ -176,7 +198,7 @@ tst_ipsec()
 	if [ $target = lhost ]; then
 		local spi_1="0x$SPI"
 		local spi_2="0x$(( $SPI + 1 ))"
-		ROD ip xfrm state add src $src dst $dst spi $spi_1 \
+		ipsec_try ip xfrm state add src $src dst $dst spi $spi_1 \
 			$p $ALG mode $mode sel src $src dst $dst
 		ROD ip xfrm state add src $dst dst $src spi $spi_2 \
 			$p $ALG mode $mode sel src $dst dst $src
@@ -223,6 +245,8 @@ tst_ipsec_vti()
 	local key="key $VTI_KEY"
 	local mrk="mark $VTI_KEY"
 	local type="type vti$TST_IPV6"
+	local d="dev $(tst_iface)"
+	local rd="dev $(tst_iface rhost)"
 
 	ip li add type vti help 2>&1 | grep -q vti || \
 		tst_brkm TCONF "iproute doesn't support 'vti'"
@@ -236,18 +260,18 @@ tst_ipsec_vti()
 	cleanup_vti=$vti
 
 	if [ $target = lhost ]; then
-		ROD ip li add $vti $type local $src remote $dst $key
+		ipsec_try ip li add $vti $type local $src remote $dst $key $d
 		ROD ip li set $vti up
 
 		local spi_1="spi 0x$SPI"
 		local spi_2="spi 0x$(( $SPI + 1 ))"
-		ROD $ipx st add $o_dir $p $spi_1 $ALG $m
+		ipsec_try $ipx st add $o_dir $p $spi_1 $ALG $m
 		ROD $ipx st add $i_dir $p $spi_2 $ALG $m
 		ROD $ipx po add dir out tmpl $o_dir $p $m $mrk
 		ROD $ipx po add dir in tmpl $i_dir $p $m $mrk
 	elif [ $target = rhost ]; then
 		tst_rhost_run -s -c \
-			"ip li add $vti $type local $src remote $dst $key"
+			"ip li add $vti $type local $src remote $dst $key $rd"
 		tst_rhost_run -s -c "ip li set $vti up"
 
 		local spi_1="spi 0x$(( $SPI + 1 ))"
@@ -257,4 +281,44 @@ tst_ipsec_vti()
 		tst_rhost_run -s -c "$ipx po add dir out tmpl $o_dir $p $m $mrk"
 		tst_rhost_run -s -c "$ipx po add dir in tmpl $i_dir $p $m $mrk"
 	fi
+}
+
+# Setup vti/vti6 interface for IPsec tunneling
+# The function sets variables:
+#  * tst_vti - vti interface name,
+#  * ip_loc_tun - local IP address on vti interface
+#  * ip_rmt_tun - remote IP address
+tst_ipsec_setup_vti()
+{
+	if_loc=$(tst_iface)
+	if_rmt=$(tst_iface rhost)
+
+	ip_loc=$(tst_ipaddr)
+	ip_rmt=$(tst_ipaddr rhost)
+
+	tst_vti="ltp_vti0"
+
+	tst_resm TINFO "Test vti$TST_IPV6 + IPsec[$IPSEC_PROTO/$IPSEC_MODE]"
+
+	tst_ipsec_vti lhost $ip_loc $ip_rmt $tst_vti
+	tst_ipsec_vti rhost $ip_rmt $ip_loc $tst_vti
+
+	local mask=
+	if [ "$TST_IPV6" ]; then
+		ip_loc_tun="${IPV6_NET32_UNUSED}::1";
+		ip_rmt_tun="${IPV6_NET32_UNUSED}::2";
+		mask=64
+		ROD ip -6 route add ${IPV6_NET32_UNUSED}::/$mask dev $tst_vti
+	else
+		ip_loc_tun="${IPV4_NET16_UNUSED}.1.1";
+		ip_rmt_tun="${IPV4_NET16_UNUSED}.1.2";
+		mask=30
+		ROD ip route add ${IPV4_NET16_UNUSED}.1.0/$mask dev $tst_vti
+	fi
+
+	tst_resm TINFO "Add IPs to vti tunnel, " \
+		       "loc: $ip_loc_tun/$mask, rmt: $ip_rmt_tun/$mask"
+
+	ROD ip a add $ip_loc_tun/$mask dev $tst_vti nodad
+	tst_rhost_run -s -c "ip a add $ip_rmt_tun/$mask dev $tst_vti"
 }

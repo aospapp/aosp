@@ -45,13 +45,14 @@
     <string name="no_cert_file_found" product="nosdcard" msgid="3555332946357131929">"USBသိုလှောင်ရာထဲတွင် မည်သည့်အသိအမှတ်ပြုလက်မှတ်ဖိုင်မှမရှိပါ"</string>
     <string name="no_cert_file_found" product="default" msgid="1942077544887243999">"SDကဒ်ထဲတွင်မည်သည့်အသိအမှတ်ပြုလက်မှတ်ဖိုင်ကိုမှမတွေ့ရှိပါ။"</string>
     <string name="sdcard_not_present" product="nosdcard" msgid="9197143240492611196">"USBသိုလှောင်ရာမရှိပါ"</string>
-    <string name="sdcard_not_present" product="default" msgid="3866952732541932947">"SD ကဒ် မရှိပါ"</string>
+    <string name="sdcard_not_present" product="default" msgid="3866952732541932947">"SD ကတ် မရှိပါ"</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"ဤစက်ပိုင်ရှင်မှသာ အသိအမှတ်ပြုလက်မှတ် များ ထည့်သွင်းနိုင်ပါလိမ့်မည်"</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Credential အသုံးပြုပုံ:"</string>
   <string-array name="credential_usage">
     <item msgid="375085478373011304">"VPN နဲ့ အက်ပ်များ"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"မှတ်ချက်− အသိအမှတ်ပြုလက်မှတ် ထုတ်ပေးသူသည် စက်ပစ္စည်းသို့ ဒေတာအဝင်နှင့် အထွက်များကို စိစစ်နိုင်ပါသည်။"</string>
     <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi  ပရိုဖိုင်"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%s အတွက်သေးစိတ်"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"အသေးစိတ်"</string>

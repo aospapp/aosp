@@ -19,6 +19,7 @@ package com.android.bluetooth.gatt;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+
 import java.util.UUID;
 
 /**
@@ -29,18 +30,17 @@ import java.util.UUID;
     private static final boolean DEBUG_ADMIN = GattServiceConfig.DEBUG_ADMIN;
 
     private static final String ACTION_GATT_PAIRING_CONFIG =
-                                "android.bluetooth.action.GATT_PAIRING_CONFIG";
+            "android.bluetooth.action.GATT_PAIRING_CONFIG";
 
-    private static final String ACTION_GATT_TEST_USAGE =
-                                "android.bluetooth.action.GATT_TEST_USAGE";
+    private static final String ACTION_GATT_TEST_USAGE = "android.bluetooth.action.GATT_TEST_USAGE";
     private static final String ACTION_GATT_TEST_ENABLE =
-                                "android.bluetooth.action.GATT_TEST_ENABLE";
+            "android.bluetooth.action.GATT_TEST_ENABLE";
     private static final String ACTION_GATT_TEST_CONNECT =
-                                "android.bluetooth.action.GATT_TEST_CONNECT";
+            "android.bluetooth.action.GATT_TEST_CONNECT";
     private static final String ACTION_GATT_TEST_DISCONNECT =
-                                "android.bluetooth.action.GATT_TEST_DISCONNECT";
+            "android.bluetooth.action.GATT_TEST_DISCONNECT";
     private static final String ACTION_GATT_TEST_DISCOVER =
-                                "android.bluetooth.action.GATT_TEST_DISCOVER";
+            "android.bluetooth.action.GATT_TEST_DISCOVER";
 
     private static final String EXTRA_ENABLE = "enable";
     private static final String EXTRA_ADDRESS = "address";
@@ -69,7 +69,9 @@ import java.util.UUID;
      *   import com.android.bluetooth.gatt.GattService;
      */
     static boolean handleDebugAction(GattService svc, Intent intent) {
-        if (!DEBUG_ADMIN) return false;
+        if (!DEBUG_ADMIN) {
+            return false;
+        }
 
         String action = intent.getAction();
         Log.d(TAG, "handleDebugAction() action=" + action);
@@ -83,32 +85,31 @@ import java.util.UUID;
 
         } else if (ACTION_GATT_TEST_ENABLE.equals(action)) {
             boolean bEnable = intent.getBooleanExtra(EXTRA_ENABLE, true);
-            svc.gattTestCommand( 0x01, null,null, bEnable ? 1 : 0, 0,0,0,0);
+            svc.gattTestCommand(0x01, null, null, bEnable ? 1 : 0, 0, 0, 0, 0);
 
         } else if (ACTION_GATT_TEST_CONNECT.equals(action)) {
             String address = intent.getStringExtra(EXTRA_ADDRESS);
             int type = intent.getIntExtra(EXTRA_TYPE, 2 /* LE device */);
-            int addr_type = intent.getIntExtra(EXTRA_ADDR_TYPE, 0 /* Static */);
-            svc.gattTestCommand( 0x02, null, address, type, addr_type, 0,0,0);
+            int addrType = intent.getIntExtra(EXTRA_ADDR_TYPE, 0 /* Static */);
+            svc.gattTestCommand(0x02, null, address, type, addrType, 0, 0, 0);
 
         } else if (ACTION_GATT_TEST_DISCONNECT.equals(action)) {
-            svc.gattTestCommand( 0x03, null, null, 0,0,0,0,0);
+            svc.gattTestCommand(0x03, null, null, 0, 0, 0, 0, 0);
 
         } else if (ACTION_GATT_TEST_DISCOVER.equals(action)) {
             UUID uuid = getUuidExtra(intent);
             int type = intent.getIntExtra(EXTRA_TYPE, 1 /* All services */);
             int shdl = getHandleExtra(intent, EXTRA_SHANDLE, 1);
             int ehdl = getHandleExtra(intent, EXTRA_EHANDLE, 0xFFFF);
-            svc.gattTestCommand( 0x04, uuid, null, type, shdl, ehdl, 0,0);
+            svc.gattTestCommand(0x04, uuid, null, type, shdl, ehdl, 0, 0);
 
         } else if (ACTION_GATT_PAIRING_CONFIG.equals(action)) {
-            int auth_req = intent.getIntExtra(EXTRA_AUTH_REQ, 5);
-            int io_cap = intent.getIntExtra(EXTRA_IO_CAP, 4);
-            int init_key = intent.getIntExtra(EXTRA_INIT_KEY, 7);
-            int resp_key = intent.getIntExtra(EXTRA_RESP_KEY, 7);
-            int max_key = intent.getIntExtra(EXTRA_MAX_KEY, 16);
-            svc.gattTestCommand( 0xF0, null, null, auth_req, io_cap, init_key,
-                                 resp_key, max_key);
+            int authReq = intent.getIntExtra(EXTRA_AUTH_REQ, 5);
+            int ioCap = intent.getIntExtra(EXTRA_IO_CAP, 4);
+            int initKey = intent.getIntExtra(EXTRA_INIT_KEY, 7);
+            int respKey = intent.getIntExtra(EXTRA_RESP_KEY, 7);
+            int maxKey = intent.getIntExtra(EXTRA_MAX_KEY, 16);
+            svc.gattTestCommand(0xF0, null, null, authReq, ioCap, initKey, respKey, maxKey);
 
         } else {
             return false;
@@ -122,19 +123,18 @@ import java.util.UUID;
      * then as an ineger.
      * @hide
      */
-    static private int getHandleExtra(Intent intent, String extra, int default_value) {
+    private static int getHandleExtra(Intent intent, String extra, int defaultValue) {
         Bundle extras = intent.getExtras();
         Object uuid = extras != null ? extras.get(extra) : null;
         if (uuid != null && uuid.getClass().getName().equals("java.lang.String")) {
-            try
-            {
+            try {
                 return Integer.parseInt(extras.getString(extra), 16);
             } catch (NumberFormatException e) {
-                return default_value;
+                return defaultValue;
             }
         }
 
-        return intent.getIntExtra(extra, default_value);
+        return intent.getIntExtra(extra, defaultValue);
     }
 
     /**
@@ -143,7 +143,7 @@ import java.util.UUID;
      * the default Bluetooth UUID is appended.
      * @hide
      */
-    static private UUID getUuidExtra(Intent intent) {
+    private static UUID getUuidExtra(Intent intent) {
         String uuidStr = intent.getStringExtra(EXTRA_UUID);
         if (uuidStr != null && uuidStr.length() == 4) {
             uuidStr = String.format("0000%s-0000-1000-8000-00805f9b34fb", uuidStr);
@@ -155,9 +155,9 @@ import java.util.UUID;
      * Log usage information.
      * @hide
      */
-    static private void logUsageInfo() {
+    private static void logUsageInfo() {
         StringBuilder b = new StringBuilder();
-        b.append(  "------------ GATT TEST ACTIONS  ----------------");
+        b.append("------------ GATT TEST ACTIONS  ----------------");
         b.append("\nGATT_TEST_ENABLE");
         b.append("\n  [--ez enable <bool>] Enable or disable,");
         b.append("\n                       defaults to true (enable).\n");

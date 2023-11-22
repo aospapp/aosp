@@ -20,6 +20,8 @@ include $(CLEAR_VARS)
 #All source files for the library
 LOCAL_SRC_FILES := TradeFedNativeTestSampleLib.cpp
 
+LOCAL_CFLAGS := -Wall -Werror
+
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/../include
 

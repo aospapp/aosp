@@ -23,34 +23,43 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.MarginLayoutParams;
-
 import com.android.tv.common.R;
 
-/**
- * A fragment for channel source info/setup.
- */
+/** A fragment for channel source info/setup. */
 public abstract class SetupMultiPaneFragment extends SetupFragment {
     private static final String TAG = "SetupMultiPaneFragment";
     private static final boolean DEBUG = false;
 
     public static final int ACTION_DONE = Integer.MAX_VALUE;
     public static final int ACTION_SKIP = ACTION_DONE - 1;
+    public static final int MAX_SUBCLASSES_ID = ACTION_SKIP - 1;
 
-    private static final String CONTENT_FRAGMENT_TAG = "content_fragment";
+    public static final String CONTENT_FRAGMENT_TAG = "content_fragment";
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
+    public View onCreateView(
+            LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         if (DEBUG) {
-            Log.d(TAG, "onCreateView(" + inflater + ", " + container + ", " + savedInstanceState
-                    + ")");
+            Log.d(
+                    TAG,
+                    "onCreateView("
+                            + inflater
+                            + ", "
+                            + container
+                            + ", "
+                            + savedInstanceState
+                            + ")");
         }
         View view = super.onCreateView(inflater, container, savedInstanceState);
         if (savedInstanceState == null) {
             SetupGuidedStepFragment contentFragment = onCreateContentFragment();
-            getChildFragmentManager().beginTransaction()
-                    .replace(R.id.guided_step_fragment_container, contentFragment,
-                            CONTENT_FRAGMENT_TAG).commit();
+            getChildFragmentManager()
+                    .beginTransaction()
+                    .replace(
+                            R.id.guided_step_fragment_container,
+                            contentFragment,
+                            CONTENT_FRAGMENT_TAG)
+                    .commit();
         }
         if (needsDoneButton()) {
             setOnClickAction(view.findViewById(R.id.button_done), getActionCategory(), ACTION_DONE);
@@ -65,12 +74,12 @@ public abstract class SetupMultiPaneFragment extends SetupFragment {
             if (getResources().getConfiguration().getLayoutDirection()
                     == View.LAYOUT_DIRECTION_LTR) {
                 ((MarginLayoutParams) doneButtonContainer.getLayoutParams()).rightMargin =
-                        -getResources().getDimensionPixelOffset(
-                                R.dimen.setup_done_button_container_width);
+                        -getResources()
+                                .getDimensionPixelOffset(R.dimen.setup_done_button_container_width);
             } else {
                 ((MarginLayoutParams) doneButtonContainer.getLayoutParams()).leftMargin =
-                        -getResources().getDimensionPixelOffset(
-                                R.dimen.setup_done_button_container_width);
+                        -getResources()
+                                .getDimensionPixelOffset(R.dimen.setup_done_button_container_width);
             }
             view.findViewById(R.id.button_done).setFocusable(false);
         }
@@ -82,15 +91,15 @@ public abstract class SetupMultiPaneFragment extends SetupFragment {
         return R.layout.fragment_setup_multi_pane;
     }
 
-    abstract protected SetupGuidedStepFragment onCreateContentFragment();
+    protected abstract SetupGuidedStepFragment onCreateContentFragment();
 
     @Nullable
     protected SetupGuidedStepFragment getContentFragment() {
-        return (SetupGuidedStepFragment) getChildFragmentManager()
-                .findFragmentByTag(CONTENT_FRAGMENT_TAG);
+        return (SetupGuidedStepFragment)
+                getChildFragmentManager().findFragmentByTag(CONTENT_FRAGMENT_TAG);
     }
 
-    abstract protected String getActionCategory();
+    protected abstract String getActionCategory();
 
     protected boolean needsDoneButton() {
         return true;
@@ -102,11 +111,16 @@ public abstract class SetupMultiPaneFragment extends SetupFragment {
 
     @Override
     protected int[] getParentIdsForDelay() {
-        return new int[] {R.id.content_fragment, R.id.guidedactions_list};
+        return new int[] {
+            android.support.v17.leanback.R.id.content_fragment,
+            android.support.v17.leanback.R.id.guidedactions_list
+        };
     }
 
     @Override
     public int[] getSharedElementIds() {
-        return new int[] {R.id.action_fragment_background, R.id.done_button_container};
+        return new int[] {
+            android.support.v17.leanback.R.id.action_fragment_background, R.id.done_button_container
+        };
     }
 }

@@ -1802,7 +1802,8 @@ SLresult android_audioPlayer_realize(CAudioPlayer *pAudioPlayer, SLboolean async
         } else {
             pAudioPlayer->mPIId = pAudioPlayer->mObject.mEngine->mAudioManager->trackPlayer(
                     android::PLAYER_TYPE_SLES_AUDIOPLAYER_URI_FD,
-                    usageForStreamType(pAudioPlayer->mStreamType), AUDIO_CONTENT_TYPE_UNKNOWN, 0);
+                    usageForStreamType(pAudioPlayer->mStreamType), AUDIO_CONTENT_TYPE_UNKNOWN,
+                    pAudioPlayer->mTrackPlayer);
         }
         }
         break;

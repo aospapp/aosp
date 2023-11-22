@@ -31,12 +31,14 @@ import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Xml;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.util.Arrays;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.xmlpull.v1.XmlPullParser;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.util.Arrays;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -215,12 +217,23 @@ public class AdaptiveIconDrawableTest {
     public void testSetAlpha() {
         AdaptiveIconDrawable iconDrawable = new AdaptiveIconDrawable(
             new ColorDrawable(Color.RED), new ColorDrawable(Color.BLUE));
-        iconDrawable.setAlpha(1);
-        iconDrawable.setAlpha(-1);
+        iconDrawable.setBounds(0, 0, 100, 100);
 
-        iconDrawable.setAlpha(0);
-        iconDrawable.setAlpha(Integer.MAX_VALUE);
-        iconDrawable.setAlpha(Integer.MIN_VALUE);
+        Bitmap bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+
+        iconDrawable.draw(canvas);
+        assertEquals(255, Color.alpha(bitmap.getPixel(50, 50)));
+
+        iconDrawable.setAlpha(200);
+        bitmap.eraseColor(Color.TRANSPARENT);
+        iconDrawable.draw(canvas);
+        assertEquals(200, Color.alpha(bitmap.getPixel(50, 50)));
+
+        iconDrawable.setAlpha(100);
+        bitmap.eraseColor(Color.TRANSPARENT);
+        iconDrawable.draw(canvas);
+        assertEquals(100, Color.alpha(bitmap.getPixel(50, 50)));
     }
 
     @Test

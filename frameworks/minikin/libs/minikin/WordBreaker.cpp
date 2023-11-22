@@ -14,45 +14,95 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "Minikin"
+#include "WordBreaker.h"
 
-#include <android/log.h>
-
-#include <minikin/Emoji.h>
-#include <minikin/Hyphenator.h>
-#include <minikin/WordBreaker.h>
-#include "MinikinInternal.h"
+#include <list>
+#include <map>
 
 #include <unicode/uchar.h>
 #include <unicode/utf16.h>
 
+#include "minikin/Emoji.h"
+#include "minikin/Hyphenator.h"
+
+#include "Locale.h"
+#include "MinikinInternal.h"
+
 namespace minikin {
 
-const uint32_t CHAR_SOFT_HYPHEN = 0x00AD;
-const uint32_t CHAR_ZWJ = 0x200D;
-
-void WordBreaker::setLocale(const icu::Locale& locale) {
-    UErrorCode status = U_ZERO_ERROR;
-    mBreakIterator.reset(icu::BreakIterator::createLineInstance(locale, status));
+namespace {
+static icu::BreakIterator* createNewIterator(const Locale& locale) {
     // TODO: handle failure status
-    if (mText != nullptr) {
-        mBreakIterator->setText(&mUText, status);
+    UErrorCode status = U_ZERO_ERROR;
+    return icu::BreakIterator::createLineInstance(
+            locale.isUnsupported() ? icu::Locale::getRoot()
+                                   : icu::Locale::createFromName(locale.getString().c_str()),
+            status);
+}
+}  // namespace
+
+ICULineBreakerPool::Slot ICULineBreakerPoolImpl::acquire(const Locale& locale) {
+    const uint64_t id = locale.getIdentifier();
+    std::lock_guard<std::mutex> lock(mMutex);
+    for (auto i = mPool.begin(); i != mPool.end(); i++) {
+        if (i->localeId == id) {
+            Slot slot = std::move(*i);
+            mPool.erase(i);
+            return slot;
+        }
     }
-    mIteratorWasReset = true;
+
+    // Not found in pool. Create new one.
+    return {id, std::unique_ptr<icu::BreakIterator>(createNewIterator(locale))};
+}
+
+void ICULineBreakerPoolImpl::release(ICULineBreakerPool::Slot&& slot) {
+    if (slot.breaker.get() == nullptr) {
+        return;  // Already released slot. Do nothing.
+    }
+    std::lock_guard<std::mutex> lock(mMutex);
+    if (mPool.size() >= MAX_POOL_SIZE) {
+        // Pool is full. Move to local variable, so that the given slot will be released when the
+        // variable leaves the scope.
+        Slot localSlot = std::move(slot);
+        return;
+    }
+    mPool.push_front(std::move(slot));
+}
+
+WordBreaker::WordBreaker() : mPool(&ICULineBreakerPoolImpl::getInstance()) {}
+
+WordBreaker::WordBreaker(ICULineBreakerPool* pool) : mPool(pool) {}
+
+ssize_t WordBreaker::followingWithLocale(const Locale& locale, size_t from) {
+    mIcuBreaker = mPool->acquire(locale);
+    UErrorCode status = U_ZERO_ERROR;
+    MINIKIN_ASSERT(mText != nullptr, "setText must be called first");
+    // TODO: handle failure status
+    mIcuBreaker.breaker->setText(&mUText, status);
+    if (mInEmailOrUrl) {
+        // Note:
+        // Don't reset mCurrent, mLast, or mScanOffset for keeping email/URL context.
+        // The email/URL detection doesn't support following() functionality, so that we can't
+        // restart from the specific position. This means following() can not be supported in
+        // general, but keeping old email/URL context works for LineBreaker since it just wants to
+        // re-calculate the next break point with the new locale.
+    } else {
+        mCurrent = mLast = mScanOffset = from;
+        next();
+    }
+    return mCurrent;
 }
 
 void WordBreaker::setText(const uint16_t* data, size_t size) {
     mText = data;
     mTextSize = size;
-    mIteratorWasReset = false;
     mLast = 0;
     mCurrent = 0;
     mScanOffset = 0;
     mInEmailOrUrl = false;
     UErrorCode status = U_ZERO_ERROR;
     utext_openUChars(&mUText, reinterpret_cast<const UChar*>(data), size, &status);
-    mBreakIterator->setText(&mUText, status);
-    mBreakIterator->first();
 }
 
 ssize_t WordBreaker::current() const {
@@ -64,9 +114,14 @@ ssize_t WordBreaker::current() const {
  * represents customization beyond the ICU behavior, because plain ICU provides some
  * line break opportunities that we don't want.
  **/
-static bool isBreakValid(const uint16_t* buf, size_t bufEnd, size_t i) {
+static bool isValidBreak(const uint16_t* buf, size_t bufEnd, int32_t i) {
+    const size_t position = static_cast<size_t>(i);
+    if (i == icu::BreakIterator::DONE || position == bufEnd) {
+        // If the iterator reaches the end, treat as break.
+        return true;
+    }
     uint32_t codePoint;
-    size_t prev_offset = i;
+    size_t prev_offset = position;
     U16_PREV(buf, 0, prev_offset, codePoint);
     // Do not break on hard or soft hyphens. These are handled by automatic hyphenation.
     if (Hyphenator::isLineBreakingHyphen(codePoint) || codePoint == CHAR_SOFT_HYPHEN) {
@@ -81,7 +136,7 @@ static bool isBreakValid(const uint16_t* buf, size_t bufEnd, size_t i) {
     }
 
     uint32_t next_codepoint;
-    size_t next_offset = i;
+    size_t next_offset = position;
     U16_NEXT(buf, next_offset, bufEnd, next_codepoint);
 
     // Rule LB8 for Emoji ZWJ sequences. We need to do this ourselves since we may have fresher
@@ -106,16 +161,10 @@ static bool isBreakValid(const uint16_t* buf, size_t bufEnd, size_t i) {
 // Customized iteratorNext that takes care of both resets and our modifications
 // to ICU's behavior.
 int32_t WordBreaker::iteratorNext() {
-    int32_t result;
-    do {
-        if (mIteratorWasReset) {
-            result = mBreakIterator->following(mCurrent);
-            mIteratorWasReset = false;
-        } else {
-            result = mBreakIterator->next();
-        }
-    } while (!(result == icu::BreakIterator::DONE || (size_t)result == mTextSize
-            || isBreakValid(mText, mTextSize, result)));
+    int32_t result = mIcuBreaker.breaker->following(mCurrent);
+    while (!isValidBreak(mText, mTextSize, result)) {
+        result = mIcuBreaker.breaker->next();
+    }
     return result;
 }
 
@@ -126,8 +175,8 @@ static bool breakAfter(uint16_t c) {
 
 // Chicago Manual of Style recommends breaking before these characters in URLs and email addresses
 static bool breakBefore(uint16_t c) {
-    return c == '~' || c == '.' || c == ',' || c == '-' || c == '_' || c == '?' || c == '#'
-            || c == '%' || c == '=' || c == '&';
+    return c == '~' || c == '.' || c == ',' || c == '-' || c == '_' || c == '?' || c == '#' ||
+           c == '%' || c == '=' || c == '&';
 }
 
 enum ScanState {
@@ -162,14 +211,13 @@ void WordBreaker::detectEmailOrUrl() {
             }
         }
         if (state == SAW_AT || state == SAW_COLON_SLASH_SLASH) {
-            if (!mBreakIterator->isBoundary(i)) {
+            if (!mIcuBreaker.breaker->isBoundary(i)) {
                 // If there are combining marks or such at the end of the URL or the email address,
                 // consider them a part of the URL or the email, and skip to the next actual
                 // boundary.
-                i = mBreakIterator->following(i);
+                i = mIcuBreaker.breaker->following(i);
             }
             mInEmailOrUrl = true;
-            mIteratorWasReset = true;
         } else {
             mInEmailOrUrl = false;
         }
@@ -197,7 +245,7 @@ ssize_t WordBreaker::findNextBreakInEmailOrUrl() {
             }
             // break before single slash
             if (thisChar == '/' && lastChar != '/' &&
-                        !(i + 1 < mScanOffset && mText[i + 1] == '/')) {
+                !(i + 1 < mScanOffset && mText[i + 1] == '/')) {
                 break;
             }
         }
@@ -213,7 +261,7 @@ ssize_t WordBreaker::next() {
     if (mInEmailOrUrl) {
         mCurrent = findNextBreakInEmailOrUrl();
     } else {  // Business as usual
-        mCurrent = (ssize_t) iteratorNext();
+        mCurrent = (ssize_t)iteratorNext();
     }
     return mCurrent;
 }
@@ -248,8 +296,8 @@ ssize_t WordBreaker::wordEnd() const {
         ssize_t ix = result;
         U16_PREV(mText, mLast, ix, c);
         const int32_t gc_mask = U_GET_GC_MASK(c);
-        // strip trailing space and punctuation
-        if ((gc_mask & (U_GC_ZS_MASK | U_GC_P_MASK)) == 0) {
+        // strip trailing spaces, punctuation and control characters
+        if ((gc_mask & (U_GC_ZS_MASK | U_GC_P_MASK | U_GC_CC_MASK)) == 0) {
             break;
         }
         result = ix;
@@ -265,6 +313,7 @@ void WordBreaker::finish() {
     mText = nullptr;
     // Note: calling utext_close multiply is safe
     utext_close(&mUText);
+    mPool->release(std::move(mIcuBreaker));
 }
 
 }  // namespace minikin

@@ -249,6 +249,15 @@ class DisplayFacadeRemoteAdapter(object):
         return self._take_screenshot(screenshot_func)
 
 
+    def capture_calibration_image(self):
+        """Captures the calibration image.
+
+        @return: An Image object.
+        """
+        screenshot_func = self._display_proxy.save_calibration_image
+        return self._take_screenshot(screenshot_func)
+
+
     def get_external_resolution(self):
         """Gets the resolution of the external screen.
 

@@ -38,8 +38,11 @@ class firmware_ECWriteProtect(FirmwareTest):
         self.ec.send_command("chan 0")
 
     def cleanup(self):
-        self.ec.send_command("chan 0xffffffff")
-        self.restore_firmware()
+        try:
+            self.ec.send_command("chan 0xffffffff")
+            self.restore_firmware()
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_ECWriteProtect, self).cleanup()
 
     def run_once(self):

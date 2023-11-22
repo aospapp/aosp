@@ -5,7 +5,7 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014, 2015, 2016, 2017
+ *		 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018
  *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -34,9 +34,7 @@
 #include <locale.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/main.c,v 1.332 2017/04/12 16:01:45 tg Exp $");
-
-extern char **environ;
+__RCSID("$MirOS: src/bin/mksh/main.c,v 1.347 2018/01/13 21:45:07 tg Exp $");
 
 #ifndef MKSHRC_PATH
 #define MKSHRC_PATH	"~/.mkshrc"
@@ -52,6 +50,7 @@ void chvt_reinit(void);
 static void reclaim(void);
 static void remove_temps(struct temp *);
 static mksh_uari_t rndsetup(void);
+static void init_environ(void);
 #ifdef SIGWINCH
 static void x_sigwinch(int);
 #endif
@@ -236,11 +235,12 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 	ssize_t k;
 #endif
 
-#ifdef __OS2__
-	for (i = 0; i < 3; ++i)
-		if (!isatty(i))
-			setmode(i, O_BINARY);
+#if defined(MKSH_EBCDIC) || defined(MKSH_FAUX_EBCDIC)
+	ebcdic_init();
+#endif
+	set_ifs(TC_IFSWS);
 
+#ifdef __OS2__
 	os2_init(&argc, &argv);
 #endif
 
@@ -333,8 +333,6 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 
 	initvar();
 
-	initctypes();
-
 	inittraps();
 
 	coproc_init();
@@ -398,23 +396,16 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 #endif
 
 	/* import environment */
-	if (environ != NULL) {
-		wp = (const char **)environ;
-		while (*wp != NULL) {
-			rndpush(*wp);
-			typeset(*wp, IMPORT | EXPORT, 0, 0, 0);
-			++wp;
-		}
-	}
+	init_environ();
 
 	/* override default PATH regardless of environment */
 #ifdef MKSH_DEFPATH_OVERRIDE
-	 vp = global(TPATH);
-	 setstr(vp, MKSH_DEFPATH_OVERRIDE, KSH_RETURN_ERROR);
+	vp = global(TPATH);
+	setstr(vp, MKSH_DEFPATH_OVERRIDE, KSH_RETURN_ERROR);
 #endif
 
 	/* for security */
-	typeset("IFS= \t\n", 0, 0, 0, 0);
+	typeset(TinitIFS, 0, 0, 0, 0);
 
 	/* assign default shell variable values */
 	typeset("PATHSEP=" MKSH_PATHSEPS, 0, 0, 0, 0);
@@ -497,7 +488,7 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 		if (!(s->start = s->str = argv[argi++]))
 			errorf(Tf_optfoo, "", "", 'c', Treq_arg);
 		while (*s->str) {
-			if (*s->str != ' ' && ctype(*s->str, C_QUOTE))
+			if (ctype(*s->str, C_QUOTE))
 				break;
 			s->str++;
 		}
@@ -668,8 +659,7 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 		if (Flag(FLOGIN))
 			include(substitute("$HOME/.profile", 0), 0, NULL, true);
 		if (Flag(FTALKING)) {
-			cp = substitute(substitute("${ENV:-" MKSHRC_PATH "}",
-			    0), DOTILDE);
+			cp = substitute("${ENV:-" MKSHRC_PATH "}", DOTILDE);
 			if (cp[0] != '\0')
 				include(cp, 0, NULL, true);
 		}
@@ -1554,7 +1544,7 @@ check_fd(const char *name, int mode, const char **emsgp)
 		goto illegal_fd_name;
 	if (name[0] == 'p')
 		return (coproc_getfd(mode, emsgp));
-	if (!ksh_isdigit(name[0])) {
+	if (!ctype(name[0], C_DIGIT)) {
  illegal_fd_name:
 		if (emsgp)
 			*emsgp = "illegal file descriptor name";
@@ -1893,7 +1883,7 @@ tnamecmp(const void *p1, const void *p2)
 	const struct tbl *a = *((const struct tbl * const *)p1);
 	const struct tbl *b = *((const struct tbl * const *)p2);
 
-	return (strcmp(a->name, b->name));
+	return (ascstrcmp(a->name, b->name));
 }
 
 struct tbl **
@@ -1984,3 +1974,111 @@ x_mkraw(int fd, mksh_ttyst *ocb, bool forread)
 
 	mksh_tcset(fd, &cb);
 }
+
+#ifdef MKSH_ENVDIR
+static void
+init_environ(void)
+{
+	char *xp;
+	ssize_t n;
+	XString xs;
+	struct shf *shf;
+	DIR *dirp;
+	struct dirent *dent;
+
+	if ((dirp = opendir(MKSH_ENVDIR)) == NULL) {
+		warningf(false, "cannot read environment from %s: %s",
+		    MKSH_ENVDIR, cstrerror(errno));
+		return;
+	}
+	XinitN(xs, 256, ATEMP);
+ read_envfile:
+	errno = 0;
+	if ((dent = readdir(dirp)) != NULL) {
+		if (skip_varname(dent->d_name, true)[0] == '\0') {
+			xp = shf_smprintf(Tf_sSs, MKSH_ENVDIR, dent->d_name);
+			if (!(shf = shf_open(xp, O_RDONLY, 0, 0))) {
+				warningf(false,
+				    "cannot read environment %s from %s: %s",
+				    dent->d_name, MKSH_ENVDIR,
+				    cstrerror(errno));
+				goto read_envfile;
+			}
+			afree(xp, ATEMP);
+			n = strlen(dent->d_name);
+			xp = Xstring(xs, xp);
+			XcheckN(xs, xp, n + 32);
+			memcpy(xp, dent->d_name, n);
+			xp += n;
+			*xp++ = '=';
+			while ((n = shf_read(xp, Xnleft(xs, xp), shf)) > 0) {
+				xp += n;
+				if (Xnleft(xs, xp) <= 0)
+					XcheckN(xs, xp, Xlength(xs, xp));
+			}
+			if (n < 0) {
+				warningf(false,
+				    "cannot read environment %s from %s: %s",
+				    dent->d_name, MKSH_ENVDIR,
+				    cstrerror(shf_errno(shf)));
+			} else {
+				*xp = '\0';
+				xp = Xstring(xs, xp);
+				rndpush(xp);
+				typeset(xp, IMPORT | EXPORT, 0, 0, 0);
+			}
+			shf_close(shf);
+		}
+		goto read_envfile;
+	} else if (errno)
+		warningf(false, "cannot read environment from %s: %s",
+		    MKSH_ENVDIR, cstrerror(errno));
+	closedir(dirp);
+	Xfree(xs, xp);
+}
+#else
+extern char **environ;
+
+static void
+init_environ(void)
+{
+	const char **wp;
+
+	if (environ == NULL)
+		return;
+
+	wp = (const char **)environ;
+	while (*wp != NULL) {
+		rndpush(*wp);
+		typeset(*wp, IMPORT | EXPORT, 0, 0, 0);
+		++wp;
+	}
+}
+#endif
+
+#ifdef MKSH_EARLY_LOCALE_TRACKING
+void
+recheck_ctype(void)
+{
+	const char *ccp;
+
+	ccp = str_val(global("LC_ALL"));
+	if (ccp == null)
+		ccp = str_val(global("LC_CTYPE"));
+	if (ccp == null)
+		ccp = str_val(global("LANG"));
+	UTFMODE = isuc(ccp);
+#if HAVE_SETLOCALE_CTYPE
+	ccp = setlocale(LC_CTYPE, ccp);
+#if HAVE_LANGINFO_CODESET
+	if (!isuc(ccp))
+		ccp = nl_langinfo(CODESET);
+#endif
+	if (isuc(ccp))
+		UTFMODE = 1;
+#endif
+
+	if (Flag(FPOSIX))
+		warningf(true, "early locale tracking enabled UTF-8 mode while in POSIX mode, you are now noncompliant");
+}
+#endif

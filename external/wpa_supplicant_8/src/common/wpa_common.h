@@ -1,6 +1,6 @@
 /*
  * WPA definitions shared between hostapd and wpa_supplicant
- * Copyright (c) 2002-2015, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2002-2017, Jouni Malinen <j@w1.fi>
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -13,12 +13,14 @@
 #define PMKID_LEN 16
 #define PMK_LEN 32
 #define PMK_LEN_SUITE_B_192 48
-#define PMK_LEN_MAX 48
+#define PMK_LEN_MAX 64
 #define WPA_REPLAY_COUNTER_LEN 8
 #define WPA_NONCE_LEN 32
 #define WPA_KEY_RSC_LEN 8
 #define WPA_GMK_LEN 32
 #define WPA_GTK_MAX_LEN 32
+
+#define OWE_DH_GROUP 19
 
 #define WPA_ALLOWED_PAIRWISE_CIPHERS \
 (WPA_CIPHER_CCMP | WPA_CIPHER_GCMP | WPA_CIPHER_TKIP | WPA_CIPHER_NONE | \
@@ -27,6 +29,9 @@ WPA_CIPHER_GCMP_256 | WPA_CIPHER_CCMP_256)
 (WPA_CIPHER_CCMP | WPA_CIPHER_GCMP | WPA_CIPHER_TKIP | \
 WPA_CIPHER_GCMP_256 | WPA_CIPHER_CCMP_256 | \
 WPA_CIPHER_GTK_NOT_USED)
+#define WPA_ALLOWED_GROUP_MGMT_CIPHERS \
+(WPA_CIPHER_AES_128_CMAC | WPA_CIPHER_BIP_GMAC_128 | WPA_CIPHER_BIP_GMAC_256 | \
+WPA_CIPHER_BIP_CMAC_256)
 
 #define WPA_SELECTOR_LEN 4
 #define WPA_VERSION 1
@@ -63,8 +68,10 @@ RSN_SELECTOR(0x00, 0x0f, 0xac, 13)
 #define RSN_AUTH_KEY_MGMT_FILS_SHA384 RSN_SELECTOR(0x00, 0x0f, 0xac, 15)
 #define RSN_AUTH_KEY_MGMT_FT_FILS_SHA256 RSN_SELECTOR(0x00, 0x0f, 0xac, 16)
 #define RSN_AUTH_KEY_MGMT_FT_FILS_SHA384 RSN_SELECTOR(0x00, 0x0f, 0xac, 17)
+#define RSN_AUTH_KEY_MGMT_OWE RSN_SELECTOR(0x00, 0x0f, 0xac, 18)
 #define RSN_AUTH_KEY_MGMT_CCKM RSN_SELECTOR(0x00, 0x40, 0x96, 0x00)
 #define RSN_AUTH_KEY_MGMT_OSEN RSN_SELECTOR(0x50, 0x6f, 0x9a, 0x01)
+#define RSN_AUTH_KEY_MGMT_DPP RSN_SELECTOR(0x50, 0x6f, 0x9a, 0x02)
 
 #define RSN_CIPHER_SUITE_NONE RSN_SELECTOR(0x00, 0x0f, 0xac, 0)
 #define RSN_CIPHER_SUITE_WEP40 RSN_SELECTOR(0x00, 0x0f, 0xac, 1)
@@ -98,12 +105,6 @@ RSN_SELECTOR(0x00, 0x0f, 0xac, 13)
 #endif
 #define RSN_KEY_DATA_MAC_ADDR RSN_SELECTOR(0x00, 0x0f, 0xac, 3)
 #define RSN_KEY_DATA_PMKID RSN_SELECTOR(0x00, 0x0f, 0xac, 4)
-#ifdef CONFIG_PEERKEY
-#define RSN_KEY_DATA_SMK RSN_SELECTOR(0x00, 0x0f, 0xac, 5)
-#define RSN_KEY_DATA_NONCE RSN_SELECTOR(0x00, 0x0f, 0xac, 6)
-#define RSN_KEY_DATA_LIFETIME RSN_SELECTOR(0x00, 0x0f, 0xac, 7)
-#define RSN_KEY_DATA_ERROR RSN_SELECTOR(0x00, 0x0f, 0xac, 8)
-#endif /* CONFIG_PEERKEY */
 #ifdef CONFIG_IEEE80211W
 #define RSN_KEY_DATA_IGTK RSN_SELECTOR(0x00, 0x0f, 0xac, 9)
 #endif /* CONFIG_IEEE80211W */
@@ -194,11 +195,12 @@ struct wpa_eapol_key {
 	/* followed by Key Data Length bytes of Key Data */
 } STRUCT_PACKED;
 
-#define WPA_EAPOL_KEY_MIC_MAX_LEN 24
-#define WPA_KCK_MAX_LEN 24
+#define WPA_EAPOL_KEY_MIC_MAX_LEN 32
+#define WPA_KCK_MAX_LEN 32
 #define WPA_KEK_MAX_LEN 64
 #define WPA_TK_MAX_LEN 32
 #define FILS_ICK_MAX_LEN 48
+#define FILS_FT_MAX_LEN 48
 
 /**
  * struct wpa_ptk - WPA Pairwise Transient Key
@@ -279,22 +281,6 @@ struct rsn_ie_hdr {
 } STRUCT_PACKED;
 
 
-#ifdef CONFIG_PEERKEY
-enum {
-	STK_MUI_4WAY_STA_AP = 1,
-	STK_MUI_4WAY_STAT_STA = 2,
-	STK_MUI_GTK = 3,
-	STK_MUI_SMK = 4
-};
-
-enum {
-	STK_ERR_STA_NR = 1,
-	STK_ERR_STA_NRSN = 2,
-	STK_ERR_CPHR_NS = 3,
-	STK_ERR_NO_STSL = 4
-};
-#endif /* CONFIG_PEERKEY */
-
 struct rsn_error_kde {
 	be16 mui;
 	be16 error_type;
@@ -354,8 +340,10 @@ int fils_rmsk_to_pmk(int akmp, const u8 *rmsk, size_t rmsk_len,
 int fils_pmkid_erp(int akmp, const u8 *reauth, size_t reauth_len,
 		   u8 *pmkid);
 int fils_pmk_to_ptk(const u8 *pmk, size_t pmk_len, const u8 *spa, const u8 *aa,
-		    const u8 *snonce, const u8 *anonce, struct wpa_ptk *ptk,
-		    u8 *ick, size_t *ick_len, int akmp, int cipher);
+		    const u8 *snonce, const u8 *anonce, const u8 *dhss,
+		    size_t dhss_len, struct wpa_ptk *ptk,
+		    u8 *ick, size_t *ick_len, int akmp, int cipher,
+		    u8 *fils_ft, size_t *fils_ft_len);
 int fils_key_auth_sk(const u8 *ick, size_t ick_len, const u8 *snonce,
 		     const u8 *anonce, const u8 *sta_addr, const u8 *bssid,
 		     const u8 *g_sta, size_t g_sta_len,
@@ -403,7 +391,7 @@ int wpa_parse_wpa_ie_wpa(const u8 *wpa_ie, size_t wpa_ie_len,
 			 struct wpa_ie_data *data);
 
 void rsn_pmkid(const u8 *pmk, size_t pmk_len, const u8 *aa, const u8 *spa,
-	       u8 *pmkid, int use_sha256);
+	       u8 *pmkid, int akmp);
 #ifdef CONFIG_SUITEB
 int rsn_pmkid_suite_b(const u8 *kck, size_t kck_len, const u8 *aa,
 		       const u8 *spa, u8 *pmkid);
@@ -472,7 +460,7 @@ int wpa_pick_group_cipher(int ciphers);
 int wpa_parse_cipher(const char *value);
 int wpa_write_ciphers(char *start, char *end, int ciphers, const char *delim);
 int wpa_select_ap_group_cipher(int wpa, int wpa_pairwise, int rsn_pairwise);
-unsigned int wpa_mic_len(int akmp);
+unsigned int wpa_mic_len(int akmp, size_t pmk_len);
 int fils_domain_name_hash(const char *domain, u8 *hash);
 
 #endif /* WPA_COMMON_H */

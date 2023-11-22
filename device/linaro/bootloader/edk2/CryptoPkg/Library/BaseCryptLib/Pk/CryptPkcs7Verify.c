@@ -10,7 +10,7 @@
   WrapPkcs7Data(), Pkcs7GetSigners(), Pkcs7Verify() will get UEFI Authenticated
   Variable and will do basic check for data structure.
 
-Copyright (c) 2009 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2009 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -229,7 +229,7 @@ _Exit:
   in a ContentInfo structure.
 
   If P7Data, CertStack, StackLength, TrustedCert or CertLength is NULL, then
-  return FALSE. If P7Length overflow, then return FAlSE.
+  return FALSE. If P7Length overflow, then return FALSE.
 
   Caution: This function may receive untrusted input.
   UEFI Authenticated Variable is external input, so this function will do basic
@@ -238,10 +238,10 @@ _Exit:
   @param[in]  P7Data       Pointer to the PKCS#7 message to verify.
   @param[in]  P7Length     Length of the PKCS#7 message in bytes.
   @param[out] CertStack    Pointer to Signer's certificates retrieved from P7Data.
-                           It's caller's responsiblity to free the buffer.
+                           It's caller's responsibility to free the buffer.
   @param[out] StackLength  Length of signer's certificates in bytes.
   @param[out] TrustedCert  Pointer to a trusted certificate from Signer's certificates.
-                           It's caller's responsiblity to free the buffer.
+                           It's caller's responsibility to free the buffer.
   @param[out] CertLength   Length of the trusted certificate in bytes.
 
   @retval  TRUE            The operation is finished successfully.
@@ -436,10 +436,10 @@ Pkcs7FreeSigners (
   @param[in]  P7Data            Pointer to the PKCS#7 message.
   @param[in]  P7Length          Length of the PKCS#7 message in bytes.
   @param[out] SignerChainCerts  Pointer to the certificates list chained to signer's
-                                certificate. It's caller's responsiblity to free the buffer.
+                                certificate. It's caller's responsibility to free the buffer.
   @param[out] ChainLength       Length of the chained certificates list buffer in bytes.
   @param[out] UnchainCerts      Pointer to the unchained certificates lists. It's caller's
-                                responsiblity to free the buffer.
+                                responsibility to free the buffer.
   @param[out] UnchainLength     Length of the unchained certificates list buffer in bytes.
 
   @retval  TRUE         The operation is finished successfully.
@@ -488,6 +488,8 @@ Pkcs7GetCertificatesList (
   CertBuf        = NULL;
   OldBuf         = NULL;
   Signers        = NULL;
+
+  ZeroMem (&CertCtx, sizeof (CertCtx));
 
   //
   // Parameter Checking
@@ -716,12 +718,12 @@ _Error:
 }
 
 /**
-  Verifies the validility of a PKCS#7 signed data as described in "PKCS #7:
+  Verifies the validity of a PKCS#7 signed data as described in "PKCS #7:
   Cryptographic Message Syntax Standard". The input signed data could be wrapped
   in a ContentInfo structure.
 
   If P7Data, TrustedCert or InData is NULL, then return FALSE.
-  If P7Length, CertLength or DataLength overflow, then return FAlSE.
+  If P7Length, CertLength or DataLength overflow, then return FALSE.
 
   Caution: This function may receive untrusted input.
   UEFI Authenticated Variable is external input, so this function will do basic
@@ -895,7 +897,7 @@ _Exit:
   data could be wrapped in a ContentInfo structure.
 
   If P7Data, Content, or ContentSize is NULL, then return FALSE. If P7Length overflow,
-  then return FAlSE. If the P7Data is not correctly formatted, then return FALSE.
+  then return FALSE. If the P7Data is not correctly formatted, then return FALSE.
 
   Caution: This function may receive untrusted input. So this function will do
            basic check for PKCS#7 data structure.
@@ -903,7 +905,7 @@ _Exit:
   @param[in]   P7Data       Pointer to the PKCS#7 signed data to process.
   @param[in]   P7Length     Length of the PKCS#7 signed data in bytes.
   @param[out]  Content      Pointer to the extracted content from the PKCS#7 signedData.
-                            It's caller's responsiblity to free the buffer.
+                            It's caller's responsibility to free the buffer.
   @param[out]  ContentSize  The size of the extracted content in bytes.
 
   @retval     TRUE          The P7Data was correctly formatted for processing.

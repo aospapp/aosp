@@ -16,46 +16,46 @@
 
 package android.car;
 
+import static java.lang.Integer.toHexString;
+
 import android.annotation.Nullable;
-import android.car.annotation.FutureFeature;
 import android.car.annotation.ValueTypeDef;
+import android.car.hardware.CarPropertyValue;
+import android.car.hardware.property.ICarProperty;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
-
-
-import com.android.internal.annotations.GuardedBy;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
+import android.util.Log;
 
 
 /**
  * Utility to retrieve various static information from car. Each data are grouped as {@link Bundle}
  * and relevant data can be checked from {@link Bundle} using pre-specified keys.
  */
-public final class CarInfoManager implements CarManagerBase {
+public final class CarInfoManager implements CarManagerBase{
 
+    private static final boolean DBG = false;
+    private static final String TAG = "CarInfoManager";
     /**
      * Key for manufacturer of the car. Passed in basic info Bundle.
      * @hide
      */
-    @ValueTypeDef(type = String.class)
-    public static final String BASIC_INFO_KEY_MANUFACTURER = "android.car.manufacturer";
+    @ValueTypeDef(type = Integer.class)
+    public static final int BASIC_INFO_KEY_MANUFACTURER = 0x11100101;
     /**
      * Key for model name of the car. This information may not necessarily allow distinguishing
      * different car models as the same name may be used for different cars depending on
      * manufacturers. Passed in basic info Bundle.
      * @hide
      */
-    @ValueTypeDef(type = String.class)
-    public static final String BASIC_INFO_KEY_MODEL = "android.car.model";
+    @ValueTypeDef(type = Integer.class)
+    public static final int BASIC_INFO_KEY_MODEL = 0x11100102;
     /**
      * Key for model year of the car in AC. Passed in basic info Bundle.
      * @hide
      */
     @ValueTypeDef(type = Integer.class)
-    public static final String BASIC_INFO_KEY_MODEL_YEAR = "android.car.model-year";
+    public static final int BASIC_INFO_KEY_MODEL_YEAR = 0x11400103;
     /**
      * Key for unique identifier for the car. This is not VIN, and id is persistent until user
      * resets it. Passed in basic info Bundle.
@@ -88,99 +88,146 @@ public final class CarInfoManager implements CarManagerBase {
 
     // add: transmission gear available selection, gear available steps
     //          drive wheel: FWD, RWD, AWD, 4WD */
-
-    private final ICarInfo mService;
-
-    @GuardedBy("this")
-    private Bundle mBasicInfo;
-
     /**
-     * Return manufacturer of the car.
-     * @return null if information is not available.
-     */
-    public @android.annotation.Nullable String getManufacturer() throws CarNotConnectedException {
-        return getBasicInfo().getString(BASIC_INFO_KEY_MANUFACTURER);
-    }
-
-    /**
-     * Return model name of the car. This information may not necessarily allow distinguishing
-     * different car models as the same name may be used for different cars depending on
-     * manufacturers.
-     * @return null if information is not available.
-     */
-    public @Nullable String getModel() throws CarNotConnectedException {
-        return getBasicInfo().getString(BASIC_INFO_KEY_MODEL);
-    }
-
-    /**
-     * Return model year of the car in AC.
-     * @return null if information is not available.
-     */
-    public @Nullable String getModelYear() throws CarNotConnectedException {
-        return getBasicInfo().getString(BASIC_INFO_KEY_MODEL_YEAR);
-    }
-
-    /**
-     * Return unique identifier for the car. This is not VIN, and id is persistent until user
-     * resets it. This ID is guaranteed to be always available.
-     * @return vehicle id
-     */
-    public String getVehicleId() throws CarNotConnectedException {
-        return getBasicInfo().getString(BASIC_INFO_KEY_VEHICLE_ID);
-    }
-
-    /**
-     * Get product configuration string. Contents of this string is product specific but it should
-     * be composed of key-value pairs with the format of:
-     *   key1=value1;key2=value2;...
-     * @return null if such information is not available in this car.
-     * @throws CarNotConnectedException
+     * Key for Fuel Capacity in milliliters.  Passed in basic info Bundle.
      * @hide
      */
-    @FutureFeature
-    public @Nullable String getProductConfiguration() throws CarNotConnectedException {
-        try {
-            return mService.getStringInfo(INFO_KEY_PRODUCT_CONFIGURATION);
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
-        } catch (RemoteException e) {
-            throw new CarNotConnectedException(e);
-        }
-        return null;
+    @ValueTypeDef(type = Integer.class)
+    public static final int BASIC_INFO_FUEL_CAPACITY = 0x11600104;
+    /**
+     * Key for Fuel Types.  This is an array of fuel types the vehicle supports.
+     * Passed in basic info Bundle.
+     * @hide
+     */
+    @ValueTypeDef(type = Integer.class)
+    public static final int BASIC_INFO_FUEL_TYPES = 0x11410105;
+    /**
+     * Key for EV Battery Capacity in WH.  Passed in basic info Bundle.
+     * @hide
+     */
+    @ValueTypeDef(type = Integer.class)
+    public static final int BASIC_INFO_EV_BATTERY_CAPACITY = 0x11600106;
+    /**
+     * Key for EV Connector Types.  This is an array of connector types the vehicle supports.
+     * Passed in basic info Bundle.
+     * @hide
+     */
+    @ValueTypeDef(type = Integer.class)
+    public static final int BASIC_INFO_EV_CONNECTOR_TYPES = 0x11410107;
+
+    private final ICarProperty mService;
+
+    /**
+     * @return Manufacturer of the car.  Null if not available.
+     */
+    @Nullable
+    public String getManufacturer() throws CarNotConnectedException {
+        CarPropertyValue<String> carProp = getProperty(String.class,
+                BASIC_INFO_KEY_MANUFACTURER, 0);
+        return carProp != null ? carProp.getValue() : null;
     }
 
     /**
-     * Get {@link android.os.Bundle} containing basic car information. Check
-     * {@link #BASIC_INFO_KEY_MANUFACTURER}, {@link #BASIC_INFO_KEY_MODEL},
-     * {@link #BASIC_INFO_KEY_MODEL_YEAR}, and {@link #BASIC_INFO_KEY_VEHICLE_ID} for supported
-     * keys in the {@link android.os.Bundle}.
-     * @return {@link android.os.Bundle} containing basic car info.
-     * @throws CarNotConnectedException
+     * @return Model name of the car, null if not available.  This information
+     * may not necessarily allow distinguishing different car models as the same
+     * name may be used for different cars depending on manufacturers.
      */
-    private synchronized Bundle getBasicInfo() throws CarNotConnectedException {
-        if (mBasicInfo != null) {
-            return mBasicInfo;
-        }
-        try {
-            mBasicInfo = mService.getBasicInfo();
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
-        } catch (RemoteException e) {
-            throw new CarNotConnectedException(e);
-        }
-        return mBasicInfo;
+    @Nullable
+    public String getModel() throws CarNotConnectedException {
+        CarPropertyValue<String> carProp = getProperty(String.class, BASIC_INFO_KEY_MODEL, 0);
+        return carProp != null ? carProp.getValue() : null;
+    }
+
+    /**
+     * @return Model year of the car in AC.  Null if not available.
+     */
+    @Nullable
+    public String getModelYear() throws CarNotConnectedException {
+        CarPropertyValue<String> carProp = getProperty(String.class,
+                BASIC_INFO_KEY_MODEL_YEAR, 0);
+        return carProp != null ? carProp.getValue() : null;
+    }
+
+    /**
+     * @return Unique identifier for the car. This is not VIN, and vehicle id is
+     * persistent until user resets it. This ID is guaranteed to be always
+     * available.
+     * TODO: BASIC_INFO_KEY_VEHICLE_ID property?
+     */
+    public String getVehicleId() throws CarNotConnectedException {
+        return "";
+    }
+
+    /**
+     * @return Fuel capacity of the car in milliliters.  0 if car doesn't run on
+     *         fuel.
+     */
+    public float getFuelCapacity() throws CarNotConnectedException {
+        CarPropertyValue<Float> carProp = getProperty(Float.class,
+                BASIC_INFO_FUEL_CAPACITY, 0);
+        return carProp != null ? carProp.getValue() : 0f;
+    }
+
+    /**
+     * @return Array of FUEL_TYPEs available in the car.  Empty array if no fuel
+     *         types available.
+     */
+    public @FuelType.Enum int[] getFuelTypes() throws CarNotConnectedException {
+        CarPropertyValue<int[]> carProp = getProperty(int[].class, BASIC_INFO_FUEL_TYPES, 0);
+        return carProp != null ? carProp.getValue() : new int[0];
+    }
+
+    /**
+     * @return Battery capacity of the car in WH.  0 if car doesn't run on
+     *         battery.
+     */
+    public float getEvBatteryCapacity() throws CarNotConnectedException {
+        CarPropertyValue<Float> carProp = getProperty(Float.class,
+                BASIC_INFO_EV_BATTERY_CAPACITY, 0);
+        return carProp != null ? carProp.getValue() : 0f;
+    }
+
+    /**
+     * @return Array of EV_CONNECTOR_TYPEs available in the car.  Empty array if
+     *         no connector types available.
+     */
+    public @EvConnectorType.Enum int[] getEvConnectorTypes() throws CarNotConnectedException {
+        CarPropertyValue<int[]> carProp = getProperty(int[].class,
+                BASIC_INFO_EV_CONNECTOR_TYPES, 0);
+        return carProp != null ? carProp.getValue() : new int[0];
     }
 
     /** @hide */
     CarInfoManager(IBinder service) {
-        mService = ICarInfo.Stub.asInterface(service);
+        mService = ICarProperty.Stub.asInterface(service);
     }
 
     /** @hide */
-    @Override
     public void onCarDisconnected() {
-        synchronized (this) {
-            mBasicInfo = null;
+    }
+
+    private  <E> CarPropertyValue<E> getProperty(Class<E> clazz, int propId, int area)
+            throws CarNotConnectedException {
+        if (DBG) {
+            Log.d(TAG, "getProperty, propId: 0x" + toHexString(propId)
+                    + ", area: 0x" + toHexString(area) + ", class: " + clazz);
+        }
+        try {
+            CarPropertyValue<E> propVal = mService.getProperty(propId, area);
+            if (propVal != null && propVal.getValue() != null) {
+                Class<?> actualClass = propVal.getValue().getClass();
+                if (actualClass != clazz) {
+                    throw new IllegalArgumentException("Invalid property type. " + "Expected: "
+                            + clazz + ", but was: " + actualClass);
+                }
+            }
+            return propVal;
+        } catch (RemoteException e) {
+            Log.e(TAG, "getProperty failed with " + e.toString()
+                    + ", propId: 0x" + toHexString(propId) + ", area: 0x" + toHexString(area), e);
+            throw new CarNotConnectedException(e);
+        } catch (IllegalArgumentException e)  {
+            return null;
         }
     }
 }

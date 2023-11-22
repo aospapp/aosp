@@ -180,7 +180,7 @@ bool ProgramData::setSamplerUniform(GLint appLoc, GLint val, GLenum* target)
     for (GLuint i = 0; i < m_numIndexes; i++) {
         GLint elemIndex = appLoc - m_Indexes[i].appBase;
         if (elemIndex >= 0 && elemIndex < m_Indexes[i].size) {
-            if (m_Indexes[i].type == GL_TEXTURE_2D) {
+            if (m_Indexes[i].type == GL_SAMPLER_2D) {
                 m_Indexes[i].samplerValue = val;
                 if (target) {
                     if (m_Indexes[i].flags & INDEX_FLAG_SAMPLER_EXTERNAL) {

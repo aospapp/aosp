@@ -14,6 +14,8 @@
 
 package android.accessibilityservice.cts;
 
+import android.accessibilityservice.cts.R;
+import android.accessibilityservice.cts.activities.AccessibilityTextTraversalActivity;
 import android.app.UiAutomation;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -25,8 +27,6 @@ import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.EditText;
 import android.widget.TextView;
-
-import android.accessibilityservice.cts.R;
 
 /**
  * Test cases for testing the accessibility APIs for traversing the text content of
@@ -2967,162 +2967,6 @@ public class AccessibilityTextTraversalTest
         // Verify the selection position.
         assertEquals(34, Selection.getSelectionStart(editText.getText()));
         assertEquals(34, Selection.getSelectionEnd(editText.getText()));
-    }
-
-    @MediumTest
-    public void testActionNextAndPreviousAtGranularityPageOverText() throws Exception {
-        final EditText editText = (EditText) getActivity().findViewById(R.id.edit);
-
-        getInstrumentation().runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                editText.setVisibility(View.VISIBLE);
-                editText.setText(getString(R.string.android_wiki));
-                Selection.removeSelection(editText.getText());
-            }
-        });
-
-        final AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
-               .getRootInActiveWindow().findAccessibilityNodeInfosByText(getString(
-                       R.string.android_wiki)).get(0);
-
-        final int granularities = text.getMovementGranularities();
-        assertEquals(granularities, AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER
-                | AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD
-                | AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE
-                | AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH
-                | AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PAGE);
-
-        final Bundle arguments = new Bundle();
-        arguments.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_MOVEMENT_GRANULARITY_INT,
-                AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PAGE);
-
-        // Move forward a few pages
-        for (int i = 0; i < CHARACTER_INDICES_OF_PAGE_START.length - 1; i++) {
-            AccessibilityEvent event = performMovementActionAndGetEvent(
-                    text,
-                    AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY,
-                    AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PAGE,
-                    false);
-            assertEquals(event.getClassName(), EditText.class.getName());
-            assertTrue("Event should contain text", event.getText().size() > 0);
-            assertTrue("Event text doesn't match. Expected: " + getString(R.string.android_wiki)
-                    + ". Received:" + event.getText().get(0),
-                    TextUtils.equals(event.getText().get(0), getString(R.string.android_wiki)));
-            assertEquals("Event from should be start of text skipped.",
-                    CHARACTER_INDICES_OF_PAGE_START[i], event.getFromIndex());
-            assertEquals("Event to should be end of text skipped.",
-                    CHARACTER_INDICES_OF_PAGE_START[i + 1], event.getToIndex());
-            // Verify the selection position has changed.
-            assertEquals("Event selection start should match position it moved to.",
-                    CHARACTER_INDICES_OF_PAGE_START[i + 1],
-                    Selection.getSelectionStart(editText.getText()));
-            assertEquals("Event selection end should match position it moved to.",
-                    CHARACTER_INDICES_OF_PAGE_START[i + 1],
-                    Selection.getSelectionEnd(editText.getText()));
-        }
-
-        // Move back to the beginning
-        for (int i = CHARACTER_INDICES_OF_PAGE_START.length - 2; i >= 0; i--) {
-            AccessibilityEvent event = performMovementActionAndGetEvent(
-                    text,
-                    AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY,
-                    AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PAGE,
-                    false);
-            assertEquals(event.getClassName(), EditText.class.getName());
-            assertTrue("Event should contain text", event.getText().size() > 0);
-            assertTrue("Event text doesn't match. Expected: " + getString(R.string.android_wiki)
-                            + ". Received:" + event.getText().get(0),
-                    TextUtils.equals(event.getText().get(0), getString(R.string.android_wiki)));
-            assertEquals("Event from should be start of text skipped.",
-                    CHARACTER_INDICES_OF_PAGE_START[i], event.getFromIndex());
-            assertEquals("Event to should be end of text skipped.",
-                    CHARACTER_INDICES_OF_PAGE_START[i + 1], event.getToIndex());
-            // Verify the selection position has changed.
-            assertEquals("Event selection start should match position it moved to.",
-                    CHARACTER_INDICES_OF_PAGE_START[i],
-                    Selection.getSelectionStart(editText.getText()));
-            assertEquals("Event selection end should match position it moved to.",
-                    CHARACTER_INDICES_OF_PAGE_START[i],
-                    Selection.getSelectionEnd(editText.getText()));
-        }
-    }
-
-    @MediumTest
-    public void testActionNextAndPreviousAtGranularityPageOverTextExtend() throws Exception {
-        final EditText editText = (EditText) getActivity().findViewById(R.id.edit);
-
-        getInstrumentation().runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                editText.setVisibility(View.VISIBLE);
-                editText.setText(getString(R.string.android_wiki));
-                Selection.removeSelection(editText.getText());
-            }
-        });
-
-        final AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
-               .getRootInActiveWindow().findAccessibilityNodeInfosByText(getString(
-                       R.string.android_wiki)).get(0);
-
-        final int granularities = text.getMovementGranularities();
-        assertEquals(granularities, AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER
-                | AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD
-                | AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE
-                | AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH
-                | AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PAGE);
-
-        final Bundle arguments = new Bundle();
-        arguments.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_MOVEMENT_GRANULARITY_INT,
-                AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PAGE);
-
-        // Move forward a few pages
-        for (int i = 0; i < CHARACTER_INDICES_OF_PAGE_START.length - 1; i++) {
-            AccessibilityEvent event = performMovementActionAndGetEvent(
-                    text,
-                    AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY,
-                    AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PAGE,
-                    true);
-            assertEquals(event.getClassName(), EditText.class.getName());
-            assertTrue("Event should contain text", event.getText().size() > 0);
-            assertTrue("Event text doesn't match. Expected: " + getString(R.string.android_wiki)
-                            + ". Received:" + event.getText().get(0),
-                    TextUtils.equals(event.getText().get(0), getString(R.string.android_wiki)));
-            assertEquals("Event from should be start of text skipped",
-                    CHARACTER_INDICES_OF_PAGE_START[i], event.getFromIndex());
-            assertEquals("Event to should be end of text skipped",
-                    CHARACTER_INDICES_OF_PAGE_START[i + 1], event.getToIndex());
-            // Verify the selection position has changed.
-            assertEquals("Event selection start should stay at beginning",
-                    0, Selection.getSelectionStart(editText.getText()));
-            assertEquals("Event selection end should match current position",
-                    CHARACTER_INDICES_OF_PAGE_START[i + 1],
-                    Selection.getSelectionEnd(editText.getText()));
-        }
-
-        // Move back to the beginning
-        for (int i = CHARACTER_INDICES_OF_PAGE_START.length - 2; i >= 0; i--) {
-            AccessibilityEvent event = performMovementActionAndGetEvent(
-                    text,
-                    AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY,
-                    AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PAGE,
-                    true);
-            assertEquals(event.getClassName(), EditText.class.getName());
-            assertTrue("Event should contain text", event.getText().size() > 0);
-            assertTrue("Event text doesn't match. Expected: " + getString(R.string.android_wiki)
-                            + ". Received:" + event.getText().get(0),
-                    TextUtils.equals(event.getText().get(0), getString(R.string.android_wiki)));
-            assertEquals("Event from should be start of text skipped",
-                    CHARACTER_INDICES_OF_PAGE_START[i], event.getFromIndex());
-            assertEquals("Event to should be end of text skipped",
-                    CHARACTER_INDICES_OF_PAGE_START[i + 1], event.getToIndex());
-            // Verify the selection position has changed.
-            assertEquals("Event selection start should stay at beginning",
-                    0, Selection.getSelectionStart(editText.getText()));
-            assertEquals("Event selection end should match current position",
-                    CHARACTER_INDICES_OF_PAGE_START[i],
-                    Selection.getSelectionEnd(editText.getText()));
-        }
     }
 
     @MediumTest

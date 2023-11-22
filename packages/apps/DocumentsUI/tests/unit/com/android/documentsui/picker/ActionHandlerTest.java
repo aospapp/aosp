@@ -80,7 +80,7 @@ public class ActionHandlerTest {
 
         mEnv.dialogs.confirmNext();
 
-        mEnv.selectionMgr.toggleSelection("1");
+        mEnv.selectionMgr.select("1");
 
         AsyncTask.setDefaultExecutor(mEnv.mExecutor);
     }

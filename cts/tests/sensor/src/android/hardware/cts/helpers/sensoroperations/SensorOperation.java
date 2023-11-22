@@ -62,7 +62,7 @@ public abstract class SensorOperation {
      * - cleaning up on {@link InterruptedException}
      * - propagating the exception down the stack
      */
-    public abstract void execute(ISensorTestNode parent) throws InterruptedException;
+    public abstract void execute(ISensorTestNode parent) throws Exception;
 
     /**
      * @return The cloned {@link SensorOperation}.

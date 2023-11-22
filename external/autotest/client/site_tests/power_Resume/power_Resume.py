@@ -4,7 +4,7 @@
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import power_suspend
+from autotest_lib.client.cros.power import power_suspend
 
 
 # In cases like crosbug.com/p/26289, we want results, but also want
@@ -27,25 +27,30 @@ class power_Resume(test.test):
                 state ("mem" or "freeze"). If the string is empty, suspend
                 state is left to the default pref on the system.
         """
-        self._suspender = power_suspend.Suspender(self.resultsdir,
-                throw=True, device_times=True,
+        self._suspender = power_suspend.Suspender(
+                self.resultsdir,
+                throw=True,
+                device_times=True,
                 suspend_state=suspend_state)
 
 
     def run_once(self, max_devs_returned=10, seconds=0,
-                 ignore_kernel_warns=False):
+                 ignore_kernel_warns=False, measure_arc=False):
         try:
-            self._suspend_once(max_devs_returned, seconds, ignore_kernel_warns)
+            self._suspend_once(max_devs_returned, seconds, ignore_kernel_warns,
+                               measure_arc)
         except error.TestWarn:
             self._suspend_once(max_devs_returned, seconds + EXTRA_TIME,
-                               ignore_kernel_warns)
+                               ignore_kernel_warns, measure_arc)
             raise
 
 
-    def _suspend_once(self, max_devs_returned, seconds, ignore_kernel_warns):
+    def _suspend_once(self, max_devs_returned, seconds, ignore_kernel_warns,
+                      measure_arc=False):
         (results, device_times) = \
             self._suspender.suspend(seconds,
-                                    ignore_kernel_warns=ignore_kernel_warns)
+                                    ignore_kernel_warns=ignore_kernel_warns,
+                                    measure_arc=measure_arc)
 
         # return as keyvals the slowest n devices
         slowest_devs = sorted(

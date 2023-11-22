@@ -117,7 +117,7 @@ func TestDataTests(t *testing.T) {
 	}
 	defer os.RemoveAll(buildDir)
 
-	config := android.TestConfig(buildDir)
+	config := android.TestConfig(buildDir, nil)
 
 	for _, test := range testDataTests {
 		t.Run(test.name, func(t *testing.T) {
@@ -135,9 +135,9 @@ func TestDataTests(t *testing.T) {
 			ctx.Register()
 
 			_, errs := ctx.ParseBlueprintsFiles("Blueprints")
-			fail(t, errs)
+			android.FailIfErrored(t, errs)
 			_, errs = ctx.PrepareBuildActions(config)
-			fail(t, errs)
+			android.FailIfErrored(t, errs)
 
 			foo := ctx.ModuleForTests("foo", "")
 
@@ -185,13 +185,4 @@ func (test *testDataTest) DepsMutator(ctx android.BottomUpMutatorContext) {
 
 func (test *testDataTest) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	test.data = ctx.ExpandSources(test.Properties.Data, nil)
-}
-
-func fail(t *testing.T, errs []error) {
-	if len(errs) > 0 {
-		for _, err := range errs {
-			t.Error(err)
-		}
-		t.FailNow()
-	}
 }

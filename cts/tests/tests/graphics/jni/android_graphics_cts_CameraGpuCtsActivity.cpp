@@ -20,24 +20,18 @@
 #include <jni.h>
 #include <unistd.h>
 
-#include <deque>
 #include <memory>
-#include <mutex>
 #include <vector>
 
 #include <android/log.h>
-#include <android/native_window_jni.h>
-#include <camera/NdkCameraError.h>
-#include <camera/NdkCameraManager.h>
-#include <camera/NdkCameraDevice.h>
-#include <camera/NdkCameraCaptureSession.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES/gl.h>
 #include <GLES/glext.h>
 #include <GLES2/gl2.h>
-#include <media/NdkImage.h>
-#include <media/NdkImageReader.h>
+
+#include "CameraTestHelpers.h"
+#include "ImageReaderTestHelpers.h"
 
 //#define ALOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, __VA_ARGS__)
 //#define ALOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
@@ -95,313 +89,6 @@ static void checkGlError(const char* op) {
     }
 }
 
-class CameraHelper {
-  public:
-    ~CameraHelper() { closeCamera(); }
-
-    int initCamera(ANativeWindow* imgReaderAnw) {
-        if (imgReaderAnw == nullptr) {
-            ALOGE("Cannot initialize camera before image reader get initialized.");
-            return -1;
-        }
-
-        mImgReaderAnw = imgReaderAnw;
-        mCameraManager = ACameraManager_create();
-        if (mCameraManager == nullptr) {
-            ALOGE("Failed to create ACameraManager.");
-            return -1;
-        }
-
-        int ret = ACameraManager_getCameraIdList(mCameraManager, &mCameraIdList);
-        if (ret != AMEDIA_OK) {
-            ALOGE("Failed to get cameraIdList: ret=%d", ret);
-            return ret;
-        }
-        ALOGI("Found %d camera(s).", mCameraIdList->numCameras);
-
-        // We always use the first camera.
-        mCameraId = mCameraIdList->cameraIds[0];
-        if (mCameraId == nullptr) {
-            ALOGE("Failed to get cameraId.");
-            return -1;
-        }
-
-        ret = ACameraManager_openCamera(mCameraManager, mCameraId, &mDeviceCb, &mDevice);
-        if (ret != AMEDIA_OK || mDevice == nullptr) {
-            ALOGE("Failed to open camera, ret=%d, mDevice=%p.", ret, mDevice);
-            return -1;
-        }
-
-        ret = ACameraManager_getCameraCharacteristics(mCameraManager, mCameraId, &mCameraMetadata);
-        if (ret != ACAMERA_OK || mCameraMetadata == nullptr) {
-            ALOGE("Get camera %s characteristics failure. ret %d, metadata %p", mCameraId, ret,
-                  mCameraMetadata);
-            return -1;
-        }
-
-        // Create capture session
-        ret = ACaptureSessionOutputContainer_create(&mOutputs);
-        if (ret != AMEDIA_OK) {
-            ALOGE("ACaptureSessionOutputContainer_create failed, ret=%d", ret);
-            return ret;
-        }
-        ret = ACaptureSessionOutput_create(mImgReaderAnw, &mImgReaderOutput);
-        if (ret != AMEDIA_OK) {
-            ALOGE("ACaptureSessionOutput_create failed, ret=%d", ret);
-            return ret;
-        }
-        ret = ACaptureSessionOutputContainer_add(mOutputs, mImgReaderOutput);
-        if (ret != AMEDIA_OK) {
-            ALOGE("ACaptureSessionOutputContainer_add failed, ret=%d", ret);
-            return ret;
-        }
-        ret = ACameraDevice_createCaptureSession(mDevice, mOutputs, &mSessionCb, &mSession);
-        if (ret != AMEDIA_OK) {
-            ALOGE("ACameraDevice_createCaptureSession failed, ret=%d", ret);
-            return ret;
-        }
-
-        // Create capture request
-        ret = ACameraDevice_createCaptureRequest(mDevice, TEMPLATE_RECORD, &mCaptureRequest);
-        if (ret != AMEDIA_OK) {
-            ALOGE("ACameraDevice_createCaptureRequest failed, ret=%d", ret);
-            return ret;
-        }
-        ret = ACameraOutputTarget_create(mImgReaderAnw, &mReqImgReaderOutput);
-        if (ret != AMEDIA_OK) {
-            ALOGE("ACameraOutputTarget_create failed, ret=%d", ret);
-            return ret;
-        }
-        ret = ACaptureRequest_addTarget(mCaptureRequest, mReqImgReaderOutput);
-        if (ret != AMEDIA_OK) {
-            ALOGE("ACaptureRequest_addTarget failed, ret=%d", ret);
-            return ret;
-        }
-
-        mIsCameraReady = true;
-        return 0;
-    }
-
-    bool isCapabilitySupported(acamera_metadata_enum_android_request_available_capabilities_t cap) {
-        ACameraMetadata_const_entry entry;
-        ACameraMetadata_getConstEntry(mCameraMetadata, ACAMERA_REQUEST_AVAILABLE_CAPABILITIES,
-                                      &entry);
-        for (uint32_t i = 0; i < entry.count; i++) {
-            if (entry.data.u8[i] == cap) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    bool isCameraReady() { return mIsCameraReady; }
-
-    void closeCamera() {
-        // Destroy capture request
-        if (mReqImgReaderOutput) {
-            ACameraOutputTarget_free(mReqImgReaderOutput);
-            mReqImgReaderOutput = nullptr;
-        }
-        if (mCaptureRequest) {
-            ACaptureRequest_free(mCaptureRequest);
-            mCaptureRequest = nullptr;
-        }
-        // Destroy capture session
-        if (mSession != nullptr) {
-            ACameraCaptureSession_close(mSession);
-            mSession = nullptr;
-        }
-        if (mImgReaderOutput) {
-            ACaptureSessionOutput_free(mImgReaderOutput);
-            mImgReaderOutput = nullptr;
-        }
-        if (mOutputs) {
-            ACaptureSessionOutputContainer_free(mOutputs);
-            mOutputs = nullptr;
-        }
-        // Destroy camera device
-        if (mDevice) {
-            ACameraDevice_close(mDevice);
-            mDevice = nullptr;
-        }
-        if (mCameraMetadata) {
-            ACameraMetadata_free(mCameraMetadata);
-            mCameraMetadata = nullptr;
-        }
-        // Destroy camera manager
-        if (mCameraIdList) {
-            ACameraManager_deleteCameraIdList(mCameraIdList);
-            mCameraIdList = nullptr;
-        }
-        if (mCameraManager) {
-            ACameraManager_delete(mCameraManager);
-            mCameraManager = nullptr;
-        }
-        mIsCameraReady = false;
-    }
-
-    int takePicture() {
-        return ACameraCaptureSession_capture(mSession, nullptr, 1, &mCaptureRequest, nullptr);
-    }
-
-    static void onDeviceDisconnected(void* /*obj*/, ACameraDevice* /*device*/) {}
-
-    static void onDeviceError(void* /*obj*/, ACameraDevice* /*device*/, int /*errorCode*/) {}
-
-    static void onSessionClosed(void* /*obj*/, ACameraCaptureSession* /*session*/) {}
-
-    static void onSessionReady(void* /*obj*/, ACameraCaptureSession* /*session*/) {}
-
-    static void onSessionActive(void* /*obj*/, ACameraCaptureSession* /*session*/) {}
-
-  private:
-    ACameraDevice_StateCallbacks mDeviceCb{this, onDeviceDisconnected, onDeviceError};
-    ACameraCaptureSession_stateCallbacks mSessionCb{this, onSessionClosed, onSessionReady,
-                                                    onSessionActive};
-
-    ANativeWindow* mImgReaderAnw{nullptr};  // not owned by us.
-
-    // Camera manager
-    ACameraManager* mCameraManager{nullptr};
-    ACameraIdList* mCameraIdList{nullptr};
-    // Camera device
-    ACameraMetadata* mCameraMetadata{nullptr};
-    ACameraDevice* mDevice{nullptr};
-    // Capture session
-    ACaptureSessionOutputContainer* mOutputs{nullptr};
-    ACaptureSessionOutput* mImgReaderOutput{nullptr};
-    ACameraCaptureSession* mSession{nullptr};
-    // Capture request
-    ACaptureRequest* mCaptureRequest{nullptr};
-    ACameraOutputTarget* mReqImgReaderOutput{nullptr};
-
-    bool mIsCameraReady{false};
-    const char* mCameraId{nullptr};
-};
-
-class ImageReaderHelper {
-  public:
-    using ImagePtr = std::unique_ptr<AImage, decltype(&AImage_delete)>;
-
-    ImageReaderHelper(int32_t width, int32_t height, int32_t format, uint64_t usage,
-                      int32_t maxImages)
-        : mWidth(width), mHeight(height), mFormat(format), mUsage(usage), mMaxImages(maxImages) {}
-
-    ~ImageReaderHelper() {
-        mAcquiredImage.reset();
-        if (mImgReaderAnw) {
-            AImageReader_delete(mImgReader);
-            // No need to call ANativeWindow_release on imageReaderAnw
-        }
-    }
-
-    int initImageReader() {
-        if (mImgReader != nullptr || mImgReaderAnw != nullptr) {
-            ALOGE("Cannot re-initalize image reader, mImgReader=%p, mImgReaderAnw=%p", mImgReader,
-                  mImgReaderAnw);
-            return -1;
-        }
-
-        int ret =
-            AImageReader_newWithUsage(mWidth, mHeight, mFormat, mUsage, mMaxImages, &mImgReader);
-        if (ret != AMEDIA_OK || mImgReader == nullptr) {
-            ALOGE("Failed to create new AImageReader, ret=%d, mImgReader=%p", ret, mImgReader);
-            return -1;
-        }
-
-        ret = AImageReader_setImageListener(mImgReader, &mReaderAvailableCb);
-        if (ret != AMEDIA_OK) {
-            ALOGE("Failed to set image available listener, ret=%d.", ret);
-            return ret;
-        }
-
-        ret = AImageReader_getWindow(mImgReader, &mImgReaderAnw);
-        if (ret != AMEDIA_OK || mImgReaderAnw == nullptr) {
-            ALOGE("Failed to get ANativeWindow from AImageReader, ret=%d, mImgReaderAnw=%p.", ret,
-                  mImgReaderAnw);
-            return -1;
-        }
-
-        return 0;
-    }
-
-    ANativeWindow* getNativeWindow() { return mImgReaderAnw; }
-
-    int getBufferFromCurrentImage(AHardwareBuffer** outBuffer) {
-        std::lock_guard<std::mutex> lock(mMutex);
-
-        int ret = 0;
-        uint8_t* data;
-        int data_size;
-        if (mAvailableImages > 0) {
-            AImage* outImage = nullptr;
-
-            mAvailableImages -= 1;
-
-            ret = AImageReader_acquireNextImage(mImgReader, &outImage);
-            if (ret != AMEDIA_OK || outImage == nullptr) {
-                // When the BufferQueue is in async mode, it is still possible that
-                // AImageReader_acquireNextImage returns nothing after onFrameAvailable.
-                ALOGW("Failed to acquire image, ret=%d, outIamge=%p.", ret, outImage);
-            } else {
-                // Any exisitng in mAcquiredImage will be deleted and released automatically.
-                mAcquiredImage.reset(outImage);
-            }
-            // Expected getPlaneData to fail for AIMAGE_FORMAT_PRIV, if not then
-            // return error
-            ret = AImage_getPlaneData(outImage, 0, &data, &data_size);
-            if (ret != AMEDIA_IMGREADER_CANNOT_LOCK_IMAGE)
-              return -EINVAL;
-        }
-
-        if (mAcquiredImage == nullptr) {
-            return -EAGAIN;
-        }
-
-        // Note that AImage_getHardwareBuffer is not acquiring additional reference to the buffer,
-        // so we can return it here any times we want without worrying about releasing.
-        AHardwareBuffer* buffer = nullptr;
-        ret = AImage_getHardwareBuffer(mAcquiredImage.get(), &buffer);
-        if (ret != AMEDIA_OK || buffer == nullptr) {
-            ALOGE("Faild to get hardware buffer, ret=%d, outBuffer=%p.", ret, buffer);
-            return -ENOMEM;
-        }
-
-        *outBuffer = buffer;
-        return 0;
-    }
-
-    void handleImageAvailable() {
-        std::lock_guard<std::mutex> lock(mMutex);
-
-        mAvailableImages += 1;
-    }
-
-    static void onImageAvailable(void* obj, AImageReader*) {
-        ImageReaderHelper* thiz = reinterpret_cast<ImageReaderHelper*>(obj);
-        thiz->handleImageAvailable();
-    }
-
-  private:
-    int32_t mWidth;
-    int32_t mHeight;
-    int32_t mFormat;
-    uint64_t mUsage;
-    uint32_t mMaxImages;
-
-    std::mutex mMutex;
-    // Number of images that's avaiable for acquire.
-    size_t mAvailableImages{0};
-    // Although AImageReader supports acquiring multiple images at a time, we don't really need it
-    // in this test. We only acquire one image that a time.
-    ImagePtr mAcquiredImage{nullptr, AImage_delete};
-
-    AImageReader* mImgReader{nullptr};
-    ANativeWindow* mImgReaderAnw{nullptr};
-
-    AImageReader_ImageListener mReaderAvailableCb{this, onImageAvailable};
-};
-
 class CameraFrameRenderer {
   public:
     CameraFrameRenderer()
@@ -420,6 +107,8 @@ class CameraFrameRenderer {
         }
     }
 
+    bool isCameraReady() { return mCamera.isCameraReady(); }
+
     // Retrun Zero on success, or negative error code.
     int initRenderer() {
         int ret = mImageReader.initImageReader();
@@ -436,11 +125,11 @@ class CameraFrameRenderer {
 
         // This test should only test devices with at least one camera.
         if (!mCamera.isCameraReady()) {
-            ALOGE(
+            ALOGW(
                 "Camera is not ready after successful initialization. It's either due to camera on "
                 "board lacks BACKWARDS_COMPATIBLE capability or the device does not have camera on "
                 "board.");
-            return -EIO;
+            return 0;
         }
 
         // Load shader and program.
@@ -490,6 +179,13 @@ class CameraFrameRenderer {
 
     // Return Zero on success, or negative error code.
     int drawFrame() {
+        if (!mCamera.isCameraReady()) {
+            // We should never reach here. This test should just report success and quit early if
+            // no camera can be found during initialization.
+            ALOGE("No camera is ready for frame capture.");
+            return -EINVAL;
+        }
+
         // Indicate the camera to take recording.
         int ret = mCamera.takePicture();
         if (ret < 0) {
@@ -613,6 +309,15 @@ jlong createRenderer(JNIEnv*, jclass) {
     return jptr(renderer.release());
 }
 
+bool isCameraReady(JNIEnv*, jclass, jlong renderer) {
+    if (renderer == 0) {
+        ALOGE("isCameraReady: Invalid renderer: nullptr.");
+        return false;
+    }
+
+    return native(renderer)->isCameraReady();
+}
+
 void destroyRenderer(JNIEnv*, jclass, jlong renderer) { delete native(renderer); }
 
 jint drawFrame(JNIEnv*, jclass, jlong renderer) {
@@ -626,6 +331,7 @@ jint drawFrame(JNIEnv*, jclass, jlong renderer) {
 
 const std::vector<JNINativeMethod> gMethods = {{
     {"nCreateRenderer", "()J", (void*)createRenderer},
+    {"nIsCameraReady", "(J)Z", (void*)isCameraReady},
     {"nDestroyRenderer", "(J)V", (void*)destroyRenderer},
     {"nDrawFrame", "(J)I", (void*)drawFrame},
 }};

@@ -43,9 +43,8 @@ __BEGIN_DECLS
 #define INET_ADDRSTRLEN 16
 
 typedef uint16_t in_port_t;
-typedef uint32_t in_addr_t;
 
-int bindresvport(int, struct sockaddr_in*);
+int bindresvport(int __fd, struct sockaddr_in* __sin);
 
 #if __ANDROID_API__ >= __ANDROID_API_N__
 extern const struct in6_addr in6addr_any __INTRODUCED_IN(24);
@@ -57,4 +56,4 @@ static const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
 
 __END_DECLS
 
-#endif /* _NETINET_IN_H_ */
+#endif

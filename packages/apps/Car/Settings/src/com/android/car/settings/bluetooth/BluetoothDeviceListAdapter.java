@@ -15,7 +15,6 @@
  */
 package com.android.car.settings.bluetooth;
 
-import android.annotation.NonNull;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
@@ -24,10 +23,9 @@ import android.content.res.Resources;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Looper;
-import android.text.TextUtils;
-import android.util.Log;
-import android.util.Pair;
+import android.os.SystemProperties;
 import android.support.v7.widget.RecyclerView;
+import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -37,17 +35,19 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.car.widget.PagedListView;
+
 import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
-import com.android.car.view.PagedListView;
+import com.android.car.settings.common.Logger;
 import com.android.settingslib.bluetooth.BluetoothCallback;
 import com.android.settingslib.bluetooth.BluetoothDeviceFilter;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.CachedBluetoothDeviceManager;
+import com.android.settingslib.bluetooth.HidProfile;
 import com.android.settingslib.bluetooth.LocalBluetoothAdapter;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
 import com.android.settingslib.bluetooth.LocalBluetoothProfile;
-import com.android.settingslib.bluetooth.HidProfile;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -62,7 +62,10 @@ import java.util.Set;
 public class BluetoothDeviceListAdapter
         extends RecyclerView.Adapter<BluetoothDeviceListAdapter.ViewHolder>
         implements PagedListView.ItemCap, BluetoothCallback {
-    private static final String TAG = "BluetoothDeviceListAdapter";
+    private static final Logger LOG = new Logger(BluetoothDeviceListAdapter.class);
+    // Copied from BluetoothDeviceNoNamePreferenceController.java
+    private static final String BLUETOOTH_SHOW_DEVICES_WITHOUT_NAMES_PROPERTY =
+            "persist.bluetooth.showdeviceswithoutnames";
     private static final int DEVICE_ROW_TYPE = 1;
     private static final int BONDED_DEVICE_HEADER_TYPE = 2;
     private static final int AVAILABLE_DEVICE_HEADER_TYPE = 3;
@@ -77,6 +80,7 @@ public class BluetoothDeviceListAdapter
     private final CachedBluetoothDeviceManager mDeviceManager;
     private final Context mContext;
     private final BaseFragment.FragmentController mFragmentController;
+    private final boolean mShowDevicesWithoutNames;
 
     /* Talk-back descriptions for various BT icons */
     public final String mComputerDescription;
@@ -129,6 +133,8 @@ public class BluetoothDeviceListAdapter
         mImagingDescription = r.getString(R.string.bluetooth_talkback_imaging);
         mHeadphoneDescription = r.getString(R.string.bluetooth_talkback_headphone);
         mBluetoothDescription = r.getString(R.string.bluetooth_talkback_bluetooth);
+        mShowDevicesWithoutNames =
+                SystemProperties.getBoolean(BLUETOOTH_SHOW_DEVICES_WITHOUT_NAMES_PROPERTY, false);
     }
 
     public void start() {
@@ -148,7 +154,9 @@ public class BluetoothDeviceListAdapter
         mDeviceManager.clearNonBondedDevices();
         mLocalManager.getEventManager().unregisterCallback(this);
         mBondedDevices.clear();
+        mBondedDevicesSorted.clear();
         mAvailableDevices.clear();
+        mAvailableDevicesSorted.clear();
         mSortTask.cancel(true);
     }
 
@@ -200,7 +208,7 @@ public class BluetoothDeviceListAdapter
         holder.mTitle.setText(bluetoothDevice.getName());
         Pair<Integer, String> pair = getBtClassDrawableWithDescription(bluetoothDevice);
         holder.mIcon.setImageResource(pair.first);
-        String summaryText = bluetoothDevice.getConnectionSummary();
+        String summaryText = bluetoothDevice.getCarConnectionSummary();
         if (summaryText != null) {
             holder.mDesc.setText(summaryText);
             holder.mDesc.setVisibility(View.VISIBLE);
@@ -259,7 +267,12 @@ public class BluetoothDeviceListAdapter
 
     @Override
     public void onDeviceDeleted(CachedBluetoothDevice cachedDevice) {
-        onDeviceDeleted(cachedDevice, true /* reset */);
+        // the device might changed bonding state, so need to remove from both sets.
+        if (mBondedDevices.remove(cachedDevice)) {
+            mBondedDevicesSorted.remove(cachedDevice);
+        }
+        mAvailableDevices.remove(cachedDevice);
+        notifyDataSetChanged();
     }
 
     @Override
@@ -289,6 +302,7 @@ public class BluetoothDeviceListAdapter
         mLocalAdapter.startScanning(true);
         addBondDevices();
         addCachedDevices();
+        notifyDataSetChanged();
     }
 
     @Override
@@ -298,7 +312,7 @@ public class BluetoothDeviceListAdapter
 
     @Override
     public void onDeviceBondStateChanged(CachedBluetoothDevice cachedDevice, int bondState) {
-        onDeviceDeleted(cachedDevice, false /* reset */);
+        onDeviceDeleted(cachedDevice);
         onDeviceAdded(cachedDevice);
     }
 
@@ -308,19 +322,18 @@ public class BluetoothDeviceListAdapter
      */
     @Override
     public void onConnectionStateChanged(CachedBluetoothDevice cachedDevice, int state) {
-        onDeviceDeleted(cachedDevice, false);
+        onDeviceDeleted(cachedDevice);
         onDeviceAdded(cachedDevice);
     }
 
-    private void onDeviceDeleted(CachedBluetoothDevice cachedDevice, boolean refresh) {
-        // the device might changed bonding state, so need to remove from both sets.
-        if (mBondedDevices.remove(cachedDevice)) {
-            mBondedDevicesSorted.remove(cachedDevice);
-        }
-        mAvailableDevices.remove(cachedDevice);
-        if (refresh) {
-            notifyDataSetChanged();
-        }
+    @Override
+    public void onActiveDeviceChanged(CachedBluetoothDevice activeDevice, int bluetoothProfile) {
+        // Not used (for now)
+    }
+
+    @Override
+    public void onAudioModeChanged() {
+        // Not used (for now)
     }
 
     private void addDevices(Collection<CachedBluetoothDevice> cachedDevices) {
@@ -349,7 +362,8 @@ public class BluetoothDeviceListAdapter
                 needSort = true;
             }
         }
-        if (BluetoothDeviceFilter.UNBONDED_DEVICE_FILTER.matches(cachedDevice.getDevice())) {
+        if (BluetoothDeviceFilter.UNBONDED_DEVICE_FILTER.matches(cachedDevice.getDevice())
+                && (mShowDevicesWithoutNames || cachedDevice.hasHumanReadableName())) {
             // reset is done at SortTask.
             mAvailableDevices.add(cachedDevice);
         }
@@ -399,7 +413,7 @@ public class BluetoothDeviceListAdapter
                     // unrecognized device class; continue
             }
         } else {
-            Log.w(TAG, "btClass is null");
+            LOG.w("btClass is null");
         }
 
         List<LocalBluetoothProfile> profiles = bluetoothDevice.getProfiles();

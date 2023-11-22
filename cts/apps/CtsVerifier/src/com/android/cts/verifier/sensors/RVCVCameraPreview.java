@@ -28,6 +28,9 @@ import android.view.ViewGroup;
 import java.io.IOException;
 import java.lang.Math;
 
+import com.android.cts.verifier.sensors.RVCVRecordActivity;
+import com.android.cts.verifier.sensors.RVCVRecordActivity.RecordProcedureControllerCallback;
+
 /** Camera preview class */
 public class RVCVCameraPreview extends SurfaceView implements SurfaceHolder.Callback {
     private static final String TAG = "RVCVCameraPreview";
@@ -37,6 +40,10 @@ public class RVCVCameraPreview extends SurfaceView implements SurfaceHolder.Call
     private Camera mCamera;
     private float mAspect;
     private int mRotation;
+    private boolean mCheckStartTest = false;
+    private boolean mPreviewStarted = false;
+
+    private RVCVRecordActivity.RecordProcedureControllerCallback mRecordProcedureControllerCallback;
 
     /**
      * Constructor
@@ -86,27 +93,6 @@ public class RVCVCameraPreview extends SurfaceView implements SurfaceHolder.Call
             // preview camera does not exist
             return;
         }
-
-        try {
-            mCamera.setPreviewDisplay(holder);
-            mCamera.startPreview();
-            int v_height = getHeight();
-            int v_width = getWidth();
-            ViewGroup.LayoutParams layout = getLayoutParams();
-            if ( (float)v_height/v_width  >
-                    mAspect) {
-                layout.height = (int)Math.round(v_width * mAspect);
-                layout.width = v_width;
-            }else {
-                layout.width = (int)Math.round(v_height / mAspect);
-                layout.height = v_height;
-            }
-            Log.d(TAG, String.format("Layout (%d, %d) -> (%d, %d)", v_width, v_height,
-                    layout.width, layout.height));
-            setLayoutParams(layout);
-        } catch (IOException e) {
-            if (LOCAL_LOGD) Log.d(TAG, "Error when starting camera preview: " + e.getMessage());
-        }
     }
     /**
      *  SurfaceHolder.Callback
@@ -125,13 +111,68 @@ public class RVCVCameraPreview extends SurfaceView implements SurfaceHolder.Call
             // preview surface or camera does not exist
             return;
         }
+        if (adjustLayoutParamsIfNeeded()) {
+            // Wait on next surfaceChanged() call before proceeding
+            Log.d(TAG, "Waiting on surface change before starting preview");
+            return;
+        }
 
-        // stop preview before making changes
-        mCamera.stopPreview();
+        if (mPreviewStarted) {
+            Log.w(TAG, "Re-starting camera preview");
+            if (mCheckStartTest && mRecordProcedureControllerCallback != null) {
+                mRecordProcedureControllerCallback.stopRecordProcedureController();
+            }
+            mCamera.stopPreview();
+            mPreviewStarted = false;
+        }
+        mCheckStartTest = false;
 
         mCamera.setDisplayOrientation(mRotation);
+        try {
+            mCamera.setPreviewDisplay(holder);
+            mCamera.startPreview();
+            mPreviewStarted = true;
+            if (mRecordProcedureControllerCallback != null) {
+                mCheckStartTest = true;
+                mRecordProcedureControllerCallback.startRecordProcedureController();
+            }
+        } catch (IOException e) {
+            if (LOCAL_LOGD) Log.d(TAG, "Error when starting camera preview: " + e.getMessage());
+        }
+    }
 
-        //do the same as if it is created again
-        surfaceCreated(holder);
+    /**
+     * Resize the layout to more closely match the desired aspect ratio, if necessary.
+     *
+     * @return true if we updated the layout params, false if the params look good
+     */
+    private boolean adjustLayoutParamsIfNeeded() {
+        ViewGroup.LayoutParams layoutParams = getLayoutParams();
+        int curWidth = getWidth();
+        int curHeight = getHeight();
+        float curAspect = (float)curHeight / (float)curWidth;
+        float aspectDelta = Math.abs(mAspect - curAspect);
+        if ((aspectDelta / mAspect) >= 0.01) {
+            if (curAspect > mAspect) {
+                layoutParams.height = (int)Math.round(curWidth * mAspect);
+                layoutParams.width = curWidth;
+            } else {
+                layoutParams.height = curHeight;
+                layoutParams.width = (int)Math.round(curHeight / mAspect);
+            }
+
+            if (layoutParams.height != curHeight || layoutParams.width != curWidth) {
+                Log.d(TAG, String.format("Layout (%d, %d) -> (%d, %d)", curWidth, curHeight,
+                        layoutParams.width, layoutParams.height));
+                setLayoutParams(layoutParams);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void setRecordProcedureControllerCallback(
+            RVCVRecordActivity.RecordProcedureControllerCallback callback) {
+        mRecordProcedureControllerCallback = callback;
     }
 }

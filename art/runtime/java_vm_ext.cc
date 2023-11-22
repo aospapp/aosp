@@ -26,15 +26,18 @@
 #include "base/stl_util.h"
 #include "base/systrace.h"
 #include "check_jni.h"
-#include "dex_file-inl.h"
+#include "dex/dex_file-inl.h"
 #include "fault_handler.h"
+#include "gc/allocation_record.h"
+#include "gc/heap.h"
 #include "gc_root-inl.h"
 #include "indirect_reference_table-inl.h"
 #include "jni_internal.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
 #include "nativebridge/native_bridge.h"
-#include "nativehelper/ScopedLocalRef.h"
+#include "nativehelper/scoped_local_ref.h"
+#include "nativehelper/scoped_utf_chars.h"
 #include "nativeloader/native_loader.h"
 #include "object_callbacks.h"
 #include "parsed_options.h"
@@ -45,6 +48,7 @@
 #include "thread-inl.h"
 #include "thread_list.h"
 #include "ti/agent.h"
+#include "well_known_classes.h"
 
 namespace art {
 
@@ -334,7 +338,7 @@ class Libraries {
       } else {
         VLOG(jni) << "[JNI_OnUnload found for \"" << library->GetPath() << "\"]: Calling...";
         JNI_OnUnloadFn jni_on_unload = reinterpret_cast<JNI_OnUnloadFn>(sym);
-        jni_on_unload(self->GetJniEnv()->vm, nullptr);
+        jni_on_unload(self->GetJniEnv()->GetVm(), nullptr);
       }
       delete library;
     }
@@ -467,7 +471,11 @@ JavaVMExt::JavaVMExt(Runtime* runtime,
       weak_globals_add_condition_("weak globals add condition",
                                   (CHECK(Locks::jni_weak_globals_lock_ != nullptr),
                                    *Locks::jni_weak_globals_lock_)),
-      env_hooks_() {
+      env_hooks_(),
+      enable_allocation_tracking_delta_(
+          runtime_options.GetOrDefault(RuntimeArgumentMap::GlobalRefAllocStackTraceLimit)),
+      allocation_tracking_enabled_(false),
+      old_allocation_tracking_state_(false) {
   functions = unchecked_functions_;
   SetCheckJniEnabled(runtime_options.Exists(RuntimeArgumentMap::CheckJni));
 }
@@ -582,13 +590,55 @@ bool JavaVMExt::ShouldTrace(ArtMethod* method) {
   return true;
 }
 
+void JavaVMExt::CheckGlobalRefAllocationTracking() {
+  if (LIKELY(enable_allocation_tracking_delta_ == 0)) {
+    return;
+  }
+  size_t simple_free_capacity = globals_.FreeCapacity();
+  if (UNLIKELY(simple_free_capacity <= enable_allocation_tracking_delta_)) {
+    if (!allocation_tracking_enabled_) {
+      LOG(WARNING) << "Global reference storage appears close to exhaustion, program termination "
+                   << "may be imminent. Enabling allocation tracking to improve abort diagnostics. "
+                   << "This will result in program slow-down.";
+
+      old_allocation_tracking_state_ = runtime_->GetHeap()->IsAllocTrackingEnabled();
+      if (!old_allocation_tracking_state_) {
+        // Need to be guaranteed suspended.
+        ScopedObjectAccess soa(Thread::Current());
+        ScopedThreadSuspension sts(soa.Self(), ThreadState::kNative);
+        gc::AllocRecordObjectMap::SetAllocTrackingEnabled(true);
+      }
+      allocation_tracking_enabled_ = true;
+    }
+  } else {
+    if (UNLIKELY(allocation_tracking_enabled_)) {
+      if (!old_allocation_tracking_state_) {
+        // Need to be guaranteed suspended.
+        ScopedObjectAccess soa(Thread::Current());
+        ScopedThreadSuspension sts(soa.Self(), ThreadState::kNative);
+        gc::AllocRecordObjectMap::SetAllocTrackingEnabled(false);
+      }
+      allocation_tracking_enabled_ = false;
+    }
+  }
+}
+
 jobject JavaVMExt::AddGlobalRef(Thread* self, ObjPtr<mirror::Object> obj) {
   // Check for null after decoding the object to handle cleared weak globals.
   if (obj == nullptr) {
     return nullptr;
   }
-  WriterMutexLock mu(self, *Locks::jni_globals_lock_);
-  IndirectRef ref = globals_.Add(kIRTFirstSegment, obj);
+  IndirectRef ref;
+  std::string error_msg;
+  {
+    WriterMutexLock mu(self, *Locks::jni_globals_lock_);
+    ref = globals_.Add(kIRTFirstSegment, obj, &error_msg);
+  }
+  if (UNLIKELY(ref == nullptr)) {
+    LOG(FATAL) << error_msg;
+    UNREACHABLE();
+  }
+  CheckGlobalRefAllocationTracking();
   return reinterpret_cast<jobject>(ref);
 }
 
@@ -606,7 +656,12 @@ jweak JavaVMExt::AddWeakGlobalRef(Thread* self, ObjPtr<mirror::Object> obj) {
     self->CheckEmptyCheckpointFromWeakRefAccess(Locks::jni_weak_globals_lock_);
     weak_globals_add_condition_.WaitHoldingLocks(self);
   }
-  IndirectRef ref = weak_globals_.Add(kIRTFirstSegment, obj);
+  std::string error_msg;
+  IndirectRef ref = weak_globals_.Add(kIRTFirstSegment, obj, &error_msg);
+  if (UNLIKELY(ref == nullptr)) {
+    LOG(FATAL) << error_msg;
+    UNREACHABLE();
+  }
   return reinterpret_cast<jweak>(ref);
 }
 
@@ -614,11 +669,14 @@ void JavaVMExt::DeleteGlobalRef(Thread* self, jobject obj) {
   if (obj == nullptr) {
     return;
   }
-  WriterMutexLock mu(self, *Locks::jni_globals_lock_);
-  if (!globals_.Remove(kIRTFirstSegment, obj)) {
-    LOG(WARNING) << "JNI WARNING: DeleteGlobalRef(" << obj << ") "
-                 << "failed to find entry";
+  {
+    WriterMutexLock mu(self, *Locks::jni_globals_lock_);
+    if (!globals_.Remove(kIRTFirstSegment, obj)) {
+      LOG(WARNING) << "JNI WARNING: DeleteGlobalRef(" << obj << ") "
+                   << "failed to find entry";
+    }
   }
+  CheckGlobalRefAllocationTracking();
 }
 
 void JavaVMExt::DeleteWeakGlobalRef(Thread* self, jweak obj) {
@@ -796,7 +854,6 @@ void JavaVMExt::UnloadNativeLibraries() {
 bool JavaVMExt::LoadNativeLibrary(JNIEnv* env,
                                   const std::string& path,
                                   jobject class_loader,
-                                  jstring library_path,
                                   std::string* error_msg) {
   error_msg->clear();
 
@@ -833,10 +890,43 @@ bool JavaVMExt::LoadNativeLibrary(JNIEnv* env,
       // The library will be associated with class_loader. The JNI
       // spec says we can't load the same library into more than one
       // class loader.
+      //
+      // This isn't very common. So spend some time to get a readable message.
+      auto call_to_string = [&](jobject obj) -> std::string {
+        if (obj == nullptr) {
+          return "null";
+        }
+        // Handle jweaks. Ignore double local-ref.
+        ScopedLocalRef<jobject> local_ref(env, env->NewLocalRef(obj));
+        if (local_ref != nullptr) {
+          ScopedLocalRef<jclass> local_class(env, env->GetObjectClass(local_ref.get()));
+          jmethodID to_string = env->GetMethodID(local_class.get(),
+                                                 "toString",
+                                                 "()Ljava/lang/String;");
+          DCHECK(to_string != nullptr);
+          ScopedLocalRef<jobject> local_string(env,
+                                               env->CallObjectMethod(local_ref.get(), to_string));
+          if (local_string != nullptr) {
+            ScopedUtfChars utf(env, reinterpret_cast<jstring>(local_string.get()));
+            if (utf.c_str() != nullptr) {
+              return utf.c_str();
+            }
+          }
+          env->ExceptionClear();
+          return "(Error calling toString)";
+        }
+        return "null";
+      };
+      std::string old_class_loader = call_to_string(library->GetClassLoader());
+      std::string new_class_loader = call_to_string(class_loader);
       StringAppendF(error_msg, "Shared library \"%s\" already opened by "
-          "ClassLoader %p; can't open in ClassLoader %p",
-          path.c_str(), library->GetClassLoader(), class_loader);
-      LOG(WARNING) << error_msg;
+          "ClassLoader %p(%s); can't open in ClassLoader %p(%s)",
+          path.c_str(),
+          library->GetClassLoader(),
+          old_class_loader.c_str(),
+          class_loader,
+          new_class_loader.c_str());
+      LOG(WARNING) << *error_msg;
       return false;
     }
     VLOG(jni) << "[Shared library \"" << path << "\" already loaded in "
@@ -860,6 +950,9 @@ bool JavaVMExt::LoadNativeLibrary(JNIEnv* env,
   // class unloading. Libraries will only be unloaded when the reference count (incremented by
   // dlopen) becomes zero from dlclose.
 
+  // Retrieve the library path from the classloader, if necessary.
+  ScopedLocalRef<jstring> library_path(env, GetLibrarySearchPath(env, class_loader));
+
   Locks::mutator_lock_->AssertNotHeld(self);
   const char* path_str = path.empty() ? nullptr : path.c_str();
   bool needs_native_bridge = false;
@@ -867,7 +960,7 @@ bool JavaVMExt::LoadNativeLibrary(JNIEnv* env,
                                             runtime_->GetTargetSdkVersion(),
                                             path_str,
                                             class_loader,
-                                            library_path,
+                                            library_path.get(),
                                             &needs_native_bridge,
                                             error_msg);
 
@@ -962,17 +1055,17 @@ bool JavaVMExt::LoadNativeLibrary(JNIEnv* env,
 static void* FindCodeForNativeMethodInAgents(ArtMethod* m) REQUIRES_SHARED(Locks::mutator_lock_) {
   std::string jni_short_name(m->JniShortName());
   std::string jni_long_name(m->JniLongName());
-  for (const ti::Agent& agent : Runtime::Current()->GetAgents()) {
-    void* fn = agent.FindSymbol(jni_short_name);
+  for (const std::unique_ptr<ti::Agent>& agent : Runtime::Current()->GetAgents()) {
+    void* fn = agent->FindSymbol(jni_short_name);
     if (fn != nullptr) {
       VLOG(jni) << "Found implementation for " << m->PrettyMethod()
-                << " (symbol: " << jni_short_name << ") in " << agent;
+                << " (symbol: " << jni_short_name << ") in " << *agent;
       return fn;
     }
-    fn = agent.FindSymbol(jni_long_name);
+    fn = agent->FindSymbol(jni_long_name);
     if (fn != nullptr) {
       VLOG(jni) << "Found implementation for " << m->PrettyMethod()
-                << " (symbol: " << jni_long_name << ") in " << agent;
+                << " (symbol: " << jni_long_name << ") in " << *agent;
       return fn;
     }
   }
@@ -1027,6 +1120,18 @@ void JavaVMExt::VisitRoots(RootVisitor* visitor) {
   ReaderMutexLock mu(self, *Locks::jni_globals_lock_);
   globals_.VisitRoots(visitor, RootInfo(kRootJNIGlobal));
   // The weak_globals table is visited by the GC itself (because it mutates the table).
+}
+
+jstring JavaVMExt::GetLibrarySearchPath(JNIEnv* env, jobject class_loader) {
+  if (class_loader == nullptr) {
+    return nullptr;
+  }
+  if (!env->IsInstanceOf(class_loader, WellKnownClasses::dalvik_system_BaseDexClassLoader)) {
+    return nullptr;
+  }
+  return reinterpret_cast<jstring>(env->CallObjectMethod(
+      class_loader,
+      WellKnownClasses::dalvik_system_BaseDexClassLoader_getLdLibraryPath));
 }
 
 // JNI Invocation interface.

@@ -240,12 +240,12 @@ cpufreq_angler () {
 
 cpufreq_go() {
     echo "Setting Governor to performance"
-    adb shell 'echo 0 > /proc/hps/enabled'
+    $adb shell 'echo 0 > /proc/hps/enabled'
     for i in 0 1 2 3
     do
-	adb shell "echo 1 > /sys/devices/system/cpu/cpu$i/online"
-	adb shell "echo performance > /sys/devices/system/cpu/cpu$i/cpufreq/scaling_governor"
-	adb shell "echo 1092000 > /sys/devices/system/cpu/cpu$i/cpufreq/scaling_max_freq"
+	$adb shell "echo 1 > /sys/devices/system/cpu/cpu$i/online"
+	$adb shell "echo performance > /sys/devices/system/cpu/cpu$i/cpufreq/scaling_governor"
+	$adb shell "echo 1092000 > /sys/devices/system/cpu/cpu$i/cpufreq/scaling_max_freq"
     done
 }
 
@@ -335,13 +335,9 @@ system_stats_before() {
         iowait_ticks_before=`echo $procstat | awk '{ print $6 }'`
         total_ticks_before=`echo $procstat | awk '{ print ($2 + $3 + $4 + $5 + $7 + $8) }'`
         # Device util% computation
-        # Note hz=100, so multiplying uptime (in seconds) by 100, gives us
-        # the uptime in hz.
         uptime=`$adb shell 'cat /proc/uptime'`
-        uptime_before_hz=`echo $uptime | awk '{ print ($1 * 100) }'`
-        # Note that the device (busy) ticks is in ms. Since hz=100, dividing
-        # device (busy) ticks by 10, gives us this in the correct ticks units
-        device_util_before_hz=`echo $uptime | awk '{ print ($13 / 10) }'`
+        uptime_before_ms=`echo $uptime | awk '{ print ($1 * 1000) }'`
+        device_util_before_ms=`echo $system | awk '{ print ($13) }'`
     fi
 }
 
@@ -359,13 +355,9 @@ system_stats_after() {
         iowait_ticks_after=`echo $procstat | awk '{ print $6 }'`
         total_ticks_after=`echo $procstat | awk '{ print ($2 + $3 + $4 + $5 + $7 + $8) }'`
         # Device util% computation
-        # Note hz=100, so multiplying uptime (in seconds) by 100, gives us
-        # the uptime in hz.
         uptime=`$adb shell 'cat /proc/uptime'`
-        uptime_after_hz=`echo $uptime | awk '{ print ($1 * 100) }'`
-        # Note that the device (busy) ticks is in ms. Since hz=100, dividing
-        # device (busy) ticks by 10, gives us this in the correct ticks units
-        device_util_after_hz=`echo $system | awk '{ print ($13 / 10) }'`
+        uptime_after_ms=`echo $uptime | awk '{ print ($1 * 1000) }'`
+        device_util_after_ms=`echo $system | awk '{ print ($13) }'`
     fi
 }
 
@@ -377,7 +369,7 @@ system_stats_delta() {
         echo Read IOs /system = `expr $AFTER_RD_IOS_SYSTEM - $BEFORE_RD_IOS_SYSTEM`
         echo Read KB /system = $READ_KB_SYSTEM
         echo $iowait_ticks_before $iowait_ticks_after $total_ticks_before $total_ticks_after | awk '{ printf "IOwait = %.2f\n", (($2 - $1) * 100.0) / ($4 - $3) }'
-        echo $device_util_before_hz $device_util_after_hz $uptime_before_hz $uptime_after_hz | awk '{ printf "Device util% = %.2f\n", (($2 - $1) * 100.0) / ($4 - $3) }'
+        echo $device_util_before_ms $device_util_after_ms $uptime_before_ms $uptime_after_ms | awk '{ printf "Device util% = %.2f\n", (($2 - $1) * 100.0) / ($4 - $3) }'
         echo $user_ticks_after $user_ticks_before $total_ticks_after $total_ticks_before | awk '{ printf "User CPU util% = %.2f\n", (($1 - $2) * 100.0) / ($3 - $4) }'
         echo $sys_ticks_after $sys_ticks_before $total_ticks_after $total_ticks_before | awk '{ printf "Sys CPU util% = %.2f\n", (($1 - $2) * 100.0) / ($3 - $4) }'
         echo $cpubusy_ticks_after $cpubusy_ticks_before $total_ticks_after $total_ticks_before | awk '{ printf "Total CPU util% = %.2f\n", (($1 - $2) * 100.0) / ($3 - $4) }'
@@ -527,7 +519,7 @@ echo Found $model Device
 system_bdev_set=false
 case $model in
     # Android Go
-    aosp_gobo | full_k37_y33_gms)
+    aosp_gobo | full_k37_y33_gms | gobo | gobo_512)
 	if [ $user_experience == false ]; then
 	    cpufreq_go
         fi
@@ -576,7 +568,7 @@ setup
 #
 case $model in
     # Android Go
-    aosp_gobo | full_k37_y33_gms)
+    aosp_gobo | full_k37_y33_gms | gobo | gobo_512)
 	launch_go_apps
 	;;
     fugu)

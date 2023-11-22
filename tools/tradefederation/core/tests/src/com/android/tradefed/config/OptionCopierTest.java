@@ -16,17 +16,22 @@
 
 package com.android.tradefed.config;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Unit tests for {@link OptionCopier}.
- */
-public class OptionCopierTest extends TestCase {
+/** Unit tests for {@link OptionCopier}. */
+@RunWith(JUnit4.class)
+public class OptionCopierTest {
 
     private static enum DefaultEnumClass {
         VAL1, VAL3, VAL2;
@@ -63,9 +68,32 @@ public class OptionCopierTest extends TestCase {
      * Option source with an option with same name as OptionSource, but a different type.
      */
     private static class OptionWrongTypeDest {
-        @SuppressWarnings("unused")
         @Option(name = "string", shortName = 's')
         private int mMyOption;
+    }
+
+    /**
+     * Option source with an option with same name as OptionSource, but only the primitive type of
+     * the collection.
+     */
+    private static class OptionCollectionWrongTypeDest {
+        @Option(name = "string_collection", shortName = 's')
+        private String mString = null;
+    }
+
+    /**
+     * Option source with an option with same name as OptionSource, and with a different primitive
+     * type of the collection.
+     */
+    private static class OptionCollectionWrongPrimitiveTypeDest {
+        @Option(name = "string_collection", shortName = 's')
+        private int mmyOption;
+    }
+
+    /** Option source with a non-initialized collection. */
+    private static class OptionCollectionNull {
+        @Option(name = "string_collection", shortName = 's')
+        private Collection<String> mStringCollection = null;
     }
 
     /**
@@ -102,9 +130,8 @@ public class OptionCopierTest extends TestCase {
                 new ArrayList<DefaultEnumClass>();
     }
 
-    /**
-     * Test success case for {@link OptionCopier} using String fields
-     */
+    /** Test success case for {@link OptionCopier} using String fields */
+    @Test
     public void testCopyOptions_string() throws ConfigurationException {
         OptionSource source = new OptionSource();
         OptionDest dest = new OptionDest();
@@ -112,9 +139,8 @@ public class OptionCopierTest extends TestCase {
         assertEquals(source.mMyOption, dest.mDestOption);
     }
 
-    /**
-     * Test success case for {@link OptionCopier} for an int field
-     */
+    /** Test success case for {@link OptionCopier} for an int field */
+    @Test
     public void testCopyOptions_int() throws ConfigurationException {
         OptionSource source = new OptionSource();
         OptionDest dest = new OptionDest();
@@ -122,9 +148,8 @@ public class OptionCopierTest extends TestCase {
         assertEquals(source.mMyIntOption, dest.mDestIntOption);
     }
 
-    /**
-     * Test success case for {@link OptionCopier} for a {@link Collection}.
-     */
+    /** Test success case for {@link OptionCopier} for a {@link Collection}. */
+    @Test
     public void testCopyOptions_collection() throws ConfigurationException {
         OptionSource source = new OptionSource();
         source.mStringCollection.add("foo");
@@ -136,9 +161,8 @@ public class OptionCopierTest extends TestCase {
         assertTrue(dest.mStringDestCollection.contains("bar"));
     }
 
-    /**
-     * Test success case for {@link OptionCopier} for an enum field
-     */
+    /** Test success case for {@link OptionCopier} for an enum field */
+    @Test
     public void testCopyOptions_enum() throws ConfigurationException {
         OptionSource source = new OptionSource();
         OptionDest dest = new OptionDest();
@@ -146,9 +170,8 @@ public class OptionCopierTest extends TestCase {
         assertEquals(DefaultEnumClass.VAL1, dest.mEnum);
     }
 
-    /**
-     * Test success case for {@link OptionCopier} for an enum {@link Collection}.
-     */
+    /** Test success case for {@link OptionCopier} for an enum {@link Collection}. */
+    @Test
     public void testCopyOptions_enumCollection() throws ConfigurationException {
         OptionSource source = new OptionSource();
         source.mEnumCollection.add(DefaultEnumClass.VAL2);
@@ -160,9 +183,8 @@ public class OptionCopierTest extends TestCase {
         assertTrue(dest.mEnumCollection.contains(DefaultEnumClass.VAL3));
     }
 
-    /**
-     * Test success case for {@link OptionCopier} for an enum {@link Map}.
-     */
+    /** Test success case for {@link OptionCopier} for an enum {@link Map}. */
+    @Test
     public void testCopyOptions_enumMap() throws ConfigurationException {
         OptionSource source = new OptionSource();
         source.mEnumMap.put(DefaultEnumClass.VAL1, DefaultEnumClass.VAL2);
@@ -173,9 +195,8 @@ public class OptionCopierTest extends TestCase {
         assertEquals(DefaultEnumClass.VAL2, dest.mEnumMap.get(DefaultEnumClass.VAL1));
     }
 
-    /**
-     * Test {@link OptionCopier} when field's to be copied have different types
-     */
+    /** Test {@link OptionCopier} when field's to be copied have different types */
+    @Test
     public void testCopyOptions_wrongType() {
         OptionSource source = new OptionSource();
         OptionWrongTypeDest dest = new OptionWrongTypeDest();
@@ -184,6 +205,89 @@ public class OptionCopierTest extends TestCase {
             fail("ConfigurationException not thrown");
         } catch (ConfigurationException e) {
             // expected
+        }
+    }
+
+    /** Copying a collection to primitive type will fail. */
+    @Test
+    public void testCopyOptions_collectionToPrimitive() {
+        OptionSource source = new OptionSource();
+        OptionCollectionWrongTypeDest dest = new OptionCollectionWrongTypeDest();
+        try {
+            OptionCopier.copyOptions(source, dest);
+            fail("ConfigurationException not thrown");
+        } catch (ConfigurationException e) {
+            // expected
+            assertEquals("internal error when setting option 'string_collection'", e.getMessage());
+        }
+    }
+
+    /** Copying a null initialized primitive value to collection will fail. */
+    @Test
+    public void testCopyOptions_primitiveToCollection_null() {
+        OptionCollectionWrongTypeDest source = new OptionCollectionWrongTypeDest();
+        OptionSource dest = new OptionSource();
+        try {
+            OptionCopier.copyOptions(source, dest);
+            fail("ConfigurationException not thrown");
+        } catch (ConfigurationException e) {
+            // expected
+            assertEquals(
+                    "Value 'null' is not of type 'class java.lang.String' like the Collection.",
+                    e.getMessage());
+        }
+    }
+
+    /**
+     * Copying an initialized primitive value to collection will succeed since the type is
+     * compatible.
+     */
+    @Test
+    public void testCopyOptions_primitiveToCollection() throws Exception {
+        OptionCollectionWrongTypeDest source = new OptionCollectionWrongTypeDest();
+        OptionSetter setter = new OptionSetter(source);
+        setter.setOptionValue("string_collection", "not_null");
+        OptionSource dest = new OptionSource();
+        OptionCopier.copyOptions(source, dest);
+        assertEquals(1, dest.mStringCollection.size());
+        assertEquals("not_null", dest.mStringCollection.iterator().next());
+    }
+
+    /**
+     * Copying a primitive value different from the collection type will fail since we do not want
+     * to mix types in a collection.
+     */
+    @Test
+    public void testCopyOptions_primitiveToCollection_differentPrimitive() throws Exception {
+        OptionCollectionWrongPrimitiveTypeDest source =
+                new OptionCollectionWrongPrimitiveTypeDest();
+        OptionSetter setter = new OptionSetter(source);
+        setter.setOptionValue("string_collection", "5");
+        OptionSource dest = new OptionSource();
+        try {
+            OptionCopier.copyOptions(source, dest);
+            fail("ConfigurationException not thrown");
+        } catch (ConfigurationException e) {
+            // expected
+            assertEquals(
+                    "Value '5' is not of type 'class java.lang.String' like the Collection.",
+                    e.getMessage());
+        }
+    }
+
+    /** Copying a non-initialized collection (null) to a collection results in an exception. */
+    @Test
+    public void testCopyOptions_nullCollection() throws Exception {
+        OptionCollectionNull source = new OptionCollectionNull();
+        OptionSource dest = new OptionSource();
+        try {
+            OptionCopier.copyOptions(source, dest);
+            fail("ConfigurationException not thrown");
+        } catch (ConfigurationException e) {
+            // expected
+            assertEquals(
+                    "Value 'null' is not of type 'class java.lang.String' like the Collection.",
+                    e.getMessage());
         }
     }
 }

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockito.internal.util.reflection;
 
 import org.junit.Test;
@@ -7,7 +11,7 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
-import static junit.framework.TestCase.assertEquals;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.internal.util.reflection.GenericTypeExtractor.genericTypeOf;
 
 public class GenericTypeExtractorTest extends TestBase {

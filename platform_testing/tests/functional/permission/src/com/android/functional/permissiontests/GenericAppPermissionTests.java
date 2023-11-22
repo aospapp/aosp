@@ -18,12 +18,13 @@ package com.android.functional.permissiontests;
 
 import android.app.UiAutomation;
 import android.content.Context;
-import android.os.SystemClock;
 import android.support.test.launcherhelper.ILauncherStrategy;
+import android.support.test.launcherhelper.LauncherStrategyFactory;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
+import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.Until;
 import android.system.helpers.PackageHelper;
 import android.system.helpers.PermissionHelper;
@@ -39,6 +40,7 @@ public class GenericAppPermissionTests extends InstrumentationTestCase {
     protected final String TARGET_APP_PKG = "com.android.functional.permissiontests";
     private final String PERMISSION_TEST_APP_PKG = "com.android.permissiontestappmv1";
     private final String PERMISSION_TEST_APP = "PermissionTestAppMV1";
+    private final String GET_PERMISSION_BUTTON = "buttonGetPermission";
     private UiDevice mDevice = null;
     private Context mContext = null;
     private UiAutomation mUiAutomation = null;
@@ -63,9 +65,10 @@ public class GenericAppPermissionTests extends InstrumentationTestCase {
         mContext = getInstrumentation().getContext();
         mUiAutomation = getInstrumentation().getUiAutomation();
         mDevice.setOrientationNatural();
-        pHelper = PermissionHelper.getInstance();
+        pHelper = PermissionHelper.getInstance(getInstrumentation());
         pkgHelper = PackageHelper.getInstance(getInstrumentation());
         mDefaultGrantedPermissions = pHelper.getPermissionByPackage(TARGET_APP_PKG, Boolean.TRUE);
+        mILauncherStrategy = LauncherStrategyFactory.getInstance(mDevice).getLauncherStrategy();
     }
 
     @SmallTest
@@ -84,20 +87,20 @@ public class GenericAppPermissionTests extends InstrumentationTestCase {
         pHelper.verifyNormalPermissionsAutoGranted(TARGET_APP_PKG);
     }
 
-    public void testToggleAppPermisssionOFF() {
+    public void testToggleAppPermisssionOFF() throws UiObjectNotFoundException {
         pHelper.togglePermissionSetting(PERMISSION_TEST_APP, "Contacts", Boolean.FALSE);
         pHelper.verifyPermissionSettingStatus(
                 PERMISSION_TEST_APP, "Contacts", PermissionHelper.PermissionStatus.OFF);
     }
 
-    public void testToggleAppPermisssionON() {
+    public void testToggleAppPermisssionON() throws UiObjectNotFoundException {
         pHelper.togglePermissionSetting(PERMISSION_TEST_APP, "Contacts", Boolean.TRUE);
         pHelper.verifyPermissionSettingStatus(PERMISSION_TEST_APP, "Contacts",
                 PermissionHelper.PermissionStatus.ON);
     }
 
     @MediumTest
-    public void testViewPermissionDescription() {
+    public void testViewPermissionDescription() throws UiObjectNotFoundException {
         List<String> permissionDescGrpNamesList = pHelper
                 .getPermissionDescGroupNames(TARGET_APP_PKG);
         permissionDescGrpNamesList.removeAll(Arrays.asList(mDefaultPermittedGroups));
@@ -109,7 +112,8 @@ public class GenericAppPermissionTests extends InstrumentationTestCase {
         if (!mDevice.hasObject(By.pkg(PERMISSION_TEST_APP_PKG).depth(0))) {
             mILauncherStrategy.launch(PERMISSION_TEST_APP, PERMISSION_TEST_APP_PKG);
         }
-        mDevice.wait(Until.findObject(By.text("GET CONTACT PERMISSION")), pHelper.TIMEOUT).click();
+        mDevice.wait(Until.findObject(By.res(PERMISSION_TEST_APP_PKG, GET_PERMISSION_BUTTON)),
+                pHelper.TIMEOUT).click();
         mDevice.wait(Until.findObject(
                 By.res(PACKAGE_INSTALLER, "permission_allow_button")), pHelper.TIMEOUT).click();
         assertTrue("Permission hasn't been granted",
@@ -125,7 +129,7 @@ public class GenericAppPermissionTests extends InstrumentationTestCase {
         pHelper.grantOrRevokePermissionViaAdb(
                 PERMISSION_TEST_APP_PKG, "android.permission.READ_CONTACTS",
                 PermissionHelper.PermissionOp.REVOKE);
-        BySelector getContactSelector = By.text("GET CONTACT PERMISSION");
+        BySelector getContactSelector = By.res(PERMISSION_TEST_APP_PKG, GET_PERMISSION_BUTTON);
         BySelector dontAskChkSelector = By.res(PACKAGE_INSTALLER, "do_not_ask_checkbox");
         BySelector denySelctor = By.res(PACKAGE_INSTALLER, "permission_deny_button");
 

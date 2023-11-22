@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2015 Google, Inc.
+//  Copyright 2015 Google, Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ class BluetoothGattInterface {
 
     virtual void RegisterClientCallback(BluetoothGattInterface* gatt_iface,
                                         int status, int client_if,
-                                        const bt_uuid_t& app_uuid);
+                                        const bluetooth::Uuid& app_uuid);
 
     virtual void ConnectCallback(BluetoothGattInterface* gatt_iface,
                                  int conn_id, int status, int client_if,
@@ -120,7 +120,7 @@ class BluetoothGattInterface {
 
     virtual void RegisterServerCallback(BluetoothGattInterface* gatt_iface,
                                         int status, int server_if,
-                                        const bt_uuid_t& app_uuid);
+                                        const bluetooth::Uuid& app_uuid);
 
     virtual void ConnectionCallback(BluetoothGattInterface* gatt_iface,
                                     int conn_id, int server_if, int connected,

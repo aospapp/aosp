@@ -18,16 +18,17 @@ package com.android.framework.tests;
 
 import com.android.ddmlib.testrunner.IRemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestResult;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestResult;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -183,7 +184,7 @@ public class FrameworkPerfTest implements IRemoteTest, IDeviceTest {
                     CLog.i("%s ::'%s' : %s", section, section2, sectionMetrics.get(section2));
                 }
                 listener.testRunStarted(section, 0);
-                listener.testRunEnded(0, sectionMetrics);
+                listener.testRunEnded(0, TfMetricProtoUtil.upgradeConvert(sectionMetrics));
             }
         }
     }

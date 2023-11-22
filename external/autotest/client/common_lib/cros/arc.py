@@ -18,17 +18,21 @@ from autotest_lib.client.common_lib.cros import chrome, arc_common
 
 _ADB_KEYS_PATH = '/tmp/adb_keys'
 _ADB_VENDOR_KEYS = 'ADB_VENDOR_KEYS'
-_ANDROID_CONTAINER_PID_PATH = '/var/run/containers/android_*/container.pid'
+_ANDROID_CONTAINER_PID_PATH = '/run/containers/android*/container.pid'
+_ANDROID_DATA_ROOT_PATH = '/opt/google/containers/android/rootfs/android-data'
+_ANDROID_CONTAINER_ROOT_PATH = '/opt/google/containers/android/rootfs'
 _SCREENSHOT_DIR_PATH = '/var/log/arc-screenshots'
 _SCREENSHOT_BASENAME = 'arc-screenshot'
 _MAX_SCREENSHOT_NUM = 10
-_SDCARD_PID_PATH = '/var/run/arc/sdcard.pid'
+_SDCARD_PID_PATH = '/run/arc/sdcard.pid'
 _ANDROID_ADB_KEYS_PATH = '/data/misc/adb/adb_keys'
 _PROCESS_CHECK_INTERVAL_SECONDS = 1
 _WAIT_FOR_ADB_READY = 60
 _WAIT_FOR_ANDROID_PROCESS_SECONDS = 60
 _WAIT_FOR_DATA_MOUNTED_SECONDS = 60
 _VAR_LOGCAT_PATH = '/var/log/logcat'
+_PLAY_STORE_PKG = 'com.android.vending'
+_SETTINGS_PKG = 'com.android.settings'
 
 
 def setup_adb_host():
@@ -83,6 +87,21 @@ def _is_android_data_mounted():
     return _android_shell('getprop ro.data_mounted') == '1'
 
 
+def get_zygote_type():
+    """Return zygote service type."""
+    return _android_shell('getprop ro.zygote')
+
+
+def get_sdk_version():
+    """Return the SDK level version for Android."""
+    return _android_shell('getprop ro.build.version.sdk')
+
+
+def get_product():
+    """Return the product string used for the Android build."""
+    return _android_shell('getprop ro.build.product')
+
+
 def _wait_for_data_mounted(timeout=_WAIT_FOR_DATA_MOUNTED_SECONDS):
     utils.poll_for_condition(
             condition=_is_android_data_mounted,
@@ -104,7 +123,7 @@ def wait_for_adb_ready(timeout=_WAIT_FOR_ADB_READY):
 
     setup_adb_host()
     if is_adb_connected():
-      return
+        return
 
     # Push keys for adb.
     pubkey_path = os.environ[_ADB_VENDOR_KEYS] + '.pub'
@@ -153,7 +172,7 @@ def adb_shell(cmd, **kwargs):
     output = adb_cmd('shell %s' % pipes.quote(cmd), **kwargs)
     # Some android commands include a trailing CRLF in their output.
     if kwargs.pop('strip_trailing_whitespace', True):
-      output = output.rstrip()
+        output = output.rstrip()
     return output
 
 
@@ -162,7 +181,7 @@ def adb_install(apk):
 
     @param apk: Package to install.
     """
-    return adb_cmd('install -r %s' % apk)
+    return adb_cmd('install -r %s' % apk, timeout=60*5)
 
 
 def adb_uninstall(apk):
@@ -185,27 +204,34 @@ def adb_root():
 
 
 def get_container_root():
-    """Returns path to Android container root directory.
+    """Returns path to Android container root directory."""
+    return _ANDROID_CONTAINER_ROOT_PATH
+
+
+def get_container_pid_path():
+    """Returns the container's PID file path.
 
     Raises:
-      TestError if no container root directory is found, or
-      more than one container root directories are found.
+      TestError if no PID file is found, or more than one files are found.
     """
-    # Find the PID file rather than the android_XXXXXX/ directory to ignore
-    # stale and empty android_XXXXXX/ directories when they exist.
-    # TODO(yusukes): Investigate why libcontainer sometimes fails to remove
-    # the directory. See b/63376749 for more details.
+    # Find the PID file rather than the android-XXXXXX/ directory to ignore
+    # stale and empty android-XXXXXX/ directories when they exist.
     arc_container_pid_files = glob.glob(_ANDROID_CONTAINER_PID_PATH)
 
     if len(arc_container_pid_files) == 0:
-        raise error.TestError('Android container not available')
+        raise error.TestError('Android container.pid not available')
 
     if len(arc_container_pid_files) > 1:
-        raise error.TestError('Multiple Android containers found: %r. '
+        raise error.TestError('Multiple Android container.pid files found: %r. '
                               'Reboot your DUT to recover.' % (
                                   arc_container_pid_files))
 
-    return os.path.dirname(arc_container_pid_files[0])
+    return arc_container_pid_files[0]
+
+
+def get_android_data_root():
+    """Returns path to Chrome OS directory that bind-mounts Android's /data."""
+    return _ANDROID_DATA_ROOT_PATH
 
 
 def get_job_pid(job_name):
@@ -220,9 +246,7 @@ def get_job_pid(job_name):
 
 def get_container_pid():
     """Returns the PID of the container."""
-    container_root = get_container_root()
-    pid_path = os.path.join(container_root, 'container.pid')
-    return utils.read_one_line(pid_path)
+    return utils.read_one_line(get_container_pid_path())
 
 
 def get_sdcard_pid():
@@ -247,8 +271,8 @@ def get_obb_mounter_pid():
 def is_android_booted():
     """Return whether Android has completed booting."""
     # We used to check sys.boot_completed system property to detect Android has
-    # booted in Android M, but in Android N it is set long before BOOT_COMPLETED
-    # intent is broadcast. So we read event logs instead.
+    # booted in Android M, but in Android N it is set long before
+    # BOOT_COMPLETED intent is broadcast. So we read event logs instead.
     log = _android_shell(
         'logcat -d -b events *:S arc_system_event', ignore_status=True)
     return 'ArcAppLauncher:started' in log
@@ -259,8 +283,8 @@ def is_android_process_running(process_name):
 
     @param process_name: Process name.
     """
-    output = adb_shell('ps | grep %s' % pipes.quote(' %s$' % process_name))
-    return bool(output)
+    output = adb_shell('pgrep -c -f %s' % pipes.quote(process_name))
+    return int(output) > 0
 
 
 def check_android_file_exists(filename):
@@ -344,8 +368,8 @@ def wait_for_android_process(process_name,
 def _android_shell(cmd, **kwargs):
     """Execute cmd instead the Android container.
 
-    This function is strictly for internal use only, as commands do not run in a
-    fully consistent Android environment. Prefer adb_shell instead.
+    This function is strictly for internal use only, as commands do not run in
+    a fully consistent Android environment. Prefer adb_shell instead.
     """
     return utils.system_output('android-sh -c {}'.format(pipes.quote(cmd)),
                                **kwargs)
@@ -361,14 +385,37 @@ def is_android_container_alive():
     return utils.pid_is_alive(int(container_pid))
 
 
+def _is_in_installed_packages_list(package, option=None):
+    """Check if a package is in the list returned by pm list packages.
+
+    adb must be ready.
+
+    @param package: Package in request.
+    @param option: An option for the command adb shell pm list packages.
+                   Valid values include '-s', '-3', '-d', and '-e'.
+    """
+    command = 'pm list packages'
+    if option:
+        command += ' ' + option
+    packages = adb_shell(command).splitlines()
+    package_entry = 'package:' + package
+    return package_entry in packages
+
+
 def is_package_installed(package):
     """Check if a package is installed. adb must be ready.
 
     @param package: Package in request.
     """
-    packages = adb_shell('pm list packages').splitlines()
-    package_entry = 'package:{}'.format(package)
-    return package_entry in packages
+    return _is_in_installed_packages_list(package)
+
+
+def is_package_disabled(package):
+    """Check if an installed package is disabled. adb must be ready.
+
+    @param package: Package in request.
+    """
+    return _is_in_installed_packages_list(package, '-d')
 
 
 def _before_iteration_hook(obj):
@@ -394,6 +441,9 @@ def _after_iteration_hook(obj):
         obj: the test itself
     """
     if not obj.run_once_finished:
+        if is_adb_connected():
+            logging.debug('Recent activities dump:\n%s',
+                          adb_shell('dumpsys activity recents'))
         if not os.path.exists(_SCREENSHOT_DIR_PATH):
             os.mkdir(_SCREENSHOT_DIR_PATH, 0755)
         obj.num_screenshots += 1
@@ -406,9 +456,8 @@ def _after_iteration_hook(obj):
                 image.save('{}/{}_iter{}.png'.format(_SCREENSHOT_DIR_PATH,
                                                      _SCREENSHOT_BASENAME,
                                                      obj.iteration))
-            except Exception:
-                e = sys.exc_info()[0]
-                logging.warning('Unable to capture screenshot. %s' % e)
+            except Exception as e:
+                logging.warning('Unable to capture screenshot. %s', e)
         else:
             logging.warning('Too many failures, no screenshot taken')
 
@@ -432,6 +481,33 @@ def get_android_sdk_version():
         return int(values['CHROMEOS_ARC_ANDROID_SDK_VERSION'])
     except (KeyError, ValueError):
         raise error.TestError('Could not determine Android SDK version')
+
+
+def set_device_mode(device_mode, use_fake_sensor_with_lifetime_secs=0):
+    """Sets the device in either Clamshell or Tablet mode.
+
+    "inject_powerd_input_event" might fail if the DUT does not support Tablet
+    mode, and it will raise an |error.CmdError| exception. To prevent that, use
+    the |use_fake_sensor_with_lifetime_secs| parameter.
+
+    @param device_mode: string with either 'clamshell' or 'tablet'
+    @param use_fake_sensor_with_lifetime_secs: if > 0, it will create the
+           input device with the given lifetime in seconds
+    @raise ValueError: if passed invalid parameters
+    @raise error.CmdError: if inject_powerd_input_event fails
+    """
+    valid_value = ('tablet', 'clamshell')
+    if device_mode not in valid_value:
+        raise ValueError('Invalid device_mode parameter: %s' % device_mode)
+
+    value = 1 if device_mode == 'tablet' else 0
+
+    args = ['--code=tablet', '--value=%d' % value]
+
+    if use_fake_sensor_with_lifetime_secs > 0:
+        args.extend(['--create_dev', '--dev_lifetime=%d' %
+                     use_fake_sensor_with_lifetime_secs])
+    utils.run('inject_powerd_input_event', args=args)
 
 
 class ArcTest(test.test):
@@ -468,8 +544,7 @@ class ArcTest(test.test):
         self.apks = None
         self.full_pkg_names = []
         self.uiautomator = False
-        self.email_id = None
-        self.password = None
+        self._should_reenable_play_store = False
         self._chrome = None
         if os.path.exists(_SCREENSHOT_DIR_PATH):
             shutil.rmtree(_SCREENSHOT_DIR_PATH)
@@ -479,11 +554,13 @@ class ArcTest(test.test):
         # total number sane to avoid issues.
         self.num_screenshots = 0
 
-    def initialize(self, extension_path=None,
+    def initialize(self, extension_path=None, username=None, password=None,
                    arc_mode=arc_common.ARC_MODE_ENABLED, **chrome_kargs):
         """Log in to a test account."""
         extension_paths = [extension_path] if extension_path else []
         self._chrome = chrome.Chrome(extension_paths=extension_paths,
+                                     username=username,
+                                     password=password,
                                      arc_mode=arc_mode,
                                      **chrome_kargs)
         if extension_path:
@@ -499,7 +576,6 @@ class ArcTest(test.test):
             else:
                 logging.error('Container is alive?')
         except Exception as err:
-            self.cleanup()
             raise error.TestFail(err)
 
     def after_run_once(self):
@@ -530,39 +606,99 @@ class ArcTest(test.test):
                 if self._chrome is not None:
                     self._chrome.close()
 
-    def arc_setup(self, dep_package=None, apks=None, full_pkg_names=None,
-                  uiautomator=False, email_id=None, password=None,
-                  block_outbound=False):
+    def _install_apks(self, dep_package, apks, full_pkg_names):
+        """"Install apks fetched from the specified package folder.
+
+        @param dep_package: A dependent package directory
+        @param apks: List of apk names to be installed
+        @param full_pkg_names: List of packages to be uninstalled at teardown
+        """
+        apk_path = os.path.join(self.autodir, 'deps', dep_package)
+        if apks:
+            for apk in apks:
+                logging.info('Installing %s', apk)
+                adb_install('%s/%s' % (apk_path, apk))
+            # Verify if package(s) are installed correctly
+            if not full_pkg_names:
+                raise error.TestError('Package names of apks expected')
+            for pkg in full_pkg_names:
+                logging.info('Check if %s is installed', pkg)
+                if not is_package_installed(pkg):
+                    raise error.TestError('Package %s not found' % pkg)
+                # Make sure full_pkg_names contains installed packages only
+                # so arc_teardown() knows what packages to uninstall.
+                self.full_pkg_names.append(pkg)
+
+    def _count_nested_array_level(self, array):
+        """Count the level of a nested array."""
+        if isinstance(array, list):
+            return 1 + self._count_nested_array_level(array[0])
+        return 0
+
+    def _fix_nested_array_level(self, var_name, expected_level, array):
+        """Enclose array one level deeper if needed."""
+        level = self._count_nested_array_level(array)
+        if level == expected_level:
+            return array
+        if level == expected_level - 1:
+            return [array]
+
+        logging.error("Variable %s nested level is not fixable: "
+                      "Expecting %d, seeing %d",
+                      var_name, expected_level, level)
+        raise error.TestError('Format error with variable %s' % var_name)
+
+    def arc_setup(self, dep_packages=None, apks=None, full_pkg_names=None,
+                  uiautomator=False, block_outbound=False,
+                  disable_play_store=False):
         """ARC test setup: Setup dependencies and install apks.
 
         This function disables package verification and enables non-market
         APK installation. Then, it installs specified APK(s) and uiautomator
         package and path if required in a test.
 
-        @param dep_package: Package name of autotest_deps APK package.
-        @param apks: Array of APK names to be installed in dep_package.
-        @param full_pkg_names: Array of full package names to be removed
+        @param dep_packages: Array of package names of autotest_deps APK
+                             packages.
+        @param apks: Array of APK name arrays to be installed in dep_package.
+        @param full_pkg_names: Array of full package name arrays to be removed
                                in teardown.
         @param uiautomator: uiautomator python package is required or not.
-
-        @param email_id: email id to be attached to the android. Only used
-                         when  account_util is set to true.
-        @param password: password related to the email_id.
         @param block_outbound: block outbound network traffic during a test.
+        @param disable_play_store: Set this to True if you want to prevent
+                                   GMS Core from updating.
         """
         if not self.initialized:
             logging.info('Skipping ARC setup: not initialized')
             return
         logging.info('Starting ARC setup')
-        self.dep_package = dep_package
+
+        # Sample parameters for multi-deps setup after fixup (if needed):
+        # dep_packages: ['Dep1-apk', 'Dep2-apk']
+        # apks: [['com.dep1.arch1.apk', 'com.dep2.arch2.apk'], ['com.dep2.apk']
+        # full_pkg_nmes: [['com.dep1.app'], ['com.dep2.app']]
+        # TODO(crbug/777787): once the parameters of all callers of arc_setup
+        # are refactored, we can delete the safety net here.
+        if dep_packages:
+            dep_packages = self._fix_nested_array_level(
+                'dep_packages', 1, dep_packages)
+            apks = self._fix_nested_array_level('apks', 2, apks)
+            full_pkg_names = self._fix_nested_array_level(
+                'full_pkg_names', 2, full_pkg_names)
+            if (len(dep_packages) != len(apks) or
+                len(apks) != len(full_pkg_names)):
+                logging.info('dep_packages length is %d', len(dep_packages))
+                logging.info('apks length is %d', len(apks))
+                logging.info('full_pkg_names length is %d', len(full_pkg_names))
+                raise error.TestFail(
+                    'dep_packages/apks/full_pkg_names format error')
+
+        self.dep_packages = dep_packages
         self.apks = apks
-        self.uiautomator = uiautomator
-        self.email_id = email_id
-        self.password = password
+        self.uiautomator = uiautomator or disable_play_store
         # Setup dependent packages if required
         packages = []
-        if dep_package:
-            packages.append(dep_package)
+        if dep_packages:
+            packages = dep_packages[:]
         if self.uiautomator:
             packages.append(self._PKG_UIAUTOMATOR)
         if packages:
@@ -579,33 +715,24 @@ class ArcTest(test.test):
 
         wait_for_adb_ready()
 
-        # package_verifier_user_consent == -1 means to reject Google's
-        # verification on the server side through Play Store.  This suppress a
-        # consent dialog from the system.
-        adb_shell('settings put secure package_verifier_user_consent -1')
-        adb_shell('settings put global package_verifier_enable 0')
-        adb_shell('settings put secure install_non_market_apps 1')
+        # Setting verifier_verify_adb_installs to zero suppresses a dialog box
+        # that can appear asking for the user to consent to the install.
+        adb_shell('settings put global verifier_verify_adb_installs 0')
 
-        if self.dep_package:
-            apk_path = os.path.join(self.autodir, 'deps', self.dep_package)
-            if self.apks:
-                for apk in self.apks:
-                    logging.info('Installing %s', apk)
-                    adb_install('%s/%s' % (apk_path, apk))
-                # Verify if package(s) are installed correctly
-                if not full_pkg_names:
-                    raise error.TestError('Package names of apks expected')
-                for pkg in full_pkg_names:
-                    logging.info('Check if %s is installed', pkg)
-                    if not is_package_installed(pkg):
-                        raise error.TestError('Package %s not found' % pkg)
-                    # Make sure full_pkg_names contains installed packages only
-                    # so arc_teardown() knows what packages to uninstall.
-                    self.full_pkg_names.append(pkg)
+        # Install apks based on dep_packages/apks/full_pkg_names tuples
+        if dep_packages:
+            for i in xrange(len(dep_packages)):
+                self._install_apks(dep_packages[i], apks[i], full_pkg_names[i])
 
         if self.uiautomator:
             path = os.path.join(self.autodir, 'deps', self._PKG_UIAUTOMATOR)
             sys.path.append(path)
+            self._add_ui_object_not_found_handler()
+        if disable_play_store and not is_package_disabled(_PLAY_STORE_PKG):
+            self._disable_play_store()
+            if not is_package_disabled(_PLAY_STORE_PKG):
+                raise error.TestFail('Failed to disable Google Play Store.')
+            self._should_reenable_play_store = True
         if block_outbound:
             self.block_outbound()
 
@@ -649,6 +776,8 @@ class ArcTest(test.test):
         if self.uiautomator:
             logging.info('Uninstalling %s', self._FULL_PKG_NAME_UIAUTOMATOR)
             adb_uninstall(self._FULL_PKG_NAME_UIAUTOMATOR)
+        if self._should_reenable_play_store:
+            adb_shell('pm enable ' + _PLAY_STORE_PKG)
         adb_shell('settings put secure install_non_market_apps 0')
         adb_shell('settings put global package_verifier_enable 1')
         adb_shell('settings put secure package_verifier_user_consent 0')
@@ -680,3 +809,26 @@ class ArcTest(test.test):
         _android_shell('iptables -D OUTPUT -p tcp -s 100.115.92.2 --sport 5555 '
                        '-j ACCEPT')
         _android_shell('iptables -D OUTPUT -j REJECT')
+
+    def _add_ui_object_not_found_handler(self):
+        """Logs the device dump upon uiautomator.UiObjectNotFoundException."""
+        from uiautomator import device as d
+        d.handlers.on(lambda d: logging.debug('Device window dump:\n%s',
+                                              d.dump()))
+
+    def _disable_play_store(self):
+        """Disables the Google Play Store app."""
+        if is_package_disabled(_PLAY_STORE_PKG):
+            return
+        from uiautomator import device as d
+        adb_shell('am force-stop ' + _PLAY_STORE_PKG)
+        adb_shell('am start -W ' + _SETTINGS_PKG)
+        d(text='Apps', packageName=_SETTINGS_PKG).click.wait()
+        adb_shell('input text Store')
+        d(text='Google Play Store', packageName=_SETTINGS_PKG).click.wait()
+        d(textMatches='(?i)DISABLE').click.wait()
+        d(textMatches='(?i)DISABLE APP').click.wait()
+        ok_button = d(textMatches='(?i)OK')
+        if ok_button.exists:
+            ok_button.click.wait()
+        d(description='Close', packageName=_SETTINGS_PKG).click.wait()

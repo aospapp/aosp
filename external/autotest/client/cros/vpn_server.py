@@ -35,13 +35,13 @@ class L2TPIPSecVPNServer(VPNServer):
     IPSEC_PRESHARED_KEY = 'preshared-key'
     IPSEC_CA_CERTIFICATE = 'etc/ipsec.d/cacerts/ca.cert'
     IPSEC_SERVER_CERTIFICATE = 'etc/ipsec.d/certs/server.cert'
-    PPPD_PID_FILE = 'var/run/ppp0.pid'
+    PPPD_PID_FILE = 'run/ppp0.pid'
     XAUTH_USER = 'xauth_user'
     XAUTH_PASSWORD = 'xauth_password'
     XAUTH_SECONDARY_AUTHENTICATION_STANZA = 'rightauth2=xauth'
     XL2TPD_COMMAND = '/usr/sbin/xl2tpd'
     XL2TPD_CONFIG_FILE = 'etc/xl2tpd/xl2tpd.conf'
-    XL2TPD_PID_FILE = 'var/run/xl2tpd.pid'
+    XL2TPD_PID_FILE = 'run/xl2tpd.pid'
     SERVER_IP_ADDRESS = '192.168.1.99'
     IPSEC_COMMON_CONFIGS = {
         'etc/strongswan.conf' :
@@ -152,11 +152,18 @@ class L2TPIPSecVPNServer(VPNServer):
 
     """Implementation of an L2TP/IPSec server instance."""
     def __init__(self, auth_type, interface_name, address, network_prefix,
-                 perform_xauth_authentication=False):
+                 perform_xauth_authentication=False,
+                 local_ip_is_public_ip=False):
         self._auth_type = auth_type
         self._chroot = network_chroot.NetworkChroot(interface_name,
                                                     address, network_prefix)
         self._perform_xauth_authentication = perform_xauth_authentication
+
+        if local_ip_is_public_ip:
+            self.IPSEC_COMMON_CONFIGS[self.XL2TPD_CONFIG_FILE] = \
+                self.IPSEC_COMMON_CONFIGS[self.XL2TPD_CONFIG_FILE].replace(
+                    self.SERVER_IP_ADDRESS, address)
+            self.SERVER_IP_ADDRESS = address
 
 
     def start_server(self):
@@ -217,7 +224,7 @@ class OpenVPNServer(VPNServer):
     DIFFIE_HELLMAN_FILE = 'etc/openvpn/diffie-hellman.pem'
     OPENVPN_COMMAND = '/usr/sbin/openvpn'
     OPENVPN_CONFIG_FILE = 'etc/openvpn/openvpn.conf'
-    OPENVPN_PID_FILE = 'var/run/openvpn.pid'
+    OPENVPN_PID_FILE = 'run/openvpn.pid'
     OPENVPN_STATUS_FILE = 'tmp/openvpn.status'
     AUTHENTICATION_SCRIPT = 'etc/openvpn_authentication_script.sh'
     EXPECTED_AUTHENTICATION_FILE = 'etc/openvpn_expected_authentication.txt'

@@ -72,6 +72,7 @@ class video_VideoEncodeAccelerator(chrome_binary_test.ChromeBinaryTest):
                 # of cache line.
                 ('kevin', None, None): ['CacheLineUnalignedInputTest/*'],
                 ('bob', None, None): ['CacheLineUnalignedInputTest/*'],
+                ('scarlet', None, None): ['CacheLineUnalignedInputTest/*'],
 
                 # Still high failure rate of VP8 EncoderPerf for veyrons,
                 # disable it for now. crbug/720386

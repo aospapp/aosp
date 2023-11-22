@@ -26,7 +26,7 @@ LOCAL_MODULE := CtsIncidentHostTestCases
 
 LOCAL_PROTOC_OPTIMIZE_TYPE := full
 LOCAL_STATIC_JAVA_LIBRARIES := platformprotos
-LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed compatibility-host-util host-libprotobuf-java-full
+LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed compatibility-host-util
 
 include $(BUILD_HOST_JAVA_LIBRARY)
 

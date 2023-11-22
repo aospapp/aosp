@@ -130,7 +130,9 @@ public class SilentProvisioningTestManager {
         bundle.putParcelable(Intent.EXTRA_INTENT, intent);
         bundle.putBinder(StartProvisioningActivity.EXTRA_BOOLEAN_CALLBACK,
                 mProvisioningResultCallback.asBinder());
-        return new Intent(mContext, StartProvisioningActivity.class).putExtras(bundle);
+        return new Intent(mContext, StartProvisioningActivity.class)
+                .putExtras(bundle)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
     }
 
     private static void wakeUpAndDismissInsecureKeyguard() {

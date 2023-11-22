@@ -10,12 +10,14 @@
 package android.icu.dev.test.util;
 
 import android.icu.impl.Utility;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author srl
  * 
  * analog of FieldsSet in C++
  */
+@MainTestShard
 public class FieldsSet {
     public static final int NO_ENUM = -1;
 

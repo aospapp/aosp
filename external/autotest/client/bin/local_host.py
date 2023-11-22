@@ -173,7 +173,7 @@ class LocalHost(hosts.Host):
 
 
     def send_file(self, source, dest, delete_dest=False,
-                  preserve_symlinks=False):
+                  preserve_symlinks=False, excludes=None):
         """Copy files from source to dest.
 
         If source is a directory and ends with a trailing slash, only the
@@ -189,7 +189,14 @@ class LocalHost(hosts.Host):
                                   copied as such on the destination or
                                   transformed into the referenced
                                   file/directory.
+        @param excludes: A list of file pattern that matches files not to be
+                         sent. `send_file` will fail if exclude is set, since
+                         local copy does not support --exclude.
         """
+        if excludes:
+            raise error.AutotestHostRunError(
+                    '--exclude is not supported in LocalHost.send_file method. '
+                    'excludes: %s' % ','.join(excludes), None)
         self._copy_file(source, dest, delete_dest=delete_dest,
                         preserve_symlinks=preserve_symlinks)
 

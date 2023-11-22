@@ -56,15 +56,31 @@ public class BluetoothHeadsetProxy {
         return mBluetoothHeadset.getConnectionState(device);
     }
 
-    public boolean isAudioConnected(BluetoothDevice device) {
-        return mBluetoothHeadset.isAudioConnected(device);
+    public int getAudioState(BluetoothDevice device) {
+        return mBluetoothHeadset.getAudioState(device);
     }
 
     public boolean connectAudio() {
         return mBluetoothHeadset.connectAudio();
     }
 
+    public boolean setActiveDevice(BluetoothDevice device) {
+        return mBluetoothHeadset.setActiveDevice(device);
+    }
+
+    public BluetoothDevice getActiveDevice() {
+        return mBluetoothHeadset.getActiveDevice();
+    }
+
+    public boolean isAudioOn() {
+        return mBluetoothHeadset.isAudioOn();
+    }
+
     public boolean disconnectAudio() {
         return mBluetoothHeadset.disconnectAudio();
+    }
+
+    public boolean isInbandRingingEnabled() {
+        return mBluetoothHeadset.isInbandRingingEnabled();
     }
 }

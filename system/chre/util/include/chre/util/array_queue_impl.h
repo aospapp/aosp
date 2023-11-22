@@ -20,8 +20,8 @@
 #include <new>
 #include <utility>
 
-#include "chre/platform/assert.h"
 #include "chre/util/array_queue.h"
+#include "chre/util/container_support.h"
 
 namespace chre {
 
@@ -60,6 +60,18 @@ const ElementType& ArrayQueue<ElementType, kCapacity>::front() const {
 }
 
 template<typename ElementType, size_t kCapacity>
+ElementType& ArrayQueue<ElementType, kCapacity>::back() {
+  CHRE_ASSERT(mSize > 0);
+  return data()[mTail];
+}
+
+template<typename ElementType, size_t kCapacity>
+const ElementType& ArrayQueue<ElementType, kCapacity>::back() const {
+  CHRE_ASSERT(mSize > 0);
+  return data()[mTail];
+}
+
+template<typename ElementType, size_t kCapacity>
 ElementType& ArrayQueue<ElementType, kCapacity>::operator[](size_t index) {
   CHRE_ASSERT(index < mSize);
   return data()[relativeIndexToAbsolute(index)];
@@ -95,6 +107,15 @@ void ArrayQueue<ElementType, kCapacity>::pop() {
   if (mSize > 0) {
     data()[mHead].~ElementType();
     pullHead();
+  }
+}
+
+template<typename ElementType, size_t kCapacity>
+void ArrayQueue<ElementType, kCapacity>::pop_back() {
+  if (mSize > 0) {
+    size_t absoluteIndex = relativeIndexToAbsolute(mSize - 1);
+    data()[absoluteIndex].~ElementType();
+    pullTail();
   }
 }
 
@@ -207,6 +228,17 @@ void ArrayQueue<ElementType, kCapacity>::pullHead() {
   CHRE_ASSERT(mSize > 0);
   if (++mHead == kCapacity) {
       mHead = 0;
+  }
+  mSize--;
+}
+
+template<typename ElementType, size_t kCapacity>
+void ArrayQueue<ElementType, kCapacity>::pullTail() {
+  CHRE_ASSERT(mSize > 0);
+  if (mTail == 0) {
+    mTail = kCapacity - 1;
+  } else {
+    mTail--;
   }
   mSize--;
 }

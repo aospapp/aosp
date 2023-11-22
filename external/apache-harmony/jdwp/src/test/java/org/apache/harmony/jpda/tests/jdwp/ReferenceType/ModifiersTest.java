@@ -54,8 +54,11 @@ public class ModifiersTest extends JDWPSyncTestCase {
      * <BR>The test starts HelloWorld debuggee, requests referenceTypeId
      * for it by VirtualMachine.ClassesBySignature command, then
      * performs ReferenceType.Modifiers command and checks that returned
-     * Modifiers contain expected flags: ACC_PUBLIC, ACC_SUPER;
+     * Modifiers contain expected flags: ACC_PUBLIC
      * but do NOT contain flags: ACC_FINAL, ACC_INTERFACE, ACC_ABSTRACT
+     *
+     * NB ACC_SUPER is not a valid modifier in ART and is not meaningful in other runtimes.
+     * Therefore we will simply ignore it in this test.
      */
     public void testModifiers001() {
         String thisTestName = "testModifiers001";
@@ -93,7 +96,7 @@ public class ModifiersTest extends JDWPSyncTestCase {
 
         int publicFlag = 0x0001; // expected
         int finalFlag = 0x0010; // unexpected
-        int superFlag = 0x0020; // expected
+        // int superFlag = 0x0020; // (do not care)
         int interfaceFlag = 0x0200; // unexpected
         int abstractFlag = 0x0400; // unexpected
 
@@ -102,12 +105,6 @@ public class ModifiersTest extends JDWPSyncTestCase {
                 ("## CHECK1: FAILURE: Returned modifiers do NOT contain expected ACC_PUBLIC flag(0x0001)");
             failMessage = failMessage +
                 "Returned modifiers do NOT contain expected ACC_PUBLIC flag(0x0001);\n";
-        }
-        if ( (returnedModifiers & superFlag) == 0 ) {
-            logWriter.println
-                ("## CHECK1: FAILURE: Returned modifiers do NOT contain expected ACC_SUPER flag(0x0020)");
-            failMessage = failMessage +
-                "Returned modifiers do NOT contain expected ACC_SUPER flag(0x0020);\n";
         }
         if ( (returnedModifiers & finalFlag) != 0 ) {
             logWriter.println

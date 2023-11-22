@@ -32,10 +32,11 @@
 #include <fcntl.h>
 #include <linux/msm_kgsl.h>
 #include <sys/ioctl.h>
-#include <utils/Log.h>
+#include <log/log.h>
 #include <dlfcn.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 #include <media/msm_media_info.h>
 
 #undef LOG_TAG

@@ -67,6 +67,7 @@ public class CountModifierDebuggee extends SyncDebuggee {
         watchedField = watchedField + 1;
     }
 
+    @SuppressWarnings("DeadException")
     @Override
     public void run() {
         TestClass obj = new TestClass();

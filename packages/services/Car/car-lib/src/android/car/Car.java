@@ -19,19 +19,23 @@ package android.car;
 import android.annotation.IntDef;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
-import android.car.annotation.FutureFeature;
 import android.car.cluster.CarInstrumentClusterManager;
 import android.car.content.pm.CarPackageManager;
 import android.car.diagnostic.CarDiagnosticManager;
+import android.car.drivingstate.CarDrivingStateManager;
+import android.car.drivingstate.CarUxRestrictionsManager;
 import android.car.hardware.CarSensorManager;
 import android.car.hardware.CarVendorExtensionManager;
 import android.car.hardware.cabin.CarCabinManager;
 import android.car.hardware.hvac.CarHvacManager;
-import android.car.hardware.radio.CarRadioManager;
+import android.car.hardware.power.CarPowerManager;
+import android.car.hardware.property.CarPropertyManager;
 import android.car.media.CarAudioManager;
 import android.car.navigation.CarNavigationStatusManager;
-import android.car.CarBluetoothManager;
+import android.car.settings.CarConfigurationManager;
+import android.car.storagemonitoring.CarStorageMonitoringManager;
 import android.car.test.CarTestManagerBinderWrapper;
+import android.car.vms.VmsSubscriberManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -44,7 +48,6 @@ import android.os.RemoteException;
 import android.os.UserHandle;
 import android.util.Log;
 
-import com.android.car.internal.FeatureConfiguration;
 import com.android.internal.annotations.GuardedBy;
 
 import java.lang.annotation.Retention;
@@ -81,11 +84,9 @@ public final class Car {
     /** Service name for {@link CarAudioManager} */
     public static final String AUDIO_SERVICE = "audio";
 
-    /**
-     * Service name for {@link CarNavigationStatusManager}
-     * @hide
-     */
+    /** Service name for {@link CarNavigationStatusManager} */
     public static final String CAR_NAVIGATION_SERVICE = "car_navigation_service";
+
     /**
      * Service name for {@link CarInstrumentClusterManager}
      * @hide
@@ -108,19 +109,25 @@ public final class Car {
      * @hide
      */
     @SystemApi
-    public static final String RADIO_SERVICE = "radio";
-
-    /**
-     * @hide
-     */
-    @SystemApi
     public static final String HVAC_SERVICE = "hvac";
 
     /**
      * @hide
      */
     @SystemApi
+    public static final String POWER_SERVICE = "power";
+
+    /**
+     * @hide
+     */
+    @SystemApi
     public static final String PROJECTION_SERVICE = "projection";
+
+    /**
+     * @hide
+     */
+    @SystemApi
+    public static final String PROPERTY_SERVICE = "property";
 
     /**
      * @hide
@@ -134,6 +141,35 @@ public final class Car {
     public static final String BLUETOOTH_SERVICE = "car_bluetooth";
 
     /**
+     * @hide
+     */
+    @SystemApi
+    public static final String VMS_SUBSCRIBER_SERVICE = "vehicle_map_subscriber_service";
+
+    /**
+     * Service name for {@link CarDrivingStateManager}
+     * @hide
+     */
+    @SystemApi
+    public static final String CAR_DRIVING_STATE_SERVICE = "drivingstate";
+
+    /**
+     * Service name for {@link CarUxRestrictionsManager}
+     */
+    public static final String CAR_UX_RESTRICTION_SERVICE = "uxrestriction";
+
+    /**
+     * Service name for {@link android.car.settings.CarConfigurationManager}
+     */
+    public static final String CAR_CONFIGURATION_SERVICE = "configuration";
+
+    /**
+     * @hide
+     */
+    @SystemApi
+    public static final String STORAGE_MONITORING_SERVICE = "storage_monitoring";
+
+    /**
      * Service for testing. This is system app only feature.
      * Service name for {@link CarTestManager}, to be used in {@link #getCarManager(String)}.
      * @hide
@@ -141,18 +177,48 @@ public final class Car {
     @SystemApi
     public static final String TEST_SERVICE = "car-service-test";
 
-    /** Permission necessary to access car's mileage information. */
+    /** Permission necessary to access car's mileage information.
+     *  @hide
+     */
+    @SystemApi
     public static final String PERMISSION_MILEAGE = "android.car.permission.CAR_MILEAGE";
 
-    /** Permission necessary to access car's fuel level. */
-    public static final String PERMISSION_FUEL = "android.car.permission.CAR_FUEL";
+    /** Permission necessary to access car's energy information. */
+    public static final String PERMISSION_ENERGY = "android.car.permission.CAR_ENERGY";
+
+    /** Permission necessary to access car's VIN information */
+    public static final String PERMISSION_IDENTIFICATION =
+            "android.car.permission.CAR_IDENTIFICATION";
 
     /** Permission necessary to access car's speed. */
     public static final String PERMISSION_SPEED = "android.car.permission.CAR_SPEED";
 
-    /** Permission necessary to access car's dynamics state. */
-    public static final String PERMISSION_VEHICLE_DYNAMICS_STATE =
-        "android.car.permission.VEHICLE_DYNAMICS_STATE";
+    /** Permission necessary to access car's dynamics state.
+     *  @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_CAR_DYNAMICS_STATE =
+            "android.car.permission.CAR_DYNAMICS_STATE";
+
+    /** Permission necessary to access car's fuel door and ev charge port. */
+    public static final String PERMISSION_ENERGY_PORTS = "android.car.permission.CAR_ENERGY_PORTS";
+
+    /** Permission necessary to read car's lights information.
+     *  @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_EXTERIOR_LIGHTS =
+            "android.car.permission.CAR_EXTERIOR_LIGHTS";
+
+    /** Permission necessary to control car's exterior lights.
+     *  @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_CONTROL_EXTERIOR_LIGHTS =
+            "android.car.permission.CONTROL_CAR_EXTERIOR_LIGHTS";
+
+    /** Permission necessary to access car's powertrain information.*/
+    public static final String PERMISSION_POWERTRAIN = "android.car.permission.CAR_POWERTRAIN";
 
     /**
      * Permission necessary to change car audio volume through {@link CarAudioManager}.
@@ -169,7 +235,6 @@ public final class Car {
 
     /**
      * Permission necessary to use {@link CarNavigationStatusManager}.
-     * @hide
      */
     public static final String PERMISSION_CAR_NAVIGATION_MANAGER =
             "android.car.permission.CAR_NAVIGATION_MANAGER";
@@ -180,6 +245,7 @@ public final class Car {
      *
      * @hide
      */
+    @SystemApi
     public static final String PERMISSION_CAR_INSTRUMENT_CLUSTER_CONTROL =
             "android.car.permission.CAR_INSTRUMENT_CLUSTER_CONTROL";
 
@@ -191,6 +257,13 @@ public final class Car {
      */
     public static final String PERMISSION_CAR_DISPLAY_IN_CLUSTER =
             "android.car.permission.CAR_DISPLAY_IN_CLUSTER";
+
+    /** Permission necessary to use {@link CarInfoManager}. */
+    public static final String PERMISSION_CAR_INFO = "android.car.permission.CAR_INFO";
+
+    /** Permission necessary to read temperature of car's exterior environment. */
+    public static final String PERMISSION_EXTERIOR_ENVIRONMENT =
+            "android.car.permission.CAR_EXTERIOR_ENVIRONMENT";
 
     /**
      * Permission necessary to access car specific communication channel.
@@ -212,22 +285,70 @@ public final class Car {
      * @hide
      */
     @SystemApi
-    public static final String PERMISSION_CAR_CABIN = "android.car.permission.CAR_CABIN";
+    public static final String PERMISSION_ADJUST_CAR_CABIN =
+            "android.car.permission.ADJUST_CAR_CABIN";
+
+    /**
+     * Permission necessary to access car's engine information.
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_CAR_ENGINE_DETAILED =
+            "android.car.permission.CAR_ENGINE_DETAILED";
+
+    /**
+     * Permission necessary to access car's tire pressure information.
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_TIRES = "android.car.permission.CAR_TIRES";
+
+    /**
+     * Permission necessary to control car's door.
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_CONTROL_CAR_DOORS =
+            "android.car.permission.CONTROL_CAR_DOORS";
+
+    /**
+     * Permission necessary to control car's windows.
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_CONTROL_CAR_WINDOWS =
+            "android.car.permission.CONTROL_CAR_WINDOWS";
+
+    /**
+     * Permission necessary to control car's seats.
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_CONTROL_CAR_SEATS =
+            "android.car.permission.CONTROL_CAR_SEATS";
+
+    /**
+     * Permission necessary to control car's mirrors.
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_CONTROL_CAR_MIRRORS =
+            "android.car.permission.CONTROL_CAR_MIRRORS";
 
     /**
      * Permission necessary to access Car HVAC APIs.
      * @hide
      */
     @SystemApi
-    public static final String PERMISSION_CAR_HVAC = "android.car.permission.CAR_HVAC";
+    public static final String PERMISSION_CONTROL_CAR_CLIMATE =
+            "android.car.permission.CONTROL_CAR_CLIMATE";
 
     /**
-     * Permission necessary to access Car RADIO system APIs.
+     * Permission necessary to access Car POWER APIs.
      * @hide
      */
     @SystemApi
-    public static final String PERMISSION_CAR_RADIO = "android.car.permission.CAR_RADIO";
-
+    public static final String PERMISSION_CAR_POWER = "android.car.permission.CAR_POWER";
 
     /**
      * Permission necessary to access Car PROJECTION system APIs.
@@ -254,13 +375,37 @@ public final class Car {
             "android.car.permission.CAR_TEST_SERVICE";
 
     /**
+     * Permission necessary to access CarDrivingStateService to get a Car's driving state.
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_CAR_DRIVING_STATE =
+            "android.car.permission.CAR_DRIVING_STATE";
+
+    /**
+     * Permissions necessary to access VMS publisher APIs.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_VMS_PUBLISHER = "android.car.permission.VMS_PUBLISHER";
+
+    /**
+     * Permissions necessary to access VMS subscriber APIs.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_VMS_SUBSCRIBER = "android.car.permission.VMS_SUBSCRIBER";
+
+    /**
      * Permissions necessary to read diagnostic information, including vendor-specific bits.
      *
      * @hide
      */
     @SystemApi
     public static final String PERMISSION_CAR_DIAGNOSTIC_READ_ALL =
-        "android.car.permission.DIAGNOSTIC_READ_ALL";
+        "android.car.permission.CAR_DIAGNOSTICS";
 
     /**
      * Permissions necessary to clear diagnostic information.
@@ -268,7 +413,15 @@ public final class Car {
      * @hide
      */
     @SystemApi
-    public static final String PERMISSION_CAR_DIAGNOSTIC_CLEAR = "android.car.permission.DIAGNOSTIC_CLEAR";
+    public static final String PERMISSION_CAR_DIAGNOSTIC_CLEAR = "android.car.permission.CLEAR_CAR_DIAGNOSTICS";
+
+    /**
+     * Permissions necessary to clear diagnostic information.
+     *
+     * @hide
+     */
+    @SystemApi
+    public static final String PERMISSION_STORAGE_MONITORING = "android.car.permission.STORAGE_MONITORING";
 
     /** Type of car connection: platform runs directly in car. */
     public static final int CONNECTION_TYPE_EMBEDDED = 5;
@@ -614,11 +767,15 @@ public final class Car {
             case HVAC_SERVICE:
                 manager = new CarHvacManager(binder, mContext, mEventHandler);
                 break;
+            case POWER_SERVICE:
+                manager = new CarPowerManager(binder, mContext, mEventHandler);
+                break;
             case PROJECTION_SERVICE:
                 manager = new CarProjectionManager(binder, mEventHandler);
                 break;
-            case RADIO_SERVICE:
-                manager = new CarRadioManager(binder, mEventHandler);
+            case PROPERTY_SERVICE:
+                manager = new CarPropertyManager(binder, mEventHandler, false,
+                                                 "CarPropertyManager");
                 break;
             case VENDOR_EXTENSION_SERVICE:
                 manager = new CarVendorExtensionManager(binder, mEventHandler);
@@ -631,8 +788,26 @@ public final class Car {
                  * only pass binder wrapper so that CarTestManager can be constructed outside. */
                 manager = new CarTestManagerBinderWrapper(binder);
                 break;
+            case VMS_SUBSCRIBER_SERVICE:
+                manager = new VmsSubscriberManager(binder);
+                break;
             case BLUETOOTH_SERVICE:
                 manager = new CarBluetoothManager(binder, mContext);
+                break;
+            case STORAGE_MONITORING_SERVICE:
+                manager = new CarStorageMonitoringManager(binder, mEventHandler);
+                break;
+            case CAR_DRIVING_STATE_SERVICE:
+                manager = new CarDrivingStateManager(binder, mContext, mEventHandler);
+                break;
+            case CAR_UX_RESTRICTION_SERVICE:
+                manager = new CarUxRestrictionsManager(binder, mContext, mEventHandler);
+                break;
+            case CAR_CONFIGURATION_SERVICE:
+                manager = new CarConfigurationManager(binder);
+                break;
+            default:
+                break;
         }
         return manager;
     }

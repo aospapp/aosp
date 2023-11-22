@@ -2,8 +2,51 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, os, re, shutil, sys, time
+import contextlib, logging, time
 from autotest_lib.client.bin import test, utils
+from autotest_lib.client.common_lib import error
+from autotest_lib.client.cros import cryptohome
+
+
+def run_cmd(cmd):
+    return utils.system_output(cmd + ' 2>&1', retain_output=True,
+                               ignore_status=True)
+
+
+def wait_for_tpm_ready():
+    for n in xrange(0, 20):
+        tpm_status = cryptohome.get_tpm_status()
+        if tpm_status['Ready'] == True:
+            return
+        time.sleep(10)
+    raise error.TestError("TPM never became ready")
+
+
+# This context manager ensures we mount a vault and don't forget
+# to unmount it at the end of the test.
+@contextlib.contextmanager
+def vault_mounted(user, password):
+    cryptohome.mount_vault(user, password, create=True)
+    yield
+    try:
+        cryptohome.unmount_vault(user)
+    except:
+        pass
+
+
+def test_file_path(user):
+    return "%s/TESTFILE" % cryptohome.user_path(user)
+
+
+# TODO(ejcaruso): add dump_keyset action to cryptohome utils instead
+# of calling it directly here
+def expect_wrapped_keyset(user):
+    output = run_cmd(
+        "/usr/sbin/cryptohome --action=dump_keyset --user=%s" % user)
+    if output.find("TPM_WRAPPED") < 0:
+        raise error.TestError(
+            "Cryptohome did not create a TPM-wrapped keyset.")
+
 
 class platform_CryptohomeTPMReOwn(test.test):
     """
@@ -13,117 +56,43 @@ class platform_CryptohomeTPMReOwn(test.test):
     version = 1
     preserve_srcdir = True
 
+    def _test_mount_cryptohome(self):
+        cryptohome.remove_vault(self.user)
+        wait_for_tpm_ready()
+        with vault_mounted(self.user, self.password):
+            run_cmd("echo TEST_CONTENT > %s" % test_file_path(self.user))
+        expect_wrapped_keyset(self.user)
 
-    def __run_cmd(self, cmd):
-        result = utils.system_output(cmd + ' 2>&1', retain_output=True,
-                                     ignore_status=True)
-        return result
+
+    def _test_mount_cryptohome_after_reboot(self):
+        wait_for_tpm_ready()
+        with vault_mounted(self.user, self.password):
+            output = run_cmd("cat %s" % test_file_path(self.user))
+        if output.find("TEST_CONTENT") < 0:
+            raise error.TestError(
+                "Cryptohome did not contain original test file")
+
+
+    def _test_mount_cryptohome_check_recreate(self):
+        wait_for_tpm_ready()
+        with vault_mounted(self.user, self.password):
+            output = run_cmd("cat %s" % test_file_path(self.user))
+        if output.find("TEST_CONTENT") >= 0:
+            raise error.TestError(
+                "Cryptohome not re-created, found original test file")
+        expect_wrapped_keyset(self.user)
 
 
     def run_once(self, subtest='None'):
-        test_user = 'this_is_a_local_test_account@chromium.org'
-        test_password = 'this_is_a_test_password'
+        self.user = 'this_is_a_local_test_account@chromium.org'
+        self.password = 'this_is_a_test_password'
 
         logging.info("Running client subtest %s", subtest)
-        if (subtest == 'clear_tpm'):
-            output = self.__run_cmd("/usr/sbin/tpm_clear --force")
-            self.job.set_state("client_status", "Success")
-        elif (subtest == 'enable_tpm'):
-            output = self.__run_cmd("/usr/bin/tpm_init_temp_fix")
-            self.job.set_state("client_status", "Success")
-        elif (subtest == 'mount_cryptohome'):
-            output = self.__run_cmd("/usr/sbin/cryptohome --action=remove " +
-                                    "--force --user=" + test_user)
-            ready = False
-            for n in range(0, 20):
-                output = self.__run_cmd("/usr/sbin/cryptohome " +
-                                        "--action=tpm_status")
-                if (output.find("TPM Ready: true") >= 0):
-                    ready = True
-                    break
-                time.sleep(10)
-            if (ready == False):
-                error_msg = "TPM never became ready"
-                self.job.set_state("client_status", error_msg)
-                return
-            output = self.__run_cmd("/usr/sbin/cryptohome --action=mount" +
-                               " --user=" + test_user +
-                               " --password=" + test_password)
-            if (output.find("Mount succeeded") < 0):
-                error_msg = "Cryptohome mount failed"
-                self.job.set_state("client_status", error_msg)
-                return
-            output = self.__run_cmd("echo TEST_CONTENT > " +
-                                    "/home/chronos/user/TESTFILE")
-            output = self.__run_cmd("/usr/sbin/cryptohome --action=unmount")
-            output = self.__run_cmd("/usr/sbin/cryptohome " +
-                                    "--action=dump_keyset --user=" + test_user)
-            if (output.find("TPM_WRAPPED") < 0):
-                error_msg = 'Cryptohome did not create a TPM-wrapped keyset.'
-                self.job.set_state("client_status", error_msg)
-                return
-            self.job.set_state("client_status", "Success")
-        elif (subtest == 'mount_cryptohome_after_reboot'):
-            ready = False
-            for n in range(0, 20):
-                output = self.__run_cmd("/usr/sbin/cryptohome " +
-                                        "--action=tpm_status")
-                if (output.find("TPM Ready: true") >= 0):
-                    ready = True
-                    break
-                time.sleep(10)
-            if (ready == False):
-                error_msg = 'TPM never became ready'
-                self.job.set_state("client_status", error_msg)
-                return
-            output = self.__run_cmd("/usr/sbin/cryptohome --action=mount" +
-                               " --user=" + test_user +
-                               " --password=" + test_password)
-            if (output.find("Mount succeeded") < 0):
-                error_msg = 'Cryptohome mount failed'
-                self.job.set_state("client_status", error_msg)
-                return
-            output = self.__run_cmd("cat /home/chronos/user/TESTFILE 2>&1")
-            if (output.find("TEST_CONTENT") < 0):
-                output = self.__run_cmd("/usr/sbin/cryptohome --action=unmount")
-                error_msg = ('Cryptohome did not contain original test file')
-                self.job.set_state("client_status", error_msg)
-                return
-            output = self.__run_cmd("/usr/sbin/cryptohome --action=unmount")
-            self.job.set_state("client_status", "Success")
-        elif (subtest == 'mount_cryptohome_check_recreate'):
-            ready = False
-            for n in range(0, 20):
-                output = self.__run_cmd("/usr/sbin/cryptohome " +
-                                        "--action=tpm_status")
-                if (output.find("TPM Ready: true") >= 0):
-                    ready = True
-                    break
-                time.sleep(10)
-            if (ready == False):
-                error_msg = 'TPM never became ready'
-                self.job.set_state("client_status", error_msg)
-                return
-            output = self.__run_cmd("/usr/sbin/cryptohome --action=mount" +
-                               " --user=" + test_user +
-                               " --password=" + test_password)
-            if (output.find("Mount succeeded") < 0):
-                error_msg = 'Cryptohome mount failed'
-                self.job.set_state("client_status", error_msg)
-                return
-            output = self.__run_cmd("cat /home/chronos/user/TESTFILE 2>&1")
-            if (output.find("TEST_CONTENT") >= 0):
-                output = self.__run_cmd("/usr/sbin/cryptohome --action=unmount")
-                error_msg = ('Cryptohome not re-created, ' +
-                             'found original test file')
-                self.job.set_state("client_status", error_msg)
-                return
-            output = self.__run_cmd("/usr/sbin/cryptohome --action=unmount")
-            output = self.__run_cmd("/usr/sbin/cryptohome " +
-                                    "--action=dump_keyset --user=" + test_user)
-            if (output.find("TPM_WRAPPED") < 0):
-                error_msg = ('Cryptohome did not create a ' +
-                             'TPM-wrapped keyset on reboot.')
-                self.job.set_state("client_status", error_msg)
-                return
-            self.job.set_state("client_status", "Success")
+        if subtest == 'take_tpm_ownership':
+            cryptohome.take_tpm_ownership()
+        elif subtest == 'mount_cryptohome':
+            self._test_mount_cryptohome()
+        elif subtest == 'mount_cryptohome_after_reboot':
+            self._test_mount_cryptohome_after_reboot()
+        elif subtest == 'mount_cryptohome_check_recreate':
+            self._test_mount_cryptohome_check_recreate()

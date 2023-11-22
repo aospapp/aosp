@@ -47,6 +47,7 @@ public class BleScannerPowerLevelActivity extends PassFailButtons.Activity {
     private int[] mPowerLevel;
 
     private static final int[] POWER_DBM = {-21, -15, -7, 1, 9};
+    private static final int ADV_TX_POWER_LEVEL_ALLOWANCE = 5;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -156,7 +157,9 @@ public class BleScannerPowerLevelActivity extends PassFailButtons.Activity {
                         .setText(intent.getStringExtra(BleScannerService.EXTRA_MAC_ADDRESS));
                     mRssiText.get(powerLevelBit)
                         .setText(intent.getStringExtra(BleScannerService.EXTRA_RSSI));
-                    if (Math.abs(POWER_DBM[powerLevelBit] - powerLevel) < 2) {
+
+                    if ((POWER_DBM[powerLevelBit] >= powerLevel) &&
+                        ((POWER_DBM[powerLevelBit] - ADV_TX_POWER_LEVEL_ALLOWANCE) <= powerLevel)) {
                         mSetPowerText.get(powerLevelBit).setText("Valid power level");
                     } else {
                         mSetPowerText.get(powerLevelBit)

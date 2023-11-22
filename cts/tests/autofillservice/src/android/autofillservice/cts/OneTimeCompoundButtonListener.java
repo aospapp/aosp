@@ -16,7 +16,7 @@
 
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.Helper.FILL_TIMEOUT_MS;
+import static android.autofillservice.cts.Timeouts.FILL_TIMEOUT;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -48,8 +48,8 @@ final class OneTimeCompoundButtonListener implements CompoundButton.OnCheckedCha
     }
 
     void assertAutoFilled() throws Exception {
-        final boolean set = latch.await(FILL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-        assertWithMessage("Timeout (%s ms) on CompoundButton %s", FILL_TIMEOUT_MS, name)
+        final boolean set = latch.await(FILL_TIMEOUT.ms(), TimeUnit.MILLISECONDS);
+        assertWithMessage("Timeout (%s ms) on CompoundButton %s", FILL_TIMEOUT.ms(), name)
             .that(set).isTrue();
         final boolean actual = button.isChecked();
         assertWithMessage("Wrong auto-fill value on CompoundButton %s", name)

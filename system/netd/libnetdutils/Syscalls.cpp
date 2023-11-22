@@ -65,6 +65,15 @@ class RealSyscalls final : public Syscalls {
         return status::ok;
     }
 
+    Status getsockopt(Fd sock, int level, int optname, void* optval,
+                      socklen_t* optlen) const override {
+        auto rv = ::getsockopt(sock.get(), level, optname, optval, optlen);
+        if (rv == -1) {
+            return statusFromErrno(errno, "getsockopt() failed");
+        }
+        return status::ok;
+    }
+
     Status setsockopt(Fd sock, int level, int optname, const void* optval,
                       socklen_t optlen) const override {
         auto rv = ::setsockopt(sock.get(), level, optname, optval, optlen);
@@ -105,6 +114,14 @@ class RealSyscalls final : public Syscalls {
         auto rv = syscallRetry(::ppoll, fds, nfds, &ts, nullptr);
         if (rv == -1) {
             return statusFromErrno(errno, "ppoll() failed");
+        }
+        return rv;
+    }
+
+    StatusOr<size_t> writev(Fd fd, const std::vector<iovec>& iov) const override {
+        auto rv = syscallRetry(::writev, fd.get(), iov.data(), iov.size());
+        if (rv == -1) {
+            return statusFromErrno(errno, "writev() failed");
         }
         return rv;
     }

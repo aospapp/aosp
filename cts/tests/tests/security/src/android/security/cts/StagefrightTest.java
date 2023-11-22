@@ -27,10 +27,14 @@ import android.util.Log;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.SurfaceTexture;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
+import android.media.MediaDrm;
+import android.media.MediaDrm.MediaDrmStateException;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
@@ -45,11 +49,17 @@ import android.util.Log;
 import android.view.Surface;
 import android.webkit.cts.CtsTestServer;
 
+import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
 import java.nio.ByteBuffer;
+import java.io.FileOutputStream;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.UUID;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -73,6 +83,21 @@ public class StagefrightTest extends InstrumentationTestCase {
      to prevent merge conflicts, add K tests below this comment,
      before any existing test methods
      ***********************************************************/
+
+    @SecurityTest
+    public void testStagefright_bug_36725407() throws Exception {
+        doStagefrightTest(R.raw.bug_36725407);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_3829() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_3829);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_3828() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_3828);
+    }
 
     @SecurityTest
     public void testStagefright_bug_64710074() throws Exception {
@@ -107,12 +132,6 @@ public class StagefrightTest extends InstrumentationTestCase {
     @SecurityTest
     public void testStagefright_bug_38342499() throws Exception {
         doStagefrightTest(R.raw.bug_38342499);
-    }
-
-    @SecurityTest
-    public void testStagefright_bug_23270724() throws Exception {
-        doStagefrightTest(R.raw.bug_23270724_1);
-        doStagefrightTest(R.raw.bug_23270724_2);
     }
 
     @SecurityTest
@@ -223,6 +242,11 @@ public class StagefrightTest extends InstrumentationTestCase {
     }
 
     @SecurityTest
+    public void testStagefright_cve_2016_6766() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_6766);
+    }
+
+    @SecurityTest
     public void testStagefright_bug_26366256() throws Exception {
         doStagefrightTest(R.raw.bug_26366256);
     }
@@ -244,8 +268,33 @@ public class StagefrightTest extends InstrumentationTestCase {
      ***********************************************************/
 
     @SecurityTest
+    public void testStagefright_bug_65123471() throws Exception {
+        doStagefrightTest(R.raw.bug_65123471);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_72165027() throws Exception {
+        doStagefrightTest(R.raw.bug_72165027);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_65483665() throws Exception {
+        doStagefrightTest(R.raw.bug_65483665);
+    }
+
+    @SecurityTest
     public void testStagefright_cve_2017_0852_b_62815506() throws Exception {
         doStagefrightTest(R.raw.cve_2017_0852_b_62815506);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2017_13229() throws Exception {
+        doStagefrightTest(R.raw.cve_2017_13229);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2017_0763() throws Exception {
+        doStagefrightTest(R.raw.cve_2017_0763);
     }
 
     /***********************************************************
@@ -254,13 +303,53 @@ public class StagefrightTest extends InstrumentationTestCase {
      ***********************************************************/
 
     @SecurityTest
+    public void testStagefright_bug_68953854() throws Exception {
+        doStagefrightTest(R.raw.bug_68953854, 1 * 60 * 1000);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_38448381() throws Exception {
+        doStagefrightTest(R.raw.bug_38448381);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_3821() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_3821);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_70897454() throws Exception {
+        doStagefrightTestRawBlob(R.raw.b70897454_avc, "video/avc", 320, 420);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_38115076() throws Exception {
+        doStagefrightTest(R.raw.bug_38115076);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_34618607() throws Exception {
+        doStagefrightTest(R.raw.bug_34618607);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_69478425() throws Exception {
+        doStagefrightTest(R.raw.bug_69478425);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_65735716() throws Exception {
+        doStagefrightTestRawBlob(R.raw.bug_65735716_avc, "video/avc", 320, 240);
+    }
+
+    @SecurityTest
     public void testStagefright_bug_65717533() throws Exception {
         doStagefrightTest(R.raw.bug_65717533_header_corrupt);
     }
 
     @SecurityTest
-    public void testStagefright_cve_2017_0857() throws Exception {
-        doStagefrightTest(R.raw.cve_2017_0857);
+    public void testStagefright_bug_38239864() throws Exception {
+        doStagefrightTest(R.raw.bug_38239864, (4 * 60 * 1000));
     }
 
     @SecurityTest
@@ -269,8 +358,125 @@ public class StagefrightTest extends InstrumentationTestCase {
     }
 
     @SecurityTest
+    public void testBug_38014992() throws Exception {
+        int[] frameSizes = getFrameSizes(R.raw.bug_38014992_framelen);
+        doStagefrightTestRawBlob(R.raw.bug_38014992_avc, "video/avc", 640, 480, frameSizes);
+    }
+
+    @SecurityTest
+    public void testBug_35584425() throws Exception {
+        int[] frameSizes = getFrameSizes(R.raw.bug_35584425_framelen);
+        doStagefrightTestRawBlob(R.raw.bug_35584425_avc, "video/avc", 352, 288, frameSizes);
+    }
+
+    @SecurityTest
+    public void testBug_31092462() throws Exception {
+        int[] frameSizes = getFrameSizes(R.raw.bug_31092462_framelen);
+        doStagefrightTestRawBlob(R.raw.bug_31092462_avc, "video/avc", 1280, 1024, frameSizes);
+    }
+
+    @SecurityTest
+    public void testBug_34097866() throws Exception {
+        int[] frameSizes = getFrameSizes(R.raw.bug_34097866_frame_len);
+        doStagefrightTestRawBlob(R.raw.bug_34097866_avc, "video/avc", 352, 288, frameSizes);
+    }
+
+    @SecurityTest
+    public void testBug_33862021() throws Exception {
+        int[] frameSizes = getFrameSizes(R.raw.bug_33862021_frame_len);
+        doStagefrightTestRawBlob(R.raw.bug_33862021_hevc, "video/hevc", 160, 96, frameSizes);
+    }
+
+    @SecurityTest
+    public void testBug_33387820() throws Exception {
+        int[] frameSizes = {45, 3202, 430, 2526};
+        doStagefrightTestRawBlob(R.raw.bug_33387820_avc, "video/avc", 320, 240, frameSizes);
+    }
+
+    @SecurityTest
+    public void testBug_37008096() throws Exception {
+        int[] frameSizes = {245, 12, 33, 140, 164};
+        doStagefrightTestRawBlob(R.raw.bug_37008096_avc, "video/avc", 320, 240, frameSizes);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_34231163() throws Exception {
+        int[] frameSizes = {22, 357, 217, 293, 175};
+        doStagefrightTestRawBlob(R.raw.bug_34231163_mpeg2, "video/mpeg2", 320, 240, frameSizes);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_33933140() throws Exception {
+        int[] frameSizes = getFrameSizes(R.raw.bug_33933140_framelen);
+        doStagefrightTestRawBlob(R.raw.bug_33933140_avc, "video/avc", 320, 240, frameSizes);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_34097915() throws Exception {
+        int[] frameSizes = {4140, 593, 0, 15495};
+        doStagefrightTestRawBlob(R.raw.bug_34097915_avc, "video/avc", 320, 240, frameSizes);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_34097213() throws Exception {
+        int[] frameSizes = {2571, 210, 33858};
+        doStagefrightTestRawBlob(R.raw.bug_34097213_avc, "video/avc", 320, 240, frameSizes);
+    }
+
+    @SecurityTest
+    public void testBug_28816956() throws Exception {
+        int[] frameSizes = getFrameSizes(R.raw.bug_28816956_framelen);
+        doStagefrightTestRawBlob(R.raw.bug_28816956_hevc, "video/hevc", 352, 288, frameSizes);
+    }
+
+    @SecurityTest
+    public void testBug_33818500() throws Exception {
+        int[] frameSizes = getFrameSizes(R.raw.bug_33818500_framelen);
+        doStagefrightTestRawBlob(R.raw.bug_33818500_avc, "video/avc", 64, 32, frameSizes);
+    }
+
+    @SecurityTest
+    public void testBug_64784973() throws Exception {
+        int[] frameSizes = getFrameSizes(R.raw.bug_64784973_framelen);
+        doStagefrightTestRawBlob(R.raw.bug_64784973_hevc, "video/hevc", 1280, 720, frameSizes);
+    }
+
+    @SecurityTest
+    public void testBug_34231231() throws Exception {
+        int[] frameSizes = getFrameSizes(R.raw.bug_34231231_framelen);
+        doStagefrightTestRawBlob(R.raw.bug_34231231_mpeg2, "video/mpeg2", 352, 288, frameSizes);
+    }
+
+    @SecurityTest
+    public void testBug_63045918() throws Exception {
+        int[] frameSizes = getFrameSizes(R.raw.bug_63045918_framelen);
+        doStagefrightTestRawBlob(R.raw.bug_63045918_hevc, "video/hevc", 352, 288, frameSizes);
+    }
+
+    @SecurityTest
+    public void testBug_33298089() throws Exception {
+        int[] frameSizes = {3247, 430, 221, 2305};
+        doStagefrightTestRawBlob(R.raw.bug_33298089_avc, "video/avc", 32, 64, frameSizes);
+    }
+
+    @SecurityTest
     public void testStagefright_cve_2017_0599() throws Exception {
         doStagefrightTest(R.raw.cve_2017_0599);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_36492741() throws Exception {
+        doStagefrightTest(R.raw.bug_36492741);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_38487564() throws Exception {
+        doStagefrightTest(R.raw.bug_38487564, (4 * 60 * 1000));
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_37237396() throws Exception {
+        doStagefrightTest(R.raw.bug_37237396);
     }
 
     @SecurityTest
@@ -279,13 +485,34 @@ public class StagefrightTest extends InstrumentationTestCase {
     }
 
     @SecurityTest
+    public void testStagefright_bug_63121644() throws Exception {
+        doStagefrightTest(R.raw.bug_63121644);
+    }
+
+    @SecurityTest
     public void testStagefright_cve_2016_6712() throws Exception {
         doStagefrightTest(R.raw.cve_2016_6712);
     }
 
     @SecurityTest
+    public void testStagefright_bug_34097231() throws Exception {
+        doStagefrightTestRawBlob(R.raw.bug_34097231_avc, "video/avc", 320, 240);
+    }
+
+    @SecurityTest
     public void testStagefright_bug_34097672() throws Exception {
         doStagefrightTest(R.raw.bug_34097672);
+    }
+
+
+    @SecurityTest
+    public void testStagefright_bug_33751193() throws Exception {
+        doStagefrightTestRawBlob(R.raw.bug_33751193_avc, "video/avc", 320, 240);
+    }
+
+    @SecurityTest
+    public void testBug_36993291() throws Exception {
+        doStagefrightTestRawBlob(R.raw.bug_36993291_avc, "video/avc", 320, 240);
     }
 
     @SecurityTest
@@ -299,8 +526,26 @@ public class StagefrightTest extends InstrumentationTestCase {
     }
 
     @SecurityTest
+    public void testStagefright_bug_63522067() throws Exception {
+        doStagefrightTestRawBlob(R.raw.bug_63522067_1_hevc, "video/hevc", 320, 420);
+        doStagefrightTestRawBlob(R.raw.bug_63522067_2_hevc, "video/hevc", 320, 420);
+        doStagefrightTestRawBlob(R.raw.bug_63522067_3_hevc, "video/hevc", 320, 420);
+        doStagefrightTestRawBlob(R.raw.bug_63522067_4_hevc, "video/hevc", 320, 420);
+    }
+
+    @SecurityTest
     public void testStagefright_bug_25765591() throws Exception {
         doStagefrightTest(R.raw.bug_25765591);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_62673179() throws Exception {
+        doStagefrightTest(R.raw.bug_62673179_ts, (4 * 60 * 1000));
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_69269702() throws Exception {
+        doStagefrightTest(R.raw.bug_69269702);
     }
 
     @SecurityTest
@@ -309,8 +554,93 @@ public class StagefrightTest extends InstrumentationTestCase {
     }
 
     @SecurityTest
+    public void testStagefright_bug_65398821() throws Exception {
+        doStagefrightTest(R.raw.bug_65398821, ( 4 * 60 * 1000 ) );
+    }
+
+    @SecurityTest
     public void testStagefright_cve_2015_3869() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3869);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_23452792() throws Exception {
+        doStagefrightTest(R.raw.bug_23452792);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_3820() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_3820);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_3741() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_3741);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_2506() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_2506);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_2428() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_2428);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_36592202() throws Exception {
+        Resources resources = getInstrumentation().getContext().getResources();
+        AssetFileDescriptor fd = resources.openRawResourceFd(R.raw.bug_36592202);
+        int page_size = 25627;
+        byte [] blob = new byte[page_size];
+
+        // 127 bytes read and  25500 zeros constitute one Ogg page
+        FileInputStream fis = fd.createInputStream();
+        int numRead = fis.read(blob);
+        fis.close();
+
+        // Creating temp file
+        final File tempFile = File.createTempFile("poc_tmp", ".ogg", null);
+
+        try {
+            final FileOutputStream tempFos = new FileOutputStream(tempFile.getAbsolutePath());
+            int bytesWritten = 0;
+            // Repeat data till size is ~1 GB
+            for (int i = 0; i < 50000; i++) {
+                tempFos.write(blob);
+                bytesWritten += page_size;
+            }
+            tempFos.close();
+
+            final int fileSize = bytesWritten;
+            int timeout = (10 * 60 * 1000);
+
+            runWithTimeout(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        doStagefrightTestMediaCodec(tempFile.getAbsolutePath());
+                    } catch (Exception | AssertionError  e) {
+                        if (!tempFile.delete()) {
+                            Log.e(TAG, "Failed to delete temporary PoC file");
+                        }
+                        fail("Operation was not successful");
+                    }
+                }
+            }, timeout);
+        } catch (Exception e) {
+            fail("Failed to test b/36592202");
+        } finally {
+            if (!tempFile.delete()) {
+                Log.e(TAG, "Failed to delete temporary PoC file");
+            }
+        }
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_30822755() throws Exception {
+        doStagefrightTest(R.raw.bug_30822755);
     }
 
     @SecurityTest
@@ -319,13 +649,56 @@ public class StagefrightTest extends InstrumentationTestCase {
     }
 
     @SecurityTest
+    public void testStagefright_bug_37710346() throws Exception {
+        UUID CLEARKEY_SCHEME_UUID = new UUID(0x1077efecc0b24d02L, 0xace33c1e52e2fb4bL);
+
+        String drmInitString = "0000003470737368" +
+                               "01000000" +
+                               "1077efecc0b24d02" +
+                               "ace33c1e52e2fb4b" +
+                               "10000001" +
+                               "60061e017e477e87" +
+                               "7e57d00d1ed00d1e" +
+                               "00000000";
+        int len = drmInitString.length();
+        byte[] drmInitData = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            drmInitData[i / 2] = (byte) ((Character.digit(drmInitString.charAt(i), 16) << 4) +
+                Character.digit(drmInitString.charAt(i + 1), 16));
+        }
+
+        try {
+            MediaDrm drm = new MediaDrm(CLEARKEY_SCHEME_UUID);
+            byte[] sessionId;
+            String initDataType = "video/mp4";
+
+            sessionId = drm.openSession();
+            MediaDrm.KeyRequest drmRequest = drm.getKeyRequest(sessionId, drmInitData,
+                initDataType, MediaDrm.KEY_TYPE_STREAMING, null);
+        } catch (Exception e) {
+            if (!(e instanceof MediaDrmStateException))
+                fail("media drm server died");
+        }
+    }
+
+    @SecurityTest
     public void testStagefright_cve_2015_3873_b_23248776() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3873_b_23248776);
     }
 
     @SecurityTest
+    public void testStagefright_bug_35472997() throws Exception {
+        doStagefrightTest(R.raw.bug_35472997);
+    }
+
+    @SecurityTest
     public void testStagefright_cve_2015_3873_b_20718524() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3873_b_20718524);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_34896431() throws Exception {
+        doStagefrightTest(R.raw.bug_34896431);
     }
 
     @SecurityTest
@@ -360,6 +733,12 @@ public class StagefrightTest extends InstrumentationTestCase {
         doStagefrightTest(R.raw.cve_2015_6604);
     }
 
+    @SecurityTest
+    public void testStagefright_bug_24157524() throws Exception {
+        doStagefrightTest(R.raw.bug_24157524);
+    }
+
+    @SecurityTest
     public void testStagefright_cve_2015_3871() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3871);
     }
@@ -412,8 +791,90 @@ public class StagefrightTest extends InstrumentationTestCase {
      ***********************************************************/
 
     @SecurityTest
+    public void testStagefright_cve_2017_0474() throws Exception {
+        doStagefrightTest(R.raw.cve_2017_0474, 120000);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2017_0765() throws Exception {
+        doStagefrightTest(R.raw.cve_2017_0765);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2017_13276() throws Exception {
+        doStagefrightTest(R.raw.cve_2017_13276);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_6764() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_6764);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2017_13214() throws Exception {
+        doStagefrightTest(R.raw.cve_2017_13214);
+    }
+
+    @SecurityTest
     public void testStagefright_bug_35467107() throws Exception {
         doStagefrightTest(R.raw.bug_35467107);
+    }
+
+    /***********************************************************
+     to prevent merge conflicts, add O tests below this comment,
+     before any existing test methods
+     ***********************************************************/
+
+    @SecurityTest
+    public void testBug_67737022() throws Exception {
+        doStagefrightTest(R.raw.bug_67737022);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_37093318() throws Exception {
+        doStagefrightTest(R.raw.bug_37093318, (4 * 60 * 1000));
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_73172046() throws Exception {
+        doStagefrightTest(R.raw.bug_73172046);
+
+        Bitmap bitmap = BitmapFactory.decodeResource(
+                getInstrumentation().getContext().getResources(), R.raw.bug_73172046);
+        // OK if the decoding failed, but shouldn't cause crashes
+        if (bitmap != null) {
+            bitmap.recycle();
+        }
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_0824() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_0824);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_0815() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_0815);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_2454() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_2454);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_6765() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_6765);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_2508() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_2508);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_6699() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_6699);
     }
 
     private void doStagefrightTest(final int rid) throws Exception {
@@ -426,10 +887,49 @@ public class StagefrightTest extends InstrumentationTestCase {
         CtsTestServer server = new CtsTestServer(context);
         String rname = resources.getResourceEntryName(rid);
         String url = server.getAssetUrl("raw/" + rname);
+        verifyServer(rid, url);
         doStagefrightTestMediaPlayer(url);
         doStagefrightTestMediaCodec(url);
         doStagefrightTestMediaMetadataRetriever(url);
         server.shutdown();
+    }
+
+    // verify that CtsTestServer is functional by retrieving the asset
+    // and comparing it to the resource
+    private void verifyServer(final int rid, final String uri) throws Exception {
+        Log.i(TAG, "checking server");
+        URL url = new URL(uri);
+        InputStream in1 = new BufferedInputStream(url.openStream());
+
+        AssetFileDescriptor fd = getInstrumentation().getContext().getResources()
+                        .openRawResourceFd(rid);
+        InputStream in2 = new BufferedInputStream(fd.createInputStream());
+
+        while (true) {
+            int b1 = in1.read();
+            int b2 = in2.read();
+            assertEquals("CtsTestServer fail", b1, b2);
+            if (b1 < 0) {
+                break;
+            }
+        }
+
+        in1.close();
+        in2.close();
+        Log.i(TAG, "checked server");
+    }
+
+    private void doStagefrightTest(final int rid, int timeout) throws Exception {
+        runWithTimeout(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                  doStagefrightTest(rid);
+                } catch (Exception e) {
+                  fail(e.toString());
+                }
+            }
+        }, timeout);
     }
 
     private void doStagefrightTestANR(final int rid) throws Exception {
@@ -873,11 +1373,6 @@ public class StagefrightTest extends InstrumentationTestCase {
     }
 
     @SecurityTest
-    public void testCve_2017_0762() throws Exception {
-        doStagefrightTestRawBlob(R.raw.cve_2017_0762, "video/hevc", 320, 240);
-    }
-
-    @SecurityTest
     public void testCve_2017_0687() throws Exception {
         doStagefrightTestRawBlob(R.raw.cve_2017_0687, "video/avc", 320, 240);
     }
@@ -885,6 +1380,31 @@ public class StagefrightTest extends InstrumentationTestCase {
     @SecurityTest
     public void testBug_37930177() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_37930177_hevc, "video/hevc", 320, 240);
+    }
+
+    @SecurityTest
+    public void testBug_37712181() throws Exception {
+        doStagefrightTestRawBlob(R.raw.bug_37712181_hevc, "video/hevc", 320, 240);
+    }
+
+    @SecurityTest
+    public void testBug_70897394() throws Exception {
+        doStagefrightTestRawBlob(R.raw.bug_70897394_avc, "video/avc", 320, 240);
+    }
+
+    private int[] getFrameSizes(int rid) throws IOException {
+        final Context context = getInstrumentation().getContext();
+        final Resources resources =  context.getResources();
+        AssetFileDescriptor fd = resources.openRawResourceFd(rid);
+        FileInputStream fis = fd.createInputStream();
+        byte[] frameInfo = new byte[(int) fd.getLength()];
+        fis.read(frameInfo);
+        fis.close();
+        String[] valueStr = new String(frameInfo).trim().split("\\s+");
+        int[] frameSizes = new int[valueStr.length];
+        for (int i = 0; i < valueStr.length; i++)
+            frameSizes[i] = Integer.parseInt(valueStr[i]);
+        return frameSizes;
     }
 
     private void runWithTimeout(Runnable runner, int timeout) {
@@ -1007,6 +1527,142 @@ public class StagefrightTest extends InstrumentationTestCase {
                         codec.releaseOutputBuffer(bufidx, false);
                     } else {
                         Log.i(TAG, "no output buffer");
+                    }
+                }
+            } catch (Exception e) {
+                // ignore, not a security issue
+            } finally {
+                releaseCodec(codec);
+            }
+        }
+
+        String cve = rname.replace("_", "-").toUpperCase();
+        assertFalse("Device *IS* vulnerable to " + cve,
+                    mpcl.waitForError() == MediaPlayer.MEDIA_ERROR_SERVER_DIED);
+        thr.stopLooper();
+        thr.join();
+    }
+
+    private void doStagefrightTestRawBlob(int rid, String mime, int initWidth, int initHeight,
+        int frameSizes[]) throws Exception {
+
+        final MediaPlayerCrashListener mpcl = new MediaPlayerCrashListener();
+        final Context context = getInstrumentation().getContext();
+        final Resources resources =  context.getResources();
+
+        LooperThread thr = new LooperThread(new Runnable() {
+            @Override
+            public void run() {
+
+                MediaPlayer mp = new MediaPlayer();
+                mp.setOnErrorListener(mpcl);
+                AssetFileDescriptor fd = null;
+                try {
+                    fd = resources.openRawResourceFd(R.raw.good);
+
+                    // the onErrorListener won't receive MEDIA_ERROR_SERVER_DIED until
+                    // setDataSource has been called
+                    mp.setDataSource(fd.getFileDescriptor(),
+                                     fd.getStartOffset(),
+                                     fd.getLength());
+                    fd.close();
+                } catch (Exception e) {
+                    // this is a known-good file, so no failure should occur
+                    fail("setDataSource of known-good file failed");
+                }
+
+                synchronized(mpcl) {
+                    mpcl.notify();
+                }
+                Looper.loop();
+                mp.release();
+            }
+        });
+        thr.start();
+        // wait until the thread has initialized the MediaPlayer
+        synchronized(mpcl) {
+            mpcl.wait();
+        }
+
+        AssetFileDescriptor fd = resources.openRawResourceFd(rid);
+        byte [] blob = new byte[(int)fd.getLength()];
+        FileInputStream fis = fd.createInputStream();
+        int numRead = fis.read(blob);
+        fis.close();
+
+        // find all the available decoders for this format
+        ArrayList<String> matchingCodecs = new ArrayList<String>();
+        int numCodecs = MediaCodecList.getCodecCount();
+        for (int i = 0; i < numCodecs; i++) {
+            MediaCodecInfo info = MediaCodecList.getCodecInfoAt(i);
+            if (info.isEncoder()) {
+                continue;
+            }
+            try {
+                MediaCodecInfo.CodecCapabilities caps = info.getCapabilitiesForType(mime);
+                if (caps != null) {
+                    matchingCodecs.add(info.getName());
+                }
+            } catch (IllegalArgumentException e) {
+                // type is not supported
+            }
+        }
+
+        if (matchingCodecs.size() == 0) {
+            Log.w(TAG, "no codecs for mime type " + mime);
+        }
+        String rname = resources.getResourceEntryName(rid);
+        // decode this blob once with each matching codec
+        for (String codecName: matchingCodecs) {
+            Log.i(TAG, "Decoding blob " + rname + " using codec " + codecName);
+            MediaCodec codec = MediaCodec.createByCodecName(codecName);
+            MediaFormat format = MediaFormat.createVideoFormat(mime, initWidth, initHeight);
+            try {
+                codec.configure(format, null, null, 0);
+                codec.start();
+            } catch (Exception e) {
+                Log.i(TAG, "Exception from codec " + codecName);
+                releaseCodec(codec);
+                continue;
+            }
+
+            try {
+                MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+                ByteBuffer [] inputBuffers = codec.getInputBuffers();
+                int numFrames = 0;
+                if (frameSizes != null) {
+                    numFrames = frameSizes.length;
+                }
+
+                if (0 == numFrames) {
+                    fail("Improper picture length file");
+                }
+
+                int offset = 0;
+                int bytesToFeed = 0;
+                int flags = 0;
+                byte [] tempBlob = new byte[(int)inputBuffers[0].capacity()];
+                for (int j = 0; j < numFrames; j++) {
+                    int bufidx = codec.dequeueInputBuffer(5000);
+                    if (bufidx >= 0) {
+                        inputBuffers[bufidx].rewind();
+                        bytesToFeed = Math.min((int)(fd.getLength() - offset),
+                                               inputBuffers[bufidx].capacity());
+                        if(j == (numFrames - 1)) {
+                            flags = MediaCodec.BUFFER_FLAG_END_OF_STREAM;
+                        }
+                        System.arraycopy(blob, offset, tempBlob, 0, bytesToFeed);
+                        inputBuffers[bufidx].put(tempBlob, 0, inputBuffers[bufidx].capacity());
+                        codec.queueInputBuffer(bufidx, 0, bytesToFeed, 0, flags);
+                        offset = offset + frameSizes[j];
+                    } else {
+                        Log.i(TAG, "no input buffer");
+                    }
+                    bufidx = codec.dequeueOutputBuffer(info, 5000);
+                    if (bufidx >= 0) {
+                        codec.releaseOutputBuffer(bufidx, false);
+                    } else {
+                      Log.i(TAG, "no output buffer");
                     }
                 }
             } catch (Exception e) {

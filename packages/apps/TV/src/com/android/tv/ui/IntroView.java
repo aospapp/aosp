@@ -22,7 +22,6 @@ import android.graphics.drawable.AnimationDrawable;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
 import android.view.View;
-
 import com.android.tv.R;
 import com.android.tv.menu.Menu;
 
@@ -95,20 +94,21 @@ public class IntroView extends FullscreenDialogView {
     }
 
     @Override
-    protected void onStartExitAnimation(TimeInterpolator interpolator, long duration,
-            final Runnable onAnimationEnded) {
+    protected void onStartExitAnimation(
+            TimeInterpolator interpolator, long duration, final Runnable onAnimationEnded) {
         View v = findViewById(R.id.container);
         v.animate()
                 .alpha(0.0f)
                 .setInterpolator(interpolator)
                 .setDuration(duration)
                 .withLayer()
-                .withEndAction(new Runnable() {
-                    @Override
-                    public void run() {
-                        onAnimationEnded.run();
-                    }
-                })
+                .withEndAction(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                onAnimationEnded.run();
+                            }
+                        })
                 .start();
     }
 }

@@ -20,17 +20,13 @@ import com.android.ddmlib.IShellOutputReceiver;
 import com.android.ddmlib.Log;
 import com.android.ddmlib.MultiLineReceiver;
 import com.android.ddmlib.testrunner.ITestRunListener;
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.testtype.testdefs.XmlDefsTest;
+import com.android.tradefed.result.ITestLifeCycleReceiver;
+import com.android.tradefed.result.TestDescription;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Parses the 'raw output mode' results of VTS fuzz tests that run from shell, and informs
@@ -53,8 +49,8 @@ public class VtsFuzzTestResultParser extends MultiLineReceiver {
     private int mNumTestsExpected = 1;
     private int mTotalNumberOfTestFailed = 0;
     private final String mTestRunName;
-    private final Collection<ITestRunListener> mTestListeners;
-    private TestIdentifier mTestId;
+    private final Collection<ITestLifeCycleReceiver> mTestListeners;
+    private TestDescription mTestId;
 
     /** True if start of test has already been reported to listener. */
     private boolean mTestRunStartReported = false;
@@ -80,9 +76,10 @@ public class VtsFuzzTestResultParser extends MultiLineReceiver {
      *            {@link ITestRunListener#testRunStarted(String, int)}
      * @param listeners informed of test results as the tests are executing
      */
-    public VtsFuzzTestResultParser(String testRunName, Collection<ITestRunListener> listeners) {
+    public VtsFuzzTestResultParser(
+            String testRunName, Collection<ITestLifeCycleReceiver> listeners) {
         mTestRunName = testRunName;
-        mTestListeners = new ArrayList<ITestRunListener>(listeners);
+        mTestListeners = new ArrayList<>(listeners);
         mStackTrace = new StringBuilder();
     }
 
@@ -93,9 +90,9 @@ public class VtsFuzzTestResultParser extends MultiLineReceiver {
      *            {@link ITestRunListener#testRunStarted(String, int)}
      * @param listener informed of test results as the tests are executing
      */
-    public VtsFuzzTestResultParser(String testRunName, ITestRunListener listener) {
+    public VtsFuzzTestResultParser(String testRunName, ITestLifeCycleReceiver listener) {
         mTestRunName = testRunName;
-        mTestListeners = new ArrayList<ITestRunListener>(1);
+        mTestListeners = new ArrayList<>(1);
         mTestListeners.add(listener);
         mStackTrace = new StringBuilder();
     }
@@ -108,8 +105,8 @@ public class VtsFuzzTestResultParser extends MultiLineReceiver {
         if (!mTestRunStartReported) {
             // current test results are cleared out after every complete test run,
             // if it's not null, assume the last test caused this and report as a test failure
-            mTestId = new TestIdentifier("fuzzer", mTestRunName);
-            for (ITestRunListener listener : mTestListeners) {
+            mTestId = new TestDescription("fuzzer", mTestRunName);
+            for (ITestLifeCycleReceiver listener : mTestListeners) {
                 listener.testRunStarted(mTestRunName, mNumTestsExpected);
             }
             mTestRunStartReported = true;
@@ -136,14 +133,14 @@ public class VtsFuzzTestResultParser extends MultiLineReceiver {
      */
     private void doTestEnded(boolean testPassed) {
         if (!testPassed) {  // test failed
-            for (ITestRunListener listener : mTestListeners) {
+            for (ITestLifeCycleReceiver listener : mTestListeners) {
                 listener.testFailed(mTestId, mStackTrace.toString());
             }
             ++mTotalNumberOfTestFailed;
         }
 
         // For all cases (pass or fail), we ultimately need to report test has ended
-        for (ITestRunListener listener : mTestListeners) {
+        for (ITestLifeCycleReceiver listener : mTestListeners) {
             Map <String, String> emptyMap = Collections.emptyMap();
             listener.testEnded(mTestId, emptyMap);
         }
@@ -163,13 +160,13 @@ public class VtsFuzzTestResultParser extends MultiLineReceiver {
         // If there was any stack trace during the test run, append it to the "test failed"
         // error message so we have an idea of what caused the crash/failure.
         Map<String, String> emptyMap = Collections.emptyMap();
-        for (ITestRunListener listener : mTestListeners) {
+        for (ITestLifeCycleReceiver listener : mTestListeners) {
             listener.testFailed(mTestId, mStackTrace.toString());
             listener.testEnded(mTestId, emptyMap);
         }
 
         // Report the test run failed
-        for (ITestRunListener listener : mTestListeners) {
+        for (ITestLifeCycleReceiver listener : mTestListeners) {
             listener.testRunFailed(errorMsg);
         }
     }

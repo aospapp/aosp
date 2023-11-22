@@ -15,33 +15,18 @@
  */
 package com.android.bluetooth.hfpclient.connserv;
 
-import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothHeadsetClientCall;
-import android.bluetooth.BluetoothProfile;
-import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
 import android.telecom.Connection;
-import android.telecom.ConnectionRequest;
-import android.telecom.ConnectionService;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccount;
-import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.util.Log;
 
-import com.android.bluetooth.hfpclient.HeadsetClientService;
-
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,8 +38,8 @@ import java.util.UUID;
 // Lifecycle of a Device Block is managed entirely by the Service which creates it. In essence it
 // has only the active state otherwise the block should be GCed.
 public class HfpClientDeviceBlock {
-    private final String TAG;
-    private final boolean DBG = false;
+    private final String mTAG;
+    private static final boolean DBG = false;
     private final Context mContext;
     private final BluetoothDevice mDevice;
     private final PhoneAccount mPhoneAccount;
@@ -65,14 +50,12 @@ public class HfpClientDeviceBlock {
 
     private BluetoothHeadsetClient mHeadsetProfile;
 
-    HfpClientDeviceBlock(
-            HfpClientConnectionService connServ,
-            BluetoothDevice device,
+    HfpClientDeviceBlock(HfpClientConnectionService connServ, BluetoothDevice device,
             BluetoothHeadsetClient headsetProfile) {
         mConnServ = connServ;
         mContext = connServ;
         mDevice = device;
-        TAG = "HfpClientDeviceBlock." + mDevice.getAddress();
+        mTAG = "HfpClientDeviceBlock." + mDevice.getAddress();
         mPhoneAccount = HfpClientConnectionService.createAccount(mContext, device);
         mTelecomManager = (TelecomManager) mContext.getSystemService(Context.TELECOM_SERVICE);
 
@@ -84,16 +67,15 @@ public class HfpClientDeviceBlock {
 
         // Read the current calls and add them to telecom if already present
         if (mHeadsetProfile != null) {
-            List<BluetoothHeadsetClientCall> calls =
-                    mHeadsetProfile.getCurrentCalls(mDevice);
+            List<BluetoothHeadsetClientCall> calls = mHeadsetProfile.getCurrentCalls(mDevice);
             if (DBG) {
-                Log.d(TAG, "Got calls " + calls);
+                Log.d(mTAG, "Got calls " + calls);
             }
             if (calls == null) {
                 // We can get null as a return if we are not connected. Hence there may
                 // be a race in getting the broadcast and HFP Client getting
                 // disconnected before broadcast gets delivered.
-                Log.w(TAG, "Got connected but calls were null, ignoring the broadcast");
+                Log.w(mTAG, "Got connected but calls were null, ignoring the broadcast");
                 return;
             }
 
@@ -101,18 +83,17 @@ public class HfpClientDeviceBlock {
                 handleCall(call);
             }
         } else {
-            Log.e(TAG, "headset profile is null, ignoring broadcast.");
+            Log.e(mTAG, "headset profile is null, ignoring broadcast.");
         }
     }
 
     synchronized Connection onCreateIncomingConnection(BluetoothHeadsetClientCall call) {
-        HfpClientConnection connection = connection = mConnections.get(call.getUUID());
+        HfpClientConnection connection = mConnections.get(call.getUUID());
         if (connection != null) {
             connection.onAdded();
-            updateConferenceableConnections();
             return connection;
         } else {
-            Log.e(TAG, "Call " + call + " ignored: connection does not exist");
+            Log.e(mTAG, "Call " + call + " ignored: connection does not exist");
             return null;
         }
     }
@@ -127,22 +108,21 @@ public class HfpClientDeviceBlock {
 
     synchronized Connection onCreateUnknownConnection(BluetoothHeadsetClientCall call) {
         Uri number = Uri.fromParts(PhoneAccount.SCHEME_TEL, call.getNumber(), null);
-        HfpClientConnection connection = connection = mConnections.get(call.getUUID());
+        HfpClientConnection connection = mConnections.get(call.getUUID());
 
         if (connection != null) {
             connection.onAdded();
-            updateConferenceableConnections();
             return connection;
         } else {
-            Log.e(TAG, "Call " + call + " ignored: connection does not exist");
+            Log.e(mTAG, "Call " + call + " ignored: connection does not exist");
             return null;
         }
     }
 
     synchronized void onConference(Connection connection1, Connection connection2) {
         if (mConference == null) {
-            mConference = new HfpClientConference(
-                mPhoneAccount.getAccountHandle(), mDevice, mHeadsetProfile);
+            mConference = new HfpClientConference(mPhoneAccount.getAccountHandle(), mDevice,
+                    mHeadsetProfile);
         }
 
         if (connection1.getConference() == null) {
@@ -157,7 +137,7 @@ public class HfpClientDeviceBlock {
     // Remove existing calls and the phone account associated, the object will get garbage
     // collected soon
     synchronized void cleanup() {
-        Log.d(TAG, "Resetting state for device " + mDevice);
+        Log.d(mTAG, "Resetting state for device " + mDevice);
         disconnectAll();
         mTelecomManager.unregisterPhoneAccount(mPhoneAccount.getAccountHandle());
     }
@@ -165,7 +145,7 @@ public class HfpClientDeviceBlock {
     // Handle call change
     synchronized void handleCall(BluetoothHeadsetClientCall call) {
         if (DBG) {
-            Log.d(TAG, "Got call " + call.toString(true));
+            Log.d(mTAG, "Got call " + call.toString(true));
         }
 
         HfpClientConnection connection = findConnectionKey(call);
@@ -194,7 +174,8 @@ public class HfpClientDeviceBlock {
             Bundle b = new Bundle();
             if (call.getState() == BluetoothHeadsetClientCall.CALL_STATE_DIALING
                     || call.getState() == BluetoothHeadsetClientCall.CALL_STATE_ALERTING
-                    || call.getState() == BluetoothHeadsetClientCall.CALL_STATE_ACTIVE) {
+                    || call.getState() == BluetoothHeadsetClientCall.CALL_STATE_ACTIVE
+                    || call.getState() == BluetoothHeadsetClientCall.CALL_STATE_HELD) {
                 // This is an outgoing call. Even if it is an active call we do not have a way of
                 // putting that parcelable in a seaprate field.
                 b.putParcelable(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS, call);
@@ -203,11 +184,12 @@ public class HfpClientDeviceBlock {
                     || call.getState() == BluetoothHeadsetClientCall.CALL_STATE_WAITING) {
                 // This is an incoming call.
                 b.putParcelable(TelecomManager.EXTRA_INCOMING_CALL_EXTRAS, call);
+                b.putBoolean(TelecomManager.EXTRA_CALL_EXTERNAL_RINGER, call.isInBandRing());
                 mTelecomManager.addNewIncomingCall(mPhoneAccount.getAccountHandle(), b);
             }
         } else if (call.getState() == BluetoothHeadsetClientCall.CALL_STATE_TERMINATED) {
             if (DBG) {
-                Log.d(TAG, "Removing call " + call);
+                Log.d(mTAG, "Removing call " + call);
             }
             mConnections.remove(call.getUUID());
         }
@@ -218,7 +200,7 @@ public class HfpClientDeviceBlock {
     // Find the connection specified by the key, also update the key with ID if present.
     private synchronized HfpClientConnection findConnectionKey(BluetoothHeadsetClientCall call) {
         if (DBG) {
-            Log.d(TAG, "findConnectionKey local key set " + mConnections.toString());
+            Log.d(mTAG, "findConnectionKey local key set " + mConnections.toString());
         }
         return mConnections.get(call.getUUID());
     }
@@ -240,29 +222,30 @@ public class HfpClientDeviceBlock {
     private boolean isDisconnectingToActive(HfpClientConnection prevConn,
             BluetoothHeadsetClientCall newCall) {
         if (DBG) {
-            Log.d(TAG, "prevConn " + prevConn.isClosing() + " new call " + newCall.getState());
+            Log.d(mTAG, "prevConn " + prevConn.isClosing() + " new call " + newCall.getState());
         }
-        if (prevConn.isClosing() &&
-                newCall.getState() != BluetoothHeadsetClientCall.CALL_STATE_TERMINATED) {
+        if (prevConn.isClosing()
+                && newCall.getState() != BluetoothHeadsetClientCall.CALL_STATE_TERMINATED) {
             return true;
         }
         return false;
     }
 
-    private synchronized HfpClientConnection buildConnection(
-            BluetoothHeadsetClientCall call, Uri number) {
+    private synchronized HfpClientConnection buildConnection(BluetoothHeadsetClientCall call,
+            Uri number) {
         if (mHeadsetProfile == null) {
-            Log.e(TAG, "Cannot create connection for call " + call + " when Profile not available");
+            Log.e(mTAG,
+                    "Cannot create connection for call " + call + " when Profile not available");
             return null;
         }
 
         if (call == null && number == null) {
-            Log.e(TAG, "Both call and number cannot be null.");
+            Log.e(mTAG, "Both call and number cannot be null.");
             return null;
         }
 
         if (DBG) {
-            Log.d(TAG, "Creating connection on " + mDevice + " for " + call + "/" + number);
+            Log.d(mTAG, "Creating connection on " + mDevice + " for " + call + "/" + number);
         }
 
         HfpClientConnection connection = null;
@@ -283,8 +266,8 @@ public class HfpClientDeviceBlock {
     private void updateConferenceableConnections() {
         boolean addConf = false;
         if (DBG) {
-            Log.d(TAG, "Existing connections: " + mConnections + " existing conference " +
-                mConference);
+            Log.d(mTAG, "Existing connections: " + mConnections + " existing conference "
+                    + mConference);
         }
 
         // If we have an existing conference call then loop through all connections and update any
@@ -293,7 +276,7 @@ public class HfpClientDeviceBlock {
             for (Connection confConn : mConference.getConnections()) {
                 if (!((HfpClientConnection) confConn).inConference()) {
                     if (DBG) {
-                        Log.d(TAG, "Removing connection " + confConn + " from conference.");
+                        Log.d(mTAG, "Removing connection " + confConn + " from conference.");
                     }
                     mConference.removeConnection(confConn);
                 }
@@ -307,12 +290,12 @@ public class HfpClientDeviceBlock {
             if (((HfpClientConnection) otherConn).inConference()) {
                 // If this is the first connection with conference, create the conference first.
                 if (mConference == null) {
-                    mConference = new HfpClientConference(
-                        mPhoneAccount.getAccountHandle(), mDevice, mHeadsetProfile);
+                    mConference = new HfpClientConference(mPhoneAccount.getAccountHandle(), mDevice,
+                            mHeadsetProfile);
                 }
                 if (mConference.addConnection(otherConn)) {
                     if (DBG) {
-                        Log.d(TAG, "Adding connection " + otherConn + " to conference.");
+                        Log.d(mTAG, "Adding connection " + otherConn + " to conference.");
                     }
                     addConf = true;
                 }
@@ -322,7 +305,7 @@ public class HfpClientDeviceBlock {
         // If we have no connections in the conference we should simply end it.
         if (mConference != null && mConference.getConnections().size() == 0) {
             if (DBG) {
-                Log.d(TAG, "Conference has no connection, destroying");
+                Log.d(mTAG, "Conference has no connection, destroying");
             }
             mConference.setDisconnected(new DisconnectCause(DisconnectCause.LOCAL));
             mConference.destroy();
@@ -332,7 +315,7 @@ public class HfpClientDeviceBlock {
         // If we have a valid conference and not previously added then add it.
         if (mConference != null && addConf) {
             if (DBG) {
-                Log.d(TAG, "Adding conference to stack.");
+                Log.d(mTAG, "Adding conference to stack.");
             }
             mConnServ.addConference(mConference);
         }

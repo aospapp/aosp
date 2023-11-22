@@ -83,8 +83,8 @@ class SchedulingLatencyVisitorARM64 : public SchedulingLatencyVisitor {
   M(SuspendCheck         , unused)                   \
   M(TypeConversion       , unused)                   \
   M(VecReplicateScalar   , unused)                   \
-  M(VecSetScalars        , unused)                   \
-  M(VecSumReduce         , unused)                   \
+  M(VecExtractScalar     , unused)                   \
+  M(VecReduce            , unused)                   \
   M(VecCnv               , unused)                   \
   M(VecNeg               , unused)                   \
   M(VecAbs               , unused)                   \
@@ -103,6 +103,7 @@ class SchedulingLatencyVisitorARM64 : public SchedulingLatencyVisitor {
   M(VecShl               , unused)                   \
   M(VecShr               , unused)                   \
   M(VecUShr              , unused)                   \
+  M(VecSetScalars        , unused)                   \
   M(VecMultiplyAccumulate, unused)                   \
   M(VecLoad              , unused)                   \
   M(VecStore             , unused)
@@ -130,8 +131,8 @@ class SchedulingLatencyVisitorARM64 : public SchedulingLatencyVisitor {
 
 class HSchedulerARM64 : public HScheduler {
  public:
-  HSchedulerARM64(ArenaAllocator* arena, SchedulingNodeSelector* selector)
-      : HScheduler(arena, &arm64_latency_visitor_, selector) {}
+  HSchedulerARM64(ScopedArenaAllocator* allocator, SchedulingNodeSelector* selector)
+      : HScheduler(allocator, &arm64_latency_visitor_, selector) {}
   ~HSchedulerARM64() OVERRIDE {}
 
   bool IsSchedulable(const HInstruction* instruction) const OVERRIDE {
@@ -148,6 +149,20 @@ class HSchedulerARM64 : public HScheduler {
         return HScheduler::IsSchedulable(instruction);
     }
 #undef CASE_INSTRUCTION_KIND
+  }
+
+  // Treat as scheduling barriers those vector instructions whose live ranges exceed the vectorized
+  // loop boundaries. This is a workaround for the lack of notion of SIMD register in the compiler;
+  // around a call we have to save/restore all live SIMD&FP registers (only lower 64 bits of
+  // SIMD&FP registers are callee saved) so don't reorder such vector instructions.
+  //
+  // TODO: remove this when a proper support of SIMD registers is introduced to the compiler.
+  bool IsSchedulingBarrier(const HInstruction* instr) const OVERRIDE {
+    return HScheduler::IsSchedulingBarrier(instr) ||
+           instr->IsVecReduce() ||
+           instr->IsVecExtractScalar() ||
+           instr->IsVecSetScalars() ||
+           instr->IsVecReplicateScalar();
   }
 
  private:

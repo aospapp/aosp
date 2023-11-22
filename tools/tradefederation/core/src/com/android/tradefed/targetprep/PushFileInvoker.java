@@ -30,10 +30,7 @@ import java.util.concurrent.TimeUnit;
  * and invokes the binary or script on device. See also {@link TestFilePushSetup}.
  */
 @OptionClass(alias = "push-file-invoker")
-public class PushFileInvoker extends TestFilePushSetup implements ITargetPreparer {
-
-    @Option(name = "disable", description = "If this preparer should be disabled.")
-    private boolean mDisable = false;
+public class PushFileInvoker extends TestFilePushSetup {
 
     @Option(name = "script-timeout",
             description = "Timeout for script execution, can be any valid time string",
@@ -51,7 +48,7 @@ public class PushFileInvoker extends TestFilePushSetup implements ITargetPrepare
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
-        if (mDisable) {
+        if (isDisabled()) {
             CLog.i("Performance setup script disabled.");
             return;
         }

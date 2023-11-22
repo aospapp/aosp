@@ -54,6 +54,9 @@ class NL80211Packet {
   // However we keep this copy constructor because it makes unit tests easy.
   // It prints WARNING log when this copy constructor is called.
   NL80211Packet(const NL80211Packet& packet);
+  // Explicitly specify the move constructor. Otherwise, copy constructor will
+  // be called on if we move a NL80211Packet object.
+  NL80211Packet(NL80211Packet&& packet) = default;
   ~NL80211Packet() = default;
 
   // Returns whether a packet has consistent header fields.
@@ -112,6 +115,11 @@ class NL80211Packet {
 
   bool HasAttribute(int id) const;
   bool GetAttribute(int id, NL80211NestedAttr* attribute) const;
+  // Get all attributes to |*attribute| as a vector.
+  // In case of failure, attributes up until the first invalid attribute
+  // actually will be present in |attributes|.
+  bool GetAllAttributes(
+      std::vector<BaseNL80211Attr>* attributes) const;
 
   template <typename T>
   bool GetAttributeValue(int id, T* value) const {

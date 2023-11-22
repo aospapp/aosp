@@ -36,12 +36,6 @@ import java.security.Provider;
 public final class OpenSSLProvider extends Provider {
     private static final long serialVersionUID = 2996752495318905136L;
 
-    /**
-     * Default name used in the {@link java.security.Security JCE system} by {@code OpenSSLProvider}
-     * if the {@link #OpenSSLProvider() default constructor} is used.
-     */
-    private static final String PROVIDER_NAME = "AndroidOpenSSL";
-
     private static final String PREFIX = OpenSSLProvider.class.getPackage().getName() + ".";
 
     private static final String STANDARD_EC_PRIVATE_KEY_INTERFACE_CLASS_NAME =
@@ -52,11 +46,14 @@ public final class OpenSSLProvider extends Provider {
             "java.security.interfaces.RSAPublicKey";
 
     public OpenSSLProvider() {
-        this(PROVIDER_NAME);
+        this(Platform.getDefaultProviderName());
     }
 
     public OpenSSLProvider(String providerName) {
         super(providerName, 1.0, "Android's OpenSSL-backed security provider");
+
+        // Ensure that the native library has been loaded.
+        NativeCrypto.checkAvailability();
 
         // Make sure the platform is initialized.
         Platform.setup();
@@ -73,10 +70,23 @@ public final class OpenSSLProvider extends Provider {
         put("SSLContext.Default", PREFIX + "DefaultSSLContextImpl");
 
         /* === AlgorithmParameters === */
+        put("AlgorithmParameters.AES", PREFIX + "IvParameters$AES");
+        put("Alg.Alias.AlgorithmParameters.2.16.840.1.101.3.4.1.2", "AES");
+        put("Alg.Alias.AlgorithmParameters.2.16.840.1.101.3.4.1.22", "AES");
+        put("Alg.Alias.AlgorithmParameters.2.16.840.1.101.3.4.1.42", "AES");
+
+        put("AlgorithmParameters.ChaCha20", PREFIX + "IvParameters$ChaCha20");
+
+        put("AlgorithmParameters.DESEDE", PREFIX + "IvParameters$DESEDE");
+        put("Alg.Alias.AlgorithmParameters.TDEA", "DESEDE");
+        put("Alg.Alias.AlgorithmParameters.1.2.840.113549.3.7", "DESEDE");
+
         put("AlgorithmParameters.GCM", PREFIX + "GCMParameters");
         put("Alg.Alias.AlgorithmParameters.2.16.840.1.101.3.4.1.6", "GCM");
         put("Alg.Alias.AlgorithmParameters.2.16.840.1.101.3.4.1.26", "GCM");
         put("Alg.Alias.AlgorithmParameters.2.16.840.1.101.3.4.1.46", "GCM");
+        put("AlgorithmParameters.OAEP", PREFIX + "OAEPParameters");
+        put("AlgorithmParameters.EC", PREFIX + "ECParameters");
 
         /* === Message Digests === */
         put("MessageDigest.SHA-1", PREFIX + "OpenSSLMessageDigestJDK$SHA1");
@@ -105,7 +115,13 @@ public final class OpenSSLProvider extends Provider {
         put("Alg.Alias.MessageDigest.1.2.840.113549.2.5", "MD5");
 
         /* == KeyGenerators == */
+        put("KeyGenerator.ARC4", PREFIX + "KeyGeneratorImpl$ARC4");
+        put("Alg.Alias.KeyGenerator.RC4", "ARC4");
+        put("Alg.Alias.KeyGenerator.1.2.840.113549.3.4", "ARC4");
+
         put("KeyGenerator.AES", PREFIX + "KeyGeneratorImpl$AES");
+
+        put("KeyGenerator.ChaCha20", PREFIX + "KeyGeneratorImpl$ChaCha20");
 
         put("KeyGenerator.DESEDE", PREFIX + "KeyGeneratorImpl$DESEDE");
         put("Alg.Alias.KeyGenerator.TDEA", "DESEDE");
@@ -397,6 +413,11 @@ public final class OpenSSLProvider extends Provider {
                 "AES_128/GCM/NoPadding", "OpenSSLCipher$EVP_AEAD$AES$GCM$AES_128");
         putSymmetricCipherImplClass(
                 "AES_256/GCM/NoPadding", "OpenSSLCipher$EVP_AEAD$AES$GCM$AES_256");
+
+        putSymmetricCipherImplClass("ChaCha20",
+                "OpenSSLCipherChaCha20");
+        putSymmetricCipherImplClass("ChaCha20/Poly1305/NoPadding",
+                "OpenSSLCipher$EVP_AEAD$ChaCha20");
 
         /* === Mac === */
 

@@ -21,21 +21,22 @@
 #include "art_method-inl.h"
 #include "base/callee_save_type.h"
 #include "base/enums.h"
+#include "base/utils.h"
 #include "class_linker.h"
-#include "compiled_method.h"
+#include "compiled_method-inl.h"
+#include "dex/descriptors_names.h"
 #include "dex/quick_compiler_callbacks.h"
 #include "dex/verification_results.h"
 #include "driver/compiler_driver.h"
 #include "driver/compiler_options.h"
 #include "interpreter/interpreter.h"
-#include "mirror/class_loader.h"
 #include "mirror/class-inl.h"
+#include "mirror/class_loader.h"
 #include "mirror/dex_cache.h"
 #include "mirror/object-inl.h"
 #include "oat_quick_method_header.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread-current-inl.h"
-#include "utils.h"
 
 namespace art {
 
@@ -95,7 +96,7 @@ void CommonCompilerTest::MakeExecutable(ArtMethod* method) {
     const void* method_code = CompiledMethod::CodePointer(code_ptr,
                                                           compiled_method->GetInstructionSet());
     LOG(INFO) << "MakeExecutable " << method->PrettyMethod() << " code=" << method_code;
-    class_linker_->SetEntryPointsToCompiledCode(method, method_code);
+    method->SetEntryPointFromQuickCompiledCode(method_code);
   } else {
     // No code? You must mean to go into the interpreter.
     // Or the generic JNI...
@@ -174,7 +175,6 @@ void CommonCompilerTest::SetUp() {
       }
     }
 
-    timer_.reset(new CumulativeLogger("Compilation times"));
     CreateCompilerDriver(compiler_kind_, instruction_set);
   }
 }
@@ -193,9 +193,6 @@ void CommonCompilerTest::CreateCompilerDriver(Compiler::Kind kind,
                                             GetCompiledClasses(),
                                             GetCompiledMethods(),
                                             number_of_threads,
-                                            /* dump_stats */ true,
-                                            /* dump_passes */ true,
-                                            timer_.get(),
                                             /* swap_fd */ -1,
                                             GetProfileCompilationInfo()));
   // We typically don't generate an image in unit tests, disable this optimization by default.
@@ -227,7 +224,6 @@ InstructionSet CommonCompilerTest::GetInstructionSet() const {
 }
 
 void CommonCompilerTest::TearDown() {
-  timer_.reset();
   compiler_driver_.reset();
   callbacks_.reset();
   verification_results_.reset();

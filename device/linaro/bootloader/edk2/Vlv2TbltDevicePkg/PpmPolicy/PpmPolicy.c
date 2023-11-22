@@ -33,8 +33,6 @@ Abstract:
 #define EFI_CPUID_MODEL                       0x00F0
 #define EFI_CPUID_STEPPING                    0x000F
 
-
-
 EFI_STATUS 
 EFIAPI
 PpmPolicyEntry(
@@ -42,25 +40,22 @@ PpmPolicyEntry(
   IN EFI_SYSTEM_TABLE *SystemTable
 )
 {
+  EFI_BOOT_SERVICES        *pBS;
   EFI_MP_SERVICES_PROTOCOL *MpService;
   EFI_CPUID_REGISTER        Cpuid01 = { 0, 0, 0, 0};
   EFI_HANDLE                Handle;
   EFI_STATUS                Status;
   UINTN                     CpuCount;
-  UINT64                    MaxRatio;
   UINT8                     CPUMobileFeature;
 
   PCH_STEPPING              Stepping;
 
-
-  gBS = SystemTable->BootServices;
   pBS = SystemTable->BootServices;
-  pRS = SystemTable->RuntimeServices;
 
   //
   // Set PPM policy structure to known value
   //
-  gBS->SetMem (&mDxePlatformPpmPolicy, sizeof(PPM_PLATFORM_POLICY_PROTOCOL), 0);
+  pBS->SetMem (&mDxePlatformPpmPolicy, sizeof(PPM_PLATFORM_POLICY_PROTOCOL), 0);
 
   //
   // Find the MpService Protocol
@@ -81,8 +76,6 @@ PpmPolicyEntry(
   // Store the CPUID for use by SETUP items.
   //
   AsmCpuid (EFI_CPUID_VERSION_INFO, &Cpuid01.RegEax, &Cpuid01.RegEbx, &Cpuid01.RegEcx, &Cpuid01.RegEdx);
-  MaxRatio = ((RShiftU64 (AsmReadMsr64(EFI_MSR_IA32_PLATFORM_ID), 8)) & 0x1F);
-
 
   mDxePlatformPpmPolicy.Revision                       = PPM_PLATFORM_POLICY_PROTOCOL_REVISION_4;
 
@@ -147,7 +140,7 @@ PpmPolicyEntry(
   mDxePlatformPpmPolicy.S3RestoreMsrSwSmiNumber                       = S3_RESTORE_MSR_SW_SMI;
 
   Handle = NULL;
-  Status = gBS->InstallMultipleProtocolInterfaces (
+  Status = pBS->InstallMultipleProtocolInterfaces (
                                                   &Handle,
                                                   &gPpmPlatformPolicyProtocolGuid,
                                                   &mDxePlatformPpmPolicy,

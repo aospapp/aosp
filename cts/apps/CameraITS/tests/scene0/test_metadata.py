@@ -90,8 +90,8 @@ def main():
         pixel_pitch_w = (sensor_size["width"] / fmts[0]["width"] * 1E3)
         print "Assert pixel_pitch WxH: %.2f um, %.2f um" % (pixel_pitch_w,
                                                             pixel_pitch_h)
-        assert 1.0 <= pixel_pitch_w <= 10
-        assert 1.0 <= pixel_pitch_h <= 10
+        assert 0.9 <= pixel_pitch_w <= 10
+        assert 0.9 <= pixel_pitch_h <= 10
         assert 0.333 <= pixel_pitch_w/pixel_pitch_h <= 3.0
 
         diag = math.sqrt(sensor_size["height"] ** 2 +

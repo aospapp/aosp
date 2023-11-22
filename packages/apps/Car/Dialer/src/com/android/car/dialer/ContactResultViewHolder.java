@@ -27,8 +27,10 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.android.car.apps.common.CircleBitmapDrawable;
+import androidx.car.utils.ListItemBackgroundResolver;
+
 import com.android.car.apps.common.LetterTileDrawable;
+import com.android.car.dialer.ui.CircleBitmapDrawable;
 
 import java.io.FileNotFoundException;
 import java.io.InputStream;
@@ -56,7 +58,7 @@ public class ContactResultViewHolder extends RecyclerView.ViewHolder {
      * provided {@link ContactDetails}.
      */
     public void bind(ContactDetails details, int itemCount) {
-        updateBackground(itemCount);
+        ListItemBackgroundResolver.setBackground(mContactCard, getAdapterPosition(), itemCount);
 
         mContactCard.setOnClickListener(v -> {
             Intent intent = new Intent();
@@ -92,32 +94,6 @@ public class ContactResultViewHolder extends RecyclerView.ViewHolder {
         letterTileDrawable.setContactDetails(details.displayName, details.displayName);
         letterTileDrawable.setIsCircular(true);
         mContactPicture.setImageDrawable(letterTileDrawable);
-    }
-
-    /**
-     * Sets the appropriate background on the card containing the preset information. The cards
-     * need to have rounded corners depending on its position in the list and the number of items
-     * in the list.
-     */
-    private void updateBackground(int itemCount) {
-        int position = getAdapterPosition();
-
-        // Correctly set the background for each card. Only the top and last card should
-        // have rounded corners.
-        if (itemCount == 1) {
-            // One card - all corners are rounded
-            mContactCard.setBackgroundResource(
-                    R.drawable.car_card_rounded_top_bottom_background);
-        } else if (position == 0) {
-            // First card gets rounded top
-            mContactCard.setBackgroundResource(R.drawable.car_card_rounded_top_background);
-        } else if (position == itemCount - 1) {
-            // Last one has a rounded bottom
-            mContactCard.setBackgroundResource(R.drawable.car_card_rounded_bottom_background);
-        } else {
-            // Middle has no rounded corners
-            mContactCard.setBackgroundResource(R.color.car_card);
-        }
     }
 
     /**

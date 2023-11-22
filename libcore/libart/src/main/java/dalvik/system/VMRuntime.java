@@ -20,6 +20,7 @@ import dalvik.annotation.optimization.FastNative;
 import java.lang.ref.FinalizerReference;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Provides an interface to VM-global, Dalvik-specific features.
@@ -58,6 +59,8 @@ public final class VMRuntime {
      * @hide
      */
     public static final int SDK_VERSION_CUR_DEVELOPMENT = 10000;
+
+    private static Consumer<String> nonSdkApiUsageConsumer = null;
 
     private int targetSdkVersion = SDK_VERSION_CUR_DEVELOPMENT;
 
@@ -259,6 +262,30 @@ public final class VMRuntime {
     public native void disableJitCompilation();
 
     /**
+     * Returns true if the app has accessed a hidden API. This does not include
+     * attempts which have been blocked.
+     */
+    public native boolean hasUsedHiddenApi();
+
+    /**
+     * Sets the list of exemptions from hidden API access enforcement.
+     *
+     * @param signaturePrefixes
+     *         A list of signature prefixes. Each item in the list is a prefix match on the type
+     *         signature of a blacklisted API. All matching APIs are treated as if they were on
+     *         the whitelist: access permitted, and no logging..
+     */
+    public native void setHiddenApiExemptions(String[] signaturePrefixes);
+
+    /**
+     * Sets the log sampling rate of hidden API accesses written to the event log.
+     *
+     * @param rate Proportion of hidden API accesses that will be logged; an integer between
+     *                0 and 0x10000 inclusive.
+     */
+    public native void setHiddenApiAccessLogSamplingRate(int rate);
+
+    /**
      * Returns an array allocated in an area of the Java heap where it will never be moved.
      * This is used to implement native allocations on the Java heap, such as DirectByteBuffers
      * and Bitmaps.
@@ -304,6 +331,11 @@ public final class VMRuntime {
      */
     @FastNative
     public native boolean isNativeDebuggable();
+
+    /**
+     * Returns true if Java debugging is enabled.
+     */
+    public native boolean isJavaDebuggable();
 
     /**
      * Registers a native allocation so that the heap knows about it and performs GC as required.
@@ -426,4 +458,23 @@ public final class VMRuntime {
      * Sets up the priority of the system daemon thread (caller).
      */
     public static native void setSystemDaemonThreadPriority();
+
+    /**
+     * Sets a callback that the runtime can call whenever a usage of a non SDK API is detected.
+     */
+    public static void setNonSdkApiUsageConsumer(Consumer<String> consumer) {
+        nonSdkApiUsageConsumer = consumer;
+    }
+
+    /**
+     * Sets whether or not the runtime should dedupe detection and warnings for hidden API usage.
+     * If deduping is enabled, only the first usage of each API will be detected. The default
+     * behaviour is to dedupe.
+     */
+    public static native void setDedupeHiddenApiWarnings(boolean dedupe);
+
+    /**
+     * Sets the package name of the app running in this process.
+     */
+    public static native void setProcessPackageName(String packageName);
 }

@@ -14,21 +14,27 @@
 
 instrumentation_tests := \
     HelloWorldTests \
+    BluetoothInstrumentationTests \
     crashcollector \
-    LongevityLibTests \
+    LongevityPlatformLibTests \
     ManagedProvisioningTests \
     FrameworksCoreTests \
+    BinderProxyCountingTestApp \
+    BinderProxyCountingTestService \
     FrameworksNetTests \
-    FrameworksNotificationTests \
+    FrameworksUiServicesTests \
+    BstatsTestApp \
     ConnTestApp \
     FrameworksServicesTests \
+    JobTestApp \
+    SuspendTestApp \
     FrameworksUtilTests \
     MtpDocumentsProviderTests \
+    MtpTests \
     DocumentsUITests \
     ShellTests \
     SystemUITests \
     TestablesTests \
-    RecyclerViewTests \
     FrameworksWifiApiTests \
     FrameworksWifiTests \
     FrameworksTelephonyTests \
@@ -36,6 +42,7 @@ instrumentation_tests := \
     ContactsProviderTests2 \
     SettingsUnitTests \
     TelecomUnitTests \
+    TraceurUiTests \
     AndroidVCardTests \
     PermissionFunctionalTests \
     BlockedNumberProviderTest \
@@ -43,8 +50,10 @@ instrumentation_tests := \
     LauncherFunctionalTests \
     DownloadAppFunctionalTests \
     NotificationFunctionalTests \
+    DexLoggerIntegrationTests \
+    UsbTests \
     DownloadProviderTests \
-    EmergencyInfoTests \
+    EmergencyInfoUnitTests \
     CalendarProviderTests \
     SettingsLibTests \
     RSTest \
@@ -53,15 +62,18 @@ instrumentation_tests := \
     TelephonyProviderTests \
     CarrierConfigTests \
     TeleServiceTests \
+    PresencePollingTests \
     SettingsProviderTest \
-    SettingsTests
+    FrameworksLocationTests \
+    FrameworksPrivacyLibraryTests \
+    SettingsUITests
 
 # Android Things specific tests
 ifeq ($(PRODUCT_IOT),true)
 
 instrumentation_tests += \
     AndroidThingsTests \
-    IoTLauncherTests \
+    ThingsIntegrationTests \
     WifiSetupUnitTests
 
 endif  # PRODUCT_IOT == true

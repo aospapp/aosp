@@ -16,6 +16,9 @@
 
 package android.media.tests;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import android.content.Context;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
@@ -27,43 +30,47 @@ import android.media.audiopolicy.AudioMixingRule;
 import android.media.audiopolicy.AudioPolicy;
 import android.os.Handler;
 import android.os.Looper;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.MediumTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
+@RunWith(AndroidJUnit4.class)
 @MediumTest
-public class AudioPolicyTest extends AndroidTestCase {
+public class AudioPolicyTest {
     private static final String TAG = AudioPolicyTest.class.getSimpleName();
     private static final long WAIT_TIMEOUT_MS = 1000;
     private AudioManager mAudioManager;
     private Handler mHandler;
+    private Context mContext = InstrumentationRegistry.getContext();
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mHandler = new Handler(Looper.getMainLooper());
         final Semaphore mWaitSemaphore = new Semaphore(0);
-        mHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
-                mWaitSemaphore.release();
-            }
+        mHandler.post(() -> {
+            mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
+            mWaitSemaphore.release();
         });
         assertTrue(mWaitSemaphore.tryAcquire(WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS));
     }
 
+    @Test
     public void testAudioPorts() throws Exception {
         AudioPortUpdateListener listener = new AudioPortUpdateListener();
         mAudioManager.registerAudioPortUpdateListener(listener);
         ArrayList<AudioPort> initialPorts = dumpAudioPorts("initial state");
         AudioMix mediaMix = createAudioMix(AudioAttributes.CONTENT_TYPE_UNKNOWN,
                 AudioAttributes.CONTENT_TYPE_MUSIC);
-        AudioPolicy audioPolicy = new AudioPolicy.Builder(getContext())
+        AudioPolicy audioPolicy = new AudioPolicy.Builder(mContext)
                 .addMix(mediaMix)
                 .setLooper(Looper.getMainLooper())
                 .build();

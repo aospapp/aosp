@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2016 The Android Open Source Project
+<!-- Copyright (C) 2017 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -18,25 +18,26 @@
      two is text sizes and spacing. -->
 <com.android.packageinstaller.permission.ui.ManualLayoutFrame
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
     android:clipChildren="false">
 
     <LinearLayout
         android:id="@+id/dialog_container"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:padding="96dp"
+        android:background="@drawable/background_round_corners"
         android:orientation="vertical">
 
         <FrameLayout
             android:id="@+id/desc_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingTop="24dp"
-            android:paddingStart="22dp"
-            android:paddingEnd="16dp"
-            android:background="?android:attr/colorBackgroundFloating">
+            android:layout_marginTop="@dimen/car_padding_4"
+            android:layout_marginStart="@dimen/car_keyline_1"
+            android:layout_marginBottom="@dimen/car_padding_2"
+            android:layout_marginEnd="@dimen/car_keyline_1">
+
             <include
                 layout="@layout/permission_description" />
         </FrameLayout>
@@ -44,22 +45,20 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingBottom="8dp"
-            android:paddingStart="22dp"
-            android:paddingEnd="16dp"
-            android:background="?android:attr/colorBackgroundFloating">
+            android:orientation="vertical">
 
             <CheckBox
                 android:id="@+id/do_not_ask_checkbox"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/auto_permission_checkbox_margin_top"
-                android:layout_marginBottom="@dimen/auto_permission_checkbox_margin_bottom"
-                android:layout_marginStart="@dimen/auto_permission_text_keyline"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/car_single_line_list_item_height"
+                android:layout_marginStart="@dimen/car_keyline_1"
+                android:layout_marginEnd="@dimen/car_keyline_1"
+                android:gravity="center_vertical"
+                android:paddingLeft="@dimen/car_keyline_1_keyline_3_diff"
+                android:button="@drawable/ic_check_box"
                 android:text="@string/never_ask_again"
                 android:textColor="?android:attr/textColorSecondary"
-                android:textSize="@dimen/auto_permission_button_bar_text_size"
+                android:textSize="@dimen/car_action1_size"
                 android:visibility="gone">
             </CheckBox>
 
@@ -67,53 +66,54 @@
                 android:id="@+id/button_group"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:orientation="horizontal"
-                android:paddingStart="2dp"
-                android:paddingTop="16dp">
+                android:layout_marginTop="@dimen/car_padding_2"
+                android:layoutDirection="locale"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-                <TextView
-                    android:id="@+id/current_page_text"
+                <Button
+                    android:id="@+id/permission_deny_button"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:paddingTop="4dp"
-                    android:paddingStart="@dimen/auto_permission_text_keyline"
-                    android:paddingBottom="4dp"
-                    android:paddingEnd="12dp"
-                    android:singleLine="true"
-                    android:textSize="@dimen/auto_permission_button_bar_text_size"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:visibility="invisible">
-                </TextView>
+                    android:layout_height="@dimen/car_dialog_action_bar_height"
+                    android:background="@drawable/dialog_button_background"
+                    android:paddingStart="@dimen/car_keyline_1"
+                    android:paddingEnd="@dimen/car_padding_4"
+                    android:text="@string/grant_dialog_button_deny"
+                    android:textColor="@color/car_highlight"
+                    android:textSize="@dimen/car_action1_size"
+                    android:textStyle="bold">
+                </Button>
+
+                <Button
+                    android:id="@+id/permission_allow_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="@dimen/car_dialog_action_bar_height"
+                    android:background="@drawable/dialog_button_background"
+                    android:paddingStart="@dimen/car_padding_4"
+                    android:paddingEnd="@dimen/car_padding_4"
+                    android:text="@string/grant_dialog_button_allow"
+                    android:textColor="@color/car_highlight"
+                    android:textSize="@dimen/car_action1_size"
+                    android:textStyle="bold">
+                </Button>
 
                 <Space
                     android:id="@*android:id/spacer"
                     android:layout_width="0dp"
                     android:layout_height="0dp"
                     android:layout_weight="1"
-                    android:visibility="invisible" >
+                    android:visibility="invisible">
                 </Space>
 
-                <Button
-                    android:id="@+id/permission_deny_button"
+                <TextView
+                    android:id="@+id/current_page_text"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    style="?android:attr/buttonBarButtonStyle"
-                    android:padding="@dimen/auto_permission_button_padding"
-                    android:textSize="@dimen/auto_permission_button_bar_text_size"
-                    android:text="@string/grant_dialog_button_deny" >
-                </Button>
-
-                <Button
-                    android:id="@+id/permission_allow_button"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    style="?android:attr/buttonBarButtonStyle"
-                    android:layout_marginStart="8dp"
-                    android:padding="@dimen/auto_permission_button_padding"
-                    android:textSize="@dimen/auto_permission_button_bar_text_size"
-                    android:text="@string/grant_dialog_button_allow" >
-                </Button>
+                    android:paddingEnd="@dimen/car_keyline_1"
+                    android:maxLines="1"
+                    android:textAppearance="@style/TextAppearance.Car.Body2"
+                    android:visibility="invisible">
+                </TextView>
 
             </com.android.packageinstaller.permission.ui.ButtonBarLayout>
 

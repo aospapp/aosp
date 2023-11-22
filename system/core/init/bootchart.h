@@ -20,10 +20,13 @@
 #include <string>
 #include <vector>
 
+#include "builtin_arguments.h"
+#include "result.h"
+
 namespace android {
 namespace init {
 
-int do_bootchart(const std::vector<std::string>& args);
+Result<Success> do_bootchart(const BuiltinArguments& args);
 
 }  // namespace init
 }  // namespace android

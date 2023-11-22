@@ -247,7 +247,7 @@ public class NumberFormatTest extends junit.framework.TestCase {
 
         // Armenian Dram 0 fractional digits.
         nf = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("hy-AM"));
-        assertEquals("֏\u00a050", nf.format(50.00));
+        assertEquals("50\u00a0֏", nf.format(50.00));
 
         // Swiss Francs 2 fractional digits.
         nf = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("de-CH"));

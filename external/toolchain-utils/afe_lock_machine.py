@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 # Copyright 2015 Google INc.  All Rights Reserved.
 """This module controls locking and unlocking of test machines."""
@@ -65,7 +65,7 @@ class AFELockManager(object):
   changing the lock status of machines on either server.  For the ChromeOS
   HW Lab, it only allows access to the toolchain team lab machines, as
   defined in toolchain-utils/crosperf/default_remotes.  By default it will
-  look for a local server on chrotomation2.mtv.corp.google.com, but an
+  look for a local server on chrotomation2.svl.corp.google.com, but an
   alternative local AFE server can be supplied, if desired.
 
   !!!IMPORTANT NOTE!!!  The AFE server can only be called from the main
@@ -74,7 +74,7 @@ class AFELockManager(object):
   in the Python virtual machine (and signal handling) and cannot be changed.
   """
 
-  LOCAL_SERVER = 'chrotomation2.mtv.corp.google.com'
+  LOCAL_SERVER = 'chrotomation2.svl.corp.google.com'
 
   def __init__(self,
                remotes,
@@ -97,6 +97,7 @@ class AFELockManager(object):
         machines that are not in the ChromeOS HW lab.
       local: A Boolean indicating whether or not to use/allow a local AFE
         server to be used (see local_server argument).
+      use_local: Use the local server instead of the official one.
       log: If not None, this is the logger object to be used for writing out
         informational output messages.  It is expected to be an instance of
         Logger class from cros_utils/logger.py.
@@ -272,9 +273,9 @@ class AFELockManager(object):
     for m in self.machines:
       for cros_name in [m, m + '.cros']:
         if cros_name in self.toolchain_lab_machines:
-          raise UpdateNonLocalMachine('Machine %s is already in the ChromeOS HW'
-                                      'Lab.  Cannot add it to local server.' %
-                                      cros_name)
+          raise UpdateNonLocalMachine(
+              'Machine %s is already in the ChromeOS HW'
+              'Lab.  Cannot add it to local server.' % cros_name)
       host_info = self.local_afe.get_hosts(hostname=m)
       if host_info:
         raise DuplicateAdd('Machine %s is already on the local server.' % m)
@@ -380,9 +381,10 @@ class AFELockManager(object):
       afe_server = self.local_afe
 
     try:
-      afe_server.run('modify_hosts',
-                     host_filter_data={'hostname__in': [m]},
-                     update_data=kwargs)
+      afe_server.run(
+          'modify_hosts',
+          host_filter_data={'hostname__in': [m]},
+          update_data=kwargs)
     except Exception as e:
       traceback.print_exc()
       raise LockingError('Unable to %s machine %s. %s' % (action, m, str(e)))
@@ -426,8 +428,9 @@ class AFELockManager(object):
       if machine.find('.cros') == -1:
         cros_machine = cros_machine + '.cros'
 
-    self.machines = [m for m in self.machines
-                     if m != cros_machine and m != machine]
+    self.machines = [
+        m for m in self.machines if m != cros_machine and m != machine
+    ]
 
   def CheckMachineLocks(self, machine_states, cmd):
     """Check that every machine in requested list is in the proper state.
@@ -456,8 +459,8 @@ class AFELockManager(object):
                             'else (%s).' % (k, state['locked_by']))
       elif cmd == 'lock':
         if state['locked']:
-          self.logger.LogWarning('Attempt to lock already locked machine (%s)' %
-                                 k)
+          self.logger.LogWarning(
+              'Attempt to lock already locked machine (%s)' % k)
           self._InternalRemoveMachine(k)
 
   def HasAFEServer(self, local):

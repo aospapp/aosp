@@ -2,11 +2,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, time
+import logging
+import time
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.graphics import graphics_utils
+from autotest_lib.client.cros.power import power_utils, power_rapl, power_status
 
 
 PLAYBACK_TEST_TIME_S = 10
@@ -30,17 +32,29 @@ class YouTubeHelper(object):
 
     """
 
-
-    def __init__(self, youtube_tab):
+    def __init__(self, youtube_tab, power_logging=False):
         self._tab = youtube_tab
         self._video_duration = 0
+        self.power_logger = None
 
+        if power_logging and power_utils.has_rapl_support():
+            self.power_logger = power_status.PowerLogger(
+                power_rapl.create_rapl())
+            self.power_logger.start()
 
     def set_video_duration(self):
         """Sets the video duration."""
         self._video_duration = (int(self._tab.EvaluateJavaScript(
-                'player.getDuration()')))
+            'player.getDuration()')))
 
+    def get_power_measurement(self):
+        """Return power measurement.
+
+        @return: power readings. None if power_logging is not enabled.
+        """
+        if self.power_logger:
+            return self.power_logger.calc()
+        return None
 
     def video_current_time(self):
         """Returns video's current playback time.
@@ -51,13 +65,11 @@ class YouTubeHelper(object):
         """
         return int(self._tab.EvaluateJavaScript('player.getCurrentTime()'))
 
-
     def get_player_status(self):
         """Returns the player status."""
         return self._tab.EvaluateJavaScript(
-                '(typeof playerStatus !== \'undefined\') && '
-                'playerStatus.innerHTML')
-
+            '(typeof playerStatus !== \'undefined\') && '
+            'playerStatus.innerHTML')
 
     def set_playback_quality(self, quality):
         """Set the video quality to the quality passed in the arg.
@@ -66,13 +78,11 @@ class YouTubeHelper(object):
 
         """
         self._tab.ExecuteJavaScript(
-                'player.setPlaybackQuality("%s")' % quality)
-
+            'player.setPlaybackQuality("%s")' % quality)
 
     def get_playback_quality(self):
         """Returns the playback quality."""
         return self._tab.EvaluateJavaScript('player.getPlaybackQuality()')
-
 
     def wait_for_player_state(self, expected_status):
         """Wait till the player status changes to expected_status.
@@ -87,16 +97,16 @@ class YouTubeHelper(object):
         utils.poll_for_condition(
             lambda: self.get_player_status() == expected_status,
             exception=error.TestError(
-                        'Video failed to load. Player expected status: %s'
-                        ' and current status: %s.'
-                        % (expected_status, self.get_player_status())),
+                'Video failed to load. Player expected status: %s'
+                ' and current status: %s.'
+                % (expected_status, self.get_player_status())),
             timeout=WAIT_TIMEOUT_S,
             sleep_interval=1)
 
     def verify_video_playback(self):
         """Verify the video playback."""
         logging.info('Verifying the YouTube video playback.')
-        playback = 0 # seconds
+        playback = 0  # seconds
         prev_playback = 0
         count = 0
         while (self.video_current_time() < self._video_duration
@@ -106,18 +116,17 @@ class YouTubeHelper(object):
                 if count < 2:
                     logging.info('Retrying to video playback test.')
                     self._tab.ExecuteJavaScript(
-                            'player.seekTo(%d, true)'
-                            % (self.video_current_time() + 2))
+                        'player.seekTo(%d, true)'
+                        % (self.video_current_time() + 2))
                     time.sleep(1)
                     count = count + 1
                 else:
                     player_status = self.get_player_status()
                     raise error.TestError(
-                            'Video is not playing. Player status: %s.' %
-                            player_status)
+                        'Video is not playing. Player status: %s.' %
+                        player_status)
             prev_playback = self.video_current_time()
             playback = playback + 1
-
 
     def wait_for_expected_resolution(self, expected_quality):
         """Wait for some time for getting expected resolution.
@@ -134,8 +143,7 @@ class YouTubeHelper(object):
                 logging.info('Waiting for expected resolution.')
                 time.sleep(0.1)
 
-
-    def verify_video_resolutions(self):
+    def verify_video_resolutions(self, power_measurement=False):
         """Verify available video resolutions.
 
         Video resolution should be 360p, 480p, 720p and 1080p.
@@ -143,34 +151,53 @@ class YouTubeHelper(object):
         """
         logging.info('Verifying the video resolutions.')
         video_qualities = self._tab.EvaluateJavaScript(
-                'player.getAvailableQualityLevels()')
+            'player.getAvailableQualityLevels()')
         logging.info('Available video resolutions: %s', video_qualities)
         if not video_qualities:
             raise error.TestError(
-                    'Player failed to return available video qualities.')
+                'Player failed to return available video qualities.')
         video_qualities.reverse()
 
         running_quality = self.get_playback_quality()
         index = video_qualities.index(running_quality)
-        supporting_qualities = video_qualities[index :]
+        supporting_qualities = video_qualities[index:]
         logging.info("new video quality %s ", supporting_qualities)
 
         width, height = graphics_utils.get_internal_resolution()
         logging.info('checking resolution: %d width  %d height', width, height)
         for quality in supporting_qualities:
             logging.info('Playing video in %s quality.', quality)
+
+            if quality == "hd1080":
+                self._tab.ExecuteJavaScript('player.setSize(1920, 1080)')
+            if quality == "hd720":
+                self._tab.ExecuteJavaScript('player.setSize(1280, 720)')
+            if quality == "large":
+                self._tab.ExecuteJavaScript('player.setSize(853, 480)')
+            if quality == "medium":
+                self._tab.ExecuteJavaScript('player.setSize(640, 360)')
+            if quality == "small":
+                self._tab.ExecuteJavaScript('player.setSize(320, 240)')
+
             self.set_playback_quality(quality)
             self.wait_for_player_state(PLAYER_PLAYING_STATE)
             self.wait_for_expected_resolution(quality)
             current_quality = self.get_playback_quality()
 
-            if current_quality != quality :
-              raise error.TestError(
-                      'Expected video quality: %s. Current video quality: %s'
-                             % (quality, current_quality))
+            if current_quality != quality:
+                raise error.TestError(
+                    'Expected video quality: %s. Current video quality: %s'
+                    % (quality, current_quality))
 
-            time.sleep(1)
-
+            if power_measurement and self.power_logger:
+                # Seeking to the beginning and ensure the player is playing.
+                self._tab.ExecuteJavaScript('player.seekTo(0, true)')
+                self._tab.ExecuteJavaScript('player.playVideo()')
+                self.wait_for_player_state(PLAYER_PLAYING_STATE)
+                with self.power_logger.checkblock('youtube-' + quality):
+                    time.sleep(10)
+            else:
+                time.sleep(1)
 
     def verify_player_states(self):
         """Verify the player states like play, pause, ended and seek."""
@@ -186,11 +213,11 @@ class YouTubeHelper(object):
                                    self.video_current_time() - 2)
         if video_end_test_duration >= WAIT_TIMEOUT_S:
             self._tab.ExecuteJavaScript(
-                    'player.seekTo(%d, true)' % (self._video_duration - 5))
+                'player.seekTo(%d, true)' % (self._video_duration - 5))
             self.wait_for_player_state(PLAYER_ENDED_STATE)
         else:
             raise error.TestError(
-                    'Test video is not long enough for the video end test.')
+                'Test video is not long enough for the video end test.')
         # Verifying seek back from the end position.
         self._tab.ExecuteJavaScript('player.seekTo(%d, true)'
                                     % (self._video_duration / 2))
@@ -207,6 +234,6 @@ class YouTubeHelper(object):
                 break
         if not seek_test:
             raise error.TestError(
-                    'Seek location is wrong. '
-                    'Video length: %d, seek position: %d.' %
-                    (self._video_duration, seek_position))
+                'Seek location is wrong. '
+                'Video length: %d, seek position: %d.' %
+                (self._video_duration, seek_position))

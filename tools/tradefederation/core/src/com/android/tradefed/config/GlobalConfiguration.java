@@ -18,6 +18,7 @@ package com.android.tradefed.config;
 
 import com.android.tradefed.command.CommandScheduler;
 import com.android.tradefed.command.ICommandScheduler;
+import com.android.tradefed.config.gcs.GCSConfigurationFactory;
 import com.android.tradefed.device.DeviceManager;
 import com.android.tradefed.device.DeviceSelectionOptions;
 import com.android.tradefed.device.IDeviceManager;
@@ -35,18 +36,20 @@ import com.android.tradefed.util.hostmetric.IHostMonitor;
 import com.android.tradefed.util.keystore.IKeyStoreFactory;
 import com.android.tradefed.util.keystore.StubKeyStoreFactory;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import org.kxml2.io.KXmlSerializer;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
 
 /**
  * An {@link IGlobalConfiguration} implementation that stores the loaded config objects in a map
@@ -63,8 +66,11 @@ public class GlobalConfiguration implements IGlobalConfiguration {
     public static final String MULTI_DEVICE_RECOVERY_TYPE_NAME = "multi_device_recovery";
     public static final String KEY_STORE_TYPE_NAME = "key_store";
     public static final String SHARDING_STRATEGY_TYPE_NAME = "sharding_strategy";
+    public static final String GLOBAL_CONFIG_SERVER = "global_config_server";
 
     public static final String GLOBAL_CONFIG_VARIABLE = "TF_GLOBAL_CONFIG";
+    public static final String GLOBAL_CONFIG_SERVER_CONFIG_VARIABLE =
+            "TF_GLOBAL_CONFIG_SERVER_CONFIG";
     private static final String GLOBAL_CONFIG_FILENAME = "tf_global_config.xml";
 
     private static Map<String, ObjTypeInfo> sObjTypeMap = null;
@@ -131,17 +137,27 @@ public class GlobalConfiguration implements IGlobalConfiguration {
             if (sInstance != null) {
                 throw new IllegalStateException("GlobalConfiguration is already initialized!");
             }
-
             List<String> nonGlobalArgs = new ArrayList<String>(args.length);
-            IConfigurationFactory configFactory = ConfigurationFactory.getInstance();
-            String globalConfigPath = getGlobalConfigPath();
-            sInstance = configFactory.createGlobalConfigurationFromArgs(
-                    ArrayUtil.buildArray(new String[] {globalConfigPath}, args), nonGlobalArgs);
-            if (!DEFAULT_EMPTY_CONFIG_NAME.equals(globalConfigPath)) {
-                // Only print when using different from default
-                System.out.format("Success!  Using global config \"%s\"\n", globalConfigPath);
+            List<String> nonConfigServerArgs = new ArrayList<String>(args.length);
+            IConfigurationServer globalConfigServer =
+                    createGlobalConfigServer(args, nonConfigServerArgs);
+            if (globalConfigServer == null) {
+                String path = getGlobalConfigPath();
+                IConfigurationFactory configFactory = ConfigurationFactory.getInstance();
+                sInstance =
+                        configFactory.createGlobalConfigurationFromArgs(
+                                ArrayUtil.buildArray(new String[] {path}, args), nonGlobalArgs);
+            } else {
+                String currentHostConfig = globalConfigServer.getCurrentHostConfig();
+                IConfigurationFactory configFactory =
+                        GCSConfigurationFactory.getInstance(globalConfigServer);
+                sInstance =
+                        configFactory.createGlobalConfigurationFromArgs(
+                                ArrayUtil.buildArray(
+                                        new String[] {currentHostConfig},
+                                        nonConfigServerArgs.toArray(new String[0])),
+                                nonGlobalArgs);
             }
-
             // Validate that madatory options have been set
             sInstance.validateOptions();
             return nonGlobalArgs;
@@ -186,6 +202,36 @@ public class GlobalConfiguration implements IGlobalConfiguration {
     }
 
     /**
+     * Returns an {@link IConfigurationServer}, if one exists, or <code>null</code> if none could be
+     * found.
+     *
+     * @param args for config server
+     * @param nonConfigServerArgs a list which will be populated with the arguments that weren't
+     *     processed as global arguments
+     * @return an {@link IConfigurationServer}
+     * @throws ConfigurationException
+     */
+    @VisibleForTesting
+    static IConfigurationServer createGlobalConfigServer(
+            String[] args, List<String> nonConfigServerArgs) throws ConfigurationException {
+        String path = System.getenv(GLOBAL_CONFIG_SERVER_CONFIG_VARIABLE);
+        if (path == null) {
+            // No config server, should use config files.
+            nonConfigServerArgs.addAll(Arrays.asList(args));
+            return null;
+        } else {
+            System.out.format("Use global config server config %s.\n", path);
+        }
+        IConfigurationServer configServer = null;
+        IConfigurationFactory configFactory = ConfigurationFactory.getInstance();
+        IGlobalConfiguration configServerConfig =
+                configFactory.createGlobalConfigurationFromArgs(
+                        ArrayUtil.buildArray(new String[] {path}, args), nonConfigServerArgs);
+        configServer = configServerConfig.getGlobalConfigServer();
+        return configServer;
+    }
+
+    /**
      * Container struct for built-in config object type
      */
     private static class ObjTypeInfo {
@@ -220,15 +266,15 @@ public class GlobalConfiguration implements IGlobalConfiguration {
                     false));
             sObjTypeMap.put(WTF_HANDLER_TYPE_NAME,
                     new ObjTypeInfo(ITerribleFailureHandler.class, false));
-            sObjTypeMap.put(SCHEDULER_TYPE_NAME,
-                    new ObjTypeInfo(ICommandScheduler.class, false));
-            sObjTypeMap.put(MULTI_DEVICE_RECOVERY_TYPE_NAME,
+            sObjTypeMap.put(SCHEDULER_TYPE_NAME, new ObjTypeInfo(ICommandScheduler.class, false));
+            sObjTypeMap.put(
+                    MULTI_DEVICE_RECOVERY_TYPE_NAME,
                     new ObjTypeInfo(IMultiDeviceRecovery.class, true));
-            sObjTypeMap.put(KEY_STORE_TYPE_NAME,
-                    new ObjTypeInfo(IKeyStoreFactory.class, false));
+            sObjTypeMap.put(KEY_STORE_TYPE_NAME, new ObjTypeInfo(IKeyStoreFactory.class, false));
             sObjTypeMap.put(
                     SHARDING_STRATEGY_TYPE_NAME, new ObjTypeInfo(IShardHelper.class, false));
-
+            sObjTypeMap.put(
+                    GLOBAL_CONFIG_SERVER, new ObjTypeInfo(IConfigurationServer.class, false));
         }
         return sObjTypeMap;
     }
@@ -271,13 +317,16 @@ public class GlobalConfiguration implements IGlobalConfiguration {
         return (IHostOptions) getConfigurationObject(HOST_OPTIONS_TYPE_NAME);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     @SuppressWarnings("unchecked")
     public List<IDeviceMonitor> getDeviceMonitors() {
         return (List<IDeviceMonitor>) getConfigurationObjectList(DEVICE_MONITOR_TYPE_NAME);
+    }
+
+    @Override
+    public IConfigurationServer getGlobalConfigServer() {
+        return (IConfigurationServer) getConfigurationObject(GLOBAL_CONFIG_SERVER);
     }
 
     /**

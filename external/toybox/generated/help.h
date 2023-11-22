@@ -56,19 +56,21 @@
 
 #define HELP_getenforce "usage: getenforce\n\nShows whether SELinux is disabled, enforcing, or permissive.\n\n"
 
-#define HELP_test_scankey "usage: test_scankey\n\nMove a letter around the screen. Hit ESC to exit.\n\n\n"
-
-#define HELP_test_many_options "usage: test_many_options -[a-zA-Z]\n\nPrint the optflags value of the command arguments, in hex.\n\n"
-
-#define HELP_test_human_readable "usage: test_human_readable [-sbi] NUMBER\n\n"
-
-#define HELP_skeleton_alias "usage: skeleton_alias [-dq] [-b NUMBER]\n\nExample of a second command with different arguments in the same source\nfile as the first. This allows shared infrastructure not added to lib/.\n\n"
+#define HELP_skeleton_alias "usage: skeleton_alias [-dq] [-b NUMBER]\n\nExample of a second command with different arguments in the same source\nfile as the first. This allows shared infrastructure not added to lib/.\n\n\n"
 
 #define HELP_skeleton "usage: skeleton [-a] [-b STRING] [-c NUMBER] [-d LIST] [-e COUNT] [...]\n\nTemplate for new commands. You don't need this.\n\nWhen creating a new command, copy this file and delete the parts you\ndon't need. Be sure to replace all instances of \"skeleton\" (upper and lower\ncase) with your new command name.\n\nFor simple commands, \"hello.c\" is probably a better starting point.\n\n"
 
 #define HELP_hostid "usage: hostid\n\nPrint the numeric identifier for the current host.\n\n"
 
-#define HELP_hello "usage: hello [-s]\n\nA hello world program.  You don't need this.\n\nMostly used as a simple template for adding new commands.\nOccasionally nice to smoketest kernel booting via \"init=/usr/bin/hello\".\n\n"
+#define HELP_hello "usage: hello\n\nA hello world program.\n\nMostly used as a simple template for adding new commands.\nOccasionally nice to smoketest kernel booting via \"init=/usr/bin/hello\".\n\n"
+
+#define HELP_test_utf8towc "usage: test_utf8towc\n\nPrint differences between toybox's utf8 conversion routines vs libc du jour.\n\n"
+
+#define HELP_test_scankey "usage: test_scankey\n\nMove a letter around the screen. Hit ESC to exit.\n\n"
+
+#define HELP_test_many_options "usage: test_many_options -[a-zA-Z]\n\nPrint the optflags value of the command arguments, in hex.\n\n"
+
+#define HELP_test_human_readable "usage: test_human_readable [-sbi] NUMBER\n\n"
 
 #define HELP_umount "usage: umount [-a [-t TYPE[,TYPE...]]] [-vrfD] [DIR...]\n\nUnmount the listed filesystems.\n\n-a	Unmount all mounts in /proc/mounts instead of command line list\n-D  Don't free loopback device(s)\n-f  Force unmount\n-l  Lazy unmount (detach from filesystem now, close when last user does)\n-n	Don't use /proc/mounts\n-r  Remount read only if unmounting fails\n-t	Restrict \"all\" to mounts of TYPE (or use \"noTYPE\" to skip)\n-v	Verbose\n\n\n"
 
@@ -128,7 +130,7 @@
 
 #define HELP_yes "usage: yes [args...]\n\nRepeatedly output line until killed. If no args, output 'y'.\n\n\n"
 
-#define HELP_xxd "usage: xxd [-c n] [-g n] [-l n] [-p] [-r] [-s n] [file]\n\nHexdump a file to stdout.  If no file is listed, copy from stdin.\nFilename \"-\" is a synonym for stdin.\n\n-c n	Show n bytes per line (default 16)\n-g n	Group bytes by adding a ' ' every n bytes (default 2)\n-l n	Limit of n bytes before stopping (default is no limit)\n-p	Plain hexdump (30 bytes/line, no grouping)\n-r	Reverse operation: turn a hexdump into a binary file\n-s n	Skip to offset n\n\n"
+#define HELP_xxd "usage: xxd [-c n] [-g n] [-i] [-l n] [-p] [-r] [-s n] [file]\n\nHexdump a file to stdout.  If no file is listed, copy from stdin.\nFilename \"-\" is a synonym for stdin.\n\n-c n	Show n bytes per line (default 16)\n-g n	Group bytes by adding a ' ' every n bytes (default 2)\n-i	Include file output format (comma-separated hex byte literals)\n-l n	Limit of n bytes before stopping (default is no limit)\n-p	Plain hexdump (30 bytes/line, no grouping)\n-r	Reverse operation: turn a hexdump into a binary file\n-s n	Skip to offset n\n\n"
 
 #define HELP_which "usage: which [-a] filename ...\n\nSearch $PATH for executable files matching filename(s).\n\n-a	Show all matches\n\n"
 
@@ -140,7 +142,7 @@
 
 #define HELP_usleep "usage: usleep MICROSECONDS\n\nPause for MICROSECONDS microseconds.\n\n"
 
-#define HELP_uptime "usage: uptime [-s]\n\nTell the current time, how long the system has been running, the number\nof users, and the system load averages for the past 1, 5 and 15 minutes.\n\n-s	Since when has the system been up?\n\n"
+#define HELP_uptime "usage: uptime [-ps]\n\nTell the current time, how long the system has been running, the number\nof users, and the system load averages for the past 1, 5 and 15 minutes.\n\n-p	Pretty (human-readable) uptime\n-s	Since when has the system been up?\n\n"
 
 #define HELP_truncate "usage: truncate [-c] -s SIZE file...\n\nSet length of file(s), extending sparsely if necessary.\n\n-c	Don't create file if it doesn't exist\n-s	New size (with optional prefix and suffix)\n\nSIZE prefix: + add, - subtract, < shrink to, > expand to,\n             / multiple rounding down, % multiple rounding up\nSIZE suffix: k=1024, m=1024^2, g=1024^3, t=1024^4, p=1024^5, e=1024^6\n\n"
 
@@ -165,6 +167,8 @@
 #define HELP_shred "usage: shred [-fuz] [-n COUNT] [-s SIZE] FILE...\n\nSecurely delete a file by overwriting its contents with random data.\n\n-f        Force (chmod if necessary)\n-n COUNT  Random overwrite iterations (default 1)\n-o OFFSET Start at OFFSET\n-s SIZE   Use SIZE instead of detecting file size\n-u        unlink (actually delete file when done)\n-x        Use exact size (default without -s rounds up to next 4k)\n-z        zero at end\n\nNote: data journaling filesystems render this command useless, you must\noverwrite all free space (fill up disk) to erase old data on those.\n\n"
 
 #define HELP_setsid "usage: setsid [-t] command [args...]\n\nRun process in a new session.\n\n-t	Grab tty (become foreground process, receiving keyboard signals)\n\n"
+
+#define HELP_setfattr "usage: setfattr [-h] [-x|-n NAME] [-v VALUE] FILE...\n\nWrite POSIX extended attributes.\n\n-h	Do not dereference symlink\n-n	Set given attribute\n-x	Remove given attribute\n-v	Set value for attribute -n (default is empty)\n\n"
 
 #define HELP_rmmod "usage: rmmod [-wf] [MODULE]\n\nUnload the module named MODULE from the Linux kernel.\n-f	Force unload of a module\n-w	Wait until the module is no longer used\n\n\n"
 
@@ -322,17 +326,17 @@
 
 #define HELP_sulogin "usage: sulogin [-t time] [tty]\n\nSingle User Login.\n-t	Default Time for Single User Login\n\n"
 
+#define HELP_stty "usage: stty [-ag] [-F device] SETTING...\n\nGet/set terminal configuration.\n\n-F	Open device instead of stdin\n-a	Show all current settings (default differences from \"sane\").\n-g	Show all current settings usable as input to stty.\n\nSpecial characters (syntax ^c or undef): intr quit erase kill eof eol eol2\nswtch start stop susp rprnt werase lnext discard\n\nControl/input/output/local settings as shown by -a, '-' prefix to disable\n\nCombo settings: cooked/raw, evenp/oddp/parity, nl, ek, sane\n\nN	set input and output speed (ispeed N or ospeed N for just one)\ncols N	set number of columns\nrows N	set number of rows\nline N	set line discipline\nmin N	set minimum chars per read\ntime N	set read timeout\nspeed	show speed only\nsize	show size only\n\n"
+
 #define HELP_exit "usage: exit [status]\n\nExit shell.  If no return value supplied on command line, use value\nof most recent command, or 0 if none.\n\n"
 
 #define HELP_cd "usage: cd [-PL] [path]\n\nChange current directory.  With no arguments, go $HOME.\n\n-P	Physical path: resolve symlinks in path\n-L	Local path: .. trims directories off $PWD (default)\n\n"
 
 #define HELP_sh "usage: sh [-c command] [script]\n\nCommand shell.  Runs a shell script, or reads input interactively\nand responds to it.\n\n-c	command line to execute\n-i	interactive mode (default when STDIN is a tty)\n\n"
 
-#define HELP_setfattr "usage: setfattr [-h] [-x|-n NAME] [-v VALUE] FILE...\n\nWrite POSIX extended attributes.\n\n-h	Do not dereference symlink\n-n	Set given attribute\n-x	Remove given attribute\n-v	Set value for attribute -n (default is empty)\n\n"
-
 #define HELP_route "usage: route [-ne] [-A [46]] [add|del TARGET [OPTIONS]]\n\nDisplay, add or delete network routes in the \"Forwarding Information Base\".\n\n-n	Show numerical addresses (no DNS lookups)\n-e	display netstat fields\n\nRouting means sending packets out a network interface to an address.\nThe kernel can tell where to send packets one hop away by examining each\ninterface's address and netmask, so the most common use of this command\nis to identify a \"gateway\" that forwards other traffic.\n\nAssigning an address to an interface automatically creates an appropriate\nnetwork route (\"ifconfig eth0 10.0.2.15/8\" does \"route add 10.0.0.0/8 eth0\"\nfor you), although some devices (such as loopback) won't show it in the\ntable. For machines more than one hop away, you need to specify a gateway\n(ala \"route add default gw 10.0.2.2\").\n\nThe address \"default\" is a wildcard address (0.0.0.0/0) matching all\npackets without a more specific route.\n\nAvailable OPTIONS include:\nreject   - blocking route (force match failure)\ndev NAME - force packets out this interface (ala \"eth0\")\nnetmask  - old way of saying things like ADDR/24\ngw ADDR  - forward packets to gateway ADDR\n\n\n"
 
-#define HELP_ping "usage: ping [OPTIONS] HOST\n\nCheck network connectivity by sending packets to a host and reporting\nits response.\n\nSend ICMP ECHO_REQUEST packets to ipv4 or ipv6 addresses and prints each\necho it receives back, with round trip time.\n\nOptions:\n-4, -6      Force IPv4 or IPv6\n-c CNT      Send CNT many packets\n-I IFACE/IP Source interface or address\n-q          Quiet, only displays output at start and when finished\n-s SIZE     Packet SIZE in bytes (default 56)\n-t TTL      Set Time (number of hops) To Live\n-W SEC      Seconds to wait for response after all packets sent (default 10)\n-w SEC      Exit after this many seconds\n\n"
+#define HELP_ping "usage: ping [OPTIONS] HOST\n\nCheck network connectivity by sending packets to a host and reporting\nits response.\n\nSend ICMP ECHO_REQUEST packets to ipv4 or ipv6 addresses and prints each\necho it receives back, with round trip time. Returns true if host alive.\n\nOptions:\n-4, -6      Force IPv4 or IPv6\n-c CNT      Send CNT many packets (default 3, 0 = infinite)\n-f          Flood (. on send, backspace on receive, to show packet drops)\n-i TIME     Interval between packets (default 1, need root for < .2)\n-I IFACE/IP Source interface or address\n-q          Quiet (stops after one returns true if host is alive)\n-s SIZE     Data SIZE in bytes (default 56)\n-t TTL      Set Time To Live (number of hops)\n-W SEC      Seconds to wait for response after -c (default 10)\n-w SEC      Exit after this many seconds\n\n"
 
 #define HELP_deallocvt "usage: deallocvt [N]\n\nDeallocate unused virtual terminal /dev/ttyN, or all unused consoles.\n\n"
 
@@ -356,9 +360,7 @@
 
 #define HELP_mdev "usage: mdev [-s]\n\nCreate devices in /dev using information from /sys.\n\n-s	Scan all entries in /sys to populate /dev\n\n"
 
-#define HELP_lsof "usage: lsof [-lt] [-p PID1,PID2,...] [NAME]...\n\nLists open files. If names are given on the command line, only\nthose files will be shown.\n\n-l	list uids numerically\n-p	for given comma-separated pids only (default all pids)\n-t	terse (pid only) output\n\n"
-
-#define HELP_logger "usage: logger [-s] [-t tag] [-p [facility.]priority] [message]\n\nLog message (or stdin) to syslog.\n\n"
+#define HELP_lsof "usage: lsof [-lt] [-p PID1,PID2,...] [FILE...]\n\nList all open files belonging to all active processes, or processes using\nlisted FILE(s).\n\n-l	list uids numerically\n-p	for given comma-separated pids only (default all pids)\n-t	terse (pid only) output\n\n"
 
 #define HELP_last "usage: last [-W] [-f FILE]\n\nShow listing of last logged in users.\n\n-W      Display the information without host-column truncation\n-f FILE Read from file FILE instead of /var/log/wtmp\n\n"
 
@@ -372,11 +374,9 @@
 
 #define HELP_init "usage: init\n\nSystem V style init.\n\nFirst program to run (as PID 1) when the system comes up, reading\n/etc/inittab to determine actions.\n\n"
 
-#define HELP_iconv "usage: iconv [-f FROM] [-t TO] [FILE...]\n\nConvert character encoding of files.\n\n-f  convert from (default utf8)\n-t  convert to   (default utf8)\n\n"
-
 #define HELP_host "usage: host [-av] [-t TYPE] NAME [SERVER]\n\nPerform DNS lookup on NAME, which can be a domain name to lookup,\nor an ipv4 dotted or ipv6 colon seprated address to reverse lookup.\nSERVER (if present) is the DNS server to use.\n\n-a	no idea\n-t	not a clue\n-v	verbose\n\n"
 
-#define HELP_zcat "usage: zcat [FILE...]\n\nDecompress files to stdout. Like `gzip -dc`.\n\n-c	Output to stdout (default)\n-f	Force: allow read from tty\n\n"
+#define HELP_zcat "usage: zcat [FILE...]\n\nDecompress files to stdout. Like `gzip -dc`.\n\n-f	Force: allow read from tty\n\n"
 
 #define HELP_gunzip "usage: gunzip [-cfk] [FILE...]\n\nDecompress files. With no files, decompresses stdin to stdout.\nOn success, the input files are removed and replaced by new\nfiles without the .gz suffix.\n\n-c	Output to stdout (act as zcat)\n-f	Force: allow read from tty\n-k	Keep input files (default is to remove)\n\n"
 
@@ -393,6 +393,8 @@
 #define HELP_fsck "usage: fsck [-ANPRTV] [-C FD] [-t FSTYPE] [FS_OPTS] [BLOCKDEV]...\n\nCheck and repair filesystems\n\n-A      Walk /etc/fstab and check all filesystems\n-N      Don't execute, just show what would be done\n-P      With -A, check filesystems in parallel\n-R      With -A, skip the root filesystem\n-T      Don't show title on startup\n-V      Verbose\n-C n    Write status information to specified filedescriptor\n-t TYPE List of filesystem types to check\n\n\n"
 
 #define HELP_fold "usage: fold [-bsu] [-w WIDTH] [FILE...]\n\nFolds (wraps) or unfolds ascii text by adding or removing newlines.\nDefault line width is 80 columns for folding and infinite for unfolding.\n\n-b	Fold based on bytes instead of columns\n-s	Fold/unfold at whitespace boundaries if possible\n-u	Unfold text (and refold if -w is given)\n-w	Set lines to WIDTH columns or bytes\n\n"
+
+#define HELP_fmt "usage: fmt [-w WIDTH] [FILE...]\n\nReformat input to not exceed a maximum line length.\n\n-w WIDTH	maximum characters per line (default 75)\n\n"
 
 #define HELP_fdisk "usage: fdisk [-lu] [-C CYLINDERS] [-H HEADS] [-S SECTORS] [-b SECTSZ] DISK\n\nChange partition table\n\n-u            Start and End are in sectors (instead of cylinders)\n-l            Show partition table for each DISK, then exit\n-b size       sector size (512, 1024, 2048 or 4096)\n-C CYLINDERS  Set number of cylinders/heads/sectors\n-H HEADS\n-S SECTORS\n\n"
 
@@ -452,7 +454,7 @@
 
 #define HELP_touch "usage: touch [-amch] [-d DATE] [-t TIME] [-r FILE] FILE...\n\nUpdate the access and modification times of each FILE to the current time.\n\n-a	change access time\n-m	change modification time\n-c	don't create file\n-h	change symlink\n-d	set time to DATE (in YYYY-MM-DDThh:mm:SS[.frac][tz] format)\n-t	set time to TIME (in [[CC]YY]MMDDhhmm[.ss][frac] format)\n-r	set time same as reference FILE\n\n"
 
-#define HELP_time "usage: time [-p] COMMAND [ARGS...]\n\nRun command line and report real, user, and system time elapsed in seconds.\n(real = clock on the wall, user = cpu used by command's code,\nsystem = cpu used by OS on behalf of command.)\n\n-p	posix mode (ignored)\n\n"
+#define HELP_time "usage: time [-pv] COMMAND [ARGS...]\n\nRun command line and report real, user, and system time elapsed in seconds.\n(real = clock on the wall, user = cpu used by command's code,\nsystem = cpu used by OS on behalf of command.)\n\n-p	posix mode (default)\n-v	verbose mode\n\n"
 
 #define HELP_tee "usage: tee [-ai] [file...]\n\nCopy stdin to each listed file, and also to stdout.\nFilename \"-\" is a synonym for stdout.\n\n-a	append to files\n-i	ignore SIGINT\n\n"
 
@@ -484,9 +486,9 @@
 
 #define HELP_pgrep "usage: pgrep [-clfnovx] [-d DELIM] [-L SIGNAL] [PATTERN] [-G GID,] [-g PGRP,] [-P PPID,] [-s SID,] [-t TERM,] [-U UID,] [-u EUID,]\n\nSearch for process(es). PATTERN is an extended regular expression checked\nagainst command names.\n\n-c	Show only count of matches\n-d	Use DELIM instead of newline\n-L	Send SIGNAL instead of printing name\n-l	Show command name\n-f	Check full command line for PATTERN\n-G	Match real Group ID(s)\n-g	Match Process Group(s) (0 is current user)\n-n	Newest match only\n-o	Oldest match only\n-P	Match Parent Process ID(s)\n-s	Match Session ID(s) (0 for current)\n-t	Match Terminal(s)\n-U	Match real User ID(s)\n-u	Match effective User ID(s)\n-v	Negate the match\n-x	Match whole command (not substring)\n\n"
 
-#define HELP_iotop "usage: iotop [-AaKObq] [-n NUMBER] [-d SECONDS] [-p PID,] [-u USER,]\n\nRank processes by I/O.\n\n-A	All I/O, not just disk\n-a	Accumulated I/O (not percentage)\n-K	Kilobytes\n-k	Fallback sort FIELDS (default -[D]IO,-ETIME,-PID)\n-O	Only show processes doing I/O\n-o	Show FIELDS (default PID,PR,USER,[D]READ,[D]WRITE,SWAP,[D]IO,COMM)\n-s	Sort by field number (0-X, default 6)\n-b	Batch mode (no tty)\n-d	Delay SECONDS between each cycle (default 3)\n-n	Exit after NUMBER iterations\n-p	Show these PIDs\n-u	Show these USERs\n-q	Quiet (no header lines)\n\nCursor LEFT/RIGHT to change sort, UP/DOWN move list, space to force\nupdate, R to reverse sort, Q to exit.\n\n"
+#define HELP_iotop "usage: iotop [-AaKObq] [-n NUMBER] [-d SECONDS] [-p PID,] [-u USER,]\n\nRank processes by I/O.\n\n-A	All I/O, not just disk\n-a	Accumulated I/O (not percentage)\n-H	Show threads\n-K	Kilobytes\n-k	Fallback sort FIELDS (default -[D]IO,-ETIME,-PID)\n-m	Maximum number of tasks to show\n-O	Only show processes doing I/O\n-o	Show FIELDS (default PID,PR,USER,[D]READ,[D]WRITE,SWAP,[D]IO,COMM)\n-s	Sort by field number (0-X, default 6)\n-b	Batch mode (no tty)\n-d	Delay SECONDS between each cycle (default 3)\n-n	Exit after NUMBER iterations\n-p	Show these PIDs\n-u	Show these USERs\n-q	Quiet (no header lines)\n\nCursor LEFT/RIGHT to change sort, UP/DOWN move list, space to force\nupdate, R to reverse sort, Q to exit.\n\n"
 
-#define HELP_top "usage: top [-Hbq] [-k FIELD,] [-o FIELD,] [-s SORT] [-n NUMBER] [-d SECONDS] [-p PID,] [-u USER,]\n\nShow process activity in real time.\n\n-H	Show threads\n-k	Fallback sort FIELDS (default -S,-%CPU,-ETIME,-PID)\n-o	Show FIELDS (def PID,USER,PR,NI,VIRT,RES,SHR,S,%CPU,%MEM,TIME+,CMDLINE)\n-O	Add FIELDS (replacing PR,NI,VIRT,RES,SHR,S from default)\n-s	Sort by field number (1-X, default 9)\n-b	Batch mode (no tty)\n-d	Delay SECONDS between each cycle (default 3)\n-n	Exit after NUMBER iterations\n-p	Show these PIDs\n-u	Show these USERs\n-q	Quiet (no header lines)\n\nCursor LEFT/RIGHT to change sort, UP/DOWN move list, space to force\nupdate, R to reverse sort, Q to exit.\n\n"
+#define HELP_top "usage: top [-Hbq] [-k FIELD,] [-o FIELD,] [-s SORT] [-n NUMBER] [-m LINES] [-d SECONDS] [-p PID,] [-u USER,]\n\nShow process activity in real time.\n\n-H	Show threads\n-k	Fallback sort FIELDS (default -S,-%CPU,-ETIME,-PID)\n-o	Show FIELDS (def PID,USER,PR,NI,VIRT,RES,SHR,S,%CPU,%MEM,TIME+,CMDLINE)\n-O	Add FIELDS (replacing PR,NI,VIRT,RES,SHR,S from default)\n-s	Sort by field number (1-X, default 9)\n-b	Batch mode (no tty)\n-d	Delay SECONDS between each cycle (default 3)\n-m	Maximum number of tasks to show\n-n	Exit after NUMBER iterations\n-p	Show these PIDs\n-u	Show these USERs\n-q	Quiet (no header lines)\n\nCursor LEFT/RIGHT to change sort, UP/DOWN move list, space to force\nupdate, R to reverse sort, Q to exit.\n\n"
 
 #define HELP_ps "usage: ps [-AadefLlnwZ] [-gG GROUP,] [-k FIELD,] [-o FIELD,] [-p PID,] [-t TTY,] [-uU USER,]\n\nList processes.\n\nWhich processes to show (selections may be comma separated lists):\n\n-A	All processes\n-a	Processes with terminals that aren't session leaders\n-d	All processes that aren't session leaders\n-e	Same as -A\n-g	Belonging to GROUPs\n-G	Belonging to real GROUPs (before sgid)\n-p	PIDs (--pid)\n-P	Parent PIDs (--ppid)\n-s	In session IDs\n-t	Attached to selected TTYs\n-T	Show threads\n-u	Owned by USERs\n-U	Owned by real USERs (before suid)\n\nOutput modifiers:\n\n-k	Sort FIELDs in +increasing or -decreasting order (--sort)\n-M	Measure field widths (expanding as necessary)\n-n	Show numeric USER and GROUP\n-w	Wide output (don't truncate fields)\n\nWhich FIELDs to show. (Default = -o PID,TTY,TIME,CMD)\n\n-f	Full listing (-o USER:12=UID,PID,PPID,C,STIME,TTY,TIME,ARGS=CMD)\n-l	Long listing (-o F,S,UID,PID,PPID,C,PRI,NI,ADDR,SZ,WCHAN,TTY,TIME,CMD)\n-o	Output FIELDs instead of defaults, each with optional :size and =title\n-O	Add FIELDS to defaults\n-Z	Include LABEL\n\nCommand line -o fields:\n\n  ARGS     CMDLINE minus initial path     CMD  Command (thread) name (stat[2])\n  CMDLINE  Command line (argv[])          COMM Command filename (/proc/$PID/exe)\n  COMMAND  Command file (/proc/$PID/exe)  NAME Process name (argv[0] of $PID)\n\nProcess attribute -o FIELDs:\n\n  ADDR  Instruction pointer               BIT   Is this process 32 or 64 bits\n  CPU   Which processor running on        ETIME   Elapsed time since PID start\n  F     Flags (1=FORKNOEXEC 4=SUPERPRIV)  GID     Group id\n  GROUP Group name                        LABEL   Security label\n  MAJFL Major page faults                 MINFL   Minor page faults\n  NI    Niceness (lower is faster)\n  PCPU  Percentage of CPU time used       PCY     Android scheduling policy\n  PGID  Process Group ID\n  PID   Process ID                        PPID    Parent Process ID\n  PRI   Priority (higher is faster)       PSR     Processor last executed on\n  RGID  Real (before sgid) group ID       RGROUP  Real (before sgid) group name\n  RSS   Resident Set Size (pages in use)  RTPRIO  Realtime priority\n  RUID  Real (before suid) user ID        RUSER   Real (before suid) user name\n  S     Process state:\n        R (running) S (sleeping) D (device I/O) T (stopped)  t (traced)\n        Z (zombie)  X (deader)   x (dead)       K (wakekill) W (waking)\n  SCHED Scheduling policy (0=other, 1=fifo, 2=rr, 3=batch, 4=iso, 5=idle)\n  STAT  Process state (S) plus:\n        < high priority          N low priority L locked memory\n        s session leader         + foreground   l multithreaded\n  STIME Start time of process in hh:mm (size :19 shows yyyy-mm-dd hh:mm:ss)\n  SZ    Memory Size (4k pages needed to completely swap out process)\n  TCNT  Thread count                      TID     Thread ID\n  TIME  CPU time consumed                 TTY     Controlling terminal\n  UID   User id                           USER    User name\n  VSZ   Virtual memory size (1k units)    %VSZ    VSZ as % of physical memory\n  WCHAN What are we waiting in kernel for\n\n"
 
@@ -514,6 +516,8 @@
 
 #define HELP_ls "usage: ls --color[=auto] [-ACFHLRSZacdfhiklmnpqrstux1] [directory...]\n\nlist files\n\nwhat to show:\n-a  all files including .hidden    -b  escape nongraphic chars\n-c  use ctime for timestamps       -d  directory, not contents\n-i  inode number                   -p  put a '/' after dir names\n-q  unprintable chars as '?'       -s  storage used (1024 byte units)\n-u  use access time for timestamps -A  list all files but . and ..\n-H  follow command line symlinks   -L  follow symlinks\n-R  recursively list in subdirs    -F  append /dir *exe @sym |FIFO\n-Z  security context\n\noutput formats:\n-1  list one file per line         -C  columns (sorted vertically)\n-g  like -l but no owner           -h  human readable sizes\n-l  long (show full details)       -m  comma separated\n-n  like -l but numeric uid/gid    -o  like -l but no group\n-x  columns (horizontal sort)      -ll long with nanoseconds (--full-time)\n\nsorting (default is alphabetical):\n-f  unsorted    -r  reverse    -t  timestamp    -S  size\n--color  device=yellow  symlink=turquoise/red  dir=blue  socket=purple\n         files: exe=green  suid=red  suidfile=redback  stickydir=greenback\n         =auto means detect if output is a tty.\n\n"
 
+#define HELP_logger "usage: logger [-s] [-t TAG] [-p [FACILITY.]PRIORITY] [message...]\n\nLog message (or stdin) to syslog.\n\n-s	Also write message to stderr\n-t	Use TAG instead of username to identify message source\n-p	Specify PRIORITY with optional FACILITY. Default is \"user.notice\"\n\n"
+
 #define HELP_ln "usage: ln [-sfnv] [FROM...] TO\n\nCreate a link between FROM and TO.\nWith only one argument, create link in current directory.\n\n-s	Create a symbolic link\n-f	Force the creation of the link, even if TO already exists\n-n	Symlink at destination treated as file\n-v	Verbose\n\n"
 
 #define HELP_link "usage: link FILE NEWLINK\n\nCreate hardlink to a file.\n\n"
@@ -529,6 +533,8 @@
 #define HELP_groups "usage: groups [user]\n\nPrint the groups a user is in.\n\n"
 
 #define HELP_id "usage: id [-GZgnru] \n\nPrint user and group ID.\n-G	Show only the group IDs\n-Z	Show only security context\n-g	Show only the effective group ID\n-n	print names instead of numeric IDs (to be used with -Ggu)\n-r	Show real ID instead of effective ID\n-u	Show only the effective user ID\n"
+
+#define HELP_iconv "usage: iconv [-f FROM] [-t TO] [FILE...]\n\nConvert character encoding of files.\n\n-c	Omit invalid chars\n-f	convert from (default utf8)\n-t	convert to   (default utf8)\n\n"
 
 #define HELP_head "usage: head [-n number] [file...]\n\nCopy first lines from files to stdout. If no files listed, copy from\nstdin. Filename \"-\" is a synonym for stdin.\n\n-n	Number of lines to copy\n-c	Number of bytes to copy\n-q	Never print headers\n-v	Always print headers\n\n"
 
@@ -550,11 +556,11 @@
 
 #define HELP_dirname "usage: dirname PATH\n\nShow directory portion of path.\n\n"
 
-#define HELP_df "usage: df [-HPkh] [-t type] [FILESYSTEM ...]\n\nThe \"disk free\" command shows total/used/available disk space for\neach filesystem listed on the command line, or all currently mounted\nfilesystems.\n\n-a	Show all (including /proc and friends)\n-P	The SUSv3 \"Pedantic\" option\n-k	Sets units back to 1024 bytes (the default without -P)\n-h	Human readable output (K=1024)\n-H	Human readable output (k=1000)\n-t type	Display only filesystems of this type\n\nPedantic provides a slightly less useful output format dictated by Posix,\nand sets the units to 512 bytes instead of the default 1024 bytes.\n\n"
+#define HELP_df "usage: df [-HPkhi] [-t type] [FILESYSTEM ...]\n\nThe \"disk free\" command shows total/used/available disk space for\neach filesystem listed on the command line, or all currently mounted\nfilesystems.\n\n-a	Show all (including /proc and friends)\n-P	The SUSv3 \"Pedantic\" option\n-k	Sets units back to 1024 bytes (the default without -P)\n-h	Human readable output (K=1024)\n-H	Human readable output (k=1000)\n-i	Show inodes instead of blocks\n-t type	Display only filesystems of this type\n\nPedantic provides a slightly less useful output format dictated by Posix,\nand sets the units to 512 bytes instead of the default 1024 bytes.\n\n"
 
 #define HELP_date "usage: date [-u] [-r FILE] [-d DATE] [+DISPLAY_FORMAT] [-D SET_FORMAT] [SET]\n\nSet/get the current date/time. With no SET shows the current date.\n\nDefault SET format is \"MMDDhhmm[[CC]YY][.ss]\", that's (2 digits each)\nmonth, day, hour (0-23), and minute. Optionally century, year, and second.\nAlso accepts \"@UNIXTIME[.FRACTION]\" as seconds since midnight Jan 1 1970.\n\n-d	Show DATE instead of current time (convert date format)\n-D	+FORMAT for SET or -d (instead of MMDDhhmm[[CC]YY][.ss])\n-r	Use modification time of FILE instead of current date\n-u	Use UTC instead of current timezone\n\n+FORMAT specifies display format string using strftime(3) syntax:\n\n%% literal %             %n newline              %t tab\n%S seconds (00-60)       %M minute (00-59)       %m month (01-12)\n%H hour (0-23)           %I hour (01-12)         %p AM/PM\n%y short year (00-99)    %Y year                 %C century\n%a short weekday name    %A weekday name         %u day of week (1-7, 1=mon)\n%b short month name      %B month name           %Z timezone name\n%j day of year (001-366) %d day of month (01-31) %e day of month ( 1-31)\n%N nanosec (output only)\n\n%U Week of year (0-53 start sunday)   %W Week of year (0-53 start monday)\n%V Week of year (1-53 start monday, week < 4 days not part of this year)\n\n%D = \"%m/%d/%y\"    %r = \"%I : %M : %S %p\"   %T = \"%H:%M:%S\"   %h = \"%b\"\n%x locale date     %X locale time           %c locale date/time\n\n"
 
-#define HELP_cut "usage: cut OPTION... [FILE]...\n\nPrint selected parts of lines from each FILE to standard output.\n\n-b LIST	select only these bytes from LIST\n-c LIST	select only these characters from LIST\n-f LIST	select only these fields\n-d DELIM	use DELIM instead of TAB for field delimiter\n-s	do not print lines not containing delimiters\n-n	don't split multibyte characters (ignored)\n\n"
+#define HELP_cut "usage: cut [-Ds] [-bcfF LIST] [-dO DELIM] [FILE...]\n\nPrint selected parts of lines from each FILE to standard output.\n\nEach selection LIST is comma separated, either numbers (counting from 1)\nor dash separated ranges (inclusive, with X- meaning to end of line and -X\nfrom start). By default selection ranges are sorted and collated, use -D\nto prevent that.\n\n-b	select bytes\n-c	select UTF-8 characters\n-C	select unicode columns\n-d	use DELIM (default is TAB for -f, run of whitespace for -F)\n-D	Don't sort/collate selections\n-f	select fields (words) separated by single DELIM character\n-F	select fields separated by DELIM regex\n-O	output delimiter (default one space for -F, input delim for -f)\n-s	skip lines without delimiters\n\n"
 
 #define HELP_cpio "usage: cpio -{o|t|i|p DEST} [-v] [--verbose] [-F FILE] [--no-preserve-owner]\n       [ignored: -mdu -H newc]\n\ncopy files into and out of a \"newc\" format cpio archive\n\n-F FILE	use archive FILE instead of stdin/stdout\n-p DEST	copy-pass mode, copy stdin file list to directory DEST\n-i	extract from archive into file system (stdin=archive)\n-o	create archive (stdin=list of files, stdout=archive)\n-t	test files (list only, stdin=archive, stdout=list of files)\n-v	verbose (list files during create/extract)\n--no-preserve-owner (don't set ownership during extract)\n--trailer Add legacy trailer (prevents concatenation).\n\n"
 
@@ -570,7 +576,9 @@
 
 #define HELP_cmp "usage: cmp [-l] [-s] FILE1 FILE2\n\nCompare the contents of two files.\n\n-l	show all differing bytes\n-s	silent\n\n"
 
-#define HELP_cksum "usage: cksum [-IPLN] [file...]\n\nFor each file, output crc32 checksum value, length and name of file.\nIf no files listed, copy from stdin.  Filename \"-\" is a synonym for stdin.\n\n-H	Hexadecimal checksum (defaults to decimal)\n-L	Little endian (defaults to big endian)\n-P	Pre-inversion\n-I	Skip post-inversion\n-N	Do not include length in CRC calculation\n\n"
+#define HELP_crc32 "usage: crc32 [file...]\n\nOutput crc32 checksum for each file.\n\n"
+
+#define HELP_cksum "usage: cksum [-IPLN] [file...]\n\nFor each file, output crc32 checksum value, length and name of file.\nIf no files listed, copy from stdin.  Filename \"-\" is a synonym for stdin.\n\n-H	Hexadecimal checksum (defaults to decimal)\n-L	Little endian (defaults to big endian)\n-P	Pre-inversion\n-I	Skip post-inversion\n-N	Do not include length in CRC calculation (or output)\n\n"
 
 #define HELP_chmod "usage: chmod [-R] MODE FILE...\n\nChange mode of listed file[s] (recursively with -R).\n\nMODE can be (comma-separated) stanzas: [ugoa][+-=][rwxstXugo]\n\nStanzas are applied in order: For each category (u = user,\ng = group, o = other, a = all three, if none specified default is a),\nset (+), clear (-), or copy (=), r = read, w = write, x = execute.\ns = u+s = suid, g+s = sgid, o+s = sticky. (+t is an alias for o+s).\nsuid/sgid: execute as the user/group who owns the file.\nsticky: can't delete files you don't own out of this directory\nX = x for directories or if any category already has x set.\n\nOr MODE can be an octal value up to 7777	ug uuugggooo	top +\nbit 1 = o+x, bit 1<<8 = u+w, 1<<11 = g+1	sstrwxrwxrwx	bottom\n\nExamples:\nchmod u+w file - allow owner of \"file\" to write to it.\nchmod 744 file - user can read/write/execute, everyone else read only\n\n"
 

@@ -16,6 +16,8 @@
 
 package com.android.documentsui.base;
 
+import static com.android.documentsui.base.SharedMinimal.VERBOSE;
+
 import android.util.Log;
 import android.util.Pair;
 
@@ -115,7 +117,7 @@ public class DebugHelper {
             mInjector.actions.setDebugMode(mDebugEnabled);
         }
 
-        if (Shared.VERBOSE) {
+        if (VERBOSE) {
             Log.v(TAG, "Debug mode " + (mDebugEnabled ? "on" : "off"));
         }
     }

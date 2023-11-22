@@ -42,7 +42,6 @@
 #define POWER_SUPPLY_SYSFS_PATH "/sys/class/" POWER_SUPPLY_SUBSYSTEM
 #define FAKE_BATTERY_CAPACITY 42
 #define FAKE_BATTERY_TEMPERATURE 424
-#define ALWAYS_PLUGGED_CAPACITY 100
 #define MILLION 1.0e6
 #define DEFAULT_VBUS_VOLTAGE 5000000
 
@@ -81,9 +80,16 @@ static void initBatteryProperties(BatteryProperties* props) {
     props->batteryTechnology.clear();
 }
 
-BatteryMonitor::BatteryMonitor() : mHealthdConfig(nullptr), mBatteryDevicePresent(false),
-    mAlwaysPluggedDevice(false), mBatteryFixedCapacity(0), mBatteryFixedTemperature(0) {
+BatteryMonitor::BatteryMonitor()
+    : mHealthdConfig(nullptr),
+      mBatteryDevicePresent(false),
+      mBatteryFixedCapacity(0),
+      mBatteryFixedTemperature(0) {
     initBatteryProperties(&props);
+}
+
+struct BatteryProperties getBatteryProperties(BatteryMonitor* batteryMonitor) {
+    return batteryMonitor->props;
 }
 
 int BatteryMonitor::getBatteryStatus(const char* status) {
@@ -141,7 +147,7 @@ int BatteryMonitor::readFromFile(const String8& path, std::string* buf) {
 
 BatteryMonitor::PowerSupplyType BatteryMonitor::readPowerSupplyType(const String8& path) {
     std::string buf;
-    BatteryMonitor::PowerSupplyType ret;
+    int ret;
     struct sysfsStringEnumMap supplyTypeMap[] = {
             { "Unknown", ANDROID_POWER_SUPPLY_TYPE_UNKNOWN },
             { "Battery", ANDROID_POWER_SUPPLY_TYPE_BATTERY },
@@ -162,13 +168,13 @@ BatteryMonitor::PowerSupplyType BatteryMonitor::readPowerSupplyType(const String
     if (readFromFile(path, &buf) <= 0)
         return ANDROID_POWER_SUPPLY_TYPE_UNKNOWN;
 
-    ret = (BatteryMonitor::PowerSupplyType)mapSysfsString(buf.c_str(), supplyTypeMap);
+    ret = mapSysfsString(buf.c_str(), supplyTypeMap);
     if (ret < 0) {
         KLOG_WARNING(LOG_TAG, "Unknown power supply type '%s'\n", buf.c_str());
         ret = ANDROID_POWER_SUPPLY_TYPE_UNKNOWN;
     }
 
-    return ret;
+    return static_cast<BatteryMonitor::PowerSupplyType>(ret);
 }
 
 bool BatteryMonitor::getBooleanField(const String8& path) {
@@ -222,15 +228,6 @@ bool BatteryMonitor::update(void) {
     props.batteryTemperature = mBatteryFixedTemperature ?
         mBatteryFixedTemperature :
         getIntField(mHealthdConfig->batteryTemperaturePath);
-
-    // For devices which do not have battery and are always plugged
-    // into power souce.
-    if (mAlwaysPluggedDevice) {
-        props.chargerAcOnline = true;
-        props.batteryPresent = true;
-        props.batteryStatus = BATTERY_STATUS_CHARGING;
-        props.batteryHealth = BATTERY_HEALTH_GOOD;
-    }
 
     std::string buf;
 
@@ -405,11 +402,7 @@ status_t BatteryMonitor::getProperty(int id, struct BatteryProperty *val) {
         break;
 
     case BATTERY_PROP_BATTERY_STATUS:
-        if (mAlwaysPluggedDevice) {
-            val->valueInt64 = BATTERY_STATUS_CHARGING;
-        } else {
-            val->valueInt64 = getChargeStatus();
-        }
+        val->valueInt64 = getChargeStatus();
         ret = NO_ERROR;
         break;
 
@@ -542,12 +535,6 @@ void BatteryMonitor::init(struct healthd_config *hc) {
                                       POWER_SUPPLY_SYSFS_PATH, name);
                     if (access(path, R_OK) == 0) {
                         mHealthdConfig->batteryVoltagePath = path;
-                    } else {
-                        path.clear();
-                        path.appendFormat("%s/%s/batt_vol",
-                                          POWER_SUPPLY_SYSFS_PATH, name);
-                        if (access(path, R_OK) == 0)
-                            mHealthdConfig->batteryVoltagePath = path;
                     }
                 }
 
@@ -597,12 +584,6 @@ void BatteryMonitor::init(struct healthd_config *hc) {
                                       name);
                     if (access(path, R_OK) == 0) {
                         mHealthdConfig->batteryTemperaturePath = path;
-                    } else {
-                        path.clear();
-                        path.appendFormat("%s/%s/batt_temp",
-                                          POWER_SUPPLY_SYSFS_PATH, name);
-                        if (access(path, R_OK) == 0)
-                            mHealthdConfig->batteryTemperaturePath = path;
                     }
                 }
 
@@ -628,9 +609,6 @@ void BatteryMonitor::init(struct healthd_config *hc) {
         KLOG_WARNING(LOG_TAG, "No battery devices found\n");
         hc->periodic_chores_interval_fast = -1;
         hc->periodic_chores_interval_slow = -1;
-        mBatteryFixedCapacity = ALWAYS_PLUGGED_CAPACITY;
-        mBatteryFixedTemperature = FAKE_BATTERY_TEMPERATURE;
-        mAlwaysPluggedDevice = true;
     } else {
         if (mHealthdConfig->batteryStatusPath.isEmpty())
             KLOG_WARNING(LOG_TAG, "BatteryStatusPath not found\n");

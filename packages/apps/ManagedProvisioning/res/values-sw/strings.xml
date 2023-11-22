@@ -53,7 +53,7 @@
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"Ungependa kusimba kifaa hiki kwa njia fiche?"</string>
     <string name="encrypt" msgid="1749320161747489212">"Simba kwa njia fiche"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"Usimbaji fiche umekamilika"</string>
-    <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Gonga ili uendelee kuweka mipangilio ya wasifu wako wa kazini"</string>
+    <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Gusa ili uendelee kuweka mipangilio ya wasifu wako wa kazini"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Haikuweza kusanidi wasifu wako wa kazi. Wasiliana na idara yako ya Teknolojia ya Habari au ujaribu tena baadaye."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Imeshindwa kuongeza wasifu wa kazini"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Huwezi kubadilisha au kuondoa wasifu wa kazini"</string>
@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"Inaweka mipangilio kwenye kifaa cha kazini..."</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Inachakata data ya kuweka mipangilio..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Inaunganisha kwenye Wi-Fi..."</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Inaunganisha kwenye mtandao wa simu…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Inapakua programu ya msimamizi..."</string>
     <string name="progress_install" msgid="2258045670385866183">"Inasakinisha programu ya msimamizi..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Inaondoa programu za mfumo zisizohitajika…"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Unakaribia kuunda wasifu wa kazini ambao utasimamiwa na kufuatiliwa na shirika lako. Sheria na masharti kutoka <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> yatatumika."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"Wasifu utaundwa kwa ajili ya programu zako za kazini. Wasifu huu na sehemu zingine za kifaa chako, zitasimamiwa na kufuatiliwa na shirika lako. Sheria na masharti yatatumika."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"Wasifu utaundwa kwa ajili ya programu zako za kazini. Wasifu huu na sehemu zingine za kifaa chako zitasimamiwa na kufuatiliwa na shirika lako. Sheria na masharti kutoka <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> yatatumika."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"Kifaa hiki kitadhibitiwa na kuhifadhiwa salama na <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Sheria na masharti yatatumika. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"Kifaa hiki kitadhibitiwa na kuwekwa salama na <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Sheria na Masharti kutoka <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> yatatumika. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"Kifaa hiki kitadhibitiwa, kuchunguzwa na kulindwa na <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Sheria na masharti yatatumika. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Kifaa hiki kitadhibitiwa, kuchunguzwa na kulindwa na <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Sheria na Masharti kutoka <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> yatatumika. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Kiungo hiki si salama na hakiwezi kufunguliwa hadi umalize kuweka mipangilio ya kifaa: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"Ikiwa una swali, wasiliana na <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"Kama una maswali, wasiliana na msimamizi wa shirika lako"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> na <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"Hatua hii inaweza kuchukua dakika kadhaa"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"Programu zako za kazini zitahifadhiwa katika wasifu huu na kusimamiwa na shirika lako"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"Kifaa hiki kitawekwa salama na kusimamiwa na shirika lako"</string>
 </resources>

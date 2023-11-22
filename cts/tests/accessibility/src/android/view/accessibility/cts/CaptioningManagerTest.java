@@ -16,25 +16,26 @@
 
 package android.view.accessibility.cts;
 
-import android.app.UiAutomation;
-import android.os.ParcelFileDescriptor;
-import android.test.InstrumentationTestCase;
-import android.view.accessibility.CaptioningManager;
-import android.view.accessibility.CaptioningManager.CaptionStyle;
-import android.view.accessibility.CaptioningManager.CaptioningChangeListener;
-import org.mockito.Mockito;
-
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Locale;
-
 import static org.mockito.Matchers.anyFloat;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
+
+import android.app.UiAutomation;
+import android.os.ParcelFileDescriptor;
+import android.test.InstrumentationTestCase;
+import android.view.accessibility.CaptioningManager;
+import android.view.accessibility.CaptioningManager.CaptionStyle;
+import android.view.accessibility.CaptioningManager.CaptioningChangeListener;
+
+import org.mockito.Mockito;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Locale;
 
 /**
  * Tests whether the CaptioningManager APIs are functional.

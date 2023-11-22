@@ -21,8 +21,8 @@ import static com.android.documentsui.services.FileOperationService.OPERATION_DE
 import static com.android.documentsui.services.FileOperations.createBaseIntent;
 import static com.android.documentsui.services.FileOperations.createJobId;
 import static com.google.android.collect.Lists.newArrayList;
+import static org.junit.Assert.fail;
 
-import android.app.Notification;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -131,8 +131,9 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
     public void testRunsCopyJobs_AfterExceptionInJobCreation() throws Exception {
         try {
             startService(createCopyIntent(new ArrayList<>(), BETA_DOC));
-        } catch(AssertionError e) {
-            // Expected AssertionError
+            fail("Should have throw exception.");
+        } catch(IllegalArgumentException expected) {
+            // We're sending a naughty empty list that should result in an IllegalArgumentException.
         }
         startService(createCopyIntent(newArrayList(GAMMA_DOC), DELTA_DOC));
 

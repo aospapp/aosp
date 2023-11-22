@@ -4,6 +4,7 @@ cc_library {
     name: "libext2fs",
     host_supported: true,
     unique_host_soname: true,
+    defaults: ["e2fsprogs-defaults"],
     srcs: [
         "ext2_err.c",
         "alloc.c",
@@ -46,6 +47,7 @@ cc_library {
         "get_pathname.c",
         "getsize.c",
         "getsectsize.c",
+        "hashmap.c",
         "i_block.c",
         "icount.c",
         "imager.c",
@@ -89,19 +91,14 @@ cc_library {
     ],
     shared_libs: [
         "libsparse",
+        "libz",
     ],
     whole_static_libs: [
         "libext2_com_err"
     ],
-    cflags: [
-        "-W",
-        "-Wall",
-        "-Wno-unused-parameter",
-        "-Wno-macro-redefined",
-    ],
+    cflags: ["-Wno-unused-parameter"],
     target: {
         host: {
-            shared_libs: ["libz-host"],
             // Consider removing this library as a whole for the host. It is not
             // in the android side.
             whole_static_libs: ["libext2_com_err"],
@@ -110,14 +107,18 @@ cc_library {
             shared_libs: [
                 "libext2_com_err",
                 "libext2_uuid",
-                "libz"
             ],
         },
         windows: {
             enabled: true,
             include_dirs: [ "external/e2fsprogs/include/mingw" ],
             cflags: [
+                "-Wno-error=cpp",
                 "-Wno-format",
+                "-Wno-unused-variable",
+            ],
+            clang_cflags: [
+                "-Wno-error=typedef-redefinition",
             ],
             host_ldlibs: ["-lws2_32"],
         },

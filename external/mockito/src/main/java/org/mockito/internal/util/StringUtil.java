@@ -1,7 +1,12 @@
+/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockito.internal.util;
 
 import static java.util.Arrays.asList;
 
+import java.util.Collection;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,14 +34,30 @@ public class StringUtil {
 
     /**
      * Joins Strings with EOL character
+     *
+     * @param start the starting String
+     * @param lines collection to join
      */
-    public static String join(String start, Iterable<?> lines) {
+    public static String join(String start, Collection<?> lines) {
+        return join(start, "", lines);
+    }
+
+    /**
+     * Joins Strings with EOL character
+     *
+     * @param start the starting String
+     * @param linePrefix the prefix for each line to be joined
+     * @param lines collection to join
+     */
+    public static String join(String start, String linePrefix, Collection<?> lines) {
+        if (lines.isEmpty()) {
+            return "";
+        }
         StringBuilder out = new StringBuilder(start);
         for (Object line : lines) {
-            out.append(line.toString()).append("\n");
+            out.append(linePrefix).append(line).append("\n");
         }
-        int lastBreak = out.lastIndexOf("\n");
-        return out.replace(lastBreak, lastBreak+1, "").toString();
+        return out.substring(0, out.length() - 1); //lose last EOL
     }
 
     public static String decamelizeMatcher(String className) {

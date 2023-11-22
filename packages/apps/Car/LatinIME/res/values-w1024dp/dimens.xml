@@ -14,8 +14,9 @@
      limitations under the License.
 -->
 <resources>
-    <dimen name="keyboard_key_margin">112dp</dimen>
-    <dimen name="keyboard_key_size">96dp</dimen>
+    <dimen name="keyboard_key_margin">24dp</dimen>
+    <dimen name="keyboard_key_size">90dp</dimen>
     <dimen name="keyboard_half_key_size">48dp</dimen>
-    <dimen name="keyboard_key_horizontal_tiny_gap">4dp</dimen>
+    <dimen name="keyboard_key_horizontal_tiny_gap">2dp</dimen>
+    <dimen name="keyboard_key_spacebar_width">365dp</dimen>
 </resources>

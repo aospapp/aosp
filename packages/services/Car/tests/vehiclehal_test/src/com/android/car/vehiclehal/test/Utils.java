@@ -16,10 +16,13 @@
 
 package com.android.car.vehiclehal.test;
 
-import android.annotation.Nullable;
+import static java.lang.Integer.toHexString;
+
+import android.car.hardware.CarPropertyValue;
 import android.hardware.automotive.vehicle.V2_0.IVehicle;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
+import android.os.HidlSupport;
 import android.os.RemoteException;
 import android.util.Log;
 
@@ -47,8 +50,8 @@ final class Utils {
         IVehicle vehicle,
         VehiclePropValue request,
         java.util.function.BiFunction<Integer, VehiclePropValue, Boolean> f) {
-        vehicle = Objects.requireNonNull(vehicle);
-        request = Objects.requireNonNull(request);
+        Objects.requireNonNull(vehicle);
+        Objects.requireNonNull(request);
         VehiclePropValue vpv[] = new VehiclePropValue[] {null};
         try {
             vehicle.get(
@@ -81,16 +84,73 @@ final class Utils {
         return readVhalProperty(vehicle, request, f);
     }
 
-    @Nullable
     static IVehicle getVehicle() throws RemoteException {
         IVehicle service;
         try {
-            service = android.hardware.automotive.vehicle.V2_0.IVehicle.getService();
+            service = IVehicle.getService();
         } catch (NoSuchElementException ex) {
-            Log.d(TAG, "Couldn't connect to vehicle@2.1, connecting to vehicle@2.0...");
-            service =  IVehicle.getService();
+            throw new RuntimeException("Couldn't connect to vehicle@2.0", ex);
         }
         Log.d(TAG, "Connected to IVehicle service: " + service);
         return service;
+    }
+
+    /**
+     * Check the equality of two VehiclePropValue object ignoring timestamp and status.
+     *
+     * @param value1
+     * @param value2
+     * @return true if equal
+     */
+    static boolean areVehiclePropValuesEqual(final VehiclePropValue value1,
+            final VehiclePropValue value2) {
+        return value1 == value2
+            || value1 != null
+            && value2 != null
+            && value1.prop == value2.prop
+            && value1.areaId == value2.areaId
+            && HidlSupport.deepEquals(value1.value, value2.value);
+    }
+
+    /**
+     * The method will convert prop ID to hexadecimal format, and omit timestamp and status
+     *
+     * @param value
+     * @return String
+     */
+    static String vehiclePropValueToString(final VehiclePropValue value) {
+        return "{.prop = 0x" + toHexString(value.prop)
+               + ", .areaId = " + value.areaId
+               + ", .value = " + value.value + "}";
+    }
+
+    static VehiclePropValue fromHvacPropertyValue(CarPropertyValue value) {
+        VehiclePropValueBuilder builder =
+                VehiclePropValueBuilder.newBuilder(
+                    VhalPropMaps.getHvacVhalProp(value.getPropertyId()));
+        return fromCarPropertyValue(value, builder);
+    }
+
+    private static VehiclePropValue fromCarPropertyValue(
+            CarPropertyValue value, VehiclePropValueBuilder builder) {
+        builder.setAreaId(value.getAreaId()).setTimestamp(value.getTimestamp());
+
+        //TODO: Consider move this conversion to VehiclePropValueBuilder
+        Object o = value.getValue();
+        if (o instanceof Boolean) {
+            builder.addIntValue((boolean) o ? 1 : 0);
+        } else if (o instanceof Integer) {
+            builder.addIntValue((int) o);
+        } else if (o instanceof Float) {
+            builder.addFloatValue((float) o);
+        } else if (o instanceof Long) {
+            builder.setInt64Value((long) o);
+        } else if (o instanceof String) {
+            builder.setStringValue((String) o);
+        } else { //TODO: Add support for MIXED type
+            throw new IllegalArgumentException("Unrecognized car property value type, "
+                    + o.getClass());
+        }
+        return builder.build();
     }
 }

@@ -37,7 +37,7 @@ struct IOEvent {
   }
 };
 
-IOEventLoop::IOEventLoop() : ebase_(nullptr), has_error_(false) {}
+IOEventLoop::IOEventLoop() : ebase_(nullptr), has_error_(false), use_precise_timer_(false) {}
 
 IOEventLoop::~IOEventLoop() {
   events_.clear();
@@ -46,11 +46,26 @@ IOEventLoop::~IOEventLoop() {
   }
 }
 
+bool IOEventLoop::UsePreciseTimer() {
+  if (ebase_ != nullptr) {
+    return false;  // Too late to set the flag.
+  }
+  use_precise_timer_ = true;
+  return true;
+}
+
 bool IOEventLoop::EnsureInit() {
   if (ebase_ == nullptr) {
-    ebase_ = event_base_new();
+    event_config* cfg = event_config_new();
+    if (cfg != nullptr) {
+      if (use_precise_timer_) {
+        event_config_set_flag(cfg, EVENT_BASE_FLAG_PRECISE_TIMER);
+      }
+      ebase_ = event_base_new_with_config(cfg);
+      event_config_free(cfg);
+    }
     if (ebase_ == nullptr) {
-      LOG(ERROR) << "failed to call event_base_new()";
+      LOG(ERROR) << "failed to create event_base";
       return false;
     }
   }

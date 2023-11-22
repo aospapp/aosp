@@ -28,6 +28,7 @@ import android.graphics.Rect;
 import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.platform.test.annotations.Presubmit;
 import android.support.test.launcherhelper.ILauncherStrategy;
 import android.support.test.launcherhelper.LauncherStrategyFactory;
 import android.support.test.uiautomator.By;
@@ -68,12 +69,14 @@ public class RecentsTests extends InstrumentationTestCase {
         super.tearDown();
     }
 
+    @Presubmit
     @MediumTest
     public void testNavigateToRecents() throws Exception {
         UiObject2 recents = mOverviewHelper.navigateToRecents();
         assertNotNull("Recents view not reached on tapping recents", recents);
     }
 
+    @Presubmit
     @MediumTest
     public void testAddAndDismissItemInRecents() throws Exception {
         mOverviewHelper.launchAppWithIntent("com.google.android.calculator");
@@ -93,6 +96,7 @@ public class RecentsTests extends InstrumentationTestCase {
         assertNull("Calculator not dismissed from Recents", afterDismissCalculator);
     }
 
+    @Presubmit
     @MediumTest
     public void testScrollThroughRecents() throws Exception {
         mOverviewHelper.populateRecents();
@@ -109,6 +113,7 @@ public class RecentsTests extends InstrumentationTestCase {
         Thread.sleep(TIMEOUT);
     }
 
+    @Presubmit
     @MediumTest
     public void testSwipeItemAwayFromRecents() throws Exception {
         mOverviewHelper.launchAppWithIntent("com.google.android.calculator");
@@ -129,6 +134,7 @@ public class RecentsTests extends InstrumentationTestCase {
                 calculatorText);
     }
 
+    @Presubmit
     @MediumTest
     public void testClearAllFromRecents() throws Exception {
         mOverviewHelper.populateRecents();

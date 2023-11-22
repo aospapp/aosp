@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Nessuna SIM o errore della SIM"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Rete cellulare non disponibile"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Chiamate in uscita limitate da FDN."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"Richiesta DIAL modificata in richiesta USSD."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"Richiesta DIAL modificata in richiesta SS."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"Richiesta DIAL modificata in richiesta DIAL con numero diverso."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Chiamata modificata in richiesta USSD"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Chiamata modificata in richiesta SS"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Modificata cambiando il numero"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Modificata in una videochiamata"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Videochiamata modificata in richiesta SS"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Videochiamata modificata in richiesta USSD"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Modificata in chiamata normale"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Modificata cambiando il numero"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Impossibile effettuare chiamate in uscita con il divieto chiamate attivo."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Chiamate limitate per controllo dell\'accesso."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Chiamate di emergenza limitate per controllo dell\'accesso."</string>

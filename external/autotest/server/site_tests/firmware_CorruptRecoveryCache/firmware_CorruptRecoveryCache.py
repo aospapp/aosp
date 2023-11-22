@@ -106,8 +106,11 @@ class firmware_CorruptRecoveryCache(FirmwareTest):
         if not self.cache_exist():
             raise error.TestNAError('No RECOVERY_MRC_CACHE was found on DUT.')
 
-        self.faft_client.bios.corrupt_body('rec')
+        self.faft_client.bios.corrupt_body('rec', True)
         self.boot_to_recovery()
 
         if not self.check_cache_rebuilt():
             raise error.TestFail('Recovery Cache was not rebuilt.')
+
+        logging.info('Reboot out of Recovery')
+        self.switcher.simple_reboot()

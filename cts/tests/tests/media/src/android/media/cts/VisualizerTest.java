@@ -26,10 +26,12 @@ import android.media.MediaPlayer;
 import android.media.audiofx.Visualizer;
 import android.media.audiofx.Visualizer.MeasurementPeakRms;
 import android.os.Looper;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import java.util.UUID;
 import android.util.Log;
 
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class VisualizerTest extends PostProcTestBase {
 
     private String TAG = "VisualizerTest";

@@ -47,6 +47,7 @@ main() {
   # Download cpplint.py from upstream.
   local cpplint_py="${SCRIPT_DIR}/cpplint.py"
   wget "${GITHUB_URL}/cpplint/cpplint.py" -O "${cpplint_py}"
+  sed -i '2i# pylint: skip-file' "${cpplint_py}"
   chmod +x "${cpplint_py}"
 }
 

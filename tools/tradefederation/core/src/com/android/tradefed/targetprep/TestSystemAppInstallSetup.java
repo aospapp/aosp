@@ -31,14 +31,13 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.FileUtil;
 
 /**
- * A {@link ITargetPreparer} that installs one or more apps from a
- * {@link IDeviceBuildInfo#getTestsDir()} folder onto the /system partition on
- * device.
- * <p/>
- * Requires adb root
+ * A {@link ITargetPreparer} that installs one or more apps from a {@link
+ * IDeviceBuildInfo#getTestsDir()} folder onto the /system partition on device.
+ *
+ * <p>Requires adb root
  */
 @OptionClass(alias = "tests-system-app")
-public class TestSystemAppInstallSetup implements ITargetPreparer {
+public class TestSystemAppInstallSetup extends BaseTargetPreparer {
 
     @Option(name = "system-file-name", description =
         "the name of a test zip file to install on device system partition. Can be repeated.",

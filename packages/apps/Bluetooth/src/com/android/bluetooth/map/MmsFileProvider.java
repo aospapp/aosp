@@ -84,18 +84,18 @@ public class MmsFileProvider extends ContentProvider {
     @Override
     public ParcelFileDescriptor openFile(Uri uri, String fileMode) throws FileNotFoundException {
         String idStr = uri.getLastPathSegment();
-        if(idStr == null) {
+        if (idStr == null) {
             throw new FileNotFoundException("Unable to extract message handle from: " + uri);
         }
         try {
             long id = Long.parseLong(idStr);
         } catch (NumberFormatException e) {
-            Log.w(TAG,e);
+            Log.w(TAG, e);
             throw new FileNotFoundException("Unable to extract message handle from: " + uri);
         }
         Uri messageUri = Mms.CONTENT_URI.buildUpon().appendEncodedPath(idStr).build();
 
-        return openPipeHelper (messageUri, null, null, null, mPipeWriter);
+        return openPipeHelper(messageUri, null, null, null, mPipeWriter);
     }
 
 
@@ -104,10 +104,13 @@ public class MmsFileProvider extends ContentProvider {
          * Generate a message based on the cursor, and write the encoded data to the stream.
          */
 
+        @Override
         public void writeDataToPipe(ParcelFileDescriptor output, Uri uri, String mimeType,
                 Bundle opts, Cursor c) {
-            if (BluetoothMapService.DEBUG) Log.d(TAG, "writeDataToPipe(): uri=" + uri.toString() +
-                    " - getLastPathSegment() = " + uri.getLastPathSegment());
+            if (BluetoothMapService.DEBUG) {
+                Log.d(TAG, "writeDataToPipe(): uri=" + uri.toString() + " - getLastPathSegment() = "
+                        + uri.getLastPathSegment());
+            }
 
             FileOutputStream fout = null;
             GenericPdu pdu = null;
@@ -131,7 +134,9 @@ public class MmsFileProvider extends ContentProvider {
                  *       to throw IOException?
                  */
             } finally {
-                if(pduPersister != null) pduPersister.release();
+                if (pduPersister != null) {
+                    pduPersister.release();
+                }
                 try {
                     fout.flush();
                 } catch (IOException e) {

@@ -9,6 +9,7 @@
  */
 package android.icu.text;
 
+import java.text.FieldPosition;
 import java.util.EnumMap;
 import java.util.Locale;
 
@@ -259,97 +260,81 @@ public final class RelativeDateTimeFormatter {
     /**
      * Represents the unit for formatting a relative date. e.g "in 5 days"
      * or "next year"
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static enum RelativeDateTimeUnit {
         /**
          * Specifies that relative unit is year, e.g. "last year",
          * "in 5 years".
-         * @hide draft / provisional / internal are hidden on Android
          */
         YEAR,
         /**
          * Specifies that relative unit is quarter, e.g. "last quarter",
          * "in 5 quarters".
-         * @hide draft / provisional / internal are hidden on Android
          */
         QUARTER,
         /**
          * Specifies that relative unit is month, e.g. "last month",
          * "in 5 months".
-         * @hide draft / provisional / internal are hidden on Android
          */
         MONTH,
         /**
          * Specifies that relative unit is week, e.g. "last week",
          * "in 5 weeks".
-         * @hide draft / provisional / internal are hidden on Android
          */
         WEEK,
         /**
          * Specifies that relative unit is day, e.g. "yesterday",
          * "in 5 days".
-         * @hide draft / provisional / internal are hidden on Android
          */
         DAY,
         /**
          * Specifies that relative unit is hour, e.g. "1 hour ago",
          * "in 5 hours".
-         * @hide draft / provisional / internal are hidden on Android
          */
         HOUR,
         /**
          * Specifies that relative unit is minute, e.g. "1 minute ago",
          * "in 5 minutes".
-         * @hide draft / provisional / internal are hidden on Android
          */
         MINUTE,
         /**
          * Specifies that relative unit is second, e.g. "1 second ago",
          * "in 5 seconds".
-         * @hide draft / provisional / internal are hidden on Android
          */
         SECOND,
         /**
          * Specifies that relative unit is Sunday, e.g. "last Sunday",
          * "this Sunday", "next Sunday", "in 5 Sundays".
-         * @hide draft / provisional / internal are hidden on Android
          */
         SUNDAY,
         /**
          * Specifies that relative unit is Monday, e.g. "last Monday",
          * "this Monday", "next Monday", "in 5 Mondays".
-         * @hide draft / provisional / internal are hidden on Android
          */
         MONDAY,
         /**
          * Specifies that relative unit is Tuesday, e.g. "last Tuesday",
          * "this Tuesday", "next Tuesday", "in 5 Tuesdays".
-         * @hide draft / provisional / internal are hidden on Android
          */
         TUESDAY,
         /**
          * Specifies that relative unit is Wednesday, e.g. "last Wednesday",
          * "this Wednesday", "next Wednesday", "in 5 Wednesdays".
-         * @hide draft / provisional / internal are hidden on Android
          */
         WEDNESDAY,
         /**
          * Specifies that relative unit is Thursday, e.g. "last Thursday",
          * "this Thursday", "next Thursday", "in 5 Thursdays".
-         * @hide draft / provisional / internal are hidden on Android
          */
         THURSDAY,
         /**
          * Specifies that relative unit is Friday, e.g. "last Friday",
          * "this Friday", "next Friday", "in 5 Fridays".
-         * @hide draft / provisional / internal are hidden on Android
          */
         FRIDAY,
         /**
          * Specifies that relative unit is Saturday, e.g. "last Saturday",
          * "this Saturday", "next Saturday", "in 5 Saturdays".
-         * @hide draft / provisional / internal are hidden on Android
          */
         SATURDAY,
     }
@@ -418,8 +403,8 @@ public final class RelativeDateTimeFormatter {
         return new RelativeDateTimeFormatter(
                 data.qualitativeUnitMap,
                 data.relUnitPatternMap,
-                SimpleFormatterImpl.compileToStringMinMaxArguments(
-                        data.dateTimePattern, new StringBuilder(), 2, 2),
+                // Android-changed: use MessageFormat instead of SimpleFormatterImpl (b/63745717).
+                data.dateTimePattern,
                 PluralRules.forLocale(locale),
                 nf,
                 style,
@@ -488,7 +473,6 @@ public final class RelativeDateTimeFormatter {
      *                  date, e.g. RelativeDateTimeUnit.WEEK,
      *                  RelativeDateTimeUnit.FRIDAY.
      * @return          The formatted string (may be empty in case of error)
-     * @hide draft / provisional / internal are hidden on Android
      */
     public String formatNumeric(double offset, RelativeDateTimeUnit unit) {
         // TODO:
@@ -567,7 +551,6 @@ public final class RelativeDateTimeFormatter {
      *                  date, e.g. RelativeDateTimeUnit.WEEK,
      *                  RelativeDateTimeUnit.FRIDAY.
      * @return          The formatted string (may be empty in case of error)
-     * @hide draft / provisional / internal are hidden on Android
      */
     public String format(double offset, RelativeDateTimeUnit unit) {
         // TODO:
@@ -666,8 +649,13 @@ public final class RelativeDateTimeFormatter {
      * calendar in this locale e.g 'yesterday, 3:45'
      */
     public String combineDateAndTime(String relativeDateString, String timeString) {
-        return SimpleFormatterImpl.formatCompiledPattern(
-                combinedDateAndTime, timeString, relativeDateString);
+        // BEGIN Android-changed: use MessageFormat instead of SimpleFormatterImpl (b/63745717).
+        MessageFormat msgFmt = new MessageFormat("");
+        msgFmt.applyPattern(combinedDateAndTime, MessagePattern.ApostropheMode.DOUBLE_REQUIRED);
+        StringBuffer combinedDateTimeBuffer = new StringBuffer(128);
+        return msgFmt.format(new Object[] { timeString, relativeDateString},
+                combinedDateTimeBuffer, new FieldPosition(0)).toString();
+        // END Android-changed: use MessageFormat instead of SimpleFormatterImpl (b/63745717).
     }
 
     /**
@@ -772,7 +760,8 @@ public final class RelativeDateTimeFormatter {
     private final EnumMap<Style, EnumMap<AbsoluteUnit, EnumMap<Direction, String>>> qualitativeUnitMap;
     private final EnumMap<Style, EnumMap<RelativeUnit, String[][]>> patternMap;
 
-    private final String combinedDateAndTime;  // compiled SimpleFormatter pattern
+    // Android-changed: use MessageFormat instead of SimpleFormatterImpl (b/63745717).
+    private final String combinedDateAndTime;  // MessageFormat pattern for combining date and time.
     private final PluralRules pluralRules;
     private final NumberFormat numberFormat;
 

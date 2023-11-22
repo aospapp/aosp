@@ -21,10 +21,10 @@
 
 #include "android-base/stringprintf.h"
 
-#include "atomic.h"
+#include "base/atomic.h"
 #include "base/logging.h"
-#include "base/time_utils.h"
 #include "base/systrace.h"
+#include "base/time_utils.h"
 #include "base/value_object.h"
 #include "mutex-inl.h"
 #include "scoped_thread_state_change-inl.h"
@@ -63,6 +63,7 @@ Mutex* Locks::reference_queue_soft_references_lock_ = nullptr;
 Mutex* Locks::reference_queue_weak_references_lock_ = nullptr;
 Mutex* Locks::runtime_shutdown_lock_ = nullptr;
 Mutex* Locks::cha_lock_ = nullptr;
+Mutex* Locks::subtype_check_lock_ = nullptr;
 Mutex* Locks::thread_list_lock_ = nullptr;
 ConditionVariable* Locks::thread_exit_cond_ = nullptr;
 Mutex* Locks::thread_suspend_count_lock_ = nullptr;
@@ -73,6 +74,7 @@ Uninterruptible Roles::uninterruptible_;
 ReaderWriterMutex* Locks::jni_globals_lock_ = nullptr;
 Mutex* Locks::jni_weak_globals_lock_ = nullptr;
 ReaderWriterMutex* Locks::dex_lock_ = nullptr;
+Mutex* Locks::native_debug_interface_lock_ = nullptr;
 std::vector<BaseMutex*> Locks::expected_mutexes_on_weak_ref_access_;
 Atomic<const BaseMutex*> Locks::expected_mutexes_on_weak_ref_access_guard_;
 
@@ -101,18 +103,40 @@ static bool ComputeRelativeTimeSpec(timespec* result_ts, const timespec& lhs, co
 }
 #endif
 
+// Wait for an amount of time that roughly increases in the argument i.
+// Spin for small arguments and yield/sleep for longer ones.
+static void BackOff(uint32_t i) {
+  static constexpr uint32_t kSpinMax = 10;
+  static constexpr uint32_t kYieldMax = 20;
+  if (i <= kSpinMax) {
+    // TODO: Esp. in very latency-sensitive cases, consider replacing this with an explicit
+    // test-and-test-and-set loop in the caller.  Possibly skip entirely on a uniprocessor.
+    volatile uint32_t x = 0;
+    const uint32_t spin_count = 10 * i;
+    for (uint32_t spin = 0; spin < spin_count; ++spin) {
+      ++x;  // Volatile; hence should not be optimized away.
+    }
+    // TODO: Consider adding x86 PAUSE and/or ARM YIELD here.
+  } else if (i <= kYieldMax) {
+    sched_yield();
+  } else {
+    NanoSleep(1000ull * (i - kYieldMax));
+  }
+}
+
 class ScopedAllMutexesLock FINAL {
  public:
   explicit ScopedAllMutexesLock(const BaseMutex* mutex) : mutex_(mutex) {
-    while (!gAllMutexData->all_mutexes_guard.CompareExchangeWeakAcquire(0, mutex)) {
-      NanoSleep(100);
+    for (uint32_t i = 0;
+         !gAllMutexData->all_mutexes_guard.CompareAndSetWeakAcquire(0, mutex);
+         ++i) {
+      BackOff(i);
     }
   }
 
   ~ScopedAllMutexesLock() {
-    while (!gAllMutexData->all_mutexes_guard.CompareExchangeWeakRelease(mutex_, 0)) {
-      NanoSleep(100);
-    }
+    DCHECK_EQ(gAllMutexData->all_mutexes_guard.LoadRelaxed(), mutex_);
+    gAllMutexData->all_mutexes_guard.StoreRelease(0);
   }
 
  private:
@@ -122,17 +146,16 @@ class ScopedAllMutexesLock FINAL {
 class Locks::ScopedExpectedMutexesOnWeakRefAccessLock FINAL {
  public:
   explicit ScopedExpectedMutexesOnWeakRefAccessLock(const BaseMutex* mutex) : mutex_(mutex) {
-    while (!Locks::expected_mutexes_on_weak_ref_access_guard_.CompareExchangeWeakAcquire(0,
-                                                                                         mutex)) {
-      NanoSleep(100);
+    for (uint32_t i = 0;
+         !Locks::expected_mutexes_on_weak_ref_access_guard_.CompareAndSetWeakAcquire(0, mutex);
+         ++i) {
+      BackOff(i);
     }
   }
 
   ~ScopedExpectedMutexesOnWeakRefAccessLock() {
-    while (!Locks::expected_mutexes_on_weak_ref_access_guard_.CompareExchangeWeakRelease(mutex_,
-                                                                                         0)) {
-      NanoSleep(100);
-    }
+    DCHECK_EQ(Locks::expected_mutexes_on_weak_ref_access_guard_.LoadRelaxed(), mutex_);
+    Locks::expected_mutexes_on_weak_ref_access_guard_.StoreRelease(0);
   }
 
  private:
@@ -292,7 +315,7 @@ void BaseMutex::RecordContention(uint64_t blocked_tid,
       do {
         slot = data->cur_content_log_entry.LoadRelaxed();
         new_slot = (slot + 1) % kContentionLogSize;
-      } while (!data->cur_content_log_entry.CompareExchangeWeakRelaxed(slot, new_slot));
+      } while (!data->cur_content_log_entry.CompareAndSetWeakRelaxed(slot, new_slot));
       log[new_slot].blocked_tid = blocked_tid;
       log[new_slot].owner_tid = owner_tid;
       log[new_slot].count.StoreRelaxed(1);
@@ -361,14 +384,13 @@ void BaseMutex::DumpContention(std::ostream& os) const {
 
 
 Mutex::Mutex(const char* name, LockLevel level, bool recursive)
-    : BaseMutex(name, level), recursive_(recursive), recursion_count_(0) {
+    : BaseMutex(name, level), exclusive_owner_(0), recursive_(recursive), recursion_count_(0) {
 #if ART_USE_FUTEXES
   DCHECK_EQ(0, state_.LoadRelaxed());
   DCHECK_EQ(0, num_contenders_.LoadRelaxed());
 #else
   CHECK_MUTEX_CALL(pthread_mutex_init, (&mutex_, nullptr));
 #endif
-  exclusive_owner_ = 0;
 }
 
 // Helper to allow checking shutdown while locking for thread safety.
@@ -382,9 +404,9 @@ Mutex::~Mutex() {
 #if ART_USE_FUTEXES
   if (state_.LoadRelaxed() != 0) {
     LOG(safe_to_call_abort ? FATAL : WARNING)
-        << "destroying mutex with owner: " << exclusive_owner_;
+        << "destroying mutex with owner: " << GetExclusiveOwnerTid();
   } else {
-    if (exclusive_owner_ != 0) {
+    if (GetExclusiveOwnerTid() != 0) {
       LOG(safe_to_call_abort ? FATAL : WARNING)
           << "unexpectedly found an owner on unlocked mutex " << name_;
     }
@@ -417,7 +439,7 @@ void Mutex::ExclusiveLock(Thread* self) {
       int32_t cur_state = state_.LoadRelaxed();
       if (LIKELY(cur_state == 0)) {
         // Change state from 0 to 1 and impose load/store ordering appropriate for lock acquisition.
-        done = state_.CompareExchangeWeakAcquire(0 /* cur_state */, 1 /* new state */);
+        done = state_.CompareAndSetWeakAcquire(0 /* cur_state */, 1 /* new state */);
       } else {
         // Failed to acquire, hang up.
         ScopedContentionRecorder scr(this, SafeGetTid(self), GetExclusiveOwnerTid());
@@ -439,8 +461,8 @@ void Mutex::ExclusiveLock(Thread* self) {
 #else
     CHECK_MUTEX_CALL(pthread_mutex_lock, (&mutex_));
 #endif
-    DCHECK_EQ(exclusive_owner_, 0U);
-    exclusive_owner_ = SafeGetTid(self);
+    DCHECK_EQ(GetExclusiveOwnerTid(), 0);
+    exclusive_owner_.StoreRelaxed(SafeGetTid(self));
     RegisterAsLocked(self);
   }
   recursion_count_++;
@@ -463,7 +485,7 @@ bool Mutex::ExclusiveTryLock(Thread* self) {
       int32_t cur_state = state_.LoadRelaxed();
       if (cur_state == 0) {
         // Change state from 0 to 1 and impose load/store ordering appropriate for lock acquisition.
-        done = state_.CompareExchangeWeakAcquire(0 /* cur_state */, 1 /* new state */);
+        done = state_.CompareAndSetWeakAcquire(0 /* cur_state */, 1 /* new state */);
       } else {
         return false;
       }
@@ -479,8 +501,8 @@ bool Mutex::ExclusiveTryLock(Thread* self) {
       PLOG(FATAL) << "pthread_mutex_trylock failed for " << name_;
     }
 #endif
-    DCHECK_EQ(exclusive_owner_, 0U);
-    exclusive_owner_ = SafeGetTid(self);
+    DCHECK_EQ(GetExclusiveOwnerTid(), 0);
+    exclusive_owner_.StoreRelaxed(SafeGetTid(self));
     RegisterAsLocked(self);
   }
   recursion_count_++;
@@ -506,7 +528,7 @@ void Mutex::ExclusiveUnlock(Thread* self) {
                << " Thread::Current()=" << name2;
   }
   AssertHeld(self);
-  DCHECK_NE(exclusive_owner_, 0U);
+  DCHECK_NE(GetExclusiveOwnerTid(), 0);
   recursion_count_--;
   if (!recursive_ || recursion_count_ == 0) {
     if (kDebugLocking) {
@@ -520,12 +542,12 @@ void Mutex::ExclusiveUnlock(Thread* self) {
       int32_t cur_state = state_.LoadRelaxed();
       if (LIKELY(cur_state == 1)) {
         // We're no longer the owner.
-        exclusive_owner_ = 0;
+        exclusive_owner_.StoreRelaxed(0);
         // Change state to 0 and impose load/store ordering appropriate for lock release.
-        // Note, the relaxed loads below musn't reorder before the CompareExchange.
+        // Note, the relaxed loads below mustn't reorder before the CompareAndSet.
         // TODO: the ordering here is non-trivial as state is split across 3 fields, fix by placing
         // a status bit into the state on contention.
-        done =  state_.CompareExchangeWeakSequentiallyConsistent(cur_state, 0 /* new state */);
+        done = state_.CompareAndSetWeakSequentiallyConsistent(cur_state, 0 /* new state */);
         if (LIKELY(done)) {  // Spurious fail?
           // Wake a contender.
           if (UNLIKELY(num_contenders_.LoadRelaxed() > 0)) {
@@ -547,7 +569,7 @@ void Mutex::ExclusiveUnlock(Thread* self) {
       }
     } while (!done);
 #else
-    exclusive_owner_ = 0;
+    exclusive_owner_.StoreRelaxed(0);
     CHECK_MUTEX_CALL(pthread_mutex_unlock, (&mutex_));
 #endif
   }
@@ -584,17 +606,17 @@ ReaderWriterMutex::ReaderWriterMutex(const char* name, LockLevel level)
 #if ART_USE_FUTEXES
     , state_(0), num_pending_readers_(0), num_pending_writers_(0)
 #endif
-{  // NOLINT(whitespace/braces)
+{
 #if !ART_USE_FUTEXES
   CHECK_MUTEX_CALL(pthread_rwlock_init, (&rwlock_, nullptr));
 #endif
-  exclusive_owner_ = 0;
+  exclusive_owner_.StoreRelaxed(0);
 }
 
 ReaderWriterMutex::~ReaderWriterMutex() {
 #if ART_USE_FUTEXES
   CHECK_EQ(state_.LoadRelaxed(), 0);
-  CHECK_EQ(exclusive_owner_, 0U);
+  CHECK_EQ(GetExclusiveOwnerTid(), 0);
   CHECK_EQ(num_pending_readers_.LoadRelaxed(), 0);
   CHECK_EQ(num_pending_writers_.LoadRelaxed(), 0);
 #else
@@ -618,7 +640,7 @@ void ReaderWriterMutex::ExclusiveLock(Thread* self) {
     int32_t cur_state = state_.LoadRelaxed();
     if (LIKELY(cur_state == 0)) {
       // Change state from 0 to -1 and impose load/store ordering appropriate for lock acquisition.
-      done =  state_.CompareExchangeWeakAcquire(0 /* cur_state*/, -1 /* new state */);
+      done = state_.CompareAndSetWeakAcquire(0 /* cur_state*/, -1 /* new state */);
     } else {
       // Failed to acquire, hang up.
       ScopedContentionRecorder scr(this, SafeGetTid(self), GetExclusiveOwnerTid());
@@ -640,8 +662,8 @@ void ReaderWriterMutex::ExclusiveLock(Thread* self) {
 #else
   CHECK_MUTEX_CALL(pthread_rwlock_wrlock, (&rwlock_));
 #endif
-  DCHECK_EQ(exclusive_owner_, 0U);
-  exclusive_owner_ = SafeGetTid(self);
+  DCHECK_EQ(GetExclusiveOwnerTid(), 0);
+  exclusive_owner_.StoreRelaxed(SafeGetTid(self));
   RegisterAsLocked(self);
   AssertExclusiveHeld(self);
 }
@@ -650,19 +672,19 @@ void ReaderWriterMutex::ExclusiveUnlock(Thread* self) {
   DCHECK(self == nullptr || self == Thread::Current());
   AssertExclusiveHeld(self);
   RegisterAsUnlocked(self);
-  DCHECK_NE(exclusive_owner_, 0U);
+  DCHECK_NE(GetExclusiveOwnerTid(), 0);
 #if ART_USE_FUTEXES
   bool done = false;
   do {
     int32_t cur_state = state_.LoadRelaxed();
     if (LIKELY(cur_state == -1)) {
       // We're no longer the owner.
-      exclusive_owner_ = 0;
+      exclusive_owner_.StoreRelaxed(0);
       // Change state from -1 to 0 and impose load/store ordering appropriate for lock release.
-      // Note, the relaxed loads below musn't reorder before the CompareExchange.
+      // Note, the relaxed loads below musn't reorder before the CompareAndSet.
       // TODO: the ordering here is non-trivial as state is split across 3 fields, fix by placing
       // a status bit into the state on contention.
-      done =  state_.CompareExchangeWeakSequentiallyConsistent(-1 /* cur_state*/, 0 /* new state */);
+      done = state_.CompareAndSetWeakSequentiallyConsistent(-1 /* cur_state*/, 0 /* new state */);
       if (LIKELY(done)) {  // Weak CAS may fail spuriously.
         // Wake any waiters.
         if (UNLIKELY(num_pending_readers_.LoadRelaxed() > 0 ||
@@ -675,7 +697,7 @@ void ReaderWriterMutex::ExclusiveUnlock(Thread* self) {
     }
   } while (!done);
 #else
-  exclusive_owner_ = 0;
+  exclusive_owner_.StoreRelaxed(0);
   CHECK_MUTEX_CALL(pthread_rwlock_unlock, (&rwlock_));
 #endif
 }
@@ -691,7 +713,7 @@ bool ReaderWriterMutex::ExclusiveLockWithTimeout(Thread* self, int64_t ms, int32
     int32_t cur_state = state_.LoadRelaxed();
     if (cur_state == 0) {
       // Change state from 0 to -1 and impose load/store ordering appropriate for lock acquisition.
-      done =  state_.CompareExchangeWeakAcquire(0 /* cur_state */, -1 /* new state */);
+      done = state_.CompareAndSetWeakAcquire(0 /* cur_state */, -1 /* new state */);
     } else {
       // Failed to acquire, hang up.
       timespec now_abs_ts;
@@ -731,7 +753,7 @@ bool ReaderWriterMutex::ExclusiveLockWithTimeout(Thread* self, int64_t ms, int32
     PLOG(FATAL) << "pthread_rwlock_timedwrlock failed for " << name_;
   }
 #endif
-  exclusive_owner_ = SafeGetTid(self);
+  exclusive_owner_.StoreRelaxed(SafeGetTid(self));
   RegisterAsLocked(self);
   AssertSharedHeld(self);
   return true;
@@ -741,7 +763,7 @@ bool ReaderWriterMutex::ExclusiveLockWithTimeout(Thread* self, int64_t ms, int32
 #if ART_USE_FUTEXES
 void ReaderWriterMutex::HandleSharedLockContention(Thread* self, int32_t cur_state) {
   // Owner holds it exclusively, hang up.
-  ScopedContentionRecorder scr(this, GetExclusiveOwnerTid(), SafeGetTid(self));
+  ScopedContentionRecorder scr(this, SafeGetTid(self), GetExclusiveOwnerTid());
   ++num_pending_readers_;
   if (UNLIKELY(should_respond_to_empty_checkpoint_request_)) {
     self->CheckEmptyCheckpointFromMutex();
@@ -763,7 +785,7 @@ bool ReaderWriterMutex::SharedTryLock(Thread* self) {
     int32_t cur_state = state_.LoadRelaxed();
     if (cur_state >= 0) {
       // Add as an extra reader and impose load/store ordering appropriate for lock acquisition.
-      done =  state_.CompareExchangeWeakAcquire(cur_state, cur_state + 1);
+      done = state_.CompareAndSetWeakAcquire(cur_state, cur_state + 1);
     } else {
       // Owner holds it exclusively.
       return false;
@@ -938,7 +960,7 @@ void ConditionVariable::WaitHoldingLocks(Thread* self) {
   }
   if (self != nullptr) {
     JNIEnvExt* const env = self->GetJniEnv();
-    if (UNLIKELY(env != nullptr && env->runtime_deleted)) {
+    if (UNLIKELY(env != nullptr && env->IsRuntimeDeleted())) {
       CHECK(self->IsDaemon());
       // If the runtime has been deleted, then we cannot proceed. Just sleep forever. This may
       // occur for user daemon threads that get a spurious wakeup. This occurs for test 132 with
@@ -955,11 +977,11 @@ void ConditionVariable::WaitHoldingLocks(Thread* self) {
   CHECK_GE(guard_.num_contenders_.LoadRelaxed(), 0);
   guard_.num_contenders_--;
 #else
-  uint64_t old_owner = guard_.exclusive_owner_;
-  guard_.exclusive_owner_ = 0;
+  pid_t old_owner = guard_.GetExclusiveOwnerTid();
+  guard_.exclusive_owner_.StoreRelaxed(0);
   guard_.recursion_count_ = 0;
   CHECK_MUTEX_CALL(pthread_cond_wait, (&cond_, &guard_.mutex_));
-  guard_.exclusive_owner_ = old_owner;
+  guard_.exclusive_owner_.StoreRelaxed(old_owner);
 #endif
   guard_.recursion_count_ = old_recursion_count;
 }
@@ -1001,8 +1023,8 @@ bool ConditionVariable::TimedWait(Thread* self, int64_t ms, int32_t ns) {
 #else
   int clock = CLOCK_REALTIME;
 #endif
-  uint64_t old_owner = guard_.exclusive_owner_;
-  guard_.exclusive_owner_ = 0;
+  pid_t old_owner = guard_.GetExclusiveOwnerTid();
+  guard_.exclusive_owner_.StoreRelaxed(0);
   guard_.recursion_count_ = 0;
   timespec ts;
   InitTimeSpec(true, clock, ms, ns, &ts);
@@ -1013,7 +1035,7 @@ bool ConditionVariable::TimedWait(Thread* self, int64_t ms, int32_t ns) {
     errno = rc;
     PLOG(FATAL) << "TimedWait failed for " << name_;
   }
-  guard_.exclusive_owner_ = old_owner;
+  guard_.exclusive_owner_.StoreRelaxed(old_owner);
 #endif
   guard_.recursion_count_ = old_recursion_count;
   return timed_out;
@@ -1022,7 +1044,7 @@ bool ConditionVariable::TimedWait(Thread* self, int64_t ms, int32_t ns) {
 void Locks::Init() {
   if (logging_lock_ != nullptr) {
     // Already initialized.
-    if (kRuntimeISA == kX86 || kRuntimeISA == kX86_64) {
+    if (kRuntimeISA == InstructionSet::kX86 || kRuntimeISA == InstructionSet::kX86_64) {
       DCHECK(modify_ldt_lock_ != nullptr);
     } else {
       DCHECK(modify_ldt_lock_ == nullptr);
@@ -1045,12 +1067,14 @@ void Locks::Init() {
     DCHECK(mutator_lock_ != nullptr);
     DCHECK(profiler_lock_ != nullptr);
     DCHECK(cha_lock_ != nullptr);
+    DCHECK(subtype_check_lock_ != nullptr);
     DCHECK(thread_list_lock_ != nullptr);
     DCHECK(thread_suspend_count_lock_ != nullptr);
     DCHECK(trace_lock_ != nullptr);
     DCHECK(unexpected_signal_lock_ != nullptr);
     DCHECK(user_code_suspension_lock_ != nullptr);
     DCHECK(dex_lock_ != nullptr);
+    DCHECK(native_debug_interface_lock_ != nullptr);
   } else {
     // Create global locks in level order from highest lock level to lowest.
     LockLevel current_lock_level = kInstrumentEntrypointsLock;
@@ -1110,6 +1134,10 @@ void Locks::Init() {
     DCHECK(breakpoint_lock_ == nullptr);
     breakpoint_lock_ = new ReaderWriterMutex("breakpoint lock", current_lock_level);
 
+    UPDATE_CURRENT_LOCK_LEVEL(kSubtypeCheckLock);
+    DCHECK(subtype_check_lock_ == nullptr);
+    subtype_check_lock_ = new Mutex("SubtypeCheck lock", current_lock_level);
+
     UPDATE_CURRENT_LOCK_LEVEL(kCHALock);
     DCHECK(cha_lock_ == nullptr);
     cha_lock_ = new Mutex("CHA lock", current_lock_level);
@@ -1127,7 +1155,7 @@ void Locks::Init() {
     DCHECK(allocated_thread_ids_lock_ == nullptr);
     allocated_thread_ids_lock_ =  new Mutex("allocated thread ids lock", current_lock_level);
 
-    if (kRuntimeISA == kX86 || kRuntimeISA == kX86_64) {
+    if (kRuntimeISA == InstructionSet::kX86 || kRuntimeISA == InstructionSet::kX86_64) {
       UPDATE_CURRENT_LOCK_LEVEL(kModifyLdtLock);
       DCHECK(modify_ldt_lock_ == nullptr);
       modify_ldt_lock_ = new Mutex("modify_ldt lock", current_lock_level);
@@ -1189,6 +1217,10 @@ void Locks::Init() {
     UPDATE_CURRENT_LOCK_LEVEL(kJniFunctionTableLock);
     DCHECK(jni_function_table_lock_ == nullptr);
     jni_function_table_lock_ = new Mutex("JNI function table lock", current_lock_level);
+
+    UPDATE_CURRENT_LOCK_LEVEL(kNativeDebugInterfaceLock);
+    DCHECK(native_debug_interface_lock_ == nullptr);
+    native_debug_interface_lock_ = new Mutex("Native debug interface lock", current_lock_level);
 
     UPDATE_CURRENT_LOCK_LEVEL(kAbortLock);
     DCHECK(abort_lock_ == nullptr);

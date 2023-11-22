@@ -14,7 +14,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 from acts import base_test
-from acts import test_runner
 from acts.controllers.relay_lib.relay import SynchronizeRelays
 
 
@@ -98,7 +97,3 @@ class RelayDeviceSampleTest(base_test.BaseTestClass):
         # For more fine control over the wait time of relays, you can set
         # Relay.transition_wait_time. This is not recommended unless you are
         # using solid state relays, or async calls.
-
-
-if __name__ == "__main__":
-    test_runner.main()

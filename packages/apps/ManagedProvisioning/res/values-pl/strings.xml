@@ -21,13 +21,13 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="2400883737290705700">"Konfiguracja profilu do pracy"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"Ups!"</string>
-    <string name="setup_work_profile" msgid="1468934631731845267">"Skonfiguruj profil do pracy"</string>
+    <string name="setup_work_profile" msgid="1468934631731845267">"Skonfiguruj profil służbowy"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"Twoja organizacja kontroluje i zabezpiecza ten profil. Cała pozostała zawartość urządzenia jest pod Twoją kontrolą."</string>
     <string name="company_controls_device" msgid="8230957518758871390">"Twoja organizacja będzie mieć kontrolę nad tym urządzeniem i będzie dbać o jego bezpieczeństwo."</string>
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Aplikacja, która będzie potrzebować dostępu do tego profilu:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Ta aplikacja będzie zarządzać urządzeniem:"</string>
     <string name="next" msgid="1004321437324424398">"Dalej"</string>
-    <string name="setting_up_workspace" msgid="7862472373642601041">"Konfiguruję profil do pracy…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Konfiguruję profil służbowy…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Administrator może monitorować ustawienia, firmowe uprawnienia dostępu, aplikacje, uprawnienia i dane powiązane z profilem (w tym aktywność w sieci, lokalizację urządzenia, historię połączeń i historię wyszukiwania kontaktów) oraz nimi zarządzać.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Skontaktuj się z administratorem, by uzyskać więcej informacji, w tym politykę prywatności obowiązującą w Twojej organizacji."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Administrator może monitorować ustawienia, firmowe uprawnienia dostępu, aplikacje, uprawnienia i dane powiązane z urządzeniem (w tym aktywność w sieci, lokalizację urządzenia, historię połączeń i historię wyszukiwania kontaktów) oraz nimi zarządzać.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Skontaktuj się z administratorem, by uzyskać więcej informacji, w tym politykę prywatności obowiązującą w Twojej organizacji."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Aby korzystać z funkcji ochrony przed kradzieżą, musisz włączyć na urządzeniu blokadę ekranu zabezpieczoną hasłem."</string>
@@ -40,10 +40,10 @@
     <string name="terms" msgid="8295436105384703903">"Warunki"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Informacje o profilu do pracy"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Informacje o urządzeniu zarządzanym"</string>
-    <string name="default_managed_profile_name" msgid="5370257687074907055">"Profil do pracy"</string>
+    <string name="default_managed_profile_name" msgid="5370257687074907055">"Profil służbowy"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Główny użytkownik"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Usunąć istniejący profil?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Masz już profil do pracy, którym zarządza ta aplikacja:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Masz już profil służbowy, którym zarządza ta aplikacja:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Zanim przejdziesz dalej, "<a href="#read_this_link">"przeczytaj to"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Pamiętaj, że wszystkie aplikacje i dane w tym profilu zostaną usunięte."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Usuń"</string>
@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"Konfiguruję urządzenie do pracy…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Przetwarzam dane konfiguracji…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Łączę z Wi-Fi…"</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Łączę z siecią komórkową…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Pobieram aplikację administratora…"</string>
     <string name="progress_install" msgid="2258045670385866183">"Instaluję aplikację administratora…"</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Usuwam niewymagane aplikacje systemowe..."</string>
@@ -98,16 +99,16 @@
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Tak"</string>
     <string name="profile_owner_cancelling" msgid="5679573829145112822">"Anuluję…"</string>
     <string name="work_profile_setup_later_title" msgid="9069148190226279892">"Zatrzymać konfigurowanie profilu?"</string>
-    <string name="work_profile_setup_later_message" msgid="122069011117225292">"Profil do pracy możesz skonfigurować później w aplikacji do zarządzania urządzeniami używanej przez organizację."</string>
+    <string name="work_profile_setup_later_message" msgid="122069011117225292">"Profil służbowy możesz skonfigurować później w aplikacji do zarządzania urządzeniami używanej przez organizację."</string>
     <string name="continue_button" msgid="7177918589510964446">"Dalej"</string>
     <string name="work_profile_setup_stop" msgid="6772128629992514750">"Zatrzymaj"</string>
     <string name="dismiss" msgid="9009534756748565880">"Zamknij"</string>
-    <string name="profile_owner_info" msgid="8975319972303812298">"Utworzysz profil do pracy, który będzie zarządzany i monitorowany przez Twoją organizację. Obowiązują warunki."</string>
-    <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Utworzysz profil do pracy, który będzie zarządzany i monitorowany przez Twoją organizację. Obowiązują warunki podane na stronach <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
+    <string name="profile_owner_info" msgid="8975319972303812298">"Utworzysz profil służbowy, który będzie zarządzany i monitorowany przez Twoją organizację. Obowiązują warunki."</string>
+    <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Utworzysz profil służbowy, który będzie zarządzany i monitorowany przez Twoją organizację. Obowiązują warunki podane na stronach <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"Utworzony profil będzie przeznaczony na aplikacje do pracy. Ten profil oraz reszta urządzenia będą zarządzane i monitorowane przez Twoją organizację. Obowiązują warunki."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"Utworzony profil będzie przeznaczony na aplikacje do pracy. Ten profil oraz reszta urządzenia będą zarządzane i monitorowane przez Twoją organizację. Obowiązują warunki podane na stronach <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"Organizacja <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> będzie zarządzać tym urządzeniem i dbać o jego bezpieczeństwo. Obowiązują warunki. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"Organizacja <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> będzie zarządzać tym urządzeniem i dbać o jego bezpieczeństwo. Obowiązują warunki podane na stronach <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"Organizacja <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> będzie zarządzać tym urządzeniem, monitorować je i dbać o jego bezpieczeństwo. Obowiązują warunki. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Organizacja <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> będzie zarządzać tym urządzeniem, monitorować je i dbać o jego bezpieczeństwo. Obowiązują warunki podane na stronach <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Ten link nie jest bezpieczny i nie można go otworzyć do czasu ukończenia konfiguracji urządzenia: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"Jeśli masz pytania, skontaktuj się z: <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>"</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"Jeśli masz pytania, skontaktuj się z administratorem organizacji"</string>
@@ -128,7 +129,7 @@
     <string name="provisioning" msgid="4512493827019163451">"Włączam obsługę administracyjną"</string>
     <string name="copying_certs" msgid="5697938664953550881">"Konfiguruję certyfikaty CA"</string>
     <string name="setup_profile" msgid="5573950582159698549">"Konfigurowanie profilu"</string>
-    <string name="profile_benefits_description" msgid="758432985984252636">"Profil do pracy pozwala oddzielić dane służbowe od prywatnych"</string>
+    <string name="profile_benefits_description" msgid="758432985984252636">"Profil służbowy pozwala oddzielić dane służbowe od prywatnych"</string>
     <string name="comp_profile_benefits_description" msgid="379837075456998273">"Dzięki profilowi do pracy wszystkie aplikacje służbowe masz w jednym miejscu"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"Konfigurowanie profilu. Szyfrowanie"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"Konfigurowanie profilu. Pokazuje postęp"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> i <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"Może to potrwać kilka minut"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"Aplikacje do pracy będą dostępne w tym profilu. Będzie nimi zarządzać Twoja organizacja"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"Bezpieczeństwem tego telefonu i zarządzaniem nim będzie się zajmować Twoja organizacja."</string>
 </resources>

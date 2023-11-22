@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.concurrent.CountDownLatch;
+import java.util.function.Function;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -76,7 +77,9 @@ public class Test924 {
     };
     printThreadInfo(t4);
 
-    doStateTests();
+    doCurrentThreadStateTests();
+    doStateTests(Thread::new);
+    doStateTests(ExtThread::new);
 
     doAllThreadsTests();
 
@@ -85,14 +88,20 @@ public class Test924 {
     doTestEvents();
   }
 
+  private static final class ExtThread extends Thread {
+    public ExtThread(Runnable r) { super(r); }
+  }
+
   private static class Holder {
     volatile boolean flag = false;
   }
 
-  private static void doStateTests() throws Exception {
+  private static void doCurrentThreadStateTests() throws Exception {
     System.out.println(Integer.toHexString(getThreadState(null)));
     System.out.println(Integer.toHexString(getThreadState(Thread.currentThread())));
+  }
 
+  private static void doStateTests(Function<Runnable, Thread> mkThread) throws Exception {
     final CountDownLatch cdl1 = new CountDownLatch(1);
     final CountDownLatch cdl2 = new CountDownLatch(1);
     final CountDownLatch cdl3_1 = new CountDownLatch(1);
@@ -100,6 +109,7 @@ public class Test924 {
     final CountDownLatch cdl4 = new CountDownLatch(1);
     final CountDownLatch cdl5 = new CountDownLatch(1);
     final Holder h = new Holder();
+    final NativeWaiter w = new NativeWaiter();
     Runnable r = new Runnable() {
       @Override
       public void run() {
@@ -127,13 +137,16 @@ public class Test924 {
           while (!h.flag) {
             // Busy-loop.
           }
+
+          nativeLoop(w.struct);
         } catch (Exception e) {
           throw new RuntimeException(e);
         }
       }
     };
 
-    Thread t = new Thread(r);
+    Thread t = mkThread.apply(r);
+    System.out.println("Thread type is " + t.getClass());
     printThreadState(t);
     t.start();
 
@@ -164,8 +177,10 @@ public class Test924 {
       do {
         Thread.yield();
       } while (t.getState() != Thread.State.BLOCKED);
-      Thread.sleep(10);
-      printThreadState(t);
+      // Since internal thread suspension (For GC or other cases) can happen at any time and changes
+      // the thread state we just have it print the majority thread state across 11 calls over 55
+      // milliseconds.
+      printMajorityThreadState(t, 11, 5);
     }
 
     // Sleeping.
@@ -180,6 +195,11 @@ public class Test924 {
     Thread.sleep(100);
     printThreadState(t);
     h.flag = true;
+
+    // Native
+    w.waitForNative();
+    printThreadState(t);
+    w.finish();
 
     // Dying.
     t.join();
@@ -357,10 +377,32 @@ public class Test924 {
     STATE_KEYS.addAll(STATE_NAMES.keySet());
     Collections.sort(STATE_KEYS);
   }
-  
-  private static void printThreadState(Thread t) {
-    int state = getThreadState(t);
 
+  // Call getThreadState 'votes' times waiting 'wait' millis between calls and print the most common
+  // result.
+  private static void printMajorityThreadState(Thread t, int votes, int wait) throws Exception {
+    Map<Integer, Integer> states = new HashMap<>();
+    for (int i = 0; i < votes; i++) {
+      int cur_state = getThreadState(t);
+      states.put(cur_state, states.getOrDefault(cur_state, 0) + 1);
+      Thread.sleep(wait);  // Wait a little bit.
+    }
+    int best_state = -1;
+    int highest_count = 0;
+    for (Map.Entry<Integer, Integer> e : states.entrySet()) {
+      if (e.getValue() > highest_count) {
+        highest_count = e.getValue();
+        best_state = e.getKey();
+      }
+    }
+    printThreadState(best_state);
+  }
+
+  private static void printThreadState(Thread t) {
+    printThreadState(getThreadState(t));
+  }
+
+  private static void printThreadState(int state) {
     StringBuilder sb = new StringBuilder();
 
     for (Integer i : STATE_KEYS) {
@@ -392,6 +434,31 @@ public class Test924 {
     System.out.println(threadInfo[3]);  // Threadgroup
     System.out.println(threadInfo[4] == null ? "null" : threadInfo[4].getClass());  // Context CL.
   }
+
+  public static final class NativeWaiter {
+    public long struct;
+    public NativeWaiter() {
+      struct = nativeWaiterStructAlloc();
+    }
+    public void waitForNative() {
+      if (struct == 0l) {
+        throw new Error("Already resumed from native!");
+      }
+      nativeWaiterStructWaitForNative(struct);
+    }
+    public void finish() {
+      if (struct == 0l) {
+        throw new Error("Already resumed from native!");
+      }
+      nativeWaiterStructFinish(struct);
+      struct = 0;
+    }
+  }
+
+  private static native long nativeWaiterStructAlloc();
+  private static native void nativeWaiterStructWaitForNative(long struct);
+  private static native void nativeWaiterStructFinish(long struct);
+  private static native void nativeLoop(long w);
 
   private static native Thread getCurrentThread();
   private static native Object[] getThreadInfo(Thread t);

@@ -20,6 +20,7 @@
 
 #include "HalInterfaces.h"
 #include "Utils.h"
+#include "ValidateHal.h"
 
 #include <android-base/logging.h>
 #include <hidl/LegacySupport.h>
@@ -32,21 +33,24 @@ namespace sample_driver {
 class SampleDriverFloatFast : public SampleDriver {
 public:
     SampleDriverFloatFast() : SampleDriver("sample-float-fast") {}
-    Return<void> getCapabilities(getCapabilities_cb _hidl_cb) override;
-    Return<void> getSupportedOperations(const Model& model, getSupportedOperations_cb cb) override;
+    Return<void> getCapabilities_1_1(getCapabilities_1_1_cb cb) override;
+    Return<void> getSupportedOperations_1_1(const V1_1::Model& model,
+                                            getSupportedOperations_1_1_cb cb) override;
 };
 
-Return<void> SampleDriverFloatFast::getCapabilities(getCapabilities_cb cb) {
+Return<void> SampleDriverFloatFast::getCapabilities_1_1(getCapabilities_1_1_cb cb) {
     android::nn::initVLogMask();
     VLOG(DRIVER) << "getCapabilities()";
     Capabilities capabilities = {.float32Performance = {.execTime = 0.8f, .powerUsage = 1.2f},
-                                 .quantized8Performance = {.execTime = 1.0f, .powerUsage = 1.0f}};
+                                 .quantized8Performance = {.execTime = 1.0f, .powerUsage = 1.0f},
+                                 .relaxedFloat32toFloat16Performance =
+                                     {.execTime = 0.7f, .powerUsage = 1.1f}};
     cb(ErrorStatus::NONE, capabilities);
     return Void();
 }
 
-Return<void> SampleDriverFloatFast::getSupportedOperations(const Model& model,
-                                                           getSupportedOperations_cb cb) {
+Return<void> SampleDriverFloatFast::getSupportedOperations_1_1(const V1_1::Model& model,
+                                                               getSupportedOperations_1_1_cb cb) {
     VLOG(DRIVER) << "getSupportedOperations()";
     if (validateModel(model)) {
         const size_t count = model.operations.size();

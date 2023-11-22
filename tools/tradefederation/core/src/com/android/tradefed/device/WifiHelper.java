@@ -66,14 +66,21 @@ public class WifiHelper implements IWifiHelper {
     private File mWifiUtilApkFile;
 
     public WifiHelper(ITestDevice device) throws DeviceNotAvailableException {
-        mDevice = device;
-        ensureDeviceSetup(null);
+        this(device, null, true);
     }
 
     public WifiHelper(ITestDevice device, String wifiUtilApkPath)
             throws DeviceNotAvailableException {
+        this(device, wifiUtilApkPath, true);
+    }
+
+    /** Alternative constructor that can skip the setup of the wifi apk. */
+    public WifiHelper(ITestDevice device, String wifiUtilApkPath, boolean doSetup)
+            throws DeviceNotAvailableException {
         mDevice = device;
-        ensureDeviceSetup(wifiUtilApkPath);
+        if (doSetup) {
+            ensureDeviceSetup(wifiUtilApkPath);
+        }
     }
 
     /**

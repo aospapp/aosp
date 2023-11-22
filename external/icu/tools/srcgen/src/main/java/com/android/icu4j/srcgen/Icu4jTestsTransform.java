@@ -97,6 +97,9 @@ public class Icu4jTestsTransform {
       // Change sample jcite begin / end tags ---XYZ to Androids 'BEGIN(XYZ)' / 'END(XYZ)'
       rules.add(createOptionalRule(new TranslateJcite.BeginEndTagsHandler()));
 
+      // Add annotations to each test file so that they can be sharded across multiple processes.
+      rules.add(createOptionalRule(new ShardingAnnotator()));
+
       return rules;
     }
   }

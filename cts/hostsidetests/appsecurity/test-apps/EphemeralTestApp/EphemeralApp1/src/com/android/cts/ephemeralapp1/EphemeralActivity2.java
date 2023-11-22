@@ -35,6 +35,7 @@ public class EphemeralActivity2 extends Activity {
         TestResult.getBuilder()
                 .setPackageName("com.android.cts.ephemeralapp1")
                 .setComponentName("EphemeralActivity2")
+                .setIntent(getIntent())
                 .setStatus("PASS")
                 .build()
                 .broadcast(this);

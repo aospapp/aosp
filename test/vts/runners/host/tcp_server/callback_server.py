@@ -27,7 +27,7 @@ from vts.utils.python.mirror import pb2py
 _functions = dict()  # Dictionary to hold function pointers
 
 
-class VtsCallbackServerError(errors.VtsError):
+class CallbackServerError(errors.VtsError):
     """Raised when an error occurs in VTS TCP server."""
 
 
@@ -97,20 +97,25 @@ class CallbackServer(object):
         self._ip = ""  # Used to store the IP address for the server
         self._hostname = "localhost"  # IP address to which initial connection is made
 
-    def RegisterCallback(self, func_id, callback_func):
+    def RegisterCallback(self, callback_func):
         """Registers a callback function.
 
         Args:
-            func_id: The ID of the callback function.
             callback_func: The function to register.
+
+        Returns:
+            string, Id of the registered callback function.
 
         Raises:
             CallbackServerError is raised if the func_id is already registered.
         """
-        if func_id in _functions:
-            raise CallbackServerError(
-                "Function ID '%s' is already registered" % func_id)
-        _functions[func_id] = callback_func
+        if self.GetCallbackId(callback_func):
+            raise CallbackServerError("Function is already registered")
+        id = 0
+        if _functions:
+            id = int(max(_functions, key=int)) + 1
+        _functions[str(id)] = callback_func
+        return str(id)
 
     def UnregisterCallback(self, func_id):
         """Removes a callback function from the registry.
@@ -127,6 +132,17 @@ class CallbackServer(object):
             raise CallbackServerError(
                 "Can't remove function ID '%s', which is not registered." %
                 func_id)
+
+    def GetCallbackId(self, callback_func):
+        """Get ID of the callback function.  Registers a callback function.
+
+        Args:
+            callback_func: The function to register.
+
+        Returns:
+            string, Id of the callback function if found, None otherwise.
+        """
+        return _functions.get(callback_func, None)
 
     def Start(self, port=0):
         """Starts the server.

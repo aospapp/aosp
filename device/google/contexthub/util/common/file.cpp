@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG    0
-#define LOG_TAG "file"
-#include <utils/Log.h>
 #include "file.h"
 
 #include <fcntl.h>

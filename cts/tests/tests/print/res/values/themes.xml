@@ -17,7 +17,12 @@
 -->
 
 <resources>
-    <style name="Theme.Translucent" parent="@android:style/Theme.DeviceDefault">
+    <style name="NoAnimationTranslucent" parent="@android:style/Theme.DeviceDefault">
         <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+
+    <style name="NoAnimation" parent="@android:style/Theme.DeviceDefault">
+        <item name="android:windowAnimationStyle">@null</item>
     </style>
 </resources>

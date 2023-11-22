@@ -42,7 +42,7 @@ using android::esed::Weaver;
 
 int main(int /* argc */, char** /* argv */) {
     LOG(INFO) << "Waiting for property...";
-    android::base::WaitForProperty("init.svc.ese_load", "stopped");
+    android::base::WaitForProperty("init.svc.vendor.ese_load", "stopped");
     LOG(INFO) << "Starting esed...";
 
     // Open connection to the eSE

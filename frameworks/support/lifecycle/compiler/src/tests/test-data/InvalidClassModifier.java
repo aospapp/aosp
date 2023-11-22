@@ -16,13 +16,14 @@
 
 package foo;
 
-import static android.arch.lifecycle.Lifecycle.Event.ON_STOP;
+import static androidx.lifecycle.Lifecycle.Event.ON_STOP;
 
-import android.arch.lifecycle.Lifecycle.Event;
-import android.arch.lifecycle.OnLifecycleEvent;
+import androidx.lifecycle.Lifecycle.Event;
+import androidx.lifecycle.LifecycleObserver;
+import androidx.lifecycle.OnLifecycleEvent;
 
 public class InvalidClassModifier {
-    private static class Inner {
+    private static class Inner implements LifecycleObserver {
         @OnLifecycleEvent(ON_STOP)
         private void onStop() {
         }

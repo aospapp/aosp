@@ -64,11 +64,10 @@
             style="@style/BlockedNumbersButton"
             android:background="?android:attr/selectableItemBackgroundBorderless" />
 
-    <View
-          xmlns:tools="http://schemas.android.com/tools"
-          android:layout_width="match_parent"
-          android:layout_height="@dimen/blocked_numbers_divider_stroke"
-          android:layout_below="@id/reenable_button"
-          android:layout_marginTop="@dimen/blocked_numbers_large_padding"
-          android:background="@color/blocked_numbers_divider_color" />
+    <include
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/reenable_button"
+            android:layout_marginTop="@dimen/blocked_numbers_large_padding"
+            layout="@xml/layout_divider" />
 </RelativeLayout>

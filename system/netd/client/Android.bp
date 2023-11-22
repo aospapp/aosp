@@ -20,8 +20,6 @@ cc_library {
         "NetdClient.cpp",
     ],
 
-    shared_libs: ["libcutils"],
-
     header_libs: ["libnetd_client_headers"],
     export_header_lib_headers: ["libnetd_client_headers"],
 
@@ -35,5 +33,9 @@ cc_library {
         "-Werror",
     ],
 
-    clang: true,
+    product_variables: {
+        debuggable: {
+            cflags: ["-DNETD_CLIENT_DEBUGGABLE_BUILD"],
+        }
+    }
 }

@@ -1,190 +1,192 @@
 
 #include "perf_data_converter.h"
-#include "quipper/perf_parser.h"
+
+#include <algorithm>
+#include <limits>
 #include <map>
+#include <memory>
+#include <set>
+#include <unordered_map>
+
+#include <android-base/logging.h>
+#include <android-base/macros.h>
+#include <android-base/strings.h>
+#include <perf_data_utils.h>
+#include <perf_parser.h>
+#include <perf_protobuf_io.h>
+
+#include "perfprofd_record.pb.h"
+#include "perf_data.pb.h"
+
+#include "map_utils.h"
+#include "quipper_helper.h"
+#include "symbolizer.h"
 
 using std::map;
 
-namespace wireless_android_logging_awp {
+namespace android {
+namespace perfprofd {
 
-typedef quipper::ParsedEvent::DSOAndOffset DSOAndOffset;
-typedef std::vector<DSOAndOffset> callchain;
+namespace {
 
-struct callchain_lt {
-  bool operator()(const callchain *c1, const callchain *c2) const {
-    if (c1->size() != c2->size()) {
-      return c1->size() < c2->size();
-    }
-    for (unsigned idx = 0; idx < c1->size(); ++idx) {
-      const DSOAndOffset *do1 = &(*c1)[idx];
-      const DSOAndOffset *do2 = &(*c2)[idx];
-      if (do1->offset() != do2->offset()) {
-        return do1->offset() < do2->offset();
+void AddSymbolInfo(PerfprofdRecord* record,
+                   ::quipper::PerfParser& perf_parser,
+                   ::perfprofd::Symbolizer* symbolizer) {
+  std::unordered_set<std::string> filenames_w_build_id;
+  for (auto& perf_build_id : record->perf_data().build_ids()) {
+    filenames_w_build_id.insert(perf_build_id.filename());
+  }
+
+  std::unordered_set<std::string> files_wo_build_id;
+  {
+    quipper::MmapEventIterator it(record->perf_data());
+    for (; it != it.end(); ++it) {
+      const ::quipper::PerfDataProto_MMapEvent* mmap_event = &it->mmap_event();
+      if (!mmap_event->has_filename() || !mmap_event->has_start() || !mmap_event->has_len()) {
+        // Don't care.
+        continue;
       }
-      int rc = do1->dso_name().compare(do2->dso_name());
-      if (rc) {
-        return rc < 0;
+      if (filenames_w_build_id.count(mmap_event->filename()) == 0) {
+        files_wo_build_id.insert(mmap_event->filename());
       }
     }
-    return false;
   }
-};
+  if (files_wo_build_id.empty()) {
+    return;
+  }
 
-struct RangeTarget {
-  RangeTarget(uint64 start, uint64 end, uint64 to)
-      : start(start), end(end), to(to) {}
-
-  bool operator<(const RangeTarget &r) const {
-    if (start != r.start) {
-      return start < r.start;
-    } else if (end != r.end) {
-      return end < r.end;
-    } else {
-      return to < r.to;
+  struct Dso {
+    uint64_t min_vaddr;
+    RangeMap<std::string, uint64_t> symbols;
+    explicit Dso(uint64_t min_vaddr_in) : min_vaddr(min_vaddr_in) {
     }
-  }
-  uint64 start;
-  uint64 end;
-  uint64 to;
-};
+  };
+  std::unordered_map<std::string, Dso> files;
 
-struct BinaryProfile {
-  map<uint64, uint64> address_count_map;
-  map<RangeTarget, uint64> range_count_map;
-  map<const callchain *, uint64, callchain_lt> callchain_count_map;
-};
-
-wireless_android_play_playlog::AndroidPerfProfile
-RawPerfDataToAndroidPerfProfile(const string &perf_file) {
-  wireless_android_play_playlog::AndroidPerfProfile ret;
-  quipper::PerfParser parser;
-  if (!parser.ReadFile(perf_file) || !parser.ParseRawEvents()) {
-    return ret;
-  }
-
-  typedef map<string, BinaryProfile> ModuleProfileMap;
-  typedef map<string, ModuleProfileMap> ProgramProfileMap;
-
-  // Note: the callchain_count_map member in BinaryProfile contains
-  // pointers into callchains owned by "parser" above, meaning
-  // that once the parser is destroyed, callchain pointers in
-  // name_profile_map will become stale (e.g. keep these two
-  // together in the same region).
-  ProgramProfileMap name_profile_map;
-  uint64 total_samples = 0;
-  bool seen_branch_stack = false;
-  bool seen_callchain = false;
-  for (const auto &event : parser.parsed_events()) {
-    if (!event.raw_event ||
-        event.raw_event->header.type != PERF_RECORD_SAMPLE) {
+  auto it = record->perf_data().events().begin();
+  auto end = record->perf_data().events().end();
+  auto parsed_it = perf_parser.parsed_events().begin();
+  auto parsed_end = perf_parser.parsed_events().end();
+  for (; it != end; ++it, ++parsed_it) {
+    CHECK(parsed_it != parsed_end);
+    if (!it->has_sample_event()) {
       continue;
     }
-    string dso_name = event.dso_and_offset.dso_name();
-    string program_name = event.command();
-    const string kernel_name = "[kernel.kallsyms]";
-    if (dso_name.substr(0, kernel_name.length()) == kernel_name) {
-      dso_name = kernel_name;
-      if (program_name == "") {
-        program_name = "kernel";
+
+    const ::quipper::PerfDataProto_SampleEvent& sample_event = it->sample_event();
+
+    if (android::base::kEnableDChecks) {
+      // Check that the parsed_event and sample_event are consistent.
+      CHECK_EQ(parsed_it->callchain.size(), sample_event.callchain_size());
+    }
+
+    auto check_address = [&](const std::string& dso_name, uint64_t offset) {
+      if (files_wo_build_id.count(dso_name) == 0) {
+        return;
       }
-    } else if (program_name == "") {
-      program_name = "unknown_program";
+
+      // OK, that's a hit in the mmap segment (w/o build id).
+
+      Dso* dso_data;
+      {
+        auto dso_it = files.find(dso_name);
+        constexpr uint64_t kNoMinAddr = std::numeric_limits<uint64_t>::max();
+        if (dso_it == files.end()) {
+          uint64_t min_vaddr;
+          bool has_min_vaddr = symbolizer->GetMinExecutableVAddr(dso_name, &min_vaddr);
+          if (!has_min_vaddr) {
+            min_vaddr = kNoMinAddr;
+          }
+          auto it = files.emplace(dso_name, Dso(min_vaddr));
+          dso_data = &it.first->second;
+        } else {
+          dso_data = &dso_it->second;
+        }
+        if (dso_data->min_vaddr == kNoMinAddr) {
+          return;
+        }
+      }
+
+      // TODO: Is min_vaddr necessary here?
+      const uint64_t file_addr = offset;
+
+      std::string symbol = symbolizer->Decode(dso_name, file_addr);
+      if (symbol.empty()) {
+        return;
+      }
+
+      dso_data->symbols.Insert(symbol, file_addr);
+    };
+    if (sample_event.has_ip() && parsed_it->dso_and_offset.dso_info_ != nullptr) {
+      check_address(parsed_it->dso_and_offset.dso_info_->name, parsed_it->dso_and_offset.offset_);
     }
-    total_samples++;
-    // We expect to see either all callchain events, all branch stack
-    // events, or all flat sample events, not a mix. For callchains,
-    // however, it can be the case that none of the IPs in a chain
-    // are mappable, in which case the parsed/mapped chain will appear
-    // empty (appearing as a flat sample).
-    if (!event.callchain.empty()) {
-      CHECK(!seen_branch_stack && "examining callchain");
-      seen_callchain = true;
-      const callchain *cc = &event.callchain;
-      name_profile_map[program_name][dso_name].callchain_count_map[cc]++;
-    } else if (!event.branch_stack.empty()) {
-      CHECK(!seen_callchain && "examining branch stack");
-      seen_branch_stack = true;
-      name_profile_map[program_name][dso_name].address_count_map[
-          event.dso_and_offset.offset()]++;
-    } else {
-      name_profile_map[program_name][dso_name].address_count_map[
-          event.dso_and_offset.offset()]++;
-    }
-    for (size_t i = 1; i < event.branch_stack.size(); i++) {
-      if (dso_name == event.branch_stack[i - 1].to.dso_name()) {
-        uint64 start = event.branch_stack[i].to.offset();
-        uint64 end = event.branch_stack[i - 1].from.offset();
-        uint64 to = event.branch_stack[i - 1].to.offset();
-        // The interval between two taken branches should not be too large.
-        if (end < start || end - start > (1 << 20)) {
-          LOG(WARNING) << "Bogus LBR data: " << start << "->" << end;
+    if (sample_event.callchain_size() > 0) {
+      for (auto& callchain_data: parsed_it->callchain) {
+        if (callchain_data.dso_info_ == nullptr) {
           continue;
         }
-        name_profile_map[program_name][dso_name].range_count_map[
-            RangeTarget(start, end, to)]++;
+        check_address(callchain_data.dso_info_->name, callchain_data.offset_);
       }
     }
   }
 
-  map<string, int> name_id_map;
-  for (const auto &program_profile : name_profile_map) {
-    for (const auto &module_profile : program_profile.second) {
-      name_id_map[module_profile.first] = 0;
-    }
-  }
-  int current_index = 0;
-  for (auto iter = name_id_map.begin(); iter != name_id_map.end(); ++iter) {
-    iter->second = current_index++;
-  }
+  if (!files.empty()) {
+    // We have extra symbol info, create proto messages now.
+    for (auto& file_data : files) {
+      const std::string& filename = file_data.first;
+      const Dso& dso = file_data.second;
+      if (dso.symbols.empty()) {
+        continue;
+      }
 
-  map<string, string> name_buildid_map;
-  parser.GetFilenamesToBuildIDs(&name_buildid_map);
-  ret.set_total_samples(total_samples);
-  for (const auto &name_id : name_id_map) {
-    auto load_module = ret.add_load_modules();
-    load_module->set_name(name_id.first);
-    auto nbmi = name_buildid_map.find(name_id.first);
-    if (nbmi != name_buildid_map.end()) {
-      const std::string &build_id = nbmi->second;
-      if (build_id.size() == 40 && build_id.substr(32) == "00000000") {
-        load_module->set_build_id(build_id.substr(0, 32));
-      } else {
-        load_module->set_build_id(build_id);
+      PerfprofdRecord_SymbolInfo* symbol_info = record->add_symbol_info();
+      symbol_info->set_filename(filename);
+      symbol_info->set_filename_md5_prefix(::quipper::Md5Prefix(filename));
+      symbol_info->set_min_vaddr(dso.min_vaddr);
+      for (auto& aggr_sym : dso.symbols) {
+        PerfprofdRecord_SymbolInfo_Symbol* symbol = symbol_info->add_symbols();
+        symbol->set_addr(*aggr_sym.second.offsets.begin());
+        symbol->set_size(*aggr_sym.second.offsets.rbegin() - *aggr_sym.second.offsets.begin() + 1);
+        symbol->set_name(aggr_sym.second.symbol);
+        symbol->set_name_md5_prefix(::quipper::Md5Prefix(aggr_sym.second.symbol));
       }
     }
   }
-  for (const auto &program_profile : name_profile_map) {
-    auto program = ret.add_programs();
-    program->set_name(program_profile.first);
-    for (const auto &module_profile : program_profile.second) {
-      int32 module_id = name_id_map[module_profile.first];
-      auto module = program->add_modules();
-      module->set_load_module_id(module_id);
-      for (const auto &addr_count : module_profile.second.address_count_map) {
-        auto address_samples = module->add_address_samples();
-        address_samples->add_address(addr_count.first);
-        address_samples->set_count(addr_count.second);
-      }
-      for (const auto &range_count : module_profile.second.range_count_map) {
-        auto range_samples = module->add_range_samples();
-        range_samples->set_start(range_count.first.start);
-        range_samples->set_end(range_count.first.end);
-        range_samples->set_to(range_count.first.to);
-        range_samples->set_count(range_count.second);
-      }
-      for (const auto &callchain_count :
-               module_profile.second.callchain_count_map) {
-        auto address_samples = module->add_address_samples();
-        address_samples->set_count(callchain_count.second);
-        for (const auto &d_o : *callchain_count.first) {
-          int32 module_id = name_id_map[d_o.dso_name()];
-          address_samples->add_load_module_id(module_id);
-          address_samples->add_address(d_o.offset());
-        }
-      }
-    }
-  }
-  return ret;
 }
 
-}  // namespace wireless_android_logging_awp
+}  // namespace
+
+PerfprofdRecord*
+RawPerfDataToAndroidPerfProfile(const string &perf_file,
+                                ::perfprofd::Symbolizer* symbolizer) {
+  std::unique_ptr<PerfprofdRecord> ret(new PerfprofdRecord());
+  ret->set_id(0);  // TODO.
+
+  ::quipper::PerfParserOptions options = {};
+  options.do_remap = true;
+  options.discard_unused_events = true;
+  options.read_missing_buildids = true;
+
+  ::quipper::PerfDataProto* perf_data = ret->mutable_perf_data();
+
+  ::quipper::PerfReader reader;
+  if (!reader.ReadFile(perf_file)) return nullptr;
+
+  ::quipper::PerfParser parser(&reader, options);
+  if (!parser.ParseRawEvents()) return nullptr;
+
+  if (!reader.Serialize(perf_data)) return nullptr;
+
+  // Append parser stats to protobuf.
+  ::quipper::PerfSerializer::SerializeParserStats(parser.stats(), perf_data);
+
+  // TODO: Symbolization.
+  if (symbolizer != nullptr) {
+    AddSymbolInfo(ret.get(), parser, symbolizer);
+  }
+
+  return ret.release();
+}
+
+}  // namespace perfprofd
+}  // namespace android

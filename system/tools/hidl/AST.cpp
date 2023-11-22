@@ -18,10 +18,10 @@
 
 #include "Coordinator.h"
 #include "EnumType.h"
+#include "FmqType.h"
 #include "HandleType.h"
 #include "Interface.h"
 #include "Location.h"
-#include "FmqType.h"
 #include "Scope.h"
 #include "TypeDef.h"
 
@@ -35,10 +35,11 @@
 
 namespace android {
 
-AST::AST(const Coordinator* coordinator, const std::string& path)
+AST::AST(const Coordinator* coordinator, const Hash* fileHash)
     : mCoordinator(coordinator),
-      mPath(path),
-      mRootScope("(root scope)", Location::startOf(path), nullptr /* parent */) {}
+      mFileHash(fileHash),
+      mRootScope("(root scope)", FQName(), Location::startOf(fileHash->getPath()),
+                 nullptr /* parent */) {}
 
 Scope* AST::getRootScope() {
     return &mRootScope;
@@ -53,13 +54,17 @@ size_t AST::syntaxErrors() const {
     return mSyntaxErrors;
 }
 
-const std::string &AST::getFilename() const {
-    return mPath;
+const std::string& AST::getFilename() const {
+    return mFileHash->getPath();
+}
+const Hash* AST::getFileHash() const {
+    return mFileHash;
 }
 
 bool AST::setPackage(const char *package) {
-    mPackage.setTo(package);
-    CHECK(mPackage.isValid());
+    if (!mPackage.setTo(package)) {
+        return false;
+    }
 
     if (mPackage.package().empty()
             || mPackage.version().empty()
@@ -82,16 +87,235 @@ bool AST::containsInterfaces() const {
     return mRootScope.containsInterfaces();
 }
 
+status_t AST::postParse() {
+    status_t err;
+
+    // lookupTypes is the first pass.
+    err = lookupTypes();
+    if (err != OK) return err;
+    // validateDefinedTypesUniqueNames is the first call
+    // after lookup, as other errors could appear because
+    // user meant different type than we assumed.
+    err = validateDefinedTypesUniqueNames();
+    if (err != OK) return err;
+    // topologicalReorder is before resolveInheritance, as we
+    // need to have no cycle while getting parent class.
+    err = topologicalReorder();
+    if (err != OK) return err;
+    err = resolveInheritance();
+    if (err != OK) return err;
+    err = lookupLocalIdentifiers();
+    if (err != OK) return err;
+    // checkAcyclicConstantExpressions is after resolveInheritance,
+    // as resolveInheritance autofills enum values.
+    err = checkAcyclicConstantExpressions();
+    if (err != OK) return err;
+    err = evaluate();
+    if (err != OK) return err;
+    err = validate();
+    if (err != OK) return err;
+    err = checkForwardReferenceRestrictions();
+    if (err != OK) return err;
+    err = gatherReferencedTypes();
+    if (err != OK) return err;
+
+    // Make future packages not to call passes
+    // for processed types and expressions
+    constantExpressionRecursivePass(
+        [](ConstantExpression* ce) {
+            ce->setPostParseCompleted();
+            return OK;
+        },
+        true /* processBeforeDependencies */);
+    std::unordered_set<const Type*> visited;
+    mRootScope.recursivePass(
+        [](Type* type) {
+            type->setPostParseCompleted();
+            return OK;
+        },
+        &visited);
+
+    return OK;
+}
+
+status_t AST::constantExpressionRecursivePass(
+    const std::function<status_t(ConstantExpression*)>& func, bool processBeforeDependencies) {
+    std::unordered_set<const Type*> visitedTypes;
+    std::unordered_set<const ConstantExpression*> visitedCE;
+    return mRootScope.recursivePass(
+        [&](Type* type) -> status_t {
+            for (auto* ce : type->getConstantExpressions()) {
+                status_t err = ce->recursivePass(func, &visitedCE, processBeforeDependencies);
+                if (err != OK) return err;
+            }
+            return OK;
+        },
+        &visitedTypes);
+}
+
+status_t AST::lookupTypes() {
+    std::unordered_set<const Type*> visited;
+    return mRootScope.recursivePass(
+        [&](Type* type) -> status_t {
+            Scope* scope = type->isScope() ? static_cast<Scope*>(type) : type->parent();
+
+            for (auto* nextRef : type->getReferences()) {
+                if (nextRef->isResolved()) {
+                    continue;
+                }
+
+                Type* nextType = lookupType(nextRef->getLookupFqName(), scope);
+                if (nextType == nullptr) {
+                    std::cerr << "ERROR: Failed to lookup type '"
+                              << nextRef->getLookupFqName().string() << "' at "
+                              << nextRef->location() << "\n";
+                    return UNKNOWN_ERROR;
+                }
+                nextRef->set(nextType);
+            }
+
+            return OK;
+        },
+        &visited);
+}
+
+status_t AST::gatherReferencedTypes() {
+    std::unordered_set<const Type*> visited;
+    return mRootScope.recursivePass(
+        [&](Type* type) -> status_t {
+            for (auto* nextRef : type->getReferences()) {
+                const Type *targetType = nextRef->get();
+                if (targetType->isNamedType()) {
+                    mReferencedTypeNames.insert(
+                            static_cast<const NamedType *>(targetType)->fqName());
+                }
+            }
+
+            return OK;
+        },
+        &visited);
+}
+
+status_t AST::lookupLocalIdentifiers() {
+    std::unordered_set<const Type*> visitedTypes;
+    std::unordered_set<const ConstantExpression*> visitedCE;
+
+    return mRootScope.recursivePass(
+        [&](Type* type) -> status_t {
+            Scope* scope = type->isScope() ? static_cast<Scope*>(type) : type->parent();
+
+            for (auto* ce : type->getConstantExpressions()) {
+                status_t err = ce->recursivePass(
+                    [&](ConstantExpression* ce) {
+                        for (auto* nextRef : ce->getReferences()) {
+                            if (nextRef->isResolved()) continue;
+
+                            LocalIdentifier* iden = lookupLocalIdentifier(*nextRef, scope);
+                            if (iden == nullptr) return UNKNOWN_ERROR;
+                            nextRef->set(iden);
+                        }
+                        return OK;
+                    },
+                    &visitedCE, true /* processBeforeDependencies */);
+                if (err != OK) return err;
+            }
+
+            return OK;
+        },
+        &visitedTypes);
+}
+
+status_t AST::validateDefinedTypesUniqueNames() const {
+    std::unordered_set<const Type*> visited;
+    return mRootScope.recursivePass(
+        [&](const Type* type) -> status_t {
+            // We only want to validate type definition names in this place.
+            if (type->isScope()) {
+                return static_cast<const Scope*>(type)->validateUniqueNames();
+            }
+            return OK;
+        },
+        &visited);
+}
+
+status_t AST::resolveInheritance() {
+    std::unordered_set<const Type*> visited;
+    return mRootScope.recursivePass(&Type::resolveInheritance, &visited);
+}
+
+status_t AST::evaluate() {
+    return constantExpressionRecursivePass(
+        [](ConstantExpression* ce) {
+            ce->evaluate();
+            return OK;
+        },
+        false /* processBeforeDependencies */);
+}
+
+status_t AST::validate() const {
+    std::unordered_set<const Type*> visited;
+    return mRootScope.recursivePass(&Type::validate, &visited);
+}
+
+status_t AST::topologicalReorder() {
+    std::unordered_map<const Type*, size_t> reversedOrder;
+    std::unordered_set<const Type*> stack;
+    status_t err = mRootScope.topologicalOrder(&reversedOrder, &stack).status;
+    if (err != OK) return err;
+
+    std::unordered_set<const Type*> visited;
+    mRootScope.recursivePass(
+        [&](Type* type) {
+            if (type->isScope()) {
+                static_cast<Scope*>(type)->topologicalReorder(reversedOrder);
+            }
+            return OK;
+        },
+        &visited);
+    return OK;
+}
+
+status_t AST::checkAcyclicConstantExpressions() const {
+    std::unordered_set<const Type*> visitedTypes;
+    std::unordered_set<const ConstantExpression*> visitedCE;
+    std::unordered_set<const ConstantExpression*> stack;
+    return mRootScope.recursivePass(
+        [&](const Type* type) -> status_t {
+            for (auto* ce : type->getConstantExpressions()) {
+                status_t err = ce->checkAcyclic(&visitedCE, &stack).status;
+                CHECK(err != OK || stack.empty());
+                if (err != OK) return err;
+            }
+            return OK;
+        },
+        &visitedTypes);
+}
+
+status_t AST::checkForwardReferenceRestrictions() const {
+    std::unordered_set<const Type*> visited;
+    return mRootScope.recursivePass(
+        [](const Type* type) -> status_t {
+            for (const Reference<Type>* ref : type->getReferences()) {
+                status_t err = type->checkForwardReferenceRestrictions(*ref);
+                if (err != OK) return err;
+            }
+            return OK;
+        },
+        &visited);
+}
+
 bool AST::addImport(const char *import) {
-    FQName fqName(import);
-    CHECK(fqName.isValid());
+    FQName fqName;
+    if (!FQName::parse(import, &fqName)) {
+        std::cerr << "ERROR: '" << import << "' is an invalid fully-qualified name." << std::endl;
+        return false;
+    }
 
     fqName.applyDefaults(mPackage.package(), mPackage.version());
 
-    // LOG(INFO) << "importing " << fqName.string();
-
     if (fqName.name().empty()) {
         // import a package
+
         std::vector<FQName> packageInterfaces;
 
         status_t err =
@@ -103,6 +327,8 @@ bool AST::addImport(const char *import) {
         }
 
         for (const auto &subFQName : packageInterfaces) {
+            addToImportedNamesGranular(subFQName);
+
             // Do not enforce restrictions on imports.
             AST* ast = mCoordinator->parse(subFQName, &mImportedASTs, Coordinator::Enforce::NONE);
             if (ast == nullptr) {
@@ -115,7 +341,7 @@ bool AST::addImport(const char *import) {
         return true;
     }
 
-    AST *importAST;
+    addToImportedNamesGranular(fqName);
 
     // cases like android.hardware.foo@1.0::IFoo.Internal
     //            android.hardware.foo@1.0::Abc.Internal
@@ -123,7 +349,11 @@ bool AST::addImport(const char *import) {
     // assume it is an interface, and try to import it.
     const FQName interfaceName = fqName.getTopLevelType();
     // Do not enforce restrictions on imports.
-    importAST = mCoordinator->parse(interfaceName, &mImportedASTs, Coordinator::Enforce::NONE);
+    AST* importAST;
+    status_t err = mCoordinator->parseOptional(interfaceName, &importAST, &mImportedASTs,
+                                               Coordinator::Enforce::NONE);
+    if (err != OK) return false;
+    // importAST nullptr == file doesn't exist
 
     if (importAST != nullptr) {
         // cases like android.hardware.foo@1.0::IFoo.Internal
@@ -175,25 +405,8 @@ void AST::addImportedAST(AST *ast) {
     mImportedASTs.insert(ast);
 }
 
-bool AST::addTypeDef(const char* localName, Type* type, const Location& location,
-                     std::string* errorMsg, Scope* scope) {
-    // The reason we wrap the given type in a TypeDef is simply to suppress
-    // emitting any type definitions later on, since this is just an alias
-    // to a type defined elsewhere.
-    return addScopedTypeInternal(new TypeDef(localName, location, scope, type), errorMsg, scope);
-}
-
-bool AST::addScopedType(NamedType* type, std::string* errorMsg, Scope* scope) {
-    return addScopedTypeInternal(type, errorMsg, scope);
-}
-
-bool AST::addScopedTypeInternal(NamedType* type, std::string* errorMsg, Scope* scope) {
-    bool success = scope->addType(type, errorMsg);
-    if (!success) {
-        return false;
-    }
-
-    std::vector<std::string> pathComponents{{type->localName()}};
+FQName AST::makeFullName(const char* localName, Scope* scope) const {
+    std::vector<std::string> pathComponents{{localName}};
     for (; scope != &mRootScope; scope = scope->parent()) {
         pathComponents.push_back(scope->localName());
     }
@@ -201,12 +414,34 @@ bool AST::addScopedTypeInternal(NamedType* type, std::string* errorMsg, Scope* s
     std::reverse(pathComponents.begin(), pathComponents.end());
     std::string path = StringHelper::JoinStrings(pathComponents, ".");
 
-    FQName fqName(mPackage.package(), mPackage.version(), path);
-    type->setFullName(fqName);
+    return FQName(mPackage.package(), mPackage.version(), path);
+}
 
-    mDefinedTypesByFullName[fqName] = type;
+void AST::addScopedType(NamedType* type, Scope* scope) {
+    scope->addType(type);
+    mDefinedTypesByFullName[type->fqName()] = type;
+}
 
-    return true;
+LocalIdentifier* AST::lookupLocalIdentifier(const Reference<LocalIdentifier>& ref, Scope* scope) {
+    const FQName& fqName = ref.getLookupFqName();
+
+    if (fqName.isIdentifier()) {
+        LocalIdentifier* iden = scope->lookupIdentifier(fqName.name());
+        if (iden == nullptr) {
+            std::cerr << "ERROR: identifier " << fqName.string() << " could not be found at "
+                      << ref.location() << "\n";
+            return nullptr;
+        }
+        return iden;
+    } else {
+        std::string errorMsg;
+        EnumValue* enumValue = lookupEnumValue(fqName, &errorMsg, scope);
+        if (enumValue == nullptr) {
+            std::cerr << "ERROR: " << errorMsg << " at " << ref.location() << "\n";
+            return nullptr;
+        }
+        return enumValue;
+    }
 }
 
 EnumValue* AST::lookupEnumValue(const FQName& fqName, std::string* errorMsg, Scope* scope) {
@@ -221,6 +456,7 @@ EnumValue* AST::lookupEnumValue(const FQName& fqName, std::string* errorMsg, Sco
         *errorMsg = "Cannot find type " + enumTypeName.string();
         return nullptr;
     }
+    type = type->resolve();
     if(!type->isEnum()) {
         *errorMsg = "Type " + enumTypeName.string() + " is not an enum type";
         return nullptr;
@@ -232,6 +468,9 @@ EnumValue* AST::lookupEnumValue(const FQName& fqName, std::string* errorMsg, Sco
         *errorMsg = "Enum type " + enumTypeName.string() + " does not have " + enumValueName;
         return nullptr;
     }
+
+    mReferencedTypeNames.insert(enumType->fqName());
+
     return v;
 }
 
@@ -253,14 +492,12 @@ Type* AST::lookupType(const FQName& fqName, Scope* scope) {
         }
     }
 
-    if (!fqName.isFullyQualified()) {
-        status_t status = lookupAutofilledType(fqName, &returnedType);
-        if (status != OK) {
-            return nullptr;
-        }
-        if (returnedType != nullptr) {
-            return returnedType;
-        }
+    status_t status = lookupAutofilledType(fqName, &returnedType);
+    if (status != OK) {
+        return nullptr;
+    }
+    if (returnedType != nullptr) {
+        return returnedType;
     }
 
     return lookupTypeFromImports(fqName);
@@ -273,13 +510,7 @@ Type* AST::lookupTypeLocally(const FQName& fqName, Scope* scope) {
 
     for (; scope != nullptr; scope = scope->parent()) {
         Type* type = scope->lookupType(fqName);
-
         if (type != nullptr) {
-            // Resolve typeDefs to the target type.
-            while (type->isTypeDef()) {
-                type = static_cast<TypeDef *>(type)->referencedType();
-            }
-
             return type;
         }
     }
@@ -289,7 +520,7 @@ Type* AST::lookupTypeLocally(const FQName& fqName, Scope* scope) {
 
 // Rule 1: auto-fill with current package
 status_t AST::lookupAutofilledType(const FQName &fqName, Type **returnedType) {
-    CHECK(!fqName.isFullyQualified() && !fqName.name().empty() && fqName.valueName().empty());
+    CHECK(!fqName.name().empty() && fqName.valueName().empty());
 
     FQName autofilled = fqName;
     autofilled.applyDefaults(mPackage.package(), mPackage.version());
@@ -298,7 +529,7 @@ status_t AST::lookupAutofilledType(const FQName &fqName, Type **returnedType) {
     // in import.
     Type *local = findDefinedType(autofilled, &matchingName);
     CHECK(local == nullptr || autofilled == matchingName);
-    Type* fromImport = lookupType(autofilled, nullptr /* scope */);
+    Type* fromImport = lookupTypeFromImports(autofilled);
 
     if (local != nullptr && fromImport != nullptr && local != fromImport) {
         // Something bad happen; two types have the same FQName.
@@ -382,20 +613,6 @@ Type *AST::lookupTypeFromImports(const FQName &fqName) {
     }
 
     if (resolvedType) {
-#if 0
-        LOG(INFO) << "found '"
-                  << resolvedName.string()
-                  << "' after looking for '"
-                  << fqName.string()
-                  << "'.";
-#endif
-
-        // Resolve typeDefs to the target type.
-        while (resolvedType->isTypeDef()) {
-            resolvedType =
-                static_cast<TypeDef *>(resolvedType)->referencedType();
-        }
-
         returnedType = resolvedType;
 
         // If the resolved type is not an interface, we need to determine
@@ -444,12 +661,24 @@ Type *AST::lookupTypeFromImports(const FQName &fqName) {
             // in turn referenced the found interface we'd mistakenly use the
             // name of the typedef instead of the proper name of the interface.
 
-            mImportedNames.insert(
-                    static_cast<Interface *>(resolvedType)->fqName());
+            const FQName &typeName =
+                static_cast<Interface *>(resolvedType)->fqName();
+
+            mImportedNames.insert(typeName);
         }
     }
 
     return returnedType;
+}
+
+void AST::addToImportedNamesGranular(const FQName &fqName) {
+    if (fqName.package() == package().package()
+            && fqName.version() == package().version()) {
+        // Our own names are _defined_ here, not imported.
+        return;
+    }
+
+    mImportedNamesGranular.insert(fqName);
 }
 
 Type *AST::findDefinedType(const FQName &fqName, FQName *matchingName) const {
@@ -467,7 +696,7 @@ Type *AST::findDefinedType(const FQName &fqName, FQName *matchingName) const {
 }
 
 void AST::getImportedPackages(std::set<FQName> *importSet) const {
-    for (const auto &fqName : mImportedNames) {
+    for (const auto& fqName : mImportedNamesGranular) {
         FQName packageName = fqName.getPackageAndVersion();
 
         if (packageName == mPackage) {
@@ -481,6 +710,7 @@ void AST::getImportedPackages(std::set<FQName> *importSet) const {
 
 void AST::getImportedPackagesHierarchy(std::set<FQName> *importSet) const {
     getImportedPackages(importSet);
+
     std::set<FQName> newSet;
     for (const auto &ast : mImportedASTs) {
         if (importSet->find(ast->package()) != importSet->end()) {
@@ -498,19 +728,23 @@ void AST::getAllImportedNames(std::set<FQName> *allImportNames) const {
     }
 }
 
-bool AST::isJavaCompatible() const {
-    if (!AST::isInterface()) {
-        for (const auto* type : mRootScope.getSubTypes()) {
-            if (!type->isJavaCompatible()) {
-                return false;
-            }
+void AST::getAllImportedNamesGranular(std::set<FQName> *allImportNames) const {
+    for (const auto& fqName : mImportedNamesGranular) {
+        if (fqName.name() == "types") {
+            // A package will export everything _defined_ but will not
+            // re-export anything it itself imported.
+            AST* ast = mCoordinator->parse(
+                    fqName, nullptr /* imported */, Coordinator::Enforce::NONE);
+
+            ast->addDefinedTypes(allImportNames);
+        } else {
+            allImportNames->insert(fqName);
         }
-
-        return true;
     }
+}
 
-    const Interface* iface = mRootScope.getInterface();
-    return iface->isJavaCompatible();
+bool AST::isJavaCompatible() const {
+    return mRootScope.isJavaCompatible();
 }
 
 void AST::appendToExportedTypesVector(
@@ -531,6 +765,26 @@ std::string AST::getBaseName() const {
     const Interface* iface = mRootScope.getInterface();
 
     return iface ? iface->getBaseName() : "types";
+}
+
+void AST::addDefinedTypes(std::set<FQName> *definedTypes) const {
+    std::for_each(
+            mDefinedTypesByFullName.begin(),
+            mDefinedTypesByFullName.end(),
+            [definedTypes](const auto &elem) {
+                if (!elem.second->isTypeDef()) {
+                    definedTypes->insert(elem.first);
+                }
+            });
+}
+
+void AST::addReferencedTypes(std::set<FQName> *referencedTypes) const {
+    std::for_each(
+            mReferencedTypeNames.begin(),
+            mReferencedTypeNames.end(),
+            [referencedTypes](const auto &fqName) {
+                referencedTypes->insert(fqName);
+            });
 }
 
 }  // namespace android;

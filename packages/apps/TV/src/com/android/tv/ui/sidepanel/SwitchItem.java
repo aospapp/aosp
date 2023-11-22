@@ -31,8 +31,8 @@ public class SwitchItem extends CompoundButtonItem {
         super(checkedTitle, uncheckedTitle, description);
     }
 
-    public SwitchItem(String checkedTitle, String uncheckedTitle, String description,
-            int maxLines) {
+    public SwitchItem(
+            String checkedTitle, String uncheckedTitle, String description, int maxLines) {
         super(checkedTitle, uncheckedTitle, description, maxLines);
     }
 

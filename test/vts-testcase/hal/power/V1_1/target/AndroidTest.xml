@@ -14,11 +14,11 @@
      limitations under the License.
 -->
 <configuration description="Config for VTS VtsHalPowerV1_1Target test cases">
+    <option name="config-descriptor:metadata" key="plan" value="vts-hal" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="abort-on-push-failure" value="false"/>
         <option name="push-group" value="HalHidlTargetTest.push"/>
     </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer"/>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsHalPowerV1_1Target"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalPowerV1_1TargetTest/VtsHalPowerV1_1TargetTest"/>
@@ -26,7 +26,7 @@
         <option name="binary-test-type" value="hal_hidl_gtest"/>
         <option name="binary-test-disable-framework" value="true"/>
         <option name="binary-test-stop-native-servers" value="true"/>
-        <option name="precondition-lshal" value="android.hardware.power@1.1"/>
+        <option name="disable-cpu-frequency-scaling" value="false"/>
         <option name="test-timeout" value="5m"/>
     </test>
 </configuration>

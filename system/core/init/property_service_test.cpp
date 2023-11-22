@@ -21,7 +21,10 @@
 #define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_
 #include <sys/_system_properties.h>
 
+#include <android-base/properties.h>
 #include <gtest/gtest.h>
+
+using android::base::SetProperty;
 
 namespace android {
 namespace init {
@@ -42,12 +45,28 @@ TEST(property_service, very_long_name_35166374) {
   // ...so we can send it a malformed request.
   uint32_t msg = PROP_MSG_SETPROP2;
   uint32_t size = 0xffffffff;
-  uint32_t data = 0xdeadbeef;
 
   ASSERT_EQ(static_cast<ssize_t>(sizeof(msg)), send(fd, &msg, sizeof(msg), 0));
   ASSERT_EQ(static_cast<ssize_t>(sizeof(size)), send(fd, &size, sizeof(size), 0));
-  ASSERT_EQ(static_cast<ssize_t>(sizeof(data)), send(fd, &data, sizeof(data), 0));
+  uint32_t result = 0;
+  ASSERT_EQ(static_cast<ssize_t>(sizeof(result)),
+            TEMP_FAILURE_RETRY(recv(fd, &result, sizeof(result), MSG_WAITALL)));
+  EXPECT_EQ(static_cast<uint32_t>(PROP_ERROR_READ_DATA), result);
   ASSERT_EQ(0, close(fd));
+}
+
+TEST(property_service, non_utf8_value) {
+    ASSERT_TRUE(SetProperty("property_service_utf8_test", "base_success"));
+    EXPECT_FALSE(SetProperty("property_service_utf8_test", "\x80"));
+    EXPECT_FALSE(SetProperty("property_service_utf8_test", "\xC2\x01"));
+    EXPECT_FALSE(SetProperty("property_service_utf8_test", "\xE0\xFF"));
+    EXPECT_FALSE(SetProperty("property_service_utf8_test", "\xE0\xA0\xFF"));
+    EXPECT_FALSE(SetProperty("property_service_utf8_test", "\xF0\x01\xFF"));
+    EXPECT_FALSE(SetProperty("property_service_utf8_test", "\xF0\x90\xFF"));
+    EXPECT_FALSE(SetProperty("property_service_utf8_test", "\xF0\x90\x80\xFF"));
+    EXPECT_FALSE(SetProperty("property_service_utf8_test", "\xF0\x90\x80"));
+    EXPECT_FALSE(SetProperty("property_service_utf8_test", "ab\xF0\x90\x80\x80qe\xF0\x90\x80"));
+    EXPECT_TRUE(SetProperty("property_service_utf8_test", "\xF0\x90\x80\x80"));
 }
 
 }  // namespace init

@@ -16,13 +16,13 @@ DID
 =================================================================
 
 TC_SR_SDI_BV_01_I
-  bta_set_scan_mode SCAN_MODE_CONNECTABLE_DISCOVERABLE
+  bta_set_scan_mode connectable_discoverable
 
 TC_SR_SDI_BV_02_I
-  bta_set_scan_mode SCAN_MODE_CONNECTABLE_DISCOVERABLE
+  bta_set_scan_mode connectable_discoverable
 
 TC_SR_SDI_BV_03_I
-  bta_set_scan_mode SCAN_MODE_CONNECTABLE_DISCOVERABLE
+  bta_set_scan_mode connectable_discoverable
 
 TC_SR_SDI_BV_04_I
-  bta_set_scan_mode SCAN_MODE_CONNECTABLE_DISCOVERABLE
+  bta_set_scan_mode connectable_discoverable

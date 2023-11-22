@@ -34,23 +34,21 @@ public class CarSensorManagerTest extends CarApiTestBase {
         mCarSensorManager = (CarSensorManager) getCar().getCarManager(Car.SENSOR_SERVICE);
     }
 
-    public void testDrivingPolicy() throws Exception {
+    public void testRequiredSensorsForDrivingState() throws Exception {
         int[] supportedSensors = mCarSensorManager.getSupportedSensors();
         assertNotNull(supportedSensors);
-        boolean found = false;
+        boolean foundSpeed = false;
+        boolean foundGear = false;
         for (int sensor: supportedSensors) {
-            if (sensor == CarSensorManager.SENSOR_TYPE_DRIVING_STATUS) {
-                found = true;
+            if (sensor == CarSensorManager.SENSOR_TYPE_CAR_SPEED) {
+                foundSpeed = true;
+            } else if ( sensor == CarSensorManager.SENSOR_TYPE_GEAR) {
+                foundGear = true;
+            }
+            if (foundGear && foundSpeed) {
                 break;
             }
         }
-        assertTrue(found);
-        assertTrue(mCarSensorManager.isSensorSupported(
-                CarSensorManager.SENSOR_TYPE_DRIVING_STATUS));
-        assertTrue(CarSensorManager.isSensorSupported(supportedSensors,
-                CarSensorManager.SENSOR_TYPE_DRIVING_STATUS));
-        CarSensorEvent lastEvent = mCarSensorManager.getLatestSensorEvent(
-                CarSensorManager.SENSOR_TYPE_DRIVING_STATUS);
-        assertNotNull(lastEvent);
+        assertTrue(foundGear && foundSpeed);
     }
 }

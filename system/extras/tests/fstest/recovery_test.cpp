@@ -216,7 +216,6 @@ class FsRecoveryTest : public ::testing::Test {
       UMOUNT_BIN,
       cache_str,
     };
-    int status;
     return android_fork_execvp_ext(ARRAY_SIZE(umount_argv), umount_argv,
                                    NULL, true, LOG_KLOG, false, NULL,
                                    NULL, 0) >= 0;
@@ -230,7 +229,6 @@ class FsRecoveryTest : public ::testing::Test {
       storage_str,
       mountall_str,
     };
-    int status;
     return android_fork_execvp_ext(ARRAY_SIZE(mountall_argv), mountall_argv,
                                    NULL, true, LOG_KLOG, false, NULL,
                                    NULL, 0) >= 0;

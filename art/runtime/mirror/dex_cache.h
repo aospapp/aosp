@@ -19,7 +19,8 @@
 
 #include "array.h"
 #include "base/bit_utils.h"
-#include "dex_file_types.h"
+#include "base/mutex.h"
+#include "dex/dex_file_types.h"
 #include "object.h"
 #include "object_array.h"
 
@@ -416,16 +417,6 @@ class MANAGED DexCache FINAL : public Object {
 
   void SetLocation(ObjPtr<String> location) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  // NOTE: Get/SetElementPtrSize() are intended for working with ArtMethod** and ArtField**
-  // provided by GetResolvedMethods/Fields() and ArtMethod::GetDexCacheResolvedMethods(),
-  // so they need to be public.
-
-  template <typename PtrType>
-  static PtrType GetElementPtrSize(PtrType* ptr_array, size_t idx, PointerSize ptr_size);
-
-  template <typename PtrType>
-  static void SetElementPtrSize(PtrType* ptr_array, size_t idx, PtrType ptr, PointerSize ptr_size);
-
   template <typename T>
   static NativeDexCachePair<T> GetNativePairPtrSize(std::atomic<NativeDexCachePair<T>>* pair_array,
                                                     size_t idx,
@@ -482,8 +473,8 @@ class MANAGED DexCache FINAL : public Object {
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(Locks::heap_bitmap_lock_);
 
   // Due to lack of 16-byte atomics support, we use hand-crafted routines.
-#if defined(__aarch64__)
-  // 16-byte atomics are supported on aarch64.
+#if defined(__aarch64__) || defined(__mips__)
+  // 16-byte atomics are supported on aarch64, mips and mips64.
   ALWAYS_INLINE static ConversionPair64 AtomicLoadRelaxed16B(
       std::atomic<ConversionPair64>* target) {
     return target->load(std::memory_order_relaxed);

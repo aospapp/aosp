@@ -1,7 +1,7 @@
 /** @file
   Support functions implementation for UefiPxeBc Driver.
 
-  Copyright (c) 2007 - 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -258,7 +258,9 @@ PxeBcIcmpErrorDpcHandle (
   }
 
   if (EFI_IP4 (RxData->Header->SourceAddress) != 0 &&
-      !NetIp4IsUnicast (EFI_NTOHL (RxData->Header->SourceAddress), 0)) {
+      (NTOHL (Mode->SubnetMask.Addr[0]) != 0) &&
+      IP4_NET_EQUAL (NTOHL(Mode->StationIp.Addr[0]), EFI_NTOHL (RxData->Header->SourceAddress), NTOHL (Mode->SubnetMask.Addr[0])) &&
+      !NetIp4IsUnicast (EFI_NTOHL (RxData->Header->SourceAddress), NTOHL (Mode->SubnetMask.Addr[0]))) {
     //
     // The source address of the received packet should be a valid unicast address.
     //
@@ -489,6 +491,8 @@ PxeBcIcmp6ErrorUpdate (
   @param[in, out]  SrcPort              The pointer to the source port.
   @param[in]       DoNotFragment        If TRUE, fragment is not enabled.
                                         Otherwise, fragment is enabled.
+  @param[in]       Ttl                  The time to live field of the IP header. 
+  @param[in]       ToS                  The type of service field of the IP header.
 
   @retval          EFI_SUCCESS          Successfully configured this instance.
   @retval          Others               Failed to configure this instance.
@@ -501,7 +505,9 @@ PxeBcConfigUdp4Write (
   IN     EFI_IPv4_ADDRESS   *SubnetMask,
   IN     EFI_IPv4_ADDRESS   *Gateway,
   IN OUT UINT16             *SrcPort,
-  IN     BOOLEAN            DoNotFragment
+  IN     BOOLEAN            DoNotFragment,
+  IN     UINT8              Ttl,
+  IN     UINT8              ToS
   )
 {
   EFI_UDP4_CONFIG_DATA  Udp4CfgData;
@@ -511,8 +517,8 @@ PxeBcConfigUdp4Write (
 
   Udp4CfgData.TransmitTimeout    = PXEBC_DEFAULT_LIFETIME;
   Udp4CfgData.ReceiveTimeout     = PXEBC_DEFAULT_LIFETIME;
-  Udp4CfgData.TypeOfService      = DEFAULT_ToS;
-  Udp4CfgData.TimeToLive         = DEFAULT_TTL;
+  Udp4CfgData.TypeOfService      = ToS;
+  Udp4CfgData.TimeToLive         = Ttl;
   Udp4CfgData.AllowDuplicatePort = TRUE;
   Udp4CfgData.DoNotFragment      = DoNotFragment;
 
@@ -1377,11 +1383,10 @@ PxeBcUintnToAscDecWithFormat (
 {
   UINTN                          Remainder;
 
-  while (Length > 0) {
-    Length--;
+  for (; Length > 0; Length--) {
     Remainder      = Number % 10;
     Number        /= 10;
-    Buffer[Length] = (UINT8) ('0' + Remainder);
+    Buffer[Length - 1] = (UINT8) ('0' + Remainder);
   }
 }
 

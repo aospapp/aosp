@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """Prints out index for every object file, starting from 0."""
 
 from __future__ import print_function

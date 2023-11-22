@@ -1,21 +1,13 @@
 cc_library_static {
     name: "libpdfiumfpdfdoc",
-    defaults: ["pdfium-defaults"],
+    defaults: ["pdfium-core"],
 
-    cflags: [
-        "-DOPJ_STATIC",
-        "-DV8_DEPRECATION_WARNINGS",
-        "-D_CRT_SECURE_NO_WARNINGS",
-
-        // Mask some warnings. These are benign, but we probably want to fix them
-        // upstream at some point.
-        "-Wno-sign-compare",
-        "-Wno-unused-parameter",
+    static_libs: [
+        "libpdfiumfxcrt",
     ],
 
     srcs: [
         "core/fpdfdoc/cline.cpp",
-        "core/fpdfdoc/clines.cpp",
         "core/fpdfdoc/cpdf_aaction.cpp",
         "core/fpdfdoc/cpdf_action.cpp",
         "core/fpdfdoc/cpdf_actionfields.cpp",
@@ -39,16 +31,15 @@ cc_library_static {
         "core/fpdfdoc/cpdf_numbertree.cpp",
         "core/fpdfdoc/cpdf_occontext.cpp",
         "core/fpdfdoc/cpdf_pagelabel.cpp",
+        "core/fpdfdoc/cpdf_structelement.cpp",
+        "core/fpdfdoc/cpdf_structtree.cpp",
         "core/fpdfdoc/cpdf_variabletext.cpp",
         "core/fpdfdoc/cpdf_viewerpreferences.cpp",
-        "core/fpdfdoc/cpvt_color.cpp",
         "core/fpdfdoc/cpvt_fontmap.cpp",
         "core/fpdfdoc/cpvt_generateap.cpp",
-        "core/fpdfdoc/cpvt_sectioninfo.cpp",
         "core/fpdfdoc/cpvt_wordinfo.cpp",
         "core/fpdfdoc/csection.cpp",
         "core/fpdfdoc/ctypeset.cpp",
-        "core/fpdfdoc/doc_tagged.cpp",
     ],
 
     include_dirs: [

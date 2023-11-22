@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"Nastavování pracovního zařízení…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Zpracovávání dat nastavení…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Připojování k síti Wi-Fi…"</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Připojování k mobilní síti…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Stahování administrátorské aplikace…"</string>
     <string name="progress_install" msgid="2258045670385866183">"Probíhá instalace administrátorské aplikace…"</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Odstraňování nechtěných systémových aplikací…"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Chystáte se vytvořit pracovní profil, který bude spravován a sledován vaší organizací. Platí podmínky <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"Bude vytvořen profil pro vaše pracovní aplikace. Tento profil a zbytek zařízení bude spravován a sledován vaší organizací. Platí podmínky."</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"Bude vytvořen profil pro vaše pracovní aplikace. Tento profil a zbytek zařízení bude spravován a sledován vaší organizací. Platí podmínky <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"Toto zařízení bude spravovat a zabezpečovat <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Platí podmínky. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"Toto zařízení bude spravovat a zabezpečovat <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Platí podmínky <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"Toto zařízení bude spravovat, sledovat a zabezpečovat organizace <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Platí podmínky. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Toto zařízení bude spravovat, sledovat a zabezpečovat organizace <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Platí podmínky <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Následující odkaz není zabezpečený a bude ho možné otevřít, až bude zařízení nastaveno: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"V případě dotazů vám pomůže <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"V případě dotazů vám pomůže administrátor organizace"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> a <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"Může to trvat několik minut"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"Pracovní aplikace budou přiřazeny do tohoto profilu a budou spravovány vaší organizací"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"Toto zařízení bude spravováno a zabezpečeno vaší organizací"</string>
 </resources>

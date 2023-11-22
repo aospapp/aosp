@@ -118,13 +118,13 @@ func TestPrebuilts(t *testing.T) {
 	}
 	defer os.RemoveAll(buildDir)
 
-	config := TestConfig(buildDir)
+	config := TestConfig(buildDir, nil)
 
 	for _, test := range prebuiltsTests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := NewTestContext()
-			ctx.PreArchMutators(registerPrebuiltsPreArchMutators)
-			ctx.PostDepsMutators(registerPrebuiltsPostDepsMutators)
+			ctx.PreArchMutators(RegisterPrebuiltsPreArchMutators)
+			ctx.PostDepsMutators(RegisterPrebuiltsPostDepsMutators)
 			ctx.RegisterModuleType("prebuilt", ModuleFactoryAdaptor(newPrebuiltModule))
 			ctx.RegisterModuleType("source", ModuleFactoryAdaptor(newSourceModule))
 			ctx.Register()
@@ -138,9 +138,9 @@ func TestPrebuilts(t *testing.T) {
 			})
 
 			_, errs := ctx.ParseBlueprintsFiles("Blueprints")
-			fail(t, errs)
+			FailIfErrored(t, errs)
 			_, errs = ctx.PrepareBuildActions(config)
-			fail(t, errs)
+			FailIfErrored(t, errs)
 
 			foo := ctx.ModuleForTests("foo", "")
 
@@ -151,7 +151,7 @@ func TestPrebuilts(t *testing.T) {
 				}
 				if p, ok := m.(*prebuiltModule); ok {
 					dependsOnPrebuiltModule = true
-					if !p.Prebuilt().Properties.UsePrebuilt {
+					if !p.Prebuilt().properties.UsePrebuilt {
 						t.Errorf("dependency on prebuilt module not marked used")
 					}
 				}
@@ -180,12 +180,16 @@ func TestPrebuilts(t *testing.T) {
 
 type prebuiltModule struct {
 	ModuleBase
-	prebuilt Prebuilt
+	prebuilt   Prebuilt
+	properties struct {
+		Srcs []string
+	}
 }
 
 func newPrebuiltModule() Module {
 	m := &prebuiltModule{}
-	m.AddProperties(&m.prebuilt.Properties)
+	m.AddProperties(&m.properties)
+	InitPrebuiltModule(m, &m.properties.Srcs)
 	InitAndroidModule(m)
 	return m
 }
@@ -226,13 +230,4 @@ func (s *sourceModule) DepsMutator(ctx BottomUpMutatorContext) {
 }
 
 func (s *sourceModule) GenerateAndroidBuildActions(ctx ModuleContext) {
-}
-
-func fail(t *testing.T, errs []error) {
-	if len(errs) > 0 {
-		for _, err := range errs {
-			t.Error(err)
-		}
-		t.FailNow()
-	}
 }

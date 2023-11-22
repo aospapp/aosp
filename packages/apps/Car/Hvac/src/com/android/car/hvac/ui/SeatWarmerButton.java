@@ -18,10 +18,12 @@ package com.android.car.hvac.ui;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
-import android.support.annotation.IntDef;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.ImageView;
+
+import androidx.annotation.IntDef;
+
 import com.android.car.hvac.R;
 
 /**

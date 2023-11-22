@@ -52,6 +52,7 @@ const char kImplVarName[] = "_aidl_impl";
 const char kReplyVarName[] = "_aidl_reply";
 const char kReturnVarName[] = "_aidl_return";
 const char kStatusVarName[] = "_aidl_status";
+const char kTraceVarName[] = "_aidl_trace";
 const char kAndroidParcelLiteral[] = "::android::Parcel";
 const char kAndroidStatusLiteral[] = "::android::status_t";
 const char kAndroidStatusOk[] = "::android::OK";
@@ -61,6 +62,7 @@ const char kIInterfaceHeader[] = "binder/IInterface.h";
 const char kParcelHeader[] = "binder/Parcel.h";
 const char kStatusHeader[] = "binder/Status.h";
 const char kString16Header[] = "utils/String16.h";
+const char kTraceHeader[] = "utils/Trace.h";
 const char kStrongPointerHeader[] = "utils/StrongPointer.h";
 
 unique_ptr<AstNode> BreakOnStatusNotOk() {
@@ -271,6 +273,12 @@ unique_ptr<Declaration> DefineClientTransaction(const TypeNamespace& types,
   // We unconditionally return a Status object.
   b->AddLiteral(StringPrintf("%s %s", kBinderStatusLiteral, kStatusVarName));
 
+  if (interface.ShouldGenerateTraces()) {
+    b->AddLiteral(
+        StringPrintf("ScopedTrace %s(ATRACE_TAG_AIDL, \"%s::%s::cppClient\")",
+        kTraceVarName, interface.GetName().c_str(), method.GetName().c_str()));
+  }
+
   // Add the name of the interface we're hoping to call.
   b->AddStatement(new Assignment(
       kAndroidStatusVarName,
@@ -378,6 +386,7 @@ unique_ptr<Declaration> DefineClientTransaction(const TypeNamespace& types,
   b->AddLiteral(
       StringPrintf("%s.setFromStatusT(%s)", kStatusVarName,
                    kAndroidStatusVarName));
+
   b->AddLiteral(StringPrintf("return %s", kStatusVarName));
 
   return unique_ptr<Declaration>(ret.release());
@@ -417,6 +426,7 @@ unique_ptr<Document> BuildClientSource(const TypeNamespace& types,
 namespace {
 
 bool HandleServerTransaction(const TypeNamespace& types,
+                             const AidlInterface& interface,
                              const AidlMethod& method,
                              StatementBlock* b) {
   // Declare all the parameters now.  In the common case, we expect no errors
@@ -469,6 +479,14 @@ bool HandleServerTransaction(const TypeNamespace& types,
     }
   }
 
+  if (interface.ShouldGenerateTraces()) {
+    b->AddStatement(new Statement(new MethodCall("atrace_begin",
+        ArgList{{"ATRACE_TAG_AIDL",
+        StringPrintf("\"%s::%s::cppServer\"",
+                     interface.GetName().c_str(),
+                     method.GetName().c_str())}})));
+  }
+
   // Call the actual method.  This is implemented by the subclass.
   vector<unique_ptr<AstNode>> status_args;
   status_args.emplace_back(new MethodCall(
@@ -477,6 +495,11 @@ bool HandleServerTransaction(const TypeNamespace& types,
   b->AddStatement(new Statement(new MethodCall(
       StringPrintf("%s %s", kBinderStatusLiteral, kStatusVarName),
       ArgList(std::move(status_args)))));
+
+  if (interface.ShouldGenerateTraces()) {
+    b->AddStatement(new Statement(new MethodCall("atrace_end",
+                                                 "ATRACE_TAG_AIDL")));
+  }
 
   // Write exceptions during transaction handling to parcel.
   if (!method.IsOneway()) {
@@ -551,7 +574,7 @@ unique_ptr<Document> BuildServerSource(const TypeNamespace& types,
     StatementBlock* b = s->AddCase("Call::" + UpperCase(method->GetName()));
     if (!b) { return nullptr; }
 
-    if (!HandleServerTransaction(types, *method, b)) { return nullptr; }
+    if (!HandleServerTransaction(types, interface, *method, b)) { return nullptr; }
   }
 
   // The switch statement has a default case which defers to the super class.
@@ -727,6 +750,11 @@ unique_ptr<Document> BuildInterfaceHeader(const TypeNamespace& types,
   if (!interface.GetStringConstants().empty()) {
     includes.insert(kString16Header);
   }
+
+  if (interface.ShouldGenerateTraces()) {
+    includes.insert(kTraceHeader);
+  }
+
   for (const auto& constant : interface.GetStringConstants()) {
     unique_ptr<MethodDecl> getter(new MethodDecl(
           "const ::android::String16&", constant->GetName(),

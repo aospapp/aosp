@@ -24,6 +24,7 @@ import tempfile
 
 VERSION = 0
 MAGIC_NUMBER = 0xb001b001
+MAGIC_DISABLE = 0x46464f56 # "VOFF"
 BLOCK_SIZE = 4096
 METADATA_SIZE = BLOCK_SIZE * 8
 
@@ -37,9 +38,10 @@ def run(cmd):
 def get_verity_metadata_size(data_size):
     return METADATA_SIZE
 
-def build_metadata_block(verity_table, signature):
+def build_metadata_block(verity_table, signature, verity_disable=False):
     table_len = len(verity_table)
-    block = struct.pack("II256sI", MAGIC_NUMBER, VERSION, signature, table_len)
+    magic = MAGIC_DISABLE if verity_disable else MAGIC_NUMBER
+    block = struct.pack("II256sI", magic, VERSION, signature, table_len)
     block += verity_table
     block = block.ljust(METADATA_SIZE, '\x00')
     return block
@@ -71,13 +73,14 @@ def build_verity_table(block_device, data_blocks, root_hash, salt):
     return table
 
 def build_verity_metadata(data_blocks, metadata_image, root_hash, salt,
-        block_device, signer_path, signing_key, signer_args=None):
+        block_device, signer_path, signing_key, signer_args=None,
+        verity_disable=False):
     # build the verity table
     verity_table = build_verity_table(block_device, data_blocks, root_hash, salt)
     # build the verity table signature
     signature = sign_verity_table(verity_table, signer_path, signing_key, signer_args)
     # build the metadata block
-    metadata_block = build_metadata_block(verity_table, signature)
+    metadata_block = build_metadata_block(verity_table, signature, verity_disable)
     # write it to the outfile
     with open(metadata_image, "wb") as f:
         f.write(metadata_block)
@@ -99,6 +102,8 @@ if __name__ == "__main__":
     parser_build.add_argument('signer_path', action='store', help='verity signer path')
     parser_build.add_argument('signing_key', action='store', help='verity signing key')
     parser_build.add_argument('--signer_args', action='store', help='verity signer args')
+    parser_build.add_argument('--verity_disable', action='store_true',
+                              default=False, help='disable verity')
     parser_build.set_defaults(dest='build')
 
     args = parser.parse_args()
@@ -109,4 +114,4 @@ if __name__ == "__main__":
         build_verity_metadata(args.blocks / 4096, args.metadata_image,
                               args.root_hash, args.salt, args.block_device,
                               args.signer_path, args.signing_key,
-                              args.signer_args)
+                              args.signer_args, args.verity_disable)

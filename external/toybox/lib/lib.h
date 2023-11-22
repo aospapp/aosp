@@ -168,6 +168,7 @@ unsigned xgetuid(char *name);
 unsigned xgetgid(char *name);
 void xsetuser(struct passwd *pwd);
 char *xreadlink(char *name);
+double xstrtod(char *s);
 long xparsetime(char *arg, long units, long *fraction);
 void xpidfile(char *name);
 void xregcomp(regex_t *preg, char *rexec, int cflags);
@@ -204,6 +205,7 @@ long long xstrtol(char *str, char **end, int base);
 long long atolx(char *c);
 long long atolx_range(char *numstr, long long low, long long high);
 int stridx(char *haystack, char needle);
+int utf8towc(wchar_t *wc, char *str, unsigned len);
 char *strlower(char *s);
 char *strafter(char *haystack, char *needle);
 char *chomp(char *s);
@@ -214,6 +216,7 @@ off_t fdlength(int fd);
 void loopfiles_rw(char **argv, int flags, int permissions,
   void (*function)(int fd, char *name));
 void loopfiles(char **argv, void (*function)(int fd, char *name));
+void loopfiles_lines(char **argv, void (*function)(char **pline, long len));
 long long xsendfile(int in, int out);
 int wfchmodat(int rc, char *name, mode_t mode);
 int copy_tempfile(int fdin, char *name, char **tempname);
@@ -239,6 +242,8 @@ int regexec0(regex_t *preg, char *string, long len, int nmatch,
 char *getusername(uid_t uid);
 char *getgroupname(gid_t gid);
 void do_lines(int fd, void (*call)(char **pline, long len));
+long environ_bytes();
+long long millitime(void);
 
 #define HR_SPACE 1 // Space between number and units
 #define HR_B     2 // Use "B" for single byte units
@@ -269,7 +274,7 @@ int draw_trim_esc(char *str, int padto, int width, char *escmore,
 int draw_trim(char *str, int padto, int width);
 
 // interestingtimes.c
-int xgettty(void);
+int tty_fd(void);
 int terminal_size(unsigned *xx, unsigned *yy);
 int terminal_probesize(unsigned *xx, unsigned *yy);
 int scan_key_getsize(char *scratch, int miliwait, unsigned *xx, unsigned *yy);
@@ -284,10 +289,12 @@ void tty_sigreset(int i);
 // net.c
 int xsocket(int domain, int type, int protocol);
 void xsetsockopt(int fd, int level, int opt, void *val, socklen_t len);
-int xconnect(char *host, char *port, int family, int socktype, int protocol,
-  int flags);
+struct addrinfo *xgetaddrinfo(char *host, char *port, int family, int socktype,
+  int protocol, int flags);
+int xconnect(struct addrinfo *ai_arg);
 int xpoll(struct pollfd *fds, int nfds, int timeout);
 int pollinate(int in1, int in2, int out1, int out2, int timeout, int shutdown_timeout);
+char *ntop(struct sockaddr *sa);
 
 // password.c
 int get_salt(char *salt, char * algo);

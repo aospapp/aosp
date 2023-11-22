@@ -43,9 +43,11 @@ struct _zipimporter {
 static PyObject *ZipImportError;
 static PyObject *zip_directory_cache = NULL;
 
+// GOOGLE(nanzhang): Changed two functions below to be visible to launcher so
+// that launcher can access the zip metadata section.
 /* forward decls */
-static PyObject *read_directory(const char *archive);
-static PyObject *get_data(const char *archive, PyObject *toc_entry);
+PyObject *read_directory(const char *archive);
+PyObject *get_data(const char *archive, PyObject *toc_entry);
 static PyObject *get_module_code(ZipImporter *self, char *fullname,
                                  int *p_ispackage, char **p_modpath);
 
@@ -702,7 +704,7 @@ set_file_error(const char *archive, int eof)
    Directories can be recognized by the trailing SEP in the name,
    data_size and file_offset are 0.
 */
-static PyObject *
+PyObject *
 read_directory(const char *archive)
 {
     PyObject *files = NULL;
@@ -912,7 +914,7 @@ get_decompress_func(void)
 
 /* Given a path to a Zip file and a toc_entry, return the (uncompressed)
    data as a new reference. */
-static PyObject *
+PyObject *
 get_data(const char *archive, PyObject *toc_entry)
 {
     PyObject *raw_data = NULL, *data, *decompress;

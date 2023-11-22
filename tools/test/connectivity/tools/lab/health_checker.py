@@ -14,9 +14,12 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import logging
+
 from health.constant_health_analyzer import HealthyIfGreaterThanConstantNumber
 from health.constant_health_analyzer import HealthyIfLessThanConstantNumber
 from health.constant_health_analyzer import HealthyIfEquals
+from health.constant_health_analyzer import HealthyIfStartsWith
 from health.custom_health_analyzer import HealthyIfNotIpAddress
 from health.constant_health_analyzer_wrapper import HealthyIfValsEqual
 
@@ -27,7 +30,6 @@ class HealthChecker(object):
         _analyzers: a list of metric, analyzer tuples where metric is a string
           representing a metric name ('DiskMetric') and analyzer is a
           constant_health_analyzer object
-        _comparer_constructor: a dict that maps strings to comparer objects
         config:
         a dict formatted as follows:
         {
@@ -47,7 +49,8 @@ class HealthChecker(object):
         'LESS_THAN': lambda k, c: HealthyIfLessThanConstantNumber(k, c),
         'EQUALS': lambda k, c: HealthyIfEquals(k, c),
         'IP_ADDR': lambda k, c: HealthyIfNotIpAddress(k),
-        'EQUALS_DICT': lambda k, c: HealthyIfValsEqual(k, c)
+        'EQUALS_DICT': lambda k, c: HealthyIfValsEqual(k, c),
+        'STARTS_WITH': lambda k, c: HealthyIfStartsWith(k, c)
     }
 
     def __init__(self, config):
@@ -77,7 +80,13 @@ class HealthChecker(object):
         # loop through and check if healthy
         unhealthy_metrics = []
         for (metric, analyzer) in self._analyzers:
-            # if not healthy, add to list so value can be reported
-            if not analyzer.is_healthy(response_dict[metric]):
-                unhealthy_metrics.append(metric)
+            try:
+                # if not healthy, add to list so value can be reported
+                if not analyzer.is_healthy(response_dict[metric]):
+                    unhealthy_metrics.append(metric)
+            # don't exit whole program if error in config file, just report
+            except KeyError as e:
+                logging.warning(
+                    'Error in config file, "%s" not a health metric\n' % e)
+
         return unhealthy_metrics

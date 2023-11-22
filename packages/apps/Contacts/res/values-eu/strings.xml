@@ -107,7 +107,7 @@
     <string name="contactSavedToast" msgid="9171862279493213075">"Gorde da kontaktua"</string>
     <string name="contactUnlinkedToast" msgid="7122823195786012553">"Kendu dira kontaktuaren loturak"</string>
     <string name="contactSavedErrorToast" msgid="4827033473908688031">"Ezin izan dira gorde kontaktuari egindako aldaketak"</string>
-    <string name="contactUnlinkErrorToast" msgid="2706297508166952431">"Ezin izan da kendu kontaktuaren lotura"</string>
+    <string name="contactUnlinkErrorToast" msgid="2706297508166952431">"Ezin izan zaio kendu lotura kontaktuari"</string>
     <string name="contactJoinErrorToast" msgid="5735129234573327701">"Ezin izan da lotu kontaktua"</string>
     <string name="contactGenericErrorToast" msgid="3885457515665783976">"Errore bat gertatu da kontaktua gordetzean"</string>
     <string name="contactPhotoSavedErrorToast" msgid="6860883564984042194">"Ezin izan dira gorde kontaktuaren argazkiari egindako aldaketak"</string>
@@ -529,4 +529,6 @@
     <string name="importing_sim_failed_message" msgid="3345258302998021066">"Ezin izan dira inportatu SIM txarteleko kontaktuak"</string>
     <string name="importing_sim_in_progress_title" msgid="3638299581276676109">"SIM txartela inportatzen"</string>
     <string name="contacts_default_notification_channel" msgid="4754058700611188581">"Jakinarazpenak"</string>
+    <string name="yes_button" msgid="1268479086848288060">"Bai"</string>
+    <string name="no_button" msgid="5742815694687835125">"Ez"</string>
 </resources>

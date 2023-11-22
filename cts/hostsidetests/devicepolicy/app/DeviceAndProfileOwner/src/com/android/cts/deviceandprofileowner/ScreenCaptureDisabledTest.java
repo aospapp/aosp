@@ -16,7 +16,7 @@
 package com.android.cts.deviceandprofileowner;
 
 import android.app.admin.DevicePolicyManager;
-import android.support.v4.content.LocalBroadcastManager;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import android.util.Log;
 
 /**

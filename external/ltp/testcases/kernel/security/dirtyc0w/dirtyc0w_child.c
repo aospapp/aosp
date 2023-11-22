@@ -23,6 +23,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <pwd.h>
 
 #include "tst_safe_pthread.h"
@@ -103,7 +104,10 @@ int main(void)
 	int fd;
 	struct stat st;
 
+	tst_reinit();
+
 	SAFE_SIGNAL(SIGUSR1, sighandler);
+	TST_CHECKPOINT_WAKE(0);
 
 	/* Open it read only and map */
 	fd = SAFE_OPEN(FNAME, O_RDONLY);

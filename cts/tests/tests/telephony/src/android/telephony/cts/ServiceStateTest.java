@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 The Android Open Source Project
+ * Copyright (C) 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,12 @@
  */
 package android.telephony.cts;
 
+import static android.telephony.ServiceState.DUPLEX_MODE_FDD;
+import static android.telephony.ServiceState.DUPLEX_MODE_TDD;
+import static android.telephony.ServiceState.DUPLEX_MODE_UNKNOWN;
+
 import android.os.Parcel;
+import android.telephony.AccessNetworkConstants;
 import android.telephony.ServiceState;
 import android.test.AndroidTestCase;
 
@@ -23,6 +28,11 @@ public class ServiceStateTest extends AndroidTestCase {
     private static final String OPERATOR_ALPHA_LONG = "CtsOperatorLong";
     private static final String OPERATOR_ALPHA_SHORT = "CtsOp";
     private static final String OPERATOR_NUMERIC = "02871";
+    private static final int SYSTEM_ID = 123;
+    private static final int NETWORK_ID = 456;
+    private static final int CHANNEL_NUMBER_BAND_66 = 66436;
+    private static final int CHANNEL_NUMBER_BAND_33 = 36000;
+    private static final int[] CELL_BANDWIDTH = {1, 2, 3};
 
     public void testServiceState() {
         ServiceState serviceState = new ServiceState();
@@ -52,6 +62,25 @@ public class ServiceStateTest extends AndroidTestCase {
         assertEquals(OPERATOR_ALPHA_LONG, serviceState.getOperatorAlphaLong());
         assertEquals(OPERATOR_ALPHA_SHORT, serviceState.getOperatorAlphaShort());
         assertEquals(OPERATOR_NUMERIC, serviceState.getOperatorNumeric());
+
+        serviceState.setCdmaSystemAndNetworkId(SYSTEM_ID, NETWORK_ID);
+        assertEquals(SYSTEM_ID, serviceState.getCdmaSystemId());
+        assertEquals(NETWORK_ID, serviceState.getCdmaNetworkId());
+
+        serviceState.setChannelNumber(CHANNEL_NUMBER_BAND_66);
+        assertEquals(CHANNEL_NUMBER_BAND_66, serviceState.getChannelNumber());
+
+        serviceState.setCellBandwidths(CELL_BANDWIDTH);
+        assertEquals(CELL_BANDWIDTH, serviceState.getCellBandwidths());
+
+        serviceState.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_GSM);
+        assertEquals(DUPLEX_MODE_UNKNOWN, serviceState.getDuplexMode());
+
+        serviceState.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
+        assertEquals(DUPLEX_MODE_FDD, serviceState.getDuplexMode());
+
+        serviceState.setChannelNumber(CHANNEL_NUMBER_BAND_33);
+        assertEquals(DUPLEX_MODE_TDD, serviceState.getDuplexMode());
 
         assertTrue(serviceState.hashCode() > 0);
         assertNotNull(serviceState.toString());

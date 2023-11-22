@@ -13,24 +13,9 @@ from autotest_lib.client.common_lib.cros import dev_server
 TELEMETRY_RUN_BENCHMARKS_SCRIPT = 'tools/perf/run_benchmark'
 TELEMETRY_RUN_TESTS_SCRIPT = 'tools/telemetry/run_tests'
 TELEMETRY_RUN_GPU_TESTS_SCRIPT = 'content/test/gpu/run_gpu_integration_test.py'
-TELEMETRY_TIMEOUT_MINS = 120
+TELEMETRY_TIMEOUT_MINS = 150
 
 DUT_CHROME_ROOT = '/usr/local/telemetry/src'
-DUT_COMMON_SSH_OPTIONS = ['-o StrictHostKeyChecking=no',
-                          '-o UserKnownHostsFile=/dev/null',
-                          '-o BatchMode=yes',
-                          '-o ConnectTimeout=30',
-                          '-o ServerAliveInterval=900',
-                          '-o ServerAliveCountMax=3',
-                          '-o ConnectionAttempts=4',
-                          '-o Protocol=2']
-DUT_SSH_OPTIONS = ' '.join(DUT_COMMON_SSH_OPTIONS + ['-x', '-a', '-l root'])
-DUT_SCP_OPTIONS = ' '.join(DUT_COMMON_SSH_OPTIONS)
-DUT_RSYNC_OPTIONS =  ' '.join(['--rsh="/usr/bin/ssh %s"' % DUT_SSH_OPTIONS,
-                               '-L', '--timeout=1800', '-az',
-                               '--no-o', '--no-g'])
-# Prevent double quotes from being unfolded.
-DUT_RSYNC_OPTIONS = utils.sh_escape(DUT_RSYNC_OPTIONS)
 
 # Result Statuses
 SUCCESS_STATUS = 'SUCCESS'
@@ -38,7 +23,8 @@ WARNING_STATUS = 'WARNING'
 FAILED_STATUS = 'FAILED'
 
 # A list of benchmarks with that the telemetry test harness can run on dut.
-ON_DUT_WHITE_LIST = ['dromaeo.domcoreattr',
+ON_DUT_WHITE_LIST = ['cros_ui_smoothness',
+                     'dromaeo.domcoreattr',
                      'dromaeo.domcoremodify',
                      'dromaeo.domcorequery',
                      'dromaeo.domcoretraverse',
@@ -58,7 +44,6 @@ ON_DUT_WHITE_LIST = ['dromaeo.domcoreattr',
                      'smoothness.tough_scrolling_cases',
                      'smoothness.tough_webgl_cases',
                      'speedometer',
-                     'startup.cold.blank_page',
                      'sunspider',
                      'tab_switching.top_10',
                      'tab_switching.typical_25',
@@ -153,9 +138,9 @@ class TelemetryRunner(object):
         info = self._host.host_info_store.get()
         if not info.build:
             logging.error('Unable to locate build label for host: %s.',
-                          self._host.hostname)
+                          self._host.host_port)
             raise error.AutotestError('Failed to grab build for host %s.' %
-                                      self._host.hostname)
+                                      self._host.host_port)
 
         logging.debug('Setting up telemetry for build: %s', info.build)
 
@@ -215,9 +200,8 @@ class TelemetryRunner(object):
 
         if self._telemetry_on_dut:
             telemetry_cmd.extend(
-                    ['ssh',
-                     DUT_SSH_OPTIONS,
-                     self._host.hostname,
+                    [self._host.ssh_command(alive_interval=900,
+                                            connection_attempts=4),
                      'python',
                      script,
                      '--verbose',
@@ -232,7 +216,7 @@ class TelemetryRunner(object):
                      '--browser=cros-chrome',
                      '--output-format=chartjson',
                      '--output-dir=%s' % self._telemetry_path,
-                     '--remote=%s' % self._host.hostname])
+                     '--remote=%s' % self._host.host_port])
         telemetry_cmd.extend(args)
         telemetry_cmd.append(test_or_benchmark)
 
@@ -246,20 +230,25 @@ class TelemetryRunner(object):
                                  collected.
         @returns SCP command to copy the results json to the specified directory.
         """
-        scp_cmd = []
-        devserver_hostname = ''
-        if perf_results_dir:
+        if not perf_results_dir:
+            return ''
+
+        scp_cmd = ['scp']
+        if self._telemetry_on_dut:
+            scp_cmd.append(self._host.make_ssh_options(alive_interval=900,
+                                                       connection_attempts=4))
+            if not self._host.is_default_port:
+                scp_cmd.append('-P %d' % self._host.port)
+            src = 'root@%s:%s/results-chart.json' % (self._host.hostname,
+                                                     DUT_CHROME_ROOT)
+        else:
+            devserver_hostname = ''
             if self._devserver:
                 devserver_hostname = self._devserver.hostname + ':'
-            if self._telemetry_on_dut:
-                src = ('root@%s:%s/results-chart.json' %
-                       (self._host.hostname, DUT_CHROME_ROOT))
-                scp_cmd.extend(['scp', DUT_SCP_OPTIONS, src, perf_results_dir])
-            else:
-                src = ('%s%s/results-chart.json' %
-                       (devserver_hostname, self._telemetry_path))
-                scp_cmd.extend(['scp', src, perf_results_dir])
+            src = '%s%s/results-chart.json' % (devserver_hostname,
+                                               self._telemetry_path)
 
+        scp_cmd.extend([src, perf_results_dir])
         return ' '.join(scp_cmd)
 
 
@@ -326,8 +315,9 @@ class TelemetryRunner(object):
         """
         scp_cmd = self._scp_telemetry_results_cmd(perf_results_dir)
         logging.debug('Retrieving Results: %s', scp_cmd)
-
-        self._run_cmd(scp_cmd)
+        _, _, exit_code = self._run_cmd(scp_cmd)
+        if exit_code != 0:
+            raise error.TestFail('Unable to retrieve results.')
 
 
     def _run_test(self, script, test, *args):
@@ -422,12 +412,8 @@ class TelemetryRunner(object):
             cmd.extend(['ssh', devserver_hostname])
 
         cmd.extend(
-                ['ssh',
-                 DUT_SSH_OPTIONS,
-                 self._host.hostname,
-                 'python',
-                 script])
-
+            [self._host.ssh_command(alive_interval=900, connection_attempts=4),
+             'python', script])
         cmd.extend(args)
         cmd.append(test)
         cmd = ' '.join(cmd)
@@ -474,9 +460,10 @@ class TelemetryRunner(object):
             dst = os.path.join(DUT_CHROME_ROOT, dep)
             if self._devserver:
                 logging.info('Copying: %s -> %s', src, dst)
-                utils.run('ssh %s rsync %s %s %s:%s' %
-                          (devserver_hostname, DUT_RSYNC_OPTIONS, src,
-                           self._host.hostname, dst))
+                rsync_cmd = utils.sh_escape('rsync %s %s %s:%s' %
+                                            (self._host.rsync_options(), src,
+                                            self._host.hostname, dst))
+                utils.run('ssh %s "%s"' % (devserver_hostname, rsync_cmd))
             else:
                 if not os.path.isfile(src):
                     raise error.TestFail('Error occurred while saving DEPs.')

@@ -16,7 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.permission2.cts">
+    package="android.permission2.cts" android:targetSandboxVersion="2">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application>
@@ -40,6 +40,7 @@
     <!--  need app that has CALL_PHONE but not PROCESS_OUTGOING_CALL -->
     <uses-permission android:name="android.permission.CALL_PHONE"/>
 
+
     <uses-permission android:name="android.permission.WRITE_CONTACTS"/>
 
     <!-- need app that has RECORD_AUDIO but not CAPTURE_AUDIO_OUTPUT -->
@@ -54,13 +55,14 @@
     <!-- need a permission that would ordinarily be granted, but has a maxSdkVersion that
          causes it to be withheld under the current API level -->
     <uses-permission
-            android:name="android.permission.VIBRATE"
-            android:maxSdkVersion="18" />
+            android:name="android.permission.INTERNET"
+            android:maxSdkVersion="18"/>
+
 
     <!-- need a permission that will be granted -->
     <uses-permission
-            android:name="android.permission.FLASHLIGHT"
-            android:maxSdkVersion="9000" />
+            android:name="android.permission.ACCESS_NETWORK_STATE"
+            android:maxSdkVersion="9000"/>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.permission2.cts"

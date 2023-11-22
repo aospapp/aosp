@@ -21,14 +21,18 @@
  * 3) Table of IO operations to perform on the files
  */
 
+#pragma pack(push, 1)
+
 /*
  * The parsed workload file starts off with the header, which
  * contains the count of the total # of files that are operated on.
  * and the total number of IO operations.
  */
 struct ioshark_header {
-	int	num_files;
-	int	num_io_operations;
+#define IOSHARK_VERSION			2
+	u_int64_t	version;
+	u_int64_t	num_files;
+	u_int64_t	num_io_operations;
 };
 
 /*
@@ -38,9 +42,9 @@ struct ioshark_header {
  * Before the tests starts, these files are pre-created.
  */
 struct ioshark_file_state {
-	int	fileno;	/* 1..num_files, with files name ioshark.<fileno> */
-	size_t	size;
-	int	global_filename_ix;
+	u_int64_t	fileno;	/* 1..num_files, with files name ioshark.<fileno> */
+	u_int64_t	size;
+	u_int64_t	global_filename_ix;
 };
 
 enum file_op {
@@ -66,44 +70,48 @@ enum file_op {
 #define IOSHARK_PROT_WRITE	0x2
 
 /*
- * Next we have the table of IO operatiosn to perform. Each
+ * Next we have the table of IO operations to perform. Each
  * IO operation is described by this entry.
  */
 struct ioshark_file_operation {
 	/* delta us between previous file op and this */
-	u_int64_t		delta_us;
-	enum file_op		file_op;
-	int			fileno;
+	u_int64_t			delta_us;
+#define ioshark_io_op			op_union.file_op_u
+	union {
+		enum file_op		file_op_u;
+		u_int32_t		enum_size;
+	} op_union;
+	u_int64_t			fileno;
 	union {
 		struct lseek_args {
 #define lseek_offset	u.lseek_a.offset
 #define lseek_action	u.lseek_a.action
-			off_t	offset;
-			int action;
+			u_int64_t	offset;
+			u_int32_t	action;
 		} lseek_a;
 		struct prw_args {
 #define prw_offset	u.prw_a.offset
 #define prw_len		u.prw_a.len
-			off_t	offset;
-			size_t	len;
+			u_int64_t	offset;
+			u_int64_t	len;
 		} prw_a;
 #define rw_len		u.rw_a.len
 		struct rw_args {
-			size_t	len;
+			u_int64_t	len;
 		} rw_a;
 #define mmap_offset	u.mmap_a.offset
 #define mmap_len	u.mmap_a.len
 #define mmap_prot	u.mmap_a.prot
 		struct mmap_args {
-			off_t	offset;
-			size_t	len;
-			int	prot;
+			u_int64_t	offset;
+			u_int64_t	len;
+			u_int32_t	prot;
 	} mmap_a;
 #define open_flags	u.open_a.flags
 #define open_mode	u.open_a.mode
 		struct open_args {
-			int	flags;
-			mode_t	mode;
+			u_int32_t	flags;
+			u_int32_t	mode;
 		} open_a;
 	} u;
 };
@@ -117,3 +125,5 @@ struct ioshark_filename_struct
 {
 	char path[MAX_IOSHARK_PATHLEN];
 };
+
+#pragma pack(pop)

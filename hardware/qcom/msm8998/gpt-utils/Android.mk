@@ -16,6 +16,8 @@
 
 LOCAL_PATH := $(call my-dir)
 
+gpt_utils_common_cflags := -Wall -Werror -Wno-unused-variable
+
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := gpt-utils.cpp
 ifeq ($(TARGET_COMPILE_WITH_MSM_KERNEL),true)
@@ -25,6 +27,7 @@ endif
 LOCAL_SHARED_LIBRARIES := liblog libz
 LOCAL_MODULE := libgptutils
 LOCAL_MODULE_OWNER := qti
+LOCAL_CFLAGS := $(gpt_utils_common_cflags)
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -40,4 +43,5 @@ LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_OWNER := qti
 LOCAL_COPY_HEADERS_TO := gpt-utils/inc
 LOCAL_COPY_HEADERS := gpt-utils.h
+LOCAL_CFLAGS := $(gpt_utils_common_cflags)
 include $(BUILD_SHARED_LIBRARY)

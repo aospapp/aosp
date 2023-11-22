@@ -29,8 +29,6 @@ class login_CryptohomeOwnerQuery(test.test):
                 gobject.MainLoop())
         self._listener.listen_for_new_key_and_policy()
 
-        self._cryptohome_proxy = cryptohome.CryptohomeProxy(bus_loop)
-
 
     def run_once(self):
         owner = 'first_user@nowhere.com'
@@ -38,7 +36,7 @@ class login_CryptohomeOwnerQuery(test.test):
         if cryptohome.get_login_status()['owner_user_exists']:
             raise error.TestFail('Owner existed before login')
 
-        self._cryptohome_proxy.ensure_clean_cryptohome_for(owner)
+        cryptohome.ensure_clean_cryptohome_for(owner)
         self._session_manager.StartSession(owner, '')
 
         self._listener.wait_for_signals(desc='Device ownership complete.')

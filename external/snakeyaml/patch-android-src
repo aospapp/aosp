@@ -87,5 +87,4 @@ if ! [[ -f "$dst_file" ]]; then
   exit 1
 fi
 cd "$dst_dir"
-patch "$(basename "$dst_file")" "$patch_file_src"
-echo "Successfully applied patch $patch_file_src into copy of file $dst_file"
+patch --quiet "$(basename "$dst_file")" "$patch_file_src"

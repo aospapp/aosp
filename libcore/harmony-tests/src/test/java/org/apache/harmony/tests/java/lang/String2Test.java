@@ -966,7 +966,7 @@ public class String2Test extends junit.framework.TestCase {
     /**
      * java.lang.String#format(Locale, String, Object[])
      */
-    @SuppressWarnings("boxing")
+    @SuppressWarnings({ "boxing", "FormatString" })
     public void test_format() {
         assertEquals("13% of sum is 0x11", String.format("%d%% of %s is 0x%x",
                 13, "sum", 17));

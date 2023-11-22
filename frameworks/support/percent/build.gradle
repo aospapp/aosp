@@ -1,28 +1,29 @@
-apply plugin: android.support.SupportAndroidLibraryPlugin
+import static androidx.build.dependencies.DependenciesKt.*
+import androidx.build.LibraryGroups
+import androidx.build.LibraryVersions
+
+plugins {
+    id("SupportAndroidLibraryPlugin")
+}
 
 dependencies {
-    api project(':support-compat')
+    api(project(":core"))
 
-    androidTestImplementation libs.test_runner,   { exclude module: 'support-annotations' }
-    androidTestImplementation libs.espresso_core, { exclude module: 'support-annotations' }
+    androidTestImplementation(TEST_RUNNER_TMP, libs.exclude_for_espresso)
+    androidTestImplementation(ESPRESSO_CORE_TMP, libs.exclude_for_espresso)
 }
 
 android {
-    defaultConfig {
-        minSdkVersion 14
-    }
-
     sourceSets {
-        main.java.srcDirs = ['src']
         main.res.srcDir 'res'
-        main.assets.srcDir 'assets'
-        main.resources.srcDir 'src'
     }
 }
 
 supportLibrary {
-    name 'Android Percent Support Library'
-    publish true
-    inceptionYear '2015'
-    description 'Android Percent Support Library'
+    name = "Android Percent Support Library"
+    publish = true
+    mavenVersion = LibraryVersions.SUPPORT_LIBRARY
+    mavenGroup = LibraryGroups.PERCENTLAYOUT
+    inceptionYear = "2015"
+    description = "Android Percent Support Library"
 }

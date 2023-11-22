@@ -200,5 +200,7 @@ public class AssetFileDescriptorTest extends AndroidTestCase {
         assertEquals(out.getDeclaredLength(), mAssetFileDes.getDeclaredLength());
         assertEquals(out.getParcelFileDescriptor().getStatSize(),
                 mAssetFileDes.getParcelFileDescriptor().getStatSize());
+
+        parcel.recycle();
     }
 }

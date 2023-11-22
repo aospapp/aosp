@@ -21,7 +21,7 @@
     <!-- Storage setting. Menu option for using the deletion helper. [CHAR LIMIT=30] -->
     <string name="storage_menu_free">Free up space</string>
     <!-- Activity title for deletion helper. [CHAR LIMIT=25] -->
-    <string name="deletion_helper_title">Choose items to remove</string>
+    <string name="deletion_helper_title">Remove items</string>
     <!-- Summary of how much storage an app is using and the number of days since last use. [CHAR LIMIT=NONE]-->
     <string name="deletion_helper_app_summary"><xliff:g id="days" example="67">%1$d</xliff:g> days ago</string>
     <!-- Value indicating how much space this item takes up on disk -->
@@ -51,11 +51,14 @@
     <!-- Summary for when when there is nothing in the downloads folder to clear. [CHAR LIMIT=NONE]-->
     <string name="deletion_helper_downloads_summary_empty"><xliff:g id="used" example="1.2GB">%1$s</xliff:g></string>
 
+    <!-- Title of dialog warn the user before clearing space in the deletion helper. [CHAR LIMIT=NONE] -->
+    <string name="deletion_helper_clear_dialog_title">Free up space</string>
+
     <!-- Message to warn the user before clearing space in the deletion helper. [CHAR LIMIT=NONE] -->
-    <string name="deletion_helper_clear_dialog_message"><xliff:g id="clearable_bytes" example="1.2GB">%1$s</xliff:g> will be removed from your device</string>
+    <string name="deletion_helper_clear_dialog_message"><xliff:g id="clearable_bytes" example="1.2GB">%1$s</xliff:g> of content will be removed from your device</string>
 
     <!-- Button label for the dialog prompt for clearing data in deletion helper. [CHAR LIMIT=40] -->
-    <string name="deletion_helper_clear_dialog_remove">Remove</string>
+    <string name="deletion_helper_clear_dialog_remove">Free up space</string>
 
     <!-- Title for the dialog to up sell the storage manager. [CHAR LIMIT=NONE] -->
     <string name="deletion_helper_upsell_title">Manage storage automatically?</string>
@@ -107,7 +110,7 @@
     <string name="deletion_helper_default_threshold">Hide recent items</string>
 
     <!-- Message to warn the user before clearing space in the deletion helper for the first time. [CHAR LIMIT=NONE] -->
-    <string name="deletion_helper_clear_dialog_message_first_time"><xliff:g id="clearable_bytes" example="1.2GB">%1$s</xliff:g> will be removed from your device</string>
+    <string name="deletion_helper_clear_dialog_message_first_time"><xliff:g id="clearable_bytes" example="1.2GB">%1$s</xliff:g> of content will be removed from your device</string>
 
     <!-- Warning when activating the automatic storage manager on legacy devices. [CHAR LIMIT=NONE] -->
     <string name="automatic_storage_manager_activation_warning">Your storage is now being managed by the storage manager</string>

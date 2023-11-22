@@ -20,8 +20,19 @@
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <!--
+        Install the activity and disable battery optimization (so the KeyChainServiceTest can be
+        run in the background):
+        adb install out/target/product/${TARGET_PRODUCT}/data/app/KeyChainTests/KeyChainTests.apk
+        Then navigate to Settings -> Battery -> ... -> Battery optimization -> select All Apps
+        Find com.android.keychain.tests and select Do Not Optimize.
+
+        Alternatively, the following command can be used to exclude the test services from
+        the background execution restriction for 2 minutes:
+        adb shell cmd deviceidle tempwhitelist -d 120000 com.android.keychain.tests
+
         To run service:
         adb shell am startservice -n com.android.keychain.tests/.KeyChainServiceTest
+        One has to inspect the ADB log to find out about test failures.
 
         To run activity:
         adb shell am start -n com.android.keychain.tests/com.android.keychain.tests.KeyChainTestActivity

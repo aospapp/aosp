@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2016 Google, Inc.
+ *  Copyright 2016 Google, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ const std::string kLowerMask = "00:00:ff:ff:ff:ff";
 const std::string kZeros = "00:00:00:00:00:00";
 const vector<uint8_t> kZeros_octets = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 const vector<uint8_t> kTestAddr1_octets = {0xbc, 0x9a, 0x78, 0x56, 0x34, 0x12};
-}
+}  // namespace
 
 namespace test_vendor_lib {
 

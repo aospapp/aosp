@@ -22,18 +22,15 @@ import android.support.v17.leanback.app.GuidedStepFragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-
 import com.android.tv.R;
 
-/**
- * A dialog fragment which contains {@link DvrStopSeriesRecordingFragment}.
- */
+/** A dialog fragment which contains {@link DvrStopSeriesRecordingFragment}. */
 public class DvrStopSeriesRecordingDialogFragment extends DialogFragment {
     public static final String DIALOG_TAG = "dialog_tag";
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
+    public View onCreateView(
+            LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.halfsized_dialog, container, false);
         GuidedStepFragment fragment = new DvrStopSeriesRecordingFragment();
         fragment.setArguments(getArguments());

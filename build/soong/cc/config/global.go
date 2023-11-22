@@ -16,6 +16,7 @@ package config
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 
 	"android/soong/android"
@@ -33,9 +34,20 @@ var (
 		"-Winit-self",
 		"-Wpointer-arith",
 
-		// COMMON_RELEASE_CFLAGS
+		// Make paths in deps files relative
+		"-no-canonical-prefixes",
+		"-fno-canonical-system-headers",
+
 		"-DNDEBUG",
 		"-UDEBUG",
+
+		"-fno-exceptions",
+		"-Wno-multichar",
+
+		"-O2",
+		"-g",
+
+		"-fno-strict-aliasing",
 	}
 
 	commonGlobalConlyflags = []string{}
@@ -43,15 +55,43 @@ var (
 	deviceGlobalCflags = []string{
 		"-fdiagnostics-color",
 
-		// TARGET_ERROR_FLAGS
+		"-ffunction-sections",
+		"-fdata-sections",
+		"-fno-short-enums",
+		"-funwind-tables",
+		"-fstack-protector-strong",
+		"-Wa,--noexecstack",
+		"-D_FORTIFY_SOURCE=2",
+
+		"-Wstrict-aliasing=2",
+
 		"-Werror=return-type",
 		"-Werror=non-virtual-dtor",
 		"-Werror=address",
 		"-Werror=sequence-point",
 		"-Werror=date-time",
+		"-Werror=format-security",
+	}
+
+	deviceGlobalCppflags = []string{
+		"-fvisibility-inlines-hidden",
+	}
+
+	deviceGlobalLdflags = []string{
+		"-Wl,-z,noexecstack",
+		"-Wl,-z,relro",
+		"-Wl,-z,now",
+		"-Wl,--build-id=md5",
+		"-Wl,--warn-shared-textrel",
+		"-Wl,--fatal-warnings",
+		"-Wl,--no-undefined-version",
 	}
 
 	hostGlobalCflags = []string{}
+
+	hostGlobalCppflags = []string{}
+
+	hostGlobalLdflags = []string{}
 
 	commonGlobalCppflags = []string{
 		"-Wsign-promo",
@@ -72,12 +112,21 @@ var (
 	ExperimentalCStdVersion   = "gnu11"
 	ExperimentalCppStdVersion = "gnu++1z"
 
-	NdkMaxPrebuiltVersionInt = 24
+	NdkMaxPrebuiltVersionInt = 27
 
 	// prebuilts/clang default settings.
 	ClangDefaultBase         = "prebuilts/clang/host"
-	ClangDefaultVersion      = "clang-4053586"
-	ClangDefaultShortVersion = "5.0"
+	ClangDefaultVersion      = "clang-4691093"
+	ClangDefaultShortVersion = "6.0.2"
+
+	// Directories with warnings from Android.bp files.
+	WarningAllowedProjects = []string{
+		"device/",
+		"vendor/",
+	}
+
+	// Directories with warnings from Android.mk files.
+	WarningAllowedOldProjects = []string{}
 )
 
 var pctx = android.NewPackageContext("android/soong/cc/config")
@@ -90,7 +139,11 @@ func init() {
 	pctx.StaticVariable("CommonGlobalCflags", strings.Join(commonGlobalCflags, " "))
 	pctx.StaticVariable("CommonGlobalConlyflags", strings.Join(commonGlobalConlyflags, " "))
 	pctx.StaticVariable("DeviceGlobalCflags", strings.Join(deviceGlobalCflags, " "))
+	pctx.StaticVariable("DeviceGlobalCppflags", strings.Join(deviceGlobalCppflags, " "))
+	pctx.StaticVariable("DeviceGlobalLdflags", strings.Join(deviceGlobalLdflags, " "))
 	pctx.StaticVariable("HostGlobalCflags", strings.Join(hostGlobalCflags, " "))
+	pctx.StaticVariable("HostGlobalCppflags", strings.Join(hostGlobalCppflags, " "))
+	pctx.StaticVariable("HostGlobalLdflags", strings.Join(hostGlobalLdflags, " "))
 	pctx.StaticVariable("NoOverrideGlobalCflags", strings.Join(noOverrideGlobalCflags, " "))
 
 	pctx.StaticVariable("CommonGlobalCppflags", strings.Join(commonGlobalCppflags, " "))
@@ -124,31 +177,36 @@ func init() {
 	// This is used by non-NDK modules to get jni.h. export_include_dirs doesn't help
 	// with this, since there is no associated library.
 	pctx.PrefixedExistentPathsForSourcesVariable("CommonNativehelperInclude", "-I",
-		[]string{"libnativehelper/include_deprecated"})
+		[]string{"libnativehelper/include_jni"})
 
 	pctx.SourcePathVariable("ClangDefaultBase", ClangDefaultBase)
-	pctx.VariableFunc("ClangBase", func(config interface{}) (string, error) {
-		if override := config.(android.Config).Getenv("LLVM_PREBUILTS_BASE"); override != "" {
-			return override, nil
+	pctx.VariableFunc("ClangBase", func(ctx android.PackageVarContext) string {
+		if override := ctx.Config().Getenv("LLVM_PREBUILTS_BASE"); override != "" {
+			return override
 		}
-		return "${ClangDefaultBase}", nil
+		return "${ClangDefaultBase}"
 	})
-	pctx.VariableFunc("ClangVersion", func(config interface{}) (string, error) {
-		if override := config.(android.Config).Getenv("LLVM_PREBUILTS_VERSION"); override != "" {
-			return override, nil
+	pctx.VariableFunc("ClangVersion", func(ctx android.PackageVarContext) string {
+		if override := ctx.Config().Getenv("LLVM_PREBUILTS_VERSION"); override != "" {
+			return override
 		}
-		return ClangDefaultVersion, nil
+		return ClangDefaultVersion
 	})
 	pctx.StaticVariable("ClangPath", "${ClangBase}/${HostPrebuiltTag}/${ClangVersion}")
 	pctx.StaticVariable("ClangBin", "${ClangPath}/bin")
 
-	pctx.VariableFunc("ClangShortVersion", func(config interface{}) (string, error) {
-		if override := config.(android.Config).Getenv("LLVM_RELEASE_VERSION"); override != "" {
-			return override, nil
+	pctx.VariableFunc("ClangShortVersion", func(ctx android.PackageVarContext) string {
+		if override := ctx.Config().Getenv("LLVM_RELEASE_VERSION"); override != "" {
+			return override
 		}
-		return ClangDefaultShortVersion, nil
+		return ClangDefaultShortVersion
 	})
-	pctx.StaticVariable("ClangAsanLibDir", "${ClangPath}/lib64/clang/${ClangShortVersion}/lib/linux")
+	pctx.StaticVariable("ClangAsanLibDir", "${ClangBase}/linux-x86/${ClangVersion}/lib64/clang/${ClangShortVersion}/lib/linux")
+	if runtime.GOOS == "darwin" {
+		pctx.StaticVariable("LLVMGoldPlugin", "${ClangPath}/lib64/LLVMgold.dylib")
+	} else {
+		pctx.StaticVariable("LLVMGoldPlugin", "${ClangPath}/lib64/LLVMgold.so")
+	}
 
 	// These are tied to the version of LLVM directly in external/llvm, so they might trail the host prebuilts
 	// being used for the rest of the build process.
@@ -164,19 +222,18 @@ func init() {
 			"frameworks/rs/script_api/include",
 		})
 
-	pctx.VariableFunc("CcWrapper", func(config interface{}) (string, error) {
-		if override := config.(android.Config).Getenv("CC_WRAPPER"); override != "" {
-			return override + " ", nil
+	pctx.VariableFunc("CcWrapper", func(ctx android.PackageVarContext) string {
+		if override := ctx.Config().Getenv("CC_WRAPPER"); override != "" {
+			return override + " "
 		}
-		return "", nil
+		return ""
 	})
 }
 
 var HostPrebuiltTag = pctx.VariableConfigMethod("HostPrebuiltTag", android.Config.PrebuiltOS)
 
-func bionicHeaders(bionicArch, kernelArch string) string {
+func bionicHeaders(kernelArch string) string {
 	return strings.Join([]string{
-		"-isystem bionic/libc/arch-" + bionicArch + "/include",
 		"-isystem bionic/libc/include",
 		"-isystem bionic/libc/kernel/uapi",
 		"-isystem bionic/libc/kernel/uapi/asm-" + kernelArch,

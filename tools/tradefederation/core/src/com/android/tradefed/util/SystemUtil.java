@@ -35,11 +35,10 @@ public class SystemUtil {
 
     // Environment variables for the test cases directory in target out directory and host out
     // directory.
-    @VisibleForTesting
-    static final String ENV_ANDROID_TARGET_OUT_TESTCASES = "ANDROID_TARGET_OUT_TESTCASES";
-
-    @VisibleForTesting
-    static final String ENV_ANDROID_HOST_OUT_TESTCASES = "ANDROID_HOST_OUT_TESTCASES";
+    public enum EnvVariable {
+        ANDROID_TARGET_OUT_TESTCASES,
+        ANDROID_HOST_OUT_TESTCASES,
+    }
 
     static final String ENV_ANDROID_PRODUCT_OUT = "ANDROID_PRODUCT_OUT";
 
@@ -66,8 +65,8 @@ public class SystemUtil {
         List<String> testCasesDirNames =
                 // List order matters. ConfigurationFactory caller uses first dir with test config.
                 Arrays.asList(
-                        singleton.getEnv(ENV_ANDROID_TARGET_OUT_TESTCASES),
-                        singleton.getEnv(ENV_ANDROID_HOST_OUT_TESTCASES));
+                        singleton.getEnv(EnvVariable.ANDROID_TARGET_OUT_TESTCASES.name()),
+                        singleton.getEnv(EnvVariable.ANDROID_HOST_OUT_TESTCASES.name()));
         for (String testCasesDirName : testCasesDirNames) {
             if (testCasesDirName != null) {
                 File dir = new File(testCasesDirName);
@@ -83,6 +82,25 @@ public class SystemUtil {
             }
         }
         return testCasesDirs;
+    }
+
+    /**
+     * Get the file associated with the env. variable.
+     *
+     * @param envVariable ANDROID_TARGET_OUT_TESTCASES or ANDROID_HOST_OUT_TESTCASES
+     * @return The directory associated.
+     */
+    public static File getExternalTestCasesDir(EnvVariable envVariable) {
+        String var = System.getenv(envVariable.name());
+        if (var == null) {
+            return null;
+        }
+        File dir = new File(var);
+        if (dir.exists() && dir.isDirectory()) {
+            CLog.d("Found test case dir: %s for %s.", dir.getAbsolutePath(), envVariable.name());
+            return dir;
+        }
+        return null;
     }
 
     /**

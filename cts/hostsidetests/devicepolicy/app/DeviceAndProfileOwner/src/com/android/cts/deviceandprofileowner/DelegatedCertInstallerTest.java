@@ -29,9 +29,11 @@ import android.os.UserHandle;
 import android.security.KeyChainException;
 import android.test.MoreAsserts;
 
-import com.android.org.conscrypt.TrustedCertificateStore;
-
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
@@ -179,18 +181,21 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
         super.tearDown();
     }
 
-    public void testCaCertsOperations() throws InterruptedException, CertificateException {
+    public void testCaCertsOperations() throws InterruptedException, GeneralSecurityException,
+           KeyStoreException, IOException {
         final byte[] cert = TEST_CA.getBytes();
         final Certificate caCert = CertificateFactory.getInstance("X.509")
                 .generateCertificate(new ByteArrayInputStream(cert));
-        final TrustedCertificateStore store = new TrustedCertificateStore();
+
 
         mDpm.setCertInstallerPackage(ADMIN_RECEIVER_COMPONENT, CERT_INSTALLER_PACKAGE);
         assertEquals(CERT_INSTALLER_PACKAGE,
                 mDpm.getCertInstallerPackage(ADMIN_RECEIVER_COMPONENT));
 
         // Exercise installCaCert()
-        assertNull(store.getCertificateAlias(caCert));
+        KeyStore keyStore = KeyStore.getInstance("AndroidCAStore");
+        keyStore.load(null, null);
+        assertNull(keyStore.getCertificateAlias(caCert));
         installCaCert(cert);
         assertResult("installCaCert", true);
         assertTrue("Certificate is not installed properly", mDpm.hasCaCertInstalled(
@@ -201,7 +206,7 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
         assertResult("getInstalledCaCerts()", true);
 
         // Verify that the CA cert was marked as installed by the Device Owner / Profile Owner.
-        final String alias = store.getCertificateAlias(caCert);
+        final String alias = keyStore.getCertificateAlias(caCert);
         assertNotNull(alias);
         verifyOwnerInstalledStatus(alias, true);
 

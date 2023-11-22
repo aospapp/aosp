@@ -20,9 +20,10 @@
 
 #include <algorithm>
 #include <string>
-#include <vector>
 
 #include <base/files/file_path.h>
+#include <base/metrics/statistics_recorder.h>
+#include <base/strings/stringprintf.h>
 
 #include "update_engine/common/action_pipe.h"
 #include "update_engine/common/boot_control_interface.h"
@@ -35,7 +36,6 @@
 
 using base::FilePath;
 using std::string;
-using std::vector;
 
 namespace chromeos_update_engine {
 
@@ -43,17 +43,21 @@ DownloadAction::DownloadAction(PrefsInterface* prefs,
                                BootControlInterface* boot_control,
                                HardwareInterface* hardware,
                                SystemState* system_state,
-                               HttpFetcher* http_fetcher)
+                               HttpFetcher* http_fetcher,
+                               bool is_interactive)
     : prefs_(prefs),
       boot_control_(boot_control),
       hardware_(hardware),
       system_state_(system_state),
       http_fetcher_(new MultiRangeHttpFetcher(http_fetcher)),
+      is_interactive_(is_interactive),
       writer_(nullptr),
       code_(ErrorCode::kSuccess),
       delegate_(nullptr),
       p2p_sharing_fd_(-1),
-      p2p_visible_(true) {}
+      p2p_visible_(true) {
+  base::StatisticsRecorder::Initialize();
+}
 
 DownloadAction::~DownloadAction() {}
 
@@ -173,6 +177,7 @@ void DownloadAction::PerformAction() {
   install_plan_.Dump();
 
   bytes_received_ = 0;
+  bytes_received_previous_payloads_ = 0;
   bytes_total_ = 0;
   for (const auto& payload : install_plan_.payloads)
     bytes_total_ += payload.size;
@@ -240,8 +245,13 @@ void DownloadAction::StartDownloading() {
   if (writer_ && writer_ != delta_performer_.get()) {
     LOG(INFO) << "Using writer for test.";
   } else {
-    delta_performer_.reset(new DeltaPerformer(
-        prefs_, boot_control_, hardware_, delegate_, &install_plan_, payload_));
+    delta_performer_.reset(new DeltaPerformer(prefs_,
+                                              boot_control_,
+                                              hardware_,
+                                              delegate_,
+                                              &install_plan_,
+                                              payload_,
+                                              is_interactive_));
     writer_ = delta_performer_.get();
   }
   if (system_state_ != nullptr) {
@@ -317,8 +327,10 @@ void DownloadAction::ReceivedBytes(HttpFetcher* fetcher,
   }
 
   bytes_received_ += length;
+  uint64_t bytes_downloaded_total =
+      bytes_received_previous_payloads_ + bytes_received_;
   if (delegate_ && download_active_) {
-    delegate_->BytesReceived(length, bytes_received_, bytes_total_);
+    delegate_->BytesReceived(length, bytes_downloaded_total, bytes_total_);
   }
   if (writer_ && !writer_->Write(bytes, length, &code_)) {
     if (code_ != ErrorCode::kSuccess) {
@@ -349,31 +361,44 @@ void DownloadAction::ReceivedBytes(HttpFetcher* fetcher,
 void DownloadAction::TransferComplete(HttpFetcher* fetcher, bool successful) {
   if (writer_) {
     LOG_IF(WARNING, writer_->Close() != 0) << "Error closing the writer.";
-    writer_ = nullptr;
+    if (delta_performer_.get() == writer_) {
+      // no delta_performer_ in tests, so leave the test writer in place
+      writer_ = nullptr;
+    }
   }
   download_active_ = false;
   ErrorCode code =
       successful ? ErrorCode::kSuccess : ErrorCode::kDownloadTransferError;
-  if (code == ErrorCode::kSuccess && delta_performer_.get()) {
-    if (!payload_->already_applied)
+  if (code == ErrorCode::kSuccess) {
+    if (delta_performer_ && !payload_->already_applied)
       code = delta_performer_->VerifyPayload(payload_->hash, payload_->size);
-    if (code != ErrorCode::kSuccess) {
+    if (code == ErrorCode::kSuccess) {
+      if (payload_ < &install_plan_.payloads.back() &&
+                 system_state_->payload_state()->NextPayload()) {
+        LOG(INFO) << "Incrementing to next payload";
+        // No need to reset if this payload was already applied.
+        if (delta_performer_ && !payload_->already_applied)
+          DeltaPerformer::ResetUpdateProgress(prefs_, false);
+        // Start downloading next payload.
+        bytes_received_previous_payloads_ += payload_->size;
+        payload_++;
+        install_plan_.download_url =
+            system_state_->payload_state()->GetCurrentUrl();
+        StartDownloading();
+        return;
+      }
+      // Log UpdateEngine.DownloadAction.* histograms to help diagnose
+      // long-blocking oeprations.
+      std::string histogram_output;
+      base::StatisticsRecorder::WriteGraph(
+          "UpdateEngine.DownloadAction.", &histogram_output);
+      LOG(INFO) << histogram_output;
+    } else {
       LOG(ERROR) << "Download of " << install_plan_.download_url
                  << " failed due to payload verification error.";
       // Delete p2p file, if applicable.
       if (!p2p_file_id_.empty())
         CloseP2PSharingFd(true);
-    } else if (payload_ < &install_plan_.payloads.back() &&
-               system_state_->payload_state()->NextPayload()) {
-      // No need to reset if this payload was already applied.
-      if (!payload_->already_applied)
-        DeltaPerformer::ResetUpdateProgress(prefs_, false);
-      // Start downloading next payload.
-      payload_++;
-      install_plan_.download_url =
-          system_state_->payload_state()->GetCurrentUrl();
-      StartDownloading();
-      return;
     }
   }
 

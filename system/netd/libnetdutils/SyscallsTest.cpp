@@ -108,6 +108,26 @@ TEST_F(SyscallsTest, setsockopt) {
     EXPECT_EQ(kError, sys.setsockopt(kFd, kLevel, kOptname, expected));
 }
 
+TEST_F(SyscallsTest, getsockopt) {
+    constexpr Fd kFd(40);
+    constexpr int kLevel = 50;
+    constexpr int kOptname = 70;
+    sockaddr_nl expected = {};
+    socklen_t optLen = 0;
+    auto& sys = sSyscalls.get();
+
+    // Success
+    EXPECT_CALL(mSyscalls, getsockopt(kFd, kLevel, kOptname, &expected, &optLen))
+        .WillOnce(Return(status::ok));
+    EXPECT_EQ(status::ok, sys.getsockopt(kFd, kLevel, kOptname, &expected, &optLen));
+
+    // Failure
+    const Status kError = statusFromErrno(EINVAL, "test");
+    EXPECT_CALL(mSyscalls, getsockopt(kFd, kLevel, kOptname, &expected, &optLen))
+        .WillOnce(Return(kError));
+    EXPECT_EQ(kError, sys.getsockopt(kFd, kLevel, kOptname, &expected, &optLen));
+}
+
 TEST_F(SyscallsTest, bind) {
     constexpr Fd kFd(40);
     sockaddr_nl expected = {};

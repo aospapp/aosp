@@ -19,6 +19,7 @@
 
 import math
 import time
+from acts.test_decorators import test_tracker_info
 from acts.controllers.anritsu_lib._anritsu_utils import AnritsuError
 from acts.controllers.anritsu_lib.md8475a import CTCHSetup
 from acts.controllers.anritsu_lib.md8475a import BtsBandwidth
@@ -593,6 +594,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
 
     """ Tests Begin """
 
+    @test_tracker_info(uuid="17a42861-abb5-480b-9139-89219fa304b2")
     @TelephonyBaseTest.tel_test_wrap
     def test_2lte_intra_freq_ncell_away_close(self):
         """ Test phone moving away from Neighbor Intra Freq cell then
@@ -639,6 +641,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
 
         return self.lte_intra_freq_ncell(self.ad, pcid, init_pwr, power_seq)
 
+    @test_tracker_info(uuid="117f404b-fb78-474a-86ba-209e6a54c9a8")
     @TelephonyBaseTest.tel_test_wrap
     def test_2lte_intra_freq_scell_away_close(self):
         """ Test phone moving away from serving cell then close back while
@@ -686,8 +689,9 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
 
         return self.lte_intra_freq_ncell(self.ad, pcid, init_pwr, power_seq)
 
+    @test_tracker_info(uuid="d1eec95f-40e9-4099-a669-9a88e56049ca")
     @TelephonyBaseTest.tel_test_wrap
-    def test_2lte_intra_freq_ncell_away_close(self):
+    def test_2lte_intra_freq_ncell_away_close_2(self):
         """ Test phone moving away from serving cell and close to neighbor
         Intra Freq cell, then back and forth
 
@@ -719,6 +723,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
 
         return self.lte_intra_freq_ncell(self.ad, pcid, init_pwr, power_seq)
 
+    @test_tracker_info(uuid="c642a85b-4970-429c-81c4-f635392879be")
     @TelephonyBaseTest.tel_test_wrap
     def test_2lte_intra_freq_2cell_synced(self):
         """ Test phone moving away and back to both serving cell and neighbor
@@ -751,6 +756,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
 
         return self.lte_intra_freq_ncell(self.ad, pcid, init_pwr, power_seq)
 
+    @test_tracker_info(uuid="9144fab6-c7e1-4de2-a01d-7a15c117ec70")
     @TelephonyBaseTest.tel_test_wrap
     def test_3lte_intra_freq_scell_reversed(self):
         """ Test phone moving away and back between 2 neighbor cells while maintain
@@ -786,6 +792,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
 
         return self.lte_intra_freq_ncell(self.ad, pcid, init_pwr, power_seq)
 
+    @test_tracker_info(uuid="7bfbea72-e6fa-45ae-bf7e-b9b42063abe7")
     @TelephonyBaseTest.tel_test_wrap
     def test_3lte_intra_freq_3cell_synced(self):
         """ Test phone moving away and back to both serving cell and neighbor
@@ -818,6 +825,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
 
         return self.lte_intra_freq_ncell(self.ad, pcid, init_pwr, power_seq)
 
+    @test_tracker_info(uuid="b4577ae1-6435-4a15-9449-e02013dfb032")
     @TelephonyBaseTest.tel_test_wrap
     def test_ncells_intra_lte_0_cells(self):
         """ Test Number of neighbor cells reported by Phone when no neighbor
@@ -870,6 +878,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="fe2cc07b-9676-41ab-b7ff-112d3ef84980")
     @TelephonyBaseTest.tel_test_wrap
     def test_ncells_intra_lte_1_cells(self):
         """ Test Number of neighbor cells reported by Phone when one neighbor
@@ -945,6 +954,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="8abc7903-4ea7-407a-946b-455d7f767c3e")
     @TelephonyBaseTest.tel_test_wrap
     def test_ncells_intra_lte_2_cells(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -1031,6 +1041,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="623b3d16-bc48-4353-abc3-054ca6351a97")
     @TelephonyBaseTest.tel_test_wrap
     def test_ncells_intra_lte_3_cells(self):
         """ Test Number of neighbor cells reported by Phone when three neighbor
@@ -1131,6 +1142,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="3e094e3d-e7b7-447a-9a7a-8060c5b17e88")
     @TelephonyBaseTest.tel_test_wrap
     def test_ncells_intra_lte_4_cells(self):
         """ Test Number of neighbor cells reported by Phone when four neighbor
@@ -1250,6 +1262,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
 
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="7e9a9c30-9284-4440-b85e-f94b83e0373f")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_lte_intrafreq_0_tmo(self):
         """ Test Number of neighbor cells reported by Phone when no neighbor
@@ -1303,6 +1316,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="13bd7000-5a45-43f5-9e54-001e0aa09262")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_lte_intrafreq_1_tmo(self):
         """ Test Number of neighbor cells reported by Phone when one neighbor
@@ -1377,6 +1391,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="5dca3a16-73a0-448a-a35d-22ebd253a570")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_lte_intrafreq_2_tmo(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -1471,6 +1486,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="860152de-8aa0-422e-b5b0-28bf244076f4")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_lte_intrafreq_3_tmo(self):
         """ Test Number of neighbor cells reported by Phone when three neighbor
@@ -1583,6 +1599,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="8c5b63ba-1322-47b6-adce-5224cbc0995a")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_lte_interfreq_1_tmo(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -1661,6 +1678,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="97853501-a328-4706-bb3f-c5e708b1ccb8")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_lte_interfreq_2_tmo(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -1759,6 +1777,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="74bd528c-e1c5-476d-9ee0-ebfc7bbc5de1")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_lte_interband_2_tmo(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -1856,6 +1875,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="6289e3e4-9316-4b82-bd0b-dde53f26da0d")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_lte_interrat_1_tmo(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -1933,6 +1953,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="9be4e4a8-f79a-4283-9a85-371a9bddfa5d")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_lte_interrat_2_tmo(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -2029,6 +2050,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="14db7a3d-b18b-4b87-9d84-fb0c00d3971e")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_wcdma_intrafreq_0_tmo(self):
         """ Test Number of neighbor cells reported by Phone when no neighbor
@@ -2081,6 +2103,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="1a227d1e-9991-4646-b51a-8156f24485da")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_wcdma_intrafreq_1_tmo(self):
         """ Test Number of neighbor cells reported by Phone when one neighbor
@@ -2156,6 +2179,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="170689a0-0db1-4a14-8b87-5a1b6c9b8581")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_wcdma_intrafreq_2_tmo(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -2250,6 +2274,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="3ec77512-4d5b-40c9-b733-cf358f999e15")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_wcdma_intrafreq_3_tmo(self):
         """ Test Number of neighbor cells reported by Phone when three neighbor
@@ -2364,6 +2389,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="6f39e4a5-81da-4f47-8022-f22d82ff6f31")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_wcdma_interfreq_1_tmo(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -2442,6 +2468,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="992d9ffb-2538-447b-b7e8-f40061063686")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_wcdma_interfreq_2_tmo(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -2537,6 +2564,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="60cb8c15-3cb3-4ead-9e59-a8aee819e9ef")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_wcdma_interband_2_tmo(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -2633,6 +2661,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="daa29f27-f67b-47ee-9a30-1c9572eedf2f")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_wcdma_interrat_1_tmo(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -2723,6 +2752,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="08e5d666-fae6-48a3-b03b-de7b7b3f5982")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_wcdma_interrat_2_tmo(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -2819,6 +2849,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="bebbe764-4c8c-4aaf-81b9-c61509a9695e")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_gsm_intrafreq_0_tmo(self):
         """ Test Number of neighbor cells reported by Phone when no neighbor
@@ -2869,6 +2900,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="861dd399-d6f6-4e9f-9e8d-0718966ea45a")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_gsm_intrafreq_1_tmo(self):
         """ Test Number of neighbor cells reported by Phone when one neighbor
@@ -2943,6 +2975,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="58627a33-45bd-436d-85b2-1ca711f56794")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_gsm_intrafreq_2_tmo(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -3035,6 +3068,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="3ff3439a-2e45-470a-a2d6-c63e37379f19")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_gsm_intrafreq_3_tmo(self):
         """ Test Number of neighbor cells reported by Phone when three neighbor
@@ -3145,6 +3179,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="0cac1370-144e-40a4-b6bc-66691926f898")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_gsm_interfreq_1_tmo(self):
         """ Test Number of neighbor cells reported by Phone when one neighbor
@@ -3220,6 +3255,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="5f0367dd-08b5-4871-a784-51a0f76e229b")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_gsm_interfreq_2_tmo(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -3313,6 +3349,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="b195153f-f6a0-4ec4-bb53-29c30ec0a034")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_gsm_interband_2_tmo(self):
         """ Test Number of neighbor cells reported by Phone when two neighbor
@@ -3404,6 +3441,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         time.sleep(self._SETTLING_TIME)
         return self._verify_cell_info(self.ad, expected_cell_info_stats)
 
+    @test_tracker_info(uuid="209f62c1-7950-447c-9101-abe930da20ba")
     @TelephonyBaseTest.tel_test_wrap
     def test_neighbor_cell_reporting_gsm_interrat_2_tmo(self):
         """ Test Number of neighbor cells reported by Phone when no neighbor
